@@ -653,6 +653,26 @@
       "tv-body": {
         "displayName": "TV body",
         "purpose": "Body copy on the canvas."
+      },
+      "body-small": {
+        "displayName": "Body, small",
+        "purpose": "A secondary prose line (a meta note, a progress count); 13px, system face."
+      },
+      "body-row": {
+        "displayName": "Body, row",
+        "purpose": "Names in repeated rows (leaderboard, backers, flights); 16px/600, system face."
+      },
+      "name-label": {
+        "displayName": "Name label",
+        "purpose": "A first name under a face or a stack where several people share a line (team faces on Home, backers' stacks on the felt); 12px Big Shoulders 700, as written."
+      },
+      "hero-invitation": {
+        "displayName": "Hero, invitation",
+        "purpose": "The check-in invitation's wordmark on a phone: clamp(64px, 19vw, 96px), show weight."
+      },
+      "hero-pass-name": {
+        "displayName": "Hero, player card name",
+        "purpose": "The player card's name: clamp(42px, 13.5vw, 68px), capped by its longest word, show weight."
       }
     },
     "shadows": [
@@ -675,6 +695,11 @@
         "name": "shadow-3",
         "value": "0 14px 40px rgba(2,3,10,.78)",
         "purpose": "Sheets, toasts, the TV now-playing strip."
+      },
+      {
+        "name": "shadow-up",
+        "value": "0 -8px 18px -10px rgba(2,3,10,.78)",
+        "purpose": "The one upward shadow: a sheet's sticky footer over the scrolling body."
       },
       {
         "name": "you-bloom",

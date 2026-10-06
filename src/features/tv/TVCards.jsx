@@ -1,6 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { ROSTER, disp, stageEntrantView } from "../../../shared/core.js";
+import { rosterOf, disp, stageEntrantView, resolveCurrentContest } from "../../../shared/core.js";
 import { ChipFace } from "../identity/PlayerIdentity.jsx";
+import { DISC_OVERLAP } from "../identity/discLetters.js";
+import { Icon } from "../../ui/Icon.jsx";
+import { OneSafe } from "../../ui/OneSafe.jsx";
 import { FDMark } from "../../ui/Brand.jsx";
 import { RenameText } from "../teams/RenameText.jsx";
 import { ENGRAVE, TrophyCup, TrophyHero, cupEngravings, engraveTotal, trophyCup } from "../weekend/Trophy.jsx";
@@ -24,34 +27,67 @@ export function TVWinLine({ lines, sideKey }) {
   return <div className={`tv-win-line${line.kind === "rank" ? " is-rank" : ""}`}>{line.text}</div>;
 }
 
+/* The money on the TV board in one grammar: the payout is a lamp label
+   (an amber lens lit when it pays 2:1, unlit at 1:1, "Winner pays" in the
+   label face beside it). The win line stays quieter in the body face. */
+export function PayLamp({ text, lit = false, className = "" }) {
+  if (!text) return null;
+  return <span className={`tv-pay-lamp${lit ? " is-lit" : ""}${className ? ` ${className}` : ""}`}>
+    <i className={`fd-insert${lit ? "" : " is-done"}`} aria-hidden="true" />{text}</span>;
+}
+/* `teach`: the first underdog this TV shows keeps its lamp breathing on
+   the board for a few seconds after the face-off lifts (teach.js) */
+export function TVSideTerms({ terms, className = "", teach = false }) {
+  if (!terms) return null;
+  return <span className={`tv-terms${className ? ` ${className}` : ""}`}>
+    {terms.payLine && <PayLamp text={terms.payLine} lit={!!terms.underdog}
+      className={teach && terms.underdog ? "is-teach" : ""} />}
+  </span>;
+}
+
 /* The champion (M18) and the drawn bracket (M14) have their own modules. */
 export { ChampionMoment } from "./TVChampion.jsx";
 export { TVBracket } from "./TVBracket.jsx";
 
 /* heats and pools with every entrant named; qualifiers stay bright */
+/* Heats and pools, drawn: each group a plate of glass, its people as photo
+   chips with their names as written, the group being played outlined in
+   the live lamp (from resolveCurrentContest, never inferred here), who went
+   through lit with a check and who did not dimmed. */
 export function StageGroups({ state, ev }) {
   const st = state.stages?.[ev?.id];
   if (!st) return null;
+  const contest = resolveCurrentContest(state, ev);
+  const live = contest?.kind === "heat" ? contest.group : null;
+  const entrant = (key, through, out) => {
+    const view = stageEntrantView(state, st, key);
+    return <span key={String(key)} className={`tv-stage-entrant${through ? " is-through" : ""}${out ? " is-out" : ""}`}>
+      <span className={`tv-faces${view.players.length > 1 ? " is-overlap" : ""}`} aria-hidden="true"
+        style={view.players.length > 1 ? { "--overlap":`${-Math.round(44 * DISC_OVERLAP)}px` } : undefined}>
+        {view.players.slice(0, 3).map(p => <ChipFace key={p} p={p} size={44} />)}</span>
+      <RenameText name={view.name} className="tv-stage-name" />
+      {through && <i className="tv-stage-through" role="img" aria-label="Through"><Icon name="check" size={22} /></i>}
+    </span>;
+  };
   return (
     <div className="tv-stage-groups" aria-label={st.kind === "heats" ? "Heats" : "Pools"}>
-      {st.groups.map((group, gi) => (
-        <div key={gi} className="tv-stage-group">
-          <div className="tv-label">{group.name}</div>
+      {st.groups.map((group, gi) => {
+        const decided = (group.through || []).length > 0;
+        return <section key={gi} className={`tv-stage-group${gi === live ? " is-live" : ""}${decided ? " is-decided" : ""}`}>
+          <div className="tv-label tv-stage-head">{gi === live && <i className="fd-insert" aria-hidden="true" />}<OneSafe text={group.name} /></div>
           <div className="tv-stage-names">
             {group.entrants.map(key => {
-              const view = stageEntrantView(state, st, key);
               const through = (group.through || []).includes(key);
-              return <RenameText key={String(key)} name={view.name}
-                className={group.through?.length ? (through ? "is-through" : "is-out") : ""} />;
+              return entrant(key, through, decided && !through);
             })}
           </div>
-        </div>
-      ))}
+        </section>;
+      })}
       {st.finalWinner !== null && st.finalWinner !== undefined && (
-        <div className="tv-stage-group">
-          <div className="tv-label">Final</div>
-          <div className="tv-stage-names"><span className="is-through">{stageEntrantView(state, st, st.finalWinner).name}</span></div>
-        </div>
+        <section className="tv-stage-group is-decided">
+          <div className="tv-label tv-stage-head">Final</div>
+          <div className="tv-stage-names">{entrant(st.finalWinner, true, false)}</div>
+        </section>
       )}
     </div>
   );
@@ -67,7 +103,7 @@ export function RosterWall({ state }) {
         <span className="tv-mast-edition">{editionLabel()}</span>
       </div>
       <div className="tv-roster">
-        {ROSTER.map(p => (
+        {rosterOf(state).map(p => (
           <div key={p} className="tv-roster-chip">
             <ChipFace p={p} size={176} />
             <span className="tv-roster-name">{disp(state, p)}</span>

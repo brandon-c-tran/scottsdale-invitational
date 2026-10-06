@@ -48,7 +48,8 @@ function Rim({ cx, rx, ry, yt, t, inserts, turn, stroke }) {
 export function ChipStack({ p, stake, paid = 0, size = 40, cap = STACK_CAP, mine = false, settle = null,
   delay = 0, tag = true, tagSize = null, groups = null, chip = null, count = null, tower = false }) {
   /* a poker chip is not anyone's: its color, edge and stamp come with it,
-     and it stacks one chip per chip rather than one per 100 */
+     and it stacks one chip per chip rather than one per 100. A bettor's
+     stack is their own identity chip, phone and TV alike. */
   const player = usePlayerIdentity(p);
   const floor = useTextFloor();
   const identity = chip ? { color:chip.color, isLight:!!chip.isLight, skin:chip.skin || "quad", num:chip.stamp } : player;
@@ -122,7 +123,7 @@ export function ChipStack({ p, stake, paid = 0, size = 40, cap = STACK_CAP, mine
     <span className={`fd-stack${light ? " is-light" : ""}${mine ? " is-mine" : ""}${settle ? ` is-${settle}` : ""}`}
       style={{ "--stack-color":identity.color, width, animationDelay:settle === "lost" ? `${delay}ms` : undefined }}
       data-stack-player={chip ? undefined : p} data-chip-value={chip ? chip.stamp : undefined} data-stack-chips={shown}
-      data-stack-tower={tiers || undefined}>
+      data-stack-tower={tiers || undefined} data-fit-art={tower ? "chips" : undefined}>
       {capped && tag && <span className="fd-stack-tag" style={tagSize ? { fontSize:tagSize } : undefined}>{fmt(value)}</span>}
       <svg width={r2(width)} height={r2(height)} viewBox={`0 0 ${r2(width)} ${r2(height)}`} aria-hidden="true">
         {mine && <ellipse className="fd-stack-ring" cx={r2(cx)} cy={r2(yFace + shown * t + gap + 1.5)}
@@ -144,6 +145,9 @@ export function ChipStack({ p, stake, paid = 0, size = 40, cap = STACK_CAP, mine
     </span>
   );
 }
+
+/* the house's chip: every denomination in the rack is the chip lamp's amber */
+export const HOUSE_CHIP = Object.freeze({ color:"var(--sun)", isLight:true, skin:"quad" });
 
 /* The chip a crowded side's smallest bettors fold into: drawn as a stack
    like any other, one flat neutral color, "+N" on its face. */

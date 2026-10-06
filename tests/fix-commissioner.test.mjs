@@ -79,14 +79,18 @@ componentModule.paths = Module._nodeModulePaths(root);
 componentModule._compile(compiled.outputFiles[0].text, componentModule.filename);
 const { App, setTestSnapshot } = componentModule.exports;
 function phone({ gm:isGm = true, player = ROSTER[0] } = {}) {
-  const cells = [];
+  const cells = [], kinds = [];
   let onDeckRef;
   const render = (state, version = 1, lastAction = null) => {
     const useRef = React.useRef, useLayoutEffect = React.useLayoutEffect;
     let cursor = 0;
     React.useRef = initial => {
       const created = useRef(initial), index = cursor++;
-      if (!cells[index]) cells[index] = created;
+      /* the same hook is a cell made the same way: a component that mounts
+         only in the second render shifts the order, and a cell made for
+         something else (a DOM ref, a model object) is never handed over */
+      const made = (() => { try { return JSON.stringify(initial) ?? String(initial); } catch { return "?"; } })();
+      if (!cells[index] || kinds[index] !== made) { cells[index] = created; kinds[index] = made; }
       if (initial === "UNSET") onDeckRef = cells[index];
       return cells[index];
     };
@@ -203,7 +207,7 @@ test("a mis-tapped winner can be undone after the next contest starts; its chips
 
 test("away players leave draws, FFA sides and poker seats; chips are untouched and it reverses", () => {
   const state = fresh();
-  refuse(state, "setAway", { player:"Nobody", away:true }, /Unknown player/);
+  refuse(state, "setAway", { player:"Nobody", away:true }, /isn't on the roster/);
   refuse(state, "setAway", { player:"Evan", away:"yes" }, /away or here/);
   refuse(state, "setAway", { player:"Evan", away:true }, /Commissioner only/, guest("Evan"));
   act(state, "setAway", { player:"Evan", away:true });
@@ -211,7 +215,7 @@ test("away players leave draws, FFA sides and poker seats; chips are untouched a
   assert.equal(current(state, "putt").sides.some(side => side.key === "Evan"), false, "FFA board skips away players");
   const ffaBoard = phone({ gm:false, player:"Khoa" });
   act(state, "announceEvent", { evId:"putt" });
-  refuse(state, "placeWager", { wager:{ ...chip(state, "putt", "Khoa"), pick:"Evan" } }, /yourself|re-pick|current contest/, guest("Khoa"));
+  refuse(state, "placeWager", { wager:{ ...chip(state, "putt", "Khoa"), pick:"Evan" } }, /yourself|chips again|current contest/, guest("Khoa"));
   assert.ok(ffaBoard.render(state));
   act(state, "setAway", { player:"Evan", away:false });
   assert.equal(current(state, "putt").sides.some(side => side.key === "Evan"), true);
@@ -247,7 +251,7 @@ test("away players leave draws, FFA sides and poker seats; chips are untouched a
   assert.equal(table.poker.seats.includes("Evan"), false);
   assert.equal(table.poker.unseated.Evan, 1300);
   act(table, "pokerStart", {});
-  refuse(table, "pokerCount", { player:"Evan", count:500 }, /Not seated/);
+  refuse(table, "pokerCount", { player:"Evan", count:500 }, /isn't seated/);
   table.poker.seats.forEach((player, index) => act(table, "pokerCount", { player, count:index === 0 ? 3000 : 900 }));
   act(table, "pokerResult", { noScene:true });
   assert.equal(computeStandings(table).find(row => row.player === "Evan").pts, 1300);

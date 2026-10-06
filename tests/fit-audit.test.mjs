@@ -11,7 +11,7 @@ import { fileURLToPath } from "node:url";
 import { build } from "esbuild";
 
 import { ROSTER } from "../shared/core.js";
-import { CLIP_TOL, MIN_TEXT, clipFindings, boundsFindings, overlapFindings, overlayFindings, smallFindings, findingsFor,
+import { CLIP_TOL, MIN_TEXT, clipFindings, boundsFindings, overlapFindings, overlayFindings, smallFindings, foldFindings, findingsFor,
   failing, summarize } from "../dev/fit/rules.js";
 import { TV_SCENARIOS, PHONE_SCENARIOS, FIT_NAMES, FIT_PHOTOS, buildScenario, aged } from "../dev/fit/scenarios.js";
 import { FIT_EXCEPTIONS } from "../dev/fit/exceptions.js";
@@ -24,7 +24,7 @@ const compiled = await build({
   stdin:{ contents:`export { championNameFit, medalLayout } from "./src/features/tv/TVChampion.jsx";
     export { tableRing, seatPoint, SEAT } from "./src/features/tv/TVPoker.jsx";
     export { towerNameFit, matchTitle, BIG_BRACKET } from "./src/features/tv/TVMode.jsx";
-    export { sideBracketDims, roundHead } from "./src/features/tv/TVBracket.jsx";
+    export { sideBracketDims, roundHead, roundHeadFit } from "./src/features/tv/TVBracket.jsx";
     export { payoutSteps, ladderChips } from "./src/ui/PayoutLadder.jsx";
     export { trophyPlateFit } from "./src/features/weekend/Trophy.jsx";`, resolveDir:root, loader:"jsx" },
   bundle:true, platform:"node", format:"cjs", external:["react", "react-dom", "qrcode-generator", "three"], loader:{ ".css":"empty" },
@@ -57,6 +57,17 @@ test("rules: a cut descender, an ellipsis, and the opt-in for a truncation that 
   assert.deepEqual(both.map(f => f.rule), ["ellipsis"], "a truncated line is reported once");
 });
 
+test("rules: the leaderboard heading's title line stays on the first screen, above the bottom docks", () => {
+  const fold = over => ({ fold:{ sel:"div.fd-section-heading > h2", text:"Leaderboard", top:540, bottom:570, limit:593, vh:667, ...over } });
+  assert.deepEqual(foldFindings(fold()), [], "whole above the tab bar");
+  assert.deepEqual(foldFindings({}), [], "a view without the mark has nothing to fold");
+  const low = foldFindings(fold({ top:580, bottom:610 }));
+  assert.equal(low.length, 1);
+  assert.equal(low[0].rule, "fold");
+  assert.match(low[0].detail, /first screen's 593px/);
+  assert.equal(findingsFor(fold({ top:900, bottom:930 }), { mode:"phone", view:"phone-375-team-drawn-home" })[0].rule, "fold");
+});
+
 test("rules: bounds, overlaps, docks and the text floors", () => {
   const records = { text:[text(), text({ id:1, text:"400", moving:true })], bounds:[
     { id:0, kind:"safe", by:12, ink:{ x:50, y:0, w:10, h:10 } }, { id:1, kind:"canvas", by:40, ink:{ x:0, y:0, w:1, h:1 } },
@@ -87,7 +98,7 @@ test("scenarios: real data shapes from the real reducers", () => {
   const ids = [...TV_SCENARIOS, ...PHONE_SCENARIOS].map(s => s.id);
   assert.equal(new Set(ids).size, ids.length, "unique ids");
   for (const want of ["tv-crowned-rest", "tv-bracket13-mid-nobets", "tv-team-open", "tv-draft", "tv-poker-set", "tv-awards",
-    "tv-geo-reveal", "tv-walkout-mvp", "tv-faceoff", "tv-bust", "tv-blinds", "tv-nowplaying-mvp", "tv-result-ffa-900"])
+    "tv-geo-reveal", "tv-walkout", "tv-faceoff", "tv-bust", "tv-blinds", "tv-nowplaying", "tv-result-ffa-900"])
     assert.ok(ids.includes(want), want);
   const team = buildScenario(TV_SCENARIOS, "tv-team-open").state;
   assert.equal(Object.keys(team.profiles).length, ROSTER.length, "thirteen players");
@@ -156,15 +167,20 @@ test("the poker ring: thirteen fixed seats never touch, the sides, or the ticker
 });
 
 test("names fit their slots: towers, bracket rows and round heads", () => {
-  assert.deepEqual(ui.towerNameFit("Brandon").lines, ["BRANDON"]);
+  assert.deepEqual(ui.towerNameFit("Brandon").lines, ["Brandon"], "a name as written, never uppercased");
   const long = ui.towerNameFit("Henry Nguyen");
-  assert.deepEqual(long.lines, ["HENRY NGUYEN"], "one line, so every count stands on one baseline");
+  assert.deepEqual(long.lines, ["Henry Nguyen"], "one line, so every count stands on one baseline");
   assert.equal(long.size, 24, "at the floor, never an ellipsis");
   assert.ok(long.squeeze < 1 && long.squeeze >= 0.75, "narrowed to the slot");
   const band = ui.sideBracketDims({ units:3.5, cols:7, fit:{ width:1736, height:268 }, mirror:true, band:true });
   assert.ok(band.row >= 28 && band.nameMax >= 24 && band.nameW >= 150, "a thirteen-player band letters every name at 24px+");
-  assert.equal(ui.roundHead("Quarterfinals", 219), "QF");
+  /* a round's head says what the phones say, down to the 24px floor, then
+     the short word, and the initials only past that */
+  assert.equal(ui.roundHead("Quarterfinals", 219), "Quarterfinals", "a thirteen-player band's column letters it whole");
+  assert.deepEqual(ui.roundHeadFit("Quarterfinals", 219), { text:"Quarterfinals", size:26 });
   assert.equal(ui.roundHead("Quarterfinals", 560), "Quarterfinals");
+  assert.equal(ui.roundHead("Quarterfinals", 140), "Quarters");
+  assert.equal(ui.roundHead("Quarterfinals", 80), "QF");
   assert.equal(ui.matchTitle("Semifinals · Match 2"), "Semifinal 2");
   assert.equal(ui.matchTitle("Round 1 · Match 3"), "Round 1 Match 3");
   assert.equal(ui.BIG_BRACKET, 7);

@@ -89,8 +89,8 @@ test("a second win, then three straight: one fact per result, the rarest", () =>
 });
 
 test("a loss in an event they played breaks the streak; crew duty does not", () => {
-  /* four solo free-for-alls: the slate's three plus The Gauntlet (legacy) */
-  const state = withLeader(withLegacyEvents(fresh(), ["gauntlet"]));
+  /* four solo free-for-alls: the slate's Long Putt, Where and When, Trivia and Rage Cage */
+  const state = withLeader(fresh());
   const four = allEventsOf(state).filter(isSolo);
   assert.equal(four.length, 4);
   post(state, four[0], [evan], 1_000_000);
@@ -340,8 +340,10 @@ function perform(state, show) {
 }
 
 const key = item => item && `${item.label} · ${item.subject}`;
-function playWeekend(show) {
+function playWeekend(show, held = false) {
   const state = structuredClone(EMPTY_STATE);
+  /* held: the autopilot waits, so every scene step is the commissioner's */
+  if (held) state.autopilot = { hold:true, at:0 };
   const misses = [];
   const seen = new Set();
   let crown = null;
@@ -362,16 +364,19 @@ function playWeekend(show) {
   return { state, misses, steps, seen, crown };
 }
 
-for (const show of [false, true]) {
-  test(`run of show: every projected Next and Then is what the pill offers next (Show Control ${show ? "on" : "off"})`, () => {
-    const { state, misses, steps, seen, crown } = playWeekend(show);
+for (const [show, held] of [[false, false], [true, false], [true, true]]) {
+  test(`run of show: every projected Next and Then is what the pill offers next (Show Control ${show ? "on" : "off"}${held ? ", autopilot held" : ""})`, () => {
+    const { state, misses, steps, seen, crown } = playWeekend(show, held);
     assert.ok(state.frozen, "the weekend reached the crown");
     assert.ok(steps > 40);
     assert.deepEqual(misses, []);
     /* every phase of the weekend was projected along the way */
     for (const label of ["Announce", "Announce and draw", "Captains draft", "Lock and start", "Record winner", "Enter result",
-      "Deal and start", "Blind clock", "Post counts", "Crown", ...(show ? ["Opening", "Continue", "Show standings"] : [])])
+      "Deal and start", "Blind clock", "Post counts", "Crown", ...(show ? ["Opening", "Continue"] : []),
+      ...(show && held ? ["Show standings"] : [])])
       assert.ok(seen.has(label), label);
+    /* with the autopilot running, the winner scene plays itself: never a tap */
+    if (show && !held) assert.ok(!seen.has("Show standings"));
     /* the crown names who it is for */
     const champions = computeStandings(state).filter(row => row.rank === 1).map(row => row.player);
     assert.equal(crown, ui.namesOf(state, champions));
@@ -399,6 +404,8 @@ test("run of show: how long the event has run, and who is away", () => {
 
 test("run of show: a replay the TV owes shows while another winner is still on screen", () => {
   const state = structuredClone(EMPTY_STATE);
+  /* the commissioner is taking the scenes by hand */
+  state.autopilot = { hold:true, at:0 };
   const play = evId => {
     const ev = events.find(event => event.id === evId);
     apply(state, "announceEvent", { evId }, true);
@@ -432,7 +439,8 @@ test("the pill keeps one primary action; a 44px more button holds the run of sho
   const model = ui.directorPill(state, events, director, {});
   const pill = inProvider(React.createElement(ui.DirectorPill, { model, state, events, director,
     onWrite:async () => ({ ok:true }), onOpen:() => {} }));
-  assert.match(pill, /class="fd-pill-more has-actions"[^>]*aria-expanded="false"[^>]*aria-label="More"/);
+  assert.match(pill, /class="fd-pill-more has-actions"[^>]*aria-expanded="false"[^>]*aria-label="More, \d+ actions?"/);
+  assert.match(pill, /fd-pill-more-peek/, "a tray with actions shows its count on the button");
   assert.doesNotMatch(pill, /class="fd-runshow/, "the tray opens on demand");
   assert.ok(model.extras.some(extra => extra.label === "Skip" && extra.kind === "skip"), "Skip is an edge case");
   assert.doesNotMatch(pill.replace(/<[^>]+>/g, " "), /\bSkip\b/, "Skip is never promoted beside the pill");
@@ -444,6 +452,9 @@ test("the pill keeps one primary action; a 44px more button holds the run of sho
   const panel = inProvider(React.createElement(ui.RunOfShowPanel, { state, events, director, now:0 }));
   for (const slot of ["Now", "Next", "Then"]) assert.match(panel, new RegExp(`fd-runshow-slot">${slot}<`));
   assert.match(panel, /Announce<\/b><small>Long Putt/);
+  /* a subject is said once: the next beat on the same event carries only its verb */
+  assert.equal((panel.match(/<small>Long Putt</g) || []).length, 1, "Long Putt is not listed twice");
+  assert.doesNotMatch(embedded, /<small>Long Putt</, "the pill already names it");
   /* read-only: its only control is Close */
   assert.equal((panel.match(/<button/g) || []).length, 1);
   assert.match(panel, /aria-label="Close run of show"/);

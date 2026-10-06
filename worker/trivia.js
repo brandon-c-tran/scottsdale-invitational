@@ -2,15 +2,18 @@
    the set list (bank categories and his own rounds) and runs the game from
    the director pill: start, reveal each question, the scores between
    rounds, next, then the result, which posts through the ordinary result
-   write. Players only pick and lock, one shared answer per team.
+   write. The autopilot (shared/trivia.js triviaAutoBeat) makes the same
+   writes on the game's own clock with a commissioner context marked
+   `auto`; a beat that is no longer the game's next one is a no-op. Players
+   only pick and lock, each their own answer.
 
    Built by actions.js with its own helpers, so a finish runs the same
    beginResultEntry and saveResult every other result does. */
-import { allEventsOf, isAway, resolveEventLifecycle } from "../shared/core.js";
+import { allEventsOf, isActivePlayer, isAway, presentPlayers, resolveEventLifecycle, isAbsent } from "../shared/core.js";
 import {
-  TRIVIA_DIGITS_MAX, TRIVIA_GRACE_MS, TRIVIA_LEAD_MS, TRIVIA_MAX_QUESTIONS, TRIVIA_MAX_ROUNDS, TRIVIA_NAME_MAX,
-  cleanTriviaQuestion, durationOf, hasAnswer, triviaCurrent, triviaGame, triviaLast, triviaQuestionTotal, triviaResultSlots,
-  triviaRoundEnd, triviaRoundId, triviaStandings, triviaTeamOf,
+  TRIVIA_DIGITS_MAX, TRIVIA_GRACE_MS, TRIVIA_MAX_QUESTIONS, TRIVIA_MAX_ROUNDS, TRIVIA_NAME_MAX,
+  cleanTriviaQuestion, durationOf, hasAnswer, leadFor, triviaActive, triviaAutoBeat, triviaCurrent, triviaGame, triviaLast,
+  triviaPlays, triviaQuestionTotal, triviaResultSlots, triviaRoundEnd, triviaRoundId, triviaStandings,
 } from "../shared/trivia.js";
 import { TRIVIA_BANK, bankCategory } from "./triviaBank.js";
 
@@ -19,8 +22,10 @@ export const TRIVIA_ACTION_TYPES = Object.freeze([
   "triviaNext", "triviaFinish", "triviaRestart", "triviaSimAnswers",
 ]);
 
-/* retried writes a team's pick remembers, per question */
+/* retried writes a player's pick remembers, per question */
 const OPS_KEPT = 8;
+/* an autopilot beat may land this early on the alarm's clock */
+const AUTO_EARLY_MS = 250;
 const clip = (value, max) => typeof value === "string" ? value.replace(/\s+/g, " ").trim().slice(0, max) : "";
 
 /* deal four options in a fresh order, the answer following its option */
@@ -68,23 +73,34 @@ export function triviaActions({ ok, err, gmOnly, run }) {
   const rounds = state => Array.isArray(state.triviaRounds) ? state.triviaRounds : [];
   const open = (game, now) => {
     const question = triviaCurrent(game);
-    const startsAt = now + TRIVIA_LEAD_MS;
+    const startsAt = now + leadFor(game.index);
     game.times = { ...(game.times || {}), [question.id]:{ openedAt:now, startsAt, closesAt:startsAt + durationOf(question) } };
     game.phase = "question";
+  };
+  /* An autopilot write runs only while it is still the game's next beat and
+     its time has come; anything else (a beat the commissioner already took,
+     an old question, an early alarm) is acknowledged and changes nothing. */
+  const autoStale = (state, type, payload, ctx) => {
+    if (!ctx?.auto) return null;
+    const beat = triviaAutoBeat(state);
+    const same = beat && beat.type === type
+      && (payload?.questionId === undefined || beat.payload.questionId === payload.questionId)
+      && (payload?.evId === undefined || beat.payload.evId === payload.evId);
+    return same && beat.at <= Date.now() + AUTO_EARLY_MS ? null : ok({ unchanged:true, stale:true });
   };
   const actions = {
     /* add or replace one round of the set list */
     triviaSaveRound(state, { round }, ctx) {
       const g = gmOnly(ctx); if (g) return g;
       if (running(state)) return err("Restart the game before changing rounds");
-      if (!round || !triviaRoundId(round.id)) return err("Bad round");
+      if (!round || !triviaRoundId(round.id)) return err("That round didn't come through whole. Save it again");
       const list = rounds(state);
       const existing = list.find(item => item.id === round.id);
       if (!existing && list.length >= TRIVIA_MAX_ROUNDS) return err(`Up to ${TRIVIA_MAX_ROUNDS} rounds`);
       let clean;
       if (round.source === "bank") {
         const category = bankCategory(round.category);
-        if (!category) return err("No such category");
+        if (!category) return err("That category isn't in the bank. Pick another");
         const ids = new Set(category.questions.map(question => question.id));
         const picks = [...new Set(Array.isArray(round.picks) ? round.picks : [])].filter(id => ids.has(id));
         if (!picks.length) return err("Pick at least one question");
@@ -102,9 +118,9 @@ export function triviaActions({ ok, err, gmOnly, run }) {
           if (result.error) return err(`Question ${i + 1}: ${result.error}`);
           cleaned.push(result.question);
         }
-        if (new Set(cleaned.map(question => question.id)).size !== cleaned.length) return err("Bad question");
+        if (new Set(cleaned.map(question => question.id)).size !== cleaned.length) return err("Two questions share an id. Save the round again");
         clean = { id:round.id, source:"custom", name, questions:cleaned };
-      } else return err("Bad round");
+      } else return err("That round didn't come through whole. Save it again");
       if (existing && JSON.stringify(existing) === JSON.stringify(clean)) return ok({ unchanged:true });
       state.triviaRounds = existing ? list.map(item => item.id === clean.id ? clean : item) : [...list, clean];
       return ok({ round:clean.id });
@@ -131,13 +147,13 @@ export function triviaActions({ ok, err, gmOnly, run }) {
     triviaStart(state, { evId }, ctx) {
       const g = gmOnly(ctx); if (g) return g;
       const ev = gameEvent(state, evId);
-      if (!ev) return err("No such game");
+      if (!ev) return err("That game isn't on the schedule");
       if (triviaGame(state, evId) && running(state)) return ok({ unchanged:true });
       if (state.results?.[evId]) return err("The result is already posted");
       if (resolveEventLifecycle(state, ev).phase !== "in-progress") return err(`Lock and start ${ev.name} first`);
       if (!triviaQuestionTotal(rounds(state))) return err("Add rounds in the Trivia desk first");
-      const draw = state.draws?.[evId];
-      if (!draw?.teams?.length || draw.teams.length < 2) return err("Draw the teams first");
+      const players = presentPlayers(state);
+      if (!players.length) return err("Nobody is here to play");
       const now = Date.now();
       const id = `tg${now.toString(36)}${Math.random().toString(36).slice(2, 6)}`;
       const played = [], questions = [];
@@ -151,29 +167,30 @@ export function triviaActions({ ok, err, gmOnly, run }) {
         });
       });
       if (!questions.length) return err("Add rounds in the Trivia desk first");
-      const game = { id, eventId:evId, startedAt:now, index:0, phase:"question",
-        teams:draw.teams.map((team, key) => ({ key, name:team.name || `Team ${key + 1}`, players:[...team.players] })),
+      const game = { id, eventId:evId, startedAt:now, index:0, phase:"question", players:[...players],
         rounds:played, questions, times:{}, picks:{}, ops:{} };
       open(game, now);
       state.trivia = game;
       return ok({ game:id });
     },
-    /* A team's one answer: any teammate sets it or changes it, any teammate
-       locks it in, and a locked answer stays. A retried write (the same
-       device and action id) is acknowledged once. */
+    /* A player's own answer: set it, change it, lock it in, and a locked
+       answer stays. A present player who was not here at the start joins
+       on their first pick. A retried write (the same device and action id)
+       is acknowledged once. */
     triviaPick(state, { questionId, choice, value, lock }, ctx) {
       const game = triviaGame(state);
       const question = triviaCurrent(game);
       if (!game || !running(state) || game.phase !== "question" || question?.id !== questionId) return err("That question is closed");
-      if (!ctx.player) return err("Check in first");
-      const team = triviaTeamOf(game, ctx.player);
-      if (!team) return err("You are not on a team");
-      if (isAway(state, ctx.player)) return err("You are marked away");
+      const player = ctx.player;
+      if (!player) return err("Check in first");
+      if (isAbsent(state, player)) return err(isAway(state, player) ? "You are marked away" : "Tap I'm here first");
+      const joining = !triviaPlays(game, player);
+      if (joining && (!Array.isArray(game.players) || !isActivePlayer(player, state))) return err("You are not playing");
       const now = Date.now();
       const time = game.times?.[questionId] || {};
       if (now > Number(time.closesAt) + TRIVIA_GRACE_MS) return err("Time is up");
       const opKey = ctx.deviceId && typeof ctx.actionId === "string" && ctx.actionId ? `${ctx.deviceId}:${ctx.actionId}` : null;
-      const ops = game.ops?.[questionId]?.[team.key] || [];
+      const ops = game.ops?.[questionId]?.[player] || [];
       if (opKey && ops.includes(opKey)) return ok({ unchanged:true });
       const number = question.format === "number";
       const given = number ? value !== undefined && value !== null : choice !== undefined && choice !== null;
@@ -183,26 +200,30 @@ export function triviaActions({ ok, err, gmOnly, run }) {
         if (number ? !Number.isSafeInteger(answer) || answer < 0 || answer >= 10 ** Math.min(TRIVIA_DIGITS_MAX, question.digits || TRIVIA_DIGITS_MAX)
           : !Number.isInteger(answer) || answer < 0 || answer > 3) return err("Pick an answer");
       }
-      const prior = game.picks?.[questionId]?.[team.key] || null;
+      const prior = game.picks?.[questionId]?.[player] || null;
       const field = number ? "value" : "choice";
       if (prior?.locked) {
         if (!given || prior[field] === answer) return ok({ unchanged:true });
-        return err("Your team locked in");
+        return err("You locked in");
       }
       if (!given && !hasAnswer(question, prior)) return err("Pick an answer first");
       const changed = given && prior?.[field] !== answer;
       if (!changed && lock !== true) return ok({ unchanged:true });
-      const next = changed ? { [field]:answer, by:ctx.player, at:now } : { ...prior };
-      if (lock === true) Object.assign(next, { locked:true, lockedAt:Math.min(now, Number(time.closesAt) || now), lockedBy:ctx.player });
-      game.picks = { ...(game.picks || {}), [questionId]:{ ...(game.picks?.[questionId] || {}), [team.key]:next } };
+      const next = changed ? { [field]:answer, at:now } : { ...prior };
+      if (lock === true) Object.assign(next, { locked:true, lockedAt:Math.min(now, Number(time.closesAt) || now) });
+      if (joining) game.players = [...game.players, player];
+      game.picks = { ...(game.picks || {}), [questionId]:{ ...(game.picks?.[questionId] || {}), [player]:next } };
       if (opKey) game.ops = { ...(game.ops || {}), [questionId]:{ ...(game.ops?.[questionId] || {}),
-        [team.key]:[...ops, opKey].slice(-OPS_KEPT) } };
+        [player]:[...ops, opKey].slice(-OPS_KEPT) } };
       return ok();
     },
     triviaReveal(state, { questionId }, ctx) {
       const g = gmOnly(ctx); if (g) return g;
+      const stale = autoStale(state, "triviaReveal", { questionId }, ctx); if (stale) return stale;
       const game = triviaGame(state);
-      if (!game || !running(state) || triviaCurrent(game)?.id !== questionId) return err("That question is not up");
+      if (!game || !running(state)) return err("The game has not started");
+      /* a retried tap after the room moved on */
+      if (triviaCurrent(game)?.id !== questionId) return ok({ unchanged:true });
       if (game.phase !== "question") return ok({ unchanged:true });
       game.phase = "reveal";
       game.times[questionId] = { ...game.times[questionId], revealedAt:Date.now() };
@@ -211,6 +232,7 @@ export function triviaActions({ ok, err, gmOnly, run }) {
     /* the standings between rounds, and at the end */
     triviaBoard(state, { questionId }, ctx) {
       const g = gmOnly(ctx); if (g) return g;
+      const stale = autoStale(state, "triviaBoard", { questionId }, ctx); if (stale) return stale;
       const game = triviaGame(state);
       if (!game || !running(state)) return err("The game has not started");
       if (triviaCurrent(game)?.id !== questionId) return ok({ unchanged:true });
@@ -223,6 +245,7 @@ export function triviaActions({ ok, err, gmOnly, run }) {
     },
     triviaNext(state, { questionId }, ctx) {
       const g = gmOnly(ctx); if (g) return g;
+      const stale = autoStale(state, "triviaNext", { questionId }, ctx); if (stale) return stale;
       const game = triviaGame(state);
       if (!game || !running(state)) return err("The game has not started");
       /* a retried tap after the room moved on */
@@ -235,9 +258,11 @@ export function triviaActions({ ok, err, gmOnly, run }) {
       open(game, Date.now());
       return ok();
     },
-    /* the final standings post the event's result: 1st, 2nd and 3rd */
+    /* the final standings post the event's result: one winner, then 2nd
+       and 3rd, through the ordinary result write */
     triviaFinish(state, { evId }, ctx) {
       const g = gmOnly(ctx); if (g) return g;
+      const stale = autoStale(state, "triviaFinish", { evId }, ctx); if (stale) return stale;
       const ev = gameEvent(state, evId);
       const game = triviaGame(state, evId);
       if (!ev || !game) return err("No game to finish");
@@ -263,8 +288,8 @@ export function triviaActions({ ok, err, gmOnly, run }) {
       state.trivia = null;
       return ok();
     },
-    /* QA: every team that has not locked picks and locks, about half of
-       them right, through the real pick write */
+    /* QA: every player still in who has not locked picks and locks, about
+       half of them right, through the real pick write */
     triviaSimAnswers(state, { questionId }, ctx) {
       const g = gmOnly(ctx); if (g) return g;
       if (!ctx.qa) return err("QA is unavailable");
@@ -272,10 +297,8 @@ export function triviaActions({ ok, err, gmOnly, run }) {
       const question = triviaCurrent(game);
       if (!game || !running(state) || game.phase !== "question" || question?.id !== questionId) return err("That question is closed");
       let answered = 0;
-      for (const team of game.teams) {
-        if (game.picks?.[questionId]?.[team.key]?.locked) continue;
-        const player = team.players.find(member => !isAway(state, member));
-        if (!player) continue;
+      for (const player of triviaActive(state, game)) {
+        if (game.picks?.[questionId]?.[player]?.locked) continue;
         const right = Math.random() < 0.5;
         const payload = question.format === "number"
           ? { value:Math.min(10 ** question.digits - 1, Math.max(0, Math.round(question.answer * (right ? 1 : 0.7 + Math.random() * 0.6)))) }
@@ -283,7 +306,7 @@ export function triviaActions({ ok, err, gmOnly, run }) {
         const result = actions.triviaPick(state, { questionId, ...payload, lock:true }, { isGm:false, player, deviceId:null, actionId:null });
         if (result.ok) answered += 1;
       }
-      return answered ? ok({ answered }) : err("Every team has locked in");
+      return answered ? ok({ answered }) : err("Everyone has locked in");
     },
   };
   return actions;

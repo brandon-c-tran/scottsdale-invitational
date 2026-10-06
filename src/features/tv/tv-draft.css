@@ -8,7 +8,7 @@
 .tv-draft-clock-chip { display:block; flex-shrink:0; transform:rotate(-9deg); }
 .tv-draft-clock-copy { min-width:0; }
 .tv-draft-line { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.tv-draft-who { font-size:96px; line-height:1.15; color:var(--bone); margin-top:6px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.tv-draft-who { font-size:96px; line-height:1.25; color:var(--bone); margin-top:6px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .tv-draft-order { display:flex; gap:12px; margin:0; padding:0; list-style:none; flex-shrink:0; }
 .tv-draft-order li { display:flex; align-items:center; gap:12px; min-width:170px; padding:12px 16px;
   border-radius:10px; background:var(--tv-window); box-shadow:var(--tv-cut); }
@@ -68,3 +68,5 @@
   .tv-draft *, .tv-draft *::before, .tv-draft *::after { animation:none !important; transition:none !important; }
   .tv-draft-flyer { display:none; }
 }
+/* the Names Are Lettered rule: a captain's name as written, not in the label caps */
+.tv-draft .tv-draft-who, .tv-draft .tv-draft-captain { text-transform:none; }

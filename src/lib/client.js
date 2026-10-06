@@ -14,6 +14,7 @@ import { EMPTY_STATE } from "../../shared/core.js";
 import { BUILD_ID, buildsDiffer } from "../../shared/build.js";
 import { noteServerTime } from "./serverClock.js";
 import { classifyFrame, publishFrame } from "./frameGate.js";
+import { WRITE_ERRORS, writeError } from "./writeErrors.js";
 
 const localGet = k => { try { return localStorage.getItem(k); } catch { return null; } };
 const localSet = (k, v) => { try { localStorage.setItem(k, v); } catch {} };
@@ -100,6 +101,8 @@ const snapshot = {
      state); tvsAt is when this device received it (tvHealth) */
   tvs: null,
   tvsAt: 0,
+  /* a TV socket only: the check-in code its QR carries, null otherwise */
+  arriveCode: null,
 };
 let cached = { ...snapshot };
 const listeners = new Set();
@@ -172,7 +175,7 @@ function socketLost() {
   snapshot.socketOpen = false; freshSinceOpen = false;
   syncConnected(); emit();
   for (const [actionId, pending] of [...pendingAcks])
-    becomeUncertain(actionId, pending.sent ? "Connection lost, try again" : "Offline, try again", !pending.sent);
+    becomeUncertain(actionId, pending.sent ? WRITE_ERRORS.dropped : WRITE_ERRORS.offline, !pending.sent);
   clearTimeout(reconnectTimer);
   reconnectTimer = setTimeout(connect, backoff);
   backoff = Math.min(backoff * 2, 8000);
@@ -236,11 +239,23 @@ function connect() {
     let msg; try { msg = JSON.parse(e.data); } catch { return; }
     if (msg.type === "state") receiveState(msg);
     else if (msg.type === "ack") receiveAck(msg);
-    else if (msg.type === "pong") noteServerTime(msg.serverNow, lastInbound);
+    else if (msg.type === "pong") {
+      noteServerTime(msg.serverNow, lastInbound);
+      if ("arrive" in msg) receiveArriveCode(msg.arrive);
+    }
     else if (msg.type === "tvs") receiveTvs(msg.tvs);
+    else if (msg.type === "arrive") receiveArriveCode(msg.code);
   };
   socket.onclose = () => { if (ws === socket) { ws = null; socketLost(); } };
   socket.onerror = () => { try { socket.close(); } catch {} };
+}
+
+/* the check-in code rides a TV socket's frames, pongs and "arrive" messages */
+function receiveArriveCode(code) {
+  const next = typeof code === "string" && code ? code : null;
+  if (next === snapshot.arriveCode) return;
+  snapshot.arriveCode = next;
+  emit();
 }
 
 function receiveTvs(tvs) {
@@ -273,6 +288,7 @@ function receiveState(msg) {
   if (typeof msg.gm === "boolean"
       && (typeof msg.hello === "number" ? msg.hello >= gmHelloFloor : snapshot.gm !== null))
     snapshot.gm = msg.gm;
+  snapshot.arriveCode = typeof msg.arrive === "string" && msg.arrive ? msg.arrive : null;
   if (Array.isArray(msg.tvs)) { snapshot.tvs = msg.tvs; snapshot.tvsAt = Date.now(); }
   else if (msg.gm === false) snapshot.tvs = null;
   freshSinceOpen = true;
@@ -284,7 +300,9 @@ function receiveState(msg) {
   emit();
 }
 
-function receiveAck(msg) {
+function receiveAck(raw) {
+  /* a refusal keeps the server's reason; an old build's generic line maps to one that says what to do */
+  const msg = raw.ok ? raw : { ...raw, error:writeError(raw) };
   const p = pendingAcks.get(msg.actionId);
   if (p) {
     pendingAcks.delete(msg.actionId);
@@ -322,7 +340,7 @@ function becomeUncertain(actionId, error, certainFailure = false) {
   let settle;
   const settled = new Promise(resolve => { settle = resolve; });
   const expiry = setTimeout(() => finishUncertain(actionId,
-    { ok:false, unknown:true, error:"Not confirmed. Check whether it saved before trying again." }), UNCERTAIN_EXPIRY_MS);
+    { ok:false, unknown:true, error:WRITE_ERRORS.unconfirmed }), UNCERTAIN_EXPIRY_MS);
   /* the first hello sent from here on is answered after this action */
   uncertain.set(actionId, { settle, boot:pending.boot, probe:helloSeq + 1, expiry });
   pending.resolve({ ok:false, uncertain:true, error, actionId, settled });
@@ -344,18 +362,18 @@ function settleUncertain(msg) {
     if (applied.includes(actionId)) { finishUncertain(actionId, { ok:true, late:true }); continue; }
     if (typeof msg.hello !== "number" || msg.hello < u.probe) continue;
     finishUncertain(actionId, u.boot && msg.boot && u.boot !== msg.boot
-      ? { ok:false, unknown:true, error:"Not confirmed. Check whether it saved before trying again." }
-      : { ok:false, error:"Not saved, try again" });
+      ? { ok:false, unknown:true, error:WRITE_ERRORS.unconfirmed }
+      : { ok:false, error:WRITE_ERRORS.notApplied });
   }
 }
 
 export function dispatch(type, payload, { retry = false } = {}) {
   return new Promise(resolve => {
-    if (!ws || ws.readyState !== 1) return resolve({ ok: false, error: "Offline, try again" });
+    if (!ws || ws.readyState !== 1) return resolve({ ok: false, error: WRITE_ERRORS.offline });
     const actionId = "a" + (++aid) + "-" + Date.now();
     const message = { actionId, type, payload };
     let retryTimer = null;
-    const t = setTimeout(() => becomeUncertain(actionId, "No response, try again"), ACK_TIMEOUT_MS);
+    const t = setTimeout(() => becomeUncertain(actionId, WRITE_ERRORS.timeout), ACK_TIMEOUT_MS);
     if (retry) {
       retryTimer = setTimeout(() => {
         if (pendingAcks.has(actionId)) send(message);

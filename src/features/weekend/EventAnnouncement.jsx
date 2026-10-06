@@ -4,7 +4,7 @@ import { contestName } from "../../../shared/show.js";
 import { Sheet, ActionButton } from "../../ui/controls.jsx";
 import { GameMark } from "../../ui/GameMark.jsx";
 import { PayoutLadder } from "../../ui/PayoutLadder.jsx";
-import { Avatar } from "../identity/PlayerIdentity.jsx";
+import { BankChip } from "../identity/PlayerIdentity.jsx";
 import { usePlayerIdentity } from "../identity/PlayerIdentityContext.js";
 import { serverNow } from "../../lib/serverClock.js";
 import { DRAW_INTRO_MS, drawRevealGroups, drawStepAt, drawStepDelay, revealTimeline, startDrawPlayback } from "./drawReveal.js";
@@ -26,7 +26,7 @@ function AnnouncementHero({ ev, visual = null, lamp = null, size = "hero" }) {
   return <header className={`fd-announcement-hero is-${size}`}>
     {visual ? <div className="fd-announcement-game">{visual}</div>
       : <div className="fd-announcement-mark"><GameMark id={ev.game} variant={ev.variant} size={size === "hero" ? 64 : 44} /></div>}
-    <h2 className={`fd-show${size === "hero" ? " is-marquee" : ""} fd-announcement-name`}><EventName name={ev.name} /></h2>
+    <h2 className={`fd-show${size === "hero" ? " is-hero" : ""} fd-announcement-name`}><EventName name={ev.name} /></h2>
     {lamp && <span className="fd-announcement-state"><i className={`fd-insert is-live${lamp.state === "pending" ? " is-pending" : lamp.state === "done" ? " is-done" : ""}`}
       aria-hidden="true" />{lamp.label}</span>}
   </header>;
@@ -126,9 +126,12 @@ export function DrawAnnouncement({ state, reveal, me = null, synced = false, onC
   /* D10: the live ceremony that turned your card ends on your path; a
      spectator's, and every replay from the event sheet, ends as before */
   const path = synced && mineIndex >= 0 ? drawPath(state, reveal, me) : null;
+  /* the way to the board waits for the last card: chips go on the sides
+     the room has seen, never on a draw still turning */
+  const betsReady = !!onBets && complete;
   const actions = <div className="fd-announcement-actions">
-    {onBets && <ActionButton onClick={onBets}>Place chips</ActionButton>}
-    <ActionButton variant={onBets ? "secondary" : "primary"} onClick={onClose}>Done</ActionButton>
+    {betsReady && <ActionButton onClick={onBets}>Place chips</ActionButton>}
+    <ActionButton variant={betsReady ? "secondary" : "primary"} onClick={onClose}>Done</ActionButton>
   </div>;
   const skip = () => playback.current?.skip();
   const replay = () => {
@@ -140,15 +143,25 @@ export function DrawAnnouncement({ state, reveal, me = null, synced = false, onC
     disabled={!visible || !onPlayer} tabIndex={visible ? undefined : -1}
     onClick={() => { if (visible) onPlayer?.(player); }}
     aria-label={`View ${disp(state,player)}'s player card`}>
-    <Avatar state={state} p={player} size={30}/><span>{disp(state,player)}</span></button>;
+    <BankChip p={player} size={32}/><span>{disp(state,player)}</span></button>;
   const revealEv = allEventsOf(state).find(item => item.id === reveal.evId) || null;
-  return <Sheet title={reveal.subtitle || reveal.title} heading={!revealEv} subtitle={reveal.subtitle ? reveal.title : "The draw"} onClose={onClose}
-    onBack={onBack} layer={300} className="fd-announcement">
-    {revealEv && <AnnouncementHero ev={revealEv} size="compact" />}
-    <div className="fd-draw-playback">
-      <div className={`fd-draw-deck${complete ? " is-complete" : ""}`} aria-hidden="true"><i/><i/><i>FD</i></div>
-      <span role="status" aria-live="polite">{complete ? "Draw complete" : "Revealing the draw"}</span>
-      <button type="button" className="fd-draw-playback-action" onClick={complete ? replay : skip}>{complete ? "Replay draw" : "Skip animation"}</button>
+  /* one header grammar (ui/controls.jsx Sheet): the event's name at the
+     left, Skip or Replay draw beside Close; the body is the draw */
+  const playbackAction = <button type="button" className="fd-draw-playback-action" onClick={complete ? replay : skip}>
+    {complete ? "Replay draw" : "Skip animation"}</button>;
+  return <Sheet title={revealEv ? revealEv.name : reveal.subtitle || reveal.title} show={!!revealEv}
+    subtitle={revealEv ? null : reveal.subtitle ? reveal.title : "The draw"} headerActions={playbackAction}
+    onClose={onClose} onBack={onBack} layer={300} className="fd-announcement">
+    <div className={`fd-draw-playback${complete ? " is-complete" : ""}`}>
+      {/* the draw's progress, drawn while it turns: a small card per card.
+          Face down it carries its back's number; turned, it carries what
+          turned (the team's name, the heat, the match); the one turning is
+          lit live. Once every card is up the cards say it all, so the row
+          leaves (it is progress, never a set of tabs). */}
+      {complete ? <span className="fd-draw-pips" aria-hidden="true" /> : <ol className="fd-draw-pips" aria-hidden="true">{groups.map((group, index) =>
+        <li key={index} className={index < shown ? `is-named${index === shown - 1 && !complete ? " is-live" : " is-on"}` : undefined}>
+          {index < shown && group.title ? <EventName name={group.title} /> : index + 1}</li>)}</ol>}
+      <span className="fd-sr" role="status" aria-live="polite">{complete ? "Draw complete" : "Revealing the draw"}</span>
     </div>
     <div className={`fd-draw-announcement${!animate ? " is-reduced" : ""}`} key={run}>{groups.map((group,index)=>{
       const visible = index < shown;
@@ -173,7 +186,7 @@ export function DrawAnnouncement({ state, reveal, me = null, synced = false, onC
       });
       return <section key={index} style={mine ? youStyle : undefined}
         className={`fd-draw-card ${visible ? "is-revealed" : "is-covered"}${group.bye ? " is-byes" : ""}${settled ? " is-settled" : ""}${mine && visible ? " is-mine" : ""}${ring ? " is-ringing" : ""}`}>
-        <div className="fd-draw-card-back" aria-hidden="true"><span>{String(index + 1).padStart(2,"0")}</span></div>
+        <div className="fd-draw-card-back" aria-hidden="true"><span>{index + 1}</span></div>
         {ring && <i className="fd-draw-ring" aria-hidden="true"/>}
         <div className="fd-draw-card-front" aria-hidden={!visible}>
           <h3><EventName name={group.title} />{mine && visible && <span className="fd-draw-you">You</span>}</h3>

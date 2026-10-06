@@ -44,11 +44,44 @@
 .fd-director > * { max-width:100%; }
 .fd-director-pill { display:flex; flex:1; align-items:center; gap:10px; min-height:52px; padding:9px 14px 9px 16px; border:1px solid var(--bone-line); border-radius:14px; background:var(--night); color:var(--bone); box-shadow:var(--glass-edge); cursor:pointer; text-align:left; }
 .fd-director-pill:disabled { opacity:.6; cursor:default; }
+/* the autopilot's wait: a live lamp draining along the pill's foot */
+.fd-director-pill.is-auto { position:relative; overflow:hidden; border-color:color-mix(in srgb, var(--lamp-live) 38%, var(--bone-line)); }
+.fd-director-auto { position:absolute; left:0; right:0; bottom:0; height:3px; background:var(--lamp-live);
+  box-shadow:0 -2px 10px var(--live-tint); transform-origin:left center; transform:scaleX(var(--auto-left, 1));
+  animation:fd-director-drain var(--auto-total) linear var(--auto-elapsed) forwards; pointer-events:none; }
+.fd-director-auto.is-still { animation:none; }
+@keyframes fd-director-drain { from { transform:scaleX(1); } to { transform:scaleX(0); } }
+/* held: the autopilot waits for the commissioner; an unlit pause lamp */
+.fd-director-pill.is-held .fd-director-label { display:inline-flex; align-items:center; gap:6px; }
+.fd-director-pill.is-held .fd-director-label svg { color:var(--night-text); }
 .fd-director-pill.is-blocked .fd-director-label { color:var(--night-text); }
-.fd-director-text { display:flex; flex-direction:column; align-items:flex-start; gap:2px; min-width:0; }
+.fd-director-text { display:flex; flex:1; flex-direction:column; align-items:flex-start; gap:2px; min-width:0; }
+/* the verb's row: the verb, and a lock's bets drawn at its right */
+.fd-director-labelrow { display:flex; align-items:center; gap:10px; align-self:stretch; min-width:0; }
 .fd-director-label { font:700 17px/1.1 var(--fd-display); letter-spacing:.04em; text-transform:uppercase; color:var(--bone); overflow-wrap:anywhere; }
 .fd-director-note { font:600 12px/1.35 var(--fd-body); color:var(--night-text); overflow-wrap:anywhere; }
 .fd-director-chevron { flex:0 0 auto; margin-left:auto; font:700 18px/1 var(--fd-body); color:var(--sun); }
+/* the chips riding on a lock: the money lamp's chip and its count, drawn
+   beside the verb; an empty market's count sits unlit */
+.fd-director-bets { display:inline-flex; flex:0 0 auto; align-items:center; gap:4px; margin-left:auto; color:var(--sun);
+  font:800 18px/1 var(--fd-display); font-variant-numeric:tabular-nums; }
+/* none in: the chip alone, an unlit lamp (never a "0") */
+.fd-director-bets.is-empty { color:var(--muted); opacity:.7; }
+.fd-director-labelrow .fd-director-bets { font-size:16px; }
+/* quiet: an empty market's lock. The pill stays solid and tappable; its
+   verb and chevron sit unlit while an amber lamp drains along its foot
+   toward the moment it lights (ZERO_BET_WAIT_MS). Amber is the chips lamp:
+   the room is waiting on bets, not on the autopilot's magenta */
+.fd-director-pill.is-quiet { position:relative; overflow:hidden; }
+.fd-director-pill.is-quiet .fd-director-label { color:var(--muted); }
+.fd-director-pill.is-quiet .fd-director-chevron { color:var(--muted); }
+.fd-director-auto.is-bets { height:2px; background:var(--sun); box-shadow:0 -1px 8px color-mix(in srgb, var(--sun) 35%, transparent); opacity:.85; }
+/* waiting under a winner's Undo: the next beat drawn but untappable, a
+   dashed outline (its reason, Undo, is live right above it) */
+.fd-director-pill.is-waiting { border-style:dashed; background:transparent; box-shadow:none; }
+.fd-director-pill.is-waiting .fd-director-label { color:var(--muted); }
+.fd-director-pill.is-waiting .fd-director-chevron { color:var(--disabled); }
+.fd-director-pill.is-waiting:disabled { opacity:.45; }
 /* the pill and its more button: one row, the button as tall as the pill */
 .fd-director-row { display:flex; align-items:stretch; gap:8px; }
 .fd-director-row > .fd-director-pill { min-width:0; }
@@ -56,9 +89,14 @@
   border:1px solid var(--bone-line); border-radius:14px; background:var(--night); color:var(--night-text); box-shadow:var(--glass-edge); cursor:pointer; }
 .fd-pill-more.is-open { border-color:var(--ghost-line); background:var(--paper2); color:var(--bone); }
 .fd-pill-more:disabled { opacity:.5; cursor:default; }
-/* a tray that holds actions, not only the run of show */
-.fd-pill-more.has-actions::after { content:""; position:absolute; top:9px; right:9px; width:6px; height:6px; border-radius:99px; background:var(--muted2); }
-.fd-pill-more.is-open::after { display:none; }
+/* a tray that holds actions, not only the run of show: a chevron pointing
+   at where the tray opens, over the count of its actions, in bone */
+.fd-pill-more.has-actions { border-color:var(--ghost-line); color:var(--bone); }
+.fd-pill-more-peek { display:flex; flex-direction:column; align-items:center; gap:2px; line-height:0; }
+.fd-pill-more-peek > svg { color:var(--night-text); }
+.fd-pill-more-peek b { font:800 17px/1 var(--fd-display); font-variant-numeric:tabular-nums; letter-spacing:.02em; color:var(--bone); }
+.fd-pill-more.is-open .fd-pill-more-peek b { color:var(--muted2); }
+.fd-director-headrow .fd-pill-more-peek { flex-direction:row; gap:3px; }
 .fd-director-headrow { display:flex; align-items:flex-start; }
 .fd-director-headrow .fd-director-head { flex:1; min-width:0; }
 .fd-director-headrow .fd-pill-more { margin:6px 6px 0 0; min-height:44px; height:44px; box-shadow:none; }
@@ -86,20 +124,60 @@
 .fd-director-head { display:flex; flex-direction:column; gap:2px; padding:10px 14px 8px; }
 .fd-director-head strong { font:700 17px/1.1 var(--fd-display); letter-spacing:.04em; text-transform:uppercase; }
 .fd-director-head span { font:600 12px/1.35 var(--fd-body); color:var(--night-text); }
-.fd-director-side { display:flex; align-items:stretch; border-top:1px solid var(--night-line); }
-.fd-director-pick { display:flex; flex:1; align-items:center; justify-content:space-between; gap:10px; min-width:0; min-height:60px; padding:10px 14px; border:0; background:none; color:var(--bone); font:700 20px/1.1 var(--fd-display); text-align:left; cursor:pointer; }
-.fd-director-pick span { overflow-wrap:anywhere; }
-.fd-director-pick small { flex:0 0 auto; padding:6px 10px; border:1px solid var(--sun); border-radius:6px; color:var(--sun); font:700 12px/1 var(--fd-body); letter-spacing:.05em; text-transform:uppercase; }
-.fd-director-pick:not(:disabled):active { background:var(--sun-tint); }
-.fd-director-pick:disabled { opacity:.6; cursor:default; }
-.fd-director-faces { display:flex; align-items:center; padding-right:6px; }
+/* the match being played: two equal sides a thumb's width apart, each its
+   faces (card targets) over one filled winner button in the money lamp */
+.fd-director-sides { display:grid; grid-template-columns:minmax(0, 1fr) auto minmax(0, 1fr); align-items:stretch; padding:2px 10px 10px; }
+/* each side is one framed unit, faces over its button; the frame and the
+   VS between the two are inert, so only a button records a winner */
+.fd-director-side { display:flex; flex-direction:column; align-items:stretch; gap:4px; min-width:0; padding:4px 5px 5px;
+  border:1px solid var(--night-line); border-radius:14px; background:color-mix(in srgb, var(--ink0) 40%, transparent); }
+.fd-director-vs { align-self:center; width:30px; padding-top:44px; text-align:center; color:var(--muted2);
+  font:900 15px/1 var(--fd-show); letter-spacing:.04em; text-transform:uppercase; user-select:none; pointer-events:none; }
+.fd-director-faces { display:flex; flex-wrap:wrap; justify-content:center; min-height:44px; }
 .fd-director-faces button { display:grid; place-items:center; width:44px; min-height:44px; padding:0; border:0; background:none; cursor:pointer; }
+.fd-director-faces button:disabled { cursor:default; }
+.fd-director-faces .fd-director-faces-more { color:var(--muted2); font:800 16px/1 var(--fd-display); font-variant-numeric:tabular-nums; }
+.fd-director-pick { display:flex; flex:1; flex-direction:column; align-items:center; justify-content:center; gap:6px; min-width:0; min-height:76px;
+  padding:10px 10px 9px; border:1px solid var(--action-fill); border-radius:10px; background:var(--action-fill); color:var(--action-ink);
+  box-shadow:var(--glass-edge), var(--shadow-1); text-align:center; cursor:pointer; transition:transform .1s, opacity .15s, filter .15s; }
+.fd-director-pick-name { max-width:100%; font:900 21px/1.15 var(--fd-show); letter-spacing:.01em; overflow-wrap:anywhere; }
+.fd-director-pick-verb { display:inline-flex; align-items:center; gap:4px; font:800 12px/1 var(--fd-display); letter-spacing:.08em;
+  text-transform:uppercase; color:color-mix(in srgb, var(--action-ink) 78%, transparent); }
+.fd-director-pick:not(:disabled):active { transform:translateY(1px) scale(.985); filter:brightness(.92); }
+.fd-director-pick:disabled { cursor:default; opacity:.42; }
+/* the tapped side holds lit while its write is out; the other steps back */
+.fd-director-side.is-picking .fd-director-pick { opacity:1; box-shadow:var(--glass-edge), var(--chip-bloom); }
+/* the frame lights with its button, so the side being pressed reads whole */
+.fd-director-side:has(.fd-director-pick:not(:disabled):active), .fd-director-side.is-picking {
+  border-color:color-mix(in srgb, var(--action-fill) 60%, transparent); }
 
-.fd-director-recent { display:flex; align-items:center; flex-wrap:wrap; gap:8px 10px; width:100%; padding:6px 6px 6px 12px; border:1px solid var(--bone-line); border-radius:14px; background:var(--night); color:var(--bone); box-shadow:var(--glass-edge); font:600 12.5px/1.4 var(--fd-body); }
-.fd-director-recent > .fd-icon { flex:0 0 auto; color:var(--green); }
-.fd-director-recent span { flex:1; min-width:0; overflow-wrap:anywhere; font:900 18px/1.15 var(--fd-show); }
-.fd-director-recent button { display:inline-flex; align-items:center; gap:6px; min-height:44px; min-width:64px; padding:8px 14px; border:1px solid var(--sun); border-radius:6px; background:none; color:var(--sun); font:700 12.5px/1.2 var(--fd-body); cursor:pointer; }
+/* a heat's field: every racer one framed tile, up to four across, the
+   same faces over one filled winner button, no VS */
+.fd-director-sides.is-field { grid-template-columns:repeat(var(--field-cols, 3), minmax(0, 1fr)); gap:6px; }
+.fd-director-sides.is-field.is-cols-4 { --field-cols:4; }
+.fd-director-sides.is-field .fd-director-side { padding:3px 3px 4px; }
+.fd-director-sides.is-field .fd-director-pick { min-height:64px; padding:8px 4px 7px; }
+.fd-director-sides.is-field .fd-director-pick-name { font-size:17px; hyphens:auto; }
+
+/* the winner just recorded: WON stamps on as the write lands; Undo for
+   UNDO_WINDOW_MS, drained along the foot in the info lamp */
+.fd-director-recent { position:relative; display:flex; align-items:center; gap:10px; width:100%; min-height:60px; padding:8px 8px 10px 12px;
+  border:1px solid var(--bone-line); border-radius:14px; background:var(--night); color:var(--bone); box-shadow:var(--glass-edge); overflow:hidden; }
+.fd-director-recent-faces { display:flex; flex:0 0 auto; }
+.fd-director-recent-faces > * + * { margin-left:-8px; }
+.fd-director-recent-name { flex:1; min-width:0; overflow-wrap:anywhere; font:900 19px/1.15 var(--fd-show); }
+.fd-director-stamp { flex:0 0 auto; padding:3px 9px 2px; border:3px solid var(--sun); border-radius:8px; color:var(--sun);
+  font:900 22px/1 var(--fd-show); letter-spacing:.04em; text-transform:uppercase; transform:rotate(-6deg);
+  animation:fd-director-stamp var(--motion-stamp) var(--ease-land) both; }
+@keyframes fd-director-stamp { 0% { opacity:0; transform:rotate(-6deg) scale(1.9); } 70% { opacity:1; transform:rotate(-6deg) scale(.94); }
+  100% { opacity:1; transform:rotate(-6deg) scale(1); } }
+.fd-director-recent button { display:inline-flex; flex:0 0 auto; align-items:center; gap:6px; min-height:44px; min-width:64px; padding:8px 14px;
+  border:1px solid var(--ghost-line); border-radius:8px; background:var(--paper2); color:var(--bone); font:700 14px/1.2 var(--fd-body); cursor:pointer; }
 .fd-director-recent button:disabled { opacity:.5; cursor:default; }
+.fd-director-recent-drain { position:absolute; left:0; right:0; bottom:0; height:3px; background:var(--lamp-info); transform-origin:left center;
+  animation:fd-director-drain var(--undo-total) linear var(--undo-elapsed) forwards; pointer-events:none; }
+.fd-director-recent.is-still .fd-director-stamp { animation:none; }
+.fd-director-recent.is-still .fd-director-recent-drain { animation:none; transform:none; }
 .fd-director-error { margin:0; padding:6px 12px; border-radius:8px; background:var(--night); color:var(--clay-text); font:600 12.5px/1.4 var(--fd-body); }
 .fd-director button:focus-visible { outline:2px solid var(--lamp-info); outline-offset:2px; }
 

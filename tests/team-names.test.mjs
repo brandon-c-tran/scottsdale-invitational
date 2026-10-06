@@ -23,7 +23,7 @@ const model = await import("../src/features/teams/teamNameModel.js");
 
 const compiled = await build({
   stdin:{ contents:`
-    export { TeamNameCard, TeamNamesHome, TeamNameDesk } from "./src/features/teams/TeamNameCard.jsx";
+    export { TeamNameCard, TeamNamesHome, TeamNameDesk, TeamNameRow, teamNameAutoOpen, TEAMNAME_FRESH_MS } from "./src/features/teams/TeamNameCard.jsx";
     export { PlayerIdentityProvider } from "./src/features/identity/PlayerIdentityContext.js";`,
   resolveDir:root, loader:"jsx" },
   bundle:true, platform:"node", format:"cjs", external:["react", "react-dom", "qrcode-generator", "three"], loader:{ ".css":"empty" },
@@ -127,7 +127,7 @@ test("stale draws, duplicates, blanks and long names are refused", () => {
   const state = fresh("event:volley:open");
   const [a] = state.draws.volley.teams[0].players;
   const other = state.draws.volley.teams[1].name;
-  assert.match(nameTeam(state, { evId:"volley", drawId:"d0-old", team:0, name:"X Factor" }, guest(a)).error, /Teams changed/);
+  assert.match(nameTeam(state, { evId:"volley", drawId:"d0-old", team:0, name:"X Factor" }, guest(a)).error, /teams changed/i);
   assert.match(nameTeam(state, { ...ref(state, "volley", 0), name:other.toLowerCase() }, guest(a)).error, /Another team/);
   assert.match(nameTeam(state, { ...ref(state, "volley", 0), name:"   " }, guest(a)).error, /required/);
   assert.match(nameTeam(state, { ...ref(state, "volley", 0), name:"Les Quizerables Reunited!" }, guest(a)).error, /24/);
@@ -182,7 +182,7 @@ test("a retried name is acknowledged once, even after a teammate renamed it", ()
 });
 
 test("renaming never moves a chip: standings and every bet settle the same", () => {
-  for (const target of ["event:volley:open", "event:volley:mid", "event:trivia:done"]) {
+  for (const target of ["event:volley:open", "event:volley:mid", "event:bball5:done"]) {
     const state = fresh(target);
     const evId = target.split(":")[1];
     const events = allEventsOf(state);
@@ -234,15 +234,31 @@ test("the card: Name your team, three suggestions with the current one lit, then
   const html = render(state, React.createElement(ui.TeamNameCard, { state, ev, me }));
   assert.match(html, /<h2 class="fd-teamname-ask">Name your team<\/h2>/, "the heading asks, no label over it");
   assert.equal((html.match(/class="fd-teamname-chip(?: is-on)?"/g) || []).length, 3, "three suggestions");
-  assert.ok(html.includes(naming.name), "the current name");
-  assert.ok(new RegExp(`aria-pressed="true"[^>]*><span>${naming.name}</span>`).test(html), "the draw's name is one of the three, lit");
+  /* as markup: a seeded name can carry "&" ("Sahchard & Co.") */
+  const asMarkup = String(naming.name).replace(/&/g, "&amp;");
+  assert.ok(html.includes(asMarkup), "the current name");
+  const pattern = asMarkup.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  assert.ok(new RegExp(`aria-pressed="true"[^>]*><span>${pattern}</span>`).test(html), "the draw's name is one of the three, lit");
   assert.match(html, /Write your own/);
   assert.ok(!html.includes("—"), "no em dashes");
-  const home = render(state, React.createElement(ui.TeamNamesHome, { state, me, events:allEventsOf(state) }));
-  assert.match(home, /Name your team/);
+  /* Home: the live event's card carries the pencil itself, so no separate row */
+  assert.equal(model.homeTeamNameEvent(state, me, allEventsOf(state)), "volley");
+  assert.equal(render(state, React.createElement(ui.TeamNamesHome, { state, me, events:allEventsOf(state) })), "");
+  /* any other event's row: the team's name and the pencil; the chips stay closed */
+  const home = render(state, React.createElement(ui.TeamNameRow, { state, ev, me }));
+  assert.ok(home.includes(asMarkup), "the row carries the team's name");
+  assert.match(home, /aria-expanded="false"/);
+  assert.match(home, /Rename/);
+  assert.equal((home.match(/class="fd-teamname-chip/g) || []).length, 0, "no suggestions until opened");
+  /* opened by itself once, right after the draw, for a member who has not seen it */
+  const at = state.draws.volley.ts;
+  assert.equal(ui.teamNameAutoOpen(state, naming, me, { now:at + 1000, wasSeen:() => false }), true);
+  assert.equal(ui.teamNameAutoOpen(state, naming, me, { now:at + 1000, wasSeen:() => true }), false, "seen once");
+  assert.equal(ui.teamNameAutoOpen(state, naming, me, { now:at + ui.TEAMNAME_FRESH_MS + 1, wasSeen:() => false }), false,
+    "not long after the draw");
   const spectator = render(state, React.createElement(ui.TeamNamesHome, { state, me:outsider(state, "volley", 0),
     events:[ev] }));
-  assert.ok(!spectator.includes(naming.name), "only your own team");
+  assert.ok(!spectator.includes(asMarkup), "only your own team");
   /* a teammate names it: the card shows the new name, with their photo chip */
   const mate = state.draws.volley.teams[0].players[1];
   nameTeam(state, { ...ref(state, "volley", 0), name:"Sets Appeal" }, guest(mate));

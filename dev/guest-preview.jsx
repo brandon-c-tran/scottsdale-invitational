@@ -1,10 +1,10 @@
 /* Development-only rehearsal of the guest surfaces that live outside Home
    and Bets: the player card (front and season back), the profile sheet
-   with jersey and win song, the awards ballot, a team MVP vote, Where and
+   with jersey and win song, the awards ballot, Where and
    When on the phone, poker Table view, photos, and every check-in step.
    Sample state is built in memory with the real reducers (qaAdvance and
    the actions); nothing connects to the tournament.
-   ?surface=card|back|profile|awards|awards-results|mvp|geo|geo-reveal|table|photos|checkin&step=-1..5&section=card|jersey|travel|walkout */
+   ?surface=card|back|profile|awards|awards-results|geo|geo-reveal|table|photos|checkin&step=-1..5&section=card|jersey|travel|walkout */
 import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { EMPTY_STATE, ROSTER, CHIP_COLORS, CHIP_SKINS, BUILTIN_EVENTS, computeStandings, allEventsOf } from "../shared/core.js";
@@ -17,7 +17,6 @@ import { ProfileSheet } from "../src/App.jsx";
 import { Shell } from "../src/ui/Shell.jsx";
 import { AwardsBallot, AwardsResults } from "../src/features/awards/AwardsHome.jsx";
 import { awardResults } from "../shared/prompts.js";
-import { MvpHome } from "../src/features/mvp/MvpHome.jsx";
 import { GeoPlaySheet, GeoHome } from "../src/features/geo/GeoPlay.jsx";
 import { TableView } from "../src/features/poker/TableView.jsx";
 import { PhotoDesk } from "../src/features/photos/PhotoDesk.jsx";
@@ -73,14 +72,6 @@ function awardsState(revealed) {
   state.prompts = projectPrompts(state.prompts, { player:me });
   return state;
 }
-function mvpState() {
-  const state = dress(structuredClone(EMPTY_STATE));
-  state.live = true;
-  const team = [me, ROSTER[1], ROSTER[2]];
-  state.results.volley = { ts:1, slots:[team, [ROSTER[3], ROSTER[4], ROSTER[5]]] };
-  state.mvp = { volley:{ id:"mvp-1", team, openedAt:Date.now(), closesAt:Date.now() + 42000, voted:1, mine:null } };
-  return state;
-}
 const ROUNDS = [
   { id:"gaaaaaa1", photo:{ id:"gphoto01", w:1600, h:1200 }, lat:37.8199, lng:-122.4783, place:"Golden Gate Bridge",
     when:"2019-07-04T21", caption:"Fourth of July" },
@@ -118,7 +109,6 @@ function Preview() {
   const [state, setState] = useState(() => {
     if (surface === "awards") return awardsState(false);
     if (surface === "awards-results") return awardsState(true);
-    if (surface === "mvp") return mvpState();
     if (surface === "geo" || surface === "geo-reveal") return geoState(surface === "geo-reveal").state;
     if (surface === "table") return tableState();
     if (surface === "photos") return photoState();
@@ -162,7 +152,6 @@ function Preview() {
         initialSection={query.get("section") || "card"} spotifyCatalogEnabled songSnippets />}
       {surface === "awards" && <AwardsBallot state={state} me={me} onVote={noop} initiallyOpen />}
       {surface === "awards-results" && <AwardsResults state={state} rows={awardResults(state)} onPlayer={() => {}} now={0} />}
-      {surface === "mvp" && <MvpHome state={state} me={me} events={events} onVote={noop} />}
       {(surface === "geo" || surface === "geo-reveal") && <>
         <GeoHome state={state} me={me} onOpen={() => {}} />
         <GeoPlaySheet state={state} me={me} onGuess={noop} />

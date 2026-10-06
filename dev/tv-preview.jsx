@@ -74,8 +74,8 @@ const SAMPLE_COVER = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(
 function MomentOverlay() {
   const at = Date.now() - T;
   const player = Object.keys(state.profiles || {})[0];
-  if (momentKind === "walkout") return <TVWalkout state={state} moment={{ id:"w1", player, mvp:params.get("mvp") === "1",
-    mvpEvent:"Volleyball", anchor:at, elapsed:T, track:{ name:"Mr. Brightside", artists:"The Killers",
+  if (momentKind === "walkout") return <TVWalkout state={state} moment={{ id:"w1", player,
+    anchor:at, elapsed:T, track:{ name:"Mr. Brightside", artists:"The Killers",
       imageUrl:params.get("art") === "0" ? null : SAMPLE_COVER } }} />;
   if (momentKind === "bust") return <TVPokerMoments state={state} moments={{ bust:{ id:"b1", player, placeText:"Out in 11th",
     anchor:at, elapsed:T } }} />;
@@ -97,7 +97,7 @@ function MomentOverlay() {
     const view = championView(crowned, events, final);
     /* the frame at rest sits where TV mode puts it, under the masthead */
     return view ? <div style={{ position:"absolute", left:0, right:0, top:96, bottom:0, zIndex:5 }}>
-      <ChampionMoment state={crowned} view={view} standings={final} moment={{ id:"c1", anchor:at }} /></div> : null;
+      <ChampionMoment state={crowned} events={events} view={view} standings={final} moment={{ id:"c1", anchor:at }} /></div> : null;
   }
   return null;
 }

@@ -101,8 +101,8 @@ test("strict team participation handles 12, 13, and 14 active-roster scenarios e
   const active14 = [...ROSTER, "Guest14"];
 
   assert.equal(validateEventParticipants(eightBall, active12, active12).ok, true);
-  assert.match(validateEventParticipants(eightBall, active13, active13).error, /exactly 12/i);
-  assert.match(validateEventParticipants(eightBall, active14, active14).error, /exactly 12/i);
+  assert.match(validateEventParticipants(eightBall, active13, active13).error, /exactly 12|even teams/i);
+  assert.match(validateEventParticipants(eightBall, active14, active14).error, /exactly 12|even teams/i);
 
   const chosen12of14 = validateEventParticipants(eightBall, active14.slice(0, 12), active14);
   assert.equal(chosen12of14.ok, true);
@@ -151,7 +151,7 @@ test("server rejects oversized draws and persists exact teams plus overflow role
     players:ROSTER,
   }, gm);
   assert.equal(rejected.ok, false);
-  assert.match(rejected.error, /exactly 12/i);
+  assert.match(rejected.error, /exactly 12|even teams/i);
   assert.equal(rejectedState.draws["8ball"], undefined);
 
   const state = structuredClone(EMPTY_STATE);
@@ -189,7 +189,7 @@ test("shared draw helper produces exact-sized groups", () => {
 
 test("every shipped strict team format yields exact QA participants and group sizes", () => {
   const strict = BUILTIN_EVENTS.filter(candidate => candidate.teamCfg && candidate.participation.type === "strict-teams");
-  assert.deepEqual(strict.map(event => event.id), ["die", "pickleball", "bball1", "volley", "8ball", "pong", "trivia"]);
+  assert.deepEqual(strict.map(event => event.id), ["die", "pickleball", "bball1", "volley", "8ball", "pong"]);
   for (const event of strict) {
     const expected = event.teamCfg.teams * event.teamCfg.size;
     const players = defaultQaParticipants(event, ROSTER);
@@ -255,7 +255,7 @@ test("shared lifecycle drives one guarded GM action from setup through completio
     evId:"putt",
     slots:correctedSlots,
     confirmOverwrite:true,
-  }, gm).error, /reason required/i);
+  }, gm).error, /Add a reason/i);
   const corrected = applyAction(state, "saveResult", {
     evId:"putt",
     slots:correctedSlots,
@@ -324,7 +324,7 @@ test("each current bracket matchup must lock and start before its winner is reco
   const before = structuredClone(bracket);
   assert.match(applyAction(state, "pickBracketWinner", {
     evId:"8ball", r:bracket.rounds.length - 1, m:0, teamIdx:resolveSlot(bracket, final.b),
-  }, gm).error, /current contest controls/i);
+  }, gm).error, /Record it from the pill/i);
   assert.deepEqual(bracket, before);
 });
 
@@ -374,7 +374,7 @@ test("wager ledger is retry-safe, aggregates intentional chips, retracts one chi
 
   const reused = applyAction(state, "placeWager", { wager:wager("Brandon", 100) }, bettor("place-1"));
   assert.equal(reused.ok, false);
-  assert.match(reused.error, /request id already used/i);
+  assert.match(reused.error, /already did something else/i);
 
   const aggregated = applyAction(state, "placeWager", { wager:wager("Khoa", 100) }, bettor("place-2"));
   assert.equal(aggregated.ok, true);

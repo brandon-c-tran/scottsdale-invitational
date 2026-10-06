@@ -327,6 +327,8 @@ test("posted chips move only with a reason, never on a frozen board, and never t
   act(duel, "sendDuel", { to:ROSTER[1], stake:300 }, guest(ROSTER[0]));
   const d = duel.duels[0];
   act(duel, "acceptDuel", { id:d.id }, guest(ROSTER[1]));
+  act(duel, "duelReady", { id:d.id }, guest(ROSTER[1]));
+  act(duel, "duelReady", { id:d.id }, guest(ROSTER[0]));
   act(duel, "playDuel", { id:d.id, ms:200 }, guest(ROSTER[0]));
   act(duel, "playDuel", { id:d.id, ms:300 }, guest(ROSTER[1]));
   fail(duel, "voidDuel", { id:d.id }, gm(), /Reason required/);
@@ -344,9 +346,9 @@ test("a retried ruling applies once, and a ruling comes off only with a reason",
   assert.equal(retry.extra.unchanged, true);
   assert.equal(s.adjustments.length, 1);
   assert.equal(pts(s)[ROSTER[2]], 1300);
-  fail(s, "adjust", { player:ROSTER[2], delta:200, reason:"Other" }, ctx, /Request id already used/);
+  fail(s, "adjust", { player:ROSTER[2], delta:200, reason:"Other" }, ctx, /already did something else/);
   const id = s.adjustments[0].id;
-  fail(s, "removeAdjustment", { id }, gm(), /Reason required/);
+  fail(s, "removeAdjustment", { id }, gm(), /Add a reason/);
   act(s, "removeAdjustment", { id, reason:"Wrong player" });
   assert.equal(pts(s)[ROSTER[2]], 1000);
   assert.equal(s.adjustments[0].removeReason, "Wrong player");
@@ -439,7 +441,7 @@ test("balanced draws made in the same millisecond never share an id", () => {
 const root = fileURLToPath(new URL("../", import.meta.url));
 const blocked = names => names.map(name => `export const ${name}=()=>{throw new Error("No transport in economy tests");};`).join("\n");
 const compiled = await build({
-  stdin:{ contents:'export { ResultSheet } from "./src/App.jsx"; export { PlayerIdentityProvider } from "./src/features/identity/PlayerIdentityContext.js";',
+  stdin:{ contents:'export { ResultEntry as ResultSheet } from "./src/features/results/ResultEntry.jsx"; export { PlayerIdentityProvider } from "./src/features/identity/PlayerIdentityContext.js";',
     resolveDir:root, loader:"jsx" },
   bundle:true, platform:"node", format:"cjs", external:["react"], loader:{ ".css":"empty" }, write:false, logLevel:"silent",
   plugins:[{ name:"isolated-result", setup(builder) {
@@ -458,14 +460,17 @@ componentModule._compile(compiled.outputFiles[0].text, componentModule.filename)
 const { ResultSheet, PlayerIdentityProvider } = componentModule.exports;
 
 /* clicks run inside the sheet's own render (on the control element it
-   creates), so the next render pass is the sheet's reaction to them */
+   creates: a podium place, a field tile or an action, by its accessible
+   name or its text), so the next render pass is the sheet's reaction to
+   them. A disabled control waits for the pass that enables it. */
 const sheet = (state, ev, clicks = []) => {
   const saved = [], createElement = React.createElement;
   const text = node => Array.isArray(node) ? node.map(text).join("")
     : React.isValidElement(node) ? text(node.props.children) : typeof node === "string" || typeof node === "number" ? String(node) : "";
   let next = 0, html;
   React.createElement = (type, props, ...children) => {
-    if (type !== "button" && next < clicks.length && text(children) === clicks[next] && props?.onClick) { next++; props.onClick(); }
+    if (typeof type === "function" && next < clicks.length && props?.onClick && !props.disabled
+      && (props.name === clicks[next] || text(children) === clicks[next])) { next++; props.onClick(); }
     return createElement(type, props, ...children);
   };
   try {
@@ -476,55 +481,31 @@ const sheet = (state, ev, clicks = []) => {
 };
 
 test("two teams, one game: the result is picking the winner, and the other team is 2nd when 2nd pays", () => {
-  /* The team choices are plain buttons. A click lands during the sheet's
-     render; the next click waits for the render pass that reacts to it (the
-     clicked control is drawn again). */
-  const clickAll = (s, id, clicks) => {
-    const saved = [], createElement = React.createElement;
-    const text = node => Array.isArray(node) ? node.map(text).join("")
-      : React.isValidElement(node) ? text(node.props.children) : typeof node === "string" || typeof node === "number" ? String(node) : "";
-    let next = 0, html, lastSeen = 0;
-    React.createElement = (type, props, ...children) => {
-      const label = text(children);
-      if (next > 0 && label.includes(clicks[next - 1]) && props?.onClick) lastSeen++;
-      const ready = next === 0 || lastSeen >= 2;
-      if (ready && next < clicks.length && props?.onClick && label.includes(clicks[next])) {
-        next++; lastSeen = 1; props.onClick();
-      }
-      return createElement(type, props, ...children);
-    };
-    try {
-      html = renderToStaticMarkup(createElement(PlayerIdentityProvider, { profiles:s.profiles },
-        createElement(ResultSheet, { state:s, ev:event(s, id), onClose:() => {},
-          save:slots => { saved.push(structuredClone(slots)); return { ok:true }; } })));
-    } finally { React.createElement = createElement; }
-    return { html, saved };
-  };
-
   /* Flip Cup (legacy, 6 v 6 at 1,600) pays the other team 2nd */
   const s = withFlip();
   drawn(s, "flip");
   const teams = s.draws.flip.teams;
   assert.equal(teams.length, 2);
-  const open = clickAll(s, "flip", []);
-  assert.match(open.html, />Winner</);
-  assert.doesNotMatch(open.html, /Runner-up|2nd place|Pick by player/, "no places to fill");
-  const posted = clickAll(s, "flip", [teamLabel(s, teams[1]), "Post official result"]);
+  const open = sheet(s, event(s, "flip"));
+  /* no places to aim at and no teams/players switch: the field is the two teams */
+  assert.doesNotMatch(open.html, /aria-label="2nd place"|Players</, "no places to fill");
+  assert.match(open.html, /aria-label="1st place, 1,600"/);
+  const posted = sheet(s, event(s, "flip"), [teamLabel(s, teams[1]), "Post official result"]);
   assert.deepEqual(posted.saved, [[[...teams[1].players], [...teams[0].players], []]]);
-  assert.match(posted.html, /\+1,600 each to the winners, \+800 each to the other team, \+400 each to the crew\./);
+  /* the podium reads the payout: the winners on 1st, the other team on 2nd */
+  assert.match(posted.html, /aria-label="2nd place, 800"/);
 
   /* 5v5 pays winners only: the other team takes no place */
   const full = fresh();
   drawn(full, "bball5");
   const sides = full.draws.bball5.teams;
   assert.equal(sides.length, 2);
-  const fullOpen = clickAll(full, "bball5", []);
-  assert.match(fullOpen.html, />Winner</);
-  assert.doesNotMatch(fullOpen.html, /Runner-up|2nd place|Pick by player/, "no places to fill");
-  const fullPosted = clickAll(full, "bball5", [teamLabel(full, sides[1]), "Post official result"]);
+  const fullOpen = sheet(full, event(full, "bball5"));
+  assert.doesNotMatch(fullOpen.html, /aria-label="2nd place|Players</, "no places to fill");
+  const fullPosted = sheet(full, event(full, "bball5"), [teamLabel(full, sides[1]), "Post official result"]);
   assert.deepEqual(fullPosted.saved, [[[...sides[1].players], [], []]]);
-  assert.match(fullPosted.html, /\+800 each to the winners\./);
-  assert.doesNotMatch(fullPosted.html, /to the other team|to the crew/);
+  assert.match(fullPosted.html, /aria-label="1st place, 800"/);
+  assert.doesNotMatch(fullPosted.html, /2nd place|Crew, /);
 });
 
 test("the result sheet prefills both semifinal losers in 3rd and a stage runner-up, and asks before leaving a paid place empty", () => {
@@ -533,11 +514,16 @@ test("the result sheet prefills both semifinal losers in 3rd and a stage runner-
   drawn(pb, "pickleball");
   while (current(pb, "pickleball")) { lock(pb, "pickleball"); win(pb, "pickleball", current(pb, "pickleball").sides[0].key); }
   const pbView = sheet(pb, event(pb, "pickleball"), ["Post official result"]);
-  assert.match(pbView.html, /Runners-up.*\+400 each, 2 in/s);
-  assert.match(pbView.html, /3rd place.*\+200 each, 4 in/s);
-  assert.match(pbView.html, /Event crew \+200 each/);
+  /* 1st is the bracket's, fixed; 2nd and 3rd are places to aim at */
+  assert.match(pbView.html, /aria-label="1st place, 800"/);
+  assert.doesNotMatch(pbView.html, /aria-label="1st place"/);
+  assert.match(pbView.html, /aria-label="2nd place"[^]*?400/);
+  assert.match(pbView.html, /aria-label="3rd place"[^]*?200/);
+  /* the crew stand on their own step, paid the 3rd-place award */
+  assert.match(pbView.html, /aria-label="Crew, 200 each"/);
   assert.equal(pbView.saved.length, 1, "every paid place is filled, so it posts");
-  assert.equal(pbView.saved[0][2].length, 4);
+  assert.equal(pbView.saved[0][1].length, 2, "the runner-up pair");
+  assert.equal(pbView.saved[0][2].length, 4, "both semifinal losers");
 
   /* Beerio Kart pays 1,600 / 800 / 400 */
   const pp = heats("beerio");

@@ -1,12 +1,14 @@
 import React, { useEffect, useRef } from "react";
-import { disp } from "../../../shared/core.js";
+import { disp, stageEntrantView } from "../../../shared/core.js";
 import { Avatar, ChipFace } from "../identity/PlayerIdentity.jsx";
 import { usePlayerIdentity } from "../identity/PlayerIdentityContext.js";
+import { floodPlate } from "../identity/chipInk.js";
 import { Icon } from "../../ui/Icon.jsx";
+import { GameMark } from "../../ui/GameMark.jsx";
 import { LampChase } from "../../ui/ScoreReel.jsx";
 import { WALKOUT_TIMING as W, useWalkoutMoment } from "../moments/walkout.js";
 import { teamColorPlayer, teamRows } from "../moments/walkoutTeam.js";
-import { podiumBeatAt, latestResultOf, readableInk } from "./tvModel.js";
+import { podiumBeatAt, latestResultOf } from "./tvModel.js";
 import { playCues, walkoutCues } from "./roomSound.js";
 import { Takeover } from "./TVTakeover.jsx";
 
@@ -16,7 +18,7 @@ export const WALKOUT_ORIGIN = Object.freeze({ x:470, y:540 });
 const FLOOD_R = 2400;
 /* the text column right of the cover, in canvas pixels */
 const TEXT_W = 900;
-/* one line in the column: the marquee cut at 900 runs about 0.52em a
+/* one line in the column: the name's solid 900 runs under 0.52em a
    letter, Big Shoulders' song line about 0.47em */
 export const walkoutNameSize = name => Math.max(96, Math.min(220, Math.floor(TEXT_W / (Math.max(4, String(name || "").length) * 0.52))));
 export const walkoutSongSize = title => Math.max(64, Math.min(124, Math.floor(TEXT_W / (Math.max(6, String(title || "").length) * 0.47))));
@@ -84,6 +86,53 @@ export function podiumHoldUntil(state, events, player, startedAt) {
   return posted + podiumBeatAt(Math.max(0, places - 1)) + 600;
 }
 
+/* What the song is for: the newest win on the board, when the singer is on
+   it (a posted result is the event's 1st; a recorded contest is its round,
+   "Semifinal 1"; a result outranks the bracket final recorded with it). A
+   win song starts with its win's write, so the newest decision is its win;
+   the clock is not compared (a QA jump stamps ahead). { ev, tag } or null.
+   Pure. */
+const SAME_WRITE_MS = 2000;
+function contestPlayers(state, evId, entry) {
+  if (entry.kind === "match") {
+    const team = state?.draws?.[evId]?.teams?.[entry.winner];
+    return entry.drawId && state?.draws?.[evId]?.id !== entry.drawId ? [] : team?.players || [];
+  }
+  const st = state?.stages?.[evId];
+  if (!st || entry.winner === null || entry.winner === undefined) return [];
+  if (st.entrantType === "team") return state?.draws?.[evId]?.teams?.[entry.winner]?.players || [];
+  try { return stageEntrantView(state, { ...st, eventId:evId }, entry.winner)?.players || []; } catch { return []; }
+}
+export function walkoutWin(state, events = [], moment) {
+  if (!moment?.player) return null;
+  const wins = [];
+  for (const ev of events) {
+    const res = state?.results?.[ev.id];
+    const posted = Number(res?.confirmedAt || res?.ts);
+    if (posted && !res.stacks && res.slots?.[0]?.length) wins.push({ ev, tag:"1st", at:posted, result:true, players:res.slots[0] });
+    const op = state?.eventOps?.[ev.id];
+    const stack = Array.isArray(op?.contestStack) ? op.contestStack : op?.lastContest ? [op.lastContest] : [];
+    for (const entry of stack) {
+      const at = Number(entry?.decidedAt);
+      if (at) wins.push({ ev, tag:entry.short || "Win", at, result:false, entry });
+    }
+  }
+  if (!wins.length) return null;
+  const newest = Math.max(...wins.map(win => win.at));
+  /* the write that made the newest decision: its result first */
+  const latest = wins.filter(win => newest - win.at <= SAME_WRITE_MS).sort((a, b) => b.result - a.result || b.at - a.at)[0];
+  const players = latest.result ? latest.players : contestPlayers(state, latest.ev.id, latest.entry);
+  return players.includes(moment.player) ? { ev:latest.ev, tag:latest.tag } : null;
+}
+function WonStamp({ win, mark = 72 }) {
+  if (!win) return null;
+  return <div className="tv-walkout-stamp tv-walkout-won" aria-hidden="true">
+    <b className="fd-show">{win.tag}</b>
+    <GameMark id={win.ev.game} variant={win.ev.variant} size={mark} />
+    <span>{win.ev.name}</span>
+  </div>;
+}
+
 /* The walkout the TV plays now (TVMode lists it as a takeover), and its
    stinger and stamp on the room's clock, once. */
 export function useTvWalkout(state, events) {
@@ -101,14 +150,15 @@ export function useTvWalkout(state, events) {
 
 /* The Walkout on the TV: full canvas, about nine seconds, then it docks
    into the Now playing strip (top right) that carries the rest of the clip. */
-export function TVWalkout({ state, moment }) {
+export function TVWalkout({ state, moment, events = [] }) {
   if (!moment) return null;
-  return <WalkoutStage state={state} moment={moment} />;
+  return <WalkoutStage state={state} moment={moment} events={events} />;
 }
 
-function WalkoutStage({ state, moment }) {
-  if (moment.team && !moment.mvp) return <TeamWalkout state={state} moment={moment} />;
-  return <SoloWalkout state={state} moment={moment} />;
+function WalkoutStage({ state, moment, events }) {
+  const win = walkoutWin(state, events, moment);
+  if (moment.team) return <TeamWalkout state={state} moment={moment} win={win} />;
+  return <SoloWalkout state={state} moment={moment} win={win} />;
 }
 
 /* the cover the walkout record carries, else the saved song's */
@@ -117,16 +167,18 @@ function coverOf(state, moment) {
   return moment.track?.imageUrl || (moment.track && saved?.name === moment.track.name ? saved.imageUrl : null) || null;
 }
 
-function SoloWalkout({ state, moment }) {
+function SoloWalkout({ state, moment, win = null }) {
   const identity = usePlayerIdentity(moment.player);
-  const color = identity.color;
-  const ink = readableInk(color);
+  /* the glass lit in their color (floodPlate), its ink read from that */
+  const plate = floodPlate(identity.color);
+  const color = plate.color;
+  const ink = plate.dark ? "var(--ink0)" : "var(--bone)";
   const name = disp(state, moment.player);
   const art = coverOf(state, moment);
   const size = walkoutNameSize(name);
   return (
-    <Takeover kind="walkout" className={`tv-walkout${moment.mvp ? " is-mvp" : ""}${ink === "var(--ink0)" ? " is-ink-dark" : ""}`}
-      label={`${moment.mvp ? "MVP" : "Win song"}: ${name}${moment.track ? `, ${moment.track.name}` : ""}`}
+    <Takeover kind="walkout" className={`tv-walkout${ink === "var(--ink0)" ? " is-ink-dark" : ""}`}
+      label={`Win song: ${name}${moment.track ? `, ${moment.track.name}` : ""}`}
       style={{ "--tl":`${-Math.round(moment.elapsed)}ms`, "--walk-color":color, "--walk-ink":ink,
         "--walk-x":`${WALKOUT_ORIGIN.x}px`, "--walk-y":`${WALKOUT_ORIGIN.y}px`, "--walk-r":`${FLOOD_R}px` }}>
       <div className="tv-walkout-dock">
@@ -148,9 +200,8 @@ function SoloWalkout({ state, moment }) {
           )}
         </div>
         <div className="tv-walkout-text">
-          <div className="fd-show is-marquee tv-walkout-name" style={{ fontSize:size }} aria-hidden="true">{name}</div>
-          {moment.mvp && <div className="tv-walkout-mvp" aria-hidden="true">
-            <b className="fd-show">MVP</b><span>{moment.mvpEvent || "Team MVP"}</span></div>}
+          <div className="fd-show tv-walkout-name" style={{ fontSize:size }} aria-hidden="true">{name}</div>
+          <WonStamp win={win} />
           {moment.track && <div className="tv-walkout-track" aria-hidden="true">
             <b data-fit="ellipsis" style={{ fontSize:walkoutSongSize(moment.track.name) }}>{moment.track.name}</b>
             {moment.track.artists && <span data-fit="ellipsis">{moment.track.artists}</span>}
@@ -163,11 +214,12 @@ function SoloWalkout({ state, moment }) {
 
 /* A pair's or a team's win: the team in its color (its first member's, as
    at the draw), the singer marked by the song's cover on their chip */
-function TeamWalkout({ state, moment }) {
+function TeamWalkout({ state, moment, win = null }) {
   const team = moment.team;
   const identity = usePlayerIdentity(teamColorPlayer(team));
-  const color = identity.color;
-  const ink = readableInk(color);
+  const plate = floodPlate(identity.color);
+  const color = plate.color;
+  const ink = plate.dark ? "var(--ink0)" : "var(--bone)";
   const art = coverOf(state, moment);
   const layout = walkoutTeamLayout(team);
   let next = 0;
@@ -184,7 +236,7 @@ function TeamWalkout({ state, moment }) {
         </div>
         <LampChase color={color} className="tv-walkout-chase" />
         <div className="tv-walkout-team" aria-hidden="true">
-          <div className="fd-show is-marquee tv-walkout-teamname" style={{ fontSize:layout.name.size }}>
+          <div className="fd-show tv-walkout-teamname" style={{ fontSize:layout.name.size }}>
             {layout.name.lines.map(line => <span key={line}>{line}</span>)}
           </div>
           <div className="tv-walkout-squad">
@@ -205,13 +257,16 @@ function TeamWalkout({ state, moment }) {
               })}
             </div>)}
           </div>
-          {moment.track && <div className="tv-walkout-credit">
-            {art ? <img src={art} alt="" width={112} height={112} />
-              : <span className="tv-walkout-credit-disc"><Icon name="song" size={56} lit /></span>}
-            <span className="tv-walkout-credit-text">
-              <b data-fit="ellipsis">{moment.track.name}</b>
-              {moment.track.artists && <span data-fit="ellipsis">{moment.track.artists}</span>}
-            </span>
+          {(moment.track || win) && <div className="tv-walkout-credit">
+            <WonStamp win={win} mark={64} />
+            {moment.track && <span className="tv-walkout-credit-song">
+              {art ? <img src={art} alt="" width={112} height={112} />
+                : <span className="tv-walkout-credit-disc"><Icon name="song" size={56} lit /></span>}
+              <span className="tv-walkout-credit-text">
+                <b data-fit="ellipsis">{moment.track.name}</b>
+                {moment.track.artists && <span data-fit="ellipsis">{moment.track.artists}</span>}
+              </span>
+            </span>}
           </div>}
         </div>
       </div>

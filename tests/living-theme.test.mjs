@@ -220,15 +220,17 @@ test("the header's dead phase table is gone", () => {
 /* ── P3 ── */
 const render = element => renderToStaticMarkup(React.createElement(ui.PlayerIdentityProvider, { profiles:{} }, element));
 
-test("Events says Draw pending and Setup only on the next event", () => {
+test("Events labels only the next event: guests read their words, the commissioner the lifecycle's", () => {
   const state = structuredClone(EMPTY_STATE);
   const events = allEventsOf(state);
-  const html = render(React.createElement(ui.Schedule, { state, events, gm:false, open() {}, onReorder() {} }));
-  const count = label => (html.match(new RegExp(`>${label}<`, "g")) || []).length;
-  assert.ok(count("Draw pending") + count("Setup") <= 1, "at most the next event carries a preparation label");
   const next = resolveWeekendOperation(state, events).event;
-  const status = next.teamCfg ? "Draw pending" : "Setup";
-  assert.ok(html.includes(`${next.name}. ${status}.`), "the next event keeps its label");
+  const view = gm => render(React.createElement(ui.Schedule, { state, events, gm, open() {}, onReorder() {} }));
+  const count = (html, label) => (html.match(new RegExp(`>${label}<`, "g")) || []).length;
+  const guest = view(false), commissioner = view(true);
+  assert.equal(count(guest, "Draw pending") + count(guest, "Setup"), 0, "no preparation step reaches a guest");
+  assert.ok(count(guest, "Teams soon") + count(guest, "Next") <= 1, "at most the next event carries a label");
+  assert.ok(guest.includes(`${next.name}. ${next.teamCfg ? "Teams soon" : "Next"}.`), "the next event keeps its guest word");
+  assert.ok(commissioner.includes(`${next.name}. ${next.teamCfg ? "Draw pending" : "Setup"}.`), "the commissioner keeps the lifecycle's");
 });
 
 test("the Standings sheet names itself once, in its header", () => {

@@ -18,7 +18,7 @@
 .fd-events-lamp { display:grid; place-items:center; width:14px; flex-shrink:0; }
 .fd-events-mark { display:grid; place-items:center; width:38px; height:38px; flex-shrink:0; }
 .fd-events-body { display:flex; flex:1; flex-direction:column; gap:6px; min-width:0; }
-.fd-events-body > strong { font-size:23px; line-height:1.15; overflow-wrap:break-word; }
+.fd-events-body > strong { font-size:24px; line-height:1.15; overflow-wrap:break-word; }
 .fd-events-part { display:flex; flex-wrap:wrap; align-items:center; gap:6px 10px; min-width:0; }
 .fd-events-status { color:var(--ink); font:800 14px/1.2 var(--fd-display); letter-spacing:.06em; text-transform:uppercase; }
 .fd-events-you { display:inline-flex; align-items:center; gap:7px; }
@@ -51,7 +51,7 @@
 .fd-events-session.is-shelved .fd-events-row { opacity:.7; }
 @media (max-width:359px) {
   .fd-events-open { gap:8px; }
-  .fd-events-body > strong { font-size:21px; }
+  .fd-events-body > strong { font-size:22px; }
 }
 @media (prefers-reduced-motion:reduce) { .fd-events-open { transition:none; } }
 .fd-events-row:has(.fd-weekend-reorder) .fd-events-open { flex:1 1 0; }

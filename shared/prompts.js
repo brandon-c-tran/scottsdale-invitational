@@ -9,9 +9,9 @@
 
    HONORS ARE STANDALONE. Nothing in this module (or its reducers in
    worker/prompts.js) reads or writes chips, wagers, markets, results,
-   rulings or standings, and nothing in the economy reads it. The one read
-   of the weekend is a counted award (`source:"mvps"`, "Most MVPs"): its
-   totals are each player's standing team MVPs at close, not votes.
+   rulings or standings, and nothing in the economy reads it. A question
+   stored with a `source` (the counted "Most MVPs" award, cut with team MVP
+   on Oct 4) takes no votes and counts nothing.
 
    Stored at state.prompts = { ballots:[...], responses:{ [ballotId]:{
    [player]:{ answers:{ [questionId]:player }, at } } } }. The per-viewer
@@ -20,11 +20,9 @@
    the turnout count, and a question's totals appear only once the TV has
    revealed it. */
 
-import { ROSTER, isActivePlayer, allEventsOf, eventInPlay, mvpAwards, pokerLive } from "./core.js";
+import { ROSTER, isActivePlayer, allEventsOf, eventInPlay, pokerLive, rosterOf } from "./core.js";
 
 const PROMPT_KINDS = Object.freeze(["awards"]);
-/* awards the weekend counts instead of the room voting */
-const PROMPT_SOURCES = Object.freeze(["mvps"]);
 const PROMPT_TITLE_MAX = 40;
 const PROMPT_QUESTIONS_MIN = 1;
 const PROMPT_QUESTIONS_MAX = 6;
@@ -70,9 +68,8 @@ function cleanBallotDraft(input, existing = null) {
     if (!plainObject(question)) return { ok:false, error:"Add an award" };
     const title = cleanTitle(question.title);
     if (!title) return { ok:false, error:`Name award ${index + 1}` };
-    const source = PROMPT_SOURCES.includes(question.source) ? question.source : null;
     let nominees = null;
-    if (!source && question.nominees !== null && question.nominees !== undefined) {
+    if (question.nominees !== null && question.nominees !== undefined) {
       if (!Array.isArray(question.nominees)) return { ok:false, error:"Pick the nominees" };
       const picked = [...new Set(question.nominees)];
       if (picked.some(player => !isActivePlayer(player))) return { ok:false, error:"Pick the nominees" };
@@ -84,21 +81,21 @@ function cleanBallotDraft(input, existing = null) {
       ? question.id : null;
     const id = given || newId("q");
     seen.add(id);
-    out.push(source ? { id, title, nominees:null, allowSelf:false, source }
-      : { id, title, nominees, allowSelf:question.allowSelf === true });
+    out.push({ id, title, nominees, allowSelf:question.allowSelf === true });
   }
   return { ok:true, kind, questions:out };
 }
 
-/* who can be voted for; everyone means the whole roster */
-const nomineesOf = question => Array.isArray(question?.nominees) && question.nominees.length
-  ? question.nominees.filter(isActivePlayer) : [...ROSTER];
+/* who can be voted for; everyone means the weekend's whole roster (pass
+   it: Not coming leaves the ballot too) */
+const nomineesOf = (question, roster = ROSTER) => Array.isArray(question?.nominees) && question.nominees.length
+  ? question.nominees.filter(player => roster.includes(player)) : [...roster];
 
 /* Whether `voter` may pick `choice` on this question. */
-function voteError(question, voter, choice) {
+function voteError(question, voter, choice, roster = ROSTER) {
   if (!question) return "No such award";
-  if (question.source) return "This award is counted, not voted";
-  if (!nomineesOf(question).includes(choice)) return "Pick a nominee";
+  if (question.source) return "This award takes no votes";
+  if (!nomineesOf(question, roster).includes(choice)) return "Pick a nominee";
   if (choice === voter && !question.allowSelf) return "Vote for someone else";
   return null;
 }
@@ -122,21 +119,17 @@ function turnoutOf(ballot, responses) {
 
 /* Close counts every answer into the ballot (stored as ballot.tally):
    totals per nominee, and how many people voted. Answers that are no longer
-   valid are left out. A counted award takes its totals from `state`. */
+   valid are left out. */
 function tallyBallot(ballot, responses, state = null) {
   const answers = answersOf(responses, ballot?.id);
+  const roster = rosterOf(state);
   const questions = {};
   for (const question of ballot?.questions || []) {
     const counts = {};
     let votes = 0;
-    if (question.source === "mvps") {
-      for (const { player } of mvpAwards(state)) if (isActivePlayer(player)) { counts[player] = (counts[player] || 0) + 1; votes += 1; }
-      questions[question.id] = { counts, votes };
-      continue;
-    }
     for (const [voter, record] of Object.entries(answers)) {
       const choice = record?.answers?.[question.id];
-      if (!isActivePlayer(voter) || !choice || voteError(question, voter, choice)) continue;
+      if (!roster.includes(voter) || !choice || voteError(question, voter, choice, roster)) continue;
       counts[choice] = (counts[choice] || 0) + 1;
       votes += 1;
     }
@@ -157,7 +150,7 @@ function revealedCount(ballot) {
    Drafts are the commissioner's. Everyone else sees published ballots, the
    turnout, their own answers while voting runs, and a question's totals only
    after the TV has shown it. Voters never appear anywhere. */
-function projectBallot(ballot, responses, { isGm = false, player = null } = {}) {
+function projectBallot(ballot, responses, { isGm = false, player = null, roster = ROSTER } = {}) {
   if (!ballot || (ballot.status === "draft" && !isGm)) return null;
   const shown = revealedCount(ballot);
   const open = ballot.status === "open";
@@ -165,7 +158,7 @@ function projectBallot(ballot, responses, { isGm = false, player = null } = {}) 
   ballot.questions.slice(0, shown).forEach(question => {
     const row = ballot.tally?.questions?.[question.id] || { counts:{}, votes:0 };
     results[question.id] = { counts:{ ...row.counts }, votes:Number(row.votes) || 0,
-      winners:winnersOf(row.counts, nomineesOf(question)) };
+      winners:winnersOf(row.counts, nomineesOf(question, roster)) };
   });
   const mine = player ? answersOf(responses, ballot.id)[player]?.answers : null;
   return {
@@ -180,7 +173,7 @@ function projectBallot(ballot, responses, { isGm = false, player = null } = {}) 
       nominees:question.nominees ? [...question.nominees] : null, allowSelf:!!question.allowSelf,
       ...(question.source ? { source:question.source } : {}) })),
     voted:open ? turnoutOf(ballot, responses) : Number(ballot.tally?.turnout) || 0,
-    of:ROSTER.length,
+    of:roster.length,
     ...(player && plainObject(mine) ? { mine:{ ...mine } } : {}),
     reveal:ballot.reveal ? { shown, at:Number(ballot.reveal.at) || 0, done:!!ballot.reveal.done,
       doneAt:Number(ballot.reveal.doneAt) || null } : null,
@@ -224,7 +217,7 @@ function awardOnTv(state, events = allEventsOf(state)) {
   const question = ballot.questions[index];
   if (!question) return null;
   const row = ballot.results?.[question.id] || ballot.tally?.questions?.[question.id] || { counts:{}, votes:0 };
-  const nominees = nomineesOf(question);
+  const nominees = nomineesOf(question, rosterOf(state));
   return {
     ballotId:ballot.id,
     index,
@@ -244,14 +237,15 @@ function awardOnTv(state, events = allEventsOf(state)) {
    onTvSince is the reveal's server time for the award the TV is turning
    right now (null otherwise): a phone holds its winner until the TV stamps. */
 function awardResults(state) {
+  const roster = rosterOf(state);
   return ballotsOf(state).filter(ballot => ballot.reveal && revealedCount(ballot) > 0)
     .sort((a, b) => (Number(b.reveal.at) || 0) - (Number(a.reveal.at) || 0))
     .flatMap(ballot => ballot.questions.slice(0, revealedCount(ballot)).map((question, index) => {
       const row = ballot.results?.[question.id] || ballot.tally?.questions?.[question.id] || { counts:{}, votes:0 };
       const onTv = !ballot.reveal.done && index === revealedCount(ballot) - 1;
       return { ballotId:ballot.id, questionId:question.id, title:question.title, index,
-        count:ballot.questions.length, nominees:nomineesOf(question), counts:{ ...(row.counts || {}) },
-        votes:Number(row.votes) || 0, winners:row.winners || winnersOf(row.counts, nomineesOf(question)),
+        count:ballot.questions.length, nominees:nomineesOf(question, roster), counts:{ ...(row.counts || {}) },
+        votes:Number(row.votes) || 0, winners:row.winners || winnersOf(row.counts, nomineesOf(question, roster)),
         doneAt:Number(ballot.reveal.doneAt) || null, onTvSince:onTv ? Number(ballot.reveal.at) || null : null };
     }));
 }
@@ -271,7 +265,6 @@ function ballotStatusLine(ballot) {
 
 export {
   PROMPT_KINDS,
-  PROMPT_SOURCES,
   PROMPT_TITLE_MAX,
   PROMPT_QUESTIONS_MIN,
   PROMPT_QUESTIONS_MAX,

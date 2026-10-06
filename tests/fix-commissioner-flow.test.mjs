@@ -19,7 +19,7 @@ import { applyAction } from "../worker/actions.js";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 const compiled = buildSync({
-  stdin:{ contents:`export { DirectorPill } from "./src/features/director/DirectorPill.jsx";
+  stdin:{ contents:`export { DirectorPill, UNDO_WINDOW_MS } from "./src/features/director/DirectorPill.jsx";
     export { directorPill } from "./src/features/director/directorPill.js";
     export { PokerSetupSheet, CrownSheet } from "./src/features/director/FinaleSheets.jsx";
     export { ContestPanel } from "./src/features/weekend/ContestPanel.jsx";
@@ -32,7 +32,7 @@ const componentModule = new Module(fileURLToPath(new URL("fix-commissioner-flow.
 componentModule.filename = componentModule.id;
 componentModule.paths = Module._nodeModulePaths(root);
 componentModule._compile(compiled.outputFiles[0].text, componentModule.filename);
-const { DirectorPill, directorPill, PokerSetupSheet, CrownSheet, ContestPanel, CompetitionBracket, DuelDesk,
+const { DirectorPill, UNDO_WINDOW_MS, directorPill, PokerSetupSheet, CrownSheet, ContestPanel, CompetitionBracket, DuelDesk,
   PlayerIdentityProvider } = componentModule.exports;
 
 let serial = 0;
@@ -162,7 +162,7 @@ test("C19: a bracket final's recorded winner posts the result in the same write,
   assert.ok(third.every(award => award.pts === 200), "Split 3rd: 400 over two teams");
   assert.equal(state.showControl.active.kind, "winner");
 
-  /* the 5-second Undo takes the result back and reopens the final */
+  /* the 10-second Undo takes the result back and reopens the final */
   const undo = postedFinalUndo(state, ev);
   assert.equal(undo.enabled, true);
   act(state, "undoLastContest", { evId:ev.id, contestId:undo.contestId, contestRevision:undo.contestRevision });
@@ -335,6 +335,33 @@ test("C20: a match in progress puts both sides on the pill; faces open cards; Un
     winner:side.key, qualifiers:[side.key] } }]);
 });
 
+test("C22: an empty market's Lock and start waits quiet but tappable; the bets ride as a drawn count; two lines at most", async () => {
+  const state = fresh(["pickleball"]); state.live = true;
+  act(state, "announceAndDraw", { evId:"pickleball" });
+  const contest = current(state, "pickleball");
+  const { model, props } = pill(state);
+  assert.equal(model.label, "Lock and start");
+  assert.equal(model.bets, 0);
+  assert.ok(model.openedAt > 0, "the wait runs from betting opening");
+  assert.ok(model.lines.length <= 2 && !model.lines.some(line => /bets? in/.test(line)), "the count is drawn, not a line");
+  const quiet = render(DirectorPill, props);
+  assert.match(quiet.html, /fd-director-pill[^"]*is-quiet/);
+  assert.equal(quiet.named(mainPill).disabled, false, "quiet is never locked out");
+  assert.match(quiet.html, /aria-label="No bets in"/);
+  assert.doesNotMatch(quiet.html, /<\/svg>0<\/span>/, "no bets is an unlit chip, never a 0");
+  assert.match(quiet.html, /fd-director-auto is-bets/, "the wait drains in the chips lamp");
+  /* past the wait, or once a bet lands, it lights */
+  const late = render(DirectorPill, { ...props, model:{ ...model, openedAt:model.openedAt - 31000 } });
+  assert.doesNotMatch(late.html, /is-quiet/);
+  const bettor = ROSTER.find(player => !contest.players.includes(player));
+  act(state, "placeWager", { wager:{ eventId:"pickleball", evName:"Pickleball", stake:100, ...refs(contest), kind:"match",
+    match:contest.match, teamIdx:contest.sides[0].key, drawId:contest.drawId, pickTeam:true, pickPlayers:contest.sides[0].players } },
+    { player:bettor, deviceId:`d-${bettor}`, actionId:`w-${++serial}` });
+  const backed = pill(state);
+  assert.equal(backed.model.bets, 1);
+  assert.doesNotMatch(render(DirectorPill, backed.props).html, /is-quiet/);
+});
+
 test("C21: the first weekend write goes through the one App confirm, never a second pill confirm", async () => {
   const state = fresh(["putt"]), writes = [], confirms = [];
   const { model, props } = pill(state, { writes, confirms });
@@ -388,7 +415,7 @@ test("C27: one confirmed crown write names the champions and refuses a board tha
   const leaders = computeStandings(state).filter(row => row.rank === 1).map(row => row.player);
   assert.equal(leaders.length, 2, "Co-champions");
   assert.equal(director(state).nextAction.label, "Crown");
-  refuse(state, "crownChampion", { champions:[leaders[0]] }, /Standings changed/);
+  refuse(state, "crownChampion", { champions:[leaders[0]] }, /leader changed/);
   refuse(state, "crownChampion", { champions:leaders }, /Commissioner only/, { player:"Evan", deviceId:"x", actionId:"y" });
   const crowned = act(state, "crownChampion", { champions:[...leaders].reverse() });
   assert.deepEqual(crowned.extra.champions, leaders);
@@ -491,4 +518,25 @@ test("tap count: the finale from table to crown takes at most 6 taps", async () 
   assert.equal(labels[0], "Deal and start");
   assert.equal(state.frozen, true);
   assert.ok(stageFinalists, "core helpers stay importable");
+});
+
+test("winner entry: two equal filled targets apart from the card faces, and a 10 s Undo", async () => {
+  assert.equal(UNDO_WINDOW_MS, 10000);
+  const pairs = fresh(["pickleball"]); pairs.live = true;
+  act(pairs, "announceAndDraw", { evId:"pickleball" });
+  act(pairs, "lockAndStart", { evId:"pickleball", ...refs(current(pairs, "pickleball")) });
+  const { model, props } = pill(pairs, {});
+  const html = render(DirectorPill, props).html;
+  assert.match(html, /class="fd-director-sides"/);
+  assert.equal((html.match(/class="fd-director-pick"/g) || []).length, 2, "one filled winner button a side");
+  for (const side of model.sides) {
+    const at = html.indexOf(`aria-label="Winner: ${side.name.replace(/&/g, "&amp;")}"`);
+    assert.ok(at > 0, side.name);
+    const button = html.slice(at, html.indexOf("</button>", at));
+    assert.doesNotMatch(button, /player card/, "a face is its own target, never inside the winner button");
+    assert.match(button, /fd-director-pick-verb"><svg/, "a cup on the button, not a premature Won");
+    assert.doesNotMatch(button, />Won</);
+  }
+  assert.ok(model.sides.every(side => side.run.recordedPlayers.length === side.players.length), "the stamp carries the faces");
+
 });

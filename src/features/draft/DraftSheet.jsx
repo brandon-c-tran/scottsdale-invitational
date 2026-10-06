@@ -202,10 +202,17 @@ export function DraftSheet({ ev, state, gm, me, standings = [], pool, roles = []
         <small>{index === 0 ? "Now" : `Pick ${pickIndex + 1}`}</small><span>{disp(state,draft.teams[team].captain)}</span>
       </li>)}
     </ol>}
-    {last && <div className="fd-draft-latest" key={`${draft.id}:${draft.picks.length}:${last.player}`}>
-      <span className="fd-draft-pick-stamp">{String(draft.picks.length).padStart(2,"0")}</span>
+    {/* the last pick, drawn: its number, the face picked, and the team it
+        joined (the captain's chip in their color) */}
+    {last && <div className="fd-draft-latest" key={`${draft.id}:${draft.picks.length}:${last.player}`}
+      style={identityStyle(state, draft.teams[last.team].captain)}>
+      <span className="fd-draft-pick-stamp"><small>Pick</small><b>{draft.picks.length}</b></span>
       <PlayerLink state={state} player={last.player} onPlayer={onPlayer} disabled={!!pending}/>
-      <span><Icon name="then" size="1em" /> {disp(state,draft.teams[last.team].captain)}</span>
+      <span className="fd-draft-latest-to" aria-hidden="true"><Icon name="next" size={18} /></span>
+      <span className="fd-draft-latest-team">
+        <BankChip p={draft.teams[last.team].captain} size={30}/>
+        <span>{draft.teams[last.team].players.includes(me) ? "Your team" : `${disp(state,draft.teams[last.team].captain)}'s team`}</span>
+      </span>
     </div>}
     {blocked && <p className="fd-draft-error" role="status">Draft paused.</p>}
     {error && <p className="fd-draft-error" role="alert">{error}</p>}

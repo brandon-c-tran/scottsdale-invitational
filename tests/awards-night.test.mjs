@@ -398,7 +398,8 @@ test("the ballot card votes through photo chips, never for yourself, and takes a
   const frame = publicState(state, { player:"Ben" });
   const collapsed = render(React.createElement(ui.AwardsBallot, { state:frame, me:"Ben" }), frame.profiles);
   assert.match(collapsed.html, /Awards ballot/);
-  assert.match(collapsed.html, /2 of 3 picked/);
+  assert.match(collapsed.html, /class="fd-awards-owed">(Fraud of the weekend|Most clutch|Best host)</,
+    "the entry leads with the award still owed a vote, by name");
   assert.doesNotMatch(collapsed.html, /Vote for/, "closed until opened: it never interrupts");
   const calls = [];
   const onVote = payload => { calls.push(payload); return applyAction(state, "promptRespond", payload, guest("Ben")); };
@@ -473,7 +474,7 @@ test("the TV reveal and the commissioner's desk render the real components", () 
   assert.doesNotMatch(deskAfter.html, /Sahil &amp; Khoa/, "the award on the TV waits for its stamp, even here");
   const results = render(React.createElement(ui.AwardsResults, { state:tieFrame, rows:awardResults(tieFrame).reverse() }),
     tieFrame.profiles);
-  assert.match(results.html, /2 of 3 revealed/);
+  assert.match(results.html, /<strong>Awards<\/strong><small>2 of 3<\/small>/, "the awards lead, the count follows");
   assert.match(results.html, /View Evan&#x27;s player card/);
 });
 

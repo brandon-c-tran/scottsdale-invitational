@@ -113,7 +113,7 @@ test("Home exposes every leaderboard row without a disclosure before and during 
       `View ${row.player}'s player card, ${row.pts.toLocaleString("en-US")} ${live ? "chips" : "starting chips"}`));
     assert.doesNotMatch(view.html, /<details|<summary|\shidden(?:=|>)|Adjust chips for|fd-now-card|fd-leader-panel/);
     assert.match(view.html, /aria-label="Leaderboard"/);
-    assert.match(view.html, /class="is-you"/);
+    assert.match(view.html, /class="is-you[" ]/);
     if (live) {
       assert.equal(rows[0].name, `View ${other}'s player card, 1,400 chips`);
       assert.match(view.html, /aria-label="Position 1"/);
@@ -180,8 +180,9 @@ test("home only shows a current balance and chip-placement action after the week
   assert.ok(!capped.buttons.some(button => ["Place chips", "Back yourself"].includes(button.name)));
   capped.click("View bets");
   assert.deepEqual(routes, ["standings", "bets", "bets"]);
-  capped.click("500 in bets");
-  assert.deepEqual(routes, ["standings", "bets", "bets", "bets"]);
+  /* exposure is said once, on the contest card, never again in the board's heading */
+  assert.match(capped.html, /Your bet <strong>500<\/strong>/);
+  assert.ok(!capped.buttons.some(button => /in bets/.test(button.name)));
 });
 
 test("home partner and opponent cards remain separate from the current event action", () => {
@@ -193,7 +194,7 @@ test("home partner and opponent cards remain separate from the current event act
   state.brackets[event.id] = makeBracket(4);
   state.eventOps[event.id] = { bettingLockedAt:1, startedAt:2 };
   const view = controls(GuestHome, state, { events:[event] });
-  assert.match(view.html, /You’re playing/);
+  assert.match(view.html, /You’re up vs/);
   /* a semifinal keeps its number, in the flagged face (ui/OneSafe.jsx) */
   assert.match(view.html, /Semifinal <span class="fd-one">1<\/span>/, "a lone 1 in its flagged face");
   const assignedPlayers = [other, ...state.draws[event.id].teams[3].players];
@@ -364,10 +365,12 @@ test("public player cards show saved identity and public results without persona
   assert.ok(!view.buttons.some(button => button.name === "Edit your profile"));
   const own = controls(PlayerSheet, state, { p:me });
   assert.ok(own.buttons.some(button => button.name === "Edit your profile"));
-  assert.match(own.html, /PLAYER \/ (<span class="fd-one">)?\d/, "your own card keeps your number");
-  // Rule change: your own card hosts the open challenge (to anyone).
-  assert.ok(own.buttons.some(button => button.name === "Challenge anyone for 100"));
-  assert.ok(!own.buttons.some(button => button.name === `Challenge ${me} for 100`));
+  assert.match(own.html, /class="fd-pass-number">\d\d</, "your own card keeps your number");
+  // Rule change: your own card hosts the open challenge (to anyone): "Duel anyone" opens its rack.
+  assert.ok(own.buttons.some(button => button.name === "Duel anyone"));
+  assert.ok(!own.buttons.some(button => button.name === `Duel ${me}`));
+  const ownOpen = controls(PlayerSheet, state, { p:me, openDuel:true });
+  assert.ok(ownOpen.buttons.some(button => button.name === "Challenge anyone for 100"));
 });
 
 test("the board follows actual event progress rather than a prepared future bracket", () => {
@@ -383,8 +386,8 @@ test("the board follows actual event progress rather than a prepared future brac
   state.eventOps[future.id] = { bettingLockedAt:30 };
   state.eventOps[running.id] = { startedAt:10 };
   let view = controls(Board, state, { events:[future, running] });
-  assert.match(view.html, /aria-label="Current event: In progress"/);
-  assert.doesNotMatch(view.html, /aria-label="Future bracket: In progress"/);
+  assert.match(view.html, /aria-label="Current event: Playing"/);
+  assert.doesNotMatch(view.html, /aria-label="Future bracket: Playing"/);
   view.click("Open event");
   assert.deepEqual(view.opened, [running.id]);
 
@@ -400,7 +403,7 @@ test("the board follows actual event progress rather than a prepared future brac
     /aria-label="Current event: Awaiting result"/);
 
   const futureOnly = controls(Board, state, { events:[future] });
-  assert.doesNotMatch(futureOnly.html, /In progress|Awaiting result/);
+  assert.doesNotMatch(futureOnly.html, /In progress|Playing|Awaiting result/);
   assert.match(futureOnly.html, /Next event/);
 });
 
@@ -416,7 +419,7 @@ test("duels are unavailable before the weekend, while frozen, and throughout the
     const state = fresh(); mutate(state);
     const view = controls(PlayerSheet, state);
     assert.doesNotMatch(view.html, /Quick Draw challenge/);
-    assert.ok(!view.buttons.some(button => button.name.startsWith("Challenge ")));
+    assert.ok(!view.buttons.some(button => /^(Challenge|Duel) /.test(button.name)));
   }
   const signedOut = controls(PlayerSheet, fresh(), { me:null });
   assert.doesNotMatch(signedOut.html, /Quick Draw challenge/);
@@ -425,7 +428,7 @@ test("duels are unavailable before the weekend, while frozen, and throughout the
 test("a duel ante accounts for both balances, reserved antes, duplicate pairs, and the daily limit", () => {
   const poorer = fresh();
   poorer.adjustments = [{ player:other, delta:-700 }];
-  const limited = controls(PlayerSheet, poorer);
+  const limited = controls(PlayerSheet, poorer, { openDuel:true });
   assert.equal(limited.named("Ante 200 chips each").disabled, false);
   assert.equal(limited.named("Ante 500 chips each").disabled, true);
 
@@ -454,7 +457,7 @@ test("a challenge waits for acknowledgment, rejects duplicate taps, and only clo
   let acknowledge;
   const view = controls(PlayerSheet, fresh(), {
     onDuel:stake => { sent.push(stake); return new Promise(resolve => { acknowledge = resolve; }); },
-    onClose:() => closed.push(true),
+    onClose:() => closed.push(true), openDuel:true,
   });
   const challenge = `Challenge ${other} for 100`;
   view.click(challenge);
@@ -474,7 +477,7 @@ test("a challenge waits for acknowledgment, rejects duplicate taps, and only clo
 test("a rejected challenge promise leaves the card open and permits retry", async () => {
   let attempts = 0;
   const view = controls(PlayerSheet, fresh(), {
-    onDuel:() => { attempts++; return Promise.reject(new Error("Offline")); },
+    onDuel:() => { attempts++; return Promise.reject(new Error("Offline")); }, openDuel:true,
   });
   view.click(`Challenge ${other} for 100`);
   await new Promise(resolve => setImmediate(resolve));
@@ -516,7 +519,8 @@ test("profile keeps check-in chip choices and drafts, while a live editor shows 
   assert.match(live.html, /value="42"/);
   assert.match(live.html, /fd-profile-chip-locked/);
   assert.ok(!live.buttons.some(button => /Claim chip color|Release selected chip color|Chip pattern/.test(button.name)));
-  assert.match(live.html, /<details class="fd-profile-preview"><summary>/);
+  assert.match(live.html, /class="fd-pass-wrap/, "the live card stays on show while editing");
+  assert.doesNotMatch(live.html, /<details/, "never behind a disclosure");
   assert.deepEqual(state, original);
 });
 
@@ -549,7 +553,7 @@ test("an event row opens the event, draws its winners and your place as a pictur
   sessionArea.set("si-events-open", JSON.stringify({ fri:true }));
   const opened = [], view = controls(Schedule, state, { events:[putt, heat], open:event => opened.push(event.id) });
   sessionArea.clear();
-  view.click(`${putt.name}. Complete. Open event`);
+  view.click(`${putt.name}. Done. Open event`);
   assert.deepEqual(opened, [putt.id]);
   /* the row is one target: its winners are the result's picture, the sheet holds their cards */
   assert.ok(!view.buttons.some(button => button.name === `View ${other}'s player card`));
@@ -583,7 +587,7 @@ test("Events folds a finished session to one row and keeps the session in play a
   assert.deepEqual(JSON.parse(sessionArea.get("si-events-open")), { fri:true });
   const expanded = controls(Schedule, state, { events });
   assert.match(expanded.html, /aria-expanded="true"/);
-  for (const event of friday) expanded.named(`${event.name}. Complete. Open event`);
+  for (const event of friday) expanded.named(`${event.name}. Done. Open event`);
   assert.match(expanded.html, new RegExp(`aria-label="Won by ${ROSTER[0]}"`));
   expanded.named(`Friday Night, ${friday.length} played`).click();
   assert.deepEqual(JSON.parse(sessionArea.get("si-events-open")), { fri:false });
@@ -593,7 +597,7 @@ test("Events folds a finished session to one row and keeps the session in play a
   for (const event of events) state.results[event.id] ||= { ts:20, slots:[[other], [], []] };
   const finished = controls(Schedule, state, { events });
   assert.doesNotMatch(finished.html, /aria-expanded/);
-  for (const event of events) finished.named(`${event.name}. Complete. Open event`);
+  for (const event of events) finished.named(`${event.name}. Done. Open event`);
 });
 
 test("every game's sheet is drawn: each step and note as a picture with at most four words, no prose", () => {

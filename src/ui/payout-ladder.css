@@ -40,7 +40,9 @@
 /* the TV: the same podium at ten feet */
 .fd-ladder.is-podium.is-tv { gap:14px; max-width:calc(var(--ladder-cols) * 230px); }
 .fd-ladder.is-tv .fd-ladder-plinth { padding-top:16px; border-radius:14px 14px 0 0; }
-.fd-ladder.is-tv .fd-ladder-amount { font-size:48px; }
+.fd-ladder.is-tv .fd-ladder-amount { font-size:56px; }
+/* on the TV every paid amount is a chip value, lit amber beside its medallion */
+.fd-ladder:is(.is-tv, .is-ticker) .fd-ladder-step:not(.is-place-crew) .fd-ladder-amount { color:var(--sun); }
 .fd-ladder.is-tv .fd-ladder-who { font-size:28px; }
 .fd-ladder.is-tv .fd-ladder-stand .fd-stack { margin-bottom:-8px; }
 

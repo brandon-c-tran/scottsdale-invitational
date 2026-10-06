@@ -3,9 +3,8 @@
    and standings view is resolved from current authoritative state. */
 
 import { computeStandings, resolveWeekendOperation, resolveCurrentContest, suggestParticipants,
-  contestUndoAvailability, isAway, bracketMatchName } from "./core.js";
+  contestUndoAvailability, isAway, isAbsent, bracketMatchName, allEventsOf } from "./core.js";
 import { awardsRevealBlocker, revealBallot, revealedCount } from "./prompts.js";
-import { mvpOpen, mvpVoters } from "./mvp.js";
 import { geoBeat } from "./geo.js";
 import { triviaBeat } from "./trivia.js";
 
@@ -222,6 +221,31 @@ function resolveShowScene(state, events = []) {
   };
 }
 
+/* ── the autopilot's scene beats (shared/autopilot.js) ──
+   A winner scene plays itself: the podium holds long enough for the
+   names, faces and chips to land, then the standings re-sort, then the
+   scene completes and the TV settles back to the board. The commissioner
+   can hold the autopilot (state.autopilot.hold) to take these by hand. */
+const AUTO_WINNER_HOLD_MS = 9 * 1000;
+const AUTO_STANDINGS_HOLD_MS = 18 * 1000;
+const AUTO_SCENE_STEPS = Object.freeze({ winner:Object.freeze([AUTO_WINNER_HOLD_MS, AUTO_STANDINGS_HOLD_MS]) });
+const autopilotHeld = state => state?.autopilot?.hold === true;
+function sceneAutoBeat(state) {
+  const active = state?.showControl?.active;
+  const holds = AUTO_SCENE_STEPS[active?.kind];
+  if (!holds) return null;
+  const scene = resolveShowScene(state, allEventsOf(state));
+  if (!scene?.definition || scene.staleReason) return null;
+  const step = scene.stepIndex;
+  const since = step === 0 ? Number(active.startedAt) : Number(active.updatedAt || active.startedAt);
+  if (!Number.isFinite(since) || holds[step] === undefined) return null;
+  return { at:since + holds[step], from:since, type:"advanceShowScene", payload:{ id:active.id },
+    key:`auto:${active.id}:${step}` };
+}
+/* a scene step the autopilot will take, so the pill need not offer it */
+const sceneRunsItself = (state, scene) => !autopilotHeld(state) && !!AUTO_SCENE_STEPS[scene?.active?.kind]
+  && !scene.staleReason;
+
 /* ── the director ──
    One resolver decides the single next beat: advance the scene on the TV,
    clear a stale one, replay a ceremony a corrected result still owes, or
@@ -314,7 +338,7 @@ function lifecycleBeat(state, operation) {
   const beat = nextAction => ({ ...operation, scene:null, nextAction, secondary, extras });
   const subject = ev.name;
   /* a prepared draw that now names someone away is worth a look first */
-  const away = drawnPlayers(state, ev).filter(player => isAway(state, player));
+  const away = drawnPlayers(state, ev).filter(player => isAbsent(state, player));
   const swapIn = () => { if (away.length) extras.push({ type:"swap-in", label:"Swap in", eventId:ev.id }); };
   if (action.type === "open-betting") {
     swapIn();
@@ -391,7 +415,7 @@ function resolveDirector(state, events = [], { showControl = false, now = Date.n
         return only(scene, directorBeat("clear-scene", "End scene",
           { sceneId:scene.active.id, subject:scene.staleReason }));
       }
-      if (scene.stepIndex < scene.stepCount - 1)
+      if (scene.stepIndex < scene.stepCount - 1 && !sceneRunsItself(state, scene))
         return only(scene, directorBeat("advance-scene",
           ADVANCE_LABELS[scene.active.kind]?.[scene.stepKey] || "Continue",
           { sceneId:scene.active.id,
@@ -436,21 +460,7 @@ function resolveDirector(state, events = [], { showControl = false, now = Date.n
      nothing is being played or bet on; the reveal waits for a free room */
   const awards = awardsBeat(state, events);
   if (awards) return { ...operation, scene:null, extras:[], nextAction:awards.nextAction, secondary:awards.secondary };
-  /* An open team MVP vote closes by itself in a minute; its close rides
-     beside any beat (the finale's deal closes it too) */
-  const mvp = openMvpBeat(state, events);
-  if (mvp) return { ...base, extras:[...(base.extras || []), { type:"close-mvp", label:mvp.label, eventId:mvp.eventId }] };
   return base;
-}
-
-function openMvpBeat(state, events) {
-  const evId = Object.keys(state.mvp || {}).find(id => mvpOpen(state, id));
-  if (!evId) return null;
-  const record = state.mvp[evId];
-  const voters = mvpVoters(state, record).length;
-  const voted = record.votes ? Object.keys(record.votes).length : Number(record.voted || 0);
-  const name = events.find(item => item.id === evId)?.name || "Team MVP";
-  return directorBeat("close-mvp", "Close MVP vote", { eventId:evId, subject:`${voted} of ${voters} voted` });
 }
 
 function awardsBeat(state, events) {
@@ -491,4 +501,8 @@ export {
   resolveDirector,
   contestName,
   postedFinalUndo,
+  AUTO_WINNER_HOLD_MS,
+  AUTO_STANDINGS_HOLD_MS,
+  autopilotHeld,
+  sceneAutoBeat,
 };

@@ -2,7 +2,7 @@
    the commissioner's desk. Tokens only (src/ui/experience.css). */
 
 /* ── the map ── */
-.fd-geo-map { position:relative; width:100%; border-radius:12px; overflow:hidden; border:1px solid var(--line);
+.fd-geo-map { position:relative; width:100%; border-radius:14px; overflow:hidden; border:1px solid var(--line);
   background:var(--paper2); isolation:isolate; }
 /* stronger than the map library's own `.maplibregl-map { position:relative }` */
 .fd-geo-map > .fd-geo-map-box { position:absolute; inset:0; }
@@ -32,7 +32,7 @@
   background:var(--pin, var(--sun)); border:3px solid var(--ink0); box-shadow:var(--shadow-2); }
 .fd-geo-head b { font:800 12px/1 var(--fd-body); letter-spacing:.02em; color:var(--ink0); }
 /* a bone needle with a dark edge reads on any map */
-.fd-geo-stem { width:4px; height:16px; margin-top:-2px; border-radius:0 0 2px 2px; background:var(--bone);
+.fd-geo-stem { width:4px; height:16px; margin-top:-2px; border-radius:0 0 99px 99px; background:var(--bone);
   box-shadow:0 0 0 1.5px var(--ink0); }
 .fd-geo-marker::after { content:""; position:absolute; bottom:-3px; width:14px; height:5px; border-radius:50%;
   background:color-mix(in srgb, var(--ink0) 55%, transparent); }
@@ -153,11 +153,11 @@
   font:800 25px/1 var(--fd-display); color:var(--muted2); text-transform:uppercase; font-variant-numeric:tabular-nums;
   transform:rotateX(calc((var(--i) - var(--pos)) * -17deg)); transform-origin:center; backface-visibility:hidden; }
 .fd-wheel-item.is-live { color:var(--ink); }
-.fd-wheel.is-hour .fd-wheel-item, .fd-wheel.is-year .fd-wheel-item { font-size:23px; }
+.fd-wheel.is-hour .fd-wheel-item, .fd-wheel.is-year .fd-wheel-item { font-size:24px; }
 
 .fd-geo-game-foot { display:grid; gap:10px; padding:10px 14px calc(env(safe-area-inset-bottom) + 12px); border-top:1px solid var(--line);
   background:var(--chrome); }
-.fd-geo-steps { display:grid; grid-template-columns:repeat(3, 1fr); gap:4px; padding:4px; border:1px solid var(--line); border-radius:12px; background:var(--bg); }
+.fd-geo-steps { display:grid; grid-template-columns:repeat(3, 1fr); gap:4px; padding:4px; border:1px solid var(--line); border-radius:10px; background:var(--bg); }
 .fd-geo-steps button { min-height:44px; display:flex; align-items:center; justify-content:center; gap:5px; border:0; border-radius:8px;
   background:none; color:var(--muted2); font:600 14px/1 var(--fd-body); cursor:pointer; }
 .fd-geo-steps button[aria-pressed=true] { background:var(--info-tint); color:var(--lamp-info);
@@ -189,11 +189,15 @@
 .fd-geo-answer em { color:var(--muted2); font:500 13px/1.4 var(--fd-body); font-style:normal; }
 .fd-geo-score { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
 /* the score windows: black glass, the points counting up in bone */
-.fd-geo-score > div { display:grid; gap:3px; padding:10px 12px; border:1px solid var(--line); border-radius:12px; background:var(--bg);
+.fd-geo-score > div { display:grid; gap:3px; padding:10px 12px; border:1px solid var(--line); border-radius:10px; background:var(--bg);
   box-shadow:inset 0 2px 6px color-mix(in srgb, var(--ink0) 55%, transparent); }
 .fd-geo-score small { color:var(--muted2); font:800 13px/1.2 var(--fd-display); letter-spacing:.08em; text-transform:uppercase; }
 .fd-geo-score b { color:var(--ink); font:800 34px/1 var(--fd-display); font-variant-numeric:tabular-nums; display:flex; align-items:center; gap:1px; }
 .fd-geo-score b .fd-reel { font-size:.74em; }
+/* points are not chips: bone numerals with their unit, never an amber reel */
+.fd-geo-unit { margin-left:4px; font:800 13px/1 var(--fd-display); letter-spacing:.04em; color:var(--muted2); align-self:flex-end;
+  padding-bottom:.35em; }
+.fd-geo-rank .fd-geo-unit { padding-bottom:0; }
 .fd-geo-score > div > span { color:var(--muted2); font:500 13px/1.3 var(--fd-body); }
 .fd-geo-rank { margin:0; color:var(--muted2); font:600 14px/1.4 var(--fd-body); }
 .fd-geo-rank b { color:var(--ink); }

@@ -6,7 +6,7 @@ import { usePlayerIdentity } from "../identity/PlayerIdentityContext.js";
 import { resolvePlayerIdentity } from "../identity/playerIdentity.js";
 import { cardInk } from "../profile/PlayerPass.jsx";
 import { BracketPeek } from "../weekend/CompetitionBracket.jsx";
-import { TrophyCup, TrophyHero } from "../weekend/Trophy.jsx";
+import { TrophyCup } from "../weekend/Trophy.jsx";
 import { LastCardFace } from "./LastCard.jsx";
 import { chartModel } from "./lastCard.js";
 import { cardFileName, renderLastCardImage, shareCardImage, shareCardImages } from "./cardImage.js";
@@ -114,10 +114,6 @@ function Plate({ state, plate, ev, me, onPlayer, onBracket }) {
         {place.players.length > 1 && <span className="fd-kept-team">{place.team
           || place.players.map(p => disp(state, p)).join(" & ")}</span>}
       </li>)}
-      {plate.mvp && <li className="is-mvp">
-        <span className="fd-kept-place">MVP</span>
-        <span className="fd-kept-people"><PlayerChip state={state} p={plate.mvp} size={26} onPlayer={onPlayer} named /></span>
-      </li>}
     </ol> : <p className="fd-kept-blank">Not played</p>}
     {plate.bracket && ev && onBracket && <BracketPeek state={state} ev={ev} me={me} onOpen={onBracket} />}
   </li>;
@@ -229,7 +225,6 @@ export function Keepsake({ state, events, standings, me, gm = false, onPlayer, o
         size={champs.length > 1 ? 48 : 64} onPlayer={onPlayer} />)}</span>
       <span className="fd-kept-champ-name"><small>{champs.length > 1 ? "Tied for the championship" : "Champion"}</small>
         <b className="fd-glass-letter">{names(champs)}</b><strong>{fmt(champs[0].pts)}</strong></span>
-      <TrophyHero size={84} plate="" />
     </header>}
 
     <section className="fd-kept-section" aria-labelledby="fd-kept-cards">

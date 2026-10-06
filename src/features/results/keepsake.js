@@ -5,7 +5,7 @@
    after the crown restamps all of it and the page keeps working long after
    the weekend (nothing here reads a clock, a socket or a live contest). */
 
-import { EDITION, SESSIONS, START, allEventsOf, computeStandings, disp, mvpAwards, teamLabel } from "../../../shared/core.js";
+import { EDITION, SESSIONS, START, allEventsOf, computeStandings, disp, teamLabel } from "../../../shared/core.js";
 import { awardResults } from "../../../shared/prompts.js";
 import { chipHistory, lastCardModel } from "./lastCard.js";
 
@@ -50,8 +50,6 @@ export function keptPlates(state, events = allEventsOf(state)) {
       posted:!!places[0]?.players.length, places, crew,
       winners:places[0]?.place === 0 ? places[0].players : [],
       bracket:!!(state.brackets?.[ev.id] && state.draws?.[ev.id]?.teams),
-      /* the winning team's MVP, while that team is still the posted winner */
-      mvp:mvpAwards(state).find(item => item.eventId === ev.id)?.player || null,
     };
   });
 }

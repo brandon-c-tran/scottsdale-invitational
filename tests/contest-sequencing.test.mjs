@@ -81,7 +81,7 @@ test("bracket markets expose exactly one matchup; queued chips and host results 
   act(s,"placeWager",{wager:chip(s,id,c.sides[1])},guest(observer));
   fail(s,"placeWager",{wager:{...chip(s,id,c.sides[0]),match:[0,1]}},guest(observer),/current contest/);
   fail(s,"placeWager",{wager:{eventId:id,kind:"outright",stake:100,pick:observer,...refs(c)}},guest(observer),/current contest/);
-  fail(s,"placeWager",{wager:{...chip(s,id,c.sides[0]),contestId:undefined,contestRevision:undefined}},guest(observer),/Contest changed/);
+  fail(s,"placeWager",{wager:{...chip(s,id,c.sides[0]),contestId:undefined,contestRevision:undefined}},guest(observer),/already moved on/);
   const oldTicket=s.wagers[0], queued=chip(s,id,c.sides[1]);
   const start={evId:id,...refs(c)}, lockCtx=gm("lock-once");
   act(s,"lockAndStart",start,lockCtx);
@@ -93,13 +93,13 @@ test("bracket markets expose exactly one matchup; queued chips and host results 
   assert.equal(next.phase,"betting-open");
   assert.equal(next.revision,c.revision+1);
   assert.equal(s.onDeck,id);
-  fail(s,"placeWager",{wager:queued},guest(observer),/Contest changed/);
-  fail(s,"recordContestWinner",resultPayload,gm(),/Contest changed/);
+  fail(s,"placeWager",{wager:queued},guest(observer),/already moved on/);
+  fail(s,"recordContestWinner",resultPayload,gm(),/already moved on/);
   const after=structuredClone(s);
   assert.equal(act(s,"recordContestWinner",resultPayload,resultCtx).extra.unchanged,true);
   assert.equal(act(s,"lockAndStart",start,lockCtx).extra.unchanged,true);
   assert.deepEqual(s,after);
-  fail(s,"lockAndStart",start,gm(),/Contest changed/);
+  fail(s,"lockAndStart",start,gm(),/already moved on/);
   assert.equal(wagerMatchesContest(oldTicket,next),false);
   assert.equal(resolveWager(s,oldTicket,allEventsOf(s)).status,"lost");
 });
@@ -110,7 +110,7 @@ test("the whole bracket runs one contest at a time and final podium must agree",
     const c=current(s,id); seen.push(c.match);
     fail(s,"recordContestWinner",{evId:id,...refs(c),winner:c.sides[0].key},gm(),/Lock betting/);
     lock(s,id);
-    fail(s,"pickBracketWinner",{evId:id,r:c.match[0],m:c.match[1],teamIdx:c.sides[0].key},gm(),/current contest controls/);
+    fail(s,"pickBracketWinner",{evId:id,r:c.match[0],m:c.match[1],teamIdx:c.sides[0].key},gm(),/Record it from the pill/);
     win(s,id,c.sides[0].key);
   }
   assert.deepEqual(seen,[[0,0],[0,1],[1,0],[1,1],[2,0]]);
@@ -221,7 +221,7 @@ test("chip stacking/retraction is acknowledged and caps include open duel reserv
   assert.equal(s.wagers[0].stake,100);
   fail(s,"placeWager",payload,guest(player),/Max 500/);
   fail(s,"sendDuel",{to:ROSTER[2],stake:100},guest(player),/Max 500/);
-  fail(s,"retractWager",{id:placed.extra.wagerId},guest(player),/Contest changed/);
+  fail(s,"retractWager",{id:placed.extra.wagerId},guest(player),/already moved on/);
   act(s,"retractWager",{id:placed.extra.wagerId,...refs(c)},guest(player));
   assert.equal(s.wagers.length,0);
   act(s,"placeWager",payload,guest(player));
@@ -247,7 +247,7 @@ test("undo restores the prior contest locked at a fresh revision and keeps its w
   const after=structuredClone(s);
   assert.equal(act(s,"undoLastContest",undo,ctx).extra.unchanged,true);
   assert.deepEqual(s,after);
-  fail(s,"recordContestWinner",{evId:id,...refs(c),winner:c.sides[1].key},gm(),/Contest changed/);
+  fail(s,"recordContestWinner",{evId:id,...refs(c),winner:c.sides[1].key},gm(),/already moved on/);
   win(s,id,c.sides[1].key);
   assert.equal(resolveWager(s,ticket,allEventsOf(s)).status,"lost");
 });

@@ -55,6 +55,11 @@
   --you-tint:rgba(255,224,74,.1); --live-tint:rgba(255,63,164,.12); --info-tint:rgba(95,220,240,.1);
   /* a reverse-painted panel: lit from behind, bevelled at the glass edge */
   --glass-edge:inset 0 1px 0 rgba(255,255,255,.07),inset 0 -1px 0 rgba(0,0,0,.45);
+  /* a window cut in the glass (a reel, a line of text on the art): a dark
+     seat, a recess, and the lit lower lip of the bezel */
+  --window-bezel:inset 0 0 0 1px color-mix(in srgb, var(--ink0) 90%, transparent),inset 0 2px 6px color-mix(in srgb, var(--ink0) 70%, transparent),0 1px 0 var(--bone-line);
+  /* a lens seated in the glass (a game's medallion): a dark ring and a chrome bezel */
+  --lens-seat:0 0 0 2px color-mix(in srgb, var(--ink0) 85%, transparent),0 0 0 4px color-mix(in srgb, var(--bone) 30%, transparent),var(--shadow-1),inset 0 2px 0 color-mix(in srgb, var(--bone) 10%, transparent);
   /* liquid glass (DESIGN.md): a thick pane that bends light, for the hero
      objects only. A bright specular lip on top and a dark one under it; a
      cool and a warm fringe where the side edges split the light; the light
@@ -67,7 +72,7 @@
   --lg-fall:linear-gradient(180deg,rgba(244,236,216,.13),rgba(244,236,216,.035) 32%,transparent 60%);
   --lg-bands:linear-gradient(112deg,transparent 0 55%,rgba(244,236,216,.075) 55% 62%,transparent 62% 66%,rgba(244,236,216,.04) 66% 68.5%,transparent 68.5%);
   --lg-caustic:radial-gradient(90% 60% at 50% 112%,rgba(244,236,216,.11),transparent 70%);
-  --lg-sweep:linear-gradient(100deg,transparent 0 30%,rgba(255,255,255,.16) 46%,rgba(255,255,255,.04) 54%,transparent 70%);
+  --lg-sweep:linear-gradient(100deg,transparent 0 30%,rgba(244,236,216,.16) 46%,rgba(244,236,216,.04) 54%,transparent 70%);
   /* clay is a fill and a line (loss, danger); text in that family is clay-text */
   --pool:#5fb8d6; --olive:#9fc96a; --clay:#e8433a; --clay-text:#ff8a7a; --live2:#ff74bf; --green:#7be38f;
   --night:var(--paper); --night2:var(--paper2); --night-deep:var(--bg);
@@ -89,6 +94,8 @@
   --shadow-1:0 2px 10px rgba(2,3,10,.6);
   --shadow-2:0 8px 24px rgba(2,3,10,.7);
   --shadow-3:0 14px 40px rgba(2,3,10,.78);
+  /* the one shadow cast upward: a sticky footer over the scrolling sheet */
+  --shadow-up:0 -8px 18px -10px rgba(2,3,10,.78);
   --scrim:rgba(3,4,10,.7);
   --action-fill:var(--sun); --action-ink:var(--ink0);
   --chrome:rgba(9,11,20,.96); --chrome-line:var(--line);
@@ -172,6 +179,12 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
 .fd-header-you { display:flex; align-items:baseline; gap:7px; flex-shrink:0; min-height:44px; padding:7px 10px 6px; border:1px solid var(--you); border-radius:10px;
   background:var(--you-tint); box-shadow:var(--you-bloom); color:var(--you); cursor:pointer; }
 .fd-header-you .fd-reel { font:800 22px/1 var(--fd-display); }
+/* the commissioner's entry: the star lettered GM, lit cyan (navigation) */
+.fd-header-gm { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1px; flex-shrink:0; width:44px; height:44px;
+  padding:0; border:1px solid color-mix(in srgb, var(--lamp-info) 55%, transparent); border-radius:10px; background:var(--info-tint);
+  color:var(--lamp-info); box-shadow:var(--glass-edge); cursor:pointer; }
+.fd-header-gm > span { font:800 12px/1 var(--fd-display); letter-spacing:.08em; }
+.fd-header-gm:focus-visible { outline:2px solid var(--lamp-info); outline-offset:3px; }
 .fd-header-rank { font:800 16px/1 var(--fd-display); letter-spacing:.02em; text-transform:uppercase; }
 /* your reel takes the brand's place on a phone: the mark stays as the home
    button, the words step aside so nothing in the row ever touches */
@@ -249,18 +262,37 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
    caught along the top */
 .fd-sheet-overlay .si-sheet { position:relative; width:100%; max-width:560px; max-height:94dvh; overflow-y:auto; overscroll-behavior:contain; background:var(--paper); color:var(--ink); border:1px solid var(--ghost-line); border-bottom:0; border-radius:14px 14px 0 0; box-shadow:var(--glass-edge), var(--shadow-3); scrollbar-width:thin; }
 .fd-sheet-overlay .si-sheet.is-wide { max-width:900px; }
-.fd-sheet-header { position:sticky; top:0; z-index:5; display:flex; align-items:center; gap:8px; min-height:72px; padding:16px 12px 14px 18px; background:var(--paper); border-bottom:1px solid var(--line); box-shadow:var(--glass-edge); }
-.fd-sheet-heading { flex:1; min-width:0; color:var(--ink); font:800 24px/1.12 var(--fd-display); letter-spacing:.01em; text-transform:uppercase; overflow-wrap:anywhere; }
-/* a sheet that names an event or a person is lettered on the glass */
-.fd-sheet-heading.is-show { font:900 30px/1.12 var(--fd-show); letter-spacing:.01em; text-transform:none; }
+/* One header grammar for every sheet: Back first when there is one, the
+   title at the left, the sheet's navigation links (Replay draw, Rules) at
+   the right, Close always last. A sheet whose body letters its own hero
+   (an announcement) keeps the same row with the title slot empty. */
+.fd-sheet-header { position:sticky; top:0; z-index:5; display:flex; align-items:center; gap:8px; min-height:72px; padding:14px 12px 12px 18px; background:var(--paper); border-bottom:1px solid var(--line); box-shadow:var(--glass-edge); }
+.fd-sheet-heading { flex:1; min-width:0; color:var(--ink); font:800 24px/1.12 var(--fd-display); letter-spacing:.01em; text-transform:uppercase; overflow-wrap:anywhere; text-wrap:balance; }
+/* a sheet that names an event or a person is lettered on the glass; it
+   steps down a size when links share its row, so the name keeps one line */
+.fd-sheet-heading.is-show { font:900 30px/1.08 var(--fd-show); letter-spacing:.01em; text-transform:none; overflow-wrap:break-word; }
+.fd-sheet-header:has(> .fd-sheet-header-actions) > .fd-sheet-heading.is-show { font-size:26px; }
+.fd-sheet-header:has(> .fd-sheet-header-actions) > .fd-sheet-heading:not(.is-show) { font-size:21px; }
 /* a sheet whose body letters its own hero: the header is only its controls */
 .fd-sheet-header:has(> .fd-sheet-heading.is-bare) { min-height:52px; padding-top:6px; padding-bottom:0; border-bottom:0; box-shadow:none; }
 .fd-sheet-heading small { display:block; margin-top:4px; color:var(--muted2); font:400 13px/1.4 var(--fd-body); letter-spacing:0; text-transform:none; }
-.fd-sheet-header-actions { display:flex; align-items:center; gap:6px; }
-.fd-sheet-header-actions button { min-height:44px; padding:6px 8px; border:0; background:none; color:var(--lamp-info); font-size:13px; font-weight:600; cursor:pointer; }
+.fd-sheet-header-actions { display:flex; flex:0 0 auto; align-items:center; gap:2px; }
+.fd-sheet-header-actions button { min-height:44px; padding:6px 8px; border:0; background:none; color:var(--lamp-info); font:600 13px/1.2 var(--fd-body); white-space:nowrap; cursor:pointer; }
+.fd-sheet-header-actions button:disabled { opacity:.5; cursor:default; }
+.fd-sheet-header-actions button:focus-visible { outline:2px solid var(--lamp-info); outline-offset:2px; }
 .fd-sheet-body { padding:16px 16px calc(18px + env(safe-area-inset-bottom)); }
 .fd-sheet-body > :first-child { margin-top:0; }
 .fd-sheet-body > :last-child { margin-bottom:0; }
+/* the sheet's commit, held in thumb reach at the foot (Sheet footer): the
+   primary grows, a quiet alternative keeps its width, and a failure sits
+   on its own line right above the button that retries it */
+.fd-sheet-body:has(+ .fd-sheet-footer) { padding-bottom:16px; }
+.fd-sheet-footer { position:sticky; bottom:0; z-index:5; display:flex; flex-wrap:wrap; align-items:stretch; gap:8px 10px;
+  padding:12px 16px calc(12px + env(safe-area-inset-bottom)); background:var(--paper); border-top:1px solid var(--line);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.05), var(--shadow-up); }
+.fd-sheet-footer > * { flex:0 0 auto; margin:0; }
+.fd-sheet-footer > button:first-of-type { flex:1 1 auto; min-width:0; }
+.fd-sheet-footer > [role=alert] { flex:1 0 100%; color:var(--clay-text); font:600 13px/1.4 var(--fd-body); overflow-wrap:anywhere; }
 @media(min-width:700px) {
   .fd-sheet-overlay { align-items:center; padding:24px; }
   .fd-sheet-overlay .si-sheet { max-height:calc(100dvh - 48px); border-bottom:1px solid var(--line); border-radius:12px; }
@@ -283,3 +315,6 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
   .fd-brand strong { font-size:22px; }
 }
 @media(prefers-reduced-motion:reduce) { .fd-nav-icon { transition:none; } }
+
+/* read aloud, never drawn: a status the screen already shows as a picture */
+.fd-sr { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; margin:0; padding:0; }

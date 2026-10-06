@@ -202,12 +202,12 @@ function YourReveal({ me, view }) {
           <span>{whenLabel(answer.when)}</span>{answer.caption && <em>{answer.caption}</em>}</div>
         {score ? <div className="fd-geo-score">
           {/* each score lands on its reel as the camera opens, like an odometer from 0 */}
-          <div><small>Where</small><b aria-label={`+${fmt(score.where)}`}>+<ScoreReel value={score.where || 0} from={0} at={1700}
-            label="" /></b><span>{score.miles === null ? "No pin" : `${milesLabel(miles)} off`}</span></div>
-          <div><small>When</small><b aria-label={`+${fmt(score.when)}`}>+<ScoreReel value={score.when || 0} from={0} at={1900}
-            label="" /></b><span>{score.hours === null ? "No date" : offLabel(score.hours)}</span></div>
+          <div><small>Where</small><b aria-label={`+${fmt(score.where)} points`}>+<ScoreReel value={score.where || 0} from={0} at={1700}
+            label="" /><span className="fd-geo-unit">pts</span></b><span>{score.miles === null ? "No pin" : `${milesLabel(miles)} off`}</span></div>
+          <div><small>When</small><b aria-label={`+${fmt(score.when)} points`}>+<ScoreReel value={score.when || 0} from={0} at={1900}
+            label="" /><span className="fd-geo-unit">pts</span></b><span>{score.hours === null ? "No date" : offLabel(score.hours)}</span></div>
         </div> : <p className="fd-geo-note">No guess</p>}
-        {row && <p className="fd-geo-rank"><b>{fmt(row.total)}</b><span>{ordinal(row.rank)}</span></p>}
+        {row && <p className="fd-geo-rank"><b>{fmt(row.total)}<span className="fd-geo-unit">pts</span></b><span>{ordinal(row.rank)}</span></p>}
       </div>
     </footer>
   </>;

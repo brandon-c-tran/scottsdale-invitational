@@ -34,9 +34,9 @@
 .fd-invitation-seal { z-index:3; }
 /* the painting is the poster's field: sky to floor inside the lamp frame,
    the lettering on it */
-.fd-invitation-scene { margin:7px 7px 0; padding:16px 16px 52px; border-radius:12px 12px 0 0; }
+.fd-invitation-scene { margin:7px 7px 0; padding:16px 16px 52px; border-radius:10px 10px 0 0; }
 /* the lettering: the marquee cut on an ink keyline, lit from behind */
-.fd-invitation-wordmark { font:900 clamp(80px,10vw,120px)/.95 var(--fd-marquee); letter-spacing:.01em; color:var(--bone);
+.fd-invitation-wordmark { font:900 clamp(80px,10vw,120px)/.95 var(--fd-show); letter-spacing:.01em; color:var(--bone);
   text-shadow:3px 0 0 var(--ink0), -3px 0 0 var(--ink0), 0 3px 0 var(--ink0), 0 -3px 0 var(--ink0),
     2px 2px 0 var(--ink0), -2px 2px 0 var(--ink0), 2px -2px 0 var(--ink0), -2px -2px 0 var(--ink0),
     0 6px 0 var(--ink0), 0 0 28px color-mix(in srgb, var(--lamp-live) 70%, transparent); }
@@ -68,10 +68,10 @@
 .fd-guest-name { min-width:0; overflow-wrap:anywhere; }
 .fd-arrival-actions { position:sticky; bottom:0; background:var(--bg); padding:18px 0 max(18px, env(safe-area-inset-bottom)); margin-top:12px; z-index:2;
   box-shadow:0 -1px 0 var(--line); }
-.fd-continue { display:flex; justify-content:space-between; align-items:center; gap:12px; width:100%; border:1px solid var(--action-fill); border-radius:12px;
+.fd-continue { display:flex; justify-content:space-between; align-items:center; gap:12px; width:100%; border:1px solid var(--action-fill); border-radius:8px;
   background:var(--action-fill); color:var(--action-ink); padding:16px 19px; font-size:16px !important; font-weight:700 !important; cursor:pointer;
   min-height:56px; text-align:left; box-shadow:var(--chip-bloom); }
-.fd-continue > span:last-child { font-size:21px; line-height:1; }
+.fd-continue > span:last-child { font-size:22px; line-height:1; }
 .fd-continue:disabled { cursor:default; background:var(--paper2); border-color:var(--line); color:var(--muted2); box-shadow:var(--glass-edge); }
 .fd-arrival-links { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:8px; font-size:13px; color:var(--muted2); min-height:44px; }
 .fd-text-button { background:none; color:var(--lamp-info); border:0; padding:8px 0; min-height:44px; cursor:pointer; font-size:14px !important; font-weight:600 !important; }

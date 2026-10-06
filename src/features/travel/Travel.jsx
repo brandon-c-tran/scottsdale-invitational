@@ -1,6 +1,8 @@
 import React, { useState } from "react";
 import { Icon } from "../../ui/Icon.jsx";
-import { ROSTER, SIZES, AIRLINES, cleanLeg, legText, legTime } from "../../../shared/core.js";
+import { rosterOf, SIZES, AIRLINES, arrivalsOpen, hasArrived, cleanLeg, legText, legTime } from "../../../shared/core.js";
+import { landedAt } from "../arrivals/arrivalsModel.js";
+import { serverNow } from "../../lib/serverClock.js";
 import { jerseyConfirmed, jerseyName } from "../../../shared/guestSetup.js";
 import { DISPLAY, SANS, GOLD_GRAD, label } from "../../ui/theme.js";
 import { Btn } from "../../ui/controls.jsx";
@@ -342,7 +344,7 @@ function TravelFields({ booked, setBooked, flightIn, setFlightIn, flightOut, set
 function sheetText(state) {
   const head = ["Player", "Name", "No", "T-shirt / Jersey", "Jersey name", "Jersey confirmed", "Flights booked",
     "Chip", "Skin", "Lands Fri", "Leaves Sun", "Venmo", "Drinking", "Food or drink needs"];
-  const rows = ROSTER.map(p => {
+  const rows = rosterOf(state).map(p => {
     const pr = state.profiles?.[p] || {};
     /* the column already says which leg it is, so the cell is just the flight */
     const t = leg => {
@@ -440,21 +442,28 @@ function TravelApparelSheet({ state, onSize, onLock, onNotify }) {
       .catch(fallback);
   };
   const profs = state.profiles || {};
-  const checkedIn = ROSTER.filter(p => profs[p]).length;
-  const shirts = ROSTER.filter(p => profs[p]?.size).length;
-  const flights = ROSTER.filter(p => profs[p]?.flightsBooked === true
+  const roster = rosterOf(state);
+  const checkedIn = roster.filter(p => profs[p]).length;
+  const shirts = roster.filter(p => profs[p]?.size).length;
+  const flights = roster.filter(p => profs[p]?.flightsBooked === true
     || profs[p]?.flightIn || profs[p]?.flightOut).length;
-  const jerseys = ROSTER.filter(p => profs[p] && jerseyConfirmed(profs[p], p)).length;
+  const jerseys = roster.filter(p => profs[p] && jerseyConfirmed(profs[p], p)).length;
   const locked = !!state.jerseysLocked;
+  /* arrivals: while the door is open, who is in, so pickups know */
+  const door = arrivalsOpen(state);
+  const here = roster.filter(p => hasArrived(state, p)).length;
+  const now = serverNow();
+  const arrival = p => hasArrived(state, p) ? "here"
+    : (landedAt(profs[p]?.flightIn?.time) ?? Infinity) <= now ? "landed" : "road";
   const stat = { background:"var(--paper2)", border:"1px solid var(--line)", borderRadius:10,
     padding:"9px 4px", textAlign:"center" };
   return (
     <div>
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:6, marginBottom:12 }}>
-        {[["Checked in", checkedIn], ["Shirts", shirts], ["Jerseys", jerseys], ["Flights", flights]].map(([lb, value]) => (
+      <div style={{ display:"grid", gridTemplateColumns:`repeat(${door ? 5 : 4},1fr)`, gap:6, marginBottom:12 }}>
+        {[...(door ? [["Here", here]] : []), [door ? "Joined" : "Checked in", checkedIn], ["Shirts", shirts], ["Jerseys", jerseys], ["Flights", flights]].map(([lb, value]) => (
           <div key={lb} style={stat}>
             <div style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:23, color:"var(--ink)",
-              lineHeight:1 }}>{value}/{ROSTER.length}</div>
+              lineHeight:1 }}>{value}/{roster.length}</div>
             <div style={{ ...label, marginTop:4 }}>{lb}</div>
           </div>
         ))}
@@ -472,7 +481,7 @@ function TravelApparelSheet({ state, onSize, onLock, onNotify }) {
         {["Player", "No.", "Shirt"].map(x => <span key={x} style={{ ...label,
           textAlign:x === "Player" ? "left" : "center" }}>{x}</span>)}
       </div>
-      {ROSTER.map(p => {
+      {roster.map(p => {
         const pr = profs[p];
         const legs = [pr?.flightIn && `In: ${legText(pr.flightIn, "in")}`,
           pr?.flightOut && `Out: ${legText(pr.flightOut, "out")}`].filter(Boolean);
@@ -486,8 +495,9 @@ function TravelApparelSheet({ state, onSize, onLock, onNotify }) {
           <div key={p} style={{ padding:"10px 8px", borderBottom:"1px solid var(--line)" }}>
             <div style={{ display:"grid", gridTemplateColumns:"minmax(0,1fr) 58px 76px",
               gap:8, alignItems:"center" }}>
-              <span style={{ fontFamily:SANS, fontWeight:700, fontSize:14,
-                color:pr ? "var(--ink)" : "var(--muted)" }}>{p}</span>
+              <span style={{ display:"flex", alignItems:"center", gap:8, minWidth:0, fontFamily:SANS, fontWeight:700, fontSize:14,
+                color:pr ? "var(--ink)" : "var(--muted)" }}>
+                <span style={{ minWidth:0, overflowWrap:"anywhere" }}>{p}</span></span>
               <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:17, textAlign:"center",
                 color:pr?.num != null ? "var(--accent2)" : "var(--muted)" }}>
                 {pr?.num != null ? `#${pr.num}` : "·"}</span>
@@ -500,6 +510,11 @@ function TravelApparelSheet({ state, onSize, onLock, onNotify }) {
                 {SIZES.map(size => <option key={size} value={size}>{size}</option>)}
               </select>
             </div>
+            {door && <div style={{ ...label, display:"flex", alignItems:"center", gap:8, marginTop:6,
+              color:arrival(p) === "road" ? "var(--muted)" : "var(--lamp-info)" }}>
+              <i className={`fd-insert is-info${arrival(p) === "road" ? " is-done" : arrival(p) === "landed" ? " is-pending" : ""}`}
+                style={{ "--lamp":"var(--lamp-info)" }} aria-hidden="true" />
+              {{ here:"Here", landed:"Landed", road:"On the way" }[arrival(p)]}</div>}
             <div style={{ fontFamily:SANS, fontSize:12, lineHeight:1.45, marginTop:5,
               color:legs.length ? "var(--muted2)" : "var(--muted)" }}>{travelStatus}</div>
             {jerseyStatus && <div style={{ fontFamily:SANS, fontSize:12, lineHeight:1.45, marginTop:2,

@@ -1,40 +1,109 @@
-/* Before the draw (CrewCheck.jsx). Crew is the info lamp (a role), away is
-   an unlit seat struck through, playing is the plain face. */
-.fd-crew-brush { display:flex; align-items:center; gap:8px; margin:0 0 14px; }
-.fd-crew-brush-option { display:flex; align-items:center; gap:8px; min-height:44px; padding:0 14px 0 12px; border-radius:10px;
-  border:1px solid var(--line); background:var(--paper); color:var(--muted2); cursor:pointer; box-shadow:var(--glass-edge);
-  font:800 15px/1 var(--fd-show); letter-spacing:.04em; text-transform:uppercase; }
-.fd-crew-brush-option b { font:800 17px/1 var(--fd-show); color:var(--ink); font-variant-numeric:tabular-nums; }
-.fd-crew-brush-option.is-crew { --lamp:var(--lamp-info); }
-.fd-crew-brush-option.is-away { --lamp:var(--muted); }
-.fd-crew-brush-option.is-on { color:var(--ink); border-color:color-mix(in srgb, var(--lamp) 70%, transparent);
-  background:color-mix(in srgb, var(--lamp) 12%, var(--paper)); }
-.fd-crew-brush-option:disabled { cursor:default; opacity:.6; }
-.fd-crew-shape { margin-left:auto; font:800 15px/1.1 var(--fd-show); letter-spacing:.03em; text-transform:uppercase; color:var(--muted2);
-  text-align:right; }
+/* Before the draw (CrewCheck.jsx). Every face draws its own state: playing
+   is the plain face, crew the info lamp's ring with its role tag, sitting
+   out a dashed empty seat around a dimmed face, away an unlit face struck
+   through. A tap opens the face's choices in place, under its row. */
+.fd-crew-shape { margin:0 0 12px; font:800 17px/1.15 var(--fd-show); letter-spacing:.04em; text-transform:uppercase; color:var(--ink); }
 
 .fd-crew-grid { list-style:none; margin:0 0 12px; padding:0; display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:10px 6px; }
-.fd-crew-seat { display:flex; flex-direction:column; align-items:center; gap:4px; min-width:0; }
-.fd-crew-chip { display:flex; flex-direction:column; align-items:center; gap:5px; width:100%; min-height:44px; padding:4px 2px;
-  border:0; border-radius:10px; background:none; color:var(--ink); cursor:pointer; }
+.fd-crew-seat { display:flex; flex-direction:column; align-items:center; min-width:0; }
+.fd-crew-chip { display:flex; flex-direction:column; align-items:center; gap:5px; width:100%; min-height:44px; padding:4px 2px 6px;
+  border:1px solid transparent; border-radius:12px; background:none; color:var(--ink); cursor:pointer;
+  transition:background-color .16s, border-color .16s; }
 .fd-crew-chip:disabled { cursor:default; }
+.fd-crew-chip:not(:disabled):active { background:var(--ink-tint); }
+/* the open face: lifted onto the same glass as its choices */
+.fd-crew-seat.is-open .fd-crew-chip { border-color:var(--bone-line); background:var(--paper2); }
 .fd-crew-face { position:relative; display:block; border-radius:50%; line-height:0; transition:filter .18s, opacity .18s, box-shadow .18s; }
 /* a long name takes a second line, never an ellipsis */
 .fd-crew-name { max-width:100%; min-height:2.3em; font:700 13px/1.15 var(--fd-body); color:var(--ink); text-align:center;
   text-wrap:balance; overflow-wrap:anywhere; }
+.fd-crew-tag { display:inline-flex; align-items:center; min-height:24px; margin-top:-2px; padding:0 6px; border-radius:6px; white-space:nowrap;
+  font:800 13px/1 var(--fd-show); letter-spacing:.03em; text-transform:uppercase; }
+.fd-crew-tag.is-crew { border:1px solid color-mix(in srgb, var(--lamp-info) 55%, transparent);
+  background:color-mix(in srgb, var(--lamp-info) 12%, var(--paper)); color:var(--lamp-info); }
+.fd-crew-tag.is-out { border:1px dashed var(--ghost-line); color:var(--muted2); }
+/* auto crew: the rotation mark ahead of the role, the tag's edge dashed */
+.fd-crew-tag.is-auto { gap:3px; padding-left:4px; border-style:dashed; }
+.fd-crew-tag.is-auto svg { flex:0 0 auto; }
+
 .fd-crew-seat.is-crew .fd-crew-face { box-shadow:0 0 0 2px var(--lamp-info), 0 0 14px color-mix(in srgb, var(--lamp-info) 45%, transparent); }
+.fd-crew-seat.is-out .fd-crew-face { opacity:.5; }
+.fd-crew-seat.is-out .fd-crew-face::before { content:""; position:absolute; inset:-4px; border-radius:50%;
+  border:2px dashed var(--muted2); pointer-events:none; }
+.fd-crew-seat.is-out .fd-crew-name { color:var(--muted2); }
 .fd-crew-seat.is-away .fd-crew-face { filter:grayscale(1); opacity:.38; }
 .fd-crew-seat.is-away .fd-crew-face::after { content:""; position:absolute; left:-4px; right:-4px; top:50%; height:2px; margin-top:-1px;
-  border-radius:1px; background:var(--muted); transform:rotate(-38deg); }
-.fd-crew-seat.is-away .fd-crew-name { color:var(--disabled); text-decoration:line-through; }
+  border-radius:99px; background:var(--muted); transform:rotate(-38deg); }
+.fd-crew-seat.is-away .fd-crew-name { color:var(--muted); text-decoration:line-through; }
+/* on the way (arrivals): not here yet, so out of the draw; the face unlit
+   in a dashed seat as on the board, its tag saying why */
+.fd-crew-seat.is-road .fd-crew-face { filter:grayscale(1); opacity:.42; }
+.fd-crew-seat.is-road .fd-crew-face::before { content:""; position:absolute; inset:-4px; border-radius:50%;
+  border:2px dashed var(--ghost-line); pointer-events:none; }
+.fd-crew-seat.is-road .fd-crew-name { color:var(--muted2); }
+.fd-crew-tag.is-road { border:1px dashed var(--ghost-line); color:var(--muted2); }
 .fd-crew-seat.is-pending .fd-crew-face { animation:fd-crew-wait 1.2s steps(1, end) infinite; }
 @keyframes fd-crew-wait { 50% { opacity:.55; } }
-.fd-crew-role { min-height:28px; max-width:none; padding:0 6px; border-radius:6px; border:1px solid color-mix(in srgb, var(--lamp-info) 55%, transparent);
-  background:color-mix(in srgb, var(--lamp-info) 12%, var(--paper)); color:var(--lamp-info); cursor:pointer;
-  font:800 13px/1 var(--fd-show); letter-spacing:.03em; text-transform:uppercase; white-space:nowrap; }
-.fd-crew-role { position:relative; }
-/* a 44px target around the tag */
-.fd-crew-role::before { content:""; position:absolute; inset:-8px -4px; }
-.fd-crew-role:disabled { cursor:default; opacity:.6; }
+
+/* the open face's choices: the whole row's width, a caret up to its face */
+.fd-crew-choice { position:relative; grid-column:1 / -1; display:grid; gap:8px; margin:-4px 0 2px; padding:8px;
+  border:1px solid var(--bone-line); border-radius:12px; background:var(--paper2); box-shadow:var(--glass-edge), var(--shadow-1);
+  animation:fd-crew-choice-in var(--motion-stamp, 320ms) var(--ease-out, ease-out) both; }
+.fd-crew-choice::before { content:""; position:absolute; top:-7px; left:var(--caret, 50%); width:12px; height:12px; margin-left:-6px;
+  border-left:1px solid var(--bone-line); border-top:1px solid var(--bone-line); background:var(--paper2); transform:rotate(45deg); }
+@keyframes fd-crew-choice-in { from { opacity:0; transform:translateY(-6px); } }
+/* this event's seat as one segmented control (it rides on the confirm),
+   then Away apart, an outline of its own (it writes at once) */
+.fd-crew-choice-row { display:flex; align-items:stretch; gap:10px; }
+.fd-crew-choice-states { flex:1; min-width:0; display:grid; grid-auto-columns:minmax(0, 1fr); grid-auto-flow:column; gap:0;
+  border:1px solid var(--line); border-radius:10px; background:var(--paper); overflow:hidden; }
+.fd-crew-choice-away { flex:0 0 76px; display:grid; }
+.fd-crew-option { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; min-width:0; min-height:52px; padding:7px 4px 6px;
+  border:0; border-radius:0; background:transparent; color:var(--muted2); cursor:pointer;
+  font:800 14px/1 var(--fd-show); letter-spacing:.04em; text-transform:uppercase; }
+.fd-crew-choice-states .fd-crew-option + .fd-crew-option { border-left:1px solid var(--line); }
+.fd-crew-choice-away .fd-crew-option { border:1px dashed var(--ghost-line); border-radius:10px; }
+.fd-crew-option > span { white-space:nowrap; }
+.fd-crew-option:disabled { cursor:default; opacity:.6; }
+.fd-crew-option:not(:disabled):active { filter:brightness(1.15); }
+/* each choice's lens is the mark its state leaves on the face */
+.fd-crew-lens { position:relative; display:block; width:16px; height:16px; border-radius:50%; flex-shrink:0; }
+.fd-crew-option.is-playing .fd-crew-lens { background:var(--muted2); box-shadow:inset 0 0 0 2px var(--paper); border:1px solid var(--muted2); }
+.fd-crew-option.is-crew .fd-crew-lens { background:var(--lamp-info); box-shadow:0 0 0 2px var(--paper), 0 0 0 3.5px var(--lamp-info), 0 0 10px color-mix(in srgb, var(--lamp-info) 55%, transparent); }
+.fd-crew-option.is-out .fd-crew-lens { border:2px dashed var(--muted2); }
+.fd-crew-option.is-away .fd-crew-lens { background:var(--lens-spent, var(--paper2)); border:1px solid var(--muted); }
+/* Here (a face on the way): the info lamp, lit, the one thing to do */
+.fd-crew-option.is-here { color:var(--lamp-info); }
+.fd-crew-option.is-here .fd-crew-lens { background:var(--lamp-info); box-shadow:0 0 10px color-mix(in srgb, var(--lamp-info) 55%, transparent); }
+.fd-crew-option.is-here:not(.is-on) .fd-crew-lens { opacity:1; filter:none; }
+.fd-crew-option.is-away .fd-crew-lens::after { content:""; position:absolute; left:-3px; right:-3px; top:50%; height:2px; margin-top:-1px;
+  border-radius:99px; background:var(--muted); transform:rotate(-38deg); }
+/* the face's current state is the one lit choice: the others' lenses sit dim */
+.fd-crew-option:not(.is-on) .fd-crew-lens { opacity:.45; filter:saturate(.5); }
+.fd-crew-option.is-on { color:var(--ink); border-color:color-mix(in srgb, var(--bone) 70%, transparent);
+  background:color-mix(in srgb, var(--bone) 13%, var(--paper)); box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--bone) 25%, transparent); }
+.fd-crew-option.is-crew.is-on { border-color:color-mix(in srgb, var(--lamp-info) 70%, transparent);
+  background:color-mix(in srgb, var(--lamp-info) 14%, var(--paper)); color:var(--lamp-info);
+  box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--lamp-info) 60%, transparent); }
+.fd-crew-choice-away .fd-crew-option.is-on { border-style:solid; }
+.fd-crew-option.is-playing.is-on .fd-crew-lens { background:var(--bone); border-color:var(--bone); }
+/* a crew member's role: one control in the info lamp that steps to the
+   next role; a lamp per role, the current one lit */
+.fd-crew-choice-roles { display:flex; padding-top:8px; border-top:1px solid var(--night-line); }
+.fd-crew-role-cycle { display:flex; flex:1; align-items:center; gap:12px; min-height:48px; padding:0 12px 0 14px; border-radius:10px; cursor:pointer;
+  border:1px solid color-mix(in srgb, var(--lamp-info) 60%, transparent); background:color-mix(in srgb, var(--lamp-info) 12%, var(--paper));
+  color:var(--lamp-info); font:800 15px/1 var(--fd-show); letter-spacing:.03em; text-transform:uppercase; white-space:nowrap; }
+.fd-crew-role-name { flex:1; min-width:0; text-align:left; overflow-wrap:anywhere; white-space:normal; }
+.fd-crew-role-lamps { display:flex; align-items:center; gap:5px; }
+.fd-crew-role-lamps i { display:block; width:7px; height:7px; border-radius:99px; border:1px solid color-mix(in srgb, var(--lamp-info) 55%, transparent); }
+.fd-crew-role-lamps i.is-on { background:var(--lamp-info); border-color:var(--lamp-info); box-shadow:0 0 6px color-mix(in srgb, var(--lamp-info) 60%, transparent); }
+.fd-crew-role-cycle:not(:disabled):active { filter:brightness(1.15); }
+.fd-crew-role-cycle:disabled { cursor:default; opacity:.6; }
+
+.fd-crew-check button:focus-visible { outline:2px solid var(--lamp-info); outline-offset:2px; }
 .fd-crew-error { margin:0 0 10px; color:var(--clay-text); font-size:13px; }
-@media (prefers-reduced-motion:reduce) { .fd-crew-seat.is-pending .fd-crew-face { animation:none; } .fd-crew-face { transition:none; } }
+.fd-sheet-footer .fd-crew-error { margin:0; }
+@media (prefers-reduced-motion:reduce) {
+  .fd-crew-seat.is-pending .fd-crew-face, .fd-crew-choice { animation:none; }
+  .fd-crew-face, .fd-crew-chip { transition:none; }
+}

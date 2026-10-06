@@ -188,7 +188,7 @@ test("stale contest references cannot start the weekend, including retries of an
       const stale = { ...refs(state), contestRevision:2 };
       const result = applyAction(state, type, { ...(type === "setOnDeck" ? { id:solo.id } : { evId:solo.id }), ...stale }, gm());
       assert.equal(result.ok, false, `${type} during ${phase}`);
-      assert.match(result.error, /Contest changed/);
+      assert.match(result.error, /already moved on/);
       assert.equal(state.live, false, type);
       assert.deepEqual(state, before, type);
     }

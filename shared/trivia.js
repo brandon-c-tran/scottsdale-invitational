@@ -1,8 +1,9 @@
-/* Trivia: four teams of three answer on their phones, the TV asks. Every
-   teammate sees the team's one answer card live and any of them can change
-   it until one of them locks it in. Four formats: multiple choice, closest
-   number, name that tune (the TV plays a clip) and picture (a photo on the
-   TV). A right answer scores more the sooner the team locked.
+/* Trivia: everyone present answers alone on their own phone, the TV asks.
+   A player can change their answer until they lock it in, and a lock
+   stays. Four formats: multiple choice, closest number, name that tune (the
+   TV plays a clip) and picture (a photo on the TV). A right answer scores
+   more the sooner it was locked. The game is ranked player by player and
+   posts as an ordinary free-for-all result.
 
    Two keys:
    - `state.triviaRounds` is the commissioner's set list, in play order:
@@ -14,14 +15,16 @@
    - `state.trivia` is the game in progress, its questions copied in at the
      start (answers and all, so editing the set list never changes a game):
        { id, eventId, startedAt, index, phase:"question"|"reveal"|"board",
-         teams:[{ key, name, players }], rounds:[{ name, first, count }],
+         players:[player], rounds:[{ name, first, count }],
          questions:[{ id, round, format, text, options, answer, unit, digits,
            photo, clip }],
          times:{ [qid]:{ openedAt, startsAt, closesAt, revealedAt } },
-         picks:{ [qid]:{ [teamKey]:{ choice|value, by, at, locked, lockedAt,
-           lockedBy } } },
-         ops (server only: retried writes), finishedAt }
-     Progress, cleared by a reset.
+         picks:{ [qid]:{ [player]:{ choice|value, at, locked, lockedAt } } },
+         boardAt, ops (server only: retried writes), finishedAt }
+     Progress, cleared by a reset. `players` is everyone present at the
+     start; a present player missing from it joins on their first pick. A
+     game saved in the old team shape (`teams`, no `players`) still renders
+     and Restart clears it; nobody can play it.
 
    A question: choice and picture have four string options and an answer
    index; tune has four { title, artist } options and an answer index, and
@@ -35,13 +38,25 @@ export const TRIVIA_FORMAT_NAMES = Object.freeze({ choice:"Multiple choice", num
 export const TRIVIA_MS = Object.freeze({ choice:20000, tune:20000, picture:20000, number:30000 });
 /* the question number stamps and the room reads before the clock runs */
 export const TRIVIA_LEAD_MS = 2500;
+/* the first question waits longer: every phone opens the game first */
+export const TRIVIA_FIRST_LEAD_MS = 5000;
+/* The autopilot's holds (triviaAutoBeat). A reveal stands long enough for
+   the answer to stamp, the room's picks to land and your points to count
+   (a closest number has more to read); the scores between rounds and the
+   final podium stand longer. Everyone locked in reveals a beat after the
+   last lock lands. */
+export const TRIVIA_REVEAL_HOLD_MS = 9000;
+export const TRIVIA_NUMBER_REVEAL_HOLD_MS = 11000;
+export const TRIVIA_BOARD_HOLD_MS = 12000;
+export const TRIVIA_FINAL_HOLD_MS = 15000;
+export const TRIVIA_ALL_IN_MS = 1200;
 /* a pick that left the phone as time ran out still counts */
 export const TRIVIA_GRACE_MS = 3000;
 /* the TV plays this much of a tune, from its clip's start */
 export const TRIVIA_CLIP_MS = 10000;
 export const TRIVIA_BASE = 500;
 export const TRIVIA_SPEED = 500;
-/* closest number: the nearest team, the next nearest, and a bull's-eye */
+/* closest number: the nearest guess, the next nearest, and a bull's-eye */
 export const TRIVIA_NEAR = Object.freeze([1000, 500]);
 export const TRIVIA_EXACT = 250;
 export const TRIVIA_MAX_ROUNDS = 12;
@@ -124,7 +139,11 @@ export function triviaRoundEnd(game) {
   const round = game?.rounds?.[triviaRoundOf(game)];
   return !!round && game.index === round.first + round.count - 1;
 }
-export const triviaTeamOf = (game, player) => player ? (game?.teams || []).find(team => team.players.includes(player)) || null : null;
+/* who plays the game (an old team-shaped game has nobody) */
+export const triviaPlayers = game => Array.isArray(game?.players) ? game.players : [];
+export const triviaPlays = (game, player) => !!player && triviaPlayers(game).includes(player);
+/* the first question waits for every phone to open */
+export const leadFor = index => index === 0 ? TRIVIA_FIRST_LEAD_MS : TRIVIA_LEAD_MS;
 /* question indexes whose answer is out */
 export const triviaRevealedUpTo = game => !game ? 0 : game.phase === "question" ? game.index : game.index + 1;
 export const triviaRevealed = (game, index) => index < triviaRevealedUpTo(game);
@@ -138,18 +157,19 @@ export const speedBonus = (left, duration) => round10(TRIVIA_SPEED * Math.max(0,
 export const hasAnswer = (question, pick) => !!pick && (question?.format === "number"
   ? Number.isInteger(pick.value) : Number.isInteger(pick.choice));
 
-/* One question scored for every team: { [key]:{ points, base, bonus,
-   correct, near, off, ms } }. An unlocked answer counts as locked at the
-   deadline (no bonus). `ms` is how long the team took, for the tie-break. */
-export function scoreQuestion(question, picks = {}, teams = [], time = {}) {
+/* One question scored for every player: { [player]:{ points, base, bonus,
+   correct, near, off, ms, answered } }. An unlocked answer counts as locked
+   at the deadline (no bonus). `ms` is how long the player took, for the
+   tie-break. */
+export function scoreQuestion(question, picks = {}, players = [], time = {}) {
   const duration = durationOf(question);
   const closesAt = Number(time.closesAt) || 0;
   const startsAt = Number(time.startsAt) || closesAt - duration;
   const out = {};
   const tookOf = pick => Math.max(0, Math.min(duration, (pick?.locked && Number(pick.lockedAt) ? Number(pick.lockedAt) : closesAt) - startsAt));
-  for (const team of teams) out[team.key] = { points:0, base:0, bonus:0, correct:false, near:null, off:null, ms:null, answered:false };
+  for (const player of players) out[player] = { points:0, base:0, bonus:0, correct:false, near:null, off:null, ms:null, answered:false };
   if (question?.format === "number") {
-    const rows = teams.map(team => ({ key:team.key, pick:picks?.[team.key] }))
+    const rows = players.map(player => ({ player, pick:picks?.[player] }))
       .filter(row => hasAnswer(question, row.pick))
       .map(row => ({ ...row, off:Math.abs(row.pick.value - question.answer) }));
     const distances = [...new Set(rows.map(row => row.off))].sort((a, b) => a - b);
@@ -157,36 +177,36 @@ export function scoreQuestion(question, picks = {}, teams = [], time = {}) {
       const place = distances.indexOf(row.off);
       const base = TRIVIA_NEAR[place] || 0;
       const bonus = row.off === 0 ? TRIVIA_EXACT : 0;
-      out[row.key] = { points:base + bonus, base, bonus, correct:place === 0, near:place + 1, off:row.off,
+      out[row.player] = { points:base + bonus, base, bonus, correct:place === 0, near:place + 1, off:row.off,
         ms:base ? tookOf(row.pick) : null, answered:true };
     }
     return out;
   }
-  for (const team of teams) {
-    const pick = picks?.[team.key];
+  for (const player of players) {
+    const pick = picks?.[player];
     if (!hasAnswer(question, pick)) continue;
     const correct = pick.choice === question?.answer;
     const left = pick.locked && Number(pick.lockedAt) ? closesAt - Number(pick.lockedAt) : 0;
     const bonus = correct ? speedBonus(left, duration) : 0;
-    out[team.key] = { points:correct ? TRIVIA_BASE + bonus : 0, base:correct ? TRIVIA_BASE : 0, bonus, correct,
+    out[player] = { points:correct ? TRIVIA_BASE + bonus : 0, base:correct ? TRIVIA_BASE : 0, bonus, correct,
       near:null, off:null, ms:correct ? tookOf(pick) : null, answered:true };
   }
   return out;
 }
 
-/* Totals over the revealed questions, best first. A tie breaks on the
-   faster sum of the scoring answers' lock times. */
+/* Totals over the revealed questions, best first: { player, total, correct,
+   answered, speed, last, rank }. A tie breaks on the faster sum of the
+   scoring answers' lock times, then the order players joined. */
 export function triviaStandings(game) {
-  const teams = game?.teams || [];
-  const rows = teams.map(team => ({ key:team.key, name:team.name, players:team.players, total:0, correct:0, speed:0,
-    answered:0, last:0 }));
-  const byKey = new Map(rows.map(row => [row.key, row]));
+  const players = triviaPlayers(game);
+  const rows = players.map((player, order) => ({ player, order, total:0, correct:0, speed:0, answered:0, last:0 }));
+  const byPlayer = new Map(rows.map(row => [row.player, row]));
   const upto = triviaRevealedUpTo(game);
   (game?.questions || []).slice(0, upto).forEach((question, i) => {
     if (!question || question.answer === undefined) return;
-    const scores = scoreQuestion(question, game.picks?.[question.id], teams, game.times?.[question.id]);
-    for (const [key, score] of Object.entries(scores)) {
-      const row = byKey.get(Number(key));
+    const scores = scoreQuestion(question, game.picks?.[question.id], players, game.times?.[question.id]);
+    for (const [player, score] of Object.entries(scores)) {
+      const row = byPlayer.get(player);
       if (!row) continue;
       row.total += score.points;
       if (score.correct) row.correct += 1;
@@ -195,7 +215,7 @@ export function triviaStandings(game) {
       if (i === upto - 1) row.last = score.points;
     }
   });
-  rows.sort((a, b) => b.total - a.total || a.speed - b.speed || a.key - b.key);
+  rows.sort((a, b) => b.total - a.total || a.speed - b.speed || a.order - b.order);
   let rank = 0;
   rows.forEach((row, i) => {
     const prev = rows[i - 1];
@@ -205,18 +225,20 @@ export function triviaStandings(game) {
   return rows;
 }
 
-/* the event result: one winning team, then the next two ranks (a full tie
-   shares its slot) */
+/* the event result: a single winner (the ranking already broke ties), then
+   the next two ranks below them, a shared rank sharing its slot. Nobody who
+   never answered places. */
 export function triviaResultSlots(rows) {
   const order = (rows || []).filter(row => row.answered > 0);
   if (!order.length) return null;
   const rest = order.slice(1);
   const ranks = [...new Set(rest.map(row => row.rank))].slice(0, 2);
-  return [[...order[0].players], ...ranks.map(rank => rest.filter(row => row.rank === rank).flatMap(row => row.players))];
+  return [[order[0].player], ...ranks.map(rank => rest.filter(row => row.rank === rank).map(row => row.player))];
 }
 
 /* The director's beat while a Trivia event is under way and has a set
-   list. Null when the ordinary result entry applies. */
+   list. Null when the ordinary result entry applies. While the autopilot
+   runs the game, the same beat is the commissioner's way to skip ahead. */
 export function triviaBeat(state, ev) {
   if (ev?.game !== "trivia" || state?.results?.[ev.id]) return null;
   const game = triviaGame(state, ev.id);
@@ -236,21 +258,61 @@ export function triviaBeat(state, ev) {
   return { type:"trivia-next", label:"Next round", subject:next, questionId:question.id };
 }
 
+/* the game's players still in the room (not away) */
+export const triviaActive = (state, game = triviaGame(state)) => triviaPlayers(game).filter(player => !state?.away?.[player]);
+
+/* The next write the game makes on its own, and when (server clock):
+   { at, type, payload, key }, or null. The question reveals when its clock
+   and grace run out, or a beat after everyone still in the room has locked
+   in (never before the clock starts); a reveal holds, then the next
+   question or the scores; the scores hold, then the next round or the
+   result. Each is the GM write the pill offers, so a tap takes it early;
+   `key` names the beat once. */
+export function triviaAutoBeat(state) {
+  const game = triviaGame(state);
+  if (!game || game.finishedAt || state.results?.[game.eventId] || !Array.isArray(game.players)) return null;
+  const question = triviaCurrent(game);
+  if (!question) return null;
+  const time = game.times?.[question.id] || {};
+  const beat = (at, type, payload, step) => ({ at, type, payload, key:`trivia:${game.id}:${step}` });
+  if (game.phase === "question") {
+    const deadline = (Number(time.closesAt) || 0) + TRIVIA_GRACE_MS;
+    const active = triviaActive(state, game);
+    const picks = game.picks?.[question.id] || {};
+    let at = deadline;
+    if (active.length && active.every(player => picks[player]?.locked)) {
+      const last = Math.max(...active.map(player => Number(picks[player].lockedAt) || 0));
+      at = Math.min(deadline, Math.max(Number(time.startsAt) || 0, last + TRIVIA_ALL_IN_MS));
+    }
+    return beat(at, "triviaReveal", { questionId:question.id }, `${question.id}:reveal`);
+  }
+  if (game.phase === "reveal") {
+    const at = (Number(time.revealedAt) || Number(time.closesAt) || 0)
+      + (question.format === "number" ? TRIVIA_NUMBER_REVEAL_HOLD_MS : TRIVIA_REVEAL_HOLD_MS);
+    return triviaLast(game) || triviaRoundEnd(game)
+      ? beat(at, "triviaBoard", { questionId:question.id }, `${question.id}:board`)
+      : beat(at, "triviaNext", { questionId:question.id }, `${question.id}:next`);
+  }
+  const boardAt = Number(game.boardAt) || Number(time.revealedAt) || 0;
+  return triviaLast(game)
+    ? beat(boardAt + TRIVIA_FINAL_HOLD_MS, "triviaFinish", { evId:game.eventId }, "finish")
+    : beat(boardAt + TRIVIA_BOARD_HOLD_MS, "triviaNext", { questionId:question.id }, `${question.id}:round`);
+}
+
 /* What a phone or the TV is sent. The commissioner gets everything, unless
-   they are on a team in the running game: then they play it like anyone.
+   he plays in the running game: then he plays it blind like anyone.
    Everyone else gets the questions shown so far (an answer only once
-   revealed, never which recording a tune plays), their own team's live
-   pick, every team's locked or not, and every pick once revealed. */
+   revealed, never which recording a tune plays), their own live pick,
+   every other player's locked or not, and every pick once revealed. */
 export function projectTrivia(game, rounds, { isGm = false, player = null } = {}) {
-  const playing = !!triviaTeamOf(game, player);
+  const playing = triviaPlays(game, player);
   if (isGm && !playing) {
     if (!game) return { trivia:null, triviaRounds:rounds || [] };
     const { ops, ...rest } = game;
-    return { trivia:{ ...rest, total:game.questions.length }, triviaRounds:rounds || [] };
+    return { trivia:{ ...rest, total:game.questions?.length || 0 }, triviaRounds:rounds || [] };
   }
   const configured = isGm ? rounds || [] : [];
   if (!game?.questions?.length) return { trivia:null, triviaRounds:configured };
-  const mine = triviaTeamOf(game, player);
   const shown = game.questions.slice(0, Math.min(game.questions.length, game.index + 1)).map((question, i) => {
     const base = { id:question.id, n:i + 1, round:question.round, format:question.format, text:question.text,
       ...(question.options ? { options:question.options } : {}),
@@ -261,11 +323,11 @@ export function projectTrivia(game, rounds, { isGm = false, player = null } = {}
   const picks = {}, times = {};
   shown.forEach((question, i) => {
     if (game.times?.[question.id]) times[question.id] = game.times[question.id];
-    const byTeam = game.picks?.[question.id] || {};
-    if (triviaRevealed(game, i)) { picks[question.id] = byTeam; return; }
+    const byPlayer = game.picks?.[question.id] || {};
+    if (triviaRevealed(game, i)) { picks[question.id] = byPlayer; return; }
     const out = {};
-    for (const [key, pick] of Object.entries(byTeam)) {
-      if (mine && Number(key) === mine.key) out[key] = pick;
+    for (const [key, pick] of Object.entries(byPlayer)) {
+      if (player && key === player) out[key] = pick;
       else out[key] = { locked:!!pick?.locked, set:hasAnswer(question, pick) };
     }
     picks[question.id] = out;

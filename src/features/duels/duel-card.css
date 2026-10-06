@@ -1,0 +1,60 @@
+/* A duel on Home or a player card: a painted glass field in the chips'
+   amber (backglass.css .fd-glass-field), its lamp lit while it wants you.
+   The opponent's chip and name lead, the state reads beside its lamp, the
+   ante stands as the house's chips with its value. */
+.fd-duel-card { margin-bottom:8px; padding:12px; min-width:0; }
+.fd-duel-card.is-bare { margin:0; padding:0; }
+.fd-duel-head { display:flex; align-items:center; gap:10px; min-width:0; }
+.fd-duel-person { display:flex; align-items:center; gap:10px; flex:1; min-width:0; min-height:44px; padding:0; border:0;
+  background:none; color:var(--ink); text-align:left; font-family:var(--fd-body); }
+button.fd-duel-person { cursor:pointer; }
+button.fd-duel-person:disabled { cursor:default; }
+button.fd-duel-person:focus-visible { outline:2px solid var(--lamp-info); outline-offset:3px; border-radius:10px; }
+.fd-duel-who { display:grid; gap:4px; flex:1; min-width:0; }
+.fd-duel-who strong { font-size:22px; line-height:1.15; overflow-wrap:anywhere; }
+.fd-duel-status { display:flex; align-items:center; gap:7px; color:var(--muted2); font:600 13px/1.35 var(--fd-body); overflow-wrap:anywhere; }
+.fd-duel-status .fd-insert { --lamp:var(--lamp-live); width:10px; height:10px; }
+.fd-duel-ante { display:flex; align-items:flex-end; gap:6px; flex-shrink:0; }
+.fd-duel-ante strong { color:var(--sun); font:800 24px/1 var(--fd-display); font-variant-numeric:tabular-nums; }
+.fd-duel-actions { display:grid; grid-template-columns:repeat(var(--duel-actions, 1), minmax(0, 1fr)); gap:8px; margin-top:10px; }
+.fd-duel-act { min-width:0; min-height:44px; padding:10px 8px; border:1px solid var(--line); border-radius:8px;
+  background:var(--paper2); color:var(--ink); box-shadow:var(--glass-edge); font:600 13px/1.2 var(--fd-body);
+  overflow-wrap:anywhere; cursor:pointer; transition:transform .1s, opacity .15s; }
+.fd-duel-act.is-primary { border-color:var(--action-fill); background:var(--action-fill); color:var(--action-ink); }
+.fd-duel-act.is-danger { border-color:var(--danger-line); color:var(--clay-text); }
+.fd-duel-act:disabled { cursor:default; }
+.fd-duel-act.is-waiting { opacity:.55; }
+.fd-duel-act:active:not(:disabled) { transform:translateY(1px); }
+.fd-duel-act:focus-visible { outline:2px solid var(--lamp-info); outline-offset:2px; }
+.fd-duel-done { display:flex; align-items:center; gap:8px; margin:10px 0 0; color:var(--muted2); font:700 13px/1.3 var(--fd-display);
+  letter-spacing:.08em; text-transform:uppercase; }
+.fd-duel-error { margin:10px 0 0; color:var(--clay-text); font:600 12px/1.5 var(--fd-body); overflow-wrap:anywhere; }
+
+/* the challenge from a player card: face to face, the Bets rack's coins,
+   then Send. Each coin leans back in the tray; the chosen one stands. */
+.fd-duel-send { display:grid; justify-items:center; gap:12px; padding:14px 12px 12px; }
+.fd-duel-send-face { display:flex; align-items:center; gap:12px; }
+.fd-duel-send-vs { color:var(--muted2); font-size:24px; line-height:1.15; }
+.fd-duel-rack { display:flex; align-items:center; justify-content:center; gap:12px; }
+.fd-duel-rack > button { position:relative; display:flex; align-items:center; justify-content:center; width:48px; height:52px; padding:0;
+  border:0; border-radius:50%; background:transparent; cursor:pointer; perspective:220px; -webkit-tap-highlight-color:transparent; }
+.fd-duel-rack > button > .fd-coin3d { transform:rotateX(30deg); transition:transform .42s var(--ease-drum); }
+.fd-duel-rack > button > .fd-coin3d > .fd-coin3d-edge { filter:brightness(.62); }
+.fd-duel-rack > button > .fd-coin3d > .fd-coin3d-face::after { content:""; position:absolute; inset:0; border-radius:50%;
+  background:var(--paper); opacity:.32; transition:opacity .16s ease; pointer-events:none; }
+.fd-duel-rack > button.is-selected > .fd-coin3d { transform:translateY(-4px) translateZ(10px) rotateX(-8deg); }
+.fd-duel-rack > button.is-selected > .fd-coin3d > .fd-coin3d-edge,
+.fd-duel-rack > button:disabled > .fd-coin3d > .fd-coin3d-edge { filter:none; }
+.fd-duel-rack > button.is-selected > .fd-coin3d > .fd-coin3d-face::after,
+.fd-duel-rack > button:disabled > .fd-coin3d > .fd-coin3d-face::after { opacity:0; }
+.fd-duel-rack > button.is-selected > .fd-coin3d > .fd-coin3d-face { border-radius:50%; box-shadow:0 0 0 2px var(--sun), var(--chip-bloom); }
+.fd-duel-rack > button:active:not(:disabled) > .fd-coin3d { transform:translateY(1px) translateZ(-6px) rotateX(36deg); transition-duration:.12s; }
+.fd-duel-rack > button:disabled { cursor:default; }
+.fd-duel-rack > button:focus-visible { outline:2px solid var(--lamp-info); outline-offset:3px; }
+.fd-duel-unlit { display:block; }
+.fd-duel-unlit-body { fill:var(--ink0); stroke:var(--ghost-line); stroke-width:1.5; }
+.fd-duel-unlit-tick { fill:color-mix(in srgb, var(--muted) 45%, var(--ink0)); }
+.fd-duel-unlit-face { fill:color-mix(in srgb, var(--paper2) 70%, var(--ink0)); stroke:color-mix(in srgb, var(--ink0) 80%, transparent); stroke-width:1; }
+.fd-duel-unlit-value { fill:var(--muted2); font:800 14px var(--fd-display); letter-spacing:0; }
+.fd-duel-max { color:var(--sun); font:800 14px/1.2 var(--fd-display); letter-spacing:.08em; text-transform:uppercase; }
+@media(prefers-reduced-motion:reduce) { .fd-duel-rack > button > .fd-coin3d { transition:none; } }

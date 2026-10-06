@@ -104,15 +104,15 @@ test("P1: the TV felt and the phone board render every bettor or a +N group, the
   const html = renderToStaticMarkup(React.createElement(PlayerIdentityProvider, { profiles:state.profiles },
     React.createElement(Wagers, { state, me, events:allEventsOf(state), standings:computeStandings(state), gm:false,
       wagerEv:evOf(state, "8ball"), onEvents() {}, onEvent() {}, onPick() {}, onRetract() {}, onPlayer() {} })));
-  /* the phone: Pot and backers (Oct 2). Four rows biggest first, then "4 more"
-     (the whole list one tap away); one pot, the side's total beside it */
-  assert.equal((html.match(/class="fd-wagers-backer"/g) || []).length, 4, "four backer rows on a side");
-  const amounts = [...html.matchAll(/class="fd-wagers-backer-amount">([^<]+)</g)].map(match => match[1]);
+  /* the phone's felt (Oct 4): five stacks biggest first, then the rest as
+     one "+N" pile (the whole list one tap away); the side's total heads it */
+  assert.equal((html.match(/data-stack-player=/g) || []).length, 4, "four backers' stacks beside the well, then the pile");
+  const amounts = [...html.matchAll(/class="fd-stacks-value">([^<]+)</g)].map(match => match[1]);
   assert.deepEqual(amounts, ["800", "700", "600", "500"]);
-  assert.match(html, />4 more</);
+  assert.match(html, /fd-wagers-stack-count">\+4</);
   assert.match(html, /aria-label="All 8 backing [^"]+"/);
   assert.match(html, /class="fd-wagers-pot-total"><span class="fd-reel[^"]*" role="img" aria-label="3,600"/);
-  assert.doesNotMatch(html, /data-stack-player=|fd-stack-tag|has-tag|fd-stack-fan/);
+  assert.doesNotMatch(html, /fd-stack-tag|has-tag|fd-stack-fan/);
 });
 
 test("P1: your own row keeps its biggest-first place and never folds into N more", () => {
@@ -121,14 +121,14 @@ test("P1: your own row keeps its biggest-first place and never folds into N more
   const render = me => renderToStaticMarkup(React.createElement(PlayerIdentityProvider, { profiles:state.profiles },
     React.createElement(Wagers, { state, me, events:allEventsOf(state), standings:computeStandings(state), gm:false,
       wagerEv:evOf(state, "8ball"), onEvents() {}, onEvent() {}, onPick() {}, onRetract() {}, onPlayer() {} })));
-  const amounts = html => [...html.matchAll(/class="fd-wagers-backer-amount">([^<]+)</g)].map(match => match[1]);
+  const amounts = html => [...html.matchAll(/class="fd-stacks-value">([^<]+)</g)].map(match => match[1]);
   /* the 700 bettor sees the same order a spectator sees, lit in place */
   assert.deepEqual(amounts(render(bystanders[6])), amounts(render(bystanders[8])));
-  /* the 100 bettor would fall under "N more"; their row takes the last row instead */
+  /* the 100 bettor would fold into the pile; their stack takes the last cell instead */
   const smallest = render(bystanders[0]);
   assert.deepEqual(amounts(smallest), ["800", "700", "600", "100"]);
   assert.match(smallest, /Retract your last chip on/);
-  assert.match(smallest, />4 more</);
+  assert.match(smallest, /fd-wagers-stack-count">\+4</);
 });
 
 test("one cap everywhere: past it a stack stands a tower on a break, so 1,000, 1,200 and 2,500 differ", () => {

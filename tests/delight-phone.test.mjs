@@ -251,7 +251,9 @@ test("the player card keeps its flip button, both faces, and a turned chip", () 
   assert.equal(card.buttons.length, 1, "tilt and spin add no controls");
   assert.match(card.html, /fd-pass-front/);
   assert.match(card.html, /fd-pass-back/);
-  assert.match(card.html, /Tap to turn over/);
+  assert.match(card.html, /class="fd-pass-faces" aria-hidden="true"><i class="is-on"><\/i><i><\/i>/,
+    "two faces drawn as pips, the front lit; no instruction line");
+  assert.doesNotMatch(card.html, /Tap to turn over/);
   assert.match(card.html, /class="fd-pass-number fd-pass-plate" aria-hidden="true">07</);
   assert.match(card.html, /class="fd-coin[^"]*" aria-hidden="true"/);
   assert.equal((card.html.match(/fd-coin-facet/g) || []).length, ui.COIN_FACETS);

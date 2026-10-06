@@ -26,19 +26,34 @@ export function writeFolds(value) {
 
 const LIVE_PHASES = new Set(["betting-open", "betting-locked", "in-progress", "result-entry"]);
 
+/* The words a guest reads for where an event stands: what is happening in
+   the room, never the commissioner's preparation steps (Setup, Draw pending,
+   Result entry). The commissioner's views keep the lifecycle's own labels. */
+const GUEST_PHASE_WORDS = {
+  scheduled:"Next", setup:"Next", "betting-open":"Betting open", "betting-locked":"Playing",
+  "in-progress":"Playing", "result-entry":"Awaiting result", complete:"Done", shelved:"Skipped",
+};
+export function guestPhaseLabel(state, event, phase = resolveEventLifecycle(state, event).phase) {
+  const solo = event?.teamCfg?.size === 1;
+  if (phase === "draw-pending") return state?.drafts?.[event?.id] ? "Drafting" : solo ? "Bracket soon" : "Teams soon";
+  if (phase === "draw-revealed") return solo ? "Bracket set" : "Teams set";
+  return GUEST_PHASE_WORDS[phase] || "";
+}
+
 /* One Events row, read from state: its lamp (steady live, flashing pending,
    unlit done, struck shelved, none while it waits its turn), the status word
-   that sits beside a lit or flashing lamp, and YOUR part in it: the players
+   that sits beside a lit or flashing lamp (the guest's word; the lifecycle's
+   own label for the commissioner, `gm`), and YOUR part in it: the players
    you share a side with (you first), a crew role, or the place you took.
    `winners` is the result's first place. Pure. */
-export function eventRowModel(state, event, me, nextId) {
+export function eventRowModel(state, event, me, nextId, { gm = false } = {}) {
   const lifecycle = resolveEventLifecycle(state, event);
   const res = state.results?.[event.id];
   const shelved = !!state.shelved?.[event.id];
   const live = !shelved && !res && (LIVE_PHASES.has(lifecycle.phase) || state.onDeck === event.id);
   const pending = !shelved && !res && !live && event.id === nextId;
   const lamp = shelved ? "void" : res ? "done" : live ? "live" : pending ? "pending" : null;
-  const status = live || pending ? lifecycle.label : "";
+  const status = !(live || pending) ? "" : gm ? lifecycle.label : guestPhaseLabel(state, event, lifecycle.phase);
   const mine = { players:[], role:null, place:null };
   if (me && !shelved) {
     if (res) {

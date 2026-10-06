@@ -12,11 +12,15 @@
                 (64px sides, 54px top and bottom) or the phone's viewport;
                 art that is meant to bleed opts out with data-fit="bleed"
    - overlap    two text lines, or a line and a control, or two controls,
+                or a line and opaque art (data-fit-art, a chip stack),
                 that are not nested and cross by more than OVERLAP_TOL
    - overlay    a fixed dock over content where the content cannot scroll
                 clear of it (top docks at the top of the page, bottom docks
                 at the bottom)
-   - small      text rendered under 12px on the phone, 24px on the TV */
+   - small      text rendered under 12px on the phone, 24px on the TV
+   - fold       an element marked data-fit-fold (Home's leaderboard heading
+                during the weekend) whose title line is not on the first
+                screen, clear above the bottom docks, at the top of the page */
 
 export const CLIP_TOL = 1;
 export const OVERLAP_TOL = 2;
@@ -117,10 +121,21 @@ export function union(a, b) {
   return { x, y, w:Math.max(a.x + a.w, b.x + b.w) - x, h:Math.max(a.y + a.h, b.y + b.h) - y };
 }
 
+/* the heading reads on the first screen: its title line (FOLD_LINE, or the
+   whole mark if shorter) clear above the bottom docks */
+export const FOLD_LINE = 30;
+export function foldFindings(records) {
+  const f = records.fold;
+  if (!f || f.limit - f.top >= Math.min(FOLD_LINE, f.bottom - f.top)) return [];
+  return [{ rule:"fold", severity:"high", sel:f.sel, text:f.text,
+    detail:`starts at ${f.top}px, its title line not clear of the first screen's ${f.limit}px (the bottom docks' top, viewport ${f.vh}px)`,
+    box:{ x:0, y:f.top, w:1, h:Math.max(1, f.bottom - f.top) }, viewport:true }];
+}
+
 /* every finding of one view, exceptions applied */
 export function findingsFor(records, { mode = "tv", view = "", exceptions = [] } = {}) {
   const all = [...clipFindings(records, { mode }), ...boundsFindings(records, { mode }), ...overlapFindings(records),
-    ...overlayFindings(records), ...smallFindings(records, { mode })];
+    ...overlayFindings(records), ...smallFindings(records, { mode }), ...foldFindings(records)];
   return all.map(f => {
     const ex = exceptions.find(e => (!e.view || new RegExp(e.view).test(view)) && (!e.rule || e.rule === f.rule)
       && (!e.sel || new RegExp(e.sel).test(f.sel)) && (!e.text || new RegExp(e.text).test(f.text)));

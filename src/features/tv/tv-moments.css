@@ -26,10 +26,16 @@
 @keyframes tv-walk-dock { from { transform:none; opacity:1; } to { transform:scale(.14); opacity:0; } }
 .tv-walkout-panel { position:absolute; inset:28px; border-radius:18px; overflow:hidden; background:var(--night); }
 /* light falls through the glass from above the winner's color: a lit top,
-   a darker foot, the pane's two reflection bands (liquid glass) */
+   a darker foot, the pane's two reflection bands (liquid glass), and the
+   backglass's dark edge, so a pale color still reads as lit glass in a frame
+   instead of washing the room out */
 .tv-walkout-panel::after { content:""; position:absolute; inset:0; z-index:1; pointer-events:none;
-  background:var(--lg-bands), linear-gradient(180deg, color-mix(in srgb, var(--bone) 16%, transparent),
+  background:var(--lg-bands),
+    radial-gradient(74% 84% at 50% 46%, transparent 58%, color-mix(in srgb, var(--ink0) 40%, transparent) 100%),
+    linear-gradient(180deg, color-mix(in srgb, var(--bone) 16%, transparent),
     transparent 42%, transparent 70%, color-mix(in srgb, var(--ink0) 26%, transparent));
+  box-shadow:inset 0 0 0 3px color-mix(in srgb, var(--ink0) 55%, transparent), inset 0 0 96px color-mix(in srgb, var(--ink0) 28%, transparent);
+  border-radius:inherit;
   animation:tv-take-in 600ms var(--ease-out) calc(var(--tl) + 500ms) both; }
 /* a circle scaled from the winner's chip (transform, never clip-path) */
 .tv-walkout-flood { position:absolute; display:block; border-radius:50%; background:var(--walk-color); will-change:transform;
@@ -75,11 +81,22 @@
    the line box holds the Inline cut's descenders */
 .tv-walkout-name { line-height:1.2; letter-spacing:.01em; white-space:nowrap; transform-origin:0 70%;
   animation:tv-walk-stamp 360ms var(--ease-land) calc(var(--tl) + 700ms) both; }
-/* a team MVP: the stamp and its event under the name */
-.tv-walkout-mvp { display:flex; align-items:center; gap:24px; min-width:0;
+/* what was won: the place (or the round) stamped under the name, the
+   game's mark and the event beside it */
+.tv-walkout-stamp { display:flex; align-items:center; gap:24px; min-width:0;
   animation:tv-walk-stamp 360ms var(--ease-land) calc(var(--tl) + 900ms) both; }
-.tv-walkout-mvp b { flex-shrink:0; padding:6px 26px 8px; border:6px solid var(--walk-ink); border-radius:18px; font-size:80px; line-height:1.05; }
-.tv-walkout-mvp span { min-width:0; font:600 48px/1.25 var(--fd-body); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.tv-walkout-stamp b { flex-shrink:0; padding:6px 26px 8px; border:6px solid var(--walk-ink); border-radius:18px; font-size:80px; line-height:1.05; }
+.tv-walkout-stamp span { min-width:0; font:600 40px/1.25 var(--fd-body); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.tv-walkout-won b { font-size:56px; padding:4px 20px 6px; border-width:5px; }
+.tv-walkout-won .fd-gamemark, .tv-walkout-won svg { flex-shrink:0; }
+.tv-walkout-won span { font:800 56px/1.2 var(--fd-display); letter-spacing:.01em; }
+/* a team's: the same stamp at the head of the credit row */
+.tv-walkout-credit .tv-walkout-won { flex-shrink:0; gap:18px; animation:none; }
+.tv-walkout-credit .tv-walkout-won b { font-size:40px; padding:2px 16px 4px; border-width:4px; border-radius:12px; }
+.tv-walkout-credit .tv-walkout-won span { font-size:40px; max-width:520px; }
+.tv-walkout-credit-song { display:flex; align-items:center; gap:28px; min-width:0; }
+/* what was won and the song stand apart by space alone, no rule between them */
+.tv-walkout-credit .tv-walkout-won + * { margin-left:36px; }
 @keyframes tv-walk-stamp { 0% { opacity:0; transform:scale(1.7) rotate(-5deg); } 70% { opacity:1; transform:scale(.96) rotate(0deg); }
   100% { opacity:1; transform:none; } }
 /* the song at display scale, as titled (never set in capitals, so a "1"
@@ -118,7 +135,7 @@
   border-radius:50%; background:var(--walk-ink); color:var(--walk-color); box-shadow:0 0 0 5px var(--walk-ink), var(--shadow-2);
   animation:tv-walk-photo 420ms var(--ease-land) calc(var(--tl) + 1100ms) both; }
 .tv-walkout-mark img { display:block; width:100%; height:100%; object-fit:cover; }
-.tv-walkout-credit { display:flex; align-items:center; gap:28px; min-width:0; max-width:1200px; text-align:left;
+.tv-walkout-credit { display:flex; align-items:center; gap:28px; min-width:0; max-width:1560px; text-align:left;
   animation:tv-walk-sub 400ms var(--ease-out) calc(var(--tl) + 1100ms) both; }
 .tv-walkout-credit img { flex-shrink:0; display:block; width:112px; height:112px; object-fit:cover; border-radius:14px;
   box-shadow:0 0 0 5px var(--walk-ink); }

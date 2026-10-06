@@ -237,19 +237,14 @@ test("chip ink is computed for contrast; the measured failures now use the dark 
 });
 
 /* ── the bets rack never covers the board ── */
-test("the bets rack docks under the board, in the page's flow", async () => {
-  const { rackPadding, RACK_CLEAR_GAP } = await import("../src/features/wagers/rackClearance.js");
-  assert.equal(rackPadding({ rackBottom:80, rackHeight:137, below:0 }), 80 + 137 + RACK_CLEAR_GAP, "a page with nothing below");
-  assert.equal(rackPadding({ rackBottom:80, rackHeight:137, below:92 }), 80 + 137 + RACK_CLEAR_GAP - 92, "the tab bar's padding counts");
-  assert.equal(rackPadding({ rackBottom:80, rackHeight:20, below:400 }), 32, "never less than the board's own end");
-  /* the rack docks in the page's flow under the board (Oct 2): sticky above
-     the tab bar and the commissioner's dock while the board scrolls, never
-     over the bracket or the bets after it */
+test("the bets rack sits at the board's head, in the page's flow, never over the board", () => {
+  /* Oct 3: the rack is the lower glass of the board's head pane, above the
+     board, so no pot total, + or backer is under it at any scroll position */
   const wagers = read("src/features/wagers/Wagers.jsx");
-  assert.match(wagers, /<div className="fd-wagers-play">[\s\S]*fd-wagers-picks[\s\S]*fd-wagers-rack[\s\S]*<\/div> : <p className="fd-wagers-contest-waiting">/);
+  assert.match(wagers, /<header className=\{`fd-wagers-event-heading[\s\S]*className=\{`fd-wagers-rack[\s\S]*<\/header>[\s\S]*fd-wagers-picks/);
   const css = read("src/features/wagers/wagers.css");
-  assert.match(css, /\.fd-wagers-rack \{ position:sticky; bottom:calc\(var\(--fd-nav-height,74px\) \+ var\(--fd-dock-h,0px\) \+ 8px\);/);
-  assert.doesNotMatch(css, /\.fd-wagers-rack \{[^}]*position:fixed/);
+  assert.doesNotMatch(css, /\.fd-wagers-rack \{[^}]*position:(fixed|sticky)/);
+  assert.doesNotMatch(css, /\.fd-wagers-rack \{[^}]*bottom:/);
 });
 
 /* ── dev previews ── */

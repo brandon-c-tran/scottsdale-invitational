@@ -33,14 +33,12 @@ if (params.get("pause")) {
 /* the game, moment by moment */
 const lock = state => {
   const game = state.trivia, q = game.questions[game.index];
-  const team = game.teams.find(item => item.players.includes(FIT_GUEST));
-  act(state, "triviaPick", { questionId:q.id, lock:true }, { isGm:false, player:team.players[2] === FIT_GUEST ? team.players[1] : team.players[2],
-    deviceId:"preview", actionId:`lock-${q.id}` });
+  act(state, "triviaPick", { questionId:q.id, lock:true }, { isGm:false, player:FIT_GUEST, deviceId:"preview", actionId:`lock-${q.id}` });
   return state;
 };
 export const STEPS = Object.freeze([
   { id:"question", label:"Multiple choice", build:() => triviaStage("question") },
-  { id:"locked", label:"Your team locks in", build:() => lock(triviaStage("question")) },
+  { id:"locked", label:"You lock in", build:() => lock(triviaStage("question")) },
   { id:"reveal", label:"Reveal", build:() => triviaStage("reveal") },
   { id:"number", label:"Closest number", build:() => triviaStage("number") },
   { id:"number-reveal", label:"Closest number reveal", build:() => triviaStage("number-reveal") },
@@ -67,7 +65,9 @@ const withPhotos = frame => {
 const DESK_VIEWS = { bank:{ source:"bank", category:"music" }, round:{ source:"custom", id:"tfitgroom1" },
   choice:{ source:"custom", id:"tfitgroom1", question:"qfitlong01" }, tune:{ source:"custom", id:"tfitgroom1", question:"qfittune01" },
   picture:{ source:"custom", id:"tfitgroom1", question:"qfitpic001" }, number:{ source:"custom", id:"tfitgroom1", question:"new" } };
-const crewOf = state => state.draws?.trivia?.roles?.[0]?.player || null;
+/* a spectator: a player marked away mid-game watches without playing */
+const SPECTATOR = "Henry";
+const watching = state => ({ ...state, away:{ ...(state.away || {}), [SPECTATOR]:{ at:1 } } });
 
 function Phone({ base, me, step }) {
   const [state, setState] = useState(base);
@@ -117,7 +117,8 @@ function Single({ id, as }) {
   const base = useMemo(() => dress(step.build()), [step]);
   if (as === "tv") return <Tv base={base} />;
   if (as === "desk") return <Desk base={base} />;
-  return <Phone base={base} me={as === "spectator" ? crewOf(base) : FIT_GUEST} step={step.id} />;
+  if (as === "spectator") return <Phone base={watching(base)} me={SPECTATOR} step={step.id} />;
+  return <Phone base={base} me={FIT_GUEST} step={step.id} />;
 }
 
 /* every surface for the chosen moment */
@@ -131,7 +132,7 @@ function Board() {
         cursor:"pointer" }}>{step.label}</button>)}
     </nav>
     <div style={{ display:"flex", flexWrap:"wrap", gap:16, alignItems:"flex-start" }}>
-      {[["player", "Player on a team"], ["spectator", "Spectator"], ["desk", "Commissioner desk"]].map(([as, label]) =>
+      {[["player", "Player"], ["spectator", "Spectator"], ["desk", "Commissioner desk"]].map(([as, label]) =>
         <figure key={as} style={{ margin:0 }}><figcaption style={{ marginBottom:6 }}>{label}</figcaption>
           <iframe key={`${id}:${as}`} title={label} src={src(as)} width="390" height="844" style={{ border:"1px solid #333", borderRadius:12 }} /></figure>)}
       <figure style={{ margin:0 }}><figcaption style={{ marginBottom:6 }}>TV</figcaption>

@@ -31,16 +31,15 @@
      D6  an award: its ballot chips (the chip density rule), then S10 and
          S14 as the winner stamps, on AWARD_TIMING from reveal.at
      Trivia: the lean-in sting as a question goes up (openedAt), a slap as
-         each team locks in, the stamp and the points riffle on the reveal
-         (revealedAt), a riffle as the scores stand (boardAt); the last five
+         each player locks in (panned to their place in the room), the stamp
+         and the points riffle on the reveal (revealedAt), a riffle as the
+         scores stand (boardAt); the last five
          seconds tick and the clock closing knocks (useTriviaClock, on the
          clock like the blinds)
      stamp  a team takes a new name (features/teams): its card re-letters,
          one stamp at the name's own write time
      engrave  the cup's trophy turn after a result: the new winners are cut
          into their plate, one sound on the turn's clock (engraveCues)
-     payout  v3.1: a leader bounty collected, after its contest's own
-         moment (BOUNTY_CUE_MS past the decision or the posted result)
 
    Pure: roomSnapshot() reduces a state to what can sound, roomCues() diffs
    two snapshots into cues, advanceCues() and crownCues() lay out the two
@@ -49,7 +48,7 @@
    Reduced motion collapses each sequence to its one summary sound. */
 
 import { useEffect, useRef } from "react";
-import { bountyAwards, pokerClock, resolveCurrentContest, resolveWager, wagerMatchesContest } from "../../../shared/core.js";
+import { pokerClock, resolveCurrentContest, resolveWager, wagerMatchesContest } from "../../../shared/core.js";
 import { MOTION } from "../../lib/motion.js";
 import { cueAt, freshFrameNow, roomChipsLanded } from "../../lib/sound.js";
 import { serverNow } from "../../lib/serverClock.js";
@@ -139,11 +138,8 @@ export function roomSnapshot(state, events = [], { standings = null, allTied = f
   const leaderRows = !allTied && standings?.length ? standings.filter(row => row.rank === 1) : [];
   const pk = state.poker || null;
   const active = showScene?.active || null;
-  /* v3.1: every bounty the record pays, by its contest, at its decision */
-  const bounties = {};
-  for (const bounty of bountyAwards(state, events)) bounties[bounty.contestId] = bounty.at;
   return {
-    announced, games, reveals, locks, results, drafts, chips, names, bounties,
+    announced, games, reveals, locks, results, drafts, chips, names,
     leader:leaderRows.map(row => row.player).sort().join("+"),
     decidedAt:liveEv ? Number(state.eventOps?.[liveEv.id]?.lastContest?.decidedAt) || 0 : 0,
     frozen:!!state.frozen,
@@ -164,7 +160,7 @@ export function triviaSnapshot(state) {
   const picks = game.picks?.[question?.id] || {};
   return { id:question?.id || null, phase:game.phase, openedAt:Number(time.openedAt) || 0, revealedAt:Number(time.revealedAt) || 0,
     boardAt:Number(game.boardAt) || 0, locked:Object.keys(picks).filter(key => picks[key]?.locked).sort().join(","),
-    teams:(game.teams || []).length };
+    players:Array.isArray(game.players) ? game.players.join(",") : "" };
 }
 
 /* the cues one Trivia step owes the room */
@@ -176,9 +172,12 @@ export function triviaCues(prev, next, { now = serverNow(), reduced = false } = 
   if (was?.id !== t.id && t.phase === "question") cues.push({ id:reduced ? "S3" : "sting", at:t.openedAt || now, key:`${key}:open` });
   if (was?.id === t.id && t.phase === "question") {
     const before = new Set((was.locked || "").split(",").filter(Boolean));
-    const fresh = (t.locked || "").split(",").filter(Boolean).filter(team => !before.has(team));
-    fresh.forEach((team, i) => cues.push({ id:"S18", at:now + i * 90, pan:t.teams > 1 ? Math.round((-0.6 + 1.2 * Number(team) / (t.teams - 1)) * 100) / 100 : 0,
-      key:`${key}:lock:${team}` }));
+    const fresh = (t.locked || "").split(",").filter(Boolean).filter(player => !before.has(player));
+    const order = (t.players || "").split(",").filter(Boolean);
+    /* each lock slaps from where that player sits in the room, left to right */
+    const panOf = player => order.length > 1 ? Math.round((-0.7 + 1.4 * Math.max(0, order.indexOf(player)) / (order.length - 1)) * 100) / 100 : 0;
+    fresh.forEach((player, i) => cues.push({ id:"S18", at:now + i * 90, pan:panOf(player),
+      key:`${key}:lock:${player}` }));
   }
   if (t.phase !== "question" && (was?.id !== t.id || was.phase === "question") && t.revealedAt) {
     cues.push({ id:"stamp", at:t.revealedAt + 250, key:`${key}:reveal` });
@@ -296,13 +295,6 @@ export function roomCues(prev, next, { now = serverNow(), reduced = false } = {}
 
   triviaCues(prev, next, { now, reduced }).forEach(cue => cues.push(cue));
 
-  /* v3.1: a bounty collected rings the payout once its contest's moment
-     (WON and the podium) has played; the newest only */
-  const bounty = Object.entries(next.bounties || {})
-    .filter(([key]) => prev.bounties && prev.bounties[key] === undefined)
-    .sort((a, b) => b[1] - a[1])[0];
-  if (bounty) add("payout", (bounty[1] || now) + (reduced ? 0 : BOUNTY_CUE_MS), { key:`bounty:${bounty[0]}`, opts:{ n:2 } });
-
   /* a pick lands in its seat */
   for (const [id, picks] of Object.entries(next.drafts))
     if (prev.drafts[id] !== undefined && picks > prev.drafts[id])
@@ -320,8 +312,6 @@ export function roomCues(prev, next, { now = serverNow(), reduced = false } = {}
   return cues;
 }
 
-/* a bounty's payout waits for its contest's WON and the podium's 1st */
-export const BOUNTY_CUE_MS = 3400;
 /* the bust card lands this long after the bust (the spin-down's length) */
 export const BUST_CARD_LAND_MS = 1000;
 

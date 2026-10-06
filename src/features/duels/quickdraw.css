@@ -1,42 +1,102 @@
-/* Quick Draw: one full-screen layer of black glass. The offer and the
-   verdict are lettered like a backglass; Steady is a dark lamp waiting; the
-   flash is the whole glass lit magenta, the lamp for now. */
-.fd-qd { position:fixed; inset:0; z-index:300; display:flex; flex-direction:column; align-items:center; justify-content:center;
-  overflow-y:auto; padding:calc(30px + env(safe-area-inset-top)) 24px calc(30px + env(safe-area-inset-bottom));
-  background:var(--bg); color:var(--ink); text-align:center; }
-.fd-qd-line { max-width:340px; margin:0; color:var(--muted2); font:400 15px/1.55 var(--fd-body); }
-.fd-qd-line.is-strong { color:var(--ink); font-size:16px; }
-.fd-qd-line.is-error { margin:0 0 16px; color:var(--clay-text); font-weight:600; }
-.fd-qd-line.is-drawn { color:var(--lamp-live-text); font-weight:600; }
-.fd-qd-label { color:var(--muted2); font:800 16px/1.1 var(--fd-display); letter-spacing:.08em; text-transform:uppercase; }
-.fd-qd-title { margin:8px 0 24px; color:var(--ink); font:900 54px/1 var(--fd-show);
-  text-shadow:0 0 22px color-mix(in srgb, var(--lamp-live) 45%, transparent); }
-.fd-qd-faceoff { display:flex; align-items:center; gap:16px; margin-bottom:22px; }
-.fd-qd-vs { color:var(--muted2); font:900 32px/1 var(--fd-show); }
-.fd-qd-anyone { color:var(--muted2); font:800 24px/1 var(--fd-display); letter-spacing:.06em; text-transform:uppercase; }
-.fd-qd-stake { margin:4px 0 26px; color:var(--sun); font:800 18px/1.2 var(--fd-display); letter-spacing:.04em; text-transform:uppercase; }
-.fd-qd-actions { display:flex; flex-wrap:wrap; justify-content:center; gap:10px; }
-.fd-qd-quiet { margin-top:14px; min-height:44px; padding:0 16px; border:0; background:none; color:var(--lamp-info); font:600 15px/1 var(--fd-body); cursor:pointer; }
-.fd-qd-run { position:fixed; inset:0; z-index:300; display:flex; flex-direction:column; align-items:center; justify-content:center; touch-action:none; }
-.fd-qd-run.is-armed { background:var(--bg); }
-.fd-qd-steady { color:var(--muted2); font:800 46px/1 var(--fd-display); letter-spacing:.14em; text-transform:uppercase; animation:si-pulse 2.2s infinite; }
-.fd-qd-steady-note { margin-top:10px; color:var(--muted2); font:400 15px/1.4 var(--fd-body); }
+/* Quick Draw: one full-screen layer of glass. The session's painting holds
+   the two chips squared off on its floor with the antes between them, the
+   game lettered over them; the clear glass under it carries the lamps and
+   the one action. Armed, the whole glass is the target and three magenta
+   lamps light; the flash is the whole glass lit magenta, the lamp for now.
+   The result rolls each time on a reel, WON stamps on the winner's chip and
+   the antes slide to them. Every animated element rests on its end state. */
+.fd-qd { position:fixed; inset:0; z-index:300; display:grid; grid-template-rows:auto minmax(0, 1fr); overflow-y:auto;
+  background:var(--bg); color:var(--ink); text-align:center; overscroll-behavior:contain; }
+
+/* the painting: the game over the faced-off chips, the floor under them */
+.fd-qd-scene { display:flex; flex-direction:column; justify-content:space-between; gap:12px;
+  min-height:clamp(330px, 54svh, 460px); padding:calc(env(safe-area-inset-top) + 20px) 12px 16px; }
+.fd-qd-title { --lamp:var(--lamp-live); margin:0; font-size:40px; line-height:1.15; }
+.fd-qd-ring { display:grid; grid-template-columns:minmax(0, 1fr) auto minmax(0, 1fr); align-items:start; gap:4px; }
+.fd-qd-side { display:flex; flex-direction:column; align-items:center; gap:6px; min-width:0;
+  animation:fd-qd-in-left 420ms var(--ease-out) both; }
+.fd-qd-side.is-right { animation-name:fd-qd-in-right; }
+@keyframes fd-qd-in-left { from { opacity:0; transform:translateX(-36px); } }
+@keyframes fd-qd-in-right { from { opacity:0; transform:translateX(36px); } }
+.fd-qd-chip { position:relative; line-height:0; transition:opacity .5s var(--ease-out); }
+.fd-qd-side.is-lost .fd-qd-chip { opacity:.6; }
+.fd-qd-name { max-width:100%; font-size:24px; line-height:1.15; overflow-wrap:anywhere; }
+.fd-qd-mark { display:flex; align-items:center; justify-content:center; gap:6px; min-height:46px; }
+.fd-qd-lamp { width:16px; height:16px; }
+.fd-qd-lamp.is-live { --lamp:var(--lamp-live); }
+.fd-qd-lamp.is-you { --lamp:var(--you); }
+/* a time on the floor: a reel in a window cut in the painting */
+.fd-qd-time { display:inline-flex; align-items:baseline; gap:4px; padding:5px 8px 4px; border-radius:9px;
+  background:color-mix(in srgb, var(--ink0) 88%, transparent); box-shadow:var(--window-bezel);
+  color:var(--bone); font:800 26px/1 var(--fd-display); }
+.fd-qd-time.is-you { font-size:30px; }
+.fd-qd-time small { color:var(--muted2); font:700 13px/1 var(--fd-display); letter-spacing:.06em; text-transform:uppercase; }
+.fd-qd-foul { padding:6px 10px 5px; border-radius:9px; background:color-mix(in srgb, var(--ink0) 88%, transparent);
+  color:var(--clay-text); font:900 26px/1.1 var(--fd-show); }
+/* WON on the winner's chip, as the commissioner's winner tap stamps it */
+.fd-qd-stamp { position:absolute; left:50%; top:4px; z-index:2; padding:4px 10px 3px; border:3px solid var(--sun); border-radius:8px;
+  background:color-mix(in srgb, var(--ink0) 72%, transparent); color:var(--sun); font-size:28px; line-height:1;
+  letter-spacing:.04em; white-space:nowrap; transform:translate(-50%, -50%) rotate(-8deg);
+  animation:fd-qd-stamp var(--motion-stamp) var(--ease-land) both; }
+.fd-qd-stamp.is-tie { border-color:var(--bone); color:var(--bone); }
+@keyframes fd-qd-stamp { 0% { opacity:0; transform:translate(-50%, -50%) rotate(-8deg) scale(1.9); }
+  70% { opacity:1; transform:translate(-50%, -50%) rotate(-8deg) scale(.94); } }
+
+/* the antes: the house's chips, each side's stack standing on the line the
+   chips stand on, its value under it; at the result they slide to the
+   winner and are taken in */
+.fd-qd-antes { display:flex; align-items:flex-end; gap:6px; min-height:88px; padding:0 2px; }
+.fd-qd-ante { display:flex; flex-direction:column; align-items:center; gap:3px; }
+.fd-qd-ante small { color:var(--sun); font:800 15px/1.15 var(--fd-display); font-variant-numeric:tabular-nums; }
+.fd-qd-ante.is-empty i { display:block; width:30px; height:14px; margin-bottom:22px; border:1.5px dashed var(--ghost-line); border-radius:50%; }
+.fd-qd-antes.is-to-left .fd-qd-ante,
+.fd-qd-antes.is-to-right .fd-qd-ante { opacity:0; animation:fd-qd-take-left var(--slide-ms, 650ms) var(--ease-exit) var(--slide-at, 0ms) both; }
+.fd-qd-antes.is-to-right .fd-qd-ante { animation-name:fd-qd-take-right; }
+@keyframes fd-qd-take-left { from { opacity:1; transform:none; } 80% { opacity:1; } to { opacity:0; transform:translate(-96px, -30px) scale(.55); } }
+@keyframes fd-qd-take-right { from { opacity:1; transform:none; } 80% { opacity:1; } to { opacity:0; transform:translate(96px, -30px) scale(.55); } }
+
+/* what is left of the offer or the Ready window, draining along the floor */
+.fd-qd-drain { position:absolute; left:0; right:0; bottom:0; height:3px; background:var(--lamp-info); transform-origin:left center;
+  transform:scaleX(0); animation:fd-qd-drain var(--drain-ms) linear both; }
+@keyframes fd-qd-drain { from { transform:scaleX(var(--drain-left, 1)); } to { transform:scaleX(0); } }
+
+/* the clear glass under the painting: the lamps, the line, the action */
+.fd-qd-deck { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px;
+  padding:20px 20px calc(env(safe-area-inset-bottom) + 20px); }
+.fd-qd-line { max-width:340px; margin:0; color:var(--muted2); font:400 15px/1.5 var(--fd-body); }
+.fd-qd-line.is-strong { color:var(--ink); font-size:17px; font-weight:600; }
+.fd-qd-line.is-error { color:var(--clay-text); font-weight:600; }
+.fd-qd-state { display:flex; align-items:center; gap:10px; margin:0; color:var(--muted2);
+  font:800 20px/1.1 var(--fd-display); letter-spacing:.08em; text-transform:uppercase; }
+.fd-qd-state .fd-qd-lamp { --lamp:var(--muted); }
+.fd-qd-actions { display:flex; flex-direction:column; align-items:center; gap:10px; width:100%; }
+.fd-qd-failed { display:grid; justify-items:center; gap:10px; width:100%; }
+.fd-qd-quiet { min-height:44px; padding:0 16px; border:0; background:none; color:var(--lamp-info); font:600 15px/1 var(--fd-body); cursor:pointer; }
+.fd-qd-quiet:focus-visible { outline:2px solid var(--lamp-info); outline-offset:3px; border-radius:6px; }
+/* your net: one reel, green up, clay down */
+.fd-qd-delta { display:inline-flex; align-items:center; gap:2px; font:800 48px/1 var(--fd-display); animation:fd-qd-rise 420ms var(--ease-out) both; }
+.fd-qd-delta.is-up { color:var(--green); }
+.fd-qd-delta.is-down { color:var(--clay-text); }
+.fd-qd-delta.is-down .fd-reel { color:var(--clay-text); --reel-tint:var(--clay); --reel-mix:8%; }
+@keyframes fd-qd-rise { from { opacity:0; transform:translateY(14px); } }
+.fd-qd.is-over .fd-qd-ring { opacity:.55; }
+
+/* armed: three lamps light, then dark glass until the flash */
+.fd-qd.is-armed .fd-qd-title { opacity:.55; }
+.fd-qd-count { display:flex; align-items:center; justify-content:center; gap:26px; min-height:120px; }
+.fd-qd-count-lamp { width:34px; height:34px; --lamp:var(--lamp-live);
+  box-shadow:var(--lens-rim), 0 0 22px 4px color-mix(in srgb, var(--lamp-on) 55%, transparent);
+  animation:fd-qd-lamp-on 90ms steps(1, end) both; }
+@keyframes fd-qd-lamp-on { from { background:var(--lens-off); box-shadow:var(--lens-rim); } to { background:var(--lens-lit); } }
+.fd-qd.is-armed { touch-action:none; cursor:pointer; -webkit-tap-highlight-color:transparent; -webkit-user-select:none; user-select:none; }
+
+/* the flash */
+.fd-qd-run { position:fixed; inset:0; z-index:300; display:flex; align-items:center; justify-content:center; touch-action:none;
+  -webkit-tap-highlight-color:transparent; }
 .fd-qd-run.is-go { background:var(--lamp-live); }
-.fd-qd-go { color:var(--ink0); font:900 124px/1 var(--fd-marquee); }
-.fd-qd-mine { margin:8px 0 4px; color:var(--you); font:800 80px/1 var(--fd-display); text-shadow:0 0 18px color-mix(in srgb, var(--you) 45%, transparent); animation:si-flag .5s both; }
-.fd-qd-mine:not(.is-foul) { display:flex; align-items:center; justify-content:center; gap:.12em; }
-.fd-qd-mine .fd-reel { font-size:.7em; }
-.fd-qd-mine.is-foul { color:var(--clay-text); font-size:58px; text-shadow:none; }
-.fd-qd-board { display:grid; grid-template-columns:1fr 1fr; gap:10px; width:100%; max-width:360px; margin:26px 0; }
-.fd-qd-board:empty { display:none; }
-.fd-qd-card { display:flex; flex-direction:column; align-items:center; gap:4px; padding:12px 10px; border:1px solid var(--line); border-radius:14px;
-  background:var(--paper); box-shadow:var(--glass-edge); animation:si-flag .5s both; }
-.fd-qd-card.is-winner { border-color:var(--sun); box-shadow:var(--chip-bloom); }
-.fd-qd-card.is-loser { opacity:.6; }
-.fd-qd-card strong { color:var(--ink); font:800 26px/1 var(--fd-display); }
-.fd-qd-card span { color:var(--muted2); font:600 14px/1.3 var(--fd-body); }
-.fd-qd-wait { margin:26px 0; }
-.fd-qd-verdict { margin-bottom:22px; color:var(--muted2); font:900 38px/1.05 var(--fd-show); animation:si-flag .5s .15s both; }
-.fd-qd-verdict.is-won { color:var(--sun); text-shadow:0 0 20px color-mix(in srgb, var(--sun) 45%, transparent); }
-.fd-qd-verdict.is-lost { color:var(--clay-text); }
-@media(prefers-reduced-motion:reduce) { .fd-qd-steady, .fd-qd-mine, .fd-qd-card, .fd-qd-verdict { animation:none; } }
+.fd-qd-go { color:var(--ink0); font-size:clamp(112px, 36vw, 176px); line-height:1.15; }
+
+@media(prefers-reduced-motion:reduce) {
+  .fd-qd-side, .fd-qd-stamp, .fd-qd-antes .fd-qd-ante, .fd-qd-delta, .fd-qd-count-lamp, .fd-qd-drain { animation:none; }
+  .fd-qd-drain { transform:scaleX(var(--drain-left, 1)); }
+}

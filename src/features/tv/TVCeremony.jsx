@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { disp, overflowRoleMeta, resolveCurrentContest } from "../../../shared/core.js";
-import { Avatar } from "../identity/PlayerIdentity.jsx";
+import { ChipFace } from "../identity/PlayerIdentity.jsx";
 import { EventName } from "../../ui/OneSafe.jsx";
 import { PayoutLadder } from "../../ui/PayoutLadder.jsx";
 import { GlassArt } from "../../ui/GlassArt.jsx";
@@ -61,7 +61,8 @@ function DrawLine({ state, line, face, covered = false }) {
   return (
     <div className="tv-draw-line">
       <div className="tv-draw-faces">
-        {people.map(p => <span key={p} className="tv-draw-face" data-player={p}><Avatar state={state} p={p} size={face} /></span>)}
+        {/* every player as their chip coin, the one treatment on the TV */}
+        {people.map(p => <span key={p} className="tv-draw-face" data-player={p}><ChipFace p={p} size={face} /></span>)}
       </div>
       <div className="tv-draw-text">
         <div className="fd-show tv-draw-name"><EventName name={line.text} /></div>
@@ -154,7 +155,7 @@ export function TVDrawReveal({ state, events = [], reveal, reducedMotion = false
             <span className="tv-label">Event crew</span>
             {crew.map(role => (
               <span key={role.player} className="tv-reveal-crew-item">
-                <Avatar state={state} p={role.player} size={48} />
+                <ChipFace p={role.player} size={48} />
                 {disp(state, role.player)}, {overflowRoleMeta(role.role).label}
               </span>
             ))}

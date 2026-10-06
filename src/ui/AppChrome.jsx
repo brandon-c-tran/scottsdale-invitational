@@ -7,26 +7,31 @@ import { UpdateChip } from "./UpdateReady.jsx";
 import { ScoreReel } from "./ScoreReel.jsx";
 import { Icon } from "./Icon.jsx";
 import { EventName, OneSafe } from "./OneSafe.jsx";
-import { useFlightTarget } from "../lib/motion.js";
+import { useCountUp, useFlightTarget } from "../lib/motion.js";
 
 const ordinal = n => n === 1 ? "1st" : n === 2 ? "2nd" : n === 3 ? "3rd" : `${n}th`;
-/* your chips and rank for the header; no rank before the weekend goes live */
+/* your chips and rank for the header; no rank before the weekend goes live,
+   and none while every stack is level. A tie reads as the place it shares
+   ("2nd"); the leaderboard draws the tie. */
 export function headerStanding(state, standings = [], me) {
   const row = me ? standings.find(item => item.player === me) : null;
   if (!row) return null;
   if (!state?.live && !state?.frozen) return { pts:row.pts, rank:null };
+  if (standings.every(item => item.pts === row.pts)) return { pts:row.pts, rank:null };
   const tied = standings.filter(item => item.rank === row.rank).length > 1;
-  return { pts:row.pts, rank:{ n:row.rank, tied, text:tied ? `T${row.rank}` : ordinal(row.rank) } };
+  return { pts:row.pts, rank:{ n:row.rank, tied, text:ordinal(row.rank) } };
 }
 
-/* your reel and rank in the header, lit in your filament. Home's You strip
-   carries them there, so the header shows them on the other tabs. */
+/* your reel and rank in the header, lit in your filament: their one home,
+   on every tab. A fresh change counts in 100s. A tap finds your row on
+   Home’s leaderboard. */
 function YouReel({ standing, onStandings }) {
+  const count = useCountUp(standing.pts, { key:"you-header" });
   const label = `${standing.pts.toLocaleString("en-US")} chips${standing.rank ? `, ${standing.rank.tied
-    ? `tied for ${standing.rank.n}` : `rank ${standing.rank.n}`}` : ""}. Open standings`;
+    ? `tied for ${standing.rank.text}` : standing.rank.text}` : ""}. Find your row`;
   return <button type="button" className="fd-header-you" onClick={onStandings} aria-label={label}>
     {standing.rank && <span className="fd-header-rank"><OneSafe text={standing.rank.text} /></span>}
-    <ScoreReel value={standing.pts} tone="you" label="" />
+    <ScoreReel value={count.value} tone="you" label="" />
   </button>;
 }
 
@@ -38,7 +43,9 @@ export function AppHeader({ state, me, onHome, onProfile, onMenu, onCommissioner
       <button className="fd-brand" onClick={onHome} aria-label="Field Day home"><FDMark size={30} /><span><strong>Field Day</strong><small>{EDITION.label}</small></span></button>
       {updateReady && onReload && <UpdateChip onReload={onReload} />}
       {me && standing && <YouReel standing={standing} onStandings={onStandings || onHome} />}
-      {gm && <IconButton label="Commissioner" size={44} selected onClick={onCommissioner}><Icon name="star" size={20} lit /></IconButton>}
+      {/* the commissioner's own way in, lettered so it is never a bare glyph */}
+      {gm && <button type="button" className="fd-header-gm" onClick={onCommissioner} aria-label="Commissioner">
+        <Icon name="star" size={18} lit /><span aria-hidden="true">GM</span></button>}
       {me && <button ref={profileTarget} onClick={onProfile} aria-label="Your profile" className="fd-profile-link"><Avatar state={state} p={me} size={34} /></button>}
       <IconButton label="More options" size={44} onClick={onMenu}><Icon name="menu" size={22} /></IconButton>
     </div>

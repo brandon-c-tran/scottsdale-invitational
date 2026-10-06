@@ -16,7 +16,7 @@ An installable PWA used almost entirely on iPhones (all guests), plus one shared
 
 ## Product Purpose
 
-Field Day turns a weekend of bar and backyard games into one tournament with one leaderboard. Everyone starts with 1,000 chips; event placings, wagers on the current contest, duels, team MVPs and rulings move them; whatever a player holds Saturday night is the stack they are dealt for the poker finale, and the chip leader after poker is champion.
+Field Day turns a weekend of bar and backyard games into one tournament with one leaderboard. Everyone starts with 1,000 chips; event placings, wagers on the current contest, duels and rulings move them; whatever a player holds Saturday night is the stack they are dealt for the poker finale, and the chip leader after poker is champion.
 
 Success for the weekend:
 
@@ -42,7 +42,7 @@ A private, single-occasion game companion where the whole economy is real poker 
 - Four stable guest areas: Home, Events, Bets, Weekend. Home always shows the full 13-player leaderboard. Profiles, player cards and event details open as sheets. Commissioner controls stay separate from guest navigation.
 - Real-time over WebSocket from one Cloudflare Durable Object; clients never write state. Settlement, standings, draws, brackets and lifecycle are derived in one shared module; the server is always right.
 - Betting is on the current contest only, placed as chips directly on the board (roulette-style): a fixed rack of 100/200/500/1000, place and retract the last chip. Payouts read "Winner pays 1:1" or "Winner pays 2:1". At-risk cap is half your stack.
-- Supporting systems already shipped: draws and captains' snake drafts, brackets and heats, duels and Quick Draw, team MVP votes, awards night ballots, Where and When (live photo geo game), photo desk, win songs over Spotify, Web Push alerts, synthesized sound, haptics, the poker table with blind clock.
+- Supporting systems already shipped: draws and captains' snake drafts, brackets and heats, duels and Quick Draw, awards night ballots, Where and When (live photo geo game), photo desk, win songs over Spotify, Web Push alerts, synthesized sound, haptics, the poker table with blind clock.
 - Production holds real guest data. A redesign never resets guests, claims, answers or completion markers, and never requires completed setup again.
 - Terminology: chips (not points), stack, blinds, bust, draw, heats, bracket, on deck, crew, commissioner, Win song, Away.
 - This weekend first: decisions serve October 30 to November 1, 2026. The identity is built to carry future editions (edition facts live in one place), but nothing is traded away now for a hypothetical future one.

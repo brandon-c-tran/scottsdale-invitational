@@ -6,8 +6,9 @@
 /* a swipe lands on a round, never on half a name */
 .fd-competition-bracket:not(.is-compact) .fd-bracket-match { scroll-snap-align:start; }
 .fd-bracket-heads { position:relative; height:22px; margin-bottom:6px; }
-.fd-bracket-heads span { position:absolute; top:0; color:var(--muted2); font:600 13px/22px var(--fd-body);
-  letter-spacing:.06em; text-transform:uppercase; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-family:var(--fd-display); font-weight:800; letter-spacing:.06em; }
+/* "Quarterfinals" has to fit a 375px phone's column: tight tracking, never cut */
+.fd-bracket-heads span { position:absolute; top:0; color:var(--muted2); font:800 13px/22px var(--fd-display);
+  letter-spacing:.02em; text-transform:uppercase; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .fd-bracket-stage { position:relative; }
 
 /* connectors: flat, one ink; the path a winner took turns green (won) */
@@ -56,8 +57,8 @@
 /* compact: a read-only picture that fits its column */
 .fd-competition-bracket.is-compact .fd-bracket-scroll { overflow:visible; padding:0; }
 .fd-competition-bracket.is-compact .fd-bracket-heads { height:16px; margin-bottom:4px; }
-.fd-competition-bracket.is-compact .fd-bracket-heads span { font-size:12px; line-height:16px; }
-.fd-competition-bracket.is-compact .fd-bracket-match { border-radius:7px; container-type:inline-size; }
+.fd-competition-bracket.is-compact .fd-bracket-heads span { font-size:12px; line-height:16px; letter-spacing:0; }
+.fd-competition-bracket.is-compact .fd-bracket-match { border-radius:8px; container-type:inline-size; }
 /* a narrow column shows faces, not names cut to three letters */
 @container (max-width:129px) {
   .fd-competition-bracket.is-compact .fd-bracket-team:not(.is-empty) .fd-bracket-name { display:none; }
@@ -83,7 +84,7 @@
 .fd-bracket-peek-head { display:flex; align-items:center; justify-content:space-between; gap:8px; min-height:20px; }
 .fd-bracket-peek-head>span:first-child { color:var(--muted2); font:600 13px/1.2 var(--fd-body); letter-spacing:.08em; text-transform:uppercase; font-family:var(--fd-display); font-weight:800; letter-spacing:.06em; }
 .fd-bracket-peek-head>span:last-child { display:flex; align-items:center; gap:4px; color:var(--lamp-info); font:600 14px/1.2 var(--fd-body); }
-.fd-bracket-peek.is-card { border:1px solid var(--line); border-radius:12px; background:var(--paper); }
+.fd-bracket-peek.is-card { border:1px solid var(--line); border-radius:14px; background:var(--paper); }
 /* v3.1 byes to the bottom: a bye enters already advanced, its line in from
    the round it skipped, a lit info lamp at the head of its row */
 .fd-bracket-line.is-bye { color:var(--lamp-info); }

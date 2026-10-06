@@ -47,9 +47,9 @@ function StandingsFallback() {
   try { rows = computeStandings(state); } catch { rows = []; }
   const half = Math.ceil(rows.length / 2);
   const row = r => <li key={r.player} style={{ display:"grid", gridTemplateColumns:"64px 1fr auto", alignItems:"center",
-    gap:18, height:96, padding:"0 26px", borderRadius:14, background:"var(--paper, #202b2a)",
-    border:"1px solid var(--line, rgba(242,237,223,.15))", fontSize:40, fontWeight:700 }}>
-    <span style={{ color:"var(--muted, #a7b5ac)", fontFamily:"var(--fd-display, sans-serif)" }}>{r.rank}</span>
+    gap:18, height:96, padding:"0 26px", borderRadius:14, background:"var(--paper, #121626)",
+    border:"1px solid var(--line, rgba(244,236,216,.14))", fontSize:40, fontWeight:700 }}>
+    <span style={{ color:"var(--muted, #b2abc2)", fontFamily:"var(--fd-display, sans-serif)" }}>{r.rank}</span>
     <span style={{ overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{disp(state, r.player)}</span>
     <strong style={{ fontFamily:"var(--fd-display, sans-serif)", fontSize:48 }}>{Number(r.pts).toLocaleString("en-US")}</strong>
   </li>;
@@ -57,9 +57,9 @@ function StandingsFallback() {
     color:"var(--ink, #f4ecd8)", fontFamily:"var(--fd-body, system-ui, sans-serif)" }}>
     <div data-tv-canvas style={{ position:"absolute", left:fit.left, top:fit.top, width:1920, height:1080,
       transform:`scale(${fit.scale})`, transformOrigin:"0 0", boxSizing:"border-box", padding:"48px 56px",
-      background:"var(--night, #202b2a)", borderTop:"6px solid var(--sun, #e4d477)" }}>
+      background:"var(--night, #121626)", borderTop:"6px solid var(--sun, #ffa630)" }}>
       <h1 style={{ margin:"0 0 28px", fontSize:72, lineHeight:1, textTransform:"uppercase",
-        fontFamily:"var(--fd-display, sans-serif)", color:"var(--sun, #e4d477)" }}>Standings</h1>
+        fontFamily:"var(--fd-display, sans-serif)", color:"var(--sun, #ffa630)" }}>Standings</h1>
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:28 }}>
         {[rows.slice(0, half), rows.slice(half)].map((col, index) => (
           <ol key={index} aria-label={index ? undefined : "Tournament standings"}
@@ -125,7 +125,7 @@ export class AppErrorBoundary extends React.Component {
         <h1 style={{ margin:"0 0 20px", fontSize:26, lineHeight:1.2 }}>Field Day couldn’t open</h1>
         <button type="button" autoFocus onClick={() => window.location.reload()}
           style={{ minHeight:48, padding:"12px 24px", border:0, borderRadius:6,
-            background:"var(--sun, #e4d477)", color:"var(--ink0, #151c1c)",
+            background:"var(--sun, #ffa630)", color:"var(--ink0, #0a0910)",
             font:"inherit", fontWeight:600, cursor:"pointer" }}>Reload</button>
       </div>
     </main>;

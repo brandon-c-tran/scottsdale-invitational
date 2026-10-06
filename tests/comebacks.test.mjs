@@ -1,11 +1,11 @@
-/* v3.1 comebacks: the leader bounty, underdog odds and byes to the bottom.
-   All three are derived or fixed at a named moment, so corrections move
+/* v3.1 comebacks: underdog odds and byes to the bottom (the leader bounty
+   was cut on Oct 4). Both are fixed at a named moment, so corrections move
    them with the record and later standings never do. */
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
-  EMPTY_STATE, ROSTER, PT, START, BOUNTY_PTS, UNDERDOG_MULT, allEventsOf, computeStandings, resolveCurrentContest,
-  resolveWager, makeBracket, seedBracket, bracketByeSlots, bountyFor, bountyAwards, oddsFor, contestMult,
+  EMPTY_STATE, ROSTER, PT, START, UNDERDOG_MULT, allEventsOf, computeStandings, resolveCurrentContest,
+  resolveWager, makeBracket, seedBracket, bracketByeSlots, oddsFor, contestMult,
   wagerMult, atRisk, maxRisk, resolveSlot, stacksPosted,
 } from "../shared/core.js";
 import { applyAction } from "./support/confirmed-start.mjs";
@@ -46,119 +46,6 @@ function dieBoard(setup = () => {}) {
   act(s, "announceEvent", { evId:"die" });
   return s;
 }
-
-test("the leader bounty is stamped when betting locks and pays the side that beats the leader", () => {
-  const s = dieBoard(state => rule(state, ROSTER[6], 1000));
-  const before = current(s, "die");
-  assert.deepEqual(before.match, [0, 0]);
-  assert.equal(before.bounty, undefined, "nothing is stamped while betting is open");
-  assert.deepEqual(bountyFor(s, before).players, [ROSTER[6]], "the projected bounty names the leader");
-  lock(s, "die");
-  const locked = current(s, "die");
-  assert.deepEqual(locked.bounty.players, [ROSTER[6]]);
-  assert.equal(locked.bounty.kind, "match");
-  /* later standings never move a stamped bounty */
-  rule(s, ROSTER[12], 3000);
-  assert.deepEqual(current(s, "die").bounty.players, [ROSTER[6]]);
-  win(s, "die", 4);
-  assert.equal(row(s, ROSTER[8]).bountyPts, BOUNTY_PTS);
-  assert.equal(row(s, ROSTER[9]).bountyPts, BOUNTY_PTS);
-  assert.equal(row(s, ROSTER[6]).bountyPts, 0, "never paid to the leader");
-  assert.equal(row(s, ROSTER[8]).pts, START + BOUNTY_PTS);
-  assert.deepEqual(bountyAwards(s).map(item => item.player).sort(), [ROSTER[8], ROSTER[9]].sort());
-
-  /* the undo takes it back with the result, and the record replays it */
-  const top = s.eventOps.die.contestStack.at(-1);
-  act(s, "undoLastContest", { evId:"die", contestId:top.id, contestRevision:s.eventOps.die.contestRevision });
-  assert.equal(row(s, ROSTER[8]).bountyPts, 0);
-  assert.deepEqual(current(s, "die").bounty.players, [ROSTER[6]], "the corrected contest keeps its stamp");
-  win(s, "die", 3);
-  assert.equal(row(s, ROSTER[8]).bountyPts, 0, "a leader who wins pays nobody");
-  assert.equal(row(s, ROSTER[7]).bountyPts, 0, "nor their teammate");
-});
-
-test("tied leaders all carry the bounty; it pays only when every winner is off the bounty", () => {
-  const split = dieBoard(state => { rule(state, ROSTER[6], 1000); rule(state, ROSTER[8], 1000); });
-  lock(split, "die");
-  assert.deepEqual([...current(split, "die").bounty.players].sort(), [ROSTER[6], ROSTER[8]].sort());
-  win(split, "die", 4);
-  assert.equal(computeStandings(split).reduce((sum, item) => sum + item.bountyPts, 0), 0,
-    "a winning side holding a leader collects nothing");
-
-  const together = dieBoard(state => { rule(state, ROSTER[6], 1000); rule(state, ROSTER[7], 1000); });
-  lock(together, "die");
-  assert.equal(current(together, "die").bounty.players.length, 2);
-  win(together, "die", 4);
-  assert.equal(row(together, ROSTER[8]).bountyPts, BOUNTY_PTS);
-});
-
-test("no bounty before the weekend moves or when the leader sits the contest out", () => {
-  const level = dieBoard();
-  lock(level, "die");
-  assert.equal(current(level, "die").bounty, undefined, "everyone at 1,000 leads, so nobody can collect");
-  const elsewhere = dieBoard(state => rule(state, ROSTER[12], 1000));
-  lock(elsewhere, "die");
-  assert.equal(current(elsewhere, "die").bounty, undefined);
-  assert.equal(elsewhere.eventOps.die.bounties, undefined);
-});
-
-test("a free-for-all pays its 1st place when a bounty player was in the field and not among them", () => {
-  const s = fresh();
-  s.live = true;
-  rule(s, ROSTER[0], 1000);
-  act(s, "announceEvent", { evId:"putt" });
-  lock(s, "putt");
-  const stamped = s.eventOps.putt.bounties[current(s, "putt").id];
-  assert.deepEqual(stamped.players, [ROSTER[0]]);
-  assert.ok(stamped.field.includes(ROSTER[5]));
-  act(s, "beginResultEntry", { evId:"putt" });
-  act(s, "saveResult", { evId:"putt", slots:[[ROSTER[5]], [ROSTER[0]], []] });
-  assert.equal(row(s, ROSTER[5]).bountyPts, BOUNTY_PTS);
-  assert.equal(row(s, ROSTER[0]).bountyPts, 0);
-  assert.equal(row(s, ROSTER[1]).bountyPts, 0, "only 1st place collects");
-  act(s, "saveResult", { evId:"putt", slots:[[ROSTER[0]], [ROSTER[5]], []], confirmOverwrite:true, correctionReason:"wrong tap" });
-  assert.equal(computeStandings(s).reduce((sum, item) => sum + item.bountyPts, 0), 0, "the leader won: nothing");
-  act(s, "saveResult", { evId:"putt", slots:[[ROSTER[3]], [ROSTER[5]], []], confirmOverwrite:true, correctionReason:"recount" });
-  assert.equal(row(s, ROSTER[3]).bountyPts, BOUNTY_PTS);
-  act(s, "clearResult", { evId:"putt", confirmClear:true, correctionReason:"replay" });
-  assert.equal(row(s, ROSTER[3]).bountyPts, 0, "a cleared result takes it back");
-});
-
-test("the exposure trim covers a bounty taken back", () => {
-  const s = fresh();
-  s.live = true;
-  rule(s, ROSTER[0], 1000);
-  act(s, "announceEvent", { evId:"putt" });
-  lock(s, "putt");
-  act(s, "beginResultEntry", { evId:"putt" });
-  act(s, "saveResult", { evId:"putt", slots:[[ROSTER[5]], [], []] });
-  const winner = ROSTER[5];
-  assert.equal(row(s, winner).pts, START + 400 + BOUNTY_PTS);
-  /* the next market: back the winner's limit on a match they are not in */
-  s.draws.die = { id:"draw-die", ts:1, teams:Array.from({ length:6 }, (_, key) => ({ players:ROSTER.slice(key * 2, key * 2 + 2) })) };
-  s.brackets.die = makeBracket(6);
-  act(s, "announceEvent", { evId:"die" });
-  const cap = maxRisk(row(s, winner).pts);
-  for (let staked = 0; staked < cap; staked += PT)
-    act(s, "placeWager", { wager:matchChip(s, "die", 3) }, guest(winner));
-  assert.equal(atRisk(s, winner, allEventsOf(s)), cap);
-  act(s, "clearResult", { evId:"putt", confirmClear:true, correctionReason:"replay" });
-  assert.equal(row(s, winner).bountyPts, 0);
-  assert.ok(atRisk(s, winner, allEventsOf(s)) <= maxRisk(row(s, winner).pts), "newest chips go back to fit the cap");
-});
-
-test("the bounty never touches the poker finale", () => {
-  const s = fresh();
-  s.results.poker = { stacks:Object.fromEntries(ROSTER.map((player, index) => [player, 500 + index * 100])), slots:[[ROSTER[12]]], ts:5 };
-  s.eventOps.die = { bounties:{ x:{ players:[ROSTER[0]], kind:"ffa", field:ROSTER, at:1 } } };
-  assert.equal(stacksPosted(s), true);
-  assert.equal(bountyFor(s, { sides:[{ key:0, players:[ROSTER[0]] }, { key:1, players:[ROSTER[1]] }] }), null);
-  computeStandings(s).forEach(item => assert.equal(item.pts, s.results.poker.stacks[item.player], "stacks are the standings"));
-  const finale = fresh();
-  finale.results.poker = { slots:[[ROSTER[1]]], ts:1 };
-  finale.eventOps.poker = { bounties:{ y:{ players:[ROSTER[0]], kind:"ffa", field:ROSTER, at:1 } } };
-  assert.equal(bountyAwards(finale).length, 0);
-});
 
 test("underdog odds: a 1,000 gap pays the lower side 2:1, fixed at the open", () => {
   const s = dieBoard(state => { rule(state, ROSTER[8], 500); rule(state, ROSTER[9], 500); });
@@ -299,7 +186,7 @@ test("a level board keeps the draw order, and the live draw seeds its bracket", 
 
 test("the full weekend still closes through the QA fast-forward with comebacks in play", () => {
   const LOCAL = { isGm:true, qa:true, progressReset:true, environment:"local" };
-  let bounties = 0, dogs = 0, byes = 0;
+  let dogs = 0, byes = 0;
   for (const seed of [7, 1234, 99]) {
     const s = fresh();
     const result = applyAction(s, "qaAdvance", { target:"crowned", seed }, LOCAL);
@@ -312,7 +199,6 @@ test("the full weekend still closes through the QA fast-forward with comebacks i
       assert.equal(item.pts, (stacks.stacks[item.player] ?? 0) + after, `${seed}: ${item.player} is their counted stack`);
     });
     for (const op of Object.values(s.eventOps)) {
-      bounties += Object.keys(op.bounties || {}).length;
       dogs += Object.values(op.odds || {}).filter(odds => odds.underdog !== null).length;
     }
     byes += Object.values(s.brackets).filter(br => br.byes?.length).length;
@@ -321,7 +207,6 @@ test("the full weekend still closes through the QA fast-forward with comebacks i
       if (resolved.status === "won") assert.equal(resolved.delta, wagerMult(w) * w.stake);
     });
   }
-  assert.ok(bounties > 0, "bounties were stamped across the weekend");
   assert.ok(dogs > 0, "some contests opened with underdog odds");
   assert.ok(byes > 0, "brackets seated byes");
 });
@@ -334,13 +219,16 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { resolveDirector } from "../shared/show.js";
 import { directorPill } from "../src/features/director/directorPill.js";
-import { crewCheckModel, crewCheckRun, cycleRole, suggestedCrew, toggleCrew } from "../src/features/director/crewCheck.js";
+import { crewCheckModel, crewCheckRun, cycleRole, seatChoices, setCrewRole, suggestedCrew, toggleCrew } from "../src/features/director/crewCheck.js";
 
 const ui = (() => {
   const root = fileURLToPath(new URL("../", import.meta.url));
   const compiled = buildSync({
     stdin:{ contents:`export { CrewCheck } from "./src/features/director/CrewCheck.jsx";
-      export { PlayerIdentityProvider } from "./src/features/identity/PlayerIdentityContext.js";`, resolveDir:root, loader:"jsx" },
+      export { PlayerIdentityProvider } from "./src/features/identity/PlayerIdentityContext.js";
+      export { SideTerms } from "./src/features/comebacks/Comebacks.jsx";
+      export { contestTerms } from "./src/features/comebacks/comebacks.js";
+      export { Leaderboard } from "./src/features/standings/Standings.jsx";`, resolveDir:root, loader:"jsx" },
     bundle:true, platform:"node", format:"cjs", external:["react"], loader:{ ".css":"empty" }, write:false, logLevel:"silent",
   });
   const mod = new Module(fileURLToPath(new URL("comebacks.cjs", import.meta.url)));
@@ -400,8 +288,11 @@ test("the confirmed crew reaches announceAndDraw, and Away changes the room", ()
   assert.equal(after.roster.find(item => item.player === ROSTER[12]).state, "away");
   assert.equal(after.fit.ok, true, "twelve here play six pairs with no crew");
   assert.equal(after.crew.length, 0);
-  const wrong = crewCheckModel(short, ev, [{ player:ROSTER[0], role:"referee" }]);
-  assert.equal(wrong.fit.ok, false);
+  /* one crew by hand: eleven left, so the odd one out joins the crew (auto) */
+  const extra = crewCheckModel(short, ev, [{ player:ROSTER[0], role:"referee" }]);
+  assert.equal(extra.fit.ok, true, extra.fit.error);
+  assert.equal(extra.playing.length, 10);
+  assert.equal(extra.crew.filter(item => item.auto).length, 1);
 
   /* a draft takes the confirmed room as its pool */
   const draft = crewCheckRun({ open:"draft", evId:"volley" }, ROSTER.slice(0, 12), [{ player:ROSTER[12], role:"referee" }]);
@@ -415,10 +306,140 @@ test("the crew check renders every player as a photo chip with the suggestion li
   const html = renderToStaticMarkup(React.createElement(ui.PlayerIdentityProvider, { profiles:{} },
     React.createElement(ui.CrewCheck, { state, ev, roles:[{ player:ROSTER[3], role:"referee" }], onConfirm:() => ({ ok:true }) })));
   assert.equal((html.match(/fd-crew-seat /g) || []).length, ROSTER.length);
-  assert.equal((html.match(/fd-crew-seat is-crew/g) || []).length, 1);
+  /* the picked crew, plus the odd one out of eleven as auto crew */
+  assert.equal((html.match(/fd-crew-seat is-crew/g) || []).length, 2);
   assert.equal((html.match(/fd-crew-seat is-away/g) || []).length, 1);
+  /* the auto seat carries the rotation mark, so it is clear why they are crew */
+  assert.equal((html.match(/fd-crew-tag is-crew is-auto/g) || []).length, 1);
+  assert.equal((html.match(/fd-crew-tag is-crew"/g) || []).length, 1, "the commissioner's own pick is a plain crew tag");
   assert.match(html, /Before the draw/);
   assert.match(html, /Announce and draw/);
   assert.doesNotMatch(html, /Tap |Choose /, "no helper text");
-  assert.match(html, /role="alert"/, "a room that does not fit says so");
+  /* any crew the commissioner picks fits: the odd one out goes to crew by itself */
+  assert.doesNotMatch(html, /role="alert"/, "a room that fits raises nothing");
+  /* no mode to pick first: a face opens its own choices in place, and the
+     suggestion's crew member arrives open, so the way to change it shows */
+  assert.doesNotMatch(html, /fd-crew-brush|role="radiogroup"/, "no brush");
+  assert.equal((html.match(/class="fd-crew-choice"/g) || []).length, 1);
+  assert.match(html, /fd-crew-seat is-crew is-open/);
+  const choice = html.slice(html.indexOf('class="fd-crew-choice"'));
+  for (const label of ["Playing", "Crew", "Sit out", "Away"]) assert.match(choice, new RegExp(`<span>${label}</span>`), label);
+  /* Away writes at once, so it stands apart from the seat that rides on the confirm */
+  const states = choice.slice(choice.indexOf("fd-crew-choice-states"), choice.indexOf("fd-crew-choice-away"));
+  assert.doesNotMatch(states, /<span>Away<\/span>/);
+  assert.match(choice.slice(choice.indexOf("fd-crew-choice-away")), /^[^]*?<span>Away<\/span>/);
+  assert.match(choice, /class="fd-crew-option is-crew is-on" aria-pressed="true"/, "the face's state is the lit choice");
+  /* a crew member's role is one control that steps to the next, a lamp per role */
+  assert.match(choice, /class="fd-crew-role-cycle"[^>]*aria-label="[^"]*s role: [^"]*\. Next role"/);
+  assert.match(choice, /fd-crew-role-name">Official</);
+  assert.equal((choice.match(/<i class="is-on"><\/i>/g) || []).length, 1, "one role lamp lit");
+  /* the open face's choices follow its row: inserted after the fourth seat (ROSTER[3] is in the first row) */
+  const seatsBefore = (html.slice(0, html.indexOf('class="fd-crew-choice"')).match(/fd-crew-seat /g) || []).length;
+  assert.equal(seatsBefore, 4);
+});
+
+test("a face's choices: Crew takes a role or the next in turn, Sit out only while the room can spare someone", () => {
+  const state = ordered(["volley"]);
+  const ev = event(state, "volley");
+  let crew = setCrewRole(ev, [], ROSTER[0]);
+  assert.deepEqual(crew, [{ player:ROSTER[0], role:"referee" }], "the next role in turn");
+  crew = setCrewRole(ev, crew, ROSTER[0], "photographer");
+  assert.deepEqual(crew, [{ player:ROSTER[0], role:"photographer" }], "a crew member keeps the seat, takes the role");
+  assert.deepEqual(setCrewRole(ev, crew, ROSTER[0]), crew, "Crew again changes nothing");
+  assert.deepEqual(setCrewRole(ev, crew, ROSTER[1], "nope"), [...crew, { player:ROSTER[1], role:"scorekeeper" }]);
+  const model = crewCheckModel(state, ev, crew);
+  const entry = model.roster.find(item => item.player === ROSTER[2]);
+  assert.deepEqual(seatChoices(model, entry), ["playing", "crew", "out", "away"]);
+  const ten = ordered(["volley"]);
+  ROSTER.slice(-3).forEach(player => act(ten, "setOut", { player, out:true }));
+  const tight = crewCheckModel(ten, ev, []);
+  assert.deepEqual(seatChoices(tight, tight.roster[0]), ["playing", "crew", "away"], "ten here: nobody can sit out");
+});
+
+/* ── a side's terms: only its payout (the leader bounty was cut on Oct 4) ── */
+const html = (state, element) => renderToStaticMarkup(React.createElement(ui.PlayerIdentityProvider, { profiles:{} }, element));
+
+test("a side's terms carry only its payout, and a clear leader lights nothing", () => {
+  const s = dieBoard(st => rule(st, ROSTER[6], 600));
+  const contest = current(s, "die");
+  const terms = ui.contestTerms(s, contest);
+  assert.equal(terms.any, false, "no odds, nothing to letter");
+  for (const side of Object.values(terms.sides)) assert.deepEqual(Object.keys(side).sort(), ["each", "mult", "payLine", "size", "underdog"]);
+  assert.equal(contest.bounty, undefined, "the contest carries no bounty");
+  lock(s, "die");
+  assert.equal(s.eventOps.die.bounties, undefined, "a lock stamps nothing");
+  const odds = { ...contest, odds:{ underdog:contest.sides[1].key, mult:UNDERDOG_MULT } };
+  const lit = ui.contestTerms(s, odds);
+  const markup = html(s, React.createElement(ui.SideTerms, { terms:lit.sides[contest.sides[1].key] }));
+  assert.match(markup, /Winner pays 2:1/);
+  assert.doesNotMatch(markup, /Bounty|\+200|fd-bounty/);
+});
+
+/* ── H10: the first underdog and the first byes, taught where they appear ── */
+const teachUi = (() => {
+  const root = fileURLToPath(new URL("../", import.meta.url));
+  const compiled = buildSync({
+    stdin:{ contents:`export * from "./src/features/tv/teach.js";
+      export { FACEOFF_TIMING, faceOffView } from "./src/features/tv/faceOff.js";
+      export { FaceOff } from "./src/features/tv/TVFaceOff.jsx";
+      export { PlayerIdentityProvider } from "./src/features/identity/PlayerIdentityContext.js";`, resolveDir:root, loader:"jsx" },
+    bundle:true, platform:"node", format:"cjs", external:["react", "qrcode-generator", "three"], loader:{ ".css":"empty" },
+    write:false, logLevel:"silent",
+  });
+  const mod = new Module(fileURLToPath(new URL("comebacks-teach.cjs", import.meta.url)));
+  mod.filename = mod.id; mod.paths = Module._nodeModulePaths(root);
+  mod._compile(compiled.outputFiles[0].text, mod.filename);
+  return mod.exports;
+})();
+
+test("the phone's underdog payout shows it opens something: a cyan info lamp beside the words", () => {
+  const s = dieBoard(state => { rule(state, ROSTER[8], 500); rule(state, ROSTER[9], 500); });
+  const contest = current(s, "die");
+  const terms = ui.contestTerms(s, contest);
+  const dog = html(s, React.createElement(ui.SideTerms, { terms:terms.sides[contest.odds.underdog] }));
+  assert.match(dog, /<button type="button" class="fd-side-pays is-underdog fd-side-pays-tap" aria-expanded="false">Winner pays 2:1<svg class="fd-info-lamp"/);
+  const fav = html(s, React.createElement(ui.SideTerms, { terms:terms.sides[contest.sides.find(side => side.key !== contest.odds.underdog).key] }));
+  assert.doesNotMatch(fav, /fd-info-lamp|<button/, "1:1 is a plain label");
+});
+
+test("the TV teaches the first underdog once: in its face-off, then its lamp on the board, on the server clock", () => {
+  const { underdogTeachWindow, teachState, FACEOFF_TIMING:F, UNDERDOG_TEACH_MS } = teachUi;
+  const s = dieBoard(state => { rule(state, ROSTER[8], 500); rule(state, ROSTER[9], 500); });
+  const ev = event(s, "die"), contest = current(s, "die");
+  const win = underdogTeachWindow(s, ev, contest);
+  assert.ok(win, "a market that opens with an underdog teaches");
+  assert.equal(win.start - win.faceAt, F.settle, "the board's part starts as the face-off lifts");
+  assert.equal(win.end - win.faceAt, F.total + UNDERDOG_TEACH_MS);
+  const key = `${win.id}@${win.end}`;
+  assert.equal(teachState(win, win.faceAt, null).active, false, "during the face-off: due, the board not yet");
+  assert.equal(teachState(win, win.start + 1, null).active, true);
+  assert.equal(teachState(win, win.start + 1, key).active, true, "a reload inside the window keeps it");
+  assert.equal(teachState(win, win.start + 1, "die:other@1"), null, "a TV that was taught stays quiet");
+  assert.equal(teachState(win, win.end, null), null, "and it ends");
+  const even = dieBoard();
+  assert.equal(underdogTeachWindow(even, event(even, "die"), current(even, "die")), null, "even money teaches nothing");
+  /* the face-off stamps the drawing under the underdog's payout only */
+  const view = teachUi.faceOffView(s, ev, contest);
+  const face = teach => renderToStaticMarkup(React.createElement(teachUi.PlayerIdentityProvider, { profiles:{} },
+    React.createElement(teachUi.FaceOff, { state:s, events:allEventsOf(s), ev, contest, view, moment:{ elapsed:5000 }, teach })));
+  const taught = face(true);
+  assert.equal((taught.match(/class="tv-teach tv-faceoff-teach"/g) || []).length, 1, "one stamp, on the underdog's side");
+  assert.match(taught, /aria-label="Underdog: winner pays 2:1"/);
+  assert.match(taught, /fd-underdog-explain is-tv/, "the rule drawn: two stacks, the gap, 1:1 and 2:1");
+  assert.doesNotMatch(face(false), /tv-faceoff-teach/);
+});
+
+test("the TV teaches the first byes once, after the first face-off lifts", () => {
+  const { byeTeachWindow, bracketHasByes, FACEOFF_TIMING:F, BYE_TEACH_MS } = teachUi;
+  const s = dieBoard();
+  assert.equal(bracketHasByes(s.brackets.die), true, "six pairs: two enter in the semifinals");
+  const win = byeTeachWindow(s, event(s, "die"));
+  assert.ok(win);
+  assert.equal(win.end - win.start, BYE_TEACH_MS);
+  const four = fresh();
+  four.brackets.x = makeBracket(4);
+  four.draws.x = { id:"d4", teams:[] };
+  assert.equal(bracketHasByes(four.brackets.x), false, "a four bracket has none");
+  assert.equal(byeTeachWindow(four, { id:"x" }), null);
+  assert.ok(F.total > 0);
 });

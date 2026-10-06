@@ -3,6 +3,7 @@ import { EDITION } from "../../../shared/core.js";
 import { GlassArt } from "../../ui/GlassArt.jsx";
 import { useGlassTilt } from "../../ui/useGlassTilt.js";
 import { Icon } from "../../ui/Icon.jsx";
+import { FDMark } from "../../ui/Brand.jsx";
 import { EventName } from "../../ui/OneSafe.jsx";
 import { Sheet } from "../../ui/controls.jsx";
 import { InstallHint } from "../check-in/InstallHint.jsx";
@@ -34,19 +35,20 @@ function ProgramCover({ cover, GameMark, onEvent }) {
     <GlassArt depth clear />
     {lead ? <button type="button" className="fd-program-lead" onClick={() => open(lead.event)} disabled={!onEvent}
       aria-label={`${lead.label}: ${lead.event.name}`}>
-      {/* no label over the name: a live event's lamp is lit, the next one's is not */}
+      {/* what the card is: the event in play now, or the next (first) one */}
+      <span className="fd-program-cue" aria-hidden="true">{lead.live && <i className="fd-insert is-live fd-beat-dot" />}
+        {lead.live ? "Now" : lead.label === "First" ? "First event" : "Next"}</span>
       <span className="fd-program-title" aria-hidden="true">
-        {GameMark ? <span className="fd-program-mark"><GameMark id={lead.event.game} variant={lead.event.variant} size={44} />
-          {lead.live && <i className="fd-insert is-live fd-beat-dot fd-program-lamp" />}</span>
-          : lead.live && <i className="fd-insert is-live fd-beat-dot fd-program-lamp" />}
-        <span className="fd-show is-marquee fd-glass-letter"><EventName name={lead.event.name} /></span>
+        {GameMark && <span className="fd-program-mark"><GameMark id={lead.event.game} variant={lead.event.variant} size={44} /></span>}
+        <span className="fd-show is-lead fd-glass-letter"><EventName name={lead.event.name} /></span>
       </span>
     </button> : <div className="fd-program-lead is-edition">
-      <span className="fd-show is-marquee fd-glass-letter">{EDITION.label}</span>
+      <span className="fd-show is-lead fd-glass-letter">{EDITION.label}</span>
     </div>}
+    {/* the next event, small under the lead: the composition says "then" */}
     {then && <button type="button" className="fd-program-then fd-glass-window" onClick={() => open(then.event)} disabled={!onEvent}
       aria-label={`${then.label}: ${then.event.name}`}>
-      <span className="fd-program-then-label" aria-hidden="true">{then.label}</span>
+      <small className="fd-program-then-label" aria-hidden="true">Then</small>
       {GameMark && <GameMark id={then.event.game} variant={then.event.variant} size={28} />}
       <b className="fd-show" aria-hidden="true"><EventName name={then.event.name} /></b>
       {onEvent && <Icon name="next" size={18} />}
@@ -88,26 +90,30 @@ export function Guide({ events, state, me, onProfile, GameMark, standings, gm = 
   const close = () => setSheet(null);
 
   return <div className="fd-weekend fd-program">
+    <h1 className="fd-weekend-sr">Weekend</h1>
     {kept
       ? <Keepsake state={st} events={events} standings={standings} me={me} gm={gm} onPlayer={onPlayer} onBracket={onBracket} photos={photos}
         onPlate={openPlate} />
       : <ProgramCover cover={cover} GameMark={GameMark} onEvent={onEvent} />}
 
-    {!kept && <section className="fd-program-section fd-program-trophy" aria-labelledby="fd-program-trophy">
-      <div className="fd-program-head"><h2 id="fd-program-trophy">Trophy</h2>
-        {cup.posted > 0 && <span className="fd-program-count">{cup.posted} of {cup.total}</span>}</div>
-      <TrophyCup state={st} events={events} cup={cup} onPlate={openPlate} />
-    </section>}
-
-    <ProgramPhotos state={st} me={me} gm={gm} onPlayer={onPlayer} onAll={() => setSheet("photos")} />
-
+    {/* the back page's index right under the cover: the house, the rules,
+        the games and the payouts are one tap from the top */}
     <nav className={`fd-program-index${tiles.length % 2 ? " is-odd" : ""}`} aria-label="Weekend reference">
       {tiles.map(([id, label]) => <button key={id} type="button" className="fd-program-tile" onClick={() => setSheet(id)}>
         <Icon name={id} size={34} /><span>{label}</span></button>)}
     </nav>
 
+    {!kept && <section className="fd-program-section fd-program-trophy" aria-labelledby="fd-program-trophy">
+      {/* the cup's own plates show how far the weekend has come */}
+      <div className="fd-program-head"><h2 id="fd-program-trophy">Trophy</h2></div>
+      <TrophyCup state={st} events={events} cup={cup} onPlate={openPlate} />
+    </section>}
+
+    <ProgramPhotos state={st} me={me} gm={gm} onPlayer={onPlayer} onAll={() => setSheet("photos")} />
+
     {!isStandalone() && <details className="fd-weekend-install">
-      <summary>Install Field Day</summary><InstallHint />
+      <summary><FDMark size={24} /><span>Install Field Day</span>
+        <Icon name="expand" size={18} className="fd-weekend-install-toggle" /></summary><InstallHint />
     </details>}
 
     {sheet === "house" && <HouseSheet state={st} me={me} onProfile={onProfile ? () => { close(); onProfile(); } : null} onClose={close} />}

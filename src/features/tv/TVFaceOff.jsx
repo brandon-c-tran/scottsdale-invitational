@@ -1,19 +1,31 @@
 import React from "react";
 import { ChipFace } from "../identity/PlayerIdentity.jsx";
 import { LampChase } from "../../ui/ScoreReel.jsx";
-import { TVWinLine, useContestWinLines } from "./TVCards.jsx";
+import { TVSideTerms, TVWinLine, useContestWinLines } from "./TVCards.jsx";
 import { FACEOFF_TIMING as F, faceOffChipSize } from "./faceOff.js";
 import { Takeover } from "./TVTakeover.jsx";
 import { EventName } from "../../ui/OneSafe.jsx";
-import { SideTerms } from "../comebacks/Comebacks.jsx";
 import { contestTerms } from "../comebacks/comebacks.js";
+import { UnderdogExplainer } from "../comebacks/Comebacks.jsx";
 
 /* a display size that keeps a side's name on one line in its half, so both
    halves stand at the same height: Big Shoulders 900 runs about 0.5em a letter */
 export const faceOffNameSize = text =>
   Math.max(48, Math.min(120, Math.floor(740 / (Math.max(4, String(text || "").length) * 0.5))));
 
-function FaceOffSide({ side, from, lines, terms = null }) {
+/* H10, the first underdog this TV shows: under its "Winner pays 2:1", the
+   rule drawn (two stacks, the gap measured, 1:1 and 2:1), stamped in just
+   after the win lines on the face-off's own clock; it lifts with the
+   face-off. Silent: nothing here rides the face-off's sound. */
+function UnderdogStamp() {
+  return <div className="tv-teach tv-faceoff-teach" role="img" aria-label="Underdog: winner pays 2:1"
+    style={{ animationDelay:`calc(var(--tl) + ${F.lines + F.linesMs + 100}ms)` }}>
+    <span className="tv-teach-title"><i className="fd-insert" aria-hidden="true" />Underdog</span>
+    <UnderdogExplainer tv />
+  </div>;
+}
+
+function FaceOffSide({ side, from, lines, terms = null, teach = false }) {
   const size = faceOffChipSize(side.players.length);
   return (
     <div className={`tv-faceoff-side is-${from}`}>
@@ -22,7 +34,8 @@ function FaceOffSide({ side, from, lines, terms = null }) {
       </div>
       <div className="fd-show tv-faceoff-name" style={{ fontSize:faceOffNameSize(side.name) }}>{side.name}</div>
       <div className="tv-faceoff-line"><TVWinLine lines={lines} sideKey={side.key} /></div>
-      {terms && <SideTerms tv terms={terms} className="tv-faceoff-terms" />}
+      {terms && <div className="tv-faceoff-termwrap"><TVSideTerms terms={terms} className="tv-faceoff-terms" />
+        {teach && terms.underdog && <UnderdogStamp />}</div>}
     </div>
   );
 }
@@ -32,7 +45,7 @@ function FaceOffSide({ side, from, lines, terms = null }) {
    holds inside a lamp chase, their record types in a letter at a time, then
    the whole thing lifts off the betting board underneath. Every delay is
    "this long after the face-off's start" (--tl), on the server clock. */
-export function FaceOff({ state, events, ev, contest, view, moment }) {
+export function FaceOff({ state, events, ev, contest, view, moment, teach = false }) {
   const lines = useContestWinLines(state, ev, contest, events);
   const record = view.record || "";
   const terms = contestTerms(state, contest);
@@ -48,9 +61,9 @@ export function FaceOff({ state, events, ev, contest, view, moment }) {
         {view.label && <span className="tv-faceoff-event">{view.event}</span>}
       </div>
       <div className="tv-faceoff-sides">
-        <FaceOffSide side={view.sides[0]} from="left" lines={lines} terms={termsOf(view.sides[0])} />
+        <FaceOffSide side={view.sides[0]} from="left" lines={lines} terms={termsOf(view.sides[0])} teach={teach} />
         <div className="fd-show tv-faceoff-vs">VS</div>
-        <FaceOffSide side={view.sides[1]} from="right" lines={lines} terms={termsOf(view.sides[1])} />
+        <FaceOffSide side={view.sides[1]} from="right" lines={lines} terms={termsOf(view.sides[1])} teach={teach} />
       </div>
       <div className="tv-display tv-faceoff-record" aria-label={record || undefined}>
         {[...record].map((ch, i) => <span key={i} aria-hidden="true"

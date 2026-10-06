@@ -6,8 +6,8 @@
    result before the song started, when it was decided shortly before and
    the singer is on its winning side. Two or more on that side is a team: its name (the
    draw's name, else the pair's names) and every member, in the draw's
-   order. A team MVP's song stays about the MVP; a solo win, a tie in a
-   free-for-all and a team of one stay individual. Pure; no clock. */
+   order. A solo win, a tie in a free-for-all and a team of one stay
+   individual. Pure; no clock. */
 import { allEventsOf, stageEntrantView, teamLabel } from "../../../shared/core.js";
 
 /* a song starts this long after the win at most (the speaker's own start,
@@ -83,7 +83,7 @@ function winsOf(state, events) {
 /* The team a walkout celebrates, or null for an individual win (or one this
    state cannot place): { evId, event, name, players }. */
 export function walkoutTeam(state, events, walkout) {
-  if (!walkout?.player || walkout.mvp) return null;
+  if (!walkout?.player) return null;
   const start = Number(walkout.startedAt);
   if (!Number.isFinite(start)) return null;
   const list = events?.length ? events : allEventsOf(state || {});

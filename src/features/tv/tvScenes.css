@@ -96,6 +96,7 @@
    name and the stack sit, stays their exact color (champ-ink is read
    against it). */
 .tv-crown-flood { position:absolute; left:0; right:0; top:calc(-1 * var(--tv-mast-h, 118px)); bottom:0; z-index:2;
+  box-shadow:inset 0 0 0 3px color-mix(in srgb, var(--ink0) 55%, transparent), inset 0 0 96px color-mix(in srgb, var(--ink0) 24%, transparent);
   background:var(--lg-bands),
     radial-gradient(64% 78% at 66% 48%, transparent 46%, color-mix(in srgb, var(--ink0) 34%, transparent) 100%),
     linear-gradient(180deg, color-mix(in srgb, var(--bone) 12%, transparent), transparent 26%),
@@ -143,7 +144,7 @@
 /* night falls on the art: the glass darkens over the painting */
 .tv-crown-night { position:absolute; inset:0; background:var(--night-deep); opacity:.9;
   animation:tv-crown-in var(--c-night-ms) ease-in-out calc(var(--tl) + var(--c-night)) both; }
-.tv-crown-final { position:absolute; left:0; right:0; top:64px; text-align:center; font-size:120px; line-height:1.05; color:var(--bone);
+.tv-crown-final { position:absolute; left:0; right:0; top:54px; text-align:center; font-size:144px; line-height:1.05; color:var(--bone);
   animation:tv-crown-in 600ms ease-out calc(var(--tl) + var(--c-title)) both,
     tv-crown-out 500ms ease-in calc(var(--tl) + var(--c-rise)) both; }
 .tv-crown-hall { position:absolute; inset:0; animation:tv-crown-out 600ms ease-in calc(var(--tl) + var(--c-flood) + 300ms) both; }
@@ -152,36 +153,44 @@
 .tv-crown-stack { position:absolute; left:0; right:0; bottom:220px; display:flex; flex-direction:column; align-items:center;
   transform-origin:50% 100%; animation:tv-tower-stand 520ms var(--ease-land) calc(var(--tl) + var(--stand)) both; }
 @keyframes tv-tower-stand { from { opacity:0; transform:scaleY(.05); } to { opacity:1; transform:none; } }
-.tv-crown-face { display:block; margin-bottom:8px; border-radius:50%; box-shadow:0 0 0 4px var(--tc); }
+/* a tower stands unlit: steel chips and an empty socket where the face
+   will be, no name and no number. On its beat (--reveal) it lights in its
+   player's color, the face drops into the socket, the name and final
+   stack come up under it and its place stamps over it. Opacity and
+   transform only: the lit chips are a second picture faded in over the
+   steel ones. */
+.tv-crown-hall { --tv-crown-steel:color-mix(in srgb, var(--bone) 16%, var(--night-deep)); }
+.tv-crown-face { position:relative; display:block; width:84px; height:84px; margin-bottom:8px; border-radius:50%; }
+.tv-crown-socket { position:absolute; inset:0; border-radius:50%; border:3px solid var(--tv-crown-steel);
+  background:color-mix(in srgb, var(--ink0) 50%, transparent); }
+.tv-crown-portrait { position:absolute; inset:0; display:block; border-radius:50%; box-shadow:0 0 0 4px var(--tc);
+  animation:tv-crown-pop 360ms var(--ease-land) calc(var(--tl) + var(--reveal)) both; }
 /* one picture per tower (an SVG pattern of chips), never an element per chip */
 .tv-crown-chips { display:block; }
+.tv-crown-chipset { position:relative; display:block; }
+.tv-crown-lit { position:absolute; inset:0; animation:tv-crown-in 420ms ease-out calc(var(--tl) + var(--reveal)) both; }
 .tv-crown-label { position:absolute; left:-10px; right:-10px; top:878px; display:flex; flex-direction:column; align-items:center; gap:6px;
-  text-align:center; animation:tv-crown-in 300ms ease-out calc(var(--tl) + var(--stand) + 200ms) both; }
-.tv-crown-name { max-width:100%; font:800 26px/1.15 var(--fd-display); text-transform:uppercase; white-space:nowrap; }
+  text-align:center; animation:tv-crown-up 360ms var(--ease-out) calc(var(--tl) + var(--reveal) + 80ms) both; }
+@keyframes tv-crown-up { from { opacity:0; transform:translateY(14px); } to { opacity:1; transform:none; } }
+.tv-crown-name { max-width:100%; font:800 26px/1.15 var(--fd-display); white-space:nowrap; }
 .tv-crown-pts { font:800 28px/1 var(--fd-display); color:var(--sun); font-variant-numeric:tabular-nums; }
-/* a tower goes dark on its beat: night falls over it (an overlay's
-   opacity, composited, never a filter) and its label dims; its place
-   stamps over it */
-.tv-crown-dark { position:absolute; left:-4px; right:-4px; top:-4px; bottom:-2px; border-radius:14px; background:var(--night-deep);
-  opacity:0; pointer-events:none; animation:tv-tower-shade 500ms ease-in-out calc(var(--tl) + var(--out)) both; }
-@keyframes tv-tower-shade { from { opacity:0; } to { opacity:.62; } }
-.tv-crown-tower.is-out .tv-crown-label { animation-name:tv-crown-in, tv-tower-dim;
-  animation-duration:300ms, 500ms; animation-timing-function:ease-out, ease-in-out;
-  animation-delay:calc(var(--tl) + var(--stand) + 200ms), calc(var(--tl) + var(--out)); animation-fill-mode:both, both; }
-@keyframes tv-tower-dim { from { opacity:1; } to { opacity:.45; } }
 .tv-crown-place { position:absolute; left:-20px; right:-20px; text-align:center; font-size:44px; line-height:1;
-  color:var(--bone); animation:tv-crown-stamp 340ms var(--ease-land) calc(var(--tl) + var(--out)) both; }
+  color:var(--bone); animation:tv-crown-stamp 340ms var(--ease-land) calc(var(--tl) + var(--reveal)) both; }
 /* the champion's tower rises and cascades */
 .tv-crown-tower.is-champ .tv-crown-stack { animation:tv-tower-stand 520ms var(--ease-land) calc(var(--tl) + var(--stand)) both,
   tv-tower-rise var(--c-rise-ms) cubic-bezier(.65,0,.35,1) calc(var(--tl) + var(--c-rise)) both; }
 @keyframes tv-tower-rise { from { transform:none; } to { transform:translateY(-150px) scale(1.18); } }
 .tv-crown-fall { position:absolute; left:14px; top:96px; width:92px; height:12px; border-radius:46px / 6px; background:var(--tc);
-  opacity:0; animation:tv-tower-fall 900ms cubic-bezier(.4,0,.9,.6) both;
+  opacity:0; animation:tv-tower-fall 900ms cubic-bezier(.4,0,.9,.6) forwards;
   animation-delay:calc(var(--tl) + var(--c-rise) + 700ms + var(--k) * 70ms); }
 @keyframes tv-tower-fall { 0% { opacity:1; transform:translate(0, 0) rotate(0deg); }
   80% { opacity:1; } 100% { opacity:0; transform:translate(var(--dx), 560px) rotate(200deg); } }
 /* their color floods out from their tower: a circle scaled up, never a clip */
 .tv-crown-panel { position:absolute; inset:24px; z-index:2; border-radius:18px; overflow:hidden; }
+/* the backglass's dark edge over the flood, so a pale champion's color reads as lit glass */
+.tv-crown-panel::after { content:""; position:absolute; inset:0; pointer-events:none; border-radius:inherit;
+  background:radial-gradient(74% 84% at 50% 46%, transparent 58%, color-mix(in srgb, var(--ink0) 40%, transparent) 100%);
+  box-shadow:inset 0 0 0 3px color-mix(in srgb, var(--ink0) 55%, transparent), inset 0 0 96px color-mix(in srgb, var(--ink0) 28%, transparent); }
 /* a small disc scaled up: a few thousand pixels drawn once, never a
    screen-sized circle re-rastered every frame */
 .tv-crown-disc { position:absolute; display:block; border-radius:50%; background:var(--champ-color); will-change:transform;
@@ -294,3 +303,5 @@
 .tv-faceoff-record { position:relative; min-height:64px; font-size:56px; line-height:1.1; color:var(--muted2); white-space:pre; }
 .tv-faceoff-record span { animation:tv-faceoff-type 1ms steps(1, end) both; }
 @keyframes tv-faceoff-type { from { opacity:0; } to { opacity:1; } }
+/* a column's top match: the tab hangs under it, clear of the round's head */
+.tv-bracket-upnow.is-tab-below .tv-bracket-upnow-tab { top:auto; bottom:-38px; border-radius:8px 0 8px 8px; }

@@ -1,9 +1,10 @@
 import {
-  PT, ROUND_NAMES, ROSTER, allEventsOf, bracketMatchName, atRisk, bracketChampion, bracketMatchOpen, bracketOrder, computeStandings,
-  disp, duelReserve, maxRisk, overflowRoleMeta, participationForEvent, resolveWager, resultAwards,
+  PT, ROUND_NAMES, isActivePlayer, allEventsOf, bracketMatchName, atRisk, bracketChampion, bracketMatchOpen, bracketOrder, computeStandings,
+  disp, draftTurn, duelReserve, maxRisk, overflowRoleMeta, participationForEvent, resolveWager, resultAwards,
   resolveEventLifecycle, resolveCurrentContest, resolveSlot, resolveWeekendOperation,
   stageEntrantView, stageFinalists, stacksPosted, teamLabel, wagerBoardEvent,
 } from "../../../shared/core.js";
+import { guestPhaseLabel } from "../weekend/scheduleModel.js";
 
 const RUNNING = new Set(["in-progress", "result-entry"]);
 const isFinale = event => !!event?.finale && event.game === "poker";
@@ -62,7 +63,7 @@ function groupAssignment(state, event, stage, me, teamIndex) {
 function playerAssignment(state, event, me) {
   const empty = { kind:"spectator", label:"", players:[], partners:[], opponents:[],
     match:null, role:null, group:null, status:null };
-  if (!me || !ROSTER.includes(me)) return empty;
+  if (!me || !isActivePlayer(me, state)) return empty;
   const draw = state.draws?.[event.id];
   const draft = state.drafts?.[event.id];
   const stage = state.stages?.[event.id];
@@ -103,9 +104,9 @@ function currentEvent(state, event, me, before = false) {
   const awaitingResult = lifecycle.phase === "result-entry"
     || (!!(state.brackets?.[event.id] || state.stages?.[event.id])
       && lifecycle.nextAction?.type === "enter-result");
+  /* the guest's words (weekend/scheduleModel.js), never the commissioner's steps */
   const status = before ? "First event" : awaitingResult ? "Awaiting result"
-    : ["setup", "draw-pending", "draw-revealed", "scheduled"].includes(lifecycle.phase)
-      ? "Next event" : lifecycle.label;
+    : ["setup", "scheduled"].includes(lifecycle.phase) ? "Next event" : guestPhaseLabel(state, event, lifecycle.phase);
   const assignment = playerAssignment(state, event, me);
   if (before || lifecycle.phase !== "in-progress") {
     if (assignment.match) assignment.match.isCurrent = false;
@@ -164,7 +165,7 @@ export function deriveHomeModel({ state, me, events = allEventsOf(state), standi
     && resolveCurrentContest(state, boardEvent)?.phase === "betting-open"
     && (!boardEvent.teamCfg || !!state.draws?.[boardEvent.id]);
   const betting = boardEvent ? { event:boardEvent, open:marketOpen,
-    canPlace:marketOpen && !!ownRow && ROSTER.includes(me) && available >= PT,
+    canPlace:marketOpen && !!ownRow && isActivePlayer(me, state) && available >= PT,
     label:marketOpen ? "Place chips" : "View bets" } : null;
   const upcoming = mode === "finale" || mode === "complete" ? []
     : open.filter(event => event.id !== current?.event.id
@@ -226,69 +227,92 @@ const youOrd = n => n === 1 ? "1st" : n === 2 ? "2nd" : n === 3 ? "3rd" : `${n}t
 const fmtChips = value => (value ?? 0).toLocaleString("en-US");
 const UP_PHASES = new Set(["betting-open", "betting-locked", "in-progress", "result-entry"]);
 
-/* The You strip on Home: your rank and the one line that answers "am I up,
-   did I win, what is riding". Derived from the snapshot; tone picks the lamp
-   (live = magenta, chip = amber, you = filament, info = cyan, done = unlit:
-   out, away) and route is
-   where a tap goes. First match wins:
-   away, playing now, chips riding, the last result you placed in, your next
-   assignment, the next event. */
+/* The You strip on Home: Home's one headline slot. It answers "am I up, is
+   it my pick, did I win, what is on my bets" as one state word (`word`,
+   lettered in the show face) and at most one line under it (`line`); `text`
+   is the two read together (its label). Personal state only: the strip is
+   lettered into the current event's own pane, which already names the event,
+   so a line about that event never repeats its name. Derived from the
+   snapshot; tone picks the lamp (live = magenta, chip = amber, you =
+   filament, info = cyan, done = unlit: out, away), `flash` flashes it (your
+   turn to act), `up` letters the word as a moment, and route is where a tap
+   goes. First match wins: away, your draft pick, playing now, chips riding,
+   the last result you placed in (`result`: that event's id), your bracket
+   path, crew, out, your next assignment. */
+const headline = (word, line = "") => ({ word, line, text:line ? `${word} ${line}` : word });
+function yourDraftPick(state, me, events) {
+  return events.find(event => {
+    const draft = state.drafts?.[event.id];
+    if (!draft || state.draws?.[event.id] || state.shelved?.[event.id] || state.results?.[event.id]) return false;
+    const turn = draftTurn(draft);
+    return !turn.complete && turn.captain === me;
+  }) || null;
+}
 export function deriveYouStrip({ state, me, events = allEventsOf(state), standings = computeStandings(state),
   model = deriveHomeModel({ state, me, events, standings }) }) {
   const row = standings.find(item => item.player === me);
   if (!row) return null;
   const before = model.mode === "before";
-  /* before the weekend everyone holds the same 1,000 and the event panel
-     already names the first game: no strip */
-  if (before) return null;
   const tied = standings.filter(item => item.rank === row.rank).length > 1;
-  const rank = before ? null : { n:row.rank, tied, text:tied ? `T${row.rank}` : youOrd(row.rank) };
+  const rank = before ? null : { n:row.rank, tied, text:youOrd(row.rank) };
   const base = { pts:row.pts, rank };
   const ev = model.current?.event || null;
   if (model.mode === "complete") return { ...base, tone:"you",
-    text:row.rank === 1 ? tied ? "Tied for the championship" : "Champion" : "", route:null };
+    ...headline(row.rank === 1 ? tied ? "Tied for the championship" : "Champion" : `You finished ${youOrd(row.rank)}`), route:null };
   if (model.mode === "finale") return { ...base, tone:model.finale?.out ? "done" : "live",
-    text:model.finale?.out ? "Out of the finale" : "At the table", route:null };
-  if (state.away?.[me]) return { ...base, tone:"done", text:"Marked away", route:null };
+    ...headline(model.finale?.out ? "You’re out" : "At the table"), route:null };
+  if (state.away?.[me]) return before ? null : { ...base, tone:"done", ...headline("Marked away"), route:null };
+
+  /* a captain's turn in a draft is the one thing a guest owes the room,
+     before the weekend too (a draft is preparation) */
+  const pick = yourDraftPick(state, me, events);
+  if (pick) return { ...base, tone:"you", flash:true, up:true, ...headline("Your pick", pick.id === ev?.id ? "" : pick.name),
+    route:{ type:"draft", ev:pick } };
+  /* before the weekend everyone holds the same 1,000 and the event panel
+     already names the first game: no strip */
+  if (before) return null;
 
   const current = model.current;
   const contest = current?.contest;
-  if (!before && contest && contest.players?.includes(me) && UP_PHASES.has(current.lifecycle.phase)) {
+  if (contest && contest.players?.includes(me) && UP_PHASES.has(current.lifecycle.phase)) {
     const others = contest.sides.filter(side => !side.players.includes(me));
-    const text = contest.sides.length === 2
-      ? `You’re up vs ${vsNames(state, others.flatMap(side => side.players), ev.id)}`
-      : `You’re playing ${ev.name}`;
-    return { ...base, tone:"live", text, up:true, route:{ type:"event", ev } };
+    /* a team's opponents are named by the card's own team blocks; a wide
+       field has no one opponent */
+    const against = others.flatMap(side => side.players);
+    const line = contest.sides.length === 2 && against.length <= 2 ? `vs ${vsNames(state, against, ev.id)}` : "";
+    return { ...base, tone:"live", up:true, ...headline("You’re up", line), route:{ type:"event", ev } };
   }
 
   const riding = (state.wagers || []).filter(wager => wager.player === me
     && resolveWager(state, wager, events).status === "pending");
-  if (riding.length) {
+  /* chips riding only on the contest on screen are said by the card itself
+     ("Your bet"), so the strip keeps your own path */
+  const onCard = !!contest && riding.length > 0 && riding.every(wager => wager.contestId === contest.id);
+  if (riding.length && !onCard) {
     const total = riding.reduce((sum, wager) => sum + (wager.stake || 0), 0);
     const picks = [...new Set(riding.map(wager => (wager.pickPlayers || [wager.pick]).join("|")))];
-    const text = picks.length === 1
-      ? `${fmtChips(total)} riding on ${youNames(state, picks[0].split("|"))}`
-      : `${fmtChips(total)} riding on ${picks.length} bets`;
-    return { ...base, tone:"chip", text, route:{ type:"bets" } };
+    const line = picks.length === 1 ? `on ${youNames(state, picks[0].split("|"))}` : `on ${picks.length} bets`;
+    return { ...base, tone:"chip", ...headline(`${fmtChips(total)} bet`, line), route:{ type:"bets" } };
   }
 
   const latest = events.filter(event => state.results?.[event.id]?.slots?.[0]?.length && !state.shelved?.[event.id])
     .sort((a, b) => (state.results[b.id].ts || 0) - (state.results[a.id].ts || 0))[0];
   const award = latest && !state.results[latest.id].stacks
     ? resultAwards(state, latest, state.results[latest.id]).find(item => item.player === me) : null;
-  if (!before && award && award.pts > 0) {
+  if (award && award.pts > 0) {
     const label = award.place === 0 ? "Won" : award.place === "crew" ? "Crew" : youOrd(award.place + 1);
-    return { ...base, tone:"chip", text:`${latest.name}: ${label} +${fmtChips(award.pts)}`, route:{ type:"event", ev:latest } };
+    return { ...base, tone:"chip", ...headline(`${label} +${fmtChips(award.pts)}`, latest.name),
+      route:{ type:"event", ev:latest }, result:latest.id };
   }
 
-  if (!ev) return { ...base, tone:"info", text:"", route:null };
-  if (before) return { ...base, tone:"info", text:`First event: ${ev.name}`, route:{ type:"event", ev } };
+  if (!ev) return { ...base, tone:"info", ...headline(""), route:null };
   const path = bracketPath(state, ev, me);
-  if (path?.mine) return { ...base, tone:"info", text:`${ev.name}: ${path.text}`, route:{ type:"bracket", ev } };
+  if (path?.mine) return { ...base, tone:"info", ...headline("Next", path.text), path:true, route:{ type:"bracket", ev } };
   const a = current.assignment;
-  if (a?.kind === "crew") return { ...base, tone:"info", text:`${ev.name}: ${a.label}`, route:{ type:"event", ev } };
-  if (a?.status === "out") return { ...base, tone:"done", text:`Out of ${ev.name}`, route:{ type:"event", ev } };
-  const opponents = a?.opponents?.length ? ` vs ${vsNames(state, a.opponents, ev.id)}` : "";
-  const group = a?.group?.name && a.status !== "out" ? `, ${a.group.name}` : "";
-  return { ...base, tone:"info", text:`Next: ${ev.name}${group}${opponents}`, route:{ type:"event", ev } };
+  if (a?.kind === "crew") return { ...base, tone:"info", ...headline("Crew", a.label), route:{ type:"event", ev } };
+  if (a?.status === "out") return { ...base, tone:"done", ...headline("You’re out"), route:{ type:"event", ev } };
+  const opponents = a?.opponents?.length ? `vs ${vsNames(state, a.opponents, ev.id)}` : "";
+  const group = a?.group?.name && a.status !== "out" ? a.group.name : "";
+  const line = [group, opponents].filter(Boolean).join(" ");
+  return { ...base, tone:"info", ...headline(line ? "Next" : "", line), route:{ type:"event", ev } };
 }

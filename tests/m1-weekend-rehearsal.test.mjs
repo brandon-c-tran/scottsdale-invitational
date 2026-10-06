@@ -181,9 +181,6 @@ test("deterministic rehearsal completes every event, locks the dealt board, and 
     delta:100,
     reason:"Minimum stack",
   });
-  /* the team MVP votes close first (the deal would close them itself, and a
-     cancel does not reopen a decided vote) */
-  for (const evId of Object.keys(state.mvp || {})) act(state, "mvpClose", { evId });
   const beforePoker = computeStandings(state)
     .map(row => ({ player:row.player, pts:row.pts }));
   const unrelatedMinimumRuling = state.adjustments

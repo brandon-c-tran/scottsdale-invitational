@@ -64,7 +64,7 @@ export function Schedule({ state, events, me = null, gm, open, onAdd, onReorder,
   const eventRows = (list, canMove = true) => list.map((event, index) => {
     const draw = state.draws?.[event.id];
     const reordering = reorderMode && gm && canMove;
-    const row = eventRowModel(state, event, me, nextId);
+    const row = eventRowModel(state, event, me, nextId, { gm });
     /* every team event waits on a draw (and heats on setup); that is news
        only for the next one, which is the row whose lamp flashes */
     const status = row.status;
@@ -73,7 +73,7 @@ export function Schedule({ state, events, me = null, gm, open, onAdd, onReorder,
     const crewRole = role ? overflowRoleMeta(role).short : "";
     return <li key={event.id} className={`fd-events-row${row.lamp ? ` is-${row.lamp}` : ""}${event.finale ? " is-finale" : ""}`}>
       <button type="button" className="fd-events-open" disabled={reordering}
-        onClick={() => open(event)} aria-label={`${event.name}.${status ? ` ${status}.` : done ? " Complete." : ""} Open event`}>
+        onClick={() => open(event)} aria-label={`${event.name}.${status ? ` ${status}.` : done ? gm ? " Complete." : " Done." : ""} Open event`}>
         <span className="fd-events-lamp" aria-hidden="true">
           {row.lamp && <i className={`fd-insert ${LAMP_CLASS[row.lamp]}`} />}
         </span>

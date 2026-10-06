@@ -38,3 +38,17 @@
   .fd-roll-out, .fd-level-face.is-out { display:none; }
   .fd-roll-in, .fd-level-face.is-in, .fd-seat-chip.is-tipping { animation:none; }
 }
+
+/* your seat's own count: one row on the table card's glass, the system's
+   quiet link for Count and Recount and the destructive treatment for the
+   bust, which commits (clay fill) only on its confirming second tap */
+.fd-seat-count { border-top:1px solid var(--night-line); padding:9px 14px; }
+.fd-seat-count-row { display:flex; align-items:center; gap:10px; }
+.fd-seat-count-line { flex:1; min-width:0; color:var(--night-text); font:500 14px/1.35 var(--fd-body); }
+.fd-seat-count-line b { color:var(--bone); font:800 18px/1 var(--fd-display); font-variant-numeric:tabular-nums; margin-left:4px; }
+.fd-seat-action { flex-shrink:0; min-width:44px; min-height:44px; padding:0 12px; border:0; border-radius:8px; background:none;
+  color:var(--lamp-info); font:600 14px/1 var(--fd-body); cursor:pointer; }
+.fd-seat-action.is-bust { border:1px solid var(--line); background:var(--paper); color:var(--clay-text); box-shadow:var(--glass-edge); }
+.fd-seat-action.is-bust.is-confirming { border:1.5px solid var(--ink0); background:var(--clay); color:var(--bone); }
+.fd-seat-action:focus-visible { outline:2px solid var(--lamp-info); outline-offset:3px; }
+.fd-chip-count-save { width:100%; }

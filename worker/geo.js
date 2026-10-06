@@ -5,7 +5,7 @@
 
    Built by actions.js with its own helpers, so a finish runs the same
    beginResultEntry and saveResult every other result does. */
-import { ROSTER, allEventsOf, isActivePlayer, isAway, resolveEventLifecycle } from "../shared/core.js";
+import { allEventsOf, isActivePlayer, isAbsent, resolveEventLifecycle, rosterOf } from "../shared/core.js";
 import {
   GEO_CAPTION_MAX, GEO_GRACE_MS, GEO_MAX_ROUNDS, GEO_PLACE_MAX, GEO_ROUND_MS, cleanPoint, cleanWhen,
   geoCurrentId, geoLastRound, geoPhotoId, geoPlayers, geoResultSlots, geoRoundId, geoStandings,
@@ -19,7 +19,7 @@ export const GEO_ACTION_TYPES = Object.freeze([
 ]);
 
 export function geoPlayersOf(state) {
-  return geoPlayers(state, ROSTER, { isActivePlayer, isAway });
+  return geoPlayers(state, rosterOf(state), { isActivePlayer:id => isActivePlayer(id, state), isAway:isAbsent });
 }
 
 export function geoActions({ ok, err, gmOnly, run }) {
@@ -32,7 +32,7 @@ export function geoActions({ ok, err, gmOnly, run }) {
     /* add or replace one round; a round already shown cannot change */
     geoSaveRound(state, { id, photo, lat, lng, place, when, caption }, ctx) {
       const g = gmOnly(ctx); if (g) return g;
-      if (!geoRoundId(id)) return err("Bad round");
+      if (!geoRoundId(id)) return err("That round didn't come through whole. Save it again");
       const rounds = Array.isArray(state.geoRounds) ? state.geoRounds : [];
       const existing = rounds.find(round => round.id === id);
       if (started(state) && state.geo.order.slice(0, state.geo.index + 1).includes(id))
@@ -74,7 +74,7 @@ export function geoActions({ ok, err, gmOnly, run }) {
     geoStart(state, { evId }, ctx) {
       const g = gmOnly(ctx); if (g) return g;
       const ev = gameEvent(state, evId);
-      if (!ev) return err("No such game");
+      if (!ev) return err("That game isn't on the schedule");
       if (state.geo?.eventId === evId && started(state)) return ok({ unchanged:true });
       if (state.results?.[evId]) return err("The result is already posted");
       if (resolveEventLifecycle(state, ev).phase !== "in-progress") return err(`Lock and start ${ev.name} first`);

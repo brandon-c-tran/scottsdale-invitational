@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { ChipFace } from "../identity/PlayerIdentity.jsx";
 import { resolvePlayerIdentity } from "../identity/playerIdentity.js";
+import { floodColor } from "../identity/chipInk.js";
 import { GameMark } from "../../ui/GameMark.jsx";
 import { EventName } from "../../ui/OneSafe.jsx";
 import { ScoreReel } from "../../ui/ScoreReel.jsx";
@@ -39,7 +40,7 @@ function StepPeople({ block, first }) {
       <div className="tv-step-faces" style={{ gridTemplateColumns:`repeat(${block.cols}, ${block.face}px)` }}>
         {block.players.map(p => <span key={p} className="tv-step-face-chip"><ChipFace p={p} size={block.face} /></span>)}
       </div>
-      <div className={`fd-show tv-step-name${first ? " is-marquee" : ""}`} style={{ fontSize:block.nameSize }}>
+      <div className={`fd-show tv-step-name${first ? " is-first" : ""}`} style={{ fontSize:block.nameSize }}>
         {block.nameLines.length > 1 ? <>{block.nameLines[0]}<br />{block.nameLines[1]}</> : block.name}
       </div>
     </div>
@@ -49,8 +50,8 @@ function StepPeople({ block, first }) {
 function Step({ state, step, beat, lid, index }) {
   const { place, entry } = step;
   const first = place === 1;
-  /* a win lights the glass for its winner: one winning side's own color */
-  const lit = first && entry && entry.groups.length === 1 ? resolvePlayerIdentity(state.profiles, entry.players[0]).color : null;
+  /* a win lights the glass for its winner: one winning side's own color, lit (floodColor) */
+  const lit = first && entry && entry.groups.length === 1 ? floodColor(resolvePlayerIdentity(state.profiles, entry.players[0]).color) : null;
   const style = { left:step.left, top:step.top - lid, width:step.width, height:step.height + lid, "--lid":`${lid}px`,
     "--beat":`${beat}ms`, "--rise":`${index * 90}ms`, ...(lit ? { "--win":lit } : null) };
   return (
@@ -64,7 +65,7 @@ function Step({ state, step, beat, lid, index }) {
       <i className="tv-step-lid" aria-hidden="true" />
       <div className="tv-step-face">
         <i className="tv-step-glow" aria-hidden="true" />
-        <span className="fd-show is-marquee tv-step-num" aria-hidden="true">{place}</span>
+        <span className="fd-show tv-step-num" aria-hidden="true">{place}</span>
         {/* the award rolls in on the step's own reel as it stamps, on the
             room's clock (a late TV joins mid-roll, the ambient turn rests) */}
         {step.amount && <span className="tv-step-amount" aria-label={step.amount.text}>

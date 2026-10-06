@@ -16,4 +16,4 @@
   padding:10px 28px 10px 10px; border-radius:99px; background:var(--chrome); border:1px solid var(--line);
   box-shadow:var(--shadow-2); opacity:0; }
 .tv-photo-caption.is-shown { opacity:1; animation:tv-photo-in var(--motion-story) var(--ease-out) both; }
-.tv-photo-name { font:700 34px/1 var(--fd-display); letter-spacing:.02em; text-transform:uppercase; color:var(--ink); }
+.tv-photo-name { font:700 34px/1 var(--fd-display); letter-spacing:.01em; color:var(--ink); }

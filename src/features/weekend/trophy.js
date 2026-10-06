@@ -103,29 +103,33 @@ export function cupEngravings(cup, { turnAt = 0, cycleMs = 0, hold = 0, crownEnd
 }
 
 /* ── the TV's cup, in canvas pixels ──
-   The cup stands centred in the main area: its bowl high in the sky, the
-   base's bands across the canvas down to the floor. Every size keeps the
-   TV's 24px floor; a winner's line is fitted per plate (fitPlateName). */
+   The cup stands centred in the main area, high in the sky, on a plinth of
+   tiers down to the floor, one tier per session, each a step wider than the
+   one above it. Every size keeps the TV's 24px floor; a winner's line is
+   fitted per plaque (fitPlateName). bowl is the whole cup's art box. */
 export const CUP_TV = Object.freeze({
-  width:1480, label:196, pad:12, gap:12, rim:6, sag:16, line:3, top:34, foot:27, platePad:10,
-  bowl:Object.freeze({ width:600, height:240, cartouche:Object.freeze({ width:260, height:112 }) }),
-  collar:24, height:796,
-  plate:Object.freeze({ face:44, overlap:14, padX:16, gapX:12, event:24,
+  width:1480, label:176, pad:12, gap:12, rim:6, sag:16, line:3, top:20, foot:24, platePad:10, step:36,
+  bowl:Object.freeze({ width:600, height:330, cartouche:Object.freeze({ width:260, height:112 }) }),
+  collar:0, height:796,
+  plate:Object.freeze({ face:44, overlap:9, padX:16, gapX:12, mark:48, event:24,
     name:Object.freeze({ max:32, min:28, two:26, floor:24 }) }),
 });
 
-/* the base's bands share what is left under the bowl, one plate row each;
-   a band of more than four plates takes two rows */
+/* the plinth's tiers share what is left under the cup, one plaque row
+   each (a session of more than four plaques takes two rows); the top tier
+   is narrowest, each below a step wider */
 export function cupTvLayout(cup) {
   const T = CUP_TV;
   const rows = (cup?.bands || []).map(band => Math.max(1, Math.ceil(band.plates.length / 4)));
   const totalRows = rows.reduce((sum, n) => sum + n, 0) || 1;
   const bandsH = T.height - T.bowl.height - T.collar + T.sag - T.top - T.foot - Math.max(0, rows.length - 1) * T.rim;
   const rowH = Math.floor(bandsH / totalRows);
-  const inner = T.width - T.label - 2 * T.pad - 2 * T.line;
+  const count = (cup?.bands || []).length;
   const bands = (cup?.bands || []).map((band, index) => {
+    const width = T.width - (count - 1 - index) * T.step;
+    const inner = width - T.label - 2 * T.pad - 2 * T.line;
     const cols = Math.ceil(band.plates.length / rows[index]);
-    return { session:band.session, rows:rows[index], cols, height:rowH * rows[index],
+    return { session:band.session, rows:rows[index], cols, height:rowH * rows[index], width,
       plateW:Math.floor((inner - (cols - 1) * T.gap) / cols), plateH:rowH - 2 * T.platePad };
   });
   return { width:T.width, rowH, bands };
@@ -153,10 +157,12 @@ export function plateFacesWidth(count, face = CUP_TV.plate.face) {
   const n = Math.max(1, Math.min(PLATE_FACES, count));
   return face + (n - 1) * (face - CUP_TV.plate.overlap);
 }
+/* what a plaque leaves its winner's name: less its padding, the game's
+   mark and the faces, each with its gap */
 export function plateNameWidth(plateW, count) {
   const P = CUP_TV.plate;
-  return plateW - 2 * P.padX - plateFacesWidth(count) - P.gapX;
+  return plateW - 2 * P.padX - P.mark - P.gapX - plateFacesWidth(count) - P.gapX;
 }
 
-/* the champion on the cup's cartouche: 36 to 52 in one line, else two */
+/* the champion on the cup's plate: 36 to 52 in one line, else two */
 export const fitChampionName = name => fitLines(name, CUP_TV.bowl.cartouche.width - 32, { max:52, min:36, two:34, floor:24 });

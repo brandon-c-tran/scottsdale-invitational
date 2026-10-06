@@ -1,0 +1,118 @@
+/* Scan the TV (ArrivalHome.jsx, Scanner.jsx). The lobby's pane is framed in
+   the filament like the You strip it stands in for: the session's painting,
+   an empty seat cut in the glass (a dark round window with a dashed
+   filament rim, flashing: it waits on you), your chip just over it
+   with its shadow on the seat, "Scan the TV" lettered on the sky. After the
+   lobby it is one row. The scanner is the camera behind the glass with a
+   viewfinder cut in it, and the same seat at its foot. */
+.fd-arrive { position:relative; display:grid; grid-template-columns:auto minmax(0, 1fr) auto; align-items:center; column-gap:16px;
+  width:100%; min-height:148px; margin:0 0 12px; padding:20px 18px 24px 22px; border:0; background:none;
+  color:var(--ink); text-align:left; font:inherit; cursor:pointer; -webkit-tap-highlight-color:transparent; --lamp:var(--you); }
+.fd-arrive.fd-glass-scene { container-type:inline-size; border:1px solid var(--you); border-radius:14px;
+  background:var(--bg); box-shadow:var(--you-bloom), var(--glass-edge); }
+/* the painting ends on its horizon under the seat, as the You strip's does */
+.fd-arrive.fd-glass-scene > .fd-glass-art { height:calc(100% + 8cqw - 2px); }
+.fd-arrive.is-inset { z-index:1; min-height:118px; margin:0; padding:24px 12px 8px; }
+.fd-home-focus > .fd-home-scene > .fd-arrive { grid-row:1; }
+.fd-arrive:focus-visible, .fd-arrive-row:focus-visible { outline:2px solid var(--lamp-info); outline-offset:3px; }
+.fd-arrive-mark { position:relative; display:grid; place-items:center; width:48px; height:48px; border-radius:12px;
+  background:color-mix(in srgb, var(--ink0) 82%, transparent); box-shadow:var(--window-bezel); color:var(--you); }
+
+/* the seat: a round window cut in the glass, its rim dashed in the filament */
+.fd-arrive-seat { position:relative; display:grid; place-items:center; width:96px; height:96px; }
+.fd-arrive-seat::before { content:""; position:absolute; inset:0; border-radius:50%;
+  border:2px dashed var(--you); background:color-mix(in srgb, var(--ink0) 82%, transparent); box-shadow:var(--window-bezel);
+  animation:fd-arrive-wait 1.2s steps(1, end) infinite; }
+@keyframes fd-arrive-wait { 50% { border-color:color-mix(in srgb, var(--you) 40%, transparent); } }
+.fd-arrive-shadow { position:absolute; left:50%; top:50%; width:70%; height:70%; margin:-35% 0 0 -35%; border-radius:50%;
+  background:radial-gradient(closest-side, color-mix(in srgb, var(--ink0) 85%, transparent), transparent);
+  transform:scale(.72) translateY(6px); opacity:.55; transition:transform 300ms var(--ease-out), opacity 300ms var(--ease-out); }
+/* the chip stands just over its seat: the scan drops it in */
+.fd-arrive-chip { position:relative; display:block; line-height:0; border-radius:50%; transform:translateY(-12px); }
+.fd-arrive.is-inset .fd-arrive-seat { width:80px; height:80px; }
+.fd-arrive.is-inset .fd-arrive-word { font-size:clamp(28px, 8.4vw, 34px); white-space:nowrap; overflow-wrap:normal; }
+.fd-arrive-word { min-width:0; font-size:clamp(36px, 11vw, 46px); line-height:1.08; letter-spacing:.01em; overflow-wrap:anywhere; }
+
+/* after the lobby: one row, the seat small, the chip just over it */
+.fd-arrive-row { position:relative; display:grid; grid-template-columns:auto minmax(0, 1fr) auto; align-items:center; column-gap:12px;
+  width:100%; min-height:56px; margin:0 0 12px; padding:8px 14px 8px 12px; border-radius:14px; color:var(--ink);
+  text-align:left; font:inherit; cursor:pointer; -webkit-tap-highlight-color:transparent; }
+.fd-arrive-row > strong { font-size:24px; line-height:1.15; }
+.fd-arrive-row-mark { color:var(--lamp-info); }
+.fd-arrive-row.is-inset { z-index:1; margin:0 0 4px; border:0; background:none; padding:6px 4px 6px 2px; }
+.fd-arrive-row.is-inset > strong { color:var(--bone); }
+.fd-home-focus > .fd-home-scene > .fd-arrive-row { grid-row:1; }
+.fd-arrive-seat.is-small { width:40px; height:40px; }
+.fd-arrive-seat.is-small::before { border-width:1.5px; }
+.fd-arrive-seat.is-small .fd-arrive-chip { transform:translateY(-5px); }
+
+/* ── the scanner ── */
+.fd-scan { position:fixed; inset:0; z-index:160; overflow:hidden; background:var(--ink0); color:var(--ink);
+  animation:fd-scan-in .26s var(--ease-out) both; --finder:min(72vw, 46dvh, 340px); }
+@keyframes fd-scan-in { from { opacity:0; } }
+.fd-scan-video { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+.fd-scan-head { position:absolute; z-index:2; left:0; right:0; top:0; display:grid; grid-template-columns:44px minmax(0, 1fr) 44px;
+  align-items:center; gap:8px; padding:calc(env(safe-area-inset-top) + 8px) 12px 10px;
+  background:linear-gradient(180deg, color-mix(in srgb, var(--ink0) 86%, transparent), transparent); }
+.fd-scan-head h2 { margin:0; text-align:center; font-size:30px; line-height:1.15; color:var(--bone); }
+.fd-scan-close { display:grid; place-items:center; width:44px; height:44px; border:1px solid var(--ghost-line); border-radius:12px;
+  background:color-mix(in srgb, var(--ink0) 70%, transparent); color:var(--bone); cursor:pointer; }
+.fd-scan-close:focus-visible { outline:2px solid var(--lamp-info); outline-offset:3px; }
+
+/* the viewfinder: a square cut in the dimmed glass, its corners lit cyan */
+.fd-scan-finder { position:absolute; z-index:1; left:50%; top:44%; width:var(--finder); height:var(--finder);
+  transform:translate(-50%, -50%); border-radius:18px; box-shadow:0 0 0 100vmax color-mix(in srgb, var(--ink0) 58%, transparent); }
+.fd-scan-corner { position:absolute; width:42px; height:42px; border:4px solid var(--lamp-info); filter:drop-shadow(0 0 8px color-mix(in srgb, var(--lamp-info) 60%, transparent)); }
+.fd-scan-corner.is-tl { left:-2px; top:-2px; border-right:0; border-bottom:0; border-top-left-radius:18px; }
+.fd-scan-corner.is-tr { right:-2px; top:-2px; border-left:0; border-bottom:0; border-top-right-radius:18px; }
+.fd-scan-corner.is-bl { left:-2px; bottom:-2px; border-right:0; border-top:0; border-bottom-left-radius:18px; }
+.fd-scan-corner.is-br { right:-2px; bottom:-2px; border-left:0; border-top:0; border-bottom-right-radius:18px; }
+.fd-scan-line { position:absolute; left:8%; right:8%; top:8%; height:2px; border-radius:2px; background:var(--lamp-info);
+  box-shadow:0 0 12px 1px color-mix(in srgb, var(--lamp-info) 70%, transparent); animation:fd-scan-sweep 2.4s ease-in-out infinite alternate; }
+@keyframes fd-scan-sweep { from { transform:translateY(0); } to { transform:translateY(calc(var(--finder) * .84)); } }
+/* found: the corners close in while the write is in flight; in: they go still */
+.fd-scan.is-sending .fd-scan-corner { animation:fd-scan-lock .6s ease-in-out infinite alternate; }
+@keyframes fd-scan-lock { to { transform:scale(.9); opacity:.6; } }
+.fd-scan.is-done .fd-scan-corner { border-color:var(--you); filter:drop-shadow(0 0 8px color-mix(in srgb, var(--you) 60%, transparent)); }
+
+.fd-scan-error { position:absolute; z-index:2; left:50%; top:calc(44% + var(--finder) / 2 + 18px); transform:translateX(-50%);
+  max-width:min(88vw, 360px); margin:0; padding:8px 12px; border-radius:10px; background:color-mix(in srgb, var(--ink0) 90%, transparent);
+  box-shadow:var(--window-bezel); color:var(--clay-text); font:600 14px/1.35 var(--fd-body); text-align:center; }
+
+/* the foot: your chip over its seat; in, it drops in and "Here" stamps */
+.fd-scan-foot { position:absolute; z-index:2; left:0; right:0; bottom:0; display:flex; align-items:center; justify-content:center; gap:18px;
+  min-height:150px; padding:18px 16px calc(env(safe-area-inset-bottom) + 22px);
+  background:linear-gradient(0deg, color-mix(in srgb, var(--ink0) 90%, transparent), transparent); }
+.fd-scan-seat { position:relative; display:grid; place-items:center; width:88px; height:88px; --lamp:var(--you); }
+.fd-scan-seat::before { content:""; position:absolute; inset:0; border-radius:50%; border:2px dashed var(--you);
+  background:color-mix(in srgb, var(--ink0) 82%, transparent); box-shadow:var(--window-bezel); animation:fd-arrive-wait 1.2s steps(1, end) infinite; }
+.fd-scan-seat.is-sending::before { border-style:solid; }
+.fd-scan-seat.is-landed::before { animation:none; border-style:solid; box-shadow:var(--window-bezel), var(--you-bloom); }
+.fd-scan-seat.is-landed .fd-arrive-chip { animation:fd-arrive-drop 460ms linear both; }
+.fd-scan-seat.is-landed .fd-arrive-shadow { transform:scale(1); opacity:.9; }
+@keyframes fd-arrive-drop {
+  0% { transform:translateY(-15px) scale(1.04); animation-timing-function:cubic-bezier(.5,0,.75,.4); }
+  48% { transform:translateY(0) scale(1); animation-timing-function:cubic-bezier(.2,.8,.2,1); }
+  64% { transform:translateY(2px) scale(1.06, .9); animation-timing-function:cubic-bezier(.3,.7,.35,1.25); }
+  100% { transform:none; }
+}
+.fd-scan-here { font-size:48px; line-height:1.1; color:var(--you); text-shadow:0 0 18px color-mix(in srgb, var(--you) 50%, transparent); }
+.fd-scan-here.is-stamping { animation:fd-arrive-stamp var(--motion-stamp, 320ms) var(--ease-land) 200ms both; }
+@keyframes fd-arrive-stamp { from { opacity:0; transform:scale(1.32); } to { opacity:1; transform:none; } }
+
+/* no camera: two lines and Try again, on the dark glass */
+.fd-scan-blocked { position:absolute; z-index:1; left:50%; top:42%; transform:translate(-50%, -50%); width:min(86vw, 340px);
+  display:flex; flex-direction:column; align-items:center; gap:10px; text-align:center; }
+.fd-scan-blocked-mark { position:relative; display:grid; place-items:center; width:88px; height:88px; margin-bottom:6px; border-radius:50%;
+  background:color-mix(in srgb, var(--ink0) 80%, var(--bg)); box-shadow:var(--window-bezel); color:var(--muted2); }
+.fd-scan-blocked-mark::after { content:""; position:absolute; left:20px; right:20px; top:50%; height:3px; border-radius:2px;
+  background:var(--clay); transform:rotate(-38deg); }
+.fd-scan-blocked h3 { margin:0; font-size:34px; line-height:1.15; color:var(--bone); }
+.fd-scan-blocked p { margin:0 0 10px; color:var(--muted2); font:500 15px/1.45 var(--fd-body); }
+
+@media (prefers-reduced-motion: reduce) {
+  .fd-arrive-chip, .fd-arrive-seat::before, .fd-scan-seat::before, .fd-scan-line, .fd-scan-corner,
+  .fd-scan-seat.is-landed .fd-arrive-chip, .fd-scan-here.is-stamping, .fd-scan { animation:none; }
+  .fd-arrive-chip, .fd-arrive-seat.is-small .fd-arrive-chip { transform:none; }
+  .fd-arrive-shadow { transition:none; }
+}

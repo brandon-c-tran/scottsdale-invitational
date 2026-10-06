@@ -4,18 +4,20 @@ import { serverNow } from "../../lib/serverClock.js";
 import { tapTick } from "../../lib/haptics.js";
 import { useReducedMotion } from "../../lib/motion.js";
 import { freshFrameNow, playSound, unlockSound } from "../../lib/sound.js";
+import { disp } from "../../../shared/core.js";
 import { TRIVIA_BASE, TRIVIA_EXACT, TRIVIA_NEAR, TRIVIA_SPEED } from "../../../shared/trivia.js";
 import { ChipFace } from "../identity/PlayerIdentity.jsx";
 import { Wheel } from "../geo/Wheel.jsx";
 import { Icon } from "../../ui/Icon.jsx";
 import { OneSafe } from "../../ui/OneSafe.jsx";
-import { LETTERS, fmtNumber, fromDigits, numberLabel, revealOrder, teamColor, toDigits, triviaPhotoSrc, triviaView } from "./triviaModel.js";
+import {
+  LETTERS, boardTop, fmtNumber, fromDigits, nearestGuesses, numberLabel, ordinal, toDigits, triviaPhotoSrc, triviaView,
+} from "./triviaModel.js";
 import "../geo/geo.css";
 import "./trivia.css";
+import { writeError } from "../../lib/writeErrors.js";
 
 const sendPick = payload => dispatch("triviaPick", payload, { retry:true });
-/* "The Sidewinders" reads as "Sidewinders" on a tag */
-export const shortTeam = name => String(name || "").replace(/^the\s+/i, "");
 
 function useTicking(active, ms = 250) {
   const [, setTick] = useState(0);
@@ -60,12 +62,6 @@ function Clock({ view, now }) {
   </span>;
 }
 
-/* a team named by its painted insert */
-export function TeamTag({ state, team, mine = false }) {
-  return <span className={`fd-trivia-tag${mine ? " is-mine" : ""}`} style={{ "--team":teamColor(state, team) }}>
-    <i aria-hidden="true" />{shortTeam(team.name)}</span>;
-}
-
 /* the tune plays on the TV: its bars move while the clip runs */
 export function Listening({ live }) {
   return <div className={`fd-trivia-listen${live ? " is-live" : ""}`} aria-label={live ? "Playing on the TV" : "On the TV"}>
@@ -74,31 +70,37 @@ export function Listening({ live }) {
   </div>;
 }
 
-/* Four answers. Your team's pick is painted in its color with the face of
-   whoever set it; on the reveal the right one stamps and every team's tag
-   sits on the answer it gave. */
+/* who chose an answer, as overlapping chips (yours first and lit), then +N */
+function Faces({ state, lanes, max = 6, size = 24 }) {
+  const order = [...lanes].sort((a, b) => Number(b.mine) - Number(a.mine));
+  const shown = order.slice(0, order.length > max ? max - 1 : max);
+  return <span className="fd-trivia-faces" aria-label={order.map(lane => disp(state, lane.player)).join(", ")}>
+    {shown.map((lane, i) => <span key={lane.player} className={lane.mine ? "is-mine" : ""} style={{ "--i":i }}>
+      <ChipFace p={lane.player} size={size} /></span>)}
+    {order.length > shown.length && <b>+{order.length - shown.length}</b>}
+  </span>;
+}
+
+/* Four answers. Yours is lit in your filament; on the reveal the right one
+   stamps and each answer carries how many chose it, with their faces. */
 function Options({ state, view, pending, onChoose, disabled }) {
   const { question, revealed, mine } = view;
   const chosen = pending ?? mine?.choice ?? null;
-  return <ol className="fd-trivia-options">
+  return <ol className={`fd-trivia-options${revealed ? " is-revealed" : ""}`}>
     {question.options.map((option, i) => {
       const picked = chosen === i;
       const right = revealed && question.answer === i;
-      const teams = revealed ? view.lanes.filter(lane => lane.pick?.choice === i) : [];
-      const setter = picked && !revealed && mine?.choice === i ? mine.by : null;
+      const who = view.chose[i] || [];
       const cls = ["fd-trivia-option", picked && "is-picked", picked && mine?.locked && "is-locked", right && "is-right",
         revealed && picked && !right && "is-wrong", revealed && !right && "is-out"].filter(Boolean).join(" ");
       return <li key={i}>
-        <button type="button" className={cls} disabled={disabled} aria-pressed={picked}
-          style={view.team ? { "--team":teamColor(state, view.team) } : undefined}
-          onClick={() => onChoose?.(i)}>
+        <button type="button" className={cls} disabled={disabled} aria-pressed={picked} onClick={() => onChoose?.(i)}>
           <span className="fd-trivia-letter" aria-hidden="true">{right ? <Icon name="check" size={18} /> : LETTERS[i]}</span>
           <span className="fd-trivia-option-text">
             {typeof option === "string" ? option : <><b>{option.title}</b><small>{option.artist}</small></>}
-            {!!teams.length && <span className="fd-trivia-tags">{teams.map(lane =>
-              <TeamTag key={lane.key} state={state} team={lane} mine={lane.mine} />)}</span>}
+            {revealed && !!who.length && <Faces state={state} lanes={who} />}
           </span>
-          {setter && <span className="fd-trivia-setter" key={`${setter}:${mine.at}`}><ChipFace p={setter} size={30} /></span>}
+          {revealed && <span className="fd-trivia-tally" aria-label={`${who.length} chose this`}>{who.length}</span>}
           {picked && mine?.locked && !revealed && <span className="fd-trivia-lock" aria-label="Locked in"><Icon name="lock" size={16} /></span>}
         </button>
       </li>;
@@ -106,7 +108,7 @@ function Options({ state, view, pending, onChoose, disabled }) {
   </ol>;
 }
 
-/* Closest number: a wheel a digit. A teammate's turn moves your wheels. */
+/* Closest number: a wheel a digit */
 function NumberWheels({ view, value, onChange, disabled }) {
   const digits = view.question.digits || 4;
   const list = toDigits(value ?? 0, digits);
@@ -135,9 +137,17 @@ function QuestionText({ question }) {
   return <h2 className={`fd-trivia-text${question.text.length > 90 ? " is-long" : ""}`}>{question.text}</h2>;
 }
 
-/* The question, as your team plays it. A tap sets your team's answer for
-   everyone on it; Lock in (anyone) makes it final. */
-function Play({ state, view, now, onPick, me }) {
+/* The room: every player's chip, lit as they lock in (never what) */
+function Room({ view }) {
+  return <ul className="fd-trivia-room" aria-label={`${view.lockedCount} of ${view.roomCount} locked in`}>
+    {view.room.filter(lane => !lane.away).map(lane =>
+      <li key={lane.player} className={`${lane.locked ? "is-locked" : lane.set ? "is-set" : ""}${lane.mine ? " is-mine" : ""}`}>
+        <ChipFace p={lane.player} size={22} /></li>)}
+  </ul>;
+}
+
+/* The question as you play it: tap an answer, Lock in makes it final. */
+function Play({ state, view, onPick }) {
   const { question, mine } = view;
   const number = question.format === "number";
   const [pending, setPending] = useState(null);
@@ -149,12 +159,11 @@ function Play({ state, view, now, onPick, me }) {
   const over = view.timeUp;
   /* the server's answer replaces the local one as it lands */
   useEffect(() => { setPending(null); }, [mine?.choice, mine?.at]);
-  useEffect(() => { if (mine?.value !== undefined && mine?.by !== me) setDraft(mine.value); }, [mine?.value, mine?.at]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => () => clearTimeout(timer.current), []);
   const send = async payload => {
     const result = await onPick({ questionId:question.id, ...payload });
     if (result?.ok !== true && !result?.uncertain) {
-      setError(result?.error || "Not saved. Try again.");
+      setError(writeError(result));
       playSound("S26", { bus:"you" });
     } else setError("");
     return result;
@@ -173,7 +182,7 @@ function Play({ state, view, now, onPick, me }) {
   };
   const lock = async () => {
     if (locked || over || locking) return;
-    const payload = number ? { value:draft ?? 0 } : pending !== null ? { choice:pending } : {};
+    const payload = number ? { value:draft ?? mine?.value ?? 0 } : pending !== null ? { choice:pending } : {};
     if (!number && pending === null && !Number.isInteger(mine?.choice)) return;
     unlockSound(); tapTick();
     clearTimeout(timer.current);
@@ -184,21 +193,23 @@ function Play({ state, view, now, onPick, me }) {
   };
   const hasPick = number ? draft !== null || mine?.value !== undefined : pending !== null || Number.isInteger(mine?.choice);
   return <>
-    <main className="fd-trivia-body">
-      <QuestionText question={question} />
-      {question.format === "picture" && <Photo question={question} />}
-      {question.format === "tune" && <Listening live={view.clipLive} />}
+    <main className="fd-trivia-body is-play">
+      {/* the prompt holds the space above; the answers dock on Lock in,
+          in the thumb's reach, with nothing between them */}
+      <div className="fd-trivia-prompt">
+        <QuestionText question={question} />
+        {question.format === "picture" && <Photo question={question} />}
+        {question.format === "tune" && <Listening live={view.clipLive} />}
+      </div>
       {number ? <NumberWheels view={view} value={locked ? mine.value : draft ?? mine?.value ?? 0} onChange={turn}
         disabled={locked || over} />
         : <Options state={state} view={view} pending={pending} onChoose={choose} disabled={locked || over} />}
-      {number && mine?.by && <p className="fd-trivia-who"><ChipFace p={locked ? mine.lockedBy || mine.by : mine.by} size={24} />
-        <span>{numberLabel(mine.value, question.unit)}</span></p>}
     </main>
     <footer className="fd-trivia-foot">
-      <TeamLamps state={state} view={view} />
+      <Room view={view} />
       {error && <p className="fd-trivia-error" role="alert">{error}</p>}
       {locked ? <div className="fd-trivia-primary is-done" key="done"><Icon name="lock" size={18} />Locked in
-        {mine.lockedBy && <ChipFace p={mine.lockedBy} size={28} />}</div>
+        {number && <b>{numberLabel(mine.value, question.unit)}</b>}</div>
         : over ? <div className="fd-trivia-primary is-over">Time's up</div>
           : <button type="button" className={`fd-trivia-primary${view.secondsLeft <= 5 && !view.leading ? " is-hurry" : ""}`}
             disabled={!hasPick || locking} onClick={lock}>
@@ -207,22 +218,10 @@ function Play({ state, view, now, onPick, me }) {
   </>;
 }
 
-/* every team's lamp: lit once it locks, flashing while it has an answer
-   and has not */
-function TeamLamps({ state, view }) {
-  return <ul className="fd-trivia-lamps" aria-label={`${view.lockedCount} of ${view.lanes.length} teams locked in`}>
-    {view.lanes.map(lane => <li key={lane.key} className={`${lane.locked ? "is-locked" : lane.set ? "is-set" : ""}${lane.mine ? " is-mine" : ""}`}
-      style={{ "--team":teamColor(state, lane) }}>
-      <i className="fd-trivia-lamp" aria-hidden="true" /><span>{shortTeam(lane.name)}</span></li>)}
-  </ul>;
-}
-
-/* the reveal, from your team's side: the right answer stamped, your points
-   counting with the speed bonus as its own fill, then the four teams */
-function Reveal({ state, view, me, fresh:arrived }) {
+/* your points on the question (bone, "pts": a point is not a chip), the
+   speed bonus its own cyan fill */
+function Points({ view, fresh }) {
   const { question, myScore } = view;
-  /* the count runs once, if the reveal landed while the sheet was up */
-  const [fresh] = useState(arrived);
   const number = question.format === "number";
   const max = number ? TRIVIA_NEAR[0] + TRIVIA_EXACT : TRIVIA_BASE + TRIVIA_SPEED;
   const points = useCountTo(myScore?.points || 0, { delay:700, run:fresh });
@@ -230,16 +229,27 @@ function Reveal({ state, view, me, fresh:arrived }) {
     if (!fresh || !myScore?.points || !freshFrameNow()) return;
     playSound("payout", { bus:"you", delayMs:700, opts:{ n:Math.max(4, Math.round(myScore.points / 100)) } });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
-  /* the reveal needs no action: one scroll, your points first */
+  return <div className={`fd-trivia-points${myScore?.points ? "" : myScore?.answered ? " is-wrong" : " is-none"}`}>
+    <b>{myScore?.points ? <>+{fmtNumber(Math.round(points / 10) * 10)}<span className="fd-trivia-unit">pts</span></>
+      : myScore?.answered ? "0" : "No answer"}</b>
+    {myScore?.points > 0 && <span className="fd-trivia-split" aria-hidden="true">
+      <i className="is-base" style={{ "--w":myScore.base / max }} /><i className="is-bonus" style={{ "--w":myScore.bonus / max }} /></span>}
+    {myScore?.points > 0 && <small>{number ? myScore.bonus ? "Exact" : myScore.near === 1 ? "Closest" : "Second closest"
+      : myScore.bonus ? `Speed +${myScore.bonus}` : "Right"}</small>}
+    {myScore?.answered && !myScore.points && <small>{number ? "Not close enough" : "Wrong"}</small>}
+    {view.myRow && <em className="fd-trivia-place"><OneSafe text={ordinal(view.myRow.rank)} /></em>}
+  </div>;
+}
+
+/* The reveal, from your side: your points first, the right answer stamped
+   with how the room answered, then the top of the board. One scroll. */
+function Reveal({ state, view, me, fresh:arrived }) {
+  const { question } = view;
+  /* the count runs once, if the reveal landed while the sheet was up */
+  const [fresh] = useState(arrived);
+  const number = question.format === "number";
   return <main className="fd-trivia-body is-reveal">
-    {view.team && <div className={`fd-trivia-points${myScore?.points ? "" : myScore?.answered ? " is-wrong" : " is-none"}`}>
-      <b>{myScore?.points ? `+${fmtNumber(Math.round(points / 10) * 10)}` : myScore?.answered ? "0" : "No answer"}</b>
-      {myScore?.points > 0 && <span className="fd-trivia-split" aria-hidden="true">
-        <i className="is-base" style={{ "--w":myScore.base / max }} /><i className="is-bonus" style={{ "--w":myScore.bonus / max }} /></span>}
-      {myScore?.points > 0 && <small>{number ? myScore.bonus ? "Exact" : myScore.near === 1 ? "Closest" : "Second closest"
-        : myScore.bonus ? `Speed +${myScore.bonus}` : "Right"}</small>}
-      {myScore?.answered && !myScore.points && <small>{number ? "Not close enough" : "Wrong"}</small>}
-    </div>}
+    {view.playing && view.room.some(lane => lane.mine) && <Points view={view} fresh={fresh} />}
     <QuestionText question={question} />
     {question.format === "picture" && <Photo question={question} />}
     {number ? <NumberReveal state={state} view={view} /> : <Options state={state} view={view} pending={null} disabled />}
@@ -247,17 +257,21 @@ function Reveal({ state, view, me, fresh:arrived }) {
   </main>;
 }
 
-/* closest number: the answer, then every team's guess, nearest first */
+/* closest number: the answer, then the nearest guesses (and yours) */
 function NumberReveal({ state, view }) {
   const { question } = view;
-  const rows = view.lanes.filter(lane => lane.score?.answered).sort((a, b) => a.score.off - b.score.off);
+  const all = nearestGuesses(view);
+  const near = all.slice(0, 3);
+  const yours = all.find(lane => lane.mine);
+  const rows = yours && !near.includes(yours) ? [...near, yours] : near;
   return <div className="fd-trivia-numreveal">
     <p className="fd-trivia-answer"><b>{numberLabel(question.answer)}</b>{question.unit && <span>{question.unit}</span>}</p>
     <ol>
-      {rows.map(lane => <li key={lane.key} className={lane.mine ? "is-mine" : ""}>
-        <TeamTag state={state} team={lane} mine={lane.mine} />
+      {rows.map(lane => <li key={lane.player} className={`${lane.mine ? "is-mine" : ""}${lane === yours && !near.includes(yours) ? " is-gap" : ""}`}>
+        <ChipFace p={lane.player} size={30} />
+        <span className="fd-trivia-name">{disp(state, lane.player)}</span>
         <b>{numberLabel(lane.pick.value)}</b>
-        <span>{lane.score.off === 0 ? "Exact" : `${fmtNumber(lane.score.off)} off`}</span>
+        <span className="fd-trivia-off">{lane.score.off === 0 ? "Exact" : `${fmtNumber(lane.score.off)} off`}</span>
         <em>{lane.score.points ? `+${fmtNumber(lane.score.points)}` : "0"}</em>
       </li>)}
       {!rows.length && <li className="is-none">No answers</li>}
@@ -265,18 +279,22 @@ function NumberReveal({ state, view }) {
   </div>;
 }
 
-/* the four teams by total; yours lit */
-export function Standings({ state, view, compact = false }) {
+function StandingRow({ state, row, view, me }) {
+  return <li className={row.player === me ? "is-mine" : ""}>
+    <span className="fd-trivia-rank">{row.rank}</span>
+    <ChipFace p={row.player} size={30} />
+    <span className="fd-trivia-name">{disp(state, row.player)}</span>
+    <span className="fd-trivia-total">{fmtNumber(row.total)}{view.phase === "reveal" && row.last > 0 && <small>+{fmtNumber(row.last)}</small>}</span>
+  </li>;
+}
+
+/* the top of the board, and your row under it when you are further down */
+export function Standings({ state, view, me, compact = false }) {
+  const { top, mine } = boardTop(view.standings, me, compact ? 3 : 5);
   return <ol className={`fd-trivia-standings${compact ? " is-compact" : ""}`}>
-    {view.standings.map(row => {
-      const lane = view.lanes.find(item => item.key === row.key);
-      return <li key={row.key} className={lane?.mine ? "is-mine" : ""} style={{ "--team":teamColor(state, row) }}>
-        <span className="fd-trivia-rank">{row.rank}</span>
-        <span className="fd-trivia-team"><i aria-hidden="true" /><b>{row.name}</b>
-          {!compact && <span className="fd-trivia-faces">{row.players.map(player => <ChipFace key={player} p={player} size={28} />)}</span>}</span>
-        <span className="fd-trivia-total">{fmtNumber(row.total)}{view.revealed && row.last > 0 && <small>+{fmtNumber(row.last)}</small>}</span>
-      </li>;
-    })}
+    {top.map(row => <StandingRow key={row.player} state={state} row={row} view={view} me={me} />)}
+    {mine && <li className="fd-trivia-gap" aria-hidden="true" />}
+    {mine && <StandingRow state={state} row={mine} view={view} me={me} />}
   </ol>;
 }
 
@@ -315,7 +333,7 @@ export function TriviaPlaySheet({ state, me, blocked = false, force = 0, onPick 
     return () => { document.body.style.overflow = before; };
   }, [open]);
   if (!open) return null;
-  const urgent = view.phase === "question" && !view.leading && !view.timeUp && view.secondsLeft <= 5;
+  const urgent = view.phase === "question" && view.playing && !view.leading && !view.timeUp && view.secondsLeft <= 5;
   const close = () => { setDismissed(key); setOpened(false); };
   return <div className={`fd-trivia-game is-${view.phase}${urgent ? " is-urgent" : ""}`} role="dialog" aria-modal="true" aria-label="Trivia">
     <header className="fd-trivia-head">
@@ -329,26 +347,28 @@ export function TriviaPlaySheet({ state, me, blocked = false, force = 0, onPick 
     {view.phase === "question" && view.leading && <span className="fd-trivia-stamp" key={view.question.id} aria-hidden="true">
       {view.n}</span>}
     {view.phase === "question"
-      ? (view.playing ? <Play key={view.question.id} state={state} view={view} now={at} onPick={onPick} me={me} />
+      ? (view.playing ? <Play key={view.question.id} state={state} view={view} onPick={onPick} />
         : <Watch state={state} view={view} />)
       : view.phase === "board" ? <Board state={state} view={view} me={me} />
         : <Reveal key={view.question.id} state={state} view={view} me={me} fresh={fresh} />}
   </div>;
 }
 
-/* the question for someone not on a team: read only */
+/* the question for someone not playing: read only */
 function Watch({ state, view }) {
   const { question } = view;
   return <>
-    <main className="fd-trivia-body">
-      <QuestionText question={question} />
-      {question.format === "picture" && <Photo question={question} />}
-      {question.format === "tune" && <Listening live={view.clipLive} />}
+    <main className="fd-trivia-body is-play">
+      <div className="fd-trivia-prompt">
+        <QuestionText question={question} />
+        {question.format === "picture" && <Photo question={question} />}
+        {question.format === "tune" && <Listening live={view.clipLive} />}
+      </div>
       {question.format === "number"
         ? <p className="fd-trivia-unit is-watch">{question.unit || "A number"}</p>
-        : <Options state={state} view={{ ...view, team:null, mine:null }} pending={null} disabled />}
+        : <Options state={state} view={{ ...view, mine:null }} pending={null} disabled />}
     </main>
-    <footer className="fd-trivia-foot"><TeamLamps state={state} view={view} /></footer>
+    <footer className="fd-trivia-foot"><Room view={view} /></footer>
   </>;
 }
 
@@ -358,11 +378,11 @@ export function TriviaHome({ state, me, onOpen, now }) {
   useTicking(!!view && view.phase === "question" && now === undefined, 1000);
   if (!view || view.finished) return null;
   const status = view.phase === "board" ? view.last ? "Final scores" : "Scores"
-    : view.phase === "reveal" ? view.myScore?.points ? `+${fmtNumber(view.myScore.points)}` : "Revealed"
-      : view.mine?.locked ? "Locked in" : view.playing ? view.timeUp ? "Time's up" : `${view.secondsLeft} s` : `${view.lockedCount} of ${view.lanes.length} locked in`;
+    : view.phase === "reveal" ? view.myScore?.points ? `+${fmtNumber(view.myScore.points)} pts` : "Revealed"
+      : view.mine?.locked ? "Locked in" : view.playing ? view.timeUp ? "Time's up" : `${view.secondsLeft} s`
+        : `${view.lockedCount} of ${view.roomCount} locked in`;
   return <button type="button" className="fd-trivia-home" onClick={onOpen}>
     <span><small><i className="fd-insert fd-beat-dot" aria-hidden="true" />Trivia</small>
       <strong><OneSafe text={`Question ${view.n} of ${view.total}`} /></strong><em>{status}</em></span><Icon name="open" size="1em" />
   </button>;
 }
-

@@ -31,7 +31,7 @@ export function teamNameActions({ ok, err }) {
       if (!ev) return err("No such event");
       const draw = state.draws?.[evId];
       if (!draw?.teams?.length) return err("No teams yet");
-      if (drawId !== draw.id) return err("Teams changed, refresh and try again");
+      if (drawId !== draw.id) return err("The teams changed. Check the board and name yours again");
       const target = Number.isInteger(team) ? draw.teams[team] : null;
       if (!target) return err("No such team");
       if ((target.players?.length || 0) < 2) return err("Only teams take names");

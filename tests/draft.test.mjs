@@ -103,7 +103,7 @@ test("only the on-clock captain or commissioner can make a pick", () => {
   const state = started(), payload = { evId:"volley", player:state.drafts.volley.pool[0], ...refs(state) };
   rejectsWithoutMutation(state, "pickDraftPlayer", payload, /Not your pick/, guest(ROSTER[1]));
   rejectsWithoutMutation(state, "pickDraftPlayer", payload, /Check in first/, guest("unknown"));
-  rejectsWithoutMutation(state, "pickDraftPlayer", { ...payload, player:ROSTER[0] }, /not available/i, guest(ROSTER[0]));
+  rejectsWithoutMutation(state, "pickDraftPlayer", { ...payload, player:ROSTER[0] }, /Already picked/i, guest(ROSTER[0]));
   act(state, "pickDraftPlayer", payload, gm());
   assert.equal(state.drafts.volley.picks.length, 1, "The host may enter a captain's spoken choice");
   for (const type of ["startDraft", "undoDraftPick", "finalizeDraft", "cancelDraft"]) {
@@ -114,17 +114,17 @@ test("only the on-clock captain or commissioner can make a pick", () => {
 
 test("new draft references reject missing, stale, and delayed taps across an undo", () => {
   const state = started(), evId = "volley", old = refs(state), player = state.drafts[evId].pool[0];
-  rejectsWithoutMutation(state, "pickDraftPlayer", { evId, player }, /Draft changed/);
-  rejectsWithoutMutation(state, "pickDraftPlayer", { evId, player, ...old, draftId:"other-draft" }, /Draft changed/);
+  rejectsWithoutMutation(state, "pickDraftPlayer", { evId, player }, /draft moved on/);
+  rejectsWithoutMutation(state, "pickDraftPlayer", { evId, player, ...old, draftId:"other-draft" }, /draft moved on/);
   for (const type of ["undoDraftPick", "finalizeDraft", "cancelDraft"])
-    rejectsWithoutMutation(state, type, { evId }, /Draft changed/);
+    rejectsWithoutMutation(state, type, { evId }, /draft moved on/);
   pick(state);
-  rejectsWithoutMutation(state, "pickDraftPlayer", { evId, player:state.drafts[evId].pool[0], ...old }, /Draft changed/);
+  rejectsWithoutMutation(state, "pickDraftPlayer", { evId, player:state.drafts[evId].pool[0], ...old }, /draft moved on/);
   act(state, "undoDraftPick", { evId, ...refs(state) });
   assert.equal(draftTurn(state.drafts[evId]).pickIndex, old.pickIndex);
   assert.equal(draftTurn(state.drafts[evId]).draftRevision, 2);
   assert.equal(state.drafts[evId].pool[0], player, "Undo restores the available-player order");
-  rejectsWithoutMutation(state, "pickDraftPlayer", { evId, player, ...old }, /Draft changed/);
+  rejectsWithoutMutation(state, "pickDraftPlayer", { evId, player, ...old }, /draft moved on/);
   pick(state, evId, state.drafts[evId].pool[1]);
   assert.equal(state.drafts[evId].picks.length, 1);
 });
@@ -136,8 +136,8 @@ test("pick and undo acknowledgements can be retried without taking the next turn
   const afterPick = structuredClone(state);
   assert.equal(act(state, "pickDraftPlayer", payload, captain).extra.unchanged, true);
   assert.deepEqual(state, afterPick);
-  rejectsWithoutMutation(state, "pickDraftPlayer", { ...payload, player:state.drafts[evId].pool[0] }, /Request id already used/, captain);
-  rejectsWithoutMutation(state, "pickDraftPlayer", payload, /Request id already used/, { ...captain, player:ROSTER[1] });
+  rejectsWithoutMutation(state, "pickDraftPlayer", { ...payload, player:state.drafts[evId].pool[0] }, /already did something else/, captain);
+  rejectsWithoutMutation(state, "pickDraftPlayer", payload, /already did something else/, { ...captain, player:ROSTER[1] });
   pick(state);
   const undo = { evId, ...refs(state) }, ctx = gm();
   act(state, "undoDraftPick", undo, ctx);
@@ -174,7 +174,7 @@ test("starting and cancelling preserve draft identity and cannot touch a newer d
   assert.equal(act(state, "cancelDraft", cancel, cancelCtx).extra.unchanged, true);
   assert.equal(act(state, "startDraft", payload, ctx).extra.unchanged, true);
   assert.deepEqual(state, newer);
-  rejectsWithoutMutation(state, "cancelDraft", cancel, /Draft changed/);
+  rejectsWithoutMutation(state, "cancelDraft", cancel, /draft moved on/);
   assert.equal(state.live, false);
   assert.deepEqual(state.wagers, []);
 });
@@ -182,7 +182,7 @@ test("starting and cancelling preserve draft identity and cannot touch a newer d
 test("draft setup validates exact participants, captain membership, and supported teams", () => {
   const valid = setup();
   for (const [payload, message] of [
-    [{ ...valid, players:ROSTER }, /exactly 12/i],
+    [{ ...valid, players:ROSTER }, /exactly 12|even teams/i],
     [{ ...valid, players:[...valid.players.slice(1), valid.players[1]] }, /selected twice/],
     [{ ...valid, players:["unknown", ...valid.players.slice(1)] }, /confirmed players/],
     [{ ...valid, captains:valid.captains.slice(1) }, /one captain per team/],
@@ -195,12 +195,12 @@ test("draft setup validates exact participants, captain membership, and supporte
   /* a shape with fewer than two teams never drafts */
   invalid.customEvents.push({ ...event("volley"), id:"bad-teams", teamCfg:{ teams:1, size:3, bracket:1 } });
   rejectsWithoutMutation(invalid, "startDraft", { ...valid, evId:"bad-teams", players:ROSTER.slice(0, 3),
-    captains:ROSTER.slice(0, 1) }, /Invalid team setup/);
+    captains:ROSTER.slice(0, 1) }, /team setup doesn't fit/);
 });
 
 test("finalization rejects incomplete or corrupted teams without dropping the draft", () => {
   const state = started();
-  rejectsWithoutMutation(state, "finalizeDraft", { evId:"volley", ...refs(state) }, /Pool not empty/);
+  rejectsWithoutMutation(state, "finalizeDraft", { evId:"volley", ...refs(state) }, /still in the pool/);
   complete(state);
   const corruptions = [
     d => { d.teams[0].players[1] = d.teams[1].players[1]; },

@@ -1,6 +1,7 @@
 /* Team names on the phone, as data (shared/teamNames.js holds the rules and
    the suggestions). Pure. */
-import { teamLabel } from "../../../shared/core.js";
+import { teamLabel, resolveCurrentContest } from "../../../shared/core.js";
+import { deriveHomeModel } from "../home/homeModel.js";
 import { cleanTeamName, teamNameKey, teamNameProblem, teamNamesLocked, teamNameSuggestions, TEAM_NAME_MAX } from "../../../shared/teamNames.js";
 
 export { TEAM_NAME_MAX };
@@ -43,4 +44,20 @@ export function checkTeamName(state, naming, raw) {
   const others = (state?.draws?.[naming?.evId]?.teams || []).filter((team, index) => index !== naming?.team && team?.name);
   if (others.some(team => teamNameKey(team.name) === teamNameKey(name))) return { error:"Another team has that name" };
   return { name };
+}
+
+/* The event whose naming Home's contest card carries itself (a pencil on
+   your own team in the card), so the separate row stays away: the live
+   event, when the card shows your team (you play the contest on screen, or
+   it lists your team's assignment). Null otherwise. */
+export function homeTeamNameEvent(state, me, events = [], standings = undefined) {
+  if (!me || !state?.live || state.frozen || state.away?.[me]) return null;
+  const model = deriveHomeModel({ state, me, events, ...(standings ? { standings } : {}) });
+  if (model.mode !== "live" || !model.current) return null;
+  const ev = model.current.event;
+  if (!myTeamNaming(state, ev, me)) return null;
+  const contest = resolveCurrentContest(state, ev);
+  const sided = contest && contest.kind !== "ffa" && contest.sides?.length > 0;
+  const shown = sided ? !!contest.players?.includes(me) : model.current.assignment?.kind === "team";
+  return shown ? ev.id : null;
 }

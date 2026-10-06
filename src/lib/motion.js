@@ -392,7 +392,7 @@ let portalHost = null;
                settle (the clone squashes and settles where it landed).
    Coins: when either end is marked data-fly-coin (the rack's chips) and
    the node is a React element, the chip flies as a coin (Coin.jsx's body,
-   backglass.css .fd-coin3d): leaving the rack it spins on its edge, flying
+   backglass.css .fd-coin3d, its edge in coinColor when given): leaving the rack it spins on its edge, flying
    home it flips end over end, and landing in the rack it seats itself. */
 /* a landing with weight: a squash (1.1 wide, 0.9 tall) dropping 7 px, a
    small rebound, then rest */
@@ -409,11 +409,12 @@ const coinEnd = end => {
 };
 const COIN_EDGE_LAYERS = 5; // Coin.jsx
 const can3d = () => typeof CSS === "undefined" || typeof CSS.supports !== "function" || CSS.supports("transform-style", "preserve-3d");
-/* Coin.jsx's body around a flying chip, in the source coin's own color */
-function coinBody(node, source) {
+/* Coin.jsx's body around a flying chip, in the source coin's own color
+   (or `color`, the flying chip's own: a bettor's chip leaving the rack) */
+function coinBody(node, source, own = "") {
   const face = source?.querySelector?.(".fd-coin3d") || source;
-  let color = "";
-  try { color = window.getComputedStyle(face).getPropertyValue("--coin-color").trim(); } catch {}
+  let color = own || "";
+  if (!color) try { color = window.getComputedStyle(face).getPropertyValue("--coin-color").trim(); } catch {}
   return React.createElement("span", { className:"fd-coin3d fd-coin3d-fly", style:color ? { "--coin-color":color } : undefined },
     ...Array.from({ length:COIN_EDGE_LAYERS }, (_, i) =>
       React.createElement("span", { key:i, className:"fd-coin3d-edge", style:{ "--z":i + 1 } })),
@@ -429,7 +430,7 @@ export const COIN_SEAT = Object.freeze([{ transform:"rotateX(40deg)" }, { transf
 
 export function fly(from, to, options = {}) {
   const { node = null, duration = MOTION.flight, delay = 0, arc = 0, scale = "fit",
-    fade = false, easing = EASE.out, land = false, hold = null } = options;
+    fade = false, easing = EASE.out, land = false, hold = null, coinColor = "" } = options;
   const skip = Promise.resolve(false);
   if (typeof document === "undefined" || typeof window === "undefined") return skip;
   if (prefersReducedMotion() || document.hidden) return skip;
@@ -448,7 +449,7 @@ export function fly(from, to, options = {}) {
   let unmountReact = null, mounted = Promise.resolve();
   if (node && React.isValidElement(node)) {
     if (!portalHost) return skip;
-    const host = portalHost.add(shell, coin ? coinBody(node, coinFrom || coinTo) : node);
+    const host = portalHost.add(shell, coin ? coinBody(node, coinFrom || coinTo, coinColor) : node);
     unmountReact = host.remove;
     /* a host that never renders it (unmounted mid-flight) skips the flight */
     mounted = Promise.race([host.ready.then(() => true),

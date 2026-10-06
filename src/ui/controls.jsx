@@ -9,7 +9,7 @@ function Tag({ children, tone="dim", style }) {
   const tones = {
     dim:   { color:"var(--muted)", background:"var(--ink-tint)" },
     gold:  { color:"var(--accent2)", background:"var(--accent-tint)" },
-    flame: { color:"var(--live2)", background:"rgba(192,71,58,0.14)" },
+    flame: { color:"var(--clay-text)", background:"color-mix(in srgb, var(--clay) 14%, transparent)" },
     green: { color:"var(--green)", background:"var(--green-tint)" },
   };
   return <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:13, letterSpacing:"0.05em",
@@ -90,11 +90,19 @@ const SheetDock = createContext(null);
 
 let openSheets = 0;
 let pageOverflow = "";
+/* One header grammar app-wide: Back (when there is one), the title at the
+   left, `headerActions` (links that navigate: Rules, Replay draw) at the
+   right, Close always last. No sheet centers its title or puts its links in
+   the body. */
 /* `show`: the title names an event or a person, so it is lettered in the
    backglass face rather than set as a label. */
 /* `heading={false}`: the body letters its own hero (an announcement), so the
    header carries only its controls; the title still names the dialog */
-function Sheet({ title, subtitle, headerActions, onClose, onBack, children, wide, busy = false, className = "", layer = 100, show = false,
+/* `footer`: the sheet's primary action (and its quiet alternative), held at
+   the foot of the sheet in thumb reach however far the body scrolls. Close
+   and Back stay in the header; header actions are for navigation (Rules,
+   Replay draw), never the sheet's commit. */
+function Sheet({ title, subtitle, headerActions, footer = null, onClose, onBack, children, wide, busy = false, className = "", layer = 100, show = false,
   heading = true }) {
   const dialog = useRef(null);
   const overlay = useRef(null);
@@ -152,6 +160,7 @@ function Sheet({ title, subtitle, headerActions, onClose, onBack, children, wide
         <div className="fd-sheet-body">
           {children}
         </div>
+        {footer && <div className="fd-sheet-footer">{footer}</div>}
       </div>
     </div>
   );

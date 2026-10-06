@@ -1,8 +1,9 @@
 import React from "react";
-import { MVP_PTS, allEventsOf, disp, mvpStands, overflowRoleMeta, presentPlayers, resolveEventLifecycle,
+import { allEventsOf, disp, overflowRoleMeta, presentPlayers, resolveEventLifecycle,
   resolveWager, resultAwards, teamLabel } from "../../../shared/core.js";
 import { Avatar, AvatarStack } from "../identity/PlayerIdentity.jsx";
 import { PayoutLadder } from "../../ui/PayoutLadder.jsx";
+import { ChipStack, HOUSE_CHIP } from "../wagers/BetStacks.jsx";
 import "./event-sheet.css";
 
 /* The event sheet changes with the event: before it starts it shows who is
@@ -69,35 +70,35 @@ export function EventCrew({ state, roles, me, onPlayer }) {
   </section>;
 }
 
-/* What is riding on the event right now: the chips in play and who put them there. */
+/* What is riding on the event right now: the chips bet and who bet them. */
 export function EventRiding({ state, ev }) {
   const events = allEventsOf(state);
   const open = (state.wagers || []).filter(w => w.eventId === ev.id && resolveWager(state, w, events).status === "pending");
   const total = open.reduce((sum, w) => sum + (w.stake || 0), 0);
   if (!total) return null;
   const bettors = [...new Set(open.map(w => w.player))];
-  return <section className="fd-es-riding" aria-label={`${fmt(total)} in play`}>
+  return <section className="fd-es-riding" aria-label={`${fmt(total)} bet`}>
     <i className="fd-es-chip" aria-hidden="true" />
     <b>{fmt(total)}</b>
-    <span className="fd-es-riding-label">In play</span>
+    <span className="fd-es-riding-label">bet</span>
     <AvatarStack state={state} players={bettors} size={24} max={6} />
   </section>;
 }
 
-/* your chips from a posted event: your place or crew award, your team MVP,
-   and what your bets on it did */
+/* your chips from a posted event: your place or crew award and what your
+   bets on it did */
 export function yourTake(state, ev, me) {
   if (!me) return null;
   const res = state.results?.[ev.id];
   if (!res) return null;
   const events = allEventsOf(state);
-  const award = res.stacks ? 0 : resultAwards(state, ev, res).filter(item => item.player === me).reduce((sum, item) => sum + item.pts, 0);
-  const mvp = state.mvp?.[ev.id]?.closedAt && state.mvp[ev.id].winner === me && mvpStands(state, ev.id) ? MVP_PTS : 0;
+  const placed = res.stacks ? [] : resultAwards(state, ev, res).filter(item => item.player === me);
+  const award = placed.reduce((sum, item) => sum + item.pts, 0);
   const bets = (state.wagers || []).filter(w => w.player === me && w.eventId === ev.id)
     .map(w => resolveWager(state, w, events)).filter(r => r.status === "won" || r.status === "lost")
     .reduce((sum, r) => sum + (r.delta || 0), 0);
-  const had = award || mvp || (state.wagers || []).some(w => w.player === me && w.eventId === ev.id);
-  return had ? { total:award + mvp + bets, award, mvp, bets } : null;
+  const had = award || (state.wagers || []).some(w => w.player === me && w.eventId === ev.id);
+  return had ? { total:award + bets, award, bets, place:placed[0]?.place ?? null } : null;
 }
 
 const PLACES = ["1st", "2nd", "3rd"];
@@ -143,13 +144,33 @@ export function EventResult({ state, ev, me, onPlayer }) {
         <b className="fd-es-amount">+{fmt(crew[0].pts)}</b>
       </li>}
     </ol>}
-    {take && <div className={`fd-es-take${take.total > 0 ? " is-won" : take.total < 0 ? " is-lost" : ""}`}
-      aria-label={`Your chips from ${ev.name}: ${signed(take.total)}`}>
-      <Avatar state={state} p={me} size={28} /><span>You</span>
-      <b>{signed(take.total)}</b>
-    </div>}
+    {take && <YourTake state={state} me={me} ev={ev} take={take} />}
     {reason && <p className="fd-es-corrected">Corrected: {reason}</p>}
   </section>;
+}
+
+/* Your chips from the event, each with where it came from, drawn: your
+   place as its medallion (1st amber, 2nd and 3rd bone, crew a dashed ring),
+   your bets as a stack of the board's amber chips. One source shows its
+   amount alone; more show each part, then the total. */
+function YourTake({ state, me, ev, take }) {
+  const parts = [
+    take.award > 0 && { id:"place", amount:take.award, label:take.place === "crew" ? "Crew" : PLACES[take.place] || "Place",
+      mark:<span className={`fd-es-medal fd-es-take-medal${take.place === 0 ? " is-first" : ""}${take.place === "crew" ? " is-crew" : ""}`}
+        aria-hidden="true">{typeof take.place === "number" ? take.place + 1 : ""}</span> },
+    take.bets !== 0 && { id:"bets", amount:take.bets, label:"Bets", mark:<span className="fd-es-take-chips" aria-hidden="true"><ChipStack chip={HOUSE_CHIP} count={3} size={18} tag={false} /></span> },
+  ].filter(Boolean);
+  const tone = n => n > 0 ? " is-won" : n < 0 ? " is-lost" : "";
+  return <div className={`fd-es-take${tone(take.total)}`} role="group"
+    aria-label={`Your chips from ${ev.name}: ${parts.map(part => `${part.label} ${signed(part.amount)}`).join(", ")}${
+      parts.length > 1 ? `, total ${signed(take.total)}` : parts.length ? "" : signed(take.total)}`}>
+    <Avatar state={state} p={me} size={28} /><span className="fd-es-take-you">You</span>
+    <span className="fd-es-take-parts" aria-hidden="true">
+      {parts.map(part => <span key={part.id} className={`fd-es-take-part is-${part.id}${tone(part.amount)}`}>
+        {part.mark}<b>{signed(part.amount)}</b></span>)}
+      {parts.length !== 1 && <b className="fd-es-take-total">{signed(take.total)}</b>}
+    </span>
+  </div>;
 }
 
 /* what an event pays, drawn (the PayoutLadder), crew as a hollow fourth */

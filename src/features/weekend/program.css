@@ -16,9 +16,9 @@
 .fd-program-mark { position:relative; }
 .fd-program-mark > .fd-program-lamp { position:absolute; right:-3px; top:-3px; width:14px; height:14px; }
 .fd-program-title { display:flex; align-items:center; gap:12px; min-width:0; max-width:100%; }
-.fd-program-title > .is-marquee { flex:1; min-width:0; }
+.fd-program-title > .is-lead { flex:1; min-width:0; }
 .fd-program-mark { flex-shrink:0; display:flex; border-radius:50%; box-shadow:0 2px 0 var(--ink0); }
-.fd-program-title .is-marquee, .fd-program-lead.is-edition .is-marquee { font-size:clamp(40px, 11.5vw, 56px); line-height:1.08;
+.fd-program-title .is-lead, .fd-program-lead.is-edition .is-lead { font-size:clamp(40px, 11.5vw, 56px); line-height:1.08;
   overflow-wrap:normal; text-wrap:balance; }
 .fd-program-then { display:flex; align-items:center; gap:10px; width:100%; min-height:52px; padding:8px 12px; border:0;
   color:var(--ink); text-align:left; font:inherit; cursor:pointer; }
@@ -110,7 +110,7 @@
 .fd-house-legs-plane { color:var(--muted2); }
 .fd-house-legs-plane.is-in { transform:rotate(135deg); }
 .fd-house-legs-plane.is-out { transform:rotate(45deg); }
-.fd-house-board { list-style:none; margin:0; padding:0; display:grid; gap:0; align-content:start; border-radius:12px;
+.fd-house-board { list-style:none; margin:0; padding:0; display:grid; gap:0; align-content:start; border-radius:14px;
   background:color-mix(in srgb, var(--ink0) 70%, var(--bg)); box-shadow:var(--glass-edge); }
 .fd-house-leg { display:flex; align-items:center; gap:12px; min-height:56px; padding:8px 14px; }
 .fd-house-leg + .fd-house-leg { border-top:1px solid var(--line); }

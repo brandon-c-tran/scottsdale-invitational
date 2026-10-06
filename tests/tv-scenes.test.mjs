@@ -16,6 +16,7 @@ import {
 } from "../src/features/tv/tvMotion.js";
 import { freshChangeStep } from "../src/lib/motion.js";
 import { advanceMoment, nextOpenMatch } from "../src/features/tv/tvModel.js";
+import { floodColor } from "../src/features/identity/chipInk.js";
 
 /* M14 (TV bracket advance) and M18 (the crown): the pure models, the
    fresh-change latch, and the TV's real markup. */
@@ -257,8 +258,9 @@ test("the champion frame floods in their color with readable ink; a reload shows
   const state = crowned(false);
   /* D3: a frozen TV takes turns with the class photo; this is the champion's turn */
   const html = renderTv(state, { now:Math.floor(Date.now() / 36000) * 36000 + 1000 });
-  assert.match(html, /class="tv-crown is-flood is-ink-bone is-flooded"/);
-  assert.match(html, /--champ-color:#2F7E83/);
+  /* the Lit Flood Rule: their color lit (the same hue, lifted), read in the dark ink */
+  assert.match(html, /class="tv-crown is-flood is-ink-dark is-flooded"/);
+  assert.ok(html.includes(`--champ-color:${floodColor("#2F7E83")}`), "the flood is their color, lit");
   assert.match(html, /class="tv-crown-flood"/);
   assert.ok(html.includes("tv-champ") && html.includes(">Final<"));
   assert.ok(!html.includes("is-playing") && !html.includes("tv-crown-prelude"), "no moment was handed in: the end state");
@@ -288,6 +290,19 @@ test("a fresh crown plays the produced crown: every tower in final order, dark f
   assert.ok(hall.slice(2).every(tower => tower.outAt < CROWN_TIMING.holdTwo), "3rd is out before the hold");
   assert.ok(hall.every((tower, i) => !i || tower.x > hall[i - 1].x), "in final order across the glass");
   assert.ok(hall[0].chips >= hall.at(-1).chips, "the biggest stack stands tallest");
+  /* every tower's drawn height follows its stack, at any spread of the board */
+  for (const top of [1200, 6000, 15000, 40000]) {
+    const rows = standings.map((row, i) => ({ ...row, pts:Math.max(0, Math.round((top - (top / 12) * i) / 25) * 25) }));
+    const towers = crownHall(rows, [rows[0].player]);
+    towers.forEach((tower, i) => {
+      if (!i) return;
+      const prev = towers[i - 1];
+      const px = t => 860 - t.top;
+      assert.ok(px(tower) <= px(prev), `${top}: ${tower.pts} stands no taller than ${prev.pts}`);
+      if (tower.pts < prev.pts && prev.chips - tower.chips === 0)
+        assert.ok(prev.pts - tower.pts < top / 34 + 1, `${top}: only a step under one chip shares a height`);
+    });
+  }
   assert.match(html, /--flood-x:\d+px/, "the flood grows from the champion's tower");
   const tied = structuredClone(view); tied.tied = true; tied.players = ["Evan", "Adi"];
   const tie = wrap(state, React.createElement(ChampionMoment, { state, view:tied, standings }));

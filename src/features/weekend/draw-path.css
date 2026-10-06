@@ -10,7 +10,7 @@
   margin:0; padding:0; list-style:none; }
 .fd-draw-path li { display:flex; flex-direction:column; align-items:center; gap:4px; min-width:0; text-align:center; }
 .fd-draw-path-line { position:absolute; top:14px; left:calc(var(--path-you) / 2); right:calc(var(--path-step) / 2); height:2px;
-  border-radius:2px; background:var(--fd-you, var(--sun)); transform-origin:left; }
+  border-radius:99px; background:var(--fd-you, var(--sun)); transform-origin:left; }
 .fd-draw-path-node { display:grid; place-items:center; width:30px; height:30px; }
 .fd-draw-path-dot { display:block; width:14px; height:14px; box-sizing:border-box; border:2px solid var(--fd-you, var(--sun));
   border-radius:50%; background:var(--paper); }
@@ -24,9 +24,8 @@
 .fd-draw-path small { font:600 12px/1.25 var(--fd-body); color:var(--muted2); overflow-wrap:break-word; }
 .fd-draw-path-note { color:var(--muted2); }
 .fd-draw-path-faces { display:flex; justify-content:center; }
-.fd-draw-path-faces > * + * { margin-left:-8px; }
+.fd-draw-path-faces { gap:2px; }
 .fd-draw-path-faces.is-candidate { opacity:.6; }
-.fd-draw-path-faces.is-candidate > * + * { margin-left:-10px; }
 .fd-draw-path-either { display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:1px 3px; }
 .fd-draw-path-either small { font-size:12px; }
 

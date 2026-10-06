@@ -8,8 +8,6 @@ import { ScoreReel } from "../../ui/ScoreReel.jsx";
 import { OneSafe } from "../../ui/OneSafe.jsx";
 import { useRisoTilt } from "./useRisoTilt.js";
 import { recordText, seasonStats } from "./seasonStats.js";
-import { BountyLamp } from "../comebacks/Comebacks.jsx";
-import { boardBounty } from "../comebacks/comebacks.js";
 import "./player-pass.css";
 
 // Small card labels need more contrast than the chip's large center stamp.
@@ -55,9 +53,9 @@ export function PlayerPass({ state, p, display, num, photo, compact = false, min
     { events:events || allEventsOf(state), standings:rows || undefined, viewer }) : null,
   [state, p, events, rows, viewer]);
   const sheet = !!season && (season.active || !!season.versus);
-  /* v3.1: the leader's card carries the bounty lamp */
-  const wanted = useMemo(() => !!p && !!rows && boardBounty(state, events || allEventsOf(state), rows).includes(p),
-    [state, p, events, rows]);
+  /* the front's foot: rank and chips once the weekend is live (no rank while every stack is level) */
+  const level = !!rows && rows.every(row => row.pts === rows[0]?.pts);
+  const place = standing && !level ? ordinal(standing.rank) : null;
   /* The season can outgrow the 4:5 front, so the turned card grows to fit it. */
   const seasonRef = useRef(null);
   const [backHeight, setBackHeight] = useState(0);
@@ -109,8 +107,10 @@ export function PlayerPass({ state, p, display, num, photo, compact = false, min
               </span>
             </span>
             <span className="fd-pass-name">{name}</span>
-            {wanted && <span className="fd-pass-bounty"><BountyLamp /></span>}
-            <span className="fd-pass-foot"><span><OneSafe text={EDITION.short} /></span>{number != null && <span><OneSafe text={`PLAYER / ${number}`} /></span>}</span>
+            {standing ? <span className="fd-pass-foot is-standing">
+                <span className="fd-pass-rank">{place ? <OneSafe text={place} /> : <OneSafe text={EDITION.short} />}</span>
+                <span className="fd-pass-count"><strong>{standing.pts.toLocaleString("en-US")}</strong> chips</span></span>
+              : <span className="fd-pass-foot"><span><OneSafe text={EDITION.short} /></span>{number != null && <span><OneSafe text={`PLAYER / ${number}`} /></span>}</span>}
           </span>
           <span className={`fd-pass-face fd-pass-back${sheet ? " is-season" : ""}`} aria-hidden={!flipped}>
             <span className="fd-pass-bulbs" aria-hidden="true" />
@@ -128,12 +128,14 @@ export function PlayerPass({ state, p, display, num, photo, compact = false, min
         </span>
         </span>
       </button>
-      <span className="fd-pass-hint">{flipped ? "Tap to see the front" : "Tap to turn over"}</span>
+      {/* the card has two faces: a pip for each, the one showing lit */}
+      <span className="fd-pass-faces" aria-hidden="true"><i className={flipped ? undefined : "is-on"} /><i className={flipped ? "is-on" : undefined} /></span>
     </div>
   );
 }
 
 const fmt = n => (n ?? 0).toLocaleString("en-US");
+function ordinal(n) { return n === 1 ? "1st" : n === 2 ? "2nd" : n === 3 ? "3rd" : `${n}th`; }
 const awardText = row => row.award === null || row.award === undefined
   ? row.status === "playing" ? "Playing" : "–"
   : row.award > 0 ? signedChips(row.award) : "0";
@@ -153,9 +155,6 @@ function SeasonBack({ state, name, number, season, walkout, bodyRef }) {
     season.pts !== null && { key:"chips", value:Number(season.pts).toLocaleString("en-US"), label:"Chips", tone:"chip" },
     settledBets > 0 && { key:"bets", value:signedChips(bets.net), label:`Bets ${recordText(bets)}`, tone:"chip" },
     settledDuels > 0 && { key:"duels", value:recordText(duels), label:"Quick Draw" },
-    season.mvps > 0 && { key:"mvps", value:String(season.mvps), label:season.mvps === 1 ? "Team MVP" : "Team MVPs" },
-    season.bounties?.count > 0 && { key:"bounties", value:signedChips(season.bounties.pts),
-      label:season.bounties.count === 1 ? "Bounty" : `Bounties ${season.bounties.count}`, tone:"chip" },
   ].filter(Boolean);
   const meetings = versus ? versus.meetings.slice(-3) : [];
   return <span className="fd-pass-season" ref={bodyRef}>

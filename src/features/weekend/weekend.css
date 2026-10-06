@@ -4,7 +4,7 @@
 .fd-weekend button:focus-visible, .fd-weekend a:focus-visible, .fd-weekend summary:focus-visible { outline:2px solid var(--lamp-info); outline-offset:3px; }
 
 .fd-weekend-host-tools { display:flex; gap:8px; margin-bottom:18px; }
-.fd-weekend-host-tools button { min-height:44px; padding:9px 13px; font:700 12px var(--fd-body); background:transparent; color:var(--ink); border:1px solid var(--line); border-radius:7px; cursor:pointer; }
+.fd-weekend-host-tools button { min-height:44px; padding:9px 13px; font:700 12px var(--fd-body); background:transparent; color:var(--ink); border:1px solid var(--line); border-radius:8px; cursor:pointer; }
 .fd-weekend-host-tools button:first-child { margin-right:auto; }
 .fd-weekend-host-tools button[aria-pressed="true"] { background:var(--info-tint); color:var(--lamp-info); border-color:var(--lamp-info); }
 .fd-weekend-host-tools button:disabled, .fd-weekend-reorder button:disabled { opacity:.3; cursor:default; }
@@ -15,7 +15,7 @@
 .fd-weekend-session-heading > div { min-width:0; flex:1; }
 .fd-weekend-session-heading p { margin:0 0 4px; color:var(--muted); font-size:12px; }
 .fd-weekend-session-heading h2 { font-family:var(--fd-display); font-size:24px; line-height:1.1; letter-spacing:.04em; text-transform:uppercase; margin:0; font-weight:800; }
-.fd-weekend-session-number { align-self:stretch; display:flex; align-items:center; font-family:var(--fd-display); font-size:37px; line-height:1; font-weight:500; color:var(--accent2); }
+.fd-weekend-session-number { align-self:stretch; display:flex; align-items:center; font-family:var(--fd-display); font-size:40px; line-height:1; font-weight:500; color:var(--accent2); }
 .fd-weekend-session-value { color:var(--muted2); font-size:12px; line-height:1.4; font-weight:650; white-space:nowrap; }
 .fd-weekend-session-fin .fd-weekend-session-value { background:var(--sun); color:var(--ink0); border-color:var(--sun); }
 .fd-weekend-event-list { list-style:none; margin:0; padding:0; border-top:1px solid var(--line); }
@@ -24,7 +24,7 @@
 .fd-weekend-event-open { display:flex; align-items:center; gap:12px; min-height:60px; padding:10px 0; border:0; background:transparent; width:100%; min-width:0; color:inherit; text-align:left; cursor:pointer; transition:transform .15s ease; }
 .fd-weekend-event-open:active:not(:disabled) { transform:translateX(3px); }
 .fd-weekend-event-open:disabled { cursor:default; opacity:1; }
-.fd-weekend-event-mark { display:grid; place-items:center; width:36px; height:36px; flex-shrink:0; color:var(--ink); font-family:var(--fd-display); font-size:26px; }
+.fd-weekend-event-mark { display:grid; place-items:center; width:36px; height:36px; flex-shrink:0; color:var(--ink); font-family:var(--fd-display); font-size:24px; }
 .fd-weekend-event-name { display:flex; flex-direction:column; min-width:0; gap:5px; flex:1; }
 .fd-weekend-event-name > strong { font-size:24px; line-height:1.05; overflow-wrap:anywhere; }
 .fd-weekend-event-status { display:flex; align-items:center; gap:7px; color:var(--muted2); font:800 14px/1.1 var(--fd-display); letter-spacing:.05em; text-transform:uppercase; }
@@ -45,7 +45,7 @@
 .fd-weekend-winner:disabled { cursor:default; }
 .fd-weekend-event-crew { padding:0 0 12px 53px; }
 .fd-weekend-reorder { display:flex; flex-shrink:0; gap:4px; }
-.fd-weekend-reorder button { width:44px; min-height:44px; border:1px solid var(--line); border-radius:6px; background:transparent; font:600 19px var(--fd-body); color:var(--ink); cursor:pointer; }
+.fd-weekend-reorder button { width:44px; min-height:44px; border:1px solid var(--line); border-radius:6px; background:transparent; font:600 22px var(--fd-body); color:var(--ink); cursor:pointer; }
 .fd-weekend-shelved .fd-weekend-event { opacity:.65; }
 /* a finished session folds to one row so what is next stays near the top */
 .fd-weekend-session.is-folded { margin-bottom:0; border-block:1px solid var(--line); }
@@ -63,18 +63,24 @@
 .fd-weekend-guide-section { margin:0 0 22px; scroll-margin-top:80px; }
 
 .fd-weekend-install { border-top:1px solid var(--line); }
-.fd-weekend-install summary { display:flex; align-items:center; min-height:48px; color:var(--muted2); cursor:pointer; font-size:15px; }
-.fd-weekend-install summary::after { content:"+"; margin-left:auto; font-size:18px; }
-.fd-weekend-install[open] summary::after { content:"2"; }
+.fd-weekend-install summary { display:flex; align-items:center; gap:10px; min-height:48px; color:var(--muted2); cursor:pointer; font-size:15px;
+  list-style:none; }
+.fd-weekend-install summary::-webkit-details-marker { display:none; }
+.fd-weekend-install summary>span { flex:1; }
+.fd-weekend-install summary>svg:first-child { flex:none; }
+/* the disclosure's chevron turns as it opens */
+.fd-weekend-install-toggle { transition:transform var(--motion-base,260ms) var(--ease-out,ease-out); }
+.fd-weekend-install[open] .fd-weekend-install-toggle { transform:rotate(180deg); }
+.fd-weekend-install[open] { padding-bottom:12px; }
 @media (min-width:500px) {
   .fd-weekend-event-name > strong { font-size:25px; }
-  .fd-weekend-session-heading h2 { font-size:23px; }
+  .fd-weekend-session-heading h2 { font-size:24px; }
 }
 @media (max-width:359px) {
   .fd-weekend { padding-inline:18px; }
   .fd-weekend-session-heading { gap:8px; }
-  .fd-weekend-session-heading h2 { font-size:21px; }
-  .fd-weekend-session-number { font-size:31px; }
+  .fd-weekend-session-heading h2 { font-size:22px; }
+  .fd-weekend-session-number { font-size:28px; }
   .fd-weekend-session-value { font-size:12px; }
   .fd-weekend-event-open { gap:9px; }
   .fd-weekend-event-mark { width:35px; }
@@ -100,3 +106,9 @@
   background:transparent; color:var(--lamp-info); font:600 13px/1 var(--fd-body); cursor:pointer; }
 .fd-weekend-event-bracket:hover { background:var(--info-tint); }
 
+
+/* Oct 4: the cover says what it is (Now, Next, First event) over the name */
+.fd-weekend-sr { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; margin:0; }
+.fd-program-cue { position:relative; z-index:1; display:inline-flex; align-items:center; gap:8px; padding:5px 10px; border-radius:99px;
+  background:color-mix(in srgb, var(--ink0) 70%, transparent); color:var(--ink);
+  font:800 13px/1 var(--fd-display); letter-spacing:.1em; text-transform:uppercase; }

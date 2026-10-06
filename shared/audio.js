@@ -115,19 +115,17 @@ function cleanWalkout(value, { players = null } = {}) {
   const startedAt = finiteMs(value.startedAt);
   const until = finiteMs(value.until);
   if (startedAt === null || until === null || until <= startedAt) return null;
-  return { player, trackId, startedAt, until, ...(value.auto === true ? { auto:true } : {}),
-    ...(value.mvp === true && player ? { mvp:true } : {}) };
+  return { player, trackId, startedAt, until, ...(value.auto === true ? { auto:true } : {}) };
 }
 
-/* `clipMs` ends the record early (a win song's clip); never past the song.
-   `mvp` marks a team MVP's song so the TV can say so. */
-function buildWalkout({ player = null, trackId = null, startedAt, durationMs, positionMs = 0, clipMs = null, auto = false,
-  mvp = false }, options) {
+/* `clipMs` ends the record early (a win song's clip); never past the song. */
+function buildWalkout({ player = null, trackId = null, startedAt, durationMs, positionMs = 0, clipMs = null, auto = false },
+  options) {
   const start = finiteMs(startedAt);
   if (start === null) return null;
   const remaining = walkoutRemainingMs({ durationMs, positionMs });
   const clip = finiteMs(clipMs);
-  return cleanWalkout({ player, trackId, startedAt:start, auto, mvp,
+  return cleanWalkout({ player, trackId, startedAt:start, auto,
     until:start + (clip ? Math.max(WALKOUT_MIN_MS, Math.min(remaining, clip)) : remaining) }, options);
 }
 
@@ -162,8 +160,7 @@ function reconcileWalkout(walkout, playback, now) {
 
 const sameWalkout = (left, right) => (!left && !right) || (!!left && !!right
   && left.player === right.player && left.trackId === right.trackId
-  && left.startedAt === right.startedAt && left.until === right.until && !!left.auto === !!right.auto
-  && !!left.mvp === !!right.mvp);
+  && left.startedAt === right.startedAt && left.until === right.until && !!left.auto === !!right.auto);
 
 export {
   MAX_TRACK_DURATION_MS,

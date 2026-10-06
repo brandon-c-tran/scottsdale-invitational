@@ -17,7 +17,7 @@
    for the room (the TV ticker); `own` is the line on that player's own
    receipt. */
 
-import { ROSTER, START, allEventsOf, disp, teamLabel } from "../../../shared/core.js";
+import { ROSTER, START, allEventsOf, disp, teamLabel, rosterOf } from "../../../shared/core.js";
 import { chipChanges, wagerSettlement } from "./lastCard.js";
 import { wagerPickName } from "./resultMoment.js";
 import { eventRow } from "../profile/seasonStats.js";
@@ -60,7 +60,6 @@ const postedAt = result => Number(result?.confirmedAt || result?.ts) || 0;
    event's result is the same write as the result. */
 function anchorOf(state, change) {
   if (change.kind === "award") return `result:${change.eventId}`;
-  if (change.kind === "mvp") return `mvp:${change.eventId}`;
   if (change.kind === "duel") return `duel:${change.id || change.at}`;
   if (change.kind === "ruling") return `ruling:${change.id || change.at}`;
   const { entry } = wagerSettlement(state, change.wager || {});
@@ -84,9 +83,9 @@ function winFacts(state, events) {
   const wins = {}, streaks = {};
   const out = [];
   for (const { evId, result, ev } of postedResults(state, events)) {
-    const winners = [...new Set(result.slots[0])].filter(player => ROSTER.includes(player));
+    const winners = [...new Set(result.slots[0])].filter(player => rosterOf(state).includes(player));
     const played = new Set(winners);
-    for (const player of ROSTER) {
+    for (const player of rosterOf(state)) {
       const row = eventRow(state, ev, player);
       if (row && (row.status === "placed" || row.status === "out")) played.add(player);
     }
@@ -119,8 +118,8 @@ function winFacts(state, events) {
    oldest write first */
 function chipWrites(state, events) {
   const writes = new Map();
-  const kindOrder = { award:0, mvp:1, bet:2, duel:3, ruling:4 };
-  for (const player of ROSTER) {
+  const kindOrder = { award:0, bet:1, duel:2, ruling:3 };
+  for (const player of rosterOf(state)) {
     for (const change of chipChanges(state, player, events)) {
       const anchor = anchorOf(state, change);
       const result = anchor.startsWith("result:") ? state.results?.[change.eventId] : null;
@@ -139,7 +138,8 @@ function chipWrites(state, events) {
 
 /* the first player to each thousand, from 2,000 */
 function firstFacts(state, writes) {
-  const pts = Object.fromEntries(ROSTER.map(player => [player, START]));
+  const roster = rosterOf(state);
+  const pts = Object.fromEntries(roster.map(player => [player, START]));
   let next = FIRST_MILESTONE, holders = [];
   const out = [];
   for (const write of writes) {
@@ -149,7 +149,7 @@ function firstFacts(state, writes) {
     let reached = next;
     while (top >= reached + MILESTONE_STEP) reached += MILESTONE_STEP;
     next = reached + MILESTONE_STEP;
-    const players = ROSTER.filter(player => pts[player] >= reached);
+    const players = roster.filter(player => pts[player] >= reached);
     const repeat = players.every(player => holders.includes(player));
     holders = players;
     const evId = write.changes.find(change => players.includes(change.player) && change.eventId)?.eventId || null;

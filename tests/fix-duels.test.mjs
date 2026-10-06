@@ -6,8 +6,8 @@ import { buildSync } from "esbuild";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import {
-  EMPTY_STATE, ROSTER, DUEL_LAPSE_MS, allEventsOf, computeStandings, resolveCurrentContest, resolveDuel,
-  resolveEventLifecycle, duelPhase, duelReserve, redactDuelsForViewer, maxRisk,
+  EMPTY_STATE, ROSTER, DUEL_LAPSE_MS, DUEL_READY_MS, DUEL_FIRE_MIN_MS, DUEL_FIRE_SPAN_MS, allEventsOf, computeStandings,
+  resolveCurrentContest, resolveDuel, resolveEventLifecycle, duelPhase, duelReserve, redactDuelsForViewer, maxRisk, duelMode, duelFireAt,
 } from "../shared/core.js";
 import { applyAction } from "../worker/actions.js";
 
@@ -21,6 +21,10 @@ const compiled = buildSync({
     export { PlayerSheet } from "./src/features/profile/PlayerSheet.jsx";
     export { deriveHomeModel } from "./src/features/home/homeModel.js";
     export { PlayerIdentityProvider } from "./src/features/identity/PlayerIdentityContext.js";
+    export { SHOWDOWN, activeShowdown, showdownWindow, showdownBeat, showdownSides, showdownResult, duelScreen, lampsLit,
+      showdownStage, DUEL_TICKER_FRESH_MS } from "./src/features/duels/showdown.js";
+    export { TVShowdown } from "./src/features/tv/TVShowdown.jsx";
+    export { tickerItems } from "./src/features/tv/tvModel.js";
   `, resolveDir:root, loader:"jsx" },
   bundle:true, platform:"node", format:"cjs", external:["react"],
   loader:{ ".css":"empty" }, write:false, logLevel:"silent",
@@ -30,7 +34,9 @@ componentModule.filename = componentModule.id;
 componentModule.paths = Module._nodeModulePaths(root);
 componentModule._compile(compiled.outputFiles[0].text, componentModule.filename);
 const { HomeDuels, QuickDrawGame, reactionFor, DuelDesk, duelDeskLine, duelView, duelRecord,
-  PlayerSheet, deriveHomeModel, PlayerIdentityProvider } = componentModule.exports;
+  PlayerSheet, deriveHomeModel, PlayerIdentityProvider, SHOWDOWN, activeShowdown, showdownWindow, showdownBeat,
+  showdownSides, showdownResult, duelScreen, lampsLit, showdownStage, DUEL_TICKER_FRESH_MS, TVShowdown,
+  tickerItems } = componentModule.exports;
 
 const [evan, khoa, sahil, dan, eli] = ROSTER;
 let serial = 0;
@@ -53,6 +59,14 @@ const fail = (s, type, payload, ctx, pattern) => {
 const challenge = (s, from, to, stake = 100, extra = {}) =>
   act(s, "sendDuel", { to, game:"quickdraw", stake, ...extra }, guest(from)).extra.id;
 const duelOf = (s, id) => s.duels.find(d => d.id === id);
+/* the showdown: both duelists tap Ready and the draw is set */
+const readyBoth = (s, id) => {
+  const d = duelOf(s, id);
+  act(s, "duelReady", { id }, guest(d.to));
+  return act(s, "duelReady", { id }, guest(d.from));
+};
+/* nobody readied in time: each side draws alone */
+const pastWindow = (s, id) => { duelOf(s, id).acceptedAt -= DUEL_READY_MS; };
 const pts = s => Object.fromEntries(computeStandings(s).map(row => [row.player, row.pts]));
 const textOf = values => values.map(value => Array.isArray(value) ? textOf(value)
   : React.isValidElement(value) ? textOf([value.props.children])
@@ -89,6 +103,8 @@ test("a challenge reserves only the challenger's ante until the recipient accept
   assert.equal(duelPhase(d), "live");
   assert.equal(duelReserve(s, khoa), 500);
   assert.equal(act(s, "acceptDuel", { id }, guest(khoa)).extra.unchanged, true, "accept retry is acknowledged");
+  fail(s, "playDuel", { id, ms:210 }, guest(evan), /Tap Ready first/);
+  readyBoth(s, id);
   act(s, "playDuel", { id, ms:210 }, guest(evan));
   act(s, "playDuel", { id, ms:300 }, guest(khoa));
   assert.deepEqual(resolveDuel(d), { settled:true, push:false, winner:evan, loser:khoa });
@@ -120,6 +136,7 @@ test("decline is open until the recipient draws; withdraw only before acceptance
 
   const b = challenge(s, evan, khoa);
   act(s, "acceptDuel", { id:b }, guest(khoa));
+  pastWindow(s, b);
   act(s, "playDuel", { id:b, ms:200 }, guest(evan));
   fail(s, "withdrawDuel", { id:b }, guest(evan), /already accepted/);
   act(s, "declineDuel", { id:b }, guest(khoa));
@@ -128,8 +145,21 @@ test("decline is open until the recipient draws; withdraw only before acceptance
 
   const c = challenge(s, evan, khoa);
   act(s, "acceptDuel", { id:c }, guest(khoa));
+  pastWindow(s, c);
   act(s, "playDuel", { id:c, ms:200 }, guest(khoa));
-  fail(s, "declineDuel", { id:c }, guest(khoa), /Already in play/);
+  fail(s, "declineDuel", { id:c }, guest(khoa), /already drew/);
+
+  /* once both are ready the draw is set and the duel stands */
+  const s3 = live();
+  const e = challenge(s3, sahil, dan);
+  act(s3, "acceptDuel", { id:e }, guest(dan));
+  act(s3, "duelReady", { id:e }, guest(dan));
+  act(s3, "declineDuel", { id:e }, guest(dan));
+  const f = challenge(s3, sahil, dan);
+  act(s3, "acceptDuel", { id:f }, guest(dan));
+  readyBoth(s3, f);
+  fail(s3, "declineDuel", { id:f }, guest(dan), /draw is set/);
+  act(s3, "declineDuel", { id:f }, gm());
 
   const s2 = live();
   const d = challenge(s2, evan, khoa);
@@ -158,6 +188,7 @@ test("an open challenge goes to the first eligible taker", () => {
   assert.equal(d.to, sahil);
   fail(s, "acceptDuel", { id }, guest(khoa), /Someone already took it/);
   assert.equal(act(s, "acceptDuel", { id }, guest(sahil)).extra.unchanged, true);
+  readyBoth(s, id);
   act(s, "playDuel", { id, ms:200 }, guest(sahil));
   act(s, "playDuel", { id, foul:true }, guest(evan));
   assert.equal(resolveDuel(d).winner, sahil);
@@ -187,11 +218,13 @@ test("pokerSetup is never blocked by duels and voids the unplayed ones in the sa
   const offered = challenge(s, evan, khoa);
   const half = challenge(s, sahil, dan);
   act(s, "acceptDuel", { id:half }, guest(dan));
+  readyBoth(s, half);
   act(s, "playDuel", { id:half, ms:190 }, guest(sahil));
   const lapsed = challenge(s, eli, evan);
   duelOf(s, lapsed).ts -= DUEL_LAPSE_MS;
   const done = challenge(s, ROSTER[5], ROSTER[6]);
   act(s, "acceptDuel", { id:done }, guest(ROSTER[6]));
+  readyBoth(s, done);
   act(s, "playDuel", { id:done, ms:180 }, guest(ROSTER[5]));
   act(s, "playDuel", { id:done, ms:260 }, guest(ROSTER[6]));
   const before = pts(s);
@@ -233,10 +266,11 @@ test("retries acknowledge the same write; a different run never replaces the fir
   assert.equal(s.duels.length, 1);
   const id = first.extra.id;
   act(s, "acceptDuel", { id }, guest(khoa));
+  readyBoth(s, id);
   act(s, "playDuel", { id, ms:240 }, guest(khoa));
   assert.equal(act(s, "playDuel", { id, ms:240 }, guest(khoa)).extra.unchanged, true);
   fail(s, "playDuel", { id, ms:150 }, guest(khoa), /already drew/);
-  fail(s, "playDuel", { id, ms:40 }, guest(evan), /Bad time/);
+  fail(s, "playDuel", { id, ms:40 }, guest(evan), /draw time isn't possible/);
   assert.deepEqual(reactionFor(40), { ms:null, foul:true });
   assert.deepEqual(reactionFor(Number.NaN), { ms:null, foul:true });
   assert.deepEqual(reactionFor(212.4), { ms:212, foul:false });
@@ -280,12 +314,13 @@ test("the Quick Draw layer never shows the opponent's time before the duel settl
   s.duels = [{ id:"d", from:evan, to:khoa, stake:300, status:"open", consent:true, acceptedAt:1,
     runs:{ [evan]:{ ms:187, foul:false, ts:2 } }, ts:Date.now() }];
   const intro = render(QuickDrawGame, { state:s, me:khoa, duel:s.duels[0], onSubmit:() => ({ ok:true }), onClose:() => {} });
-  assert.match(intro.html, /has drawn/);
+  /* their lamp is lit (they drew); their time is not on the glass */
+  assert.match(intro.html, /fd-qd-side is-right"[\s\S]*?class="fd-insert fd-qd-lamp is-live"/);
   assert.doesNotMatch(intro.html, /187/);
   assert.ok(intro.named("Ready"));
   const waiting = render(QuickDrawGame, { state:s, me:evan, duel:s.duels[0], onSubmit:() => ({ ok:true }), onClose:() => {} });
   assert.match(waiting.html, /187 ms/);
-  assert.match(waiting.html, /Waiting on/);
+  assert.match(waiting.html, /Waiting for/);
 
   s.duels[0] = { ...s.duels[0], acceptedAt:null };
   const offer = render(QuickDrawGame, { state:s, me:khoa, duel:s.duels[0], onAccept:() => ({ ok:true }),
@@ -354,7 +389,7 @@ test("a returning player sees settled results, void, and a rematch on the card",
   assert.deepEqual([record.won, record.lost, record.net], [1, 0, 100]);
   assert.deepEqual(record.lines.map(line => line.outcome), ["won", "push", "void"]);
   const card = render(PlayerSheet, { state:s, me:evan, p:sahil, standings:computeStandings(s), events:allEventsOf(s),
-    onClose:() => {}, onDuel:() => ({ ok:true }) });
+    onClose:() => {}, onDuel:() => ({ ok:true }), openDuel:true });
   assert.match(card.html, new RegExp(`You vs ${sahil}`));
   assert.match(card.html, /1-0/);
   assert.match(card.html, /212 ms vs 305 ms/);
@@ -407,4 +442,223 @@ test("legacy duel records stay reserved on both sides, playable, and settle the 
   assert.equal(pts(s)[evan], 700);
   assert.equal(computeStandings(s).find(row => row.player === khoa).duelNet, 300);
   fail(s, "withdrawDuel", { id:"old" }, guest(evan), /closed|accepted/);
+});
+
+/* ── the live showdown ── */
+const accepted = (s, from = evan, to = khoa, stake = 200) => {
+  const id = challenge(s, from, to, stake);
+  act(s, "acceptDuel", { id }, guest(to));
+  return id;
+};
+
+test("the showdown: both Readys set one random draw in the same write, and only the duelists may ready", () => {
+  const s = live();
+  const offered = challenge(s, sahil, dan);
+  fail(s, "duelReady", { id:offered }, guest(dan), /Accept the challenge first/);
+  fail(s, "duelReady", { id:offered }, guest(sahil), /Waiting for them to accept/);
+  const id = accepted(s);
+  const d = duelOf(s, id);
+  assert.equal(duelMode(d), "stance");
+  fail(s, "duelReady", { id }, guest(sahil), /Not your duel/);
+  fail(s, "duelReady", { id }, { deviceId:"tv" }, /Check in first/);
+  const first = act(s, "duelReady", { id }, guest(khoa));
+  assert.equal(first.extra, undefined, "one Ready sets nothing");
+  assert.ok(d.ready[khoa] > 0);
+  assert.equal(d.fireAt, undefined);
+  assert.equal(act(s, "duelReady", { id }, guest(khoa)).extra.unchanged, true, "a retried Ready is acknowledged");
+  fail(s, "playDuel", { id, ms:200 }, guest(khoa), /Tap Ready first/);
+  const second = act(s, "duelReady", { id }, guest(evan));
+  assert.equal(d.armedAt, second.extra.armedAt);
+  assert.equal(d.fireAt, second.extra.fireAt);
+  assert.ok(d.fireAt >= d.armedAt + DUEL_FIRE_MIN_MS && d.fireAt < d.armedAt + DUEL_FIRE_MIN_MS + DUEL_FIRE_SPAN_MS,
+    "the draw lands 2 to 5 seconds after both are ready");
+  assert.equal(duelMode(d), "showdown");
+  /* a retry after the draw is set is acknowledged with the same instant */
+  const again = act(s, "duelReady", { id }, guest(evan));
+  assert.deepEqual([again.extra.unchanged, again.extra.fireAt], [true, d.fireAt]);
+  fail(s, "duelReady", { id, ready:false }, guest(evan), /draw is set/);
+  /* the economy is unchanged: both antes held, settlement from the runs */
+  assert.equal(duelReserve(s, evan), 200);
+  assert.equal(duelReserve(s, khoa), 200);
+  act(s, "playDuel", { id, foul:true }, guest(khoa));
+  act(s, "playDuel", { id, ms:233 }, guest(evan));
+  assert.deepEqual(resolveDuel(d), { settled:true, push:false, winner:evan, loser:khoa });
+  assert.equal(pts(s)[evan], 1200);
+  assert.equal(pts(s)[khoa], 800);
+  assert.equal(duelRecord(s, evan, khoa).won, 1, "head to head keeps the showdown");
+});
+
+test("the random draw spans 2 to 5 seconds from the moment both are ready", () => {
+  assert.equal(duelFireAt(1000, 0), 1000 + DUEL_FIRE_MIN_MS);
+  assert.equal(duelFireAt(1000, 0.5), 1000 + DUEL_FIRE_MIN_MS + DUEL_FIRE_SPAN_MS / 2);
+  assert.ok(duelFireAt(1000, 1) < 1000 + DUEL_FIRE_MIN_MS + DUEL_FIRE_SPAN_MS);
+});
+
+test("a Ready can be taken back before the draw is set; nobody readying falls back to drawing alone", () => {
+  const s = live();
+  const id = accepted(s);
+  const d = duelOf(s, id);
+  act(s, "duelReady", { id }, guest(evan));
+  act(s, "duelReady", { id, ready:false }, guest(evan));
+  assert.equal(d.ready[evan], undefined);
+  assert.equal(act(s, "duelReady", { id, ready:false }, guest(evan)).extra.unchanged, true);
+  act(s, "duelReady", { id }, guest(khoa));
+  /* the window passes with one side ready: each draws alone, never deadlocked */
+  d.acceptedAt -= DUEL_READY_MS;
+  assert.equal(duelMode(d), "solo");
+  fail(s, "duelReady", { id }, guest(evan), /Too late to ready/);
+  act(s, "playDuel", { id, ms:300 }, guest(khoa));
+  act(s, "playDuel", { id, ms:250 }, guest(evan));
+  assert.equal(resolveDuel(d).winner, evan);
+  /* a duel someone already drew in (a legacy run) is drawn alone too */
+  const legacy = { id:"leg", from:sahil, to:dan, stake:100, status:"open", consent:true, acceptedAt:Date.now(),
+    runs:{ [sahil]:{ ms:200, foul:false, ts:Date.now() } }, ts:Date.now() };
+  assert.equal(duelMode(legacy), "solo");
+});
+
+test("a showdown run stays redacted from the other side until it settles", () => {
+  const s = live();
+  const id = accepted(s);
+  readyBoth(s, id);
+  act(s, "playDuel", { id, ms:199 }, guest(evan));
+  const [forKhoa] = redactDuelsForViewer(s.duels, khoa);
+  assert.deepEqual(forKhoa.runs[evan], { played:true });
+  assert.equal(forKhoa.fireAt, duelOf(s, id).fireAt, "the draw instant is public: every screen flashes on it");
+  const [forTv] = redactDuelsForViewer(s.duels, null);
+  assert.deepEqual(forTv.runs, { [evan]:{ played:true } });
+  const at = duelOf(s, id).fireAt + 1000;
+  const tv = render(TVShowdown, { state:{ ...s, duels:[forTv] }, active:activeShowdown({ duels:[forTv] }, at), now:at });
+  assert.match(tv.html, /Quick Draw/);
+  assert.doesNotMatch(tv.html, /199 ms|>199</);
+  act(s, "playDuel", { id, ms:260 }, guest(khoa));
+  const [settled] = redactDuelsForViewer(s.duels, null);
+  assert.equal(settled.runs[evan].ms, 199);
+});
+
+test("the phone's duel screen follows the showdown on the server clock", () => {
+  const s = live();
+  const id = challenge(s, evan, khoa);
+  const d = duelOf(s, id);
+  assert.equal(duelScreen(d, khoa, { now:Date.now() }), "offer");
+  act(s, "acceptDuel", { id }, guest(khoa));
+  const now = Date.now();
+  assert.equal(duelScreen(d, khoa, { now }), "stance");
+  assert.equal(duelScreen(d, sahil, { now }), "closed");
+  /* the stance holds a beat past the server's window before the solo draw */
+  assert.equal(duelScreen(d, khoa, { now:d.acceptedAt + DUEL_READY_MS + 500 }), "stance");
+  assert.equal(duelScreen(d, khoa, { now:d.acceptedAt + DUEL_READY_MS + 5000 }), "solo");
+  readyBoth(s, id);
+  assert.equal(duelScreen(d, khoa, { now:d.fireAt - 10 }), "armed");
+  assert.equal(duelScreen(d, khoa, { now:d.fireAt + 20 }), "go");
+  assert.equal(duelScreen(d, khoa, { now:d.fireAt + 5000 }), "solo", "a missed flash draws alone");
+  assert.equal(duelScreen(d, khoa, { now:d.fireAt + 20, captured:true }), "done");
+  act(s, "playDuel", { id, ms:210 }, guest(khoa));
+  act(s, "playDuel", { id, ms:310 }, guest(evan));
+  assert.equal(duelScreen(d, khoa, { now:Date.now() }), "done");
+});
+
+test("the Quick Draw stance: Ready readies and the lamps say who is ready", async () => {
+  const s = live();
+  const id = accepted(s);
+  const d = duelOf(s, id);
+  const readied = [];
+  const stance = render(QuickDrawGame, { state:s, me:khoa, duel:d,
+    onReady:(rid, on) => { readied.push([rid, on]); return { ok:true }; }, onClose:() => {} });
+  assert.match(stance.html, /Quick Draw/);
+  assert.match(stance.html, /fd-qd is-stance/);
+  assert.ok(stance.named("Not now"));
+  await stance.named("Ready").click();
+  assert.deepEqual(readied, [[id, true]]);
+  act(s, "duelReady", { id }, guest(khoa));
+  const waiting = render(QuickDrawGame, { state:s, me:khoa, duel:d, onReady:() => ({ ok:true }), onClose:() => {} });
+  assert.ok(!waiting.named("Ready"));
+  assert.match(waiting.html, /Waiting for/);
+  assert.match(waiting.html, /class="fd-insert fd-qd-lamp is-you"/, "your Ready is your lamp, lit");
+  assert.match(waiting.html, /fd-qd-lamp is-live is-pending/, "theirs flashes until they ready");
+});
+
+test("the showdown scene's window, beats and sides are pure and anchored on the server clock", () => {
+  const s = live();
+  const id = accepted(s, evan, khoa, 300);
+  readyBoth(s, id);
+  const d = duelOf(s, id);
+  const win = showdownWindow(d);
+  assert.deepEqual([win.armedAt, win.fireAt, win.resultAt], [d.armedAt, d.fireAt, null]);
+  assert.equal(win.end, d.fireAt + SHOWDOWN.noResult, "with no result it lifts on its own");
+  assert.equal(showdownBeat(win, d.armedAt + 100), "lean");
+  assert.equal(showdownBeat(win, d.armedAt + SHOWDOWN.lamps[0]), "lamps");
+  assert.equal(lampsLit(SHOWDOWN.lamps[1]), 2);
+  assert.ok(SHOWDOWN.lamps.at(-1) < DUEL_FIRE_MIN_MS, "the lamps are done before the earliest draw");
+  assert.equal(showdownBeat(win, d.fireAt - 1), "steady");
+  assert.equal(showdownBeat(win, d.fireAt), "draw");
+  assert.equal(showdownBeat(win, d.fireAt + SHOWDOWN.flashMs), "waiting");
+  assert.equal(activeShowdown(s, d.armedAt - 1), null);
+  assert.equal(activeShowdown(s, d.armedAt + 10).duel.id, id);
+  assert.equal(activeShowdown(s, win.end), null);
+  /* both runs land: the result anchors on the second run's server stamp */
+  act(s, "playDuel", { id, ms:241 }, guest(khoa));
+  act(s, "playDuel", { id, foul:true }, guest(evan));
+  d.runs[khoa].ts = d.fireAt + 600;
+  d.runs[evan].ts = d.fireAt + 900;
+  const done = showdownWindow(d);
+  assert.equal(done.resultAt, d.fireAt + 900);
+  assert.equal(done.end, d.fireAt + 900 + SHOWDOWN.hold);
+  assert.equal(showdownBeat(done, d.fireAt + 950), "result");
+  const sides = showdownSides(s, d);
+  assert.deepEqual(sides.map(side => [side.p, side.ms, side.foul, side.won, side.lost]),
+    [[evan, null, true, false, true], [khoa, 241, false, true, false]]);
+  assert.deepEqual(showdownSides(s, d, khoa).map(side => side.p), [khoa, evan], "the viewer stands on the left");
+  assert.deepEqual(showdownResult(d), { push:false, winner:khoa, loser:evan, stake:300 });
+  /* a run that lands long after the flash (drawn alone later) is the ticker's, not the scene's */
+  d.runs[evan].ts = d.fireAt + SHOWDOWN.noResult + 60000;
+  assert.equal(showdownWindow(d).resultAt, null);
+  /* a void or declined duel never holds the room */
+  assert.equal(showdownWindow({ ...d, status:"void" }), null);
+  assert.equal(showdownStage({ armed:true, gap:true }), "scene");
+  assert.equal(showdownStage({ armed:true, gap:false }), "ticker");
+  assert.equal(showdownStage({ armed:false, gap:true }), null);
+});
+
+test("the TV showdown rolls both times and stamps WON once settled; a fresh duel leads the ticker", () => {
+  const s = live();
+  const id = accepted(s, evan, khoa, 300);
+  readyBoth(s, id);
+  act(s, "playDuel", { id, ms:241 }, guest(khoa));
+  act(s, "playDuel", { id, ms:318 }, guest(evan));
+  const d = duelOf(s, id);
+  /* settled before the draw (a rehearsal's instant runs): no scene */
+  assert.equal(showdownWindow(d), null);
+  d.runs[khoa].ts = d.fireAt + 500;
+  d.runs[evan].ts = d.fireAt + 700;
+  const now = showdownWindow(d).resultAt + 2000;
+  const active = activeShowdown(s, now);
+  const tv = render(TVShowdown, { state:s, active, now });
+  assert.match(tv.html, /241 ms/);
+  assert.match(tv.html, /318 ms/);
+  assert.match(tv.html, />WON</);
+  assert.match(tv.html, /--fire:\d+ms/);
+  const items = tickerItems({ state:s, events:allEventsOf(s), standings:computeStandings(s), allTied:false, now });
+  assert.equal(items[0].tag, "Duel", "a duel that just settled leads the ticker");
+  const later = tickerItems({ state:s, events:allEventsOf(s), standings:computeStandings(s), allTied:false,
+    now:now + DUEL_TICKER_FRESH_MS + 1 });
+  assert.ok(later.some(item => item.tag === "Duel"));
+});
+
+test("the player card's Duel opens the Bets rack capped by the duel cap, then Send", () => {
+  const s = live();
+  const closed = render(PlayerSheet, { state:s, me:evan, p:khoa, standings:computeStandings(s), events:allEventsOf(s),
+    onClose:() => {}, onDuel:() => ({ ok:true }) });
+  assert.ok(closed.named(`Duel ${khoa}`));
+  assert.ok(!closed.named("Ante 100 chips each"), "the rack waits for Duel");
+  /* Khoa's other duel holds 300 of his 500 cap */
+  s.duels = [{ id:"held", from:sahil, to:khoa, stake:300, status:"open", consent:true, acceptedAt:Date.now(), runs:{}, ts:Date.now() }];
+  const sent = [];
+  const open = render(PlayerSheet, { state:s, me:evan, p:khoa, standings:computeStandings(s), events:allEventsOf(s),
+    onClose:() => {}, onDuel:stake => { sent.push(stake); return { ok:true }; }, openDuel:true });
+  for (const value of [100, 200]) assert.equal(open.named(`Ante ${value} chips each`).disabled, false);
+  for (const value of ["500", "1,000"]) assert.equal(open.named(`Ante ${value} chips each`).disabled, true);
+  assert.match(open.html, /Max 200/);
+  assert.match(open.html, />Send 100</);
+  open.named(`Challenge ${khoa} for 100`).click();
+  assert.deepEqual(sent, [100]);
 });

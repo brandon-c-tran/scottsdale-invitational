@@ -4,6 +4,7 @@ import { disp } from "../../../shared/core.js";
 import { ChipFace } from "../identity/PlayerIdentity.jsx";
 import { usePlayerIdentity } from "../identity/PlayerIdentityContext.js";
 import { cardInk } from "../profile/PlayerPass.jsx";
+import { floodPlate } from "../identity/chipInk.js";
 import { playSound, unlockSound } from "../../lib/sound.js";
 import { tapTick } from "../../lib/haptics.js";
 import { WALKOUT_TIMING as W, useWalkoutMoment } from "./walkout.js";
@@ -69,7 +70,7 @@ export function YoureUpTakeover({ state, moment, me, onBets }) {
       <Flood color={you.color} />
       <i className="fd-moment-timer" aria-hidden="true" />
       <div className="fd-moment-body">
-        <h2 className="fd-show is-marquee fd-moment-word">You’re up</h2>
+        <h2 className="fd-show fd-moment-word">You’re up</h2>
         <p className="fd-moment-sub"><span className="fd-show fd-moment-event"><EventName name={moment.event} /></span>
           {moment.label && <span><OneSafe text={moment.label} /></span>}</p>
         <div className="fd-moment-faces" aria-hidden="true">
@@ -115,7 +116,9 @@ export function UpBanner({ state, moment, onBets }) {
    stamping as the song fades in on the speaker, the stinger with it */
 export function PhoneWalkout({ state, moment, me = null }) {
   const you = usePlayerIdentity(moment.player);
-  const ink = cardInk(you.color);
+  /* a win lights the glass in their color (floodPlate), its ink read from that */
+  const lit = floodPlate(you.color);
+  const ink = lit.ink;
   const [gone, dismiss] = useDismiss(moment.id);
   const rung = useRef(null);
   useEffect(() => {
@@ -124,22 +127,22 @@ export function PhoneWalkout({ state, moment, me = null }) {
     playSound("stinger", { at:moment.anchor + W.stamp, key:`walkout:${moment.id}`, open:true });
   }, [moment.id]); // eslint-disable-line react-hooks/exhaustive-deps
   if (gone) return null;
-  if (moment.team && !moment.mvp) return <TeamWalkout state={state} moment={moment} me={me} onDismiss={dismiss} />;
+  if (moment.team) return <TeamWalkout state={state} moment={moment} me={me} onDismiss={dismiss} />;
   const art = moment.track?.imageUrl || null;
-  const what = moment.mvp ? moment.mvpEvent ? `${moment.mvpEvent} MVP` : "Team MVP" : "Win song";
+  const what = "Win song";
   return (
     <div className="fd-moment fd-moment-walkout" role="dialog" aria-modal="false"
-      aria-label={`${moment.mvp ? "MVP" : "Your win song"}${moment.track ? `: ${moment.track.name}` : ""}`}
-      style={{ "--tl":`${-Math.round(moment.elapsed)}ms`, "--moment-color":you.color, "--moment-ink":ink,
+      aria-label={`Your win song${moment.track ? `: ${moment.track.name}` : ""}`}
+      style={{ "--tl":`${-Math.round(moment.elapsed)}ms`, "--moment-color":lit.color, "--moment-ink":ink,
         "--moment-hold":`${W.dock}ms` }}
       onClick={dismiss}>
-      <Flood color={you.color} lit />
+      <Flood color={lit.color} lit />
       {/* the whole screen: the name and what won it at the top, the record
           (the song's cover as its sleeve, your chip sliding out of it as the
           disc) in the middle, the song lettered at the foot */}
       <div className="fd-moment-body fd-walkout">
         <div className="fd-walkout-head">
-          <h2 className="fd-show is-marquee fd-moment-name">{disp(state, moment.player)}</h2>
+          <h2 className="fd-show fd-moment-name">{disp(state, moment.player)}</h2>
           <p className="fd-moment-sub"><span><OneSafe text={what} /></span></p>
         </div>
         <div className={`fd-walkout-record${art ? " has-sleeve" : ""}`} aria-hidden="true">
@@ -161,8 +164,8 @@ export function PhoneWalkout({ state, moment, me = null }) {
    team's color (its first member's, as at the draw) */
 function TeamWalkout({ state, moment, me, onDismiss }) {
   const team = moment.team;
-  const tint = usePlayerIdentity(teamColorPlayer(team));
-  const ink = cardInk(tint.color);
+  const tint = floodPlate(usePlayerIdentity(teamColorPlayer(team)).color);
+  const ink = tint.ink;
   const art = moment.track?.imageUrl || null;
   const rows = teamRows(team.players.length, 4);
   const across = Math.max(1, ...rows);
@@ -179,7 +182,7 @@ function TeamWalkout({ state, moment, me, onDismiss }) {
       <Flood color={tint.color} lit />
       <div className="fd-moment-body fd-walkout">
         <div className="fd-walkout-head">
-          <h2 className="fd-show is-marquee fd-moment-name fd-walkout-teamname">{team.name}</h2>
+          <h2 className="fd-show fd-moment-name fd-walkout-teamname">{team.name}</h2>
           {team.event && <p className="fd-moment-sub"><span className="fd-show fd-moment-event"><EventName name={team.event} /></span></p>}
         </div>
         <div className="fd-walkout-squad" aria-hidden="true">

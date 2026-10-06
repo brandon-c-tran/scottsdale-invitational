@@ -3,7 +3,7 @@
    is playing now, every player's win song, and a search to play anything.
    Before Spotify is set up or connected the sheet is that one state. */
 import React, { useCallback, useEffect, useState } from "react";
-import { ROSTER, disp } from "../../../shared/core.js";
+import { rosterOf, disp } from "../../../shared/core.js";
 import {
   spotifyAuthorize, spotifyAutoWinSongs, spotifyDevice, spotifyDisconnect, spotifyPause, spotifyPlay, spotifyPlayer,
   spotifySearch,
@@ -64,7 +64,7 @@ export function SpeakerSheet({ state, onClose, onBack, notify }) {
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
   const stage = speakerStage(status);
-  const saved = ROSTER.map(p => ({ player:p, track:state.profiles?.[p]?.walkoutTrack })).filter(item => item.track);
+  const saved = rosterOf(state).map(p => ({ player:p, track:state.profiles?.[p]?.walkoutTrack })).filter(item => item.track);
 
   const refreshPlayer = useCallback(async () => {
     setBusy("refresh"); setError("");

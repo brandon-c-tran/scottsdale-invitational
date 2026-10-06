@@ -48,8 +48,8 @@ export function usePlayerInitials(player) {
 }
 
 /* the smallest text a surface allows: 12px on a phone, 24px on the TV
-   (TVMode provides it). A chip or avatar too small to letter its initials
-   at the floor shows its color and skin alone. */
+   (TVMode provides it). Every chip and avatar letters its initials at the
+   floor or larger, whatever its size (discLetters.js). */
 const TextFloorContext = createContext(12);
 export function TextFloor({ px = 12, children }) {
   return createElement(TextFloorContext.Provider, { value:px }, children);

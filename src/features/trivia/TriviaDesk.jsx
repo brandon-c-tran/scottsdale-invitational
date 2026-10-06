@@ -9,6 +9,7 @@ import { ActionButton } from "../../ui/controls.jsx";
 import { Icon } from "../../ui/Icon.jsx";
 import { LETTERS, numberLabel } from "./triviaModel.js";
 import "./trivia.css";
+import { writeError } from "../../lib/writeErrors.js";
 
 const newId = prefix => `${prefix}${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
 const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
@@ -232,7 +233,7 @@ function CustomRound({ round, onSave, onCancel, initialQuestion = null }) {
   const save = async () => {
     setError("");
     const result = await onSave({ id:round?.id || newId("t"), source:"custom", name, questions });
-    if (result?.ok !== true) setError(result?.error || "Not saved. Try again.");
+    if (result?.ok !== true) setError(writeError(result));
   };
   return <div className="fd-trivia-editor">
     <label className="fd-trivia-field"><span>Round</span><input value={name} maxLength={TRIVIA_NAME_MAX} placeholder="The groom"
@@ -269,7 +270,7 @@ function BankRound({ round, category, onSave, onCancel }) {
     setError("");
     const ordered = category.questions.map(question => question.id).filter(id => picks.includes(id));
     const result = await onSave({ id:round?.id || newId("t"), source:"bank", category:category.id, picks:ordered });
-    if (result?.ok !== true) setError(result?.error || "Not saved. Try again.");
+    if (result?.ok !== true) setError(writeError(result));
   };
   return <div className="fd-trivia-editor">
     <h3 className="fd-trivia-desk-title">{category.name}</h3>

@@ -3,8 +3,6 @@
 .fd-announcement-hero { display:flex; flex-direction:column; align-items:center; gap:10px; margin:-4px 0 14px; text-align:center; }
 .fd-announcement-name { margin:0; max-width:100%; font-size:clamp(40px, 12vw, 56px); line-height:1.05; color:var(--bone); overflow-wrap:normal;
   text-wrap:balance; }
-.fd-announcement-hero.is-compact { flex-direction:row; justify-content:center; gap:12px; margin-bottom:10px; }
-.fd-announcement-hero.is-compact .fd-announcement-name { font-size:30px; line-height:1.12; text-align:left; }
 .fd-announcement-state { display:inline-flex; align-items:center; gap:8px; font:800 15px/1.15 var(--fd-display); letter-spacing:.06em;
   text-transform:uppercase; color:var(--ink); }
 .fd-announcement-detail { margin:0 0 10px; text-align:center; color:var(--muted2); font:800 15px/1.2 var(--fd-display); letter-spacing:.05em;
@@ -20,15 +18,21 @@
 .fd-announcement-actions>button:first-child { flex:1; }
 .fd-announcement-handoff { height:3px; overflow:hidden; border-radius:99px; background:var(--line); }
 .fd-announcement-handoff>span { display:block; width:100%; height:100%; background:var(--sun); transform-origin:left; animation:fd-event-handoff var(--intro-hold,2200ms) linear var(--intro-elapsed,0ms) both; }
-.fd-draw-playback { display:flex; align-items:center; gap:10px; min-height:48px; margin:-4px 0 12px; }
-.fd-draw-playback>span { flex:1; color:var(--muted2); font-size:12px; }
-.fd-draw-playback-action { min-height:44px; border:0; border-radius:6px; padding:8px 0 8px 10px; background:none; color:var(--sun); font:600 12px var(--fd-body); cursor:pointer; }
-.fd-draw-deck { position:relative; width:36px; height:35px; flex-shrink:0; }
-.fd-draw-deck i { position:absolute; width:26px; height:32px; inset:0 0 auto auto; display:flex; align-items:center; justify-content:center; border:1px solid var(--sun); border-radius:4px; background:var(--paper); color:var(--sun); font:700 13px var(--fd-display); }
-.fd-draw-deck i:first-child { transform:rotate(-16deg) translate(-6px,1px); }
-.fd-draw-deck i:nth-child(2) { transform:rotate(12deg) translate(1px,1px); }
-.fd-draw-deck:not(.is-complete) i:last-child { animation:fd-draw-deck-deal .68s ease-in-out infinite; }
-.fd-draw-deck.is-complete i:last-child { background:var(--sun); color:var(--ink0); }
+.fd-draw-playback { display:flex; align-items:center; gap:10px; min-height:28px; margin:0 0 12px; }
+/* every card up: the cards say it all, the progress row leaves */
+.fd-draw-playback.is-complete { min-height:0; margin:0; }
+/* the draw's progress: one small card per card, numbered like its back.
+   Face down waits (a ghost line), the card turning now is the live lamp,
+   a turned card is face up in bone */
+.fd-draw-pips { flex:1; display:flex; flex-wrap:wrap; align-items:center; gap:5px; min-width:0; margin:0; padding:0; list-style:none; }
+.fd-draw-pips li { display:grid; place-items:center; width:22px; height:28px; box-sizing:border-box; border:1px dashed var(--ghost-line); border-radius:6px;
+  background:var(--paper); color:var(--muted); font:800 13px/1 var(--fd-display); font-variant-numeric:tabular-nums;
+  transition:background-color var(--motion-stamp,320ms) var(--ease-out,ease-out), border-color var(--motion-stamp,320ms) var(--ease-out,ease-out); }
+.fd-draw-pips li.is-on { border:1px solid var(--bone-line); background:var(--paper2); color:var(--bone); box-shadow:var(--glass-edge); }
+.fd-draw-pips li.is-live { border:1px solid var(--lamp-live); background:var(--live-tint); color:var(--bone); box-shadow:var(--live-bloom); }
+/* Skip and Replay draw: a header action (ui/controls.jsx Sheet); its width
+   is held so the title never reflows as the label changes */
+.fd-sheet-header-actions .fd-draw-playback-action { min-width:7.4em; text-align:right; }
 .fd-draw-announcement { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
 .fd-draw-announcement section { position:relative; min-width:0; min-height:100px; perspective:700px; }
 .fd-draw-card-front { height:100%; box-sizing:border-box; border:1px solid var(--line); border-radius:10px; background:var(--paper2); padding:10px; backface-visibility:hidden; }
@@ -39,7 +43,7 @@
 .fd-draw-card-back { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; border:1px solid var(--ghost-line); border-radius:10px;
   background:radial-gradient(80% 62% at 50% 42%, color-mix(in srgb, var(--bone) 8%, transparent), transparent 72%), var(--paper); color:var(--muted2);
   box-shadow:var(--glass-edge); backface-visibility:hidden; }
-.fd-draw-card-back::before { content:""; position:absolute; inset:4px; border:1px solid color-mix(in srgb, var(--bone) 12%, transparent); border-radius:7px; }
+.fd-draw-card-back::before { content:""; position:absolute; inset:4px; border:1px solid color-mix(in srgb, var(--bone) 12%, transparent); border-radius:8px; }
 .fd-draw-card-back span { width:44px; height:44px; display:grid; place-items:center; border:2px dashed color-mix(in srgb, var(--bone) 24%, transparent); border-radius:50%; font:800 22px/1 var(--fd-display); }
 .fd-draw-card.is-revealed .fd-draw-card-back { animation:fd-draw-back .5s cubic-bezier(.2,.8,.3,1) both; }
 .fd-draw-announcement h3 { color:var(--muted2); font:900 16px/1.15 var(--fd-show); letter-spacing:.01em; margin:0 0 4px; }
@@ -61,7 +65,7 @@
 .fd-draw-crew { display:flex; flex-wrap:wrap; gap:5px 14px; color:var(--muted2); font-size:12px; margin-top:10px; }
 .fd-draw-crew>div { display:flex; align-items:center; gap:8px; }
 .fd-draw-crew.is-covered { visibility:hidden; }
-.fd-draw-playback-action:focus-visible,.fd-draw-people button:focus-visible,.fd-draw-crew button:focus-visible { outline:2px solid var(--sun); outline-offset:3px; }
+.fd-draw-playback-action:focus-visible,.fd-draw-people button:focus-visible,.fd-draw-crew button:focus-visible { outline:2px solid var(--lamp-info); outline-offset:3px; }
 .fd-draw-announcement.is-reduced .fd-draw-card-front,.fd-draw-announcement.is-reduced .fd-draw-card-back,.fd-draw-announcement.is-reduced .fd-draw-people button { animation:none; }
 .fd-draw-announcement.is-reduced .fd-draw-card.is-revealed .fd-draw-card-back { display:none; }
 /* a card that had already turned when the sheet opened (the room's clock
@@ -79,11 +83,13 @@
 @keyframes fd-draw-you-stamp { from { opacity:0; transform:scale(1.9) rotate(-8deg); } 60% { opacity:1; transform:scale(.9) rotate(1deg); } to { opacity:1; transform:none; } }
 @keyframes fd-event-mark-in { from { transform:translateY(12px) rotate(-12deg) scale(.7); opacity:0; } 70% { transform:translateY(-3px) rotate(3deg) scale(1.04); opacity:1; } to { transform:none; opacity:1; } }
 @keyframes fd-event-handoff { from { transform:scaleX(0); } to { transform:scaleX(1); } }
-@keyframes fd-draw-deck-deal { 0%,100% { transform:none; } 45% { transform:translate(4px,-5px) rotate(12deg); } }
 @keyframes fd-draw-turn { from { transform:rotateY(-90deg); } to { transform:rotateY(0); } }
 @keyframes fd-draw-back { from { transform:rotateY(0); } to { transform:rotateY(90deg); visibility:hidden; } }
-@media(prefers-reduced-motion:reduce) { .fd-announcement-mark,.fd-announcement-handoff>span,.fd-draw-deck i,.fd-draw-card-front,.fd-draw-card-back,.fd-draw-card .fd-draw-people button,.fd-draw-bye,.fd-draw-you { animation:none !important; } .fd-draw-ring { display:none; } .fd-draw-card.is-revealed .fd-draw-card-back { display:none; } }
+@media(prefers-reduced-motion:reduce) { .fd-draw-pips li { transition:none; } .fd-announcement-mark,.fd-announcement-handoff>span,.fd-draw-card-front,.fd-draw-card-back,.fd-draw-card .fd-draw-people button,.fd-draw-bye,.fd-draw-you { animation:none !important; } .fd-draw-ring { display:none; } .fd-draw-card.is-revealed .fd-draw-card-back { display:none; } }
 @media(max-width:359px) { .fd-draw-announcement { grid-template-columns:1fr; } }
 /* the live announcement: the game intro heads the sheet, its state a lamp under it */
 .fd-announcement-intro { display:flex; flex-direction:column; align-items:center; gap:10px; margin:-4px 0 12px; }
 .fd-announcement-game { display:flex; align-items:center; justify-content:center; min-height:90px; padding:0; overflow:hidden; }
+/* a turned pip carries its card's name (a team, a heat, a match) in the
+   card's own lettering, wrapping whole pips */
+.fd-draw-pips li.is-named { width:auto; min-width:22px; padding:0 8px; font:800 13px/1 var(--fd-show); letter-spacing:.01em; white-space:nowrap; }

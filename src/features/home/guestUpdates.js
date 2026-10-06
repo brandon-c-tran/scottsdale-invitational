@@ -1,4 +1,4 @@
-import { computeStandings, disp, mvpAwards, resolveDuel, resolveWager, resultAwards, teamLabel } from "../../../shared/core.js";
+import { computeStandings, disp, resolveDuel, resolveWager, resultAwards, teamLabel } from "../../../shared/core.js";
 
 /* Everything here is derived from the broadcast state and the device's own
    memory of the last state it showed. No field is sent to the server. */
@@ -50,10 +50,8 @@ export function guestLedger(state, me, events, standings = computeStandings(stat
     const outcome = duelOutcome(duel, me);
     if (outcome) duels[duel.id] = outcome;
   }
-  const mvps = {};
-  for (const mvp of mvpAwards(state)) if (mvp.player === me) mvps[mvp.eventId] = mvp.pts;
   const tied = standings.every(item => item.pts === standings[0]?.pts);
-  return { me, pts:row.pts, rank:row.rank, awards, places, results, wagers, rulings, duels, mvps,
+  return { me, pts:row.pts, rank:row.rank, awards, places, results, wagers, rulings, duels,
     contests:playedContests(state, me),
     leaders:tied ? [] : standings.filter(item => item.rank === 1).map(item => item.player) };
 }
@@ -168,8 +166,6 @@ export function summarizeUpdate(prev, next, { state, events, skipDuel = null }) 
     if (award > 0) parts.push(next.places[evId] === "crew" ? `Crew in ${eventName(events, evId)} ${signed(award)}`
       : `${ord(next.places[evId])} in ${eventName(events, evId)} ${signed(award)}`);
   }
-  for (const [evId, pts] of Object.entries(next.mvps || {}))
-    if (!prev.mvps?.[evId]) parts.push(`Team MVP in ${eventName(events, evId)} ${signed(pts)}`);
   if (settledCount) parts.push(`${settledCount === 1 ? "bet" : "bets"} ${signed(settledNet)}`);
   if (voidPart) parts.push(voidPart);
   for (const ruling of newRulings)

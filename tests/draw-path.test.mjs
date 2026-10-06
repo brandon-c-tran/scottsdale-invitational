@@ -206,6 +206,12 @@ test("the synced reveal ends on your path; spectators and replays end as before"
   assert.match(mine.html, /<b>Final<\/b>/);
   /* the hand-off to Bets sits right under it */
   assert.match(mine.html, /fd-draw-footer[\s\S]*Place chips[\s\S]*Done/);
+  /* while cards are still turning there is no way to the board yet: Done alone */
+  const turning = render(DrawAnnouncement, { state, reveal, me, synced:true, reducedMotion:false,
+    now:() => Number(state.eventOps["8ball"].announcedAt), onClose:() => {}, onBets:() => {} });
+  assert.match(turning.html, /Revealing the draw/);
+  assert.doesNotMatch(turning.html, /Place chips/, "Place chips waits for the last card");
+  assert.match(turning.html, /Done/);
 
   /* a spectator (or the crew) sees the reveal end as before */
   const outside = ROSTER.find(player => !state.draws["8ball"].teams.some(team => team.players.includes(player)));

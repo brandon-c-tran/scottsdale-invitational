@@ -80,8 +80,9 @@ export function drawLastCard(ctx, model, { color, ink }) {
   ctx.fillText(model.pts.toLocaleString("en-US"), PAD + placeW + 12, 44 + placeSize * 0.8 - 22);
   small("FINAL STACK", PAD + placeW + 12, 44 + placeSize * 0.8 - 4);
   const nameTop = 44 + placeSize * 0.8 + 10;
-  const nameSize = fitText(ctx, model.name.toUpperCase(), W - PAD * 2, s => `700 ${s}px ${DISPLAY}`, 44);
-  ctx.fillText(model.name.toUpperCase(), PAD - 1, nameTop + nameSize * 0.82);
+  /* the name as written, as the card on screen letters it */
+  const nameSize = fitText(ctx, model.name, W - PAD * 2, s => `800 ${s}px ${DISPLAY}`, 44);
+  ctx.fillText(model.name, PAD - 1, nameTop + nameSize * 0.82);
 
   /* the weekend, one step line */
   const chartTop = nameTop + nameSize * 0.82 + 12, chartH = 118;
@@ -102,6 +103,8 @@ export function drawLastCard(ctx, model, { color, ink }) {
   const dot = point => {
     ctx.beginPath(); ctx.arc(point.x, point.y, 4.5, 0, Math.PI * 2); ctx.fill();
     ctx.lineWidth = 2; ctx.strokeStyle = color; ctx.stroke(); ctx.strokeStyle = ink;
+    /* a peak too close to the finish keeps its dot; the High line has its number */
+    if (!point.label) return;
     ctx.font = `700 13px ${DISPLAY}`;
     ctx.textAlign = ALIGN[point.label.anchor] || "center";
     ctx.fillText(point.pts.toLocaleString("en-US"), point.label.x, point.label.y);

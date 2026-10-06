@@ -43,8 +43,12 @@ export function useHold(onHold, ms = HOLD_MS) {
 export function RunOfShowPanel({ state, events, director = null, showControl = false, now = null, onClose, embedded = false }) {
   useServerNow(15000);
   const model = runOfShow(state, events, director, { showControl, now:now ?? serverNow() });
+  /* a subject is said once: a beat on the same contest as the one before it
+     (Lock and start Heat 1, then Record winner) carries only its verb */
+  const said = model.beats.map((item, index) => ({ ...item,
+    subject:index > 0 && item.subject && item.subject === model.beats[index - 1].subject ? "" : item.subject }));
   /* in the pill's tray the pill itself is Now: the tray reads on from Next */
-  const beats = embedded ? model.beats.filter(item => item.slot !== "Now") : model.beats;
+  const beats = embedded ? said.filter(item => item.slot !== "Now") : said;
   if (!beats.length) return null;
   const meta = [
     model.started && { key:"started", label:"Started", value:`${model.started.event}, ${model.started.text}` },

@@ -2,8 +2,9 @@
    server-anchored clock, so two TVs, a refreshed TV, and the tests all land
    on the same screen. Nothing here writes state. */
 
+import { DISC_OVERLAP } from "../identity/discLetters.js";
 import {
-  awardTable, ROSTER, EDITION, ROUND_NAMES, SESSIONS, bracketOrder, bracketChampion, resultAwards,
+  awardTable, ROSTER, rosterOf, EDITION, ROUND_NAMES, SESSIONS, bracketOrder, bracketChampion, resultAwards,
   computeStandings, resolveWager, resolveDuel, resolveCurrentContest, resolveSlot, eventInPlay, contestMult,
   disp, teamLabel, stageEntrantView, overflowRoleMeta, pokerLive, pokerClock,
 } from "../../../shared/core.js";
@@ -11,6 +12,7 @@ import { constellationStars, constellationLines } from "./desertModel.js";
 import { liveEventOf, openEvent } from "../../ui/phase.js";
 import { contestStacks, contestOfEntry, settledStacks, eventWinnerStacks } from "../wagers/betStacks.js";
 import { INTRO_MS } from "../intro/introTiming.js";
+import { DUEL_TICKER_FRESH_MS } from "../duels/showdown.js";
 
 export const TV_WIDTH = 1920;
 export const TV_HEIGHT = 1080;
@@ -30,6 +32,9 @@ export const TV_ADVANCE_MS = 5000;
 export const TV_AMBIENT_MS = 12000;
 /* the live gap's ambient turns: four or five high-value cards, each held */
 export const TV_AMBIENT_TURN_MS = 20000;
+/* the cup holds the front of its turn, long enough for its engravings,
+   then the standings take the rest: the board is never gone for long */
+export const TV_TROPHY_HOLD_MS = 9000;
 export const TV_LEAD_CHANGE_MS = 8000;
 export const TV_CORRECTION_MS = 8000;
 /* the ticker holds one fact at a time on the server clock, cross-fading */
@@ -328,9 +333,13 @@ export const stepAmount = entry => !entry?.amount ? null : entry.unit === "stack
 
 export function podiumStage(podium = []) {
   const S = PODIUM_STAGE;
-  const total = S.order.reduce((sum, place) => sum + S.width[place], 0);
+  /* only the places someone took stand: a two-team result is two steps,
+     never an empty 3rd plinth */
+  const filled = S.order.filter(place => (podium || []).some(item => item.place === place));
+  const order = filled.length ? filled : S.order;
+  const total = order.reduce((sum, place) => sum + S.width[place], 0);
   let x = Math.round((TV_WIDTH - total) / 2);
-  const steps = S.order.map(place => {
+  const steps = order.map(place => {
     const width = S.width[place], height = S.height[place];
     const left = x;
     x += width;
@@ -683,7 +692,7 @@ export const boardLevel = (standings = []) => standings.length > 1
    so the ticker never repeats it. Each fact: { tag, role, players, parts,
    text }; parts are strings and { amount, role } (text joins them). */
 export function tickerItems({ state, events, standings, allTied, liveCrew, latest, liveEv = null, liveContest = null,
-  onDeckEv, openWon, nextEv, now, facts = [], draft = false, showing = null }) {
+  onDeckEv, openWon, nextEv, now, facts = [], draft = false, showing = null, lettered = [] }) {
   const items = [];
   const name = p => disp(state, p);
   /* the finale owns the room: only the table's own news, nothing from a
@@ -719,7 +728,7 @@ export function tickerItems({ state, events, standings, allTied, liveCrew, lates
     const riding = (state.wagers || []).filter(w => w.eventId === onDeckEv.id
       && resolveWager(state, w, events).status === "pending");
     const chipsIn = riding.reduce((n, w) => n + w.stake, 0);
-    if (chipsIn > 0) items.push(fact("In play", "chip", [...new Set(riding.map(w => w.player))].slice(0, 4),
+    if (chipsIn > 0) items.push(fact("Bets", "chip", [...new Set(riding.map(w => w.player))].slice(0, 4),
       [amount(fmt(chipsIn)), ` on ${onDeckEv.name}`]));
   }
   /* won bets belong to the last result, and only until the next thing
@@ -730,21 +739,25 @@ export function tickerItems({ state, events, standings, allTied, liveCrew, lates
     .forEach(x => items.push(fact("Bet won", "won", [x.w.player], [`${name(x.w.player)} `, amount(signed(x.r.delta), "won")])));
   const duel = latestSettledDuel(state.duels);
   if (duel) {
-    if (duel.r.push) items.push(fact("Duel", "info", [duel.d.from, duel.d.to],
-      [`${name(duel.d.from)} and ${name(duel.d.to)} tied in Quick Draw`]));
-    else {
-      const wRun = duel.d.runs[duel.r.winner], lRun = duel.d.runs[duel.r.loser];
-      items.push(fact("Duel", "info", [duel.r.winner, duel.r.loser],
+    const wRun = duel.r.push ? null : duel.d.runs[duel.r.winner], lRun = duel.r.push ? null : duel.d.runs[duel.r.loser];
+    const line = duel.r.push ? fact("Duel", "info", [duel.d.from, duel.d.to],
+      [`${name(duel.d.from)} and ${name(duel.d.to)} tied in Quick Draw`])
+      : fact("Duel", "info", [duel.r.winner, duel.r.loser],
         [`${name(duel.r.winner)} beat ${name(duel.r.loser)} in Quick Draw${
-          lRun?.foul ? ", on a foul" : `, ${wRun?.ms} to ${lRun?.ms}ms`}`]));
-    }
+          lRun?.foul ? ", on a foul" : `, ${wRun?.ms} to ${lRun?.ms}ms`}`]);
+    /* a duel that just settled leads the ticker: the room saw (or missed)
+       the showdown while something else held the TV */
+    if (Number(now) - duel.at < DUEL_TICKER_FRESH_MS) items.unshift(line);
+    else items.push(line);
   }
   const ruling = tickerRuling(state);
   if (ruling) items.push(fact("Ruling", signedRole(ruling.delta), [ruling.player],
     [`${name(ruling.player)} `, amount(signed(ruling.delta), signedRole(ruling.delta)), ruling.reason ? `, ${ruling.reason}` : ""]));
-  /* what is next and what it pays, drawn: the event, then its ladder */
-  if (nextEv) items.push(fact("Next", "info", [], [nextEv.name, { ladder:awardTable(nextEv) }]));
-  if (!items.length) items.push(fact("Field Day", "info", [], [editionLabel()]));
+  /* what is next and what it pays, drawn: the event, then its ladder
+     (unless the screen already letters that event) */
+  if (nextEv && !lettered.includes(nextEv.id)) items.push(fact("Next", "info", [], [nextEv.name, { ladder:awardTable(nextEv) }]));
+  /* nothing new to say: the ticker stays quiet (the masthead already
+     names the weekend) */
   return items;
 }
 
@@ -769,7 +782,8 @@ export function pokerTickerItems(state, now) {
     const total = inPlay.reduce((n, p) => n + Number(starting[p]), 0);
     items.push(fact("Average stack", "chip", [], [amount(fmt(Math.round(total / inPlay.length / 25) * 25)), ` across ${inPlay.length} seats`]));
   }
-  if (!items.length) items.push(fact("Field Day", "info", [], [editionLabel()]));
+  /* nothing new to say: the ticker stays quiet (the masthead already
+     names the weekend) */
   return items;
 }
 
@@ -780,7 +794,7 @@ export const TICKER_HALF_PX = 830;
 export function tickerFactWidth(item) {
   const tag = String(item?.tag || "").length * 17 + 46;
   const n = (item?.players || []).length;
-  const faces = n ? 44 + (n - 1) * (n > 2 ? 31 : 52) + 20 : 0;
+  const faces = n ? 44 + (n - 1) * (n > 2 ? Math.round(44 * (1 - DISC_OVERLAP)) : 52) + 20 : 0;
   const text = (item?.parts || [item?.text || ""]).reduce((w, part) => w + (typeof part === "string"
     ? String(part).length * 16.5 : String(part.amount).length * 20), 0);
   return Math.ceil(tag + faces + text);
@@ -841,12 +855,12 @@ export function sideNameFit(name, width, { max = 56, min = 40, caps = false } = 
    40) until every name stands beside them at 30px or more, else at the
    size the longest allows at the smallest faces (never under 24). Names are
    lettered as written (show weight, about .47em a letter). `players` is
-   the most a side has (a pair's faces overlap by 30%). */
+   the most a side has (a pair's faces overlap by a fifth, DISC_OVERLAP). */
 export function fieldNameFit(names = [], spot = 236, players = 1, { max = 40, min = 24, pad = 32, gap = 12 } = {}) {
   const longest = Math.max(4, ...names.map(name => String(name || "").length));
   const n = Math.max(1, players);
   const fit = face => {
-    const facesW = face + (n - 1) * face * 0.7;
+    const facesW = face + (n - 1) * face * (1 - DISC_OVERLAP);
     return { face, size:Math.min(max, Math.floor((spot - pad - facesW - gap) / (longest * ADVANCE))) };
   };
   for (const face of [56, 48, 40]) {
@@ -933,7 +947,7 @@ export function duelBoard(state) {
 /* the spotlight walks the checked-in roster on the server clock: each full
    ambient rotation (cycleMs) brings the next player */
 export function spotlightPlayer(state, now, cycleMs = TV_AMBIENT_MS) {
-  const players = ROSTER.filter(p => Object.keys(state.profiles?.[p] || {}).length);
+  const players = rosterOf(state).filter(p => Object.keys(state.profiles?.[p] || {}).length);
   if (!players.length) return null;
   return players[Math.floor(Math.max(0, Number(now) || 0) / Math.max(1, cycleMs)) % players.length];
 }

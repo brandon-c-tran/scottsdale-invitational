@@ -55,7 +55,7 @@ export function classPhotoLayout(model, { width = CLASS_W } = {}) {
       const nameSize = fitSize(person.name.toUpperCase(), spec.nameSize, nameW);
       const nameTop = spec.cy + r + (t === 0 ? 26 : 16);
       slots.push({ ...person, tier:t, cx, cy:spec.cy, r, size:r * 2,
-        name:{ top:nameTop, size:nameSize, width:nameW, text:person.name.toUpperCase() },
+        name:{ top:nameTop, size:nameSize, width:nameW, text:person.name },
         stack:{ top:nameTop + nameSize + 6, size:spec.stackSize, text:person.stack },
         tag:{ cx:Math.round(cx - r * 0.74), cy:Math.round(spec.cy - r * 0.74), r:t === 0 ? 30 : 22, size:t === 0 ? 36 : 28,
           text:String(person.rank) } });

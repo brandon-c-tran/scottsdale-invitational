@@ -71,11 +71,10 @@ test("a pair with no draw on record is its two names; a free-for-all tie and a s
   assert.equal(walkoutTeam(state, events, song("Evan", 60_500)), null, "a solo win walks out alone");
 });
 
-test("only the win the song follows: a team MVP, a stale win, and a newer win by others play no team", () => {
+test("only the win the song follows: a stale win and a newer win by others play no team", () => {
   const state = base();
   const events = allEventsOf(state);
   state.results.die = { slots:[["Evan", "Ben"], ["Adi", "Khoa"]], ts:50_000, revision:1 };
-  assert.equal(walkoutTeam(state, events, song("Ben", 50_500, { mvp:true })), null, "an MVP's song stays about the MVP");
   assert.equal(walkoutTeam(state, events, song("Ben", 50_000 + WALKOUT_WIN_MS + 1)), null, "an old win is not this song's");
   state.results.putt = { slots:[["Khoa"], ["Adi"]], ts:55_000, revision:1 };
   assert.equal(walkoutTeam(state, events, song("Ben", 55_500)), null, "the newest decision is someone else's");
@@ -154,9 +153,6 @@ test("the TV walks out the team: its name, every chip, the singer marked, the so
   const solo = render(state, React.createElement(ui.TVWalkout, { state,
     moment:{ ...view, team:null, id:"s", anchor:0, elapsed:3000 } }));
   assert.doesNotMatch(solo, /is-team/, "an individual win stays as it was");
-  const mvp = render(state, React.createElement(ui.TVWalkout, { state,
-    moment:{ ...view, mvp:true, mvpEvent:"5v5 Full Court", id:"v", anchor:0, elapsed:3000 } }));
-  assert.match(mvp, /tv-walkout is-mvp/, "an MVP's walkout is about the MVP");
 });
 
 test("a teammate's phone: the team's name, everyone's chip, theirs lit", () => {

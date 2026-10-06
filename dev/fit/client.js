@@ -15,7 +15,7 @@ const CAPS = { qa:false, progressReset:false, restore:false, snapshotExport:fals
   audioDirector:false, audioCatalog:false, audioPlayback:false, push:false };
 let cached = { state:EMPTY_STATE, version:0, connected:false, socketOpen:false, stale:false, ready:false, lastAction:null,
   environment:"local", capabilities:CAPS, you:null, gm:null, build:"fit", serverBuild:"fit", updateReady:false,
-  pushKey:null, tvs:null, tvsAt:0 };
+  pushKey:null, tvs:null, tvsAt:0, arriveCode:null };
 const listeners = new Set();
 /* the harness's frame: { state, you, gm, capabilities, version } */
 export function setFitFrame(frame) {

@@ -12,7 +12,7 @@ import {
 import { legacyEvent, withLegacyEvents } from "./support/legacy-events.mjs";
 import { contestWinLines, winSlots, joinNames, ordinal, winLineFor } from "../src/features/standings/winImpact.js";
 import { resolvePlayerIdentity } from "../src/features/identity/playerIdentity.js";
-import { BAR_FLOOR, barScale, chipBar, rowMoves, soleLeader, BOARD_BEATS }
+import { BAR_FLOOR, barScale, chipBar, chipNotch, NOTCH_MIN_PCT, rowMoves, soleLeader, BOARD_BEATS }
   from "../src/features/standings/boardModel.js";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
@@ -142,6 +142,24 @@ test("X1: the chip bar is one solid run to scale, with your exposure outlined at
   assert.deepEqual(chipBar({ pts:200, scale:2000, bets:500 }), { held:0, bets:10, duels:0 }, "exposure never outruns the stack");
 });
 
+test("X1: the notches coarsen as the board grows, so a bar never washes out into stripes", () => {
+  assert.deepEqual(chipNotch(BAR_FLOOR), { step:100, pct:5 }, "one notch per chip on an early board");
+  for (let scale = BAR_FLOOR; scale <= 30000; scale += 100) {
+    const notch = chipNotch(scale);
+    assert.ok(notch && notch.pct >= NOTCH_MIN_PCT, `${scale}: notches stand at least ${NOTCH_MIN_PCT}% apart`);
+    /* the 1.5px notch covers at most a quarter of a 150px bar */
+    assert.ok(1.5 / (150 * notch.pct / 100) <= 0.25 + 1e-9, `${scale}: the bar stays solid color`);
+    assert.ok(notch.step % 100 === 0, `${scale}: a notch is always a whole number of chips`);
+  }
+  assert.equal(chipNotch(6000).step, 500);
+  assert.equal(chipNotch(15000).step, 1000);
+  const render15 = props => render(ui.ChipBar, { p:ROSTER[0], scale:15000, ...props }, fresh());
+  const big = render15({ pts:9200, bets:500 });
+  assert.match(big, /--fd-chip-unit:6.667%/, "per 1,000 at a 15,000 board");
+  assert.match(big, /class="fd-chip-bar-risk is-bets"/, "your bet is still the outlined end");
+  assert.doesNotMatch(render15({ pts:-300 }), /fd-chip-bar-held|is-bets/, "a negative balance draws an empty track");
+});
+
 test("M2 + M3: moves, the sole leader, and the beat order are pure", () => {
   assert.deepEqual(rowMoves(["a", "b", "c"], ["c", "a", "b"]), { c:{ from:2, to:0 }, a:{ from:0, to:1 }, b:{ from:1, to:2 } });
   assert.deepEqual(rowMoves(["a", "b"], ["a", "b"]), {});
@@ -158,6 +176,11 @@ test("X1: every row carries a chip bar in its own color, and only your row outli
   state.profiles = { [ROSTER[0]]:{ color:CHIP_COLORS[0].hex } };
   state.onDeck = putt.id;
   state.wagers = [{ id:"w", player:ROSTER[0], kind:"outright", eventId:putt.id, pick:ROSTER[5], pickPlayers:[ROSTER[5]], stake:300 }];
+  /* a level board carries no bars: every one would be the same */
+  const level = render(ui.Leaderboard, { state, standings:computeStandings(state), me:ROSTER[0], onPlayer:noop,
+    myAtRisk:300, StatPills:StubMark }, state);
+  assert.equal((level.match(/class="fd-chip-bar/g) || []).length, 0, "no bars while every stack is level");
+  state.adjustments = [{ player:ROSTER[7], delta:200, ts:1, reason:"test" }];
   const html = render(ui.Leaderboard, { state, standings:computeStandings(state), me:ROSTER[0], onPlayer:noop,
     myAtRisk:300, StatPills:StubMark }, state);
   assert.equal((html.match(/class="fd-chip-bar"/g) || []).length, ROSTER.length);
@@ -180,7 +203,7 @@ test("X1 + X8: Home's contest card shows each side's bets and win line, players 
   const props = { state, me:ROSTER[0], events:[eightBall], standings, GameMark:StubMark, StatPills:StubMark,
     onOpen:noop, onRules:noop, onBets:noop, onBracket:noop, onPlayer:p => viewed.push(p), onStandings:noop, onEvents:noop };
   const html = render(ui.GuestHome, props, state);
-  assert.match(html, /You’re playing/);
+  assert.match(html, /You’re up vs/);
   /* a final is just "Final" (Brandon, Oct 2): never "Final · Match 1" */
   assert.match(html, /<span>Final<\/span>/);
   assert.doesNotMatch(html, /Final · Match/);
@@ -205,14 +228,16 @@ test("X8 reaches the Bets board and the TV live scene", () => {
   const html = render(ui.Wagers, { state, me:ROSTER[12], standings:computeStandings(state), gm:false,
     events:[eightBall], wagerEv:eightBall, onDeckEv:eightBall, onPick:noop, onRetract:noop, onPlayer:noop,
     onEvent:noop, onEvents:noop, onVoid:noop, onSettledSeen:noop, GameMark:StubMark }, state);
-  assert.equal((html.match(/class="fd-win-line/g) || []).length, 2);
+  /* the bets board draws its win line (faces, arrow, place); the sentence is its label */
+  assert.equal((html.match(/class="fd-wagers-win /g) || []).length, 2);
+  assert.equal((html.match(/role="img" aria-label="Win: /g) || []).length, 2);
   const contest = resolveCurrentContest(state, eightBall);
   const lines = contestWinLines(state, eightBall, contest);
   const tv = render(ui.TVWinLine, { lines, sideKey:0 }, state);
   assert.match(tv, /Win: /);
   assert.match(tv, /class="tv-win-line/);
   assert.match(readFileSync(new URL("../src/features/tv/tv.css", import.meta.url), "utf8"),
-    /\.tv-win-line \{[^}]*font:600 28px/, "TV text stays at or above 24px");
+    /\.tv-win-line \{[^}]*font:500 26px/, "TV text stays at or above 24px (the win line, quieter than the terms beside it)");
   assert.equal(render(ui.TVWinLine, { lines:[null], sideKey:0 }, state), "");
 });
 
@@ -228,12 +253,13 @@ test("an identity chip wears the saved photo; value chips and blanks keep their 
   const initials = ROSTER[0].slice(0, 2).toUpperCase();
   assert.ok(face({ [ROSTER[0]]:{ num:7 } }, {}).includes(`>${initials}</text>`), "no photo shows the initials");
   assert.doesNotMatch(face({ [ROSTER[0]]:{ num:7 } }, {}), />7<\/text>/, "never the number");
-  assert.doesNotMatch(face({ [ROSTER[0]]:{ num:7 } }, { size:26 }), /<text/, "initials under 12px stay off");
+  /* Oct 4: never a bare chip; a small chip widens its plate so both letters still reach 12px */
+  assert.ok(face({ [ROSTER[0]]:{ num:7 } }, { size:26 }).includes(`>${initials}</text>`), "a small chip still letters");
   assert.match(face({ [ROSTER[0]]:{ num:7 } }, { fallback:"12" }), />12<\/text>/, "the editor previews the typed number");
   assert.match(face(withPhoto, { stamp:500 }), />500<\/text>/, "a value chip keeps its value");
   assert.doesNotMatch(face(withPhoto, { stamp:500 }), /<image/);
   assert.doesNotMatch(face(withPhoto, { stamp:"" }), /<image|<text/, "a blank stamp stays blank");
-  assert.doesNotMatch(face(withPhoto, { size:20 }), /<image/, "too small for a face");
+  assert.match(face(withPhoto, { size:20 }), /<image/, "a small chip still shows the face");
 });
 
 test("initials are unique across the roster and never a lookalike of another's at chip size", async () => {

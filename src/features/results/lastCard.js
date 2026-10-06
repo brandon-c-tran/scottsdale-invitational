@@ -3,7 +3,7 @@
    use (resultAwards, resolveWager, resolveDuel, rulings, the poker count) in
    the order they happened, so its last point is always the board's number. */
 
-import { EDITION, ROSTER, SESSIONS, START, allEventsOf, bountyAwards, computeStandings, contestStackOf, disp, mvpAwards,
+import { EDITION, ROSTER, SESSIONS, START, allEventsOf, computeStandings, contestStackOf, disp,
   postCountRuling, postCountRulingApplies, resolveDuel, resolveWager, resultAwards } from "../../../shared/core.js";
 import { wagerPickName } from "./resultMoment.js";
 
@@ -48,11 +48,6 @@ export function chipChanges(state, player, events = allEventsOf(state)) {
       if (award.player === player && award.pts) changes.push({ at:Number(result.ts) || 0, delta:award.pts, kind:"award",
         eventId:evId, place:award.place });
   }
-  for (const mvp of mvpAwards(state))
-    if (mvp.player === player) changes.push({ at:mvp.at, delta:mvp.pts, kind:"mvp", eventId:mvp.eventId });
-  for (const bounty of bountyAwards(state, events))
-    if (bounty.player === player) changes.push({ at:bounty.at, delta:bounty.pts, kind:"bounty", eventId:bounty.eventId,
-      contestId:bounty.contestId, from:bounty.from });
   for (const wager of state.wagers || []) {
     if (wager?.player !== player) continue;
     const resolved = resolveWager(state, wager, events);
@@ -72,7 +67,7 @@ export function chipChanges(state, player, events = allEventsOf(state)) {
     if (ruling?.player !== player || ruling.removedAt || postCountRuling(ruling)) continue;
     changes.push({ at:Number(ruling.ts) || 0, delta:Number(ruling.delta) || 0, kind:"ruling", id:ruling.id });
   }
-  const order = { award:0, mvp:1, bounty:2, bet:3, duel:4, ruling:5 };
+  const order = { award:0, bet:1, duel:2, ruling:3 };
   return changes.map((change, index) => ({ ...change, index }))
     .sort((a, b) => a.at - b.at || order[a.kind] - order[b.kind] || a.index - b.index)
     .map(({ index, ...change }) => change);
@@ -182,13 +177,6 @@ export function lastCardModel(state, player, { events = allEventsOf(state), stan
   const facts = [];
   if (wins.length) facts.push({ id:"wins", label:wins.length === 1 ? "Event win" : "Event wins",
     value:wins.length <= 2 ? wins.join(", ") : String(wins.length) });
-  const mvps = changes.filter(item => item.kind === "mvp").map(item => eventName(item.eventId));
-  if (mvps.length) facts.push({ id:"mvp", label:mvps.length === 1 ? "Team MVP" : "Team MVPs",
-    value:mvps.length <= 2 ? mvps.join(", ") : String(mvps.length) });
-  /* v3.1: the leader bounties collected */
-  const bounties = changes.filter(item => item.kind === "bounty");
-  if (bounties.length) facts.push({ id:"bounty", label:bounties.length === 1 ? "Bounty" : `Bounties ${bounties.length}`,
-    value:signed(bounties.reduce((sum, item) => sum + item.delta, 0)) });
   if (bestBet) facts.push({ id:"best", label:`Best bet on ${bestBet.pick}`, value:signed(bestBet.delta) });
   else if (betRecord) facts.push({ id:"bets", label:`Bets ${betRecord.won}–${betRecord.lost}`, value:signed(betRecord.net) });
   if (quickDraw) facts.push({ id:"qd", label:`Quick Draw ${quickDraw.won}–${quickDraw.lost}`, value:signed(quickDraw.net) });
@@ -196,14 +184,15 @@ export function lastCardModel(state, player, { events = allEventsOf(state), stan
 
   return {
     player, name:disp(state, player), num:num == null ? null : Number(num),
-    rank:row.rank, tied, place:`${tied ? "T" : ""}${ordinalUpper(row.rank)}`, pts:row.pts,
+    rank:row.rank, tied, place:ordinalUpper(row.rank), pts:row.pts,
     champion:!!state.frozen && row.rank === 1,
     leaders:leaders.map(item => ({ player:item.player, name:disp(state, item.player), pts:item.pts })),
     wins, bestBet, bets:betRecord, quickDraw, high:high ? { pts:high.pts, at:high.at } : null,
     history, facts,
     edition:`Field Day / ${EDITION.name} ${EDITION.year}`.toUpperCase(),
     dates:EDITION.short.toUpperCase(),
-    footer:`${ROSTER.length} PLAYERS · ${posted} EVENTS`,
+    /* one fact on the foot (no joined pairs): the weekend's events */
+    footer:`${posted} EVENTS`,
   };
 }
 const ordinalUpper = n => {
@@ -227,7 +216,7 @@ export function crownKey(state, standings = computeStandings(state)) {
    level until the next. Session ticks sit under the first step of each
    session and are dropped when they would crowd the one before. */
 export function chartModel(history, { width = 330, height = 128, top = 20, bottom = 20, left = 4, right = 10,
-  minTickGap = 0, tickChar = 7.8 } = {}) {
+  minTickGap = 0, tickChar = 7.8, numChar = 7 } = {}) {
   const steps = history?.length ? history : [{ pts:START, session:SESSION_ORDER[0] }];
   const series = steps.length === 1 ? [steps[0], steps[0]] : steps;
   const peakValue = Math.max(START, ...series.map(step => step.pts));
@@ -242,14 +231,39 @@ export function chartModel(history, { width = 330, height = 128, top = 20, botto
   points.forEach((point, i) => { if (point.pts > START && (!peak || point.pts > peak.pts)) peak = { ...point, index:i }; });
   const last = { ...points[n - 1], index:n - 1 };
   if (peak && peak.index === last.index) peak = null;
-  /* the peak's number sits above it; the last number sits left of its dot,
-     on the side the line did not come from */
-  if (peak) peak.label = { x:Math.min(Math.max(peak.x, left + 16), width - right - 16), y:peak.y - 9, anchor:"middle" };
+  /* the last number sits left of its dot, on the side the line did not
+     come from: below the point when the line falls into it, unless that
+     would sit on the axis labels (a bust at 0), then above it */
   const cameFrom = points[n - 2]?.y ?? last.y;
-  /* below the point when the line falls into it, unless that would sit on the
-     axis labels (a bust at 0): then above it */
   const below = last.y + 16;
   last.label = { x:last.x - 8, y:cameFrom < last.y && below <= height - bottom - 2 ? below : last.y - 8, anchor:"end" };
+  /* The peak's number takes the first place that stands clear of the last
+     number and inside the card: above it, above to its left, above to its
+     right, then under it. Where none does (a high just before the finish)
+     the two merge: the peak keeps its dot and the card's High line carries
+     its number. Boxes are measured at numChar a character, the numerals'
+     13px face. */
+  if (peak) {
+    const box = (label, value) => {
+      const w = fmt(value).length * numChar;
+      const x0 = label.anchor === "end" ? label.x - w : label.anchor === "middle" ? label.x - w / 2 : label.x;
+      return [x0, label.y - 11, x0 + w, label.y + 2];
+    };
+    const clear = (a, b) => a[2] + 4 <= b[0] || b[2] + 4 <= a[0] || a[3] + 2 <= b[1] || b[3] + 2 <= a[1];
+    const lastBox = box(last.label, last.pts);
+    const dotBox = [last.x - 6, last.y - 6, last.x + 6, last.y + 6];
+    const fits = label => {
+      const b = box(label, peak.pts);
+      return b[0] >= 0 && b[2] <= width && b[1] >= 0 && b[3] <= height - bottom - 2 && clear(b, lastBox) && clear(b, dotBox);
+    };
+    const candidates = [
+      { x:Math.min(Math.max(peak.x, left + 16), width - right - 16), y:peak.y - 9, anchor:"middle" },
+      { x:peak.x - 7, y:peak.y - 8, anchor:"end" },
+      { x:peak.x + 7, y:peak.y - 8, anchor:"start" },
+      { x:Math.min(Math.max(peak.x, left + 16), width - right - 16), y:peak.y + 18, anchor:"middle" },
+    ];
+    peak.label = candidates.find(fits) || null;
+  }
   /* A session ticks once, where the weekend first reaches it: only a step
      into a later session than any before it ticks, so a correction that
      steps back never prints FRI twice. */

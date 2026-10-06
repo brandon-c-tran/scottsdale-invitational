@@ -5,6 +5,7 @@ import { Avatar } from "../identity/PlayerIdentity.jsx";
 import { DenomStacks, ChipTray, GrantMark } from "../poker/PokerChips.jsx";
 import { namesOf } from "./directorPill.js";
 import "./director.css";
+import { writeError } from "../../lib/writeErrors.js";
 
 const fmt = n => (n ?? 0).toLocaleString("en-US");
 
@@ -18,11 +19,12 @@ function useCommit() {
     busy.current = true; setPending(true); setError("");
     try {
       const result = await callback();
-      if (result?.ok !== true) setError(result?.error || "Not saved. Try again.");
+      if (result?.ok !== true) setError(writeError(result));
       return result;
     } catch (failure) {
-      setError(failure?.message || "Not saved. Try again.");
-      return { ok:false, error:failure?.message };
+      const message = writeError(failure);
+      setError(message);
+      return { ok:false, error:message };
     } finally { busy.current = false; setPending(false); }
   };
   return { pending, error, run };
@@ -49,7 +51,13 @@ export function PokerSetupSheet({ state, onClose, onBack, onDeal }) {
   const blocker = preview.ok === false ? preview.blockers?.[0] : null;
   const grants = preview.rows.filter(row => row.grant > 0);
   return <Sheet title="Starting stacks" subtitle={`${fmt(preview.total)} chips`}
-    onClose={onClose} onBack={onBack} busy={commit.pending}>
+    onClose={onClose} onBack={onBack} busy={commit.pending}
+    footer={<>
+      {blocker && <p role="alert">{blocker}</p>}
+      {commit.error && <p role="alert">{commit.error}</p>}
+      <ActionButton disabled={commit.pending || !onDeal || !!blocker}
+        onClick={() => commit.run(onDeal)}>{commit.pending ? "Dealing…" : "Deal and start"}</ActionButton>
+    </>}>
     {preview.rows.map(row => <div className={`fd-stack-row${row.grant > 0 ? " is-grant" : ""}`} key={row.player}>
       <Avatar state={state} p={row.player} size={30} />
       <span><b>{disp(state, row.player)}</b>
@@ -72,10 +80,6 @@ export function PokerSetupSheet({ state, onClose, onBack, onDeal }) {
       {voids > 0 && <div><span>Voids {voids} open duel{voids === 1 ? "" : "s"}</span>
         {duels.length > 0 && <strong>{duels.map(duel => duel.label).join(", ")}</strong>}</div>}
     </div>
-    {blocker && <p role="alert" className="fd-contest-error">{blocker}</p>}
-    {commit.error && <p role="alert" className="fd-contest-error">{commit.error}</p>}
-    <ActionButton disabled={commit.pending || !onDeal || !!blocker} style={{ width:"100%" }}
-      onClick={() => commit.run(onDeal)}>{commit.pending ? "Dealing…" : "Deal and start"}</ActionButton>
   </Sheet>;
 }
 
@@ -86,16 +90,16 @@ export function CrownSheet({ state, finalePosted = true, onClose, onBack, onCrow
   const leaders = computeStandings(state).filter(row => row.rank === 1);
   const players = leaders.map(row => row.player);
   const names = namesOf(state, players);
-  return <Sheet title="Crown the champion" onClose={onClose} onBack={onBack} busy={commit.pending}>
+  return <Sheet title="Crown the champion" onClose={onClose} onBack={onBack} busy={commit.pending}
+    footer={<>
+      {commit.error && <p role="alert">{commit.error}</p>}
+      <ActionButton disabled={commit.pending || !players.length || !onCrown}
+        onClick={() => commit.run(() => onCrown(players))}>{commit.pending ? "Crowning…" : `Crown ${names}`}</ActionButton>
+      <ActionButton variant="tertiary" disabled={commit.pending} onClick={onClose}>Not yet</ActionButton>
+    </>}>
     <p style={{ margin:"0 0 14px", color:"var(--muted2)", font:"500 14px/1.6 var(--fd-body)" }}>
       Freezes the board with <b style={{ color:"var(--accent2)" }}>{names}</b>
       {players.length > 1 ? " as co-champions" : " as champion"} at {fmt(leaders[0]?.pts)} chips. Betting and duels close.</p>
     {!finalePosted && <p style={{ margin:"0 0 14px", color:"var(--live2)", font:"600 13px/1.5 var(--fd-body)" }}>No finale result yet.</p>}
-    {commit.error && <p role="alert" className="fd-contest-error">{commit.error}</p>}
-    <div style={{ display:"flex", gap:10, flexWrap:"wrap" }}>
-      <ActionButton disabled={commit.pending || !players.length || !onCrown} style={{ flex:1 }}
-        onClick={() => commit.run(() => onCrown(players))}>{commit.pending ? "Crowning…" : `Crown ${names}`}</ActionButton>
-      <ActionButton variant="tertiary" disabled={commit.pending} onClick={onClose}>Not yet</ActionButton>
-    </div>
   </Sheet>;
 }

@@ -167,7 +167,9 @@ export function groupStacks(stacks = [], slots = Infinity, keep = null) {
    under them). */
 export function fitLevels(count, { chip = 64, cap = STACK_CAP, min = 30 } = {}) {
   const sizes = [];
-  for (const k of [1, 0.875, 0.75, 0.66, 0.58, 0.5]) {
+  /* the last two steps only a short felt reaches: the tallest stack, its
+     amount and its name must stand inside it, never sliced at its foot */
+  for (const k of [1, 0.875, 0.75, 0.66, 0.58, 0.5, 0.42, 0.375]) {
     const size = Math.max(min, Math.round(chip * k));
     /* one cap everywhere: a smaller chip, never a shorter stack rule */
     if (!sizes.length || sizes[sizes.length - 1].size !== size) sizes.push({ size, cap, slots:Infinity });

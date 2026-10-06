@@ -74,8 +74,8 @@
 .tv-step-num { position:relative; line-height:1; color:color-mix(in srgb, var(--ink-place) 80%, var(--bone));
   text-shadow:0 3px 0 var(--ink0), 0 -1px 0 color-mix(in srgb, var(--bone) 30%, transparent); }
 .tv-step.is-p1 .tv-step-num { font-size:168px; }
-.tv-step.is-p2 .tv-step-num { font-size:124px; }
-.tv-step.is-p3 .tv-step-num { font-size:92px; }
+.tv-step.is-p2 .tv-step-num { font-size:120px; }
+.tv-step.is-p3 .tv-step-num { font-size:72px; }
 .tv-step.is-empty .tv-step-num { color:color-mix(in srgb, var(--bone) 22%, transparent); text-shadow:0 2px 0 var(--ink0); }
 .tv-step.is-p1.is-filled .tv-step-num { color:var(--sun);
   text-shadow:0 3px 0 var(--ink0), 0 0 30px color-mix(in srgb, var(--sun) 45%, transparent);
@@ -84,7 +84,7 @@
 .tv-step-amount { display:inline-flex; align-items:baseline; gap:10px; font:800 56px/1.12 var(--fd-display); letter-spacing:.01em;
   font-variant-numeric:tabular-nums; color:var(--sun); text-shadow:0 2px 0 var(--ink0);
   animation:tv-step-stamp .34s var(--ease-land) calc(var(--tl) + var(--beat) + 220ms) both; }
-.tv-step.is-p2 .tv-step-amount, .tv-step.is-p3 .tv-step-amount { font-size:46px; }
+.tv-step.is-p2 .tv-step-amount, .tv-step.is-p3 .tv-step-amount { font-size:40px; }
 /* the award's reel: windows cut to the line the figure had */
 .tv-step-amount .fd-reel { font-size:.8em; align-self:center; }
 .tv-step-sign { align-self:center; margin-right:-4px; }
@@ -144,7 +144,7 @@
 /* ── the backers' rail: where the ticker runs, while a podium holds the room ── */
 .tv-rail-slot { position:relative; }
 .tv-rail { position:absolute; left:var(--tv-edge); right:var(--tv-edge); bottom:var(--tv-safe-y); height:84px; display:flex; align-items:center;
-  padding:0 var(--rail-pad); border-radius:16px; overflow:hidden; overflow:clip;
+  padding:0 var(--rail-pad); border-radius:18px; overflow:hidden; overflow:clip;
   background:var(--lg-bands), var(--lg-fall), color-mix(in srgb, var(--ink0) 82%, var(--bg));
   box-shadow:var(--lg-lip), var(--lg-fringe), var(--shadow-2);
   animation:tv-rail-in .5s var(--ease-out) calc(var(--tl) + var(--rail-at)) both; }
@@ -159,9 +159,9 @@
   animation:tv-rail-cell .4s var(--ease-out) calc(var(--tl) + var(--rail-at) + 260ms + var(--i) * 70ms) both; }
 @keyframes tv-rail-cell { from { opacity:0; transform:translateX(-24px); } to { opacity:1; transform:none; } }
 .tv-rail-text { display:flex; flex-direction:column; gap:2px; min-width:0; }
-.tv-rail-name { font:800 28px/1.15 var(--fd-display); letter-spacing:.02em; text-transform:uppercase; color:var(--bone); white-space:nowrap; }
+.tv-rail-name { font:800 28px/1.15 var(--fd-display); letter-spacing:.01em; color:var(--bone); white-space:nowrap; }
 .tv-rail-paid { font:800 32px/1.1 var(--fd-display); font-variant-numeric:tabular-nums; color:var(--green); white-space:nowrap; }
 .tv-rail.is-bare .tv-rail-cell { flex-direction:column; gap:2px; }
-.tv-rail.is-bare .tv-rail-paid { font-size:26px; }
+.tv-rail.is-bare .tv-rail-paid { font-size:24px; }
 .tv-rail-more { justify-content:center; font:800 32px/1 var(--fd-display); color:var(--muted2); }
 @media (prefers-reduced-motion: reduce) { .tv-rail, .tv-rail-total, .tv-rail-cell { animation:none; } }

@@ -57,11 +57,12 @@
 .fd-intro.is-tv .fd-intro-ladder { left:50%; bottom:54px; width:720px; margin-left:-360px; }
 
 /* ── the phone: one painted window at the head of the sheet ── */
-.fd-intro.is-phone { width:100%; aspect-ratio:1 / .84; border-radius:12px; box-shadow:var(--glass-edge), var(--shadow-1); }
+.fd-intro.is-phone { width:100%; aspect-ratio:1 / .84; border-radius:14px; box-shadow:var(--glass-edge), var(--shadow-1); }
 .fd-intro.is-phone .fd-intro-paint { height:74.3%; }
 .fd-intro.is-phone .fd-intro-set { left:0; bottom:0; width:100%; height:auto; aspect-ratio:4 / 3; }
 .fd-intro.is-phone .fd-intro-title { left:14px; right:14px; top:10px; }
-.fd-intro.is-phone .fd-intro-name { font-size:clamp(32px, 10.6vw, 46px); line-height:1.12; }
+/* the Inline cut lives at 140px and up (DESIGN.md Marquee): at phone size the name is solid */
+.fd-intro.is-phone .fd-intro-name { font-size:clamp(28px, 10.6vw, 44px); line-height:1.12; font-family:var(--fd-display); font-weight:900; }
 
 /* reduced motion: GameIntro sets --tl a whole intro back and marks the
    intro still, so every element rests on its last frame (no flicker, no

@@ -7,7 +7,7 @@
    Control scene that has nothing left to say. Nothing else: no chips, no
    wagers, no results, no standings. Identical retries answer unchanged. */
 
-import { ROSTER, isActivePlayer, allEventsOf } from "../shared/core.js";
+import { ROSTER, isActivePlayer, allEventsOf, rosterOf } from "../shared/core.js";
 import { finishShowScene, resolveShowScene, sceneAtLastStep } from "../shared/show.js";
 import {
   PROMPT_BALLOTS_MAX, PROMPT_ID, awardsRevealBlocker, cleanBallotDraft, emptyPrompts, revealedCount, tallyBallot,
@@ -143,7 +143,7 @@ export const PROMPT_ACTIONS = {
   /* payload: { id, questionId, choice } where choice is a nominee, or null to
      take the vote back. One answer per player per question. */
   promptRespond(state, payload, ctx) {
-    const voter = isActivePlayer(ctx?.player) ? ctx.player : null;
+    const voter = isActivePlayer(ctx?.player, state) ? ctx.player : null;
     if (!voter) return err("Check in first");
     const prompts = promptsFor(state);
     const ballot = findBallot(prompts, payload?.id);
@@ -157,7 +157,7 @@ export const PROMPT_ACTIONS = {
     const current = record?.answers?.[question.id] ?? null;
     if (choice === current) return unchanged({ id:ballot.id, questionId:question.id, choice });
     if (choice !== null) {
-      const problem = voteError(question, voter, choice);
+      const problem = voteError(question, voter, choice, rosterOf(state));
       if (problem) return err(problem);
     }
     const answers = { ...(record?.answers || {}) };

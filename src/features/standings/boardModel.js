@@ -10,6 +10,20 @@ export function barScale(standings = []) {
   return Math.max(BAR_FLOOR, top);
 }
 
+/* The bar's notches: one per 100 (one physical chip) while they stand
+   comfortably apart, then one per 500, per 1,000, per 5,000, so the bar
+   reads as a solid run of the player's color at any scale instead of
+   washing out into stripes. NOTCH_MIN_PCT is the closest two notches stand
+   as a share of the track (4% of a ~150px bar is 6px, the 1.5px notch a
+   quarter of it). Null when even the coarsest would crowd (never in play). */
+export const NOTCH_STEPS = Object.freeze([100, 500, 1000, 5000]);
+export const NOTCH_MIN_PCT = 4;
+export function chipNotch(scale = BAR_FLOOR) {
+  const s = Math.max(1, Number(scale) || BAR_FLOOR);
+  const step = NOTCH_STEPS.find(n => (n / s) * 100 >= NOTCH_MIN_PCT);
+  return step ? { step, pct:(step / s) * 100 } : null;
+}
+
 /* One player's bar, as percentages of the scale: one continuous run of
    chips held, then chips riding on bets, then duel antes, both drawn as
    outlines at the end of the bar so what is at risk is what would leave it. */

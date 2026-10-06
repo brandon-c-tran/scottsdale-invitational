@@ -8,7 +8,7 @@
    mergeMoments   several moments that land while one is showing join into it
    freshContestWins  contests this player's side won in the step (the shower) */
 
-import { PT, START, allEventsOf, bountyAwards, computeStandings, contestStackOf, disp, mvpAwards, resolveDuel, resolveWager,
+import { PT, START, allEventsOf, computeStandings, contestStackOf, disp, resolveDuel, resolveWager,
   resultAwards, stageEntrantView, teamLabel, wagerMult } from "../../../shared/core.js";
 import { freshFactFor } from "./weekendFacts.js";
 
@@ -75,13 +75,7 @@ export function chipSnapshot(state, me, events = allEventsOf(state), standings =
   const rulings = {};
   for (const item of state.adjustments || [])
     if (item?.player === me && item.id && !item.removedAt) rulings[item.id] = { delta:Number(item.delta) || 0, reason:item.reason || "" };
-  const mvps = {};
-  for (const mvp of mvpAwards(state)) if (mvp.player === me) mvps[mvp.eventId] = { pts:mvp.pts };
-  /* v3.1: each leader bounty collected, by the contest that paid it */
-  const bounties = {};
-  for (const bounty of bountyAwards(state, events)) if (bounty.player === me)
-    bounties[bounty.contestId] = { pts:bounty.pts, eventId:bounty.eventId, from:bounty.from };
-  return { me, pts:row.pts, rank:row.rank, awards, results, stacks, wagers, duels, rulings, mvps, bounties };
+  return { me, pts:row.pts, rank:row.rank, awards, results, stacks, wagers, duels, rulings };
 }
 
 /* Contests decided between two states whose winning side includes `me`:
@@ -189,16 +183,6 @@ export function resultMoment({ prev, next, prevState, state, events = allEventsO
     if (prev.awards[evId] || !award.pts) continue;
     lines.push({ id:`award:${evId}`, kind:"award", eventId:evId, delta:award.pts, won:award.place === 0,
       label:award.place === "crew" ? "Crew" : `${ordinal(award.place + 1)} place`, detail:"Event award" });
-  }
-  for (const [evId, mvp] of Object.entries(next.mvps || {})) {
-    if (prev.mvps?.[evId] || !mvp.pts) continue;
-    lines.push({ id:`mvp:${evId}`, kind:"mvp", eventId:evId, delta:mvp.pts, won:true, label:"Team MVP",
-      detail:"Voted by your team" });
-  }
-  for (const [contestId, bounty] of Object.entries(next.bounties || {})) {
-    if (prev.bounties?.[contestId] || !bounty.pts) continue;
-    lines.push({ id:`bounty:${contestId}`, kind:"bounty", eventId:bounty.eventId, delta:bounty.pts, won:true,
-      label:"Bounty", detail:`Beat ${(bounty.from || []).map(player => disp(state, player)).join(" and ")}` });
   }
   if (next.stacks && !prev.stacks)
     lines.push({ id:`stack:${next.stacks.evId}`, kind:"stack", eventId:next.stacks.evId, delta,

@@ -12,7 +12,8 @@
      line clamp
    - the same ink boxes and every control against the canvas, the TV's safe
      area, or the phone's viewport
-   - overlaps between text lines and controls that are not nested
+   - overlaps between text lines and controls that are not nested, and
+     between text and opaque art marked data-fit-art (a chip stack)
    - each line's rendered font size (transforms included)
    - fixed overlays over content (the phone: top docks at the top of the
      page, bottom docks at the bottom, where content must be reachable) */
@@ -273,6 +274,38 @@ export function collectFit({ mode = "tv", phase = "full", ignore = "", safe = nu
           box:box(l.ink), box2:box(r) });
       }
     }
+    /* opaque art (data-fit-art: a bet's chip stack) covers what is under
+       it: no text line from elsewhere may stand under or over its visible
+       part (the part its clipping boxes leave on screen) */
+    for (const art of root.querySelectorAll("[data-fit-art]")) {
+      if (ignored(art) || !shown(art) || moving(art)) continue;
+      const a = art.getBoundingClientRect();
+      const seen = { left:a.left, right:a.right, top:a.top, bottom:a.bottom };
+      for (const c of clipsOf(art.parentElement || art)) {
+        if (c.x) { seen.left = Math.max(seen.left, c.left); seen.right = Math.min(seen.right, c.right); }
+        if (c.y) { seen.top = Math.max(seen.top, c.top); seen.bottom = Math.min(seen.bottom, c.bottom); }
+      }
+      if (seen.right - seen.left < 2 || seen.bottom - seen.top < 2) continue;
+      for (const l of lines) {
+        if (art.contains(l.el) || l.el.contains(art) || textOf(l.id).moving) continue;
+        if (!TV && dockOf(art) !== dockOf(l.el)) continue;
+        const o = meet(seen, l.ink);
+        if (o.x > 1 && o.y > 1) records.overlaps.push({ kind:"art-text", a:textOf(l.id).sel, at:textOf(l.id).text,
+          b:name(art), bt:art.getAttribute("data-fit-art") || "art", x:Math.round(o.x), y:Math.round(o.y),
+          box:box(l.ink), box2:box(seen) });
+      }
+      /* a score reel's digits ride a strip the audit does not read as text
+         (a window by design): the reel's own box stands in for them */
+      for (const reel of root.querySelectorAll(".fd-reel")) {
+        if (art.contains(reel) || reel.contains(art) || ignored(reel) || !shown(reel) || moving(reel)) continue;
+        if (!TV && dockOf(art) !== dockOf(reel)) continue;
+        const r = reel.getBoundingClientRect();
+        const o = meet(seen, r);
+        if (o.x > 1 && o.y > 1) records.overlaps.push({ kind:"art-text", a:name(reel),
+          at:reel.getAttribute("aria-label") || "reel", b:name(art), bt:art.getAttribute("data-fit-art") || "art",
+          x:Math.round(o.x), y:Math.round(o.y), box:box(r), box2:box(seen) });
+      }
+    }
     for (let i = 0; i < controls.length; i++) for (let j = i + 1; j < controls.length; j++) {
       const a = controls[i], b = controls[j];
       if (a.el.contains(b.el) || b.el.contains(a.el)) continue;
@@ -318,6 +351,24 @@ export function collectFit({ mode = "tv", phase = "full", ignore = "", safe = nu
       }
       if (covered.length) records.overlays.push({ dock:name(d), where:bottomDock ? "bottom" : "top", box:box(r),
         covered:covered.slice(0, 12), count:covered.length });
+    }
+  }
+  /* the first screen (the phone, at the top of the page): an element marked
+     data-fit-fold (Home's leaderboard heading during the weekend) must sit
+     whole above the bottom docks (the tab bar, the commissioner's dock) */
+  if (!TV && phase === "top" && root === document.body) {
+    const mark = [...document.querySelectorAll("[data-fit-fold]")].find(el => shown(el) && el.getBoundingClientRect().height > 0);
+    if (mark) {
+      let limit = innerHeight;
+      for (const el of document.querySelectorAll("body *")) {
+        if (cs(el).position !== "fixed" || !shown(el) || el.matches(".fd-toast, .fd-receipt, .fd-chip-receipt, [role=alert], [data-fit~=transient]")) continue;
+        const d = el.getBoundingClientRect();
+        if (d.height <= 0 || d.height > innerHeight / 2 || d.bottom < innerHeight - 2 || d.top < innerHeight / 2) continue;
+        limit = Math.min(limit, d.top);
+      }
+      const r = mark.getBoundingClientRect();
+      records.fold = { sel:name(mark), text:(mark.textContent || "").trim().slice(0, 40), top:Math.round(r.top), bottom:Math.round(r.bottom),
+        limit:Math.round(limit), vh:innerHeight };
     }
   }
   records.scrollY = scrollY;

@@ -190,7 +190,7 @@ export function GeoMap({ mode = "pick", pin = null, onPick, answer = null, guess
     /* lines grow from each guess to the answer */
     const LINES = "fd-geo-lines";
     const lineData = progress => ({ type:"FeatureCollection", features:answer ? guesses.map(guess => ({
-      type:"Feature", properties:{ color:guess.color || "#e8d48b" },
+      type:"Feature", properties:{ color:guess.color || "#f4ecd8" },
       geometry:{ type:"LineString", coordinates:[[guess.lng, guess.lat],
         [guess.lng + (answer.lng - guess.lng) * progress, guess.lat + (answer.lat - guess.lat) * progress]] },
     })) : [] });
@@ -205,7 +205,7 @@ export function GeoMap({ mode = "pick", pin = null, onPick, answer = null, guess
         }
       } else if (progress >= 1 && answer) {
         guesses.forEach(guess => markers.current.push(L.polyline([[guess.lat, guess.lng], [answer.lat, answer.lng]],
-          { color:guess.color || "#e8d48b", weight:3, opacity:0.85, dashArray:"6 6" }).addTo(m)));
+          { color:guess.color || "#f4ecd8", weight:3, opacity:0.85, dashArray:"6 6" }).addTo(m)));
       }
     };
     if (!moving) {

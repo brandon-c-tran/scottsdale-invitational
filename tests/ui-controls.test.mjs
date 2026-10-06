@@ -10,7 +10,8 @@ import { EMPTY_STATE, ROSTER } from "../shared/core.js";
 const root = fileURLToPath(new URL("../", import.meta.url));
 const compiled = buildSync({
   stdin:{ contents:`
-    export { ActionButton, MenuRow } from "./src/ui/controls.jsx";
+    export { ActionButton, MenuRow, Sheet } from "./src/ui/controls.jsx";
+    export { WRITE_ERRORS, writeError, writeUncertain } from "./src/lib/writeErrors.js";
     export { DrawAnnouncement } from "./src/features/weekend/EventAnnouncement.jsx";
     export { PlayerIdentityProvider } from "./src/features/identity/PlayerIdentityContext.js";
   `, resolveDir:root, loader:"jsx" },
@@ -20,7 +21,7 @@ const compiled = buildSync({
 const mod = new Module(fileURLToPath(new URL("ui-controls.cjs", import.meta.url)));
 mod.filename = mod.id; mod.paths = Module._nodeModulePaths(root);
 mod._compile(compiled.outputFiles[0].text, mod.filename);
-const { ActionButton, MenuRow, DrawAnnouncement, PlayerIdentityProvider } = mod.exports;
+const { ActionButton, MenuRow, Sheet, WRITE_ERRORS, writeError, writeUncertain, DrawAnnouncement, PlayerIdentityProvider } = mod.exports;
 
 function render(Component, props) {
   const buttons = [], create = React.createElement;
@@ -101,4 +102,30 @@ test("a two-team draw preserves the stored team names and independent player tar
   }
   assert.deepEqual(viewed, ROSTER.slice(0, 12));
   assert.equal(bets, 0);
+});
+
+test("a sheet holds its commit at the foot, in thumb reach; Close stays in the header", () => {
+  const { html } = render(Sheet, { title:"Crown the champion", onClose:() => {},
+    footer:React.createElement(ActionButton, null, "Crown Evan"), children:React.createElement("p", null, "Body") });
+  const header = html.slice(html.indexOf('class="fd-sheet-header"'), html.indexOf('class="fd-sheet-body"'));
+  assert.match(header, /aria-label="Close"/);
+  assert.doesNotMatch(header, /Crown Evan/, "the commit is never top right");
+  assert.ok(html.indexOf('class="fd-sheet-footer"') > html.indexOf('class="fd-sheet-body"'), "the footer follows the body");
+  assert.match(html.slice(html.indexOf('class="fd-sheet-footer"')), /Crown Evan/);
+  assert.doesNotMatch(render(Sheet, { title:"Plain", onClose:() => {} }).html, /fd-sheet-footer/, "no footer unless asked");
+});
+
+test("a failed write names the problem and what to do; a refusal keeps its reason", () => {
+  for (const line of Object.values(WRITE_ERRORS)) {
+    assert.doesNotMatch(line, /—|Try again|try again/, line);
+    assert.match(line, /Tap again|board|Check/, `${line} says what to do`);
+  }
+  assert.equal(writeError({ ok:false, error:"Betting is locked" }), "Betting is locked");
+  assert.equal(writeError({ ok:false, error:"No response, try again" }), WRITE_ERRORS.timeout, "an old transport line maps");
+  assert.equal(writeError({ ok:false, error:"Couldn't save. Try again." }), WRITE_ERRORS.serverFailed);
+  assert.equal(writeError(new TypeError("Failed to fetch")), WRITE_ERRORS.offline);
+  assert.equal(writeError(undefined), WRITE_ERRORS.notApplied);
+  assert.equal(writeError({}, "The count didn't save. Tap Save count again."), "The count didn't save. Tap Save count again.");
+  assert.equal(writeUncertain({ ok:false, uncertain:true }), true);
+  assert.equal(writeUncertain({ ok:false, error:"x" }), false);
 });

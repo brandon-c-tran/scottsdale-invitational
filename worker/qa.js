@@ -16,7 +16,7 @@
    synchronous run), so every "latest" and every ordering by time reads the
    way a played weekend does; the run ends well under a second ahead. */
 import {
-  awardTable, CHIP_COLORS, CHIP_MIN, CHIP_SKINS, DUEL_DAILY_LIMIT, EMPTY_STATE, PT, RATINGS, ROSTER,
+  awardTable, CHIP_COLORS, CHIP_MIN, CHIP_SKINS, DUEL_DAILY_LIMIT, EMPTY_STATE, PT, RATINGS, ROSTER, rosterOf,
   RESET_PROGRESS_PRESERVED_KEYS, SIZES, SPORTS,
   allEventsOf, atRisk, bracketChampion, computeStandings, contestBetEligibility, contestSideOf,
   contestStackOf, draftTurn, duelBetween, duelReserve, duelRoom, duelsSentToday, maxRisk,
@@ -25,8 +25,7 @@ import {
 } from "../shared/core.js";
 import { SHOW_HISTORY_LIMIT, championIdentity, finishShowScene } from "../shared/show.js";
 import { parseQaTarget, qaEventStage, qaPokerStage, qaSlate } from "../shared/qa.js";
-import { mvpVoters } from "../shared/mvp.js";
-import { triviaBeat, triviaConfigured, triviaCurrent, triviaGame } from "../shared/trivia.js";
+import { triviaActive, triviaBeat, triviaConfigured, triviaCurrent, triviaGame } from "../shared/trivia.js";
 
 const QA_DEVICE = "qa-sim";
 const QA_REQUEST_PREFIX = `request:${QA_DEVICE}:`;
@@ -135,7 +134,7 @@ function fillEmptyCheckIns(run, { production }) {
   if (production) return [];
   const { state } = run;
   const filled = [];
-  for (const player of ROSTER) {
+  for (const player of rosterOf(state)) {
     const prof = state.profiles?.[player] || {};
     const touched = prof.display || prof.num !== undefined || prof.size || prof.color || prof.skin
       || prof.flightsBooked !== undefined || prof.flightIn || prof.flightOut || prof.photoV || state.seeds?.[player];
@@ -209,7 +208,10 @@ function playFillerDuel(run) {
     if (!sent.ok || !sent.extra?.id) continue;
     const id = sent.extra.id;
     if (!run.as(to, "acceptDuel", { id }).ok) return false;
-    const draw = () => run.rng() < 0.08 ? { ms:null, foul:true } : { ms:160 + Math.floor(run.rng() * 320) };
+    /* the showdown: both ready, the draw is set, then each side's run */
+    run.as(to, "duelReady", { id });
+    run.as(from, "duelReady", { id });
+    const draw =() => run.rng() < 0.08 ? { ms:null, foul:true } : { ms:160 + Math.floor(run.rng() * 320) };
     run.as(to, "playDuel", { id, ...draw() });
     run.as(from, "playDuel", { id, ...draw() });
     run.stats.duels += 1;
@@ -286,7 +288,7 @@ function podium(run, ev) {
 }
 
 /* Trivia with a set list plays its game the way the room would: every
-   team answers each question (about half right), the commissioner reveals,
+   player answers each question (about half right), the commissioner reveals,
    shows the scores at each round's end, and posts the result. */
 function playTrivia(run, ev) {
   const { state } = run;
@@ -301,7 +303,7 @@ function playTrivia(run, ev) {
     if (beat.type === "trivia-reveal") {
       const game = triviaGame(state, ev.id);
       const picks = game.picks?.[triviaCurrent(game)?.id] || {};
-      if (game.teams.some(team => !picks[team.key]?.locked)) run.gm("triviaSimAnswers", { questionId:beat.questionId });
+      if (triviaActive(state, game).some(player => !picks[player]?.locked)) run.gm("triviaSimAnswers", { questionId:beat.questionId });
       run.gm("triviaReveal", { questionId:beat.questionId });
     } else if (beat.type === "trivia-board") run.gm("triviaBoard", { questionId:beat.questionId });
     else if (beat.type === "trivia-next") run.gm("triviaNext", { questionId:beat.questionId });
@@ -319,19 +321,6 @@ function postResult(run, ev) {
   if (lifecycle.phase === "in-progress" && lifecycle.nextAction?.type === "enter-result")
     run.gm("beginResultEntry", { evId:ev.id });
   run.gm("saveResult", { evId:ev.id, slots:podium(run, ev), noScene:true });
-}
-
-/* A team that won votes its MVP the way its phones would, then the vote
-   closes, so a jump never leaves one open (an open vote holds the finale). */
-function settleMvp(run, ev) {
-  const { state } = run;
-  const record = state.mvp?.[ev.id];
-  if (!record || record.closedAt) return;
-  for (const voter of mvpVoters(state, record)) {
-    const picks = record.team.filter(player => player !== voter);
-    if (picks.length) run.as(voter, "mvpVote", { evId:ev.id, pick:picks[Math.floor(run.rng() * picks.length)] });
-  }
-  if (!state.mvp[ev.id].closedAt) run.gm("mvpClose", { evId:ev.id });
 }
 
 /* Play one event forward. stop: "open" (first contest betting, bets down),
@@ -370,7 +359,6 @@ function playEvent(run, ev, stop) {
     if (stop === "contest") {
       /* the next contest opens by itself; if that was the last, the result posted with it */
       if (!state.results?.[ev.id] && !resolveCurrentContest(state, ev)) postResult(run, ev);
-      settleMvp(run, ev);
       return;
     }
   }
@@ -379,7 +367,6 @@ function playEvent(run, ev, stop) {
     postResult(run, ev);
     if (!decided) run.stats.contests += 1;
   }
-  settleMvp(run, ev);
   run.stats.events += 1;
   /* a duel now and then, between events, the way the room plays them */
   if (run.rng() < 0.5) playFillerDuel(run);
@@ -400,7 +387,7 @@ function playPoker(run, phase) {
   }
   if (want === 1) return;
   const pk = state.poker;
-  const seats = Array.isArray(pk.seats) ? pk.seats : ROSTER;
+  const seats = Array.isArray(pk.seats) ? pk.seats : rosterOf(state);
   const alive = () => seats.filter(player => !state.poker.outs.some(out => out.player === player));
   if (!pk.startedAt) {
     run.gm("pokerStart");

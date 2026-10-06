@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { EDITION, ROSTER, SPORTS, RATINGS, allEventsOf } from "../../../shared/core.js";
+import { EDITION, SPORTS, RATINGS, allEventsOf, rosterOf } from "../../../shared/core.js";
 import { TravelMap, TRAVEL_CITIES, VenueCard, TravelFields, SizeRow } from "../travel/Travel.jsx";
 import { ProfileEditor } from "../profile/ProfileEditor.jsx";
 import { InstallHint } from "./InstallHint.jsx";
@@ -16,7 +16,7 @@ const STAGES = ["Your invitation", "The tournament", "The roster", "The details"
    session's painted Scottsdale sky (the TV's painting, GlassArt), "Field
    Day" lettered on it in the marquee cut and lit from behind, the thirteen on an
    amber seal, the place and dates on the clear glass under the floor. */
-function InvitationArt() {
+function InvitationArt({ count }) {
   return <div className="fd-invitation-art" aria-label={`Field Day. ${EDITION.name}, ${EDITION.year}.`}>
     <LampChase tone="live" />
     <div className="fd-invitation-scene fd-glass-scene">
@@ -25,7 +25,7 @@ function InvitationArt() {
     </div>
     <div className="fd-invitation-seal" aria-hidden="true">
       <svg viewBox="0 0 100 100"><path d="M50 1 59 10 72 6 77 19 91 23 90 37 100 50 90 60 94 74 80 79 76 93 62 91 50 100 40 90 26 94 21 80 7 76 9 62 0 50 10 40 6 26 20 21 24 7 38 9Z" fill="currentColor" /></svg>
-      <span><strong>{ROSTER.length}</strong><small>Players</small></span>
+      <span><strong>{count}</strong><small>Players</small></span>
     </div>
     <div className="fd-invitation-edition"><span>Scottsdale, AZ</span><span><OneSafe text={EDITION.short} /><br />{EDITION.year}</span></div>
   </div>;
@@ -108,8 +108,8 @@ export function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, ne
     : ["Claim your spot", "The bachelor party is a tournament", "Thank you for flying in for this", "Getting there", "Set up your profile", "Rate yourself"][step];
   const intro = step === -1 ? ""
     : ["",
-      `${ROSTER.length} players, ${allEventsOf(state).filter(e => !e.finale).length} events, one board.`,
-      `${ROSTER.length} players coming in from ${TRAVEL_CITIES.length} cities.`,
+      `${rosterOf(state).length} players, ${allEventsOf(state).filter(e => !e.finale).length} events, one board.`,
+      `${rosterOf(state).length} players coming in from ${TRAVEL_CITIES.length} cities.`,
       "",
       "",
       "Private"][step];
@@ -139,7 +139,7 @@ export function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, ne
     </header>
     <div className={`fd-arrival-layout${step <= 0 ? " is-invitation" : ""}`}>
       <aside className="fd-arrival-aside">
-        {step <= 0 ? <InvitationArt /> : <div className="fd-arrival-chapter" aria-hidden="true">
+        {step <= 0 ? <InvitationArt count={rosterOf(state).length} /> : <div className="fd-arrival-chapter" aria-hidden="true">
           <strong>{String(step + 1).padStart(2, "0")}</strong>
           <span className="fd-chapter-name">{STAGES[step]}</span><span className="fd-chapter-date">{EDITION.long}</span>
         </div>}
@@ -149,7 +149,7 @@ export function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, ne
         <fieldset className="fd-arrival-fields" disabled={busy}>
           {step === -1 && <div className="fd-install"><InstallHint /></div>}
           {step === 0 && <div className="fd-guest-list" role="group" aria-label="Who are you?">
-            {ROSTER.map((p, i) => <button type="button" key={p} onClick={() => setSelected(p)} aria-pressed={selected === p}>
+            {rosterOf(state).map((p, i) => <button type="button" key={p} onClick={() => setSelected(p)} aria-pressed={selected === p}>
               <span className="fd-guest-index"><OneSafe all text={String(i + 1).padStart(2, "0")} /></span><span className="fd-guest-name">{p}</span>
             </button>)}
           </div>}

@@ -9,7 +9,7 @@
      client immediately receives the full authoritative state. */
 
 import {
-  ALL_PLAYERS, ROSTER, isActivePlayer,
+  ALL_PLAYERS, ARRIVE_CODE_ALPHABET, ROSTER, canCheckIn, isActivePlayer, isArriveCode, rosterOf,
 } from "../shared/core.js";
 import { checkInComplete } from "../shared/checkin.js";
 import {
@@ -48,7 +48,7 @@ import {
 import { claimAlerts, cleanSubscription, deliverAlerts, dropSubscription, saveSubscription, vapidConfig } from "./push.js";
 import { alertsFor } from "./pushAlerts.js";
 import { WIN_SONG_CLIP_MS, WIN_SONG_STOP_ACTIONS, winSongFor } from "./winSong.js";
-import { mvpDue, nextMvpDeadline } from "../shared/mvp.js";
+import { autoBeat } from "../shared/autopilot.js";
 import { findPreview, previewCache } from "./previews.js";
 import { findAlbumUpload } from "./youtube.js";
 import { projectPrompts } from "../shared/prompts.js";
@@ -78,6 +78,12 @@ const validDeviceId = value => typeof value === "string" && value.length > 0
    "earlier unlock" entry until someone revokes it. */
 const GM_TOKENS_KEY = "private:gm:tokens";
 const GM_TOKEN_LIMIT = 20;
+/* The TV's check-in code (Oct 4): private, made when a TV first needs it
+   while check-in is open, sent only to TV sockets (stateFrame, pong, an
+   "arrive" message), and dropped when the commissioner closes the door or
+   replaced on their "New code". A guest's setArrived must carry the current
+   one (ctx.arriveCode), so a check-in proves the phone saw the TV. */
+const ARRIVE_CODE_KEY = "private:arrive:code";
 const SPOTIFY_SESSION_KEY = "private:spotify:session";
 const SPOTIFY_STATE_PREFIX = "private:spotify:state:";
 /* the weekend speaker: chosen once in Speaker, sent with every cue */
@@ -124,6 +130,11 @@ const PREVIEW_LIMIT = 60;
 const SNIPPET_KEY_PREFIX = "private:youtube:";
 const SNIPPET_MISS_MS = 24 * 60 * 60 * 1000;
 const SNIPPET_LIMIT = 10;
+/* eight characters, 40 bits; 256 is a multiple of the 32-letter alphabet, so no bias */
+function newArriveCode() {
+  const bytes = crypto.getRandomValues(new Uint8Array(8));
+  return Array.from(bytes, byte => ARRIVE_CODE_ALPHABET[byte % ARRIVE_CODE_ALPHABET.length]).join("");
+}
 const spotifyJson = (body, status = 200) => Response.json(body, {
   status,
   headers:{ "Cache-Control":"no-store" },
@@ -159,7 +170,7 @@ export class Tournament {
     /* D11: the photo desk keeps its own keys, outside "state" */
     this.momentDesk = new MomentDesk({
       storage:ctx.storage,
-      playerFor:device => isActivePlayer(this.claims?.[device]) ? this.claims[device] : null,
+      playerFor:device => isActivePlayer(this.claims?.[device], this.state) ? this.claims[device] : null,
       isGmToken:async token => !!await this.gmTokenId(token),
       onChange:() => this.broadcastState("moments"),
     });
@@ -213,6 +224,8 @@ export class Tournament {
     this.gmToken = (await this.ctx.storage.get("gmToken")) || null;
     this.gmTokens = (await this.ctx.storage.get(GM_TOKENS_KEY)) || {};
     this.claims = (await this.ctx.storage.get("claims")) || {}; // deviceId -> player
+    const arriveCode = await this.ctx.storage.get(ARRIVE_CODE_KEY);
+    this.arriveCode = isArriveCode(arriveCode) ? arriveCode : null;
     await this.momentDesk.load();
   }
 
@@ -305,13 +318,13 @@ export class Tournament {
       }
       if (req.method === "POST") {
         let body;
-        try { body = await req.json(); } catch { return Response.json({ ok: false, error: "Bad photo" }, { status: 400 }); }
+        try { body = await req.json(); } catch { return Response.json({ ok: false, error: "That photo didn't come through. Pick it again" }, { status: 400 }); }
         const { dataUrl, deviceId, gmToken } = body || {};
         const isGm = !!await this.gmTokenId(gmToken);
-        if ((!isActivePlayer(player) || this.claims[deviceId] !== player) && !isGm)
+        if ((!isActivePlayer(player, this.state) || this.claims[deviceId] !== player) && !isGm)
           return Response.json({ ok: false, error: "Not your profile" }, { status: 403 });
         if (typeof dataUrl !== "string" || !dataUrl.startsWith("data:image/") || dataUrl.length > 120000)
-          return Response.json({ ok: false, error: "Bad photo" }, { status: 400 });
+          return Response.json({ ok: false, error: "That photo didn't come through. Pick it again" }, { status: 400 });
         const nextState = structuredClone(this.state);
         nextState.profiles[player] = { ...(nextState.profiles[player] || {}), photoV: Date.now() };
         /* Persist the payload before publishing its reference. A failed state
@@ -432,7 +445,7 @@ export class Tournament {
         if (!isGm) return json({ ok:false, error:"Commissioner only" }, 403);
         target = { title:(url.searchParams.get("title") || "").slice(0, 120), artist:(url.searchParams.get("artist") || "").slice(0, 120),
           isrc:(url.searchParams.get("isrc") || "").toUpperCase() };
-        if (!target.title.trim()) return json({ ok:false, error:"No song" }, 400);
+        if (!target.title.trim()) return json({ ok:false, error:"Add the song's title first" }, 400);
       } else return json({ ok:false, error:"Not found" }, 404);
       const found = await this.triviaClip(target);
       return found ? json({ ok:true, url:found.url }) : json({ ok:false, error:"No clip" }, 404);
@@ -475,8 +488,9 @@ export class Tournament {
     catch (error) {
       console.error(JSON.stringify({ event:"persist-failed", action:type,
         error:String(error?.message || error).slice(0, 300) }));
-      return { ok:false, error:"Couldn't save. Try again." };
+      return { ok:false, error:"The server didn't save it. Tap again." };
     }
+    await this.scheduleAlarm();
     return result;
   }
 
@@ -509,13 +523,13 @@ export class Tournament {
     if (extra !== null) return json({ ok:false, error:"Not found" }, 404);
 
     if (admin) {
-      if (!await this.gmAuthorized(req)) return json({ ok:false, error:"Commissioner authentication required" }, 403);
-      const view = () => projectPrompts(this.state.prompts, { isGm:true });
+      if (!await this.gmAuthorized(req)) return json({ ok:false, error:"Commissioner only. Unlock with the PIN first" }, 403);
+      const view = () => projectPrompts(this.state.prompts, { isGm:true, roster:rosterOf(this.state) });
       if (!id) {
         if (req.method === "GET") return json({ ok:true, ...view() });
         if (req.method !== "POST") return json({ ok:false, error:"Method not allowed" }, 405);
         const body = await readBody();
-        if (!body) return json({ ok:false, error:"Bad request" }, 400);
+        if (!body) return json({ ok:false, error:"That request didn't come through whole. Tap again" }, 400);
         return answer(await this.applyHttpAction("promptSave", body.ballot || body, { isGm:true }));
       }
       if (req.method === "DELETE" && !command)
@@ -529,24 +543,24 @@ export class Tournament {
         end:"promptRevealEnd" };
       if (req.method !== "POST" || !Object.hasOwn(types, command || "")) return json({ ok:false, error:"Not found" }, 404);
       const body = await readBody();
-      if (!body) return json({ ok:false, error:"Bad request" }, 400);
+      if (!body) return json({ ok:false, error:"That request didn't come through whole. Tap again" }, 400);
       return answer(await this.applyHttpAction(types[command], { id, ...(body.step !== undefined ? { step:body.step } : {}) },
         { isGm:true }));
     }
 
     /* a guest is whoever this device claimed */
     const deviceId = validDeviceId(req.headers.get("X-Field-Day-Device"));
-    const player = deviceId && isActivePlayer(this.claims[deviceId]) ? this.claims[deviceId] : null;
+    const player = deviceId && isActivePlayer(this.claims[deviceId], this.state) ? this.claims[deviceId] : null;
     if (!player) return json({ ok:false, error:"Check in first" }, 403);
     if (!id && req.method === "GET") {
-      const ballots = projectPrompts(this.state.prompts, { player }).ballots;
+      const ballots = projectPrompts(this.state.prompts, { player, roster:rosterOf(this.state) }).ballots;
       return json({ ok:true, ballots, pending:ballots.filter(ballot => ballot.status === "open").flatMap(ballot =>
         ballot.questions.filter(question => !ballot.mine?.[question.id]).map(question => ({ ballotId:ballot.id,
           questionId:question.id }))) });
     }
     if (id && command === "responses" && req.method === "POST") {
       const body = await readBody();
-      if (!body) return json({ ok:false, error:"Bad request" }, 400);
+      if (!body) return json({ ok:false, error:"That request didn't come through whole. Tap again" }, 400);
       return answer(await this.applyHttpAction("promptRespond",
         { id, questionId:body.questionId, choice:body.choice ?? null }, { player, deviceId }));
     }
@@ -574,7 +588,7 @@ export class Tournament {
   async spotifySearchAuthorized(req) {
     if (await this.gmAuthorized(req)) return { ok:true, key:"gm" };
     const deviceId = req.headers.get("X-Field-Day-Device") || "";
-    return isActivePlayer(this.claims[deviceId])
+    return isActivePlayer(this.claims[deviceId], this.state)
       ? { ok:true, key:`device:${deviceId}` }
       : { ok:false, key:null };
   }
@@ -718,7 +732,7 @@ export class Tournament {
     const control = nextState.showControl && typeof nextState.showControl === "object"
       ? nextState.showControl : { active:null, history:[] };
     nextState.showControl = { ...control, audio:{ ...(control.audio || {}), miss:{
-      player:song.player, key:song.key, mvp:song.mvp === true, whole:song.clipMs === null, reason, at:Date.now(),
+      player:song.player, key:song.key, whole:song.clipMs === null, reason, at:Date.now(),
     } } };
     try { await this.persistAndBroadcast("walkoutMiss", nextState); }
     catch (writeError) {
@@ -726,37 +740,61 @@ export class Tournament {
     }
   }
 
-  /* The object's one alarm serves two clocks: a walkout's `until` and an
-     open team MVP vote's `closesAt`. It is set for whichever comes first. */
+  /* The object's one alarm serves two clocks: a walkout's `until` and the
+     autopilot's next beat. It is set for whichever comes first. */
   async scheduleAlarm() {
     const times = [];
+    const beat = this.nextAutoBeat();
+    if (beat) times.push(Math.max(beat.at, this.autoRetryAt || 0));
     const walkout = walkoutOf(this.state);
     /* a win song starts fading out before its end */
     if (walkout) times.push(walkout.auto ? Math.max(walkout.startedAt + WIN_FADE_IN_MS, walkout.until - WIN_FADE_OUT_MS)
       : walkout.until + 250);
-    const deadline = nextMvpDeadline(this.state);
-    if (deadline !== null) times.push(deadline);
     if (!times.length) return;
     try { await this.ctx.storage.setAlarm?.(Math.min(...times)); } catch {}
   }
 
-  /* An MVP vote whose minute is up closes in its own write, like a
-     commissioner's close, and its winner's song follows. */
-  async closeDueMvps(now) {
-    const due = mvpDue(this.state, now);
-    if (!due.length) return;
-    const before = this.state;
-    const nextState = structuredClone(this.state);
-    for (const evId of due)
-      applyAction(nextState, "mvpClose", { evId }, { isGm:true, player:null, deviceId:null, actionId:null,
-        environment:this.environment });
-    try {
-      await this.persistAndBroadcast("mvpClose", nextState);
-    } catch (error) {
-      console.error(JSON.stringify({ event:"mvp-close-failed", error:String(error?.message || error).slice(0, 300) }));
-      return;
+  /* the autopilot's next beat (shared/autopilot.js), unless that very
+     beat was just refused: it waits for the board to move instead of
+     re-firing */
+  nextAutoBeat() {
+    const beat = autoBeat(this.state, { showControl:this.capabilities.showControl });
+    return beat && beat.key !== this.autoRefused ? beat : null;
+  }
+
+  /* Due autopilot beats, each its own write on the ordinary reducer with a
+     commissioner context: the beat's key is its action id, so a beat that
+     already ran is a no-op. A finish posts the result like a tap would, so
+     its winner scene, alerts and win song follow. */
+  async runAutopilot() {
+    for (let i = 0; i < 4; i += 1) {
+      const beat = this.nextAutoBeat();
+      if (!beat || beat.at > Date.now() + 25 || (this.autoRetryAt || 0) > Date.now()) return;
+      const before = this.state;
+      const nextState = structuredClone(this.state);
+      const result = applyAction(nextState, beat.type, beat.payload, {
+        isGm:true, auto:true, player:null, deviceId:"autopilot", actionId:beat.key,
+        environment:this.environment, showControl:this.capabilities.showControl,
+      });
+      if (!result.ok || result.extra?.unchanged) {
+        this.autoRefused = beat.key;
+        if (!result.ok) console.error(JSON.stringify({ event:"autopilot-refused", action:beat.type,
+          error:String(result.error || "").slice(0, 200) }));
+        return;
+      }
+      this.carryWalkout(nextState);
+      try {
+        await this.persistAndBroadcast(beat.type, nextState);
+      } catch (error) {
+        console.error(JSON.stringify({ event:"autopilot-write-failed", action:beat.type,
+          error:String(error?.message || error).slice(0, 300) }));
+        this.autoRetryAt = Date.now() + 5000;
+        return;
+      }
+      this.autoRetryAt = 0;
+      this.queueAlerts(before, this.state, null);
+      this.queueWinSong(before, this.state, beat.type);
     }
-    this.queueWinSong(before, this.state, "mvpClose");
   }
 
   /* an action that rebuilt showControl (a progress reset or a QA jump) does
@@ -769,11 +807,11 @@ export class Tournament {
     nextState.showControl = { ...control, audio:{ ...(control.audio || {}), walkout:live } };
   }
 
-  /* the alarm: close MVP votes whose time is up, clear a walkout once its
+  /* the alarm: run the autopilot's due beats, clear a walkout once its
      song is over (ending a win song's clip on the speaker), then re-arm for
      whatever is still waiting */
   async alarm() {
-    await this.closeDueMvps(Date.now());
+    await this.runAutopilot();
     const walkout = walkoutOf(this.state);
     if (walkout && Date.now() >= (walkout.auto ? walkout.until - WIN_FADE_OUT_MS : walkout.until)) {
       if (walkout.auto) await this.songQueue(() => this.stopWinSong(walkout, WIN_FADE_OUT_MS));
@@ -878,7 +916,7 @@ export class Tournament {
       throw error;
     }
     await this.stampWalkout({ uri:song.track.uri, player:song.player, positionMs:song.track.startMs || 0,
-      durationMs:song.track.durationMs, clipMs:song.clipMs, auto:true, mvp:song.mvp === true });
+      durationMs:song.track.durationMs, clipMs:song.clipMs, auto:true });
     if (!fade) {
       /* a speaker that was asleep: now that it plays, make sure it is not
          sitting at the silence a refused restore left */
@@ -947,7 +985,7 @@ export class Tournament {
     const track = miss?.player ? this.state.profiles?.[miss.player]?.walkoutTrack : null;
     if (!miss || !track) return { ok:false, error:"Nothing to retry" };
     const song = { player:miss.player, track, clipMs:miss.whole ? null : WIN_SONG_CLIP_MS,
-      key:`${miss.key}:retry:${Date.now()}`, mvp:miss.mvp === true };
+      key:`${miss.key}:retry:${Date.now()}` };
     return this.songQueue(() => this.playWinSong(song));
   }
 
@@ -955,7 +993,7 @@ export class Tournament {
   walkoutPlayerFor(trackId) {
     if (!trackId) return null;
     const owners = Object.entries(this.state.profiles || {})
-      .filter(([player, profile]) => isActivePlayer(player) && profile?.walkoutTrack?.trackId === trackId)
+      .filter(([player, profile]) => isActivePlayer(player, this.state) && profile?.walkoutTrack?.trackId === trackId)
       .map(([player]) => player);
     return owners.length === 1 ? owners[0] : null;
   }
@@ -964,7 +1002,7 @@ export class Tournament {
      the player's saved track; a search result sends its own; a resume reads
      the speaker once and otherwise assumes the longest walkout. Never throws:
      the song is already playing. */
-  async stampWalkout({ uri, player, positionMs, durationMs, clipMs = null, auto = false, mvp = false }) {
+  async stampWalkout({ uri, player, positionMs, durationMs, clipMs = null, auto = false }) {
     const startedAt = Date.now();
     try {
       if (uri) {
@@ -972,7 +1010,7 @@ export class Tournament {
         const saved = player ? this.state.profiles?.[player]?.walkoutTrack : null;
         const length = saved?.trackId === trackId ? saved.durationMs : durationMs;
         return await this.setWalkout(buildWalkout({ player, trackId, startedAt, durationMs:length, positionMs,
-          clipMs, auto, mvp }), "walkoutStart");
+          clipMs, auto }), "walkoutStart");
       }
       let playback = null;
       try { playback = compactSpotifyPlayback(await this.spotifyUserApi("/me/player")); } catch {}
@@ -1223,7 +1261,7 @@ export class Tournament {
       const positionMs = Math.max(0, Math.min(12 * 60 * 60 * 1000,
         Math.floor(Number(body?.positionMs) || 0)));
       const cuePlayer = body?.player === undefined || body?.player === null ? null : body.player;
-      if (cuePlayer !== null && !isActivePlayer(cuePlayer))
+      if (cuePlayer !== null && !isActivePlayer(cuePlayer, this.state))
         return spotifyJson({ ok:false, error:"Invalid player" }, 400);
       try {
         const speaker = await this.spotifySpeaker(deviceId);
@@ -1377,7 +1415,7 @@ export class Tournament {
 
   async handleAdmin(req, url) {
     if (!await this.adminAuthorized(req))
-      return Response.json({ ok: false, error: "Commissioner authentication required" }, { status: 403 });
+      return Response.json({ ok: false, error: "Commissioner only. Unlock with the PIN first" }, { status: 403 });
 
     if (url.pathname === "/api/admin/snapshot" && req.method === "GET") {
       const snapshot = await this.createSnapshot();
@@ -1505,6 +1543,33 @@ export class Tournament {
     return !!await this.gmTokenId(gmToken);
   }
 
+  /* ── the TV's check-in code ──
+     The code a TV shows while check-in is open, made on first need. The
+     write is not awaited: the Durable Object's output gate holds this
+     frame until the code is stored, so a TV never shows an unsaved code. */
+  arriveCodeForTv(now = Date.now()) {
+    if (!canCheckIn(this.state, now)) return null;
+    if (!this.arriveCode) this.setArriveCode(newArriveCode());
+    return this.arriveCode;
+  }
+
+  setArriveCode(code) {
+    this.arriveCode = code;
+    const write = code ? this.ctx.storage.put(ARRIVE_CODE_KEY, code) : this.ctx.storage.delete(ARRIVE_CODE_KEY);
+    Promise.resolve(write).catch(error => console.error(JSON.stringify({ event:"arrive-code-failed",
+      error:String(error?.message || error).slice(0, 200) })));
+  }
+
+  /* every TV socket hears the current code (a new one, or none once the door closes) */
+  sendArriveCode(skip = null) {
+    let code;
+    for (const ws of this.ctx.getWebSockets?.() || []) {
+      if (ws === skip || !this.socketMeta(ws).tv) continue;
+      code ??= this.arriveCodeForTv();
+      try { ws.send(JSON.stringify({ type:"arrive", code })); } catch {}
+    }
+  }
+
   /* The commissioner's TV check: every TV socket's own sound report and
      how long since it last spoke. Presence only: never stored, never in a
      snapshot, and only in commissioner frames (stateFrame, sendTvs). */
@@ -1534,7 +1599,7 @@ export class Tournament {
   viewerFor(meta) {
     if (meta?.tv) return { isGm:false, player:null };
     const claimed = meta?.deviceId ? this.claims[meta.deviceId] : null;
-    return { isGm:meta?.gm === true, player:isActivePlayer(claimed) ? claimed : null };
+    return { isGm:meta?.gm === true, player:isActivePlayer(claimed, this.state) ? claimed : null };
   }
 
   rememberApplied(deviceId, actionId) {
@@ -1558,6 +1623,8 @@ export class Tournament {
       ...(meta.deviceId ? { gm:viewer.isGm } : {}),
       /* the commissioner's TV check (presence, never state) */
       ...(viewer.isGm ? { tvs:this.tvSummary() } : {}),
+      /* the check-in code, on a TV socket only (never state, never a snapshot) */
+      ...(meta.tv ? { arrive:this.arriveCodeForTv() } : {}),
       environment:shared?.environment ?? this.environment,
       capabilities,
       /* the VAPID public key a phone subscribes with; public by nature */
@@ -1613,7 +1680,11 @@ export class Tournament {
       const tv = payload?.view === "tv" ? true : payload?.view === "app" ? false : wasTv;
       meta = this.setSocketMeta(ws, { ...meta, tv, fg:visible ?? (type === "ping" ? meta.fg : false),
         seenAt:Date.now(), sound:tv ? tvSound ?? meta.sound : null });
-      if (type === "ping") try { ws.send(JSON.stringify({ type: "pong", serverNow:Date.now() })); } catch {}
+      if (type === "ping") try { ws.send(JSON.stringify({ type: "pong", serverNow:Date.now(),
+        /* a TV left on picks up the code once check-in opens at Friday's midnight */
+        ...(tv ? { arrive:this.arriveCodeForTv() } : {}) })); } catch {}
+      /* the app's own TV mode turning on or off: the code follows the view */
+      else if (tv !== wasTv) try { ws.send(JSON.stringify({ type:"arrive", code:tv ? this.arriveCodeForTv() : null })); } catch {}
       if (tv || wasTv) this.sendTvs();
       return;
     }
@@ -1641,7 +1712,7 @@ export class Tournament {
         .slice(0, GM_TOKEN_LIMIT - 1);
       const nextTokens = { ...Object.fromEntries(kept), [crypto.randomUUID().slice(0, 8)]:{
         token, deviceId:typeof deviceId === "string" ? deviceId.slice(0, 200) : null,
-        player:isActivePlayer(this.claims?.[deviceId]) ? this.claims[deviceId] : null, createdAt:now,
+        player:isActivePlayer(this.claims?.[deviceId], this.state) ? this.claims[deviceId] : null, createdAt:now,
       } };
       await this.ctx.storage.put(GM_TOKENS_KEY, nextTokens);
       this.gmTokens = nextTokens;
@@ -1662,9 +1733,18 @@ export class Tournament {
       return reply({ ok: true, extra: { devices: this.gmDeviceList(currentId) } });
     }
 
+    /* the commissioner's New code: the TV shows a fresh one and the old one stops working */
+    if (type === "arriveRotate") {
+      if (!await this.gmTokenId(gmToken)) return reply({ ok:false, error:"Commissioner only" });
+      if (!canCheckIn(this.state)) return reply({ ok:false, error:"Check-in is closed" });
+      this.setArriveCode(newArriveCode());
+      this.sendArriveCode();
+      return reply({ ok:true });
+    }
+
     if (type === "claim") {
       const player = payload?.player;
-      if (!ROSTER.includes(player)) return reply({ ok: false, error: "Pick a player" });
+      if (!isActivePlayer(player, this.state)) return reply({ ok: false, error: "Pick a player" });
       if (!deviceId) return reply({ ok:false, error:"Reload and try again" });
       const previous = this.claims[deviceId];
       if (previous !== player) {
@@ -1702,13 +1782,15 @@ export class Tournament {
     const nextState = structuredClone(this.state);
     const result = applyAction(nextState, type, payload, {
       isGm,
-      player: isActivePlayer(claimed) ? claimed : null,
+      player: isActivePlayer(claimed, this.state) ? claimed : null,
       deviceId,
       actionId,
       environment:this.environment,
       progressReset:this.capabilities.progressReset,
       showControl:this.capabilities.showControl,
       qa:this.capabilities.qa,
+      /* a guest's check-in must carry the TV's current code */
+      ...(type === "setArrived" ? { arriveCode:this.arriveCode } : {}),
       ...(qaCheckpoint ? { qaCheckpoint } : {}),
     });
     if (!result.ok) {
@@ -1737,9 +1819,11 @@ export class Tournament {
       console.error(JSON.stringify({ event:"persist-failed", action:type,
         error:String(error?.message || error).slice(0, 300) }));
       if (viewChanged) this.sendState(ws);
-      return reply({ ok:false, error:"Couldn't save. Try again." });
+      return reply({ ok:false, error:"The server didn't save it. Tap again." });
     }
     this.rememberApplied(deviceId, actionId);
+    /* closing the door retires the check-in code: a new one is made when it opens again */
+    if (type === "setArrivalsOpen" && !canCheckIn(this.state)) this.setArriveCode(null);
     /* The actor's ack is not held up by the broadcast. Its own socket gets
        the new board first (a resolved dispatch has always meant the state
        it produced is already on screen), then the ack, then every other
@@ -1750,13 +1834,14 @@ export class Tournament {
     const extra = { ...(result.extra || {}), ...(persisted || {}) };
     reply({ ...result, ...(Object.keys(extra).length ? { extra } : {}), version: this.version });
     this.broadcastState(type, { serialize, shared, skip:ws });
-    /* a team MVP vote that just opened closes by itself on the alarm */
-    if (nextMvpDeadline(this.state) !== null) this.scheduleAlarm();
+    /* the autopilot's next beat (a game
+       started, a scene began, a hold released), runs on the alarm */
+    this.scheduleAlarm();
     /* rehearsal jumps and resets move the board, not the room: no alerts
        and no win songs. QA's Sim contest and Finish event rehearse one win
        at a time, so their song plays as it would on the night. */
     if (!QUIET_ACTIONS.has(type)) {
-      this.queueAlerts(before, this.state, isActivePlayer(claimed) ? claimed : null);
+      this.queueAlerts(before, this.state, isActivePlayer(claimed, this.state) ? claimed : null);
       this.queueWinSong(before, this.state, type);
     } else if (type === "qaAdvance" && QA_SONG_TARGETS.has(payload?.target) && !result.extra?.rewound) {
       this.queueWinSong(before, this.state, type);
@@ -1776,7 +1861,7 @@ export class Tournament {
       return { ok:true };
     }
     if (!this.capabilities.push) return { ok:false, error:"Alerts are off" };
-    if (!isActivePlayer(this.claims[deviceId])) return { ok:false, error:"Check in first" };
+    if (!isActivePlayer(this.claims[deviceId], this.state)) return { ok:false, error:"Check in first" };
     const sub = cleanSubscription(payload, { environment:this.environment });
     if (!sub) return { ok:false, error:"This browser can't take alerts" };
     await saveSubscription(this.ctx.storage, deviceId, sub);

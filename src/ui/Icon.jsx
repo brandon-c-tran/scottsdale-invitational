@@ -107,6 +107,12 @@ const ICONS = {
     line:<><rect x="3.5" y="4.6" width="17" height="14.8" rx="2.1" /><path d="m3.8 16.6 4.6-4.6 4 4 2.6-2.6 5.2 5.2" /><circle cx="15.6" cy="9.4" r="1.5" /></>,
     lit:{ fill:<rect x="3.5" y="4.6" width="17" height="14.8" rx="2.1" />, cut:<><path d="m3.8 16.6 4.6-4.6 4 4 2.6-2.6 5.2 5.2" /><circle cx="15.6" cy="9.4" r="1.5" fill="#000" /></> },
   },
+  /* a viewfinder's four corners round a code's three finder squares */
+  scan:{
+    line:<><path d="M4 8.4V5.6A1.6 1.6 0 0 1 5.6 4h2.8M15.6 4h2.8A1.6 1.6 0 0 1 20 5.6v2.8M20 15.6v2.8a1.6 1.6 0 0 1-1.6 1.6h-2.8M8.4 20H5.6A1.6 1.6 0 0 1 4 18.4v-2.8" />
+      <rect x="8" y="8" width="3" height="3" rx=".5" /><rect x="13" y="8" width="3" height="3" rx=".5" /><rect x="8" y="13" width="3" height="3" rx=".5" />
+      <path d="M13.5 13.5h2.5v2.5" /></>,
+  },
   tv:{
     line:<><rect x="3" y="7" width="18" height="12.4" rx="2.1" /><path d="m8.5 2.9 3.5 3.5 3.5-3.5" /></>,
     lit:{ fill:<><rect x="3" y="7" width="18" height="12.4" rx="2.1" /><path d="m8.5 2.9 3.5 3.5 3.5-3.5" fill="none" /></>, cut:null },

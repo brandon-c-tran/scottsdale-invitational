@@ -1,0 +1,160 @@
+/* The place picker (ResultEntry.jsx, PlacePicker.jsx): the paid places as a
+   podium of sockets over the field of people. Place colors are the medal
+   inks (1st amber, 2nd silver, 3rd bronze, as PayoutLadder and the TV
+   podium); the socket the next tap lands in is the info lamp (cyan), and it
+   flashes like any pending lamp. Tokens only. Phone text 12px and up, every
+   control 44px and up. */
+.fd-pp { display:grid; gap:18px; }
+.fd-pp .is-place-0 { --place:var(--sun); }
+.fd-pp .is-place-1 { --place:var(--silver); }
+.fd-pp .is-place-2 { --place:var(--bronze); }
+.fd-pp .is-place-crew { --place:var(--muted); }
+
+/* ── the podium ── */
+.fd-pp-podium { list-style:none; margin:0; padding:0; position:relative; display:grid;
+  grid-template-columns:repeat(var(--pp-cols), minmax(0, 1fr)); align-items:end; gap:6px;
+  width:100%; max-width:calc(var(--pp-cols) * 138px); margin-inline:auto; }
+/* the floor the steps stand on */
+.fd-pp-podium::after { content:""; position:absolute; left:-8px; right:-8px; bottom:0; height:1px; background:var(--ghost-line); }
+.fd-pp-socket { position:relative; display:flex; flex-direction:column; align-items:stretch; min-width:0; }
+/* one height for every seat, empty or filled, so the field never moves
+   under the finger as places fill; a place that takes a tie keeps its top
+   band clear for the + */
+.fd-pp-seat { box-sizing:border-box; display:flex; flex-wrap:wrap; align-content:flex-end; align-items:flex-end; justify-content:center;
+  gap:4px 2px; min-height:112px; padding:0 2px 8px; }
+.fd-pp-socket.is-tieable.is-filled .fd-pp-seat { padding-top:38px; }
+.fd-pp-podium.is-still .fd-pp-seat { min-height:76px; }
+
+/* the step: glass lit from above, the medallion and the award on it */
+.fd-pp-step { box-sizing:border-box; position:relative; display:flex; align-items:flex-start; justify-content:center; gap:6px;
+  width:100%; height:calc(72px * var(--rise)); min-height:44px; margin:0; padding:9px 4px 0; border-radius:10px 10px 0 0;
+  border:1px solid var(--line); border-bottom:0; color:var(--ink); font:inherit; cursor:pointer;
+  background:linear-gradient(180deg, color-mix(in srgb, var(--bone) 9%, var(--paper2)) 0, var(--paper2) 22%, color-mix(in srgb, var(--ink0) 30%, var(--paper2)) 100%);
+  box-shadow:var(--glass-edge); -webkit-tap-highlight-color:transparent;
+  transition:border-color var(--motion-fast, 140ms) var(--ease-out, ease-out), box-shadow var(--motion-fast, 140ms) var(--ease-out, ease-out); }
+div.fd-pp-step { cursor:default; }
+.fd-pp-socket.is-place-0 .fd-pp-step { border-color:color-mix(in srgb, var(--sun) 45%, transparent);
+  background:linear-gradient(180deg, color-mix(in srgb, var(--sun) 22%, var(--paper2)) 0, color-mix(in srgb, var(--sun) 9%, var(--paper2)) 24%, color-mix(in srgb, var(--ink0) 25%, var(--paper2)) 100%); }
+.fd-pp-socket.is-place-crew .fd-pp-step { background:transparent; border:1px dashed var(--muted); border-bottom:0; box-shadow:none; }
+.fd-pp-medal { box-sizing:border-box; display:grid; place-items:center; flex:none; width:22px; height:22px; border-radius:50%;
+  background:var(--place); color:var(--ink0); border:2px solid var(--ink0); font:800 13px/1 var(--fd-display);
+  font-variant-numeric:tabular-nums; box-shadow:inset 0 0 0 2px color-mix(in srgb, var(--ink0) 20%, transparent); }
+.fd-pp-amount { font:800 19px/22px var(--fd-display); color:var(--bone); font-variant-numeric:tabular-nums; letter-spacing:.01em; }
+.fd-pp-socket.is-place-0 .fd-pp-amount { color:var(--sun); }
+.fd-pp-crew { font:700 12px/22px var(--fd-display); letter-spacing:.1em; text-transform:uppercase; color:var(--muted2); }
+.fd-pp-socket.is-place-crew .fd-pp-amount { color:var(--muted2); }
+.fd-pp-lock { position:absolute; right:7px; bottom:7px; display:flex; color:var(--muted); }
+.fd-pp-step:active:not(:disabled) { transform:translateY(1px); }
+.fd-pp-step:focus-visible, .fd-pp-tie:focus-visible, .fd-pp-unit:focus-visible, .fd-pp-tile:focus-visible,
+.fd-pp-team:focus-visible, .fd-pp-modes button:focus-visible { outline:2px solid var(--lamp-info); outline-offset:3px; }
+
+/* an open seat: the felt's dashed ring, the size of a placed face */
+.fd-pp-open { box-sizing:border-box; display:block; width:46px; height:46px; margin-bottom:22px; border-radius:50%;
+  border:1.5px dashed var(--ghost-line); cursor:pointer; }
+.fd-pp-open.is-tie { width:30px; height:30px; margin-bottom:20px; }
+
+/* the target: the info lamp, flashing while it waits for the next tap */
+.fd-pp-socket.is-target .fd-pp-step { border-color:var(--lamp-info);
+  animation:fd-pp-target 1.2s steps(1, end) infinite; }
+.fd-pp-socket.is-target .fd-pp-open { border:2px solid var(--lamp-info); background:var(--info-tint);
+  animation:fd-pp-seat 1.2s steps(1, end) infinite; }
+.fd-pp-socket.is-replacing .fd-pp-unit { opacity:.42; }
+@keyframes fd-pp-target {
+  0% { box-shadow:0 0 0 1px var(--lamp-info), 0 0 18px color-mix(in srgb, var(--lamp-info) 38%, transparent), var(--glass-edge); }
+  50% { box-shadow:0 0 0 1px color-mix(in srgb, var(--lamp-info) 45%, transparent), var(--glass-edge); }
+}
+@keyframes fd-pp-seat {
+  0% { box-shadow:0 0 14px color-mix(in srgb, var(--lamp-info) 45%, transparent); }
+  50% { box-shadow:none; border-color:color-mix(in srgb, var(--lamp-info) 55%, transparent); }
+}
+/* a paid place about to be left empty */
+.fd-pp-socket.is-owed .fd-pp-step { border-color:var(--danger-line); }
+.fd-pp-socket.is-owed:not(.is-target) .fd-pp-open { border-color:var(--clay); }
+
+/* the tie: a + lens in the place's top corner, 44px to the finger */
+.fd-pp-tie { position:absolute; top:4px; right:4px; z-index:2; display:grid; place-items:center;
+  width:30px; height:30px; padding:0; border-radius:50%; border:1.5px dashed var(--ghost-line); background:var(--paper);
+  color:var(--muted2); cursor:pointer; -webkit-tap-highlight-color:transparent; }
+.fd-pp-tie::before { content:""; position:absolute; inset:-7px; border-radius:50%; }
+.fd-pp-tie span { display:flex; }
+.fd-pp-tie.is-lit { border:2px solid var(--lamp-info); color:var(--lamp-info); background:color-mix(in srgb, var(--lamp-info) 14%, var(--paper)); }
+
+/* who stands on a step */
+.fd-pp-unit { display:flex; flex-direction:column; align-items:center; gap:4px; min-width:44px; max-width:100%; min-height:44px;
+  margin:0; padding:0 1px; border:0; background:none; color:var(--ink); font:inherit; cursor:pointer;
+  -webkit-tap-highlight-color:transparent; transition:opacity var(--motion-fast, 140ms) var(--ease-out, ease-out); }
+.fd-pp-unit.is-static { cursor:default; }
+.fd-pp-unit.is-arriving { opacity:0; transition:none; }
+.fd-pp-unit:active:not(.is-static) .fd-pp-face { transform:scale(.92); }
+.fd-pp-unit .fd-pp-name { font:600 12px/1.2 var(--fd-body); }
+.fd-pp-unit.is-team { flex-basis:100%; }
+.fd-pp-face { position:relative; display:flex; justify-content:center; border-radius:50%;
+  transition:transform var(--motion-fast, 140ms) var(--ease-out, ease-out); }
+.fd-pp-name { max-width:100%; text-align:center; overflow-wrap:anywhere; hyphens:auto; }
+.fd-pp-socket.is-place-0 .fd-pp-unit .fd-pp-name { font-weight:700; }
+
+/* ── the field ── */
+.fd-pp-fieldset { display:grid; gap:10px; min-width:0; margin:0; padding:0; border:0; }
+/* four across; a short last row stands centered */
+.fd-pp-field { display:flex; flex-wrap:wrap; justify-content:center; gap:4px; }
+.fd-pp-tile { box-sizing:border-box; flex:0 0 calc((100% - 12px) / 4); display:flex; flex-direction:column; align-items:center; gap:6px;
+  min-width:0; min-height:92px; margin:0;
+  padding:8px 2px 6px; border:0; border-radius:10px; background:none; color:var(--ink); font:inherit; cursor:pointer;
+  -webkit-tap-highlight-color:transparent; transition:opacity var(--motion-fast, 140ms) var(--ease-out, ease-out), background-color var(--motion-fast, 140ms) var(--ease-out, ease-out); }
+.fd-pp-tile:active:not(:disabled) { background:var(--ink-tint); }
+.fd-pp-tile:active:not(:disabled) .fd-pp-face { transform:scale(.93); }
+.fd-pp-tile .fd-pp-name { font:600 13px/1.2 var(--fd-body); }
+.fd-pp-tile.is-idle { opacity:.42; }
+/* placed: the place's ring and medallion */
+.fd-pp-tile.is-placed .fd-pp-face { box-shadow:0 0 0 2px var(--paper), 0 0 0 4.5px var(--place); }
+.fd-pp-tile.is-placed .fd-pp-name { color:var(--muted2); }
+.fd-pp-badge { box-sizing:border-box; position:absolute; right:-6px; bottom:-5px; display:grid; place-items:center;
+  width:24px; height:24px; border-radius:50%; background:var(--place); color:var(--ink0); border:2px solid var(--paper);
+  font:800 13px/1 var(--fd-display); font-variant-numeric:tabular-nums; }
+/* crew: the bronze dashed ring (their 3rd-place award comes from the draw) */
+.fd-pp-tile.is-crew:not(.is-placed) .fd-pp-face { outline:1.5px dashed var(--bronze); outline-offset:3px; }
+
+/* team tiles */
+.fd-pp-field.is-teams { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:8px; }
+/* faces over the name, the place's medallion in the corner */
+.fd-pp-team { box-sizing:border-box; position:relative; display:flex; flex-direction:column; align-items:flex-start; gap:8px;
+  min-width:0; min-height:84px; margin:0; padding:12px 12px 11px; border-radius:10px; border:1px solid var(--line); background:var(--paper2); box-shadow:var(--glass-edge);
+  color:var(--ink); font:inherit; text-align:left; cursor:pointer; -webkit-tap-highlight-color:transparent;
+  transition:opacity var(--motion-fast, 140ms) var(--ease-out, ease-out), border-color var(--motion-fast, 140ms) var(--ease-out, ease-out); }
+.fd-pp-team.is-wide { grid-column:1 / -1; }
+.fd-pp-team:active:not(:disabled) { transform:scale(.98); }
+.fd-pp-team .fd-pp-face { border-radius:0; flex:none; }
+.fd-pp-team-name { max-width:100%; min-width:0; font:600 14px/1.25 var(--fd-body); overflow-wrap:break-word; }
+.fd-pp-team.is-idle { opacity:.42; }
+.fd-pp-team.is-placed { border-color:color-mix(in srgb, var(--place) 60%, transparent);
+  background:color-mix(in srgb, var(--place) 11%, var(--paper2)); }
+.fd-pp-team.is-big { gap:10px; min-height:100px; padding:14px 12px 12px; }
+.fd-pp-team.is-big .fd-pp-team-name { font-size:15px; font-weight:700; }
+.fd-pp-badge.is-corner { top:10px; right:10px; bottom:auto; border-color:var(--ink0); }
+
+/* teams or players */
+.fd-pp-modes { display:flex; justify-self:end; gap:2px; padding:2px; border-radius:10px; border:1px solid var(--line); background:var(--bg); }
+.fd-pp-modes button { display:flex; align-items:center; gap:6px; min-height:44px; padding:0 12px; border:0; border-radius:8px;
+  background:none; color:var(--muted2); font:600 13px/1 var(--fd-body); cursor:pointer; }
+.fd-pp-modes button[aria-pressed="true"] { background:var(--info-tint); color:var(--lamp-info); box-shadow:0 0 0 1px color-mix(in srgb, var(--lamp-info) 55%, transparent); }
+.fd-pp-modes button:disabled { opacity:.35; cursor:default; }
+
+/* ── after the field ── */
+.fd-pp-error { margin:0; color:var(--clay-text); font:600 13px/1.4 var(--fd-body); }
+.fd-pp-check { display:grid; gap:10px; padding:12px 13px; border-radius:14px; border:1px solid var(--danger-line);
+  background:color-mix(in srgb, var(--clay) 7%, var(--paper2)); }
+.fd-pp-check.is-correction { border-color:var(--line); background:var(--paper2); }
+.fd-pp-check p { margin:0; color:var(--ink); font:600 14px/1.4 var(--fd-body); }
+.fd-pp-actions { display:flex; gap:8px; }
+.fd-pp-reason { display:grid; gap:6px; }
+.fd-pp-reason span { color:var(--muted2); font:700 12px/1.2 var(--fd-display); letter-spacing:.08em; text-transform:uppercase; }
+.fd-pp-reason input { box-sizing:border-box; width:100%; min-height:48px; padding:11px 12px; border-radius:10px;
+  border:1px solid var(--ghost-line); background:var(--bg); color:var(--ink); font:600 16px/1.2 var(--fd-body);
+  box-shadow:inset 0 1px 3px color-mix(in srgb, var(--ink0) 60%, transparent); outline:none; }
+.fd-pp-reason input:focus-visible { outline:2px solid var(--lamp-info); outline-offset:2px; }
+
+@media (prefers-reduced-motion:reduce) {
+  .fd-pp-socket.is-target .fd-pp-step { animation:none; box-shadow:0 0 0 1px var(--lamp-info), var(--glass-edge); }
+  .fd-pp-socket.is-target .fd-pp-open { animation:none; }
+  .fd-pp-step, .fd-pp-unit, .fd-pp-face, .fd-pp-tile, .fd-pp-team { transition:none; }
+}

@@ -1,0 +1,90 @@
+/* Arrivals on the TV (TVArrivals.jsx). The lobby is drawn in canvas pixels
+   (the seats' centers come from arrivalsModel's lobbySeats), over the
+   session's painting: one pane of glass at the center with the code lit
+   bone and the count's drum under it, and thirteen seats round it, each a
+   round window cut in the glass. A player who is in stands in it as their
+   chip, lit from behind in bone (presence is a state, so it lights; the
+   chip itself stays paint); a seat still waiting holds a dashed outline and
+   a lilac name, its Landed lamp flashing cyan once their flight is down. */
+.tv-lobby { position:absolute; left:0; top:calc(-1 * var(--tv-mast-h, 124px)); width:1920px; height:1080px;
+  pointer-events:none; animation:si-fade .5s ease-out; }
+
+/* the pane: the code, then the count */
+.tv-lobby-pane { position:absolute; left:50%; top:150px; transform:translateX(-50%); width:480px;
+  display:flex; flex-direction:column; align-items:center; gap:14px; padding:40px 40px 22px; }
+.tv-lobby-pane.is-full { padding-top:50px; }
+.tv-lobby-mark { display:grid; place-items:center; width:400px; height:390px; line-height:0; }
+.tv-lobby-count { display:flex; align-items:baseline; justify-content:center; gap:20px; color:var(--bone); }
+.tv-lobby-reel { font:800 112px/1 var(--fd-display); letter-spacing:.01em; }
+.tv-lobby-of { font:800 52px/1.15 var(--fd-display); letter-spacing:.02em; color:var(--muted2); }
+
+/* the code: a bone plate, lit from behind, its lamp the cyan of check-in
+   being open (steady: the door is open) */
+.tv-qr-plate { flex-shrink:0; padding:4.5%; border-radius:14px; background:var(--bone); line-height:0;
+  box-shadow:0 0 0 2px color-mix(in srgb, var(--lamp-info) 70%, transparent),
+    0 0 30px 2px color-mix(in srgb, var(--lamp-info) 32%, transparent), var(--shadow-2); }
+.tv-qr-plate svg { display:block; width:100%; height:100%; }
+.tv-qr-plate path { fill:var(--ink0); }
+
+/* the seats */
+.tv-lobby-seats { list-style:none; margin:0; padding:0; }
+.tv-lobby-seat { position:absolute; width:0; height:0; }
+.tv-lobby-well { position:absolute; left:-58px; top:-58px; display:grid; place-items:center; width:116px; height:116px;
+  border-radius:50%; background:var(--tv-window); box-shadow:var(--tv-cut), 0 0 0 1px var(--line), var(--shadow-1); }
+/* waiting: the seat's outline, dashed, nobody in it */
+.tv-lobby-seat.is-road .tv-lobby-well::before { content:""; position:absolute; inset:9px; border-radius:50%;
+  border:3px dashed color-mix(in srgb, var(--bone) 34%, transparent); }
+.tv-lobby-seat.is-landed .tv-lobby-well::before { border-color:color-mix(in srgb, var(--lamp-info) 80%, transparent); }
+.tv-lobby-chip { position:relative; display:block; line-height:0; border-radius:50%; box-shadow:var(--shadow-1); }
+/* in: the window lit from behind the chip */
+.tv-lobby-chip::before { content:""; position:absolute; inset:-8px; border-radius:50%; pointer-events:none;
+  box-shadow:0 0 0 2px color-mix(in srgb, var(--bone) 46%, transparent), 0 0 28px 5px color-mix(in srgb, var(--bone) 24%, transparent); }
+/* a name sits in a window cut in the glass, so it reads on any sky */
+.tv-lobby-name { position:absolute; left:50%; top:63px; transform:translateX(-50%); display:block; max-width:184px;
+  padding:3px 10px 4px; border-radius:9px; background:var(--tv-window); box-shadow:var(--tv-cut);
+  font-size:30px; line-height:1.15; color:var(--bone); white-space:nowrap; text-align:center; }
+.tv-lobby-name > span { display:inline-block; transform-origin:50% 50%; }
+.tv-lobby-seat.is-road .tv-lobby-name { color:var(--muted2); }
+.tv-lobby-landed { position:relative; display:flex; flex-direction:column; align-items:center; gap:6px;
+  font:800 24px/1.15 var(--fd-display); letter-spacing:.06em; text-transform:uppercase; color:var(--lamp-info); }
+.tv-lobby-landed .fd-insert { --lamp:var(--lamp-info); width:16px; height:16px; }
+
+/* a fresh arrival: the chip falls into its seat from above, lands with a
+   small squash and settles; the light behind it comes up as it lands.
+   From the arrival's server instant (a negative delay for a late screen). */
+.tv-lobby-chip.is-dropping { animation:tv-lobby-drop 1100ms linear both; }
+.tv-lobby-chip.is-dropping::before { animation:tv-lobby-light 1100ms var(--ease-out) both; animation-delay:inherit; }
+@keyframes tv-lobby-drop {
+  0% { transform:translateY(-230px) scale(1.14); opacity:0; animation-timing-function:cubic-bezier(.5,0,.75,.4); }
+  10% { opacity:1; }
+  52% { transform:translateY(0) scale(1); animation-timing-function:cubic-bezier(.2,.8,.2,1); }
+  62% { transform:translateY(5px) scale(1.07, .9); animation-timing-function:cubic-bezier(.3,.7,.35,1.25); }
+  80% { transform:translateY(-6px) scale(.99, 1.02); animation-timing-function:cubic-bezier(.2,.8,.2,1); }
+  100% { transform:none; opacity:1; }
+}
+@keyframes tv-lobby-light { 0%, 50% { opacity:0; } 70% { opacity:1; } 100% { opacity:1; } }
+
+/* the corner: a small plate in the bottom right, the code over the faces
+   still on the way (unlit); the towers and the ticker stand clear of it */
+.tv-arrive-corner { position:absolute; z-index:4; right:var(--tv-edge); bottom:var(--tv-safe-y); display:flex; flex-direction:column;
+  align-items:center; gap:10px; padding:12px; border-radius:18px; background:var(--tv-sheen), var(--tv-glass);
+  border:1px solid var(--line); box-shadow:var(--glass-edge), var(--shadow-2); transition:opacity .45s ease, transform .45s ease; }
+.tv-arrive-corner .tv-qr-plate { border-radius:10px; }
+.tv-arrive-corner-faces { display:flex; align-items:center; justify-content:center; gap:8px; height:40px; }
+.tv-arrive-corner-face { display:block; line-height:0; border-radius:50%; filter:grayscale(1); opacity:.6; }
+.tv-arrive-corner-more { display:grid; place-items:center; min-width:40px; height:40px; padding:0 6px; border-radius:99px;
+  border:2px dashed var(--ghost-line); font:800 24px/1 var(--fd-display); color:var(--muted2); }
+/* a moment that owns the room: the plate leaves with the chrome */
+.tv-canvas:is([data-takeover], [data-moment]) .tv-arrive-corner { opacity:0; transform:translateY(60px); }
+/* the ticker stops short of the plate */
+.tv-canvas.has-arrive-corner :is(.tv-ticker-glass, .tv-ticker-page) { right:calc(var(--tv-edge) + var(--tv-corner-room, 236px)); }
+
+/* the standings while the door is open: a tower still on the road stands
+   unlit (its name and count in lilac, the flat column dimmed) */
+.tv-tower-label.is-road .tv-tower-name, .tv-tower-label.is-road .tv-tower-pts { color:var(--muted); }
+.tv-flat-slot.is-road .tv-flat-stand { opacity:.42; filter:grayscale(.7); }
+
+@media (prefers-reduced-motion: reduce) {
+  .tv-lobby-chip.is-dropping, .tv-lobby-chip.is-dropping::before { animation:none; }
+  .tv-lobby, .tv-arrive-corner { animation:none; transition:none; }
+}

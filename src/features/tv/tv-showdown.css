@@ -1,0 +1,75 @@
+/* The Quick Draw showdown on the TV (TVShowdown.jsx). One takeover on the
+   server clock: --tl is minus the ms already gone since armedAt when this
+   TV joined, --tr the same from the result, --fire the draw's offset from
+   armedAt, --out when it lifts. Every element rests on its end state, so a
+   late TV and reduced motion show the frame. Text 24px and up. */
+.tv-showdown { display:flex; flex-direction:column; align-items:center; padding:64px 64px 54px;
+  animation:tv-take-out var(--motion-lift, 500ms) var(--ease-exit) calc(var(--tl) + var(--out)) forwards; }
+.tv-showdown-glass { position:absolute; inset:0; background:var(--night-deep); animation:tv-take-dim 700ms var(--ease-out) calc(var(--tl) + 0ms) both; }
+.tv-showdown-chase { --chase:var(--lamp-live); animation:tv-take-in 200ms linear calc(var(--tl) + 820ms) both; }
+.tv-showdown-title { position:relative; --lamp:var(--lamp-live); color:var(--bone); font-size:76px; line-height:1.15;
+  text-shadow:0 0 1px var(--lamp-live), 0 0 26px color-mix(in srgb, var(--lamp-live) 55%, transparent);
+  animation:tv-take-in 420ms var(--ease-out) calc(var(--tl) + 120ms) both,
+    tv-showdown-under 900ms steps(1, end) calc(var(--tl) + var(--fire)); }
+/* under the flash the glass is lit through: what stands on it steps out for that beat */
+.tv-showdown-ring { animation:tv-showdown-under 900ms steps(1, end) calc(var(--tl) + var(--fire)); }
+@keyframes tv-showdown-under { 0%, 34% { visibility:hidden; } 35%, 100% { visibility:visible; } }
+.tv-showdown-ring { position:relative; width:100%; margin:auto 0; display:grid; grid-template-columns:minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items:start; gap:40px; }
+.tv-showdown-side { min-width:0; display:flex; flex-direction:column; align-items:center; gap:18px; text-align:center; }
+.tv-showdown-side.is-left { animation:tv-showdown-left 420ms cubic-bezier(.2,.9,.3,1) calc(var(--tl) + 200ms) both; }
+.tv-showdown-side.is-right { animation:tv-showdown-right 420ms cubic-bezier(.2,.9,.3,1) calc(var(--tl) + 420ms) both; }
+@keyframes tv-showdown-left { from { opacity:0; transform:translateX(-900px) skewX(12deg); } to { opacity:1; transform:none; } }
+@keyframes tv-showdown-right { from { opacity:0; transform:translateX(900px) skewX(-12deg); } to { opacity:1; transform:none; } }
+.tv-showdown-chip { position:relative; line-height:0; transition:opacity .6s var(--ease-out); }
+.tv-showdown-side.is-lost .tv-showdown-chip { opacity:.6; }
+.tv-showdown-name { max-width:100%; color:var(--bone); line-height:1.2; white-space:nowrap; }
+.tv-showdown-mark { display:flex; align-items:center; justify-content:center; min-height:132px; }
+.tv-showdown-take { margin-top:-6px; color:var(--sun); font:800 56px/1.15 var(--fd-display); font-variant-numeric:tabular-nums;
+  animation:tv-take-in 360ms var(--ease-out) both; }
+.tv-showdown-lamp { --lamp:var(--lamp-live); width:40px; height:40px; }
+/* a time: a reel in a window, the winner's on the drum in the chips' amber */
+.tv-showdown-time { display:inline-flex; align-items:baseline; gap:10px; padding:12px 20px 10px; border-radius:14px;
+  background:var(--tv-window, color-mix(in srgb, var(--ink0) 88%, transparent)); box-shadow:var(--window-bezel);
+  color:var(--bone); font:800 72px/1 var(--fd-display); animation:tv-take-in 300ms var(--ease-out) calc(var(--tr) + 250ms) both; }
+.tv-showdown-time.is-won { font-size:96px; }
+.tv-showdown-time small { color:var(--muted2); font:800 32px/1 var(--fd-display); letter-spacing:.08em; text-transform:uppercase; }
+.tv-showdown-foul { color:var(--clay-text); font-size:88px; line-height:1.2; animation:tv-take-in 300ms var(--ease-out) both; }
+.tv-showdown-stamp { position:absolute; left:50%; top:10px; z-index:2; padding:8px 22px 6px; border:6px solid var(--sun); border-radius:14px;
+  background:color-mix(in srgb, var(--ink0) 72%, transparent); color:var(--sun); font-size:88px; line-height:1; letter-spacing:.04em;
+  white-space:nowrap; transform:translate(-50%, -50%) rotate(-8deg);
+  animation:tv-showdown-stamp 380ms var(--ease-land) calc(var(--tr) + 1250ms) both; }
+@keyframes tv-showdown-stamp { 0% { opacity:0; transform:translate(-50%, -50%) rotate(-8deg) scale(2.2); }
+  70% { opacity:1; transform:translate(-50%, -50%) rotate(-8deg) scale(.94); } }
+.tv-showdown-tie { position:relative; margin-top:24px; padding:8px 26px 6px; border:6px solid var(--bone); border-radius:14px;
+  color:var(--bone); font-size:88px; line-height:1; transform:rotate(-6deg); animation:tv-take-in 380ms var(--ease-land) both; }
+
+/* the middle: each side's ante as the house's chips, then the three lamps */
+.tv-showdown-mid { display:flex; flex-direction:column; align-items:center; gap:56px; padding-top:40px; }
+.tv-showdown-antes { display:flex; align-items:flex-end; gap:22px; min-height:230px;
+  animation:tv-showdown-antes 360ms var(--ease-land) calc(var(--tl) + 820ms) both; }
+@keyframes tv-showdown-antes { from { opacity:0; transform:translateY(-60px); } to { opacity:1; transform:none; } }
+.tv-showdown-ante { display:flex; flex-direction:column; align-items:center; gap:8px; }
+.tv-showdown-ante small { color:var(--sun); font:800 40px/1.15 var(--fd-display); font-variant-numeric:tabular-nums; }
+.tv-showdown-antes.is-to-left .tv-showdown-ante,
+.tv-showdown-antes.is-to-right .tv-showdown-ante { opacity:0; animation:tv-showdown-take-left 650ms var(--ease-exit) var(--slide-at, 0ms) both; }
+.tv-showdown-antes.is-to-right .tv-showdown-ante { animation-name:tv-showdown-take-right; }
+@keyframes tv-showdown-take-left { from { opacity:1; transform:none; } 80% { opacity:1; } to { opacity:0; transform:translate(-470px, -120px) scale(.5); } }
+@keyframes tv-showdown-take-right { from { opacity:1; transform:none; } 80% { opacity:1; } to { opacity:0; transform:translate(470px, -120px) scale(.5); } }
+.tv-showdown-lamps { display:flex; gap:44px; }
+.tv-showdown-count { --lamp:var(--lamp-live); width:60px; height:60px;
+  box-shadow:var(--lens-rim), 0 0 36px 6px color-mix(in srgb, var(--lamp-on) 55%, transparent);
+  animation:tv-showdown-lamp 90ms steps(1, end) both, tv-showdown-spent 1ms steps(1, end) calc(var(--tl) + var(--fire)) forwards; }
+/* once the draw has flashed the countdown is spent: clear glass */
+@keyframes tv-showdown-spent { to { background:var(--lens-spent); box-shadow:var(--lens-rim); } }
+@keyframes tv-showdown-lamp { from { background:var(--lens-off); box-shadow:var(--lens-rim); } to { background:var(--lens-lit); } }
+
+/* the draw: the whole glass lit magenta, falling back to dark */
+.tv-showdown-flash { position:absolute; inset:0; z-index:5; display:grid; place-items:center; background:var(--lamp-live); opacity:0;
+  animation:tv-showdown-flash 900ms var(--ease-out) calc(var(--tl) + var(--fire)) forwards; }
+.tv-showdown-flash span { color:var(--ink0); font-size:300px; line-height:1.15; }
+@keyframes tv-showdown-flash { 0%, 35% { opacity:1; } to { opacity:0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .tv-showdown, .tv-showdown *, .tv-showdown-glass { animation:none !important; }
+}

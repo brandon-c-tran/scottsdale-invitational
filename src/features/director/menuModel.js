@@ -24,9 +24,12 @@ export function moreMenu(f = {}) {
       { id:"rules", name:"Rules", icon:"rules" },
       { id:"tv", name:"TV mode", icon:"tv" },
     ]),
+    /* the commissioner has one way in: the header's GM. This row is only
+       the PIN (a guest's phone) or the way back from the guest view, where
+       the header hides it */
     section("commissioner", "Commissioner", "star", [
-      f.gm ? { id:"commissioner", name:"Commissioner menu" }
-        : { id:"commissioner", name:"Commissioner", icon:"lock" },
+      !f.gm ? { id:"commissioner", name:"Commissioner", icon:"lock" }
+        : f.guestLens ? { id:"commissioner", name:"Back to commissioner", icon:"star" } : null,
     ]),
   ].filter(item => item.items.length);
 }
@@ -40,11 +43,13 @@ const GAME_DESKS = [
 
 export function commissionerMenu(f = {}) {
   const away = f.away || [];
+  const out = f.out || [];
   return [
     section("now", "Now", "then", [
       f.crownReady && { id:"crown", name:"Crown the champion", icon:"trophy" },
-      f.onDeck && { id:"lockBets", name:"Lock bets", value:f.onDeck, icon:"lock", chevron:false },
-      ...(f.takeBacks || []).map(ev => ({ id:`takeBack:${ev.id}`, name:`Take back ${ev.name}`, icon:"undo" })),
+      /* the same write and the same words as the pill's lock beat */
+      f.onDeck && { id:"lockStart", name:"Lock and start", value:f.onDeck, icon:"lock", chevron:false },
+      ...(f.takeBacks || []).map(ev => ({ id:`takeBack:${ev.id}`, name:`Take back ${ev.name}`, icon:"undo", tone:"destructive" })),
       f.lockerRoom && { id:"lockerRoom", name:"Back to the locker room", icon:"back" },
       f.frozen && { id:"unfreeze", name:"Unfreeze board", tone:"destructive" },
     ]),
@@ -54,7 +59,9 @@ export function commissionerMenu(f = {}) {
     ]),
     section("games", "Games", "games", GAME_DESKS.map(desk => desk(f))),
     section("people", "People and trip", "people", [
-      { id:"attendance", name:"Who is here", icon:"people", value:away.length ? `${away.length} away` : "Everyone" },
+      { id:"attendance", name:"Who is coming", icon:"people",
+        value:f.arrivals ? `${f.arrivals.here} of ${f.arrivals.total} here`
+          : out.length ? `${f.coming} coming` : away.length ? `${away.length} away` : "Everyone" },
       { id:"travelSheet", name:"Travel sheet", icon:"plane" },
       { id:"logistics", name:"Trip details", icon:"house" },
     ]),

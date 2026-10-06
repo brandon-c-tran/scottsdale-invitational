@@ -64,9 +64,10 @@ test("podium: a pair, a team of three, the 5v5's seven, split places and a count
   assert.equal(wide.blocks[0].name, "4 tied");
   const split = podiumStage(shapes[3]).steps.find(step => step.place === 2);
   assert.equal(split.blocks.length, 2, "a tie of two stands as two named groups");
-  const empty = podiumStage(shapes[2]).steps.find(step => step.place === 3);
-  assert.equal(empty.entry, null, "a place nobody took is an unlit step");
-  assert.equal(empty.blocks.length, 0);
+  /* a place nobody took has no step: two places stand two steps, centred */
+  const two = podiumStage(shapes[2]).steps;
+  assert.deepEqual(two.map(step => step.place), [2, 1], "no empty 3rd plinth");
+  assert.equal(two[0].left, TV_WIDTH - (two[1].left + two[1].width), "the two steps centre on the canvas");
 });
 
 test("podium: standFit keeps one row while it is about as large, else balanced rows", () => {

@@ -49,8 +49,12 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   and no WebGL, a failed load, a lost context or a slow TV falls back to the flat
   board for the session. `DesertBand` is the paper-cut backdrop by session phase
   (`--desert-*` tokens mixed from existing ones) with a star per winner from
-  Saturday night; `weekend/Trophy.jsx` is the weekend's cup (one band per session, a
-  plate per event engraved as it posts, the champion on the cup).
+  Saturday night; `weekend/Trophy.jsx` is the weekend's cup (Oct 4: a dimensional SVG,
+  polished gold bowl with the champion engraved on a silver plate, on a
+  stepped black base with one tier per session and one silver plaque per
+  event, its game mark engraved, the winner added as it posts). The TV
+  crown lights each tower on its own CROWN_TIMING beat (13th up to 2nd),
+  unlit until then, so the countdown reveals instead of repeating.
   `features/director/` owns the commissioner pill
   model and the finale sheets. The player card tilts (`useRisoTilt`, never an
   iOS motion prompt), the identity chip is a spinnable `ChipCoin`, and
@@ -260,43 +264,15 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   winner (a tie stamps each), on the server clock from `reveal.at` with S10
   and S14 through `roomSound.js`; phones hold that winner until the stamp.
 
-- **Team MVP** (Sept 29, `shared/mvp.js`, `state.mvp[evId]`): posting an
-  event result whose first place is a team of 3+ opens a vote in the same
-  write (`saveResult`); every winning teammate not away votes one teammate,
-  never themself, and may change it. It closes when all have voted, on the
-  commissioner's "Close MVP vote" (a director extra), after 60 s on the DO
-  alarm (shared with the walkout clip, `scheduleAlarm`), or in the finale's
-  deal (`pokerSetup` closes it first so its MVP is in the stack). Most votes
-  wins, a tie is drawn among the tied, no votes draws the team. The MVP
-  earns `MVP_PTS` (100), derived in `computeStandings` (`mvpAwards`, row
-  `mvpPts`) only while that same team is still the posted first place, so a
-  correction or cleared result takes it back and the existing exposure trim
-  covers it; a different winner votes afresh. Frames carry `projectMvp`:
-  your own pick as `mine`, the turnout, and counts only after close, when
-  the answers are deleted. Home (`features/mvp/MvpHome.jsx`) shows the team
-  its vote, then its MVP for 10 minutes; a teammate who still owes a vote
-  also gets it as a sheet wherever they are in the app (`MvpVoteSheet`,
-  once per vote, waits while another sheet is open, leaves when the vote
-  lands); a "Vote team MVP" pocket alert reaches the voters. Kept in the receipt, chip history, last card, season
-  card, keepsake plates, and the awards desk's counted "Most MVPs" award
-  (`source:"mvps"`, tallied from MVPs at close, never on the phone ballot).
-  QA jumps vote and close it.
-- **Comebacks (v3.1, Oct 3; Brandon chose "Noticeable")**: three rules in
-  `shared/core.js`, each derived or fixed at a named moment so a correction
-  moves it with the record and later standings never do.
-  **Leader bounty** (`BOUNTY_PTS` 200): when a contest's betting locks
-  (`lockAndStart`, or `setOnDeck` closing it) the leaders who play in it are
-  stamped in `eventOps[ev].bounties[contestId]` (`players`, `kind`, its
-  match/group/stage/draw, `field` for a free-for-all, `at`); ties stamp every
-  tied leader, and nothing is stamped when every player in it leads (the
-  level board before the weekend) or no leader plays. `bountyAwards` pays
-  every player on the winning side 200 only while the recorded outcome has
-  no bounty player on it and one on a losing side (a free-for-all: 1st
-  place, the leader in the field and not 1st), derived in
-  `computeStandings` (row `bountyPts`) like `mvpAwards`, so undo, correction
-  and a cleared result take it back and the exposure trim covers it; never
-  in the finale, never to a leader. A fresh lock of the same contest
-  re-stamps it. **Underdog odds** (`UNDERDOG_GAP` 1,000, `UNDERDOG_MULT` 2):
+- **Team MVP** was cut on Oct 4 at Brandon's call (the song came too late
+  to feel natural). A stored `state.mvp` is ignored: it pays nothing, never
+  leaves the Worker (`SERVER_ONLY_STATE_KEYS`), and a stored "Most MVPs"
+  award (`source`) takes no votes and counts nothing.
+- **Comebacks (v3.1, Oct 3)**: two rules in `shared/core.js`, each fixed
+  at a named moment so a correction moves it with the record and later
+  standings never do. **Leader bounty** was cut on Oct 4 at Brandon's call
+  (hard to understand); a stored `eventOps[ev].bounties` is ignored and
+  never sent. **Underdog odds** (`UNDERDOG_GAP` 1,000, `UNDERDOG_MULT` 2):
   `oddsFor` takes a two-sided contest's gap as |average chips per player
   of side A - side B| x the smaller side's size (a 1v1 needs a 1,000-chip
   gap, a pair 1,000 combined, the 7 v 6 compares at six players) when its
@@ -305,22 +281,18 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   that contest opens again (a correction's replay); every new ticket stores
   `mult` = `contestMult(contest, side)`, and `wagerMult` reads any ticket's
   `mult` (legacy outright 2, other legacy 1), so settlement stays derived.
-  `resolveCurrentContest` attaches `odds` (only with an underdog) and the
-  stamped `bounty`. **Byes to the bottom**: `seedBracket(state, draw)` (every
+  `resolveCurrentContest` attaches `odds` (only with an underdog).
+  **Byes to the bottom**: `seedBracket(state, draw)` (every
   draw and finalized draft) gives `bracketByeSlots` (slots whose first
   match is after round one, so 5's three and 6's two) to the lowest teams
   by average chips, lowest into the earliest slot, ties by a hash of the
   drawn teams, the rest in draw order; a level board keeps the draw order.
   The bracket stores `seeds[slot]` and `byes`. Surfaces (`features/comebacks/`:
-  `contestTerms`, `boardBounty`, `BountyLamp`, `SideTerms`): an amber bounty
-  lamp on the wanted player's Home row, card and TV tower; each side's
-  "Winner pays 2:1"/"1:1" when a contest carries odds and "Bounty +200" on
-  the side facing the leader (bets board, Home matchup, TV board, face-off;
-  a wide field lights the leader's row instead); the pill's lock beat names
-  both; a bye enters its bracket advanced with an info lamp; the receipt,
-  `chipChanges` (kind `bounty`), last card, season card carry the bounty;
-  the TV rings `payout` 3.4 s after a fresh bounty's decision. Weekend >
-  Rules draws them as the "Comebacks" set (words await Brandon's review).
+  `contestTerms`, `SideTerms`): each side's "Winner pays 2:1"/"1:1" when a
+  contest carries odds (bets board, Home matchup, TV board, face-off); the
+  pill's lock beat names the underdog; a bye enters its bracket advanced
+  with an info lamp. Weekend > Rules draws them as the "Comebacks" set
+  (words await Brandon's review).
 - **Before the draw (v3.1)**: the director pill never runs a draw of
   people directly. A team draw, heats or a captains draft (and the Random
   draw / Captains draft alternatives) open `features/director/CrewCheck.jsx`
@@ -332,6 +304,19 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   `announceAndDraw` (or the draft's pool). The server contract is unchanged;
   "Change crew" is gone. A draw that already exists (pools of drawn teams)
   stays one tap.
+  **Sit out** (Oct 4, Brandon): a third brush takes players out of this
+  event's pool only (tired, resting): `sitOut` rides on `announceAndDraw`,
+  `runDraw`, `runStages` (cfg) and `startDraft`, checked by core
+  `eventPool` (at least `MIN_PLAYING` 10 play; a room of 10 sits nobody
+  out). The shape fits whoever is left (`teamFit` on the pool), crew is
+  still the overflow it cannot seat and still earns the 3rd-place award; a
+  sit-out earns nothing (Brandon chose this, so sitting out a 1,600 game is
+  never a free 400). The draw, stage or draft records them as `out`.
+  Crew is the commissioner's call too: the shape fits whoever is playing
+  (`validateEventParticipants` fits `teamFit` to the players, down to the
+  shape ten make), and the crew check adds the odd one out to the crew by
+  rotation (`auto`), never someone set back to Playing while anyone else
+  can go. 5v5 takes refs and sit-outs (at least 10 play).
 - **Where and When** (Oct 1, `shared/geo.js`, `worker/geo.js`,
   `src/features/geo/`, `features/tv/TVGeo.jsx`): Brandon's photos, played
   live. He authors up to 25 rounds in Commissioner > Where and When
@@ -379,12 +364,13 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   preloaded once a game runs); a device without WebGL falls back to
   Leaflet over OpenStreetMap raster tiles.
   CARTO's free basemaps now need an API key, so they are not used.
-- **Trivia** (Oct 3, `shared/trivia.js`, `worker/trivia.js`,
+- **Trivia** (Oct 3, individual since Oct 4; `shared/trivia.js`, `worker/trivia.js`,
   `worker/triviaBank.js`, `src/features/trivia/`, `features/tv/TVTrivia.jsx`):
-  played live in the app by the event's four drawn teams of three, with
-  one SHARED answer per team: every teammate's phone shows the team's
-  answer card live, anyone on the team can change it (the face of whoever
-  set it rides the pick) until one of them locks it in, and a lock stays.
+  a solo free-for-all (`kind:"solo"`, no draw, no draft; Brandon
+  chose individual play for the phone format). `state.trivia.players` is
+  `presentPlayers` at the start (a present roster player not in it joins on
+  their first pick); each player answers alone, may change the pick until
+  they lock it, and a lock stays.
   Four formats: multiple choice, closest number (a digit wheel a digit,
   `Wheel.jsx` from Where and When, at least four wheels so the size never
   gives the answer away), name that tune (the TV plays the first 10 s of the
@@ -397,49 +383,159 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   11 categories: eight of fact questions and three name-that-tune rounds;
   `tests/trivia.test.mjs` scans that nothing under `src/` or `shared/`
   imports it or contains a bank question) and reaches the desk over `GET
-  /api/trivia/bank` with the commissioner token. `triviaStart` copies the
-  set list's questions (answers included, bank options dealt in a fresh
-  order) into `state.trivia` (progress, cleared by a reset), so editing the
-  set list never changes a running game; the desk is locked while one runs,
-  Restart (confirm) clears the answers. Each question opens with a 2.5 s
-  lead (the number stamps), then 20 s (30 s for closest number) on the
-  clock, plus a 3 s server grace for the last save. Scoring is in trivia
-  points, not chips: right = 500 + up to 500 for speed (linear on the time
-  left when the team locked, to the nearest 10; an answer never locked
-  counts at the deadline with no bonus); closest number = 1,000 nearest,
-  500 next nearest (ties share the place), exact +250. Teams rank by total,
-  a tie by the faster sum of scoring lock times. The pill (`triviaBeat`):
-  Start trivia, Reveal (note "N of 4 teams locked in"), Next question, Scores
-  at each round's end, Next round, Final scores, Post result
-  (`triviaFinish` runs beginResultEntry + saveResult with one winning team,
-  then the next two ranks), so payouts, bets, the MVP vote and the win song
-  follow as for any result. `triviaPick` writes carry the device and action
-  id, kept per team and question (`ops`, never projected), so a retry never
-  undoes a teammate's newer pick. Frames carry `projectTrivia`: the
-  commissioner everything (the set list, every answer) unless he is on a
-  team in the running game, when he plays it blind like anyone; everyone
-  else gets the questions shown so far (never a tune's recording), an answer
-  once revealed, their own team's live pick, every other team's locked/set
-  only, and every pick once revealed. HTTP: `POST /api/trivia/photo` (EXIF
-  stripped, `moment:trivia:<id>`, outside state like the geo photos), `GET
-  /api/trivia/photo/<id>` (anyone once shown), `GET /api/trivia/clip/<qid>`
-  (anyone once shown) and `?title&artist&isrc` (the desk's "Clip / No clip").
-  The phone (`TriviaPlay.jsx`) opens itself for a team player once per
-  question, reveal and scores; spectators (crew, away, a commissioner off
-  the teams) open it from Home's row. The reveal is one scroll: your points
-  first (the speed bonus its own amber fill), the right answer stamped
-  green with every team's tag on its answer, then the four teams. The TV
-  holds the room from the first question to the result: the question and
-  its answers lit magenta while live, the clock ring and four team lanes
-  (faces light as the team locks, never what), the reveal with each lane's
-  answer and points, the scores between rounds, a final podium the result
-  scene takes over from. Room sounds (`roomSound.js`): the sting as a
-  question goes up, a slap per lock, ticks over the last five seconds and a
-  knock at zero (`useTriviaClock`), the stamp and riffle on the reveal. QA
-  jumps play a configured game for real (`playTrivia` in `worker/qa.js`);
-  `triviaSimAnswers` (QA capability) answers for every unlocked team.
+  /api/trivia/bank` with the commissioner token. `triviaStart` (run by Lock
+  and start in the same write, see Autopilot) copies the set list's
+  questions (answers included, bank options dealt in a fresh order) into
+  `state.trivia` (progress, cleared by a reset), so editing the set list
+  never changes a running game; the desk is locked while one runs, Restart
+  (confirm) clears the answers. The first question opens with a 5 s lead
+  (`TRIVIA_FIRST_LEAD_MS`), later ones 2.5 s, then 20 s (30 s for closest
+  number) on the clock, plus a 3 s server grace for the last save. Scoring is
+  in trivia points, not chips: right = 500 + up to 500 for speed (linear on
+  the time left when the player locked, to the nearest 10; an answer never
+  locked counts at the deadline with no bonus); closest number = 1,000
+  nearest, 500 next nearest (ties share the place), exact +250. Players rank
+  by total, a tie by the faster sum of scoring lock times. The pill
+  (`triviaBeat`, each beat a skip-ahead of the autopilot): Reveal (note "N
+  of M locked in"), Next question, Scores at each round's end, Next round,
+  Final scores, Post result (`triviaFinish` runs beginResultEntry +
+  saveResult with a single 1st, then the next two ranks), so payouts, bets
+  (the wide 2:1 market) and the win song follow as for any result.
+  `triviaPick` retries are kept per player and question (`ops`, never
+  projected). Frames carry `projectTrivia`: the commissioner everything
+  unless he is a player in the running game, when he plays it blind like
+  anyone; everyone else gets the questions shown so far (never a tune's
+  recording), an answer once revealed, their own live pick, every other
+  player's locked/set only, and every pick once revealed. HTTP: `POST
+  /api/trivia/photo` (EXIF stripped, `moment:trivia:<id>`, outside state like
+  the geo photos), `GET /api/trivia/photo/<id>` (anyone once shown), `GET
+  /api/trivia/clip/<qid>` (anyone once shown) and `?title&artist&isrc` (the
+  desk's "Clip / No clip"). The phone (`TriviaPlay.jsx`) opens itself for
+  every player once per question, reveal and scores; spectators (away, a
+  commissioner not playing) open it from Home's row. The reveal is one
+  scroll: your points and place first (the speed bonus its own amber fill),
+  the right answer stamped green, a count and faces on every answer, then the
+  top of the board with your row. The TV holds the room from the first
+  question to the result: the question lit magenta while live, the clock
+  ring and the room's photo chips lighting as each player locks (never
+  what), the reveal with counts and faces, the scores between rounds, a
+  final podium the result scene takes over from. Room sounds
+  (`roomSound.js`): the sting as a question goes up, a slap per lock panned
+  by the player, ticks over the last five seconds and a knock at zero
+  (`useTriviaClock`), the stamp and riffle on the reveal. QA jumps play a
+  configured game for real (`playTrivia` in `worker/qa.js`);
+  `triviaSimAnswers` (QA capability) answers for every unlocked player.
   `/dev/trivia-preview.html` rehearses every moment on a player's phone, a
   spectator's, the TV and the desk (`&desk=bank|round|choice|tune`).
+- **Autopilot** (Oct 4, `shared/autopilot.js`): what a clock already decides
+  runs itself. `autoBeat(state, { showControl })` is the one source of the
+  next write the server owes, `{ at, from, type, payload, key }`: the winner
+  scene's podium advances to the standings after `AUTO_WINNER_HOLD_MS` (9 s)
+  and completes `AUTO_STANDINGS_HOLD_MS` (18 s) later (`sceneAutoBeat` in
+  shared/show.js; Show Control only); Where and When reveals each photo at
+  its deadline plus grace, or `AUTO_ALL_IN_MS` after the last player locks
+  in, holds `GEO_REVEAL_HOLD_MS` (14 s), puts up the next photo and posts the
+  result after the last (`geoAutoBeat`); Trivia the same per question with
+  scores between rounds (`triviaAutoBeat`: reveal hold 9 s, 11 s for closest
+  number, board 12 s, final 15 s). Lock and start opens the in-app game in
+  the same write when it has content, so the commissioner taps Announce,
+  then Lock and start, and the game plays to its posted result. The Durable
+  Object's alarm (`runAutopilot`) applies a due beat through the ordinary
+  reducer with a commissioner context `{ auto:true, actionId:key }`, so a
+  beat already taken is a no-op; a refused beat stops until the board moves,
+  a failed save retries in 5 s, and every write re-arms the alarm. The pill
+  keeps each beat as a skip-ahead and draws the wait as a magenta lamp
+  draining along its foot (`AutoDrain`); "Pause autopilot" in its tray
+  (`setAutopilot { hold }`, `state.autopilot`) stops everything on its own
+  until "Resume autopilot", and the pill then offers every beat by hand
+  (including "Show standings"). Champion and opening scenes stay manual.
+- **Not coming** (Oct 4, `state.out`, `setOut { player, out }`): up to three
+  invited players may drop out at the last second. `rosterOf(state)` is the
+  weekend's roster (ROSTER minus Not coming) and `presentPlayers` builds on
+  it, so standings, check-in claims, draws, contest sides, QA, awards turnout
+  and nominees ("N of 10 voted"), the TV towers and roster wall, the travel
+  board and keepsake counts all follow it; `isActivePlayer(id, state)` makes
+  a Not coming player's device a guest. Refused once the weekend has any
+  record of the player (`playerRecord`: a result, draw, draft, heat, bet,
+  duel, ruling, poker seat, Where and When guess or Trivia seat; then Away is
+  the tool) and below 8 players (`MIN_ROSTER`, Beerio's heats). Taking it
+  back restores them exactly; claims, profiles and answers are never
+  touched. Kept by a progress reset. Commissioner > People and trip > Who is
+  coming (`features/roster/RosterSheet.jsx`): every invited player with a
+  Here / Away / Not coming switch and a lamp. A poker table stores its seats
+  whenever the roster is short, and the last-seat guard counts only seats.
+  QA plays the whole weekend to the crown with three out and one away
+  (`tests/roster-autopilot.test.mjs`).
+- **Quick Draw showdown** (Oct 4, `src/features/duels/showdown.js`,
+  `features/tv/TVShowdown.jsx`): a duel is a live showdown, not a private
+  test. "Duel {name}" on a player card picks the stake from the Bets rack;
+  after accept both phones show the stance and one Ready (`duelReady`,
+  duelists only, idempotent); the second Ready stamps `armedAt` and a
+  random `fireAt` 2 to 5 s out (`crypto.getRandomValues`, so QA's seeded
+  stream is untouched), and both phones flash DRAW at `fireAt` on the
+  server clock, each timing its own painted flash (foul and capture rules
+  unchanged; an untapped flash records 5,000 ms). No Ready within 2 minutes,
+  or opening 1.5 s after the flash, falls back to drawing alone. In a gap
+  the TV plays the showdown anchored on `armedAt` (with an event live, the
+  ticker carries the result). The economy is unchanged (antes, cap, lapse,
+  daily limit, redaction until settled, `resolveDuel`).
+- **Arrivals** (Oct 4, `state.arrivals`, `setArrived`, `setArrivalsOpen`):
+  Friday starts with people still on the road, so games may run before all
+  13 are in. Once the door opens (the first check-in, or the commissioner),
+  a roster player who has not checked in is on the way (`isOnTheWay`); the
+  shared `isAbsent` (Away or on the way) keeps them out of new draws,
+  free-for-all sides, Trivia / Where and When and poker seats, exactly like
+  Away, while they can still bet and duel. Check-in is open per
+  `canCheckIn` (the door open, or from `EDITION.arriveFrom`, Friday
+  midnight Arizona, with the door never touched and the weekend not live),
+  so production guests never see it early; a closed door stays closed and
+  counts everyone here; a late arrival joins an open free-for-all market as
+  a side (its revision moves). **A scan proves presence** (redesigned Oct
+  4): the Durable Object keeps a private random code
+  (`private:arrive:code`, 8 chars, `isArriveCode`), made when a TV first
+  needs it while check-in is open, sent ONLY to TV sockets (`arrive` on the
+  state frame head, on a TV's pong, and an `{type:"arrive"}` message when
+  the app's TV mode switches on or the code changes; `client.js`
+  `arriveCode`), never in state, snapshots or other frames. A guest's
+  `setArrived` must carry the current code (`ctx.arriveCode`; "Scan the
+  code on the TV"); the commissioner needs none. Closing the door drops it
+  (a new one on reopening); Who is coming's "New code" (`arriveRotate`, GM
+  token) replaces it. The QR is `${origin}/?arrive=<code>`.
+  **The lobby** (`arrivalsModel.js` `arrivalsBoard` stage "lobby": check-in
+  open and no event announced, `lobbyOver`): the TV (`TVArrivals.jsx`
+  `TVLobby`) is the painting, a glass pane with the code lit bone and the
+  "9 of 13" drum, and 13 seats as a horseshoe (`lobbySeats`, roster order),
+  chips dropping in on the arrival's server instant, Landed lamps from the
+  projection's `landed`, the lit mark once all are in; no ticker or
+  horizon. The guest's Home shows "Scan the TV" (`ArrivalHome.jsx`
+  `ScanPane`, chip over a seat). **After the lobby** (stage "corner": a
+  game announced, someone on the way) the TV shows `TVArriveCorner`, a
+  bottom-right plate with the code over the unlit faces still out (the
+  horizon/towers board and ticker narrow for it; it leaves with any
+  takeover), and that guest's Home a compact `ScanRow`. **Scanning:**
+  iPhone's Camera opens a QR link in Safari, not the installed PWA, so the
+  app has its own scanner (`Scanner.jsx`, lazy via `lazyPart`, rear camera
+  through getUserMedia, jsQR loaded only inside it, decode-to-dispatch in
+  the pure `scanSession.js`: one write at a time, other QRs ignored, a
+  refused code not resent), ending with the chip seated and "Here"; a
+  blocked camera says "Camera blocked" with Try again (the commissioner can
+  mark you). A claimed browser that opens the link checks in on load and
+  strips the parameter (`useArriveLink`, `arriveLinkStep`); an unclaimed
+  one does nothing. Who is coming keeps Here / Away / Not coming, adds
+  "On the way" and Mark here under anyone not in, and one small Check-in
+  control (Open / Close / New code).
+- **Standings towers** (Oct 4, `features/tv/towersModel.js` `towerLayout`):
+  every tower keeps a fixed slot across the full width (one per row, never
+  13 hard-coded), so names and counts never collide at any chip count; chip
+  width comes from the slot and a tall leader thins the chips (still one per
+  100; the first ten keep 4px each). A zero or negative stack is an empty
+  base. Phone bars switch notch grain (100, 500, 1,000, 5,000) so a 15,000
+  board still reads (`boardModel.js` `chipNotch`).
+- **Result entry** (Oct 4, `features/results/ResultEntry.jsx`,
+  `PlacePicker.jsx`, pure `placePickerModel.js`): a podium of the paid
+  places over the present field as photo tiles; one tap seats a player in
+  the lit place (flies in), tap again to take back, tap a place to aim it, a
+  dashed + on a filled place adds a tie; team events switch Teams/Players.
 - **Team names** (Oct 3, `shared/teamNames.js`, `worker/teamNames.js`,
   `src/features/teams/`): suggestions are made from the team itself (a
   first-name alliteration or blend, "Brankhoa", jersey numbers, "Seven
@@ -641,8 +737,8 @@ match is outlined (`bracketLayout`, features/weekend/CompetitionBracket.jsx).
 shapes, 7 to 16 seed into the next power of two with byes to the top seeds.
 1v1 Basketball is a bracket of everyone present (teams of one, `teamFit`
 shrinks it for Away). The v2 slate (Sept 29): Long Putt, Beer Die Doubles,
-Where and When (Fri); 5v5, Pickleball Doubles, 1v1 (Sat AM); Volleyball and
-Trivia as 4 teams of 3, 8-Ball, Beer Pong (Sat PM/night); Rage Cage, Beerio
+Where and When (Fri); 5v5, Pickleball Doubles, 1v1 (Sat AM); Volleyball as 4 teams of 3,
+Trivia (solo, in the app), 8-Ball, Beer Pong (Sat PM/night); Rage Cage, Beerio
 Kart; poker. Trivia is played in the app when it has a set list, and Where
 and When when it has photos (else each is entered like any result). 5v5 is everyone-plays (`participation:{type:"all"}`): the draw
 or the captains' snake splits whoever is present 7 v 6, with no crew. Tests
@@ -733,7 +829,7 @@ first use is the awards ballot (D6). Its plan is in `docs/REFOUNDATION.md`.
    carried all weekend is the stack you are dealt. Every value in the economy
    (awards, stakes, duel antes, rulings) is a multiple of PT and one rendered
    BankChip = PT = one physical 100 chip. Standings = 1,000 + event awards +
-   team MVPs + leader bounties + wager net + rulings, computed fresh from state
+   wager net + rulings, computed fresh from state
    every time. No stored balances.
 4. **Current-contest betting:** a free-for-all with more than two sides pays
    2:1 (`OUTRIGHT_MULT`); the current matchup, heat/pool winner, or stage-final
@@ -812,11 +908,10 @@ first use is the awards ballot (D6). Its plan is in `docs/REFOUNDATION.md`.
    `profiles[p].walkoutTrack`, shown to guests as "Win song"): after a write
    persists, a recorded contest winner or a posted free-for-all result plays
    the winner's song on the chosen speaker for 30 s (a duo, or a team
-   between bracket rounds, plays one member's, drawn by the win's key), a
-   team MVP vote closing plays the MVP's (marked `mvp`; a team that votes
-   gets no song at its win), the crown plays the champion's whole song, and
+   between bracket rounds, plays one member's, drawn by the win's key), the
+   crown plays the champion's whole song, and
    a tie plays nothing. The TV's `NowPlaying` card (features/tv/) shows the
-   photo chip, name and song, "MVP · {event}" for an MVP. The profile's Win
+   photo chip, name and song. The profile's Win
    song picker (`features/music/`) searches Spotify as you type; a song's
    cover plays its 30-second clip ON THE PHONE (Spotify gives no preview
    audio, so `/api/spotify/preview` finds Deezer's clip by the saved ISRC,
@@ -974,7 +1069,7 @@ first use is the awards ballot (D6). Its plan is in `docs/REFOUNDATION.md`.
    A heat records its winner separately from its complete qualifying list;
    two-through requires the winner plus one other qualifier. A bracket final's
    winner tap, or a stage final's recorded 1st/2nd/3rd order, posts the event
-   result in the same write through `saveResult`; its 5-second Undo reopens
+   result in the same write through `saveResult`; its 10-second Undo reopens
    the final. FFA goes from play to its normal event result entry. New writes carry `contestId` and
    `contestRevision`; reject stale targets and acknowledge identical retries
    without moving twice. Old in-progress events remain readable and preserve
@@ -1064,7 +1159,7 @@ first use is the awards ballot (D6). Its plan is in `docs/REFOUNDATION.md`.
    eligibility plus a preview computed by running the correction on a copy.
    Rewound and next-market chips and any duel voided for exposure are named in
    the confirm ("Returns Evan 200. Voids Jeremy vs Ben duel."). The winner tap
-   offers a 5-second Undo. Post-count poker rulings apply only to the count
+   offers a 10-second Undo (`UNDO_WINDOW_MS`, the pill; WON stamps on the winner as the write lands). Post-count poker rulings apply only to the count
    revision they were made against. Correction is unavailable after the
    event result posts, while frozen, during the finale, or while another
    event's betting market is open. Restore the previous contest for winner

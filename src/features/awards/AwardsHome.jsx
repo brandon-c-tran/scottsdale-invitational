@@ -8,6 +8,7 @@ import { awardResults } from "../../../shared/prompts.js";
 import { ballotModel, homeResults, nextStampAt, nextUnanswered, stampTime } from "./awardsModel.js";
 import "./awards.css";
 import { Icon } from "../../ui/Icon.jsx";
+import { writeError } from "../../lib/writeErrors.js";
 
 const BALLOT_MARK = { color:"var(--sun)", isLight:true, skin:"ticks" };
 const sendVote = payload => dispatch("promptRespond", payload, { retry:true });
@@ -40,23 +41,26 @@ export function AwardsBallot({ state, me, onVote = sendVote, initiallyOpen = fal
     clearTimeout(advance.current);
     try {
       const result = await onVote({ id:model.id, questionId:question.id, choice });
-      if (result?.ok !== true) { setError(result?.error || "Not saved. Try again."); return; }
+      if (result?.ok !== true) { setError(writeError(result)); return; }
       if (choice) {
         const after = model.questions.map((item, i) => i === at ? { ...item, choice } : item);
         const next = nextUnanswered(after, at);
         if (next >= 0) advance.current = setTimeout(() => setIndex(next), ADVANCE_MS);
       }
-    } catch { setError("Not saved. Try again."); }
+    } catch (failure) { setError(writeError(failure)); }
     finally { busy.current = false; setPending(null); }
   };
 
-  const status = done ? "Voted" : model.picked ? `${model.picked} of ${model.count} picked`
-    : `${model.count} award${model.count === 1 ? "" : "s"}`;
+  /* the entry leads with the award you owe a vote on, by its name; how far
+     through the ballot you are is drawn by the steps inside */
+  const owed = model.questions[Math.max(0, nextUnanswered(model.questions, -1))];
+  const status = done ? "Voted" : owed?.title || "Vote";
   return (
     <section className={`fd-awards fd-lamp${done ? " is-done" : " is-live"}`} aria-label="Awards ballot">
       <button type="button" className="fd-awards-entry" aria-expanded={open} onClick={() => setOpen(value => !value)}>
         <span className="fd-awards-mark" aria-hidden="true"><ChipFace p={null} size={34} stamp="" {...BALLOT_MARK} /></span>
-        <span><small><i className="fd-insert fd-beat-dot" aria-hidden="true" />Awards ballot</small><strong>{status}</strong></span>
+        <span><small><i className="fd-insert fd-beat-dot" aria-hidden="true" />Awards ballot</small>
+          <strong className={done ? undefined : "fd-awards-owed"}>{status}</strong></span>
         <span className="fd-awards-entry-go">{open ? "Hide" : <>{done ? "Change " : "Vote "}<Icon name="open" size="1em" /></>}</span>
       </button>
       {open && <div className="fd-awards-body">
@@ -101,7 +105,7 @@ export function AwardsResults({ state, rows, onPlayer, now = 0 }) {
     <section className="fd-awards is-results" aria-label="Awards">
       <div className="fd-awards-entry" role="heading" aria-level={2}>
         <span className="fd-awards-mark" aria-hidden="true"><ChipFace p={null} size={34} stamp="" {...BALLOT_MARK} /></span>
-        <span><small>Awards</small><strong>{rows.length} of {rows[0].count} revealed</strong></span>
+        <span><strong>Awards</strong><small>{rows.length} of {rows[0].count}</small></span>
       </div>
       <ul className="fd-awards-results">
         {rows.map((row, i) => <li key={row.questionId}

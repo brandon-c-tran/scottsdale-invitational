@@ -12,6 +12,8 @@
 .tv-reveal { position:absolute; inset:0; z-index:21; overflow:hidden; background:var(--night-deep); --lamp:var(--phase); --veil:.45; }
 .tv-reveal-paint { position:absolute; left:0; top:0; width:1920px; height:854px; }
 .tv-reveal-paint > .fd-glass-art { position:absolute; inset:0; width:100%; height:100%; }
+/* the event's name is lettered across the sky: no star sits on it */
+.tv-reveal-paint .fd-glass-stars { display:none; }
 /* the floor falls into the dark under the painting, as in the intro */
 .tv-reveal-paint::after { content:""; position:absolute; inset:0;
   background:linear-gradient(180deg, transparent 60%, color-mix(in srgb, var(--ink0) 70%, transparent)); }

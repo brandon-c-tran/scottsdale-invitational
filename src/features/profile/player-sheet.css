@@ -22,23 +22,9 @@
 .fd-player-wins ul { display:flex; flex-wrap:wrap; gap:7px; padding:0; margin:10px 0 0; list-style:none; }
 .fd-player-wins li { padding:7px 10px; border:1px solid var(--line); border-radius:10px;
   background:var(--paper2); box-shadow:var(--glass-edge); font:900 18px/1.2 var(--fd-show); }
-.fd-player-duel { padding-top:8px; border-top:1px solid var(--line); }
-.fd-player-duel-rules { margin-bottom:8px; }
-.fd-player-duel-rules summary { display:flex; align-items:center; justify-content:space-between; min-height:44px; gap:12px; cursor:pointer; list-style:none; }
-.fd-player-duel-rules summary::-webkit-details-marker { display:none; }
-.fd-player-duel-rules summary:focus-visible { outline:2px solid var(--lamp-info); outline-offset:3px; }
-.fd-player-duel-rules summary>span { color:var(--lamp-info); font-size:13px; font-weight:600; }
-.fd-player-duel p { margin:9px 0 14px; color:var(--muted2); font-size:13px; line-height:1.6; }
+.fd-player-duel { padding-top:12px; border-top:1px solid var(--line); }
+.fd-player-duel > p { margin:9px 0 14px; color:var(--muted2); font-size:13px; line-height:1.6; }
 .fd-player-duel .fd-player-unavailable { font-weight:600; margin-bottom:0; }
-.fd-player-antes { display:flex; gap:10px; min-width:0; border:0; margin:0 0 14px; padding:8px 0 0; }
-.fd-player-antes legend { padding:0; color:var(--muted2); font:800 13px/1.2 var(--fd-display); letter-spacing:.08em; text-transform:uppercase; }
-.fd-player-antes button { display:flex; flex-direction:column; align-items:center; gap:6px; flex:1;
-  min-height:56px; padding:6px 3px; border:1px solid transparent; border-radius:10px; background:none; color:var(--muted2); cursor:pointer; }
-.fd-player-antes button[aria-pressed=true] { border-color:var(--sun); background:var(--sun-tint); color:var(--sun); box-shadow:var(--chip-bloom); }
-.fd-player-antes button:disabled { opacity:.3; cursor:default; }
-.fd-player-antes button>span { font:600 12px/1 var(--fd-body); }
-.fd-player-antes button:focus-visible { outline:2px solid var(--lamp-info); outline-offset:2px; }
-.fd-player-duel .fd-player-error { color:var(--clay-text); font-weight:600; }
 .fd-player-duel-results { margin-top:16px; padding-top:12px; border-top:1px solid var(--line); }
 .fd-player-duel-score { display:flex; align-items:baseline; gap:10px; margin:6px 0 4px; }
 .fd-player-duel-score strong { font:800 32px/1 var(--fd-display); color:var(--ink); }

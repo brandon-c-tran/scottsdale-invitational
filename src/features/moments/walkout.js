@@ -7,7 +7,7 @@
    color, and the TV docks it into the Now playing strip. A pair's or a
    team's win walks out as the team (walkoutTeam.js): its name, every
    member's chip, its color, the song credited to the one whose pick it is,
-   on the TV and on every teammate's phone. A team MVP's song stamps MVP. The crown plays its own sequence over the champion's song,
+   on the TV and on every teammate's phone. The crown plays its own sequence over the champion's song,
    so a frozen board never walks out.
 
    Pure model here; the hook latches it on a fresh frame only, so a reload,
@@ -15,7 +15,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import { walkoutOf } from "../../../shared/audio.js";
-import { latestMvp } from "../../../shared/mvp.js";
 import { useFreshChange } from "../../lib/motion.js";
 import { serverNow } from "../../lib/serverClock.js";
 import { nextLatch, useTimeline } from "../tv/tvMotion.js";
@@ -49,11 +48,8 @@ export function walkoutView(state, events = []) {
   const saved = state?.profiles?.[walkout.player]?.walkoutTrack || null;
   const track = saved && (!walkout.trackId || saved.trackId === walkout.trackId)
     ? { name:saved.name, artists:(saved.artists || []).join(", "), imageUrl:saved.imageUrl || null } : null;
-  const mvp = walkout.mvp ? latestMvp(state) : null;
-  const mvpEvent = mvp && mvp.winner === walkout.player
-    ? events.find(ev => ev.id === mvp.eventId)?.name || "Team MVP" : null;
-  return { player:walkout.player, startedAt:walkout.startedAt, until:walkout.until, track, mvp:!!walkout.mvp,
-    mvpEvent, team:walkoutTeam(state, events, walkout) };
+  return { player:walkout.player, startedAt:walkout.startedAt, until:walkout.until, track,
+    team:walkoutTeam(state, events, walkout) };
 }
 
 /* Whether a fresh step to `to` starts a takeover now. */

@@ -154,7 +154,9 @@ test("1v1 basketball is a bracket of everyone present, not heats", () => {
   const suggestion = suggestParticipants(s, ev);
   assert.equal(suggestion.players.length, 13);
   assert.deepEqual(suggestion.roles, []);
-  assert.equal(validateEventParticipants(ev, ROSTER.slice(1), ROSTER).ok, false, "everyone present plays");
+  /* the commissioner may put people on crew, down to ten playing */
+  assert.equal(validateEventParticipants(ev, ROSTER.slice(1), ROSTER).ok, true, "twelve of thirteen may play");
+  assert.equal(validateEventParticipants(ev, ROSTER.slice(4), ROSTER).ok, false, "nine is too few");
   /* Saturday morning pays 800 / 400 / 200, and each semifinal loser takes the full 3rd */
   assert.deepEqual(awardPlan(ev).map(row => [row.place, row.pts]), [[0, 800], [1, 400], [2, 200]]);
   assert.ok(awardPlan(ev).every(row => !row.split), "3rd is never split");
@@ -368,8 +370,10 @@ test("the phone bracket keeps its columns; the peek tightens for a field past ei
   assert.equal((full.match(/class="fd-bracket-match[ "]/g) || []).length, 12);
   assert.ok(!/>Team /.test(full));
   const peek = wrap(s, React.createElement(BracketPeek, { state:s, ev, me, onOpen:() => {} }));
-  assert.match(peek, />\s*Quarters<\/span>/);
-  assert.match(peek, />\s*Semis<\/span>/);
+  /* one naming scheme: the peek letters the rounds as the full bracket does */
+  assert.match(peek, />\s*Quarterfinals<\/span>/);
+  assert.match(peek, />\s*Semifinals<\/span>/);
+  assert.doesNotMatch(peek, />\s*(Quarters|Semis|QF|SF)<\/span>/);
   /* 6.5 rows of 47px cards and 6px gaps */
   assert.match(peek, /height:345px/);
   const six = fresh();

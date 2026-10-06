@@ -86,7 +86,7 @@ test("Show Control is GM-only, capability-gated, retry-safe, and recoverable", (
 
   const conflictingReplay = applyAction(state, "startShowScene",
     { kind:"standings" }, gm("start-1"));
-  assert.match(conflictingReplay.error, /request id already used/i);
+  assert.match(conflictingReplay.error, /already did something else/i);
   assert.equal(state.showControl.active.id, firstId);
 
   const competing = applyAction(state, "startShowScene",
@@ -126,7 +126,7 @@ test("Show Control is GM-only, capability-gated, retry-safe, and recoverable", (
 
   const conflictingEndReplay = applyAction(state, "endShowScene",
     { id:retryId, outcome:"cancelled" }, gm("end-1"));
-  assert.match(conflictingEndReplay.error, /request id already used/i);
+  assert.match(conflictingEndReplay.error, /already did something else/i);
 });
 
 test("scene resolution uses current official facts and reconstructs after reconnect", () => {

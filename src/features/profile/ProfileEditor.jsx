@@ -36,9 +36,8 @@ function ProfileEditor({ state, me, display, setDisplay, photo, setPhoto, num, s
   };
   return (
     <div className="fd-profile-editor">
-      {me && (state.live ? <details className="fd-profile-preview"><summary>Player card preview</summary>
-        <PlayerPass state={state} p={me} display={display} num={num} photo={photo} compact mint />
-      </details> : <PlayerPass state={state} p={me} display={display} num={num} photo={photo} compact mint />)}
+      {/* your card, live as you edit it: always on show, never behind a disclosure */}
+      {me && <PlayerPass state={state} p={me} display={display} num={num} photo={photo} compact mint viewer={me} />}
       <div className="fd-profile-controls">
         <div aria-hidden="true" className="fd-profile-color-rail"
           style={{ background:me ? identity.color : "var(--accent)" }} />

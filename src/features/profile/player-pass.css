@@ -12,13 +12,13 @@
 }
 .fd-pass { position:relative; display:block; width:100%; aspect-ratio:4 / 5; padding:0; border:0;
   background:transparent; perspective:1200px; text-align:left; cursor:pointer;
-  font-family:var(--fd-body); border-radius:16px;
+  font-family:var(--fd-body); border-radius:14px;
   /* vertical drags still scroll the sheet; sideways drags tilt the card */
   touch-action:pan-y; -webkit-user-select:none; user-select:none; -webkit-tap-highlight-color:transparent; }
 .fd-pass:focus-visible { outline:3px solid var(--lamp-info); outline-offset:6px; }
 /* Riso tilt. --tx/--ty are unit values written per frame by useRisoTilt;
    every layer below turns them into a transform, so a frame never lays out. */
-.fd-pass-shadow { position:absolute; inset:0; display:block; border-radius:16px; box-shadow:var(--shadow-3);
+.fd-pass-shadow { position:absolute; inset:0; display:block; border-radius:14px; box-shadow:var(--shadow-3);
   transform:translate(calc(var(--tx,0) * -6px), calc(var(--ty,0) * -4px)); }
 .fd-pass-tilt { display:block; position:relative; width:100%; height:100%; transform-style:preserve-3d;
   transform:rotateX(calc(var(--ty,0) * -7deg)) rotateY(calc(var(--tx,0) * 9deg)); }
@@ -29,13 +29,13 @@
 .fd-pass-inner.is-flipped { transform:rotateY(180deg); }
 /* the glass: painted color in a black bevelled frame, its top edge caught */
 .fd-pass-face { display:flex; flex-direction:column; position:absolute; inset:0; overflow:hidden;
-  background:var(--pass-color); color:var(--pass-ink); border:3px solid var(--ink0); border-radius:16px; padding:22px 22px 18px;
+  background:var(--pass-color); color:var(--pass-ink); border:3px solid var(--ink0); border-radius:14px; padding:22px 22px 18px;
   box-shadow:inset 0 0 0 1px var(--pass-rule), inset 0 2px 0 color-mix(in srgb, var(--bone) 32%, transparent),
     inset 0 -18px 30px color-mix(in srgb, var(--ink0) 22%, transparent);
   backface-visibility:hidden; -webkit-backface-visibility:hidden; }
 /* the lamp sockets: a ring of painted bulbs just inside the frame */
 .fd-pass-bulbs { position:absolute; inset:7px; border:3px dotted color-mix(in srgb, var(--pass-ink) 42%, transparent);
-  border-radius:11px; pointer-events:none; }
+  border-radius:10px; pointer-events:none; }
 .fd-pass-top,.fd-pass-foot { position:relative; display:flex; justify-content:space-between; align-items:center; gap:12px;
   font:800 13px/1.2 var(--fd-display); letter-spacing:.08em; text-transform:uppercase; }
 .fd-pass-top>span:last-child,.fd-pass-foot>span:last-child { text-align:right; }
@@ -128,25 +128,21 @@
     animation-delay:calc(220ms + min(var(--i,0), 14) * 28ms); }
 }
 @keyframes fd-pass-row { from { opacity:0; transform:translateY(6px); } }
-.fd-pass-hint { display:block; text-align:center; margin-top:12px; font:500 12px/1.5 var(--fd-body); color:var(--muted); }
+/* a pip per face under the card, the one showing lit: the card turns */
+.fd-pass-faces { display:flex; justify-content:center; gap:8px; margin-top:14px; }
+.fd-pass-faces i { width:8px; height:8px; border-radius:50%; border:1.5px solid var(--muted); transition:background-color var(--motion-base,260ms) var(--ease-out,ease-out); }
+.fd-pass-faces i.is-on { background:var(--muted2); border-color:var(--muted2); }
 .fd-pass-compact { max-width:300px; }
 
 /* ── the profile editor: the same glass as the rest of the phone; fields are
    wells cut into the panel, a switch is a lamp ── */
 .fd-profile-editor { width:100%; }
+.fd-profile-editor > .fd-pass-wrap { margin-bottom:16px; }
 .fd-profile-controls { background:var(--paper); }
 /* your identity color, painted along the top of the fields */
 .fd-profile-color-rail { height:4px; border-radius:99px; margin-bottom:4px; }
 .fd-profile-fields { padding:0 0 12px; }
 .fd-profile-photo-row { padding:0 0 12px; }
-.fd-profile-preview { margin-bottom:12px; border-bottom:1px solid var(--line); }
-.fd-profile-preview summary { display:flex; align-items:center; min-height:44px; color:var(--lamp-info); cursor:pointer;
-  font:800 14px/1.2 var(--fd-display); letter-spacing:.08em; text-transform:uppercase; list-style:none; }
-.fd-profile-preview summary::-webkit-details-marker { display:none; }
-.fd-profile-preview summary::after { content:"+"; margin-left:auto; font:500 20px/1 var(--fd-body); }
-.fd-profile-preview[open] summary::after { content:"−"; }
-.fd-profile-preview summary:focus-visible { outline:2px solid var(--lamp-info); outline-offset:2px; }
-.fd-profile-preview .fd-pass-wrap { margin-top:8px; margin-bottom:14px; }
 .fd-profile-chip-locked { display:flex; align-items:center; gap:12px; padding:12px 0; border-top:1px solid var(--line); }
 .fd-profile-chip-locked strong { font:800 16px/1.2 var(--fd-display); letter-spacing:.06em; text-transform:uppercase; }
 .fd-profile-chip-locked p { margin:3px 0 0; color:var(--muted2); font:12px/1.4 var(--fd-body); }
@@ -173,7 +169,7 @@
   border-bottom:1px solid var(--line); color:var(--ink); cursor:pointer;
   text-align:left; font:600 14px/1.4 var(--fd-body); }
 .fd-profile-photo-button>svg { color:var(--lamp-info); }
-.fd-profile-photo-action { margin-left:auto; font-size:20px; font-weight:400;
+.fd-profile-photo-action { margin-left:auto; font-size:22px; font-weight:400;
   line-height:1; color:var(--lamp-info); }
 .fd-profile-name-row { display:grid; grid-template-columns:minmax(0,1fr) 72px; gap:12px; }
 .fd-profile-field { display:grid; min-width:0; gap:7px; }
@@ -227,7 +223,9 @@
   .fd-pass-back,.fd-pass-inner.is-flipped .fd-pass-front { opacity:0; }
   .fd-pass-inner.is-flipped .fd-pass-back { opacity:1; }
 }
-/* v3.1: the wanted player's card. The lamp sits on a dark seat so amber
-   reads on any identity color. */
-.fd-pass-bounty { position:absolute; top:44px; right:14px; z-index:2; display:inline-flex; padding:5px 9px 5px 7px; border-radius:99px;
-  background:var(--ink0); box-shadow:0 0 0 1px color-mix(in srgb, var(--sun) 55%, transparent), var(--chip-bloom); }
+/* Oct 4: once the weekend is live the front's foot is the player's place
+   and chips (the back keeps the season) */
+.fd-pass-foot.is-standing { align-items:baseline; }
+.fd-pass-rank { font:900 26px/1 var(--fd-display); letter-spacing:.02em; }
+.fd-pass-count { font:800 13px/1 var(--fd-display); letter-spacing:.08em; }
+.fd-pass-count strong { margin-right:.25em; font:900 26px/1 var(--fd-display); letter-spacing:.02em; font-variant-numeric:tabular-nums; }

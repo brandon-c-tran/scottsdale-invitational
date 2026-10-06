@@ -1,19 +1,24 @@
 import React, { useRef, useState } from "react";
-import { Avatar } from "../identity/PlayerIdentity.jsx";
+import { ChipFace } from "../identity/PlayerIdentity.jsx";
+import { ChipStack, HOUSE_CHIP } from "../wagers/BetStacks.jsx";
 import { duelView } from "./duelView.js";
 import { tapTick } from "../../lib/haptics.js";
+import "./duel-card.css";
 
-const actionStyle = {
-  minWidth:0, minHeight:44, padding:"10px 8px", borderRadius:10,
-  border:"1px solid var(--line)", background:"var(--paper2)", color:"var(--ink)",
-  fontFamily:"var(--fd-body)", fontSize:12, fontWeight:600, cursor:"pointer",
-};
+const fmt = n => (n ?? 0).toLocaleString("en-US");
 const DONE = { decline:"Declined", withdraw:"Withdrawn", void:"Voided" };
 const PENDING = { accept:"Accepting…", decline:"Declining…", withdraw:"Withdrawing…", void:"Voiding…" };
 
-/* One duel with the actions its viewer actually has. Opponent identity and
-   each action are separate targets. Every write is guarded until the server
-   acknowledges it; a rejection leaves the same action available for retry. */
+/* the lamp beside a duel's state: flashing while it waits on you, steady
+   once your opponent is ready (the showdown), none otherwise */
+const lampFor = view => view.canAccept || (view.canPlay && !view.meReady) ? "pending"
+  : view.otherReady || view.mode === "showdown" ? "on" : null;
+
+/* One duel with the actions its viewer actually has: a painted glass field
+   in the chips' amber, the opponent's chip and name, its state on a lamp,
+   the ante as the house's chips. Opponent identity and each action are
+   separate targets. Every write is guarded until the server acknowledges
+   it; a rejection leaves the same action available for retry. */
 export function DuelCard({ state, duel, me, gm, now, onPlay, onAccept, onDecline, onWithdraw, onVoid, onPlayer, bare = false }) {
   const [pendingAction, setPendingAction] = useState(null);
   const [error, setError] = useState("");
@@ -58,7 +63,8 @@ export function DuelCard({ state, duel, me, gm, now, onPlay, onAccept, onDecline
   const actions = [
     view.canAccept && { key:"accept", label:label("accept") || "Accept",
       aria:`Accept duel with ${name}`, callback:() => submit("accept", onAccept), enabled:!!onAccept, primary:true },
-    view.canPlay && { key:"play", label:"Play", aria:`Play Quick Draw with ${name}`,
+    view.canPlay && { key:"play", label:"Play",
+      aria:`Play Quick Draw with ${name}`,
       callback:() => interact(() => onPlay?.(duel.id)), enabled:!!onPlay, primary:true },
     view.canDecline && { key:"decline", label:label("decline") || "Decline",
       aria:`Decline duel with ${name}`, callback:() => submit("decline", onDecline), enabled:!!onDecline },
@@ -69,48 +75,36 @@ export function DuelCard({ state, duel, me, gm, now, onPlay, onAccept, onDecline
       callback:() => submit("void", onVoid), enabled:!!onVoid, danger:true },
   ].filter(Boolean);
   const highlight = view.canPlay || view.canAccept;
+  const lamp = lampFor(view);
 
-  /* on its own, a duel is a painted glass field in the chips' amber (the
-     viewport's one painting is elsewhere), its lamp lit while it wants you */
+  const who = <>
+    {other ? <ChipFace p={other} size={44} flat /> : <ChipFace size={44} empty />}
+    <span className="fd-duel-who">
+      <strong className="fd-show">{name}</strong>
+      <span className="fd-duel-status">{lamp && <i className={`fd-insert${lamp === "pending" ? " is-pending" : ""}`} aria-hidden="true" />}
+        {view.status}</span>
+    </span>
+  </>;
   return <article aria-label={`Quick Draw with ${name}`} aria-busy={busy}
-    className={bare ? undefined : `fd-glass-field fd-field-chip fd-lamp is-chip${highlight ? " is-live" : ""}`}
-    style={bare ? { minWidth:0 } : { padding:"12px 12px 12px", marginBottom:8, minWidth:0 }}>
-    <div style={{ display:"flex", alignItems:"center", gap:10, minWidth:0 }}>
-      {other && onPlayer ? <button type="button" aria-label={`View ${name}'s player card`} disabled={busy || !onPlayer || !!acknowledged}
-        onClick={() => interact(() => onPlayer?.(other))}
-        style={{ display:"flex", alignItems:"center", gap:10, flex:1, minWidth:0, minHeight:44,
-          border:0, padding:0, background:"none", color:"var(--ink)", textAlign:"left",
-          cursor:busy ? "default" : "pointer", fontFamily:"var(--fd-body)" }}>
-        <Avatar state={state} p={other} size={36} />
-        <span style={{ flex:1, minWidth:0, overflowWrap:"anywhere" }}>
-          <strong style={{ display:"block", fontSize:14, fontWeight:600, lineHeight:1.3 }}>{name}</strong>
-          <span style={{ display:"block", marginTop:3, fontSize:12, lineHeight:1.4, color:"var(--muted2)" }}>{view.status}</span>
-        </span>
-      </button> : <div style={{ display:"flex", alignItems:"center", gap:10, flex:1, minWidth:0, minHeight:44,
-        fontFamily:"var(--fd-body)", color:"var(--ink)" }}>
-        {other && <Avatar state={state} p={other} size={36} />}
-        <span style={{ flex:1, minWidth:0, overflowWrap:"anywhere" }}>
-          <strong style={{ display:"block", fontSize:14, fontWeight:600, lineHeight:1.3 }}>{name}</strong>
-          <span style={{ display:"block", marginTop:3, fontSize:12, lineHeight:1.4, color:"var(--muted2)" }}>{view.status}</span>
-        </span>
-      </div>}
-      <span style={{ flexShrink:0, textAlign:"right", color:"var(--ink)", fontFamily:"var(--fd-body)" }}>
-        <strong style={{ fontFamily:"var(--fd-display)", fontSize:24, fontWeight:800, color:"var(--sun)" }}>{(duel.stake || 0).toLocaleString("en-US")}</strong>
-        <small style={{ display:"block", color:"var(--muted2)", fontSize:12, marginTop:2 }}>each</small>
+    className={`fd-duel-card${bare ? " is-bare" : ` fd-glass-field fd-field-chip fd-lamp is-chip${highlight ? " is-live" : ""}`}`}>
+    <div className="fd-duel-head">
+      {other && onPlayer ? <button type="button" className="fd-duel-person" aria-label={`View ${name}'s player card`}
+        disabled={busy || !onPlayer || !!acknowledged} onClick={() => interact(() => onPlayer?.(other))}>{who}</button>
+        : <div className="fd-duel-person">{who}</div>}
+      <span className="fd-duel-ante" aria-label={`${fmt(duel.stake)} each`}>
+        <ChipStack p={null} stake={duel.stake || 0} size={24} chip={HOUSE_CHIP} tag={false} />
+        <strong>{fmt(duel.stake || 0)}</strong>
       </span>
     </div>
-    {acknowledged ? <p role="status" style={{ margin:"10px 0 0", color:"var(--muted2)", fontSize:12 }}>{acknowledged}</p>
-      : !!actions.length && <div style={{ display:"grid", gridTemplateColumns:`repeat(${actions.length}, minmax(0, 1fr))`, gap:8, marginTop:10 }}>
+    {acknowledged ? <p role="status" className="fd-duel-done"><i className="fd-insert is-void" aria-hidden="true" />{acknowledged}</p>
+      : !!actions.length && <div className="fd-duel-actions" style={{ "--duel-actions":actions.length }}>
         {actions.map(action => <button type="button" key={action.key} aria-label={action.aria}
           disabled={busy || !action.enabled} onClick={action.callback}
-          style={{ ...actionStyle,
-            ...(action.primary ? { background:"var(--action-fill)", color:"var(--action-ink)", borderColor:"var(--action-fill)" } : {}),
-            ...(action.danger ? { color:"var(--live2)", borderColor:"var(--danger-line)" } : {}),
-            cursor:busy || !action.enabled ? "default" : "pointer", opacity:busy && pendingAction !== action.key ? .55 : 1 }}>
+          className={`fd-duel-act${action.primary ? " is-primary" : ""}${action.danger ? " is-danger" : ""}${
+            busy && pendingAction !== action.key ? " is-waiting" : ""}`}>
           {action.label}
         </button>)}
       </div>}
-    {error && <p role="alert" style={{ margin:"10px 0 0", fontFamily:"var(--fd-body)", fontSize:12,
-      color:"var(--live2)", lineHeight:1.5, overflowWrap:"anywhere" }}>{error}</p>}
+    {error && <p role="alert" className="fd-duel-error">{error}</p>}
   </article>;
 }

@@ -122,7 +122,7 @@ function TVPokerLive({ state, standings, now }) {
       <div className="tv-table-left"><b className="tv-display">{left}</b><span className="tv-label">left</span></div>
     </div>
   </>;
-  return <Table state={state} standings={standings} center={center} caption="Stacks as dealt" blindsUp={roll} />;
+  return <Table state={state} standings={standings} center={center} caption="Starting stacks" blindsUp={roll} />;
 }
 
 export function TVPoker({ state, standings, now }) {
@@ -135,5 +135,5 @@ export function TVPoker({ state, standings, now }) {
     <div className="tv-table-total"><ScoreReel value={pk.total} tone="chip" /><span className="tv-label">in play</span></div>
     <div className="tv-table-first"><span className="tv-label">Blinds</span> {fmt(first.sb)} / {fmt(first.bb)}</div>
   </>;
-  return <Table state={state} standings={standings} center={center} caption="Starting chips" dealing />;
+  return <Table state={state} standings={standings} center={center} caption="Starting stacks" dealing />;
 }

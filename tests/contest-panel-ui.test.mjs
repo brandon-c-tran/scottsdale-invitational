@@ -80,7 +80,7 @@ test("commissioner lock carries the exact active contest reference and guest ide
   const { state, ev } = fixture();
   const contest = resolveCurrentContest(state, ev);
   const host = controls(state, ev);
-  await host.click("Lock bets and start");
+  await host.click("Lock and start");
   assert.deepEqual(host.locks, [ref(contest)]);
   assert.match(host.html, /8-Ball Doubles bracket/);
   assert.doesNotMatch(host.html, /Contest sequence|fd-contest-sides/);
@@ -90,7 +90,7 @@ test("commissioner lock carries the exact active contest reference and guest ide
   assert.match(guest.html, /is-you/);
   guest.click("Back yourself"); // a competitor backs their own side
   assert.deepEqual(guest.bets, [true]);
-  assert.ok(!guest.buttons.some(button => button.name === "Lock bets and start"));
+  assert.ok(!guest.buttons.some(button => button.name === "Lock and start"));
 });
 
 test("one tap on the current bracket team records the exact winner and revision", async () => {
@@ -158,12 +158,12 @@ test("pending host writes suppress repeat taps until acknowledgement, and failur
   const { state, ev } = fixture();
   let acknowledge, attempts = 0;
   const view = controls(state, ev, { onLock:() => { attempts++; return new Promise(resolve => { acknowledge = resolve; }); } });
-  const first = view.click("Lock bets and start");
-  await view.click("Lock bets and start");
+  const first = view.click("Lock and start");
+  await view.click("Lock and start");
   assert.equal(attempts, 1);
   acknowledge({ ok:false, error:"Connection failed" });
   assert.equal((await first).ok, false);
-  const retry = view.click("Lock bets and start");
+  const retry = view.click("Lock and start");
   assert.equal(attempts, 2);
   acknowledge({ ok:true });
   assert.equal((await retry).ok, true);
@@ -239,7 +239,7 @@ for (const kind of ["bracket", "heats"]) test(`actual guest board and host panel
     assert.equal((await bettingControls(state, ev, spectator).click(`Retract your last chip on ${names(backed)}`)).ok, true);
     assert.equal(state.wagers.find(item => item.id === wager.id).stake, 100);
     const host = controls(state, ev, { onLock:reference => act(state, "lockAndStart", { evId:ev.id, ...reference }) });
-    assert.equal((await host.click("Lock bets and start")).ok, true);
+    assert.equal((await host.click("Lock and start")).ok, true);
     assert.equal(bettingControls(state, ev, spectator).buttons.filter(button => !button.disabled && button.name.startsWith("Place a chip on ")).length, 0);
     /* a stage final of three or more is recorded as a finish order of the
        places the event pays (every event pays 1st, 2nd and 3rd) */
@@ -312,7 +312,7 @@ test("a pending start also blocks the conflicting previous-result correction", a
   let acknowledge, corrections=0;
   const view=controls(state,ev,{onLock:()=>new Promise(resolve=>{acknowledge=resolve;}),
     onUndo:()=>{corrections++;return {ok:true};}},["Fix Play-in 1"]);
-  const start=view.click("Lock bets and start");
+  const start=view.click("Lock and start");
   await view.click("Reopen Play-in 1");
   assert.equal(corrections,0);
   acknowledge({ok:false,error:"Connection failed"}); await start;

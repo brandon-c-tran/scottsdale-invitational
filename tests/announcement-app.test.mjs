@@ -45,14 +45,18 @@ const { App, setTestSnapshot } = componentModule.exports;
    SSR does not run effects, so the mounted phone's observed on-deck value
    is committed explicitly. No transport, storage, or tournament is touched. */
 function phone({ gm = false, player = ROSTER[0] } = {}) {
-  const cells = [];
+  const cells = [], kinds = [];
   let onDeckRef;
   const render = (state, version = 1, lastAction = null) => {
     const useRef = React.useRef, useLayoutEffect = React.useLayoutEffect;
     let cursor = 0;
     React.useRef = initial => {
       const created = useRef(initial), index = cursor++;
-      if (!cells[index]) cells[index] = created;
+      /* the same hook is a cell made the same way: a component that mounts
+         only in the second render shifts the order, and a cell made for
+         something else (a DOM ref, a model object) is never handed over */
+      const made = (() => { try { return JSON.stringify(initial) ?? String(initial); } catch { return "?"; } })();
+      if (!cells[index] || kinds[index] !== made) { cells[index] = created; kinds[index] = made; }
       if (initial === "UNSET") onDeckRef = cells[index];
       return cells[index];
     };

@@ -96,15 +96,15 @@ test("a split 1st names both; past two it is counted", () => {
 });
 
 test("renamed teams are engraved by their new names, every one fitting a TV plate at 24px or more", () => {
-  const state = ["die", "bball5", "volley", "trivia"].reduce((s, evId) => longNames(s, evId), fresh("event:trivia:done"));
+  const state = ["die", "bball5", "volley"].reduce((s, evId) => longNames(s, evId), fresh("event:trivia:done"));
   const cup = cupOf(state);
   const layout = cupTvLayout(cup);
   cup.bands.forEach((band, index) => band.plates.filter(plate => plate.posted).forEach(plate => {
     const fit = fitPlateName(plate.engraving.name, plateNameWidth(layout.bands[index].plateW, plate.engraving.players.length));
     assert.ok(fit.size >= 24, `${plate.eventId}: ${fit.size}px`);
     assert.ok(fit.lines.length <= 2);
-    /* the plate holds its event line and the name's lines */
-    const height = CUP_TV.plate.event * 1.15 + 6 + fit.lines.length * fit.size * 1.12;
+    /* the plaque holds the name's lines beside its game's mark and faces */
+    const height = Math.max(CUP_TV.plate.mark, CUP_TV.plate.face, fit.lines.length * fit.size * 1.12);
     assert.ok(height <= layout.bands[index].plateH, `${plate.eventId} fits its plate (${Math.round(height)})`);
   }));
   assert.ok(cup.plates.some(plate => /Quizerables/.test(plate.engraving?.name || "")));
@@ -116,7 +116,8 @@ test("the TV's cup keeps the 24px floor and stays inside the canvas", () => {
   assert.equal(layout.bands.length, 4);
   layout.bands.forEach(band => {
     assert.equal(band.cols, 3);
-    assert.ok(band.plateH >= CUP_TV.plate.event * 1.15 + 6 + CUP_TV.plate.face, "a plate holds its event and a row of faces");
+    assert.ok(band.plateH >= 2 * CUP_TV.plate.name.two * 1.12, "a plaque holds a name in two lines beside its mark and faces");
+    assert.ok(band.width <= layout.width, "no tier wider than the cup's room");
   });
   const used = CUP_TV.bowl.height + CUP_TV.collar - CUP_TV.sag + CUP_TV.top + CUP_TV.foot
     + layout.bands.reduce((sum, band) => sum + band.height, 0) + 3 * CUP_TV.rim;
@@ -131,7 +132,7 @@ test("the crown engraves the champion on the cup", () => {
   const cup = cupOf(state);
   assert.equal(cup.crowned, true);
   /* the cup carries whoever tops the frozen board: one champion, or every
-     co-champion on a tie (the rehearsal's totals move with the v3.1 bounties) */
+     co-champion on a tie */
   const standings = computeStandings(state);
   const top = standings.filter(row => row.pts === standings[0].pts).map(row => row.player).sort();
   assert.deepEqual(cup.champions.map(champ => champ.player).sort(), top);

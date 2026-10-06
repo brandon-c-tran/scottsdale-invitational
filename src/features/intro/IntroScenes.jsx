@@ -321,12 +321,12 @@ function Volleyball() {
   />;
 }
 
-/* ── Trivia: the card turns, the buzzers chase, one team rings in ── */
+/* ── Trivia: the card turns, the lamps chase, one player rings in ── */
 function Trivia() {
   const desk = mix("var(--art-violet)", 70, "var(--art-plum)");
   const lit = "var(--art-cream)", dark = mix("var(--art-cream)", 18, K);
-  const desks = [345, 515, 685, 855];
-  const blink = (i, k) => run("fi-blink", 180, 900 + (k * 4 + i) * 110, "steps(1, end)");
+  const desks = [300, 450, 600, 750, 900];
+  const blink = (i, k) => run("fi-blink", 180, 900 + (k * 5 + i) * 110, "steps(1, end)");
   return <Plates
     mid={<>
       <g style={{ ...box, ...run("fi-card-back", 150, 900, "cubic-bezier(.5,0,.8,.5)") }}>
@@ -341,19 +341,17 @@ function Trivia() {
     </>}
     near={<>
       {desks.map((x, i) => <g key={x}>
-        <g style={i === 2 ? { ...box, ...run("fi-buzz", 220, T.hit - 60, "var(--ease-land)") } : undefined}>
-          <ellipse cx={x} cy="420" rx="32" ry="14" fill={i === 2 ? "var(--art-rose)" : mix("var(--art-rose)", 40, K)} stroke={K} strokeWidth="4" />
-          <ellipse cx={x} cy="414" rx="22" ry="8" fill={BONE} opacity=".18" />
+        <g style={i === 3 ? { ...box, ...run("fi-buzz", 220, T.hit - 60, "var(--ease-land)") } : undefined}>
+          <ellipse cx={x} cy="420" rx="28" ry="12" fill={i === 3 ? "var(--art-rose)" : mix("var(--art-rose)", 40, K)} stroke={K} strokeWidth="4" />
+          <ellipse cx={x} cy="415" rx="19" ry="7" fill={BONE} opacity=".18" />
         </g>
-        <path d={`M${x - 76} 428H${x + 76}V444H${x - 76}Z`} fill={BONE} stroke={K} strokeWidth="4" />
-        <path d={`M${x - 66} 444H${x + 66}L${x + 58} 590H${x - 58}Z`} fill={desk} stroke={K} strokeWidth="5" strokeLinejoin="round" />
-        {[-34, 0, 34].map(dx => <g key={dx}>
-          <circle cx={x + dx} cy="486" r="11" fill={dark} stroke={K} strokeWidth="3" />
-          {[0, 1].map(k => <circle key={k} cx={x + dx} cy="486" r="11" fill={lit} style={blink(i, k)} opacity="0" />)}
-          {i === 2 && <circle cx={x + dx} cy="486" r="11" fill={lit} style={run("fi-on", 120, T.hit, "steps(1, end)")} />}
-        </g>)}
+        <path d={`M${x - 60} 428H${x + 60}V444H${x - 60}Z`} fill={BONE} stroke={K} strokeWidth="4" />
+        <path d={`M${x - 52} 444H${x + 52}L${x + 45} 590H${x - 45}Z`} fill={desk} stroke={K} strokeWidth="5" strokeLinejoin="round" />
+        <circle cx={x} cy="492" r="17" fill={dark} stroke={K} strokeWidth="3" />
+        {[0, 1].map(k => <circle key={k} cx={x} cy="492" r="17" fill={lit} style={blink(i, k)} opacity="0" />)}
+        {i === 3 && <circle cx={x} cy="492" r="17" fill={lit} style={run("fi-on", 120, T.hit, "steps(1, end)")} />}
       </g>)}
-      <Burst x={685} y={418} r={60} flat={.6} />
+      <Burst x={750} y={418} r={60} flat={.6} />
     </>}
   />;
 }

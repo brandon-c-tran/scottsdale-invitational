@@ -64,7 +64,13 @@ export function TvSheet({ state, events, scene, operationEvent = null, scenes = 
   const current = card.steps.find(step => step.state === "live");
 
   return (
-    <Sheet title="TV" onClose={onClose} onBack={onBack} className="fd-tv-sheet">
+    <Sheet title="TV" onClose={onClose} onBack={onBack} className="fd-tv-sheet"
+      footer={scenes && scene ? <>
+        <ActionButton disabled={!scene.definition} onClick={() => onAdvance(sceneId)} className="is-next">
+          {tvAdvanceLabel(scene)}</ActionButton>
+        <ActionButton variant="secondary" onClick={() => onEnd(sceneId, "cancelled")}>End</ActionButton>
+        <ActionButton variant="tertiary" onClick={() => onEnd(sceneId, "skipped")}>Skip</ActionButton>
+      </> : null}>
       <section className="fd-menu-section" aria-label="On the TV now">
         <h3 className="fd-menu-head"><span className="fd-menu-head-glyph" aria-hidden="true"><Icon name="tv" size={18} /></span>
           <span>On the TV now</span></h3>
@@ -90,15 +96,6 @@ export function TvSheet({ state, events, scene, operationEvent = null, scenes = 
           <TvRoom room={room} />
         </div>
       </section>
-
-      {scenes && scene && (
-        <div className="fd-tv-controls">
-          <ActionButton disabled={!scene.definition} onClick={() => onAdvance(sceneId)} className="is-next">
-            {tvAdvanceLabel(scene)}</ActionButton>
-          <ActionButton variant="secondary" onClick={() => onEnd(sceneId, "cancelled")}>End</ActionButton>
-          <ActionButton variant="tertiary" onClick={() => onEnd(sceneId, "skipped")}>Skip</ActionButton>
-        </div>
-      )}
 
       {tiles.length > 0 && (
         <section className="fd-menu-section" aria-label="Put on the TV">

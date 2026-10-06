@@ -5,9 +5,9 @@
 .fd-home-arrow { flex-shrink:0; }
 
 /* The You strip: your own lamp, directly under the header. Your face stands
-   in the painted sky, the rank and reel read through a score window cut in
-   the glass, and the one live line through a window of its own, with its
-   lensed insert in the line's lamp. With nothing live the strip is Home's
+   in the painted sky and the one line reads through a window cut in the
+   glass beside it, with its lensed insert in the line's lamp (your reel and
+   rank live in the header, on every tab). With nothing live the strip is Home's
    one lit piece of backglass (a .fd-glass-scene, framed in your filament);
    with a contest live it is lettered into the contest's painting (is-inset)
    and the contest's lamp frames them both. */
@@ -23,13 +23,8 @@
 .fd-you-strip.is-inset { position:relative; z-index:1; padding-bottom:4px; }
 button.fd-you-strip { cursor:pointer; }
 button.fd-you-strip:active { transform:scale(.99); }
-.fd-you-strip-face { display:block; line-height:0; border-radius:50%; box-shadow:0 0 0 2px var(--ink0), 0 3px 8px rgba(2,3,10,.55); }
-/* the score window: your filament through a dark recess in the painted glass */
-.fd-you-strip-score { justify-self:end; display:flex; align-items:center; gap:12px; padding:5px 8px 5px 12px; color:var(--you);
-  box-shadow:inset 0 0 0 1px rgba(0,0,0,.9), inset 0 2px 6px rgba(0,0,0,.7), 0 1px 0 rgba(255,255,255,.16), 0 0 0 2px color-mix(in srgb, var(--you) 30%, transparent); }
-.fd-you-strip-rank { font:800 24px/1 var(--fd-display); letter-spacing:.02em; text-transform:uppercase; }
-.fd-you-strip-score .fd-reel { font:800 32px/1 var(--fd-display); }
-.fd-you-strip-line { grid-column:1 / -1; display:flex; align-items:center; gap:10px; min-width:0; min-height:44px; padding:6px 10px 7px 12px;
+.fd-you-strip-face { display:block; line-height:0; border-radius:50%; box-shadow:0 0 0 2px var(--ink0), var(--shadow-1); }
+.fd-you-strip-line { grid-column:2; display:flex; align-items:center; gap:10px; min-width:0; min-height:44px; padding:6px 10px 7px 12px;
   font:600 15px/1.3 var(--fd-body); }
 /* the model names a team, never a roll call; a team's own long name
    takes a second line rather than losing letters */
@@ -56,7 +51,7 @@ button.fd-you-strip:active { transform:scale(.99); }
    half on the floor, the contest on the clear glass below. */
 .fd-home-focus { position:relative; border:1px solid var(--line); border-radius:14px; background:color-mix(in srgb, var(--lamp-live) 6%, var(--bg)); box-shadow:var(--glass-edge); }
 .fd-home-focus .fd-chase { z-index:3; }
-.fd-home-scene { display:flex; flex-direction:column; border-radius:13px 13px 0 0; }
+.fd-home-scene { display:flex; flex-direction:column; border-radius:14px 14px 0 0; }
 .fd-home-scene:not(.has-you) { padding-top:58px; }
 /* The contest's pane: the painting stands behind your strip and ends on its
    horizon; the event's name is lettered on the desert floor under it, one
@@ -93,7 +88,7 @@ button.fd-you-strip:active { transform:scale(.99); }
 .fd-home-prize strong { color:var(--sun); font-weight:inherit; }
 /* the medallion: a dark lens in a chrome bezel */
 .fd-home-event-mark { flex-shrink:0; width:56px; height:56px; display:grid; place-items:center; border-radius:50%; background:var(--ink0);
-  box-shadow:0 0 0 2px rgba(0,0,0,.85), 0 0 0 4px color-mix(in srgb, var(--bone) 30%, transparent), 0 4px 10px rgba(2,3,10,.6), inset 0 2px 0 rgba(255,255,255,.1); }
+  box-shadow:var(--lens-seat); }
 .fd-home-event-mark svg { width:38px; height:38px; }
 .fd-home-event-description { margin:0; padding:0 14px 4px; color:var(--muted2); font-size:14px; line-height:1.55; }
 .fd-home-contest-label { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px; color:var(--muted2); font:800 15px/1.2 var(--fd-display); letter-spacing:.05em; text-transform:uppercase; }
@@ -103,7 +98,7 @@ button.fd-you-strip:active { transform:scale(.99); }
    one window cut into the pane (dark glass, recessed), rows parted by a
    hairline, never a card inside the card; yours carries a filament edge. */
 .fd-home-sides { --window:color-mix(in srgb, var(--ink0) 72%, var(--bg)); display:grid; gap:0; overflow:hidden; border-radius:10px; background:var(--window);
-  box-shadow:inset 0 0 0 1px rgba(0,0,0,.55), inset 0 2px 6px rgba(0,0,0,.5), 0 1px 0 rgba(255,255,255,.06); }
+  box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--ink0) 55%, transparent), inset 0 2px 6px color-mix(in srgb, var(--ink0) 50%, transparent), 0 1px 0 var(--ink-tint); }
 .fd-home-sides .fd-home-side { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; column-gap:8px;
   min-width:0; padding:0 12px; }
 .fd-home-sides .fd-home-side + .fd-home-side { border-top:1px solid var(--line); }
@@ -125,7 +120,7 @@ button.fd-you-strip:active { transform:scale(.99); }
 .fd-home-event-actions { display:flex; align-items:center; gap:14px; padding:12px 14px 14px; }
 .fd-home-event-actions .fd-home-primary { flex:0 0 auto; min-width:148px; }
 .fd-home-event-actions .fd-home-text-link { margin-left:auto; }
-/* what is riding: your bet and the room's in amber (chips), the payout once */
+/* what is on this contest: your bet and the room's in amber (chips) */
 .fd-home-riding { display:flex; flex-direction:column; gap:2px; flex:1; min-width:0; margin:0; color:var(--muted2); font:500 14px/1.35 var(--fd-body); }
 .fd-home-riding strong { color:var(--sun); font:800 17px/1 var(--fd-display); font-variant-numeric:tabular-nums; }
 /* what a win means for you, muted, once */
@@ -136,8 +131,8 @@ button.fd-you-strip:active { transform:scale(.99); }
 .fd-home-teams { display:grid; gap:6px; }
 .fd-home-assignment.fd-home-teams { gap:6px; }
 .fd-home-team h3 { display:flex; align-items:baseline; justify-content:space-between; gap:10px; margin:0 0 4px; color:var(--ink);
-  font:800 19px/1.15 var(--fd-display); letter-spacing:.01em; text-transform:none; }
-.fd-home-team h3 .fd-home-pot strong { font-size:19px; }
+  font:800 22px/1.15 var(--fd-display); letter-spacing:.01em; text-transform:none; }
+.fd-home-team h3 .fd-home-pot strong { font-size:22px; }
 /* the team's photo chips in one row, each a 44px target; a team wider
    than the panel wraps whole chips */
 .fd-home-team-faces { display:flex; flex-wrap:wrap; gap:0; margin:0 -4px; }
@@ -201,7 +196,7 @@ button.fd-home-exposure { background:transparent; border:0; padding:0; color:var
    painting stays, its band shorter, the name lettered smaller */
 .fd-home.is-live .fd-home-scene:not(.has-you) { padding-top:30px; }
 .fd-home.is-live .fd-home-event-title { margin-top:4px; }
-.fd-home.is-live .fd-home-event-title h2 { padding-bottom:10px; font-size:clamp(34px,10vw,42px); }
+.fd-home.is-live .fd-home-event-title h2 { padding-bottom:10px; font-size:clamp(34px,10vw,44px); }
 .fd-home.is-live .fd-home-event-mark { width:46px; height:46px; }
 .fd-home.is-live .fd-home-event-mark svg { width:32px; height:32px; }
 .fd-home.is-live .fd-home-leaderboard { margin-top:14px; }
@@ -239,10 +234,19 @@ button.fd-home-exposure { background:transparent; border:0; padding:0; color:var
 .fd-home-duel-waiting button { min-height:48px; padding:0 14px; border:0; border-left:1px solid var(--line); background:none; color:var(--lamp-info); font:600 14px/1 var(--fd-body); cursor:pointer; }
 .fd-home-duel-waiting [role=status] { padding:0 14px; }
 .fd-home-duel-waiting p { flex-basis:100%; margin:0 0 8px; color:var(--clay-text); }
-.fd-home-song { display:flex; align-items:center; gap:8px; margin:10px 0 0; color:var(--muted2); font:500 14px/1.4 var(--fd-body); }
-.fd-home-song>.fd-icon { color:var(--sun); }
+/* the note sits on the text's first line (14px at 1.4 is a 19.6px line) and
+   a long name wraps under the text, never under the note */
+.fd-home-song { display:flex; align-items:flex-start; gap:8px; margin:8px 0 0; color:var(--muted2); font:500 14px/1.4 var(--fd-body); }
+.fd-home-song>.fd-icon { flex-shrink:0; margin-top:2px; color:var(--sun); }
+.fd-home-song>span { min-width:0; overflow-wrap:anywhere; }
+/* a row of the card itself: on the card's 14px inset, like the rows above */
+.fd-home-song.is-own { padding:0 14px; }
+.fd-home-focus > .fd-home-song:last-child { margin-bottom:12px; }
 .fd-home-song strong { color:var(--ink); font-weight:700; }
-.fd-home-song.is-pick { width:100%; min-height:44px; margin:6px 0 0; padding:0; border:0; background:none; color:var(--ink); font-weight:600; text-align:left; cursor:pointer; }
+.fd-home-song.is-pick { width:100%; min-height:44px; margin:6px 0 0; padding:0; border:0; background:none; color:var(--ink); font-weight:600; text-align:left; cursor:pointer; align-items:center; }
+.fd-home-song.is-pick>.fd-icon { margin-top:0; }
+.fd-home-song.is-pick.is-own { padding:0 14px; }
+.fd-home-focus > .fd-home-song.is-pick:last-child { margin-bottom:4px; }
 .fd-home-song.is-pick>span { flex:1; }
 .fd-home-song.is-pick .fd-home-arrow { color:var(--lamp-info); }
 /* before the weekend: what you still owe, a flashing lamp until it is done */
@@ -257,7 +261,7 @@ button.fd-home-exposure { background:transparent; border:0; padding:0; color:var
 .fd-home-flights>span { flex:1; min-width:0; }
 .fd-home-flights button { min-width:64px; min-height:48px; padding:0 12px; border:0; border-left:1px solid var(--line); background:none; color:var(--lamp-info); font:600 15px/1 var(--fd-body); cursor:pointer; }
 .fd-home-flights button:disabled { color:var(--disabled); cursor:default; }
-.fd-home-flights p { flex-basis:100%; margin:0 0 8px; color:var(--clay-text); font-size:13px; }
+.fd-home-flights p { flex-basis:100%; margin:0 0 8px; color:var(--clay-text); font-size:12px; }
 .fd-home-finish .fd-home-own-finish { display:inline-block; margin:14px 0 0; padding:7px 12px; border-radius:99px; background:var(--finish-color); color:var(--finish-ink); font:600 15px/1.2 var(--fd-body); }
 @media(hover:hover) {
   .fd-home-event-title:hover h2,.fd-home-text-link:hover,.fd-home-player-links button:hover>span { text-decoration:underline; text-underline-offset:4px; text-decoration-thickness:1px; }
@@ -267,10 +271,157 @@ button.fd-home-exposure { background:transparent; border:0; padding:0; color:var
   .fd-home-heading h1 { font-size:38px; }
   .fd-home-event-actions { gap:8px; }
   .fd-home-primary { padding:11px; font-size:14px; }
-  .fd-you-strip-score .fd-reel { font-size:30px; }
 }
 @media(prefers-reduced-motion:reduce) { button.fd-you-strip:active { transform:none; } }
-/* v3.1: a side's payout and its bounty, under the side */
+/* v3.1: a side's payout, under the side */
 .fd-home-side:has(> .fd-home-terms) { flex-wrap:wrap; row-gap:4px; }
 .fd-home-terms { flex-basis:100%; flex-wrap:wrap; row-gap:4px; overflow:visible; }
 .fd-home-team .fd-home-terms { margin-top:6px; }
+/* the pane's last row keeps the pane's own bottom padding */
+.fd-home-focus > .fd-home-assignment:last-child { padding-bottom:12px; }
+
+/* Round 2 (Oct 4): the first screen during the weekend holds the contest
+   and the leaderboard's heading (fit audit: fold). Team blocks are a name
+   over one row of faces; the strip's moment is one line; the status row is
+   text only (the pane's frame is the lamp). */
+.fd-home-board-head { display:block; }
+.fd-home.is-live .fd-home-focus-meta { min-height:34px; padding-top:4px; padding-bottom:2px; }
+.fd-home.is-live .fd-you-strip-line>.fd-you-strip-up { font-size:22px; line-height:1.1; }
+.fd-home.is-live .fd-you-strip.is-inset { padding-top:10px; }
+.fd-home-team h3 { margin:0 0 2px; font-size:22px; }
+.fd-home-team h3 .fd-home-pot strong { font-size:22px; }
+.fd-home-teams-vs { margin:0; }
+.fd-home-team-faces { margin:0 -5px; }
+.fd-home-extra-row { padding:0 14px; }
+/* crowned: the title is lettered into the night sky over the champion */
+.fd-home-finish .fd-home-scene .fd-home-finish-title { position:relative; z-index:1; padding:18px 14px 0; color:var(--sun); }
+.fd-home-finish .fd-home-scene .fd-home-finish-title + .fd-home-winner { padding-top:10px; }
+/* your team's pencil, in the card on your own team; the names open under the sides */
+.fd-teamname-pencil { flex:none; display:grid; place-items:center; width:44px; height:44px; margin:-10px -8px -10px auto; padding:0; border:0;
+  border-radius:50%; background:none; color:var(--lamp-info); cursor:pointer; }
+.fd-teamname-pencil:focus-visible { outline:2px solid var(--lamp-info); outline-offset:-4px; }
+.fd-home-team h3 { align-items:center; }
+.fd-home-team h3 .fd-teamname-pencil { margin:-12px -6px -12px 0; }
+.fd-home-team h3 .fd-home-pot { margin-left:auto; }
+.fd-home-assignment small .fd-teamname-pencil { margin:-14px 0 -14px 2px; }
+.fd-teamname-inline { margin:8px 0 4px; }
+.fd-teamname-inline .fd-teamname-edit { margin-top:0; }
+/* live: the event's name on one line where it can, smaller than the hero */
+.fd-home.is-live .fd-home-event-title h2 { font-size:clamp(28px, 8.4vw, 40px); }
+.fd-home.is-live .fd-you-strip.is-inset { padding-top:8px; padding-bottom:2px; }
+.fd-home.is-live .fd-home-focus > .fd-home-scene > .fd-home-event-title h2 { padding-bottom:8px; }
+.fd-home.is-live .fd-home-focus > .fd-home-scene > .fd-home-event-title .fd-home-event-go { margin-bottom:12px; }
+.fd-home.is-live .fd-home-event-actions { padding-top:8px; padding-bottom:10px; }
+.fd-home-finish .fd-home-own-finish strong { color:inherit; font:800 18px/1 var(--fd-display); letter-spacing:.02em; }
+/* the status rides the action's row while chips can be placed or ride:
+   status and one riding line on the left, the action on the right */
+.fd-home-action-status { display:flex; flex-direction:column; gap:6px; flex:1; min-width:0; }
+.fd-home-action-status .fd-home-status { font-size:14px; gap:4px 10px; }
+.fd-home-action-status .fd-home-riding { flex:none; }
+.fd-home-focus .fd-home-action-status .fd-home-status { color:var(--ink); }
+/* the second team's name says "vs" itself; a hairline parts the blocks */
+.fd-home-team.is-versus { margin-top:2px; padding-top:6px; background:linear-gradient(var(--line), var(--line)) top left / 100% 1px no-repeat; }
+.fd-home-team-vs { flex:none; margin-right:8px; color:var(--muted2); font:800 14px/1 var(--fd-display); letter-spacing:.06em; text-transform:uppercase; }
+.fd-home-team h3 { justify-content:flex-start; }
+.fd-home.is-live .fd-home-assignment { padding-top:8px; }
+.fd-home.is-live .fd-home-event-mark { width:42px; height:42px; }
+.fd-home.is-live .fd-home-event-mark svg { width:30px; height:30px; }
+.fd-home.is-live .fd-home-leaderboard { margin-top:10px; }
+/* the pencil keeps its 44px clear of the faces under it */
+.fd-home-team h3:has(> .fd-teamname-pencil) { min-height:44px; margin-bottom:0; }
+.fd-home-team h3 .fd-teamname-pencil { margin:0 -6px 0 0; }
+/* a team of up to four: its name and its faces on one row */
+.fd-home-team.is-row { display:flex; align-items:center; gap:8px; }
+.fd-home-team.is-row h3 { flex:1; min-width:0; margin:0; }
+.fd-home-team.is-row h3:has(> .fd-teamname-pencil) { min-height:0; }
+.fd-home-team.is-row .fd-home-team-faces { flex:none; flex-wrap:nowrap; }
+/* tight rhythm while live: the board's heading belongs on the first screen */
+.fd-home.is-live .fd-home-assignment { padding-top:6px; gap:4px; }
+.fd-home.is-live .fd-home-teams { gap:2px; }
+.fd-home.is-live .fd-home-team h3 { font-size:22px; line-height:1.1; }
+.fd-home.is-live .fd-home-team.is-versus { padding-top:4px; }
+.fd-home.is-live .fd-you-strip.is-inset { padding-top:6px; padding-bottom:0; }
+.fd-home.is-live .fd-home-focus > .fd-home-scene > .fd-home-event-title h2 { padding-bottom:6px; }
+.fd-home.is-live .fd-home-focus > .fd-home-scene > .fd-home-event-title { padding-top:6px; }
+.fd-home.is-live .fd-home-event-actions { padding-top:6px; padding-bottom:8px; }
+.fd-home.is-live .fd-home-leaderboard { margin-top:4px; }
+.fd-home-team.is-row h3 .fd-teamname-pencil { margin:0; }
+/* a side's payout (odds) takes its own line under its people, so names stay on one */
+.fd-home-pot-col { display:flex; flex-direction:column; align-items:flex-end; justify-content:center; gap:3px; }
+.fd-home-pot-col .fd-home-terms { flex-basis:auto; min-height:0; justify-content:flex-end; }
+.fd-teamname-row { margin-bottom:6px; }
+.fd-home.is-live .fd-home-contest-label { font-size:14px; line-height:1.1; }
+.fd-home-contest-label .fd-teamname-pencil { margin:-6px -10px -4px auto; }
+.fd-home-sides .fd-home-player-links { column-gap:8px; }
+.fd-home-pot-col .fd-side-pays { letter-spacing:.02em; }
+.fd-home-sides .fd-home-side { column-gap:6px; }
+.fd-home.is-live .fd-home-sides .fd-home-versus { height:14px; }
+.fd-home.is-live .fd-home-event-mark { width:40px; height:40px; }
+/* the bracket path is a line to read, not a control: no 44px floor */
+.fd-home.is-live .fd-home-path { min-height:0; padding:8px 0 2px; margin-top:6px; }
+/* Round 3 (Oct 4): a team's faces carry their first names (identity by face
+   alone is a stranger). The chips are a grid whose columns come from the
+   width, so a team wraps whole chips; a team of up to four keeps its name
+   and faces on one row. */
+.fd-home-team-faces { display:grid; grid-template-columns:repeat(auto-fill, minmax(44px, 1fr)); gap:0 2px; margin:2px -4px 0; }
+.fd-home-team.is-row .fd-home-team-faces { grid-auto-flow:column; grid-template-columns:none; grid-auto-columns:minmax(44px, max-content); margin:0 -4px; }
+.fd-home-team-faces button { display:flex; flex-direction:column; align-items:center; justify-content:flex-start; gap:2px;
+  width:auto; height:auto; min-width:0; min-height:44px; padding:2px 2px 1px; border-radius:8px; }
+.fd-home-team-name { max-width:100%; color:var(--muted2); font:700 12px/14px var(--fd-display); letter-spacing:.02em; white-space:nowrap; }
+.fd-home-team.is-mine .fd-home-team-name { color:var(--ink); }
+/* out of the event: a done lamp, not a live call. Inside the lit contest
+   pane your strip goes unlit (spent lens, your face dimmed, the line in
+   lilac) and the elimination lines read muted, so "You're out" never
+   shares the magenta voice of "You're up" */
+.fd-you-strip.is-done .fd-you-strip-line { color:var(--muted2); background:color-mix(in srgb, var(--ink0) 70%, transparent); }
+.fd-you-strip.is-done .fd-you-strip-face { filter:saturate(.2) brightness(.75); }
+.fd-home-assignment .fd-home-assignment-status.is-out, .fd-home-assignment .fd-home-personal.is-out { color:var(--muted2); font-weight:600; }
+/* Round 5 (Oct 4): Home's one headline slot. Every state your strip can
+   carry (You're up, Your pick, You're out, Won +400, 300 bet, Next) is the
+   same two parts: the state word lettered in the show face, its one line
+   under it in the body face. A fresh "You're up" stamps the word. */
+.fd-you-strip-text { display:flex; flex-direction:column; gap:2px; }
+.fd-you-strip-word { font-size:22px; line-height:1.15; overflow-wrap:anywhere; }
+.fd-you-strip-detail { color:var(--muted2); font:600 15px/1.3 var(--fd-body); overflow-wrap:anywhere; }
+.fd-you-strip-detail .fd-icon-then, .fd-you-strip-detail .fd-icon-done { vertical-align:-2px; margin:0 3px; }
+.fd-you-strip.is-you .fd-you-strip-word { color:var(--you); }
+.fd-you-strip.is-chip .fd-you-strip-word { color:var(--sun); }
+.fd-you-strip.is-done .fd-you-strip-word { color:var(--muted2); }
+.fd-you-strip.is-chip .fd-you-strip-detail, .fd-you-strip.is-live .fd-you-strip-detail { color:var(--ink); }
+.fd-you-strip-word.is-stamping { display:inline-block; transform-origin:left center;
+  animation:fd-home-stamp var(--motion-stamp) var(--ease-land) 380ms both; }
+.fd-you-strip.is-inset.is-tap { cursor:pointer; }
+.fd-you-strip.is-inset.is-tap .fd-you-strip-line { border:1px solid color-mix(in srgb, var(--you) 55%, transparent); }
+@media(prefers-reduced-motion:reduce) { .fd-you-strip-word.is-stamping { animation:none; } }
+/* what 1st pays rides the event's name, seated on its baseline */
+.fd-home-event-title .fd-home-prize { flex:none; align-self:flex-end; margin-bottom:16px; filter:drop-shadow(0 1px 0 var(--ink0)) drop-shadow(0 0 2px var(--ink0)); }
+.fd-home.is-live .fd-home-focus > .fd-home-scene > .fd-home-event-title .fd-home-prize { margin-bottom:9px; }
+/* the status and what rides on the contest share one row, units that wrap whole */
+.fd-home-action-status { flex-direction:row; flex-wrap:wrap; align-items:center; gap:2px 14px; }
+.fd-home-action-status .fd-home-riding { flex-direction:row; align-items:center; gap:6px; white-space:nowrap; }
+.fd-home-riding strong { margin-right:2px; }
+/* your stake is a way into Bets on this contest */
+button.fd-home-riding.is-yours { display:inline-flex; min-height:44px; margin:-6px 0; padding:0; border:0; background:none;
+  color:var(--ink); font:500 14px/1.35 var(--fd-body); cursor:pointer; }
+button.fd-home-riding.is-yours .fd-home-arrow { color:var(--lamp-info); }
+@media(hover:hover) { button.fd-home-riding.is-yours:hover>span { text-decoration:underline; text-underline-offset:4px; text-decoration-thickness:1px; } }
+button.fd-home-riding.is-yours:focus-visible { outline:2px solid var(--lamp-info); outline-offset:2px; border-radius:4px; }
+/* a team's chips are each as wide as the first name under it and wrap
+   whole, so two names never share the same ground (Fits By Construction);
+   the row form is chosen in JS only when the name and every chip fit */
+.fd-home-team-faces { display:flex; flex-wrap:wrap; gap:0 4px; margin:2px -2px 0; }
+.fd-home-team-faces button { flex:none; min-width:44px; padding:2px 3px 1px; }
+.fd-home-team-name { max-width:none; }
+.fd-home-team.is-row { flex-wrap:wrap; column-gap:8px; row-gap:0; }
+.fd-home-team.is-row .fd-home-team-faces { display:flex; flex-wrap:nowrap; margin:0 -2px; }
+.fd-home-team.is-row > .fd-home-terms { flex-basis:100%; }
+/* the stake's 44px target stays clear of the status line above it */
+.fd-home-action-status { row-gap:4px; }
+button.fd-home-riding.is-yours { margin:-3px 0; }
+/* with the prize on its row the name keeps one line where it can: no
+   chevron (the row is the way in, as on Events), and the name's size fits
+   the room left by the medallion and the prize (184px of insets, mark and
+   prize at 375; ~.42em a letter in the show face), floored where a long
+   name wraps at a space instead */
+.fd-home-event-title.has-prize h2 { font-size:clamp(28px, min(11.5vw, calc((100vw - 184px) / (var(--name-ch, 12) * .42))), 56px); }
+.fd-home.is-live .fd-home-event-title.has-prize h2 { font-size:clamp(24px, min(8.4vw, calc((100vw - 184px) / (var(--name-ch, 12) * .42))), 40px); }

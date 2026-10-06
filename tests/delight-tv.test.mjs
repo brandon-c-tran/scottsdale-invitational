@@ -11,7 +11,8 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { EMPTY_STATE, ROSTER, allEventsOf, computeStandings, resolveCurrentContest } from "../shared/core.js";
 import { applyAction } from "./support/confirmed-start.mjs";
 import {
-  TOWER_TIMING, TOWER_MAX_ANIMATED_CHIPS, towerChips, towerLeaders, towerTransition, towerSchedule, towerFit,
+  TOWER_TIMING, TOWER_MAX_ANIMATED_CHIPS, towerChips, towerLeaders, towerTransition, towerSchedule, towerLayout,
+  towerStackPx, towerChipSpan, towerLabelBoxes, towerCountSize, TOWER_COUNT_EM, TOWER_LAYOUT,
   frameMonitor, towersMode, standingsTowerRows, resultTowerRows, towerSignature, dropEase, towerSounds,
 } from "../src/features/tv/towersModel.js";
 import {
@@ -99,12 +100,101 @@ test("the beats follow the spec: hold, drops on a stagger, re-sort, then the rin
   assert.ok(dropEase(0.9) < 1 && dropEase(0.9) > 0.9, "one small settle after landing");
 });
 
-test("the camera fits thirteen towers across and the tallest under the header", () => {
-  const early = towerFit({ width:1920, baseY:716, count:13, tallest:10 });
-  const late = towerFit({ width:1920, baseY:716, count:13, tallest:90 });
-  assert.ok(early > late, "a taller board zooms out");
-  assert.ok(early * (12 * 2.9 + 2) <= 1920 - 128 + 0.001, "thirteen towers fit across");
-  assert.ok(late * 90 * 0.2 * Math.cos(20 * Math.PI / 180) < 716, "the tallest tower clears the top");
+test("the towers keep their slots and true chip proportions: a taller board stands narrower towers, then thinner chips past the floor", () => {
+  const early = towerLayout({ width:1920, baseY:730, count:13, tallest:10, top:40 });
+  const mid = towerLayout({ width:1920, baseY:730, count:13, tallest:92, top:330 });
+  const late = towerLayout({ width:1920, baseY:730, count:13, tallest:150, top:330 });
+  assert.equal(early.slotPx, late.slotPx, "every tower keeps its slot");
+  assert.deepEqual(towerLabelBoxes(early).map(box => box.x), towerLabelBoxes(late).map(box => box.x), "slot centres never move");
+  /* a short board: the slot sets the chip, at its true proportion */
+  assert.ok(Math.abs(early.k - early.slotK) < 1e-9 && early.smallPx === early.naturalPx && early.bigPx === early.naturalPx);
+  /* a tall board: narrower towers, chips still their true proportion (the 9,200 result's ~45px stacks) */
+  assert.ok(mid.k < early.k && mid.k > mid.floorK, "the 9,200 result narrows the chip");
+  assert.ok(2 * mid.k > 40 && 2 * mid.k < 52, `a chunky ~45px chip (${(2 * mid.k).toFixed(1)})`);
+  assert.equal(mid.smallPx, mid.naturalPx, "true thickness");
+  assert.equal(mid.bigPx, mid.naturalPx, "true thickness");
+  assert.ok(!mid.compressed);
+  /* past the legible floor the chip stops narrowing and its thickness gives */
+  assert.equal(late.k, late.floorK);
+  assert.ok(2 * late.k >= TOWER_LAYOUT.minDiameterPx - 1e-9, "never under the legible diameter");
+  assert.ok(late.compressed && late.bigPx < late.naturalPx, "the chips get thinner instead");
+  assert.ok(towerStackPx(late, 150) <= 730 - 330 + 1e-6, "the tallest clears the headline");
+});
+
+/* the views the towers stand in (TVMode: towerBase = height - 106, and the
+   sky's top margin per view), with the ticker and without */
+const TOWER_VIEWS = [
+  ...[836, 956].flatMap(height => [["result", 330], ["ribbon", 190], ["standings", 120], ["ambient", 40]]
+    .map(([name, top]) => ({ name:`${name}-${height}`, baseY:height - 106, top, height }))),
+  { name:"horizon", baseY:170, top:8, height:272, fill:0.56, minChipPx:3 },
+];
+const towerBoard = (count, leader) => Array.from({ length:count }, (_, i) =>
+  i === count - 1 ? -300 : i === count - 2 ? 300 : Math.round((leader - (leader - 600) * i / (count - 2)) / 100) * 100);
+
+test("tower labels never collide and every tower stays on the canvas, at any board and any roster size", () => {
+  for (const count of [10, 12, 13]) for (const leader of [2000, 9200, 15000]) for (const view of TOWER_VIEWS) {
+    const pts = towerBoard(count, leader);
+    const chips = pts.map(towerChips);
+    const tallest = Math.max(...chips);
+    const layout = towerLayout({ width:1920, baseY:view.baseY, count, tallest, top:view.top, edge:64,
+      fill:view.fill, minChipPx:view.minChipPx });
+    const at = `${count} players, ${leader} leader, ${view.name}`;
+    const boxes = towerLabelBoxes(layout);
+    assert.equal(boxes.length, count, at);
+    boxes.forEach((box, i) => {
+      assert.ok(box.l >= 64 - 1e-6 && box.r <= 1856 + 1e-6, `${at}: label ${i} inside the safe sides`);
+      if (i) assert.ok(boxes[i - 1].r + 8 <= box.l + 1e-6, `${at}: labels ${i - 1} and ${i} apart`);
+      /* the count at its fitted size inside its label, never under 24px */
+      const text = (pts[i] < 0 ? "-" : "") + Math.abs(pts[i]).toLocaleString("en-US");
+      const size = towerCountSize(text, layout.labelW);
+      assert.ok(size >= 24 && text.length * TOWER_COUNT_EM * size <= layout.labelW + 1e-6, `${at}: count ${text} fits`);
+      /* the tower and the leader's ring inside the canvas, and inside its slot */
+      const ring = 1.35 * layout.k;
+      assert.ok(box.x - ring >= 0 && box.x + ring <= 1920, `${at}: tower ${i} on the canvas`);
+      assert.ok(2 * layout.k <= layout.slotPx, `${at}: a chip inside its slot`);
+      assert.ok(2 * layout.k >= Math.min(TOWER_LAYOUT.minDiameterPx, layout.slotK * 2) - 1e-9, `${at}: a legible chip`);
+    });
+    /* two lines of label (35 + 2 + 39) under the floor, inside the pane */
+    assert.ok(boxes[0].y + 76 <= view.height + 1, `${at}: labels inside the pane`);
+    assert.ok(view.baseY - towerStackPx(layout, tallest) >= view.top - 1e-6, `${at}: the tallest clears the top margin`);
+    /* honest at a glance: more chips always stand taller, and a short stack
+       keeps its chips legible */
+    for (let n = 1; n <= tallest; n++) assert.ok(towerStackPx(layout, n) > towerStackPx(layout, n - 1), `${at}: ${n} over ${n - 1}`);
+    assert.ok(towerStackPx(layout, 3) - layout.capPx >= 3 * Math.min(view.minChipPx || 4, layout.naturalPx) - 1e-6,
+      `${at}: three chips read as three`);
+    assert.ok(layout.bigPx <= layout.smallPx + 1e-9 && layout.smallPx <= layout.naturalPx + 1e-9, `${at}: past the knee every chip alike`);
+    /* true proportions until the floor: only a board past it thins its chips */
+    if (!layout.compressed) assert.ok(Math.abs(layout.bigPx - layout.naturalPx) < 1e-9, `${at}: chips at their true thickness`);
+  }
+});
+
+test("more chips always stand taller, at every compression level the towers reach", () => {
+  /* natural, narrowed, at the floor with the knee, and deep past it (the
+     0.25px floor): the rendered stack in canvas px rises with every chip */
+  for (const view of TOWER_VIEWS) for (const tallest of [1, 5, 10, 11, 20, 40, 92, 150, 220, 400]) {
+    const layout = towerLayout({ width:1920, baseY:view.baseY, count:13, tallest, top:view.top, edge:64,
+      fill:view.fill, minChipPx:view.minChipPx });
+    let last = towerStackPx(layout, 0);
+    for (let n = 1; n <= tallest; n++) {
+      const px = towerStackPx(layout, n);
+      assert.ok(px > last, `${view.name}, ${tallest} tallest: ${n} chips over ${n - 1}`);
+      last = px;
+    }
+    /* and a board's towers in rank order are in height order */
+    if (tallest < 10) continue;
+    const pts = towerBoard(13, tallest * 100);
+    const heights = pts.map(v => towerStackPx(layout, towerChips(v)));
+    heights.forEach((h, i) => { if (i) assert.ok(h <= heights[i - 1] + 1e-9, `${view.name}, ${tallest}: rank ${i} no taller`); });
+  }
+});
+
+test("an empty or negative stack holds its place with no chips", () => {
+  const layout = towerLayout({ width:1920, baseY:730, count:13, tallest:150, top:330 });
+  assert.equal(towerChips(-300), 0);
+  assert.equal(towerChips(0), 0);
+  assert.equal(towerStackPx(layout, 0), layout.capPx, "only the base on the felt");
+  assert.equal(towerChipSpan(layout, 0).y, 0);
+  assert.ok(towerChipSpan(layout, 12).y > towerChipSpan(layout, 11).y);
 });
 
 test("fallback: no WebGL, a failure, a slow TV, or the stacks board all stay flat", () => {

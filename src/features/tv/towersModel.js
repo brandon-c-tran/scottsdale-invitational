@@ -5,9 +5,11 @@
 
 import { PT } from "../../../shared/core.js";
 
-/* world units: a chip is 1 across and 0.2 thick (a real chip is ~0.17; 0.2
-   reads better across a room), towers stand 2.9 apart in rank order */
-export const TOWER_GEOMETRY = Object.freeze({ radius:1, chip:0.2, spacing:2.9, elevationDeg:20, maxPxPerUnit:64 });
+/* world units: a chip is radius 1 and 0.2 thick (a real chip is ~0.17;
+   0.2 reads better across a room). A tower keeps that proportion: the scale
+   comes from the height the tallest needs, so a tall board stands narrower
+   towers, never flatter chips, down to a legible floor (TOWER_LAYOUT). */
+export const TOWER_GEOMETRY = Object.freeze({ radius:1, chip:0.2, elevationDeg:20, maxPxPerUnit:54, minPxPerUnit:4 });
 
 /* ms, from the spec: a 300 hold after the broadcast, 420 per falling chip on
    a 110 stagger (a 1,600 award is 16 chips, about 2.2s), a 250 beat, a 900
@@ -114,24 +116,90 @@ export const dropEase = t => t < 0.8 ? (t / 0.8) ** 2 : 1 - Math.sin((t - 0.8) /
 export const easeInOutCubic = t => t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2;
 export const easeOutCubic = t => 1 - (1 - t) ** 3;
 
-/* Pixels per world unit so thirteen towers fit across and the tallest tower
-   (one chip per PT, plus its top face) clears the space above the table. */
-export function towerFit({ width, baseY, count = 13, tallest = 10, top = 40, pad = 64, slotPx = 0 } = {}) {
+/* The layout: every tower stands at the centre of its own fixed slot, one
+   per standings row across the canvas between its safe edges, so names and
+   counts never collide whatever the board holds or however many play. The
+   chip keeps its true proportion (0.2 thick to a radius of 1, the camera's
+   3D read): its scale is the largest at which the tallest tower fits the
+   sky, at most FILL of the slot (and maxPxPerUnit), so a tall board stands
+   narrower towers of chunky chips. Only when that would take the chip under
+   `minDiameterPx` does the scale stop there and the chips get thinner
+   instead: still one chip per 100, every tower on the same scale. The first
+   KNEE chips of every tower (the opening 1,000) keep at least `minChipPx`
+   each, so a 300 stack still reads as three chips; past the knee every chip
+   is the same, so order and the gaps between the leaders stay true. */
+export const TOWER_LAYOUT = Object.freeze({ edge:64, fill:0.7, gutter:12, labelMax:200, minDiameterPx:40, minChipPx:4, knee:10,
+  floorPx:0.25 });
+const EL_RAD = TOWER_GEOMETRY.elevationDeg * Math.PI / 180;
+/* canvas px per world unit at which `tallest` chips and the top face stand in `room` */
+const heightFit = (room, tallest) => {
   const g = TOWER_GEOMETRY;
-  const el = g.elevationDeg * Math.PI / 180;
-  const span = Math.max(1, count - 1) * g.spacing + 2 * g.radius;
-  /* fixed slots (the horizon): a chip is at most TOWER_SLOT_FILL of its slot */
-  const across = slotPx > 0 ? slotPx * TOWER_SLOT_FILL / (2 * g.radius) : (width - 2 * pad) / span;
-  const rise = Math.max(1, tallest) * g.chip * Math.cos(el) + 2 * g.radius * Math.sin(el);
-  const up = (baseY - top) / rise;
-  return Math.max(4, Math.min(g.maxPxPerUnit, across, up));
+  return Math.max(0, room) / (Math.max(1, tallest) * g.chip * Math.cos(EL_RAD) + 2 * g.radius * Math.sin(EL_RAD));
+};
+export function towerLayout({ width = 1920, baseY = 720, count = 1, tallest = 10, top = 40, edge = TOWER_LAYOUT.edge,
+  fill = TOWER_LAYOUT.fill, minChipPx = TOWER_LAYOUT.minChipPx, minDiameterPx = TOWER_LAYOUT.minDiameterPx } = {}) {
+  const g = TOWER_GEOMETRY, L = TOWER_LAYOUT;
+  const n = Math.max(1, Math.floor(count) || 1);
+  const slotPx = (width - 2 * edge) / n;
+  const labelW = Math.max(0, Math.min(L.labelMax, slotPx - L.gutter));
+  const slotK = Math.max(g.minPxPerUnit, Math.min(g.maxPxPerUnit, slotPx * fill / (2 * g.radius)));
+  const floorK = Math.max(g.minPxPerUnit, Math.min(slotK, minDiameterPx / (2 * g.radius)));
+  const fitK = heightFit(baseY - top, tallest);
+  const k = Math.max(floorK, Math.min(slotK, fitK));
+  const capPx = 2 * g.radius * Math.sin(EL_RAD) * k;
+  const naturalPx = g.chip * Math.cos(EL_RAD) * k;
+  const { small, big } = towerChipPx({ room:baseY - top - capPx, tallest, naturalPx, minChipPx });
+  /* world units: the camera zooms with k, and only a board past the floor squashes its chips */
+  const toWorld = px => px / (Math.cos(EL_RAD) * k);
+  return { width, baseY, top, edge, count:n, slotPx, labelW, k, slotK, floorK, capPx, naturalPx, smallPx:small, bigPx:big,
+    knee:L.knee, small:toWorld(small), big:toWorld(big), compressed:k <= floorK + 1e-9 && fitK < floorK };
 }
-export const towerSlotX = (slot, count, spacing = TOWER_GEOMETRY.spacing) => (slot - (count - 1) / 2) * spacing;
-/* The horizon keeps every tower in its own fixed slot of the canvas, so
-   names and reels never collide however tall the tallest tower grows: the
-   slot is in canvas pixels, and the chip shrinks inside it instead. */
-export const TOWER_SLOT_FILL = 0.56;
+/* How thick each chip is when `tallest` chips must fit `room` px: natural
+   while they fit, else every chip alike, except that the first KNEE keep
+   `minChipPx` (the flat horizon shares this) */
+export function towerChipPx({ room, tallest = 1, naturalPx, minChipPx = TOWER_LAYOUT.minChipPx, knee = TOWER_LAYOUT.knee } = {}) {
+  const L = TOWER_LAYOUT;
+  const chips = Math.max(1, Math.floor(tallest) || 1);
+  const space = Math.max(0, room);
+  if (chips * naturalPx <= space + 1e-6) return { small:naturalPx, big:naturalPx, knee };
+  const even = space / chips;
+  const under = Math.min(chips, knee);
+  const floor = Math.min(naturalPx, minChipPx, space / under);
+  let small = even, big = even;
+  if (even < floor) {
+    small = floor;
+    big = chips > under ? (space - under * small) / (chips - under) : small;
+  }
+  return { small:Math.max(L.floorPx, small), big:Math.max(L.floorPx, big), knee };
+}
+/* chip j's bottom and thickness, in world units (or px with `px`) */
+export function towerChipSpan(layout, j, { px = false } = {}) {
+  const s = px ? layout.smallPx : layout.small, b = px ? layout.bigPx : layout.big;
+  const under = Math.min(j, layout.knee);
+  return { y:under * s + Math.max(0, j - layout.knee) * b, h:j < layout.knee ? s : b };
+}
+/* a tower of `chips` in canvas px above the floor, its top face included */
+export const towerStackPx = (layout, chips) => {
+  const n = Math.max(0, Math.floor(chips) || 0);
+  return (n ? towerChipSpan(layout, n - 1, { px:true }).y + towerChipSpan(layout, n - 1, { px:true }).h : 0) + layout.capPx;
+};
+/* the count under a tower as large as its label allows: 34px, down to the
+   TV's 24px floor (Big Shoulders' numerals run under half an em) */
+export const TOWER_COUNT_EM = 0.46;
+export const towerCountSize = (text, width) =>
+  Math.max(24, Math.min(34, Math.floor(width / Math.max(1, String(text).length * TOWER_COUNT_EM))));
+/* a slot's center, from the canvas's center, in canvas px */
 export const towerSlotPx = (slot, count, slotPx) => (slot - (count - 1) / 2) * slotPx;
+/* where each label stands: its slot's center, the label's width, under the
+   tower's front edge */
+export const TOWER_LABEL_GAP = 8;
+export function towerLabelBoxes(layout) {
+  const y = layout.baseY + TOWER_GEOMETRY.radius * Math.sin(EL_RAD) * layout.k + TOWER_LABEL_GAP;
+  return Array.from({ length:layout.count }, (_, slot) => {
+    const x = layout.width / 2 + towerSlotPx(slot, layout.count, layout.slotPx);
+    return { x, y, l:x - layout.labelW / 2, r:x + layout.labelW / 2 };
+  });
+}
 
 /* A running count of slow frames. Idle frames never reach it: the scene
    renders on demand and only times frames while something moves. A TV so
@@ -156,7 +224,7 @@ export function towersMode({ supported = false, loaded = false, failed = null, k
   return loaded ? "3d" : "2d";
 }
 
-/* the ambient board as towers: all thirteen, rank order */
+/* the ambient board as towers: everyone on the board, rank order */
 export const standingsTowerRows = (standings = []) => standings.map(row => ({ player:row.player, pts:row.pts, rank:row.rank }));
 
 /* A result's standings step as towers: the board before this event and its

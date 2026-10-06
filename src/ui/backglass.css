@@ -113,12 +113,12 @@
   background:var(--lens-lit);
   box-shadow:var(--lens-rim), 0 0 9px 1px color-mix(in srgb, var(--lamp-on) 60%, transparent); }
 .fd-insert::after { content:""; position:absolute; left:20%; top:13%; width:36%; height:27%; border-radius:50%;
-  background:rgba(255,255,255,.78); transform:rotate(-24deg); pointer-events:none; }
+  background:color-mix(in srgb, var(--bone) 78%, transparent); transform:rotate(-24deg); pointer-events:none; }
 .fd-insert.is-pending { animation:fd-insert-flash 1.2s steps(1, end) infinite; }
 .fd-insert.is-done, .fd-insert.is-void { background:var(--lens-spent); box-shadow:var(--lens-rim); }
 .fd-insert.is-done::after, .fd-insert.is-void::after { opacity:.38; }
 .fd-insert.is-void::before { content:""; position:absolute; left:-3px; right:-3px; top:50%; height:2px; margin-top:-1px; z-index:1;
-  border-radius:1px; background:var(--muted); transform:rotate(-38deg); }
+  border-radius:99px; background:var(--muted); transform:rotate(-38deg); }
 @keyframes fd-insert-flash { 50% { background:var(--lens-dim); box-shadow:var(--lens-rim), 0 0 5px color-mix(in srgb, var(--lamp-on) 30%, transparent); } }
 /* you: the filament. Reserved; nothing else uses --you. */
 .fd-you-lit { box-shadow:var(--you-bloom); border-color:var(--you) !important; }
@@ -137,7 +137,9 @@
 
 /* ── backglass lettering: moments, event names, the big words ── */
 .fd-show { font-family:var(--fd-show); font-weight:900; letter-spacing:.01em; line-height:.95; text-transform:none; }
-/* the marquee cut, for hero lettering only (it gets busy small) */
+/* the marquee cut: a hero word only (the crown's "Final", the intro's event
+   name), 140px and up on a solid ground. Never a person's or a team's name:
+   a name is the solid 900 (.fd-show), the plainest word to read on the glass */
 .fd-show.is-marquee { font-family:var(--fd-marquee); font-weight:900; }
 /* the lit word: lettering that glows as if lamps sit behind the glass */
 .fd-show.is-lit { color:var(--ink); text-shadow:0 0 1px var(--lamp, var(--lamp-live)), 0 0 22px color-mix(in srgb, var(--lamp, var(--lamp-live)) 55%, transparent); }
@@ -173,7 +175,7 @@
   border:1px solid color-mix(in srgb, var(--field) 30%, transparent); border-radius:14px;
   background:linear-gradient(112deg, transparent 0 64%, rgba(255,255,255,.03) 64% 71%, transparent 71%),
     color-mix(in srgb, var(--field) 8%, var(--bg));
-  box-shadow:var(--glass-edge), 0 6px 16px -10px rgba(2,3,10,.9); }
+  box-shadow:var(--glass-edge), 0 6px 16px -10px color-mix(in srgb, var(--ink0) 90%, transparent); }
 .fd-glass-field.fd-field-live { --field:var(--lamp-live); }
 .fd-glass-field.fd-field-chip { --field:var(--sun); }
 .fd-glass-field.fd-field-info { --field:var(--lamp-info); }

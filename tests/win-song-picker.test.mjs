@@ -29,7 +29,7 @@ test("Home names your song in your own 1v1 or free-for-all, and offers the picke
 test("the TV card carries the cover and the clip's own clock", () => {
   const startedAt = 1_000_000;
   const state = { profiles:{ Evan:{ walkoutTrack:{ trackId:"brightsidebrightside12", name:"Mr. Brightside", artists:["The Killers"],
-    imageUrl:"https://i.scdn.co/x" } } }, mvp:{},
+    imageUrl:"https://i.scdn.co/x" } } },
   showControl:{ audio:{ walkout:{ player:"Evan", trackId:"brightsidebrightside12", startedAt, until:startedAt + WIN_SONG_CLIP_MS, auto:true } } } };
   const card = nowPlayingModel(state, [], startedAt + 5000);
   assert.equal(card.track.imageUrl, "https://i.scdn.co/x");

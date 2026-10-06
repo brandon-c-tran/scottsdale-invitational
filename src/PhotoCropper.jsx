@@ -258,37 +258,39 @@ export default function PhotoCropper({
           align-items: center;
           justify-content: center;
           padding: 16px;
-          background: rgba(10, 6, 3, 0.78);
+          background: var(--scrim);
           backdrop-filter: blur(7px);
           -webkit-backdrop-filter: blur(7px);
           animation: fd-crop-fade 160ms ease-out both;
         }
+        /* a sheet of the same glass as every other: panel fill, ghost edge,
+           the lens framed in the chips lamp */
         .fd-crop-dialog {
           width: min(430px, 100%);
           max-height: min(720px, calc(100dvh - 24px));
           overflow-y: auto;
           overscroll-behavior: contain;
-          border: 1px solid var(--line, rgba(251,243,228,0.13));
-          border-radius: 18px;
-          background: var(--paper, #241b12);
-          color: var(--ink, #f4ead9);
-          box-shadow: var(--shadow-3, 0 14px 40px rgba(10,6,3,0.7));
+          border: 1px solid var(--ghost-line);
+          border-radius: 14px;
+          background: var(--paper);
+          color: var(--ink);
+          box-shadow: var(--glass-edge), var(--shadow-3);
           font-family: var(--fd-body);
           animation: fd-crop-rise 180ms ease-out both;
         }
         .fd-crop-header {
           display: flex;
-          align-items: flex-start;
+          align-items: center;
           gap: 16px;
-          padding: 18px 18px 12px;
+          padding: 16px 16px 12px;
         }
         .fd-crop-title {
           margin: 0;
           font-family: var(--fd-display);
-          font-size: 27px;
+          font-size: 24px;
           font-weight: 800;
-          line-height: 1;
-          letter-spacing: .025em;
+          line-height: 1.1;
+          letter-spacing: .02em;
           text-transform: uppercase;
         }
         .fd-crop-close,
@@ -297,29 +299,28 @@ export default function PhotoCropper({
           flex: 0 0 auto;
           place-items: center;
           padding: 0;
-          color: var(--ink, #f4ead9);
-          border: 1px solid var(--line, rgba(251,243,228,0.13));
-          background: var(--paper2, #332619);
+          color: var(--ink);
+          border: 1px solid var(--line);
+          background: var(--paper2);
+          box-shadow: var(--glass-edge);
           cursor: pointer;
         }
         .fd-crop-close {
-          width: 36px;
-          height: 36px;
+          width: 44px;
+          height: 44px;
           margin-left: auto;
-          border-radius: 50%;
-          font-size: 23px;
-          line-height: 1;
+          border-radius: 10px;
+          color: var(--muted2);
         }
         .fd-crop-stage {
           position: relative;
-          width: min(360px, calc(100% - 36px));
+          width: min(360px, calc(100% - 32px));
           aspect-ratio: 1;
           margin: 0 auto;
           overflow: hidden;
-          border: 1px solid var(--line, rgba(251,243,228,0.13));
+          border: 1px solid var(--line);
           border-radius: 14px;
-          background:
-            radial-gradient(circle at 50% 50%, #2d2115 0 45%, #171009 78%);
+          background: radial-gradient(circle at 50% 50%, var(--paper2) 0 45%, var(--bg) 78%);
           touch-action: none;
           cursor: grab;
           user-select: none;
@@ -328,7 +329,7 @@ export default function PhotoCropper({
         .fd-crop-stage:focus-visible,
         .fd-crop-dialog button:focus-visible,
         .fd-crop-dialog input:focus-visible {
-          outline: 3px solid var(--sun, #f0b02f);
+          outline: 2px solid var(--lamp-info);
           outline-offset: 3px;
         }
         .fd-crop-window {
@@ -339,10 +340,10 @@ export default function PhotoCropper({
           height: calc(100% - 32px);
           overflow: hidden;
           border-radius: 50%;
-          background: var(--paper2, #332619);
+          background: var(--paper2);
           box-shadow:
-            0 0 0 2px var(--sun, #f0b02f),
-            0 0 0 999px rgba(10, 6, 3, 0.58);
+            0 0 0 2px var(--sun),
+            0 0 0 999px color-mix(in srgb, var(--bg) 62%, transparent);
         }
         .fd-crop-image {
           position: absolute;
@@ -358,35 +359,35 @@ export default function PhotoCropper({
           display: grid;
           place-items: center;
           border-radius: 50%;
-          color: var(--muted2, #c9b896);
-          font-size: 13px;
+          color: var(--muted2);
+          font-size: 14px;
           text-align: center;
         }
-        .fd-crop-controls { padding: 18px; }
+        .fd-crop-controls { padding: 16px; }
         .fd-crop-zoom-row {
           display: grid;
-          grid-template-columns: 38px minmax(0, 1fr) 38px;
+          grid-template-columns: 44px minmax(0, 1fr) 44px;
           align-items: center;
           gap: 10px;
         }
         .fd-crop-zoom-button {
-          width: 38px;
-          height: 38px;
+          width: 44px;
+          height: 44px;
           border-radius: 10px;
           font-size: 22px;
           font-weight: 700;
         }
-        .fd-crop-zoom-button:disabled { cursor: default; opacity: .4; }
+        .fd-crop-zoom-button:disabled { cursor: default; opacity: .35; }
         .fd-crop-range {
           width: 100%;
           height: 32px;
           margin: 0;
-          accent-color: var(--sun, #f0b02f);
+          accent-color: var(--lamp-info);
           cursor: pointer;
         }
         .fd-crop-error {
           margin: 10px 0 0;
-          color: var(--accent2, #d97a50);
+          color: var(--clay-text);
           font-size: 12px;
           line-height: 1.4;
           text-align: center;
@@ -395,26 +396,27 @@ export default function PhotoCropper({
           display: grid;
           grid-template-columns: 1fr 1.35fr;
           gap: 10px;
-          margin-top: 15px;
+          margin-top: 16px;
         }
         .fd-crop-action {
           min-height: 48px;
-          padding: 11px 16px;
-          border-radius: 11px;
-          font: 700 15px/1 var(--fd-body);
+          padding: 12px 16px;
+          border-radius: 8px;
+          font: 600 15px/1 var(--fd-body);
+          box-shadow: var(--glass-edge);
           cursor: pointer;
         }
         .fd-crop-cancel {
-          border: 1px solid var(--line, rgba(251,243,228,0.13));
-          color: var(--ink, #f4ead9);
-          background: var(--paper2, #332619);
+          border: 1px solid var(--line);
+          color: var(--ink);
+          background: var(--paper2);
         }
         .fd-crop-use {
-          border: 1.5px solid var(--ink0, #2a2119);
-          color: var(--ink0, #2a2119);
-          background: var(--sun, #f0b02f);
+          border: 1px solid var(--sun);
+          color: var(--action-ink);
+          background: var(--action-fill);
         }
-        .fd-crop-action:disabled { cursor: default; opacity: .45; }
+        .fd-crop-action:disabled { cursor: default; opacity: .35; }
         @keyframes fd-crop-fade { from { opacity: 0; } }
         @keyframes fd-crop-rise {
           from { opacity: 0; transform: translateY(10px) scale(.985); }
@@ -425,11 +427,11 @@ export default function PhotoCropper({
             width: 100%;
             max-height: calc(100dvh - 10px);
             border-width: 1px 0 0;
-            border-radius: 20px 20px 0 0;
+            border-radius: 14px 14px 0 0;
           }
           .fd-crop-header { padding-top: 16px; }
-          .fd-crop-stage { width: min(350px, calc(100% - 28px)); }
-          .fd-crop-controls { padding: 15px 18px max(18px, env(safe-area-inset-bottom)); }
+          .fd-crop-stage { width: min(350px, calc(100% - 32px)); }
+          .fd-crop-controls { padding: 16px 16px max(16px, env(safe-area-inset-bottom)); }
         }
         @media (prefers-reduced-motion: reduce) {
           .fd-crop-overlay, .fd-crop-dialog { animation: none; }

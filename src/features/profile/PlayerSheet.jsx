@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { PT, DUEL_DAILY_LIMIT, DUEL_LAPSE_MS, disp, duelBetween, duelPhase, duelRoom, duelsSentToday, resolveDuel } from "../../../shared/core.js";
-import { BankChip } from "../identity/PlayerIdentity.jsx";
+import { PT, DUEL_DAILY_LIMIT, disp, duelBetween, duelPhase, duelRoom, duelsSentToday, resolveDuel } from "../../../shared/core.js";
 import { ActionButton, Sheet } from "../../ui/controls.jsx";
 import { DuelCard } from "../duels/DuelCard.jsx";
+import { DuelSend } from "../duels/DuelSend.jsx";
 import { ANTES, duelRecord, duelResult, duelView, duelsOpen, signedChips } from "../duels/duelView.js";
 import { PlayerPass } from "./PlayerPass.jsx";
 import { headToHead } from "./seasonStats.js";
@@ -27,8 +27,10 @@ export function rematchAvailable(state, me, p, { events = [], now = serverNow() 
 /* Public identity has the same destination wherever a player is selected.
    Ratings and travel answers belong to the editor and commissioner views. */
 export function PlayerSheet({ state, me, p, standings, events = [], onClose, onBack, onEdit, onDuel, onSent,
-  onPlay, onAccept, onDecline, onWithdraw }) {
+  onPlay, onAccept, onDecline, onWithdraw, openDuel = false }) {
   const [ante, setAnte] = useState(PT);
+  /* "Duel" opens the stake picker in place, under the card */
+  const [picking, setPicking] = useState(!!openDuel);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   const sending = useRef(false);
@@ -71,6 +73,7 @@ export function PlayerSheet({ state, me, p, standings, events = [], onClose, onB
     [state, me, p, events, onDuel]); // eslint-disable-line react-hooks/exhaustive-deps
   const openRematch = () => {
     if (last && last.outcome !== "void" && last.stake <= anteMax) setAnte(last.stake);
+    setPicking(true);
     const section = duelRef.current;
     section?.scrollIntoView?.({ block:"center", behavior:reducedMotion ? "auto" : "smooth" });
     section?.querySelector?.("[data-duel-send]")?.focus?.({ preventScroll:true });
@@ -82,6 +85,7 @@ export function PlayerSheet({ state, me, p, standings, events = [], onClose, onB
   useEffect(() => {
     setAnte(last && last.stake <= anteMax ? last.stake : PT);
     setError("");
+    setPicking(!!openDuel);
   }, [p]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const challenge = async () => {
@@ -113,30 +117,16 @@ export function PlayerSheet({ state, me, p, standings, events = [], onClose, onB
       {own && onEdit && <ActionButton type="button" variant="secondary" onClick={onEdit}
         style={{ width:"100%" }}>Edit your profile</ActionButton>}
 
+      {/* Quick Draw: a duel you share sits here with its controls; else
+          "Duel" opens the Bets rack as the ante, then Send */}
       {canDuel && (current || !away) && <section ref={duelRef} className="fd-player-duel" aria-label="Quick Draw challenge">
-        <details className="fd-player-duel-rules"><summary><h2>Quick Draw</h2><span>How to play +</span></summary>
-          <p>Tap when the screen flashes. Fastest tap
-            wins both antes. Tapping early is a foul. An unanswered challenge lapses
-            after {DUEL_LAPSE_MS / 60000} minutes.</p>
-        </details>
         {current ? <DuelCard bare state={state} duel={current} me={me} now={now}
           onPlay={onPlay} onAccept={onAccept} onDecline={onDecline} onWithdraw={onWithdraw} />
-          : unavailable ? <p className="fd-player-unavailable" role="status">{unavailable}</p> : <>
-            <fieldset className="fd-player-antes" disabled={pending}>
-              <legend>Ante, each</legend>
-              {ANTES.map(value => <button type="button" key={value} disabled={value > anteMax || pending}
-                aria-pressed={ante === value} aria-label={`Ante ${fmt(value)} chips each`}
-                onClick={() => setAnte(value)}>
-                <BankChip p={me} size={44} val={value} />
-              </button>)}
-            </fieldset>
-            {error && <p className="fd-player-error" role="alert">{error}</p>}
-            <ActionButton type="button" data-duel-send="" onClick={challenge} disabled={pending || ante > anteMax}
-              pending={pending} style={{ width:"100%" }}>
-              {pending ? "Sending…" : own ? `Challenge anyone for ${fmt(ante)}`
-                : rematch ? `Rematch for ${fmt(ante)}` : `Challenge ${disp(state, p)} for ${fmt(ante)}`}
-            </ActionButton>
-          </>}
+          : unavailable ? <p className="fd-player-unavailable" role="status">{unavailable}</p>
+            : picking ? <DuelSend me={me} p={p} own={own} name={disp(state, p)} ante={ante} anteMax={anteMax}
+              onAnte={setAnte} pending={pending} error={error} rematch={rematch} onSend={challenge} />
+              : <ActionButton type="button" variant="secondary" onClick={() => setPicking(true)} style={{ width:"100%" }}>
+                {own ? "Duel anyone" : `Duel ${disp(state, p)}`}</ActionButton>}
       </section>}
 
       {!!me && history.length > 0 && <section className="fd-player-duel-results" aria-label="Quick Draw results">

@@ -6,7 +6,7 @@
 
 /* ── X2 receipt ── */
 .fd-receipt { position:fixed; left:10px; right:10px; z-index:150; margin:0 auto; max-width:540px;
-  border:1px solid var(--bone-line); border-radius:16px; background:var(--paper2); color:var(--ink);
+  border:1px solid var(--bone-line); border-radius:14px; background:var(--paper2); color:var(--ink);
   box-shadow:var(--shadow-3); overflow:hidden; touch-action:none; user-select:none; -webkit-user-select:none;
   transition:transform var(--motion-fast) var(--ease-out); }
 .fd-receipt.is-bottom { bottom:calc(var(--fd-nav-height) + var(--fd-dock-h, 0px) + 10px); animation:fd-receipt-rise var(--motion-base) var(--ease-out) backwards; }
@@ -41,7 +41,7 @@
 @keyframes fd-receipt-lost { 0% { opacity:1; transform:translateX(-50%); }
   25% { opacity:1; transform:translate(-50%, 2px) rotate(-3deg); }
   100% { opacity:0; transform:translate(160px, 4px) rotate(10deg); } }
-.fd-receipt-ghost i { display:block; width:24px; height:5px; border:1px dashed var(--muted); border-radius:3px; }
+.fd-receipt-ghost i { display:block; width:24px; height:5px; border:1px dashed var(--muted); border-radius:99px; }
 .fd-receipt-what { min-width:0; font:600 13px/1.25 var(--fd-body); }
 .fd-receipt-what small { display:block; margin-top:1px; color:var(--muted); font-size:12px; font-weight:500; }
 .fd-receipt-amount { font:700 24px/1 var(--fd-display); font-variant-numeric:tabular-nums; }
@@ -97,21 +97,23 @@
 .fd-crown-kicker { position:absolute; left:0; right:0; top:calc(env(safe-area-inset-top) + 36px); margin:0; text-align:center;
   color:var(--bone); font-size:56px; line-height:1;
   animation:fd-crown-fade 600ms ease-out calc(var(--tl, 0ms) + 700ms) both, fd-crown-out 400ms ease-in calc(var(--tl, 0ms) + 13000ms) both; }
-/* your own chip and final stack stand up with the TV's towers, and your
-   place stamps the instant your tower goes dark */
+/* your own chip and name stand up unlit with the TV's towers; the instant
+   your tower lights, your chip lights, your stack counts and your place
+   stamps (a champion's phone holds unlit until the champion rises) */
 .fd-crown-you { position:absolute; left:20px; right:20px; top:30%; display:grid; justify-items:center; gap:8px; text-align:center;
   animation:fd-crown-you-in 700ms var(--ease-land) calc(var(--tl, 0ms) + 1600ms) both,
     fd-crown-you-leave 600ms var(--ease-exit) calc(var(--tl, 0ms) + 13000ms) both; }
 @keyframes fd-crown-you-in { from { opacity:0; transform:translateY(40vh); } to { opacity:1; transform:none; } }
 @keyframes fd-crown-you-leave { from { opacity:1; transform:none; } to { opacity:0; transform:translateY(30vh); } }
 .fd-crown-you-chip { display:block; border-radius:50%; }
+.fd-crown-you-chip, .fd-crown-you-name { opacity:.45; }
 .fd-crown-you.is-out .fd-crown-you-chip,
-.fd-crown-you.is-out .fd-crown-you-name,
-.fd-crown-you.is-out .fd-crown-you-pts { animation:fd-crown-dim 700ms ease-in-out calc(var(--tl, 0ms) + var(--you-out, 0ms)) both; }
-@keyframes fd-crown-dim { from { opacity:1; filter:none; } to { opacity:.5; filter:grayscale(.8); } }
-.fd-crown-you-name { font:700 26px/1 var(--fd-display); text-transform:uppercase; letter-spacing:.02em; }
+.fd-crown-you.is-out .fd-crown-you-name { animation:fd-crown-light 420ms ease-out calc(var(--tl, 0ms) + var(--you-out, 0ms)) both; }
+.fd-crown-you.is-out .fd-crown-you-pts { animation:fd-crown-fade 300ms ease-out calc(var(--tl, 0ms) + var(--you-out, 0ms)) both; }
+@keyframes fd-crown-light { from { opacity:.45; } to { opacity:1; } }
+.fd-crown-you-name { font:800 26px/1.15 var(--fd-display); letter-spacing:.01em; }
 .fd-crown-you-pts { color:var(--sun); font:800 34px/1 var(--fd-display); font-variant-numeric:tabular-nums; }
-.fd-crown-you-place { margin-top:6px; color:var(--bone); font-size:76px; line-height:1;
+.fd-crown-you-place { margin-top:6px; color:var(--bone); font-size:clamp(56px,19.5vw,120px); line-height:1;
   animation:fd-crown-stamp 360ms var(--ease-land) calc(var(--tl, 0ms) + var(--you-out, 0ms)) both; }
 @keyframes fd-crown-stamp { 0% { opacity:0; transform:scale(1.8) rotate(-6deg); } 70% { opacity:1; transform:scale(.94); }
   100% { opacity:1; transform:none; } }
@@ -153,38 +155,40 @@
 .fd-crown-stack b .fd-reel { font-size:.78em; vertical-align:middle; }
 .fd-crown-you-pts .fd-reel { font-size:.8em; }
 @keyframes fd-crown-fade { from { opacity:0; } }
+/* the cup: in with the chip's drop, the champion engraved after the name */
+.fd-crown-cup { width:min(220px, 62vw); margin-top:6px; animation:fd-crown-fade 500ms ease-out calc(var(--tl, 0ms) + 15400ms) both; }
 .fd-crown-skip { position:absolute; right:16px; bottom:calc(env(safe-area-inset-bottom) + 16px); min-width:64px; min-height:44px;
   border:1px solid currentColor; border-radius:10px; background:none; color:inherit; opacity:.75; font:600 14px var(--fd-body); cursor:pointer; }
 
 .fd-crown-card { position:absolute; inset:0; overflow-y:auto; -webkit-overflow-scrolling:touch;
   padding:calc(env(safe-area-inset-top) + 10px) 16px calc(env(safe-area-inset-bottom) + 20px); }
 .fd-crown-card > * { max-width:420px; margin-left:auto; margin-right:auto; }
-.fd-crown-bar { display:flex; align-items:center; justify-content:space-between; }
+.fd-crown-bar { display:flex; align-items:center; justify-content:flex-end; }
 .fd-crown-close { width:44px; height:44px; border:1px solid var(--line); border-radius:10px; background:none; color:var(--muted2);
   font-size:15px; cursor:pointer; }
 .fd-crown-champ { display:flex; align-items:center; gap:10px; margin:8px auto 12px; padding:9px 12px;
-  border:1px solid color-mix(in srgb,var(--sun) 45%,transparent); border-radius:12px; background:var(--sun-tint); }
+  border:1px solid color-mix(in srgb,var(--sun) 45%,transparent); border-radius:14px; background:var(--sun-tint); }
 .fd-crown-champ span { min-width:0; }
 .fd-crown-champ small { display:block; margin-top:3px; font:600 12px/1.3 var(--fd-body); letter-spacing:.1em; text-transform:uppercase; color:var(--sun); }
-.fd-crown-champ b { display:block; font:700 20px/1 var(--fd-display); text-transform:uppercase; }
+.fd-crown-champ b { display:block; font:800 20px/1.15 var(--fd-display); }
 .fd-crown-champ strong { margin-left:auto; font:700 22px/1 var(--fd-display); color:var(--sun); font-variant-numeric:tabular-nums; }
 .fd-crown-card.is-arriving .fd-crown-bar,
 .fd-crown-card.is-arriving .fd-crown-champ { animation:fd-crown-slide var(--motion-base) var(--ease-out) backwards; }
 @keyframes fd-crown-slide { from { opacity:0; transform:translateY(-16px); } }
 .fd-crown-actions { display:flex; gap:8px; margin-top:16px; }
-.fd-crown-actions button { flex:1; min-height:48px; border-radius:12px; font:600 15px/1 var(--fd-body); cursor:pointer; }
+.fd-crown-actions button { flex:1; min-height:48px; border-radius:8px; font:600 15px/1 var(--fd-body); cursor:pointer; }
 .fd-crown-save { border:0; background:var(--action-fill); color:var(--action-ink); }
 .fd-crown-save:disabled { opacity:.7; }
 .fd-crown-board { border:1px solid var(--line); background:none; color:var(--ink); }
 /* D3: the commissioner's poster, under the card's own actions */
-.fd-crown-poster { display:block; width:100%; min-height:48px; margin-top:8px; border:1px solid var(--sun); border-radius:12px;
+.fd-crown-poster { display:block; width:100%; min-height:48px; margin-top:8px; border:1px solid var(--sun); border-radius:8px;
   background:none; color:var(--sun); font:600 15px/1 var(--fd-body); cursor:pointer; }
 .fd-crown-poster:disabled { opacity:.7; }
 .fd-crown-card .fd-crown-preview { position:fixed; }
 .fd-crown-preview { position:absolute; inset:0; z-index:2; display:flex; flex-direction:column; align-items:center; justify-content:center;
   gap:12px; padding:calc(env(safe-area-inset-top) + 16px) 20px calc(env(safe-area-inset-bottom) + 16px); background:var(--scrim);
   backdrop-filter:blur(8px); }
-.fd-crown-preview img { max-width:100%; max-height:72vh; border-radius:12px; box-shadow:var(--shadow-3);
+.fd-crown-preview img { max-width:100%; max-height:72vh; border-radius:10px; box-shadow:var(--shadow-3);
   -webkit-touch-callout:default; user-select:auto; -webkit-user-select:auto; }
 .fd-crown-preview p { margin:0; color:var(--bone); font:600 14px/1.4 var(--fd-body); text-align:center; }
 .fd-crown-preview button { min-width:120px; min-height:44px; border:1px solid var(--bone-line); border-radius:10px;
@@ -212,7 +216,7 @@
 .fd-lastcard-place span { padding-bottom:4px; }
 .fd-lastcard-place strong { display:block; font:700 30px/1 var(--fd-display); font-variant-numeric:tabular-nums; }
 .fd-lastcard-place small { font:700 12px/1.4 var(--fd-body); letter-spacing:.08em; }
-.fd-lastcard-name { margin:8px 0 2px; font:700 44px/.9 var(--fd-display); text-transform:uppercase; overflow-wrap:anywhere; }
+.fd-lastcard-name { margin:8px 0 2px; font:800 44px/1 var(--fd-display); overflow-wrap:anywhere; }
 .fd-lastcard-chart { display:block; width:calc(100% + 8px); height:auto; margin:10px -4px 4px; overflow:visible; }
 .fd-lastcard.is-turning .fd-lastcard-line { stroke-dasharray:1; animation:fd-lastcard-draw 900ms var(--ease-out) backwards;
   animation-delay:calc(var(--motion-card-flight) - 80ms); }
@@ -229,3 +233,12 @@
 /* Home's way back to the card after the crown */
 .fd-lastcard-entry { display:flex; align-items:center; justify-content:center; gap:6px; width:100%; min-height:44px; margin-top:10px;
   border:1px solid var(--line); border-radius:10px; background:none; color:var(--ink); font:600 14px/1 var(--fd-body); cursor:pointer; }
+/* the last card set in the backglass: a frame of dark glass (bevel, a keyline
+   4px in) with a ring of lamp bulbs, lit and still, in your filament (or
+   amber for the champion's card); the card sits inside like a print on the
+   glass and keeps its own color and ink */
+.fd-lastcard-frame { position:relative; padding:10px; border-radius:18px; background:var(--paper2);
+  box-shadow:var(--glass-edge), var(--shadow-2), inset 0 0 0 1px var(--line); }
+.fd-lastcard-frame > .fd-chase { z-index:0; }
+.fd-lastcard-frame > .fd-chase rect { x:3px; y:3px; width:calc(100% - 6px); height:calc(100% - 6px); rx:21px; ry:21px; stroke-width:4; }
+.fd-lastcard-frame > .fd-lastcard-held { z-index:1; }

@@ -134,10 +134,10 @@ test("C2: an earlier bracket winner is corrected by rewinding every contest reco
   assert.equal(correctionText(s, available), `Rewinds Play-in 2. Returns ${crew} 200.`);
 
   /* a stale revision and an unknown contest are refused without change */
-  refuse(s, "correctContest", { evId:"8ball", contestId:pi1.id, contestRevision:available.contestRevision - 1 }, /Contest changed/);
-  refuse(s, "correctContest", { evId:"8ball", contestId:"match:nope", contestRevision:available.contestRevision }, /Contest changed/);
+  refuse(s, "correctContest", { evId:"8ball", contestId:pi1.id, contestRevision:available.contestRevision - 1 }, /already changed/);
+  refuse(s, "correctContest", { evId:"8ball", contestId:"match:nope", contestRevision:available.contestRevision }, /already changed/);
   /* the quick undo only takes the most recent contest */
-  refuse(s, "undoLastContest", { evId:"8ball", contestId:pi1.id, contestRevision:available.contestRevision }, /Contest changed/);
+  refuse(s, "undoLastContest", { evId:"8ball", contestId:pi1.id, contestRevision:available.contestRevision }, /already changed/);
 
   const corrected = act(s, "correctContest", { evId:"8ball", contestId:pi1.id, contestRevision:available.contestRevision });
   assert.deepEqual(corrected.extra.rewinds, ["Play-in 2"]);

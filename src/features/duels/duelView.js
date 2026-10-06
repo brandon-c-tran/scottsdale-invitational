@@ -1,5 +1,5 @@
 import {
-  PT, disp, duelAccepted, duelBetween, duelLapsesAt, duelOpen, duelPhase, pokerLive, resolveDuel, stacksPosted,
+  PT, disp, duelAccepted, duelBetween, duelLapsesAt, duelMode, duelOpen, duelPhase, pokerLive, resolveDuel, stacksPosted,
 } from "../../../shared/core.js";
 
 import { serverNow } from "../tv/serverClock.js";
@@ -37,11 +37,18 @@ export function duelView(state, duel, me, now = serverNow()) {
   if (offer) status = sender
     ? duel.open ? "Open to anyone" : `Waiting for ${name} to accept`
     : duel.open ? "Open challenge" : "Challenged you";
-  else if (live) status = myRun ? `Waiting for ${name} to draw`
-    : !duel.consent && recipient && !Object.keys(duel.runs || {}).length ? "Challenged you"
-      : otherDrew ? `${name} has drawn` : "Your turn";
+  /* the showdown: who has tapped Ready, and whether the draw is set */
+  const mode = live ? duelMode(duel, now) : null;
+  const meReady = !!me && !!duel.ready?.[me], otherReady = !!other && !!duel.ready?.[other];
+  if (live) status = myRun ? `Waiting for ${name} to draw`
+    : mode === "showdown" ? "Draw"
+      : mode === "stance" ? meReady ? `Waiting for ${name}` : otherReady ? `${name} is ready` : "Your turn"
+        : !duel.consent && recipient && !Object.keys(duel.runs || {}).length ? "Challenged you"
+          : otherDrew ? `${name} has drawn` : "Your turn";
+  /* the declines the server allows: not once the showdown's draw is set */
+  const declinable = canDecline && mode !== "showdown";
   return { phase, sender, recipient, other, name, myRun, otherDrew, takeable,
-    canAccept, canDecline, canWithdraw, canPlay, minutesLeft:left, status,
+    canAccept, canDecline:declinable, canWithdraw, canPlay, minutesLeft:left, status, mode, meReady, otherReady,
     accepted:duelAccepted(duel), involved:sender || recipient };
 }
 

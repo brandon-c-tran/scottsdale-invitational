@@ -7,12 +7,13 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { EMPTY_STATE, BUILTIN_EVENTS, ROSTER, makeBracket, resolveSlot, bracketChampion, teamLabel, defaultQaParticipants, resolveCurrentContest, allEventsOf } from "../shared/core.js";
 import { applyAction } from "./support/confirmed-start.mjs";
+import { tapUnit, nextTarget, placeUnits, emptyPaidPlaces } from "../src/features/results/placePickerModel.js";
 import { withLegacyEvents } from "./support/legacy-events.mjs";
 
 const root=fileURLToPath(new URL("../",import.meta.url));
 const blocked=names=>names.map(name=>`export const ${name}=()=>{throw new Error("Transport must not run in a ChipCounter test");};`).join("\n");
 const compiled=await build({
-  stdin:{contents:'export { ChipCounter, ResultSheet } from "./src/App.jsx"; export { PlayerIdentityProvider } from "./src/features/identity/PlayerIdentityContext.js";',resolveDir:root,loader:"jsx"},
+  stdin:{contents:'export { ChipCounter } from "./src/App.jsx"; export { ResultEntry as ResultSheet } from "./src/features/results/ResultEntry.jsx"; export { PlayerIdentityProvider } from "./src/features/identity/PlayerIdentityContext.js";',resolveDir:root,loader:"jsx"},
   bundle:true,platform:"node",format:"cjs",external:["react"],loader:{".css":"empty"},write:false,logLevel:"silent",
   plugins:[{name:"isolated-counter",setup(builder){
     builder.onLoad({filter:/[\\/]src[\\/]lib[\\/]client\.js$/},()=>({loader:"js",contents:blocked([
@@ -147,7 +148,7 @@ test("missing success acknowledgements and thrown saves preserve the draft and e
     const view=counter({start:625,onDone:()=>++attempts===1?response:{ok:true}});
     view.click("Save count");await view.settled();
     assert.equal(view.total(),"Total625");
-    assert.match(view.errors()[0]||"",/not saved|Try again/i);
+    assert.match(view.errors()[0]||"",/didn't save. Tap Save count again/);
     view.click("Save count");await view.settled();
     assert.deepEqual(view.errors(),[]);assert.equal(attempts,2);
   }
@@ -172,33 +173,71 @@ function resultControls(state,ev,select=[]) {
   const createElement=React.createElement;
   const text=node=>Array.isArray(node)?node.map(text).join(""):
     React.isValidElement(node)?text(node.props.children):typeof node==="string"||typeof node==="number"?String(node):"";
-  let selection=0,html;
+  let selection=0,html,tapped=false;
   React.createElement=(type,props,...children)=>{
-    // Select in the owning ResultSheet render, before PlayerChip expands.
+    // Tap in the owning ResultEntry render, where every podium place, seat
+    // and field tile is created by its accessible name (`name`).
     const choice=select[selection];
-    // {enabled:label} taps an enabled action button (a component) in the same owning render.
-    const matches=typeof type==="function" ? props?.name===choice
-        || (!!choice?.enabled && !props?.disabled && text(children)===choice.enabled)
-      : type==="button" && (typeof choice==="string" ? text(children)===choice
-        : choice?.buttonPrefix && text(children).startsWith(choice.buttonPrefix));
-    if(selection<select.length&&matches&&props?.onClick){selection++;props.onClick();}
+    // {enabled:label} taps an enabled action button (a component) in the
+    // owning render, once a render pass has caught up with the taps before it.
+    const matches=typeof type==="function" && !props?.disabled && (props?.name===choice
+        || (!!choice?.enabled && !tapped && text(children)===choice.enabled));
+    if(selection<select.length&&matches&&props?.onClick){selection++;tapped=true;props.onClick();}
+    // the Sheet is created last in each pass of the owning render
+    if(type?.name==="Sheet")tapped=false;
     if(type==="button")buttons.set(props?.["aria-label"]||text(children),{...props,text:text(children)});
     return createElement(type,props,...children);
   };
   try{html=renderToStaticMarkup(createElement(PlayerIdentityProvider,{profiles:state.profiles},
     createElement(ResultSheet,{state,ev,onClose:()=>{},save:slots=>{saved.push(structuredClone(slots));return {ok:true};}})));}
   finally{React.createElement=createElement;}
-  assert.equal(selection,select.length,"Requested player choices should render");
+  assert.equal(selection,select.length,"Requested taps should render");
   return {html,buttons,saved,post(){const button=buttons.get("Post official result");assert.ok(button);assert.equal(!!button.disabled,false);button.onClick();}};
 }
+const sequencedPutt=()=>{
+  const state=structuredClone(EMPTY_STATE),ev=BUILTIN_EVENTS.find(event=>event.id==="putt");
+  state.eventOps[ev.id]={contest:{id:"test-ffa",revision:1,phase:"awaiting-result"},resultEntryAt:1};
+  return {state,ev};
+};
+
+test("place picker rules: a tap fills the lit place, the next open place lights, a tap takes back and relights",()=>{
+  const editable=[0,1,2],rules={editable,sidesInPlay:12,sequenced:true};
+  let pick={slots:[[],[],[]],target:0};
+  pick=tapUnit(pick.slots,["a"],pick.target,rules);
+  assert.deepEqual(pick,{slots:[["a"],[],[]],target:1});
+  pick=tapUnit(pick.slots,["b"],pick.target,rules);
+  assert.deepEqual(pick,{slots:[["a"],["b"],[]],target:2});
+  /* aimed at 3rd first: 3rd can fill before 2nd */
+  assert.deepEqual(tapUnit([["a"],[],[]],["c"],2,rules),{slots:[["a"],[],["c"]],target:1});
+  /* a filled place that takes a tie keeps the old and adds the new */
+  assert.deepEqual(tapUnit(pick.slots,["c"],1,rules),{slots:[["a"],["b","c"],[]],target:2});
+  /* a sequenced 1st is one player: aiming at it swaps */
+  assert.deepEqual(tapUnit(pick.slots,["c"],0,rules),{slots:[["c"],["b"],[]],target:2});
+  /* without the sequence, 1st takes a tie too */
+  assert.deepEqual(tapUnit(pick.slots,["c"],0,{...rules,sequenced:false}),{slots:[["a","c"],["b"],[]],target:2});
+  /* taking back empties the place, and that place lights */
+  assert.deepEqual(tapUnit([["a"],["b"],["c"]],["a"],null,rules),{slots:[[],["b"],["c"]],target:0});
+  /* taking one of a tie back leaves the place filled and the target alone */
+  assert.deepEqual(tapUnit([["a"],["b","c"],[]],["c"],2,rules),{slots:[["a"],["b"],[]],target:2});
+  /* nowhere left to land: an unplaced tap does nothing */
+  const full=[["a"],["b"],["c"]];
+  assert.equal(tapUnit(full,["d"],null,rules).slots,full);
+  /* a fixed 1st is never taken back from the field */
+  assert.equal(tapUnit([["a"],[],[]],["a"],1,{...rules,editable:[1,2]}).slots[0][0],"a");
+  /* two teams have no 3rd to light */
+  assert.equal(nextTarget([["a"],["b"],[]],editable,2),null);
+  assert.deepEqual(emptyPaidPlaces([["a"],[],[]],editable,2),[1]);
+  /* a place shows whole teams as one, the rest one by one */
+  assert.deepEqual(placeUnits(["a","b","x"],[{players:["c","d"]},{players:["a","b"]}]).map(unit=>unit.key),["team:1","player:x"]);
+});
 
 test("a completed first-place-only bracket displays its winner without asking the host to pick again",()=>{
   /* every slate bracket pays three places now; an event's own `pays` table can still pay 1st only */
   const {state,ev}=finishedBracket("die",{pays:[400,0,0]}),winner=state.draws[ev.id].teams[bracketChampion(state.brackets[ev.id])].players;
   const view=resultControls(state,ev);
-  assert.match(view.html,/fd-result-winner/);
+  assert.match(view.html,/fd-pp-socket is-place-0[^"]*is-fixed/);
   for(const player of winner)assert.ok(view.html.includes(player));
-  assert.doesNotMatch(view.html,/<fieldset|Pick by player/);
+  assert.doesNotMatch(view.html,/<fieldset/);
   assert.deepEqual([...view.buttons.keys()],["Close","Post official result"]);
   view.post();assert.deepEqual(view.saved[0][0],winner);
 });
@@ -209,20 +248,56 @@ test("higher-award brackets retain lower-place selection while the winning team 
   const final=br.rounds.at(-1)[0],runner=resolveSlot(br,final.b);
   const view=resultControls(state,ev);
   assert.match(view.html,/<fieldset/);
-  assert.ok([...view.buttons.keys()].some(name=>name.startsWith("Runners-up")));
+  assert.ok(view.buttons.has("2nd place"),"2nd is a place to aim at");
+  assert.ok(!view.buttons.has("1st place"),"1st is the bracket's");
   assert.ok(!view.buttons.has(teamLabel(state,winner)),"Known winner must not appear as a mutable team choice");
+  assert.equal(view.buttons.get(teamLabel(state,draw.teams[runner]))["aria-pressed"],true,"the runner-up is prefilled");
   view.post();assert.deepEqual(view.saved[0][0],winner.players);assert.deepEqual(view.saved[0][1],draw.teams[runner].players);
 });
 
 test("sequenced free-for-all first place replaces the prior selection with one player",()=>{
-  const state=structuredClone(EMPTY_STATE),ev=BUILTIN_EVENTS.find(event=>event.id==="putt");
-  state.eventOps[ev.id]={contest:{id:"test-ffa",revision:1,phase:"awaiting-result"},resultEntryAt:1};
-  /* Long Putt pays 2nd and 3rd too, so posting 1st alone goes through Leave empty */
-  const view=resultControls(state,ev,[ROSTER[0],ROSTER[1],{enabled:"Post official result"},{enabled:"Leave empty"}]);
-  assert.doesNotMatch(view.html,/fd-result-winner/);
+  const {state,ev}=sequencedPutt();
+  /* the first tap lands in 1st and 2nd lights; aiming back at 1st swaps */
+  const view=resultControls(state,ev,[ROSTER[0],"1st place",ROSTER[1],{enabled:"Post official result"},{enabled:"Leave empty"}]);
   assert.equal(view.buttons.get(ROSTER[0])["aria-pressed"],false);
   assert.equal(view.buttons.get(ROSTER[1])["aria-pressed"],true);
+  assert.ok(!view.buttons.has("Tie for 1st"),"a sequenced 1st takes one player");
+  /* Long Putt pays 2nd and 3rd too, so posting 1st alone goes through Leave empty */
   assert.deepEqual(view.saved,[[[ROSTER[1]],[],[]]]);
+});
+
+test("a free-for-all fills in taps, ties a place, takes a player back, and lists only who is here",()=>{
+  const {state,ev}=sequencedPutt();
+  state.away={[ROSTER[12]]:true};
+  /* three taps: 1st, 2nd, 3rd */
+  const filled=resultControls(state,ev,[ROSTER[0],ROSTER[1],ROSTER[2],{enabled:"Post official result"}]);
+  assert.deepEqual(filled.saved,[[[ROSTER[0]],[ROSTER[1]],[ROSTER[2]]]]);
+  assert.ok(!filled.buttons.has(ROSTER[12]),"away players are not in the field");
+  assert.ok(filled.buttons.has(ROSTER[11]));
+  /* a tie: aim at the filled 2nd, the next tap joins it, then 3rd lights */
+  const tied=resultControls(state,ev,[ROSTER[0],ROSTER[1],"2nd place",ROSTER[2],ROSTER[3],{enabled:"Post official result"}]);
+  assert.deepEqual(tied.saved,[[[ROSTER[0]],[ROSTER[1],ROSTER[2]],[ROSTER[3]]]]);
+  assert.ok(tied.buttons.has("Tie for 2nd"),"a filled place carries its tie");
+  /* take 1st back from its seat: 1st lights again and the next tap fills it */
+  const back=resultControls(state,ev,[ROSTER[0],ROSTER[1],ROSTER[2],`Remove ${ROSTER[0]} from 1st`,ROSTER[4],{enabled:"Post official result"}]);
+  assert.deepEqual(back.saved,[[[ROSTER[4]],[ROSTER[1]],[ROSTER[2]]]]);
+  assert.equal(back.buttons.get(ROSTER[0])["aria-pressed"],false);
+  /* every place filled: nothing is lit and the rest of the field goes quiet */
+  assert.doesNotMatch(back.html,/is-target/);
+  assert.match(back.html,/fd-pp-tile is-idle/);
+});
+
+test("a correction names an away player already placed and goes through its reason",()=>{
+  const {state,ev}=sequencedPutt();
+  state.results[ev.id]={slots:[[ROSTER[12]],[ROSTER[1]],[ROSTER[2]]],ts:1,revision:1};
+  state.away={[ROSTER[12]]:true};
+  const open=resultControls(state,ev);
+  assert.ok(open.buttons.has(ROSTER[12]),"the placed player stays in the field");
+  assert.equal(open.buttons.get("Official result").disabled,true,"unchanged");
+  const view=resultControls(state,ev,[ROSTER[12],ROSTER[3],{enabled:"Review result correction"}]);
+  assert.match(view.html,/Reason for the correction/);
+  assert.ok(view.buttons.has("Replace official result")&&view.buttons.has("Keep current"));
+  assert.equal(view.buttons.get("Replace official result").disabled,true,"a reason is required");
 });
 
 const twoTeamResult=(state,ev,expected)=>{
@@ -233,7 +308,8 @@ const twoTeamResult=(state,ev,expected)=>{
   assert.equal(applyAction(state,"beginResultEntry",{evId:ev.id},gm).ok,true);
   const teams=state.draws[ev.id].teams;
   assert.equal(teams.length,2);
-  assert.doesNotMatch(resultControls(state,ev).html,/Pick by player|Runners-up|Winners</,"no places to fill");
+  const open=resultControls(state,ev);
+  assert.ok(!open.buttons.has("2nd place")&&!open.buttons.has("1st place")&&!open.buttons.has("Players"),"no places to fill");
   const view=resultControls(state,ev,[teamLabel(state,teams[1])]);
   view.post();
   assert.deepEqual(view.saved[0],expected(teams));

@@ -29,7 +29,8 @@ import { FIT_EXCEPTIONS } from "../dev/fit/exceptions.js";
 import { TV_SCENARIOS, PHONE_SCENARIOS, PHONE_TABS, PHONE_SIZES } from "../dev/fit/scenarios.js";
 
 const ROOT = fileURLToPath(new URL("../", import.meta.url));
-const OUT = path.join(ROOT, ".impeccable/review/fit");
+/* FIT_OUT keeps a parallel run's report and shots apart */
+const OUT = process.env.FIT_OUT ? path.resolve(process.env.FIT_OUT) : path.join(ROOT, ".impeccable/review/fit");
 const args = process.argv.slice(2);
 const flag = name => args.includes(name);
 const value = name => { const i = args.indexOf(name); return i >= 0 ? args[i + 1] : null; };
@@ -145,6 +146,94 @@ await cdp("Page.enable");
 await cdp("Runtime.enable");
 const COLLECT = `(${collectFit.toString()})`;
 
+/* ── contrast at rest (advisory) ──
+   Text against the background it actually sits on: the text color (its
+   alpha and every ancestor's opacity folded in) over the stack of solid
+   backgrounds behind it in the DOM, composited down to the first opaque
+   one. Text over a gradient, an image or a translucent blur is skipped
+   (no single background to measure), as is disabled text. Body text needs
+   4.5:1, large text (24px, or 18.66px bold) 3:1. Written to contrast.md
+   beside the report; it never fails the run. FIT_CONTRAST=0 turns it off. */
+const CONTRAST_ON = process.env.FIT_CONTRAST !== "0";
+function contrastProbe(ignore) {
+  const canvas = document.createElement("canvas"); canvas.width = canvas.height = 1;
+  const ctx = canvas.getContext("2d", { willReadFrequently:true });
+  const rgba = color => {
+    ctx.clearRect(0, 0, 1, 1); ctx.fillStyle = "rgba(0,0,0,0)"; ctx.fillStyle = color; ctx.fillRect(0, 0, 1, 1);
+    const [r, g, b, a] = ctx.getImageData(0, 0, 1, 1).data;
+    return { r, g, b, a:a / 255 };
+  };
+  const over = (top, bottom) => ({ r:top.r * top.a + bottom.r * (1 - top.a), g:top.g * top.a + bottom.g * (1 - top.a),
+    b:top.b * top.a + bottom.b * (1 - top.a), a:1 });
+  const lum = c => [c.r, c.g, c.b].map(v => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; })
+    .reduce((sum, v, i) => sum + v * [0.2126, 0.7152, 0.0722][i], 0);
+  const hex = c => `#${[c.r, c.g, c.b].map(v => Math.round(v).toString(16).padStart(2, "0")).join("")}`;
+  const selector = el => {
+    const part = node => `${node.tagName.toLowerCase()}${[...node.classList].slice(0, 2).map(name => `.${name}`).join("")}`;
+    return el.parentElement ? `${part(el.parentElement)} > ${part(el)}` : part(el);
+  };
+  /* the background behind el, or null when there is no single one */
+  const backdrop = el => {
+    const layers = [];
+    for (let node = el; node; node = node.parentElement) {
+      const cs = getComputedStyle(node);
+      /* the page's own glass grain over its ground color is the ground */
+      const page = node === document.body || node === document.documentElement;
+      if (cs.backgroundImage !== "none" && !page) return null;
+      const bg = rgba(cs.backgroundColor);
+      if (bg.a > 0) {
+        if (bg.a < 0.9 && cs.backdropFilter && cs.backdropFilter !== "none") return null;
+        layers.push(bg);
+        if (bg.a >= 0.99) break;
+      }
+      if (node === document.documentElement && (!layers.length || layers.at(-1).a < 0.99)) layers.push({ r:0, g:0, b:0, a:1 });
+    }
+    if (!layers.length) return null;
+    return layers.reduceRight((acc, layer) => acc ? over(layer, acc) : { ...layer, a:1 }, null);
+  };
+  const out = [], seen = new Set();
+  let measured = 0;
+  for (const el of document.body.querySelectorAll("*")) {
+    if (ignore && el.closest(ignore)) continue;
+    if (![...el.childNodes].some(node => node.nodeType === 3 && node.textContent.trim())) continue;
+    if (el.closest(":disabled, [aria-disabled=true], [inert]")) continue;
+    const rect = el.getBoundingClientRect();
+    if (rect.width < 1 || rect.height < 1) continue;
+    const cs = getComputedStyle(el);
+    if (cs.visibility !== "visible" || cs.display === "none") continue;
+    let opacity = 1;
+    for (let node = el; node; node = node.parentElement) opacity *= Number(getComputedStyle(node).opacity);
+    if (opacity < 0.05) continue;
+    const bg = backdrop(el);
+    if (!bg) continue;
+    measured++;
+    const fg = rgba(cs.color);
+    const text = over({ ...fg, a:fg.a * opacity }, bg);
+    const [hi, lo] = [lum(text), lum(bg)].sort((a, b) => b - a);
+    const ratio = (hi + 0.05) / (lo + 0.05);
+    const size = parseFloat(cs.fontSize), weight = Number(cs.fontWeight) || 400;
+    const need = size >= 24 || (size >= 18.66 && weight >= 700) ? 3 : 4.5;
+    if (ratio >= need) continue;
+    const words = el.textContent.trim().replace(/\s+/g, " ").slice(0, 40);
+    const key = `${selector(el)}|${words}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({ sel:selector(el), text:words, ratio:Math.round(ratio * 100) / 100, need, fg:hex(text), bg:hex(bg), size });
+  }
+  return { measured, items:out.sort((a, b) => a.ratio - b.ratio).slice(0, 25) };
+}
+const CONTRAST = `(${contrastProbe.toString()})`;
+const contrastViews = [];
+let contrastMeasured = 0;
+async function contrast(view) {
+  if (!CONTRAST_ON) return;
+  try {
+    const { measured, items } = await evaluate(`${CONTRAST}(${JSON.stringify(IGNORE)})`);
+    contrastMeasured += measured;
+    if (items.length) contrastViews.push({ view, items });
+  } catch (error) { contrastViews.push({ view, items:[], error:error.message }); }
+}
+
 /* ── output ── */
 fs.mkdirSync(OUT, { recursive:true });
 /* a full run starts clean; a partial one (--only, --grep) replaces only its own */
@@ -164,10 +253,34 @@ async function load(url, { timeout = 20000 } = {}) {
     await sleep(200);
     try { if (await evaluate("window.__FIT_READY__ === true")) break; } catch {}
   }
-  await evaluate("document.fonts.ready.then(() => true)");
+  await fontsReady();
   await sleep(250);
 }
+/* Nothing is measured or shot on a fallback face. document.fonts.ready
+   alone settles as soon as nothing is loading, which is true before a face
+   the page has not drawn yet is even requested (one locker view measured on
+   the condensed fallback), so the show faces are asked for by name, then
+   ready is awaited, then each is checked. A face that still is not there
+   after three tries is a page error on the view, never a silent pass. */
+const SHOW_FACES = ["700 40px 'Big Shoulders Display'", "800 40px 'Big Shoulders Display'", "900 40px 'Big Shoulders Display'",
+  "900 40px 'Big Shoulders Inline Display'"];
+const FONTS_READY = `(async () => {
+  const faces = ${JSON.stringify(SHOW_FACES)};
+  await Promise.all(faces.map(face => document.fonts.load(face, "FIELD DAY 0123").catch(() => [])));
+  await document.fonts.ready;
+  return faces.filter(face => !document.fonts.check(face, "FIELD DAY 0123"));
+})()`;
+async function fontsReady() {
+  let missing = [];
+  for (let i = 0; i < 3; i++) {
+    try { missing = await evaluate(FONTS_READY); } catch (error) { missing = [error.message]; }
+    if (!missing.length) return;
+    await sleep(300);
+  }
+  pageErrors.push(`font not loaded: ${missing.join(", ")}`);
+}
 async function shot(file, clip = null) {
+  await fontsReady();
   const params = { format:"png", captureBeyondViewport:!!clip };
   if (clip) params.clip = { ...clip, scale:1 };
   const r = await cdp("Page.captureScreenshot", params);
@@ -211,6 +324,7 @@ if (ONLY !== "phone") {
     await shot(`shots/${spec.id}.png`);
     await crops(spec.id, failing(findings), { maxW:1920, maxH:1080 });
     await probe(spec.id);
+    await contrast(spec.id);
     record(spec.id, "tv", url, records, findings);
   }
 }
@@ -225,8 +339,9 @@ if (ONLY !== "tv") {
   for (const spec of PHONE_SCENARIOS) {
     for (const size of PHONE_SIZES) {
       for (const tab of spec.tabs || PHONE_TABS) jobs.push({ spec, size, tab, sheet:null });
-      if (size.id === "390") for (const sheet of spec.sheets || [])
-        jobs.push({ spec, size, tab:sheet.startsWith("weekend-") ? "weekend" : "home", sheet });
+      if (size.id === "390" || spec.sheetSizes?.includes(size.id)) for (const sheet of spec.sheets || [])
+        jobs.push({ spec, size, tab:sheet.startsWith("weekend-") || sheet === "install-open" ? "weekend"
+          : sheet === "sky" ? "events" : "home", sheet });
     }
   }
   for (const { spec, size, tab, sheet } of jobs) {
@@ -240,7 +355,7 @@ if (ONLY !== "tv") {
     const full = await evaluate(`${COLLECT}(${JSON.stringify({ ...opts, phase:"full" })})`);
     await evaluate("window.scrollTo(0, 0)"); await sleep(200);
     const top = await evaluate(`${COLLECT}(${JSON.stringify({ ...opts, phase:"top" })})`);
-    const findings = findingsFor({ ...full, overlays:top.overlays }, { mode:"phone", view, exceptions:FIT_EXCEPTIONS });
+    const findings = findingsFor({ ...full, overlays:top.overlays, fold:top.fold }, { mode:"phone", view, exceptions:FIT_EXCEPTIONS });
     await evaluate("window.scrollTo(0, document.scrollingElement.scrollHeight)"); await sleep(400);
     const bottom = await evaluate(`${COLLECT}(${JSON.stringify({ ...opts, phase:"bottom" })})`);
     const atBottom = findingsFor({ text:bottom.text, overlays:bottom.overlays }, { mode:"phone", view, exceptions:FIT_EXCEPTIONS })
@@ -256,6 +371,7 @@ if (ONLY !== "tv") {
     await shot(`shots/${view}.png`, { x:0, y:0, width:size.w, height:docH });
     await crops(view, failing(findings).filter(f => f.rule !== "overlay"), { scrollY:0, maxW:size.w, maxH:docH });
     await probe(view);
+    await contrast(view);
     record(view, "phone", url, full, [...findings, ...atBottom]);
   }
 }
@@ -282,6 +398,16 @@ for (const v of views) {
   md.push("");
 }
 fs.writeFileSync(path.join(OUT, "report.md"), md.join("\n"));
+if (CONTRAST_ON) {
+  const low = contrastViews.reduce((n, v) => n + v.items.length, 0);
+  fs.writeFileSync(path.join(OUT, "contrast.md"), [`# Contrast at rest (advisory)`, "",
+    `${new Date().toISOString()} · ${low} text runs under 4.5:1 (3:1 large) in ${contrastViews.length} views, of ${contrastMeasured} measured. `
+      + "Text over gradients, images, translucent blur and disabled text is skipped.", "",
+    ...contrastViews.flatMap(v => [`## ${v.view}`, "", ...(v.error ? [`- probe failed: ${v.error}`] : []),
+      ...v.items.map(item => `- ${item.ratio}:1 (needs ${item.need}) \`${item.sel}\` "${item.text}" ${item.fg} on ${item.bg}, ${item.size}px`), ""])]
+    .join("\n"));
+  console.log(`contrast (advisory): ${low} text runs under the minimum in ${contrastViews.length} views (${contrastMeasured} measured). See contrast.md`);
+}
 console.log(`\n${totals.views} views, ${totals.failing} failing findings (${JSON.stringify(totals.byRule)}). Report: ${path.relative(ROOT, OUT)}/report.md`);
 ws.close();
 await cleanup();

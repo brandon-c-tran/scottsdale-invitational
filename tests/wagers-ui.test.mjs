@@ -31,6 +31,8 @@ const solo = BUILTIN_EVENTS.find(event => event.id === "putt");
 const pairs = BUILTIN_EVENTS.find(event => event.id === "8ball");
 const player = ROSTER[0];
 const fresh = event => ({ ...structuredClone(EMPTY_STATE), live:true, onDeck:event.id });
+/* rendered text without its tags: a flagged 1 (OneSafe) is still a 1 */
+const plain = html => html.replace(/<[^>]*>/g, "");
 const textOf = values => values.map(value => Array.isArray(value) ? textOf(value)
   : React.isValidElement(value) ? textOf([value.props.children])
     : typeof value === "string" || typeof value === "number" ? String(value) : "").join("");
@@ -101,7 +103,7 @@ test("the FFA board retains every manual winner choice, including yourself", () 
   const state = fresh(solo), single = controls(state, solo);
   assert.deepEqual(single.picks, []);
   assert.deepEqual(state.wagers, []);
-  assert.match(single.html, /Back yourself/);
+  assert.match(single.html, /class="fd-wagers-pick-role">You</, "your own side reads You");
   single.click(`Place a chip on ${ROSTER[1]}`);
   assert.deepEqual(single.picks, [{ kind:"outright", eventId:solo.id, pick:ROSTER[1],
     pickPlayers:[ROSTER[1]], pickTeam:false, evName:solo.name, stake:100, ...refs(state, solo) }]);
@@ -113,7 +115,7 @@ test("the FFA board retains every manual winner choice, including yourself", () 
   draw.teams = draw.teams.slice(0, 2);
   /* two teams are a matchup: an observer may back either side at even money */
   const teams = controls(teamState, event, { me:ROSTER.at(-1) }), team = draw.teams[1];
-  assert.match(teams.html, /Winner pays 1:1/);
+  assert.match(plain(teams.html), /Winner pays 1:1/);
   teams.click(`Place a chip on ${teamLabel(teamState, team)}`);
   assert.deepEqual(teams.picks, [{ kind:"outright", eventId:event.id, pickTeam:true,
     pickPlayers:team.players, drawId:draw.id, evName:event.name, stake:100, ...refs(teamState, event) }]);
@@ -178,7 +180,7 @@ test("large teams retain their drawn names and every player target alongside man
   view.click("Retract your last chip on The Sidewinders");
   assert.deepEqual(view.retractions, ["large-team-stack"]);
   assert.deepEqual(view.retractionRefs, [refs(state, event)]);
-  view.click("Event details");
+  view.click(`${event.name}: Event details`);
   assert.deepEqual(opened, [event.id]);
   assert.equal(view.picks.length, 1);
 });
@@ -216,7 +218,7 @@ test("heat winner betting offers one heat at a time and a separate final", () =>
     group:0, groupName:resolveCurrentContest(state, solo).label, pickKey:ROSTER[0], pickPlayers:[ROSTER[0]],
     pickTeam:false, evName:solo.name, stake:100, ...refs(state, solo) });
   const participant = controls(state, solo);
-  assert.match(participant.html, /Back yourself/);
+  assert.match(participant.html, /class="fd-wagers-pick-role">You</);
   assert.ok(!participant.names.some(name => name === ROSTER[1] || name === `Place a chip on ${ROSTER[1]}`), "a side you cannot back has no well");
   assert.equal(participant.pickAll().length, 1);
   assert.equal(participant.picks[0].pickKey, player);
@@ -396,14 +398,17 @@ test("before the weekend and between events the page keeps the original empty-st
   assert.equal(before.pickAll().length, 0);
   const between = controls({ ...fresh(solo), onDeck:null }, solo, { wagerEv:null });
   assert.match(between.html, /Between events/);
+  /* frozen: no dead notice; your weekend's bets as a record */
   const finished = controls({ ...fresh(solo), frozen:true, onDeck:null }, solo, { wagerEv:null });
-  assert.match(finished.html, /The board is frozen\./);
+  assert.doesNotMatch(finished.html, /The board is frozen/);
+  assert.match(finished.html, /class="fd-wagers-record[^"]*"[^>]*aria-label="Your bets"/);
 });
 
 test("the active board has one event heading and rejects stale open-market props", () => {
   const open = controls(fresh(solo), solo);
   assert.equal((open.html.match(/<h1[ >]/g) || []).length, 1);
-  assert.match(open.html, new RegExp(`<h1[^>]*>${solo.name}</h1>`));
+  /* the name itself is the pane's way into the event */
+  assert.match(open.html, new RegExp(`<h1[^>]*><button[^>]*class="fd-wagers-scene-button"[^>]*>${solo.name}</button></h1>`));
   assert.doesNotMatch(open.html, /<h1>Bets<\/h1>/);
   const wager = { id:"owned", player, kind:"outright", eventId:solo.id,
     pick:ROSTER[1], pickPlayers:[ROSTER[1]], stake:100 };

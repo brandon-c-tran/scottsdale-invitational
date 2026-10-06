@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import Module from "node:module";
 import { fileURLToPath } from "node:url";
+import { readFileSync } from "node:fs";
 import { buildSync } from "esbuild";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -36,7 +37,7 @@ function controls(state, overrides = {}) {
   React.createElement = (type, props, ...children) => {
     if (type === "button") buttons.push({
       name:props?.["aria-label"] || textOf(children), disabled:!!props?.disabled,
-      minHeight:props?.style?.minHeight, click:props?.onClick,
+      className:props?.className || "", click:props?.onClick,
     });
     return createElement(type, props, ...children);
   };
@@ -110,13 +111,18 @@ test("all duel targets remain at least 44px high including the three-action comm
   state.profiles[other] = { display:"Long Player Name" };
   const view = controls(state, { gm:true });
   assert.equal(view.buttons.length, 4);
-  assert.ok(view.buttons.every(button => button.minHeight >= 44));
+  /* every target is a duel control its stylesheet holds at 44px; names wrap, never clip */
+  assert.ok(view.buttons.every(button => /fd-duel-(act|person)/.test(button.className)));
+  const css = readFileSync(new URL("../src/features/duels/duel-card.css", import.meta.url), "utf8");
+  assert.match(css, /\.fd-duel-act \{[^}]*min-height:44px/);
+  assert.match(css, /\.fd-duel-person \{[^}]*min-height:44px/);
   view.click("View Long Player Name's player card");
   await view.click("Void duel with Long Player Name");
   assert.deepEqual(view.viewed, [other]);
   assert.deepEqual(view.voided, ["received"]);
-  assert.match(view.html, /overflow-wrap:anywhere/);
+  assert.match(css, /\.fd-duel-who strong \{[^}]*overflow-wrap:anywhere/);
   assert.doesNotMatch(view.html, /white-space:nowrap|text-overflow:ellipsis/);
+  assert.doesNotMatch(css, /white-space:nowrap|text-overflow:ellipsis/);
 });
 
 test("a pending decline blocks repeat writes, void, play and navigation until acknowledged", async () => {

@@ -79,8 +79,6 @@ const SIZES = {
   /* a field past eight: the same picture at a glance, tighter rows */
   compactTall:{ head:0, row:22, gap:6, minCol:0, colGap:14 },
 };
-/* round heads that fit a quarter of a phone */
-const COMPACT_ROUNDS = { Quarterfinals:"Quarters", Semifinals:"Semis" };
 
 const statusOf = (contest, isCurrent) => !isCurrent ? null
   : contest.phase === "in-progress" ? "Playing" : contest.phase === "betting-open" ? "Betting open"
@@ -202,7 +200,9 @@ export function CompetitionBracket({ state, ev, me, gm=false, onPick, onPlayer, 
 
   const heads = <div className="fd-bracket-heads" style={{ minWidth:compact ? 0 : R * dims.minCol + (R - 1) * dims.colGap }}>
     {rounds.map((_, r) => <span key={r} style={{ left:colLeft(r), width:`calc(${colW})` }}>
-      {(compact && R >= 4 && COMPACT_ROUNDS[names[r]]) || names[r] || `Round ${r + 1}`}</span>)}
+      {/* one naming scheme everywhere: the round's own name (Round 1,
+          Quarterfinals, Semifinals, Final), set tight enough to fit its column */}
+      {names[r] || `Round ${r + 1}`}</span>)}
   </div>;
 
   if (compact) return <div className="fd-competition-bracket is-compact" aria-hidden="true">

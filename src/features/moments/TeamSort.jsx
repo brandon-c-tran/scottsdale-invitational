@@ -56,7 +56,7 @@ export function TeamSort({ state, team, at }) {
       onClick={() => setShow(false)}>
       <div className="fd-moment-flood" aria-hidden="true"><i style={{ background:identity.color }} /></div>
       <div className="fd-moment-body" aria-hidden="true">
-        <h2 className="fd-show is-marquee fd-moment-team-name">{team.name}</h2>
+        <h2 className="fd-show fd-moment-team-name">{team.name}</h2>
         <p className="fd-moment-sub"><span>Your team</span></p>
         <div className="fd-moment-team-faces">
           {team.players.map((p, i) => <span key={p} style={{ "--face":i }}><ChipFace p={p} size={size} flat /></span>)}

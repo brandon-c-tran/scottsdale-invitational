@@ -1,10 +1,11 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import qrcode from "qrcode-generator";
 import {
-  ROSTER, disp, resolveWager, resolveCurrentContest, resolveWeekendOperation,
+  ROSTER, rosterOf, disp, resolveWager, resolveCurrentContest, resolveWeekendOperation, contestMult,
 } from "../../../shared/core.js";
 import { resolveShowScene } from "../../../shared/show.js";
 import { ChipFace } from "../identity/PlayerIdentity.jsx";
+import { DISC_OVERLAP } from "../identity/discLetters.js";
 import { TextFloor, usePlayerIdentity } from "../identity/PlayerIdentityContext.js";
 import { resolvePlayerIdentity } from "../identity/playerIdentity.js";
 import { GameMark } from "../../ui/GameMark.jsx";
@@ -14,19 +15,19 @@ import { EventName, OneSafe } from "../../ui/OneSafe.jsx";
 import { PayoutLadder } from "../../ui/PayoutLadder.jsx";
 import { mergeWagerLines } from "../wagers/Wagers.jsx";
 import { BetStacks, FitStacks } from "../wagers/BetStacks.jsx";
-import { STACK_CAP, contestStacks, stackName, stackMaxHeight } from "../wagers/betStacks.js";
+import { STACK_CAP, contestStacks, fitLevels, stackName } from "../wagers/betStacks.js";
 import {
   fmt, signed, editionLabel, oddsLine, phaseBand,
-  tvCanvasFit, tvSceneView, ambientIndex, TV_AMBIENT_MS, TV_AMBIENT_TURN_MS, TV_TICKER_PAGE_MS, TV_RESULT_MOMENT_MS,
+  tvCanvasFit, tvSceneView, ambientIndex, TV_AMBIENT_MS, TV_AMBIENT_TURN_MS, TV_TROPHY_HOLD_MS, TV_TICKER_PAGE_MS, TV_RESULT_MOMENT_MS,
   tvLiveEvent, nextUpEvent, nextOpenMatch, latestResultOf, resultPresentation, resultMomentPhase, resultMomentFor,
   advanceMoment, advanceHoldUntil, correctionMoment, dockCard, decidedWinner, contestSideView,
-  tvConnection, tickerItems, tickerSpread, tvBusy, podiumGroups, championView, contestLamp, sideNameFit, tvClock, stageChrome, boardLevel,
+  tvConnection, tickerItems, tickerSpread, tvBusy, podiumGroups, championView, contestLamp, sideNameFit, stageChrome, boardLevel,
   backersRail, fieldNameFit,
 } from "./tvModel.js";
 import { IntroOverlay, TVDrawReveal } from "./TVCeremony.jsx";
 import { TVDraft } from "./TVDraft.jsx";
 import { TVPoker } from "./TVPoker.jsx";
-import { StageGroups, RosterWall, TrophyCard, TVWinLine, useContestWinLines } from "./TVCards.jsx";
+import { StageGroups, RosterWall, TrophyCard, TVWinLine, PayLamp, TVSideTerms, useContestWinLines } from "./TVCards.jsx";
 import { winLineFor } from "../standings/winImpact.js";
 import { TVBracket } from "./TVBracket.jsx";
 import { TVPodium, BackersRail } from "./TVPodium.jsx";
@@ -36,13 +37,14 @@ import { CROWN_TIMING, useBracketMotion, useCrownMoment } from "./tvMotion.js";
 import { ClassPhoto, useClassMoment } from "./TVClassPhoto.jsx";
 import { FaceOff } from "./TVFaceOff.jsx";
 import { faceOffView, useFaceOff } from "./faceOff.js";
+import { byeTeachWindow, underdogTeachWindow, useTeach } from "./teach.js";
 import { FROZEN_TURNS, frozenAmbient } from "../results/classPhoto.js";
 import { crownAnchor } from "../results/crownTiming.js";
 import { Backglass } from "./DesertBand.jsx";
 import { constellationStars, isNightSky } from "./desertModel.js";
 import { weekendPhase } from "../../ui/phase.js";
 import { TowersBoard, useTowersMode, towersFailure } from "./TowersBoard.jsx";
-import { towerChips, towerLeaders, standingsTowerRows, resultTowerRows } from "./towersModel.js";
+import { towerChips, towerChipPx, towerCountSize, towerLeaders, towerLayout, towerStackPx, standingsTowerRows, resultTowerRows } from "./towersModel.js";
 import { useServerNow } from "./serverClock.js";
 import { serverNow } from "../../lib/serverClock.js";
 import { weekendFacts } from "../results/weekendFacts.js";
@@ -52,14 +54,16 @@ import { SoundEarlyControl, useTvSoundReport, useTvWakeLock } from "./TVDevice.j
 import { NowPlaying } from "./NowPlaying.jsx";
 import { TVWalkout, useTvWalkout } from "./TVWalkout.jsx";
 import { TVPokerMoments, usePokerMoments } from "./TVPokerMoments.jsx";
+import { TVShowdown, useTvShowdown } from "./TVShowdown.jsx";
 import { AwardsReveal } from "../awards/TVAwards.jsx";
 import { TVGeo } from "./TVGeo.jsx";
 import { TVTrivia } from "./TVTrivia.jsx";
 import { awardOnTv } from "../../../shared/prompts.js";
 import { TVPhotoCard } from "../photos/TVPhotoCard.jsx";
 import { tvPhotoGap, tvPhotoRotation, withPhotoTurns } from "../photos/photoModel.js";
-import { SideTerms } from "../comebacks/Comebacks.jsx";
-import { boardBounty, contestTerms } from "../comebacks/comebacks.js";
+import { contestTerms } from "../comebacks/comebacks.js";
+import { CORNER_GAP, CORNER_W, TVArriveCorner, TVLobby } from "./TVArrivals.jsx";
+import { arrivalsBoard, arriveUrl } from "../arrivals/arrivalsModel.js";
 import "./tv.css";
 import "./tvScenes.css";
 
@@ -77,7 +81,9 @@ export const MAST_H = SAFE_Y + MAST_PLATE + 6, TICKER_H = 6 + TICKER_PLATE + SAF
 /* the horizon's floor sits on the painting's floor line (y 856), its
    labels clear of the ticker plate */
 const HORIZON_H = 272, HORIZON_BASE = 170;
-const HORIZON_SLOT = (1920 - 2 * EDGE) / 13;
+/* the horizon's chips fill less of their slot than the board's, and its
+   short stacks keep 3px a chip (towersModel's towerLayout) */
+const HORIZON_FILL = 0.56, HORIZON_MIN_CHIP = 3;
 /* the bracket or the heats beside the live board */
 const SIDE_W = 760, BOARD_W = 1920 - 2 * EDGE;
 /* the bracket's room in that panel: the live row (the canvas less the
@@ -128,23 +134,26 @@ function usePointerActive() {
 }
 
 /* players as their photo chips: the identity chip with the saved photo in
-   its middle, else the jersey number. One treatment everywhere on the TV. */
+   its middle, else their initials. One treatment everywhere on the TV.
+   Overlapped faces tuck a fifth under the next, clear of the letters. */
 /* more than five faces stand in balanced rows (six is three and three),
    never a row of five and one left alone */
 function Faces({ players, size, overlap = false, className = "", maxCols = 5 }) {
   const rows = !overlap && players.length > maxCols ? Math.ceil(players.length / 2) : 0;
   return (
     <div className={`tv-faces${overlap ? " is-overlap" : ""}${rows ? " is-rows" : ""}${className ? ` ${className}` : ""}`}
-      style={overlap ? { "--overlap":`${-Math.round(size * 0.3)}px` } : rows ? { "--face-cols":rows } : undefined}>
+      style={overlap ? { "--overlap":`${-Math.round(size * DISC_OVERLAP)}px` } : rows ? { "--face-cols":rows } : undefined}>
       {players.map(p => <ChipFace key={p} p={p} size={size} />)}
     </div>
   );
 }
 
 /* The slim masthead: the FD chip and the event being played in backglass
-   lettering, its lamp (betting open flashes, play is steady), and the wall
-   clock. Nothing live: the weekend's name. The dock (a correction, a lead
-   change) takes the clock's place. */
+   lettering, its lamp (betting open flashes, play is steady); nothing live,
+   the weekend's name. The edition balances it on the right. No wall clock:
+   the weekend runs on now and next (PRODUCT 7). The dock (a correction, a
+   lead change), Reconnecting or Final take the edition's place, and a win
+   song's strip takes the right while it plays. */
 function Masthead({ event = null, lamp = null, connection, lastUpdateAt, final, dock, now, playing = null }) {
   const offline = connection.mode === "reconnecting";
   return (
@@ -155,10 +164,7 @@ function Masthead({ event = null, lamp = null, connection, lastUpdateAt, final, 
           <span className="tv-mast-event fd-show"><EventName name={event.name} /></span>
           {lamp && <span className={`tv-status is-${lamp.state}`}><i className={`fd-insert${lamp.state === "pending" ? " is-pending" : ""}`} />
             {lamp.label}</span>}
-        </> : <>
-          <span className="tv-mast-title fd-show">Field Day</span>
-          <span className="tv-mast-edition">{editionLabel()}</span>
-        </>}
+        </> : <span className="tv-mast-title fd-show">Field Day</span>}
       </div>
       {playing}
       <div className="tv-mast-right" data-fit-region="masthead">
@@ -166,8 +172,7 @@ function Masthead({ event = null, lamp = null, connection, lastUpdateAt, final, 
           : offline ? <span className="tv-status is-offline" role="status"><i />
             Reconnecting</span>
             : final ? <span className="tv-status is-final">Final</span>
-              : (clock => <span className="tv-mast-clock" aria-label={`Time ${clock.time} ${clock.period}`.trim()}>
-                {clock.time}{clock.period && <small>{clock.period}</small>}</span>)(tvClock(now))}
+              : <span className="tv-mast-edition">{editionLabel()}</span>}
       </div>
     </header>
   );
@@ -198,17 +203,21 @@ function TickerPage({ items, className = "" }) {
 }
 /* A page at a time, held on the server clock so every TV shows the same
    one; the outgoing page fades as the next arrives. Reduced motion cuts. */
-function Ticker({ items, reducedMotion, now }) {
-  const page = tickerSpread(items, now);
+/* `quiet` (a live trivia or Where and When question) holds one page still,
+   so nothing moves under the room while it thinks */
+function Ticker({ items, reducedMotion, now, quiet = false }) {
+  /* nothing new to say: no plate at all, never a line that repeats the masthead */
+  if (!items?.length) return <div className="tv-ticker is-empty" aria-hidden="true" />;
+  const page = tickerSpread(items, quiet ? 0 : now);
   const age = Math.max(0, Number(now) || 0) % TV_TICKER_PAGE_MS;
-  const prev = !reducedMotion && page.pages > 1 && age < 1000 ? tickerSpread(items, now - TV_TICKER_PAGE_MS) : null;
+  const prev = !quiet && !reducedMotion && page.pages > 1 && age < 1000 ? tickerSpread(items, now - TV_TICKER_PAGE_MS) : null;
   return (
     <div className={`tv-ticker${reducedMotion ? " is-cut" : ""}`} aria-label={`Ticker, ${page.index + 1} of ${page.pages}`}>
       <div className="tv-ticker-glass" aria-hidden="true" data-fit-region="ticker" />
       {prev && prev.index !== page.index && prev.items.length > 0 && <TickerPage key={`out-${prev.index}`} items={prev.items}
         className="is-leaving" />}
       {page.items.length > 0 && <TickerPage key={`in-${page.index}`} items={page.items}
-        className={page.pages > 1 ? "is-entering" : ""} />}
+        className={page.pages > 1 && !quiet ? "is-entering" : ""} />}
     </div>
   );
 }
@@ -255,74 +264,87 @@ function StandingsBoard({ state, standings, allTied, title }) {
 /* the towers' floor in their pane: the painting's floor line, with the
    labels' two lines under it clear of the ticker */
 const towerBase = height => height - 106;
-/* every tower's label is one fixed slot with a gutter on each side, so
-   neighbours never touch however long a name runs */
-export const TOWER_LABEL_W = 132;
+/* every tower's label is its slot's width less a gutter (towerLayout), so
+   neighbours never touch however long a name runs or how many play; this
+   is the full roster's, the default when no slot is given */
+export const TOWER_LABEL_W = Math.floor(towerLayout({ width:1920, edge:EDGE, count:ROSTER.length }).labelW);
 /* the name fits the slot on one line: as large as it goes (30px down to
    24), and a name still wider at 24 is narrowed to the slot (measured in
    the browser, `squeeze` is the estimate), so every tower's count stands on
-   one baseline; never two lines, never an ellipsis */
-export const towerNameFit = name => {
-  const text = String(name || "").toUpperCase();
-  const size = Math.max(24, Math.min(30, Math.floor(TOWER_LABEL_W / Math.max(1, text.length * 0.5))));
+   one baseline; never two lines. Past TOWER_SQUEEZE it ends in an ellipsis. */
+export const TOWER_SQUEEZE = 0.72;
+export const towerNameFit = (name, width = TOWER_LABEL_W) => {
+  /* lettered as written; measured as capitals, the widest it could run */
+  const text = String(name || "");
+  const size = Math.max(24, Math.min(30, Math.floor(width / Math.max(1, text.length * 0.5))));
   const est = text.length * 0.5 * size;
-  return { size, lines:[text], squeeze:est > TOWER_LABEL_W ? Math.max(0.75, TOWER_LABEL_W / est) : 1 };
+  return { size, lines:[text], squeeze:est > width ? Math.max(TOWER_SQUEEZE, width / est) : 1 };
 };
 export const towerNameSize = name => towerNameFit(name).size;
 /* A tower's label at rest is its name and one plain numeral; position is
    the rank. On a result's step (`change`) the move shows once: a mover's
-   change takes the count's line and fades, a tower that did not move shows
-   nothing there, every name stays (the winner's lit green), then the board
-   is at rest again. A mover's count comes back on a slim reel showing what
+   change takes the count's line and fades, a tower that did not move reads
+   a quiet ±0 there (never a blank that looks missing), every name stays
+   bone, then the board is at rest again. A mover's count comes back on a slim reel showing what
    it was, then rolls to what it is once the change has lifted away, its
    windows lit for the step (the movers read apart from the rest); the
    board at rest is plain numerals again. */
 export const TOWER_REEL_AT_MS = 3950;
-const towerLabel = (state, { change = false, wanted = [] } = {}) => row => {
+const towerLabel = (state, { change = false } = {}) => (row, { labelW = TOWER_LABEL_W } = {}) => {
   const name = disp(state, row.player);
   const delta = change ? (row.award || 0) + (row.bets || 0) : 0;
+  /* one size for the count, the change and the reel's start, the longest of them */
+  const size = towerCountSize([fmt(row.pts), fmt(row.pts - delta), signed(delta)]
+    .reduce((a, b) => (b.length > a.length ? b : a), ""), labelW);
   return <>
-    {/* v3.1: the wanted player's lamp, over the name */}
-    {wanted.includes(row.player) && <span className="tv-tower-bounty" role="img" aria-label="Bounty"><i className="fd-insert" /></span>}
-    {delta ? <span className={`tv-tower-delta${delta < 0 ? " is-down" : ""}`}>{signed(delta)}</span> : null}
-    <TowerName name={name} />
-    <span className="tv-tower-pts">{delta
+    {delta ? <span className={`tv-tower-delta${delta < 0 ? " is-down" : ""}`} style={{ fontSize:size }}>{signed(delta)}</span>
+      : change ? <span className="tv-tower-delta is-zero" style={{ fontSize:size }}>±0</span> : null}
+    <TowerName name={name} width={labelW} />
+    <span className={`tv-tower-pts${row.pts < 0 ? " is-down" : ""}`} style={{ fontSize:size }}>{delta
       ? <ScoreReel value={row.pts} from={row.pts - delta} motion="always" slim label={fmt(row.pts)} at={TOWER_REEL_AT_MS} />
       : fmt(row.pts)}</span>
   </>;
 };
-function TowerName({ name }) {
-  const fit = towerNameFit(name);
+function TowerName({ name, width = TOWER_LABEL_W }) {
+  const fit = towerNameFit(name, width);
   const ref = useRef(null);
   const [squeeze, setSqueeze] = useState(fit.squeeze);
+  const [clip, setClip] = useState(false);
   useLayoutEffect(() => {
     let live = true;
     const measure = () => {
-      const w = ref.current?.offsetWidth || 0;
-      if (live && w) setSqueeze(Math.min(1, TOWER_LABEL_W / w));
+      const w = ref.current?.scrollWidth || 0;
+      if (!live || !w) return;
+      setSqueeze(Math.max(TOWER_SQUEEZE, Math.min(1, width / w)));
+      setClip(width / w < TOWER_SQUEEZE);
     };
     measure();
     document.fonts?.ready?.then(measure);
     return () => { live = false; };
-  }, [name, fit.size]);
+  }, [name, fit.size, width]);
+  const style = squeeze < 1 ? { transform:`scaleX(${squeeze.toFixed(3)})` } : {};
+  /* past the narrowest it goes, the name ends in an ellipsis inside the slot */
+  if (clip) Object.assign(style, { maxWidth:Math.floor(width / TOWER_SQUEEZE), overflow:"hidden", textOverflow:"ellipsis" });
   return <b className="tv-tower-name" style={{ fontSize:fit.size }}>
-    <span ref={ref} className="tv-tower-name-text" style={squeeze < 1 ? { transform:`scaleX(${squeeze.toFixed(3)})` } : undefined}>
-      {name}</span></b>;
+    <span ref={ref} className="tv-tower-name-text" style={style}>{name}</span></b>;
 }
 const towerMoved = row => !!((row.award || 0) + (row.bets || 0));
 const towerClass = winners => row => `${towerMoved(row) ? "is-moved" : "is-still"}${winners.has(row.player) ? " is-win" : ""}`;
 /* the sky above the towers: a sign, or a result's headline in the empty
    upper half (the towers stand under it) */
 const HEADLINE_TOP = 330;
+/* arrivals: a tower whose player is still on the road stands unlit */
+const roadClass = (base, road) => !road?.size ? base
+  : row => [base ? base(row) : "", road.has(row.player) ? "is-road" : ""].filter(Boolean).join(" ");
 function TowersView({ state, rows, head = null, headline = null, ribbon = null, winners = null, height, towers, fallback,
-  change = false, sound = "fresh" }) {
+  change = false, sound = "fresh", road = null, width = 1920 }) {
   const leaders = towerLeaders(rows);
   return (
     <div className={`tv-towers-pane${change ? " is-change" : ""}`}>
-      <TowersBoard fallback={fallback} rows={rows} leaders={leaders} width={1920} height={height}
+      <TowersBoard fallback={fallback} rows={rows} leaders={leaders} width={width} height={height} edge={EDGE}
         baseY={towerBase(height)} top={headline ? HEADLINE_TOP : ribbon ? RIBBON_TOP : head ? 120 : 40} pixelRatio={towers.pixelRatio}
         reducedMotion={towers.reducedMotion} labelFor={towerLabel(state, { change })}
-        labelClass={change ? towerClass(winners || new Set()) : null} sound={sound} />
+        labelClass={roadClass(change ? towerClass(winners || new Set()) : null, road)} sound={sound} />
       {headline}
       {ribbon}
       {head && <div className="tv-towers-head tv-sign">{head}</div>}
@@ -334,9 +356,19 @@ function TowersView({ state, rows, head = null, headline = null, ribbon = null, 
    liquid glass high over the towers (its mark, its name, what it pays). No
    "Next" label: the composition says it. */
 const RIBBON_TOP = 190;
-function NextRibbon({ ev }) {
+/* The ribbon floats in the middle of the sky the towers leave: high over a
+   tall board, lower over a short one, so the sky is never one empty band */
+const RIBBON_H = 140, RIBBON_MIN = 34, RIBBON_CLEAR = 36;
+export function ribbonTop(rows = [], height = 836) {
+  const baseY = towerBase(height);
+  const tallest = Math.max(1, ...rows.map(row => towerChips(row.pts)));
+  const layout = towerLayout({ width:1920, baseY, count:Math.max(1, rows.length), tallest, top:RIBBON_TOP, edge:EDGE });
+  const sky = baseY - towerStackPx(layout, tallest) - RIBBON_CLEAR;
+  return Math.max(RIBBON_MIN, Math.round((sky - RIBBON_H) / 2));
+}
+function NextRibbon({ ev, top = RIBBON_MIN }) {
   return (
-    <div className="tv-next-ribbon fd-liquid fd-liquid-sweep" aria-label={`Next: ${ev.name}`}>
+    <div className="tv-next-ribbon fd-liquid fd-liquid-sweep" aria-label={`Next: ${ev.name}`} style={{ top }}>
       <GameMark id={ev.game} variant={ev.variant} size={92} />
       <span className="fd-show tv-next-ribbon-name"
         style={{ fontSize:Math.max(40, Math.min(92, Math.floor(1120 / (Math.max(6, ev.name.length) * 0.47)))) }}>
@@ -347,12 +379,20 @@ function NextRibbon({ ev }) {
 }
 
 /* the flat horizon where WebGL is absent: each player's chip on a painted
-   column one chip-edge per 100, in the same fixed slots */
-function FlatTower({ p, chips, px }) {
+   column one chip-edge per 100, in the same fixed slots, thinned past the
+   knee like the towers (towerChipPx); an empty stack is its hollow base */
+function FlatTower({ p, chips, scale }) {
   const identity = usePlayerIdentity(p);
-  const h = Math.max(4, Math.round(chips * px));
-  const edges = [];
-  if (px >= 4) for (let i = 1; i < chips; i++) edges.push(Math.round(h - i * px));
+  if (!chips) return (
+    <svg className="tv-flat-tower is-empty" width="60" height="8" viewBox="0 0 60 8" aria-hidden="true">
+      <rect x="1" y="1" width="58" height="6" rx="3" />
+    </svg>
+  );
+  const thick = j => (j < scale.knee ? scale.small : scale.big);
+  const tops = [];
+  for (let j = 0, y = 0; j < chips; j++) { y += thick(j); tops.push(y); }
+  const h = Math.max(4, Math.round(tops[chips - 1]));
+  const edges = tops.slice(0, -1).filter((_, j) => thick(j) >= 4 && thick(j + 1) >= 4).map(y => Math.round(h - y));
   return (
     <svg className="tv-flat-tower" width="60" height={h} viewBox={`0 0 60 ${h}`} aria-hidden="true">
       <rect width="60" height={h} rx="4" style={{ fill:identity.color }} />
@@ -360,34 +400,38 @@ function FlatTower({ p, chips, px }) {
     </svg>
   );
 }
-function FlatHorizon({ rows, label }) {
+function FlatHorizon({ rows, label, road = null, width = 1920 }) {
   const tallest = Math.max(1, ...rows.map(row => towerChips(row.pts)));
-  const px = Math.min(12, (HORIZON_BASE - 84) / tallest);
+  const scale = towerChipPx({ room:HORIZON_BASE - 84, tallest, naturalPx:12, minChipPx:HORIZON_MIN_CHIP });
+  const fit = { labelW:towerLayout({ width, edge:EDGE, count:rows.length }).labelW, count:rows.length };
   return (
-    <div className="tv-flat-horizon">
+    <div className="tv-flat-horizon" style={{ gridTemplateColumns:`repeat(${Math.max(1, rows.length)}, minmax(0, 1fr))`,
+      ...(width < 1920 ? { right:1920 - width + EDGE } : {}) }}>
       {rows.map(row => (
-        <div key={row.player} className="tv-flat-slot">
+        <div key={row.player} className={`tv-flat-slot${road?.has(row.player) ? " is-road" : ""}`}>
           <div className="tv-flat-stand" style={{ height:HORIZON_BASE }}>
             <ChipFace p={row.player} size={68} />
-            <FlatTower p={row.player} chips={towerChips(row.pts)} px={px} />
+            <FlatTower p={row.player} chips={towerChips(row.pts)} scale={scale} />
           </div>
-          <div className="tv-tower-label is-flat">{label(row)}</div>
+          <div className="tv-tower-label is-flat">{label(row, fit)}</div>
         </div>
       ))}
     </div>
   );
 }
-/* The standings horizon under the live board: all thirteen towers in rank
+/* The standings horizon under the live board: every player's tower in rank
    order on the desert floor, each in its own slot with its name and reel.
    It replaces the old standings rail, so the board gets the full width. */
-function Horizon({ state, standings, towers }) {
+/* `width`: narrower while the arrivals corner plate holds the bottom right */
+function Horizon({ state, standings, towers, road = null, width = 1920 }) {
   const rows = standingsTowerRows(standings);
-  const label = towerLabel(state, { wanted:boardBounty(state, undefined, standings) });
-  const flat = <FlatHorizon rows={rows} label={label} />;
+  const label = towerLabel(state);
+  const flat = <FlatHorizon rows={rows} label={label} road={road} width={width} />;
   return (
     <section className="tv-horizon" aria-label="Standings">
-      {towers.on ? <TowersBoard fallback={flat} rows={rows} width={1920} height={HORIZON_H} baseY={HORIZON_BASE} top={8}
-        slotWidth={HORIZON_SLOT} pixelRatio={towers.pixelRatio} reducedMotion={towers.reducedMotion} labelFor={label} />
+      {towers.on ? <TowersBoard fallback={flat} rows={rows} width={width} height={HORIZON_H} baseY={HORIZON_BASE} top={8}
+        edge={EDGE} fill={HORIZON_FILL} minChipPx={HORIZON_MIN_CHIP} pixelRatio={towers.pixelRatio} reducedMotion={towers.reducedMotion} labelFor={label}
+        labelClass={roadClass(null, road)} />
         : flat}
     </section>
   );
@@ -395,10 +439,14 @@ function Horizon({ state, standings, towers }) {
 
 /* A side's name, as large as its column allows, on one line or two lines
    broken at the team's "&". */
-function SideName({ name, width, max, min }) {
+const SIDE_NAME_STACK = 40, STACKED_FACE = 48;
+const sharedNameSize = specs => Math.min(...specs.map(spec => sideNameFit(spec.name, spec.width, { max:spec.max, min:spec.min, caps:true }).size));
+/* `size`: the board's one size (every side letters at the smallest any side
+   needs), so a matchup never reads as one big name and one small */
+function SideName({ name, width, max, min, size = null }) {
   const fit = sideNameFit(name, width, { max, min, caps:true });
   return (
-    <div className="tv-side-title" style={{ fontSize:fit.size }}>
+    <div className="tv-side-title" style={{ fontSize:size ? Math.min(size, fit.size) : fit.size }}>
       {/* a team renamed on a fresh frame re-letters in place (features/teams) */}
       <RenameText name={name} as="div" className="tv-side-name">{fit.lines.length > 1 ? <>{fit.lines[0]}<br />{fit.lines[1]}</> : name}</RenameText>
     </div>
@@ -415,34 +463,48 @@ const TV_STACKS = {
   grid:{ face:72, faceMany:56, chip:52 },
 };
 const PANEL_PAD = 28;
+/* the smallest chip a crowded felt steps down to: small enough that the
+   tallest stack, its amount and its name always stand inside the felt,
+   and a face still holds its initials at the TV floor */
+const TV_FELT_MIN = 32;
 const FIELD = { gap:14, chip:44, small:40 };
 /* a wide field's felt: one row up to seven sides, two past that; every spot
-   one fixed size before any chip lands, its stack band as tall as the
-   tallest stack with its value and first name */
+   one fixed size (the rows share the board's height) before any chip lands */
 export function fieldLayout(count, width) {
   const n = Math.max(1, count);
   const rows = n > 7 ? 2 : 1;
   const perRow = Math.ceil(n / rows);
   const spot = Math.floor((width - (perRow - 1) * FIELD.gap) / perRow);
   const chip = spot >= 220 ? FIELD.chip : FIELD.small;
-  return { rows, perRow, spot, chip, slots:Math.max(1, Math.floor((spot - 24) / 84)), stackH:Math.ceil(stackMaxHeight(chip) + 58) };
+  return { rows, perRow, spot, chip };
 }
 /* a side's total on the felt: the contest's own number, so it rolls on a
    reel as bets land (a fresh frame only) */
 const SideTotal = ({ total }) => <ScoreReel value={total} tone="chip" label={fmt(total)} />;
+/* A spot is three fixed bands, so nothing in it can stand on anything
+   else: the faces and name, the side's total on a line of its own (two
+   stacks or more; one stack carries its own amount), then the stacks, each
+   with its amount beside it and a first name under it, fitted into what is
+   left (smaller chips, then the smallest fold into "+N"). Every spot draws
+   one chip size: each reports the level it needs and all stand at the
+   deepest. A spot nobody backs keeps only its name, quiet. */
 function FieldFelt({ state, ev, contest, stacks, width }) {
   const layout = fieldLayout(contest.sides.length, width);
   const any = contest.sides.some(side => (stacks.get(side.key)?.stacks.length || 0) > 0);
   const views = contest.sides.map(side => contestSideView(state, ev, contest, side));
   /* every spot letters its name at one size, on one line, beside faces of one size */
   const nameFit = fieldNameFit(views.map(view => view.name), layout.spot, Math.max(1, ...views.map(view => view.players.length)));
+  const [fitNeed, setFitNeed] = useState({});
+  const floor = Math.max(0, ...contest.sides.map(side => fitNeed[`${contest.id}:${String(side.key)}`] || 0));
+  const ladder = Math.max(0, ...contest.sides.map(side => stacks.get(side.key)?.stacks.length || 0));
+  const reportFit = key => level => setFitNeed(prev => prev[key] === level ? prev : { ...prev, [key]:level });
   return (
     <div className={`tv-sides is-field${any ? "" : " is-quiet"}`}
-      style={{ gridTemplateColumns:`repeat(${layout.perRow}, minmax(0, 1fr))`, "--field-stack-h":`${layout.stackH}px` }}>
+      style={{ gridTemplateColumns:`repeat(${layout.perRow}, minmax(0, 1fr))`,
+        gridTemplateRows:any ? `repeat(${layout.rows}, minmax(0, 1fr))` : undefined }}>
       {contest.sides.map((side, index) => {
         const view = views[index];
         const ride = stacks.get(side.key) || { stacks:[], total:0 };
-        /* one stack carries its own amount; two or more get the side's total */
         const summed = ride.stacks.length > 1;
         return (
           <div key={String(side.key)} className={`tv-side is-spot${ride.stacks.length ? " has-chips" : ""}`}>
@@ -450,10 +512,11 @@ function FieldFelt({ state, ev, contest, stacks, width }) {
               <Faces players={view.players} size={nameFit.face} overlap />
               <div className="fd-show tv-spot-name" style={{ fontSize:nameFit.size }}>{view.name}</div>
             </div>
+            {any && <div className="tv-spot-total">{summed && <div className="tv-side-total"><SideTotal total={ride.total} /></div>}</div>}
             {any && <div className="tv-spot-felt">
-              {summed && <div className="tv-side-total"><SideTotal total={ride.total} /></div>}
-              {ride.stacks.length > 0 && <BetStacks stacks={ride.stacks} size={layout.chip} cap={STACK_CAP} className="tv-stacks"
-                names={p => stackName(state, p)} slots={layout.slots} />}
+              {ride.stacks.length > 0 && <FitStacks stacks={ride.stacks} total={0} chip={layout.chip} cap={STACK_CAP} min={TV_FELT_MIN}
+                className="tv-stacks-fit tv-spot-fit" names={p => stackName(state, p)} valueAt="side"
+                ladder={ladder} floor={floor} onLevel={reportFit(`${contest.id}:${String(side.key)}`)} />}
             </div>}
           </div>
         );
@@ -466,16 +529,20 @@ function FieldFelt({ state, ev, contest, stacks, width }) {
    side's stacks stand beside its name; with none the faces and names take
    the room (no empty felt, no "No bets" line). The round is the bracket's
    own outline below, never a second heading. */
-function ContestBand({ state, ev, contest, stacks, width, lamp }) {
+function ContestBand({ state, ev, contest, stacks, width, lamp, teach = false }) {
   const any = contest.sides.some(side => (stacks.get(side.key)?.stacks.length || 0) > 0);
   const terms = contestTerms(state, contest);
   const half = Math.floor((width - PANEL_PAD * 2 - 260) / 2);
-  const cards = contest.sides.map((side, index) => {
+  const face = any ? 76 : 112;
+  const specs = contest.sides.map(side => {
     const view = contestSideView(state, ev, contest, side);
+    const facesW = face + (view.players.length - 1) * face * (1 - DISC_OVERLAP);
+    return { view, name:view.name, width:(any ? Math.floor(half * 0.46) : half) - facesW - 24, max:any ? 60 : 88, min:36 };
+  });
+  const nameSize = sharedNameSize(specs);
+  const cards = contest.sides.map((side, index) => {
+    const { view, width:nameW } = specs[index];
     const ride = stacks.get(side.key) || { stacks:[], total:0 };
-    const face = any ? 76 : 112;
-    const facesW = face + (view.players.length - 1) * face * 0.7;
-    const nameW = (any ? Math.floor(half * 0.46) : half) - facesW - 24;
     return (
       <div key={String(side.key)} className={`tv-side is-band${index ? " is-right" : ""}${ride.stacks.length ? " has-chips" : ""}`}>
         <div className="tv-side-top">
@@ -483,14 +550,14 @@ function ContestBand({ state, ev, contest, stacks, width, lamp }) {
           {/* v3.1: the side's terms under its name, in the name's own width, so
               the felt keeps its room */}
           {terms?.any ? <div className="tv-band-name" style={{ maxWidth:Math.max(nameW, 180) }}>
-            <SideName name={view.name} width={nameW} max={any ? 60 : 88} min={36} />
-            <SideTerms tv terms={terms.sides[side.key]} className="tv-side-terms is-band" />
-          </div> : <SideName name={view.name} width={nameW} max={any ? 60 : 88} min={36} />}
+            <SideName name={view.name} width={nameW} max={any ? 60 : 88} min={36} size={nameSize} />
+            <TVSideTerms terms={terms.sides[side.key]} className="is-band" teach={teach} />
+          </div> : <SideName name={view.name} width={nameW} max={any ? 60 : 88} min={36} size={nameSize} />}
         </div>
         {any && <div className={`tv-felt${ride.stacks.length ? "" : " is-empty"}`}>
           {ride.total > 0 && <div className="tv-side-total"><SideTotal total={ride.total} /></div>}
-          {ride.stacks.length > 0 && <FitStacks stacks={ride.stacks} total={0} chip={48} cap={STACK_CAP} min={30}
-            className="tv-stacks-fit" names={p => stackName(state, p)} valueAt="below" />}
+          {ride.stacks.length > 0 && <FitStacks stacks={ride.stacks} total={0} chip={48} cap={STACK_CAP} min={TV_FELT_MIN}
+            className="tv-stacks-fit" names={p => stackName(state, p)} valueAt="side" />}
         </div>}
       </div>
     );
@@ -501,13 +568,16 @@ function ContestBand({ state, ev, contest, stacks, width, lamp }) {
         {cards[0]}
         <div className="tv-versus-col">
           <div className="tv-versus fd-show" aria-label="versus">VS</div>
-          <div className="tv-contest-odds">{oddsLine(contest)}</div>
+          <div className="tv-contest-odds"><PayLamp text={oddsLine(contest)} lit={isTwoToOne(contest)} /></div>
         </div>
         {cards[1]}
       </div>
     </div>
   );
 }
+
+/* a contest that pays 2:1 lights its payout lamp */
+const isTwoToOne = contest => !!contest && contestMult(contest) === 2;
 
 /* "Round 1 · Match 3" reads as "Round 1 Match 3", "Semifinals · Match 2"
    as "Semifinal 2" (the shape of bracketMatchName in core) */
@@ -519,7 +589,7 @@ export const matchTitle = label => {
   if (/^Finals?$/.test(round)) return "Final";
   return /\d$/.test(round) ? `${round} Match ${n}` : `${round.replace(/s$/, "")} ${n}`;
 };
-function ContestBoard({ state, events, ev, contest, width = BOARD_W }) {
+function ContestBoard({ state, events, ev, contest, width = BOARD_W, teach = false }) {
   const stacks = contestStacks(state, events, contest);
   const n = contest.sides.length;
   const h2h = n === 2;
@@ -541,7 +611,15 @@ function ContestBoard({ state, events, ev, contest, width = BOARD_W }) {
   const ladder = Math.max(0, ...contest.sides.map(side => stacks.get(side.key)?.stacks.length || 0));
   const reportFit = key => level => setFitNeed(prev => prev[key] === level ? prev : { ...prev, [key]:level });
   const any = contest.sides.some(side => (stacks.get(side.key)?.stacks.length || 0) > 0);
-  /* v3.1: each side's payout (underdog odds) and the bounty it collects */
+  /* a felt that had to reach the smallest chip to fit stands its total
+     smaller, so its stacks get the room back; held for this contest, so the
+     board never flips between the two */
+  const [tightFor, setTightFor] = useState(null);
+  const tight = tightFor === contest.id;
+  const smallest = useMemo(() => fitLevels(ladder, { chip:size.chip, cap:STACK_CAP, min:TV_FELT_MIN })
+    .filter(level => level.slots === Infinity).length - 1, [ladder, size.chip]);
+  useEffect(() => { if (any && !tight && floor >= smallest) setTightFor(contest.id); }, [any, tight, floor, smallest, contest.id]);
+  /* v3.1: each side's payout (underdog odds) */
   const terms = field ? null : contestTerms(state, contest);
   const termsRow = !!terms?.any && !terms.wide;
   let body;
@@ -551,29 +629,49 @@ function ContestBoard({ state, events, ev, contest, width = BOARD_W }) {
     /* three or four sides stand in one row, each its full height */
     const sideW = h2h ? Math.floor((inner - 120 - 2 * 16) / 2) - 40 : Math.floor((inner - (n - 1) * 16) / n) - 40;
     const cols = h2h ? "minmax(0, 1fr) auto minmax(0, 1fr)" : `repeat(${n}, minmax(0, 1fr))`;
-    const cards = contest.sides.map(side => {
+    /* every side's name at one size: the smallest any side needs. A team
+       past three stands its name over overlapped chips. A matchup whose
+       names would letter small beside full faces tries that too (each name
+       on one line over smaller chips, so the felt keeps its room), else
+       keeps the names beside smaller, overlapped chips */
+    const specsFor = mode => contest.sides.map(side => {
       const view = contestSideView(state, ev, contest, side);
+      const team = view.players.length > 1;
+      const many = view.players.length > 3 || (mode === "stacked" && team);
+      const small = mode !== "inline" && team && view.players.length <= 3;
+      const face = view.players.length > 3 ? 56 : small ? STACKED_FACE : view.players.length > 2 ? size.faceMany : size.face;
+      const overlap = many || (small && team);
+      const facesW = overlap ? face + (view.players.length - 1) * face * (1 - DISC_OVERLAP) : view.players.length * (face + 8);
+      return { view, many, face, overlap, name:view.name, width:many || !h2h ? sideW : sideW - facesW - 18, max:h2h ? 64 : 48,
+        min:many ? 36 : h2h ? 44 : 32 };
+    });
+    let specs = specsFor("inline");
+    if (h2h && sharedNameSize(specs) < SIDE_NAME_STACK) {
+      const stacked = specsFor("stacked");
+      const oneLine = stacked.every(spec => sideNameFit(spec.name, spec.width, { max:spec.max, min:spec.min, caps:true }).lines.length === 1);
+      specs = oneLine && sharedNameSize(stacked) >= SIDE_NAME_STACK ? stacked : specsFor("tight");
+    }
+    const nameSize = sharedNameSize(specs);
+    const cards = contest.sides.map((side, index) => {
+      const { view, many, face, overlap, width:nameW, max:nameMax, min:nameMin } = specs[index];
       const ride = stacks.get(side.key) || { stacks:[], total:0 };
-      /* a team past three: the name on its own line, the chips overlapped under it */
-      const many = view.players.length > 3;
-      const face = many ? 56 : view.players.length > 2 ? size.faceMany : size.face;
-      const facesW = view.players.length * (face + 8);
       /* a felt fits any number of bettors without covering its total (P1); the
          stacks stand as one pile centered in it */
       const felt = ride.stacks.length > 0 && <FitStacks stacks={ride.stacks} total={0}
-        chip={size.chip} cap={STACK_CAP} min={34} className="tv-stacks-fit" names={p => stackName(state, p)}
+        chip={size.chip} cap={STACK_CAP} min={TV_FELT_MIN} className="tv-stacks-fit" names={p => stackName(state, p)}
         valueAt="below" ladder={ladder} floor={floor} onLevel={reportFit(`${contest.id}:${String(side.key)}`)} />;
       return (
         <div key={String(side.key)} className={`tv-side${ride.stacks.length ? " has-chips" : ""}`}>
           <div className={`tv-side-top${many ? " is-many" : ""}`}>
-            {many && <SideName name={view.name} width={sideW} max={h2h ? 64 : 48} min={36} />}
-            <Faces players={view.players} size={face} overlap={many} />
-            {!many && <SideName name={view.name} width={h2h ? sideW - facesW - 18 : sideW} max={h2h ? 64 : 48} min={h2h ? 44 : 32} />}
+            {many && <SideName name={view.name} width={nameW} max={nameMax} min={nameMin} size={nameSize} />}
+            <Faces players={view.players} size={face} overlap={overlap} />
+            {!many && <SideName name={view.name} width={nameW} max={nameMax} min={nameMin} size={nameSize} />}
           </div>
-          {/* the win line and this side's terms share one row, so the felt keeps its room */}
+          {/* this side's terms (the payout lamp) and the quieter win
+              line share one row, so the felt keeps its room */}
           {(anyWinLine || termsRow) && <div className={`tv-side-win${termsRow ? " has-terms" : ""}`}>
-            {anyWinLine && <TVWinLine lines={winLines} sideKey={side.key} />}
-            {termsRow && <SideTerms tv terms={terms.sides[side.key]} className="tv-side-terms is-inline" />}</div>}
+            {termsRow && <TVSideTerms terms={terms.sides[side.key]} teach={teach} />}
+            {anyWinLine && <TVWinLine lines={winLines} sideKey={side.key} />}</div>}
           {any && <div className={`tv-felt${ride.stacks.length ? "" : " is-empty"}`}>
             {ride.total > 0 && <div className="tv-side-total"><SideTotal total={ride.total} /></div>}
             {felt || <span className="tv-felt-empty">No bets</span>}
@@ -582,7 +680,7 @@ function ContestBoard({ state, events, ev, contest, width = BOARD_W }) {
       );
     });
     body = (
-      <div className={`tv-sides${h2h ? " is-h2h" : " is-grid"}${any ? "" : " is-quiet"}`} style={{ gridTemplateColumns:cols }}>
+      <div className={`tv-sides${h2h ? " is-h2h" : " is-grid"}${any ? "" : " is-quiet"}${tight ? " is-tight" : ""}`} style={{ gridTemplateColumns:cols }}>
         {h2h ? [cards[0], <div key="vs" className="tv-versus fd-show" aria-label="versus">VS</div>, cards[1]] : cards}
       </div>
     );
@@ -592,7 +690,7 @@ function ContestBoard({ state, events, ev, contest, width = BOARD_W }) {
       {head && <div className="tv-contest-head">
         {upNow && <i className="fd-beat-dot tv-beat" aria-hidden="true" />}<OneSafe text={head} /></div>}
       {body}
-      <div className="tv-contest-foot">{oddsLine(contest)}</div>
+      {oddsLine(contest) && <div className="tv-contest-foot"><PayLamp text={oddsLine(contest)} lit={isTwoToOne(contest)} /></div>}
     </div>
   );
 }
@@ -606,7 +704,7 @@ function DecidedWinner({ state, ev, winner, motion = null }) {
       <div className="tv-decided-winner tv-glass">
         <Faces players={winner.players} size={96} />
         <div className="tv-display tv-decided-name">{winner.name}</div>
-        <div className="fd-show is-marquee tv-decided-stamp">{plural ? "Win" : "Wins"}</div>
+        <div className="fd-show tv-decided-stamp">{plural ? "Win" : "Wins"}</div>
       </div>
       {state.brackets?.[ev.id] ? <TVBracket state={state} ev={ev} motion={motion} /> : <StageGroups state={state} ev={ev} />}
     </div>
@@ -657,7 +755,7 @@ function AdvanceMoment({ state, moment, slot = false }) {
           <div className="tv-display tv-advance-name">{moment.name}</div>
         </div>
         <div className="tv-advance-call">
-          <div key={moment.id} className="fd-show is-marquee tv-advance-stamp">{moment.verb}</div>
+          <div key={moment.id} className="fd-show tv-advance-stamp">{moment.verb}</div>
           <AdvanceDetail moment={moment} />
         </div>
       </div>
@@ -668,7 +766,7 @@ function AdvanceMoment({ state, moment, slot = false }) {
     <div className={`tv-advance${chips ? " has-settle" : ""}`} role="status">
       <Faces players={moment.players} size={chips ? 104 : 128} />
       <div className="tv-display tv-advance-name">{moment.name}</div>
-      <div key={moment.id} className="fd-show is-marquee tv-advance-stamp">{moment.verb}</div>
+      <div key={moment.id} className="fd-show tv-advance-stamp">{moment.verb}</div>
       <AdvanceDetail moment={moment} />
       <SettleBoard key={`settle-${moment.id}`} state={state} settle={moment.settle} />
     </div>
@@ -715,7 +813,7 @@ function ResultHeadline({ model, lead = null }) {
       <div className="fd-show tv-result-headline-event"><EventName name={model.eventName} /></div>
       <div className="tv-result-headline-win">
         {!wide && <Faces players={first.players.slice(0, 4)} size={96} overlap={first.players.length > 2} />}
-        <span className="fd-show is-marquee tv-result-headline-name" style={{ fontSize:size }}>{text}</span>
+        <span className="fd-show tv-result-headline-name" style={{ fontSize:size }}>{text}</span>
       </div>
       {lead}
     </div>
@@ -723,6 +821,12 @@ function ResultHeadline({ model, lead = null }) {
 }
 
 const ROW_STEP = 60;
+/* the flat list's room between the masthead and the ticker: the main area
+   less the pane's padding (16 + 20), the list's top (12) and its head (76 +
+   8). Thirteen rows at 60 would run into the ticker; the step shrinks to
+   fit (54 for thirteen), each row 4px shorter than its step. */
+const RESULT_LIST_H = 1080 - MAST_H - TICKER_H - 36 - 12 - 84;
+export const resultRowStep = count => Math.min(ROW_STEP, Math.floor(RESULT_LIST_H / Math.max(1, count)));
 /* a moved row's count lands once the rows have slid to their places */
 const RESULT_ROW_REEL_AT_MS = 600;
 /* one result, told twice: a podium climbing third to first, then all thirteen
@@ -734,6 +838,7 @@ function ResultSequence({ state, model, phase, towers = null, anchor = null, now
     return <TVPodium key={`${model.eventId}:${model.revision}:${anchor || 0}`} state={state} model={model} anchor={anchor} now={now} />;
   const order = phase.sorted ? model.rows.map(row => row.player) : model.beforeOrder;
   const leaderSet = new Set(model.leader?.players || []);
+  const step = resultRowStep(model.rows.length);
   const head = (
     <div className="tv-result-rows-head">
       <div className="tv-display tv-title">{model.kind === "stacks" ? "Final stacks" : "Standings"}</div>
@@ -746,14 +851,14 @@ function ResultSequence({ state, model, phase, towers = null, anchor = null, now
   const flat = (
     <div className="tv-pane tv-result-rows">
       {head}
-      <div className="tv-move-list" style={{ height:ROW_STEP * model.rows.length }}>
+      <div className="tv-move-list" style={{ height:step * model.rows.length }}>
         {model.rows.map(row => {
           const index = order.indexOf(row.player);
           const pts = phase.sorted ? row.after : row.before;
           const rank = phase.sorted ? row.rankAfter : row.rankBefore;
           return (
             <div key={row.player} className={`tv-move-row${phase.sorted && leaderSet.has(row.player) ? " is-lead" : ""}${row.busted ? " is-out" : ""}${row.away ? " is-away" : ""}`}
-              style={{ top:index * ROW_STEP }}>
+              style={{ top:index * step, height:step - 4 }}>
               <span className="tv-rank">{rank}</span>
               <ChipFace p={row.player} size={44} />
               <span className="tv-name">{disp(state, row.player)}</span>
@@ -795,7 +900,7 @@ function DirectedScene({ state, events, scene, now, standings, reducedMotion, to
     if (scene.stepKey === "class")
       return <ClassPhoto state={state} events={events} standings={scene.standings} moment={classMoment} />;
     const view = championView(state, events, scene.standings);
-    return view ? <ChampionMoment state={state} view={view} standings={scene.standings} moment={crown} /> : null;
+    return view ? <ChampionMoment state={state} events={events} view={view} standings={scene.standings} moment={crown} /> : null;
   }
   if (kind === "opening") {
     if (scene.stepKey === "room") return <RosterWall state={state} />;
@@ -803,7 +908,7 @@ function DirectedScene({ state, events, scene, now, standings, reducedMotion, to
       <div className="tv-pane tv-center">
         <div className="tv-opening tv-sign">
           <FDMark size={150} variant="night" />
-          <div className="fd-show is-marquee tv-opening-title">Field Day</div>
+          <div className="fd-show tv-opening-title">Field Day</div>
           <div className="tv-mast-edition">{editionLabel()}</div>
         </div>
       </div>
@@ -826,8 +931,11 @@ function NextUpCard({ ev }) {
       <div className="tv-next-card tv-glass">
         <span className="tv-next-band" style={{ background:phaseBand(ev) }} />
         <div className="tv-next-head">
-          <GameMark id={ev.game} variant={ev.variant} size={96} />
-          <div className="fd-show is-marquee tv-next-name"><EventName name={ev.name} /></div>
+          <div className="tv-next-top">
+            <GameMark id={ev.game} variant={ev.variant} size={96} />
+            <span className="tv-status is-next"><i className="fd-insert" />Up next</span>
+          </div>
+          <div className="fd-show tv-next-name"><EventName name={ev.name} /></div>
         </div>
         <PayoutLadder ev={ev} size="tv" className="tv-next-ladder" />
       </div>
@@ -838,7 +946,7 @@ function NextUpCard({ ev }) {
 /* ═════════════ the TV ═════════════ */
 function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied: allTiedInput, champion, coChamps, showControlEnabled,
   rankDeltas = {}, connection: connectionInput = {}, onExit, ceremony = null, now: nowOverride,
-  onSoundStatus = null }) {
+  onSoundStatus = null, arriveCode = null }) {
   /* a level board has no leader and no ranks, whatever the caller says */
   const allTied = !!allTiedInput || (!state.frozen && boardLevel(standings));
   const tickNow = useServerNow(nowOverride === undefined ? 1000 : 0);
@@ -874,7 +982,7 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied: allT
   const nextEv = useMemo(() => nextUpEvent(state, events, { liveEv, operationEv }), [state, events, liveEv, operationEv]);
   const allW = useMemo(() => (state.wagers || []).map(w => ({ w, r:resolveWager(state, w, events) })),
     [state, events]);
-  const joinNeeded = Object.keys(state.profiles || {}).length < ROSTER.length;
+  const joinNeeded = rosterOf(state).some(p => !state.profiles?.[p]);
   const qrUrl = useMemo(() => {
     try {
       const qr = qrcode(0, "M");
@@ -942,6 +1050,10 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied: allT
   const award = useMemo(() => awardOnTv(state, events), [state, events]);
   const liveCovered = !!(sceneIntroEv || ceremonyIntroEv || ceremonyReveal || directed || resultModel);
   const faceOff = useFaceOff(state, liveEv, liveContest, { covered:liveCovered });
+  /* H10: the first underdog and the first byes this TV shows are taught
+     once, on the server clock (teach.js) */
+  const underdogTeach = useTeach("underdog", underdogTeachWindow(state, liveEv, liveContest), now);
+  const byeTeach = useTeach("bye", activeBracketEv ? byeTeachWindow(state, activeBracketEv) : null, now);
   /* A3: the room's sounds, on the same beats and server anchors */
   useRoomSound({ state, events, standings, allTied, liveEv, showScene, advance, bracketMotion, crown, now, faceOff });
   /* Backglass moments: the walkout, the finale's bust card and blinds up,
@@ -949,6 +1061,15 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied: allT
   const walkoutMoment = useTvWalkout(state, events);
   const pokerMoments = usePokerMoments(state, now);
   const crownPlaying = !!crown && now - Number(crown.anchor) < CROWN_TIMING.total;
+  /* Quick Draw's showdown holds the room only in a gap (nothing live,
+     drawn, posting or playing a moment); otherwise its result leads the
+     ticker (tickerItems) */
+  const showdown = useTvShowdown(state, { now:nowOverride, gap:tvPhotoGap({ loading:connection.mode === "loading", final,
+    directed, result:!!resultModel, poker:!!state.poker && !state.results?.[state.poker.id], draft:!!draftLive, live:!!liveEv,
+    intro:!!(sceneIntroEv || ceremonyIntroEv), reveal:!!ceremonyReveal, faceOff:!!faceOff })
+    && !award && !walkoutMoment && !pokerMoments.takeover && !crownPlaying
+    && !(state.geo?.order && !state.results?.[state.geo.eventId])
+    && !(state.trivia?.questions?.length && !state.results?.[state.trivia.eventId]) });
 
   const dock = final ? null : dockCard({ now, correction,
     lead:leadCard && !directed && !resultModel ? leadCard : null,
@@ -956,7 +1077,8 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied: allT
 
   /* the update reload waits for a gap in what is actually on screen */
   const busy = tvBusy({ sceneView, resultMoment:resultModel, advance, intro:sceneIntroEv || ceremonyIntroEv,
-    reveal:ceremonyReveal, dock }) || !!faceOff || !!award || !!walkoutMoment || !!pokerMoments.takeover || crownPlaying;
+    reveal:ceremonyReveal, dock }) || !!faceOff || !!award || !!walkoutMoment || !!pokerMoments.takeover || crownPlaying
+    || !!showdown;
   useEffect(() => {
     if (typeof window !== "undefined") window.__FD_CEREMONY__ = busy;
   }, [busy]);
@@ -984,7 +1106,8 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied: allT
     champColor && { chase:{ color:champColor, pace:"rest" } },
     faceOff && { takeover:"faceoff", chase:{ color:"var(--lamp-live)", pace:"run" } },
     walkoutMoment && { takeover:"walkout" }, pokerMoments.takeover && { takeover:pokerMoments.takeover },
-    crownPlaying && { takeover:"crown" }].filter(Boolean);
+    crownPlaying && { takeover:"crown" },
+    showdown && { takeover:"showdown", chase:{ color:"var(--lamp-live)", pace:"run" } }].filter(Boolean);
   const chrome = stageChrome({ intro:!!(sceneIntroEv || ceremonyIntroEv), reveal:!!ceremonyReveal,
     champion:!!directed && showScene?.active?.kind === "champion", award:!!award, extra:momentTakeovers });
 
@@ -1007,13 +1130,27 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied: allT
   const ambient = photoGap ? withPhotoTurns(ambientCards, photos.length) : ambientCards;
   /* server time picks the card, so every TV in the house shows the same one;
      reduced motion still rotates, it just cuts instead of fading */
-  const scene = ambient[ambientIndex(ambient.length, now, TV_AMBIENT_TURN_MS)] || "board";
+  const turnCard = ambient[ambientIndex(ambient.length, now, TV_AMBIENT_TURN_MS)] || "board";
+  const scene = turnCard === "trophy" && now % TV_AMBIENT_TURN_MS >= TV_TROPHY_HOLD_MS ? "board" : turnCard;
+
+  const geoOnTv = !!state.geo?.order && !state.results?.[state.geo.eventId];
+  /* Trivia holds the room from its first question to its result */
+  const triviaOnTv = !!state.trivia?.questions?.length && !state.results?.[state.trivia.eventId];
+  /* Arrivals (Oct 4): from check-in opening until the first game is
+     announced the TV is the lobby, the room filling up round the check-in
+     code; after that, while anyone is on the way, the code rides a corner
+     plate beside the standings. The code reaches only a TV socket. */
+  const arrivals = arrivalsBoard(state, now);
+  const road = arrivals.open ? new Set(arrivals.onTheWay) : null;
+  const arriveLink = arriveCode && typeof window !== "undefined" ? arriveUrl(window.location.origin, arriveCode) : null;
+  const lobbyOn = arrivals.stage === "lobby" && connection.mode !== "loading" && !directed && !award && !champion && !resultModel
+    && !(state.poker && !state.results?.[state.poker.id]) && !draftLive && !geoOnTv && !triviaOnTv;
+  const cornerWanted = arrivals.stage === "corner" && !!arriveLink && !final && !directed && !award && !resultModel
+    && connection.mode !== "loading";
+  const cornerWidth = 1920 - CORNER_W - CORNER_GAP;
 
   const facts = useMemo(() => weekendFacts(state, events), [state, events]);
-  const items = tickerItems({ state, events, standings, allTied, liveCrew, latest, liveEv, liveContest,
-    onDeckEv, openWon:mergeWagerLines(allW.filter(x => x.r.status === "won")), nextEv, now, facts, draft:!!draftLive, showing:resultModel?.eventId || null });
-
-  const showTicker = !final && !(directed && sceneView.ticker === false) && !award && connection.mode !== "loading";
+  const showTicker = !final && !(directed && sceneView.ticker === false) && !award && !lobbyOn && connection.mode !== "loading";
   const towers = {
     on:towersMode === "3d",
     height:1080 - MAST_H - (showTicker ? TICKER_H : 0),
@@ -1021,10 +1158,8 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied: allT
     reducedMotion,
   };
 
-  const geoOnTv = !!state.geo?.order && !state.results?.[state.geo.eventId];
-  /* Trivia holds the room from its first question to its result */
-  const triviaOnTv = !!state.trivia?.questions?.length && !state.results?.[state.trivia.eventId];
-  let content, liveShown = false, horizonShown = false, mastEvent = null, mastLamp = null, rail = null;
+  let content, liveShown = false, horizonShown = false, mastEvent = null, mastLamp = null, rail = null, ribbonOn = false,
+    cornerShown = false;
   if (connection.mode === "loading") {
     content = <div className="tv-pane tv-center" role="status">
       <div className="tv-opening tv-sign">
@@ -1055,7 +1190,7 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied: allT
       : frame === "trophy" ? <TrophyCard state={state} events={events} now={now}
         turn={{ turnAt:Math.floor(now / TV_AMBIENT_MS) * TV_AMBIENT_MS, cycleMs:FROZEN_TURNS.length * TV_AMBIENT_MS,
           hold:TV_RESULT_MOMENT_MS, crownEnd:(crown?.anchor || crownAt.current || 0) + CROWN_TIMING.total, crownHold:TV_AMBIENT_MS }} />
-      : view ? <ChampionMoment state={state} view={view} standings={standings} moment={crown} /> : null;
+      : view ? <ChampionMoment state={state} events={events} view={view} standings={standings} moment={crown} /> : null;
   } else if (resultModel) {
     const resultPhase = resultMomentPhase(resultMoment.anchor, now, { reducedMotion });
     content = <ResultSequence state={state} model={resultModel} phase={resultPhase} towers={towers}
@@ -1070,13 +1205,19 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied: allT
     content = <TVDraft state={state} ev={draftLive.ev} d={draftLive.d} />;
   } else if (geoOnTv) {
     /* Where and When holds the room from its first photo to its result */
+    mastEvent = events.find(e => e.id === state.geo.eventId) || null;
+    mastLamp = state.geo.phase === "guess" ? { label:"Playing", state:"live" } : null;
     content = <TVGeo state={state} now={now} />;
   } else if (triviaOnTv) {
     mastEvent = events.find(e => e.id === state.trivia.eventId) || null;
     mastLamp = state.trivia.phase === "question" ? { label:"Playing", state:"live" } : null;
     content = <TVTrivia state={state} now={now} />;
+  } else if (lobbyOn) {
+    /* the lobby: the check-in code at the center, the seats round it */
+    content = <TVLobby state={state} board={arrivals} now={now} url={arriveLink} />;
   } else if (liveEv) {
     liveShown = true;
+    cornerShown = cornerWanted;
     mastEvent = liveEv;
     const inContest = liveContest && ["betting-open", "betting-locked", "in-progress", "awaiting-result"].includes(liveContest.phase);
     /* the masthead's lamp reads the contest itself, so it can never say
@@ -1089,19 +1230,21 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied: allT
         <div className="tv-contest-slot">
           {liveContest.sides.length === 2
             ? <ContestBand state={state} ev={liveEv} contest={liveContest} stacks={contestStacks(state, events, liveContest)}
-              width={BOARD_W} lamp={contestLamp(liveContest)} />
-            : <ContestBoard state={state} events={events} ev={liveEv} contest={liveContest} width={BOARD_W} />}
+              width={BOARD_W} lamp={contestLamp(liveContest)} teach={!!underdogTeach?.active} />
+            : <ContestBoard state={state} events={events} ev={liveEv} contest={liveContest} width={BOARD_W}
+              teach={!!underdogTeach?.active} />}
           {slotAdvance && <AdvanceMoment state={state} moment={advance} slot />}
         </div>
         {advance && !slotAdvance && <AdvanceMoment state={state} moment={advance} />}
         {faceOff && (() => {
           const view = faceOffView(state, liveEv, liveContest, events);
-          return view ? <FaceOff state={state} events={events} ev={liveEv} contest={liveContest} view={view} moment={faceOff} /> : null;
+          return view ? <FaceOff state={state} events={events} ev={liveEv} contest={liveContest} view={view} moment={faceOff}
+            teach={!!underdogTeach} /> : null;
         })()}
       </div>
       <div className="tv-live-band tv-glass" style={{ height:BAND_H }}>
         <TVBracket state={state} ev={activeBracketEv} hot={upNext ? [upNext.r, upNext.m] : null}
-          motion={bracketMotion} size="band" fit={BAND_FIT} />
+          motion={bracketMotion} size="band" fit={BAND_FIT} teachBye={byeTeach} now={now} />
       </div>
     </div>;
     else content = <div className="tv-live">
@@ -1109,12 +1252,12 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied: allT
         {inContest ? <>
           <div className="tv-contest-slot">
             <ContestBoard state={state} events={events} ev={liveEv} contest={liveContest}
-              width={beside ? BOARD_W - SIDE_W - 28 : BOARD_W} />
+              width={beside ? BOARD_W - SIDE_W - 28 : BOARD_W} teach={!!underdogTeach?.active} />
             {slotAdvance && <AdvanceMoment state={state} moment={advance} slot />}
           </div>
         </> : decided ? <DecidedWinner state={state} ev={liveEv} winner={decided} motion={bracketMotion} />
           : activeBracketEv ? <div className="tv-glass tv-live-bracket"><TVBracket state={state} ev={activeBracketEv} size="full"
-            hot={upNext ? [upNext.r, upNext.m] : null} motion={bracketMotion} /></div>
+            hot={upNext ? [upNext.r, upNext.m] : null} motion={bracketMotion} teachBye={byeTeach} now={now} /></div>
             : activeStageEv ? <div className="tv-glass tv-live-bracket"><StageGroups state={state} ev={activeStageEv} /></div>
               : <div className="tv-glass tv-center tv-live-idle">
                 <GameMark id={liveEv.game} variant={liveEv.variant} size={130} />
@@ -1123,12 +1266,13 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied: allT
         {advance && !slotAdvance && <AdvanceMoment state={state} moment={advance} />}
         {faceOff && inContest && (() => {
           const view = faceOffView(state, liveEv, liveContest, events);
-          return view ? <FaceOff state={state} events={events} ev={liveEv} contest={liveContest} view={view} moment={faceOff} /> : null;
+          return view ? <FaceOff state={state} events={events} ev={liveEv} contest={liveContest} view={view} moment={faceOff}
+            teach={!!underdogTeach} /> : null;
         })()}
       </div>
       {beside && <aside className="tv-live-side tv-glass" style={{ width:SIDE_W }}>
         {activeBracketEv ? <TVBracket state={state} ev={activeBracketEv} hot={upNext ? [upNext.r, upNext.m] : null}
-          motion={bracketMotion} size="side" fit={SIDE_FIT} /> : <StageGroups state={state} ev={activeStageEv} />}
+          motion={bracketMotion} size="side" fit={SIDE_FIT} teachBye={byeTeach} now={now} /> : <StageGroups state={state} ev={activeStageEv} />}
       </aside>}
     </div>;
   } else if (scene === "join") {
@@ -1136,7 +1280,7 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied: allT
       <div className="tv-join tv-glass">
         <div className="tv-join-copy">
           <FDMark size={120} variant="night" />
-          <div className="fd-show is-marquee tv-join-title">Field Day</div>
+          <div className="fd-show tv-join-title">Field Day</div>
           <div className="tv-mast-edition">{editionLabel()}</div>
           <div className="tv-body tv-join-line">Scan to check in.</div>
         </div>
@@ -1151,6 +1295,7 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied: allT
   } else if (scene === "next" && nextEv) {
     /* what is next stands over the standings: the towers stay the lower third */
     horizonShown = true;
+    cornerShown = cornerWanted;
     content = <NextUpCard ev={nextEv} />;
   } else if (scene === "latest" && latest) {
     const model = resultPresentation(state, events, latest.ev.id);
@@ -1163,16 +1308,26 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied: allT
   } else {
     const flat = <div className="tv-pane"><StandingsBoard state={state} standings={standings} allTied={allTied}
       /></div>;
+    ribbonOn = towers.on && !!nextEv && !final;
+    /* the corner plate rides the towers board; the flat board has no room for it */
+    cornerShown = cornerWanted && towers.on;
     content = towers.on ? <TowersView state={state} rows={standingsTowerRows(standings)}
-      ribbon={nextEv && !final ? <NextRibbon ev={nextEv} /> : null}
-      height={towers.height} towers={towers} fallback={flat} /> : flat;
+      ribbon={nextEv && !final ? <NextRibbon ev={nextEv} top={ribbonTop(standingsTowerRows(standings), towers.height)} /> : null}
+      height={towers.height} towers={towers} fallback={flat} road={road} width={cornerShown ? cornerWidth : 1920} /> : flat;
   }
   /* betting open on an event not yet in play: its name in the masthead */
   if (!mastEvent && !final && !directed && !award && onDeckEv && connection.mode !== "loading") {
     mastEvent = onDeckEv;
     mastLamp = { label:"Betting open", state:"pending" };
   }
+  const items = tickerItems({ state, events, standings, allTied, liveCrew, latest, liveEv, liveContest,
+    onDeckEv, openWon:mergeWagerLines(allW.filter(x => x.r.status === "won")), nextEv, now, facts, draft:!!draftLive, showing:resultModel?.eventId || null,
+    /* events already lettered on screen: the draft's in the masthead, the
+       gap card's next event or the board's ribbon; the ticker never repeats them */
+    lettered:[draftLive?.ev?.id, scene === "next" || ribbonOn ? nextEv?.id : null, !liveEv && !draftLive ? onDeckEv?.id : null].filter(Boolean) });
   const showHorizon = (liveShown || horizonShown) && connection.mode !== "loading";
+  /* a live question holds the ticker still */
+  const quietTicker = (geoOnTv && state.geo?.phase === "guess") || (triviaOnTv && state.trivia?.phase === "question");
   /* while a podium holds the room, its winners' backers take the ticker's place */
   const railOn = !!rail && !!backersRail(rail.model.winnerStacks);
 
@@ -1181,7 +1336,7 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied: allT
 
   return (
     <TextFloor px={24}><div className="tv-stage fd-night">
-      <div className={`tv-canvas${showHorizon ? " has-horizon" : ""}`} data-tv-canvas data-phase={phase}
+      <div className={`tv-canvas${showHorizon ? " has-horizon" : ""}${cornerShown ? " has-arrive-corner" : ""}`} data-tv-canvas data-phase={phase}
         data-towers={towers.on ? "3d" : towersFailure() || "2d"}
         data-takeover={chrome.takeover || undefined} data-chase={chrome.chase ? "" : undefined}
         style={{ left:fit.left, top:fit.top, transform:`scale(${fit.scale})`, "--tv-mast-h":`${MAST_H}px`, "--tv-foot-h":`${TICKER_H}px`,
@@ -1192,10 +1347,12 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied: allT
         <main className="tv-main" style={connection.mode === "reconnecting" ? { opacity:0.72 } : undefined}>
           {content}
         </main>
-        {showHorizon && <Horizon state={state} standings={standings} towers={towers} />}
+        {showHorizon && <Horizon state={state} standings={standings} towers={towers} road={road}
+          width={cornerShown ? cornerWidth : 1920} />}
+        {cornerShown && <TVArriveCorner board={arrivals} url={arriveLink} />}
         {showTicker && (railOn ? <BackersRail state={state} model={rail.model} anchor={rail.anchor} now={now}
           key={`rail:${rail.model.eventId}:${rail.model.revision}:${rail.anchor}`} />
-          : <Ticker items={items} reducedMotion={reducedMotion} now={now} />)}
+          : <Ticker items={items} reducedMotion={reducedMotion} now={now} quiet={quietTicker} />)}
         {sceneIntroEv && <IntroOverlay key={sceneIntroEv.id} state={state} ev={sceneIntroEv} reducedMotion={reducedMotion}
           sceneAt={showScene?.active?.startedAt} now={introClock}
           handoff={!!(state.draws?.[sceneIntroEv.id] || state.stages?.[sceneIntroEv.id])} />}
@@ -1203,8 +1360,9 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied: allT
           handoff={!!ceremony?.handoff} reducedMotion={reducedMotion} onDone={ceremony?.onIntroDone || null} now={introClock} />}
         {ceremonyReveal && <TVDrawReveal key={ceremonyReveal.id} state={state} events={events} reveal={ceremonyReveal}
           reducedMotion={reducedMotion} onDone={ceremony?.onRevealDone || null} />}
-        <TVWalkout state={state} moment={walkoutMoment} />
+        <TVWalkout state={state} moment={walkoutMoment} events={events} />
         <TVPokerMoments state={state} moments={pokerMoments} />
+        {showdown && <TVShowdown key={showdown.duel.id} state={state} active={showdown} now={nowOverride} />}
         <FrameLamps color={chrome.chase?.color || null} pace={chrome.chase?.pace || "rest"} />
         <SoundUnlockChip />
       </div>

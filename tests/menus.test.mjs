@@ -35,7 +35,9 @@ test("the More menu: You, Weekend, Commissioner, by icon, no sentences", () => {
   assert.deepEqual(guest.map(section => section.id), ["you", "weekend", "commissioner"]);
   assert.deepEqual(ids(guest), ["profile", "trip", "rules", "tv", "commissioner"]);
   assert.equal(guest.at(-1).items[0].icon, "lock", "locked until the PIN");
-  assert.equal(moreMenu({ gm:true }).at(-1).items[0].name, "Commissioner menu");
+  /* one way in for the commissioner: the header's GM, so the More menu has no second route */
+  assert.deepEqual(moreMenu({ gm:true }).map(section => section.id), ["you", "weekend"]);
+  assert.equal(moreMenu({ gm:true, guestLens:true }).at(-1).items[0].name, "Back to commissioner", "the guest view's way back");
   for (const section of guest) assert.ok(section.icon && section.title.split(" ").length <= 2, section.id);
 });
 
@@ -44,7 +46,7 @@ test("the commissioner's menu: Now, TV and sound, Games, People and trip, Setup,
   assert.deepEqual(menu.map(section => section.id), ["now", "room", "games", "people", "setup", "exit"]);
   assert.deepEqual(menu.map(section => section.title), ["Now", "TV and sound", "Games", "People and trip", "Setup", null]);
   const of = id => menu.find(section => section.id === id).items.map(item => item.id);
-  assert.deepEqual(of("now"), ["crown", "lockBets", "takeBack:putt", "lockerRoom", "unfreeze"], "only what is actionable now, first");
+  assert.deepEqual(of("now"), ["crown", "lockStart", "takeBack:putt", "lockerRoom", "unfreeze"], "only what is actionable now, first");
   assert.deepEqual(of("room"), ["showControl", "audioDirector"]);
   assert.deepEqual(of("games"), ["geo", "trivia", "awards"]);
   assert.deepEqual(of("people"), ["attendance", "travelSheet", "logistics"]);
@@ -52,10 +54,11 @@ test("the commissioner's menu: Now, TV and sound, Games, People and trip, Setup,
   const flat = menu.flatMap(section => section.items);
   assert.equal(flat.at(-1).id, "exit");
   assert.equal(menu.at(-1).title, null, "Exit stands alone");
-  assert.deepEqual(flat.filter(item => item.tone === "destructive").map(item => item.id), ["unfreeze", "reset"]);
+  assert.deepEqual(flat.filter(item => item.tone === "destructive").map(item => item.id), ["takeBack:putt", "unfreeze", "reset"]);
   assert.equal(flat.filter(item => item.id === "reset").length, 1, "one reset entry");
   /* plain names: the TV and the speaker, by what they are */
   const row = id => flat.find(item => item.id === id);
+  assert.equal(row("lockStart").name, "Lock and start", "the pill's words for the pill's write");
   assert.equal(row("showControl").name, "TV");
   assert.equal(row("showControl").value, "Opening 2 of 2");
   assert.equal(row("audioDirector").name, "Speaker");
@@ -67,7 +70,7 @@ test("the commissioner's menu: Now, TV and sound, Games, People and trip, Setup,
   for (const item of flat) if (item.value) assert.ok(!/[.!]$/.test(String(item.value)) && String(item.value).length <= 32, item.id);
   /* capabilities off: their rows are gone, never disabled; empty sections drop out */
   const bare = commissionerMenu({});
-  for (const id of ["qa", "reset", "snapshot", "audioDirector", "crown", "lockBets", "unfreeze"]) assert.ok(!ids(bare).includes(id), id);
+  for (const id of ["qa", "reset", "snapshot", "audioDirector", "crown", "lockStart", "unfreeze"]) assert.ok(!ids(bare).includes(id), id);
   assert.deepEqual(bare.map(section => section.id), ["room", "games", "people", "setup", "exit"]);
   assert.deepEqual(ids(bare).slice(0, 1), ["showControl"], "the TV row is always there");
 });
@@ -108,7 +111,7 @@ test("the QA row opens the console; Reset game progress has one entry, in Setup"
 test("one renderer: sections with icon heads, 52px rows, values on the right", () => {
   const html = renderToStaticMarkup(React.createElement(MenuSections, { sections:commissionerMenu(full), onItem:() => {} }));
   assert.match(html, /<h3 class="fd-menu-head"><span class="fd-menu-head-glyph"/);
-  assert.match(html, /<span class="fd-menu-name">Who is here<\/span><span class="fd-menu-value">1 away<\/span>/);
+  assert.match(html, /<span class="fd-menu-name">Who is coming<\/span><span class="fd-menu-value">1 away<\/span>/);
   assert.match(html, /<span class="fd-menu-name">QA<\/span><span class="fd-menu-value">Strip on<\/span>/);
   assert.doesNotMatch(html.replace(/<[^>]+>/g, " "), /—|!/);
   const css = readFileSync(new URL("../src/ui/menu.css", import.meta.url), "utf8");

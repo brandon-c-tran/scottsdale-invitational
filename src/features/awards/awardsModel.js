@@ -3,7 +3,7 @@
    state (shared/prompts.js projectPrompts), where totals exist only for
    awards the TV has already revealed. */
 
-import { ROSTER } from "../../../shared/core.js";
+import { ROSTER, rosterOf } from "../../../shared/core.js";
 import {
   PROMPT_RESULTS_WINDOW_MS, awardResults, ballotStatusLine, ballotsOf, nomineesOf, openBallot,
 } from "../../../shared/prompts.js";
@@ -116,11 +116,11 @@ export function ballotModel(state, me) {
   const ballot = openBallot(state);
   if (!ballot) return null;
   const mine = ballot.mine || {};
-  /* a counted award (Most MVPs) is not on the phone's ballot */
+  /* a question stored with a `source` (the cut Most MVPs award) is not on the phone's ballot */
   const votable = ballot.questions.filter(question => !question.source);
   if (!votable.length) return null;
   const questions = votable.map(question => {
-    const nominees = nomineesOf(question);
+    const nominees = nomineesOf(question, rosterOf(state));
     return { ...question, nominees, choice:mine[question.id] || null,
       selfBlocked:!!me && nominees.includes(me) && !question.allowSelf };
   });

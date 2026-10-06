@@ -1,12 +1,14 @@
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { disp } from "../../../shared/core.js";
 import { dispatch } from "../../lib/client.js";
 import { tapTick } from "../../lib/haptics.js";
+import { serverNow } from "../../lib/serverClock.js";
 import { Avatar } from "../identity/PlayerIdentity.jsx";
 import { Icon } from "../../ui/Icon.jsx";
 import { RenameText } from "./RenameText.jsx";
-import { TEAM_NAME_MAX, checkTeamName, myTeamNaming, namingEvents, teamNaming } from "./teamNameModel.js";
+import { TEAM_NAME_MAX, checkTeamName, homeTeamNameEvent, myTeamNaming, namingEvents, teamNaming } from "./teamNameModel.js";
 import "./teams.css";
+import { writeError } from "../../lib/writeErrors.js";
 
 const sendName = payload => dispatch("nameTeam", payload, { retry:true });
 
@@ -27,9 +29,9 @@ function NameEditor({ state, naming, round, onRound, onSend, onDone }) {
     busy.current = true; setPending(checked.name ?? ""); setError("");
     try {
       const result = await onSend({ evId:naming.evId, drawId:naming.drawId, team:naming.team, name:checked.name });
-      if (result?.ok !== true) setError(result?.error || "Not saved. Try again.");
+      if (result?.ok !== true) setError(writeError(result));
       else { setWriting(false); setDraft(""); onDone?.(); }
-    } catch { setError("Not saved. Try again."); }
+    } catch (failure) { setError(writeError(failure)); }
     finally { busy.current = false; setPending(null); }
   };
   const pick = name => { tapTick(); send(name); };
@@ -102,11 +104,63 @@ export function TeamNameCard({ state, naming: given, ev, me, gm = false, index =
   </section>;
 }
 
-/* Home: your team in each event whose names are still open */
+/* "right after the draw": a member who has not seen the names open them
+   once, within this long of the draw; after that the row stays one line */
+export const TEAMNAME_FRESH_MS = 90000;
+const seenKey = (drawId, me) => `si-teamname-seen:${drawId}:${me}`;
+const seen = (drawId, me) => { try { return localStorage.getItem(seenKey(drawId, me)) === "1"; } catch { return true; } };
+const markSeen = (drawId, me) => { try { localStorage.setItem(seenKey(drawId, me), "1"); } catch {} };
+export function teamNameAutoOpen(state, naming, me, { now = Date.now(), wasSeen = seen } = {}) {
+  if (!naming || naming.named || !me) return false;
+  const at = Number(state?.draws?.[naming.evId]?.ts) || 0;
+  return at > 0 && now - at < TEAMNAME_FRESH_MS && !wasSeen(naming.drawId, me);
+}
+
+/* Home's row: your team's name and the pencil, one 44px line. The
+   suggestions open in place (once by themselves, right after the draw). */
+export function TeamNameRow({ state, ev, me, onSend = sendName }) {
+  const [round, setRound] = useState(0);
+  const naming = myTeamNaming(state, ev, me, { round });
+  const [open, setOpen] = useState(() => teamNameAutoOpen(state, naming, me, { now:serverNow() }));
+  useEffect(() => { if (open && naming) markSeen(naming.drawId, me); }, [open, naming?.drawId, me]); // eslint-disable-line react-hooks/exhaustive-deps
+  if (!naming) return null;
+  return <section className={`fd-teamname-row${open ? " is-open" : ""}`} aria-label="Team name">
+    <button type="button" className="fd-teamname-row-head" aria-expanded={open} onClick={() => { tapTick(); setOpen(!open); }}
+      aria-label={`${naming.label}. ${open ? "Close" : "Rename"}`}>
+      <span className="fd-teamname-row-mark" aria-hidden="true"><Icon name="pencil" size={18} /></span>
+      <RenameText name={naming.label} className="fd-show fd-teamname-row-name" />
+      {naming.named && <NamedBy state={state} named={naming.named} size={24} />}
+      <Icon name={open ? "collapse" : "expand"} size={20} className="fd-teamname-row-go" />
+    </button>
+    {open && <NameEditor state={state} naming={naming} round={round} onRound={setRound} onSend={onSend}
+      onDone={() => setOpen(false)} />}
+  </section>;
+}
+
+/* Home's contest card: a pencil on your own team, and the suggestions
+   opened under the sides (once by themselves right after the draw).
+   useTeamNameInline gives both halves. */
+export function useTeamNameInline(state, ev, me, { enabled = true } = {}) {
+  const [round, setRound] = useState(0);
+  const naming = enabled ? myTeamNaming(state, ev, me, { round }) : null;
+  const [open, setOpen] = useState(() => teamNameAutoOpen(state, naming, me, { now:serverNow() }));
+  useEffect(() => { if (open && naming) markSeen(naming.drawId, me); }, [open, naming?.drawId, me]); // eslint-disable-line react-hooks/exhaustive-deps
+  if (!naming) return { naming:null, pencil:null, editor:null };
+  const pencil = <button type="button" className={`fd-teamname-pencil${open ? " is-open" : ""}`} aria-expanded={open}
+    aria-label={open ? "Close team names" : `Rename ${naming.label}`} onClick={() => { tapTick(); setOpen(!open); }}>
+    <Icon name={open ? "collapse" : "pencil"} size={18} /></button>;
+  const editor = open ? <div className="fd-teamname-inline"><NameEditor state={state} naming={naming} round={round} onRound={setRound}
+    onSend={sendName} onDone={() => setOpen(false)} /></div> : null;
+  return { naming, pencil, editor };
+}
+
+/* Home: your team in each event whose names are still open, one row each
+   (the live event's own card carries its pencil instead) */
 export function TeamNamesHome({ state, me, events, onSend }) {
-  const list = namingEvents(state, events, me);
+  const inCard = homeTeamNameEvent(state, me, events);
+  const list = namingEvents(state, events, me).filter(ev => ev.id !== inCard);
   if (!list.length) return null;
-  return <>{list.map(ev => <TeamNameCard key={`${ev.id}:${state.draws[ev.id].id}`} state={state} ev={ev} me={me} onSend={onSend} />)}</>;
+  return <>{list.map(ev => <TeamNameRow key={`${ev.id}:${state.draws[ev.id].id}`} state={state} ev={ev} me={me} onSend={onSend} />)}</>;
 }
 
 /* The commissioner's names for an event: every team, always open to rename */

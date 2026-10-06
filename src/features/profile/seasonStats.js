@@ -8,8 +8,8 @@
    ticket, or a shelved event changes these stats the same way it changes
    the board. */
 import {
-  START, ROSTER, ROUND_NAMES, allEventsOf, computeStandings, contestEntryLabel, eventInPlay,
-  isAway, mvpAwards, bountyAwards, resolveDuel, resolveSlot, resolveWager, resultAwards, stageEntrantView, stageFinalists,
+  START, ROSTER, rosterOf, ROUND_NAMES, allEventsOf, computeStandings, contestEntryLabel, eventInPlay,
+  isAway, resolveDuel, resolveSlot, resolveWager, resultAwards, stageEntrantView, stageFinalists,
 } from "../../../shared/core.js";
 
 const decided = value => value !== null && value !== undefined;
@@ -225,7 +225,7 @@ export function headToHead(state, a, b, events = allEventsOf(state)) {
 
 /* the players `player` has met most, closest records first among equals */
 export function rivalries(state, player, { events = allEventsOf(state), limit = 3 } = {}) {
-  return ROSTER.filter(other => other !== player)
+  return rosterOf(state).filter(other => other !== player)
     .map(other => headToHead(state, player, other, events))
     .filter(record => record.won + record.lost > 0)
     .sort((x, y) => (y.won + y.lost) - (x.won + x.lost)
@@ -245,15 +245,10 @@ export function seasonStats(state, player, { events = allEventsOf(state), standi
   const moved = !!table?.some(item => item.pts !== START);
   const own = !!viewer && viewer === player;
   const versus = viewer && !own ? headToHead(state, viewer, player, events) : null;
-  const mvps = mvpAwards(state).filter(item => item.player === player).length;
-  /* v3.1: leader bounties collected */
-  const bounty = bountyAwards(state, events).filter(item => item.player === player);
   return {
     player,
     events:rows,
     wins:rows.filter(item => item.status === "placed" && item.rank === 0).length,
-    mvps,
-    bounties:{ count:bounty.length, pts:bounty.reduce((sum, item) => sum + item.pts, 0) },
     bets,
     duels,
     rank:moved ? row?.rank ?? null : null,
@@ -261,7 +256,7 @@ export function seasonStats(state, player, { events = allEventsOf(state), standi
     versus:versus && versus.count > 0 ? { ...versus, bets:betsOn(state, viewer, player, events) } : null,
     rivals:own ? rivalries(state, player, { events }) : [],
     active:rows.length > 0 || bets.won + bets.lost + bets.pending > 0
-      || duels.won + duels.lost + duels.push > 0 || mvps > 0 || bounty.length > 0 || moved,
+      || duels.won + duels.lost + duels.push > 0 || moved,
   };
 }
 

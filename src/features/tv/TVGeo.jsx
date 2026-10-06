@@ -66,7 +66,7 @@ export function TVGeo({ state, now }) {
         <span className="tv-display tv-geo-rank">{row.rank}</span>
         <ChipFace p={row.player} size={64} />
         <span className="tv-display tv-geo-name">{disp(state, row.player)}</span>
-        <span className="tv-display tv-geo-points">{fmt(row.total)}</span>
+        <span className="tv-display tv-geo-points">{fmt(row.total)}<small className="tv-unit">pts</small></span>
       </li>)}</ol>
     </div>
   </div>;
@@ -96,7 +96,7 @@ export function TVGeo({ state, now }) {
           <div className="tv-geo-row">
             <ChipFace p={row.player} size={52} />
             <b className="tv-geo-who">{disp(state, row.player)}</b>
-            <span className="tv-geo-points">+{fmt(row.total)}</span>
+            <span className="tv-geo-points">{fmt(row.total)}<small className="tv-unit">pts</small></span>
           </div>
           <div className="tv-geo-split">
             <span><i>Where</i>{row.miles === null ? "No pin" : `${milesLabel(row.miles)} off`}<em>{fmt(row.where)}</em></span>

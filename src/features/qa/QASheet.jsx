@@ -6,7 +6,7 @@
    Play live. Commissioner and QA capability only. */
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "../../ui/Icon.jsx";
-import { ROSTER, allEventsOf, disp } from "../../../shared/core.js";
+import { rosterOf, allEventsOf, disp } from "../../../shared/core.js";
 import { qaCheckpointSummary, qaTargets } from "../../../shared/qa.js";
 import { Btn, Sheet, Tag } from "../../ui/controls.jsx";
 import { MenuGroup, MenuRow } from "../../ui/Menu.jsx";
@@ -184,7 +184,7 @@ export function QASheet({ state, status, me, guestLens, busy, environment, dispa
 
       <Part icon="person" title="Lens">
         <div className="fd-qa-players" role="group" aria-label="As player">
-          {ROSTER.map(player => (
+          {rosterOf(state).map(player => (
             <button key={player} type="button" disabled={off} aria-pressed={me === player}
               onClick={() => onSwitch(player)}><Avatar state={state} p={player} size={24} />{disp(state, player)}</button>
           ))}

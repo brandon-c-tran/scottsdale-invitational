@@ -1,0 +1,60 @@
+/* Who is coming: one row per invited player, a lamp for their state, a
+   three-way switch. Not coming is a struck lamp and an unlit face. */
+.fd-roster-count { display:flex; align-items:baseline; gap:8px; margin:2px 0 14px; }
+.fd-roster-count strong { font:900 44px/1 var(--fd-display); color:var(--bone); font-variant-numeric:tabular-nums; }
+.fd-roster-count span { font:700 15px/1 var(--fd-display); letter-spacing:.06em; text-transform:uppercase; color:var(--night-text); }
+
+.fd-roster { list-style:none; margin:0; padding:0; display:grid; gap:2px; }
+.fd-roster-row { display:grid; grid-template-columns:minmax(0, 1fr) auto; align-items:center; column-gap:10px; row-gap:6px;
+  min-height:56px; padding:6px 0; border-bottom:1px solid var(--line); }
+.fd-roster-row:last-child { border-bottom:0; }
+.fd-roster-who { display:flex; align-items:center; gap:10px; min-width:0; }
+.fd-roster-face { display:inline-flex; border-radius:50%; transition:filter var(--motion-base, 220ms) var(--ease-out, ease-out), opacity var(--motion-base, 220ms) var(--ease-out, ease-out); }
+/* a long name takes a second line, never an ellipsis */
+.fd-roster-name { min-width:0; overflow-wrap:anywhere; font:700 16px/1.15 var(--fd-body); color:var(--bone); }
+.fd-roster-row.is-away .fd-roster-name { color:var(--muted2); }
+.fd-roster-row.is-out .fd-roster-face { filter:grayscale(1); opacity:.42; }
+.fd-roster-row.is-out .fd-roster-name { color:var(--muted); text-decoration:line-through; text-decoration-thickness:2px;
+  text-decoration-color:color-mix(in srgb, var(--muted) 70%, transparent); }
+
+/* the switch: three segments in one 10px frame; the chosen one lit by its job */
+.fd-roster-switch { display:inline-grid; grid-template-columns:repeat(3, auto); padding:3px; gap:2px;
+  border:1px solid var(--bone-line); border-radius:10px; background:var(--ink0); }
+.fd-roster-switch button { min-width:52px; min-height:44px; padding:0 9px; border:0; border-radius:8px; background:transparent;
+  color:var(--night-text); font:700 13px/1 var(--fd-body); white-space:nowrap; cursor:pointer;
+  transition:background var(--motion-fast, 160ms) var(--ease-out, ease-out), color var(--motion-fast, 160ms) var(--ease-out, ease-out); }
+.fd-roster-switch button:disabled { cursor:default; }
+.fd-roster-switch button[aria-checked=true] { color:var(--ink0); }
+.fd-roster-row.is-here .fd-roster-switch button[aria-checked=true] { background:var(--lamp-info); }
+.fd-roster-row.is-away .fd-roster-switch button[aria-checked=true] { background:var(--sun); }
+.fd-roster-row.is-out .fd-roster-switch button[aria-checked=true] { background:var(--paper2); color:var(--bone); box-shadow:inset 0 0 0 1px var(--bone-line); }
+.fd-roster-row.is-pending .fd-roster-switch { opacity:.7; }
+.fd-roster-error { grid-column:1 / -1; margin:0; font:600 13px/1.35 var(--fd-body); color:var(--clay-text); }
+
+/* check-in (arrivals): one small control beside the count, its lamp
+   flashing while anyone is still on the way */
+.fd-roster-head { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px 12px; margin:2px 0 14px; }
+.fd-roster-head .fd-roster-count { margin:0; }
+.fd-roster-door { display:flex; flex-wrap:wrap; align-items:center; justify-content:flex-end; gap:6px 10px; min-width:0; }
+.fd-roster-door-count { display:inline-flex; align-items:center; gap:8px; }
+.fd-roster-door-count .fd-insert { --lamp:var(--lamp-info); }
+.fd-roster-door-count span { font:700 14px/1 var(--fd-display); letter-spacing:.06em; text-transform:uppercase; color:var(--night-text); }
+.fd-roster-door-count strong { font:800 20px/1 var(--fd-display); color:var(--bone); font-variant-numeric:tabular-nums; }
+.fd-roster-door-link { min-height:44px; padding:0 6px; border:0; background:none; color:var(--lamp-info);
+  font:600 14px/1 var(--fd-body); cursor:pointer; }
+.fd-roster-door-link:disabled { opacity:.5; cursor:default; }
+.fd-roster-door .fd-roster-error { flex-basis:100%; text-align:right; }
+
+/* on the way: the face unlit in a dashed seat, as on the board, and Mark
+   here under the name */
+.fd-roster-row.is-road .fd-roster-face { filter:grayscale(1); opacity:.62; outline:1.5px dashed var(--ghost-line); outline-offset:2px; }
+.fd-roster-row.is-road .fd-roster-name { color:var(--muted2); }
+.fd-roster-arrive { grid-column:1 / -1; display:flex; align-items:center; justify-content:space-between; gap:10px; padding-left:66px; }
+.fd-roster-arrive-word { font:700 13px/1.2 var(--fd-display); letter-spacing:.06em; text-transform:uppercase; color:var(--lamp-info); }
+
+@media (max-width:360px) {
+  .fd-roster-switch button { min-width:46px; padding:0 7px; font-size:12px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fd-roster-face, .fd-roster-switch button { transition:none; }
+}

@@ -189,7 +189,8 @@ test("poker results present official final stacks and the standings champion, ne
 
 /* ── 5/6/7. TV rendering ── */
 const compiled = await build({
-  stdin:{ contents:`export { TVMode, MAST_H, TICKER_H, SAFE_Y, frameBeads } from "./src/features/tv/TVMode.jsx";
+  stdin:{ contents:`export { TVMode, MAST_H, TICKER_H, SAFE_Y, frameBeads, ribbonTop } from "./src/features/tv/TVMode.jsx";
+    export { walkoutWin } from "./src/features/tv/TVWalkout.jsx";
     export { PlayerIdentityProvider } from "./src/features/identity/PlayerIdentityContext.js";`,
     resolveDir:root, loader:"jsx" },
   bundle:true, platform:"node", format:"cjs", external:["react", "qrcode-generator"], loader:{ ".css":"empty" },
@@ -199,7 +200,7 @@ const tvModule = new Module(fileURLToPath(new URL("fix-tv.cjs", import.meta.url)
 tvModule.filename = tvModule.id;
 tvModule.paths = Module._nodeModulePaths(root);
 tvModule._compile(compiled.outputFiles[0].text, tvModule.filename);
-const { TVMode, PlayerIdentityProvider, MAST_H, TICKER_H, SAFE_Y, frameBeads } = tvModule.exports;
+const { TVMode, PlayerIdentityProvider, MAST_H, TICKER_H, SAFE_Y, frameBeads, ribbonTop, walkoutWin } = tvModule.exports;
 
 function renderTv(state, { now = Date.now(), showControl = true, connection = { ready:true, connected:true, version:3 } } = {}) {
   const events = allEventsOf(state);
@@ -332,15 +333,15 @@ test("the TV separates loading from reconnecting with last-known data", () => {
   assert.ok(stale.includes("tv-ticker"), "last-known data stays up");
 });
 
-test("poker on the TV labels dealt stacks as starting chips and marks busts", () => {
+test("poker on the TV labels dealt stacks as starting stacks and marks busts", () => {
   const state = structuredClone(EMPTY_STATE);
   act(state, "pokerSetup");
-  assert.ok(renderTv(state).includes("Starting chips"));
+  assert.ok(renderTv(state).includes("Starting stacks"));
   act(state, "pokerStart");
   act(state, "pokerBust", { player:ROSTER[12] });
   const html = renderTv(state, { now:state.poker.startedAt + 1000 });
   /* at the table each seat shows the stack it was dealt, captioned once */
-  assert.ok(html.includes("Stacks as dealt") && !html.includes("Starting chips"));
+  assert.ok(html.includes("Starting stacks") && !html.includes("Stacks as dealt"));
   assert.ok(html.includes("is-out"));
   assert.ok(!html.includes(">Standings<"));
 });
@@ -908,7 +909,8 @@ test("result step: every tower keeps its name; a tower that did not move shows n
   assert.match(css, /\.tv-tower-label:is\(\.is-moved, \.is-still\) \.tv-tower-pts \{ animation:tv-tower-pts/);
   assert.ok(!/tv-tower-still \{[^}]*opacity/.test(css), "no dimmed balances beside the deltas");
   const mode = readFileSync(new URL("../src/features/tv/TVMode.jsx", import.meta.url), "utf8");
-  assert.ok(mode.includes("tv-result-headline") && mode.includes("is-marquee tv-result-headline-name"), "the headline in the hero lettering");
+  /* a winner's name is the plainest word on the TV: solid 900, never the Inline cut */
+  assert.ok(mode.includes("tv-result-headline") && mode.includes("\"fd-show tv-result-headline-name\""), "the headline in solid lettering");
 });
 
 test("ticker: two short facts share a page, a long one is alone; the first fact never repeats its tag", () => {
@@ -970,4 +972,37 @@ test("trophy: the cup is turned metal (cyan is navigation), winners cut into sil
   assert.ok(!/#[0-9a-f]{3,6}\b/i.test(css), "colors only from tokens");
   const jsx = readFileSync(new URL("../src/features/weekend/Trophy.jsx", import.meta.url), "utf8");
   assert.ok(!jsx.includes(`"--accent"`));
+});
+
+/* ── round 2 (Oct 4): no clock, what a song is for, the ribbon in the sky ── */
+test("the masthead carries no wall clock: the edition balances it (PRODUCT 7)", () => {
+  const html = renderTv(structuredClone(EMPTY_STATE));
+  assert.ok(!html.includes("tv-mast-clock"), "no clock on any scene");
+  assert.ok(!/\d:\d\d\s*<small>[AP]M/.test(html), "no time of day");
+  assert.match(html, /class="tv-mast-right"[^>]*><span class="tv-mast-edition">/, "the edition stands on the right");
+  const posted = renderTv(puttPosted(false), { showControl:false });
+  assert.ok(!posted.includes("tv-mast-clock"));
+});
+
+test("a walkout says what was won: the event's 1st or a recorded round", () => {
+  const state = puttPosted(false);
+  const events = allEventsOf(state);
+  const at = Number(state.results.putt.confirmedAt || state.results.putt.ts);
+  const win = walkoutWin(state, events, { player:"Evan", startedAt:at + 800 });
+  assert.equal(win?.ev.id, "putt");
+  assert.equal(win.tag, "1st");
+  assert.equal(walkoutWin(state, events, { player:"Adi", startedAt:at + 800 }), null, "2nd place has no song");
+  const later = structuredClone(state);
+  later.results.die = { slots:[["Ben"], ["Sahil"]], ts:at + 120000 };
+  assert.equal(walkoutWin(later, allEventsOf(later), { player:"Evan", startedAt:at + 121000 }), null, "only the newest win is this song's");
+  assert.equal(walkoutWin(later, allEventsOf(later), { player:"Ben", startedAt:at + 121000 })?.ev.id, "die");
+});
+
+test("the next ribbon floats in the sky the towers leave", () => {
+  const rows = pts => pts.map((v, i) => ({ player:ROSTER[i], pts:v }));
+  const short = ribbonTop(rows([2000, 1500, 1000]), 836);
+  const tall = ribbonTop(rows([15000, 9000, 1000]), 836);
+  assert.ok(short > tall, "lower over a short board");
+  assert.equal(tall, 34, "at the top over a tall one");
+  assert.ok(short + 140 < 836 - 106 - 200, "clear of a 2,000 board's towers");
 });

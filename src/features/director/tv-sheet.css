@@ -19,8 +19,6 @@
 .fd-tvnow-room li, .fd-tvnow-room.is-missing { display:inline-flex; align-items:center; gap:6px; min-height:24px; }
 .fd-tvnow-room .is-off, .fd-tvnow-room.is-missing { color:var(--clay-text); }
 
-.fd-tv-controls { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin:0 0 18px; }
-.fd-tv-controls .is-next { grid-column:1 / -1; }
 
 .fd-tv-tiles { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
 .fd-tv-tile { display:flex; align-items:center; gap:10px; min-height:72px; padding:10px 12px; border:1px solid var(--line);

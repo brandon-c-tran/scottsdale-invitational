@@ -9,7 +9,7 @@
 .fd-leader-topline { margin:0; color:var(--sun); font:800 18px/1.2 var(--fd-display); letter-spacing:.06em; text-transform:uppercase; }
 .fd-leader-identity { display:flex; align-items:center; gap:14px; margin:14px 0 4px;
   width:100%; padding:0; border:0; background:none; text-align:left; color:var(--ink); cursor:pointer; }
-.fd-leader-identity>span { min-width:0; flex:1; font-size:clamp(30px,8.5vw,42px); overflow-wrap:anywhere; }
+.fd-leader-identity>span { min-width:0; flex:1; font-size:clamp(30px,8.5vw,44px); overflow-wrap:anywhere; }
 .fd-leader-score { display:flex; flex-wrap:wrap; align-items:baseline; gap:10px; margin-top:8px; }
 .fd-leader-score>strong { font:800 clamp(58px,17vw,82px)/.95 var(--fd-display); color:var(--sun); }
 .fd-leader-score>span { color:var(--muted2); font:700 16px/1 var(--fd-display); letter-spacing:.06em; text-transform:uppercase; }
@@ -74,14 +74,14 @@ button.fd-now-card { cursor:pointer; }
 .fd-standings-list>li { position:relative; border-bottom:1px solid var(--line); }
 .fd-standings-row { display:grid; align-items:center;
   grid-template-columns:30px 32px minmax(0,1fr) auto; gap:0 10px;
-  width:100%; min-height:60px; padding:8px 4px; border:0; border-radius:0; background:transparent;
+  width:100%; min-height:46px; padding:5px 4px; border:0; border-radius:0; background:transparent;
   color:var(--ink); text-align:left; cursor:pointer; }
-.fd-leaderboard.is-starting .fd-standings-row { grid-template-columns:0 32px minmax(0,1fr) auto; column-gap:12px; }
-.fd-leaderboard.is-starting .fd-standings-column-head { grid-template-columns:0 minmax(0,1fr) auto; }
+.fd-leaderboard.is-level .fd-standings-row { grid-template-columns:0 32px minmax(0,1fr) auto; column-gap:12px; }
+.fd-leaderboard.is-level .fd-standings-column-head { grid-template-columns:0 minmax(0,1fr) auto; }
 .fd-standings-row:active { transform:none; }
 .fd-standing-position { position:relative; display:block; height:24px; overflow:hidden; text-align:center; color:var(--muted2);
-  font:800 21px/24px var(--fd-display); font-variant-numeric:tabular-nums; white-space:nowrap; }
-.fd-standing-player { display:flex; flex-direction:column; gap:7px; min-width:0; }
+  font:800 22px/24px var(--fd-display); font-variant-numeric:tabular-nums; white-space:nowrap; }
+.fd-standing-player { display:flex; flex-direction:column; gap:5px; min-width:0; }
 .fd-standing-line { display:flex; flex-wrap:wrap; align-items:center; gap:2px 8px; min-width:0; }
 .fd-standing-name { min-width:0; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
   font:600 16px/20px var(--fd-body); }
@@ -91,16 +91,18 @@ button.fd-now-card { cursor:pointer; }
 .fd-standing-score { position:relative; display:flex; align-items:flex-end; flex-direction:column; min-width:64px; padding-left:8px; }
 /* plain Big Shoulders numerals with room around them: bone at rest, your
    own in your filament, the leader's in amber (chips) */
-.fd-standing-score>strong { font:800 26px/1.15 var(--fd-display); letter-spacing:.02em; font-variant-numeric:tabular-nums; color:var(--ink); white-space:nowrap; }
+.fd-standing-score>strong { font:800 26px/30px var(--fd-display); letter-spacing:.02em; font-variant-numeric:tabular-nums; color:var(--ink); white-space:nowrap; }
 .fd-standings-list>.is-leading .fd-standing-score>strong { color:var(--sun); }
 .fd-standings-list>.is-you .fd-standing-score>strong { color:var(--you); }
 .fd-standing-delta { position:absolute; top:100%; right:0; display:inline-flex; align-items:center; gap:1px; margin-top:2px;
   color:var(--green); font:800 13px/1 var(--fd-display); }
 .fd-standing-delta.is-down { color:var(--clay-text); }
-/* one notch per 100: --fd-chip-unit is one chip's share of the track */
-.fd-chip-bar { position:relative; display:flex; gap:0; width:100%; height:7px; border-radius:2px; background:var(--ink-tint); overflow:hidden; }
+/* one notch per 100, or per 500 / 1,000 once those would crowd (chipNotch):
+   --fd-chip-unit is one notch step's share of the track, never under 4% */
+.fd-chip-bar { position:relative; display:flex; gap:0; width:100%; height:7px; border-radius:99px; background:var(--ink-tint); overflow:hidden; }
 .fd-chip-bar::after { content:""; position:absolute; inset:0; pointer-events:none;
   background:repeating-linear-gradient(90deg, transparent 0 calc(var(--fd-chip-unit, 5%) - 1.5px), var(--fd-row-ground) calc(var(--fd-chip-unit, 5%) - 1.5px) var(--fd-chip-unit, 5%)); }
+.fd-chip-bar.is-plain::after { content:none; }
 .fd-chip-bar>span { flex:none; min-width:3px; height:100%; }
 .fd-chip-bar-risk { box-sizing:border-box; border:1.5px solid var(--sun); }
 .fd-chip-bar-risk.is-duels { border-color:var(--muted2); }
@@ -169,3 +171,39 @@ button.fd-now-card { cursor:pointer; }
   .fd-rank-roll .fd-rank-old { display:none; }
 }
 .fd-standing-flags { align-items:center; }
+
+/* a tie is drawn: every tied row shows the shared number and one bracket in
+   the rank column joins them, a tick pointing at each number (tieParts) */
+.fd-tie-bracket { position:absolute; left:2px; top:0; bottom:-1px; width:6px; pointer-events:none; z-index:1;
+  border-left:2px solid var(--muted2); }
+.fd-tie-bracket::after { content:""; position:absolute; left:0; top:calc(50% - 1px); width:6px; height:2px; background:var(--muted2); }
+.is-tie-start>.fd-tie-bracket { top:50%; border-top-left-radius:99px; }
+.is-tie-end>.fd-tie-bracket { bottom:50%; border-bottom-left-radius:99px; }
+.is-tie-start>.fd-tie-bracket::after { top:-1px; }
+.is-tie-end>.fd-tie-bracket::after { top:auto; bottom:-1px; }
+.fd-standings-list>.is-you>.fd-tie-bracket { border-color:var(--you); }
+.fd-standings-list>.is-you>.fd-tie-bracket::after { background:var(--you); }
+
+/* the poker finale: a busted seat's dealt number is struck and its bar dims;
+   the number is what they sat down with, not what they hold */
+.fd-standings-list>.is-out .fd-standing-score>strong { color:var(--muted); text-decoration:line-through;
+  text-decoration-color:var(--clay-text); text-decoration-thickness:2px; }
+.fd-standings-list>.is-out .fd-chip-bar { opacity:.35; }
+.fd-standings-list>.is-out .fd-standing-name { color:var(--muted2); }
+/* every row is one lamp row of ~47px (DESIGN: Layout): the name line, the
+   chip run under it and the number, inside a 46px target */
+/* H7: the header reel's shortcut lands here: your row lights twice in your
+   filament (a color change, so reduced motion keeps it, held, not pulsed) */
+.fd-standings-list>li.is-you[data-flash] { animation:fd-row-find 1.6s var(--ease-out, ease-out) both; }
+@keyframes fd-row-find {
+  0%, 55% { background-color:color-mix(in srgb, var(--you) 24%, var(--fd-row-ground, var(--bg))); box-shadow:var(--you-bloom), 0 0 0 2px var(--you); }
+  28% { background-color:color-mix(in srgb, var(--you) 8%, var(--fd-row-ground, var(--bg))); box-shadow:var(--you-bloom), 0 0 0 2px var(--you); }
+}
+@media(prefers-reduced-motion:reduce) {
+  .fd-standings-list>li.is-you[data-flash] { animation:none; background-color:color-mix(in srgb, var(--you) 18%, var(--fd-row-ground, var(--bg))); }
+}
+
+/* arrivals (Oct 4): a player still on the road sits unlit on the board,
+   their face grayed in a dashed seat until they check in */
+.fd-standings-list>li.is-road .fd-standings-row>.fd-avatar { filter:grayscale(1); opacity:.62;
+  outline:1.5px dashed var(--ghost-line); outline-offset:2px; }

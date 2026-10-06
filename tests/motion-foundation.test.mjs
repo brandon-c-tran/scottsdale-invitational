@@ -396,7 +396,7 @@ test("the tick is wired into the user's own taps and never the Quick Draw reacti
   assert.match(src("src/features/duels/DuelCard.jsx"), /if \(action === "accept"\) tapTick\(\);/);
   assert.match(src("src/features/profile/PlayerSheet.jsx"), /ante > anteMax\) return;\s*tapTick\(\);/);
   assert.match(src("src/features/weekend/ContestPanel.jsx"), /const submit = payload => async \(\) => \{[^}]*tapTick\(\);/);
-  assert.match(src("src/features/director/DirectorPill.jsx"), /Winner: \$\{side\.name\}`\} onClick=\{\(\) => \{ if \(side\.run && !busy\.current\) tapTick\(\);/);
+  assert.match(src("src/features/director/DirectorPill.jsx"), /onPick=\{\(\) => \{ if \(side\.run && !busy\.current\) tapTick\(\);/);
   const quickDraw = src("src/features/duels/QuickDraw.jsx");
   assert.equal(quickDraw.match(/tapTick\(\)/g).length, 1, "one call site in Quick Draw");
   assert.match(quickDraw, /if \(key === "accept" \|\| key === "rematch"\) tapTick\(\);/);

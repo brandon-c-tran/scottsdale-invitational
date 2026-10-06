@@ -27,7 +27,7 @@ export function clipWindow(track) {
    them (a 1v1, a free-for-all), the one case where a win plays exactly
    their song: { song } when they saved one, { pick:true } when the picker
    is on and they have not, else null. A pair or team draws one member's
-   song or votes an MVP, so it gets no line. */
+   song, so it gets no line. */
 export function yourSongLine(state, contest, me, { songs = false } = {}) {
   if (!me || !contest?.players?.includes(me)) return null;
   const side = contest.sides?.find(item => item.players?.includes(me));

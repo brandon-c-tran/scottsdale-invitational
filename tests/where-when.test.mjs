@@ -37,12 +37,21 @@ const ROUNDS = [
   { id:"gaaaaaa2", photo:{ id:"gphoto02", w:1200, h:1600 }, lat:40.758, lng:-73.9855, place:"Times Square", when:"2021-12-31T23" },
   { id:"gaaaaaa3", photo:{ id:"gphoto03", w:1600, h:900 }, lat:36.1147, lng:-115.1728, place:"Las Vegas", when:"2023-03-18T02" },
 ];
-function ready() {
-  const state = structuredClone(EMPTY_STATE);
-  for (const round of ROUNDS) act(state, "geoSaveRound", round);
-  act(state, "announceEvent", { evId:"where" });
+function lockAndStart(state) {
   const contest = resolveCurrentContest(state, where(state));
-  act(state, "lockAndStart", { evId:"where", contestId:contest.id, contestRevision:contest.revision });
+  return act(state, "lockAndStart", { evId:"where", contestId:contest.id, contestRevision:contest.revision });
+}
+/* announced, betting open, nothing started */
+function announced({ rounds = ROUNDS } = {}) {
+  const state = structuredClone(EMPTY_STATE);
+  for (const round of rounds) act(state, "geoSaveRound", round);
+  act(state, "announceEvent", { evId:"where" });
+  return state;
+}
+/* locked and started: Lock and start puts the first photo up */
+function ready() {
+  const state = announced();
+  lockAndStart(state);
   return state;
 }
 
@@ -155,11 +164,11 @@ test("result slots: one winner, then the next two ranks", () => {
 });
 
 test("privacy: no answer, upcoming photo or other guess reaches a phone before its reveal", () => {
-  const state = ready();
+  const state = announced();
   const before = publicState(state, { player:evan });
   assert.deepEqual(before.geoRounds, [], "not started: nothing");
   assert.equal(before.geo, null);
-  act(state, "geoStart", { evId:"where" });
+  lockAndStart(state);
   const r1 = ROUNDS[0].id;
   act(state, "geoGuess", { roundId:r1, lat:37.8, lng:-122.45, when:"2019-07-04T20" }, as(evan));
   act(state, "geoGuess", { roundId:r1, lat:34.05, lng:-118.24, when:"2018-07-04T20" }, as(khoa));
@@ -187,11 +196,11 @@ test("privacy: no answer, upcoming photo or other guess reaches a phone before i
   assert.deepEqual(projectGeo(null, ROUNDS, { player:evan }), { geo:null, geoRounds:[] });
 });
 
-test("the director runs it: start, reveal, next, post result", () => {
+test("the director runs it: Lock and start puts the first photo up, then reveal, next, post result", () => {
   const state = ready();
   const pill = () => resolveDirector(state, allEventsOf(state)).nextAction;
-  assert.deepEqual([pill().type, pill().label, pill().subject], ["geo-start", "Start game", "Where and When"]);
-  act(state, "geoStart", { evId:"where" });
+  assert.equal(state.geo.eventId, "where", "the game started with the event");
+  assert.equal(state.geo.author, author, "whoever started it does not play");
   assert.deepEqual([pill().type, pill().subject, pill().roundId], ["geo-reveal", "Photo 1 of 3", ROUNDS[0].id]);
   act(state, "geoReveal", { roundId:ROUNDS[0].id });
   assert.deepEqual([pill().type, pill().label], ["geo-next", "Next photo"]);
@@ -298,4 +307,66 @@ test("the game ends on the phone when its result posts: no sheet, no Home row", 
   assert.equal(geoView(phone(), khoa, now).finished, true);
   assert.equal(home(phone()), "", "Home's row goes with the game");
   assert.equal(sheet(phone()), "", "the game's sheet does not reopen on the done frame");
+});
+
+test("Lock and start without photos leaves the game's Start beat on the pill", () => {
+  const state = announced({ rounds:[] });
+  lockAndStart(state);
+  assert.equal(state.geo, null);
+  for (const round of ROUNDS) act(state, "geoSaveRound", round);
+  assert.equal(resolveDirector(state, allEventsOf(state)).nextAction.type, "geo-start");
+});
+
+test("the autopilot: each photo reveals at its deadline or once everyone locks in, holds, then moves on and posts", async () => {
+  const { geoAutoBeat, autoBeat, GEO_REVEAL_HOLD_MS, AUTO_ALL_IN_MS } = await import("../shared/autopilot.js");
+  const { GEO_GRACE_MS } = await import("../shared/geo.js");
+  const state = ready();
+  const r1 = ROUNDS[0].id;
+  let beat = geoAutoBeat(state);
+  assert.deepEqual([beat.type, beat.payload, beat.at], ["geoReveal", { roundId:r1 }, state.geo.closesAt + GEO_GRACE_MS]);
+  /* every player locks in: the reveal comes a breath after the last lock */
+  const players = ROSTER.filter(player => player !== author);
+  players.forEach(player => act(state, "geoGuess", { roundId:r1, lat:36, lng:-115, done:true }, as(player)));
+  beat = geoAutoBeat(state);
+  const last = Math.max(...players.map(player => state.geo.guesses[r1][player].at));
+  assert.equal(beat.at, Math.min(state.geo.closesAt + GEO_GRACE_MS, last + AUTO_ALL_IN_MS));
+  /* the beat is the same write the pill offers, and a retry of it is a no-op */
+  act(state, beat.type, beat.payload, { ...gm(null), actionId:beat.key });
+  assert.equal(state.geo.phase, "reveal");
+  beat = geoAutoBeat(state);
+  assert.deepEqual([beat.type, beat.at], ["geoNext", state.geo.revealedAt + GEO_REVEAL_HOLD_MS]);
+  act(state, beat.type, beat.payload, { ...gm(null), actionId:beat.key });
+  act(state, "geoNext", { roundId:r1 }, gm(null));
+  assert.equal(state.geo.index, 1, "a stale Next is a no-op");
+  act(state, "geoReveal", { roundId:ROUNDS[1].id });
+  act(state, "geoNext", { roundId:ROUNDS[1].id });
+  act(state, "geoGuess", { roundId:ROUNDS[2].id, lat:36, lng:-115, when:"2023-03-18T02" }, as(evan));
+  act(state, "geoReveal", { roundId:ROUNDS[2].id });
+  beat = geoAutoBeat(state);
+  assert.deepEqual([beat.type, beat.payload], ["geoFinish", { evId:"where" }]);
+  act(state, beat.type, beat.payload, { ...gm(null), actionId:beat.key });
+  assert.ok(state.results.where, "the result posted by itself");
+  assert.equal(geoAutoBeat(state), null);
+  /* held: nothing runs on its own */
+  const held = ready();
+  act(held, "setAutopilot", { hold:true });
+  assert.equal(autoBeat(held), null);
+  act(held, "setAutopilot", { hold:false });
+  assert.equal(autoBeat(held).type, "geoReveal");
+});
+
+test("the alarm runs a due beat in its own write and re-arms for the next", async () => {
+  const { Tournament } = await import("../worker/tournament.js");
+  const alarms = [];
+  const storage = { get:async () => undefined, put:async () => {}, delete:async () => {}, list:async () => new Map(),
+    setAlarm:async at => { alarms.push(at); } };
+  const tournament = new Tournament({ storage, blockConcurrencyWhile:fn => fn(), getWebSockets:() => [], waitUntil() {} },
+    { ENVIRONMENT:"local" });
+  await new Promise(resolve => setTimeout(resolve, 0));
+  const state = ready();
+  state.geo.closesAt = Date.now() - 10_000;
+  tournament.state = state;
+  await tournament.alarm();
+  assert.equal(tournament.state.geo.phase, "reveal", "the photo revealed on the alarm");
+  assert.ok(alarms.length && alarms.at(-1) > Date.now(), "and it re-armed for the reveal's hold");
 });

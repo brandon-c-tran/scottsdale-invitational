@@ -1,6 +1,8 @@
 import React, { useEffect, useId, useLayoutEffect, useState } from "react";
+import { EDITION } from "../../../shared/core.js";
 import { ChipFace } from "../identity/PlayerIdentity.jsx";
 import { EventName } from "../../ui/OneSafe.jsx";
+import { GameMark } from "../../ui/GameMark.jsx";
 import { useFreshChange } from "../../lib/motion.js";
 import { programCover } from "./programModel.js";
 import {
@@ -122,58 +124,91 @@ export function TrophyFlat({ size = 190, plate = "FIELD DAY", plateFont = 24, mi
 }
 
 /* ─────────── the weekend's cup ───────────
-   The champion on the cup, every event's winners engraved on its base:
-   one band per session, top to bottom in time, plates in slate order
-   (trophy.js trophyCup). The bowl is one SVG; the cartouche the champion
-   is engraved in sits on it in HTML, so its lettering is real text. The
-   base is rows of plates on turned metal. The phone lays the plates out
-   with CSS; the TV sizes them from cupTvLayout so every line holds the
-   24px floor. A plate engraves (light runs across it, the blank metal
-   gives way, the names are cut in) on a fresh posting seen live, or on the
-   TV's own trophy turn after the result (cupEngravings, in TrophyCard).
-   Reduced motion shows the engraved plate. */
+   A lit gold trophy on a stepped plinth, the way a real one stands on a
+   shelf: the cup turned and polished (two hard reflections down its lit
+   side, the lip catching the light, the inside dark, a knop on the stem, a
+   flared foot casting its shadow), the champion engraved on a silver plate
+   wrapped round the bowl, and under it a plinth of black lacquer in tiers,
+   one per session (Friday on top), each tier inlaid with a small silver
+   plaque per event in slate order (trophy.js trophyCup). The plaques stay
+   subordinate to the cup: the game's mark cut in, and once the result
+   posts its winner engraved beside it. The phone lays the plaques out with
+   CSS; the TV sizes them from cupTvLayout so every line holds the 24px
+   floor. A plaque engraves (light runs across it, the blank metal gives
+   way, the names are cut in) on a fresh posting seen live, or on the TV's
+   own trophy turn after the result (cupEngravings, in TrophyCard).
+   Reduced motion shows the engraved plaque. */
 
-/* the bowl, in a 600x240 box: handles, a lip, the body tapering to its
-   neck and foot. Gold from --sun, turned: dark at the edges, lit just left
-   of centre, the way a lamp above and to the left catches a cylinder. */
-export const BOWL_BOX = Object.freeze({ w:600, h:240 });
-function CupBowlArt() {
+/* the cup, in a 600x330 box: lip and opening, the bowl, its handles, the
+   stem with its knop, the foot and its shadow on the plinth */
+export const BOWL_BOX = Object.freeze({ w:600, h:330 });
+const mix = (a, pct, b) => `color-mix(in srgb, var(${a}) ${pct}%, ${b.startsWith("--") ? `var(${b})` : b})`;
+function CupArt() {
   const uid = useId().replace(/:/g, "");
-  const gold = `cup-gold-${uid}`, inside = `cup-in-${uid}`;
+  const id = name => `cup-${name}-${uid}`;
+  const url = name => `url(#${id(name)})`;
+  /* turned gold: dark at the edges, a hard reflection left of centre and a
+     second, fainter one on the right, the way a lamp and a window sit in
+     polished metal */
+  const turned = [[0, mix("--sun", 30, "--ink0")], [.07, mix("--sun", 66, "--ink0")], [.17, mix("--sun", 72, "--bone")],
+    [.23, mix("--sun", 38, "--bone")], [.29, mix("--sun", 86, "--bone")], [.42, "var(--sun)"], [.56, mix("--sun", 78, "--ink0")],
+    [.7, mix("--sun", 58, "--ink0")], [.8, mix("--sun", 80, "--bone")], [.88, mix("--sun", 60, "--ink0")], [1, mix("--sun", 28, "--ink0")]];
+  const stops = list => list.map(([offset, color]) => <stop key={offset} offset={offset} style={{ stopColor:color }} />);
   const handle = dir => {
     const x = v => dir > 0 ? v : BOWL_BOX.w - v;
-    return `M${x(140)} 58 C${x(68)} 40 ${x(38)} 82 ${x(54)} 118 C${x(66)} 150 ${x(118)} 162 ${x(172)} 154`;
+    return `M${x(120)} 70 C${x(44)} 52 ${x(20)} 118 ${x(56)} 150 C${x(80)} 172 ${x(128)} 176 ${x(170)} 162`;
   };
   return (
-    <svg className="fd-cup-bowl-art" viewBox={`0 0 ${BOWL_BOX.w} ${BOWL_BOX.h}`} aria-hidden="true">
+    <svg className="fd-cup-art" viewBox={`0 0 ${BOWL_BOX.w} ${BOWL_BOX.h}`} aria-hidden="true">
       <defs>
-        <linearGradient id={gold} x1="0" x2="1" y1="0" y2="0">
-          <stop offset="0" style={{ stopColor:"color-mix(in srgb, var(--sun) 46%, var(--ink0))" }} />
-          <stop offset=".16" style={{ stopColor:"color-mix(in srgb, var(--sun) 82%, var(--ink0))" }} />
-          <stop offset=".36" style={{ stopColor:"color-mix(in srgb, var(--sun) 58%, var(--bone))" }} />
-          <stop offset=".5" style={{ stopColor:"var(--sun)" }} />
-          <stop offset=".8" style={{ stopColor:"color-mix(in srgb, var(--sun) 70%, var(--ink0))" }} />
-          <stop offset="1" style={{ stopColor:"color-mix(in srgb, var(--sun) 40%, var(--ink0))" }} />
-        </linearGradient>
-        <linearGradient id={inside} x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0" style={{ stopColor:"var(--ink0)" }} />
-          <stop offset="1" style={{ stopColor:"color-mix(in srgb, var(--sun) 30%, var(--ink0))" }} />
-        </linearGradient>
+        <linearGradient id={id("gold")} x1="0" x2="1" y1="0" y2="0">{stops(turned)}</linearGradient>
+        <linearGradient id={id("lip")} x1="0" x2="1" y1="0" y2="0">{stops([[0, mix("--sun", 40, "--ink0")],
+          [.2, mix("--sun", 50, "--bone")], [.5, "var(--sun)"], [.82, mix("--sun", 74, "--bone")], [1, mix("--sun", 36, "--ink0")]])}</linearGradient>
+        {/* the bowl rounds away underneath and sits in the lip's shadow at the top */}
+        <linearGradient id={id("round")} x1="0" x2="0" y1="0" y2="1">{stops([[0, mix("--ink0", 42, "transparent")],
+          [.12, "transparent"], [.62, "transparent"], [1, mix("--ink0", 48, "transparent")]])}</linearGradient>
+        <linearGradient id={id("inside")} x1="0" x2="0" y1="0" y2="1">{stops([[0, mix("--sun", 58, "--ink0")],
+          [.5, mix("--ink0", 88, "--sun")], [1, mix("--sun", 34, "--ink0")]])}</linearGradient>
+        <linearGradient id={id("arm")} x1="0" x2="0" y1="0" y2="1">{stops([[0, mix("--sun", 70, "--bone")],
+          [.45, "var(--sun)"], [1, mix("--sun", 42, "--ink0")]])}</linearGradient>
+        <radialGradient id={id("knop")} cx=".36" cy=".34" r=".7">{stops([[0, mix("--sun", 40, "--bone")],
+          [.45, "var(--sun)"], [1, mix("--sun", 34, "--ink0")]])}</radialGradient>
+        <radialGradient id={id("glow")} cx=".5" cy=".5" r=".5">{stops([[0, mix("--bone", 55, "transparent")],
+          [1, "transparent"]])}</radialGradient>
+        <radialGradient id={id("shadow")} cx=".5" cy=".5" r=".5">{stops([[0, mix("--ink0", 85, "transparent")],
+          [1, "transparent"]])}</radialGradient>
       </defs>
+      {/* its shadow on the plinth's top face */}
+      <ellipse cx="300" cy="320" rx="190" ry="11" fill={url("shadow")} />
       {[1, -1].map(dir => <g key={dir}>
-        <path d={handle(dir)} fill="none" stroke="var(--ink0)" strokeWidth="22" strokeLinecap="round" />
-        <path d={handle(dir)} fill="none" stroke={`url(#${gold})`} strokeWidth="14" strokeLinecap="round" />
+        <path d={handle(dir)} fill="none" stroke="var(--ink0)" strokeWidth="27" strokeLinecap="round" />
+        <path d={handle(dir)} fill="none" stroke={url("arm")} strokeWidth="19" strokeLinecap="round" />
+        <path d={handle(dir)} fill="none" stroke={mix("--bone", 55, "transparent")} strokeWidth="4" strokeLinecap="round"
+          transform={`translate(${dir > 0 ? -2 : 2} -4)`} strokeDasharray="70 400" />
       </g>)}
-      <path d="M120 46 C124 150 194 208 300 212 C406 208 476 150 480 46 Z" fill={`url(#${gold})`} stroke="var(--ink0)" strokeWidth="3" />
-      {/* a bead turned round the bowl under its lip */}
-      <path d="M123 64 Q300 80 477 64" fill="none" stroke="color-mix(in srgb, var(--sun) 50%, var(--ink0))" strokeWidth="3" />
-      <path d="M266 210 H334 L324 228 H276 Z" fill={`url(#${gold})`} stroke="var(--ink0)" strokeWidth="3" />
-      <path d="M232 228 H368 L386 240 H214 Z" fill={`url(#${gold})`} stroke="var(--ink0)" strokeWidth="3" />
-      <rect x="108" y="18" width="384" height="30" rx="7" fill={`url(#${gold})`} stroke="var(--ink0)" strokeWidth="3" />
-      <ellipse cx="300" cy="20" rx="182" ry="11" fill={`url(#${inside})`} stroke="var(--ink0)" strokeWidth="3" />
-      {/* one hard reflection down the lit side */}
-      <path d="M170 86 C176 134 200 168 232 188" fill="none" stroke="color-mix(in srgb, var(--bone) 60%, transparent)"
-        strokeWidth="7" strokeLinecap="round" />
+      {/* the bowl */}
+      <path d="M112 44 C114 150 196 226 300 230 C404 226 486 150 488 44 Z" fill={url("gold")} stroke="var(--ink0)" strokeWidth="3" />
+      <path d="M112 44 C114 150 196 226 300 230 C404 226 486 150 488 44 Z" fill={url("round")} />
+      {/* a bead turned round under the lip */}
+      <path d="M117 76 Q300 104 483 76" fill="none" stroke={mix("--sun", 40, "--ink0")} strokeWidth="4" />
+      <path d="M118 81 Q300 109 482 81" fill="none" stroke={mix("--sun", 60, "--bone")} strokeWidth="1.6" />
+      {/* the light: one soft bloom and two hard streaks down the lit side */}
+      <ellipse cx="206" cy="128" rx="34" ry="62" fill={url("glow")} />
+      <path d="M170 96 C176 146 202 186 240 208" fill="none" stroke={mix("--bone", 78, "transparent")} strokeWidth="8" strokeLinecap="round" />
+      <path d="M196 98 C200 130 214 158 236 176" fill="none" stroke={mix("--bone", 40, "transparent")} strokeWidth="3" strokeLinecap="round" />
+      <path d="M432 92 C428 130 410 164 384 188" fill="none" stroke={mix("--bone", 30, "transparent")} strokeWidth="4" strokeLinecap="round" />
+      {/* the lip and the opening, seen from a little above */}
+      <ellipse cx="300" cy="44" rx="196" ry="25" fill={url("lip")} stroke="var(--ink0)" strokeWidth="3" />
+      <ellipse cx="300" cy="42" rx="179" ry="17" fill={url("inside")} stroke={mix("--sun", 36, "--ink0")} strokeWidth="2" />
+      <path d="M106 46 A194 23 0 0 0 494 46" fill="none" stroke={mix("--bone", 60, "transparent")} strokeWidth="2.2" />
+      {/* the stem: a collar, a neck, the knop, a neck, the foot */}
+      <ellipse cx="300" cy="230" rx="48" ry="9" fill={url("gold")} stroke="var(--ink0)" strokeWidth="2.5" />
+      <path d="M281 236 H319 L311 256 H289 Z" fill={url("gold")} stroke="var(--ink0)" strokeWidth="2.5" />
+      <ellipse cx="300" cy="265" rx="31" ry="16" fill={url("knop")} stroke="var(--ink0)" strokeWidth="2.5" />
+      <path d="M289 279 H311 L318 296 H282 Z" fill={url("gold")} stroke="var(--ink0)" strokeWidth="2.5" />
+      <path d="M282 294 H318 C332 301 380 304 406 309 V315 C360 325 240 325 194 315 V309 C220 304 268 301 282 294 Z"
+        fill={url("gold")} stroke="var(--ink0)" strokeWidth="2.5" />
+      <path d="M200 310 C250 302 350 302 400 310" fill="none" stroke={mix("--bone", 50, "transparent")} strokeWidth="2" />
     </svg>
   );
 }
@@ -209,24 +244,29 @@ const Cut = () => <>
   <i className="fd-cup-cut is-light" aria-hidden="true"><i className="fd-cup-sweep" /></i>
 </>;
 
-function CupPlate({ plate, tv, dims, engraveAt, onPlate }) {
+/* One plaque. Blank: dark metal with the game's mark lightly cut (and on
+   the TV its event, so the plinth says what is left). Posted: polished
+   silver, the mark and the winner engraved (the TV adds their faces). */
+function CupPlate({ plate, tv, dims, engraveAt, onPlate, marksOnly = false }) {
   const fresh = useFreshEngrave(plate.postedAt, plate.eventId, plate.posted);
   const cutAt = engraveAt ?? (fresh ? 0 : null);
   const engraving = plate.engraving;
-  const fit = tv && engraving ? fitPlateName(engraving.name, plateNameWidth(dims.plateW, engraving.players.length)) : null;
+  const fit = tv && engraving && !marksOnly ? fitPlateName(engraving.name, plateNameWidth(dims.plateW, engraving.players.length)) : null;
   const label = plate.posted ? `${plate.name}: ${engraving?.name || ""}` : plate.name;
   const body = <>
     {cutAt !== null && <Cut />}
-    <span className="fd-cup-event" aria-hidden="true"><EventName name={plate.name} /></span>
-    {engraving && <span className="fd-cup-win" aria-hidden="true">
-      <PlateFaces players={engraving.players} size={tv ? CUP_TV.plate.face : 24} />
+    <span className="fd-cup-mark" aria-hidden="true">
+      <GameMark id={plate.game} variant={plate.variant} size={marksOnly ? (tv ? 40 : 18) : tv ? CUP_TV.plate.mark : 22} /></span>
+    {engraving && !marksOnly && <span className="fd-cup-win" aria-hidden="true">
+      {tv && <PlateFaces players={engraving.players} size={CUP_TV.plate.face} />}
       <span className="fd-cup-winner" style={fit ? { fontSize:fit.size } : undefined}>
         {fit ? <Lines lines={fit.lines} /> : engraving.name}</span>
     </span>}
+    {!engraving && tv && !marksOnly && <span className="fd-cup-event" aria-hidden="true"><EventName name={plate.name} /></span>}
   </>;
   const cls = `fd-cup-plate${plate.posted ? " is-posted" : ""}${plate.next ? " is-next" : ""}${plate.live ? " is-live" : ""}`
     + `${cutAt !== null ? " is-engraving" : ""}`;
-  const style = { ...(tv ? { width:dims.plateW, height:dims.plateH } : null),
+  const style = { ...(tv && dims ? { width:dims.plateW, height:dims.plateH } : null),
     ...(cutAt !== null ? { "--cut-at":`${Math.round(cutAt)}ms` } : null) };
   return <li key={fresh || "rest"} className={cls} style={style} aria-label={onPlate ? undefined : label}>
     {onPlate
@@ -235,9 +275,9 @@ function CupPlate({ plate, tv, dims, engraveAt, onPlate }) {
   </li>;
 }
 
-/* the cup's cartouche is the finale's plate: blank until the crown,
-   outlined while the finale is next (lit while it is live), then the
-   champion engraved in it */
+/* The champion's plate, wrapped round the bowl's face: polished silver
+   with the edition engraved, outlined while the finale is next (lit while
+   it is live), then the champion's name cut in under the edition. */
 function Cartouche({ cup, tv, engraveAt, finale }) {
   const champs = cup.champions;
   const name = champs.map(champ => champ.name).join(" & ");
@@ -249,16 +289,20 @@ function Cartouche({ cup, tv, engraveAt, finale }) {
   return <div key={fresh || "rest"} className={cls} style={cutAt !== null ? { "--cut-at":`${Math.round(cutAt)}ms` } : undefined}
     role={champs.length ? "img" : undefined} aria-label={champs.length ? `Champion: ${name}` : undefined}>
     {cutAt !== null && <Cut />}
-    {champs.length > 0 && <>
-      <PlateFaces players={champs.map(champ => champ.player)} size={tv ? (fit.lines.length > 1 ? 44 : 56) : 28} />
-      <span className="fd-cup-champ" aria-hidden="true" style={fit ? { fontSize:fit.size } : undefined}>
-        {fit ? <Lines lines={fit.lines} /> : name}</span>
-    </>}
+    <span className="fd-cup-edition" aria-hidden="true">{EDITION.label}</span>
+    {champs.length > 0 && <span className="fd-cup-champ" aria-hidden="true" style={fit ? { fontSize:fit.size } : undefined}>
+      {fit ? <Lines lines={fit.lines} /> : name}</span>}
   </div>;
 }
 
+/* the cup itself: the art with its plate laid on the bowl */
+const Prize = ({ cup, tv, engraveAt, finale }) => <div className="fd-cup-bowl">
+  <CupArt />
+  <Cartouche cup={cup} tv={tv} engraveAt={engraveAt} finale={finale} />
+</div>;
+
 /* The cup. variant "phone" (Weekend, the keepsake) or "tv" (TrophyCard).
-   onPlate(eventId) makes each plate open its event. engrave: { [eventId |
+   onPlate(eventId) makes each plaque open its event. engrave: { [eventId |
    "cup"]: ms } the server-anchored engravings start at, relative to mount. */
 export function TrophyCup({ state, events, variant = "phone", onPlate = null, engrave = null, cup: given = null }) {
   const cup = given || trophyCup(state, events);
@@ -267,21 +311,19 @@ export function TrophyCup({ state, events, variant = "phone", onPlate = null, en
   const finale = cup.crowned ? null : events.find(ev => ev.finale && !state?.shelved?.[ev.id]);
   const lead = finale ? programCover(state || {}, events).lead : null;
   const finaleLead = lead?.event.id === finale?.id ? lead : null;
+  const tiers = cup.bands.length;
   return (
     <div className={`fd-cup is-${variant}`} style={tv ? { width:layout.width, "--cup-label":`${CUP_TV.label}px`,
       "--cup-pad":`${CUP_TV.pad}px`, "--cup-gap":`${CUP_TV.gap}px`, "--cup-rim":`${CUP_TV.rim}px` } : undefined}>
-      <div className="fd-cup-bowl">
-        <CupBowlArt />
-        <Cartouche cup={cup} tv={tv} engraveAt={engrave?.cup ?? null} finale={finaleLead} />
-      </div>
-      <i className="fd-cup-collar" aria-hidden="true" />
+      <Prize cup={cup} tv={tv} engraveAt={engrave?.cup ?? null} finale={finaleLead} />
       <ol className="fd-cup-base" aria-label="Winners by session">
         {cup.bands.map((band, index) => {
           const dims = layout?.bands[index];
           const words = band.label.split(" ");
-          return <li key={band.session} className="fd-cup-band" style={dims ? { height:dims.height } : undefined}>
-            <span className="fd-cup-session" aria-hidden="true">{tv && words.length > 1
-              ? <>{words[0]}<br />{words.slice(1).join(" ")}</> : band.label}</span>
+          return <li key={band.session} className="fd-cup-band"
+            style={dims ? { height:dims.height, width:dims.width } : { "--tier-rest":tiers - 1 - index }}>
+            {tv && <span className="fd-cup-session" aria-hidden="true">{words.length > 1
+              ? <>{words[0]}<br />{words.slice(1).join(" ")}</> : band.label}</span>}
             <ol className="fd-cup-plates" aria-label={band.label}
               style={{ gridTemplateColumns:dims ? `repeat(${dims.cols}, ${dims.plateW}px)`
                 : `repeat(${Math.min(3, band.plates.length)}, minmax(0, 1fr))` }}>
@@ -291,6 +333,30 @@ export function TrophyCup({ state, events, variant = "phone", onPlate = null, en
           </li>;
         })}
       </ol>
+    </div>
+  );
+}
+
+/* The cup at the crown (TV champion scene, the phone's crown): the same
+   cup, held as the prize. The champion is cut into its plate on the
+   crown's own beat when engraveAt is given (ms from mount, negative for a
+   screen that joined late); the plinth's plaques carry only their game's
+   mark (the names live on the trophy turn and in Weekend). variant "tv" is
+   canvas pixels; "phone" fills its box. base={false} is the cup alone. */
+export function CrownCup({ state, events = [], variant = "tv", engraveAt = null, base = true, cup: given = null }) {
+  const cup = given || trophyCup(state, events);
+  const tv = variant === "tv";
+  const tiers = cup.bands.length;
+  return (
+    <div className={`fd-cup is-${variant} is-crown`} aria-hidden="true">
+      <Prize cup={cup} tv={tv} engraveAt={engraveAt} finale={null} />
+      {base && <ol className="fd-cup-base">
+        {cup.bands.map((band, index) => <li key={band.session} className="fd-cup-band" style={{ "--tier-rest":tiers - 1 - index }}>
+          <ol className="fd-cup-plates" style={{ gridTemplateColumns:`repeat(${Math.max(1, band.plates.length)}, minmax(0, 1fr))` }}>
+            {band.plates.map(plate => <CupPlate key={plate.eventId} plate={plate} tv={tv} marksOnly />)}
+          </ol>
+        </li>)}
+      </ol>}
     </div>
   );
 }

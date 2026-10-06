@@ -304,7 +304,7 @@ test("D3: the TV draws the class photo on its step and as the frozen ambient", (
   const directed = tv(state.showControl.active.updatedAt + 5000);
   assert.match(directed, /tv-class/);
   assert.ok(directed.includes(EDITION.label));
-  ROSTER.forEach(player => assert.ok(directed.includes(player.toUpperCase()), `${player} in the photo`));
+  ROSTER.forEach(player => assert.ok(directed.includes(`>${player}<`), `${player} in the photo, as written`));
   assert.doesNotMatch(directed, /tv-ticker/);
 
   const off = crowned(false);
@@ -354,7 +354,7 @@ test("D3: the poster draws the same composition: sky, title, thirteen chips, nam
   ui.drawPoster(ctx, { layout, colors, identities, stars:[] });
   assert.ok(ctx.texts.includes("FIELD DAY"));
   assert.ok(ctx.texts.includes(` · ${EDITION.label.toUpperCase()}`));
-  standings.forEach(row => assert.ok(ctx.texts.includes(row.player.toUpperCase()), `${row.player} named`));
+  standings.forEach(row => assert.ok(ctx.texts.includes(row.player), `${row.player} named as written`));
   standings.forEach(row => assert.ok(ctx.texts.includes(row.pts.toLocaleString("en-US")), `${row.player}'s stack`));
   assert.ok(ctx.calls.filter(name => name === "arc").length >= ROSTER.length * 3, "every chip drawn");
   /* every skin draws without throwing */

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { ROSTER, allEventsOf, disp } from "../../../shared/core.js";
+import { ROSTER, allEventsOf, disp, rosterOf } from "../../../shared/core.js";
 import {
   PROMPT_QUESTIONS_MAX, PROMPT_TITLE_MAX, awardResults, awardsRevealBlocker, ballotStatusLine, revealedCount,
 } from "../../../shared/prompts.js";
@@ -9,6 +9,7 @@ import { ChipFace } from "../identity/PlayerIdentity.jsx";
 import { ActionButton, Sheet } from "../../ui/controls.jsx";
 import { dispatch } from "../../lib/client.js";
 import "./awards.css";
+import { writeError } from "../../lib/writeErrors.js";
 
 const send = (type, payload) => dispatch(type, payload, { retry:true });
 const token = () => Math.random().toString(36).slice(2, 10).padEnd(8, "0");
@@ -24,11 +25,8 @@ export { deskBallot, deskNote } from "./awardsModel.js";
 /* what a draft sends: whole awards only */
 export function draftPayload(draft) {
   return { id:draft.id, kind:"awards", questions:draft.questions.map(question => ({ id:question.id,
-    title:question.title.trim(), nominees:question.nominees, allowSelf:!!question.allowSelf,
-    ...(question.source ? { source:question.source } : {}) })) };
+    title:question.title.trim(), nominees:question.nominees, allowSelf:!!question.allowSelf })) };
 }
-/* Most MVPs: counted from the team MVP votes when voting closes, not voted on */
-const mvpQuestion = () => ({ id:`q${token()}`, title:"Most MVPs", nominees:null, allowSelf:false, source:"mvps" });
 
 /* what stops a draft from being saved, in the words the server uses */
 export function draftProblem(draft) {
@@ -45,7 +43,7 @@ function AwardEditor({ state, question, index, count, onChange, onRemove }) {
   const picked = new Set(question.nominees || []);
   const toggle = player => {
     const next = picked.has(player) ? [...picked].filter(item => item !== player) : [...picked, player];
-    onChange({ nominees:ROSTER.filter(item => next.includes(item)) });
+    onChange({ nominees:rosterOf(state).filter(item => next.includes(item)) });
   };
   return (
     <div className="fd-awards-edit">
@@ -55,14 +53,13 @@ function AwardEditor({ state, question, index, count, onChange, onRemove }) {
         {count > 1 && <ActionButton variant="tertiary" compact onClick={onRemove}
           aria-label={`Remove award ${index + 1}`}>Remove</ActionButton>}
       </div>
-      {question.source === "mvps" ? <p className="fd-awards-note">Counted from team MVPs</p> : <>
       <div className="fd-awards-toggle" role="group" aria-label="Nominees">
         <button type="button" aria-pressed={everyone} onClick={() => onChange({ nominees:null })}>Everyone</button>
         <button type="button" aria-pressed={!everyone} onClick={() => { if (everyone) onChange({ nominees:[] }); }}>
           {everyone ? "Pick nominees" : `${picked.size} picked`}</button>
       </div>
       {!everyone && <div className="fd-awards-picks">
-        {ROSTER.map(player => <button type="button" key={player}
+        {rosterOf(state).map(player => <button type="button" key={player}
           className={`fd-awards-nominee${picked.has(player) ? " is-picked" : ""}`} aria-pressed={picked.has(player)}
           onClick={() => toggle(player)}>
           <span className="fd-awards-chip"><ChipFace p={player} size={40} flat /></span>
@@ -73,7 +70,6 @@ function AwardEditor({ state, question, index, count, onChange, onRemove }) {
         <input type="checkbox" checked={!!question.allowSelf} onChange={event => onChange({ allowSelf:event.target.checked })} />
         Allow self-votes
       </label>
-      </>}
     </div>
   );
 }
@@ -100,10 +96,10 @@ export function AwardsDesk({ state, events = allEventsOf(state), onClose, onBack
     busy.current = true; setPending(key); setError("");
     try {
       const result = await write(type, payload);
-      if (result?.ok !== true) setError(result?.error || "Not saved. Try again.");
+      if (result?.ok !== true) setError(writeError(result));
       else { setConfirm(null); done?.(result); }
       return result;
-    } catch { setError("Not saved. Try again."); return { ok:false }; }
+    } catch (failure) { setError(writeError(failure)); return { ok:false }; }
     finally { busy.current = false; setPending(null); }
   };
 
@@ -127,12 +123,9 @@ export function AwardsDesk({ state, events = allEventsOf(state), onClose, onBack
         <ActionButton variant="secondary"
           onClick={() => setWorking(current => ({ ...current, questions:[...current.questions, newQuestion()] }))}>
           Add award</ActionButton>
-        {!working.questions.some(question => question.source === "mvps") && <ActionButton variant="secondary"
-          onClick={() => setWorking(current => ({ ...current, questions:[...current.questions, mvpQuestion()] }))}>
-          Add Most MVPs</ActionButton>}
       </div>}
       {confirm === "publish" ? <>
-        <p className="fd-awards-note">Every phone gets {plural(working.questions.filter(question => !question.source).length,
+        <p className="fd-awards-note">Every phone gets {plural(working.questions.length,
           "award")} to vote on.</p>
         <div className="fd-awards-actions">
           <ActionButton variant="tertiary" onClick={() => setConfirm(null)}>Cancel</ActionButton>

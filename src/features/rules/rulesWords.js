@@ -86,8 +86,8 @@ export const RULES_WORDS = Object.freeze({
   "pong.redemption": "Redemption: semis, final",
 
   /* Trivia */
-  "trivia.1": "Question on the TV",
-  "trivia.2": "Right answers score",
+  "trivia.1": "Question on every phone",
+  "trivia.2": "Right and fast scores",
   "trivia.3": "Most points wins",
   "trivia.groom": "The groom",
   "trivia.family": "The family",
@@ -174,11 +174,9 @@ export const RULES_WORDS = Object.freeze({
   "duels.finale": "Void once poker deals",
 
   /* comebacks (v3.1): awaiting Brandon's review */
-  "comebacks.1": "Beat the leader: +200",
-  "comebacks.2": "Underdog: Winner pays 2:1",
+  "comebacks.1": "Underdog: Winner pays 2:1",
   "comebacks.gap": "Underdog: 1,000 behind",
-  "comebacks.3": "Byes to the bottom",
-  "comebacks.lock": "Leader fixed at lock",
+  "comebacks.2": "Byes to the bottom",
 
   /* draws */
   "draws.1": "Teams balanced by skill",

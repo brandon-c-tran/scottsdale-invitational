@@ -1,0 +1,23 @@
+/* Add to Home Screen, drawn: Safari's Share key, the sequence arrow, then
+   Safari's own menu row. The key and the row are the real controls'
+   shapes in the info lamp (cyan), so a guest finds them on their screen. */
+.fd-install-steps { display:flex; flex-wrap:wrap; align-items:center; gap:8px 10px; margin:0; padding:0; list-style:none; }
+.fd-install-key { display:flex; flex-direction:column; align-items:center; gap:4px; color:var(--muted2);
+  font:600 12px/1 var(--fd-body); }
+.fd-install-key > svg, .fd-install-key > .fd-icon { box-sizing:content-box; padding:10px; border-radius:10px; color:var(--lamp-info);
+  background:var(--paper2); box-shadow:var(--glass-edge), 0 0 0 1px color-mix(in srgb, var(--lamp-info) 40%, transparent); }
+.fd-install-then { display:flex; color:var(--muted); }
+.fd-install-row { display:flex; align-items:center; gap:12px; min-height:44px; padding:0 12px 0 14px; border-radius:10px;
+  background:var(--paper2); box-shadow:var(--glass-edge), 0 0 0 1px color-mix(in srgb, var(--lamp-info) 40%, transparent);
+  color:var(--ink); font:600 15px/1.2 var(--fd-body); white-space:nowrap; }
+.fd-install-row > svg { color:var(--lamp-info); }
+
+/* the Home card: the two steps on one line, a close. Safari's own Share
+   glyph needs no caption here; the steps open with their captions on
+   Weekend and at check-in. */
+.fd-install-card { display:flex; align-items:center; gap:8px; margin:12px 0 0; padding:8px 0 8px 12px; }
+.fd-install-card .fd-install-steps { flex:1; min-width:0; flex-wrap:nowrap; gap:8px; }
+.fd-install-card .fd-install-key > span { display:none; }
+.fd-install-card .fd-install-row { padding:0 10px 0 12px; gap:8px; font-size:14px; }
+.fd-install-card-close { flex:none; display:grid; place-items:center; width:44px; height:44px; padding:0; border:0;
+  background:none; color:var(--muted2); cursor:pointer; }

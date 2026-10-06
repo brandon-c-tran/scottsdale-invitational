@@ -60,7 +60,7 @@ function assertCoherent(state, label) {
       assert.equal(row.pts, (stacks.stacks[row.player] ?? 0) + after, `${label}: ${row.player} is their counted stack`);
     } else {
       const ruled = rulings.reduce((sum, a) => sum + a.delta, 0);
-      assert.equal(row.pts, START + row.awardPts + row.mvpPts + row.bountyPts + row.betNet + row.duelNet + ruled,
+      assert.equal(row.pts, START + row.awardPts + row.betNet + row.duelNet + ruled,
         `${label}: ${row.player} standings are derived`);
     }
   }
@@ -372,7 +372,7 @@ test("gating: commissioner, the QA capability, production confirmation, live car
     "Commissioner only");
   assert.equal(applyAction(structuredClone(state), "qaAdvance", { target:"locker" }, { ...LOCAL, qa:false }).error,
     "QA is unavailable");
-  assert.equal(applyAction(structuredClone(state), "qaAdvance", { target:"nowhere" }, LOCAL).error, "Unknown QA target");
+  assert.equal(applyAction(structuredClone(state), "qaAdvance", { target:"nowhere" }, LOCAL).error, "That jump isn't in the QA list. Pick another");
   /* anything not local or staging is production */
   for (const environment of ["production", undefined, "preview"]) {
     const refused = advance(state, "event:putt:open", { ctx:{ ...LOCAL, environment } }).result;
@@ -507,7 +507,7 @@ test("checkpoints save privately and restore only game progress, behind a backup
   const removed = await asGm("qaCheckpointDelete", { id });
   assert.deepEqual(removed.extra.checkpoints, []);
   assert.equal(memory.entries.has(`private:qa:checkpoint:${id}`), false);
-  assert.equal((await asGm("qaRestore", { id, confirm:RESET_PROGRESS_CONFIRMATION })).error, "No such checkpoint");
+  assert.equal((await asGm("qaRestore", { id, confirm:RESET_PROGRESS_CONFIRMATION })).error, "That checkpoint is gone. Save a new one");
 });
 
 test("checkpoints: capacity, capability, production and live cards", async () => {
@@ -553,7 +553,7 @@ test("a restored checkpoint must be well formed and from this version", () => {
   assert.equal(applyAction(state, "qaRestore", { id:checkpoint.id },
     { ...LOCAL, qaCheckpoint:{ ...checkpoint, v:99, progress:{} } }).error, "That checkpoint is from a newer version");
   assert.equal(applyAction(state, "qaRestore", { id:"cpother1234" }, { ...LOCAL, qaCheckpoint:checkpoint }).error,
-    "No such checkpoint");
+    "That checkpoint is gone. Save a new one");
   assert.deepEqual(state.logistics, { ...LOGISTICS }, "a refused restore changes nothing");
 });
 
@@ -576,7 +576,7 @@ const inProvider = (state, element) => renderToStaticMarkup(React.createElement(
 test("the console: Step, Bets, Jump to, Lens, Checkpoints and Reset, every target 44px", () => {
   const state = reach("event:8ball:mid").state;
   const status = { environment:"staging", version:3, schema:9, profiles:13, completed:1, total:17, pendingWagers:6,
-    openDuels:0, current:"8-Ball Doubles", phase:"Betting open", next:"Lock bets and start", blockers:[] };
+    openDuels:0, current:"8-Ball Doubles", phase:"Betting open", next:"Lock and start", blockers:[] };
   const noop = () => {};
   const market = { contestId:"c1", contestRevision:1, label:"Final", bets:6, chips:1400 };
   const props = { state, status, me:"Evan", guestLens:false, busy:false, market,
@@ -681,9 +681,9 @@ test("quick bets: commissioner and QA only, production confirms, stale refs refu
   const { contest } = marketOf(state);
   assert.equal(betsOn(state, "everyone", {}, betsCtx({ qa:false })).result.error, "QA is unavailable");
   assert.equal(betsOn(state, "everyone", {}, betsCtx({ isGm:false })).result.ok, false);
-  assert.equal(betsOn(state, "nope").result.error, "Unknown QA bets action");
+  assert.equal(betsOn(state, "nope").result.error, "Pick everyone, favorite, spread or clear");
   assert.equal(betsOn(state, "everyone", { contestRevision:contest.revision + 1 }).result.error,
-    "Contest changed, refresh and try again");
+    "That matchup already moved on. Check the board");
   const prod = betsOn(state, "everyone", {}, betsCtx({ environment:"production" }));
   assert.equal(prod.result.extra?.needsConfirm, true, "production always confirms");
   assert.equal(prod.result.extra?.production, true);

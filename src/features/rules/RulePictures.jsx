@@ -344,15 +344,22 @@ export const RULE_PICTURES = {
 
   /* ── Trivia ── */
   "trivia.1":<g>
-    {tv(14, 4, 36, 24)}
-    <path d="M28.4 12a3.6 3.6 0 1 1 5.4 3.1c-1.2.7-1.8 1.4-1.8 2.7v.8" strokeWidth="1.9" />
-    <circle cx="32" cy="23" r="1.3" {...F} />
+    {tv(22, 4, 36, 24)}
+    <path d="M36.4 12a3.6 3.6 0 1 1 5.4 3.1c-1.2.7-1.8 1.4-1.8 2.7v.8" strokeWidth="1.9" />
+    <circle cx="40" cy="23" r="1.3" {...F} />
+    <rect x="5" y="11" width="12" height="21" rx="2.2" />
+    <path d="M9.2 17.6a1.9 1.9 0 1 1 2.8 1.6c-.6.4-1 .8-1 1.5v.4" strokeWidth="1.4" />
+    <circle cx="11" cy="24.4" r=".8" {...F} />
   </g>,
+  /* your own phone: four answers, yours locked, scored for being right
+     and for being fast */
   "trivia.2":<g>
-    {bust(8, 22, 2)}{bust(15, 19, 2)}{bust(22, 22, 2)}
-    {bust(42, 22, 2)}{bust(49, 19, 2)}{bust(56, 22, 2)}
-    <Lit><circle cx="15" cy="7" r="2.6" {...F} /><path d="M15 1.6v-1M9.6 7h-1.4M20.4 7h1.4M11.2 3.2l-1-1M18.8 3.2l1-1" /></Lit>
-    <Lit><Num x={32} y={14} size={13}>+1</Num></Lit>
+    <rect x="6" y="3" width="20" height="34" rx="2.6" />
+    <Faint><path d="M10 10H22M10 16H22M10 28H22" /></Faint>
+    <Lit><rect x="9" y="20" width="14" height="4.4" rx="1.4" {...F} /></Lit>
+    <Lit><Num x={46} y={20} size={12}>+500</Num></Lit>
+    <Faint><path d="M33 27h26" /></Faint>
+    <path d="M33 27h15" strokeWidth="2.2" />
   </g>,
   "trivia.3":firstTo(7, "card"),
 
@@ -548,23 +555,15 @@ export const RULE_PICTURES = {
     <Lit>{stack(46, 34, 6, 14)}</Lit>
     {crown(46, 9, 0.85)}
   </g>,
-  /* comebacks (v3.1): the bounty, the underdog, the bye */
+  /* comebacks (v3.1): the underdog, the bye */
   "comebacks.1":<g>
-    {floor()}
-    <Faint>{stack(14, 34, 3, 11)}</Faint>
-    <g>{stack(32, 34, 8, 11)}</g>
-    <circle cx="32" cy="2.6" r="2" />
-    {trail("M20 21Q24 12 27 10")}{head(27.4, 9.6, -40)}
-    <Lit><Num x={51} y={22} size={12}>+200</Num></Lit>
-  </g>,
-  "comebacks.2":<g>
     {floor()}
     <g>{stack(14, 34, 7, 11)}</g>
     <Faint>{stack(50, 34, 2, 11)}</Faint>
     <Lit><Num x={50} y={21} size={12}>2:1</Num></Lit>
     <Faint><path d="M24 9.5h4M36 9.5h4" /></Faint>
   </g>,
-  "comebacks.3":<g>
+  "comebacks.2":<g>
     <path d="M4 7h10v8H4M14 11h8M4 27h10" />
     <path d="M22 11v10h10" />
     <Lit><path d="M14 27H32" strokeDasharray="2 2" /><circle cx="9" cy="27" r="2.6" {...F} /></Lit>

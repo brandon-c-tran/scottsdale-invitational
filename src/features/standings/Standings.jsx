@@ -1,19 +1,21 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { awardTable, computeStandings, disp, duelReserve, resolveEventLifecycle, resolveWeekendOperation } from "../../../shared/core.js";
+import { awardTable, computeStandings, disp, duelReserve, isOnTheWay, resolveEventLifecycle, resolveWeekendOperation } from "../../../shared/core.js";
 import { Avatar } from "../identity/PlayerIdentity.jsx";
 import { usePlayerIdentity } from "../identity/PlayerIdentityContext.js";
 import { EASE, MOTION, signedChips, useCountUp, useFreshChange } from "../../lib/motion.js";
-import { BOARD_BEATS, barScale, chipBar, rowMoves, soleLeader } from "./boardModel.js";
+import { BOARD_BEATS, barScale, chipBar, chipNotch, rowMoves, soleLeader } from "./boardModel.js";
 import { ActionButton } from "../../ui/controls.jsx";
 import { ScoreReel } from "../../ui/ScoreReel.jsx";
 import { EventName, OneSafe } from "../../ui/OneSafe.jsx";
 import { PageHeading, SectionHeading } from "../../ui/layout.jsx";
 import { Icon } from "../../ui/Icon.jsx";
-import { BountyLamp } from "../comebacks/Comebacks.jsx";
-import { boardBounty } from "../comebacks/comebacks.js";
+import { guestPhaseLabel } from "../weekend/scheduleModel.js";
 import "./standings.css";
 
 const fmt = value => (value ?? 0).toLocaleString("en-US");
+/* the poker finale's column: each stack as it was dealt (a busted seat's
+   number is struck, not what it holds now) */
+export const DEALT = "Dealt";
 
 /* The shared operation resolver distinguishes a prepared draw from an event
    that has actually started. The header owns the open betting announcement. */
@@ -63,7 +65,7 @@ function NowCard({ state, standings, events, onOpen, onPlayer, GameMark, resultI
     const second = round && draw?.teams[round.b];
     const awaitingResult = operation.lifecycle.phase === "result-entry"
       || (!!(bracket || stages) && operation.lifecycle.nextAction?.type === "enter-result");
-    const status = awaitingResult ? "Awaiting result" : operation.lifecycle.label;
+    const status = awaitingResult ? "Awaiting result" : guestPhaseLabel(state, liveEv, operation.lifecycle.phase);
     return <section className="fd-now-card fd-now-live" aria-label={`${liveEv.name}: ${status}`}>
       <button type="button" className="fd-now-event-link" onClick={() => onOpen(liveEv)}>
       <span className="fd-now-topline"><span className="fd-now-status"><i className="fd-beat-dot" aria-hidden="true" />{status}</span>
@@ -130,13 +132,17 @@ function ChampionPanel({ state, champion, coChamps, onPlayer }) {
 
 /* X1: a run of chips in the player's identity color, to scale against the
    leader over a faint track, notched every 100 so each notch is one
-   physical chip. Your own chips riding on bets are the gold outlined end of
-   your bar, duel antes the muted one: what is at risk is what would leave
-   it. Before play every stack is the same 1,000, so no bar draws. */
+   physical chip while the notches stand apart, then every 500 or 1,000
+   (chipNotch) so a big board still reads as solid color. Your own chips
+   riding on bets are the gold outlined end of your bar, duel antes the
+   muted one: what is at risk is what would leave it. Before play every
+   stack is the same 1,000, so no bar draws. */
 export function ChipBar({ p, pts, scale, bets = 0, duels = 0 }) {
   const identity = usePlayerIdentity(p);
   const bar = chipBar({ pts, scale, bets, duels });
-  return <span className="fd-chip-bar" aria-hidden="true" style={{ "--fd-chip-unit":`${(10000 / Math.max(100, scale)).toFixed(3)}%` }}>
+  const notch = chipNotch(scale);
+  return <span className={`fd-chip-bar${notch ? "" : " is-plain"}`} aria-hidden="true" data-notch={notch?.step}
+    style={notch ? { "--fd-chip-unit":`${notch.pct.toFixed(3)}%` } : undefined}>
     {bar.held > 0 && <span className="fd-chip-bar-held" style={{ width:`${bar.held}%`, background:identity.color }} />}
     {bar.bets > 0 && <span className="fd-chip-bar-risk is-bets" style={{ width:`${bar.bets}%` }} />}
     {bar.duels > 0 && <span className="fd-chip-bar-risk is-duels" style={{ width:`${bar.duels}%` }} />}
@@ -155,15 +161,21 @@ function RankCell({ label, text, roll, index }) {
   </span>;
 }
 
-/* One rank cell per row: a tie reads "T4" once, on its first row, and the
-   rows under it stay blank; before play there is no rank at all. */
+/* One rank cell per row. A tie is drawn, not coded: every row in it shows
+   the shared number and a bracket in the rank column joins them (tieParts).
+   With every stack level (before play, or a board nobody has moved) there
+   is no rank at all. */
 export function rankLabels(standings = [], { starting = false, tied = false } = {}) {
+  return standings.map(row => starting || tied ? "" : String(row.rank));
+}
+
+/* where each row sits in its tie: "start", "mid", "end", or null alone */
+export function tieParts(standings = [], { starting = false, tied = false } = {}) {
   return standings.map((row, index) => {
-    if (starting) return "";
-    if (tied) return index === 0 ? `T${row.rank}` : "";
-    const shared = standings.filter(other => other.rank === row.rank).length > 1;
-    if (!shared) return String(row.rank);
-    return standings.findIndex(other => other.rank === row.rank) === index ? `T${row.rank}` : "";
+    if (starting || tied) return null;
+    const same = other => other && other.rank === row.rank;
+    const before = same(standings[index - 1]), after = same(standings[index + 1]);
+    return before && after ? "mid" : after ? "start" : before ? "end" : null;
   });
 }
 
@@ -190,13 +202,13 @@ function useStuckBottom(enabled) {
   }, [enabled]);
 }
 
-function BoardRow({ state, row, index, me, starting, tied, rankText:text, deltas, out, adjustment, scoreLabel, scale,
-  onPlayer, onAdjust, StatPills, myAtRisk, myDuels, newLeader, rowRef, wanted = false }) {
+function BoardRow({ state, row, index, me, starting, tied, rankText:text, tie = null, deltas, out, adjustment, scoreLabel, scale,
+  onPlayer, onAdjust, StatPills, myAtRisk, myDuels, newLeader, rowRef, road = false }) {
   const isMe = row.player === me;
   const stuckRef = useStuckBottom(isMe);
   const setRow = useCallback(node => { rowRef?.(node); stuckRef(node); }, [rowRef, stuckRef]);
   const leading = !starting && row.rank === 1 && !tied;
-  const shared = !starting && !tied && !/^\d+$/.test(text);
+  const shared = !!tie;
   /* M2: the total counts in 100s and the change rises off it */
   const count = useCountUp(row.pts, { key:row.player, delay:BOARD_BEATS.count });
   const rankChange = useFreshChange(text, row.player);
@@ -210,25 +222,27 @@ function BoardRow({ state, row, index, me, starting, tied, rankText:text, deltas
     return () => clearTimeout(timer);
   }, [rankChange.changeId]); // eslint-disable-line react-hooks/exhaustive-deps
   const delta = !starting && !tied && deltas?.[row.player];
-  const chipDescription = starting || scoreLabel === "STARTING CHIPS" ? "starting chips" : "chips";
+  const chipDescription = starting ? "starting chips" : scoreLabel === DEALT ? "chips dealt" : "chips";
   const rise = count.delta && count.delta.amount !== 0 ? count.delta : null;
-  return <li ref={setRow} className={`${isMe ? "is-you" : ""}${leading ? " is-leading" : ""}${adjustment ? " has-adjust" : ""}`}>
+  return <li ref={setRow} className={`${isMe ? "is-you" : ""}${leading ? " is-leading" : ""}${adjustment ? " has-adjust" : ""}${out ? " is-out" : ""}${road ? " is-road" : ""}${
+    tie ? ` is-tie is-tie-${tie}` : ""}`}>
+    {tie && <i className="fd-tie-bracket" aria-hidden="true" />}
     {newLeader && <i className="fd-lead-sweep" key={newLeader} aria-hidden="true" />}
     <button type="button" onClick={() => onPlayer(row.player)} className="fd-standings-row"
       data-new-leader={newLeader ? "" : undefined}
-      aria-label={`View ${disp(state, row.player)}'s player card, ${fmt(row.pts)} ${chipDescription}`}>
+      aria-label={`View ${disp(state, row.player)}'s player card, ${fmt(row.pts)} ${chipDescription}${out ? ", out" : ""}${road ? ", on the way" : ""}`}>
       <RankCell label={starting ? "Not started" : tied ? "Tied" : shared ? `Tied for position ${row.rank}` : `Position ${row.rank}`}
         text={text} roll={roll} index={index} />
       <Avatar state={state} p={row.player} size={32} />
       <span className="fd-standing-player">
         <span className="fd-standing-line"><span className="fd-standing-name">{disp(state, row.player)}</span>
-          {(isMe || out || wanted) && <span className="fd-standing-flags">
+          {(isMe || out) && <span className="fd-standing-flags">
             {isMe && <span className="fd-standing-you">You</span>}
             {out && <span className="fd-standing-out">Out</span>}
-            {wanted && <BountyLamp className="fd-standing-bounty" />}
           </span>}
         </span>
-        {!starting && <ChipBar p={row.player} pts={count.value} scale={scale}
+        {/* a bar only where it says something: never on a level board */}
+        {!starting && !tied && <ChipBar p={row.player} pts={count.value} scale={scale}
           bets={isMe ? myAtRisk : 0} duels={isMe ? myDuels : 0} />}
       </span>
       {/* one plain number per row: the reel belongs to the hero count (your
@@ -321,17 +335,19 @@ export function Leaderboard({ state, standings = computeStandings(state), me, de
   const refFor = useRowSlide(order, starting ? "starting" : "board");
   const leader = useNewLeader(soleLeader(standings, starting || tied));
   const ranks = rankLabels(standings, { starting, tied });
-  /* v3.1: the leader carries the bounty */
-  const wanted = starting ? [] : boardBounty(state, undefined, standings);
-  return <div className={`fd-leaderboard${adjustment ? " has-adjustments" : ""}${starting ? " is-starting" : ""}`}>
-    <div className="fd-standings-column-head" aria-hidden="true"><span>{starting ? "" : "Rank"}</span><span>Player</span>
+  const ties = tieParts(standings, { starting, tied });
+  /* a level board (every stack the same) shows no ranks, so no Rank head
+     over an empty column: the column folds away as before the weekend */
+  const level = starting || tied;
+  return <div className={`fd-leaderboard${adjustment ? " has-adjustments" : ""}${starting ? " is-starting" : ""}${level ? " is-level" : ""}`}>
+    <div className="fd-standings-column-head" aria-hidden="true"><span>{level ? "" : "Rank"}</span><span>Player</span>
       <span>{scoreLabel || (starting ? "STARTING CHIPS" : "Chips")}</span></div>
     <ol className="fd-standings-list" aria-label={ariaLabel || (starting ? "Starting chips" : "Tournament standings")}>
       {standings.map((row, index) => <BoardRow key={row.player} rowRef={refFor(row.player)} state={state} row={row}
-        index={index} me={me} starting={starting} tied={tied} rankText={ranks[index]} deltas={deltas} adjustment={adjustment}
+        index={index} me={me} starting={starting} tied={tied} rankText={ranks[index]} tie={ties[index]} deltas={deltas} adjustment={adjustment}
         scoreLabel={scoreLabel} scale={scale} onPlayer={onPlayer} onAdjust={onAdjust} StatPills={StatPills}
         myAtRisk={bets} myDuels={myDuels} newLeader={leader?.player === row.player ? leader.id : null}
-        wanted={wanted.includes(row.player)}
+        road={isOnTheWay(state, row.player)}
         out={!!(state.poker?.startedAt && !state.results?.[state.poker.id]
           && state.poker.outs?.some(item => item.player === row.player))} />)}
     </ol>

@@ -50,9 +50,9 @@
 /* Re-lettering: a renamed team's name flips up into place under one lamp
    sweep (RenameText, fresh frames only). The sweep stays inside the
    name's own box, so nothing is clipped. */
-.fd-relettered { position:relative; animation:fd-reletter 520ms var(--ease-land, cubic-bezier(.3,.7,.35,1.25)) both;
+.fd-relettered { position:relative; animation:fd-reletter 520ms var(--ease-land) both;
   transform-origin:50% 100%; }
-.fd-relettered::after { content:""; position:absolute; inset:0; pointer-events:none; border-radius:4px;
+.fd-relettered::after { content:""; position:absolute; inset:0; pointer-events:none; border-radius:6px;
   background:linear-gradient(100deg, transparent 35%, color-mix(in srgb, var(--lamp-info) 55%, var(--bone)) 50%, transparent 65%);
   background-size:300% 100%; mix-blend-mode:screen; opacity:0;
   animation:fd-reletter-sweep 900ms var(--ease-out, cubic-bezier(.2,.8,.2,1)) both; }
@@ -63,3 +63,18 @@ span.fd-relettered, strong.fd-relettered { display:inline-block; }
 @media (prefers-reduced-motion: reduce) {
   .fd-relettered, .fd-relettered::after, .fd-teamname-chip.is-on[aria-pressed="true"] { animation:none; }
 }
+
+/* Home's row (Oct 4): your team's name and the pencil on one 44px line, a
+   quiet info field; the suggestions open under it in place */
+.fd-teamname-row { margin:0 0 12px; border:1px solid color-mix(in srgb, var(--lamp-info) 30%, transparent); border-radius:10px;
+  background:color-mix(in srgb, var(--lamp-info) 6%, var(--bg)); box-shadow:var(--glass-edge); }
+.fd-teamname-row.is-open { padding-bottom:10px; }
+.fd-teamname-row.is-open .fd-teamname-edit { margin:2px 10px 0; }
+.fd-teamname-row-head { display:flex; align-items:center; gap:10px; width:100%; min-height:44px; padding:4px 8px 4px 10px; border:0;
+  background:none; color:var(--ink); text-align:left; cursor:pointer; }
+.fd-teamname-row-head:active { transform:translateY(1px); }
+.fd-teamname-row-head:focus-visible { outline:2px solid var(--lamp-info); outline-offset:2px; border-radius:8px; }
+.fd-teamname-row-mark { display:grid; place-items:center; flex:none; width:28px; height:28px; border-radius:50%; color:var(--lamp-info);
+  box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--lamp-info) 45%, transparent); }
+.fd-teamname-row-name { flex:1; min-width:0; font-size:22px; line-height:1.15; letter-spacing:.01em; overflow-wrap:anywhere; }
+.fd-teamname-row-go { flex:none; color:var(--lamp-info); }

@@ -48,7 +48,7 @@ test("actual play beats a later prepared draw, draft, or newly opened betting ma
   state.eventOps[solo.id] = { startedAt:100 };
   let home = model(state, [future, solo]);
   assert.equal(home.current.event.id, solo.id);
-  assert.equal(home.current.status, "In progress");
+  assert.equal(home.current.status, "Playing");
   assert.deepEqual(home.upcoming.map(event => event.id), [future.id]);
   state.onDeck = future.id;
   home = model(state, [future, solo]);
@@ -69,7 +69,7 @@ test("betting-open and betting-locked events stay current before a scheduled eve
   state.eventOps[pairs.id] = { bettingLockedAt:10 };
   home = model(state);
   assert.equal(home.current.event.id, pairs.id);
-  assert.equal(home.current.status, "Betting locked");
+  assert.equal(home.current.status, "Playing", "a guest reads the room, not the market lock");
   assert.equal(home.betting.open, false);
   assert.equal(home.betting.canPlace, false);
   assert.equal(home.betting.label, "View bets");

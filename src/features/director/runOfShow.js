@@ -10,10 +10,10 @@
    when Show Control is on; the next open event is announced; the finale
    deals, runs the clock, posts counts, and crowns). */
 import {
-  ROSTER, allEventsOf, bracketMatchName, bracketOrder, computeStandings, disp, isAway, makeBracket,
+  rosterOf, allEventsOf, bracketMatchName, bracketOrder, computeStandings, disp, isAway, makeBracket,
   presentPlayers, stageFinalists, teamFit,
 } from "../../../shared/core.js";
-import { SHOW_SCENE_DEFINITIONS, contestName, draftsByDefault, resolveDirector, resolveShowScene } from "../../../shared/show.js";
+import { SHOW_SCENE_DEFINITIONS, autopilotHeld, contestName, draftsByDefault, resolveDirector, resolveShowScene } from "../../../shared/show.js";
 import { namesOf } from "./directorPill.js";
 
 export const RUN_SLOTS = Object.freeze(["Now", "Next", "Then"]);
@@ -80,7 +80,9 @@ function geoPlan(state, ev) {
   const geo = state.geo?.eventId === ev.id && state.geo.order ? state.geo : null;
   const n = geo ? geo.order.length : rounds.length;
   const photo = i => `Photo ${i + 1} of ${n}`;
-  const out = geo ? [] : [beat("geo-start", "Start game", ev.name)];
+  /* Lock and start puts the first photo up; a Start beat is owed only by an
+     event already under way without its game */
+  const out = geo || !state.eventOps?.[ev.id]?.startedAt ? [] : [beat("geo-start", "Start game", ev.name)];
   for (let i = geo ? geo.index : 0; i < n; i++) {
     if (!(geo && i === geo.index && geo.phase !== "guess")) out.push(beat("geo-reveal", "Reveal", photo(i)));
     if (i < n - 1) out.push(beat("geo-next", "Next photo", photo(i)));
@@ -101,7 +103,7 @@ function triviaPlan(state, ev) {
   if (!total) return null;
   const question = i => `Question ${i + 1} of ${total}`;
   const ends = new Set(rounds.map(round => round.first + round.count - 1));
-  const out = game ? [] : [beat("trivia-start", "Start trivia", ev.name)];
+  const out = game || !state.eventOps?.[ev.id]?.startedAt ? [] : [beat("trivia-start", "Start trivia", ev.name)];
   for (let i = game ? game.index : 0; i < total; i++) {
     const here = game && i === game.index;
     if (!(here && game.phase !== "question")) out.push(beat("trivia-reveal", "Reveal", question(i)));
@@ -118,8 +120,8 @@ const decideBeats = (state, ev, contest) => contest.kind === "ffa"
   : [beat("record-contest-winner", "Record winner", contest.name)];
 
 /* After a result posts: the winner scene's standings step, when the TV
-   plays it. */
-const afterResult = showControl => showControl
+   plays it and the autopilot is held (otherwise it plays itself). */
+const afterResult = (showControl, state) => showControl && autopilotHeld(state)
   ? [beat("advance-scene", "Show standings", sceneSubject("winner", 0))] : [];
 
 /* An event from its announcement: announce, then every contest. */
@@ -131,7 +133,7 @@ function eventBeats(state, ev, showControl) {
     : [beat(drawNeeded ? "announce-draw" : "announce", drawNeeded ? "Announce and draw" : "Announce", ev.name)];
   contestPlan(state, ev).forEach(contest => out.push(beat("lock-start", "Lock and start",
     contest.kind === "ffa" ? ev.name : contest.name), ...decideBeats(state, ev, contest)));
-  return [...out, ...afterResult(showControl)];
+  return [...out, ...afterResult(showControl, state)];
 }
 
 /* The finale from wherever it is: deal, clock, counts, crown. */
@@ -140,7 +142,7 @@ function pokerBeats(state, ev, from, showControl) {
     beat("setup-poker", "Deal and start", ev?.name || ""),
     beat("run-poker", "Blind clock", ev?.name || ""),
     beat("post-poker-result", "Post counts", ev?.name || ""),
-    ...afterResult(showControl),
+    ...afterResult(showControl, state),
     beat("crown-champion", "Crown", ""),
   ];
   if (!from) return steps;
@@ -166,18 +168,18 @@ function lifecycleAfter(state, events, director, showControl) {
     if (["announce", "announce-draw", "captains-draft", "open-betting", "continue-draft", "prepare-draw", "prepare-stages"].includes(now.type)) {
       if (["captains-draft", "continue-draft", "prepare-draw", "prepare-stages"].includes(now.type))
         out.push(beat("announce", "Announce", ev.name));
-      out.push(...contestBeats(plan), ...afterResult(showControl));
+      out.push(...contestBeats(plan), ...afterResult(showControl, state));
     } else if (now.type === "lock-start" || now.type === "lock-betting" || now.type === "start-event") {
       if (current) out.push(...decideBeats(state, ev, current));
-      out.push(...contestBeats(rest), ...afterResult(showControl));
+      out.push(...contestBeats(rest), ...afterResult(showControl, state));
     } else if (now.type?.startsWith("geo-")) {
-      out.push(...(geoPlan(state, ev) || []).slice(1), ...afterResult(showControl));
+      out.push(...(geoPlan(state, ev) || []).slice(1), ...afterResult(showControl, state));
     } else if (now.type?.startsWith("trivia-")) {
-      out.push(...(triviaPlan(state, ev) || []).slice(1), ...afterResult(showControl));
+      out.push(...(triviaPlan(state, ev) || []).slice(1), ...afterResult(showControl, state));
     } else if (now.type === "record-contest-winner") {
-      out.push(...contestBeats(rest), ...afterResult(showControl));
+      out.push(...contestBeats(rest), ...afterResult(showControl, state));
     } else if (now.type === "enter-result" || now.type === "post-result") {
-      out.push(...afterResult(showControl));
+      out.push(...afterResult(showControl, state));
     }
   }
   const later = events.filter(item => item.id !== ev?.id && !state.results?.[item.id] && !state.shelved?.[item.id]);
@@ -283,7 +285,7 @@ export function runOfShow(state, events = allEventsOf(state), director = null, {
   const ev = current?.event || null;
   const startedAt = ev?.finale ? Number(state.poker?.startedAt) || 0
     : ev ? Number(state.eventOps?.[ev.id]?.startedAt) || 0 : 0;
-  const away = ROSTER.filter(player => isAway(state, player));
+  const away = rosterOf(state).filter(player => isAway(state, player));
   const replay = showControl ? owedReplay(state, events, current, now) : null;
   const champions = current?.nextAction?.type === "crown-champion"
     ? computeStandings(state).filter(row => row.rank === 1).map(row => row.player) : [];

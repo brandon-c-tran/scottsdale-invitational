@@ -4,10 +4,14 @@ import { DISPLAY, SANS, BONE } from "../../ui/theme.js";
 import { usePlayerIdentity, usePlayerInitials, useTextFloor } from "./PlayerIdentityContext.js";
 import { photoUrl } from "./playerIdentity.js";
 import { letterPlate } from "./chipInk.js";
+import { DISC_OVERLAP, DISC_OVERLAP_MIN, avatarLetters, chipLetters, chipPhotoRadius } from "./discLetters.js";
 
-/* A missing or failed photo falls back to initials on the player's color,
-   never a number: initials at 12px or more, on a plate that holds 4.5:1. */
-function Avatar({ state, p, size=34, ring, style, lettered = true }) {
+/* A person's disc: the saved photo, else (missing or failed) their
+   initials on their color, never a number and never a bare fill. The
+   initials reach the surface's floor (12px phone, 24px TV) on a plate that
+   holds 4.5:1; a disc too small for two letters carries the first
+   (discLetters.js). `lettered` is kept for old callers and ignored. */
+function Avatar({ state, p, size=34, ring, style, lettered: _lettered }) {
   const prof = state.profiles?.[p];
   const photo = photoUrl(prof, p);
   const [failed, setFailed] = useState(null);
@@ -15,35 +19,35 @@ function Avatar({ state, p, size=34, ring, style, lettered = true }) {
   const initials = usePlayerInitials(p);
   const identity = usePlayerIdentity(p);
   const plate = letterPlate(identity.color);
-  /* initials at .42 of the disc, never under the surface's floor (12px
-     phone, 24px TV), and only where two letters at that size sit inside
-     the disc with room around them */
   const floor = useTextFloor();
-  const letterPx = Math.max(floor, Math.round(size * 0.42));
+  const mark = avatarLetters(size, floor, initials);
   return (
-    <div style={{ width:size, height:size, borderRadius:"50%", flexShrink:0, overflow:"hidden",
+    <div className="fd-avatar" data-person={p} style={{ width:size, height:size, borderRadius:"50%", flexShrink:0, overflow:"hidden",
       display:"flex", alignItems:"center", justifyContent:"center",
       background: src ? "var(--paper2)" : plate.fill, position:"relative",
       border: ring ? "2px solid var(--bone)" : "1.5px solid var(--ink0)", ...style }}>
       {src
         ? <img src={src} alt="" onError={() => setFailed(photo)} style={{ width:"100%", height:"100%", objectFit:"cover" }} />
-        : lettered && size >= letterPx * 1.7 && <span className="fd-avatar-initials" style={{ position:"relative", display:"block", flex:"none",
+        : mark.text && <span className="fd-avatar-initials" style={{ position:"relative", display:"block", flex:"none",
             width:"auto", minWidth:0, maxWidth:"none", margin:0, padding:0, overflow:"visible",
-            fontFamily:DISPLAY, fontWeight:800, fontStyle:"normal", fontSize:letterPx,
+            fontFamily:DISPLAY, fontWeight:800, fontStyle:"normal", fontSize:mark.px,
             lineHeight:1, letterSpacing:0, textAlign:"center", textTransform:"uppercase",
-            overflowWrap:"normal", transform:"none", color: plate.dark ? "var(--ink0)" : BONE }}>{initials}</span>}
+            overflowWrap:"normal", transform:"none", color: plate.dark ? "var(--ink0)" : BONE }}>{mark.text}</span>}
     </div>
   );
 }
+/* A group of faces. From 32px up they overlap, each tucked a fifth under
+   the next so the letters in its middle stay clear; smaller discs stand in
+   a row, since an overlap would cut their initials. Past `max`, a count. */
 function AvatarStack({ state, players, size=24, max=4 }) {
   const show = players.slice(0, max);
   const extra = players.length - show.length;
+  const overlap = size >= DISC_OVERLAP_MIN;
+  const step = overlap ? -Math.round(size * DISC_OVERLAP) : 2;
   return (
-    <div style={{ display:"flex", alignItems:"center" }}>
-      {/* overlapped faces would cut each other's initials: a stack reads by
-          photo and color, its names beside it */}
-      {show.map((p,pi) => <Avatar key={p} state={state} p={p} size={size} lettered={false} style={{ marginLeft: pi>0 ? -size*0.32 : 0 }} />)}
-      {extra > 0 && <div style={{ width:size, height:size, borderRadius:"50%", marginLeft:-size*0.32,
+    <div className={`fd-avatar-stack${overlap ? " is-overlap" : ""}`} style={{ display:"flex", alignItems:"center" }}>
+      {show.map((p,pi) => <Avatar key={p} state={state} p={p} size={size} style={{ marginLeft: pi>0 ? step : 0 }} />)}
+      {extra > 0 && <div style={{ minWidth:size, height:size, padding:"0 4px", boxSizing:"border-box", borderRadius:99, marginLeft:step,
         background:"var(--paper2)", border:"1.5px solid var(--line)", display:"flex",
         alignItems:"center", justifyContent:"center", fontFamily:SANS, fontWeight:700,
         fontSize:Math.max(12, Math.round(size*0.4)), color:"var(--muted2)", flexShrink:0 }}>+{extra}</div>}
@@ -121,12 +125,11 @@ const chipMarks = (skin, cx = 16, edge = 12.4, ink = "var(--chip-mark)") => {
 /* The middle of an identity chip is the player's face: their saved photo,
    inset like a portrait medallion. Without one (or while it fails) it is
    `fallback` (the editor's typed number, your own) or the player's
-   initials, never their number: nobody remembers anyone else's. Initials
-   draw only where they reach 12px and sit on a plate that holds 4.5:1. An
-   explicit `stamp` always wins: a bet's value, a blind level, or "" for
-   blank. */
-const PHOTO_MIN = 24;
-const INITIALS_UNITS = 13;
+   initials, never their number: nobody remembers anyone else's, and never
+   a bare chip. Initials reach the surface's floor on a plate that holds
+   4.5:1; a small chip widens its plate over the skin to fit them
+   (discLetters.js chipLetters). An explicit `stamp` always wins: a bet's
+   value, a blind level, or "" for blank. */
 function ChipFace({ p, size=18, empty, stamp: stampOverride, fallback, skin: skinOverride,
   color: colorOverride, isLight: lightOverride, valueRing=false, flat=false }) {
   const uid = useId().replace(/:/g, "");
@@ -143,39 +146,41 @@ function ChipFace({ p, size=18, empty, stamp: stampOverride, fallback, skin: ski
   const skinInk = light ? "var(--ink0)" : "var(--chip-mark)";
   const inlay = light ? "rgba(42,33,25,0.08)" : "rgba(251,243,228,0.10)";
   const inlayLine = light ? "rgba(42,33,25,0.38)" : "rgba(251,243,228,0.36)";
-  const photo = stampOverride == null && size >= PHOTO_MIN && identity.photo && failed !== identity.photo
+  const photo = stampOverride == null && identity.photo && failed !== identity.photo
     ? identity.photo : null;
+  const photoR = chipPhotoRadius(size);
   const lettered = stampOverride == null && fallback == null;
-  const stamp = stampOverride != null ? stampOverride : fallback != null ? fallback
-    : size >= Math.max(floor, size * INITIALS_UNITS / 32) * 2.2 ? initials : "";
-  /* the initials' size in the chip's own units: 13/32 of the chip, raised to
-     the floor where the plate still holds them */
-  const initialsUnits = Math.max(INITIALS_UNITS, floor * 32 / size);
+  /* a person's chip letters their initials (sized by chipLetters); a value
+     or a typed number keeps the old plate */
+  const mark = lettered && p ? chipLetters(size, floor, initials) : null;
+  const stamp = stampOverride != null ? stampOverride : fallback != null ? fallback : mark?.text || "";
+  const initialsUnits = mark?.units || 13;
+  const plateR = mark?.text ? mark.r : 8.75;
   const plate = lettered && stamp ? letterPlate(color) : null;
   return (
     <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true"
       style={{ flexShrink:0, display:"block",
-        filter:size >= 32 && !flat ? "drop-shadow(0 2px 2px rgba(0,0,0,.22))" : "none" }}>
+        filter:size >= 32 && !flat ? "drop-shadow(0 2px 2px rgba(2,3,10,.32))" : "none" }}>
       <defs>
         <clipPath id={clipId}><circle cx="16" cy="16" r="14.7" /></clipPath>
-        {photo && <clipPath id={faceId}><circle cx="16" cy="16" r="9.3" /></clipPath>}
+        {photo && <clipPath id={faceId}><circle cx="16" cy="16" r={photoR} /></clipPath>}
       </defs>
       <circle cx="16" cy="16" r="14.7" fill={color} stroke="var(--ink0)" strokeWidth="1.45"/>
       <circle cx="16" cy="16" r="13.25" fill="none" stroke={inlayLine} strokeWidth=".65" opacity=".72" />
       <g clipPath={`url(#${clipId})`}>{chipMarks(skin, 16, 12.4, skinInk)}</g>
       {photo ? <>
-        <circle cx="16" cy="16" r="9.3" fill="var(--paper2)" />
-        <image href={photo} x="6.7" y="6.7" width="18.6" height="18.6" preserveAspectRatio="xMidYMid slice"
+        <circle cx="16" cy="16" r={photoR} fill="var(--paper2)" />
+        <image href={photo} x={16 - photoR} y={16 - photoR} width={photoR * 2} height={photoR * 2} preserveAspectRatio="xMidYMid slice"
           clipPath={`url(#${faceId})`} onError={() => setFailed(photo)} />
-        <circle cx="16" cy="16" r="9.3" fill="none" stroke={skinInk} strokeWidth=".9" />
-      </> : <circle cx="16" cy="16" r="8.75" fill={plate ? plate.fill : inlay} stroke={inlayLine} strokeWidth=".8" />}
+        <circle cx="16" cy="16" r={photoR} fill="none" stroke={skinInk} strokeWidth=".9" />
+      </> : <circle cx="16" cy="16" r={plateR} fill={plate ? plate.fill : inlay} stroke={inlayLine} strokeWidth=".8" />}
       <path d="M7.4 9.4A10.8 10.8 0 0 1 24.6 9.4" fill="none"
         stroke="rgba(255,255,255,.38)" strokeWidth=".75" strokeLinecap="round" opacity=".65" />
       <path d="M24.6 22.6A10.8 10.8 0 0 1 7.4 22.6" fill="none"
         stroke="rgba(23,16,9,.45)" strokeWidth=".7" strokeLinecap="round" opacity=".55" />
       {valueRing && <circle cx="16" cy="16" r="7.25" fill="none" strokeWidth=".8"
         stroke={light ? "var(--ink0)" : "var(--bone)"} opacity=".48"/>}
-      {!photo && size >= 20 && stamp != null && stamp !== "" && (
+      {!photo && (plate || size >= 20) && stamp != null && stamp !== "" && (
         <text x="16" y="16.8" textAnchor="middle" dominantBaseline="central"
           fontFamily={DISPLAY} fontWeight={plate ? 800 : 700} fontStyle="normal" fontSize={plate ? initialsUnits : valueRing && stamp >= 100 ? 8.7 : 11.7}
           letterSpacing={plate ? ".02em" : undefined}

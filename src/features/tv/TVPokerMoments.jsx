@@ -86,7 +86,7 @@ export function TVPokerMoments({ state, moments }) {
       <div className="tv-bust-card" aria-hidden="true">
         <span className="tv-bust-chip"><ChipFace p={bust.player} size={260} flat /></span>
         <div className="tv-bust-text">
-          <div className="fd-show is-marquee tv-bust-name">{disp(state, bust.player)}</div>
+          <div className="fd-show tv-bust-name">{disp(state, bust.player)}</div>
           <div className="tv-bust-place">{bust.placeText}</div>
         </div>
         <span className="tv-bust-photo"><Avatar state={state} p={bust.player} size={150} /></span>

@@ -1,6 +1,7 @@
 import React, { useMemo, useRef } from "react";
 import { ChipFace } from "../identity/PlayerIdentity.jsx";
 import { usePlayerIdentity } from "../identity/PlayerIdentityContext.js";
+import { floodColor } from "../identity/chipInk.js";
 import { useFreshChange } from "../../lib/motion.js";
 import { DesertBand } from "./DesertBand.jsx";
 import { constellationStars } from "./desertModel.js";
@@ -25,7 +26,7 @@ export function ClassPhoto({ state, events, standings, moment = null }) {
   const { title } = layout;
   return (
     <div className={`tv-class${playing ? " is-playing" : ""}${sole ? " is-lit" : ""}`}
-      style={{ ...(playing ? { "--tl":`${-Math.round(timeline.elapsed)}ms` } : {}), ...(sole ? { "--champ-color":champ.color } : {}) }}
+      style={{ ...(playing ? { "--tl":`${-Math.round(timeline.elapsed)}ms` } : {}), ...(sole ? { "--champ-color":floodColor(champ.color) } : {}) }}
       role="img" aria-label={`${title.brand} · ${title.edition}. ${layout.slots.map(slot => `${slot.rank} ${slot.name.text}`).join(", ")}`}>
       <DesertBand phase="fin" variant="full" width={CLASS_W} height={CLASS_H} stars={stars} starBox={layout.starBox} showStars
         className="tv-class-sky" />

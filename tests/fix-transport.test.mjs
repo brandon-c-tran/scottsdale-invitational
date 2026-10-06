@@ -1,5 +1,6 @@
 import test, { mock } from "node:test";
 import assert from "node:assert/strict";
+import { WRITE_ERRORS } from "../src/lib/writeErrors.js";
 
 /* Transport fixes: per-viewer projection, device binding, the separate wager
    ledger key, ack-before-broadcast, returning guests, build ids, liveness and
@@ -617,7 +618,7 @@ test("a dispatch fails at once when its socket closes and settles from the next 
   const result = await pending;
   assert.equal(result.ok, false);
   assert.equal(result.uncertain, true);
-  assert.match(result.error, /Connection lost/);
+  assert.match(result.error, /Connection dropped/);
   assert.equal(snap().connected, false);
   mock.timers.tick(500);
   const next = current();
@@ -633,11 +634,11 @@ test("a timed-out dispatch checks with a hello and reports what really happened"
   const firstSent = ws.sent.at(-1);
   mock.timers.tick(6000);
   const missing = await first;
-  assert.equal(missing.error, "No response, try again");
+  assert.equal(missing.error, WRITE_ERRORS.timeout);
   assert.equal(missing.uncertain, true);
   const probe = lastHello(ws);
   ws.receive(stateFrame({ hello:probe.payload.nonce, applied:[] }));
-  assert.deepEqual(await missing.settled, { ok:false, error:"Not saved, try again", actionId:firstSent.actionId });
+  assert.deepEqual(await missing.settled, { ok:false, error:WRITE_ERRORS.notApplied, actionId:firstSent.actionId });
 
   const second = client.dispatch("adjust", { player:ALEX, delta:100 });
   const secondSent = ws.sent.at(-1);

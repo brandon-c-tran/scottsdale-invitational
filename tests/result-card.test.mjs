@@ -242,7 +242,7 @@ test("the last card says only what happened: place, stack, wins, best bet, Quick
   assert.equal(card.facts[1].label, `Best bet on ${khoa}`);
   assert.equal(card.facts[2].label, "Quick Draw 1–1");
   assert.equal(card.dates, "OCT 30 TO NOV 1");
-  assert.equal(card.footer, `${ROSTER.length} PLAYERS · 3 EVENTS`);
+  assert.equal(card.footer, "3 EVENTS");
 
   const quiet = ui.lastCardModel(fresh(), adi, { events });
   assert.deepEqual(quiet.facts, [], "a quiet weekend is a short card, not a table of zeros");
@@ -362,4 +362,20 @@ test("App: results no longer rain confetti on every phone; receipts, own-chip sh
   assert.match(app, /<MomentsLayer /, "the phone takeovers are mounted");
   assert.match(app, /<LastCardLayer /);
   assert.match(app, /onLastCard=/);
+});
+
+test("the chart's high and final numbers never collide: a high just before the finish steps aside, else merges", () => {
+  const steps = pts => pts.map((value, i) => ({ pts:value, session:["fri", "sam", "sap", "san", "fin"][Math.min(4, Math.floor(i / 3))] }));
+  const box = (label, value) => {
+    const w = value.toLocaleString("en-US").length * 7;
+    const x0 = label.anchor === "end" ? label.x - w : label.anchor === "middle" ? label.x - w / 2 : label.x;
+    return [x0, label.y - 11, x0 + w, label.y + 2];
+  };
+  const apart = (a, b) => a[2] <= b[0] || b[2] <= a[0] || a[3] <= b[1] || b[3] <= a[1];
+  for (const seq of [[1000, 3000, 4800, 6000, 5000, 5825], [1000, 2000, 4000, 6000, 5825], [1000, 6000, 5900], [1000, 5900, 6000, 5975]])
+    for (const width of [300, 330]) {
+      const chart = ui.chartModel(steps(seq), { width, height:128 });
+      if (!chart.peak?.label) continue;
+      assert.ok(apart(box(chart.peak.label, chart.peak.pts), box(chart.last.label, chart.last.pts)), `${seq.join(",")} at ${width}`);
+    }
 });

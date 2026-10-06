@@ -12,11 +12,11 @@
      needs are for the commissioner and the owner. Name, jersey back name,
      number, chip, photo and walkout stay public: every card renders them.
    - Logistics stay public (the house, and Brandon's own times).
+   - Arrivals: while the door is open, a player still on the way carries
+     their arrival leg's time alone (`arrivals.eta`), for the TV's Landed.
    - Ballots (D6, shared/prompts.js projectPrompts): drafts are the
      commissioner's, answers never leave, a viewer gets their own back, and
      a question's totals appear only after the TV reveals it.
-   - Team MVP votes (shared/mvp.js projectMvp): a voter gets their own pick
-     back and everyone the turnout; the counts appear once it closes.
    - Where and When (shared/geo.js projectGeo): the commissioner's rounds and
      answers are theirs; everyone else gets only the photos shown so far, an
      answer once its round is revealed, their own guesses, and everyone's
@@ -33,7 +33,6 @@
    public view. */
 import * as core from "../shared/core.js";
 import { projectPrompts } from "../shared/prompts.js";
-import { projectMvp } from "../shared/mvp.js";
 import { projectGeo } from "../shared/geo.js";
 import { projectTrivia } from "../shared/trivia.js";
 import { publicMoments } from "./moments.js";
@@ -41,16 +40,18 @@ import { publicMoments } from "./moments.js";
 const { isActivePlayer } = core;
 
 /* contestMarkets is a leftover of the reverted July betting experiment; some
-   stored states still carry it, with device ids inside its chips. */
-const SERVER_ONLY_STATE_KEYS = Object.freeze(["wagerOps", "contestMarkets"]);
+   stored states still carry it, with device ids inside its chips. `mvp` is
+   team MVP's record (cut Oct 4), whose open votes are private. */
+const SERVER_ONLY_STATE_KEYS = Object.freeze(["wagerOps", "contestMarkets", "mvp"]);
 /* Last line of defence for anything the projection does not know about: no
    frame ever carries a device id or a replay key, at any depth. */
 const NEVER_SENT_FIELDS = new Set(["requestKey", "deviceId"]);
 const scrub = (key, value) => NEVER_SENT_FIELDS.has(key) ? undefined : value;
-const SERVER_ONLY_EVENT_OP_KEYS = Object.freeze(["contestCommands", "draftCommands", "nameCommands"]);
+/* `bounties` is the leader bounty's stamp (cut Oct 4): kept in storage, never read */
+const SERVER_ONLY_EVENT_OP_KEYS = Object.freeze(["contestCommands", "draftCommands", "nameCommands", "bounties"]);
 const PRIVATE_PROFILE_FIELDS = Object.freeze(["size", "jersey", "flightsBooked", "flightIn", "flightOut",
   "jerseyOk", "venmo", "drinking", "needs"]);
-const PER_VIEWER_KEYS = Object.freeze(["seeds", "profiles", "duels", "prompts", "moments", "mvp", "geo", "geoRounds", "trivia", "triviaRounds", "logistics"]);
+const PER_VIEWER_KEYS = Object.freeze(["seeds", "profiles", "duels", "prompts", "moments", "geo", "geoRounds", "trivia", "triviaRounds", "logistics"]);
 /* the host's own legs in the trip sheet are public as times only: his flight
    codes go to the commissioner and to him, never to another guest */
 const HOST = "Brandon";
@@ -125,7 +126,27 @@ function sharedProjection(state) {
   }
   if (Array.isArray(out.wagers)) out.wagers = out.wagers.map(publicWager);
   if (out.eventOps && typeof out.eventOps === "object") out.eventOps = publicEventOps(out.eventOps);
+  if (out.arrivals && typeof out.arrivals === "object") out.arrivals = publicArrivals(state);
   return out;
+}
+
+/* Arrivals: while the door is open, who still on the way has landed
+   (their Friday arrival leg's time has passed at the house), so the TV can
+   light Landed on their empty slot. A flag, never the time: flights stay
+   the commissioner's and the owner's. Worked out at each frame. */
+const FRIDAY = Date.parse(core.EDITION.arriveFrom);
+function publicArrivals(state, now = Date.now()) {
+  const arrivals = { ...state.arrivals };
+  delete arrivals.eta;
+  delete arrivals.landed;
+  if (arrivals.open !== true) return arrivals;
+  const landed = [];
+  for (const player of core.rosterOf(state)) {
+    const match = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(String(state.profiles?.[player]?.flightIn?.time || ""));
+    if (!arrivals.at?.[player] && match && now >= FRIDAY + (Number(match[1]) * 60 + Number(match[2])) * 60000) landed.push(player);
+  }
+  if (landed.length) arrivals.landed = landed;
+  return arrivals;
 }
 
 /* The small part that differs by viewer. `extras.moments` is the photo
@@ -140,8 +161,7 @@ function viewerProjection(state, viewer, extras = {}) {
     profiles:isGm ? profiles : Object.fromEntries(Object.entries(profiles)
       .map(([id, profile]) => [id, id === player ? profile : publicProfile(profile)])),
     duels:redactDuels(state?.duels || [], { isGm, player }),
-    prompts:projectPrompts(state?.prompts, { isGm, player }),
-    mvp:projectMvp(state?.mvp, { player }),
+    prompts:projectPrompts(state?.prompts, { isGm, player, roster:core.rosterOf(state) }),
     ...projectGeo(state?.geo, state?.geoRounds, { isGm, player }),
     ...projectTrivia(state?.trivia, state?.triviaRounds, { isGm, player }),
     ...(moments.length ? { moments } : {}),

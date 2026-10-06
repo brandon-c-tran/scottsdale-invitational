@@ -19,11 +19,11 @@ import { TVWalkout } from "../src/features/tv/TVWalkout.jsx";
 import { walkoutView } from "../src/features/moments/walkout.js";
 import { TVPokerMoments } from "../src/features/tv/TVPokerMoments.jsx";
 import { FaceOff } from "../src/features/tv/TVFaceOff.jsx";
-import { faceOffView } from "../src/features/tv/faceOff.js";
+import { faceOffStart, faceOffView } from "../src/features/tv/faceOff.js";
 import { publishFrame } from "../src/lib/frameGate.js";
 import { PlayerIdentityProvider, TextFloor } from "../src/features/identity/PlayerIdentityContext.js";
 import { Shell } from "../src/ui/Shell.jsx";
-import { TV_SCENARIOS, buildScenario, latestPostedAt } from "./fit/scenarios.js";
+import { FIT_ARRIVE_CODE, TV_SCENARIOS, buildScenario, latestPostedAt } from "./fit/scenarios.js";
 import { DRAW_INTRO_MS, buildEventReveal, drawStepDelay } from "../src/features/weekend/drawReveal.js";
 import "../src/ui/shell.css";
 
@@ -46,8 +46,11 @@ function pickNow(state) {
     if (res) { res.confirmedAt = turnAt - TV_RESULT_MOMENT_MS - 1000; res.ts = res.confirmedAt; }
     return turnAt + ENGRAVE.lead + at.engrave;
   }
-  if (at.turn !== undefined) return Math.ceil(Date.now() / ROTATION) * ROTATION + at.turn * TV_AMBIENT_TURN_MS
+  /* `clock`: the room's clock at this instant (an ISO time; arrivals read Friday's flights against it) */
+  const base = at.clock ? Date.parse(at.clock) : Date.now();
+  if (at.turn !== undefined) return Math.ceil(base / ROTATION) * ROTATION + at.turn * TV_AMBIENT_TURN_MS
     + (at.tick || 0) * TV_TICKER_PAGE_MS + 300;
+  if (at.clock) return Math.floor(base / TV_TICKER_PAGE_MS) * TV_TICKER_PAGE_MS + TV_TICKER_PAGE_MS / 2;
   if (at.result !== undefined) return latestPostedAt(state) + at.result;
   if (at.crown === "class") return (crownAnchor(state) || Date.now()) + CROWN_TIMING.total + 1000;
   /* the frozen trophy turn a cycle after the one that engraves the champion */
@@ -69,6 +72,19 @@ function pickNow(state) {
   }
   if (at.geoReveal !== undefined) return (Number(state.geo?.revealedAt) || Date.now()) + at.geoReveal;
   if (at.walkout !== undefined) return (Number(state.showControl?.audio?.walkout?.startedAt) || Date.now()) + at.walkout;
+  /* Quick Draw's showdown: `ms` after the newest armed duel's armedAt
+     ("armed"), its draw ("fire") or its result ("result", the second run) */
+  if (at.duel) {
+    const d = [...(state.duels || [])].filter(item => item.armedAt).sort((a, b) => b.armedAt - a.armedAt)[0];
+    const result = d ? Math.max(...Object.values(d.runs || {}).map(run => Number(run?.ts) || 0)) : 0;
+    const base = !d ? Date.now() : at.duel === "fire" ? d.fireAt : at.duel === "result" ? result : d.armedAt;
+    return base + (at.ms || 0);
+  }
+  /* `faceoff` ms after the live contest's face-off starts (the TV's teach windows) */
+  if (at.faceoff !== undefined) {
+    const ev = wagerBoardEvent(state, allEventsOf(state));
+    return ((ev && faceOffStart(state, ev)) || Date.now()) + at.faceoff;
+  }
   /* a steady view holds still mid-page, never caught in a cross-fade */
   return Math.floor(Date.now() / TV_TICKER_PAGE_MS) * TV_TICKER_PAGE_MS + TV_TICKER_PAGE_MS / 2;
 }
@@ -131,11 +147,10 @@ function MomentLayer({ state, events }) {
   /* record: the moment the real model reads from the state's walkout record */
   const view = moment.kind === "walkout" && moment.record ? walkoutView(state, events) : null;
   if (view) {
-    node = <TVWalkout state={state} moment={{ ...view, id:"fit-walkout", anchor, elapsed:moment.t }} />;
+    node = <TVWalkout state={state} events={events} moment={{ ...view, id:"fit-walkout", anchor, elapsed:moment.t }} />;
   } else if (moment.kind === "walkout") {
     const saved = state.profiles?.[moment.player]?.walkoutTrack;
-    node = <TVWalkout state={state} moment={{ id:"fit-walkout", player:moment.player, mvp:!!moment.mvp,
-      mvpEvent:moment.mvp ? "5v5 Full Court" : null, anchor, elapsed:moment.t,
+    node = <TVWalkout state={state} events={events} moment={{ id:"fit-walkout", player:moment.player, anchor, elapsed:moment.t,
       track:{ name:saved?.name || "Mr. Brightside", artists:"The Killers", imageUrl:null } }} />;
   } else if (moment.kind === "bust") {
     node = <TVPokerMoments state={state} moments={{ bust:{ id:"fit-bust", player:moment.player, placeText:"Out in 11th",
@@ -148,12 +163,14 @@ function MomentLayer({ state, events }) {
     const contest = ev ? resolveCurrentContest(state, ev) : null;
     const view = ev && contest ? faceOffView(state, ev, contest, events) : null;
     node = view ? <FaceOff state={state} events={events} ev={ev} contest={contest} moment={{ id:"fit-faceoff", anchor,
-      elapsed:moment.t }} view={{ ...view, record:view.record || "Tied 1-1" }} /> : null;
+      elapsed:moment.t }} view={{ ...view, record:view.record || "Tied 1-1" }} teach={!!contest.odds} /> : null;
   }
   return node ? createPortal(node, host) : null;
 }
 
+let mountedAt = 0;
 function Harness() {
+  if (!mountedAt && typeof performance !== "undefined") mountedAt = performance.now();
   const [state, setState] = useState(() => crownBeat ? crownStates(scenario.state).before : scenario.state);
   const [now] = useState(() => crownBeat || moment ? undefined : pickNow(scenario.state));
   useEffect(() => {
@@ -170,7 +187,16 @@ function Harness() {
       }, 400);
     } else {
       /* a scene whose rows enter on their own timers (the map's reveal) waits for them */
-      timer = setTimeout(() => { if (moment || at.engrave !== undefined) pause(); window.__FIT_READY__ = true; },
+      timer = setTimeout(() => {
+        /* `pause`: every animation is wound back to the chosen instant (the
+           page took a moment to load around it) and held there */
+        if (scenario.pause) {
+          const lag = performance.now() - mountedAt;
+          document.getAnimations().forEach(anim => { anim.pause(); anim.currentTime = Math.max(0, (Number(anim.currentTime) || 0) - lag); });
+        }
+        if (moment || at.engrave !== undefined || scenario.pause) pause();
+        window.__FIT_READY__ = true;
+      },
         moment ? 250 : scenario.wait || 900);
     }
     return () => clearTimeout(timer);
@@ -185,11 +211,14 @@ function Harness() {
       <TVMode standings={standings} state={state} events={events} onDeckEv={onDeckEv} allTied={allTied}
         champion={state.frozen ? standings[0] : null} coChamps={state.frozen ? standings.filter(r => r.rank === 1) : []}
         showControlEnabled={false} rankDeltas={{}} connection={{ ready:true, connected:true, status:"open", version:1 }}
-        EventSpotlight={() => null} ceremony={drawn || scenario.ceremony || null} onExit={() => {}} now={now} />
+        EventSpotlight={() => null} ceremony={drawn || scenario.ceremony || null} onExit={() => {}} now={now}
+        arriveCode={FIT_ARRIVE_CODE} />
       <TextFloor px={24}><MomentLayer state={state} events={events} /></TextFloor>
     </Shell></PlayerIdentityProvider>
   );
 }
 
+/* each view is its own TV: nothing taught yet (teach.js) */
+try { localStorage.removeItem("si-tv-taught-underdog"); localStorage.removeItem("si-tv-taught-bye"); } catch {}
 publishFrame({ version:1, fresh:false });
 createRoot(document.getElementById("tv")).render(<Harness />);

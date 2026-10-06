@@ -2,16 +2,13 @@
    Pure: no storage, no network, no clock beyond what it is given.
 
    The song is a player's saved track (profiles[p].walkoutTrack, shown to
-   guests as "Win song"). Four moments play one:
-   - a team MVP vote closing (shared/mvp.js): the MVP's song for
-     WIN_SONG_CLIP_MS, marked `mvp` so the TV names them MVP. A team that
-     votes gets no song when it wins; its song waits for the vote;
+   guests as "Win song"). Three moments play one:
    - a recorded contest winner (a bracket match, a heat, a stage final): the
-     winning side's song for the same clip;
+     winning side's song for WIN_SONG_CLIP_MS;
    - an event result posted without a contest (a free-for-all): first
      place's song;
    - the crown: the champion's whole song. A tie crowns nobody's.
-   A side of more than one (a duo, or a team between its bracket rounds)
+   A side of more than one (a duo or a team)
    plays one member's song, drawn from those who saved one. The draw is
    seeded by the win's key, so a retried write draws the same member. */
 
@@ -73,23 +70,7 @@ function resultWin(prev, next) {
   return null;
 }
 
-/* an MVP vote this write opened: that team's song waits for its close */
-const mvpOpened = (prev, next, evId) => {
-  const record = next?.mvp?.[evId];
-  return !!record && !record.closedAt && prev?.mvp?.[evId]?.id !== record.id;
-};
-
-/* an MVP vote this write closed */
-function mvpClosed(prev, next) {
-  for (const [evId, record] of Object.entries(next?.mvp || {})) {
-    const was = prev?.mvp?.[evId];
-    if (record?.closedAt && record.winner && !(was?.id === record.id && was.closedAt))
-      return { evId, record };
-  }
-  return null;
-}
-
-/* { player, track, clipMs, key, mvp? } or null. clipMs null plays the whole
+/* { player, track, clipMs, key } or null. clipMs null plays the whole
    song. */
 export function winSongFor(prev, next) {
   if (!next || prev === next) return null;
@@ -99,14 +80,8 @@ export function winSongFor(prev, next) {
     return player ? { player, track:songOf(next, player), clipMs:null, key:`champion:${player}` } : null;
   }
   if (next.frozen) return null;
-  const voted = mvpClosed(prev, next);
-  if (voted) {
-    const { record } = voted;
-    return songOf(next, record.winner) ? { player:record.winner, track:songOf(next, record.winner),
-      clipMs:WIN_SONG_CLIP_MS, key:`mvp:${record.id}`, mvp:true } : null;
-  }
   const win = contestWin(prev, next) || resultWin(prev, next);
-  if (!win || mvpOpened(prev, next, win.evId)) return null;
+  if (!win) return null;
   const player = singerFor(next, win.players, win.key);
   return player ? { player, track:songOf(next, player), clipMs:WIN_SONG_CLIP_MS, key:win.key } : null;
 }

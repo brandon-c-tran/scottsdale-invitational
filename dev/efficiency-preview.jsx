@@ -28,6 +28,14 @@ export const scenarios = [
   { id:"ffa", label:"Long Putt · announcement", evId:"putt", surface:"intro" },
   { id:"draw", label:"8-Ball · draw reveal", evId:"8ball", surface:"reveal" },
   { id:"results", label:"8-Ball · result entry", evId:"8ball", surface:"result" },
+  /* the place picker: a free-for-all of twelve with one away, a team game
+     without a bracket, and a posted result reopened for a correction */
+  { id:"result-ffa", label:"Long Putt · result entry", evId:"putt", surface:"result", photos:true, away:true },
+  { id:"result-rage", label:"Rage Cage · result entry", evId:"ragecage", surface:"result", photos:true },
+  { id:"result-team", label:"Relay · result entry, four teams", evId:"relay", surface:"result", photos:true,
+    custom:{ id:"relay", n:190, session:"sap", value:1200, name:"Relay", kind:"team", game:"relay", teamCfg:{ teams:4, size:3 } } },
+  { id:"result-two", label:"5v5 · result entry", evId:"bball5", surface:"result", photos:true },
+  { id:"result-correction", label:"Long Putt · correction", evId:"putt", surface:"result", photos:true, away:true, posted:true },
   { id:"poker", label:"Poker · counts", evId:"poker", surface:"poker" },
   { id:"counter", label:"Poker · chip counter", evId:"poker", surface:"counter" },
   /* every guest bets: how the board holds a crowd */
@@ -60,10 +68,14 @@ const reference = (state, ev) => {
 const sampleActor = { isGm:true, player:ROSTER.at(-1), deviceId:"efficiency-preview" };
 export function createEfficiencyFixture(id) {
   const scenario = scenarios.find(item => item.id === id) || scenarios[0];
-  const state = structuredClone(EMPTY_STATE), ev = BUILTIN_EVENTS.find(event => event.id === scenario.evId);
+  const state = structuredClone(EMPTY_STATE);
+  if (scenario.custom) state.customEvents = [...(state.customEvents || []), structuredClone(scenario.custom)];
+  const ev = allEventsOf(state).find(event => event.id === scenario.evId);
   state.profiles = Object.fromEntries(ROSTER.map((player, index) => [player, {
     display:player, num:index + 1, color:CHIP_COLORS[index * 2 % CHIP_COLORS.length].hex,
     skin:["ticks", "crown", "wave"][index % 3],
+    /* stand-in photos (the fit audit's server draws them); two keep their initials */
+    ...(scenario.photos && index % 6 !== 4 ? { photoV:1 } : {}),
   }]));
   const seed = (type, payload = {}, actor = sampleActor) => {
     /* the first game-opening write carries the weekend-start confirm */
@@ -86,6 +98,13 @@ export function createEfficiencyFixture(id) {
     for (const player of ROSTER.slice(0, 5)) seed("pokerCount", { player, count:state.poker.startingStacks[player] });
     seed("pokerBust", { player:ROSTER[10] });
     seed("pokerBust", { player:ROSTER[11] });
+  } else if (scenario.id.startsWith("result-")) {
+    if (scenario.away) seed("setAway", { player:ROSTER[12], away:true });
+    if (ev.teamCfg) seed("announceAndDraw", { evId:ev.id, players:defaultQaParticipants(ev).filter(p => !state.away?.[p]) });
+    else seed("setOnDeck", { id:ev.id });
+    seed("lockAndStart", { evId:ev.id, ...reference(state, ev) });
+    seed("beginResultEntry", { evId:ev.id });
+    if (scenario.posted) seed("saveResult", { evId:ev.id, slots:[[ROSTER[3]], [ROSTER[7]], [ROSTER[1], ROSTER[9]]], noScene:true });
   } else {
     if (ev.teamCfg) seed("announceAndDraw", { evId:ev.id, players:defaultQaParticipants(ev),
       roles:ROSTER.filter(player => !defaultQaParticipants(ev).includes(player)).map(player => ({ player, role:"photographer" })) });

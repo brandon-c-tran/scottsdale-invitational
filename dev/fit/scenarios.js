@@ -9,7 +9,7 @@
    touches a clock beyond what the reducers stamp. Shared by the browser
    harnesses (dev/fit-tv.jsx, dev/fit-phone.jsx) and tests/fit-audit.test.mjs. */
 import {
-  EMPTY_STATE, ROSTER, RESET_PROGRESS_CONFIRMATION, allEventsOf, draftTurn, presentPlayers, resolveCurrentContest,
+  EMPTY_STATE, ROSTER, RESET_PROGRESS_CONFIRMATION, allEventsOf, computeStandings, draftTurn, presentPlayers, resolveCurrentContest,
   resolveWager,
 } from "../../shared/core.js";
 import { applyAction as apply } from "../../worker/actions.js";
@@ -106,7 +106,9 @@ function bracketOf(keep, { steps = 0, bets = true } = {}) {
    entry or the match's winner tap, which posts the result in the same
    write. The TV's result moment plays from that write. */
 function posted(target, evId) {
-  const state = fresh(target);
+  return postedOn(fresh(target), evId);
+}
+function postedOn(state, evId) {
   const ev = eventOf(state, evId);
   const contest = resolveCurrentContest(state, ev);
   const ref = { evId, contestId:contest.id, contestRevision:contest.revision };
@@ -128,6 +130,27 @@ function posted(target, evId) {
   const last = Math.max(0, ...Object.values(state.eventOps?.[evId] || {}).filter(v => typeof v === "number" && v > 1e12));
   if (res && last >= Number(res.ts)) res.ts = res.confirmedAt = last + 1;
   return state;
+}
+
+
+/* a late-weekend spread on the towers: the board ruled to these balances,
+   highest first in roster order (the commissioner screenshot's 9,200 board,
+   and a Saturday night with a 15,000 leader and a player below zero) */
+export const SPREAD_9200 = Object.freeze([9200, 8500, 7400, 6000, 5700, 5500, 3600, 3300, 3200, 2600, 2500, 1200, 300]);
+export const SPREAD_15000 = Object.freeze([15000, 12800, 11000, 9600, 8200, 7000, 5400, 4800, 3500, 2600, 1500, 300, -300]);
+export const SPREAD_2000 = Object.freeze([2000, 1800, 1700, 1500, 1400, 1200, 1100, 1000, 900, 800, 600, 300, 0]);
+function spread(state, values) {
+  const now = Object.fromEntries(computeStandings(state).map(row => [row.player, row.pts]));
+  ROSTER.forEach((player, i) => {
+    const delta = (values[i] ?? 1000) - (now[player] ?? 1000);
+    if (delta) act(state, "adjust", { player, delta, reason:"fit" });
+  });
+  return state;
+}
+function spreadPosted(target, evId, values) {
+  const state = fresh(target);
+  spread(state, values);
+  return postedOn(state, evId);
 }
 
 /* the result as the newest write, as it is in the room (QA's jumps stamp ahead) */
@@ -278,16 +301,19 @@ export function triviaStage(stage = "question") {
   act(state, "lockAndStart", { evId:"trivia", contestId:contest.id, contestRevision:contest.revision });
   act(state, "triviaStart", { evId:"trivia" });
   const stop = TRIVIA_STOPS[stage] ?? 0;
-  const guestTeam = () => state.trivia.teams.find(team => team.players.includes(FIT_GUEST));
+  /* everyone answers alone: most of the room right, the rest spread over
+     the other answers, each lock a beat after the last (so speed differs) */
   const answer = (q, last) => {
-    state.trivia.teams.forEach((team, i) => {
-      const teammate = team === guestTeam() ? team.players.find(p => p !== FIT_GUEST) : team.players[0];
-      const right = i % 2 === 0;
-      const payload = q.format === "number" ? { value:Math.round(q.answer * (1 + (i - 1.5) * 0.02)) }
-        : { choice:right ? q.answer : (q.answer + i) % 4 };
-      /* the live question: one team still thinking, the guest's picked by a teammate and open */
-      if (last && i === 3 && team !== guestTeam()) return;
-      act(state, "triviaPick", { questionId:q.id, ...payload, lock:!last || team !== guestTeam() }, playerCtx(teammate));
+    const time = state.trivia.times[q.id];
+    state.trivia.players.forEach((player, i) => {
+      const right = i % 3 !== 1;
+      const payload = q.format === "number" ? { value:Math.round(q.answer * (1 + (i - 6) * 0.017)) }
+        : { choice:right ? q.answer : (q.answer + 1 + (i % 3)) % 4 };
+      /* the live question: a few still thinking, the guest's own pick open */
+      if (last && i % 4 === 3 && player !== FIT_GUEST) return;
+      const lock = !last || player !== FIT_GUEST;
+      act(state, "triviaPick", { questionId:q.id, ...payload, lock }, playerCtx(player));
+      if (lock) state.trivia.picks[q.id][player].lockedAt = time.startsAt + 900 + i * 1100;
     });
   };
   for (let i = 0; i <= stop; i++) {
@@ -327,9 +353,8 @@ function awards() {
   return state;
 }
 
-/* v3.1 comebacks: Beer Die's first match opened with a leader on one side
-   and that side 1,000+ ahead, so the board carries Bounty +200 and an
-   underdog paying 2:1. The draw is real; the market is taken back, the
+/* v3.1 comebacks: Beer Die's first match opened with one side 1,000+
+   ahead, so the board carries an underdog paying 2:1. The draw is real; the market is taken back, the
    leader is ruled up, and betting reopens so the odds are fixed then. */
 export function comebackBoard({ bets = true } = {}) {
   const state = fresh("event:putt:done");
@@ -346,8 +371,91 @@ export function comebackBoard({ bets = true } = {}) {
     playerCtx(player))));
   return state;
 }
+/* Long Putt's free-for-all with the room betting (Brandon's staging board,
+   Oct 4): all thirteen back someone, a spot with six backers (one a tower
+   past ten chips), others with four, two and one, and the rest empty, so a
+   spot's total, its stacks, their amounts and names all compete for room */
+export function ffaCrowd() {
+  const state = withoutBets(fresh("event:putt:open"));
+  const ev = eventOf(state, "putt");
+  ["Brandon", "Evan", "Khoa"].forEach(player => act(state, "adjust", { player, delta:3000, reason:"fit" }));
+  const contest = resolveCurrentContest(state, ev);
+  const sideOf = player => contest.sides.find(side => side.players.includes(player)) || contest.sides[0];
+  /* [bettor, the player backed, stake] */
+  const plan = [
+    ["Brandon", "Richard", 1500], ["Adi", "Richard", 300], ["Ben", "Richard", 200], ["Chinh", "Richard", 500],
+    ["Henry", "Richard", 100], ["Allan", "Richard", 300],
+    ["Evan", "Khoa", 2000], ["Jeremy", "Khoa", 300], ["Sahil", "Khoa", 400], ["Chiang", "Khoa", 100],
+    ["Khoa", "Henry", 1200], ["Richard", "Henry", 300],
+    ["Eyob", "Jeremy", 300],
+  ];
+  for (const [player, backed, stake] of plan) {
+    if (!ROSTER.includes(player)) continue;
+    const side = sideOf(backed);
+    const wager = amount => ({ wager:{ kind:"outright", eventId:ev.id, evName:ev.name, contestId:contest.id,
+      contestRevision:contest.revision, pick:side.key, pickPlayers:[...side.players], stake:amount } });
+    try { act(state, "placeWager", wager(stake), playerCtx(player)); }
+    catch { act(state, "placeWager", wager(100), playerCtx(player)); }
+  }
+  return state;
+}
 /* the commissioner's pill on Beer Die's draw beat: the crew check opens */
 const crewBeat = () => fresh("event:putt:done");
+
+/* Arrivals (Oct 4): the door open with `n` of the roster in, in roster
+   order (the guest among them, or held back on the way), and arrival
+   flights for five so the TV's Landed has something to light (four down
+   by 3 PM Friday, one after). `latestAgo`: the last one in landed that
+   many ms ago (a TV still holding its drop). */
+export const ARRIVE_FLIGHTS = Object.freeze({ Ben:"09:55", Richard:"11:05", Allan:"12:40", Henry:"14:15", Jeremy:"18:30" });
+/* the TV's check-in code in every view (the fit TV draws it; the fit
+   phone's reducer takes it as the Durable Object's current code) */
+export const FIT_ARRIVE_CODE = "FDTVK7QX";
+/* 3:10 PM Friday at the house */
+export const ARRIVE_CLOCK = "2026-10-30T22:10:00Z";
+export function withArrivals(state, n, { guest = "road", latestAgo = null } = {}) {
+  act(state, "setArrivalsOpen", { open:true });
+  const order = guest === "here" ? [FIT_GUEST, ...ROSTER.filter(p => p !== FIT_GUEST)] : ROSTER.filter(p => p !== FIT_GUEST);
+  order.slice(0, n).forEach(player => act(state, "setArrived", { player, arrived:true }));
+  for (const [player, time] of Object.entries(ARRIVE_FLIGHTS))
+    state.profiles[player] = { ...state.profiles[player], flightsBooked:true, flightIn:{ air:"AA", num:"2214", time } };
+  /* the arrivals a minute apart, the last one `latestAgo` ms ago */
+  if (latestAgo !== null) order.slice(0, n).reverse()
+    .forEach((player, i) => { state.arrivals.at[player] = Date.now() - latestAgo - i * 60000; });
+  return state;
+}
+/* the crew check with four still on the way */
+const crewRoad = () => withArrivals(fresh("event:putt:done"), 9);
+/* a match being played: the pill's two winner targets (Beer Die's play-in) */
+function winnerBeat() {
+  const state = fresh("event:putt:done");
+  act(state, "announceAndDraw", { evId:"die" });
+  const ev = eventOf(state, "die");
+  const contest = resolveCurrentContest(state, ev);
+  act(state, "lockAndStart", { evId:"die", contestId:contest.id, contestRevision:contest.revision });
+  return state;
+}
+/* Beerio Kart's heats on the commissioner's phone: a heat being played
+   (the pill's field of racers and the event sheet's tiles), and the
+   three-way stage final whose finish order is tapped into the podium */
+const lockCurrent = (state, evId) => {
+  const contest = resolveCurrentContest(state, eventOf(state, evId));
+  if (contest?.phase === "betting-open") act(state, "lockAndStart", { evId, contestId:contest.id, contestRevision:contest.revision });
+  return resolveCurrentContest(state, eventOf(state, evId));
+};
+function heatLive() {
+  const state = fresh("event:beerio:open");
+  lockCurrent(state, "beerio");
+  return state;
+}
+function heatFinal() {
+  const state = fresh("event:beerio:open");
+  let contest;
+  while ((contest = lockCurrent(state, "beerio")) && contest.kind === "heat")
+    act(state, "recordContestWinner", { evId:"beerio", contestId:contest.id, contestRevision:contest.revision,
+      winner:contest.sides[contest.sides.length - 1].key });
+  return state;
+}
 /* a bracket of nine seeded on a moved board: the byes sit at the bottom */
 function byeBracket() {
   const state = fresh("event:putt:done");
@@ -361,14 +469,21 @@ const FIT_COVER = `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://w
 <rect width="64" height="64" fill="#1d2b5e"/><circle cx="44" cy="22" r="12" fill="#f2b33d"/>
 <path d="M0 46 18 30l12 10 10-8 24 18v14H0z" fill="#c2453a"/><path d="M0 54 24 42l16 8 24-6v20H0z" fill="#0d1430"/></svg>`)}`;
 
+/* a guest's saved win song, as Spotify names the release */
+function withSong(state, player) {
+  state.profiles[player] = { ...state.profiles[player], walkoutTrack:{ trackId:"0CAAbxxK9CLmzWyo5ZjUuR",
+    uri:"spotify:track:0CAAbxxK9CLmzWyo5ZjUuR", name:"Hit 'Em Up - Single Version", artists:["2Pac", "Outlawz"],
+    imageUrl:null, durationMs:312000 } };
+  return state;
+}
 /* a win song on the speaker (the Worker writes this record), started just
    after the win it plays for */
-function walkoutRecord(state, player, { mvp = false, cover = false } = {}) {
+function walkoutRecord(state, player, { cover = false } = {}) {
   const at = Date.now() + 400;
   state.profiles[player] = { ...state.profiles[player], walkoutTrack:{ trackId:"3n3Ppam7vgaVa1iaRUc9Lp", uri:"spotify:track:3n3Ppam7vgaVa1iaRUc9Lp",
     name:"Mr. Brightside", artists:["The Killers"], imageUrl:cover ? FIT_COVER : null, durationMs:222000 } };
   state.showControl = { ...(state.showControl || {}), audio:{ ...(state.showControl?.audio || {}),
-    walkout:{ player, trackId:"3n3Ppam7vgaVa1iaRUc9Lp", startedAt:at, until:at + 30000, auto:true, mvp } } };
+    walkout:{ player, trackId:"3n3Ppam7vgaVa1iaRUc9Lp", startedAt:at, until:at + 30000, auto:true } } };
   return state;
 }
 
@@ -422,6 +537,34 @@ export const FIT_SPOTIFY = Object.freeze({
   setup:{ status:{ ok:true, configured:false, connected:false, redirectUri:CALLBACK } },
 });
 
+/* Quick Draw's live showdown (Oct 4): Henry Nguyen (no photo, a long
+   name) challenges the guest for 300, through the real reducers. The
+   session's own filler duels are cleared so the pair is free. `stage`:
+   offer, stance (accepted), waiting (the guest ready), armed (both ready;
+   the draw is held ten minutes out so the shot lands before it), won or
+   foul (both drew; the runs restamped after the draw, as the phones send
+   them, so the TV plays its result). */
+export const DUEL_FOE = "Henry";
+export function duelState(stage = "stance", { base = "session:fri", from = DUEL_FOE, to = FIT_GUEST } = {}) {
+  const state = fresh(base);
+  state.duels = [];
+  if (stage === "none") return state;
+  const id = act(state, "sendDuel", { to, game:"quickdraw", stake:300 }, playerCtx(from)).extra.id;
+  const d = state.duels.find(item => item.id === id);
+  if (stage === "offer") return state;
+  act(state, "acceptDuel", { id }, playerCtx(to));
+  if (stage === "stance") return state;
+  act(state, "duelReady", { id }, playerCtx(to));
+  if (stage === "waiting") return state;
+  act(state, "duelReady", { id }, playerCtx(from));
+  if (stage === "armed") { d.fireAt = d.armedAt + 10 * 60000; return state; }
+  act(state, "playDuel", stage === "foul" ? { id, foul:true } : { id, ms:286 }, playerCtx(from));
+  act(state, "playDuel", { id, ms:231 }, playerCtx(to));
+  d.runs[from].ts = d.fireAt + 520;
+  d.runs[to].ts = d.fireAt + 610;
+  return state;
+}
+
 /* ── the TV ──
    at: how `now` is chosen. { turn } picks the ambient card (and ticker
    page), { result:ms } is that long after the latest result posted,
@@ -433,6 +576,15 @@ const crownBeats = [
   ["name", 16800], ["count", 18400], ["end", 23000],
 ];
 export const TV_SCENARIOS = Object.freeze([
+  /* Quick Draw's showdown in a gap: the lamps lighting, the draw's flash,
+     the result (reels, WON, the antes taken), a foul; and with an event
+     live, no takeover (the result leads the ticker instead) */
+  { id:"tv-showdown-lamps", build:() => duelState("armed"), at:{ duel:"armed", ms:1500 }, pause:true, wait:300 },
+  { id:"tv-showdown-steady", build:() => duelState("armed"), at:{ duel:"armed", ms:2600 }, pause:true, wait:300 },
+  { id:"tv-showdown-draw", build:() => duelState("armed"), at:{ duel:"fire", ms:150 }, pause:true, wait:300 },
+  { id:"tv-showdown-result", build:() => duelState("won"), at:{ duel:"result", ms:3200 }, pause:true, wait:300 },
+  { id:"tv-showdown-foul", build:() => duelState("foul"), at:{ duel:"result", ms:3200 }, pause:true, wait:300 },
+  { id:"tv-showdown-live", build:() => duelState("won", { base:"event:putt:open" }), at:{ duel:"result", ms:3200 } },
   { id:"tv-locker", build:() => fresh("locker") },
   { id:"tv-ambient-board", build:() => fresh("session:fri"), at:{ turn:0 } },
   { id:"tv-ambient-next", build:() => fresh("session:fri"), at:{ turn:1 } },
@@ -443,7 +595,7 @@ export const TV_SCENARIOS = Object.freeze([
      (engrave: ms into the cut when it mounts; the still is 900ms later) */
   { id:"tv-trophy-early", build:() => fresh("event:die:done"), at:{ turn:3 } },
   { id:"tv-trophy-mid", build:() => fresh("event:volley:done"), at:{ turn:3 } },
-  { id:"tv-trophy-names", build:() => ["die", "bball5", "pickleball", "volley", "trivia"]
+  { id:"tv-trophy-names", build:() => ["die", "bball5", "pickleball", "volley"]
     .reduce((state, evId) => longNames(state, evId), fresh("event:trivia:done")), at:{ turn:3 } },
   { id:"tv-trophy-crowned", build:() => fresh("crowned"), at:{ crown:"trophy" } },
   { id:"tv-trophy-engrave", build:() => fresh("event:volley:done"), at:{ turn:3, engrave:-400 } },
@@ -452,6 +604,7 @@ export const TV_SCENARIOS = Object.freeze([
   { id:"tv-intro", build:() => fresh("locker"), ceremony:{ intro:"putt" } },
   { id:"tv-intro-team", build:() => fresh("session:fri"), ceremony:{ intro:"bball5" } },
   { id:"tv-ffa-open", build:() => fresh("event:putt:open") },
+  { id:"tv-ffa-crowd", build:ffaCrowd },
   { id:"tv-pairs-open", build:() => fresh("event:die:open") },
   { id:"tv-pairs-bracket-mid", build:() => fresh("event:pickleball:mid") },
   { id:"tv-team-open", build:() => fresh("event:bball5:open") },
@@ -478,7 +631,7 @@ export const TV_SCENARIOS = Object.freeze([
   /* the podium for each shape: a pair's bracket (a split 3rd), four teams
      of three, ties, and the rail of the winner's backers landing */
   { id:"tv-result-pairs-podium", build:() => newest(bracketWonBy("die", "Henry"), "die"), at:{ result:3600 } },
-  { id:"tv-result-team3-podium", build:() => posted("event:trivia:open", "trivia"), at:{ result:3600 } },
+  { id:"tv-result-trivia-podium", build:() => posted("event:trivia:open", "trivia"), at:{ result:3600 } },
   { id:"tv-result-tie-podium", build:() => postedTie("putt"), at:{ result:3600 } },
   { id:"tv-crowned-rest", build:() => fresh("crowned") },
   { id:"tv-crowned-class", build:() => fresh("crowned"), at:{ crown:"class" } },
@@ -496,8 +649,7 @@ export const TV_SCENARIOS = Object.freeze([
   { id:"tv-trivia-number-reveal", build:() => triviaStage("number-reveal"), at:{ trivia:4000 }, wait:3000 },
   { id:"tv-trivia-board", build:() => triviaStage("board"), at:{ trivia:3000 }, wait:2500 },
   { id:"tv-trivia-final", build:() => triviaStage("final"), at:{ trivia:3000 }, wait:3000 },
-  { id:"tv-walkout", build:() => fresh("event:putt:done"), moment:{ kind:"walkout", t:3000, player:"Richard" } },
-  { id:"tv-walkout-mvp", build:() => fresh("event:putt:done"), moment:{ kind:"walkout", t:3000, player:"Jeremy", mvp:true } },
+  { id:"tv-walkout", build:() => fresh("event:putt:done"), moment:{ kind:"walkout", t:3000, player:"Brandon" } },
   /* a team's win walks out as the team: the moment is read from the record
      and the win it follows (walkoutView), a pair with no cover, seven with one */
   { id:"tv-walkout-pair", build:() => walkoutRecord(bracketWonBy("die", "Henry"), "Henry"), moment:{ kind:"walkout", t:3000, record:true } },
@@ -518,28 +670,57 @@ export const TV_SCENARIOS = Object.freeze([
   { id:"tv-draw-split-mid", build:() => fresh("event:bball5:open"), draw:{ ev:"bball5", step:1 } },
   { id:"tv-draw-split", build:() => fresh("event:bball5:open"), draw:{ ev:"bball5" } },
   { id:"tv-draw-semis", build:() => fresh("event:volley:open"), draw:{ ev:"volley" } },
-  { id:"tv-draw-teams4", build:() => fresh("event:trivia:open"), draw:{ ev:"trivia" } },
   { id:"tv-draw-heats-mid", build:() => fresh("event:beerio:open"), draw:{ ev:"beerio", step:2 } },
   { id:"tv-draw-heats", build:() => fresh("event:beerio:open"), draw:{ ev:"beerio" } },
-  /* v3.1 comebacks: the bounty and the underdog's 2:1 on the board and the face-off */
+  /* v3.1 comebacks: the underdog's 2:1 on the board and the face-off */
   { id:"tv-comeback-open", build:() => comebackBoard() },
   { id:"tv-comeback-faceoff", build:() => comebackBoard({ bets:false }), moment:{ kind:"faceoff", t:5000 } },
   { id:"tv-bracket9-byes", build:byeBracket },
+  /* H10, taught once per TV: two seconds after the face-off lifts (7.1 s),
+     the underdog's lamp still breathing on the board, and the bye key in
+     the final's column */
+  { id:"tv-comeback-teach", build:() => comebackBoard(), at:{ faceoff:9100 } },
+  { id:"tv-bracket9-byes-teach", build:byeBracket, at:{ faceoff:9100 } },
+  /* a crowded felt on the TV: every bettor's name (descenders too) and the
+     "+N" fold stack stand inside the felt, never sliced at its foot */
+  { id:"tv-felt-6-3", build:() => matchupBets(6, 3) },
+  { id:"tv-felt-9-4", build:() => matchupBets(9, 4) },
+  { id:"tv-felt-4-8", build:() => matchupBets(4, 8) },
   { id:"tv-bust", build:() => fresh("poker:live"), moment:{ kind:"bust", t:1500, player:"Richard" } },
   { id:"tv-blinds", build:() => fresh("poker:live"), moment:{ kind:"blinds", t:1500 } },
   { id:"tv-nowplaying", build:() => walkoutRecord(fresh("event:putt:open"), "Richard"), at:{ walkout:12000 } },
-  { id:"tv-nowplaying-mvp", build:() => walkoutRecord(fresh("event:pickleball:open"), "Jeremy", { mvp:true }), at:{ walkout:12000 } },
   { id:"tv-nowplaying-pair", build:() => walkoutRecord(bracketWonBy("die", "Henry"), "Henry"), at:{ walkout:12000 } },
   { id:"tv-nowplaying-team7", build:() => teamWinSong(fresh("event:bball5:done"), "bball5"), at:{ walkout:12000 } },
   /* team names at their longest on every board that letters them */
   { id:"tv-names-team", build:() => longNames(fresh("event:bball5:open"), "bball5") },
   { id:"tv-names-team4", build:() => longNames(fresh("event:volley:open"), "volley") },
-  { id:"tv-names-trivia", build:() => longNames(fresh("event:trivia:open"), "trivia") },
   { id:"tv-names-pairs", build:() => longNames(fresh("event:pickleball:mid"), "pickleball") },
   { id:"tv-names-podium", build:() => longNames(posted("event:bball5:open", "bball5"), "bball5"), at:{ result:3600 } },
   { id:"tv-names-faceoff", build:() => longNames(fresh("event:volley:open"), "volley"), moment:{ kind:"faceoff", t:5000 } },
   { id:"tv-names-nowplaying", build:() => teamWinSong(longNames(fresh("event:bball5:done"), "bball5"), "bball5"),
     at:{ walkout:12000 } },
+  /* the towers late in the weekend: every name and count in its own slot */
+  { id:"tv-towers-2000-board", build:() => spread(fresh("event:pong:done"), SPREAD_2000), at:{ turn:0 } },
+  { id:"tv-towers-2000-result", build:() => spreadPosted("event:putt:open", "putt", SPREAD_2000), at:{ result:9500 } },
+  { id:"tv-towers-2000-horizon", build:() => spread(fresh("event:ragecage:open"), SPREAD_2000) },
+  { id:"tv-towers-9200-board", build:() => spread(fresh("event:pong:done"), SPREAD_9200), at:{ turn:0 } },
+  { id:"tv-towers-9200-result", build:() => spreadPosted("event:putt:open", "putt", SPREAD_9200), at:{ result:9500 } },
+  { id:"tv-towers-9200-horizon", build:() => spread(fresh("event:ragecage:open"), SPREAD_9200) },
+  { id:"tv-towers-15000-board", build:() => spread(fresh("event:pong:done"), SPREAD_15000), at:{ turn:0 } },
+  { id:"tv-towers-15000-result", build:() => spreadPosted("event:putt:open", "putt", SPREAD_15000), at:{ result:9500 } },
+  { id:"tv-towers-15000-horizon", build:() => spread(fresh("event:ragecage:open"), SPREAD_15000) },
+  /* arrivals: the lobby before the first game is announced (0, 4, 9 and
+     12 in, Landed lit on the flights down by 3 PM, and all 13 with the
+     mark in the code's place), then the corner plate while anyone is still
+     on the way: beside a live board, a big field and the towers' turn */
+  { id:"tv-lobby-0", build:() => withArrivals(fresh("locker"), 0), at:{ clock:ARRIVE_CLOCK, turn:0 } },
+  { id:"tv-lobby-4", build:() => withArrivals(fresh("locker"), 4), at:{ clock:ARRIVE_CLOCK, turn:0 } },
+  { id:"tv-lobby-9", build:() => withArrivals(fresh("locker"), 9), at:{ clock:ARRIVE_CLOCK, turn:0 } },
+  { id:"tv-lobby-12", build:() => withArrivals(fresh("locker"), 12), at:{ clock:ARRIVE_CLOCK, turn:0 } },
+  { id:"tv-lobby-13", build:() => withArrivals(fresh("locker"), 13, { guest:"here", latestAgo:5000 }), settle:false },
+  { id:"tv-arrive-corner", build:() => withArrivals(fresh("event:putt:open"), 9), at:{ clock:ARRIVE_CLOCK } },
+  { id:"tv-arrive-corner-4", build:() => withArrivals(fresh("event:die:open"), 4), at:{ clock:ARRIVE_CLOCK } },
+  { id:"tv-arrive-corner-board", build:() => withArrivals(fresh("session:fri"), 9), at:{ clock:ARRIVE_CLOCK, turn:0 } },
 ]);
 
 /* ── the phone ──
@@ -547,8 +728,26 @@ export const TV_SCENARIOS = Object.freeze([
    adds the views that live in sheets. viewer: the guest or the commissioner. */
 export const PHONE_TABS = Object.freeze(["home", "events", "bets", "weekend"]);
 export const PHONE_SCENARIOS = Object.freeze([
+  /* Quick Draw: the challenge on your phone, the stance (Ready, then
+     waiting), armed, the flash, the result won and lost, and the player
+     card's Duel opening the rack */
+  { id:"duel-offer", build:() => duelState("offer"), settle:false, tabs:[], sheets:["duel-offer"] },
+  { id:"duel-stance", build:() => duelState("stance"), settle:false, tabs:["home"], sheets:["duel"] },
+  { id:"duel-waiting", build:() => duelState("waiting"), settle:false, tabs:[], sheets:["duel"] },
+  { id:"duel-armed", build:() => duelState("armed"), settle:false, tabs:[], sheets:["duel"] },
+  { id:"duel-draw", build:() => duelState("stance"), settle:false, tabs:[], sheets:["duel-go"] },
+  { id:"duel-won", build:() => duelState("stance"), settle:false, tabs:[], sheets:["duel-won"] },
+  { id:"duel-lost", build:() => duelState("stance"), settle:false, tabs:[], sheets:["duel-lost"] },
+  { id:"duel-send", build:() => duelState("none"), tabs:[], sheets:["duel-send"] },
   { id:"locker", build:() => fresh("locker"), sheets:["card", "card-back", "event"] },
   { id:"ffa-open", build:() => fresh("event:putt:open"), sheets:["event"] },
+  /* the wide board's rows with the room betting: each backer's own chips */
+  { id:"ffa-crowd", build:ffaCrowd, tabs:["bets"] },
+  /* Home's live card in your own free-for-all with a saved win song, its
+     release suffix and all ("Win and Hit 'Em Up plays") */
+  { id:"ffa-song", build:() => withSong(fresh("event:putt:open"), FIT_GUEST), tabs:["home"] },
+  /* Home's chip bars on a Saturday-night board: a 15,000 leader and a player below zero */
+  { id:"spread-15000", build:() => spread(fresh("event:ragecage:open"), SPREAD_15000), tabs:["home"] },
   /* a pairs bracket on Home: the long pair "Henry Nguyen & Squilliam" beside VS */
   { id:"pairs-open", build:() => fresh("event:die:open"), tabs:["home"] },
   /* the betting sides: 0, 1, 3, 4, 6, 8 and 9 backers a side, both sides mirrored */
@@ -562,16 +761,17 @@ export const PHONE_SCENARIOS = Object.freeze([
   { id:"result-done", build:() => fresh("event:bball1:done"), sheets:["event-1v1", "sky"] },
   { id:"draft", build:draft, sheets:["draft"] },
   { id:"poker-live", build:() => fresh("poker:live") },
-  { id:"crowned", build:() => fresh("crowned"), sheets:["lastcard", "card"] },
+  /* the last card at both phone widths (sheetSizes: its sheets at 375 too) */
+  { id:"crowned", build:() => fresh("crowned"), sheets:["lastcard", "card"], sheetSizes:["375"] },
   /* Weekend, the program, mid-weekend: posted plates, a run of photos, and
      the back page's sheets */
   { id:"weekend-mid", build:() => withPhotos(fresh("event:bball1:done"), 9), tabs:["weekend"],
     sheets:["weekend-house", "weekend-rules", "weekend-games", "weekend-game", "weekend-payouts", "weekend-photos"] },
   { id:"gm-open", build:() => fresh("event:putt:open"), viewer:"gm", tabs:["home"], sheets:["event"] },
   { id:"gm-bracket", build:() => bracketOf(13, { steps:3 }), viewer:"gm", tabs:["home"], sheets:["event"] },
-  /* four teams in one game, no bracket (Trivia): the teams as four groups, then a podium of teams */
-  { id:"teams4-open", build:() => fresh("event:trivia:open"), tabs:[], sheets:["event"] },
-  { id:"teams4-done", build:() => fresh("event:trivia:done"), tabs:[], sheets:["event-trivia"] },
+  /* Trivia, everyone on their own: the event sheet before it, and its podium of players after */
+  { id:"trivia-open", build:() => fresh("event:trivia:open"), tabs:[], sheets:["event"] },
+  { id:"trivia-done", build:() => fresh("event:trivia:done"), tabs:[], sheets:["event-trivia"] },
   /* the event sheet before, live and after, as the commissioner sees it */
   { id:"gm-before", build:() => fresh("locker"), viewer:"gm", tabs:["events"], sheets:["event"] },
   { id:"gm-team", build:() => fresh("event:bball5:open"), viewer:"gm", tabs:[], sheets:["event"] },
@@ -601,7 +801,7 @@ export const PHONE_SCENARIOS = Object.freeze([
      and after its result posts, when nothing of it may stay on screen */
   { id:"geo-guess", build:() => geo("guess"), settle:false, tabs:["home"] },
   { id:"geo-posted", build:() => { const state = geo("final"); act(state, "geoFinish", { evId:"where" }); return state; }, tabs:["home"] },
-  /* Trivia on a player's phone (the guest's team picked by a teammate):
+  /* Trivia on a player's phone (the guest's own pick open, a few still thinking):
      each format's question, the reveals, the scores; and the game gone once
      its result posts */
   { id:"trivia-question", build:() => triviaStage("question"), settle:false, tabs:["home"] },
@@ -637,18 +837,56 @@ export const PHONE_SCENARIOS = Object.freeze([
   { id:"name-team7", build:() => fresh("event:bball5:open"), tabs:["home"], sheets:["teamname-write"] },
   { id:"name-team3", build:() => fresh("event:volley:open"), tabs:["home"], sheets:["event"] },
   { id:"names-long", build:() => longNames(fresh("event:volley:open"), "volley"), tabs:["home", "bets"], sheets:["event"] },
-  { id:"names-long-trivia", build:() => longNames(fresh("event:trivia:open"), "trivia"), tabs:["home", "bets"] },
   { id:"names-long-pairs", build:() => longNames(fresh("event:pickleball:mid"), "pickleball"), tabs:["bets"], sheets:["event"] },
   { id:"gm-names", build:() => fresh("event:volley:open"), viewer:"gm", tabs:[], sheets:["event"] },
-  /* v3.1: the crew check before a draw, a bounty matchup and an underdog board */
+  /* v3.1: the crew check before a draw and an underdog board */
   { id:"gm-crew-check", build:crewBeat, viewer:"gm", tabs:["home"], sheets:["crew-check"] },
+  { id:"gm-crew-sitout", build:crewBeat, viewer:"gm", tabs:[], sheets:["crew-sitout"] },
+  { id:"draw-replay", build:() => fresh("event:volley:open"), tabs:[], sheets:["draw-replay-mid", "draw-replay"] },
+  /* winner entry: the two filled sides, then a tap lands WON with the 10 s Undo */
+  { id:"gm-winner", build:winnerBeat, viewer:"gm", tabs:["home"], sheets:["pill-win"] },
+  /* a market just opened with no bets in: Lock and start waits quiet, its
+     amber lamp draining, the bets lamp unlit (ZERO_BET_WAIT_MS) */
+  { id:"gm-lock-empty", build:() => {
+    const state = comebackBoard({ bets:false });
+    /* the audit shoots minutes after the build: hold the opening ahead of
+       the wall clock so the wait is still running when the shot is taken */
+    state.eventOps.die.bettingOpenedAt = Date.now() + 10 * 60000;
+    return state;
+  }, viewer:"gm", tabs:["home"] },
+  /* a heat's winner: the pill's field of racers (a tap lands WON), the
+     sheet's tiles, and the stage final's podium with 1st tapped in */
+  { id:"gm-heats", build:heatLive, viewer:"gm", tabs:["home"], sheets:["event", "pill-win"] },
+  { id:"gm-heats-final", build:heatFinal, viewer:"gm", tabs:["home"], sheets:["event", "heat-order"] },
   { id:"comeback-board", build:() => comebackBoard(), tabs:["home", "bets"], sheets:["card"] },
+  /* the first underdog a phone shows: its drawing opens by itself, once */
+  { id:"comeback-teach", build:() => comebackBoard(), teach:true, tabs:["bets"] },
   { id:"bracket9-byes", build:byeBracket, tabs:[], sheets:["event"] },
+  /* a guest still in Safari: the Add to Home Screen card on Home, the steps
+     opened on Weekend; and the profile sheet with its card on show */
+  { id:"install-card", build:() => fresh("event:putt:open"), install:true, tabs:["home"], sheets:["install-open", "profile"] },
+  /* arrivals (Oct 4): before check-in opens nothing is new; in the lobby
+     the guest still on the way gets Scan the TV at the top of Home, and its
+     scanner: looking (a camera frame with no code), the TV's code read and
+     the chip seated, and the camera blocked. Once a game is announced it is
+     a row lettered into the contest's painting. Once in, Home is Home with
+     the road's faces unlit on the board */
+  { id:"arrive-before", build:() => fresh("locker"), tabs:["home"] },
+  { id:"arrive-lobby", build:() => withArrivals(fresh("locker"), 4), tabs:["home"],
+    sheets:["scan-open", "scan-success", "scan-denied"] },
+  { id:"arrive-row", build:() => withArrivals(fresh("event:putt:open"), 9), tabs:["home"] },
+  { id:"arrive-here-9", build:() => withArrivals(fresh("event:putt:open"), 9, { guest:"here" }), tabs:["home"] },
+  { id:"arrive-here-13", build:() => withArrivals(fresh("locker"), 13, { guest:"here" }), tabs:["home"] },
+  /* the commissioner: Who is coming with the door shut and open, the
+     travel board's arrivals, and the crew check with four on the way */
+  { id:"gm-roster", build:() => fresh("locker"), viewer:"gm", tabs:[], sheets:["roster"] },
+  { id:"gm-roster-door", build:() => withArrivals(fresh("locker"), 9), viewer:"gm", tabs:[], sheets:["roster", "travel-sheet"] },
+  { id:"gm-crew-road", build:crewRoad, viewer:"gm", tabs:[], sheets:["crew-check"] },
 ]);
 export const PHONE_SIZES = Object.freeze([{ w:390, h:844, id:"390" }, { w:375, h:667, id:"375" }]);
 
 /* A steady view: the room has sat in this state a while, so a just-decided
-   contest's card, a fresh MVP's strip and a new leader's banner have had
+   contest's card and a new leader's banner have had
    their moment. Every server stamp moves back by `ms`. */
 export const SETTLE_MS = 120000;
 export function aged(state, ms = SETTLE_MS) {

@@ -1,8 +1,9 @@
 /* Trivia on the TV: the question on the stage at the left, the clock and
-   the four teams' lanes at the right; the scores between rounds and the
-   final podium across the canvas. 24px minimum text, canvas pixels. The
-   live question's pane is lit magenta; a team's color is paint on its lamp
-   and its answers, never light; a right answer stamps green. */
+   the room at the right (every player's chip, lit as they lock in); the
+   reveal's counts and the board; the scores between rounds and the final
+   podium across the canvas. 24px minimum text, canvas pixels. The live
+   question's pane is lit magenta; a player's color is paint, never light;
+   a right answer stamps green. */
 .tv-trivia { flex:1; min-width:0; min-height:0; display:grid; grid-template-columns:minmax(0,1fr) 560px; gap:32px;
   padding:16px var(--tv-edge) 20px; }
 .tv-trivia-stage { position:relative; min-width:0; min-height:0; display:flex; flex-direction:column; gap:20px; padding:26px 36px 30px;
@@ -11,7 +12,7 @@
 .tv-trivia-head { display:flex; align-items:baseline; justify-content:space-between; gap:24px; min-width:0; }
 .tv-trivia-round { min-width:0; font-size:40px; line-height:1.15; color:var(--lamp-live-text); overflow-wrap:anywhere;
   text-shadow:0 0 18px color-mix(in srgb, var(--lamp-live) 45%, transparent); }
-.tv-trivia-count { flex-shrink:0; font-size:36px; line-height:1.15; color:var(--muted2); letter-spacing:.04em; }
+.tv-trivia-count { flex-shrink:0; font-size:32px; line-height:1.15; color:var(--muted2); letter-spacing:.04em; }
 .tv-trivia-text { margin:0; line-height:1.15; color:var(--bone); overflow-wrap:anywhere; text-wrap:balance;
   animation:tv-trivia-rise .5s cubic-bezier(.2,.8,.2,1) both; }
 @keyframes tv-trivia-rise { from { opacity:0; transform:translateY(18px); } }
@@ -22,12 +23,12 @@
 .tv-trivia-options { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:16px; margin:auto 0 0; padding:0; list-style:none; }
 .tv-trivia.is-picture .tv-trivia-options { grid-template-columns:repeat(4, minmax(0,1fr)); gap:14px; }
 .tv-trivia-options li { display:flex; align-items:center; gap:20px; min-width:0; min-height:104px; padding:14px 22px 14px 14px;
-  border-radius:12px; background:var(--tv-window); box-shadow:var(--tv-cut); border:2px solid transparent;
+  border-radius:10px; background:var(--tv-window); box-shadow:var(--tv-cut); border:2px solid transparent;
   animation:tv-trivia-rise .45s cubic-bezier(.2,.8,.2,1) calc(150ms + var(--i) * 90ms) both; transition:opacity .4s ease; }
 .tv-trivia.is-picture .tv-trivia-options li { min-height:90px; gap:14px; padding:12px 14px 12px 12px; }
-.tv-trivia-letter { flex-shrink:0; width:70px; height:70px; display:grid; place-items:center; border-radius:12px;
+.tv-trivia-letter { flex-shrink:0; width:70px; height:70px; display:grid; place-items:center; border-radius:10px;
   background:var(--tv-glass); border:1px solid var(--line); font-size:44px; line-height:1; color:var(--bone); }
-.tv-trivia.is-picture .tv-trivia-letter { width:56px; height:56px; font-size:36px; }
+.tv-trivia.is-picture .tv-trivia-letter { width:56px; height:56px; font-size:40px; }
 .tv-trivia-option { flex:1; min-width:0; display:grid; gap:4px; }
 .tv-trivia-option b { font:700 40px/1.2 var(--fd-body); color:var(--bone); overflow-wrap:anywhere; }
 .tv-trivia.is-picture .tv-trivia-option b { font-size:32px; }
@@ -35,14 +36,21 @@
 /* the reveal: the right one stamps, the rest step back */
 .tv-trivia-options li.is-right { border-color:var(--green); background:color-mix(in srgb, var(--green) 14%, var(--tv-window));
   box-shadow:0 0 0 1px var(--green), 0 0 28px color-mix(in srgb, var(--green) 32%, transparent);
-  animation:tv-trivia-stamp-in .5s cubic-bezier(.3,.7,.35,1.25) .2s both; }
+  animation:tv-trivia-stamp-in .5s var(--ease-land) .2s both; }
 .tv-trivia-options li.is-right .tv-trivia-letter { background:var(--green); color:var(--ink0); border-color:transparent; }
 .tv-trivia-options li.is-out { opacity:.5; animation:none; }
 @keyframes tv-trivia-stamp-in { from { transform:scale(1.06); } }
-.tv-trivia-tags { display:flex; flex-wrap:wrap; gap:8px; margin-top:6px; }
-.tv-trivia-tag { display:inline-flex; align-items:center; gap:10px; padding:4px 14px 4px 8px; border-radius:99px; background:var(--tv-glass);
-  border:1px solid var(--line); font:700 24px/1.2 var(--fd-body); color:var(--bone); animation:tv-trivia-rise .4s ease-out .9s both; }
-.tv-trivia-tag i { width:18px; height:18px; border-radius:50%; background:var(--team); box-shadow:0 0 0 2px var(--ink0); }
+/* how the room answered: a count in its own window on every answer, the
+   faces of everyone who had it under the right one */
+.tv-trivia-tally { flex-shrink:0; min-width:84px; padding:8px 14px; border-radius:10px; background:var(--tv-glass); border:1px solid var(--line);
+  font-size:52px; line-height:1; text-align:center; color:var(--muted2); font-variant-numeric:tabular-nums;
+  animation:tv-trivia-rise .45s cubic-bezier(.2,.8,.2,1) calc(.7s + var(--i) * 90ms) both; }
+.tv-trivia-options li.is-right .tv-trivia-tally { color:var(--green); border-color:color-mix(in srgb, var(--green) 50%, transparent); }
+.tv-trivia-faces { display:flex; align-items:center; margin-top:8px; padding-left:12px; }
+.tv-trivia-faces > span { display:grid; margin-left:-9px; border-radius:50%; box-shadow:0 0 0 3px var(--tv-window);
+  animation:tv-trivia-land .4s var(--ease-land) calc(1s + var(--i) * 70ms) both; }
+.tv-trivia-faces > b { margin-left:12px; font-size:32px; line-height:1; color:var(--bone); }
+@keyframes tv-trivia-land { from { opacity:0; transform:scale(.4) translateY(-12px); } }
 
 .tv-trivia-photo { flex:1; min-height:0; position:relative; border-radius:14px; overflow:hidden; background:var(--night-deep); }
 .tv-trivia-photo img { position:absolute; inset:0; width:100%; height:100%; object-fit:contain; animation:si-fade .6s ease-out both; }
@@ -51,7 +59,7 @@
 .tv-trivia-listen { flex:1; min-height:140px; display:grid; place-items:center; border-radius:14px; background:var(--tv-window);
   box-shadow:var(--tv-cut); }
 .tv-trivia-bars { display:flex; align-items:center; gap:14px; height:150px; }
-.tv-trivia-bars i { width:22px; height:150px; border-radius:11px; background:var(--lamp-live); transform:scaleY(.12); opacity:.35; }
+.tv-trivia-bars i { width:22px; height:150px; border-radius:99px; background:var(--lamp-live); transform:scaleY(.12); opacity:.35; }
 .tv-trivia-listen.is-live .tv-trivia-bars i { opacity:1; box-shadow:0 0 18px color-mix(in srgb, var(--lamp-live) 45%, transparent);
   animation:tv-trivia-bar .8s ease-in-out calc(var(--i) * -.11s) infinite alternate; }
 @keyframes tv-trivia-bar { 0% { transform:scaleY(.15); } 35% { transform:scaleY(1); } 65% { transform:scaleY(.4); } 100% { transform:scaleY(.7); } }
@@ -59,19 +67,19 @@
 /* closest number: one window a digit, then the answer */
 .tv-trivia-number { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:20px; }
 .tv-trivia-windows { display:flex; gap:12px; }
-.tv-trivia-windows i { width:110px; height:150px; display:grid; place-items:center; border-radius:12px; background:var(--tv-window);
+.tv-trivia-windows i { width:110px; height:150px; display:grid; place-items:center; border-radius:10px; background:var(--tv-window);
   box-shadow:var(--tv-cut); font:800 110px/1 var(--fd-display); font-style:normal; color:var(--muted2); }
-.tv-trivia-unit { font-size:36px; }
+.tv-trivia-unit { font-size:40px; }
 .tv-trivia-answer { font-size:180px; line-height:1; color:var(--green); font-variant-numeric:tabular-nums;
-  text-shadow:0 0 30px color-mix(in srgb, var(--green) 35%, transparent); animation:tv-trivia-stamp-in .55s cubic-bezier(.3,.7,.35,1.25) .2s both; }
+  text-shadow:0 0 30px color-mix(in srgb, var(--green) 35%, transparent); animation:tv-trivia-stamp-in .55s var(--ease-land) .2s both; }
 
 /* the question's number stamps while the room reads it */
-.tv-trivia-stamp { position:absolute; right:40px; top:50%; z-index:3; font-size:360px; line-height:1; color:var(--lamp-live-text); opacity:0;
-  pointer-events:none; text-shadow:0 8px 0 var(--ink0); animation:tv-trivia-stamp 2.2s cubic-bezier(.3,.7,.35,1.25) both; }
+.tv-trivia-stamp { position:absolute; right:40px; top:50%; z-index:3; font-size:240px; line-height:1; color:var(--lamp-live-text); opacity:0;
+  pointer-events:none; text-shadow:0 8px 0 var(--ink0); animation:tv-trivia-stamp 2.2s var(--ease-land) both; }
 @keyframes tv-trivia-stamp { 0% { opacity:0; transform:translateY(-50%) scale(1.5); } 18% { opacity:.85; transform:translateY(-50%) scale(1); }
   70% { opacity:.5; } 100% { opacity:0; transform:translateY(-50%) scale(.96); } }
 
-/* the side: the clock, then a lane a team */
+/* the side: the clock, then the room */
 .tv-trivia-side { min-width:0; min-height:0; display:flex; flex-direction:column; gap:20px; }
 .tv-trivia-ring { position:relative; flex-shrink:0; align-self:center; width:184px; height:184px; display:grid; place-items:center; }
 .tv-trivia-ring svg { position:absolute; inset:0; transform:rotate(-90deg); overflow:visible; }
@@ -79,82 +87,84 @@
 .tv-trivia-ring .track { stroke:var(--tv-window); }
 .tv-trivia-ring .run { stroke:var(--lamp-live); stroke-linecap:round; transition:stroke-dashoffset 1s linear;
   filter:drop-shadow(0 0 10px color-mix(in srgb, var(--lamp-live) 70%, transparent)); }
-.tv-trivia-ring b { font-size:104px; line-height:1; color:var(--bone); font-variant-numeric:tabular-nums; }
+.tv-trivia-ring b { font-size:72px; line-height:1; color:var(--bone); font-variant-numeric:tabular-nums; }
 .tv-trivia-ring.is-low .run { stroke:var(--clay); filter:drop-shadow(0 0 10px var(--clay)); }
-.tv-trivia-ring.is-low b { color:var(--clay-text); animation:tv-trivia-tick .9s cubic-bezier(.3,.7,.35,1.25) both; }
+.tv-trivia-ring.is-low b { color:var(--clay-text); animation:tv-trivia-tick .9s var(--ease-land) both; }
 @keyframes tv-trivia-tick { from { transform:scale(1.25); } }
-.tv-trivia-lanes { flex:1; min-height:0; display:flex; flex-direction:column; justify-content:flex-start; gap:10px; margin:0; padding:0; list-style:none; }
-.tv-trivia.is-reveal .tv-trivia-lanes { gap:16px; }
-.tv-trivia-lane { display:grid; gap:8px; padding:12px 18px 14px; border-radius:16px; background:var(--tv-sheen), var(--tv-glass);
-  border:1px solid var(--line); box-shadow:var(--glass-edge); transition:border-color .3s ease; }
-.tv-trivia.is-reveal .tv-trivia-lane { padding:16px 22px 18px; }
-.tv-trivia-lane-head { display:flex; align-items:center; gap:14px; min-width:0; }
-.tv-trivia-lane-lamp { flex-shrink:0; width:22px; height:22px; border-radius:50%; background:color-mix(in srgb, var(--team) 35%, var(--ink0));
-  box-shadow:inset 0 0 0 2px color-mix(in srgb, var(--bone) 18%, transparent); }
-.tv-trivia-lane.is-set .tv-trivia-lane-lamp { animation:tv-trivia-pending 1.2s steps(1) infinite; }
-@keyframes tv-trivia-pending { 50% { background:var(--team); } }
-.tv-trivia-lane.is-locked .tv-trivia-lane-lamp, .tv-trivia.is-reveal .tv-trivia-lane-lamp,
-.tv-trivia-board .tv-trivia-lane-lamp { background:var(--team); box-shadow:0 0 0 2px var(--ink0), 0 0 0 4px var(--bone); }
-.tv-trivia-lane-name { flex:1; min-width:0; font-size:36px; line-height:1.15; color:var(--bone); overflow-wrap:anywhere; }
-.tv-trivia-lane-lock { flex-shrink:0; display:grid; place-items:center; width:48px; height:48px; border-radius:50%; background:var(--bone);
-  color:var(--ink0); animation:tv-trivia-stamp-in .4s cubic-bezier(.3,.7,.35,1.25) both; }
-.tv-trivia-lane-row { display:flex; align-items:center; gap:16px; min-width:0; }
-.tv-trivia-lane-faces { display:flex; gap:8px; flex-shrink:0; }
-.tv-trivia-lane-faces > span { opacity:.32; transition:opacity .35s ease, transform .35s ease; border-radius:50%; }
-.tv-trivia-lane-faces > span.is-in { opacity:1; }
-.tv-trivia-lane.is-locked .tv-trivia-lane-faces > span { animation:tv-trivia-stamp-in .4s cubic-bezier(.3,.7,.35,1.25) both; }
-.tv-trivia-lane-answer { flex-shrink:0; min-width:64px; padding:4px 14px; border-radius:10px; background:var(--tv-window); box-shadow:var(--tv-cut);
-  font-size:40px; line-height:1.1; text-align:center; color:var(--muted2); font-variant-numeric:tabular-nums;
-  animation:tv-trivia-rise .4s ease-out .7s both; }
-.tv-trivia-lane-answer.is-right { color:var(--green); }
-.tv-trivia-lane-total { margin-left:auto; font-size:48px; line-height:1.1; color:var(--bone); font-variant-numeric:tabular-nums; }
-.tv-trivia-lane-points { flex-shrink:0; font-size:44px; line-height:1.1; color:var(--muted2); font-variant-numeric:tabular-nums;
-  animation:tv-trivia-fly .7s cubic-bezier(.2,.8,.2,1) 1.2s both; }
-.tv-trivia-lane.is-scored { border-color:var(--green); }
-.tv-trivia-lane.is-scored .tv-trivia-lane-points { color:var(--green); }
+
+/* the room: a chip a player, dark until they lock in (never what) */
+.tv-trivia-room { flex:1; min-height:0; display:grid; align-content:center; gap:16px 4px;
+  margin:0; padding:18px 8px; list-style:none; border-radius:18px; background:var(--tv-window); box-shadow:var(--tv-cut); }
+.tv-trivia-room li { grid-column-end:span 2; min-width:0; display:flex; flex-direction:column; align-items:center; gap:6px; }
+.tv-trivia-room-chip { position:relative; display:grid; border-radius:50%; opacity:.28; filter:saturate(.15) brightness(.8);
+  transition:opacity .35s ease, filter .35s ease; }
+.tv-trivia-room li.is-set .tv-trivia-room-chip { opacity:.5; }
+.tv-trivia-room li.is-locked .tv-trivia-room-chip { opacity:1; filter:none;
+  animation:tv-trivia-stamp-in .4s var(--ease-land) both; }
+.tv-trivia-room-lock { position:absolute; right:-6px; bottom:-4px; display:grid; place-items:center; width:36px; height:36px; border-radius:50%;
+  background:var(--bone); color:var(--ink0); box-shadow:0 0 0 3px var(--tv-window); font-style:normal; }
+.tv-trivia-room-name { max-width:100%; font:900 26px/1.05 var(--fd-show); letter-spacing:.01em; color:var(--muted2); text-align:center;
+  text-wrap:balance; overflow-wrap:anywhere; transition:color .35s ease; }
+.tv-trivia-room li.is-locked .tv-trivia-room-name { color:var(--bone); }
+
+/* the board's rows: rank, chip, name, what this question added, total */
+.tv-trivia-rows, .tv-trivia-near { flex:1; min-height:0; display:flex; flex-direction:column; gap:10px; margin:0; padding:0; list-style:none; }
+.tv-trivia-row, .tv-trivia-near li { display:flex; align-items:center; gap:16px; min-width:0; padding:10px 18px 10px 12px; border-radius:14px;
+  background:var(--tv-sheen), var(--tv-glass); border:1px solid var(--line); box-shadow:var(--glass-edge);
+  animation:tv-trivia-rise .45s cubic-bezier(.2,.8,.2,1) calc(var(--row) * 90ms) both; }
+.tv-trivia-row.is-first { border-color:var(--bone); }
+.tv-trivia-row-rank { flex-shrink:0; width:40px; font-size:40px; line-height:1.1; text-align:center; color:var(--muted2); font-variant-numeric:tabular-nums; }
+.tv-trivia-row.is-first .tv-trivia-row-rank { color:var(--bone); }
+.tv-trivia-row-name { flex:1; min-width:0; font-size:40px; line-height:1.15; color:var(--bone); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.tv-trivia-row-plus { flex-shrink:0; font-size:32px; line-height:1.1; color:var(--bone); font-variant-numeric:tabular-nums;
+  animation:tv-trivia-fly .7s cubic-bezier(.2,.8,.2,1) calc(1.2s + var(--row) * 60ms) both; }
+.tv-trivia-row-total { flex-shrink:0; min-width:120px; text-align:right; font-size:44px; line-height:1.1; color:var(--bone); font-variant-numeric:tabular-nums; }
 @keyframes tv-trivia-fly { from { opacity:0; transform:translateY(-24px) scale(1.2); } }
+/* a closest number: the nearest guesses, the scorers lit green */
+.tv-trivia-near-guess { flex-shrink:0; font-size:40px; line-height:1.1; color:var(--muted2); font-variant-numeric:tabular-nums; }
+.tv-trivia-near li.is-scored { border-color:var(--green); }
+.tv-trivia-near li.is-scored .tv-trivia-near-guess { color:var(--bone); }
+.tv-trivia-near li:not(.is-scored) .tv-trivia-row-plus { color:var(--muted2); }
 
-/* the scores between rounds */
+/* the scores between rounds: the whole room, two columns */
 .tv-trivia.is-board { grid-template-columns:minmax(0,1fr); justify-items:center; align-content:center; }
-.tv-trivia-board { width:100%; max-width:1600px; display:flex; flex-direction:column; gap:22px; padding:28px 40px 32px; }
+.tv-trivia-board { width:100%; max-width:1700px; display:flex; flex-direction:column; gap:22px; padding:26px 36px 30px; }
 .tv-trivia-board-head { display:flex; align-items:baseline; justify-content:space-between; gap:24px; }
-.tv-trivia-board-title { font-size:72px; line-height:1.15; color:var(--bone); overflow-wrap:anywhere;
+.tv-trivia-board-title { font-size:64px; line-height:1.15; color:var(--bone); overflow-wrap:anywhere;
   text-shadow:0 0 24px color-mix(in srgb, var(--lamp-live) 40%, transparent); }
-.tv-trivia-board ol { display:grid; gap:14px; margin:0; padding:0; list-style:none; }
-.tv-trivia-board li { display:flex; align-items:center; gap:24px; min-width:0; padding:14px 28px; border-radius:14px; background:var(--tv-window);
-  box-shadow:var(--tv-cut); animation:tv-trivia-rise .5s cubic-bezier(.2,.8,.2,1) calc(var(--row) * 140ms) both; }
-.tv-trivia-board li:first-child { border:2px solid var(--sun); }
-.tv-trivia-board-rank { width:64px; flex-shrink:0; font-size:64px; line-height:1.1; text-align:center; color:var(--muted2); }
-.tv-trivia-board li:first-child .tv-trivia-board-rank { color:var(--sun); }
-.tv-trivia-board-name { flex:1; min-width:0; font-size:56px; line-height:1.15; color:var(--bone); overflow-wrap:anywhere; }
-.tv-trivia-board-total { flex-shrink:0; min-width:200px; text-align:right; font-size:72px; line-height:1.1; color:var(--bone);
-  font-variant-numeric:tabular-nums; }
+.tv-trivia-board-cols { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:24px; }
+.tv-trivia-rows.is-board { gap:10px; }
+.tv-trivia-rows.is-board .tv-trivia-row { padding:8px 22px 8px 14px; background:var(--tv-window); box-shadow:var(--tv-cut); border-color:transparent; }
+.tv-trivia-rows.is-board .tv-trivia-row.is-first { border-color:var(--bone); }
+.tv-trivia-rows.is-board .tv-trivia-row-rank { width:52px; font-size:40px; }
+.tv-trivia-rows.is-board .tv-trivia-row-name { font-size:40px; }
+.tv-trivia-rows.is-board .tv-trivia-row-total { font-size:52px; }
 
-/* the final: the podium, 2nd, 1st, 3rd */
-.tv-trivia.is-final { display:flex; flex-direction:column; align-items:center; justify-content:flex-end; gap:20px; }
-.tv-trivia-podium { display:flex; align-items:flex-end; justify-content:center; gap:28px; width:100%; max-width:1700px; }
-.tv-trivia-step { flex:1; min-width:0; display:flex; flex-direction:column; align-items:center; gap:14px; padding:26px 22px 30px;
+/* the final: the podium, 2nd, 1st, 3rd, then everyone else */
+.tv-trivia.is-final { display:flex; flex-direction:column; align-items:center; justify-content:flex-end; gap:22px; }
+.tv-trivia-podium { display:flex; align-items:flex-end; justify-content:center; gap:28px; width:100%; max-width:1500px; }
+.tv-trivia-step { flex:1; min-width:0; display:flex; flex-direction:column; align-items:center; gap:14px; padding:26px 22px 26px;
   border-radius:18px 18px 0 0; background:var(--tv-sheen), var(--tv-glass); border:1px solid var(--line); box-shadow:var(--glass-edge), var(--shadow-2);
   animation:tv-trivia-rise .6s cubic-bezier(.2,.8,.2,1) both; }
-.tv-trivia-step.is-third { min-height:360px; animation-delay:.2s; }
-.tv-trivia-step.is-second { min-height:440px; animation-delay:.6s; }
-.tv-trivia-step.is-first { min-height:560px; animation-delay:1.1s; border:2px solid var(--team);
-  background:var(--tv-sheen), color-mix(in srgb, var(--team) 20%, var(--bg)); }
-.tv-trivia-step-faces { display:flex; gap:10px; }
-.tv-trivia-step-name { font-size:52px; line-height:1.15; text-align:center; color:var(--bone); overflow-wrap:anywhere; }
+.tv-trivia-step.is-third { min-height:330px; animation-delay:.2s; border-color:var(--bronze); }
+.tv-trivia-step.is-second { min-height:400px; animation-delay:.6s; border-color:var(--silver); }
+.tv-trivia-step.is-first { min-height:500px; animation-delay:1.1s; border-color:var(--sun); box-shadow:var(--glass-edge), var(--shadow-2), var(--chip-bloom); }
+.tv-trivia-step-name { max-width:100%; font-size:40px; line-height:1.15; text-align:center; color:var(--bone); overflow:hidden;
+  text-overflow:ellipsis; white-space:nowrap; }
 .tv-trivia-step.is-first .tv-trivia-step-name { font-size:64px; }
-.tv-trivia-step-total { font-size:80px; line-height:1.1; color:var(--bone); font-variant-numeric:tabular-nums; }
-.tv-trivia-step.is-first .tv-trivia-step-total { font-size:110px; }
+.tv-trivia-step-total { font-size:64px; line-height:1.1; color:var(--bone); font-variant-numeric:tabular-nums; }
+.tv-trivia-step.is-first .tv-trivia-step-total { font-size:72px; }
 .tv-trivia-step-place { margin-top:auto; padding:4px 20px; border-radius:10px; background:var(--tv-window); font-size:40px; line-height:1.1; color:var(--muted2); }
 .tv-trivia-step.is-first .tv-trivia-step-place { color:var(--sun); }
-.tv-trivia-rest { display:flex; align-items:center; gap:24px; padding:10px 26px; border-radius:14px; background:var(--tv-glass);
-  border:1px solid var(--line); font-size:40px; line-height:1.15; color:var(--muted2); }
-.tv-trivia-rest .fd-show { color:var(--bone); }
+.tv-trivia-rest { display:flex; flex-wrap:wrap; justify-content:center; gap:10px 14px; width:100%; max-width:1800px; margin:0; padding:0; list-style:none;
+  animation:tv-trivia-rise .5s cubic-bezier(.2,.8,.2,1) 1.6s both; }
+.tv-trivia-rest li { display:flex; align-items:center; gap:10px; padding:4px 16px 4px 4px; border-radius:99px; background:var(--tv-glass);
+  border:1px solid var(--line); font-size:30px; line-height:1.1; color:var(--muted2); font-variant-numeric:tabular-nums; }
+.tv-trivia-rest-total { color:var(--bone); font-variant-numeric:tabular-nums; }
 
 @media (prefers-reduced-motion:reduce) {
-  .tv-trivia-text, .tv-trivia-options li, .tv-trivia-options li.is-right, .tv-trivia-tag, .tv-trivia-photo img, .tv-trivia-answer,
-  .tv-trivia-listen.is-live .tv-trivia-bars i, .tv-trivia-ring.is-low b, .tv-trivia-lane.is-set .tv-trivia-lane-lamp,
-  .tv-trivia-lane-lock, .tv-trivia-lane-faces > span, .tv-trivia-lane-answer, .tv-trivia-lane-points, .tv-trivia-board li,
-  .tv-trivia-step { animation:none; }
+  .tv-trivia-text, .tv-trivia-options li, .tv-trivia-options li.is-right, .tv-trivia-tally, .tv-trivia-faces > span, .tv-trivia-photo img,
+  .tv-trivia-answer, .tv-trivia-listen.is-live .tv-trivia-bars i, .tv-trivia-ring.is-low b, .tv-trivia-room li.is-locked .tv-trivia-room-chip,
+  .tv-trivia-row, .tv-trivia-near li, .tv-trivia-row-plus, .tv-trivia-step, .tv-trivia-rest { animation:none; }
   .tv-trivia-stamp { display:none; }
 }

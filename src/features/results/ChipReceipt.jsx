@@ -81,7 +81,9 @@ export function ChipReceipt({ moment, onDismiss, onStandings, onSettled, dock = 
     const header = document.querySelector(".fd-header")?.getBoundingClientRect();
     const rack = document.querySelector(".fd-wagers-rack")?.getBoundingClientRect();
     const place = receiptDockStyle({ dock, headerBottom:header?.bottom ?? null,
-      rackTop:rack && rack.height ? rack.top : null, viewportHeight:window.innerHeight });
+      /* the Bets rack sits at the board's head now; only a rack in the lower
+         half of the screen is something a bottom receipt must clear */
+      rackTop:rack && rack.height && rack.top > window.innerHeight / 2 ? rack.top : null, viewportHeight:window.innerHeight });
     el.style.top = place?.top || "";
     el.style.bottom = place?.bottom || "";
   }, [dock, moment?.id, version]); // eslint-disable-line react-hooks/exhaustive-deps

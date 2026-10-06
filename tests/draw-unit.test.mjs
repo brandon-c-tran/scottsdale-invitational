@@ -46,9 +46,9 @@ function render(Component, props) {
   } finally { React.createElement = create; }
 }
 /* every draw shape the weekend makes: a pairs bracket with byes (Beer Pong,
-   8-Ball), four teams of three in a bracket (Volleyball), four teams of
-   three (Trivia), the 5v5's 7 v 6, heats of three and four (Beerio Kart) */
-const SHAPES = ["pong", "8ball", "volley", "trivia", "bball5", "beerio"];
+   8-Ball), four teams of three in a bracket (Volleyball), the 5v5's
+   7 v 6, heats of three and four (Beerio Kart) */
+const SHAPES = ["pong", "8ball", "volley", "bball5", "beerio"];
 function drawn(evId) {
   const state = structuredClone(EMPTY_STATE);
   const ev = BUILTIN_EVENTS.find(item => item.id === evId);

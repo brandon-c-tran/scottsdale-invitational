@@ -2,11 +2,12 @@ import React, { memo, useEffect, useState } from "react";
 import { disp } from "../../../shared/core.js";
 import { Avatar, ChipFace } from "../identity/PlayerIdentity.jsx";
 import { usePlayerIdentity } from "../identity/PlayerIdentityContext.js";
+import { floodPlate } from "../identity/chipInk.js";
 import { LampChase, ScoreReel } from "../../ui/ScoreReel.jsx";
 import { GameMark } from "../../ui/GameMark.jsx";
-import { TrophyFlat, TrophyHero } from "../weekend/Trophy.jsx";
+import { CrownCup } from "../weekend/Trophy.jsx";
 import { DesertBand } from "./DesertBand.jsx";
-import { fmt, readableInk, sideNameFit } from "./tvModel.js";
+import { fmt, sideNameFit } from "./tvModel.js";
 import { CROWN_TIMING as C, crownOutAt, useTimeline } from "./tvMotion.js";
 import { Takeover } from "./TVTakeover.jsx";
 
@@ -14,15 +15,18 @@ import { Takeover } from "./TVTakeover.jsx";
    player card wears it, read from the couch in one glance: who (their chip
    and their name, the hero), the final stack (one number), and how they
    won it (a medal per podium finish: the event's mark and the place). The
-   night painting with the trophy holds the left. Every event's winner is
+   night painting with the weekend's cup holds the left. Every event's winner is
    the trophy's own turn in the frozen rotation (results/classPhoto.js),
    not a list here. A tie stays on night.
 
    When the crown is fresh it is the produced crown (Backglass, about 23s,
-   CROWN_TIMING): the chrome leaves and night falls on the art, every
-   player's tower stands in final order, they go dark one by one from last
-   place up to 3rd with each name and final stack stamped, the last two
-   hold, 2nd goes dark, the champion's tower rises and cascades, their
+   CROWN_TIMING): the chrome leaves and night falls on the art, thirteen
+   towers stand in final order unlit (steel chips, an empty socket for the
+   face, no name, no number), then they light one by one from last place up
+   to 3rd, each in its player's color with its face, name, final stack and
+   place stamped on its beat, so the countdown is what reveals the board;
+   the last two hold unlit, 2nd lights, the champion's tower lights as it
+   rises and cascades, their
    color floods out from it, the name lands, the lamps chase in their color
    and the constellation joins. Every TV plays it from the same server
    instant; a reload shows the frame (and the frozen TV then takes turns
@@ -39,7 +43,7 @@ const FLOOD_R = 2300;
 /* the flood's disc is drawn this big and scaled to FLOOD_R */
 const FLOOD_DISC = 160;
 /* the night painting on the flood: the left of the canvas, full height */
-const CHAMP_SKY = Object.freeze({ width:800, height:1080, trophy:440 });
+const CHAMP_SKY = Object.freeze({ width:800, height:1080 });
 /* the frame's room beside the painting: the canvas less the painting, the
    frame's padding and the safe area */
 const BODY_W = 1920 - 56 - 744 - 56 - 64 - 8;
@@ -69,7 +73,7 @@ const ordinal = n => {
 };
 
 /* the champion's name: one line as large as the room allows, else two at
-   the space, never cut (Big Shoulders Inline runs about half an em a letter) */
+   the space, never cut (solid Big Shoulders 900 runs about half an em a letter) */
 export function championNameFit(title, width = BODY_W - CHIP.one - 36) {
   const fit = sideNameFit(title, width / 1.08, { max:150, min:96 });
   return fit.lines.length > 1 ? { ...fit, size:Math.min(fit.size, 108) } : fit;
@@ -86,11 +90,13 @@ export function medalLayout(count, width = BODY_W) {
 }
 
 
-export function ChampionMoment({ state, view, standings = [], moment = null }) {
+export function ChampionMoment({ state, events = [], view, standings = [], moment = null }) {
   const lead = view.players[0];
   const identity = usePlayerIdentity(lead);
-  const color = view.tied ? null : identity.color;
-  const ink = color ? readableInk(color) : "var(--bone)";
+  /* the flood is their color lit (floodPlate): the same hue, never a dull field */
+  const plate = view.tied ? null : floodPlate(identity.color);
+  const color = plate ? plate.color : null;
+  const ink = plate ? (plate.dark ? "var(--ink0)" : "var(--bone)") : "var(--bone)";
   const inkClass = ink === "var(--ink0)" ? "is-ink-dark" : "is-ink-bone";
   const timeline = useTimeline(moment?.id || null, moment?.anchor, C.total);
   const playing = timeline.playing && !!moment;
@@ -129,10 +135,10 @@ export function ChampionMoment({ state, view, standings = [], moment = null }) {
         <div className="tv-champ-sky">
           <DesertBand phase="fin" variant="full" width={bleed ? CHAMP_SKY.width : 600} height={bleed ? CHAMP_SKY.height : 760}
             stars={view.stars} lines={view.lines} showStars />
+          {/* the weekend's own cup, the champion engraved on its cartouche
+              as their name lands (a late TV joins mid-cut) */}
           <div className="tv-champ-trophy">
-            {/* while the crown plays the cup is drawn flat: every frame counts */}
-            {playing ? <TrophyFlat size={bleed ? CHAMP_SKY.trophy : 340} plate="FIELD DAY" plateFont={bleed ? 30 : 24} minPlateFont={24} />
-              : <TrophyHero size={bleed ? CHAMP_SKY.trophy : 340} plate="FIELD DAY" plateFont={bleed ? 30 : 24} minPlateFont={24} />}</div>
+            <CrownCup state={state} events={events} variant="tv" engraveAt={playing ? C.name - timeline.elapsed : null} /></div>
         </div>
       </div>
       <div className="tv-champ-body">
@@ -145,7 +151,7 @@ export function ChampionMoment({ state, view, standings = [], moment = null }) {
             ))}
           </div>
           <div className="tv-champ-who">
-            <div className="fd-show is-marquee tv-champ-name" style={{ fontSize:nameFit.size }} aria-label={title}>
+            <div className="fd-show tv-champ-name" style={{ fontSize:nameFit.size }} aria-label={title}>
               {title.split(/(\s+)/).map((word, w) => /^\s+$/.test(word) ? <span key={w}>{word}</span> : (
                 <span key={w} className="tv-crown-word">{[...word].map((ch, i) => (
                   <span key={i} className="tv-crown-letter" aria-hidden="true"
@@ -200,9 +206,11 @@ export function ChampionMoment({ state, view, standings = [], moment = null }) {
   );
 }
 
-/* The towers in final order: each stands, then goes dark on its beat with
-   its place and final stack stamped; the champion's rises and cascades.
-   Drawn once: nothing in it changes while the crown plays. */
+/* The towers in final order: each stands unlit, then lights on its beat
+   (the beat its tower used to go dark on, so the room's sounds land with
+   it) with its face, name, final stack and place; the champion's lights
+   as it rises and cascades. Drawn once: nothing in it changes while the
+   crown plays. */
 const CrownHall = memo(function CrownHall({ state, hall }) {
   return (
     <div className="tv-crown-hall" aria-hidden="true">
@@ -232,26 +240,31 @@ function TowerChips({ chips, color, id }) {
   );
 }
 
-/* a tower's name fits its column: one line, else two at the space */
+/* a tower's name fits its column: one line, else two at the space,
+   lettered as written (measured at the caps' width, the widest it runs) */
 function TowerName({ name, width }) {
-  const fit = sideNameFit(String(name).toUpperCase(), width / 1.08, { max:26, min:24 });
+  const fit = sideNameFit(String(name), width / 1.08, { max:26, min:24, caps:true });
   return <span className="tv-crown-name" style={{ fontSize:fit.size }}>
     {fit.lines.length > 1 ? <>{fit.lines[0]}<br />{fit.lines[1]}</> : name}</span>;
 }
 
 function CrownTower({ state, tower, count }) {
   const identity = usePlayerIdentity(tower.player);
-  const out = tower.outAt !== null ? { "--out":`${tower.outAt}ms` } : null;
+  /* when this tower lights: its place's beat, or the champion's rise */
+  const reveal = { "--reveal":`${tower.outAt ?? C.rise}ms` };
   const stand = { "--stand":`${C.towers + (count - 1 - tower.index) * C.towersStagger}ms` };
   return (
     <div className={`tv-crown-tower${tower.champ ? " is-champ" : ""}${tower.outAt !== null ? " is-out" : ""}`}
-      style={{ left:tower.x, "--tc":identity.color, ...stand, ...out }}>
+      style={{ left:tower.x, "--tc":identity.color, ...stand, ...reveal }}>
       <div className="tv-crown-stack">
         {tower.champ && Array.from({ length:10 }, (_, k) => <i key={`f${k}`} className="tv-crown-fall"
           style={{ "--k":k, "--dx":`${(k % 2 ? 1 : -1) * (40 + k * 23)}px`, "--fall":`${tower.top}px` }} />)}
-        <span className="tv-crown-face"><Avatar state={state} p={tower.player} size={HALL.face} /></span>
-        <TowerChips chips={tower.chips} color={identity.color} id={`crown-chips-${tower.index}`} />
-        {tower.outAt !== null && <i className="tv-crown-dark" />}
+        <span className="tv-crown-face"><i className="tv-crown-socket" />
+          <span className="tv-crown-portrait"><Avatar state={state} p={tower.player} size={HALL.face} /></span></span>
+        <span className="tv-crown-chipset">
+          <TowerChips chips={tower.chips} color="var(--tv-crown-steel)" id={`crown-steel-${tower.index}`} />
+          <span className="tv-crown-lit"><TowerChips chips={tower.chips} color={identity.color} id={`crown-chips-${tower.index}`} /></span>
+        </span>
       </div>
       <div className="tv-crown-label">
         <TowerName name={disp(state, tower.player)} width={(HALL.right - HALL.left) / count - 8} />

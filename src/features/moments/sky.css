@@ -1,12 +1,12 @@
-/* A sky that keeps score: the strip under the phone's header. One star
-   slot per event, evenly spaced across the width (--sky-n), the stars
-   sized to their slot: an outline for an event to play, a bone outline on
+/* A sky that keeps score: the strip under the phone's header. One slot
+   per event, evenly spaced across the width (--sky-n), sized to its slot:
+   the game's mark (dimmed) for an event to play, lit and ringed magenta on
    the heartbeat for the one in play, a flat painted star in the winner's
    color once posted (no bloom). The champion's arcs draw over the row once
    crowned. Clear of the header row above and its divider below; the strip
    itself is the one 44px target (.fd-sky-hit), the stars are marks on it. */
 .fd-sky { --star-size:min(20px, calc((100vw - 36px) / var(--sky-n, 12) * .62));
-  position:relative; margin:4px -14px 0 -18px; padding:4px 18px 9px;
+  position:relative; margin:4px -14px 0 -18px; padding:4px 18px 5px;
   background:linear-gradient(to bottom, transparent, color-mix(in srgb, var(--night-deep, var(--bg)) 55%, transparent)); }
 .fd-sky-hit { position:absolute; inset:0; z-index:2; width:100%; min-height:44px; padding:0; border:0; background:none; cursor:pointer;
   -webkit-tap-highlight-color:transparent; }
@@ -22,8 +22,12 @@
   margin:calc(var(--star-size) / -2) 0 0 calc(var(--star-size) / -2); pointer-events:none; }
 .fd-sky-star svg { display:block; width:100%; height:100%; overflow:visible; }
 .fd-sky-star polygon { vector-effect:non-scaling-stroke; stroke-linejoin:round; }
-.fd-sky-star.is-open polygon { fill:var(--bg); stroke:var(--muted); stroke-width:1.25px; }
-.fd-sky-star.is-live polygon { fill:var(--bg); stroke:var(--bone); stroke-width:1.75px; }
+/* an event to play is its own game mark, dimmed; the one in play is lit
+   with a magenta ring on the heartbeat (the live lamp) */
+.fd-sky-game { display:grid; place-items:center; }
+.fd-sky-game > svg, .fd-sky-game > span { width:100%; height:100%; }
+.fd-sky-game.is-open { opacity:.55; filter:saturate(.4); }
+.fd-sky-ring { position:absolute; inset:-3px; border-radius:50%; box-shadow:var(--live-bloom); }
 .fd-sky-star.is-lit polygon { fill:var(--star, var(--muted2)); stroke:color-mix(in srgb, var(--bone) 40%, transparent); stroke-width:1px; }
 .fd-sky-star.is-champ svg { transform:scale(1.3); }
 .fd-sky-star.is-fresh svg { animation:fd-sky-pop 620ms var(--ease-land) 200ms backwards; }
@@ -41,5 +45,30 @@
 .fd-sky-reading-event { font-size:15px; line-height:1.2; letter-spacing:.02em; color:var(--ink); }
 .fd-sky-reading-text b { font:700 15px/1.25 var(--fd-body); color:var(--ink); }
 .fd-sky-reading-chips { flex-shrink:0; display:flex; align-items:center; }
-.fd-sky-reading-chips > * + * { margin-left:-8px; }
+.fd-sky-reading-chips { gap:2px; }
 .fd-sky-reading-chips i { margin-left:6px; font:800 14px/1 var(--fd-display); font-style:normal; color:var(--muted2); }
+
+/* Oct 4: every glyph reads in place. A won event is its winner's face in a
+   ring of their color with a small star on its shoulder; the event in play
+   (or next) is named over its slot in a line above the row, with the open
+   glyph that says the strip opens a reading. */
+.fd-sky-star.is-lit { display:grid; place-items:center; }
+.fd-sky-face { display:block; width:100%; height:100%; overflow:hidden; line-height:0; border-radius:50%;
+  box-shadow:0 0 0 1.5px var(--star, var(--muted2)), 0 0 0 3px var(--ink0); }
+.fd-sky-face img { display:block; width:100%; height:100%; object-fit:cover; }
+.fd-sky-star.is-lit .fd-sky-badge { position:absolute; right:-5px; top:-5px; width:10px; height:10px; }
+.fd-sky-star.is-champ .fd-sky-face { box-shadow:0 0 0 2px var(--sun), 0 0 8px color-mix(in srgb, var(--sun) 60%, transparent); }
+.fd-sky-star.is-champ svg { transform:none; }
+.fd-sky-star.is-fresh .fd-sky-face { animation:fd-sky-pop 620ms var(--ease-land) 200ms backwards; }
+.fd-sky-cue { position:absolute; top:0; display:flex; align-items:center; gap:2px; max-width:60%; pointer-events:none; white-space:nowrap;
+  color:var(--ink); font:800 12px/14px var(--fd-show); letter-spacing:.03em; }
+/* the cue rides in the strip's one button; the row sits inside the strip's
+   18px side padding, so a slot's x is measured inside it */
+.fd-sky-cue { top:4px; text-align:left; }
+.fd-sky-cue.is-start { left:max(6px, calc(18px + (100% - 36px) * var(--x) - 12px)); }
+.fd-sky-cue.is-mid { left:calc(18px + (100% - 36px) * var(--x)); transform:translateX(-50%); }
+.fd-sky-cue.is-end { right:max(6px, calc(18px + (100% - 36px) * (1 - var(--x)) - 12px)); }
+.fd-sky-cue.is-live .fd-sky-cue-name { color:var(--ink); text-shadow:0 0 8px color-mix(in srgb, var(--lamp-live) 70%, transparent); }
+.fd-sky-cue:not(.is-live) .fd-sky-cue-name { color:var(--muted2); }
+.fd-sky-cue-name { min-width:0; }
+.fd-sky-cue-go { flex:none; color:var(--lamp-info); }

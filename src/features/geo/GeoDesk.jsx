@@ -8,6 +8,7 @@ import { WhenPicker, formatWhen, parseWhen } from "./WhenPicker.jsx";
 import { PlaceSearch } from "./PlaceSearch.jsx";
 import "./geo.css";
 import { Icon } from "../../ui/Icon.jsx";
+import { writeError } from "../../lib/writeErrors.js";
 
 const newRoundId = () => `g${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
 
@@ -57,7 +58,7 @@ function RoundEditor({ round, onSave, onCancel }) {
     const result = await onSave({ id:round?.id || newRoundId(), photo, lat:pin?.lat, lng:pin?.lng, place,
       when:formatWhen(wall), caption });
     setBusy("");
-    if (result?.ok !== true) setError(result?.error || "Not saved. Try again.");
+    if (result?.ok !== true) setError(writeError(result));
   };
   return <div className="fd-geo-editor">
     <div className="fd-geo-editor-photo">

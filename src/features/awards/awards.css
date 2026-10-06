@@ -4,7 +4,7 @@
    lands where the room is; reduced motion removes them (shell.css). */
 
 /* ── the TV ── */
-.tv-awards { align-items:center; justify-content:space-between; padding:8px 60px 18px; gap:12px; }
+.tv-pane.tv-awards { align-items:center; justify-content:space-between; padding:8px 60px 40px; gap:12px; }
 @keyframes tv-award-in { from { opacity:0; transform:translateY(24px); } to { opacity:1; transform:none; } }
 @keyframes tv-award-rise { from { opacity:0; transform:translateY(48px) scale(.9); } to { opacity:1; transform:none; } }
 @keyframes tv-award-stamp { 0% { opacity:0; transform:rotate(-6deg) scale(1.9); } 70% { opacity:1; transform:rotate(-6deg) scale(.94); }
@@ -14,32 +14,46 @@
    field (static styles) win once they have played */
 .tv-awards-head { text-align:center; display:flex; flex-direction:column; align-items:center; gap:6px;
   animation:tv-award-in 480ms var(--ease-out) calc(var(--tl) + 0ms) backwards; }
-.tv-awards-head .tv-label { color:var(--sun); }
-.tv-awards-title { font-size:112px; line-height:.92; color:var(--bone); max-width:1760px; }
+.tv-awards-head .tv-label { color:var(--muted2); }
+.tv-awards-title { font-size:96px; line-height:.95; color:var(--bone); max-width:1760px; }
 .tv-awards-field { flex:1; width:100%; display:flex; justify-content:center; align-items:center; min-height:0; }
 .tv-award-nominee { display:flex; flex-direction:column; align-items:center; gap:10px; min-width:0;
   transition:opacity 500ms var(--ease-out), transform 500ms var(--ease-out);
   animation:tv-award-rise 420ms var(--ease-out) calc(var(--tl) + var(--nominee-in, 500ms)) backwards; }
 .tv-award-nominee.is-dim { opacity:.3; }
 .tv-award-nominee.is-winner { transform:translateY(-14px); }
-.tv-award-pile { height:360px; display:flex; flex-direction:column; justify-content:flex-end; align-items:center; gap:14px; }
-.tv-awards-field[data-crowded] .tv-award-pile { height:300px; }
-.tv-award-stack { display:block; line-height:0; animation:tv-award-drop 260ms var(--ease-land) both; }
+.tv-award-pile { height:270px; display:flex; flex-direction:column; justify-content:flex-end; align-items:center; gap:14px; }
+.tv-awards-field[data-crowded] .tv-award-pile { height:230px; }
+/* votes are ballot slips, not chips: bone, laid one on the next as they
+   land (the newest on top); the winner's light cyan once the stamp is down */
+.tv-award-slips { display:flex; flex-direction:column-reverse; align-items:stretch; }
+.tv-award-slips i { display:block; border-radius:3px; background:var(--bone);
+  box-shadow:inset 0 -2px 0 color-mix(in srgb, var(--ink0) 22%, transparent), 0 2px 6px color-mix(in srgb, var(--ink0) 55%, transparent);
+  animation:tv-award-drop 260ms var(--ease-land) both; transition:background 400ms var(--ease-out), box-shadow 400ms var(--ease-out); }
+.tv-award-slips.is-lit i { background:var(--lamp-info);
+  box-shadow:inset 0 -2px 0 color-mix(in srgb, var(--ink0) 22%, transparent), 0 0 12px color-mix(in srgb, var(--lamp-info) 45%, transparent); }
 .tv-award-face { display:block; border-radius:50%; line-height:0; transition:box-shadow 400ms var(--ease-out); }
 .tv-award-nominee.is-winner .tv-award-face { box-shadow:0 0 0 8px var(--nominee-color), var(--shadow-2); }
-.tv-award-name { max-width:100%; color:var(--bone); line-height:1.15; text-align:center; overflow-wrap:normal; }
+/* names as written: the nominee's own row beats .tv-display's capitals */
+.tv-award-nominee .tv-award-name { max-width:100%; color:var(--bone); line-height:1.15; text-align:center; overflow-wrap:normal; text-transform:none; }
 .tv-award-votes { min-height:32px; font:600 26px/1.2 var(--fd-body); color:var(--night-text); font-variant-numeric:tabular-nums;
   white-space:nowrap; }
-.tv-award-stamp { padding:4px 16px 2px; border:5px solid var(--sun); border-radius:10px; color:var(--sun);
+.tv-award-stamp { padding:4px 16px 2px; border:5px solid var(--bone); border-radius:10px; color:var(--bone);
   font-size:56px; line-height:1; transform:rotate(-6deg); white-space:nowrap;
   animation:tv-award-stamp 320ms var(--ease-land) both; }
 .tv-awards-field[data-crowded] .tv-award-stamp { font-size:32px; border-width:4px; padding:2px 8px 0; }
 .tv-award-stamp.is-still { animation:none; }
-.tv-awards.is-settled .tv-award-stack { animation:none; }
-.tv-awards-foot { min-height:44px; font:700 36px/1.2 var(--fd-body); color:var(--night-text); }
+.tv-awards.is-settled .tv-award-slips i { animation:none; }
+/* the honoree across the foot, the largest word once it lands; the slot is
+   held from the start so nothing moves when it does */
+.tv-awards-foot { width:100%; min-height:140px; display:flex; align-items:center; justify-content:center; }
+.tv-awards-hero { max-width:1760px; line-height:1.08; color:var(--bone); white-space:nowrap; text-align:center;
+  animation:tv-award-in 420ms var(--ease-land) both; }
+.tv-awards-hero.is-still { animation:none; }
+.tv-awards-none { font:700 36px/1.2 var(--fd-body); color:var(--night-text); }
 
 /* ── the phone ──
-   A ballot or an MVP vote that waits on you is a steady magenta lamp (live,
+   A ballot that waits on you is a steady magenta lamp (live,
    now); once you have voted it goes unlit. Revealed results are a plain
    panel. An award's name is backglass lettering (the show face); your pick is a
    cyan selection ring, because a selection is navigation, not you. */
@@ -55,11 +69,13 @@
 /* the headline first, its label as the subline under it (no kicker) */
 .fd-awards-entry small { order:2; }
 .fd-awards-entry strong { font:800 22px/1.1 var(--fd-display); letter-spacing:.02em; text-transform:uppercase; color:var(--ink); }
+.fd-awards-entry .fd-awards-winner { text-transform:none; letter-spacing:.01em; }
+/* the award you owe a vote on, lettered as written */
+.fd-awards-entry .fd-awards-owed { font:900 22px/1.15 var(--fd-show); text-transform:none; letter-spacing:.01em; overflow-wrap:anywhere; }
 .fd-awards-entry-go { font:600 14px/1 var(--fd-body); color:var(--lamp-info); white-space:nowrap; }
 .fd-awards-clock { font:800 24px/1 var(--fd-display); color:var(--lamp-live-text); font-variant-numeric:tabular-nums; }
 .fd-awards-mark { width:34px; height:34px; flex-shrink:0; display:grid; place-items:center; }
 .fd-awards-winner { text-transform:none !important; font:900 26px/1.12 var(--fd-show) !important; letter-spacing:.01em; overflow-wrap:anywhere; }
-.fd-awards-chips { color:var(--sun); font:800 20px/1 var(--fd-display); font-style:normal; }
 
 .fd-awards-body { padding:0 14px 14px; border-top:1px solid var(--line); }
 .fd-awards-steps { display:flex; gap:6px; padding:10px 0 2px; }
@@ -75,7 +91,7 @@
 .fd-awards-title { margin:14px 0 10px; font:900 34px/1.06 var(--fd-show); letter-spacing:.01em; color:var(--ink); overflow-wrap:anywhere; }
 .fd-awards-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(60px, 1fr)); gap:4px 2px; }
 .fd-awards-nominee { min-height:76px; display:flex; flex-direction:column; align-items:center; gap:6px; padding:7px 1px 5px;
-  border:0; border-radius:12px; background:transparent; color:var(--ink); font:600 13px/1.15 var(--fd-body); cursor:pointer;
+  border:0; border-radius:10px; background:transparent; color:var(--ink); font:600 13px/1.15 var(--fd-body); cursor:pointer;
   transition:background var(--motion-fast) var(--ease-out); }
 .fd-awards-nominee > span:last-child { max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .fd-awards-chip { display:block; border-radius:50%; line-height:0; transition:box-shadow var(--motion-fast) var(--ease-out),

@@ -55,7 +55,7 @@
   cursor:pointer; animation:fd-moment-rise 300ms var(--ease-out) calc(var(--tl, 0ms) + 1400ms) both; }
 .fd-moment-pays { margin:0; font:600 13px/1.3 var(--fd-body); opacity:.85; }
 .fd-moment-x { position:absolute; right:12px; top:calc(env(safe-area-inset-top) + 10px); width:44px; height:44px; border:0;
-  border-radius:12px; background:transparent; color:inherit; font-size:18px; cursor:pointer; }
+  border-radius:10px; background:transparent; color:inherit; font-size:16px; cursor:pointer; }
 /* how long it stays: a bar that runs out at the top */
 .fd-moment-timer { position:absolute; left:0; right:0; top:0; height:3px; background:var(--moment-ink, var(--ink)); opacity:.6;
   transform-origin:0 50%; animation:fd-moment-timer linear calc(var(--tl, 0ms) + 0ms) both; animation-duration:var(--moment-hold, 7000ms); }
@@ -90,8 +90,8 @@
   height:calc(var(--disc) + 16px); animation:fd-moment-art 520ms var(--ease-land) calc(var(--tl, 0ms) + 250ms) both; }
 .fd-walkout-record.has-sleeve { width:calc(var(--disc) * 1.62); justify-content:flex-start; }
 .fd-walkout-sleeve { position:relative; z-index:2; width:var(--disc); height:var(--disc); object-fit:cover; border-radius:6px;
-  box-shadow:0 0 0 3px var(--moment-ink, var(--ink)), 0 14px 30px rgba(2,3,10,.45); }
-.fd-walkout-disc { display:block; line-height:0; border-radius:50%; box-shadow:0 0 0 4px var(--moment-ink, var(--ink)), 0 12px 28px rgba(2,3,10,.4); }
+  box-shadow:0 0 0 3px var(--moment-ink, var(--ink)), var(--shadow-3); }
+.fd-walkout-disc { display:block; line-height:0; border-radius:50%; box-shadow:0 0 0 4px var(--moment-ink, var(--ink)), var(--shadow-3); }
 .fd-walkout-disc svg { width:var(--disc); height:var(--disc); }
 .fd-walkout-record.has-sleeve .fd-walkout-disc { position:absolute; z-index:1; left:calc(var(--disc) * .62); top:8px;
   animation:fd-walkout-slide 700ms var(--ease-out) calc(var(--tl, 0ms) + 760ms) both; }

@@ -1,6 +1,6 @@
 /* Where and When on a phone or the TV, as data, from the frame that viewer
    was sent (shared/geo.js projectGeo). Pure; `now` is the server clock. */
-import { ROSTER, isActivePlayer, isAway } from "../../../shared/core.js";
+import { rosterOf, isActivePlayer, isAbsent } from "../../../shared/core.js";
 import { geoCurrentId, geoPlayers, geoStandings, scoreGuess } from "../../../shared/geo.js";
 
 export const geoPhotoSrc = round => round?.photo?.id ? `/api/geo/photo/${encodeURIComponent(round.photo.id)}` : null;
@@ -39,7 +39,7 @@ export function geoView(state, me = null, now = Date.now()) {
   const rounds = state.geoRounds || [];
   const id = geoCurrentId(geo);
   const round = rounds.find(item => item.id === id) || null;
-  const players = geoPlayers(state, ROSTER, { isActivePlayer, isAway });
+  const players = geoPlayers(state, rosterOf(state), { isActivePlayer:id => isActivePlayer(id, state), isAway:isAbsent });
   const total = Number(geo.total) || geo.order.length;
   const guesses = geo.guesses?.[id] || {};
   const lockedIn = Array.isArray(geo.lockedIn) ? geo.lockedIn

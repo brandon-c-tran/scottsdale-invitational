@@ -93,7 +93,7 @@ function MomentScene({ scene, state }) {
   if (scene === "banner") return <UpBanner state={state} onBets={() => {}}
     moment={{ id:"up2", event:"1v1 Basketball", label:"Semifinal 1", sides:[side(0, [a]), side(1, [b])], anchor:at, elapsed:T }} />;
   if (scene === "walkout") return <PhoneWalkout state={state}
-    moment={{ id:"w1", player:me, mvp:q.get("mvp") === "1", mvpEvent:"Volleyball", anchor:at, elapsed:T,
+    moment={{ id:"w1", player:me, anchor:at, elapsed:T,
       track:{ name:"Mr. Brightside", artists:"The Killers", imageUrl:q.get("cover") ? SAMPLE_COVER : null } }} />;
   if (scene === "team") return <TeamSort state={state} team={{ index:0, players:[me, sahil, chiang], name:"Team Sahil" }} at={at} />;
   return null;
@@ -109,11 +109,6 @@ function receiptStates() {
   ];
   const after = structuredClone(before);
   after.results.ragecage = { slots:[[khoa], [me], [adi]], ts:FRI + H, revision:1 };
-  /* &bounty=1: you win Rage Cage with the leader in the field (v3.1) */
-  if (q.get("bounty")) {
-    after.eventOps.ragecage = { bounties:{ "ffa:ragecage:solo":{ players:[sahil], kind:"ffa", field:[...ROSTER], at:FRI + H } } };
-    after.results.ragecage = { slots:[[me], [khoa], [adi]], ts:FRI + H, revision:1 };
-  }
   return { before, after };
 }
 

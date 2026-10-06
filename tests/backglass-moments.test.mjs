@@ -138,7 +138,7 @@ test("the walkout: an automatic win song on a live board, joined only near its s
   assert.equal(ui.walkoutPlays({ from:"k", to:"k", startedAt:1000, now:1000 }), false);
   const T = ui.WALKOUT_TIMING;
   assert.ok(T.flood < T.stamp && T.stamp < T.dock && T.dock < T.total && T.total >= 8000 && T.total <= 10_000, "8 to 10 seconds");
-  assert.match(read("src/features/tv/TVMode.jsx"), /<TVWalkout state=\{state\} moment=\{walkoutMoment\} \/>/);
+  assert.match(read("src/features/tv/TVMode.jsx"), /<TVWalkout state=\{state\} moment=\{walkoutMoment\} events=\{events\} \/>/);
 });
 
 test("the walkout waits for a free-for-all's podium to turn 1st", () => {

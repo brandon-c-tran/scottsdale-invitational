@@ -20,7 +20,7 @@ const SURFACES = [
   [/features\/weekend\/(Schedule|ContestPanel|CompetitionBracket|EventSheetParts|EventAnnouncement|DrawPath)/, "Events and the event sheet"],
   [/features\/(weekend|rules|travel|photos)|results\/Keepsake/, "Weekend"], [/features\/check-in/, "Check-in"],
   [/features\/(profile|jersey|music|alerts|identity)/, "Profile and player card"], [/features\/draft/, "Draft"],
-  [/features\/(director|qa)/, "Commissioner"], [/features\/(results|moments|mvp)/, "Results and moments"],
+  [/features\/(director|qa)/, "Commissioner"], [/features\/(results|moments)/, "Results and moments"],
   [/features\/(awards)/, "Awards"], [/features\/geo/, "Where and When"], [/features\/poker/, "Poker"],
   [/src\/App\.jsx/, "App (sheets, toasts, commissioner)"], [/src\/ui\//, "Shared UI"], [/shared\//, "Shared (core, show)"],
 ];

@@ -58,7 +58,7 @@
 .fd-draft.is-passing .fd-draft-turn-chip { animation:fd-draft-chip .45s var(--ease-land) .3s both; }
 /* your pick: the border breathes on the shared heartbeat (motion.js aligns
    every fd-beat animation to the server clock) */
-.fd-draft-turn.is-mine::after { content:""; position:absolute; inset:0; border:1px solid var(--lamp-live); border-radius:13px; pointer-events:none;
+.fd-draft-turn.is-mine::after { content:""; position:absolute; inset:0; border:1px solid var(--lamp-live); border-radius:14px; pointer-events:none;
   animation:fd-beat var(--motion-beat) ease-in-out infinite; }
 :root[data-fd-link=down] .fd-draft-turn.is-mine::after { animation:none; }
 .fd-draft-progress { position:absolute; bottom:0; left:0; width:100%; height:4px; background:var(--line); }
@@ -69,10 +69,19 @@
 .fd-draft-queue li[aria-current] { border-color:var(--lamp-live); background:var(--live-tint); box-shadow:0 0 10px color-mix(in srgb, var(--lamp-live) 30%, transparent); }
 .fd-draft-queue small { display:block; color:var(--muted2); font:800 13px/1 var(--fd-display); letter-spacing:.06em; margin-bottom:4px; }
 .fd-draft-queue span { display:block; font-size:12px; font-weight:600; overflow-wrap:anywhere; }
-.fd-draft-latest { display:flex; align-items:center; gap:8px; min-height:52px; border-block:1px solid var(--line); }
+.fd-draft-latest { display:flex; align-items:center; gap:8px; min-height:56px; border-block:1px solid var(--line); }
 .fd-draft.is-fresh .fd-draft-latest { animation:fd-draft-land .4s var(--ease-out) .45s both; }
-.fd-draft-pick-stamp { font:800 30px var(--fd-display); color:var(--lamp-live-text); }
-.fd-draft-latest>span:last-child { margin-left:auto; font-size:13px; color:var(--muted2); text-align:right; }
+/* the pick's number as a stamp: the word over the numeral, never a bare "05" */
+.fd-draft-pick-stamp { display:grid; justify-items:center; flex:0 0 auto; min-width:44px; padding:3px 6px 4px; border:1px solid var(--bone-line);
+  border-radius:6px; background:var(--bg); box-shadow:var(--glass-edge); }
+.fd-draft-pick-stamp small { font:800 12px/1 var(--fd-display); letter-spacing:.08em; text-transform:uppercase; color:var(--muted2); }
+.fd-draft-pick-stamp b { font:800 24px/1 var(--fd-display); font-variant-numeric:tabular-nums; color:var(--ink); }
+.fd-draft-latest .fd-draft-person { flex:0 1 auto; }
+.fd-draft-latest .fd-draft-person>span { font-size:14px; }
+.fd-draft-latest-to { display:inline-flex; flex:0 0 auto; color:var(--muted2); }
+.fd-draft-latest-team { display:inline-flex; align-items:center; gap:7px; min-width:0; margin-left:auto; padding:3px 10px 3px 3px;
+  border:1px solid color-mix(in srgb, var(--draft-color) 60%, var(--line)); border-radius:99px; background:var(--bg); }
+.fd-draft-latest-team>span { min-width:0; overflow-wrap:anywhere; font-size:13px; font-weight:650; color:var(--ink); }
 .fd-draft-person { display:flex; align-items:center; gap:7px; min-width:0; min-height:44px; max-width:100%; padding:2px 0; background:none; color:var(--ink); border:0; text-align:left; cursor:pointer; }
 .fd-draft-person>span { min-width:0; overflow-wrap:anywhere; font-size:12px; font-weight:600; }
 .fd-draft-available { display:grid; gap:10px; }

@@ -30,12 +30,12 @@ const PILL_FACES = 4;
    tray opens, over the count of its actions. A tray of only the run of
    show keeps the plain more glyph. A hold on the pill opens it too. */
 export function PillMore({ open, onToggle, actions = false, count = 0, disabled = false }) {
+  /* always the ⋯; a drawer that holds actions (Skip, an alternative) lights
+     its ring cyan, so it reads as "more here" without a number to decode */
   const shown = actions ? Math.max(1, count) : 0;
   return <button type="button" data-pill-more className={`fd-pill-more${open ? " is-open" : ""}${actions ? " has-actions" : ""}`}
     aria-expanded={open} aria-label={shown ? `More, ${shown} action${shown === 1 ? "" : "s"}` : "More"} disabled={disabled} onClick={onToggle}>
-    {shown ? <span className="fd-pill-more-peek" aria-hidden="true">
-        <Icon name={open ? "down" : "up"} size={16} /><b>{shown}</b></span>
-      : <Icon name="more" size={20} />}
+    <Icon name="more" size={20} />
   </button>;
 }
 

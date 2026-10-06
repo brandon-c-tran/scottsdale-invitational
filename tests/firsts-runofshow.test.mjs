@@ -440,7 +440,8 @@ test("the pill keeps one primary action; a 44px more button holds the run of sho
   const pill = inProvider(React.createElement(ui.DirectorPill, { model, state, events, director,
     onWrite:async () => ({ ok:true }), onOpen:() => {} }));
   assert.match(pill, /class="fd-pill-more has-actions"[^>]*aria-expanded="false"[^>]*aria-label="More, \d+ actions?"/);
-  assert.match(pill, /fd-pill-more-peek/, "a tray with actions shows its count on the button");
+  /* a lit ⋯, never a bare number to decode */
+  assert.doesNotMatch(pill, /fd-pill-more-peek/, "no count on the button");
   assert.doesNotMatch(pill, /class="fd-runshow/, "the tray opens on demand");
   assert.ok(model.extras.some(extra => extra.label === "Skip" && extra.kind === "skip"), "Skip is an edge case");
   assert.doesNotMatch(pill.replace(/<[^>]+>/g, " "), /\bSkip\b/, "Skip is never promoted beside the pill");

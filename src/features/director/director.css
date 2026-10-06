@@ -91,7 +91,8 @@
 .fd-pill-more:disabled { opacity:.5; cursor:default; }
 /* a tray that holds actions, not only the run of show: a chevron pointing
    at where the tray opens, over the count of its actions, in bone */
-.fd-pill-more.has-actions { border-color:var(--ghost-line); color:var(--bone); }
+.fd-pill-more.has-actions { border-color:color-mix(in srgb, var(--lamp-info) 70%, transparent); color:var(--lamp-info);
+  box-shadow:var(--glass-edge), 0 0 0 1px color-mix(in srgb, var(--lamp-info) 35%, transparent), 0 0 12px color-mix(in srgb, var(--lamp-info) 28%, transparent); }
 .fd-pill-more-peek { display:flex; flex-direction:column; align-items:center; gap:2px; line-height:0; }
 .fd-pill-more-peek > svg { color:var(--night-text); }
 .fd-pill-more-peek b { font:800 17px/1 var(--fd-display); font-variant-numeric:tabular-nums; letter-spacing:.02em; color:var(--bone); }

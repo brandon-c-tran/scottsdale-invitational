@@ -260,3 +260,10 @@
 .fd-geo-search li button { width:100%; min-height:44px; padding:8px 12px; border:0; border-bottom:1px solid var(--line);
   background:var(--paper); color:var(--ink); text-align:left; font:500 13px/1.35 var(--fd-body); border-radius:0; }
 .fd-geo-editor-actions { display:grid; grid-template-columns:1fr auto; gap:8px; }
+/* a field the photo filled in itself: a small lit camera (info lamp) */
+.fd-geo-from-photo { display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; margin-left:6px;
+  border-radius:99px; color:var(--lamp-info); background:var(--info-tint); vertical-align:middle; }
+.fd-geo-editor > .fd-geo-from-photo { align-self:flex-start; margin:0 0 -4px; }
+/* several photos at once, or one by hand */
+.fd-geo-add { display:grid; grid-template-columns:minmax(0, 1fr) auto; gap:8px; }
+.fd-geo-add .fd-geo-secondary { padding:0 16px; }

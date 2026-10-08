@@ -7,7 +7,7 @@ import { tapTick } from "../../lib/haptics.js";
 const ENDPOINT = "https://photon.komoot.io/api/";
 const DEBOUNCE_MS = 280;
 
-const placeLabel = p => [p.name, p.city !== p.name ? p.city : null, p.state, p.country !== "United States" ? p.country : null]
+export const placeLabel = p => [p.name, p.city !== p.name ? p.city : null, p.state, p.country !== "United States" ? p.country : null]
   .filter(Boolean).join(", ");
 const zoomFor = p => ["country"].includes(p.type) ? 4 : ["state"].includes(p.type) ? 6 : ["city", "county", "district"].includes(p.type) ? 11 : 16;
 

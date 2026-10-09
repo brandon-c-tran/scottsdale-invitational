@@ -114,16 +114,18 @@ function Letter({ className = "", beat, style, children }) {
    A cartoon turkey struts in along the desert floor and fans its tail: the
    fan is the player's own chips, the head their photo chip with a beak and
    a wattle. Three strike marks stamp in over it, a beat apart, then the
-   count and the name. A whole side on the run: the lead struts in front,
-   up to three smaller turkeys trail it, then "+N". */
+   count and the name. A whole side on the run: the lead struts ahead, up
+   to three smaller turkeys trail it, then "+N". */
 /* the tail fans up and back from behind the body; the head stands forward
    of it on the neck, clear of every tail chip */
 const TURKEY = Object.freeze({ w:600, h:560, fanX:212, fanY:322, reach:234, from:-182, to:-80, feathers:7, chip:104,
   headX:484, headY:146, head:164 });
 const FAN_ANGLES = Array.from({ length:TURKEY.feathers },
   (_, i) => TURKEY.from + i * (TURKEY.to - TURKEY.from) / (TURKEY.feathers - 1));
-/* where the flock stands: the lead's centre, and its followers trailing */
-const FLOCK = Object.freeze({ lead:660, floor:932, step:236, follower:0.5 });
+/* where the flock stands: the lead's centre, and its followers trailing
+   to its left (the first `gap` behind it, then a `step` apart), each drawn
+   over the one ahead so every head shows, the last still on the canvas */
+const FLOCK = Object.freeze({ lead:660, floor:932, gap:253, step:120, follower:0.42 });
 
 function Feather({ player, angle, index, scale }) {
   const chip = Math.round(TURKEY.chip * scale);
@@ -207,12 +209,12 @@ function TurkeyGag({ gag }) {
   const words = 1856 - TURKEY_WORDS;
   return <>
     <div className="tv-gag-flock">
+      <Turkey player={lead} className="is-lead" style={{ left:FLOCK.lead - TURKEY.w / 2, top:FLOCK.floor - TURKEY.h }} />
       {followers.slice(0, TURKEY_FOLLOWERS).map((player, i) => {
-        const x = FLOCK.lead - (i + 1) * FLOCK.step - 40;
+        const x = FLOCK.lead - FLOCK.gap - i * FLOCK.step;
         return <Turkey key={player} player={player} scale={FLOCK.follower} className="is-follower"
           style={{ left:x - (TURKEY.w * FLOCK.follower) / 2, top:FLOCK.floor - TURKEY.h * FLOCK.follower, "--i":i + 1 }} />;
       })}
-      <Turkey player={lead} className="is-lead" style={{ left:FLOCK.lead - TURKEY.w / 2, top:FLOCK.floor - TURKEY.h }} />
     </div>
     {gag.more > 0 && <span className="tv-gag-more fd-show" style={{ "--beat":"var(--g-count)" }}>{`+${gag.more}`}</span>}
     <div className="tv-gag-marks" style={{ left:FLOCK.lead - 245 }}>{[0, 1, 2].map(i => <StrikeMark key={i} index={i} />)}</div>
@@ -237,12 +239,12 @@ const PINS = Object.freeze([0, 1, 2, 3].flatMap(row => Array.from({ length:row +
 }))).sort((a, b) => a.y - b.y || b.x - a.x));
 /* How each pin leaves when the ball comes through, in PINS order (px, deg,
    ms): [across, the arc's top, where it lands (or leaves the frame), its
-   spin, how long]. The headpin goes back over the bowler's head; most
-   land lying down round the ball (a turn of 90 or 270), the rest leave
-   the frame. */
+   spin, how long]. The headpin (index 5, the first beaten chip on it)
+   hops back up the lane, under the lettering; most land lying down round
+   the ball (a turn of 90 or 270), the rest leave the frame. */
 const PIN_FLIGHT = Object.freeze([
   [520, -420, 300, 640, 900], [180, -300, 30, 450, 820], [460, -620, -200, 900, 960], [-260, -340, 34, -450, 840],
-  [120, -240, 30, 270, 780], [-620, -700, 40, -810, 1040], [380, -200, 140, 500, 880], [-140, -420, 40, -270, 860],
+  [120, -240, 30, 270, 780], [-600, -240, 40, -810, 1000], [380, -200, 140, 500, 880], [-140, -340, 40, -270, 860],
   [60, -500, 28, 810, 900], [200, -160, 270, 420, 820],
 ]);
 
@@ -331,8 +333,9 @@ function Ball({ players = [], size = 200 }) {
    The lane runs along the floor; the winning side rolls in as the ball and
    takes all ten pins (the beaten side's chips riding the front ones) in
    cartoon arcs. UPSET lights in the money's amber, then the name. */
-const STRIKE = Object.freeze({ ball:200, rest:1620, impact:1440, y:888 });
-/* the crash: a cartoon burst where the ball meets the headpin */
+const STRIKE = Object.freeze({ ball:200, rest:1620, impact:1440, y:888, burstX:1600, burstY:740 });
+/* the crash: a cartoon burst behind the rack as the ball meets the headpin,
+   its points standing over the pins' heads */
 const BURST = Array.from({ length:24 }, (_, i) => {
   const r = i % 2 ? 62 : 150 - (i % 4) * 14, a = (i / 24) * Math.PI * 2;
   return `${Math.round(Math.cos(a) * r)},${Math.round(Math.sin(a) * r * 0.8)}`;
@@ -340,8 +343,8 @@ const BURST = Array.from({ length:24 }, (_, i) => {
 function StrikeGag({ gag }) {
   return <>
     <Lane />
-    <svg className="tv-gag-pow" viewBox="-160 -130 320 260" width="320" height="260" data-fit="bleed" aria-hidden="true"
-      style={{ left:STRIKE.impact + 60 - 160, top:STRIKE.y - 100 - 130 }}>
+    <svg className="tv-gag-pow" viewBox="-160 -130 320 260" width="440" height="358" data-fit="bleed" aria-hidden="true"
+      style={{ left:STRIKE.burstX - 220, top:STRIKE.burstY - 179 }}>
       <polygon className="tv-gag-pow-out" points={BURST} />
       <polygon className="tv-gag-pow-in" points={BURST} transform="scale(.62)" />
     </svg>
@@ -363,7 +366,10 @@ function StrikeGag({ gag }) {
    The bettor's chip rolls down the lane, wobbles, drops into the near
    gutter and rolls off the end past ten standing pins. The amount in the
    loss's clay, then the name. */
-const GUTTER = Object.freeze({ ball:190, x:1240, y:LANE.gutter + 2 });
+/* `y` is where the ball's foot rests once it has dropped, its lower fifth
+   behind the near gutter's lip and its ink ring clear of the face's foot
+   (gags.css lifts it onto the boards until the drop) */
+const GUTTER = Object.freeze({ ball:190, x:1240, y:LANE.face - 8 });
 function GutterGag({ gag }) {
   return <>
     <Lane />

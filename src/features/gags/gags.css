@@ -203,9 +203,9 @@
 .tv-gag-ball.is-gutter .tv-gag-gx3 { animation:tv-gag-gx3 calc(var(--g-off) - var(--g-drop)) cubic-bezier(.4,0,.9,.7) calc(var(--tl) + var(--g-drop)) forwards; }
 @keyframes tv-gag-gx3 { from { transform:none; } to { transform:translateX(980px); } }
 .tv-gag-ball.is-gutter .tv-gag-gy1 { animation:tv-gag-gy1 calc(var(--g-wobble) - var(--g-roll)) ease-in calc(var(--tl) + var(--g-roll)) both; }
-@keyframes tv-gag-gy1 { from { transform:translateY(-74px); } to { transform:translateY(-52px); } }
-.tv-gag-ball.is-gutter .tv-gag-gy2 { animation:tv-gag-gy2 260ms cubic-bezier(.5,0,.9,.6) calc(var(--tl) + var(--g-drop)) both; }
-@keyframes tv-gag-gy2 { from { transform:none; } 80% { transform:translateY(58px); } to { transform:translateY(52px); } }
+@keyframes tv-gag-gy1 { from { transform:translateY(-98px); } to { transform:translateY(-76px); } }
+.tv-gag-ball.is-gutter .tv-gag-gy2 { animation:tv-gag-gy2 280ms cubic-bezier(.5,0,.9,.6) calc(var(--tl) + var(--g-drop)) both; }
+@keyframes tv-gag-gy2 { from { transform:none; } 80% { transform:translateY(80px); } to { transform:translateY(76px); } }
 .tv-gag-ball.is-gutter .tv-gag-wobble { transform-origin:50% 100%;
   animation:tv-gag-wobble calc(var(--g-drop) - var(--g-wobble)) ease-in-out calc(var(--tl) + var(--g-wobble)) both; }
 @keyframes tv-gag-wobble { 0%, 100% { transform:none; } 18% { transform:rotate(-13deg); } 42% { transform:rotate(11deg); }

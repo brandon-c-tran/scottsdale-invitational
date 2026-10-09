@@ -741,6 +741,17 @@ rollback a61d5030-56cf-42fb-8b96-05906f1bee41`, or to the Sept 30 code with
 its secrets with `npx wrangler rollback a958acac-3f26-4b34-848c-d0351d318522`. Local dev
 note: a stale `vite dev`/workerd left running holds `.wrangler/state` and
 makes every new dev server fail on its first `/ws` or `/api`; stop old ones.
+A second local server beside it needs its own port, inspector port and
+`--persist-to`, `CLOUDFLARE_CF_FETCH_ENABLED=false`, and `GM_PIN` in its
+environment (`wrangler dev` on a built config reads no `.dev.vars`).
+**Oct 9 overnight build** (branch `night/oct8`, 41 commits on `988fd6d`, not
+merged into `m2/spectacle-foundations`, not on production): the Trivia
+board, the Gags and the Ready check, 1101 tests, the 437-view fit audit and
+the local e2e (141 of 142: the one miss is a stale "exactly 12" assertion
+older than the build) pass. STAGING only, as
+`a0e4800c-4fd5-4661-9731-a89df7b0c8ac`, awaiting Brandon's review; roll
+staging back with `npx wrangler rollback 66da6088-aebb-4ad2-a5c2-0e81b6403fef
+--env staging`.
 
 **September 5 correction (history for the visuals).** Brandon rejected the light
 redesign and the rewritten voice. It made the app harder to use and broke

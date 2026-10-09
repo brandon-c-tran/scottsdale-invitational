@@ -8,6 +8,8 @@ import { LETTERS, fmtNumber, nearestGuesses, numberLabel, ordinal, triviaPhotoSr
 import { useTuneClip } from "../trivia/tuneClip.js";
 import { useTriviaClock } from "./roomSound.js";
 import { teamRows } from "../moments/walkoutTeam.js";
+import { isBoardGame } from "../../../shared/triviaBoard.js";
+import { TVBoard } from "./TVBoard.jsx";
 import "./tv-trivia.css";
 
 /* the question's size by its length, so three lines always fit the stage */
@@ -163,11 +165,17 @@ function Board({ state, view }) {
   </div>;
 }
 
-/* Trivia on the TV: the question with its clock and the room (who has
-   locked in, never what), then the reveal (the right answer stamps, how
-   many chose each answer, the points onto the board), the scores between
-   rounds and the final podium. */
-export function TVTrivia({ state, now }) {
+/* Trivia on the TV: a board game is the board's (TVBoard.jsx); the rounds
+   format is below. `fixed`: the caller holds the clock (a still). */
+export function TVTrivia({ state, now, fixed = false }) {
+  return isBoardGame(state?.trivia) ? <TVBoard state={state} now={now} fixed={fixed} /> : <TVRounds state={state} now={now} />;
+}
+
+/* The rounds format on the TV: the question with its clock and the room
+   (who has locked in, never what), then the reveal (the right answer
+   stamps, how many chose each answer, the points onto the board), the
+   scores between rounds and the final podium. */
+function TVRounds({ state, now }) {
   const view = triviaView(state, null, now);
   const tune = view?.question.format === "tune";
   useTuneClip({ id:view?.question.id, active:!!view && tune && view.phase === "question" && now < view.startsAt + TRIVIA_CLIP_MS,

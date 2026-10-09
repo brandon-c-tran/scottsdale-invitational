@@ -12,7 +12,7 @@ import { allEventsOf, resolveCurrentContest } from "../../../shared/core.js";
 import { useFreshChange, useReducedMotion } from "../../lib/motion.js";
 import { serverNow } from "../../lib/serverClock.js";
 import { playSound } from "../../lib/sound.js";
-import { FACEOFF_TIMING as F, faceOffKey, faceOffPlays, faceOffStart, faceOffView } from "../tv/faceOff.js";
+import { FACEOFF_TIMING as F, faceOffKey, faceOffPlays, faceOffStart, faceOffView, useLiveStart } from "../tv/faceOff.js";
 import { nextLatch, useTimeline } from "../tv/tvMotion.js";
 
 /* ms from the takeover's start (the TV's left side slamming in) */
@@ -77,20 +77,25 @@ export function useYoureUp(state, me, { active = true } = {}) {
   } });
   const moment = latch.current?.moment || null;
   const valid = !!moment && moment.key === key;
-  /* the TV's face-off may still be ahead (the intro and draw first) */
-  const due = valid && serverNow() >= moment.anchor;
+  /* the TV's face-off may still be ahead (the intro and draw first, or the
+     decided contest's walkout and gag); its start follows the state as the
+     TV's does (useLiveStart) */
+  const now = serverNow();
+  const anchor = useLiveStart(valid ? moment.id : null, () => faceOffStart(state, found.ev) + F.slide, now);
+  const due = valid && now >= anchor;
   const [, wake] = useState(0);
   useEffect(() => {
     if (!valid || due) return undefined;
-    const timer = setTimeout(() => wake(n => n + 1), Math.max(0, moment.anchor - serverNow()) + 20);
+    const timer = setTimeout(() => wake(n => n + 1), Math.max(0, anchor - serverNow()) + 20);
     return () => clearTimeout(timer);
-  }, [moment?.id, valid, due]); // eslint-disable-line react-hooks/exhaustive-deps
-  /* the sting lands on the TV's VS, on the room's clock */
+  }, [moment?.id, valid, due, anchor]); // eslint-disable-line react-hooks/exhaustive-deps
+  /* the sting lands on the TV's VS, on the room's clock, once the start
+     holds (the VS is a second after it) */
   useEffect(() => {
-    if (!valid || moment.role !== "player") return;
-    playSound("youUp", { at:moment.anchor + UP_TIMING.sting, key:`up:${moment.key}` });
-  }, [moment?.id, valid]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (!valid || !due || moment.role !== "player") return;
+    playSound("youUp", { at:anchor + UP_TIMING.sting, key:`up:${moment.key}` });
+  }, [moment?.id, valid, due]); // eslint-disable-line react-hooks/exhaustive-deps
   const total = moment?.role === "player" ? UP_TIMING.total : UP_TIMING.banner;
-  const timeline = useTimeline(due ? moment.id : null, moment?.anchor, total);
-  return due && timeline.playing ? { ...moment, elapsed:timeline.elapsed } : null;
+  const timeline = useTimeline(due ? moment.id : null, anchor, total);
+  return due && timeline.playing ? { ...moment, anchor, elapsed:timeline.elapsed } : null;
 }

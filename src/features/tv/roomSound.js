@@ -20,8 +20,10 @@
          podium place stamping on the podium beats (podiumBeatAt), 1st loudest
      S15 a new leader (the ChipTowers lead ring and the flat board's
          leader). A lead that changes with a decided contest rings when
-         its lead card docks, after the contest's moment (dockCard); one
-         that changes with a posted result leaves the frame to S14.
+         its lead card docks, after the contest's moment and its gag
+         (dockCard), moving with the gag when the decision's walkout lands
+         later (leadRingMoves); one that changes with a posted result
+         leaves the frame to S14.
      S18 a draft pick landing in its seat (MOTION.cardFlight)
      S20 a fresh deal, S21 blinds up, S22 a bust and its bust card
      the produced crown on CROWN_TIMING (night, the towers, a tower out per
@@ -45,10 +47,12 @@
      engrave  the cup's trophy turn after a result: the new winners are cut
          into their plate, one sound on the turn's clock (engraveCues)
      gags  the bowling alley's cartoons (features/gags) on their own beats
-         from the gag's start (gagCues): a turkey's strut, gobbles and three
-         dings; a strike's roll, crash and flourish; a gutter ball's roll,
-         clunk and trombone; the vultures' wind and squawks. Only when the
-         write that owes the gag reached this TV fresh (useGagSound)
+         from the gag's start (gagCues), after the win song's walkout when
+         its write started one, open past the song: a turkey's strut,
+         gobbles and three dings; a strike's roll, crash and flourish; a
+         gutter ball's roll, clunk and trombone; the vultures' wind and
+         squawks. Only when the write that owes the gag reached this TV
+         fresh (useGagSound)
 
    Pure: roomSnapshot() reduces a state to what can sound, roomCues() diffs
    two snapshots into cues, advanceCues() and crownCues() lay out the two
@@ -59,7 +63,7 @@
 import { useEffect, useRef } from "react";
 import { pokerClock, resolveCurrentContest, resolveWager, wagerMatchesContest } from "../../../shared/core.js";
 import { MOTION } from "../../lib/motion.js";
-import { cueAt, freshFrameNow, roomChipsLanded } from "../../lib/sound.js";
+import { LOOKAHEAD_MS, cueAt, freshFrameNow, roomChipsLanded } from "../../lib/sound.js";
 import { serverNow } from "../../lib/serverClock.js";
 import { buildEventReveal, drawStepDelay, revealReady, revealTimeline } from "../weekend/drawReveal.js";
 import { drawPans, gridBoxes } from "./drawLayout.js";
@@ -455,9 +459,14 @@ export function useEngraveSound(plan = [], cut = 0) {
 
 /* The gags (features/gags) on the room's clock, from the gag's own start
    and its kind's beats (GAG_TIMING), panned to where each thing happens on
-   the canvas. Reduced motion plays the kind's one summary sound. */
+   the canvas. Reduced motion plays the kind's one summary sound. A gag
+   after a walkout plays while the win song runs on in the Now playing
+   strip, so its sounds are open: never ducked under the song. */
 export const GAG_SUMMARY = Object.freeze({ turkey:"gagGobble", strike:"gagCrash", gutter:"gagTrombone", vultures:"gagSquawk" });
 export function gagCues(gag, { reduced = false } = {}) {
+  return gagBeats(gag, { reduced }).map(cue => ({ ...cue, open:true }));
+}
+function gagBeats(gag, { reduced = false } = {}) {
   const T = GAG_TIMING[gag?.kind];
   if (!gag?.id || !T || !Number.isFinite(Number(gag.start))) return [];
   const at = ms => Number(gag.start) + ms;
@@ -492,7 +501,9 @@ export function gagCues(gag, { reduced = false } = {}) {
 /* A gag sounds once, as it takes the room, and only when the write that
    owes it reached this TV on a fresh frame: a TV that loads, reloads or
    reconnects during one shows it and stays quiet. `plan` is what the TV
-   may play (gagModel gagPlan), `gag` what it shows now. */
+   may play (gagModel gagPlan, whose windows already wait for a walkout),
+   `gag` what it shows now. A gag that gives the room away (a slow
+   speaker's walkout) takes the rest of its sounds with it. */
 const GAG_FRESH_MEMORY = 24;
 export function useGagSound({ state, plan = [], gag = null }) {
   const owed = useRef(null);
@@ -506,10 +517,14 @@ export function useGagSound({ state, plan = [], gag = null }) {
       .forEach(id => { fresh.current = [...fresh.current, id].slice(-GAG_FRESH_MEMORY); });
   }, [state]); // eslint-disable-line react-hooks/exhaustive-deps
   const played = useRef(null);
+  const pending = useRef([]);
   useEffect(() => {
-    if (!gag?.id || played.current === gag.id) return;
+    if (gag?.id && played.current === gag.id) return;
+    pending.current.forEach(handle => handle?.cancel?.());
+    pending.current = [];
+    if (!gag?.id) return;
     played.current = gag.id;
-    if (fresh.current.includes(gag.id)) playCues(gagCues(gag, { reduced:reducedNow() }));
+    if (fresh.current.includes(gag.id)) pending.current = playCues(gagCues(gag, { reduced:reducedNow() }));
   }, [gag?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 }
 
@@ -519,13 +534,28 @@ export function useGagSound({ state, plan = [], gag = null }) {
 export const roomStep = (prev, next, { fresh = false, now = serverNow(), reduced = false } = {}) =>
   prev && next && fresh ? roomCues(prev, next, { now, reduced }) : [];
 
+/* plays the cues; returns each one's handle ({ cancel }, or null for a
+   chip or a cue that will not play), in order */
 export function playCues(cues) {
   const chips = [];
-  for (const cue of cues) {
-    if (cue.id === "chip") { chips.push({ at:cue.at, pan:cue.pan || 0 }); continue; }
-    cueAt(cue.id, cue.at, { pan:cue.pan || 0, key:cue.key ?? null, opts:cue.opts || {}, open:!!cue.open });
-  }
+  const handles = cues.map(cue => {
+    if (cue.id === "chip") { chips.push({ at:cue.at, pan:cue.pan || 0 }); return null; }
+    return cueAt(cue.id, cue.at, { pan:cue.pan || 0, key:cue.key ?? null, opts:cue.opts || {}, open:!!cue.open });
+  });
   if (chips.length) roomChipsLanded(chips);
+  return handles;
+}
+
+/* S15 rings as a new leader's card docks: after the decided contest's
+   advance moment and its gag (the snapshot's gagHold). The walkout that
+   decision started lands in a later write and can move the gag, and so
+   the card, later: a ring still waiting on its timer moves with it.
+   `ring` is { decidedAt, at }; returns the new instant, or null. */
+export const leadRingAt = snap => snap?.decidedAt ? snap.decidedAt + TV_ADVANCE_MS + (Number(snap.gagHold) || 0) : 0;
+export function leadRingMoves(ring, snap, now) {
+  if (!ring?.decidedAt || !snap || snap.decidedAt !== ring.decidedAt) return null;
+  const at = leadRingAt(snap);
+  return at > ring.at && ring.at - now > LOOKAHEAD_MS + 50 ? at : null;
 }
 
 const reducedNow = () => typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
@@ -537,10 +567,23 @@ export function useRoomSound({ state, events, standings, allTied, liveEv, showSc
   faceOff = null }) {
   const snap = roomSnapshot(state, events, { standings, allTied, liveEv, showScene });
   const last = useRef(null);
+  const ring = useRef(null);
   useEffect(() => {
     const prev = last.current;
     last.current = snap;
-    playCues(roomStep(prev, snap, { fresh:freshFrameNow(), now:serverNow(), reduced:reducedNow() }));
+    const now = serverNow();
+    const cues = roomStep(prev, snap, { fresh:freshFrameNow(), now, reduced:reducedNow() });
+    const handles = playCues(cues);
+    /* a new leader's S15 waits for its card: kept, so a later write that
+       moves the card (its decision's walkout, then the gag) moves it too */
+    const lead = cues.findIndex(cue => cue.id === "S15");
+    if (lead >= 0) ring.current = { decidedAt:snap.decidedAt, at:cues[lead].at, key:cues[lead].key, handle:handles[lead] };
+    const moved = lead < 0 ? leadRingMoves(ring.current, snap, now) : null;
+    if (moved !== null) {
+      ring.current.handle?.cancel?.();
+      const [handle] = playCues([{ id:"S15", at:moved, key:`${ring.current.key}:${moved}` }]);
+      ring.current = { ...ring.current, at:moved, handle };
+    }
   }, [state]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* a decided contest sounds once, when it first appears on a fresh frame */

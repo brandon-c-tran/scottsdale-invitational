@@ -5,8 +5,9 @@
    threshold and its biggest loser, the vultures' before and after, one gag
    per write in priority order, the windows and who owns the TV after one,
    the face-off waiting it out, the switch, a frozen board and the poker
-   table, a win song walking out, the QA test, both actions' gating, the
-   room's cues, the kit's recipes, and the TV's real markup. */
+   table, a win song walking out first (the gag, the face-off and S15
+   after it; a late one, someone else's), the QA test, both actions'
+   gating, the room's cues, the kit's recipes, and the TV's real markup. */
 import test, { mock } from "node:test";
 import assert from "node:assert/strict";
 import Module from "node:module";
@@ -31,8 +32,10 @@ const {
   GAG_MS, GAG_TEST_LEAD_MS, GAG_TIMING, GUTTER_MIN, RESULT_GAG_AT_MS, RESULT_GAG_END_MS, TURKEY_MIN, aloneLast, gagAt, gagHoldMs,
   gagLamp, gagPlan, gagWrites, latestGag, nextGagEdge, testGag, winStreaks, writeResults,
 } = gags;
-const { TV_ADVANCE_MS, RESULT_SORT_DELAY_MS, RESULT_STANDINGS_AT_MS } = await import("../src/features/tv/tvModel.js");
+const { TV_ADVANCE_MS, RESULT_SORT_DELAY_MS, RESULT_STANDINGS_AT_MS, podiumBeatAt } = await import("../src/features/tv/tvModel.js");
 const { faceOffStart } = await import("../src/features/tv/faceOff.js");
+const { WALKOUT_CLEAR_MS, WALKOUT_OF_WRITE_MS, WALKOUT_TIMING, afterWalkout, walkoutForWrite, walkoutSpan } =
+  await import("../src/features/moments/walkout.js");
 const room = await import("../src/features/tv/roomSound.js");
 const kit = await import("../src/lib/soundKit.js");
 const { tvGags } = await import("../src/features/director/tvSheetModel.js");
@@ -389,7 +392,7 @@ test("the face-off waits out the gag its decision owes the room", () => {
   assert.equal(faceOffStart(s, ev(s, "die")), decided + TV_ADVANCE_MS, "Gags off: the face-off keeps its time");
 });
 
-test("Gags off, a frozen board and the poker table play nothing; a win song walking out skips the gag", () => {
+test("Gags off, a frozen board and the poker table play nothing; the winner's song walks out first", () => {
   const make = () => {
     const s = dieBoard(state => { rule(state, "Richard", 500); rule(state, "Allan", 500); });
     decide(s, "die", 3);
@@ -408,12 +411,135 @@ test("Gags off, a frozen board and the poker table play nothing; a win song walk
   assert.equal(gags.gagsAllowed({ ...table, results:{ poker:{ stacks:{} } } }), true, "a posted count frees the TV");
   const song = make();
   const decided = song.eventOps.die.lastContest.decidedAt;
+  /* (Oct 9) the winner's own song used to skip the gag outright, so with
+     win songs on almost none played; it now walks out first and the gag
+     follows it (the walkout tests below) */
   song.showControl.audio = { walkout:{ player:"Adi", trackId:null, startedAt:decided + 900, until:decided + 30900, auto:true } };
-  assert.equal(latestGag(song, events(song)), null, "the winner's song walks out over the window");
+  assert.equal(latestGag(song, events(song)).start, decided + 900 + WALKOUT_TIMING.total + WALKOUT_CLEAR_MS,
+    "the winner's song walks out, then the gag");
   song.showControl.audio.walkout.auto = false;
-  assert.equal(latestGag(song, events(song)).kind, "strike", "a song the commissioner put on is no takeover");
+  assert.equal(latestGag(song, events(song)).start, decided + TV_ADVANCE_MS, "a song the commissioner put on is no takeover");
   song.showControl.audio.walkout = { player:"Adi", trackId:null, startedAt:decided - 20000, until:decided + 10000, auto:true };
-  assert.equal(latestGag(song, events(song)).kind, "strike", "a walkout long docked");
+  assert.equal(latestGag(song, events(song)).start, decided + TV_ADVANCE_MS, "a walkout long docked");
+});
+
+/* ── after the walkout ──
+   A win song the decision (or the result) started walks out on the TV
+   first; its window (walkoutSpan, the one useTvWalkout plays) is what the
+   gag and the next face-off wait for. Its record lands in a second write a
+   second or two after the decision's. */
+const songOf = (player, startedAt) => ({ walkout:{ player, trackId:null, startedAt, until:startedAt + 30000, auto:true } });
+
+test("a contest's gag plays once its own win song has walked out", () => {
+  const s = dieBoard(state => { rule(state, "Richard", 500); rule(state, "Allan", 500); });
+  decide(s, "die", 3);                         /* Adi and Chiang, the underdogs: a strike */
+  const decided = s.eventOps.die.lastContest.decidedAt;
+  const first = latestGag(s, events(s));
+  assert.equal(first.start, decided + TV_ADVANCE_MS, "before the song's write: right after the advance moment");
+  s.showControl.audio = songOf("Chiang", decided + 1200);
+  const span = walkoutSpan(s, events(s));
+  assert.deepEqual([span.anchor, span.end], [decided + 1200, decided + 1200 + WALKOUT_TIMING.total], "the TV's walkout window");
+  assert.deepEqual(walkoutForWrite(s, events(s), { at:decided, players:["Adi", "Chiang"] }), span, "either winner's song is the write's");
+  const gag = latestGag(s, events(s));
+  assert.equal(gag.id, first.id, "the same gag, moved");
+  assert.equal(gag.start, span.end + WALKOUT_CLEAR_MS);
+  assert.equal(gag.end, gag.start + GAG_MS.strike);
+  assert.deepEqual(gagPlan(s, events(s)).map(item => item.start), [gag.start], "the plan (and its sounds) use the moved window");
+  assert.equal(gagAt(gagPlan(s, events(s)), span.end - 1), null, "nothing under the walkout");
+  /* within a few seconds of the write and no further */
+  assert.equal(walkoutForWrite(s, events(s), { at:decided - WALKOUT_OF_WRITE_MS - 1300, players:["Chiang"] }), null);
+});
+
+test("a result's gag plays after its winner's walkout, which waits for 1st on the podium", () => {
+  const s = fresh();
+  s.live = true;
+  rule(s, "Ben", -100);
+  playFfa(s, "putt", [["Evan"], ["Adi"], ["Ben"]], { before:c => act(s, "placeWager", { wager:{ kind:"outright", eventId:"putt",
+    evName:"Long Putt", ...refs(c), pick:"Brandon", pickPlayers:["Brandon"], stake:200 } }, guest("Richard")) });
+  const posted = Number(s.results.putt.confirmedAt);
+  assert.equal(latestGag(s, events(s)).start, posted + RESULT_GAG_AT_MS);
+  s.showControl.audio = songOf("Evan", posted + 800);
+  const span = walkoutSpan(s, events(s));
+  assert.equal(span.anchor, posted + podiumBeatAt(2) + 600, "the walkout holds for 1st to turn (podiumHoldUntil)");
+  const gag = latestGag(s, events(s));
+  assert.equal(gag.kind, "vultures", "a loser's gag rides its write's song too");
+  assert.equal(gag.start, span.end + WALKOUT_CLEAR_MS);
+});
+
+test("the next face-off waits for its decision's walkout, then the gag; a new leader's S15 moves with them", () => {
+  /* no gag: the walkout alone (the face-off used to play hidden under it) */
+  const plain = dieBoard();
+  decide(plain, "die", 3);
+  const d1 = plain.eventOps.die.lastContest.decidedAt;
+  assert.equal(faceOffStart(plain, ev(plain, "die")), d1 + TV_ADVANCE_MS);
+  plain.showControl.audio = songOf("Adi", d1 + 1000);
+  assert.equal(faceOffStart(plain, ev(plain, "die")), d1 + 1000 + WALKOUT_TIMING.total + WALKOUT_CLEAR_MS);
+  assert.equal(gagHoldMs(plain, ev(plain, "die")), 0);
+  /* a gag: the walkout, the gag, then the face-off */
+  const s = dieBoard(state => { rule(state, "Richard", 500); rule(state, "Allan", 500); });
+  decide(s, "die", 3);
+  const d = s.eventOps.die.lastContest.decidedAt;
+  assert.equal(gagHoldMs(s, ev(s, "die")), GAG_MS.strike);
+  s.showControl.audio = songOf("Adi", d + 1000);
+  const gag = latestGag(s, events(s));
+  assert.equal(gagHoldMs(s, ev(s, "die")), gag.end - (d + TV_ADVANCE_MS), "the hold runs to the moved gag's end");
+  assert.equal(faceOffStart(s, ev(s, "die")), gag.end);
+  /* S15, rung at the decision for the old card, moves to the new one */
+  const ring = { decidedAt:d, at:d + TV_ADVANCE_MS + GAG_MS.strike };
+  const snap = { decidedAt:d, gagHold:gagHoldMs(s, ev(s, "die")) };
+  assert.equal(room.leadRingMoves(ring, snap, d + 1100), gag.end);
+  assert.equal(room.leadRingMoves(ring, { decidedAt:d, gagHold:GAG_MS.strike }, d + 1100), null, "nothing moved");
+  assert.equal(room.leadRingMoves(ring, { ...snap, decidedAt:d + 9000 }, d + 1100), null, "another decision");
+  assert.equal(room.leadRingMoves(ring, snap, ring.at - 100), null, "already on the audio clock");
+  /* a face-off due before a walkout began keeps its time */
+  assert.equal(afterWalkout({ anchor:20_000, end:29_100 }, 19_000), 19_000);
+  assert.equal(afterWalkout({ anchor:20_000, end:29_100 }, 25_000), 29_100 + WALKOUT_CLEAR_MS);
+  assert.equal(afterWalkout(null, 25_000), 25_000);
+});
+
+test("a walkout from another write never moves the gag", () => {
+  const make = () => {
+    const s = dieBoard(state => { rule(state, "Richard", 500); rule(state, "Allan", 500); });
+    decide(s, "die", 3);
+    return s;
+  };
+  const s = make();
+  const d = s.eventOps.die.lastContest.decidedAt;
+  s.showControl.audio = songOf("Adi", d - 20000);
+  assert.equal(walkoutForWrite(s, events(s), { at:d, players:["Adi", "Chiang"] }), null, "an earlier win's song");
+  assert.equal(latestGag(s, events(s)).start, d + TV_ADVANCE_MS, "long docked: the gag keeps its time");
+  /* a song for someone this write did not crown, over the window: the
+     gag is skipped, never moved after it */
+  const other = make();
+  const d2 = other.eventOps.die.lastContest.decidedAt;
+  other.showControl.audio = songOf("Evan", d2 + 1000);
+  assert.equal(walkoutForWrite(other, events(other), { at:d2, players:["Adi", "Chiang"] }), null);
+  assert.equal(latestGag(other, events(other)), null);
+  assert.equal(faceOffStart(other, ev(other, "die")), d2 + 1000 + WALKOUT_TIMING.total + WALKOUT_CLEAR_MS,
+    "the face-off still waits for whatever walkout holds the room");
+});
+
+test("a late walkout: the gag already up gives the room away and the face-off waits for the song", () => {
+  const s = dieBoard(state => { rule(state, "Richard", 500); rule(state, "Allan", 500); });
+  decide(s, "die", 3);
+  const d = s.eventOps.die.lastContest.decidedAt;
+  /* a slow speaker: the song starts 5.5 s on, half a second into the gag */
+  s.showControl.audio = songOf("Adi", d + 5500);
+  assert.equal(latestGag(s, events(s)), null, "the gag gives way, and is never moved after the song");
+  assert.equal(gagHoldMs(s, ev(s, "die")), GAG_MS.strike, "its own window still holds the room");
+  assert.equal(faceOffStart(s, ev(s, "die")), d + 5500 + WALKOUT_TIMING.total + WALKOUT_CLEAR_MS);
+});
+
+test("the QA console's test is untouched by win songs: never moved, still never under a walkout", () => {
+  const s = fresh();
+  s.live = true;
+  act(s, "qaGag", { kind:"strike" }, gm({ qa:true }));
+  const at = s.gagTest.at;
+  s.showControl.audio = songOf(s.gagTest.players[0], at - 2000);
+  assert.equal(walkoutSpan(s, events(s)).end > at, true);
+  assert.equal(testGag(s, events(s)), null, "a walkout on the TV over its window holds the room, as before");
+  s.showControl.audio = songOf(s.gagTest.players[0], at - 30000);
+  assert.equal(testGag(s, events(s)).start, at + GAG_TEST_LEAD_MS, "a docked one leaves it be, never moved");
 });
 
 test("the chase and the lamp: a win in its winner's flood color, a loss in the clay at rest", () => {
@@ -592,7 +718,7 @@ console.error = (...args) => /useLayoutEffect/.test(String(args[0])) ? undefined
 const root = fileURLToPath(new URL("../", import.meta.url));
 const compiled = buildSync({
   stdin:{ contents:`export { TVMode } from "./src/features/tv/TVMode.jsx";
-    export { TVGag, gagNameSize } from "./src/features/gags/TVGags.jsx";
+    export { TVGag, gagNameSize, gagVerdict } from "./src/features/gags/TVGags.jsx";
     export { PlayerIdentityProvider } from "./src/features/identity/PlayerIdentityContext.js";`, resolveDir:root, loader:"jsx" },
   bundle:true, platform:"node", format:"cjs", external:["react", "qrcode-generator", "three"], loader:{ ".css":"empty" },
   write:false, logLevel:"silent",
@@ -601,7 +727,7 @@ const ui = new Module(fileURLToPath(new URL("gags-ui.cjs", import.meta.url)));
 ui.filename = ui.id;
 ui.paths = Module._nodeModulePaths(root);
 ui._compile(compiled.outputFiles[0].text, ui.filename);
-const { TVMode, TVGag, gagNameSize, PlayerIdentityProvider } = ui.exports;
+const { TVMode, TVGag, gagNameSize, gagVerdict, PlayerIdentityProvider } = ui.exports;
 const tv = (state, now) => {
   const list = events(state);
   const standings = computeStandings(state);
@@ -625,6 +751,41 @@ test("the TV draws the gag in its window, never before or after, lettered with a
   assert.doesNotMatch(tv(s, gag.end + 50), /tv-gag/);
   s.gagsOff = true;
   assert.doesNotMatch(tv(s, gag.start + 2500), /tv-gag/, "Gags off");
+});
+
+test("the TV draws a gag moved by its walkout in the new window, never under the walkout", () => {
+  const s = dieBoard(state => { rule(state, "Richard", 500); rule(state, "Allan", 500); });
+  decide(s, "die", 3);
+  const d = s.eventOps.die.lastContest.decidedAt;
+  s.showControl.audio = songOf("Adi", d + 1000);
+  const gag = latestGag(s, events(s));
+  assert.doesNotMatch(tv(s, d + TV_ADVANCE_MS + 2500), /tv-gag/, "its old window is the walkout's");
+  assert.match(tv(s, gag.start + 2500), /class="tv-takeover tv-gag is-strike"/);
+});
+
+test("a gag plays once on a TV: given away to a late walkout, or begun before its window moved, it never comes back", () => {
+  const blank = { id:null, play:false, shown:false };
+  const gag = { id:"contest:die:m1:strike" };
+  let v = gagVerdict(blank, gag);
+  assert.equal(v.play, true);
+  v = gagVerdict(v, gag, { blocked:true });
+  assert.equal(v.play, false, "the walkout takes the room");
+  v = gagVerdict(gagVerdict(v, null), gag);
+  assert.equal(v.play, false, "never twice");
+  let moved = gagVerdict(gagVerdict(blank, gag), null);
+  moved = gagVerdict(moved, gag);
+  assert.equal(moved.play, false, "on screen, then its window moved: not again");
+  const waited = gagVerdict(gagVerdict(blank, null), gag);
+  assert.equal(waited.play, true, "a gag that waited for the walkout plays in its new window");
+  assert.equal(gagVerdict(blank, gag, { blocked:true }).play, false, "held at first sight: skipped, never queued");
+  /* its sounds ride over the win song still playing in the strip */
+  assert.ok(room.gagCues({ id:"g", kind:"strike", start:0 }).every(cue => cue.open), "open past the song's duck");
+  const walkoutSource = readFileSync(new URL("../src/features/tv/TVWalkout.jsx", import.meta.url), "utf8");
+  assert.match(walkoutSource, /useWalkoutMoment\(state, events, \{ delayTo:walkoutSpan\(state, events\)\?\.anchor/,
+    "the TV's walkout plays in the window the gag and the face-off wait for");
+  for (const file of ["src/features/tv/faceOff.js", "src/features/moments/youreUp.js"])
+    assert.match(readFileSync(new URL(`../${file}`, import.meta.url), "utf8"), /useLiveStart\(valid \? moment\.id : null/,
+      `${file}: the face-off's start follows the walkout's write until it plays`);
 });
 
 test("each kind's drawing and lettering, and never a joke in the copy", () => {

@@ -18,6 +18,7 @@ import { walkoutOf } from "../../../shared/audio.js";
 import { useFreshChange } from "../../lib/motion.js";
 import { serverNow } from "../../lib/serverClock.js";
 import { nextLatch, useTimeline } from "../tv/tvMotion.js";
+import { latestResultOf, podiumBeatAt } from "../tv/tvModel.js";
 import { walkoutReaches, walkoutTeam } from "./walkoutTeam.js";
 
 export { teamColorPlayer, teamRows, walkoutReaches, walkoutTeam } from "./walkoutTeam.js";
@@ -51,6 +52,52 @@ export function walkoutView(state, events = []) {
   return { player:walkout.player, startedAt:walkout.startedAt, until:walkout.until, track,
     team:walkoutTeam(state, events, walkout) };
 }
+
+/* A free-for-all posts its podium 3rd, 2nd, 1st; its winner's song starts
+   with the write. The walkout holds until 1st has turned on the podium,
+   so the song never tells the room before the podium does. */
+export function podiumHoldUntil(state, events, player, startedAt) {
+  const latest = latestResultOf(state, events);
+  const res = latest?.res;
+  if (!res || res.stacks || !(res.slots?.[0] || []).includes(player)) return null;
+  const posted = Number(res.confirmedAt || res.ts) || 0;
+  if (!posted || Math.abs(Number(startedAt) - posted) > 15000) return null;
+  const places = Math.min(3, (res.slots || []).filter(slot => slot?.length).length);
+  return posted + podiumBeatAt(Math.max(0, places - 1)) + 600;
+}
+
+/* ── what waits for a walkout ──
+   The walkout's window on the TV, from the stored record alone, so every
+   TV and everything that waits for it agree: it takes the room at its
+   anchor (the song's start, held for a free-for-all's podium) and leaves
+   WALKOUT_TIMING.total later. useTvWalkout plays it from this anchor; a
+   gag its win owes (features/gags) and the next face-off (faceOff.js)
+   wait for its end. Null without an automatic win song on a live board. */
+export function walkoutSpan(state, events = []) {
+  const walkout = walkoutOf(state);
+  if (!walkout?.auto || !walkout.player || state?.frozen) return null;
+  const hold = Number(podiumHoldUntil(state, events, walkout.player, walkout.startedAt)) || 0;
+  const anchor = Math.max(walkout.startedAt, hold);
+  return { player:walkout.player, startedAt:walkout.startedAt, anchor, end:anchor + WALKOUT_TIMING.total };
+}
+/* a win song starts once its write is broadcast, when the speaker answers:
+   a second or two, a slow speaker a few */
+export const WALKOUT_OF_WRITE_MS = 6000;
+/* what waits for a walkout takes the room this long after it leaves */
+export const WALKOUT_CLEAR_MS = 300;
+/* The walkout a write started: an automatic win song for one of that
+   write's winners (`players`), begun within WALKOUT_OF_WRITE_MS after the
+   write (`at`). An earlier win's song, or someone else's, is not it. */
+export function walkoutForWrite(state, events, { at, players = [] } = {}) {
+  const span = walkoutSpan(state, events);
+  if (!span || !(players || []).includes(span.player)) return null;
+  const lag = span.startedAt - Number(at);
+  return lag >= -1000 && lag <= WALKOUT_OF_WRITE_MS ? span : null;
+}
+/* A takeover due at `start` while a walkout already holds the room plays
+   once it has left; one due before the walkout began keeps its time. */
+export const afterWalkout = (span, start) =>
+  span && span.anchor <= start && start < span.end ? span.end + WALKOUT_CLEAR_MS : start;
 
 /* Whether a fresh step to `to` starts a takeover now. */
 export function walkoutPlays({ from, to, startedAt, now }) {

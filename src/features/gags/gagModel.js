@@ -13,12 +13,14 @@
    reload agrees. A contest decided mid-event plays right after its advance
    moment (decidedAt + TV_ADVANCE_MS); a posted result (a free-for-all's,
    or the final whose winner tap posted it in the same write) plays over
-   the tail of its podium (posted + RESULT_GAG_AT_MS). The next contest's
-   face-off waits for a contest's gag (gagHoldMs, faceOff.js). Only the
-   newest write plays, and only until the next lifecycle write. Never with
-   Gags off (state.gagsOff), on a frozen board, at the poker table, or
-   while a win song walks out. The QA console's test (state.gagTest) plays
-   its kind with a stand-in cast (shared/gags.js).
+   the tail of its podium (posted + RESULT_GAG_AT_MS). When that write's
+   win song walks out first, the gag plays once the walkout has left
+   (moments/walkout.js walkoutSpan, the window the TV's walkout plays in).
+   The next contest's face-off waits for a contest's gag (gagHoldMs,
+   faceOff.js). Only the newest write plays, and only until the next
+   lifecycle write. Never with Gags off (state.gagsOff), on a frozen board,
+   at the poker table, or under any other walkout. The QA console's test
+   (state.gagTest) plays its kind with a stand-in cast (shared/gags.js).
 
    Pure: nothing here reads a clock beyond the `now` it is handed, or
    writes state. */
@@ -27,14 +29,13 @@ import {
   START, ROSTER, rosterOf, allEventsOf, contestStackOf, disp, resolveSlot, resolveWager, stageEntrantView,
   stageFinalists, teamLabel, wagerMatchesContest,
 } from "../../../shared/core.js";
-import { walkoutOf } from "../../../shared/audio.js";
 import { GAG_KINDS, GAG_TEST_AMOUNT } from "../../../shared/gags.js";
 import { contestOfEntry } from "../wagers/betStacks.js";
 import { floodColor } from "../identity/chipInk.js";
 import { resolvePlayerIdentity } from "../identity/playerIdentity.js";
 import { eventRow } from "../profile/seasonStats.js";
 import { chipWrites } from "../results/weekendFacts.js";
-import { WALKOUT_TIMING } from "../moments/walkout.js";
+import { WALKOUT_CLEAR_MS, walkoutForWrite, walkoutSpan } from "../moments/walkout.js";
 import { RESULT_SORT_DELAY_MS, RESULT_STANDINGS_AT_MS, TV_ADVANCE_MS, lastLifecycleWrite } from "../tv/tvModel.js";
 
 export { GAG_KINDS };
@@ -300,20 +301,34 @@ export function gagForWrite(state, events, write, reached = []) {
     || vulturesOf(state, events, write);
 }
 
-/* when a write's gag starts: after a contest's advance moment, or over the
-   tail of a result's podium */
-export const gagStartOf = write => write.type === "result" ? write.at + RESULT_GAG_AT_MS : write.at + TV_ADVANCE_MS;
-
-/* An automatic win song walks out over the TV for WALKOUT_TIMING.total
-   from its start; a gag never shares the room with one, so a gag whose
-   window it overlaps is skipped (never queued). */
-export function walkoutHolds(state, gag) {
-  const walkout = walkoutOf(state);
-  if (!walkout?.auto || !walkout.player || !gag) return false;
-  return walkout.startedAt < gag.end && walkout.startedAt + WALKOUT_TIMING.total > gag.start;
+/* When a write's gag starts: after a contest's advance moment, or over the
+   tail of a result's podium. `walkout` is the win song that write started
+   (walkoutForWrite): one that began before then has the room first, and
+   the gag plays WALKOUT_CLEAR_MS after it leaves. A song that began after
+   (a slow speaker) finds the gag on the TV, and the gag gives way to it
+   (walkoutHolds), never to play again. */
+export function gagStartOf(write, walkout = null) {
+  const start = write.type === "result" ? write.at + RESULT_GAG_AT_MS : write.at + TV_ADVANCE_MS;
+  return walkout && walkout.startedAt < start ? Math.max(start, walkout.end + WALKOUT_CLEAR_MS) : start;
 }
 
+/* the players a write's win went to, whose win song it can start */
+export const winnersOf = (state, write) => winnerSide(state, write)?.players || [];
+
+/* A walkout on the TV (walkoutSpan) that overlaps a gag's window holds the
+   room: the gag is skipped, never queued. */
+export const walkoutHolds = (span, gag) => !!span && !!gag && span.anchor < gag.end && span.end > gag.start;
+
 const windowed = (gag, start) => ({ ...gag, start, ms:GAG_MS[gag.kind], end:start + GAG_MS[gag.kind] });
+
+/* a write's gag with its window: after its own win song when that walked
+   out first, else where gagStartOf puts it */
+function gagView(state, events, write, reached) {
+  const gag = gagForWrite(state, events, write, reached);
+  if (!gag) return null;
+  const own = walkoutForWrite(state, events, { at:write.at, players:winnersOf(state, write) });
+  return windowed({ ...gag, id:`${write.key}:${gag.kind}`, write:write.key, evId:write.ev.id, at:write.at }, gagStartOf(write, own));
+}
 
 /* The gag the newest write owes the room, with its window, or null. A
    later lifecycle write (the next contest locked, the next event
@@ -325,16 +340,14 @@ export function latestGag(state, events = allEventsOf(state)) {
   if (!last) return null;
   const { write, reached } = last;
   if (lastLifecycleWrite(state) > write.at + SAME_WRITE_MS) return null;
-  const gag = gagForWrite(state, events, write, reached);
-  if (!gag) return null;
-  const view = windowed({ ...gag, id:`${write.key}:${gag.kind}`, write:write.key, evId:write.ev.id, at:write.at }, gagStartOf(write));
-  return walkoutHolds(state, view) ? null : view;
+  const view = gagView(state, events, write, reached);
+  return walkoutHolds(walkoutSpan(state, events), view) ? null : view;
 }
 
 /* The QA console's test (qaGag): its kind with the stand-in cast, from just
    after its write. It plays with Gags off (it was asked for), never on a
-   frozen board or at the poker table. */
-export function testGag(state) {
+   frozen board or at the poker table, and never under a walkout. */
+export function testGag(state, events = allEventsOf(state)) {
   const test = state?.gagTest;
   if (!test || !GAG_KINDS.includes(test.kind) || !gagsAllowed(state)) return null;
   const at = Number(test.at) || 0;
@@ -348,12 +361,12 @@ export function testGag(state) {
       : test.kind === "gutter" ? { ...base, players:[players[0]], amount:Number(test.amount) || GAG_TEST_AMOUNT, name }
         : { ...base, players:[players[0]], place:ordinal(rosterOf(state).length), name };
   const view = windowed(gag, at + GAG_TEST_LEAD_MS);
-  return walkoutHolds(state, view) ? null : view;
+  return walkoutHolds(walkoutSpan(state, events), view) ? null : view;
 }
 
 /* everything the TV may play, by window: the test, then the newest write's */
 export function gagPlan(state, events = allEventsOf(state)) {
-  return [testGag(state), latestGag(state, events)].filter(Boolean);
+  return [testGag(state, events), latestGag(state, events)].filter(Boolean);
 }
 /* the planned gag whose window holds `now`, or null */
 export function gagAt(plan, now) {
@@ -382,15 +395,18 @@ export function gagLamp(state, gag) {
   return { color:LOSS_LAMP, pace:"rest" };
 }
 
-/* How long the gag owed by `ev`'s newest decision holds the room before
-   the next contest's face-off may play (faceOffStart): its length when that
-   write owes a gag, else 0. Read once, when the next market opens in that
-   same write, so it never waits on a win song that has not started yet. */
+/* How long past its advance moment the gag owed by `ev`'s newest decision
+   holds the room: until its window ends, after the win song that decision
+   started when that walks out first (gagView), else 0. The next contest's
+   face-off (faceOffStart), a new leader's card and its S15 wait this long.
+   Read from the state each time, so the walkout's own write, a second or
+   two after the decision's, moves them with the gag. A gag a late song
+   took the room from still holds its own window. */
 export function gagHoldMs(state, ev, events = allEventsOf(state)) {
   const last = ev ? state?.eventOps?.[ev.id]?.lastContest : null;
   if (!last?.decidedAt || !gagsOn(state)) return 0;
   const step = winStreaks(state, events).find(item => item.write.type === "contest"
     && item.write.ev.id === ev.id && item.write.entry?.id === last.id);
-  const gag = step ? gagForWrite(state, events, step.write, step.reached) : null;
-  return gag ? GAG_MS[gag.kind] : 0;
+  const view = step ? gagView(state, events, step.write, step.reached) : null;
+  return view ? Math.max(0, view.end - (step.write.at + TV_ADVANCE_MS)) : 0;
 }

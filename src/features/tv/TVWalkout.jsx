@@ -6,9 +6,8 @@ import { floodPlate } from "../identity/chipInk.js";
 import { Icon } from "../../ui/Icon.jsx";
 import { GameMark } from "../../ui/GameMark.jsx";
 import { LampChase } from "../../ui/ScoreReel.jsx";
-import { WALKOUT_TIMING as W, useWalkoutMoment } from "../moments/walkout.js";
+import { WALKOUT_TIMING as W, useWalkoutMoment, walkoutSpan } from "../moments/walkout.js";
 import { teamColorPlayer, teamRows } from "../moments/walkoutTeam.js";
-import { podiumBeatAt, latestResultOf } from "./tvModel.js";
 import { playCues, walkoutCues } from "./roomSound.js";
 import { Takeover } from "./TVTakeover.jsx";
 
@@ -73,18 +72,9 @@ export function walkoutTeamLayout(team) {
 export const walkoutLabelSize = (label, slot) =>
   Math.max(24, Math.min(44, Math.floor(slot / (Math.max(4, String(label || "").length) * 0.5))));
 
-/* A free-for-all posts its podium 3rd, 2nd, 1st; its winner's song starts
-   with the write. The walkout holds until 1st has turned on the podium,
-   so the song never tells the room before the podium does. */
-export function podiumHoldUntil(state, events, player, startedAt) {
-  const latest = latestResultOf(state, events);
-  const res = latest?.res;
-  if (!res || res.stacks || !(res.slots?.[0] || []).includes(player)) return null;
-  const posted = Number(res.confirmedAt || res.ts) || 0;
-  if (!posted || Math.abs(Number(startedAt) - posted) > 15000) return null;
-  const places = Math.min(3, (res.slots || []).filter(slot => slot?.length).length);
-  return posted + podiumBeatAt(Math.max(0, places - 1)) + 600;
-}
+/* the podium hold lives with the walkout's window (moments/walkout.js
+   walkoutSpan), which what waits for a walkout reads too */
+export { podiumHoldUntil } from "../moments/walkout.js";
 
 /* What the song is for: the newest win on the board, when the singer is on
    it (a posted result is the event's 1st; a recorded contest is its round,
@@ -134,11 +124,11 @@ function WonStamp({ win, mark = 72 }) {
 }
 
 /* The walkout the TV plays now (TVMode lists it as a takeover), and its
-   stinger and stamp on the room's clock, once. */
+   stinger and stamp on the room's clock, once. It takes the room at its
+   window's anchor (walkoutSpan), the instant a gag or a face-off that
+   waits for it counts from. */
 export function useTvWalkout(state, events) {
-  const walkout = state?.showControl?.audio?.walkout || null;
-  const delayTo = walkout?.player ? podiumHoldUntil(state, events, walkout.player, walkout.startedAt) : null;
-  const moment = useWalkoutMoment(state, events, { delayTo });
+  const moment = useWalkoutMoment(state, events, { delayTo:walkoutSpan(state, events)?.anchor ?? null });
   const played = useRef(null);
   useEffect(() => {
     if (!moment || played.current === moment.id) return;

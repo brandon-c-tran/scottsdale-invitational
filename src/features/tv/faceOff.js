@@ -19,6 +19,7 @@ import { buildEventReveal, drawSequenceMs, revealReady, revealTimeline } from ".
 import { TV_ADVANCE_MS, TV_INTRO_AUTO_MS, TV_REVEAL_HOLD_MS, contestSideView } from "./tvModel.js";
 import { nextLatch, useTimeline } from "./tvMotion.js";
 import { gagHoldMs } from "../gags/gagModel.js";
+import { afterWalkout, walkoutSpan } from "../moments/walkout.js";
 
 /* ms from the face-off's start: the broadcast sting (Backglass takeover
    grammar). The chrome leaves and the glass dims with a sting so heads turn,
@@ -79,8 +80,11 @@ const revealSteps = reveal => (reveal.versus ? 2 : (reveal.groups || []).length)
    reveal to end (the reveal's own server-anchored timeline); a contest opened
    by recording the previous winner waits for that decided contest's moment
    (TV_ADVANCE_MS), then for the gag that decision owes the room (gagHoldMs,
-   features/gags). */
-export function faceOffStart(state, ev) {
+   features/gags). A win song walking out when it is due keeps the room
+   (walkoutSpan, the TV's own walkout window), and the face-off follows it:
+   the decision's own song, a second or two after it, comes in a later
+   write, so the start is read from the state until it plays. */
+export function faceOffStart(state, ev, events = allEventsOf(state)) {
   const op = state?.eventOps?.[ev?.id] || {};
   const opened = Number(op.bettingOpenedAt) || 0;
   let start = opened;
@@ -94,8 +98,8 @@ export function faceOffStart(state, ev) {
       : announced + TV_INTRO_AUTO_MS);
   }
   if (decided && opened && Math.abs(opened - decided) <= SAME_WRITE_MS)
-    start = Math.max(start, decided + TV_ADVANCE_MS + gagHoldMs(state, ev));
-  return start;
+    start = Math.max(start, decided + TV_ADVANCE_MS + gagHoldMs(state, ev, events));
+  return opened ? afterWalkout(walkoutSpan(state, events), start) : start;
 }
 
 /* Something still covering the live pane when the face-off is due (a
@@ -121,6 +125,19 @@ export function faceOffChipSize(count, width = 620) {
   return Math.max(96, Math.min(count <= 2 ? 230 : count <= 4 ? 160 : 132, size));
 }
 
+/* A start on the server clock that follows the state until it is due and
+   then holds: `read()` gives it now; the first render at or past it keeps
+   that instant for `id`, so a write landing once it plays (a slow
+   speaker's walkout) never restarts it. Null without an id. */
+export function useLiveStart(id, read, now = serverNow()) {
+  const held = useRef(null);
+  if (!id) { held.current = null; return null; }
+  if (held.current?.id === id) return held.current.at;
+  const at = Number(read()) || 0;
+  if (now >= at) held.current = { id, at };
+  return at;
+}
+
 /* The face-off to draw now for the live contest, or null. `covered`: the
    live pane is under a ceremony or scene right now (faceOffGate). */
 export function useFaceOff(state, ev, contest, { covered = false } = {}) {
@@ -130,17 +147,19 @@ export function useFaceOff(state, ev, contest, { covered = false } = {}) {
     ? { anchor:faceOffStart(state, ev), contestId:contest.id, evId:ev.id } : null });
   const moment = latch.current?.moment || null;
   const valid = !!moment && ev?.id === moment.evId && contest?.id === moment.contestId;
-  /* a start still ahead: the reveal or the decided contest has the TV */
+  /* a start still ahead: the reveal, the decided contest, its walkout or its
+     gag has the TV */
   const now = serverNow();
-  const due = valid && now >= moment.anchor;
+  const anchor = useLiveStart(valid ? moment.id : null, () => faceOffStart(state, ev), now);
+  const due = valid && now >= anchor;
   const [, wake] = useState(0);
   useEffect(() => {
     if (!valid || due) return undefined;
-    const timer = setTimeout(() => wake(n => n + 1), Math.max(0, moment.anchor - serverNow()) + 20);
+    const timer = setTimeout(() => wake(n => n + 1), Math.max(0, anchor - serverNow()) + 20);
     return () => clearTimeout(timer);
-  }, [moment?.id, valid, due]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [moment?.id, valid, due, anchor]); // eslint-disable-line react-hooks/exhaustive-deps
   const hold = useRef(null);
-  const gated = faceOffGate(hold.current, { id:due ? moment.id : null, anchor:moment?.anchor, covered, now });
+  const gated = faceOffGate(hold.current, { id:due ? moment.id : null, anchor, covered, now });
   hold.current = gated.gate;
   const playFrom = due ? gated.anchor : null;
   const timeline = useTimeline(playFrom !== null ? moment.id : null, playFrom, FACEOFF_TIMING.total);

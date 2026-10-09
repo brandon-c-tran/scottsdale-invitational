@@ -5,10 +5,13 @@
    Play lands the write now as a fresh frame, so the TV runs the room's own
    sequence: the decided contest or the result's podium, the gag on its
    slot with its sounds on the room bus, then whatever follows (the next
-   face-off waits for it). The tap that plays is the one sound needs.
+   face-off waits for it). With a win song, the speaker's write lands
+   SONG_LAG_MS later as the Worker's does: the walkout first, then the gag.
+   The tap that plays is the one sound needs.
 
      /dev/gags-preview.html
        ?kind=turkey|strike|gutter|vultures   which gag (default turkey)
+       &song=1      the winner's win song walks out first
        &test=1      the QA console's test of it (qaGag)
        &off=1       Gags off on the TV sheet (a test still plays)
        &t=<ms>      the gag already that far in on load (a TV joining late, silent)
@@ -16,10 +19,11 @@
        &reduced=1   reduced motion: the still for the window and its one sound
        &bare=1      no controls */
 import React, { useEffect, useMemo, useState } from "react";
+import { flushSync } from "react-dom";
 import { createRoot } from "react-dom/client";
 import { allEventsOf, computeStandings } from "../shared/core.js";
 import { GAG_KINDS } from "../shared/gags.js";
-import { GAG_MS, gagPlan } from "../src/features/gags/gagModel.js";
+import { GAG_MS, gagPlan, gagWrites, winnersOf } from "../src/features/gags/gagModel.js";
 import { TVMode } from "../src/features/tv/TVMode.jsx";
 import { PlayerIdentityProvider } from "../src/features/identity/PlayerIdentityContext.js";
 import { Shell } from "../src/ui/Shell.jsx";
@@ -31,6 +35,7 @@ import "../src/ui/shell.css";
 const params = new URLSearchParams(location.search);
 const KIND = GAG_KINDS.includes(params.get("kind")) ? params.get("kind") : "turkey";
 const TEST = params.get("test") === "1";
+const SONG = params.get("song") === "1" && !TEST;
 const OFF = params.get("off") === "1";
 const REDUCED = params.get("reduced") === "1";
 const T = params.has("t") ? Math.max(0, Number(params.get("t")) || 0) : null;
@@ -39,6 +44,9 @@ const BARE = params.get("bare") === "1";
 const LABEL = Object.freeze({ turkey:"Turkey", strike:"Strike", gutter:"Gutter ball", vultures:"Vultures" });
 /* how long the board sits before the write lands, after Play */
 const LAND_MS = 900;
+/* how long after the write the speaker answers and its walkout lands */
+const SONG_LAG_MS = 1200;
+const WIN_CLIP_MS = 30000;
 
 /* ?pause: the CSS held where it stands (Play lets it go) */
 let pauseStyle = null;
@@ -77,6 +85,18 @@ function weekend(kind) {
 }
 const landed = (parts, state) => asFrame(parts.write(structuredClone(state)));
 const owedBy = state => gagPlan(state, allEventsOf(state))[0] || null;
+/* the speaker's write (the Worker's stampWalkout): the newest write's
+   winner's song, started `at` (default SONG_LAG_MS after that write) */
+function sung(state, at = null) {
+  const write = gagWrites(state, allEventsOf(state)).at(-1);
+  const player = write ? winnersOf(state, write)[0] : null;
+  if (!player) return state;
+  const start = at ?? write.at + SONG_LAG_MS;
+  const next = structuredClone(state);
+  next.showControl = { ...(next.showControl || {}), audio:{ ...(next.showControl?.audio || {}),
+    walkout:{ player, trackId:null, startedAt:start, until:start + WIN_CLIP_MS, auto:true } } };
+  return next;
+}
 /* every server stamp moved so the owed gag started `t` ms ago */
 function joined(state, t) {
   const gag = owedBy(state);
@@ -102,11 +122,13 @@ function Tv({ state, now }) {
 function Rehearsal() {
   const [run, setRun] = useState(() => {
     const parts = weekend(KIND);
-    const after = landed(parts, parts.state);
+    const landedNow = landed(parts, parts.state);
+    const after = SONG ? sung(landedNow) : landedNow;
+    const owed = owedBy(after);
     /* ?t: a TV that joins the gag that far in (a first snapshot, silent);
        with ?pause its clock holds there too */
     const state = T === null ? parts.state : joined(after, T);
-    return { id:0, kind:KIND, parts, state, owed:owedBy(after), landing:false, now:PAUSED && T !== null ? Date.now() : undefined };
+    return { id:0, kind:KIND, parts, state, owed, landing:false, song:false, now:PAUSED && T !== null ? Date.now() : undefined };
   });
   const [t, setT] = useState(T ?? 0);
   useSoundSystem({ state:run.state, tv:true });
@@ -118,20 +140,34 @@ function Rehearsal() {
     pauseStyle?.remove(); pauseStyle = null;
     const parts = weekend(kind);
     publishFrame({ fresh:false, reason:"quiet" });
-    setRun(prev => ({ id:prev.id + 1, kind, parts, state:parts.state, owed:null, landing:true, now:undefined }));
+    setRun(prev => ({ id:prev.id + 1, kind, parts, state:parts.state, owed:null, landing:true, song:false, now:undefined }));
   };
   useEffect(() => {
     if (!run.landing) return undefined;
+    /* one render sees the new state and its fresh frame together, as the
+       transport delivers them */
     const timer = setTimeout(() => {
       const after = landed(run.parts, run.state);
-      publishFrame({ version:run.id, fresh:true, lastAction:run.parts.action });
-      setRun(prev => prev.id === run.id ? { ...prev, state:after, owed:owedBy(after), landing:false } : prev);
+      flushSync(() => {
+        setRun(prev => prev.id === run.id ? { ...prev, state:after, owed:owedBy(SONG ? sung(after) : after), landing:false,
+          song:SONG } : prev);
+        publishFrame({ version:run.id, fresh:true, lastAction:run.parts.action });
+      });
     }, LAND_MS);
     return () => clearTimeout(timer);
   }, [run.id, run.landing]); // eslint-disable-line react-hooks/exhaustive-deps
+  /* ?song: the speaker answers, and its write lands as the Worker's does */
+  useEffect(() => {
+    if (!run.song) return undefined;
+    const timer = setTimeout(() => flushSync(() => {
+      setRun(prev => prev.id === run.id ? { ...prev, state:sung(prev.state, Date.now()), song:false } : prev);
+      publishFrame({ version:run.id, fresh:true, lastAction:"walkoutStart" });
+    }), SONG_LAG_MS);
+    return () => clearTimeout(timer);
+  }, [run.id, run.song]); // eslint-disable-line react-hooks/exhaustive-deps
   const go = extra => {
-    const next = new URLSearchParams({ kind:run.kind, ...(TEST ? { test:"1" } : {}), ...(OFF ? { off:"1" } : {}),
-      ...(REDUCED ? { reduced:"1" } : {}), ...extra });
+    const next = new URLSearchParams({ kind:run.kind, ...(SONG ? { song:"1" } : {}), ...(TEST ? { test:"1" } : {}),
+      ...(OFF ? { off:"1" } : {}), ...(REDUCED ? { reduced:"1" } : {}), ...extra });
     for (const [key, value] of [...next]) if (value === "") next.delete(key);
     location.search = `?${next}`;
   };
@@ -161,6 +197,7 @@ function Rehearsal() {
             {LABEL[kind]}</button>)}
         </div>
         <div className="gp-row">
+          <label><input type="checkbox" checked={SONG} disabled={TEST} onChange={event => go({ song:event.target.checked ? "1" : "" })} /> Win song</label>
           <label><input type="checkbox" checked={TEST} onChange={event => go({ test:event.target.checked ? "1" : "" })} /> QA test</label>
           <label><input type="checkbox" checked={OFF} onChange={event => go({ off:event.target.checked ? "1" : "" })} /> Gags off</label>
           <label><input type="checkbox" checked={REDUCED} onChange={event => go({ reduced:event.target.checked ? "1" : "" })} /> Reduced motion</label>

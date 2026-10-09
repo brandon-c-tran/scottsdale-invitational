@@ -64,6 +64,8 @@ function pickNow(state) {
     const ballot = (state.prompts?.ballots || []).find(b => b?.reveal);
     return (Number(ballot?.reveal?.at) || Date.now()) + at.award;
   }
+  /* the Trivia board's fixtures stand their moment on the state's own write time */
+  if (at.board !== undefined) return (Number(state.updatedAt) || Date.now()) + at.board;
   if (at.trivia !== undefined) {
     const game = state.trivia, q = game?.questions?.[game.index];
     const time = game?.times?.[q?.id] || {};

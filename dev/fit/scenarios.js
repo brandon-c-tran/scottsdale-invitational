@@ -13,6 +13,7 @@ import {
   resolveWager,
 } from "../../shared/core.js";
 import { applyAction as apply } from "../../worker/actions.js";
+import { boardDeskStage, boardStage } from "./boardFixtures.js";
 
 /* display names the audit stresses: a long one, a lowercase pair, a
    surname. Applied after the fill, so qaAdvance never sees them as touched */
@@ -649,6 +650,25 @@ export const TV_SCENARIOS = Object.freeze([
   { id:"tv-trivia-number-reveal", build:() => triviaStage("number-reveal"), at:{ trivia:4000 }, wait:3000 },
   { id:"tv-trivia-board", build:() => triviaStage("board"), at:{ trivia:3000 }, wait:2500 },
   { id:"tv-trivia-final", build:() => triviaStage("final"), at:{ trivia:3000 }, wait:3000 },
+  /* the Trivia board (dev/fit/boardFixtures.js, built from its contract):
+     the board, a clue reading, the buzzers live (a tune, a picture), the
+     order, a turn with one answer struck, the reveal, the Daily Double's
+     sting, wager and clue, and the Final's wagers, clue, reveal and podium */
+  { id:"tv-board-pick", build:() => boardStage("pick"), at:{ board:0 } },
+  { id:"tv-board-clue", build:() => boardStage("clue"), at:{ board:0 } },
+  { id:"tv-board-armed", build:() => boardStage("armed"), at:{ board:0 } },
+  { id:"tv-board-tune", build:() => boardStage("tune"), at:{ board:0 } },
+  { id:"tv-board-picture", build:() => boardStage("picture"), at:{ board:0 } },
+  { id:"tv-board-order", build:() => boardStage("order"), at:{ board:0 }, wait:1200 },
+  { id:"tv-board-answer", build:() => boardStage("answer"), at:{ board:0 } },
+  { id:"tv-board-reveal", build:() => boardStage("reveal"), at:{ board:0 }, wait:1500 },
+  { id:"tv-board-dd", build:() => boardStage("dd-sting"), at:{ board:0 }, wait:1300 },
+  { id:"tv-board-dd-wager", build:() => boardStage("dd-wager"), at:{ board:0 } },
+  { id:"tv-board-dd-clue", build:() => boardStage("dd-clue"), at:{ board:0 } },
+  { id:"tv-board-final-wager", build:() => boardStage("final-wager"), at:{ board:0 } },
+  { id:"tv-board-final-clue", build:() => boardStage("final-clue"), at:{ board:0 } },
+  { id:"tv-board-final-reveal", build:() => boardStage("final-reveal"), at:{ board:0 } },
+  { id:"tv-board-final-board", build:() => boardStage("final-board"), at:{ board:0 }, wait:2500 },
   { id:"tv-walkout", build:() => fresh("event:putt:done"), moment:{ kind:"walkout", t:3000, player:"Brandon" } },
   /* a team's win walks out as the team: the moment is read from the record
      and the win it follows (walkoutView), a pair with no cover, seven with one */
@@ -815,6 +835,23 @@ export const PHONE_SCENARIOS = Object.freeze([
   { id:"trivia-final", build:() => triviaStage("final"), tabs:["home"] },
   { id:"trivia-posted", build:() => { const state = triviaStage("final"); act(state, "triviaFinish", { evId:"trivia" }); return state; },
     tabs:["home"] },
+  /* the Trivia board on the guest's phone (dev/fit/boardFixtures.js, built
+     from its contract; `freeze` holds the page's clock on the moment): the
+     pick (theirs, someone else's), the buzzer dark, live and in, the answer
+     (theirs, someone else's), the Daily Double's wager, the Final's wager
+     and clue; and the commissioner's desk drawing the board */
+  { id:"board-pick-mine", build:() => boardStage("pick-mine"), settle:false, freeze:true, tabs:["home"] },
+  { id:"board-pick-watch", build:() => boardStage("pick"), settle:false, freeze:true, tabs:["home"] },
+  { id:"board-buzz-ready", build:() => boardStage("clue"), settle:false, freeze:true, tabs:["home"] },
+  { id:"board-buzz-armed", build:() => boardStage("armed"), settle:false, freeze:true, tabs:["home"] },
+  { id:"board-buzz-in", build:() => boardStage("armed-in"), settle:false, freeze:true, tabs:["home"] },
+  { id:"board-answer-mine", build:() => boardStage("answer-mine"), settle:false, freeze:true, tabs:["home"] },
+  { id:"board-answer-watch", build:() => boardStage("answer"), settle:false, freeze:true, tabs:["home"] },
+  { id:"board-reveal", build:() => boardStage("reveal"), settle:false, freeze:true, tabs:["home"] },
+  { id:"board-dd-wager", build:() => boardStage("dd-wager"), settle:false, freeze:true, tabs:["home"] },
+  { id:"board-final-wager", build:() => boardStage("final-wager"), settle:false, freeze:true, tabs:["home"] },
+  { id:"board-final-clue", build:() => boardStage("final-clue"), settle:false, freeze:true, tabs:["home"] },
+  { id:"desk-board", build:boardDeskStage, viewer:"gm", tabs:[], sheets:["trivia-desk"] },
   /* the announcement sheet as betting opens: a free-for-all (Where and
      When), a pairs bracket (Beer Die) and a team game (5v5) */
   { id:"ann-where", build:() => fresh("event:where:open"), settle:false, tabs:[], sheets:["announce"] },

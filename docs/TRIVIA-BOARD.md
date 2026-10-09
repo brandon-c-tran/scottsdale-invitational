@@ -242,8 +242,6 @@ The writes (`worker/triviaBoard.js`, registered through `worker/trivia.js`):
   "Nobody played", and boardSim's "Nothing to play right now" and "No board
   game is running". Player checks follow triviaPick: "Check in first",
   "You are marked away", "Tap I'm here first", "You are not playing".
-- The phone answers a beat early: `boardAnswer` takes a tap from
-  `turnAt - 300`.
 
 The set list (`worker/trivia.js`, `shared/trivia.js`):
 - `triviaRoundCount` is 0 for the `source:"final"` entry (new
@@ -278,8 +276,8 @@ Elsewhere:
 - The bank: 20 new questions so each category's first five (the desk's
   default picks) span levels 1 to 5, those five moved to the front (each
   category's first question unchanged); 12 Finals in `TRIVIA_FINALS`, never
-  a desk category. The desk's endpoint (`GET /api/trivia/bank`) is
-  unchanged.
+  a desk category. `GET /api/trivia/bank` keeps its shape; each choice and
+  tune question in it now carries `level` (the desk may draw it).
 - The run of show plans a board game as "Start trivia" (only for an event
   already under way without its game), "The board", "The Final" (its
   category), "Post result".

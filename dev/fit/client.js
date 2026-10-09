@@ -48,7 +48,8 @@ export const geoUploadPhoto = offline;
 export const geoDeleteRound = offline;
 export const geoPhotoUrl = async id => `/api/geo/photo/${encodeURIComponent(id)}`;
 export const triviaUploadPhoto = offline;
-export const triviaBank = offline;
+/* the bank, as the harness hands it (the Worker's own, dev only) */
+export const triviaBank = async () => globalThis.__FIT_BANK__ ? { ok:true, categories:globalThis.__FIT_BANK__ } : offline();
 export const triviaClip = offline;
 export const triviaClipCheck = offline;
 export const triviaPhotoUrl = async id => `/api/trivia/photo/${encodeURIComponent(id)}`;

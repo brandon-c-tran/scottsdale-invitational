@@ -7,6 +7,7 @@
    real reducer here and re-projects, so a sheet opened by a tap is real. */
 import { applyAction } from "../worker/actions.js";
 import { publicState } from "../worker/publicState.js";
+import { bankForDesk } from "../worker/trivia.js";
 import { publishFrame } from "../src/lib/frameGate.js";
 import { FIT_ARRIVE_CODE, FIT_GM, FIT_GUEST, PHONE_SCENARIOS, buildScenario } from "./fit/scenarios.js";
 import qrcode from "qrcode-generator";
@@ -19,6 +20,11 @@ const me = gm ? FIT_GM : FIT_GUEST;
 const qaOn = gm && !!scenario.qa;
 const TABS = { home:"board", events:"sched", bets:"bets", weekend:"guide" };
 const state = scenario.state;
+/* a moment on the server clock (the Trivia board's) holds its instant: the
+   page's clock stands still where the build stamped it */
+if (scenario.freeze) { const frozen = Date.now(); Date.now = () => frozen; }
+/* the commissioner's desk reads the bank as the Worker serves it */
+globalThis.__FIT_BANK__ = bankForDesk();
 
 try {
   localStorage.clear();
@@ -214,6 +220,16 @@ async function openSheet(kind) {
     const name = kind === "tv" ? "TV" : "Speaker";
     return tap(() => [...document.querySelectorAll("[role=dialog] .fd-menu-row")].find(b => visible(b)
       && b.querySelector(".fd-menu-name")?.textContent.trim() === name));
+  }
+  /* the commissioner's Trivia desk, from its menu row */
+  if (kind === "trivia-desk") {
+    const opened = await tap(() => [...document.querySelectorAll("header button[aria-label='Commissioner']")].find(visible));
+    if (!opened) return false;
+    await sleep(600);
+    const ok = await tap(() => [...document.querySelectorAll("[role=dialog] .fd-menu-row")].find(b => visible(b)
+      && b.querySelector(".fd-menu-name")?.textContent.trim() === "Trivia"));
+    await sleep(900);
+    return ok && !!document.querySelector(".fd-trivia-desk");
   }
   /* the commissioner's Who is coming, Travel sheet and Ready check, from their menu rows */
   if (kind === "roster" || kind === "travel-sheet" || kind === "ready-check") {

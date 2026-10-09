@@ -16,6 +16,8 @@ import {
 import "../geo/geo.css";
 import "./trivia.css";
 import { writeError } from "../../lib/writeErrors.js";
+import { isBoardGame } from "../../../shared/triviaBoard.js";
+import { BoardHome, BoardPlaySheet } from "./BoardPlay.jsx";
 
 const sendPick = payload => dispatch("triviaPick", payload, { retry:true });
 
@@ -307,10 +309,16 @@ function Board({ state, view, me }) {
   </main>;
 }
 
-/* A player's game, full screen. It opens by itself for each question, its
-   reveal and the scores (once each), waits while a sheet is open, and
-   Home's row reopens it. Spectators open it from Home. */
-export function TriviaPlaySheet({ state, me, blocked = false, force = 0, onPick = sendPick, now, initiallyOpen = false }) {
+/* A player's game, full screen: a board game is the board's
+   (BoardPlay.jsx), the rounds format below. `onAct` is the board's write. */
+export function TriviaPlaySheet({ onAct, ...props }) {
+  return isBoardGame(props.state?.trivia) ? <BoardPlaySheet {...props} {...(onAct ? { onAct } : {})} /> : <RoundsSheet {...props} />;
+}
+
+/* The rounds format. It opens by itself for each question, its reveal and
+   the scores (once each), waits while a sheet is open, and Home's row
+   reopens it. Spectators open it from Home. */
+function RoundsSheet({ state, me, blocked = false, force = 0, onPick = sendPick, now, initiallyOpen = false }) {
   const at = now ?? serverNow();
   const view = triviaView(state, me, at);
   useTicking(!!view && view.phase === "question" && now === undefined);
@@ -373,7 +381,10 @@ function Watch({ state, view }) {
 }
 
 /* Home's row while a game runs, for whoever closed it or watches */
-export function TriviaHome({ state, me, onOpen, now }) {
+export function TriviaHome(props) {
+  return isBoardGame(props.state?.trivia) ? <BoardHome {...props} /> : <RoundsHome {...props} />;
+}
+function RoundsHome({ state, me, onOpen, now }) {
   const view = triviaView(state, me, now ?? serverNow());
   useTicking(!!view && view.phase === "question" && now === undefined, 1000);
   if (!view || view.finished) return null;

@@ -459,6 +459,27 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   it; `triviaLive` answers for both formats. A clue's photo or clip is
   served once picked, the Final's once its clue reads. QA plays it to its
   result (`boardSim`; the console's "Sim board").
+- **Trivia board, the screens** (Oct 9): TVTrivia, TriviaPlaySheet and
+  TriviaHome hand a board game to `features/tv/TVBoard.jsx` and
+  `features/trivia/BoardPlay.jsx`, both reading the pure
+  `trivia/boardModel.js` (`boardView`, `boardScreen`, `tvBoardScene`), and
+  waking on the board's own instants (`boardInstants`), never the TV's 1 s
+  tick. TV: the board fills the stage, a rail of every player's chip, name
+  and score reel stands in the ticker's place, a picked cell flies up into
+  its clue, the frame chases magenta while the buzzers are live
+  (`useBoardChrome`), the Daily Double is a takeover sting, the Final turns
+  each player on `finalRevealSchedule`. Phone: the pick grid, the arcade
+  buzzer (`Buzzer`: dark until `armAt`, an early tap locks out
+  `BUZZ_LOCKOUT_MS`, the reaction timed from the painted frame by
+  `buzzReaction`, a late light timed from the arm), the options docked in
+  reach on your turn, the wager wheels, the Final's own text. Sounds are
+  `BOARD_PARTS` in the kit, cued by `tv/boardSound.js` (state steps through
+  roomSound's fresh gate, clock cues on their instants). The desk's
+  Rounds | Board switch, the board it will deal (`deskBoard`) and the Final
+  card live in `BoardDesk.jsx` and `TriviaDesk.jsx`. Rehearse at
+  `/dev/trivia-preview.html` (board steps run live with the real writes);
+  fit views `tv-board-*`, `board-*` and `desk-board` (`dev/fit/boardFixtures.js`:
+  `boardStage` from the contract, `boardPlayed` through the real writes).
 - **Autopilot** (Oct 4, `shared/autopilot.js`): what a clock already decides
   runs itself. `autoBeat(state, { showControl })` is the one source of the
   next write the server owes, `{ at, from, type, payload, key }`: the winner

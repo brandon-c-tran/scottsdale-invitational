@@ -58,6 +58,9 @@ import { TVShowdown, useTvShowdown } from "./TVShowdown.jsx";
 import { AwardsReveal } from "../awards/TVAwards.jsx";
 import { TVGeo } from "./TVGeo.jsx";
 import { TVTrivia } from "./TVTrivia.jsx";
+import { useBoardChrome } from "./TVBoard.jsx";
+import { triviaLive } from "../../../shared/trivia.js";
+import { isBoardGame } from "../../../shared/triviaBoard.js";
 import { awardOnTv } from "../../../shared/prompts.js";
 import { TVPhotoCard } from "../photos/TVPhotoCard.jsx";
 import { tvPhotoGap, tvPhotoRotation, withPhotoTurns } from "../photos/photoModel.js";
@@ -1069,7 +1072,9 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied: allT
     intro:!!(sceneIntroEv || ceremonyIntroEv), reveal:!!ceremonyReveal, faceOff:!!faceOff })
     && !award && !walkoutMoment && !pokerMoments.takeover && !crownPlaying
     && !(state.geo?.order && !state.results?.[state.geo.eventId])
-    && !(state.trivia?.questions?.length && !state.results?.[state.trivia.eventId]) });
+    && !triviaLive(state) });
+  /* the Trivia board's own lamps: the buzzers live, the Daily Double, the Final's clock */
+  const boardLamps = useBoardChrome(state, nowOverride);
 
   const dock = final ? null : dockCard({ now, correction,
     lead:leadCard && !directed && !resultModel ? leadCard : null,
@@ -1107,7 +1112,8 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied: allT
     faceOff && { takeover:"faceoff", chase:{ color:"var(--lamp-live)", pace:"run" } },
     walkoutMoment && { takeover:"walkout" }, pokerMoments.takeover && { takeover:pokerMoments.takeover },
     crownPlaying && { takeover:"crown" },
-    showdown && { takeover:"showdown", chase:{ color:"var(--lamp-live)", pace:"run" } }].filter(Boolean);
+    showdown && { takeover:"showdown", chase:{ color:"var(--lamp-live)", pace:"run" } },
+    !directed && !award && !champion && boardLamps].filter(Boolean);
   const chrome = stageChrome({ intro:!!(sceneIntroEv || ceremonyIntroEv), reveal:!!ceremonyReveal,
     champion:!!directed && showScene?.active?.kind === "champion", award:!!award, extra:momentTakeovers });
 
@@ -1135,7 +1141,9 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied: allT
 
   const geoOnTv = !!state.geo?.order && !state.results?.[state.geo.eventId];
   /* Trivia holds the room from its first question to its result */
-  const triviaOnTv = !!state.trivia?.questions?.length && !state.results?.[state.trivia.eventId];
+  const triviaOnTv = triviaLive(state);
+  /* the board's rail of scores stands in the ticker's place */
+  const boardOnTv = triviaOnTv && isBoardGame(state.trivia);
   /* Arrivals (Oct 4): from check-in opening until the first game is
      announced the TV is the lobby, the room filling up round the check-in
      code; after that, while anyone is on the way, the code rides a corner
@@ -1150,7 +1158,8 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied: allT
   const cornerWidth = 1920 - CORNER_W - CORNER_GAP;
 
   const facts = useMemo(() => weekendFacts(state, events), [state, events]);
-  const showTicker = !final && !(directed && sceneView.ticker === false) && !award && !lobbyOn && connection.mode !== "loading";
+  const showTicker = !final && !(directed && sceneView.ticker === false) && !award && !lobbyOn && connection.mode !== "loading"
+    && !(boardOnTv && !directed && !resultModel);
   const towers = {
     on:towersMode === "3d",
     height:1080 - MAST_H - (showTicker ? TICKER_H : 0),
@@ -1210,8 +1219,8 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied: allT
     content = <TVGeo state={state} now={now} />;
   } else if (triviaOnTv) {
     mastEvent = events.find(e => e.id === state.trivia.eventId) || null;
-    mastLamp = state.trivia.phase === "question" ? { label:"Playing", state:"live" } : null;
-    content = <TVTrivia state={state} now={now} />;
+    mastLamp = ["question", "clue", "answer", "dd-clue", "final-clue"].includes(state.trivia.phase) ? { label:"Playing", state:"live" } : null;
+    content = <TVTrivia state={state} now={now} fixed={nowOverride !== undefined} />;
   } else if (lobbyOn) {
     /* the lobby: the check-in code at the center, the seats round it */
     content = <TVLobby state={state} board={arrivals} now={now} url={arriveLink} />;

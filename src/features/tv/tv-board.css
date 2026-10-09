@@ -1,0 +1,333 @@
+/* The Trivia board on the TV (TVBoard.jsx). Canvas pixels, 24px text and
+   up. The board is a bank of lit windows: each value an amber numeral lit
+   from behind its glass, a played cell an unlit window. A picked cell flies
+   up into its clue (--tl is minus the ms already gone since the pick when
+   this TV joined, so a late TV lands mid-flight or on the end state). The
+   buzzers' lamp is magenta (live); values and wagers are amber; a right
+   answer stamps green, a struck one goes dark with its bar; scores are bone
+   numerals, a score under zero clay. The rail of every player stands along
+   the foot in the ticker's place. */
+.tv-board { position:relative; flex:1; min-width:0; min-height:0; display:flex; flex-direction:column; gap:14px;
+  padding:14px var(--tv-edge) 54px; }
+.tv-board-stage { position:relative; flex-shrink:0; }
+
+/* ── the board ── */
+.tv-board-grid { position:absolute; inset:0; display:grid; grid-template-columns:repeat(var(--cols), minmax(0, 1fr));
+  grid-template-rows:var(--head) repeat(var(--rows), minmax(0, 1fr)); gap:var(--gap);
+  /* the board's own dark frame: the painting never shows between its windows */
+  border-radius:16px; background:var(--tv-glass-deep); box-shadow:0 0 0 10px var(--tv-glass-deep), 0 0 0 11px var(--line), var(--shadow-2); }
+/* once a clue covers the board, the board steps out from under it */
+.tv-board:not(.is-pick):not(.is-zoom) .tv-board-grid { visibility:hidden; }
+.tv-board-head { min-width:0; display:grid; place-items:center; padding:8px 14px; border-radius:14px; text-align:center;
+  background:var(--tv-sheen), var(--tv-glass); border:1px solid var(--line); box-shadow:var(--glass-edge), var(--shadow-1); }
+.tv-board-head .fd-show { display:grid; gap:2px; color:var(--bone); line-height:1.12; letter-spacing:.01em; }
+/* a value: an amber numeral lit from behind its window */
+.tv-board-cell { position:relative; min-width:0; display:grid; place-items:center; border-radius:14px;
+  background:var(--tv-sheen), radial-gradient(110% 95% at 50% 42%, color-mix(in srgb, var(--sun) 13%, var(--tv-window)), var(--tv-window) 72%);
+  box-shadow:var(--tv-cut), inset 0 0 0 1px color-mix(in srgb, var(--sun) 24%, transparent), var(--shadow-1); }
+.tv-board-cell b { font-size:84px; line-height:1; color:var(--sun); font-variant-numeric:tabular-nums; letter-spacing:.02em;
+  text-shadow:0 3px 0 var(--ink0), 0 0 22px color-mix(in srgb, var(--sun) 48%, transparent); }
+/* played: the window goes dark, nothing lit behind it */
+.tv-board-cell.is-played { background:var(--tv-sheen), var(--tv-window); box-shadow:var(--tv-cut); }
+.tv-board-cell.is-empty { visibility:hidden; }
+.tv-board.is-pick .tv-board-cell:not(.is-played) b { animation:tv-board-lit .5s var(--ease-out) both; }
+@keyframes tv-board-lit { from { opacity:.25; } }
+
+/* ── the clue: a panel over the board that flew up out of its cell ── */
+.tv-board-panel { position:absolute; inset:0; z-index:2; display:flex; flex-direction:column; padding:24px 36px 28px;
+  overflow:hidden; transition:border-color .2s ease, box-shadow .2s ease; }
+.tv-board-panel.is-zooming { transform-origin:0 0; animation:tv-board-zoom 1200ms cubic-bezier(.32,.72,.2,1) calc(var(--tl) + 0ms) both; }
+@keyframes tv-board-zoom { from { transform:translate(var(--zx), var(--zy)) scale(var(--zsx), var(--zsy)); } to { transform:none; } }
+/* the cell's own numeral, carried up with it, then the clue in its place */
+.tv-board-zoomvalue { position:absolute; inset:0; z-index:3; display:grid; place-items:center; pointer-events:none;
+  background:radial-gradient(110% 95% at 50% 42%, color-mix(in srgb, var(--sun) 13%, var(--tv-window)), var(--tv-window) 72%);
+  color:var(--sun); font-size:var(--zfont, 420px); line-height:1; font-variant-numeric:tabular-nums;
+  text-shadow:0 6px 0 var(--ink0), 0 0 40px color-mix(in srgb, var(--sun) 50%, transparent);
+  animation:tv-take-out 380ms ease-in calc(var(--tl) + 1150ms) both; }
+.tv-board-panel-in { flex:1; min-height:0; display:flex; flex-direction:column; animation:tv-take-in 420ms var(--ease-out) calc(var(--tl) + 1050ms) both; }
+.tv-board-panel-head { flex-shrink:0; display:flex; align-items:center; gap:28px; min-height:64px; }
+.tv-board-cat { color:var(--bone); line-height:1.15; }
+.tv-board-val { margin-left:auto; flex-shrink:0; font-size:60px; line-height:1; color:var(--sun); font-variant-numeric:tabular-nums;
+  text-shadow:0 0 18px color-mix(in srgb, var(--sun) 45%, transparent); }
+.tv-board-dd-tag { flex-shrink:0; padding:6px 18px; border:3px solid var(--sun); border-radius:12px; color:var(--sun);
+  font-size:36px; line-height:1.15; transform:rotate(-3deg); }
+.tv-board-clue-body { flex:1; min-height:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:22px;
+  text-align:center; }
+.tv-board-text { margin:0; max-width:1640px; color:var(--bone); line-height:1.12; letter-spacing:.01em; text-wrap:balance;
+  overflow-wrap:anywhere; }
+.tv-board-text.is-compact { max-width:none; text-align:left; line-height:1.15; }
+.tv-board-text.is-final { text-align:center; }
+.tv-board-panel.is-picture .tv-board-text { flex-shrink:0; }
+.tv-board-photo { position:relative; flex:1; min-height:0; width:100%; border-radius:14px; overflow:hidden; background:var(--night-deep);
+  box-shadow:var(--tv-cut); }
+.tv-board-photo img { position:absolute; inset:0; width:100%; height:100%; object-fit:contain; }
+.tv-board-photo.is-final { flex:0 0 auto; height:170px; }
+/* a picture clue keeps its photo beside the clue while the turns run */
+.tv-board-answer-top { flex-shrink:0; display:flex; align-items:center; gap:28px; min-height:0; }
+.tv-board-answer-top .tv-board-text { flex:1; min-width:0; }
+.tv-board-photo.is-thumb { flex:0 0 auto; width:340px; height:200px; }
+/* the buzzers live: the panel lit magenta with the frame's lamps */
+.tv-board-panel.is-live { border-color:var(--lamp-live); box-shadow:var(--live-bloom), var(--glass-edge), var(--shadow-2); }
+.tv-board-panel.is-armed .tv-board-text { animation:tv-board-arm .5s var(--ease-land) both; }
+/* the instant they arm: the panel's edge flashes lit, then holds */
+.tv-board-panel.is-live::after { content:""; position:absolute; inset:0; border-radius:inherit; pointer-events:none;
+  box-shadow:inset 0 0 0 6px var(--lamp-live), inset 0 0 60px color-mix(in srgb, var(--lamp-live) 35%, transparent);
+  animation:tv-board-flash .7s var(--ease-out) both; }
+@keyframes tv-board-flash { from { opacity:1; } to { opacity:.35; } }
+@keyframes tv-board-arm { from { transform:scale(1.025); } }
+
+/* name that tune: a speaker on the glass, its cone pumping while the clip plays */
+.tv-board-speaker { display:grid; place-items:center; }
+.tv-board-speaker svg { overflow:visible; }
+.tv-board-cone path { fill:color-mix(in srgb, var(--lamp-live) 22%, var(--tv-window)); stroke:var(--bone); }
+.tv-board-cone circle { fill:var(--bone); }
+.tv-board-waves path { stroke:var(--muted); opacity:.35; }
+.tv-board-speaker.is-live .tv-board-cone { transform-box:fill-box; transform-origin:center;
+  animation:tv-board-pump .42s cubic-bezier(.3,1.6,.5,1) infinite alternate; }
+.tv-board-speaker.is-live .tv-board-waves path { stroke:var(--lamp-live); opacity:0;
+  animation:tv-board-wave 1.1s ease-out calc(var(--i) * .22s) infinite; }
+@keyframes tv-board-pump { from { transform:scale(1); } to { transform:scale(1.08) translateX(-4px); } }
+@keyframes tv-board-wave { 0% { opacity:0; transform:translateX(-14px); } 30% { opacity:1; } 100% { opacity:0; transform:translateX(18px); } }
+
+/* ── the buzz order: fastest first, each with its reaction ── */
+.tv-board-order { flex-shrink:0; display:flex; justify-content:center; align-items:flex-end; flex-wrap:wrap; gap:16px 34px;
+  margin:0; padding:18px 0 0; list-style:none; }
+.tv-board-order li { position:relative; min-width:0; display:grid; justify-items:center; gap:6px;
+  animation:tv-board-stamp 380ms var(--ease-land) both; }
+@keyframes tv-board-stamp { 0% { opacity:0; transform:translateY(-40px) scale(1.5); } 70% { opacity:1; transform:scale(.95); } }
+.tv-board-place { position:absolute; left:-12px; top:-8px; z-index:1; min-width:44px; height:44px; display:grid; place-items:center;
+  padding:0 8px; border-radius:22px; background:var(--tv-window); box-shadow:var(--tv-cut), 0 0 0 2px var(--line);
+  font-size:32px; line-height:1; color:var(--bone); }
+.tv-board-order li:first-child .tv-board-place { background:var(--lamp-live); color:var(--ink0); box-shadow:var(--live-bloom); }
+.tv-board-order-name { color:var(--bone); line-height:1.15; }
+.tv-board-ms { font-size:40px; line-height:1; color:var(--muted2); font-variant-numeric:tabular-nums; letter-spacing:.02em; }
+.tv-board-order li:first-child .tv-board-ms { color:var(--bone); }
+/* under the answers: the order small, whoever is on lit, the struck out */
+.tv-board-order.is-compact { justify-content:flex-start; gap:12px 26px; padding:4px 0 0; }
+.tv-board-order.is-compact li { grid-auto-flow:column; align-items:center; gap:10px; animation:none; }
+.tv-board-order.is-compact .tv-board-place { position:static; min-width:38px; height:38px; font-size:28px; }
+.tv-board-order.is-compact .tv-board-ms { font-size:30px; }
+.tv-board-order.is-compact li.is-on .tv-board-place { background:var(--lamp-live); color:var(--ink0); box-shadow:var(--live-bloom); }
+.tv-board-order.is-compact li:not(.is-on):first-child .tv-board-place { background:var(--tv-window); color:var(--bone); box-shadow:var(--tv-cut), 0 0 0 2px var(--line); }
+.tv-board-order.is-compact li.is-struck { opacity:.45; }
+.tv-board-order.is-compact li.is-struck .tv-board-place { background:var(--tv-window); color:var(--muted); }
+.tv-board-order.is-compact li.is-right .tv-board-place { background:var(--green); color:var(--ink0); box-shadow:none; }
+
+/* ── whoever answers, and the four answers ── */
+.tv-board-panel.is-answer { padding-bottom:22px; }
+.tv-board-answer { flex:1; min-height:0; display:flex; flex-direction:column; gap:16px; padding-top:6px; }
+.tv-board-answer-tune { display:flex; justify-content:center; }
+.tv-board-answer-tune .tv-board-speaker svg { width:220px; height:165px; }
+.tv-board-answer-row { flex:1; min-height:0; display:grid; grid-template-columns:420px minmax(0, 1fr); gap:28px; align-items:stretch; }
+.tv-board-answerer { position:relative; min-width:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; padding:20px 20px 26px;
+  border-radius:18px; background:var(--tv-window); box-shadow:var(--tv-cut); overflow:hidden;
+  animation:tv-board-step-up 420ms var(--ease-land) both; }
+@keyframes tv-board-step-up { from { opacity:0; transform:translateX(-40px); } }
+.tv-board-answerer-chip { display:grid; border-radius:50%; transition:box-shadow .25s ease; }
+.tv-board-answerer.is-live .tv-board-answerer-chip { box-shadow:0 0 0 5px var(--lamp-live), 0 0 30px color-mix(in srgb, var(--lamp-live) 55%, transparent); }
+.tv-board-answerer-name { color:var(--bone); line-height:1.15; }
+.tv-board-answerer.is-won .tv-board-answerer-chip { box-shadow:0 0 0 5px var(--green), 0 0 30px color-mix(in srgb, var(--green) 45%, transparent); }
+.tv-board-gain { font-size:64px; line-height:1; color:var(--green); font-variant-numeric:tabular-nums;
+  text-shadow:0 0 22px color-mix(in srgb, var(--green) 40%, transparent); animation:tv-board-stamp 420ms var(--ease-land) calc(var(--tl) + 250ms) both; }
+.tv-board-answerer.is-nobody { min-height:260px; justify-content:center; }
+.tv-board-tried { display:flex; gap:12px; }
+.tv-board-tried > span { display:grid; border-radius:50%; opacity:.5; filter:saturate(.3); }
+.tv-board-void { width:72px; height:72px; }
+.tv-board-options { min-width:0; display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); grid-auto-rows:minmax(104px, 1fr); gap:14px;
+  margin:0; padding:0; list-style:none; align-content:center; }
+.tv-board-options li { position:relative; min-width:0; display:flex; align-items:center; gap:18px; padding:12px 20px 12px 12px;
+  border-radius:12px; background:var(--tv-window); box-shadow:var(--tv-cut); border:2px solid transparent;
+  animation:tv-board-rise .4s var(--ease-out) calc(var(--i) * 70ms) both; transition:opacity .35s ease; }
+@keyframes tv-board-rise { from { opacity:0; transform:translateY(16px); } }
+.tv-board-letter { position:relative; flex-shrink:0; width:68px; height:68px; display:grid; place-items:center; border-radius:10px;
+  background:var(--tv-glass); border:1px solid var(--line); font-size:44px; line-height:1; color:var(--bone); }
+.tv-board-option { flex:1; min-width:0; display:grid; gap:4px; }
+.tv-board-option b { font:700 42px/1.16 var(--fd-body); color:var(--bone); overflow-wrap:anywhere; }
+.tv-board-option small { font:600 28px/1.2 var(--fd-body); color:var(--muted2); overflow-wrap:anywhere; }
+/* struck: the window goes dark, the letter's lamp out with its bar, the text crossed in clay */
+.tv-board-options li.is-struck { opacity:.42; animation:tv-board-strike .45s var(--ease-out) both; }
+@keyframes tv-board-strike { from { opacity:1; transform:translateX(-10px); } 40% { transform:translateX(8px); } }
+.tv-board-options li.is-struck .tv-board-letter { color:var(--muted); background:var(--tv-window); }
+.tv-board-options li.is-struck .tv-board-letter::after { content:""; position:absolute; left:-6px; right:-6px; top:50%; height:5px; margin-top:-2px;
+  border-radius:3px; background:var(--clay); transform:rotate(-38deg); }
+.tv-board-options li.is-struck .tv-board-option b { text-decoration:line-through; text-decoration-color:var(--clay); text-decoration-thickness:4px; }
+.tv-board-struck-by { flex-shrink:0; display:grid; border-radius:50%; filter:saturate(.4); }
+/* right: it stamps green */
+.tv-board-options li.is-right { border-color:var(--green); background:color-mix(in srgb, var(--green) 14%, var(--tv-window));
+  box-shadow:0 0 0 1px var(--green), 0 0 28px color-mix(in srgb, var(--green) 32%, transparent);
+  animation:tv-board-right .5s var(--ease-land) .15s both; }
+@keyframes tv-board-right { from { transform:scale(1.06); } }
+.tv-board-options li.is-right .tv-board-letter { background:var(--green); color:var(--ink0); border-color:transparent; }
+.tv-board-options li.is-out { opacity:.5; }
+/* the faces of who chose it (the Final's reveal) */
+.tv-board-option-faces { flex-shrink:0; display:flex; align-items:center; padding-left:10px; }
+.tv-board-option-faces > span { display:grid; margin-left:-10px; border-radius:50%; box-shadow:0 0 0 3px var(--tv-window);
+  animation:tv-board-land .4s var(--ease-land) both; }
+.tv-board-option-faces > b { margin-left:10px; font-size:30px; color:var(--bone); }
+@keyframes tv-board-land { from { opacity:0; transform:scale(.4) translateY(-14px); } }
+.tv-board-options.is-compact { grid-template-columns:minmax(0, 1fr); grid-auto-rows:minmax(76px, auto); gap:10px; align-content:start; }
+.tv-board-options.is-compact li { padding:8px 16px 8px 8px; }
+.tv-board-options.is-compact .tv-board-letter { width:56px; height:56px; font-size:38px; }
+.tv-board-options.is-compact .tv-board-option b { font-size:32px; }
+
+/* a window running out: a lamp bar draining on the server clock, clay at the end */
+.tv-board-drain { position:absolute; left:0; right:0; bottom:0; height:8px; display:block; transform-origin:left center;
+  background:var(--lamp-live); box-shadow:0 0 12px color-mix(in srgb, var(--lamp-live) 60%, transparent);
+  transform:scaleX(0); animation:tv-board-drain var(--drain-ms) linear var(--drain-wait, 0ms) both,
+    tv-board-drain-low 1ms steps(1, end) var(--drain-low) forwards; }
+@keyframes tv-board-drain { from { transform:scaleX(var(--drain-left)); } to { transform:scaleX(0); } }
+@keyframes tv-board-drain-low { to { background:var(--clay); box-shadow:0 0 12px var(--clay); } }
+.tv-board-drain.is-chip { background:var(--sun); box-shadow:0 0 12px color-mix(in srgb, var(--sun) 55%, transparent); }
+.tv-board-drain.is-foot { left:36px; right:36px; bottom:14px; height:10px; border-radius:5px; }
+.tv-board-drain.is-final { position:relative; left:auto; right:auto; bottom:auto; width:1200px; height:12px; border-radius:6px; }
+
+/* ── the Daily Double ── */
+/* the sting holds the room: the glass dims, a starburst turns, the bulbs
+   run, the letters pop in like corn, the word boings, the picker pops up */
+.tv-dd { display:grid; place-items:center; pointer-events:none;
+  animation:tv-take-out 450ms var(--ease-exit) calc(var(--tl) + var(--out)) forwards; }
+.tv-dd-glass { position:absolute; inset:0; background:var(--night-deep); animation:tv-take-dim 300ms var(--ease-out) calc(var(--tl) + 0ms) both; }
+.tv-dd-burst { position:absolute; left:50%; top:45%; width:1500px; height:1500px; margin:-750px 0 0 -750px;
+  animation:tv-take-in 400ms ease calc(var(--tl) + 120ms) both, tv-dd-spin 9s linear calc(var(--tl) + 0ms) infinite; }
+.tv-dd-burst .is-a { fill:color-mix(in srgb, var(--sun) 15%, transparent); }
+.tv-dd-burst .is-b { fill:color-mix(in srgb, var(--bone) 5%, transparent); }
+@keyframes tv-dd-spin { to { rotate:360deg; } }
+.tv-dd-bulbs { position:absolute; left:50%; top:45%; margin:-490px 0 0 -490px; overflow:visible;
+  animation:tv-take-in 200ms linear calc(var(--tl) + 200ms) both; }
+.tv-dd-bulbs circle { fill:none; stroke-width:16px; stroke-linecap:round; }
+.tv-dd-bulbs-off { stroke:color-mix(in srgb, var(--sun) 28%, var(--ink0)); stroke-dasharray:0 1; }
+.tv-dd-bulbs-on { stroke:var(--sun); stroke-dasharray:0 2; animation:tv-dd-chase .4s steps(2, end) infinite; }
+@keyframes tv-dd-chase { to { stroke-dashoffset:-2; } }
+.tv-dd-words { position:relative; display:grid; justify-items:center; margin-top:-120px;
+  animation:tv-dd-boing 720ms cubic-bezier(.3,1.7,.4,1) calc(var(--tl) + 1500ms) both; }
+@keyframes tv-dd-boing { 0% { transform:none; } 25% { transform:scale(1.2, .78); } 55% { transform:scale(.93, 1.1); } 100% { transform:none; } }
+.tv-dd-word { font-size:250px; line-height:.96; color:var(--sun); white-space:nowrap;
+  text-shadow:0 10px 0 var(--ink0), 0 0 48px color-mix(in srgb, var(--sun) 50%, transparent); }
+.tv-dd-word span { display:inline-block; animation:tv-dd-hop 560ms cubic-bezier(.3,1.5,.5,1) calc(var(--tl) + 150ms + var(--i) * 85ms) both; }
+@keyframes tv-dd-hop { 0% { opacity:0; transform:translateY(-300px) rotate(var(--r)) scale(.4, 1.7); }
+  55% { opacity:1; transform:translateY(26px) rotate(0deg) scale(1.28, .68); } 78% { transform:translateY(-16px) scale(.9, 1.12); } 100% { transform:none; } }
+.tv-dd-who { position:absolute; left:0; right:0; bottom:170px; display:flex; justify-content:center; align-items:center; gap:28px;
+  animation:tv-dd-pop 460ms cubic-bezier(.3,1.6,.5,1) calc(var(--tl) + 1700ms) both; }
+@keyframes tv-dd-pop { 0% { opacity:0; transform:translateY(120px) scale(.5); } 100% { opacity:1; transform:none; } }
+.tv-dd-name { color:var(--bone); line-height:1.15; text-shadow:0 4px 0 var(--ink0); }
+/* the wager: the picker, then their number on the drum */
+.tv-board-panel.is-dd-wager { border-color:color-mix(in srgb, var(--sun) 70%, transparent); box-shadow:var(--chip-bloom), var(--glass-edge), var(--shadow-2); }
+.tv-board-dd-body { flex:1; min-height:0; display:grid; grid-template-columns:minmax(0, 1fr) minmax(0, 1fr); align-items:center; gap:40px; }
+.tv-board-dd-who { display:flex; flex-direction:column; align-items:center; gap:18px; }
+.tv-board-dd-name { color:var(--bone); line-height:1.15; }
+.tv-board-dd-wager { display:grid; place-items:center; min-height:300px; }
+.tv-board-dd-wager .fd-reel { font:800 170px/1 var(--fd-display); }
+.tv-board-dd-pending { position:relative; display:flex; gap:16px; }
+.tv-board-dd-pending > i { width:110px; height:170px; display:grid; place-items:center; border-radius:12px; background:var(--tv-window);
+  box-shadow:var(--tv-cut); font:800 120px/1 var(--fd-display); font-style:normal; color:color-mix(in srgb, var(--sun) 35%, var(--tv-window)); }
+.tv-board-dd-lamp { position:absolute; left:50%; top:-48px; width:32px; height:32px; margin-left:-16px; --lamp:var(--sun); }
+
+/* ── the Final ── */
+.tv-board-final { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:34px; }
+.tv-board-final-mark { font-size:230px; line-height:1; color:var(--bone);
+  text-shadow:0 10px 0 var(--ink0), 0 0 50px color-mix(in srgb, var(--sun) 40%, transparent);
+  animation:tv-board-final-stamp 600ms var(--ease-land) calc(var(--tl) + 0ms) both; }
+@keyframes tv-board-final-stamp { 0% { opacity:0; transform:scale(1.8); } 60% { opacity:1; transform:scale(.96); } 100% { transform:none; } }
+.tv-board-final-plate { max-width:1700px; padding:30px 64px; text-align:center;
+  animation:tv-board-rise .6s var(--ease-out) calc(var(--tl) + 1200ms) both; }
+.tv-board-final.is-final-wager .tv-board-final-plate { animation:none; }
+.tv-board-final-cat { color:var(--bone); line-height:1.15; }
+.tv-board-final-label { display:inline-flex; align-items:center; gap:14px; flex-shrink:0; font:800 34px/1.15 var(--fd-display);
+  letter-spacing:.1em; text-transform:uppercase; color:var(--sun); }
+.tv-board-final-lamp { width:22px; height:22px; --lamp:var(--sun); }
+.tv-board-panel.is-final-clue .tv-board-answer { align-items:stretch; justify-content:center; gap:22px; }
+.tv-board-panel.is-final-clue .tv-board-options { grid-auto-rows:minmax(112px, auto); }
+/* the reveal: the answers on the left (faces landing on what they chose),
+   the turn on the right */
+.tv-board-final-reveal { flex:1; min-height:0; display:grid; grid-template-columns:minmax(0, 1fr) 560px; gap:30px; padding-top:10px; }
+.tv-board-final-left { min-width:0; display:flex; flex-direction:column; gap:16px; }
+.tv-board-turn { min-width:0; display:flex; flex-direction:column; align-items:center; gap:10px; padding:18px 22px 22px; border-radius:18px;
+  background:var(--tv-window); box-shadow:var(--tv-cut); animation:tv-board-step-up 420ms var(--ease-land) calc(var(--tl) + 0ms) both; }
+.tv-board-turn-name { color:var(--bone); line-height:1.15; }
+.tv-board-turn-pick { display:flex; align-items:center; gap:16px; min-height:72px; animation:tv-board-stamp 400ms var(--ease-land) calc(var(--tl) + var(--pick)) both; }
+.tv-board-turn-mark { font-size:40px; line-height:1; letter-spacing:.06em; }
+.tv-board-turn.is-right .tv-board-turn-pick .tv-board-letter { background:var(--green); color:var(--ink0); border-color:transparent; }
+.tv-board-turn.is-right .tv-board-turn-mark { color:var(--green); }
+.tv-board-turn.is-wrong .tv-board-turn-pick .tv-board-letter { color:var(--muted); background:var(--tv-window); }
+.tv-board-turn.is-wrong .tv-board-turn-pick .tv-board-letter::after { content:""; position:absolute; left:-6px; right:-6px; top:50%; height:5px;
+  margin-top:-2px; border-radius:3px; background:var(--clay); transform:rotate(-38deg); }
+.tv-board-turn.is-wrong .tv-board-turn-mark { color:var(--clay-text); }
+.tv-board-turn.is-none .tv-board-turn-mark { color:var(--muted2); }
+.tv-board-turn-wager { display:flex; align-items:baseline; gap:16px; animation:tv-board-rise .4s var(--ease-out) calc(var(--tl) + var(--wager)) both; }
+.tv-board-turn-wager .tv-display { font-size:52px; line-height:1; color:var(--sun); font-variant-numeric:tabular-nums; }
+.tv-board-turn-total .fd-reel { font:800 84px/1 var(--fd-display); }
+.tv-board-turn-total.is-neg .fd-reel { color:var(--clay-text); --reel-tint:var(--clay); --reel-mix:10%; }
+/* the standings: 2nd, 1st, 3rd, then everyone else */
+.tv-board-podium { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; gap:20px;
+  padding-bottom:6px; }
+.tv-board-steps { display:flex; align-items:flex-end; justify-content:center; gap:26px; width:100%; max-width:1500px; }
+.tv-board-step { flex:1; min-width:0; display:flex; flex-direction:column; align-items:center; gap:12px; padding:22px 20px 22px;
+  border-radius:18px 18px 0 0; background:var(--tv-sheen), var(--tv-glass); border:1px solid var(--line); box-shadow:var(--glass-edge), var(--shadow-2);
+  animation:tv-board-rise .6s var(--ease-out) both; }
+.tv-board-step.is-third { min-height:340px; animation-delay:.2s; border-color:var(--bronze); }
+.tv-board-step.is-second { min-height:420px; animation-delay:.6s; border-color:var(--silver); }
+.tv-board-step.is-first { min-height:530px; animation-delay:1.1s; border-color:var(--sun); box-shadow:var(--glass-edge), var(--shadow-2), var(--chip-bloom); }
+.tv-board-step-name { color:var(--bone); line-height:1.15; }
+.tv-board-step-total { font-size:60px; line-height:1.1; color:var(--bone); font-variant-numeric:tabular-nums; }
+.tv-board-step.is-first .tv-board-step-total { font-size:72px; }
+.tv-board-step-place { margin-top:auto; padding:4px 20px; border-radius:10px; background:var(--tv-window); font-size:40px; line-height:1.1; color:var(--muted2); }
+.tv-board-step.is-first .tv-board-step-place { color:var(--sun); }
+.tv-board-rest { display:flex; flex-wrap:wrap; justify-content:center; gap:10px 14px; width:100%; margin:0; padding:0; list-style:none;
+  animation:tv-board-rise .5s var(--ease-out) 1.6s both; }
+.tv-board-rest li { display:flex; align-items:center; gap:10px; padding:4px 16px 4px 4px; border-radius:99px; background:var(--tv-glass);
+  border:1px solid var(--line); font-size:30px; line-height:1.1; color:var(--muted2); font-variant-numeric:tabular-nums; }
+.tv-board-rest-total { color:var(--bone); }
+.tv-board-step-total.is-neg, .tv-board-rest-total.is-neg { color:var(--clay-text); }
+
+/* ── the rail: every player along the foot ── */
+.tv-board-rail { flex-shrink:0; height:180px; display:grid; grid-template-columns:repeat(var(--slots), minmax(0, 1fr)); margin:0;
+  padding:4px 6px 4px; list-style:none; background:var(--tv-sheen), var(--tv-glass-deep); }
+.tv-board-slot { position:relative; min-width:0; display:flex; flex-direction:column; align-items:center; gap:3px; padding:2px 0 0;
+  border-radius:14px; transition:background .3s ease; }
+.tv-board-slot-top { height:26px; display:flex; align-items:center; justify-content:center; gap:8px; }
+.tv-board-slot-top .tv-label { font-size:24px; color:var(--lamp-live-text); }
+.tv-board-slot-lamp { width:16px; height:16px; --lamp:var(--lamp-live); }
+.tv-board-slot-place { min-width:34px; height:30px; display:grid; place-items:center; padding:0 6px; border-radius:15px; background:var(--tv-window);
+  font-size:26px; line-height:1; color:var(--bone); box-shadow:0 0 0 2px var(--line); }
+.tv-board-slot-chip { display:grid; border-radius:50%; transition:transform .22s var(--ease-out), box-shadow .22s ease, opacity .3s ease, filter .3s ease; }
+.tv-board-slot-name { color:var(--bone); line-height:1.15; }
+.tv-board-fit { display:block; max-width:100%; text-align:center; white-space:nowrap; }
+.tv-board-fit > span { display:inline-block; transform-origin:center; }
+.tv-board-slot-score { height:38px; display:flex; align-items:flex-end; }
+.tv-board-slot-score .fd-reel { font:800 28px/1 var(--fd-display); }
+.tv-board-slot-score.is-neg .fd-reel { color:var(--clay-text); --reel-tint:var(--clay); --reel-mix:10%; }
+/* picks: the chip ringed live, its lamp lit */
+.tv-board-slot.is-control { background:color-mix(in srgb, var(--slot-paint, var(--lamp-live)) 26%, transparent);
+  box-shadow:inset 0 -4px 0 color-mix(in srgb, var(--slot-paint, var(--lamp-live)) 75%, transparent); }
+.tv-board-slot.is-control .tv-board-slot-chip { box-shadow:0 0 0 4px var(--lamp-live), 0 0 22px color-mix(in srgb, var(--lamp-live) 50%, transparent);
+  transform:translateY(-2px); }
+/* a buzz lands: the chip lights and jumps */
+.tv-board-slot.is-buzzed .tv-board-slot-chip { box-shadow:0 0 0 4px var(--lamp-live), 0 0 26px color-mix(in srgb, var(--lamp-live) 60%, transparent);
+  animation:tv-board-buzz .45s cubic-bezier(.3,1.7,.5,1) both; }
+@keyframes tv-board-buzz { 0% { transform:none; } 45% { transform:translateY(-14px) scale(1.12); } 100% { transform:translateY(-3px); } }
+.tv-board-slot.is-placed .tv-board-slot-chip { box-shadow:0 0 0 3px var(--bone-line); }
+.tv-board-slot.is-answering { background:var(--live-tint); }
+.tv-board-slot.is-answering .tv-board-slot-chip { box-shadow:0 0 0 4px var(--lamp-live), 0 0 26px color-mix(in srgb, var(--lamp-live) 60%, transparent);
+  animation:tv-board-on 1s ease-in-out infinite alternate; }
+@keyframes tv-board-on { to { transform:translateY(-4px); } }
+.tv-board-slot.is-right .tv-board-slot-chip { box-shadow:0 0 0 4px var(--green), 0 0 26px color-mix(in srgb, var(--green) 50%, transparent); }
+.tv-board-slot.is-wrong .tv-board-slot-chip { box-shadow:0 0 0 3px var(--clay); }
+.tv-board-slot.is-picker { background:var(--sun-tint); }
+.tv-board-slot.is-picker .tv-board-slot-chip { box-shadow:0 0 0 4px var(--sun), 0 0 22px color-mix(in srgb, var(--sun) 45%, transparent); }
+/* the Final: a chip lights as its wager or pick locks (never what) */
+.tv-board-slot.is-waiting .tv-board-slot-chip { opacity:.35; filter:saturate(.2) brightness(.8); }
+.tv-board-slot.is-locked .tv-board-slot-chip { box-shadow:0 0 0 3px var(--bone); animation:tv-board-land .4s var(--ease-land) both; }
+.tv-board-slot.is-out { opacity:.4; }
+.tv-board-slot.is-away { opacity:.35; }
+/* the value flies from whoever took it to their chip */
+.tv-board-fly { position:absolute; left:50%; top:30px; z-index:4; margin-left:-60px; width:120px; text-align:center; pointer-events:none;
+  font-size:48px; line-height:1; color:var(--green); text-shadow:0 3px 0 var(--ink0), 0 0 18px color-mix(in srgb, var(--green) 45%, transparent);
+  opacity:0; animation:tv-board-fly 1000ms cubic-bezier(.4,0,.2,1) calc(var(--tl) + 250ms) both; }
+@keyframes tv-board-fly { 0% { opacity:0; transform:translate(var(--fx, 0px), var(--fy, -320px)) scale(1.6); } 15% { opacity:1; }
+  85% { opacity:1; transform:translate(0, 0) scale(1); } 100% { opacity:0; transform:translate(0, 0) scale(.8); } }
+
+@media (prefers-reduced-motion: reduce) {
+  /* the end states: the clue without its flight, the sting standing still */
+  .tv-board *:not(.tv-board-drain), .tv-board-panel, .tv-dd, .tv-dd * { animation:none !important; transition:none !important; }
+  .tv-board-zoomvalue { display:none; }
+}

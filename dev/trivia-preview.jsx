@@ -4,6 +4,12 @@
    socket, no Worker: the phone's taps run the real pick write on the
    in-memory state; photos are stand-ins.
 
+   The board (docs/TRIVIA-BOARD.md) rehearses its moments the same way
+   (dev/fit/boardFixtures.js boardStage; "Played" through the real writes,
+   boardPlayed). A board moment runs on the live clock: a clue reads, then
+   the buzzer lights on its beat; the phone's taps (a pick, a buzz, an
+   answer, a wager, the Final) run the real board writes in memory.
+
      /dev/trivia-preview.html                    every surface, step by step
      ?step=<id>&as=player|spectator|tv|desk      one surface alone (for stills)
      &pause=1                                    animations frozen at their end */
@@ -14,6 +20,7 @@ import { applyAction } from "../worker/actions.js";
 import { publicState } from "../worker/publicState.js";
 import { bankForDesk } from "../worker/trivia.js";
 import { FIT_GUEST, act, dress, triviaStage } from "./fit/scenarios.js";
+import { boardPlayed, boardStage } from "./fit/boardFixtures.js";
 import { TriviaPlaySheet } from "../src/features/trivia/TriviaPlay.jsx";
 import { TriviaDesk } from "../src/features/trivia/TriviaDesk.jsx";
 import { TVMode } from "../src/features/tv/TVMode.jsx";
@@ -47,6 +54,23 @@ export const STEPS = Object.freeze([
   { id:"picture", label:"Picture", build:() => triviaStage("picture") },
   { id:"tune", label:"Name that tune", build:() => triviaStage("tune") },
   { id:"final", label:"Final scores", build:() => triviaStage("final") },
+  /* the board: each on the live clock */
+  { id:"board-pick", label:"Board: your pick", board:true, build:() => boardStage("pick-mine") },
+  { id:"board-watch", label:"Board: their pick", board:true, build:() => boardStage("pick") },
+  { id:"board-clue", label:"Board: a clue, then the buzzers", board:true, build:() => boardStage("zoom") },
+  { id:"board-armed", label:"Board: buzzers live", board:true, build:() => boardStage("armed") },
+  { id:"board-tune", label:"Board: a tune", board:true, build:() => boardStage("tune") },
+  { id:"board-order", label:"Board: the order", board:true, build:() => boardStage("order") },
+  { id:"board-answer", label:"Board: your turn", board:true, build:() => boardStage("answer-mine") },
+  { id:"board-answer-watch", label:"Board: their turn", board:true, build:() => boardStage("answer") },
+  { id:"board-reveal", label:"Board: the reveal", board:true, build:() => boardStage("reveal") },
+  { id:"board-dd", label:"Board: Daily Double", board:true, build:() => boardStage("dd-sting") },
+  { id:"board-dd-clue", label:"Board: its clue", board:true, build:() => boardStage("dd-clue") },
+  { id:"board-final-wager", label:"Board: Final wagers", board:true, build:() => boardStage("final-intro") },
+  { id:"board-final-clue", label:"Board: the Final", board:true, build:() => boardStage("final-clue") },
+  { id:"board-final-reveal", label:"Board: the Final turns", board:true, build:() => boardStage("final-reveal") },
+  { id:"board-final", label:"Board: final scores", board:true, build:() => boardStage("final-board") },
+  { id:"board-played", label:"Board: played by the real writes", board:true, build:() => boardPlayed("armed") },
 ]);
 const anchor = state => {
   const game = state.trivia, q = game?.questions?.[game.index];
@@ -69,29 +93,38 @@ const DESK_VIEWS = { bank:{ source:"bank", category:"music" }, round:{ source:"c
 const SPECTATOR = "Henry";
 const watching = state => ({ ...state, away:{ ...(state.away || {}), [SPECTATOR]:{ at:1 } } });
 
-function Phone({ base, me, step }) {
+/* a board's photos are stand-ins too */
+const withBoardPhotos = frame => {
+  for (const clue of Object.values(frame.trivia?.clues || {})) if (clue.photo) clue.photo = { ...clue.photo, src:PHOTO };
+  if (frame.trivia?.final?.photo) frame.trivia.final.photo = { ...frame.trivia.final.photo, src:PHOTO };
+  return frame;
+};
+function Phone({ base, me, step, board = false }) {
   const [state, setState] = useState(base);
-  const frame = useMemo(() => withPhotos(publicState(state, { player:me })), [state, me]);
-  const now = anchor(base);
-  const onPick = async payload => {
+  const frame = useMemo(() => withBoardPhotos(withPhotos(publicState(state, { player:me }))), [state, me]);
+  /* a board moment runs on the live clock */
+  const now = board ? undefined : anchor(base);
+  const write = (type, payload) => {
     const next = structuredClone(state);
-    const result = applyAction(next, "triviaPick", payload, { isGm:false, player:me, deviceId:"preview", actionId:`${Math.random()}` });
+    const result = applyAction(next, type, payload, { isGm:false, player:me, deviceId:"preview", actionId:`${Math.random()}` });
     if (result.ok) setState(next);
     return result;
   };
+  const onPick = async payload => write("triviaPick", payload);
+  const onAct = async (type, payload) => write(type, payload);
   return <PlayerIdentityProvider profiles={frame.profiles}><Shell environment="production">
-    <TriviaPlaySheet key={step} state={frame} me={me} now={now} onPick={onPick} initiallyOpen />
+    <TriviaPlaySheet key={step} state={frame} me={me} now={now} onPick={onPick} onAct={onAct} initiallyOpen />
   </Shell></PlayerIdentityProvider>;
 }
 
-function Tv({ base }) {
-  const frame = withPhotos(publicState(base, {}));
+function Tv({ base, board = false }) {
+  const frame = withBoardPhotos(withPhotos(publicState(base, {})));
   const events = allEventsOf(frame);
   return <PlayerIdentityProvider profiles={frame.profiles}><Shell tv environment="production">
     <TVMode standings={computeStandings(frame)} state={frame} events={events} onDeckEv={wagerBoardEvent(frame, events)}
       allTied={false} champion={null} coChamps={[]} showControlEnabled={false} rankDeltas={{}}
       connection={{ ready:true, connected:true, status:"open", version:1 }} EventSpotlight={() => null}
-      ceremony={null} onExit={() => {}} now={anchor(base)} />
+      ceremony={null} onExit={() => {}} now={board ? undefined : anchor(base)} />
   </Shell></PlayerIdentityProvider>;
 }
 
@@ -115,10 +148,10 @@ function Desk({ base }) {
 function Single({ id, as }) {
   const step = STEPS.find(item => item.id === id) || STEPS[0];
   const base = useMemo(() => dress(step.build()), [step]);
-  if (as === "tv") return <Tv base={base} />;
+  if (as === "tv") return <Tv base={base} board={!!step.board} />;
   if (as === "desk") return <Desk base={base} />;
-  if (as === "spectator") return <Phone base={watching(base)} me={SPECTATOR} step={step.id} />;
-  return <Phone base={base} me={FIT_GUEST} step={step.id} />;
+  if (as === "spectator") return <Phone base={watching(base)} me={SPECTATOR} step={step.id} board={!!step.board} />;
+  return <Phone base={base} me={FIT_GUEST} step={step.id} board={!!step.board} />;
 }
 
 /* every surface for the chosen moment */

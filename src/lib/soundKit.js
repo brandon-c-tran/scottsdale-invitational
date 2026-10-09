@@ -615,7 +615,107 @@ export const PARTS = Object.freeze([
       M.bell(E, t + 0.02, NOTE.Fs4, { gain:0.25, dec:1.2 }); } },
 ].map(Object.freeze));
 
-export const SOUNDS = Object.freeze(Object.fromEntries([...KIT, ...PARTS].map(s => [s.id, s])));
+/* a pitch that slides (a whistle, a spring), with an optional wobble */
+function glide(E, dest, t, f0, f1, d, peak, { type = "sine", vib = 0, depth = 0.03 } = {}) {
+  const c = E.ctx;
+  const o = c.createOscillator(); o.type = type;
+  o.frequency.setValueAtTime(f0, t);
+  o.frequency.exponentialRampToValueAtTime(f1, t + d * 0.85);
+  const g = c.createGain();
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.linearRampToValueAtTime(peak, t + Math.min(0.04, d * 0.2));
+  g.gain.setValueAtTime(peak, t + d * 0.7);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+  o.connect(g); g.connect(dest);
+  track(E, o, g); trackSource(E, o);
+  if (vib > 0) {
+    const lfo = c.createOscillator(); lfo.type = "sine"; lfo.frequency.value = vib;
+    const amount = c.createGain(); amount.gain.value = f1 * depth;
+    lfo.connect(amount); amount.connect(o.frequency);
+    track(E, lfo, amount); trackSource(E, lfo);
+    lfo.start(t); lfo.stop(t + d + 0.03);
+  }
+  o.start(t); o.stop(t + d + 0.03);
+}
+/* the thinking loop's bars: four phrases on the motif, a bell a beat */
+const THINK = Object.freeze([[NOTE.D5, NOTE.Fs5, NOTE.A5, NOTE.Fs5], [NOTE.E5, NOTE.A5, NOTE.B5, NOTE.A5],
+  [NOTE.D5, NOTE.Fs5, NOTE.A5, NOTE.D6], [NOTE.B5, NOTE.A5, NOTE.Fs5, NOTE.E5]]);
+/* one bar of the loop, in seconds */
+export const THINK_BAR_S = 2;
+
+/* ── the Trivia board (features/tv/boardSound.js cues them on the room's
+   clock; a phone plays its own taps on the you bus) ── */
+export const BOARD_PARTS = Object.freeze([
+  /* a cell flies up into its clue: a chip lifted, the whoosh, the landing */
+  { id:"boardZoom", name:"A cell flies up", ms:1400,
+    play:(E, t) => { M.clack(E, t, { pitch:1.2, gain:0.5, double:false }); whoosh(E, t + 0.05, { d:1.05, f0:260, f1:2400, peak:0.16 });
+      M.knock(E, t + 1.18, { gain:0.4 }); M.bell(E, t + 1.19, NOTE.A4, { gain:0.32, dec:1.4 }); } },
+  /* the buzzers arm: a relay catches and the lamps run up the motif */
+  { id:"boardArm", name:"The buzzers arm", ms:900,
+    play:(E, t) => { M.knock(E, t, { pitch:1.3, gain:0.4 }); M.clack(E, t + 0.008, { pitch:1.15, gain:0.5, double:false });
+      [NOTE.A4, NOTE.D5, NOTE.Fs5, NOTE.A5].forEach((f, i) => M.bell(E, t + 0.02 + i * 0.045, f, { gain:0.3, dec:0.9, send:0.25 }));
+      hum(E, t, 0.32, 900, 2400, 0.04); } },
+  /* a buzz lands (panned to the player's chip), each one a step higher */
+  { id:"buzzIn", name:"A buzz lands", ms:400,
+    play:(E, t, o = {}) => { M.clack(E, t, { pitch:1.15, gain:0.6, double:false });
+      M.bell(E, t + 0.004, ladderNote(7 + Math.min(5, Number(o.step) || 0)), { gain:0.34, dec:0.4, send:0.15 }); } },
+  /* a place in the buzz order stamps (opts.place: 1 loudest, highest) */
+  { id:"orderStamp", name:"A place in the order", ms:900,
+    play:(E, t, o = {}) => { const place = Math.max(1, Number(o.place) || 1);
+      M.slap(E, t, { gain:place === 1 ? 0.8 : 0.5 }); M.knock(E, t + 0.008, { pitch:place === 1 ? 1.1 : 0.95, gain:0.45 });
+      M.bell(E, t + 0.01, [NOTE.D5, NOTE.A4, NOTE.Fs4, NOTE.E4, NOTE.D4][Math.min(4, place - 1)], { gain:place === 1 ? 0.45 : 0.28, dec:0.9 }); } },
+  /* right: the motif rung up bright */
+  { id:"boardRight", name:"Right", ms:1800,
+    play:(E, t) => { M.clack(E, t, { gain:0.45, double:false });
+      M.bell(E, t, NOTE.D5, { gain:0.5, dec:1.4 }); M.bell(E, t + 0.09, NOTE.Fs5, { gain:0.5, dec:1.4 });
+      M.bell(E, t + 0.18, NOTE.A5, { gain:0.55, dec:1.8 }); M.bell(E, t + 0.18, NOTE.D6, { gain:0.22, dec:1.6 }); } },
+  /* wrong: a dead knock and a sagging two-note "wah" */
+  { id:"boardWrong", name:"Wrong", ms:1000,
+    play:(E, t) => { M.knock(E, t, { pitch:0.8, gain:0.7 }); M.drum(E, t, { f:NOTE.A2, dec:0.35, gain:0.5 });
+      const v = voice(E, { send:0.12, bright:0.35, gain:0.55 });
+      mode(E, v, t + 0.02, NOTE.B4 / 2, 0.2, 0.1, { type:"sawtooth", a:0.01 });
+      mode(E, v, t + 0.24, NOTE.Fs4 / 2, 0.5, 0.12, { type:"sawtooth", drop:0.06, a:0.012 });
+      phantom(E, v, t + 0.24, NOTE.Fs4 / 2, 0.35, 0.1); } },
+  /* the Daily Double: the letters pop in up the ladder, a whistle slides
+     up into a spring, and the chord lands with the drum (opts.summary:
+     the chord alone) */
+  { id:"ddSting", name:"Daily Double", ms:2600,
+    play:(E, t, o = {}) => {
+      const chord = at => { M.drum(E, at, { f:NOTE.D2, dec:0.9, gain:0.85 }); M.slap(E, at, { gain:0.6 });
+        [NOTE.D4, NOTE.Fs4, NOTE.A4, NOTE.D5].forEach((f, i) => M.bell(E, at + 0.01 + i * 0.012, f, { gain:0.42, dec:2.2 })); };
+      if (o.summary) { chord(t); return; }
+      swell(E, voice(E, { send:0.25, bright:0.6 }), t, { d:0.5, f0:300, f1:1200, q:0.8, peak:0.12 });
+      for (let i = 0; i < 11; i++) bloop(E, t + 0.15 + i * 0.085, ladderNote(i % 7 + 2), 0.26);
+      glide(E, voice(E, { send:0.3, bright:0.9, gain:0.4 }), t + 1.05, NOTE.D5, NOTE.D6, 0.42, 0.09, { vib:7 });
+      glide(E, voice(E, { send:0.2, bright:0.7, gain:0.5 }), t + 1.5, NOTE.A3, NOTE.D4, 0.5, 0.16, { vib:24, depth:0.08 });
+      chord(t + 1.55);
+      M.bell(E, t + 1.95, NOTE.A5, { gain:0.3, dec:1.6 }); } },
+  /* one bar of the Final's thinking loop (opts.bar; opts.last resolves):
+     a wooden tick-tock under four bells on the motif */
+  { id:"think", name:"The Final's clock", ms:THINK_BAR_S * 1000,
+    play:(E, t, o = {}) => {
+      const bar = Math.max(0, Math.floor(Number(o.bar) || 0));
+      const beat = THINK_BAR_S / 4;
+      for (let i = 0; i < 8; i++) M.knock(E, t + i * beat / 2, { pitch:i % 2 ? 1.45 : 1.7, gain:i % 2 ? 0.16 : 0.22 });
+      if (bar % 2 === 0) M.bowl(E, t, NOTE.D3, { gain:0.22, dec:2.4 });
+      if (o.last) { [NOTE.D5, NOTE.A5, NOTE.D6].forEach(f => M.bell(E, t, f, { gain:0.32, dec:2.2, send:0.3 })); return; }
+      THINK[bar % THINK.length].forEach((f, i) => M.bell(E, t + i * beat, f, { gain:i === 0 ? 0.26 : 0.2, dec:0.9, send:0.3 })); } },
+  /* a Final turn: the card turns over, then the tally lands (opts.up) */
+  { id:"finalTurn", name:"A Final turns", ms:600,
+    play:(E, t) => { M.tick(E, t, { gain:0.5 }); M.tick(E, t + 0.06, { pitch:1.15, gain:0.35 }); M.knock(E, t + 0.08, { pitch:0.9, gain:0.35 }); } },
+  { id:"tally", name:"A total rolls", ms:900,
+    play:(E, t, o = {}) => { const notes = o.up === false ? [NOTE.A4, NOTE.Fs4, NOTE.D4] : [NOTE.D5, NOTE.Fs5, NOTE.A5];
+      notes.forEach((f, i) => M.bell(E, t + i * 0.07, f, { gain:0.3, dec:0.8, send:0.2 })); M.clack(E, t, { gain:0.35, double:false }); } },
+  /* the phone's buzzer: a fat arcade button bottoming out, and the dead
+     thunk of one pressed before its lamp */
+  { id:"buzzPress", name:"Your buzzer", ms:300,
+    play:(E, t) => { M.knock(E, t, { pitch:1.25, gain:0.75 }); M.clack(E, t + 0.004, { pitch:0.95, gain:0.6 });
+      M.bell(E, t + 0.01, NOTE.A5, { gain:0.24, dec:0.35, send:0.1 }); } },
+  { id:"buzzDead", name:"Too early", ms:300,
+    play:(E, t) => { M.knock(E, t, { pitch:0.72, gain:0.65 }); M.felt(E, t + 0.01, { gain:0.5 }); } },
+].map(Object.freeze));
+
+export const SOUNDS = Object.freeze(Object.fromEntries([...KIT, ...PARTS, ...BOARD_PARTS].map(s => [s.id, s])));
 export const SOUND_IDS = Object.freeze(KIT.map(s => s.id));
 export const isSound = id => Object.prototype.hasOwnProperty.call(SOUNDS, id);
 

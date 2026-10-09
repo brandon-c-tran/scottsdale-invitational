@@ -705,6 +705,17 @@ export const gagStrike = () => playedOut(strikeParts());
 export const gagGutter = bettors => playedOut(gutterParts(bettors));
 export const gagVultures = player => playedOut(vulturesParts(player));
 const gagTest = kind => playedOut(testParts(kind));
+/* the strike's winners' song, started 1.2 s after the decision in its own
+   write: the walkout has the TV first and docks, then the gag plays
+   (moments/walkout.js walkoutSpan) */
+function gagAfterWalkout() {
+  const state = gagStrike();
+  const last = state.eventOps.die.lastContest;
+  const player = state.draws.die.teams[last.winner].players[0];
+  state.showControl.audio = { ...(state.showControl.audio || {}), walkout:{ player, trackId:null,
+    startedAt:last.decidedAt + 1200, until:last.decidedAt + 31200, auto:true } };
+  return state;
+}
 
 /* ── the TV ──
    at: how `now` is chosen. { turn } picks the ambient card (and ticker
@@ -742,6 +753,9 @@ export const TV_SCENARIOS = Object.freeze([
     moment:{ kind:"gag", t:2150, gag:{ kind:"gutter", players:["Richard"], amount:12500 } } },
   ...["turkey", "strike", "gutter", "vultures"].map(kind => ({ id:`tv-gag-test-${kind}`, build:() => gagTest(kind),
     at:{ gag:{ turkey:3250, strike:2450, gutter:2150, vultures:2300 }[kind] }, pause:true, wait:300 })),
+  /* the winners' song walked out first: the gag in its moved window, the
+     song docked in the Now playing strip under it */
+  { id:"tv-gag-after-walkout", build:gagAfterWalkout, at:{ gag:2450 }, pause:true, wait:300 },
   { id:"tv-locker", build:() => fresh("locker") },
   { id:"tv-ambient-board", build:() => fresh("session:fri"), at:{ turn:0 } },
   { id:"tv-ambient-next", build:() => fresh("session:fri"), at:{ turn:1 } },

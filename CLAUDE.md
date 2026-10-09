@@ -555,18 +555,26 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   plays from `decidedAt + TV_ADVANCE_MS` and pushes the next face-off and
   a new leader's card and S15 by its length (`gagHoldMs`); a posted result
   plays from `postedAt + RESULT_GAG_AT_MS` (4.4 s, over the podium's
-  tail). Only the newest write plays and a later lifecycle write ends it;
-  never on a frozen board, at the live poker table, over an automatic win
-  song's walkout or under another takeover (decided as the window opens:
-  skipped, never queued).
-  Its synthesized sounds (`soundKit.js` parts, `gagCues`) ride the room bus
-  from a fresh frame only (`useGagSound`); reduced motion holds the last
-  frame with one summary sound. The TV sheet's Gags switch (`setGags`,
-  top-level `state.gagsOff`, kept by a progress reset); the QA console's
-  Gags part (`qaGag { kind }`, commissioner and the qa capability, no
-  confirmation or backup) writes `state.gagTest` with a cast from the
-  board, played 300 ms after its write even with Gags off, cleared by a
-  reset. `/dev/gags-preview.html` lands each write live on the real TV.
+  tail). The win song that write started walks out first (Oct 9): the gag
+  plays 300 ms after the walkout leaves (`walkoutForWrite`: one of the
+  write's winners, started within 6 s; the window is
+  `moments/walkout.js` `walkoutSpan`, the one `useTvWalkout` plays), and
+  the next face-off waits for any walkout on screen, then the gag
+  (`afterWalkout`), its start read from the state until it plays
+  (`useLiveStart`, the phones' You're up too). Only the newest write plays
+  and a later lifecycle write ends it; never on a frozen board, at the
+  live poker table, under another walkout (a song that starts after the
+  gag did takes the room, and the gag never plays twice) or under another
+  takeover (decided as the window opens: skipped, never queued).
+  Its synthesized sounds (`soundKit.js` parts, `gagCues`, open past the
+  song's duck) ride the room bus from a fresh frame only (`useGagSound`);
+  reduced motion holds the last frame with one summary sound. The TV
+  sheet's Gags switch (`setGags`, top-level `state.gagsOff`, kept by a
+  progress reset); the QA console's Gags part (`qaGag { kind }`,
+  commissioner and the qa capability, no confirmation or backup) writes
+  `state.gagTest` with a cast from the board, played 300 ms after its
+  write even with Gags off, cleared by a reset. `/dev/gags-preview.html`
+  lands each write live on the real TV (`&song=1`: the walkout first).
 - **Arrivals** (Oct 4, `state.arrivals`, `setArrived`, `setArrivalsOpen`):
   Friday starts with people still on the road, so games may run before all
   13 are in. Once the door opens (the first check-in, or the commissioner),

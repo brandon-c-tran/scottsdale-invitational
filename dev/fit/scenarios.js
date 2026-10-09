@@ -655,12 +655,14 @@ export const TV_SCENARIOS = Object.freeze([
      order, a turn with one answer struck, the reveal, the Daily Double's
      sting, wager and clue, and the Final's wagers, clue, reveal and podium */
   { id:"tv-board-pick", build:() => boardStage("pick"), at:{ board:0 } },
+  { id:"tv-board-zoom", build:() => boardStage("zoom"), at:{ board:0 }, pause:true, wait:150 },
   { id:"tv-board-clue", build:() => boardStage("clue"), at:{ board:0 } },
   { id:"tv-board-armed", build:() => boardStage("armed"), at:{ board:0 } },
   { id:"tv-board-tune", build:() => boardStage("tune"), at:{ board:0 } },
   { id:"tv-board-picture", build:() => boardStage("picture"), at:{ board:0 } },
   { id:"tv-board-order", build:() => boardStage("order"), at:{ board:0 }, wait:1200 },
   { id:"tv-board-answer", build:() => boardStage("answer"), at:{ board:0 } },
+  { id:"tv-board-picture-answer", build:() => boardStage("picture-answer"), at:{ board:0 } },
   { id:"tv-board-reveal", build:() => boardStage("reveal"), at:{ board:0 }, wait:1500 },
   { id:"tv-board-dd", build:() => boardStage("dd-sting"), at:{ board:0 }, wait:1300 },
   { id:"tv-board-dd-wager", build:() => boardStage("dd-wager"), at:{ board:0 } },

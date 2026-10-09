@@ -205,8 +205,12 @@ function Clue({ state, view, scene, now }) {
     return <section className={`tv-board-panel tv-glass is-answer is-${scene}`} style={style}>
       {head}
       <div className="tv-board-answer">
-        {text ? <h2 className="fd-show tv-board-text is-compact" style={{ fontSize:clueTextSize(text, { compact:true }) }}>{text}</h2>
-          : tune ? <div className="tv-board-answer-tune"><Speaker live={false} /></div> : null}
+        {picture ? <div className="tv-board-answer-top">
+          {text && <h2 className="fd-show tv-board-text is-compact" style={{ fontSize:clueTextSize(text, { compact:true }) }}>{text}</h2>}
+          <div className="tv-board-photo is-thumb"><img src={triviaPhotoSrc(clue.photo)} alt="" /></div>
+        </div>
+          : text ? <h2 className="fd-show tv-board-text is-compact" style={{ fontSize:clueTextSize(text, { compact:true }) }}>{text}</h2>
+            : tune ? <div className="tv-board-answer-tune"><Speaker live={false} /></div> : null}
         <div className="tv-board-answer-row">
           {revealed ? <Taker state={state} view={view} now={now} /> : <Answerer state={state} view={view} now={now} />}
           <Options state={state} options={clue.options} struck={view.struck} answer={view.answer} revealed={revealed}

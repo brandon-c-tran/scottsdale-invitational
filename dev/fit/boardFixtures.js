@@ -16,6 +16,7 @@
      armed-in      the same, the viewer in
      tune          a tune's clip playing, the buzzers live
      picture       a picture clue reading
+     picture-answer  a picture clue's second turn, its photo beside it
      order         the buzzers closed, the order standing
      answer        the second in order answering, the first's answer struck
      answer-mine   the same, the viewer answering
@@ -351,7 +352,7 @@ export function boardStage(stage = "pick", { now = Date.now(), viewer = BOARD_FI
   if (stage === "pick") return state;
   if (stage === "pick-mine") { game.control = viewer; return state; }
 
-  const live = idAt(game, stage === "tune" ? TUNE_CELL : stage === "picture" ? PICTURE_CELL : LIVE_CELL);
+  const live = idAt(game, stage === "tune" ? TUNE_CELL : stage.startsWith("picture") ? PICTURE_CELL : LIVE_CELL);
   const clue = game.clues[live];
   const reading = BOARD_ZOOM_MS + readMs(clue);
   if (stage === "zoom") { pick(game, live, now - 500); return state; }
@@ -375,7 +376,7 @@ export function boardStage(stage = "pick", { now = Date.now(), viewer = BOARD_FI
     return log;
   };
   if (stage === "order") { closedPick(now - 600, true); return state; }
-  if (stage === "answer" || stage === "answer-mine" || stage === "reveal") {
+  if (stage === "answer" || stage === "answer-mine" || stage === "reveal" || stage === "picture-answer") {
     const log = closedPick(now - 9000, stage === "answer-mine" || stage === "reveal");
     const first = log.order[0];
     log.attempts.push({ player:first, choice:wrongChoice(clue, log, 0), at:now - 3100, right:false });

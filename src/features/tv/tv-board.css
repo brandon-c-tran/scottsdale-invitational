@@ -62,6 +62,10 @@
   box-shadow:var(--tv-cut); }
 .tv-board-photo img { position:absolute; inset:0; width:100%; height:100%; object-fit:contain; }
 .tv-board-photo.is-final { flex:0 0 auto; height:170px; }
+/* a picture clue keeps its photo beside the clue while the turns run */
+.tv-board-answer-top { flex-shrink:0; display:flex; align-items:center; gap:28px; min-height:0; }
+.tv-board-answer-top .tv-board-text { flex:1; min-width:0; }
+.tv-board-photo.is-thumb { flex:0 0 auto; width:340px; height:200px; }
 /* the buzzers live: the panel lit magenta with the frame's lamps */
 .tv-board-panel.is-live { border-color:var(--lamp-live); box-shadow:var(--live-bloom), var(--glass-edge), var(--shadow-2); }
 .tv-board-panel.is-armed .tv-board-text { animation:tv-board-arm .5s var(--ease-land) both; }

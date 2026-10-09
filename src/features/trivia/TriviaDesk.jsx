@@ -10,6 +10,9 @@ import { Icon } from "../../ui/Icon.jsx";
 import { LETTERS, numberLabel } from "./triviaModel.js";
 import "./trivia.css";
 import { writeError } from "../../lib/writeErrors.js";
+import { BOARD_FORMAT, isBoardGame, triviaFormatOf } from "../../../shared/triviaBoard.js";
+import { BoardPreview, FormatSwitch } from "./BoardDesk.jsx";
+import { customFinal } from "./boardModel.js";
 
 const newId = prefix => `${prefix}${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
 const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
@@ -117,8 +120,9 @@ function SongSlot({ value, onChange, letter, right, onRight }) {
   </div>;
 }
 
-/* one question of a round, in any of the four formats */
-function QuestionEditor({ question, onSave, onCancel }) {
+/* one question of a round, in any of the four formats (`formats` limits
+   them: the board's Final is a choice or a picture) */
+function QuestionEditor({ question, onSave, onCancel, formats = null }) {
   const [format, setFormat] = useState(question?.format || "choice");
   const [text, setText] = useState(question?.text || "");
   const [options, setOptions] = useState(() => question?.format !== "number" && question?.format !== "tune" && question?.options
@@ -165,7 +169,8 @@ function QuestionEditor({ question, onSave, onCancel }) {
   };
   return <div className="fd-trivia-editor">
     <div className="fd-trivia-formats" role="radiogroup" aria-label="Format">
-      {Object.entries(TRIVIA_FORMAT_NAMES).map(([id, name]) => <button type="button" key={id} role="radio" aria-checked={format === id}
+      {Object.entries(TRIVIA_FORMAT_NAMES).filter(([id]) => !formats || formats.includes(id)).map(([id, name]) =>
+        <button type="button" key={id} role="radio" aria-checked={format === id}
         onClick={() => { setFormat(id); setError(""); }}><Icon name={FORMAT_ICONS[id]} size={18} /><span>{name}</span></button>)}
     </div>
     {format === "picture" && <div className="fd-trivia-editor-photo">
@@ -295,14 +300,60 @@ function BankRound({ round, category, onSave, onCancel }) {
   </div>;
 }
 
-/* Commissioner > Trivia: the set list in play order. Rounds come from the
-   bank or are written here. Locked while a game runs; Restart clears the
-   answers, never the set list. */
+/* The board's Final: the bank's, sealed until it plays, or one of his
+   own (a choice or a picture question and its category), kept in the set
+   list so it stays the commissioner's (triviaSaveFinal; null removes it). */
+const FINAL_CATEGORY_MAX = 32;
+function FinalCard({ rounds, onAct, running }) {
+  const final = customFinal(rounds);
+  const question = final?.questions?.[0] || null;
+  const [editing, setEditing] = useState(false);
+  const [category, setCategory] = useState(final?.category || "");
+  const [error, setError] = useState("");
+  const [confirm, setConfirm] = useState(false);
+  const save = async payload => {
+    setError("");
+    const result = await onAct("triviaSaveFinal", { final:payload });
+    if (result?.ok) { setEditing(false); setConfirm(false); } else setError(writeError(result));
+    return result;
+  };
+  if (editing) return <div className="fd-board-final-edit">
+    <span className="fd-board-turnlamp is-chip"><i className="fd-insert fd-board-lamp" aria-hidden="true" />Final</span>
+    <label className="fd-trivia-field"><span>Category</span><input value={category} maxLength={FINAL_CATEGORY_MAX} placeholder="Final"
+      onChange={event => setCategory(event.target.value)} /></label>
+    <QuestionEditor question={question} formats={["choice", "picture"]} onCancel={() => setEditing(false)}
+      onSave={q => save({ id:final?.id || newId("t"), source:"final", category:category.trim() || "Final", questions:[q] })} />
+    {error && <p className="fd-trivia-error" role="alert">{error}</p>}
+  </div>;
+  return <div className={`fd-board-finalcard${question ? " is-own" : ""}`}>
+    <span className="fd-board-turnlamp is-chip"><i className="fd-insert fd-board-lamp" aria-hidden="true" />Final</span>
+    {question ? <span className="fd-trivia-qtext"><strong>{final.category || "Final"}</strong><small>{titleOf(question)}</small>
+      <small className="fd-board-final-answer">{answerOf(question)}</small></span>
+      : <span className="fd-board-sealed"><i aria-hidden="true">?</i><b>From the bank</b></span>}
+    {!running && <span className="fd-trivia-qactions">
+      <button type="button" onClick={() => { setCategory(final?.category || ""); setEditing(true); }}>{question ? "Edit" : "Write your own"}</button>
+      {question && <button type="button" className={confirm ? "is-confirm" : ""} onClick={() => {
+        if (!confirm) { setConfirm(true); return; }
+        save(null);
+      }}>{confirm ? "Remove?" : "Remove"}</button>}
+    </span>}
+    {error && <p className="fd-trivia-error" role="alert">{error}</p>}
+  </div>;
+}
+
+/* Commissioner > Trivia: the format (Rounds or Board) and the set list in
+   play order. Rounds come from the bank or are written here; the Board
+   draws them as the board they will deal, with its Final. Locked while a
+   game runs; Restart clears the answers, never the set list. */
 /* `initial` opens an editor straight away (the rehearsal page) */
 export function TriviaDesk({ state, onAct, notify, loadBank = triviaBank, initial = null }) {
   const rounds = state.triviaRounds || [];
+  /* the board's own Final rides in the set list; it is not a round */
+  const listed = rounds.filter(round => round?.source !== "final");
   const game = state.trivia?.questions?.length ? state.trivia : null;
-  const running = !!game && !triviaFinished(state);
+  const board = isBoardGame(state.trivia) ? state.trivia : null;
+  const running = (!!game || !!board) && !triviaFinished(state);
+  const format = triviaFormatOf(state);
   const { bank, error } = useBank(loadBank);
   const [editing, setEditing] = useState(initial);
   const [adding, setAdding] = useState(false);
@@ -321,25 +372,34 @@ export function TriviaDesk({ state, onAct, notify, loadBank = triviaBank, initia
     if (!category) return <p className="fd-trivia-hint">{error || "Loading the bank"}</p>;
     return <BankRound round={round} category={category} onSave={save} onCancel={() => setEditing(null)} />;
   }
-  const total = rounds.reduce((sum, round) => sum + triviaRoundCount(round), 0);
+  const total = listed.reduce((sum, round) => sum + triviaRoundCount(round), 0);
+  const setFormat = async next => {
+    const result = await onAct("triviaSetFormat", { format:next });
+    if (!result?.ok) notify?.(writeError(result));
+  };
+  const runningGame = game || board;
   return <div className="fd-trivia-desk">
+    <FormatSwitch format={format} onChange={setFormat} disabled={running} />
     {running && <div className="fd-trivia-running">
-      <span>Question {game.index + 1} of {game.questions.length} live</span>
+      <span>{board ? `${(board.played || []).length} of ${board.total || 0} played` : `Question ${game.index + 1} of ${game.questions.length} live`}</span>
       <button type="button" className={confirm === "restart" ? "is-confirm" : ""} onClick={async () => {
         if (confirm !== "restart") { setConfirm("restart"); return; }
         setConfirm(null);
-        const result = await onAct("triviaRestart", { evId:game.eventId });
+        const result = await onAct("triviaRestart", { evId:runningGame.eventId });
         if (!result?.ok) notify?.(result?.error || "Couldn't restart");
       }}>{confirm === "restart" ? "Clear every answer?" : "Restart game"}</button>
     </div>}
-    <ol className="fd-trivia-rounds">
-      {rounds.map((round, index) => <li key={round.id}>
+    {format === BOARD_FORMAT ? <>
+      <BoardPreview rounds={rounds} bank={bank} onEdit={round => { if (!running) setEditing({ id:round.id, source:round.source }); }} />
+      <FinalCard rounds={rounds} onAct={onAct} running={running} />
+    </> : <ol className="fd-trivia-rounds">
+      {listed.map((round, index) => <li key={round.id}>
         <span className="fd-trivia-round-n">{index + 1}</span>
         <span className="fd-trivia-qtext"><strong>{nameOf(round)}</strong><small>{plural(triviaRoundCount(round), "question")}</small></span>
         {!running && <span className="fd-trivia-qactions">
           <button type="button" aria-label={`Move ${nameOf(round)} up`} disabled={index === 0}
             onClick={() => onAct("triviaMoveRound", { id:round.id, by:-1 })}><Icon name="up" size={16} /></button>
-          <button type="button" aria-label={`Move ${nameOf(round)} down`} disabled={index === rounds.length - 1}
+          <button type="button" aria-label={`Move ${nameOf(round)} down`} disabled={index === listed.length - 1}
             onClick={() => onAct("triviaMoveRound", { id:round.id, by:1 })}><Icon name="down" size={16} /></button>
           <button type="button" onClick={() => setEditing({ id:round.id, source:round.source })}>Edit</button>
           <button type="button" className={confirm === round.id ? "is-confirm" : ""} onClick={async () => {
@@ -350,8 +410,8 @@ export function TriviaDesk({ state, onAct, notify, loadBank = triviaBank, initia
           }}>{confirm === round.id ? "Remove?" : "Remove"}</button>
         </span>}
       </li>)}
-    </ol>
-    {!running && rounds.length < TRIVIA_MAX_ROUNDS && (adding ? <div className="fd-trivia-add">
+    </ol>}
+    {!running && listed.length < TRIVIA_MAX_ROUNDS && (adding ? <div className="fd-trivia-add">
       <ActionButton onClick={() => setEditing({ source:"custom" })}>Write a round</ActionButton>
       <ul className="fd-trivia-bank">
         {(bank || []).map(category => <li key={category.id}><button type="button" onClick={() => setEditing({ source:"bank", category:category.id })}>
@@ -361,6 +421,6 @@ export function TriviaDesk({ state, onAct, notify, loadBank = triviaBank, initia
       </ul>
       <ActionButton variant="tertiary" onClick={() => setAdding(false)}>Cancel</ActionButton>
     </div> : <ActionButton onClick={() => setAdding(true)}>Add round</ActionButton>)}
-    <p className="fd-trivia-hint">{plural(total, "question")}</p>
+    {format !== BOARD_FORMAT && <p className="fd-trivia-hint">{plural(total, "question")}</p>}
   </div>;
 }

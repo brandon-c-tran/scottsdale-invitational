@@ -566,9 +566,11 @@ export function duelState(stage = "stance", { base = "session:fri", from = DUEL_
 }
 
 /* Gags (Oct 8, features/gags): each kind derived from a weekend the real
-   reducers played, and the QA console's test. QA's jumps stamp a few ms
-   ahead of the wall clock, so a decision made after one is moved to be
-   the newest write, as it is in the room. */
+   reducers played, and the QA console's test. Each comes in two parts, the
+   weekend just before the write that owes the gag and that write, so the
+   rehearsal (dev/gags-preview) can land the write live. QA's jumps stamp a
+   few ms ahead of the wall clock, so a decision made after one is moved to
+   be the newest write, as it is in the room. */
 function decidedLast(state, evId) {
   const stamps = [];
   const walk = node => { if (!node || typeof node !== "object") return;
@@ -580,9 +582,15 @@ function decidedLast(state, evId) {
   if (op.bettingOpenedAt) op.bettingOpenedAt = at;
   return state;
 }
+/* the commissioner's winner tap on the live contest: the side `pick` names */
+const winnerTap = (evId, pick) => state => {
+  const live = resolveCurrentContest(state, eventOf(state, evId));
+  act(state, "recordContestWinner", { evId, contestId:live.id, contestRevision:live.revision, winner:pick(live).key, postResult:true });
+  return state;
+};
 /* a turkey: the guest wins Long Putt, then their pair takes every Beer
-   Die match it plays (their third straight win lands with the final) */
-export function gagTurkey(player = FIT_GUEST) {
+   Die match it plays; the gag rides the final, which posts the result */
+function turkeyParts(player = FIT_GUEST) {
   const state = fresh("locker");
   act(state, "announceEvent", { evId:"putt" });
   lockCurrent(state, "putt");
@@ -590,25 +598,24 @@ export function gagTurkey(player = FIT_GUEST) {
   const others = presentPlayers(state).filter(item => item !== player);
   act(state, "saveResult", { evId:"putt", slots:[[player], [others[0]], [others[1]]] });
   act(state, "announceAndDraw", { evId:"die" });
-  for (let i = 0; i < 8 && !state.results.die; i++) {
-    const live = lockCurrent(state, "die");
-    const side = live.sides.find(item => item.players.includes(player)) || live.sides[0];
-    act(state, "recordContestWinner", { evId:"die", contestId:live.id, contestRevision:live.revision, winner:side.key, postResult:true });
+  const write = winnerTap("die", live => live.sides.find(item => item.players.includes(player)) || live.sides[0]);
+  for (let i = 0; i < 8; i++) {
+    lockCurrent(state, "die");
+    const before = structuredClone(state);
+    if (write(state).results.die) return { state:before, write, action:"recordContestWinner" };
   }
-  return state;
+  throw new Error("gagTurkey: Beer Die never posted");
 }
 /* a strike: Beer Die's play-in opened with an underdog, and it won */
-export function gagStrike() {
+function strikeParts() {
   const state = comebackBoard({ bets:false });
-  const contest = lockCurrent(state, "die");
-  const side = contest.sides.find(item => item.key === contest.odds?.underdog) || contest.sides[1];
-  act(state, "recordContestWinner", { evId:"die", contestId:contest.id, contestRevision:contest.revision, winner:side.key,
-    postResult:true });
-  return decidedLast(state, "die");
+  lockCurrent(state, "die");
+  const tap = winnerTap("die", live => live.sides.find(item => item.key === live.odds?.underdog) || live.sides[1]);
+  return { state, write:next => decidedLast(tap(next), "die"), action:"recordContestWinner" };
 }
 /* a gutter ball: a player with no photo (Henry Nguyen when he is not
    playing) puts 1,000 on the side that loses */
-export function gagGutter(bettors = ["Henry", "Allan", "Ben", "Jeremy"]) {
+function gutterParts(bettors = ["Henry", "Allan", "Ben", "Jeremy"]) {
   const state = withoutBets(fresh("event:die:open"));
   const ev = eventOf(state, "die");
   const contest = resolveCurrentContest(state, ev);
@@ -619,14 +626,13 @@ export function gagGutter(bettors = ["Henry", "Allan", "Ben", "Jeremy"]) {
   act(state, "adjust", { player:who, delta:2000, reason:"fit" });
   act(state, "placeWager", { wager:{ kind:"match", eventId:"die", evName:ev.name, stake:1000, contestId:contest.id,
     contestRevision:contest.revision, match:contest.match, teamIdx:loser.key, drawId:contest.drawId } }, playerCtx(who));
-  const live = lockCurrent(state, "die");
-  act(state, "recordContestWinner", { evId:"die", contestId:live.id, contestRevision:live.revision, winner:winner.key,
-    postResult:true });
-  return decidedLast(state, "die");
+  lockCurrent(state, "die");
+  const tap = winnerTap("die", live => live.sides.find(item => item.key === winner.key));
+  return { state, write:next => decidedLast(tap(next), "die"), action:"recordContestWinner" };
 }
 /* the vultures: Ben sits alone at the bottom after a ruling, then Long
    Putt's result lifts him and drops the guest (a lost bet) alone into last */
-export function gagVultures(player = FIT_GUEST) {
+function vulturesParts(player = FIT_GUEST) {
   const state = withoutBets(fresh("event:putt:open"));
   const ev = eventOf(state, "putt");
   act(state, "adjust", { player:"Ben", delta:-100, reason:"fit" });
@@ -638,11 +644,29 @@ export function gagVultures(player = FIT_GUEST) {
   lockCurrent(state, "putt");
   act(state, "beginResultEntry", { evId:"putt" });
   const third = backed.players[0] === "Adi" ? "Khoa" : "Adi";
-  act(state, "saveResult", { evId:"putt", slots:[["Evan"], [third], ["Ben"]] });
-  return newest(state, "putt");
+  const write = next => {
+    act(next, "saveResult", { evId:"putt", slots:[["Evan"], [third], ["Ben"]] });
+    return newest(next, "putt");
+  };
+  return { state, write, action:"saveResult" };
 }
 /* the QA console's test of a kind, on a mid-weekend board */
-const gagTest = kind => { const state = fresh("event:putt:done"); act(state, "qaGag", { kind }); return state; };
+const testParts = kind => ({ state:fresh("event:putt:done"), write:next => { act(next, "qaGag", { kind }); return next; },
+  action:"qaGag" });
+
+/* a kind's weekend in its two parts (the QA test's with `test`) */
+export function gagWeekend(kind, { test = false } = {}) {
+  if (test) return testParts(kind);
+  const parts = { turkey:turkeyParts, strike:strikeParts, gutter:gutterParts, vultures:vulturesParts }[kind];
+  if (!parts) throw new Error(`Unknown gag ${kind}`);
+  return parts();
+}
+const playedOut = ({ state, write }) => write(state);
+export const gagTurkey = player => playedOut(turkeyParts(player));
+export const gagStrike = () => playedOut(strikeParts());
+export const gagGutter = bettors => playedOut(gutterParts(bettors));
+export const gagVultures = player => playedOut(vulturesParts(player));
+const gagTest = kind => playedOut(testParts(kind));
 
 /* ── the TV ──
    at: how `now` is chosen. { turn } picks the ambient card (and ticker
@@ -655,6 +679,15 @@ const crownBeats = [
   ["name", 16800], ["count", 18400], ["end", 23000],
 ];
 export const TV_SCENARIOS = Object.freeze([
+  /* Quick Draw's showdown in a gap: the lamps lighting, the draw's flash,
+     the result (reels, WON, the antes taken), a foul; and with an event
+     live, no takeover (the result leads the ticker instead) */
+  { id:"tv-showdown-lamps", build:() => duelState("armed"), at:{ duel:"armed", ms:1500 }, pause:true, wait:300 },
+  { id:"tv-showdown-steady", build:() => duelState("armed"), at:{ duel:"armed", ms:2600 }, pause:true, wait:300 },
+  { id:"tv-showdown-draw", build:() => duelState("armed"), at:{ duel:"fire", ms:150 }, pause:true, wait:300 },
+  { id:"tv-showdown-result", build:() => duelState("won"), at:{ duel:"result", ms:3200 }, pause:true, wait:300 },
+  { id:"tv-showdown-foul", build:() => duelState("foul"), at:{ duel:"result", ms:3200 }, pause:true, wait:300 },
+  { id:"tv-showdown-live", build:() => duelState("won", { base:"event:putt:open" }), at:{ duel:"result", ms:3200 } },
   /* Gags (Oct 8): each kind from a played weekend, held with its lettering
      landed (`gag`: ms into the gag), a flock and a team rolled in drawn
      for a cast the reducers cannot reach on cue, and the QA tests */
@@ -671,15 +704,6 @@ export const TV_SCENARIOS = Object.freeze([
     moment:{ kind:"gag", t:2150, gag:{ kind:"gutter", players:["Richard"], amount:12500 } } },
   ...["turkey", "strike", "gutter", "vultures"].map(kind => ({ id:`tv-gag-test-${kind}`, build:() => gagTest(kind),
     at:{ gag:{ turkey:3250, strike:2450, gutter:2150, vultures:2300 }[kind] }, pause:true, wait:300 })),
-  /* Quick Draw's showdown in a gap: the lamps lighting, the draw's flash,
-     the result (reels, WON, the antes taken), a foul; and with an event
-     live, no takeover (the result leads the ticker instead) */
-  { id:"tv-showdown-lamps", build:() => duelState("armed"), at:{ duel:"armed", ms:1500 }, pause:true, wait:300 },
-  { id:"tv-showdown-steady", build:() => duelState("armed"), at:{ duel:"armed", ms:2600 }, pause:true, wait:300 },
-  { id:"tv-showdown-draw", build:() => duelState("armed"), at:{ duel:"fire", ms:150 }, pause:true, wait:300 },
-  { id:"tv-showdown-result", build:() => duelState("won"), at:{ duel:"result", ms:3200 }, pause:true, wait:300 },
-  { id:"tv-showdown-foul", build:() => duelState("foul"), at:{ duel:"result", ms:3200 }, pause:true, wait:300 },
-  { id:"tv-showdown-live", build:() => duelState("won", { base:"event:putt:open" }), at:{ duel:"result", ms:3200 } },
   { id:"tv-locker", build:() => fresh("locker") },
   { id:"tv-ambient-board", build:() => fresh("session:fri"), at:{ turn:0 } },
   { id:"tv-ambient-next", build:() => fresh("session:fri"), at:{ turn:1 } },

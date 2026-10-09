@@ -8,9 +8,10 @@ import { ActionButton, Sheet } from "../../ui/controls.jsx";
 import { GameMark } from "../../ui/GameMark.jsx";
 import { FDMark } from "../../ui/Brand.jsx";
 import { Icon } from "../../ui/Icon.jsx";
+import { MenuGroup, MenuRow } from "../../ui/Menu.jsx";
 import { EventName } from "../../ui/OneSafe.jsx";
 import { TV_STALE_MS } from "./tvHealth.js";
-import { tvAdvanceLabel, tvAmbient, tvNowCard, tvRetry, tvRoom, tvSceneTiles } from "./tvSheetModel.js";
+import { tvAdvanceLabel, tvAmbient, tvGags, tvNowCard, tvRetry, tvRoom, tvSceneTiles } from "./tvSheetModel.js";
 import "./tv-sheet.css";
 
 const ICON_OF = { opening:null, standings:"payouts", champion:"trophy", unknown:"tv" };
@@ -53,7 +54,7 @@ function TvRoom({ room }) {
 }
 
 export function TvSheet({ state, events, scene, operationEvent = null, scenes = false, tvs = null, tvsAt = 0,
-  onClose, onBack, onStart, onAdvance, onEnd, onRetry, onShortcut }) {
+  onClose, onBack, onStart, onAdvance, onEnd, onRetry, onShortcut, onGags = null }) {
   const now = useNow(Array.isArray(tvs));
   const ambient = tvAmbient(state, events, operationEvent);
   const card = tvNowCard(scene, ambient);
@@ -109,6 +110,11 @@ export function TvSheet({ state, events, scene, operationEvent = null, scenes = 
             <Icon name="undo" size={16} />Retry {retry.label}</ActionButton>}
         </section>
       )}
+
+      {/* the TV's cartoons after a turkey, a strike, a gutter ball or a new last place (features/gags) */}
+      {onGags && <MenuGroup>
+        <MenuRow name="Gags" pressed={tvGags(state).on} onClick={() => onGags(!tvGags(state).on)} />
+      </MenuGroup>}
 
       {onShortcut && <ActionButton variant="tertiary" onClick={onShortcut} className="fd-tv-shortcut">
         Copy TV sound shortcut</ActionButton>}

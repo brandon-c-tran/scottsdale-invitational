@@ -18,6 +18,7 @@ import { serverNow } from "../../lib/serverClock.js";
 import { buildEventReveal, drawSequenceMs, revealReady, revealTimeline } from "../weekend/drawReveal.js";
 import { TV_ADVANCE_MS, TV_INTRO_AUTO_MS, TV_REVEAL_HOLD_MS, contestSideView } from "./tvModel.js";
 import { nextLatch, useTimeline } from "./tvMotion.js";
+import { gagHoldMs } from "../gags/gagModel.js";
 
 /* ms from the face-off's start: the broadcast sting (Backglass takeover
    grammar). The chrome leaves and the glass dims with a sting so heads turn,
@@ -77,7 +78,8 @@ const revealSteps = reveal => (reveal.versus ? 2 : (reveal.groups || []).length)
    The first contest of an announcement waits for the TV's intro and its draw
    reveal to end (the reveal's own server-anchored timeline); a contest opened
    by recording the previous winner waits for that decided contest's moment
-   (TV_ADVANCE_MS). */
+   (TV_ADVANCE_MS), then for the gag that decision owes the room (gagHoldMs,
+   features/gags). */
 export function faceOffStart(state, ev) {
   const op = state?.eventOps?.[ev?.id] || {};
   const opened = Number(op.bettingOpenedAt) || 0;
@@ -91,7 +93,8 @@ export function faceOffStart(state, ev) {
     start = Math.max(start, reveal && line ? line.revealAt + drawSequenceMs(revealSteps(reveal)) + TV_REVEAL_HOLD_MS
       : announced + TV_INTRO_AUTO_MS);
   }
-  if (decided && opened && Math.abs(opened - decided) <= SAME_WRITE_MS) start = Math.max(start, decided + TV_ADVANCE_MS);
+  if (decided && opened && Math.abs(opened - decided) <= SAME_WRITE_MS)
+    start = Math.max(start, decided + TV_ADVANCE_MS + gagHoldMs(state, ev));
   return start;
 }
 

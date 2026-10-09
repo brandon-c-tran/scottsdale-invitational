@@ -115,8 +115,9 @@ function winFacts(state, events) {
 }
 
 /* every chip change on the board grouped by the write it came from,
-   oldest write first */
-function chipWrites(state, events) {
+   oldest write first (the TV's vultures read the board before a result
+   from it, features/gags) */
+export function chipWrites(state, events) {
   const writes = new Map();
   const kindOrder = { award:0, bet:1, duel:2, ruling:3 };
   for (const player of rosterOf(state)) {

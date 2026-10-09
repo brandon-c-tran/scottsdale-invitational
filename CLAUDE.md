@@ -532,6 +532,41 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   the TV plays the showdown anchored on `armedAt` (with an event live, the
   ticker carries the result). The economy is unchanged (antes, cap, lapse,
   daily limit, redaction until settled, `resolveDuel`).
+- **Gags** (Oct 8, `src/features/gags/`: pure `gagModel.js`, `TVGags.jsx`,
+  `gags.css`; `shared/gags.js`): the bowling alley's cartoon screens on the
+  TV, at most one per write, the rarest first. Turkey: a player's third
+  straight win (again at 4, 5...) on a pure W/L timeline (contests by
+  `decidedAt`, W to the winning side, L to the beaten, a heat's
+  non-qualifiers L; an event without contests counts its posted result, 1st
+  W and everyone else who played L; never an event twice, a shelved event
+  or the poker finale); several at once is the lead (longest run, then
+  roster order), up to three smaller turkeys and "+N". Strike: the stored
+  `odds` named an `underdog` and it won ("UPSET", the name). Gutter: the
+  biggest single bettor's net loss on the decided contest or an FFA result
+  is `GUTTER_MIN` (500) or more (the amount in clay, the name). Vultures: an
+  event result leaves a different player alone in last, from `chipWrites`
+  before and after it (the place, the name). Drawn on the session's
+  painting with the board stepped out: a turkey struts in, its tail the
+  player's chips and its head their photo chip, three strike marks
+  stamping; the winner rolls down a lane into ten pins (the beaten side's
+  chips on the front ones); the bettor's chip wobbles into the gutter;
+  three vultures circle the player's chip. The window derives on the TV
+  from the write's server time: a contest that did not post its result
+  plays from `decidedAt + TV_ADVANCE_MS` and pushes the next face-off and
+  a new leader's card and S15 by its length (`gagHoldMs`); a posted result
+  plays from `postedAt + RESULT_GAG_AT_MS` (4.4 s, over the podium's
+  tail). Only the newest write plays and a later lifecycle write ends it;
+  never on a frozen board, at the live poker table, over an automatic win
+  song's walkout or under another takeover (decided as the window opens:
+  skipped, never queued).
+  Its synthesized sounds (`soundKit.js` parts, `gagCues`) ride the room bus
+  from a fresh frame only (`useGagSound`); reduced motion holds the last
+  frame with one summary sound. The TV sheet's Gags switch (`setGags`,
+  top-level `state.gagsOff`, kept by a progress reset); the QA console's
+  Gags part (`qaGag { kind }`, commissioner and the qa capability, no
+  confirmation or backup) writes `state.gagTest` with a cast from the
+  board, played 300 ms after its write even with Gags off, cleared by a
+  reset. `/dev/gags-preview.html` lands each write live on the real TV.
 - **Arrivals** (Oct 4, `state.arrivals`, `setArrived`, `setArrivalsOpen`):
   Friday starts with people still on the road, so games may run before all
   13 are in. Once the door opens (the first check-in, or the commissioner),

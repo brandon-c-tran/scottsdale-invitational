@@ -436,7 +436,10 @@ const EMPTY_STATE = { v:9, live:false, results:{}, wagers:[], wagerOps:{}, adjus
   stages:{}, drafts:{}, duels:[], poker:null, profiles:{}, customEvents:[], shelved:{}, away:{}, out:{}, arrivals:null, onDeck:null, frozen:false,
   onboardEpoch:0, eventEdits:{}, eventOrder:[], eventOps:{}, showControl:{ active:null, history:[] },
   logistics:{ ...LOGISTICS }, prompts:{ ballots:[], responses:{} }, jerseysLocked:false,
-  geoRounds:[], geo:null, triviaRounds:[], triviaFormat:"rounds", trivia:null, updatedAt:0 };
+  geoRounds:[], geo:null, triviaRounds:[], triviaFormat:"rounds", trivia:null,
+  /* the TV's gags (src/features/gags): the commissioner's switch, and the
+     QA console's test */
+  gagsOff:false, gagTest:null, updatedAt:0 };
 const RESET_PROGRESS_CONFIRMATION = "RESET_GAME_PROGRESS";
 const RESET_PROGRESS_PRESERVED_KEYS = Object.freeze([
   "profiles",
@@ -460,6 +463,8 @@ const RESET_PROGRESS_PRESERVED_KEYS = Object.freeze([
   "triviaRounds",
   /* and which format it plays (Rounds or the Board) */
   "triviaFormat",
+  /* the TV's Gags switch is a setting; a QA test gag (gagTest) is progress */
+  "gagsOff",
 ]);
 
 /* ─────────── helpers ─────────── */

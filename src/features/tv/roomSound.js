@@ -44,6 +44,11 @@
          one stamp at the name's own write time
      engrave  the cup's trophy turn after a result: the new winners are cut
          into their plate, one sound on the turn's clock (engraveCues)
+     gags  the bowling alley's cartoons (features/gags) on their own beats
+         from the gag's start (gagCues): a turkey's strut, gobbles and three
+         dings; a strike's roll, crash and flourish; a gutter ball's roll,
+         clunk and trombone; the vultures' wind and squawks. Only when the
+         write that owes the gag reached this TV fresh (useGagSound)
 
    Pure: roomSnapshot() reduces a state to what can sound, roomCues() diffs
    two snapshots into cues, advanceCues() and crownCues() lay out the two
@@ -67,6 +72,7 @@ import { awardOnTv } from "../../../shared/prompts.js";
 import { awardCues } from "../awards/awardsModel.js";
 import { introScene } from "../intro/introTiming.js";
 import { boardCues, boardSnapshot } from "./boardSound.js";
+import { GAG_TIMING, gagHoldMs } from "../gags/gagModel.js";
 
 /* the settle board on the TV (TVMode SettleBoard): losers slide, then winners grow */
 export const SETTLE_SOUND = Object.freeze({ lose:700, pay:1300 });
@@ -143,10 +149,13 @@ export function roomSnapshot(state, events = [], { standings = null, allTied = f
   const leaderRows = !allTied && standings?.length ? standings.filter(row => row.rank === 1) : [];
   const pk = state.poker || null;
   const active = showScene?.active || null;
+  const decidedAt = liveEv ? Number(state.eventOps?.[liveEv.id]?.lastContest?.decidedAt) || 0 : 0;
   return {
     announced, games, reveals, locks, results, drafts, chips, names,
     leader:leaderRows.map(row => row.player).sort().join("+"),
-    decidedAt:liveEv ? Number(state.eventOps?.[liveEv.id]?.lastContest?.decidedAt) || 0 : 0,
+    decidedAt,
+    /* the gag that decision owes the room, which a lead change waits out too */
+    gagHold:decidedAt ? gagHoldMs(state, liveEv, events) : 0,
     frozen:!!state.frozen,
     poker:pk ? { id:pk.id, ts:Number(pk.ts) || 0, started:!!pk.startedAt, outs:(pk.outs || []).length,
       posted:!!state.results?.[pk.id] } : null,
@@ -290,7 +299,8 @@ export function roomCues(prev, next, { now = serverNow(), reduced = false } = {}
      not on top of its WON. */
   if (!next.frozen && next.leader && prev.leader && next.leader !== prev.leader && !rang) {
     const decided = Number(next.decidedAt) || 0;
-    const held = decided && Math.abs(now - decided) <= TV_ADVANCE_MS + 5000 ? decided + TV_ADVANCE_MS : 0;
+    const held = decided && Math.abs(now - decided) <= TV_ADVANCE_MS + 5000
+      ? decided + TV_ADVANCE_MS + (Number(next.gagHold) || 0) : 0;
     add("S15", Math.max(now, held), { key:`lead:${next.leader}:${now}` });
   }
 
@@ -441,6 +451,66 @@ export function useEngraveSound(plan = [], cut = 0) {
   useEffect(() => {
     if (id) playCues(engraveCues(plan, cut));
   }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
+}
+
+/* The gags (features/gags) on the room's clock, from the gag's own start
+   and its kind's beats (GAG_TIMING), panned to where each thing happens on
+   the canvas. Reduced motion plays the kind's one summary sound. */
+export const GAG_SUMMARY = Object.freeze({ turkey:"gagGobble", strike:"gagCrash", gutter:"gagTrombone", vultures:"gagSquawk" });
+export function gagCues(gag, { reduced = false } = {}) {
+  const T = GAG_TIMING[gag?.kind];
+  if (!gag?.id || !T || !Number.isFinite(Number(gag.start))) return [];
+  const at = ms => Number(gag.start) + ms;
+  const key = `gag:${gag.id}`;
+  if (reduced) return [{ id:GAG_SUMMARY[gag.kind], at:at(0), key:`${key}:summary` }];
+  if (gag.kind === "turkey") return [
+    /* four strutting steps from the left edge to its mark */
+    ...[0, 1, 2, 3].map(i => ({ id:"gagStep", at:at(T.strut + 140 + i * 250), pan:Math.round((-0.9 + i * 0.15) * 100) / 100,
+      opts:{ step:i }, key:`${key}:step:${i}` })),
+    { id:"gagGobble", at:at(T.gobble), pan:-0.3, key:`${key}:gobble` },
+    ...T.x.map((ms, i) => ({ id:"gagDing", at:at(ms), pan:Math.round((-0.42 + i * 0.1) * 100) / 100, opts:{ step:i },
+      key:`${key}:x:${i}` })),
+    { id:"gagGobble", at:at(T.gobble2), pan:-0.3, key:`${key}:gobble2` },
+  ];
+  if (gag.kind === "strike") return [
+    { id:"gagRoll", at:at(T.roll), opts:{ ms:T.rollMs, to:0.55 }, key:`${key}:roll` },
+    { id:"gagCrash", at:at(T.hit), pan:0.6, key:`${key}:crash` },
+    { id:"gagFlourish", at:at(T.word), key:`${key}:upset` },
+  ];
+  if (gag.kind === "gutter") return [
+    { id:"gagRoll", at:at(T.roll), opts:{ ms:T.drop - T.roll, to:0.3 }, key:`${key}:roll` },
+    { id:"gagClunk", at:at(T.drop), pan:0.3, key:`${key}:clunk` },
+    { id:"gagTrombone", at:at(T.sad), key:`${key}:sad` },
+  ];
+  return [
+    { id:"gagWind", at:at(0), opts:{ ms:T.away }, key:`${key}:wind` },
+    { id:"gagSquawk", at:at(T.squawk), pan:0.2, key:`${key}:squawk` },
+    { id:"gagSquawk", at:at(T.squawk2), pan:0.6, key:`${key}:squawk2` },
+  ];
+}
+
+/* A gag sounds once, as it takes the room, and only when the write that
+   owes it reached this TV on a fresh frame: a TV that loads, reloads or
+   reconnects during one shows it and stays quiet. `plan` is what the TV
+   may play (gagModel gagPlan), `gag` what it shows now. */
+const GAG_FRESH_MEMORY = 24;
+export function useGagSound({ state, plan = [], gag = null }) {
+  const owed = useRef(null);
+  const fresh = useRef([]);
+  useEffect(() => {
+    const ids = (plan || []).map(item => item.id);
+    const before = owed.current;
+    owed.current = ids;
+    if (!before || !freshFrameNow()) return;
+    ids.filter(id => !before.includes(id) && !fresh.current.includes(id))
+      .forEach(id => { fresh.current = [...fresh.current, id].slice(-GAG_FRESH_MEMORY); });
+  }, [state]); // eslint-disable-line react-hooks/exhaustive-deps
+  const played = useRef(null);
+  useEffect(() => {
+    if (!gag?.id || played.current === gag.id) return;
+    played.current = gag.id;
+    if (fresh.current.includes(gag.id)) playCues(gagCues(gag, { reduced:reducedNow() }));
+  }, [gag?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 }
 
 /* The fresh gate: the first snapshot (a load, a TV joining late) and any

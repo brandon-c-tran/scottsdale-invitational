@@ -149,6 +149,8 @@ export function directorPill(state, events, director, { me = null, now = Date.no
     case "trivia-board": run = { write:"triviaBoard", payload:{ questionId:beat.questionId } }; break;
     case "trivia-next": run = { write:"triviaNext", payload:{ questionId:beat.questionId } }; break;
     case "trivia-finish": run = { write:"triviaFinish", payload:{ evId:ev.id } }; break;
+    /* the Trivia board: each beat names its own write (shared/triviaBoard.js boardBeat) */
+    case "board-step": run = { write:beat.write, payload:beat.payload }; break;
     case "enter-result": run = { open:"resultEntry", evId:ev.id }; break;
     case "post-result": run = { open:"result", evId:ev.id }; break;
     case "advance-bracket": run = { open:"bracket", evId:ev.id }; break;

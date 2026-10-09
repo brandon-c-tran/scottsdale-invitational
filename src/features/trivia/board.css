@@ -1,0 +1,295 @@
+/* The Trivia board on a phone (BoardPlay.jsx): the controller. Tokens only
+   (src/ui/experience.css). The buzzer is the hero: an arcade button under
+   glass with a body you can press (a bezel, the cap's skirt, a domed cap
+   lit from inside, a ring of bulbs). Dark until the buzzers arm (magenta,
+   live); latched down and lit in your filament once you are in. Values and
+   wagers are amber; your score is your filament reel (clay under zero); a
+   right answer stamps green, a struck one goes dark with its bar. */
+
+.fd-board-game { position:fixed; inset:0; z-index:140; display:grid; grid-template-rows:auto minmax(0, 1fr) auto;
+  background:var(--bg); color:var(--ink); overflow:hidden; overscroll-behavior:none; animation:fd-trivia-in .28s ease-out both; }
+.fd-board-head { position:relative; display:flex; align-items:center; gap:12px; padding:calc(env(safe-area-inset-top) + 8px) 12px 10px 16px;
+  border-bottom:1px solid var(--line); background:var(--chrome); box-shadow:inset 0 3px 0 var(--lamp-live); }
+.fd-board-title { flex:1; min-width:0; font:900 22px/1.15 var(--fd-show); letter-spacing:.01em; color:var(--lamp-live-text);
+  text-shadow:0 0 14px color-mix(in srgb, var(--lamp-live) 45%, transparent); }
+.fd-board-yours .fd-reel { font:800 22px/1 var(--fd-display); }
+.fd-board-yours.is-neg .fd-reel, .fd-board-score.is-neg .fd-reel { color:var(--clay-text); --reel-tint:var(--clay); --reel-mix:10%; }
+
+.fd-board-body { min-height:0; overflow-y:auto; overscroll-behavior:contain; display:flex; flex-direction:column; gap:14px;
+  padding:16px 16px calc(env(safe-area-inset-bottom) + 18px); }
+.fd-board-error { margin:0; color:var(--clay-text); font:600 13px/1.4 var(--fd-body); }
+
+/* a lamp label: a state and its lamp (live magenta; the Final amber) */
+.fd-board-turnlamp { display:inline-flex; align-items:center; gap:9px; color:var(--ink); font:800 15px/1.2 var(--fd-display);
+  letter-spacing:.1em; text-transform:uppercase; }
+.fd-board-lamp { width:12px; height:12px; --lamp:var(--lamp-live); }
+.fd-board-turnlamp.is-chip { color:var(--sun); }
+.fd-board-turnlamp.is-chip .fd-board-lamp { --lamp:var(--sun); }
+.fd-board-turnlamp.is-quiet { margin-left:auto; color:var(--lamp-live-text); }
+
+/* ── the pick: the board as a grid of cells ── */
+.fd-board-picker { display:flex; align-items:center; gap:10px; min-height:44px; }
+.fd-board-picker-name { min-width:0; font:900 24px/1.15 var(--fd-show); color:var(--ink); overflow-wrap:anywhere; }
+.fd-board-gridwrap { position:relative; padding:8px; border-radius:16px; background:var(--ink0); box-shadow:inset 0 0 0 1px var(--line); }
+.fd-board-gridwrap.is-mine { box-shadow:0 0 0 2px var(--lamp-live), 0 0 22px color-mix(in srgb, var(--lamp-live) 35%, transparent); }
+.fd-board-grid { display:grid; grid-template-columns:repeat(var(--cols), minmax(0, 1fr)); gap:5px; }
+.fd-board-colname { min-width:0; display:flex; align-items:flex-end; justify-content:center; padding:0 1px 5px; text-align:center;
+  font-family:var(--fd-show); font-weight:900; line-height:1.1; letter-spacing:.01em; color:var(--ink); overflow-wrap:normal; word-break:normal; }
+.fd-board-cell { min-width:0; min-height:56px; display:grid; place-items:center; padding:0; border:0; border-radius:9px;
+  background:radial-gradient(110% 95% at 50% 42%, color-mix(in srgb, var(--sun) 14%, var(--paper)), var(--paper) 75%);
+  box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--sun) 22%, transparent), inset 0 -2px 0 color-mix(in srgb, var(--ink0) 55%, transparent);
+  font:800 20px/1 var(--fd-display); font-variant-numeric:tabular-nums; color:var(--sun);
+  text-shadow:0 1px 0 var(--ink0), 0 0 10px color-mix(in srgb, var(--sun) 40%, transparent); -webkit-tap-highlight-color:transparent; }
+/* played: an unlit window, its bevel still there */
+.fd-board-cell.is-played { background:color-mix(in srgb, var(--paper) 35%, var(--bg));
+  box-shadow:inset 0 2px 4px color-mix(in srgb, var(--ink0) 70%, transparent), inset 0 -1px 0 color-mix(in srgb, var(--bone) 6%, transparent); }
+.fd-board-cell.is-empty { visibility:hidden; }
+.fd-board-cell.is-live { cursor:pointer; transition:transform .1s ease, background .15s ease; }
+.fd-board-cell.is-live:active:not(:disabled) { transform:scale(.92); }
+.fd-board-cell.is-live:disabled:not(.is-pending) { opacity:.55; }
+.fd-board-cell.is-pending { background:var(--lamp-live); color:var(--ink0); text-shadow:none; box-shadow:var(--live-bloom);
+  animation:fd-board-picked .4s var(--ease-land) both; }
+@keyframes fd-board-picked { from { transform:scale(1.18); } }
+/* the picker's clock: a lamp bar draining over the grid */
+.fd-board-drain { display:block; height:6px; border-radius:3px; transform-origin:left center; background:var(--lamp-live);
+  box-shadow:0 0 10px color-mix(in srgb, var(--lamp-live) 60%, transparent);
+  animation:fd-board-drain var(--drain-ms) linear both, fd-board-drain-low 1ms steps(1, end) var(--drain-low) forwards; }
+@keyframes fd-board-drain { from { transform:scaleX(var(--drain-left)); } to { transform:scaleX(0); } }
+@keyframes fd-board-drain-low { to { background:var(--clay); box-shadow:0 0 10px var(--clay); } }
+.fd-board-drain.is-chip { background:var(--sun); box-shadow:0 0 10px color-mix(in srgb, var(--sun) 55%, transparent); }
+.fd-board-drain.is-grid { position:absolute; left:10px; right:10px; bottom:-14px; height:5px; }
+.fd-board-drain.is-turn { width:100%; }
+.fd-board-drain.is-wager { width:100%; }
+.fd-board-drain.is-foot { width:100%; }
+
+/* the category and its value over a clue */
+.fd-board-cluehead { display:flex; align-items:baseline; gap:10px; min-height:34px; }
+.fd-board-cat { min-width:0; flex:1; font:900 22px/1.15 var(--fd-show); letter-spacing:.01em; color:var(--ink); overflow-wrap:anywhere; }
+.fd-board-val { flex-shrink:0; font:800 30px/1 var(--fd-display); font-variant-numeric:tabular-nums; color:var(--sun);
+  text-shadow:0 0 12px color-mix(in srgb, var(--sun) 40%, transparent); }
+.fd-board-dd-tag { flex-shrink:0; align-self:center; padding:3px 9px; border:2px solid var(--sun); border-radius:8px; color:var(--sun);
+  font:900 15px/1.15 var(--fd-show); transform:rotate(-3deg); }
+
+/* ── the buzzer ── */
+.fd-board-body.is-buzz { align-items:stretch; }
+.fd-buzzer { flex:1; min-height:300px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; }
+.fd-buzzer-button { position:relative; width:min(78vw, 300px); aspect-ratio:1; padding:0; border:0; border-radius:50%; background:none;
+  cursor:pointer; touch-action:manipulation; -webkit-tap-highlight-color:transparent; -webkit-user-select:none; user-select:none;
+  --cap:color-mix(in srgb, var(--lamp-live) 26%, var(--ink0)); --cap-edge:color-mix(in srgb, var(--lamp-live) 10%, var(--ink0));
+  --cap-core:color-mix(in srgb, var(--lamp-live) 34%, var(--ink0)); --cap-up:-16px; --glow:transparent; }
+/* the ring of bulbs set round the housing: dark until the buzzers arm */
+.fd-buzzer-bulbs { position:absolute; inset:0; width:100%; height:100%; overflow:visible; pointer-events:none; }
+.fd-buzzer-bulbs circle { fill:none; stroke-width:9px; stroke-linecap:round; }
+.fd-buzzer-bulbs .is-off { stroke:color-mix(in srgb, var(--lamp-live) 22%, var(--ink0)); stroke-dasharray:0 1; }
+.fd-buzzer-bulbs .is-on { stroke:var(--lamp-live); stroke-dasharray:0 2; opacity:0; }
+/* the housing: a chrome bezel seated in the glass */
+.fd-buzzer-bezel { position:absolute; inset:9%; border-radius:50%;
+  background:radial-gradient(circle at 50% 45%, var(--ink0) 0 58%, color-mix(in srgb, var(--bone) 22%, var(--ink0)) 63%, var(--ink0) 70%,
+    color-mix(in srgb, var(--bone) 34%, var(--paper2)) 74%, color-mix(in srgb, var(--bone) 10%, var(--ink0)) 100%);
+  box-shadow:0 14px 30px color-mix(in srgb, var(--ink0) 80%, transparent), inset 0 2px 0 color-mix(in srgb, var(--bone) 30%, transparent),
+    0 0 0 3px color-mix(in srgb, var(--ink0) 80%, transparent); }
+/* the cap's side: its height, seen under the raised cap */
+.fd-buzzer-skirt { position:absolute; inset:15%; border-radius:50%; background:var(--cap-edge);
+  box-shadow:inset 0 -6px 10px color-mix(in srgb, var(--ink0) 60%, transparent); }
+/* the cap: a dome lit from inside, raised on its skirt; it sinks when pressed */
+.fd-buzzer-cap { position:absolute; inset:15%; border-radius:50%; transform:translateY(var(--cap-up));
+  background:radial-gradient(circle at 50% 38%, var(--cap-core) 0 18%, var(--cap) 55%, var(--cap-edge) 100%);
+  box-shadow:inset 0 3px 2px color-mix(in srgb, var(--bone) 28%, transparent), inset 0 -8px 16px color-mix(in srgb, var(--ink0) 45%, transparent),
+    0 0 46px var(--glow), 0 0 110px var(--glow);
+  transition:transform .2s cubic-bezier(.3,1.6,.5,1), background .12s ease, box-shadow .2s ease; }
+/* the glass over it: one hard reflection on the dome */
+.fd-buzzer-glint { position:absolute; left:22%; top:12%; width:42%; height:24%; border-radius:50%;
+  background:linear-gradient(180deg, color-mix(in srgb, var(--bone) 38%, transparent), transparent); transform:rotate(-14deg); }
+.fd-buzzer-button:active .fd-buzzer-cap { --cap-up:-3px; transition-duration:.05s; }
+/* live: the cap lit magenta from inside, the bulbs running, the light spilling */
+.fd-buzzer.is-live .fd-buzzer-button { --cap:var(--lamp-live); --cap-core:color-mix(in srgb, var(--lamp-live) 40%, var(--bone));
+  --cap-edge:color-mix(in srgb, var(--lamp-live) 55%, var(--ink0)); --glow:color-mix(in srgb, var(--lamp-live) 45%, transparent);
+  animation:fd-buzzer-arm .35s var(--ease-land) both; }
+@keyframes fd-buzzer-arm { from { transform:scale(1.07); } }
+.fd-buzzer.is-live .fd-buzzer-bulbs .is-on { opacity:1; animation:fd-buzzer-chase .36s steps(2, end) infinite; }
+@keyframes fd-buzzer-chase { to { stroke-dashoffset:-2; } }
+/* in: latched down, lit in your own filament */
+.fd-buzzer.is-in .fd-buzzer-button { --cap:var(--you); --cap-core:color-mix(in srgb, var(--you) 45%, var(--bone));
+  --cap-edge:color-mix(in srgb, var(--you) 50%, var(--ink0)); --glow:color-mix(in srgb, var(--you) 35%, transparent); --cap-up:-3px; }
+.fd-buzzer.is-in .fd-buzzer-bulbs .is-on { opacity:1; stroke:var(--you); }
+.fd-buzzer.is-in .fd-buzzer-bulbs .is-off { stroke:color-mix(in srgb, var(--you) 22%, var(--ink0)); }
+/* locked out: dead for a beat, and it shakes its head */
+.fd-buzzer.is-locked .fd-buzzer-button { --cap:color-mix(in srgb, var(--clay) 24%, var(--ink0)); --cap-core:color-mix(in srgb, var(--clay) 30%, var(--ink0));
+  animation:fd-buzzer-shake .42s cubic-bezier(.36,.07,.19,.97) both; }
+@keyframes fd-buzzer-shake { 15%, 85% { transform:translateX(-4px); } 30%, 70% { transform:translateX(8px); } 45%, 55% { transform:translateX(-10px); } }
+.fd-buzzer.is-closed .fd-buzzer-button { opacity:.45; }
+.fd-buzzer-under { min-height:40px; display:grid; place-items:center; }
+.fd-buzzer-ms { font:800 34px/1 var(--fd-display); font-variant-numeric:tabular-nums; color:var(--you); letter-spacing:.02em;
+  text-shadow:0 0 14px color-mix(in srgb, var(--you) 40%, transparent); animation:fd-trivia-rise .3s var(--ease-out) both; }
+/* a spectator's view of the buzzers: every chip, lit as it buzzes */
+.fd-board-in { display:flex; flex-wrap:wrap; justify-content:center; gap:6px; margin:auto 0; padding:0; list-style:none; }
+.fd-board-in li { display:grid; border-radius:50%; opacity:.3; filter:saturate(.2); transition:opacity .25s ease, filter .25s ease; }
+.fd-board-in li.is-in { opacity:1; filter:none; box-shadow:0 0 0 2px var(--lamp-live); animation:fd-trivia-land .36s var(--ease-land) both; }
+.fd-board-in.is-final li.is-in { box-shadow:0 0 0 2px var(--bone); }
+
+/* ── the answer ── */
+.fd-board-yourturn { display:grid; gap:8px; }
+/* the prompt holds the space above; the options dock under it, in reach */
+.fd-board-prompt { flex:1 0 auto; display:flex; flex-direction:column; justify-content:flex-start; gap:14px; }
+.fd-board-dock { display:grid; gap:10px; }
+.fd-board-dock.is-live { padding:8px; margin:0 -8px; border-radius:18px;
+  box-shadow:0 0 0 2px var(--lamp-live), 0 0 24px color-mix(in srgb, var(--lamp-live) 30%, transparent); }
+.fd-board-options { display:grid; gap:10px; margin:0; padding:0; list-style:none; }
+.fd-board-option { position:relative; width:100%; min-height:62px; display:flex; align-items:center; gap:12px; padding:10px 12px 10px 10px;
+  border:1px solid var(--ghost-line); border-radius:14px; background:var(--paper); color:var(--ink); text-align:left;
+  box-shadow:var(--glass-edge); transition:transform .1s ease, background .15s ease, border-color .15s ease, opacity .3s ease;
+  -webkit-tap-highlight-color:transparent; }
+button.fd-board-option { cursor:pointer; }
+button.fd-board-option:disabled { cursor:default; }
+.fd-board-options.is-live button.fd-board-option:not(:disabled) { border-color:color-mix(in srgb, var(--lamp-live) 50%, var(--ghost-line)); }
+.fd-board-options.is-live button.fd-board-option:active:not(:disabled) { transform:scale(.97); }
+.fd-board-letter { position:relative; flex-shrink:0; width:38px; height:38px; display:grid; place-items:center; border-radius:10px;
+  background:var(--bg); box-shadow:inset 0 2px 4px color-mix(in srgb, var(--ink0) 60%, transparent); font:800 21px/1 var(--fd-display);
+  color:var(--muted2); }
+.fd-board-option-text { flex:1; min-width:0; display:grid; gap:2px; font:600 17px/1.3 var(--fd-body); overflow-wrap:anywhere; }
+.fd-board-option-text b { font:inherit; }
+.fd-board-option-text small { color:var(--muted2); font:500 14px/1.3 var(--fd-body); }
+/* not your turn yet (or not yours): the answers stand still */
+.fd-board-body.is-answer:not(.is-live) .fd-board-option:not(.is-struck) { opacity:.6; }
+/* your pick: lit in your filament */
+.fd-board-option.is-chosen { border-color:var(--you); background:var(--you-tint); box-shadow:var(--you-bloom); opacity:1; }
+.fd-board-option.is-chosen .fd-board-letter { background:var(--you); color:var(--ink0); box-shadow:none; }
+.fd-board-lock { flex-shrink:0; display:grid; place-items:center; width:30px; height:30px; border-radius:50%; background:var(--ink0); color:var(--bone); }
+/* struck: dark, its letter barred, the text crossed in clay */
+.fd-board-option.is-struck { opacity:.42; border-color:transparent; box-shadow:none; background:var(--bg); }
+.fd-board-option.is-struck .fd-board-letter::after { content:""; position:absolute; left:-4px; right:-4px; top:50%; height:3px; margin-top:-1px;
+  border-radius:2px; background:var(--clay); transform:rotate(-38deg); }
+.fd-board-option.is-struck .fd-board-option-text { text-decoration:line-through; text-decoration-color:var(--clay); text-decoration-thickness:2px; }
+/* right: it stamps green */
+.fd-board-option.is-right { border-color:var(--green); background:color-mix(in srgb, var(--green) 16%, var(--paper)); opacity:1;
+  box-shadow:var(--glass-edge), 0 0 0 1px var(--green), 0 0 18px color-mix(in srgb, var(--green) 30%, transparent);
+  animation:fd-trivia-right .5s var(--ease-land) .2s both; }
+.fd-board-option.is-right .fd-board-letter { background:var(--green); color:var(--ink0); box-shadow:none; }
+.fd-board-option.is-out { opacity:.55; }
+/* who answers now */
+.fd-board-answerer { display:flex; flex-wrap:wrap; align-items:center; gap:12px; padding:10px 12px; border-radius:14px; background:var(--paper);
+  border:1px solid var(--lamp-live); box-shadow:var(--live-bloom), var(--glass-edge); }
+.fd-board-answerer .fd-board-drain { flex-basis:100%; }
+.fd-board-answerer-name { flex:1; min-width:0; font:900 26px/1.15 var(--fd-show); color:var(--ink); overflow-wrap:anywhere; }
+.fd-board-answerer.is-won { border-color:var(--green); box-shadow:var(--glass-edge), 0 0 0 1px var(--green); }
+.fd-board-answerer.is-dd { flex-direction:column; border-color:color-mix(in srgb, var(--sun) 60%, transparent); box-shadow:var(--chip-bloom), var(--glass-edge);
+  padding:18px 12px; }
+.fd-board-gain { font:800 30px/1 var(--fd-display); color:var(--green); font-variant-numeric:tabular-nums; }
+/* the buzz order: fastest first, yours lit */
+.fd-board-order { display:grid; gap:6px; margin:0; padding:0; list-style:none; }
+.fd-board-order li { display:grid; grid-template-columns:28px auto minmax(0, 1fr) auto; align-items:center; gap:10px; padding:5px 10px 5px 6px;
+  border-radius:10px; background:var(--paper); border:1px solid var(--line); }
+.fd-board-order li.is-mine { border-color:var(--you); background:var(--you-tint); box-shadow:var(--you-bloom); }
+.fd-board-order li.is-on { border-color:var(--lamp-live); }
+.fd-board-order li.is-struck { opacity:.5; }
+.fd-board-order li.is-right { border-color:var(--green); }
+.fd-board-place { font:800 20px/1 var(--fd-display); text-align:center; color:var(--muted2); font-variant-numeric:tabular-nums; }
+.fd-board-order li.is-on .fd-board-place { color:var(--lamp-live-text); }
+.fd-board-order-name { min-width:0; font:600 15px/1.25 var(--fd-body); color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.fd-board-ms { font:800 18px/1 var(--fd-display); font-variant-numeric:tabular-nums; color:var(--muted2); }
+.fd-board-order li.is-mine .fd-board-ms { color:var(--you); }
+
+/* the reveal: your change, your score rolling */
+.fd-board-delta { display:flex; align-items:center; justify-content:center; gap:12px; padding:12px 14px; border-radius:14px;
+  background:var(--paper); border:1px solid var(--line); box-shadow:var(--glass-edge); animation:fd-trivia-rise .4s var(--ease-out) .3s both; }
+.fd-board-delta > b { font:800 56px/1 var(--fd-display); font-variant-numeric:tabular-nums; animation:fd-board-picked .5s var(--ease-land) .35s both; }
+.fd-board-delta.is-up { border-color:var(--green); }
+.fd-board-delta.is-up > b { color:var(--green); }
+.fd-board-delta.is-down { border-color:color-mix(in srgb, var(--clay) 60%, transparent); }
+.fd-board-delta.is-down > b { color:var(--clay-text); }
+.fd-board-score .fd-reel { font:800 30px/1 var(--fd-display); }
+
+/* ── the wagers: a wheel of 100s, its ends one tap away ── */
+.fd-board-wager { flex:1; display:flex; flex-direction:column; gap:14px; justify-content:center; }
+.fd-board-wheel { display:grid; grid-template-columns:minmax(0, 1fr) auto; align-items:center; gap:12px; }
+.fd-board-wheel-drum::before { background:var(--sun-tint); border-color:color-mix(in srgb, var(--sun) 65%, transparent);
+  box-shadow:0 0 14px color-mix(in srgb, var(--sun) 25%, transparent); }
+.fd-board-wheel-drum .fd-wheel-item { font-size:34px; }
+.fd-board-wheel-drum .fd-wheel-item.is-live { color:var(--sun); }
+.fd-board-wheel-ends { display:grid; gap:8px; }
+.fd-board-wheel-ends button { min-width:76px; min-height:44px; padding:0 10px; border:1px solid var(--line); border-radius:10px; background:var(--paper2);
+  color:var(--muted2); font:800 17px/1 var(--fd-display); font-variant-numeric:tabular-nums; cursor:pointer; box-shadow:var(--glass-edge); }
+.fd-board-wager-reel { display:grid; place-items:center; padding:8px 0; }
+.fd-board-wager-reel .fd-reel { font:800 64px/1 var(--fd-display); }
+.fd-board-wager-reel.is-small .fd-reel { font-size:36px; }
+.fd-board-primary { min-height:56px; display:flex; align-items:center; justify-content:center; gap:10px; border:0; border-radius:14px;
+  background:var(--action-fill); color:var(--action-ink); font:700 17px/1 var(--fd-body); cursor:pointer; box-shadow:var(--chip-bloom);
+  transition:transform .12s ease; }
+.fd-board-primary:active:not(:disabled) { transform:scale(.97); }
+.fd-board-primary:disabled { background:var(--paper2); color:var(--muted2); cursor:default; box-shadow:var(--glass-edge); }
+.fd-board-primary.is-done { background:var(--info-tint); color:var(--lamp-info); box-shadow:inset 0 0 0 1px var(--lamp-info);
+  animation:fd-trivia-lockin .4s var(--ease-land) both; }
+.fd-board-primary.is-over { background:var(--paper2); color:var(--muted2); box-shadow:var(--glass-edge); }
+
+/* the Daily Double: its name stamped crooked in amber */
+.fd-board-dd { display:grid; justify-items:center; gap:6px; padding:8px 0 2px; text-align:center; }
+.fd-board-dd-word { font:900 46px/1.05 var(--fd-show); color:var(--sun); transform:rotate(-4deg);
+  text-shadow:0 3px 0 var(--ink0), 0 0 22px color-mix(in srgb, var(--sun) 45%, transparent); }
+.fd-board-dd.is-sting .fd-board-dd-word { animation:fd-board-dd 900ms cubic-bezier(.3,1.6,.5,1) both; }
+@keyframes fd-board-dd { 0% { opacity:0; transform:rotate(-4deg) scale(2.2); } 60% { opacity:1; transform:rotate(-4deg) scale(.9, 1.12); }
+  100% { transform:rotate(-4deg); } }
+.fd-board-dd .fd-board-cat { flex:none; text-align:center; }
+
+/* the Final */
+.fd-board-finalhead { display:grid; gap:4px; }
+.fd-board-final-cat { font:900 30px/1.12 var(--fd-show); color:var(--ink); overflow-wrap:anywhere; }
+.fd-board-final-text { margin:0; font:900 26px/1.18 var(--fd-show); letter-spacing:.01em; color:var(--ink); overflow-wrap:anywhere; text-wrap:balance; }
+.fd-board-final-text.is-long { font-size:22px; }
+.fd-board-photo { flex-shrink:0; height:150px; border-radius:14px; overflow:hidden; background:var(--ink0); }
+.fd-board-photo img { width:100%; height:100%; object-fit:contain; display:block; }
+.fd-board-body.is-clue { padding-bottom:12px; }
+.fd-board-foot { display:grid; gap:10px; padding:10px 14px calc(env(safe-area-inset-bottom) + 12px); border-top:1px solid var(--line);
+  background:var(--chrome); }
+.fd-board-final-you { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 14px; border-radius:14px;
+  background:var(--paper); border:1px solid var(--line); }
+.fd-board-final-you > b { font:800 34px/1 var(--fd-display); font-variant-numeric:tabular-nums; }
+.fd-board-final-you > b.is-up { color:var(--green); }
+.fd-board-final-you > b.is-down { color:var(--clay-text); }
+.fd-board-final-you .fd-board-score { margin-left:auto; }
+.fd-board-standings-title { margin:0; font:900 40px/1.1 var(--fd-show); color:var(--ink);
+  text-shadow:0 0 18px color-mix(in srgb, var(--lamp-live) 35%, transparent); }
+.fd-trivia-total.is-neg { color:var(--clay-text); }
+
+/* ── the desk: Rounds | Board, the board it will deal, its Final ── */
+.fd-board-formats { grid-template-columns:repeat(2, minmax(0, 1fr)); }
+.fd-board-formats button:disabled { opacity:.4; cursor:default; }
+.fd-board-desk { display:grid; gap:10px; }
+.fd-board-gridwrap.is-blank { min-height:120px; }
+.fd-board-colname.is-edit { min-height:44px; margin:0; border:0; border-radius:8px; background:none; color:var(--ink); cursor:pointer;
+  font-family:var(--fd-show); font-weight:900; }
+.fd-board-colname.is-edit:active { background:var(--info-tint); }
+.fd-board-grid.is-desk .fd-board-cell { min-height:40px; font-size:17px; }
+/* a question that will not be on the board: a dim pip under its column */
+.fd-board-pips { display:flex; justify-content:center; flex-wrap:wrap; gap:4px; min-height:8px; padding-top:2px; }
+.fd-board-pips i { width:7px; height:7px; border-radius:50%; background:var(--muted); opacity:.45; }
+/* a round the board cannot take: dim beside it, still one tap from its editor */
+.fd-board-out { display:flex; flex-wrap:wrap; gap:6px; margin:0; padding:0; list-style:none; }
+.fd-board-out button { min-height:44px; padding:0 12px; border:1px dashed var(--ghost-line); border-radius:10px; background:none;
+  color:var(--muted2); font:900 16px/1.15 var(--fd-show); opacity:.7; cursor:pointer; }
+.fd-board-finalcard { display:grid; grid-template-columns:minmax(0, 1fr); gap:8px; padding:12px; border:1px solid color-mix(in srgb, var(--sun) 45%, var(--line));
+  border-radius:12px; background:var(--paper2); }
+.fd-board-finalcard .fd-trivia-qtext strong { font:900 20px/1.15 var(--fd-show); }
+.fd-board-final-answer { color:var(--green) !important; }
+.fd-board-sealed { display:flex; align-items:center; gap:12px; }
+.fd-board-sealed i { width:44px; height:58px; display:grid; place-items:center; border-radius:8px; font:800 30px/1 var(--fd-display); font-style:normal;
+  color:color-mix(in srgb, var(--sun) 60%, var(--bg)); background:radial-gradient(110% 95% at 50% 40%, color-mix(in srgb, var(--sun) 16%, var(--bg)), var(--bg) 75%);
+  box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--sun) 30%, transparent); }
+.fd-board-sealed b { font:600 15px/1.3 var(--fd-body); color:var(--muted2); }
+.fd-board-final-edit { display:grid; gap:12px; }
+
+@media (max-height:740px) {
+  .fd-board-body { gap:10px; padding-top:12px; }
+  .fd-buzzer { min-height:250px; }
+  .fd-buzzer-button { width:min(64vw, 240px); }
+  .fd-board-cell { min-height:44px; }
+  .fd-board-option { min-height:52px; padding-top:6px; padding-bottom:6px; }
+  .fd-board-options { gap:8px; }
+  .fd-board-wager-reel .fd-reel { font-size:48px; }
+  .fd-board-dd-word { font-size:38px; }
+}
+
+@media (prefers-reduced-motion:reduce) {
+  .fd-board-game, .fd-board-cell.is-pending, .fd-buzzer-button, .fd-buzzer.is-live .fd-buzzer-bulbs .is-on, .fd-buzzer-ms,
+  .fd-board-in li.is-in, .fd-board-option.is-right, .fd-board-delta, .fd-board-primary.is-done, .fd-board-dd-word { animation:none !important; }
+  .fd-buzzer-cap { transition:none; }
+}

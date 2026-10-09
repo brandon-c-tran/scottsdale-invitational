@@ -42,11 +42,19 @@ export function useGagWindow(state, events, { now: nowOverride } = {}) {
 /* Whether this TV plays the gag in its window: decided as the window first
    opens here, so a gag another takeover is holding the room for is
    skipped for good (never queued), and given up if one takes the room
-   while it plays. */
+   while it plays. A gag plays once: once on screen, leaving it (its
+   window over, moved, or given away) is for good, so a window that moves
+   after it began (a slow speaker's walkout) never plays it twice. */
+export const gagVerdict = (verdict, gag, { blocked = false } = {}) => {
+  if (!gag) return verdict.shown ? { ...verdict, play:false } : verdict;
+  const next = verdict.id === gag.id ? { ...verdict } : { id:gag.id, play:!blocked, shown:false };
+  if (blocked) next.play = false;
+  if (next.play) next.shown = true;
+  return next;
+};
 export function useGagShown(gag, { blocked = false } = {}) {
-  const verdict = useRef({ id:null, play:false });
-  if (gag && verdict.current.id !== gag.id) verdict.current = { id:gag.id, play:!blocked };
-  if (gag && blocked) verdict.current.play = false;
+  const verdict = useRef({ id:null, play:false, shown:false });
+  verdict.current = gagVerdict(verdict.current, gag, { blocked });
   return gag && verdict.current.play ? gag : null;
 }
 

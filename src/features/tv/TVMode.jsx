@@ -48,7 +48,9 @@ import { towerChips, towerChipPx, towerCountSize, towerLeaders, towerLayout, tow
 import { useServerNow } from "./serverClock.js";
 import { serverNow } from "../../lib/serverClock.js";
 import { weekendFacts } from "../results/weekendFacts.js";
-import { useRoomSound } from "./roomSound.js";
+import { useGagSound, useRoomSound } from "./roomSound.js";
+import { TVGag, useGagShown, useGagWindow } from "../gags/TVGags.jsx";
+import { gagHoldMs, gagLamp } from "../gags/gagModel.js";
 import { SoundUnlockChip } from "./SoundUnlockChip.jsx";
 import { SoundEarlyControl, useTvSoundReport, useTvWakeLock } from "./TVDevice.jsx";
 import { NowPlaying } from "./NowPlaying.jsx";
@@ -1048,6 +1050,9 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied: allT
      covering the live pane then holds it (faceOffGate) */
   /* D6: the award being revealed holds the room (nothing is in play) */
   const award = useMemo(() => awardOnTv(state, events), [state, events]);
+  /* Gags (features/gags): the bowling alley's cartoons, each in its own
+     window on the server clock (the next face-off is timed after one) */
+  const gagWindow = useGagWindow(state, events, { now:nowOverride });
   const liveCovered = !!(sceneIntroEv || ceremonyIntroEv || ceremonyReveal || directed || resultModel);
   const faceOff = useFaceOff(state, liveEv, liveContest, { covered:liveCovered });
   /* H10: the first underdog and the first byes this TV shows are taught
@@ -1070,15 +1075,24 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied: allT
     && !award && !walkoutMoment && !pokerMoments.takeover && !crownPlaying
     && !(state.geo?.order && !state.results?.[state.geo.eventId])
     && !(state.trivia?.questions?.length && !state.results?.[state.trivia.eventId]) });
+  /* a gag plays only while nothing else holds the room (a podium is fine:
+     a result's gag plays over its tail), skipped and never queued */
+  const gag = useGagShown(gagWindow.gag, { blocked:connection.mode === "loading" || final || !!award || !!walkoutMoment
+    || !!pokerMoments.takeover || crownPlaying || !!showdown || !!faceOff || !!(sceneIntroEv || ceremonyIntroEv) || !!ceremonyReveal
+    || (directed && !(showScene?.active?.kind === "winner" && showScene.stepKey !== "standings")) });
+  useGagSound({ state, plan:gagWindow.plan, gag });
+  /* a lead that changed with a decided contest docks after its gag too */
+  const gagHold = useMemo(() => liveEv ? gagHoldMs(state, liveEv, events) : 0, [state, events, liveEv]);
+  const leadHold = leadCard ? advanceHoldUntil(state, liveEv, leadCard.at) : 0;
 
   const dock = final ? null : dockCard({ now, correction,
     lead:leadCard && !directed && !resultModel ? leadCard : null,
-    holdUntil:leadCard ? advanceHoldUntil(state, liveEv, leadCard.at) : 0 });
+    holdUntil:leadHold && leadHold + gagHold });
 
   /* the update reload waits for a gap in what is actually on screen */
   const busy = tvBusy({ sceneView, resultMoment:resultModel, advance, intro:sceneIntroEv || ceremonyIntroEv,
     reveal:ceremonyReveal, dock }) || !!faceOff || !!award || !!walkoutMoment || !!pokerMoments.takeover || crownPlaying
-    || !!showdown;
+    || !!showdown || !!gag;
   useEffect(() => {
     if (typeof window !== "undefined") window.__FD_CEREMONY__ = busy;
   }, [busy]);
@@ -1107,7 +1121,8 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied: allT
     faceOff && { takeover:"faceoff", chase:{ color:"var(--lamp-live)", pace:"run" } },
     walkoutMoment && { takeover:"walkout" }, pokerMoments.takeover && { takeover:pokerMoments.takeover },
     crownPlaying && { takeover:"crown" },
-    showdown && { takeover:"showdown", chase:{ color:"var(--lamp-live)", pace:"run" } }].filter(Boolean);
+    showdown && { takeover:"showdown", chase:{ color:"var(--lamp-live)", pace:"run" } },
+    gag && { takeover:"gag", chase:gagLamp(state, gag) }].filter(Boolean);
   const chrome = stageChrome({ intro:!!(sceneIntroEv || ceremonyIntroEv), reveal:!!ceremonyReveal,
     champion:!!directed && showScene?.active?.kind === "champion", award:!!award, extra:momentTakeovers });
 
@@ -1363,6 +1378,7 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied: allT
         <TVWalkout state={state} moment={walkoutMoment} events={events} />
         <TVPokerMoments state={state} moments={pokerMoments} />
         {showdown && <TVShowdown key={showdown.duel.id} state={state} active={showdown} now={nowOverride} />}
+        {gag && <TVGag key={gag.id} state={state} gag={gag} lamp={gagLamp(state, gag)?.color} />}
         <FrameLamps color={chrome.chase?.color || null} pace={chrome.chase?.pace || "rest"} />
         <SoundUnlockChip />
       </div>

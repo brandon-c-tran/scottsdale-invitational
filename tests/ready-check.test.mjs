@@ -364,4 +364,7 @@ test("the sheet: a tap opens that row's desk by its menu id", () => {
   assert.doesNotMatch(css, /#[0-9a-f]{3,6}\b/i, "tokens only");
   assert.match(css, /\.fd-ready-row\.is-partial \.fd-insert \{ --lamp:var\(--sun\); \}/);
   assert.match(css, /\.fd-ready-row\.is-missing \.fd-insert \{ background:var\(--lens-off\)/);
+  /* a row with no count (Auto win songs) keeps its chevron in the chevrons' column */
+  assert.match(css, /\.fd-ready-chevron \{ grid-column:4;/);
+  assert.match(css, /\.fd-ready-count \{ grid-column:3;/);
 });

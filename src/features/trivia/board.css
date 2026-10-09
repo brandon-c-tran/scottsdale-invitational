@@ -72,7 +72,9 @@
 
 /* ── the buzzer ── */
 .fd-board-body.is-buzz { align-items:stretch; }
-.fd-buzzer { flex:1; min-height:300px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; }
+/* a little below the middle, in the thumb's reach */
+.fd-buzzer { flex:1; min-height:300px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px;
+  padding-top:8vh; }
 .fd-buzzer-button { position:relative; width:min(78vw, 300px); aspect-ratio:1; padding:0; border:0; border-radius:50%; background:none;
   cursor:pointer; touch-action:manipulation; -webkit-tap-highlight-color:transparent; -webkit-user-select:none; user-select:none;
   --cap:color-mix(in srgb, var(--lamp-live) 26%, var(--ink0)); --cap-edge:color-mix(in srgb, var(--lamp-live) 10%, var(--ink0));

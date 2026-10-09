@@ -200,8 +200,9 @@ function OrderStrip({ state, view, me }) {
   return <ol className="fd-board-order">
     {view.order.map(row => {
       const attempt = tried.get(row.player);
-      return <li key={row.player} className={`${row.player === me ? "is-mine" : ""}${view.answering === row.player && !attempt ? " is-on" : ""}${
-        attempt && !attempt.right ? " is-struck" : ""}${attempt?.right ? " is-right" : ""}`}>
+      const cls = [row.player === me && "is-mine", view.answering === row.player && !attempt && "is-on",
+        attempt && !attempt.right && "is-struck", attempt?.right && "is-right"].filter(Boolean).join(" ");
+      return <li key={row.player} className={cls || undefined}>
         <span className="fd-board-place">{row.place}</span>
         <ChipFace p={row.player} size={32} />
         <span className="fd-board-order-name">{row.player === me ? "You" : disp(state, row.player)}</span>

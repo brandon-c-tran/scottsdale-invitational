@@ -402,5 +402,3 @@ export function deskBoard(rounds, bank = []) {
   }
   return { columns, out, cells:columns.reduce((sum, column) => sum + column.cells.length, 0) };
 }
-/* the set list's own Final, if it has one */
-export const customFinal = rounds => (rounds || []).find(round => round?.source === "final") || null;

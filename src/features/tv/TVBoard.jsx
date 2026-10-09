@@ -105,8 +105,8 @@ function Options({ state, options = [], struck = new Set(), answer = null, struc
     {options.map((option, i) => {
       const right = revealed && answer === i;
       const out = struck.has(i);
-      return <li key={i} className={`${right ? "is-right" : ""}${out ? " is-struck" : ""}${revealed && !right && !out ? " is-out" : ""}`}
-        style={{ "--i":i }}>
+      const cls = [right && "is-right", out && "is-struck", revealed && !right && !out && "is-out"].filter(Boolean).join(" ");
+      return <li key={i} className={cls || undefined} style={{ "--i":i }}>
         <span className="tv-display tv-board-letter">{LETTERS[i]}</span>
         <span className="tv-board-option">
           {typeof option === "string" ? <b>{option}</b> : <><b>{option?.title}</b><small>{option?.artist}</small></>}
@@ -131,7 +131,8 @@ function Order({ state, view, compact = false, now }) {
     {view.order.map((row, i) => {
       const attempt = tried.get(row.player);
       const on = compact && view.answering === row.player && !attempt;
-      return <li key={row.player} className={`${on ? "is-on" : ""}${attempt && !attempt.right ? " is-struck" : ""}${attempt?.right ? " is-right" : ""}`}
+      const cls = [on && "is-on", attempt && !attempt.right && "is-struck", attempt?.right && "is-right"].filter(Boolean).join(" ");
+      return <li key={row.player} className={cls || undefined}
         style={{ "--i":i, animationDelay:compact ? undefined : at(i * ORDER_STAMP_MS) }}>
         <span className="tv-display tv-board-place">{row.place}</span>
         <ChipFace p={row.player} size={size} />

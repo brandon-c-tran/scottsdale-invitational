@@ -32,7 +32,7 @@
 import { EMPTY_STATE, RESET_PROGRESS_CONFIRMATION, allEventsOf, presentPlayers, resolveCurrentContest } from "../../shared/core.js";
 import {
   ANSWER_GAP_MS, BOARD_ZOOM_MS, BUZZ_SETTLE_MS, BUZZ_SHOW_MS, DD_STING_MS, FINAL_ANSWER_MS, FINAL_INTRO_MS, FINAL_WAGER_MS,
-  MAX_ATTEMPTS, buzzOrder, clueClock, dealBoard, finalMax, finalRevealSchedule, readMs, boardStandings,
+  MAX_ATTEMPTS, boardAutoBeat, buzzOrder, clueClock, dealBoard, finalMax, finalRevealSchedule, readMs, boardStandings,
 } from "../../shared/triviaBoard.js";
 import { applyAction } from "../../worker/actions.js";
 import { TRIVIA_BANK } from "../../worker/triviaBank.js";
@@ -253,6 +253,86 @@ export function boardDeskStage() {
   const state = base();
   state.triviaFormat = "board";
   state.triviaRounds = structuredClone(BOARD_FIT_ROUNDS);
+  return state;
+}
+
+/* ── the same game through the real writes (worker/triviaBoard.js) ──
+   The set list saved and the format set by the desk's own writes, the board
+   dealt by triviaStart, then played the way QA plays it (worker/qa.js
+   playBoard): at each step the room's moves (boardSim, no actor: everyone),
+   then the autopilot's next beat when its clock comes. Math.random runs on a
+   seeded stream and Date.now on the run's own clock, so a build is the same
+   every time; the game stops at the moment asked for and every stamp in it
+   moves so that moment stands `ago` ms before `now`. */
+const PLAYED = Object.freeze({
+  /* the buzzers live, the room's buzzes in */
+  armed:{ stop:game => game.phase === "clue" && Object.keys(game.log?.[game.current]?.buzzes || {}).length > 0, ago:500 },
+  /* the first turn a second in */
+  answer:{ stop:game => game.phase === "answer" && Number(game.log?.[game.current]?.turnAt) > 0, ago:BUZZ_SHOW_MS + 1000 },
+  /* the right answer stamped */
+  reveal:{ stop:game => game.phase === "reveal", ago:1500 },
+  /* the board up, a few clues in */
+  pick:{ stop:game => game.phase === "pick" && (game.played || []).length >= 8, ago:3000 },
+  /* the Final's clue, the room's answers in */
+  "final-clue":{ stop:game => game.phase === "final-clue" && Object.keys(game.finalPicks || {}).length > 0, ago:9000 },
+  /* the Final turning */
+  "final-reveal":{ stop:game => game.phase === "final-reveal", ago:6000 },
+});
+const autoCtx = key => ({ isGm:true, auto:true, player:null, deviceId:"autopilot", actionId:key, environment:"local" });
+const simCtx = () => ({ isGm:true, qa:true, progressReset:true, environment:"local", player:null, deviceId:"fit-board-sim",
+  actionId:`board-sim-${++serial}` });
+const readyAt = game => {
+  const log = game.current ? game.log?.[game.current] : null;
+  if (game.phase === "clue") return Number(log?.armAt) || 0;
+  if (game.phase === "answer" || game.phase === "dd-clue") return Number(log?.turnAt) || 0;
+  return 0;
+};
+/* every server stamp in the game (and the write time) moved by `by` ms */
+function shiftStamps(node, by) {
+  if (!node || typeof node !== "object") return;
+  for (const [key, value] of Object.entries(node)) {
+    if (typeof value === "number" && value > 1.6e12 && value < 2.2e12) node[key] = value + by;
+    else if (value && typeof value === "object") shiftStamps(value, by);
+  }
+}
+export function boardPlayed(moment = "armed", { now = Date.now(), seed = 1031 } = {}) {
+  const spec = PLAYED[moment];
+  if (!spec) throw new Error(`Unknown board moment ${moment}`);
+  const state = base();
+  const realNow = Date.now, realRandom = Math.random;
+  let clock = now - 60 * 60000;
+  Date.now = () => clock;
+  Math.random = stream(seed);
+  try {
+    run(state, "triviaSetFormat", { format:"board" });
+    BOARD_FIT_ROUNDS.filter(round => round.source !== "final")
+      .forEach(round => run(state, "triviaSaveRound", { round:structuredClone(round) }));
+    const final = BOARD_FIT_ROUNDS.find(round => round.source === "final");
+    run(state, "triviaSaveFinal", { final:{ id:final.id, category:final.category, questions:structuredClone(final.questions) } });
+    run(state, "triviaStart", { evId:"trivia" });
+    let step = null;
+    for (let guard = 0; guard < 3000; guard++) {
+      const game = state.trivia;
+      if (spec.stop(game)) break;
+      const here = `${game.phase}:${game.current || ""}:${game.log?.[game.current]?.turn ?? ""}`;
+      if (here !== step) {
+        step = here;
+        clock = Math.max(clock, readyAt(game));
+        if (applyAction(state, "boardSim", {}, simCtx()).ok) continue;
+      }
+      const beat = boardAutoBeat(state);
+      if (!beat || beat.type === "triviaFinish") break;
+      clock = Math.max(clock, beat.at);
+      const result = applyAction(state, beat.type, beat.payload, autoCtx(beat.key));
+      if (!result.ok) throw new Error(`${beat.type}: ${result.error}`);
+    }
+    if (!spec.stop(state.trivia)) throw new Error(`The board never reached ${moment}`);
+  } finally {
+    Date.now = realNow;
+    Math.random = realRandom;
+  }
+  shiftStamps(state.trivia, now - spec.ago - clock);
+  state.updatedAt = now;
   return state;
 }
 

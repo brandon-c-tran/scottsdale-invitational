@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import {
   TRIVIA_DIGITS_MAX, TRIVIA_FORMAT_NAMES, TRIVIA_MAX_QUESTIONS, TRIVIA_MAX_ROUNDS, TRIVIA_NAME_MAX, TRIVIA_OPTION_MAX,
-  TRIVIA_TEXT_MAX, TRIVIA_UNIT_MAX, cleanTriviaQuestion, defaultDigits, digitsFor, triviaFinished, triviaRoundCount,
+  TRIVIA_TEXT_MAX, TRIVIA_UNIT_MAX, cleanTriviaQuestion, defaultDigits, digitsFor, triviaRoundCount,
 } from "../../../shared/trivia.js";
 import { spotifySearch, triviaBank, triviaClipCheck, triviaPhotoUrl, triviaUploadPhoto } from "../../lib/client.js";
 import { prepareMoment } from "../photos/prepareMoment.js";
@@ -11,8 +11,8 @@ import { LETTERS, numberLabel } from "./triviaModel.js";
 import "./trivia.css";
 import { writeError } from "../../lib/writeErrors.js";
 import { BOARD_FORMAT, isBoardGame, triviaFormatOf } from "../../../shared/triviaBoard.js";
+import { triviaFinalEntry, triviaLive } from "../../../shared/trivia.js";
 import { BoardPreview, FormatSwitch } from "./BoardDesk.jsx";
-import { customFinal } from "./boardModel.js";
 
 const newId = prefix => `${prefix}${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
 const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
@@ -305,7 +305,7 @@ function BankRound({ round, category, onSave, onCancel }) {
    list so it stays the commissioner's (triviaSaveFinal; null removes it). */
 const FINAL_CATEGORY_MAX = 32;
 function FinalCard({ rounds, onAct, running }) {
-  const final = customFinal(rounds);
+  const final = triviaFinalEntry(rounds);
   const question = final?.questions?.[0] || null;
   const [editing, setEditing] = useState(false);
   const [category, setCategory] = useState(final?.category || "");
@@ -352,7 +352,8 @@ export function TriviaDesk({ state, onAct, notify, loadBank = triviaBank, initia
   const listed = rounds.filter(round => round?.source !== "final");
   const game = state.trivia?.questions?.length ? state.trivia : null;
   const board = isBoardGame(state.trivia) ? state.trivia : null;
-  const running = (!!game || !!board) && !triviaFinished(state);
+  /* a game of either format locks the desk until its result posts */
+  const running = triviaLive(state);
   const format = triviaFormatOf(state);
   const { bank, error } = useBank(loadBank);
   const [editing, setEditing] = useState(initial);

@@ -14,17 +14,20 @@ import {
   ANSWER_MS, BOARD_PICK_MS, BOARD_VALUES, BOARD_ZOOM_MS, BUZZ_LOCKOUT_MS, BUZZ_MS_MAX, BUZZ_MS_MIN, BUZZ_SHOW_MS, DD_MIN,
   DD_STING_MS, FINAL_ANSWER_MS, FINAL_INTRO_MS, ddMax, finalMax, readMs,
 } from "../shared/triviaBoard.js";
-import { triviaLive } from "../shared/trivia.js";
+import { triviaFinalEntry, triviaLive } from "../shared/trivia.js";
 import { publicState } from "../worker/publicState.js";
 import { bankForDesk } from "../worker/trivia.js";
-import { BOARD_FIT_ROUNDS, BOARD_FIT_VIEWER, boardDeskStage, boardStage } from "../dev/fit/boardFixtures.js";
+import { BOARD_FIT_ROUNDS, BOARD_FIT_VIEWER, boardDeskStage, boardPlayed, boardStage } from "../dev/fit/boardFixtures.js";
 import {
   ANSWER_EARLY_MS, BOARD_TV, BUZZ_LATE_PAINT_MS, DD_RANGE, FINAL_RANGE, boardInstants, boardScreen, boardStageBox, boardView,
-  buzzReaction, buzzerState, cellRect, columnNameSize, customFinal, deskBoard, finalStepOn, finalSteps, fmtReaction, headNameFit,
+  buzzReaction, buzzerState, cellRect, columnNameSize, deskBoard, finalStepOn, finalSteps, fmtReaction, headNameFit,
   lineNameFit, nextBoardInstant, railPan, railSlots, shownScore, signedPoints, turnState, tvBoardScene, wagerItems, wagerStart, zoomFrom,
 } from "../src/features/trivia/boardModel.js";
 
 const ROOT = fileURLToPath(new URL("../", import.meta.url));
+/* the server renderer's note about layout effects (the reels measure in the browser) */
+const say = console.error;
+console.error = (...args) => /useLayoutEffect/.test(String(args[0])) ? undefined : say(...args);
 const NOW = 1_900_000_000_000;
 const ME = BOARD_FIT_VIEWER;
 const stage = (name, opts = {}) => boardStage(name, { now:NOW, ...opts });
@@ -258,7 +261,7 @@ test("the desk draws the set list as the board it will deal", () => {
   assert.equal(sports.unusable[0].format, "number");
   const groom = board.columns.find(column => column.name === "The groom");
   assert.deepEqual(groom.cells.map(cell => cell.value), BOARD_VALUES);
-  assert.equal(customFinal(BOARD_FIT_ROUNDS).category, "Landmarks", "his Final rides in the set list, not as a column");
+  assert.equal(triviaFinalEntry(BOARD_FIT_ROUNDS).category, "Landmarks", "his Final rides in the set list, not as a column");
   assert.ok(board.columns.every(column => column.round.source !== "final"));
   const loading = deskBoard(BOARD_FIT_ROUNDS, []);
   assert.ok(loading.out.some(item => item.reason === "loading"), "bank rounds wait for the bank");
@@ -281,15 +284,16 @@ test("the room hears the board on fresh frames: the zoom, each buzz panned, the 
   assert.equal(buzz.length, 1, "the one new buzz");
   assert.equal(buzz[0].opts.step, 3, "a step higher than the three before it");
   assert.equal(buzz[0].pan, railPan(armedIn.trivia.players.indexOf(ME), armedIn.trivia.players.length));
+  /* the same clue closing: the order stamps, fastest first, a beat apart */
   const order = stage("order");
-  const stamps = room.roomCues(snap(armedIn), snap(order), { now:NOW }).filter(cue => cue.id === "orderStamp");
-  assert.equal(stamps.length, 0, "a different clue's first frame is not its close");
-  const before = structuredClone(order);
-  const log = before.trivia.log[before.trivia.current];
-  delete log.closedAt; delete log.order; delete log.turn; delete log.turnAt;
-  before.trivia.phase = "clue";
-  const closed = room.roomCues(snap(before), snap(order), { now:NOW }).filter(cue => cue.id === "orderStamp");
-  assert.deepEqual(closed.map(cue => cue.opts.place), [1, 2, 3, 4], "the order stamps, fastest first");
+  assert.equal(order.trivia.current, armedIn.trivia.current);
+  const closed = room.roomCues(snap(armedIn), snap(order), { now:NOW }).filter(cue => cue.id === "orderStamp");
+  assert.deepEqual(closed.map(cue => cue.opts.place), [1, 2, 3, 4]);
+  const closedAt = order.trivia.log[order.trivia.current].closedAt;
+  assert.deepEqual(closed.map(cue => cue.at - closedAt), [0, 120, 240, 360]);
+  /* a new clue's first frame is its zoom, never a close */
+  const elsewhere = stage("tune");
+  assert.equal(room.roomCues(snap(armedIn), snap(elsewhere), { now:NOW }).filter(cue => cue.id === "orderStamp").length, 0);
   const answer = stage("answer");
   const wrongFirst = structuredClone(answer);
   wrongFirst.trivia.log[wrongFirst.trivia.current].attempts = [];
@@ -389,7 +393,9 @@ test("the TV draws every board moment: the board, the clue, the order, the turn,
   assert.match(pick, /tv-board-slot is-control/);
   assert.match(pick, />Picks</);
   assert.match(draw("zoom"), /tv-board-panel tv-glass is-zoom is-zooming/);
-  assert.match(draw("clue"), /In Breaking Bad, what name does Walter White go by\?/);
+  const reading = stage("clue");
+  const text = reading.trivia.clues[reading.trivia.current].text;
+  assert.ok(draw("clue").includes(`>${text.replaceAll("'", "&#x27;")}</h2>`), "the clue in large type");
   const armed = draw("armed");
   assert.match(armed, /is-armed is-zooming is-live/);
   assert.equal((armed.match(/tv-board-slot is-buzzed/g) || []).length, 3, "each buzz lights its chip");
@@ -399,7 +405,8 @@ test("the TV draws every board moment: the board, the clue, the order, the turn,
   assert.match(order, />0\.246</);
   const answer = draw("answer");
   assert.match(answer, /tv-board-answerer is-live/);
-  assert.equal((answer.match(/class="is-struck"/g) || []).length, 1, "the wrong answer struck");
+  assert.equal((answer.match(/tv-board-struck-by/g) || []).length, 1, "the wrong answer struck, its striker's chip on it");
+  assert.match(answer, /<li class="is-struck"[^>]*><span class="tv-display tv-board-letter">/);
   assert.match(draw("reveal"), /class="is-right"/);
   assert.match(draw("reveal"), /tv-board-fly/);
   const sting = draw("dd-sting");
@@ -488,6 +495,30 @@ test("the desk: Rounds | Board, the board it will deal, its Final", async () => 
   assert.match(list, /fd-trivia-rounds/);
   assert.equal((list.match(/fd-trivia-round-n/g) || []).length, BOARD_FIT_ROUNDS.length - 1, "the Final is not a round");
   assert.doesNotMatch(list, /fd-board-finalcard/);
+});
+
+test("the real writes: a board played through the reducers reads as the same screens the fixtures draw", async () => {
+  const { React, wrap, TVTrivia, TriviaPlaySheet } = await components();
+  const moments = { pick:["pick", "pick-watch"], armed:["armed", "buzzer"], answer:["answer", null], reveal:["reveal", "reveal"],
+    "final-clue":["final-clue", "final-clue"], "final-reveal":["final-reveal", "final-reveal"] };
+  for (const [moment, [scene, screen]] of Object.entries(moments)) {
+    const state = boardPlayed(moment, { now:NOW });
+    const room = view(state, null);
+    assert.equal(tvBoardScene(room, NOW), scene, moment);
+    const mine = view(state);
+    if (screen) assert.equal(boardScreen(mine), screen, moment);
+    else assert.ok(["answer", "answer-watch"].includes(boardScreen(mine)), moment);
+    const s = tv(state);
+    assert.match(wrap(s, React.createElement(TVTrivia, { state:s, now:NOW, fixed:true })), new RegExp(`tv-board is-${scene}`), moment);
+    const p = phone(state);
+    assert.match(wrap(p, React.createElement(TriviaPlaySheet, { state:p, me:ME, now:NOW, onAct:async () => ({ ok:true }) })), /fd-board-game/, moment);
+  }
+  /* the same moment the same every build: the seeded room and the run's clock */
+  assert.deepEqual(boardPlayed("armed", { now:NOW }).trivia, boardPlayed("armed", { now:NOW }).trivia);
+  /* the real buzzes are the projection's: the TV sees who, never how fast */
+  const armed = view(boardPlayed("armed", { now:NOW }), null);
+  assert.ok(armed.buzzedIn.length > 0 && Object.values(armed.buzzes).every(buzz => buzz.in === true));
+  assert.equal(nextBoardInstant(armed, NOW) > NOW, true);
 });
 
 test("the board fixtures are the contract's: a dealt board, a log a write would write, every instant on the clock", () => {

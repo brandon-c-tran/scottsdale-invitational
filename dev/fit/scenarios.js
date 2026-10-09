@@ -13,7 +13,7 @@ import {
   resolveWager,
 } from "../../shared/core.js";
 import { applyAction as apply } from "../../worker/actions.js";
-import { boardDeskStage, boardStage } from "./boardFixtures.js";
+import { boardDeskStage, boardPlayed, boardStage } from "./boardFixtures.js";
 
 /* display names the audit stresses: a long one, a lowercase pair, a
    surname. Applied after the fill, so qaAdvance never sees them as touched */
@@ -669,6 +669,13 @@ export const TV_SCENARIOS = Object.freeze([
   { id:"tv-board-final-clue", build:() => boardStage("final-clue"), at:{ board:0 } },
   { id:"tv-board-final-reveal", build:() => boardStage("final-reveal"), at:{ board:0 } },
   { id:"tv-board-final-board", build:() => boardStage("final-board"), at:{ board:0 }, wait:2500 },
+  /* the same board played through the real writes (boardPlayed: boardSim
+     for the room, the autopilot's beats on their clock) */
+  { id:"tv-board-real-pick", build:() => boardPlayed("pick"), at:{ board:0 } },
+  { id:"tv-board-real-armed", build:() => boardPlayed("armed"), at:{ board:0 } },
+  { id:"tv-board-real-answer", build:() => boardPlayed("answer"), at:{ board:0 } },
+  { id:"tv-board-real-reveal", build:() => boardPlayed("reveal"), at:{ board:0 }, wait:1500 },
+  { id:"tv-board-real-final-reveal", build:() => boardPlayed("final-reveal"), at:{ board:0 } },
   { id:"tv-walkout", build:() => fresh("event:putt:done"), moment:{ kind:"walkout", t:3000, player:"Brandon" } },
   /* a team's win walks out as the team: the moment is read from the record
      and the win it follows (walkoutView), a pair with no cover, seven with one */
@@ -852,6 +859,10 @@ export const PHONE_SCENARIOS = Object.freeze([
   { id:"board-final-wager", build:() => boardStage("final-wager"), settle:false, freeze:true, tabs:["home"] },
   { id:"board-final-clue", build:() => boardStage("final-clue"), settle:false, freeze:true, tabs:["home"] },
   { id:"desk-board", build:boardDeskStage, viewer:"gm", tabs:[], sheets:["trivia-desk"] },
+  /* and through the real writes */
+  { id:"board-real-buzz", build:() => boardPlayed("armed"), settle:false, freeze:true, tabs:["home"] },
+  { id:"board-real-answer", build:() => boardPlayed("answer"), settle:false, freeze:true, tabs:["home"] },
+  { id:"board-real-final-clue", build:() => boardPlayed("final-clue"), settle:false, freeze:true, tabs:["home"] },
   /* the announcement sheet as betting opens: a free-for-all (Where and
      When), a pairs bracket (Beer Die) and a team game (5v5) */
   { id:"ann-where", build:() => fresh("event:where:open"), settle:false, tabs:[], sheets:["announce"] },

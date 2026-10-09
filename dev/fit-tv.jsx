@@ -8,7 +8,7 @@
 import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { createPortal, flushSync } from "react-dom";
-import { allEventsOf, computeStandings, resolveCurrentContest, wagerBoardEvent } from "../shared/core.js";
+import { allEventsOf, computeStandings, disp, resolveCurrentContest, wagerBoardEvent } from "../shared/core.js";
 import { TVMode } from "../src/features/tv/TVMode.jsx";
 import { TV_AMBIENT_MS, TV_AMBIENT_TURN_MS, TV_RESULT_MOMENT_MS, TV_TICKER_PAGE_MS } from "../src/features/tv/tvModel.js";
 import { FROZEN_TURNS } from "../src/features/results/classPhoto.js";
@@ -20,6 +20,8 @@ import { walkoutView } from "../src/features/moments/walkout.js";
 import { TVPokerMoments } from "../src/features/tv/TVPokerMoments.jsx";
 import { FaceOff } from "../src/features/tv/TVFaceOff.jsx";
 import { faceOffStart, faceOffView } from "../src/features/tv/faceOff.js";
+import { TVGag } from "../src/features/gags/TVGags.jsx";
+import { GAG_MS, gagLamp, gagPlan } from "../src/features/gags/gagModel.js";
 import { publishFrame } from "../src/lib/frameGate.js";
 import { PlayerIdentityProvider, TextFloor } from "../src/features/identity/PlayerIdentityContext.js";
 import { Shell } from "../src/ui/Shell.jsx";
@@ -79,6 +81,12 @@ function pickNow(state) {
     const result = d ? Math.max(...Object.values(d.runs || {}).map(run => Number(run?.ts) || 0)) : 0;
     const base = !d ? Date.now() : at.duel === "fire" ? d.fireAt : at.duel === "result" ? result : d.armedAt;
     return base + (at.ms || 0);
+  }
+  /* `gag` ms into the gag the state owes the room (features/gags: a QA
+     test first, else the newest write's); ?t=ms moves it */
+  if (at.gag !== undefined) {
+    const gag = gagPlan(state, allEventsOf(state))[0];
+    return (gag?.start || Date.now()) + (params.get("t") ? Number(params.get("t")) : at.gag);
   }
   /* `faceoff` ms after the live contest's face-off starts (the TV's teach windows) */
   if (at.faceoff !== undefined) {
@@ -158,6 +166,12 @@ function MomentLayer({ state, events }) {
   } else if (moment.kind === "blinds") {
     node = <TVPokerMoments state={state} moments={{ blinds:{ id:"fit-blinds", from:"50/100", to:"100/200", anchor,
       elapsed:moment.t } }} />;
+  } else if (moment.kind === "gag") {
+    /* a gag's drawing for a cast the reducers cannot reach on cue (a
+       flock, a team rolling in): the real takeover, t ms in */
+    const gag = { id:"fit-gag", ms:GAG_MS[moment.gag.kind], start:anchor, end:anchor + GAG_MS[moment.gag.kind], elapsed:moment.t,
+      name:disp(state, moment.gag.players[0]), ...moment.gag };
+    node = <TVGag state={state} gag={gag} lamp={gagLamp(state, gag)?.color} />;
   } else if (moment.kind === "faceoff") {
     const ev = wagerBoardEvent(state, events);
     const contest = ev ? resolveCurrentContest(state, ev) : null;
@@ -194,6 +208,13 @@ function Harness() {
           const lag = performance.now() - mountedAt;
           document.getAnimations().forEach(anim => { anim.pause(); anim.currentTime = Math.max(0, (Number(anim.currentTime) || 0) - lag); });
         }
+        /* a gag held as a moment: its own clock (and the board's step-out
+           under it) back to the instant it was drawn at, t ms in; the
+           chrome keeps the step-out it has already made */
+        if (moment?.kind === "gag") document.getAnimations().filter(anim => {
+          const el = anim.effect?.target;
+          return el?.closest?.(".tv-gag") || el?.matches?.("[data-tv-canvas] > .tv-main");
+        }).forEach(anim => { anim.pause(); anim.currentTime = 0; });
         if (moment || at.engrave !== undefined || scenario.pause) pause();
         window.__FIT_READY__ = true;
       },

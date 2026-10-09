@@ -29,7 +29,15 @@
    A question: choice and picture have four string options and an answer
    index; tune has four { title, artist } options and an answer index, and
    `clip` names the recording the TV plays; number has an integer answer, a
-   unit and how many digit wheels the phone shows. Pure. */
+   unit and how many digit wheels the phone shows. Pure.
+
+   The board (Oct 8, shared/triviaBoard.js) is the second format: the same
+   set list as a Jeopardy-shaped board on the TV with phones as buzzers. A
+   board game keeps `questions` empty, so everything below that reads
+   questions leaves it alone; triviaAutoBeat, triviaBeat and projectTrivia
+   hand a board game to its own module, and triviaLive answers for both. */
+
+import { boardAutoBeat, boardBeat, isBoardGame, projectBoard } from "./triviaBoard.js";
 
 export const TRIVIA_FORMATS = Object.freeze(["choice", "number", "tune", "picture"]);
 export const TRIVIA_FORMAT_NAMES = Object.freeze({ choice:"Multiple choice", number:"Closest number", tune:"Name that tune",
@@ -149,6 +157,11 @@ export const triviaRevealedUpTo = game => !game ? 0 : game.phase === "question" 
 export const triviaRevealed = (game, index) => index < triviaRevealedUpTo(game);
 /* a game is over for every screen once its result posts */
 export const triviaFinished = state => !!state?.trivia?.eventId && !!state.results?.[state.trivia.eventId];
+/* a game of either format holds the room: started, its result not posted */
+export const triviaLive = state => {
+  const game = state?.trivia;
+  return !!game && (game.questions?.length > 0 || isBoardGame(game)) && !state.results?.[game.eventId];
+};
 
 export const durationOf = question => TRIVIA_MS[question?.format] || TRIVIA_MS.choice;
 const round10 = n => Math.round(n / 10) * 10;
@@ -241,6 +254,7 @@ export function triviaResultSlots(rows) {
    runs the game, the same beat is the commissioner's way to skip ahead. */
 export function triviaBeat(state, ev) {
   if (ev?.game !== "trivia" || state?.results?.[ev.id]) return null;
+  if (isBoardGame(state?.trivia) && state.trivia.eventId === ev.id) return boardBeat(state, ev);
   const game = triviaGame(state, ev.id);
   if (!game) return triviaConfigured(state) ? { type:"trivia-start", label:"Start trivia", subject:ev.name } : null;
   const question = triviaCurrent(game);
@@ -269,6 +283,7 @@ export const triviaActive = (state, game = triviaGame(state)) => triviaPlayers(g
    result. Each is the GM write the pill offers, so a tap takes it early;
    `key` names the beat once. */
 export function triviaAutoBeat(state) {
+  if (isBoardGame(state?.trivia)) return boardAutoBeat(state);
   const game = triviaGame(state);
   if (!game || game.finishedAt || state.results?.[game.eventId] || !Array.isArray(game.players)) return null;
   const question = triviaCurrent(game);
@@ -305,6 +320,7 @@ export function triviaAutoBeat(state) {
    revealed, never which recording a tune plays), their own live pick,
    every other player's locked or not, and every pick once revealed. */
 export function projectTrivia(game, rounds, { isGm = false, player = null } = {}) {
+  if (isBoardGame(game)) return { trivia:projectBoard(game, { isGm, player }), triviaRounds:isGm ? rounds || [] : [] };
   const playing = triviaPlays(game, player);
   if (isGm && !playing) {
     if (!game) return { trivia:null, triviaRounds:rounds || [] };

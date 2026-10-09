@@ -1,0 +1,465 @@
+/* Trivia board: Trivia as the room's game show. The TV is the board
+   (categories across, values down, Jeopardy's shape) and every phone is a
+   buzzer. The commissioner picks the format on the Trivia desk
+   (`state.triviaFormat`: "rounds", the default, or "board"); the same set
+   list feeds both, a round becoming a column.
+
+   A board game lives in `state.trivia` like any Trivia game, with
+   `format:"board"` and its clues under `clues`. Its `questions` stays
+   empty, so code written before the board ignores a board game entirely
+   (a rollback leaves it inert; Restart or a progress reset clears it).
+
+   The flow, every instant on the server clock:
+     pick          whoever has control picks a cell on their phone; after
+                   BOARD_PICK_MS the autopilot picks the lowest value of the
+                   leftmost column (autoPickClue)
+     clue          the cell fills the TV (BOARD_ZOOM_MS), the clue reads
+                   (readMs), then the buzzers arm at `armAt`. Each phone
+                   lights its buzzer on that instant and times its own
+                   reaction from the frame it painted, so the network never
+                   decides who was first. A tune's clip starts at `armAt`:
+                   buzz as soon as you know it.
+                   The buzzers close BUZZ_SETTLE_MS after the first buzz
+                   reaches the server, or at `openUntil` with nobody in.
+     answer        the buzz order answers one at a time, the fastest first:
+                   ANSWER_MS on the four options on their own phone. Right:
+                   plus the value and control of the board. Wrong, or out of
+                   time: minus the value, that option is struck and the next
+                   in order answers, up to MAX_ATTEMPTS.
+     reveal        the right answer stamps; REVEAL_HOLD_MS, then the next pick
+     dd-wager      the Daily Double (one hidden cell): only the picker plays,
+                   wagering on their phone (DD_WAGER_MS)
+     dd-clue       the clue reads and only the picker answers (DD_ANSWER_MS)
+     final-wager   the board is clear: the Final's category shows and every
+                   player above zero wagers up to their score, unseen
+     final-clue    everyone answers the Final on their own phone, unseen
+     final-reveal  the TV turns each player's Final from the lowest score up
+                   (finalRevealSchedule)
+     final-board   the final standings; then the result posts like any
+                   Trivia game (one winner, then the next two ranks)
+
+   The game (state.trivia when format is "board"):
+     { id, eventId, format:"board", startedAt, players:[player], questions:[],
+       columns:[{ name, clues:[clueId] }],          top to bottom
+       clues:{ [clueId]:{ id, col, row, value, format, text, options, answer,
+         photo?, clip?, source? } },
+       dd:clueId|null,                               hidden until picked
+       final:{ id, category, format, text, options, answer, photo? }|null,
+       control:player|null, phase, current:clueId|null, pickAt,
+       played:[clueId],                              in pick order
+       log:{ [clueId]:{ by, auto, pickedAt, shownAt, armAt, openUntil,
+         buzzes:{ [player]:{ ms, at } }, closedAt, order:[player], turn,
+         turnAt, attempts:[{ player, choice, at, right, timeout? }],
+         wager?, wagerAt?, revealedAt?, winner? } },
+       finalAt:{ introAt, wagerUntil, clueAt, answerUntil, revealAt, boardAt },
+       finalWagers:{ [player]:{ wager, at } },
+       finalPicks:{ [player]:{ choice, at, locked, lockedAt } },
+       finishedAt, ops (server only: retried writes) }
+
+   Points are trivia points, never chips, and may go below zero. Scores are
+   derived from the log, never stored. Pure. */
+
+import { disp } from "./core.js";
+
+export const BOARD_FORMAT = "board";
+export const TRIVIA_GAME_FORMATS = Object.freeze(["rounds", BOARD_FORMAT]);
+export const BOARD_VALUES = Object.freeze([200, 400, 600, 800, 1000]);
+export const BOARD_COLUMNS_MAX = 6;
+/* what a buzzer can answer: four options on a phone */
+export const BOARD_CLUE_FORMATS = Object.freeze(["choice", "picture", "tune"]);
+
+/* the picker's time before the autopilot picks for them */
+export const BOARD_PICK_MS = 15000;
+/* the picked cell fills the TV before its clue reads */
+export const BOARD_ZOOM_MS = 1200;
+/* a tune: the clip starts (and the buzzers arm) this long after it shows */
+export const BOARD_TUNE_LEAD_MS = 1500;
+/* the TV plays this much of a tune (TRIVIA_CLIP_MS) */
+export const BOARD_CLIP_MS = 10000;
+/* buzzers stay open this long with nobody in (a tune: its clip and two
+   seconds more) */
+export const BUZZ_OPEN_MS = 6000;
+/* the buzzers close this long after the first buzz reaches the server, so a
+   faster thumb on a slower network still counts */
+export const BUZZ_SETTLE_MS = 700;
+/* a phone that buzzes before its lamp locks itself out this long (local) */
+export const BUZZ_LOCKOUT_MS = 500;
+/* a buzz may reach the server this early on a phone whose clock runs fast */
+export const BUZZ_EARLY_MS = 250;
+/* a reported reaction is held to this range */
+export const BUZZ_MS_MIN = 60;
+export const BUZZ_MS_MAX = 15000;
+/* the buzz order stands on the TV before the first answer turn */
+export const BUZZ_SHOW_MS = 1500;
+/* one answer turn, and the beat between a struck answer and the next turn */
+export const ANSWER_MS = 8000;
+export const ANSWER_GAP_MS = 900;
+/* an answer that left the phone as its turn ran out still counts */
+export const ANSWER_GRACE_MS = 1000;
+export const MAX_ATTEMPTS = 3;
+export const REVEAL_HOLD_MS = 4500;
+/* the Daily Double: the sting, the wager, a beat once it is locked, the answer */
+export const DD_STING_MS = 2600;
+export const DD_WAGER_MS = 15000;
+export const DD_LOCKED_MS = 900;
+export const DD_ANSWER_MS = 12000;
+export const WAGER_STEP = 100;
+export const DD_MIN = 100;
+/* the Final: its category stands, the wagers, the answer, the reveal */
+export const FINAL_INTRO_MS = 3000;
+export const FINAL_WAGER_MS = 25000;
+export const FINAL_ANSWER_MS = 30000;
+export const FINAL_GRACE_MS = 2000;
+export const FINAL_ALL_IN_MS = 1500;
+export const FINAL_REVEAL_STEP_MS = 3200;
+/* a player who wagered nothing turns quicker */
+export const FINAL_REVEAL_QUICK_MS = 1400;
+export const FINAL_REVEAL_TAIL_MS = 1500;
+export const FINAL_BOARD_HOLD_MS = 12000;
+export const FINAL_PHASES = Object.freeze(["final-wager", "final-clue", "final-reveal", "final-board"]);
+export const BOARD_PHASES = Object.freeze(["pick", "clue", "answer", "reveal", "dd-wager", "dd-clue", ...FINAL_PHASES]);
+
+const num = value => Number(value) || 0;
+
+export const isBoardGame = game => game?.format === BOARD_FORMAT && !!game.clues && typeof game.clues === "object";
+/* the format a new game would start in */
+export const triviaFormatOf = state => state?.triviaFormat === BOARD_FORMAT ? BOARD_FORMAT : "rounds";
+export const boardPlayers = game => Array.isArray(game?.players) ? game.players : [];
+export const boardPlays = (game, player) => !!player && boardPlayers(game).includes(player);
+/* the game's players still in the room */
+export const boardActive = (state, game = state?.trivia) => boardPlayers(game).filter(player => !state?.away?.[player]);
+export const boardClue = (game, id = game?.current) => (id && game?.clues?.[id]) || null;
+export const boardLog = (game, id = game?.current) => (id && game?.log?.[id]) || null;
+export const isDailyDouble = (game, id = game?.current) => !!id && game?.dd === id;
+export const boardPlayed = (game, id) => (game?.played || []).includes(id);
+
+/* every clue in reading order: the top row left to right, then the next */
+export function boardCells(game) {
+  const columns = Array.isArray(game?.columns) ? game.columns : [];
+  const rows = Math.max(0, ...columns.map(column => (column?.clues || []).length));
+  const out = [];
+  for (let row = 0; row < rows; row++) columns.forEach(column => { const id = column?.clues?.[row]; if (id) out.push(id); });
+  return out;
+}
+export const cellsLeft = game => boardCells(game).filter(id => !boardPlayed(game, id));
+/* the autopilot's pick: the lowest value left, leftmost first */
+export const autoPickClue = game => cellsLeft(game)[0] || null;
+export const boardTopValue = game => Math.max(BOARD_VALUES[0], ...Object.values(game?.clues || {}).map(clue => num(clue?.value)));
+
+/* how long a clue reads before its buzzers arm */
+export function readMs(clue) {
+  if (!clue) return 0;
+  if (clue.format === "tune") return BOARD_TUNE_LEAD_MS;
+  const length = String(clue.text || "").length;
+  if (clue.format === "picture") return Math.min(5000, 2500 + 30 * length);
+  return Math.max(3000, Math.min(7000, 2000 + 45 * length));
+}
+/* how long the buzzers stay open with nobody in */
+export const openMs = clue => clue?.format === "tune" ? BOARD_CLIP_MS + 2000 : BUZZ_OPEN_MS;
+
+/* A clue's clock from the instant it was picked (the pick write stamps
+   these into the log): { shownAt, armAt, openUntil }. */
+export function clueClock(clue, pickedAt) {
+  const shownAt = num(pickedAt) + BOARD_ZOOM_MS;
+  const armAt = shownAt + readMs(clue);
+  return { shownAt, armAt, openUntil:armAt + openMs(clue) };
+}
+
+/* when the buzzers close: a beat after the first buzz reached the server,
+   or when the window runs out with nobody in */
+export function buzzCloseAt(log) {
+  if (!log) return 0;
+  const first = Math.min(...Object.values(log.buzzes || {}).map(buzz => num(buzz?.at)).filter(Boolean));
+  const until = num(log.openUntil);
+  return Number.isFinite(first) ? Math.min(until, first + BUZZ_SETTLE_MS) : until;
+}
+/* the buzz order: the fastest reaction first, a tie to whoever reached the
+   server first */
+export function buzzOrder(log) {
+  return Object.entries(log?.buzzes || {})
+    .map(([player, buzz]) => ({ player, ms:num(buzz?.ms), at:num(buzz?.at) }))
+    .sort((a, b) => a.ms - b.ms || a.at - b.at || a.player.localeCompare(b.player))
+    .map(row => row.player);
+}
+export const clampBuzzMs = ms => Math.round(Math.max(BUZZ_MS_MIN, Math.min(BUZZ_MS_MAX, num(ms) || BUZZ_MS_MAX)));
+/* who answers now (the Daily Double: the picker) */
+export const turnPlayer = log => log?.order?.[num(log.turn)] || null;
+export const turnMs = (game, id = game?.current) => isDailyDouble(game, id) ? DD_ANSWER_MS : ANSWER_MS;
+export function turnUntil(game, id = game?.current) {
+  const log = boardLog(game, id);
+  return log?.turnAt ? num(log.turnAt) + turnMs(game, id) : 0;
+}
+/* how many answer turns a clue allows: its buzz order, up to MAX_ATTEMPTS
+   (a Daily Double: one) */
+export const attemptsAllowed = (game, id = game?.current) => isDailyDouble(game, id) ? 1
+  : Math.min(MAX_ATTEMPTS, (boardLog(game, id)?.order || []).length);
+/* options already struck on this clue */
+export const struckChoices = log => new Set((log?.attempts || []).filter(attempt => !attempt.right && Number.isInteger(attempt.choice))
+  .map(attempt => attempt.choice));
+
+/* what a clue is worth to whoever answers it: its value, or the wager */
+export const clueStake = (game, id) => isDailyDouble(game, id) ? num(game?.log?.[id]?.wager) : num(game?.clues?.[id]?.value);
+/* one clue's effect on each player who answered it */
+export function clueDeltas(game, id) {
+  const stake = clueStake(game, id);
+  const out = {};
+  for (const attempt of game?.log?.[id]?.attempts || []) out[attempt.player] = (out[attempt.player] || 0) + (attempt.right ? stake : -stake);
+  return out;
+}
+
+/* the Final counts once the TV starts turning it */
+export const finalShown = game => game?.phase === "final-reveal" || game?.phase === "final-board" || !!game?.finishedAt;
+const floorStep = value => Math.floor(num(value) / WAGER_STEP) * WAGER_STEP;
+/* a Daily Double risks up to the score, or the board's top value when the
+   score is lower; a Final up to the score (nothing below zero) */
+export const ddMax = (score, top = BOARD_VALUES[BOARD_VALUES.length - 1]) => Math.max(top, floorStep(score));
+export const ddDefault = (score, top) => Math.max(DD_MIN, floorStep(ddMax(score, top) / 2));
+export const finalMax = score => Math.max(0, floorStep(score));
+export const validWager = (wager, min, max) => Number.isInteger(wager) && wager >= min && wager <= max && wager % WAGER_STEP === 0;
+
+/* Totals, best first: { player, order, score, preFinal, right, wrong,
+   buzzes, speed, final, played, rank }. `preFinal` is the score before the
+   Final, which counts once it is shown (finalShown). A tie breaks on more
+   right answers, then the faster sum of the reactions that won a clue, then
+   the order players joined. */
+export function boardStandings(game) {
+  const rows = boardPlayers(game).map((player, order) => ({ player, order, score:0, preFinal:0, right:0, wrong:0, buzzes:0,
+    speed:0, final:null, played:false }));
+  const by = new Map(rows.map(row => [row.player, row]));
+  for (const id of game?.played || []) {
+    const log = game.log?.[id];
+    if (!log) continue;
+    const stake = clueStake(game, id);
+    for (const player of Object.keys(log.buzzes || {})) { const row = by.get(player); if (row) row.buzzes += 1; }
+    for (const attempt of log.attempts || []) {
+      const row = by.get(attempt.player);
+      if (!row) continue;
+      if (attempt.right) {
+        row.score += stake; row.right += 1;
+        row.speed += num(log.buzzes?.[attempt.player]?.ms);
+      } else { row.score -= stake; row.wrong += 1; }
+    }
+  }
+  for (const row of rows) row.preFinal = row.score;
+  if (finalShown(game) && game.final) {
+    for (const row of rows) {
+      const pick = game.finalPicks?.[row.player];
+      const answered = Number.isInteger(pick?.choice);
+      const wager = Math.min(finalMax(row.preFinal), num(game.finalWagers?.[row.player]?.wager));
+      const right = answered && pick.choice === game.final.answer;
+      row.final = { wager, choice:answered ? pick.choice : null, right };
+      row.score += right ? wager : -wager;
+      if (answered) { if (right) row.right += 1; else row.wrong += 1; }
+    }
+  }
+  for (const row of rows) row.played = row.buzzes + row.right + row.wrong > 0 || Number.isInteger(row.final?.choice);
+  rows.sort((a, b) => b.score - a.score || b.right - a.right || a.speed - b.speed || a.order - b.order);
+  let rank = 0;
+  rows.forEach((row, i) => {
+    const prev = rows[i - 1];
+    rank = prev && prev.score === row.score && prev.right === row.right && prev.speed === row.speed ? rank : i + 1;
+    row.rank = rank;
+  });
+  return rows;
+}
+/* one player's score as it stands (the Final not yet shown: before it) */
+export const boardScore = (game, player) => boardStandings(game).find(row => row.player === player)?.score || 0;
+
+/* the event result: one winner (the ranking already broke ties), then the
+   next two ranks; nobody who never played places */
+export function boardResultSlots(rows) {
+  const order = (rows || []).filter(row => row.played);
+  if (!order.length) return null;
+  const rest = order.slice(1);
+  const ranks = [...new Set(rest.map(row => row.rank))].slice(0, 2);
+  return [[order[0].player], ...ranks.map(rank => rest.filter(row => row.rank === rank).map(row => row.player))];
+}
+
+/* who wagers on the Final: everyone still here above zero */
+export function finalEligible(state, game = state?.trivia) {
+  const scores = new Map(boardStandings(game).map(row => [row.player, row.preFinal]));
+  return boardActive(state, game).filter(player => (scores.get(player) || 0) > 0);
+}
+
+/* The Final turns player by player from the lowest score up, a player who
+   wagered nothing quicker; anyone who never played and gave no Final is
+   left out. [{ player, at, ms }] with `at` from finalAt.revealAt. */
+export function finalRevealSchedule(game) {
+  const rows = boardStandings({ ...game, phase:"final-clue", finishedAt:null })
+    .filter(row => row.played || Number.isInteger(game?.finalPicks?.[row.player]?.choice) || game?.finalWagers?.[row.player])
+    .sort((a, b) => a.preFinal - b.preFinal || a.order - b.order);
+  let at = 0;
+  return rows.map(row => {
+    const wager = Math.min(finalMax(row.preFinal), num(game?.finalWagers?.[row.player]?.wager));
+    const ms = wager > 0 ? FINAL_REVEAL_STEP_MS : FINAL_REVEAL_QUICK_MS;
+    const step = { player:row.player, at, ms };
+    at += ms;
+    return step;
+  });
+}
+export const finalRevealMs = game => finalRevealSchedule(game).reduce((sum, step) => sum + step.ms, 0);
+
+/* The board from the set list's rounds, each already turned into its
+   questions (worker/trivia.js roundQuestions, options dealt): a column per
+   round, up to BOARD_COLUMNS_MAX; each its first BOARD_VALUES.length
+   questions a buzzer can answer, easiest first where the bank rated them
+   (`level`; a round of his own keeps its written order); values by row. One
+   Daily Double, on a cell worth 600 or more where there is one.
+   Returns { columns, clues, dd }. */
+const levelOf = question => Number.isFinite(Number(question?.level)) ? Number(question.level) : 3;
+export function dealBoard(rounds, { gameId = "tb", random = Math.random } = {}) {
+  const columns = [], clues = {};
+  for (const round of rounds || []) {
+    if (columns.length >= BOARD_COLUMNS_MAX) break;
+    const usable = (round?.questions || []).filter(question => BOARD_CLUE_FORMATS.includes(question?.format)
+      && Array.isArray(question.options) && question.options.length === 4 && Number.isInteger(question.answer));
+    const ordered = usable.map((question, i) => ({ question, i }))
+      .sort((a, b) => levelOf(a.question) - levelOf(b.question) || a.i - b.i)
+      .slice(0, BOARD_VALUES.length).map(item => item.question);
+    if (!ordered.length) continue;
+    const col = columns.length;
+    const ids = ordered.map((question, row) => {
+      const id = `${gameId}-${col}${row}`;
+      const { id:source, level, round:_round, ...rest } = question;
+      clues[id] = { ...rest, id, col, row, value:BOARD_VALUES[row], ...(source ? { source } : {}) };
+      return id;
+    });
+    columns.push({ name:String(round?.name || "").slice(0, 32), clues:ids });
+  }
+  const all = columns.flatMap(column => column.clues);
+  const deep = all.filter(id => clues[id].row >= 2);
+  const pool = deep.length ? deep : all;
+  const dd = pool.length ? pool[Math.min(pool.length - 1, Math.floor(random() * pool.length))] : null;
+  return { columns, clues, dd };
+}
+
+/* The next write the game makes on its own, and when: { at, from, type,
+   payload, key }, or null. Every beat is a commissioner write the pill
+   also offers (boardBeat), so a tap takes it early; `key` names it once. */
+export function boardAutoBeat(state) {
+  const game = state?.trivia;
+  if (!isBoardGame(game) || game.finishedAt || state.results?.[game.eventId] || !Array.isArray(game.players)) return null;
+  const beat = (at, type, payload, step, from = null) => ({ at:num(at), from:from ? num(from) : null, type, payload,
+    key:`board:${game.id}:${step}` });
+  const id = game.current;
+  const log = boardLog(game);
+  const t = game.finalAt || {};
+  switch (game.phase) {
+    case "pick": {
+      const next = autoPickClue(game);
+      return next ? beat(num(game.pickAt) + BOARD_PICK_MS, "boardPick", { clueId:next, auto:true },
+        `pick${(game.played || []).length}`, game.pickAt) : null;
+    }
+    case "clue":
+      return log ? beat(buzzCloseAt(log), "boardCloseBuzz", { clueId:id }, `${id}:close`, log.armAt) : null;
+    case "answer":
+    case "dd-clue":
+      return log?.turnAt ? beat(turnUntil(game) + ANSWER_GRACE_MS, "boardTimeout", { clueId:id, turn:num(log.turn) },
+        `${id}:turn${num(log.turn)}`, log.turnAt) : null;
+    case "reveal":
+      return log ? beat(num(log.revealedAt) + REVEAL_HOLD_MS, "boardNext", { clueId:id }, `${id}:next`, log.revealedAt) : null;
+    case "dd-wager":
+      return log ? beat(log.wagerAt ? num(log.wagerAt) + DD_LOCKED_MS : num(log.pickedAt) + DD_STING_MS + DD_WAGER_MS,
+        "boardDdClue", { clueId:id }, `${id}:dd`, log.pickedAt) : null;
+    case "final-wager": {
+      const eligible = finalEligible(state, game);
+      const wagers = game.finalWagers || {};
+      let at = num(t.wagerUntil);
+      if (!eligible.length) at = num(t.introAt) + FINAL_INTRO_MS;
+      else if (eligible.every(player => wagers[player])) at = Math.min(at, Math.max(num(t.introAt) + FINAL_INTRO_MS,
+        Math.max(...eligible.map(player => num(wagers[player].at))) + FINAL_ALL_IN_MS));
+      return beat(at, "boardFinalClue", {}, "final:clue", t.introAt);
+    }
+    case "final-clue": {
+      const active = boardActive(state, game);
+      const picks = game.finalPicks || {};
+      let at = num(t.answerUntil) + FINAL_GRACE_MS;
+      if (active.length && active.every(player => picks[player]?.locked)) at = Math.min(at, Math.max(num(t.clueAt),
+        Math.max(...active.map(player => num(picks[player].lockedAt))) + FINAL_ALL_IN_MS));
+      return beat(at, "boardFinalReveal", {}, "final:reveal", t.clueAt);
+    }
+    case "final-reveal":
+      return beat(num(t.revealAt) + finalRevealMs(game) + FINAL_REVEAL_TAIL_MS, "boardFinalBoard", {}, "final:board", t.revealAt);
+    case "final-board":
+      return beat(num(t.boardAt) + FINAL_BOARD_HOLD_MS, "triviaFinish", { evId:game.eventId }, "finish", t.boardAt);
+    default:
+      return null;
+  }
+}
+
+/* The director pill's beat for a board game under way: each the write the
+   autopilot would make, as a skip-ahead. { type:"board-step", label,
+   subject, write, payload }, or the ordinary "trivia-finish" at the end. */
+export function boardBeat(state, ev) {
+  const game = state?.trivia;
+  if (!isBoardGame(game) || game.eventId !== ev?.id || state.results?.[ev.id]) return null;
+  const name = player => player ? disp(state, player) : "";
+  const id = game.current, log = boardLog(game), clue = boardClue(game);
+  const cell = clue ? `${game.columns?.[clue.col]?.name || "Trivia"} ${clue.value}` : "";
+  const step = (label, subject, write, payload) => ({ type:"board-step", label, subject, write, payload });
+  switch (game.phase) {
+    case "pick": {
+      const next = autoPickClue(game);
+      return next ? step("Pick", `${name(game.control)}'s pick`, "boardPick", { clueId:next }) : null;
+    }
+    case "clue": return step("Close buzzers", cell, "boardCloseBuzz", { clueId:id });
+    case "answer": return step("Time", `${name(turnPlayer(log))} answering`, "boardTimeout", { clueId:id, turn:num(log?.turn) });
+    case "dd-wager": return step("Show the clue", `Daily Double, ${name(log?.by)}`, "boardDdClue", { clueId:id });
+    case "dd-clue": return step("Time", `${name(log?.by)} answering`, "boardTimeout", { clueId:id, turn:0 });
+    case "reveal": {
+      const left = cellsLeft(game).length;
+      return step("Next", left ? `${left} left` : game.final ? "Final" : "Final scores", "boardNext", { clueId:id });
+    }
+    case "final-wager": return step("Show the Final", game.final?.category || "Final", "boardFinalClue", {});
+    case "final-clue": return step("Reveal", "Final", "boardFinalReveal", {});
+    case "final-reveal": return step("Final scores", ev.name, "boardFinalBoard", {});
+    case "final-board": return { type:"trivia-finish", label:"Post result", subject:ev.name };
+    default: return null;
+  }
+}
+
+/* What a phone or the TV is sent. The commissioner gets everything unless
+   he plays in it: then he plays blind like anyone. Everyone else gets:
+   every cell's place and value; a picked clue's text, options and photo
+   (a tune's recording never); its answer once revealed; the Daily Double
+   once picked; each clue's log, a live buzz window carrying only who is in
+   (your own reaction yours); the Final's category in its wager phase, the
+   clue from its answer phase, the answer from the reveal; Final wagers and
+   picks your own until the reveal, everyone's from then. */
+export function projectBoard(game, { isGm = false, player = null } = {}) {
+  if (!isBoardGame(game)) return null;
+  const { ops, ...rest } = game;
+  const total = boardCells(game).length;
+  if (isGm && !boardPlays(game, player)) return { ...rest, questions:[], total };
+  const played = new Set(game.played || []);
+  const clues = {};
+  for (const [id, clue] of Object.entries(game.clues || {})) {
+    const base = { id, col:clue.col, row:clue.row, value:clue.value };
+    if (!played.has(id)) { clues[id] = base; continue; }
+    clues[id] = { ...base, format:clue.format, text:clue.text || "", options:clue.options,
+      ...(clue.photo ? { photo:clue.photo } : {}), ...(game.dd === id ? { dd:true } : {}),
+      ...(game.log?.[id]?.revealedAt ? { answer:clue.answer } : {}) };
+  }
+  const log = {};
+  for (const id of game.played || []) {
+    const entry = game.log?.[id];
+    if (!entry) continue;
+    const open = game.current === id && game.phase === "clue" && !entry.closedAt;
+    log[id] = open ? { ...entry, buzzes:Object.fromEntries(Object.entries(entry.buzzes || {})
+      .map(([who, buzz]) => [who, who === player ? buzz : { in:true }])) } : entry;
+  }
+  const stage = FINAL_PHASES.indexOf(game.phase);
+  const shown = finalShown(game);
+  const final = !game.final || stage < 0 ? null
+    : stage === 0 ? { id:game.final.id, category:game.final.category }
+      : { id:game.final.id, category:game.final.category, format:game.final.format, text:game.final.text || "",
+        options:game.final.options, ...(game.final.photo ? { photo:game.final.photo } : {}),
+        ...(shown ? { answer:game.final.answer } : {}) };
+  const mine = (map, cover) => Object.fromEntries(Object.entries(map || {})
+    .map(([who, value]) => [who, shown || who === player ? value : cover(value)]));
+  const { dd, clues:_c, log:_l, final:_f, finalWagers, finalPicks, ...open } = rest;
+  return { ...open, questions:[], total, clues, log, final,
+    ...(dd && played.has(dd) ? { dd } : {}),
+    finalWagers:mine(finalWagers, () => ({ locked:true })),
+    finalPicks:mine(finalPicks, value => ({ locked:!!value?.locked, set:Number.isInteger(value?.choice) })) };
+}

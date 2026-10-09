@@ -434,6 +434,31 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   `triviaSimAnswers` (QA capability) answers for every unlocked player.
   `/dev/trivia-preview.html` rehearses every moment on a player's phone, a
   spectator's, the TV and the desk (`&desk=bank|round|choice|tune`).
+- **Trivia board** (Oct 8, `shared/triviaBoard.js`, `worker/triviaBoard.js`;
+  the contract is `docs/TRIVIA-BOARD.md`): the second Trivia format,
+  Jeopardy's shape, the TV the board and every phone a buzzer.
+  `state.triviaFormat` ("rounds" by default, or "board"; configuration,
+  public, kept by a reset) is set on the desk (`triviaSetFormat`, refused
+  while a game runs). The same set list deals a column a round (six at
+  most), five clues each, easiest first by the bank's `level`, one hidden
+  Daily Double worth 600 or more, then a Final: the desk's own
+  (`triviaSaveFinal`, the set list's one `source:"final"` entry, which the
+  rounds format skips and no count includes), else one of the bank's
+  `TRIVIA_FINALS`. Whoever holds the board picks (`boardPick`; after 15 s
+  the autopilot), the buzzers arm on the server clock and order by each
+  phone's own reaction, not arrival (`boardBuzz`, settled 700 ms after the
+  first), the order answers in turn on the phones (`boardAnswer`; wrong or
+  out of time costs the value, strikes the option and passes the turn, up
+  to three), right takes the value and the board; the Daily Double is the
+  picker's alone (`boardWager`, `boardDdClue`); the Final wagers from scores
+  above zero, answers unseen, and turns lowest score first. Points are
+  trivia points; the result posts through `triviaFinish` like the rounds
+  game. Every clock beat is an ordinary commissioner write the autopilot
+  makes (`boardAutoBeat`, through `triviaAutoBeat`) and the pill offers as
+  a `board-step`. A board game keeps `questions:[]`, so older code ignores
+  it; `triviaLive` answers for both formats. A clue's photo or clip is
+  served once picked, the Final's once its clue reads. QA plays it to its
+  result (`boardSim`; the console's "Sim board").
 - **Autopilot** (Oct 4, `shared/autopilot.js`): what a clock already decides
   runs itself. `autoBeat(state, { showControl })` is the one source of the
   next write the server owes, `{ at, from, type, payload, key }`: the winner

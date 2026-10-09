@@ -193,3 +193,91 @@ A board game keeps `questions:[]`, so the code before this ignores it on
 every screen; the custom Final sits in `triviaRounds` and would play as a
 one-question round there. Rolling back mid-game: Reset game progress (or
 start Trivia again) clears it.
+
+## Changes during build (server, Oct 8)
+
+Every exported name in `shared/triviaBoard.js` keeps its meaning; two
+behaviors changed there, the rest are decisions where this contract was
+silent.
+
+`shared/triviaBoard.js`:
+- `boardBeat`'s Pick now carries `{ clueId, auto:true }`, the autopilot's
+  own payload, so the pill's `sameWrite` draws the autopilot's wait on it
+  and a tap makes exactly that write (a stale one is refused "That clue
+  isn't next").
+- `boardStandings` `played` now means the player did something
+  themselves: buzzed, answered (a turn that ran out is not an answer),
+  picked a cell by their own tap, locked a Daily Double wager, or answered
+  the shown Final. Before, a Daily Double the autopilot picked for an idle
+  picker (default wager, the turn ran out) counted as playing, so a room
+  where nobody touched anything posted that picker as the sole winner on a
+  negative score. Now that game reaches the final scores and Post result is
+  refused "Nobody played" (the rounds format's "Nobody answered"); the
+  autopilot asks once and stops, and the commissioner restarts or enters
+  the result by hand.
+
+The writes (`worker/triviaBoard.js`, registered through `worker/trivia.js`):
+- Control passes when its holder is not here: a pick, and `boardNext` into
+  a pick, hand the board to the best score still here (the order players
+  joined breaks a tie; `pickerOf`). A Daily Double picked with nobody here
+  plays as an ordinary clue (`dd` cleared).
+- `log.by` is whoever held the board; `log.auto` is true when the pick was
+  not that player's own tap (the autopilot, the pill, or the commissioner
+  picking a cell for them).
+- `boardNext` also sets `current:null` when the board moves to the Final.
+- A held autopilot makes an auto write stale at the reducer too (the alarm
+  already never fires while held).
+- Retries: picks, answers, wagers and Final answers remember device plus
+  action id in `ops` (per clue, `pick`, `final`); a retry is acknowledged
+  and never undoes a newer write. A second buzz, a repeated wager or a
+  repeated lock is acknowledged by state alone.
+- Errors (no em dashes): "The board is closed", "The pick is in", "Not
+  your pick", "That clue isn't on the board", "That one is played", "That
+  clue isn't next", "Buzzers are not open yet", "Buzzers closed", "Not your
+  turn", "Not your turn yet", "Pick an answer", "That one is out", "Time is
+  up", "That turn is over", "Not your Daily Double", "Only scores above
+  zero wager", "You already wagered", "Wager in 100s, up to 1,200",
+  "Wagers are closed", "The Final is not up yet", "The Final is closed",
+  "You locked in", "Pick an answer first", "Show the final scores first",
+  "Nobody played", and boardSim's "Nothing to play right now" and "No board
+  game is running". Player checks follow triviaPick: "Check in first",
+  "You are marked away", "Tap I'm here first", "You are not playing".
+
+The set list (`worker/trivia.js`, `shared/trivia.js`):
+- `triviaRoundCount` is 0 for the `source:"final"` entry (new
+  `triviaFinalEntry(rounds)` finds it), so `triviaQuestionTotal` and
+  `triviaConfigured` count rounds only: a set list holding only a Final has
+  nothing to start (no Start beat; triviaStart refuses "Add rounds in the
+  Trivia desk first"). The desk's round list should leave the entry out
+  (TriviaDesk.jsx draws every set-list entry today).
+- `triviaSaveFinal` accepts `final.questions:[q]` or `final.question`,
+  keeps the entry's id and its question's id when the desk sends none,
+  clips the category to 32 characters ("Final" when blank) and refuses
+  "The Final is one question", "The Final is multiple choice or a picture",
+  any `cleanTriviaQuestion` error, and while a game runs "Restart the game
+  before changing the Final". Where the entry sits in the set list means
+  nothing.
+- `triviaSaveRound` refuses an id that names the Final entry; the 12-round
+  cap counts rounds only; `triviaMoveRound` steps over the Final entry.
+- `triviaSetFormat` refuses anything else with "Pick Rounds or Board".
+
+Elsewhere:
+- `worker/actions.js` needed no change: the "is playing Trivia" record reads
+  `players` (a board game has them), and Lock and start's automatic start
+  calls triviaStart, which deals the board.
+- QA (`worker/qa.js` playBoard): at each step the simulated room makes its
+  moves (`boardSim`, with no actor everyone), then the autopilot's next beat
+  is taken as a commissioner write when its time comes. The board waits on
+  its own clock, so inside it the run's clock steps ahead (`run.wait`) and
+  comes back (`run.back`) before triviaFinish: the result and everything
+  after keep the run's one-millisecond pace; only the finished game's own
+  log times sit ahead. A board with nothing a buzzer can answer falls back
+  to the ordinary result entry.
+- The bank: 20 new questions so each category's first five (the desk's
+  default picks) span levels 1 to 5, those five moved to the front (each
+  category's first question unchanged); 12 Finals in `TRIVIA_FINALS`, never
+  a desk category. `GET /api/trivia/bank` keeps its shape; each choice and
+  tune question in it now carries `level` (the desk may draw it).
+- The run of show plans a board game as "Start trivia" (only for an event
+  already under way without its game), "The board", "The Final" (its
+  category), "Post result".

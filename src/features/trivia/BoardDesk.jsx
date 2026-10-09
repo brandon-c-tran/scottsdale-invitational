@@ -22,12 +22,14 @@ export function BoardPreview({ rounds, bank, onEdit, width = 358 }) {
   const board = deskBoard(rounds, bank || []);
   const n = Math.max(1, board.columns.length);
   const colW = Math.floor(width / n) - 6;
+  /* one size for every column's name, the longest word's */
+  const nameSize = Math.min(...board.columns.map(column => columnNameSize(column.name, colW)));
   const rows = Math.max(0, ...board.columns.map(column => column.cells.length));
   return <div className="fd-board-desk">
     {board.columns.length > 0 ? <div className="fd-board-gridwrap">
       <div className="fd-board-grid is-desk" style={{ "--cols":n }}>
         {board.columns.map(column => <button type="button" key={column.round.id} className="fd-board-colname is-edit"
-          style={{ fontSize:columnNameSize(column.name, colW) }} onClick={() => onEdit?.(column.round)}
+          style={{ fontSize:nameSize }} onClick={() => onEdit?.(column.round)}
           aria-label={`Edit ${column.name}`}>{column.name || "Round"}</button>)}
         {Array.from({ length:rows }, (_, row) => board.columns.map(column => {
           const cell = column.cells[row];

@@ -326,7 +326,7 @@
   85% { opacity:1; transform:translate(0, 0) scale(1); } 100% { opacity:0; transform:translate(0, 0) scale(.8); } }
 
 @media (prefers-reduced-motion: reduce) {
+  /* the end states: the clue without its flight, the sting standing still */
   .tv-board *:not(.tv-board-drain), .tv-board-panel, .tv-dd, .tv-dd * { animation:none !important; transition:none !important; }
   .tv-board-zoomvalue { display:none; }
-  .tv-dd { display:none; }
 }

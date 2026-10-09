@@ -489,6 +489,9 @@ test("the desk: Rounds | Board, the board it will deal, its Final", async () => 
   assert.match(desk, /fd-board-desk/);
   assert.match(desk, /fd-board-finalcard is-own/);
   assert.match(desk, />Landmarks</);
+  assert.equal((desk.match(/fd-trivia-round-n/g) || []).length, BOARD_FIT_ROUNDS.length - 1,
+    "the round list stays under the board: its order is the columns' order");
+  assert.ok(desk.indexOf("fd-board-desk") < desk.indexOf("fd-trivia-rounds") && desk.indexOf("fd-trivia-rounds") < desk.indexOf("fd-board-finalcard"));
   const rounds = publicState({ ...boardDeskStage(), triviaFormat:"rounds" }, { isGm:true });
   const list = wrap(rounds, React.createElement(TriviaDesk, { state:rounds, onAct:async () => ({ ok:true }), notify() {},
     loadBank:() => new Promise(() => {}) }));

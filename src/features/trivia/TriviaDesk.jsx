@@ -390,10 +390,10 @@ export function TriviaDesk({ state, onAct, notify, loadBank = triviaBank, initia
         if (!result?.ok) notify?.(result?.error || "Couldn't restart");
       }}>{confirm === "restart" ? "Clear every answer?" : "Restart game"}</button>
     </div>}
-    {format === BOARD_FORMAT ? <>
-      <BoardPreview rounds={rounds} bank={bank} onEdit={round => { if (!running) setEditing({ id:round.id, source:round.source }); }} />
-      <FinalCard rounds={rounds} onAct={onAct} running={running} />
-    </> : <ol className="fd-trivia-rounds">
+    {/* the board it will deal; the list under it orders its columns */}
+    {format === BOARD_FORMAT && <BoardPreview rounds={rounds} bank={bank}
+      onEdit={round => { if (!running) setEditing({ id:round.id, source:round.source }); }} />}
+    <ol className="fd-trivia-rounds">
       {listed.map((round, index) => <li key={round.id}>
         <span className="fd-trivia-round-n">{index + 1}</span>
         <span className="fd-trivia-qtext"><strong>{nameOf(round)}</strong><small>{plural(triviaRoundCount(round), "question")}</small></span>
@@ -411,7 +411,8 @@ export function TriviaDesk({ state, onAct, notify, loadBank = triviaBank, initia
           }}>{confirm === round.id ? "Remove?" : "Remove"}</button>
         </span>}
       </li>)}
-    </ol>}
+    </ol>
+    {format === BOARD_FORMAT && <FinalCard rounds={rounds} onAct={onAct} running={running} />}
     {!running && listed.length < TRIVIA_MAX_ROUNDS && (adding ? <div className="fd-trivia-add">
       <ActionButton onClick={() => setEditing({ source:"custom" })}>Write a round</ActionButton>
       <ul className="fd-trivia-bank">

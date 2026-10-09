@@ -40,6 +40,7 @@ import { geoActions } from "./geo.js";
 import { triviaActions } from "./trivia.js";
 import { teamNameActions } from "./teamNames.js";
 import { defaultTeamNames } from "../shared/teamNames.js";
+import { GAG_KINDS, gagTestCast } from "../shared/gags.js";
 import {
   JERSEY_NAME_MAX, NEEDS_MAX, cleanBackName, cleanNeeds, cleanVenmo, jerseyConfirmed, jerseyName,
 } from "../shared/guestSetup.js";
@@ -231,6 +232,8 @@ const POKER_TABLE_ALLOWED_ACTIONS = new Set([
   "setFrozen", "resetTournament", "qaAdvance", "qaRestore",
   /* D6: ballots never touch the board */
   ...PROMPT_ACTION_TYPES,
+  /* the TV's gags never touch it either (a test at the table says why it waits) */
+  "setGags", "qaGag",
 ]);
 /* QA writes are rehearsal tools on a server that may hold real guests.
    Anything outside local and staging counts as production. Production always
@@ -2841,6 +2844,30 @@ export const ACTIONS = {
     if (requestKey) rememberWagerOp(state, requestKey, { actor:"commissioner", type:"qaBets", fingerprint,
       wagerId:null, stake:done.chips });
     return ok(done);
+  },
+  /* ── Gags (src/features/gags): the TV's bowling-alley cartoons ──
+     The commissioner's switch (on by default, stored as gagsOff), and the
+     QA console's test: one gag of a kind on every TV, played by a stand-in
+     cast from the board (shared/gags.js). A test is presentation only, so
+     it takes no production confirmation and makes no backup; the gags
+     themselves are derived on the TV and never stored. */
+  setGags(state, { on }, ctx) {
+    const g = gmOnly(ctx); if (g) return g;
+    if (typeof on !== "boolean") return err("Turn gags on or off");
+    if (!state.gagsOff === on) return ok({ unchanged:true });
+    state.gagsOff = !on;
+    return ok({ on });
+  },
+  qaGag(state, { kind }, ctx) {
+    const g = gmOnly(ctx); if (g) return g;
+    if (!ctx.qa) return err("QA is unavailable");
+    if (!GAG_KINDS.includes(kind)) return err("Pick turkey, strike, gutter or vultures");
+    if (state.frozen) return err("The board is frozen");
+    if (state.poker && !state.results?.[state.poker.id]) return err("The poker table has the TV");
+    const cast = gagTestCast(state, kind);
+    if (!cast) return err("Nobody is on the board");
+    state.gagTest = { kind, at:Date.now(), ...cast };
+    return ok({ kind });
   },
   /* the weekend sheet: where we sleep and how the host flies. GM writes it
      once, onboarding and the guide read it on every phone */

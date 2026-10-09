@@ -637,7 +637,7 @@ PRODUCTION as `0f480665-2271-4e9e-a61b-f91f89ddc4ac` (Oct 3, `APP_VERSION`
 arrivals lobby with the TV's QR, the live Quick Draw showdown, the bounty
 and team MVP cut, and the critique passes) went to staging as
 `29f2207c-7ef4-4486-9fb6-8159211ce41b` and PRODUCTION as
-`6ee2caa4-51f4-42c4-b98e-1b3f41ba0166` (`APP_VERSION` "v4"; the ⋯ fix `327be6f` followed as `76b16cc3-1753-4bf3-a996-ce573873dcee`), deployed at
+`6ee2caa4-51f4-42c4-b98e-1b3f41ba0166` (`APP_VERSION` "v4"; the ⋯ fix `327be6f` followed as `76b16cc3-1753-4bf3-a996-ce573873dcee`, then the Where and When desk reading photo GPS and time, `fa34231`, as `bc0ce2f2-5596-465e-9aaf-b0a23a9bc416`), deployed at
 Brandon's call without a snapshot; production's state (13 profiles, no game
 progress) loaded clean. Roll production back one release with `npx wrangler
 rollback 0f480665-2271-4e9e-a61b-f91f89ddc4ac`, two with `npx wrangler

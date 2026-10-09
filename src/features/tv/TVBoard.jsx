@@ -2,6 +2,7 @@ import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { disp } from "../../../shared/core.js";
 import { BOARD_CLIP_MS, DD_STING_MS, FINAL_INTRO_MS } from "../../../shared/triviaBoard.js";
 import { ChipFace } from "../identity/PlayerIdentity.jsx";
+import { resolvePlayerIdentity } from "../identity/playerIdentity.js";
 import { ScoreReel } from "../../ui/ScoreReel.jsx";
 import { Icon } from "../../ui/Icon.jsx";
 import { OneSafe } from "../../ui/OneSafe.jsx";
@@ -411,7 +412,9 @@ function Rail({ state, view, scene, now }) {
         slot.answering && "is-answering", slot.right && "is-right", slot.lastWrong && scene !== "pick" && "is-wrong",
         slot.picker && "is-picker", slot.final && (slot.locked ? "is-locked" : slot.eligible ? "is-waiting" : "is-out"),
         state.away?.[slot.player] && "is-away"].filter(Boolean).join(" ");
-      return <li key={slot.player} className={cls} style={{ "--x":slot.index }}>
+      /* the picker's own color, painted behind their slot (paint, never light) */
+      const paint = slot.control ? resolvePlayerIdentity(state.profiles, slot.player).color : null;
+      return <li key={slot.player} className={cls} style={{ "--x":slot.index, ...(paint ? { "--slot-paint":paint } : {}) }}>
         <span className="tv-board-slot-top">
           {slot.control && <><i className="fd-insert tv-board-slot-lamp" aria-hidden="true" /><span className="tv-label">Picks</span></>}
           {!slot.control && slot.place && <span className="tv-display tv-board-slot-place">{slot.place}</span>}

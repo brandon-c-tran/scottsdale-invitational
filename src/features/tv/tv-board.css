@@ -297,7 +297,8 @@
 .tv-board-slot-score .fd-reel { font:800 28px/1 var(--fd-display); }
 .tv-board-slot-score.is-neg .fd-reel { color:var(--clay-text); --reel-tint:var(--clay); --reel-mix:10%; }
 /* picks: the chip ringed live, its lamp lit */
-.tv-board-slot.is-control { background:var(--live-tint); }
+.tv-board-slot.is-control { background:color-mix(in srgb, var(--slot-paint, var(--lamp-live)) 26%, transparent);
+  box-shadow:inset 0 -4px 0 color-mix(in srgb, var(--slot-paint, var(--lamp-live)) 75%, transparent); }
 .tv-board-slot.is-control .tv-board-slot-chip { box-shadow:0 0 0 4px var(--lamp-live), 0 0 22px color-mix(in srgb, var(--lamp-live) 50%, transparent);
   transform:translateY(-2px); }
 /* a buzz lands: the chip lights and jumps */

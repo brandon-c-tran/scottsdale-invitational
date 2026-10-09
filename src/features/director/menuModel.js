@@ -44,6 +44,10 @@ const GAME_DESKS = [
 export function commissionerMenu(f = {}) {
   const away = f.away || [];
   const out = f.out || [];
+  /* what the weekend still needs (readyCheck.js): the priority in Now
+     before the weekend is live, a check in Setup after. `readyCheck` is its
+     value ("4 to do", "Ready") */
+  const ready = f.readyCheck ? { id:"readyCheck", name:"Ready check", icon:"check", value:f.readyCheck } : null;
   return [
     section("now", "Now", "then", [
       f.crownReady && { id:"crown", name:"Crown the champion", icon:"trophy" },
@@ -52,6 +56,7 @@ export function commissionerMenu(f = {}) {
       ...(f.takeBacks || []).map(ev => ({ id:`takeBack:${ev.id}`, name:`Take back ${ev.name}`, icon:"undo", tone:"destructive" })),
       f.lockerRoom && { id:"lockerRoom", name:"Back to the locker room", icon:"back" },
       f.frozen && { id:"unfreeze", name:"Unfreeze board", tone:"destructive" },
+      !f.live && ready,
     ]),
     section("room", "TV and sound", "tv", [
       { id:"showControl", name:"TV", icon:"tv", value:f.tvNow || null },
@@ -66,6 +71,7 @@ export function commissionerMenu(f = {}) {
       { id:"logistics", name:"Trip details", icon:"house" },
     ]),
     section("setup", "Setup", "lock", [
+      f.live && ready,
       { id:"gmDevices", name:"Commissioner devices", icon:"person" },
       f.snapshotExport && { id:"snapshot", name:"Export snapshot", icon:"down", chevron:false },
       f.qaAllowed && { id:"qa", name:"QA", icon:"flask", value:f.qaOn ? "Strip on" : null },

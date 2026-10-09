@@ -482,6 +482,107 @@ function whoosh(E, t, { d = 0.45, f0 = 320, f1 = 2600, peak = 0.32, pan = 0 } = 
   swell(E, v, t, { d, f0, f1, q:0.9, peak });
 }
 
+/* ── the gags (features/gags): the bowling alley's cartoon sounds ──
+   Built from the same voices as the rest of the kit; every pitched note
+   stays in D. */
+/* a held tone with an attack and a release (a damped mode only rings) */
+function held(E, dest, t, f, d, peak, { type = "sine", a = 0.02, glide = 0 } = {}) {
+  const c = E.ctx;
+  const o = c.createOscillator(); o.type = type;
+  o.frequency.setValueAtTime(f * (1 + glide), t);
+  if (glide) o.frequency.exponentialRampToValueAtTime(f, t + Math.min(0.12, d * 0.4));
+  const g = c.createGain();
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.linearRampToValueAtTime(peak, t + a);
+  g.gain.setValueAtTime(peak, t + Math.max(a, d * 0.7));
+  g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+  o.connect(g); g.connect(dest);
+  track(E, o, g); trackSource(E, o);
+  o.start(t); o.stop(t + d + 0.03);
+  return o;
+}
+/* a slow wobble on a param (a vibrato, a tremolo): an LFO of `rate` Hz
+   swinging it by `depth`, faded in over `fade` s */
+function wobble(E, param, t, d, { rate = 5.5, depth = 1, fade = 0 } = {}) {
+  const c = E.ctx;
+  const lfo = c.createOscillator(); lfo.type = "sine"; lfo.frequency.value = rate;
+  const amount = c.createGain();
+  amount.gain.setValueAtTime(fade ? 0 : depth, t);
+  if (fade) amount.gain.linearRampToValueAtTime(depth, t + fade);
+  lfo.connect(amount); amount.connect(param);
+  track(E, lfo, amount); trackSource(E, lfo);
+  lfo.start(t); lfo.stop(t + d + 0.03);
+}
+/* one gobble: a buzzy throat through a formant, its loudness shaken fast
+   (the warble) and its pitch falling a little */
+function gobble(E, t, { f = 290, d = 0.28, peak = 0.5, rate = 24, pan = 0 } = {}) {
+  const c = E.ctx;
+  const v = voice(E, { pan, send:0.16, bright:0.85 });
+  const bp = c.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 980; bp.Q.value = 3.2;
+  const bp2 = c.createBiquadFilter(); bp2.type = "bandpass"; bp2.frequency.value = 2350; bp2.Q.value = 5;
+  const throat = c.createGain(); throat.gain.setValueAtTime(0.55, t);
+  const env = c.createGain();
+  env.gain.setValueAtTime(0.0001, t);
+  env.gain.linearRampToValueAtTime(peak, t + 0.018);
+  env.gain.setValueAtTime(peak, t + d * 0.72);
+  env.gain.exponentialRampToValueAtTime(0.0001, t + d);
+  const o = c.createOscillator(); o.type = "sawtooth";
+  o.frequency.setValueAtTime(f * 1.22, t);
+  o.frequency.exponentialRampToValueAtTime(f, t + d * 0.55);
+  const air = c.createGain(); air.gain.value = 0.45;
+  o.connect(bp); o.connect(bp2); bp2.connect(air); bp.connect(throat); air.connect(throat); throat.connect(env); env.connect(v);
+  track(E, bp, bp2, throat, env, air, o); trackSource(E, o);
+  o.start(t); o.stop(t + d + 0.03);
+  wobble(E, throat.gain, t, d, { rate, depth:0.45 });
+}
+/* something heavy rolling down a lane: a low drum of the boards under a
+   noise rumble, travelling across the room from `from` to `to` */
+function laneRoll(E, t, { d = 1, from = -0.8, to = 0.8, peak = 0.3 } = {}) {
+  const c = E.ctx;
+  const g = c.createGain(); g.gain.value = 1;
+  const lp = c.createBiquadFilter(); lp.type = "lowpass"; lp.Q.value = 0.6; lp.frequency.value = 1400;
+  const p = c.createStereoPanner();
+  const travel = E.listen === "phone" ? 0 : 1;
+  p.pan.setValueAtTime(clampPan(from) * travel, t);
+  p.pan.linearRampToValueAtTime(clampPan(to) * travel, t + d);
+  const s = c.createGain(); s.gain.value = 0.16;
+  g.connect(lp); lp.connect(p); p.connect(E.open && E.openDry ? E.openDry : E.dry); p.connect(s); s.connect(E.wet);
+  track(E, g, lp, p, s);
+  swell(E, g, t, { d, f0:140, f1:260, q:0.7, peak });
+  held(E, g, t, 55, d, peak * 0.9, { a:d * 0.5 });
+  /* the seams between the boards, closer together as it speeds up */
+  for (let x = 0.08, gap = 0.16; x < d - 0.05; x += gap, gap = Math.max(0.07, gap * 0.9))
+    M.knock(E, t + x, { pitch:0.62, gain:0.08 + 0.12 * (x / d), pan:clampPan(from + (to - from) * (x / d)) });
+}
+/* a brass note: a sawtooth that scoops up to its pitch, its lowpass opening
+   on the attack (the wah), an optional vibrato that grows */
+function brass(E, t, f, { d = 0.3, peak = 0.34, vib = 0 } = {}) {
+  const c = E.ctx;
+  const v = voice(E, { send:0.22, bright:0.75 });
+  const lp = c.createBiquadFilter(); lp.type = "lowpass"; lp.Q.value = 2.4;
+  lp.frequency.setValueAtTime(f * 1.6, t);
+  lp.frequency.linearRampToValueAtTime(f * 5.5, t + Math.min(0.12, d * 0.4));
+  lp.frequency.linearRampToValueAtTime(f * 2.4, t + d);
+  lp.connect(v);
+  track(E, lp);
+  const low = held(E, lp, t, f, d, peak, { type:"sawtooth", a:0.035, glide:-0.05 });
+  const high = held(E, lp, t, f * 1.003, d, peak * 0.55, { type:"sawtooth", a:0.04, glide:-0.05 });
+  if (vib) [low, high].forEach(o => wobble(E, o.frequency, t, d, { rate:5.4, depth:f * vib, fade:d * 0.35 }));
+}
+/* a bird's harsh call: a square falling in pitch, rasped by a fast tremolo */
+function caw(E, t, { f = 820, d = 0.2, peak = 0.32, pan = 0 } = {}) {
+  const c = E.ctx;
+  const v = voice(E, { pan, send:0.22, bright:1 });
+  const bp = c.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 1450; bp.Q.value = 1.4;
+  const rasp = c.createGain(); rasp.gain.setValueAtTime(0.6, t);
+  bp.connect(rasp); rasp.connect(v);
+  track(E, bp, rasp);
+  const o = held(E, bp, t, f * 0.72, d, peak, { type:"square", a:0.012, glide:0.4 });
+  o.frequency.exponentialRampToValueAtTime(f * 0.62, t + d);
+  wobble(E, rasp.gain, t, d, { rate:38, depth:0.4 });
+  burst(E, v, t, { f:2400, q:1.2, d:d * 0.6, peak:peak * 0.6 });
+}
+
 /* The parts the prototype's sequences (Q1 to Q5) compose on the real
    constants: the bracket advance, the crown's other beats, and a crowd of
    chips landing on the TV board at once. */
@@ -613,6 +714,62 @@ export const PARTS = Object.freeze([
   { id:"bustCard", name:"Out", ms:1600,
     play:(E, t) => { M.slap(E, t, { gain:0.8 }); M.bowl(E, t + 0.01, NOTE.D3, { gain:0.45, dec:1.8 });
       M.bell(E, t + 0.02, NOTE.Fs4, { gain:0.25, dec:1.2 }); } },
+
+  /* ── the gags (features/gags, roomSound.js gagCues) ── */
+  /* a cartoon footstep: a turkey strutting in */
+  { id:"gagStep", name:"A strutting step", ms:120,
+    play:(E, t, o = {}) => { M.knock(E, t, { pitch:1.55 + ((Number(o.step) || 0) % 2) * 0.12, gain:0.28, pan:o.pan || 0 });
+      M.felt(E, t + 0.006, { gain:0.22 }); } },
+  /* gobble gobble: two warbled calls */
+  { id:"gagGobble", name:"Gobble", ms:800,
+    play:(E, t) => { gobble(E, t, { f:300, d:0.26, peak:0.5 }); gobble(E, t + 0.3, { f:262, d:0.34, peak:0.46, rate:21 }); } },
+  /* a strike mark stamps in: one bell a step up D for each (opts.step 0..2) */
+  { id:"gagDing", name:"A strike mark", ms:1400,
+    play:(E, t, o = {}) => { const step = Math.max(0, Math.min(2, Number(o.step) || 0));
+      M.knock(E, t, { pitch:1.2, gain:0.45 }); M.clack(E, t + 0.004, { pitch:1.15, gain:0.4, double:false });
+      M.bell(E, t + 0.008, [NOTE.D5, NOTE.Fs5, NOTE.A5][step], { gain:0.55, dec:1.3, send:0.32 });
+      M.bell(E, t + 0.008, [NOTE.D6, NOTE.Fs6, NOTE.A6][step], { gain:0.12, dec:0.7, send:0.32 }); } },
+  /* the ball down the lane, across the room left to right (opts.ms) */
+  { id:"gagRoll", name:"Down the lane", ms:1100,
+    play:(E, t, o = {}) => laneRoll(E, t, { d:Math.max(0.3, (o.ms || 1050) / 1000), from:-0.85, to:o.to ?? 0.75 }) },
+  /* ten pins go: a burst of wooden tocks scattering across the room */
+  { id:"gagCrash", name:"Pins scatter", ms:900,
+    play:(E, t) => { M.drum(E, t, { f:NOTE.D2, dec:0.55, gain:0.85 }); M.slap(E, t, { gain:0.9, pan:0.6 });
+      burst(E, voice(E, { gain:0.55, bright:0.7, pan:0.6 }), t, { type:"lowpass", f:1500, d:0.22, peak:0.5 });
+      for (let i = 0; i < 24; i++) {
+        const at = t + 0.004 + Math.pow(i / 24, 1.5) * 0.46 + rnd(0, 0.012);
+        M.knock(E, at, { pitch:rnd(1.3, 2.5), gain:rnd(0.22, 0.55) * (1 - i / 34), pan:rnd(-0.2, 0.95) });
+        if (i % 3 === 0) M.clack(E, at + 0.005, { pitch:rnd(0.7, 1.05), gain:0.26, double:false, pan:rnd(0, 0.9) });
+      } } },
+  /* the upset lit: a bright run up D */
+  { id:"gagFlourish", name:"Upset", ms:1800,
+    play:(E, t) => { [NOTE.D5, NOTE.Fs5, NOTE.A5, NOTE.D6].forEach((f, i) => M.bell(E, t + i * 0.07, f, { gain:0.5 - i * 0.05, dec:1.6, send:0.36 }));
+      M.bell(E, t + 0.32, NOTE.A6, { gain:0.22, dec:1.4, send:0.4 }); riffle(E, t + 0.04, 5, { gap:0.034, gain:0.42, pitch:1.1 });
+      M.drum(E, t, { f:NOTE.D2, dec:0.6, gain:0.5 }); } },
+  /* the ball drops into the gutter: a hollow clunk */
+  { id:"gagClunk", name:"Into the gutter", ms:700,
+    play:(E, t) => { M.knock(E, t, { pitch:0.52, gain:0.85 }); M.bowl(E, t + 0.01, NOTE.A2, { gain:0.32, dec:0.7 });
+      M.felt(E, t + 0.02, { gain:0.55 }); M.knock(E, t + 0.13, { pitch:0.5, gain:0.3 }); } },
+  /* wah wah wah waaah: four brass notes falling down D, the last held and shaking */
+  { id:"gagTrombone", name:"The sad trombone", ms:2100,
+    play:(E, t) => { brass(E, t, NOTE.A3, { d:0.3 }); brass(E, t + 0.34, NOTE.Fs4 / 2, { d:0.3 });
+      brass(E, t + 0.68, NOTE.E4 / 2, { d:0.32 }); brass(E, t + 1.04, NOTE.D3, { d:1.0, vib:0.022, peak:0.36 }); } },
+  /* a desert wind whistling through (opts.ms) */
+  { id:"gagWind", name:"Desert wind", ms:2000,
+    play:(E, t, o = {}) => { const d = Math.max(0.6, (o.ms || 2000) / 1000);
+      const c = E.ctx, v = voice(E, { send:0.38, bright:0.9 });
+      const s = c.createBufferSource(); s.buffer = E.noise; s.loop = true;
+      const bp = c.createBiquadFilter(); bp.type = "bandpass"; bp.Q.value = 14;
+      bp.frequency.setValueAtTime(620, t); bp.frequency.linearRampToValueAtTime(1180, t + d * 0.45);
+      bp.frequency.linearRampToValueAtTime(760, t + d * 0.8); bp.frequency.linearRampToValueAtTime(980, t + d);
+      const g = c.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.34, t + d * 0.35);
+      g.gain.linearRampToValueAtTime(0.22, t + d * 0.7); g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+      s.connect(bp); bp.connect(g); g.connect(v); track(E, s, bp, g); trackSource(E, s);
+      s.start(t, Math.random() * 0.5, d + 0.05);
+      swell(E, voice(E, { send:0.3, bright:0.5 }), t, { d, f0:280, f1:520, q:0.6, peak:0.1 }); } },
+  /* a vulture's squawk, twice */
+  { id:"gagSquawk", name:"A vulture squawks", ms:600,
+    play:(E, t, o = {}) => { caw(E, t, { f:860, d:0.19, pan:o.pan || 0 }); caw(E, t + 0.23, { f:760, d:0.24, pan:o.pan || 0 }); } },
 ].map(Object.freeze));
 
 export const SOUNDS = Object.freeze(Object.fromEntries([...KIT, ...PARTS].map(s => [s.id, s])));

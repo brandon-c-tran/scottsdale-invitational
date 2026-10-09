@@ -53,7 +53,7 @@
 /* the picker's clock: a lamp bar draining over the grid */
 .fd-board-drain { display:block; height:6px; border-radius:3px; transform-origin:left center; background:var(--lamp-live);
   box-shadow:0 0 10px color-mix(in srgb, var(--lamp-live) 60%, transparent);
-  animation:fd-board-drain var(--drain-ms) linear both, fd-board-drain-low 1ms steps(1, end) var(--drain-low) forwards; }
+  animation:fd-board-drain var(--drain-ms) linear var(--drain-wait, 0ms) both, fd-board-drain-low 1ms steps(1, end) var(--drain-low) forwards; }
 @keyframes fd-board-drain { from { transform:scaleX(var(--drain-left)); } to { transform:scaleX(0); } }
 @keyframes fd-board-drain-low { to { background:var(--clay); box-shadow:0 0 10px var(--clay); } }
 .fd-board-drain.is-chip { background:var(--sun); box-shadow:0 0 10px color-mix(in srgb, var(--sun) 55%, transparent); }
@@ -77,6 +77,7 @@
   padding-top:8vh; }
 .fd-buzzer-button { position:relative; width:min(78vw, 300px); aspect-ratio:1; padding:0; border:0; border-radius:50%; background:none;
   cursor:pointer; touch-action:manipulation; -webkit-tap-highlight-color:transparent; -webkit-user-select:none; user-select:none;
+  -webkit-touch-callout:none;
   --cap:color-mix(in srgb, var(--lamp-live) 26%, var(--ink0)); --cap-edge:color-mix(in srgb, var(--lamp-live) 10%, var(--ink0));
   --cap-core:color-mix(in srgb, var(--lamp-live) 34%, var(--ink0)); --cap-up:-16px; --glow:transparent; }
 /* the ring of bulbs set round the housing: dark until the buzzers arm */

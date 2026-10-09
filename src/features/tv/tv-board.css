@@ -169,7 +169,8 @@
 /* a window running out: a lamp bar draining on the server clock, clay at the end */
 .tv-board-drain { position:absolute; left:0; right:0; bottom:0; height:8px; display:block; transform-origin:left center;
   background:var(--lamp-live); box-shadow:0 0 12px color-mix(in srgb, var(--lamp-live) 60%, transparent);
-  transform:scaleX(0); animation:tv-board-drain var(--drain-ms) linear both, tv-board-drain-low 1ms steps(1, end) var(--drain-low) forwards; }
+  transform:scaleX(0); animation:tv-board-drain var(--drain-ms) linear var(--drain-wait, 0ms) both,
+    tv-board-drain-low 1ms steps(1, end) var(--drain-low) forwards; }
 @keyframes tv-board-drain { from { transform:scaleX(var(--drain-left)); } to { transform:scaleX(0); } }
 @keyframes tv-board-drain-low { to { background:var(--clay); box-shadow:0 0 12px var(--clay); } }
 .tv-board-drain.is-chip { background:var(--sun); box-shadow:0 0 12px color-mix(in srgb, var(--sun) 55%, transparent); }

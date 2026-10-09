@@ -8,10 +8,9 @@ import { BUZZ_LOCKOUT_MS, BOARD_PICK_MS, DD_STING_MS } from "../../../shared/tri
 import { ChipFace } from "../identity/PlayerIdentity.jsx";
 import { Wheel } from "../geo/Wheel.jsx";
 import { Icon } from "../../ui/Icon.jsx";
-import { OneSafe } from "../../ui/OneSafe.jsx";
 import { ScoreReel } from "../../ui/ScoreReel.jsx";
 import { writeError } from "../../lib/writeErrors.js";
-import { LETTERS, ordinal, triviaPhotoSrc } from "./triviaModel.js";
+import { LETTERS, triviaPhotoSrc } from "./triviaModel.js";
 import {
   ANSWER_EARLY_MS, DD_RANGE, FINAL_RANGE, boardScreen, boardView, buzzReaction, buzzerState, columnNameSize, ddWagerUntil,
   finalSteps, fmtPoints, fmtReaction, nextBoardInstant, signedPoints, turnState, wagerItems,
@@ -52,11 +51,13 @@ function useWakeAt(at) {
 /* what is left of a window, draining on the server clock */
 function Drain({ from, until, now, tone = "live", className = "" }) {
   const total = Math.max(1, until - from);
-  const left = useRef(null);
-  if (left.current === null) left.current = Math.max(0, Math.min(total, until - now));
+  /* read once when it mounts; one drawn before its window opens waits for it */
+  const at = useRef(null);
+  if (at.current === null) at.current = { left:Math.max(0, Math.min(total, until - now)), wait:Math.max(0, Math.round(from - now)) };
+  const { left, wait } = at.current;
   return <i className={`fd-board-drain is-${tone} ${className}`} aria-hidden="true"
-    style={{ "--drain-left":(left.current / total).toFixed(4), "--drain-ms":`${Math.round(left.current)}ms`,
-      "--drain-low":`${Math.max(0, Math.round(left.current - Math.min(3000, total * 0.25)))}ms` }} />;
+    style={{ "--drain-left":(left / total).toFixed(4), "--drain-ms":`${Math.round(left)}ms`, "--drain-wait":`${wait}ms`,
+      "--drain-low":`${wait + Math.max(0, Math.round(left - Math.min(3000, total * 0.25)))}ms` }} />;
 }
 
 /* the category and what it is worth, over every clue screen */
@@ -121,12 +122,15 @@ function Pick({ state, view, me, onAct, now }) {
    server clock; a tap before that locks it out (a shake, a dead thunk).
    At the arm it lights, and the reaction is timed from the frame that
    painted it lit; the tap sends at once. Latched down once you are in. */
-export function Buzzer({ view, onBuzz, now }) {
+export function Buzzer({ view, onBuzz, now: drawn }) {
   const [lockUntil, setLockUntil] = useState(0);
   const [sent, setSent] = useState(null);
   const [shake, setShake] = useState(0);
   const painted = useRef({ perf:null, server:null });
   useWakeAt(lockUntil);
+  /* its own wakes (a lockout ending) read the clock afresh, never the
+     instant the sheet last drew */
+  const now = Math.max(Number(drawn) || 0, serverNow());
   const mine = view.myBuzz || sent;
   const state = buzzerState({ armAt:view.armAt, now, lockoutUntil:lockUntil, buzzed:!!mine, open:view.phase === "clue" });
   /* the reaction clock starts on the frame that paints the lit buzzer */
@@ -283,11 +287,6 @@ function AnswerWatch({ state, view, me, now }) {
 function Reveal({ state, view, me }) {
   const mine = view.attempts.filter(attempt => attempt.player === me);
   const delta = mine.reduce((sum, attempt) => sum + (attempt.right ? view.stake : -view.stake), 0);
-  const fresh = useRef(freshFrameNow()).current;
-  useEffect(() => {
-    if (!fresh || !mine.length) return;
-    playSound(delta > 0 ? "boardRight" : "boardWrong", { bus:"you" });
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   /* what it did to you; your score itself rolls in the header */
   return <main className="fd-board-body is-reveal">
     <ClueHead view={view} />
@@ -491,6 +490,21 @@ function YourScore({ view }) {
     <ScoreReel value={score} tone={score >= 0 ? "you" : null} label={signedPoints(score)} /></span>;
 }
 
+/* your own answer lands: right or wrong, on your phone only, the moment the
+   write comes back on a fresh frame (a load or a catch-up stays quiet) */
+function useOwnOutcome(view, me) {
+  const mine = view ? view.attempts.filter(attempt => attempt.player === me) : [];
+  const key = view?.clueId ? `${view.clueId}:${mine.length}` : null;
+  const seen = useRef(key);
+  useEffect(() => {
+    const prev = seen.current;
+    seen.current = key;
+    if (!key || !prev || prev === key || !mine.length || !freshFrameNow()) return;
+    if (prev.split(":")[0] !== view.clueId) return;
+    playSound(mine[mine.length - 1].right ? "boardRight" : "boardWrong", { bus:"you" });
+  }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
+}
+
 /* when this phone opens by itself: once for each pick, clue, turn and
    Final step a player is needed at */
 export const boardOpenKey = view => !view ? null
@@ -505,6 +519,7 @@ export function BoardPlaySheet({ state, me, blocked = false, force = 0, onAct = 
   const view = boardView(state, me, now);
   const screen = boardScreen(view);
   const key = boardOpenKey(view);
+  useOwnOutcome(view, me);
   const [dismissed, setDismissed] = useState(null);
   const [opened, setOpened] = useState(initiallyOpen);
   const forced = useRef(force);
@@ -541,29 +556,29 @@ export function BoardPlaySheet({ state, me, blocked = false, force = 0, onAct = 
   </div>;
 }
 
-/* Home's row while a board game runs: where it stands for you */
+/* Home's row while a board game runs: what the game wants of you now, and
+   your score */
 export function boardHomeStatus(view, now) {
   if (!view || view.finished) return null;
-  const me = view.me;
   const screen = boardScreen(view);
   if (screen === "pick") return "Your pick";
-  if (screen === "buzzer") return now >= view.armAt ? "Buzzers live" : view.columnName;
+  if (screen === "buzzer" || screen === "clue-watch") return now >= view.armAt ? "Buzzers live" : view.columnName;
   if (screen === "answer") return "Your turn";
-  if (screen === "dd-wager") return "Daily Double";
+  if (screen === "dd-wager" || screen === "dd-watch") return "Daily Double";
   if (screen === "final-wager") return view.myFinalWager === null ? "Final wager" : "Locked in";
   if (screen === "final-clue") return view.myFinalPick?.locked ? "Locked in" : "Final";
-  if (view.myRow && view.playing) return `${signedPoints(view.phase === "final-reveal" ? view.myRow.preFinal : view.myRow.score)} pts`;
-  return view.phase.startsWith("final") ? "Final" : null;
+  if (view.phase.startsWith("final")) return "Final";
+  return view.phase === "pick" ? "The board" : view.columnName;
 }
 export function BoardHome({ state, me, onOpen, now: fixed }) {
   const now = useBoardNow(state, me, fixed);
   const view = boardView(state, me, now);
   if (!view || view.finished) return null;
   const status = boardHomeStatus(view, now);
-  const place = view.myRow && view.playing ? view.myRow.rank : null;
+  const score = view.myRow && view.playing ? (view.phase === "final-reveal" ? view.myRow.preFinal : view.myRow.score) : null;
   return <button type="button" className="fd-trivia-home" onClick={onOpen}>
     <span><small><i className="fd-insert fd-beat-dot" aria-hidden="true" />Trivia</small>
-      <strong>{place ? <OneSafe text={ordinal(place)} /> : `${view.cellsLeft} left`}</strong>{status && <em>{status}</em>}</span>
+      <strong>{status}</strong>{score !== null && <em>{signedPoints(score)} pts</em>}</span>
     <Icon name="open" size="1em" />
   </button>;
 }

@@ -52,11 +52,13 @@ function FitName({ name, width, max = 30, min = 24, className = "" }) {
    start, so a late TV joins mid-drain) */
 function Drain({ from, until, now, className = "", tone = "live" }) {
   const total = Math.max(1, until - from);
-  const left = useRef(null);
-  if (left.current === null) left.current = Math.max(0, Math.min(total, until - now));
+  /* read once when it mounts; one drawn before its window opens waits for it */
+  const at = useRef(null);
+  if (at.current === null) at.current = { left:Math.max(0, Math.min(total, until - now)), wait:Math.max(0, Math.round(from - now)) };
+  const { left, wait } = at.current;
   return <i className={`tv-board-drain is-${tone} ${className}`} aria-hidden="true"
-    style={{ "--drain-left":(left.current / total).toFixed(4), "--drain-ms":`${Math.round(left.current)}ms`,
-      "--drain-low":`${Math.max(0, Math.round(left.current - Math.min(3000, total * 0.25)))}ms` }} />;
+    style={{ "--drain-left":(left / total).toFixed(4), "--drain-ms":`${Math.round(left)}ms`, "--drain-wait":`${wait}ms`,
+      "--drain-low":`${wait + Math.max(0, Math.round(left - Math.min(3000, total * 0.25)))}ms` }} />;
 }
 
 /* name that tune: a speaker on the glass, its cone pumping while the clip plays */

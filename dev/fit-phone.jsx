@@ -32,8 +32,9 @@ try {
   sessionStorage.setItem("fd-tab", TABS[params.get("tab")] || "board");
 } catch {}
 
+/* `catalog` (the Win song picker) and `push` (pocket alerts): the Ready check's views */
 const capabilities = { qa:qaOn, progressReset:qaOn, restore:false, snapshotExport:false, showControl:gm && !!scenario.show,
-  audioDirector:gm && !!scenario.audio, audioCatalog:false, audioPlayback:false, push:false };
+  audioDirector:gm && !!scenario.audio, audioCatalog:gm && !!scenario.catalog, audioPlayback:false, push:gm && !!scenario.push };
 globalThis.__FIT_SPOTIFY__ = scenario.spotify || null;
 let version = 1;
 const frame = () => ({ state:publicState(state, { isGm:gm, player:me }, { moments:state.moments }), you:me, gm, capabilities, version:++version,
@@ -214,12 +215,12 @@ async function openSheet(kind) {
     return tap(() => [...document.querySelectorAll("[role=dialog] .fd-menu-row")].find(b => visible(b)
       && b.querySelector(".fd-menu-name")?.textContent.trim() === name));
   }
-  /* the commissioner's Who is coming and Travel sheet, from their menu rows */
-  if (kind === "roster" || kind === "travel-sheet") {
+  /* the commissioner's Who is coming, Travel sheet and Ready check, from their menu rows */
+  if (kind === "roster" || kind === "travel-sheet" || kind === "ready-check") {
     const opened = await tap(() => [...document.querySelectorAll("header button[aria-label='Commissioner']")].find(visible));
     if (!opened) return false;
     await sleep(600);
-    const name = kind === "roster" ? "Who is coming" : "Travel sheet";
+    const name = { roster:"Who is coming", "travel-sheet":"Travel sheet", "ready-check":"Ready check" }[kind];
     return tap(() => [...document.querySelectorAll("[role=dialog] .fd-menu-row")].find(b => visible(b)
       && b.querySelector(".fd-menu-name")?.textContent.trim() === name));
   }

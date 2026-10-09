@@ -436,7 +436,7 @@ const EMPTY_STATE = { v:9, live:false, results:{}, wagers:[], wagerOps:{}, adjus
   stages:{}, drafts:{}, duels:[], poker:null, profiles:{}, customEvents:[], shelved:{}, away:{}, out:{}, arrivals:null, onDeck:null, frozen:false,
   onboardEpoch:0, eventEdits:{}, eventOrder:[], eventOps:{}, showControl:{ active:null, history:[] },
   logistics:{ ...LOGISTICS }, prompts:{ ballots:[], responses:{} }, jerseysLocked:false,
-  geoRounds:[], geo:null, triviaRounds:[], trivia:null, updatedAt:0 };
+  geoRounds:[], geo:null, triviaRounds:[], triviaFormat:"rounds", trivia:null, updatedAt:0 };
 const RESET_PROGRESS_CONFIRMATION = "RESET_GAME_PROGRESS";
 const RESET_PROGRESS_PRESERVED_KEYS = Object.freeze([
   "profiles",
@@ -458,6 +458,8 @@ const RESET_PROGRESS_PRESERVED_KEYS = Object.freeze([
   /* Trivia's set list (bank picks and the commissioner's own questions) is
      configuration; the game played on it (state.trivia) is progress */
   "triviaRounds",
+  /* and which format it plays (Rounds or the Board) */
+  "triviaFormat",
 ]);
 
 /* ─────────── helpers ─────────── */

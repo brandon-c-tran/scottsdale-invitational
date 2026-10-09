@@ -14,7 +14,11 @@
    and counts repeat. Ids do not. Date.now is swapped for a clock that
    moves one millisecond per write (a Worker's clock does not move inside a
    synchronous run), so every "latest" and every ordering by time reads the
-   way a played weekend does; the run ends well under a second ahead. */
+   way a played weekend does; the run ends well under a second ahead. The
+   Trivia board is the one game that waits on its own clock (its buzzers
+   arm seconds after a pick): inside it the clock steps ahead as each beat
+   comes due, and it is back on the run's pace before the result posts, so
+   only that finished game's own times sit ahead. */
 import {
   awardTable, CHIP_COLORS, CHIP_MIN, CHIP_SKINS, DUEL_DAILY_LIMIT, EMPTY_STATE, PT, RATINGS, ROSTER, rosterOf,
   RESET_PROGRESS_PRESERVED_KEYS, SIZES, SPORTS,
@@ -26,6 +30,7 @@ import {
 import { SHOW_HISTORY_LIMIT, championIdentity, finishShowScene } from "../shared/show.js";
 import { parseQaTarget, qaEventStage, qaPokerStage, qaSlate } from "../shared/qa.js";
 import { triviaActive, triviaBeat, triviaConfigured, triviaCurrent, triviaGame } from "../shared/trivia.js";
+import { BOARD_FORMAT, boardAutoBeat, isBoardGame, triviaFormatOf } from "../shared/triviaBoard.js";
 
 const QA_DEVICE = "qa-sim";
 const QA_REQUEST_PREFIX = `request:${QA_DEVICE}:`;
@@ -48,10 +53,14 @@ const cleanSeed = value => Number.isInteger(value) && value >= 0 && value <= 0xF
 
 function rehearse(seed, fn) {
   const random = Math.random, now = Date.now;
-  let clock = now();
+  let clock = now(), ahead = 0;
   Math.random = seededRandom(seed);
-  Date.now = () => clock;
-  try { return fn(() => { clock += 1; }); }
+  Date.now = () => clock + ahead;
+  const tick = () => { clock += 1; };
+  /* the board's own clock: step ahead to an instant, and come back */
+  tick.until = at => { ahead = Math.max(ahead, Number(at) - clock); };
+  tick.back = () => { ahead = 0; };
+  try { return fn(tick); }
   finally { Math.random = random; Date.now = now; }
 }
 
@@ -113,7 +122,17 @@ function createRunner(state, baseCtx, tick = () => {}) {
     if (result.ok && !result.extra?.unchanged) stats.writes += 1;
     return result;
   };
-  return { state, events, stats, gm, as, rng:() => Math.random() };
+  /* a commissioner write that may be refused (the board's room has no move
+     to make): returned, never fatal */
+  const soft = (type, payload = {}) => {
+    if (++seq > MAX_STEPS) throw new QaStop("Too many steps");
+    tick();
+    const result = baseCtx.applyAction(state, type, payload, gmCtx);
+    if (result.ok && !result.extra?.unchanged) stats.writes += 1;
+    return result;
+  };
+  return { state, events, stats, gm, as, soft, rng:() => Math.random(),
+    wait:at => tick.until?.(at), back:() => tick.back?.() };
 }
 
 const pick = (run, list) => list[Math.floor(run.rng() * list.length)];
@@ -287,16 +306,61 @@ function podium(run, ev) {
   return [0, 1, 2].map(i => place(order, i));
 }
 
+/* The Trivia board, played the way the room would: at each step the
+   simulated room makes the moves it is waiting on (worker/triviaBoard.js
+   boardSim: the pick, buzzes once the buzzers are live, the answer on each
+   turn, the wagers, the Final), then the next beat is taken when its clock
+   comes, exactly the write the autopilot would make. The board's waits run
+   on the clock stepping ahead (rehearse); it comes back before the result
+   posts. */
+const boardReadyAt = game => {
+  const log = game.current ? game.log?.[game.current] : null;
+  if (game.phase === "clue") return Number(log?.armAt) || 0;
+  if (game.phase === "answer" || game.phase === "dd-clue") return Number(log?.turnAt) || 0;
+  return 0;
+};
+function playBoard(run, ev) {
+  const { state } = run;
+  let step = null;
+  try {
+    for (let guard = 0; guard < 2000 && !state.results?.[ev.id]; guard++) {
+      const game = state.trivia;
+      if (!isBoardGame(game) || game.eventId !== ev.id) break;
+      const here = `${game.phase}:${game.current || ""}:${game.log?.[game.current]?.turn ?? ""}`;
+      if (here !== step) {
+        step = here;
+        run.wait(boardReadyAt(game));
+        if (run.soft("boardSim", {}).ok) continue;
+      }
+      const beat = boardAutoBeat(state);
+      if (!beat) break;
+      if (beat.type === "triviaFinish") {
+        run.back();
+        run.gm("triviaFinish", { evId:ev.id });
+        break;
+      }
+      run.wait(beat.at);
+      run.gm(beat.type, beat.payload);
+    }
+  } finally { run.back(); }
+  return !!state.results?.[ev.id];
+}
+
 /* Trivia with a set list plays its game the way the room would: every
    player answers each question (about half right), the commissioner reveals,
-   shows the scores at each round's end, and posts the result. */
+   shows the scores at each round's end, and posts the result. A board game
+   plays as the board (playBoard). */
 function playTrivia(run, ev) {
   const { state } = run;
   if (ev.game !== "trivia" || !triviaConfigured(state) || state.results?.[ev.id]) return false;
-  if (!triviaGame(state, ev.id)) {
+  const board = () => isBoardGame(state.trivia) && state.trivia.eventId === ev.id;
+  if (!triviaGame(state, ev.id) && !board()) {
     if (resolveEventLifecycle(state, ev).phase !== "in-progress") return false;
-    run.gm("triviaStart", { evId:ev.id });
+    /* a board with nothing a buzzer can answer falls back to the result entry */
+    if (triviaFormatOf(state) === BOARD_FORMAT) { if (!run.soft("triviaStart", { evId:ev.id }).ok) return false; }
+    else run.gm("triviaStart", { evId:ev.id });
   }
+  if (board()) return playBoard(run, ev);
   for (let guard = 0; guard < 400 && !state.results?.[ev.id]; guard++) {
     const beat = triviaBeat(state, ev);
     if (!beat) break;

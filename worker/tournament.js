@@ -56,6 +56,7 @@ import { MomentDesk, MOMENT_PREFIX, jpegInfo, stripJpegMetadata } from "./moment
 import { geoPhotoId, geoShownIds } from "../shared/geo.js";
 import { triviaPhotoId } from "../shared/trivia.js";
 import { bankForDesk } from "./trivia.js";
+import { boardShown } from "./triviaBoard.js";
 
 /* Where and When photos ride the photo desk's prefix, so every snapshot,
    restore and reset leaves them alone exactly as it does the desk's */
@@ -397,13 +398,16 @@ export class Tournament {
      GET  /api/trivia/bank           the built-in bank, answers and all (GM)
      GET  /api/trivia/clip/<qid>     a tune's 30-second clip address (Deezer,
                                      worker/previews.js): anyone once shown
-     GET  /api/trivia/clip?title=&artist=&isrc=   the desk's clip check (GM) */
+     GET  /api/trivia/clip?title=&artist=&isrc=   the desk's clip check (GM)
+     A board game (worker/triviaBoard.js boardShown) shows a clue once it is
+     picked and its Final once the Final's clue reads. */
   async handleTrivia(req, url) {
     const parts = url.pathname.split("/").filter(Boolean); // ["api","trivia",kind,id?]
     const json = (body, status = 200) => Response.json(body, { status, headers:{ "Cache-Control":"no-store" } });
     const isGm = await this.adminGmToken(req);
     const game = this.state.trivia?.questions?.length ? this.state.trivia : null;
-    const shown = game ? game.questions.slice(0, game.index + 1) : [];
+    const shown = game ? game.questions.slice(0, game.index + 1) : boardShown(this.state.trivia);
+    const every = game ? game.questions : boardShown(this.state.trivia, { all:true });
     if (parts[2] === "photo" && parts.length === 3 && req.method === "POST") {
       if (!isGm) return json({ ok:false, error:"Commissioner only" }, 403);
       if (Number(req.headers.get("Content-Length") || 0) > GEO_PHOTO_BYTES * 1.2)
@@ -438,7 +442,7 @@ export class Tournament {
       let target = null;
       if (parts.length === 4) {
         const question = shown.find(item => item.id === parts[3])
-          || (isGm ? game?.questions.find(item => item.id === parts[3]) : null);
+          || (isGm ? every.find(item => item.id === parts[3]) : null);
         if (!question || question.format !== "tune" || !question.clip) return json({ ok:false, error:"Not found" }, 404);
         target = question.clip;
       } else if (parts.length === 3) {

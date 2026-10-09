@@ -14,6 +14,8 @@ import {
   presentPlayers, stageFinalists, teamFit,
 } from "../../../shared/core.js";
 import { SHOW_SCENE_DEFINITIONS, autopilotHeld, contestName, draftsByDefault, resolveDirector, resolveShowScene } from "../../../shared/show.js";
+import { triviaFinalEntry, triviaQuestionTotal, triviaRoundCount } from "../../../shared/trivia.js";
+import { BOARD_FORMAT, FINAL_PHASES, isBoardGame, triviaFormatOf } from "../../../shared/triviaBoard.js";
 import { namesOf } from "./directorPill.js";
 
 export const RUN_SLOTS = Object.freeze(["Now", "Next", "Then"]);
@@ -91,13 +93,29 @@ function geoPlan(state, ev) {
   return out;
 }
 
+/* The Trivia board, plainly: Start trivia (owed only by an event already
+   under way without its game), the board, the Final, the result
+   (shared/triviaBoard.js boardBeat runs each step). Null without a set list. */
+function boardPlan(state, ev) {
+  const game = isBoardGame(state.trivia) && state.trivia.eventId === ev.id ? state.trivia : null;
+  if (!game && !triviaQuestionTotal(state.triviaRounds)) return null;
+  const out = game || !state.eventOps?.[ev.id]?.startedAt ? [] : [beat("trivia-start", "Start trivia", ev.name)];
+  if (!game || !FINAL_PHASES.includes(game.phase)) out.push(beat("board-step", "The board", ev.name));
+  if (!game || (game.final && game.phase !== "final-board"))
+    out.push(beat("board-step", "The Final", game?.final?.category || triviaFinalEntry(state.triviaRounds)?.category || "Final"));
+  out.push(beat("trivia-finish", "Post result", ev.name));
+  return out;
+}
+
 /* Trivia with a set list, the same way: each question revealed, the scores
    at each round's end, then the result (shared/trivia.js triviaBeat). */
 function triviaPlan(state, ev) {
   if (ev?.game !== "trivia" || state.results?.[ev.id]) return null;
   const game = state.trivia?.eventId === ev.id && state.trivia.questions?.length ? state.trivia : null;
+  if ((isBoardGame(state.trivia) && state.trivia.eventId === ev.id) || (!game && triviaFormatOf(state) === BOARD_FORMAT))
+    return boardPlan(state, ev);
   const rounds = game ? game.rounds : (state.triviaRounds || []).map(round => ({ name:round.name || round.category || "",
-    count:round.source === "bank" ? (round.picks || []).length : (round.questions || []).length })).filter(round => round.count)
+    count:triviaRoundCount(round) })).filter(round => round.count)
     .map((round, i, list) => ({ ...round, first:list.slice(0, i).reduce((sum, item) => sum + item.count, 0) }));
   const total = rounds.reduce((sum, round) => sum + round.count, 0);
   if (!total) return null;
@@ -174,7 +192,7 @@ function lifecycleAfter(state, events, director, showControl) {
       out.push(...contestBeats(rest), ...afterResult(showControl, state));
     } else if (now.type?.startsWith("geo-")) {
       out.push(...(geoPlan(state, ev) || []).slice(1), ...afterResult(showControl, state));
-    } else if (now.type?.startsWith("trivia-")) {
+    } else if (now.type?.startsWith("trivia-") || now.type === "board-step") {
       out.push(...(triviaPlan(state, ev) || []).slice(1), ...afterResult(showControl, state));
     } else if (now.type === "record-contest-winner") {
       out.push(...contestBeats(rest), ...afterResult(showControl, state));

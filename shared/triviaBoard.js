@@ -219,21 +219,27 @@ export const validWager = (wager, min, max) => Number.isInteger(wager) && wager 
 
 /* Totals, best first: { player, order, score, preFinal, right, wrong,
    buzzes, speed, final, played, rank }. `preFinal` is the score before the
-   Final, which counts once it is shown (finalShown). A tie breaks on more
-   right answers, then the faster sum of the reactions that won a clue, then
-   the order players joined. */
+   Final, which counts once it is shown (finalShown). `played`: the player
+   did something themselves (buzzed, answered, picked a cell, wagered a
+   Daily Double, answered the shown Final); a turn that only ran out on
+   them, like a Daily Double the autopilot picked for an idle picker, is
+   not playing. A tie breaks on more right answers, then the faster sum of
+   the reactions that won a clue, then the order players joined. */
 export function boardStandings(game) {
   const rows = boardPlayers(game).map((player, order) => ({ player, order, score:0, preFinal:0, right:0, wrong:0, buzzes:0,
     speed:0, final:null, played:false }));
   const by = new Map(rows.map(row => [row.player, row]));
+  const acted = new Set();
   for (const id of game?.played || []) {
     const log = game.log?.[id];
     if (!log) continue;
     const stake = clueStake(game, id);
-    for (const player of Object.keys(log.buzzes || {})) { const row = by.get(player); if (row) row.buzzes += 1; }
+    if (log.by && (!log.auto || log.wagerAt)) acted.add(log.by);
+    for (const player of Object.keys(log.buzzes || {})) { const row = by.get(player); if (row) { row.buzzes += 1; acted.add(player); } }
     for (const attempt of log.attempts || []) {
       const row = by.get(attempt.player);
       if (!row) continue;
+      if (Number.isInteger(attempt.choice)) acted.add(attempt.player);
       if (attempt.right) {
         row.score += stake; row.right += 1;
         row.speed += num(log.buzzes?.[attempt.player]?.ms);
@@ -252,7 +258,7 @@ export function boardStandings(game) {
       if (answered) { if (right) row.right += 1; else row.wrong += 1; }
     }
   }
-  for (const row of rows) row.played = row.buzzes + row.right + row.wrong > 0 || Number.isInteger(row.final?.choice);
+  for (const row of rows) row.played = acted.has(row.player) || Number.isInteger(row.final?.choice);
   rows.sort((a, b) => b.score - a.score || b.right - a.right || a.speed - b.speed || a.order - b.order);
   let rank = 0;
   rows.forEach((row, i) => {
@@ -399,8 +405,10 @@ export function boardBeat(state, ev) {
   const step = (label, subject, write, payload) => ({ type:"board-step", label, subject, write, payload });
   switch (game.phase) {
     case "pick": {
+      /* the autopilot's own pick (its payload too), so the pill draws its
+         wait and a tap takes exactly that write early */
       const next = autoPickClue(game);
-      return next ? step("Pick", `${name(game.control)}'s pick`, "boardPick", { clueId:next }) : null;
+      return next ? step("Pick", `${name(game.control)}'s pick`, "boardPick", { clueId:next, auto:true }) : null;
     }
     case "clue": return step("Close buzzers", cell, "boardCloseBuzz", { clueId:id });
     case "answer": return step("Time", `${name(turnPlayer(log))} answering`, "boardTimeout", { clueId:id, turn:num(log?.turn) });

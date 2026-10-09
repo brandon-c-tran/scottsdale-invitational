@@ -9,6 +9,8 @@
    - `state.triviaRounds` is the commissioner's set list, in play order:
        { id, source:"bank", category, picks:[bankQuestionId] }
        { id, source:"custom", name, questions:[question] }
+       { id, source:"final", category, questions:[question] }   the board's
+         own Final, at most one; the rounds format skips it
      Configuration, kept by a progress reset like geoRounds. Bank questions
      live only in the Worker (worker/triviaBank.js), never in a client
      bundle; a bank round here is a reference.
@@ -129,8 +131,13 @@ export function cleanTriviaQuestion(input) {
   return { question:{ ...out, options, answer } };
 }
 
-/* how many questions a set list plays */
-export const triviaRoundCount = round => round?.source === "bank" ? (round.picks || []).length : (round?.questions || []).length;
+/* how many questions a set list plays. The board's custom Final
+   ({ source:"final" }, at most one) is not a round: the rounds format never
+   plays it and the board plays it after every column, so it counts for
+   neither (a set list holding only a Final has nothing to start). */
+export const triviaRoundCount = round => round?.source === "bank" ? (round.picks || []).length
+  : round?.source === "final" ? 0 : (round?.questions || []).length;
+export const triviaFinalEntry = rounds => (rounds || []).find(round => round?.source === "final") || null;
 export const triviaQuestionTotal = rounds => (rounds || []).reduce((sum, round) => sum + triviaRoundCount(round), 0);
 export const triviaConfigured = state => triviaQuestionTotal(state?.triviaRounds) > 0;
 

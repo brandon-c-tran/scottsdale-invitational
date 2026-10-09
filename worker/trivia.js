@@ -8,19 +8,32 @@
    only pick and lock, each their own answer.
 
    Built by actions.js with its own helpers, so a finish runs the same
-   beginResultEntry and saveResult every other result does. */
+   beginResultEntry and saveResult every other result does.
+
+   The board (Oct 8, worker/triviaBoard.js) is the other format: the
+   commissioner switches it on the desk (triviaSetFormat, refused while a
+   game runs), may write its Final (triviaSaveFinal: the set list's one
+   `source:"final"` entry, which the rounds format skips), and triviaStart,
+   triviaFinish and triviaRestart hand a board game to it. Its own writes
+   are registered here with these. */
 import { allEventsOf, isActivePlayer, isAway, presentPlayers, resolveEventLifecycle, isAbsent } from "../shared/core.js";
 import {
   TRIVIA_DIGITS_MAX, TRIVIA_GRACE_MS, TRIVIA_MAX_QUESTIONS, TRIVIA_MAX_ROUNDS, TRIVIA_NAME_MAX,
   cleanTriviaQuestion, durationOf, hasAnswer, leadFor, triviaActive, triviaAutoBeat, triviaCurrent, triviaGame, triviaLast,
-  triviaPlays, triviaQuestionTotal, triviaResultSlots, triviaRoundEnd, triviaRoundId, triviaStandings,
+  triviaLive, triviaPlays, triviaQuestionId, triviaQuestionTotal, triviaResultSlots, triviaRoundEnd, triviaRoundId,
+  triviaStandings,
 } from "../shared/trivia.js";
+import { BOARD_FORMAT, TRIVIA_GAME_FORMATS, isBoardGame, triviaFormatOf } from "../shared/triviaBoard.js";
 import { TRIVIA_BANK, bankCategory } from "./triviaBank.js";
+import { BOARD_ACTION_TYPES, boardActions } from "./triviaBoard.js";
 
 export const TRIVIA_ACTION_TYPES = Object.freeze([
   "triviaSaveRound", "triviaDeleteRound", "triviaMoveRound", "triviaStart", "triviaPick", "triviaReveal", "triviaBoard",
-  "triviaNext", "triviaFinish", "triviaRestart", "triviaSimAnswers",
+  "triviaNext", "triviaFinish", "triviaRestart", "triviaSimAnswers", "triviaSetFormat", "triviaSaveFinal",
+  ...BOARD_ACTION_TYPES,
 ]);
+/* the board's Final: one multiple-choice or picture question */
+const FINAL_FORMATS = Object.freeze(["choice", "picture"]);
 
 /* retried writes a player's pick remembers, per question */
 const OPS_KEPT = 8;
@@ -39,8 +52,10 @@ function deal(question, random = Math.random) {
   return { ...question, options:order.map(i => question.options[i]), answer:order.indexOf(question.answer) };
 }
 
-/* one set-list round as the questions a game plays */
+/* one set-list round as the questions a game plays (the board's Final is
+   not a round: nothing) */
 export function roundQuestions(round) {
+  if (round?.source === "final") return { name:"", questions:[] };
   if (round?.source === "bank") {
     const category = bankCategory(round.category);
     if (!category) return { name:"", questions:[] };
@@ -68,9 +83,10 @@ export function triviaActions({ ok, err, gmOnly, run }) {
     const ev = allEventsOf(state).find(item => item.id === evId);
     return ev?.game === "trivia" ? ev : null;
   };
-  /* a game under way: started and its result not posted */
-  const running = state => !!triviaGame(state) && !state.results?.[state.trivia.eventId];
+  /* a game of either format under way: started and its result not posted */
+  const running = state => triviaLive(state);
   const rounds = state => Array.isArray(state.triviaRounds) ? state.triviaRounds : [];
+  const board = boardActions({ ok, err, gmOnly, run, roundQuestions, dealOptions:deal });
   const open = (game, now) => {
     const question = triviaCurrent(game);
     const startsAt = now + leadFor(game.index);
@@ -96,7 +112,9 @@ export function triviaActions({ ok, err, gmOnly, run }) {
       if (!round || !triviaRoundId(round.id)) return err("That round didn't come through whole. Save it again");
       const list = rounds(state);
       const existing = list.find(item => item.id === round.id);
-      if (!existing && list.length >= TRIVIA_MAX_ROUNDS) return err(`Up to ${TRIVIA_MAX_ROUNDS} rounds`);
+      if (existing?.source === "final") return err("That round didn't come through whole. Save it again");
+      if (!existing && list.filter(item => item.source !== "final").length >= TRIVIA_MAX_ROUNDS)
+        return err(`Up to ${TRIVIA_MAX_ROUNDS} rounds`);
       let clean;
       if (round.source === "bank") {
         const category = bankCategory(round.category);
@@ -137,23 +155,68 @@ export function triviaActions({ ok, err, gmOnly, run }) {
       if (running(state)) return err("Restart the game before changing rounds");
       const list = [...rounds(state)];
       const from = list.findIndex(round => round.id === id);
-      const to = from + (by === -1 ? -1 : 1);
-      if (from < 0 || to < 0 || to >= list.length) return ok({ unchanged:true });
+      const step = by === -1 ? -1 : 1;
+      /* the board's Final is not a round: a move steps over it */
+      let to = from + step;
+      while (to >= 0 && to < list.length && list[to]?.source === "final") to += step;
+      if (from < 0 || list[from]?.source === "final" || to < 0 || to >= list.length) return ok({ unchanged:true });
       [list[from], list[to]] = [list[to], list[from]];
       state.triviaRounds = list;
       return ok();
     },
-    /* the first question goes up, once the event is under way */
+    /* Rounds (everyone answers every question) or the Board (Jeopardy's
+       shape, phones as buzzers): how the next game plays */
+    triviaSetFormat(state, { format }, ctx) {
+      const g = gmOnly(ctx); if (g) return g;
+      if (!TRIVIA_GAME_FORMATS.includes(format)) return err("Pick Rounds or Board");
+      if (triviaFormatOf(state) === format) return ok({ unchanged:true });
+      if (running(state)) return err("Restart the game before changing the format");
+      state.triviaFormat = format;
+      return ok();
+    },
+    /* The board's own Final: one multiple-choice or picture question under
+       a category, kept as the set list's one final entry; null removes it
+       (the board then deals one of the bank's). */
+    triviaSaveFinal(state, { final }, ctx) {
+      const g = gmOnly(ctx); if (g) return g;
+      const list = rounds(state);
+      const existing = list.find(round => round.source === "final") || null;
+      if (final === null) {
+        if (!existing) return ok({ unchanged:true });
+        if (running(state)) return err("Restart the game before changing the Final");
+        state.triviaRounds = list.filter(round => round.source !== "final");
+        return ok();
+      }
+      if (!final || typeof final !== "object") return err("That Final didn't come through whole. Save it again");
+      const inputs = Array.isArray(final.questions) ? final.questions : final.question ? [final.question] : [];
+      if (inputs.length !== 1) return err("The Final is one question");
+      if (!FINAL_FORMATS.includes(inputs[0]?.format)) return err("The Final is multiple choice or a picture");
+      const result = cleanTriviaQuestion(triviaQuestionId(inputs[0].id) ? inputs[0]
+        : { ...inputs[0], id:existing?.questions?.[0]?.id || `q${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}` });
+      if (result.error) return err(result.error);
+      const id = triviaRoundId(final.id) ? final.id
+        : existing?.id || `t${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+      if (list.some(round => round.id === id && round.source !== "final")) return err("That Final didn't come through whole. Save it again");
+      const clean = { id, source:"final", category:clip(final.category, TRIVIA_NAME_MAX) || "Final", questions:[result.question] };
+      if (existing && JSON.stringify(existing) === JSON.stringify(clean)) return ok({ unchanged:true });
+      if (running(state)) return err("Restart the game before changing the Final");
+      state.triviaRounds = [...list.filter(round => round.source !== "final"), clean];
+      return ok({ round:clean.id });
+    },
+    ...board.actions,
+    /* the first question goes up (the board: the first pick), once the
+       event is under way */
     triviaStart(state, { evId }, ctx) {
       const g = gmOnly(ctx); if (g) return g;
       const ev = gameEvent(state, evId);
       if (!ev) return err("That game isn't on the schedule");
-      if (triviaGame(state, evId) && running(state)) return ok({ unchanged:true });
+      if (state.trivia?.eventId === evId && running(state)) return ok({ unchanged:true });
       if (state.results?.[evId]) return err("The result is already posted");
       if (resolveEventLifecycle(state, ev).phase !== "in-progress") return err(`Lock and start ${ev.name} first`);
       if (!triviaQuestionTotal(rounds(state))) return err("Add rounds in the Trivia desk first");
       const players = presentPlayers(state);
       if (!players.length) return err("Nobody is here to play");
+      if (triviaFormatOf(state) === BOARD_FORMAT) return board.start(state, ev, players);
       const now = Date.now();
       const id = `tg${now.toString(36)}${Math.random().toString(36).slice(2, 6)}`;
       const played = [], questions = [];
@@ -264,6 +327,7 @@ export function triviaActions({ ok, err, gmOnly, run }) {
       const g = gmOnly(ctx); if (g) return g;
       const stale = autoStale(state, "triviaFinish", { evId }, ctx); if (stale) return stale;
       const ev = gameEvent(state, evId);
+      if (ev && isBoardGame(state.trivia) && state.trivia.eventId === evId) return board.finish(state, ev, ctx);
       const game = triviaGame(state, evId);
       if (!ev || !game) return err("No game to finish");
       if (state.results?.[evId]) return ok({ unchanged:true });
@@ -280,10 +344,11 @@ export function triviaActions({ ok, err, gmOnly, run }) {
       game.finishedAt = Date.now();
       return ok({ slots, ...(posted.extra || {}) });
     },
-    /* start over: every answer goes, the set list stays */
+    /* start over: every answer goes, the set list stays (either format) */
     triviaRestart(state, { evId }, ctx) {
       const g = gmOnly(ctx); if (g) return g;
-      if (!triviaGame(state, evId)) return ok({ unchanged:true });
+      const game = state.trivia;
+      if (!(isBoardGame(game) ? game.eventId === evId : triviaGame(state, evId))) return ok({ unchanged:true });
       if (state.results?.[evId]) return err("Clear the result first");
       state.trivia = null;
       return ok();

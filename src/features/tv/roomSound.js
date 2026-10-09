@@ -36,6 +36,10 @@
          scores stand (boardAt); the last five
          seconds tick and the clock closing knocks (useTriviaClock, on the
          clock like the blinds)
+     the Trivia board (boardSound.js): a cell flying up, the Daily
+         Double's sting, each buzz panned to its chip, the order stamping,
+         right and wrong, the Final's locks; its clock cues (the arm, the
+         thinking loop, the Final's turns) ride TVBoard
      stamp  a team takes a new name (features/teams): its card re-letters,
          one stamp at the name's own write time
      engrave  the cup's trophy turn after a result: the new winners are cut
@@ -62,6 +66,7 @@ import { podiumBeatAt, podiumBackersAt, TV_ADVANCE_MS } from "./tvModel.js";
 import { awardOnTv } from "../../../shared/prompts.js";
 import { awardCues } from "../awards/awardsModel.js";
 import { introScene } from "../intro/introTiming.js";
+import { boardCues, boardSnapshot } from "./boardSound.js";
 
 /* the settle board on the TV (TVMode SettleBoard): losers slide, then winners grow */
 export const SETTLE_SOUND = Object.freeze({ lose:700, pay:1300 });
@@ -148,6 +153,7 @@ export function roomSnapshot(state, events = [], { standings = null, allTied = f
     scene:active && !showScene.staleReason ? { id:active.id, kind:active.kind, startedAt:Number(active.startedAt) || 0 } : null,
     award:awardOnTv(state, events),
     trivia:triviaSnapshot(state),
+    board:boardSnapshot(state),
   };
 }
 
@@ -294,6 +300,7 @@ export function roomCues(prev, next, { now = serverNow(), reduced = false } = {}
     awardCues(award, { reduced }).forEach(cue => cues.push(cue));
 
   triviaCues(prev, next, { now, reduced }).forEach(cue => cues.push(cue));
+  boardCues(prev, next, { now, reduced }).forEach(cue => cues.push(cue));
 
   /* a pick lands in its seat */
   for (const [id, picks] of Object.entries(next.drafts))

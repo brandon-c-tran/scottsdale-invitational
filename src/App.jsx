@@ -102,6 +102,7 @@ import { DISPLAY, SANS, BONE, GOLD_GRAD, CARD_BG, label, pStyle } from "./ui/the
 import { Tag, ActionButton, IconButton, Btn, Sheet, SheetDock } from "./ui/controls.jsx";
 import { MenuSections } from "./ui/Menu.jsx";
 import { commissionerMenu, moreMenu } from "./features/director/menuModel.js";
+import { readyCheck, readyTodo, readyValue } from "./features/director/readyCheck.js";
 import { tvAmbient, tvNowLabel } from "./features/director/tvSheetModel.js";
 import { speakerValue } from "./features/speaker/speakerModel.js";
 import { useSpeakerStatus } from "./features/speaker/speakerStatus.js";
@@ -121,9 +122,11 @@ const PokerSetupSheet = /* @__PURE__ */ lazyPart(() => import("./features/direct
 const CrownSheet = /* @__PURE__ */ lazyPart(() => import("./features/director/FinaleSheets.jsx"), "CrownSheet");
 const TvSheet = /* @__PURE__ */ lazyPart(() => import("./features/director/TvSheet.jsx"), "TvSheet");
 const SpeakerSheet = /* @__PURE__ */ lazyPart(() => import("./features/speaker/SpeakerSheet.jsx"), "SpeakerSheet");
+const ReadyCheck = /* @__PURE__ */ lazyPart(() => import("./features/director/ReadyCheck.jsx"), "ReadyCheck");
 /* Scan the TV: the scanner (and its decoder, loaded inside it) only once a guest opens it */
 const ArriveScanner = /* @__PURE__ */ lazyPart(() => import("./features/arrivals/Scanner.jsx"), "ArriveScanner");
-const COMMISSIONER_PARTS = [QABar, QASheet, GeoDesk, TriviaDesk, AwardsDesk, PokerSetupSheet, CrownSheet, TvSheet, SpeakerSheet];
+const COMMISSIONER_PARTS = [QABar, QASheet, GeoDesk, TriviaDesk, AwardsDesk, PokerSetupSheet, CrownSheet, TvSheet, SpeakerSheet,
+  ReadyCheck];
 
 
 const prefersReducedMotion = () => typeof window !== "undefined" &&
@@ -375,8 +378,10 @@ function TournamentApp({ tournament, onUpdateReload }) {
   const audioCatalogAllowed = capabilities.audioCatalog === true;
   useWalkoutWatch(state, gmView && capabilities.audioPlayback === true);
   const qaActive = qaAllowed && qa;
-  /* the Speaker row's value: read each time the commissioner menu opens */
-  const speakerStatus = useSpeakerStatus(gmView && audioDirectorAllowed && modalStack.at(-1)?.type === "gmMenu");
+  /* the Speaker row's value: read each time the commissioner menu (or the
+     Ready check, which counts the speaker) opens */
+  const speakerStatus = useSpeakerStatus(gmView && audioDirectorAllowed
+    && ["gmMenu", "readyCheck"].includes(modalStack.at(-1)?.type));
 
   const events = useMemo(() => allEventsOf(state), [state]);
   const activeShowScene = useMemo(
@@ -1531,7 +1536,9 @@ function TournamentApp({ tournament, onUpdateReload }) {
     dispatch={dispatch} environment={environment} notify={notify} /></Suspense>;
   /* the More menu and the commissioner's menu: one model, one renderer
      (features/director/menuModel.js, ui/Menu.jsx); each row's id acts here */
+  const readyFacts = { capabilities, tvs:tournament.tvs, receivedAt:tournament.tvsAt, speaker:speakerStatus };
   const gmMenuFacts = modal?.type === "gmMenu" ? {
+    live:!!state.live, readyCheck:readyValue(readyTodo(readyCheck(state, readyFacts))),
     audioDirector:audioDirectorAllowed, speaker:speakerValue(speakerStatus),
     tvNow:tvNowLabel(activeShowScene, tvAmbient(state, events, weekendOperation.event)),
     crownReady:state.live && !state.frozen && crownReady,
@@ -1564,7 +1571,7 @@ function TournamentApp({ tournament, onUpdateReload }) {
         if (!gm) return sheet("pin");
         setGuestLens(false); return sheet("gmMenu");
       case "showControl": case "audioDirector": case "qa": case "crown": case "attendance": case "lockerRoom":
-      case "unfreeze": case "logistics": case "travelSheet": case "gmDevices": return sheet(id);
+      case "unfreeze": case "logistics": case "travelSheet": case "gmDevices": case "readyCheck": return sheet(id);
       case "geo": return sheet("geoDesk");
       case "trivia": return sheet("triviaDesk");
       case "awards": return sheet("awards");
@@ -1741,6 +1748,9 @@ function TournamentApp({ tournament, onUpdateReload }) {
           onShortcut={copyTvShortcut} /></Suspense>}
       {gmView && audioDirectorAllowed && modal?.type === "audioDirector" && <Suspense fallback={null}>
         <SpeakerSheet state={state} onClose={() => setModal(null)} onBack={modalBack} notify={notify} /></Suspense>}
+      {gmView && modal?.type === "readyCheck" && <Suspense fallback={null}>
+        <ReadyCheck state={state} capabilities={capabilities} tvs={tournament.tvs} tvsAt={tournament.tvsAt} speaker={speakerStatus}
+          onOpen={menuItem} onClose={() => setModal(null)} onBack={modalBack} /></Suspense>}
       {gmView && modal?.type === "logistics" && (
         <Sheet title="Trip details" onClose={() => setModal(null)} onBack={modalBack}>
           <LogisticsEditor state={state} onSave={async vals => {

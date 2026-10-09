@@ -40,14 +40,15 @@ export function act(state, type, payload = {}, ctx = gmCtx()) {
 const qa = (state, target) => act(state, "qaAdvance", { target, seed:7, confirm:RESET_PROGRESS_CONFIRMATION,
   confirmPokerLive:true });
 
-/* names and photos on top of the reducers' fill */
-export function dress(state, now = Date.now()) {
+/* names and photos on top of the reducers' fill. `photos`: who has one
+   (a scenario's own list, else FIT_PHOTOS) */
+export function dress(state, now = Date.now(), { photos = FIT_PHOTOS } = {}) {
   /* the Durable Object stamps every write; the reducers alone do not */
   if (!Number(state.updatedAt)) state.updatedAt = now;
   for (const player of ROSTER) {
     const profile = state.profiles[player] || (state.profiles[player] = {});
     if (FIT_NAMES[player]) profile.display = FIT_NAMES[player];
-    if (FIT_PHOTOS.includes(player)) profile.photoV = 1;
+    if (photos.includes(player)) profile.photoV = 1;
     else delete profile.photoV;
   }
   return state;
@@ -565,6 +566,43 @@ export function duelState(stage = "stance", { base = "session:fri", from = DUEL_
   return state;
 }
 
+/* Ready check (features/director/readyCheck.js), the commissioner's
+   pre-flight. "missing": three weeks out with only names in (no chips,
+   ratings or answers; the scenario takes the photos away too) and the
+   autopilot paused. "partial": the usual middle, Allan not coming, Ben's
+   check-in unfinished, the answers part in (jerseys 7, win songs 5,
+   flights 8, Venmo 10, drinks 11 of the twelve), a set list and three
+   photos but no awards yet. "all": the morning everything is set. */
+const READY_LEGS = Object.freeze([{ air:"AA", num:"2214", time:"11:05" }, { air:"AA", num:"1630", time:"17:45" }]);
+function readyBoard(stage) {
+  const state = fresh("locker");
+  if (stage === "missing") {
+    for (const profile of Object.values(state.profiles)) for (const key of ["color", "skin", "size", "flightsBooked"]) delete profile[key];
+    state.seeds = {};
+    act(state, "setAutopilot", { hold:true });
+    return state;
+  }
+  const some = stage === "partial";
+  if (some) act(state, "setOut", { player:"Allan", out:true });
+  ROSTER.filter(player => !state.out?.[player]).forEach((player, i) => {
+    const first = n => !some || i < n;
+    if (first(7)) act(state, "saveProfile", { player, display:state.profiles[player].display, confirmJersey:true }, playerCtx(player));
+    Object.assign(state.profiles[player], {
+      ...(first(5) ? { walkoutTrack:FIT_TRACK("3n3Ppam7vgaVa1iaRUc9Lp", "Mr. Brightside", ["The Killers"]) } : {}),
+      ...(first(8) ? { flightsBooked:true, flightIn:{ ...READY_LEGS[0] }, flightOut:{ ...READY_LEGS[1] } } : {}),
+      ...(first(10) ? { venmo:`${player.toLowerCase()}-fd` } : {}),
+      ...(first(11) ? { drinking:i % 4 !== 1 } : {}),
+    });
+  });
+  if (some) delete state.seeds.Ben;
+  TRIVIA_FIT_ROUNDS.forEach(round => act(state, "triviaSaveRound", { round:structuredClone(round) }));
+  GEO_ROUNDS.forEach(round => act(state, "geoSaveRound", structuredClone(round)));
+  if (!some) act(state, "promptSave", { id:"bfitready", kind:"awards", questions:[
+    { id:"qfraud", title:"Fraud of the weekend", nominees:null }, { id:"qclutch", title:"Most clutch", nominees:null },
+    { id:"qdressed", title:"Best dressed", nominees:null }, { id:"qcomeback", title:"Comeback of the weekend", nominees:null }] });
+  return state;
+}
+
 /* ── the TV ──
    at: how `now` is chosen. { turn } picks the ambient card (and ticker
    page), { result:ms } is that long after the latest result posted,
@@ -882,6 +920,17 @@ export const PHONE_SCENARIOS = Object.freeze([
   { id:"gm-roster", build:() => fresh("locker"), viewer:"gm", tabs:[], sheets:["roster"] },
   { id:"gm-roster-door", build:() => withArrivals(fresh("locker"), 9), viewer:"gm", tabs:[], sheets:["roster", "travel-sheet"] },
   { id:"gm-crew-road", build:crewRoad, viewer:"gm", tabs:[], sheets:["crew-check"] },
+  /* Ready check, from the commissioner's menu: everything still to do (no
+     photos, no TV, Spotify not set up, alerts off, the autopilot paused),
+     the usual middle (two TVs, one muted; Spotify with no speaker chosen)
+     at both widths, and the morning it is all set; the menu with its row */
+  { id:"gm-ready-missing", build:() => readyBoard("missing"), viewer:"gm", photos:[], audio:true, catalog:true,
+    spotify:FIT_SPOTIFY.setup, tvs:[], tabs:[], sheets:["ready-check"] },
+  { id:"gm-ready-partial", build:() => readyBoard("partial"), viewer:"gm", audio:true, catalog:true,
+    spotify:{ status:{ ...FIT_SPOTIFY.connected.status, device:null } }, tvs:[{ ageMs:1000, sound:"on" }, { ageMs:1000, sound:"blocked" }],
+    tabs:[], sheets:["ready-check", "gm-menu"], sheetSizes:["375"] },
+  { id:"gm-ready-all", build:() => readyBoard("all"), viewer:"gm", photos:ROSTER, audio:true, catalog:true, push:true,
+    spotify:FIT_SPOTIFY.connected, tvs:[{ ageMs:1000, sound:"on" }], tabs:[], sheets:["ready-check", "gm-menu"] },
 ]);
 export const PHONE_SIZES = Object.freeze([{ w:390, h:844, id:"390" }, { w:375, h:667, id:"375" }]);
 
@@ -906,7 +955,7 @@ export function buildScenario(list, id) {
   if (!spec) throw new Error(`Unknown fit scenario ${id}`);
   const built = spec.build();
   const settled = spec.settle === false || spec.at || spec.moment || spec.draw ? built : aged(built);
-  return { ...spec, state:dress(settled) };
+  return { ...spec, state:dress(settled, undefined, spec) };
 }
 
 /* the newest result's posting time (the TV's result moment anchor) */

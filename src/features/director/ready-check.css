@@ -1,0 +1,35 @@
+/* Ready check (ReadyCheck.jsx): the menu's sections and glass lists (menu.css),
+   each row a lamp, its label, its count and, where a desk fixes it, the
+   chevron; a guest row part done carries the faces it waits on under its
+   label. The lamp is the row's state (backglass.css .fd-insert): steady
+   cyan when ready, amber when part done, unlit when not started, struck
+   when switched off. Counts are plain numerals; the chevron's slot is kept
+   on every row so the counts stand in one column. */
+.fd-ready-row { display:grid; grid-template-columns:12px minmax(0, 1fr) auto 18px; align-items:center; column-gap:12px; row-gap:8px;
+  width:100%; min-height:52px; padding:9px 12px 9px 16px; border:0; border-bottom:1px solid var(--line); background:transparent;
+  color:var(--ink); text-align:left; font:inherit; }
+.fd-ready-row.is-last { border-bottom:0; }
+button.fd-ready-row { cursor:pointer; -webkit-tap-highlight-color:transparent; }
+button.fd-ready-row:active { background:var(--ink-tint); }
+button.fd-ready-row:focus-visible { outline:2px solid var(--lamp-info); outline-offset:-3px; }
+
+.fd-ready-row .fd-insert { --lamp:var(--lamp-info); }
+.fd-ready-row.is-partial .fd-insert { --lamp:var(--sun); }
+/* not started: the lens with its lamp off, never a dim live */
+.fd-ready-row.is-missing .fd-insert { background:var(--lens-off); box-shadow:var(--lens-rim); }
+.fd-ready-row.is-missing .fd-insert::after { opacity:.38; }
+
+/* every part in its own column, so a row with no count keeps its chevron
+   in the chevrons' column */
+.fd-ready-row > .fd-insert { grid-column:1; }
+.fd-ready-label { grid-column:2; min-width:0; font:600 15px/1.3 var(--fd-body); overflow-wrap:anywhere; }
+.fd-ready-count { grid-column:3; justify-self:end; display:inline-flex; align-items:baseline; font:800 20px/1.15 var(--fd-display);
+  font-variant-numeric:tabular-nums; color:var(--bone); white-space:nowrap; }
+.fd-ready-count b { font-weight:inherit; }
+.fd-ready-count span { color:var(--muted); }
+/* a state word, or the speaker's own name (wraps, never cut) */
+.fd-ready-value { grid-column:3; justify-self:end; max-width:10.5em; color:var(--muted); font:500 13px/1.3 var(--fd-body);
+  text-align:right; overflow-wrap:anywhere; }
+.fd-ready-chevron { grid-column:4; display:inline-flex; width:18px; color:var(--muted); }
+/* who a guest row waits on: their faces in a row that wraps, never folded */
+.fd-ready-faces { grid-column:2 / 4; display:flex; flex-wrap:wrap; gap:4px; }

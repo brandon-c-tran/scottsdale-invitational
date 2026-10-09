@@ -125,7 +125,14 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   capability is on, valued with the chosen speaker), Games (Where and
   When, Awards; a desk is one entry in `GAME_DESKS`), People and trip,
   Setup (devices, export, QA opens the console with the strip's switch
-  inside, Reset game progress, its one entry), Exit alone.
+  inside, Reset game progress, its one entry), Exit alone. **Ready check**
+  (Oct 8, pure `director/readyCheck.js`, lazy `ReadyCheck.jsx`) is the one
+  sheet of what the weekend still needs, read only from the commissioner's
+  frame (guests' answers counted over `rosterOf`, Trivia, Where and When,
+  Awards, the TVs, speaker, alerts, autopilot; a fact the frame lacks drops
+  its row), each row a lamp (cyan ready, amber part done, unlit not
+  started, struck off) that opens its desk; it sits in Now until the
+  weekend is live, then first in Setup, valued "N to do" or "Ready".
 - **Motion foundation** (`src/lib/motion.js`, tokens in `src/ui/motion.css`):
   every animated surface uses it. `MOTION`/`EASE` are the named timings
   (count 750, delta 1100, row 560, stamp 320, flight 340, settle hold 2400,

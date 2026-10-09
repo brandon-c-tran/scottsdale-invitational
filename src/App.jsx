@@ -1738,7 +1738,7 @@ function TournamentApp({ tournament, onUpdateReload }) {
           scenes={showControlAllowed} tvs={tournament.tvs} tvsAt={tournament.tvsAt}
           onClose={() => setModal(null)} onBack={modalBack}
           onStart={startShowScene} onAdvance={advanceShowScene} onEnd={endShowScene} onRetry={retryShowScene}
-          onShortcut={copyTvShortcut} /></Suspense>}
+          onShortcut={copyTvShortcut} onGags={on => act("setGags", { on }, on ? "Gags on" : "Gags off")} /></Suspense>}
       {gmView && audioDirectorAllowed && modal?.type === "audioDirector" && <Suspense fallback={null}>
         <SpeakerSheet state={state} onClose={() => setModal(null)} onBack={modalBack} notify={notify} /></Suspense>}
       {gmView && modal?.type === "logistics" && (

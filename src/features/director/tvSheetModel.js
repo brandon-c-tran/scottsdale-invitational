@@ -80,6 +80,10 @@ export function tvRetry(state) {
   return definition ? { id:last.id, label:definition.label } : null;
 }
 
+/* the Gags switch (features/gags): on unless the commissioner turned the
+   TV's cartoons off (state.gagsOff) */
+export const tvGags = state => ({ on:!state?.gagsOff });
+
 /* the primary verb while a scene plays, matching the director pill */
 export function tvAdvanceLabel(scene) {
   if (!scene?.definition) return "Next";

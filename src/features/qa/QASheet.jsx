@@ -1,5 +1,5 @@
 /* The commissioner QA console, in the menu system's sections: where the
-   rehearsal stands, Step, Bets, Jump to, Lens (with the dock strip's
+   rehearsal stands, Step, Bets, Gags (the TV's cartoons on demand), Jump to, Lens (with the dock strip's
    switch), Checkpoints, then Reset last. Reset game progress lives in the
    commissioner menu's Setup, its one entry. Every jump, step, bets action and checkpoint is one server write.
    The slow live driver (real broadcasts, one player at a time) stays as
@@ -66,12 +66,27 @@ const BET_ACTIONS = [
   ["spread", "Spread evenly"],
   ["clear", "Clear bets"],
 ];
+/* the TV's gags on demand (worker qaGag), each with a stand-in cast */
+const GAG_ACTIONS = [
+  ["turkey", "Turkey"],
+  ["strike", "Strike"],
+  ["gutter", "Gutter ball"],
+  ["vultures", "Vultures"],
+];
 
 export function QASheet({ state, status, me, guestLens, busy, environment, dispatch, notify, market = null,
   onSwitch, onLens, onPlayLive, onDuelMe, onDuels, pokerOn, onBustOne, onCountRest,
   onRerun, onReplayMine, qaOn = false, onStrip, onBack, onClose }) {
   const [confirmRerun, setConfirmRerun] = useState(false);
   const [name, setName] = useState("");
+  const [gagBusy, setGagBusy] = useState(null);
+  const playGag = kind => {
+    if (gagBusy) return;
+    setGagBusy(kind);
+    Promise.resolve(dispatch("qaGag", { kind }))
+      .then(result => notify?.(result?.ok ? "On the TV" : result?.error || "Not saved"), () => notify?.("Not saved"))
+      .finally(() => setGagBusy(null));
+  };
   const qa = useQaFast({ dispatch, environment, notify,
     onDone:type => { if (type === "qaAdvance" || type === "qaRestore" || type === "qaBets") onClose(); } });
   useCheckpointList(qa);
@@ -130,6 +145,15 @@ export function QASheet({ state, status, me, guestLens, busy, environment, dispa
         <div className="fd-qa-actions">
           <Btn kind="ghost" compact disabled={off} onClick={onDuelMe}>Duel me</Btn>
           <Btn kind="ghost" compact disabled={off} onClick={onDuels}>Duels round</Btn>
+        </div>
+      </Part>
+
+      <Part icon="tv" title="Gags">
+        <div className="fd-qa-bets">
+          {GAG_ACTIONS.map(([kind, label]) => (
+            <button key={kind} type="button" className="fd-qa-bet" disabled={off || !!gagBusy}
+              aria-busy={gagBusy === kind || undefined} onClick={() => playGag(kind)}>{label}</button>
+          ))}
         </div>
       </Part>
 

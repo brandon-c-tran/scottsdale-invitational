@@ -872,7 +872,176 @@ export const BOARD_PARTS = Object.freeze([
     play:(E, t) => { M.knock(E, t, { pitch:0.72, gain:0.65 }); M.felt(E, t + 0.01, { gain:0.5 }); } },
 ].map(Object.freeze));
 
-export const SOUNDS = Object.freeze(Object.fromEntries([...KIT, ...PARTS, ...BOARD_PARTS].map(s => [s.id, s])));
+/* ── the bits (features/gags/bits, tv/bitSound.js): cartoon foley for the
+   TV's comic moments, cued on each bit's beats from its registry entry.
+   Built from the same voices; anything pitched stays in D. ── */
+/* a noise sweep that travels across the room (pan from -> to) */
+function travelWhoosh(E, t, { d = 0.28, from = 0.9, to = -0.9, peak = 0.45, f0 = 500, f1 = 3800 } = {}) {
+  const c = E.ctx;
+  const g = c.createGain(); g.gain.value = 1;
+  const p = c.createStereoPanner();
+  const travel = E.listen === "phone" ? 0 : 1;
+  p.pan.setValueAtTime(clampPan(from) * travel, t);
+  p.pan.linearRampToValueAtTime(clampPan(to) * travel, t + d);
+  const s = c.createGain(); s.gain.value = 0.2;
+  g.connect(p); p.connect(E.open && E.openDry ? E.openDry : E.dry); p.connect(s); s.connect(E.wet);
+  track(E, g, p, s);
+  swell(E, g, t, { d, f0, f1, q:0.8, peak });
+}
+/* something falling from very high: a whistle sliding down a long way,
+   louder as it comes, cut dead at the end (the silence before the hit) */
+function fallWhistle(E, t, d) {
+  const c = E.ctx;
+  const v = voice(E, { send:0.28, bright:0.9, gain:1 });
+  const o = c.createOscillator(); o.type = "sine";
+  o.frequency.setValueAtTime(NOTE.D6, t);
+  o.frequency.exponentialRampToValueAtTime(NOTE.D4, t + d);
+  const g = c.createGain();
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.linearRampToValueAtTime(0.05, t + 0.08);
+  g.gain.linearRampToValueAtTime(0.2, t + d * 0.95);
+  g.gain.linearRampToValueAtTime(0.0001, t + d);
+  o.connect(g); g.connect(v);
+  track(E, o, g); trackSource(E, o);
+  o.start(t); o.stop(t + d + 0.03);
+  wobble(E, o.frequency, t, d, { rate:6, depth:12, fade:d * 0.3 });
+}
+/* a spring: up past its note, settling with a wobble that dies away */
+function boing(E, t, { f = NOTE.D4, d = 0.6, peak = 0.24 } = {}) {
+  const c = E.ctx;
+  const v = voice(E, { send:0.25, bright:0.8, gain:1 });
+  const o = c.createOscillator(); o.type = "triangle";
+  o.frequency.setValueAtTime(f * 0.6, t);
+  o.frequency.exponentialRampToValueAtTime(f * 1.3, t + 0.05);
+  o.frequency.exponentialRampToValueAtTime(f, t + 0.12);
+  const g = c.createGain();
+  g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(peak, t + 0.006); g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+  o.connect(g); g.connect(v);
+  track(E, o, g); trackSource(E, o);
+  o.start(t); o.stop(t + d + 0.03);
+  const lfo = c.createOscillator(); lfo.type = "sine"; lfo.frequency.value = 17;
+  const depth = c.createGain(); depth.gain.setValueAtTime(f * 0.14, t); depth.gain.exponentialRampToValueAtTime(0.5, t + d);
+  lfo.connect(depth); depth.connect(o.frequency);
+  track(E, lfo, depth); trackSource(E, lfo);
+  lfo.start(t); lfo.stop(t + d + 0.03);
+  phantom(E, v, t, f, d * 0.5, peak * 0.6);
+}
+/* one bird call: a reedy square chirping up to its note, a tongue click */
+function beep(E, t, f) {
+  const c = E.ctx;
+  const v = voice(E, { send:0.2, bright:1, gain:1 });
+  const bp = c.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = f * 2; bp.Q.value = 0.9;
+  bp.connect(v); track(E, bp);
+  held(E, bp, t, f, 0.11, 0.42, { type:"square", a:0.004, glide:-0.08 });
+  held(E, bp, t, f * 2, 0.08, 0.1, { type:"sine", a:0.004 });
+  M.tick(E, t, { gain:0.25, pitch:1.9 });
+}
+/* the desert's wind: a low moan under a thin whistle, rising and falling */
+function desertWind(E, t, d) {
+  const c = E.ctx;
+  [[420, 900, 1.1, 5], [1300, 2100, 0.3, 16]].forEach(([lo, hi, peak, q]) => {
+    const v = voice(E, { send:0.4, bright:0.9 });
+    const s = c.createBufferSource(); s.buffer = E.noise; s.loop = true;
+    const bp = c.createBiquadFilter(); bp.type = "bandpass"; bp.Q.value = q;
+    bp.frequency.setValueAtTime(lo, t); bp.frequency.linearRampToValueAtTime(hi, t + d * 0.4);
+    bp.frequency.linearRampToValueAtTime(lo * 1.2, t + d * 0.75); bp.frequency.linearRampToValueAtTime(hi * 0.8, t + d);
+    const g = c.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(peak, t + d * 0.3);
+    g.gain.linearRampToValueAtTime(peak * 0.6, t + d * 0.7); g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+    s.connect(bp); bp.connect(g); g.connect(v);
+    track(E, s, bp, g); trackSource(E, s);
+    s.start(t, Math.random() * 0.5, d + 0.05);
+  });
+}
+export const BIT_PARTS = Object.freeze([
+  /* a gunshot in the desert: the crack, a thump, and the buttes answering twice */
+  { id:"bitCrack", name:"Gun crack", ms:900,
+    play:(E, t) => { const v = voice(E, { send:0.32, bright:1, gain:1 });
+      burst(E, v, t, { type:"highpass", f:2400, q:0.7, d:0.012, peak:0.95 });
+      burst(E, v, t + 0.002, { f:1100, q:0.8, d:0.05, peak:0.75 });
+      mode(E, v, t, 95, 0.12, 0.8, { drop:1.2 }); phantom(E, v, t, 95, 0.1, 0.6);
+      burst(E, v, t + 0.01, { type:"lowpass", f:1800, q:0.5, d:0.3, peak:0.22 });
+      [[0.19, 0.3, 0.5], [0.42, 0.12, -0.6]].forEach(([dt, gain, pan]) => { const e = voice(E, { send:0.5, bright:0.45, gain, pan });
+        burst(E, e, t + dt, { f:900, q:0.7, d:0.08, peak:0.8 }); mode(E, e, t + dt, 90, 0.1, 0.5, { drop:0.6 }); }); } },
+  /* a bullet off a rock: a whine falling away, wobbling */
+  { id:"bitRicochet", name:"Ricochet", ms:650,
+    play:(E, t) => { M.tick(E, t, { gain:0.5, pitch:1.6 });
+      glide(E, voice(E, { send:0.35, bright:1, gain:0.5 }), t + 0.01, 3000, 1400, 0.55, 0.22, { type:"triangle", vib:28, depth:0.04 }); } },
+  /* an anvil landing: a dead heavy thump and the iron ringing on */
+  { id:"bitClang", name:"Anvil clang", ms:2200,
+    play:(E, t) => { M.drum(E, t, { f:NOTE.D2, dec:0.5, gain:1 }); M.slap(E, t, { gain:0.8 });
+      const v = voice(E, { send:0.42, bright:1, gain:1 });
+      burst(E, v, t, { f:3200, q:0.8, d:0.04, peak:0.6 });
+      [[1, 0.26, 1.8], [2.76, 0.13, 1.1], [5.4, 0.06, 0.6], [8.93, 0.03, 0.35]]
+        .forEach(([r, amp, d]) => mode(E, v, t, NOTE.D5 * r * (1 + rnd(-0.002, 0.002)), d, amp, { a:0.001 }));
+      mode(E, v, t, NOTE.D5 * 1.004, 1.6, 0.1, { a:0.001 }); } },
+  /* something falling from very high (opts.ms) */
+  { id:"bitWhistle", name:"Slide whistle down", ms:1200,
+    play:(E, t, o = {}) => fallWhistle(E, t, Math.max(0.3, (o.ms || 1200) / 1000)) },
+  /* a fast thing past the camera, across the room (opts.from, opts.to) */
+  { id:"bitStreak", name:"Whoosh streak", ms:350,
+    play:(E, t, o = {}) => travelWhoosh(E, t, { d:0.28, from:o.from ?? 0.9, to:o.to ?? -0.9 }) },
+  /* a two-tone bird call: beep beep */
+  { id:"bitBeep", name:"Bird beep", ms:500,
+    play:(E, t) => { beep(E, t, NOTE.A5); beep(E, t + 0.19, NOTE.D6); } },
+  /* flat in the dirt: a thud and the dust it throws */
+  { id:"bitThud", name:"Dust thud", ms:500,
+    play:(E, t) => { M.drum(E, t, { f:58, dec:0.32, gain:1 }); M.felt(E, t, { gain:0.9 });
+      burst(E, voice(E, { send:0.18, bright:0.5, gain:0.6 }), t + 0.01, { type:"lowpass", f:700, q:0.5, d:0.3, peak:0.45 }); } },
+  /* the desert's wind (opts.ms) */
+  { id:"bitWind", name:"Desert wind", ms:2000,
+    play:(E, t, o = {}) => desertWind(E, t, Math.max(0.6, (o.ms || 2000) / 1000)) },
+  /* a spring (opts.small: a little one) */
+  { id:"bitBoing", name:"Boing", ms:700,
+    play:(E, t, o = {}) => boing(E, t, o.small ? { f:NOTE.A4, d:0.35, peak:0.14 } : { f:NOTE.D4, d:0.6, peak:0.24 }) },
+  /* a little metal thing in the dirt: tink, tink */
+  { id:"bitClink", name:"Clink", ms:500,
+    play:(E, t) => { M.bell(E, t, NOTE.A6, { gain:0.3, dec:0.25, send:0.2 }); M.tick(E, t, { gain:0.5, pitch:1.8 });
+      M.bell(E, t + 0.12, NOTE.Fs6, { gain:0.16, dec:0.2, send:0.2 }); M.tick(E, t + 0.12, { gain:0.25, pitch:1.7 }); } },
+  /* a gun whipped out: a short swish and the hammer */
+  { id:"bitDraw", name:"Draw", ms:150,
+    play:(E, t) => { burst(E, voice(E, { send:0.15, bright:1, gain:0.5 }), t, { f:3000, q:1, d:0.09, peak:0.5 });
+      M.clack(E, t + 0.08, { pitch:1.4, gain:0.35, double:false }); } },
+  /* a breath across a barrel */
+  { id:"bitPuff", name:"Blow", ms:400,
+    play:(E, t) => swell(E, voice(E, { send:0.15, bright:0.7, gain:1 }), t, { d:0.32, f0:1400, f1:700, q:0.9, peak:0.32 }) },
+  /* a revolver spun on a finger: a whirr of clicks winding down */
+  { id:"bitTwirl", name:"Twirl", ms:450,
+    play:(E, t) => { for (let i = 0, x = 0, dt = 0.022; i < 16; i++, x += dt, dt *= 1.09) M.tick(E, t + x, { gain:0.5 - i * 0.02, pitch:1.5 });
+      swell(E, voice(E, { send:0.2, bright:0.8 }), t, { d:0.36, f0:2200, f1:1200, q:1, peak:0.07 }); } },
+  /* off a glove: a hollow bonk */
+  { id:"bitBonk", name:"Bonk", ms:300,
+    play:(E, t) => { mode(E, voice(E, { send:0.2, bright:0.7, gain:0.7 }), t, NOTE.A4, 0.16, 0.4, { drop:0.3, type:"triangle" });
+      M.knock(E, t, { pitch:1.5, gain:0.4 }); } },
+  /* stars round a dizzy head: little bells round the motif (opts.ms) */
+  { id:"bitStars", name:"Dizzy stars", ms:900,
+    play:(E, t, o = {}) => { const d = Math.max(0.3, (o.ms || 900) / 1000), notes = [NOTE.A6, NOTE.Fs6, NOTE.D6, NOTE.Fs6];
+      for (let i = 0, x = 0; x < d; i++, x += 0.12) M.bell(E, t + x, notes[i % 4], { gain:0.22, dec:0.25, send:0.3 }); } },
+  /* peeling up off the floor: a sticky rip rising */
+  { id:"bitPeel", name:"Peel", ms:450,
+    play:(E, t) => { const c = E.ctx, v = voice(E, { send:0.15, bright:1, gain:1 });
+      const s = c.createBufferSource(); s.buffer = E.noise;
+      const bp = c.createBiquadFilter(); bp.type = "bandpass"; bp.Q.value = 2;
+      bp.frequency.setValueAtTime(700, t); bp.frequency.exponentialRampToValueAtTime(3600, t + 0.36);
+      const g = c.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.35, t + 0.25);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.4);
+      s.connect(bp); bp.connect(g); g.connect(v); track(E, s, bp, g); trackSource(E, s);
+      s.start(t, Math.random(), 0.45);
+      wobble(E, g.gain, t, 0.4, { rate:42, depth:0.18 }); } },
+  /* a hop (opts.step): a light knock in the dirt */
+  { id:"bitHop", name:"Hop", ms:150,
+    play:(E, t, o = {}) => { M.knock(E, t, { pitch:1.35 + ((Number(o.step) || 0) % 2) * 0.1, gain:0.32 }); M.felt(E, t + 0.004, { gain:0.25 }); } },
+  /* heels dug into the dirt */
+  { id:"bitSkid", name:"Skid", ms:350,
+    play:(E, t) => { const v = voice(E, { send:0.15, bright:0.9, gain:1 });
+      for (let i = 0; i < 10; i++) burst(E, v, t + i * 0.024, { f:2600 - i * 90, q:2.5, d:0.03, peak:0.3 - i * 0.02 });
+      M.felt(E, t + 0.24, { gain:0.4 }); } },
+  /* off like a shot: a little whistle up and a swish away to the left */
+  { id:"bitZip", name:"Zip", ms:300,
+    play:(E, t) => { glide(E, voice(E, { send:0.2, bright:1, gain:0.5 }), t, NOTE.D6, NOTE.A6, 0.16, 0.12);
+      travelWhoosh(E, t, { d:0.22, from:0, to:-0.9, peak:0.3 }); } },
+].map(Object.freeze));
+
+export const SOUNDS = Object.freeze(Object.fromEntries([...KIT, ...PARTS, ...BOARD_PARTS, ...BIT_PARTS].map(s => [s.id, s])));
 export const SOUND_IDS = Object.freeze(KIT.map(s => s.id));
 export const isSound = id => Object.prototype.hasOwnProperty.call(SOUNDS, id);
 

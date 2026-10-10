@@ -387,7 +387,7 @@ console.error = (...args) => /useLayoutEffect/.test(String(args[0])) ? undefined
 const root = fileURLToPath(new URL("../", import.meta.url));
 const compiled = buildSync({
   stdin:{ contents:`export { TVMode } from "./src/features/tv/TVMode.jsx";
-    export { TVRecord, recordFigure } from "./src/features/tv/TVRecords.jsx";
+    export { TVRecord, recordFigure, ENTRANCE_GRACE_MS } from "./src/features/tv/TVRecords.jsx";
     export { PlayerIdentityProvider } from "./src/features/identity/PlayerIdentityContext.js";`, resolveDir:root, loader:"jsx" },
   bundle:true, platform:"node", format:"cjs", external:["react", "qrcode-generator", "three"], loader:{ ".css":"empty" },
   write:false, logLevel:"silent",
@@ -396,7 +396,7 @@ const ui = new Module(fileURLToPath(new URL("records-ui.cjs", import.meta.url)))
 ui.filename = ui.id;
 ui.paths = Module._nodeModulePaths(root);
 ui._compile(compiled.outputFiles[0].text, ui.filename);
-const { TVMode, TVRecord, recordFigure, PlayerIdentityProvider } = ui.exports;
+const { TVMode, TVRecord, recordFigure, ENTRANCE_GRACE_MS, PlayerIdentityProvider } = ui.exports;
 const tv = (state, now) => {
   const list = events(state);
   const standings = computeStandings(state);
@@ -519,6 +519,14 @@ test("each card's drawing: a label, the people's chips and names, one figure in 
     assert.doesNotMatch(text(html), /—|!/);
     assert.match(html, /--tl:-5000ms/, "drawn 5 s into its turn: standing, never mid-entrance");
   }
+  /* the TV's clock ticks once a second: a card drawn within that tick of its
+     turn plays its whole entrance; a reload later joins where the turn is */
+  const at = ms => renderToStaticMarkup(React.createElement(PlayerIdentityProvider, { profiles:s.profiles },
+    React.createElement(TVRecord, { state:s, card:{ id:"duels:x", kind:"duels", players:["Henry"], count:3 }, turnAt:40_000,
+      now:40_000 + ms })));
+  assert.match(at(0), /--tl:0ms/);
+  assert.match(at(900), /--tl:0ms/, "a tick late is on time");
+  assert.match(at(ENTRANCE_GRACE_MS + 400), new RegExp(`--tl:-${ENTRANCE_GRACE_MS + 400}ms`));
 });
 
 test("the TV wires the records: one turn in the gap's rotation, its card keyed to the turn", () => {

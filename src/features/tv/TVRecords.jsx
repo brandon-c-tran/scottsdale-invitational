@@ -145,11 +145,19 @@ function Solo({ state, card }) {
   );
 }
 
-/* the card's clock: how far into its turn this TV first drew it, fixed for
-   the card (the clock ticking every second never restarts it) */
+/* The card's clock: how far into its turn this TV first drew it, fixed for
+   the card (the clock ticking every second never restarts it). The TV's
+   clock ticks once a second, so a turn's first frame lands up to a tick
+   late: a card first drawn within ENTRANCE_GRACE_MS of its turn plays its
+   whole entrance, and one drawn later (a reload) joins it where the turn is. */
+export const ENTRANCE_GRACE_MS = 1100;
+export const entranceElapsed = (turnAt, now) => {
+  const late = Math.max(0, Math.round(Number(now) - Number(turnAt)) || 0);
+  return late < ENTRANCE_GRACE_MS ? 0 : late;
+};
 function useEntrance(id, turnAt, now) {
   const ref = useRef({ id:undefined, elapsed:0 });
-  if (ref.current.id !== id) ref.current = { id, elapsed:Math.max(0, Math.round(Number(now) - Number(turnAt)) || 0) };
+  if (ref.current.id !== id) ref.current = { id, elapsed:entranceElapsed(turnAt, now) };
   return ref.current.elapsed;
 }
 

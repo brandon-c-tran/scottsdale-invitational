@@ -673,6 +673,26 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   gap (`tvPhotoGap`: never loading, final, a scene, a result, poker, a draft,
   a live event, an intro, a reveal or a face-off), newest 30, one per 6 s on
   the server clock, each opaque layer fading in over the last.
+- **Rivalries and records** (Oct 10, pure `features/tv/recordsModel.js`
+  `recordCards`, `TVRecords.jsx`): the gap's downtime, one record a card
+  for the room to argue about, derived from the record every time and never
+  stored (a correction, an undone contest or a void moves them like the
+  board); no data, no card. Head to head: players who met in 2+ decided
+  contests by the player card's own record (`eventMeetings` and settled
+  Quick Draws), teammates with the very same record standing as one side
+  (three at most); the closest, the most lopsided, the most played. Biggest
+  swing: the biggest the ticker ever named (`biggestSwing`) or a Quick
+  Draw's ante, 500+ either way, never a ruling, and on its turn the ticker's
+  own steps aside. Longest streak (gags' `winStreaks`, 3+), most upsets (the
+  stored `odds`, 2+), best and worst bettor (settled net, 500+), Quick
+  Draw's fastest settled reaction and most wins (2+); a record more than
+  three share is none. One "records" turn after the gap's own cards
+  (`withRecordTurns`, only in `tvPhotoGap`), each showing the next card on
+  the server clock (`recordTurn`): one glass panel standing on the floor
+  (y 880), a lilac label of 1 to 3 words, photo chips with every name under
+  its chip at one size, the record as one big numeral (chips amber, a loss
+  clay, counts bone; "3 to 1" between two sides, the side behind lilac),
+  rising in on the turn's own instant. Fit views `tv-records-*`.
 
 ## Current redesign direction
 

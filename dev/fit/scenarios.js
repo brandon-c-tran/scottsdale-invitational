@@ -38,7 +38,7 @@ export function act(state, type, payload = {}, ctx = gmCtx()) {
   if (!result.ok) throw new Error(`${type}: ${result.error}`);
   return result;
 }
-const qa = (state, target) => act(state, "qaAdvance", { target, seed:7, confirm:RESET_PROGRESS_CONFIRMATION,
+const qa = (state, target, seed = 7) => act(state, "qaAdvance", { target, seed, confirm:RESET_PROGRESS_CONFIRMATION,
   confirmPokerLive:true });
 
 /* names and photos on top of the reducers' fill. `photos`: who has one
@@ -62,9 +62,10 @@ export function withPhotos(state, n) {
   return state;
 }
 
-export function fresh(target = "locker") {
+/* `seed`: QA's own seeded stream (another weekend played the same way) */
+export function fresh(target = "locker", seed = 7) {
   const state = structuredClone(EMPTY_STATE);
-  qa(state, target);
+  qa(state, target, seed);
   return state;
 }
 
@@ -717,6 +718,55 @@ function gagAfterWalkout() {
   return state;
 }
 
+/* Rivalries and records (Oct 10, features/tv/recordsModel.js): weekends the
+   real reducers played, each holding the record its view shows. Quick
+   Draws through the real writes, [from, to, from's ms, to's ms] each; the
+   session's own filler duels are cleared so the pairs are free. */
+function quickDraws(state, list, { stake = 100 } = {}) {
+  state.duels = [];
+  for (const [from, to, a, b] of list) {
+    const id = act(state, "sendDuel", { to, game:"quickdraw", stake }, playerCtx(from)).extra.id;
+    act(state, "acceptDuel", { id }, playerCtx(to));
+    act(state, "duelReady", { id }, playerCtx(to));
+    act(state, "duelReady", { id }, playerCtx(from));
+    act(state, "playDuel", { id, ms:a }, playerCtx(from));
+    act(state, "playDuel", { id, ms:b }, playerCtx(to));
+  }
+  return state;
+}
+/* Squilliam (a photo) and Henry Nguyen (none), three Quick Draws on a
+   Friday: 2 to 1, the fastest draw and the most duel wins */
+const recordsDuels = () => quickDraws(fresh("event:putt:done"),
+  [["Richard", "Henry", 231, 286], ["Henry", "Richard", 244, 310], ["Richard", "Henry", 205, 260]]);
+/* a swing down: Henry Nguyen, ruled up, puts 2,000 on Where and When's
+   field and it goes to someone else */
+function recordsLoss() {
+  const state = withoutBets(fresh("event:where:open"));
+  act(state, "adjust", { player:"Henry", delta:3000, reason:"fit" });
+  const ev = eventOf(state, "where");
+  const contest = resolveCurrentContest(state, ev);
+  const side = contest.sides.find(item => !item.players.includes("Henry"));
+  act(state, "placeWager", { wager:{ kind:"outright", eventId:"where", evName:ev.name, contestId:contest.id,
+    contestRevision:contest.revision, pick:side.key, pickPlayers:[...side.players], stake:2000 } }, playerCtx("Henry"));
+  lockCurrent(state, "where");
+  act(state, "beginResultEntry", { evId:"where" });
+  const field = presentPlayers(state).filter(player => !side.players.includes(player) && player !== "Henry");
+  act(state, "saveResult", { evId:"where", slots:[[field[0]], [field[1]], [field[2]]] });
+  return state;
+}
+/* a swing in a Quick Draw: Khoa takes 1,500 off Adi */
+function recordsDuelSwing() {
+  const state = fresh("event:putt:done");
+  ["Khoa", "Adi"].forEach(player => act(state, "adjust", { player, delta:3000, reason:"fit" }));
+  return quickDraws(state, [["Khoa", "Adi", 214, 297]], { stake:1500 });
+}
+/* a display name at the 16 letters a profile allows */
+function renamed(state, player, display) {
+  state.profiles[player] = { ...state.profiles[player], display };
+  return state;
+}
+export const RECORDS_LONG_NAME = "Allan Montgomery";
+
 /* ── the TV ──
    at: how `now` is chosen. { turn } picks the ambient card (and ticker
    page), { result:ms } is that long after the latest result posted,
@@ -920,6 +970,30 @@ export const TV_SCENARIOS = Object.freeze([
   { id:"tv-arrive-corner", build:() => withArrivals(fresh("event:putt:open"), 9), at:{ clock:ARRIVE_CLOCK } },
   { id:"tv-arrive-corner-4", build:() => withArrivals(fresh("event:die:open"), 4), at:{ clock:ARRIVE_CLOCK } },
   { id:"tv-arrive-corner-board", build:() => withArrivals(fresh("session:fri"), 9), at:{ clock:ARRIVE_CLOCK, turn:0 } },
+  /* Rivalries and records (Oct 10): each kind's card on its records turn
+     (`record`: the turn that shows it, 5 s in): a head to head of the long
+     names, two pairs who met twice (another seeded weekend), a swing up,
+     one down and one in a Quick Draw, a streak of the lowercase name's
+     wins, a pair's upsets, the best bettor at 16 letters and the worst,
+     and Quick Draw's fastest and most wins */
+  { id:"tv-records-h2h", build:recordsDuels, at:{ record:{ kind:"h2h", players:["Richard", "Henry"] } } },
+  { id:"tv-records-h2h-team", build:() => fresh("session:sam", 1),
+    at:{ record:{ kind:"h2h", players:["Brandon", "Henry", "Evan", "Ben"] } } },
+  { id:"tv-records-swing", build:() => fresh("session:sam"), at:{ record:{ kind:"swing" } } },
+  { id:"tv-records-swing-loss", build:recordsLoss, at:{ record:{ kind:"swing", players:["Henry"] } } },
+  { id:"tv-records-swing-duel", build:recordsDuelSwing, at:{ record:{ kind:"swing", players:["Khoa"] } } },
+  { id:"tv-records-streak", build:() => fresh("session:sap"), at:{ record:{ kind:"streak" } } },
+  { id:"tv-records-upsets", build:() => fresh("session:fri"), at:{ record:{ kind:"upsets" } } },
+  /* a record three share: a team's streak with Henry Nguyen in it, and a
+     trio's upsets with Squilliam and j vo (other seeded weekends) */
+  { id:"tv-records-streak-trio", build:() => fresh("session:sam", 5), at:{ record:{ kind:"streak", players:["Henry"] } } },
+  { id:"tv-records-upsets-trio", build:() => fresh("event:volley:done", 11),
+    at:{ record:{ kind:"upsets", players:["Richard", "Jeremy"] } } },
+  { id:"tv-records-bettor", build:() => renamed(fresh("session:sap"), "Allan", RECORDS_LONG_NAME),
+    at:{ record:{ kind:"bettor", worst:false } } },
+  { id:"tv-records-bettor-worst", build:() => fresh("session:sap"), at:{ record:{ kind:"bettor", worst:true } } },
+  { id:"tv-records-fastest", build:recordsDuels, at:{ record:{ kind:"fastest" } } },
+  { id:"tv-records-duels", build:recordsDuels, at:{ record:{ kind:"duels" } } },
 ]);
 
 /* ── the phone ──

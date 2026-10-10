@@ -8,9 +8,12 @@
 import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { createPortal, flushSync } from "react-dom";
-import { allEventsOf, computeStandings, disp, resolveCurrentContest, wagerBoardEvent } from "../shared/core.js";
+import { allEventsOf, computeStandings, disp, resolveCurrentContest, resolveWeekendOperation, rosterOf, wagerBoardEvent } from "../shared/core.js";
 import { TVMode } from "../src/features/tv/TVMode.jsx";
-import { TV_AMBIENT_MS, TV_AMBIENT_TURN_MS, TV_RESULT_MOMENT_MS, TV_TICKER_PAGE_MS } from "../src/features/tv/tvModel.js";
+import { TV_AMBIENT_MS, TV_AMBIENT_TURN_MS, TV_RESULT_MOMENT_MS, TV_TICKER_PAGE_MS, latestResultOf, nextUpEvent, tvLiveEvent }
+  from "../src/features/tv/tvModel.js";
+import { recordAt, recordCards, withRecordTurns } from "../src/features/tv/recordsModel.js";
+import { tvPhotoRotation, withPhotoTurns } from "../src/features/photos/photoModel.js";
 import { FROZEN_TURNS } from "../src/features/results/classPhoto.js";
 import { ENGRAVE } from "../src/features/weekend/trophy.js";
 import { CROWN_TIMING } from "../src/features/tv/tvMotion.js";
@@ -39,7 +42,33 @@ const crownBeat = moment?.kind === "crown";
 /* an ambient turn: a future instant where the turn index is `turn` for any
    rotation of up to eight cards */
 const ROTATION = TV_AMBIENT_TURN_MS * 840;
+/* `record`: the records turn (features/tv/recordsModel.js) that shows the
+   card of `kind` (and `players` on it, `worst` for the bettors), `ms` into
+   the turn (5 s: the card standing, its entrance done). The gap's rotation
+   as TVMode builds it; the harness checks the card it drew is that one. */
+function recordNow(state, want) {
+  const events = allEventsOf(state);
+  const operationEv = resolveWeekendOperation(state, events).event;
+  const liveEv = tvLiveEvent(state, events, operationEv);
+  const base = ["board"];
+  if (rosterOf(state).some(p => !state.profiles?.[p])) base.push("join");
+  if (nextUpEvent(state, events, { liveEv, operationEv })) base.push("next");
+  if (latestResultOf(state, events)) base.push("latest");
+  if (state.live) base.push("trophy");
+  const cards = recordCards(state, events);
+  const ambient = withPhotoTurns(withRecordTurns(base, cards.length), tvPhotoRotation(state).length);
+  const match = card => card.kind === want.kind && (want.worst === undefined || !!card.worst === want.worst)
+    && (!want.players || want.players.every(p => card.players.includes(p)));
+  const start = Math.ceil(Date.now() / ROTATION) * ROTATION;
+  for (let turn = 0; turn < ambient.length * (cards.length + 1); turn++) {
+    const now = start + turn * TV_AMBIENT_TURN_MS + (want.ms ?? 5000);
+    const card = recordAt(cards, ambient, now);
+    if (card && match(card)) return now;
+  }
+  throw new Error(`fit: no records turn shows ${JSON.stringify(want)} (${cards.map(card => card.id).join(", ") || "no cards"})`);
+}
 function pickNow(state) {
+  if (at.record) return recordNow(state, at.record);
   /* a plate mid-engrave: the newest result posted just before this trophy
      turn (its result moment played), `engrave` ms into the cut */
   if (at.engrave !== undefined) {
@@ -218,6 +247,10 @@ function Harness() {
           return el?.closest?.(".tv-gag") || el?.matches?.("[data-tv-canvas] > .tv-main");
         }).forEach(anim => { anim.pause(); anim.currentTime = 0; });
         if (moment || at.engrave !== undefined || scenario.pause) pause();
+        /* a records view draws the card it asked for, or says so */
+        const drawn = at.record ? document.querySelector("[data-record]")?.getAttribute("data-record") || null : null;
+        if (at.record && drawn !== at.record.kind)
+          setTimeout(() => { throw new Error(`fit: the TV drew ${drawn || "no record"}, not ${at.record.kind}`); });
         window.__FIT_READY__ = true;
       },
         moment ? 250 : scenario.wait || 900);

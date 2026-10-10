@@ -1,0 +1,52 @@
+/* roadrunner (roadrunner.jsx): beats from registry.js (--b-<name>), every
+   animation on --ba, each element resting on its end state. A run of moves
+   on one property: the first fills both ways, the rest forwards. */
+
+.is-roadrunner :is(.rr, .rr-cam) { position:absolute; inset:0; }
+.is-roadrunner .rr-node { position:absolute; display:block; width:0; height:0; }
+/* the camera holds, then leans in on the shadow left behind */
+.is-roadrunner .rr-cam { transform-origin:880px 920px; transform:scale(1.34);
+  --ba:rr-lean-in 700ms cubic-bezier(.45,0,.55,1) calc(var(--tl) + var(--b-clear)) both; animation:var(--ba); }
+@keyframes rr-lean-in { from { transform:scale(1.1); } to { transform:scale(1.34); } }
+
+/* ── the chip: waiting (the faintest sway), it turns to look at the
+   bird, then it is gone; its shadow stays on the floor ── */
+.is-roadrunner .rr-chip .cast-body-in { --ba:rr-sway 2200ms ease-in-out calc(var(--tl) + 160ms) both; animation:var(--ba); }
+@keyframes rr-sway { 0%, 100% { transform:rotate(0deg); } 50% { transform:rotate(-1.6deg); } }
+.is-roadrunner .rr-chip .cast-chip-in { transform:rotateY(-36deg);
+  --ba:rr-turn 340ms ease-in-out calc(var(--tl) + var(--b-turn)) both; animation:var(--ba); }
+@keyframes rr-turn { from { transform:rotateY(0deg); } to { transform:rotateY(-36deg); } }
+.is-roadrunner .rr-chip .cast-hop { opacity:0;
+  --ba:bit-hide 1ms step-end calc(var(--tl) + var(--b-leave) + 40ms) both; animation:var(--ba); }
+
+/* ── the bird: in like a shot, heels dug in, a bob, beep beep, gone ── */
+.is-roadrunner .rr-bird-x { transform:translateX(-1700px);
+  --ba:rr-arrive 150ms cubic-bezier(.1,.9,.2,1) calc(var(--tl) + var(--b-arrive)) both,
+    rr-leave 170ms cubic-bezier(.7,0,1,.6) calc(var(--tl) + var(--b-leave)) forwards; animation:var(--ba); }
+@keyframes rr-arrive { from { transform:translateX(1000px); } to { transform:translateX(0px); } }
+@keyframes rr-leave { from { transform:translateX(0px); } to { transform:translateX(-1700px); } }
+.is-roadrunner .rr-bird-in { transform:rotate(0deg) translateY(0px);
+  --ba:rr-skid 320ms ease-out calc(var(--tl) + var(--b-stop)) both,
+    rr-bob 280ms ease-in-out calc(var(--tl) + var(--b-stop) + 380ms) forwards; animation:var(--ba); }
+@keyframes rr-skid { 0% { transform:rotate(18deg) translateY(0px); } 55% { transform:rotate(-6deg) translateY(0px); }
+  100% { transform:rotate(0deg) translateY(0px); } }
+@keyframes rr-bob { 0%, 100% { transform:rotate(0deg) translateY(0px); } 45% { transform:rotate(-4deg) translateY(-12px); } }
+/* its wake, only while it moves */
+.is-roadrunner .rr-lines { opacity:0; }
+.is-roadrunner .rr-lines.is-in { --ba:bit-show 1ms step-end calc(var(--tl) + var(--b-arrive)) both,
+  bit-hide 140ms linear calc(var(--tl) + var(--b-stop)) forwards; animation:var(--ba); }
+.is-roadrunner .rr-lines.is-out { --ba:bit-show 1ms step-end calc(var(--tl) + var(--b-leave)) both,
+  bit-hide 120ms linear calc(var(--tl) + var(--b-leave) + 170ms) forwards; animation:var(--ba); }
+/* the cloud where the chip stood clears slowly */
+.is-roadrunner .rr-cloud { --dust-ms:820ms; }
+
+/* ── the shadow: it notices (a start), gathers itself, and is off after
+   it like a shot ── */
+.is-roadrunner .rr-chip .cast-shadow { background:color-mix(in srgb, var(--ink0) 80%, transparent); transform:translate(-1300px, 0px) scale(2.4, .8);
+  --ba:rr-notice 300ms ease-out calc(var(--tl) + var(--b-notice)) both,
+    rr-windup 110ms ease-out calc(var(--tl) + var(--b-windup)) forwards,
+    rr-zip 260ms cubic-bezier(.6,0,1,.5) calc(var(--tl) + var(--b-zip)) forwards; animation:var(--ba); }
+@keyframes rr-notice { 0%, 100% { transform:translate(0px, 0px) scale(1, 1); } 30% { transform:translate(0px, -18px) scale(.84, 1.9); }
+  62% { transform:translate(0px, 0px) scale(1.1, .86); } }
+@keyframes rr-windup { from { transform:translate(0px, 0px) scale(1, 1); } to { transform:translate(24px, 0px) scale(.7, 1.14); } }
+@keyframes rr-zip { from { transform:translate(24px, 0px) scale(.7, 1.14); } to { transform:translate(-1300px, 0px) scale(2.4, .8); } }

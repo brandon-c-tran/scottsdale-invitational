@@ -1,0 +1,105 @@
+/* anvil (anvil.jsx): beats from registry.js (--b-<name>), every animation
+   on --ba, each element resting on its end state. A run of moves on one
+   property: the first fills both ways, the rest forwards. */
+
+.is-anvil :is(.an, .an-cam, .an-shake) { position:absolute; inset:0; }
+.is-anvil .an-node { position:absolute; display:block; width:0; height:0; }
+
+/* the camera eases in while the shadow grows; the clang shakes it */
+.is-anvil .an-cam { transform-origin:960px 900px; transform:scale(1.14);
+  --ba:an-push 1500ms cubic-bezier(.45,0,.55,1) calc(var(--tl) + var(--b-shadow)) both; animation:var(--ba); }
+@keyframes an-push { from { transform:scale(1.06); } to { transform:scale(1.14); } }
+.is-anvil .an-shake { --ba:bit-shake 260ms linear calc(var(--tl) + var(--b-hit)) both; animation:var(--ba); }
+
+/* ── admiring the stack: leaning to it, a glove laid on top, a pat or
+   two, a satisfied bob; at the shadow's beat it straightens and looks up ── */
+.is-anvil .an-chip .cast-body-in { transform:rotate(0deg);
+  --ba:an-admire 1400ms ease-in-out calc(var(--tl) + var(--b-admire)) both,
+    an-straighten 140ms var(--ease-out) calc(var(--tl) + var(--b-notice)) forwards,
+    an-wobble 340ms ease-in-out calc(var(--tl) + var(--b-pop) + 160ms) forwards,
+    an-limp-tilt 240ms ease-in-out calc(var(--tl) + var(--b-limp)) 4 forwards;
+  animation:var(--ba); }
+@keyframes an-admire { 0% { transform:rotate(0deg) scale(1, 1); } 16% { transform:rotate(5deg) scale(1, 1); }
+  34% { transform:rotate(5deg) scale(1.03, .97); } 48% { transform:rotate(5deg) scale(1, 1); }
+  66% { transform:rotate(5deg) scale(1.03, .97); } 80%, 100% { transform:rotate(5deg) scale(1, 1); } }
+@keyframes an-straighten { from { transform:rotate(5deg) scale(1, 1); } to { transform:rotate(0deg) scale(1, 1); } }
+@keyframes an-wobble { 0% { transform:rotate(0deg); } 30% { transform:rotate(-6deg); } 65% { transform:rotate(4deg); }
+  100% { transform:rotate(0deg); } }
+@keyframes an-limp-tilt { 0%, 100% { transform:rotate(0deg); } 45% { transform:rotate(-10deg); } }
+.is-anvil .an-chip .cast-hand.is-front > .cast-hand-in { transform:translate(0px, 0px);
+  --ba:an-hand-lift 160ms var(--ease-out) calc(var(--tl) + var(--b-notice)) both,
+    an-hand-home 240ms var(--ease-out) calc(var(--tl) + var(--b-pop) + 60ms) forwards; animation:var(--ba); }
+@keyframes an-hand-lift { from { transform:var(--on-stack); } to { transform:var(--hands-up); } }
+@keyframes an-hand-home { from { transform:var(--hands-up); } to { transform:translate(0px, 0px); } }
+.is-anvil .an-chip .cast-hand.is-front .cast-hand-fx {
+  --ba:an-pat 280ms ease-in-out calc(var(--tl) + 440ms) 2 both; animation:var(--ba); }
+@keyframes an-pat { 0%, 100% { transform:none; } 40% { transform:translateY(-14px) rotate(-7deg); } }
+.is-anvil .an-chip .cast-hand.is-back > .cast-hand-in { transform:translate(0px, 0px);
+  --ba:an-hand-up 160ms var(--ease-out) calc(var(--tl) + var(--b-notice) + 40ms) both,
+    an-hand-down 240ms var(--ease-out) calc(var(--tl) + var(--b-pop) + 60ms) forwards; animation:var(--ba); }
+@keyframes an-hand-up { from { transform:translate(0px, 0px); } to { transform:translate(-18px, -34px); } }
+@keyframes an-hand-down { from { transform:translate(-18px, -34px); } to { transform:translate(0px, 0px); } }
+
+/* ── the shadow grows under it (the whistle), a sweat drop, the look up ── */
+.is-anvil .an-shadow { opacity:0;
+  --ba:an-grow 1750ms cubic-bezier(.55,0,.85,.55) calc(var(--tl) + var(--b-shadow)) both,
+    bit-hide 1ms step-end calc(var(--tl) + var(--b-hit)) forwards; animation:var(--ba); }
+@keyframes an-grow { 0% { opacity:0; transform:scale(.05); } 1% { opacity:.3; transform:scale(.05); }
+  100% { opacity:.92; transform:scale(1); } }
+.is-anvil .an-sweat { opacity:0;
+  --ba:an-sweat 180ms var(--ease-land) calc(var(--tl) + var(--b-sweat)) both,
+    bit-hide 1ms step-end calc(var(--tl) + var(--b-hit)) forwards; animation:var(--ba); }
+@keyframes an-sweat { 0% { opacity:0; transform:scale(.2); } 1% { opacity:1; transform:scale(.2); } 60% { opacity:1; transform:scale(1.2); }
+  100% { opacity:1; transform:scale(1); } }
+.is-anvil .an-chip .cast-chip-in { transform:var(--cast-turn);
+  --ba:an-look-up 180ms var(--ease-out) calc(var(--tl) + var(--b-notice)) both,
+    an-look-back 1ms step-end calc(var(--tl) + var(--b-hit)) forwards; animation:var(--ba); }
+@keyframes an-look-up { from { transform:var(--cast-turn) rotateX(0deg); } to { transform:rotateY(0deg) rotateX(42deg); } }
+@keyframes an-look-back { from { transform:rotateY(0deg) rotateX(42deg); } to { transform:var(--cast-turn) rotateX(0deg); } }
+
+/* ── CLANG: the anvil drops in, the chip goes flat under it, the anvil
+   hops off into the dirt and rocks to a stop ── */
+.is-anvil .an-anvil { transform:var(--sink);
+  --ba:an-drop 120ms cubic-bezier(.6,0,1,.6) calc(var(--tl) + var(--b-drop)) both,
+    an-sink 60ms ease-out calc(var(--tl) + var(--b-hit)) forwards; animation:var(--ba); }
+@keyframes an-drop { from { transform:translateY(-1100px); } to { transform:translateY(0px); } }
+@keyframes an-sink { from { transform:translateY(0px); } to { transform:var(--sink); } }
+.is-anvil .an-anvil-x { transform:var(--anvil-to);
+  --ba:an-hop-x 270ms linear calc(var(--tl) + var(--b-rebound)) both; animation:var(--ba); }
+@keyframes an-hop-x { from { transform:translateX(0px); } to { transform:var(--anvil-to); } }
+.is-anvil .an-anvil-y { transform:var(--hop-land);
+  --ba:an-hop-y 270ms linear calc(var(--tl) + var(--b-rebound)) both; animation:var(--ba); }
+@keyframes an-hop-y { 0% { transform:translateY(0px); animation-timing-function:cubic-bezier(.2,.7,.4,1); }
+  42% { transform:var(--hop-peak); animation-timing-function:cubic-bezier(.6,0,.85,.4); } 100% { transform:var(--hop-land); } }
+.is-anvil .an-anvil-rock { transform:rotate(0deg);
+  --ba:an-tilt 270ms ease-out calc(var(--tl) + var(--b-rebound)) both,
+    an-rock 320ms ease-out calc(var(--tl) + var(--b-thud)) forwards; animation:var(--ba); }
+@keyframes an-tilt { from { transform:rotate(0deg); } to { transform:rotate(-16deg); } }
+@keyframes an-rock { 0% { transform:rotate(-16deg); } 30% { transform:rotate(7deg); } 60% { transform:rotate(-3deg); }
+  100% { transform:rotate(0deg); } }
+.is-anvil .an-stack { --ba:an-jolt 220ms ease-out calc(var(--tl) + var(--b-hit) + 20ms) both; animation:var(--ba); }
+@keyframes an-jolt { 0%, 100% { transform:none; } 30% { transform:translateY(-10px) rotate(-1.5deg); } }
+
+/* ── the pancake: squashed flat, held, peeled up from one edge like a
+   sticker, boing, back in shape on one shoe, limping off ── */
+.is-anvil .an-chip .cast-body { transform:scale(1, 1);
+  --ba:an-squash 60ms ease-out calc(var(--tl) + var(--b-hit)) both,
+    an-pop 440ms ease-out calc(var(--tl) + var(--b-pop)) forwards; animation:var(--ba); }
+@keyframes an-squash { from { transform:scale(1, 1); } to { transform:var(--squash); } }
+@keyframes an-pop { 0% { transform:var(--squash); } 30% { transform:scale(.78, 1.28); } 55% { transform:scale(1.1, .9); }
+  78% { transform:scale(.96, 1.04); } 100% { transform:scale(1, 1); } }
+.is-anvil .an-chip .cast-hop { transform-origin:var(--peel-at); transform:translateY(0px) rotate(0deg);
+  --ba:an-peel 300ms cubic-bezier(.3,.7,.4,1.15) calc(var(--tl) + var(--b-peel)) both,
+    an-unpeel 120ms ease-in calc(var(--tl) + var(--b-pop)) forwards,
+    an-limp-bob 240ms ease-in-out calc(var(--tl) + var(--b-limp)) 4 forwards; animation:var(--ba); }
+@keyframes an-peel { from { transform:translateY(0px) rotate(0deg); } to { transform:translateY(0px) rotate(32deg); } }
+@keyframes an-unpeel { from { transform:translateY(0px) rotate(32deg); } to { transform:translateY(0px) rotate(0deg); } }
+@keyframes an-limp-bob { 0%, 100% { transform:translateY(0px) rotate(0deg); } 45% { transform:translateY(-30px) rotate(0deg); } }
+.is-anvil .an-chip .cast-move { transform:translateX(640px);
+  --ba:an-limp 1000ms linear calc(var(--tl) + var(--b-limp)) both; animation:var(--ba); }
+@keyframes an-limp { from { transform:translateX(0px); } to { transform:translateX(640px); } }
+/* one shoe stays flat on the floor */
+.is-anvil .an-chip .cast-shoe.is-l { opacity:0; --ba:bit-hide 1ms step-end calc(var(--tl) + var(--b-pop)) both; animation:var(--ba); }
+.is-anvil .an-flatshoe { opacity:1; --ba:bit-show 1ms step-end calc(var(--tl) + var(--b-pop)) both; animation:var(--ba); }
+/* the stars go when it peels up */
+.is-anvil .bit-dizzy { --out:var(--b-peel); }

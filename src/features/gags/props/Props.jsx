@@ -235,8 +235,9 @@ export function SpeedLines({ length = 420, rows = [[-70, 1], [-34, 0.7], [0, 1],
 /* ── emanata: short strokes flung out from a point, the comic strip's
    mark for a noise or a start (a beep, a ding, a jolt). `rays` are
    [angle (degrees: 0 right, 90 down), from r, to r]; the default fans
-   out to the left. Anchor: the point. ── */
-export const RAYS_LEFT = Object.freeze([[-152, 14, 52], [180, 18, 64], [152, 14, 52]]);
+   out to the left, each stroke clear of the point so they never read as
+   an arrowhead. Anchor: the point. ── */
+export const RAYS_LEFT = Object.freeze([[-140, 26, 58], [180, 30, 68], [140, 26, 58]]);
 export function Emanata({ rays = RAYS_LEFT, width = 9, scale = 1, color = "var(--bone)", className = "" }) {
   const k = 1 / scale;
   const R = Math.max(...rays.map(ray => ray[2])) + width + CAST.line;

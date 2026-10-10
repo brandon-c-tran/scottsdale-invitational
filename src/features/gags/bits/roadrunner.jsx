@@ -21,7 +21,7 @@ export const RR_STAGE = Object.freeze({ x:880, bird:1330, floor:CAST.floor, slid
 /* the open beak's tip, from the bird's feet (Props.jsx Roadrunner), and
    its beep's marks fanned up and out over the chip's glove */
 const BEAK = Object.freeze({ x:-188, y:-186 });
-const BEEP_RAYS = Object.freeze([[-168, 14, 50], [-138, 16, 58], [-108, 14, 50]]);
+const BEEP_RAYS = Object.freeze([[-176, 30, 66], [-136, 34, 74], [-96, 30, 66]]);
 /* the cloud the bird leaves where the chip stood: big puffs, slow to clear */
 const CLOUD = Object.freeze([[-170, -70, 1.9], [-70, -150, 2.1], [70, -130, 2], [170, -60, 1.8], [0, -70, 2.3], [-250, -24, 1.5],
   [250, -30, 1.4], [-420, -40, 1.3], [-620, -30, 1.1]]);

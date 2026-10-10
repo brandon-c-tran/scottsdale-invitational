@@ -1,0 +1,61 @@
+/* The bits' props (Props.jsx). Inks from cast.css (--bit-*); motion that a
+   prop always does (dust flying, stars circling) lives here, on the bit's
+   clock from the node's --at. Every animation rides --ba (bits.css) and
+   rests on its end state. */
+
+.bit-prop { position:absolute; display:block; overflow:visible; }
+.bit-ink { fill:var(--bit-ink); stroke:var(--bit-ink); stroke-linecap:round; stroke-linejoin:round; }
+.bit-ink[fill="none"] { fill:none; }
+.bit-line { fill:none; stroke:var(--bit-ink); stroke-linecap:round; stroke-linejoin:round; }
+.bit-floor-shadow { position:absolute; display:block; border-radius:50%; background:var(--bit-shadow); }
+/* what is falling on someone: darker than any shadow already there */
+.bit-floor-shadow.is-falling { background:color-mix(in srgb, var(--ink0) 72%, transparent); }
+
+/* the tumbleweed: a dark core so the brush reads on any sky */
+.bit-tumble-ball { fill:color-mix(in srgb, var(--bit-brush) 30%, var(--ink0)); stroke:var(--ink0); stroke-width:6px; }
+.bit-twig { fill:none; stroke:var(--bit-brush); stroke-linecap:round; stroke-linejoin:round; }
+
+/* a fast thing's wake, and a roadrunner's legs as a wheel of blur */
+.bit-speed-line { fill:none; stroke:color-mix(in srgb, var(--bone) 78%, transparent); stroke-linecap:round; }
+.bit-rr-blur { fill:none; stroke:color-mix(in srgb, var(--bit-beak) 75%, transparent); stroke-linecap:round; stroke-dasharray:46 22; }
+
+/* ── dust: each puff flung from the impact, growing as it goes, gone by
+   the end (its rest) ── */
+.bit-dust, .bit-dizzy { position:absolute; width:0; height:0; }
+.bit-dust-puff { position:absolute; left:0; top:0; width:0; height:0; opacity:0;
+  --ba:bit-dust-fly var(--dust-ms, 760ms) cubic-bezier(.15,.75,.3,1) calc(var(--tl) + var(--at) + var(--d)) both;
+  animation:var(--ba); }
+/* before its instant a puff is nowhere (a fill-both animation shows its
+   first keyframe from the bit's start) */
+@keyframes bit-dust-fly {
+  0% { opacity:0; transform:translate(0, 0) scale(.3); }
+  1% { opacity:1; transform:translate(0, 0) scale(.3); }
+  50% { opacity:1; }
+  100% { opacity:0; transform:translate(var(--dx), var(--dy)) scale(1.2); } }
+/* the whirl: a faint disc and the blur's arcs */
+.bit-whirl-disc { fill:color-mix(in srgb, var(--bone) 22%, transparent); }
+.bit-whirl-arc { fill:none; stroke:color-mix(in srgb, var(--bone) 92%, transparent); stroke-linecap:round; }
+
+/* ── dizzy stars: round and round an ellipse, the near side larger; they
+   come in at --at and go at --out ── */
+.bit-dizzy-star { position:absolute; left:0; top:0; width:0; height:0; opacity:0;
+  --ba:bit-dizzy-in 160ms var(--ease-out) calc(var(--tl) + var(--at)) both,
+    bit-orbit var(--orbit-ms, 900ms) linear calc(var(--tl) + var(--at) - var(--i) * var(--orbit-ms, 900ms) / var(--n)) infinite,
+    bit-dizzy-out 160ms linear calc(var(--tl) + var(--out, 99999ms)) forwards;
+  animation:var(--ba); }
+@keyframes bit-dizzy-in { from { opacity:0; } to { opacity:1; } }
+@keyframes bit-dizzy-out { from { opacity:1; } to { opacity:0; } }
+@keyframes bit-orbit {
+  0% { transform:translate(var(--rx), 0) scale(.86) rotate(0deg); }
+  8.333% { transform:translate(calc(var(--rx) * .866), calc(var(--ry) * .5)) scale(.96) rotate(30deg); }
+  16.667% { transform:translate(calc(var(--rx) * .5), calc(var(--ry) * .866)) scale(1.05) rotate(60deg); }
+  25% { transform:translate(0, var(--ry)) scale(1.1) rotate(90deg); }
+  33.333% { transform:translate(calc(var(--rx) * -.5), calc(var(--ry) * .866)) scale(1.05) rotate(120deg); }
+  41.667% { transform:translate(calc(var(--rx) * -.866), calc(var(--ry) * .5)) scale(.96) rotate(150deg); }
+  50% { transform:translate(calc(var(--rx) * -1), 0) scale(.86) rotate(180deg); }
+  58.333% { transform:translate(calc(var(--rx) * -.866), calc(var(--ry) * -.5)) scale(.76) rotate(210deg); }
+  66.667% { transform:translate(calc(var(--rx) * -.5), calc(var(--ry) * -.866)) scale(.69) rotate(240deg); }
+  75% { transform:translate(0, calc(var(--ry) * -1)) scale(.66) rotate(270deg); }
+  83.333% { transform:translate(calc(var(--rx) * .5), calc(var(--ry) * -.866)) scale(.69) rotate(300deg); }
+  91.667% { transform:translate(calc(var(--rx) * .866), calc(var(--ry) * -.5)) scale(.76) rotate(330deg); }
+  100% { transform:translate(var(--rx), 0) scale(.86) rotate(360deg); } }

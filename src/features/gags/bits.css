@@ -34,6 +34,12 @@
 .bit-dim { position:absolute; inset:0; pointer-events:none;
   background:linear-gradient(180deg, color-mix(in srgb, var(--night-deep) 52%, transparent),
     color-mix(in srgb, var(--night-deep) 18%, transparent) 46%, transparent 70%); }
+/* a pool of light on the desert floor where the cast stands: the floor is
+   dark in every session (the towers' names sit on it), and a bit's
+   shadows, pancakes and dropped props have to read on it */
+.bit-floorlight { position:absolute; left:40px; right:40px; top:846px; height:180px; pointer-events:none;
+  background:radial-gradient(50% 50% at 50% 50%, color-mix(in srgb, var(--bone) 17%, transparent),
+    color-mix(in srgb, var(--bone) 7%, transparent) 62%, transparent 100%); }
 .bit-scene { position:absolute; inset:0; }
 
 /* ── lettering on the painting: the name, and the moment's fact under

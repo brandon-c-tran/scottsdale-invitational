@@ -94,6 +94,7 @@ export function BitLayer({ bit: bitOrId, cast = {}, state = null, name, fact = n
       style={{ "--tl":`${-elapsed}ms`, "--bit-ms":`${bit.ms}ms`, "--bit-in":`${BIT_IN_MS}ms`, "--bit-out":`${BIT_OUT_MS}ms`,
         "--b-letter":`${Math.round(bit.letter?.at || 0)}ms`, "--bit-lamp":lamp, ...beatVars(bit) }}>
       <div className="bit-dim" />
+      <div className="bit-floorlight" />
       <div className="bit-scene">{Scene && <Scene bit={bit} cast={cast} state={state} mode={mode} reduced={reduced} />}</div>
       <BitLetters bit={bit} name={lettered} fact={fact} />
     </div>

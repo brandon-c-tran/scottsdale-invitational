@@ -14,8 +14,8 @@
   --bit-shoe-sole:color-mix(in srgb, var(--art-umber) 62%, var(--ink0));
   --bit-shadow:color-mix(in srgb, var(--ink0) 46%, transparent);
   /* iron (an anvil), gunmetal (a revolver), and the light on them */
-  --bit-iron:color-mix(in srgb, var(--art-indigo) 46%, var(--ink0));
-  --bit-iron-lit:color-mix(in srgb, var(--silver) 62%, var(--art-cobalt));
+  --bit-iron:color-mix(in srgb, var(--silver) 40%, var(--art-indigo));
+  --bit-iron-lit:color-mix(in srgb, var(--silver) 70%, var(--bone));
   --bit-metal:color-mix(in srgb, var(--silver) 70%, var(--art-indigo));
   --bit-metal-dark:color-mix(in srgb, var(--art-indigo) 62%, var(--ink0));
   --bit-wood:color-mix(in srgb, var(--art-terracotta) 70%, var(--art-umber));

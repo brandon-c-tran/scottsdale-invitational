@@ -66,6 +66,8 @@ import { isBoardGame } from "../../../shared/triviaBoard.js";
 import { awardOnTv } from "../../../shared/prompts.js";
 import { TVPhotoCard } from "../photos/TVPhotoCard.jsx";
 import { tvPhotoGap, tvPhotoRotation, withPhotoTurns } from "../photos/photoModel.js";
+import { TVRecord } from "./TVRecords.jsx";
+import { recordAt, recordCards, withRecordTurns } from "./recordsModel.js";
 import { contestTerms } from "../comebacks/comebacks.js";
 import { CORNER_GAP, CORNER_W, TVArriveCorner, TVLobby } from "./TVArrivals.jsx";
 import { arrivalsBoard, arriveUrl } from "../arrivals/arrivalsModel.js";
@@ -1148,11 +1150,16 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied: allT
     if (state.live) s.push("trophy");
     return s;
   }, [final, joinNeeded, qrUrl, nextEv, latest, state.live]);
-  const ambient = photoGap ? withPhotoTurns(ambientCards, photos.length) : ambientCards;
+  /* Rivalries and records (Oct 10): the weekend's own records take turns in
+     the same gap, one card a turn, the next records turn the next card
+     (recordsModel.js); only cards with data behind them */
+  const records = useMemo(() => photoGap ? recordCards(state, events) : EMPTY, [photoGap, state, events]);
+  const ambient = photoGap ? withPhotoTurns(withRecordTurns(ambientCards, records.length), photos.length) : ambientCards;
   /* server time picks the card, so every TV in the house shows the same one;
      reduced motion still rotates, it just cuts instead of fading */
   const turnCard = ambient[ambientIndex(ambient.length, now, TV_AMBIENT_TURN_MS)] || "board";
   const scene = turnCard === "trophy" && now % TV_AMBIENT_TURN_MS >= TV_TROPHY_HOLD_MS ? "board" : turnCard;
+  const record = scene === "records" ? recordAt(records, ambient, now, TV_AMBIENT_TURN_MS) : null;
 
   const geoOnTv = !!state.geo?.order && !state.results?.[state.geo.eventId];
   /* Trivia holds the room from its first question to its result */
@@ -1316,6 +1323,9 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied: allT
     </div>;
   } else if (scene === "photos" && photos.length) {
     content = <TVPhotoCard state={state} list={photos} now={now} />;
+  } else if (record) {
+    const turnAt = Math.floor(now / TV_AMBIENT_TURN_MS) * TV_AMBIENT_TURN_MS;
+    content = <TVRecord key={`${record.id}@${turnAt}`} state={state} card={record} turnAt={turnAt} now={now} />;
   } else if (scene === "next" && nextEv) {
     /* what is next stands over the standings: the towers stay the lower third */
     horizonShown = true;

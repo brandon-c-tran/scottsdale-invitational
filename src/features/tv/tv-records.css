@@ -1,0 +1,67 @@
+/* Rivalries and records (TVRecords.jsx): one glass panel on the session's
+   painting, its label, the people as their photo chips with each name
+   under its chip, and the record as one big numeral. Canvas px, 24px and
+   up. Tokens only. Every delay is "this long after the turn began" (--tl),
+   so a TV joining late shows the card standing. */
+.tv-records-pane { justify-content:center; }
+.tv-record { position:relative; max-width:100%; box-sizing:border-box; display:flex; flex-direction:column; align-items:center;
+  gap:36px; padding:44px 72px 56px;
+  animation:tv-record-in 560ms var(--ease-out) var(--tl, 0ms) both; }
+@keyframes tv-record-in { from { opacity:0; transform:translateY(22px) scale(.985); } to { opacity:1; transform:none; } }
+/* the label: one to three words in the lilac label face, nothing lit */
+.tv-record-label { margin:0; font:700 32px/1.15 var(--fd-display); letter-spacing:.16em; text-transform:uppercase;
+  color:var(--muted2); white-space:nowrap; }
+
+/* the people: chips in one row, their names in the row under them, one
+   column each (--col), so a name always stands under its own chip */
+.tv-record-people { display:flex; flex-direction:column; align-items:center; gap:18px; min-width:0; }
+.tv-record-faces, .tv-record-names { display:flex; justify-content:center; gap:28px; }
+.tv-record-faces { height:var(--faces-h, auto); align-items:center; }
+.tv-record-face, .tv-record-name { width:var(--col); flex:none; display:flex; justify-content:center; text-align:center; }
+.tv-record-name { line-height:1.15; color:var(--bone); white-space:nowrap; }
+
+/* the hero numeral: figures in the scoreboard face, tabular */
+.tv-record-n { display:block; font-family:var(--fd-display); font-weight:800; line-height:1; letter-spacing:.01em;
+  font-variant-numeric:tabular-nums; color:var(--bone); white-space:nowrap; }
+.tv-record-n.is-chip { color:var(--sun); }
+.tv-record-n.is-loss { color:var(--clay-text); }
+
+/* head to head: two sides facing each other, the record between them,
+   level with the chips */
+.tv-record-h2h { display:grid; align-items:start; column-gap:40px; width:100%; }
+.tv-record-score { align-self:start; display:flex; align-items:center; justify-content:center; gap:.16em; }
+.tv-record-score .tv-record-n { font-size:1em; }
+.tv-record-n.is-behind { color:var(--muted); }
+.tv-record-to { font:700 40px/1 var(--fd-display); letter-spacing:.14em; text-transform:uppercase; color:var(--muted2);
+  padding:0 .4em; }
+.tv-record-people.is-left { animation:tv-record-left 620ms var(--ease-out) calc(var(--tl, 0ms) + 140ms) both; }
+.tv-record-people.is-right { animation:tv-record-right 620ms var(--ease-out) calc(var(--tl, 0ms) + 140ms) both; }
+@keyframes tv-record-left { from { opacity:0; transform:translateX(-56px); } to { opacity:1; transform:none; } }
+@keyframes tv-record-right { from { opacity:0; transform:translateX(56px); } to { opacity:1; transform:none; } }
+.tv-record-score .tv-record-n { animation:tv-record-stamp 380ms var(--ease-land) calc(var(--tl, 0ms) + 680ms) both; }
+.tv-record-score .tv-record-n.is-second { animation-delay:calc(var(--tl, 0ms) + 860ms); }
+.tv-record-to { animation:tv-record-fade 300ms var(--ease-out) calc(var(--tl, 0ms) + 780ms) both; }
+
+/* a solo record: the people, then the figure and what it counts */
+.tv-record-solo { display:grid; align-items:center; column-gap:96px; width:100%; }
+.tv-record-solo > .tv-record-people { animation:tv-record-left 620ms var(--ease-out) calc(var(--tl, 0ms) + 140ms) both; }
+.tv-record-figure { min-width:0; display:flex; flex-direction:column; align-items:flex-start; gap:28px; }
+.tv-record-line { display:flex; align-items:baseline; gap:20px; }
+.tv-record-line .tv-record-n { animation:tv-record-stamp 380ms var(--ease-land) calc(var(--tl, 0ms) + 600ms) both;
+  transform-origin:0 70%; }
+.tv-record-unit { font:700 64px/1 var(--fd-display); letter-spacing:.04em; color:var(--muted2);
+  animation:tv-record-fade 300ms var(--ease-out) calc(var(--tl, 0ms) + 760ms) both; }
+/* the wins a count is made of: each its game's mark, in a row */
+.tv-record-marks { display:flex; flex-wrap:nowrap; gap:16px; }
+.tv-record-mark { display:block; animation:tv-record-mark 320ms var(--ease-land) calc(var(--tl, 0ms) + 900ms + var(--i, 0) * 70ms) both; }
+/* what made a swing: the event's mark and name, or the Quick Draw and who */
+.tv-record-cause { display:flex; align-items:center; gap:20px; min-width:0;
+  animation:tv-record-fade 360ms var(--ease-out) calc(var(--tl, 0ms) + 900ms) both; }
+.tv-record-cause-name { line-height:1.15; color:var(--muted2); white-space:nowrap; }
+
+@keyframes tv-record-stamp { 0% { opacity:0; transform:scale(1.32); } 100% { opacity:1; transform:none; } }
+@keyframes tv-record-mark { from { opacity:0; transform:translateY(14px) scale(.8); } to { opacity:1; transform:none; } }
+@keyframes tv-record-fade { from { opacity:0; } to { opacity:1; } }
+@media (prefers-reduced-motion: reduce) {
+  .tv-record, .tv-record-people, .tv-record-n, .tv-record-to, .tv-record-unit, .tv-record-mark, .tv-record-cause { animation:none; }
+}

@@ -90,7 +90,8 @@ const anvil = {
     { at:AN.stars, sound:"bitStars", pan:-0.1, opts:{ ms:AN.peel - AN.stars - 80 } },
     { at:AN.peel, sound:"bitPeel", pan:-0.1 },
     { at:AN.pop, sound:"bitBoing", pan:-0.1 },
-    ...[0, 1, 2, 3].map(i => ({ at:AN.limp + 60 + i * 240, sound:"bitHop", pan:Math.round((-0.12 - i * 0.12) * 100) / 100, opts:{ step:i } })),
+    /* each limp lands at the end of its 240 ms hop (anvil.css an-limp-bob) */
+    ...[0, 1, 2, 3].map(i => ({ at:AN.limp + 240 * (i + 1), sound:"bitHop", pan:Math.round((-0.12 - i * 0.12) * 100) / 100, opts:{ step:i } })),
   ],
 };
 

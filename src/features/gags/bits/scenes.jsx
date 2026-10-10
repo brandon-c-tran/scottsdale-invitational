@@ -15,9 +15,13 @@
 import { Quickdraw } from "./quickdraw.jsx";
 import { Anvil } from "./anvil.jsx";
 import { Roadrunner } from "./roadrunner.jsx";
+/* the slapstick bits */
+import { Springglove } from "./springglove.jsx";
 
 export const SCENES = Object.freeze({
   quickdraw:Quickdraw,
   anvil:Anvil,
   roadrunner:Roadrunner,
+  /* the slapstick bits */
+  springglove:Springglove,
 });

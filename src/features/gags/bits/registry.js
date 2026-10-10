@@ -159,7 +159,45 @@ const roadrunner = {
   ],
 };
 
-export const BITS = Object.freeze([quickdraw, anvil, roadrunner].map(freeze));
+/* ═══ the slapstick bits (springglove, toohype, dynamite) ═══ */
+
+/* ── springglove: an upset. B is mid victory bounce, fists up; A stands
+   off to the side with a boxing glove on a spring in a box, aimed at B.
+   B turns and sees it. Nothing. A slams the button: the glove punches B
+   off in a straight line into the distance. The spring quivers over the
+   empty spot. A star pings where B went. The spring snaps back, clean
+   through the box and out its back into A's face; A wobbles, turns to the
+   room, thumbs up. ── */
+const SG = { hop:0, turn:800, raise:1320, press:1540, fire:1570, hit:1650, fly:1710, twinkle:2450, retract:3000, home:3130, boop:3240,
+  look:3760, thumb:4080 };
+const springglove = {
+  id:"springglove", name:"Spring glove", shape:"versus", style:"slapstick", ms:4850, beats:SG, still:4580, summary:"bitPow",
+  letter:{ at:SG.thumb, over:"a", place:"top-left" },
+  camera:{ zoom:1.5, x:"mid", fit:true, moves:[
+    /* lean in on the bounce and the standoff */
+    { at:200, ms:1200, zoom:1.56 },
+    /* after the punch, drift to the empty spot and the sky over it */
+    { at:SG.fly + 160, ms:620, zoom:1.45, x:"sky" },
+    /* whip back with the spring to A */
+    { at:SG.retract - 30, ms:200, zoom:1.95, x:"a", ease:CAMERA_EASE.whip },
+    /* in on A for the thumbs up */
+    { at:SG.look, ms:1000, zoom:2.06 },
+  ], shakes:[{ at:SG.hit, big:true }, { at:SG.home }] },
+  cast:{ a:{ role:"winner", max:4 }, b:{ role:"beaten", max:4 } },
+  cues:[
+    ...[0, 1, 2].map(i => ({ at:SG.hop + 260 * i + 218, sound:"bitHop", pan:0.42, opts:{ step:i } })),
+    { at:SG.press, sound:"bitClick", pan:-0.22 },
+    { at:SG.fire, sound:"bitSproing", pan:0.05 },
+    { at:SG.hit, sound:"bitPow", pan:0.38 },
+    { at:SG.fly, sound:"bitStreak", pan:0.45, opts:{ from:0.4, to:0.95 } },
+    { at:SG.twinkle, sound:"bitTwinkle", pan:0.62 },
+    { at:SG.retract, sound:"bitZip", pan:0.25 },
+    { at:SG.boop, sound:"bitBonk", pan:-0.36 },
+    { at:SG.boop + 60, sound:"bitBoing", pan:-0.36, opts:{ small:true } },
+  ],
+};
+
+export const BITS = Object.freeze([quickdraw, anvil, roadrunner, springglove].map(freeze));
 const BY_ID = new Map(BITS.map(bit => [bit.id, bit]));
 export const bitById = id => BY_ID.get(id) || null;
 export const bitsOf = shape => BITS.filter(bit => bit.shape === shape);

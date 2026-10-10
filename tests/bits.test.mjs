@@ -72,7 +72,8 @@ test("every bit: a unique id, a shape and a style, a moment's length, its beats,
 });
 
 test("the exemplars keep their shape and style", () => {
-  assert.deepEqual(BITS.map(bit => [bit.id, bit.shape, bit.style]), [
+  const EXEMPLARS = ["quickdraw", "anvil", "roadrunner"];
+  assert.deepEqual(BITS.filter(bit => EXEMPLARS.includes(bit.id)).map(bit => [bit.id, bit.shape, bit.style]), [
     ["quickdraw", "versus", "action"], ["anvil", "loss", "slapstick"], ["roadrunner", "loss", "desert"],
   ]);
   const qd = bitById("quickdraw").beats;
@@ -120,7 +121,11 @@ test("pickBit: never one already played while another remains; never the newest 
     const newest = pool[0];
     const all = pickBit("loss", seed, [...pool.slice(1), newest]);
     assert.notEqual(all.id, newest, "every bit played: not the newest again");
-    assert.equal(pickBit("versus", seed, ["quickdraw"]).id, "quickdraw", "a pool of one plays its one");
+    for (const shape of SHAPES) {
+      const ids = bitsOf(shape).map(bit => bit.id);
+      if (ids.length === 1) assert.equal(pickBit(shape, seed, ids).id, ids[0], "a pool of one plays its one");
+      else if (ids.length > 1) assert.notEqual(pickBit(shape, seed, [ids[0]]).id, ids[0], `${shape}: the one just played waits`);
+    }
   }
   assert.equal(pickBit("loss", "x", "not a list")?.shape, "loss", "a bad recent list is ignored");
 });
@@ -362,7 +367,7 @@ test("every registered bit has a scene", () => {
 });
 
 test("every scene draws on the painting with its cast, letters the name and the fact, on the bit's clock", () => {
-  const casts = { versus:{ a:["Khoa"], b:["Sahil"] }, loss:{ a:["Evan"] } };
+  const casts = { versus:{ a:["Khoa"], b:["Sahil"] }, win:{ a:["Eyob"] }, loss:{ a:["Evan"] } };
   for (const bit of BITS) {
     const cast = casts[bit.shape];
     const html = stage({ bit:bit.id, cast, fact:bit.shape === "loss" ? "-1,000" : null, at:1234, frozen:true });

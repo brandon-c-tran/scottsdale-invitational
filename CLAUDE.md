@@ -575,6 +575,39 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   `state.gagTest` with a cast from the board, played 300 ms after its
   write even with Gags off, cleared by a reset. `/dev/gags-preview.html`
   lands each write live on the real TV (`&song=1`: the walkout first).
+- **Bits** (Oct 10, `src/features/gags/`, not wired into TVMode, phones or
+  `gagModel` yet; waiting on Brandon): the gags' replacement. Straight-faced
+  physical comedy whose cast is the players' own photo chips. The rig
+  (`cast/CastChip.jsx`, pure `castGeometry.js` and `gloveArt.js`): the chip
+  on its edge with a coin's thickness, two floating white gloves in eight
+  poses (rest, ready, open, fist, grip, point, flat, thumb; `hands` takes a
+  pose or `[[pose, ms], ...]`, `hold` a prop in a hand, behind the fingers),
+  optional shoes, a shadow that walks with it, every layer a node of no size
+  hung off the feet (`.cast-move`, `.cast-hop`, `.cast-body`, `.cast-chip-in`,
+  `.cast-hand-in`, `.cast-held-fx`...), so a bit squashes, tilts, gestures
+  and throws by class; `CastSide` stands up to four and letters "+N". No eyes
+  over a photo. Props (`props/Props.jsx`): revolver, muzzle flash, puff,
+  dust, tumbleweed, anvil, floor shadow, dizzy stars, sweat drop, sunglasses,
+  speed lines, whirl, chip stack, roadrunner; one ink keyline (`CAST.line`)
+  and flat `--bit-*` inks mixed from the painting's. `bits/registry.js` is
+  the pure contract: each bit's shape (versus, win, loss, idle), style
+  (action, slapstick, desert), `ms` (3 to 5.5 s for a moment), named `beats`
+  (CSS reads `var(--b-<name>)`, cues land on them), `still` (reduced
+  motion's frame, after the lettering lands), `summary`, `letter`, `cast`
+  roles and `cues`; `pickBit(shape, seed, recent)` picks the same bit on
+  every screen and never repeats one while another remains. `bits/scenes.jsx`
+  maps ids to scenes. Every motion is `--ba:<animation>; animation:var(--ba)`
+  from `calc(var(--tl) + ...)`, filled so each element rests on its end
+  state; a frozen bit (`is-frozen`) holds any instant through shell.css's
+  reduced-motion rule (`tests/bits.test.mjs` scans the convention).
+  `BitStage.jsx` plays a bit on the session's painting in a pool of floor
+  light, letters the name (and the moment's fact, "-1,000") on the sky, and
+  cues its foley on the room bus from its start (`tv/bitSound.js`; the
+  kit's `BIT_PARTS`, open past a win song). The exemplars: quickdraw (an
+  upset), anvil and roadrunner (losses). `/dev/bits-reel.html` plays them
+  all; `node scripts/build-bits-reel.mjs` bundles it into one page for review
+  and `node scripts/bit-frames.mjs <id> <ms...>` renders frames (`--contact`
+  a sheet, `--soundcheck` the foley offline).
 - **Arrivals** (Oct 4, `state.arrivals`, `setArrived`, `setArrivalsOpen`):
   Friday starts with people still on the road, so games may run before all
   13 are in. Once the door opens (the first check-in, or the commissioner),

@@ -67,8 +67,9 @@
 .cast-pose > .cast-held { z-index:0; }
 .cast-pose > .cast-glove { z-index:1; }
 
-/* "+N" lettered on the floor beside a side */
-.cast-more { position:absolute; display:block; white-space:nowrap; font-size:64px; line-height:1.15; color:var(--bone);
+/* "+N" lettered beside a side, past its outer glove */
+.cast-more { position:absolute; display:block; width:0; height:0; }
+.cast-more-in { position:absolute; left:0; top:0; display:block; white-space:nowrap; font-size:64px; line-height:1.15; color:var(--bone);
   text-shadow:3px 0 0 var(--ink0), -3px 0 0 var(--ink0), 0 3px 0 var(--ink0), 0 -3px 0 var(--ink0), 2px 2px 0 var(--ink0),
     -2px 2px 0 var(--ink0), 2px -2px 0 var(--ink0), -2px -2px 0 var(--ink0), 0 6px 0 var(--ink0); }
 

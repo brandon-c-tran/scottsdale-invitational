@@ -64,7 +64,8 @@ button:focus-visible, select:focus-visible, input:focus-visible { outline:2px so
 /* ?contact: a grid of instants */
 .br-contact { display:grid; align-content:center; gap:4px; padding:4px; }
 .br-contact-cell { position:relative; aspect-ratio:16 / 9; }
-.br-contact-t { position:absolute; left:6px; top:4px; padding:2px 8px; border-radius:6px; background:color-mix(in srgb, var(--ink0) 80%, transparent);
+/* bottom right: the lettering lives up top */
+.br-contact-t { position:absolute; right:6px; bottom:4px; padding:2px 8px; border-radius:6px; background:color-mix(in srgb, var(--ink0) 80%, transparent);
   color:var(--bone); font:800 18px/1.2 var(--fd-display); font-variant-numeric:tabular-nums; }
 .br-at { position:absolute; display:block; width:0; height:0; }
 .br-tag { position:absolute; white-space:nowrap; font:800 26px/1.15 var(--fd-display); letter-spacing:.06em; text-transform:uppercase;

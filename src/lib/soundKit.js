@@ -1030,11 +1030,18 @@ export const BIT_PARTS = Object.freeze([
   /* a hop (opts.step): a light knock in the dirt */
   { id:"bitHop", name:"Hop", ms:150,
     play:(E, t, o = {}) => { M.knock(E, t, { pitch:1.35 + ((Number(o.step) || 0) % 2) * 0.1, gain:0.32 }); M.felt(E, t + 0.004, { gain:0.25 }); } },
-  /* heels dug into the dirt */
+  /* heels dug into the dirt (opts.ms: how long it slides) */
   { id:"bitSkid", name:"Skid", ms:350,
-    play:(E, t) => { const v = voice(E, { send:0.15, bright:0.9, gain:1 });
-      for (let i = 0; i < 10; i++) burst(E, v, t + i * 0.024, { f:2600 - i * 90, q:2.5, d:0.03, peak:0.3 - i * 0.02 });
-      M.felt(E, t + 0.24, { gain:0.4 }); } },
+    play:(E, t, o = {}) => { const v = voice(E, { send:0.15, bright:0.9, gain:1 });
+      const d = Math.max(0.12, (o.ms || 260) / 1000), n = Math.min(18, Math.round(d / 0.024));
+      for (let i = 0; i < n; i++) burst(E, v, t + i * 0.024, { f:2600 - i * 900 / n, q:2.5, d:0.03, peak:0.3 - i * 0.2 / n });
+      M.felt(E, t + d - 0.02, { gain:0.4 }); } },
+  /* winding up to run: feet a blur on the spot, faster and higher (opts.ms) */
+  { id:"bitRev", name:"Wind up", ms:400,
+    play:(E, t, o = {}) => { const d = Math.max(0.15, (o.ms || 400) / 1000);
+      for (let x = 0, dt = 0.05, i = 0; x < d && i < 40; i++, x += dt, dt = Math.max(0.016, dt * 0.86))
+        M.knock(E, t + x, { pitch:1.3 + (x / d) * 0.9, gain:0.2 + (x / d) * 0.22 });
+      swell(E, voice(E, { send:0.2, bright:0.7 }), t, { d, f0:300, f1:1400, q:1.2, peak:0.1 }); } },
   /* off like a shot: a little whistle up and a swish away to the left */
   { id:"bitZip", name:"Zip", ms:300,
     play:(E, t) => { glide(E, voice(E, { send:0.2, bright:1, gain:0.5 }), t, NOTE.D6, NOTE.A6, 0.16, 0.12);

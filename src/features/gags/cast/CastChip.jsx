@@ -201,14 +201,17 @@ export function CastChip({ player, photo, size = CAST.size, x = 0, y = CAST.floo
 }
 
 /* A side: its lead nearest the action and up to three more shoulder to
-   shoulder behind it, then "+N" lettered on the floor. `dir` is the way
-   the side extends from the lead. Each member gets .is-lead or .is-mate
-   and --i (0 for the lead) for a bit to stagger them. `lead` and `mates`
-   are CastChip props for each. */
+   shoulder behind it, then "+N" lettered past the outer glove, level with
+   the chips' middle (a node of no size, .cast-more, that a bit can move
+   with the side; --more-drop is how far below it the floor is). `dir` is
+   the way the side extends from the lead. Each member gets .is-lead or
+   .is-mate and --i (0 for the lead) for a bit to stagger them. `lead` and
+   `mates` are CastChip props for each. */
 export function CastSide({ players = [], x, y = CAST.floor, dir = -1, facing = 0, max = 4, lead = {}, mates = {}, className = "" }) {
   const layout = clusterLayout(players.length, { max, dir });
   const shown = players.slice(0, layout.shown);
-  const edge = x + (layout.xs[layout.xs.length - 1] || 0) + dir * layout.size * 0.62;
+  const edge = x + (layout.xs[layout.xs.length - 1] || 0) + dir * layout.size * 0.92;
+  const middle = castGeometry(layout.size).center.y;
   return (
     <div className={`cast-side${className ? ` ${className}` : ""}`} data-count={players.length}>
       {/* drawn back to front: the lead last, in front of its mates */}
@@ -216,8 +219,9 @@ export function CastSide({ players = [], x, y = CAST.floor, dir = -1, facing = 0
         <CastChip key={player} player={player} size={layout.size} x={x + layout.xs[i]} y={y} facing={facing}
           className={i === 0 ? "is-lead" : "is-mate"} style={{ "--i":i }} {...(i === 0 ? lead : mates)} />
       ))}
-      {layout.more > 0 && <span className="cast-more fd-show" style={{ left:edge, top:y + 18,
-        transform:dir < 0 ? "translateX(-100%)" : undefined }}>{`+${layout.more}`}</span>}
+      {layout.more > 0 && <span className="cast-more" style={{ left:edge, top:y + middle, "--more-drop":`${-middle}px` }}>
+        <span className="cast-more-in fd-show" style={{ transform:`translate(${dir < 0 ? "-100%" : "0%"}, -50%)` }}>{`+${layout.more}`}</span>
+      </span>}
     </div>
   );
 }

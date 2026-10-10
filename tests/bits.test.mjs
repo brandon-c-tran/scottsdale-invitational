@@ -1,10 +1,12 @@
 /* Bits (Oct 10, features/gags/bits): the registry's contract (ids, shapes,
    styles, lengths, beats, the still, cues on kit recipes inside the bit,
-   a scene for every id), pickBit's determinism and its no-repeat rule, the
-   room's cues on the bit's clock (reduced motion's one summary, the reel's
-   slow motion), the foley recipes, the rig's geometry and pose timing, the
-   CSS convention every bit animates by (--ba from var(--tl), resting on its
-   end state), and every scene's real markup. */
+   a scene for every id), the camera (medium shots, the painting always
+   covering the canvas, the cast in frame, moves on the bit's clock),
+   pickBit's determinism and its no-repeat rule, the room's cues on the
+   bit's clock (reduced motion's one summary, the reel's slow motion), the
+   foley recipes, the rig's geometry and pose timing, the CSS convention
+   every bit animates by (--ba from var(--tl), resting on its end state),
+   and every scene's real markup. */
 import test, { mock } from "node:test";
 import assert from "node:assert/strict";
 import Module from "node:module";
@@ -21,7 +23,9 @@ globalThis.__FD_BUILD_ID__ = "build-test";
 const root = fileURLToPath(new URL("../", import.meta.url));
 const { ROSTER, CHIP_COLORS } = await import("../shared/core.js");
 const registry = await import("../src/features/gags/bits/registry.js");
-const { BITS, BIT_SHAPES, BIT_STYLES, LETTER_LAND_MS, MOMENT_MS, SHAPES, STYLES, beatVars, bitById, bitsOf, pickBit, seedHash } = registry;
+const { BITS, BIT_SHAPES, BIT_STYLES, LETTER_LAND_MS, LETTER_PLACES, MOMENT_MS, SHAPES, STYLES, beatVars, bitById, bitsOf, pickBit,
+  seedHash } = registry;
+const camera = await import("../src/features/gags/bits/camera.js");
 const kit = await import("../src/lib/soundKit.js");
 const { bitCues } = await import("../src/features/tv/bitSound.js");
 const geometry = await import("../src/features/gags/cast/castGeometry.js");
@@ -46,6 +50,7 @@ test("every bit: a unique id, a shape and a style, a moment's length, its beats,
     }
     assert.ok(bit.letter.at >= 0 && bit.letter.at <= bit.ms, `${at} the lettering lands inside the bit`);
     assert.ok(bit.still >= bit.letter.at + LETTER_LAND_MS, `${at} the still shows the name landed`);
+    assert.ok(LETTER_PLACES.includes(bit.letter.place), `${at} lettered at ${bit.letter.place}`);
     assert.ok(bit.cast[bit.letter.over], `${at} letters a side it casts`);
     assert.ok(kit.isSound(bit.summary), `${at} summary ${bit.summary} is a kit recipe`);
     assert.ok(bit.cues.length > 0, `${at} has sound`);
@@ -72,14 +77,19 @@ test("the exemplars keep their shape and style", () => {
   ]);
   const qd = bitById("quickdraw").beats;
   assert.ok(qd.twitch < qd.draw && qd.draw < qd.bang && qd.bang < qd.fall && qd.fall < qd.land, "the tell, the draw, the bang, the fall");
-  assert.ok(qd.fall - qd.bang >= 300 && qd.fall - qd.bang <= 700, "a deadpan beat between the bang and the fall");
+  assert.ok(qd.kick - qd.bang >= 30 && qd.kick - qd.bang <= 60, "the flash's frames, then the kick");
+  assert.ok(qd.whip - qd.kick >= 300, "the camera stays for the skid");
+  assert.ok(qd.fall - qd.whip >= 450 && qd.fall - qd.whip <= 900, "on B, nothing happens: a deadpan beat before the fall");
   assert.ok(qd.blow < qd.spin && qd.spin < qd.fumble && qd.fumble < qd.drop, "cool, then the fumble");
   const an = bitById("anvil").beats;
   assert.ok(an.notice - (an.shadow) > 1000 && an.drop - an.notice >= 200 && an.drop < an.hit, "the shadow, the look up, then the anvil");
   assert.ok(an.peel - an.hit >= 700, "the pancake holds before it peels");
+  assert.ok(an.pop < an.look && an.limp - an.look >= 800, "back in shape, it looks at the room for a beat before it limps off");
   const rr = bitById("roadrunner").beats;
   assert.ok(rr.stop < rr.beep && rr.beep < rr.leave && rr.leave < rr.clear && rr.clear < rr.notice && rr.notice < rr.zip);
   assert.ok(rr.notice - rr.clear >= 300, "a beat with only the shadow");
+  assert.ok(rr.arrive < rr.skid && rr.stop - rr.skid >= 250, "in like a shot, then a long skid");
+  assert.ok(rr.notice < rr.windup && rr.zip - rr.windup >= 400, "the shadow winds itself up before it goes");
 });
 
 /* ── pickBit ── */
@@ -289,6 +299,63 @@ const stage = props => renderToStaticMarkup(React.createElement(PlayerIdentityPr
   React.createElement(BitStage, { state:{ profiles:PROFILES }, photos:PHOTOS, ...props })));
 const text = html => html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
 
+/* ── the camera ── */
+
+const SAMPLE_CASTS = { versus:[{ a:["Khoa"], b:["Sahil"] }, { a:["Adi", "Chiang"], b:["Richard", "Allan"] },
+  { a:["Brandon", "Evan", "Eyob", "Ben"], b:["Henry", "Jeremy", "Chinh", "Khoa", "Sahil", "Adi"] }], loss:[{ a:["Evan"] }] };
+
+test("the camera: a clamped framing always covers the canvas with the painting, and puts the floor near the foot", () => {
+  const { CAMERA } = camera;
+  for (const framing of [{ zoom:0.4, x:0 }, { zoom:1, x:2400 }, { zoom:9, x:960 }, { zoom:1.8, x:-50 }, { zoom:1.07, x:960 }]) {
+    const f = camera.clampFraming(framing);
+    assert.ok(f.zoom >= CAMERA.minZoom && f.zoom <= CAMERA.maxZoom, `zoom ${f.zoom}`);
+    const left = camera.toScreen(f, { x:0 }), right = camera.toScreen(f, { x:CAMERA.width });
+    assert.ok(left.x <= 0.01 && right.x >= CAMERA.width - 0.01, `the painting spans the screen at ${JSON.stringify(f)}`);
+    assert.ok(camera.toScreen(f, { x:0, y:0 }).y <= 0, "the sky reaches the top");
+    assert.ok(camera.toScreen(f, { x:0, y:1080 }).y >= 1080, "the floor reaches the foot");
+  }
+  assert.deepEqual(camera.toScreen({ zoom:2, x:960 }, { x:960, y:CAMERA.floor }), { x:960, y:CAMERA.screenFloor });
+  assert.equal(camera.framingTransform({ zoom:2, x:900 }), "translate(960px, 990px) scale(2) translate(-900px, -930px)");
+});
+
+test("every bit is shot: medium shots, the cast in frame, every move on the bit's clock", () => {
+  for (const bit of BITS) {
+    const Scene = SCENES[bit.id];
+    for (const cast of SAMPLE_CASTS[bit.shape] || [{}]) {
+      const anchors = Scene.anchors?.(cast) || {};
+      const track = camera.cameraTrack(bit, anchors);
+      const at = `${bit.id} ${Object.values(cast).map(side => side.length).join("v")}:`;
+      assert.equal(track[0].at, 0, `${at} framed from the start`);
+      track.forEach((point, i) => {
+        assert.deepEqual(camera.clampFraming(point), { zoom:point.zoom, x:point.x }, `${at} every framing covers the canvas`);
+        assert.ok(point.at <= bit.ms, `${at} the camera settles inside the bit`);
+        if (i) assert.ok(point.at >= track[i - 1].at, `${at} in order`);
+      });
+      const base = track[0];
+      if (bit.shape === "loss") assert.ok(base.zoom * 240 >= 400 && base.zoom * 240 <= 480, `${at} a solo medium shot (${base.zoom * 240} px)`);
+      if (Number.isFinite(anchors.minX)) {
+        /* the whole span in the two-shot: inside the TV's safe sides unless the cast is too big to fit at all */
+        const left = camera.toScreen(base, { x:anchors.minX }).x, right = camera.toScreen(base, { x:anchors.maxX }).x;
+        assert.ok(left >= 0 && right <= 1920, `${at} the cast in frame (${left} to ${right})`);
+        if (base.zoom > camera.CAMERA.minZoom) assert.ok(left >= 63 && right <= 1857, `${at} inside the safe sides`);
+      }
+      const css = camera.cameraCss(bit, anchors);
+      assert.match(css.css, new RegExp(`@keyframes ${css.name} \\{ 0% `), `${at} one keyframes from 0%`);
+      assert.match(css.css, / 100% \{ transform:translate\(960px, 990px\) scale\(/, `${at} to 100%`);
+      assert.equal(css.rest, camera.framingTransform(track[track.length - 1]), `${at} rests on its last framing`);
+    }
+    for (const shake of bit.camera.shakes || []) assert.ok(shake.at > 0 && shake.at < bit.ms, `${bit.id}: a shake inside the bit`);
+    for (const wash of bit.camera.washes || []) assert.ok(wash >= 40 && wash < bit.ms, `${bit.id}: a white frame inside the bit`);
+  }
+  const versus = camera.cameraTrack(bitById("quickdraw"), SCENES.quickdraw.anchors(SAMPLE_CASTS.versus[0]))[0];
+  assert.ok(versus.zoom * 240 >= 330 && versus.zoom * 240 <= 390, `a 1 v 1 two-shot as tight as both sides allow (${versus.zoom * 240} px)`);
+  const big = camera.cameraTrack(bitById("quickdraw"), SCENES.quickdraw.anchors(SAMPLE_CASTS.versus[2]))[0];
+  assert.ok(big.zoom < versus.zoom, "a bigger cast, a wider shot");
+  const shot = camera.cameraTrack(bitById("quickdraw"), SCENES.quickdraw.anchors(SAMPLE_CASTS.versus[0]));
+  assert.ok(camera.framingAt(shot, bitById("quickdraw").beats.bang + 200).zoom > versus.zoom, "a punch-in on the shot");
+  assert.equal(camera.cameraCss({ id:"still", ms:3000, camera:{ zoom:1.8, x:900 } }).name, null, "no moves, no keyframes");
+});
+
 test("every registered bit has a scene", () => {
   assert.deepEqual(Object.keys(SCENES).sort(), BITS.map(bit => bit.id).sort());
   for (const bit of BITS) assert.equal(typeof SCENES[bit.id], "function", bit.id);
@@ -301,6 +368,11 @@ test("every scene draws on the painting with its cast, letters the name and the 
     const html = stage({ bit:bit.id, cast, fact:bit.shape === "loss" ? "-1,000" : null, at:1234, frozen:true });
     assert.match(html, new RegExp(`class="bit-layer bit-art is-${bit.id} is-${bit.shape} is-frozen"`), bit.id);
     assert.match(html, /class="tv-desert is-glass tv-backdrop"/, `${bit.id}: on the session's painting`);
+    assert.match(html, /<div class="bit-world" style="transform:translate\(960px, 990px\) scale\([\d.]+\) translate\(-[\d.]+px, -930px\)/,
+      `${bit.id}: shot by its camera`);
+    assert.match(html, /class="tv-desert is-glass bit-painting"/, `${bit.id}: the painting in the shot`);
+    assert.match(html, new RegExp(`class="bit-words is-${bit.letter.place}"`), `${bit.id}: lettered where the shot leaves room`);
+    assert.equal(/class="bit-wash"/.test(html), (bit.camera.washes || []).length > 0, `${bit.id}: a white frame only where it fires`);
     assert.match(html, /--tl:-1234ms/, `${bit.id}: held at the instant asked`);
     assert.match(html, new RegExp(`--b-letter:${bit.letter.at}ms`), `${bit.id}: the lettering's beat`);
     for (const [name, ms] of Object.entries(bit.beats)) assert.match(html, new RegExp(`--b-${name}:${ms}ms`), `${bit.id}: --b-${name}`);
@@ -333,10 +405,10 @@ test("a side shows four shoulder to shoulder and counts the rest; a long name st
     React.createElement(CastSide, { players:["Evan", "Eyob", "Sahil"], x:500, dir:-1 })));
   assert.equal((side.match(/class="cast is-lead"/g) || []).length, 1);
   assert.equal((side.match(/class="cast is-mate"/g) || []).length, 2);
-  assert.equal(bitNameSize("Henry Nguyen"), 156, "a real name letters at full size");
+  assert.equal(bitNameSize("Henry Nguyen"), 110, "a real name letters at full size");
   const long = "Bartholomew Montgomery-Smythe";
-  assert.ok(bitNameSize(long) < 156 && bitNameSize(long) >= 72, "a long one steps down to fit the sky");
-  assert.ok(bitNameSize(long) * long.length * 0.52 <= 1600, "on one line");
+  assert.ok(bitNameSize(long) < 110 && bitNameSize(long) >= 48, "a long one steps down to fit its corner");
+  assert.ok(bitNameSize(long) * long.length * 0.52 <= 900, "on one line");
 });
 
 test("a glove's poses take turns on the bit's clock; at rest only the last shows", () => {

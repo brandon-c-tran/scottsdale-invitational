@@ -10,10 +10,14 @@ import "./anvil.css";
    under it to a falling whistle. Silence. It looks up; a sweat drop; both
    gloves go up. CLANG: flattened to a pancake, the anvil hopping off it
    into the dirt, stars going round. Held there. It peels itself off the
-   floor from one edge like a sticker, boings back into shape (one shoe
-   stays flat on the floor) and limps off on the other. */
+   floor from one edge like a sticker and boings back into shape, one shoe
+   still flat on the floor. It turns to the room and looks at us, a beat,
+   then turns away and limps off on the other shoe.
+
+   The stage's camera shoots it (the registry's camera, in this stage's
+   world x: the chip at 820, the stack at 1180). */
 const AN = bitById("anvil").beats;
-export const ANVIL_STAGE = Object.freeze({ x:820, stack:1250, floor:CAST.floor, anvilTo:-360 });
+export const ANVIL_STAGE = Object.freeze({ x:820, stack:1180, floor:CAST.floor, anvilTo:-230, hop:80 });
 /* the pancake: the chip as wide as it can go and nearly no height */
 export const PANCAKE = Object.freeze({ x:1.42, y:0.2 });
 
@@ -34,31 +38,29 @@ export function Anvil({ cast }) {
   const style = {
     "--on-stack":`translate(${px(onStack.x)}, ${px(onStack.y)})`, "--hands-up":"translate(12px, -42px)",
     "--squash":`scale(${PANCAKE.x}, ${PANCAKE.y})`, "--sink":`translateY(${px(flat - head)})`,
-    "--anvil-to":`translateX(${px(ANVIL_STAGE.anvilTo)})`, "--hop-peak":`translateY(-150px)`, "--hop-land":`translateY(${px(floor - flat)})`,
-    "--peel-at":`${px((g.size / 2 + 6) * PANCAKE.x)} 0px`,
+    "--anvil-to":`translateX(${px(ANVIL_STAGE.anvilTo)})`, "--hop-peak":`translateY(${px(-ANVIL_STAGE.hop)})`,
+    "--hop-land":`translateY(${px(floor - flat)})`, "--peel-at":`${px((g.size / 2 + 6) * PANCAKE.x)} 0px`,
   };
   return (
     <div className="an" style={style}>
-      <div className="an-cam"><div className="an-shake">
-        <span className="an-node an-shadow" style={{ left:x, top:floor }}><FloorShadow w={430} h={62} className="is-falling" /></span>
-        <span className="an-node an-stack" style={{ left:ANVIL_STAGE.stack, top:floor }}><ChipStack player={player} count={11} width={156} /></span>
-        <span className="an-node an-flatshoe" style={{ left:shoe.x, top:shoe.y }}>
-          <span className="an-node" style={{ transform:`scale(${PANCAKE.x}, ${PANCAKE.y})` }}><ShoeArt scale={g.scale} /></span>
-        </span>
-        <CastChip player={player} x={x} y={floor} facing={1} className="an-chip"
-          hands={{ front:[["flat", 0], ["open", AN.notice], ["rest", AN.pop]], back:[["rest", 0], ["open", AN.notice + 40], ["rest", AN.pop]] }}
-          wear={<span className="an-node an-sweat" style={{ left:g.size * 0.1, top:g.size * 0.02 }}><SweatDrop scale={1.1} /></span>} />
-        <Dust className="an-dust" at={AN.hit} puffs={DUST_LOW} spread={1.1} style={{ left:x, top:floor - 8 }} />
-        <span className="an-node an-stars" style={{ left:x, top:floor - 74 }}>
-          <DizzyStars count={3} rx={150} ry={26} at={AN.stars} scale={1.25} />
-        </span>
-        <span className="an-node an-anvil" style={{ left:x, top:head }}>
-          <span className="an-node an-anvil-x"><span className="an-node an-anvil-y"><span className="an-node an-anvil-rock">
-            <AnvilArt scale={1.3} />
-          </span></span></span>
-        </span>
-        <Dust className="an-dust-2" at={AN.thud} puffs={DUST_LOW} spread={0.6} size={0.8} style={{ left:x + ANVIL_STAGE.anvilTo, top:floor - 4 }} />
-      </div></div>
+      <span className="an-node an-shadow" style={{ left:x, top:floor }}><FloorShadow w={430} h={62} className="is-falling" /></span>
+      <span className="an-node an-stack" style={{ left:ANVIL_STAGE.stack, top:floor }}><ChipStack player={player} count={11} width={156} /></span>
+      <span className="an-node an-flatshoe" style={{ left:shoe.x, top:shoe.y }}>
+        <span className="an-node" style={{ transform:`scale(${PANCAKE.x}, ${PANCAKE.y})` }}><ShoeArt scale={g.scale} /></span>
+      </span>
+      <CastChip player={player} x={x} y={floor} facing={1} className="an-chip"
+        hands={{ front:[["flat", 0], ["open", AN.notice], ["rest", AN.pop]], back:[["rest", 0], ["open", AN.notice + 40], ["rest", AN.pop]] }}
+        wear={<span className="an-node an-sweat" style={{ left:g.size * 0.1, top:g.size * 0.02 }}><SweatDrop scale={1.1} /></span>} />
+      <Dust className="an-dust" at={AN.hit} puffs={DUST_LOW} spread={1.1} style={{ left:x, top:floor - 8 }} />
+      <span className="an-node an-stars" style={{ left:x, top:floor - 74 }}>
+        <DizzyStars count={3} rx={150} ry={26} at={AN.stars} scale={1.25} />
+      </span>
+      <span className="an-node an-anvil" style={{ left:x, top:head }}>
+        <span className="an-node an-anvil-x"><span className="an-node an-anvil-y"><span className="an-node an-anvil-rock">
+          <AnvilArt scale={1.3} />
+        </span></span></span>
+      </span>
+      <Dust className="an-dust-2" at={AN.thud} puffs={DUST_LOW} spread={0.6} size={0.8} style={{ left:x + ANVIL_STAGE.anvilTo, top:floor - 4 }} />
     </div>
   );
 }

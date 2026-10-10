@@ -1,15 +1,10 @@
 /* anvil (anvil.jsx): beats from registry.js (--b-<name>), every animation
    on --ba, each element resting on its end state. A run of moves on one
-   property: the first fills both ways, the rest forwards. */
+   property: the first fills both ways, the rest forwards. The camera and
+   the shakes are the stage's (the registry). */
 
-.is-anvil :is(.an, .an-cam, .an-shake) { position:absolute; inset:0; }
+.is-anvil .an { position:absolute; inset:0; }
 .is-anvil .an-node { position:absolute; display:block; width:0; height:0; }
-
-/* the camera eases in while the shadow grows; the clang shakes it */
-.is-anvil .an-cam { transform-origin:960px 900px; transform:scale(1.14);
-  --ba:an-push 1500ms cubic-bezier(.45,0,.55,1) calc(var(--tl) + var(--b-shadow)) both; animation:var(--ba); }
-@keyframes an-push { from { transform:scale(1.06); } to { transform:scale(1.14); } }
-.is-anvil .an-shake { --ba:bit-shake 260ms linear calc(var(--tl) + var(--b-hit)) both; animation:var(--ba); }
 
 /* ── admiring the stack: leaning to it, a glove laid on top, a pat or
    two, a satisfied bob; at the shadow's beat it straightens and looks up ── */
@@ -55,11 +50,18 @@
     bit-hide 1ms step-end calc(var(--tl) + var(--b-hit)) forwards; animation:var(--ba); }
 @keyframes an-sweat { 0% { opacity:0; transform:scale(.2); } 1% { opacity:1; transform:scale(.2); } 60% { opacity:1; transform:scale(1.2); }
   100% { opacity:1; transform:scale(1); } }
-.is-anvil .an-chip .cast-chip-in { transform:var(--cast-turn);
+/* the look up at what is coming; after the boing it turns to the room
+   and looks at us (a slow tilt toward the glass), a beat, then turns away
+   the way it limps */
+.is-anvil .an-chip .cast-chip-in { transform:rotateY(16deg) rotateX(0deg);
   --ba:an-look-up 180ms var(--ease-out) calc(var(--tl) + var(--b-notice)) both,
-    an-look-back 1ms step-end calc(var(--tl) + var(--b-hit)) forwards; animation:var(--ba); }
+    an-look-back 1ms step-end calc(var(--tl) + var(--b-hit)) forwards,
+    an-face 560ms cubic-bezier(.45,0,.35,1) calc(var(--tl) + var(--b-look)) forwards,
+    an-face-away 200ms ease-in-out calc(var(--tl) + var(--b-limp) - 150ms) forwards; animation:var(--ba); }
 @keyframes an-look-up { from { transform:var(--cast-turn) rotateX(0deg); } to { transform:rotateY(0deg) rotateX(42deg); } }
 @keyframes an-look-back { from { transform:rotateY(0deg) rotateX(42deg); } to { transform:var(--cast-turn) rotateX(0deg); } }
+@keyframes an-face { from { transform:var(--cast-turn) rotateX(0deg); } to { transform:rotateY(0deg) rotateX(-12deg); } }
+@keyframes an-face-away { from { transform:rotateY(0deg) rotateX(-12deg); } to { transform:rotateY(16deg) rotateX(0deg); } }
 
 /* ── CLANG: the anvil drops in, the chip goes flat under it, the anvil
    hops off into the dirt and rocks to a stop ── */

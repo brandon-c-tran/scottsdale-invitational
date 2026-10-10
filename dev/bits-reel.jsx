@@ -18,8 +18,8 @@ import { BitStage } from "../src/features/gags/BitStage.jsx";
 import { BIT_SHAPES, BIT_STYLES, BITS, SHAPES, bitsOf, pickBit } from "../src/features/gags/bits/registry.js";
 import { CastChip, CastPhotosProvider, GloveArt, ShoeArt } from "../src/features/gags/cast/CastChip.jsx";
 import { GLOVE_POSE_NAMES } from "../src/features/gags/cast/gloveArt.js";
-import { Anvil, ChipStack, DizzyStars, Dust, MuzzleFlash, Puff, Revolver, Roadrunner, SpeedLines, Sunglasses, SweatDrop,
-  Tumbleweed } from "../src/features/gags/props/Props.jsx";
+import { Anvil, ChipStack, DizzyStars, Emanata, MuzzleFlash, Puff, Revolver, Roadrunner, SpeedLines, Sunglasses,
+  SweatDrop, Tumbleweed } from "../src/features/gags/props/Props.jsx";
 import { Backglass } from "../src/features/tv/DesertBand.jsx";
 import { setSoundRoom, setSoundSurface, unlockSound } from "../src/lib/sound.js";
 import { BIT_PARTS, makeEngine, playRecipe } from "../src/lib/soundKit.js";
@@ -277,6 +277,7 @@ function SheetView() {
                   <CastChip player="Henry" x={1120} y={930} hands={{ l:"open", r:"point" }} />
                   <span className="br-at" style={{ left:1560, top:930 }}><Roadrunner /></span>
                   <span className="br-at" style={{ left:1500, top:700 }}><SpeedLines length={300} /></span>
+                  <span className="br-at" style={{ left:1420, top:600 }}><Emanata /></span>
                 </div>}
               </CastPhotosProvider>
             </div>

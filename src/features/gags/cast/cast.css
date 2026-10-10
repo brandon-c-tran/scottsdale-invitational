@@ -76,3 +76,21 @@
 /* a pose layer swaps on the bit's clock (CastChip poseLayerStyle) */
 @keyframes cast-on { from { opacity:0; } to { opacity:1; } }
 @keyframes cast-off { from { opacity:1; } to { opacity:0; } }
+
+/* ── the slapstick bits' inks (springglove, toohype, dynamite): a boxing
+   glove's red leather, dynamite, a party table, a cupcake, soot ── */
+.bit-art, .cast {
+  --bit-red:color-mix(in srgb, var(--clay) 86%, var(--art-terracotta));
+  --bit-red-dark:color-mix(in srgb, var(--clay) 48%, var(--art-umber));
+  --bit-red-lit:color-mix(in srgb, var(--clay) 40%, var(--bone));
+  --bit-paper:color-mix(in srgb, var(--art-turquoise) 70%, var(--bone));
+  --bit-frosting:color-mix(in srgb, var(--bone) 78%, var(--art-rose));
+  --bit-fuse:color-mix(in srgb, var(--art-umber) 55%, var(--ink0));
+  --bit-match:color-mix(in srgb, var(--art-cream) 82%, var(--art-terracotta));
+  --bit-cloth:color-mix(in srgb, var(--bone) 92%, var(--art-violet));
+  --bit-cloth-lit:var(--bone);
+  --bit-table-leg:color-mix(in srgb, var(--art-indigo) 58%, var(--ink0));
+  --bit-soot:color-mix(in srgb, var(--ink0) 88%, var(--art-violet));
+  --bit-soot-lit:color-mix(in srgb, var(--bone) 30%, var(--ink0));
+  --bit-smoke-dark:color-mix(in srgb, var(--bone) 50%, var(--art-violet));
+}

@@ -59,3 +59,7 @@
   83.333% { transform:translate(calc(var(--rx) * .5), calc(var(--ry) * -.866)) scale(.69) rotate(300deg); }
   91.667% { transform:translate(calc(var(--rx) * .866), calc(var(--ry) * -.5)) scale(.76) rotate(330deg); }
   100% { transform:translate(var(--rx), 0) scale(.86) rotate(360deg); } }
+
+/* ── the slapstick bits' props: nodes of no size a scene moves ── */
+.bit-punchbox, .bit-punch-button, .bit-fuse, .bit-fuse-seg { position:absolute; left:0; top:0; display:block; width:0; height:0; }
+.bit-punch-button { z-index:0; }

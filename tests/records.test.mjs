@@ -23,7 +23,7 @@ const later = (ms = 1000) => mock.timers.tick(ms);
 const { EMPTY_STATE, ROSTER, allEventsOf, computeStandings, makeBracket, resolveCurrentContest } = await import("../shared/core.js");
 const { applyAction } = await import("./support/confirmed-start.mjs");
 const { headToHead } = await import("../src/features/profile/seasonStats.js");
-const { TV_AMBIENT_TURN_MS } = await import("../src/features/tv/tvModel.js");
+const { TV_AMBIENT_TURN_MS, biggestSwing } = await import("../src/features/tv/tvModel.js");
 const { withPhotoTurns } = await import("../src/features/photos/photoModel.js");
 const R = await import("../src/features/tv/recordsModel.js");
 const {
@@ -168,7 +168,7 @@ test("head to head: a teammate with a different record stands apart, never on th
 
 /* ── the biggest swing ── */
 
-test("the biggest swing: one write's change for one player, up or down, and what made it; never a ruling", () => {
+test("the biggest swing: the ticker's own (an event's award and bets for one player), up or down; never a ruling", () => {
   const s = fresh();
   rule(s, "Jeremy", 2000);
   assert.equal(swingCard(s, events(s)), null, "a ruling is the commissioner's, never a swing");
@@ -179,12 +179,32 @@ test("the biggest swing: one write's change for one player, up or down, and what
   const card = swingCard(s, events(s));
   assert.deepEqual([card.kind, card.players, card.amount], ["swing", ["Jeremy"], -1200], "the loss is the bigger swing");
   assert.deepEqual(card.cause, { kind:"event", evId:"putt", name:"Long Putt", game:"putting", variant:null });
+  const ticker = biggestSwing(s, events(s), "putt");
+  assert.deepEqual([ticker.player, ticker.change], [card.players[0], card.amount], "the ticker's Biggest swing, the same");
   /* a correction moves it: Ben takes 1st, Jeremy's chips pay 2:1 */
   later(5000);
   act(s, "saveResult", { evId:"putt", slots:[["Ben"], ["Adi"], ["Evan"]], confirmOverwrite:true, correctionReason:"Measured again" });
   const corrected = swingCard(s, events(s));
   assert.deepEqual([corrected.players, corrected.amount], [["Jeremy"], 2400]);
   assert.equal(corrected.cause.evId, "putt");
+});
+
+test("an event played as contests swings by all of its bets once its result posts, the way the ticker counts it", () => {
+  const s = pairs(fresh(), "die");
+  rule(s, "Jeremy", 2000);
+  const back = key => ({ wager:{ kind:"match", eventId:"die", evName:"Beer Die Doubles", stake:600, ...refs(current(s, "die")),
+    match:current(s, "die").match, teamIdx:key, drawId:"draw-die" } });
+  act(s, "placeWager", back(3), guest("Jeremy"));   /* the play-in, +600 */
+  decide(s, "die", 3);
+  decide(s, "die", 2);
+  assert.equal(swingCard(s, events(s)), null, "an event still being played has no swing yet");
+  act(s, "placeWager", back(3), guest("Jeremy"));   /* the semifinal, +600 */
+  decide(s, "die", 3);
+  decide(s, "die", 2);
+  decide(s, "die", 3, { postResult:true });
+  const card = swingCard(s, events(s));
+  assert.deepEqual([card.players, card.amount, card.cause.evId], [["Jeremy"], 1200, "die"]);
+  assert.equal(biggestSwing(s, events(s), "die").change, 1200);
 });
 
 test("a swing under 500 is no card; a duel's swing names who it was against", () => {
@@ -325,6 +345,26 @@ test("the rotation: one records turn after the gap's own cards, which keep their
   assert.equal(recordAt(cards, ["board", "next"], 3 * P), null);
 });
 
+test("names fit by construction: one line while it letters large, else broken at its space, never under 24px", () => {
+  const { recordNameFit, recordNameLines, holderLayout, markSize } = R;
+  assert.deepEqual(recordNameFit("Henry Nguyen", 456, { max:96 }), { size:76, lines:["Henry Nguyen"] }, "one line, large");
+  assert.deepEqual(recordNameFit("Henry Nguyen", 214, { max:64 }), { size:64, lines:["Henry", "Nguyen"] }, "two lines read larger");
+  assert.deepEqual(recordNameFit("Allan Montgomery", 133, { max:52 }), { size:26, lines:["Allan", "Montgomery"] });
+  assert.equal(recordNameFit("Bartholomewsmith", 133).size, 24, "a long single word stays on the TV's floor");
+  assert.deepEqual(recordNameLines("Brandon", 214, 61), ["Brandon"]);
+  assert.deepEqual(recordNameLines("Henry Nguyen", 214, 61), ["Henry", "Nguyen"]);
+  /* every column holds its chip; three a side is the most */
+  for (const n of [1, 2, 3]) {
+    const layout = holderLayout(n, 456, { chip:280 });
+    assert.ok(layout.face <= layout.col && layout.col * n + 28 * (n - 1) <= 456, `${n} a side`);
+  }
+  assert.equal(R.H2H_SIDE_MAX, 3);
+  assert.equal(markSize(5, 700), 88);
+  assert.ok(markSize(12, 700) * 12 + 16 * 11 <= 700, "a long run shrinks its marks to the row");
+  assert.equal(markSize(30, 700), 32, "past that the row wraps");
+  assert.match(readFileSync(new URL("../src/features/tv/tv-records.css", import.meta.url), "utf8"), /\.tv-record-marks \{[^}]*flex-wrap:wrap/);
+});
+
 test("every card has a label of one to three words, and the records' copy carries no em dash", () => {
   for (const label of Object.values(RECORD_LABELS)) {
     const words = label.split(" ");
@@ -414,6 +454,21 @@ test("the TV takes a records turn only in a gap, one card a turn, the next recor
   for (let turn = 0; turn < 8; turn++) assert.equal(recordOn(tv(frozen, base + turn * TV_AMBIENT_TURN_MS + 4000)), null);
 });
 
+test("on a swing's records turn the ticker's own Biggest swing steps aside: never two on one screen", () => {
+  const s = recordsWeekend();
+  const card = swingCard(s, events(s));
+  assert.ok(card, "Pickleball's 1st is the weekend's biggest swing");
+  const base = Math.ceil(Date.now() / (TV_AMBIENT_TURN_MS * 840)) * TV_AMBIENT_TURN_MS * 840;
+  const tickerSwing = html => /class="tv-ticker-tag">Biggest swing</.test(html);
+  const pages = turn => [300, 6300, 12300, 18300].map(ms => tv(s, base + turn * TV_AMBIENT_TURN_MS + ms));
+  let swingTurn = null;
+  for (let turn = 0; turn < 60 && swingTurn === null; turn++)
+    if (/<h2 class="tv-record-label">Biggest swing</.test(tv(s, base + turn * TV_AMBIENT_TURN_MS + 4000))) swingTurn = turn;
+  assert.notEqual(swingTurn, null, "the swing comes round");
+  assert.ok(pages(swingTurn).every(html => !tickerSwing(html)), "the card says it, the ticker does not");
+  assert.ok(pages(swingTurn - 1).some(tickerSwing), "the turn before, the ticker names the latest result's swing");
+});
+
 const draw = (state, card, profiles = state.profiles) => renderToStaticMarkup(React.createElement(PlayerIdentityProvider, { profiles },
   React.createElement(TVRecord, { state, card, turnAt:0, now:5000 })));
 
@@ -431,6 +486,15 @@ test("each card's drawing: a label, the people's chips and names, one figure in 
     sides:[{ players:["Adi", "Chiang"], wins:1 }, { players:["Richard", "Allan"], wins:1 }] });
   assert.equal(words(team).trim(), "Head to head Adi Chiang 1 to 1 Squilliam Allan");
   assert.doesNotMatch(team, /is-behind/, "level: both bone");
+  /* three a side: every name at one size, a long one broken at its space */
+  const trio = draw({ ...s, profiles:{ ...s.profiles, Allan:{ display:"Allan Montgomery" } } }, { id:"h2h:z", kind:"h2h",
+    players:["Adi", "Chiang", "Ben", "Richard", "Allan", "Henry"], meetings:2,
+    sides:[{ players:["Adi", "Chiang", "Ben"], wins:2 }, { players:["Richard", "Allan", "Henry"], wins:0 }] });
+  const sizes = [...trio.matchAll(/class="fd-show tv-record-name" style="font-size:(\d+)px"/g)].map(match => Number(match[1]));
+  assert.equal(sizes.length, 6);
+  assert.ok(sizes.every(size => size === sizes[0] && size >= 24), "one size for all six");
+  assert.match(trio, />Allan<br\/>Montgomery</);
+  assert.match(trio, />Henry<br\/>Nguyen</);
   const swing = draw(s, { id:"swing:x", kind:"swing", players:["Henry"], amount:-1200,
     cause:{ kind:"event", evId:"putt", name:"Long Putt", game:"putting", variant:null } });
   assert.equal(words(swing).trim(), "Biggest swing Henry Nguyen -1,200 Long Putt");

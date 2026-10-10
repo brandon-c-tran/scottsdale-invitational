@@ -12,9 +12,9 @@
               Draws). Teammates with the very same record against the same
               opponents stand as one side. The closest first, then the most
               lopsided, then the most played.
-     swing    the biggest chip change one write made for one player (an
-              event's result, a decided contest's bets, a duel), up or down;
-              rulings are the commissioner's, never a swing.
+     swing    the biggest swing the ticker ever named (an event's award and
+              its settled bets for one player, tvModel biggestSwing), or a
+              Quick Draw's ante, up or down; never a ruling.
      streak   the longest run of straight wins (gags' winStreaks), STREAK_MIN
               or more.
      upsets   the most wins as the side the stored odds named underdog.
@@ -28,13 +28,12 @@
 import { allEventsOf, resolveDuel, resolveWager, rosterOf } from "../../../shared/core.js";
 import { eventMeetings } from "../profile/seasonStats.js";
 import { entrySides, gagWrites, winStreaks } from "../gags/gagModel.js";
-import { chipWrites } from "../results/weekendFacts.js";
-import { TV_AMBIENT_TURN_MS } from "./tvModel.js";
+import { TV_AMBIENT_TURN_MS, biggestSwing } from "./tvModel.js";
 
 export const MIN_MEETINGS = 2;
 export const H2H_MAX = 3;
-/* a side merged from teammates stands at most this many */
-export const H2H_SIDE_MAX = 4;
+/* a side merged from teammates stands at most this many (a team of three) */
+export const H2H_SIDE_MAX = 3;
 export const SWING_MIN = 500;
 export const STREAK_MIN = 3;
 export const UPSETS_MIN = 2;
@@ -144,39 +143,39 @@ export function headToHeadCards(state, events = allEventsOf(state)) {
   return pick.map(h2hCard);
 }
 
-/* ── the biggest swing ── */
-
-/* what a write was: the event it settled (a result, a decided contest's
-   bets), or a Quick Draw and who it was against */
-function causeOf(write, player, events) {
-  const change = write.changes.find(item => item.player === player) || write.changes[0];
-  if (write.anchor.startsWith("duel:")) return { kind:"duel", against:change?.other ? [change.other] : [] };
-  const ev = events.find(item => item.id === change?.eventId);
-  return ev ? { kind:"event", evId:ev.id, name:ev.name, game:ev.game || null, variant:ev.variant || null } : null;
-}
-
+/* ── the biggest swing ──
+   The ticker's own swing, kept: an event's swing for a player is its
+   award plus that event's settled bets (tvModel biggestSwing, the "Biggest
+   swing" the ticker names after each result), so the record is the biggest
+   the ticker ever named and the two never disagree on screen. A settled
+   Quick Draw swings its ante either way. Rulings are the commissioner's,
+   never a swing; the poker count is the finale's. */
+const postedAt = result => Number(result?.confirmedAt || result?.ts) || 0;
 export function swingCard(state, events = allEventsOf(state)) {
   const roster = rosterOf(state);
-  let best = null;
-  for (const write of chipWrites(state, events)) {
-    if (write.anchor.startsWith("ruling:")) continue;
-    const net = new Map();
-    for (const change of write.changes) {
-      if (change.kind === "ruling" || !roster.includes(change.player)) continue;
-      net.set(change.player, (net.get(change.player) || 0) + change.delta);
-    }
-    /* the bigger change, a gain over a loss of the same size, else the first
-       to set it: writes run oldest first, a write's players in roster order */
-    for (const player of roster) {
-      const amount = net.get(player) || 0;
-      if (!amount) continue;
-      if (!best || Math.abs(amount) > Math.abs(best.amount) || (Math.abs(amount) === Math.abs(best.amount) && amount > best.amount))
-        best = { player, amount, write };
-    }
+  const candidates = [];
+  for (const ev of events) {
+    const result = state.results?.[ev.id];
+    if (!ev || ev.finale || state.shelved?.[ev.id] || !result?.slots?.[0]?.length || result.stacks) continue;
+    const swing = biggestSwing(state, events, ev.id);
+    if (swing && roster.includes(swing.player)) candidates.push({ at:postedAt(result), player:swing.player, amount:swing.change,
+      key:`result:${ev.id}`, cause:{ kind:"event", evId:ev.id, name:ev.name, game:ev.game || null, variant:ev.variant || null } });
   }
+  for (const { duel, result } of settledDuels(state)) {
+    const stake = Number(duel.stake) || 0;
+    if (result.push || !stake || !roster.includes(result.winner)) continue;
+    candidates.push({ at:duelAt(duel), player:result.winner, amount:stake, key:`duel:${duel.id}`,
+      cause:{ kind:"duel", against:[result.loser] } });
+  }
+  /* the bigger change, a gain over a loss of the same size, else the first
+     to set it */
+  candidates.sort((a, b) => a.at - b.at);
+  let best = null;
+  for (const item of candidates)
+    if (!best || Math.abs(item.amount) > Math.abs(best.amount) || (Math.abs(item.amount) === Math.abs(best.amount) && item.amount > best.amount))
+      best = item;
   if (!best || Math.abs(best.amount) < SWING_MIN) return null;
-  return { id:`swing:${best.player}:${best.write.anchor}`, kind:"swing", players:[best.player], amount:best.amount,
-    cause:causeOf(best.write, best.player, events) };
+  return { id:`swing:${best.player}:${best.key}`, kind:"swing", players:[best.player], amount:best.amount, cause:best.cause };
 }
 
 /* ── runs and upsets ── */
@@ -271,8 +270,11 @@ export function bettorCards(state, events = allEventsOf(state)) {
 
 /* settled duels only: an unsettled duel's runs are private until both have
    drawn (redactDuelsForViewer), and a void one never happened */
-const settledDuels = state => (state.duels || []).map(duel => ({ duel, result:resolveDuel(duel) }))
-  .filter(item => item.result.settled);
+function settledDuels(state) {
+  return (state.duels || []).map(duel => ({ duel, result:resolveDuel(duel) })).filter(item => item.result.settled);
+}
+/* when a duel settled: its second run */
+const duelAt = duel => Math.max(Number(duel.ts) || 0, ...Object.values(duel.runs || {}).map(run => Number(run?.ts) || 0));
 
 export function fastestCard(state) {
   const roster = rosterOf(state);
@@ -349,11 +351,28 @@ export function recordAt(cards, ambient, now, period = TV_AMBIENT_TURN_MS) {
 
 /* ── the lettering ── */
 
-/* a name lettered as written in the show weight, on one line in its
-   column: about half an em a letter, as large as `max`, never under `min` */
+/* a name lettered as written in the show weight in its column, about half
+   an em a letter, as large as `max`: on one line while that reads large
+   (`comfort` and up), else broken at its last space when two lines letter
+   it larger; never under the TV's 24px */
 export const RECORD_ADVANCE = 0.5;
-export const recordNameSize = (name, width, { max = 96, min = 32 } = {}) =>
-  Math.max(min, Math.min(max, Math.floor(width / (Math.max(3, String(name || "").length) * RECORD_ADVANCE))));
+const sizeFor = (width, longest, max) => Math.max(24, Math.min(max, Math.floor(width / (Math.max(3, longest) * RECORD_ADVANCE))));
+export function recordNameFit(name, width, { max = 96, comfort = 48 } = {}) {
+  const text = String(name || "");
+  const one = sizeFor(width, text.length, max);
+  const cut = text.lastIndexOf(" ");
+  if (one >= comfort || cut <= 0) return { size:one, lines:[text] };
+  const lines = [text.slice(0, cut), text.slice(cut + 1)];
+  const two = sizeFor(width, Math.max(...lines.map(line => line.length)), max);
+  return two > one ? { size:two, lines } : { size:one, lines:[text] };
+}
+export const recordNameSize = (name, width, opts) => recordNameFit(name, width, opts).size;
+/* a name at a size the card shares: one line when it fits there, else its two */
+export const recordNameLines = (name, width, size) => {
+  const text = String(name || "");
+  const cut = text.lastIndexOf(" ");
+  return text.length * RECORD_ADVANCE * size <= width || cut <= 0 ? [text] : [text.slice(0, cut), text.slice(cut + 1)];
+};
 
 /* The people on a card: one chip large, a few smaller, each with its name
    under it in its own column (`width` is the room for all of them) */
@@ -364,6 +383,7 @@ export function holderLayout(count, width, { chip = 300, gap = 28 } = {}) {
   return { col, face, max:n === 1 ? 96 : n === 2 ? 64 : 52 };
 }
 
-/* the marks under a count: one per win, as large as `max`, in one row */
-export const markSize = (count, width, { max = 88, min = 40, gap = 16 } = {}) =>
+/* the marks under a count: one per win, as large as `max`, in one row; a
+   run past what one row holds at `min` wraps to a second (tv-records.css) */
+export const markSize = (count, width, { max = 88, min = 32, gap = 16 } = {}) =>
   Math.max(min, Math.min(max, Math.floor((width - (Math.max(1, count) - 1) * gap) / Math.max(1, count))));

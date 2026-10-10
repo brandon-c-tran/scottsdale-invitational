@@ -1190,7 +1190,7 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied: allT
   };
 
   let content, liveShown = false, horizonShown = false, mastEvent = null, mastLamp = null, rail = null, ribbonOn = false,
-    cornerShown = false;
+    cornerShown = false, recordShown = null;
   if (connection.mode === "loading") {
     content = <div className="tv-pane tv-center" role="status">
       <div className="tv-opening tv-sign">
@@ -1326,6 +1326,7 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied: allT
   } else if (record) {
     const turnAt = Math.floor(now / TV_AMBIENT_TURN_MS) * TV_AMBIENT_TURN_MS;
     content = <TVRecord key={`${record.id}@${turnAt}`} state={state} card={record} turnAt={turnAt} now={now} />;
+    recordShown = record.kind;
   } else if (scene === "next" && nextEv) {
     /* what is next stands over the standings: the towers stay the lower third */
     horizonShown = true;
@@ -1354,11 +1355,14 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied: allT
     mastEvent = onDeckEv;
     mastLamp = { label:"Betting open", state:"pending" };
   }
-  const items = tickerItems({ state, events, standings, allTied, liveCrew, latest, liveEv, liveContest,
+  const tickerAll = tickerItems({ state, events, standings, allTied, liveCrew, latest, liveEv, liveContest,
     onDeckEv, openWon:mergeWagerLines(allW.filter(x => x.r.status === "won")), nextEv, now, facts, draft:!!draftLive, showing:resultModel?.eventId || null,
     /* events already lettered on screen: the draft's in the masthead, the
        gap card's next event or the board's ribbon; the ticker never repeats them */
     lettered:[draftLive?.ev?.id, scene === "next" || ribbonOn ? nextEv?.id : null, !liveEv && !draftLive ? onDeckEv?.id : null].filter(Boolean) });
+  /* a records card's swing is the weekend's biggest: the ticker's (the
+     latest result's) steps aside, never two "Biggest swing"s on one screen */
+  const items = recordShown === "swing" ? tickerAll.filter(item => item.tag !== "Biggest swing") : tickerAll;
   const showHorizon = (liveShown || horizonShown) && connection.mode !== "loading";
   /* a live question holds the ticker still */
   const quietTicker = (geoOnTv && state.geo?.phase === "guess") || (triviaOnTv && state.trivia?.phase === "question");

@@ -57,7 +57,7 @@ const Line = ({ d, k = 1, w = CAST.detail }) => <path d={d} className="bit-line"
 /* ── a revolver, comically small: pointing right. Anchor: where the grip
    meets the frame (a fist closes under it). `pivot="guard"` hangs it on
    its trigger guard instead (to spin on a finger). ── */
-export const REVOLVER = Object.freeze({ muzzle:{ x:49, y:-12 }, guard:{ x:5, y:6 }, scale:0.9 });
+export const REVOLVER = Object.freeze({ muzzle:{ x:49, y:-12 }, guard:{ x:5, y:6 }, scale:1.1 });
 export function Revolver({ scale = REVOLVER.scale, pivot = "grip", className = "" }) {
   const k = 1 / scale;
   const shift = pivot === "guard" ? `translate(${-REVOLVER.guard.x} ${-REVOLVER.guard.y})` : undefined;

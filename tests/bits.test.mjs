@@ -21,7 +21,7 @@ globalThis.__FD_BUILD_ID__ = "build-test";
 const root = fileURLToPath(new URL("../", import.meta.url));
 const { ROSTER, CHIP_COLORS } = await import("../shared/core.js");
 const registry = await import("../src/features/gags/bits/registry.js");
-const { BITS, BIT_SHAPES, BIT_STYLES, MOMENT_MS, SHAPES, STYLES, beatVars, bitById, bitsOf, pickBit, seedHash } = registry;
+const { BITS, BIT_SHAPES, BIT_STYLES, LETTER_LAND_MS, MOMENT_MS, SHAPES, STYLES, beatVars, bitById, bitsOf, pickBit, seedHash } = registry;
 const kit = await import("../src/lib/soundKit.js");
 const { bitCues } = await import("../src/features/tv/bitSound.js");
 const geometry = await import("../src/features/gags/cast/castGeometry.js");
@@ -45,6 +45,7 @@ test("every bit: a unique id, a shape and a style, a moment's length, its beats,
       assert.ok(ms >= 0 && ms <= bit.ms, `${at} beat ${name} at ${ms} inside the bit`);
     }
     assert.ok(bit.letter.at >= 0 && bit.letter.at <= bit.ms, `${at} the lettering lands inside the bit`);
+    assert.ok(bit.still >= bit.letter.at + LETTER_LAND_MS, `${at} the still shows the name landed`);
     assert.ok(bit.cast[bit.letter.over], `${at} letters a side it casts`);
     assert.ok(kit.isSound(bit.summary), `${at} summary ${bit.summary} is a kit recipe`);
     assert.ok(bit.cues.length > 0, `${at} has sound`);

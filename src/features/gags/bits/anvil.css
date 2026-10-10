@@ -25,7 +25,7 @@
 @keyframes an-straighten { from { transform:rotate(5deg) scale(1, 1); } to { transform:rotate(0deg) scale(1, 1); } }
 @keyframes an-wobble { 0% { transform:rotate(0deg); } 30% { transform:rotate(-6deg); } 65% { transform:rotate(4deg); }
   100% { transform:rotate(0deg); } }
-@keyframes an-limp-tilt { 0%, 100% { transform:rotate(0deg); } 45% { transform:rotate(-10deg); } }
+@keyframes an-limp-tilt { 0%, 100% { transform:rotate(0deg); } 45% { transform:rotate(10deg); } }
 .is-anvil .an-chip .cast-hand.is-front > .cast-hand-in { transform:translate(0px, 0px);
   --ba:an-hand-lift 160ms var(--ease-out) calc(var(--tl) + var(--b-notice)) both,
     an-hand-home 240ms var(--ease-out) calc(var(--tl) + var(--b-pop) + 60ms) forwards; animation:var(--ba); }
@@ -40,7 +40,11 @@
 @keyframes an-hand-up { from { transform:translate(0px, 0px); } to { transform:translate(-18px, -34px); } }
 @keyframes an-hand-down { from { transform:translate(-18px, -34px); } to { transform:translate(0px, 0px); } }
 
-/* ── the shadow grows under it (the whistle), a sweat drop, the look up ── */
+/* ── the shadow grows under it (the whistle) and swallows its own, a
+   sweat drop, the look up ── */
+.is-anvil .an-chip .cast-shadow { opacity:1;
+  --ba:bit-hide 700ms linear calc(var(--tl) + var(--b-shadow)) both,
+    bit-show 240ms linear calc(var(--tl) + var(--b-pop)) forwards; animation:var(--ba); }
 .is-anvil .an-shadow { opacity:0;
   --ba:an-grow 1750ms cubic-bezier(.55,0,.85,.55) calc(var(--tl) + var(--b-shadow)) both,
     bit-hide 1ms step-end calc(var(--tl) + var(--b-hit)) forwards; animation:var(--ba); }
@@ -59,9 +63,15 @@
 
 /* ── CLANG: the anvil drops in, the chip goes flat under it, the anvil
    hops off into the dirt and rocks to a stop ── */
-.is-anvil .an-anvil { transform:var(--sink);
+/* the anvil drops in front of the chip, then (landed) stands behind the
+   cast so the chip limps off in front of it */
+.is-anvil .an-chip { z-index:2; }
+.is-anvil :is(.an-dust, .an-dust-2, .an-stars) { z-index:4; }
+.is-anvil .an-anvil { z-index:3; transform:var(--sink);
   --ba:an-drop 120ms cubic-bezier(.6,0,1,.6) calc(var(--tl) + var(--b-drop)) both,
-    an-sink 60ms ease-out calc(var(--tl) + var(--b-hit)) forwards; animation:var(--ba); }
+    an-sink 60ms ease-out calc(var(--tl) + var(--b-hit)) forwards,
+    an-behind 1ms step-end calc(var(--tl) + var(--b-thud) + 300ms) both; animation:var(--ba); }
+@keyframes an-behind { from { z-index:3; } to { z-index:1; } }
 @keyframes an-drop { from { transform:translateY(-1100px); } to { transform:translateY(0px); } }
 @keyframes an-sink { from { transform:translateY(0px); } to { transform:var(--sink); } }
 .is-anvil .an-anvil-x { transform:var(--anvil-to);
@@ -95,9 +105,9 @@
 @keyframes an-peel { from { transform:translateY(0px) rotate(0deg); } to { transform:translateY(0px) rotate(32deg); } }
 @keyframes an-unpeel { from { transform:translateY(0px) rotate(32deg); } to { transform:translateY(0px) rotate(0deg); } }
 @keyframes an-limp-bob { 0%, 100% { transform:translateY(0px) rotate(0deg); } 45% { transform:translateY(-30px) rotate(0deg); } }
-.is-anvil .an-chip .cast-move { transform:translateX(640px);
+.is-anvil .an-chip .cast-move { transform:translateX(-1000px);
   --ba:an-limp 1000ms linear calc(var(--tl) + var(--b-limp)) both; animation:var(--ba); }
-@keyframes an-limp { from { transform:translateX(0px); } to { transform:translateX(640px); } }
+@keyframes an-limp { from { transform:translateX(0px); } to { transform:translateX(-1000px); } }
 /* one shoe stays flat on the floor */
 .is-anvil .an-chip .cast-shoe.is-l { opacity:0; --ba:bit-hide 1ms step-end calc(var(--tl) + var(--b-pop)) both; animation:var(--ba); }
 .is-anvil .an-flatshoe { opacity:1; --ba:bit-show 1ms step-end calc(var(--tl) + var(--b-pop)) both; animation:var(--ba); }

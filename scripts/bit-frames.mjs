@@ -49,6 +49,17 @@ if (args.includes("--soundcheck")) {
   } finally { await chrome.close(); }
   process.exit();
 }
+/* --contact: every instant asked for, as one grid */
+if (args.includes("--contact")) {
+  try {
+    const ts = (times.length ? times : ["0"]).map(t => Math.max(0, Number(t) || 0));
+    await chrome.load(`${page}?${new URLSearchParams({ contact:bit, ts:ts.join(","), phase, ...(cast ? { cast } : {}), ...(trigger ? { trigger } : {}) })}`);
+    await chrome.until("document.body.dataset.ready === '1'");
+    const file = path.join(OUT, `${bit}-contact${phase !== "sap" ? `-${phase}` : ""}${cast ? `-${cast}` : ""}.png`);
+    console.log(path.relative(ROOT, await chrome.screenshot(file)));
+  } finally { await chrome.close(); }
+  process.exit();
+}
 try {
   const instants = bit === "sheet" ? [null] : reduced ? ["still"] : (times.length ? times : ["0"]).map(t => Math.max(0, Number(t) || 0));
   for (const t of instants) {

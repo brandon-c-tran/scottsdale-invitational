@@ -8,12 +8,14 @@
 .is-quickdraw .qd-node { position:absolute; display:block; width:0; height:0; }
 
 /* the camera leans in through the hold and kicks on the bang */
-.is-quickdraw .qd-cam { transform-origin:960px 880px; transform:scale(1.2);
+.is-quickdraw .qd-cam { transform-origin:960px 880px; transform:var(--cam-to);
   --ba:qd-push 1400ms cubic-bezier(.45,0,.55,1) calc(var(--tl) + 300ms) both; animation:var(--ba); }
-@keyframes qd-push { from { transform:scale(1.1); } to { transform:scale(1.2); } }
+@keyframes qd-push { from { transform:var(--cam-from); } to { transform:var(--cam-to); } }
 .is-quickdraw .qd-shake { --ba:bit-shake 240ms linear calc(var(--tl) + var(--b-bang)) both; animation:var(--ba); }
 
 /* ── the tumbleweed: in from the right, rolling and hopping through ── */
+/* the landing dust clears quickly off the body */
+.is-quickdraw .qd-dust { --dust-ms:620ms; }
 .is-quickdraw .qd-weed { left:2080px; top:972px; transform:translateX(-2400px);
   --ba:qd-weed-x 1100ms linear calc(var(--tl) + var(--b-tumble)) both; animation:var(--ba); }
 @keyframes qd-weed-x { from { transform:none; } to { transform:translateX(-2400px); } }
@@ -31,8 +33,8 @@
 /* ── B: the tell, then nothing, then over it goes ── */
 .is-quickdraw .qd-b .is-lead .cast-hand.is-front .cast-hand-fx {
   --ba:qd-twitch 200ms linear calc(var(--tl) + var(--b-twitch)) both; animation:var(--ba); }
-@keyframes qd-twitch { 0%, 100% { transform:none; } 20% { transform:rotate(-14deg) translateY(-7px); } 45% { transform:rotate(8deg); }
-  72% { transform:rotate(-6deg) translateY(-3px); } }
+@keyframes qd-twitch { 0%, 100% { transform:none; } 18% { transform:rotate(-24deg) translateY(-16px); } 40% { transform:rotate(12deg) translateY(-4px); }
+  62% { transform:rotate(-16deg) translateY(-10px); } 82% { transform:rotate(5deg); } }
 /* flat on its back like a felled plank: the whole cut-out tips away from
    the room about its feet and slaps the floor, a little bounce; a side
    goes over one after another */
@@ -76,7 +78,7 @@
   --ba:qd-jolt 220ms var(--ease-out) calc(var(--tl) + var(--b-fumble)) both; animation:var(--ba); }
 @keyframes qd-jolt { 0%, 100% { transform:none; } 40% { transform:translateY(-16px); } }
 .is-quickdraw .qd-a .is-lead .cast-chip-in { transform:var(--cast-turn) rotateX(-20deg);
-  --ba:qd-look-down 420ms var(--ease-out) calc(var(--tl) + var(--b-look)) both; animation:var(--ba); }
+  --ba:qd-look-down 400ms var(--ease-out) calc(var(--tl) + var(--b-look)) both; animation:var(--ba); }
 @keyframes qd-look-down { from { transform:var(--cast-turn) rotateX(0deg); } to { transform:var(--cast-turn) rotateX(-20deg); } }
 
 /* ── the bang: a flash bigger than the gun, then smoke curling up off

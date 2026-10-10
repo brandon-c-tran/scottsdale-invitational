@@ -182,7 +182,6 @@ function Reel() {
         <section key={shape} className="br-shape" aria-labelledby={`br-shape-${shape}`}>
           <div className="br-shape-head">
             <h2 id={`br-shape-${shape}`}>{BIT_SHAPES[shape].name}</h2>
-            <p>{BIT_SHAPES[shape].triggers.join(" / ")}</p>
             <button type="button" className="br-random" onClick={() => random(shape)}>Random</button>
           </div>
           <div className="br-cards">
@@ -192,6 +191,26 @@ function Reel() {
         </section>
       ))}
     </main>
+  );
+}
+
+/* ── ?contact=<id>&ts=0,500,...: many instants as one sheet, each frame
+   lettered with its time (scripts/bit-frames.mjs --contact) ── */
+function ContactView() {
+  const bit = BITS.find(item => item.id === params.get("contact")) || BITS[0];
+  const ts = (params.get("ts") || "").split(",").map(Number).filter(Number.isFinite).slice(0, 16);
+  const sample = castFor(bit, params.get("cast"));
+  const trigger = bit.fits[Number(params.get("trigger")) || 0] || bit.fits[0];
+  const cols = ts.length > 9 ? 4 : ts.length > 4 ? 3 : 2;
+  useMarkReady();
+  return (
+    <div className="br-frame br-contact" style={{ gridTemplateColumns:`repeat(${cols}, 1fr)` }}>
+      {ts.map(t => <div key={t} className="br-contact-cell">
+        <BitStage bit={bit} cast={sample.cast} state={STATE} phase={params.get("phase") || "sap"} photos={PHOTOS}
+          fact={FACTS[trigger] || null} at={t} frozen runKey={`c${t}`} />
+        <span className="br-contact-t">{`${secs(t)} s`}</span>
+      </div>)}
+    </div>
   );
 }
 
@@ -297,7 +316,7 @@ function SoundcheckView() {
 }
 
 function App() {
-  const view = params.has("soundcheck") ? <SoundcheckView /> : params.has("frame") ? <FrameView />
+  const view = params.has("soundcheck") ? <SoundcheckView /> : params.has("contact") ? <ContactView /> : params.has("frame") ? <FrameView />
     : params.has("sheet") ? <SheetView /> : <Reel />;
   return <PlayerIdentityProvider profiles={PROFILES}>{view}</PlayerIdentityProvider>;
 }

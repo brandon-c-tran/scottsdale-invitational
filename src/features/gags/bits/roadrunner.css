@@ -16,13 +16,17 @@
 .is-roadrunner .rr-chip .cast-chip-in { transform:rotateY(-36deg);
   --ba:rr-turn 340ms ease-in-out calc(var(--tl) + var(--b-turn)) both; animation:var(--ba); }
 @keyframes rr-turn { from { transform:rotateY(0deg); } to { transform:rotateY(-36deg); } }
+/* as the bird goes by, the chip is pulled after it into its wake, and gone */
+.is-roadrunner .rr-chip .cast-body { transform:translateX(-170px) scale(1.9, .72);
+  --ba:rr-yank 70ms cubic-bezier(.5,0,1,.5) calc(var(--tl) + var(--b-leave) + 30ms) both; animation:var(--ba); }
+@keyframes rr-yank { from { transform:translateX(0px) scale(1, 1); } to { transform:translateX(-170px) scale(1.9, .72); } }
 .is-roadrunner .rr-chip .cast-hop { opacity:0;
-  --ba:bit-hide 1ms step-end calc(var(--tl) + var(--b-leave) + 40ms) both; animation:var(--ba); }
+  --ba:bit-hide 1ms step-end calc(var(--tl) + var(--b-leave) + 100ms) both; animation:var(--ba); }
 
 /* ── the bird: in like a shot, heels dug in, a bob, beep beep, gone ── */
 .is-roadrunner .rr-bird-x { transform:translateX(-1700px);
   --ba:rr-arrive 150ms cubic-bezier(.1,.9,.2,1) calc(var(--tl) + var(--b-arrive)) both,
-    rr-leave 170ms cubic-bezier(.7,0,1,.6) calc(var(--tl) + var(--b-leave)) forwards; animation:var(--ba); }
+    rr-leave 170ms linear calc(var(--tl) + var(--b-leave)) forwards; animation:var(--ba); }
 @keyframes rr-arrive { from { transform:translateX(1000px); } to { transform:translateX(0px); } }
 @keyframes rr-leave { from { transform:translateX(0px); } to { transform:translateX(-1700px); } }
 .is-roadrunner .rr-bird-in { transform:rotate(0deg) translateY(0px);

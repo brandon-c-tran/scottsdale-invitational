@@ -30,10 +30,20 @@ const px = n => `${Math.round(n * 10) / 10}px`;
 /* every mark is translate then rotate, so any two interpolate */
 const move = ({ x, y }, deg = 0) => `translate(${px(x)}, ${px(y)}) rotate(${deg}deg)`;
 
-export function quickdrawMarks(size = CAST.size) {
+/* where the leads stand: their marks, moved in so a side of four fits the
+   canvas, and how far the camera may lean in with both sides in frame */
+export function quickdrawStaging(a = 1, b = 1) {
+  const la = clusterLayout(a, { dir:-1 }), lb = clusterLayout(b, { dir:1 });
+  const ax = Math.max(QD_STAGE.a, 70 + la.reach), bx = Math.min(QD_STAGE.b, 1850 - lb.reach);
+  const half = Math.max(960 - (ax - la.reach), bx + lb.reach - 960);
+  const zoom = Math.round(Math.min(1.2, 900 / half) * 1000) / 1000;
+  return { la, lb, ax, bx, zoom };
+}
+
+export function quickdrawMarks(size = CAST.size, ax = QD_STAGE.a) {
   const k = size / CAST.size;
   const g = castGeometry(size);
-  const wrist = { x:QD_STAGE.a + g.hands.r.x, y:QD_STAGE.floor + g.hands.r.y };
+  const wrist = { x:ax + g.hands.r.x, y:QD_STAGE.floor + g.hands.r.y };
   const rs = REVOLVER.scale * k;
   const gl = g.glove;
   const grip = GLOVE_POSES.grip.held, point = GLOVE_POSES.point.held;
@@ -59,11 +69,12 @@ export function quickdrawMarks(size = CAST.size) {
 
 export function Quickdraw({ cast }) {
   const a = cast?.a || [], b = cast?.b || [];
-  const la = clusterLayout(a.length, { dir:-1 }), lb = clusterLayout(b.length, { dir:1 });
-  const m = quickdrawMarks(la.size);
+  const { la, lb, ax, bx, zoom } = quickdrawStaging(a.length, b.length);
+  const m = quickdrawMarks(la.size, ax);
   const kb = lb.size / CAST.size;
   const front = [["ready", 0], ["grip", QD.draw], ["point", QD.spin], ["open", QD.fumble]];
   const style = {
+    "--cam-from":`scale(${Math.round(zoom * 0.92 * 1000) / 1000})`, "--cam-to":`scale(${zoom})`,
     "--aim":move(m.aim), "--recoil":move(m.aim, -28), "--blow":move(m.blow, m.blowTurn), "--spin":move(m.spin), "--grab":move(m.grab),
     "--toss":move(m.toss), "--land":move(m.land), "--land-up":move({ x:m.land.x - 10 * m.k, y:m.land.y - 22 * m.k }),
   };
@@ -76,20 +87,20 @@ export function Quickdraw({ cast }) {
           <span className="qd-node qd-weed-shadow"><FloorShadow w={92} h={16} /></span>
           <span className="qd-node qd-weed-hop"><span className="qd-node qd-weed-spin"><Tumbleweed scale={0.86} /></span></span>
         </span>
-        <CastSide players={b} x={QD_STAGE.b} dir={1} facing={-1} className="qd-b"
+        <CastSide players={b} x={bx} dir={1} facing={-1} className="qd-b"
           lead={{ hands:{ front:"ready", back:"ready" } }} mates={{ hands:{ front:"ready", back:"ready" } }} />
-        <CastSide players={a} x={QD_STAGE.a} dir={-1} facing={1} className="qd-a"
+        <CastSide players={a} x={ax} dir={-1} facing={1} className="qd-a"
           lead={{ hands:{ front, back:"ready" }, hold:{ front:{ grip:<Revolver scale={m.rs} />, point:twirl } } }}
           mates={{ hands:{ front:"ready", back:"ready" } }} />
         <span className="qd-node qd-flash" style={{ left:m.muzzleAim.x + 34 * m.k, top:m.muzzleAim.y }}><MuzzleFlash scale={m.k} /></span>
         {[0, 1].map(i => <span key={i} className="qd-node qd-wisp" style={{ left:m.muzzleAim.x + 4, top:m.muzzleAim.y - 4, "--d":`${i * 220}ms` }}>
-          <Puff scale={0.42 * m.k} /></span>)}
-        <span className="qd-node qd-blowpuff" style={{ left:m.muzzleBlow.x, top:m.muzzleBlow.y - 6 }}><Puff scale={0.5 * m.k} /></span>
+          <Puff scale={0.6 * m.k} /></span>)}
+        <span className="qd-node qd-blowpuff" style={{ left:m.muzzleBlow.x, top:m.muzzleBlow.y - 6 }}><Puff scale={0.7 * m.k} /></span>
         <span className="qd-node qd-loose" style={{ left:m.tip.x, top:m.tip.y }}>
           <span className="qd-node qd-loose-turn"><Revolver scale={m.rs} pivot="guard" /></span>
         </span>
         {/* flat on its back: the dust squeezed out both sides */}
-        <Dust className="qd-dust" at={QD.land} puffs={DUST_LOW} spread={kb} size={kb} style={{ left:QD_STAGE.b, top:QD_STAGE.floor - 12 * kb }} />
+        <Dust className="qd-dust" at={QD.land} puffs={DUST_LOW} spread={kb} size={kb} style={{ left:bx, top:QD_STAGE.floor - 12 * kb }} />
       </div></div>
     </div>
   );

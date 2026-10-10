@@ -40,6 +40,9 @@ export const MOMENT_MS = Object.freeze({ min:3000, max:5500 });
 /* how long a bit takes to come up on the painting and to lift off it */
 export const BIT_IN_MS = 260;
 export const BIT_OUT_MS = 380;
+/* how long the name and the fact take to stamp onto the sky (bits.css
+   bit-stamp, the fact a beat behind): a still shows them landed */
+export const LETTER_LAND_MS = 480;
 
 const freeze = bit => Object.freeze({ ...bit, beats:Object.freeze(bit.beats), cast:Object.freeze(bit.cast),
   letter:Object.freeze(bit.letter), cues:Object.freeze(bit.cues.map(cue => Object.freeze(cue))),
@@ -51,9 +54,9 @@ const freeze = bit => Object.freeze({ ...bit, beats:Object.freeze(bit.beats), ca
    backwards, stiff as a board. A blows the smoke off the barrel, spins
    it... and fumbles it. ── */
 const QD = { tumble:60, twitch:1700, draw:1920, bang:2000, fall:2600, land:2940, blow:3150, spin:3480, fumble:3860,
-  bonk:3990, drop:4250, look:4520 };
+  bonk:3990, drop:4250, look:4380 };
 const quickdraw = {
-  id:"quickdraw", name:"Quick draw", shape:"versus", style:"action", ms:5000, beats:QD, still:3040, summary:"bitCrack",
+  id:"quickdraw", name:"Quick draw", shape:"versus", style:"action", ms:5200, beats:QD, still:4790, summary:"bitCrack",
   letter:{ at:QD.land, over:"a" },
   cast:{ a:{ role:"winner", max:4 }, b:{ role:"beaten", max:4 } },
   cues:[
@@ -97,7 +100,7 @@ const anvil = {
    is left. The shadow notices, and runs off after it. ── */
 const RR = { arrive:1150, stop:1300, beep:1500, turn:1560, leave:1860, clear:2600, notice:3240, windup:3420, zip:3520 };
 const roadrunner = {
-  id:"roadrunner", name:"Roadrunner", shape:"loss", style:"desert", ms:4500, beats:RR, still:2900, summary:"bitBeep",
+  id:"roadrunner", name:"Roadrunner", shape:"loss", style:"desert", ms:4500, beats:RR, still:3120, summary:"bitBeep",
   letter:{ at:RR.clear, over:"a" },
   cast:{ a:{ role:"loser", max:1 } },
   cues:[

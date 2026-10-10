@@ -13,7 +13,7 @@ import "./anvil.css";
    floor from one edge like a sticker, boings back into shape (one shoe
    stays flat on the floor) and limps off on the other. */
 const AN = bitById("anvil").beats;
-export const ANVIL_STAGE = Object.freeze({ x:820, stack:1250, floor:CAST.floor, anvilTo:-300 });
+export const ANVIL_STAGE = Object.freeze({ x:820, stack:1250, floor:CAST.floor, anvilTo:-360 });
 /* the pancake: the chip as wide as it can go and nearly no height */
 export const PANCAKE = Object.freeze({ x:1.42, y:0.2 });
 
@@ -54,7 +54,7 @@ export function Anvil({ cast }) {
         </span>
         <span className="an-node an-anvil" style={{ left:x, top:head }}>
           <span className="an-node an-anvil-x"><span className="an-node an-anvil-y"><span className="an-node an-anvil-rock">
-            <AnvilArt />
+            <AnvilArt scale={1.3} />
           </span></span></span>
         </span>
         <Dust className="an-dust-2" at={AN.thud} puffs={DUST_LOW} spread={0.6} size={0.8} style={{ left:x + ANVIL_STAGE.anvilTo, top:floor - 4 }} />

@@ -36,7 +36,7 @@ export function Roadrunner({ cast }) {
             <span className="rr-node rr-bird-in"><Swaps layers={poses.map(([pose, ms]) => [draw(pose), ms])} /></span>
           </span>
         </span>
-        <Dust className="rr-cloud" at={RR.leave + 30} puffs={CLOUD} spread={1} size={1} style={{ left:x, top:floor - 10 }} />
+        <Dust className="rr-cloud" at={RR.leave + 40} puffs={CLOUD} spread={1} size={1} style={{ left:x, top:floor - 10 }} />
         <Dust className="rr-zip-dust" at={RR.zip} puffs={DUST_LOW} spread={0.5} size={0.6} style={{ left:x + 60, top:floor - 2 }} />
       </div>
     </div>

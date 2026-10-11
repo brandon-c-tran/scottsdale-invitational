@@ -1299,6 +1299,99 @@ export const BIT_PARTS = Object.freeze([
   { id:"bitGloveFlop", name:"Glove flop", ms:300,
     play:(E, t) => { M.felt(E, t, { gain:0.6 }); M.knock(E, t + 0.006, { pitch:0.95, gain:0.28 });
       burst(E, voice(E, { send:0.1, bright:0.5, gain:0.4 }), t + 0.01, { type:"lowpass", f:600, d:0.12, peak:0.4 }); } },
+  /* ── the deadpan desert (butte, sunset, statue, vulture) ── */
+  /* a fingertip on stone: one dry tock */
+  { id:"bitPoke", name:"Poke", ms:200,
+    play:(E, t) => { M.knock(E, t, { pitch:2.3, gain:0.26 }); M.tick(E, t + 0.002, { gain:0.3, pitch:1.4 }); } },
+  /* a crack running up rock (opts.ms): sharp ticks climbing, a snap at the top */
+  { id:"bitCrackle", name:"Rock cracks", ms:260,
+    play:(E, t, o = {}) => { const d = Math.max(0.1, (o.ms || 200) / 1000), v = voice(E, { send:0.2, bright:1, gain:0.9 });
+      for (let i = 0, x = 0; i < 12 && x < d; i++, x += d / 11) burst(E, v, t + x + rnd(0, 0.006), { type:"highpass", f:1800 + i * 300, q:0.8, d:0.01, peak:0.32 + i * 0.02 });
+      mode(E, v, t, 140, 0.12, 0.25, { drop:0.4 }); burst(E, v, t + d, { f:2600, q:0.7, d:0.03, peak:0.5 }); } },
+  /* rock breaking up and dropping away down a hole: a crunch, a rumble,
+     stones knocking, falling away lower and quieter */
+  { id:"bitCrumble", name:"Rock crumbles", ms:1100,
+    play:(E, t) => { M.drum(E, t, { f:NOTE.D2, dec:0.4, gain:0.7 }); M.slap(E, t, { gain:0.5 });
+      burst(E, voice(E, { send:0.3, bright:0.5, gain:0.8 }), t, { type:"lowpass", f:600, q:0.6, d:0.7, peak:0.4 });
+      for (let i = 0; i < 16; i++) { const x = Math.pow(i / 16, 1.3) * 0.75;
+        M.knock(E, t + 0.02 + x + rnd(0, 0.01), { pitch:rnd(0.6, 1.3) * (1 - x * 0.4), gain:(0.5 - i * 0.025) }); } } },
+  /* falling away from us a long way (opts.ms): a whistle sliding down, quieter as it goes, cut dead */
+  { id:"bitFallAway", name:"Falling away", ms:700,
+    play:(E, t, o = {}) => { const d = Math.max(0.25, (o.ms || 700) / 1000), c = E.ctx, v = voice(E, { send:0.35, bright:0.9 });
+      const osc = c.createOscillator(); osc.type = "sine";
+      osc.frequency.setValueAtTime(NOTE.A6, t); osc.frequency.exponentialRampToValueAtTime(NOTE.D5, t + d);
+      const g = c.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.22, t + 0.04);
+      g.gain.exponentialRampToValueAtTime(0.03, t + d * 0.95); g.gain.linearRampToValueAtTime(0.0001, t + d);
+      osc.connect(g); g.connect(v); track(E, osc, g); trackSource(E, osc); osc.start(t); osc.stop(t + d + 0.03); } },
+  /* far below: a small, soft thud and a long room */
+  { id:"bitFarThud", name:"Far below", ms:900,
+    play:(E, t) => { M.drum(E, t, { f:NOTE.D2 * 1.2, dec:0.3, gain:0.32, send:0.6 });
+      burst(E, voice(E, { send:0.6, bright:0.35, gain:0.5 }), t + 0.01, { type:"lowpass", f:500, q:0.5, d:0.25, peak:0.3 }); } },
+  /* gloves dusted off on each other (opts.step) */
+  { id:"bitPat", name:"Dusting off", ms:200,
+    play:(E, t, o = {}) => { M.felt(E, t, { gain:0.35 });
+      burst(E, voice(E, { send:0.15, bright:0.8, gain:0.6 }), t, { f:1700 + ((Number(o.step) || 0) % 2) * 300, q:0.7, d:0.07, peak:0.35 }); } },
+  /* a backglass lamp relay catching (opts.step): the sky steps warmer */
+  { id:"bitRelamp", name:"Relamp", ms:250,
+    play:(E, t, o = {}) => { const s = Math.max(0, Number(o.step) || 0);
+      M.clack(E, t, { pitch:0.7 + s * 0.04, gain:0.22, double:false, bright:0.6 }); M.knock(E, t + 0.004, { pitch:1.1, gain:0.12 }); } },
+  /* a winch letting out rope, click by click (opts.ms), a last clunk */
+  { id:"bitRatchet", name:"Winch", ms:1200,
+    play:(E, t, o = {}) => { const d = Math.max(0.3, (o.ms || 1100) / 1000);
+      for (let x = 0, i = 0; x < d - 0.05 && i < 30; x += 0.085, i++) M.tick(E, t + x, { gain:0.32, pitch:1.2 - (i % 2) * 0.08 });
+      M.knock(E, t + d, { pitch:1.3, gain:0.3 }); } },
+  /* a glint off a lens: a bright ping */
+  { id:"bitGleam", name:"Gleam", ms:1300,
+    play:(E, t) => { M.bell(E, t, NOTE.A6, { gain:0.42, dec:1.1, send:0.4 }); M.bell(E, t + 0.004, NOTE.A6 * 1.5, { gain:0.12, dec:0.6, send:0.4 });
+      burst(E, voice(E, { send:0.3, bright:1, gain:0.3 }), t, { type:"highpass", f:6000, d:0.05, peak:0.25 }); } },
+  /* yanked straight up and away: a snap and a rising zip */
+  { id:"bitYank", name:"Yank", ms:300,
+    play:(E, t) => { M.tick(E, t, { gain:0.5, pitch:1.6 });
+      glide(E, voice(E, { send:0.2, bright:1, gain:0.5 }), t + 0.01, NOTE.D5, NOTE.A6, 0.16, 0.14);
+      swell(E, voice(E, { send:0.15, bright:0.9 }), t, { d:0.18, f0:900, f1:4200, q:0.9, peak:0.3 }); } },
+  /* a sheen running down metal: bells run down the motif over a shimmer */
+  { id:"bitSheen", name:"Turned to gold", ms:1400,
+    play:(E, t) => { [NOTE.A6, NOTE.Fs6, NOTE.D6, NOTE.A5, NOTE.Fs5].forEach((f, i) => M.bell(E, t + i * 0.07, f, { gain:0.24, dec:0.9, send:0.4 }));
+      swell(E, voice(E, { send:0.4, bright:1 }), t, { d:0.5, f0:7000, f1:3000, q:2, peak:0.08 }); } },
+  /* a stone block grinding up out of the ground (opts.ms) */
+  { id:"bitGrind", name:"Stone grinds", ms:700,
+    play:(E, t, o = {}) => { const d = Math.max(0.2, (o.ms || 600) / 1000), c = E.ctx, v = voice(E, { send:0.2, bright:0.6, gain:1 });
+      const s = c.createBufferSource(); s.buffer = E.noise; s.loop = true;
+      const bp = c.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 380; bp.Q.value = 1.4;
+      const g = c.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.5, t + 0.06);
+      g.gain.setValueAtTime(0.5, t + d * 0.8); g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+      s.connect(bp); bp.connect(g); g.connect(v); track(E, s, bp, g); trackSource(E, s); s.start(t, Math.random(), d + 0.05);
+      wobble(E, g.gain, t, d, { rate:23, depth:0.2 }); held(E, v, t, NOTE.D2, d, 0.12, { a:0.05 }); } },
+  /* wings (opts.small: a little bird; opts.step) */
+  { id:"bitFlap", name:"Wings", ms:250,
+    play:(E, t, o = {}) => { const small = !!o.small, v = voice(E, { send:0.15, bright:small ? 0.9 : 0.5, gain:small ? 0.4 : 0.8 });
+      burst(E, v, t, { type:"lowpass", f:small ? 2400 : 700, q:0.6, d:small ? 0.05 : 0.12, peak:0.6, a:0.012 });
+      if (!small) M.felt(E, t + 0.01, { gain:0.25 }); } },
+  /* a beak on gold: tink */
+  { id:"bitTink", name:"Tink", ms:700,
+    play:(E, t) => { M.bell(E, t, NOTE.A6, { gain:0.38, dec:0.6, send:0.3 }); M.tick(E, t, { gain:0.45, pitch:2 }); } },
+  /* a little bird fluffing itself up: a quick soft flutter */
+  { id:"bitFluff", name:"Fluff", ms:300,
+    play:(E, t) => { const v = voice(E, { send:0.15, bright:0.8, gain:0.5 });
+      for (let i = 0; i < 6; i++) burst(E, v, t + i * 0.035, { f:2200 - i * 120, q:0.8, d:0.03, peak:0.45 - i * 0.03 }); } },
+  /* a metal arm sagging slowly (opts.ms): a long creak sliding down */
+  { id:"bitDroop", name:"Metal sags", ms:1000,
+    play:(E, t, o = {}) => { const d = Math.max(0.3, (o.ms || 900) / 1000), c = E.ctx, v = voice(E, { send:0.25, bright:0.7, gain:1 });
+      const bp = c.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 900; bp.Q.value = 3; bp.connect(v); track(E, bp);
+      const osc = held(E, bp, t, NOTE.D4, d, 0.36, { type:"sawtooth", a:0.08 });
+      osc.frequency.exponentialRampToValueAtTime(NOTE.A3, t + d); wobble(E, osc.frequency, t, d, { rate:11, depth:6 }); } },
+  /* a short shuffle in the dirt (opts.step) */
+  { id:"bitScoot", name:"Scoot", ms:150,
+    play:(E, t, o = {}) => { const s = (Number(o.step) || 0) % 2;
+      swell(E, voice(E, { send:0.1, bright:0.8, gain:0.9 }), t, { d:0.09, f0:2400 - s * 300, f1:900, q:1, peak:0.35 }); M.felt(E, t + 0.07, { gain:0.2 }); } },
+  /* a napkin flicked open and tucked in */
+  { id:"bitFwip", name:"Napkin", ms:200,
+    play:(E, t) => { const v = voice(E, { send:0.15, bright:1, gain:0.8 });
+      burst(E, v, t, { type:"highpass", f:3000, q:0.7, d:0.02, peak:0.4 }); swell(E, v, t, { d:0.12, f0:1500, f1:4000, q:0.9, peak:0.3 }); } },
+  /* a knife drawn across a fork: shing */
+  { id:"bitShing", name:"Knife and fork", ms:1000,
+    play:(E, t) => { swell(E, voice(E, { send:0.3, bright:1, gain:1 }), t, { d:0.24, f0:2500, f1:6500, q:6, peak:0.3 });
+      M.bell(E, t + 0.2, NOTE.A6, { gain:0.25, dec:0.7, send:0.35 }); M.bell(E, t + 0.2, NOTE.E6, { gain:0.12, dec:0.5, send:0.35 }); } },
 ].map(Object.freeze));
 
 /* idle's helpers (BIT_PARTS above) */

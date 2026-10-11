@@ -292,6 +292,7 @@ console.error = (...args) => /useLayoutEffect/.test(String(args[0])) ? undefined
 const compiled = buildSync({
   stdin:{ contents:`export { BitStage, BitLayer, bitNameSize } from "./src/features/gags/BitStage.jsx";
     export { SCENES } from "./src/features/gags/bits/scenes.jsx";
+    export { butteStaging, butteRock, butteHole } from "./src/features/gags/bits/butte.jsx";
     export { CastChip, CastSide, poseTimeline, poseLayerStyle } from "./src/features/gags/cast/CastChip.jsx";
     export { PlayerIdentityProvider } from "./src/features/identity/PlayerIdentityContext.js";`, resolveDir:root, loader:"jsx" },
   bundle:true, platform:"node", format:"cjs", external:["react", "react-dom"], loader:{ ".css":"empty" }, write:false, logLevel:"silent",
@@ -300,7 +301,7 @@ const ui = new Module(fileURLToPath(new URL("bits-ui.cjs", import.meta.url)));
 ui.filename = ui.id;
 ui.paths = Module._nodeModulePaths(root);
 ui._compile(compiled.outputFiles[0].text, ui.filename);
-const { BitStage, SCENES, CastSide, poseTimeline, poseLayerStyle, PlayerIdentityProvider, bitNameSize } = ui.exports;
+const { BitStage, SCENES, CastSide, poseTimeline, poseLayerStyle, PlayerIdentityProvider, bitNameSize, butteStaging, butteRock, butteHole } = ui.exports;
 
 const PROFILES = Object.fromEntries(ROSTER.map((player, i) => [player, { display:player === "Henry" ? "Henry Nguyen" : player,
   color:CHIP_COLORS[(i * 5) % CHIP_COLORS.length].hex, skin:"ticks", photoV:1 }]));
@@ -313,7 +314,7 @@ const text = html => html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
 
 const SAMPLE_CASTS = { versus:[{ a:["Khoa"], b:["Sahil"] }, { a:["Adi", "Chiang"], b:["Richard", "Allan"] },
   { a:["Brandon", "Evan", "Eyob", "Ben"], b:["Henry", "Jeremy", "Chinh", "Khoa", "Sahil", "Adi"] }], loss:[{ a:["Evan"] }],
-  win:[{ a:["Eyob"] }, { a:["Adi", "Chiang"] }, { a:["Brandon", "Evan", "Eyob", "Ben", "Henry", "Jeremy"] }] };
+  win:[{ a:["Eyob"] }, { a:["Adi", "Chiang"] }, { a:["Adi", "Chiang", "Ben", "Evan", "Eyob"] }, { a:["Brandon", "Evan", "Eyob", "Ben", "Henry", "Jeremy"] }] };
 
 test("the camera: a clamped framing always covers the canvas with the painting, and puts the floor near the foot", () => {
   const { CAMERA } = camera;
@@ -532,4 +533,29 @@ test("toohype's staging: it comes down off its shoes, a pair outward, and the sh
   }
   const marks = dynamiteMarks(240);
   assert.ok(marks.tip.y < marks.base.y, "dynamite: the fuse's tip is above the stick");
+});
+
+/* -- the deadpan desert's geometry (butte) -- */
+
+test("butte: the finger lands on the stem, the crack falls with its strata, B's side fits the pit", () => {
+  for (const [a, b] of [[1, 1], [2, 2], [4, 6]]) {
+    const s = butteStaging(a, b);
+    const rock = butteRock(s);
+    assert.equal(rock.length, 5, "a cap and four strata");
+    const at = `${a}v${b}:`;
+    /* the stem's left face passes through the contact point */
+    const holder = rock.find(piece => piece.key !== "cap" && piece.c.y + Math.min(...piece.points.map(p => p[1])) <= s.contact.y
+      && piece.c.y + Math.max(...piece.points.map(p => p[1])) >= s.contact.y);
+    assert.ok(holder, `${at} a stratum at the finger's height`);
+    const left = Math.min(...holder.points.map(p => p[0])) + holder.c.x;
+    assert.ok(Math.abs(left - s.contact.x) < 16, `${at} the finger meets the rock (${left} vs ${s.contact.x})`);
+    assert.ok(s.contact.x > s.edge, `${at} past the lip`);
+    const crack = rock.flatMap(piece => piece.crack);
+    assert.ok(crack.length >= 10 && rock.filter(piece => piece.crack.length).length >= 3, `${at} the crack runs through the strata`);
+    assert.ok(crack.every(seg => seg.at >= 0 && seg.at <= 200), `${at} the crack runs inside its 200 ms`);
+    const pit = butteHole(s);
+    const reach = s.bx + (s.lb.shown - 1) * s.lb.step + s.lb.size * 1.1;
+    assert.ok(pit.x - pit.rx <= s.bx - s.lb.size * 0.5 && pit.x + pit.rx >= reach - 20, `${at} B's whole side drops into the pit`);
+    assert.ok(pit.x - pit.rx > s.ax, `${at} A stands on the floor, not over the pit`);
+  }
 });

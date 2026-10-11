@@ -118,7 +118,7 @@ export function BitLayer({ bit: bitOrId, cast = {}, state = null, phase = "fri",
           ...motion(camera.name && `${camera.name} ${bit.ms}ms linear calc(var(--tl) + 0ms) both`) }}>
           <Backglass phase={phase} className="bit-painting" />
           <div className="bit-floorlight" />
-          <div className="bit-scene">{Scene && <Scene bit={bit} cast={cast} state={state} mode={mode} reduced={reduced} />}</div>
+          <div className="bit-scene">{Scene && <Scene bit={bit} cast={cast} state={state} mode={mode} reduced={reduced} phase={phase} />}</div>
         </div>
       </div>
       {/* the sky's dim is for the lettering: an unlettered bit (idle) keeps

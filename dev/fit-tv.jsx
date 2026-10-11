@@ -13,6 +13,7 @@ import { TVMode } from "../src/features/tv/TVMode.jsx";
 import { TV_AMBIENT_MS, TV_AMBIENT_TURN_MS, TV_RESULT_MOMENT_MS, TV_TICKER_PAGE_MS, latestResultOf, nextUpEvent, tvLiveEvent }
   from "../src/features/tv/tvModel.js";
 import { recordAt, recordCards, withRecordTurns } from "../src/features/tv/recordsModel.js";
+import { attractAt, attractRoom, withAttractTurns } from "../src/features/tv/attractModel.js";
 import { tvPhotoRotation, withPhotoTurns } from "../src/features/photos/photoModel.js";
 import { FROZEN_TURNS } from "../src/features/results/classPhoto.js";
 import { ENGRAVE } from "../src/features/weekend/trophy.js";
@@ -42,11 +43,8 @@ const crownBeat = moment?.kind === "crown";
 /* an ambient turn: a future instant where the turn index is `turn` for any
    rotation of up to eight cards */
 const ROTATION = TV_AMBIENT_TURN_MS * 840;
-/* `record`: the records turn (features/tv/recordsModel.js) that shows the
-   card of `kind` (and `players` on it, `worst` for the bettors), `ms` into
-   the turn (5 s: the card standing, its entrance done). The gap's rotation
-   as TVMode builds it; the harness checks the card it drew is that one. */
-function recordNow(state, want) {
+/* the gap's rotation as TVMode builds it */
+function gapRotation(state) {
   const events = allEventsOf(state);
   const operationEv = resolveWeekendOperation(state, events).event;
   const liveEv = tvLiveEvent(state, events, operationEv);
@@ -56,7 +54,16 @@ function recordNow(state, want) {
   if (latestResultOf(state, events)) base.push("latest");
   if (state.live) base.push("trophy");
   const cards = recordCards(state, events);
-  const ambient = withPhotoTurns(withRecordTurns(base, cards.length), tvPhotoRotation(state).length);
+  const room = attractRoom(state);
+  const ambient = withAttractTurns(withPhotoTurns(withRecordTurns(base, cards.length), tvPhotoRotation(state).length), room.length);
+  return { cards, room, ambient };
+}
+/* `record`: the records turn (features/tv/recordsModel.js) that shows the
+   card of `kind` (and `players` on it, `worst` for the bettors), `ms` into
+   the turn (5 s: the card standing, its entrance done). The harness checks
+   the card it drew is that one. */
+function recordNow(state, want) {
+  const { cards, ambient } = gapRotation(state);
   const match = card => card.kind === want.kind && (want.worst === undefined || !!card.worst === want.worst)
     && (!want.players || want.players.every(p => card.players.includes(p)));
   const start = Math.ceil(Date.now() / ROTATION) * ROTATION;
@@ -67,8 +74,20 @@ function recordNow(state, want) {
   }
   throw new Error(`fit: no records turn shows ${JSON.stringify(want)} (${cards.map(card => card.id).join(", ") || "no cards"})`);
 }
+/* `attract`: the attract turn (features/tv/attractModel.js) that plays the
+   idle vignette `id`, `ms` into it; the harness checks the TV drew it */
+function attractNow(state, want) {
+  const { room, ambient } = gapRotation(state);
+  const start = Math.ceil(Date.now() / ROTATION) * ROTATION;
+  for (let turn = 0; turn < ambient.length * 60; turn++) {
+    const now = start + turn * TV_AMBIENT_TURN_MS + want.ms;
+    if (attractAt({ ambient, now, room })?.id === want.id) return now;
+  }
+  throw new Error(`fit: no attract turn plays ${want.id} (${room.length} in the room)`);
+}
 function pickNow(state) {
   if (at.record) return recordNow(state, at.record);
+  if (at.attract) return attractNow(state, at.attract);
   /* a plate mid-engrave: the newest result posted just before this trophy
      turn (its result moment played), `engrave` ms into the cut */
   if (at.engrave !== undefined) {
@@ -251,6 +270,10 @@ function Harness() {
         const drawn = at.record ? document.querySelector("[data-record]")?.getAttribute("data-record") || null : null;
         if (at.record && drawn !== at.record.kind)
           setTimeout(() => { throw new Error(`fit: the TV drew ${drawn || "no record"}, not ${at.record.kind}`); });
+        /* an attract view draws the vignette it asked for, or says so */
+        const bit = at.attract ? document.querySelector(".tv-attract [data-bit]")?.getAttribute("data-bit") || null : null;
+        if (at.attract && bit !== at.attract.id)
+          setTimeout(() => { throw new Error(`fit: the TV drew ${bit || "no vignette"}, not ${at.attract.id}`); });
         window.__FIT_READY__ = true;
       },
         moment ? 250 : scenario.wait || 900);

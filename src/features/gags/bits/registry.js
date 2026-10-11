@@ -197,7 +197,39 @@ const springglove = {
   ],
 };
 
-export const BITS = Object.freeze([quickdraw, anvil, roadrunner, springglove].map(freeze));
+/* ── toohype: a run of wins. It bounces on the spot, fists pumping, each
+   bounce higher. The fourth goes straight up out of the frame, right out
+   of its shoes. The shoes alone, a beat. It comes back down, misses them
+   and drives into the ground up to its middle. A glove comes up out of
+   the dirt, thumb up. The shoes walk over to it on their own. ── */
+const TH = { hop1:0, hop2:270, hop3:630, wind:1110, launch:1330, fall:2200, crash:2400, pop:2940, turn:3280, walk:3400, arrive:4000 };
+const toohype = {
+  id:"toohype", name:"Too hype", shape:"win", style:"slapstick", ms:4500, beats:TH, still:4200, summary:"bitPlant",
+  letter:{ at:TH.pop, over:"a", place:"top-left" },
+  camera:{ zoom:1.8, x:"mid", fit:true, moves:[
+    /* lean in with the bounces */
+    { at:200, ms:1000, zoom:1.86 },
+    /* the shoes, alone: creep in on them */
+    { at:TH.launch + 260, ms:640, zoom:1.98, x:"beat" },
+    /* back out for the shoes' walk */
+    { at:TH.crash + 260, ms:700, zoom:1.84, x:"mid" },
+  ], shakes:[{ at:TH.crash, big:true }] },
+  cast:{ a:{ role:"winner", max:2 } },
+  cues:[
+    { at:TH.hop1 + 70, sound:"bitBounce", pan:-0.12, opts:{ step:0 } },
+    { at:TH.hop2 + 60, sound:"bitBounce", pan:-0.12, opts:{ step:1 } },
+    { at:TH.hop3 + 60, sound:"bitBounce", pan:-0.12, opts:{ step:2 } },
+    { at:TH.launch, sound:"bitLaunch", pan:-0.12 },
+    { at:TH.fall - 60, sound:"bitFall", pan:0.24, opts:{ ms:260 } },
+    { at:TH.crash, sound:"bitPlant", pan:0.24 },
+    { at:TH.crash + 60, sound:"bitBoing", pan:0.24 },
+    { at:TH.pop, sound:"bitPop", pan:0.4 },
+    { at:TH.turn, sound:"bitSqueak", pan:-0.12, opts:{ step:1 } },
+    ...[0, 1, 2, 3, 4, 5].map(j => ({ at:TH.walk + 100 * (j + 1), sound:"bitSqueak", pan:Math.round((-0.1 + j * 0.04) * 100) / 100, opts:{ step:j } })),
+  ],
+};
+
+export const BITS = Object.freeze([quickdraw, anvil, roadrunner, springglove, toohype].map(freeze));
 const BY_ID = new Map(BITS.map(bit => [bit.id, bit]));
 export const bitById = id => BY_ID.get(id) || null;
 export const bitsOf = shape => BITS.filter(bit => bit.shape === shape);

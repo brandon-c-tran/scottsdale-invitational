@@ -17,6 +17,7 @@ import { Anvil } from "./anvil.jsx";
 import { Roadrunner } from "./roadrunner.jsx";
 /* the slapstick bits */
 import { Springglove } from "./springglove.jsx";
+import { Toohype } from "./toohype.jsx";
 
 export const SCENES = Object.freeze({
   quickdraw:Quickdraw,
@@ -24,4 +25,5 @@ export const SCENES = Object.freeze({
   roadrunner:Roadrunner,
   /* the slapstick bits */
   springglove:Springglove,
+  toohype:Toohype,
 });

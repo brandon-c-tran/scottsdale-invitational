@@ -21,7 +21,7 @@ const TH = bitById("toohype").beats;
    it goes. A pair of winners bounces side by side and misses outward,
    each pair of shoes walking off to its own. The stage's camera shoots
    it (the registry's camera); the scene names its anchors. */
-export const TH_STAGE = Object.freeze({ mid:960, solo:840, floor:CAST.floor, cut:944, miss:400, plant:150, gap:44 });
+export const TH_STAGE = Object.freeze({ mid:960, solo:800, floor:CAST.floor, cut:944, miss:340, plant:84, gap:10, mound:0.8 });
 const HOPS = Object.freeze([44, 104, 212]);
 
 const r1 = n => Math.round(n * 10) / 10;
@@ -41,11 +41,14 @@ export function hypeStaging(n = 1) {
     const miss = TH_STAGE.miss * k * (shown > 1 ? 0.9 : 1);
     const x1 = x0 + dir * miss;
     /* the near shoe stops short of the dirt round it */
-    const walk = Math.round(miss - 0.62 * size - TH_STAGE.gap * k - shoeX);
+    const walk = Math.round(miss - 0.55 * size - TH_STAGE.gap * k - shoeX);
     return { i, dir, x0, x1, walk, glove:x1 + dir * 0.6 * size };
   });
-  const xs = members.flatMap(m => [m.x0, m.x1, m.glove + m.dir * 80 * k]);
-  const minX = Math.round(Math.min(...xs) - 0.62 * size), maxX = Math.round(Math.max(...xs) + 0.62 * size);
+  /* the span: its fists out to the side as it bounces, the glove beside
+     where it comes down */
+  const lefts = members.map(m => m.dir < 0 ? m.glove - 0.45 * size : m.x0 - size);
+  const rights = members.map(m => m.dir > 0 ? m.glove + 0.45 * size : m.x0 + size);
+  const minX = Math.round(Math.min(...lefts)), maxX = Math.round(Math.max(...rights));
   return { shown, more:Math.max(0, (Number(n) || 1) - shown), size, k, g, members, minX, maxX, mid:Math.round((minX + maxX) / 2),
     shoes:Math.round(members.reduce((sum, m) => sum + m.x0, 0) / shown) };
 }
@@ -93,7 +96,7 @@ export function Toohype({ cast }) {
           </span>
           <Dust className="th-off" at={TH.launch} puffs={DUST_LOW} spread={0.45 * k} size={0.55 * k} style={{ left:m.x0, top:floor - 4 }} />
           <Dust className="th-crash" at={TH.crash} puffs={DUST_FAN} spread={1.25 * k} size={1.15 * k} style={{ left:m.x1, top:floor - 10 }} />
-          <span className="th-node th-mound" style={{ left:m.x1, top:floor + 6 * k }}><DirtMound scale={k * 0.92} /></span>
+          <span className="th-node th-mound" style={{ left:m.x1, top:floor + 6 * k }}><DirtMound scale={k * TH_STAGE.mound} /></span>
           <Dust className="th-pop-dust" at={TH.pop} puffs={DUST_LOW} spread={0.3 * k} size={0.45 * k}
             style={{ left:m.glove + m.dir * 40 * k, top:floor - 2 }} />
           {/* its shoes: they bounce with it, stay when it goes, turn to it,
@@ -126,5 +129,7 @@ export function Toohype({ cast }) {
    "mid" the whole of it, minX to maxX the span */
 Toohype.anchors = cast => {
   const s = hypeStaging(cast?.a?.length || 1);
-  return { shoes:s.shoes, land:Math.round(s.members.reduce((sum, m) => sum + m.x1, 0) / s.shown), mid:s.mid, minX:s.minX, maxX:s.maxX };
+  const land = s.members.reduce((sum, m) => sum + m.x1, 0) / s.shown;
+  /* "beat": on the shoes, with the spot it will come down in still in frame */
+  return { shoes:s.shoes, beat:Math.round(s.shoes + (land - s.shoes) * 0.4), land:Math.round(s.members.reduce((sum, m) => sum + m.x1, 0) / s.shown), mid:s.mid, minX:s.minX, maxX:s.maxX };
 };

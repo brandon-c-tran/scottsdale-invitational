@@ -51,8 +51,8 @@
   58.3% { transform:scale(1, 1); } 92% { transform:scale(.94, 1.08); } 100% { transform:scale(1.14, .86); } }
 @keyframes th-sq3 { 0% { transform:scale(1.14, .86); } 12.5% { transform:scale(1.16, .84); } 21% { transform:scale(.82, 1.22); }
   56.3% { transform:scale(1, 1); } 94% { transform:scale(.92, 1.1); } 100% { transform:scale(1.18, .82); } }
-@keyframes th-wind { from { transform:scale(1.18, .82); } to { transform:scale(1.34, .64); } }
-@keyframes th-thin { 0% { transform:scale(1.34, .64); } 18% { transform:scale(.58, 1.75); } 100% { transform:scale(.52, 1.95); } }
+@keyframes th-wind { from { transform:scale(1.18, .82); } to { transform:scale(1.26, .74); } }
+@keyframes th-thin { 0% { transform:scale(1.26, .74); } 18% { transform:scale(.58, 1.75); } 100% { transform:scale(.52, 1.95); } }
 @keyframes th-dive { from { transform:scale(.7, 1.45); } to { transform:scale(.8, 1.3); } }
 @keyframes th-plant { 0% { transform:scale(.8, 1.3); } 24% { transform:scale(1.18, .84); } 60% { transform:scale(.96, 1.04); }
   100% { transform:scale(1, 1); } }
@@ -79,8 +79,8 @@
     th-look-down 140ms ease-out calc(var(--tl) + var(--b-fall)) forwards,
     th-face 240ms ease-out calc(var(--tl) + var(--b-crash) + 80ms) forwards;
   animation:var(--ba); }
-@keyframes th-chin { from { transform:rotateY(0deg) rotateX(0deg); } to { transform:rotateY(0deg) rotateX(20deg); } }
-@keyframes th-look-down { from { transform:rotateY(0deg) rotateX(20deg); } to { transform:rotateY(0deg) rotateX(-28deg); } }
+@keyframes th-chin { from { transform:rotateY(0deg) rotateX(0deg); } to { transform:rotateY(0deg) rotateX(10deg); } }
+@keyframes th-look-down { from { transform:rotateY(0deg) rotateX(10deg); } to { transform:rotateY(0deg) rotateX(-28deg); } }
 @keyframes th-face { from { transform:rotateY(0deg) rotateX(-28deg); } to { transform:rotateY(0deg) rotateX(0deg); } }
 /* its own shoes are the scene's; its shadow goes with it */
 .is-toohype .th-chip .cast-shoe { opacity:0; }

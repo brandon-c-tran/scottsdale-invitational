@@ -15,9 +15,19 @@
 import { Quickdraw } from "./quickdraw.jsx";
 import { Anvil } from "./anvil.jsx";
 import { Roadrunner } from "./roadrunner.jsx";
+/* idle (Oct 10): the downtime vignettes */
+import { Nap } from "./nap.jsx";
+import { Armwrestle } from "./armwrestle.jsx";
+import { Saguaro } from "./saguaro.jsx";
+import { Pushups } from "./pushups.jsx";
 
 export const SCENES = Object.freeze({
   quickdraw:Quickdraw,
   anvil:Anvil,
   roadrunner:Roadrunner,
+  /* idle */
+  nap:Nap,
+  armwrestle:Armwrestle,
+  saguaro:Saguaro,
+  pushups:Pushups,
 });

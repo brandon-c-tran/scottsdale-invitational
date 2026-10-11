@@ -22,7 +22,8 @@
      summary    reduced motion's one sound, at the start
      letter     { at, over, place }: when the name (and the moment's fact)
                 stamps on the sky, whose name, and where the shot leaves room
-                for it (top-left, top-right or top)
+                for it (top-left, top-right or top); null letters nothing
+                (an idle vignette)
      camera     the shot (bits/camera.js): its zoom and centre, moves on the
                 bit's clock, shakes and washes
      cast       the roles the scene needs: { a:{ role, max }, b:... }
@@ -159,7 +160,179 @@ const roadrunner = {
   ],
 };
 
-export const BITS = Object.freeze([quickdraw, anvil, roadrunner].map(freeze));
+/* ══ idle (Oct 10): the TV's downtime, its attract mode between games.
+   Slower and drier than a moment: a small story with a turn and an ending
+   pose, played once per downtime turn. The cast is the room: `a` is the
+   players present (the caller's order), a vignette takes the first one or
+   two. Nothing is lettered (`letter:null`: the stage letters no name and
+   no fact), so `still` is simply the punchline frame. ══ */
+export const IDLE_MS = Object.freeze({ min:6000, max:10000 });
+const ROOM = role => ({ a:{ role:"room", max:role } });
+
+/* ── nap: the chip asleep on its back, its head on a little pillow,
+   breathing, sleep marks drifting up. A moth circles and lands on its
+   face. A glove comes up, slowly, and swats: its own face. The moth was
+   already off; it lands on the glove. It sleeps on. ── */
+const NP = { mark1:300, enter:1200, circle:2200, mark2:2300, land:3300, twitch:3900, lift:4300, flee:4960, swat:5000,
+  perch:6150, sigh:6500, mark3:6700 };
+const nap = {
+  id:"nap", name:"Nap", shape:"idle", style:"desert", ms:8000, beats:NP, still:7000, summary:"bitSnore", letter:null,
+  camera:{ zoom:2.06, x:960, moves:[
+    /* the faintest drift in while it sleeps and the moth comes round */
+    { at:0, ms:NP.land, zoom:2.3, x:962 },
+    /* a nudge in on the swat */
+    { at:NP.swat, ms:70, zoom:2.42, x:966, ease:CAMERA_EASE.snap },
+    /* settle for the ending */
+    { at:NP.swat + 600, ms:1400, zoom:2.3, x:964 },
+  ], shakes:[{ at:NP.swat }] },
+  cast:ROOM(1),
+  cues:[
+    { at:NP.mark1, sound:"bitSnore", pan:0, opts:{ small:true } },
+    { at:NP.enter, sound:"bitFlutter", pan:-0.3, opts:{ ms:NP.land - NP.enter } },
+    { at:NP.mark2, sound:"bitSnore", pan:0, opts:{ small:true } },
+    { at:NP.flee, sound:"bitFlutter", pan:0.05, opts:{ ms:NP.perch - NP.flee } },
+    { at:NP.swat, sound:"bitSwat", pan:0.05 },
+    { at:NP.sigh, sound:"bitSnore", pan:0 },
+  ],
+};
+
+/* ── armwrestle: two chips at a tiny table, gloves locked, trembling in
+   a dead even stalemate. Sweat. The hands tilt a little one way, a little
+   the other, back to the middle. Then both turn to the room at the same
+   moment, and hold, still locked, still shaking. ── */
+const AW = { sweatA:700, tiltA:1000, backA:2200, tiltB:3000, backB:4000, sweatB:4300, center:4700, look:5700, drip:7600 };
+const armwrestle = {
+  id:"armwrestle", name:"Arm wrestle", shape:"idle", style:"action", ms:9000, beats:AW, still:6900, summary:"bitCreak", letter:null,
+  camera:{ zoom:1.62, x:960, moves:[
+    /* lean in through the struggle; then the camera holds still for the look */
+    { at:300, ms:AW.center - 300, zoom:1.84, x:960 },
+  ] },
+  cast:ROOM(2),
+  cues:[
+    { at:AW.sweatA, sound:"bitDrip", pan:-0.3, opts:{ small:true } },
+    { at:AW.tiltA, sound:"bitCreak", pan:-0.1, opts:{ ms:900 } },
+    { at:AW.backA, sound:"bitCreak", pan:0, opts:{ ms:500, small:true } },
+    { at:AW.tiltB, sound:"bitCreak", pan:0.1, opts:{ ms:800 } },
+    { at:AW.backB, sound:"bitCreak", pan:0, opts:{ ms:500, small:true } },
+    { at:AW.sweatB, sound:"bitDrip", pan:0.3, opts:{ small:true } },
+    { at:AW.look - 300, sound:"bitWind", pan:0, opts:{ ms:3500 } },
+    { at:AW.drip, sound:"bitDrip", pan:-0.25 },
+  ],
+};
+
+/* ── saguaro: the chip wants the blossom on top of a saguaro. One glove:
+   pricked, a hop back, shaking it. The other: pricked. It fetches a
+   stepladder, far too short, stands on it, reaches: not even close. It
+   gives up and leans back against the cactus: pricked. The leap takes it
+   to the top, where it wanted to be; it looks at us. ── */
+const SG = { look:200, reach1:700, prick1:1000, reach2:1900, prick2:2200, exit:2900, enter:3500, set:4200, climb:4500,
+  reach:4800, giveup:5800, lean:6300, prick3:6700, jump:6760, top:7300, face:7950 };
+const saguaro = {
+  id:"saguaro", name:"Saguaro", shape:"idle", style:"desert", ms:9400, beats:SG, still:8500, summary:"bitPrick", letter:null,
+  /* world x: the chip at 730, the ladder at 990, the cactus at 1160 (saguaro.jsx) */
+  camera:{ zoom:1.66, x:975, moves:[
+    /* in on the stepladder */
+    { at:SG.set - 200, ms:900, zoom:1.75, x:1010 },
+    /* out with the leap, the whole of the saguaro */
+    { at:SG.jump, ms:620, zoom:1.18, x:1080, ease:CAMERA_EASE.snap },
+  ], shakes:[{ at:SG.top }] },
+  cast:ROOM(1),
+  cues:[
+    { at:SG.prick1, sound:"bitPrick", pan:0.05 },
+    { at:SG.prick1 + 120, sound:"bitShake", pan:-0.1 },
+    { at:SG.prick2, sound:"bitPrick", pan:0.05 },
+    { at:SG.prick2 + 120, sound:"bitShake", pan:-0.12 },
+    { at:SG.set, sound:"bitLadder", pan:0 },
+    { at:SG.climb + 200, sound:"bitHop", pan:0, opts:{ step:0 } },
+    { at:SG.prick3, sound:"bitPrick", pan:0.1, opts:{ big:true } },
+    { at:SG.jump, sound:"bitBoing", pan:0.1 },
+    { at:SG.jump + 160, sound:"bitLadder", pan:-0.05, opts:{ small:true } },
+    { at:SG.top, sound:"bitHop", pan:0.15, opts:{ step:1 } },
+  ],
+};
+
+/* ── pushups: gloves planted, the chip goes down and up, each one harder
+   than the last; on the fourth it goes down and stays there, flat. One
+   glove gives a weak thumbs up. ── */
+const PU = { down1:500, up1:850, down2:1350, up2:1800, down3:2550, up3:3050, sweat:3300, down4:4150, strain:4750, collapse:5150,
+  flat:5300, thumb:6100 };
+const pushups = {
+  id:"pushups", name:"Push-ups", shape:"idle", style:"slapstick", ms:7400, beats:PU, still:6600, summary:"bitThud", letter:null,
+  /* world x: the chip at 960, its gloves 168 either side (pushups.jsx) */
+  camera:{ zoom:1.9, x:960, moves:[
+    /* closer as it gets hard */
+    { at:PU.down3, ms:PU.down4 - PU.down3, zoom:2.1, x:960 },
+    /* toward the glove, the chip still in the shot */
+    { at:PU.thumb - 200, ms:800, zoom:2.16, x:1010 },
+  ], shakes:[{ at:PU.flat }] },
+  cast:ROOM(1),
+  cues:[
+    { at:PU.up1, sound:"bitHuff", pan:0, opts:{ step:0 } },
+    { at:PU.up2, sound:"bitHuff", pan:0, opts:{ step:1 } },
+    { at:PU.up3, sound:"bitHuff", pan:0, opts:{ step:2 } },
+    { at:PU.sweat, sound:"bitDrip", pan:0.12, opts:{ small:true } },
+    { at:PU.strain, sound:"bitHuff", pan:0, opts:{ step:3 } },
+    { at:PU.flat, sound:"bitThud", pan:0 },
+    { at:PU.thumb, sound:"bitSqueak", pan:0.12 },
+  ],
+};
+
+/* ── sweep: the chip sweeps the desert into a neat little pile and pats
+   it tidy. A gust takes the pile back across the floor (a tumbleweed
+   with it). It stares. It starts again. ── */
+const SW = { stroke1:200, stroke2:900, stroke3:1600, stroke4:2300, pat:2950, admire:3350, weed:3900, gust:4000, stare:5000,
+  again:6450, again2:7150 };
+const sweep = {
+  id:"sweep", name:"Sweep", shape:"idle", style:"desert", ms:8000, beats:SW, still:5800, summary:"bitSweep", letter:null,
+  camera:{ zoom:1.78, x:1000, moves:[
+    /* in on the pile as it gets tidy */
+    { at:SW.stroke2, ms:SW.admire - SW.stroke2, zoom:1.94, x:1010 },
+    /* hold on the stare, a touch closer */
+    { at:SW.stare, ms:1200, zoom:2.04, x:980 },
+  ] },
+  cast:ROOM(1),
+  cues:[
+    ...[SW.stroke1, SW.stroke2, SW.stroke3, SW.stroke4].map((at, i) => ({ at, sound:"bitSweep", pan:0.1, opts:{ step:i } })),
+    { at:SW.pat, sound:"bitHop", pan:0.2, opts:{ step:0 } },
+    { at:SW.pat + 180, sound:"bitHop", pan:0.2, opts:{ step:1 } },
+    { at:SW.gust - 250, sound:"bitGust", pan:0, opts:{ ms:1300 } },
+    { at:SW.weed + 420, sound:"bitHop", pan:0.3, opts:{ step:0 } },
+    { at:SW.weed + 820, sound:"bitHop", pan:-0.1, opts:{ step:1 } },
+    { at:SW.again, sound:"bitSweep", pan:0.1, opts:{ step:4 } },
+    { at:SW.again2, sound:"bitSweep", pan:0.1, opts:{ step:5 } },
+  ],
+};
+
+/* ── map: the chip unfolds a paper map bigger than itself and peers over
+   it; turns it; turns it again (it was upside down). A roadrunner goes
+   by on the horizon. It crumples the map and throws it away; the ball
+   comes back off a rock and bonks it. ── */
+const MP = { unfold1:300, unfold2:650, unfold3:1000, study:1400, turn1:2000, turn2:3000, runner:3550, crumple:4400, toss:5000,
+  rock:5420, bonk:5940, drop:6300 };
+const map = {
+  id:"map", name:"Map", shape:"idle", style:"desert", ms:8000, beats:MP, still:6060, summary:"bitPaper", letter:null,
+  camera:{ zoom:1.8, x:980, moves:[
+    /* in on the map */
+    { at:MP.unfold1, ms:1300, zoom:1.92, x:960 },
+    /* out a little for the throw and the rock */
+    { at:MP.toss - 200, ms:500, zoom:1.7, x:1060 },
+  ], shakes:[{ at:MP.bonk }] },
+  cast:ROOM(1),
+  cues:[
+    { at:MP.unfold1, sound:"bitPaper", pan:0, opts:{ ms:900 } },
+    { at:MP.turn1, sound:"bitPaper", pan:0, opts:{ ms:350, small:true } },
+    { at:MP.turn2, sound:"bitPaper", pan:0, opts:{ ms:350, small:true } },
+    { at:MP.runner, sound:"bitStreak", pan:0, opts:{ from:0.8, to:-0.8 } },
+    { at:MP.runner + 260, sound:"bitBeepFar", pan:-0.7 },
+    { at:MP.crumple, sound:"bitCrumple", pan:0 },
+    { at:MP.rock, sound:"bitPap", pan:0.5 },
+    { at:MP.bonk, sound:"bitBonk", pan:0 },
+    { at:MP.drop, sound:"bitPap", pan:0.05, opts:{ small:true } },
+  ],
+};
+const IDLE = [nap, armwrestle, saguaro, pushups, sweep, map];
+
+export const BITS = Object.freeze([quickdraw, anvil, roadrunner, ...IDLE].map(freeze));
 const BY_ID = new Map(BITS.map(bit => [bit.id, bit]));
 export const bitById = id => BY_ID.get(id) || null;
 export const bitsOf = shape => BITS.filter(bit => bit.shape === shape);

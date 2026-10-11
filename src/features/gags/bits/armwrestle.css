@@ -1,0 +1,55 @@
+/* armwrestle (armwrestle.jsx): beats from registry.js (--b-<name>), every
+   animation on --ba, each element resting on its end state. The struggle
+   is one keyframes per part from tiltA to the dead centre (3.7 s), its
+   stops on the beats in between; the trembling never stops (a buzz on its
+   own short period). The camera is the stage's (the registry). */
+
+.is-armwrestle .aw { position:absolute; inset:0; }
+.is-armwrestle .aw-node { position:absolute; display:block; width:0; height:0; }
+
+/* the rig's front gloves are the scene's (the locked pair) */
+.is-armwrestle .aw-chip .cast-hand.is-front { opacity:0; }
+
+/* ── the lock: pivoting on the table's middle through the struggle, and
+   shaking all the while; the table rattles under it ── */
+.is-armwrestle .aw-lock-tilt { transform:rotate(0deg);
+  --ba:aw-tilt 3700ms ease-in-out calc(var(--tl) + var(--b-tiltA)) both; animation:var(--ba); }
+@keyframes aw-tilt { 0% { transform:rotate(0deg); } 24% { transform:rotate(-17deg); } 32% { transform:rotate(-15deg); }
+  49%, 54% { transform:rotate(0deg); } 76% { transform:rotate(16deg); } 81% { transform:rotate(14deg); } 100% { transform:rotate(0deg); } }
+.is-armwrestle .aw-lock-shake { --ba:aw-shake 70ms linear calc(var(--tl) + 0ms) infinite; animation:var(--ba); }
+@keyframes aw-shake { 0%, 100% { transform:translate(0px, 0px) rotate(0deg); } 25% { transform:translate(3px, -1px) rotate(1.2deg); }
+  50% { transform:translate(-1px, 2px) rotate(-.6deg); } 75% { transform:translate(-3px, 0px) rotate(.9deg); } }
+.is-armwrestle .aw-table { --ba:aw-rattle 80ms linear calc(var(--tl) + 0ms) infinite; animation:var(--ba); }
+@keyframes aw-rattle { 0%, 100% { transform:translate(0px, 0px); } 50% { transform:translate(1.5px, -1px); } }
+
+/* ── the wrestlers: leaning in; the one losing leans back, the one
+   winning leans over; the free fists shake; everything trembles ── */
+.is-armwrestle .aw-a .cast-body-in { transform:rotate(4deg);
+  --ba:aw-lean-a 3700ms ease-in-out calc(var(--tl) + var(--b-tiltA)) both; animation:var(--ba); }
+@keyframes aw-lean-a { 0% { transform:rotate(4deg); } 24%, 32% { transform:rotate(-3deg); } 49%, 54% { transform:rotate(4deg); }
+  76%, 81% { transform:rotate(10deg); } 100% { transform:rotate(4deg); } }
+.is-armwrestle .aw-b .cast-body-in { transform:rotate(-4deg);
+  --ba:aw-lean-b 3700ms ease-in-out calc(var(--tl) + var(--b-tiltA)) both; animation:var(--ba); }
+@keyframes aw-lean-b { 0% { transform:rotate(-4deg); } 24%, 32% { transform:rotate(-10deg); } 49%, 54% { transform:rotate(-4deg); }
+  76%, 81% { transform:rotate(3deg); } 100% { transform:rotate(-4deg); } }
+.is-armwrestle .aw-chip .cast-body { --ba:aw-tremble 90ms linear calc(var(--tl) + 0ms) infinite; animation:var(--ba); }
+@keyframes aw-tremble { 0%, 100% { transform:rotate(0deg); } 33% { transform:rotate(.7deg); } 66% { transform:rotate(-.6deg); } }
+.is-armwrestle .aw-chip .cast-hand.is-back .cast-hand-fx { --ba:aw-shake 80ms linear calc(var(--tl) + 0ms) infinite; animation:var(--ba); }
+
+/* ── the look: both turn to the room on the same beat, and hold ── */
+.is-armwrestle .aw-chip .cast-chip-in { transform:rotateY(0deg) rotateX(-9deg);
+  --ba:aw-look 900ms cubic-bezier(.45,0,.35,1) calc(var(--tl) + var(--b-look)) both; animation:var(--ba); }
+@keyframes aw-look { from { transform:var(--cast-turn) rotateX(0deg); } to { transform:rotateY(0deg) rotateX(-9deg); } }
+
+/* ── sweat: a drop comes out on each and runs down; a last one on A runs
+   off its rim and drips to the floor ── */
+.is-armwrestle .aw-sweat { opacity:0; --ba:aw-sweat 2400ms ease-in calc(var(--tl) + var(--d)) both; animation:var(--ba); }
+@keyframes aw-sweat { 0% { opacity:0; transform:translate(0px, 0px) scale(.2); } 1% { opacity:1; transform:translate(0px, 0px) scale(.2); }
+  7% { opacity:1; transform:translate(0px, 0px) scale(1.15); } 12% { opacity:1; transform:translate(0px, 0px) scale(1); }
+  90% { opacity:1; transform:translate(0px, 64px) scale(1); } 100% { opacity:0; transform:translate(0px, 72px) scale(.9); } }
+.is-armwrestle .aw-sweat.is-a2 { --ba:aw-drip 1700ms linear calc(var(--tl) + var(--d)) both; animation:var(--ba); }
+@keyframes aw-drip { 0% { opacity:0; transform:translate(0px, 0px) scale(.2); } 1% { opacity:1; transform:translate(0px, 0px) scale(.2); }
+  6% { opacity:1; transform:translate(0px, 0px) scale(1.15); animation-timing-function:ease-in-out; }
+  10% { opacity:1; transform:translate(0px, 0px) scale(1); animation-timing-function:cubic-bezier(.5,0,.8,.6); }
+  76% { opacity:1; transform:translate(-6px, 92px) scale(1); animation-timing-function:cubic-bezier(.55,0,1,.45); }
+  94% { opacity:1; transform:translate(-8px, 236px) scale(1, 1.1); } 100% { opacity:0; transform:translate(-8px, 240px) scale(1.5, .4); } }

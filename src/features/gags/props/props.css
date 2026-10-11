@@ -59,3 +59,16 @@
   83.333% { transform:translate(calc(var(--rx) * .5), calc(var(--ry) * -.866)) scale(.69) rotate(300deg); }
   91.667% { transform:translate(calc(var(--rx) * .866), calc(var(--ry) * -.5)) scale(.76) rotate(330deg); }
   100% { transform:translate(var(--rx), 0) scale(.86) rotate(360deg); } }
+
+/* ── idle's props (Oct 10) ── */
+/* the moth: a node of no size, its wings hung on its body so a scene
+   flaps them about it */
+.bit-moth, .bit-moth-wing { position:absolute; left:0; top:0; display:block; width:0; height:0; transform-origin:0 0; }
+/* the saguaro's lit side and ribs, the map's print */
+.bit-cactus-lit { fill:none; stroke:var(--bit-cactus-lit); stroke-linecap:round; }
+.bit-cactus-rib { fill:none; stroke:var(--bit-cactus-rib); stroke-linecap:round; }
+.bit-map-river { fill:none; stroke:color-mix(in srgb, var(--art-cobalt) 58%, var(--art-turquoise)); stroke-linecap:round; }
+.bit-map-road { fill:none; stroke:var(--art-terracotta); stroke-linecap:round; stroke-dasharray:14 10; }
+.bit-map-peak { fill:var(--art-sage); stroke:var(--art-sage); stroke-linejoin:round; }
+.bit-map-cactus { fill:none; stroke:var(--art-sage); stroke-linecap:round; stroke-linejoin:round; }
+.bit-map-x { fill:none; stroke:var(--art-rose); stroke-linecap:round; }

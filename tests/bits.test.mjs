@@ -72,7 +72,7 @@ test("every bit: a unique id, a shape and a style, a moment's length, its beats,
 });
 
 test("the exemplars keep their shape and style", () => {
-  assert.deepEqual(BITS.map(bit => [bit.id, bit.shape, bit.style]), [
+  assert.deepEqual(["quickdraw", "anvil", "roadrunner"].map(bitById).map(bit => [bit.id, bit.shape, bit.style]), [
     ["quickdraw", "versus", "action"], ["anvil", "loss", "slapstick"], ["roadrunner", "loss", "desert"],
   ]);
   const qd = bitById("quickdraw").beats;
@@ -302,7 +302,8 @@ const text = html => html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
 /* ── the camera ── */
 
 const SAMPLE_CASTS = { versus:[{ a:["Khoa"], b:["Sahil"] }, { a:["Adi", "Chiang"], b:["Richard", "Allan"] },
-  { a:["Brandon", "Evan", "Eyob", "Ben"], b:["Henry", "Jeremy", "Chinh", "Khoa", "Sahil", "Adi"] }], loss:[{ a:["Evan"] }] };
+  { a:["Brandon", "Evan", "Eyob", "Ben"], b:["Henry", "Jeremy", "Chinh", "Khoa", "Sahil", "Adi"] }], loss:[{ a:["Evan"] }],
+  win:[{ a:["Eyob"] }, { a:["Adi", "Chiang"] }, { a:["Brandon", "Evan", "Eyob", "Ben", "Henry", "Jeremy"] }] };
 
 test("the camera: a clamped framing always covers the canvas with the painting, and puts the floor near the foot", () => {
   const { CAMERA } = camera;
@@ -362,7 +363,7 @@ test("every registered bit has a scene", () => {
 });
 
 test("every scene draws on the painting with its cast, letters the name and the fact, on the bit's clock", () => {
-  const casts = { versus:{ a:["Khoa"], b:["Sahil"] }, loss:{ a:["Evan"] } };
+  const casts = { versus:{ a:["Khoa"], b:["Sahil"] }, loss:{ a:["Evan"] }, win:{ a:["Eyob"] } };
   for (const bit of BITS) {
     const cast = casts[bit.shape];
     const html = stage({ bit:bit.id, cast, fact:bit.shape === "loss" ? "-1,000" : null, at:1234, frozen:true });

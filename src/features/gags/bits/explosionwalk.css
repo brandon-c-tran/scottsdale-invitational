@@ -1,0 +1,205 @@
+/* explosionwalk (explosionwalk.jsx): every move on a beat from registry.js
+   (--b-<name>), every animation on --ba (bits.css), each element resting
+   on its end state. A run of moves on one property: the first fills both
+   ways, the rest only forwards. The camera, the shakes and the white
+   frame are the stage's (the registry).
+
+   THE WALK: five steps, timed from the beats so a retimed beat moves them:
+   three from the start to the boom (a third of --b-boom each), one slow one
+   from the boom to the land (the slow motion), one from the land to the
+   stop. The left foot steps first: steps 1, 3 and 5 are the left foot's,
+   2 and 4 the right's. */
+
+.is-explosionwalk .ew { position:absolute; inset:0; }
+.is-explosionwalk .ew-node { position:absolute; display:block; width:0; height:0; }
+
+/* ── the side walks toward us: its feet come down the floor and it grows,
+   at speed, then slow, then at speed again ── */
+.is-explosionwalk .ew-walk { transform:var(--ap3);
+  --ba:ew-approach-a var(--b-boom) linear calc(var(--tl) + 0ms) both,
+    ew-approach-b calc(var(--b-land) - var(--b-boom)) linear calc(var(--tl) + var(--b-boom)) forwards,
+    ew-approach-c calc(var(--b-stop) - var(--b-land)) cubic-bezier(.25,.55,.45,1) calc(var(--tl) + var(--b-land)) forwards;
+  animation:var(--ba); }
+@keyframes ew-approach-a { from { transform:var(--ap0); } to { transform:var(--ap1); } }
+@keyframes ew-approach-b { from { transform:var(--ap1); } to { transform:var(--ap2); } }
+@keyframes ew-approach-c { from { transform:var(--ap2); } to { transform:var(--ap3); } }
+
+/* a step: up off the heel, down onto the other foot */
+.is-explosionwalk .ew-walker .cast-hop {
+  --ba:ew-bob calc(var(--b-boom) / 3) linear calc(var(--tl) + 0ms) 3 both,
+    ew-bob calc(var(--b-land) - var(--b-boom)) linear calc(var(--tl) + var(--b-boom)) forwards,
+    ew-bob calc(var(--b-stop) - var(--b-land)) linear calc(var(--tl) + var(--b-land)) forwards;
+  animation:var(--ba); }
+@keyframes ew-bob { 0% { transform:translateY(0px); animation-timing-function:cubic-bezier(.3,.6,.5,1); }
+  45% { transform:translateY(-9px); animation-timing-function:cubic-bezier(.5,0,.75,.45); } 100% { transform:translateY(0px); } }
+/* the swagger: the weight onto the planted foot each step; at the stop it
+   settles back on its heels */
+.is-explosionwalk .ew-walker .cast-body-in {
+  --ba:ew-sway calc(var(--b-boom) * 2 / 3) ease-in-out calc(var(--tl) + 0ms) 1.5 both,
+    ew-lean-l calc(var(--b-land) - var(--b-boom)) ease-in-out calc(var(--tl) + var(--b-boom)) forwards,
+    ew-lean-r calc(var(--b-stop) - var(--b-land)) ease-in-out calc(var(--tl) + var(--b-land)) forwards,
+    ew-settle 460ms ease-out calc(var(--tl) + var(--b-stop)) forwards;
+  animation:var(--ba); }
+@keyframes ew-sway { 0%, 50%, 100% { transform:rotate(0deg); } 25% { transform:rotate(3.5deg); } 75% { transform:rotate(-3.5deg); } }
+@keyframes ew-lean-l { 0%, 100% { transform:rotate(0deg); } 50% { transform:rotate(-3.5deg); } }
+@keyframes ew-lean-r { 0%, 100% { transform:rotate(0deg); } 50% { transform:rotate(3.5deg); } }
+@keyframes ew-settle { 0%, 100% { transform:rotate(0deg) scale(1, 1); } 30% { transform:rotate(-1.5deg) scale(1.03, .96); }
+  65% { transform:rotate(.8deg) scale(.99, 1.01); } }
+/* each foot comes up on its own step */
+.is-explosionwalk .ew-walker .cast-shoe.is-l .cast-shoe-in {
+  --ba:ew-lift calc(var(--b-boom) / 3) linear calc(var(--tl) + 0ms) both,
+    ew-lift calc(var(--b-boom) / 3) linear calc(var(--tl) + var(--b-boom) * 2 / 3) forwards,
+    ew-lift calc(var(--b-stop) - var(--b-land)) linear calc(var(--tl) + var(--b-land)) forwards;
+  animation:var(--ba); }
+.is-explosionwalk .ew-walker .cast-shoe.is-r .cast-shoe-in {
+  --ba:ew-lift calc(var(--b-boom) / 3) linear calc(var(--tl) + var(--b-boom) / 3) both,
+    ew-lift calc(var(--b-land) - var(--b-boom)) linear calc(var(--tl) + var(--b-boom)) forwards;
+  animation:var(--ba); }
+@keyframes ew-lift { 0%, 100% { transform:translateY(0px) scale(1); } 12% { transform:translateY(-3px) scale(1); }
+  50% { transform:translateY(-15px) scale(1.06); } 88% { transform:translateY(-2px) scale(1.02); } }
+/* the gloves swing loose, each against its own side's foot: the right
+   comes forward on the left's step */
+.is-explosionwalk .ew-walker .cast-hand.is-r .cast-hand-fx {
+  --ba:ew-swing-r calc(var(--b-boom) * 2 / 3) ease-in-out calc(var(--tl) + 0ms) 1.5 both,
+    ew-back-r calc(var(--b-land) - var(--b-boom)) ease-in-out calc(var(--tl) + var(--b-boom)) forwards,
+    ew-fwd-r calc(var(--b-stop) - var(--b-land)) ease-in-out calc(var(--tl) + var(--b-land)) forwards;
+  animation:var(--ba); }
+.is-explosionwalk .ew-walker .cast-hand.is-l .cast-hand-fx {
+  --ba:ew-swing-l calc(var(--b-boom) * 2 / 3) ease-in-out calc(var(--tl) + 0ms) 1.5 both,
+    ew-fwd-l calc(var(--b-land) - var(--b-boom)) ease-in-out calc(var(--tl) + var(--b-boom)) forwards,
+    ew-back-l calc(var(--b-stop) - var(--b-land)) ease-in-out calc(var(--tl) + var(--b-land)) forwards;
+  animation:var(--ba); }
+@keyframes ew-swing-r { 0%, 50%, 100% { transform:none; } 25% { transform:translate(-10px, -14px) rotate(-14deg) scale(1.1); }
+  75% { transform:translate(8px, -6px) rotate(12deg) scale(.92); } }
+@keyframes ew-swing-l { 0%, 50%, 100% { transform:none; } 25% { transform:translate(-8px, -6px) rotate(-12deg) scale(.92); }
+  75% { transform:translate(10px, -14px) rotate(14deg) scale(1.1); } }
+@keyframes ew-back-r { 0%, 100% { transform:none; } 50% { transform:translate(8px, -6px) rotate(12deg) scale(.92); } }
+@keyframes ew-fwd-r { 0%, 100% { transform:none; } 50% { transform:translate(-10px, -14px) rotate(-14deg) scale(1.1); } }
+@keyframes ew-fwd-l { 0%, 100% { transform:none; } 50% { transform:translate(10px, -14px) rotate(14deg) scale(1.1); } }
+@keyframes ew-back-l { 0%, 100% { transform:none; } 50% { transform:translate(-8px, -6px) rotate(-12deg) scale(.92); } }
+
+/* ── the look: the lead's front glove comes up to the glasses (a finger
+   under the bridge), hooks them down, holds, pushes them back up, and
+   drops away ── */
+.is-explosionwalk .ew-walker.is-lead .cast-hand.is-front > .cast-hand-in { transform:translate(0px, 0px) rotate(0deg);
+  --ba:ew-reach 200ms var(--ease-out) calc(var(--tl) + var(--b-lower) - 200ms) both,
+    ew-hook 180ms cubic-bezier(.4,0,.3,1) calc(var(--tl) + var(--b-lower)) forwards,
+    ew-push 120ms cubic-bezier(.3,0,.2,1) calc(var(--tl) + var(--b-up)) forwards,
+    ew-drop 220ms var(--ease-out) calc(var(--tl) + var(--b-up) + 220ms) forwards;
+  animation:var(--ba); }
+@keyframes ew-reach { from { transform:translate(0px, 0px) rotate(0deg); } to { transform:var(--to-shades); } }
+@keyframes ew-hook { from { transform:var(--to-shades); } to { transform:var(--shades-down); } }
+@keyframes ew-push { from { transform:var(--shades-down); } to { transform:var(--to-shades); } }
+@keyframes ew-drop { from { transform:var(--to-shades); } to { transform:translate(0px, 0px) rotate(0deg); } }
+/* the glasses slide down with the finger and back up */
+.is-explosionwalk .ew-shades.is-lead { transform:translateY(0px);
+  --ba:ew-shades-down 180ms cubic-bezier(.4,0,.3,1) calc(var(--tl) + var(--b-lower)) both,
+    ew-shades-up 120ms cubic-bezier(.3,0,.2,1) calc(var(--tl) + var(--b-up)) forwards;
+  animation:var(--ba); }
+@keyframes ew-shades-down { from { transform:translateY(0px); } to { transform:var(--shades-drop); } }
+@keyframes ew-shades-up { from { transform:var(--shades-drop); } to { transform:translateY(0px); } }
+/* the chin dips to look over them, and comes back up with them */
+.is-explosionwalk .ew-walker.is-lead .cast-chip-in { transform:var(--cast-turn) rotateX(0deg);
+  --ba:ew-chin-down 220ms cubic-bezier(.4,0,.3,1) calc(var(--tl) + var(--b-lower)) both,
+    ew-chin-up 160ms cubic-bezier(.3,0,.2,1) calc(var(--tl) + var(--b-up)) forwards;
+  animation:var(--ba); }
+@keyframes ew-chin-down { from { transform:var(--cast-turn) rotateX(0deg); } to { transform:var(--cast-turn) rotateX(-13deg); } }
+@keyframes ew-chin-up { from { transform:var(--cast-turn) rotateX(-13deg); } to { transform:var(--cast-turn) rotateX(0deg); } }
+/* the glint off the lens */
+.is-explosionwalk .ew-glint { opacity:0;
+  --ba:ew-glint 380ms ease-out calc(var(--tl) + var(--b-glint)) both; animation:var(--ba); }
+@keyframes ew-glint { 0% { opacity:0; transform:scale(.1) rotate(0deg); } 1% { opacity:1; transform:scale(.1) rotate(0deg); }
+  35% { opacity:1; transform:scale(1.25) rotate(30deg); } 100% { opacity:0; transform:scale(.4) rotate(70deg); } }
+
+/* ── the blast, far off behind the horizon (the clip): a burst bigger
+   than the buttes for three frames, then the fireball, blooming fast for
+   a frame or two and then slow, boiling, cooling from the middle out;
+   black smoke climbs out of it, and bits of the horizon arc out slowly ── */
+.is-explosionwalk .ew-far { position:absolute; left:0; top:0; width:1920px; height:858px; overflow:hidden; }
+.is-explosionwalk .ew-flash { opacity:0;
+  --ba:ew-flash 150ms linear calc(var(--tl) + var(--b-boom) - 16ms) both; animation:var(--ba); }
+@keyframes ew-flash { 0% { opacity:0; transform:scale(.7) rotate(0deg); } 1% { opacity:1; transform:scale(.7) rotate(0deg); }
+  40% { opacity:1; transform:scale(1.05) rotate(8deg); } 100% { opacity:0; transform:scale(1.2) rotate(14deg); } }
+.is-explosionwalk .ew-fireball { opacity:1; transform:translateY(0px) scale(1.12);
+  --ba:ew-bloom 90ms cubic-bezier(.1,.7,.3,1) calc(var(--tl) + var(--b-boom)) both,
+    ew-bloom-slow calc(var(--b-land) - var(--b-boom) - 90ms) cubic-bezier(.2,.5,.5,1) calc(var(--tl) + var(--b-boom) + 90ms) forwards,
+    ew-burn calc(var(--bit-ms) - var(--b-land)) ease-out calc(var(--tl) + var(--b-land)) forwards;
+  animation:var(--ba); }
+@keyframes ew-bloom { 0% { opacity:1; transform:translateY(0px) scale(.12); } 100% { opacity:1; transform:translateY(0px) scale(.84); } }
+@keyframes ew-bloom-slow { from { transform:translateY(0px) scale(.84); } to { transform:translateY(-16px) scale(1.05); } }
+@keyframes ew-burn { from { transform:translateY(-16px) scale(1.05); } to { transform:translateY(0px) scale(1.12); } }
+/* before the boom there is no fireball */
+.is-explosionwalk .ew-boil { opacity:1;
+  --ba:bit-show 1ms step-end calc(var(--tl) + var(--b-boom)) both,
+    ew-boil 900ms ease-in-out calc(var(--tl) + var(--b-boom)) infinite;
+  animation:var(--ba); }
+@keyframes ew-boil { 0%, 100% { transform:rotate(0deg) scale(1, 1); } 50% { transform:rotate(2deg) scale(1.02, .98); } }
+/* the heart cools first */
+.is-explosionwalk .ew-fireball .bit-fire-layer.is-core { transform:scale(.3);
+  --ba:ew-cool-core calc(var(--bit-ms) - var(--b-boom)) cubic-bezier(.3,0,.6,1) calc(var(--tl) + var(--b-boom)) both; animation:var(--ba); }
+@keyframes ew-cool-core { 0% { transform:scale(1.15); } 40% { transform:scale(.9); } 100% { transform:scale(.3); } }
+.is-explosionwalk .ew-fireball .bit-fire-layer.is-mid { transform:scale(.72);
+  --ba:ew-cool-mid calc(var(--bit-ms) - var(--b-boom)) cubic-bezier(.3,0,.6,1) calc(var(--tl) + var(--b-boom)) both; animation:var(--ba); }
+@keyframes ew-cool-mid { 0% { transform:scale(1.08); } 45% { transform:scale(.98); } 100% { transform:scale(.72); } }
+/* the smoke: a stem and a cap climbing out of the fire, slow while the
+   shot is slow */
+.is-explosionwalk .ew-cap { opacity:1; transform:translateY(-250px) scale(1.12);
+  --ba:ew-cap calc(var(--b-land) - var(--b-boom)) cubic-bezier(.2,.6,.5,1) calc(var(--tl) + var(--b-boom) + 60ms) both,
+    ew-cap-rise calc(var(--bit-ms) - var(--b-land)) ease-out calc(var(--tl) + var(--b-land) + 60ms) forwards;
+  animation:var(--ba); }
+@keyframes ew-cap { 0% { opacity:0; transform:translateY(160px) scale(.3); } 1% { opacity:1; transform:translateY(160px) scale(.3); }
+  100% { opacity:1; transform:translateY(-120px) scale(.92); } }
+@keyframes ew-cap-rise { from { transform:translateY(-120px) scale(.92); } to { transform:translateY(-250px) scale(1.12); } }
+.is-explosionwalk .ew-stem { opacity:1; transform:translateY(calc(-150px - var(--i) * 90px)) scale(1.1);
+  --ba:ew-stem calc(var(--b-land) - var(--b-boom)) cubic-bezier(.2,.6,.5,1) calc(var(--tl) + var(--b-boom) + 120ms + var(--i) * 80ms) both,
+    ew-stem-rise calc(var(--bit-ms) - var(--b-land)) ease-out calc(var(--tl) + var(--b-land) + 120ms + var(--i) * 80ms) forwards;
+  animation:var(--ba); }
+@keyframes ew-stem { 0% { opacity:0; transform:translateY(60px) scale(.3); } 1% { opacity:1; transform:translateY(60px) scale(.3); }
+  100% { opacity:1; transform:translateY(calc(-60px - var(--i) * 60px)) scale(.9); } }
+@keyframes ew-stem-rise { from { transform:translateY(calc(-60px - var(--i) * 60px)) scale(.9); }
+  to { transform:translateY(calc(-150px - var(--i) * 90px)) scale(1.1); } }
+/* bits of the horizon, flung out in slow motion and gone below it */
+.is-explosionwalk .ew-chunk { position:absolute; left:-20px; top:-16px; overflow:visible; }
+.is-explosionwalk .ew-chunk-ink { fill:var(--bit-soot); stroke:var(--ink0); stroke-width:5px; stroke-linejoin:round; }
+.is-explosionwalk .ew-debris { opacity:0;
+  --ba:ew-fling calc(var(--b-land) - var(--b-boom)) linear calc(var(--tl) + var(--b-boom) + 30ms) both,
+    ew-fall calc(var(--bit-ms) - var(--b-land)) cubic-bezier(.5,0,.9,.5) calc(var(--tl) + var(--b-land) + 30ms) forwards;
+  animation:var(--ba); }
+@keyframes ew-fling { 0% { opacity:0; transform:translate(0px, 0px) rotate(0deg); } 1% { opacity:1; transform:translate(0px, 0px) rotate(0deg); }
+  8% { transform:translate(calc(var(--dx) * .45), calc(var(--dy) * .55)) rotate(calc(var(--turn) * .2)); animation-timing-function:cubic-bezier(.2,.6,.5,1); }
+  100% { opacity:1; transform:translate(calc(var(--dx) * .8), var(--dy)) rotate(calc(var(--turn) * .6)); } }
+@keyframes ew-fall { from { opacity:1; transform:translate(calc(var(--dx) * .8), var(--dy)) rotate(calc(var(--turn) * .6)); }
+  to { opacity:1; transform:translate(calc(var(--dx) * 1.3), 700px) rotate(var(--turn)); } }
+
+/* ── the burning chip: tumbling down out of the sky, slow; the last of
+   the fall at full speed as the shot snaps back; stuck in the dirt,
+   leaning, still burning ── */
+.is-explosionwalk .ew-ember-fall { opacity:0;
+  --ba:ew-ember-x calc(var(--b-land) - var(--b-ember)) linear calc(var(--tl) + var(--b-ember)) both,
+    bit-hide 1ms step-end calc(var(--tl) + var(--b-land)) forwards;
+  animation:var(--ba); }
+@keyframes ew-ember-x { 0% { opacity:0; transform:var(--ember-from); } 1% { opacity:1; transform:var(--ember-from); }
+  92% { opacity:1; transform:var(--ember-late); animation-timing-function:cubic-bezier(.6,0,1,.6); }
+  100% { opacity:1; transform:translate(0px, 0px); } }
+.is-explosionwalk .ew-ember-turn { transform:rotate3d(1, .35, 0, 520deg);
+  --ba:ew-tumble calc(var(--b-land) - var(--b-ember)) cubic-bezier(.2,.4,.7,.8) calc(var(--tl) + var(--b-ember)) both; animation:var(--ba); }
+@keyframes ew-tumble { from { transform:rotate3d(1, .35, 0, 0deg); } to { transform:rotate3d(1, .35, 0, 520deg); } }
+.is-explosionwalk .ew-flicker { --ba:ew-flicker 210ms step-end calc(var(--tl) + 0ms) infinite; animation:var(--ba); }
+@keyframes ew-flicker { 0% { transform:scale(1, 1) skewX(0deg); } 33% { transform:scale(.88, 1.14) skewX(-6deg); }
+  66% { transform:scale(1.06, .92) skewX(5deg); } 100% { transform:scale(1, 1) skewX(0deg); } }
+.is-explosionwalk .ew-ember-fire:nth-child(odd) .ew-flicker { --ba:ew-flicker 240ms step-end calc(var(--tl) - 90ms) infinite; animation:var(--ba); }
+.is-explosionwalk .ew-ember-stuck { opacity:1;
+  --ba:bit-show 1ms step-end calc(var(--tl) + var(--b-land)) both; animation:var(--ba); }
+.is-explosionwalk .ew-ember-lean { transform:rotate(-14deg);
+  --ba:ew-stick 260ms cubic-bezier(.2,.8,.3,1) calc(var(--tl) + var(--b-land)) both; animation:var(--ba); }
+@keyframes ew-stick { 0% { transform:rotate(10deg) scale(1.1, .86); } 30% { transform:rotate(-20deg) scale(.96, 1.05); }
+  65% { transform:rotate(-11deg) scale(1, 1); } 100% { transform:rotate(-14deg) scale(1, 1); } }
+.is-explosionwalk .ew-smolder { opacity:0;
+  --ba:ew-smolder 1100ms cubic-bezier(.2,.5,.5,1) calc(var(--tl) + var(--b-land) + 200ms + var(--i) * 550ms) infinite;
+  animation:var(--ba); }
+@keyframes ew-smolder { 0% { opacity:0; transform:translate(0px, 0px) scale(.3); } 15% { opacity:.85; transform:translate(4px, -14px) scale(.5); }
+  100% { opacity:0; transform:translate(26px, -120px) scale(1.25); } }
+.is-explosionwalk .ew-mound-ink { fill:var(--ink0); stroke:var(--ink0); stroke-linejoin:round; }
+.is-explosionwalk .ew-mound-fill { fill:var(--bit-dust-shade); }
+.is-explosionwalk .ew-mound { position:absolute; overflow:visible; }
+.is-explosionwalk .ew-slam-dust { --dust-ms:700ms; }

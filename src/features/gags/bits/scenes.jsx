@@ -19,6 +19,13 @@ import { Roadrunner } from "./roadrunner.jsx";
 import { ExplosionWalk } from "./explosionwalk.jsx";
 import { DontLookBack } from "./dontlookback.jsx";
 import { Quicksand } from "./quicksand.jsx";
+/* idle (Oct 10): the downtime vignettes */
+import { Nap } from "./nap.jsx";
+import { Armwrestle } from "./armwrestle.jsx";
+import { Saguaro } from "./saguaro.jsx";
+import { Pushups } from "./pushups.jsx";
+import { Sweep } from "./sweep.jsx";
+import { MapBit } from "./map.jsx";
 
 export const SCENES = Object.freeze({
   quickdraw:Quickdraw,
@@ -28,4 +35,11 @@ export const SCENES = Object.freeze({
   explosionwalk:ExplosionWalk,
   dontlookback:DontLookBack,
   quicksand:Quicksand,
+  /* idle */
+  nap:Nap,
+  armwrestle:Armwrestle,
+  saguaro:Saguaro,
+  pushups:Pushups,
+  sweep:Sweep,
+  map:MapBit,
 });

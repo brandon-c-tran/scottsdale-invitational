@@ -456,3 +456,252 @@ export function ThumbUp({ scale = 1, className = "" }) {
     </Art>
   );
 }
+
+/* ══ idle's props (Oct 10): the downtime vignettes' things. Same drawing:
+   a keyline wider in ink, then paint, one hard tone; small things (a
+   moth, a sleep mark) on the small props' line (5), the rest on CAST.line. ══ */
+
+/* ── a sleep mark: a sawtooth stroke, drawn (never the letter). Anchor:
+   its middle. ── */
+export function SleepMark({ scale = 1, className = "" }) {
+  return (
+    <Art box={[-44, -24, 88, 48]} scale={scale} className={`bit-sleep${className ? ` ${className}` : ""}`}>
+      <Drawn k={1 / scale} line={5} groups={[[["cap", "M-30,6 L-18,-6 L-6,6 L6,-6 L18,6 L30,-6", 9, "var(--bone)"]]]} />
+    </Art>
+  );
+}
+
+/* ── a moth, seen from above, wings open. Each wing pair is its own node
+   (.bit-moth-wing.is-l / .is-r, hung on the body) so a scene flaps them;
+   antennae up. Anchor: the middle of its body. ── */
+const MOTH_WING = ["M3,-3 C12,-22 31,-29 38,-19 C43,-11 35,-1 5,3 Z", "M4,3 C17,4 28,11 25,21 C21,28 9,24 3,9 Z"];
+function MothWing({ side, k }) {
+  const flip = side === "l" ? "scale(-1 1)" : undefined;
+  return (
+    <span className={`bit-moth-wing is-${side}`}>
+      <Art box={[-50, -40, 100, 80]}>
+        <g transform={flip}>
+          <Drawn k={k} line={5} groups={[[["blob", MOTH_WING[0], "var(--bit-moth)"], ["blob", MOTH_WING[1], "var(--bit-moth)"]]]} />
+          <Tone d="M26,-25 C33,-26 39,-22 38,-16 C37,-12 33,-9 28,-8 C31,-13 31,-20 26,-25 Z" fill="var(--bit-moth-dark)" />
+          <path d={circle(19, -12, 3.6)} style={{ fill:"var(--bit-moth-dark)" }} />
+        </g>
+      </Art>
+    </span>
+  );
+}
+export function Moth({ scale = 1, className = "" }) {
+  const k = 1 / scale;
+  return (
+    <span className={`bit-moth${className ? ` ${className}` : ""}`} style={scale !== 1 ? { transform:`scale(${scale})` } : undefined}>
+      <MothWing side="l" k={k} />
+      <MothWing side="r" k={k} />
+      <Art box={[-24, -36, 48, 64]}>
+        <Drawn k={k} line={4} groups={[[["cap", "M-2,-13 Q-6,-23 -12,-27", 3, "var(--bit-moth-dark)"], ["cap", "M2,-13 Q6,-23 12,-27", 3, "var(--bit-moth-dark)"]],
+          [["blob", ellipse(0, 5, 5.5, 14), "var(--bit-moth-dark)"], ["blob", circle(0, -10, 5), "var(--bit-moth-dark)"]]]} />
+      </Art>
+    </span>
+  );
+}
+
+/* ── a pillow, plump, its corners pinched. Anchor: the middle of its
+   foot. ── */
+export function Pillow({ scale = 1, className = "" }) {
+  const k = 1 / scale;
+  return (
+    <Art box={[-104, -82, 208, 96]} scale={scale} className={`bit-pillow${className ? ` ${className}` : ""}`}>
+      <Drawn k={k} groups={[[["blob", "M-96,-2 C-84,-18 -82,-40 -94,-60 C-60,-80 60,-80 94,-60 C82,-40 84,-18 96,-2 C50,-14 -50,-14 -96,-2 Z",
+        "var(--bit-pillow)"]]]} />
+      <Tone d="M-90,-6 C-86,-12 -85,-18 -85,-24 C-46,-16 46,-16 85,-24 C85,-18 86,-12 90,-6 C48,-16 -48,-16 -90,-6 Z" fill="var(--bit-pillow-shade)" />
+      <Line d="M-60,-56 C-24,-64 24,-64 60,-56" k={k} w={3} />
+    </Art>
+  );
+}
+
+/* ── a saguaro up close: a trunk with a rounded crown, an arm each side,
+   ribs, spines along every edge, and a blossom on top. Anchor: the
+   middle of its foot. IDLE_SAGUARO says where its parts are, from the foot. ── */
+export const IDLE_SAGUARO = Object.freeze({ h:520, w:80, armW:46,
+  l:{ at:-190, out:-128, top:-330 }, r:{ at:-284, out:96, top:-420 } });
+function sideSpines(x0, y0, y1, dir, step = 34) {
+  const out = [];
+  for (let y = y0; y > y1; y -= step) out.push(`M${x0},${y} l${dir * 13},-6 M${x0},${y - 10} l${dir * 12},3`);
+  return out.join(" ");
+}
+export function IdleSaguaro({ scale = 1, bloom = true, className = "" }) {
+  const k = 1 / scale;
+  const { h, w, armW, l, r } = IDLE_SAGUARO;
+  const hw = w / 2, ha = armW / 2;
+  const trunk = `M0,-46 L0,${-h + hw}`;
+  const armL = `M${-hw + 4},${l.at} L${l.out + 16},${l.at} Q${l.out},${l.at} ${l.out},${l.at - 16} L${l.out},${l.top + ha}`;
+  const armR = `M${hw - 4},${r.at} L${r.out - 16},${r.at} Q${r.out},${r.at} ${r.out},${r.at - 16} L${r.out},${r.top + ha}`;
+  const spines = [sideSpines(-hw - 2, -24, -h + 26, -1), sideSpines(hw + 2, -24, -h + 26, 1),
+    sideSpines(l.out - ha - 2, l.at - 20, l.top + 18, -1, 30), sideSpines(r.out + ha + 2, r.at - 20, r.top + 18, 1, 30),
+    `M-8,${-h - 2} l-4,-12 M8,${-h - 2} l4,-12 M${l.out},${l.top - 2} l0,-12 M${r.out},${r.top - 2} l0,-12`].join(" ");
+  return (
+    <Art box={[l.out - 60, -h - 60, r.out - l.out + 120, h + 70]} scale={scale} className={`bit-idle-saguaro${className ? ` ${className}` : ""}`}>
+      <path d={spines} className="bit-line" strokeWidth={3.2 * k} />
+      <Drawn k={k} groups={[[["cap", armL, armW, "var(--bit-idle-cactus)"], ["cap", armR, armW, "var(--bit-idle-cactus)"],
+        ["cap", trunk, w, "var(--bit-idle-cactus)"], ["blob", `M${-hw},0 L${-hw},-44 L${hw},-44 L${hw},0 Z`, "var(--bit-idle-cactus)"]]]} />
+      {/* the lit side (the sun's), then the ribs */}
+      <path d={`M${-hw + 9},-6 L${-hw + 9},${-h + hw + 4}`} className="bit-cactus-lit" strokeWidth={10} />
+      <path d={`M${l.out - ha + 9},${l.at - 14} L${l.out - ha + 9},${l.top + ha - 2}`} className="bit-cactus-lit" strokeWidth={8} />
+      <path d={`M${r.out - ha + 9},${r.at - 14} L${r.out - ha + 9},${r.top + ha - 2}`} className="bit-cactus-lit" strokeWidth={8} />
+      <path d={`M-13,-8 L-13,${-h + 26} M13,-8 L13,${-h + 26} M${l.out + 8},${l.at - 18} L${l.out + 8},${l.top + 14}`
+        + ` M${r.out + 8},${r.at - 18} L${r.out + 8},${r.top + 14}`} className="bit-cactus-rib" strokeWidth={4.5} />
+      {bloom && <g transform={`translate(0 ${-h - 6})`}><BlossomArt k={k} /></g>}
+    </Art>
+  );
+}
+
+/* the saguaro's blossom: five bone petals round a sun-gold middle */
+function BlossomArt({ k = 1 }) {
+  return <>
+    <Drawn k={k} line={5} groups={[[0, 72, 144, 216, 288].map(a => ["blob", ellipse(Math.cos((a - 90) * Math.PI / 180) * 11,
+      Math.sin((a - 90) * Math.PI / 180) * 11, 10, 7, a - 90), "var(--bit-bloom)"])]} />
+    <path d={circle(0, 0, 6.5)} className="bit-ink" strokeWidth={3 * k} style={{ fill:"var(--sun)" }} />
+  </>;
+}
+/* ── the blossom alone (off its saguaro). Anchor: its middle. ── */
+export function Blossom({ scale = 1, className = "" }) {
+  return <Art box={[-30, -30, 60, 60]} scale={scale} className={`bit-blossom${className ? ` ${className}` : ""}`}><BlossomArt k={1 / scale} /></Art>;
+}
+
+/* ── a stepladder, two steps, far too short for anything. Anchor: the
+   middle of its foot; its top step is STEPLADDER.top over the floor. ── */
+export const STEPLADDER = Object.freeze({ top:84, w:84 });
+export function Stepladder({ scale = 1, className = "" }) {
+  const k = 1 / scale;
+  return (
+    <Art box={[-60, -98, 120, 108]} scale={scale} className={`bit-ladder${className ? ` ${className}` : ""}`}>
+      <Drawn k={k} groups={[
+        [["cap", "M-38,-2 L-25,-72", 10, "var(--bit-metal)"], ["cap", "M38,-2 L25,-72", 10, "var(--bit-metal)"],
+          ["cap", "M-31,-26 L31,-26", 8, "var(--bit-metal)"], ["cap", "M-28,-50 L28,-50", 8, "var(--bit-metal)"]],
+        [["blob", "M-34,-84 L34,-84 Q37,-84 37,-81 L37,-74 Q37,-71 34,-71 L-34,-71 Q-37,-71 -37,-74 L-37,-81 Q-37,-84 -34,-84 Z", "var(--bit-metal)"]],
+      ]} />
+      <Tone d="M-33,-83 L33,-83 L33,-79 L-33,-79 Z" fill="var(--bit-iron-lit)" />
+      <Tone d="M33,-4 L22,-66 L26,-66 L37,-4 Z" fill="var(--bit-metal-dark)" />
+    </Art>
+  );
+}
+
+/* ── a straw broom, its handle straight up. Anchor: where the upper hand
+   grips the handle; the lower hand holds it BROOM.lower below that, and
+   the straw's tip is BROOM.foot below it. ── */
+export const BROOM = Object.freeze({ lower:150, foot:316 });
+export function Broom({ scale = 1, className = "" }) {
+  const k = 1 / scale;
+  return (
+    <Art box={[-70, -70, 140, 404]} scale={scale} className={`bit-broom${className ? ` ${className}` : ""}`}>
+      <Drawn k={k} groups={[
+        [["cap", "M0,-46 L0,232", 12, "var(--bit-wood)"]],
+        [["blob", "M-16,232 L16,232 C30,262 44,292 52,318 L-52,318 C-44,292 -30,262 -16,232 Z", "var(--bit-straw)"]],
+        [["blob", "M-18,226 L18,226 L20,246 L-20,246 Z", "var(--art-rose)"]],
+      ]} />
+      <Tone d="M8,250 C20,272 32,296 40,314 L52,318 C44,292 30,262 16,246 Z" fill="var(--bit-straw-shade)" />
+      <Line d="M-8,252 L-24,312 M0,252 L0,314 M8,252 L22,312 M-16,254 L-40,312 M16,254 L38,312" k={k} w={2.6} />
+      <Tone d="M-3,-40 L-3,224 L-1,224 L-1,-40 Z" fill="var(--bit-iron-lit)" />
+    </Art>
+  );
+}
+
+/* ── a little heap of swept dust. Anchor: the middle of its foot. ── */
+export function SandPile({ scale = 1, className = "" }) {
+  const k = 1 / scale;
+  return (
+    <Art box={[-76, -56, 152, 66]} scale={scale} className={`bit-pile${className ? ` ${className}` : ""}`}>
+      <Drawn k={k} groups={[[["blob", "M-62,0 C-56,-16 -36,-38 -4,-40 C30,-41 54,-20 62,0 Z", "var(--bit-dust)"]]]} />
+      <Tone d="M8,-38 C34,-34 54,-18 62,0 L22,0 C26,-14 22,-28 8,-38 Z" fill="var(--bit-dust-shade)" />
+      <path d={`${circle(-22, -14, 2.6)} ${circle(-6, -26, 2.2)} ${circle(-34, -6, 2.2)} ${circle(4, -10, 2.4)}`} style={{ fill:"var(--bit-dust-shade)" }} />
+    </Art>
+  );
+}
+
+/* ── a tiny café table: a round top on one leg. Anchor: the middle of its
+   foot; its top is ARM_TABLE.top over the floor. ── */
+export const ARM_TABLE = Object.freeze({ top:96, w:200 });
+export function ArmTable({ scale = 1, className = "" }) {
+  const k = 1 / scale;
+  return (
+    <Art box={[-114, -112, 228, 124]} scale={scale} className={`bit-table${className ? ` ${className}` : ""}`}>
+      <Drawn k={k} groups={[
+        [["blob", ellipse(0, -4, 52, 9), "var(--bit-wood)"], ["cap", "M0,-8 L0,-84", 16, "var(--bit-wood)"]],
+        [["blob", "M-100,-96 L100,-96 Q104,-96 104,-92 L104,-84 Q104,-80 100,-80 L-100,-80 Q-104,-80 -104,-84 L-104,-92 Q-104,-96 -100,-96 Z",
+          "var(--bit-wood)"]],
+      ]} />
+      <Tone d="M-100,-95 L100,-95 L100,-90 L-100,-90 Z" fill="var(--bit-wood-lit)" />
+      <Tone d="M3,-78 L8,-78 L8,-10 L3,-12 Z" fill="var(--bit-wood-dark)" />
+    </Art>
+  );
+}
+
+/* ── a road map, unfolded: paper in panels (the folds alternate light and
+   shade), a river, a road, mountains, a cactus, a cross and a compass
+   with its north lit, all drawn upright (the scene turns it). Anchor:
+   its centre. MAP_SHEET is its size. ── */
+export const MAP_SHEET = Object.freeze({ w:400, h:236 });
+export function PaperMap({ scale = 1, className = "" }) {
+  const k = 1 / scale;
+  const { w, h } = MAP_SHEET;
+  const x0 = -w / 2, y0 = -h / 2, pw = w / 3;
+  const mountain = (x, y, s) => `M${x - 22 * s},${y} L${x},${y - 30 * s} L${x + 22 * s},${y} Z`;
+  return (
+    <Art box={[x0 - 14, y0 - 14, w + 28, h + 28]} scale={scale} className={`bit-map${className ? ` ${className}` : ""}`}>
+      <Drawn k={k} groups={[[["blob", `M${x0},${y0} L${-x0},${y0} L${-x0},${-y0} L${x0},${-y0} Z`, "var(--bit-paper)"]]]} />
+      {/* the folds: alternate panels in shade, the creases in ink */}
+      <path d={`M${x0 + pw},${y0} l${pw},0 l0,${h / 2} l${-pw},0 Z M${x0},0 l${pw},0 l0,${h / 2} l${-pw},0 Z M${x0 + pw * 2},0 l${pw},0 l0,${h / 2} l${-pw},0 Z`}
+        style={{ fill:"var(--bit-paper-shade)" }} />
+      {/* the print */}
+      <path d={`M${x0 + 10},${y0 + 60} C-120,-40 -60,-70 -20,-20 C20,30 80,10 120,50 C150,80 170,96 ${-x0 - 8},${-y0 - 24}`}
+        className="bit-map-river" strokeWidth={12} />
+      <path d={`M${x0 + 30},${-y0 - 14} C-110,40 -70,70 -20,40 C30,10 40,-60 90,-70 C130,-78 160,-90 ${-x0 - 20},${y0 + 16}`}
+        className="bit-map-road" strokeWidth={6} />
+      <path d={`${mountain(90, -36, 1)} ${mountain(126, -30, 0.78)} ${mountain(58, -24, 0.66)}`} className="bit-map-peak" strokeWidth={3 * k} />
+      <path d="M-128,8 L-128,-28 M-128,-12 L-140,-12 L-140,-22 M-128,-18 L-118,-18 L-118,-30" className="bit-map-cactus" strokeWidth={6} />
+      <path d="M40,58 L58,76 M58,58 L40,76" className="bit-map-x" strokeWidth={6} />
+      <g transform="translate(-150 74)">
+        <path d={starPath(4, 26, 7)} className="bit-ink" strokeWidth={2.6 * k} style={{ fill:"var(--bit-paper)" }} />
+        <path d="M0,-26 L6,-6 L-6,-6 Z" style={{ fill:"var(--art-rose)" }} />
+      </g>
+      <path d={`M${x0 + pw},${y0} L${x0 + pw},${-y0} M${x0 + pw * 2},${y0} L${x0 + pw * 2},${-y0} M${x0},0 L${-x0},0`} className="bit-line"
+        strokeWidth={2.4 * k} style={{ opacity:0.55 }} />
+    </Art>
+  );
+}
+/* ── the map folded up: one panel, a band across it. Anchor: its centre. ── */
+export function FoldedMap({ scale = 1, className = "" }) {
+  const k = 1 / scale;
+  const { w, h } = MAP_SHEET;
+  const pw = w / 3, ph = h / 2;
+  return (
+    <Art box={[-pw / 2 - 14, -ph / 2 - 14, pw + 28, ph + 28]} scale={scale} className={`bit-map is-folded${className ? ` ${className}` : ""}`}>
+      <Drawn k={k} groups={[[["blob", `M${-pw / 2},${-ph / 2} L${pw / 2},${-ph / 2} L${pw / 2},${ph / 2} L${-pw / 2},${ph / 2} Z`, "var(--bit-paper)"]]]} />
+      <path d={`M${-pw / 2},-14 L${pw / 2},-14 L${pw / 2},16 L${-pw / 2},16 Z`} style={{ fill:"var(--art-cobalt)" }} />
+      <path d={`M${pw / 2 - 10},${-ph / 2} L${pw / 2 - 10},${ph / 2}`} className="bit-line" strokeWidth={2.4 * k} style={{ opacity:0.55 }} />
+    </Art>
+  );
+}
+
+/* ── a paper ball, crumpled. Anchor: its centre. ── */
+export function PaperBall({ scale = 1, className = "" }) {
+  const k = 1 / scale;
+  return (
+    <Art box={[-46, -46, 92, 92]} scale={scale} className={`bit-paperball${className ? ` ${className}` : ""}`}>
+      <Drawn k={k} groups={[[["blob", "M-30,-12 L-18,-30 L4,-33 L22,-26 L33,-8 L30,14 L16,30 L-6,33 L-26,22 L-34,4 Z", "var(--bit-paper)"]]]} />
+      <Tone d="M33,-8 L30,14 L16,30 L-6,33 L-2,16 L14,4 Z" fill="var(--bit-paper-shade)" />
+      <Line d="M-18,-30 L-8,-10 L14,4 M4,-33 L-8,-10 L-26,4 M-8,-10 L-2,16 M22,-26 L14,4" k={k} w={2.6} />
+    </Art>
+  );
+}
+
+/* ── a desert boulder, lit on its sunny side. Anchor: the middle of its
+   foot. ── */
+export function Boulder({ scale = 1, className = "" }) {
+  const k = 1 / scale;
+  return (
+    <Art box={[-96, -96, 192, 106]} scale={scale} className={`bit-boulder${className ? ` ${className}` : ""}`}>
+      <Drawn k={k} groups={[[["blob", "M-80,0 C-88,-28 -70,-70 -26,-78 C14,-86 62,-68 78,-34 C86,-16 84,-6 80,0 Z", "var(--bit-rock)"]]]} />
+      <Tone d="M-74,-14 C-78,-40 -60,-68 -24,-74 C-40,-60 -50,-40 -52,-14 Z" fill="var(--bit-rock-lit)" />
+      <Line d="M18,-80 L10,-56 L22,-40 M50,-20 L64,-12" k={k} w={3} />
+    </Art>
+  );
+}

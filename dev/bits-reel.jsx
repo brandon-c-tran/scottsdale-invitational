@@ -20,6 +20,8 @@ import { CastChip, CastPhotosProvider, GloveArt, ShoeArt } from "../src/features
 import { GLOVE_POSE_NAMES } from "../src/features/gags/cast/gloveArt.js";
 import { Anvil, ChipStack, DizzyStars, Emanata, MuzzleFlash, Puff, Revolver, Roadrunner, SpeedLines, Sunglasses,
   SweatDrop, Tumbleweed } from "../src/features/gags/props/Props.jsx";
+import { ArmTable, Boulder, Broom, FoldedMap, IdleSaguaro, Moth, PaperBall, PaperMap, Pillow, SandPile, SleepMark,
+  Stepladder } from "../src/features/gags/props/Props.jsx";
 import { Backglass } from "../src/features/tv/DesertBand.jsx";
 import { setSoundRoom, setSoundSurface, unlockSound } from "../src/lib/sound.js";
 import { BIT_PARTS, makeEngine, playRecipe } from "../src/lib/soundKit.js";
@@ -56,7 +58,7 @@ const CASTS = {
     { key:"1", label:"Evan", cast:{ a:["Evan"] } },
     { key:"long", label:"Long name", cast:{ a:["Henry"] } },
   ],
-  idle:[{ key:"room", label:"The room", cast:{ a:["Brandon", "Evan", "Eyob"] } }],
+  idle:[{ key:"room", label:"The room", cast:{ a:["Brandon", "Evan", "Eyob"] } }, { key:"others", label:"Others", cast:{ a:["Sahil", "Khoa"] } }],
 };
 /* what a moment letters under the name, by trigger */
 const FACTS = { "A big losing bet":"-1,000", "A new last place":"13th", "3 straight wins":"3 in a row" };
@@ -254,7 +256,8 @@ function SheetView() {
                     <span className="br-tag" style={{ left:-150, top:170 }}>{pose}</span>
                   </span>)}
                 </div>}
-                {params.get("sheet") !== "gloves" && <div className="bit-layer bit-art br-sheet" style={{ "--tl":"0ms", "--bit-ms":"1ms", animation:"none" }}>
+                {params.get("sheet") === "idle" && <IdleSheet />}
+                {!["gloves", "idle"].includes(params.get("sheet")) && <div className="bit-layer bit-art br-sheet" style={{ "--tl":"0ms", "--bit-ms":"1ms", animation:"none" }}>
                   {GLOVE_POSE_NAMES.map((pose, i) => <span key={pose} className="br-at" style={{ left:110 + i * 220, top:190 }}>
                     <span className="br-at" style={{ left:-40, top:0 }}><GloveArt pose={pose} /></span>
                     <span className="br-at" style={{ left:40, top:0, transform:"scaleX(-1)" }}><GloveArt pose={pose} scale={0.75} /></span>
@@ -284,6 +287,26 @@ function SheetView() {
           </div>
         </TextFloor>
       </div>
+    </div>
+  );
+}
+
+/* ── ?sheet=idle: the idle vignettes' props on the painting ── */
+function IdleSheet() {
+  return (
+    <div className="bit-layer bit-art br-sheet" style={{ "--tl":"0ms", "--bit-ms":"1ms", animation:"none" }}>
+      <span className="br-at" style={{ left:220, top:930 }}><IdleSaguaro /></span>
+      <span className="br-at" style={{ left:520, top:930 }}><Stepladder /></span>
+      <span className="br-at" style={{ left:720, top:930 }}><ArmTable /></span>
+      <span className="br-at" style={{ left:960, top:930 }}><SandPile /></span>
+      <span className="br-at" style={{ left:1160, top:930 }}><Boulder /></span>
+      <span className="br-at" style={{ left:1420, top:600 }}><Broom /></span>
+      <span className="br-at" style={{ left:1700, top:930 }}><Pillow /></span>
+      <span className="br-at" style={{ left:640, top:380 }}><PaperMap /></span>
+      <span className="br-at" style={{ left:960, top:380 }}><FoldedMap /></span>
+      <span className="br-at" style={{ left:1100, top:380 }}><PaperBall /></span>
+      <span className="br-at" style={{ left:1250, top:380 }}><Moth scale={1.6} /></span>
+      <span className="br-at" style={{ left:1700, top:380 }}><SleepMark scale={1.4} /></span>
     </div>
   );
 }

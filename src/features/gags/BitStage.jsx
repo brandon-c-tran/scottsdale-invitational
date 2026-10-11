@@ -73,7 +73,8 @@ const runOf = (items, make) => items.map((item, i) => make(item, i === 0 ? "both
 
 /* One bit. `cast` is { a:[players], b:[players] } by the bit's roles;
    `name` is lettered (default: the display name of the side the bit
-   letters), `fact` under it ("-1,000"). `phase` is the session's painting.
+   letters), `fact` under it ("-1,000"); a bit whose letter is null (idle)
+   letters neither. `phase` is the session's painting.
    `sound` cues the bit's foley on the room bus from its start. `rate`
    slows it (the reel). */
 export function BitLayer({ bit: bitOrId, cast = {}, state = null, phase = "fri", name, fact = null, start, at, frozen = false,
@@ -100,11 +101,14 @@ export function BitLayer({ bit: bitOrId, cast = {}, state = null, phase = "fri",
   const Scene = SCENES[bit.id];
   const camera = cameraCss(bit, Scene?.anchors?.(cast) || {});
   const shakes = bit.camera?.shakes || [], washes = bit.camera?.washes || [];
-  const lettered = name !== undefined ? name : side[0] ? displayName(state, side[0]) : null;
+  /* an idle vignette (letter:null) letters nothing: no name, no fact */
+  const unlettered = bit.letter === null;
+  const lettered = unlettered ? null : name !== undefined ? name : side[0] ? displayName(state, side[0]) : null;
+  const told = unlettered ? null : fact;
   const motion = value => value ? { "--ba":value, animation:"var(--ba)" } : {};
   return (
     <div ref={layer} className={`bit-layer bit-art is-${bit.id} is-${bit.shape}${held ? " is-frozen" : ""}`} data-bit={bit.id}
-      role="img" aria-label={[lettered, fact].filter(Boolean).join(", ") || bit.name}
+      role="img" aria-label={[lettered, told].filter(Boolean).join(", ") || bit.name}
       style={{ "--tl":`${-elapsed}ms`, "--bit-ms":`${bit.ms}ms`, "--bit-in":`${BIT_IN_MS}ms`, "--bit-out":`${BIT_OUT_MS}ms`,
         "--b-letter":`${Math.round(bit.letter?.at || 0)}ms`, "--bit-lamp":lamp, ...beatVars(bit) }}>
       {camera.css && <style>{camera.css}</style>}
@@ -117,11 +121,13 @@ export function BitLayer({ bit: bitOrId, cast = {}, state = null, phase = "fri",
           <div className="bit-scene">{Scene && <Scene bit={bit} cast={cast} state={state} mode={mode} reduced={reduced} />}</div>
         </div>
       </div>
-      <div className="bit-dim" />
+      {/* the sky's dim is for the lettering: an unlettered bit (idle) keeps
+         the painting at full light, the cast up high included */}
+      {!unlettered && <div className="bit-dim" />}
       {/* the white frame lands just before its instant, so the instant itself shows what lit it */}
       {washes.length > 0 && <div className="bit-wash" style={motion(runOf(washes, (ms, fill) =>
         `bit-wash 40ms linear calc(var(--tl) + ${Math.round(ms) - 40}ms) ${fill}`))} />}
-      <BitLetters bit={bit} name={lettered} fact={fact} />
+      <BitLetters bit={bit} name={lettered} fact={told} />
     </div>
   );
 }

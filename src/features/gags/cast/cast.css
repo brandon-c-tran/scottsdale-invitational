@@ -98,3 +98,24 @@
   /* a casino chip's red */
   --bit-chip-red:var(--clay);
 }
+
+/* ── idle's inks (Oct 10): a foreground saguaro, paper and its print, a
+   moth, a pillow, straw, rock and the lighter and darker wood ── */
+.bit-art, .cast {
+  --bit-idle-cactus:color-mix(in srgb, var(--olive) 58%, var(--art-sage));
+  --bit-idle-cactus-lit:color-mix(in srgb, var(--olive) 84%, var(--art-cream));
+  --bit-cactus-rib:color-mix(in srgb, var(--art-sage) 78%, var(--ink0));
+  --bit-bloom:var(--bone);
+  --bit-paper:color-mix(in srgb, var(--art-cream) 58%, var(--bone));
+  --bit-paper-shade:color-mix(in srgb, var(--bit-paper) 84%, var(--art-umber));
+  --bit-moth:color-mix(in srgb, var(--art-cream) 55%, var(--silver));
+  --bit-moth-dark:color-mix(in srgb, var(--art-umber) 62%, var(--silver));
+  --bit-pillow:color-mix(in srgb, var(--bone) 86%, var(--art-violet));
+  --bit-pillow-shade:color-mix(in srgb, var(--bone) 58%, var(--art-violet));
+  --bit-straw:color-mix(in srgb, var(--sun) 42%, var(--art-cream));
+  --bit-straw-shade:color-mix(in srgb, var(--sun) 52%, var(--art-terracotta));
+  --bit-wood-lit:color-mix(in srgb, var(--bit-wood) 62%, var(--art-cream));
+  --bit-wood-dark:color-mix(in srgb, var(--bit-wood) 60%, var(--ink0));
+  --bit-rock:color-mix(in srgb, var(--art-terracotta) 58%, var(--art-umber));
+  --bit-rock-lit:color-mix(in srgb, var(--art-tangerine) 58%, var(--art-terracotta));
+}

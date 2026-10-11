@@ -18,6 +18,7 @@ import { Roadrunner } from "./roadrunner.jsx";
 /* the slapstick bits */
 import { Springglove } from "./springglove.jsx";
 import { Toohype } from "./toohype.jsx";
+import { Dynamite } from "./dynamite.jsx";
 
 export const SCENES = Object.freeze({
   quickdraw:Quickdraw,
@@ -26,4 +27,5 @@ export const SCENES = Object.freeze({
   /* the slapstick bits */
   springglove:Springglove,
   toohype:Toohype,
+  dynamite:Dynamite,
 });

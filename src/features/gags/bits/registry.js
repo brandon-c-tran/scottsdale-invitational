@@ -171,8 +171,8 @@ const roadrunner = {
 const SG = { hop:0, turn:800, raise:1320, press:1540, fire:1570, hit:1650, fly:1710, twinkle:2450, retract:3000, home:3130, boop:3240,
   look:3760, thumb:4080 };
 const springglove = {
-  id:"springglove", name:"Spring glove", shape:"versus", style:"slapstick", ms:4850, beats:SG, still:4580, summary:"bitPow",
-  letter:{ at:SG.thumb, over:"a", place:"top-left" },
+  id:"springglove", name:"Spring glove", shape:"versus", style:"slapstick", ms:4850, beats:SG, still:4420, summary:"bitPow",
+  letter:{ at:SG.look + 120, over:"a", place:"top-left" },
   camera:{ zoom:1.5, x:"mid", fit:true, moves:[
     /* lean in on the bounce and the standoff */
     { at:200, ms:1200, zoom:1.56 },
@@ -204,7 +204,7 @@ const springglove = {
    the dirt, thumb up. The shoes walk over to it on their own. ── */
 const TH = { hop1:0, hop2:270, hop3:630, wind:1110, launch:1330, fall:2200, crash:2400, pop:2940, turn:3280, walk:3400, arrive:4000 };
 const toohype = {
-  id:"toohype", name:"Too hype", shape:"win", style:"slapstick", ms:4500, beats:TH, still:4200, summary:"bitPlant",
+  id:"toohype", name:"Too hype", shape:"win", style:"slapstick", ms:4500, beats:TH, still:4100, summary:"bitPlant",
   letter:{ at:TH.pop, over:"a", place:"top-left" },
   camera:{ zoom:1.8, x:"mid", fit:true, moves:[
     /* lean in with the bounces */
@@ -229,7 +229,38 @@ const toohype = {
   ],
 };
 
-export const BITS = Object.freeze([quickdraw, anvil, roadrunner, springglove, toohype].map(freeze));
+/* ── dynamite: a loss. A cupcake at a little party table; the chip strikes
+   a match and lights the candle, a stick of dynamite, and leans in,
+   delighted. It stops. A sweat drop. It looks at the room. BOOM. The smoke
+   clears: black with soot, the same pose, the cupcake gone. One cough of
+   smoke. A glove drops off into the dirt. ── */
+const DY = { strike:300, light:650, lit:680, out:900, admire:1100, realize:1800, look:2050, boom:2850, clear:3500, cough:3780,
+  drop:4080, land:4260 };
+const dynamite = {
+  id:"dynamite", name:"Dynamite", shape:"loss", style:"slapstick", ms:4800, beats:DY, still:4400, summary:"bitBoom",
+  letter:{ at:DY.clear, over:"a", place:"top-right" },
+  /* world x: the chip stands at 820, the table at 1080 (dynamite.jsx) */
+  camera:{ zoom:1.8, x:"mid", moves:[
+    /* in a little as it leans in to admire it */
+    { at:DY.admire, ms:800, zoom:1.92, x:930 },
+    /* in on its face as it turns to the room */
+    { at:DY.look, ms:520, zoom:2.25, x:"chip" },
+    /* the blast throws the shot back */
+    { at:DY.boom, ms:90, zoom:1.72, x:"mid", ease:CAMERA_EASE.snap },
+    /* and it creeps back in on what is left */
+    { at:DY.clear - 200, ms:1100, zoom:1.95, x:880 },
+  ], shakes:[{ at:DY.boom, big:true }], washes:[DY.boom] },
+  cast:{ a:{ role:"loser", max:1 } },
+  cues:[
+    { at:DY.strike, sound:"bitMatch", pan:0 },
+    { at:DY.lit, sound:"bitFuse", pan:0.2, opts:{ ms:DY.boom - DY.lit } },
+    { at:DY.boom, sound:"bitBoom", pan:0.1 },
+    { at:DY.cough, sound:"bitCough", pan:-0.12 },
+    { at:DY.land, sound:"bitFlop", pan:-0.3 },
+  ],
+};
+
+export const BITS = Object.freeze([quickdraw, anvil, roadrunner, springglove, toohype, dynamite].map(freeze));
 const BY_ID = new Map(BITS.map(bit => [bit.id, bit]));
 export const bitById = id => BY_ID.get(id) || null;
 export const bitsOf = shape => BITS.filter(bit => bit.shape === shape);

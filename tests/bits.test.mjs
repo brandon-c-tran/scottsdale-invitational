@@ -429,3 +429,64 @@ test("a glove's poses take turns on the bit's clock; at rest only the last shows
   assert.deepEqual(poseLayerStyle(poseTimeline("open"), 0), { opacity:1 }, "one pose: no motion");
   assert.deepEqual(poseTimeline("nope"), [["rest", 0]]);
 });
+
+/* ── the slapstick bits (springglove, toohype, dynamite): their beats in
+   order with the holds the joke needs, a still the stage has not started
+   lifting off, and the pure staging that puts each hit where it lands ── */
+const slapstick = new Module(fileURLToPath(new URL("bits-slapstick.cjs", import.meta.url)));
+slapstick.filename = slapstick.id;
+slapstick.paths = Module._nodeModulePaths(root);
+slapstick._compile(buildSync({
+  stdin:{ contents:`export { springStaging } from "./src/features/gags/bits/springglove.jsx";
+    export { hypeStaging } from "./src/features/gags/bits/toohype.jsx";
+    export { dynamiteMarks } from "./src/features/gags/bits/dynamite.jsx";`, resolveDir:root, loader:"jsx" },
+  bundle:true, platform:"node", format:"cjs", external:["react", "react-dom"], loader:{ ".css":"empty" }, write:false, logLevel:"silent",
+}).outputFiles[0].text, slapstick.filename);
+const { springStaging, hypeStaging, dynamiteMarks } = slapstick.exports;
+
+test("the slapstick bits: beats in order, a deadpan hold before each hit, the still before the lift-off", () => {
+  const order = (id, names) => {
+    const beats = bitById(id).beats;
+    names.slice(1).forEach((name, i) => assert.ok(beats[names[i]] < beats[name], `${id}: ${names[i]} before ${name}`));
+    return beats;
+  };
+  const sg = order("springglove", ["hop", "turn", "raise", "press", "fire", "hit", "fly", "twinkle", "retract", "home", "boop", "look", "thumb"]);
+  assert.ok(sg.raise - (sg.turn + 220) >= 300, "springglove: B sees it, and nothing happens for a beat");
+  assert.ok(sg.twinkle - sg.fly >= 500, "springglove: the empty spot holds before the star");
+  const th = order("toohype", ["hop1", "hop2", "hop3", "wind", "launch", "fall", "crash", "pop", "turn", "walk", "arrive"]);
+  assert.ok(th.hop3 - th.hop2 > th.hop2 - th.hop1, "toohype: each bounce longer, higher");
+  assert.ok(th.fall - th.launch >= 600, "toohype: the shoes alone for a beat");
+  const dy = order("dynamite", ["strike", "light", "lit", "out", "admire", "realize", "look", "boom", "clear", "cough", "drop", "land"]);
+  assert.ok(dy.boom - (dy.look + 420) >= 300, "dynamite: it looks at the room for a beat before the boom");
+  for (const id of ["springglove", "toohype", "dynamite"]) {
+    const bit = bitById(id);
+    assert.equal(bit.style, "slapstick");
+    assert.ok(bit.still <= bit.ms - registry.BIT_OUT_MS, `${id}: the still is held before the bit lifts off`);
+  }
+});
+
+test("springglove's staging: the glove reaches into B, every star stays on the TV, for any side", () => {
+  for (const [a, b] of [[1, 1], [2, 2], [4, 6], [1, 4]]) {
+    const s = springStaging(a, b);
+    const at = `${a}v${b}`;
+    assert.ok(s.reach > 0 && s.ax < s.bx, `${at}: A left of B, a spring to cross`);
+    assert.ok(s.contact.x > s.bx - s.lb.size / 2 && s.contact.x < s.bx, `${at}: the knuckles land in B's chip`);
+    assert.ok(s.vp.x + (s.lb.shown - 1) * 34 <= 1760 && s.vp.y < 856, `${at}: the stars in the sky inside the painting`);
+    assert.ok(s.minX < s.ax && s.maxX > s.bx, `${at}: the span holds both leads`);
+  }
+});
+
+test("toohype's staging: it comes down off its shoes, a pair outward, and the shoes have a walk", () => {
+  for (const n of [1, 2, 3]) {
+    const s = hypeStaging(n);
+    assert.equal(s.members.length, Math.min(n, 2));
+    assert.equal(s.more, Math.max(0, n - 2));
+    for (const m of s.members) {
+      assert.ok(Math.abs(m.x1 - m.x0) > s.size, `${n}: it misses its shoes by more than a chip`);
+      assert.ok(m.walk > 0.4 * s.size, `${n}: the shoes walk over`);
+    }
+    if (s.members.length === 2) assert.ok(s.members[0].dir < 0 && s.members[1].dir > 0, "a pair misses outward");
+  }
+  const marks = dynamiteMarks(240);
+  assert.ok(marks.tip.y < marks.base.y, "dynamite: the fuse's tip is above the stick");
+});

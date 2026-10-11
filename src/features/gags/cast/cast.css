@@ -92,5 +92,5 @@
   --bit-table-leg:color-mix(in srgb, var(--art-indigo) 58%, var(--ink0));
   --bit-soot:color-mix(in srgb, var(--ink0) 88%, var(--art-violet));
   --bit-soot-lit:color-mix(in srgb, var(--bone) 30%, var(--ink0));
-  --bit-smoke-dark:color-mix(in srgb, var(--bone) 50%, var(--art-violet));
+  --bit-smoke-dark:color-mix(in srgb, var(--bone) 56%, var(--ink0));
 }

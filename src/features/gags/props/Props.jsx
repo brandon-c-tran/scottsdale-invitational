@@ -553,7 +553,7 @@ export function Soot({ size = CAST.size, edge = 12, className = "" }) {
   return (
     <svg className={`bit-soot${className ? ` ${className}` : ""}`} width={size} height={size + edge} viewBox={`0 0 ${size} ${size + edge}`}
       style={{ position:"absolute", left:0, top:0, overflow:"visible" }} aria-hidden="true">
-      <path d={`${circle(r, r + edge, r - 0.5)}${circle(r, r, r - 0.5)}`} style={{ fill:"var(--bit-soot)" }} opacity=".8" />
+      <path d={`${circle(r, r + edge, r - 0.5)}${circle(r, r, r - 0.5)}`} style={{ fill:"var(--bit-soot)" }} opacity=".68" />
       <path d={`${ellipse(r * 0.72, r * 0.64, r * 0.3, r * 0.1, -24)}${ellipse(r * 1.3, r * 1.36, r * 0.24, r * 0.08, 18)}`}
         style={{ fill:"var(--bit-soot-lit)" }} opacity=".55" />
     </svg>

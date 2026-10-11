@@ -1,0 +1,19 @@
+/* The highlight reel (TVHighlight.jsx): a replay in a window of glass in
+   the TV's gap, standing on the session's painting, the Replay lamp and
+   the event under it. The window holds a whole 1920 x 1080 bit scaled into
+   it (BitStage). Canvas px, 24px and up, tokens only. The panel rises in on
+   the turn's own instant (--tl); it animates by the bits' convention
+   (bits.css: --ba, filled to its end state). */
+.tv-pane.tv-highlight-pane { align-items:center; justify-content:center; padding-top:8px; padding-bottom:12px; }
+.tv-highlight { display:flex; flex-direction:column; align-items:stretch; gap:14px; padding:16px 16px 14px;
+  --ba:tv-highlight-in 560ms var(--ease-out) calc(var(--tl) + 0ms) both; animation:var(--ba); }
+@keyframes tv-highlight-in { from { opacity:0; transform:translateY(22px) scale(.985); } to { opacity:1; transform:none; } }
+/* the replay's window: cut into the pane, the bit inside it */
+.tv-highlight-screen { position:relative; flex:none; border-radius:10px; overflow:hidden; background:var(--tv-window);
+  box-shadow:var(--tv-cut); }
+.tv-highlight-screen > .bit-stage { position:absolute; inset:0; }
+/* the lamp, then the event the moment came from */
+.tv-highlight-foot { display:flex; align-items:center; gap:28px; min-height:48px; padding:0 10px; }
+.tv-highlight-foot .tv-status { font-size:30px; letter-spacing:.1em; text-transform:uppercase; }
+.tv-highlight-event { min-width:0; font:800 36px/1.15 var(--fd-display); letter-spacing:.02em; color:var(--bone);
+  white-space:nowrap; }

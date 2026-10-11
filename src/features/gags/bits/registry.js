@@ -257,7 +257,7 @@ const saguaro = {
 const PU = { down1:500, up1:850, down2:1350, up2:1800, down3:2550, up3:3050, sweat:3300, down4:4150, strain:4750, collapse:5150,
   flat:5300, thumb:6100 };
 const pushups = {
-  id:"pushups", name:"Push-ups", shape:"idle", style:"slapstick", ms:7400, beats:PU, still:6600, summary:"bitThud", letter:null,
+  id:"pushups", name:"Push-ups", shape:"idle", style:"slapstick", ms:7400, beats:PU, still:6600, summary:"bitFlop", letter:null,
   /* world x: the chip at 960, its gloves 168 either side (pushups.jsx) */
   camera:{ zoom:1.9, x:960, moves:[
     /* closer as it gets hard */
@@ -272,7 +272,7 @@ const pushups = {
     { at:PU.up3, sound:"bitHuff", pan:0, opts:{ step:2 } },
     { at:PU.sweat, sound:"bitDrip", pan:0.12, opts:{ small:true } },
     { at:PU.strain, sound:"bitHuff", pan:0, opts:{ step:3 } },
-    { at:PU.flat, sound:"bitThud", pan:0 },
+    { at:PU.flat, sound:"bitFlop", pan:0 },
     { at:PU.thumb, sound:"bitSqueak", pan:0.12 },
   ],
 };

@@ -1046,7 +1046,112 @@ export const BIT_PARTS = Object.freeze([
   { id:"bitZip", name:"Zip", ms:300,
     play:(E, t) => { glide(E, voice(E, { send:0.2, bright:1, gain:0.5 }), t, NOTE.D6, NOTE.A6, 0.16, 0.12);
       travelWhoosh(E, t, { d:0.22, from:0, to:-0.9, peak:0.3 }); } },
+  /* ── idle (Oct 10): the downtime vignettes' foley, kept low (the room is
+     talking); helpers below the list ── */
+  /* a sleeper's breath: in through the nose, out on a thin whistle (opts.small: quieter) */
+  { id:"bitSnore", name:"Snore", ms:1500,
+    play:(E, t, o = {}) => { const k = o.small ? 0.7 : 1;
+      swell(E, voice(E, { send:0.25, bright:0.6 }), t, { d:0.7, f0:450, f1:1000, q:1.2, peak:0.16 * k });
+      glide(E, voice(E, { send:0.3, bright:0.9, gain:0.5 }), t + 0.78, NOTE.D6, NOTE.A5, 0.5, 0.05 * k, { vib:5, depth:0.01 });
+      swell(E, voice(E, { send:0.25, bright:0.5 }), t + 0.75, { d:0.6, f0:900, f1:420, q:1, peak:0.09 * k }); } },
+  /* a moth's wings (opts.ms) */
+  { id:"bitFlutter", name:"Moth flutter", ms:1500, play:(E, t, o = {}) => flutter(E, t, Math.max(0.3, (o.ms || 1500) / 1000)) },
+  /* a glove slapped down on a face */
+  { id:"bitSwat", name:"Swat", ms:400,
+    play:(E, t) => { M.slap(E, t, { gain:0.55 }); M.felt(E, t + 0.004, { gain:0.35 });
+      burst(E, voice(E, { send:0.15, bright:1, gain:0.4 }), t, { type:"highpass", f:2400, d:0.03, peak:0.4 }); } },
+  /* a little table straining (opts.ms; opts.small: shorter, softer) */
+  { id:"bitCreak", name:"Creak", ms:900, play:(E, t, o = {}) => creak(E, t, Math.max(0.2, (o.ms || 900) / 1000), o.small ? 0.6 : 1) },
+  /* a drop of sweat (opts.small: quieter) */
+  { id:"bitDrip", name:"Drip", ms:250,
+    play:(E, t, o = {}) => { const k = o.small ? 0.6 : 1;
+      glide(E, voice(E, { send:0.3, bright:1, gain:0.6 }), t, NOTE.D6, NOTE.A6, 0.08, 0.16 * k);
+      M.tick(E, t, { gain:0.12 * k, pitch:1.8 }); } },
+  /* a cactus spine: a sharp tick and a yip up (opts.big: the last one) */
+  { id:"bitPrick", name:"Prick", ms:400,
+    play:(E, t, o = {}) => { const k = o.big ? 1.5 : 1;
+      M.tick(E, t, { gain:0.35 * k, pitch:2 }); M.bell(E, t, NOTE.A6, { gain:0.12 * k, dec:0.2, send:0.2 });
+      glide(E, voice(E, { send:0.2, bright:1, gain:0.5 }), t + 0.02, NOTE.A5, NOTE.D6 * (o.big ? 2 : 1), 0.14, 0.07 * k, { type:"triangle" }); } },
+  /* a hurt glove shaken out: quick swishes, fading */
+  { id:"bitShake", name:"Shake it out", ms:500,
+    play:(E, t) => { const v = voice(E, { send:0.15, bright:0.9, gain:1 });
+      for (let i = 0; i < 6; i++) burst(E, v, t + i * 0.075, { f:2600 - i * 120, q:1.1, d:0.045, peak:0.16 - i * 0.02 }); } },
+  /* a little stepladder set down, or going over (opts.small) */
+  { id:"bitLadder", name:"Stepladder", ms:300,
+    play:(E, t, o = {}) => { const k = o.small ? 0.6 : 1;
+      M.knock(E, t, { pitch:1.15, gain:0.4 * k }); M.knock(E, t + 0.06, { pitch:1.35, gain:0.25 * k });
+      M.bell(E, t + 0.004, NOTE.Fs6, { gain:0.05 * k, dec:0.18, send:0.15 }); } },
+  /* a push-up's breath, harder each time (opts.step) */
+  { id:"bitHuff", name:"Huff", ms:450,
+    play:(E, t, o = {}) => { const s = Math.min(3, Math.max(0, Number(o.step) || 0));
+      swell(E, voice(E, { send:0.15, bright:0.6 }), t, { d:0.2 + s * 0.07, f0:950 + s * 60, f1:520, q:1.1, peak:0.2 + s * 0.06 }); } },
+  /* flat on the floor, softly (the dust thud, quieter, for a vignette) */
+  { id:"bitFlop", name:"Flop", ms:450,
+    play:(E, t) => { M.drum(E, t, { f:62, dec:0.26, gain:0.4 }); M.felt(E, t, { gain:0.45 });
+      burst(E, voice(E, { send:0.18, bright:0.5, gain:0.4 }), t + 0.01, { type:"lowpass", f:700, q:0.5, d:0.25, peak:0.35 }); } },
+  /* a rubber glove's squeak */
+  { id:"bitSqueak", name:"Squeak", ms:250,
+    play:(E, t) => glide(E, voice(E, { send:0.2, bright:1, gain:0.5 }), t, NOTE.A5, NOTE.D6, 0.15, 0.09, { type:"triangle", vib:18, depth:0.02 }) },
+  /* a broom's stroke across the dirt (opts.step varies it) */
+  { id:"bitSweep", name:"Sweep", ms:400,
+    play:(E, t, o = {}) => { const p = 1 + ((Number(o.step) || 0) % 3) * 0.06, v = voice(E, { send:0.15, bright:0.9 });
+      swell(E, v, t, { d:0.28, f0:3200 * p, f1:2200 * p, q:0.9, peak:0.16 });
+      for (let i = 0; i < 5; i++) burst(E, v, t + 0.03 + i * 0.045, { type:"highpass", f:3600, d:0.006, peak:0.1 }); } },
+  /* a gust across the room, right to left (opts.ms) */
+  { id:"bitGust", name:"Gust", ms:1300,
+    play:(E, t, o = {}) => { const d = Math.max(0.5, (o.ms || 1300) / 1000);
+      travelWhoosh(E, t, { d, from:0.8, to:-0.8, peak:0.22, f0:260, f1:1300 }); desertWind(E, t + 0.1, d * 0.8); } },
+  /* paper unfolding, or turned (opts.ms; opts.small: quieter) */
+  { id:"bitPaper", name:"Paper", ms:900, play:(E, t, o = {}) => crackle(E, t, Math.max(0.15, (o.ms || 900) / 1000), o.small ? 0.6 : 1, 4200) },
+  /* paper crumpled into a ball */
+  { id:"bitCrumple", name:"Crumple", ms:500, play:(E, t) => crackle(E, t, 0.45, 1.3, 2400, 2.2) },
+  /* a paper ball off a rock, or into the dirt (opts.small) */
+  { id:"bitPap", name:"Paper ball", ms:200,
+    play:(E, t, o = {}) => { const k = o.small ? 0.6 : 1; M.knock(E, t, { pitch:1.7, gain:0.28 * k }); M.felt(E, t + 0.003, { gain:0.2 * k }); } },
+  /* a roadrunner's beep beep, far off along the horizon */
+  { id:"bitBeepFar", name:"Far beep", ms:500,
+    play:(E, t) => { farBeep(E, t, NOTE.A5); farBeep(E, t + 0.19, NOTE.D6); } },
 ].map(Object.freeze));
+
+/* idle's helpers (BIT_PARTS above) */
+/* wings: soft low noise shaken fast by a tremolo, swelling in and out */
+function flutter(E, t, d) {
+  const c = E.ctx, v = voice(E, { send:0.15, bright:0.7 });
+  const s = c.createBufferSource(); s.buffer = E.noise; s.loop = true;
+  const bp = c.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 520; bp.Q.value = 1.1;
+  const trem = c.createGain(); trem.gain.value = 0.5;
+  const g = c.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.16, t + Math.min(0.2, d * 0.3));
+  g.gain.setValueAtTime(0.16, t + d * 0.75); g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+  s.connect(bp); bp.connect(trem); trem.connect(g); g.connect(v);
+  track(E, s, bp, trem, g); trackSource(E, s);
+  s.start(t, Math.random() * 0.5, d + 0.05);
+  wobble(E, trem.gain, t, d, { rate:24, depth:0.5 });
+}
+/* wood under strain: stick-slip clicks through a resonance, a low groan */
+function creak(E, t, d, k = 1) {
+  const v = voice(E, { send:0.2, bright:0.8 });
+  for (let x = 0, i = 0; x < d && i < 40; i++, x += 0.03 + Math.random() * 0.04)
+    burst(E, v, t + x, { f:650 + Math.random() * 450, q:6, d:0.03, peak:0.9 * k });
+  const g = voice(E, { send:0.2, bright:0.5, gain:0.6 });
+  const bp = E.ctx.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 560; bp.Q.value = 5;
+  bp.connect(g); track(E, bp);
+  const o = held(E, bp, t, NOTE.A2, d, 0.16 * k, { type:"sawtooth", a:d * 0.3 });
+  wobble(E, o.frequency, t, d, { rate:3.2, depth:6 });
+}
+/* paper: a crackle of short bright ticks over a soft rustle */
+function crackle(E, t, d, k = 1, f = 4200, density = 1) {
+  const v = voice(E, { send:0.18, bright:1 });
+  for (let x = 0, i = 0; x < d && i < 80; i++, x += (0.008 + Math.random() * 0.03) / density)
+    burst(E, v, t + x, { type:"highpass", f:f * (0.7 + Math.random() * 0.6), d:0.006 + Math.random() * 0.01, peak:(0.08 + Math.random() * 0.12) * k });
+  swell(E, voice(E, { send:0.15, bright:0.7 }), t, { d, f0:1400, f1:2600, q:0.8, peak:0.03 * k });
+}
+/* a bird call a long way off: the beep's reed, quiet, mostly room */
+function farBeep(E, t, f) {
+  const v = voice(E, { send:0.55, bright:0.7, gain:0.3 });
+  const bp = E.ctx.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = f * 2; bp.Q.value = 0.9;
+  bp.connect(v); track(E, bp);
+  held(E, bp, t, f, 0.11, 0.4, { type:"square", a:0.004, glide:-0.08 });
+}
 
 export const SOUNDS = Object.freeze(Object.fromEntries([...KIT, ...PARTS, ...BOARD_PARTS, ...BIT_PARTS].map(s => [s.id, s])));
 export const SOUND_IDS = Object.freeze(KIT.map(s => s.id));

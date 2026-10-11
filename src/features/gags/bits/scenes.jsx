@@ -19,10 +19,16 @@ import { Anvil } from "./anvil.jsx";
 import { Roadrunner } from "./roadrunner.jsx";
 /* the deadpan desert */
 import { Butte } from "./butte.jsx";
+import { Sunset } from "./sunset.jsx";
+import { Statue } from "./statue.jsx";
+import { Vulture } from "./vulture.jsx";
 
 export const SCENES = Object.freeze({
   quickdraw:Quickdraw,
   anvil:Anvil,
   roadrunner:Roadrunner,
   butte:Butte,
+  sunset:Sunset,
+  statue:Statue,
+  vulture:Vulture,
 });

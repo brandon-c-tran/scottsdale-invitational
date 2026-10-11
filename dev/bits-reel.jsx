@@ -59,7 +59,7 @@ const CASTS = {
   idle:[{ key:"room", label:"The room", cast:{ a:["Brandon", "Evan", "Eyob"] } }],
 };
 /* what a moment letters under the name, by trigger */
-const FACTS = { "A big losing bet":"-1,000", "A new last place":"13th" };
+const FACTS = { "A big losing bet":"-1,000", "A new last place":"13th", "3 straight wins":"3" };
 const PHASES = [["fri", "Friday"], ["sam", "Sat morning"], ["sap", "Sat afternoon"], ["san", "Sat night"], ["fin", "Finale"]];
 const castFor = (bit, key) => (CASTS[bit.shape] || CASTS.loss).find(item => item.key === key) || (CASTS[bit.shape] || CASTS.loss)[0];
 const secs = ms => (Math.round(ms / 10) / 100).toFixed(2);

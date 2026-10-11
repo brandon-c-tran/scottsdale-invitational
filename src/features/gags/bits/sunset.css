@@ -1,0 +1,76 @@
+/* sunset (sunset.jsx): beats from registry.js (--b-<name>), every
+   animation on --ba (bits.css), each element resting on its end state. A
+   run of moves on one property: the first fills both ways, the rest
+   forwards. The camera is the stage's (the registry). */
+
+.is-sunset .ss { position:absolute; inset:0; overflow:visible; }
+/* the winner stands high in the frame: the sky's dim is lighter */
+.is-sunset .bit-dim { opacity:.5; }
+.is-sunset .ss-node { position:absolute; display:block; width:0; height:0; }
+/* one sun in the sky: the painting's own sun or moon steps aside */
+.is-sunset .bit-painting .tv-desert-disc { opacity:0; }
+.is-sunset .ss-sky, .is-sunset .ss-butte { position:absolute; left:0; top:0; display:block; }
+.is-sunset .ss-sky { overflow:hidden; }
+.is-sunset .ss-butte { overflow:visible; }
+
+/* ── the sunset's inks: a plum sky warming to gold at the horizon, the
+   range in silhouette, nearer is darker ── */
+.is-sunset .ss-band.is-sky { fill:color-mix(in srgb, var(--art-plum) 72%, var(--ink0)); }
+.is-sunset .ss-band.is-sky2 { fill:color-mix(in srgb, var(--art-violet) 62%, var(--art-plum)); }
+.is-sunset .ss-band.is-sky3 { fill:color-mix(in srgb, var(--art-rose) 78%, var(--art-violet)); }
+.is-sunset .ss-band.is-sky4 { fill:var(--art-tangerine); }
+.is-sunset .ss-band.is-glow { fill:color-mix(in srgb, var(--sun) 78%, var(--art-cream)); }
+.is-sunset .ss-sun { fill:color-mix(in srgb, var(--art-cream) 72%, var(--sun)); }
+.is-sunset .ss-dark-far { fill:color-mix(in srgb, var(--art-plum) 62%, var(--art-violet)); }
+.is-sunset .ss-dark-mid { fill:color-mix(in srgb, var(--art-plum) 80%, var(--ink0)); }
+.is-sunset .ss-dark-mesa, .is-sunset .ss-dark-shade { fill:color-mix(in srgb, var(--art-plum) 62%, var(--ink0)); }
+.is-sunset .ss-dark-cactus path { fill:var(--ink0); }
+.is-sunset .ss-rock { fill:var(--d-mesa, var(--bit-rock)); }
+.is-sunset .ss-rock-shade { fill:var(--d-shade, var(--bit-rock-shade)); }
+.is-sunset .ss-dark-butte { fill:color-mix(in srgb, var(--art-plum) 38%, var(--ink0)); }
+.is-sunset .ss-rim { fill:none; stroke:var(--sun); stroke-width:5px; stroke-linecap:round; }
+
+/* ── the sun goes down fast behind the butte; the sky relamps in six
+   hard steps as it goes ── */
+.is-sunset .ss-sun-go { transform:var(--sun-set);
+  --ba:ss-set 1280ms cubic-bezier(.4,0,.8,.55) calc(var(--tl) + var(--b-sink)) both; animation:var(--ba); }
+@keyframes ss-set { from { transform:translateY(0px); } to { transform:var(--sun-set); } }
+.is-sunset .ss-dark, .is-sunset .ss-dusk { opacity:1;
+  --ba:ss-relamp 900ms steps(6, end) calc(var(--tl) + var(--b-sink) + 80ms) both; animation:var(--ba); }
+@keyframes ss-relamp { from { opacity:0; } to { opacity:1; } }
+
+/* ── the winner: fists on hips, and that is all it does ── */
+.is-sunset .ss-a .cast-hand.is-r > .cast-hand-in { transform:var(--hip); }
+.is-sunset .ss-a .cast-hand.is-l > .cast-hand-in { transform:var(--hip-l); }
+.is-sunset .ss-a .cast-hand.is-r .cast-hand-fx { transform:scaleX(-1) rotate(40deg); }
+.is-sunset .ss-a .cast-hand.is-l .cast-hand-fx { transform:scaleX(-1) rotate(-40deg); }
+
+/* ── the shades: down slowly on the string, swaying, a settle; a glint;
+   then yanked straight up and out ── */
+.is-sunset .ss-string { position:absolute; left:-2.5px; top:-1500px; width:5px; height:1484px; border-radius:3px; background:var(--ink0); }
+.is-sunset .ss-lower { transform:translateY(-1150px);
+  --ba:ss-lower 1100ms cubic-bezier(.25,.1,.3,1) calc(var(--tl) + var(--b-lower) + var(--i) * 90ms) both,
+    ss-settle 240ms ease-out calc(var(--tl) + var(--b-settle) + var(--i) * 90ms) forwards,
+    ss-yank 150ms cubic-bezier(.6,0,.9,.4) calc(var(--tl) + var(--b-yank) + var(--i) * 40ms) forwards;
+  animation:var(--ba); }
+@keyframes ss-lower { from { transform:translateY(-1150px); } to { transform:translateY(-6px); } }
+@keyframes ss-settle { 0% { transform:translateY(-6px); } 45% { transform:translateY(4px); } 100% { transform:translateY(0px); } }
+@keyframes ss-yank { 0% { transform:translateY(0px); } 30% { transform:translateY(7px); } 100% { transform:translateY(-1150px); } }
+.is-sunset .ss-sway { transform-origin:0 -1500px;
+  --ba:ss-sway 1340ms ease-in-out calc(var(--tl) + var(--b-lower) + var(--i) * 90ms) both; animation:var(--ba); }
+@keyframes ss-sway { 0% { transform:rotate(1.4deg); } 35% { transform:rotate(-1deg); } 70% { transform:rotate(.5deg); } 100% { transform:rotate(0deg); } }
+.is-sunset .ss-glint { opacity:0;
+  --ba:ss-glint 420ms ease-out calc(var(--tl) + var(--b-glint) + var(--i) * 60ms) both; animation:var(--ba); }
+@keyframes ss-glint { 0% { opacity:0; transform:scale(.1) rotate(0deg); } 1% { opacity:1; transform:scale(.1) rotate(0deg); }
+  35% { opacity:1; transform:scale(1.15) rotate(30deg); } 100% { opacity:0; transform:scale(.4) rotate(70deg); } }
+
+/* ── a tumbleweed blows past at the butte's foot ── */
+.is-sunset .ss-weed { transform:translateX(2300px);
+  --ba:ss-weed 780ms linear calc(var(--tl) + var(--b-weed)) both; animation:var(--ba); }
+@keyframes ss-weed { from { transform:translateX(0px); } to { transform:translateX(2300px); } }
+.is-sunset .ss-weed-hop { top:-46px; --ba:ss-hop 260ms linear calc(var(--tl) + var(--b-weed)) 3 both; animation:var(--ba); }
+@keyframes ss-hop { 0% { transform:translateY(0px); animation-timing-function:cubic-bezier(.2,.7,.4,1); }
+  45% { transform:translateY(-54px); animation-timing-function:cubic-bezier(.6,0,.8,.3); } 100% { transform:translateY(0px); } }
+.is-sunset .ss-weed-spin { transform:rotate(1500deg);
+  --ba:ss-spin 780ms linear calc(var(--tl) + var(--b-weed)) both; animation:var(--ba); }
+@keyframes ss-spin { from { transform:rotate(0deg); } to { transform:rotate(1500deg); } }

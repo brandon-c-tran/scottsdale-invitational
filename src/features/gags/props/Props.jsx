@@ -425,7 +425,7 @@ export function Wren({ pose = "perch", scale = 1, className = "" }) {
    down to land), flap (wings beating down). VULTURE says where its beak
    tip, its neck and its wingtips' grips sit (from its feet). Anchor:
    between its feet. ── */
-export const VULTURE = Object.freeze({ neck:{ x:-64, y:-182 }, fork:{ x:-74, y:-120 }, knife:{ x:-100, y:-128 }, beak:{ x:-130, y:-194 } });
+export const VULTURE = Object.freeze({ neck:{ x:-64, y:-182 }, fork:{ x:-146, y:-92 }, knife:{ x:-188, y:-100 }, beak:{ x:-130, y:-194 } });
 const V_HEAD = [
   /* the bare neck, the head, the hooked beak (upper and lower) */
   [["cap", "M-38,-174 L-66,-196", 22, "var(--bit-vulture-head)"],
@@ -452,14 +452,14 @@ export function Vulture({ pose = "stand", scale = 1, className = "" }) {
     ["M136,-300 L170,-322", "M132,-286 L172,-300", "M126,-268 L168,-276"])
     : pose === "flap" ? wing("M40,-160 C80,-150 120,-120 150,-80 C130,-74 110,-90 86,-110 C70,-124 54,-140 40,-150 Z",
       ["M146,-84 L178,-60", "M134,-82 L160,-50", "M120,-90 L138,-56"])
-      : pose === "hold" ? [["cap", "M-4,-150 Q-40,-120 -94,-130", 30, "var(--bit-vulture)"], ["cap", "M-92,-130 L-108,-136", 11, "var(--bit-vulture)"],
-        ["cap", "M-94,-124 L-110,-124", 11, "var(--bit-vulture)"]] : null;
+      : pose === "hold" ? [["cap", "M-4,-150 Q-60,-96 -176,-104", 30, "var(--bit-vulture)"], ["cap", "M-176,-110 L-194,-114", 11, "var(--bit-vulture)"],
+        ["cap", "M-178,-98 L-196,-96", 11, "var(--bit-vulture)"]] : null;
   const nearWing = pose === "glide" ? wing("M10,-176 C-20,-236 -40,-290 -30,-336 C-6,-318 10,-276 20,-236 C26,-210 30,-190 30,-170 Z",
     ["M-30,-332 L-38,-372", "M-20,-326 L-16,-366", "M-10,-316 L4,-352"])
     : pose === "flap" ? wing("M14,-160 C-20,-150 -70,-120 -110,-70 C-90,-62 -60,-86 -30,-108 C-10,-124 6,-140 20,-150 Z",
       ["M-106,-74 L-140,-50", "M-94,-70 L-120,-38", "M-80,-74 L-96,-40"])
-      : pose === "hold" ? [["cap", "M30,-150 Q0,-104 -66,-118", 34, "var(--bit-vulture)"], ["cap", "M-64,-124 L-82,-130", 12, "var(--bit-vulture)"],
-        ["cap", "M-66,-114 L-84,-116", 12, "var(--bit-vulture)"]] : null;
+      : pose === "hold" ? [["cap", "M30,-150 Q-20,-80 -134,-96", 34, "var(--bit-vulture)"], ["cap", "M-134,-102 L-154,-106", 12, "var(--bit-vulture)"],
+        ["cap", "M-136,-90 L-156,-88", 12, "var(--bit-vulture)"]] : null;
   const body = standing ? V_BODY
     : "M-40,-150 C-36,-180 0,-196 50,-190 C96,-184 130,-160 128,-130 C126,-104 100,-96 60,-98 C20,-100 -20,-110 -34,-126 C-40,-134 -42,-142 -40,-150 Z";
   return (

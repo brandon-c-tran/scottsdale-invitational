@@ -111,7 +111,7 @@ export function TvSheet({ state, events, scene, operationEvent = null, scenes = 
         </section>
       )}
 
-      {/* the TV's cartoons after a turkey, a strike, a gutter ball or a new last place (features/gags) */}
+      {/* the room's moments: a bit after an upset, a run of wins, a new leader, a big losing bet or a new last place, on the TV and the phones it is about (features/gags) */}
       {onGags && <MenuGroup>
         <MenuRow name="Gags" pressed={tvGags(state).on} onClick={() => onGags(!tvGags(state).on)} />
       </MenuGroup>}

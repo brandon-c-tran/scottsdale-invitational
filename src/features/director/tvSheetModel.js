@@ -81,7 +81,7 @@ export function tvRetry(state) {
 }
 
 /* the Gags switch (features/gags): on unless the commissioner turned the
-   TV's cartoons off (state.gagsOff) */
+   room's moments off on the TV and the phones (state.gagsOff) */
 export const tvGags = state => ({ on:!state?.gagsOff });
 
 /* the primary verb while a scene plays, matching the director pill */

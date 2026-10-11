@@ -1,0 +1,5 @@
+/* Attract mode (TVAttract.jsx): an idle vignette is the TV at rest, not a
+   peak. The chrome steps out for it like any takeover (tv-moments.css), but
+   the frame's rest lamps stay lit round it; any other moment that joins
+   (the list is no longer just "attract") takes the frame back. */
+.tv-canvas[data-moment="attract"]:not([data-takeover]):not([data-chase]) .tv-frame-lamps { display:block; }

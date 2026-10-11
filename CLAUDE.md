@@ -632,6 +632,12 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   Idle vignettes are the TV's downtime: 6 to 10 s (`IDLE_MS`), cast from
   the room (the players present, a vignette takes one or two), `letter:null`
   (no name, no fact, the painting at full light), `still` the punchline.
+  Attract mode (Oct 11, pure `tv/attractModel.js`, `tv/TVAttract.jsx`)
+  plays them in TVMode: one turn a gap rotation, after the records; the
+  turn's server start picks the vignette (never the same twice running, the
+  arm wrestle only with two present) and its cast from `presentPlayers`; it
+  plays once from that start over the board, which keeps the rest of the
+  turn, its foley ducked and only on a TV that saw it start.
   A name two styles both invented carries its style (`IdleSaguaro`,
   `--bit-idle-cactus`, `--bit-slap-soot`, `--bit-desert-rock`, `bitSqueakSoft`).
   `/dev/bits-reel.html` plays them all; `node scripts/build-bits-reel.mjs`

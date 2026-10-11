@@ -68,6 +68,8 @@ import { TVPhotoCard } from "../photos/TVPhotoCard.jsx";
 import { tvPhotoGap, tvPhotoRotation, withPhotoTurns } from "../photos/photoModel.js";
 import { TVRecord } from "./TVRecords.jsx";
 import { recordAt, recordCards, withRecordTurns } from "./recordsModel.js";
+import { TVAttract } from "./TVAttract.jsx";
+import { ATTRACT_EARLY_MS, attractAt, attractRoom, withAttractTurns } from "./attractModel.js";
 import { contestTerms } from "../comebacks/comebacks.js";
 import { CORNER_GAP, CORNER_W, TVArriveCorner, TVLobby } from "./TVArrivals.jsx";
 import { arrivalsBoard, arriveUrl } from "../arrivals/arrivalsModel.js";
@@ -1154,7 +1156,10 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied: allT
      the same gap, one card a turn, the next records turn the next card
      (recordsModel.js); only cards with data behind them */
   const records = useMemo(() => photoGap ? recordCards(state, events) : EMPTY, [photoGap, state, events]);
-  const ambient = photoGap ? withPhotoTurns(withRecordTurns(ambientCards, records.length), photos.length) : ambientCards;
+  /* attract mode (attractModel.js): an idle vignette cast from the room, its own turn after the records */
+  const room = useMemo(() => photoGap ? attractRoom(state) : EMPTY, [photoGap, state]);
+  const ambient = photoGap ? withAttractTurns(withPhotoTurns(withRecordTurns(ambientCards, records.length), photos.length), room.length)
+    : ambientCards;
   /* server time picks the card, so every TV in the house shows the same one;
      reduced motion still rotates, it just cuts instead of fading */
   const turnCard = ambient[ambientIndex(ambient.length, now, TV_AMBIENT_TURN_MS)] || "board";
@@ -1178,6 +1183,10 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied: allT
   const cornerWanted = arrivals.stage === "corner" && !!arriveLink && !final && !directed && !award && !resultModel
     && connection.mode !== "loading";
   const cornerWidth = 1920 - CORNER_W - CORNER_GAP;
+  /* the vignette plays over the gap's own board (its turn's card), never
+     under anything that holds the room or a card docked in the masthead */
+  const attract = photoGap && !award && !geoOnTv && !triviaOnTv && !lobbyOn && !chrome.takeover && !dock
+    ? attractAt({ ambient, now, room, early:nowOverride === undefined ? ATTRACT_EARLY_MS : 0 }) : null;
 
   const facts = useMemo(() => weekendFacts(state, events), [state, events]);
   const showTicker = !final && !(directed && sceneView.ticker === false) && !award && !lobbyOn && connection.mode !== "loading"
@@ -1385,6 +1394,7 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied: allT
         <main className="tv-main" style={connection.mode === "reconnecting" ? { opacity:0.72 } : undefined}>
           {content}
         </main>
+        {attract && <TVAttract key={attract.key} state={state} attract={attract} phase={phase} now={now} fixed={nowOverride !== undefined} />}
         {showHorizon && <Horizon state={state} standings={standings} towers={towers} road={road}
           width={cornerShown ? cornerWidth : 1920} />}
         {cornerShown && <TVArriveCorner board={arrivals} url={arriveLink} />}

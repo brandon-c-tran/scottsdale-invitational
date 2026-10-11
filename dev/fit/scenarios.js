@@ -994,6 +994,12 @@ export const TV_SCENARIOS = Object.freeze([
   { id:"tv-records-bettor-worst", build:() => fresh("session:sap"), at:{ record:{ kind:"bettor", worst:true } } },
   { id:"tv-records-fastest", build:recordsDuels, at:{ record:{ kind:"fastest" } } },
   { id:"tv-records-duels", build:recordsDuels, at:{ record:{ kind:"duels" } } },
+  /* attract mode (Oct 11, features/tv/attractModel.js): an idle vignette on
+     its attract turn, `ms` into it (the chrome stepped out, the rest lamps
+     lit): two of the room at the table mid-struggle, and one alone on the
+     stepladder reaching for the blossom */
+  { id:"tv-attract-armwrestle", build:() => fresh("session:sam"), at:{ attract:{ id:"armwrestle", ms:3400 } } },
+  { id:"tv-attract-saguaro", build:() => fresh("session:fri"), at:{ attract:{ id:"saguaro", ms:5000 } } },
 ]);
 
 /* ── the phone ──

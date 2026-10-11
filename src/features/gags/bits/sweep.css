@@ -10,7 +10,7 @@
 
 /* ── the strokes: the broom and both gloves pushed along the floor, the
    straw swinging on ahead, and brought back lifted ── */
-.is-sweep .sw-stroke { transform:translate(0px, 0px) rotate(0deg);
+.is-sweep .sw-stroke { transform:translate(40px, 0px) rotate(-6deg);
   --ba:sw-push 260ms cubic-bezier(.3,.6,.4,1) calc(var(--tl) + var(--b-stroke1)) both,
     sw-back 320ms ease-in-out calc(var(--tl) + var(--b-stroke1) + 300ms) forwards,
     sw-push 260ms cubic-bezier(.3,.6,.4,1) calc(var(--tl) + var(--b-stroke2)) forwards,
@@ -22,7 +22,6 @@
     sw-push 260ms cubic-bezier(.3,.6,.4,1) calc(var(--tl) + var(--b-again)) forwards,
     sw-back 320ms ease-in-out calc(var(--tl) + var(--b-again) + 300ms) forwards,
     sw-push 260ms cubic-bezier(.3,.6,.4,1) calc(var(--tl) + var(--b-again2)) forwards; animation:var(--ba); }
-.is-sweep .sw-stroke { transform:translate(40px, 0px) rotate(-6deg); }
 @keyframes sw-push { from { transform:translate(0px, 0px) rotate(0deg); } to { transform:translate(40px, 0px) rotate(-6deg); } }
 @keyframes sw-back { 0% { transform:translate(40px, 0px) rotate(-6deg); } 50% { transform:translate(22px, -16px) rotate(-2deg); }
   100% { transform:translate(0px, 0px) rotate(0deg); } }

@@ -20,6 +20,8 @@ import { Nap } from "./nap.jsx";
 import { Armwrestle } from "./armwrestle.jsx";
 import { Saguaro } from "./saguaro.jsx";
 import { Pushups } from "./pushups.jsx";
+import { Sweep } from "./sweep.jsx";
+import { MapBit } from "./map.jsx";
 
 export const SCENES = Object.freeze({
   quickdraw:Quickdraw,
@@ -30,4 +32,6 @@ export const SCENES = Object.freeze({
   armwrestle:Armwrestle,
   saguaro:Saguaro,
   pushups:Pushups,
+  sweep:Sweep,
+  map:MapBit,
 });

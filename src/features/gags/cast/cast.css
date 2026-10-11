@@ -76,3 +76,25 @@
 /* a pose layer swaps on the bit's clock (CastChip poseLayerStyle) */
 @keyframes cast-on { from { opacity:0; } to { opacity:1; } }
 @keyframes cast-off { from { opacity:1; } to { opacity:0; } }
+
+/* ══ the action bits' inks (explosionwalk, dontlookback, quicksand) ══ */
+.bit-art, .cast {
+  /* a fireball's outside and the shade under it; smoke, lit on top and
+     lit from below by the fire */
+  --bit-blast:var(--art-tangerine);
+  --bit-blast-shade:color-mix(in srgb, var(--art-tangerine) 62%, var(--art-terracotta));
+  --bit-soot:color-mix(in srgb, var(--ink0) 76%, var(--art-violet));
+  --bit-soot-lit:color-mix(in srgb, var(--art-violet) 38%, var(--ink0));
+  --bit-soot-fire:color-mix(in srgb, var(--art-tangerine) 52%, var(--ink0));
+  /* scorched: what a blast leaves on whatever stood in front of it */
+  --bit-scorch:color-mix(in srgb, var(--ink0) 88%, var(--art-umber));
+  /* a saguaro up close */
+  --bit-cactus:color-mix(in srgb, var(--art-sage) 62%, var(--olive));
+  --bit-cactus-lit:color-mix(in srgb, var(--olive) 72%, var(--art-cream));
+  /* sand: dry on top, wet where it swallows things */
+  --bit-sand:color-mix(in srgb, var(--art-cream) 58%, var(--art-terracotta));
+  --bit-sand-wet:color-mix(in srgb, var(--art-cream) 30%, var(--art-umber));
+  --bit-sand-line:color-mix(in srgb, var(--art-umber) 72%, var(--art-terracotta));
+  /* a casino chip's red */
+  --bit-chip-red:var(--clay);
+}

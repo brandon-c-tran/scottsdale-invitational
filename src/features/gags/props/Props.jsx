@@ -319,3 +319,140 @@ export function Roadrunner({ pose = "stand", scale = 1, beak = "shut", className
     </Art>
   );
 }
+
+/* ══ the action bits' props (explosionwalk, dontlookback, quicksand) ══ */
+
+/* round lobes [x, y, r], laid as one silhouette */
+const lobes = (list, fill) => list.map(([x, y, r]) => ["blob", circle(x, y, r), fill]);
+
+/* ── a fireball: a ball of fire boiling up, three heats, one keyline
+   round the outside. Each heat is its own node (.bit-fire-layer.is-outer,
+   .is-mid, .is-core) so a scene can cool it from the middle out. Anchor:
+   its centre. ── */
+const FIRE_OUTER = Object.freeze([[0, -6, 66], [58, 6, 44], [-58, 6, 44], [40, -48, 44], [-42, -46, 42], [0, -74, 42], [78, -26, 34],
+  [-78, -24, 34], [30, 44, 36], [-32, 42, 36], [0, 50, 34], [68, 40, 26], [-68, 42, 26]]);
+const FIRE_MID = Object.freeze([[0, -12, 50], [36, -32, 30], [-34, -30, 30], [0, -52, 30], [46, 6, 28], [-46, 6, 28], [0, 22, 30],
+  [56, -16, 20], [-56, -14, 20]]);
+/* the white heart: one boiling blob, a little off the middle */
+const FIRE_CORE = "M-34,8 C-46,-12 -34,-40 -10,-44 C-2,-56 22,-56 30,-40 C46,-32 46,-6 34,6 C26,22 6,26 -8,22 C-20,26 -32,20 -34,8 Z";
+export function Fireball({ scale = 1, className = "" }) {
+  const k = 1 / scale;
+  const box = [-124, -136, 248, 228];
+  return (
+    <span className={`bit-fireball${className ? ` ${className}` : ""}`}>
+      <span className="bit-fire-layer is-outer"><Art box={box} scale={scale}>
+        <Drawn k={k} groups={[lobes(FIRE_OUTER, "var(--bit-blast)")]} />
+        <Tone d="M-96,20 C-80,62 -40,84 0,84 C40,84 80,62 96,20 C84,52 46,72 0,72 C-46,72 -84,52 -96,20 Z" fill="var(--bit-blast-shade)" />
+      </Art></span>
+      <span className="bit-fire-layer is-mid"><Art box={box} scale={scale}>
+        {FIRE_MID.map(([x, y, r], i) => <path key={i} d={circle(x, y, r)} style={{ fill:"var(--bit-fire)" }} />)}
+      </Art></span>
+      <span className="bit-fire-layer is-core"><Art box={box} scale={scale}>
+        <path d={FIRE_CORE} style={{ fill:"var(--bit-fire-hot)" }} />
+      </Art></span>
+    </span>
+  );
+}
+
+/* ── smoke: a black cloud, lit on top, and (`fire`) lit orange from
+   under by what is burning below it. Anchor: its centre. ── */
+const SMOKE = Object.freeze([[0, 0, 60], [56, 12, 44], [-56, 12, 44], [30, -40, 44], [-32, -38, 42], [0, -58, 36], [84, 26, 30],
+  [-84, 26, 30], [0, 36, 40]]);
+export function SmokeCloud({ scale = 1, fire = false, className = "" }) {
+  const k = 1 / scale;
+  return (
+    <Art box={[-126, -106, 252, 192]} scale={scale} className={`bit-smoke${className ? ` ${className}` : ""}`}>
+      <Drawn k={k} groups={[lobes(SMOKE, "var(--bit-soot)")]} />
+      <path d={`${circle(-30, -42, 26)}${circle(4, -60, 22)}${circle(-62, 2, 22)}`} style={{ fill:"var(--bit-soot-lit)" }} />
+      {fire && <Tone d="M-104,34 C-88,62 -50,76 0,76 C50,76 88,62 104,34 C96,56 60,66 0,66 C-60,66 -96,56 -104,34 Z"
+        fill="var(--bit-soot-fire)" />}
+    </Art>
+  );
+}
+
+/* ── a flame: one tongue of fire, hot in its heart. Anchor: its foot. ── */
+export function Flame({ scale = 1, className = "" }) {
+  const k = 1 / scale;
+  return (
+    <Art box={[-40, -112, 80, 122]} scale={scale} className={`bit-flame${className ? ` ${className}` : ""}`}>
+      <Drawn k={k} groups={[[["blob", "M0,0 C-24,0 -30,-26 -18,-48 C-12,-60 -14,-74 -6,-92 C2,-74 14,-68 20,-50 C24,-38 22,-30 26,-20"
+        + " C30,-6 18,0 0,0 Z", "var(--bit-blast)"]]]} />
+      <path d="M0,-6 C-14,-6 -16,-22 -8,-36 C-4,-44 -4,-52 0,-62 C4,-50 12,-44 14,-32 C16,-18 12,-6 0,-6 Z" style={{ fill:"var(--bit-fire)" }} />
+      <path d="M0,-10 C-6,-10 -7,-18 -3,-26 C0,-20 6,-18 6,-14 C6,-11 4,-10 0,-10 Z" style={{ fill:"var(--bit-fire-hot)" }} />
+    </Art>
+  );
+}
+
+/* ── a glint: the four-point star off something shiny. Anchor: its centre. ── */
+export function Glint({ scale = 1, className = "" }) {
+  const k = 1 / scale;
+  return (
+    <Art box={[-46, -46, 92, 92]} scale={scale} className={`bit-glint${className ? ` ${className}` : ""}`}>
+      <Drawn k={k} line={5} groups={[[["blob", starPath(4, 36, 7), "var(--bone)"]]]} />
+    </Art>
+  );
+}
+
+/* ── one loose chip, face on: its color, six bone inserts round the rim,
+   the inlay. `size` is its width in canvas px; `player` colors it, or
+   `color`. Anchor: its centre. ── */
+export function LooseChip({ player, color, size = 100, className = "" }) {
+  const identity = usePlayerIdentity(player || null);
+  const fill = color || identity.color;
+  const scale = size / 100, k = 1 / scale;
+  const inserts = Array.from({ length:6 }, (_, i) => i * 60 + 30);
+  return (
+    <Art box={[-58, -58, 116, 116]} scale={scale} className={`bit-loose-chip${className ? ` ${className}` : ""}`}>
+      <Drawn k={k} groups={[[["blob", circle(0, 0, 50), fill]]]} />
+      {inserts.map(a => <path key={a} d="M-7,-49 L7,-49 L6,-36 L-6,-36 Z" transform={`rotate(${a})`} style={{ fill:"var(--bone)" }} />)}
+      <path d={circle(0, 0, 31)} style={{ fill:`color-mix(in srgb, ${fill} 74%, var(--bone))` }} />
+      <path d={circle(0, 0, 31)} className="bit-line" strokeWidth={3 * k} />
+      <path d="M-34,-24 A42,42 0 0 1 24,-34" className="bit-line" strokeWidth={3 * k}
+        style={{ stroke:"color-mix(in srgb, var(--bone) 60%, transparent)" }} />
+    </Art>
+  );
+}
+
+/* ── a saguaro close to: a trunk and one arm reaching out (`reach` -1 to
+   the left, 1 to the right), its ribs, the light down one side. Anchor:
+   the foot of its trunk. ── */
+export const SAGUARO = Object.freeze({ trunk:380, armY:-212, armX:-118, armTop:-312, w:64, armW:46 });
+export function Saguaro({ scale = 1, reach = -1, className = "" }) {
+  const k = 1 / scale;
+  const { trunk, armY, armX, armTop } = SAGUARO;
+  return (
+    <Art box={[-160, -440, 320, 450]} scale={scale} className={`bit-saguaro${className ? ` ${className}` : ""}`}
+      style={reach > 0 ? { transform:"scaleX(-1)", transformOrigin:`${160 * scale}px 0` } : undefined}>
+      <Drawn k={k} groups={[
+        [["cap", `M-12,${armY} L${armX + 22},${armY} Q${armX},${armY} ${armX},${armY - 22} L${armX},${armTop}`, SAGUARO.armW, "var(--bit-cactus)"]],
+        [["blob", `M-32,0 L-32,${-trunk} A32,32 0 0 1 32,${-trunk} L32,0 Z`, "var(--bit-cactus)"]],
+      ]} />
+      <Tone d={`M-24,-6 L-24,${-trunk} A24,24 0 0 1 -10,${-trunk - 22} L-12,${-trunk} L-12,-6 Z`} fill="var(--bit-cactus-lit)" />
+      <Tone d={`M${armX - 15},${armY - 26} L${armX - 15},${armTop} A15,15 0 0 1 ${armX - 4},${armTop - 14} L${armX - 6},${armY - 26} Z`}
+        fill="var(--bit-cactus-lit)" />
+      <Line d={`M0,-14 L0,${-trunk - 8} M16,-14 L16,${-trunk + 4} M${armX + 8},${armY - 30} L${armX + 8},${armTop - 6}`} k={k} />
+      {[[-34, -120], [34, -170], [-34, -260], [34, -300], [-34, -340], [armX - 24, armTop + 20], [armX + 24, armTop + 50]].map(([x, y], i) =>
+        <path key={i} d={`M${x},${y} l${x < 0 ? -9 : 9},-5`} className="bit-line" strokeWidth={3 * k} style={{ stroke:"var(--bone)" }} />)}
+    </Art>
+  );
+}
+
+/* ── a glove giving a thumbs up from below: the cuff at the foot, the
+   fist over it, the thumb straight up. The rig's own glove, drawn the
+   same way and worn the same size (pass the rig's glove scale); a scene
+   swaps it in for a raised glove. Anchor: the wrist. ── */
+export function ThumbUp({ scale = 1, className = "" }) {
+  const k = 1 / scale;
+  const paint = "var(--bit-glove)";
+  return (
+    <Art box={[-60, -122, 120, 140]} scale={scale} className={`bit-thumbup${className ? ` ${className}` : ""}`}>
+      <Drawn k={k} groups={[
+        [["blob", "M-24,-12 C-30,-24 -30,-58 -22,-66 C-12,-74 14,-74 22,-66 C30,-58 30,-24 24,-12 Z", paint]],
+        [["cap", "M16,-26 L28,-26", 15, paint], ["cap", "M17,-41 L30,-41", 15, paint], ["cap", "M16,-56 L27,-56", 14, paint]],
+        [["cap", "M-10,-64 Q-12,-86 -8,-102", 17, paint]],
+        [["blob", "M-26,3 C-26,10 26,10 26,3 L21,-17 C14,-21 -14,-21 -21,-17 Z", paint]],
+      ]} />
+      <Tone d="M-22,-20 C-27,-32 -27,-50 -22,-60 L-14,-60 C-19,-50 -19,-32 -14,-20 Z" fill="var(--bit-glove-shade)" />
+    </Art>
+  );
+}

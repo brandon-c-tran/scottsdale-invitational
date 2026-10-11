@@ -15,9 +15,17 @@
 import { Quickdraw } from "./quickdraw.jsx";
 import { Anvil } from "./anvil.jsx";
 import { Roadrunner } from "./roadrunner.jsx";
+/* action movie */
+import { ExplosionWalk } from "./explosionwalk.jsx";
+import { DontLookBack } from "./dontlookback.jsx";
+import { Quicksand } from "./quicksand.jsx";
 
 export const SCENES = Object.freeze({
   quickdraw:Quickdraw,
   anvil:Anvil,
   roadrunner:Roadrunner,
+  /* action movie */
+  explosionwalk:ExplosionWalk,
+  dontlookback:DontLookBack,
+  quicksand:Quicksand,
 });

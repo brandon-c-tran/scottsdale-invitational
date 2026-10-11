@@ -952,6 +952,43 @@ function desertWind(E, t, d) {
     s.start(t, Math.random() * 0.5, d + 0.05);
   });
 }
+/* ══ the action bits' foley (explosionwalk, dontlookback, quicksand) ══ */
+/* a long noise on a looping source (it never runs off the end of the
+   noise buffer): dying away from its peak (a roar, a rumble), or held and
+   cut (`hold`: a hiss, a gurgle). Returns its gain. */
+function noiseBed(E, dest, t, { d = 1, f = 500, q = 0.7, peak = 0.4, a = 0.004, type = "lowpass", hold = false } = {}) {
+  const c = E.ctx;
+  const s = c.createBufferSource(); s.buffer = E.noise; s.loop = true;
+  const fl = c.createBiquadFilter(); fl.type = type; fl.frequency.value = f; fl.Q.value = q;
+  const g = c.createGain();
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.linearRampToValueAtTime(peak, t + a);
+  if (hold) g.gain.setValueAtTime(peak, t + Math.max(a, d - 0.05));
+  g.gain.exponentialRampToValueAtTime(0.0001, t + Math.max(a + 0.01, d));
+  s.connect(fl); fl.connect(g); g.connect(dest);
+  track(E, s, fl, g); trackSource(E, s);
+  s.start(t, Math.random() * 0.5); s.stop(t + Math.max(a + 0.01, d) + 0.05);
+  return g;
+}
+/* dry little ticks scattered over d: fire crackling, sand thrown */
+function crackle(E, t, d, { gain = 0.25, every = 0.05 } = {}) {
+  for (let x = 0, i = 0; x < d && i < 48; i++, x += every * rnd(0.5, 1.5)) M.tick(E, t + x, { gain:gain * rnd(0.4, 1), pitch:rnd(1.2, 2) });
+}
+/* an explosion: the crack, the ground's thump under it, the roar dying,
+   the buttes answering, debris ticking down. `slow` is the film slowed
+   down under it: lower, longer, the top end gone */
+function explosion(E, t, { slow = false } = {}) {
+  const v = voice(E, { send:0.36, bright:slow ? 0.4 : 0.9, gain:1 });
+  burst(E, v, t, { type:"highpass", f:1800, q:0.7, d:0.02, peak:0.9 });
+  burst(E, v, t + 0.003, { f:700, q:0.6, d:0.1, peak:0.85 });
+  M.drum(E, t, { f:slow ? NOTE.D2 / 2 : NOTE.D2, dec:slow ? 1.6 : 0.9, gain:1 });
+  mode(E, v, t, slow ? 33 : 46, slow ? 1.8 : 1.1, 0.75, { drop:1.2 });
+  phantom(E, v, t, 46, 0.4, 0.5);
+  noiseBed(E, v, t + 0.01, { d:slow ? 2.6 : 1.4, f:slow ? 340 : 760, peak:0.55 });
+  [[0.32, 0.24, 0.5], [0.71, 0.12, -0.55]].forEach(([dt, gain, pan]) =>
+    noiseBed(E, voice(E, { send:0.55, bright:0.4, gain, pan }), t + dt * (slow ? 1.6 : 1), { d:0.5, f:520, peak:0.6 }));
+  crackle(E, t + (slow ? 0.6 : 0.25), slow ? 1.4 : 0.8, { gain:slow ? 0.1 : 0.2, every:slow ? 0.12 : 0.06 });
+}
 export const BIT_PARTS = Object.freeze([
   /* a gunshot in the desert: the crack, a thump, and the buttes answering twice */
   { id:"bitCrack", name:"Gun crack", ms:900,
@@ -1046,6 +1083,74 @@ export const BIT_PARTS = Object.freeze([
   { id:"bitZip", name:"Zip", ms:300,
     play:(E, t) => { glide(E, voice(E, { send:0.2, bright:1, gain:0.5 }), t, NOTE.D6, NOTE.A6, 0.16, 0.12);
       travelWhoosh(E, t, { d:0.22, from:0, to:-0.9, peak:0.3 }); } },
+
+  /* ══ action movie (explosionwalk, dontlookback, quicksand) ══ */
+  /* the horizon going up (opts.slow: the shot drops into slow motion under it) */
+  { id:"bitBoom", name:"Explosion", ms:2800,
+    play:(E, t, o = {}) => explosion(E, t, { slow:!!o.slow }) },
+  /* a boot on the dirt (opts.step: left, right) */
+  { id:"bitStep", name:"Boot step", ms:200,
+    play:(E, t, o = {}) => { const p = 1 + ((Number(o.step) || 0) % 2) * 0.06;
+      M.knock(E, t, { pitch:0.72 * p, gain:0.42 }); M.felt(E, t + 0.003, { gain:0.38 });
+      burst(E, voice(E, { send:0.1, bright:0.7, gain:0.5 }), t + 0.01, { f:1500, q:0.9, d:0.06, peak:0.18 }); } },
+  /* a burning chip slamming into the dirt, and burning on */
+  { id:"bitSlam", name:"Burning chip lands", ms:900,
+    play:(E, t) => { M.drum(E, t, { f:82, dec:0.32, gain:0.95 }); M.clack(E, t + 0.002, { pitch:0.72, gain:0.8 });
+      M.felt(E, t + 0.004, { gain:0.8 });
+      noiseBed(E, voice(E, { send:0.2, bright:0.8, gain:0.7 }), t + 0.02, { type:"bandpass", f:1300, d:0.5, peak:0.25 });
+      crackle(E, t + 0.1, 0.7, { gain:0.2, every:0.05 }); } },
+  /* dark glasses slid down a nose (opts.up: pushed back up, a click home) */
+  { id:"bitShades", name:"Glasses slide", ms:250,
+    play:(E, t, o = {}) => { const up = !!o.up;
+      M.tick(E, t + (up ? 0.08 : 0), { gain:0.4, pitch:up ? 1.9 : 1.5 });
+      swell(E, voice(E, { send:0.12, bright:1, gain:0.8 }), t, { d:0.12, f0:up ? 1600 : 3200, f1:up ? 3400 : 1500, q:2, peak:0.1 }); } },
+  /* light off a lens */
+  { id:"bitGlint", name:"Glint", ms:1100,
+    play:(E, t) => { M.bell(E, t, NOTE.D6, { gain:0.32, dec:1, send:0.35 }); M.bell(E, t + 0.05, NOTE.A6, { gain:0.2, dec:0.8, send:0.35 });
+      burst(E, voice(E, { send:0.3, bright:1, gain:0.4 }), t, { type:"highpass", f:6500, d:0.06, peak:0.12 }); } },
+  /* a lit fuse fizzing up (opts.ms), stopping dead */
+  { id:"bitFuse", name:"Fuse", ms:1000,
+    play:(E, t, o = {}) => { const d = Math.max(0.3, (o.ms || 1000) / 1000);
+      const g = noiseBed(E, voice(E, { send:0.15, bright:1, gain:1 }), t, { type:"bandpass", f:5200, q:1.1, d, peak:0.14, a:0.03, hold:true });
+      wobble(E, g.gain, t, d, { rate:23, depth:0.05 });
+      crackle(E, t + 0.02, d - 0.06, { gain:0.16, every:0.045 }); } },
+  /* a chip coming down in the dirt and hopping once (opts.step) */
+  { id:"bitChipDrop", name:"Chip lands in the dirt", ms:300,
+    play:(E, t, o = {}) => { const p = 0.92 + ((Number(o.step) || 0) % 4) * 0.04;
+      M.clack(E, t, { pitch:p, gain:0.6 }); M.felt(E, t + 0.004, { gain:0.32 });
+      M.clack(E, t + 0.13, { pitch:p * 1.02, gain:0.2, double:false }); } },
+  /* a chip landing flat and settling like a coin */
+  { id:"bitSpinDown", name:"Chip settles flat", ms:900,
+    play:(E, t) => { M.clack(E, t, { pitch:0.9, gain:0.6 }); spinDown(E, t + 0.04, { dur:0.5, gain:0.55 }); } },
+  /* quicksand taking something (opts.ms): a gurgle and its blups;
+     opts.deep is a big glug as it goes under */
+  { id:"bitSink", name:"Quicksand", ms:1200,
+    play:(E, t, o = {}) => { const d = Math.max(0.25, (o.ms || 1200) / 1000);
+      const v = voice(E, { send:0.2, bright:0.5, gain:1 });
+      const g = noiseBed(E, v, t, { type:"bandpass", f:320, q:3, d, peak:o.deep ? 0.5 : 0.32, a:0.06, hold:true });
+      wobble(E, g.gain, t, d, { rate:7.5, depth:0.2 });
+      const blups = [[NOTE.D4, NOTE.A4], [NOTE.A3, NOTE.D4], [NOTE.Fs4, NOTE.D5]];
+      for (let x = 0.08, i = 0; x < d - 0.05 && i < 12; i++, x += rnd(0.14, 0.3)) glide(E, v, t + x, ...blups[i % 3], 0.07, 0.14);
+      if (o.deep) { glide(E, v, t, NOTE.D3, NOTE.D2, 0.3, 0.4); noiseBed(E, v, t, { f:300, d:0.35, peak:0.3 }); } } },
+  /* gloves thrashing the air (opts.ms), sand thrown */
+  { id:"bitFlail", name:"Flailing", ms:700,
+    play:(E, t, o = {}) => { const d = Math.max(0.2, (o.ms || 700) / 1000);
+      for (let x = 0, i = 0; x < d - 0.05 && i < 10; i++, x += 0.115)
+        travelWhoosh(E, t + x, { d:0.1, from:i % 2 ? 0.3 : -0.3, to:i % 2 ? -0.3 : 0.3, peak:0.2, f0:700, f1:2600 });
+      crackle(E, t + 0.05, d, { gain:0.12, every:0.09 }); } },
+  /* reaching for all it is worth (opts.ms): a thin note straining up */
+  { id:"bitStrain", name:"Straining", ms:500,
+    play:(E, t, o = {}) => { const d = Math.max(0.2, (o.ms || 500) / 1000);
+      glide(E, voice(E, { send:0.2, bright:0.8, gain:0.6 }), t, NOTE.A4, NOTE.D5, d, 0.12, { type:"triangle", vib:11, depth:0.025 }); } },
+  /* a rubber glove closing */
+  { id:"bitSqueak", name:"Glove squeak", ms:150,
+    play:(E, t) => { glide(E, voice(E, { send:0.12, bright:1, gain:0.5 }), t, NOTE.E5, NOTE.B5, 0.09, 0.16, { type:"square" });
+      M.tick(E, t, { gain:0.2, pitch:1.4 }); } },
+  /* one bubble up through the sand: blup, pop */
+  { id:"bitBubble", name:"Bubble", ms:300,
+    play:(E, t) => { const v = voice(E, { send:0.25, bright:0.9, gain:0.8 });
+      glide(E, v, t, NOTE.D4, NOTE.A4, 0.1, 0.3);
+      M.tick(E, t + 0.11, { gain:0.5, pitch:1.5 }); burst(E, v, t + 0.11, { type:"highpass", f:3000, d:0.03, peak:0.2 }); } },
 ].map(Object.freeze));
 
 export const SOUNDS = Object.freeze(Object.fromEntries([...KIT, ...PARTS, ...BOARD_PARTS, ...BIT_PARTS].map(s => [s.id, s])));

@@ -159,7 +159,108 @@ const roadrunner = {
   ],
 };
 
-export const BITS = Object.freeze([quickdraw, anvil, roadrunner].map(freeze));
+/* ══ action movie, played straight like a trailer ══ */
+
+/* ── explosionwalk: the winner walks toward us in dark glasses, gloves
+   swinging. Behind it the horizon goes up in a fireball; it does not
+   flinch, and the shot drops into slow motion. A burning chip comes down
+   out of the sky and slams into the dirt beside it as the speed snaps
+   back; it does not look. It stops close, pulls the glasses down with one
+   finger and looks at us over them. A beat. Pushes them back up. ──
+   The walk's steps are timed from these beats (explosionwalk.css): three
+   from the start to the boom, one slow one from the boom to the land, one
+   from the land to the stop. */
+const EW = { boom:1200, ember:1420, land:2600, stop:3000, lower:3260, look:3440, up:4040, glint:4170 };
+const explosionwalk = {
+  id:"explosionwalk", name:"Explosion walk", shape:"win", style:"action", ms:4800, beats:EW, still:3800, summary:"bitBoom",
+  letter:{ at:EW.stop + 20, over:"a", place:"top-left" },
+  /* world x: the walkers centre on 960 and come toward us (explosionwalk.jsx) */
+  camera:{ zoom:1.45, x:"walk", moves:[
+    /* the slow motion leans in */
+    { at:EW.boom + 80, ms:EW.land - EW.boom - 80, zoom:1.62 },
+    /* it arrives */
+    { at:EW.land, ms:EW.stop - EW.land + 120, zoom:1.86, x:"lead" },
+    /* in on the look over the glasses */
+    { at:EW.lower - 40, ms:460, zoom:2.45, x:"lead" },
+  ], shakes:[{ at:EW.boom, big:true }, { at:EW.land }], washes:[EW.boom] },
+  cast:{ a:{ role:"winner", max:4 } },
+  cues:[
+    { at:400, sound:"bitStep", pan:-0.06, opts:{ step:0 } },
+    { at:800, sound:"bitStep", pan:0.06, opts:{ step:1 } },
+    { at:EW.boom, sound:"bitBoom", pan:0.04, opts:{ slow:true } },
+    { at:EW.land, sound:"bitSlam", pan:0.3 },
+    { at:EW.land + 10, sound:"bitStep", pan:0.06, opts:{ step:1 } },
+    { at:EW.stop, sound:"bitStep", pan:-0.06, opts:{ step:2 } },
+    { at:EW.lower + 30, sound:"bitShades", pan:0.04 },
+    { at:EW.up, sound:"bitShades", pan:0.04, opts:{ up:true } },
+    { at:EW.glint, sound:"bitGlint", pan:0.1 },
+  ],
+};
+
+/* ── dontlookback: the loser stands facing us, its own tall stack of chips
+   behind its shoulder. A fuse fizzes up the stack. It does not notice.
+   The fizz stops. A beat. The stack goes up. It does not turn round: it
+   stands there, scorched from the middle down. Its chips come down all
+   round it, one off the top of its head (it dips and comes back), and the
+   last spins down and lands on its head, flat, like a hat. ── */
+const DL = { fuse:340, top:1340, boom:1780, rain:2280, bonk:2760, hat:3420 };
+const dontlookback = {
+  id:"dontlookback", name:"Don't look back", shape:"loss", style:"action", ms:4600, beats:DL, still:4040, summary:"bitBoom",
+  letter:{ at:DL.hat + 60, over:"a", place:"top-left" },
+  /* world x: the chip stands at 860, its stack behind it at 1050 (dontlookback.jsx) */
+  camera:{ zoom:1.8, x:940, moves:[
+    /* lean in on the fuse */
+    { at:DL.fuse, ms:DL.top - DL.fuse, zoom:1.9, x:960 },
+    /* in on the face that does not move, while its chips come down */
+    { at:DL.boom + 420, ms:1500, zoom:2.12, x:880 },
+  ], shakes:[{ at:DL.boom, big:true }, { at:DL.bonk }], washes:[DL.boom] },
+  cast:{ a:{ role:"loser", max:1 } },
+  cues:[
+    { at:DL.fuse, sound:"bitFuse", pan:0.22, opts:{ ms:DL.top - DL.fuse } },
+    { at:DL.boom, sound:"bitBoom", pan:0.2 },
+    /* the chips landing (dontlookback.jsx RAIN), the bonk, the hat */
+    ...[[0, -0.42], [150, 0.34], [250, -0.2], [380, 0.46], [560, -0.5], [700, 0.28]].map(([dt, pan], i) =>
+      ({ at:DL.rain + dt, sound:"bitChipDrop", pan, opts:{ step:i } })),
+    { at:DL.bonk, sound:"bitBonk", pan:-0.08 },
+    { at:DL.hat, sound:"bitSpinDown", pan:-0.06 },
+  ],
+};
+
+/* ── quicksand: the chip stands on a patch of sand, and starts to go down
+   into it. It looks down. It flails, grabs at the air, reaches for the
+   arm of a saguaro that is just too far. Down it goes until one glove is
+   left above the sand; the glove gives a slow thumbs up as it sinks out of
+   sight. One bubble. ── */
+const QS = { sink:520, notice:1300, flail:1700, reach:2380, slip:2860, under:3160, thumb:3330, gone:3480, bubble:4230 };
+const quicksand = {
+  id:"quicksand", name:"Quicksand", shape:"loss", style:"action", ms:4800, beats:QS, still:3780, summary:"bitSink",
+  letter:{ at:QS.under + 40, over:"a", place:"top-left" },
+  /* world x: the chip sinks at 860, the saguaro stands at 1340 (quicksand.jsx) */
+  camera:{ zoom:1.8, x:1060, moves:[
+    /* it looks down: so do we */
+    { at:QS.notice, ms:520, zoom:1.9, x:1010 },
+    /* the reach, and the gap */
+    { at:QS.reach - 60, ms:360, zoom:2.15, x:1090 },
+    /* the last glove */
+    { at:QS.under - 80, ms:700, zoom:2.4, x:"glove" },
+  ], shakes:[] },
+  cast:{ a:{ role:"loser", max:1 } },
+  cues:[
+    { at:0, sound:"bitWind", pan:0, opts:{ ms:1700 } },
+    { at:QS.sink, sound:"bitSink", pan:-0.1, opts:{ ms:QS.notice - QS.sink } },
+    { at:QS.flail, sound:"bitFlail", pan:-0.1, opts:{ ms:QS.reach - QS.flail } },
+    { at:QS.flail + 80, sound:"bitSink", pan:-0.1, opts:{ ms:QS.under - QS.flail } },
+    { at:QS.reach, sound:"bitStrain", pan:0.18, opts:{ ms:QS.slip - QS.reach } },
+    { at:QS.under, sound:"bitSink", pan:-0.08, opts:{ ms:320, deep:true } },
+    { at:QS.thumb, sound:"bitSqueak", pan:0.04 },
+    { at:QS.gone, sound:"bitSink", pan:0.04, opts:{ ms:QS.bubble - QS.gone - 80 } },
+    { at:QS.bubble, sound:"bitBubble", pan:0.04 },
+  ],
+};
+
+const ACTION_BITS = [explosionwalk, dontlookback, quicksand];
+
+export const BITS = Object.freeze([quickdraw, anvil, roadrunner, ...ACTION_BITS].map(freeze));
 const BY_ID = new Map(BITS.map(bit => [bit.id, bit]));
 export const bitById = id => BY_ID.get(id) || null;
 export const bitsOf = shape => BITS.filter(bit => bit.shape === shape);

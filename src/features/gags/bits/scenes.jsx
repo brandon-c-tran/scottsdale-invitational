@@ -2,8 +2,10 @@
 
    THE SCENE CONTRACT: a Scene is a component rendered inside the bit's
    1920 x 1080 layer, on the session's painting. It gets
-     { bit, cast, state, mode:"tv"|"phone", reduced }
-   where cast is { a:[players], b:[players] } by the bit's roles. It draws
+     { bit, cast, state, mode:"tv"|"phone", reduced, phase }
+   where cast is { a:[players], b:[players] } by the bit's roles and phase
+   is the session's painting (a scene's own rock or sky can wear the
+   painting's inks: class "tv-desert" with data-phase={phase}). It draws
    with the cast rig (cast/CastChip.jsx) and the props (props/Props.jsx),
    positioned in canvas pixels, and moves only with CSS keyframes delayed
    from the bit's clock: calc(var(--tl) + var(--b-<beat>) + Nms). Every
@@ -15,9 +17,12 @@
 import { Quickdraw } from "./quickdraw.jsx";
 import { Anvil } from "./anvil.jsx";
 import { Roadrunner } from "./roadrunner.jsx";
+/* the deadpan desert */
+import { Butte } from "./butte.jsx";
 
 export const SCENES = Object.freeze({
   quickdraw:Quickdraw,
   anvil:Anvil,
   roadrunner:Roadrunner,
+  butte:Butte,
 });

@@ -59,3 +59,7 @@
   83.333% { transform:translate(calc(var(--rx) * .5), calc(var(--ry) * -.866)) scale(.69) rotate(300deg); }
   91.667% { transform:translate(calc(var(--rx) * .866), calc(var(--ry) * -.5)) scale(.76) rotate(330deg); }
   100% { transform:translate(var(--rx), 0) scale(.86) rotate(360deg); } }
+
+/* ── the deadpan desert's props (butte, sunset, statue, vulture) ── */
+.bit-shine { fill:none; stroke:var(--bit-iron-lit); stroke-linecap:round; }
+.bit-plinth-lit { fill:none; stroke:color-mix(in srgb, var(--bone) 50%, var(--d-mesa, var(--bit-rock))); stroke-linecap:round; }

@@ -76,3 +76,29 @@
 /* a pose layer swaps on the bit's clock (CastChip poseLayerStyle) */
 @keyframes cast-on { from { opacity:0; } to { opacity:1; } }
 @keyframes cast-off { from { opacity:1; } to { opacity:0; } }
+
+/* ── the deadpan desert's inks (Oct 10: butte, sunset, statue, vulture).
+   Rock wears the session's painting where a scene wraps it in class
+   "tv-desert" with data-phase (--d-mesa, --d-shade); these are the
+   afternoon's, for anywhere else. ── */
+.bit-art, .cast {
+  --bit-rock:color-mix(in srgb, var(--art-tangerine) 55%, var(--art-terracotta));
+  --bit-rock-shade:color-mix(in srgb, var(--art-umber) 85%, var(--art-terracotta));
+  /* gold, for a statue */
+  --bit-gold:color-mix(in srgb, var(--sun) 74%, var(--art-cream));
+  --bit-gold-lit:color-mix(in srgb, var(--art-cream) 60%, var(--bone));
+  /* a cactus wren: warm brown, a pale spotted breast */
+  --bit-wren:color-mix(in srgb, var(--art-umber) 52%, var(--art-terracotta));
+  --bit-wren-dark:color-mix(in srgb, var(--art-umber) 70%, var(--ink0));
+  --bit-wren-lit:color-mix(in srgb, var(--art-cream) 82%, var(--art-terracotta));
+  /* a turkey vulture: a dark cloak, silver flight feathers, a bald red head */
+  --bit-vulture:color-mix(in srgb, var(--art-umber) 64%, var(--art-plum));
+  --bit-vulture-far:color-mix(in srgb, var(--art-umber) 40%, var(--ink0));
+  --bit-vulture-lit:color-mix(in srgb, var(--art-umber) 62%, var(--silver));
+  --bit-vulture-quill:color-mix(in srgb, var(--silver) 64%, var(--art-umber));
+  --bit-vulture-head:color-mix(in srgb, var(--art-rose) 58%, var(--art-terracotta));
+  --bit-vulture-beak:color-mix(in srgb, var(--art-cream) 78%, var(--bone));
+  --bit-vulture-leg:color-mix(in srgb, var(--art-rose) 28%, var(--bone));
+  --bit-napkin:var(--bone);
+  --bit-napkin-fold:color-mix(in srgb, var(--bone) 72%, var(--art-violet));
+}

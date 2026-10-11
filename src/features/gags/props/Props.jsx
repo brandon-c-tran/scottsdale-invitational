@@ -319,3 +319,226 @@ export function Roadrunner({ pose = "stand", scale = 1, beak = "shut", className
     </Art>
   );
 }
+
+/* ══ the deadpan desert's props (Oct 10: butte, sunset, statue, vulture) ══ */
+
+const pts = list => `M${list.map(([x, y]) => `${Math.round(x * 10) / 10},${Math.round(y * 10) / 10}`).join("L")}Z`;
+/* rock in the session's painting inks (inside a "tv-desert" data-phase
+   wrapper), else the afternoon's */
+export const ROCK = Object.freeze({ lit:"var(--d-mesa, var(--bit-rock))", shade:"var(--d-shade, var(--bit-rock-shade))",
+  under:"color-mix(in srgb, var(--d-shade, var(--bit-rock-shade)) 58%, var(--ink0))" });
+
+/* ── a slab of rock cut from the painting: its outline in the session's
+   lit mesa ink, its shade face, detail lines (strata). The scene wraps its
+   rock in class "tv-desert" with data-phase, so the inks are the painting's
+   own (--d-mesa, --d-shade; cast.css --bit-rock* off the painting).
+   `points` and `shade` are [[x, y], ...] from the anchor; `children` draw
+   over it in the same coordinates (a crack). Anchor: its 0 0. ── */
+export function Slab({ points, shade = null, tone = null, lines = null, className = "", children }) {
+  const xs = points.map(p => p[0]), ys = points.map(p => p[1]);
+  const pad = CAST.line + 6;
+  const box = [Math.min(...xs) - pad, Math.min(...ys) - pad, Math.max(...xs) - Math.min(...xs) + pad * 2,
+    Math.max(...ys) - Math.min(...ys) + pad * 2];
+  return (
+    <Art box={box} className={`bit-slab${className ? ` ${className}` : ""}`}>
+      <Drawn groups={[[["blob", pts(points), ROCK.lit]]]} />
+      {shade && <Tone d={pts(shade)} fill={ROCK.shade} />}
+      {tone && <Tone d={pts(tone)} fill={ROCK.under} />}
+      {lines && <Line d={lines} />}
+      {children}
+    </Art>
+  );
+}
+
+/* ── a stone plinth: a cornice, the die, a base, lit on the left like the
+   painting's buttes. Anchor: the middle of its foot. ── */
+export function Plinth({ width = 300, height = 200, className = "" }) {
+  const w = width, h = height, half = w / 2;
+  const baseH = h * 0.17, corH = h * 0.2, die = half * 0.78;
+  const yb = -baseH, yc = -h + corH;
+  const face = (x0, x1, y0, y1) => [[x0 + (x1 - x0) * 0.62, y0], [x1, y0], [x1, y1], [x0 + (x1 - x0) * 0.62, y1]];
+  const parts = [
+    /* base, die, cornice: each lit, its shade face on the right */
+    { o:[[-half, 0], [-half, yb + 6], [-half + 8, yb], [half - 8, yb], [half, yb + 6], [half, 0]], s:face(-half, half, yb, 0) },
+    { o:[[-die, yb], [-die, yc], [die, yc], [die, yb]], s:face(-die, die, yc, yb) },
+    { o:[[-half - 10, yc], [-half - 10, -h + 8], [-half - 2, -h], [half + 2, -h], [half + 10, -h + 8], [half + 10, yc]],
+      s:face(-half - 10, half + 10, -h, yc) },
+  ];
+  return (
+    <Art box={[-half - 26, -h - 18, w + 52, h + 30]} className={`bit-plinth${className ? ` ${className}` : ""}`}>
+      {parts.map((part, i) => <g key={i}>
+        <Drawn groups={[[["blob", pts(part.o), ROCK.lit]]]} />
+        <Tone d={pts(part.s)} fill={ROCK.shade} />
+      </g>)}
+      {/* the cornice's molding and the die's sunk panel */}
+      <Line d={`M${-half - 6},${yc - corH * 0.42} L${half + 6},${yc - corH * 0.42} M${-die + 22},${yb - 22} L${-die + 22},${yc + 22} L${die - 22},${yc + 22}`} />
+      <Tone d={pts([[-die + 22, yb - 22], [die - 22, yb - 22], [die - 22, yc + 22], [die - 30, yc + 30], [die - 30, yb - 30], [-die + 22, yb - 30]])}
+        fill={ROCK.under} />
+      {/* the light catching the cornice's top edge */}
+      <path d={`M${-half + 2},${-h + 6} L${half * 0.2},${-h + 6}`} className="bit-plinth-lit" strokeWidth={5} />
+    </Art>
+  );
+}
+
+/* ── a cactus wren, side on, facing left: brown, a bold white brow, a long
+   curved bill, a spotted breast, its barred tail cocked. Poses: perch,
+   fluff (a round ball of feathers), fly (wings up), flap (wings down).
+   Anchor: between its feet (in flight, under its middle). ── */
+export function Wren({ pose = "perch", scale = 1, className = "" }) {
+  const k = 1 / scale;
+  const flying = pose === "fly" || pose === "flap";
+  const fluff = pose === "fluff";
+  const body = fluff ? "M-30,-34 C-34,-60 -6,-74 16,-66 C38,-58 44,-34 34,-16 C24,-2 -4,-2 -18,-8 C-28,-14 -30,-24 -30,-34 Z"
+    : "M-30,-40 C-32,-58 -10,-66 10,-60 C26,-54 34,-38 28,-24 C22,-12 0,-10 -14,-14 C-26,-18 -30,-28 -30,-40 Z";
+  const head = fluff ? [-26, -48, 14] : [-28, -50, 15];
+  const wings = pose === "fly" ? [["blob", "M-2,-56 C-10,-84 -2,-108 18,-118 C20,-100 22,-80 12,-58 Z", "var(--bit-wren)"],
+    ["blob", "M8,-58 C10,-88 26,-104 46,-106 C40,-88 30,-70 18,-56 Z", "var(--bit-wren)"]]
+    : pose === "flap" ? [["blob", "M-4,-40 C-14,-22 -14,0 -2,14 C6,-4 12,-22 10,-40 Z", "var(--bit-wren)"]] : [];
+  return (
+    <Art box={[-76, -128, 152, 148]} scale={scale} className={`bit-wren is-${pose}${className ? ` ${className}` : ""}`}>
+      {!flying && <Drawn k={k} line={5} groups={[[["cap", "M-4,-14 L-8,0", 4, "var(--ink0)"], ["cap", "M6,-14 L8,0", 4, "var(--ink0)"]]]} />}
+      <Drawn k={k} line={5} groups={[
+        /* the tail, cocked up */
+        [["blob", fluff ? "M24,-30 L52,-66 L62,-58 L34,-20 Z" : "M18,-30 L50,-62 L60,-54 L30,-20 Z", "var(--bit-wren)"]],
+        [["blob", body, "var(--bit-wren)"], ["blob", circle(...head), "var(--bit-wren)"],
+          ["cap", fluff ? "M-38,-48 Q-50,-47 -58,-41" : "M-42,-51 Q-54,-50 -62,-44", 4.5, "var(--bit-wren-dark)"]],
+        ...(wings.length ? [wings] : []),
+      ]} />
+      {/* the breast, pale and spotted; the brow; the eye; streaks on the back */}
+      <Tone d={fluff ? "M-28,-30 C-24,-12 0,-6 18,-12 C4,-20 -14,-22 -28,-30 Z" : "M-28,-34 C-24,-18 -6,-14 12,-18 C2,-24 -14,-26 -28,-34 Z"}
+        fill="var(--bit-wren-lit)" />
+      {(fluff ? [[-20, -22], [-10, -16], [0, -14], [-14, -26]] : [[-22, -28], [-14, -24], [-6, -21], [-16, -31]])
+        .map(([x, y], i) => <path key={i} d={circle(x, y, 2.4)} style={{ fill:"var(--bit-wren-dark)" }} />)}
+      <Tone d={fluff ? "M-38,-54 C-30,-58 -18,-58 -10,-52 C-18,-54 -28,-54 -38,-50 Z" : "M-41,-56 C-33,-60 -21,-60 -13,-54 C-21,-56 -31,-56 -41,-52 Z"}
+        fill="var(--bone)" />
+      <path d={circle(fluff ? -30 : -32, fluff ? -48 : -50, 3.4)} style={{ fill:"var(--ink0)" }} />
+      {!flying && <Line d={fluff ? "M2,-50 L14,-46 M6,-40 L20,-36" : "M0,-50 L12,-46 M4,-42 L18,-38"} k={k} w={2.6} />}
+      <Line d={fluff ? "M40,-50 L50,-44 M46,-58 L56,-52" : "M36,-46 L46,-40 M42,-54 L52,-48"} k={k} w={2.6} />
+    </Art>
+  );
+}
+
+/* ── a turkey vulture, side on, facing left: a dark cloak of folded wings,
+   silver edges to its flight feathers, a feather ruff, a small bald red
+   head and an ivory hooked beak, a small dark eye. Poses: stand (hunched),
+   hold (its wings forward, as hands at a table), glide (wings raised, legs
+   down to land), flap (wings beating down). VULTURE says where its beak
+   tip, its neck and its wingtips' grips sit (from its feet). Anchor:
+   between its feet. ── */
+export const VULTURE = Object.freeze({ neck:{ x:-64, y:-182 }, fork:{ x:-74, y:-120 }, knife:{ x:-100, y:-128 }, beak:{ x:-130, y:-194 } });
+const V_HEAD = [
+  /* the bare neck, the head, the hooked beak (upper and lower) */
+  [["cap", "M-38,-174 L-66,-196", 22, "var(--bit-vulture-head)"],
+    ["blob", "M-60,-213 C-72,-221 -98,-220 -106,-208 C-110,-200 -106,-190 -96,-188 C-84,-186 -66,-188 -58,-195 C-53,-201 -54,-208 -60,-213 Z",
+      "var(--bit-vulture-head)"]],
+  [["blob", "M-102,-210 C-114,-213 -126,-208 -130,-198 C-131,-192 -128,-185 -124,-186 C-124,-191 -120,-196 -112,-197 L-102,-196 Z",
+    "var(--bit-vulture-beak)"], ["blob", "M-104,-194 L-118,-195 C-114,-190 -108,-188 -102,-190 Z", "var(--bit-vulture-beak)"]],
+];
+const V_BODY = "M-46,-118 C-52,-160 -26,-206 26,-216 C76,-226 124,-192 134,-140 C140,-106 128,-74 96,-64 C60,-54 4,-58 -22,-74 C-38,-84 -44,-100 -46,-118 Z";
+const V_RUFF = "M-60,-158 L-56,-178 L-44,-170 L-40,-192 L-26,-180 L-16,-198 L-6,-180 L6,-192 L6,-168 C-8,-148 -42,-142 -60,-158 Z";
+export function Vulture({ pose = "stand", scale = 1, className = "" }) {
+  const k = 1 / scale;
+  const standing = pose === "stand" || pose === "hold";
+  const legs = standing
+    ? [["cap", "M-8,-66 L-12,-6", 10, "var(--bit-vulture-leg)"], ["cap", "M14,-64 L18,-6", 10, "var(--bit-vulture-leg)"],
+      ["cap", "M-12,-5 L-34,-1", 7, "var(--bit-vulture-leg)"], ["cap", "M-12,-5 L2,-1", 7, "var(--bit-vulture-leg)"],
+      ["cap", "M18,-5 L-4,-1", 7, "var(--bit-vulture-leg)"], ["cap", "M18,-5 L32,-1", 7, "var(--bit-vulture-leg)"]]
+    : [["cap", "M-4,-98 L-30,-40", 10, "var(--bit-vulture-leg)"], ["cap", "M18,-96 L0,-36", 10, "var(--bit-vulture-leg)"],
+      ["cap", "M-30,-40 L-52,-30", 7, "var(--bit-vulture-leg)"], ["cap", "M-30,-40 L-40,-20", 7, "var(--bit-vulture-leg)"],
+      ["cap", "M0,-36 L-20,-24", 7, "var(--bit-vulture-leg)"], ["cap", "M0,-36 L-6,-16", 7, "var(--bit-vulture-leg)"]];
+  /* a wing raised or beaten: the arm of it, then its fingered primaries */
+  const wing = (arm, fingers, fill = "var(--bit-vulture)") => [["blob", arm, fill], ...fingers.map(d => ["cap", d, 13, fill])];
+  const farWing = pose === "glide" ? wing("M40,-170 C70,-230 100,-280 140,-306 C150,-280 140,-240 116,-200 C100,-176 80,-160 56,-150 Z",
+    ["M136,-300 L170,-322", "M132,-286 L172,-300", "M126,-268 L168,-276"])
+    : pose === "flap" ? wing("M40,-160 C80,-150 120,-120 150,-80 C130,-74 110,-90 86,-110 C70,-124 54,-140 40,-150 Z",
+      ["M146,-84 L178,-60", "M134,-82 L160,-50", "M120,-90 L138,-56"])
+      : pose === "hold" ? [["cap", "M-4,-150 Q-40,-120 -94,-130", 30, "var(--bit-vulture)"], ["cap", "M-92,-130 L-108,-136", 11, "var(--bit-vulture)"],
+        ["cap", "M-94,-124 L-110,-124", 11, "var(--bit-vulture)"]] : null;
+  const nearWing = pose === "glide" ? wing("M10,-176 C-20,-236 -40,-290 -30,-336 C-6,-318 10,-276 20,-236 C26,-210 30,-190 30,-170 Z",
+    ["M-30,-332 L-38,-372", "M-20,-326 L-16,-366", "M-10,-316 L4,-352"])
+    : pose === "flap" ? wing("M14,-160 C-20,-150 -70,-120 -110,-70 C-90,-62 -60,-86 -30,-108 C-10,-124 6,-140 20,-150 Z",
+      ["M-106,-74 L-140,-50", "M-94,-70 L-120,-38", "M-80,-74 L-96,-40"])
+      : pose === "hold" ? [["cap", "M30,-150 Q0,-104 -66,-118", 34, "var(--bit-vulture)"], ["cap", "M-64,-124 L-82,-130", 12, "var(--bit-vulture)"],
+        ["cap", "M-66,-114 L-84,-116", 12, "var(--bit-vulture)"]] : null;
+  const body = standing ? V_BODY
+    : "M-40,-150 C-36,-180 0,-196 50,-190 C96,-184 130,-160 128,-130 C126,-104 100,-96 60,-98 C20,-100 -20,-110 -34,-126 C-40,-134 -42,-142 -40,-150 Z";
+  return (
+    <Art box={[-190, -390, 400, 410]} scale={scale} className={`bit-vulture is-${pose}${className ? ` ${className}` : ""}`}>
+      {farWing && <Drawn k={k} groups={[farWing.map(([kind, d, a, b]) => kind === "cap" ? [kind, d, a, "var(--bit-vulture-far)"] : [kind, d, "var(--bit-vulture-far)"])]} />}
+      <Drawn k={k} line={5} groups={[legs]} />
+      <Drawn k={k} groups={[
+        /* the tail, then the primaries' tips past it */
+        [["blob", standing ? "M70,-70 L120,-26 L106,-24 L100,-14 L60,-60 Z" : "M110,-140 L176,-118 L164,-108 L168,-96 L112,-112 Z", "var(--bit-vulture)"]],
+        ...(standing ? [[["blob", "M96,-98 L150,-40 L138,-42 L142,-28 L126,-34 L126,-20 L110,-32 L90,-70 Z", "var(--bit-vulture-quill)"]]] : []),
+        [["blob", body, "var(--bit-vulture)"]],
+        [["blob", standing ? V_RUFF : "M-48,-166 L-44,-184 L-32,-176 L-28,-196 L-14,-184 L-4,-200 L4,-182 L14,-190 L12,-166 C-2,-150 -34,-148 -48,-166 Z",
+          "var(--bit-vulture)"]],
+        ...V_HEAD,
+      ]} />
+      {/* the light on the cloak, the silver edge of the folded wing, the coverts */}
+      {standing && <>
+        <Tone d="M-38,-150 C-30,-186 4,-206 40,-208 C10,-200 -16,-182 -28,-150 Z" fill="var(--bit-vulture-lit)" />
+        <Tone d="M-34,-92 C-8,-72 44,-66 96,-70 C114,-72 128,-84 133,-100 C120,-86 96,-82 64,-82 C30,-82 -2,-86 -30,-102 Z" fill="var(--bit-vulture-quill)" />
+        <Line d="M8,-162 C24,-152 42,-150 58,-154 M18,-132 C38,-120 60,-118 82,-124" k={k} w={3} />
+      </>}
+      {/* the head's wrinkles, a nostril, the eye with its one point of light */}
+      <Line d="M-70,-214 C-68,-206 -68,-198 -72,-192 M-62,-210 C-60,-204 -61,-198 -64,-194 M-108,-205 L-114,-205" k={k} w={2.6} />
+      <path d={circle(-86, -205, 5.5)} style={{ fill:"var(--ink0)" }} />
+      <path d={circle(-87.6, -206.8, 1.8)} style={{ fill:"var(--bone)" }} />
+      {nearWing && <Drawn k={k} groups={[nearWing]} />}
+      {pose === "glide" && <Line d="M-20,-300 C-14,-270 -2,-240 12,-214 M120,-276 C104,-244 88,-214 68,-190" k={k} w={3} />}
+    </Art>
+  );
+}
+
+/* ── a napkin, tucked in by one corner and hanging: Anchor: the tucked
+   corner. ── */
+export function Napkin({ scale = 1, className = "" }) {
+  const k = 1 / scale;
+  return (
+    <Art box={[-56, -16, 112, 104]} scale={scale} className={`bit-napkin${className ? ` ${className}` : ""}`}>
+      <Drawn k={k} line={5} groups={[[["blob", "M-6,-4 C-24,10 -40,40 -44,74 C-14,82 18,82 44,72 C36,40 20,10 6,-4 C2,-8 -2,-8 -6,-4 Z",
+        "var(--bit-napkin)"]]]} />
+      <Tone d="M8,6 C20,26 32,50 38,70 C30,72 24,72 20,72 C18,50 14,26 8,6 Z" fill="var(--bit-napkin-fold)" />
+      <Line d="M-2,6 C-8,30 -12,52 -12,76 M0,4 C6,24 8,50 10,76" k={k} w={2.6} />
+    </Art>
+  );
+}
+
+/* ── a fork and a knife, held upright. Anchor: where the hand grips. ── */
+export function Fork({ scale = 1, className = "" }) {
+  const k = 1 / scale;
+  return (
+    <Art box={[-26, -120, 52, 160]} scale={scale} className={`bit-fork${className ? ` ${className}` : ""}`}>
+      <Drawn k={k} line={5} groups={[[["cap", "M0,30 L0,-40", 9, "var(--bit-metal)"],
+        ["blob", "M-15,-40 C-15,-56 15,-56 15,-40 C15,-30 8,-26 0,-26 C-8,-26 -15,-30 -15,-40 Z", "var(--bit-metal)"],
+        ["cap", "M-12,-46 L-12,-98", 5, "var(--bit-metal)"], ["cap", "M-4,-48 L-4,-102", 5, "var(--bit-metal)"],
+        ["cap", "M4,-48 L4,-102", 5, "var(--bit-metal)"], ["cap", "M12,-46 L12,-98", 5, "var(--bit-metal)"]]]} />
+      <path d="M-2,26 L-2,-36" className="bit-shine" strokeWidth={2.6 * k} />
+    </Art>
+  );
+}
+export function Knife({ scale = 1, className = "" }) {
+  const k = 1 / scale;
+  return (
+    <Art box={[-24, -124, 48, 164]} scale={scale} className={`bit-knife${className ? ` ${className}` : ""}`}>
+      <Drawn k={k} line={5} groups={[[["cap", "M0,30 L0,-14", 11, "var(--bit-metal-dark)"],
+        ["blob", "M-7,-16 L-7,-96 C-7,-104 4,-108 9,-100 C12,-80 10,-40 7,-16 Z", "var(--bit-metal)"]]]} />
+      <path d="M-1,-22 L-1,-92" className="bit-shine" strokeWidth={2.6 * k} />
+    </Art>
+  );
+}
+
+/* ── a glint: a four-point sparkle off something polished. Anchor: its
+   centre. ── */
+export function Glint({ r = 34, scale = 1, className = "" }) {
+  const k = 1 / scale;
+  const star = `M0,${-r}C${r * 0.1},${-r * 0.24} ${r * 0.24},${-r * 0.1} ${r},0C${r * 0.24},${r * 0.1} ${r * 0.1},${r * 0.24} 0,${r}`
+    + `C${-r * 0.1},${r * 0.24} ${-r * 0.24},${r * 0.1} ${-r},0C${-r * 0.24},${-r * 0.1} ${-r * 0.1},${-r * 0.24} 0,${-r}Z`;
+  return (
+    <Art box={[-r - 10, -r - 10, r * 2 + 20, r * 2 + 20]} scale={scale} className={`bit-glint${className ? ` ${className}` : ""}`}>
+      <Drawn k={k} line={4} groups={[[["blob", star, "var(--bone)"]]]} />
+      <path d={circle(0, 0, r * 0.14)} style={{ fill:"var(--bit-fire-hot)" }} />
+    </Art>
+  );
+}

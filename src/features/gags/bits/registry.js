@@ -159,7 +159,77 @@ const roadrunner = {
   ],
 };
 
-export const BITS = Object.freeze([quickdraw, anvil, roadrunner].map(freeze));
+/* ══ the deadpan desert (Oct 10): butte, sunset, statue, vulture ══ */
+
+/* ── butte: an upset. B stands smug on top of a tall narrow rock pillar
+   rising out of a canyon, gloves on hips; A at the cliff's edge below,
+   looking up. A walks over and pokes the pillar once with one finger.
+   Nothing. A crack runs up it, and the pillar drops away beneath B. B
+   stays where it was, standing on nothing. It looks down. It looks at
+   us. It drops out of frame, a whistle falling away after it. A beat;
+   a small puff of dust comes up from far below. A dusts off its gloves.
+   A side of more: the whole beaten side stands on the pillar. ── */
+const BT = { look:140, walk:420, raise:980, poke:1160, crack:1780, crumble:2040, down:2490, face:2890, drop:3570, peek:3700,
+  puff:4520, dust:4720 };
+const butte = {
+  id:"butte", name:"Butte", shape:"versus", style:"desert", ms:5300, beats:BT, still:3320, summary:"bitCrumble",
+  letter:{ at:BT.crumble + 260, over:"a", place:"top-left" },
+  /* world x: the cliff's edge at 960, the pillar a gap past it (butte.jsx) */
+  camera:{ zoom:1.38, x:"mid", fit:true, moves:[
+    /* in on the finger */
+    { at:BT.raise - 140, ms:420, zoom:1.84, x:"poke" },
+    /* out as the crack runs up */
+    { at:BT.crack, ms:220, zoom:1.38, x:"mid", ease:CAMERA_EASE.snap },
+    /* creep in on B, standing on nothing */
+    { at:BT.down - 220, ms:1000, zoom:1.46, x:"b" },
+    /* over to A for the dust-off */
+    { at:BT.drop + 380, ms:620, zoom:1.5, x:"a" },
+  ], shakes:[{ at:BT.crumble }] },
+  cast:{ a:{ role:"winner", max:4 }, b:{ role:"beaten", max:4 } },
+  cues:[
+    { at:0, sound:"bitWind", pan:0, opts:{ ms:1500 } },
+    ...[0, 1, 2].map(i => ({ at:BT.walk + 140 * (i + 1) - 10, sound:"bitHop", pan:Math.round((-0.3 + i * 0.05) * 100) / 100, opts:{ step:i } })),
+    { at:BT.poke + 70, sound:"bitPoke", pan:0.12 },
+    { at:BT.crack, sound:"bitCrackle", pan:0.2, opts:{ ms:200 } },
+    { at:BT.crumble, sound:"bitCrumble", pan:0.25 },
+    { at:BT.drop + 50, sound:"bitFallAway", pan:0.25, opts:{ ms:BT.puff - BT.drop - 400 } },
+    { at:BT.puff, sound:"bitFarThud", pan:0.25 },
+    { at:BT.dust, sound:"bitPat", pan:-0.12, opts:{ step:0 } },
+    { at:BT.dust + 170, sound:"bitPat", pan:-0.12, opts:{ step:1 } },
+  ],
+};
+
+/* ── sunset: a win. The winner on top of a butte, fists on hips, the sun
+   behind it. The sun sets, fast; the sky relamps warmer in six hard
+   steps and the desert goes to silhouette. A pair of sunglasses comes
+   down slowly on a string from above the frame and settles on its face.
+   A glint off the lens. A tumbleweed blows past below. The string yanks
+   them back up and out. The chip never moves. ── */
+const SS = { sink:200, set:1480, lower:1660, settle:2760, glint:3020, weed:3260, yank:4040 };
+const sunset = {
+  id:"sunset", name:"Sunset", shape:"win", style:"desert", ms:4800, beats:SS, still:3140, summary:"bitGlint",
+  letter:{ at:SS.set + 60, over:"a", place:"top-left" },
+  /* world x: the butte under the winner at 960 (sunset.jsx) */
+  camera:{ zoom:1.5, x:"chip", moves:[
+    /* a slow push in through the sunset and the shades coming down */
+    { at:0, ms:SS.settle, zoom:1.66, x:"chip" },
+  ] },
+  cast:{ a:{ role:"winner", max:4 } },
+  cues:[
+    { at:0, sound:"bitWind", pan:0, opts:{ ms:1700 } },
+    ...[0, 1, 2, 3, 4, 5].map(i => ({ at:SS.sink + 80 + i * 150, sound:"bitRelamp", pan:0, opts:{ step:i } })),
+    { at:SS.lower, sound:"bitRatchet", pan:0, opts:{ ms:SS.settle - SS.lower } },
+    { at:SS.glint, sound:"bitGlint", pan:-0.05 },
+    { at:SS.weed, sound:"bitWind", pan:-0.2, opts:{ ms:800 } },
+    { at:SS.weed + 250, sound:"bitHop", pan:-0.3, opts:{ step:0 } },
+    { at:SS.weed + 500, sound:"bitHop", pan:0.25, opts:{ step:1 } },
+    { at:SS.yank, sound:"bitYank", pan:0 },
+  ],
+};
+
+export const BITS = Object.freeze([quickdraw, anvil, roadrunner,
+  butte, sunset,
+].map(freeze));
 const BY_ID = new Map(BITS.map(bit => [bit.id, bit]));
 export const bitById = id => BY_ID.get(id) || null;
 export const bitsOf = shape => BITS.filter(bit => bit.shape === shape);

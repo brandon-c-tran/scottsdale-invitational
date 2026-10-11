@@ -102,3 +102,7 @@
   --bit-napkin:var(--bone);
   --bit-napkin-fold:color-mix(in srgb, var(--bone) 72%, var(--art-violet));
 }
+/* the finale's painting is near black: a scene's own rock there is cut
+   from slate so it still reads on the sky (the painting is untouched) */
+.bit-scene .tv-desert[data-phase="fin"] { --d-mesa:color-mix(in srgb, var(--silver) 45%, var(--paper2));
+  --d-shade:color-mix(in srgb, var(--silver) 20%, var(--paper2)); }

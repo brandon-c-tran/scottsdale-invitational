@@ -49,12 +49,15 @@ export function butteStaging(a = 1, b = 1) {
   const contact = { x:r1(wrist.x + raise.x + tip.x + jab), y:r1(wrist.y + raise.y + tip.y) };
   const pillar = r1(contact.x + 75);
   const top = F - BT_STAGE.height;
-  const bx = r1(pillar - (lb.shown - 1) * lb.step / 2);
+  /* B's side stands from the stem rightward, the cap overhanging after it,
+     so a big side never hangs out over A's floor */
+  const bx = r1(pillar - Math.min((lb.shown - 1) * lb.step / 2, 30 * kb));
+  const capX = r1(bx + (lb.shown - 1) * lb.step / 2);
   const capW = Math.round(Math.max(BT_STAGE.stem + 150, (lb.shown - 1) * lb.step + lb.size * 1.3));
   const minX = Math.round(ax0 - la.reach - (la.more ? 110 : 0));
-  const maxX = Math.round(Math.max(pillar + capW / 2 + 20, bx + (lb.shown - 1) * lb.step + lb.size * (0.5 + RIG.handX) + 40 * kb
+  const maxX = Math.round(Math.max(capX + capW / 2 + 20, bx + (lb.shown - 1) * lb.step + lb.size * (0.5 + RIG.handX) + 40 * kb
     + (lb.more ? 110 : 0)));
-  return { la, lb, ka, kb, ga, gb, F, edge, ax, ax0, walk, raise, jab, contact, pillar, top, bx, capW, minX, maxX,
+  return { la, lb, ka, kb, ga, gb, F, edge, ax, ax0, walk, raise, jab, contact, pillar, top, bx, capX, capW, minX, maxX,
     mid:Math.round((minX + maxX) / 2) };
 }
 
@@ -65,7 +68,7 @@ export function butteStaging(a = 1, b = 1) {
    passes through the finger's contact; it pinches a little up high. */
 const FALLS = [[-40, -16, 70], [26, 12, 0], [-18, -9, 20], [34, 14, 40], [-10, 6, 55]];
 export function butteRock(s, { crackMs = 200 } = {}) {
-  const { F, top, contact, pillar, capW } = s;
+  const { F, top, contact, pillar, capW, capX } = s;
   const capH = BT_STAGE.capH, y0 = top + capH, yB = F + BT_STAGE.below;
   const pinch = lerp(y0, F, 0.3);
   const left = [[y0, -66], [pinch, -58], [contact.y, contact.x - pillar], [F, -86], [yB, -100]].sort((p, q) => p[0] - q[0]);
@@ -94,11 +97,11 @@ export function butteRock(s, { crackMs = 200 } = {}) {
   }
   /* the cap: wider than the stem, bevelled, its underside in shadow */
   const h = capW / 2;
-  const cap = [[pillar - h + 10, top], [pillar + h - 12, top], [pillar + h, top + 16], [pillar + h - 6, top + capH - 18],
-    [pillar + h - 24, top + capH], [pillar - h + 20, top + capH], [pillar - h + 4, top + capH - 20], [pillar - h, top + 18]];
-  const capShade = [[lerp(pillar - h, pillar + h, 0.64), top], [pillar + h - 12, top], [pillar + h, top + 16], [pillar + h - 6, top + capH - 18],
-    [pillar + h - 24, top + capH], [lerp(pillar - h, pillar + h, 0.6), top + capH]];
-  const capUnder = [[pillar - h + 8, top + capH - 16], [pillar + h - 8, top + capH - 16], [pillar + h - 24, top + capH], [pillar - h + 20, top + capH]];
+  const cap = [[capX - h + 10, top], [capX + h - 12, top], [capX + h, top + 16], [capX + h - 6, top + capH - 18],
+    [capX + h - 24, top + capH], [capX - h + 20, top + capH], [capX - h + 4, top + capH - 20], [capX - h, top + 18]];
+  const capShade = [[lerp(capX - h, capX + h, 0.64), top], [capX + h - 12, top], [capX + h, top + 16], [capX + h - 6, top + capH - 18],
+    [capX + h - 24, top + capH], [lerp(capX - h, capX + h, 0.6), top + capH]];
+  const capUnder = [[capX - h + 8, top + capH - 16], [capX + h - 8, top + capH - 16], [capX + h - 24, top + capH], [capX - h + 20, top + capH]];
   const pieces = [{ key:"cap", outline:cap, shade:capShade, tone:capUnder, top, bottom:top + capH }, ...slabs];
   /* the crack: from the finger up and across to the top of the cap, a zig a stratum */
   const steps = 10;

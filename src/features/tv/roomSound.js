@@ -46,12 +46,10 @@
          one stamp at the name's own write time
      engrave  the cup's trophy turn after a result: the new winners are cut
          into their plate, one sound on the turn's clock (engraveCues)
-     gags  the bowling alley's cartoons (features/gags) on their own beats
-         from the gag's start (gagCues), after the win song's walkout when
-         its write started one, open past the song: a turkey's strut,
-         gobbles and three dings; a strike's roll, crash and flourish; a
-         gutter ball's roll, clunk and trombone; the vultures' wind and
-         squawks. Only when the write that owes the gag reached this TV
+     gags  the room's moments (features/gags): the bit's own foley on
+         its beats from the moment's start (gagCues, bitSound.js), after
+         the win song's walkout when its write started one, open past the
+         song. Only when the write that owes the moment reached this TV
          fresh (useGagSound)
 
    Pure: roomSnapshot() reduces a state to what can sound, roomCues() diffs
@@ -76,7 +74,8 @@ import { awardOnTv } from "../../../shared/prompts.js";
 import { awardCues } from "../awards/awardsModel.js";
 import { introScene } from "../intro/introTiming.js";
 import { boardCues, boardSnapshot } from "./boardSound.js";
-import { GAG_TIMING, gagHoldMs } from "../gags/gagModel.js";
+import { gagHoldMs } from "../gags/gagModel.js";
+import { bitCues } from "./bitSound.js";
 
 /* the settle board on the TV (TVMode SettleBoard): losers slide, then winners grow */
 export const SETTLE_SOUND = Object.freeze({ lose:700, pay:1300 });
@@ -457,52 +456,22 @@ export function useEngraveSound(plan = [], cut = 0) {
   }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 }
 
-/* The gags (features/gags) on the room's clock, from the gag's own start
-   and its kind's beats (GAG_TIMING), panned to where each thing happens on
-   the canvas. Reduced motion plays the kind's one summary sound. A gag
-   after a walkout plays while the win song runs on in the Now playing
-   strip, so its sounds are open: never ducked under the song. */
-export const GAG_SUMMARY = Object.freeze({ turkey:"gagGobble", strike:"gagCrash", gutter:"gagTrombone", vultures:"gagSquawk" });
+/* A moment's bit (features/gags) on the room's clock, from the moment's
+   own start: the bit's foley on its beats, panned to where each thing
+   happens on the canvas (bitSound.js). Reduced motion plays the bit's one
+   summary sound. A moment after a walkout plays while the win song runs on
+   in the Now playing strip, so its sounds are open: never ducked under the
+   song. */
 export function gagCues(gag, { reduced = false } = {}) {
-  return gagBeats(gag, { reduced }).map(cue => ({ ...cue, open:true }));
-}
-function gagBeats(gag, { reduced = false } = {}) {
-  const T = GAG_TIMING[gag?.kind];
-  if (!gag?.id || !T || !Number.isFinite(Number(gag.start))) return [];
-  const at = ms => Number(gag.start) + ms;
-  const key = `gag:${gag.id}`;
-  if (reduced) return [{ id:GAG_SUMMARY[gag.kind], at:at(0), key:`${key}:summary` }];
-  if (gag.kind === "turkey") return [
-    /* four strutting steps from the left edge to its mark */
-    ...[0, 1, 2, 3].map(i => ({ id:"gagStep", at:at(T.strut + 140 + i * 250), pan:Math.round((-0.9 + i * 0.15) * 100) / 100,
-      opts:{ step:i }, key:`${key}:step:${i}` })),
-    { id:"gagGobble", at:at(T.gobble), pan:-0.3, key:`${key}:gobble` },
-    ...T.x.map((ms, i) => ({ id:"gagDing", at:at(ms), pan:Math.round((-0.42 + i * 0.1) * 100) / 100, opts:{ step:i },
-      key:`${key}:x:${i}` })),
-    { id:"gagGobble", at:at(T.gobble2), pan:-0.3, key:`${key}:gobble2` },
-  ];
-  if (gag.kind === "strike") return [
-    { id:"gagRoll", at:at(T.roll), opts:{ ms:T.rollMs, to:0.55 }, key:`${key}:roll` },
-    { id:"gagCrash", at:at(T.hit), pan:0.6, key:`${key}:crash` },
-    { id:"gagFlourish", at:at(T.word), key:`${key}:upset` },
-  ];
-  if (gag.kind === "gutter") return [
-    { id:"gagRoll", at:at(T.roll), opts:{ ms:T.drop - T.roll, to:0.3 }, key:`${key}:roll` },
-    { id:"gagClunk", at:at(T.drop), pan:0.3, key:`${key}:clunk` },
-    { id:"gagTrombone", at:at(T.sad), key:`${key}:sad` },
-  ];
-  return [
-    { id:"gagWind", at:at(0), opts:{ ms:T.away }, key:`${key}:wind` },
-    { id:"gagSquawk", at:at(T.squawk), pan:0.2, key:`${key}:squawk` },
-    { id:"gagSquawk", at:at(T.squawk2), pan:0.6, key:`${key}:squawk2` },
-  ];
+  if (!gag?.id || !Number.isFinite(Number(gag.start))) return [];
+  return bitCues(gag.bit, { start:Number(gag.start), reduced, key:`gag:${gag.id}` });
 }
 
-/* A gag sounds once, as it takes the room, and only when the write that
-   owes it reached this TV on a fresh frame: a TV that loads, reloads or
-   reconnects during one shows it and stays quiet. `plan` is what the TV
+/* A moment sounds once, as it takes the room, and only when the write
+   that owes it reached this TV on a fresh frame: a TV that loads, reloads
+   or reconnects during one shows it and stays quiet. `plan` is what the TV
    may play (gagModel gagPlan, whose windows already wait for a walkout),
-   `gag` what it shows now. A gag that gives the room away (a slow
+   `gag` what it shows now. A moment that gives the room away (a slow
    speaker's walkout) takes the rest of its sounds with it. */
 const GAG_FRESH_MEMORY = 24;
 export function useGagSound({ state, plan = [], gag = null }) {

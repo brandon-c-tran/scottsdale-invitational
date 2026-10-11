@@ -559,3 +559,20 @@ export function Soot({ size = CAST.size, edge = 12, className = "" }) {
     </svg>
   );
 }
+
+/* ── dirt thrown up round something planted in the ground: a low lumpy
+   mound and a few clods. Anchor: the middle of its foot. ── */
+export function DirtMound({ scale = 1, className = "" }) {
+  const k = 1 / scale;
+  return (
+    <Art box={[-176, -70, 352, 92]} scale={scale} className={`bit-dirt${className ? ` ${className}` : ""}`}>
+      <Drawn k={k} groups={[[
+        ["blob", "M-150,10 C-148,-6 -132,-16 -114,-13 C-106,-31 -80,-38 -63,-29 C-52,-48 -24,-52 -8,-40 C6,-56 38,-54 49,-38 "
+          + "C64,-50 92,-44 101,-27 C120,-33 141,-20 147,-4 C150,4 150,8 148,12 Z", "var(--bit-dust)"],
+        ["blob", circle(-162, 4, 9), "var(--bit-dust)"], ["blob", circle(164, 2, 11), "var(--bit-dust)"], ["blob", circle(126, -44, 7), "var(--bit-dust)"],
+      ]]} />
+      <Tone d="M-146,4 C-110,-2 -60,-4 0,-4 C60,-4 110,-4 146,0 L148,12 L-150,10 Z" fill="var(--bit-dust-shade)" />
+      <Line d="M-92,-22 C-84,-26 -76,-26 -70,-22 M-20,-30 C-12,-36 -2,-36 6,-30 M58,-26 C66,-31 76,-30 82,-24" k={k} w={3} />
+    </Art>
+  );
+}

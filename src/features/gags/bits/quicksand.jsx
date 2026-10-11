@@ -43,7 +43,7 @@ export function quicksandMarks(size = CAST.size) {
   const aim = 45, a = aim * Math.PI / 180;
   const finger = 95 * g.glove;
   const tip = { x:finger * Math.sin(a), y:-finger * Math.cos(a) };
-  const gap = 34 * k;
+  const gap = 14 * k;
   /* the whole of it leans toward the arm (quicksand.css qs-lean), so the
      glove is placed in the leaned body: turned the lean less, and its
      wrist found by turning the world back by the lean */

@@ -1091,7 +1091,7 @@ export const BIT_PARTS = Object.freeze([
   /* a boot on the dirt (opts.step: left, right) */
   { id:"bitStep", name:"Boot step", ms:200,
     play:(E, t, o = {}) => { const p = 1 + ((Number(o.step) || 0) % 2) * 0.06;
-      M.knock(E, t, { pitch:0.72 * p, gain:0.42 }); M.felt(E, t + 0.003, { gain:0.38 });
+      M.knock(E, t, { pitch:0.72 * p, gain:0.55 }); M.felt(E, t + 0.003, { gain:0.38 });
       burst(E, voice(E, { send:0.1, bright:0.7, gain:0.5 }), t + 0.01, { f:1500, q:0.9, d:0.06, peak:0.18 }); } },
   /* a burning chip slamming into the dirt, and burning on */
   { id:"bitSlam", name:"Burning chip lands", ms:900,
@@ -1102,11 +1102,11 @@ export const BIT_PARTS = Object.freeze([
   /* dark glasses slid down a nose (opts.up: pushed back up, a click home) */
   { id:"bitShades", name:"Glasses slide", ms:250,
     play:(E, t, o = {}) => { const up = !!o.up;
-      M.tick(E, t + (up ? 0.08 : 0), { gain:0.4, pitch:up ? 1.9 : 1.5 });
-      swell(E, voice(E, { send:0.12, bright:1, gain:0.8 }), t, { d:0.12, f0:up ? 1600 : 3200, f1:up ? 3400 : 1500, q:2, peak:0.1 }); } },
+      M.tick(E, t + (up ? 0.08 : 0), { gain:0.65, pitch:up ? 1.9 : 1.5 });
+      swell(E, voice(E, { send:0.12, bright:1, gain:0.8 }), t, { d:0.12, f0:up ? 1600 : 3200, f1:up ? 3400 : 1500, q:2, peak:0.22 }); } },
   /* light off a lens */
   { id:"bitGlint", name:"Glint", ms:1100,
-    play:(E, t) => { M.bell(E, t, NOTE.D6, { gain:0.32, dec:1, send:0.35 }); M.bell(E, t + 0.05, NOTE.A6, { gain:0.2, dec:0.8, send:0.35 });
+    play:(E, t) => { M.bell(E, t, NOTE.D6, { gain:0.5, dec:1, send:0.35 }); M.bell(E, t + 0.05, NOTE.A6, { gain:0.32, dec:0.8, send:0.35 });
       burst(E, voice(E, { send:0.3, bright:1, gain:0.4 }), t, { type:"highpass", f:6500, d:0.06, peak:0.12 }); } },
   /* a lit fuse fizzing up (opts.ms), stopping dead */
   { id:"bitFuse", name:"Fuse", ms:1000,
@@ -1144,7 +1144,7 @@ export const BIT_PARTS = Object.freeze([
       glide(E, voice(E, { send:0.2, bright:0.8, gain:0.6 }), t, NOTE.A4, NOTE.D5, d, 0.12, { type:"triangle", vib:11, depth:0.025 }); } },
   /* a rubber glove closing */
   { id:"bitSqueak", name:"Glove squeak", ms:150,
-    play:(E, t) => { glide(E, voice(E, { send:0.12, bright:1, gain:0.5 }), t, NOTE.E5, NOTE.B5, 0.09, 0.16, { type:"square" });
+    play:(E, t) => { glide(E, voice(E, { send:0.12, bright:1, gain:0.5 }), t, NOTE.E5, NOTE.B5, 0.09, 0.24, { type:"square" });
       M.tick(E, t, { gain:0.2, pitch:1.4 }); } },
   /* one bubble up through the sand: blup, pop */
   { id:"bitBubble", name:"Bubble", ms:300,

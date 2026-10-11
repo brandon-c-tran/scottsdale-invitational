@@ -56,7 +56,7 @@ export function walkSquad(count = 1) {
    for a chip of `size` */
 export function shadesReach(size = CAST.size) {
   const g = castGeometry(size);
-  const turn = -125, a = turn * Math.PI / 180;
+  const turn = -158, a = turn * Math.PI / 180;
   const tip = { x:GLOVE_POSES.point.held.x * g.glove, y:GLOVE_POSES.point.held.y * g.glove };
   const reach = { x:tip.x * Math.cos(a) - tip.y * Math.sin(a), y:tip.x * Math.sin(a) + tip.y * Math.cos(a) };
   /* the bridge sits 45% down the chip, over the photo's eyes; the finger

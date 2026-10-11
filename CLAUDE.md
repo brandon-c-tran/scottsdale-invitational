@@ -626,6 +626,14 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   skids A back a step), anvil (a loss: pancaked, peeled up, it turns to the
   room for a beat before it limps off) and roadrunner (a loss: a long skid,
   a leaning beep beep, the shadow left behind winding up before it runs).
+  The pool (19): versus quickdraw, springglove, butte; win explosionwalk,
+  toohype, sunset, statue; loss anvil, roadrunner, dontlookback, quicksand,
+  dynamite, vulture; idle nap, armwrestle, saguaro, pushups, sweep, map.
+  Idle vignettes are the TV's downtime: 6 to 10 s (`IDLE_MS`), cast from
+  the room (the players present, a vignette takes one or two), `letter:null`
+  (no name, no fact, the painting at full light), `still` the punchline.
+  A name two styles both invented carries its style (`IdleSaguaro`,
+  `--bit-idle-cactus`, `--bit-slap-soot`, `--bit-desert-rock`, `bitSqueakSoft`).
   `/dev/bits-reel.html` plays them all; `node scripts/build-bits-reel.mjs`
   bundles it into one page for review and `node scripts/bit-frames.mjs <id>
   <ms...>` renders frames (`--contact` a sheet, `--cast 2v2|4v6` a bigger

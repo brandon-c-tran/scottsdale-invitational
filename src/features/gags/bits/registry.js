@@ -433,7 +433,110 @@ const map = {
 };
 const IDLE = [nap, armwrestle, saguaro, pushups, sweep, map];
 
-export const BITS = Object.freeze([quickdraw, anvil, roadrunner, ...ACTION_BITS, ...IDLE].map(freeze));
+/* ═══ the slapstick bits (springglove, toohype, dynamite) ═══ */
+
+/* ── springglove: an upset. B is mid victory bounce, fists up; A stands
+   off to the side with a boxing glove on a spring in a box, aimed at B.
+   B turns and sees it. Nothing. A slams the button: the glove punches B
+   off in a straight line into the distance. The spring quivers over the
+   empty spot. A star pings where B went. The spring snaps back, clean
+   through the box and out its back into A's face; A wobbles, turns to the
+   room, thumbs up. ── */
+const SPG = { hop:0, turn:800, raise:1320, press:1540, fire:1570, hit:1650, fly:1710, twinkle:2450, retract:3000, home:3130, boop:3240,
+  look:3760, thumb:4080 };
+const springglove = {
+  id:"springglove", name:"Spring glove", shape:"versus", style:"slapstick", ms:4850, beats:SPG, still:4420, summary:"bitPow",
+  letter:{ at:SPG.look + 120, over:"a", place:"top-left" },
+  camera:{ zoom:1.5, x:"mid", fit:true, moves:[
+    /* lean in on the bounce and the standoff */
+    { at:200, ms:1200, zoom:1.56 },
+    /* after the punch, drift to the empty spot and the sky over it */
+    { at:SPG.fly + 160, ms:620, zoom:1.45, x:"sky" },
+    /* whip back with the spring to A */
+    { at:SPG.retract - 30, ms:200, zoom:1.95, x:"a", ease:CAMERA_EASE.whip },
+    /* in on A for the thumbs up */
+    { at:SPG.look, ms:1000, zoom:2.06 },
+  ], shakes:[{ at:SPG.hit, big:true }, { at:SPG.home }] },
+  cast:{ a:{ role:"winner", max:4 }, b:{ role:"beaten", max:4 } },
+  cues:[
+    ...[0, 1, 2].map(i => ({ at:SPG.hop + 260 * i + 218, sound:"bitHop", pan:0.42, opts:{ step:i } })),
+    { at:SPG.press, sound:"bitClick", pan:-0.22 },
+    { at:SPG.fire, sound:"bitSproing", pan:0.05 },
+    { at:SPG.hit, sound:"bitPow", pan:0.38 },
+    { at:SPG.fly, sound:"bitStreak", pan:0.45, opts:{ from:0.4, to:0.95 } },
+    { at:SPG.twinkle, sound:"bitTwinkle", pan:0.62 },
+    { at:SPG.retract, sound:"bitZip", pan:0.25 },
+    { at:SPG.boop, sound:"bitBonk", pan:-0.36 },
+    { at:SPG.boop + 60, sound:"bitBoing", pan:-0.36, opts:{ small:true } },
+  ],
+};
+
+/* ── toohype: a run of wins. It bounces on the spot, fists pumping, each
+   bounce higher. The fourth goes straight up out of the frame, right out
+   of its shoes. The shoes alone, a beat. It comes back down, misses them
+   and drives into the ground up to its middle. A glove comes up out of
+   the dirt, thumb up. The shoes walk over to it on their own. ── */
+const TH = { hop1:0, hop2:270, hop3:630, wind:1110, launch:1330, fall:2200, crash:2400, pop:2940, turn:3280, walk:3400, arrive:4000 };
+const toohype = {
+  id:"toohype", name:"Too hype", shape:"win", style:"slapstick", ms:4500, beats:TH, still:4100, summary:"bitPlant",
+  letter:{ at:TH.pop, over:"a", place:"top-left" },
+  camera:{ zoom:1.8, x:"mid", fit:true, moves:[
+    /* lean in with the bounces */
+    { at:200, ms:1000, zoom:1.86 },
+    /* the shoes, alone: creep in on them */
+    { at:TH.launch + 260, ms:640, zoom:1.98, x:"beat" },
+    /* back out for the shoes' walk */
+    { at:TH.crash + 260, ms:700, zoom:1.84, x:"mid" },
+  ], shakes:[{ at:TH.crash, big:true }] },
+  cast:{ a:{ role:"winner", max:2 } },
+  cues:[
+    { at:TH.hop1 + 70, sound:"bitBounce", pan:-0.12, opts:{ step:0 } },
+    { at:TH.hop2 + 60, sound:"bitBounce", pan:-0.12, opts:{ step:1 } },
+    { at:TH.hop3 + 60, sound:"bitBounce", pan:-0.12, opts:{ step:2 } },
+    { at:TH.launch, sound:"bitLaunch", pan:-0.12 },
+    { at:TH.fall - 60, sound:"bitFall", pan:0.24, opts:{ ms:260 } },
+    { at:TH.crash, sound:"bitPlant", pan:0.24 },
+    { at:TH.crash + 60, sound:"bitBoing", pan:0.24 },
+    { at:TH.pop, sound:"bitPop", pan:0.4 },
+    { at:TH.turn, sound:"bitSneaker", pan:-0.12, opts:{ step:1 } },
+    ...[0, 1, 2, 3, 4, 5].map(j => ({ at:TH.walk + 100 * (j + 1), sound:"bitSneaker", pan:Math.round((-0.1 + j * 0.04) * 100) / 100, opts:{ step:j } })),
+  ],
+};
+
+/* ── dynamite: a loss. A cupcake at a little party table; the chip strikes
+   a match and lights the candle, a stick of dynamite, and leans in,
+   delighted. It stops. A sweat drop. It looks at the room. BOOM. The smoke
+   clears: black with soot, the same pose, the cupcake gone. One cough of
+   smoke. A glove drops off into the dirt. ── */
+const DY = { strike:300, light:650, lit:680, out:900, admire:1100, realize:1800, look:2050, boom:2850, clear:3500, cough:3780,
+  drop:4080, land:4260 };
+const dynamite = {
+  id:"dynamite", name:"Dynamite", shape:"loss", style:"slapstick", ms:4800, beats:DY, still:4400, summary:"bitBlast",
+  letter:{ at:DY.clear, over:"a", place:"top-right" },
+  /* world x: the chip stands at 820, the table at 1080 (dynamite.jsx) */
+  camera:{ zoom:1.8, x:"mid", moves:[
+    /* in a little as it leans in to admire it */
+    { at:DY.admire, ms:800, zoom:1.92, x:930 },
+    /* in on its face as it turns to the room */
+    { at:DY.look, ms:520, zoom:2.25, x:"chip" },
+    /* the blast throws the shot back */
+    { at:DY.boom, ms:90, zoom:1.72, x:"mid", ease:CAMERA_EASE.snap },
+    /* and it creeps back in on what is left */
+    { at:DY.clear - 200, ms:1100, zoom:1.95, x:880 },
+  ], shakes:[{ at:DY.boom, big:true }], washes:[DY.boom] },
+  cast:{ a:{ role:"loser", max:1 } },
+  cues:[
+    { at:DY.strike, sound:"bitMatch", pan:0 },
+    { at:DY.lit, sound:"bitFuseHiss", pan:0.2, opts:{ ms:DY.boom - DY.lit } },
+    { at:DY.boom, sound:"bitBlast", pan:0.1 },
+    { at:DY.cough, sound:"bitCough", pan:-0.12 },
+    { at:DY.land, sound:"bitGloveFlop", pan:-0.3 },
+  ],
+};
+
+const SLAPSTICK = [springglove, toohype, dynamite];
+
+export const BITS = Object.freeze([quickdraw, anvil, roadrunner, ...ACTION_BITS, ...IDLE, ...SLAPSTICK].map(freeze));
 const BY_ID = new Map(BITS.map(bit => [bit.id, bit]));
 export const bitById = id => BY_ID.get(id) || null;
 export const bitsOf = shape => BITS.filter(bit => bit.shape === shape);

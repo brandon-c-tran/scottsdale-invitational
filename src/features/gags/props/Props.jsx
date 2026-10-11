@@ -705,3 +705,260 @@ export function Boulder({ scale = 1, className = "" }) {
     </Art>
   );
 }
+
+/* ═══ the slapstick bits' props (springglove, toohype, dynamite) ═══ */
+
+/* ── a boxing glove from the side, punching right: a white laced cuff
+   and a big red mitt, the thumb laid along its top. Anchor: the back of
+   the cuff, at its middle (where a spring meets it). ── */
+export const BOXING_GLOVE = Object.freeze({ front:160, cuff:44, h:132 });
+export function BoxingGlove({ scale = 1, className = "" }) {
+  const k = 1 / scale;
+  return (
+    <Art box={[-12, -86, 186, 158]} scale={scale} className={`bit-boxglove${className ? ` ${className}` : ""}`}>
+      <Drawn k={k} groups={[
+        [["blob", "M0,-28 Q0,-36 8,-36 L44,-39 L44,39 L8,36 Q0,36 0,28 Z", "var(--bit-glove)"]],
+        [["blob", "M34,-40 C44,-66 96,-74 128,-60 C156,-48 166,-12 160,16 C154,46 124,62 90,60 C62,58 42,52 34,40 Z", "var(--bit-red)"]],
+        [["cap", "M58,-41 C74,-56 100,-58 116,-50", 24, "var(--bit-red)"]],
+      ]} />
+      <Tone d="M38,36 C58,52 104,58 134,48 C150,40 158,28 160,16 C154,46 124,62 90,60 C62,58 44,52 38,36 Z" fill="var(--bit-red-dark)" />
+      <Tone d="M122,-56 C146,-46 158,-26 159,-4 C150,-22 138,-38 120,-46 Z" fill="var(--bit-red-lit)" />
+      <Tone d="M66,-50 C78,-58 96,-60 108,-56 C96,-54 82,-52 70,-46 Z" fill="var(--bit-red-lit)" />
+      <Tone d="M2,22 L44,26 L44,39 L8,36 Q0,36 0,28 Z" fill="var(--bit-glove-shade)" />
+      <Line d="M12,-18 L28,-8 M28,-18 L12,-8 M12,6 L28,16 M28,6 L12,16" k={k} w={3.2} />
+    </Art>
+  );
+}
+
+/* ── an accordion spring along +x, drawn at its full stretch (`length`);
+   a scene scales it in X to pull it in, so it lives coiled inside its box
+   when short. Anchor: its back end, at its middle. ── */
+export function Spring({ length = 400, amp = 20, pitch = 46, className = "" }) {
+  const n = Math.max(2, Math.round(length / pitch));
+  const half = length / (n * 2);
+  const pts = [[0, 0], ...Array.from({ length:n * 2 }, (_, j) => [half / 2 + j * half, j % 2 ? amp : -amp]), [length, 0]];
+  const d = `M${pts.map(([x, y]) => `${x.toFixed(1)},${y}`).join("L")}`;
+  return (
+    <Art box={[-10, -amp - 14, length + 20, amp * 2 + 28]} className={`bit-spring${className ? ` ${className}` : ""}`}>
+      <path d={d} className="bit-ink" fill="none" strokeWidth={17} />
+      <path d={d} fill="none" strokeWidth={7} strokeLinecap="round" strokeLinejoin="round" style={{ stroke:"var(--bit-metal)" }} />
+      <path d={d} fill="none" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" style={{ stroke:"var(--bit-iron-lit)" }}
+        transform="translate(0 -1.6)" />
+    </Art>
+  );
+}
+
+/* ── the launcher: a steel box on a wooden pistol grip, a flared horn at
+   the front where the spring comes out, a port at the back, and a big
+   red button on top (its own node, .bit-punch-button, to press). Anchor:
+   where the grip meets the box (a fist closes under it). ── */
+export const PUNCH_BOX = Object.freeze({ nozzle:{ x:80, y:-41 }, rear:{ x:-64, y:-41 }, button:{ x:6, y:-78 }, top:-110 });
+export function PunchBox({ scale = 1, className = "" }) {
+  const k = 1 / scale;
+  const { x:bx, y:by } = PUNCH_BOX.button;
+  return (
+    <span className={`bit-punchbox${className ? ` ${className}` : ""}`}>
+      <span className="bit-punch-button" style={{ left:bx * scale, top:by * scale }}>
+        <Art box={[-34, -40, 68, 50]} scale={scale}>
+          <Drawn k={k} groups={[
+            [["blob", "M-10,2 L10,2 L10,-10 L-10,-10 Z", "var(--bit-metal-dark)"]],
+            [["blob", "M-24,-8 C-24,-34 24,-34 24,-8 Z", "var(--bit-red)"]],
+          ]} />
+          <Tone d="M-15,-14 C-12,-24 -2,-27 6,-26 C-2,-23 -8,-19 -10,-12 Z" fill="var(--bit-red-lit)" />
+        </Art>
+      </span>
+      <Art box={[-72, -88, 160, 124]} scale={scale}>
+        <Drawn k={k} groups={[
+          [["blob", "M-12,-4 C-14,8 -17,18 -16,28 L-2,29 C-2,18 0,8 2,-4 Z", "var(--bit-wood)"]],
+          [["blob", "M-50,-54 L-64,-58 L-64,-24 L-50,-28 Z", "var(--bit-metal-dark)"],
+            ["blob", "M54,-56 L80,-66 L80,-16 L54,-26 Z", "var(--bit-metal-dark)"]],
+          [["blob", "M-46,-2 Q-52,-2 -52,-8 L-52,-72 Q-52,-78 -46,-78 L50,-78 Q56,-78 56,-72 L56,-8 Q56,-2 50,-2 Z", "var(--bit-metal)"]],
+        ]} />
+        <Tone d="M-48,-74 L52,-74 L52,-66 L-48,-66 Z" fill="var(--bit-iron-lit)" />
+        <Tone d="M-48,-14 L52,-14 L52,-8 Q52,-6 50,-6 L-46,-6 Q-48,-6 -48,-8 Z" fill="var(--bit-metal-dark)" />
+        <path d={circle(80, -41, 10)} style={{ fill:"var(--ink0)" }} />
+        <path d={`${circle(-40, -26, 4)}${circle(44, -26, 4)}`} style={{ fill:"var(--bit-metal-dark)" }} />
+      </Art>
+    </span>
+  );
+}
+
+/* ── a twinkle: the ping of something very far away. A long four-point
+   star over a short one. Anchor: its centre. ── */
+export function Twinkle({ r = 34, line = 5, scale = 1, className = "" }) {
+  const k = 1 / scale;
+  return (
+    <Art box={[-r - 12, -r - 12, r * 2 + 24, r * 2 + 24]} scale={scale} className={`bit-twinkle${className ? ` ${className}` : ""}`}>
+      <Drawn k={k} line={line} groups={[[["blob", starPath(4, r * 0.6, r * 0.16, -45), "var(--bit-star)"]],
+        [["blob", starPath(4, r, r * 0.18), "var(--bit-star)"]]]} />
+      <path d={starPath(4, r * 0.5, r * 0.13)} style={{ fill:"var(--bit-fire-hot)" }} />
+      <path d={circle(0, 0, r * 0.12)} style={{ fill:"var(--bone)" }} />
+    </Art>
+  );
+}
+
+/* ── a birthday cupcake whose candle is a stick of dynamite: a pleated
+   paper cup, a swirl of frosting with sprinkles, the red stick standing
+   in it. The fuse is its own (Fuse). Anchor: the middle of its foot. ── */
+export const CUPCAKE = Object.freeze({ fuseBase:{ x:0, y:-146 } });
+export function Cupcake({ scale = 1, className = "" }) {
+  const k = 1 / scale;
+  return (
+    <Art box={[-56, -162, 112, 172]} scale={scale} className={`bit-cupcake${className ? ` ${className}` : ""}`}>
+      <Drawn k={k} groups={[
+        [["blob", "M-15,-58 L-15,-138 Q-15,-148 0,-148 Q15,-148 15,-138 L15,-58 Z", "var(--bit-red)"]],
+        [["blob", "M-30,0 L-38,-42 L38,-42 L30,0 Z", "var(--bit-cupcake-paper)"]],
+        [["blob", "M-44,-38 C-52,-54 -36,-66 -22,-62 C-20,-78 2,-84 12,-72 C26,-80 46,-66 40,-52 C50,-50 50,-38 44,-36 C20,-30 -20,-30 -44,-38 Z",
+          "var(--bit-frosting)"]],
+      ]} />
+      <Line d="M-24,-36 L-20,-4 M-12,-36 L-10,-4 M0,-36 L0,-4 M12,-36 L10,-4 M24,-36 L20,-4" k={k} w={3} />
+      <Tone d="M-11,-62 L-11,-138 Q-11,-144 -4,-145 L-4,-62 Z" fill="var(--bit-red-lit)" />
+      <Tone d="M-15,-120 L15,-120 L15,-112 L-15,-112 Z" fill="var(--bit-red-dark)" />
+      <Tone d="M-15,-86 L15,-86 L15,-78 L-15,-78 Z" fill="var(--bit-red-dark)" />
+      {[[-30, -46, -12, "var(--art-turquoise)"], [-16, -60, 30, "var(--sun)"], [22, -62, -30, "var(--art-turquoise)"], [32, -46, 20, "var(--art-rose)"],
+        [-36, -50, 60, "var(--art-rose)"], [6, -40, 0, "var(--sun)"]].map(([x, y, a, fill], i) =>
+        <path key={i} d={`M${x - 5},${y - 2} L${x + 5},${y - 2} L${x + 5},${y + 2} L${x - 5},${y + 2} Z`} transform={`rotate(${a} ${x} ${y})`}
+          style={{ fill }} />)}
+    </Art>
+  );
+}
+
+/* ── a fuse: a curl of cord up from a stick, in segments a scene burns
+   one by one (each segment its own node, .bit-fuse-seg, --seg 0 at the
+   tip). FUSE.points run from the tip down to the base. Anchor: the base. ── */
+export const FUSE = Object.freeze({ points:Object.freeze([[14, -46], [4, -36], [10, -24], [2, -12], [0, 0]]) });
+export function Fuse({ scale = 1, className = "" }) {
+  const k = 1 / scale;
+  const pts = FUSE.points;
+  return (
+    <span className={`bit-fuse${className ? ` ${className}` : ""}`}>
+      {pts.slice(0, -1).map(([x, y], i) => {
+        const [x2, y2] = pts[i + 1];
+        const d = `M${x},${y} Q${(x + x2) / 2 + (i % 2 ? 4 : -4)},${(y + y2) / 2} ${x2},${y2}`;
+        return (
+          <span key={i} className="bit-fuse-seg" style={{ "--seg":i }}>
+            <Art box={[-14, -56, 40, 64]} scale={scale}>
+              <Drawn k={k} line={4} groups={[[["cap", d, 6, "var(--bit-fuse)"]]]} />
+            </Art>
+          </span>
+        );
+      })}
+    </span>
+  );
+}
+
+/* ── the spark at a lit fuse's tip: a hot little burst. Anchor: its
+   centre. ── */
+export function Spark({ scale = 1, className = "" }) {
+  const k = 1 / scale;
+  return (
+    <Art box={[-30, -30, 60, 60]} scale={scale} className={`bit-spark${className ? ` ${className}` : ""}`}>
+      <Drawn k={k} line={4} groups={[[["blob", starPath(8, 22, 8, -80), "var(--bit-fire)"]]]} />
+      <path d={starPath(8, 12, 5, -60)} style={{ fill:"var(--bit-fire-hot)" }} />
+      <path d={circle(0, 0, 4)} style={{ fill:"var(--bone)" }} />
+    </Art>
+  );
+}
+
+/* ── a kitchen match, held upright in a fist: the stick and its red
+   head. Anchor: the foot of the stick. ── */
+export const MATCH = Object.freeze({ head:{ x:0, y:-54 } });
+export function Match({ scale = 1, className = "" }) {
+  const k = 1 / scale;
+  return (
+    <Art box={[-18, -72, 36, 86]} scale={scale} className={`bit-match${className ? ` ${className}` : ""}`}>
+      <Drawn k={k} line={5} groups={[[["blob", "M-4,8 L-4,-46 L4,-46 L4,8 Z", "var(--bit-match)"]],
+        [["blob", ellipse(0, -52, 8, 11), "var(--bit-red)"]]]} />
+    </Art>
+  );
+}
+
+/* ── a flame: a match's, a candle's. Anchor: its foot. ── */
+export function MatchFlame({ scale = 1, className = "" }) {
+  const k = 1 / scale;
+  return (
+    <Art box={[-28, -78, 56, 86]} scale={scale} className={`bit-match-flame${className ? ` ${className}` : ""}`}>
+      <Drawn k={k} line={5} groups={[[["blob", "M0,2 C-16,0 -20,-18 -10,-34 C-4,-44 0,-54 2,-66 C10,-50 20,-38 18,-18 C16,-4 8,2 0,2 Z",
+        "var(--bit-fire)"]]]} />
+      <path d="M1,-4 C-8,-6 -10,-16 -4,-26 C-1,-31 1,-36 2,-42 C6,-34 10,-26 9,-14 C8,-7 5,-4 1,-4 Z" style={{ fill:"var(--bit-fire-hot)" }} />
+    </Art>
+  );
+}
+
+/* ── a little round party table: a white cloth with a scalloped hem
+   over a dark pedestal. Anchor: the middle of its foot. ── */
+export const PARTY_TABLE = Object.freeze({ top:-132, half:108 });
+const CLOTH = (() => {
+  const w = 222 / 7;
+  let d = "M-108,-132 A108,18 0 0 1 108,-132 L111,-100";
+  for (let i = 0; i < 7; i++) { const x0 = 111 - i * w, x1 = x0 - w; d += ` Q${((x0 + x1) / 2).toFixed(1)},-84 ${x1.toFixed(1)},-100`; }
+  return `${d} Z`;
+})();
+export function PartyTable({ scale = 1, className = "" }) {
+  const k = 1 / scale;
+  return (
+    <Art box={[-124, -158, 248, 170]} scale={scale} className={`bit-party-table${className ? ` ${className}` : ""}`}>
+      <Drawn k={k} groups={[
+        [["blob", "M-9,-100 L9,-100 L12,-14 L-12,-14 Z", "var(--bit-table-leg)"],
+          ["blob", "M-50,0 C-50,-8 -36,-14 -20,-16 L20,-16 C36,-14 50,-8 50,0 Z", "var(--bit-table-leg)"]],
+        [["blob", CLOTH, "var(--bit-cloth)"]],
+      ]} />
+      <path d={ellipse(0, -132, 102, 14)} style={{ fill:"var(--bit-cloth-lit)" }} />
+      <Line d="M-62,-117 L-66,-98 M0,-115 L0,-96 M62,-117 L66,-98" k={k} w={3} />
+    </Art>
+  );
+}
+
+/* ── a blast: the fireball of something going off, ragged and hot in
+   the middle. Anchor: its centre. ── */
+const BLAST_RS = [1, 0.74, 0.92, 0.66, 1.06, 0.7, 0.88, 0.62, 1, 0.76, 0.94, 0.64, 1.04, 0.72];
+const blastPath = (r, ri, turn = -90) => {
+  const n = BLAST_RS.length, out = [];
+  for (let i = 0; i < n * 2; i++) {
+    const a = (turn + i * 180 / n) * Math.PI / 180, rr = i % 2 ? ri * (0.9 + (i % 3) * 0.08) : r * BLAST_RS[(i / 2) % n];
+    out.push(`${(Math.cos(a) * rr).toFixed(1)},${(Math.sin(a) * rr).toFixed(1)}`);
+  }
+  return `M${out.join("L")}Z`;
+};
+export function Blast({ r = 200, scale = 1, className = "" }) {
+  const k = 1 / scale;
+  return (
+    <Art box={[-r * 1.1 - 12, -r * 1.1 - 12, r * 2.2 + 24, r * 2.2 + 24]} scale={scale} className={`bit-blast${className ? ` ${className}` : ""}`}>
+      <Drawn k={k} groups={[[["blob", blastPath(r, r * 0.58), "var(--bit-fire)"]]]} />
+      <path d={blastPath(r * 0.68, r * 0.4, -76)} style={{ fill:"var(--bit-fire-hot)" }} />
+      <path d={circle(0, 0, r * 0.26)} style={{ fill:"var(--bone)" }} />
+    </Art>
+  );
+}
+
+/* ── soot over a chip: its face and its edge gone black, the photo still
+   showing faintly through, a few smudges. Sized for a chip of `size` with
+   its edge `edge` below the face; hung on the chip's own box. ── */
+export function Soot({ size = CAST.size, edge = 12, className = "" }) {
+  const r = size / 2;
+  return (
+    <svg className={`bit-soot${className ? ` ${className}` : ""}`} width={size} height={size + edge} viewBox={`0 0 ${size} ${size + edge}`}
+      style={{ position:"absolute", left:0, top:0, overflow:"visible" }} aria-hidden="true">
+      <path d={`${circle(r, r + edge, r - 0.5)}${circle(r, r, r - 0.5)}`} style={{ fill:"var(--bit-slap-soot)" }} opacity=".68" />
+      <path d={`${ellipse(r * 0.72, r * 0.64, r * 0.3, r * 0.1, -24)}${ellipse(r * 1.3, r * 1.36, r * 0.24, r * 0.08, 18)}`}
+        style={{ fill:"var(--bit-slap-soot-lit)" }} opacity=".55" />
+    </svg>
+  );
+}
+
+/* ── dirt thrown up round something planted in the ground: a low lumpy
+   mound and a few clods. Anchor: the middle of its foot. ── */
+export function DirtMound({ scale = 1, className = "" }) {
+  const k = 1 / scale;
+  return (
+    <Art box={[-176, -70, 352, 92]} scale={scale} className={`bit-dirt${className ? ` ${className}` : ""}`}>
+      <Drawn k={k} groups={[[
+        ["blob", "M-150,10 C-148,-6 -132,-16 -114,-13 C-106,-31 -80,-38 -63,-29 C-52,-48 -24,-52 -8,-40 C6,-56 38,-54 49,-38 "
+          + "C64,-50 92,-44 101,-27 C120,-33 141,-20 147,-4 C150,4 150,8 148,12 Z", "var(--bit-dust)"],
+        ["blob", circle(-162, 4, 9), "var(--bit-dust)"], ["blob", circle(164, 2, 11), "var(--bit-dust)"], ["blob", circle(126, -44, 7), "var(--bit-dust)"],
+      ]]} />
+      <Tone d="M-146,4 C-110,-2 -60,-4 0,-4 C60,-4 110,-4 146,0 L148,12 L-150,10 Z" fill="var(--bit-dust-shade)" />
+      <Line d="M-92,-22 C-84,-26 -76,-26 -70,-22 M-20,-30 C-12,-36 -2,-36 6,-30 M58,-26 C66,-31 76,-30 82,-24" k={k} w={3} />
+    </Art>
+  );
+}

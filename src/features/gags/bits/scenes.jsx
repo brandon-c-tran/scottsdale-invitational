@@ -26,6 +26,10 @@ import { Saguaro } from "./saguaro.jsx";
 import { Pushups } from "./pushups.jsx";
 import { Sweep } from "./sweep.jsx";
 import { MapBit } from "./map.jsx";
+/* the slapstick bits */
+import { Springglove } from "./springglove.jsx";
+import { Toohype } from "./toohype.jsx";
+import { Dynamite } from "./dynamite.jsx";
 
 export const SCENES = Object.freeze({
   quickdraw:Quickdraw,
@@ -42,4 +46,8 @@ export const SCENES = Object.freeze({
   pushups:Pushups,
   sweep:Sweep,
   map:MapBit,
+  /* the slapstick bits */
+  springglove:Springglove,
+  toohype:Toohype,
+  dynamite:Dynamite,
 });

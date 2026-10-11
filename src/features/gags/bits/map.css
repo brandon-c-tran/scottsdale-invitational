@@ -1,0 +1,98 @@
+/* map (map.jsx): beats from registry.js (--b-<name>), every animation on
+   --ba, each element resting on its end state (the ball at its feet, the
+   chip looking down at it). A run of moves on one property: the first
+   fills both ways, the rest forwards, each starting where the last left
+   off. The camera and the shake are the stage's (the registry). */
+
+.is-map .mp { position:absolute; inset:0; }
+.is-map .mp-node { position:absolute; display:block; width:0; height:0; }
+
+/* ── unfolding: the packet opens out sideways in two pulls, then the
+   bottom half flaps down; the gloves ride the top corners ── */
+.is-map .mp-packet { opacity:0; --ba:bit-hide 1ms step-end calc(var(--tl) + var(--b-unfold1)) both; animation:var(--ba); }
+.is-map .mp-sheet { transform:scale(1, 1);
+  --ba:mp-open1 240ms var(--ease-out) calc(var(--tl) + var(--b-unfold1)) both,
+    mp-open2 240ms var(--ease-out) calc(var(--tl) + var(--b-unfold2)) forwards,
+    mp-open3 260ms cubic-bezier(.3,.7,.4,1.2) calc(var(--tl) + var(--b-unfold3)) forwards; animation:var(--ba); }
+@keyframes mp-open1 { 0% { opacity:0; transform:scale(.34, .5); } 1% { opacity:1; transform:scale(.34, .5); } 100% { opacity:1; transform:scale(.67, .5); } }
+@keyframes mp-open2 { from { transform:scale(.67, .5); } to { transform:scale(1, .5); } }
+@keyframes mp-open3 { from { transform:scale(1, .5); } to { transform:scale(1, 1); } }
+.is-map .mp-glove { transform:translateX(calc(var(--side) * var(--half)));
+  --ba:mp-grip1 240ms var(--ease-out) calc(var(--tl) + var(--b-unfold1)) both,
+    mp-grip2 240ms var(--ease-out) calc(var(--tl) + var(--b-unfold2)) forwards,
+    mp-squeeze 420ms ease-in calc(var(--tl) + var(--b-crumple)) forwards; animation:var(--ba); }
+@keyframes mp-grip1 { from { transform:translateX(calc(var(--side) * var(--half) * .34)); }
+  to { transform:translateX(calc(var(--side) * var(--half) * .67)); } }
+@keyframes mp-grip2 { from { transform:translateX(calc(var(--side) * var(--half) * .67)); } to { transform:translateX(calc(var(--side) * var(--half))); } }
+@keyframes mp-squeeze { from { transform:translate(calc(var(--side) * var(--half)), 0px); }
+  to { transform:translate(calc(var(--side) * 40px), var(--hh)); } }
+
+/* ── the turns: upside down at first; a quarter turn (lifted, it hides
+   the chip altogether); another, right way up; a little study between;
+   lowered as it watches the bird ── */
+.is-map .mp-map { transform:translateY(10px) rotate(360deg);
+  --ba:mp-turn1 380ms ease-in-out calc(var(--tl) + var(--b-turn1)) both,
+    mp-turn2 380ms ease-in-out calc(var(--tl) + var(--b-turn2)) forwards,
+    mp-lower 300ms ease-in-out calc(var(--tl) + var(--b-runner) + 120ms) forwards; animation:var(--ba); }
+@keyframes mp-turn1 { from { transform:translateY(0px) rotate(180deg); } to { transform:translateY(-70px) rotate(270deg); } }
+@keyframes mp-turn2 { from { transform:translateY(-70px) rotate(270deg); } to { transform:translateY(0px) rotate(360deg); } }
+@keyframes mp-lower { from { transform:translateY(0px) rotate(360deg); } to { transform:translateY(10px) rotate(360deg); } }
+/* crumpled to nothing between the gloves; the ball takes over */
+.is-map .mp-crumple { transform:translateY(0px) scale(0, 0);
+  --ba:mp-study 900ms ease-in-out calc(var(--tl) + var(--b-study)) both,
+    mp-scrunch 440ms cubic-bezier(.5,0,.8,.6) calc(var(--tl) + var(--b-crumple)) forwards; animation:var(--ba); }
+@keyframes mp-study { 0%, 100% { transform:translateY(0px) scale(1, 1); } 40%, 70% { transform:translateY(-10px) scale(1.04, 1.04); } }
+@keyframes mp-scrunch { 0% { transform:translateY(0px) scale(1, 1) rotate(0deg); } 30% { transform:translateY(0px) scale(.7, .8) rotate(-8deg); }
+  60% { transform:translateY(0px) scale(.45, .4) rotate(10deg); } 99% { opacity:1; transform:translateY(0px) scale(.2, .2) rotate(-4deg); }
+  100% { opacity:0; transform:translateY(0px) scale(0, 0); } }
+
+/* ── the chip: peering; it turns to watch the bird go by; the bonk
+   squashes it; it looks down at the ball ── */
+.is-map .mp-chip .cast-hand { opacity:1;
+  --ba:bit-hide 1ms step-end calc(var(--tl) + 0ms) both, bit-show 1ms step-end calc(var(--tl) + var(--b-crumple) + 440ms) forwards;
+  animation:var(--ba); }
+.is-map .mp-chip .cast-chip-in { transform:rotateY(0deg) rotateX(-16deg);
+  --ba:mp-peer 400ms ease-in-out calc(var(--tl) + var(--b-study)) both,
+    mp-watch 260ms ease-out calc(var(--tl) + var(--b-runner) + 180ms) forwards,
+    mp-back 400ms ease-in-out calc(var(--tl) + var(--b-crumple) - 300ms) forwards,
+    mp-down 360ms ease-out calc(var(--tl) + var(--b-drop) + 220ms) forwards; animation:var(--ba); }
+@keyframes mp-peer { from { transform:rotateY(0deg) rotateX(0deg); } to { transform:rotateY(0deg) rotateX(8deg); } }
+@keyframes mp-watch { from { transform:rotateY(0deg) rotateX(8deg); } to { transform:rotateY(34deg) rotateX(0deg); } }
+@keyframes mp-back { from { transform:rotateY(34deg) rotateX(0deg); } to { transform:rotateY(0deg) rotateX(0deg); } }
+@keyframes mp-down { from { transform:rotateY(0deg) rotateX(0deg); } to { transform:rotateY(0deg) rotateX(-16deg); } }
+.is-map .mp-chip .cast-body { transform:scale(1, 1);
+  --ba:mp-squash 360ms ease-out calc(var(--tl) + var(--b-bonk)) both; animation:var(--ba); }
+@keyframes mp-squash { 0%, 100% { transform:scale(1, 1); } 25% { transform:scale(1.1, .86); } 60% { transform:scale(.97, 1.03); } }
+/* the flick: the near glove throws it */
+.is-map .mp-chip .cast-hand.is-front .cast-hand-fx {
+  --ba:mp-flick 320ms cubic-bezier(.2,.8,.3,1) calc(var(--tl) + var(--b-toss) - 80ms) both; animation:var(--ba); }
+@keyframes mp-flick { 0%, 100% { transform:translate(0px, 0px) rotate(0deg); } 30% { transform:translate(-20px, -60px) rotate(-30deg); }
+  55% { transform:translate(40px, -40px) rotate(20deg); } }
+
+/* ── the ball: off the rock, back over the top onto its head, a pop up
+   and down into the dirt at its feet ── */
+.is-map .mp-ball { opacity:1; transform:translate(78px, 28px);
+  --ba:bit-show 1ms step-end calc(var(--tl) + var(--b-crumple) + 430ms) both,
+    mp-toss 420ms linear calc(var(--tl) + var(--b-toss)) both,
+    mp-rebound 520ms linear calc(var(--tl) + var(--b-rock)) forwards,
+    mp-drop 360ms linear calc(var(--tl) + var(--b-bonk)) forwards,
+    mp-settle 200ms ease-out calc(var(--tl) + var(--b-drop)) forwards; animation:var(--ba); }
+@keyframes mp-toss { 0% { transform:translate(0px, 0px); animation-timing-function:cubic-bezier(.2,.7,.4,1); }
+  50% { transform:translate(180px, -110px); animation-timing-function:cubic-bezier(.6,0,.8,.4); } 100% { transform:translate(346px, -18px); } }
+@keyframes mp-rebound { 0% { transform:translate(346px, -18px); animation-timing-function:cubic-bezier(.2,.7,.4,1); }
+  55% { transform:translate(150px, -380px); animation-timing-function:cubic-bezier(.6,0,.8,.4); } 100% { transform:translate(0px, -234px); } }
+@keyframes mp-drop { 0% { transform:translate(0px, -234px); animation-timing-function:cubic-bezier(.2,.7,.4,1); }
+  40% { transform:translate(40px, -308px); animation-timing-function:cubic-bezier(.6,0,.9,.4); } 100% { transform:translate(78px, 28px); } }
+@keyframes mp-settle { 0%, 100% { transform:translate(78px, 28px); } 45% { transform:translate(74px, 2px); } }
+.is-map .mp-ball-spin { transform:rotate(980deg);
+  --ba:mp-spin 1500ms cubic-bezier(.2,.5,.5,1) calc(var(--tl) + var(--b-toss)) both; animation:var(--ba); }
+@keyframes mp-spin { from { transform:rotate(0deg); } to { transform:rotate(980deg); } }
+.is-map .mp-bonk { opacity:0; --ba:mp-bonk 260ms ease-out calc(var(--tl) + var(--b-bonk)) both; animation:var(--ba); }
+@keyframes mp-bonk { 0% { opacity:0; transform:scale(.5); } 1% { opacity:1; transform:scale(.5); } 50% { opacity:1; transform:scale(1.1); }
+  100% { opacity:0; transform:scale(1.2); } }
+
+/* ── the roadrunner along the horizon, there and gone ── */
+.is-map .mp-runner { transform:translateX(-1900px);
+  --ba:mp-run 460ms linear calc(var(--tl) + var(--b-runner)) both; animation:var(--ba); }
+@keyframes mp-run { from { transform:translateX(0px); } to { transform:translateX(-1900px); } }
+.is-map .mp-runner-dust { --dust-ms:700ms; }

@@ -1,0 +1,169 @@
+/* The cast rig (CastChip.jsx) and the bits' shared inks. Every drawing in a
+   bit is the backglass's: flat fills mixed from the painting's own inks, one
+   ink-black keyline (--bit-line, 7 canvas px) and one hard tone. Every part
+   of a cast member is a node of no size hung off its feet, so a transform's
+   origin is that node: a body falls about its feet, a glove swings about its
+   wrist. Transforms and opacity only. */
+
+.bit-art, .cast {
+  --bit-line:7px;
+  --bit-ink:var(--ink0);
+  --bit-glove:var(--bone);
+  --bit-glove-shade:color-mix(in srgb, var(--bone) 70%, var(--art-violet));
+  --bit-shoe:color-mix(in srgb, var(--art-tangerine) 78%, var(--art-terracotta));
+  --bit-shoe-sole:color-mix(in srgb, var(--art-umber) 62%, var(--ink0));
+  --bit-shadow:color-mix(in srgb, var(--ink0) 46%, transparent);
+  /* iron (an anvil), gunmetal (a revolver), and the light on them */
+  --bit-iron:color-mix(in srgb, var(--silver) 40%, var(--art-indigo));
+  --bit-iron-lit:color-mix(in srgb, var(--silver) 70%, var(--bone));
+  --bit-metal:color-mix(in srgb, var(--silver) 70%, var(--art-indigo));
+  --bit-metal-dark:color-mix(in srgb, var(--art-indigo) 62%, var(--ink0));
+  --bit-wood:color-mix(in srgb, var(--art-terracotta) 70%, var(--art-umber));
+  /* fire, smoke and dust */
+  --bit-fire:var(--sun);
+  --bit-fire-hot:var(--art-cream);
+  --bit-smoke:color-mix(in srgb, var(--bone) 88%, var(--art-violet));
+  --bit-dust:color-mix(in srgb, var(--art-cream) 62%, var(--art-terracotta));
+  --bit-dust-shade:color-mix(in srgb, var(--art-cream) 34%, var(--art-terracotta));
+  /* the desert's own: brush, a bird, water */
+  --bit-brush:color-mix(in srgb, var(--art-cream) 52%, var(--art-umber));
+  --bit-bird:color-mix(in srgb, var(--art-umber) 70%, var(--art-terracotta));
+  --bit-bird-lit:color-mix(in srgb, var(--art-cream) 78%, var(--art-terracotta));
+  --bit-bird-crest:color-mix(in srgb, var(--art-cobalt) 55%, var(--art-violet));
+  --bit-beak:color-mix(in srgb, var(--sun) 75%, var(--art-tangerine));
+  --bit-sweat:color-mix(in srgb, var(--art-turquoise) 42%, var(--bone));
+  --bit-star:var(--sun);
+}
+
+.cast { position:absolute; width:0; height:0; }
+.cast-swap { position:absolute; left:0; top:0; width:0; height:0; }
+.cast :is(.cast-move, .cast-hop, .cast-body, .cast-body-in, .cast-hand, .cast-hand-in, .cast-hand-fx, .cast-mirror, .cast-pose,
+  .cast-held, .cast-held-in, .cast-held-fx, .cast-shoe, .cast-shoe-in) { position:absolute; left:0; top:0; width:0; height:0;
+  transform-origin:0 0; }
+.cast-shadow { position:absolute; border-radius:50%; background:var(--bit-shadow); }
+
+/* the chip: a coin on its edge; its 3D turns and tilts pivot on its rim
+   at the floor (rotateX back is looking up) */
+.cast-chip { position:absolute; perspective:900px; perspective-origin:50% 30%; }
+.cast-chip-in { position:absolute; inset:0; transform-origin:50% 100%; transform:var(--cast-turn, none);
+  transform-style:preserve-3d; }
+.cast-edge { position:absolute; left:0; display:block; }
+.cast-face { position:absolute; left:0; top:0; display:block; line-height:0; }
+.cast-wear { position:absolute; left:0; top:0; width:100%; height:100%; }
+
+/* the gloves and shoes: ink a keyline wider, then paint */
+.cast-glove, .cast-shoe-art { position:absolute; display:block; overflow:visible; }
+.cast-ink { fill:var(--bit-ink); stroke:var(--bit-ink); stroke-linecap:round; stroke-linejoin:round; }
+.cast-ink[fill="none"] { fill:none; }
+.cast-paint { fill:var(--bit-glove); }
+.cast-paint.is-cap { fill:none; stroke:var(--bit-glove); stroke-linecap:round; stroke-linejoin:round; }
+.cast-shade { fill:var(--bit-glove-shade); }
+.cast-line { fill:none; stroke:var(--bit-ink); stroke-linecap:round; stroke-linejoin:round; }
+.cast-shoe-upper { fill:var(--bit-shoe); }
+.cast-shoe-sole { stroke:var(--bit-shoe-sole); stroke-linecap:round; }
+.cast-shoe-shine { stroke:color-mix(in srgb, var(--bone) 70%, var(--bit-shoe)); stroke-linecap:round; }
+
+/* a held prop sits behind the glove, so the fingers close over it */
+.cast-pose > .cast-held { z-index:0; }
+.cast-pose > .cast-glove { z-index:1; }
+
+/* "+N" lettered beside a side, past its outer glove */
+.cast-more { position:absolute; display:block; width:0; height:0; }
+.cast-more-in { position:absolute; left:0; top:0; display:block; white-space:nowrap; font-size:64px; line-height:1.15; color:var(--bone);
+  text-shadow:3px 0 0 var(--ink0), -3px 0 0 var(--ink0), 0 3px 0 var(--ink0), 0 -3px 0 var(--ink0), 2px 2px 0 var(--ink0),
+    -2px 2px 0 var(--ink0), 2px -2px 0 var(--ink0), -2px -2px 0 var(--ink0), 0 6px 0 var(--ink0); }
+
+/* a pose layer swaps on the bit's clock (CastChip poseLayerStyle) */
+@keyframes cast-on { from { opacity:0; } to { opacity:1; } }
+@keyframes cast-off { from { opacity:1; } to { opacity:0; } }
+
+/* ══ the action bits' inks (explosionwalk, dontlookback, quicksand) ══ */
+.bit-art, .cast {
+  /* a fireball's outside and the shade under it; smoke, lit on top and
+     lit from below by the fire */
+  --bit-blast:var(--art-tangerine);
+  --bit-blast-shade:color-mix(in srgb, var(--art-tangerine) 62%, var(--art-terracotta));
+  --bit-soot:color-mix(in srgb, var(--ink0) 76%, var(--art-violet));
+  --bit-soot-lit:color-mix(in srgb, var(--art-violet) 38%, var(--ink0));
+  --bit-soot-fire:color-mix(in srgb, var(--art-tangerine) 52%, var(--ink0));
+  /* scorched: what a blast leaves on whatever stood in front of it */
+  --bit-scorch:color-mix(in srgb, var(--ink0) 88%, var(--art-umber));
+  /* a saguaro up close */
+  --bit-cactus:color-mix(in srgb, var(--art-sage) 62%, var(--olive));
+  --bit-cactus-lit:color-mix(in srgb, var(--olive) 72%, var(--art-cream));
+  /* sand: dry on top, wet where it swallows things */
+  --bit-sand:color-mix(in srgb, var(--art-cream) 58%, var(--art-terracotta));
+  --bit-sand-wet:color-mix(in srgb, var(--art-cream) 30%, var(--art-umber));
+  --bit-sand-line:color-mix(in srgb, var(--art-umber) 72%, var(--art-terracotta));
+  /* a casino chip's red */
+  --bit-chip-red:var(--clay);
+}
+
+/* ── idle's inks (Oct 10): a foreground saguaro, paper and its print, a
+   moth, a pillow, straw, rock and the lighter and darker wood ── */
+.bit-art, .cast {
+  --bit-idle-cactus:color-mix(in srgb, var(--olive) 58%, var(--art-sage));
+  --bit-idle-cactus-lit:color-mix(in srgb, var(--olive) 84%, var(--art-cream));
+  --bit-cactus-rib:color-mix(in srgb, var(--art-sage) 78%, var(--ink0));
+  --bit-bloom:var(--bone);
+  --bit-paper:color-mix(in srgb, var(--art-cream) 58%, var(--bone));
+  --bit-paper-shade:color-mix(in srgb, var(--bit-paper) 84%, var(--art-umber));
+  --bit-moth:color-mix(in srgb, var(--art-cream) 55%, var(--silver));
+  --bit-moth-dark:color-mix(in srgb, var(--art-umber) 62%, var(--silver));
+  --bit-pillow:color-mix(in srgb, var(--bone) 86%, var(--art-violet));
+  --bit-pillow-shade:color-mix(in srgb, var(--bone) 58%, var(--art-violet));
+  --bit-straw:color-mix(in srgb, var(--sun) 42%, var(--art-cream));
+  --bit-straw-shade:color-mix(in srgb, var(--sun) 52%, var(--art-terracotta));
+  --bit-wood-lit:color-mix(in srgb, var(--bit-wood) 62%, var(--art-cream));
+  --bit-wood-dark:color-mix(in srgb, var(--bit-wood) 60%, var(--ink0));
+  --bit-rock:color-mix(in srgb, var(--art-terracotta) 58%, var(--art-umber));
+  --bit-rock-lit:color-mix(in srgb, var(--art-tangerine) 58%, var(--art-terracotta));
+}
+
+/* ── the slapstick bits' inks (springglove, toohype, dynamite): a boxing
+   glove's red leather, dynamite, a party table, a cupcake, soot ── */
+.bit-art, .cast {
+  --bit-red:color-mix(in srgb, var(--clay) 86%, var(--art-terracotta));
+  --bit-red-dark:color-mix(in srgb, var(--clay) 48%, var(--art-umber));
+  --bit-red-lit:color-mix(in srgb, var(--clay) 40%, var(--bone));
+  --bit-cupcake-paper:color-mix(in srgb, var(--art-turquoise) 70%, var(--bone));
+  --bit-frosting:color-mix(in srgb, var(--bone) 78%, var(--art-rose));
+  --bit-fuse:color-mix(in srgb, var(--art-umber) 55%, var(--ink0));
+  --bit-match:color-mix(in srgb, var(--art-cream) 82%, var(--art-terracotta));
+  --bit-cloth:color-mix(in srgb, var(--bone) 92%, var(--art-violet));
+  --bit-cloth-lit:var(--bone);
+  --bit-table-leg:color-mix(in srgb, var(--art-indigo) 58%, var(--ink0));
+  --bit-slap-soot:color-mix(in srgb, var(--ink0) 88%, var(--art-violet));
+  --bit-slap-soot-lit:color-mix(in srgb, var(--bone) 30%, var(--ink0));
+  --bit-smoke-dark:color-mix(in srgb, var(--bone) 56%, var(--ink0));
+}
+
+/* ── the deadpan desert's inks (Oct 10: butte, sunset, statue, vulture).
+   Rock wears the session's painting where a scene wraps it in class
+   "tv-desert" with data-phase (--d-mesa, --d-shade); these are the
+   afternoon's, for anywhere else. ── */
+.bit-art, .cast {
+  --bit-desert-rock:color-mix(in srgb, var(--art-tangerine) 55%, var(--art-terracotta));
+  --bit-desert-rock-shade:color-mix(in srgb, var(--art-umber) 85%, var(--art-terracotta));
+  /* gold, for a statue */
+  --bit-gold:color-mix(in srgb, var(--sun) 74%, var(--art-cream));
+  --bit-gold-lit:color-mix(in srgb, var(--art-cream) 60%, var(--bone));
+  /* a cactus wren: warm brown, a pale spotted breast */
+  --bit-wren:color-mix(in srgb, var(--art-umber) 52%, var(--art-terracotta));
+  --bit-wren-dark:color-mix(in srgb, var(--art-umber) 70%, var(--ink0));
+  --bit-wren-lit:color-mix(in srgb, var(--art-cream) 82%, var(--art-terracotta));
+  /* a turkey vulture: a dark cloak, silver flight feathers, a bald red head */
+  --bit-vulture:color-mix(in srgb, var(--art-umber) 64%, var(--art-plum));
+  --bit-vulture-far:color-mix(in srgb, var(--art-umber) 40%, var(--ink0));
+  --bit-vulture-lit:color-mix(in srgb, var(--art-umber) 62%, var(--silver));
+  --bit-vulture-quill:color-mix(in srgb, var(--silver) 64%, var(--art-umber));
+  --bit-vulture-head:color-mix(in srgb, var(--art-rose) 58%, var(--art-terracotta));
+  --bit-vulture-beak:color-mix(in srgb, var(--art-cream) 78%, var(--bone));
+  --bit-vulture-leg:color-mix(in srgb, var(--art-rose) 28%, var(--bone));
+  --bit-napkin:var(--bone);
+  --bit-napkin-fold:color-mix(in srgb, var(--bone) 72%, var(--art-violet));
+}
+/* the finale's painting is near black: a scene's own rock there is cut
+   from slate so it still reads on the sky (the painting is untouched) */
+.bit-scene .tv-desert[data-phase="fin"] { --d-mesa:color-mix(in srgb, var(--silver) 45%, var(--paper2));
+  --d-shade:color-mix(in srgb, var(--silver) 20%, var(--paper2)); }

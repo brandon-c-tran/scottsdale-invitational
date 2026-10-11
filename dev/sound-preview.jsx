@@ -8,7 +8,7 @@
    No app connection, storage, or remote service. */
 import React, { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { BOARD_PARTS, KIT, PARTS, SOUNDS, ROOMS, makeEngine, playRecipe, setListen, setRoom, limitChips } from "../src/lib/soundKit.js";
+import { BIT_PARTS, BOARD_PARTS, KIT, PARTS, SOUNDS, ROOMS, makeEngine, playRecipe, setListen, setRoom, limitChips } from "../src/lib/soundKit.js";
 import { advanceCues, crownCues, revealPans } from "../src/features/tv/roomSound.js";
 import { DRAW_INTRO_MS, drawStepDelay } from "../src/features/weekend/drawReveal.js";
 import { ADVANCE_TIMING, CROWN_TIMING } from "../src/features/tv/tvMotion.js";
@@ -32,6 +32,7 @@ const GROUPS = [
   ["Commissioner", ["S25", "S26"]],
   ["Sequence parts", PARTS.map(part => part.id)],
   ["Trivia board", BOARD_PARTS.map(part => part.id)],
+  ["Bits", BIT_PARTS.map(part => part.id)],
 ];
 
 /* the five sequences, built from the production schedules */
@@ -86,7 +87,7 @@ async function measure(label, seconds, fn, { room = "san", listen = "tv" } = {})
 async function selftest() {
   const rows = [];
   try {
-    for (const s of [...KIT, ...PARTS, ...BOARD_PARTS])
+    for (const s of [...KIT, ...PARTS, ...BOARD_PARTS, ...BIT_PARTS])
       rows.push(await measure(`${s.id} ${s.name}`, Math.max(1.5, s.ms / 1000 + 1.5), (E, t) => playRecipe(E, s.id, t)));
     /* the board's loudest moment: a buzz-in pile-up, the order, a wrong, a right */
     rows.push(await measure("board: four buzzes, the order, wrong then right", 4, (E, t) => {

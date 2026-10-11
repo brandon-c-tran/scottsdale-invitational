@@ -1,0 +1,84 @@
+/* Bits (BitStage.jsx): the TV's comic moments, played on the session's
+   painting. One clock: --tl is minus the ms already gone when this screen
+   joined the bit, so calc(var(--tl) + var(--b-bang)) is the bang on every
+   screen at once; a bit's named beats arrive as --b-<name> (registry.js).
+
+   THE CONVENTION for every animated element in a bit:
+     --ba:<animation, ...>; animation:var(--ba);
+   with fill `both` (or `forwards`), so each element rests on its end state.
+   A frozen bit (reduced motion's still, the reel's step-through) re-applies
+   --ba with !important and pauses it, which survives the app-wide
+   reduced-motion rule (shell.css) and holds every element on one instant.
+   --ba never inherits, so a child never picks up its parent's motion.
+   Transforms and opacity only. Canvas pixels; text 24px and up. */
+
+@property --ba { syntax:"*"; inherits:false; }
+:where(.bit-layer, .bit-layer *), :where(.bit-layer *)::before, :where(.bit-layer *)::after { --ba:none; }
+.bit-layer.is-frozen, .bit-layer.is-frozen *, .bit-layer.is-frozen *::before, .bit-layer.is-frozen *::after {
+  animation:var(--ba) !important; animation-play-state:paused !important; }
+
+/* ── the stage: a 1920 x 1080 canvas on the session's painting, scaled
+   to its box and letterboxed (the reel, the frames tool, a phone) ── */
+.bit-stage { position:relative; width:100%; height:100%; overflow:hidden; background:var(--night-deep); contain:strict; }
+.bit-stage > .tv-stage { position:absolute; inset:0; z-index:auto; }
+.bit-stage .bit-canvas { contain:strict; }
+
+/* ── the layer: comes up on the painting and lifts off at the end ── */
+.bit-layer { position:absolute; left:0; top:0; width:1920px; height:1080px; overflow:hidden; pointer-events:none; z-index:2;
+  --ba:bit-in var(--bit-in, 260ms) var(--ease-out) calc(var(--tl) + 0ms) both,
+    bit-out var(--bit-out, 380ms) var(--ease-exit) calc(var(--tl) + var(--bit-ms) - var(--bit-out, 380ms)) forwards;
+  animation:var(--ba); }
+@keyframes bit-in { from { opacity:0; } to { opacity:1; } }
+@keyframes bit-out { from { opacity:1; } to { opacity:0; } }
+/* the sky dims a little so the lettering and the cast stand off the art */
+.bit-dim { position:absolute; inset:0; pointer-events:none;
+  background:linear-gradient(180deg, color-mix(in srgb, var(--night-deep) 52%, transparent),
+    color-mix(in srgb, var(--night-deep) 18%, transparent) 46%, transparent 70%); }
+/* the shot: the painting, the floor's light and the scene, zoomed and
+   panned together by the bit's camera (bits/camera.js) about the floor;
+   the shake kicks the whole shot, never the lettering */
+.bit-shake, .bit-world { position:absolute; left:0; top:0; width:1920px; height:1080px; }
+.bit-world { transform-origin:0 0; will-change:transform; }
+.bit-painting { position:absolute; left:0; top:0; }
+/* a pool of light on the desert floor where the cast stands: the floor is
+   dark in every session (the towers' names sit on it), and a bit's
+   shadows, pancakes and dropped props have to read on it */
+.bit-floorlight { position:absolute; left:40px; right:40px; top:846px; height:180px; pointer-events:none;
+  background:radial-gradient(50% 50% at 50% 50%, color-mix(in srgb, var(--bone) 17%, transparent),
+    color-mix(in srgb, var(--bone) 7%, transparent) 62%, transparent 100%); }
+.bit-scene { position:absolute; inset:0; }
+
+/* one white frame over everything (a gunshot), gone by its instant */
+.bit-wash { position:absolute; inset:0; pointer-events:none; opacity:0; background:var(--bone); }
+@keyframes bit-wash { 0% { opacity:0; } 1% { opacity:.9; } 45% { opacity:.9; } 100% { opacity:0; } }
+
+/* ── lettering on the painting: the name, and the moment's fact under
+   it, where the shot leaves room (the registry's letter.place), inside the
+   TV's title-safe edges; bone show lettering on a heavy ink keyline, lit
+   from behind in the bit's lamp (the winner's flood, or the loss's clay) ── */
+.bit-words { position:absolute; top:calc(var(--tv-safe-y, 54px) + 4px); display:flex; flex-direction:column; }
+.bit-words.is-top { left:120px; right:120px; align-items:center; text-align:center; }
+.bit-words.is-top-left { left:calc(var(--tv-edge, 64px) + 8px); max-width:900px; align-items:flex-start; text-align:left; }
+.bit-words.is-top-right { right:calc(var(--tv-edge, 64px) + 8px); max-width:900px; align-items:flex-end; text-align:right; }
+.bit-words.is-top-left .bit-letter { transform-origin:0 70%; }
+.bit-words.is-top-right .bit-letter { transform-origin:100% 70%; }
+.bit-letter { display:block; max-width:100%; white-space:nowrap; line-height:1.15; color:var(--bone);
+  font-family:var(--fd-show); font-weight:900; letter-spacing:.01em; transform-origin:50% 70%;
+  text-shadow:4px 0 0 var(--ink0), -4px 0 0 var(--ink0), 0 4px 0 var(--ink0), 0 -4px 0 var(--ink0), 3px 3px 0 var(--ink0),
+    -3px 3px 0 var(--ink0), 3px -3px 0 var(--ink0), -3px -3px 0 var(--ink0), 0 9px 0 var(--ink0),
+    0 0 34px color-mix(in srgb, var(--bit-lamp, var(--sun)) 72%, transparent);
+  --ba:bit-stamp 360ms var(--ease-land) calc(var(--tl) + var(--b-letter) + var(--d, 0ms)) both; animation:var(--ba); }
+.bit-letter.is-fact { --d:110ms; font-size:78px; font-variant-numeric:tabular-nums; }
+.bit-letter.is-fact.is-loss { color:var(--clay-text); }
+@keyframes bit-stamp { 0% { opacity:0; transform:scale(1.7) rotate(-5deg); } 62% { opacity:1; transform:scale(.95) rotate(1deg); }
+  100% { opacity:1; transform:none; } }
+
+/* ── shared moves a scene can borrow ── */
+@keyframes bit-show { from { opacity:0; } to { opacity:1; } }
+@keyframes bit-hide { from { opacity:1; } to { opacity:0; } }
+/* the shot's kicks (the registry's camera.shakes): a knock, and a big one */
+@keyframes bit-shake { 0%, 100% { transform:none; } 20% { transform:translate(-9px, 4px); } 40% { transform:translate(8px, -5px); }
+  60% { transform:translate(-5px, 3px); } 80% { transform:translate(3px, -1px); } }
+@keyframes bit-shake-big { 0%, 100% { transform:none; } 14% { transform:translate(-24px, 12px) rotate(-.7deg); }
+  30% { transform:translate(20px, -14px) rotate(.6deg); } 48% { transform:translate(-13px, 8px) rotate(-.3deg); }
+  66% { transform:translate(9px, -5px); } 84% { transform:translate(-4px, 2px); } }

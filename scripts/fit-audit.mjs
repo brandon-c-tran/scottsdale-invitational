@@ -27,6 +27,7 @@ import { collectFit } from "../dev/fit/collect.js";
 import { findingsFor, failing, summarize } from "../dev/fit/rules.js";
 import { FIT_EXCEPTIONS } from "../dev/fit/exceptions.js";
 import { TV_SCENARIOS, PHONE_SCENARIOS, PHONE_TABS, PHONE_SIZES } from "../dev/fit/scenarios.js";
+import { standInGeo, standInPhoto } from "../dev/fit/standins.js";
 
 const ROOT = fileURLToPath(new URL("../", import.meta.url));
 /* FIT_OUT keeps a parallel run's report and shots apart */
@@ -48,14 +49,9 @@ const IGNORE = ".fd-reel-strip, .fd-drum, .fd-reel-sizer, .sr-only, .fd-sr, .vis
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 /* ── the server ── */
-const PHOTO = (seed, label) => {
-  const hue = [...seed].reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 360, 7);
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240"><rect width="240" height="240" fill="hsl(${hue} 35% 42%)"/>`
-    + `<circle cx="120" cy="96" r="52" fill="hsl(${hue} 30% 78%)"/><rect x="40" y="160" width="160" height="110" rx="70" fill="hsl(${hue} 30% 78%)"/>`
-    + (label ? `<text x="120" y="230" font-size="20" text-anchor="middle" fill="#fff">${label}</text>` : "") + `</svg>`;
-};
-const GEO = id => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1200"><rect width="1600" height="1200" fill="#5b7fa3"/>`
-  + `<rect y="700" width="1600" height="500" fill="#7a6a4f"/><circle cx="${300 + (id.length * 97) % 900}" cy="300" r="140" fill="#f1d27a"/></svg>`;
+/* stand-in photos (dev/fit/standins.js, shared with the bits reel) */
+const PHOTO = standInPhoto;
+const GEO = standInGeo;
 const fitPlugin = {
   name:"fd-fit-audit",
   enforce:"pre",

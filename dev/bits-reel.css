@@ -1,0 +1,72 @@
+/* The bits review reel (bits-reel.jsx). The app's own tokens
+   (experience.css): blue-black glass, bone ink, amber for the one action,
+   cyan for what is chosen. One column; every stage 16:9 at the width, and
+   in a phone held sideways no taller than the screen. */
+:root { color-scheme:dark; }
+/* held sideways, a stage snaps whole into view */
+html { scroll-snap-type:y proximity; }
+html, body { margin:0; background:var(--bg); color:var(--ink); }
+body { font-family:var(--fd-body); -webkit-text-size-adjust:100%; }
+button, select, input { font:inherit; color:inherit; }
+button:focus-visible, select:focus-visible, input:focus-visible { outline:2px solid var(--lamp-info); outline-offset:3px; }
+
+.br { box-sizing:border-box; max-width:1120px; margin:0 auto; padding-inline:16px; padding-block:20px 56px;
+  display:flex; flex-direction:column; gap:30px; }
+.br-head { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px 20px; }
+.br-title { margin:0; font:900 48px/1 var(--fd-show); letter-spacing:.01em; color:var(--bone); }
+.br-global { display:flex; flex-wrap:wrap; align-items:center; gap:10px; }
+.br-select { display:inline-flex; align-items:center; gap:8px; color:var(--muted2); font:600 13px/1 var(--fd-body); }
+.br-select select { min-height:44px; padding:0 12px; border-radius:10px; background:var(--paper2); border:1px solid var(--ghost-line);
+  font:600 15px/1 var(--fd-body); }
+
+/* a segmented control: the chosen one lit cyan */
+.br-seg { display:inline-flex; flex-wrap:wrap; gap:4px; padding:4px; border-radius:12px; background:var(--paper); border:1px solid var(--line); }
+.br-seg button { min-height:40px; padding:0 12px; border:0; border-radius:8px; background:transparent; color:var(--muted2);
+  font:600 14px/1 var(--fd-body); cursor:pointer; }
+.br-seg button[aria-pressed="true"] { background:var(--paper2); color:var(--ink); box-shadow:inset 0 0 0 1px var(--lamp-info); }
+
+.br-shape { display:flex; flex-direction:column; gap:14px; }
+.br-shape-head { display:flex; flex-wrap:wrap; align-items:center; gap:6px 14px; padding-bottom:10px; border-bottom:1px solid var(--line); }
+.br-shape-head h2 { margin:0; font:800 26px/1.1 var(--fd-display); letter-spacing:.08em; text-transform:uppercase; color:var(--bone); }
+.br-random { margin-left:auto; min-height:44px; padding:0 14px; border-radius:10px; border:1px solid var(--ghost-line); background:var(--paper);
+  color:var(--lamp-info); font:700 15px/1 var(--fd-body); cursor:pointer; }
+
+.br-cards { display:flex; flex-direction:column; gap:34px; }
+.br-card { display:flex; flex-direction:column; gap:12px; min-width:0; }
+/* the stage: 16:9 at the column's width, never taller than the screen */
+.br-stage { position:relative; width:min(100%, calc((100dvh - 48px) * 16 / 9)); max-width:100%; aspect-ratio:16 / 9; margin-inline:auto;
+  border-radius:14px; overflow:hidden; background:var(--bg); box-shadow:var(--glass-edge), var(--shadow-2); scroll-snap-align:center; }
+/* the whole stage plays it; the badge says so */
+.br-play { position:absolute; inset:0; display:flex; align-items:flex-start; justify-content:flex-start; padding:10px; border:0;
+  background:transparent; cursor:pointer; }
+.br-badge { display:inline-flex; align-items:center; gap:6px; min-height:44px; padding:0 18px 0 12px; border-radius:99px;
+  background:var(--sun); color:var(--ink0); box-shadow:var(--shadow-2);
+  font:800 20px/1 var(--fd-display); letter-spacing:.08em; text-transform:uppercase; }
+
+.br-meta { display:flex; flex-wrap:wrap; align-items:baseline; gap:4px 16px; }
+.br-name { margin:0; font:900 30px/1.1 var(--fd-show); letter-spacing:.01em; color:var(--bone); }
+.br-line { display:flex; flex-wrap:wrap; gap:4px 14px; margin:0; color:var(--muted2); font:600 14px/1.3 var(--fd-body); }
+.br-controls { display:flex; flex-wrap:wrap; gap:8px; }
+/* the instants: a row of stops along the bit, scrolling inside itself */
+.br-instants { display:flex; gap:6px; overflow-x:auto; padding-bottom:4px; scrollbar-width:thin; }
+.br-instants button { flex:none; display:flex; flex-direction:column; align-items:flex-start; justify-content:center; gap:3px; min-height:48px;
+  padding:6px 10px; border-radius:10px; border:1px solid var(--line); background:var(--paper); color:var(--muted2); cursor:pointer; }
+.br-instants button span { font:700 12px/1 var(--fd-display); letter-spacing:.08em; text-transform:uppercase; }
+.br-instants button b { font:800 17px/1 var(--fd-display); font-variant-numeric:tabular-nums; color:var(--ink); }
+.br-instants button.is-on { border-color:var(--lamp-info); box-shadow:inset 0 0 0 1px var(--lamp-info); }
+.br-scrub { display:flex; align-items:center; gap:12px; min-height:44px; }
+.br-scrub input { flex:1; min-width:0; accent-color:var(--lamp-info); }
+.br-scrub output { min-width:64px; text-align:right; font:800 17px/1 var(--fd-display); font-variant-numeric:tabular-nums; color:var(--muted2); }
+.br-sr { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
+
+/* ?frame and ?sheet: the canvas fills the viewport */
+.br-frame { position:fixed; inset:0; overflow:hidden; background:var(--bg); }
+/* ?contact: a grid of instants */
+.br-contact { display:grid; align-content:center; gap:4px; padding:4px; }
+.br-contact-cell { position:relative; aspect-ratio:16 / 9; }
+/* bottom right: the lettering lives up top */
+.br-contact-t { position:absolute; right:6px; bottom:4px; padding:2px 8px; border-radius:6px; background:color-mix(in srgb, var(--ink0) 80%, transparent);
+  color:var(--bone); font:800 18px/1.2 var(--fd-display); font-variant-numeric:tabular-nums; }
+.br-at { position:absolute; display:block; width:0; height:0; }
+.br-tag { position:absolute; white-space:nowrap; font:800 26px/1.15 var(--fd-display); letter-spacing:.06em; text-transform:uppercase;
+  color:var(--bone); }

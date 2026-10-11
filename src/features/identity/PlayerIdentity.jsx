@@ -129,9 +129,10 @@ const chipMarks = (skin, cx = 16, edge = 12.4, ink = "var(--chip-mark)") => {
    a bare chip. Initials reach the surface's floor on a plate that holds
    4.5:1; a small chip widens its plate over the skin to fit them
    (discLetters.js chipLetters). An explicit `stamp` always wins: a bet's
-   value, a blind level, or "" for blank. */
+   value, a blind level, or "" for blank. `photo` stands in for the saved
+   photo's URL where there is no photo server (a rehearsal's stand-ins). */
 function ChipFace({ p, size=18, empty, stamp: stampOverride, fallback, skin: skinOverride,
-  color: colorOverride, isLight: lightOverride, valueRing=false, flat=false }) {
+  color: colorOverride, isLight: lightOverride, valueRing=false, flat=false, photo: photoOverride }) {
   const uid = useId().replace(/:/g, "");
   const clipId = `chip-edge-${uid}`, faceId = `chip-face-${uid}`;
   const identity = usePlayerIdentity(p);
@@ -146,8 +147,8 @@ function ChipFace({ p, size=18, empty, stamp: stampOverride, fallback, skin: ski
   const skinInk = light ? "var(--ink0)" : "var(--chip-mark)";
   const inlay = light ? "rgba(42,33,25,0.08)" : "rgba(251,243,228,0.10)";
   const inlayLine = light ? "rgba(42,33,25,0.38)" : "rgba(251,243,228,0.36)";
-  const photo = stampOverride == null && identity.photo && failed !== identity.photo
-    ? identity.photo : null;
+  const source = photoOverride !== undefined ? photoOverride : identity.photo;
+  const photo = stampOverride == null && source && failed !== source ? source : null;
   const photoR = chipPhotoRadius(size);
   const lettered = stampOverride == null && fallback == null;
   /* a person's chip letters their initials (sized by chipLetters); a value

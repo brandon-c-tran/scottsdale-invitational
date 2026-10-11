@@ -1,0 +1,85 @@
+/* pushups (pushups.jsx): beats from registry.js (--b-<name>), every
+   animation on --ba, each element resting on its end state (flat on its
+   face, one glove up). A run of moves on one property: the first fills
+   both ways, the rest forwards, each starting where the last left off.
+   The camera and the shake are the stage's (the registry). */
+
+.is-pushups .pu { position:absolute; inset:0; }
+.is-pushups .pu-node { position:absolute; display:block; width:0; height:0; }
+
+/* ── the chip: held up between its gloves, tipped about its middle; down
+   toward the floor and up four times, the last all the way down ── */
+.is-pushups .pu-chip .cast-hand { opacity:0; }
+.is-pushups .pu-chip .cast-hop { perspective:900px; perspective-origin:0 -260px; }
+.is-pushups .pu-chip .cast-body { transform-origin:0px var(--mid); transform:translateY(110px) rotateX(-99deg);
+  --ba:pu-down 350ms ease-in-out calc(var(--tl) + var(--b-down1)) both,
+    pu-up 400ms ease-in-out calc(var(--tl) + var(--b-up1)) forwards,
+    pu-down 400ms ease-in-out calc(var(--tl) + var(--b-down2)) forwards,
+    pu-up-hitch 600ms ease-in-out calc(var(--tl) + var(--b-up2)) forwards,
+    pu-down 450ms ease-in-out calc(var(--tl) + var(--b-down3)) forwards,
+    pu-up-slow 950ms ease-in-out calc(var(--tl) + var(--b-up3)) forwards,
+    pu-down 500ms ease-in-out calc(var(--tl) + var(--b-down4)) forwards,
+    pu-try 400ms ease-in-out calc(var(--tl) + var(--b-strain)) forwards,
+    pu-collapse 150ms cubic-bezier(.55,0,1,.5) calc(var(--tl) + var(--b-collapse)) forwards,
+    pu-bounce 220ms ease-out calc(var(--tl) + var(--b-flat)) forwards; animation:var(--ba); }
+@keyframes pu-down { from { transform:translateY(-36px) rotateX(-12deg); } to { transform:translateY(34px) rotateX(-44deg); } }
+@keyframes pu-up { from { transform:translateY(34px) rotateX(-44deg); } to { transform:translateY(-36px) rotateX(-12deg); } }
+@keyframes pu-up-hitch { 0% { transform:translateY(34px) rotateX(-44deg); } 50% { transform:translateY(-8px) rotateX(-28deg); }
+  66% { transform:translateY(-10px) rotateX(-27deg); } 100% { transform:translateY(-36px) rotateX(-12deg); } }
+@keyframes pu-up-slow { 0% { transform:translateY(34px) rotateX(-44deg); } 42% { transform:translateY(0px) rotateX(-34deg); }
+  68% { transform:translateY(-6px) rotateX(-31deg); } 100% { transform:translateY(-36px) rotateX(-12deg); } }
+@keyframes pu-try { 0% { transform:translateY(34px) rotateX(-44deg); } 60% { transform:translateY(4px) rotateX(-36deg); }
+  100% { transform:translateY(6px) rotateX(-37deg); } }
+@keyframes pu-collapse { from { transform:translateY(6px) rotateX(-37deg); } to { transform:translateY(110px) rotateX(-99deg); } }
+@keyframes pu-bounce { 0%, 100% { transform:translateY(110px) rotateX(-99deg); } 40% { transform:translateY(102px) rotateX(-93deg); } }
+/* face down, its back is what shows (the chip without its photo) */
+.is-pushups .pu-back { position:absolute; left:0; top:0; display:block; line-height:0; opacity:1;
+  --ba:bit-show 1ms step-end calc(var(--tl) + var(--b-collapse) + 100ms) both; animation:var(--ba); }
+/* the shakes: the third one up, and the fourth that gets nowhere */
+.is-pushups .pu-chip .cast-body-in, .is-pushups .pu-hand-shake {
+  --ba:pu-tremble 70ms linear calc(var(--tl) + var(--b-up3) + 220ms) 10 both,
+    pu-tremble 70ms linear calc(var(--tl) + var(--b-strain)) 6 forwards; animation:var(--ba); }
+@keyframes pu-tremble { 0%, 100% { transform:translate(0px, 0px) rotate(0deg); } 33% { transform:translate(2px, -1px) rotate(1deg); }
+  66% { transform:translate(-2px, 1px) rotate(-.8deg); } }
+/* held up off the floor its shadow is small; flat out, it spreads */
+.is-pushups .pu-chip .cast-shadow { transform:translateY(-8px) scale(1.12, 1.9);
+  --ba:pu-shadow 150ms ease-in calc(var(--tl) + var(--b-collapse)) both; animation:var(--ba); }
+@keyframes pu-shadow { from { transform:translateY(0px) scale(.8, .8); } to { transform:translateY(-8px) scale(1.12, 1.9); } }
+
+/* ── the gloves: planted; they give out sideways as it goes flat; then
+   the near one comes up a little, thumb up, wobbling ── */
+.is-pushups .pu-hand.is-l .pu-hand-slide { transform:translate(-50px, 16px) rotate(-64deg);
+  --ba:pu-slide-l 160ms cubic-bezier(.4,0,.9,.6) calc(var(--tl) + var(--b-collapse)) both; animation:var(--ba); }
+@keyframes pu-slide-l { from { transform:translate(0px, 0px) rotate(0deg); } to { transform:translate(-50px, 16px) rotate(-64deg); } }
+.is-pushups .pu-hand.is-r .pu-hand-slide { transform:translate(50px, 16px) rotate(64deg);
+  --ba:pu-slide-r 160ms cubic-bezier(.4,0,.9,.6) calc(var(--tl) + var(--b-collapse)) both; animation:var(--ba); }
+@keyframes pu-slide-r { from { transform:translate(0px, 0px) rotate(0deg); } to { transform:translate(50px, 16px) rotate(64deg); } }
+/* each glove takes the weight at the bottom of each one: pressed flatter
+   on the floor about its fingertips */
+.is-pushups .pu-hand-press { transform-origin:0px var(--tips); transform:scale(1, 1);
+  --ba:pu-press 350ms ease-in-out calc(var(--tl) + var(--b-down1)) both,
+    pu-unpress 400ms ease-in-out calc(var(--tl) + var(--b-up1)) forwards,
+    pu-press 400ms ease-in-out calc(var(--tl) + var(--b-down2)) forwards,
+    pu-unpress 600ms ease-in-out calc(var(--tl) + var(--b-up2)) forwards,
+    pu-press 450ms ease-in-out calc(var(--tl) + var(--b-down3)) forwards,
+    pu-unpress 950ms ease-in-out calc(var(--tl) + var(--b-up3)) forwards,
+    pu-press 500ms ease-in-out calc(var(--tl) + var(--b-down4)) forwards,
+    pu-unpress 150ms ease-out calc(var(--tl) + var(--b-collapse)) forwards; animation:var(--ba); }
+@keyframes pu-press { from { transform:scale(1, 1); } to { transform:scale(1.12, .8); } }
+@keyframes pu-unpress { from { transform:scale(1.12, .8); } to { transform:scale(1, 1); } }
+/* the thumb: up out of the dirt (turned back upright against the slide) */
+.is-pushups .pu-hand-thumb { transform:translate(-30px, -40px) rotate(-60deg);
+  --ba:pu-thumb 1000ms ease-out calc(var(--tl) + var(--b-thumb)) both; animation:var(--ba); }
+@keyframes pu-thumb { 0% { transform:translate(0px, 0px) rotate(0deg); animation-timing-function:cubic-bezier(.3,.6,.4,1); }
+  45% { transform:translate(-32px, -50px) rotate(-68deg); animation-timing-function:ease-in-out; }
+  62% { transform:translate(-30px, -46px) rotate(-58deg); } 78% { transform:translate(-32px, -45px) rotate(-68deg); }
+  100% { transform:translate(-30px, -40px) rotate(-60deg); } }
+
+/* ── sweat flicked off as the third one comes up ── */
+.is-pushups .pu-sweat { opacity:0; --ba:pu-sweat 760ms linear calc(var(--tl) + var(--b-sweat) + var(--d)) both; animation:var(--ba); }
+@keyframes pu-sweat { 0% { opacity:0; transform:translate(0px, 0px) rotate(0deg); } 1% { opacity:1; transform:translate(0px, 0px) rotate(0deg);
+    animation-timing-function:cubic-bezier(.2,.7,.4,1); }
+  40% { opacity:1; transform:translate(calc(var(--side) * 110px), -70px) rotate(calc(var(--side) * 50deg)); animation-timing-function:cubic-bezier(.6,0,.9,.5); }
+  92% { opacity:1; transform:translate(calc(var(--side) * 170px), 150px) rotate(calc(var(--side) * 110deg)); }
+  100% { opacity:0; transform:translate(calc(var(--side) * 175px), 160px) rotate(calc(var(--side) * 110deg)); } }
+.is-pushups .pu-dust { --dust-ms:720ms; }

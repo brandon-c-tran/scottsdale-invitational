@@ -129,6 +129,12 @@
         "value": "bs fallback narrow",
         "createdAt": "2026-10-03T04:41:11.058Z",
         "reason": "Agent: metric-matched local fallback alias for Big Shoulders (size-adjust), added per the wave-3 review; not a brand font"
+      },
+      {
+        "rule": "bounce-easing",
+        "value": "cubic-bezier(.2, .9, .25, 1.25)",
+        "createdAt": "2026-10-10T19:21:32.096Z",
+        "reason": "lead decision: the gags bits are cartoon slapstick where overshoot is literal squash-and-stretch; DESIGN.md's motion grammar defines Ease land with a 1.25 overshoot for landings"
       }
     ]
   }

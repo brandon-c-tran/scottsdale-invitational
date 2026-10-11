@@ -1,0 +1,94 @@
+/* sweep (sweep.jsx): beats from registry.js (--b-<name>), every animation
+   on --ba, each element resting on its end state (the heap gone, the chip
+   sweeping again, at the end of its stroke). A run of moves on one
+   property: the first fills both ways, the rest forwards, each starting
+   where the last left off. The camera is the stage's (the registry). */
+
+.is-sweep .sw { position:absolute; inset:0; }
+.is-sweep .sw-node { position:absolute; display:block; width:0; height:0; }
+.is-sweep .sw-chip .cast-hand { opacity:0; }
+
+/* ── the strokes: the broom and both gloves pushed along the floor, the
+   straw swinging on ahead, and brought back lifted ── */
+.is-sweep .sw-stroke { transform:translate(40px, 0px) rotate(-6deg);
+  --ba:sw-push 260ms cubic-bezier(.3,.6,.4,1) calc(var(--tl) + var(--b-stroke1)) both,
+    sw-back 320ms ease-in-out calc(var(--tl) + var(--b-stroke1) + 300ms) forwards,
+    sw-push 260ms cubic-bezier(.3,.6,.4,1) calc(var(--tl) + var(--b-stroke2)) forwards,
+    sw-back 320ms ease-in-out calc(var(--tl) + var(--b-stroke2) + 300ms) forwards,
+    sw-push 260ms cubic-bezier(.3,.6,.4,1) calc(var(--tl) + var(--b-stroke3)) forwards,
+    sw-back 320ms ease-in-out calc(var(--tl) + var(--b-stroke3) + 300ms) forwards,
+    sw-push 260ms cubic-bezier(.3,.6,.4,1) calc(var(--tl) + var(--b-stroke4)) forwards,
+    sw-back 320ms ease-in-out calc(var(--tl) + var(--b-stroke4) + 300ms) forwards,
+    sw-push 260ms cubic-bezier(.3,.6,.4,1) calc(var(--tl) + var(--b-again)) forwards,
+    sw-back 320ms ease-in-out calc(var(--tl) + var(--b-again) + 300ms) forwards,
+    sw-push 260ms cubic-bezier(.3,.6,.4,1) calc(var(--tl) + var(--b-again2)) forwards; animation:var(--ba); }
+@keyframes sw-push { from { transform:translate(0px, 0px) rotate(0deg); } to { transform:translate(40px, 0px) rotate(-6deg); } }
+@keyframes sw-back { 0% { transform:translate(40px, 0px) rotate(-6deg); } 50% { transform:translate(22px, -16px) rotate(-2deg); }
+  100% { transform:translate(0px, 0px) rotate(0deg); } }
+/* the pats: up onto the heap, tap tap, back */
+.is-sweep .sw-pat { --ba:sw-pats 620ms ease-in-out calc(var(--tl) + var(--b-pat) - 120ms) both; animation:var(--ba); }
+@keyframes sw-pats { 0%, 100% { transform:translate(0px, 0px); } 22% { transform:translate(74px, -72px); } 38% { transform:translate(74px, -46px); }
+  52% { transform:translate(74px, -72px); } 68% { transform:translate(74px, -46px); } 84% { transform:translate(40px, -40px); } }
+/* the gust catches the broom */
+.is-sweep .sw-broom { --ba:sw-flap 900ms ease-in-out calc(var(--tl) + var(--b-gust)) both; animation:var(--ba); }
+@keyframes sw-flap { 0%, 100% { transform:rotate(0deg); } 15% { transform:rotate(7deg); } 35% { transform:rotate(-3deg); } 55% { transform:rotate(5deg); }
+  75% { transform:rotate(-1deg); } }
+
+/* ── the heap: growing with each stroke, squared off by the pats, taken
+   by the gust ── */
+.is-sweep .sw-pile-in { transform:translateX(-80px) scale(0, 0);
+  --ba:sw-grow 160ms var(--ease-out) calc(var(--tl) + var(--b-stroke1) + 240ms) both,
+    sw-grow2 160ms var(--ease-out) calc(var(--tl) + var(--b-stroke2) + 240ms) forwards,
+    sw-grow3 160ms var(--ease-out) calc(var(--tl) + var(--b-stroke3) + 240ms) forwards,
+    sw-grow4 160ms var(--ease-out) calc(var(--tl) + var(--b-stroke4) + 240ms) forwards,
+    sw-tidy 620ms ease-in-out calc(var(--tl) + var(--b-pat) - 120ms) forwards,
+    sw-blow 240ms cubic-bezier(.5,0,.9,.5) calc(var(--tl) + var(--b-gust) + 40ms) forwards; animation:var(--ba); }
+@keyframes sw-grow { from { transform:translateX(0px) scale(0, 0); } to { transform:translateX(0px) scale(.36, .36); } }
+@keyframes sw-grow2 { from { transform:translateX(0px) scale(.36, .36); } to { transform:translateX(0px) scale(.6, .6); } }
+@keyframes sw-grow3 { from { transform:translateX(0px) scale(.6, .6); } to { transform:translateX(0px) scale(.82, .82); } }
+@keyframes sw-grow4 { from { transform:translateX(0px) scale(.82, .82); } to { transform:translateX(0px) scale(1, 1); } }
+@keyframes sw-tidy { 0%, 30%, 58%, 100% { transform:translateX(0px) scale(1, 1); } 40% { transform:translateX(0px) scale(1.06, .9); }
+  70% { transform:translateX(0px) scale(1.06, .9); } }
+@keyframes sw-blow { 0% { transform:translateX(0px) scale(1, 1); } 40% { transform:translateX(-30px) scale(1.1, .7); }
+  100% { transform:translateX(-80px) scale(0, 0); } }
+
+/* ── the chip: a lean into each stroke; it looks at the heap and leans
+   back pleased; the gust rocks it; it keeps looking at where the heap
+   was; then back to work ── */
+.is-sweep .sw-chip .cast-body-in { transform:rotate(0deg);
+  --ba:sw-sway 580ms ease-in-out calc(var(--tl) + var(--b-stroke1)) both,
+    sw-sway 580ms ease-in-out calc(var(--tl) + var(--b-stroke2)) forwards,
+    sw-sway 580ms ease-in-out calc(var(--tl) + var(--b-stroke3)) forwards,
+    sw-sway 580ms ease-in-out calc(var(--tl) + var(--b-stroke4)) forwards,
+    sw-proud 700ms ease-in-out calc(var(--tl) + var(--b-admire)) forwards,
+    sw-rocked 900ms ease-in-out calc(var(--tl) + var(--b-gust)) forwards,
+    sw-sway 580ms ease-in-out calc(var(--tl) + var(--b-again)) forwards,
+    sw-sway 580ms ease-in-out calc(var(--tl) + var(--b-again2)) forwards; animation:var(--ba); }
+@keyframes sw-sway { 0%, 100% { transform:rotate(0deg); } 40% { transform:rotate(3deg); } }
+@keyframes sw-proud { 0%, 100% { transform:rotate(0deg); } 35%, 70% { transform:rotate(-4deg); } }
+@keyframes sw-rocked { 0%, 100% { transform:rotate(0deg); } 18% { transform:rotate(-8deg); } 45% { transform:rotate(-5deg); }
+  70% { transform:rotate(-6deg); } }
+.is-sweep .sw-chip .cast-hop { --ba:sw-bob 300ms ease-in-out calc(var(--tl) + var(--b-admire) + 180ms) both; animation:var(--ba); }
+@keyframes sw-bob { 0%, 100% { transform:translateY(0px); } 50% { transform:translateY(-12px); } }
+.is-sweep .sw-chip .cast-chip-in { transform:var(--cast-turn) rotateX(0deg);
+  --ba:sw-look 300ms ease-out calc(var(--tl) + var(--b-pat) - 200ms) both,
+    sw-look-away 360ms ease-in-out calc(var(--tl) + var(--b-again) - 380ms) forwards; animation:var(--ba); }
+@keyframes sw-look { from { transform:var(--cast-turn) rotateX(0deg); } to { transform:rotateY(-34deg) rotateX(-12deg); } }
+@keyframes sw-look-away { from { transform:rotateY(-34deg) rotateX(-12deg); } to { transform:var(--cast-turn) rotateX(0deg); } }
+
+/* ── the gust: the wind's lines across, the tumbleweed bowling through ── */
+.is-sweep .sw-wind { opacity:0; --ba:sw-wind 640ms linear calc(var(--tl) + var(--b-gust) + var(--d)) both; animation:var(--ba); }
+@keyframes sw-wind { 0% { opacity:0; transform:translateX(0px); } 1% { opacity:1; transform:translateX(0px); } 90% { opacity:1; }
+  100% { opacity:0; transform:translateX(-2300px); } }
+.is-sweep .sw-weed { transform:translateX(-2500px);
+  --ba:sw-weed-x 1300ms linear calc(var(--tl) + var(--b-weed)) both; animation:var(--ba); }
+@keyframes sw-weed-x { from { transform:translateX(0px); } to { transform:translateX(-2500px); } }
+.is-sweep .sw-weed-hop { --ba:sw-weed-hop 325ms linear calc(var(--tl) + var(--b-weed)) 4 both; animation:var(--ba); }
+@keyframes sw-weed-hop { 0% { transform:none; animation-timing-function:cubic-bezier(.2,.7,.4,1); }
+  45% { transform:translateY(-58px); animation-timing-function:cubic-bezier(.6,0,.8,.3); } 100% { transform:none; } }
+.is-sweep .sw-weed-spin { transform:rotate(-2400deg); --ba:sw-weed-spin 1300ms linear calc(var(--tl) + var(--b-weed)) both; animation:var(--ba); }
+@keyframes sw-weed-spin { from { transform:none; } to { transform:rotate(-2400deg); } }
+.is-sweep .sw-weed-shadow { --ba:sw-weed-shade 325ms linear calc(var(--tl) + var(--b-weed)) 4 both; animation:var(--ba); }
+@keyframes sw-weed-shade { 0%, 100% { transform:none; opacity:1; } 45% { transform:scale(.55); opacity:.45; } }
+.is-sweep .sw-push { --dust-ms:520ms; }
+.is-sweep .sw-blown { --dust-ms:1250ms; }

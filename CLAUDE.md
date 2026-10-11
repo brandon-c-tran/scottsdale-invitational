@@ -575,6 +575,69 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   `state.gagTest` with a cast from the board, played 300 ms after its
   write even with Gags off, cleared by a reset. `/dev/gags-preview.html`
   lands each write live on the real TV (`&song=1`: the walkout first).
+- **Bits** (Oct 10, `src/features/gags/`, not wired into TVMode, phones or
+  `gagModel` yet; waiting on Brandon): the gags' replacement. Straight-faced
+  physical comedy whose cast is the players' own photo chips. The rig
+  (`cast/CastChip.jsx`, pure `castGeometry.js` and `gloveArt.js`): the chip
+  on its edge with a coin's thickness, two floating white gloves in eight
+  poses (rest, ready, open, fist, grip, point, flat, thumb; `hands` takes a
+  pose or `[[pose, ms], ...]`, `hold` a prop in a hand, behind the fingers),
+  optional shoes, a shadow that walks with it, every layer a node of no size
+  hung off the feet (`.cast-move`, `.cast-hop`, `.cast-body`, `.cast-chip-in`,
+  `.cast-hand-in`, `.cast-held-fx`...), so a bit squashes, tilts, gestures
+  and throws by class; `CastSide` stands up to four and letters "+N" past
+  the outer glove at the chips' middle (`.cast-more`, a node a bit can move
+  with the side). No eyes over a photo. Props (`props/Props.jsx`): revolver,
+  muzzle flash, puff, dust, tumbleweed, anvil, floor shadow, dizzy stars,
+  sweat drop, sunglasses, speed lines, emanata, whirl, chip stack,
+  roadrunner; one ink keyline (`CAST.line`) and flat `--bit-*` inks mixed
+  from the painting's. `bits/registry.js` is the pure contract: each bit's
+  shape (versus, win, loss, idle), style (action, slapstick, desert), `ms`
+  (3 to 5.5 s for a moment), named `beats` (CSS reads `var(--b-<name>)`,
+  cues land on them), `still` (reduced motion's frame, after the lettering
+  lands), `summary`, `letter` (`at`, `over`, and `place`: top-left,
+  top-right or top, wherever that bit's action is not), `camera`, `cast`
+  roles and `cues`; `pickBit(shape, seed, recent)` picks the same bit on
+  every screen and never repeats one while another remains. `bits/scenes.jsx`
+  maps ids to scenes. Every motion is `--ba:<animation>; animation:var(--ba)`
+  from `calc(var(--tl) + ...)`, filled so each element rests on its end
+  state; a frozen bit (`is-frozen`) holds any instant through shell.css's
+  reduced-motion rule (`tests/bits.test.mjs` scans the convention).
+  **The camera** (pure `bits/camera.js`): every bit is shot, never staged
+  wide. Its registry `camera: { zoom, x, fit, moves, shakes, washes }`:
+  `x` is a world x or an anchor its scene names (`Scene.anchors(cast)`:
+  quickdraw's `a`, `b`, `mid`, `minX`, `maxX`), `fit` caps the zoom so
+  `minX` to `maxX` fits the TV's safe sides (a versus as tight as both sides
+  allow, wider for a bigger cast) and scales every move with it, `moves`
+  are `{ at, ms, zoom?, x?, ease? }` on the bit's clock (a punch-in at the
+  hit, a whip, a pull-back for the hold), `shakes` kick the shot and a
+  `washes` instant gets one white frame just before it. A solo medium shot
+  is zoom 1.8 (a 432 px chip); every framing is clamped so the painting
+  covers the canvas. `BitStage.jsx` turns the track into one keyframes
+  animation on `.bit-world`, which zooms the session's painting, a pool of
+  floor light and the scene together about the floor (world y 930 held at
+  screen y 990); the lettering stays in screen space: the name (at most
+  110 px, `bitNameSize`) and the moment's fact ("-1,000") stamp at the
+  hit or the hold in the letter's place inside the TV's title-safe edges,
+  and the stage cues its foley on the room bus from its start
+  (`tv/bitSound.js`; the kit's `BIT_PARTS`, open past a win song). The
+  exemplars: quickdraw (an upset: the BANG is a white frame, a flash bigger
+  than the shooter held three frames, a big shake, then the tiny gun's kick
+  skids A back a step), anvil (a loss: pancaked, peeled up, it turns to the
+  room for a beat before it limps off) and roadrunner (a loss: a long skid,
+  a leaning beep beep, the shadow left behind winding up before it runs).
+  The pool (19): versus quickdraw, springglove, butte; win explosionwalk,
+  toohype, sunset, statue; loss anvil, roadrunner, dontlookback, quicksand,
+  dynamite, vulture; idle nap, armwrestle, saguaro, pushups, sweep, map.
+  Idle vignettes are the TV's downtime: 6 to 10 s (`IDLE_MS`), cast from
+  the room (the players present, a vignette takes one or two), `letter:null`
+  (no name, no fact, the painting at full light), `still` the punchline.
+  A name two styles both invented carries its style (`IdleSaguaro`,
+  `--bit-idle-cactus`, `--bit-slap-soot`, `--bit-desert-rock`, `bitSqueakSoft`).
+  `/dev/bits-reel.html` plays them all; `node scripts/build-bits-reel.mjs`
+  bundles it into one page for review and `node scripts/bit-frames.mjs <id>
+  <ms...>` renders frames (`--contact` a sheet, `--cast 2v2|4v6` a bigger
+  side, `--soundcheck` the foley offline).
 - **Arrivals** (Oct 4, `state.arrivals`, `setArrived`, `setArrivalsOpen`):
   Friday starts with people still on the road, so games may run before all
   13 are in. Once the door opens (the first check-in, or the commissioner),

@@ -155,6 +155,28 @@ async function openSheet(kind) {
     document.head.append(style);
     return !!document.querySelector(".fd-moment-walkout");
   }
+  /* a moment on the guest's phone (features/gags): the write that owes it
+     lands now on a fresh frame (the scenario's `land`, through the same
+     reducers), the bit comes up at its instant on the room's clock, and is
+     held once its name and fact have stamped */
+  if (kind === "bit") {
+    const { gagWeekend } = await import("./fit/scenarios.js");
+    const { LETTER_LAND_MS, bitById } = await import("../src/features/gags/bits/registry.js");
+    const client = await import("./fit/client.js");
+    gagWeekend(scenario.land, scenario.landOpts || {}).write(state);
+    const next = frame();
+    publishFrame({ version:next.version, fresh:true, lastAction:"recordContestWinner" });
+    client.setFitFrame(next);
+    let overlay = null;
+    for (let i = 0; i < 80 && !(overlay = document.querySelector(".fd-bit")); i++) await sleep(150);
+    if (!overlay) return false;
+    const bit = bitById(overlay.getAttribute("data-bit"));
+    await sleep((bit?.letter?.at || 0) + LETTER_LAND_MS + 300);
+    const style = document.createElement("style");
+    style.textContent = "*, *::before, *::after { animation-play-state:paused !important; }";
+    document.head.append(style);
+    return !!document.querySelector(".fd-bit .fd-bit-name");
+  }
   /* the event's announcement as a phone sees it when betting opens: the
      event goes on deck on a later frame than the first */
   if (kind === "announce") {

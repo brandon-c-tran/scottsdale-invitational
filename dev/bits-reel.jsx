@@ -9,7 +9,9 @@
        &phase=fri|sam|sap|san|fin   &cast=<cast key>   &trigger=<n>
        &reduced=1             reduced motion's still
      ?sheet=1                 the rig and the props on the painting
-   (scripts/bit-frames.mjs renders ?frame and ?sheet to PNGs.) */
+     ?soundcheck=1            every bit recipe and cue sheet rendered offline
+     ?wav=<id>&phase=         one bit's cue sheet as a 16-bit WAV (window.__wav, base64)
+   (scripts/bit-frames.mjs renders ?frame and ?sheet to PNGs, ?wav to a file.) */
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { ROSTER, CHIP_COLORS } from "../shared/core.js";
@@ -313,12 +315,19 @@ function IdleSheet() {
 
 /* ── ?soundcheck: every bit recipe, and every bit's whole cue sheet on its
    own schedule, rendered offline: not silent, not clipped ── */
+const SR = 44100, LEAD = 0.05;
+/* fn(E, t0) schedules on a TV's engine; the buffer starts LEAD before t0 */
+async function renderOffline(seconds, fn, room = "sap") {
+  const oc = new OfflineAudioContext(2, Math.ceil(SR * seconds), SR);
+  const E = makeEngine(oc, { room, listen:"tv" });
+  fn(E, LEAD);
+  return oc.startRendering();
+}
+const playCueSheet = bit => (E, t) => bit.cues.forEach(cue =>
+  playRecipe(E, cue.sound, t + cue.at / 1000, { pan:cue.pan || 0, ...(cue.opts || {}) }));
 async function soundcheck() {
   const render = async (seconds, fn) => {
-    const sr = 44100, oc = new OfflineAudioContext(2, Math.ceil(sr * seconds), sr);
-    const E = makeEngine(oc, { room:"sap", listen:"tv" });
-    fn(E, 0.05);
-    const buf = await oc.startRendering();
+    const buf = await renderOffline(seconds, fn);
     let peak = 0, sum = 0;
     for (let ch = 0; ch < 2; ch++) {
       const d = buf.getChannelData(ch);
@@ -328,8 +337,7 @@ async function soundcheck() {
   };
   const rows = [];
   for (const part of BIT_PARTS) rows.push({ label:part.id, ...await render(part.ms / 1000 + 1.5, (E, t) => playRecipe(E, part.id, t)) });
-  for (const bit of BITS) rows.push({ label:`${bit.id} (all cues)`, ...await render(bit.ms / 1000 + 1.5,
-    (E, t) => bit.cues.forEach(cue => playRecipe(E, cue.sound, t + cue.at / 1000, { pan:cue.pan || 0, ...(cue.opts || {}) }))) });
+  for (const bit of BITS) rows.push({ label:`${bit.id} (all cues)`, ...await render(bit.ms / 1000 + 1.5, playCueSheet(bit)) });
   rows.forEach(row => { row.ok = row.peak > 0.02 && row.peak <= 1; });
   window.__soundcheck = rows;
   document.body.dataset.ready = "1";
@@ -339,8 +347,43 @@ function SoundcheckView() {
   return null;
 }
 
+/* ── ?wav=<id>: the bit's cue sheet rendered as the soundcheck renders it,
+   cut to the bit, sample 0 at the bit's start, as a 16-bit PCM WAV in
+   window.__wav (base64) with its peak (scripts/bit-frames.mjs --wav) ── */
+async function bitWav(bit, room) {
+  const buf = await renderOffline(bit.ms / 1000 + 1.5, playCueSheet(bit), room);
+  const from = Math.round(LEAD * SR), frames = Math.round(bit.ms / 1000 * SR), channels = buf.numberOfChannels;
+  const data = Array.from({ length:channels }, (_, ch) => buf.getChannelData(ch));
+  const bytes = new DataView(new ArrayBuffer(44 + frames * channels * 2));
+  const text = (at, str) => [...str].forEach((c, i) => bytes.setUint8(at + i, c.charCodeAt(0)));
+  text(0, "RIFF"); bytes.setUint32(4, 36 + frames * channels * 2, true); text(8, "WAVE");
+  text(12, "fmt "); bytes.setUint32(16, 16, true); bytes.setUint16(20, 1, true); bytes.setUint16(22, channels, true);
+  bytes.setUint32(24, SR, true); bytes.setUint32(28, SR * channels * 2, true); bytes.setUint16(32, channels * 2, true); bytes.setUint16(34, 16, true);
+  text(36, "data"); bytes.setUint32(40, frames * channels * 2, true);
+  let peak = 0;
+  for (let i = 0; i < frames; i++) for (let ch = 0; ch < channels; ch++) {
+    const v = data[ch][from + i] || 0, a = Math.abs(v);
+    if (a > peak) peak = a;
+    const c = Math.max(-1, Math.min(1, v));
+    bytes.setInt16(44 + (i * channels + ch) * 2, c < 0 ? c * 0x8000 : c * 0x7fff, true);
+  }
+  let bin = "";
+  const u8 = new Uint8Array(bytes.buffer);
+  for (let i = 0; i < u8.length; i += 0x8000) bin += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000));
+  return { base64:btoa(bin), peak:Math.round(peak * 1000) / 1000, ms:bit.ms };
+}
+function WavView() {
+  useEffect(() => {
+    const bit = BITS.find(item => item.id === params.get("wav"));
+    const done = result => { window.__wav = result; document.body.dataset.ready = "1"; };
+    if (!bit) done({ error:`no bit ${params.get("wav")}` });
+    else bitWav(bit, params.get("phase") || "sap").then(done, err => done({ error:String(err?.message || err) }));
+  }, []);
+  return null;
+}
+
 function App() {
-  const view = params.has("soundcheck") ? <SoundcheckView /> : params.has("contact") ? <ContactView /> : params.has("frame") ? <FrameView />
+  const view = params.has("soundcheck") ? <SoundcheckView /> : params.has("wav") ? <WavView /> : params.has("contact") ? <ContactView /> : params.has("frame") ? <FrameView />
     : params.has("sheet") ? <SheetView /> : <Reel />;
   return <PlayerIdentityProvider profiles={PROFILES}>{view}</PlayerIdentityProvider>;
 }

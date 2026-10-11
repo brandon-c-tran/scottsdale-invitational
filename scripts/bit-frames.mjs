@@ -10,8 +10,12 @@
        --reduced                     reduced motion's still (no instants needed)
        --out <dir>                   default .impeccable/review/bits/frames
      node scripts/bit-frames.mjs sheet   the rig and the props on the painting
+     node scripts/bit-frames.mjs --soundcheck   every recipe and cue sheet, offline: not silent, not clipped
+     node scripts/bit-frames.mjs anvil --wav <file>   the bit's cue sheet as the soundcheck renders it
+                                   (the --phase room), cut to the bit, as a 16-bit PCM WAV
 
    Prints each PNG's path. */
+import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { buildReel, wrapForLocal } from "./build-bits-reel.mjs";
@@ -19,7 +23,7 @@ import { launchChrome } from "./headless-chrome.mjs";
 
 const ROOT = fileURLToPath(new URL("../", import.meta.url));
 const args = process.argv.slice(2);
-const flags = new Set(["--phase", "--cast", "--trigger", "--out"]);
+const flags = new Set(["--phase", "--cast", "--trigger", "--out", "--wav"]);
 const value = name => { const i = args.indexOf(name); return i >= 0 ? args[i + 1] : null; };
 const positional = args.filter((arg, i) => !arg.startsWith("--") && !flags.has(args[i - 1]));
 const [bit = "quickdraw", ...times] = positional;
@@ -46,6 +50,21 @@ if (args.includes("--soundcheck")) {
     const rows = await chrome.evaluate("window.__soundcheck");
     rows.forEach(row => console.log(`${row.ok ? "ok  " : "BAD "} ${row.label.padEnd(24)} peak ${row.peak.toFixed(3)}  rms ${row.rms.toFixed(3)}`));
     if (rows.some(row => !row.ok)) process.exitCode = 1;
+  } finally { await chrome.close(); }
+  process.exit();
+}
+/* --wav <file>: the bit's cue sheet, rendered offline, as a WAV */
+if (value("--wav")) {
+  try {
+    await chrome.load(`${page}?${new URLSearchParams({ wav:bit, phase })}`);
+    await chrome.until("document.body.dataset.ready === '1'", { timeout:60000 });
+    const wav = await chrome.evaluate("window.__wav");
+    if (!wav || wav.error) throw new Error(wav?.error || "no WAV");
+    const file = path.resolve(value("--wav"));
+    fs.mkdirSync(path.dirname(file), { recursive:true });
+    fs.writeFileSync(file, Buffer.from(wav.base64, "base64"));
+    console.log(`${path.relative(ROOT, file)}  ${wav.ms} ms  peak ${wav.peak.toFixed(3)}`);
+    if (wav.peak > 1 || wav.peak < 0.02) process.exitCode = 1;
   } finally { await chrome.close(); }
   process.exit();
 }

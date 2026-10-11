@@ -58,7 +58,7 @@ const CASTS = {
     { key:"1", label:"Evan", cast:{ a:["Evan"] } },
     { key:"long", label:"Long name", cast:{ a:["Henry"] } },
   ],
-  idle:[{ key:"room", label:"The room", cast:{ a:["Brandon", "Evan", "Eyob"] } }],
+  idle:[{ key:"room", label:"The room", cast:{ a:["Brandon", "Evan", "Eyob"] } }, { key:"others", label:"Others", cast:{ a:["Sahil", "Khoa"] } }],
 };
 /* what a moment letters under the name, by trigger */
 const FACTS = { "A big losing bet":"-1,000", "A new last place":"13th" };

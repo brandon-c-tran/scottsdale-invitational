@@ -25,6 +25,8 @@ const { ROSTER, CHIP_COLORS } = await import("../shared/core.js");
 const registry = await import("../src/features/gags/bits/registry.js");
 const { BITS, BIT_SHAPES, BIT_STYLES, LETTER_LAND_MS, LETTER_PLACES, MOMENT_MS, SHAPES, STYLES, beatVars, bitById, bitsOf, pickBit,
   seedHash } = registry;
+/* idle (Oct 10): the downtime vignettes run longer and letter nothing */
+const { IDLE_MS } = registry;
 const camera = await import("../src/features/gags/bits/camera.js");
 const kit = await import("../src/lib/soundKit.js");
 const { bitCues } = await import("../src/features/tv/bitSound.js");
@@ -43,15 +45,19 @@ test("every bit: a unique id, a shape and a style, a moment's length, its beats,
     assert.ok(SHAPES.includes(bit.shape), `${at} shape ${bit.shape}`);
     assert.ok(STYLES.includes(bit.style), `${at} style ${bit.style}`);
     if (bit.shape !== "idle") assert.ok(bit.ms >= MOMENT_MS.min && bit.ms <= MOMENT_MS.max, `${at} ${bit.ms} ms`);
+    else assert.ok(bit.ms >= IDLE_MS.min && bit.ms <= IDLE_MS.max, `${at} an idle vignette's ${bit.ms} ms`);
     assert.ok(bit.still >= 0 && bit.still <= bit.ms, `${at} still ${bit.still} inside the bit`);
     for (const [name, ms] of Object.entries(bit.beats)) {
       assert.match(name, /^[a-z][a-zA-Z0-9]*$/, `${at} beat ${name} names a custom property`);
       assert.ok(ms >= 0 && ms <= bit.ms, `${at} beat ${name} at ${ms} inside the bit`);
     }
-    assert.ok(bit.letter.at >= 0 && bit.letter.at <= bit.ms, `${at} the lettering lands inside the bit`);
-    assert.ok(bit.still >= bit.letter.at + LETTER_LAND_MS, `${at} the still shows the name landed`);
-    assert.ok(LETTER_PLACES.includes(bit.letter.place), `${at} lettered at ${bit.letter.place}`);
-    assert.ok(bit.cast[bit.letter.over], `${at} letters a side it casts`);
+    if (bit.shape === "idle") assert.equal(bit.letter, null, `${at} an idle vignette letters nothing`);
+    else {
+      assert.ok(bit.letter.at >= 0 && bit.letter.at <= bit.ms, `${at} the lettering lands inside the bit`);
+      assert.ok(bit.still >= bit.letter.at + LETTER_LAND_MS, `${at} the still shows the name landed`);
+      assert.ok(LETTER_PLACES.includes(bit.letter.place), `${at} lettered at ${bit.letter.place}`);
+      assert.ok(bit.cast[bit.letter.over], `${at} letters a side it casts`);
+    }
     assert.ok(kit.isSound(bit.summary), `${at} summary ${bit.summary} is a kit recipe`);
     assert.ok(bit.cues.length > 0, `${at} has sound`);
     for (const cue of bit.cues) {
@@ -72,7 +78,7 @@ test("every bit: a unique id, a shape and a style, a moment's length, its beats,
 });
 
 test("the exemplars keep their shape and style", () => {
-  assert.deepEqual(BITS.map(bit => [bit.id, bit.shape, bit.style]), [
+  assert.deepEqual(BITS.filter(bit => ["quickdraw", "anvil", "roadrunner"].includes(bit.id)).map(bit => [bit.id, bit.shape, bit.style]), [
     ["quickdraw", "versus", "action"], ["anvil", "loss", "slapstick"], ["roadrunner", "loss", "desert"],
   ]);
   const qd = bitById("quickdraw").beats;
@@ -95,13 +101,13 @@ test("the exemplars keep their shape and style", () => {
 /* ── pickBit ── */
 
 test("pickBit: the same seed picks the same bit on every screen, from the shape's pool", () => {
-  for (const shape of ["versus", "loss"]) for (let i = 0; i < 50; i++) {
+  for (const shape of ["versus", "loss", "idle"]) for (let i = 0; i < 50; i++) {
     const seed = `contest:die:${i}`;
     const a = pickBit(shape, seed), b = pickBit(shape, seed);
     assert.equal(a.id, b.id, "deterministic");
     assert.equal(a.shape, shape);
   }
-  assert.equal(pickBit("idle", "x"), null, "a shape with no bits");
+  assert.equal(pickBit("idle", "x")?.shape, "idle", "idle picks from its own pool");
   assert.equal(pickBit("nope", "x"), null);
   const picked = new Set(Array.from({ length:200 }, (_, i) => pickBit("loss", `s${i}`).id));
   assert.deepEqual([...picked].sort(), bitsOf("loss").map(bit => bit.id).sort(), "every loss bit comes up");
@@ -362,7 +368,7 @@ test("every registered bit has a scene", () => {
 });
 
 test("every scene draws on the painting with its cast, letters the name and the fact, on the bit's clock", () => {
-  const casts = { versus:{ a:["Khoa"], b:["Sahil"] }, loss:{ a:["Evan"] } };
+  const casts = { versus:{ a:["Khoa"], b:["Sahil"] }, loss:{ a:["Evan"] }, idle:{ a:["Evan", "Sahil", "Khoa"] } };
   for (const bit of BITS) {
     const cast = casts[bit.shape];
     const html = stage({ bit:bit.id, cast, fact:bit.shape === "loss" ? "-1,000" : null, at:1234, frozen:true });
@@ -371,6 +377,13 @@ test("every scene draws on the painting with its cast, letters the name and the 
     assert.match(html, /<div class="bit-world" style="transform:translate\(960px, 990px\) scale\([\d.]+\) translate\(-[\d.]+px, -930px\)/,
       `${bit.id}: shot by its camera`);
     assert.match(html, /class="tv-desert is-glass bit-painting"/, `${bit.id}: the painting in the shot`);
+    if (bit.shape === "idle") {
+      assert.doesNotMatch(html, /class="bit-words/, `${bit.id}: an idle vignette letters nothing`);
+      assert.doesNotMatch(html, /class="bit-dim"/, `${bit.id}: and keeps the painting at full light`);
+      assert.match(html, /data-player="Evan"/, `${bit.id}: the room's first is cast`);
+      assert.match(html, /data:image\/svg\+xml/, `${bit.id}: the stand-in photos reach the chips`);
+      continue;
+    }
     assert.match(html, new RegExp(`class="bit-words is-${bit.letter.place}"`), `${bit.id}: lettered where the shot leaves room`);
     assert.equal(/class="bit-wash"/.test(html), (bit.camera.washes || []).length > 0, `${bit.id}: a white frame only where it fires`);
     assert.match(html, /--tl:-1234ms/, `${bit.id}: held at the instant asked`);
@@ -423,4 +436,34 @@ test("a glove's poses take turns on the bit's clock; at rest only the last shows
   assert.equal(last.animation, "var(--ba)");
   assert.deepEqual(poseLayerStyle(poseTimeline("open"), 0), { opacity:1 }, "one pose: no motion");
   assert.deepEqual(poseTimeline("nope"), [["rest", 0]]);
+});
+
+/* ── idle (Oct 10): the downtime vignettes ── */
+
+test("idle: six vignettes, each a story told on its beats in order, played once to an ending pose", () => {
+  const idle = bitsOf("idle");
+  assert.deepEqual(idle.map(bit => bit.id), ["nap", "armwrestle", "saguaro", "pushups", "sweep", "map"]);
+  const order = (id, names) => {
+    const beats = bitById(id).beats;
+    names.reduce((prev, name) => { assert.ok(beats[name] > beats[prev], `${id}: ${prev} before ${name}`); return name; });
+  };
+  order("nap", ["mark1", "enter", "land", "twitch", "lift", "flee", "swat", "perch", "sigh"]);
+  order("armwrestle", ["tiltA", "backA", "tiltB", "backB", "center", "look", "drip"]);
+  order("saguaro", ["look", "reach1", "prick1", "reach2", "prick2", "exit", "enter", "set", "climb", "reach", "giveup", "lean", "prick3",
+    "jump", "top", "face"]);
+  order("pushups", ["down1", "up1", "down2", "up2", "down3", "up3", "down4", "strain", "collapse", "flat", "thumb"]);
+  order("sweep", ["stroke1", "stroke2", "stroke3", "stroke4", "pat", "admire", "gust", "stare", "again", "again2"]);
+  order("map", ["unfold1", "unfold2", "unfold3", "turn1", "turn2", "runner", "crumple", "toss", "rock", "bonk", "drop"]);
+  const nap = bitById("nap").beats;
+  assert.ok(nap.swat - nap.flee >= 20 && nap.swat - nap.flee <= 120, "the moth is off a beat before the glove lands");
+  const aw = bitById("armwrestle");
+  assert.ok(aw.ms - aw.beats.look >= 2500, "the look to the room holds");
+  for (const bit of idle) {
+    assert.equal(bit.cast.a.role, "room", `${bit.id}: cast from the room`);
+    assert.ok(bit.still >= bit.ms * 0.6, `${bit.id}: reduced motion holds the ending, not the setup`);
+    const base = camera.cameraTrack(bit, SCENES[bit.id].anchors?.({ a:["Evan"] }) || {})[0];
+    assert.ok(base.zoom * 240 >= 380 && base.zoom * 240 <= 520, `${bit.id}: a medium shot (${base.zoom * 240} px)`);
+  }
+  const twins = stage({ bit:"armwrestle", cast:{ a:["Evan"] }, at:6000, frozen:true });
+  assert.equal((twins.match(/data-player="Evan"/g) || []).length, 2, "a room of one wrestles a twin");
 });

@@ -39,7 +39,7 @@ export const SIM_BOARD = Object.freeze({
   reactionMs:[220, 900],
   latencyMs:[30, 140],
   /* who buzzes: most of the room on the first race, fewer on a rebound */
-  buzz:[0.6, 0.9], reboundBuzz:[0.35, 0.7],
+  buzz:[0.45, 0.8], reboundBuzz:[0.3, 0.6],
   answerMs:[1500, 5000],
   ddAnswerMs:[2000, 7000],
   ddWagerMs:[2000, 7000],
@@ -218,7 +218,9 @@ function planBoard(state, sim, players) {
         startOf(sim, log.turnAt) + between(daily ? SIM_BOARD.ddAnswerMs : SIM_BOARD.answerMs, h(id, n, player, "answerMs")));
       const struck = struckChoices(log);
       const open = [0, 1, 2, 3].filter(choice => choice !== clue.answer && !struck.has(choice));
-      const right = h(id, n, player, "right") < Math.min(0.92, skill(player) + 0.08) || !open.length;
+      /* the deeper the row, the likelier a miss (and the rebound after it) */
+      const odds = Math.max(0.15, Math.min(0.92, skill(player) + 0.15 - 0.1 * num(clue.row)));
+      const right = h(id, n, player, "right") < odds || !open.length;
       const choice = right ? clue.answer : open[Math.floor(h(id, n, player, "wrong") * open.length)];
       moves.push({ at:Math.round(at), type:"boardAnswer", payload:{ clueId:id, choice }, player,
         key:key(id, "answer", n, player) });

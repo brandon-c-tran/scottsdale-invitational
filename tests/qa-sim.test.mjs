@@ -125,7 +125,13 @@ function triviaRoom({ format = "rounds", rounds = [SPORTS, CUSTOM], final = null
   if (format !== "rounds") act(state, "triviaSetFormat", { format });
   for (const round of rounds) act(state, "triviaSaveRound", { round:structuredClone(round) });
   if (final) act(state, "triviaSaveFinal", { final:structuredClone(final) });
-  at(T0 + 1000, () => act(state, "triviaStart", { evId:"trivia" }));
+  /* the game's id and its dealt options come from Math.random: pinned, so
+     the room plays the same game every run */
+  const random = Math.random;
+  let seed = 99;
+  Math.random = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+  try { at(T0 + 1000, () => act(state, "triviaStart", { evId:"trivia" })); }
+  finally { Math.random = random; }
   return state;
 }
 

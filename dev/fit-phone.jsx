@@ -359,6 +359,12 @@ async function openSheet(kind) {
   }
   /* "event" opens the live (else the next) event from the Events tab;
      "event-<name>" the row whose name starts with it */
+  /* Karaoke's drawn how-to, from Weekend's Games sheet */
+  if (kind === "weekend-karaoke") {
+    const ok = await tap(() => [...document.querySelectorAll("main button")].find(b => visible(b) && b.textContent.trim() === "Games"));
+    await sleep(700);
+    return ok && tap(() => [...document.querySelectorAll("[role=dialog] button")].find(b => visible(b) && /Karaoke/.test(b.textContent)));
+  }
   /* Weekend's back page and photos: the tile (or All) that opens the sheet,
      and one game from the Games sheet */
   if (kind.startsWith("weekend-")) {

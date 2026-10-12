@@ -1212,6 +1212,10 @@ export const PHONE_SCENARIOS = Object.freeze([
   { id:"ann-where", build:() => fresh("event:where:open"), settle:false, tabs:[], sheets:["announce"] },
   { id:"ann-pairs", build:() => fresh("event:die:open"), settle:false, tabs:[], sheets:["announce"] },
   { id:"ann-team", build:() => fresh("event:bball5:open"), settle:false, tabs:[], sheets:["announce"] },
+  /* Karaoke's intro at the head of its announcement, and its drawn how-to
+     (Weekend > Games), at both widths */
+  { id:"ann-karaoke", build:() => fresh("event:karaoke:open"), settle:false, tabs:[], sheets:["announce", "weekend-karaoke"],
+    sheetSizes:["375"] },
   /* the House sheet's flights board: the guest's own legs (codes) beside the
      host's (times only), and the commissioner, who is the host */
   { id:"house-guest", build:() => withFlights(fresh("event:putt:open")), tabs:[], sheets:["weekend-house"] },

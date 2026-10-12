@@ -29,7 +29,7 @@
   --ba:st-hip 200ms var(--ease-out) calc(var(--tl) + var(--b-pose) + var(--i) * 50ms) both; animation:var(--ba); }
 @keyframes st-hip { from { transform:translate(0px, 0px); } to { transform:var(--hip-l); } }
 .is-statue .st-cast .cast-hand.is-back .cast-hand-fx { transform:scaleX(-1) rotate(-40deg);
-  --ba:st-fist 1ms step-end calc(var(--tl) + var(--b-pose) + var(--i) * 50ms) both; animation:var(--ba); }
+  --ba:st-fist 1ms step-start calc(var(--tl) + var(--b-pose) + var(--i) * 50ms) both; animation:var(--ba); }
 @keyframes st-fist { from { transform:scaleX(1) rotate(0deg); } to { transform:scaleX(-1) rotate(-40deg); } }
 
 /* ── gold: the copy swept down over the live one top to bottom (a window
@@ -42,7 +42,7 @@
   --ba:st-wipe-in 480ms cubic-bezier(.45,0,.55,1) calc(var(--tl) + var(--b-sheen)) both; animation:var(--ba); }
 @keyframes st-wipe-in { from { transform:var(--wipe-in); } to { transform:translateY(0px); } }
 .is-statue .st-gold { position:absolute; inset:0; filter:grayscale(1) sepia(1) saturate(2.7) hue-rotate(-16deg) brightness(1.04) contrast(1.06); }
-.is-statue .st-live { opacity:0; --ba:bit-hide 1ms step-end calc(var(--tl) + var(--b-sheen) + 500ms) both; animation:var(--ba); }
+.is-statue .st-live { opacity:0; --ba:bit-hide 1ms step-start calc(var(--tl) + var(--b-sheen) + 500ms) both; animation:var(--ba); }
 .is-statue .st-shine { position:absolute; display:block; border-radius:50%; overflow:hidden; }
 .is-statue .st-shine-band { position:absolute; left:-10%; width:120%; height:22%; top:-24%; opacity:0;
   background:color-mix(in srgb, var(--bone) 72%, transparent); transform:translateY(var(--sheen));

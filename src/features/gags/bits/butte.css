@@ -20,7 +20,7 @@
 
 /* ── the crack: from the finger up to the top, a piece at a time ── */
 .is-butte .bt-crack { fill:none; stroke:var(--bit-ink); stroke-linecap:round; stroke-linejoin:round; opacity:1;
-  --ba:bit-show 1ms step-end calc(var(--tl) + var(--b-crack) + var(--cd)) both; animation:var(--ba); }
+  --ba:bit-show 1ms step-start calc(var(--tl) + var(--b-crack) + var(--cd)) both; animation:var(--ba); }
 
 /* ── the pillar: a shudder as the crack tops out, then each stratum
    drops away into the canyon, turning as it goes ── */
@@ -55,10 +55,10 @@
   --ba:bt-hip-off-l 280ms var(--ease-out) calc(var(--tl) + var(--b-down) + 40ms + var(--i) * 90ms) both; animation:var(--ba); }
 @keyframes bt-hip-off-l { from { transform:var(--hip-l); } to { transform:translate(0px, 0px); } }
 .is-butte .bt-b .cast-hand.is-r .cast-hand-fx { transform:scaleX(1) rotate(0deg);
-  --ba:bt-unfist-r 1ms step-end calc(var(--tl) + var(--b-down) + 40ms + var(--i) * 90ms) both; animation:var(--ba); }
+  --ba:bt-unfist-r 1ms step-start calc(var(--tl) + var(--b-down) + 40ms + var(--i) * 90ms) both; animation:var(--ba); }
 @keyframes bt-unfist-r { from { transform:scaleX(-1) rotate(40deg); } to { transform:scaleX(1) rotate(0deg); } }
 .is-butte .bt-b .cast-hand.is-l .cast-hand-fx { transform:scaleX(1) rotate(0deg);
-  --ba:bt-unfist-l 1ms step-end calc(var(--tl) + var(--b-down) + 40ms + var(--i) * 90ms) both; animation:var(--ba); }
+  --ba:bt-unfist-l 1ms step-start calc(var(--tl) + var(--b-down) + 40ms + var(--i) * 90ms) both; animation:var(--ba); }
 @keyframes bt-unfist-l { from { transform:scaleX(-1) rotate(-40deg); } to { transform:scaleX(1) rotate(0deg); } }
 /* its shadow went with the rock */
 .is-butte .bt-b .cast-shadow { opacity:0; --ba:bit-hide 100ms linear calc(var(--tl) + var(--b-crumble)) both; animation:var(--ba); }

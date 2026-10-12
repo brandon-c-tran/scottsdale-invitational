@@ -538,7 +538,7 @@
 .tv-table-line { fill:none; stroke:color-mix(in srgb, var(--poker-25) 70%, var(--bone)); stroke-opacity:.35; stroke-width:2px;
   stroke-dasharray:2 10; stroke-linecap:round; }
 /* blinds up: the rim lights magenta for the level change */
-.tv-table.is-blinds-up .tv-table-rim { animation:tv-rim-up .9s steps(1, end) both; }
+.tv-table.is-blinds-up .tv-table-rim { animation:tv-rim-up .9s steps(1, start) both; }
 @keyframes tv-rim-up { 0%, 50% { stroke:var(--lamp-live); stroke-width:10px; } 25%, 75% { stroke:var(--sun); stroke-width:6px; } 100% { stroke:var(--sun); stroke-width:4px; } }
 .tv-table-center { position:absolute; left:960px; top:418px; transform:translate(-50%, -50%); width:1000px;
   display:flex; flex-direction:column; align-items:center; gap:8px; text-align:center; }

@@ -53,7 +53,7 @@
 /* the picker's clock: a lamp bar draining over the grid */
 .fd-board-drain { display:block; height:6px; border-radius:3px; transform-origin:left center; background:var(--lamp-live);
   box-shadow:0 0 10px color-mix(in srgb, var(--lamp-live) 60%, transparent);
-  animation:fd-board-drain var(--drain-ms) linear var(--drain-wait, 0ms) both, fd-board-drain-low 1ms steps(1, end) var(--drain-low) forwards; }
+  animation:fd-board-drain var(--drain-ms) linear var(--drain-wait, 0ms) both, fd-board-drain-low 1ms steps(1, start) var(--drain-low) forwards; }
 @keyframes fd-board-drain { from { transform:scaleX(var(--drain-left)); } to { transform:scaleX(0); } }
 @keyframes fd-board-drain-low { to { background:var(--clay); box-shadow:0 0 10px var(--clay); } }
 .fd-board-drain.is-chip { background:var(--sun); box-shadow:0 0 10px color-mix(in srgb, var(--sun) 55%, transparent); }

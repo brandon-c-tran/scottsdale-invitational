@@ -39,7 +39,7 @@
 @keyframes sg-hop { 0%, 100% { transform:translateY(0px); } 40% { transform:translateY(-44px); } }
 @keyframes sg-bob { 0%, 100% { transform:translateY(0px); } 50% { transform:translateY(-14px); } }
 /* off the floor on the ladder, and gone up the cactus: its shadow stays down */
-.is-saguaro .sg-chip .cast-shadow { opacity:0; --ba:bit-hide 1ms step-end calc(var(--tl) + var(--b-climb) + 120ms) both; animation:var(--ba); }
+.is-saguaro .sg-chip .cast-shadow { opacity:0; --ba:bit-hide 1ms step-start calc(var(--tl) + var(--b-climb) + 120ms) both; animation:var(--ba); }
 
 /* ── its body: up on its toes reaching, a slump giving up, leaning back
    into the cactus, jolted, squashed landing on top ── */
@@ -66,7 +66,7 @@
   --ba:sg-look-up 300ms ease-out calc(var(--tl) + var(--b-look)) both,
     sg-look-down 200ms ease-in-out calc(var(--tl) + var(--b-reach1) - 120ms) forwards,
     sg-turn-left 120ms ease-in-out calc(var(--tl) + var(--b-exit)) forwards,
-    sg-turn-right 1ms step-end calc(var(--tl) + var(--b-enter)) forwards,
+    sg-turn-right 1ms step-start calc(var(--tl) + var(--b-enter)) forwards,
     sg-look-up2 300ms ease-out calc(var(--tl) + var(--b-reach)) forwards,
     sg-look-down2 300ms ease-in-out calc(var(--tl) + var(--b-giveup)) forwards,
     sg-to-room 220ms ease-in-out calc(var(--tl) + var(--b-lean)) forwards,
@@ -83,8 +83,8 @@
 @keyframes sg-to-us { from { transform:rotateY(-34deg) rotateX(0deg); } to { transform:rotateY(0deg) rotateX(-8deg); } }
 /* its shoes turn with it to walk off, and back */
 .is-saguaro .sg-chip .cast-shoe-in { transform:scaleX(1);
-  --ba:sg-shoe-left 1ms step-end calc(var(--tl) + var(--b-exit) + 60ms) both,
-    sg-shoe-right 1ms step-end calc(var(--tl) + var(--b-enter)) forwards; animation:var(--ba); }
+  --ba:sg-shoe-left 1ms step-start calc(var(--tl) + var(--b-exit) + 60ms) both,
+    sg-shoe-right 1ms step-start calc(var(--tl) + var(--b-enter)) forwards; animation:var(--ba); }
 @keyframes sg-shoe-left { from { transform:scaleX(1); } to { transform:scaleX(-1); } }
 @keyframes sg-shoe-right { from { transform:scaleX(-1); } to { transform:scaleX(1); } }
 

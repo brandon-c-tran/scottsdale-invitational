@@ -59,7 +59,7 @@
 .tv-showdown-lamps { display:flex; gap:44px; }
 .tv-showdown-count { --lamp:var(--lamp-live); width:60px; height:60px;
   box-shadow:var(--lens-rim), 0 0 36px 6px color-mix(in srgb, var(--lamp-on) 55%, transparent);
-  animation:tv-showdown-lamp 90ms steps(1, end) both, tv-showdown-spent 1ms steps(1, end) calc(var(--tl) + var(--fire)) forwards; }
+  animation:tv-showdown-lamp 90ms steps(1, start) both, tv-showdown-spent 1ms steps(1, start) calc(var(--tl) + var(--fire)) forwards; }
 /* once the draw has flashed the countdown is spent: clear glass */
 @keyframes tv-showdown-spent { to { background:var(--lens-spent); box-shadow:var(--lens-rim); } }
 @keyframes tv-showdown-lamp { from { background:var(--lens-off); box-shadow:var(--lens-rim); } to { background:var(--lens-lit); } }

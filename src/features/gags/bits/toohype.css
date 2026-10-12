@@ -14,7 +14,7 @@
     th-hop2 360ms linear calc(var(--tl) + var(--b-hop2)) forwards,
     th-hop3 480ms linear calc(var(--tl) + var(--b-hop3)) forwards,
     th-launch 170ms cubic-bezier(.55,0,1,.55) calc(var(--tl) + var(--b-launch)) forwards,
-    th-home 1ms step-end calc(var(--tl) + var(--b-fall)) forwards;
+    th-home 1ms step-start calc(var(--tl) + var(--b-fall)) forwards;
   animation:var(--ba); }
 .is-toohype .th-shoes { transform:translateY(0px);
   --ba:th-hop1 270ms linear calc(var(--tl) + var(--b-hop1)) both,
@@ -65,7 +65,7 @@
 /* out of the sky, a little off its line, missing its shoes; into the
    ground up to its middle */
 .is-toohype .th-chip .cast-move { transform:translate(var(--dx), var(--plant));
-  --ba:th-stay 1ms step-end calc(var(--tl) + var(--b-fall)) both,
+  --ba:th-stay 1ms step-start calc(var(--tl) + var(--b-fall)) both,
     th-fall 200ms cubic-bezier(.45,0,1,.75) calc(var(--tl) + var(--b-fall)) forwards,
     th-sink 70ms cubic-bezier(.2,.8,.4,1) calc(var(--tl) + var(--b-crash)) forwards;
   animation:var(--ba); }
@@ -112,16 +112,16 @@
   --ba:th-wave 100ms ease-in-out calc(var(--tl) + var(--b-fall)) 2 both; animation:var(--ba); }
 @keyframes th-wave { 0%, 100% { transform:rotate(0deg); } 50% { transform:rotate(calc(var(--fx, 1) * -24deg)); } }
 .is-toohype .th-chip .cast-hand { opacity:0;
-  --ba:bit-hide 1ms step-end calc(var(--tl) + var(--b-crash) + 40ms) both; animation:var(--ba); }
+  --ba:bit-hide 1ms step-start calc(var(--tl) + var(--b-crash) + 40ms) both; animation:var(--ba); }
 
 /* ── the wakes: up off the shoes as it goes, and over it on the way down ── */
 .is-toohype .th-down { transform:rotate(90deg); }
 .is-toohype .th-up { transform:rotate(-90deg); }
 .is-toohype .th-launch-lines { opacity:0;
-  --ba:bit-show 1ms step-end calc(var(--tl) + var(--b-launch) + 20ms) both,
+  --ba:bit-show 1ms step-start calc(var(--tl) + var(--b-launch) + 20ms) both,
     bit-hide 240ms linear calc(var(--tl) + var(--b-launch) + 120ms) forwards; animation:var(--ba); }
 .is-toohype .th-fall-lines { opacity:0;
-  --ba:bit-show 1ms step-end calc(var(--tl) + var(--b-fall)) both,
+  --ba:bit-show 1ms step-start calc(var(--tl) + var(--b-fall)) both,
     bit-hide 90ms linear calc(var(--tl) + var(--b-crash)) forwards; animation:var(--ba); }
 .is-toohype :is(.th-off, .th-pop-dust) { --dust-ms:520ms; }
 .is-toohype .th-crash { --dust-ms:760ms; }

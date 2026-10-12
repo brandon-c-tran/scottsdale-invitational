@@ -326,7 +326,7 @@ function Trivia() {
   const desk = mix("var(--art-violet)", 70, "var(--art-plum)");
   const lit = "var(--art-cream)", dark = mix("var(--art-cream)", 18, K);
   const desks = [300, 450, 600, 750, 900];
-  const blink = (i, k) => run("fi-blink", 180, 900 + (k * 5 + i) * 110, "steps(1, end)");
+  const blink = (i, k) => run("fi-blink", 180, 900 + (k * 5 + i) * 110, "steps(1, start)");
   return <Plates
     mid={<>
       <g style={{ ...box, ...run("fi-card-back", 150, 900, "cubic-bezier(.5,0,.8,.5)") }}>
@@ -349,7 +349,7 @@ function Trivia() {
         <path d={`M${x - 52} 444H${x + 52}L${x + 45} 590H${x - 45}Z`} fill={desk} stroke={K} strokeWidth="5" strokeLinejoin="round" />
         <circle cx={x} cy="492" r="17" fill={dark} stroke={K} strokeWidth="3" />
         {[0, 1].map(k => <circle key={k} cx={x} cy="492" r="17" fill={lit} style={blink(i, k)} opacity="0" />)}
-        {i === 3 && <circle cx={x} cy="492" r="17" fill={lit} style={run("fi-on", 120, T.hit, "steps(1, end)")} />}
+        {i === 3 && <circle cx={x} cy="492" r="17" fill={lit} style={run("fi-on", 120, T.hit, "steps(1, start)")} />}
       </g>)}
       <Burst x={750} y={418} r={60} flat={.6} />
     </>}

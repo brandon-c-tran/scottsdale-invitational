@@ -54,8 +54,8 @@ export function poseLayerStyle(list, i) {
   const [, from] = list[i];
   const parts = [];
   const shows = i > 0 || from > 0;
-  if (shows) parts.push(`cast-on 1ms step-end ${at(from)} both`);
-  if (!last) parts.push(`cast-off 1ms step-end ${at(list[i + 1][1])} ${shows ? "forwards" : "both"}`);
+  if (shows) parts.push(`cast-on 1ms step-start ${at(from)} both`);
+  if (!last) parts.push(`cast-off 1ms step-start ${at(list[i + 1][1])} ${shows ? "forwards" : "both"}`);
   return parts.length ? { opacity:last ? 1 : 0, "--ba":parts.join(", "), animation:"var(--ba)" } : { opacity:1 };
 }
 

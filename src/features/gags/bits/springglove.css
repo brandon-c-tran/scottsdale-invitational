@@ -116,7 +116,7 @@
   --ba:sg-glove-out 80ms cubic-bezier(.5,0,.9,.6) calc(var(--tl) + var(--b-fire)) both,
     sg-glove-over 280ms ease-out calc(var(--tl) + var(--b-hit)) forwards,
     sg-glove-in 130ms cubic-bezier(.55,0,1,.6) calc(var(--tl) + var(--b-retract)) forwards,
-    bit-hide 1ms step-end calc(var(--tl) + var(--b-home)) both,
+    bit-hide 1ms step-start calc(var(--tl) + var(--b-home)) both,
     sg-glove-back 200ms cubic-bezier(.3,1.4,.5,1) calc(var(--tl) + var(--b-boop) + 420ms) forwards;
   animation:var(--ba); }
 @keyframes sg-glove-out { from { transform:translateX(0px); } to { transform:translateX(var(--reach)); } }
@@ -130,16 +130,16 @@
   44% { transform:rotate(-1.8deg); } 61% { transform:rotate(1.1deg); } 78% { transform:rotate(-.5deg); } }
 /* the wake behind the glove, only while it flies */
 .is-springglove .sg-trail { opacity:0; }
-.is-springglove .sg-trail.is-out { --ba:bit-show 1ms step-end calc(var(--tl) + var(--b-fire) + 16ms) both,
+.is-springglove .sg-trail.is-out { --ba:bit-show 1ms step-start calc(var(--tl) + var(--b-fire) + 16ms) both,
   bit-hide 120ms linear calc(var(--tl) + var(--b-hit)) forwards; animation:var(--ba); }
-.is-springglove .sg-trail.is-in { --ba:bit-show 1ms step-end calc(var(--tl) + var(--b-retract) + 16ms) both,
+.is-springglove .sg-trail.is-in { --ba:bit-show 1ms step-start calc(var(--tl) + var(--b-retract) + 16ms) both,
   bit-hide 80ms linear calc(var(--tl) + var(--b-home)) forwards; animation:var(--ba); }
 
 /* ── the overshoot: in at the front, out the back port into A's face,
    a beat there, and back in ── */
 .is-springglove .sg-back { opacity:0;
-  --ba:bit-show 1ms step-end calc(var(--tl) + var(--b-boop) - 100ms) both,
-    bit-hide 1ms step-end calc(var(--tl) + var(--b-boop) + 420ms) forwards; animation:var(--ba); }
+  --ba:bit-show 1ms step-start calc(var(--tl) + var(--b-boop) - 100ms) both,
+    bit-hide 1ms step-start calc(var(--tl) + var(--b-boop) + 420ms) forwards; animation:var(--ba); }
 .is-springglove .sg-back-x { transform:translateX(var(--back-in));
   --ba:sg-back-out 100ms cubic-bezier(.2,.7,.4,1) calc(var(--tl) + var(--b-boop) - 100ms) both,
     sg-back-in 220ms cubic-bezier(.5,0,.8,.5) calc(var(--tl) + var(--b-boop) + 200ms) forwards; animation:var(--ba); }

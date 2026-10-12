@@ -34,7 +34,7 @@
 @keyframes pu-bounce { 0%, 100% { transform:translateY(110px) rotateX(-99deg); } 40% { transform:translateY(102px) rotateX(-93deg); } }
 /* face down, its back is what shows (the chip without its photo) */
 .is-pushups .pu-back { position:absolute; left:0; top:0; display:block; line-height:0; opacity:1;
-  --ba:bit-show 1ms step-end calc(var(--tl) + var(--b-collapse) + 100ms) both; animation:var(--ba); }
+  --ba:bit-show 1ms step-start calc(var(--tl) + var(--b-collapse) + 100ms) both; animation:var(--ba); }
 /* the shakes: the third one up, and the fourth that gets nowhere */
 .is-pushups .pu-chip .cast-body-in, .is-pushups .pu-hand-shake {
   --ba:pu-tremble 70ms linear calc(var(--tl) + var(--b-up3) + 220ms) 10 both,

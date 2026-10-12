@@ -301,7 +301,7 @@
 @keyframes tv-faceoff-shake { 0%, 100% { transform:none; } 20% { transform:translate(-7px, 3px); } 40% { transform:translate(6px, -4px); }
   60% { transform:translate(-4px, 2px); } 80% { transform:translate(3px, -1px); } }
 .tv-faceoff-record { position:relative; min-height:64px; font-size:56px; line-height:1.1; color:var(--muted2); white-space:pre; }
-.tv-faceoff-record span { animation:tv-faceoff-type 1ms steps(1, end) both; }
+.tv-faceoff-record span { animation:tv-faceoff-type 1ms steps(1, start) both; }
 @keyframes tv-faceoff-type { from { opacity:0; } to { opacity:1; } }
 /* a column's top match: the tab hangs under it, clear of the round's head */
 .tv-bracket-upnow.is-tab-below .tv-bracket-upnow-tab { top:auto; bottom:-38px; border-radius:8px 0 8px 8px; }

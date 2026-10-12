@@ -10,7 +10,7 @@
 /* ── the chip: glum, looking at the floor; it turns to the bird, scoots
    off, scoots again, and at the end turns and looks at us ── */
 .is-vulture .vu-chip .cast-chip-in { transform:rotateY(0deg) rotateX(-6deg);
-  --ba:vu-glum 1ms step-end calc(var(--tl) + 0ms) both,
+  --ba:vu-glum 1ms step-start calc(var(--tl) + 0ms) both,
     vu-turn 300ms ease-in-out calc(var(--tl) + var(--b-stare)) forwards,
     vu-look 520ms cubic-bezier(.45,0,.35,1) calc(var(--tl) + var(--b-look)) forwards; animation:var(--ba); }
 @keyframes vu-glum { from { transform:rotateY(0deg) rotateX(-14deg); } to { transform:rotateY(0deg) rotateX(-14deg); } }

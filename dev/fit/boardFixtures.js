@@ -18,9 +18,15 @@
      picture       a picture clue reading
      picture-answer  a picture clue's second turn, its photo beside it
      order         the buzzers closed, the order standing
-     answer        the second in order answering, the first's answer struck
+     rebound       the first answer wrong and struck, the buzzers about to
+                   arm again (the viewer may buzz)
+     rebound-armed the rebound live, two in (the viewer not)
+     rebound-in    the same, the viewer in
+     rebound-out   the viewer answered first and wrong: out of the rebound
+     answer        the rebound's fastest answering, the first answer struck
      answer-mine   the same, the viewer answering
-     reveal        the second in order right, the value on their score
+     reveal        the rebound's fastest (the viewer) right, the value on
+                   their score
      dd-sting      the Daily Double's sting, the viewer's pick
      dd-wager      its wager, not yet locked (the viewer's)
      dd-clue       its clue, the viewer answering alone
@@ -32,8 +38,9 @@
    Pure apart from the reducers it calls; deterministic (a seeded stream). */
 import { EMPTY_STATE, RESET_PROGRESS_CONFIRMATION, allEventsOf, presentPlayers, resolveCurrentContest } from "../../shared/core.js";
 import {
-  ANSWER_GAP_MS, BOARD_ZOOM_MS, BUZZ_SETTLE_MS, BUZZ_SHOW_MS, DD_STING_MS, FINAL_ANSWER_MS, FINAL_INTRO_MS, FINAL_WAGER_MS,
-  MAX_ATTEMPTS, boardAutoBeat, buzzOrder, clueClock, dealBoard, finalMax, finalRevealSchedule, readMs, boardStandings,
+  BOARD_ZOOM_MS, BUZZ_SETTLE_MS, BUZZ_SHOW_MS, DD_STING_MS, FINAL_ANSWER_MS, FINAL_INTRO_MS, FINAL_WAGER_MS, MAX_ATTEMPTS,
+  boardAutoBeat, boardRace, boardTopValue, buzzOrder, clueClock, dealBoard, finalMax, finalRevealSchedule, readMs, reboundClock,
+  boardStandings,
 } from "../../shared/triviaBoard.js";
 import { applyAction } from "../../worker/actions.js";
 import { TRIVIA_BANK } from "../../worker/triviaBank.js";
@@ -122,7 +129,9 @@ function base() {
 }
 
 /* the played history: [col, row], reactions in ms by player, and the
-   answers down the buzz order (true right, false wrong, null out of time) */
+   answers race by race (true right, false wrong, null out of time): each
+   race's fastest answers, and after a wrong one whoever buzzed and has not
+   answered buzzes again on the rebound */
 const HISTORY = Object.freeze([
   { cell:[0, 0], buzz:{ Evan:312, Khoa:405, Richard:521 }, answers:[true] },
   { cell:[0, 1], buzz:{ Khoa:288, Sahil:349 }, answers:[false, true] },
@@ -150,6 +159,24 @@ function wrongChoice(clue, log, k) {
   return options[k % options.length];
 }
 
+/* the race just run kept in `races`, the rebound's clock from `at` (the
+   wrong answer that opened it), its buzzers empty: what the writes do */
+function reboundAt(log, clue, at) {
+  const { armAt, openUntil, buzzes, closedAt, order } = log;
+  log.races = [...(log.races || []), { armAt, openUntil, buzzes, closedAt, order }];
+  Object.assign(log, reboundClock(clue, at), { buzzes:{}, order:[] });
+  delete log.closedAt;
+  return log;
+}
+/* a race's buzzes land and it closes the way the writes close it */
+function runRace(log, buzz) {
+  Object.entries(buzz).forEach(([player, ms]) => { log.buzzes[player] = { ms, at:log.armAt + ms + 90 }; });
+  const firsts = Object.values(log.buzzes).map(item => item.at);
+  log.closedAt = firsts.length ? Math.min(...firsts) + BUZZ_SETTLE_MS : log.openUntil;
+  log.order = buzzOrder(log);
+  return log;
+}
+
 /* a clue played to its end, its log written the way the writes write it */
 function playClue(game, id, { at, by, buzz = {}, answers = [], wager = 0 }) {
   const clue = game.clues[id];
@@ -166,25 +193,24 @@ function playClue(game, id, { at, by, buzz = {}, answers = [], wager = 0 }) {
     return log;
   }
   Object.assign(log, clueClock(clue, at));
-  Object.entries(buzz).forEach(([player, ms]) => { log.buzzes[player] = { ms, at:log.armAt + ms + 90 }; });
-  const firsts = Object.values(log.buzzes).map(item => item.at);
-  log.closedAt = firsts.length ? Math.min(...firsts) + BUZZ_SETTLE_MS : log.openUntil;
-  log.order = buzzOrder(log);
-  if (!log.order.length) { log.revealedAt = log.closedAt; log.winner = null; return log; }
-  log.turn = 0;
-  log.turnAt = log.closedAt + BUZZ_SHOW_MS;
-  let t = log.turnAt;
-  const turns = Math.min(MAX_ATTEMPTS, log.order.length, answers.length);
-  for (let i = 0; i < turns; i++) {
-    const player = log.order[i], answer = answers[i];
+  /* who is still in: a rebound's buzzers are a beat slower than the first race's */
+  const inRace = { ...buzz };
+  for (let race = 0; race < MAX_ATTEMPTS; race++) {
+    if (race > 0) reboundAt(log, clue, log.attempts[log.attempts.length - 1].at);
+    const k = log.attempts.length;
+    runRace(log, k < answers.length ? Object.fromEntries(Object.entries(inRace).map(([player, ms]) => [player, ms + 40 * race])) : {});
+    if (!log.order.length) { log.revealedAt = log.closedAt; log.winner = null; return log; }
+    const player = log.order[0], answer = answers[k];
     const timeout = answer === null;
-    log.turn = i; log.turnAt = t;
-    log.attempts.push({ player, choice:timeout ? null : answer ? clue.answer : wrongChoice(clue, log, i), at:t + 2100, right:answer === true,
+    log.turn = k;
+    log.turnAt = log.closedAt + BUZZ_SHOW_MS;
+    const t = log.turnAt + 2100;
+    log.attempts.push({ player, choice:timeout ? null : answer ? clue.answer : wrongChoice(clue, log, k), at:t, right:answer === true,
       ...(timeout ? { timeout:true } : {}) });
-    if (answer === true) { log.winner = player; log.revealedAt = t + 2100; return log; }
-    t += 2100 + ANSWER_GAP_MS;
+    if (answer === true) { log.winner = player; log.revealedAt = t; return log; }
+    delete inRace[player];
   }
-  log.revealedAt = t;
+  log.revealedAt = log.attempts[log.attempts.length - 1].at;
   log.winner = null;
   return log;
 }
@@ -268,6 +294,9 @@ export function boardDeskStage() {
 const PLAYED = Object.freeze({
   /* the buzzers live, the room's buzzes in */
   armed:{ stop:game => game.phase === "clue" && Object.keys(game.log?.[game.current]?.buzzes || {}).length > 0, ago:500 },
+  /* a rebound live after a wrong answer, the room's buzzes in again */
+  rebound:{ stop:game => game.phase === "clue" && boardRace(game.log?.[game.current]) > 0
+    && Object.keys(game.log?.[game.current]?.buzzes || {}).length > 0, ago:400 },
   /* the first turn a second in */
   answer:{ stop:game => game.phase === "answer" && Number(game.log?.[game.current]?.turnAt) > 0, ago:BUZZ_SHOW_MS + 1000 },
   /* the right answer stamped */
@@ -315,7 +344,8 @@ export function boardPlayed(moment = "armed", { now = Date.now(), seed = 1031 } 
     for (let guard = 0; guard < 3000; guard++) {
       const game = state.trivia;
       if (spec.stop(game)) break;
-      const here = `${game.phase}:${game.current || ""}:${game.log?.[game.current]?.turn ?? ""}`;
+      const log = game.current ? game.log?.[game.current] : null;
+      const here = `${game.phase}:${game.current || ""}:${log?.turn ?? ""}:${boardRace(log)}`;
       if (here !== step) {
         step = here;
         clock = Math.max(clock, readyAt(game));
@@ -363,10 +393,10 @@ export function boardStage(stage = "pick", { now = Date.now(), viewer = BOARD_FI
     if (stage === "armed-in") log.buzzes[viewer] = { ms:281, at:log.armAt + 371 };
     return state;
   }
-  /* the buzzers closed: the viewer second in order where the moment is theirs */
-  const closedPick = (closedAt, mine) => {
+  /* the buzzers closed: the viewer in the order where the moment is theirs
+     (second, or first where they answer first) */
+  const closedPick = (closedAt, buzz) => {
     const log = pick(game, live, closedAt - BUZZ_SETTLE_MS - 400 - reading);
-    const buzz = mine ? { Sahil:246, [viewer]:281, Chiang:318, Khoa:402 } : LIVE_BUZZ;
     Object.entries(buzz).forEach(([player, ms]) => { log.buzzes[player] = { ms, at:log.armAt + ms + 90 }; });
     log.closedAt = closedAt;
     log.order = buzzOrder(log);
@@ -375,16 +405,33 @@ export function boardStage(stage = "pick", { now = Date.now(), viewer = BOARD_FI
     game.phase = "answer";
     return log;
   };
-  if (stage === "order") { closedPick(now - 600, true); return state; }
+  const MINE = { Sahil:246, [viewer]:281, Chiang:318, Khoa:402 };
+  if (stage === "order") { closedPick(now - 600, MINE); return state; }
+  /* the first answer wrong at `wrongAt`: the rebound under way from it,
+     `buzz` its buzzes so far */
+  const rebound = (wrongAt, buzz = {}, first = MINE) => {
+    const log = closedPick(wrongAt - 2400 - BUZZ_SHOW_MS, first);
+    log.attempts.push({ player:log.order[0], choice:wrongChoice(clue, log, 0), at:wrongAt, right:false });
+    reboundAt(log, clue, wrongAt);
+    Object.entries(buzz).forEach(([player, ms]) => { log.buzzes[player] = { ms, at:log.armAt + ms + 90 }; });
+    game.phase = "clue";
+    return log;
+  };
+  if (stage === "rebound") { rebound(now - 1200); return state; }
+  if (stage === "rebound-armed") { rebound(now - 2600, { Chiang:240, Khoa:360 }); return state; }
+  if (stage === "rebound-in") { rebound(now - 2600, { Chiang:240, [viewer]:300, Khoa:360 }); return state; }
+  if (stage === "rebound-out") { rebound(now - 2600, { Sahil:250, Chiang:330 }, { [viewer]:221, Sahil:246, Chiang:318, Khoa:402 }); return state; }
   if (stage === "answer" || stage === "answer-mine" || stage === "reveal" || stage === "picture-answer") {
-    const log = closedPick(now - 9000, stage === "answer-mine" || stage === "reveal");
-    const first = log.order[0];
-    log.attempts.push({ player:first, choice:wrongChoice(clue, log, 0), at:now - 3100, right:false });
+    /* the rebound closed: its fastest (the viewer where it is theirs) answering */
+    const mine = stage === "answer-mine" || stage === "reveal";
+    const log = rebound(now - 9000);
+    runRace(log, mine ? { [viewer]:233, Chiang:301, Khoa:388 } : { Chiang:255, Khoa:330 });
     log.turn = 1;
-    log.turnAt = now - 3100 + ANSWER_GAP_MS;
+    log.turnAt = log.closedAt + BUZZ_SHOW_MS;
+    game.phase = "answer";
     if (stage === "reveal") {
-      log.attempts.push({ player:log.order[1], choice:clue.answer, at:now - 1400, right:true });
-      log.winner = log.order[1];
+      log.attempts.push({ player:log.order[0], choice:clue.answer, at:now - 1400, right:true });
+      log.winner = log.order[0];
       log.revealedAt = now - 1400;
       game.control = log.winner;
       game.phase = "reveal";
@@ -406,11 +453,13 @@ export function boardStage(stage = "pick", { now = Date.now(), viewer = BOARD_FI
     game.phase = "dd-clue";
     return state;
   }
-  /* the Final: every cell played */
+  /* the Final: every cell played, and everyone wagers (a score at or
+     below zero up to the board's top value) */
   playRest(game, players, now - 4 * 60000, random);
   game.current = null;
-  const eligible = boardStandings(game).filter(row => row.preFinal > 0).map(row => row.player);
-  const wager = (player, i) => Math.min(finalMax(boardStandings(game).find(row => row.player === player)?.preFinal || 0),
+  const eligible = [...players];
+  const top = boardTopValue(game);
+  const wager = (player, i) => Math.min(finalMax(boardStandings(game).find(row => row.player === player)?.preFinal || 0, top),
     [1000, 400, 0, 1200, 600, 200, 800][i % 7]);
   if (stage === "final-intro" || stage === "final-wager") {
     game.phase = "final-wager";

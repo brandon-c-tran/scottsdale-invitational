@@ -21,17 +21,23 @@
                    buzz as soon as you know it.
                    The buzzers close BUZZ_SETTLE_MS after the first buzz
                    reaches the server, or at `openUntil` with nobody in.
-     answer        the buzz order answers one at a time, the fastest first:
-                   ANSWER_MS on the four options on their own phone. Right:
-                   plus the value and control of the board. Wrong, or out of
-                   time: minus the value, that option is struck and the next
-                   in order answers, up to MAX_ATTEMPTS.
+     answer        the fastest of the race answers: ANSWER_MS on the four
+                   options on their own phone. Right: plus the value and
+                   control of the board. Wrong, or out of time: minus the
+                   value and that option is struck.
+     clue again    the rebound: after a wrong answer the buzzers reopen for
+                   everyone who has not answered this clue, armed
+                   REBOUND_LEAD_MS on (reboundClock) and settled exactly as
+                   the first race, the struck options standing; the fastest
+                   of the new race answers. At most MAX_ATTEMPTS answers a
+                   clue; nobody in, the answer stands.
      reveal        the right answer stamps; REVEAL_HOLD_MS, then the next pick
      dd-wager      the Daily Double (one hidden cell): only the picker plays,
                    wagering on their phone (DD_WAGER_MS)
      dd-clue       the clue reads and only the picker answers (DD_ANSWER_MS)
      final-wager   the board is clear: the Final's category shows and every
-                   player above zero wagers up to their score, unseen
+                   player wagers, unseen, 0 up to their score or the board's
+                   top value, whichever is more (the Daily Double's floor)
      final-clue    everyone answers the Final on their own phone, unseen
      final-reveal  the TV turns each player's Final from the lowest score up
                    (finalRevealSchedule)
@@ -50,7 +56,11 @@
        log:{ [clueId]:{ by, auto, pickedAt, shownAt, armAt, openUntil,
          buzzes:{ [player]:{ ms, at } }, closedAt, order:[player], turn,
          turnAt, attempts:[{ player, choice, at, right, timeout? }],
+         races?:[{ armAt, openUntil, buzzes, closedAt, order }],
          wager?, wagerAt?, revealedAt?, winner? } },
+                   armAt..order are the race under way (the first, or the
+                   latest rebound); `races` the ones before it, oldest
+                   first; `turn` counts the clue's answers (0, 1, 2)
        finalAt:{ introAt, wagerUntil, clueAt, answerUntil, revealAt, boardAt },
        finalWagers:{ [player]:{ wager, at } },
        finalPicks:{ [player]:{ choice, at, locked, lockedAt } },
@@ -89,13 +99,16 @@ export const BUZZ_EARLY_MS = 250;
 /* a reported reaction is held to this range */
 export const BUZZ_MS_MIN = 60;
 export const BUZZ_MS_MAX = 15000;
-/* the buzz order stands on the TV before the first answer turn */
+/* the buzz order stands on the TV before the answer turn */
 export const BUZZ_SHOW_MS = 1500;
-/* one answer turn, and the beat between a struck answer and the next turn */
+/* one answer turn */
 export const ANSWER_MS = 8000;
-export const ANSWER_GAP_MS = 900;
 /* an answer that left the phone as its turn ran out still counts */
 export const ANSWER_GRACE_MS = 1000;
+/* the rebound: the struck answer stands this long, then the buzzers arm
+   again for everyone who has not answered */
+export const REBOUND_LEAD_MS = 2000;
+/* answers a clue takes at most (the first race's and two rebounds') */
 export const MAX_ATTEMPTS = 3;
 export const REVEAL_HOLD_MS = 4500;
 /* the Daily Double: the sting, the wager, a beat once it is locked, the answer */
@@ -164,9 +177,31 @@ export function clueClock(clue, pickedAt) {
   const armAt = shownAt + readMs(clue);
   return { shownAt, armAt, openUntil:armAt + openMs(clue) };
 }
+/* A rebound's clock from the wrong answer (or the turn running out) that
+   opened it: the buzzers arm again a beat later and stay open as long as
+   the first race's (a tune's clip plays again from the new arm). */
+export function reboundClock(clue, at) {
+  const armAt = num(at) + REBOUND_LEAD_MS;
+  return { armAt, openUntil:armAt + openMs(clue) };
+}
+
+/* which race the buzzers are on: 0 the first, 1 and 2 the rebounds */
+export const boardRace = log => Array.isArray(log?.races) ? log.races.length : 0;
+export const isRebound = log => boardRace(log) > 0;
+/* a race's buzzes: the one under way, or an earlier one by its number */
+export const raceBuzzes = (log, race = boardRace(log)) => (race === boardRace(log) ? log?.buzzes : log?.races?.[race]?.buzzes) || {};
+/* who has answered this clue (a turn that ran out included): they never
+   buzz on it again */
+export const answeredOn = log => new Set((log?.attempts || []).map(attempt => attempt.player));
+/* who may still buzz on a rebound: everyone here in the game who has not
+   answered it */
+export const reboundPlayers = (state, game = state?.trivia, id = game?.current) => {
+  const answered = answeredOn(boardLog(game, id));
+  return boardActive(state, game).filter(player => !answered.has(player));
+};
 
 /* when the buzzers close: a beat after the first buzz reached the server,
-   or when the window runs out with nobody in */
+   or when the window runs out with nobody in (the race under way) */
 export function buzzCloseAt(log) {
   if (!log) return 0;
   const first = Math.min(...Object.values(log.buzzes || {}).map(buzz => num(buzz?.at)).filter(Boolean));
@@ -174,25 +209,31 @@ export function buzzCloseAt(log) {
   return Number.isFinite(first) ? Math.min(until, first + BUZZ_SETTLE_MS) : until;
 }
 /* the buzz order: the fastest reaction first, a tie to whoever reached the
-   server first */
+   server first (the race under way) */
 export function buzzOrder(log) {
   return Object.entries(log?.buzzes || {})
     .map(([player, buzz]) => ({ player, ms:num(buzz?.ms), at:num(buzz?.at) }))
     .sort((a, b) => a.ms - b.ms || a.at - b.at || a.player.localeCompare(b.player))
     .map(row => row.player);
 }
+/* a player's buzz on a clue: the race under way's, else their latest */
+export function buzzOf(log, player) {
+  if (log?.buzzes?.[player]) return log.buzzes[player];
+  for (const race of [...(log?.races || [])].reverse()) if (race?.buzzes?.[player]) return race.buzzes[player];
+  return null;
+}
 export const clampBuzzMs = ms => Math.round(Math.max(BUZZ_MS_MIN, Math.min(BUZZ_MS_MAX, num(ms) || BUZZ_MS_MAX)));
-/* who answers now (the Daily Double: the picker) */
-export const turnPlayer = log => log?.order?.[num(log.turn)] || null;
+/* Who answers now: the fastest of the race (the Daily Double: the picker).
+   A log from before the rebound (no `races`) passed the turn down its one
+   order, so `turn` still indexes it there. */
+export const turnPlayer = log => log?.order?.[Array.isArray(log.races) ? 0 : num(log.turn)] || null;
 export const turnMs = (game, id = game?.current) => isDailyDouble(game, id) ? DD_ANSWER_MS : ANSWER_MS;
 export function turnUntil(game, id = game?.current) {
   const log = boardLog(game, id);
   return log?.turnAt ? num(log.turnAt) + turnMs(game, id) : 0;
 }
-/* how many answer turns a clue allows: its buzz order, up to MAX_ATTEMPTS
-   (a Daily Double: one) */
-export const attemptsAllowed = (game, id = game?.current) => isDailyDouble(game, id) ? 1
-  : Math.min(MAX_ATTEMPTS, (boardLog(game, id)?.order || []).length);
+/* how many answers a clue takes: MAX_ATTEMPTS (a Daily Double: one) */
+export const attemptsAllowed = (game, id = game?.current) => isDailyDouble(game, id) ? 1 : MAX_ATTEMPTS;
 /* options already struck on this clue */
 export const struckChoices = log => new Set((log?.attempts || []).filter(attempt => !attempt.right && Number.isInteger(attempt.choice))
   .map(attempt => attempt.choice));
@@ -210,11 +251,12 @@ export function clueDeltas(game, id) {
 /* the Final counts once the TV starts turning it */
 export const finalShown = game => game?.phase === "final-reveal" || game?.phase === "final-board" || !!game?.finishedAt;
 const floorStep = value => Math.floor(num(value) / WAGER_STEP) * WAGER_STEP;
-/* a Daily Double risks up to the score, or the board's top value when the
-   score is lower; a Final up to the score (nothing below zero) */
+/* A Daily Double risks up to the score, or the board's top value when the
+   score is lower. The Final the same, from 0: everyone plays it, so a
+   score at or below zero can still win up to the board's top value. */
 export const ddMax = (score, top = BOARD_VALUES[BOARD_VALUES.length - 1]) => Math.max(top, floorStep(score));
 export const ddDefault = (score, top) => Math.max(DD_MIN, floorStep(ddMax(score, top) / 2));
-export const finalMax = score => Math.max(0, floorStep(score));
+export const finalMax = (score, top = BOARD_VALUES[BOARD_VALUES.length - 1]) => ddMax(score, top);
 export const validWager = (wager, min, max) => Number.isInteger(wager) && wager >= min && wager <= max && wager % WAGER_STEP === 0;
 
 /* Totals, best first: { player, order, score, preFinal, right, wrong,
@@ -235,23 +277,26 @@ export function boardStandings(game) {
     if (!log) continue;
     const stake = clueStake(game, id);
     if (log.by && (!log.auto || log.wagerAt)) acted.add(log.by);
-    for (const player of Object.keys(log.buzzes || {})) { const row = by.get(player); if (row) { row.buzzes += 1; acted.add(player); } }
+    /* a buzz in any race of the clue (a clue counts once) */
+    const buzzed = new Set([...(log.races || []).flatMap(race => Object.keys(race?.buzzes || {})), ...Object.keys(log.buzzes || {})]);
+    for (const player of buzzed) { const row = by.get(player); if (row) { row.buzzes += 1; acted.add(player); } }
     for (const attempt of log.attempts || []) {
       const row = by.get(attempt.player);
       if (!row) continue;
       if (Number.isInteger(attempt.choice)) acted.add(attempt.player);
       if (attempt.right) {
         row.score += stake; row.right += 1;
-        row.speed += num(log.buzzes?.[attempt.player]?.ms);
+        row.speed += num(buzzOf(log, attempt.player)?.ms);
       } else { row.score -= stake; row.wrong += 1; }
     }
   }
   for (const row of rows) row.preFinal = row.score;
   if (finalShown(game) && game.final) {
+    const top = boardTopValue(game);
     for (const row of rows) {
       const pick = game.finalPicks?.[row.player];
       const answered = Number.isInteger(pick?.choice);
-      const wager = Math.min(finalMax(row.preFinal), num(game.finalWagers?.[row.player]?.wager));
+      const wager = Math.min(finalMax(row.preFinal, top), num(game.finalWagers?.[row.player]?.wager));
       const right = answered && pick.choice === game.final.answer;
       row.final = { wager, choice:answered ? pick.choice : null, right };
       row.score += right ? wager : -wager;
@@ -281,22 +326,23 @@ export function boardResultSlots(rows) {
   return [[order[0].player], ...ranks.map(rank => rest.filter(row => row.rank === rank).map(row => row.player))];
 }
 
-/* who wagers on the Final: everyone still here above zero */
+/* who wagers on the Final: everyone in the game still here, whatever their
+   score (a present roster player not in it yet joins on their wager) */
 export function finalEligible(state, game = state?.trivia) {
-  const scores = new Map(boardStandings(game).map(row => [row.player, row.preFinal]));
-  return boardActive(state, game).filter(player => (scores.get(player) || 0) > 0);
+  return boardActive(state, game);
 }
 
 /* The Final turns player by player from the lowest score up, a player who
    wagered nothing quicker; anyone who never played and gave no Final is
    left out. [{ player, at, ms }] with `at` from finalAt.revealAt. */
 export function finalRevealSchedule(game) {
+  const top = boardTopValue(game);
   const rows = boardStandings({ ...game, phase:"final-clue", finishedAt:null })
     .filter(row => row.played || Number.isInteger(game?.finalPicks?.[row.player]?.choice) || game?.finalWagers?.[row.player])
     .sort((a, b) => a.preFinal - b.preFinal || a.order - b.order);
   let at = 0;
   return rows.map(row => {
-    const wager = Math.min(finalMax(row.preFinal), num(game?.finalWagers?.[row.player]?.wager));
+    const wager = Math.min(finalMax(row.preFinal, top), num(game?.finalWagers?.[row.player]?.wager));
     const ms = wager > 0 ? FINAL_REVEAL_STEP_MS : FINAL_REVEAL_QUICK_MS;
     const step = { player:row.player, at, ms };
     at += ms;
@@ -339,6 +385,10 @@ export function dealBoard(rounds, { gameId = "tb", random = Math.random } = {}) 
   return { columns, clues, dd };
 }
 
+/* the buzzers' close for a race: the first race's as it always was, a
+   rebound's with its number */
+const closePayload = (clueId, race) => race ? { clueId, race } : { clueId };
+
 /* The next write the game makes on its own, and when: { at, from, type,
    payload, key }, or null. Every beat is a commissioner write the pill
    also offers (boardBeat), so a tap takes it early; `key` names it once. */
@@ -356,8 +406,13 @@ export function boardAutoBeat(state) {
       return next ? beat(num(game.pickAt) + BOARD_PICK_MS, "boardPick", { clueId:next, auto:true },
         `pick${(game.played || []).length}`, game.pickAt) : null;
     }
-    case "clue":
-      return log ? beat(buzzCloseAt(log), "boardCloseBuzz", { clueId:id }, `${id}:close`, log.armAt) : null;
+    case "clue": {
+      /* each race closes on its own write: a rebound names its race, so an
+         earlier race's close can never close it */
+      const race = boardRace(log);
+      return log ? beat(buzzCloseAt(log), "boardCloseBuzz", closePayload(id, race), race ? `${id}:close${race}` : `${id}:close`,
+        log.armAt) : null;
+    }
     case "answer":
     case "dd-clue":
       return log?.turnAt ? beat(turnUntil(game) + ANSWER_GRACE_MS, "boardTimeout", { clueId:id, turn:num(log.turn) },
@@ -410,7 +465,7 @@ export function boardBeat(state, ev) {
       const next = autoPickClue(game);
       return next ? step("Pick", `${name(game.control)}'s pick`, "boardPick", { clueId:next, auto:true }) : null;
     }
-    case "clue": return step("Close buzzers", cell, "boardCloseBuzz", { clueId:id });
+    case "clue": return step("Close buzzers", cell, "boardCloseBuzz", closePayload(id, boardRace(log)));
     case "answer": return step("Time", `${name(turnPlayer(log))} answering`, "boardTimeout", { clueId:id, turn:num(log?.turn) });
     case "dd-wager": return step("Show the clue", `Daily Double, ${name(log?.by)}`, "boardDdClue", { clueId:id });
     case "dd-clue": return step("Time", `${name(log?.by)} answering`, "boardTimeout", { clueId:id, turn:0 });

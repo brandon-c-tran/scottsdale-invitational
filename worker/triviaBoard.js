@@ -1,13 +1,14 @@
 /* The Trivia board's writes (shared/triviaBoard.js is the model,
    docs/TRIVIA-BOARD.md the contract). Players pick a cell when they hold
-   the board, buzz, answer on their turn, wager a Daily Double and the
-   Final, and answer the Final; everything a clock decides (the pick when
-   the picker waits too long, the buzzers closing, a turn running out, the
-   next pick, each step of the Final, the result) is a commissioner write
-   the autopilot makes on the game's own clock (boardAutoBeat) with a
-   context marked `auto`, and the pill offers as a skip-ahead (boardBeat).
-   An autopilot write that is no longer the game's next beat, or not yet
-   due, is acknowledged and changes nothing.
+   the board, buzz (again on a rebound, until they have answered the
+   clue), answer on their turn, wager a Daily Double and the Final, and
+   answer the Final; everything a clock decides (the pick when the picker
+   waits too long, the buzzers closing, a turn running out, the next pick,
+   each step of the Final, the result) is a commissioner write the
+   autopilot makes on the game's own clock (boardAutoBeat) with a context
+   marked `auto`, and the pill offers as a skip-ahead (boardBeat). An
+   autopilot write that is no longer the game's next beat, or not yet due,
+   is acknowledged and changes nothing.
 
    A player's retried write (the same device and action id) is
    acknowledged once and never undoes a newer one (`ops`, server only).
@@ -20,11 +21,11 @@
 import { isAbsent, isActivePlayer, isAway, resolveEventLifecycle } from "../shared/core.js";
 import { autopilotHeld } from "../shared/show.js";
 import {
-  ANSWER_GAP_MS, ANSWER_GRACE_MS, BOARD_FORMAT, BUZZ_EARLY_MS, BUZZ_SHOW_MS, DD_MIN, FINAL_ANSWER_MS, FINAL_GRACE_MS,
-  FINAL_INTRO_MS, FINAL_PHASES, FINAL_WAGER_MS, WAGER_STEP, attemptsAllowed, autoPickClue, boardActive, boardAutoBeat, boardClue,
-  boardLog, boardPlayed, boardPlayers, boardPlays, boardResultSlots, boardScore, boardStandings, boardTopValue, buzzCloseAt,
-  buzzOrder, cellsLeft, clampBuzzMs, clueClock, dealBoard, ddDefault, ddMax, finalEligible, finalMax, isBoardGame, readMs,
-  struckChoices, turnPlayer, turnUntil, validWager,
+  ANSWER_GRACE_MS, BOARD_FORMAT, BUZZ_EARLY_MS, BUZZ_SHOW_MS, DD_MIN, FINAL_ANSWER_MS, FINAL_GRACE_MS,
+  FINAL_INTRO_MS, FINAL_PHASES, FINAL_WAGER_MS, WAGER_STEP, answeredOn, attemptsAllowed, autoPickClue, boardActive, boardAutoBeat,
+  boardClue, boardLog, boardPlayed, boardPlayers, boardPlays, boardRace, boardResultSlots, boardScore, boardStandings, boardTopValue,
+  buzzCloseAt, buzzOrder, cellsLeft, clampBuzzMs, clueClock, dealBoard, ddDefault, ddMax, finalEligible, finalMax, isBoardGame,
+  raceBuzzes, readMs, reboundClock, reboundPlayers, struckChoices, turnPlayer, turnUntil, validWager,
 } from "../shared/triviaBoard.js";
 import { TRIVIA_FINALS } from "./triviaBank.js";
 
@@ -97,7 +98,8 @@ export function boardActions({ ok, err, gmOnly, run, roundQuestions, dealOptions
     game.ops = { ...(game.ops || {}), [scope]:{ ...(game.ops?.[scope] || {}), [who]:[...kept, key].slice(-OPS_KEPT) } };
   };
   /* a player's own write: checked in and here. A present roster player not
-     in the game yet joins on their first buzz or Final answer (`join`). */
+     in the game yet joins on their first buzz, Final wager or Final answer
+     (`join`). */
   const seat = (state, game, ctx, join = false) => {
     const player = ctx?.player;
     if (!player) return { error:err("Check in first") };
@@ -107,9 +109,13 @@ export function boardActions({ ok, err, gmOnly, run, roundQuestions, dealOptions
     return { player, joining:true };
   };
   /* One answer recorded (a timeout is a wrong one). Right takes the value
-     and the board; wrong costs the value, strikes the option and hands the
-     turn to the next in the buzz order, until the clue runs out of turns. */
-  const settle = (game, id, attempt, now) => {
+     and the board. Wrong costs the value and strikes the option, and the
+     buzzers reopen (the rebound): the race just run is kept in `races`, a
+     new one arms REBOUND_LEAD_MS on for everyone here who has not answered,
+     and the clue is back in phase clue, so it closes and answers exactly
+     as the first race did. The answer stands once the clue has taken
+     MAX_ATTEMPTS answers (a Daily Double: one), or nobody is left to buzz. */
+  const settle = (state, game, id, attempt, now) => {
     const log = game.log[id];
     log.attempts = [...(log.attempts || []), attempt];
     if (attempt.right) {
@@ -118,12 +124,16 @@ export function boardActions({ ok, err, gmOnly, run, roundQuestions, dealOptions
       game.phase = "reveal";
       return;
     }
-    const next = num(log.turn) + 1;
-    if (next < attemptsAllowed(game, id)) Object.assign(log, { turn:next, turnAt:now + ANSWER_GAP_MS });
-    else {
-      Object.assign(log, { winner:null, revealedAt:now });
-      game.phase = "reveal";
+    if (log.attempts.length < attemptsAllowed(game, id) && reboundPlayers(state, game, id).length) {
+      const { armAt, openUntil, buzzes, closedAt, order } = log;
+      log.races = [...(log.races || []), { armAt, openUntil, buzzes:buzzes || {}, closedAt, order:order || [] }];
+      Object.assign(log, reboundClock(game.clues[id], now), { buzzes:{}, order:[] });
+      delete log.closedAt;
+      game.phase = "clue";
+      return;
     }
+    Object.assign(log, { winner:null, revealedAt:now });
+    game.phase = "reveal";
   };
   /* the Final: the commissioner's own (the set list's final entry), else
      one of the bank's at random, its options dealt */
@@ -214,18 +224,23 @@ export function boardActions({ ok, err, gmOnly, run, roundQuestions, dealOptions
       remember(game, "pick", who, opKey);
       return ok({ clueId });
     },
-    /* A buzz: any player here, once a clue, from a beat before the lamp
-       lights on the server clock until the buzzers close. The phone times
-       its own reaction from the frame that lit it (`ms`); the order goes by
-       that, not by arrival. A second buzz is acknowledged and changes
-       nothing. */
-    boardBuzz(state, { clueId, ms } = {}, ctx) {
+    /* A buzz: any player here who has not answered the clue, once a race,
+       from a beat before the lamp lights on the server clock until the
+       buzzers close. The phone times its own reaction from the frame that
+       lit it (`ms`) and names the race it lit for (`race`, the first when
+       missing); the order goes by the reaction, not by arrival. A second
+       buzz in the race is acknowledged and changes nothing; one for a race
+       that is over never counts in the next. */
+    boardBuzz(state, { clueId, ms, race } = {}, ctx) {
       const game = liveBoard(state);
       const log = game?.log?.[clueId];
-      if (ctx?.player && log?.buzzes?.[ctx.player]) return ok({ unchanged:true });
-      if (!game || game.phase !== "clue" || game.current !== clueId) return err("Buzzers closed");
+      const current = boardRace(log);
+      const asked = given(race) ? Number(race) : current;
+      if (ctx?.player && log && Number.isInteger(asked) && raceBuzzes(log, asked)[ctx.player]) return ok({ unchanged:true });
+      if (!game || game.phase !== "clue" || game.current !== clueId || asked !== current) return err("Buzzers closed");
       const checked = seat(state, game, ctx, true);
       if (checked.error) return checked.error;
+      if (answeredOn(log).has(checked.player)) return err("You already answered");
       const now = Date.now();
       if (now < num(log.armAt) - BUZZ_EARLY_MS) return err("Buzzers are not open yet");
       if (now > buzzCloseAt(log)) return err("Buzzers closed");
@@ -233,16 +248,18 @@ export function boardActions({ ok, err, gmOnly, run, roundQuestions, dealOptions
       log.buzzes = { ...(log.buzzes || {}), [checked.player]:{ ms:clampBuzzMs(ms), at:now } };
       return ok();
     },
-    /* the buzzers close (a beat after the first buzz, or nobody in): the
-       order stands, fastest first, and the first turn starts once it has
-       shown; nobody in reveals the answer */
-    boardCloseBuzz(state, { clueId } = {}, ctx) {
+    /* The buzzers close (a beat after the first buzz, or nobody in): the
+       race's order stands, fastest first, and its first answers once it
+       has shown; nobody in reveals the answer. A rebound's close names its
+       race; a close for a race that is over changes nothing. */
+    boardCloseBuzz(state, { clueId, race } = {}, ctx) {
       const g = gmOnly(ctx); if (g) return g;
-      const stale = autoStale(state, "boardCloseBuzz", { clueId }, ctx); if (stale) return stale;
+      const stale = autoStale(state, "boardCloseBuzz", { clueId, race }, ctx); if (stale) return stale;
       const game = liveBoard(state);
       if (!game) return err("The board is closed");
       if (game.phase !== "clue" || game.current !== clueId) return ok({ unchanged:true });
       const log = game.log[clueId];
+      if (given(race) && Number(race) !== boardRace(log)) return ok({ unchanged:true });
       const now = Date.now();
       if (now < num(log.armAt)) return err("Buzzers are not open yet");
       log.closedAt = now;
@@ -251,7 +268,8 @@ export function boardActions({ ok, err, gmOnly, run, roundQuestions, dealOptions
         Object.assign(log, { winner:null, revealedAt:now });
         game.phase = "reveal";
       } else {
-        Object.assign(log, { turn:0, turnAt:now + BUZZ_SHOW_MS, attempts:log.attempts || [] });
+        const attempts = log.attempts || [];
+        Object.assign(log, { turn:attempts.length, turnAt:now + BUZZ_SHOW_MS, attempts });
         game.phase = "answer";
       }
       return ok();
@@ -279,12 +297,13 @@ export function boardActions({ ok, err, gmOnly, run, roundQuestions, dealOptions
       if (now > turnUntil(game, clueId) + ANSWER_GRACE_MS) return err("Time is up");
       if (struckChoices(log).has(answer)) return err("That one is out");
       const right = answer === game.clues[clueId].answer;
-      settle(game, clueId, { player, choice:answer, at:now, right }, now);
+      settle(state, game, clueId, { player, choice:answer, at:now, right }, now);
       remember(game, clueId, player, opKey);
       return ok();
     },
-    /* the turn ran out: a wrong answer with no option struck. A turn that
-       is no longer the current one changes nothing. */
+    /* the turn ran out: a wrong answer with no option struck (and the
+       rebound, as after any wrong one). A turn that is no longer the
+       current one changes nothing. */
     boardTimeout(state, { clueId, turn } = {}, ctx) {
       const g = gmOnly(ctx); if (g) return g;
       const stale = autoStale(state, "boardTimeout", { clueId, turn }, ctx); if (stale) return stale;
@@ -294,7 +313,7 @@ export function boardActions({ ok, err, gmOnly, run, roundQuestions, dealOptions
       const log = game.log[clueId];
       if (!given(turn) || Number(turn) !== num(log.turn)) return ok({ unchanged:true });
       const now = Date.now();
-      settle(game, clueId, { player:turnPlayer(log), choice:null, at:now, right:false, timeout:true }, now);
+      settle(state, game, clueId, { player:turnPlayer(log), choice:null, at:now, right:false, timeout:true }, now);
       return ok();
     },
     /* after the answer stands: the next pick, or once the board is clear
@@ -322,7 +341,8 @@ export function boardActions({ ok, err, gmOnly, run, roundQuestions, dealOptions
     },
     /* A wager, once. The Daily Double: its picker, 100 up to their score
        (or the board's top value when that is more). The Final: every player
-       here above zero, 0 up to their score; nobody sees another's until the
+       here, whatever their score, 0 up to the same most (a present roster
+       player not in the game joins on it); nobody sees another's until the
        reveal. */
     boardWager(state, { wager } = {}, ctx) {
       const game = liveBoard(state);
@@ -346,11 +366,12 @@ export function boardActions({ ok, err, gmOnly, run, roundQuestions, dealOptions
       if (game.phase === "final-wager") {
         const prior = game.finalWagers?.[player];
         if (prior) return prior.wager === amount ? ok({ unchanged:true }) : err("You already wagered");
-        const checked = seat(state, game, ctx);
+        const checked = seat(state, game, ctx, true);
         if (checked.error) return checked.error;
-        if (!finalEligible(state, game).includes(player)) return err("Only scores above zero wager");
-        const max = finalMax(boardStandings(game).find(row => row.player === player)?.preFinal);
+        const score = checked.joining ? 0 : boardStandings(game).find(row => row.player === player)?.preFinal;
+        const max = finalMax(score, boardTopValue(game));
         if (!validWager(amount, 0, max)) return err(`Wager in 100s, up to ${fmt(max)}`);
+        if (checked.joining) game.players = [...game.players, player];
         game.finalWagers = { ...(game.finalWagers || {}), [player]:{ wager:amount, at:Date.now() } };
         remember(game, scope, player, opKey);
         return ok();
@@ -441,8 +462,9 @@ export function boardActions({ ok, err, gmOnly, run, roundQuestions, dealOptions
     /* QA: the moves the room is waiting on, for every player but the
        commissioner's own (with none, everyone), through the real writes: a
        pick for whoever holds the board, buzzes from about half the room once
-       the buzzers are live, the current turn's answer (about 55% right), the
-       Daily Double's wager, the Final's wagers and answers. */
+       the buzzers are live (on a rebound, half of whoever has not answered),
+       the current turn's answer (about 55% right), the Daily Double's wager,
+       the Final's wagers (everyone's) and answers. */
     boardSim(state, payload, ctx) {
       const g = gmOnly(ctx); if (g) return g;
       if (!ctx.qa) return err("QA is unavailable");
@@ -468,11 +490,14 @@ export function boardActions({ ok, err, gmOnly, run, roundQuestions, dealOptions
         }
         case "clue": {
           if (!log || now < num(log.armAt)) break;
-          const room = boardActive(state, game).filter(player => player !== actor && !log.buzzes?.[player] && !isAbsent(state, player));
+          const answered = answeredOn(log);
+          const room = boardActive(state, game).filter(player => player !== actor && !log.buzzes?.[player] && !answered.has(player)
+            && !isAbsent(state, player));
           for (let i = room.length - 1; i > 0; i--) { const j = rand(i + 1); [room[i], room[j]] = [room[j], room[i]]; }
           const [low, high] = SIM_REACTION_MS;
+          const race = boardRace(log);
           for (const player of room.slice(0, Math.max(1, Math.round(room.length * SIM_BUZZ_SHARE))))
-            if (actions.boardBuzz(state, { clueId:game.current, ms:low + rand(high - low + 1) }, as(player)).ok) moved += 1;
+            if (actions.boardBuzz(state, { clueId:game.current, ms:low + rand(high - low + 1), race }, as(player)).ok) moved += 1;
           break;
         }
         case "answer":
@@ -493,9 +518,10 @@ export function boardActions({ ok, err, gmOnly, run, roundQuestions, dealOptions
         }
         case "final-wager": {
           const rows = new Map(boardStandings(game).map(row => [row.player, row.preFinal]));
+          const top = boardTopValue(game);
           for (const player of finalEligible(state, game)) {
-            if (player === actor || game.finalWagers?.[player]) continue;
-            const wager = WAGER_STEP * rand(Math.floor(finalMax(rows.get(player)) / WAGER_STEP) + 1);
+            if (player === actor || game.finalWagers?.[player] || isAbsent(state, player)) continue;
+            const wager = WAGER_STEP * rand(Math.floor(finalMax(rows.get(player), top) / WAGER_STEP) + 1);
             if (actions.boardWager(state, { wager }, as(player)).ok) moved += 1;
           }
           break;

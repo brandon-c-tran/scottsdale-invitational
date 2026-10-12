@@ -1,10 +1,11 @@
 /* The Trivia board (Oct 8, docs/TRIVIA-BOARD.md): Jeopardy's shape on the
    TV, every phone a buzzer. The server side, through the real reducers:
    the board dealt from the set list, picks, buzzes and answers on the
-   server clock, the Daily Double and the Final, the result through the
-   ordinary write, the autopilot (and the Durable Object's alarm) and the
-   pill, the format and the Final on the desk, QA, the photo and clip
-   endpoints, and the bank's levels and Final pool. */
+   server clock, the rebound after a wrong answer (Oct 12), the Daily
+   Double and the Final (everyone plays it since Oct 12), the result
+   through the ordinary write, the autopilot (and the Durable Object's
+   alarm) and the pill, the format and the Final on the desk, QA, the
+   photo and clip endpoints, and the bank's levels and Final pool. */
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync, statSync } from "node:fs";
@@ -15,12 +16,13 @@ import {
   EMPTY_STATE, RESET_PROGRESS_CONFIRMATION, allEventsOf, computeStandings, presentPlayers, resolveCurrentContest,
 } from "../shared/core.js";
 import {
-  ANSWER_GAP_MS, ANSWER_GRACE_MS, ANSWER_MS, BOARD_COLUMNS_MAX, BOARD_PICK_MS, BOARD_VALUES, BOARD_ZOOM_MS, BUZZ_EARLY_MS,
-  BUZZ_MS_MAX, BUZZ_MS_MIN, BUZZ_SETTLE_MS, BUZZ_SHOW_MS, DD_ANSWER_MS, DD_LOCKED_MS, DD_MIN, DD_STING_MS, DD_WAGER_MS,
-  FINAL_ALL_IN_MS, FINAL_ANSWER_MS, FINAL_GRACE_MS, FINAL_INTRO_MS, FINAL_REVEAL_QUICK_MS, FINAL_REVEAL_STEP_MS,
-  FINAL_REVEAL_TAIL_MS, FINAL_WAGER_MS, MAX_ATTEMPTS, REVEAL_HOLD_MS, autoPickClue, boardAutoBeat, boardResultSlots,
-  boardScore, boardStandings, buzzCloseAt, cellsLeft, ddDefault, ddMax, finalEligible, finalRevealMs, finalRevealSchedule,
-  readMs, turnPlayer,
+  ANSWER_GRACE_MS, ANSWER_MS, BOARD_CLIP_MS, BOARD_COLUMNS_MAX, BOARD_PICK_MS, BOARD_VALUES, BOARD_ZOOM_MS, BUZZ_EARLY_MS,
+  BUZZ_MS_MAX, BUZZ_MS_MIN, BUZZ_OPEN_MS, BUZZ_SETTLE_MS, BUZZ_SHOW_MS, DD_ANSWER_MS, DD_LOCKED_MS, DD_MIN, DD_STING_MS,
+  DD_WAGER_MS, FINAL_ALL_IN_MS, FINAL_ANSWER_MS, FINAL_GRACE_MS, FINAL_INTRO_MS, FINAL_REVEAL_QUICK_MS,
+  FINAL_REVEAL_STEP_MS, FINAL_REVEAL_TAIL_MS, FINAL_WAGER_MS, MAX_ATTEMPTS, REBOUND_LEAD_MS, REVEAL_HOLD_MS, answeredOn,
+  autoPickClue, boardAutoBeat, boardBeat, boardRace, boardResultSlots, boardScore, boardStandings, buzzCloseAt, cellsLeft,
+  ddDefault, ddMax, finalEligible, finalMax, finalRevealMs, finalRevealSchedule, readMs, reboundPlayers, struckChoices,
+  turnPlayer,
 } from "../shared/triviaBoard.js";
 import { cleanTriviaQuestion, triviaBeat, triviaConfigured, triviaLive, triviaQuestionTotal } from "../shared/trivia.js";
 import { autoBeat } from "../shared/autopilot.js";
@@ -82,6 +84,14 @@ const SMALL = { id:"tsmall001", source:"custom", name:"Warmup", questions:[
   q("qsmall001", "First?", ["A1", "B1", "C1", "D1"], 0),
   q("qsmall002", "Second?", ["A2", "B2", "C2", "D2"], 1),
   q("qsmall003", "Third?", ["A3", "B3", "C3", "D3"], 2),
+] };
+/* a full column, 200 to 1,000: the board's top value is a real game's */
+const FULL = { id:"tfull0001", source:"custom", name:"Warmup", questions:[
+  q("qfull0001", "First?", ["A1", "B1", "C1", "D1"], 0),
+  q("qfull0002", "Second?", ["A2", "B2", "C2", "D2"], 1),
+  q("qfull0003", "Third?", ["A3", "B3", "C3", "D3"], 2),
+  q("qfull0004", "Fourth?", ["A4", "B4", "C4", "D4"], 3),
+  q("qfull0005", "Fifth?", ["A5", "B5", "C5", "D5"], 0),
 ] };
 const FINAL = { id:"tfinal001", category:"The groom",
   questions:[q("qfinal001", "Where is the bachelor party?", ["Scottsdale", "Tahoe", "Austin", "Nashville"])] };
@@ -281,6 +291,9 @@ test("buzzers: open on the server clock, a beat early at most; once each; settle
   /* a present player who was away at the start joins on their first buzz */
   act(state, "setAway", { player:"Ben", away:false });
   at(log.turnAt, () => act(state, "boardTimeout", { clueId:id, turn:0 }));
+  assert.deepEqual([game.phase, boardRace(log)], ["clue", 1], "the turn ran out: the rebound");
+  buzz(state, b, 250);
+  close(state);
   answer(state, b, rightOf(state));
   next(state);
   pick(state);
@@ -291,38 +304,47 @@ test("buzzers: open on the server clock, a beat early at most; once each; settle
     "You are not playing");
 });
 
-test("answers: the turn's player only, struck options out, right takes the value and the board, wrong costs it and passes the turn", () => {
+test("answers: the race's fastest only, struck options out, right takes the value and the board, wrong costs it", () => {
   const state = board();
   pick(state);
   const game = state.trivia, id = game.current, log = logOf(state), value = game.clues[id].value;
   const [a, b, c, d] = game.players.filter(player => player !== game.control);
   buzz(state, a, 300); buzz(state, b, 400); buzz(state, c, 500); buzz(state, d, 600);
   close(state);
-  assert.deepEqual(log.order, [a, b, c, d]);
-  assert.equal(at(log.turnAt, () => refuse(state, "boardAnswer", { clueId:id, choice:rightOf(state) }, as(b))), "Not your turn");
+  assert.deepEqual([log.order, log.turn, turnPlayer(log)], [[a, b, c, d], 0, a]);
+  assert.equal(at(log.turnAt, () => refuse(state, "boardAnswer", { clueId:id, choice:rightOf(state) }, as(b))), "Not your turn",
+    "only the fastest answers");
   assert.equal(at(log.turnAt - 301, () => refuse(state, "boardAnswer", { clueId:id, choice:rightOf(state) }, as(a))), "Not your turn yet");
   assert.equal(at(log.turnAt, () => refuse(state, "boardAnswer", { clueId:id, choice:7 }, as(a))), "Pick an answer");
   assert.equal(at(log.turnAt, () => refuse(state, "boardAnswer", { clueId:id }, as(a))), "Pick an answer", "no choice is not option 0");
   const struck = wrongOf(state, 1);
   at(log.turnAt - 300, () => act(state, "boardAnswer", { clueId:id, choice:struck }, as(a, "answer-a")));
   assert.equal(score(state, a), -value, "wrong: minus the value");
-  assert.deepEqual([game.phase, log.turn, turnPlayer(log)], ["answer", 1, b]);
-  assert.equal(log.turnAt, log.attempts[0].at + ANSWER_GAP_MS, "the next turn after a beat");
+  assert.deepEqual([game.phase, boardRace(log), turnPlayer(log)], ["clue", 1, null],
+    "the turn never passes down the order: the buzzers reopen");
   assert.equal(applyAction(state, "boardAnswer", { clueId:id, choice:struck }, as(a, "answer-a")).extra?.unchanged, true,
     "a retried answer is acknowledged once");
-  assert.equal(refuse(state, "boardAnswer", { clueId:id, choice:wrongOf(state, 2) }, as(a)), "Not your turn");
+  assert.equal(refuse(state, "boardAnswer", { clueId:id, choice:wrongOf(state, 2) }, as(a)), "That turn is over");
+  assert.equal(refuse(state, "boardAnswer", { clueId:id, choice:rightOf(state) }, as(b)), "That turn is over",
+    "second in the first race is no turn");
+  /* b takes the rebound and runs out of time: wrong, nothing more struck */
+  buzz(state, b, 280);
+  close(state);
+  assert.deepEqual([game.phase, log.turn, turnPlayer(log)], ["answer", 1, b]);
   assert.equal(at(log.turnAt, () => refuse(state, "boardAnswer", { clueId:id, choice:struck }, as(b))), "That one is out");
-  /* b's turn runs out: wrong, nothing struck */
   const turn = log.turn;
   const due = boardAutoBeat(state);
   assert.deepEqual([due.type, due.payload, due.at], ["boardTimeout", { clueId:id, turn }, log.turnAt + ANSWER_MS + ANSWER_GRACE_MS]);
   at(due.at, () => act(state, due.type, due.payload, auto(due.key)));
   assert.deepEqual(log.attempts.at(-1), { player:b, choice:null, at:due.at, right:false, timeout:true });
   assert.equal(score(state, b), -value);
+  assert.deepEqual([...struckChoices(log)], [struck], "a turn that ran out strikes nothing");
   assert.equal(act(state, "boardTimeout", { clueId:id, turn }).extra.unchanged, true, "a stale timeout changes nothing");
+  /* c takes the second rebound and is right: the value and the board */
+  buzz(state, c, 310);
+  close(state);
   assert.equal(at(log.turnAt + ANSWER_MS + ANSWER_GRACE_MS + 1, () => refuse(state, "boardAnswer", { clueId:id, choice:rightOf(state) },
     as(c))), "Time is up");
-  /* c is right: the value and the board */
   answer(state, c, rightOf(state));
   assert.deepEqual([game.phase, log.winner, game.control, score(state, c)], ["reveal", c, c, value]);
   assert.equal(log.revealedAt, log.turnAt);
@@ -330,19 +352,199 @@ test("answers: the turn's player only, struck options out, right takes the value
   assert.equal(refuse(state, "boardAnswer", { clueId:id, choice:0 }, as(d)), "That turn is over");
   const revealed = publicState(state, { player:d }).trivia.clues[id];
   assert.equal(revealed.answer, game.clues[id].answer, "the answer reaches the phones once it stands");
+  const rows = new Map(boardStandings(game).map(row => [row.player, row]));
+  assert.deepEqual([rows.get(b).buzzes, rows.get(c).speed], [1, 310], "a clue counts once however many races; the winning race's reaction");
+});
 
-  /* three wrong and the clue is done: the fourth in line never answers */
+/* ── the rebound ── */
+
+test("the rebound: a wrong answer reopens the buzzers on the server clock, exactly as the first race, for everyone who has not answered", () => {
+  const state = board([SPORTS, CUSTOM], { away:["Ben"] });
+  pick(state);
+  const game = state.trivia, id = game.current, log = logOf(state), value = game.clues[id].value;
+  const [a, b, c, d, e] = game.players.filter(player => player !== game.control);
+  buzz(state, a, 250); buzz(state, b, 300);
+  close(state);
+  const first = structuredClone({ armAt:log.armAt, openUntil:log.openUntil, buzzes:log.buzzes, closedAt:log.closedAt, order:log.order });
+  /* a is wrong: the option struck, the race kept, a new one armed a beat on */
+  const struck = wrongOf(state, 1);
+  const wrongAt = log.turnAt + 1200;
+  at(wrongAt, () => act(state, "boardAnswer", { clueId:id, choice:struck }, as(a)));
+  assert.deepEqual([game.phase, game.current, boardRace(log)], ["clue", id, 1]);
+  assert.deepEqual(log.races, [first], "the first race stands as it closed");
+  assert.deepEqual([log.armAt, log.openUntil], [wrongAt + REBOUND_LEAD_MS, wrongAt + REBOUND_LEAD_MS + BUZZ_OPEN_MS]);
+  assert.deepEqual([log.buzzes, log.order, log.closedAt], [{}, [], undefined]);
+  assert.deepEqual([...struckChoices(log)], [struck], "the struck option stays struck");
+  assert.deepEqual([...answeredOn(log)], [a]);
+  assert.deepEqual(reboundPlayers(state).sort(), game.players.filter(player => player !== a).sort(), "everyone here but who answered");
+  assert.equal(score(state, a), -value);
+  /* who may buzz: never a, who answered; anyone else, b again (second in the first race) */
+  assert.equal(at(log.armAt, () => refuse(state, "boardBuzz", { clueId:id, ms:150, race:1 }, as(a))), "You already answered");
+  assert.equal(at(log.armAt, () => refuse(state, "boardBuzz", { clueId:id, ms:150, race:1 }, as("Ben"))), "You are marked away");
+  /* the lamp lights on the server clock, a beat early at most */
+  assert.equal(at(log.armAt - BUZZ_EARLY_MS - 1, () => refuse(state, "boardBuzz", { clueId:id, ms:150, race:1 }, as(b))),
+    "Buzzers are not open yet");
+  assert.equal(at(log.armAt - 1, () => refuse(state, "boardCloseBuzz", { clueId:id, race:1 })), "Buzzers are not open yet");
+  at(log.armAt - BUZZ_EARLY_MS, () => act(state, "boardBuzz", { clueId:id, ms:410, race:1 }, as(b)));
+  const firstIn = log.buzzes[b].at;
+  /* the phones see who is in, never how fast, until it closes; the first race in full */
+  const phone = publicState(state, { player:c }).trivia.log[id];
+  assert.deepEqual(phone.buzzes, { [b]:{ in:true } });
+  assert.deepEqual(phone.races, [first]);
+  /* settled a beat after the first buzz; ordered by reaction, not arrival */
+  at(firstIn + 300, () => act(state, "boardBuzz", { clueId:id, ms:180, race:1 }, as(c)));
+  at(firstIn + BUZZ_SETTLE_MS, () => act(state, "boardBuzz", { clueId:id, ms:260, race:1 }, as(d)));
+  assert.equal(at(firstIn + BUZZ_SETTLE_MS + 1, () => refuse(state, "boardBuzz", { clueId:id, ms:100, race:1 }, as(e))), "Buzzers closed");
+  const beat = boardAutoBeat(state);
+  assert.deepEqual(beat, { at:firstIn + BUZZ_SETTLE_MS, from:log.armAt, type:"boardCloseBuzz", payload:{ clueId:id, race:1 },
+    key:`board:${game.id}:${id}:close1` }, "the rebound's close: its own write, its own key");
+  at(beat.at, () => act(state, beat.type, beat.payload, auto(beat.key)));
+  assert.deepEqual([game.phase, log.order, log.turn, log.turnAt, turnPlayer(log)],
+    ["answer", [c, d, b], 1, beat.at + BUZZ_SHOW_MS, c], "the fastest of the new race answers, once its order has shown");
+  assert.equal(at(log.turnAt, () => refuse(state, "boardAnswer", { clueId:id, choice:rightOf(state) }, as(b))), "Not your turn");
+  assert.equal(at(log.turnAt, () => refuse(state, "boardAnswer", { clueId:id, choice:struck }, as(c))), "That one is out");
+  answer(state, c, rightOf(state));
+  assert.deepEqual([game.phase, log.winner, game.control], ["reveal", c, c]);
+  assert.deepEqual([score(state, a), score(state, b), score(state, c), score(state, d)], [-value, 0, value, 0]);
+});
+
+test("the rebound after a turn runs out; three answers a clue at most; nobody in, or nobody left, and the answer stands", () => {
+  const state = board();
+  pick(state);
+  const game = state.trivia, id = game.current, log = logOf(state), value = game.clues[id].value;
+  const [a, b, c, d] = game.players.filter(player => player !== game.control);
+  const control = game.control;
+  buzz(state, a, 300);
+  close(state);
+  /* a's turn runs out on the autopilot: a timeout is an answer, and the rebound */
+  const due = boardAutoBeat(state);
+  assert.deepEqual([due.type, due.payload, due.key], ["boardTimeout", { clueId:id, turn:0 }, `board:${game.id}:${id}:turn0`]);
+  at(due.at, () => act(state, due.type, due.payload, auto(due.key)));
+  assert.deepEqual([game.phase, boardRace(log), log.armAt], ["clue", 1, due.at + REBOUND_LEAD_MS]);
+  assert.equal(score(state, a), -value);
+  assert.equal(at(log.armAt, () => refuse(state, "boardBuzz", { clueId:id, ms:200, race:1 }, as(a))), "You already answered",
+    "a turn that ran out was the answer");
+  /* b, wrong on the first rebound; c, wrong on the second: three answers, done, though d never answered */
+  buzz(state, b, 200);
+  close(state);
+  assert.equal(boardAutoBeat(state).key, `board:${game.id}:${id}:turn1`);
+  answer(state, b, wrongOf(state, 1));
+  assert.equal(boardRace(log), 2);
+  const quiet = boardAutoBeat(state);
+  assert.deepEqual([quiet.payload, quiet.key, quiet.at], [{ clueId:id, race:2 }, `board:${game.id}:${id}:close2`, log.openUntil],
+    "nobody in yet: the window's end");
+  buzz(state, c, 200);
+  close(state);
+  answer(state, c, wrongOf(state, 2));
+  assert.equal(MAX_ATTEMPTS, 3);
+  assert.deepEqual([game.phase, log.winner, log.attempts.length, boardRace(log)], ["reveal", null, MAX_ATTEMPTS, 2], "no third rebound");
+  assert.deepEqual([...struckChoices(log)].sort(), [wrongOf(state, 1), wrongOf(state, 2)].sort());
+  assert.deepEqual([score(state, b), score(state, c), score(state, d)], [-value, -value, 0]);
+  assert.equal(game.control, control, "nobody right: the board stays");
+
+  /* nobody buzzes on a rebound: the answer stands when the window runs out */
   next(state);
   pick(state);
-  const second = state.trivia.current, log2 = logOf(state), value2 = state.trivia.clues[second].value;
-  [a, b, c, d].forEach((player, i) => buzz(state, player, 200 + i * 10));
+  const log2 = logOf(state);
+  buzz(state, a, 300);
   close(state);
-  for (const [i, player] of [a, b, c].entries()) answer(state, player, wrongOf(state, i + 1));
-  assert.equal(MAX_ATTEMPTS, 3);
-  assert.deepEqual([state.trivia.phase, log2.winner, log2.attempts.length], ["reveal", null, MAX_ATTEMPTS]);
-  assert.equal(state.trivia.control, c, "nobody right: the board stays");
-  assert.equal(score(state, d), 0);
-  assert.equal(score(state, c), value - value2);
+  answer(state, a, wrongOf(state));
+  const lapse = boardAutoBeat(state);
+  assert.deepEqual([lapse.type, lapse.at], ["boardCloseBuzz", log2.openUntil]);
+  at(lapse.at, () => act(state, lapse.type, lapse.payload, auto(lapse.key)));
+  assert.deepEqual([state.trivia.phase, log2.winner, log2.order, log2.revealedAt, log2.attempts.length], ["reveal", null, [], lapse.at, 1]);
+
+  /* nobody left to buzz: a room of two, both wrong, and the answer stands at once */
+  const pair = board([SMALL]);
+  const g2 = pair.trivia;
+  const [p, r] = g2.players.slice(1, 3);
+  for (const player of g2.players) if (player !== p && player !== r) act(pair, "setAway", { player, away:true });
+  pick(pair, g2.columns[0].clues[0]);
+  buzz(pair, p, 300);
+  close(pair);
+  answer(pair, p, wrongOf(pair));
+  assert.deepEqual(reboundPlayers(pair), [r]);
+  assert.equal(g2.phase, "clue");
+  buzz(pair, r, 300);
+  close(pair);
+  answer(pair, r, wrongOf(pair, 2));
+  assert.deepEqual([g2.phase, logOf(pair).attempts.length, boardRace(logOf(pair))], ["reveal", 2, 1], "nobody left: no rebound to wait on");
+
+  /* a tune's rebound plays its clip again from the new arm */
+  const tune = board([CUSTOM]);
+  tune.trivia.dd = null;
+  pick(tune, tune.trivia.columns[0].clues.find(clueId => tune.trivia.clues[clueId].format === "tune"));
+  const tuneLog = logOf(tune);
+  buzz(tune, a, 900);
+  close(tune);
+  answer(tune, a, wrongOf(tune));
+  assert.equal(tuneLog.openUntil - tuneLog.armAt, BOARD_CLIP_MS + 2000, "a tune's window: its clip and two seconds more");
+});
+
+test("the rebound's writes: a retried or late buzz never counts in the next race; a stale close or timeout changes nothing", () => {
+  const state = board();
+  pick(state);
+  const game = state.trivia, id = game.current, log = logOf(state);
+  const [a, b, c] = game.players.filter(player => player !== game.control);
+  at(log.armAt + 300, () => act(state, "boardBuzz", { clueId:id, ms:300, race:0 }, as(a, "buzz-a")));
+  at(log.armAt + 400, () => act(state, "boardBuzz", { clueId:id, ms:350 }, as(b, "buzz-b")));
+  close(state);
+  answer(state, a, wrongOf(state), log.turnAt + 500);
+  const armAt = log.armAt;
+  /* the first race's buzzes retried now: acknowledged, never a buzz in the rebound */
+  assert.equal(at(armAt + 50, () => act(state, "boardBuzz", { clueId:id, ms:300, race:0 }, as(a, "buzz-a"))).extra.unchanged, true);
+  assert.equal(at(armAt + 60, () => act(state, "boardBuzz", { clueId:id, ms:350, race:0 }, as(b, "buzz-b"))).extra.unchanged, true);
+  assert.deepEqual(log.buzzes, {}, "neither counts in the rebound");
+  /* a buzz for a race that is over (or not yet run) never lands */
+  assert.equal(at(armAt + 70, () => refuse(state, "boardBuzz", { clueId:id, ms:200, race:0 }, as(c))), "Buzzers closed");
+  assert.equal(at(armAt + 70, () => refuse(state, "boardBuzz", { clueId:id, ms:200, race:2 }, as(c))), "Buzzers closed");
+  /* b's new tap for the rebound counts once; its retry is acknowledged */
+  at(armAt + 80, () => act(state, "boardBuzz", { clueId:id, ms:210, race:1 }, as(b, "buzz-b2")));
+  assert.equal(at(armAt + 90, () => act(state, "boardBuzz", { clueId:id, ms:90, race:1 }, as(b, "buzz-b2"))).extra.unchanged, true);
+  assert.deepEqual(log.buzzes[b], { ms:210, at:armAt + 80 });
+  /* a close for the first race (the pill's old tap, an old auto write) changes nothing */
+  const before = JSON.stringify(game);
+  assert.equal(at(armAt + 100, () => act(state, "boardCloseBuzz", { clueId:id, race:0 })).extra.unchanged, true);
+  assert.equal(at(armAt + 100, () => act(state, "boardCloseBuzz", { clueId:id }, auto(`board:${game.id}:${id}:close`))).extra.stale, true);
+  /* nor the turn before's timeout, nor an early auto close of this race */
+  assert.equal(act(state, "boardTimeout", { clueId:id, turn:0 }).extra.unchanged, true);
+  const due = boardAutoBeat(state);
+  assert.equal(at(due.at - 1000, () => act(state, due.type, due.payload, auto(due.key))).extra.stale, true, "not yet due");
+  /* a's late answer to the first turn: that turn is over */
+  assert.equal(refuse(state, "boardAnswer", { clueId:id, choice:rightOf(state) }, as(a)), "That turn is over");
+  assert.equal(JSON.stringify(game), before);
+  /* the commissioner closes this race by hand (no race named: the race under way) */
+  at(armAt + 120, () => act(state, "boardCloseBuzz", { clueId:id }));
+  assert.deepEqual([game.phase, log.order, turnPlayer(log)], ["answer", [b], b]);
+  assert.equal(at(log.turnAt, () => refuse(state, "boardAnswer", { clueId:id, choice:rightOf(state) }, as(a))), "Not your turn");
+});
+
+test("the rebound on the pill and the autopilot: each beat the write the first race makes, its race named", async () => {
+  const { directorPill } = await import("../src/features/director/directorPill.js");
+  const state = board();
+  const events = allEventsOf(state);
+  pick(state);
+  const game = state.trivia, id = game.current, log = logOf(state);
+  const [a] = game.players.filter(player => player !== game.control);
+  let pill = directorPill(state, events, resolveDirector(state, events));
+  assert.deepEqual([pill.label, pill.run], ["Close buzzers", { write:"boardCloseBuzz", payload:{ clueId:id } }]);
+  buzz(state, a, 300);
+  close(state);
+  pill = directorPill(state, events, resolveDirector(state, events));
+  assert.deepEqual([pill.label, pill.run], ["Time", { write:"boardTimeout", payload:{ clueId:id, turn:0 } }]);
+  answer(state, a, wrongOf(state));
+  pill = directorPill(state, events, resolveDirector(state, events));
+  const beat = autoBeat(state);
+  assert.deepEqual([pill.type, pill.label, pill.run], ["board-step", "Close buzzers", { write:"boardCloseBuzz", payload:{ clueId:id, race:1 } }],
+    "the rebound's close, as a skip-ahead");
+  assert.deepEqual(pill.auto, { at:beat.at, from:beat.from, key:beat.key }, "the pill draws the autopilot's wait on the same write");
+  assert.deepEqual(boardBeat(state, trivia(state)).payload, beat.payload);
+  /* the commissioner takes it early: the autopilot's beat goes stale */
+  at(log.armAt, () => act(state, pill.run.write, pill.run.payload));
+  assert.deepEqual([game.phase, log.revealedAt], ["reveal", log.armAt], "nobody in: the answer stands");
+  assert.equal(at(beat.at, () => act(state, beat.type, beat.payload, auto(beat.key))).extra.stale, true);
+  /* the triviaAutoBeat the Durable Object reads is the board's */
+  assert.equal(autoBeat(state).type, "boardNext");
 });
 
 test("the Daily Double: the picker alone wagers, in 100s up to their score or the board's top, and answers once", () => {
@@ -410,56 +612,82 @@ test("the Daily Double: the picker alone wagers, in 100s up to their score or th
   assert.deepEqual([row.score, row.played], [-ddDefault(0, 1000), false]);
 });
 
-/* Play SMALL to the Final: a right on the 200, b wrong on the 400, then a
-   (holding the board) wagers 100 on the Daily Double 600 and is right:
-   a 300, b -400, everyone else 0. */
+/* Play FULL (200 to 1,000) to the Final: a right on the 200, b wrong on
+   the 400 (nobody takes the rebound), a's Daily Double on the 600 (all of
+   1,000, right), d right on the 800, nobody on the 1,000: a 1,200, d 800,
+   b -400, everyone else 0. */
 function toFinal(final = FINAL) {
-  const state = board([SMALL], { final });
+  const state = board([FULL], { final });
   const game = state.trivia;
-  const [, a, b, c] = game.players;
-  const [one, two, three] = game.columns[0].clues;
-  assert.equal(game.dd, three);
-  pick(state, one);
+  const [, a, b, c, d] = game.players;
+  const [c200, c400, c600, c800, c1000] = game.columns[0].clues;
+  /* the Daily Double where this game needs it */
+  game.dd = c600;
+  pick(state, c200);
   buzz(state, a, 300);
   close(state);
   answer(state, a, rightOf(state));
   next(state);
-  pick(state, two);
+  pick(state, c400);
   buzz(state, b, 300);
   close(state);
   answer(state, b, wrongOf(state));
+  close(state, logOf(state).openUntil);
   next(state);
-  pick(state, three);
+  pick(state, c600);
   assert.equal(logOf(state).by, a);
-  act(state, "boardWager", { wager:100 }, as(a));
-  at(logOf(state).wagerAt + DD_LOCKED_MS, () => act(state, "boardDdClue", { clueId:three }));
+  act(state, "boardWager", { wager:1000 }, as(a));
+  at(logOf(state).wagerAt + DD_LOCKED_MS, () => act(state, "boardDdClue", { clueId:c600 }));
   answer(state, a, rightOf(state));
   next(state);
-  return { state, game, a, b, c };
+  pick(state, c800);
+  buzz(state, d, 300);
+  close(state);
+  answer(state, d, rightOf(state));
+  next(state);
+  pick(state, c1000);
+  close(state, logOf(state).openUntil);
+  next(state);
+  return { state, game, a, b, c, d };
 }
 
-test("the Final: wagers from scores above zero, answers change until locked, all unseen until the TV turns them", () => {
-  const { state, game, a, b, c } = toFinal();
+test("the Final's most: the score or the board's top value, whichever is more, the Daily Double's floor; never below 0", () => {
+  assert.deepEqual([-400, 0, 300, 1000, 1250, 2900].map(score => finalMax(score)), [1000, 1000, 1000, 1000, 1200, 2900]);
+  assert.deepEqual([-400, 0, 2900].map(score => finalMax(score, 600)), [600, 600, 2900], "a short board's top");
+  assert.deepEqual([-400, 0, 300, 1250].map(score => finalMax(score)), [-400, 0, 300, 1250].map(score => ddMax(score)));
+});
+
+test("the Final: everyone wagers, 0 up to their score or 1,000; answers change until locked; all unseen until the TV turns them", () => {
+  const { state, game, a, b, c, d } = toFinal();
   const commissioner = game.players[0];
-  assert.deepEqual([score(state, a), score(state, b), score(state, c)], [300, -400, 0]);
+  assert.deepEqual([score(state, a), score(state, b), score(state, c), score(state, d)], [1200, -400, 0, 800]);
   assert.equal(game.phase, "final-wager");
   assert.deepEqual(game.finalAt, { introAt:game.finalAt.introAt, wagerUntil:game.finalAt.introAt + FINAL_INTRO_MS + FINAL_WAGER_MS });
-  assert.deepEqual(finalEligible(state, game), [a]);
+  assert.deepEqual(finalEligible(state, game), game.players, "everyone here, whatever their score");
   const guestView = publicState(state, { player:c }).trivia;
   assert.deepEqual(guestView.final, { id:game.final.id, category:"The groom" }, "the category stands; the clue waits");
-  assert.equal(refuse(state, "boardWager", { wager:0 }, as(b)), "Only scores above zero wager");
-  assert.equal(refuse(state, "boardWager", { wager:0 }, as(c)), "Only scores above zero wager");
-  assert.equal(refuse(state, "boardWager", { wager:400 }, as(a)), "Wager in 100s, up to 300");
-  assert.equal(refuse(state, "boardWager", { wager:150 }, as(a)), "Wager in 100s, up to 300");
+  /* the bounds: below zero and at zero up to 1,000, under 1,000 up to 1,000, above it up to the score */
+  assert.equal(refuse(state, "boardWager", { wager:1100 }, as(b)), "Wager in 100s, up to 1,000", "-400");
+  assert.equal(refuse(state, "boardWager", { wager:1100 }, as(c)), "Wager in 100s, up to 1,000", "0");
+  assert.equal(refuse(state, "boardWager", { wager:1100 }, as(d)), "Wager in 100s, up to 1,000", "800");
+  assert.equal(refuse(state, "boardWager", { wager:1300 }, as(a)), "Wager in 100s, up to 1,200", "1,200");
+  for (const wager of [-100, 150, null]) assert.equal(refuse(state, "boardWager", { wager }, as(c)), "Wager in 100s, up to 1,000");
   assert.equal(refuse(state, "boardFinalPick", { choice:0 }, as(a)), "The Final is not up yet");
-  at(game.finalAt.introAt + 5000, () => act(state, "boardWager", { wager:300 }, as(a, "wager-a")));
-  assert.equal(act(state, "boardWager", { wager:300 }, as(a, "wager-a")).extra.unchanged, true);
+  const t = game.finalAt.introAt + 5000;
+  at(t, () => act(state, "boardWager", { wager:1200 }, as(a, "wager-a")));
+  at(t + 10, () => act(state, "boardWager", { wager:1000 }, as(b)));
+  at(t + 20, () => act(state, "boardWager", { wager:0 }, as(c)));
+  at(t + 30, () => act(state, "boardWager", { wager:500 }, as(d)));
+  assert.equal(act(state, "boardWager", { wager:1200 }, as(a, "wager-a")).extra.unchanged, true);
   assert.equal(refuse(state, "boardWager", { wager:200 }, as(a)), "You already wagered");
-  assert.deepEqual(publicState(state, { player:c }).trivia.finalWagers, { [a]:{ locked:true } }, "a wager is in, never how much");
-  /* everyone eligible is in: the clue goes up a beat later (after the intro) */
+  assert.deepEqual(publicState(state, { player:c }).trivia.finalWagers[a], { locked:true }, "a wager is in, never how much");
+  /* not everyone in: the wager clock runs; everyone in: the clue goes up a beat after the last */
+  assert.equal(boardAutoBeat(state).at, game.finalAt.wagerUntil);
+  const rest = game.players.filter(player => ![a, b, c, d].includes(player));
+  rest.forEach((player, i) => at(t + 100 + i, () => act(state, "boardWager", { wager:0 }, as(player))));
   const clueBeat = boardAutoBeat(state);
   assert.deepEqual([clueBeat.type, clueBeat.at], ["boardFinalClue",
-    Math.max(game.finalAt.introAt + FINAL_INTRO_MS, game.finalWagers[a].at + FINAL_ALL_IN_MS)]);
+    Math.max(game.finalAt.introAt + FINAL_INTRO_MS, t + 100 + rest.length - 1 + FINAL_ALL_IN_MS)]);
   at(clueBeat.at, () => act(state, clueBeat.type, clueBeat.payload, auto(clueBeat.key)));
   assert.equal(game.phase, "final-clue");
   assert.equal(game.finalAt.answerUntil, game.finalAt.clueAt + FINAL_ANSWER_MS);
@@ -467,64 +695,85 @@ test("the Final: wagers from scores above zero, answers change until locked, all
   /* answers: set, change, lock; a lock stays; a retry never undoes a newer pick */
   const t0 = game.finalAt.clueAt + 1000;
   const wrong = (game.final.answer + 1) % 4;
-  at(t0, () => act(state, "boardFinalPick", { choice:wrong }, as(a, "fp-1")));
-  at(t0 + 10, () => act(state, "boardFinalPick", { choice:game.final.answer }, as(a, "fp-2")));
-  assert.equal(at(t0 + 20, () => act(state, "boardFinalPick", { choice:wrong }, as(a, "fp-1"))).extra.unchanged, true);
-  assert.equal(game.finalPicks[a].choice, game.final.answer);
+  at(t0, () => act(state, "boardFinalPick", { choice:game.final.answer }, as(a, "fp-1")));
+  at(t0 + 10, () => act(state, "boardFinalPick", { choice:wrong }, as(a, "fp-2")));
+  assert.equal(at(t0 + 20, () => act(state, "boardFinalPick", { choice:game.final.answer }, as(a, "fp-1"))).extra.unchanged, true);
+  assert.equal(game.finalPicks[a].choice, wrong);
   at(t0 + 30, () => act(state, "boardFinalPick", { lock:true }, as(a)));
-  assert.deepEqual(game.finalPicks[a], { choice:game.final.answer, at:t0 + 10, locked:true, lockedAt:t0 + 30 });
-  assert.equal(refuse(state, "boardFinalPick", { choice:wrong }, as(a)), "You locked in");
-  assert.equal(act(state, "boardFinalPick", { choice:game.final.answer, lock:true }, as(a)).extra.unchanged, true);
-  at(t0 + 40, () => act(state, "boardFinalPick", { choice:wrong, lock:true }, as(c)));
-  at(t0 + 50, () => act(state, "boardFinalPick", { choice:game.final.answer }, as(b)));
-  assert.equal(refuse(state, "boardFinalPick", { lock:true }, as(game.players[4])), "Pick an answer first");
-  assert.equal(at(game.finalAt.answerUntil + FINAL_GRACE_MS + 1, () => refuse(state, "boardFinalPick", { choice:0 }, as(game.players[4]))),
-    "Time is up");
+  assert.deepEqual(game.finalPicks[a], { choice:wrong, at:t0 + 10, locked:true, lockedAt:t0 + 30 });
+  assert.equal(refuse(state, "boardFinalPick", { choice:game.final.answer }, as(a)), "You locked in");
+  assert.equal(act(state, "boardFinalPick", { choice:wrong, lock:true }, as(a)).extra.unchanged, true);
+  at(t0 + 40, () => act(state, "boardFinalPick", { choice:game.final.answer, lock:true }, as(b)));
+  at(t0 + 50, () => act(state, "boardFinalPick", { choice:wrong, lock:true }, as(c)));
+  at(t0 + 60, () => act(state, "boardFinalPick", { choice:game.final.answer }, as(d)));
+  assert.equal(refuse(state, "boardFinalPick", { lock:true }, as(game.players[5])), "Pick an answer first");
+  rest.forEach((player, i) => at(t0 + 100 + i, () => act(state, "boardFinalPick", { choice:wrong }, as(player))));
   /* unseen: a player, the commissioner playing, the TV; the commissioner watching sees it all */
   for (const viewer of [{ player:c }, { isGm:true, player:commissioner }, {}]) {
     const view = publicState(state, viewer).trivia;
     assert.equal(view.final.answer, undefined, JSON.stringify(viewer));
     assert.equal(view.final.text, "Where is the bachelor party?", "the Final reads on every phone");
     assert.deepEqual(view.finalPicks[a], { locked:true, set:true });
-    assert.deepEqual(view.finalWagers[a], { locked:true });
+    assert.deepEqual(view.finalWagers[b], { locked:true });
   }
   assert.deepEqual(publicState(state, { player:c }).trivia.finalPicks[c], game.finalPicks[c], "your own answer is yours");
   const watching = publicState(state, { isGm:true, player:null }).trivia;
-  assert.deepEqual([watching.final.answer, watching.finalPicks[a].choice, watching.finalWagers[a].wager],
-    [game.final.answer, game.final.answer, 300]);
+  assert.deepEqual([watching.final.answer, watching.finalPicks[a].choice, watching.finalWagers[b].wager], [game.final.answer, wrong, 1000]);
   assert.ok(!JSON.stringify(publicState(state, { player:c })).includes('"ops"'), "the retry ledger never leaves");
-  /* the reveal: lowest score first, a zero wager turns quicker */
+  /* the reveal: everyone gets a turn, from the lowest score up; a zero wager turns quicker */
   const revealBeat = boardAutoBeat(state);
-  assert.equal(revealBeat.at, game.finalAt.answerUntil + FINAL_GRACE_MS, "b never locked: the clock runs out");
+  assert.equal(revealBeat.at, game.finalAt.answerUntil + FINAL_GRACE_MS, "not everyone locked: the clock runs out");
   at(revealBeat.at, () => act(state, revealBeat.type, revealBeat.payload, auto(revealBeat.key)));
   assert.equal(game.phase, "final-reveal");
   const schedule = finalRevealSchedule(game);
-  assert.deepEqual(schedule.map(item => item.player), [b, c, a], "from the lowest score up; nobody who never played");
-  assert.deepEqual(schedule.map(item => [item.at, item.ms]), [[0, FINAL_REVEAL_QUICK_MS], [FINAL_REVEAL_QUICK_MS, FINAL_REVEAL_QUICK_MS],
-    [2 * FINAL_REVEAL_QUICK_MS, FINAL_REVEAL_STEP_MS]]);
+  assert.deepEqual(schedule.map(item => item.player).sort(), [...game.players].sort(), "everyone gets a Final turn");
+  assert.deepEqual(schedule.map(item => item.player).slice(0, 1).concat(schedule.map(item => item.player).slice(-2)), [b, d, a],
+    "from the lowest score up: -400 first, the 1,200 last");
+  const ms = new Map(schedule.map(item => [item.player, item.ms]));
+  assert.deepEqual([ms.get(b), ms.get(c), ms.get(d), ms.get(a)],
+    [FINAL_REVEAL_STEP_MS, FINAL_REVEAL_QUICK_MS, FINAL_REVEAL_STEP_MS, FINAL_REVEAL_STEP_MS], "a zero wager turns quicker");
   const revealed = publicState(state, { player:c }).trivia;
   assert.equal(revealed.final.answer, game.final.answer);
   assert.deepEqual(revealed.finalWagers[a], game.finalWagers[a]);
-  assert.deepEqual([score(state, a), score(state, b), score(state, c)], [600, -400, 0]);
+  /* b, below zero, wins 1,000; a loses all 1,200 */
+  assert.deepEqual([score(state, a), score(state, b), score(state, c), score(state, d)], [0, 600, 0, 1300]);
   assert.match(refuse(state, "triviaFinish", { evId:"trivia" }), /Show the final scores first/);
   const boardBeat = boardAutoBeat(state);
   assert.equal(boardBeat.at, game.finalAt.revealAt + finalRevealMs(game) + FINAL_REVEAL_TAIL_MS);
   at(boardBeat.at, () => act(state, boardBeat.type, boardBeat.payload, auto(boardBeat.key)));
   assert.equal(game.phase, "final-board");
   /* the result: one winner, then the next two ranks, through the ordinary write */
-  const before = computeStandings(state).find(row => row.player === a);
+  const before = computeStandings(state).find(row => row.player === d);
   const finish = boardAutoBeat(state);
   assert.deepEqual([finish.type, finish.payload], ["triviaFinish", { evId:"trivia" }]);
   const done = at(finish.at, () => act(state, finish.type, finish.payload, auto(finish.key)));
-  assert.deepEqual(state.results.trivia.slots, [[a], [c], [b]]);
+  assert.deepEqual(state.results.trivia.slots, [[d], [b], [a]], "a's two right answers break the tie at 0");
   assert.deepEqual(done.extra.slots, boardResultSlots(boardStandings(game)));
   assert.ok(game.finishedAt);
-  const after = computeStandings(state).find(row => row.player === a);
+  const after = computeStandings(state).find(row => row.player === d);
   assert.equal(after.awardPts - before.awardPts, 1600, "the 1,600 ladder pays 1st like any result");
   assert.equal(triviaLive(state), false);
   assert.equal(boardAutoBeat(state), null);
   assert.equal(triviaBeat(state, trivia(state)), null);
   assert.match(refuse(state, "triviaRestart", { evId:"trivia" }), /Clear the result/);
+});
+
+test("the Final: a present player not in the game joins on their wager; away, no wager", () => {
+  const state = toFinal().state;
+  const game = state.trivia;
+  const late = game.players.at(-1);
+  act(state, "setAway", { player:late, away:true });
+  assert.ok(!finalEligible(state, game).includes(late));
+  assert.equal(refuse(state, "boardWager", { wager:100 }, as(late)), "You are marked away");
+  act(state, "setAway", { player:late, away:false });
+  /* a player who joined the room after the start: in the game on their wager */
+  game.players = game.players.filter(player => player !== late);
+  assert.ok(!finalEligible(state, game).includes(late));
+  assert.equal(refuse(state, "boardWager", { wager:1100 }, as(late)), "Wager in 100s, up to 1,000", "a score of 0");
+  act(state, "boardWager", { wager:1000 }, as(late));
+  assert.ok(game.players.includes(late) && finalEligible(state, game).includes(late));
+  assert.equal(game.finalWagers[late].wager, 1000);
+  assert.equal(refuse(state, "boardWager", { wager:100 }, as("Nobody")), "You are not playing");
 });
 
 test("no Final: the board goes straight to the final scores", () => {
@@ -591,14 +840,14 @@ test("the autopilot with players who buzz and never answer: every turn runs out,
   assert.ok(state.results.trivia.slots[0].length === 1);
 });
 
-test("the autopilot runs a whole game with everyone playing: picks, buzzes, answers, the Daily Double, the Final, the result", () => {
+test("the autopilot runs a whole game with everyone playing: picks, buzzes, answers, rebounds, the Daily Double, the Final, the result", () => {
   const state = board([SPORTS, CUSTOM]);
   const game = state.trivia;
   const acted = new Set();
   let wrong = false;
   const room = s => {
     const g = s.trivia, log = g.current ? g.log[g.current] : null;
-    const key = `${g.phase}:${g.current}:${log?.turn ?? ""}`;
+    const key = `${g.phase}:${g.current}:${log?.turn ?? ""}:${boardRace(log)}`;
     if (acted.has(key)) return false;
     acted.add(key);
     if (g.phase === "pick") {
@@ -606,7 +855,8 @@ test("the autopilot runs a whole game with everyone playing: picks, buzzes, answ
       return true;
     }
     if (g.phase === "clue") {
-      g.players.slice(0, 4).forEach((player, i) => buzz(s, player, 250 + 37 * i));
+      /* on a rebound, whoever has not answered */
+      g.players.filter(player => !answeredOn(log).has(player)).slice(0, 4).forEach((player, i) => buzz(s, player, 250 + 37 * i));
       return true;
     }
     if (g.phase === "answer" || g.phase === "dd-clue") {
@@ -640,6 +890,9 @@ test("the autopilot runs a whole game with everyone playing: picks, buzzes, answ
   assert.ok(game.finalAt.revealAt < game.finalAt.answerUntil, "the Final reveals once everyone is in");
   assert.ok(seen.includes("boardDdClue"), "the Daily Double played");
   assert.ok(seen.filter(type => type === "boardTimeout").length === 0, "nobody ran out of time");
+  /* each wrong answer was a rebound: the clue answered right on its second race */
+  const rebounds = game.played.filter(id => boardRace(game.log[id]) > 0);
+  assert.ok(rebounds.length > 0 && rebounds.every(id => game.log[id].winner && game.log[id].attempts.length === 2));
   assert.equal(seen.at(-1), "triviaFinish");
 });
 
@@ -902,6 +1155,13 @@ test("QA: Sim board makes the room's moves through the real writes, never the co
   assert.equal(turnPlayer(log), me, "the fastest: the commissioner");
   assert.equal(at(log.turnAt, () => refuse(state, "boardSim", {}, gm(me))), "Nothing to play right now", "his turn is his");
   answer(state, me, wrongOf(state));
+  /* the rebound: the room buzzes again once it arms, never the one who answered */
+  assert.deepEqual([game.phase, boardRace(log)], ["clue", 1]);
+  assert.equal(at(log.armAt - 1, () => refuse(state, "boardSim", {}, gm(me))), "Nothing to play right now", "only once armed again");
+  at(log.armAt, () => act(state, "boardSim", {}, gm(me)));
+  assert.ok(Object.keys(log.buzzes).length > 0 && !log.buzzes[me]);
+  assert.ok(Object.values(log.buzzes).every(buzzIn => buzzIn.ms >= 180 && buzzIn.ms <= 900));
+  close(state);
   at(log.turnAt, () => act(state, "boardSim", {}, gm(me)));
   assert.equal(log.attempts.length, 2);
   assert.notEqual(log.attempts[1].player, me);

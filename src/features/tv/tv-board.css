@@ -130,6 +130,21 @@
 .tv-board-gain { font-size:64px; line-height:1; color:var(--green); font-variant-numeric:tabular-nums;
   text-shadow:0 0 22px color-mix(in srgb, var(--green) 40%, transparent); animation:tv-board-stamp 420ms var(--ease-land) calc(var(--tl) + 250ms) both; }
 .tv-board-answerer.is-nobody { min-height:260px; justify-content:center; }
+/* the rebound: one big buzzer lamp in the answerer's place, unlit through
+   the beat after the strike, then lit from inside with its bulbs running
+   as the buzzers arm again */
+.tv-board-rebound { gap:0; }
+.tv-board-lamp { overflow:visible; }
+.tv-board-lamp .is-off, .tv-board-lamp .is-on { fill:none; stroke-width:12px; stroke-linecap:round; }
+.tv-board-lamp .is-off { stroke:color-mix(in srgb, var(--lamp-live) 22%, var(--ink0)); stroke-dasharray:0 1; }
+.tv-board-lamp .is-on { stroke:var(--lamp-live); stroke-dasharray:0 2; opacity:0; }
+.tv-board-lamp-rim { fill:var(--ink0); stroke:color-mix(in srgb, var(--bone) 26%, var(--ink0)); stroke-width:6px; }
+.tv-board-lamp-cap { fill:color-mix(in srgb, var(--lamp-live) 24%, var(--ink0)); transition:fill .15s ease; }
+.tv-board-lamp-glint { fill:color-mix(in srgb, var(--bone) 22%, transparent); }
+.tv-board-rebound.is-live .tv-board-lamp .is-on { opacity:1; animation:tv-dd-chase .36s steps(2, end) infinite; }
+.tv-board-rebound.is-live .tv-board-lamp-cap { fill:var(--lamp-live); }
+.tv-board-rebound.is-live .tv-board-lamp { filter:drop-shadow(0 0 34px color-mix(in srgb, var(--lamp-live) 55%, transparent));
+  animation:tv-board-arm .5s var(--ease-land) both; }
 .tv-board-tried { display:flex; gap:12px; }
 .tv-board-tried > span { display:grid; border-radius:50%; opacity:.5; filter:saturate(.3); }
 .tv-board-void { width:72px; height:72px; }
@@ -312,6 +327,9 @@
 @keyframes tv-board-on { to { transform:translateY(-4px); } }
 .tv-board-slot.is-right .tv-board-slot-chip { box-shadow:0 0 0 4px var(--green), 0 0 26px color-mix(in srgb, var(--green) 50%, transparent); }
 .tv-board-slot.is-wrong .tv-board-slot-chip { box-shadow:0 0 0 3px var(--clay); }
+/* a rebound: whoever answered the clue stands unlit, out of it */
+.tv-board-slot.is-spent .tv-board-slot-chip { opacity:.4; filter:saturate(.15) brightness(.75); }
+.tv-board-slot.is-spent .tv-board-slot-name { opacity:.5; }
 .tv-board-slot.is-picker { background:var(--sun-tint); }
 .tv-board-slot.is-picker .tv-board-slot-chip { box-shadow:0 0 0 4px var(--sun), 0 0 22px color-mix(in srgb, var(--sun) 45%, transparent); }
 /* the Final: a chip lights as its wager or pick locks (never what) */

@@ -1,18 +1,19 @@
 /* The Trivia board's screens (docs/TRIVIA-BOARD.md "UI"): the phone's
    screen by phase, role and the server clock; the buzzer (dark before the
    arm, locked out by an early tap, lit on the beat, latched once in) and
-   its reaction timed from the painted frame; the TV's scenes, its rail and
-   its chase; the desk's board preview; the room's cues; the kit's new
-   recipes; and the real components rendered over board games built from
-   the contract (dev/fit/boardFixtures.js) through the real projection. */
+   its reaction timed from the painted frame, again on a rebound (Oct 12);
+   the TV's scenes, its rail and its chase; the desk's board preview; the
+   room's cues; the kit's new recipes; and the real components rendered
+   over board games built from the contract (dev/fit/boardFixtures.js)
+   through the real projection. */
 import test from "node:test";
 import assert from "node:assert/strict";
 import { fileURLToPath } from "node:url";
 
 import { ROSTER } from "../shared/core.js";
 import {
-  ANSWER_MS, BOARD_PICK_MS, BOARD_VALUES, BOARD_ZOOM_MS, BUZZ_LOCKOUT_MS, BUZZ_MS_MAX, BUZZ_MS_MIN, BUZZ_SHOW_MS, DD_MIN,
-  DD_STING_MS, FINAL_ANSWER_MS, FINAL_INTRO_MS, ddMax, finalMax, readMs,
+  ANSWER_MS, BOARD_PICK_MS, BOARD_VALUES, BOARD_ZOOM_MS, BUZZ_LOCKOUT_MS, BUZZ_MS_MAX, BUZZ_MS_MIN, BUZZ_OPEN_MS, BUZZ_SHOW_MS,
+  DD_MIN, DD_STING_MS, FINAL_ANSWER_MS, FINAL_INTRO_MS, REBOUND_LEAD_MS, ddMax, finalMax, readMs,
 } from "../shared/triviaBoard.js";
 import { triviaFinalEntry, triviaLive } from "../shared/trivia.js";
 import { publicState } from "../worker/publicState.js";
@@ -52,12 +53,18 @@ test("the phone's screen follows the phase and who it is for", () => {
   assert.equal(boardScreen(view(stage("dd-wager"), "Evan")), "dd-watch", "everyone else watches");
   assert.equal(boardScreen(view(stage("dd-clue"))), "answer", "the Daily Double is the picker's alone");
   assert.equal(boardScreen(view(stage("dd-clue"), "Evan")), "answer-watch");
+  /* the rebound: your buzzer again until you have answered the clue */
+  assert.equal(boardScreen(view(stage("rebound"))), "buzzer", "second in the first race: the rebound is yours too");
+  assert.equal(boardScreen(view(stage("rebound"), "Sahil")), "buzz-out", "the first race's fastest answered it: out");
+  assert.equal(boardScreen(view(stage("rebound-out"))), "buzz-out");
+  assert.equal(boardScreen(view(away(stage("rebound"), ME))), "clue-watch");
   const final = stage("final-wager");
   const v = view(final);
-  assert.ok(v.finalEligible.length > 0 && v.finalEligible.length < ROSTER.length, "only scores above zero wager");
+  assert.deepEqual(v.finalEligible, v.players, "everyone wagers on the Final");
+  assert.equal(v.finalEligible.length, ROSTER.length);
   const broke = v.standings.find(row => row.preFinal <= 0).player;
-  assert.equal(boardScreen(view(final, v.finalEligible[0])), "final-wager");
-  assert.equal(boardScreen(view(final, broke)), "final-watch");
+  assert.equal(boardScreen(view(final, broke)), "final-wager", "a score at or below zero wagers too");
+  assert.equal(boardScreen(view(away(final, broke), broke)), "final-watch", "away: no wager");
   assert.equal(boardScreen(view(stage("final-clue"), broke)), "final-clue", "everyone answers the Final");
   assert.equal(boardScreen(view(stage("final-reveal"))), "final-reveal");
   assert.equal(boardScreen(view(stage("final-board"))), "final-board");
@@ -80,8 +87,15 @@ test("the view reads only what the projection sends: others' buzzes are just 'in
   assert.deepEqual(order.order.map(row => [row.place, row.ms]), [[1, 246], [2, 281], [3, 318], [4, 402]], "fastest first, with reactions");
   const answer = view(stage("answer"));
   assert.equal(answer.struck.size, 1, "the first answer struck");
-  assert.equal(answer.answering, answer.order[1].player, "the next in order steps up");
+  assert.deepEqual([answer.race, answer.rebound, answer.turn], [1, false, 1], "the rebound closed, its answer turn on");
+  assert.equal(answer.answering, answer.order[0].player, "the rebound's fastest answers");
   assert.equal(answer.attempts[0].right, false);
+  assert.deepEqual(answer.answered, [answer.attempts[0].player]);
+  /* a rebound under way: its buzzes are just 'in' too, the first race's in full */
+  const rebound = phone(stage("rebound-armed")).trivia;
+  const log = rebound.log[rebound.current];
+  assert.ok(Object.values(log.buzzes).every(buzz => buzz.in === true && buzz.ms === undefined));
+  assert.ok(Object.values(log.races[0].buzzes).every(buzz => Number.isFinite(buzz.ms)), "a closed race is open to all");
 });
 
 test("the cells: played dark, the values by row, the Daily Double hidden until picked", () => {
@@ -121,6 +135,30 @@ test("a reaction is timed from the frame that lit the buzzer; a late light times
   assert.equal(buzzReaction({ paintedAt:0, paintedServer:armAt, tapAt:99_000, tapServer:armAt, armAt }), BUZZ_MS_MAX);
   assert.equal(fmtReaction(214), "0.214");
   assert.equal(fmtReaction(1500), "1.500");
+});
+
+test("a rebound on a phone: the buzzer dark again until the new arm, an early tap locked out, the reaction timed from the new lamp", () => {
+  const v = view(stage("rebound"));
+  assert.deepEqual([v.phase, v.race, v.rebound, v.out], ["clue", 1, true, false]);
+  const armAt = v.armAt;
+  assert.equal(armAt, v.attempts[0].at + REBOUND_LEAD_MS, "armed a beat after the struck answer");
+  assert.equal(v.openUntil, armAt + BUZZ_OPEN_MS);
+  assert.equal(v.myBuzz, null, "your first race's buzz stays in it: the buzzer is yours to press again");
+  assert.equal(nextBoardInstant(v, NOW), armAt, "the phone wakes on the new arm, to the millisecond");
+  assert.ok(armAt > NOW);
+  /* the same buzzer rules, on the new arm */
+  assert.equal(buzzerState({ armAt, now:NOW }), "off");
+  assert.equal(buzzerState({ armAt, now:armAt }), "live");
+  assert.equal(buzzerState({ armAt, now:armAt + 100, lockoutUntil:armAt - 300 + BUZZ_LOCKOUT_MS }), "locked", "an early tap outlasts the arm");
+  assert.equal(buzzerState({ armAt, now:armAt + 250, lockoutUntil:armAt - 300 + BUZZ_LOCKOUT_MS }), "live");
+  assert.equal(buzzReaction({ paintedAt:5000, paintedServer:armAt + 16, tapAt:5233, tapServer:armAt + 600, armAt }), 233,
+    "timed from the frame that lit it");
+  assert.equal(buzzReaction({ paintedAt:5000, paintedServer:armAt + 900, tapAt:5050, tapServer:armAt + 950, armAt }), 950,
+    "a late light times from the new arm");
+  const live = view(stage("rebound-in"));
+  assert.deepEqual([live.myBuzz.ms, buzzerState({ armAt:live.armAt, now:NOW, buzzed:!!live.myBuzz })], [300, "in"]);
+  const out = view(stage("rebound-out"));
+  assert.deepEqual([out.out, out.answered], [true, [ME]]);
 });
 
 test("an answer turn: waiting, live a beat early, then over until the server's timeout", () => {
@@ -166,6 +204,23 @@ test("the TV's scenes: the zoom, the clue reading, the buzzers live, the order, 
   assert.equal(scene("final-clue"), "final-clue");
   assert.equal(scene("final-reveal"), "final-reveal");
   assert.equal(scene("final-board"), "final-board");
+  /* the rebound: the answers stay up, then the buzzers go live again */
+  assert.equal(scene("rebound"), "rebound");
+  const rebound = view(stage("rebound"), null);
+  assert.equal(scene("rebound", rebound.armAt), "rebound-armed");
+  assert.equal(scene("rebound-armed"), "rebound-armed");
+  assert.equal(scene("answer"), "answer", "the rebound closed: its fastest answering");
+});
+
+test("the TV's rebound: the frame chases again, who answered stands unlit, the struck answer stays struck", () => {
+  const armed = view(stage("rebound-armed"), null);
+  const slots = railSlots(armed, NOW, "rebound-armed");
+  const first = armed.attempts[0].player;
+  assert.deepEqual(slots.filter(slot => slot.spent).map(slot => slot.player), [first], "who answered, unlit");
+  assert.deepEqual(slots.filter(slot => slot.buzzed).map(slot => slot.player).sort(), ["Chiang", "Khoa"], "this race's buzzes lit");
+  assert.ok(slots.find(slot => slot.player === first).lastWrong);
+  assert.equal(railSlots(view(stage("answer"), null), NOW, "answer").filter(slot => slot.spent).length, 0, "out of the rebound only");
+  assert.equal(armed.struck.size, 1);
 });
 
 test("the rail: every player in the order they joined, lit by what the room is doing", () => {
@@ -233,7 +288,7 @@ test("names fit their slots: one line narrowed, a category on one line or two", 
   assert.equal(columnNameSize("Music", 53), 15);
 });
 
-test("wagers: the Daily Double from 100 to its max, the Final from 0 to your score, in 100s", () => {
+test("wagers: the Daily Double from 100 to its max, the Final from 0 to your score or 1,000, in 100s", () => {
   const dd = view(stage("dd-wager"));
   const range = DD_RANGE(dd);
   assert.equal(range.min, DD_MIN);
@@ -244,7 +299,12 @@ test("wagers: the Daily Double from 100 to its max, the Final from 0 to your sco
   assert.equal(items.at(-1).value, range.max);
   assert.ok(items.every((item, i) => !i || item.value - items[i - 1].value === 100));
   const final = view(stage("final-wager"), view(stage("final-wager"), null).finalEligible[0]);
-  assert.deepEqual(FINAL_RANGE(final), { min:0, max:finalMax(final.myScore), start:0 });
+  assert.deepEqual(FINAL_RANGE(final), { min:0, max:finalMax(final.myScore, final.top), start:0 });
+  const room = view(stage("final-wager"), null);
+  const broke = room.standings.find(row => row.preFinal <= 0).player;
+  assert.deepEqual(FINAL_RANGE(view(stage("final-wager"), broke)), { min:0, max:1000, start:0 }, "at or below zero: up to 1,000");
+  const rich = room.standings.find(row => row.preFinal > 1000);
+  assert.equal(FINAL_RANGE(view(stage("final-wager"), rich.player)).max, rich.preFinal, "above 1,000: up to the score");
   assert.equal(wagerStart(450, 100, 1000), 500);
   assert.equal(wagerStart(5000, 100, 1000), 1000);
   assert.equal(signedPoints(-1200), "−1,200");
@@ -302,6 +362,18 @@ test("the room hears the board on fresh frames: the zoom, each buzz panned, the 
   assert.ok(dd.some(cue => cue.id === "ddSting"));
   assert.ok(room.roomCues(snap(pick), snap(stage("dd-sting")), { now:NOW, reduced:true }).find(cue => cue.id === "ddSting").opts.summary);
   assert.equal(sounds.THINK_BAR_MS, 2000);
+  /* the rebound: its buzzes land from the bottom of the ladder again, its order stamps as it closes */
+  const lead = stage("rebound"), live = stage("rebound-armed");
+  const again = room.roomCues(snap(lead), snap(live), { now:NOW }).filter(cue => cue.id === "buzzIn");
+  assert.deepEqual(again.map(cue => cue.opts.step), [0, 1]);
+  assert.ok(again.every(cue => cue.key.includes(":1:buzz:")), "keyed by the race, so a second race's buzz is never taken for the first's");
+  const coalesced = room.roomCues(snap(order), snap(live), { now:NOW }).filter(cue => cue.id === "buzzIn");
+  assert.deepEqual(coalesced.map(cue => cue.opts.step), [0, 1], "a frame that skipped the rebound's opening still counts it afresh");
+  assert.equal(room.roomCues(snap(order), snap(live), { now:NOW }).filter(cue => cue.id === "orderStamp").length, 0);
+  const shut = room.roomCues(snap(live), snap(stage("answer")), { now:NOW }).filter(cue => cue.id === "orderStamp");
+  assert.deepEqual(shut.map(cue => cue.opts.place), [1, 2], "the rebound's own order stamps");
+  const wrong = room.roomCues(snap(stage("order")), snap(lead), { now:NOW });
+  assert.deepEqual(wrong.map(cue => cue.id), ["boardWrong"], "the strike sounds; the arm waits for its instant");
 });
 
 test("the board's clock owes the room the arm, a turn's last seconds, the thinking loop and each Final turn", async () => {
@@ -309,6 +381,9 @@ test("the board's clock owes the room the arm, a turn's last seconds, the thinki
   const clue = view(stage("clue"), null);
   assert.deepEqual(boardClockCues(clue, NOW).map(cue => [cue.id, cue.at]), [["boardArm", clue.armAt]]);
   assert.deepEqual(boardClockCues(view(stage("armed"), null), NOW), [], "an arm already past is never late-played");
+  const rebound = view(stage("rebound"), null);
+  assert.deepEqual(boardClockCues(rebound, NOW).map(cue => [cue.id, cue.at, cue.key.endsWith(":1:arm")]), [["boardArm", rebound.armAt, true]],
+    "the rebound arms on the room's sound, like the first race");
   const answer = view(stage("answer"), null);
   assert.deepEqual(boardClockCues(answer, NOW).map(cue => cue.at), [answer.turnEnd - 3000, answer.turnEnd - 2000, answer.turnEnd - 1000]);
   const finalClue = view(stage("final-clue"), null);
@@ -367,7 +442,7 @@ async function components() {
   const { renderToStaticMarkup } = await import("react-dom/server");
   const out = buildSync({ stdin:{ contents:[
     'export { TriviaHome, TriviaPlaySheet } from "./src/features/trivia/TriviaPlay.jsx";',
-    'export { BoardPlaySheet, BoardHome, Buzzer } from "./src/features/trivia/BoardPlay.jsx";',
+    'export { BoardPlaySheet, BoardHome, Buzzer, boardOpenKey } from "./src/features/trivia/BoardPlay.jsx";',
     'export { TriviaDesk } from "./src/features/trivia/TriviaDesk.jsx";',
     'export { TVTrivia } from "./src/features/tv/TVTrivia.jsx";',
     'export { TVBoard, boardChrome } from "./src/features/tv/TVBoard.jsx";',
@@ -419,8 +494,22 @@ test("the TV draws every board moment: the board, the clue, the order, the turn,
   assert.match(draw("final-clue"), /tv-board-panel tv-glass is-final-clue/);
   assert.match(draw("final-reveal"), /tv-board-turn/);
   assert.match(draw("final-board"), /tv-board-steps/);
-  /* the frame's lamps: magenta while the buzzers are live, amber for the sting */
+  /* the rebound: the answers up, the struck one out with its striker, a lamp in the answerer's place */
+  const lead = draw("rebound");
+  assert.match(lead, /tv-board-panel tv-glass is-answer is-rebound"/, "unlit through the beat after the strike");
+  assert.match(lead, /tv-board-answerer tv-board-rebound"/);
+  assert.doesNotMatch(lead, /tv-board-answerer is-live/, "nobody answering");
+  assert.equal((lead.match(/tv-board-struck-by/g) || []).length, 1);
+  assert.equal((lead.match(/tv-board-slot[^"]*is-spent/g) || []).length, 1, "who answered stands unlit on the rail");
+  const relit = draw("rebound-armed");
+  assert.match(relit, /is-answer is-rebound-armed is-live"/, "the buzzers live again: the panel lit");
+  assert.match(relit, /tv-board-rebound is-live/);
+  assert.equal((relit.match(/tv-board-slot is-buzzed/g) || []).length, 2, "this race's buzzes light their chips");
+  assert.match(relit, /tv-board-drain/);
+  /* the frame's lamps: magenta while the buzzers are live (again on a rebound), amber for the sting */
   assert.deepEqual(boardChrome(tv(stage("armed")), NOW), { chase:{ color:"var(--lamp-live)", pace:"run" } });
+  assert.deepEqual(boardChrome(tv(stage("rebound-armed")), NOW), { chase:{ color:"var(--lamp-live)", pace:"run" } });
+  assert.equal(boardChrome(tv(stage("rebound")), NOW), null, "dark until the rebound arms");
   assert.deepEqual(boardChrome(tv(stage("dd-sting")), NOW), { chase:{ color:"var(--sun)", pace:"run" } });
   assert.equal(boardChrome(tv(stage("pick")), NOW), null);
   /* posted: the board leaves the room to the result */
@@ -431,7 +520,7 @@ test("the TV draws every board moment: the board, the clue, the order, the turn,
 });
 
 test("the phone: the board view opens itself for each moment, the buzzer lit on the beat, the answers yours on your turn", async () => {
-  const { React, wrap, TriviaPlaySheet, TriviaHome, BoardPlaySheet } = await components();
+  const { React, wrap, TriviaPlaySheet, TriviaHome, BoardPlaySheet, boardOpenKey } = await components();
   const sheet = (state, player = ME, at = NOW, extra = {}) => {
     const s = phone(state, player);
     return wrap(s, React.createElement(TriviaPlaySheet, { state:s, me:player, now:at, onAct:async () => ({ ok:true }), ...extra }));
@@ -450,6 +539,20 @@ test("the phone: the board view opens itself for each moment, the buzzer lit on 
   const latched = sheet(stage("armed-in"));
   assert.match(latched, /fd-buzzer is-in/);
   assert.match(latched, />0\.281</, "your own time");
+  /* the rebound: dark again under the struck letters, lit on its arm; out once you answered */
+  const again = sheet(stage("rebound"));
+  assert.match(again, /fd-board-body is-buzz is-rebound/);
+  assert.match(again, /fd-buzzer is-off/, "dark until the new arm");
+  assert.equal((again.match(/<li class="is-struck"><span class="fd-board-letter">/g) || []).length, 1, "the struck letter barred");
+  assert.match(again, /aria-label="3 of 4 left"/);
+  const rebound = stage("rebound");
+  const reArm = rebound.trivia.log[rebound.trivia.current].armAt;
+  assert.match(sheet(rebound, ME, reArm), /fd-buzzer is-live/, "lit on the rebound's instant");
+  assert.match(sheet(stage("rebound-in")), /fd-buzzer is-in/);
+  const out = sheet(stage("rebound-out"));
+  assert.match(out, /fd-buzzer is-out/);
+  assert.match(out, />Out</);
+  assert.doesNotMatch(out, /<button type="button" class="fd-buzzer-button"/, "nothing to press");
   const answer = sheet(stage("answer-mine"));
   assert.match(answer, /fd-board-body is-answer is-live/);
   assert.match(answer, /fd-board-dock is-live/);
@@ -473,11 +576,17 @@ test("the phone: the board view opens itself for each moment, the buzzer lit on 
   const home = s => wrap(s, React.createElement(TriviaHome, { state:s, me:ME, now:NOW, onOpen() {} }));
   assert.match(home(phone(stage("pick-mine"))), />Your pick</);
   assert.match(home(phone(stage("armed"))), />Buzzers live</);
+  assert.match(home(phone(stage("rebound-armed"))), />Buzzers live</);
+  assert.doesNotMatch(home(phone(stage("rebound-out"))), />Buzzers live</, "out of it: no call to buzz");
   const posted = stage("final-board");
   posted.results = { ...posted.results, trivia:{ slots:[[ME]] } };
   assert.equal(sheet(posted), "", "gone once the result posts");
   assert.equal(home(phone(posted)), "");
   assert.ok(BoardPlaySheet);
+  /* the sheet opens itself again for a rebound, even closed on the first race */
+  const first = boardOpenKey(view(stage("armed")));
+  assert.notEqual(boardOpenKey(view(stage("rebound"))), first);
+  assert.notEqual(boardOpenKey(view(stage("rebound"))), boardOpenKey(view(stage("answer"))));
 });
 
 test("the desk: Rounds | Board, the board it will deal, its Final", async () => {
@@ -516,6 +625,14 @@ test("the real writes: a board played through the reducers reads as the same scr
     const p = phone(state);
     assert.match(wrap(p, React.createElement(TriviaPlaySheet, { state:p, me:ME, now:NOW, onAct:async () => ({ ok:true }) })), /fd-board-game/, moment);
   }
+  /* a rebound through the real writes: the first race kept, the room buzzing again */
+  const rebound = boardPlayed("rebound", { now:NOW });
+  const room = view(rebound, null);
+  assert.deepEqual([tvBoardScene(room, NOW), room.race, room.rebound], ["rebound-armed", 1, true]);
+  assert.ok(room.answered.length === 1 && room.buzzedIn.length > 0 && !room.buzzedIn.includes(room.answered[0]));
+  assert.ok(["buzzer", "buzz-out"].includes(boardScreen(view(rebound))));
+  const relit = tv(rebound);
+  assert.match(wrap(relit, React.createElement(TVTrivia, { state:relit, now:NOW, fixed:true })), /tv-board is-rebound-armed/);
   /* the same moment the same every build: the seeded room and the run's clock */
   assert.deepEqual(boardPlayed("armed", { now:NOW }).trivia, boardPlayed("armed", { now:NOW }).trivia);
   /* the real buzzes are the projection's: the TV sees who, never how fast */

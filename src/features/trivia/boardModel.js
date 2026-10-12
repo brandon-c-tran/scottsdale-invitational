@@ -3,7 +3,8 @@
    only reads it). Pure: `now` is the server clock everywhere.
 
    boardView     the game as one viewer sees it: the cells, the clue up,
-                 its clock, who buzzed, the order, the turn, the struck
+                 its clock, its race (the first, or a rebound), who
+                 buzzed, the order, the turn, who has answered, the struck
                  options, the scores, the Final
    boardScreen   which phone screen a viewer is on
    tvBoardScene  which TV scene the room is on
@@ -16,8 +17,8 @@
 import { isActivePlayer, isAway } from "../../../shared/core.js";
 import {
   ANSWER_GRACE_MS, BOARD_CLIP_MS, BOARD_CLUE_FORMATS, BOARD_COLUMNS_MAX, BOARD_VALUES, BUZZ_SHOW_MS, DD_MIN, DD_STING_MS,
-  DD_WAGER_MS, FINAL_INTRO_MS, FINAL_PHASES, WAGER_STEP, boardStandings, boardTopValue, clampBuzzMs, ddDefault, ddMax,
-  finalEligible, finalMax, finalRevealSchedule, isBoardGame, struckChoices, turnMs, turnPlayer,
+  DD_WAGER_MS, FINAL_INTRO_MS, FINAL_PHASES, WAGER_STEP, answeredOn, boardRace, boardStandings, boardTopValue, clampBuzzMs, ddDefault,
+  ddMax, finalEligible, finalMax, finalRevealSchedule, isBoardGame, struckChoices, turnMs, turnPlayer,
 } from "../../../shared/triviaBoard.js";
 
 const num = value => Number(value) || 0;
@@ -77,6 +78,10 @@ export function boardView(state, me = null, now = Date.now()) {
   const attempts = (log?.attempts || []).map(attempt => ({ ...attempt }));
   const struck = struckChoices(log);
   const answering = phase === "answer" || phase === "dd-clue" ? turnPlayer(log) : null;
+  /* the race the buzzers are on: a rebound reopens them, after a wrong
+     answer, for everyone who has not answered this clue */
+  const race = boardRace(log);
+  const answered = [...answeredOn(log)];
   const standings = boardStandings(game);
   const rowOf = new Map(standings.map(row => [row.player, row]));
   const columnName = clue ? columns[clue.col]?.name || "" : "";
@@ -97,10 +102,11 @@ export function boardView(state, me = null, now = Date.now()) {
     clueId, clue, log, dd, columnName, value:num(clue?.value), stake:dd ? num(log?.wager) : num(clue?.value),
     wager:dd && log?.wager !== undefined ? num(log.wager) : null, wagerAt:num(log?.wagerAt),
     pickedAt, shownAt, armAt, openUntil, closedAt, turnAt, turnEnd, revealedAt, turn:num(log?.turn),
+    race, rebound:phase === "clue" && race > 0, answered, out:!!me && answered.includes(me),
     buzzes, buzzedIn, myBuzz, order, attempts, struck, answering, winner:log?.winner ?? null,
     answer:Number.isInteger(clue?.answer) ? clue.answer : null,
     standings, rowOf, myRow:me ? rowOf.get(me) || null : null, myScore, top,
-    ddMax:ddMax(myScore, top), ddDefault:ddDefault(myScore, top), finalMax:finalMax(myScore),
+    ddMax:ddMax(myScore, top), ddDefault:ddDefault(myScore, top), finalMax:finalMax(myScore, top),
     final, finalAt:{ introAt:num(t.introAt), wagerUntil:num(t.wagerUntil), clueAt:num(t.clueAt), answerUntil:num(t.answerUntil),
       revealAt:num(t.revealAt), boardAt:num(t.boardAt) },
     finalEligible:eligible,
@@ -119,12 +125,14 @@ export function boardScreen(view) {
   const me = view.me;
   switch (view.phase) {
     case "pick": return view.playing && view.control === me ? "pick" : "pick-watch";
-    case "clue": return view.playing ? "buzzer" : "clue-watch";
+    /* on a rebound, whoever answered this clue is out of it */
+    case "clue": return !view.playing ? "clue-watch" : view.out ? "buzz-out" : "buzzer";
     case "answer": return view.answering === me ? "answer" : "answer-watch";
     case "reveal": return "reveal";
     case "dd-wager": return view.picker === me ? "dd-wager" : "dd-watch";
     case "dd-clue": return view.picker === me ? "answer" : "answer-watch";
-    case "final-wager": return view.finalEligible.includes(me) ? "final-wager" : "final-watch";
+    /* everyone plays the Final */
+    case "final-wager": return view.playing ? "final-wager" : "final-watch";
     case "final-clue": return view.playing ? "final-clue" : "final-watch";
     case "final-reveal": return "final-reveal";
     case "final-board": return "final-board";
@@ -132,12 +140,16 @@ export function boardScreen(view) {
   }
 }
 
-/* Which TV scene the room is on. */
+/* Which TV scene the room is on. A rebound keeps the answers up, the
+   struck ones standing: "rebound" until the buzzers arm again, then
+   "rebound-armed". */
 export function tvBoardScene(view, now) {
   if (!view) return null;
   switch (view.phase) {
     case "pick": return "pick";
-    case "clue": return now < view.shownAt ? "zoom" : now < view.armAt ? "clue" : "armed";
+    case "clue":
+      if (view.rebound) return now < view.armAt ? "rebound" : "rebound-armed";
+      return now < view.shownAt ? "zoom" : now < view.armAt ? "clue" : "armed";
     case "answer": return view.turn === 0 && (!view.turnAt || now < view.turnAt) ? "order" : "answer";
     case "reveal": return "reveal";
     case "dd-wager": return now < view.pickedAt + DD_STING_MS ? "dd-sting" : "dd-wager";
@@ -252,14 +264,19 @@ export const nextBoardInstant = (view, now) => boardInstants(view, now)[0] || 0;
 /* stereo place by the rail's slot, left to right */
 export const railPan = (index, count) => count > 1 ? Math.round((-0.8 + 1.6 * index / (count - 1)) * 100) / 100 : 0;
 
+/* the scenes the buzzers stand in: a clue reading or live, and a rebound */
+export const BUZZ_SCENES = Object.freeze(["clue", "armed", "rebound", "rebound-armed"]);
+
 /* The TV's score rail: every player in the order they joined (a player's
-   chip never moves), lit by what the room is doing. */
+   chip never moves), lit by what the room is doing. On a rebound whoever
+   answered the clue stands unlit (`spent`). */
 export function railSlots(view, now, scene = tvBoardScene(view, now)) {
   if (!view) return [];
   const steps = view.phase === "final-reveal" ? finalSteps(view, now) : null;
   const orderOf = new Map(view.order.map(row => [row.player, row]));
   const lastAttempt = view.attempts[view.attempts.length - 1] || null;
   const leaders = leaderSet(view, now, steps);
+  const rebound = scene === "rebound" || scene === "rebound-armed";
   return view.players.map((player, index) => {
     const row = view.rowOf.get(player) || null;
     const score = shownScore(view, player, now, steps);
@@ -267,7 +284,8 @@ export function railSlots(view, now, scene = tvBoardScene(view, now)) {
     return {
       player, index, pan:railPan(index, view.players.length), score, row,
       control:view.phase === "pick" && view.control === player,
-      buzzed:(scene === "armed" || scene === "clue") && !!view.buzzes[player],
+      buzzed:BUZZ_SCENES.includes(scene) && !!view.buzzes[player],
+      spent:rebound && view.answered.includes(player),
       place:["order", "answer", "reveal"].includes(scene) && !view.dd ? orderOf.get(player)?.place || null : null,
       answering:(scene === "answer" || scene === "dd-clue") && view.answering === player && view.turnAt > 0 && now >= view.turnAt - ANSWER_EARLY_MS,
       right:scene === "reveal" && view.winner === player,
@@ -299,6 +317,7 @@ export function wagerItems(min, max, step = WAGER_STEP) {
 /* the wheel's starting value: the default, held inside the range */
 export const wagerStart = (value, min, max) => Math.max(min, Math.min(max, Math.round(num(value) / WAGER_STEP) * WAGER_STEP));
 export const DD_RANGE = view => ({ min:DD_MIN, max:view?.ddMax || DD_MIN, start:wagerStart(view?.ddDefault, DD_MIN, view?.ddMax || DD_MIN) });
+/* the Final: 0 up to the score or the board's top value (everyone plays it) */
 export const FINAL_RANGE = view => ({ min:0, max:view?.finalMax || 0, start:0 });
 
 /* A column's name on a phone: one size for the column, its longest word

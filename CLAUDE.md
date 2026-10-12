@@ -447,11 +447,15 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   `TRIVIA_FINALS`. Whoever holds the board picks (`boardPick`; after 15 s
   the autopilot), the buzzers arm on the server clock and order by each
   phone's own reaction, not arrival (`boardBuzz`, settled 700 ms after the
-  first), the order answers in turn on the phones (`boardAnswer`; wrong or
-  out of time costs the value, strikes the option and passes the turn, up
-  to three), right takes the value and the board; the Daily Double is the
-  picker's alone (`boardWager`, `boardDdClue`); the Final wagers from scores
-  above zero, answers unseen, and turns lowest score first. Points are
+  first), the fastest answers on their phone (`boardAnswer`), right takes
+  the value and the board; wrong or out of time costs the value, strikes
+  the option and reopens the buzzers (Oct 12, the rebound: a new race armed
+  `REBOUND_LEAD_MS` on, exactly as the first, for everyone who has not
+  answered the clue, earlier races kept in `log.races`, its fastest
+  answering, three answers a clue at most); the Daily Double is the
+  picker's alone (`boardWager`, `boardDdClue`); everyone plays the Final
+  (Oct 12: 0 up to the score or 1,000, whichever is more), answers unseen,
+  and it turns lowest score first. Points are
   trivia points; the result posts through `triviaFinish` like the rounds
   game. Every clock beat is an ordinary commissioner write the autopilot
   makes (`boardAutoBeat`, through `triviaAutoBeat`) and the pill offers as

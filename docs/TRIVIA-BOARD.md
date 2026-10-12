@@ -1,9 +1,13 @@
-# Trivia board (Oct 8, 2026)
+# Trivia board (Oct 8, 2026; the rebound and everyone's Final Oct 12)
 
 Trivia as the room's game show: a Jeopardy-shaped board on the TV, every
 phone a buzzer. A second Trivia format beside the current one ("rounds",
 everyone answers every question). The commissioner picks the format on the
 Trivia desk; the same set list feeds both, each round becoming one column.
+
+For a room of 13 (Brandon, Oct 12): a wrong answer reopens the buzzers for
+everyone who has not answered the clue (the rebound), and every player
+plays the Final, wagering up to their score or 1,000, whichever is more.
 
 Why: the rounds format keeps every head down in a phone. The board puts the
 content on the TV (the board, the clue, who buzzed, the struck answers, the
@@ -61,37 +65,60 @@ once (device + action id), errors that say what to do.
   (log `{ by, auto, pickedAt, buzzes:{}, attempts:[] }`); any other clue to
   `clue` with `clueClock(clue, now)` in its log. `current` = the clue,
   `played` gains it. The auto pick must match `autoPickClue`.
-- `boardBuzz { clueId, ms }`: any present player (a present roster player
-  not in `players` joins on their first buzz, like triviaPick). Phase clue,
-  the current clue, `now >= armAt - BUZZ_EARLY_MS`, `now <= buzzCloseAt(log)`
-  (computed before adding this buzz), once per player per clue (a second
-  buzz is an acknowledged no-op). Stores `{ ms:clampBuzzMs(ms), at:now }`.
-  Errors: "Buzzers are not open yet", "Buzzers closed".
-- `boardCloseBuzz { clueId }`: GM / auto, phase clue, after `armAt`.
-  `closedAt` now, `order = buzzOrder(log)`. Nobody: phase reveal with
-  `revealedAt` now and `winner:null`. Otherwise phase answer, `turn:0`,
-  `turnAt = now + BUZZ_SHOW_MS`, `attempts:[]`.
+- `boardBuzz { clueId, ms, race }`: any present player who has not
+  answered the clue (a present roster player not in `players` joins on
+  their first buzz, like triviaPick). Phase clue, the current clue, the
+  race under way (`race`, `boardRace(log)`; missing means the race under
+  way), `now >= armAt - BUZZ_EARLY_MS`, `now <= buzzCloseAt(log)` (computed
+  before adding this buzz), once per player per race (a second buzz in the
+  race, or a retry of one in an earlier race, is an acknowledged no-op; a
+  buzz for a race that is over never counts in the next). Stores
+  `{ ms:clampBuzzMs(ms), at:now }` in the race's `buzzes`. Errors: "Buzzers
+  are not open yet", "Buzzers closed", "You already answered".
+- `boardCloseBuzz { clueId, race }`: GM / auto, phase clue, after `armAt`.
+  A rebound's close names its race; a close for another race is a no-op
+  (no race: the race under way). `closedAt` now, `order = buzzOrder(log)`
+  (the race's). Nobody: phase reveal with `revealedAt` now and
+  `winner:null`. Otherwise phase answer, `turn` = the clue's answers so far
+  (0 on the first race), `turnAt = now + BUZZ_SHOW_MS`; the race's fastest
+  answers (`turnPlayer`).
 - `boardAnswer { clueId, choice }`: only `turnPlayer(log)` in phase answer,
   or the picker in dd-clue. `now >= turnAt - 300` and `now <= turnUntil +
   ANSWER_GRACE_MS`. A struck option is refused ("That one is out"). The tap
   is final. Right: attempt recorded, `winner`, `control` to them,
-  `revealedAt` now, phase reveal. Wrong: recorded; if
-  `turn + 1 < attemptsAllowed(game)` the next turn starts at
-  `now + ANSWER_GAP_MS`, else phase reveal with `winner:null` (control
-  stays).
+  `revealedAt` now, phase reveal. Wrong: recorded, then the rebound (below)
+  while the clue has taken fewer than `attemptsAllowed(game)` answers
+  (MAX_ATTEMPTS, 3; a Daily Double 1) and anyone here has not answered it;
+  else phase reveal with `winner:null` (control stays).
 - `boardTimeout { clueId, turn }`: GM / auto. The current turn ran out:
   an attempt `{ player, choice:null, at, right:false, timeout:true }`, then
-  exactly as a wrong answer. A different `turn` than the current one is a
-  stale no-op.
+  exactly as a wrong answer (the rebound included). A different `turn`
+  than the current one is a stale no-op.
+- The rebound: after a wrong answer or a timeout the buzzers reopen on the
+  server clock exactly as the first race. The race just run moves to
+  `log.races` (`{ armAt, openUntil, buzzes, closedAt, order }`, oldest
+  first); `reboundClock(clue, now)` arms the new one `REBOUND_LEAD_MS`
+  (2 s) on and keeps it open as long as the first (`openMs`: a tune's clip
+  plays again from the new arm); `buzzes:{}`, `order:[]`, no `closedAt`;
+  phase clue. Everyone in the game who has not answered the clue may buzz
+  (`reboundPlayers`; a turn that ran out counts as answered), the struck
+  options stay struck, the early-tap lockout and the reaction timing are the
+  first race's, it settles BUZZ_SETTLE_MS after its first buzz, and its
+  fastest answers. Nobody in by `openUntil`: the answer stands, as when
+  nobody buzzes the first race.
 - `boardNext { clueId }`: GM / auto, phase reveal. Cells left: phase pick,
   `current:null`, `pickAt` now. None left: with a Final, phase final-wager
   (`finalAt.introAt` now, `wagerUntil = now + FINAL_INTRO_MS +
   FINAL_WAGER_MS`); without one, phase final-board (`boardAt` now).
 - `boardWager { wager }`: dd-wager: only the picker, before `boardDdClue`,
   once, `validWager(wager, DD_MIN, ddMax(score, boardTopValue(game)))`,
-  stores `wager`, `wagerAt`. final-wager: each player in
-  `finalEligible`, once, `validWager(wager, 0, finalMax(preFinal))`,
-  stores `finalWagers[player] = { wager, at }`.
+  stores `wager`, `wagerAt`. final-wager: every player here, whatever
+  their score (`finalEligible`: everyone in the game; a present roster
+  player not in it joins on their wager), once,
+  `validWager(wager, 0, finalMax(preFinal, boardTopValue(game)))`: 0 up to
+  the score or the board's top value (1,000), whichever is more, the Daily
+  Double's own floor, so a score at or below zero can still win 1,000.
+  Stores `finalWagers[player] = { wager, at }`.
 - `boardDdClue { clueId }`: GM / auto, phase dd-wager. No wager yet:
   `ddDefault(score, top)`. `shownAt` now, `order:[picker]`, `turn:0`,
   `turnAt = now + readMs(clue)`, phase dd-clue.
@@ -112,10 +139,11 @@ once (device + action id), errors that say what to do.
 - `boardSim {}` (QA capability + GM, like `triviaSimAnswers`): makes the
   moves the room is waiting on for every simulated player, never the
   actor's own: pick for control (if not the actor), buzzes from about half
-  the active players with reactions 180 to 900 ms (only once armed), the
-  current turn's answer (about 55% right) when it is not the actor's turn,
-  the Daily Double's wager and answer, Final wagers and picks for everyone
-  but the actor. Through the real reducers. The QA console shows "Sim board"
+  the active players with reactions 180 to 900 ms (only once armed; on a
+  rebound, half of whoever has not answered), the current turn's answer
+  (about 55% right) when it is not the actor's turn, the Daily Double's
+  wager and answer, Final wagers (everyone's) and picks for everyone but
+  the actor. Through the real reducers. The QA console shows "Sim board"
   while a board game runs.
 
 Also on the server: `worker/tournament.js` trivia photo and clip endpoints
@@ -144,18 +172,24 @@ The TV (`src/features/tv/TVTrivia.jsx` hands a board game to a new
   player's chip. At close: the buzz order lands, fastest first, each with
   its reaction in seconds ("0.214").
 - answer: the answerer's photo chip large with their name, the four
-  options, a draining clock; a wrong answer strikes its option and the next
-  in order steps up; a right one stamps green and the value flies to their
-  chip on the rail.
+  options, a draining clock; a wrong answer strikes its option; a right one
+  stamps green and the value flies to their chip on the rail.
+- rebound (scenes "rebound", then "rebound-armed" at the new `armAt`): the
+  answers stay up with the struck ones struck, and in the answerer's place
+  one big buzzer lamp, unlit through the beat after the strike, then lit
+  with its bulbs running and the open window draining; the panel lights and
+  the frame chases magenta again, each buzz lights its chip on the rail and
+  whoever answered the clue stands unlit there. At its close the race's
+  order lands under the options and its fastest steps up.
 - dd-wager / dd-clue: a full takeover "Daily Double" sting (silly is
   welcome in the drawing and the sound, never in copy), then the picker's
   wager on reels, then the clue for the picker alone.
-- final: the category stands; chips light as wagers lock (amounts
-  hidden); the clue with a long drain and an original synthesized thinking
-  loop; then the reveal from the lowest score up on `finalRevealSchedule`
-  (each player: their pick, struck or stamped, their wager, the total
-  rolling); then the final podium (the result scene takes over once it
-  posts).
+- final: the category stands; every player's chip lights as their wager
+  locks (amounts hidden); the clue with a long drain and an original
+  synthesized thinking loop; then the reveal from the lowest score up on
+  `finalRevealSchedule` (each player: their pick, struck or stamped, their
+  wager, the total rolling); then the final podium (the result scene takes
+  over once it posts).
 
 The phone (`TriviaPlay.jsx` hands a board game to a new board view; the
 clue text stays on the TV so heads come up):
@@ -165,19 +199,26 @@ clue text stays on the TV so heads come up):
   and a tap locks it for BUZZ_LOCKOUT_MS with a shake. At `armAt` (from the
   server clock, `serverNow()`), it lights; the reaction is timed from the
   frame that painted it (requestAnimationFrame after the lamp, as
-  QuickDraw.jsx times its flash) and sent as `boardBuzz { clueId, ms }`
+  QuickDraw.jsx times its flash) and sent as `boardBuzz { clueId, ms, race }`
   immediately, with `tapTick()` in the tap. After close: your place in the
   buzz order and your time.
+- rebound: if you have not answered the clue, the buzzer is drawn afresh
+  for the new race (keyed by clue and race): dark until the new `armAt`,
+  the same lockout and reaction timing, under the four answers' letters
+  with the struck ones barred. If you answered it: the buzzer dead and
+  "Out" (`boardScreen` "buzz-out"). The sheet opens itself again for each
+  race.
 - answer: your turn: the four options (struck ones dead) and a draining
   clock; one tap answers. Not your turn: who is answering and the options
   as they strike.
 - reveal: the right answer, and your points change counting.
 - dd: the picker gets a wager wheel (`Wheel.jsx`, 100s, DD_MIN to ddMax)
   and Lock in; then the options. Others watch.
-- final: eligible players wager on the wheel (0 to finalMax) and lock in;
-  then everyone answers the Final (the text is on the phone too, as Final
-  Jeopardy's is on the screen in front of each player), change until Lock
-  in; then the reveal follows the TV.
+- final: every player wagers on the wheel (0 to finalMax: the score or
+  1,000, whichever is more) and locks in; then everyone answers the Final
+  (the text is on the phone too, as Final Jeopardy's is on the screen in
+  front of each player), change until Lock in; then the reveal follows the
+  TV.
 - The Trivia desk: a Rounds | Board switch at the top; in Board, the set
   list drawn as the board it will deal (columns, cells, values; rounds past
   six and questions a buzzer cannot answer dimmed) and the Final card (the
@@ -185,7 +226,8 @@ clue text stays on the TV so heads come up):
 - Sounds (synthesized, soundKit.js recipes through roomSound.js on the TV
   and the owner's bus on the phone): the buzz-in lamp, a buzz landing, the
   buzz order stamping, right and wrong, the Daily Double sting, a thinking
-  loop, each Final turn.
+  loop, each Final turn. A rebound sounds as the first race: the lamp at
+  its arm, each buzz from the bottom of the ladder again, its order.
 
 ## Rollback safety
 
@@ -233,10 +275,11 @@ The writes (`worker/triviaBoard.js`, registered through `worker/trivia.js`):
   repeated lock is acknowledged by state alone.
 - Errors (no em dashes): "The board is closed", "The pick is in", "Not
   your pick", "That clue isn't on the board", "That one is played", "That
-  clue isn't next", "Buzzers are not open yet", "Buzzers closed", "Not your
-  turn", "Not your turn yet", "Pick an answer", "That one is out", "Time is
-  up", "That turn is over", "Not your Daily Double", "Only scores above
-  zero wager", "You already wagered", "Wager in 100s, up to 1,200",
+  clue isn't next", "Buzzers are not open yet", "Buzzers closed", "You
+  already answered" (a rebound, Oct 12), "Not your turn", "Not your turn
+  yet", "Pick an answer", "That one is out", "Time is up", "That turn is
+  over", "Not your Daily Double", "You already wagered", "Wager in 100s, up
+  to 1,200",
   "Wagers are closed", "The Final is not up yet", "The Final is closed",
   "You locked in", "Pick an answer first", "Show the final scores first",
   "Nobody played", and boardSim's "Nothing to play right now" and "No board
@@ -281,3 +324,57 @@ Elsewhere:
 - The run of show plans a board game as "Start trivia" (only for an event
   already under way without its game), "The board", "The Final" (its
   category), "Post result".
+
+## Changes Oct 12: the rebound, and everyone plays the Final
+
+Brandon's two changes for a room of 13. The contract above already reads
+the new way; these are the decisions behind it.
+
+The rebound (`shared/triviaBoard.js`, `worker/triviaBoard.js`):
+- One race at a time lives in the log's own fields (`armAt`, `openUntil`,
+  `buzzes`, `closedAt`, `order`), so every reader of "the buzzers now"
+  (the projection's open-window redaction, the TV, the phones, the sounds)
+  works unchanged; earlier races move to `log.races`. `boardRace(log)` is
+  the race number (0 the first), `raceBuzzes(log, race)` one race's buzzes,
+  `answeredOn(log)` who answered the clue, `reboundPlayers` who may still
+  buzz, `reboundClock(clue, at)` the new race's clock, `buzzOf(log, player)`
+  a player's latest buzz (a right answer's speed).
+- `turn` now counts the clue's answers (0, 1, 2): the timeout's payload
+  and key (`<clue>:turn<n>`) stay unique per answer. `turnPlayer` is the
+  race's fastest; a log from before the rebound (no `races`) still reads
+  its `turn` down its one order, and its next wrong answer opens a rebound.
+- A rebound's close is its own beat: payload `{ clueId, race }`, key
+  `<clue>:close<race>` (the first race keeps `{ clueId }` and
+  `<clue>:close`), so the Durable Object's refused-key memory and a stale
+  write can never hold or close the wrong race. The pill's "Close buzzers"
+  carries the same payload, so it draws the autopilot's wait.
+- The phone's buzz names its race; a missing race means the race under way
+  (a cached older phone can still buzz).
+- `REBOUND_LEAD_MS` (2,000) replaces `ANSWER_GAP_MS`: the struck answer
+  stands, then the buzzers arm. A rebound opens only while someone here may
+  still buzz; a Daily Double never rebounds.
+- Standings count a buzz once a clue however many races it was in.
+
+The Final:
+- `finalMax(score, top)` is `ddMax`: up to the score or the board's top
+  value (1,000 on any board the bank deals), from 0. `finalEligible` is
+  everyone in the game still here; a present roster player not in it joins
+  on their wager as on a buzz. "Only scores above zero wager" is gone.
+- The autopilot's early Final clue still waits for every eligible wager,
+  now everyone's (else the 25 s wager clock runs out and a missing wager is
+  0); the reveal still turns from the lowest score up, everyone who played
+  or gave a Final.
+
+Screens and sounds: the TV's "rebound" and "rebound-armed" scenes, the
+rail's `spent`, the phone's "buzz-out" screen and per-race buzzer, the sheet
+reopening per race (`boardOpenKey`), boardArm / buzzIn / orderStamp per race.
+Fixtures: `boardStage` rebound, rebound-armed, rebound-in, rebound-out (and
+answer, answer-mine, reveal now after a rebound); `boardPlayed("rebound")`.
+Fit views: `tv-board-rebound`, `tv-board-rebound-armed`,
+`tv-board-real-rebound`, `board-rebound`, `board-rebound-armed`,
+`board-rebound-out`, `board-real-rebound`.
+
+Rollback: code from before reads a rebound's log as one race with its first
+answer made; its `turn` indexing that race's order would ask the race's
+second buzzer to answer. Restart the game (or let the clue's turn run out)
+after a rollback mid-clue.

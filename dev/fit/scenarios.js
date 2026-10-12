@@ -527,6 +527,36 @@ function withSongs(state) {
   for (const [player, track] of Object.entries(songs)) state.profiles[player] = { ...state.profiles[player], walkoutTrack:track };
   return state;
 }
+/* Karaoke songs (the profile's Karaoke section): the guest's saved song, as
+   the karaoke song picker shows it, and the answers its search and video
+   lookup stand in with (dev/fit/client.js reads `spotify`). Stand-in covers
+   and thumbnails: the audit never reaches Spotify's or YouTube's image hosts. */
+const FIT_KARAOKE_THUMB = `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 90">
+<rect width="160" height="90" fill="#0d1430"/><rect x="20" y="34" width="120" height="9" rx="4" fill="#f2b33d"/>
+<rect x="34" y="50" width="92" height="7" rx="3" fill="#e9dfc8"/></svg>`)}`;
+const FIT_KARAOKE_TRACK = Object.freeze({ provider:"spotify", trackId:"77NNZQSqzLNqh2A9JhLRkg",
+  uri:"spotify:track:77NNZQSqzLNqh2A9JhLRkg", url:"https://open.spotify.com/track/77NNZQSqzLNqh2A9JhLRkg",
+  name:"Don't Stop Believin' - Remastered 2022", artists:Object.freeze(["Journey"]), durationMs:250000, imageUrl:FIT_COVER,
+  explicit:false, startMs:0 });
+const FIT_KARAOKE_VIDEOS = Object.freeze([
+  { id:"fitKaraoke1", title:"Journey - Don't Stop Believin' (Karaoke Version)", channel:"Stingray Karaoke", seconds:245 },
+  { id:"fitKaraoke2", title:"Don't Stop Believin' (Karaoke Version) With Lyrics On Screen", channel:"Zoom Karaoke Official", seconds:282 },
+  { id:"fitKaraoke3", title:"Don't Stop Believin' | Karaoke Version | KaraFun", channel:"PARTY TYME KARAOKE CHANNEL", seconds:251 },
+].map(video => Object.freeze({ ...video, thumb:FIT_KARAOKE_THUMB })));
+export const FIT_KARAOKE = Object.freeze({
+  search:{ ok:true, tracks:[FIT_KARAOKE_TRACK, { ...FIT_KARAOKE_TRACK, trackId:"4bHsxqR3GMrXTxEPLuK5ue",
+    uri:"spotify:track:4bHsxqR3GMrXTxEPLuK5ue", url:"https://open.spotify.com/track/4bHsxqR3GMrXTxEPLuK5ue",
+    name:"Don't Stop Believin' (Live in Houston, 1981)", imageUrl:null }] },
+  karaokeVideos:{ ok:true, videos:FIT_KARAOKE_VIDEOS },
+});
+/* the guest's saved karaoke song (the karaokeSong write keeps this shape) */
+function withKaraokeSong(state, player = FIT_GUEST) {
+  const { startMs, ...track } = FIT_KARAOKE_TRACK;
+  state.profiles[player] = { ...state.profiles[player], karaokeTrack:{ ...track, artists:[...track.artists],
+    video:{ ...FIT_KARAOKE_VIDEOS[0] }, alts:FIT_KARAOKE_VIDEOS.slice(1).map(video => ({ ...video })), at:Date.now(), checkedAt:null } };
+  return state;
+}
+
 const CALLBACK = "https://fielddayseries.com/api/spotify/callback";
 export const FIT_SPOTIFY = Object.freeze({
   connected:{
@@ -1271,6 +1301,14 @@ export const PHONE_SCENARIOS = Object.freeze([
   /* a guest still in Safari: the Add to Home Screen card on Home, the steps
      opened on Weekend; and the profile sheet with its card on show */
   { id:"install-card", build:() => fresh("event:putt:open"), install:true, tabs:["home"], sheets:["install-open", "profile"] },
+  /* the profile's Karaoke section (docs/KARAOKE.md): no song yet (Home's
+     list names it), a song searched and picked with its three videos, and
+     the song saved with its video */
+  { id:"karaoke-song", build:() => fresh("locker"), karaoke:true, tabs:["home"], sheets:["profile-karaoke"] },
+  { id:"karaoke-song-found", build:() => fresh("locker"), karaoke:true, spotify:FIT_KARAOKE, tabs:[],
+    sheets:["profile-karaoke-found"], sheetSizes:["375"] },
+  { id:"karaoke-song-chosen", build:() => withKaraokeSong(withSong(fresh("locker"), FIT_GUEST)), karaoke:true, tabs:[],
+    sheets:["profile-karaoke"], sheetSizes:["375"] },
   /* arrivals (Oct 4): before check-in opens nothing is new; in the lobby
      the guest still on the way gets Scan the TV at the top of Home, and its
      scanner: looking (a camera frame with no code), the TV's code read and

@@ -786,6 +786,37 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   its chip at one size, the record as one big numeral (chips amber, a loss
   clay, counts bone; "3 to 1" between two sides, the side behind lilac),
   rising in on the turn's own instant. Fit views `tv-records-*`.
+- **Karaoke songs** (Oct 12, docs/KARAOKE.md "YouTube"; `worker/karaokeVideos.js`,
+  `features/karaoke/KaraokeSongPicker.jsx` on the pure `songPick.js`): a
+  guest searches Spotify (the win song's `SongSearch`), picks, and `GET
+  /api/karaoke/videos` (device claim or GM token, 10 lookups a device a
+  minute) runs ONE search.list ("{first artist} {song name} karaoke",
+  release suffix and featured artists dropped by `songTitle`/
+  `karaokeSongName`) and ONE videos.list; `chooseKaraoke` keeps uploads an
+  embedded player can play in the US (embeddable, public or unlisted,
+  processed, not age restricted, not blocked in the US, not live, 60 to 900
+  s) that say karaoke, never a "- Topic" channel or Sing King, and ranks
+  the song's own name, then `KARAOKE_CHANNELS` (Stingray first), then title
+  words, then the length nearest Spotify's, one per channel first: up to
+  three, kept in `private:karaoke:<trackId>` 30 days (YouTube's storage
+  rule; a miss a day; a failure never). The win song's
+  `private:youtube:<trackId>` refreshes after 30 days too. A quota answer
+  reads "YouTube's daily limit is used up. Paste a YouTube link."
+  (`youtubeFailure`; search.list is its own 100-call bucket). `GET
+  /api/karaoke/video?id` checks a pasted link (play checks only); `GET
+  /api/admin/karaoke/check` (GM) reads every roster song's video and
+  alternates in one call and stores nothing. After a write opens a pick
+  window, the DO reads every present player's videos in one call and
+  writes `karaokePreflight { gameId, bad, videos }` as an auto write, never
+  holding up the start. The picker: thumbnails (`karaokeThumb`, 128x72)
+  open YouTube's own player one at a time (`previewPlayer` `onClipStart`
+  is a set; whatever starts stops the rest), Use writes `karaokeSong` with
+  the other candidates as `alts`, a pasted link joins the candidates,
+  `muted` (the pick window) keeps covers still and previews silent.
+  Profile > Karaoke (`capabilities.karaoke`, audioCatalog and songSnippets)
+  has no Save: Use is the save. Home's list adds "Pick a karaoke song".
+  Fit views `karaoke-song*` (stand-in thumbnails ride a `thumb` field the
+  server never sends).
 
 ## Current redesign direction
 

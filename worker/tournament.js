@@ -16,7 +16,7 @@ import {
   SPOTIFY_TRACK_URI, buildWalkout, reconcileWalkout, sameWalkout, walkoutLive, walkoutOf,
 } from "../shared/audio.js";
 import { BUILD_ID } from "../shared/build.js";
-import { applyAction } from "./actions.js";
+import { ACTIONS, applyAction } from "./actions.js";
 import { QA_CHECKPOINT_LIMIT, cleanCheckpointName, qaCheckpointSummary, qaProgressOf } from "../shared/qa.js";
 import { createStateSerializer } from "./publicState.js";
 import { WAGER_OPS_KEY, hydrateStoredState, splitStoredState } from "./state.js";
@@ -50,7 +50,11 @@ import { alertsFor } from "./pushAlerts.js";
 import { WIN_SONG_CLIP_MS, WIN_SONG_STOP_ACTIONS, winSongFor } from "./winSong.js";
 import { autoBeat } from "../shared/autopilot.js";
 import { findPreview, previewCache } from "./previews.js";
-import { findAlbumUpload } from "./youtube.js";
+import { YOUTUBE_KEEP_MS, findAlbumUpload } from "./youtube.js";
+import {
+  checkKaraokeVideos, findKaraokeVideos, isYouTubeId, karaokeCheckList, karaokeCheckReport, karaokeLookupFresh,
+  karaokePreflight, karaokeProblemText, karaokeWindowOpened, youtubeFailure,
+} from "./karaokeVideos.js";
 import { projectPrompts } from "../shared/prompts.js";
 import { MomentDesk, MOMENT_PREFIX, jpegInfo, stripJpegMetadata } from "./moments.js";
 import { geoPhotoId, geoShownIds } from "../shared/geo.js";
@@ -125,12 +129,19 @@ const TV_SOUND = new Set(["on", "blocked"]);
 const SPOTIFY_SEARCH_LIMIT = 40;
 /* preview clip lookups per device per minute (answers are cached) */
 const PREVIEW_LIMIT = 60;
-/* YouTube album uploads by Spotify track id: private, kept for good (a miss
-   is asked again after a day); a search spends a fifth of a percent of the
-   key's daily quota, so a device may start at most 10 a minute */
+/* YouTube album uploads by Spotify track id: private, kept 30 days
+   (YOUTUBE_KEEP_MS, YouTube's storage rule; a miss is asked again after a
+   day); a search is one of the key's 100 search.list calls a day, so a
+   device may start at most 10 a minute */
 const SNIPPET_KEY_PREFIX = "private:youtube:";
 const SNIPPET_MISS_MS = 24 * 60 * 60 * 1000;
 const SNIPPET_LIMIT = 10;
+/* karaoke uploads by Spotify track id (worker/karaokeVideos.js): private,
+   30 days, a miss asked again after a day. A pasted link and the
+   commissioner's check each read one videos.list (1 unit). */
+const KARAOKE_KEY_PREFIX = "private:karaoke:";
+const KARAOKE_LINK_LIMIT = 20;
+const KARAOKE_CHECK_LIMIT = 6;
 /* eight characters, 40 bits; 256 is a multiple of the 32-letter alphabet, so no bias */
 function newArriveCode() {
   const bytes = crypto.getRandomValues(new Uint8Array(8));
@@ -212,6 +223,10 @@ export class Tournament {
       push:configured && !!this.vapid,
       /* the Win song picker's exact-snippet preview (worker/youtube.js) */
       songSnippets:configured && this.env.M2_AUDIO_CATALOG_ENABLED === "true" && !!this.env.YOUTUBE_API_KEY,
+      /* karaoke songs (docs/KARAOKE.md): audioCatalog && songSnippets, the
+         Spotify search and the YouTube key */
+      karaoke:configured && this.env.M2_AUDIO_CATALOG_ENABLED === "true" && spotifyConfigured(this.env)
+        && !!this.env.YOUTUBE_API_KEY,
     };
   }
 
@@ -296,6 +311,9 @@ export class Tournament {
     if (url.pathname === "/api/admin/prompts" || url.pathname.startsWith("/api/admin/prompts/")
         || url.pathname === "/api/prompts" || url.pathname.startsWith("/api/prompts/"))
       return this.handlePrompts(req, url);
+    /* karaoke songs on YouTube, the commissioner's check included (ahead of /api/admin/) */
+    if (url.pathname.startsWith("/api/karaoke/") || url.pathname.startsWith("/api/admin/karaoke/"))
+      return this.handleKaraoke(req, url);
     if (url.pathname.startsWith("/api/admin/")) return this.handleAdmin(req, url);
     if (url.pathname.startsWith("/api/spotify/")) return this.handleSpotify(req, url);
     if (url.pathname === "/api/moments" || url.pathname.startsWith("/api/moments/"))
@@ -469,6 +487,82 @@ export class Tournament {
       || await findPreview({ name:`${title} ${artist}`.trim() }, fetchImpl);
     this.previews.set(key, found);
     return found;
+  }
+
+  /* ── Karaoke songs on YouTube (docs/KARAOKE.md, worker/karaokeVideos.js) ──
+     GET /api/karaoke/videos?trackId&name&artist&durationMs   a chosen song's
+         karaoke uploads (device claim or GM token): one search and one read,
+         kept in private:karaoke:<trackId> 30 days (YouTube's storage rule),
+         a miss asked again after a day; a failure is never kept
+     GET /api/karaoke/video?id     a pasted link: one read, the same checks
+     GET /api/admin/karaoke/check  (GM token) every roster player's saved
+         video and alternates in one batched read; stores nothing
+     Not found unless the karaoke capability is on. */
+  async handleKaraoke(req, url) {
+    if (!this.capabilities.karaoke) return new Response("Not found", { status:404 });
+    if (req.method !== "GET") return spotifyJson({ ok:false, error:"Method not allowed" }, 405);
+    const key = this.env.YOUTUBE_API_KEY, fetchImpl = this.youtubeFetch || fetch;
+    const failed = (event, error) => {
+      console.error(JSON.stringify({ event, reason:error?.reason || error?.detail || null,
+        error:String(error?.message || error).slice(0, 200) }));
+      const answer = youtubeFailure(error);
+      return spotifyJson({ ok:false, error:answer.error, code:answer.code }, answer.status);
+    };
+    if (url.pathname === "/api/admin/karaoke/check") {
+      if (!await this.gmAuthorized(req)) return spotifyJson({ ok:false, error:"Commissioner only" }, 403);
+      if (!this.spotifyRateLimit("karaoke-check:gm", KARAOKE_CHECK_LIMIT))
+        return spotifyJson({ ok:false, error:"Too many checks; wait a minute", retryAfter:60 }, 429);
+      const roster = rosterOf(this.state);
+      const list = karaokeCheckList(this.state, roster);
+      const ids = Object.values(list).flat();
+      let results = {};
+      if (ids.length) {
+        try { results = await checkKaraokeVideos(ids, key, fetchImpl); }
+        catch (error) { return failed("karaoke-check-failed", error); }
+      }
+      return spotifyJson({ ok:true, results:karaokeCheckReport(roster, list, results) });
+    }
+    const authorized = await this.spotifySearchAuthorized(req);
+    if (!authorized.ok) return spotifyJson({ ok:false, error:"Check in first" }, 403);
+    if (url.pathname === "/api/karaoke/videos") {
+      const trackId = url.searchParams.get("trackId") || "";
+      const name = (url.searchParams.get("name") || "").slice(0, 120);
+      const artist = (url.searchParams.get("artist") || "").slice(0, 120);
+      const durationMs = Math.floor(Number(url.searchParams.get("durationMs")) || 0);
+      if (!/^[A-Za-z0-9]{22}$/.test(trackId) || !name.trim() || durationMs < 1000)
+        return spotifyJson({ ok:false, error:"Pick a song first" }, 400);
+      const storeKey = `${KARAOKE_KEY_PREFIX}${trackId}`;
+      let saved = await this.ctx.storage.get(storeKey);
+      if (!karaokeLookupFresh(saved)) {
+        if (!this.spotifyRateLimit(`karaoke:${authorized.key}`, SNIPPET_LIMIT))
+          return spotifyJson({ ok:false, error:"Too many lookups; wait a minute", retryAfter:60 }, 429);
+        try {
+          const videos = await findKaraokeVideos({ name, artists:[artist], durationMs }, key, fetchImpl);
+          saved = { videos, at:Date.now() };
+          await this.ctx.storage.put(storeKey, saved);
+        } catch (error) {
+          /* an answer past its 30 days goes, even when the refresh fails */
+          if (saved && Date.now() - Number(saved.at) > YOUTUBE_KEEP_MS) {
+            try { await this.ctx.storage.delete(storeKey); } catch {}
+          }
+          return failed("karaoke-lookup-failed", error);
+        }
+      }
+      return saved.videos.length ? spotifyJson({ ok:true, videos:saved.videos })
+        : spotifyJson({ ok:false, error:"No karaoke version found. Paste a YouTube link.", code:"none", videos:[] }, 404);
+    }
+    if (url.pathname === "/api/karaoke/video") {
+      const id = url.searchParams.get("id") || "";
+      if (!isYouTubeId(id)) return spotifyJson({ ok:false, error:karaokeProblemText("invalid"), code:"invalid" }, 400);
+      if (!this.spotifyRateLimit(`karaoke-link:${authorized.key}`, KARAOKE_LINK_LIMIT))
+        return spotifyJson({ ok:false, error:"Too many lookups; wait a minute", retryAfter:60 }, 429);
+      let checked;
+      try { checked = (await checkKaraokeVideos([id], key, fetchImpl))[id]; }
+      catch (error) { return failed("karaoke-link-failed", error); }
+      return checked?.ok ? spotifyJson({ ok:true, video:checked.video })
+        : spotifyJson({ ok:false, error:karaokeProblemText(checked?.code), code:checked?.code || "removed" }, 422);
+    }
+    return spotifyJson({ ok:false, error:"Not found" }, 404);
   }
 
   /* a commissioner token on an HTTP request (Bearer or the GM header) */
@@ -798,6 +892,7 @@ export class Tournament {
       this.autoRetryAt = 0;
       this.queueAlerts(before, this.state, null);
       this.queueWinSong(before, this.state, beat.type);
+      this.queueKaraokeCheck(before, this.state);
     }
   }
 
@@ -1115,7 +1210,9 @@ export class Tournament {
         return spotifyJson({ ok:false, error:"No song to preview" }, 400);
       const storeKey = `${SNIPPET_KEY_PREFIX}${trackId}`;
       let saved = await this.ctx.storage.get(storeKey);
-      if (!saved || (!saved.videoId && Date.now() - Number(saved.at) > SNIPPET_MISS_MS)) {
+      /* an answer is looked up again after 30 days (YouTube's storage rule) */
+      const age = Date.now() - Number(saved?.at);
+      if (!saved || !(age <= YOUTUBE_KEEP_MS) || (!saved.videoId && age > SNIPPET_MISS_MS)) {
         if (!this.spotifyRateLimit(`snippet:${authorized.key}`, SNIPPET_LIMIT))
           return spotifyJson({ ok:false, error:"Too many previews; wait a minute", retryAfter:60 }, 429);
         try {
@@ -1125,6 +1222,10 @@ export class Tournament {
           await this.ctx.storage.put(storeKey, saved);
         } catch (error) {
           console.error(JSON.stringify({ event:"snippet-lookup-failed", error:String(error?.message || error).slice(0, 200) }));
+          /* one past its 30 days goes, even when the refresh fails */
+          if (saved && !(age <= YOUTUBE_KEEP_MS)) {
+            try { await this.ctx.storage.delete(storeKey); } catch {}
+          }
           return spotifyJson({ ok:false, error:"YouTube did not answer. Try again" }, 502);
         }
       }
@@ -1847,6 +1948,7 @@ export class Tournament {
     if (!QUIET_ACTIONS.has(type)) {
       this.queueAlerts(before, this.state, isActivePlayer(claimed, this.state) ? claimed : null);
       this.queueWinSong(before, this.state, type);
+      this.queueKaraokeCheck(before, this.state);
     } else if (type === "qaAdvance" && QA_SONG_TARGETS.has(payload?.target) && !result.extra?.rewound) {
       this.queueWinSong(before, this.state, type);
     }
@@ -1897,6 +1999,58 @@ export class Tournament {
       claims:this.claims, fetchImpl:this.pushFetch || fetch })).catch(() => null);
     try { this.ctx.waitUntil?.(work); } catch {}
     return work;
+  }
+
+  /* ── karaoke: the pick window's video check (docs/KARAOKE.md) ──
+     After a write that opened a pick window persisted and its broadcast
+     left, one batched videos.list reads every present player's saved video
+     and alternates, and karaokePreflight (worker/karaoke.js) says which
+     failed, through the ordinary reducer as an autopilot write. Best
+     effort, like a win song: it never holds up, delays or fails the start,
+     and a YouTube failure writes nothing (the TV's own error report still
+     moves to an alternate). */
+  queueKaraokeCheck(before, after) {
+    if (!this.capabilities.karaoke) return null;
+    const gameId = karaokeWindowOpened(before, after);
+    if (!gameId) return null;
+    const work = this.checkKaraokeWindow(gameId).catch(error => {
+      console.error(JSON.stringify({ event:"karaoke-check-failed", error:String(error?.message || error).slice(0, 200) }));
+      return null;
+    });
+    try { this.ctx.waitUntil?.(work); } catch {}
+    return work;
+  }
+
+  async checkKaraokeWindow(gameId) {
+    /* the reducer is worker/karaoke.js's; without it there is nothing to write */
+    if (!Object.hasOwn(ACTIONS, "karaokePreflight")) return null;
+    const list = karaokeCheckList(this.state);
+    const ids = Object.values(list).flat();
+    if (!ids.length) return null;
+    let results;
+    try { results = await checkKaraokeVideos(ids, this.env.YOUTUBE_API_KEY, this.youtubeFetch || fetch); }
+    catch (error) {
+      console.error(JSON.stringify({ event:"karaoke-preflight-lookup-failed", reason:error?.reason || null,
+        error:String(error?.message || error).slice(0, 200) }));
+      return null;
+    }
+    /* the window may have closed or restarted while YouTube answered */
+    if (this.state.karaoke?.id !== gameId || this.state.karaoke?.phase !== "pick") return null;
+    const nextState = structuredClone(this.state);
+    const opened = Number(this.state.karaoke.startedAt) || 0;
+    const result = applyAction(nextState, "karaokePreflight", { gameId, ...karaokePreflight(list, results) }, {
+      isGm:true, auto:true, player:null, deviceId:"autopilot", actionId:`karaoke:${gameId}:${opened}:preflight`,
+      environment:this.environment, showControl:this.capabilities.showControl, karaoke:this.capabilities.karaoke,
+    });
+    if (!result.ok || result.extra?.unchanged) return result;
+    this.carryWalkout(nextState);
+    try { await this.persistAndBroadcast("karaokePreflight", nextState); }
+    catch (error) {
+      console.error(JSON.stringify({ event:"karaoke-preflight-write-failed", error:String(error?.message || error).slice(0, 300) }));
+      return { ok:false };
+    }
+    await this.scheduleAlarm();
+    return result;
   }
 
   /* ── QA checkpoints (commissioner, QA capability) ──

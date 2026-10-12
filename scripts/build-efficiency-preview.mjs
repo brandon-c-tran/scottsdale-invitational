@@ -27,7 +27,7 @@ await build({
     builder.onLoad({ filter:/[\\/]src[\\/]lib[\\/]client\.js$/ }, () => ({
       contents:blocked(["useTournament", "dispatch", "uploadPhoto", "downloadSnapshot", "localGet", "localSet",
         "getDeviceId", "setGmToken", "hasGmToken", "spotifyStatus", "spotifyPlayer", "spotifySearch",
-        "spotifyAuthorize", "spotifyDisconnect", "spotifyPlay", "spotifyPause", "spotifyDevice", "spotifyAutoWinSongs", "songPreview", "songSnippet", "spotifyRetry", "geoUploadPhoto", "geoDeleteRound", "geoPhotoUrl", "triviaUploadPhoto", "triviaBank", "triviaClip", "triviaClipCheck", "triviaPhotoUrl", "karaokeCheck", "reportTvSound", "setTvView"]), loader:"js",
+        "spotifyAuthorize", "spotifyDisconnect", "spotifyPlay", "spotifyPause", "spotifyDevice", "spotifyAutoWinSongs", "songPreview", "songSnippet", "spotifyRetry", "geoUploadPhoto", "geoDeleteRound", "geoPhotoUrl", "triviaUploadPhoto", "triviaBank", "triviaClip", "triviaClipCheck", "triviaPhotoUrl", "reportTvSound", "setTvView", "karaokeVideos", "karaokeVideo", "karaokeCheck"]), loader:"js",
     }));
     builder.onLoad({ filter:/[\\/]features[\\/]check-in[\\/]install\.js$/ }, () => ({
       contents:`export const installEvt = null;\n${blocked(["onInstallReady", "firstOnboardStep", "isStandalone", "isIOS"])}`,

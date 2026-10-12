@@ -8,11 +8,17 @@
    preferring YouTube's auto-generated album uploads ("Artist - Topic"),
    so a start point means the same moment in both. A music video with an
    intro would shift every timestamp, so no close match means no snippet.
-   One search costs 101 of the API key's 10,000 daily units; the Durable
-   Object keeps every answer, so each song is looked up once. */
+   Quota (June 2026): search.list has its own bucket of 100 calls a day, and
+   the videos.list read is 1 of the 10,000 units every other call shares.
+   The Durable Object keeps each answer YOUTUBE_KEEP_MS (YouTube's storage
+   rule: refresh or delete within 30 days), so a song is looked up about
+   once a month. */
 
 const API = "https://www.googleapis.com/youtube/v3";
 export const SNIPPET_MATCH_MS = 3000;
+/* how long anything learned from YouTube's API may be kept before it is
+   looked up again (Developer Policies III.E.4: 30 calendar days) */
+export const YOUTUBE_KEEP_MS = 30 * 24 * 60 * 60 * 1000;
 
 /* ISO 8601 "PT3M42S" -> milliseconds */
 export function isoDurationMs(text) {

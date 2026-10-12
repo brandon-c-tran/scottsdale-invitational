@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { songSnippet } from "../../lib/client.js";
 import { setPreviewSession } from "../../lib/sound.js";
-import { onClipStart, stopPreview } from "./previewPlayer.js";
+import { clipStarting, onClipStart, stopPreview } from "./previewPlayer.js";
 import { songClock } from "./winSongModel.js";
 import { loadYouTube } from "../../lib/youtube.js";
 
@@ -25,7 +25,9 @@ export function SnippetPreview({ track, from, to, find = songSnippet }) {
     if (host.current) host.current.textContent = "";
     setView({ status:"idle", error:"" });
   }, [track.trackId]);
-  useEffect(() => onClipStart(() => { try { player.current?.pauseVideo(); } catch {} }), []);
+  /* one source at a time: a clip or another YouTube preview starting pauses this one */
+  const pause = useRef(() => { try { player.current?.pauseVideo(); } catch {} });
+  useEffect(() => onClipStart(pause.current), []);
   /* the window moved: cue the new bounds (a playing snippet restarts there) */
   useEffect(() => {
     if (!player.current?.cueVideoById || !video.current) return undefined;
@@ -62,7 +64,7 @@ export function SnippetPreview({ track, from, to, find = songSnippet }) {
         onReady:event => { try { event.target.playVideo(); } catch {} },
         onStateChange:event => {
           playing.current = event.data === PLAYING;
-          if (playing.current) { stopPreview(); setPreviewSession(true); }
+          if (playing.current) { stopPreview(); clipStarting(pause.current); setPreviewSession(true); }
           setView(current => ({ ...current, status:playing.current ? "playing" : "ready" }));
         },
       },

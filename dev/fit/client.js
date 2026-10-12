@@ -53,6 +53,9 @@ export const triviaBank = async () => globalThis.__FIT_BANK__ ? { ok:true, categ
 export const triviaClip = offline;
 export const triviaClipCheck = offline;
 export const triviaPhotoUrl = async id => `/api/trivia/photo/${encodeURIComponent(id)}`;
+/* the commissioner's video check, as the scenario hands it (dev/fit/scenarios.js `karaokeCheck`) */
+export const karaokeCheck = async () => globalThis.__FIT_KARAOKE_CHECK__
+  ? { ok:true, results:globalThis.__FIT_KARAOKE_CHECK__ } : offline();
 export const reportClientError = () => {};
 /* the scenario's stubbed Spotify answers (dev/fit/scenarios.js FIT_SPOTIFY) */
 const stubbed = key => async () => globalThis.__FIT_SPOTIFY__?.[key] || offline();

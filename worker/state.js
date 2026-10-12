@@ -1,4 +1,4 @@
-import { EMPTY_STATE, cleanLeg, cleanLogistics } from "../shared/core.js";
+import { EMPTY_STATE, allEventsOf, cleanLeg, cleanLogistics } from "../shared/core.js";
 
 /* The wager retry ledger lives under its own storage key. At its 2048-entry
    cap it is the largest single part of the tournament, and keeping it out of
@@ -21,6 +21,23 @@ function mergeWagerOps(separate, embedded) {
   return merged;
 }
 
+/* Karaoke joined Friday night (Oct 12). A slate the commissioner reordered
+   before then (a Reorder saves every event's id) has no place for it, and
+   an id missing from a saved order sorts after everything, the poker finale
+   included. So it takes its place after Where and When, else after the
+   order's last Friday event, else first. Karaoke alone, and not while it is
+   skipped (a Reorder leaves a skipped event out). */
+function placeKaraoke(state) {
+  const order = state.eventOrder;
+  if (!Array.isArray(order) || !order.length || order.includes("karaoke") || state.shelved?.karaoke) return;
+  const events = allEventsOf({ ...state, eventOrder:[] });
+  if (!events.some(ev => ev.id === "karaoke")) return;
+  const friday = new Set(events.filter(ev => ev.session === "fri").map(ev => ev.id));
+  let after = order.indexOf("where");
+  for (let k = order.length - 1; after < 0 && k >= 0; k--) if (friday.has(order[k])) after = k;
+  order.splice(after + 1, 0, "karaoke");
+}
+
 /* Storage hydration is deliberately pure and additive. A pre-M1 state keeps
    every persisted domain value; absent fields receive current defaults and
    the existing edition-aware logistics/flight normalizers still run. */
@@ -37,6 +54,7 @@ function hydrateStoredState(stored, storedWagerOps) {
      Never invent a group winner or reopen an in-progress legacy market while
      hydrating: its original results, advancement and wagers remain intact. */
   if (Number(state.v || 0) < EMPTY_STATE.v) state.v = EMPTY_STATE.v;
+  placeKaraoke(state);
 
   state.logistics = cleanLogistics(state.logistics);
   for (const profile of Object.values(state.profiles || {})) {

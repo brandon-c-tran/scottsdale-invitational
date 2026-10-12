@@ -14,6 +14,7 @@ export const STEP_SETS = Object.freeze({
   putting:{ steps:3, win:3, notes:[["tie", "tie"]] },
   die:{ steps:4, win:4, notes:[["score", "tally"], ["call", "height"], ["plunk", "plunk"]] },
   where:{ steps:4, win:4, notes:[["clock", "timer"], ["max", "max"], ["tie", "tie"]] },
+  karaoke:{ steps:4, win:4, notes:[["window", "timer"], ["change", "lock"], ["trim", "trim"], ["tie", "tie"]] },
   "basketball:1v1":{ steps:4, win:4, notes:[["fouls", "whistle"]] },
   "basketball:5v5":{ steps:4, win:4, notes:[["half", "half"], ["fouls", "whistle"], ["contact", "contact"]] },
   pickleball:{ steps:4, win:4, notes:[["serve", "serve"]] },

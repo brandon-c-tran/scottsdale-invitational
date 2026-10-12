@@ -1,0 +1,28 @@
+/* The Karaoke desk (KaraokeDesk.jsx): the count and the two controls, then
+   one row per roster player, its lamp in the Ready check's language
+   (backglass.css .fd-insert): steady cyan when the video plays, amber when
+   the song is unchecked or will not play, unlit with no song. */
+.fd-karaoke-desk-head { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px 12px; margin:2px 0 14px; }
+.fd-karaoke-desk-count { display:flex; align-items:baseline; gap:8px; }
+.fd-karaoke-desk-count strong { font:900 44px/1 var(--fd-display); color:var(--bone); font-variant-numeric:tabular-nums; }
+.fd-karaoke-desk-count span { font:700 15px/1 var(--fd-display); letter-spacing:.06em; text-transform:uppercase; color:var(--night-text); }
+.fd-karaoke-desk-actions { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:8px; }
+.fd-karaoke-desk-error { flex-basis:100%; margin:0; font:600 13px/1.35 var(--fd-body); color:var(--clay-text); text-align:right; }
+
+.fd-karaoke-desk-list { list-style:none; margin:0; padding:0; display:grid; gap:2px; }
+.fd-karaoke-desk-row { display:grid; grid-template-columns:12px 36px minmax(0, 1fr); align-items:center; column-gap:12px;
+  min-height:56px; padding:6px 0; border-bottom:1px solid var(--line); }
+.fd-karaoke-desk-row:last-child { border-bottom:0; }
+.fd-karaoke-desk-row .fd-insert { --lamp:var(--lamp-info); }
+.fd-karaoke-desk-row.is-partial .fd-insert { --lamp:var(--sun); }
+/* no song: the lens with its lamp off, never a dim live */
+.fd-karaoke-desk-row.is-missing .fd-insert { background:var(--lens-off); box-shadow:var(--lens-rim); }
+.fd-karaoke-desk-row.is-missing .fd-insert::after { opacity:.38; }
+.fd-karaoke-desk-face { display:inline-flex; border-radius:50%; }
+.fd-karaoke-desk-who { display:flex; flex-direction:column; gap:2px; min-width:0; }
+/* a long name or title takes another line, never an ellipsis */
+.fd-karaoke-desk-name { min-width:0; overflow-wrap:anywhere; font:700 16px/1.15 var(--fd-body); color:var(--bone); }
+.fd-karaoke-desk-row.is-missing .fd-karaoke-desk-name { color:var(--muted2); }
+.fd-karaoke-desk-song { overflow-wrap:anywhere; font:600 14px/1.25 var(--fd-body); color:var(--ink); }
+.fd-karaoke-desk-artist { overflow-wrap:anywhere; font:500 13px/1.25 var(--fd-body); color:var(--muted2); }
+.fd-karaoke-desk-problem { font:700 13px/1.2 var(--fd-display); letter-spacing:.06em; text-transform:uppercase; color:var(--clay-text); }

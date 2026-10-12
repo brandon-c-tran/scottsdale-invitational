@@ -75,6 +75,18 @@ test("the commissioner's menu: Now, TV and sound, Games, People and trip, Setup,
   assert.deepEqual(ids(bare).slice(0, 1), ["showControl"], "the TV row is always there");
 });
 
+test("the Karaoke desk: in Games after Where and When, only with the karaoke capability, valued by the songs picked", () => {
+  const games = facts => commissionerMenu(facts).find(section => section.id === "games").items;
+  assert.deepEqual(games(full).map(item => item.id), ["geo", "trivia", "awards"], "the capability off: no row");
+  const on = games({ ...full, karaoke:true, karaokeSongs:9, coming:13 });
+  assert.deepEqual(on.map(item => item.id), ["geo", "karaoke", "trivia", "awards"], "the slate's order: Friday's two, then Trivia");
+  assert.deepEqual(on[1], { id:"karaoke", name:"Karaoke", icon:"song", value:"9 of 13 songs" });
+  assert.equal(games({ karaoke:true, coming:10 })[1].value, "0 of 10 songs", "Not coming leaves the count");
+  for (const item of on) if (item.value) assert.ok(!/[.!]$/.test(String(item.value)) && String(item.value).length <= 32, item.id);
+  const app = readFileSync(new URL("../src/App.jsx", import.meta.url), "utf8");
+  assert.match(app, /\n\s*case "karaoke": return sheet\("karaokeDesk"\);\r?\n/, "its own sheet, on its own line");
+});
+
 test("the Speaker row stands whenever audio is on, whatever the TV capability", () => {
   for (const showControl of [true, false]) {
     const menu = commissionerMenu({ audioDirector:true, showControl, speaker:"Not connected" });

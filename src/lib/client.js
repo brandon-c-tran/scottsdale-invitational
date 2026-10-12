@@ -575,6 +575,13 @@ export async function triviaPhotoUrl(id) {
   } catch { return null; }
 }
 
+/* Karaoke (commissioner): every roster player's saved video checked in one
+   read (GET /api/admin/karaoke/check); it stores nothing. Two YouTube calls
+   of up to 8 seconds each, so 12 seconds. */
+export const karaokeCheck = () => momentRequest("/api/admin/karaoke/check",
+  { headers:{ ...momentHeaders(), Authorization:`Bearer ${gmToken || ""}` }, cache:"no-store" },
+  { ms:12000, timeout:"YouTube did not answer. Try again", failed:"Couldn't check the videos" });
+
 /* Crash reports for `wrangler tail`. Best effort, never throws. */
 export function reportClientError(report) {
   try {

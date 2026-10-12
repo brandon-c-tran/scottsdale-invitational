@@ -29,6 +29,13 @@ const MARKS = {
     <circle cx="12" cy="8.2" r="1.9" {...BALL} />
     <path d="M7.4 16.9c-2 .5-3.2 1.2-3.2 2 0 1.4 3.5 2.4 7.8 2.4s7.8-1 7.8-2.4c0-.8-1.2-1.5-3.2-2" />
   </>,
+  /* Karaoke: the handheld mic, its grille the one solid object with one
+     band of its mesh cut through */
+  karaoke:<g transform="rotate(34 12 12)">
+    <circle cx="12" cy="6.4" r="4" {...BALL} />
+    <path d="M8.3 6.4h7.4" stroke="var(--fd-mark-glass)" strokeWidth="1" />
+    <path d="M9.2 10.8h5.6M9.8 10.8l1.1 9a1.1 1.1 0 0 0 2.2 0l1.1-9" />
+  </g>,
   /* basketball: a ball with its seams (5v5); 1v1 is the hoop, side on, the
      shot coming in */
   basketball:<>
@@ -123,8 +130,11 @@ const CHIP = <>
   }).join("")} />
 </>;
 
-/* every game id with its own mark, for pickers ("Looks like") */
-export const GAME_MARK_IDS = Object.freeze(Object.keys(MARKS).filter(id => !id.includes(":")));
+/* every game id with its own mark, for pickers ("Looks like"). Karaoke is
+   not offered: an added event that borrowed it would run the in-app game's
+   karaoke branches (shared/karaoke.js) without being the slate's Karaoke. */
+const NOT_BORROWED = Object.freeze(["karaoke"]);
+export const GAME_MARK_IDS = Object.freeze(Object.keys(MARKS).filter(id => !id.includes(":") && !NOT_BORROWED.includes(id)));
 
 function GameMark({ id, size=54, hero=false, variant }) {
   const glyph = MARKS[variant ? `${id}:${variant}` : id] || MARKS[id] || CHIP;

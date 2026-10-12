@@ -103,6 +103,7 @@ import { Tag, ActionButton, IconButton, Btn, Sheet, SheetDock } from "./ui/contr
 import { MenuSections } from "./ui/Menu.jsx";
 import { commissionerMenu, moreMenu } from "./features/director/menuModel.js";
 import { readyCheck, readyTodo, readyValue } from "./features/director/readyCheck.js";
+import { karaokeSongCount } from "./features/karaoke/deskModel.js";
 import { tvAmbient, tvNowLabel } from "./features/director/tvSheetModel.js";
 import { speakerValue } from "./features/speaker/speakerModel.js";
 import { useSpeakerStatus } from "./features/speaker/speakerStatus.js";
@@ -117,6 +118,7 @@ const QABar = /* @__PURE__ */ lazyPart(() => import("./features/qa/QABar.jsx"), 
 const QASheet = /* @__PURE__ */ lazyPart(() => import("./features/qa/QASheet.jsx"), "QASheet");
 const GeoDesk = /* @__PURE__ */ lazyPart(() => import("./features/geo/GeoDesk.jsx"), "GeoDesk");
 const TriviaDesk = /* @__PURE__ */ lazyPart(() => import("./features/trivia/TriviaDesk.jsx"), "TriviaDesk");
+const KaraokeDesk = /* @__PURE__ */ lazyPart(() => import("./features/karaoke/KaraokeDesk.jsx"), "KaraokeDesk");
 const AwardsDesk = /* @__PURE__ */ lazyPart(() => import("./features/awards/AwardsDesk.jsx"), "AwardsDesk");
 const PokerSetupSheet = /* @__PURE__ */ lazyPart(() => import("./features/director/FinaleSheets.jsx"), "PokerSetupSheet");
 const CrownSheet = /* @__PURE__ */ lazyPart(() => import("./features/director/FinaleSheets.jsx"), "CrownSheet");
@@ -126,7 +128,7 @@ const ReadyCheck = /* @__PURE__ */ lazyPart(() => import("./features/director/Re
 /* Scan the TV: the scanner (and its decoder, loaded inside it) only once a guest opens it */
 const ArriveScanner = /* @__PURE__ */ lazyPart(() => import("./features/arrivals/Scanner.jsx"), "ArriveScanner");
 const COMMISSIONER_PARTS = [QABar, QASheet, GeoDesk, TriviaDesk, AwardsDesk, PokerSetupSheet, CrownSheet, TvSheet, SpeakerSheet,
-  ReadyCheck];
+  KaraokeDesk, ReadyCheck];
 
 
 const prefersReducedMotion = () => typeof window !== "undefined" &&
@@ -1546,6 +1548,7 @@ function TournamentApp({ tournament, onUpdateReload }) {
     away:Object.keys(state.away || {}), out:Object.keys(state.out || {}), coming:rosterOf(state).length, geoPhotos:(state.geoRounds || []).length,
     arrivals:state.arrivals?.open ? { here:rosterOf(state).filter(p => state.arrivals.at?.[p]).length, total:rosterOf(state).length } : null,
     triviaQuestions:triviaQuestionTotal(state.triviaRounds), awardsNote:deskNote(state),
+    karaoke:capabilities.karaoke === true, karaokeSongs:karaokeSongCount(state),
     onDeck:state.onDeck ? onDeckEv?.name || "Open" : null,
     takeBacks:events.filter(ev => announcementTakeBack(state, ev).enabled),
     frozen:state.live && state.frozen, snapshotExport:capabilities.snapshotExport === true,
@@ -1574,6 +1577,7 @@ function TournamentApp({ tournament, onUpdateReload }) {
       case "unfreeze": case "logistics": case "travelSheet": case "gmDevices": case "readyCheck": return sheet(id);
       case "geo": return sheet("geoDesk");
       case "trivia": return sheet("triviaDesk");
+      case "karaoke": return sheet("karaokeDesk");
       case "awards": return sheet("awards");
       case "reset": return sheet("resetProgress");
       /* one action, one name: the pill's Lock and start, never a lock alone */
@@ -1739,6 +1743,9 @@ function TournamentApp({ tournament, onUpdateReload }) {
       {gmView && modal?.type === "triviaDesk" && <Sheet title="Trivia" onClose={() => setModal(null)} onBack={modalBack}>
         <Suspense fallback={null}><TriviaDesk state={state} me={me} events={events} notify={notify}
           onAct={(type, payload) => act(type, payload)} /></Suspense>
+      </Sheet>}
+      {gmView && modal?.type === "karaokeDesk" && <Sheet title="Karaoke" onClose={() => setModal(null)} onBack={modalBack}>
+        <Suspense fallback={null}><KaraokeDesk state={state} /></Suspense>
       </Sheet>}
       {gmView && modal?.type === "showControl" && <Suspense fallback={null}>
         <TvSheet state={state} events={events} scene={activeShowScene} operationEvent={weekendOperation.event}

@@ -37,6 +37,9 @@ export function moreMenu(f = {}) {
 /* the games the commissioner runs from a desk of their own */
 const GAME_DESKS = [
   f => ({ id:"geo", name:"Where and When", icon:"pin", value:plural(f.geoPhotos || 0, "photo") }),
+  /* only with the karaoke capability (Spotify search and the YouTube key):
+     who has picked a song, of everyone coming */
+  f => f.karaoke && ({ id:"karaoke", name:"Karaoke", icon:"song", value:`${f.karaokeSongs || 0} of ${f.coming || 0} songs` }),
   f => ({ id:"trivia", name:"Trivia", icon:"games", value:plural(f.triviaQuestions || 0, "question") }),
   f => ({ id:"awards", name:"Awards", icon:"awards", value:f.awardsNote || null }),
 ];

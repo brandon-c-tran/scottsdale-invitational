@@ -597,6 +597,8 @@ function readyBoard(stage) {
     });
   });
   if (some) delete state.seeds.Ben;
+  /* karaoke songs, for the views run with the karaoke capability: six in the middle, everyone's at the end */
+  karaokeDeskSongs(state, ROSTER.filter(player => !state.out?.[player]).slice(0, some ? 6 : ROSTER.length));
   TRIVIA_FIT_ROUNDS.forEach(round => act(state, "triviaSaveRound", { round:structuredClone(round) }));
   GEO_ROUNDS.forEach(round => act(state, "geoSaveRound", structuredClone(round)));
   if (!some) act(state, "promptSave", { id:"bfitready", kind:"awards", questions:[
@@ -604,6 +606,43 @@ function readyBoard(stage) {
     { id:"qdressed", title:"Best dressed", nominees:null }, { id:"qcomeback", title:"Comeback of the weekend", nominees:null }] });
   return state;
 }
+/* The commissioner's Karaoke desk (features/karaoke/KaraokeDesk.jsx): songs
+   as a profile keeps them (shared/karaoke.js cleanKaraokeTrack), written on
+   the profiles like the win songs above, with stand-in Spotify and YouTube
+   ids that nothing loads (the desk shows no video). Nine of thirteen picked
+   before the weekend; the desk's check (dev/fit/client.js karaokeCheck)
+   answers with most playing, one on an alternate, one only on YouTube and
+   one gone, and leaves Henry out (a song saved after a check reads
+   unchecked). */
+const KARAOKE_DESK_SONGS = Object.freeze([
+  ["Mr. Brightside", ["The Killers"], 223], ["Don't Stop Believin'", ["Journey"], 251],
+  ["Bohemian Rhapsody - Remastered 2011", ["Queen"], 355], ["Livin' On A Prayer", ["Bon Jovi"], 249],
+  ["I Want It That Way", ["Backstreet Boys"], 213], ["Sweet Caroline", ["Neil Diamond"], 203],
+  ["Africa", ["TOTO"], 295], ["Party In The U.S.A.", ["Miley Cyrus"], 202],
+  ["Under Pressure - Remastered 2011", ["Queen", "David Bowie"], 248], ["Wonderwall", ["Oasis"], 258],
+]);
+const karaokeDeskTrack = (k, [name, artists, seconds]) => {
+  const n = String(k + 1).padStart(2, "0");
+  const trackId = `fitKaraokeSong${n}xxxxxx`;
+  return { provider:"spotify", trackId, uri:`spotify:track:${trackId}`, url:`https://open.spotify.com/track/${trackId}`, name,
+    artists:[...artists], durationMs:seconds * 1000, imageUrl:null, explicit:false,
+    video:{ id:`fitKaraok${n}`, title:`${name} (Karaoke Version)`, channel:"Stingray Karaoke", seconds:seconds + 8 },
+    alts:[{ id:`fitKarAlt${n}`, title:`${name} Karaoke`, channel:"KaraFun", seconds:seconds + 4 }], at:1, checkedAt:null };
+};
+function karaokeDeskSongs(state, players) {
+  players.forEach((player, k) => {
+    state.profiles[player] = { ...state.profiles[player],
+      karaokeTrack:karaokeDeskTrack(k, KARAOKE_DESK_SONGS[k % KARAOKE_DESK_SONGS.length]) };
+  });
+  return state;
+}
+const KARAOKE_DESK_PICKED = Object.freeze(["Brandon", "Evan", "Eyob", "Sahil", "Khoa", "Chinh", "Adi", "Richard", "Henry"]);
+export const KARAOKE_DESK_CHECK = Object.freeze({ Brandon:{ ok:true, code:null, video:0 }, Evan:{ ok:true, code:null, video:0 },
+  Eyob:{ ok:true, code:"removed", video:1 }, Sahil:{ ok:false, code:"embedding", video:null }, Khoa:{ ok:true, code:null, video:0 },
+  Chinh:{ ok:true, code:null, video:0 }, Adi:{ ok:false, code:"removed", video:null }, Richard:{ ok:true, code:null, video:0 },
+  Chiang:{ ok:false, code:"none", video:null }, Allan:{ ok:false, code:"none", video:null }, Ben:{ ok:false, code:"none", video:null },
+  Jeremy:{ ok:false, code:"none", video:null } });
+const karaokeDesk = () => karaokeDeskSongs(fresh("locker"), KARAOKE_DESK_PICKED);
 /* Gags (Oct 8; the bits since Oct 10, features/gags): each trigger derived
    from a weekend the real reducers played, and the QA console's test. Each
    comes in two parts, the weekend just before the write that owes the
@@ -1173,6 +1212,10 @@ export const PHONE_SCENARIOS = Object.freeze([
   { id:"ann-where", build:() => fresh("event:where:open"), settle:false, tabs:[], sheets:["announce"] },
   { id:"ann-pairs", build:() => fresh("event:die:open"), settle:false, tabs:[], sheets:["announce"] },
   { id:"ann-team", build:() => fresh("event:bball5:open"), settle:false, tabs:[], sheets:["announce"] },
+  /* Karaoke's intro at the head of its announcement, and its drawn how-to
+     (Weekend > Games), at both widths */
+  { id:"ann-karaoke", build:() => fresh("event:karaoke:open"), settle:false, tabs:[], sheets:["announce", "weekend-karaoke"],
+    sheetSizes:["375"] },
   /* the House sheet's flights board: the guest's own legs (codes) beside the
      host's (times only), and the commissioner, who is the host */
   { id:"house-guest", build:() => withFlights(fresh("event:putt:open")), tabs:[], sheets:["weekend-house"] },
@@ -1249,13 +1292,17 @@ export const PHONE_SCENARIOS = Object.freeze([
      photos, no TV, Spotify not set up, alerts off, the autopilot paused),
      the usual middle (two TVs, one muted; Spotify with no speaker chosen)
      at both widths, and the morning it is all set; the menu with its row */
-  { id:"gm-ready-missing", build:() => readyBoard("missing"), viewer:"gm", photos:[], audio:true, catalog:true,
+  { id:"gm-ready-missing", build:() => readyBoard("missing"), viewer:"gm", photos:[], audio:true, catalog:true, karaoke:true,
     spotify:FIT_SPOTIFY.setup, tvs:[], tabs:[], sheets:["ready-check"] },
-  { id:"gm-ready-partial", build:() => readyBoard("partial"), viewer:"gm", audio:true, catalog:true,
+  { id:"gm-ready-partial", build:() => readyBoard("partial"), viewer:"gm", audio:true, catalog:true, karaoke:true,
     spotify:{ status:{ ...FIT_SPOTIFY.connected.status, device:null } }, tvs:[{ ageMs:1000, sound:"on" }, { ageMs:1000, sound:"blocked" }],
     tabs:[], sheets:["ready-check", "gm-menu"], sheetSizes:["375"] },
-  { id:"gm-ready-all", build:() => readyBoard("all"), viewer:"gm", photos:ROSTER, audio:true, catalog:true, push:true,
+  { id:"gm-ready-all", build:() => readyBoard("all"), viewer:"gm", photos:ROSTER, audio:true, catalog:true, karaoke:true, push:true,
     spotify:FIT_SPOTIFY.connected, tvs:[{ ageMs:1000, sound:"on" }], tabs:[], sheets:["ready-check", "gm-menu"] },
+  /* the Karaoke desk, from the commissioner's menu (its row in Games): the
+     songs hidden as it opens, then shown and checked, at both widths */
+  { id:"gm-karaoke-desk", build:karaokeDesk, viewer:"gm", karaoke:true, karaokeCheck:KARAOKE_DESK_CHECK, tabs:[],
+    sheets:["gm-menu", "karaoke-desk", "karaoke-desk-shown"], sheetSizes:["375"] },
 ]);
 export const PHONE_SIZES = Object.freeze([{ w:390, h:844, id:"390" }, { w:375, h:667, id:"375" }]);
 

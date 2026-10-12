@@ -337,6 +337,14 @@ export const INTRO_FOLEY = Object.freeze({
     M.knock(E, t + 1.6, { pitch:1.2, gain:0.25 }); bloop(E, t + HIT, NOTE.D5); burst(E, voice(E, { gain:0.3 }), t + HIT + 0.02, { type:"highpass", f:2600, d:0.12, peak:0.3 }); },
   where:(E, t) => { M.tick(E, t + PLAY); for (let i = 0; i < 9; i++) M.tick(E, t + PLAY + 0.1 + i * 0.1 * (1 - i * 0.05), { gain:0.3, pitch:1.3 });
     hum(E, t + HIT - 0.35, 0.34, 2400, 800, 0.08); M.felt(E, t + HIT, { gain:0.8 }); M.knock(E, t + HIT + 0.005, { gain:0.6 }); },
+  /* two taps on the mic, the follow spot swinging round, its shutter
+     opening on the hit, the PA coming up under the first note */
+  karaoke:(E, t) => { M.felt(E, t + 1.0, { gain:0.55 }); M.knock(E, t + 1.0, { pitch:0.55, gain:0.32 });
+    M.felt(E, t + 1.24, { gain:0.6 }); M.knock(E, t + 1.24, { pitch:0.55, gain:0.36 });
+    hum(E, t + PLAY, HIT - PLAY, 260, 760, 0.045);
+    M.knock(E, t + HIT - 0.03, { pitch:0.62, gain:0.6 }); M.clack(E, t + HIT - 0.028, { pitch:0.6, gain:0.28, double:false });
+    const v = voice(E, { send:0.3, bright:0.5, gain:0.4 }); mode(E, v, t + HIT + 0.04, NOTE.D3, 1.1, 0.05, { a:0.08 });
+    M.bell(E, t + HIT + 0.32, NOTE.A5, { gain:0.12, dec:0.9, send:0.3 }); },
   "basketball:5v5":(E, t) => { bounce(E, t + 0.45, 0.5); whoosh(E, t + PLAY + 0.05, { d:0.5, peak:0.14 }); swish(E, t + HIT, 0.45); },
   pickleball:(E, t) => { M.knock(E, t + 0.9, { pitch:1.9, gain:0.6 }); M.clack(E, t + 0.902, { pitch:0.75, gain:0.5, double:false });
     M.knock(E, t + HIT, { pitch:1.6, gain:0.4 }); M.knock(E, t + HIT + 0.24, { pitch:1.6, gain:0.22 }); },

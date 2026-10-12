@@ -1,5 +1,6 @@
 /* The commissioner QA console, in the menu system's sections: where the
-   rehearsal stands, Step, Bets, Gags (any of the TV's bits on demand), Jump to, Lens (with the dock strip's
+   rehearsal stands, Step (with Sim players: the room plays itself on a
+   human clock, worker/tournament.js and shared/qaSim.js), Bets, Gags (any of the TV's bits on demand), Jump to, Lens (with the dock strip's
    switch), Checkpoints, then Reset last. Reset game progress lives in the
    commissioner menu's Setup, its one entry. Every jump, step, bets action and checkpoint is one server write.
    The slow live driver (real broadcasts, one player at a time) stays as
@@ -8,6 +9,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "../../ui/Icon.jsx";
 import { rosterOf, allEventsOf, disp } from "../../../shared/core.js";
 import { qaCheckpointSummary, qaTargets } from "../../../shared/qa.js";
+import { qaSimOf, simPlayers } from "../../../shared/qaSim.js";
 import { GAG_SHAPES } from "../../../shared/gags.js";
 import { BIT_SHAPES, bitsOf } from "../gags/bits/registry.js";
 import { Btn, Sheet, Tag } from "../../ui/controls.jsx";
@@ -96,6 +98,9 @@ export function QASheet({ state, status, me, guestLens, busy, environment, dispa
   const here = useMemo(() => qaCheckpointSummary(state, events).label, [state, events]);
   const off = busy || !!qa.pending;
   const finished = status.current === "No active event";
+  const simOn = !!qaSimOf(state);
+  const simCount = useMemo(() => simPlayers(state).length, [state]);
+  const nightOn = simOn && !!state.qaSim?.night;
 
   return (
     <Sheet title="QA" onClose={onClose} onBack={onBack} className="fd-qa-sheet"
@@ -116,7 +121,18 @@ export function QASheet({ state, status, me, guestLens, busy, environment, dispa
         </dl>
       </div>
 
-      <Part icon="then" title="Step">
+      <Part icon="then" title="Step" aside={simOn
+        ? <span className="fd-qa-aside fd-qa-sim-lamp"><span className="fd-qa-pulse" aria-hidden="true" />{simCount} playing</span>
+        : null}>
+        <div className="fd-qa-sim">
+          <MenuGroup>
+            <MenuRow name="Sim players" pressed={simOn} disabled={off} onClick={() => qa.sim(!simOn)} />
+            {simOn && <MenuRow name="Include me" pressed={!!state.qaSim?.includeMe} disabled={off}
+              onClick={() => qa.sim(true, { includeMe:!state.qaSim?.includeMe })} />}
+            <MenuRow name="Run the night" pressed={nightOn} disabled={off}
+              onClick={() => qa.sim(true, { night:!nightOn })} />
+          </MenuGroup>
+        </div>
         <div className="fd-qa-actions">
           <Btn kind="primary" compact disabled={off || finished} onClick={() => qa.jump("step", "Contest simmed")}>
             Sim contest</Btn>

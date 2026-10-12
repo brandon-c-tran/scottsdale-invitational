@@ -27,9 +27,11 @@ const QA_POKER_PHASE_LABELS = Object.freeze({ set:"Table set", live:"Cards live"
 /* Exactly what a game-progress reset clears. A checkpoint stores these and a
    restore replaces only these: profiles, ratings, logistics, the onboarding
    epoch and the event configuration are never in a checkpoint. The wager
-   retry ledger is cleared by a restore, as by a reset. */
+   retry ledger is cleared by a restore, as by a reset. The simulated room's
+   switch (qaSim) is the rehearsal's, not the game's: a checkpoint never
+   carries it, and a QA rewind or restore keeps it as it is. */
 const QA_PROGRESS_KEYS = Object.freeze(Object.keys(EMPTY_STATE).filter(key =>
-  !RESET_PROGRESS_PRESERVED_KEYS.includes(key) && !["v", "updatedAt", "wagerOps"].includes(key)));
+  !RESET_PROGRESS_PRESERVED_KEYS.includes(key) && !["v", "updatedAt", "wagerOps", "qaSim"].includes(key)));
 
 /* the events a fast-forward plays, in slate order */
 const qaSlate = (state, events = allEventsOf(state)) =>

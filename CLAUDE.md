@@ -506,6 +506,30 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   (`setAutopilot { hold }`, `state.autopilot`) stops everything on its own
   until "Resume autopilot", and the pill then offers every beat by hand
   (including "Show standings"). Champion and opening scenes stay manual.
+- **Sim players** (Oct 12, pure `shared/qaSim.js`, QA sheet Step part):
+  a server-side simulated room for watching games play. `qaSimPlayers { on,
+  includeMe, night }` (commissioner + qa capability, production takes
+  `qaGate`'s confirmation, off needs none) stores `state.qaSim = { on, me,
+  includeMe, night, seed, at }`; a progress reset clears it, QA jumps and
+  restores keep it, checkpoints never carry it. Every present roster player
+  but the commissioner's own (`me`, unless Include me) acts through the
+  ordinary player writes with a synthetic context (`simContext`:
+  `deviceId:"sim:<player>"`, `actionId` = the move's key, `sim:true`).
+  `SIM_PLANNERS` is the per-game table (trivia rounds, board, geo, bets,
+  draft, night; Karaoke adds its own): each plans `{ at, type, payload,
+  player, key }` from a seeded hash of (seed, game, question/contest,
+  player, field), never Math.random, and reads the state so a made move is
+  never planned again. `simDue`/`simNext` feed the Durable Object's alarm
+  beside the autopilot (`runAutopilot`, `SIM_WRITES_PER_ALARM` a run, the
+  earliest first); a refused or unchanged move is kept in memory
+  (`simSpent`) and never looped; sim writes send no pocket alerts. **Run
+  the night** (`night`) also takes the director's lifecycle beats on a
+  human clock (`planNight`, `SIM_NIGHT`: announce 30 to 45 s after the last
+  result, lock after a betting window, a played contest's winner after 45
+  to 90 s, an off-app free-for-all's finish, a captains draft with default
+  captains, confirmed once picked), `gm:true` moves under a commissioner
+  context; in-app games play on the autopilot; it stops before poker.
+  `tests/qa-sim.test.mjs` plays each game to its posted result.
 - **Not coming** (Oct 4, `state.out`, `setOut { player, out }`): up to three
   invited players may drop out at the last second. `rosterOf(state)` is the
   weekend's roster (ROSTER minus Not coming) and `presentPlayers` builds on

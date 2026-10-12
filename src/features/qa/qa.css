@@ -93,3 +93,8 @@
 .fd-qa-point small { font:500 12px/1.3 var(--fd-body); color:var(--muted); }
 .fd-qa-point button.fd-qa-x { width:44px; min-height:44px; border:0; background:none; color:var(--muted); cursor:pointer; }
 .fd-qa-empty { padding:14px 0; font:500 13px/1.4 var(--fd-body); color:var(--muted); }
+/* Sim players: the switches over the one-shot steps, a lamp while the room plays */
+.fd-qa-sim { margin-bottom:10px; }
+.fd-qa-sim .fd-menu-section { margin:0; }
+.fd-qa-sim-lamp { display:inline-flex; align-items:center; gap:6px; color:var(--lamp-info); }
+.fd-qa-sim-lamp .fd-qa-pulse { margin-left:0; }

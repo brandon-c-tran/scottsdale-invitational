@@ -49,6 +49,7 @@ import { claimAlerts, cleanSubscription, deliverAlerts, dropSubscription, saveSu
 import { alertsFor } from "./pushAlerts.js";
 import { WIN_SONG_CLIP_MS, WIN_SONG_STOP_ACTIONS, winSongFor } from "./winSong.js";
 import { autoBeat } from "../shared/autopilot.js";
+import { SIM_WRITES_PER_ALARM, qaSimOf, simContext, simDue, simNext } from "../shared/qaSim.js";
 import { findPreview, previewCache } from "./previews.js";
 import { findAlbumUpload } from "./youtube.js";
 import { projectPrompts } from "../shared/prompts.js";
@@ -744,12 +745,18 @@ export class Tournament {
     }
   }
 
-  /* The object's one alarm serves two clocks: a walkout's `until` and the
-     autopilot's next beat. It is set for whichever comes first. */
+  /* The object's one alarm serves three clocks: a walkout's `until`, the
+     autopilot's next beat and the simulated room's next move. It is set
+     for whichever comes first. */
   async scheduleAlarm() {
     const times = [];
     const beat = this.nextAutoBeat();
     if (beat) times.push(Math.max(beat.at, this.autoRetryAt || 0));
+    if (this.simActive()) {
+      const now = Date.now();
+      const move = simDue(this.state, now, this.simSpent)[0] || simNext(this.state, now, this.simSpent);
+      if (move) times.push(Math.max(move.at, this.autoRetryAt || 0));
+    }
     const walkout = walkoutOf(this.state);
     /* a win song starts fading out before its end */
     if (walkout) times.push(walkout.auto ? Math.max(walkout.startedAt + WIN_FADE_IN_MS, walkout.until - WIN_FADE_OUT_MS)
@@ -766,38 +773,68 @@ export class Tournament {
     return beat && beat.key !== this.autoRefused ? beat : null;
   }
 
-  /* Due autopilot beats, each its own write on the ordinary reducer with a
-     commissioner context: the beat's key is its action id, so a beat that
-     already ran is a no-op. A finish posts the result like a tap would, so
-     its winner scene, alerts and win song follow. */
+  /* QA's simulated room plays while its switch is on and QA is available */
+  simActive() {
+    return !!this.capabilities.qa && !!qaSimOf(this.state);
+  }
+
+  /* Keys of simulated moves the server refused or found already made: the
+     planner never offers them again, so nothing loops. In memory only: an
+     evicted object tries such a move once more and remembers it again. */
+  get simSpent() {
+    const seed = qaSimOf(this.state)?.seed ?? null;
+    if (!this.simSpentSet || this.simSpentSeed !== seed || this.simSpentSet.size > 4000) {
+      this.simSpentSet = new Set();
+      this.simSpentSeed = seed;
+    }
+    return this.simSpentSet;
+  }
+
+  /* Due autopilot beats and simulated moves, earliest first, each its own
+     write on the ordinary reducer. A beat runs with a commissioner context:
+     its key is its action id, so a beat that already ran is a no-op, and a
+     finish posts the result like a tap would, so its winner scene, alerts
+     and win song follow. A simulated move runs with that player's own
+     synthetic context (shared/qaSim.js simContext), exactly as their phone's
+     write would; it sends no pocket alerts, since the people behind those
+     roster spots are not the ones playing. */
   async runAutopilot() {
-    for (let i = 0; i < 4; i += 1) {
+    for (let i = 0; i < SIM_WRITES_PER_ALARM; i += 1) {
+      const now = Date.now();
+      if ((this.autoRetryAt || 0) > now) return;
       const beat = this.nextAutoBeat();
-      if (!beat || beat.at > Date.now() + 25 || (this.autoRetryAt || 0) > Date.now()) return;
+      const due = beat && beat.at <= now + 25 ? beat : null;
+      const move = this.simActive() ? simDue(this.state, now, this.simSpent)[0] || null : null;
+      const sim = !!move && (!due || move.at <= due.at);
+      const write = sim ? move : due;
+      if (!write) return;
       const before = this.state;
       const nextState = structuredClone(this.state);
-      const result = applyAction(nextState, beat.type, beat.payload, {
-        isGm:true, auto:true, player:null, deviceId:"autopilot", actionId:beat.key,
-        environment:this.environment, showControl:this.capabilities.showControl,
-      });
+      const shared = { environment:this.environment, showControl:this.capabilities.showControl };
+      const result = applyAction(nextState, write.type, write.payload, sim
+        ? { ...shared, ...simContext(write), qa:this.capabilities.qa }
+        : { ...shared, isGm:true, auto:true, player:null, deviceId:"autopilot", actionId:write.key });
       if (!result.ok || result.extra?.unchanged) {
-        this.autoRefused = beat.key;
-        if (!result.ok) console.error(JSON.stringify({ event:"autopilot-refused", action:beat.type,
+        if (sim) this.simSpent.add(write.key);
+        else this.autoRefused = write.key;
+        if (!result.ok) console.error(JSON.stringify({ event:sim ? "sim-refused" : "autopilot-refused", action:write.type,
           error:String(result.error || "").slice(0, 200) }));
-        return;
+        continue;
       }
       this.carryWalkout(nextState);
       try {
-        await this.persistAndBroadcast(beat.type, nextState);
+        await this.persistAndBroadcast(write.type, nextState);
       } catch (error) {
-        console.error(JSON.stringify({ event:"autopilot-write-failed", action:beat.type,
+        console.error(JSON.stringify({ event:sim ? "sim-write-failed" : "autopilot-write-failed", action:write.type,
           error:String(error?.message || error).slice(0, 300) }));
         this.autoRetryAt = Date.now() + 5000;
         return;
       }
       this.autoRetryAt = 0;
+      /* Run the night's commissioner beats play the win song as the pill's would */
+      if (sim) { if (write.gm) this.queueWinSong(before, this.state, write.type); continue; }
       this.queueAlerts(before, this.state, null);
-      this.queueWinSong(before, this.state, beat.type);
+      this.queueWinSong(before, this.state, write.type);
     }
   }
 

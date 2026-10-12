@@ -65,13 +65,15 @@ function rehearse(seed, fn) {
 }
 
 /* A rewind is a game-progress reset: the same keys survive as
-   resetTournament keeps. */
+   resetTournament keeps, and the simulated room keeps playing (its own
+   switch, not the game's). */
 function resetProgress(state) {
   const preserved = Object.fromEntries(RESET_PROGRESS_PRESERVED_KEYS.map(key => [
     key,
     key === "onboardEpoch" ? Number(state[key] || 0) : structuredClone(state[key] ?? EMPTY_STATE[key]),
   ]));
-  Object.assign(state, structuredClone(EMPTY_STATE), preserved);
+  const sim = state.qaSim ? structuredClone(state.qaSim) : null;
+  Object.assign(state, structuredClone(EMPTY_STATE), preserved, { qaSim:sim });
 }
 
 /* Whether reaching this target means throwing away progress first: anything

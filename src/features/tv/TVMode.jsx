@@ -62,8 +62,11 @@ import { TVShowdown, useTvShowdown } from "./TVShowdown.jsx";
 import { AwardsReveal } from "../awards/TVAwards.jsx";
 import { TVGeo } from "./TVGeo.jsx";
 import { TVTrivia } from "./TVTrivia.jsx";
+import { TVKaraoke } from "./TVKaraoke.jsx";
+import { karaokeSongOn, karaokeTvBusy } from "./karaokeTv.js";
 import { useBoardChrome } from "./TVBoard.jsx";
 import { triviaLive } from "../../../shared/trivia.js";
+import { karaokeLive } from "../../../shared/karaoke.js";
 import { isBoardGame } from "../../../shared/triviaBoard.js";
 import { awardOnTv } from "../../../shared/prompts.js";
 import { TVPhotoCard } from "../photos/TVPhotoCard.jsx";
@@ -957,7 +960,7 @@ function NextUpCard({ ev }) {
 /* ═════════════ the TV ═════════════ */
 function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied: allTiedInput, champion, coChamps, showControlEnabled,
   rankDeltas = {}, connection: connectionInput = {}, onExit, ceremony = null, now: nowOverride,
-  onSoundStatus = null, arriveCode = null }) {
+  onSoundStatus = null, arriveCode = null, onVideoStatus = null }) {
   /* a level board has no leader and no ranks, whatever the caller says */
   const allTied = !!allTiedInput || (!state.frozen && boardLevel(standings));
   const tickNow = useServerNow(nowOverride === undefined ? 1000 : 0);
@@ -1075,6 +1078,10 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied: allT
   const walkoutMoment = useTvWalkout(state, events);
   const pokerMoments = usePokerMoments(state, now);
   const crownPlaying = !!crown && now - Number(crown.anchor) < CROWN_TIMING.total;
+  /* Karaoke (TVKaraoke.jsx) holds the room from its pick window to its
+     result; a song holds it alone (a takeover: nothing over the video) */
+  const karaokeOnTv = karaokeLive(state) && !state.karaoke.empty;
+  const karaokeSong = karaokeOnTv && karaokeSongOn(state.karaoke, now);
   /* Quick Draw's showdown holds the room only in a gap (nothing live,
      drawn, posting or playing a moment); otherwise its result leads the
      ticker (tickerItems) */
@@ -1083,7 +1090,7 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied: allT
     intro:!!(sceneIntroEv || ceremonyIntroEv), reveal:!!ceremonyReveal, faceOff:!!faceOff })
     && !award && !walkoutMoment && !pokerMoments.takeover && !crownPlaying
     && !(state.geo?.order && !state.results?.[state.geo.eventId])
-    && !triviaLive(state) });
+    && !triviaLive(state) && !karaokeLive(state) });
   /* the Trivia board's own lamps: the buzzers live, the Daily Double, the Final's clock */
   const boardLamps = useBoardChrome(state, nowOverride);
   /* a moment plays only while nothing else holds the room (a result's is
@@ -1092,7 +1099,7 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied: allT
      queued */
   const gag = useGagShown(gagWindow.gag, { blocked:connection.mode === "loading" || final || !!award || !!walkoutMoment
     || !!pokerMoments.takeover || crownPlaying || !!showdown || !!faceOff || !!(sceneIntroEv || ceremonyIntroEv) || !!ceremonyReveal
-    || (directed && showScene?.active?.kind !== "winner") });
+    || karaokeSong || (directed && showScene?.active?.kind !== "winner") });
   useGagSound({ state, plan:gagWindow.plan, gag });
   /* a lead that changed with a decided contest docks after its gag too */
   const gagHold = useMemo(() => liveEv ? gagHoldMs(state, liveEv, events) : 0, [state, events, liveEv]);
@@ -1105,7 +1112,7 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied: allT
   /* the update reload waits for a gap in what is actually on screen */
   const busy = tvBusy({ sceneView, resultMoment:resultModel, advance, intro:sceneIntroEv || ceremonyIntroEv,
     reveal:ceremonyReveal, dock }) || !!faceOff || !!award || !!walkoutMoment || !!pokerMoments.takeover || crownPlaying
-    || !!showdown || !!gag;
+    || (karaokeOnTv && karaokeTvBusy(state.karaoke)) || !!showdown || !!gag;
   useEffect(() => {
     if (typeof window !== "undefined") window.__FD_CEREMONY__ = busy;
   }, [busy]);
@@ -1136,6 +1143,7 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied: allT
     crownPlaying && { takeover:"crown" },
     showdown && { takeover:"showdown", chase:{ color:"var(--lamp-live)", pace:"run" } },
     !directed && !award && !champion && boardLamps,
+    karaokeSong && { takeover:"karaoke" },
     gag && { takeover:"gag", chase:gagLamp(state, gag) }].filter(Boolean);
   const chrome = stageChrome({ intro:!!(sceneIntroEv || ceremonyIntroEv), reveal:!!ceremonyReveal,
     champion:!!directed && showScene?.active?.kind === "champion", award:!!award, extra:momentTakeovers });
@@ -1188,13 +1196,13 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied: allT
   const road = arrivals.open ? new Set(arrivals.onTheWay) : null;
   const arriveLink = arriveCode && typeof window !== "undefined" ? arriveUrl(window.location.origin, arriveCode) : null;
   const lobbyOn = arrivals.stage === "lobby" && connection.mode !== "loading" && !directed && !award && !champion && !resultModel
-    && !(state.poker && !state.results?.[state.poker.id]) && !draftLive && !geoOnTv && !triviaOnTv;
+    && !(state.poker && !state.results?.[state.poker.id]) && !draftLive && !geoOnTv && !triviaOnTv && !karaokeOnTv;
   const cornerWanted = arrivals.stage === "corner" && !!arriveLink && !final && !directed && !award && !resultModel
     && connection.mode !== "loading";
   const cornerWidth = 1920 - CORNER_W - CORNER_GAP;
   /* the vignette plays over the gap's own board (its turn's card), never
      under anything that holds the room or a card docked in the masthead */
-  const attract = photoGap && !award && !geoOnTv && !triviaOnTv && !lobbyOn && !chrome.takeover && !dock
+  const attract = photoGap && !award && !geoOnTv && !triviaOnTv && !karaokeOnTv && !lobbyOn && !chrome.takeover && !dock
     ? attractAt({ ambient, now, room, early:nowOverride === undefined ? ATTRACT_EARLY_MS : 0 }) : null;
 
   const facts = useMemo(() => weekendFacts(state, events), [state, events]);
@@ -1261,6 +1269,11 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied: allT
     mastEvent = events.find(e => e.id === state.trivia.eventId) || null;
     mastLamp = ["question", "clue", "answer", "dd-clue", "final-clue"].includes(state.trivia.phase) ? { label:"Playing", state:"live" } : null;
     content = <TVTrivia state={state} now={now} fixed={nowOverride !== undefined} />;
+  } else if (karaokeOnTv) {
+    /* Karaoke holds the room from its pick window to its result */
+    mastEvent = events.find(e => e.id === state.karaoke.eventId) || null;
+    mastLamp = ["pick", "turns"].includes(state.karaoke.phase) ? { label:"Playing", state:"live" } : null;
+    content = <TVKaraoke state={state} now={now} fixed={nowOverride !== undefined} onVideoStatus={onVideoStatus} />;
   } else if (lobbyOn) {
     /* the lobby: the check-in code at the center, the seats round it */
     content = <TVLobby state={state} board={arrivals} now={now} url={arriveLink} />;
@@ -1386,7 +1399,7 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied: allT
   const items = recordShown === "swing" ? tickerAll.filter(item => item.tag !== "Biggest swing") : tickerAll;
   const showHorizon = (liveShown || horizonShown) && connection.mode !== "loading";
   /* a live question holds the ticker still */
-  const quietTicker = (geoOnTv && state.geo?.phase === "guess") || (triviaOnTv && state.trivia?.phase === "question");
+  const quietTicker = (geoOnTv && state.geo?.phase === "guess") || (triviaOnTv && state.trivia?.phase === "question") || karaokeOnTv;
   /* while a podium holds the room, its winners' backers take the ticker's place */
   const railOn = !!rail && !!backersRail(rail.model.winnerStacks);
 

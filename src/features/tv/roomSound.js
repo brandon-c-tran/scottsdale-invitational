@@ -42,6 +42,12 @@
          Double's sting, each buzz panned to its chip, the order stamping,
          right and wrong, the Final's locks; its clock cues (the arm, the
          thinking loop, the Final's turns) ride TVBoard
+     karaoke (karaokeSound.js): the sting as the pick window opens, a slap
+         as each player locks in, a card a singer as the order deals, the
+         lamp and the stamp as a singer is up, a slap per vote once the song
+         is over (never during it), the chime as a Legendary vote rains, the
+         reveal's stamps from last place up; its clock cues (the vote's
+         last five seconds and its close) ride TVKaraoke
      stamp  a team takes a new name (features/teams): its card re-letters,
          one stamp at the name's own write time
      engrave  the cup's trophy turn after a result: the new winners are cut
@@ -74,6 +80,7 @@ import { awardOnTv } from "../../../shared/prompts.js";
 import { awardCues } from "../awards/awardsModel.js";
 import { introScene } from "../intro/introTiming.js";
 import { boardCues, boardSnapshot } from "./boardSound.js";
+import { karaokeCues, karaokeRoomSnapshot } from "./karaokeSound.js";
 import { gagHoldMs } from "../gags/gagModel.js";
 import { bitCues } from "./bitSound.js";
 
@@ -166,6 +173,7 @@ export function roomSnapshot(state, events = [], { standings = null, allTied = f
     award:awardOnTv(state, events),
     trivia:triviaSnapshot(state),
     board:boardSnapshot(state),
+    karaoke:karaokeRoomSnapshot(state),
   };
 }
 
@@ -314,6 +322,7 @@ export function roomCues(prev, next, { now = serverNow(), reduced = false } = {}
 
   triviaCues(prev, next, { now, reduced }).forEach(cue => cues.push(cue));
   boardCues(prev, next, { now, reduced }).forEach(cue => cues.push(cue));
+  karaokeCues(prev, next, { now, reduced }).forEach(cue => cues.push(cue));
 
   /* a pick lands in its seat */
   for (const [id, picks] of Object.entries(next.drafts))

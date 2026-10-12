@@ -40,7 +40,9 @@ try {
 
 /* `catalog` (the Win song picker) and `push` (pocket alerts): the Ready check's views */
 const capabilities = { qa:qaOn, progressReset:qaOn, restore:false, snapshotExport:false, showControl:gm && !!scenario.show,
-  audioDirector:gm && !!scenario.audio, audioCatalog:gm && !!scenario.catalog, audioPlayback:false, push:gm && !!scenario.push };
+  audioDirector:gm && !!scenario.audio, audioCatalog:gm && !!scenario.catalog, audioPlayback:false, push:gm && !!scenario.push,
+  /* `karaoke`: the karaoke capability (its Home row before the game) */
+  karaoke:!!scenario.karaoke };
 globalThis.__FIT_SPOTIFY__ = scenario.spotify || null;
 let version = 1;
 const frame = () => ({ state:publicState(state, { isGm:gm, player:me }, { moments:state.moments }), you:me, gm, capabilities, version:++version,
@@ -216,6 +218,48 @@ async function openSheet(kind) {
     input.dispatchEvent(new Event("input", { bubbles:true }));
     await sleep(200);
     return true;
+  }
+  /* karaoke (the game's sheet opens by itself where it should): Change in
+     the pick window, the sheet opened from Home's row, put away to show
+     Home's row, the commissioner's tray, and your You're up landing on a
+     fresh frame (held once YOU'RE UP has stamped) */
+  if (kind === "karaoke-change") {
+    const ok = await tap(() => [...document.querySelectorAll(".fd-karaoke-secondary")].find(b => b.textContent.trim() === "Change"));
+    await sleep(400);
+    return ok && !!document.querySelector(".fd-karaoke-body.is-picking");
+  }
+  if (kind === "karaoke-open") {
+    const ok = await tap(() => document.querySelector(".fd-karaoke-home"));
+    await sleep(500);
+    return ok && !!document.querySelector(".fd-karaoke-game");
+  }
+  if (kind === "karaoke-home") {
+    const ok = await tap(() => document.querySelector(".fd-karaoke-close"));
+    await sleep(500);
+    return ok && !document.querySelector(".fd-karaoke-game") && !!document.querySelector(".fd-karaoke-home");
+  }
+  if (kind === "karaoke-tray") {
+    const ok = await tap(() => document.querySelector(".fd-karaoke-more"));
+    await sleep(400);
+    return ok && !!document.querySelector(".fd-karaoke-tray");
+  }
+  if (kind === "karaoke-moment") {
+    const client = await import("./fit/client.js");
+    const game = state.karaoke;
+    if (!game) return false;
+    state.karaoke = null;
+    client.setFitFrame(frame());
+    await sleep(600);
+    game.turns[game.order[game.index]].upAt = Date.now();
+    state.karaoke = game;
+    const next = frame();
+    publishFrame({ version:next.version, fresh:true, lastAction:"karaokeNext" });
+    client.setFitFrame(next);
+    await sleep(1600);
+    const style = document.createElement("style");
+    style.textContent = "*, *::before, *::after { animation-play-state:paused !important; }";
+    document.head.append(style);
+    return !!document.querySelector(".fd-moment-up.is-karaoke");
   }
   if (kind === "lastcard" || kind === "auto") return !!document.querySelector(".fd-sheet, [role=dialog]");
   /* your profile from the header, and Weekend's Add to Home Screen opened */

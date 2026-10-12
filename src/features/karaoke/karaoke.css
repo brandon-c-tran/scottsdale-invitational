@@ -10,7 +10,7 @@
    lamps. The room's chips light as each player locks in or votes, never
    what they chose. */
 
-.fd-karaoke-game { position:fixed; inset:0; z-index:140; display:grid; grid-template-rows:auto minmax(0,1fr) auto;
+.fd-karaoke-game { position:fixed; inset:0; z-index:140; display:grid; grid-template-rows:auto auto minmax(0,1fr) auto;
   background:var(--bg); color:var(--ink); overflow:hidden; overscroll-behavior:none; animation:fd-karaoke-in .28s ease-out both; }
 @keyframes fd-karaoke-in { from { opacity:0; transform:translateY(14px); } }
 .fd-karaoke-head { position:relative; z-index:2; display:flex; align-items:center; gap:10px;
@@ -35,10 +35,10 @@
 @keyframes fd-karaoke-drain { from { transform:scaleX(var(--drain-left)); } to { transform:scaleX(0); } }
 @keyframes fd-karaoke-drain-low { to { background:var(--clay); box-shadow:0 0 10px var(--clay); } }
 
-/* the commissioner's moves, dropped from the head over the game */
-.fd-karaoke-tray { position:absolute; top:calc(100% + 6px); left:10px; right:10px; z-index:3; display:grid; gap:8px; padding:6px;
-  border:1px solid var(--line); border-radius:16px; background:var(--paper); box-shadow:var(--shadow-2), var(--glass-edge);
-  animation:fd-karaoke-rise .2s ease-out both; }
+/* the commissioner's moves, open under the head (the game moves down) */
+.fd-karaoke-trayslot { min-height:0; }
+.fd-karaoke-tray { display:grid; gap:8px; margin:10px 10px 0; padding:6px; border:1px solid var(--line); border-radius:16px;
+  background:var(--paper); box-shadow:var(--shadow-2), var(--glass-edge); animation:fd-karaoke-rise .2s ease-out both; }
 .fd-karaoke-tray .fd-karaoke-error { padding:0 8px 6px; }
 
 .fd-karaoke-body { min-height:0; overflow-y:auto; overscroll-behavior:contain; display:flex; flex-direction:column; gap:16px;
@@ -59,6 +59,12 @@
 .fd-karaoke-song-text small { font:800 15px/1.25 var(--fd-display); letter-spacing:.08em; text-transform:uppercase; color:var(--muted2);
   overflow-wrap:anywhere; }
 .fd-karaoke-song.is-locked { border-color:var(--lamp-info); box-shadow:var(--glass-edge), 0 0 0 1px var(--lamp-info); }
+/* the pick window's own song: the sleeve over its title, the stage's middle */
+.fd-karaoke-song.is-hero { grid-template-columns:minmax(0,1fr); justify-items:center; gap:16px; padding:22px 18px 20px; text-align:center; }
+.fd-karaoke-song.is-hero .fd-karaoke-cover { width:min(180px, 46vw); height:min(180px, 46vw); border-radius:14px; }
+.fd-karaoke-song.is-hero .fd-karaoke-song-text { justify-items:center; gap:7px; }
+.fd-karaoke-song.is-hero b { font-size:34px; }
+.fd-karaoke-song.is-hero small { font-size:17px; }
 /* inline, under a name: one line each */
 .fd-karaoke-song.is-sm { gap:8px; padding:0; border:0; background:none; box-shadow:none; animation:none; }
 .fd-karaoke-song.is-sm .fd-karaoke-cover { width:30px; height:30px; border-radius:6px; }
@@ -68,8 +74,11 @@
 
 /* ── the room: every chip, lit as it locks in or votes ── */
 .fd-karaoke-room { display:flex; flex-wrap:wrap; justify-content:center; gap:4px; margin:0; padding:2px 0; list-style:none; }
-.fd-karaoke-room li { display:grid; border-radius:50%; opacity:.3; filter:saturate(.2); transition:opacity .3s ease, filter .3s ease; }
-.fd-karaoke-room li.is-lit { opacity:1; filter:none; animation:fd-karaoke-land .36s var(--ease-land) both; }
+.fd-karaoke-room li { display:grid; border-radius:50%; }
+/* the chip dims, never your ring round it */
+.fd-karaoke-room li > * { opacity:.3; filter:saturate(.2); transition:opacity .3s ease, filter .3s ease; }
+.fd-karaoke-room li.is-lit > * { opacity:1; filter:none; }
+.fd-karaoke-room li.is-lit { animation:fd-karaoke-land .36s var(--ease-land) both; }
 .fd-karaoke-room li.is-mine { box-shadow:0 0 0 2px var(--you); }
 .fd-karaoke-room.is-big { gap:12px; padding:14px 0; }
 .fd-karaoke-body.is-watch { justify-content:center; }
@@ -92,11 +101,14 @@
 .fd-karaoke-face { display:grid; border-radius:50%; animation:fd-karaoke-land .45s var(--ease-land) both; }
 .fd-karaoke-face.is-mine { box-shadow:0 0 0 3px var(--you), var(--you-bloom); }
 
-/* the vote: the singer, then the six */
-.fd-karaoke-body.is-vote { gap:14px; }
-.fd-karaoke-singer { display:grid; grid-template-columns:auto minmax(0,1fr); gap:12px; align-items:center; }
-.fd-karaoke-singer-text { min-width:0; display:grid; gap:5px; }
-.fd-karaoke-singer-text > b { font:900 28px/1.08 var(--fd-show); overflow-wrap:anywhere; }
+/* the vote: the singer holds the space above, centred in it; the six dock
+   on the foot, in the thumb's reach, with nothing between them */
+.fd-karaoke-body.is-vote { gap:14px; padding-bottom:14px; }
+.fd-karaoke-singer { flex:1 0 auto; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; min-width:0;
+  text-align:center; }
+.fd-karaoke-singer > :first-child { animation:fd-karaoke-land .45s var(--ease-land) both; }
+.fd-karaoke-singer-name { max-width:100%; font:900 32px/1.06 var(--fd-show); overflow-wrap:anywhere; text-wrap:balance; }
+.fd-karaoke-singer .fd-karaoke-song.is-sm { max-width:100%; }
 .fd-karaoke-vote-title { margin:2px 0 -4px; font:800 15px/1.2 var(--fd-display); letter-spacing:.12em; text-transform:uppercase;
   color:var(--lamp-live-text); }
 .fd-karaoke-game.is-vote-closed .fd-karaoke-vote-title { color:var(--muted2); }
@@ -123,7 +135,6 @@
   100% { transform:rotate(-4deg); } }
 
 /* ── the results, filling in at the TV's beat ── */
-.fd-karaoke-game.is-reveal, .fd-karaoke-game.is-done { grid-template-rows:auto minmax(0,1fr); }
 .fd-karaoke-body.is-reveal { padding-bottom:calc(env(safe-area-inset-bottom) + 20px); }
 .fd-karaoke-ranking { display:grid; gap:8px; margin:0; padding:0; list-style:none; }
 .fd-karaoke-ranking li { min-height:56px; display:grid; grid-template-columns:42px auto minmax(0,1fr) auto; align-items:center; gap:10px;
@@ -181,9 +192,11 @@
   .fd-karaoke-body { gap:12px; padding-top:14px; }
   .fd-karaoke-tier { min-height:56px; font-size:20px; }
   .fd-karaoke-tiers { gap:8px; }
-  .fd-karaoke-singer-text > b { font-size:24px; }
+  .fd-karaoke-singer-name { font-size:27px; }
   .fd-karaoke-cover { width:60px; height:60px; }
   .fd-karaoke-song-text b { font-size:22px; }
+  .fd-karaoke-song.is-hero .fd-karaoke-cover { width:min(140px, 38vw); height:min(140px, 38vw); }
+  .fd-karaoke-song.is-hero b { font-size:29px; }
   .fd-karaoke-word { font-size:clamp(40px, 13vw, 56px); }
   .fd-karaoke-foot { gap:8px; padding-top:8px; }
   .fd-karaoke-primary, .fd-karaoke-secondary { min-height:52px; }
@@ -192,5 +205,5 @@
 @media (prefers-reduced-motion:reduce) {
   .fd-karaoke-game, .fd-karaoke-tray, .fd-karaoke-song, .fd-karaoke-room li.is-lit, .fd-karaoke-word.is-up, .fd-karaoke-face,
   .fd-karaoke-tier.is-mine, .fd-karaoke-legendary, .fd-karaoke-ranking li.is-shown, .fd-karaoke-primary.is-done,
-  .fd-karaoke-drain { animation:none; }
+  .fd-karaoke-drain, .fd-karaoke-singer > :first-child { animation:none; }
 }

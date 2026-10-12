@@ -125,14 +125,19 @@ function turnAt(game, singer, upAt) {
     skipped:false, later:false, closedAt:null, legendary:false };
 }
 /* The window's end and the first `count` singers sung through their
-   closed votes, the last closing at `end` (the next singer is up then, or
-   after the rain on a Legendary close): the order drawn, every song copied
-   into the game, the window before the first walk-up. `legendary`: the
-   viewer's vote closes Legendary. */
-function playThrough(game, count, end, { legendary = false } = {}) {
-  const spans = KARAOKE_FIT_ORDER.slice(0, count).map(singer =>
-    KARAOKE_UP_MS + KARAOKE_SONG_LEAD_MS + Math.min(SONGS[singer][2] * 1000, 300000) + 6000);
-  let at = end - spans.reduce((sum, span) => sum + span, 0);
+   closed votes, each closing 6 s after its song (everyone in), the next
+   singer up at the close or, after a Legendary close, once the rain ends
+   (karaokeNext); `next` is when the singer after them is up (the reveal's
+   start after the last). The order drawn, every song copied into the game,
+   the window before the first walk-up. `legendary`: the viewer's vote
+   closes Legendary. */
+function playThrough(game, count, next, { legendary = false } = {}) {
+  const sung = KARAOKE_FIT_ORDER.slice(0, count);
+  const votes = Object.fromEntries(sung.map(singer =>
+    [singer, votesOn(game, singer, { songAt:0 }, { legendary:legendary && singer === KARAOKE_FIT_VIEWER })]));
+  const rain = singer => karaokeLegendary(votes[singer]) ? KARAOKE_LEGENDARY_MS : 0;
+  const spans = sung.map(singer => KARAOKE_UP_MS + KARAOKE_SONG_LEAD_MS + Math.min(SONGS[singer][2] * 1000, 300000) + 6000 + rain(singer));
+  let at = next - spans.reduce((sum, span) => sum + span, 0);
   game.pickUntil = at - KARAOKE_ORDER_HOLD_MS;
   game.startedAt = game.pickUntil - KARAOKE_PICK_MS;
   game.id = karaokeGameId(EVENT, game.startedAt);
@@ -140,11 +145,11 @@ function playThrough(game, count, end, { legendary = false } = {}) {
   game.order = [...KARAOKE_FIT_ORDER];
   game.out = [...KARAOKE_FIT_OUT];
   KARAOKE_FIT_ORDER.forEach((player, k) => { game.ready[player] = game.startedAt + 4000 + k * 5300; });
-  KARAOKE_FIT_ORDER.slice(0, count).forEach((singer, k) => {
+  sung.forEach((singer, k) => {
     const turn = turnAt(game, singer, at);
-    game.votes[singer] = votesOn(game, singer, turn, { legendary:legendary && singer === KARAOKE_FIT_VIEWER });
+    game.votes[singer] = Object.fromEntries(Object.entries(votes[singer]).map(([voter, vote]) => [voter, { ...vote, at:turn.songAt + vote.at }]));
     turn.closedAt = turn.endAt + 6000;
-    turn.legendary = karaokeLegendary(game.votes[singer]);
+    turn.legendary = rain(singer) > 0;
     game.turns[singer] = turn;
     at += spans[k];
   });
@@ -197,8 +202,9 @@ export function karaokePhoneStage(stage = "pick", { now = Date.now() } = {}) {
      rain for a Legendary close */
   const upAt = songAt !== null ? songAt - KARAOKE_UP_MS - KARAOKE_SONG_LEAD_MS
     : stage === "legendary" ? now - 1000 + KARAOKE_LEGENDARY_MS : stage === "up" ? now - 5000 : now - 6000;
-  /* the turn before closes as the walk-up starts (Legendary: before the rain) */
-  playThrough(game, sung, stage === "legendary" ? now - 1000 : upAt, { legendary:stage === "legendary" });
+  /* the turns before it, the last closing as this walk-up starts (a
+     Legendary close: the rain first, so the viewer's closed a second ago) */
+  playThrough(game, sung, upAt, { legendary:stage === "legendary" });
   game.index = sung;
   const turn = turnAt(game, singer, upAt);
   if (songAt === null) Object.assign(turn, { songAt:null, endAt:null, closeAt:null, playedAt:null });

@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { dispatch } from "../../lib/client.js";
 import { tapTick } from "../../lib/haptics.js";
+import { useReducedMotion } from "../../lib/motion.js";
 import { playSound, unlockSound } from "../../lib/sound.js";
 import { writeError } from "../../lib/writeErrors.js";
 import { disp } from "../../../shared/core.js";
@@ -19,12 +20,13 @@ import "./karaoke.css";
 export const sendKaraoke = (type, payload) => dispatch(type, payload, { retry:true });
 
 /* a song as the room reads it: its cover (or a drawn sleeve), the title
-   without a release's suffix, the artists */
+   without a release's suffix, the artists. `hero`: the pick window's own
+   song, the sleeve over its title; `sm`: one line each, under a name */
 function Song({ song, size = "lg", className = "" }) {
   if (!song) return null;
   return <div className={`fd-karaoke-song is-${size}${className ? ` ${className}` : ""}`}>
     <span className="fd-karaoke-cover" aria-hidden="true">
-      {song.imageUrl ? <img src={song.imageUrl} alt="" /> : <Icon name="song" size={size === "lg" ? 30 : 20} />}</span>
+      {song.imageUrl ? <img src={song.imageUrl} alt="" /> : <Icon name="song" size={size === "hero" ? 64 : size === "lg" ? 30 : 20} />}</span>
     <span className="fd-karaoke-song-text">
       <b data-fit={size === "sm" ? "ellipsis" : undefined}>{songTitle(song.name)}</b>
       <small data-fit={size === "sm" ? "ellipsis" : undefined}>{karaokeArtists(song)}</small></span>
@@ -77,7 +79,7 @@ function Pick({ view, onAct, karaoke }) {
       {picking ? <>
         {view.broken && !changing && <p className="fd-karaoke-broken" role="status"><Icon name="close" size={16} />Pick another song</p>}
         <KaraokeSongPicker value={view.broken ? null : song} enabled={karaoke} muted compact onChoose={choose} />
-      </> : <Song song={song} className={locked ? "is-locked" : ""} />}
+      </> : <Song song={song} size="hero" className={locked ? "is-locked" : ""} />}
     </main>
     <footer className="fd-karaoke-foot">
       <Room lanes={pickRoom(view)} label={`${view.readyCount} of ${view.roomCount} locked in`} />
@@ -102,7 +104,7 @@ function PickWatch({ view }) {
 }
 
 /* ── a turn ── */
-/* the singer's own walk-up and song: You're up, then Singing, with the room
+/* the singer's own walk-up and song: You’re up, then Singing, with the room
    lighting as it votes (never how) */
 function Stage({ view, me, word }) {
   const up = word === "You’re up";
@@ -168,10 +170,11 @@ function Vote({ state, view, onAct }) {
   };
   return <>
     <main className="fd-karaoke-body is-vote">
+      {/* the singer holds the space above; the six dock in the thumb's reach */}
       <div className="fd-karaoke-singer">
-        <ChipFace p={view.singer} size={56} />
-        <span className="fd-karaoke-singer-text"><b>{disp(state, view.singer)}</b>
-          <Song song={view.singerSong} size="sm" /></span>
+        <ChipFace p={view.singer} size={84} />
+        <b className="fd-karaoke-singer-name">{disp(state, view.singer)}</b>
+        <Song song={view.singerSong} size="sm" />
       </div>
       <h3 className="fd-karaoke-vote-title">Vote</h3>
       <Tiers lit={lit} disabled={!view.voteOpen} onTap={tap} />
@@ -199,10 +202,19 @@ function Legendary({ view, me }) {
 /* The reveal, at the TV's own beat: every place stands ready, each row
    filling in at its instant (last place first), never before; yours lit. */
 function Reveal({ state, view }) {
+  /* the row that turned last stays in view as the reveal climbs */
+  const shown = view.rows.filter(row => row.shown);
+  const newest = shown.length ? shown.reduce((a, b) => (b.at ?? 0) > (a.at ?? 0) ? b : a).player : null;
+  const newestRef = useRef(null);
+  const reduced = useReducedMotion();
+  useEffect(() => {
+    newestRef.current?.scrollIntoView?.({ block:"nearest", behavior:reduced ? "auto" : "smooth" });
+  }, [newest]); // eslint-disable-line react-hooks/exhaustive-deps
   return <main className="fd-karaoke-body is-reveal">
     <ol className="fd-karaoke-ranking">
       {view.rows.map(row => row.shown
-        ? <li key={row.player} className={`is-shown${row.mine ? " is-mine" : ""}${row.place <= 3 ? " is-podium" : ""}`}>
+        ? <li key={row.player} ref={row.player === newest ? newestRef : null}
+            className={`is-shown${row.mine ? " is-mine" : ""}${row.place <= 3 ? " is-podium" : ""}`}>
             <span className="fd-karaoke-place">{ordinal(row.place)}</span>
             <ChipFace p={row.player} size={34} />
             <span className="fd-karaoke-who"><b>{disp(state, row.player)}</b>
@@ -288,8 +300,9 @@ export function KaraokeSheet({ state, me, blocked = false, force = 0, gm = false
         aria-expanded={trayOpen} onClick={() => setTrayOpen(value => !value)}><Icon name="more" size={20} /></button>}
       <button type="button" className="fd-karaoke-close" onClick={close} aria-label="Close"><Icon name="close" size={20} /></button>
       {timer && <span className="fd-karaoke-timebar"><Drain key={`${screen}:${timer.until}`} from={timer.from} until={timer.until} now={now} /></span>}
-      {trayOpen && <Tray items={tray} onAct={onAct} onDone={() => setTrayOpen(false)} />}
     </header>
+    {/* the commissioner's moves open under the head, the game moving down for them */}
+    <div className="fd-karaoke-trayslot">{trayOpen && <Tray items={tray} onAct={onAct} onDone={() => setTrayOpen(false)} />}</div>
     {screen === "pick" || screen === "pick-locked" ? <Pick key={view.game.id} view={view} onAct={onAct} karaoke={karaoke} />
       : screen === "pick-watch" ? <PickWatch view={view} />
         : screen === "up" ? <Stage {...props} word="You’re up" />

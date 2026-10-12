@@ -7,7 +7,7 @@ import "./karaoke.css";
 
 /* Home's karaoke row, under the leaderboard beside Trivia's. While a game
    runs: what it wants of you (Pick your song with the seconds, Locked in,
-   You're up, Up next, the singer with Vote or your tier, Results), one tap
+   You’re up, Up next, the singer with Vote or your tier, Results), one tap
    back into the sheet; gone once the result posts. Before it, while the
    karaoke event is still to come in a live weekend and you have no song,
    one row into Profile > Karaoke (`onSong`; `karaoke`: the capability). */

@@ -275,9 +275,9 @@ export function deriveYouStrip({ state, me, events = allEventsOf(state), standin
 
   const current = model.current;
   const contest = current?.contest;
-  /* karaoke speaks for itself while its game runs: the singer's You're up
+  /* karaoke speaks for itself while its game runs: the singer's You’re up
      and Singing, a voter's Vote, the next singer's Up next; a game that asks
-     nothing of you leaves the generic You're up unsaid (the whole room is
+     nothing of you leaves the generic You’re up unsaid (the whole room is
      its field) */
   const sing = ev && state.karaoke?.eventId === ev.id ? karaokeYou(state, me) : null;
   if (sing?.word) return { ...base, tone:sing.tone, ...(sing.flash ? { flash:true } : {}), ...(sing.up ? { up:true } : {}),

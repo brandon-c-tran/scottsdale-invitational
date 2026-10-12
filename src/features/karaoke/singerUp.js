@@ -1,10 +1,10 @@
-/* The singer's own "You're up" (karaoke): when your turn comes up on a
+/* The singer's own "You’re up" (karaoke): when your turn comes up on a
    fresh frame, your phone takes over in your color at the walk-up's start
    (after a Legendary rain, when the rain ends), your chip and your song,
    with the sting. It holds the takeover's own length or the walk-up,
    whichever is shorter, and drops the moment its turn moves (Start song
    cuts the walk-up short, Later sends you to the end). Fresh frames only: a
-   load, a reconnect or a catch-up shows the sheet's own You're up instead.
+   load, a reconnect or a catch-up shows the sheet's own You’re up instead.
    Reduced motion: the sting alone. */
 import { useEffect, useRef, useState } from "react";
 import { useFreshChange, useReducedMotion } from "../../lib/motion.js";

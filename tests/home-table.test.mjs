@@ -215,12 +215,38 @@ test("X1 + X8: Home's contest card shows each side's bets and win line, players 
   assert.doesNotMatch(html, / to win</, "no \"to win\" line");
   const ownLine = contestWinLines(state, eightBall, resolveCurrentContest(state, eightBall), { events:[eightBall], standings })
     .find(line => line.players?.includes(ROSTER[0]));
-  /* Home says it once, for you: "A win puts you 1st" */
-  if (ownLine?.kind === "rank") assert.match(html, /A win (puts you|ties you for) 1st/);
+  /* Home says it once, for you: "Win and you're 1st" */
+  if (ownLine?.kind === "rank") assert.match(html, /Win and you(’re| tie for) 1st/);
   else assert.doesNotMatch(html, new RegExp(`Win: ${ROSTER[0]} and ${ROSTER[1]} \\+${prize}`), "never says the award twice");
   assert.doesNotMatch(html, /is-stamping|fd-home-sweep/, "a first load never sweeps");
   for (const player of ROSTER.slice(0, 4))
     assert.match(html, new RegExp(`aria-label="View ${player}&#x27;s player card"`));
+});
+
+test("Home's Now card: one win line with the song as a chip, and the in-app game as a row of the card", () => {
+  const state = fresh();
+  const me = ROSTER[0];
+  /* two players ahead of you, so a win moves you up */
+  state.adjustments = [{ id:"r1", player:ROSTER[1], delta:300 }, { id:"r2", player:ROSTER[2], delta:200 }];
+  state.onDeck = putt.id;
+  state.profiles = { [me]:{ walkoutTrack:{ name:"Hit 'Em Up - Single Version" } } };
+  const standings = computeStandings(state);
+  const contest = resolveCurrentContest(state, putt);
+  const own = contestWinLines(state, putt, contest, { standings, keys:[contest.sides.find(side => side.players.includes(me)).key] })
+    .find(Boolean);
+  assert.equal(own?.kind, "rank");
+  const game = React.createElement("button", { className:"fd-trivia-home is-now" }, "Locked in");
+  const html = render(ui.GuestHome, { state, me, events:[putt], standings, GameMark:StubMark, StatPills:StubMark,
+    onOpen:noop, onRules:noop, onBets:noop, onBracket:noop, onPlayer:noop, onStandings:noop, onEvents:noop,
+    gameContent:game }, state);
+  /* one line: where a win puts you, then the song's title as a chip, never "plays" */
+  assert.match(html, new RegExp(`<p class="fd-home-win-you[^"]*"><span>Win and you’re ${ordinal(own.rank)}</span><span class="fd-home-song-chip"`));
+  assert.match(html, /aria-label="Win song: Hit &#x27;Em Up"/, "the release suffix is not the song's name");
+  assert.doesNotMatch(html, /A win puts you| plays</);
+  /* the game in progress is a row inside the card, above the leaderboard */
+  const card = html.indexOf("fd-home-focus"), row = html.indexOf("fd-trivia-home is-now"), board = html.indexOf("fd-home-leaderboard");
+  assert.ok(card >= 0 && card < row && row < board, "inside the Now card, before the leaderboard");
+  assert.match(html.slice(card, board), /<div class="fd-home-now-rows">/);
 });
 
 test("X8 reaches the Bets board and the TV live scene", () => {

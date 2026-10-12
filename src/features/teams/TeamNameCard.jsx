@@ -105,7 +105,8 @@ export function TeamNameCard({ state, naming: given, ev, me, gm = false, index =
 }
 
 /* "right after the draw": a member who has not seen the names open them
-   once, within this long of the draw; after that the row stays one line */
+   once, within this long of the draw; after that the row stays one line.
+   Long enough for the intro, the draw's reveal and the face-off. */
 export const TEAMNAME_FRESH_MS = 90000;
 const seenKey = (drawId, me) => `si-teamname-seen:${drawId}:${me}`;
 const seen = (drawId, me) => { try { return localStorage.getItem(seenKey(drawId, me)) === "1"; } catch { return true; } };
@@ -137,21 +138,53 @@ export function TeamNameRow({ state, ev, me, onSend = sendName }) {
   </section>;
 }
 
-/* Home's contest card: a pencil on your own team, and the suggestions
-   opened under the sides (once by themselves right after the draw).
-   useTeamNameInline gives both halves. */
-export function useTeamNameInline(state, ev, me, { enabled = true } = {}) {
+/* Anything that holds the screen: a sheet (the announcement and its draw,
+   an event, a card), a game's own screen, a takeover. Right after the draw
+   all of them can be up at once, so the names wait for the room to clear
+   rather than open behind (and then under) them. */
+const COVERED = ".fd-sheet-overlay, .fd-moment, .fd-geo-game, .fd-trivia-game, .fd-board-game, [role=dialog]";
+const screenClear = () => typeof document === "undefined" || !document.querySelector(COVERED);
+
+/* Home's Now card: your team's name as one row of the card (the pencil's
+   lamp, the name, Rename); the suggestions open under it in place. Right
+   after the draw it opens by itself once, as soon as nothing else holds
+   the screen. `label`: the event's name when the card is about another. */
+export function TeamNameNow({ state, ev, me, label = null, onSend = sendName }) {
   const [round, setRound] = useState(0);
-  const naming = enabled ? myTeamNaming(state, ev, me, { round }) : null;
-  const [open, setOpen] = useState(() => teamNameAutoOpen(state, naming, me, { now:serverNow() }));
+  const naming = myTeamNaming(state, ev, me, { round });
+  const [open, setOpen] = useState(false);
+  const fresh = !!naming && teamNameAutoOpen(state, naming, me, { now:serverNow() });
+  useEffect(() => {
+    if (!fresh || open) return undefined;
+    /* poll the screen until it clears or the moment passes */
+    let timer = 0;
+    const until = Number(state?.draws?.[naming.evId]?.ts || 0) + TEAMNAME_FRESH_MS;
+    const check = () => {
+      if (serverNow() > until) return;
+      if (screenClear()) { setOpen(true); return; }
+      timer = setTimeout(check, 500);
+    };
+    timer = setTimeout(check, 400);
+    return () => clearTimeout(timer);
+  }, [fresh, naming?.drawId]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (open && naming) markSeen(naming.drawId, me); }, [open, naming?.drawId, me]); // eslint-disable-line react-hooks/exhaustive-deps
-  if (!naming) return { naming:null, pencil:null, editor:null };
-  const pencil = <button type="button" className={`fd-teamname-pencil${open ? " is-open" : ""}`} aria-expanded={open}
-    aria-label={open ? "Close team names" : `Rename ${naming.label}`} onClick={() => { tapTick(); setOpen(!open); }}>
-    <Icon name={open ? "collapse" : "pencil"} size={18} /></button>;
-  const editor = open ? <div className="fd-teamname-inline"><NameEditor state={state} naming={naming} round={round} onRound={setRound}
-    onSend={sendName} onDone={() => setOpen(false)} /></div> : null;
-  return { naming, pencil, editor };
+  if (!naming) return null;
+  const owed = !naming.named;
+  return <div className={`fd-teamname-now${open ? " is-open" : ""}`}>
+    <button type="button" className="fd-now-row is-info fd-teamname-now-head" aria-expanded={open}
+      aria-label={`${naming.label}. ${open ? "Close" : "Rename"}`} onClick={() => { tapTick(); setOpen(!open); }}>
+      <span className="fd-now-row-text">
+        {label && <small>{label}</small>}
+        <strong><span className="fd-teamname-now-mark" aria-hidden="true"><Icon name="pencil" size={16} /></span>
+          <RenameText name={naming.label} className="fd-show fd-teamname-now-name" />
+          {naming.named && <NamedBy state={state} named={naming.named} size={22} />}</strong>
+      </span>
+      <span className={`fd-now-row-go${owed ? " is-owed" : ""}`}>{open ? <Icon name="collapse" size={18} />
+        : <>{owed ? "Name" : "Rename"}</>}</span>
+    </button>
+    {open && <NameEditor state={state} naming={naming} round={round} onRound={setRound} onSend={onSend}
+      onDone={() => setOpen(false)} />}
+  </div>;
 }
 
 /* Home: your team in each event whose names are still open, one row each

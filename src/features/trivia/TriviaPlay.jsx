@@ -9,6 +9,7 @@ import { TRIVIA_BASE, TRIVIA_EXACT, TRIVIA_NEAR, TRIVIA_SPEED } from "../../../s
 import { ChipFace } from "../identity/PlayerIdentity.jsx";
 import { Wheel } from "../geo/Wheel.jsx";
 import { Icon } from "../../ui/Icon.jsx";
+import { NowRow } from "../../ui/NowRow.jsx";
 import { OneSafe } from "../../ui/OneSafe.jsx";
 import {
   LETTERS, boardTop, fmtNumber, fromDigits, nearestGuesses, numberLabel, ordinal, toDigits, triviaPhotoSrc, triviaView,
@@ -384,7 +385,7 @@ function Watch({ state, view }) {
 export function TriviaHome(props) {
   return isBoardGame(props.state?.trivia) ? <BoardHome {...props} /> : <RoundsHome {...props} />;
 }
-function RoundsHome({ state, me, onOpen, now }) {
+function RoundsHome({ state, me, onOpen, now, inCard = false }) {
   const view = triviaView(state, me, now ?? serverNow());
   useTicking(!!view && view.phase === "question" && now === undefined, 1000);
   if (!view || view.finished) return null;
@@ -392,6 +393,10 @@ function RoundsHome({ state, me, onOpen, now }) {
     : view.phase === "reveal" ? view.myScore?.points ? `+${fmtNumber(view.myScore.points)} pts` : "Revealed"
       : view.mine?.locked ? "Locked in" : view.playing ? view.timeUp ? "Time's up" : `${view.secondsLeft} s`
         : `${view.lockedCount} of ${view.roomCount} locked in`;
+  /* a row of Home's Now card: the event's name is the card's own */
+  const asks = view.phase === "question" && view.playing && !view.mine?.locked && !view.timeUp;
+  if (inCard) return <NowRow className="fd-trivia-home is-now" status={status} extra={`Question ${view.n} of ${view.total}`}
+    go={asks ? "Play" : "Open"} primary={asks} onClick={onOpen} ariaLabel={`Trivia. ${status}. Open`} />;
   return <button type="button" className="fd-trivia-home" onClick={onOpen}>
     <span><small><i className="fd-insert fd-beat-dot" aria-hidden="true" />Trivia</small>
       <strong><OneSafe text={`Question ${view.n} of ${view.total}`} /></strong><em>{status}</em></span><Icon name="open" size="1em" />

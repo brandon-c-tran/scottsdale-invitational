@@ -23,7 +23,7 @@ const model = await import("../src/features/teams/teamNameModel.js");
 
 const compiled = await build({
   stdin:{ contents:`
-    export { TeamNameCard, TeamNamesHome, TeamNameDesk, TeamNameRow, teamNameAutoOpen, TEAMNAME_FRESH_MS } from "./src/features/teams/TeamNameCard.jsx";
+    export { TeamNameCard, TeamNamesHome, TeamNameDesk, TeamNameRow, TeamNameNow, teamNameAutoOpen, TEAMNAME_FRESH_MS } from "./src/features/teams/TeamNameCard.jsx";
     export { PlayerIdentityProvider } from "./src/features/identity/PlayerIdentityContext.js";`,
   resolveDir:root, loader:"jsx" },
   bundle:true, platform:"node", format:"cjs", external:["react", "react-dom", "qrcode-generator", "three"], loader:{ ".css":"empty" },
@@ -250,6 +250,14 @@ test("the card: Name your team, three suggestions with the current one lit, then
   assert.match(home, /aria-expanded="false"/);
   assert.match(home, /Rename/);
   assert.equal((home.match(/class="fd-teamname-chip/g) || []).length, 0, "no suggestions until opened");
+  /* the Now card's row (Oct 12): one row of the card, closed on first paint
+     (it opens itself only once nothing else holds the screen) */
+  const now = render(state, React.createElement(ui.TeamNameNow, { state, ev, me }));
+  assert.match(now, /class="fd-now-row is-info fd-teamname-now-head" aria-expanded="false"/);
+  assert.ok(now.includes(asMarkup), "the row carries the team's name");
+  assert.match(now, />Name</, "unnamed by anyone: Name");
+  assert.equal((now.match(/class="fd-teamname-chip/g) || []).length, 0);
+  assert.doesNotMatch(now, /fd-teamname-ask|Name your team<\/h2>/, "never a card of its own");
   /* opened by itself once, right after the draw, for a member who has not seen it */
   const at = state.draws.volley.ts;
   assert.equal(ui.teamNameAutoOpen(state, naming, me, { now:at + 1000, wasSeen:() => false }), true);

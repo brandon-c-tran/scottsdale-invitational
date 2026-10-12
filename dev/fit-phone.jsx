@@ -201,12 +201,9 @@ async function openSheet(kind) {
   }
   /* writing your own team name, the longest one there is */
   if (kind === "teamname-write") {
-    /* Home's row opens the suggestions first */
-    const head = document.querySelector(".fd-teamname-row-head[aria-expanded=false]");
-    if (head) { head.click(); await sleep(300); }
-    /* or the pencil on your team's name inside the contest card */
-    const pencil = document.querySelector(".fd-teamname-pencil");
-    if (pencil && !document.querySelector(".fd-teamname-link")) { pencil.click(); await sleep(300); }
+    /* the Now card's team row opens the suggestions first */
+    const head = document.querySelector(".fd-teamname-now-head[aria-expanded=false]");
+    if (head && !document.querySelector(".fd-teamname-link")) { head.click(); await sleep(300); }
     const ok = await tap(() => [...document.querySelectorAll(".fd-teamname-link")].find(b => visible(b) && /Write your own/.test(b.textContent)));
     await sleep(300);
     const input = document.querySelector(".fd-teamname-write input");

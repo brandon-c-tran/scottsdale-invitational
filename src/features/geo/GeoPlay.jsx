@@ -11,6 +11,7 @@ import { PlaceSearch } from "./PlaceSearch.jsx";
 import { geoPhotoSrc, geoView, milesLabel, offLabel, whenLabel } from "./geoModel.js";
 import "./geo.css";
 import { Icon } from "../../ui/Icon.jsx";
+import { NowRow } from "../../ui/NowRow.jsx";
 import { ScoreReel } from "../../ui/ScoreReel.jsx";
 
 const sendGuess = payload => dispatch("geoGuess", payload, { retry:true });
@@ -260,12 +261,16 @@ export function GeoPlaySheet({ state, me, blocked = false, force = 0, onGuess = 
 }
 
 /* Home's row while a game runs, for a player who closed it */
-export function GeoHome({ state, me, onOpen, now }) {
+export function GeoHome({ state, me, onOpen, now, inCard = false }) {
   const view = geoView(state, me, now ?? serverNow());
   useTicking(!!view && view.phase === "guess" && now === undefined, 1000);
   if (!view || !view.playing || view.finished || (view.done && !view.revealed)) return null;
   const status = view.phase === "guess" ? view.mine ? "Guess locked in" : `${view.secondsLeft} s to guess`
     : view.mineScored ? `+${fmt(view.mineScored.total)} this photo` : "Revealed";
+  /* a row of Home's Now card: the event's name is the card's own */
+  const asks = view.phase === "guess" && !view.mine;
+  if (inCard) return <NowRow className="fd-geo-home is-now" status={status} extra={`Photo ${view.n} of ${view.total}`}
+    go={asks ? "Play" : "Open"} primary={asks} onClick={onOpen} ariaLabel={`Where and When. ${status}. Open`} />;
   return <button type="button" className="fd-geo-home" onClick={onOpen}>
     <span><small><i className="fd-insert fd-beat-dot" aria-hidden="true" />Where and When</small>
       <strong>{status}</strong></span><Icon name="open" size="1em" />

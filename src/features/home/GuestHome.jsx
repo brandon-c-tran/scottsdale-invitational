@@ -11,14 +11,15 @@ import { LampChase, ScoreReel } from "../../ui/ScoreReel.jsx";
 import { GlassArt } from "../../ui/GlassArt.jsx";
 import { useGlassTilt } from "../../ui/useGlassTilt.js";
 import { EventName, OneSafe } from "../../ui/OneSafe.jsx";
-import { DraftEntry } from "../draft/DraftSheet.jsx";
+import { DraftNowRow } from "../draft/DraftSheet.jsx";
+import { NowRow } from "../../ui/NowRow.jsx";
 import { contestStacks, stackName } from "../wagers/betStacks.js";
 import { contestWinLines, ordinal, winLineFor } from "../standings/winImpact.js";
 import { SideTerms } from "../comebacks/Comebacks.jsx";
 import { contestTerms } from "../comebacks/comebacks.js";
 import { DEALT } from "../standings/Standings.jsx";
-import { useTeamNameInline } from "../teams/TeamNameCard.jsx";
-import { homeTeamNameEvent } from "../teams/teamNameModel.js";
+import { TeamNameNow } from "../teams/TeamNameCard.jsx";
+import { namingEvents } from "../teams/teamNameModel.js";
 import { useFreshChange } from "../../lib/motion.js";
 import { AlertsCard } from "../alerts/Alerts.jsx";
 import { InstallCard } from "../check-in/InstallHint.jsx";
@@ -172,15 +173,17 @@ export const songTitle = name => {
   const short = full.replace(SONG_SUFFIX, "").trim();
   return short || full;
 };
-/* in your own 1v1 or free-for-all: what a win plays, or the way to pick one.
-   It sits on the card's own inset, its note on the text's first line.
+/* What a win means for you, one line: where it puts you ("Win and you're
+   2nd"), and in your own 1v1 or free-for-all the song it plays, drawn as a
+   chip with its title (or the way to pick one). Either half may stand alone.
    `own`: a row of the card itself (outside the assignment's grid) */
-function SongLine({ line, onWinSong, own = false }) {
-  if (!line) return null;
-  if (line.song) return <p className={`fd-home-song${own ? " is-own" : ""}`}><Icon name="song" size={16} />
-    <span>Win and <strong>{songTitle(line.song)}</strong> plays</span></p>;
-  return onWinSong ? <button type="button" className={`fd-home-song is-pick${own ? " is-own" : ""}`} onClick={onWinSong}>
-    <Icon name="song" size={16} /><span>Pick a win song</span><Arrow /></button> : null;
+export function WinLine({ text = null, song = null, onWinSong, own = false }) {
+  const chip = song?.song ? <span className="fd-home-song-chip" role="img" aria-label={`Win song: ${songTitle(song.song)}`}>
+    <Icon name="song" size={14} /><span>{songTitle(song.song)}</span></span>
+    : song?.pick && onWinSong ? <button type="button" className="fd-home-song-chip is-pick" onClick={onWinSong}>
+      <Icon name="song" size={14} /><span>Pick a win song</span></button> : null;
+  if (!text && !chip) return null;
+  return <p className={`fd-home-win-you${own ? " is-own" : ""}`}>{text && <span>{text}</span>}{chip}</p>;
 }
 
 /* The You strip: your face and the one line that says whether you are up,
@@ -224,7 +227,7 @@ function EventFocus(props) {
 /* X1: the current contest as one compact card: the event, its sides with
    what is bet on each and what a win means, and the actions. */
 function EventTable({ model, state, me, events, standings, onOpen, onRules, onBets, onBracket, onPlayer, GameMark,
-  songs = false, onWinSong, strip = null, you = null }) {
+  songs = false, onWinSong, strip = null, you = null, rows = null }) {
   const current = model.current;
   const event = current.event;
   const before = model.mode === "before";
@@ -246,8 +249,6 @@ function EventTable({ model, state, me, events, standings, onOpen, onRules, onBe
   const youUp = useYoureUp(contest, me);
   /* the headline slot (your strip) already says where you stand in this event */
   const headlined = !!strip?.text && strip.route?.ev?.id === event.id;
-  /* your team's name is renamed from your own team in this card */
-  const naming = useTeamNameInline(state, event, me, { enabled:homeTeamNameEvent(state, me, events, standings) === event.id });
   /* Home's lit panel is one pane of glass: it leans under a finger and its
      painting parts into layers (useGlassTilt, GlassArt depth) */
   const paneRef = useRef(null);
@@ -290,7 +291,7 @@ function EventTable({ model, state, me, events, standings, onOpen, onRules, onBe
   const yourSide = contest?.sides?.find(side => side.players.includes(me))?.key;
   const yourLine = yourSide === undefined ? null : winLineFor(lines, yourSide);
   const winYou = yourLine?.kind === "rank"
-    ? yourLine.tied ? `A win ties you for ${ordinal(yourLine.rank)}` : `A win puts you ${ordinal(yourLine.rank)}` : null;
+    ? yourLine.tied ? `Win and you tie for ${ordinal(yourLine.rank)}` : `Win and you’re ${ordinal(yourLine.rank)}` : null;
   /* Home's one lit piece of backglass whenever there is a contest: the
      session's painting fills its head, your strip is lettered into the sky,
      the event's name is painted on the horizon with the game's medallion
@@ -316,19 +317,16 @@ function EventTable({ model, state, me, events, standings, onOpen, onRules, onBe
         With chips to place or riding, the status rides the action's row */}
     {!actions && <div className="fd-home-focus-meta">{statusLine}</div>}
     {sided
-      ? <div className="fd-home-assignment">{(contest.label !== event.name || (naming.pencil && !teamSides)) && <div className="fd-home-contest-label">
-          <span>{contest.label !== event.name && <OneSafe text={contest.label} />}</span>
-          {/* a pair renames itself from the contest's head (a team, from its own name) */}
-          {!teamSides && naming.pencil}</div>}
+      ? <div className="fd-home-assignment">{contest.label !== event.name && <div className="fd-home-contest-label">
+          <span><OneSafe text={contest.label} /></span></div>}
           {teamSides ? <div className="fd-home-teams">
             {contest.sides.map((side, index) => {
               const pot = pots?.get(side.key)?.total || 0;
               const yours = side.players.includes(me);
               return <React.Fragment key={String(side.key)}>
-                <div className={`fd-home-team${yours ? " is-mine" : ""}${index > 0 ? " is-versus" : ""}${teamFitsRow(state, side.players, vsNames(state, side.players, event.id), { extra:(index > 0 ? 30 : 0) + (pot > 0 ? 56 : 0) + (yours && naming.pencil ? 44 : 0) }) ? " is-row" : ""}`}>
+                <div className={`fd-home-team${yours ? " is-mine" : ""}${index > 0 ? " is-versus" : ""}${teamFitsRow(state, side.players, vsNames(state, side.players, event.id), { extra:(index > 0 ? 30 : 0) + (pot > 0 ? 56 : 0) }) ? " is-row" : ""}`}>
                   <h3>{index > 0 && <span className="fd-home-team-vs">vs</span>}<OneSafe text={vsNames(state, side.players, event.id)} />
-                    {pot > 0 && <span className="fd-home-pot" aria-label={`${fmt(pot)} chips bet on this side`}><strong>{fmt(pot)}</strong></span>}
-                    {yours && naming.pencil}</h3>
+                    {pot > 0 && <span className="fd-home-pot" aria-label={`${fmt(pot)} chips bet on this side`}><strong>{fmt(pot)}</strong></span>}</h3>
                   <TeamFaces state={state} players={side.players} onPlayer={onPlayer} />
                   {termsFor(side) && <SideTerms terms={termsFor(side)} className="fd-home-terms" />}
                 </div>
@@ -351,20 +349,19 @@ function EventTable({ model, state, me, events, standings, onOpen, onRules, onBe
               </React.Fragment>;
             })}
           </div>}
-          {naming.editor}
-          {winYou && !teamSides && <p className="fd-home-win-you">{winYou}</p>}
-          <SongLine line={song} onWinSong={onWinSong} />
+          <WinLine text={teamSides ? null : winYou} song={song} onWinSong={onWinSong} />
           {away ? <p className="fd-home-personal">Marked away</p>
             : !headlined && mine && <p className={`fd-home-personal${a?.status === "out" ? " is-out" : ""}`}>{mine}</p>}
         </div>
       : !before && (away ? <div className="fd-home-assignment"><p className="fd-home-personal">Marked away</p></div>
         : <>
-          <Assignment current={current} state={state} onPlayer={onPlayer} pencil={naming.pencil}
-            quiet={headlined} />
-          {naming.editor && <div className="fd-home-extra-row">{naming.editor}</div>}
-          {winYou && !teamBlocksFor(current.assignment) && <p className="fd-home-win-you is-own">{winYou}</p>}
-          <SongLine line={song} onWinSong={onWinSong} own />
+          <Assignment current={current} state={state} onPlayer={onPlayer} quiet={headlined} />
+          <WinLine text={teamBlocksFor(current.assignment) ? null : winYou} song={song} onWinSong={onWinSong} own />
         </>)}
+    {/* everything else happening for you now: a game in progress, a draft,
+        your team's name, another event's market. Rows of this card, never
+        cards of their own (an empty set draws nothing) */}
+    {rows && <div className="fd-home-now-rows">{rows}</div>}
     {/* your own way through the bracket, read here unless your strip already
         says it; the bracket is in the event sheet */}
     {path?.mine && strip?.route?.type !== "bracket" && !playing && <p className="fd-home-path"><span><PathText text={path.text} /></span></p>}
@@ -468,6 +465,26 @@ export function GuestHome({ state, me, events, standings, onPlayer, onEvents,
   const setupList = before && (askFlights || (onSetup && setup.length > 0)) ? <SetupList items={onSetup ? setup : []} onOpen={onSetup}
     flights={askFlights ? <FlightsQuestion onYes={onFlightsYes} onNotYet={onFlightsNotYet} /> : null} /> : null;
 
+  /* The Now card's rows: whatever else is happening for you, each named by
+     its event when that is not the card's own. Your own pick is the
+     headline (the strip), so its row stays away. */
+  const cardEv = model.current?.event?.id || null;
+  const otherName = event => event.id === cardEv ? null : <EventName name={event.name} />;
+  const drafting = !finale && !complete ? events.filter(event => state.drafts?.[event.id] && !state.draws?.[event.id]
+    && !state.shelved?.[event.id] && !state.results?.[event.id]
+    && !(strip?.route?.type === "draft" && strip.route.ev.id === event.id)) : [];
+  const naming = !finale && !complete && me && !state.away?.[me] ? namingEvents(state, events, me) : [];
+  const nowRows = <>
+    {gameContent}
+    {drafting.map(event => <DraftNowRow key={event.id} state={state} ev={event} me={me} label={otherName(event)}
+      onOpen={() => (onDraft || onOpen)(event)} />)}
+    {naming.map(event => <TeamNameNow key={`${event.id}:${state.draws[event.id].id}`} state={state} ev={event} me={me}
+      label={otherName(event)} />)}
+    {bettingElsewhere && <NowRow className="fd-home-betting-now" label={<EventName name={model.betting.event.name} />}
+      status="Betting open" go={model.betting.canPlace ? "Place chips" : "View bets"} onClick={onBets}
+      ariaLabel={`${model.betting.event.name}. Betting open. ${model.betting.canPlace ? "Place chips" : "View bets"}`} />}
+  </>;
+
   return <div className={`fd-home is-${model.mode}`}>
     {/* Home never carries a visible page title: the tab bar names it and the
         first lit pane says what is on */}
@@ -479,14 +496,7 @@ export function GuestHome({ state, me, events, standings, onPlayer, onEvents,
         does (under the contest while Scan the TV is the top of Home) */}
     {!arrival && setupList}
 
-    {/* your own pick is the headline (the strip); a draft that waits on
-        someone else is a row */}
-    {!finale && !complete && events.filter(event => state.drafts?.[event.id] && !state.draws?.[event.id]
-      && !state.shelved?.[event.id] && !state.results?.[event.id]
-      && !(strip?.route?.type === "draft" && strip.route.ev.id === event.id)).map(event =>
-      <DraftEntry key={event.id} state={state} ev={event} me={me} onOpen={() => (onDraft || onOpen)(event)}/>)}
-
-    {complete ? <section className="fd-home-finish fd-lamp is-chip is-live" aria-label={state.frozen ? "Champion" : "Final chip counts"}>
+    {complete ?<section className="fd-home-finish fd-lamp is-chip is-live" aria-label={state.frozen ? "Champion" : "Final chip counts"}>
       {/* the final screen's one lit piece: the night painting, the champion
           lettered into its sky first, your own finish standing on its horizon */}
       <div className="fd-home-scene fd-glass-scene has-you">
@@ -502,20 +512,17 @@ export function GuestHome({ state, me, events, standings, onPlayer, onEvents,
         {me ? "Your last card" : "The champion's card"}<Arrow /></button>}
     </section> : finale ? <section className="fd-home-poker" aria-label="Championship Poker">
       {pokerContent}<button type="button" className="fd-home-text-link" onClick={() => onRules(model.finale.event)}>Poker rules<Arrow /></button>
-    </section> : <EventFocus model={model} state={state} me={me} events={events} standings={standings} onOpen={onOpen} onRules={onRules} onBets={onBets} onBracket={onBracket} onPlayer={onPlayer} GameMark={GameMark}
-      songs={songs} onWinSong={onWinSong} strip={strip} you={contestPainted ? you : null} />}
+    </section> : model.current ? <EventFocus model={model} state={state} me={me} events={events} standings={standings} onOpen={onOpen} onRules={onRules} onBets={onBets} onBracket={onBracket} onPlayer={onPlayer} GameMark={GameMark}
+      songs={songs} onWinSong={onWinSong} strip={strip} you={contestPainted ? you : null} rows={nowRows} />
+      : <div className="fd-home-now-rows is-bare">{nowRows}</div>}
 
     {arrival && setupList}
+    {/* what asks something of you that is not the game in play: a duel, a
+        ballot, the phone's own setup. Each only while it asks. */}
+    {model.mode === "live" && duelContent}
+    {awardsContent}
     <AlertsCard me={me} />
     <InstallCard me={me} />
-    {awardsContent}
-
-    {model.mode === "live" && duelContent}
-    {bettingElsewhere && <button type="button" className="fd-home-betting fd-glass-field fd-field-live fd-lamp is-live" onClick={onBets}
-      aria-label={`${model.betting.event.name}. Betting open. ${model.betting.canPlace ? "Place chips" : "View bets"}`}>
-      <GameMark id={model.betting.event.game} variant={model.betting.event.variant} size={32} /><span><strong className="fd-show"><EventName name={model.betting.event.name} /></strong>
-        <small><i className="fd-insert fd-beat-dot" aria-hidden="true" />Betting open</small></span>
-      <span>{model.betting.canPlace ? "Place chips" : "View bets"}<Next /></span></button>}
 
     <section className="fd-home-leaderboard" aria-label="Leaderboard">
       {/* your exposure is drawn on your own bar and said once, on the contest
@@ -545,7 +552,6 @@ export function GuestHome({ state, me, events, standings, onPlayer, onEvents,
       <People state={state} players={state.results[latest.id].slots[0]} onPlayer={onPlayer} />
       <span className="fd-home-result-award">+{fmt(awardTable(latest)[0])}</span>
     </section>}
-    {gameContent}
 
     {model.upcoming.length > 0 && <section className="fd-home-upcoming" aria-label="Coming up">
       <SectionHeading title="Coming up" action={<button type="button" className="fd-home-text-link" onClick={onEvents}>All events <Arrow /></button>} />

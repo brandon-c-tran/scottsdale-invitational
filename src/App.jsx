@@ -79,7 +79,7 @@ import { CommissionerDock } from "./features/director/CommissionerDock.jsx";
 import { CrewCheck } from "./features/director/CrewCheck.jsx";
 import { crewCheckRun } from "./features/director/crewCheck.js";
 import { AwardsHome } from "./features/awards/AwardsHome.jsx";
-import { TeamNameCard, TeamNameDesk, TeamNamesHome } from "./features/teams/TeamNameCard.jsx";
+import { TeamNameCard, TeamNameDesk } from "./features/teams/TeamNameCard.jsx";
 import { GeoHome, GeoPlaySheet } from "./features/geo/GeoPlay.jsx";
 import { TriviaHome, TriviaPlaySheet } from "./features/trivia/TriviaPlay.jsx";
 import { triviaQuestionTotal } from "../shared/trivia.js";
@@ -1643,13 +1643,11 @@ function TournamentApp({ tournament, onUpdateReload }) {
             onPlayer={p => setModal({type:"player", p})}
             onPlay={openDuel} onAccept={acceptDuel} onDecline={declineDuel}
             onWithdraw={withdrawDuel} onVoid={voidDuel} />}
-          awardsContent={<>
-            <TeamNamesHome state={state} me={me} events={events} />
-            <AwardsHome state={state} me={me} onPlayer={p => setModal({type:"player", p})} />
-          </>}
+          awardsContent={<AwardsHome state={state} me={me} onPlayer={p => setModal({type:"player", p})} />}
+          /* the in-app games in progress, as rows of Home's Now card (Karaoke's joins here) */
           gameContent={<>
-            <GeoHome state={state} me={me} onOpen={() => setGeoForce(n => n + 1)} />
-            <TriviaHome state={state} me={me} onOpen={() => setTriviaForce(n => n + 1)} />
+            <GeoHome state={state} me={me} inCard onOpen={() => setGeoForce(n => n + 1)} />
+            <TriviaHome state={state} me={me} inCard onOpen={() => setTriviaForce(n => n + 1)} />
           </>}
           pokerContent={<PokerCard state={state} standings={standings} me={me} gm={gmView}
                 onBuyin={() => setModal({type:"pokerBuyin"})}

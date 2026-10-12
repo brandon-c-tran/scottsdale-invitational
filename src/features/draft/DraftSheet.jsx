@@ -11,6 +11,7 @@ import { landedPick } from "./draftModel.js";
 import { EventName, OneSafe } from "../../ui/OneSafe.jsx";
 import "./draft.css";
 import { Icon } from "../../ui/Icon.jsx";
+import { NowRow } from "../../ui/NowRow.jsx";
 
 const identityStyle = (state, player) => ({ "--draft-color":resolvePlayerIdentity(state.profiles, player).color });
 const reference = turn => ({ draftId:turn.draftId, pickIndex:turn.pickIndex, draftRevision:turn.draftRevision });
@@ -37,6 +38,19 @@ export function DraftEntry({ state, ev, me, onOpen }) {
       <span>{turn.complete ? "Teams picked" : mine ? <EventName name={ev.name} /> : `${disp(state, turn.captain)}'s pick`}</span></span>
     <b aria-hidden="true"><Icon name="open" size="1em" /></b>
   </button>;
+}
+
+/* the same draft as a row of Home's Now card: whose pick it is, the way in.
+   `label`: the event's name when the card is about another */
+export function DraftNowRow({ state, ev, me, onOpen, label = null }) {
+  const draft = state.drafts?.[ev?.id];
+  if (!draft || state.draws?.[ev.id]) return null;
+  const turn = draftTurn(draft), mine = turn.captain === me;
+  const status = turn.complete ? "Teams picked" : mine ? "Your pick" : `${disp(state, turn.captain)}'s pick`;
+  return <NowRow className="fd-draft-now" tone={turn.complete ? "info" : mine ? "you" : "live"} flash={mine && !turn.complete}
+    label={label} status={status} go={mine && !turn.complete ? "Pick" : "Open"} primary={mine && !turn.complete}
+    icon={<BankChip p={turn.captain || draft.teams[0].captain} size={28}/>}
+    onClick={onOpen} ariaLabel={`Open ${ev.name} draft`} />;
 }
 
 export function DraftSheet({ ev, state, gm, me, standings = [], pool, roles = [], onClose, onPlayer,

@@ -3544,17 +3544,18 @@ function ProfileSheet({ state, me, onClose, onBack, initialSection = "card", sav
           onChoose={track => submit(() => onKaraoke(track), { inline:true })} />
       </div>}
       </fieldset>
-      <div className="fd-profile-save">
+      {/* the Karaoke section's Use is its save: no second Save there */}
+      {(section !== "karaoke" || confirmDiscard || error) && <div className="fd-profile-save">
       {confirmDiscard && <div className="fd-profile-discard" role="alert">
         <p>Your new photo is not saved.</p>
         <div><ActionButton compact variant="destructive" onClick={onClose}>Discard photo</ActionButton>
           <ActionButton compact variant="secondary" onClick={() => setConfirmDiscard(false)}>Keep editing</ActionButton></div>
       </div>}
       {error && <div role="alert" style={{ fontFamily:SANS, fontSize:13, color:"var(--clay-text)", marginTop:14 }}>{error}</div>}
-      <ActionButton disabled={busy || !display.trim() || badDraft} pending={busy}
+      {section !== "karaoke" && <ActionButton disabled={busy || !display.trim() || badDraft} pending={busy}
         onClick={() => submit(() => save(confirming ? { ...changedFields(), confirmJersey:true } : changedFields()))}
-        style={{ width:"100%", fontSize:16, padding:"14px" }}>{confirming ? "Confirm jersey" : "Save"}</ActionButton>
-      </div>
+        style={{ width:"100%", fontSize:16, padding:"14px" }}>{confirming ? "Confirm jersey" : "Save"}</ActionButton>}
+      </div>}
     </Sheet>
   );
 }

@@ -40,7 +40,9 @@ try {
 
 /* `catalog` (the Win song picker) and `push` (pocket alerts): the Ready check's views */
 const capabilities = { qa:qaOn, progressReset:qaOn, restore:false, snapshotExport:false, showControl:gm && !!scenario.show,
-  audioDirector:gm && !!scenario.audio, audioCatalog:gm && !!scenario.catalog, audioPlayback:false, push:gm && !!scenario.push };
+  audioDirector:gm && !!scenario.audio, audioCatalog:gm && !!scenario.catalog, audioPlayback:false, push:gm && !!scenario.push,
+  /* `karaoke`: the karaoke song picker (anyone's profile) */
+  karaoke:!!scenario.karaoke };
 globalThis.__FIT_SPOTIFY__ = scenario.spotify || null;
 let version = 1;
 const frame = () => ({ state:publicState(state, { isGm:gm, player:me }, { moments:state.moments }), you:me, gm, capabilities, version:++version,
@@ -220,6 +222,25 @@ async function openSheet(kind) {
   if (kind === "lastcard" || kind === "auto") return !!document.querySelector(".fd-sheet, [role=dialog]");
   /* your profile from the header, and Weekend's Add to Home Screen opened */
   if (kind === "profile") return tap(() => [...document.querySelectorAll("header button[aria-label='Your profile']")].find(visible));
+  /* the profile's Karaoke section; `-found`: a song searched and picked, its
+     videos the scenario's stand-ins (never Spotify or YouTube) */
+  if (kind === "profile-karaoke" || kind === "profile-karaoke-found") {
+    if (!await tap(() => [...document.querySelectorAll("header button[aria-label='Your profile']")].find(visible))) return false;
+    await sleep(600);
+    if (!await tap(() => [...document.querySelectorAll(".fd-profile-sections button")]
+      .find(b => visible(b) && b.textContent.trim() === "Karaoke"))) return false;
+    await sleep(400);
+    if (kind === "profile-karaoke") return !!document.querySelector(".fd-ksong");
+    const input = [...document.querySelectorAll(".fd-ksong input[type=search]")].find(visible);
+    if (!input) return false;
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(input, "dont stop believin");
+    input.dispatchEvent(new Event("input", { bubbles:true }));
+    await sleep(900);
+    if (!await tap(() => [...document.querySelectorAll(".fd-ksong .fd-song-use")].find(visible))) return false;
+    await sleep(900);
+    document.activeElement?.blur?.();
+    return document.querySelectorAll(".fd-ksong-video").length === 3;
+  }
   if (kind === "install-open") {
     const box = document.querySelector(".fd-weekend-install");
     if (!box) return false;

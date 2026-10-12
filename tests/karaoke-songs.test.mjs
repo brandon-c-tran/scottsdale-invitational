@@ -637,11 +637,11 @@ test("a saved song shows its cover, its video's thumbnail, channel and length, a
   const value = cleanKaraokeTrack({ ...TRACK, video:FOUND[0], alts:FOUND.slice(1) }, { now:1 });
   const { html, buttons } = render(React.createElement(KaraokeSongPicker, { value, onChoose:async () => ({ ok:true }) }));
   assert.match(html, /Don&#x27;t Stop Believin&#x27;/);
-  assert.match(html, /<small>Journey<\/small>/);
+  assert.match(html, /<small data-fit="ellipsis">Journey<\/small>/);
   assert.match(html, /aria-label="Play a preview of Don&#x27;t Stop Believin&#x27;"/, "the cover plays its clip");
   assert.match(html, new RegExp(`<img src="${karaokeThumb("stingray001")}" alt="" width="128" height="72"`),
     "YouTube's thumbnail, at least 120 by 70, starts the preview");
-  assert.match(html, /<strong>Stingray Karaoke<\/strong><small>4:05<\/small>/);
+  assert.match(html, />Stingray Karaoke<\/strong><small>4:05<\/small>/);
   assert.ok(buttons.some(button => button.name === "Change"));
   assert.ok(buttons.some(button => button.name === "Preview Journey - Don't Stop Believin' (Karaoke Version)"));
   assert.ok(!buttons.some(button => /^Use/.test(button.name)), "nothing to use: it is the song");

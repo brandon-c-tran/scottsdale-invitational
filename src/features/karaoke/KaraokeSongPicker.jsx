@@ -3,6 +3,7 @@ import { karaokeVideo, karaokeVideos, spotifySearch } from "../../lib/client.js"
 import { setPreviewSession } from "../../lib/sound.js";
 import { loadYouTube, YT_STATE } from "../../lib/youtube.js";
 import { writeError } from "../../lib/writeErrors.js";
+import { songTitle } from "../../../shared/audio.js";
 import { PlayArt, SongSearch, StillArt } from "../music/WinSongPicker.jsx";
 import { clipStarting, onClipStart, stopPreview } from "../music/previewPlayer.js";
 import {
@@ -111,7 +112,8 @@ export function VideoStep({ track, found, candidates = videoChoices(found?.video
   return <>
     <div className="fd-song-pick fd-ksong-song">
       {muted ? <StillArt track={track} size={size} /> : <PlayArt track={track} size={size} />}
-      <span className="fd-song-text"><strong>{track.name}</strong><small>{(track.artists || []).join(", ")}</small></span>
+      <span className="fd-song-text"><strong data-fit="ellipsis">{songTitle(track.name)}</strong>
+        <small data-fit="ellipsis">{(track.artists || []).join(", ")}</small></span>
       <button type="button" className="fd-song-change" onClick={onChange}>Change</button>
     </div>
     <div className="fd-ksong-status" role="status" aria-live="polite">
@@ -137,7 +139,8 @@ function SavedSong({ song, muted, compact, open, setOpen, onChange = null }) {
   return <>
     <div className="fd-song-pick fd-ksong-song">
       {muted || !song.trackId ? <StillArt track={song} size={size} /> : <PlayArt track={song} size={size} />}
-      <span className="fd-song-text"><strong>{song.name}</strong><small>{(song.artists || []).join(", ")}</small></span>
+      <span className="fd-song-text"><strong data-fit="ellipsis">{songTitle(song.name)}</strong>
+        <small data-fit="ellipsis">{(song.artists || []).join(", ")}</small></span>
       {onChange && <button type="button" className="fd-song-change" onClick={onChange}>Change</button>}
     </div>
     {song.video && <ul className="fd-ksong-videos" aria-label="Karaoke video">
@@ -158,7 +161,7 @@ function VideoRow({ video, muted, open, onToggle, saving = null, onUse = null })
         <img src={thumbOf(video)} alt="" width={128} height={72} loading="lazy" decoding="async" />
         <span className="fd-ksong-thumb-glyph" aria-hidden="true">{open ? <CloseGlyph /> : <PlayGlyph />}</span>
       </button>
-      <span className="fd-ksong-video-text"><strong>{video.channel || "YouTube"}</strong>
+      <span className="fd-ksong-video-text"><strong data-fit="ellipsis">{video.channel || "YouTube"}</strong>
         <small>{videoLength(video.seconds)}</small></span>
       {onUse && <button type="button" className="fd-ksong-use" onClick={onUse} disabled={!!saving} aria-busy={busy}
         aria-label={`Use the ${video.channel || "YouTube"} video`}>{busy ? "Saving" : "Use"}</button>}

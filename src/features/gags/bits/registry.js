@@ -15,6 +15,9 @@
      id, name   the bit, and what the reel calls it
      shape, style
      ms         its length; a moment bit runs MOMENT_MS.min to .max
+     span       derived: how long it holds the screen, its last frame kept
+                until the lettering has stood READ_MS (a TV window, a
+                phone's overlay and the stage's lift-off all run on it)
      beats      named instants (ms from its start): the scene's CSS reads
                 each as var(--b-<name>) and its cues land on them, so
                 retiming a beat moves the motion and the sound together
@@ -49,10 +52,13 @@ export const BIT_OUT_MS = 380;
    bit-stamp, the fact a beat behind): a still shows them landed */
 export const LETTER_LAND_MS = 480;
 export const LETTER_PLACES = Object.freeze(["top-left", "top-right", "top"]);
+/* the least time a landed name and fact stand before the bit lifts off */
+export const READ_MS = 1800;
+const spanOf = bit => bit.letter ? Math.max(bit.ms, Math.round(bit.letter.at + LETTER_LAND_MS + READ_MS)) : bit.ms;
 
 const freezeAll = value => Array.isArray(value) ? Object.freeze(value.map(freezeAll))
   : value && typeof value === "object" ? Object.freeze(Object.fromEntries(Object.entries(value).map(([k, v]) => [k, freezeAll(v)]))) : value;
-const freeze = bit => freezeAll({ ...bit, fits:bit.fits || BIT_SHAPES[bit.shape].triggers });
+const freeze = bit => freezeAll({ ...bit, fits:bit.fits || BIT_SHAPES[bit.shape].triggers, span:spanOf(bit) });
 
 /* ── quickdraw: an upset at high noon. Far apart on the floor, the wind,
    a tumbleweed between them, the long hold. B's hand twitches; A's whips

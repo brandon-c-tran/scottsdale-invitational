@@ -272,15 +272,17 @@ export function resultPresentation(state, events, eventId) {
 }
 
 /* where a result sequence is, from its anchor. Reduced motion keeps every
-   fact (all three places, the final order, arrows, splits) and drops travel. */
-export function resultMomentPhase(anchor, now, { reducedMotion = false, step = null } = {}) {
+   fact (all three places, the final order, arrows, splits) and drops travel.
+   `holdSort`: a bit is on screen over it, so the towers keep their old
+   order (and their sound) until it lifts off and the room sees them move. */
+export function resultMomentPhase(anchor, now, { reducedMotion = false, step = null, holdSort = false } = {}) {
   const age = Math.max(0, now - anchor);
   if (step === "standings")
-    return { phase:"standings", revealed:3, sorted:reducedMotion || age >= RESULT_SORT_DELAY_MS };
+    return { phase:"standings", revealed:3, sorted:!holdSort && (reducedMotion || age >= RESULT_SORT_DELAY_MS) };
   if (step === "winner" || age < RESULT_STANDINGS_AT_MS)
     return { phase:"podium", revealed:reducedMotion ? 3 : RESULT_PODIUM_BEATS_MS.filter(at => age >= at).length, sorted:false };
   return { phase:"standings", revealed:3,
-    sorted:reducedMotion || age >= RESULT_STANDINGS_AT_MS + RESULT_SORT_DELAY_MS };
+    sorted:!holdSort && (reducedMotion || age >= RESULT_STANDINGS_AT_MS + RESULT_SORT_DELAY_MS) };
 }
 
 /* ── the podium as a stage (TVPodium.jsx) ──

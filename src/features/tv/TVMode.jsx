@@ -1241,7 +1241,7 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied: allT
           hold:TV_RESULT_MOMENT_MS, crownEnd:(crown?.anchor || crownAt.current || 0) + CROWN_TIMING.total, crownHold:TV_AMBIENT_MS }} />
       : view ? <ChampionMoment state={state} events={events} view={view} standings={standings} moment={crown} /> : null;
   } else if (resultModel) {
-    const resultPhase = resultMomentPhase(resultMoment.anchor, now, { reducedMotion });
+    const resultPhase = resultMomentPhase(resultMoment.anchor, now, { reducedMotion, holdSort:!!gag });
     content = <ResultSequence state={state} model={resultModel} phase={resultPhase} towers={towers}
       anchor={resultMoment.anchor} now={now} />;
     if (resultPhase.phase === "podium") rail = { model:resultModel, anchor:resultMoment.anchor };

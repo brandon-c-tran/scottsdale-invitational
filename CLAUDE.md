@@ -555,7 +555,12 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   contest's bit plays from `decidedAt + TV_ADVANCE_MS` and pushes the next
   face-off, a new leader's card and S15 by its length (`gagHoldMs`); a
   result's plays over its podium from `postedAt + resultGagAt(ms)` (1st
-  has stood a second; it lifts off as the towers re-sort). The win song
+  has stood a second; it lifts off as the towers re-sort, and one too long
+  for that holds the sort, picture and sound, until it lifts:
+  `resultMomentPhase` `holdSort`). A bit's length on screen is its
+  registry `span`: its last frame held until the name and fact have stood
+  `READ_MS` (1.8 s), on the TV window, the phone overlay and the stage's
+  lift-off alike (`--bit-span`; the scene's own motion keeps `ms`). The win song
   that write started walks out first: the bit plays 300 ms after the
   walkout leaves (`walkoutForWrite`, `walkoutSpan`), and the next face-off
   waits for any walkout on screen, then the bit (`afterWalkout`,

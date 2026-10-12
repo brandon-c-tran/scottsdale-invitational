@@ -52,7 +52,7 @@ export function PhoneBit({ state, moment, phase = "fri", onDismiss = null }) {
   return (
     <div className={`fd-moment fd-bit is-${bit.shape}`} role="dialog" aria-modal="false" aria-label={label}
       data-bit={bit.id} onClick={() => onDismiss?.()}
-      style={{ "--tl":`${-joined}ms`, "--moment-hold":`${bit.ms}ms`, "--b-letter":`${Math.round(bit.letter?.at || 0)}ms`,
+      style={{ "--tl":`${-joined}ms`, "--moment-hold":`${bit.span || bit.ms}ms`, "--b-letter":`${Math.round(bit.letter?.at || 0)}ms`,
         "--bit-lamp":gagLamp(state, moment)?.color || "var(--sun)" }}>
       <div className="fd-bit-body">
         <div className="fd-bit-screen" aria-hidden="true">

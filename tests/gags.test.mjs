@@ -38,11 +38,11 @@ const {
   aloneFirst, aloneLast, gagAt, gagAudience, gagCast, gagForPlayer, gagHoldMs, gagLamp, gagPlan, gagWrites, latestGag, lossFact,
   momentLog, nextGagEdge, recentFor, resultGagAt, streakFact, testGag, winStreaks, writeResults,
 } = gags;
-const { BIT_OUT_MS, bitById, bitsOf, pickBit } = await import("../src/features/gags/bits/registry.js");
+const { BIT_OUT_MS, LETTER_LAND_MS, READ_MS, bitById, bitsOf, pickBit } = await import("../src/features/gags/bits/registry.js");
 const { HIGHLIGHT_CARD, highlightAt, highlightReel, highlightSince, withHighlightTurns } = await import("../src/features/gags/highlights.js");
 const { PHONE_BIT_HOLD_MAX_MS, PHONE_BIT_HOLD_SLACK_MS, phoneBitHoldMs, phoneBitStep } = await import("../src/features/gags/phoneBit.js");
 const { holdStage, stageHeld } = await import("../src/lib/motion.js");
-const { TV_ADVANCE_MS, TV_AMBIENT_TURN_MS, TV_RESULT_MOMENT_MS, podiumBeatAt } = await import("../src/features/tv/tvModel.js");
+const { TV_ADVANCE_MS, TV_AMBIENT_TURN_MS, TV_RESULT_MOMENT_MS, podiumBeatAt, resultMomentPhase } = await import("../src/features/tv/tvModel.js");
 const { faceOffStart } = await import("../src/features/tv/faceOff.js");
 const { WALKOUT_CLEAR_MS, WALKOUT_OF_WRITE_MS, WALKOUT_TIMING, afterWalkout, walkoutForWrite, walkoutSpan } =
   await import("../src/features/moments/walkout.js");
@@ -72,7 +72,7 @@ const refuse = (s, type, payload, ctx, pattern) => {
 };
 const rule = (s, player, delta) => act(s, "adjust", { player, delta, reason:"setup" });
 const events = s => allEventsOf(s);
-const msOf = gag => bitById(gag.bit).ms;
+const msOf = gag => bitById(gag.bit).span;
 
 /* Beer Die as six pairs in the stored hand-drawn six: play-in 1 is team 3
    (Adi, Chiang) against team 4 (Richard, Allan), play-in 2 team 2 (Khoa,
@@ -477,10 +477,16 @@ test("the windows: a contest's bit after its advance moment, a result's over its
   assert.ok(RESULT_GAG_AT_MS >= podiumBeatAt(2) + 1000, "1st has stood on its podium a second");
   for (const id of [...GAG_BITS.versus, ...GAG_BITS.win, ...GAG_BITS.loss]) {
     const bit = bitById(id);
-    const start = resultGagAt(bit.ms);
+    /* the bit holds its last frame until its name has stood READ_MS */
+    assert.ok(bit.span >= bit.ms && bit.span - (bit.letter.at + LETTER_LAND_MS) >= READ_MS - 1, `${id}: the name stands to be read`);
+    const start = resultGagAt(bit.span);
     assert.ok(start >= RESULT_GAG_AT_MS, id);
-    assert.ok(start + bit.ms <= RESULT_GAG_END_MS + BIT_OUT_MS, `${id}: lifted off by the towers' first beat`);
-    if (bit.ms <= RESULT_GAG_END_MS - RESULT_GAG_AT_MS) assert.equal(start + bit.ms, RESULT_GAG_END_MS, `${id}: ends on the sort`);
+    if (bit.span <= RESULT_GAG_END_MS - RESULT_GAG_AT_MS) assert.equal(start + bit.span, RESULT_GAG_END_MS, `${id}: ends on the sort`);
+    else assert.equal(start, RESULT_GAG_AT_MS, `${id}: as early as the podium allows`);
+    /* a longer one holds the towers' sort (and its sound) until it lifts off */
+    const end = start + bit.span;
+    assert.equal(resultMomentPhase(0, end - 1, { holdSort:true }).sorted, false, `${id}: the towers wait under it`);
+    assert.equal(resultMomentPhase(0, Math.max(end, RESULT_GAG_END_MS)).sorted, true, `${id}: and sort once it lifts`);
   }
   const s = upsetBoard();
   decide(s, "die", 3);
@@ -634,8 +640,8 @@ test("a walkout from another write never moves the bit", () => {
   other.showControl.audio = songOf("Evan", d2 + 1000);
   assert.equal(walkoutForWrite(other, events(other), { at:d2, players:["Adi", "Chiang"] }), null);
   assert.equal(latestGag(other, events(other)), null);
-  assert.equal(faceOffStart(other, ev(other, "die")), d2 + 1000 + WALKOUT_TIMING.total + WALKOUT_CLEAR_MS,
-    "the face-off still waits for whatever walkout holds the room");
+  assert.equal(faceOffStart(other, ev(other, "die")), Math.max(d2 + 1000 + WALKOUT_TIMING.total + WALKOUT_CLEAR_MS,
+    d2 + TV_ADVANCE_MS + gagHoldMs(other, ev(other, "die"))), "the face-off still waits for whatever walkout holds the room");
 });
 
 test("a late walkout: the bit already up gives the room away and the face-off waits for the song", () => {
@@ -844,7 +850,7 @@ test("a QA test plays its bit on the TVs just after its write, even with Gags of
   const gag = testGag(s);
   assert.deepEqual([gag.bit, gag.shape, gag.fact, gag.test], ["roadrunner", "loss", lossFact(GAG_TEST_AMOUNT), true]);
   assert.equal(gag.start, s.gagTest.at + GAG_TEST_LEAD_MS);
-  assert.equal(gag.end, gag.start + bitById("roadrunner").ms);
+  assert.equal(gag.end, gag.start + bitById("roadrunner").span);
   assert.equal(gagPlan(s, events(s))[0].id, gag.id);
   assert.equal(testGag({ ...s, frozen:true }), null);
   assert.equal(testGag({ ...s, gagTest:{ kind:"turkey", at:Date.now(), players:["Adi"] } }), null, "an old test plays nothing");

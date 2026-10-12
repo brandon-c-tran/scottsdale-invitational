@@ -112,7 +112,7 @@ export function BitLayer({ bit: bitOrId, cast = {}, state = null, phase = "fri",
   return (
     <div ref={layer} className={`bit-layer bit-art is-${bit.id} is-${bit.shape}${held ? " is-frozen" : ""}`} data-bit={bit.id}
       role="img" aria-label={[lettered, told].filter(Boolean).join(", ") || bit.name}
-      style={{ "--tl":`${-elapsed}ms`, "--bit-ms":`${bit.ms}ms`, "--bit-in":`${BIT_IN_MS}ms`, "--bit-out":`${BIT_OUT_MS}ms`,
+      style={{ "--tl":`${-elapsed}ms`, "--bit-ms":`${bit.ms}ms`, "--bit-span":`${bit.span || bit.ms}ms`, "--bit-in":`${BIT_IN_MS}ms`, "--bit-out":`${BIT_OUT_MS}ms`,
         "--b-letter":`${Math.round(bit.letter?.at || 0)}ms`, "--bit-lamp":lamp, ...beatVars(bit) }}>
       {camera.css && <style>{camera.css}</style>}
       <div className="bit-shake" style={motion(runOf(shakes, (shake, fill) =>

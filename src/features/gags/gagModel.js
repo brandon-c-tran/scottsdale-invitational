@@ -334,7 +334,7 @@ export function momentLog(state, events = allEventsOf(state)) {
     const bit = pickBit(shape, step.write.key, recentFor(played[shape], bitsOf(shape).length));
     if (!bit) return { ...step, moment:null };
     played[shape].push(bit.id);
-    return { ...step, moment:{ ...found, shape, bit:bit.id, ms:bit.ms } };
+    return { ...step, moment:{ ...found, shape, bit:bit.id, ms:bit.span } };
   });
 }
 
@@ -403,7 +403,7 @@ export function testGag(state, events = allEventsOf(state)) {
   if (!bit) return null;
   const beaten = (Array.isArray(test.beaten) ? test.beaten : []).filter(player => typeof player === "string" && player);
   const view = windowed({ id:`test:${at}:${bit.id}`, write:`test:${at}`, test:true, at, trigger:null, shape:test.shape,
-    bit:bit.id, ms:bit.ms, players:[players[0]], beaten:test.shape === "versus" ? beaten.slice(0, 1) : [],
+    bit:bit.id, ms:bit.span, players:[players[0]], beaten:test.shape === "versus" ? beaten.slice(0, 1) : [],
     name:disp(state, players[0]), fact:TEST_FACT[test.shape] }, at + GAG_TEST_LEAD_MS);
   return walkoutHolds(walkoutSpan(state, events), view) ? null : view;
 }

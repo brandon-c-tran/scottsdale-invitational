@@ -532,7 +532,8 @@ test("each card's drawing: a label, the people's chips and names, one figure in 
 test("the TV wires the records: one turn in the gap's rotation, its card keyed to the turn", () => {
   const source = readFileSync(new URL("../src/features/tv/TVMode.jsx", import.meta.url), "utf8");
   assert.match(source, /photoGap \? recordCards\(state, events\) : EMPTY/, "only computed in a gap");
-  assert.match(source, /withPhotoTurns\(withRecordTurns\(ambientCards, records\.length\), photos\.length\)/);
+  /* the records' turn, then the highlight reel's (features/gags/highlights.js), then the photos */
+  assert.match(source, /withPhotoTurns\(withHighlightTurns\(withRecordTurns\(ambientCards, records\.length\), reel\.length\),\s*photos\.length\)/);
   assert.match(source, /recordAt\(records, ambient, now, TV_AMBIENT_TURN_MS\)/);
   assert.match(source, /<TVRecord key=\{`\$\{record\.id\}@\$\{turnAt\}`\}/);
 });

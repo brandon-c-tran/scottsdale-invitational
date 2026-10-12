@@ -532,51 +532,70 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   the TV plays the showdown anchored on `armedAt` (with an event live, the
   ticker carries the result). The economy is unchanged (antes, cap, lapse,
   daily limit, redaction until settled, `resolveDuel`).
-- **Gags** (Oct 8, `src/features/gags/`: pure `gagModel.js`, `TVGags.jsx`,
-  `gags.css`; `shared/gags.js`): the bowling alley's cartoon screens on the
-  TV, at most one per write, the rarest first. Turkey: a player's third
-  straight win (again at 4, 5...) on a pure W/L timeline (contests by
-  `decidedAt`, W to the winning side, L to the beaten, a heat's
-  non-qualifiers L; an event without contests counts its posted result, 1st
-  W and everyone else who played L; never an event twice, a shelved event
-  or the poker finale); several at once is the lead (longest run, then
-  roster order), up to three smaller turkeys and "+N". Strike: the stored
-  `odds` named an `underdog` and it won ("UPSET", the name). Gutter: the
-  biggest single bettor's net loss on the decided contest or an FFA result
-  is `GUTTER_MIN` (500) or more (the amount in clay, the name). Vultures: an
-  event result leaves a different player alone in last, from `chipWrites`
-  before and after it (the place, the name). Drawn on the session's
-  painting with the board stepped out: a turkey struts in, its tail the
-  player's chips and its head their photo chip, three strike marks
-  stamping; the winner rolls down a lane into ten pins (the beaten side's
-  chips on the front ones); the bettor's chip wobbles into the gutter;
-  three vultures circle the player's chip. The window derives on the TV
-  from the write's server time: a contest that did not post its result
-  plays from `decidedAt + TV_ADVANCE_MS` and pushes the next face-off and
-  a new leader's card and S15 by its length (`gagHoldMs`); a posted result
-  plays from `postedAt + RESULT_GAG_AT_MS` (4.4 s, over the podium's
-  tail). The win song that write started walks out first (Oct 9): the gag
-  plays 300 ms after the walkout leaves (`walkoutForWrite`: one of the
-  write's winners, started within 6 s; the window is
-  `moments/walkout.js` `walkoutSpan`, the one `useTvWalkout` plays), and
-  the next face-off waits for any walkout on screen, then the gag
-  (`afterWalkout`), its start read from the state until it plays
-  (`useLiveStart`, the phones' You're up too). Only the newest write plays
-  and a later lifecycle write ends it; never on a frozen board, at the
-  live poker table, under another walkout (a song that starts after the
-  gag did takes the room, and the gag never plays twice) or under another
-  takeover (decided as the window opens: skipped, never queued).
-  Its synthesized sounds (`soundKit.js` parts, `gagCues`, open past the
-  song's duck) ride the room bus from a fresh frame only (`useGagSound`);
-  reduced motion holds the last frame with one summary sound. The TV
-  sheet's Gags switch (`setGags`, top-level `state.gagsOff`, kept by a
-  progress reset); the QA console's Gags part (`qaGag { kind }`,
-  commissioner and the qa capability, no confirmation or backup) writes
-  `state.gagTest` with a cast from the board, played 300 ms after its
-  write even with Gags off, cleared by a reset. `/dev/gags-preview.html`
-  lands each write live on the real TV (`&song=1`: the walkout first).
-- **Bits** (Oct 10, `src/features/gags/`, not wired into TVMode, phones or
-  `gagModel` yet; waiting on Brandon): the gags' replacement. Straight-faced
+- **Gags** (Oct 8; the bits since Oct 10, `src/features/gags/`: pure
+  `gagModel.js`, `highlights.js`, `phoneBit.js`; `TVGags.jsx`,
+  `TVHighlight.jsx`, `PhoneBit.jsx`; `shared/gags.js`): the room's comic
+  moments, each a bit (below) on the TV and on the phones it is about. At
+  most one per write, the first trigger that holds: an upset (the stored
+  `odds` named an `underdog` and it won; shape versus, the winners `a`,
+  the side they beat `b`, "Upset"), a streak (a player's third straight
+  win, again at 4, 5..., on a pure W/L timeline: contests by `decidedAt`,
+  W to the winning side, L to the beaten, a heat's non-qualifiers L; an
+  event without contests counts its posted result, 1st W and everyone
+  else who played L; never an event twice, a shelved event or the poker
+  finale; win, "3 in a row", a whole side on one run letters its name), a
+  new leader (a posted result leaves a different player alone at the top,
+  from `chipWrites` before and after it; win, "In the lead"), a big losing
+  bet (one bettor's net loss on the write's bets is `BIG_LOSS_MIN`, 1,000,
+  or more; loss, "-1,000"), a new last place (a posted result leaves a
+  different player alone at the bottom; loss, "13th"). `momentLog` replays
+  every write in order and picks each moment's bit with `pickBit(shape,
+  write key, recentFor(...))`: the same bit on every screen, a shape plays
+  round its pool before a bit comes back, never one twice running. A
+  contest's bit plays from `decidedAt + TV_ADVANCE_MS` and pushes the next
+  face-off, a new leader's card and S15 by its length (`gagHoldMs`); a
+  result's plays over its podium from `postedAt + resultGagAt(ms)` (1st
+  has stood a second; it lifts off as the towers re-sort). The win song
+  that write started walks out first: the bit plays 300 ms after the
+  walkout leaves (`walkoutForWrite`, `walkoutSpan`), and the next face-off
+  waits for any walkout on screen, then the bit (`afterWalkout`,
+  `useLiveStart`). Only the newest write plays and a later lifecycle write
+  ends it; never on a frozen board, at the live poker table, under another
+  walkout or another takeover (decided as the window opens: skipped, never
+  queued); a winner scene at any step lets it play. The TV: a full-canvas
+  takeover through `BitLayer` on the session's painting, the name and fact
+  lettered on its sky, the frame chasing in the winner's flood (a loss,
+  the clay), the bit's own foley (`gagCues`) on the room bus from a fresh
+  frame only (`useGagSound`), reduced motion its `still` and one summary
+  sound. The phones (`usePhoneBit`, `gagAudience`: both sides of an upset,
+  a win's winners, a loss's loser): latched only from a fresh frame (a
+  phone that opens after the write sees nothing), on the TV's instant, its
+  start following the state until it plays, then held to its end; full
+  screen on the dark glass, the 16:9 stage across the phone and the name
+  and fact stamped under it (the stage letters nothing, `letters` false),
+  a tap puts it away; sound on the `you` bus, centred; the drawing loads
+  on first use (`lazyPart`). It holds the stage (`holdStage`) from the
+  fresh frame to its end, so that write's `ChipReceipt` docks after the
+  bit. The highlight reel: in a real gap (`tvPhotoGap`) one "highlights"
+  turn after the records (`withHighlightTurns`) replays the weekend's
+  moments newest first, one a turn on the server clock (`highlightAt` from
+  `highlightSince`, so a gap's first replays the newest): the bit in a
+  window of glass with a cyan Replay lamp and its event, played from the
+  turn and held on its punchline, on its own session's painting, silent.
+  The TV sheet's Gags switch (`setGags`, top-level `state.gagsOff`, kept by
+  a progress reset) turns off the moments, the phones' and the reel. The QA
+  console's Gags part lists every moment bit by shape, Random first
+  (`qaGag { bit }` or `{ shape }`, commissioner and the qa capability, no
+  confirmation or backup), writing `state.gagTest` with a cast from the
+  board (a versus is last place beating the leader, a win the leader, a
+  loss last place), played on the TVs only 300 ms after its write even
+  with Gags off, cleared by a reset. `/dev/gags-preview.html` lands each
+  trigger's write live on the real TV (`?trigger=`, `&song=1` the walkout
+  first, `&bit=<id>` a QA test of that bit); fit views `tv-gag-*`,
+  `tv-highlight*` and the phone's `bit-*` (the write lands on a fresh
+  frame).
+- **Bits** (Oct 10, `src/features/gags/`, approved by Brandon and played
+  as the Gags above since Oct 11): the gags' replacement. Straight-faced
   physical comedy whose cast is the players' own photo chips. The rig
   (`cast/CastChip.jsx`, pure `castGeometry.js` and `gloveArt.js`): the chip
   on its edge with a coin's thickness, two floating white gloves in eight

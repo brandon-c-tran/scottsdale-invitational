@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { Suspense, useEffect, useMemo, useRef } from "react";
 import { Icon } from "../../ui/Icon.jsx";
 import { disp } from "../../../shared/core.js";
 import { ChipFace } from "../identity/PlayerIdentity.jsx";
@@ -12,20 +12,44 @@ import { teamColorPlayer, teamRows } from "./walkoutTeam.js";
 import { UP_TIMING, useYoureUp } from "./youreUp.js";
 import { EventName, OneSafe } from "../../ui/OneSafe.jsx";
 import { LampChase } from "../../ui/ScoreReel.jsx";
+import { lazyPart } from "../../lib/lazyPart.js";
+import { weekendPhase } from "../../ui/phase.js";
+import { usePhoneBit } from "../gags/phoneBit.js";
 import "./moments.css";
+
+/* the bit's drawing: the stage, the cast and every scene, fetched only
+   once this phone is owed a moment */
+const PhoneBit = /* @__PURE__ */ lazyPart(() => import("../gags/PhoneBit.jsx"), "PhoneBit");
+/* a drawing that will not load (a dropped connection, a build replaced
+   under an open phone) costs this phone its moment, never the app */
+class BitBoundary extends React.Component {
+  constructor(props) { super(props); this.state = { failed:false }; }
+  static getDerivedStateFromError() { return { failed:true }; }
+  componentDidCatch() {}
+  render() { return this.state.failed ? null : this.props.children; }
+}
 
 /* The phone's half of the room's peaks (Backglass): "You're up" for a
    competitor (and a banner for everyone else) on the TV's face-off beat,
-   and the Walkout on the winner's own phone (every teammate's, for a team
-   win). Each is a takeover in the
-   player's identity color with ink read from it; a tap anywhere puts it
-   away, and it leaves on its own. Nothing here writes state: backing
-   yourself opens Bets, where the cap and the pending guards live. */
+   the Walkout on the winner's own phone (every teammate's, for a team
+   win), then the moment's bit on the phones it is about (features/gags,
+   on the dark glass). The others are takeovers in the player's identity
+   color with ink read from it. A tap anywhere puts any of them away, and
+   each leaves on its own. Nothing here writes state: backing yourself
+   opens Bets, where the cap and the pending guards live. */
 export function MomentsLayer({ state, events, me, active = true, onBets = null }) {
   const up = useYoureUp(state, me, { active });
   const walkout = useWalkoutMoment(state, events, { forPlayer:me || "-" });
+  /* a moment's bit on the phones it is about (features/gags/phoneBit.js),
+     after that write's walkout, its drawing loaded once one is owed */
+  const bit = usePhoneBit(state, events, me, { active });
+  useEffect(() => { if (bit.pending) PhoneBit.preload().catch(() => {}); }, [bit.pending]);
+  const phase = useMemo(() => weekendPhase(state, events), [state, events]);
   if (!active || !me) return null;
   if (walkout) return <PhoneWalkout state={state} moment={walkout} me={me} />;
+  if (bit.moment) return <BitBoundary key={bit.moment.id}><Suspense fallback={null}>
+    <PhoneBit state={state} moment={bit.moment} phase={phase} onDismiss={bit.dismiss} />
+  </Suspense></BitBoundary>;
   if (up?.role === "player") return <YoureUpTakeover key={up.id} state={state} moment={up} me={me} onBets={onBets} />;
   if (up?.role === "spectator") return <UpBanner key={up.id} state={state} moment={up} onBets={onBets} />;
   return null;

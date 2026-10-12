@@ -604,10 +604,11 @@ function readyBoard(stage) {
     { id:"qdressed", title:"Best dressed", nominees:null }, { id:"qcomeback", title:"Comeback of the weekend", nominees:null }] });
   return state;
 }
-/* Gags (Oct 8, features/gags): each kind derived from a weekend the real
-   reducers played, and the QA console's test. Each comes in two parts, the
-   weekend just before the write that owes the gag and that write, so the
-   rehearsal (dev/gags-preview) can land the write live. QA's jumps stamp a
+/* Gags (Oct 8; the bits since Oct 10, features/gags): each trigger derived
+   from a weekend the real reducers played, and the QA console's test. Each
+   comes in two parts, the weekend just before the write that owes the
+   moment and that write, so the rehearsal (dev/gags-preview) and a phone
+   (fit-phone's "bit" sheet) can land the write live. QA's jumps stamp a
    few ms ahead of the wall clock, so a decision made after one is moved to
    be the newest write, as it is in the room. */
 function decidedLast(state, evId) {
@@ -627,9 +628,9 @@ const winnerTap = (evId, pick) => state => {
   act(state, "recordContestWinner", { evId, contestId:live.id, contestRevision:live.revision, winner:pick(live).key, postResult:true });
   return state;
 };
-/* a turkey: the guest wins Long Putt, then their pair takes every Beer
-   Die match it plays; the gag rides the final, which posts the result */
-function turkeyParts(player = FIT_GUEST) {
+/* a streak: the guest wins Long Putt, then their pair takes every Beer
+   Die match it plays; the moment rides the final, which posts the result */
+function streakParts(player = FIT_GUEST) {
   const state = fresh("locker");
   act(state, "announceEvent", { evId:"putt" });
   lockCurrent(state, "putt");
@@ -643,24 +644,41 @@ function turkeyParts(player = FIT_GUEST) {
     const before = structuredClone(state);
     if (write(state).results.die) return { state:before, write, action:"recordContestWinner" };
   }
-  throw new Error("gagTurkey: Beer Die never posted");
+  throw new Error("gagStreak: Beer Die never posted");
 }
-/* a strike: Beer Die's play-in opened with an underdog, and it won */
-function strikeParts() {
-  const state = comebackBoard({ bets:false });
+/* an upset: Beer Die's first match opened with an underdog (the side
+   `player` plays on, when given: the other side is ruled up and betting
+   reopens so the odds are fixed then), and it won */
+function upsetParts(player = null) {
+  if (!player) {
+    const state = comebackBoard({ bets:false });
+    lockCurrent(state, "die");
+    const tap = winnerTap("die", live => live.sides.find(item => item.key === live.odds?.underdog) || live.sides[1]);
+    return { state, write:next => decidedLast(tap(next), "die"), action:"recordContestWinner" };
+  }
+  const state = withoutBets(fresh("event:die:open"));
+  const ev = eventOf(state, "die");
+  const sides = resolveCurrentContest(state, ev).sides;
+  const favorite = sides.find(side => !side.players.includes(player)) || sides[0];
+  act(state, "takeBackAnnouncement", { evId:"die" });
+  favorite.players.forEach((who, i) => act(state, "adjust", { player:who, delta:i ? 900 : 1500, reason:"fit" }));
+  act(state, "announceEvent", { evId:"die" });
   lockCurrent(state, "die");
-  const tap = winnerTap("die", live => live.sides.find(item => item.key === live.odds?.underdog) || live.sides[1]);
+  const tap = winnerTap("die", live => live.sides.find(item => item.key === live.odds?.underdog) || live.sides[0]);
   return { state, write:next => decidedLast(tap(next), "die"), action:"recordContestWinner" };
 }
-/* a gutter ball: a player with no photo (Henry Nguyen when he is not
-   playing) puts 1,000 on the side that loses */
-function gutterParts(bettors = ["Henry", "Allan", "Ben", "Jeremy"]) {
+/* a big losing bet: a player with no photo (Henry Nguyen when he is not
+   playing) puts 1,000 on the side that loses; or `own`, a player backs
+   their own side for 1,000 and it loses */
+function bigLossParts(bettors = ["Henry", "Allan", "Ben", "Jeremy"], { own = null } = {}) {
   const state = withoutBets(fresh("event:die:open"));
   const ev = eventOf(state, "die");
   const contest = resolveCurrentContest(state, ev);
-  const winner = contest.sides.find(item => item.key !== contest.odds?.underdog) || contest.sides[0];
+  const mine = own ? contest.sides.find(item => item.players.includes(own)) : null;
+  const winner = mine ? contest.sides.find(item => item !== mine)
+    : contest.sides.find(item => item.key !== contest.odds?.underdog) || contest.sides[0];
   const loser = contest.sides.find(item => item !== winner);
-  const who = bettors.find(item => !contest.players.includes(item))
+  const who = own && mine ? own : bettors.find(item => !contest.players.includes(item))
     || presentPlayers(state).find(item => !contest.players.includes(item));
   act(state, "adjust", { player:who, delta:2000, reason:"fit" });
   act(state, "placeWager", { wager:{ kind:"match", eventId:"die", evName:ev.name, stake:1000, contestId:contest.id,
@@ -669,11 +687,26 @@ function gutterParts(bettors = ["Henry", "Allan", "Ben", "Jeremy"]) {
   const tap = winnerTap("die", live => live.sides.find(item => item.key === winner.key));
   return { state, write:next => decidedLast(tap(next), "die"), action:"recordContestWinner" };
 }
-/* the vultures: Ben sits alone at the bottom after a ruling, then Long
-   Putt's result lifts him and drops the guest (a lost bet) alone into last */
-function vulturesParts(player = FIT_GUEST) {
+/* a new leader: the guest wins Long Putt on a level board and stands
+   alone at the top of it */
+function leaderParts(player = FIT_GUEST) {
+  const state = withoutBets(fresh("event:putt:open"));
+  lockCurrent(state, "putt");
+  act(state, "beginResultEntry", { evId:"putt" });
+  const others = presentPlayers(state).filter(item => item !== player && item !== "Ben");
+  const write = next => {
+    act(next, "saveResult", { evId:"putt", slots:[[player], [others[0]], [others[1]]] });
+    return newest(next, "putt");
+  };
+  return { state, write, action:"saveResult" };
+}
+/* a new last place: Khoa leads by a mile and Ben sits alone at the
+   bottom after a ruling, then Long Putt's result lifts Ben and drops the
+   guest (a lost bet) alone into last; the lead never moves */
+function lastParts(player = FIT_GUEST) {
   const state = withoutBets(fresh("event:putt:open"));
   const ev = eventOf(state, "putt");
+  act(state, "adjust", { player:"Khoa", delta:2000, reason:"fit" });
   act(state, "adjust", { player:"Ben", delta:-100, reason:"fit" });
   const contest = resolveCurrentContest(state, ev);
   const backed = contest.sides.find(side => !side.players.includes(player) && !side.players.includes("Ben")
@@ -682,35 +715,41 @@ function vulturesParts(player = FIT_GUEST) {
     contestRevision:contest.revision, pick:backed.key, pickPlayers:[...backed.players], stake:200 } }, playerCtx(player));
   lockCurrent(state, "putt");
   act(state, "beginResultEntry", { evId:"putt" });
-  const third = backed.players[0] === "Adi" ? "Khoa" : "Adi";
+  const third = backed.players[0] === "Adi" ? "Sahil" : "Adi";
   const write = next => {
     act(next, "saveResult", { evId:"putt", slots:[["Evan"], [third], ["Ben"]] });
     return newest(next, "putt");
   };
   return { state, write, action:"saveResult" };
 }
-/* the QA console's test of a kind, on a mid-weekend board */
-const testParts = kind => ({ state:fresh("event:putt:done"), write:next => { act(next, "qaGag", { kind }); return next; },
+/* the QA console's test (a shape's, or a named bit), on a mid-weekend board */
+const testParts = payload => ({ state:fresh("event:putt:done"), write:next => { act(next, "qaGag", payload); return next; },
   action:"qaGag" });
 
-/* a kind's weekend in its two parts (the QA test's with `test`) */
-export function gagWeekend(kind, { test = false } = {}) {
-  if (test) return testParts(kind);
-  const parts = { turkey:turkeyParts, strike:strikeParts, gutter:gutterParts, vultures:vulturesParts }[kind];
-  if (!parts) throw new Error(`Unknown gag ${kind}`);
-  return parts();
+/* the parts of a trigger's weekend (`test`: the QA console's test of
+   `shape`, or of the bit `bit`). `player` puts the guest in the moment
+   (an upset's side, a streak, a new leader, a new last place); `own`, a
+   big losing bet on their own side. */
+export const GAG_PARTS = Object.freeze({ upset:upsetParts, streak:streakParts, leader:leaderParts, bigloss:bigLossParts,
+  last:lastParts });
+export function gagWeekend(trigger, { test = false, shape = null, bit = null, player, own = null } = {}) {
+  if (test) return testParts(bit ? { bit } : { shape:shape || "win" });
+  if (!GAG_PARTS[trigger]) throw new Error(`Unknown gag trigger ${trigger}`);
+  if (trigger === "bigloss") return bigLossParts(undefined, { own });
+  return GAG_PARTS[trigger](player);
 }
 const playedOut = ({ state, write }) => write(state);
-export const gagTurkey = player => playedOut(turkeyParts(player));
-export const gagStrike = () => playedOut(strikeParts());
-export const gagGutter = bettors => playedOut(gutterParts(bettors));
-export const gagVultures = player => playedOut(vulturesParts(player));
-const gagTest = kind => playedOut(testParts(kind));
-/* the strike's winners' song, started 1.2 s after the decision in its own
-   write: the walkout has the TV first and docks, then the gag plays
+export const gagUpset = player => playedOut(upsetParts(player));
+export const gagStreak = player => playedOut(streakParts(player));
+export const gagLeader = player => playedOut(leaderParts(player));
+export const gagBigLoss = (bettors, opts) => playedOut(bigLossParts(bettors, opts));
+export const gagLast = player => playedOut(lastParts(player));
+const gagTest = payload => playedOut(testParts(payload));
+/* the upset's winners' song, started 1.2 s after the decision in its own
+   write: the walkout has the TV first and docks, then the bit plays
    (moments/walkout.js walkoutSpan) */
 function gagAfterWalkout() {
-  const state = gagStrike();
+  const state = gagUpset();
   const last = state.eventOps.die.lastContest;
   const player = state.draws.die.teams[last.winner].players[0];
   state.showControl.audio = { ...(state.showControl.audio || {}), walkout:{ player, trackId:null,
@@ -787,25 +826,39 @@ export const TV_SCENARIOS = Object.freeze([
   { id:"tv-showdown-result", build:() => duelState("won"), at:{ duel:"result", ms:3200 }, pause:true, wait:300 },
   { id:"tv-showdown-foul", build:() => duelState("foul"), at:{ duel:"result", ms:3200 }, pause:true, wait:300 },
   { id:"tv-showdown-live", build:() => duelState("won", { base:"event:putt:open" }), at:{ duel:"result", ms:3200 } },
-  /* Gags (Oct 8): each kind from a played weekend, held with its lettering
-     landed (`gag`: ms into the gag), a flock and a team rolled in drawn
-     for a cast the reducers cannot reach on cue, and the QA tests */
-  { id:"tv-gag-turkey", build:() => gagTurkey(), at:{ gag:3250 }, pause:true, wait:300 },
-  { id:"tv-gag-strike", build:gagStrike, at:{ gag:2450 }, pause:true, wait:300 },
-  { id:"tv-gag-gutter", build:() => gagGutter(), at:{ gag:2150 }, pause:true, wait:300 },
-  { id:"tv-gag-vultures", build:() => gagVultures(), at:{ gag:2300 }, pause:true, wait:300 },
-  { id:"tv-gag-turkey-flock", build:() => fresh("event:putt:done"),
-    moment:{ kind:"gag", t:3250, gag:{ kind:"turkey", players:["Richard", "Henry", "Jeremy", "Adi"], more:2, count:5 } } },
-  { id:"tv-gag-strike-team", build:() => longNames(fresh("event:volley:open"), "volley"),
-    moment:{ kind:"gag", t:2450, gag:{ kind:"strike", players:["Henry", "Jeremy", "Adi"], name:"Les Quizerables Reunited",
-      beaten:["Brandon", "Evan", "Khoa"], beatenName:"Periwinkle Twinkle Stars" } } },
-  { id:"tv-gag-gutter-big", build:() => fresh("event:pong:done"),
-    moment:{ kind:"gag", t:2150, gag:{ kind:"gutter", players:["Richard"], amount:12500 } } },
-  ...["turkey", "strike", "gutter", "vultures"].map(kind => ({ id:`tv-gag-test-${kind}`, build:() => gagTest(kind),
-    at:{ gag:{ turkey:3250, strike:2450, gutter:2150, vultures:2300 }[kind] }, pause:true, wait:300 })),
-  /* the winners' song walked out first: the gag in its moved window, the
+  /* Gags (Oct 8; the bits since Oct 10): each trigger from a played
+     weekend, held once its lettering has landed (`gag`: "letter", or ms
+     into the bit); named bits held mid-moment for casts the reducers
+     cannot reach on cue (`moment`: a team, a big side, a long name); the
+     QA tests; the bit after its walkout; the highlight reel's turn, mid-bit
+     and on its held still */
+  { id:"tv-gag-upset", build:() => gagUpset(), at:{ gag:"letter" }, pause:true, wait:300 },
+  { id:"tv-gag-streak", build:() => gagStreak(), at:{ gag:"letter" }, pause:true, wait:300 },
+  { id:"tv-gag-leader", build:() => gagLeader(), at:{ gag:"letter" }, pause:true, wait:300 },
+  { id:"tv-gag-bigloss", build:() => gagBigLoss(), at:{ gag:"letter" }, pause:true, wait:300 },
+  { id:"tv-gag-last", build:() => gagLast(), at:{ gag:"letter" }, pause:true, wait:300 },
+  { id:"tv-gag-quickdraw-team", build:() => longNames(fresh("event:volley:open"), "volley"),
+    moment:{ kind:"gag", t:"letter", gag:{ bit:"quickdraw", players:["Henry", "Jeremy", "Adi"], name:"Les Quizerables Reunited",
+      fact:"Upset", beaten:["Brandon", "Evan", "Khoa"] } } },
+  { id:"tv-gag-butte-pairs", build:() => fresh("event:die:done"),
+    moment:{ kind:"gag", t:"letter", gag:{ bit:"butte", players:["Henry", "Richard"], name:"Henry Nguyen & Squilliam", fact:"Upset",
+      beaten:["Adi", "Chiang"] } } },
+  { id:"tv-gag-sunset-five", build:() => fresh("event:bball5:done"),
+    moment:{ kind:"gag", t:"letter", gag:{ bit:"sunset", players:["Richard", "Henry", "Jeremy", "Adi", "Evan"], fact:"3 in a row" } } },
+  { id:"tv-gag-toohype", build:() => fresh("event:putt:done"),
+    moment:{ kind:"gag", t:"letter", gag:{ bit:"toohype", players:["Richard"], fact:"In the lead" } } },
+  { id:"tv-gag-anvil-big", build:() => fresh("event:pong:done"),
+    moment:{ kind:"gag", t:"letter", gag:{ bit:"anvil", players:["Henry"], fact:"-12,500" } } },
+  { id:"tv-gag-dontlookback", build:() => fresh("event:pong:done"),
+    moment:{ kind:"gag", t:"letter", gag:{ bit:"dontlookback", players:["Richard"], fact:"13th" } } },
+  ...["versus", "win", "loss"].map(shape => ({ id:`tv-gag-test-${shape}`, build:() => gagTest({ shape }), at:{ gag:"letter" },
+    pause:true, wait:300 })),
+  { id:"tv-gag-test-roadrunner", build:() => gagTest({ bit:"roadrunner" }), at:{ gag:"letter" }, pause:true, wait:300 },
+  /* the winners' song walked out first: the bit in its moved window, the
      song docked in the Now playing strip under it */
-  { id:"tv-gag-after-walkout", build:gagAfterWalkout, at:{ gag:2450 }, pause:true, wait:300 },
+  { id:"tv-gag-after-walkout", build:gagAfterWalkout, at:{ gag:"letter" }, pause:true, wait:300 },
+  { id:"tv-highlight", build:() => fresh("event:die:done"), at:{ highlight:{ ms:4200 } }, pause:true, wait:300 },
+  { id:"tv-highlight-still", build:() => fresh("event:die:done"), at:{ highlight:{ ms:14000 } }, pause:true, wait:300 },
   { id:"tv-locker", build:() => fresh("locker") },
   { id:"tv-ambient-board", build:() => fresh("session:fri"), at:{ turn:0 } },
   { id:"tv-ambient-next", build:() => fresh("session:fri"), at:{ turn:1 } },
@@ -1129,6 +1182,16 @@ export const PHONE_SCENARIOS = Object.freeze([
   /* a team's walkout on a teammate's phone (the guest, Squilliam, is on
      both winning sides; another member's song plays): "walkout" lands the
      song on a fresh frame and holds the takeover once it has stamped */
+  /* a moment on its player's phone (features/gags): "bit" lands the write
+     on a fresh frame and holds the bit once its name and fact have stamped
+     (the receipt that write owes waits for it); `land` names the trigger,
+     `landOpts` puts the guest in it */
+  { id:"bit-leader", build:() => gagWeekend("leader").state, land:"leader", settle:false, tabs:[], sheets:["bit"],
+    sheetSizes:["375"] },
+  { id:"bit-upset", build:() => gagWeekend("upset", { player:FIT_GUEST }).state, land:"upset", landOpts:{ player:FIT_GUEST },
+    settle:false, tabs:[], sheets:["bit"], sheetSizes:["375"] },
+  { id:"bit-bigloss", build:() => gagWeekend("bigloss", { own:FIT_GUEST }).state, land:"bigloss", landOpts:{ own:FIT_GUEST },
+    settle:false, tabs:[], sheets:["bit"], sheetSizes:["375"] },
   { id:"walkout-pair", build:() => walkoutRecord(bracketWonBy("die", "Henry"), "Henry"), settle:false, tabs:[], sheets:["walkout"] },
   { id:"walkout-team7", build:() => teamWinSong(fresh("event:bball5:done"), "bball5"), settle:false, tabs:[],
     sheets:["walkout"] },

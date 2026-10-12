@@ -1,5 +1,5 @@
 /* The commissioner QA console, in the menu system's sections: where the
-   rehearsal stands, Step, Bets, Gags (the TV's cartoons on demand), Jump to, Lens (with the dock strip's
+   rehearsal stands, Step, Bets, Gags (any of the TV's bits on demand), Jump to, Lens (with the dock strip's
    switch), Checkpoints, then Reset last. Reset game progress lives in the
    commissioner menu's Setup, its one entry. Every jump, step, bets action and checkpoint is one server write.
    The slow live driver (real broadcasts, one player at a time) stays as
@@ -8,6 +8,8 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "../../ui/Icon.jsx";
 import { rosterOf, allEventsOf, disp } from "../../../shared/core.js";
 import { qaCheckpointSummary, qaTargets } from "../../../shared/qa.js";
+import { GAG_SHAPES } from "../../../shared/gags.js";
+import { BIT_SHAPES, bitsOf } from "../gags/bits/registry.js";
 import { Btn, Sheet, Tag } from "../../ui/controls.jsx";
 import { MenuGroup, MenuRow } from "../../ui/Menu.jsx";
 import { Avatar } from "../identity/PlayerIdentity.jsx";
@@ -66,13 +68,12 @@ const BET_ACTIONS = [
   ["spread", "Spread evenly"],
   ["clear", "Clear bets"],
 ];
-/* the TV's gags on demand (worker qaGag), each with a stand-in cast */
-const GAG_ACTIONS = [
-  ["turkey", "Turkey"],
-  ["strike", "Strike"],
-  ["gutter", "Gutter ball"],
-  ["vultures", "Vultures"],
-];
+/* every moment bit on the TV on demand (worker qaGag), each with a
+   stand-in cast from the board, by shape: Random lets the TVs pick one of
+   the shape's, then each bit by name */
+const GAG_GROUPS = GAG_SHAPES.map(shape => ({ shape, name:BIT_SHAPES[shape]?.name || shape,
+  actions:[{ key:`shape:${shape}`, label:"Random", payload:{ shape } },
+    ...bitsOf(shape).map(bit => ({ key:bit.id, label:bit.name, payload:{ bit:bit.id } }))] }));
 
 export function QASheet({ state, status, me, guestLens, busy, environment, dispatch, notify, market = null,
   onSwitch, onLens, onPlayLive, onDuelMe, onDuels, pokerOn, onBustOne, onCountRest,
@@ -80,10 +81,10 @@ export function QASheet({ state, status, me, guestLens, busy, environment, dispa
   const [confirmRerun, setConfirmRerun] = useState(false);
   const [name, setName] = useState("");
   const [gagBusy, setGagBusy] = useState(null);
-  const playGag = kind => {
+  const playGag = ({ key, payload }) => {
     if (gagBusy) return;
-    setGagBusy(kind);
-    Promise.resolve(dispatch("qaGag", { kind }))
+    setGagBusy(key);
+    Promise.resolve(dispatch("qaGag", payload))
       .then(result => notify?.(result?.ok ? "On the TV" : result?.error || "Not saved"), () => notify?.("Not saved"))
       .finally(() => setGagBusy(null));
   };
@@ -153,12 +154,18 @@ export function QASheet({ state, status, me, guestLens, busy, environment, dispa
       </Part>
 
       <Part icon="tv" title="Gags">
-        <div className="fd-qa-bets">
-          {GAG_ACTIONS.map(([kind, label]) => (
-            <button key={kind} type="button" className="fd-qa-bet" disabled={off || !!gagBusy}
-              aria-busy={gagBusy === kind || undefined} onClick={() => playGag(kind)}>{label}</button>
-          ))}
-        </div>
+        {GAG_GROUPS.map(group => (
+          <div key={group.shape} className="fd-qa-session fd-qa-gags">
+            <div className="fd-qa-session-head"><span>{group.name}</span></div>
+            <div className="fd-qa-bets">
+              {group.actions.map(action => (
+                <button key={action.key} type="button" className={`fd-qa-bet${action.payload.shape ? " is-random" : ""}`}
+                  disabled={off || !!gagBusy} aria-busy={gagBusy === action.key || undefined}
+                  aria-label={`${group.name}: ${action.label}`} onClick={() => playGag(action)}>{action.label}</button>
+              ))}
+            </div>
+          </div>
+        ))}
       </Part>
 
       <Part icon="events" title="Jump to">

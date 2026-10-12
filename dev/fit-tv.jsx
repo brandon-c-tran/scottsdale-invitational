@@ -25,7 +25,10 @@ import { TVPokerMoments } from "../src/features/tv/TVPokerMoments.jsx";
 import { FaceOff } from "../src/features/tv/TVFaceOff.jsx";
 import { faceOffStart, faceOffView } from "../src/features/tv/faceOff.js";
 import { TVGag } from "../src/features/gags/TVGags.jsx";
-import { GAG_MS, gagLamp, gagPlan } from "../src/features/gags/gagModel.js";
+import { gagPlan } from "../src/features/gags/gagModel.js";
+import { LETTER_LAND_MS, bitById } from "../src/features/gags/bits/registry.js";
+import { highlightAt, highlightReel, withHighlightTurns } from "../src/features/gags/highlights.js";
+import { weekendPhase } from "../src/ui/phase.js";
 import { publishFrame } from "../src/lib/frameGate.js";
 import { PlayerIdentityProvider, TextFloor } from "../src/features/identity/PlayerIdentityContext.js";
 import { Shell } from "../src/ui/Shell.jsx";
@@ -36,16 +39,19 @@ import "../src/ui/shell.css";
 const params = new URLSearchParams(location.search);
 const scenario = buildScenario(TV_SCENARIOS, params.get("scenario") || "tv-locker");
 const at = scenario.at || {};
+/* a bit held "letter" (its name and fact landed) or at its "still" */
+const bitInstant = (bit, t) => t === "letter" ? (bit?.letter?.at || 0) + LETTER_LAND_MS + 120 : t === "still" ? bit?.still || 0 : Number(t) || 0;
 /* ?t=ms moves a moment's instant (frame timing) */
 const moment = scenario.moment ? { ...scenario.moment, ...(params.get("t") ? { t:Number(params.get("t")) } : {}) } : null;
+if (moment?.kind === "gag") moment.t = bitInstant(bitById(moment.gag.bit), moment.t);
 const crownBeat = moment?.kind === "crown";
 
 /* an ambient turn: a future instant where the turn index is `turn` for any
-   rotation of up to eight cards */
-const ROTATION = TV_AMBIENT_TURN_MS * 840;
-/* the gap's rotation as TVMode builds it */
-function gapRotation(state) {
-  const events = allEventsOf(state);
+   rotation of up to ten cards */
+const ROTATION = TV_AMBIENT_TURN_MS * 2520;
+/* the gap's rotation as TVMode builds it: its own cards, then the records,
+   the attract turn, the highlight reel and the photos */
+function gapAmbient(state, events) {
   const operationEv = resolveWeekendOperation(state, events).event;
   const liveEv = tvLiveEvent(state, events, operationEv);
   const base = ["board"];
@@ -54,16 +60,17 @@ function gapRotation(state) {
   if (latestResultOf(state, events)) base.push("latest");
   if (state.live) base.push("trophy");
   const cards = recordCards(state, events);
+  const reel = highlightReel(state, events);
   const room = attractRoom(state);
-  const ambient = withAttractTurns(withPhotoTurns(withRecordTurns(base, cards.length), tvPhotoRotation(state).length), room.length);
-  return { cards, room, ambient };
+  return { cards, reel, room, ambient:withAttractTurns(withPhotoTurns(withHighlightTurns(withRecordTurns(base, cards.length), reel.length),
+    tvPhotoRotation(state).length), room.length) };
 }
 /* `record`: the records turn (features/tv/recordsModel.js) that shows the
    card of `kind` (and `players` on it, `worst` for the bettors), `ms` into
-   the turn (5 s: the card standing, its entrance done). The harness checks
-   the card it drew is that one. */
+   the turn (5 s: the card standing, its entrance done). The gap's rotation
+   as TVMode builds it; the harness checks the card it drew is that one. */
 function recordNow(state, want) {
-  const { cards, ambient } = gapRotation(state);
+  const { cards, ambient } = gapAmbient(state, allEventsOf(state));
   const match = card => card.kind === want.kind && (want.worst === undefined || !!card.worst === want.worst)
     && (!want.players || want.players.every(p => card.players.includes(p)));
   const start = Math.ceil(Date.now() / ROTATION) * ROTATION;
@@ -77,7 +84,7 @@ function recordNow(state, want) {
 /* `attract`: the attract turn (features/tv/attractModel.js) that plays the
    idle vignette `id`, `ms` into it; the harness checks the TV drew it */
 function attractNow(state, want) {
-  const { room, ambient } = gapRotation(state);
+  const { room, ambient } = gapAmbient(state, allEventsOf(state));
   const start = Math.ceil(Date.now() / ROTATION) * ROTATION;
   for (let turn = 0; turn < ambient.length * 60; turn++) {
     const now = start + turn * TV_AMBIENT_TURN_MS + want.ms;
@@ -85,9 +92,21 @@ function attractNow(state, want) {
   }
   throw new Error(`fit: no attract turn plays ${want.id} (${room.length} in the room)`);
 }
+/* `highlight`: the first highlights turn (features/gags/highlights.js),
+   `ms` into it (the bit's own clock: its lettering lands, its still holds) */
+function highlightNow(state, want) {
+  const { reel, ambient } = gapAmbient(state, allEventsOf(state));
+  const start = Math.ceil(Date.now() / ROTATION) * ROTATION;
+  for (let turn = 0; turn < ambient.length; turn++) {
+    const now = start + turn * TV_AMBIENT_TURN_MS + (want.ms ?? 4000);
+    if (highlightAt(reel, ambient, now)) return now;
+  }
+  throw new Error(`fit: no highlights turn (${reel.length} moments)`);
+}
 function pickNow(state) {
   if (at.record) return recordNow(state, at.record);
   if (at.attract) return attractNow(state, at.attract);
+  if (at.highlight) return highlightNow(state, at.highlight);
   /* a plate mid-engrave: the newest result posted just before this trophy
      turn (its result moment played), `engrave` ms into the cut */
   if (at.engrave !== undefined) {
@@ -132,11 +151,12 @@ function pickNow(state) {
     const base = !d ? Date.now() : at.duel === "fire" ? d.fireAt : at.duel === "result" ? result : d.armedAt;
     return base + (at.ms || 0);
   }
-  /* `gag` ms into the gag the state owes the room (features/gags: a QA
-     test first, else the newest write's); ?t=ms moves it */
+  /* `gag` ms into the moment the state owes the room (features/gags: a QA
+     test first, else the newest write's), or "letter" (its name and fact
+     landed) or "still"; ?t=ms moves it */
   if (at.gag !== undefined) {
     const gag = gagPlan(state, allEventsOf(state))[0];
-    return (gag?.start || Date.now()) + (params.get("t") ? Number(params.get("t")) : at.gag);
+    return (gag?.start || Date.now()) + (params.get("t") ? Number(params.get("t")) : bitInstant(bitById(gag?.bit), at.gag));
   }
   /* `faceoff` ms after the live contest's face-off starts (the TV's teach windows) */
   if (at.faceoff !== undefined) {
@@ -217,11 +237,12 @@ function MomentLayer({ state, events }) {
     node = <TVPokerMoments state={state} moments={{ blinds:{ id:"fit-blinds", from:"50/100", to:"100/200", anchor,
       elapsed:moment.t } }} />;
   } else if (moment.kind === "gag") {
-    /* a gag's drawing for a cast the reducers cannot reach on cue (a
-       flock, a team rolling in): the real takeover, t ms in */
-    const gag = { id:"fit-gag", ms:GAG_MS[moment.gag.kind], start:anchor, end:anchor + GAG_MS[moment.gag.kind], elapsed:moment.t,
-      name:disp(state, moment.gag.players[0]), ...moment.gag };
-    node = <TVGag state={state} gag={gag} lamp={gagLamp(state, gag)?.color} />;
+    /* a bit for a cast the reducers cannot reach on cue (a team, a big
+       side, a long name): the real takeover, t ms in */
+    const bit = bitById(moment.gag.bit);
+    const gag = { id:"fit-gag", shape:bit?.shape, ms:bit?.ms || 0, start:anchor, end:anchor + (bit?.ms || 0), elapsed:moment.t,
+      name:disp(state, moment.gag.players[0]), beaten:[], ...moment.gag };
+    node = <TVGag state={state} gag={gag} phase={weekendPhase(state, events)} />;
   } else if (moment.kind === "faceoff") {
     const ev = wagerBoardEvent(state, events);
     const contest = ev ? resolveCurrentContest(state, ev) : null;

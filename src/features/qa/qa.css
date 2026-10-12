@@ -48,6 +48,10 @@
   color:var(--ink); font:600 14px/1.25 var(--fd-body); text-align:left; cursor:pointer; }
 .fd-qa-bet:not(:disabled):active { background:var(--sun-tint); }
 .fd-qa-bet.is-clear { color:var(--clay-text); }
+/* the Gags part: a shape's Random first, then its bits by name */
+.fd-qa-gags { margin-top:4px; }
+.fd-qa-gags .fd-qa-session-head { min-height:32px; margin-bottom:4px; }
+.fd-qa-bet.is-random { font-weight:800; }
 .fd-qa-bet:disabled { opacity:.4; cursor:default; }
 .fd-qa-bet[aria-busy="true"] { opacity:.6; }
 .fd-qa-session { margin-top:12px; }

@@ -18,8 +18,10 @@ import "./bits.css";
    scene, zoomed together about the floor (bits/camera.js), with the name
    and the fact lettered on the screen over it. A BitStage is a whole
    1920 x 1080 canvas (the painting at rest behind a BitLayer) scaled into
-   its box, for the review reel, the frames tool and, later, a phone. On
-   the TV a BitLayer covers TVMode's own painting the way the gags do.
+   its box, for the review reel, the frames tool, the TV's highlight reel
+   (TVHighlight.jsx) and a phone (PhoneBit.jsx, which letters the name and
+   the fact under the stage itself: `letters` false). On the TV a moment's
+   BitLayer covers TVMode's own painting (TVGags.jsx).
 
    The clock: `start` is the bit's start on the server clock, and a screen
    that mounts late joins mid-bit (--tl is minus the ms already gone); `at`
@@ -78,7 +80,7 @@ const runOf = (items, make) => items.map((item, i) => make(item, i === 0 ? "both
    `sound` cues the bit's foley on the room bus from its start. `rate`
    slows it (the reel). */
 export function BitLayer({ bit: bitOrId, cast = {}, state = null, phase = "fri", name, fact = null, start, at, frozen = false,
-  reduced: reducedProp, sound = false, rate = 1, mode = "tv", runKey = null, onLayer }) {
+  reduced: reducedProp, sound = false, rate = 1, mode = "tv", runKey = null, letters = true, onLayer }) {
   const bit = typeof bitOrId === "string" ? bitById(bitOrId) : bitOrId;
   const reducedPref = useReducedMotion();
   const reduced = reducedProp ?? reducedPref;
@@ -101,8 +103,9 @@ export function BitLayer({ bit: bitOrId, cast = {}, state = null, phase = "fri",
   const Scene = SCENES[bit.id];
   const camera = cameraCss(bit, Scene?.anchors?.(cast) || {});
   const shakes = bit.camera?.shakes || [], washes = bit.camera?.washes || [];
-  /* an idle vignette (letter:null) letters nothing: no name, no fact */
-  const unlettered = bit.letter === null;
+  /* an idle vignette (letter:null) letters nothing; nor does a stage that
+     letters the name and the fact itself (a phone: `letters` false) */
+  const unlettered = bit.letter === null || letters === false;
   const lettered = unlettered ? null : name !== undefined ? name : side[0] ? displayName(state, side[0]) : null;
   const told = unlettered ? null : fact;
   const motion = value => value ? { "--ba":value, animation:"var(--ba)" } : {};

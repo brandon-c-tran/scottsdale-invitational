@@ -234,7 +234,7 @@ test("the TV plays it only in a gap, on its turn, over the board, then gives the
 test("the TV wires it in the gap's rotation, gated like the records and photos, and its copy carries no em dash", () => {
   const source = readFileSync(new URL("../src/features/tv/TVMode.jsx", import.meta.url), "utf8");
   assert.match(source, /photoGap \? attractRoom\(state\) : EMPTY/, "the room only in a gap");
-  assert.match(source, /const ambient = photoGap \? withAttractTurns\(withPhotoTurns\(withRecordTurns\(ambientCards, records\.length\), photos\.length\), room\.length\)/);
+  assert.match(source, /const ambient = photoGap \? withAttractTurns\(withPhotoTurns\(withHighlightTurns\(withRecordTurns\(ambientCards, records\.length\), reel\.length\),\s*photos\.length\), room\.length\)/);
   assert.match(source, /const attract = photoGap && [^\n]*!chrome\.takeover/, "never under a takeover");
   assert.match(source, /<TVAttract key=\{attract\.key\}/);
   for (const file of ["src/features/tv/attractModel.js", "src/features/tv/TVAttract.jsx", "src/features/tv/tv-attract.css"])

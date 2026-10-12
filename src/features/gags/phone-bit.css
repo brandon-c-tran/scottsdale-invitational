@@ -1,0 +1,26 @@
+/* A moment on its player's phone (PhoneBit.jsx): the moments.css takeover
+   on the dark glass, the TV's 16:9 stage across the phone's width (a lamp
+   line over and under it in the bit's lamp: a win's flood, a loss's clay),
+   the name and the fact stamped under it on the bit's letter beat. The
+   overlay rises and leaves on the room's clock (moments.css, --moment-hold
+   is the bit's length). Every motion here follows the bits' convention
+   (bits.css: --ba from var(--tl), filled to its end state). */
+.fd-moment.fd-bit { padding-left:0; padding-right:0; background:var(--bg); color:var(--bone); }
+.fd-bit-body { position:relative; width:100%; max-width:620px; display:flex; flex-direction:column; align-items:center; gap:22px; }
+/* the lamp lines sit outside the stage, so the canvas fills it edge to edge */
+.fd-bit-screen { position:relative; width:100%; aspect-ratio:16 / 9; overflow:hidden; background:var(--ink0);
+  box-shadow:0 -2px 0 color-mix(in srgb, var(--bit-lamp, var(--sun)) 70%, transparent),
+    0 2px 0 color-mix(in srgb, var(--bit-lamp, var(--sun)) 70%, transparent); }
+.fd-bit-screen > .bit-stage { position:absolute; inset:0; }
+.fd-bit-words { width:100%; box-sizing:border-box; display:flex; flex-direction:column; align-items:center; gap:4px;
+  padding:0 20px; text-align:center; }
+/* bone show lettering on an ink keyline, lit from behind in the bit's lamp */
+.fd-bit-name, .fd-bit-fact { margin:0; max-width:100%; font-family:var(--fd-show); font-weight:900; color:var(--bone);
+  letter-spacing:.01em; transform-origin:50% 70%;
+  text-shadow:2px 0 0 var(--ink0), -2px 0 0 var(--ink0), 0 2px 0 var(--ink0), 0 -2px 0 var(--ink0), 0 4px 0 var(--ink0),
+    0 0 18px color-mix(in srgb, var(--bit-lamp, var(--sun)) 60%, transparent);
+  --ba:bit-stamp 360ms var(--ease-land) calc(var(--tl) + var(--b-letter) + var(--d, 0ms)) both; animation:var(--ba); }
+.fd-bit-name { line-height:1.08; }
+.fd-bit-name > span { display:block; white-space:nowrap; }
+.fd-bit-fact { --d:110ms; font-size:40px; line-height:1.15; font-variant-numeric:tabular-nums; white-space:nowrap; }
+.fd-bit-fact.is-loss { color:var(--clay-text); }

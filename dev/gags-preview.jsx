@@ -1,20 +1,21 @@
 /* Gags rehearsal (local only, never deployed): the real TV over weekends
    the real reducers played (dev/fit/scenarios.js gagWeekend), the write
-   that owes each gag landed live in memory. No socket, no Worker.
+   that owes each moment landed live in memory. No socket, no Worker.
 
    Play lands the write now as a fresh frame, so the TV runs the room's own
-   sequence: the decided contest or the result's podium, the gag on its
-   slot with its sounds on the room bus, then whatever follows (the next
-   face-off waits for it). With a win song, the speaker's write lands
-   SONG_LAG_MS later as the Worker's does: the walkout first, then the gag.
+   sequence: the decided contest or the result's podium, the moment's bit
+   on its slot with its sounds on the room bus, then whatever follows (the
+   next face-off waits for it). With a win song, the speaker's write lands
+   SONG_LAG_MS later as the Worker's does: the walkout first, then the bit.
    The tap that plays is the one sound needs.
 
      /dev/gags-preview.html
-       ?kind=turkey|strike|gutter|vultures   which gag (default turkey)
+       ?trigger=upset|streak|leader|bigloss|last   which moment (default upset)
        &song=1      the winner's win song walks out first
-       &test=1      the QA console's test of it (qaGag)
+       &test=1      the QA console's test of its shape (qaGag { shape })
+       &bit=<id>    the QA console's test of that bit (qaGag { bit })
        &off=1       Gags off on the TV sheet (a test still plays)
-       &t=<ms>      the gag already that far in on load (a TV joining late, silent)
+       &t=<ms>      the bit already that far in on load (a TV joining late, silent)
        &pause=1     frozen there (stills)
        &reduced=1   reduced motion: the still for the window and its one sound
        &bare=1      no controls */
@@ -22,8 +23,9 @@ import React, { useEffect, useMemo, useState } from "react";
 import { flushSync } from "react-dom";
 import { createRoot } from "react-dom/client";
 import { allEventsOf, computeStandings } from "../shared/core.js";
-import { GAG_KINDS } from "../shared/gags.js";
-import { GAG_MS, gagPlan, gagWrites, winnersOf } from "../src/features/gags/gagModel.js";
+import { GAG_SHAPES } from "../shared/gags.js";
+import { GAG_TRIGGERS, TRIGGER_SHAPE, gagPlan, gagWrites, winnersOf } from "../src/features/gags/gagModel.js";
+import { bitById, bitsOf } from "../src/features/gags/bits/registry.js";
 import { TVMode } from "../src/features/tv/TVMode.jsx";
 import { PlayerIdentityProvider } from "../src/features/identity/PlayerIdentityContext.js";
 import { Shell } from "../src/ui/Shell.jsx";
@@ -33,15 +35,16 @@ import { act, aged, dress, gagWeekend } from "./fit/scenarios.js";
 import "../src/ui/shell.css";
 
 const params = new URLSearchParams(location.search);
-const KIND = GAG_KINDS.includes(params.get("kind")) ? params.get("kind") : "turkey";
-const TEST = params.get("test") === "1";
+const KIND = GAG_TRIGGERS.includes(params.get("trigger")) ? params.get("trigger") : "upset";
+const BIT = bitById(params.get("bit"))?.shape && GAG_SHAPES.includes(bitById(params.get("bit")).shape) ? params.get("bit") : null;
+const TEST = params.get("test") === "1" || !!BIT;
 const SONG = params.get("song") === "1" && !TEST;
 const OFF = params.get("off") === "1";
 const REDUCED = params.get("reduced") === "1";
 const T = params.has("t") ? Math.max(0, Number(params.get("t")) || 0) : null;
 const PAUSED = params.get("pause") === "1";
 const BARE = params.get("bare") === "1";
-const LABEL = Object.freeze({ turkey:"Turkey", strike:"Strike", gutter:"Gutter ball", vultures:"Vultures" });
+const LABEL = Object.freeze({ upset:"Upset", streak:"Streak", leader:"New leader", bigloss:"Big losing bet", last:"New last place" });
 /* how long the board sits before the write lands, after Play */
 const LAND_MS = 900;
 /* how long after the write the speaker answers and its walkout lands */
@@ -79,7 +82,7 @@ const asFrame = state => JSON.parse(JSON.stringify(state));
 /* the kind's weekend, settled (the room has sat in it a while), Gags as
    asked: the state just before the write, and the write */
 function weekend(kind) {
-  const parts = gagWeekend(kind, { test:TEST });
+  const parts = gagWeekend(kind, { test:TEST, shape:TRIGGER_SHAPE[kind], bit:BIT });
   if (OFF) act(parts.state, "setGags", { on:false });
   return { ...parts, state:dress(aged(asFrame(parts.state))) };
 }
@@ -102,11 +105,9 @@ function joined(state, t) {
   const gag = owedBy(state);
   return gag ? aged(state, gag.start - (Date.now() - t)) : state;
 }
-const fact = gag => gag.kind === "turkey" ? `${gag.count} in a row` : gag.kind === "gutter"
-  ? `-${Number(gag.amount).toLocaleString("en-US")}` : gag.kind === "vultures" ? gag.place : null;
 const describe = gag => !gag ? (OFF ? "Gags off: nothing owed" : "Nothing owed")
-  : [LABEL[gag.kind], gag.name, fact(gag), `${((gag.start - gag.at) / 1000).toFixed(1)} s after the write`,
-    `${(gag.ms / 1000).toFixed(1)} s long`].filter(Boolean).join(" · ");
+  : [gag.test ? "QA test" : LABEL[gag.trigger], bitById(gag.bit)?.name, gag.name, gag.fact,
+    `${((gag.start - gag.at) / 1000).toFixed(1)} s after the write`, `${(gag.ms / 1000).toFixed(1)} s long`].filter(Boolean).join(" · ");
 
 function Tv({ state, now }) {
   const events = useMemo(() => allEventsOf(state), [state]);
@@ -166,12 +167,13 @@ function Rehearsal() {
     return () => clearTimeout(timer);
   }, [run.id, run.song]); // eslint-disable-line react-hooks/exhaustive-deps
   const go = extra => {
-    const next = new URLSearchParams({ kind:run.kind, ...(SONG ? { song:"1" } : {}), ...(TEST ? { test:"1" } : {}),
+    const next = new URLSearchParams({ trigger:run.kind, ...(SONG ? { song:"1" } : {}), ...(TEST && !BIT ? { test:"1" } : {}),
+      ...(BIT ? { bit:BIT } : {}),
       ...(OFF ? { off:"1" } : {}), ...(REDUCED ? { reduced:"1" } : {}), ...extra });
     for (const [key, value] of [...next]) if (value === "") next.delete(key);
     location.search = `?${next}`;
   };
-  const ms = GAG_MS[run.kind];
+  const ms = run.owed?.ms || bitById(BIT)?.ms || 5500;
   /* for the console: the state the TV is drawing */
   window.__gagState = run.state;
   return <PlayerIdentityProvider profiles={run.state.profiles}>
@@ -193,12 +195,19 @@ function Rehearsal() {
         `}</style>
         <h1>Gags</h1>
         <div className="gp-row">
-          {GAG_KINDS.map(kind => <button key={kind} type="button" aria-pressed={run.kind === kind} onClick={() => play(kind)}>
+          {GAG_TRIGGERS.map(kind => <button key={kind} type="button" aria-pressed={!BIT && run.kind === kind} onClick={() => play(kind)}>
             {LABEL[kind]}</button>)}
         </div>
         <div className="gp-row">
+          <label>QA test of
+            <select value={BIT || ""} onChange={event => go({ bit:event.target.value, test:"" })}>
+              <option value="">a shape (Random)</option>
+              {GAG_SHAPES.flatMap(shape => bitsOf(shape)).map(bit => <option key={bit.id} value={bit.id}>{bit.name}</option>)}
+            </select></label>
+        </div>
+        <div className="gp-row">
           <label><input type="checkbox" checked={SONG} disabled={TEST} onChange={event => go({ song:event.target.checked ? "1" : "" })} /> Win song</label>
-          <label><input type="checkbox" checked={TEST} onChange={event => go({ test:event.target.checked ? "1" : "" })} /> QA test</label>
+          <label><input type="checkbox" checked={TEST} onChange={event => go({ test:event.target.checked ? "1" : "", bit:"" })} /> QA test</label>
           <label><input type="checkbox" checked={OFF} onChange={event => go({ off:event.target.checked ? "1" : "" })} /> Gags off</label>
           <label><input type="checkbox" checked={REDUCED} onChange={event => go({ reduced:event.target.checked ? "1" : "" })} /> Reduced motion</label>
         </div>

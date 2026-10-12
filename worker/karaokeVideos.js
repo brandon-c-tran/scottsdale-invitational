@@ -158,9 +158,10 @@ export function chooseKaraoke(items, durationMs, { name = "" } = {}) {
     .filter(item => !karaokePlayProblem(item) && !karaokeKindProblem(item))
     .filter(item => !seen.has(item.id) && seen.add(item.id))
     .map((item, at) => {
-      const video = videoOf(item);
-      return { video, at, channel:item.snippet?.channelId || squash(item.snippet?.channelTitle),
-        named:nameShare(video.title, name) >= NAME_SHARE, rank:karaokeChannelRank(item.snippet),
+      const video = videoOf(item), rank = karaokeChannelRank(item.snippet);
+      /* one channel, however it was matched */
+      const channel = rank < KARAOKE_CHANNELS.length ? `known:${rank}` : item.snippet?.channelId || squash(item.snippet?.channelTitle);
+      return { video, at, channel, rank, named:nameShare(video.title, name) >= NAME_SHARE,
         words:titleScore(video.title, name), off:target ? Math.abs(video.seconds * 1000 - target) : 0 };
     })
     .sort((a, b) => Number(b.named) - Number(a.named) || a.rank - b.rank || b.words - a.words || a.off - b.off || a.at - b.at);

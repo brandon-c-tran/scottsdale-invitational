@@ -195,6 +195,14 @@ export const karaokeVotesOn = (game, singer) => game?.votes?.[singer]
 /* the pick window: everyone present who has locked in a song */
 export const karaokeReadyPlayers = (state, game = state?.karaoke) =>
   presentPlayers(state).filter(player => !!game?.ready?.[player]);
+/* who sings after the current turn: the next present singer in the order
+   (anyone absent when their turn comes is skipped), or null */
+export function karaokeNextSinger(state, game = state?.karaoke) {
+  if (game?.phase !== "turns" || !Array.isArray(game.order)) return null;
+  const present = new Set(presentPlayers(state));
+  const index = Number.isInteger(game.index) ? game.index : -1;
+  return game.order.find((player, k) => k > index && present.has(player)) || null;
+}
 
 /* FNV-1a, then a small seeded shuffle: the running order is drawn from the
    game id, so a retried write draws the same order and QA repeats */

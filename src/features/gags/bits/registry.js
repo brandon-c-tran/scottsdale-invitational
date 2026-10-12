@@ -29,8 +29,9 @@
                 (an idle vignette)
      camera     the shot (bits/camera.js): its zoom and centre, moves on the
                 bit's clock, shakes and washes
-     cast       the roles the scene needs: { a:{ role, max }, b:... }
-     cues       [{ at, sound, pan, opts }]: kit recipes on the room bus
+     cast       the roles the scene needs: { a:{ role, max }, b:... }; a
+                team bit's roles carry min:TEAM_MIN (a side of 3 or more)
+     cues      [{ at, sound, pan, opts }]: kit recipes on the room bus
      fits       the triggers it suits (default: every trigger of its shape) */
 import { CAMERA_EASE } from "./camera.js";
 
@@ -677,7 +678,142 @@ const vulture = {
 
 const DESERT = [butte, sunset, statue, vulture];
 
-export const BITS = Object.freeze([quickdraw, anvil, roadrunner, ...ACTION_BITS, ...IDLE, ...SLAPSTICK, ...DESERT].map(freeze));
+/* ══ team bits (Oct 12): a side of 3 or more, every chip taking part ══
+   Most of the slate is pairs and teams, so an upset or a streak often has
+   several players a side, and the bits above stand a side as a clump
+   where only the front chip acts. A team bit lays any side of 3 to 7 out
+   in its own staging (a line, a pyramid, a squad), spaced so each chip's
+   gloves stay its own, every chip in the joke. pickBit plays these when a
+   moment's larger side has TEAM_MIN or more (teamSized), the solo bits
+   otherwise. Roles: a versus's `a` are the winners (the underdogs), `b`
+   the beaten (the favorites); a win's `a` the team. */
+export const TEAM_MIN = 3;
+export const TEAM_MAX = 7;
+const TEAM = role => ({ role, min:TEAM_MIN, max:TEAM_MAX });
+
+/* ── dominoes: an upset. The favorites stand in a line, smug, gloves
+   folded. The underdogs' smallest chip walks up and taps the first one
+   with one finger. The whole line goes over in a chain, each a beat after
+   the last; the last wobbles a long time on its edge before it goes. The
+   underdogs nod once. ── */
+const DM = { walk:300, stop:1150, raise:1350, tap:1600, chain:1640, last:2440, wobble:2480, drop:3820, flat:4000, nod:4420 };
+const dominoes = {
+  id:"dominoes", name:"Dominoes", shape:"versus", style:"slapstick", ms:5200, beats:DM, still:4900, summary:"bitClatter",
+  letter:{ at:DM.flat + 100, over:"a", place:"top-left" },
+  camera:{ zoom:1.5, x:"mid", fit:true, moves:[
+    { at:DM.raise - 200, ms:400, zoom:1.8, x:"tap" },
+    { at:DM.chain + 60, ms:700, zoom:1.5, x:"mid" },
+    { at:DM.wobble + 200, ms:900, zoom:1.75, x:"last" },
+    { at:DM.flat + 200, ms:600, zoom:1.5, x:"mid" },
+  ], shakes:[{ at:DM.flat }] },
+  cast:{ a:TEAM("winner"), b:TEAM("beaten") },
+  cues:[
+    ...[0, 1, 2].map(i => ({ at:DM.walk + 280 * i + 200, sound:"bitHop", pan:-0.5, opts:{ step:i } })),
+    { at:DM.tap, sound:"bitPoke", pan:-0.35 },
+    { at:DM.chain, sound:"bitClatter", pan:0, opts:{ ms:DM.last - DM.chain } },
+    { at:DM.wobble, sound:"bitCreak", pan:0.5, opts:{ ms:DM.drop - DM.wobble } },
+    { at:DM.flat, sound:"bitThud", pan:0.5 },
+  ],
+};
+
+/* ── tugofwar: an upset. A rope across a cactus patch. The favorites pull,
+   smug, leaning back; the underdogs hold and strain. One yank and the
+   favorites fly over into the cactus; a pause; a chorus of tiny "ouch"
+   marks, and one of them hops. ── */
+const TW = { lean:200, strain:900, set:1900, yank:2200, fly:2260, land:2760, ouch:3400, hop:3900 };
+const tugofwar = {
+  id:"tugofwar", name:"Tug of war", shape:"versus", style:"slapstick", ms:5000, beats:TW, still:4500, summary:"bitPrick",
+  letter:{ at:TW.land + 160, over:"a", place:"top-left" },
+  camera:{ zoom:1.5, x:"mid", fit:true, moves:[
+    { at:TW.strain, ms:900, zoom:1.6 },
+    { at:TW.yank, ms:120, zoom:1.5, x:"mid", ease:CAMERA_EASE.snap },
+    { at:TW.ouch - 300, ms:700, zoom:1.8, x:"patch" },
+  ], shakes:[{ at:TW.land, big:true }] },
+  cast:{ a:TEAM("winner"), b:TEAM("beaten") },
+  cues:[
+    { at:TW.strain, sound:"bitStrain", pan:-0.3, opts:{ ms:TW.yank - TW.strain } },
+    { at:TW.yank, sound:"bitYank", pan:-0.2 },
+    { at:TW.fly, sound:"bitStreak", pan:0, opts:{ from:0.4, to:-0.4 } },
+    { at:TW.land, sound:"bitThud", pan:-0.3 },
+    { at:TW.ouch, sound:"bitPrick", pan:-0.3 },
+    { at:TW.hop, sound:"bitBoing", pan:-0.3, opts:{ small:true } },
+  ],
+};
+
+/* ── slowmowalk: an upset. The underdogs walk toward us in a line in slow
+   motion, sunglasses on, while behind them the favorites' chip stacks blow
+   up one after another (a flash, a fireball, smoke). Nobody turns round. ── */
+const SM = { boom:900, last:2100, stop:3700, glint:4100 };
+const slowmowalk = {
+  id:"slowmowalk", name:"Slow-mo walk", shape:"versus", style:"action", ms:5000, beats:SM, still:4400, summary:"bitBoom",
+  letter:{ at:SM.stop + 20, over:"a", place:"top-left" },
+  camera:{ zoom:1.4, x:"mid", fit:true, moves:[
+    { at:SM.boom, ms:SM.stop - SM.boom, zoom:1.6 },
+  ], shakes:[{ at:SM.boom, big:true }, { at:SM.last }], washes:[SM.boom] },
+  cast:{ a:TEAM("winner"), b:TEAM("beaten") },
+  cues:[
+    { at:SM.boom, sound:"bitBoom", pan:-0.2, opts:{ slow:true } },
+    { at:SM.last, sound:"bitBoom", pan:0.3, opts:{ slow:true } },
+    { at:SM.glint, sound:"bitGlint", pan:0 },
+  ],
+};
+
+/* ── pyramid: a team's streak. The team stacks into a cheer pyramid, the
+   bottom row widest, as many rows as it needs; the top chip wobbles,
+   wobbles, holds; one glove gives a thumbs up. ── */
+const PY = { build:200, top:1900, wobble:2200, hold:3500, thumb:3900 };
+const pyramid = {
+  id:"pyramid", name:"Pyramid", shape:"win", style:"slapstick", ms:5000, beats:PY, still:4500, summary:"bitBoing",
+  letter:{ at:PY.top + 100, over:"a", place:"top-left" },
+  camera:{ zoom:1.4, x:"mid", fit:true, moves:[
+    { at:PY.wobble, ms:800, zoom:1.6, x:"top" },
+  ], shakes:[{ at:PY.top }] },
+  cast:{ a:TEAM("winner") },
+  cues:[
+    { at:PY.top, sound:"bitHop", pan:0, opts:{ step:0 } },
+    { at:PY.wobble, sound:"bitCreak", pan:0, opts:{ ms:PY.hold - PY.wobble } },
+    { at:PY.thumb, sound:"bitSqueak", pan:0.2 },
+  ],
+};
+
+/* ── teamphoto: a team's streak. They line up for a photo on a tripod
+   camera; the self-timer lamp blinks faster and faster; they hold the
+   pose; the flash; then the camera slowly tips over. ── */
+const TP = { set:300, timer:800, pose:1200, flash:3300, tip:3900, crash:4500 };
+const teamphoto = {
+  id:"teamphoto", name:"Team photo", shape:"win", style:"desert", ms:5200, beats:TP, still:4800, summary:"bitShutter",
+  letter:{ at:TP.flash + 120, over:"a", place:"top-left" },
+  camera:{ zoom:1.4, x:"mid", fit:true, moves:[
+    { at:TP.timer, ms:TP.flash - TP.timer, zoom:1.55 },
+  ], shakes:[{ at:TP.crash }], washes:[TP.flash] },
+  cast:{ a:TEAM("winner") },
+  cues:[
+    { at:TP.timer, sound:"bitTimer", pan:0, opts:{ ms:TP.flash - TP.timer } },
+    { at:TP.flash, sound:"bitShutter", pan:0 },
+    { at:TP.crash, sound:"bitThud", pan:0.3 },
+  ],
+};
+
+/* ── victorylap: a team's streak. They run a lap toward us in slow
+   motion, one of them carrying a flag on a pole, the rest pumping their
+   gloves. ── */
+const VL = { slow:600, near:3600, stop:4000 };
+const victorylap = {
+  id:"victorylap", name:"Victory lap", shape:"win", style:"action", ms:4800, beats:VL, still:4300, summary:"bitFlagFlap",
+  letter:{ at:VL.near, over:"a", place:"top-left" },
+  camera:{ zoom:1.4, x:"mid", fit:true, moves:[
+    { at:VL.slow, ms:VL.near - VL.slow, zoom:1.6 },
+  ], shakes:[] },
+  cast:{ a:TEAM("winner") },
+  cues:[
+    { at:VL.slow, sound:"bitFlagFlap", pan:0, opts:{ ms:VL.near - VL.slow } },
+  ],
+};
+
+const TEAM_BITS = [dominoes, tugofwar, slowmowalk, pyramid, teamphoto, victorylap];
+
+export const BITS = Object.freeze([quickdraw, anvil, roadrunner, ...ACTION_BITS, ...IDLE, ...SLAPSTICK, ...DESERT, ...TEAM_BITS]
+  .map(freeze));
 const BY_ID = new Map(BITS.map(bit => [bit.id, bit]));
 export const bitById = id => BY_ID.get(id) || null;
 export const bitsOf = shape => BITS.filter(bit => bit.shape === shape);
@@ -689,13 +825,33 @@ export function seedHash(text) {
   return h >>> 0;
 }
 
-/* The bit a moment plays: one of its shape's pool, picked by its seed
-   (the moment's own key, so every TV and phone picks the same), never one
-   in `recent` (bit ids already played, newest last) while any other
-   remains; when all have played, never the newest again if the pool has
-   another. Null for a shape with no bits. */
-export function pickBit(shape, seed, recent = []) {
-  const pool = bitsOf(shape);
+/* A team bit: one whose roles need a side of TEAM_MIN or more */
+export const isTeamBit = bit => !!bit && Object.values(bit.cast || {}).some(role => (Number(role?.min) || 0) >= TEAM_MIN);
+const sideCount = side => Array.isArray(side) ? side.length : Math.max(0, Math.floor(Number(side) || 0));
+/* A moment's sides, { a, b } (players, or how many), are team sized when
+   the larger side has TEAM_MIN or more: a versus picks by the larger of
+   its two sides, so a 7 v 6 or a 3 v 3 plays a team bit and a 2 v 2 a
+   solo one. */
+export const teamSized = sides => Math.max(0, ...Object.values(sides || {}).map(sideCount)) >= TEAM_MIN;
+/* The pool a moment picks from: its shape's team bits when it is team
+   sized and the shape has any, else the shape's solo bits (a loss is
+   always one player) */
+export function poolOf(shape, sides = null) {
+  const all = bitsOf(shape);
+  const team = all.filter(isTeamBit);
+  return team.length && teamSized(sides) ? team : all.filter(bit => !isTeamBit(bit));
+}
+/* the pool's name, so a moment model keeps each pool's own rotation */
+export const poolKey = (shape, sides = null) => isTeamBit(poolOf(shape, sides)[0]) ? `${shape}:team` : shape;
+
+/* The bit a moment plays: one of its pool (poolOf: its shape, and its
+   sides when it has any), picked by its seed (the moment's own key, so
+   every TV and phone picks the same), never one in `recent` (bit ids
+   already played, newest last) while any other remains; when all have
+   played, never the newest again if the pool has another. Null for a
+   shape with no bits. */
+export function pickBit(shape, seed, recent = [], sides = null) {
+  const pool = poolOf(shape, sides);
   if (!pool.length) return null;
   const played = Array.isArray(recent) ? recent : [];
   let candidates = pool.filter(bit => !played.includes(bit.id));

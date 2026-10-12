@@ -35,7 +35,7 @@ import {
   START, ROSTER, rosterOf, allEventsOf, contestStackOf, disp, resolveSlot, stageEntrantView, stageFinalists, teamLabel,
 } from "../../../shared/core.js";
 import { GAG_SHAPES, GAG_TEST_AMOUNT } from "../../../shared/gags.js";
-import { bitById, bitsOf, pickBit } from "./bits/registry.js";
+import { TEAM_MAX, bitById, isTeamBit, pickBit, poolKey, poolOf } from "./bits/registry.js";
 import { floodColor } from "../identity/chipInk.js";
 import { resolvePlayerIdentity } from "../identity/playerIdentity.js";
 import { eventRow } from "../profile/seasonStats.js";
@@ -321,19 +321,25 @@ export function recentFor(history = [], poolSize = 1) {
 }
 
 /* The weekend's moment writes, oldest first: every write (winStreaks),
-   each with its moment or null, the bit picked for each in order. */
+   each with its moment or null, the bit picked for each in order. A
+   moment whose larger side has 3 or more plays a team bit (the registry's
+   poolOf), and each pool (a shape's solo bits, its team bits) keeps its
+   own rotation. */
 export function momentLog(state, events = allEventsOf(state)) {
   const steps = winStreaks(state, events);
   if (!steps.length) return [];
   const history = boardHistory(state, events);
-  const played = Object.fromEntries(GAG_SHAPES.map(shape => [shape, []]));
+  const played = {};
   return steps.map(step => {
     const found = triggerOf(state, step, history);
     if (!found) return { ...step, moment:null };
     const shape = TRIGGER_SHAPE[found.trigger];
-    const bit = pickBit(shape, step.write.key, recentFor(played[shape], bitsOf(shape).length));
+    const sides = { a:found.players || [], b:shape === "versus" ? found.beaten || [] : [] };
+    const key = poolKey(shape, sides);
+    const ran = played[key] || (played[key] = []);
+    const bit = pickBit(shape, step.write.key, recentFor(ran, poolOf(shape, sides).length), sides);
     if (!bit) return { ...step, moment:null };
-    played[shape].push(bit.id);
+    ran.push(bit.id);
     return { ...step, moment:{ ...found, shape, bit:bit.id, ms:bit.span } };
   });
 }
@@ -399,12 +405,16 @@ export function testGag(state, events = allEventsOf(state)) {
   if (!at || !players.length) return null;
   const named = test.bit ? bitById(test.bit) : null;
   if (test.bit && named?.shape !== test.shape) return null;
-  const bit = named || pickBit(test.shape, `test:${at}`);
-  if (!bit) return null;
   const beaten = (Array.isArray(test.beaten) ? test.beaten : []).filter(player => typeof player === "string" && player);
+  const bit = named || pickBit(test.shape, `test:${at}`, [], { a:players, b:test.shape === "versus" ? beaten : [] });
+  if (!bit) return null;
+  /* a team bit plays its whole team (the board's, qaGag); a solo bit its lead */
+  const team = isTeamBit(bit);
+  const side = team ? players.slice(0, TEAM_MAX) : [players[0]];
   const view = windowed({ id:`test:${at}:${bit.id}`, write:`test:${at}`, test:true, at, trigger:null, shape:test.shape,
-    bit:bit.id, ms:bit.span, players:[players[0]], beaten:test.shape === "versus" ? beaten.slice(0, 1) : [],
-    name:disp(state, players[0]), fact:TEST_FACT[test.shape] }, at + GAG_TEST_LEAD_MS);
+    bit:bit.id, ms:bit.span, players:side,
+    beaten:test.shape !== "versus" ? [] : team ? beaten.slice(0, TEAM_MAX) : beaten.slice(0, 1),
+    name:team ? teamLabel(state, { players:side }) : disp(state, players[0]), fact:TEST_FACT[test.shape] }, at + GAG_TEST_LEAD_MS);
   return walkoutHolds(walkoutSpan(state, events), view) ? null : view;
 }
 

@@ -1266,6 +1266,42 @@ export const BIT_PARTS = Object.freeze([
   { id:"bitShing", name:"Knife and fork", ms:1000,
     play:(E, t) => { swell(E, voice(E, { send:0.3, bright:1, gain:1 }), t, { d:0.24, f0:2500, f1:6500, q:6, peak:0.3 });
       M.bell(E, t + 0.2, NOTE.A6, { gain:0.25, dec:0.7, send:0.35 }); M.bell(E, t + 0.2, NOTE.E6, { gain:0.12, dec:0.5, send:0.35 }); } },
+  /* ══ the team bits (Oct 12) ══ */
+  /* ── dominoes ── */
+  /* a line going over (opts.ms): clacks one after another, a little
+     faster as the chain runs, panned left to right along it */
+  { id:"bitClatter", name:"Domino chain", ms:900,
+    play:(E, t, o = {}) => { const d = Math.max(0.2, (o.ms || 800) / 1000), n = Math.max(3, Math.min(8, Math.round(d / 0.12)));
+      for (let i = 0; i < n; i++) {
+        const x = d * Math.pow(i / Math.max(1, n - 1), 1.12), pan = n > 1 ? -0.6 + 1.2 * i / (n - 1) : 0;
+        M.clack(E, t + x, { pitch:0.86 + (i % 3) * 0.05, gain:0.5, double:false, pan });
+        M.felt(E, t + x + 0.004, { gain:0.18 });
+      } } },
+  /* ── tugofwar ── */
+  /* ── slowmowalk ── */
+  /* ── pyramid ── */
+  /* ── teamphoto ── */
+  /* a camera's self-timer (opts.ms): blips coming faster and faster, the
+     last ones nearly a tone */
+  { id:"bitTimer", name:"Self-timer", ms:2500,
+    play:(E, t, o = {}) => { const d = Math.max(0.6, (o.ms || 2500) / 1000);
+      const v = voice(E, { send:0.15, bright:1, gain:0.5 });
+      for (let x = 0, gap = 0.42; x < d - 0.02; x += gap, gap = Math.max(0.07, gap * 0.8)) {
+        held(E, v, t + x, NOTE.A6, Math.min(0.07, gap * 0.5), 0.3, { type:"triangle", a:0.003 });
+        M.tick(E, t + x, { gain:0.12, pitch:1.8 });
+      } } },
+  /* a flash going off: the shutter's clack, the flash's rising whine */
+  { id:"bitShutter", name:"Shutter and flash", ms:900,
+    play:(E, t) => { M.clack(E, t, { pitch:1.1, gain:0.6, double:true }); M.tick(E, t + 0.03, { gain:0.35, pitch:1.6 });
+      glide(E, voice(E, { send:0.2, bright:1, gain:0.18 }), t + 0.05, NOTE.D6, NOTE.D6 * 2, 0.6, 0.12, { type:"sine" }); } },
+  /* ── victorylap ── */
+  /* a flag snapping in the wind (opts.ms): soft cloth cracks in a slow run */
+  { id:"bitFlagFlap", name:"Flag flapping", ms:2400,
+    play:(E, t, o = {}) => { const d = Math.max(0.4, (o.ms || 2400) / 1000);
+      for (let x = 0, i = 0; x < d; x += 0.34 + (i % 2) * 0.12, i++) {
+        const v = voice(E, { send:0.2, bright:0.7, gain:0.5, pan:rnd(-0.15, 0.15) });
+        burst(E, v, t + x, { type:"bandpass", f:900 + (i % 3) * 180, q:0.7, d:0.07, peak:0.55, a:0.01 });
+      } } },
 ].map(Object.freeze));
 
 /* idle's helpers (BIT_PARTS above) */

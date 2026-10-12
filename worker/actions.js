@@ -40,7 +40,7 @@ import { geoActions } from "./geo.js";
 import { triviaActions } from "./trivia.js";
 import { teamNameActions } from "./teamNames.js";
 import { defaultTeamNames } from "../shared/teamNames.js";
-import { GAG_SHAPES, gagShapeOf, gagTestCast } from "../shared/gags.js";
+import { GAG_SHAPES, gagShapeOf, gagTestCast, isTeamGag } from "../shared/gags.js";
 import {
   JERSEY_NAME_MAX, NEEDS_MAX, cleanBackName, cleanNeeds, cleanVenmo, jerseyConfirmed, jerseyName,
 } from "../shared/guestSetup.js";
@@ -2868,7 +2868,8 @@ export const ACTIONS = {
     if (!of && !GAG_SHAPES.includes(shape)) return err("Pick versus, win or loss");
     if (state.frozen) return err("The board is frozen");
     if (state.poker && !state.results?.[state.poker.id]) return err("The poker table has the TV");
-    const cast = gagTestCast(state, of || shape);
+    /* a team bit plays with a whole team from the board */
+    const cast = gagTestCast(state, of || shape, { team:of ? isTeamGag(bit) : false });
     if (!cast) return err("Nobody is on the board");
     state.gagTest = { shape:of || shape, bit:of ? bit : null, at:Date.now(), ...cast };
     return ok({ shape:of || shape, bit:of ? bit : null });

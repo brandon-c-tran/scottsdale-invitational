@@ -38,7 +38,7 @@ const {
   aloneFirst, aloneLast, gagAt, gagAudience, gagCast, gagForPlayer, gagHoldMs, gagLamp, gagPlan, gagWrites, latestGag, lossFact,
   momentLog, nextGagEdge, recentFor, resultGagAt, streakFact, testGag, winStreaks, writeResults,
 } = gags;
-const { BIT_OUT_MS, LETTER_LAND_MS, READ_MS, bitById, bitsOf, pickBit } = await import("../src/features/gags/bits/registry.js");
+const { BIT_OUT_MS, LETTER_LAND_MS, READ_MS, bitById, bitsOf, pickBit, poolKey, poolOf } = await import("../src/features/gags/bits/registry.js");
 const { HIGHLIGHT_CARD, highlightAt, highlightReel, highlightSince, withHighlightTurns } = await import("../src/features/gags/highlights.js");
 const { PHONE_BIT_HOLD_MAX_MS, PHONE_BIT_HOLD_SLACK_MS, phoneBitHoldMs, phoneBitStep } = await import("../src/features/gags/phoneBit.js");
 const { holdStage, stageHeld } = await import("../src/lib/motion.js");
@@ -454,18 +454,24 @@ test("no repeats: each shape plays round its pool before a bit comes back, and n
   const log = momentLog(s, events(s));
   const moments = log.filter(step => step.moment);
   assert.ok(moments.length >= 8, `a weekend's worth of moments (${moments.length})`);
-  for (const shape of GAG_SHAPES) {
-    const picks = moments.filter(step => step.moment.shape === shape);
+  /* each pool keeps its own round: a shape's solo bits, and its team bits
+     (a moment whose larger side has 3 or more, the registry's poolOf) */
+  const sidesOf = step => ({ a:step.moment.players, b:step.moment.shape === "versus" ? step.moment.beaten : [] });
+  const pools = new Set(moments.map(step => poolKey(step.moment.shape, sidesOf(step))));
+  for (const key of pools) {
+    const picks = moments.filter(step => poolKey(step.moment.shape, sidesOf(step)) === key);
+    const shape = picks[0].moment.shape;
     const ids = picks.map(step => step.moment.bit);
-    const n = bitsOf(shape).length;
-    ids.forEach((id, i) => { if (i) assert.notEqual(id, ids[i - 1], `${shape}: ${id} twice running`); });
+    const n = poolOf(shape, sidesOf(picks[0])).length;
+    assert.ok(ids.every(id => poolOf(shape, sidesOf(picks[0])).some(bit => bit.id === id)), `${key}: from its own pool`);
+    ids.forEach((id, i) => { if (i) assert.notEqual(id, ids[i - 1], `${key}: ${id} twice running`); });
     for (let k = 0; k < ids.length; k += n) {
       const round = ids.slice(k, k + n);
-      assert.equal(new Set(round).size, round.length, `${shape}: a round of the pool repeats (${round.join(", ")})`);
+      assert.equal(new Set(round).size, round.length, `${key}: a round of the pool repeats (${round.join(", ")})`);
     }
-    /* replayed in order: each pick is the write's seed against the shape's picks before it */
+    /* replayed in order: each pick is the write's seed against the pool's picks before it */
     picks.forEach((step, i) => assert.equal(step.moment.bit,
-      pickBit(shape, step.write.key, recentFor(ids.slice(0, i), n)).id));
+      pickBit(shape, step.write.key, recentFor(ids.slice(0, i), n), sidesOf(step)).id));
   }
   assert.deepEqual(momentLog(structuredClone(s), events(s)).map(step => step.moment?.bit || null),
     log.map(step => step.moment?.bit || null), "every screen replays the same weekend");

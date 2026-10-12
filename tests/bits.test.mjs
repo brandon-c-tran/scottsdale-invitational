@@ -315,6 +315,14 @@ const text = html => html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
 const SAMPLE_CASTS = { versus:[{ a:["Khoa"], b:["Sahil"] }, { a:["Adi", "Chiang"], b:["Richard", "Allan"] },
   { a:["Brandon", "Evan", "Eyob", "Ben"], b:["Henry", "Jeremy", "Chinh", "Khoa", "Sahil", "Adi"] }], loss:[{ a:["Evan"] }],
   win:[{ a:["Eyob"] }, { a:["Adi", "Chiang"] }, { a:["Adi", "Chiang", "Ben", "Evan", "Eyob"] }, { a:["Brandon", "Evan", "Eyob", "Ben", "Henry", "Jeremy"] }] };
+/* the team bits' sides (Oct 12): 3 to 7 a side, and an odd 2 v 3 or 3 v 7 */
+const SEVEN = ["Brandon", "Evan", "Eyob", "Khoa", "Adi", "Chiang", "Richard"], SIX = ["Henry", "Jeremy", "Chinh", "Allan", "Sahil", "Ben"];
+const TEAM_CASTS = {
+  versus:[{ a:SEVEN.slice(0, 3), b:SIX.slice(0, 3) }, { a:SEVEN.slice(0, 4), b:SIX.slice(0, 5) }, { a:SEVEN, b:SIX }, { a:SIX, b:SEVEN },
+    { a:SEVEN.slice(0, 2), b:SIX.slice(0, 3) }, { a:SIX.slice(0, 3), b:SEVEN }],
+  win:[3, 4, 5, 6, 7].map(n => ({ a:SEVEN.slice(0, n) })),
+};
+const castsOf = bit => registry.isTeamBit(bit) ? TEAM_CASTS[bit.shape] : SAMPLE_CASTS[bit.shape] || [{}];
 
 test("the camera: a clamped framing always covers the canvas with the painting, and puts the floor near the foot", () => {
   const { CAMERA } = camera;
@@ -333,7 +341,7 @@ test("the camera: a clamped framing always covers the canvas with the painting, 
 test("every bit is shot: medium shots, the cast in frame, every move on the bit's clock", () => {
   for (const bit of BITS) {
     const Scene = SCENES[bit.id];
-    for (const cast of SAMPLE_CASTS[bit.shape] || [{}]) {
+    for (const cast of castsOf(bit)) {
       const anchors = Scene.anchors?.(cast) || {};
       const track = camera.cameraTrack(bit, anchors);
       const at = `${bit.id} ${Object.values(cast).map(side => side.length).join("v")}:`;
@@ -376,7 +384,8 @@ test("every registered bit has a scene", () => {
 test("every scene draws on the painting with its cast, letters the name and the fact, on the bit's clock", () => {
   const casts = { versus:{ a:["Khoa"], b:["Sahil"] }, win:{ a:["Eyob"] }, loss:{ a:["Evan"] }, idle:{ a:["Evan", "Sahil", "Khoa"] } };
   for (const bit of BITS) {
-    const cast = casts[bit.shape];
+    /* a team bit: every chip of a 7 v 6 (or a team of seven) on the stage */
+    const cast = registry.isTeamBit(bit) ? TEAM_CASTS[bit.shape][2] || TEAM_CASTS[bit.shape][4] : casts[bit.shape];
     const html = stage({ bit:bit.id, cast, fact:bit.shape === "loss" ? "-1,000" : null, at:1234, frozen:true });
     assert.match(html, new RegExp(`class="bit-layer bit-art is-${bit.id} is-${bit.shape} is-frozen"`), bit.id);
     assert.match(html, /class="tv-desert is-glass tv-backdrop"/, `${bit.id}: on the session's painting`);

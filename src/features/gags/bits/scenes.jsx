@@ -37,6 +37,13 @@ import { Butte } from "./butte.jsx";
 import { Sunset } from "./sunset.jsx";
 import { Statue } from "./statue.jsx";
 import { Vulture } from "./vulture.jsx";
+/* the team bits (Oct 12): a side of 3 or more */
+import { Dominoes } from "./dominoes.jsx";
+import { Tugofwar } from "./tugofwar.jsx";
+import { Slowmowalk } from "./slowmowalk.jsx";
+import { Pyramid } from "./pyramid.jsx";
+import { Teamphoto } from "./teamphoto.jsx";
+import { Victorylap } from "./victorylap.jsx";
 
 export const SCENES = Object.freeze({
   quickdraw:Quickdraw,
@@ -62,4 +69,11 @@ export const SCENES = Object.freeze({
   sunset:Sunset,
   statue:Statue,
   vulture:Vulture,
+  /* the team bits */
+  dominoes:Dominoes,
+  tugofwar:Tugofwar,
+  slowmowalk:Slowmowalk,
+  pyramid:Pyramid,
+  teamphoto:Teamphoto,
+  victorylap:Victorylap,
 });

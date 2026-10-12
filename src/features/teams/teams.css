@@ -78,3 +78,13 @@ span.fd-relettered, strong.fd-relettered { display:inline-block; }
   box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--lamp-info) 45%, transparent); }
 .fd-teamname-row-name { flex:1; min-width:0; font-size:22px; line-height:1.15; letter-spacing:.01em; overflow-wrap:anywhere; }
 .fd-teamname-row-go { flex:none; color:var(--lamp-info); }
+
+/* Home's Now card (Oct 12): your team's name is a row of the card, the
+   pencil's lamp, the name as written, who named it, Rename; the
+   suggestions open under it in place, never a card of their own */
+.fd-teamname-now.is-open { padding-bottom:10px; }
+.fd-teamname-now .fd-teamname-edit { margin-top:2px; }
+.fd-teamname-now-mark { display:grid; place-items:center; flex:none; width:24px; height:24px; border-radius:50%; color:var(--lamp-info);
+  box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--lamp-info) 45%, transparent); }
+.fd-now-row-text strong > .fd-teamname-now-name { flex:0 1 auto; min-width:0; font:900 20px/1.15 var(--fd-show); letter-spacing:.01em;
+  text-transform:none; overflow-wrap:anywhere; }

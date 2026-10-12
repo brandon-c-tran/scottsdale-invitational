@@ -207,7 +207,19 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   in 100s, slides rows, rolls ranks and warms a new leader. "You're playing"
   stamps when your match becomes current. `contestWinLines`
   (`features/standings/winImpact.js`) is the one pure "Win: Sahil to 1st" line
-  per side on Home, Bets and the TV (only a win that posts a result has one).
+  per side on Bets and the TV (only a win that posts a result has one); Home
+  says yours once, "Win and you're 2nd", with your win song as a chip of its
+  title beside it (`WinLine`). **One Now card** (Oct 12): Home's contest card
+  is the only game surface on Home. Whatever else is happening for you is a
+  row of it (`ui/NowRow.jsx`): an in-app game in progress (`GeoHome` /
+  `TriviaHome` with `inCard`, App's `gameContent`, where Karaoke joins), a
+  draft waiting on someone else (`DraftNowRow`), another event's team name
+  (`TeamNameNow`) and another event's open market. The card's own team keeps
+  its pencil on its name (`useTeamNameNow`). Team names open once by
+  themselves after the draw, and only after no sheet, game screen or takeover
+  has held the screen for 2 s. Under the card: duels, the awards ballot,
+  Alerts and Install (each only while it asks), the leaderboard, Latest
+  result, Coming up.
   Bets: a placed chip flies from the rack and hovers until the ack
   (`fly(..., { hold })`), a failure flies it home; a fresh decision holds the
   decided board `MOTION.settleHold` (WON stamp, losing stacks to the bank,

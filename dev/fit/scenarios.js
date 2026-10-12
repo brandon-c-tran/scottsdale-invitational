@@ -1136,12 +1136,12 @@ export const PHONE_SCENARIOS = Object.freeze([
      pill's row (Audio Director on); and one that missed, offered again */
   /* Where and When on a player's phone: a photo up (the full-screen game),
      and after its result posts, when nothing of it may stay on screen */
-  { id:"geo-guess", build:() => geo("guess"), settle:false, tabs:["home"] },
+  { id:"geo-guess", build:() => geo("guess"), settle:false, tabs:["home"], sheets:["game-closed"] },
   { id:"geo-posted", build:() => { const state = geo("final"); act(state, "geoFinish", { evId:"where" }); return state; }, tabs:["home"] },
   /* Trivia on a player's phone (the guest's own pick open, a few still thinking):
      each format's question, the reveals, the scores; and the game gone once
      its result posts */
-  { id:"trivia-question", build:() => triviaStage("question"), settle:false, tabs:["home"] },
+  { id:"trivia-question", build:() => triviaStage("question"), settle:false, tabs:["home"], sheets:["game-closed"] },
   { id:"trivia-long", build:() => triviaStage("long"), settle:false, tabs:["home"] },
   { id:"trivia-picture", build:() => triviaStage("picture"), settle:false, tabs:["home"] },
   { id:"trivia-tune", build:() => triviaStage("tune"), settle:false, tabs:["home"] },
@@ -1157,7 +1157,7 @@ export const PHONE_SCENARIOS = Object.freeze([
      pick (theirs, someone else's), the buzzer dark, live and in, the answer
      (theirs, someone else's), the Daily Double's wager, the Final's wager
      and clue; and the commissioner's desk drawing the board */
-  { id:"board-pick-mine", build:() => boardStage("pick-mine"), settle:false, freeze:true, tabs:["home"] },
+  { id:"board-pick-mine", build:() => boardStage("pick-mine"), settle:false, freeze:true, tabs:["home"], sheets:["game-closed"] },
   { id:"board-pick-watch", build:() => boardStage("pick"), settle:false, freeze:true, tabs:["home"] },
   { id:"board-buzz-ready", build:() => boardStage("clue"), settle:false, freeze:true, tabs:["home"] },
   { id:"board-buzz-armed", build:() => boardStage("armed"), settle:false, freeze:true, tabs:["home"] },
@@ -1183,7 +1183,9 @@ export const PHONE_SCENARIOS = Object.freeze([
      When), a pairs bracket (Beer Die) and a team game (5v5) */
   { id:"ann-where", build:() => fresh("event:where:open"), settle:false, tabs:[], sheets:["announce"] },
   { id:"ann-pairs", build:() => fresh("event:die:open"), settle:false, tabs:[], sheets:["announce"] },
-  { id:"ann-team", build:() => fresh("event:bball5:open"), settle:false, tabs:[], sheets:["announce"] },
+  { id:"ann-team", build:() => fresh("event:bball5:open"), settle:false, tabs:[], sheets:["announce", "announce-closed"] },
+  /* a fresh team draw on Home: the team name row in the Now card, opened by itself */
+  { id:"ann-team-home", build:() => fresh("event:bball5:open"), settle:false, tabs:["home"] },
   /* the House sheet's flights board: the guest's own legs (codes) beside the
      host's (times only), and the commissioner, who is the host */
   { id:"house-guest", build:() => withFlights(fresh("event:putt:open")), tabs:[], sheets:["weekend-house"] },

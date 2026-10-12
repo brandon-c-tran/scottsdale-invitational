@@ -8,6 +8,7 @@ import { BUZZ_LOCKOUT_MS, BOARD_PICK_MS, DD_STING_MS } from "../../../shared/tri
 import { ChipFace } from "../identity/PlayerIdentity.jsx";
 import { Wheel } from "../geo/Wheel.jsx";
 import { Icon } from "../../ui/Icon.jsx";
+import { NowRow } from "../../ui/NowRow.jsx";
 import { ScoreReel } from "../../ui/ScoreReel.jsx";
 import { writeError } from "../../lib/writeErrors.js";
 import { LETTERS, triviaPhotoSrc } from "./triviaModel.js";
@@ -602,12 +603,16 @@ export function boardHomeStatus(view, now) {
   if (view.phase.startsWith("final")) return "Final";
   return view.phase === "pick" ? "The board" : view.columnName;
 }
-export function BoardHome({ state, me, onOpen, now: fixed }) {
+export function BoardHome({ state, me, onOpen, now: fixed, inCard = false }) {
   const now = useBoardNow(state, me, fixed);
   const view = boardView(state, me, now);
   if (!view || view.finished) return null;
   const status = boardHomeStatus(view, now);
   const score = view.myRow && view.playing ? (view.phase === "final-reveal" ? view.myRow.preFinal : view.myRow.score) : null;
+  /* a row of Home's Now card: the event's name is the card's own */
+  if (inCard) return <NowRow className="fd-trivia-now" status={status}
+    extra={score !== null ? `${signedPoints(score)} pts` : null} go={view.playing ? "Play" : "Open"} primary={view.playing}
+    onClick={onOpen} ariaLabel={`Trivia. ${status}. Open`} />;
   return <button type="button" className="fd-trivia-home" onClick={onOpen}>
     <span><small><i className="fd-insert fd-beat-dot" aria-hidden="true" />Trivia</small>
       <strong>{status}</strong>{score !== null && <em>{signedPoints(score)} pts</em>}</span>

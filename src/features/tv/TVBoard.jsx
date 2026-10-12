@@ -158,6 +158,24 @@ function Answerer({ state, view, now }) {
   </div>;
 }
 
+/* the rebound: the buzzers going live again for everyone who has not
+   answered. One big lamp in the answerer's place, unlit through the beat
+   after the strike, then lit with its bulbs running and the window
+   draining (the rail lights each buzz) */
+function Rebound({ view, scene, now }) {
+  const live = scene === "rebound-armed";
+  return <div className={`tv-board-answerer tv-board-rebound${live ? " is-live" : ""}`} key={`rebound:${view.race}`}>
+    <svg className="tv-board-lamp" viewBox="0 0 300 300" width="236" height="236" aria-hidden="true">
+      <circle cx="150" cy="150" r="138" pathLength="36" className="is-off" />
+      <circle cx="150" cy="150" r="138" pathLength="36" className="is-on" />
+      <circle cx="150" cy="150" r="100" className="tv-board-lamp-rim" />
+      <circle cx="150" cy="150" r="84" className="tv-board-lamp-cap" />
+      <ellipse cx="124" cy="112" rx="38" ry="18" transform="rotate(-14 124 112)" className="tv-board-lamp-glint" />
+    </svg>
+    {live && <Drain from={view.armAt} until={view.openUntil} now={now} />}
+  </div>;
+}
+
 /* the reveal's card: who took it and what it paid, or the struck ones */
 function Taker({ state, view, now }) {
   const tl = useAnchor(view.revealedAt, now);
@@ -179,8 +197,11 @@ const struckByOf = attempts => Object.fromEntries(attempts.filter(a => !a.right 
 
 /* The clue: the cell flies up and fills the stage (the value, then the
    clue in large type), the buzzers arm on the frame's lamps, the order
-   lands; then whoever answers, the options and their clock; then the
-   answer stamped. The Daily Double's clue is the picker's alone. */
+   lands; then whoever answers, the options and their clock; after a wrong
+   one the rebound (the answers standing, the struck ones out, the buzzers
+   live again); then the answer stamped. The Daily Double's clue is the
+   picker's alone. */
+const ANSWER_SCENES = Object.freeze(["answer", "reveal", "dd-clue", "rebound", "rebound-armed"]);
 function Clue({ state, view, scene, now }) {
   const tl = useAnchor(view.pickedAt, now);
   const { clue } = view;
@@ -188,10 +209,11 @@ function Clue({ state, view, scene, now }) {
   const zoom = view.dd ? null : zoomFrom(clue, { columns:view.columns.length, rows:view.rows });
   const tune = clue.format === "tune";
   const picture = clue.format === "picture";
-  const live = scene === "armed";
-  const answering = scene === "answer" || scene === "reveal" || scene === "dd-clue";
+  const live = scene === "armed" || scene === "rebound-armed";
+  const answering = ANSWER_SCENES.includes(scene);
+  const rebound = scene === "rebound" || scene === "rebound-armed";
   const text = tune ? (/tune/i.test(view.columnName) ? "" : "Name that tune") : clue.text || "";
-  const clipLive = tune && scene === "armed" && now < view.armAt + BOARD_CLIP_MS;
+  const clipLive = tune && live && now < view.armAt + BOARD_CLIP_MS;
   const head = <header className="tv-board-panel-head">
     <FitName name={view.columnName} width={900} max={44} min={30} className="tv-board-cat" />
     {view.dd && <span className="fd-show tv-board-dd-tag">Daily Double</span>}
@@ -203,7 +225,7 @@ function Clue({ state, view, scene, now }) {
     "--zfont":`${Math.round(78 / Math.max(zoom.sx, zoom.sy))}px` } : {}) };
   if (answering) {
     const revealed = scene === "reveal";
-    return <section className={`tv-board-panel tv-glass is-answer is-${scene}`} style={style}>
+    return <section className={`tv-board-panel tv-glass is-answer is-${scene}${live ? " is-live" : ""}`} style={style}>
       {head}
       <div className="tv-board-answer">
         {picture ? <div className="tv-board-answer-top">
@@ -211,9 +233,11 @@ function Clue({ state, view, scene, now }) {
           <div className="tv-board-photo is-thumb"><img src={triviaPhotoSrc(clue.photo)} alt="" /></div>
         </div>
           : text ? <h2 className="fd-show tv-board-text is-compact" style={{ fontSize:clueTextSize(text, { compact:true }) }}>{text}</h2>
-            : tune ? <div className="tv-board-answer-tune"><Speaker live={false} /></div> : null}
+            : tune ? <div className="tv-board-answer-tune"><Speaker live={clipLive} /></div> : null}
         <div className="tv-board-answer-row">
-          {revealed ? <Taker state={state} view={view} now={now} /> : <Answerer state={state} view={view} now={now} />}
+          {revealed ? <Taker state={state} view={view} now={now} />
+            : rebound ? <Rebound view={view} scene={scene} now={now} />
+              : <Answerer state={state} view={view} now={now} />}
           <Options state={state} options={clue.options} struck={view.struck} answer={view.answer} revealed={revealed}
             struckBy={struckByOf(view.attempts)} />
         </div>
@@ -410,7 +434,8 @@ function Rail({ state, view, scene, now }) {
     {slots.map(slot => {
       const cls = ["tv-board-slot", slot.control && "is-control", slot.buzzed && "is-buzzed", slot.place && "is-placed",
         slot.answering && "is-answering", slot.right && "is-right", slot.lastWrong && scene !== "pick" && "is-wrong",
-        slot.picker && "is-picker", slot.final && (slot.locked ? "is-locked" : slot.eligible ? "is-waiting" : "is-out"),
+        slot.spent && "is-spent", slot.picker && "is-picker",
+        slot.final && (slot.locked ? "is-locked" : slot.eligible ? "is-waiting" : "is-out"),
         state.away?.[slot.player] && "is-away"].filter(Boolean).join(" ");
       /* the picker's own color, painted behind their slot (paint, never light) */
       const paint = slot.control ? resolvePlayerIdentity(state.profiles, slot.player).color : null;
@@ -448,6 +473,9 @@ function useBoardNow(state, tick, fixed) {
   return now;
 }
 
+/* the scenes a clue holds the stage in */
+const CLUE_SCENES = Object.freeze(["zoom", "clue", "armed", "order", ...ANSWER_SCENES]);
+
 /* Trivia as the room's game show (shared/triviaBoard.js). The board fills
    the stage, the rail of scores stands along the foot in the ticker's
    place; a picked cell flies up into its clue, and every moment after it
@@ -465,8 +493,7 @@ export function TVBoard({ state, now: tick, fixed = false }) {
   return <div className={`tv-board is-${scene}`}>
     <div className="tv-board-stage" style={{ width:STAGE.w, height:STAGE.h }}>
       {!finalScene && <Grid view={view} />}
-      {["zoom", "clue", "armed", "order", "answer", "reveal", "dd-clue"].includes(scene) &&
-        <Clue key={view.clueId} state={state} view={view} scene={scene} now={now} />}
+      {CLUE_SCENES.includes(scene) && <Clue key={view.clueId} state={state} view={view} scene={scene} now={now} />}
       {scene === "dd-wager" && <DailyDoubleWager state={state} view={view} now={now} />}
       {finalScene && <FinalStage state={state} view={view} scene={scene} now={now} />}
     </div>
@@ -476,12 +503,13 @@ export function TVBoard({ state, now: tick, fixed = false }) {
 }
 
 /* the frame's chase while the board holds the room: magenta while the
-   buzzers are live, the Daily Double's amber run, the Final's clock */
+   buzzers are live (again on a rebound), the Daily Double's amber run, the
+   Final's clock */
 export function boardChrome(state, now) {
   const view = boardView(state, null, now);
   if (!view || view.finished) return null;
   const scene = tvBoardScene(view, now);
-  if (scene === "armed") return { chase:{ color:"var(--lamp-live)", pace:"run" } };
+  if (scene === "armed" || scene === "rebound-armed") return { chase:{ color:"var(--lamp-live)", pace:"run" } };
   if (scene === "dd-sting") return { chase:{ color:"var(--sun)", pace:"run" } };
   if (scene === "final-clue") return { chase:{ color:"var(--lamp-live)", pace:"rest" } };
   return null;

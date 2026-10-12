@@ -61,6 +61,8 @@ export const STEPS = Object.freeze([
   { id:"board-armed", label:"Board: buzzers live", board:true, build:() => boardStage("armed") },
   { id:"board-tune", label:"Board: a tune", board:true, build:() => boardStage("tune") },
   { id:"board-order", label:"Board: the order", board:true, build:() => boardStage("order") },
+  { id:"board-rebound", label:"Board: the rebound", board:true, build:() => boardStage("rebound") },
+  { id:"board-rebound-out", label:"Board: out of the rebound", board:true, build:() => boardStage("rebound-out") },
   { id:"board-answer", label:"Board: your turn", board:true, build:() => boardStage("answer-mine") },
   { id:"board-answer-watch", label:"Board: their turn", board:true, build:() => boardStage("answer") },
   { id:"board-reveal", label:"Board: the reveal", board:true, build:() => boardStage("reveal") },
@@ -71,6 +73,7 @@ export const STEPS = Object.freeze([
   { id:"board-final-reveal", label:"Board: the Final turns", board:true, build:() => boardStage("final-reveal") },
   { id:"board-final", label:"Board: final scores", board:true, build:() => boardStage("final-board") },
   { id:"board-played", label:"Board: played by the real writes", board:true, build:() => boardPlayed("armed") },
+  { id:"board-played-rebound", label:"Board: a rebound, played by the real writes", board:true, build:() => boardPlayed("rebound") },
 ]);
 const anchor = state => {
   const game = state.trivia, q = game?.questions?.[game.index];

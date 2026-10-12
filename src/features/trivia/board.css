@@ -129,6 +129,16 @@
 .fd-board-in li { display:grid; border-radius:50%; opacity:.3; filter:saturate(.2); transition:opacity .25s ease, filter .25s ease; }
 .fd-board-in li.is-in { opacity:1; filter:none; box-shadow:0 0 0 2px var(--lamp-live); animation:fd-trivia-land .36s var(--ease-land) both; }
 .fd-board-in.is-final li.is-in { box-shadow:0 0 0 2px var(--bone); }
+/* a rebound: the answers as letters over the buzzer, the struck ones barred */
+.fd-board-struck { display:flex; justify-content:center; gap:10px; margin:0; padding:0; list-style:none; }
+.fd-board-struck li { display:grid; }
+.fd-board-struck .fd-board-letter { width:44px; height:44px; font-size:23px; color:var(--ink); }
+.fd-board-struck li.is-struck .fd-board-letter { color:var(--muted); opacity:.55; }
+.fd-board-struck li.is-struck .fd-board-letter::after { content:""; position:absolute; left:-4px; right:-4px; top:50%; height:3px; margin-top:-1px;
+  border-radius:2px; background:var(--clay); transform:rotate(-38deg); }
+/* out of this clue (you answered it): the buzzer dead, no bulbs, no light */
+.fd-buzzer.is-out .fd-buzzer-button { display:block; cursor:default; opacity:.45; filter:saturate(.2); --cap-up:-3px; }
+.fd-buzzer-out { font:800 22px/1 var(--fd-display); letter-spacing:.14em; text-transform:uppercase; color:var(--muted2); }
 
 /* ── the answer ── */
 .fd-board-yourturn { display:grid; gap:8px; }

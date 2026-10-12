@@ -4,19 +4,20 @@
      state  a fresh frame's step (roomSound.js roomCues calls boardCues):
             a cell picked (boardZoom), the Daily Double (ddSting), each buzz
             landing (buzzIn, panned to the player's chip, a step higher
-            each), the order stamping (orderStamp, a place a beat), an
-            answer (boardRight / boardWrong, panned), a wager or a Final
-            pick locking (S18, panned), the Final's category (sting) and
-            its standings (S14). A load, a reconnect or a correction sounds
+            each, counted afresh on a rebound), the order stamping
+            (orderStamp, a place a beat, each race's), an answer
+            (boardRight / boardWrong, panned), a wager or a Final pick
+            locking (S18, panned), the Final's category (sting) and its
+            standings (S14). A load, a reconnect or a correction sounds
             nothing (roomStep's fresh gate).
      clock  what the game's own clock owes while a phase stands
-            (useBoardRoomClock): the buzzers arming at armAt (boardArm),
-            the last three seconds of an answer turn (typeTick), the
-            Final's thinking loop a bar at a time from clueAt (think), and
-            each Final turn (finalTurn, then right or wrong, then the
-            total's tally). Laid on their own instants, keyed, cancelled
-            when the phase moves on; a TV that joins late hears only what
-            is still ahead.
+            (useBoardRoomClock): the buzzers arming at armAt (boardArm,
+            again for a rebound), the last three seconds of an answer turn
+            (typeTick), the Final's thinking loop a bar at a time from
+            clueAt (think), and each Final turn (finalTurn, then right or
+            wrong, then the total's tally). Laid on their own instants,
+            keyed, cancelled when the phase moves on; a TV that joins late
+            hears only what is still ahead.
    Reduced motion: the zoom is silent, the sting is its chord, the order
    one stamp, a Final turn its verdict alone. Pure apart from the hook. */
 import { useEffect } from "react";
@@ -34,7 +35,7 @@ export function boardSnapshot(state) {
   if (!view || view.finished) return null;
   const pans = Object.fromEntries(view.players.map((player, i) => [player, railPan(i, view.players.length)]));
   return {
-    id:view.game.id, phase:view.phase, clueId:view.clueId, pickedAt:view.pickedAt, dd:view.dd, closedAt:view.closedAt,
+    id:view.game.id, phase:view.phase, clueId:view.clueId, pickedAt:view.pickedAt, dd:view.dd, closedAt:view.closedAt, race:view.race,
     buzzed:[...view.buzzedIn], order:view.order.map(row => row.player),
     attempts:view.attempts.map(attempt => ({ player:attempt.player, right:!!attempt.right, at:Number(attempt.at) || 0 })),
     revealedAt:view.revealedAt, winner:view.winner, wagerAt:view.wagerAt,
@@ -57,16 +58,19 @@ export function boardCues(prev, next, { now = serverNow(), reduced = false } = {
   if (!b.clueId || was?.clueId !== b.clueId || was?.id !== b.id) {
     /* a new clue's first frame can carry nothing else worth a sound */
   } else {
-    /* the buzzes that landed since the last frame, each a step higher */
-    const before = new Set(was.buzzed || []);
+    /* the buzzes that landed since the last frame, each a step higher (a
+       rebound is a new race: its buzzes count from the bottom again) */
+    const race = Number(b.race) || 0;
+    const sameRace = (Number(was.race) || 0) === race;
+    const before = new Set(sameRace ? was.buzzed || [] : []);
     const fresh = (b.buzzed || []).filter(player => !before.has(player));
     fresh.forEach((player, i) => cues.push({ id:"buzzIn", at:now + i * 70, pan:pan(player), opts:{ step:before.size + i },
-      key:`${key}:${b.clueId}:buzz:${player}` }));
-    /* the buzzers closed: the order stamps, fastest first */
-    if (b.closedAt && !was.closedAt && b.order.length) {
+      key:`${key}:${b.clueId}:${race}:buzz:${player}` }));
+    /* a race's buzzers closed: its order stamps, fastest first */
+    if (b.closedAt && (!sameRace || !was.closedAt) && b.order.length) {
       const places = reduced ? 1 : Math.min(6, b.order.length);
       for (let i = 0; i < places; i++) cues.push({ id:"orderStamp", at:b.closedAt + i * ORDER_STAMP_MS, pan:pan(b.order[i]),
-        opts:{ place:i + 1 }, key:`${key}:${b.clueId}:order:${i}` });
+        opts:{ place:i + 1 }, key:`${key}:${b.clueId}:${race}:order:${i}` });
     }
     /* an answer lands */
     b.attempts.slice((was.attempts || []).length).forEach((attempt, i) =>
@@ -96,7 +100,7 @@ export function boardClockCues(view, now, { reduced = false } = {}) {
   const key = `board:${view.game.id}`;
   const cues = [];
   const add = (id, at, extra = {}) => { if (at > now - 200) cues.push({ id, at, ...extra }); };
-  if (view.phase === "clue" && view.armAt) add("boardArm", view.armAt, { key:`${key}:${view.clueId}:arm` });
+  if (view.phase === "clue" && view.armAt) add("boardArm", view.armAt, { key:`${key}:${view.clueId}:${view.race}:arm` });
   if ((view.phase === "answer" || view.phase === "dd-clue") && view.turnEnd)
     for (let s = 3; s >= 1; s--) add("typeTick", view.turnEnd - s * 1000, { key:`${key}:${view.clueId}:${view.turn}:tick:${s}` });
   if (view.phase === "final-clue" && view.finalAt.clueAt) {
@@ -124,7 +128,8 @@ const reducedNow = () => typeof window !== "undefined" && !!window.matchMedia?.(
    this TV, cancelled when it moves on. The handle, not a key, keeps each
    one single (a key outlives a cancel). */
 export function useBoardRoomClock(view, now) {
-  const stand = view && !view.finished ? `${view.game.id}:${view.phase}:${view.clueId || ""}:${view.turn}:${view.finalAt.clueAt}:${view.finalAt.revealAt}` : null;
+  const stand = view && !view.finished
+    ? `${view.game.id}:${view.phase}:${view.clueId || ""}:${view.turn}:${view.race}:${view.finalAt.clueAt}:${view.finalAt.revealAt}` : null;
   useEffect(() => {
     if (!stand) return undefined;
     const handles = boardClockCues(view, serverNow(), { reduced:reducedNow() })

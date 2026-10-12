@@ -934,6 +934,10 @@ export const TV_SCENARIOS = Object.freeze([
   { id:"tv-board-tune", build:() => boardStage("tune"), at:{ board:0 } },
   { id:"tv-board-picture", build:() => boardStage("picture"), at:{ board:0 } },
   { id:"tv-board-order", build:() => boardStage("order"), at:{ board:0 }, wait:1200 },
+  /* the rebound: the first answer struck, the buzzers about to arm again
+     (the lamp dark, who answered unlit), then live with two in */
+  { id:"tv-board-rebound", build:() => boardStage("rebound"), at:{ board:0 } },
+  { id:"tv-board-rebound-armed", build:() => boardStage("rebound-armed"), at:{ board:0 }, wait:900 },
   { id:"tv-board-answer", build:() => boardStage("answer"), at:{ board:0 } },
   { id:"tv-board-picture-answer", build:() => boardStage("picture-answer"), at:{ board:0 } },
   { id:"tv-board-reveal", build:() => boardStage("reveal"), at:{ board:0 }, wait:1500 },
@@ -948,6 +952,7 @@ export const TV_SCENARIOS = Object.freeze([
      for the room, the autopilot's beats on their clock) */
   { id:"tv-board-real-pick", build:() => boardPlayed("pick"), at:{ board:0 } },
   { id:"tv-board-real-armed", build:() => boardPlayed("armed"), at:{ board:0 } },
+  { id:"tv-board-real-rebound", build:() => boardPlayed("rebound"), at:{ board:0 }, wait:900 },
   { id:"tv-board-real-answer", build:() => boardPlayed("answer"), at:{ board:0 } },
   { id:"tv-board-real-reveal", build:() => boardPlayed("reveal"), at:{ board:0 }, wait:1500 },
   { id:"tv-board-real-final-reveal", build:() => boardPlayed("final-reveal"), at:{ board:0 } },
@@ -1157,6 +1162,11 @@ export const PHONE_SCENARIOS = Object.freeze([
   { id:"board-buzz-ready", build:() => boardStage("clue"), settle:false, freeze:true, tabs:["home"] },
   { id:"board-buzz-armed", build:() => boardStage("armed"), settle:false, freeze:true, tabs:["home"] },
   { id:"board-buzz-in", build:() => boardStage("armed-in"), settle:false, freeze:true, tabs:["home"] },
+  /* the rebound: your buzzer dark again under the struck letters, then
+     live; and out of it, once you answered */
+  { id:"board-rebound", build:() => boardStage("rebound"), settle:false, freeze:true, tabs:["home"] },
+  { id:"board-rebound-armed", build:() => boardStage("rebound-armed"), settle:false, freeze:true, tabs:["home"] },
+  { id:"board-rebound-out", build:() => boardStage("rebound-out"), settle:false, freeze:true, tabs:["home"] },
   { id:"board-answer-mine", build:() => boardStage("answer-mine"), settle:false, freeze:true, tabs:["home"] },
   { id:"board-answer-watch", build:() => boardStage("answer"), settle:false, freeze:true, tabs:["home"] },
   { id:"board-reveal", build:() => boardStage("reveal"), settle:false, freeze:true, tabs:["home"] },
@@ -1166,6 +1176,7 @@ export const PHONE_SCENARIOS = Object.freeze([
   { id:"desk-board", build:boardDeskStage, viewer:"gm", tabs:[], sheets:["trivia-desk"] },
   /* and through the real writes */
   { id:"board-real-buzz", build:() => boardPlayed("armed"), settle:false, freeze:true, tabs:["home"] },
+  { id:"board-real-rebound", build:() => boardPlayed("rebound"), settle:false, freeze:true, tabs:["home"] },
   { id:"board-real-answer", build:() => boardPlayed("answer"), settle:false, freeze:true, tabs:["home"] },
   { id:"board-real-final-clue", build:() => boardPlayed("final-clue"), settle:false, freeze:true, tabs:["home"] },
   /* the announcement sheet as betting opens: a free-for-all (Where and

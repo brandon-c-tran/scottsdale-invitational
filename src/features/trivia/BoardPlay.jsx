@@ -121,7 +121,9 @@ function Pick({ state, view, me, onAct, now }) {
 /* One big arcade button under glass. Dark until the buzzers arm on the
    server clock; a tap before that locks it out (a shake, a dead thunk).
    At the arm it lights, and the reaction is timed from the frame that
-   painted it lit; the tap sends at once. Latched down once you are in. */
+   painted it lit; the tap sends at once, naming its race. Latched down
+   once you are in. A rebound is a new race: the buzzer is drawn afresh
+   (keyed by clue and race), dark until the new arm. */
 export function Buzzer({ view, onBuzz, now: drawn }) {
   const [lockUntil, setLockUntil] = useState(0);
   const [sent, setSent] = useState(null);
@@ -140,7 +142,7 @@ export function Buzzer({ view, onBuzz, now: drawn }) {
     painted.current = { perf:null, server:null };
     const raf = requestAnimationFrame(() => { painted.current = { perf:performance.now(), server:serverNow() }; });
     return () => cancelAnimationFrame(raf);
-  }, [live, view.clueId]);
+  }, [live, view.clueId, view.race]);
   const press = event => {
     event.preventDefault?.();
     if (state === "in" || state === "closed") return;
@@ -155,7 +157,7 @@ export function Buzzer({ view, onBuzz, now: drawn }) {
       tapServer:serverNow(), armAt:view.armAt });
     setSent({ ms });
     playSound("buzzPress", { bus:"you" });
-    onBuzz({ clueId:view.clueId, ms });
+    onBuzz({ clueId:view.clueId, ms, race:view.race });
   };
   const label = { off:"Buzzer, not live yet", locked:"Buzzer locked", live:"Buzz", in:"In", closed:"Buzzers closed" }[state];
   return <div className={`fd-buzzer is-${state}`}>
@@ -178,15 +180,43 @@ export function Buzzer({ view, onBuzz, now: drawn }) {
 
 function BuzzScreen({ state, view, me, onAct, now }) {
   const [error, setError] = useState("");
+  /* a rebound is a new race: an old race's error never stands over it */
+  const race = useRef(`${view.clueId}:${view.race}`);
+  race.current = `${view.clueId}:${view.race}`;
+  useEffect(() => { setError(""); }, [view.clueId, view.race]);
   const buzz = async payload => {
     const result = await onAct("boardBuzz", payload);
-    if (result?.ok !== true && !result?.uncertain) setError(writeError(result));
+    if (result?.ok !== true && !result?.uncertain && race.current === `${payload.clueId}:${payload.race}`) setError(writeError(result));
   };
-  return <main className="fd-board-body is-buzz">
+  return <main className={`fd-board-body is-buzz${view.rebound ? " is-rebound" : ""}`}>
     <ClueHead view={view} />
-    {view.playing ? <Buzzer key={view.clueId} view={view} onBuzz={buzz} now={now} />
+    {view.rebound && <StruckRow view={view} />}
+    {view.playing ? <Buzzer key={`${view.clueId}:${view.race}`} view={view} onBuzz={buzz} now={now} />
       : <InRow state={state} view={view} />}
     {error && <p className="fd-board-error" role="alert">{error}</p>}
+  </main>;
+}
+/* a rebound's answers as their letters, the struck ones barred: what is
+   still in play, read at a glance (the answers themselves are on the TV) */
+function StruckRow({ view }) {
+  const options = view.clue?.options || [];
+  return <ol className="fd-board-struck" aria-label={`${options.length - view.struck.size} of ${options.length} left`}>
+    {options.map((_, i) => <li key={i} className={view.struck.has(i) ? "is-struck" : undefined}>
+      <span className="fd-board-letter">{LETTERS[i]}</span></li>)}
+  </ol>;
+}
+/* Out of this clue: you answered it, so the rebound is the room's. The
+   buzzer stands dead under the struck letters. */
+function BuzzOut({ view }) {
+  return <main className="fd-board-body is-buzz is-rebound is-out">
+    <ClueHead view={view} />
+    <StruckRow view={view} />
+    <div className="fd-buzzer is-out">
+      <span className="fd-buzzer-button" aria-hidden="true">
+        <span className="fd-buzzer-bezel"><span className="fd-buzzer-skirt" /><span className="fd-buzzer-cap"><span className="fd-buzzer-glint" /></span></span>
+      </span>
+      <div className="fd-buzzer-under"><b className="fd-buzzer-out">Out</b></div>
+    </div>
   </main>;
 }
 /* who is in, as they buzz (a spectator's view of the buzzers) */
@@ -505,10 +535,10 @@ function useOwnOutcome(view, me) {
   }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
 }
 
-/* when this phone opens by itself: once for each pick, clue, turn and
-   Final step a player is needed at */
+/* when this phone opens by itself: once for each pick, clue, race, turn
+   and Final step a player is needed at */
 export const boardOpenKey = view => !view ? null
-  : `${view.game.id}:${view.phase}:${view.clueId || (view.phase === "pick" ? (view.game.played || []).length : "")}:${view.turn}`;
+  : `${view.game.id}:${view.phase}:${view.clueId || (view.phase === "pick" ? (view.game.played || []).length : "")}:${view.turn}:${view.race}`;
 
 /* The board on a phone, full screen. It opens by itself for each moment
    the game needs this player (a pick, a buzzer, a turn, a wager, the
@@ -544,6 +574,7 @@ export function BoardPlaySheet({ state, me, blocked = false, force = 0, onAct = 
     </header>
     {screen === "pick" || screen === "pick-watch" ? <Pick {...props} />
       : screen === "buzzer" || screen === "clue-watch" ? <BuzzScreen {...props} />
+        : screen === "buzz-out" ? <BuzzOut {...props} />
         : screen === "answer" ? <Answer {...props} />
           : screen === "answer-watch" ? <AnswerWatch {...props} />
             : screen === "reveal" ? <Reveal key={view.clueId} {...props} />
@@ -563,6 +594,7 @@ export function boardHomeStatus(view, now) {
   const screen = boardScreen(view);
   if (screen === "pick") return "Your pick";
   if (screen === "buzzer" || screen === "clue-watch") return now >= view.armAt ? "Buzzers live" : view.columnName;
+  if (screen === "buzz-out") return view.columnName;
   if (screen === "answer") return "Your turn";
   if (screen === "dd-wager" || screen === "dd-watch") return "Daily Double";
   if (screen === "final-wager") return view.myFinalWager === null ? "Final wager" : "Locked in";

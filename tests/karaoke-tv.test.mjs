@@ -18,7 +18,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 import { allEventsOf, computeStandings, presentPlayers } from "../shared/core.js";
 import {
-  KARAOKE_LEGENDARY_MS, KARAOKE_ORDER_HOLD_MS, KARAOKE_REVEAL_LEAD_MS, KARAOKE_UP_MS, karaokeRevealSchedule, karaokeSchedule,
+  KARAOKE_LEGENDARY_MS, KARAOKE_ORDER_HOLD_MS, KARAOKE_REVEAL_LEAD_MS, karaokeRevealSchedule, karaokeSchedule,
   karaokeSinger, karaokeSongTitle, karaokeTurn, karaokeVideoKey, karaokeVideoOf,
 } from "../shared/karaoke.js";
 import { karaokeStage } from "../dev/fit/karaokeFixtures.js";
@@ -75,6 +75,19 @@ test("the fixtures stand each moment where the contract puts it, projected as a 
   /* the reload waits from the first singer up to the result */
   assert.equal(karaokeTvBusy(stage("pick").karaoke), false);
   for (const name of ["order", "up", "singing", "voting", "reveal-podium"]) assert.equal(karaokeTvBusy(stage(name).karaoke), true, name);
+});
+
+test("the fit audit's karaoke views build, each on its own instant", async () => {
+  const { TV_SCENARIOS, buildScenario } = await import("../dev/fit/scenarios.js");
+  const ids = TV_SCENARIOS.map(spec => spec.id).filter(id => id.startsWith("tv-karaoke-"));
+  assert.deepEqual(ids, ["tv-karaoke-pick", "tv-karaoke-order", "tv-karaoke-up", "tv-karaoke-singing", "tv-karaoke-practice",
+    "tv-karaoke-failed", "tv-karaoke-voting", "tv-karaoke-legendary", "tv-karaoke-reveal-mid", "tv-karaoke-reveal-podium"]);
+  for (const id of ids) {
+    const built = buildScenario(TV_SCENARIOS, id);
+    assert.equal(built.at?.karaoke, 0, id);
+    assert.ok(built.state.karaoke?.id && Number(built.state.updatedAt) > 0, id);
+  }
+  assert.match(read("dev/fit-tv.jsx"), /if \(at\.karaoke !== undefined\) return \(Number\(state\.updatedAt\) \|\| Date\.now\(\)\) \+ at\.karaoke;/);
 });
 
 test("every stage draws through the real TV, the song alone on the stage with the chrome out", () => {

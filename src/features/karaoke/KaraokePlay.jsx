@@ -283,7 +283,8 @@ export function KaraokeSheet({ state, me, blocked = false, force = 0, gm = false
   if (!open) return null;
   const close = () => { setDismissed(key); setOpened(false); setTrayOpen(false); };
   const tray = gm ? karaokeTray(state, view, now) : [];
-  const turn = ["up", "up-watch", "singing", "vote", "vote-closing", "vote-closed"].includes(screen);
+  const trayShown = trayOpen && tray.length > 0;
+  const turn =["up", "up-watch", "singing", "vote", "vote-closing", "vote-closed"].includes(screen);
   const title = screen.startsWith("pick") ? "Pick your song" : screen === "reveal" || screen === "done" ? "Results"
     : screen === "legendary" ? `Singer ${view.myIndex + 1} of ${view.total}` : turn ? `Singer ${view.n} of ${view.total}` : "Karaoke";
   /* the window on the clock: the pick, a walk-up, a vote's grace */
@@ -292,17 +293,17 @@ export function KaraokeSheet({ state, me, blocked = false, force = 0, gm = false
     : walking ? { from:view.upAt, until:view.walkUntil }
       : screen === "vote-closing" ? { from:view.endAt, until:view.closeAt } : null;
   const props = { state, view, me, onAct };
-  return <div className={`fd-karaoke-game is-${screen}${trayOpen ? " is-tray" : ""}`} role="dialog" aria-modal="true" aria-label="Karaoke">
+  return <div className={`fd-karaoke-game is-${screen}${trayShown ? " is-tray" : ""}`} role="dialog" aria-modal="true" aria-label="Karaoke">
     <header className="fd-karaoke-head">
       <span className="fd-karaoke-count"><small>Karaoke</small><b>{title}</b></span>
       {timer && <Countdown until={timer.until} fixed={fixed} />}
-      {tray.length > 0 && <button type="button" className={`fd-karaoke-more${trayOpen ? " is-open" : ""}`} aria-label="Commissioner"
-        aria-expanded={trayOpen} onClick={() => setTrayOpen(value => !value)}><Icon name="more" size={20} /></button>}
+      {tray.length > 0 && <button type="button" className={`fd-karaoke-more${trayShown ? " is-open" : ""}`} aria-label="Commissioner"
+        aria-expanded={trayShown} onClick={() => setTrayOpen(value => !value)}><Icon name="more" size={20} /></button>}
       <button type="button" className="fd-karaoke-close" onClick={close} aria-label="Close"><Icon name="close" size={20} /></button>
       {timer && <span className="fd-karaoke-timebar"><Drain key={`${screen}:${timer.until}`} from={timer.from} until={timer.until} now={now} /></span>}
     </header>
-    {/* the commissioner's moves open under the head, the game moving down for them */}
-    <div className="fd-karaoke-trayslot">{trayOpen && <Tray items={tray} onAct={onAct} onDone={() => setTrayOpen(false)} />}</div>
+    {/* the commissioner's moves open under the head; the game rests behind them */}
+    <div className="fd-karaoke-trayslot">{trayShown && <Tray items={tray} onAct={onAct} onDone={() => setTrayOpen(false)} />}</div>
     {screen === "pick" || screen === "pick-locked" ? <Pick key={view.game.id} view={view} onAct={onAct} karaoke={karaoke} />
       : screen === "pick-watch" ? <PickWatch view={view} />
         : screen === "up" ? <Stage {...props} word="You’re up" />

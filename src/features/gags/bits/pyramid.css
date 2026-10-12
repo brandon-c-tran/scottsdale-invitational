@@ -1,2 +1,114 @@
-/* pyramid (pyramid.jsx): a stub until its scene is drawn */
-.is-pyramid .pyramid { position:absolute; inset:0; }
+/* pyramid (pyramid.jsx): every move on a beat from registry.js
+   (--b-<name>), every animation on --ba (bits.css), each element resting
+   on its end state. Each chip carries its own numbers (pyramid.jsx): its
+   way from the start row to its spot (--dx, --dy), its hop's arc and
+   landing instant (--arc, --land), how many practice bounces it takes
+   (--bounces) and its shoes' spread (--split). A squash under a landing
+   always comes back to full height, so the row on top never floats. */
+
+.is-pyramid .py { position:absolute; inset:0; }
+
+/* every glove sits behind its own disc until it has somewhere to go:
+   tucked in to the chip's middle, out of sight */
+.is-pyramid .py-chip .cast-body-in { isolation:isolate; }
+.is-pyramid .py-chip .cast-hand { z-index:-1; }
+.is-pyramid .py-chip .cast-hand.is-r > .cast-hand-in { transform:translateX(calc(-1 * var(--tuck))); }
+.is-pyramid .py-chip .cast-hand.is-l > .cast-hand-in { transform:translateX(var(--tuck)); }
+/* a splits: the shoes spread to the rims either side */
+.is-pyramid .py-chip .cast-shoe.is-l { transform:translateX(calc(-1 * var(--split))); }
+.is-pyramid .py-chip .cast-shoe.is-r { transform:translateX(var(--split)); }
+
+/* ── the base: shuffles together, braces, gives under the top's landing;
+   an end chip's outer glove springs out as the top lands ── */
+.is-pyramid .py-chip.is-base .cast-move { transform:translateX(var(--dx));
+  --ba:py-shuffle 300ms var(--ease-out) calc(var(--tl) + var(--b-build)) both; animation:var(--ba); }
+@keyframes py-shuffle { from { transform:translateX(0px); } to { transform:translateX(var(--dx)); } }
+.is-pyramid .py-chip.is-base:not(.is-climber) .cast-hop {
+  --ba:py-step 300ms linear calc(var(--tl) + var(--b-build)) both; animation:var(--ba); }
+@keyframes py-step { 0%, 100% { transform:translateY(0px); } 40% { transform:translateY(-14px); } }
+.is-pyramid .py-chip.is-base .cast-body { transform:scale(1, 1);
+  --ba:py-brace 260ms var(--ease-out) calc(var(--tl) + var(--b-build) + 300ms) both,
+    py-load 420ms linear calc(var(--tl) + var(--b-top)) forwards; animation:var(--ba); }
+@keyframes py-brace { 0%, 100% { transform:scale(1, 1); } 45% { transform:scale(1.05, .93); } }
+@keyframes py-load { 0% { transform:scale(1, 1); animation-timing-function:cubic-bezier(.2,.8,.4,1); }
+  30% { transform:scale(1.06, .9); animation-timing-function:ease-in-out; } 100% { transform:scale(1, 1); } }
+.is-pyramid .py-chip:is(.is-end-l, .is-end-both) .cast-hand.is-l > .cast-hand-in { transform:translateX(0px);
+  --ba:py-out-l 220ms cubic-bezier(.2,.8,.3,1.3) calc(var(--tl) + var(--b-top) + 80ms) both; animation:var(--ba); }
+.is-pyramid .py-chip:is(.is-end-r, .is-end-both) .cast-hand.is-r > .cast-hand-in { transform:translateX(0px);
+  --ba:py-out-r 220ms cubic-bezier(.2,.8,.3,1.3) calc(var(--tl) + var(--b-top) + 80ms) both; animation:var(--ba); }
+@keyframes py-out-l { from { transform:translateX(var(--tuck)); } to { transform:translateX(0px); } }
+@keyframes py-out-r { from { transform:translateX(calc(-1 * var(--tuck))); } to { transform:translateX(0px); } }
+
+/* ── the climbers: bounce on their toes on the beats before their own,
+   crouch, hop up in an arc onto their spot, land in a squash ── */
+.is-pyramid .py-chip.is-climber .cast-move { transform:translate(var(--dx), var(--dy));
+  --ba:py-climb 400ms linear calc(var(--tl) + var(--land) - 400ms) both; animation:var(--ba); }
+@keyframes py-climb { from { transform:translate(0px, 0px); } to { transform:translate(var(--dx), var(--dy)); } }
+.is-pyramid .py-chip.is-climber .cast-hop {
+  --ba:py-bounce 380ms linear calc(var(--tl) + var(--b-hop0) - 250ms) var(--bounces) both,
+    py-arc 400ms linear calc(var(--tl) + var(--land) - 400ms) forwards; animation:var(--ba); }
+@keyframes py-bounce { 0% { transform:translateY(0px); animation-timing-function:cubic-bezier(.2,.7,.4,1); }
+  33% { transform:translateY(var(--bob)); animation-timing-function:cubic-bezier(.6,0,.8,.3); }
+  66.667%, 100% { transform:translateY(0px); } }
+@keyframes py-arc { 0% { transform:translateY(0px); animation-timing-function:cubic-bezier(.25,.6,.45,1); }
+  50% { transform:translateY(var(--arc)); animation-timing-function:cubic-bezier(.55,0,.75,.4); } 100% { transform:translateY(0px); } }
+.is-pyramid .py-chip.is-climber .cast-body {
+  --ba:py-spring 640ms linear calc(var(--tl) + var(--land) - 520ms) both,
+    py-load 420ms linear calc(var(--tl) + var(--b-top)) forwards; animation:var(--ba); }
+.is-pyramid .py-chip.is-climber.is-top .cast-body {
+  --ba:py-spring 640ms linear calc(var(--tl) + var(--land) - 520ms) both; animation:var(--ba); }
+@keyframes py-spring { 0% { transform:scale(1, 1); animation-timing-function:ease-out; }
+  18.75% { transform:scale(1.08, .8); animation-timing-function:cubic-bezier(.2,.8,.4,1); }
+  28% { transform:scale(.9, 1.14); animation-timing-function:ease-in-out; }
+  75%, 81.25% { transform:scale(1, 1); animation-timing-function:cubic-bezier(.2,.8,.4,1); }
+  88% { transform:scale(1.1, .86); animation-timing-function:ease-in-out; } 100% { transform:scale(1, 1); } }
+.is-pyramid .py-chip.is-climber .cast-shadow { opacity:0;
+  --ba:bit-hide 160ms linear calc(var(--tl) + var(--land) - 400ms) both; animation:var(--ba); }
+
+/* a middle one's gloves land on the heads it stands on */
+.is-pyramid .py-chip.is-mid .cast-hand.is-r > .cast-hand-in { transform:translate(calc(-1 * var(--on-x)), var(--on-y));
+  --ba:py-on-r 200ms var(--ease-out) calc(var(--tl) + var(--land) + 40ms) both; animation:var(--ba); }
+.is-pyramid .py-chip.is-mid .cast-hand.is-l > .cast-hand-in { transform:translate(var(--on-x), var(--on-y));
+  --ba:py-on-l 200ms var(--ease-out) calc(var(--tl) + var(--land) + 40ms) both; animation:var(--ba); }
+@keyframes py-on-r { from { transform:translate(calc(-1 * var(--tuck)), 0px); } to { transform:translate(calc(-1 * var(--on-x)), var(--on-y)); } }
+@keyframes py-on-l { from { transform:translate(var(--tuck), 0px); } to { transform:translate(var(--on-x), var(--on-y)); } }
+/* a top row of two: the last one up lifts its outer glove off the head
+   under it for the thumbs up */
+.is-pyramid .py-chip.is-crown.is-thumb .cast-hand.is-r > .cast-hand-in { transform:translate(calc(-1 * var(--bal-x)), var(--thumb-y));
+  --ba:py-on-r 200ms var(--ease-out) calc(var(--tl) + var(--land) + 40ms) both,
+    py-lift 260ms cubic-bezier(.2,.8,.3,1.4) calc(var(--tl) + var(--b-thumb) - 60ms) forwards; animation:var(--ba); }
+@keyframes py-lift { from { transform:translate(calc(-1 * var(--on-x)), var(--on-y)); }
+  to { transform:translate(calc(-1 * var(--bal-x)), var(--thumb-y)); } }
+
+/* ── the top: gloves out for balance, a wobble, a scare, dead still,
+   then one glove up: thumbs up ── */
+.is-pyramid .py-chip.is-top .cast-hand.is-l > .cast-hand-in { transform:translate(var(--bal-x), var(--bal-y));
+  --ba:py-bal-l 200ms cubic-bezier(.2,.8,.3,1.3) calc(var(--tl) + var(--land) + 60ms) both; animation:var(--ba); }
+.is-pyramid .py-chip.is-top .cast-hand.is-r > .cast-hand-in { transform:translate(calc(-1 * var(--bal-x)), var(--thumb-y));
+  --ba:py-bal-r 200ms cubic-bezier(.2,.8,.3,1.3) calc(var(--tl) + var(--land) + 60ms) both,
+    py-thumb 260ms cubic-bezier(.2,.8,.3,1.4) calc(var(--tl) + var(--b-thumb) - 60ms) forwards; animation:var(--ba); }
+@keyframes py-bal-l { from { transform:translate(var(--tuck), 0px); } to { transform:translate(var(--bal-x), var(--bal-y)); } }
+@keyframes py-bal-r { from { transform:translate(calc(-1 * var(--tuck)), 0px); } to { transform:translate(calc(-1 * var(--bal-x)), var(--bal-y)); } }
+@keyframes py-thumb { from { transform:translate(calc(-1 * var(--bal-x)), var(--bal-y)); }
+  to { transform:translate(calc(-1 * var(--bal-x)), var(--thumb-y)); } }
+.is-pyramid .py-chip:is(.is-top, .is-crown) .cast-body-in {
+  --ba:py-wobble calc(var(--b-hold) - var(--b-wobble)) linear calc(var(--tl) + var(--b-wobble)) both; animation:var(--ba); }
+@keyframes py-wobble {
+  0% { transform:rotate(0deg); animation-timing-function:ease-out; }
+  12% { transform:rotate(-8deg); animation-timing-function:ease-in-out; }
+  26% { transform:rotate(7deg); animation-timing-function:ease-in-out; }
+  42% { transform:rotate(-13deg); animation-timing-function:ease-in-out; }
+  58% { transform:rotate(9deg); animation-timing-function:ease-in-out; }
+  72% { transform:rotate(-4deg); animation-timing-function:ease-in-out; }
+  84% { transform:rotate(2deg); animation-timing-function:ease-in-out; }
+  100% { transform:rotate(0deg); } }
+/* its balance gloves see-saw against the wobble */
+.is-pyramid .py-chip.is-top .cast-hand .cast-hand-fx {
+  --ba:py-see 1300ms linear calc(var(--tl) + var(--b-wobble)) both; animation:var(--ba); }
+@keyframes py-see { 0%, 100% { transform:rotate(0deg); } 12% { transform:rotate(14deg); } 26% { transform:rotate(-12deg); }
+  42% { transform:rotate(22deg); } 58% { transform:rotate(-14deg); } 72% { transform:rotate(6deg); } 86% { transform:rotate(0deg); } }
+/* the row under it leans the other way with it */
+.is-pyramid .py-chip.is-mid:not(.is-crown) .cast-body-in {
+  --ba:py-sway calc(var(--b-hold) - var(--b-wobble)) linear calc(var(--tl) + var(--b-wobble)) both; animation:var(--ba); }
+@keyframes py-sway { 0%, 100% { transform:rotate(0deg); } 12% { transform:rotate(2deg); } 26% { transform:rotate(-2deg); }
+  42% { transform:rotate(3deg); } 58% { transform:rotate(-2deg); } 72% { transform:rotate(1deg); } 84% { transform:rotate(0deg); } }

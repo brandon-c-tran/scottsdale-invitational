@@ -220,8 +220,8 @@ function Reveal({ state, view }) {
             <span className="fd-karaoke-who"><b>{disp(state, row.player)}</b>
               {row.song && <small data-fit="ellipsis">{songTitle(row.song.name)}</small>}</span>
             <span className="fd-karaoke-score"><b>{row.scoreText}</b>
-              {row.tier && <i className="fd-karaoke-tierchip" style={{ "--tier":tierPaint(row.tier).color,
-                "--tier-text":tierPaint(row.tier).ink }}>{row.tier.name}</i>}</span>
+              {row.tier && <i className="fd-karaoke-tierchip" style={{ "--tier":tierPaint(row.tier).color }}>
+                <span className="fd-karaoke-tierlens" aria-hidden="true" />{row.tier.name}</i>}</span>
           </li>
         : <li key={row.player} className="is-ahead" aria-hidden="true"><span className="fd-karaoke-place">{ordinal(row.place)}</span></li>)}
     </ol>

@@ -28,8 +28,8 @@ export function KaraokeHome({ state, me, onOpen, onSong = null, karaoke = false,
     <span><small><i className="fd-insert fd-beat-dot" aria-hidden="true" />Karaoke</small>
       <strong><OneSafe text={line.strong} /></strong>
       {line.until ? <em><Countdown until={line.until} fixed={fixed} /></em>
-        : line.em ? <em className={paint ? "is-tier" : ""} style={paint ? { "--tier":paint.color, "--tier-text":paint.ink } : undefined}>
-          {line.em}</em> : null}</span>
+        : line.em ? <em className={paint ? "is-tier" : ""} style={paint ? { "--tier":paint.color } : undefined}>
+          {paint && <span className="fd-karaoke-tierlens" aria-hidden="true" />}{line.em}</em> : null}</span>
     <Icon name="open" size="1em" />
   </button>;
 }

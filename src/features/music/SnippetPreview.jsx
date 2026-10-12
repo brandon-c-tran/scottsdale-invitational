@@ -3,6 +3,7 @@ import { songSnippet } from "../../lib/client.js";
 import { setPreviewSession } from "../../lib/sound.js";
 import { onClipStart, stopPreview } from "./previewPlayer.js";
 import { songClock } from "./winSongModel.js";
+import { loadYouTube } from "../../lib/youtube.js";
 
 /* "Preview 1:05 to 1:35": the song's album upload on YouTube (worker/
    youtube.js), played in YouTube's own visible player from the start point
@@ -10,23 +11,6 @@ import { songClock } from "./winSongModel.js";
    may want the first play tapped on the video itself; after that the
    button plays it. The 30-second clip on the cover and this never play
    together. */
-const API_URL = "https://www.youtube.com/iframe_api";
-let apiPromise = null;
-function loadYouTube() {
-  if (typeof window === "undefined") return Promise.reject(new Error("No window"));
-  if (window.YT?.Player) return Promise.resolve(window.YT);
-  if (apiPromise) return apiPromise;
-  apiPromise = new Promise((resolve, reject) => {
-    const earlier = window.onYouTubeIframeAPIReady;
-    window.onYouTubeIframeAPIReady = () => { try { earlier?.(); } catch {} resolve(window.YT); };
-    const script = document.createElement("script");
-    script.src = API_URL;
-    script.async = true;
-    script.onerror = () => { apiPromise = null; reject(new Error("YouTube unavailable")); };
-    document.head.appendChild(script);
-  });
-  return apiPromise;
-}
 const PLAYING = 1;
 
 export function SnippetPreview({ track, from, to, find = songSnippet }) {

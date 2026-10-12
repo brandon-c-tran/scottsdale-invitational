@@ -83,7 +83,7 @@
 @keyframes dm-crane { from { transform:rotate(0deg) translateX(0px); } to { transform:rotate(-5deg) translateX(-6px); } }
 @keyframes dm-uncrane { from { transform:rotate(-5deg) translateX(-6px); } to { transform:rotate(0deg) translateX(0px); } }
 .is-dominoes .dm-a .cast-chip-in {
-  --ba:dm-nod 480ms ease-in-out calc(var(--tl) + var(--b-nod)) both; animation:var(--ba); }
+  --ba:dm-nod 380ms ease-in-out calc(var(--tl) + var(--b-nod)) both; animation:var(--ba); }
 @keyframes dm-nod { 0%, 100% { transform:var(--cast-turn) rotateX(0deg); } 42% { transform:var(--cast-turn) rotateX(-26deg); } }
 
 /* ── the tapper: three steps up to the line, the finger cocked, tap ── */

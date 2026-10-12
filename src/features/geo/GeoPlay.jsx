@@ -269,7 +269,7 @@ export function GeoHome({ state, me, onOpen, now, inCard = false }) {
     : view.mineScored ? `+${fmt(view.mineScored.total)} this photo` : "Revealed";
   /* a row of Home's Now card: the event's name is the card's own */
   const asks = view.phase === "guess" && !view.mine;
-  if (inCard) return <NowRow className="fd-geo-home is-now" status={status} extra={`Photo ${view.n} of ${view.total}`}
+  if (inCard) return <NowRow className="fd-geo-now" status={status} extra={`Photo ${view.n} of ${view.total}`}
     go={asks ? "Play" : "Open"} primary={asks} onClick={onOpen} ariaLabel={`Where and When. ${status}. Open`} />;
   return <button type="button" className="fd-geo-home" onClick={onOpen}>
     <span><small><i className="fd-insert fd-beat-dot" aria-hidden="true" />Where and When</small>

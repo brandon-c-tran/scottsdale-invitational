@@ -143,6 +143,7 @@ export function TeamNameRow({ state, ev, me, onSend = sendName }) {
    all of them can be up at once, so the names wait for the room to clear
    rather than open behind (and then under) them. */
 const COVERED = ".fd-sheet-overlay, .fd-moment, .fd-geo-game, .fd-trivia-game, .fd-board-game, [role=dialog]";
+const CLEAR_CHECKS = 4;
 const screenClear = () => typeof document === "undefined" || !document.querySelector(COVERED);
 
 /* open or closed; right after the draw it opens by itself once, as soon as
@@ -153,14 +154,17 @@ function useNamingOpen(state, naming, me) {
   useEffect(() => {
     if (!fresh || open) return undefined;
     /* poll the screen until it clears or the moment passes */
-    let timer = 0;
+    /* clear for a moment, not an instant: the announcement's sheet mounts a
+       beat after the frame that brings the draw */
+    let timer = 0, clear = 0;
     const until = Number(state?.draws?.[naming.evId]?.ts || 0) + TEAMNAME_FRESH_MS;
     const check = () => {
       if (serverNow() > until) return;
-      if (screenClear()) { setOpen(true); return; }
+      clear = screenClear() ? clear + 1 : 0;
+      if (clear >= CLEAR_CHECKS) { setOpen(true); return; }
       timer = setTimeout(check, 500);
     };
-    timer = setTimeout(check, 400);
+    timer = setTimeout(check, 500);
     return () => clearTimeout(timer);
   }, [fresh, naming?.drawId]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (open && naming) markSeen(naming.drawId, me); }, [open, naming?.drawId, me]); // eslint-disable-line react-hooks/exhaustive-deps

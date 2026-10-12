@@ -610,7 +610,7 @@ export function BoardHome({ state, me, onOpen, now: fixed, inCard = false }) {
   const status = boardHomeStatus(view, now);
   const score = view.myRow && view.playing ? (view.phase === "final-reveal" ? view.myRow.preFinal : view.myRow.score) : null;
   /* a row of Home's Now card: the event's name is the card's own */
-  if (inCard) return <NowRow className="fd-trivia-home is-now" status={status}
+  if (inCard) return <NowRow className="fd-trivia-now" status={status}
     extra={score !== null ? `${signedPoints(score)} pts` : null} go={view.playing ? "Play" : "Open"} primary={view.playing}
     onClick={onOpen} ariaLabel={`Trivia. ${status}. Open`} />;
   return <button type="button" className="fd-trivia-home" onClick={onOpen}>

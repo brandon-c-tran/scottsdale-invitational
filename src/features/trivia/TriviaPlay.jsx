@@ -395,7 +395,7 @@ function RoundsHome({ state, me, onOpen, now, inCard = false }) {
         : `${view.lockedCount} of ${view.roomCount} locked in`;
   /* a row of Home's Now card: the event's name is the card's own */
   const asks = view.phase === "question" && view.playing && !view.mine?.locked && !view.timeUp;
-  if (inCard) return <NowRow className="fd-trivia-home is-now" status={status} extra={`Question ${view.n} of ${view.total}`}
+  if (inCard) return <NowRow className="fd-trivia-now" status={status} extra={`Question ${view.n} of ${view.total}`}
     go={asks ? "Play" : "Open"} primary={asks} onClick={onOpen} ariaLabel={`Trivia. ${status}. Open`} />;
   return <button type="button" className="fd-trivia-home" onClick={onOpen}>
     <span><small><i className="fd-insert fd-beat-dot" aria-hidden="true" />Trivia</small>

@@ -235,7 +235,7 @@ test("Home's Now card: one win line with the song as a chip, and the in-app game
   const own = contestWinLines(state, putt, contest, { standings, keys:[contest.sides.find(side => side.players.includes(me)).key] })
     .find(Boolean);
   assert.equal(own?.kind, "rank");
-  const game = React.createElement("button", { className:"fd-trivia-home is-now" }, "Locked in");
+  const game = React.createElement("button", { className:"fd-trivia-now" }, "Locked in");
   const html = render(ui.GuestHome, { state, me, events:[putt], standings, GameMark:StubMark, StatPills:StubMark,
     onOpen:noop, onRules:noop, onBets:noop, onBracket:noop, onPlayer:noop, onStandings:noop, onEvents:noop,
     gameContent:game }, state);
@@ -244,7 +244,7 @@ test("Home's Now card: one win line with the song as a chip, and the in-app game
   assert.match(html, /aria-label="Win song: Hit &#x27;Em Up"/, "the release suffix is not the song's name");
   assert.doesNotMatch(html, /A win puts you| plays</);
   /* the game in progress is a row inside the card, above the leaderboard */
-  const card = html.indexOf("fd-home-focus"), row = html.indexOf("fd-trivia-home is-now"), board = html.indexOf("fd-home-leaderboard");
+  const card = html.indexOf("fd-home-focus"), row = html.indexOf("fd-trivia-now"), board = html.indexOf("fd-home-leaderboard");
   assert.ok(card >= 0 && card < row && row < board, "inside the Now card, before the leaderboard");
   assert.match(html.slice(card, board), /<div class="fd-home-now-rows">/);
 });

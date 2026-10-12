@@ -1,0 +1,196 @@
+/* Karaoke on the phone: the full-screen game and the Home row. Tokens only
+   (src/ui/experience.css).
+
+   The game is live, so its head carries the magenta lamp and the windows
+   on the clock (the pick, a walk-up, a vote's grace) drain magenta, turning
+   clay as they run out, their seconds lettered beside them. What is yours
+   is lit in the filament: your tier, your chip on your turn, your row in
+   the results. The six tiers are Build Battle's clays as painted inserts
+   (--tier-1 to --tier-6), flat paint lettered in their own ink, never
+   lamps. The room's chips light as each player locks in or votes, never
+   what they chose. */
+
+.fd-karaoke-game { position:fixed; inset:0; z-index:140; display:grid; grid-template-rows:auto minmax(0,1fr) auto;
+  background:var(--bg); color:var(--ink); overflow:hidden; overscroll-behavior:none; animation:fd-karaoke-in .28s ease-out both; }
+@keyframes fd-karaoke-in { from { opacity:0; transform:translateY(14px); } }
+.fd-karaoke-head { position:relative; z-index:2; display:flex; align-items:center; gap:10px;
+  padding:calc(env(safe-area-inset-top) + 8px) 12px 12px 16px; border-bottom:1px solid var(--line);
+  background:var(--chrome); box-shadow:inset 0 3px 0 var(--lamp-live); }
+.fd-karaoke-count { flex:1; min-width:0; display:grid; gap:3px; }
+.fd-karaoke-count small { color:var(--lamp-live-text); font:900 21px/1.15 var(--fd-show);
+  text-shadow:0 0 14px color-mix(in srgb, var(--lamp-live) 45%, transparent); }
+.fd-karaoke-count b { font:800 20px/1.1 var(--fd-display); letter-spacing:.04em; text-transform:uppercase; overflow-wrap:anywhere; }
+.fd-karaoke-clock { flex-shrink:0; min-width:48px; text-align:right; font:800 30px/1 var(--fd-display);
+  font-variant-numeric:tabular-nums; color:var(--ink); }
+.fd-karaoke-clock.is-low { color:var(--clay-text); }
+.fd-karaoke-close, .fd-karaoke-more { flex-shrink:0; width:44px; height:44px; display:grid; place-items:center; padding:0;
+  border:1px solid var(--line); border-radius:50%; background:var(--paper); color:var(--ink); cursor:pointer; box-shadow:var(--glass-edge); }
+.fd-karaoke-more.is-open { border-color:var(--lamp-info); background:var(--info-tint); color:var(--lamp-info); }
+/* the window draining across the head's foot */
+.fd-karaoke-timebar { position:absolute; left:0; right:0; bottom:-1px; height:6px; overflow:hidden; background:var(--bg); }
+.fd-karaoke-drain { position:absolute; inset:0; display:block; transform-origin:left center; transform:scaleX(var(--drain-left));
+  background:var(--lamp-live); box-shadow:0 0 10px color-mix(in srgb, var(--lamp-live) 70%, transparent);
+  animation:fd-karaoke-drain var(--drain-ms) linear var(--drain-wait, 0ms) both,
+    fd-karaoke-drain-low 1ms steps(1, end) var(--drain-low) forwards; }
+@keyframes fd-karaoke-drain { from { transform:scaleX(var(--drain-left)); } to { transform:scaleX(0); } }
+@keyframes fd-karaoke-drain-low { to { background:var(--clay); box-shadow:0 0 10px var(--clay); } }
+
+/* the commissioner's moves, dropped from the head over the game */
+.fd-karaoke-tray { position:absolute; top:calc(100% + 6px); left:10px; right:10px; z-index:3; display:grid; gap:8px; padding:6px;
+  border:1px solid var(--line); border-radius:16px; background:var(--paper); box-shadow:var(--shadow-2), var(--glass-edge);
+  animation:fd-karaoke-rise .2s ease-out both; }
+.fd-karaoke-tray .fd-karaoke-error { padding:0 8px 6px; }
+
+.fd-karaoke-body { min-height:0; overflow-y:auto; overscroll-behavior:contain; display:flex; flex-direction:column; gap:16px;
+  padding:20px 16px 18px; }
+@keyframes fd-karaoke-rise { from { opacity:0; transform:translateY(10px); } }
+@keyframes fd-karaoke-land { from { opacity:0; transform:scale(.4) translateY(-8px); } }
+@keyframes fd-karaoke-word { 0% { opacity:0; transform:scale(1.7); } 70% { opacity:1; transform:scale(.96); } 100% { transform:none; } }
+
+/* ── a song: its cover (or a drawn sleeve), the title, the artists ── */
+.fd-karaoke-song { display:grid; grid-template-columns:auto minmax(0,1fr); align-items:center; gap:14px; padding:12px;
+  border:1px solid var(--ghost-line); border-radius:14px; background:var(--paper); box-shadow:var(--glass-edge); text-align:left;
+  animation:fd-karaoke-rise .4s cubic-bezier(.2,.8,.2,1) both; }
+.fd-karaoke-cover { width:72px; height:72px; display:grid; place-items:center; border-radius:10px; overflow:hidden; background:var(--bg);
+  color:var(--muted2); box-shadow:inset 0 2px 6px color-mix(in srgb, var(--ink0) 60%, transparent); }
+.fd-karaoke-cover img { width:100%; height:100%; object-fit:cover; display:block; }
+.fd-karaoke-song-text { min-width:0; display:grid; gap:5px; }
+.fd-karaoke-song-text b { font:900 25px/1.1 var(--fd-show); color:var(--ink); overflow-wrap:anywhere; text-wrap:balance; }
+.fd-karaoke-song-text small { font:800 15px/1.25 var(--fd-display); letter-spacing:.08em; text-transform:uppercase; color:var(--muted2);
+  overflow-wrap:anywhere; }
+.fd-karaoke-song.is-locked { border-color:var(--lamp-info); box-shadow:var(--glass-edge), 0 0 0 1px var(--lamp-info); }
+/* inline, under a name: one line each */
+.fd-karaoke-song.is-sm { gap:8px; padding:0; border:0; background:none; box-shadow:none; animation:none; }
+.fd-karaoke-song.is-sm .fd-karaoke-cover { width:30px; height:30px; border-radius:6px; }
+.fd-karaoke-song.is-sm .fd-karaoke-song-text { gap:1px; }
+.fd-karaoke-song.is-sm b { font:700 15px/1.25 var(--fd-body); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.fd-karaoke-song.is-sm small { font:700 12px/1.25 var(--fd-display); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+/* ── the room: every chip, lit as it locks in or votes ── */
+.fd-karaoke-room { display:flex; flex-wrap:wrap; justify-content:center; gap:4px; margin:0; padding:2px 0; list-style:none; }
+.fd-karaoke-room li { display:grid; border-radius:50%; opacity:.3; filter:saturate(.2); transition:opacity .3s ease, filter .3s ease; }
+.fd-karaoke-room li.is-lit { opacity:1; filter:none; animation:fd-karaoke-land .36s var(--ease-land) both; }
+.fd-karaoke-room li.is-mine { box-shadow:0 0 0 2px var(--you); }
+.fd-karaoke-room.is-big { gap:12px; padding:14px 0; }
+.fd-karaoke-body.is-watch { justify-content:center; }
+
+/* ── the pick window ── */
+.fd-karaoke-body.is-pick { justify-content:center; }
+.fd-karaoke-body.is-pick.is-picking { justify-content:flex-start; }
+.fd-karaoke-broken { display:flex; align-items:center; gap:8px; margin:0; padding:10px 12px; border:1px solid var(--danger-line);
+  border-radius:12px; background:var(--clay-tint); color:var(--clay-text); font:700 16px/1.3 var(--fd-body); }
+
+/* ── a turn ── */
+.fd-karaoke-body.is-stage, .fd-karaoke-body.is-legendary { align-items:center; justify-content:center; text-align:center; gap:14px; }
+.fd-karaoke-body.is-stage .fd-karaoke-song, .fd-karaoke-body.is-legendary .fd-karaoke-song { width:100%; max-width:420px; }
+/* the singer's own word: yours, so filament */
+.fd-karaoke-word { margin:0; font:900 clamp(46px, 15vw, 68px)/1 var(--fd-show); color:var(--you);
+  text-shadow:0 0 18px color-mix(in srgb, var(--you) 40%, transparent); }
+.fd-karaoke-word.is-up { animation:fd-karaoke-word .38s var(--ease-land) both; }
+.fd-karaoke-eyebrow { margin:0; font:800 17px/1.2 var(--fd-display); letter-spacing:.12em; text-transform:uppercase; color:var(--lamp-live-text); }
+.fd-karaoke-name { margin:-2px 0 0; font:900 34px/1.08 var(--fd-show); overflow-wrap:anywhere; text-wrap:balance; }
+.fd-karaoke-face { display:grid; border-radius:50%; animation:fd-karaoke-land .45s var(--ease-land) both; }
+.fd-karaoke-face.is-mine { box-shadow:0 0 0 3px var(--you), var(--you-bloom); }
+
+/* the vote: the singer, then the six */
+.fd-karaoke-body.is-vote { gap:14px; }
+.fd-karaoke-singer { display:grid; grid-template-columns:auto minmax(0,1fr); gap:12px; align-items:center; }
+.fd-karaoke-singer-text { min-width:0; display:grid; gap:5px; }
+.fd-karaoke-singer-text > b { font:900 28px/1.08 var(--fd-show); overflow-wrap:anywhere; }
+.fd-karaoke-vote-title { margin:2px 0 -4px; font:800 15px/1.2 var(--fd-display); letter-spacing:.12em; text-transform:uppercase;
+  color:var(--lamp-live-text); }
+.fd-karaoke-game.is-vote-closed .fd-karaoke-vote-title { color:var(--muted2); }
+.fd-karaoke-tiers { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:10px; margin:0; padding:0; list-style:none; }
+.fd-karaoke-tier { position:relative; width:100%; min-height:64px; display:flex; align-items:center; justify-content:center; padding:8px 10px;
+  border:2px solid color-mix(in srgb, var(--ink0) 45%, var(--tier)); border-radius:14px; background:var(--tier); color:var(--tier-text);
+  font:800 22px/1.05 var(--fd-display); letter-spacing:.05em; text-transform:uppercase; text-align:center; cursor:pointer;
+  box-shadow:inset 0 1px 0 color-mix(in srgb, var(--bone) 24%, transparent), inset 0 -3px 0 color-mix(in srgb, var(--ink0) 32%, transparent);
+  transition:transform .1s ease, box-shadow .18s ease, border-color .18s ease; -webkit-tap-highlight-color:transparent; }
+.fd-karaoke-tier:active:not(:disabled) { transform:scale(.97); }
+/* yours: the filament ring and its bloom round the paint */
+.fd-karaoke-tier.is-mine { border-color:var(--you); box-shadow:var(--you-bloom), inset 0 -3px 0 color-mix(in srgb, var(--ink0) 32%, transparent);
+  animation:fd-karaoke-pick .3s var(--ease-land) both; }
+@keyframes fd-karaoke-pick { from { transform:scale(1.05); } }
+.fd-karaoke-tier:disabled { cursor:default; opacity:.55; }
+.fd-karaoke-tier:disabled.is-mine { opacity:1; }
+
+/* your turn closed Legendary: the word in its own gold insert, stamped */
+.fd-karaoke-legendary { margin:0; padding:10px 24px 12px; border-radius:14px; background:var(--tier); color:var(--tier-text);
+  font:900 clamp(42px, 13vw, 60px)/1 var(--fd-show); letter-spacing:.05em; text-transform:uppercase; transform:rotate(-4deg);
+  box-shadow:inset 0 2px 0 color-mix(in srgb, var(--bone) 35%, transparent), inset 0 -4px 0 color-mix(in srgb, var(--ink0) 30%, transparent);
+  animation:fd-karaoke-stamp .42s var(--ease-land) both; }
+@keyframes fd-karaoke-stamp { 0% { opacity:0; transform:scale(1.8) rotate(-12deg); } 70% { opacity:1; transform:scale(.96) rotate(-4deg); }
+  100% { transform:rotate(-4deg); } }
+
+/* ── the results, filling in at the TV's beat ── */
+.fd-karaoke-game.is-reveal, .fd-karaoke-game.is-done { grid-template-rows:auto minmax(0,1fr); }
+.fd-karaoke-body.is-reveal { padding-bottom:calc(env(safe-area-inset-bottom) + 20px); }
+.fd-karaoke-ranking { display:grid; gap:8px; margin:0; padding:0; list-style:none; }
+.fd-karaoke-ranking li { min-height:56px; display:grid; grid-template-columns:42px auto minmax(0,1fr) auto; align-items:center; gap:10px;
+  padding:6px 12px 6px 6px; border:1px solid var(--line); border-radius:12px; background:var(--paper); }
+.fd-karaoke-ranking li.is-shown { animation:fd-karaoke-rise .45s var(--ease-land) both; }
+.fd-karaoke-ranking li.is-ahead { background:none; border-style:dashed; border-color:var(--ghost-line); }
+.fd-karaoke-ranking li.is-mine { border-color:var(--you); background:var(--you-tint); box-shadow:var(--you-bloom); }
+.fd-karaoke-place { font:800 21px/1 var(--fd-display); color:var(--muted2); text-align:center; font-variant-numeric:tabular-nums; }
+.fd-karaoke-ranking li.is-podium .fd-karaoke-place { color:var(--ink); }
+.fd-karaoke-ranking li.is-mine .fd-karaoke-place { color:var(--you); }
+.fd-karaoke-who { min-width:0; display:grid; gap:2px; }
+.fd-karaoke-who b { font:700 16px/1.2 var(--fd-body); overflow-wrap:anywhere; }
+.fd-karaoke-who small { font:500 13px/1.25 var(--fd-body); color:var(--muted2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.fd-karaoke-score { display:grid; justify-items:end; gap:4px; }
+.fd-karaoke-score b { font:800 26px/1 var(--fd-display); font-variant-numeric:tabular-nums; }
+.fd-karaoke-tierchip { padding:2px 7px 3px; border-radius:6px; background:var(--tier); color:var(--tier-text); font:800 12px/1.2 var(--fd-display);
+  font-style:normal; letter-spacing:.06em; text-transform:uppercase; white-space:nowrap; }
+
+/* ── the foot: the room, then the one action ── */
+.fd-karaoke-foot { display:grid; gap:10px; padding:10px 14px calc(env(safe-area-inset-bottom) + 12px); border-top:1px solid var(--line);
+  background:var(--chrome); }
+.fd-karaoke-actions { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.6fr); gap:10px; }
+.fd-karaoke-actions > :only-child { grid-column:1 / -1; }
+.fd-karaoke-primary, .fd-karaoke-secondary { min-height:56px; display:flex; align-items:center; justify-content:center; gap:10px;
+  border-radius:14px; font:700 17px/1 var(--fd-body); }
+.fd-karaoke-primary { border:0; background:var(--action-fill); color:var(--action-ink); cursor:pointer; box-shadow:var(--chip-bloom);
+  transition:transform .12s ease, background .2s ease; }
+.fd-karaoke-primary:active:not(:disabled) { transform:scale(.97); }
+.fd-karaoke-primary:disabled { background:var(--paper2); color:var(--muted2); cursor:default; box-shadow:var(--glass-edge); }
+.fd-karaoke-primary.is-done { background:var(--info-tint); color:var(--lamp-info); box-shadow:inset 0 0 0 1px var(--lamp-info); cursor:default;
+  animation:fd-karaoke-pick .4s var(--ease-land) both; }
+.fd-karaoke-primary.is-over { background:var(--paper2); color:var(--muted2); box-shadow:var(--glass-edge); cursor:default; }
+.fd-karaoke-secondary { border:1px solid var(--ghost-line); background:var(--paper); color:var(--ink); cursor:pointer; box-shadow:var(--glass-edge); }
+.fd-karaoke-error { margin:0; color:var(--clay-text); font:600 14px/1.4 var(--fd-body); }
+
+/* ── Home's row: the running game, a steady magenta lamp ── */
+.fd-karaoke-home { display:flex; align-items:center; gap:10px; width:100%; min-height:60px; margin:12px 0 0; padding:10px 14px;
+  border:1px solid var(--lamp-live); border-radius:14px; background:color-mix(in srgb, var(--lamp-live) 6%, var(--paper));
+  box-shadow:var(--live-bloom), var(--glass-edge); color:var(--ink); text-align:left; cursor:pointer; }
+.fd-karaoke-home > span:first-child { flex:1; min-width:0; display:grid; grid-template-columns:minmax(0,1fr) auto; gap:3px 10px; align-items:baseline; }
+.fd-karaoke-home > svg { flex-shrink:0; color:var(--lamp-info); }
+.fd-karaoke-home small { grid-column:1 / -1; display:flex; align-items:center; gap:7px; color:var(--ink); font:800 14px/1.2 var(--fd-display);
+  letter-spacing:.08em; text-transform:uppercase; }
+.fd-karaoke-home small .fd-beat-dot { --lamp:var(--lamp-live); }
+.fd-karaoke-home strong { min-width:0; font:800 22px/1.1 var(--fd-display); letter-spacing:.02em; text-transform:uppercase; overflow-wrap:anywhere; }
+.fd-karaoke-home em { font:700 15px/1.2 var(--fd-body); font-style:normal; color:var(--lamp-live-text); font-variant-numeric:tabular-nums; }
+.fd-karaoke-home em .fd-karaoke-clock { font:inherit; min-width:0; color:inherit; }
+.fd-karaoke-home em.is-tier { padding:3px 8px; border-radius:6px; background:var(--tier); color:var(--tier-text); font:800 14px/1.2 var(--fd-display);
+  letter-spacing:.06em; text-transform:uppercase; }
+/* before the game: one quiet row into your profile's karaoke song */
+.fd-karaoke-home.is-ahead { border-color:var(--line); background:var(--paper); box-shadow:var(--glass-edge); }
+
+/* a short phone: the singer, the six and the room above the foot */
+@media (max-height:740px) {
+  .fd-karaoke-body { gap:12px; padding-top:14px; }
+  .fd-karaoke-tier { min-height:56px; font-size:20px; }
+  .fd-karaoke-tiers { gap:8px; }
+  .fd-karaoke-singer-text > b { font-size:24px; }
+  .fd-karaoke-cover { width:60px; height:60px; }
+  .fd-karaoke-song-text b { font-size:22px; }
+  .fd-karaoke-word { font-size:clamp(40px, 13vw, 56px); }
+  .fd-karaoke-foot { gap:8px; padding-top:8px; }
+  .fd-karaoke-primary, .fd-karaoke-secondary { min-height:52px; }
+}
+
+@media (prefers-reduced-motion:reduce) {
+  .fd-karaoke-game, .fd-karaoke-tray, .fd-karaoke-song, .fd-karaoke-room li.is-lit, .fd-karaoke-word.is-up, .fd-karaoke-face,
+  .fd-karaoke-tier.is-mine, .fd-karaoke-legendary, .fd-karaoke-ranking li.is-shown, .fd-karaoke-primary.is-done,
+  .fd-karaoke-drain { animation:none; }
+}

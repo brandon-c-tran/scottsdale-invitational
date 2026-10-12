@@ -15,6 +15,9 @@ import { LampChase } from "../../ui/ScoreReel.jsx";
 import { lazyPart } from "../../lib/lazyPart.js";
 import { weekendPhase } from "../../ui/phase.js";
 import { usePhoneBit } from "../gags/phoneBit.js";
+import { SINGER_UP_MS, useSingerUp } from "../karaoke/singerUp.js";
+import { karaokeArtists } from "../../../shared/karaoke.js";
+import { songTitle } from "../home/GuestHome.jsx";
 import "./moments.css";
 
 /* the bit's drawing: the stage, the cast and every scene, fetched only
@@ -45,6 +48,8 @@ export function MomentsLayer({ state, events, me, active = true, onBets = null }
   const bit = usePhoneBit(state, events, me, { active });
   useEffect(() => { if (bit.pending) PhoneBit.preload().catch(() => {}); }, [bit.pending]);
   const phase = useMemo(() => weekendPhase(state, events), [state, events]);
+  /* karaoke: the singer's own walk-up (features/karaoke/singerUp.js) */
+  const sing = useSingerUp(state, me, { active });
   if (!active || !me) return null;
   if (walkout) return <PhoneWalkout state={state} moment={walkout} me={me} />;
   if (bit.moment) return <BitBoundary key={bit.moment.id}><Suspense fallback={null}>
@@ -52,6 +57,7 @@ export function MomentsLayer({ state, events, me, active = true, onBets = null }
   </Suspense></BitBoundary>;
   if (up?.role === "player") return <YoureUpTakeover key={up.id} state={state} moment={up} me={me} onBets={onBets} />;
   if (up?.role === "spectator") return <UpBanner key={up.id} state={state} moment={up} onBets={onBets} />;
+  if (sing) return <SingerUpTakeover key={sing.id} moment={sing} me={me} />;
   return null;
 }
 
@@ -132,6 +138,38 @@ export function UpBanner({ state, moment, onBets }) {
           <small><EventName name={moment.event} />{moment.label && <> <OneSafe text={moment.label} /></>}</small></span>
       </button>
       <button type="button" className="fd-moment-banner-x" aria-label="Dismiss" onClick={dismiss}><Icon name="close" size={18} /></button>
+    </div>
+  );
+}
+
+/* karaoke: the singer's own walk-up, over the game's sheet. Your color
+   floods up from your chip, YOU'RE UP stamps, your song lettered under it;
+   a tap puts it away (the sheet under it says the same) */
+export function SingerUpTakeover({ moment, me }) {
+  const you = usePlayerIdentity(me);
+  const ink = cardInk(you.color);
+  const [gone, dismiss] = useDismiss(moment.id);
+  if (gone) return null;
+  const song = moment.song;
+  return (
+    <div className="fd-moment fd-moment-up is-karaoke" role="dialog" aria-modal="false"
+      aria-label={`You’re up${song ? `: ${songTitle(song.name)}` : ""}`}
+      style={{ "--tl":`${-Math.round(moment.elapsed)}ms`, "--moment-color":you.color, "--moment-ink":ink,
+        "--moment-hold":`${SINGER_UP_MS}ms` }}
+      onClick={dismiss}>
+      <Flood color={you.color} />
+      <i className="fd-moment-timer" aria-hidden="true" />
+      <div className="fd-moment-body">
+        <h2 className="fd-show fd-moment-word">You’re up</h2>
+        <div className="fd-moment-faces" aria-hidden="true">
+          <span className="fd-moment-face is-mine"><ChipFace p={me} size={140} flat /></span>
+        </div>
+        {song && <div className="fd-walkout-track">
+          <p className="fd-show fd-walkout-title">{songTitle(song.name)}</p>
+          <p className="fd-walkout-artist"><OneSafe text={karaokeArtists(song)} /></p>
+        </div>}
+      </div>
+      <button type="button" className="fd-moment-x" aria-label="Dismiss" onClick={event => { event.stopPropagation(); dismiss(); }}><Icon name="close" size={18} /></button>
     </div>
   );
 }

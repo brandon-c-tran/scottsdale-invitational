@@ -82,6 +82,8 @@ import { AwardsHome } from "./features/awards/AwardsHome.jsx";
 import { TeamNameCard, TeamNameDesk, TeamNamesHome } from "./features/teams/TeamNameCard.jsx";
 import { GeoHome, GeoPlaySheet } from "./features/geo/GeoPlay.jsx";
 import { TriviaHome, TriviaPlaySheet } from "./features/trivia/TriviaPlay.jsx";
+import { KaraokeSheet } from "./features/karaoke/KaraokePlay.jsx";
+import { KaraokeHome } from "./features/karaoke/KaraokeHome.jsx";
 import { triviaQuestionTotal } from "../shared/trivia.js";
 import { JerseySection } from "./features/jersey/Jersey.jsx";
 import { TripDetails } from "./features/profile/TripDetails.jsx";
@@ -498,6 +500,8 @@ function TournamentApp({ tournament, onUpdateReload }) {
   usePocketAlerts({ connected, you:tournament.you, capabilities, pushKey:tournament.pushKey,
     ready:ready && onboardStep === 99 && !tv, onRoute:route => {
       if (!ready || onboardStep !== 99 || tv) return false;
+      /* You're up next (karaoke): Home, the game's sheet open over it */
+      if (route.reason === "sing") { setModal(null); setTab("board"); setKaraokeForce(n => n + 1); return true; }
       const ev = route.reason === "pick" ? events.find(item => item.id === route.ev) : null;
       if (ev && state.drafts?.[ev.id]) setModal({ type:"draft", ev });
       else { setModal(null); setTab("board"); }
@@ -586,6 +590,8 @@ function TournamentApp({ tournament, onUpdateReload }) {
   const [geoForce, setGeoForce] = useState(0);
   /* Home's Trivia row reopens the game */
   const [triviaForce, setTriviaForce] = useState(0);
+  /* Home's karaoke row (and its strip, and You're up next) reopens the game */
+  const [karaokeForce, setKaraokeForce] = useState(0);
   useEffect(() => { setFlightsAnswered(!!me && localGet(`si-flights-asked:${me}`) === "yes"); }, [me]);
   const openSince = route => {
     setSince(null);
@@ -1637,6 +1643,7 @@ function TournamentApp({ tournament, onUpdateReload }) {
           onSetup={item => setModal({type:"profile", section:item.section})}
           songs={audioCatalogAllowed} onWinSong={() => setModal({type:"profile", section:"walkout"})}
           onScan={me ? () => setModal({ type:"scan" }) : null}
+          onKaraoke={() => setKaraokeForce(n => n + 1)}
           onPlayer={p => setModal({type:"player", p})} onLastCard={lastCard.crowned ? lastCard.show : undefined}
           onBets={() => setTab("bets")} onStandings={() => setModal({type:"standings"})}
           duelContent={me && <HomeDuels state={state} me={me} gm={gmView}
@@ -1650,6 +1657,8 @@ function TournamentApp({ tournament, onUpdateReload }) {
           gameContent={<>
             <GeoHome state={state} me={me} onOpen={() => setGeoForce(n => n + 1)} />
             <TriviaHome state={state} me={me} onOpen={() => setTriviaForce(n => n + 1)} />
+            <KaraokeHome state={state} me={me} karaoke={capabilities.karaoke === true} onOpen={() => setKaraokeForce(n => n + 1)}
+              onSong={() => setModal({type:"profile", section:"karaoke"})} />
           </>}
           pokerContent={<PokerCard state={state} standings={standings} me={me} gm={gmView}
                 onBuyin={() => setModal({type:"pokerBuyin"})}
@@ -1719,6 +1728,8 @@ function TournamentApp({ tournament, onUpdateReload }) {
       {modal?.type === "pin" && <PinSheet onClose={() => setModal(null)} onBack={modalBack} unlock={unlockGm} />}
       {me && <GeoPlaySheet state={state} me={me} blocked={!!modal} force={geoForce} />}
       {me && <TriviaPlaySheet state={state} me={me} blocked={!!modal} force={triviaForce} />}
+      {me && <KaraokeSheet state={state} me={me} blocked={!!modal} force={karaokeForce} gm={gmView}
+        karaoke={capabilities.karaoke === true} />}
       {modal?.type === "profile" && <ProfileSheet state={state} me={me} onClose={() => setModal(null)} onBack={modalBack} onChip={pickChip}
         initialSection={modal.section}
         spotifyCatalogEnabled={audioCatalogAllowed}

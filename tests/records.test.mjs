@@ -424,7 +424,7 @@ test("the TV takes a records turn only in a gap, one card a turn, the next recor
   assert.ok(cards.length >= 4, "several cards to take turns");
   const base = Math.ceil(Date.now() / (TV_AMBIENT_TURN_MS * 840)) * TV_AMBIENT_TURN_MS * 840;
   const seen = [];
-  for (let turn = 0; turn < 24; turn++) {
+  for (let turn = 0; turn < 40; turn++) {
     const at = base + turn * TV_AMBIENT_TURN_MS + 4000;
     const html = tv(s, at);
     if (recordOn(html)) seen.push({ turn, html, label:/<section class="tv-record[^"]*" aria-label="([^"]+)"/.exec(html)?.[1] });

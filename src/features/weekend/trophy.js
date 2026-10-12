@@ -115,20 +115,31 @@ export const CUP_TV = Object.freeze({
     name:Object.freeze({ max:32, min:28, two:26, floor:24 }) }),
 });
 
-/* the plinth's tiers share what is left under the cup, one plaque row
-   each (a session of more than four plaques takes two rows); the top tier
-   is narrowest, each below a step wider */
+/* A session's plaques stand in rows of three at most, evened out: Friday's
+   four stand two and two, so a pair's name keeps one line at the TV's
+   floor, and the phone's grid never leaves one plaque alone under three. */
+export const CUP_ROW = 3;
+export const cupRows = (count, perRow = CUP_ROW) => Math.max(1, Math.ceil(count / perRow));
+export const cupCols = (count, perRow = CUP_ROW) => Math.max(1, Math.ceil(Math.max(1, count) / cupRows(count, perRow)));
+
+/* the plinth's tiers share what is left under the cup, one band of plaque
+   rows each; the top tier is narrowest, each below a step wider. A cup
+   whose rows will not each hold a name in two lines (a commissioner's added
+   events) goes back to four plaques a row. */
 export function cupTvLayout(cup) {
   const T = CUP_TV;
-  const rows = (cup?.bands || []).map(band => Math.max(1, Math.ceil(band.plates.length / 4)));
-  const totalRows = rows.reduce((sum, n) => sum + n, 0) || 1;
-  const bandsH = T.height - T.bowl.height - T.collar + T.sag - T.top - T.foot - Math.max(0, rows.length - 1) * T.rim;
-  const rowH = Math.floor(bandsH / totalRows);
-  const count = (cup?.bands || []).length;
-  const bands = (cup?.bands || []).map((band, index) => {
+  const list = cup?.bands || [];
+  const bandsH = T.height - T.bowl.height - T.collar + T.sag - T.top - T.foot - Math.max(0, list.length - 1) * T.rim;
+  const least = Math.ceil(2 * T.plate.name.two * 1.12) + 2 * T.platePad;
+  const rowsAt = perRow => list.reduce((sum, band) => sum + cupRows(band.plates.length, perRow), 0);
+  const perRow = rowsAt(CUP_ROW) * least <= bandsH ? CUP_ROW : CUP_ROW + 1;
+  const rows = list.map(band => cupRows(band.plates.length, perRow));
+  const rowH = Math.floor(bandsH / (rowsAt(perRow) || 1));
+  const count = list.length;
+  const bands = list.map((band, index) => {
     const width = T.width - (count - 1 - index) * T.step;
     const inner = width - T.label - 2 * T.pad - 2 * T.line;
-    const cols = Math.ceil(band.plates.length / rows[index]);
+    const cols = cupCols(band.plates.length, perRow);
     return { session:band.session, rows:rows[index], cols, height:rowH * rows[index], width,
       plateW:Math.floor((inner - (cols - 1) * T.gap) / cols), plateH:rowH - 2 * T.platePad };
   });

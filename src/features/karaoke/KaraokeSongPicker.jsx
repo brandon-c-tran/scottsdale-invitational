@@ -45,7 +45,8 @@ export function KaraokeSongPicker({ value, enabled = true, muted = false, compac
   /* a hidden section never keeps playing */
   useEffect(() => { if (!active) { setOpen(null); stopPreview(); } }, [active]);
 
-  if (!enabled) return shown ? <div className={`fd-song fd-ksong${compact ? " is-compact" : ""}`}>
+  /* off (or nothing to save with): the saved song only shows */
+  if (!enabled || typeof onChoose !== "function") return shown ? <div className={`fd-song fd-ksong${compact ? " is-compact" : ""}`}>
     <SavedSong song={shown} muted={muted} compact={compact} open={open} setOpen={setOpen} />
     <p className="fd-song-credit">{KARAOKE_CREDIT}</p>
   </div> : null;
@@ -55,8 +56,11 @@ export function KaraokeSongPicker({ value, enabled = true, muted = false, compac
     const kept = looked.get(song.trackId);
     if (kept) { setFound({ status:"done", ...kept }); return; }
     setFound({ status:"finding", videos:[], error:"" });
-    const result = await findVideos({ trackId:song.trackId, name:song.name, artist:(song.artists || [])[0] || "",
-      durationMs:song.durationMs });
+    let result;
+    try {
+      result = await findVideos({ trackId:song.trackId, name:song.name, artist:(song.artists || [])[0] || "",
+        durationMs:song.durationMs });
+    } catch (failure) { result = { ok:false, error:writeError(failure, LOOKUP_FAILED) }; }
     if (!live.current || mine !== asked.current) return;
     if (result?.ok && Array.isArray(result.videos)) {
       const answer = { videos:result.videos, error:"" };

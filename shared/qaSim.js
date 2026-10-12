@@ -47,7 +47,7 @@ export const SIM_BOARD = Object.freeze({
   finalPickMs:[4000, 24000],
 });
 export const SIM_GEO = Object.freeze({
-  pinMs:[6000, 30000], whenMs:[5000, 15000], lockMs:[2000, 8000],
+  pinMs:[4000, 24000], whenMs:[3000, 12000], lockMs:[1500, 6000],
   lock:0.85,
   /* the last save leaves a beat before the clock runs out */
   edgeMs:1500,

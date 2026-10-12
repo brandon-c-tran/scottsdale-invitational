@@ -25,6 +25,7 @@ import { InstallCard } from "../check-in/InstallHint.jsx";
 import { playSound } from "../../lib/sound.js";
 import { youreUpTakes } from "../moments/youreUp.js";
 import { yourSongLine } from "../music/winSongModel.js";
+import { songTitle } from "../../../shared/audio.js";
 import { PayoutLadder } from "../../ui/PayoutLadder.jsx";
 import { ScanPane, ScanRow, useScanOffer } from "../arrivals/ArrivalHome.jsx";
 import "./home.css";
@@ -164,14 +165,9 @@ function useYoureUp(contest, me) {
   return yours ? playing : null;
 }
 
-/* a song's name as the room knows it: a release's suffix ("- Single
-   Version", "- Remastered 2011", "(Radio Edit)") is not part of it */
-const SONG_SUFFIX = /\s*(?:-\s+[^-]*\b(?:version|remaster(?:ed)?|edit|mix|mono|stereo|live|single|radio|explicit|clean)\b[^-]*|[([][^)\]]*\b(?:version|remaster(?:ed)?|edit|mix|mono|stereo|live|radio|explicit|clean)\b[^)\]]*[)\]])\s*$/i;
-export const songTitle = name => {
-  const full = String(name || "").trim();
-  const short = full.replace(SONG_SUFFIX, "").trim();
-  return short || full;
-};
+/* a song's name as the room knows it (shared/audio.js, which the karaoke
+   video search reads too) */
+export { songTitle };
 /* in your own 1v1 or free-for-all: what a win plays, or the way to pick one.
    It sits on the card's own inset, its note on the text's first line.
    `own`: a row of the card itself (outside the assignment's grid) */
@@ -421,7 +417,7 @@ function FlightsQuestion({ onYes, onNotYet }) {
    profile section that finishes it, the flights question in travel's place.
    Gone once nothing is left. */
 function SetupList({ items, flights, onOpen }) {
-  const at = flights ? items.findIndex(item => item.id === "details" || item.id === "song") : -1;
+  const at = flights ? items.findIndex(item => item.id === "details" || item.id === "song" || item.id === "karaoke") : -1;
   const rows = items.map(item => <button type="button" key={item.id} onClick={() => onOpen(item)}>
     <span>{item.label}</span><Next /></button>);
   if (flights) rows.splice(at < 0 ? rows.length : at, 0, <React.Fragment key="flights">{flights}</React.Fragment>);

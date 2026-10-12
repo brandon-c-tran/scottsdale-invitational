@@ -100,6 +100,7 @@ export function QASheet({ state, status, me, guestLens, busy, environment, dispa
   const finished = status.current === "No active event";
   const simOn = !!qaSimOf(state);
   const simCount = useMemo(() => simPlayers(state).length, [state]);
+  const nightOn = simOn && !!state.qaSim?.night;
 
   return (
     <Sheet title="QA" onClose={onClose} onBack={onBack} className="fd-qa-sheet"
@@ -127,7 +128,9 @@ export function QASheet({ state, status, me, guestLens, busy, environment, dispa
           <MenuGroup>
             <MenuRow name="Sim players" pressed={simOn} disabled={off} onClick={() => qa.sim(!simOn)} />
             {simOn && <MenuRow name="Include me" pressed={!!state.qaSim?.includeMe} disabled={off}
-              onClick={() => qa.sim(true, !state.qaSim?.includeMe)} />}
+              onClick={() => qa.sim(true, { includeMe:!state.qaSim?.includeMe })} />}
+            <MenuRow name="Run the night" pressed={nightOn} disabled={off}
+              onClick={() => qa.sim(true, { night:!nightOn })} />
           </MenuGroup>
         </div>
         <div className="fd-qa-actions">

@@ -2859,7 +2859,7 @@ export const ACTIONS = {
   qaSimPlayers(state, payload, ctx) {
     const g = gmOnly(ctx); if (g) return g;
     if (!ctx.qa) return err("QA is unavailable");
-    const { on, includeMe } = payload || {};
+    const { on, includeMe, night } = payload || {};
     if (typeof on !== "boolean") return err("Turn Sim players on or off");
     const current = state.qaSim?.on === true ? state.qaSim : null;
     if (!on) {
@@ -2868,16 +2868,19 @@ export const ACTIONS = {
       return ok({ on:false });
     }
     const include = includeMe === undefined ? !!current?.includeMe : includeMe === true;
+    /* Run the night: the commissioner's beats too (shared/qaSim.js planNight) */
+    const nightOn = night === undefined ? !!current?.night : night === true;
     if (current) {
       const me = ctx.player || current.me || null;
-      if (current.includeMe === include && current.me === me) return ok({ unchanged:true });
-      state.qaSim = { ...current, includeMe:include, me };
-      return ok({ on:true, includeMe:include });
+      if (current.includeMe === include && current.me === me && !!current.night === nightOn) return ok({ unchanged:true });
+      /* the night's clock starts when it is switched on */
+      state.qaSim = { ...current, includeMe:include, me, night:nightOn, ...(nightOn && !current.night ? { at:Date.now() } : {}) };
+      return ok({ on:true, includeMe:include, night:nightOn });
     }
     const gate = qaGate(state, payload, ctx, false); if (gate) return gate;
     const seed = cleanSeed(payload?.seed) ?? Math.floor(Math.random() * 0xFFFFFFFF) >>> 0;
-    state.qaSim = { on:true, me:ctx.player || null, includeMe:include, seed, at:Date.now() };
-    return ok({ on:true, includeMe:include, seed });
+    state.qaSim = { on:true, me:ctx.player || null, includeMe:include, night:nightOn, seed, at:Date.now() };
+    return ok({ on:true, includeMe:include, night:nightOn, seed });
   },
   /* ── Gags (src/features/gags): the TV's comic moments, the bits ──
      The commissioner's switch (on by default, stored as gagsOff; off, no

@@ -831,7 +831,8 @@ export class Tournament {
         return;
       }
       this.autoRetryAt = 0;
-      if (sim) continue;
+      /* Run the night's commissioner beats play the win song as the pill's would */
+      if (sim) { if (write.gm) this.queueWinSong(before, this.state, write.type); continue; }
       this.queueAlerts(before, this.state, null);
       this.queueWinSong(before, this.state, write.type);
     }

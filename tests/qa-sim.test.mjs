@@ -23,6 +23,7 @@ import {
 } from "../shared/qaSim.js";
 import { milesApart, hoursApart } from "../shared/geo.js";
 import { boardStandings, finalMax, boardTopValue } from "../shared/triviaBoard.js";
+import { resolveDirector } from "../shared/show.js";
 import { applyAction } from "./support/confirmed-start.mjs";
 
 let serial = 0;
@@ -143,7 +144,7 @@ test("the switch: commissioner and QA only, a seed and the commissioner's own pl
   assert.equal(applyAction(state, "qaSimPlayers", { on:true }, { ...gm(), qa:false }).error, "QA is unavailable");
   assert.equal(applyAction(state, "qaSimPlayers", { on:"yes" }, gm()).error, "Turn Sim players on or off");
   at(T0, () => simOn(state));
-  assert.deepEqual(state.qaSim, { on:true, me:ME, includeMe:false, seed:4242, at:T0 });
+  assert.deepEqual(state.qaSim, { on:true, me:ME, includeMe:false, night:false, seed:4242, at:T0 });
   assert.equal(act(state, "qaSimPlayers", { on:true }).extra.unchanged, true, "on again: nothing");
   act(state, "qaSimPlayers", { on:true, includeMe:true });
   assert.equal(state.qaSim.includeMe, true);
@@ -217,7 +218,7 @@ test("deterministic: the same state plans the same moves at the same instants wi
   const spent = new Set([a[0].key]);
   assert.ok(!simMoves(state, T0, spent).some(move => move.key === a[0].key));
   assert.deepEqual(simContext(a[0]), { isGm:false, sim:true, player:a[0].player, deviceId:`sim:${a[0].player}`, actionId:a[0].key });
-  assert.deepEqual(Object.keys(SIM_PLANNERS), ["trivia", "board", "geo", "bets", "draft"]);
+  assert.deepEqual(Object.keys(SIM_PLANNERS), ["trivia", "board", "geo", "bets", "draft", "night"]);
 });
 
 test("off stops everything at once, and an absent player stops on the spot", async () => {
@@ -458,6 +459,42 @@ test("the console: Sim players and Include me in Step, a lamp with how many play
   assert.match(on, /aria-pressed="true"[^>]*><span class="fd-menu-name">Sim players<\/span>/);
   assert.match(on, /aria-pressed="false"[^>]*><span class="fd-menu-name">Include me<\/span>/);
   assert.match(on, new RegExp(`fd-qa-pulse[^>]*></span>${simPlayers(state).length} playing`));
+  assert.match(on, /aria-pressed="false"[^>]*><span class="fd-menu-name">Run the night<\/span>/);
+  act(state, "qaSimPlayers", { on:true, night:true });
+  assert.match(render(state), /aria-pressed="true"[^>]*><span class="fd-menu-name">Run the night<\/span>/);
   const text = on.replace(/<[^>]+>/g, " ");
   assert.ok(!/—|!/.test(text), "no em dashes or exclamation marks");
+});
+
+/* ── Run the night ── */
+
+test("Run the night: the commissioner's beats on a human clock carry the slate to the finale, then stop", async () => {
+  const state = structuredClone(EMPTY_STATE);
+  act(state, "qaAdvance", { target:"locker", seed:5 });
+  at(T0, () => simOn(state, { night:true }));
+  assert.equal(state.qaSim.night, true);
+  const profiles = structuredClone(state.profiles);
+  const tournament = await room(state);
+  const finale = s => resolveDirector(s, allEventsOf(s)).event?.finale === true;
+  await play(tournament, finale, { from:T0, limit:20000 });
+  const done = tournament.state;
+  const slate = allEventsOf(done).filter(ev => !ev.finale);
+  for (const ev of slate) assert.ok(done.results[ev.id], `${ev.name} posted`);
+  assert.equal(done.poker, null, "it stops before the finale");
+  assert.equal(done.frozen, false);
+  assert.ok(writesOf(tournament, "startDraft").length > 0, "a captains draft");
+  assert.ok(writesOf(tournament, "pickDraftPlayer").length > 4, "its picks made by the captains");
+  assert.ok(writesOf(tournament, "placeWager").length > slate.length * 3, "the room bets all night");
+  /* every announcement waits for the room after the last result */
+  const resultsAt = tournament.log.filter((entry, i) => Object.keys(entry.next.results || {}).length
+    > Object.keys(tournament.log[i - 1]?.next.results || {}).length).map(entry => entry.at);
+  for (const entry of tournament.log.filter(item => ["announceEvent", "announceAndDraw", "startDraft"].includes(item.type))) {
+    const last = resultsAt.filter(t => t <= entry.at).at(-1);
+    if (last) assert.ok(entry.at - last >= 4000, `${entry.type} a beat after the last result`);
+  }
+  const hours = (Math.max(...tournament.log.map(entry => entry.at)) - T0) / 3_600_000;
+  assert.ok(hours > 0.5 && hours < 8, `a night's length (${hours.toFixed(1)} h)`);
+  assert.deepEqual(done.profiles, profiles, "no profile written");
+  /* nothing more: the finale is the commissioner's */
+  assert.deepEqual(simMoves(done, Infinity, tournament.simSpent).filter(move => move.gm), []);
 });

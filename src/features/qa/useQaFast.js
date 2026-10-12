@@ -83,8 +83,8 @@ export function useQaFast({ dispatch, environment, notify, onDone }) {
     save:name => write("qaCheckpointSave", { name }, { key:"save" }),
     remove:id => write("qaCheckpointDelete", { id }, { key:`delete:${id}` }),
     /* the simulated room (shared/qaSim.js): on, off, and whether it plays you */
-    sim:(on, includeMe) => write("qaSimPlayers", { on, ...(includeMe === undefined ? {} : { includeMe }) },
-      { key:"sim" }),
+    sim:(on, { includeMe, night } = {}) => write("qaSimPlayers", { on, ...(includeMe === undefined ? {} : { includeMe }),
+      ...(night === undefined ? {} : { night }) }, { key:"sim" }),
     /* quick bets on the contest taking bets (worker/qa.js runQaBets) */
     bets:(mode, market) => write("qaBets", { mode, ...(market ? { contestId:market.contestId,
       contestRevision:market.contestRevision } : {}) }, { key:`bets:${mode}`, done:betsDone }),

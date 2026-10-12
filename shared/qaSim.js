@@ -15,10 +15,12 @@
    SIM_PLANNERS is the per-game table: each entry plans one game's moves.
    A game added later (Karaoke) adds its planner there. */
 import {
-  PT, allEventsOf, atRisk, computeStandings, contestBetEligibility, contestSideOf, draftTurn, duelReserve,
-  isAbsent, isActivePlayer, maxRisk, playerStrength, rosterOf, resolveCurrentContest, wagerMatchesContest,
+  PT, allEventsOf, atRisk, awardTable, computeStandings, contestBetEligibility, contestSideOf, draftTurn, duelReserve,
+  isAbsent, isActivePlayer, maxRisk, playerStrength, rosterOf, resolveCurrentContest, resolveEventLifecycle,
+  validateEventParticipants, wagerMatchesContest,
 } from "./core.js";
 import { cleanWhen, geoCurrentId, geoPlayers } from "./geo.js";
+import { resolveDirector } from "./show.js";
 import { triviaCurrent, triviaGame } from "./trivia.js";
 import {
   BUZZ_EARLY_MS, DD_MIN, DD_STING_MS, FINAL_INTRO_MS, WAGER_STEP, answeredOn, boardActive, boardClue, boardLog,
@@ -426,6 +428,122 @@ function planDraft(state, sim, players) {
   return moves;
 }
 
+/* ── Run the night: the commissioner's beats on a human clock ──
+   With qaSim.night on, the director pill's own beats (resolveDirector, the
+   lifecycle without Show Control's scene steps, which the autopilot runs)
+   are taken as the pill's writes: announce a little after the last result
+   settles, lock after a betting window, record a played contest's winner
+   after a play time, post a free-for-all's finish, start a captains draft
+   with default captains and confirm it once picked. In-app games play on
+   the autopilot. It stops before the poker finale and never crowns. A
+   commissioner move carries `gm:true`. */
+export const SIM_NIGHT = Object.freeze({
+  /* the winner scene and the song have the room first */
+  announceMs:[30000, 45000],
+  bettingMs:[35000, 50000],
+  playMs:[45000, 90000],
+  entryMs:[3000, 6000],
+  draftStartMs:[4000, 8000],
+  confirmMs:[3000, 6000],
+  /* a captain who is not simulated (you) gets this long before the
+     commissioner picks for them */
+  stallMs:15000,
+});
+const NIGHT_BEATS = new Set(["announce", "announce-draw", "captains-draft", "continue-draft", "lock-start",
+  "record-contest-winner", "enter-result", "post-result"]);
+const latestResultAt = state => Math.max(0, ...Object.values(state.results || {}).map(result => num(result?.ts)));
+/* who wins: a coin weighted a little toward the stronger side */
+function nightOrder(state, sim, ev, sides, salt) {
+  const rows = computeStandings(state);
+  const strength = side => side.players.reduce((sum, p) => sum + playerStrength(state, p, ev.sport, rows), 0)
+    / Math.max(1, side.players.length);
+  return [...sides].map(side => ({ side, score:simHash(sim.seed, "night", ev.id, salt, side.key ?? side.players.join("+"))
+    + 0.05 * strength(side) })).sort((a, b) => b.score - a.score).map(item => item.side);
+}
+function nightPodium(state, sim, ev, sides, salt) {
+  const table = awardTable(ev);
+  const order = nightOrder(state, sim, ev, sides, salt);
+  return [0, 1, 2].map(i => i === 0 || table[i] > 0 ? [...(order[i]?.players || [])] : []);
+}
+function planNight(state, sim, players) {
+  if (!sim.night || state.frozen) return [];
+  const events = allEventsOf(state);
+  const director = resolveDirector(state, events, { showControl:false });
+  const beat = director?.nextAction;
+  const ev = director?.event || null;
+  if (!beat || !ev || ev.finale || !NIGHT_BEATS.has(beat.type) || beat.enabled === false) return [];
+  const contest = resolveCurrentContest(state, ev);
+  const op = state.eventOps?.[ev.id] || {};
+  const reference = contest ? { contestId:contest.id, contestRevision:contest.revision } : {};
+  const h = (...parts) => simHash(sim.seed, "night", ev.id, ...parts);
+  const move = (at, type, payload, step) => ({ at:Math.round(at), type, payload, gm:true, player:null,
+    key:`sim:night:${ev.id}:${step}` });
+  const since = at => startOf(sim, at);
+  const sims = new Set(players);
+  switch (beat.type) {
+    case "announce":
+      return [move(since(latestResultAt(state)) + between(SIM_NIGHT.announceMs, h("announce")), "announceEvent",
+        { evId:ev.id, ...reference, startWeekend:true }, "announce")];
+    case "announce-draw":
+      return [move(since(latestResultAt(state)) + between(SIM_NIGHT.announceMs, h("announce")), "announceAndDraw",
+        { evId:ev.id, ...(beat.players ? { players:[...beat.players], roles:(beat.roles || []).map(item => ({ ...item })) } : {}),
+          startWeekend:true }, "announce")];
+    case "captains-draft": {
+      const pool = beat.players || [];
+      const fit = validateEventParticipants(ev, pool, rosterOf(state).filter(p => !isAbsent(state, p))).fit || ev.teamCfg;
+      const rows = computeStandings(state);
+      /* the strongest of the room captain, simulated players first */
+      const captains = [...pool].sort((a, b) => (sims.has(b) - sims.has(a))
+        || playerStrength(state, b, ev.sport, rows) - playerStrength(state, a, ev.sport, rows) || a.localeCompare(b))
+        .slice(0, fit?.teams || 2);
+      return [move(since(latestResultAt(state)) + between(SIM_NIGHT.draftStartMs, h("draft")), "startDraft",
+        { evId:ev.id, captains, players:[...pool], roles:(beat.roles || []).map(item => ({ ...item })) }, "draft")];
+    }
+    case "continue-draft": {
+      const draft = state.drafts?.[ev.id];
+      const turn = draftTurn(draft);
+      if (!turn) return [];
+      const ref = { evId:ev.id, draftId:turn.draftId, pickIndex:turn.pickIndex, draftRevision:turn.draftRevision };
+      if (turn.complete)
+        return [move(since(draft.turnAt || draft.ts) + between(SIM_NIGHT.confirmMs, h("confirm")), "finalizeDraft", ref, "confirm")];
+      if (sims.has(turn.captain)) return [];
+      return [move(since(draft.turnAt || draft.ts) + SIM_NIGHT.stallMs, "pickDraftPlayer",
+        { ...ref, player:draft.pool[Math.floor(h("stall", turn.pickIndex) * draft.pool.length)] }, `stall:${turn.pickIndex}`)];
+    }
+    case "lock-start": {
+      if (!contest) return [];
+      const opened = contest.phase === "betting-open" ? num(op.bettingOpenedAt) : num(op.bettingLockedAt);
+      const wait = contest.phase === "betting-open" ? between(SIM_NIGHT.bettingMs, h("lock", contest.id, contest.revision)) : 3000;
+      return [move(since(opened) + wait, "lockAndStart", { evId:ev.id, ...reference, startWeekend:true },
+        `lock:${contest.id}:${contest.revision}`)];
+    }
+    case "record-contest-winner":
+    case "enter-result":
+    case "post-result": {
+      const started = since(Math.max(num(op.bettingLockedAt), num(op.startedAt)));
+      const play = between(SIM_NIGHT.playMs, h("play", contest?.id, contest?.revision));
+      if (contest && contest.kind !== "ffa" && contest.phase === "in-progress") {
+        const keys = nightOrder(state, sim, ev, contest.sides, `${contest.id}:${contest.revision}`).map(side => side.key);
+        const advance = contest.kind === "heat" ? Math.max(1, num(state.stages?.[ev.id]?.advance)) : 1;
+        const rounds = state.brackets?.[ev.id]?.rounds || [];
+        const final = contest.kind === "stage-final" || contest.kind === "match" && contest.match?.[0] === rounds.length - 1;
+        return [move(started + play, "recordContestWinner", { evId:ev.id, ...reference, winner:keys[0],
+          qualifiers:keys.slice(0, advance), ...(contest.kind === "stage-final" ? { order:keys } : {}),
+          ...(final ? { postResult:true } : {}) }, `winner:${contest.id}:${contest.revision}`)];
+      }
+      /* a free-for-all played off the app: the scorecard, then its finish */
+      const lifecycle = resolveEventLifecycle(state, ev);
+      if (lifecycle.phase === "in-progress")
+        return [move(started + play, "beginResultEntry", { evId:ev.id }, "entry")];
+      const sides = contest?.sides?.length ? contest.sides
+        : (state.draws?.[ev.id]?.teams || rosterOf(state).filter(p => !isAbsent(state, p)).map(p => ({ players:[p] })));
+      return [move(since(op.resultEntryAt || started) + between(SIM_NIGHT.entryMs, h("entry")), "saveResult",
+        { evId:ev.id, slots:nightPodium(state, sim, ev, sides, "result") }, "result")];
+    }
+    default: return [];
+  }
+}
+
 /* One planner per game: (state, sim, players, now) => moves. Karaoke adds
    its planner here when it lands. */
 export const SIM_PLANNERS = Object.freeze({
@@ -434,6 +552,8 @@ export const SIM_PLANNERS = Object.freeze({
   geo:planGeo,
   bets:planBets,
   draft:planDraft,
+  /* the commissioner's beats, only with "Run the night" */
+  night:planNight,
 });
 
 /* Every move the room still owes, earliest first (any time). `spent` holds
@@ -442,7 +562,6 @@ export function simMoves(state, now = 0, spent = null) {
   const sim = qaSimOf(state);
   if (!sim) return [];
   const players = simPlayers(state);
-  if (!players.length) return [];
   const moves = [];
   for (const plan of Object.values(SIM_PLANNERS)) {
     try { moves.push(...plan(state, sim, players, now)); }
@@ -457,5 +576,9 @@ export const simDue = (state, now, spent = null) => simMoves(state, now, spent).
 export const simNext = (state, now, spent = null) => simMoves(state, now, spent).find(move => move.at > now) || null;
 
 /* the context a simulated player's write runs under */
-export const simContext = move => ({ isGm:false, sim:true, player:move.player, deviceId:`sim:${move.player}`, actionId:move.key });
+/* the context a simulated write runs under: a player's own phone, or (Run
+   the night) the commissioner's */
+export const simContext = move => move.gm
+  ? { isGm:true, sim:true, player:null, deviceId:"sim:night", actionId:move.key }
+  : { isGm:false, sim:true, player:move.player, deviceId:`sim:${move.player}`, actionId:move.key };
 

@@ -43,7 +43,14 @@ const POLL_MS = 250;
 /* one report a change: { key, state, code?, at? } */
 const sameReport = (a, b) => !!a && !!b && a.key === b.key && a.state === b.state && a.code === b.code;
 
-function createController({ host, read, onBlocked }) {
+/* whether this TV runs a player for the game at all: a still never does */
+export const karaokePlayerOn = (game, fixed = false) => !fixed && game?.phase === "turns" && !!game?.id;
+
+/* The player's controller, one per game (exported for the tests, which
+   hand it a stand-in IFrame API and host): `read()` is { game, onStatus }
+   as of now, `onBlocked(key | null)` raises or lowers Click to play. */
+export function createKaraokeController({ host, read, onBlocked = () => {}, loadApi = loadYouTube,
+  makeSlot = () => document.createElement("div") }) {
   let player = null, slot = null, ready = false, gone = false, loading = false;
   let key = null, id = null, cued = null, started = false, muted = false;
   let last = null;
@@ -108,10 +115,10 @@ function createController({ host, read, onBlocked }) {
   const ensure = () => {
     if (player || loading || gone) return;
     loading = true;
-    loadYouTube().then(YT => {
+    loadApi().then(YT => {
       loading = false;
       if (gone || player) return;
-      slot = document.createElement("div");
+      slot = makeSlot();
       host.appendChild(slot);
       player = new YT.Player(slot, {
         width:"100%", height:"100%", playerVars:{ ...KARAOKE_PLAYER_VARS },
@@ -213,12 +220,12 @@ export function useKaraokePlayer({ game, fixed = false, onStatus = null }) {
   latest.current = { game, onStatus };
   const [blockedKey, setBlockedKey] = useState(null);
   const sound = useSoundEnabled();
-  const on = !fixed && game?.phase === "turns" && !!game?.id;
+  const on = karaokePlayerOn(game, fixed);
   const plan = on ? karaokeVideoPlan(game, serverNow()) : null;
   const step = plan ? `${plan.key}|${plan.id}|${plan.songAt}|${plan.endAt}` : "none";
   useEffect(() => {
     if (!on || !host.current) return undefined;
-    const controller = createController({ host:host.current, read:() => latest.current, onBlocked:setBlockedKey });
+    const controller = createKaraokeController({ host:host.current, read:() => latest.current, onBlocked:setBlockedKey });
     ctl.current = controller;
     controller.mute(!sound);
     controller.sync();

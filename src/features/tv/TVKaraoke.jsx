@@ -274,9 +274,9 @@ function Score({ score, when }) {
   if (!Number.isFinite(score)) return <span className="tv-display tv-karaoke-score is-none">{text}</span>;
   const [whole, tenth] = text.split(".");
   return <span className="tv-display tv-karaoke-score" role="img" aria-label={text}>
-    <ScoreReel value={Number(whole)} from={0} motion="always" at={when} label="" />
-    <i className="tv-karaoke-point">.</i>
-    <ScoreReel value={Number(tenth)} from={0} motion="always" at={when} label="" />
+    <ScoreReel value={Number(whole)} from={0} motion="always" at={when} label="" slim />
+    <i className="tv-karaoke-point" aria-hidden="true" />
+    <ScoreReel value={Number(tenth)} from={0} motion="always" at={when} label="" slim />
   </span>;
 }
 

@@ -19,6 +19,9 @@
 .tv-karaoke-head { display:flex; align-items:center; gap:32px; min-width:0; }
 .tv-karaoke-hero { flex:1; min-width:0; margin:0; font-size:150px; line-height:1; color:var(--bone); white-space:nowrap; }
 .tv-karaoke-title { margin:0; font-size:72px; line-height:1.1; color:var(--bone); }
+/* lettering on the painting stands on an ink keyline */
+.tv-karaoke-order .tv-karaoke-title, .tv-karaoke-reveal .tv-karaoke-title, .tv-karaoke-legend-name {
+  text-shadow:2px 2px 0 var(--ink0), -2px 2px 0 var(--ink0), 2px -2px 0 var(--ink0), -2px -2px 0 var(--ink0), 0 4px 0 var(--ink0); }
 @keyframes tv-karaoke-rise { from { opacity:0; transform:translateY(22px); } }
 @keyframes tv-karaoke-land { from { opacity:0; transform:scale(.4) translateY(-30px); } }
 @keyframes tv-karaoke-stamp { 0% { opacity:0; transform:scale(1.35); } 60% { opacity:1; transform:scale(.97); } }
@@ -80,7 +83,7 @@
   background:var(--tv-window); box-shadow:var(--tv-cut); }
 .tv-karaoke-art img { display:block; width:100%; height:100%; object-fit:cover; }
 .tv-karaoke-up-song { display:flex; flex-direction:column; gap:12px; min-width:0; animation:tv-karaoke-stamp .55s var(--ease-land) both; }
-.tv-karaoke-up-title, .tv-karaoke-card-title { margin:0; line-height:.95; color:var(--bone); overflow-wrap:anywhere; }
+.tv-karaoke-up-title, .tv-karaoke-card-title { margin:0; line-height:1.05; color:var(--bone); overflow-wrap:anywhere; }
 .tv-karaoke-up-title > span, .tv-karaoke-card-title > span { display:block; }
 .tv-karaoke-up-artist { font-size:48px; line-height:1.1; color:var(--muted2); overflow-wrap:anywhere; }
 .tv-karaoke-up-side { min-width:0; display:flex; flex-direction:column; align-items:center; gap:28px; padding-top:12px; }
@@ -112,7 +115,7 @@
 .tv-karaoke-strip { position:absolute; left:64px; top:932px; width:1792px; height:88px; display:flex; align-items:center; gap:20px;
   padding:0 28px 0 12px; }
 .tv-karaoke-strip > :first-child { flex-shrink:0; }
-.tv-karaoke-strip-name { flex-shrink:0; max-width:360px; font-size:44px; line-height:1.1; color:var(--bone); white-space:nowrap;
+.tv-karaoke-strip-name { flex-shrink:0; max-width:360px; font-size:44px; line-height:1.2; color:var(--bone); white-space:nowrap;
   overflow:hidden; text-overflow:ellipsis; }
 .tv-karaoke-strip-song { flex:1; min-width:0; display:flex; align-items:baseline; gap:14px; white-space:nowrap; overflow:hidden;
   text-overflow:ellipsis; font:600 26px/1.3 var(--fd-body); color:var(--muted2); }
@@ -137,7 +140,7 @@
 /* ── the vote: the singer, the six tiers (no values, ever), who has voted ── */
 .tv-karaoke-vote-who { flex:1; min-width:0; display:flex; flex-direction:column; gap:10px; }
 .tv-karaoke-vote-name { font-size:96px; line-height:1.05; color:var(--bone); overflow-wrap:anywhere; }
-.tv-karaoke-vote-song { font:600 36px/1.2 var(--fd-body); color:var(--muted2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.tv-karaoke-vote-song { font:600 36px/1.3 var(--fd-body); color:var(--muted2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .tv-karaoke-vote-song b { font-weight:700; color:var(--bone); }
 .tv-karaoke-vote-tiers { display:flex; align-items:center; gap:40px; }
 .tv-karaoke-vote-tiers .tv-karaoke-hero { flex:0 0 auto; }
@@ -175,24 +178,25 @@
 
 /* ── the reveal: last place up; 1st, 2nd and 3rd the large rows on top ── */
 .tv-karaoke-reveal { flex:1; min-height:0; display:flex; flex-direction:column; gap:12px; }
-.tv-karaoke-reveal .tv-karaoke-title { font-size:64px; }
+.tv-karaoke-reveal .tv-karaoke-title { font-size:56px; }
 .tv-karaoke-podium, .tv-karaoke-rest ol { margin:0; padding:0; list-style:none; display:flex; flex-direction:column; gap:10px; }
 .tv-karaoke-rest { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:10px 24px; }
-.tv-karaoke-row { display:flex; align-items:center; gap:18px; min-width:0; height:64px; padding:0 22px 0 14px; border-radius:14px;
+.tv-karaoke-row { display:flex; align-items:center; gap:18px; min-width:0; height:66px; padding:0 22px 0 14px; border-radius:14px;
   background:var(--tv-sheen), var(--tv-glass); border:1px solid var(--line); box-shadow:var(--glass-edge);
   animation:tv-karaoke-stamp .45s var(--ease-land) calc(var(--tl) + 140ms) both; }
-.tv-karaoke-row.is-podium { height:88px; }
-.tv-karaoke-row.is-first { height:104px; border-color:var(--bone); }
+.tv-karaoke-row.is-podium { height:92px; }
+.tv-karaoke-row.is-first { height:106px; border-color:var(--bone); }
 .tv-karaoke-row.is-waiting { background:var(--tv-window); border-color:transparent; box-shadow:var(--tv-cut); animation:none; }
 .tv-karaoke-place { flex-shrink:0; width:52px; font-size:36px; line-height:1; text-align:center; color:var(--bone); font-variant-numeric:tabular-nums; }
 .tv-karaoke-row.is-podium .tv-karaoke-place { width:64px; font-size:52px; }
 .tv-karaoke-row.is-first .tv-karaoke-place { width:64px; font-size:64px; }
 .tv-karaoke-row.is-waiting .tv-karaoke-place { color:var(--muted); }
 .tv-karaoke-row-who { flex:1; min-width:0; display:flex; flex-direction:column; justify-content:center; }
-.tv-karaoke-row-name { font-size:30px; line-height:1.05; color:var(--bone); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.tv-karaoke-row.is-podium .tv-karaoke-row-name { font-size:44px; }
-.tv-karaoke-row.is-first .tv-karaoke-row-name { font-size:52px; }
-.tv-karaoke-row-song { font:600 24px/1.1 var(--fd-body); color:var(--muted2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+/* clipped to one line each, so the line boxes keep every descender */
+.tv-karaoke-row-name { font-size:28px; line-height:1.2; color:var(--bone); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.tv-karaoke-row.is-podium .tv-karaoke-row-name { font-size:40px; }
+.tv-karaoke-row.is-first .tv-karaoke-row-name { font-size:50px; }
+.tv-karaoke-row-song { font:600 24px/1.25 var(--fd-body); color:var(--muted2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .tv-karaoke-row.is-podium .tv-karaoke-row-song { font-size:28px; }
 .tv-karaoke-row.is-first .tv-karaoke-row-song { font-size:30px; }
 .tv-karaoke-row .tv-karaoke-tier { flex-shrink:0; min-height:40px; padding:4px 14px; border-radius:10px; font-size:24px; }
@@ -201,4 +205,6 @@
 .tv-karaoke-row.is-podium .tv-karaoke-score { font-size:52px; }
 .tv-karaoke-row.is-first .tv-karaoke-score { font-size:60px; }
 .tv-karaoke-score.is-none { color:var(--muted2); }
-.tv-karaoke-point { font-style:normal; margin:0 .02em; }
+/* the decimal point: a square of bone on the windows' baseline */
+.tv-karaoke-point { align-self:flex-end; flex-shrink:0; width:.16em; height:.16em; margin:0 .08em .1em; border-radius:.02em;
+  background:currentColor; }

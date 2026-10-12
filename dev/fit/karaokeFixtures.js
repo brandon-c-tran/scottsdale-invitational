@@ -51,6 +51,7 @@ export const KARAOKE_FIT_SONGS = Object.freeze([
   alts:[],
 }))));
 
+const FIT_STARTED_AT = 1_900_000_000_000;
 let serial = 0;
 const gm = () => ({ isGm:true, qa:true, progressReset:true, environment:"local", player:"Brandon", deviceId:"fit-karaoke",
   actionId:`karaoke-${++serial}`, showControl:false });
@@ -89,7 +90,9 @@ function drawOrder(state, game, closedAt) {
   const room = presentPlayers(state);
   room.forEach((player, k) => { game.ready[player] = closedAt - 60000 + k * 3000; });
   game.phase = "turns";
-  game.order = karaokeOrder(room, game.id);
+  /* seeded by one fixed game's id (the server seeds by its own), so every
+     run and every view deals the same order */
+  game.order = karaokeOrder(room, karaokeGameId("karaoke", FIT_STARTED_AT));
   game.order.forEach((player, k) => { game.songs[player] = structuredClone(KARAOKE_FIT_SONGS[k % KARAOKE_FIT_SONGS.length]); });
   game.index = 0;
   game.turns = { [game.order[0]]:{ upAt:closedAt + KARAOKE_ORDER_HOLD_MS, songAt:null, endAt:null, closeAt:null, video:0 } };

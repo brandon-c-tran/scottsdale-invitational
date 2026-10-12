@@ -40,6 +40,8 @@
 .fd-karaoke-tray { display:grid; gap:8px; margin:10px 10px 0; padding:6px; border:1px solid var(--line); border-radius:16px;
   background:var(--paper); box-shadow:var(--shadow-2), var(--glass-edge); animation:fd-karaoke-rise .2s ease-out both; }
 .fd-karaoke-tray .fd-karaoke-error { padding:0 8px 6px; }
+/* while it is open it is the screen: the game rests behind it, unseen */
+.fd-karaoke-game.is-tray .fd-karaoke-body { visibility:hidden; }
 
 .fd-karaoke-body { min-height:0; overflow-y:auto; overscroll-behavior:contain; display:flex; flex-direction:column; gap:16px;
   padding:20px 16px 18px; }

@@ -292,7 +292,7 @@ export function KaraokeSheet({ state, me, blocked = false, force = 0, gm = false
     : walking ? { from:view.upAt, until:view.walkUntil }
       : screen === "vote-closing" ? { from:view.endAt, until:view.closeAt } : null;
   const props = { state, view, me, onAct };
-  return <div className={`fd-karaoke-game is-${screen}`} role="dialog" aria-modal="true" aria-label="Karaoke">
+  return <div className={`fd-karaoke-game is-${screen}${trayOpen ? " is-tray" : ""}`} role="dialog" aria-modal="true" aria-label="Karaoke">
     <header className="fd-karaoke-head">
       <span className="fd-karaoke-count"><small>Karaoke</small><b>{title}</b></span>
       {timer && <Countdown until={timer.until} fixed={fixed} />}

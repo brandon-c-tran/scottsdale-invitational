@@ -96,8 +96,10 @@ function assertCoherent(state, label) {
 test("targets parse against the slate and reject anything else", () => {
   const state = empty();
   assert.deepEqual(parseQaTarget(state, "event:die:mid"), { kind:"event", key:"event:die:mid", evId:"die", phase:"mid", index:1 });
-  assert.deepEqual(parseQaTarget(state, "event:8ball:mid"), { kind:"event", key:"event:8ball:mid", evId:"8ball", phase:"mid", index:7 });
-  assert.equal(parseQaTarget(state, "session:fri").evId, "where", "a session ends at its last event");
+  /* Friday's four, Saturday morning's three, then Volleyball */
+  assert.deepEqual(parseQaTarget(state, "event:8ball:mid"), { kind:"event", key:"event:8ball:mid", evId:"8ball", phase:"mid", index:8 });
+  assert.equal(slateOf(state).findIndex(ev => ev.id === "8ball"), 8);
+  assert.equal(parseQaTarget(state, "session:fri").evId, "karaoke", "a session ends at its last event");
   assert.equal(parseQaTarget(state, "poker:live").phase, "live");
   for (const bad of ["event:poker:open", "event:nope:open", "event:putt:late", "poker:dealt", "session:fin",
     "event:putt:open:x", 7, null, "x".repeat(90)])

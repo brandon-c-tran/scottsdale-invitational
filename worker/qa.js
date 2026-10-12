@@ -30,7 +30,7 @@ import {
 import { SHOW_HISTORY_LIMIT, championIdentity, finishShowScene } from "../shared/show.js";
 import { parseQaTarget, qaEventStage, qaPokerStage, qaSlate } from "../shared/qa.js";
 import { triviaActive, triviaBeat, triviaConfigured, triviaCurrent, triviaGame } from "../shared/trivia.js";
-import { BOARD_FORMAT, boardAutoBeat, isBoardGame, triviaFormatOf } from "../shared/triviaBoard.js";
+import { BOARD_FORMAT, boardAutoBeat, boardRace, isBoardGame, triviaFormatOf } from "../shared/triviaBoard.js";
 
 const QA_DEVICE = "qa-sim";
 const QA_REQUEST_PREFIX = `request:${QA_DEVICE}:`;
@@ -308,16 +308,21 @@ function podium(run, ev) {
 
 /* The Trivia board, played the way the room would: at each step the
    simulated room makes the moves it is waiting on (worker/triviaBoard.js
-   boardSim: the pick, buzzes once the buzzers are live, the answer on each
-   turn, the wagers, the Final), then the next beat is taken when its clock
-   comes, exactly the write the autopilot would make. The board's waits run
-   on the clock stepping ahead (rehearse); it comes back before the result
-   posts. */
+   boardSim: the pick, buzzes once the buzzers are live, again on each
+   rebound, the answer on each turn, the wagers, the Final), then the next
+   beat is taken when its clock comes, exactly the write the autopilot
+   would make. The board's waits run on the clock stepping ahead
+   (rehearse); it comes back before the result posts. */
 const boardReadyAt = game => {
   const log = game.current ? game.log?.[game.current] : null;
   if (game.phase === "clue") return Number(log?.armAt) || 0;
   if (game.phase === "answer" || game.phase === "dd-clue") return Number(log?.turnAt) || 0;
   return 0;
+};
+/* where the board stands: a phase, a clue, its answer and its race */
+const boardStep = game => {
+  const log = game.current ? game.log?.[game.current] : null;
+  return `${game.phase}:${game.current || ""}:${log?.turn ?? ""}:${boardRace(log)}`;
 };
 function playBoard(run, ev) {
   const { state } = run;
@@ -326,7 +331,7 @@ function playBoard(run, ev) {
     for (let guard = 0; guard < 2000 && !state.results?.[ev.id]; guard++) {
       const game = state.trivia;
       if (!isBoardGame(game) || game.eventId !== ev.id) break;
-      const here = `${game.phase}:${game.current || ""}:${game.log?.[game.current]?.turn ?? ""}`;
+      const here = boardStep(game);
       if (here !== step) {
         step = here;
         run.wait(boardReadyAt(game));

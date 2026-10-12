@@ -151,6 +151,9 @@ export function directorPill(state, events, director, { me = null, now = Date.no
     case "trivia-finish": run = { write:"triviaFinish", payload:{ evId:ev.id } }; break;
     /* the Trivia board: each beat names its own write (shared/triviaBoard.js boardBeat) */
     case "board-step": run = { write:beat.write, payload:beat.payload }; break;
+    /* Karaoke: each beat names its own write (shared/karaoke.js karaokeBeat) */
+    case "karaoke-step": run = { write:beat.write, payload:beat.payload }; break;
+    case "karaoke-start": run = { write:"karaokeStart", payload:{ evId:ev.id } }; break;
     case "enter-result": run = { open:"resultEntry", evId:ev.id }; break;
     case "post-result": run = { open:"result", evId:ev.id }; break;
     case "advance-bracket": run = { open:"bracket", evId:ev.id }; break;
@@ -204,6 +207,8 @@ export function directorPill(state, events, director, { me = null, now = Date.no
     const picks = triviaGame(state).picks?.[beat.questionId] || {};
     note(1, `${players.filter(player => picks[player]?.locked).length} of ${players.length} locked in`);
   }
+  /* karaoke counts the room itself: who is locked in, who is up, who voted */
+  if (beat.type === "karaoke-step") note(1, beat.note);
   if (beat.type === "setup-poker") {
     const open = (state.duels || []).filter(duel => duelOpen(duel, now)).length;
     if (open) note(1, `Voids ${open} open duel${open === 1 ? "" : "s"}`);
@@ -241,6 +246,11 @@ export function directorPill(state, events, director, { me = null, now = Date.no
     }
   });
   if (sides) extras.push({ label:"Open event", run:{ open:"event", evId:ev.id } });
+  /* karaoke's other moves at this moment: More time, Later, End song,
+     Next video, then Skip and Restart last */
+  if (beat.type === "karaoke-step")
+    (beat.tray || []).forEach(extra => extras.push({ label:extra.label, ...(extra.kind ? { kind:extra.kind } : {}),
+      run:{ write:extra.write, payload:extra.payload, ...(extra.confirm ? { confirm:extra.confirm } : {}) } }));
   if (beat.type === "advance-scene")
     extras.push({ label:"Skip", kind:"skip", run:{ write:"endShowScene", payload:{ id:beat.sceneId, outcome:"skipped" } } });
   if (director.secondary?.type === "skip-event" && ev)

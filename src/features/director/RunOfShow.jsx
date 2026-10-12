@@ -40,9 +40,9 @@ export function useHold(onHold, ms = HOLD_MS) {
 
 
 /* `embedded`: inside the pill's more tray, which owns the close */
-export function RunOfShowPanel({ state, events, director = null, showControl = false, now = null, onClose, embedded = false }) {
+export function RunOfShowPanel({ state, events, director = null, showControl = false, karaoke = false, now = null, onClose, embedded = false }) {
   useServerNow(15000);
-  const model = runOfShow(state, events, director, { showControl, now:now ?? serverNow() });
+  const model = runOfShow(state, events, director, { showControl, karaoke, now:now ?? serverNow() });
   /* a subject is said once: a beat on the same contest as the one before it
      (Lock and start Heat 1, then Record winner) carries only its verb */
   const said = model.beats.map((item, index) => ({ ...item,

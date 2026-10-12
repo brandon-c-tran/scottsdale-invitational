@@ -39,7 +39,7 @@ export function PillMore({ open, onToggle, actions = false, count = 0, disabled 
   </button>;
 }
 
-function PillTray({ model, state, events, director, showControl, pending, onPick }) {
+function PillTray({ model, state, events, director, showControl, karaoke = false, pending, onPick }) {
   const alts = model.extras.filter(extra => extra.kind !== "skip");
   const edges = model.extras.filter(extra => extra.kind === "skip");
   const row = (extra, edge) => <button type="button" key={extra.label} disabled={pending}
@@ -49,7 +49,7 @@ function PillTray({ model, state, events, director, showControl, pending, onPick
     {!edge && <Icon name="next" size={16} />}
   </button>;
   return <section className="fd-pill-tray" aria-label="More">
-    <RunOfShowPanel state={state} events={events} director={director} showControl={showControl} embedded />
+    <RunOfShowPanel state={state} events={events} director={director} showControl={showControl} karaoke={karaoke} embedded />
     {!!alts.length && <div className="fd-pill-tray-group">{alts.map(extra => row(extra, false))}</div>}
     {!!edges.length && <div className="fd-pill-tray-group is-edge">{edges.map(extra => row(extra, true))}</div>}
   </section>;
@@ -119,7 +119,7 @@ function WinnerSide({ state, side, index, pending, picking, onPick, onPlayer, on
    targets; faces beside them open player cards. Everything else the beat
    allows waits in the more tray. Writes wait for acknowledgement and go
    through onWrite, which owns the weekend-start confirm. */
-export function DirectorPill({ model, state, events, onWrite, onOpen, onPlayer, director = null, showControl = false, health = null,
+export function DirectorPill({ model, state, events, onWrite, onOpen, onPlayer, director = null, showControl = false, karaoke = false, health = null,
   audio = null }) {
   const [pending, setPending] = useState(false), [error, setError] = useState("");
   const [recent, setRecent] = useState(null), [picking, setPicking] = useState(null);
@@ -191,6 +191,8 @@ export function DirectorPill({ model, state, events, onWrite, onOpen, onPlayer, 
   };
   const perform = (run, key = null) => {
     if (!run || busy.current) return undefined;
+    /* a move that throws work away names it first (karaoke's Restart and Skip) */
+    if (run.confirm && !window.confirm(run.confirm)) return undefined;
     setTrayOpen(false);
     return run.write ? write(run, key) : onOpen?.(run);
   };
@@ -204,7 +206,7 @@ export function DirectorPill({ model, state, events, onWrite, onOpen, onPlayer, 
     {undo?.enabled && <RecentWinner state={state} recent={recent} pending={pending} onUndo={takeBack} />}
     {error && <p className="fd-director-error" role="alert">{error}</p>}
     {model && trayOpen && <PillTray model={model} state={state} events={events} director={director}
-      showControl={showControl} pending={pending} onPick={perform} />}
+      showControl={showControl} karaoke={karaoke} pending={pending} onPick={perform} />}
     {model && (model.sides
       ? <section className="fd-director-card" aria-label={`${model.label}. ${model.lines.join(". ")}`}>
           <div className="fd-director-headrow">

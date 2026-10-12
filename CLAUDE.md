@@ -865,6 +865,16 @@ older than the build) pass. STAGING only, as
 `a0e4800c-4fd5-4661-9731-a89df7b0c8ac`, awaiting Brandon's review; roll
 staging back with `npx wrangler rollback 66da6088-aebb-4ad2-a5c2-0e81b6403fef
 --env staging`.
+**Oct 11 moments build** (branch `oct10/moments`, on `night/oct8`; not on
+production, not pushed): the 19 bits wired to the five moments on the TV
+and the phones they are about, the highlight reel, attract mode and the
+records cards; 1162 tests, the 465-view fit audit and the local e2e (141 of
+142, the same stale assertion) pass. STAGING only, as
+`16c4a36f-504e-4dd1-8394-b34a7d17b1a2` (build `6d5ca12`), awaiting
+Brandon's review; roll staging back to the Oct 9 build with `npx wrangler
+rollback a0e4800c-4fd5-4661-9731-a89df7b0c8ac --env staging`. A local e2e
+server on the production build needs `--var APP_ENV:local` and a short
+`--persist-to` (a long Windows path fails the Durable Object's storage).
 
 **September 5 correction (history for the visuals).** Brandon rejected the light
 redesign and the rewritten voice. It made the app harder to use and broke

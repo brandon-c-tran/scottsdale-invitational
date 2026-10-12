@@ -9,6 +9,7 @@ import { Icon } from "../../ui/Icon.jsx";
 import { rosterOf, allEventsOf, disp } from "../../../shared/core.js";
 import { qaCheckpointSummary, qaTargets } from "../../../shared/qa.js";
 import { GAG_SHAPES } from "../../../shared/gags.js";
+import { karaokeLive, karaokeTurn } from "../../../shared/karaoke.js";
 import { BIT_SHAPES, bitsOf } from "../gags/bits/registry.js";
 import { Btn, Sheet, Tag } from "../../ui/controls.jsx";
 import { MenuGroup, MenuRow } from "../../ui/Menu.jsx";
@@ -62,6 +63,17 @@ function Part({ icon, title, children, aside = null }) {
   </section>;
 }
 
+/* Which karaoke sim the room is waiting on: "songs" in the pick window,
+   "votes" once the current singer's song has started and until their vote
+   closes, else null. */
+export function karaokeQaStep(state) {
+  const game = state?.karaoke;
+  if (!karaokeLive(state)) return null;
+  if (game.phase === "pick") return "songs";
+  const turn = game.phase === "turns" ? karaokeTurn(game) : null;
+  return turn && Number.isFinite(turn.songAt) && !turn.closedAt && !turn.skipped ? "votes" : null;
+}
+
 const BET_ACTIONS = [
   ["everyone", "Everyone bets"],
   ["favorite", "Back the favorite"],
@@ -96,6 +108,8 @@ export function QASheet({ state, status, me, guestLens, busy, environment, dispa
   const here = useMemo(() => qaCheckpointSummary(state, events).label, [state, events]);
   const off = busy || !!qa.pending;
   const finished = status.current === "No active event";
+  /* karaoke's room: its songs in the pick window, its votes once a song has started */
+  const karaokeSim = karaokeQaStep(state);
 
   return (
     <Sheet title="QA" onClose={onClose} onBack={onBack} className="fd-qa-sheet"
@@ -132,6 +146,14 @@ export function QASheet({ state, status, me, guestLens, busy, environment, dispa
           {state.trivia?.format === "board" && !state.trivia.finishedAt && !state.results?.[state.trivia.eventId]
             && <Btn kind="ghost" compact disabled={off} onClick={() => dispatch("boardSim", {})
               .then(result => notify?.(result?.ok ? "Moves in" : result?.error || "Not saved"))}>Sim board</Btn>}
+          {/* Karaoke: practice songs in the game for anyone without one, everyone
+              locked in; then the room's votes on the singer (worker/karaoke.js) */}
+          {karaokeSim === "songs" && <Btn kind="ghost" compact disabled={off} onClick={() => dispatch("karaokeSimSongs",
+            { gameId:state.karaoke.id }).then(result => notify?.(result?.ok ? "Songs in" : result?.error || "Not saved"))}>
+            Sim songs</Btn>}
+          {karaokeSim === "votes" && <Btn kind="ghost" compact disabled={off} onClick={() => dispatch("karaokeSimVotes",
+            { gameId:state.karaoke.id, index:state.karaoke.index }).then(result => notify?.(result?.ok ? "Votes in" : result?.error || "Not saved"))}>
+            Sim votes</Btn>}
           {pokerOn && <Btn kind="ghost" compact disabled={off} onClick={onBustOne}>Bust one</Btn>}
           {pokerOn && <Btn kind="ghost" compact disabled={off} onClick={onCountRest}>Count the rest</Btn>}
         </div>

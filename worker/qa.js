@@ -31,6 +31,7 @@ import { SHOW_HISTORY_LIMIT, championIdentity, finishShowScene } from "../shared
 import { parseQaTarget, qaEventStage, qaPokerStage, qaSlate } from "../shared/qa.js";
 import { triviaActive, triviaBeat, triviaConfigured, triviaCurrent, triviaGame } from "../shared/trivia.js";
 import { BOARD_FORMAT, boardAutoBeat, isBoardGame, triviaFormatOf } from "../shared/triviaBoard.js";
+import { karaokeTurn } from "../shared/karaoke.js";
 
 const QA_DEVICE = "qa-sim";
 const QA_REQUEST_PREFIX = `request:${QA_DEVICE}:`;
@@ -377,10 +378,54 @@ function playTrivia(run, ev) {
   return !!state.results?.[ev.id];
 }
 
+/* Karaoke, played the way the room would (worker/karaoke.js): a practice
+   song in the game for anyone here without one and everyone locked in, the
+   order drawn, then each singer's song started, the clock stepped to it,
+   the room's votes (seeded from the game, never Math.random) and the
+   close; the clock comes back to the run's pace before the result posts.
+   The game is there when Lock and start opened it (the karaoke
+   capability); without one, or with nothing to post (nobody sang or
+   voted), the podium posts the event like any free-for-all, exactly as
+   before karaoke was played in the app. */
+function playKaraoke(run, ev) {
+  const { state } = run;
+  if (ev.game !== "karaoke" || state.results?.[ev.id]) return false;
+  const ours = () => state.karaoke?.eventId === ev.id ? state.karaoke : null;
+  if (!ours()) return false;
+  try {
+    for (let guard = 0; guard < 400 && !state.results?.[ev.id]; guard++) {
+      const game = ours();
+      if (!game) break;
+      if (game.phase === "pick") {
+        run.soft("karaokeSimSongs", { gameId:game.id });
+        run.gm("karaokeEndPick", { gameId:game.id });
+        continue;
+      }
+      if (game.phase === "turns") {
+        const turn = karaokeTurn(game);
+        if (!turn) break;
+        const ref = { gameId:game.id, index:game.index };
+        if (!Number.isFinite(turn.songAt)) { run.gm("karaokeStartSong", ref); continue; }
+        run.wait(turn.songAt);
+        run.soft("karaokeSimVotes", ref);
+        run.gm("karaokeNext", ref);
+        continue;
+      }
+      /* the reveal, or a finished game whose result was cleared: its ranking posts */
+      if (game.phase === "reveal" || (game.phase === "done" && !game.empty && game.ranking)) {
+        run.back();
+        run.soft("karaokeFinish", { gameId:game.id });
+      }
+      break;
+    }
+  } finally { run.back(); }
+  return !!state.results?.[ev.id];
+}
+
 function postResult(run, ev) {
   const { state } = run;
   if (state.results?.[ev.id]) return;
-  if (playTrivia(run, ev)) return;
+  if (playTrivia(run, ev) || playKaraoke(run, ev)) return;
   const lifecycle = resolveEventLifecycle(state, ev);
   if (lifecycle.phase === "in-progress" && lifecycle.nextAction?.type === "enter-result")
     run.gm("beginResultEntry", { evId:ev.id });

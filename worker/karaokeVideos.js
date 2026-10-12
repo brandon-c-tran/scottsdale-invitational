@@ -58,10 +58,10 @@ export const KARAOKE_CHANNELS = Object.freeze([
 export const SING_KING = Object.freeze({ name:"Sing King", id:"UCwTRjvjVge51X-ILJ4i22ew",
   names:Object.freeze(["singking", "singkingkaraoke"]) });
 
-const plain = value => String(value || "").normalize("NFKD").replace(/[̀-ͯ]/g, "").toLowerCase();
+const plain = value => String(value || "").normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 const squash = value => plain(value).replace(/[^a-z0-9]/g, "");
 /* a title's words: lowercase, accents and apostrophes gone ("Don't" is "dont") */
-const words = value => plain(value).replace(/['‘’`]/g, "").split(/[^a-z0-9]+/).filter(Boolean);
+const words = value => plain(value).replace(/['\u2018\u2019`]/g, "").split(/[^a-z0-9]+/).filter(Boolean);
 const sameChannel = (snippet, channel) => snippet?.channelId === channel.id || channel.names.includes(squash(snippet?.channelTitle));
 /* a channel's place in KARAOKE_CHANNELS (any other channel after them all) */
 export function karaokeChannelRank(snippet) {

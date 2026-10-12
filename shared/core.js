@@ -439,7 +439,9 @@ const EMPTY_STATE = { v:9, live:false, results:{}, wagers:[], wagerOps:{}, adjus
   geoRounds:[], geo:null, triviaRounds:[], triviaFormat:"rounds", trivia:null,
   /* the TV's gags (src/features/gags): the commissioner's switch, and the
      QA console's test */
-  gagsOff:false, gagTest:null, updatedAt:0 };
+  gagsOff:false, gagTest:null,
+  /* QA's simulated room (shared/qaSim.js): { on, me, includeMe, seed, at } */
+  qaSim:null, updatedAt:0 };
 const RESET_PROGRESS_CONFIRMATION = "RESET_GAME_PROGRESS";
 const RESET_PROGRESS_PRESERVED_KEYS = Object.freeze([
   "profiles",

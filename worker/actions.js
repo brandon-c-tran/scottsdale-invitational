@@ -230,6 +230,8 @@ const POKER_TABLE_ALLOWED_ACTIONS = new Set([
   "pokerSetup", "pokerStart", "pokerLevel", "pokerPause", "pokerBust", "pokerUnbust",
   "pokerCount", "pokerResult", "pokerCancel",
   "setFrozen", "resetTournament", "qaAdvance", "qaRestore",
+  /* the simulated room's switch moves nothing itself */
+  "qaSimPlayers",
   /* D6: ballots never touch the board */
   ...PROMPT_ACTION_TYPES,
   /* the TV's bits never touch it either (a test at the table says why it waits) */
@@ -2261,6 +2263,8 @@ export const ACTIONS = {
     d.pool = d.pool.filter(p => p !== player);
     d.picks.push({ team, player });
     d.revision = turn.draftRevision + 1;
+    /* when the next captain went on the clock */
+    d.turnAt = Date.now();
     const extra = { ...draftTurn(d), pickedBy:turn.captain, player, team };
     rememberDraftCommand(state, evId, command, extra);
     return ok(extra);
@@ -2285,6 +2289,7 @@ export const ACTIONS = {
     const order = d.players || rosterOf(state);
     d.pool.sort((a, b) => order.indexOf(a) - order.indexOf(b));
     d.revision = revision + 1;
+    d.turnAt = Date.now();
     const extra = { ...draftTurn(d), player:last.player, team:last.team };
     rememberDraftCommand(state, evId, command, extra);
     return ok(extra);
@@ -2844,6 +2849,35 @@ export const ACTIONS = {
     if (requestKey) rememberWagerOp(state, requestKey, { actor:"commissioner", type:"qaBets", fingerprint,
       wagerId:null, stake:done.chips });
     return ok(done);
+  },
+  /* Sim players (shared/qaSim.js): every present player but the
+     commissioner's own (unless includeMe) plays on a human clock, through
+     the ordinary player writes, which the Durable Object makes on its
+     alarm. Switching it on takes the same gate as quick bets (production
+     always confirms); off stops everything at once and needs none. The
+     seed fixes every decision, so the same seed plays the same room. */
+  qaSimPlayers(state, payload, ctx) {
+    const g = gmOnly(ctx); if (g) return g;
+    if (!ctx.qa) return err("QA is unavailable");
+    const { on, includeMe } = payload || {};
+    if (typeof on !== "boolean") return err("Turn Sim players on or off");
+    const current = state.qaSim?.on === true ? state.qaSim : null;
+    if (!on) {
+      if (!current) return ok({ unchanged:true });
+      state.qaSim = null;
+      return ok({ on:false });
+    }
+    const include = includeMe === undefined ? !!current?.includeMe : includeMe === true;
+    if (current) {
+      const me = ctx.player || current.me || null;
+      if (current.includeMe === include && current.me === me) return ok({ unchanged:true });
+      state.qaSim = { ...current, includeMe:include, me };
+      return ok({ on:true, includeMe:include });
+    }
+    const gate = qaGate(state, payload, ctx, false); if (gate) return gate;
+    const seed = cleanSeed(payload?.seed) ?? Math.floor(Math.random() * 0xFFFFFFFF) >>> 0;
+    state.qaSim = { on:true, me:ctx.player || null, includeMe:include, seed, at:Date.now() };
+    return ok({ on:true, includeMe:include, seed });
   },
   /* ── Gags (src/features/gags): the TV's comic moments, the bits ──
      The commissioner's switch (on by default, stored as gagsOff; off, no

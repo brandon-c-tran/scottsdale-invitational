@@ -1269,11 +1269,13 @@ export const BIT_PARTS = Object.freeze([
   /* ══ the team bits (Oct 12) ══ */
   /* ── dominoes ── */
   /* a line going over (opts.ms): clacks one after another, a little
-     faster as the chain runs, panned left to right along it */
+     faster as the chain runs, panned along it left to right (opts.dir -1:
+     right to left) */
   { id:"bitClatter", name:"Domino chain", ms:900,
     play:(E, t, o = {}) => { const d = Math.max(0.2, (o.ms || 800) / 1000), n = Math.max(3, Math.min(8, Math.round(d / 0.12)));
+      const way = o.dir < 0 ? -1 : 1;
       for (let i = 0; i < n; i++) {
-        const x = d * Math.pow(i / Math.max(1, n - 1), 1.12), pan = n > 1 ? -0.6 + 1.2 * i / (n - 1) : 0;
+        const x = d * Math.pow(i / Math.max(1, n - 1), 1.12), pan = n > 1 ? way * (-0.6 + 1.2 * i / (n - 1)) : 0;
         M.clack(E, t + x, { pitch:0.86 + (i % 3) * 0.05, gain:0.5, double:false, pan });
         M.felt(E, t + x + 0.004, { gain:0.18 });
       } } },

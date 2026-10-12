@@ -691,14 +691,15 @@ export const TEAM_MIN = 3;
 export const TEAM_MAX = 7;
 const TEAM = role => ({ role, min:TEAM_MIN, max:TEAM_MAX });
 
-/* ── dominoes: an upset. The favorites stand in a line, smug, gloves
-   folded. The underdogs' smallest chip walks up and taps the first one
-   with one finger. The whole line goes over in a chain, each a beat after
-   the last; the last wobbles a long time on its edge before it goes. The
-   underdogs nod once. ── */
-const DM = { walk:300, stop:1150, raise:1350, tap:1600, chain:1640, last:2440, wobble:2480, drop:3820, flat:4000, nod:4420 };
+/* ── dominoes: an upset. The favorites stand in a line like dominoes,
+   turned three quarters, fists on hips, chins up. The underdogs' smallest
+   chip walks up and taps the first one with one finger. The whole line
+   goes over backwards in a chain, each a beat after the last (the chain
+   runs right to left); the last is knocked onto its heels and teeters a
+   long time, gloves up, before it goes flat. The underdogs nod once. ── */
+const DM = { walk:300, stop:1150, raise:1350, tap:1600, chain:1640, last:2440, wobble:2480, drop:3820, flat:4000, nod:4440 };
 const dominoes = {
-  id:"dominoes", name:"Dominoes", shape:"versus", style:"slapstick", ms:5200, beats:DM, still:4780, summary:"bitClatter",
+  id:"dominoes", name:"Dominoes", shape:"versus", style:"slapstick", ms:5200, beats:DM, still:4820, summary:"bitClatter",
   letter:{ at:DM.flat + 100, over:"a", place:"top-left" },
   /* fitted: the whole line and the watchers; every zoom below scales
      with that fit, so a 7 v 6 and a 3 v 3 get the same shots */
@@ -710,15 +711,15 @@ const dominoes = {
     /* closer while it teeters */
     { at:DM.wobble + 260, ms:1000, zoom:2.6, x:"last" },
     /* out for the underdogs' nod */
-    { at:DM.flat + 160, ms:560, zoom:1.5, x:"mid" },
+    { at:DM.flat + 60, ms:380, zoom:1.5, x:"mid" },
   ], shakes:[{ at:DM.flat }] },
   cast:{ a:TEAM("winner"), b:TEAM("beaten") },
   cues:[
-    ...[0, 1, 2].map(i => ({ at:DM.walk + 280 * i + 200, sound:"bitHop", pan:-0.5, opts:{ step:i } })),
-    { at:DM.tap, sound:"bitPoke", pan:-0.35 },
-    { at:DM.chain, sound:"bitClatter", pan:0, opts:{ ms:DM.last - DM.chain } },
-    { at:DM.wobble, sound:"bitCreak", pan:0.5, opts:{ ms:DM.drop - DM.wobble } },
-    { at:DM.flat, sound:"bitThud", pan:0.5 },
+    ...[0, 1, 2].map(i => ({ at:DM.walk + 280 * i + 200, sound:"bitHop", pan:Math.round((0.4 - i * 0.06) * 100) / 100, opts:{ step:i } })),
+    { at:DM.tap, sound:"bitPoke", pan:0.2 },
+    { at:DM.chain, sound:"bitClatter", pan:0, opts:{ ms:DM.last - DM.chain, dir:-1 } },
+    { at:DM.wobble, sound:"bitCreak", pan:-0.45, opts:{ ms:DM.drop - DM.wobble } },
+    { at:DM.flat, sound:"bitThud", pan:-0.45 },
   ],
 };
 
@@ -792,16 +793,24 @@ const slowmowalk = {
 /* ── pyramid: a team's streak. The team stacks into a cheer pyramid, the
    bottom row widest, as many rows as it needs; the top chip wobbles,
    wobbles, holds; one glove gives a thumbs up. ── */
-const PY = { build:200, top:1900, wobble:2200, hold:3500, thumb:3900 };
+/* the climbers land on hop0 to top (the last up always on top; a
+   smaller team's climbers bounce in place on the beats before theirs) */
+const PY = { build:100, hop0:760, hop1:1140, hop2:1520, top:1900, wobble:2200, hold:3500, thumb:3900 };
 const pyramid = {
   id:"pyramid", name:"Pyramid", shape:"win", style:"slapstick", ms:5000, beats:PY, still:4500, summary:"bitBoing",
   letter:{ at:PY.top + 100, over:"a", place:"top-left" },
-  camera:{ zoom:1.4, x:"mid", fit:true, moves:[
-    { at:PY.wobble, ms:800, zoom:1.6, x:"top" },
+  /* the chips are sized (pyramid.jsx PY_STAGE) so the tallest pyramid's
+     top stays under the lettering at the wobble's zoom */
+  camera:{ zoom:1.3, x:"mid", fit:true, moves:[
+    { at:PY.wobble, ms:900, zoom:1.45, x:"top" },
   ], shakes:[{ at:PY.top }] },
   cast:{ a:TEAM("winner") },
   cues:[
-    { at:PY.top, sound:"bitHop", pan:0, opts:{ step:0 } },
+    { at:PY.build + 300, sound:"bitStrain", pan:0, opts:{ ms:320 } },
+    { at:PY.hop0, sound:"bitHop", pan:-0.2, opts:{ step:0 } },
+    { at:PY.hop1, sound:"bitHop", pan:0.2, opts:{ step:1 } },
+    { at:PY.hop2, sound:"bitHop", pan:-0.1, opts:{ step:2 } },
+    { at:PY.top, sound:"bitHop", pan:0, opts:{ step:3 } },
     { at:PY.wobble, sound:"bitCreak", pan:0, opts:{ ms:PY.hold - PY.wobble } },
     { at:PY.thumb, sound:"bitSqueak", pan:0.2 },
   ],

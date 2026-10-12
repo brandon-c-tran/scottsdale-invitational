@@ -626,7 +626,12 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   maps ids to scenes. Every motion is `--ba:<animation>; animation:var(--ba)`
   from `calc(var(--tl) + ...)`, filled so each element rests on its end
   state; a frozen bit (`is-frozen`) holds any instant through shell.css's
-  reduced-motion rule (`tests/bits.test.mjs` scans the convention).
+  reduced-motion rule (`tests/bits.test.mjs` scans the convention). A
+  one-shot stepped switch (a pose layer, a prop shown or hidden) jumps at
+  its START (`step-start`, `steps(n, start)`): Chrome can leave a finished
+  animation a hair under progress 1, and an end jump then rests on its
+  FIRST value, so live TVs drew stacked gloves and doubled props that no
+  frozen frame showed (Oct 12; `tests/stepped-fill.test.mjs` scans src).
   **The camera** (pure `bits/camera.js`): every bit is shot, never staged
   wide. Its registry `camera: { zoom, x, fit, moves, shakes, washes }`:
   `x` is a world x or an anchor its scene names (`Scene.anchors(cast)`:

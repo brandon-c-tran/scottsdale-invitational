@@ -130,7 +130,7 @@
 @keyframes ew-burn { from { transform:translateY(-16px) scale(1.05); } to { transform:translateY(0px) scale(1.12); } }
 /* before the boom there is no fireball */
 .is-explosionwalk .ew-boil { opacity:1;
-  --ba:bit-show 1ms step-end calc(var(--tl) + var(--b-boom)) both,
+  --ba:bit-show 1ms step-start calc(var(--tl) + var(--b-boom)) both,
     ew-boil 900ms ease-in-out calc(var(--tl) + var(--b-boom)) infinite;
   animation:var(--ba); }
 @keyframes ew-boil { 0%, 100% { transform:rotate(0deg) scale(1, 1); } 50% { transform:rotate(2deg) scale(1.02, .98); } }
@@ -176,7 +176,7 @@
    leaning, still burning ── */
 .is-explosionwalk .ew-ember-fall { opacity:0;
   --ba:ew-ember-x calc(var(--b-land) - var(--b-ember)) linear calc(var(--tl) + var(--b-ember)) both,
-    bit-hide 1ms step-end calc(var(--tl) + var(--b-land)) forwards;
+    bit-hide 1ms step-start calc(var(--tl) + var(--b-land)) forwards;
   animation:var(--ba); }
 @keyframes ew-ember-x { 0% { opacity:0; transform:var(--ember-from); } 1% { opacity:1; transform:var(--ember-from); }
   92% { opacity:1; transform:var(--ember-late); animation-timing-function:cubic-bezier(.6,0,1,.6); }
@@ -189,7 +189,7 @@
   66% { transform:scale(1.06, .92) skewX(5deg); } 100% { transform:scale(1, 1) skewX(0deg); } }
 .is-explosionwalk .ew-ember-fire:nth-child(odd) .ew-flicker { --ba:ew-flicker 240ms step-end calc(var(--tl) - 90ms) infinite; animation:var(--ba); }
 .is-explosionwalk .ew-ember-stuck { opacity:1;
-  --ba:bit-show 1ms step-end calc(var(--tl) + var(--b-land)) both; animation:var(--ba); }
+  --ba:bit-show 1ms step-start calc(var(--tl) + var(--b-land)) both; animation:var(--ba); }
 .is-explosionwalk .ew-ember-lean { transform:rotate(-14deg);
   --ba:ew-stick 260ms cubic-bezier(.2,.8,.3,1) calc(var(--tl) + var(--b-land)) both; animation:var(--ba); }
 @keyframes ew-stick { 0% { transform:rotate(10deg) scale(1.1, .86); } 30% { transform:rotate(-20deg) scale(.96, 1.05); }

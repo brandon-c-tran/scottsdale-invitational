@@ -85,7 +85,7 @@
    the loose one takes over */
 .is-quickdraw .qd-a .is-lead .cast-pose.is-point .cast-held-fx { transform:rotate(1080deg); opacity:0;
   --ba:qd-twirl 380ms cubic-bezier(.12,.55,.4,1) calc(var(--tl) + var(--b-spin)) both,
-    bit-hide 1ms step-end calc(var(--tl) + var(--b-fumble)) both; animation:var(--ba); }
+    bit-hide 1ms step-start calc(var(--tl) + var(--b-fumble)) both; animation:var(--ba); }
 @keyframes qd-twirl { from { transform:rotate(0deg); } to { transform:rotate(1080deg); } }
 .is-quickdraw .qd-whirl { position:absolute; left:0; top:0; opacity:0;
   --ba:qd-whirl 380ms linear calc(var(--tl) + var(--b-spin)) both; animation:var(--ba); }
@@ -112,7 +112,7 @@
   37% { opacity:1; transform:scale(1.06) rotate(6deg); animation-timing-function:cubic-bezier(.3,0,.7,1); }
   65% { opacity:.9; transform:scale(.55) rotate(14deg); } 100% { opacity:0; transform:scale(.3) rotate(22deg); } }
 /* the burst flickers (two shapes a frame apart) while it is full */
-.is-quickdraw .qd-flash-in { --ba:qd-flicker 32ms step-end calc(var(--tl) + var(--b-bang) - 16ms) 2 both; animation:var(--ba); }
+.is-quickdraw .qd-flash-in { --ba:qd-flicker 32ms step-start calc(var(--tl) + var(--b-bang) - 16ms) 2 both; animation:var(--ba); }
 @keyframes qd-flicker { 0% { transform:rotate(0deg) scale(1); } 50% { transform:rotate(20deg) scale(.94); } 100% { transform:rotate(0deg) scale(1); } }
 .is-quickdraw .qd-wisp { opacity:0; --ba:qd-wisp 820ms cubic-bezier(.25,.6,.4,1) calc(var(--tl) + var(--b-kick) + 380ms + var(--d)) both;
   animation:var(--ba); }
@@ -126,7 +126,7 @@
 /* ── the fumble: off the finger, a bonk off the grabbing glove, into the
    dirt with a little bounce; it lies there ── */
 .is-quickdraw .qd-loose { opacity:1; transform:var(--land);
-  --ba:bit-show 1ms step-end calc(var(--tl) + var(--b-fumble)) both,
+  --ba:bit-show 1ms step-start calc(var(--tl) + var(--b-fumble)) both,
     qd-toss 130ms cubic-bezier(.2,.7,.4,1) calc(var(--tl) + var(--b-fumble)) both,
     qd-drop 260ms cubic-bezier(.55,0,.9,.45) calc(var(--tl) + var(--b-bonk)) forwards,
     qd-bounce 240ms ease-out calc(var(--tl) + var(--b-drop)) forwards;

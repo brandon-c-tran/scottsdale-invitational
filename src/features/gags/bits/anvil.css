@@ -42,12 +42,12 @@
     bit-show 240ms linear calc(var(--tl) + var(--b-pop)) forwards; animation:var(--ba); }
 .is-anvil .an-shadow { opacity:0;
   --ba:an-grow 1750ms cubic-bezier(.55,0,.85,.55) calc(var(--tl) + var(--b-shadow)) both,
-    bit-hide 1ms step-end calc(var(--tl) + var(--b-hit)) forwards; animation:var(--ba); }
+    bit-hide 1ms step-start calc(var(--tl) + var(--b-hit)) forwards; animation:var(--ba); }
 @keyframes an-grow { 0% { opacity:0; transform:scale(.05); } 1% { opacity:.3; transform:scale(.05); }
   100% { opacity:.92; transform:scale(1); } }
 .is-anvil .an-sweat { opacity:0;
   --ba:an-sweat 180ms var(--ease-land) calc(var(--tl) + var(--b-sweat)) both,
-    bit-hide 1ms step-end calc(var(--tl) + var(--b-hit)) forwards; animation:var(--ba); }
+    bit-hide 1ms step-start calc(var(--tl) + var(--b-hit)) forwards; animation:var(--ba); }
 @keyframes an-sweat { 0% { opacity:0; transform:scale(.2); } 1% { opacity:1; transform:scale(.2); } 60% { opacity:1; transform:scale(1.2); }
   100% { opacity:1; transform:scale(1); } }
 /* the look up at what is coming; after the boing it turns to the room
@@ -55,7 +55,7 @@
    the way it limps */
 .is-anvil .an-chip .cast-chip-in { transform:rotateY(16deg) rotateX(0deg);
   --ba:an-look-up 180ms var(--ease-out) calc(var(--tl) + var(--b-notice)) both,
-    an-look-back 1ms step-end calc(var(--tl) + var(--b-hit)) forwards,
+    an-look-back 1ms step-start calc(var(--tl) + var(--b-hit)) forwards,
     an-face 560ms cubic-bezier(.45,0,.35,1) calc(var(--tl) + var(--b-look)) forwards,
     an-face-away 200ms ease-in-out calc(var(--tl) + var(--b-limp) - 150ms) forwards; animation:var(--ba); }
 @keyframes an-look-up { from { transform:var(--cast-turn) rotateX(0deg); } to { transform:rotateY(0deg) rotateX(42deg); } }
@@ -72,7 +72,7 @@
 .is-anvil .an-anvil { z-index:3; transform:var(--sink);
   --ba:an-drop 120ms cubic-bezier(.6,0,1,.6) calc(var(--tl) + var(--b-drop)) both,
     an-sink 60ms ease-out calc(var(--tl) + var(--b-hit)) forwards,
-    an-behind 1ms step-end calc(var(--tl) + var(--b-thud) + 300ms) both; animation:var(--ba); }
+    an-behind 1ms step-start calc(var(--tl) + var(--b-thud) + 300ms) both; animation:var(--ba); }
 @keyframes an-behind { from { z-index:3; } to { z-index:1; } }
 @keyframes an-drop { from { transform:translateY(-1100px); } to { transform:translateY(0px); } }
 @keyframes an-sink { from { transform:translateY(0px); } to { transform:var(--sink); } }
@@ -111,7 +111,7 @@
   --ba:an-limp 1000ms linear calc(var(--tl) + var(--b-limp)) both; animation:var(--ba); }
 @keyframes an-limp { from { transform:translateX(0px); } to { transform:translateX(-1000px); } }
 /* one shoe stays flat on the floor */
-.is-anvil .an-chip .cast-shoe.is-l { opacity:0; --ba:bit-hide 1ms step-end calc(var(--tl) + var(--b-pop)) both; animation:var(--ba); }
-.is-anvil .an-flatshoe { opacity:1; --ba:bit-show 1ms step-end calc(var(--tl) + var(--b-pop)) both; animation:var(--ba); }
+.is-anvil .an-chip .cast-shoe.is-l { opacity:0; --ba:bit-hide 1ms step-start calc(var(--tl) + var(--b-pop)) both; animation:var(--ba); }
+.is-anvil .an-flatshoe { opacity:1; --ba:bit-show 1ms step-start calc(var(--tl) + var(--b-pop)) both; animation:var(--ba); }
 /* the stars go when it peels up */
 .is-anvil .bit-dizzy { --out:var(--b-peel); }

@@ -18,7 +18,7 @@
   --ba:rr-yank 70ms cubic-bezier(.5,0,1,.5) calc(var(--tl) + var(--b-leave) + 30ms) both; animation:var(--ba); }
 @keyframes rr-yank { from { transform:translateX(0px) scale(1, 1); } to { transform:translateX(-170px) scale(1.9, .72); } }
 .is-roadrunner .rr-chip .cast-hop { opacity:0;
-  --ba:bit-hide 1ms step-end calc(var(--tl) + var(--b-leave) + 100ms) both; animation:var(--ba); }
+  --ba:bit-hide 1ms step-start calc(var(--tl) + var(--b-leave) + 100ms) both; animation:var(--ba); }
 
 /* ── the bird: in like a shot, then a long skid to a stop beside the
    chip (it is doing most of its speed when its heels dig in), and away ── */
@@ -50,9 +50,9 @@
   70% { opacity:1; transform:scale(1); } 100% { opacity:0; transform:scale(1.04); } }
 /* its wake, only while it moves fast */
 .is-roadrunner .rr-lines { opacity:0; }
-.is-roadrunner .rr-lines.is-in { --ba:bit-show 1ms step-end calc(var(--tl) + var(--b-arrive)) both,
+.is-roadrunner .rr-lines.is-in { --ba:bit-show 1ms step-start calc(var(--tl) + var(--b-arrive)) both,
   bit-hide 160ms linear calc(var(--tl) + var(--b-skid) + 40ms) forwards; animation:var(--ba); }
-.is-roadrunner .rr-lines.is-out { --ba:bit-show 1ms step-end calc(var(--tl) + var(--b-leave)) both,
+.is-roadrunner .rr-lines.is-out { --ba:bit-show 1ms step-start calc(var(--tl) + var(--b-leave)) both,
   bit-hide 120ms linear calc(var(--tl) + var(--b-leave) + 170ms) forwards; animation:var(--ba); }
 /* the skid's dust hangs a little; the cloud where the chip stood clears slowly */
 .is-roadrunner :is(.rr-plough, .rr-spray) { --dust-ms:900ms; }

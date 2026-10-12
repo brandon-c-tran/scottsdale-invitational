@@ -36,7 +36,7 @@
   --ba:ss-set 1280ms cubic-bezier(.4,0,.8,.55) calc(var(--tl) + var(--b-sink)) both; animation:var(--ba); }
 @keyframes ss-set { from { transform:translateY(0px); } to { transform:var(--sun-set); } }
 .is-sunset .ss-dark, .is-sunset .ss-dusk { opacity:1;
-  --ba:ss-relamp 900ms steps(6, end) calc(var(--tl) + var(--b-sink) + 80ms) both; animation:var(--ba); }
+  --ba:ss-relamp 900ms steps(6, start) calc(var(--tl) + var(--b-sink) + 80ms) both; animation:var(--ba); }
 @keyframes ss-relamp { from { opacity:0; } to { opacity:1; } }
 
 /* ── the winner: fists on hips, and that is all it does ── */

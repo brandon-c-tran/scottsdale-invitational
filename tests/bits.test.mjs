@@ -435,7 +435,8 @@ test("a glove's poses take turns on the bit's clock; at rest only the last shows
   assert.deepEqual(list.map(([pose]) => pose), ["ready", "grip", "point"]);
   const first = poseLayerStyle(list, 0), middle = poseLayerStyle(list, 1), last = poseLayerStyle(list, 2);
   assert.equal(first.opacity, 0);
-  assert.match(first["--ba"], /^cast-off 1ms step-end calc\(var\(--tl\) \+ 1900ms\) both$/);
+  /* a START jump: an end jump can rest on its first value live (tests/stepped-fill.test.mjs) */
+  assert.match(first["--ba"], /^cast-off 1ms step-start calc\(var\(--tl\) \+ 1900ms\) both$/);
   assert.equal(middle.opacity, 0);
   assert.match(middle["--ba"], /cast-on .*1900ms\) both, cast-off .*3500ms\) forwards/);
   assert.equal(last.opacity, 1);

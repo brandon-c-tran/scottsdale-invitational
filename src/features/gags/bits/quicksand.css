@@ -109,8 +109,8 @@
    back keeps fighting */
 .is-quicksand .qs-chip .cast-hand.is-front .cast-hand-fx { opacity:0;
   --ba:qs-flail 230ms ease-in-out calc(var(--tl) + var(--b-flail)) 3 both,
-    qs-shake 60ms step-end calc(var(--tl) + var(--b-reach) + 120ms) 6 forwards,
-    bit-hide 1ms step-end calc(var(--tl) + var(--b-thumb)) both;
+    qs-shake 60ms step-start calc(var(--tl) + var(--b-reach) + 120ms) 6 forwards,
+    bit-hide 1ms step-start calc(var(--tl) + var(--b-thumb)) both;
   animation:var(--ba); }
 .is-quicksand .qs-chip .cast-hand.is-back .cast-hand-fx {
   --ba:qs-flail-back 230ms ease-in-out calc(var(--tl) + var(--b-flail) + 60ms) 5 both; animation:var(--ba); }
@@ -122,7 +122,7 @@
   66% { transform:translate(-3px, 2px) rotate(-2deg); } 100% { transform:translate(0px, 0px) rotate(0deg); } }
 /* the thumbs up: the open glove closes to it */
 .is-quicksand .qs-thumb-in { opacity:1;
-  --ba:qs-appear 1ms step-end calc(var(--tl) + var(--b-thumb)) both,
+  --ba:qs-appear 1ms step-start calc(var(--tl) + var(--b-thumb)) both,
     qs-thumb 220ms cubic-bezier(.2,.8,.3,1) calc(var(--tl) + var(--b-thumb)) forwards;
   animation:var(--ba); }
 @keyframes qs-thumb { 0% { transform:scale(.9, 1.08); } 45% { transform:scale(1.08, .94); } 100% { transform:scale(1, 1); } }
@@ -130,7 +130,7 @@
 /* ── one bubble: up, and pop ── */
 .is-quicksand .qs-bubble-ball { opacity:0;
   --ba:qs-bubble 300ms cubic-bezier(.3,.6,.4,1) calc(var(--tl) + var(--b-bubble) - 300ms) both,
-    bit-hide 1ms step-end calc(var(--tl) + var(--b-bubble)) forwards;
+    bit-hide 1ms step-start calc(var(--tl) + var(--b-bubble)) forwards;
   animation:var(--ba); }
 @keyframes qs-bubble { 0% { opacity:0; transform:translateY(14px) scale(.4); } 1% { opacity:1; transform:translateY(14px) scale(.4); }
   100% { opacity:1; transform:translateY(-20px) scale(1.5); } }

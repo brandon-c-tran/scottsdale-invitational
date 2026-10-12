@@ -86,7 +86,7 @@
 .fd-qd-count { display:flex; align-items:center; justify-content:center; gap:26px; min-height:120px; }
 .fd-qd-count-lamp { width:34px; height:34px; --lamp:var(--lamp-live);
   box-shadow:var(--lens-rim), 0 0 22px 4px color-mix(in srgb, var(--lamp-on) 55%, transparent);
-  animation:fd-qd-lamp-on 90ms steps(1, end) both; }
+  animation:fd-qd-lamp-on 90ms steps(1, start) both; }
 @keyframes fd-qd-lamp-on { from { background:var(--lens-off); box-shadow:var(--lens-rim); } to { background:var(--lens-lit); } }
 .fd-qd.is-armed { touch-action:none; cursor:pointer; -webkit-tap-highlight-color:transparent; -webkit-user-select:none; user-select:none; }
 

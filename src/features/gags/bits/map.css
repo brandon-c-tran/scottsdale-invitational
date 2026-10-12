@@ -9,7 +9,7 @@
 
 /* ── unfolding: the packet opens out sideways in two pulls, then the
    bottom half flaps down; the gloves ride the top corners ── */
-.is-map .mp-packet { opacity:0; --ba:bit-hide 1ms step-end calc(var(--tl) + var(--b-unfold1)) both; animation:var(--ba); }
+.is-map .mp-packet { opacity:0; --ba:bit-hide 1ms step-start calc(var(--tl) + var(--b-unfold1)) both; animation:var(--ba); }
 .is-map .mp-sheet { transform:scale(1, 1);
   --ba:mp-open1 240ms var(--ease-out) calc(var(--tl) + var(--b-unfold1)) both,
     mp-open2 240ms var(--ease-out) calc(var(--tl) + var(--b-unfold2)) forwards,
@@ -49,7 +49,7 @@
 /* ── the chip: peering; it turns to watch the bird go by; the bonk
    squashes it; it looks down at the ball ── */
 .is-map .mp-chip .cast-hand { opacity:1;
-  --ba:bit-hide 1ms step-end calc(var(--tl) + 0ms) both, bit-show 1ms step-end calc(var(--tl) + var(--b-crumple) + 440ms) forwards;
+  --ba:bit-hide 1ms step-start calc(var(--tl) + 0ms) both, bit-show 1ms step-start calc(var(--tl) + var(--b-crumple) + 440ms) forwards;
   animation:var(--ba); }
 .is-map .mp-chip .cast-chip-in { transform:rotateY(0deg) rotateX(-16deg);
   --ba:mp-peer 400ms ease-in-out calc(var(--tl) + var(--b-study)) both,
@@ -72,7 +72,7 @@
 /* ── the ball: off the rock, back over the top onto its head, a pop up
    and down into the dirt at its feet ── */
 .is-map .mp-ball { opacity:1; transform:translate(78px, 28px);
-  --ba:bit-show 1ms step-end calc(var(--tl) + var(--b-crumple) + 430ms) both,
+  --ba:bit-show 1ms step-start calc(var(--tl) + var(--b-crumple) + 430ms) both,
     mp-toss 420ms linear calc(var(--tl) + var(--b-toss)) both,
     mp-rebound 520ms linear calc(var(--tl) + var(--b-rock)) forwards,
     mp-drop 360ms linear calc(var(--tl) + var(--b-bonk)) forwards,

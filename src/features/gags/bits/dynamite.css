@@ -10,11 +10,11 @@
 /* ── the swap under the smoke: the clean cast, table and cake go, the
    scorched ones are there in the same places ── */
 .is-dynamite .dy-chip.is-clean, .is-dynamite .dy-table.is-clean { opacity:0;
-  --ba:bit-hide 1ms step-end calc(var(--tl) + var(--b-boom) + 40ms) both; animation:var(--ba); }
+  --ba:bit-hide 1ms step-start calc(var(--tl) + var(--b-boom) + 40ms) both; animation:var(--ba); }
 .is-dynamite .dy-chip.is-soot, .is-dynamite .dy-table.is-burnt { opacity:1;
-  --ba:bit-show 1ms step-end calc(var(--tl) + var(--b-boom) + 40ms) both; animation:var(--ba); }
+  --ba:bit-show 1ms step-start calc(var(--tl) + var(--b-boom) + 40ms) both; animation:var(--ba); }
 .is-dynamite :is(.dy-cake, .dy-fuse) { opacity:0;
-  --ba:bit-hide 1ms step-end calc(var(--tl) + var(--b-boom)) both; animation:var(--ba); }
+  --ba:bit-hide 1ms step-start calc(var(--tl) + var(--b-boom)) both; animation:var(--ba); }
 /* soot: the gloves and shoes gone black, the cloth scorched */
 .is-dynamite .dy-chip.is-soot {
   --bit-glove:color-mix(in srgb, var(--ink0) 72%, var(--bone)); --bit-glove-shade:color-mix(in srgb, var(--ink0) 86%, var(--bone));
@@ -26,9 +26,9 @@
 /* ── the fuse: lit from the tip, a segment gone at a time, the spark
    running down it to the stick ── */
 .is-dynamite .dy-fuse .bit-fuse-seg { opacity:0;
-  --ba:bit-hide 1ms step-end calc(var(--tl) + var(--b-lit) + (var(--seg) + 1) * var(--burn)) both; animation:var(--ba); }
+  --ba:bit-hide 1ms step-start calc(var(--tl) + var(--b-lit) + (var(--seg) + 1) * var(--burn)) both; animation:var(--ba); }
 .is-dynamite .dy-spark { opacity:1; transform:translate(0px, 0px);
-  --ba:bit-show 1ms step-end calc(var(--tl) + var(--b-lit)) both,
+  --ba:bit-show 1ms step-start calc(var(--tl) + var(--b-lit)) both,
     dy-burn calc(var(--burn) * 4) linear calc(var(--tl) + var(--b-lit)) both; animation:var(--ba); }
 @keyframes dy-burn { 0% { transform:translate(14px, -46px); } 25% { transform:translate(4px, -36px); } 50% { transform:translate(10px, -24px); }
   75% { transform:translate(2px, -12px); } 100% { transform:translate(0px, 0px); } }
@@ -86,7 +86,7 @@
 @keyframes dy-blast { 0% { opacity:0; transform:scale(.25) rotate(0deg); } 1% { opacity:1; transform:scale(.25) rotate(0deg); }
   20% { opacity:1; transform:scale(1.15) rotate(8deg); } 55% { opacity:1; transform:scale(1.05) rotate(14deg); }
   100% { opacity:0; transform:scale(.6) rotate(24deg); } }
-.is-dynamite .dy-blast-in { --ba:dy-flicker 32ms step-end calc(var(--tl) + var(--b-boom)) 4 both; animation:var(--ba); }
+.is-dynamite .dy-blast-in { --ba:dy-flicker 32ms step-start calc(var(--tl) + var(--b-boom)) 4 both; animation:var(--ba); }
 @keyframes dy-flicker { 0% { transform:rotate(0deg) scale(1); } 50% { transform:rotate(12deg) scale(.94); } 100% { transform:rotate(0deg) scale(1); } }
 .is-dynamite .dy-smoke { opacity:0;
   --ba:dy-billow 260ms cubic-bezier(.2,.8,.3,1) calc(var(--tl) + var(--b-boom) + 20ms + var(--d)) both,

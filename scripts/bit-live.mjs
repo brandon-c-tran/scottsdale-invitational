@@ -5,8 +5,9 @@
    once it finished: tests/stepped-fill.test.mjs), so a bit is looked at
    both ways.
 
-   For each instant: the page loads with the bit just starting and plays
-   it in real time; at the instant every animation on the page is paused
+   For each instant: the page loads with the bit due to start a few
+   seconds on (the rehearsal's &in, so the TV has settled) and plays it
+   in real time; at the instant every animation on the page is paused
    where it stands (the live state, finished animations included) and
    the TV is shot. Then the page loads frozen at that exact instant (the
    rehearsal's &t &pause) and is shot. The two land side by side in one

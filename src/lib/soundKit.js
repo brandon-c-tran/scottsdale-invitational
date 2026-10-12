@@ -1279,6 +1279,15 @@ export const BIT_PARTS = Object.freeze([
       } } },
   /* ── tugofwar ── */
   /* ── slowmowalk ── */
+  /* the rest of a chain of far blasts along the horizon (opts.ms): after
+     the first, dull booms one after another, panned left to right */
+  { id:"bitBoomChain", name:"Far blasts in a row", ms:1600,
+    play:(E, t, o = {}) => { const d = Math.max(0.3, (o.ms || 1200) / 1000), n = Math.max(3, Math.min(6, Math.round(d / 0.24) + 1));
+      for (let i = 1; i < n; i++) {
+        const x = d * i / (n - 1), pan = -0.5 + 1 * i / (n - 1);
+        M.drum(E, t + x, { f:NOTE.D2 * (0.9 + (i % 2) * 0.12), dec:0.7, gain:0.55, pan });
+        noiseBed(E, voice(E, { send:0.45, bright:0.4, gain:0.5, pan }), t + x + 0.005, { d:0.6, f:420, peak:0.45 });
+      } } },
   /* ── pyramid ── */
   /* ── teamphoto ── */
   /* a camera's self-timer (opts.ms): blips coming faster and faster, the
@@ -1302,6 +1311,11 @@ export const BIT_PARTS = Object.freeze([
         const v = voice(E, { send:0.2, bright:0.7, gain:0.5, pan:rnd(-0.15, 0.15) });
         burst(E, v, t + x, { type:"bandpass", f:900 + (i % 3) * 180, q:0.7, d:0.07, peak:0.55, a:0.01 });
       } } },
+  /* the wind dropping out of a flag: the last of the gust sliding down,
+     and a soft falling whistle as it hangs limp */
+  { id:"bitFlagSag", name:"Flag goes limp", ms:1000,
+    play:(E, t) => { swell(E, voice(E, { send:0.25, bright:0.6, gain:0.6 }), t, { d:0.5, f0:1200, f1:300, q:0.8, peak:0.2 });
+      glide(E, voice(E, { send:0.3, bright:0.8, gain:0.35 }), t + 0.15, NOTE.A5, NOTE.D5, 0.7, 0.1, { type:"sine" }); } },
 ].map(Object.freeze));
 
 /* idle's helpers (BIT_PARTS above) */

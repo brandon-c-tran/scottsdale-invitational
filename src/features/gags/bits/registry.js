@@ -698,13 +698,19 @@ const TEAM = role => ({ role, min:TEAM_MIN, max:TEAM_MAX });
    underdogs nod once. ── */
 const DM = { walk:300, stop:1150, raise:1350, tap:1600, chain:1640, last:2440, wobble:2480, drop:3820, flat:4000, nod:4420 };
 const dominoes = {
-  id:"dominoes", name:"Dominoes", shape:"versus", style:"slapstick", ms:5200, beats:DM, still:4900, summary:"bitClatter",
+  id:"dominoes", name:"Dominoes", shape:"versus", style:"slapstick", ms:5200, beats:DM, still:4780, summary:"bitClatter",
   letter:{ at:DM.flat + 100, over:"a", place:"top-left" },
+  /* fitted: the whole line and the watchers; every zoom below scales
+     with that fit, so a 7 v 6 and a 3 v 3 get the same shots */
   camera:{ zoom:1.5, x:"mid", fit:true, moves:[
-    { at:DM.raise - 200, ms:400, zoom:1.8, x:"tap" },
-    { at:DM.chain + 60, ms:700, zoom:1.5, x:"mid" },
-    { at:DM.wobble + 200, ms:900, zoom:1.75, x:"last" },
-    { at:DM.flat + 200, ms:600, zoom:1.5, x:"mid" },
+    /* in on the tapper and the first favorite for the tap */
+    { at:DM.raise - 250, ms:450, zoom:2.4, x:"tap" },
+    /* along the line with the chain, ending on the last */
+    { at:DM.chain + 40, ms:DM.last - DM.chain + 120, zoom:2.2, x:"last", ease:CAMERA_EASE.move },
+    /* closer while it teeters */
+    { at:DM.wobble + 260, ms:1000, zoom:2.6, x:"last" },
+    /* out for the underdogs' nod */
+    { at:DM.flat + 160, ms:560, zoom:1.5, x:"mid" },
   ], shakes:[{ at:DM.flat }] },
   cast:{ a:TEAM("winner"), b:TEAM("beaten") },
   cues:[
@@ -716,44 +722,69 @@ const dominoes = {
   ],
 };
 
-/* ── tugofwar: an upset. A rope across a cactus patch. The favorites pull,
-   smug, leaning back; the underdogs hold and strain. One yank and the
-   favorites fly over into the cactus; a pause; a chorus of tiny "ouch"
-   marks, and one of them hops. ── */
-const TW = { lean:200, strain:900, set:1900, yank:2200, fly:2260, land:2760, ouch:3400, hop:3900 };
+/* ── tugofwar: an upset. A rope across a cactus patch. The favorites
+   lean back, smug, and walk the rope their way; the underdogs, dragged,
+   shake and sweat. They lean in to wind up: ONE yank, and the rope zips
+   out of the favorites' gloves and flings them over, tumbling, into the
+   cactus, all at once. A pause. Then a chorus of tiny ouch marks, one
+   over each, left to right; and one of them hops straight up, and comes
+   back down in it. (fly to land and hop to sting are 500 ms in the CSS) ── */
+const TW = { lean:200, strain:800, set:1800, yank:2100, fly:2140, land:2640, ouch:3240, hop:4150, sting:4650 };
 const tugofwar = {
-  id:"tugofwar", name:"Tug of war", shape:"versus", style:"slapstick", ms:5000, beats:TW, still:4500, summary:"bitPrick",
+  id:"tugofwar", name:"Tug of war", shape:"versus", style:"slapstick", ms:5300, beats:TW, still:4900, summary:"bitPrick",
   letter:{ at:TW.land + 160, over:"a", place:"top-left" },
   camera:{ zoom:1.5, x:"mid", fit:true, moves:[
-    { at:TW.strain, ms:900, zoom:1.6 },
-    { at:TW.yank, ms:120, zoom:1.5, x:"mid", ease:CAMERA_EASE.snap },
-    { at:TW.ouch - 300, ms:700, zoom:1.8, x:"patch" },
-  ], shakes:[{ at:TW.land, big:true }] },
+    /* onto the underdogs as they wind up */
+    { at:TW.set, ms:280, zoom:1.75, x:"a" },
+    /* out for the yank */
+    { at:TW.yank, ms:110, zoom:1.5, x:"mid", ease:CAMERA_EASE.snap },
+    /* whip to the patch, landing with them */
+    { at:TW.fly + 150, ms:350, zoom:2.5, x:"patch", ease:CAMERA_EASE.whip },
+    /* in on the chorus */
+    { at:TW.ouch - 300, ms:900, zoom:2.75 },
+  ], shakes:[{ at:TW.land, big:true }, { at:TW.sting }] },
   cast:{ a:TEAM("winner"), b:TEAM("beaten") },
   cues:[
-    { at:TW.strain, sound:"bitStrain", pan:-0.3, opts:{ ms:TW.yank - TW.strain } },
-    { at:TW.yank, sound:"bitYank", pan:-0.2 },
-    { at:TW.fly, sound:"bitStreak", pan:0, opts:{ from:0.4, to:-0.4 } },
-    { at:TW.land, sound:"bitThud", pan:-0.3 },
-    { at:TW.ouch, sound:"bitPrick", pan:-0.3 },
-    { at:TW.hop, sound:"bitBoing", pan:-0.3, opts:{ small:true } },
+    { at:TW.lean, sound:"bitCreak", pan:0.1, opts:{ ms:700, small:true } },
+    { at:TW.strain, sound:"bitStrain", pan:-0.35, opts:{ ms:TW.set - TW.strain } },
+    { at:TW.yank, sound:"bitYank", pan:-0.35 },
+    { at:TW.yank + 20, sound:"bitZip", pan:0.3 },
+    { at:TW.fly, sound:"bitStreak", pan:0.2, opts:{ from:0.5, to:0 } },
+    { at:TW.land, sound:"bitThud", pan:0 },
+    /* the chorus runs 640 ms, left to right, whatever the side's size */
+    ...[0, 1, 2, 3].map(k => ({ at:TW.ouch + Math.round(k * 640 / 3), sound:"bitPrick", pan:Math.round((-0.24 + k * 0.16) * 100) / 100 })),
+    { at:TW.hop, sound:"bitBoing", pan:0, opts:{ small:true } },
+    { at:TW.sting, sound:"bitPrick", pan:0, opts:{ big:true } },
   ],
 };
 
-/* ── slowmowalk: an upset. The underdogs walk toward us in a line in slow
-   motion, sunglasses on, while behind them the favorites' chip stacks blow
-   up one after another (a flash, a fireball, smoke). Nobody turns round. ── */
-const SM = { boom:900, last:2100, stop:3700, glint:4100 };
+/* ── slowmowalk: an upset. The underdogs walk toward us in a line abreast
+   in slow motion, every one in dark glasses, while behind them, small on
+   the horizon, the favorites' chip stacks go up one after another (a
+   flash, a fireball, smoke, their chips flung into the sky). All but one.
+   They stop close. A spark fizzes on the last stack through the hold; it
+   goes up, the biggest of them. Nobody turns round. A glint runs along
+   the lenses. ──
+   The chain runs boom to last whatever the count (slowmowalk.jsx); four
+   slow strides from the start to the stop. */
+const SM = { boom:700, last:1900, stop:2900, late:3500, glint:4150 };
 const slowmowalk = {
-  id:"slowmowalk", name:"Slow-mo walk", shape:"versus", style:"action", ms:5000, beats:SM, still:4400, summary:"bitBoom",
-  letter:{ at:SM.stop + 20, over:"a", place:"top-left" },
+  id:"slowmowalk", name:"Slow-mo walk", shape:"versus", style:"action", ms:5000, beats:SM, still:4300, summary:"bitBoom",
+  letter:{ at:SM.late + 60, over:"a", place:"top-left" },
   camera:{ zoom:1.4, x:"mid", fit:true, moves:[
-    { at:SM.boom, ms:SM.stop - SM.boom, zoom:1.6 },
-  ], shakes:[{ at:SM.boom, big:true }, { at:SM.last }], washes:[SM.boom] },
+    /* the slow walk leans in */
+    { at:0, ms:SM.stop, zoom:1.47 },
+    /* the last one goes: a punch in on the faces that do not turn */
+    { at:SM.late, ms:80, zoom:1.58, ease:CAMERA_EASE.snap },
+    { at:SM.late + 520, ms:560, zoom:1.47 },
+  ], shakes:[{ at:SM.boom, big:true }, { at:SM.late, big:true }], washes:[SM.boom, SM.late] },
   cast:{ a:TEAM("winner"), b:TEAM("beaten") },
   cues:[
-    { at:SM.boom, sound:"bitBoom", pan:-0.2, opts:{ slow:true } },
-    { at:SM.last, sound:"bitBoom", pan:0.3, opts:{ slow:true } },
+    ...[1, 2, 3, 4].map(k => ({ at:Math.round(SM.stop * k / 4), sound:"bitStep", pan:0, opts:{ step:k } })),
+    { at:SM.boom, sound:"bitBoom", pan:-0.3, opts:{ slow:true } },
+    { at:SM.boom, sound:"bitBoomChain", pan:0, opts:{ ms:SM.last - SM.boom } },
+    { at:SM.last + 300, sound:"bitFuse", pan:0, opts:{ ms:SM.late - SM.last - 300 } },
+    { at:SM.late, sound:"bitBoom", pan:0, opts:{ slow:true } },
     { at:SM.glint, sound:"bitGlint", pan:0 },
   ],
 };
@@ -776,37 +807,64 @@ const pyramid = {
   ],
 };
 
-/* ── teamphoto: a team's streak. They line up for a photo on a tripod
-   camera; the self-timer lamp blinks faster and faster; they hold the
-   pose; the flash; then the camera slowly tips over. ── */
-const TP = { set:300, timer:800, pose:1200, flash:3300, tip:3900, crash:4500 };
+/* ── teamphoto: a team's streak. They line up for their photo facing an
+   old camera on a tripod. The one nearest it presses the button behind
+   it and hurries round into its place; the self-timer lamp blinks. They
+   strike their poses, each its own, and hold, dead still, while the lamp
+   blinks faster and faster. The flash. They hold. Then the camera, on
+   its tripod, slowly tips over and lands with its legs in the air.
+   Nobody moves. (timer to flash is 2500 ms and tip to crash 800 in the
+   CSS) ── */
+const TP = { press:500, timer:560, run:640, home:1180, pose:1320, flash:3060, tip:3660, crash:4460 };
 const teamphoto = {
-  id:"teamphoto", name:"Team photo", shape:"win", style:"desert", ms:5200, beats:TP, still:4800, summary:"bitShutter",
+  id:"teamphoto", name:"Team photo", shape:"win", style:"desert", ms:5300, beats:TP, still:4920, summary:"bitShutter",
   letter:{ at:TP.flash + 120, over:"a", place:"top-left" },
   camera:{ zoom:1.4, x:"mid", fit:true, moves:[
-    { at:TP.timer, ms:TP.flash - TP.timer, zoom:1.55 },
+    /* in on the team and the lamp through the count */
+    { at:TP.timer, ms:TP.flash - TP.timer, zoom:1.6, x:"shot" },
+    /* back out as the tripod goes */
+    { at:TP.tip - 250, ms:600, zoom:1.4, x:"mid" },
   ], shakes:[{ at:TP.crash }], washes:[TP.flash] },
   cast:{ a:TEAM("winner") },
   cues:[
-    { at:TP.timer, sound:"bitTimer", pan:0, opts:{ ms:TP.flash - TP.timer } },
-    { at:TP.flash, sound:"bitShutter", pan:0 },
-    { at:TP.crash, sound:"bitThud", pan:0.3 },
+    { at:TP.press, sound:"bitClick", pan:0.6 },
+    { at:TP.timer, sound:"bitTimer", pan:0.55, opts:{ ms:TP.flash - TP.timer } },
+    ...[0, 1, 2].map(i => ({ at:TP.run + 180 * i + 80, sound:"bitSneaker", pan:Math.round((0.6 - i * 0.08) * 100) / 100, opts:{ step:i } })),
+    { at:TP.pose, sound:"bitSqueak", pan:0 },
+    { at:TP.flash, sound:"bitShutter", pan:0.55 },
+    { at:TP.tip, sound:"bitCreak", pan:0.6, opts:{ ms:TP.crash - TP.tip } },
+    { at:TP.crash, sound:"bitThud", pan:0.7 },
+    { at:TP.crash + 40, sound:"bitClink", pan:0.7 },
   ],
 };
 
-/* ── victorylap: a team's streak. They run a lap toward us in slow
-   motion, one of them carrying a flag on a pole, the rest pumping their
-   gloves. ── */
-const VL = { slow:600, near:3600, stop:4000 };
+/* ── victorylap: a team's streak. The lap of honor in slow motion: they
+   come round the far side of the oval in a file and fan out down the
+   straight toward us, long floating strides, the lead carrying a flag in
+   its own color, the rest pumping their fists. They pull up close; the
+   pole goes into the dirt and every fist goes up. They hold it. The wind
+   drops and the flag sags limp down its pole. The lead looks up at it. ──
+   Five slow strides from the start to the arrive (victorylap.css). */
+const VL = { bend:1100, arrive:2800, plant:2950, droop:3600, look:4050 };
 const victorylap = {
-  id:"victorylap", name:"Victory lap", shape:"win", style:"action", ms:4800, beats:VL, still:4300, summary:"bitFlagFlap",
-  letter:{ at:VL.near, over:"a", place:"top-left" },
+  id:"victorylap", name:"Victory lap", shape:"win", style:"action", ms:4800, beats:VL, still:4400, summary:"bitFlagFlap",
+  letter:{ at:VL.plant + 120, over:"a", place:"top-left" },
   camera:{ zoom:1.4, x:"mid", fit:true, moves:[
-    { at:VL.slow, ms:VL.near - VL.slow, zoom:1.6 },
-  ], shakes:[] },
+    /* down the straight, the shot leans in */
+    { at:VL.bend, ms:VL.arrive - VL.bend, zoom:1.5 },
+    /* the pole goes in */
+    { at:VL.plant, ms:80, zoom:1.58, ease:CAMERA_EASE.snap },
+    { at:VL.plant + 200, ms:400, zoom:1.5 },
+    /* in on the lead and its flag as the wind drops */
+    { at:VL.droop - 100, ms:900, zoom:1.72, x:"flag" },
+  ], shakes:[{ at:VL.plant }] },
   cast:{ a:TEAM("winner") },
   cues:[
-    { at:VL.slow, sound:"bitFlagFlap", pan:0, opts:{ ms:VL.near - VL.slow } },
+    { at:0, sound:"bitFlagFlap", pan:0, opts:{ ms:VL.droop } },
+    ...[3, 4, 5].map(k => ({ at:Math.round(VL.arrive * k / 5), sound:"bitStep", pan:0, opts:{ step:k } })),
+    { at:VL.plant, sound:"bitPlant", pan:0.1 },
+    { at:VL.droop, sound:"bitFlagSag", pan:0.1 },
+    { at:VL.look, sound:"bitSqueakSoft", pan:0 },
   ],
 };
 

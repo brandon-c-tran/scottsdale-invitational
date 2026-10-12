@@ -30,6 +30,7 @@ export const hasGmToken = () => !!localGet("si-gm-token");
 export const getTournamentSnapshot = () => cached;
 export const setTvView = () => {};
 export const reportTvSound = () => {};
+export const reportTvVideo = () => {};
 export function dispatch(type, payload) {
   const run = globalThis.__FIT_DISPATCH__;
   return Promise.resolve(run ? run(type, payload) : { ok:false, error:"Offline, try again" });

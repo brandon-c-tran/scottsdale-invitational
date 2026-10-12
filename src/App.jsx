@@ -92,7 +92,7 @@ import { directorPill } from "./features/director/directorPill.js";
 import { resolveShowScene, resolveDirector } from "../shared/show.js";
 import {
   useTournament, dispatch, uploadPhoto, downloadSnapshot, localGet, localSet, setGmToken, hasGmToken,
-  reportTvSound, setTvView,
+  reportTvSound, setTvView, reportTvVideo,
 } from "./lib/client.js";
 import { writeError } from "./lib/writeErrors.js";
 
@@ -1485,7 +1485,7 @@ function TournamentApp({ tournament, onUpdateReload }) {
           rankDeltas={deltas} connection={{ ready, connected, status:tournament.status, version }}
           ceremony={tvCeremonyHold ? null : { intro:shownIntro, handoff:introHasQueuedReveal, reveal,
             onIntroDone:() => setIntro(null), onRevealDone:closeReveal }}
-          onSoundStatus={reportTvSound} arriveCode={tournament.arriveCode}
+          onSoundStatus={reportTvSound} arriveCode={tournament.arriveCode} onVideoStatus={reportTvVideo}
           onExit={() => setTv(false)} /></Suspense>
         <Confetti burst={burst} />
       </Shell>

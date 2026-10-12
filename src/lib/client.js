@@ -140,18 +140,32 @@ const pageVisible = () => typeof document === "undefined" || document.hidden !==
 /* the TV says whether its sound runs, so the commissioner can see a muted
    TV (reportTvSound, fed by TV mode from the sound engine) */
 let tvSound = null;
+/* and how its karaoke video is doing (reportTvVideo, fed by TV mode's
+   player, docs/KARAOKE.md "The TV report"): { key, state, code?, at? }, the
+   key `${gameId}:${index}:${video}`, so the Worker hears when a song really
+   started and the commissioner sees a video the TV could not play */
+let tvVideo = null;
+const TV_VIDEO_STATES = new Set(["ready", "playing", "blocked", "error"]);
+function cleanTvVideo(status) {
+  if (!status || typeof status !== "object" || !TV_VIDEO_STATES.has(status.state)) return null;
+  const key = typeof status.key === "string" && /^[\w:-]{1,40}$/.test(status.key) ? status.key : null;
+  if (!key) return null;
+  const code = Number(status.code), at = Number(status.at);
+  return { key, state:status.state, ...(Number.isInteger(code) && code >= 0 && code <= 999 ? { code } : {}),
+    ...(Number.isFinite(at) && at > 0 ? { at:Math.round(at) } : {}) };
+}
 /* a device showing TV mode inside the app (the menu's TV mode, not the /tv
    route) is a TV too: App calls setTvView, and hello, ping and presence say
    which view this socket is on, so the commissioner's TV check counts it */
 let tvView = false;
 const isTvView = () => tvView || isTvRoute();
 const viewName = () => isTvView() ? "tv" : "app";
-const tvSoundPayload = () => isTvView() && tvSound ? { tvSound } : {};
+const tvSoundPayload = () => isTvView() ? { ...(tvSound ? { tvSound } : {}), ...(tvVideo ? { tvVideo } : {}) } : {};
 export function setTvView(on) {
   const next = !!on;
   if (tvView === next) return;
   tvView = next;
-  if (!isTvView()) tvSound = null;
+  if (!isTvView()) { tvSound = null; tvVideo = null; }
   send({ type:"presence", payload:{ visible:pageVisible(), view:viewName(), ...tvSoundPayload() } });
 }
 export function reportTvSound(status) {
@@ -159,6 +173,12 @@ export function reportTvSound(status) {
   if (!isTvView() || tvSound === next) return;
   tvSound = next;
   send({ type:"presence", payload:{ visible:pageVisible(), view:viewName(), tvSound } });
+}
+export function reportTvVideo(status) {
+  const next = cleanTvVideo(status);
+  if (!isTvView() || JSON.stringify(next) === JSON.stringify(tvVideo)) return;
+  tvVideo = next;
+  send({ type:"presence", payload:{ visible:pageVisible(), view:viewName(), ...tvSoundPayload() } });
 }
 
 function sendHello() {

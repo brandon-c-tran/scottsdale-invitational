@@ -78,9 +78,9 @@ export function karaokeVideoPlan(game, now) {
   const video = karaokeVideoOf(game.songs?.[singer], turn);
   if (!video?.id) return null;
   const key = karaokeVideoKey(game);
-  const songAt = Number(turn.songAt);
-  if (!Number.isFinite(songAt)) return { key, id:video.id, mode:"cue", songAt:null, endAt:null };
-  const endAt = Number(turn.endAt);
+  /* null until the song is started (never Number(null), which is 0) */
+  if (!Number.isFinite(turn.songAt)) return { key, id:video.id, mode:"cue", songAt:null, endAt:null };
+  const songAt = turn.songAt, endAt = Number(turn.endAt);
   return { key, id:video.id, songAt, endAt, mode:now < songAt ? "cue" : now < endAt ? "play" : "over" };
 }
 

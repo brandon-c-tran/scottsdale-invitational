@@ -144,7 +144,8 @@ function Up({ state, game, now, fixed }) {
   const upAt = Number(turn.upAt) || 0;
   const tl = useAnchor(upAt, now);
   const queue = karaokeQueue(state, game, 2);
-  const songAt = Number(turn.songAt);
+  /* the clock runs to the song's start once it is written, else to the walk-up's end */
+  const until = Number.isFinite(turn.songAt) ? turn.songAt : upAt + KARAOKE_UP_MS;
   return <section className="tv-karaoke-up" style={{ "--tl":`${tl}ms` }}>
     <div className="tv-karaoke-pane tv-glass is-live tv-karaoke-up-main">
       <span className="tv-status is-live tv-karaoke-lamp"><i className="fd-insert" />Up next</span>
@@ -160,7 +161,7 @@ function Up({ state, game, now, fixed }) {
       </div>}
     </div>
     <aside className="tv-karaoke-up-side">
-      <Ring from={upAt} until={Number.isFinite(songAt) ? songAt : upAt + KARAOKE_UP_MS} now={now} />
+      <Ring from={upAt} until={until} now={now} />
       {queue.length > 0 && <div className="tv-karaoke-deck tv-glass">
         <span className="tv-label">On deck</span>
         <ol>{queue.map(item => <li key={item.player}>

@@ -195,7 +195,9 @@ function createController({ host, read, onBlocked }) {
       clear("play", "stop", "blocked", "poll");
       call("destroy");
       player = null;
+      /* whatever YouTube left in the box goes with it */
       if (slot?.parentNode) slot.parentNode.removeChild(slot);
+      try { if (host) host.textContent = ""; } catch {}
       show(false);
     },
   };

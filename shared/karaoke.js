@@ -125,6 +125,13 @@ export const sameKaraokeTrack = (a, b) => !!a && !!b
 export const karaokeTrackOf = (state, player) => state?.profiles?.[player]?.karaokeTrack || null;
 export const hasKaraokeSong = (state, player) => !!karaokeTrackOf(state, player)?.video;
 export const karaokeArtists = song => (song?.artists || []).join(", ");
+/* a song's name as the room knows it: a release's suffix ("- Remastered
+   2011", "(Radio Edit)", "- Single Version") is not part of it */
+const SONG_SUFFIX = /\s*(?:-\s+[^-]*\b(?:version|remaster(?:ed)?|edit|mix|mono|stereo|live|single|radio|explicit|clean)\b[^-]*|[([][^)\]]*\b(?:version|remaster(?:ed)?|edit|mix|mono|stereo|live|radio|explicit|clean)\b[^)\]]*[)\]])\s*$/i;
+export function karaokeSongTitle(name) {
+  const full = String(name || "").trim();
+  return full.replace(SONG_SUFFIX, "").trim() || full;
+}
 /* the snapshot the game keeps of a song at the window's end */
 export const karaokeSnapshot = track => track ? {
   provider:track.provider, trackId:track.trackId, name:track.name, artists:[...(track.artists || [])],

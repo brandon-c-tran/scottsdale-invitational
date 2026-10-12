@@ -14,8 +14,8 @@
      reveal     the order from last place to first */
 import { presentPlayers } from "../../../shared/core.js";
 import {
-  KARAOKE_LEGENDARY_MS, KARAOKE_ORDER_HOLD_MS, karaokeRevealSchedule, karaokeSinger, karaokeStage, karaokeTierOf, karaokeTurn,
-  karaokeVideoKey, karaokeVideoOf, karaokeVoters, karaokeVotesOn,
+  KARAOKE_LEGENDARY_MS, KARAOKE_ORDER_HOLD_MS, karaokeInstants, karaokeReadyPlayers, karaokeRevealSchedule, karaokeSinger,
+  karaokeStage, karaokeTierOf, karaokeTurn, karaokeVideoKey, karaokeVideoOf, karaokeVoters, karaokeVotesOn,
 } from "../../../shared/karaoke.js";
 import { teamRows } from "../moments/walkoutTeam.js";
 
@@ -40,9 +40,9 @@ export function karaokeRain(game, now) {
   return rain;
 }
 
-/* the TV's stage at `now` (null: no game holds the room) */
+/* the TV's stage at `now` (null: nothing to draw) */
 export function karaokeTvStage(game, now) {
-  if (!game?.id || game.phase === "done") return null;
+  if (!game?.id || game.phase === "done" || game.empty) return null;
   if (game.phase === "pick") return "pick";
   if (karaokeRain(game, now)) return "legendary";
   if (game.phase === "reveal") return "reveal";
@@ -87,14 +87,15 @@ export function karaokeVideoPlan(game, now) {
 /* the pick window's room: everyone present, lit once locked in */
 export function karaokePickRoom(state, game) {
   const lanes = presentPlayers(state).map(player => ({ player, lit:!!game?.ready?.[player] }));
-  return { lanes, count:lanes.filter(lane => lane.lit).length, total:lanes.length };
+  return { lanes, count:karaokeReadyPlayers(state, game).length, total:lanes.length };
 }
 /* who may vote on a singer, lit once they have (never how) */
 export function karaokeVoteRoom(state, game, singer) {
   const votes = karaokeVotesOn(game, singer);
-  const lanes = karaokeVoters(state, singer).map(player => ({ player, lit:!!votes[player] }));
+  const lanes = singer ? karaokeVoters(state, singer).map(player => ({ player, lit:!!votes[player] })) : [];
   return { lanes, count:lanes.filter(lane => lane.lit).length, total:lanes.length };
 }
+
 /* The running order dealt as a queue: from when the window closed (the
    first singer's upAt less the hold), a card every `step` after a `lead`,
    in balanced rows of seven at most, each row centred. A slot's `x` is
@@ -119,11 +120,17 @@ export const KARAOKE_ROW_BEATS = Object.freeze({ stamp:140, reel:420 });
 /* a place across the room as a pan, left to right */
 export const karaokePan = x => Math.round((Math.max(0, Math.min(1, x)) - 0.5) * 140) / 100;
 
-/* who follows the singer up: the next `n` in the running order, with
-   their place in it */
-export function karaokeQueue(game, n = 2) {
+/* who follows the singer up: the next `n` present players in the running
+   order, with their place in it (an absent one is skipped when their turn
+   comes, so the room never sees them on deck) */
+export function karaokeQueue(state, game, n = 2) {
   const index = Number(game?.index) || 0;
-  return (game?.order || []).slice(index + 1, index + 1 + n).map((player, k) => ({ player, place:index + 2 + k }));
+  const present = new Set(presentPlayers(state));
+  const order = game?.order || [];
+  const out = [];
+  for (let k = index + 1; k < order.length && out.length < n; k++)
+    if (present.has(order[k])) out.push({ player:order[k], place:k + 1 });
+  return out;
 }
 
 /* The reveal's rows, best first, each with the instant it turns on the TV
@@ -133,19 +140,56 @@ export function karaokeRevealRows(game, now) {
   const ranking = Array.isArray(game?.ranking) ? game.ranking : [];
   const revealAt = Number(game?.revealAt) || 0;
   const at = new Map(karaokeRevealSchedule(ranking).steps.map(step => [step.player, revealAt + step.at]));
-  return ranking.map(row => ({ ...row, at:at.get(row.player), shown:now >= at.get(row.player), tier:karaokeTierOf(row.score) }));
+  return ranking.map(row => {
+    const on = at.get(row.player);
+    return { ...row, at:on, shown:Number.isFinite(on) && now >= on, tier:karaokeTierOf(row.score) };
+  });
+}
+/* Where each place stands on the reveal: 1st, 2nd and 3rd as the large
+   rows on top; the rest in two columns under them, the first column the
+   upper half (4th down), so the climb runs up each column. */
+export function karaokeRevealColumns(count) {
+  const n = Math.max(0, Math.floor(Number(count) || 0));
+  const top = Math.min(3, n), rest = n - top, left = Math.ceil(rest / 2);
+  const places = (from, k) => Array.from({ length:Math.max(0, k) }, (_, i) => from + i);
+  return { podium:places(1, top), left:places(4, left), right:places(4 + left, rest - left) };
+}
+/* a place's pan on the reveal: its column's side, the podium centred */
+export function karaokeRevealPan(place, count) {
+  const cols = karaokeRevealColumns(count);
+  return cols.left.includes(place) ? -0.45 : cols.right.includes(place) ? 0.45 : 0;
 }
 
-/* a song's name as the room knows it: a release's suffix ("- Remastered
-   2011", "(Radio Edit)", "- Single Version") is not part of it */
-const SONG_SUFFIX = /\s*(?:-\s+[^-]*\b(?:version|remaster(?:ed)?|edit|mix|mono|stereo|live|single|radio|explicit|clean)\b[^-]*|[([][^)\]]*\b(?:version|remaster(?:ed)?|edit|mix|mono|stereo|live|radio|explicit|clean)\b[^)\]]*[)\]])\s*$/i;
-export function karaokeTitle(name) {
-  const full = String(name || "").trim();
-  return full.replace(SONG_SUFFIX, "").trim() || full;
+/* A song title's lettering in a box `width` wide: the hero cut (Big
+   Shoulders Inline, `hero` px) when it fits in one or two lines there,
+   else the solid face as large as two lines allow (`max` down to `min`).
+   Big Shoulders 900 runs about half an em a letter. */
+export function karaokeTitleFit(text, width, { hero = 150, max = 112, min = 56, advance = 0.5 } = {}) {
+  const title = String(text || "").trim();
+  const fits = (line, size) => line.length * advance * size <= width;
+  if (fits(title, hero)) return { marquee:true, size:hero, lines:[title] };
+  const words = title.split(/\s+/);
+  let best = null;
+  for (let k = 1; k < words.length; k++) {
+    const lines = [words.slice(0, k).join(" "), words.slice(k).join(" ")];
+    const longest = Math.max(...lines.map(line => line.length));
+    if (!best || longest < best.longest) best = { lines, longest };
+  }
+  if (best && best.longest * advance * hero <= width) return { marquee:true, size:hero, lines:best.lines };
+  const lines = best ? best.lines : [title];
+  const longest = Math.max(1, ...lines.map(line => line.length));
+  const size = Math.max(min, Math.min(max, Math.floor(width / (longest * advance))));
+  return { marquee:false, size, lines };
 }
-/* a title's lettering size by its length, so two lines always fit */
-export function karaokeTitleSize(text, { max = 96, min = 56 } = {}) {
-  const n = String(text || "").length;
-  const size = n > 34 ? max * 0.62 : n > 24 ? max * 0.74 : n > 16 ? max * 0.86 : max;
-  return Math.max(min, Math.round(size));
+
+/* the next instant the TV's karaoke changes by itself (a stage turning,
+   a reveal row), after `now`; null when nothing more is due */
+export function karaokeNextInstant(game, now) {
+  return karaokeInstants(game).find(at => at > now) ?? null;
+}
+
+/* seconds as the TV's clock reads them: 1:40, then 59 down to 0 */
+export function karaokeClock(ms) {
+  const seconds = Math.max(0, Math.ceil(ms / 1000));
+  return seconds >= 60 ? `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}` : String(seconds);
 }

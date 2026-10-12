@@ -7,11 +7,12 @@
             panned to its place in the queue), a singer up next (upNow as
             the lamp lights, stamp as the song stamps in), a vote landing
             once the song is over (S18, panned to the voter; a vote during
-            the song is silent), a vote closed early (S8), a Legendary vote
-            (the kit's legendary chime), and the reveal (orderStamp a row
-            from last place up, podium for the top three). A load, a
-            reconnect or a correction sounds nothing (roomStep's fresh
-            gate). Never S14: the posted result rings it.
+            the song is silent), a vote closed before its clock (S8), a
+            Legendary vote (the kit's legendary chime, KARAOKE_PARTS), and
+            the reveal (orderStamp a row from last place up, podium for the
+            top three), never under the Legendary rain. A load, a reconnect
+            or a correction sounds nothing (roomStep's fresh gate). Never
+            S14: the posted result rings it.
      clock  the vote's last five seconds (typeTick) and its close (S8),
             laid once the song is over while the vote stands
             (useKaraokeRoomClock) and cancelled when it moves on; a TV that
@@ -19,13 +20,13 @@
 
    Nothing sounds while a song plays: the video is the room's sound.
    Reduced motion plays one sound a step (the sting, one card, the stamp,
-   one place). Pure apart from the hook. */
+   1st's place). Pure apart from the hook. */
 import { useEffect } from "react";
 import { presentPlayers } from "../../../shared/core.js";
-import { karaokeRevealSchedule, karaokeSinger, karaokeTurn, karaokeVoters, karaokeVotesOn } from "../../../shared/karaoke.js";
+import { KARAOKE_LEGENDARY_MS, karaokeRevealSchedule, karaokeSinger, karaokeTurn, karaokeVoters, karaokeVotesOn } from "../../../shared/karaoke.js";
 import { cueAt } from "../../lib/sound.js";
 import { serverNow } from "../../lib/serverClock.js";
-import { KARAOKE_DEAL, KARAOKE_ROW_BEATS, KARAOKE_UP_BEATS, karaokeDealAt, karaokeDealSlots, karaokePan } from "./karaokeTv.js";
+import { KARAOKE_DEAL, KARAOKE_ROW_BEATS, KARAOKE_UP_BEATS, karaokeDealAt, karaokeDealSlots, karaokePan, karaokeRevealPan } from "./karaokeTv.js";
 
 /* a close this far ahead of its clock is early (the room all voted, or
    the commissioner closed it): the clock's own S8 never rang */
@@ -41,9 +42,12 @@ export function karaokeRoomSnapshot(state) {
   if (!game?.id || game.phase === "done" || state.results?.[game.eventId]) return null;
   const singer = karaokeSinger(game), turn = karaokeTurn(game, singer);
   const closed = {};
-  for (const [player, item] of Object.entries(game.turns || {}))
-    if (item?.closedAt) closed[player] = { at:Number(item.closedAt), closeAt:Number(item.closeAt) || 0, legendary:!!item.legendary,
-      skipped:!!item.skipped };
+  let rainUntil = 0;
+  for (const [player, item] of Object.entries(game.turns || {})) {
+    if (!item?.closedAt) continue;
+    closed[player] = { at:Number(item.closedAt), closeAt:Number(item.closeAt) || 0, legendary:!!item.legendary, skipped:!!item.skipped };
+    if (item.legendary) rainUntil = Math.max(rainUntil, Number(item.closedAt) + KARAOKE_LEGENDARY_MS);
+  }
   return {
     id:game.id, phase:game.phase, startedAt:Number(game.startedAt) || 0,
     room:presentPlayers(state), ready:Object.keys(game.ready || {}).filter(player => game.ready[player]).sort(),
@@ -51,7 +55,7 @@ export function karaokeRoomSnapshot(state) {
     singer, up:turn && singer ? `${game.index}:${singer}:${Number(turn.upAt) || 0}` : null, upAt:Number(turn?.upAt) || 0,
     songAt:Number(turn?.songAt) || 0, endAt:Number(turn?.endAt) || 0,
     voters:singer ? karaokeVoters(state, singer) : [], voted:singer ? Object.keys(karaokeVotesOn(game, singer)).sort() : [],
-    closed, revealAt:Number(game.revealAt) || 0,
+    closed, rainUntil, revealAt:Number(game.revealAt) || 0,
     places:Array.isArray(game.ranking) ? game.ranking.map(row => ({ player:row.player, place:row.place })) : [],
   };
 }
@@ -96,15 +100,21 @@ export function karaokeCues(prev, next, { now = serverNow(), reduced = false } =
     if (close.legendary) cues.push({ id:"legendary", at:close.at, key:`${key}:legendary:${player}` });
     else if (close.closeAt && close.at < close.closeAt - EARLY_CLOSE_MS) cues.push({ id:"S8", at:close.at, key:`${key}:closed:${player}` });
   }
-  /* the reveal: a row from last place up, the top three on the podium's stamp */
+  /* the reveal: a row from last place up, the top three on the podium's
+     stamp; a row that turns under the Legendary rain is silent */
   if (k.phase === "reveal" && was.phase !== "reveal" && k.revealAt && k.places.length) {
     const steps = karaokeRevealSchedule(k.places).steps;
+    const quiet = at => at < (Number(k.rainUntil) || 0);
     const first = steps[steps.length - 1];
-    if (reduced) { if (first) cues.push({ id:"podium", at:k.revealAt + first.at, opts:{ place:1 }, key:`${key}:reveal` }); }
-    else steps.forEach(step => cues.push(step.place <= 3
-      ? { id:"podium", at:k.revealAt + step.at + KARAOKE_ROW_BEATS.stamp, opts:{ place:step.place }, key:`${key}:place:${step.place}` }
-      : { id:"orderStamp", at:k.revealAt + step.at + KARAOKE_ROW_BEATS.stamp, pan:step.place > 8 ? 0.45 : -0.45,
-        opts:{ place:step.place }, key:`${key}:place:${step.place}` }));
+    if (reduced) {
+      if (first && !quiet(k.revealAt + first.at)) cues.push({ id:"podium", at:k.revealAt + first.at, opts:{ place:1 }, key:`${key}:reveal` });
+    } else steps.forEach(step => {
+      const at = k.revealAt + step.at + KARAOKE_ROW_BEATS.stamp;
+      if (quiet(at)) return;
+      cues.push(step.place <= 3
+        ? { id:"podium", at, opts:{ place:step.place }, key:`${key}:place:${step.place}` }
+        : { id:"orderStamp", at, pan:karaokeRevealPan(step.place, k.places.length), opts:{ place:step.place }, key:`${key}:place:${step.place}` });
+    });
   }
   return cues;
 }
@@ -126,9 +136,9 @@ export function karaokeClockCues(game, now) {
 /* TVKaraoke's clock cues: laid once the vote stands on this TV, cancelled
    when it moves on. The handle, not a key, keeps each one single (a key
    outlives a cancel). */
-export function useKaraokeRoomClock(game, now) {
+export function useKaraokeRoomClock(game, now, { fixed = false } = {}) {
   const turn = karaokeTurn(game);
-  const stand = game?.phase === "turns" && turn && !turn.closedAt && !turn.skipped && Number.isFinite(turn.songAt)
+  const stand = !fixed && game?.phase === "turns" && turn && !turn.closedAt && !turn.skipped && Number.isFinite(turn.songAt)
     && now >= Number(turn.endAt) ? `${game.id}:${game.index}:${turn.endAt}:${turn.closeAt}` : null;
   useEffect(() => {
     if (!stand) return undefined;

@@ -184,6 +184,12 @@ export function karaokeStage(turn, now) {
    start late counts from when it really started) */
 export const karaokeVideoSeconds = (turn, now) => turn && Number.isFinite(turn.songAt)
   ? Math.max(0, (now - (Number(turn.playedAt) || turn.songAt)) / 1000) : 0;
+/* the key a TV reports a turn's video under (the TV report): the game, the
+   turn, and which of the song's uploads it plays (0 the chosen one) */
+export function karaokeVideoKey(game, index = game?.index) {
+  if (!game?.id || !Number.isInteger(index) || index < 0) return null;
+  return `${game.id}:${index}:${Number(game.turns?.[game.order?.[index]]?.video) || 0}`;
+}
 /* who may vote on a singer: everyone present but the singer */
 export const karaokeVoters = (state, singer) => presentPlayers(state).filter(player => player !== singer);
 export const karaokeVoteOpen = (turn, now) => !!turn && !turn.closedAt && !turn.skipped

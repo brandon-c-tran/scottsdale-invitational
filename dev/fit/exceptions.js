@@ -13,6 +13,8 @@ export const FIT_EXCEPTIONS = Object.freeze([
     reason:"the profile's Save rides the sheet's foot (sticky) so it is always in reach; the fields under the card scroll up past it" },
   { view:"^tv-felt", rule:"clip", sel:"^g > g > svg > text$", text:"^[A-Z]{1,2}$",
     reason:"a crowded felt's smallest chips (32px) letter a face's initials at the TV's 24px floor: the font's line box overhangs the chip's own picture, the capitals (.72em) stand inside it" },
+  { view:"^phone-375-ann-team-home-home$", rule:"fold",
+    reason:"right after a draw your team's names open once by themselves in the Now card, for that one look; closed (name-team3, team-drawn) the leaderboard heading holds the first screen" },
   { view:"^tv-showdown-draw$", rule:"overlap", sel:"tv-showdown",
     reason:"Quick Draw's flash is the whole glass lit opaque magenta with DRAW on it for its beat; the faced-off chips under it step out (visibility) for that beat and the frame shows only the flash" },
 ]);

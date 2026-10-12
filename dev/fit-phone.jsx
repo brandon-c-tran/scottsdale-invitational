@@ -188,6 +188,26 @@ async function openSheet(kind) {
   }
   /* the event's announcement as a phone sees it when betting opens: the
      event goes on deck on a later frame than the first */
+  /* the same announcement closed by the guest: what Home holds right after
+     (a fresh draw's team name opens only once nothing else holds the screen;
+     "announce" itself shows it still closed behind the sheet) */
+  if (kind === "announce-closed") {
+    if (!(await openSheet("announce"))) return false;
+    for (let i = 0; i < 4 && document.querySelector(".fd-sheet-overlay"); i++) {
+      document.dispatchEvent(new KeyboardEvent("keydown", { key:"Escape", bubbles:true }));
+      window.dispatchEvent(new KeyboardEvent("keydown", { key:"Escape", bubbles:true }));
+      await sleep(700);
+    }
+    await sleep(1200);
+    return !document.querySelector(".fd-sheet-overlay");
+  }
+  /* a game's own screen (Where and When, Trivia) closed by the guest: Home's
+     Now card carries the game as its row */
+  if (kind === "game-closed") {
+    const ok = await tap(() => document.querySelector(".fd-geo-close, .fd-trivia-close"));
+    await sleep(600);
+    return ok && !!document.querySelector(".fd-home-now-rows .fd-now-row");
+  }
   if (kind === "announce") {
     const client = await import("./fit/client.js");
     const onDeck = state.onDeck;
@@ -204,6 +224,9 @@ async function openSheet(kind) {
     /* the Now card's team row opens the suggestions first */
     const head = document.querySelector(".fd-teamname-now-head[aria-expanded=false]");
     if (head && !document.querySelector(".fd-teamname-link")) { head.click(); await sleep(300); }
+    /* or the pencil on your team's name, when the card shows your team */
+    const pencil = document.querySelector(".fd-teamname-pencil[aria-expanded=false]");
+    if (pencil && !document.querySelector(".fd-teamname-link")) { pencil.click(); await sleep(300); }
     const ok = await tap(() => [...document.querySelectorAll(".fd-teamname-link")].find(b => visible(b) && /Write your own/.test(b.textContent)));
     await sleep(300);
     const input = document.querySelector(".fd-teamname-write input");

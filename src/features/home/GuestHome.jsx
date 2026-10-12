@@ -18,8 +18,8 @@ import { contestWinLines, ordinal, winLineFor } from "../standings/winImpact.js"
 import { SideTerms } from "../comebacks/Comebacks.jsx";
 import { contestTerms } from "../comebacks/comebacks.js";
 import { DEALT } from "../standings/Standings.jsx";
-import { TeamNameNow } from "../teams/TeamNameCard.jsx";
-import { namingEvents } from "../teams/teamNameModel.js";
+import { TeamNameNow, useTeamNameNow } from "../teams/TeamNameCard.jsx";
+import { homeTeamNameEvent, namingEvents } from "../teams/teamNameModel.js";
 import { useFreshChange } from "../../lib/motion.js";
 import { AlertsCard } from "../alerts/Alerts.jsx";
 import { InstallCard } from "../check-in/InstallHint.jsx";
@@ -247,6 +247,9 @@ function EventTable({ model, state, me, events, standings, onOpen, onRules, onBe
   const sided = contest?.kind !== "ffa" && contest?.sides?.length > 0;
   const playing = !!contest?.players?.includes(me);
   const youUp = useYoureUp(contest, me);
+  /* your team's name, when this card shows your team: the pencil rides the
+     name already on the card and the suggestions open under the sides */
+  const naming = useTeamNameNow(state, event, me, { enabled:homeTeamNameEvent(state, me, events, standings) === event.id });
   /* the headline slot (your strip) already says where you stand in this event */
   const headlined = !!strip?.text && strip.route?.ev?.id === event.id;
   /* Home's lit panel is one pane of glass: it leans under a finger and its
@@ -317,16 +320,19 @@ function EventTable({ model, state, me, events, standings, onOpen, onRules, onBe
         With chips to place or riding, the status rides the action's row */}
     {!actions && <div className="fd-home-focus-meta">{statusLine}</div>}
     {sided
-      ? <div className="fd-home-assignment">{contest.label !== event.name && <div className="fd-home-contest-label">
-          <span><OneSafe text={contest.label} /></span></div>}
+      ? <div className="fd-home-assignment">{(contest.label !== event.name || (naming.pencil && !teamSides)) && <div className="fd-home-contest-label">
+          <span>{contest.label !== event.name && <OneSafe text={contest.label} />}</span>
+          {/* a pair renames itself from the contest's head (a team, from its own name) */}
+          {!teamSides && naming.pencil}</div>}
           {teamSides ? <div className="fd-home-teams">
             {contest.sides.map((side, index) => {
               const pot = pots?.get(side.key)?.total || 0;
               const yours = side.players.includes(me);
               return <React.Fragment key={String(side.key)}>
-                <div className={`fd-home-team${yours ? " is-mine" : ""}${index > 0 ? " is-versus" : ""}${teamFitsRow(state, side.players, vsNames(state, side.players, event.id), { extra:(index > 0 ? 30 : 0) + (pot > 0 ? 56 : 0) }) ? " is-row" : ""}`}>
+                <div className={`fd-home-team${yours ? " is-mine" : ""}${index > 0 ? " is-versus" : ""}${teamFitsRow(state, side.players, vsNames(state, side.players, event.id), { extra:(index > 0 ? 30 : 0) + (pot > 0 ? 56 : 0) + (yours && naming.pencil ? 44 : 0) }) ? " is-row" : ""}`}>
                   <h3>{index > 0 && <span className="fd-home-team-vs">vs</span>}<OneSafe text={vsNames(state, side.players, event.id)} />
-                    {pot > 0 && <span className="fd-home-pot" aria-label={`${fmt(pot)} chips bet on this side`}><strong>{fmt(pot)}</strong></span>}</h3>
+                    {pot > 0 && <span className="fd-home-pot" aria-label={`${fmt(pot)} chips bet on this side`}><strong>{fmt(pot)}</strong></span>}
+                    {yours && naming.pencil}</h3>
                   <TeamFaces state={state} players={side.players} onPlayer={onPlayer} />
                   {termsFor(side) && <SideTerms terms={termsFor(side)} className="fd-home-terms" />}
                 </div>
@@ -349,13 +355,15 @@ function EventTable({ model, state, me, events, standings, onOpen, onRules, onBe
               </React.Fragment>;
             })}
           </div>}
+          {naming.editor}
           <WinLine text={teamSides ? null : winYou} song={song} onWinSong={onWinSong} />
           {away ? <p className="fd-home-personal">Marked away</p>
             : !headlined && mine && <p className={`fd-home-personal${a?.status === "out" ? " is-out" : ""}`}>{mine}</p>}
         </div>
       : !before && (away ? <div className="fd-home-assignment"><p className="fd-home-personal">Marked away</p></div>
         : <>
-          <Assignment current={current} state={state} onPlayer={onPlayer} quiet={headlined} />
+          <Assignment current={current} state={state} onPlayer={onPlayer} pencil={naming.pencil} quiet={headlined} />
+          {naming.editor && <div className="fd-home-extra-row">{naming.editor}</div>}
           <WinLine text={teamBlocksFor(current.assignment) ? null : winYou} song={song} onWinSong={onWinSong} own />
         </>)}
     {/* everything else happening for you now: a game in progress, a draft,
@@ -473,7 +481,10 @@ export function GuestHome({ state, me, events, standings, onPlayer, onEvents,
   const drafting = !finale && !complete ? events.filter(event => state.drafts?.[event.id] && !state.draws?.[event.id]
     && !state.shelved?.[event.id] && !state.results?.[event.id]
     && !(strip?.route?.type === "draft" && strip.route.ev.id === event.id)) : [];
-  const naming = !finale && !complete && me && !state.away?.[me] ? namingEvents(state, events, me) : [];
+  /* the card's own team carries its pencil on the card */
+  const inCard = homeTeamNameEvent(state, me, events, standings);
+  const naming = !finale && !complete && me && !state.away?.[me]
+    ? namingEvents(state, events, me).filter(event => event.id !== inCard) : [];
   const nowRows = <>
     {gameContent}
     {drafting.map(event => <DraftNowRow key={event.id} state={state} ev={event} me={me} label={otherName(event)}

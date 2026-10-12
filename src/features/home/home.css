@@ -238,7 +238,7 @@ button.fd-home-exposure { background:transparent; border:0; padding:0; color:var
   border:1px solid color-mix(in srgb, var(--sun) 40%, var(--line)); border-radius:99px;
   background:color-mix(in srgb, var(--sun) 8%, var(--ink0)); color:var(--ink); font:600 13px/1 var(--fd-body); }
 .fd-home-song-chip > .fd-icon { flex:none; color:var(--sun); }
-.fd-home-song-chip > span { min-width:0; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+.fd-home-song-chip > span { min-width:0; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; line-height:1.35; }
 button.fd-home-song-chip { position:relative; border-color:color-mix(in srgb, var(--lamp-info) 45%, var(--line)); background:none;
   color:var(--lamp-info); cursor:pointer; }
 /* the chip's 28px reads small; its target is 44px */
@@ -255,9 +255,12 @@ button.fd-home-song-chip > .fd-icon { color:var(--lamp-info); }
   background:color-mix(in srgb, var(--lamp-live) 6%, var(--bg)); box-shadow:var(--glass-edge); }
 .fd-home-focus > .fd-home-now-rows:last-child { padding-bottom:6px; }
 .fd-home-now-rows > * + * { border-top:1px solid var(--line); }
-.fd-home-focus > .fd-home-now-rows { margin-top:6px; border-top:1px solid var(--line); }
-.fd-now-row { display:flex; align-items:center; gap:12px; width:100%; min-height:56px; margin:0; padding:8px 0; border:0;
+.fd-home-focus > .fd-home-now-rows { margin-top:4px; border-top:1px solid var(--line); }
+.fd-now-row { display:flex; align-items:center; gap:12px; width:100%; min-height:48px; margin:0; padding:4px 0; border:0;
   background:none; color:var(--ink); text-align:left; font:inherit; cursor:pointer; }
+.fd-home.is-live .fd-now-row { min-height:44px; padding:0; }
+.fd-home.is-live .fd-home-focus > .fd-home-now-rows { margin-top:2px; }
+.fd-home.is-live .fd-home-now-rows:not(:empty) + .fd-home-event-actions { padding-top:4px; }
 .fd-now-row:active { transform:translateY(1px); }
 .fd-now-row:focus-visible { outline:2px solid var(--lamp-info); outline-offset:2px; border-radius:8px; }
 .fd-now-row-text { flex:1; min-width:0; display:grid; gap:3px; }
@@ -430,3 +433,22 @@ button.fd-home-riding.is-yours { margin:-3px 0; }
    name wraps at a space instead */
 .fd-home-event-title.has-prize h2 { font-size:clamp(28px, min(11.5vw, calc((100vw - 184px) / (var(--name-ch, 12) * .42))), 56px); }
 .fd-home.is-live .fd-home-event-title.has-prize h2 { font-size:clamp(24px, min(8.4vw, calc((100vw - 184px) / (var(--name-ch, 12) * .42))), 40px); }
+
+/* your team's pencil, on your own team's name in the Now card; the names
+   open under the sides (another event's team is a row: .fd-teamname-now) */
+.fd-teamname-pencil { flex:none; display:grid; place-items:center; width:44px; height:44px; margin:-10px -8px -10px auto; padding:0; border:0;
+  border-radius:50%; background:none; color:var(--lamp-info); cursor:pointer; }
+.fd-teamname-pencil:focus-visible { outline:2px solid var(--lamp-info); outline-offset:-4px; }
+/* a name nobody has chosen yet: the pencil sits in a cyan ring (a to-do) */
+.fd-teamname-pencil.is-owed > .fd-icon { padding:5px; box-sizing:content-box; border-radius:50%;
+  box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--lamp-info) 55%, transparent); }
+.fd-home-assignment small .fd-teamname-pencil { margin:-14px 0 -14px 2px; }
+.fd-teamname-inline { margin:8px 0 4px; }
+.fd-teamname-inline .fd-teamname-edit { margin-top:0; }
+.fd-home-extra-row { padding:0 14px; }
+/* the pencil keeps its 44px clear of the faces under it */
+.fd-home-team h3:has(> .fd-teamname-pencil) { min-height:44px; margin-bottom:0; }
+.fd-home-team h3 .fd-teamname-pencil { margin:0 -6px 0 0; }
+.fd-home-team.is-row h3:has(> .fd-teamname-pencil) { min-height:0; }
+.fd-home-team.is-row h3 .fd-teamname-pencil { margin:0; }
+.fd-home-contest-label .fd-teamname-pencil { margin:-6px -10px -4px auto; }

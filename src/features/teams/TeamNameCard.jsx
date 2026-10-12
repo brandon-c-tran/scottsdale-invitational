@@ -145,13 +145,9 @@ export function TeamNameRow({ state, ev, me, onSend = sendName }) {
 const COVERED = ".fd-sheet-overlay, .fd-moment, .fd-geo-game, .fd-trivia-game, .fd-board-game, [role=dialog]";
 const screenClear = () => typeof document === "undefined" || !document.querySelector(COVERED);
 
-/* Home's Now card: your team's name as one row of the card (the pencil's
-   lamp, the name, Rename); the suggestions open under it in place. Right
-   after the draw it opens by itself once, as soon as nothing else holds
-   the screen. `label`: the event's name when the card is about another. */
-export function TeamNameNow({ state, ev, me, label = null, onSend = sendName }) {
-  const [round, setRound] = useState(0);
-  const naming = myTeamNaming(state, ev, me, { round });
+/* open or closed; right after the draw it opens by itself once, as soon as
+   nothing else holds the screen */
+function useNamingOpen(state, naming, me) {
   const [open, setOpen] = useState(false);
   const fresh = !!naming && teamNameAutoOpen(state, naming, me, { now:serverNow() });
   useEffect(() => {
@@ -168,6 +164,33 @@ export function TeamNameNow({ state, ev, me, label = null, onSend = sendName }) 
     return () => clearTimeout(timer);
   }, [fresh, naming?.drawId]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (open && naming) markSeen(naming.drawId, me); }, [open, naming?.drawId, me]); // eslint-disable-line react-hooks/exhaustive-deps
+  return [open, setOpen];
+}
+
+/* The Now card's own team (the card shows your team): its name is already
+   on the card, so the pencil rides that name and the suggestions open under
+   the sides. Same timing as the row: once by itself, on a clear screen. */
+export function useTeamNameNow(state, ev, me, { enabled = true } = {}) {
+  const [round, setRound] = useState(0);
+  const naming = enabled ? myTeamNaming(state, ev, me, { round }) : null;
+  const [open, setOpen] = useNamingOpen(state, naming, me);
+  if (!naming) return { naming:null, pencil:null, editor:null };
+  const pencil = <button type="button" className={`fd-teamname-pencil${open ? " is-open" : ""}${naming.named ? "" : " is-owed"}`}
+    aria-expanded={open} aria-label={open ? "Close team names" : `Rename ${naming.label}`} onClick={() => { tapTick(); setOpen(!open); }}>
+    <Icon name={open ? "collapse" : "pencil"} size={18} /></button>;
+  const editor = open ? <div className="fd-teamname-inline"><NameEditor state={state} naming={naming} round={round} onRound={setRound}
+    onSend={sendName} onDone={() => setOpen(false)} /></div> : null;
+  return { naming, pencil, editor };
+}
+
+/* Home's Now card, for a team the card is not showing (another event's
+   draw): your team's name as one row of the card (the pencil's lamp, the
+   name, Name or Rename); the suggestions open under it in place.
+   `label`: that event's name. */
+export function TeamNameNow({ state, ev, me, label = null, onSend = sendName }) {
+  const [round, setRound] = useState(0);
+  const naming = myTeamNaming(state, ev, me, { round });
+  const [open, setOpen] = useNamingOpen(state, naming, me);
   if (!naming) return null;
   const owed = !naming.named;
   return <div className={`fd-teamname-now${open ? " is-open" : ""}`}>

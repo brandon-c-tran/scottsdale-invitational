@@ -122,6 +122,11 @@
 @keyframes fi-hour { from { transform:none; } to { transform:rotate(-840deg); } }
 @keyframes fi-minute { from { transform:none; } to { transform:rotate(-1380deg); } }
 @keyframes fi-pin-drop { from { transform:translateY(-560px); } to { transform:none; } }
+/* Karaoke: the follow spot swings onto the mic and opens up (a flutter as
+   it catches), the first line of the words rolls */
+@keyframes fi-spot-sweep { 0% { transform:rotate(16deg); } 84% { transform:rotate(-1.4deg); } 100% { transform:none; } }
+@keyframes fi-spot-snap { 0% { opacity:0; } 34% { opacity:1; } 50% { opacity:.4; } 68% { opacity:1; } 100% { opacity:1; } }
+@keyframes fi-wipe { from { transform:scaleX(0); } to { transform:none; } }
 /* 5v5 Full Court: the heave */
 @keyframes fi-heave-x { from { transform:none; } to { transform:translateX(300px); } }
 @keyframes fi-heave-y { 0% { transform:none; animation-timing-function:cubic-bezier(.33,.66,.6,1); }

@@ -11,7 +11,7 @@
 
    STATUS: reviewed by Brandon on /dev/rules-review.html (Oct 3, 2026); his one
    edit (safety.camera) is applied. The comebacks set (comebacks.*, v3.1) is
-   awaiting Brandon's review. */
+   awaiting Brandon's review, and so is the karaoke set (karaoke.*, Oct 12). */
 export const RULES_WORDS = Object.freeze({
   /* Long Putt (putting) */
   "putting.1": "Three putts",
@@ -36,6 +36,16 @@ export const RULES_WORDS = Object.freeze({
   "where.clock": "60 seconds a photo",
   "where.max": "5,000 where, 5,000 when",
   "where.tie": "Tie: pins, then speed",
+
+  /* Karaoke (karaoke, Oct 12): awaiting Brandon's review */
+  "karaoke.1": "Pick a song ahead",
+  "karaoke.2": "Sing when you’re up",
+  "karaoke.3": "Super Poop to Legendary",
+  "karaoke.4": "Highest average wins",
+  "karaoke.window": "Two minutes: keep or change",
+  "karaoke.change": "Change votes until close",
+  "karaoke.trim": "6+ votes: extremes dropped",
+  "karaoke.tie": "Tie: more Legendary votes",
 
   /* Basketball 1v1 */
   "basketball:1v1.1": "Check it up top",

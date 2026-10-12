@@ -168,13 +168,22 @@ async function openSheet(kind) {
     publishFrame({ version:next.version, fresh:true, lastAction:"recordContestWinner" });
     client.setFitFrame(next);
     let overlay = null;
-    for (let i = 0; i < 80 && !(overlay = document.querySelector(".fd-bit")); i++) await sleep(150);
+    for (let i = 0; i < 400 && !(overlay = document.querySelector(".fd-bit")); i++) await sleep(30);
     if (!overlay) return false;
+    /* its name and fact stamped, before the overlay starts to leave */
     const bit = bitById(overlay.getAttribute("data-bit"));
-    await sleep((bit?.letter?.at || 0) + LETTER_LAND_MS + 300);
+    const joined = -parseFloat(overlay.style.getPropertyValue("--tl")) || 0;
+    const hold = Math.min((bit?.letter?.at || 0) + LETTER_LAND_MS + 80, (bit?.ms || 0) - 500);
+    await sleep(Math.max(0, hold - joined));
+    /* held there: the CSS paused, the clock stopped (the bit's own end
+       never comes) and the stage kept held (the receipt keeps waiting) */
     const style = document.createElement("style");
     style.textContent = "*, *::before, *::after { animation-play-state:paused !important; }";
     document.head.append(style);
+    const frozen = Date.now();
+    Date.now = () => frozen;
+    const { holdStage } = await import("../src/lib/motion.js");
+    holdStage("fit:bit", { maxMs:600000 });
     return !!document.querySelector(".fd-bit .fd-bit-name");
   }
   /* the event's announcement as a phone sees it when betting opens: the

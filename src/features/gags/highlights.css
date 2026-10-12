@@ -4,7 +4,9 @@
    it (BitStage). Canvas px, 24px and up, tokens only. The panel rises in on
    the turn's own instant (--tl); it animates by the bits' convention
    (bits.css: --ba, filled to its end state). */
-.tv-pane.tv-highlight-pane { align-items:center; justify-content:center; padding-top:8px; padding-bottom:12px; }
+/* the pane's own fade (tv.css) gives way to the panel's rise on the turn's clock */
+.tv-pane.tv-highlight-pane { align-items:center; justify-content:center; padding-top:8px; padding-bottom:12px;
+  --ba:none; animation:var(--ba); }
 .tv-highlight { display:flex; flex-direction:column; align-items:stretch; gap:14px; padding:16px 16px 14px;
   --ba:tv-highlight-in 560ms var(--ease-out) calc(var(--tl) + 0ms) both; animation:var(--ba); }
 @keyframes tv-highlight-in { from { opacity:0; transform:translateY(22px) scale(.985); } to { opacity:1; transform:none; } }

@@ -7,9 +7,10 @@
    (bits.css: --ba from var(--tl), filled to its end state). */
 .fd-moment.fd-bit { padding-left:0; padding-right:0; background:var(--bg); color:var(--bone); }
 .fd-bit-body { position:relative; width:100%; max-width:620px; display:flex; flex-direction:column; align-items:center; gap:22px; }
+/* the lamp lines sit outside the stage, so the canvas fills it edge to edge */
 .fd-bit-screen { position:relative; width:100%; aspect-ratio:16 / 9; overflow:hidden; background:var(--ink0);
-  border-top:2px solid color-mix(in srgb, var(--bit-lamp, var(--sun)) 70%, transparent);
-  border-bottom:2px solid color-mix(in srgb, var(--bit-lamp, var(--sun)) 70%, transparent); }
+  box-shadow:0 -2px 0 color-mix(in srgb, var(--bit-lamp, var(--sun)) 70%, transparent),
+    0 2px 0 color-mix(in srgb, var(--bit-lamp, var(--sun)) 70%, transparent); }
 .fd-bit-screen > .bit-stage { position:absolute; inset:0; }
 .fd-bit-words { width:100%; box-sizing:border-box; display:flex; flex-direction:column; align-items:center; gap:4px;
   padding:0 20px; text-align:center; }

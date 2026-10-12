@@ -731,6 +731,8 @@ test("the bit first, then the receipt: from the fresh frame to the bit's end the
   const order = ["if (walkout)", "if (bit.moment)", "if (up?.role === \"player\")"].map(line => layer.indexOf(line));
   assert.ok(order.every(at => at > 0) && order[0] < order[1] && order[1] < order[2], "the walkout, then the bit, then You're up");
   assert.match(layer, /lazyPart\(\(\) => import\("\.\.\/gags\/PhoneBit\.jsx"\), "PhoneBit"\)/, "its drawing loads on first use");
+  assert.match(layer, /<BitBoundary key=\{bit\.moment\.id\}><Suspense fallback=\{null\}>/,
+    "a drawing that will not load costs the moment, never the app");
 });
 
 /* ── the highlight reel ── */

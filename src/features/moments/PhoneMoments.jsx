@@ -20,6 +20,14 @@ import "./moments.css";
 /* the bit's drawing: the stage, the cast and every scene, fetched only
    once this phone is owed a moment */
 const PhoneBit = /* @__PURE__ */ lazyPart(() => import("../gags/PhoneBit.jsx"), "PhoneBit");
+/* a drawing that will not load (a dropped connection, a build replaced
+   under an open phone) costs this phone its moment, never the app */
+class BitBoundary extends React.Component {
+  constructor(props) { super(props); this.state = { failed:false }; }
+  static getDerivedStateFromError() { return { failed:true }; }
+  componentDidCatch() {}
+  render() { return this.state.failed ? null : this.props.children; }
+}
 
 /* The phone's half of the room's peaks (Backglass): "You're up" for a
    competitor (and a banner for everyone else) on the TV's face-off beat,
@@ -39,9 +47,9 @@ export function MomentsLayer({ state, events, me, active = true, onBets = null }
   const phase = useMemo(() => weekendPhase(state, events), [state, events]);
   if (!active || !me) return null;
   if (walkout) return <PhoneWalkout state={state} moment={walkout} me={me} />;
-  if (bit.moment) return <Suspense fallback={null}>
-    <PhoneBit key={bit.moment.id} state={state} moment={bit.moment} phase={phase} onDismiss={bit.dismiss} />
-  </Suspense>;
+  if (bit.moment) return <BitBoundary key={bit.moment.id}><Suspense fallback={null}>
+    <PhoneBit state={state} moment={bit.moment} phase={phase} onDismiss={bit.dismiss} />
+  </Suspense></BitBoundary>;
   if (up?.role === "player") return <YoureUpTakeover key={up.id} state={state} moment={up} me={me} onBets={onBets} />;
   if (up?.role === "spectator") return <UpBanner key={up.id} state={state} moment={up} onBets={onBets} />;
   return null;

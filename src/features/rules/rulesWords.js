@@ -42,7 +42,7 @@ export const RULES_WORDS = Object.freeze({
   "karaoke.2": "Sing when you’re up",
   "karaoke.3": "Super Poop to Legendary",
   "karaoke.4": "Highest average wins",
-  "karaoke.window": "Two minutes: keep or change",
+  "karaoke.window": "Two minutes to change",
   "karaoke.change": "Change votes until close",
   "karaoke.trim": "6+ votes: extremes dropped",
   "karaoke.tie": "Tie: more Legendary votes",

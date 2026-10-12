@@ -975,7 +975,7 @@ match is outlined (`bracketLayout`, features/weekend/CompetitionBracket.jsx).
 shapes, 7 to 16 seed into the next power of two with byes to the top seeds.
 1v1 Basketball is a bracket of everyone present (teams of one, `teamFit`
 shrinks it for Away). The v2 slate (Sept 29): Long Putt, Beer Die Doubles,
-Where and When (Fri); 5v5, Pickleball Doubles, 1v1 (Sat AM); Volleyball as 4 teams of 3,
+Where and When, Karaoke (Fri; Karaoke since Oct 12); 5v5, Pickleball Doubles, 1v1 (Sat AM); Volleyball as 4 teams of 3,
 Trivia (solo, in the app), 8-Ball, Beer Pong (Sat PM/night); Rage Cage, Beerio
 Kart; poker. Trivia is played in the app when it has a set list, and Where
 and When when it has photos (else each is entered like any result). 5v5 is everyone-plays (`participation:{type:"all"}`): the draw
@@ -1577,11 +1577,19 @@ as a bare URL. The absolute URL comes from `SITE_URL`, which defaults to the liv
 
 Add a `BUILTIN_EVENTS` entry in `shared/core.js` (id, session, value, kind,
 sport, `game`, teamCfg if teams), or use the GM add-event flow for one-offs
-(its "Looks like" picker borrows a known game's mark, hero, and how-to).
-Optionally give the `game` id a `GAMES` howto (core), a `MARKS` icon and a
-`GAME_HEROES` animation (App.jsx). Every surface (schedule, strips, sheets,
-betting band, event intro, TV) reads those registries; anything missing falls
-back to the GameMark, then the FD chip. Nothing else to wire.
+(its "Looks like" picker borrows a known game's mark, intro and how-to; an
+in-app game's, Karaoke's, is never offered: `GAME_MARK_IDS`). Give the
+`game` id a `GAMES` howto (core) and its drawn steps (`features/rules/`:
+`STEP_SETS`, `rulesWords.js`, `RulePictures.jsx`), a `MARKS` icon
+(`ui/GameMark.jsx`) and an intro: its `INTRO_SCENES` key
+(`intro/introTiming.js`), its `SCENES` diorama (`IntroScenes.jsx`) and its
+`INTRO_FOLEY` (`lib/soundKit.js`); the tests require all of them for a
+built-in. Every surface (schedule, strips, sheets, betting band, event intro,
+TV) reads those registries; anything missing falls back to the GameMark,
+then the FD chip. A built-in added after a Reorder was saved has no place in
+the stored `eventOrder` and sorts last: give it one on hydration as
+`worker/state.js` `placeKaraoke` does. The cup lays each session's plaques
+in rows of three at most (`weekend/trophy.js` `cupRows`).
 
 ## Backlog
 

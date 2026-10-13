@@ -23,6 +23,9 @@ import { cleanWhen, geoCurrentId, geoPlayers } from "./geo.js";
 import { resolveDirector } from "./show.js";
 import { triviaCurrent, triviaGame } from "./trivia.js";
 import {
+  KARAOKE_PRACTICE_SONGS, KARAOKE_TIERS, hasKaraokeSong, karaokeLive, karaokeSinger, karaokeTurn, karaokeVoters,
+} from "./karaoke.js";
+import {
   BUZZ_EARLY_MS, DD_MIN, DD_STING_MS, FINAL_INTRO_MS, WAGER_STEP, answeredOn, boardActive, boardClue, boardLog,
   boardPlayers, boardRace, boardScore, boardStandings, boardTopValue, buzzCloseAt, cellsLeft, ddMax, finalMax,
   isBoardGame, struckChoices, turnPlayer, turnUntil,
@@ -428,6 +431,78 @@ function planDraft(state, sim, players) {
   return moves;
 }
 
+/* ── Karaoke (docs/KARAOKE.md): the pick window and the room's votes ──
+   In the window a simulated player with a profile song keeps it
+   (karaokeReady); one without takes a practice song in the game only
+   (karaokeSimSong, never a profile). Over each song, every simulated voter
+   votes Build Battle's way, while they watch: most during the song, some
+   in the grace after it, a few changing their mind once. A singer's
+   knack sets where the room's tiers sit, so the night has a winner and
+   now and then a Legendary rain. */
+export const SIM_KARAOKE = Object.freeze({
+  pickMs:[4000, 40000],
+  /* when a vote lands, as a share of the song; past 1 it is in the grace */
+  voteFrac:[0.3, 1],
+  graceMs:[1000, 12000], grace:0.2,
+  change:0.15, changeMs:[4000, 20000],
+  /* a vote lands at least this long before the vote closes */
+  edgeMs:1500,
+});
+/* a voter's tier for a singer: the singer's knack, a voter's taste around it */
+export function karaokeSimTier(sim, singer, voter, salt = "") {
+  const quality = knack(sim, "karaoke", singer);
+  const noise = simHash(sim.seed, "karaoke", singer, voter, "n1", salt) + simHash(sim.seed, "karaoke", singer, voter, "n2", salt) - 1;
+  return Math.max(1, Math.min(KARAOKE_TIERS.length, Math.round(1 + 5.4 * quality + 1.8 * noise)));
+}
+function planKaraoke(state, sim, players) {
+  const game = state?.karaoke;
+  if (!game?.id || !karaokeLive(state) || game.empty) return [];
+  const moves = [];
+  if (game.phase === "pick") {
+    const opens = startOf(sim, game.startedAt);
+    const last = num(game.pickUntil) - SIM_KARAOKE.edgeMs;
+    for (const player of players) {
+      if (game.ready?.[player]) continue;
+      const h = field => simHash(sim.seed, "karaoke", game.id, player, field);
+      const at = Math.min(last, opens + between(SIM_KARAOKE.pickMs, h("pick")));
+      const keep = hasKaraokeSong(state, player) && game.broken?.[player] === undefined;
+      moves.push(keep
+        ? { at:Math.round(at), type:"karaokeReady", player, payload:{ gameId:game.id }, key:`sim:karaoke:${game.id}:${player}:pick` }
+        : { at:Math.round(at), type:"karaokeSimSong", player,
+          payload:{ gameId:game.id, k:Math.floor(h("song") * KARAOKE_PRACTICE_SONGS.length) },
+          key:`sim:karaoke:${game.id}:${player}:pick` });
+    }
+    return moves;
+  }
+  if (game.phase !== "turns") return [];
+  const singer = karaokeSinger(game), turn = karaokeTurn(game, singer);
+  if (!singer || !turn || turn.closedAt || turn.skipped || !Number.isFinite(turn.songAt)) return [];
+  const songAt = startOf(sim, turn.songAt), endAt = num(turn.endAt), closeAt = num(turn.closeAt);
+  const last = closeAt - SIM_KARAOKE.edgeMs;
+  if (last <= songAt) return [];
+  const voters = new Set(karaokeVoters(state, singer));
+  for (const voter of players) {
+    if (!voters.has(voter)) continue;
+    const prior = game.votes?.[singer]?.[voter] || null;
+    const h = field => simHash(sim.seed, "karaoke", game.id, singer, voter, field);
+    const tier = karaokeSimTier(sim, singer, voter);
+    const changes = h("change") < SIM_KARAOKE.change;
+    const len = Math.max(0, endAt - songAt);
+    const first = Math.min(last, h("grace") < SIM_KARAOKE.grace ? Math.max(songAt, endAt) + between(SIM_KARAOKE.graceMs, h("graceMs"))
+      : songAt + len * between(SIM_KARAOKE.voteFrac, h("when")));
+    const vote = (at, value, step) => ({ at:Math.round(at), type:"karaokeVote", player:voter,
+      payload:{ gameId:game.id, index:game.index, singer, tier:value }, key:`sim:karaoke:${game.id}:${singer}:${voter}:${step}` });
+    if (!prior) {
+      /* a change of mind starts a tier off */
+      const down = tier === KARAOKE_TIERS.length || (tier > 1 && h("way") < 0.5);
+      moves.push(vote(first, changes ? tier + (down ? -1 : 1) : tier, "a"));
+    } else if (changes && Number(prior.tier) !== tier) {
+      moves.push(vote(Math.min(last, Math.max(first, num(prior.at)) + between(SIM_KARAOKE.changeMs, h("changeMs"))), tier, "b"));
+    }
+  }
+  return moves;
+}
+
 /* ── Run the night: the commissioner's beats on a human clock ──
    With qaSim.night on, the director pill's own beats (resolveDirector, the
    lifecycle without Show Control's scene steps, which the autopilot runs)
@@ -544,12 +619,12 @@ function planNight(state, sim, players) {
   }
 }
 
-/* One planner per game: (state, sim, players, now) => moves. Karaoke adds
-   its planner here when it lands. */
+/* One planner per game: (state, sim, players, now) => moves */
 export const SIM_PLANNERS = Object.freeze({
   trivia:planTrivia,
   board:planBoard,
   geo:planGeo,
+  karaoke:planKaraoke,
   bets:planBets,
   draft:planDraft,
   /* the commissioner's beats, only with "Run the night" */

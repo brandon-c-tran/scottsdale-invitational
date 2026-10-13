@@ -49,7 +49,7 @@ export const KARAOKE_ACTION_TYPES = Object.freeze([
   "karaokeStart", "karaokeMoreTime", "karaokeEndPick", "karaokeStartSong", "karaokeEndSong", "karaokeNextVideo",
   "karaokeLater", "karaokeSkip", "karaokeNext", "karaokeFinish", "karaokeRestart",
   "karaokeTvPlaying", "karaokeTvError", "karaokePreflight",
-  "karaokeSimSongs", "karaokeSimVotes",
+  "karaokeSimSongs", "karaokeSimVotes", "karaokeSimSong",
 ]);
 
 /* retried writes the ledger remembers, per scope (the commissioner's
@@ -632,6 +632,26 @@ export function karaokeActions({ ok, err, gmOnly, run }) {
           voted += 1;
       }
       return voted ? ok({ voted }) : err("Everyone has voted");
+    },
+    /* A simulated player's own pick in the window (shared/qaSim.js, "Sim
+       players" only, never a phone): a practice song in the game only
+       (never a profile), `k` choosing which, and locked in. */
+    karaokeSimSong(state, { gameId, k } = {}, ctx) {
+      if (!ctx?.sim || !ctx.qa || ctx.isGm) return err("QA is unavailable");
+      const player = ctx.player;
+      if (!player || !isActivePlayer(player, state)) return err("Check in first");
+      const game = pickWindow(state);
+      if (!game || game.id !== gameId) return err("Song picks are closed");
+      if (isAbsent(state, player)) return absentError(state, player);
+      const practice = KARAOKE_PRACTICE_SONGS[Math.abs(Math.floor(Number(k) || 0)) % KARAOKE_PRACTICE_SONGS.length];
+      if (game.ready?.[player] && game.songs?.[player]?.trackId === practice.trackId) return ok({ unchanged:true });
+      game.songs = { ...(game.songs || {}), [player]:karaokeSnapshot(practice) };
+      game.ready = { ...(game.ready || {}), [player]:Date.now() };
+      if (game.broken?.[player] !== undefined) {
+        game.broken = { ...game.broken };
+        delete game.broken[player];
+      }
+      return ok({ ready:true });
     },
   };
   return actions;

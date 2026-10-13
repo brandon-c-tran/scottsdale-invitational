@@ -480,6 +480,19 @@ test("every scene draws on the painting with its cast, letters the name and the 
   }
 });
 
+test("the sky's dim lies over the painting and under the scene: no cast is ever dimmed (Oct 13)", () => {
+  for (const id of ["pyramid", "statue", "quickdraw"]) {
+    const bit = bitById(id);
+    const cast = registry.isTeamBit(bit) ? { a:["Adi", "Chiang", "Richard"] } : bit.shape === "versus" ? { a:["Khoa"], b:["Sahil"] } : { a:["Eyob"] };
+    const html = stage({ bit:id, cast, at:bit.still, frozen:true });
+    const painting = html.indexOf("bit-painting"), dim = html.indexOf('class="bit-dim"'), scene = html.indexOf('class="bit-scene"');
+    assert.ok(painting > 0 && dim > painting && scene > dim, `${id}: painting, then the dim, then the cast`);
+    const worlds = [...html.matchAll(/<div class="bit-world[^"]*" style="([^"]*)"/g)].map(m => m[1]);
+    assert.equal(worlds.length, 2, `${id}: the shot in two layers`);
+    assert.equal(worlds[0], worlds[1], `${id}: on one camera`);
+  }
+});
+
 test("reduced motion holds the bit's still; a screen joining late starts where the bit is", () => {
   const bit = bitById("anvil");
   const still = stage({ bit:"anvil", cast:{ a:["Evan"] }, reduced:true });

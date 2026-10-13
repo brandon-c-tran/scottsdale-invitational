@@ -7,7 +7,6 @@
 .is-statue .st-node { position:absolute; display:block; width:0; height:0; }
 .is-statue .st-rise { position:absolute; inset:0; }
 .is-statue .st-ground { position:absolute; left:0; top:0; width:1920px; overflow:hidden; }
-.is-statue .bit-dim { opacity:.55; }
 
 /* ── the pose: a crouch, then up into it: the front finger thrust at
    the sky, the back fist on the hip, chin up (both copies alike) ── */

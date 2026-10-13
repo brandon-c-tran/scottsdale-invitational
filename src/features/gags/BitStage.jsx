@@ -109,6 +109,12 @@ export function BitLayer({ bit: bitOrId, cast = {}, state = null, phase = "fri",
   const lettered = unlettered ? null : name !== undefined ? name : side[0] ? displayName(state, side[0]) : null;
   const told = unlettered ? null : fact;
   const motion = value => value ? { "--ba":value, animation:"var(--ba)" } : {};
+  /* the shot is two layers on one camera (the same animation from the
+     same instant, so they never part): the painting, then the sky's dim,
+     then the scene. The dim is for the lettering against the painting; the
+     cast stands over it at full light however high a bit stacks it (an
+     unlettered bit, idle, has no dim at all) */
+  const world = { transform:camera.rest, ...motion(camera.name && `${camera.name} ${bit.ms}ms linear calc(var(--tl) + 0ms) both`) };
   return (
     <div ref={layer} className={`bit-layer bit-art is-${bit.id} is-${bit.shape}${held ? " is-frozen" : ""}`} data-bit={bit.id}
       role="img" aria-label={[lettered, told].filter(Boolean).join(", ") || bit.name}
@@ -117,16 +123,15 @@ export function BitLayer({ bit: bitOrId, cast = {}, state = null, phase = "fri",
       {camera.css && <style>{camera.css}</style>}
       <div className="bit-shake" style={motion(runOf(shakes, (shake, fill) =>
         `${shake.big ? "bit-shake-big 320ms" : "bit-shake 240ms"} linear calc(var(--tl) + ${Math.round(shake.at)}ms) ${fill}`))}>
-        <div className="bit-world" style={{ transform:camera.rest,
-          ...motion(camera.name && `${camera.name} ${bit.ms}ms linear calc(var(--tl) + 0ms) both`) }}>
+        <div className="bit-world" style={world}>
           <Backglass phase={phase} className="bit-painting" />
           <div className="bit-floorlight" />
+        </div>
+        {!unlettered && <div className="bit-dim" />}
+        <div className="bit-world is-cast" style={world}>
           <div className="bit-scene">{Scene && <Scene bit={bit} cast={cast} state={state} mode={mode} reduced={reduced} phase={phase} />}</div>
         </div>
       </div>
-      {/* the sky's dim is for the lettering: an unlettered bit (idle) keeps
-         the painting at full light, the cast up high included */}
-      {!unlettered && <div className="bit-dim" />}
       {/* the white frame lands just before its instant, so the instant itself shows what lit it */}
       {washes.length > 0 && <div className="bit-wash" style={motion(runOf(washes, (ms, fill) =>
         `bit-wash 40ms linear calc(var(--tl) + ${Math.round(ms) - 40}ms) ${fill}`))} />}

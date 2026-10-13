@@ -8,9 +8,7 @@
 
 /* ── the pit: the floor's own dark, deeper, the far wall inside its far
    rim in the painting's shade, a lit near lip. Whatever drops down it is
-   cut off at its middle (.bt-pit). The sky's dim is lighter here: B
-   stands high in the frame ── */
-.is-butte .bit-dim { opacity:.4; }
+   cut off at its middle (.bt-pit) ── */
 .is-butte .bt-hole { position:absolute; left:0; top:0; display:block; overflow:visible; }
 .is-butte .bt-void { fill:color-mix(in srgb, var(--d-near, var(--ink0)) 35%, var(--ink0)); }
 .is-butte .bt-wall { fill:color-mix(in srgb, var(--d-shade, var(--bit-desert-rock-shade)) 80%, var(--ink0)); }

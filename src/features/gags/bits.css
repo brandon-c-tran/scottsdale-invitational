@@ -30,8 +30,10 @@
   animation:var(--ba); }
 @keyframes bit-in { from { opacity:0; } to { opacity:1; } }
 @keyframes bit-out { from { opacity:1; } to { opacity:0; } }
-/* the sky dims a little so the lettering and the cast stand off the art */
-.bit-dim { position:absolute; inset:0; pointer-events:none;
+/* the sky dims a little so the lettering stands off the art: drawn over
+   the painting and under the scene (BitStage.jsx), so no cast is ever
+   dimmed; it rides the shake, so it reaches past the canvas's edges */
+.bit-dim { position:absolute; inset:-48px; pointer-events:none;
   background:linear-gradient(180deg, color-mix(in srgb, var(--night-deep) 52%, transparent),
     color-mix(in srgb, var(--night-deep) 18%, transparent) 46%, transparent 70%); }
 /* the shot: the painting, the floor's light and the scene, zoomed and

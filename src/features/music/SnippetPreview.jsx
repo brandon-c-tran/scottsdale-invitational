@@ -1,8 +1,9 @@
 import React, { useEffect, useRef, useState } from "react";
 import { songSnippet } from "../../lib/client.js";
 import { setPreviewSession } from "../../lib/sound.js";
-import { onClipStart, stopPreview } from "./previewPlayer.js";
+import { clipStarting, onClipStart, stopPreview } from "./previewPlayer.js";
 import { songClock } from "./winSongModel.js";
+import { loadYouTube } from "../../lib/youtube.js";
 
 /* "Preview 1:05 to 1:35": the song's album upload on YouTube (worker/
    youtube.js), played in YouTube's own visible player from the start point
@@ -10,23 +11,6 @@ import { songClock } from "./winSongModel.js";
    may want the first play tapped on the video itself; after that the
    button plays it. The 30-second clip on the cover and this never play
    together. */
-const API_URL = "https://www.youtube.com/iframe_api";
-let apiPromise = null;
-function loadYouTube() {
-  if (typeof window === "undefined") return Promise.reject(new Error("No window"));
-  if (window.YT?.Player) return Promise.resolve(window.YT);
-  if (apiPromise) return apiPromise;
-  apiPromise = new Promise((resolve, reject) => {
-    const earlier = window.onYouTubeIframeAPIReady;
-    window.onYouTubeIframeAPIReady = () => { try { earlier?.(); } catch {} resolve(window.YT); };
-    const script = document.createElement("script");
-    script.src = API_URL;
-    script.async = true;
-    script.onerror = () => { apiPromise = null; reject(new Error("YouTube unavailable")); };
-    document.head.appendChild(script);
-  });
-  return apiPromise;
-}
 const PLAYING = 1;
 
 export function SnippetPreview({ track, from, to, find = songSnippet }) {
@@ -41,7 +25,9 @@ export function SnippetPreview({ track, from, to, find = songSnippet }) {
     if (host.current) host.current.textContent = "";
     setView({ status:"idle", error:"" });
   }, [track.trackId]);
-  useEffect(() => onClipStart(() => { try { player.current?.pauseVideo(); } catch {} }), []);
+  /* one source at a time: a clip or another YouTube preview starting pauses this one */
+  const pause = useRef(() => { try { player.current?.pauseVideo(); } catch {} });
+  useEffect(() => onClipStart(pause.current), []);
   /* the window moved: cue the new bounds (a playing snippet restarts there) */
   useEffect(() => {
     if (!player.current?.cueVideoById || !video.current) return undefined;
@@ -78,7 +64,7 @@ export function SnippetPreview({ track, from, to, find = songSnippet }) {
         onReady:event => { try { event.target.playVideo(); } catch {} },
         onStateChange:event => {
           playing.current = event.data === PLAYING;
-          if (playing.current) { stopPreview(); setPreviewSession(true); }
+          if (playing.current) { stopPreview(); clipStarting(pause.current); setPreviewSession(true); }
           setView(current => ({ ...current, status:playing.current ? "playing" : "ready" }));
         },
       },

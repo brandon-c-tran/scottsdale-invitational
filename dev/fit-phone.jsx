@@ -40,8 +40,13 @@ try {
 
 /* `catalog` (the Win song picker) and `push` (pocket alerts): the Ready check's views */
 const capabilities = { qa:qaOn, progressReset:qaOn, restore:false, snapshotExport:false, showControl:gm && !!scenario.show,
-  audioDirector:gm && !!scenario.audio, audioCatalog:gm && !!scenario.catalog, audioPlayback:false, push:gm && !!scenario.push };
+  audioDirector:gm && !!scenario.audio, audioCatalog:gm && !!scenario.catalog, audioPlayback:false, push:gm && !!scenario.push,
+  /* `karaoke`: the karaoke song picker (anyone's profile) */
+  karaoke:!!scenario.karaoke };
 globalThis.__FIT_SPOTIFY__ = scenario.spotify || null;
+/* the Karaoke desk and its Ready check row (`karaoke`), and its stubbed video check */
+if (gm && scenario.karaoke) capabilities.karaoke = true;
+globalThis.__FIT_KARAOKE_CHECK__ = scenario.karaokeCheck || null;
 let version = 1;
 const frame = () => ({ state:publicState(state, { isGm:gm, player:me }, { moments:state.moments }), you:me, gm, capabilities, version:++version,
   ...(gm && scenario.tvs ? { tvs:scenario.tvs, tvsAt:Date.now() } : {}) });
@@ -240,6 +245,25 @@ async function openSheet(kind) {
   if (kind === "lastcard" || kind === "auto") return !!document.querySelector(".fd-sheet, [role=dialog]");
   /* your profile from the header, and Weekend's Add to Home Screen opened */
   if (kind === "profile") return tap(() => [...document.querySelectorAll("header button[aria-label='Your profile']")].find(visible));
+  /* the profile's Karaoke section; `-found`: a song searched and picked, its
+     videos the scenario's stand-ins (never Spotify or YouTube) */
+  if (kind === "profile-karaoke" || kind === "profile-karaoke-found") {
+    if (!await tap(() => [...document.querySelectorAll("header button[aria-label='Your profile']")].find(visible))) return false;
+    await sleep(600);
+    if (!await tap(() => [...document.querySelectorAll(".fd-profile-sections button")]
+      .find(b => visible(b) && b.textContent.trim() === "Karaoke"))) return false;
+    await sleep(400);
+    if (kind === "profile-karaoke") return !!document.querySelector(".fd-ksong");
+    const input = [...document.querySelectorAll(".fd-ksong input[type=search]")].find(visible);
+    if (!input) return false;
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(input, "dont stop believin");
+    input.dispatchEvent(new Event("input", { bubbles:true }));
+    await sleep(900);
+    if (!await tap(() => [...document.querySelectorAll(".fd-ksong .fd-song-use")].find(visible))) return false;
+    await sleep(900);
+    document.activeElement?.blur?.();
+    return document.querySelectorAll(".fd-ksong-video").length === 3;
+  }
   if (kind === "install-open") {
     const box = document.querySelector(".fd-weekend-install");
     if (!box) return false;
@@ -281,6 +305,24 @@ async function openSheet(kind) {
       && b.querySelector(".fd-menu-name")?.textContent.trim() === "Trivia"));
     await sleep(900);
     return ok && !!document.querySelector(".fd-trivia-desk");
+  }
+  /* the commissioner's Karaoke desk, from its menu row: as it opens (songs
+     hidden), and with Show songs and Check videos tapped (the scenario's
+     stubbed check answering) */
+  if (kind === "karaoke-desk" || kind === "karaoke-desk-shown") {
+    const opened = await tap(() => [...document.querySelectorAll("header button[aria-label='Commissioner']")].find(visible));
+    if (!opened) return false;
+    await sleep(600);
+    const ok = await tap(() => [...document.querySelectorAll("[role=dialog] .fd-menu-row")].find(b => visible(b)
+      && b.querySelector(".fd-menu-name")?.textContent.trim() === "Karaoke"));
+    await sleep(900);
+    if (!ok || !document.querySelector(".fd-karaoke-desk")) return false;
+    if (kind === "karaoke-desk") return true;
+    const button = text => [...document.querySelectorAll(".fd-karaoke-desk-actions button")].find(b => b.textContent.trim() === text);
+    await tap(() => button("Show songs"));
+    await tap(() => button("Check videos"));
+    await sleep(600);
+    return !!document.querySelector(".fd-karaoke-desk-row.is-ready");
   }
   /* the commissioner's Who is coming, Travel sheet and Ready check, from their menu rows */
   if (kind === "roster" || kind === "travel-sheet" || kind === "ready-check" || kind === "settings") {
@@ -358,6 +400,12 @@ async function openSheet(kind) {
   }
   /* "event" opens the live (else the next) event from the Events tab;
      "event-<name>" the row whose name starts with it */
+  /* Karaoke's drawn how-to, from Weekend's Games sheet */
+  if (kind === "weekend-karaoke") {
+    const ok = await tap(() => [...document.querySelectorAll("main button")].find(b => visible(b) && b.textContent.trim() === "Games"));
+    await sleep(700);
+    return ok && tap(() => [...document.querySelectorAll("[role=dialog] button")].find(b => visible(b) && /Karaoke/.test(b.textContent)));
+  }
   /* Weekend's back page and photos: the tile (or All) that opens the sheet,
      and one game from the Games sheet */
   if (kind.startsWith("weekend-")) {

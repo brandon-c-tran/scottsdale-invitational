@@ -100,6 +100,11 @@
   --action-fill:var(--sun); --action-ink:var(--ink0);
   --chrome:rgba(9,11,20,.96); --chrome-line:var(--line);
   --fd-nav-height:calc(74px + env(safe-area-inset-bottom));
+  /* Karaoke's six vote tiers (docs/KARAOKE.md), Build Battle's terracotta
+     clays as painted inserts, never lamps: Super Poop, Poop, OK, Good, Epic,
+     Legendary. Bone ink on all but Legendary's ochre, which takes the dark ink. */
+  --tier-1:#8e3c2e; --tier-2:#a04d4e; --tier-3:#677535; --tier-4:#4c522a; --tier-5:#7a4958; --tier-6:#ba8524;
+  --tier-ink:var(--bone); --tier-6-ink:var(--ink0);
 }
 /* The glass stays blue-black in every session; the session shows in the
    painted sky (GlassArt, the TV backglass) and in its own lamp, --phase. */

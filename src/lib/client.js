@@ -73,6 +73,7 @@ const DEFAULT_CAPABILITIES = {
   audioCatalog:false,
   audioPlayback:false,
   push:false,
+  karaoke:false,
 };
 const snapshot = {
   state: EMPTY_STATE,
@@ -574,6 +575,24 @@ export async function triviaPhotoUrl(id) {
     return r.ok ? URL.createObjectURL(await r.blob()) : null;
   } catch { return null; }
 }
+
+/* Karaoke songs on YouTube (worker/tournament.js handleKaraoke): a chosen
+   song's karaoke uploads { videos }, a pasted link's check { video }, and
+   the commissioner's check of every saved video { results } (the GM token
+   rides momentHeaders). A lookup is two YouTube calls of up to 8 seconds
+   each, so 12 seconds. A failure carries the server's line and, for
+   YouTube's own refusals, a `code` (none, quota, busy, key, embedding...). */
+const KARAOKE_LOOKUP_MS = 12000;
+const KARAOKE_SLOW = "YouTube did not answer. Try again";
+export const karaokeVideos = ({ trackId = "", name = "", artist = "", durationMs = 0 } = {}) =>
+  momentRequest(`/api/karaoke/videos?${new URLSearchParams({ trackId, name, artist, durationMs:String(durationMs || 0) })}`,
+    { headers:momentHeaders(), cache:"no-store" },
+    { ms:KARAOKE_LOOKUP_MS, timeout:KARAOKE_SLOW, failed:"Couldn't find videos. Try again." });
+export const karaokeVideo = id => momentRequest(`/api/karaoke/video?${new URLSearchParams({ id:String(id || "") })}`,
+  { headers:momentHeaders(), cache:"no-store" },
+  { ms:KARAOKE_LOOKUP_MS, timeout:KARAOKE_SLOW, failed:"Couldn't check that link. Try again." });
+export const karaokeCheck = () => momentRequest("/api/admin/karaoke/check", { headers:momentHeaders(), cache:"no-store" },
+  { ms:KARAOKE_LOOKUP_MS, timeout:KARAOKE_SLOW, failed:"Couldn't check the videos. Try again." });
 
 /* Crash reports for `wrangler tail`. Best effort, never throws. */
 export function reportClientError(report) {

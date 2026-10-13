@@ -87,6 +87,7 @@ import { JerseySection } from "./features/jersey/Jersey.jsx";
 import { TripDetails } from "./features/profile/TripDetails.jsx";
 import { cleanBackName, cleanVenmo, jerseyConfirmed, setupTodo } from "../shared/guestSetup.js";
 import { WinSongPicker } from "./features/music/WinSongPicker.jsx";
+import { KaraokeSongPicker } from "./features/karaoke/KaraokeSongPicker.jsx";
 import { deskNote } from "./features/awards/awardsModel.js";
 import { directorPill } from "./features/director/directorPill.js";
 import { resolveShowScene, resolveDirector, autopilotHeld } from "../shared/show.js";
@@ -103,6 +104,7 @@ import { Tag, ActionButton, IconButton, Btn, Sheet, SheetDock } from "./ui/contr
 import { MenuSections } from "./ui/Menu.jsx";
 import { commissionerMenu, moreMenu, settingsMenu, settingsOff } from "./features/director/menuModel.js";
 import { readyCheck, readyTodo, readyValue } from "./features/director/readyCheck.js";
+import { karaokeSongCount } from "./features/karaoke/deskModel.js";
 import { tvAmbient, tvNowLabel } from "./features/director/tvSheetModel.js";
 import { speakerValue } from "./features/speaker/speakerModel.js";
 import { setSpeakerStatus, useSpeakerStatus } from "./features/speaker/speakerStatus.js";
@@ -117,6 +119,7 @@ const QABar = /* @__PURE__ */ lazyPart(() => import("./features/qa/QABar.jsx"), 
 const QASheet = /* @__PURE__ */ lazyPart(() => import("./features/qa/QASheet.jsx"), "QASheet");
 const GeoDesk = /* @__PURE__ */ lazyPart(() => import("./features/geo/GeoDesk.jsx"), "GeoDesk");
 const TriviaDesk = /* @__PURE__ */ lazyPart(() => import("./features/trivia/TriviaDesk.jsx"), "TriviaDesk");
+const KaraokeDesk = /* @__PURE__ */ lazyPart(() => import("./features/karaoke/KaraokeDesk.jsx"), "KaraokeDesk");
 const AwardsDesk = /* @__PURE__ */ lazyPart(() => import("./features/awards/AwardsDesk.jsx"), "AwardsDesk");
 const PokerSetupSheet = /* @__PURE__ */ lazyPart(() => import("./features/director/FinaleSheets.jsx"), "PokerSetupSheet");
 const CrownSheet = /* @__PURE__ */ lazyPart(() => import("./features/director/FinaleSheets.jsx"), "CrownSheet");
@@ -126,7 +129,7 @@ const ReadyCheck = /* @__PURE__ */ lazyPart(() => import("./features/director/Re
 /* Scan the TV: the scanner (and its decoder, loaded inside it) only once a guest opens it */
 const ArriveScanner = /* @__PURE__ */ lazyPart(() => import("./features/arrivals/Scanner.jsx"), "ArriveScanner");
 const COMMISSIONER_PARTS = [QABar, QASheet, GeoDesk, TriviaDesk, AwardsDesk, PokerSetupSheet, CrownSheet, TvSheet, SpeakerSheet,
-  ReadyCheck];
+  KaraokeDesk, ReadyCheck];
 
 
 const prefersReducedMotion = () => typeof window !== "undefined" &&
@@ -1574,6 +1577,7 @@ function TournamentApp({ tournament, onUpdateReload }) {
     away:Object.keys(state.away || {}), out:Object.keys(state.out || {}), coming:rosterOf(state).length, geoPhotos:(state.geoRounds || []).length,
     arrivals:state.arrivals?.open ? { here:rosterOf(state).filter(p => state.arrivals.at?.[p]).length, total:rosterOf(state).length } : null,
     triviaQuestions:triviaQuestionTotal(state.triviaRounds), awardsNote:deskNote(state),
+    karaoke:capabilities.karaoke === true, karaokeSongs:karaokeSongCount(state),
     onDeck:state.onDeck ? onDeckEv?.name || "Open" : null,
     takeBacks:events.filter(ev => announcementTakeBack(state, ev).enabled),
     frozen:state.live && state.frozen, snapshotExport:capabilities.snapshotExport === true,
@@ -1603,6 +1607,7 @@ function TournamentApp({ tournament, onUpdateReload }) {
       case "karaoke": return sheet("karaokeDesk");
       case "geo": return sheet("geoDesk");
       case "trivia": return sheet("triviaDesk");
+      case "karaoke": return sheet("karaokeDesk");
       case "awards": return sheet("awards");
       case "reset": return sheet("resetProgress");
       /* one action, one name: the pill's Lock and start, never a lock alone */
@@ -1662,7 +1667,7 @@ function TournamentApp({ tournament, onUpdateReload }) {
             if (result?.ok) { setFlightsAnswered(true); saveMine(`si-flights-asked:${me}`, "yes"); }
             return result;
           }}
-          setup={me ? setupTodo(state, me, { songs:audioCatalogAllowed }) : []}
+          setup={me ? setupTodo(state, me, { songs:audioCatalogAllowed, karaoke:capabilities.karaoke === true }) : []}
           onSetup={item => setModal({type:"profile", section:item.section})}
           songs={audioCatalogAllowed} onWinSong={() => setModal({type:"profile", section:"walkout"})}
           onScan={me ? () => setModal({ type:"scan" }) : null}
@@ -1750,6 +1755,8 @@ function TournamentApp({ tournament, onUpdateReload }) {
         initialSection={modal.section}
         spotifyCatalogEnabled={audioCatalogAllowed}
         songSnippets={capabilities.songSnippets === true}
+        karaoke={capabilities.karaoke === true}
+        onKaraoke={track => act("karaokeSong", { track }, null, { retry:true, quiet:true })}
         save={async prof => {
           const saved = await saveProfile(me, prof);
           if (saved.ok) { setModal(null); notify(prof.confirmJersey ? "Jersey confirmed" : "Profile saved"); }
@@ -1769,6 +1776,9 @@ function TournamentApp({ tournament, onUpdateReload }) {
       {gmView && modal?.type === "triviaDesk" && <Sheet title="Trivia" onClose={() => setModal(null)} onBack={modalBack}>
         <Suspense fallback={null}><TriviaDesk state={state} me={me} events={events} notify={notify}
           onAct={(type, payload) => act(type, payload)} /></Suspense>
+      </Sheet>}
+      {gmView && modal?.type === "karaokeDesk" && <Sheet title="Karaoke" onClose={() => setModal(null)} onBack={modalBack}>
+        <Suspense fallback={null}><KaraokeDesk state={state} /></Suspense>
       </Sheet>}
       {gmView && modal?.type === "showControl" && <Suspense fallback={null}>
         <TvSheet state={state} events={events} scene={activeShowScene} operationEvent={weekendOperation.event}
@@ -3456,7 +3466,7 @@ function GmDevicesSheet({ state, onClose, onBack, notify, onSignedOut }) {
 }
 
 function ProfileSheet({ state, me, onClose, onBack, initialSection = "card", save, onChip, spotifyCatalogEnabled,
-  songSnippets = false }) {
+  songSnippets = false, karaoke = false, onKaraoke }) {
   const [section, setSection] = useState(initialSection);
   const [display, setDisplay] = useState(state.profiles?.[me]?.display || me || "");
   const [photo, setPhoto] = useState(null);
@@ -3478,14 +3488,15 @@ function ProfileSheet({ state, me, onClose, onBack, initialSection = "card", sav
   const [error, setError] = useState("");
   const pending = useRef(null);
   /* A chip claim and a profile/photo save share one guard. Keep the draft
-     fixed and the sheet open until every write in the operation settles. */
-  const submit = operation => {
+     fixed and the sheet open until every write in the operation settles.
+     `inline`: the control that wrote shows its own failure (the karaoke song) */
+  const submit = (operation, { inline = false } = {}) => {
     if (pending.current) return pending.current;
     setBusy(true); setError("");
     pending.current = Promise.resolve().then(operation)
       .catch(failure => ({ ok:false, error:writeError(failure, "Your profile didn't save. Tap again.") }))
       .then(result => {
-        if (result?.ok !== true) setError(writeError(result, "Your profile didn't save. Tap again."));
+        if (result?.ok !== true && !inline) setError(writeError(result, "Your profile didn't save. Tap again."));
         return result;
       })
       .finally(() => { pending.current = null; setBusy(false); });
@@ -3528,7 +3539,11 @@ function ProfileSheet({ state, me, onClose, onBack, initialSection = "card", sav
   };
   const walkoutSaved = state.profiles?.[me]?.walkoutTrack;
   const walkoutTab = spotifyCatalogEnabled || !!walkoutSaved;
-  const sections = [["card","Card"],["jersey","Jersey"],["travel","Trip"],...(walkoutTab ? [["walkout","Win song"]] : [])];
+  /* the karaoke song saves itself (karaokeSong), never with Save */
+  const karaokeSaved = state.profiles?.[me]?.karaokeTrack || null;
+  const karaokeTab = karaoke || !!karaokeSaved;
+  const sections = [["card","Card"],["jersey","Jersey"],["travel","Trip"],...(walkoutTab ? [["walkout","Win song"]] : []),
+    ...(karaokeTab ? [["karaoke","Karaoke"]] : [])];
   if (!me) return null;
   return (
     <Sheet title="Your profile" onClose={close} onBack={onBack} busy={busy}>
@@ -3561,18 +3576,23 @@ function ProfileSheet({ state, me, onClose, onBack, initialSection = "card", sav
         {spotifyCatalogEnabled ? <WinSongPicker value={walkoutTrack} onChange={setWalkoutTrack} snippets={songSnippets} />
           : <SpotifyTrackCard track={walkoutSaved} />}
       </div>}
+      {karaokeTab && <div hidden={section !== "karaoke"}>
+        <KaraokeSongPicker value={karaokeSaved} enabled={karaoke && !!onKaraoke} active={section === "karaoke"}
+          onChoose={track => submit(() => onKaraoke(track), { inline:true })} />
+      </div>}
       </fieldset>
-      <div className="fd-profile-save">
+      {/* the Karaoke section's Use is its save: no second Save there */}
+      {(section !== "karaoke" || confirmDiscard || error) && <div className="fd-profile-save">
       {confirmDiscard && <div className="fd-profile-discard" role="alert">
         <p>Your new photo is not saved.</p>
         <div><ActionButton compact variant="destructive" onClick={onClose}>Discard photo</ActionButton>
           <ActionButton compact variant="secondary" onClick={() => setConfirmDiscard(false)}>Keep editing</ActionButton></div>
       </div>}
       {error && <div role="alert" style={{ fontFamily:SANS, fontSize:13, color:"var(--clay-text)", marginTop:14 }}>{error}</div>}
-      <ActionButton disabled={busy || !display.trim() || badDraft} pending={busy}
+      {section !== "karaoke" && <ActionButton disabled={busy || !display.trim() || badDraft} pending={busy}
         onClick={() => submit(() => save(confirming ? { ...changedFields(), confirmJersey:true } : changedFields()))}
-        style={{ width:"100%", fontSize:16, padding:"14px" }}>{confirming ? "Confirm jersey" : "Save"}</ActionButton>
-      </div>
+        style={{ width:"100%", fontSize:16, padding:"14px" }}>{confirming ? "Confirm jersey" : "Save"}</ActionButton>}
+      </div>}
     </Sheet>
   );
 }

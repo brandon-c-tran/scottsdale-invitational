@@ -184,6 +184,74 @@ function Where() {
   />;
 }
 
+/* ── Karaoke: the follow spot sweeps the stage and finds the mic, the grille
+   lights, the words start to roll ── */
+function Karaoke() {
+  /* the beam fades in from under the name and ends on the boards; its
+     gradient and its floor are this scene's own */
+  const own = React.useId().replace(/[^a-z0-9]/gi, "");
+  const beam = `fi-beam-${own}`, boards = `fi-boards-${own}`;
+  const light = "var(--art-cream)";
+  const wood = mix("var(--art-plum)", 62, "var(--art-umber)");
+  const glass = mix("var(--art-indigo)", 72, K);
+  /* the spot hangs out of frame, up and to the left; at rest it is on the mic */
+  const cone = "M388 -220H412L676 500H404Z";
+  return <Plates
+    far={<>
+      {/* the lyrics screen on its stand, behind the stage */}
+      <path d="M776 400V476" stroke={K} strokeWidth="12" />
+      <rect x="648" y="262" width="256" height="146" rx="10" fill={K} />
+      <rect x="660" y="274" width="232" height="122" rx="4" fill={glass} />
+      <path d="M684 316H868M702 352H850" stroke={BONE} strokeOpacity=".22" strokeWidth="10" strokeLinecap="round" />
+      <path d="M684 316H868" stroke={light} strokeWidth="10" strokeLinecap="round"
+        style={{ ...box, transformOrigin:"left center", ...run("fi-wipe", 1500, T.hit + 80, "linear") }} />
+    </>}
+    mid={<>
+      <path d="M330 468H870L940 522H260Z" fill={wood} stroke={K} strokeWidth="5" strokeLinejoin="round" />
+      <path d="M260 522H940V556H260Z" fill={mix(wood, 55, K)} stroke={K} strokeWidth="5" strokeLinejoin="round" />
+      <path d="M340 476H860" stroke={BONE} strokeOpacity=".12" strokeWidth="6" />
+      {/* the pool the spot lays on the boards */}
+      <ellipse cx="540" cy="498" rx="138" ry="22" fill={light} fillOpacity=".3" style={{ ...box, ...run("fi-spot-snap", 240, T.hit, "linear") }} />
+      {/* the stand, its cable run off across the stage */}
+      <path d="M548 356C566 392 548 440 560 474S650 508 690 490" fill="none" stroke={K} strokeWidth="5" strokeLinecap="round" />
+      <ellipse cx="540" cy="496" rx="44" ry="10" fill={K} />
+      <path d="M540 494V338" stroke={K} strokeWidth="13" strokeLinecap="round" />
+      <path d="M540 492V340" stroke="var(--silver)" strokeWidth="5" />
+      <g transform="rotate(-14 540 338)">
+        <path d="M530 342h20" stroke={K} strokeWidth="10" strokeLinecap="round" />
+        <path d="M528 296L534 344H546L552 296Z" fill={mix(K, 80, BONE)} stroke={K} strokeWidth="4" strokeLinejoin="round" />
+        <rect x="524" y="286" width="32" height="12" rx="3" fill="var(--silver)" stroke={K} strokeWidth="4" />
+        {/* the grille, dark until the spot finds it */}
+        <circle cx="540" cy="266" r="25" fill={mix("var(--silver)", 40, K)} stroke={K} strokeWidth="5" />
+        <path d="M518 258H562M518 274H562M529 246V286M540 242V290M551 246V286" stroke={K} strokeOpacity=".55" strokeWidth="2.5" />
+        <g style={run("fi-spot-snap", 240, T.hit, "linear")}>
+          <circle cx="540" cy="266" r="22.5" fill={light} />
+          <path d="M520 258H560M520 274H560M529 247V285M540 244V288M551 247V285" stroke={mix(light, 50, K)} strokeWidth="2.5" />
+          <path d="M526 252a18 18 0 0 1 16-7" fill="none" stroke={BONE} strokeWidth="4" strokeLinecap="round" />
+        </g>
+      </g>
+    </>}
+    near={<>
+      <defs>
+        <linearGradient id={beam} gradientUnits="userSpaceOnUse" x1="0" y1="180" x2="0" y2="380">
+          <stop offset="0" stopColor={light} stopOpacity="0" />
+          <stop offset="1" stopColor={light} stopOpacity="1" />
+        </linearGradient>
+        <clipPath id={boards}><rect x="-400" y="-300" width="2000" height="812" /></clipPath>
+      </defs>
+      {/* the follow spot comes up dim off the mic and swings onto it */}
+      <g clipPath={`url(#${boards})`}>
+        <g style={{ transformOrigin:"400px -220px", ...run("fi-spot-sweep", T.hit - T.play, T.play, "cubic-bezier(.45,.05,.4,1)") }}>
+          <path d={cone} fill={`url(#${beam})`} fillOpacity=".14" style={run("fi-on", 220, T.play)} />
+        </g>
+      </g>
+      {/* and opens up full on the hit */}
+      <path d={cone} fill={`url(#${beam})`} fillOpacity=".26" style={run("fi-spot-snap", 240, T.hit, "linear")} />
+      <Burst x={523} y={268} r={58} />
+    </>}
+  />;
+}
+
 /* courts share their wood */
 const WOOD_COURT = mix("var(--art-tangerine)", 52, "var(--art-umber)");
 function Ball({ r, fill = "var(--art-tangerine)", seams = true }) {
@@ -564,7 +632,7 @@ function MarkScene({ gameId, variant }) {
 
 /* the registry: one scene per INTRO_SCENES key (introTiming.js) */
 export const SCENES = Object.freeze({
-  putting:Putting, die:Die, where:Where, "basketball:5v5":FullCourt, pickleball:Pickleball,
+  putting:Putting, die:Die, where:Where, karaoke:Karaoke, "basketball:5v5":FullCourt, pickleball:Pickleball,
   "basketball:1v1":OneOnOne, volleyball:Volleyball, trivia:Trivia, "8ball":EightBall, pong:Pong,
   ragecage:RageCage, beerio:Kart, poker:Poker,
 });

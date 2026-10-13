@@ -859,6 +859,37 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   its chip at one size, the record as one big numeral (chips amber, a loss
   clay, counts bone; "3 to 1" between two sides, the side behind lilac),
   rising in on the turn's own instant. Fit views `tv-records-*`.
+- **Karaoke songs** (Oct 12, docs/KARAOKE.md "YouTube"; `worker/karaokeVideos.js`,
+  `features/karaoke/KaraokeSongPicker.jsx` on the pure `songPick.js`): a
+  guest searches Spotify (the win song's `SongSearch`), picks, and `GET
+  /api/karaoke/videos` (device claim or GM token, 10 lookups a device a
+  minute) runs ONE search.list ("{first artist} {song name} karaoke",
+  release suffix and featured artists dropped by `songTitle`/
+  `karaokeSongName`) and ONE videos.list; `chooseKaraoke` keeps uploads an
+  embedded player can play in the US (embeddable, public or unlisted,
+  processed, not age restricted, not blocked in the US, not live, 60 to 900
+  s) that say karaoke, never a "- Topic" channel or Sing King, and ranks
+  the song's own name, then `KARAOKE_CHANNELS` (Stingray first), then title
+  words, then the length nearest Spotify's, one per channel first: up to
+  three, kept in `private:karaoke:<trackId>` 30 days (YouTube's storage
+  rule; a miss a day; a failure never). The win song's
+  `private:youtube:<trackId>` refreshes after 30 days too. A quota answer
+  reads "YouTube's daily limit is used up. Paste a YouTube link."
+  (`youtubeFailure`; search.list is its own 100-call bucket). `GET
+  /api/karaoke/video?id` checks a pasted link (play checks only); `GET
+  /api/admin/karaoke/check` (GM) reads every roster song's video and
+  alternates in one call and stores nothing. After a write opens a pick
+  window, the DO reads every present player's videos in one call and
+  writes `karaokePreflight { gameId, bad, videos }` as an auto write, never
+  holding up the start. The picker: thumbnails (`karaokeThumb`, 128x72)
+  open YouTube's own player one at a time (`previewPlayer` `onClipStart`
+  is a set; whatever starts stops the rest), Use writes `karaokeSong` with
+  the other candidates as `alts`, a pasted link joins the candidates,
+  `muted` (the pick window) keeps covers still and previews silent.
+  Profile > Karaoke (`capabilities.karaoke`, audioCatalog and songSnippets)
+  has no Save: Use is the save. Home's list adds "Pick a karaoke song".
+  Fit views `karaoke-song*` (stand-in thumbnails ride a `thumb` field the
+  server never sends).
 
 ## Current redesign direction
 
@@ -1048,7 +1079,7 @@ match is outlined (`bracketLayout`, features/weekend/CompetitionBracket.jsx).
 shapes, 7 to 16 seed into the next power of two with byes to the top seeds.
 1v1 Basketball is a bracket of everyone present (teams of one, `teamFit`
 shrinks it for Away). The v2 slate (Sept 29): Long Putt, Beer Die Doubles,
-Where and When (Fri); 5v5, Pickleball Doubles, 1v1 (Sat AM); Volleyball as 4 teams of 3,
+Where and When, Karaoke (Fri; Karaoke since Oct 12); 5v5, Pickleball Doubles, 1v1 (Sat AM); Volleyball as 4 teams of 3,
 Trivia (solo, in the app), 8-Ball, Beer Pong (Sat PM/night); Rage Cage, Beerio
 Kart; poker. Trivia is played in the app when it has a set list, and Where
 and When when it has photos (else each is entered like any result). 5v5 is everyone-plays (`participation:{type:"all"}`): the draw
@@ -1650,11 +1681,19 @@ as a bare URL. The absolute URL comes from `SITE_URL`, which defaults to the liv
 
 Add a `BUILTIN_EVENTS` entry in `shared/core.js` (id, session, value, kind,
 sport, `game`, teamCfg if teams), or use the GM add-event flow for one-offs
-(its "Looks like" picker borrows a known game's mark, hero, and how-to).
-Optionally give the `game` id a `GAMES` howto (core), a `MARKS` icon and a
-`GAME_HEROES` animation (App.jsx). Every surface (schedule, strips, sheets,
-betting band, event intro, TV) reads those registries; anything missing falls
-back to the GameMark, then the FD chip. Nothing else to wire.
+(its "Looks like" picker borrows a known game's mark, intro and how-to; an
+in-app game's, Karaoke's, is never offered: `GAME_MARK_IDS`). Give the
+`game` id a `GAMES` howto (core) and its drawn steps (`features/rules/`:
+`STEP_SETS`, `rulesWords.js`, `RulePictures.jsx`), a `MARKS` icon
+(`ui/GameMark.jsx`) and an intro: its `INTRO_SCENES` key
+(`intro/introTiming.js`), its `SCENES` diorama (`IntroScenes.jsx`) and its
+`INTRO_FOLEY` (`lib/soundKit.js`); the tests require all of them for a
+built-in. Every surface (schedule, strips, sheets, betting band, event intro,
+TV) reads those registries; anything missing falls back to the GameMark,
+then the FD chip. A built-in added after a Reorder was saved has no place in
+the stored `eventOrder` and sorts last: give it one on hydration as
+`worker/state.js` `placeKaraoke` does. The cup lays each session's plaques
+in rows of three at most (`weekend/trophy.js` `cupRows`).
 
 ## Backlog
 

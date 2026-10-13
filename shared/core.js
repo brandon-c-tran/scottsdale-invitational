@@ -133,42 +133,46 @@ const RAW_BUILTIN_EVENTS = [
     desc:"Single elimination doubles. Toss the die over the line, they catch off the bounce. Sinking it in a cup wins the game." },
   { id:"where", n:3, session:"fri", value:400, name:"Where and When", kind:"solo", game:"where",
     desc:"Photos from Brandon's past. Pin where each was taken and guess the date and hour. Highest total wins." },
+  /* everyone sings the song they picked; the room votes each one, Build
+     Battle's Super Poop to Legendary (shared/karaoke.js, docs/KARAOKE.md) */
+  { id:"karaoke", n:4, session:"fri", value:400, name:"Karaoke", kind:"solo", game:"karaoke",
+    desc:"Sing the song you picked while the room votes, Super Poop to Legendary. Best average wins." },
   /* ── Saturday morning · 800 ── */
   /* everyone plays: captains draft two sides of seven and six. Winners only. */
-  { id:"bball5", n:4, session:"sam", value:800, name:"5v5 Full Court", kind:"team", sport:"bball", game:"basketball", variant:"5v5",
+  { id:"bball5", n:5, session:"sam", value:800, name:"5v5 Full Court", kind:"team", sport:"bball", game:"basketball", variant:"5v5",
     teamCfg:{ teams:2, size:6 }, pays:[800, 0, 0],
     participation:{ type:"all", allowSitOut:true, overflowRoles:[] },
     desc:"Captains draft two sides, seven and six. Full court, twos and threes on the clock. Ahead at the horn wins." },
-  { id:"pickleball", n:5, session:"sam", value:800, name:"Pickleball Doubles", kind:"pairs", sport:"pickleball", game:"pickleball",
+  { id:"pickleball", n:6, session:"sam", value:800, name:"Pickleball Doubles", kind:"pairs", sport:"pickleball", game:"pickleball",
     teamCfg:{ teams:6, size:2, bracket:6 },
     desc:"Single elimination doubles. No volleys in the kitchen. Games to 11, win by 2." },
   /* a bracket of everyone present: entrants are teams of one, seeded by the
      draw, and the top seeds take the byes */
-  { id:"bball1", n:6, session:"sam", value:800, name:"1v1 Basketball", kind:"solo", sport:"bball", game:"basketball", variant:"1v1",
+  { id:"bball1", n:7, session:"sam", value:800, name:"1v1 Basketball", kind:"solo", sport:"bball", game:"basketball", variant:"1v1",
     teamCfg:{ teams:13, size:1, bracket:13 },
     desc:"Single elimination, everyone in. Ones to 5, make it take it, win by 1." },
   /* ── Saturday afternoon · 1200 ── */
-  { id:"volley", n:7, session:"sap", value:1200, name:"Sand Volleyball", kind:"team", sport:"volley", game:"volleyball",
+  { id:"volley", n:8, session:"sap", value:1200, name:"Sand Volleyball", kind:"team", sport:"volley", game:"volleyball",
     teamCfg:{ teams:4, size:3, bracket:4 },
     desc:"Four teams of three, single elimination. Best of three sets to 15, cap 17. Rotate servers." },
-  { id:"8ball", n:8, session:"sap", value:1200, name:"8-Ball Doubles", kind:"pairs", sport:"pool", game:"8ball",
+  { id:"8ball", n:9, session:"sap", value:1200, name:"8-Ball Doubles", kind:"pairs", sport:"pool", game:"8ball",
     teamCfg:{ teams:6, size:2, bracket:6 },
     desc:"Single elimination. One rack per matchup, alternating shots. Ball-in-hand on scratches." },
-  { id:"pong", n:9, session:"sap", value:1200, name:"Beer Pong Doubles", kind:"pairs", sport:"pong", game:"pong",
+  { id:"pong", n:10, session:"sap", value:1200, name:"Beer Pong Doubles", kind:"pairs", sport:"pong", game:"pong",
     teamCfg:{ teams:6, size:2, bracket:6 },
     desc:"Single elimination. Six cups, one re-rack. Bounce counts two, can be swatted. Redemption in semis and final." },
   /* ── Saturday night · 1600 ── */
-  { id:"trivia", n:10, session:"san", value:1600, name:"Trivia", kind:"solo", game:"trivia",
+  { id:"trivia", n:11, session:"san", value:1600, name:"Trivia", kind:"solo", game:"trivia",
     desc:"Everyone plays on their phone. Most points wins." },
-  { id:"ragecage", n:11, session:"san", value:1600, name:"Rage Cage", kind:"solo", sport:"cage", game:"ragecage",
+  { id:"ragecage", n:12, session:"san", value:1600, name:"Rage Cage", kind:"solo", sport:"cage", game:"ragecage",
     pays:[1600, 1600, 400],
     desc:"Everyone circles the cups, two balls in play. Get stacked on and you are out. The last two go head to head." },
-  { id:"beerio", n:12, session:"san", value:1600, name:"Beerio Kart", kind:"solo", sport:"kart", game:"beerio",
+  { id:"beerio", n:13, session:"san", value:1600, name:"Beerio Kart", kind:"solo", sport:"kart", game:"beerio",
     stageCfg:{ kind:"heats", nGroups:4, advance:1 },
     desc:"Heats of four, then a final. Crack a beer at the line, pull over to drink, finish it before you cross. Highest total wins." },
   /* ── The Finale · poker. No value: the result carries chip stacks that
      BECOME the standings, it never pays awards. ── */
-  { id:"poker", n:13, session:"fin", name:"Championship Poker", kind:"solo", finale:true, game:"poker",
+  { id:"poker", n:14, session:"fin", name:"Championship Poker", kind:"solo", finale:true, game:"poker",
     desc:"Whatever you have Saturday night is the stack you start the finale with. No-limit hold'em, blinds on the clock. Final chip counts are the final standings." },
 ];
 
@@ -291,6 +295,13 @@ const GAMES = {
       "A right answer scores 500, plus up to 500 the sooner you lock.",
       "Closest number: the nearest guess scores 1,000, the next 500. Exact scores 250 more."],
     win:"Most points wins. A tie goes to whoever locked their scoring answers faster." } },
+  karaoke: { name:"Karaoke", howto:{ players:"Solo", gear:["Your phone", "The TV"],
+    objective:"The room's favorite performance of the night.",
+    steps:["Pick a karaoke song in your profile. When Karaoke starts you have two minutes to keep it or change it.",
+      "When you're up, your song plays on the TV. Sing it.",
+      "Everyone else votes, Super Poop to Legendary. A vote can change until it closes.",
+      "With six or more votes, your highest and lowest are dropped."],
+    win:"Highest average wins. A tie goes to more Legendary votes, then Epic, and down." } },
   poker: { name:"Poker", howto:{ players:"Everyone, one table", gear:["Cards","Chips","The clock"],
     objective:"Finish with the biggest stack.",
     steps:["Whatever you have Saturday night is the stack you start the finale with.","No-limit hold'em. Blinds rise on the clock.","Bust and you are out.","When the last level ends, count your stack."],
@@ -436,7 +447,7 @@ const EMPTY_STATE = { v:9, live:false, results:{}, wagers:[], wagerOps:{}, adjus
   stages:{}, drafts:{}, duels:[], poker:null, profiles:{}, customEvents:[], shelved:{}, away:{}, out:{}, arrivals:null, onDeck:null, frozen:false,
   onboardEpoch:0, eventEdits:{}, eventOrder:[], eventOps:{}, showControl:{ active:null, history:[] },
   logistics:{ ...LOGISTICS }, prompts:{ ballots:[], responses:{} }, jerseysLocked:false,
-  geoRounds:[], geo:null, triviaRounds:[], triviaFormat:"rounds", trivia:null,
+  geoRounds:[], geo:null, triviaRounds:[], triviaFormat:"rounds", trivia:null, karaoke:null,
   /* the TV's gags (src/features/gags): the commissioner's switch, and the
      QA console's test */
   gagsOff:false, gagTest:null,

@@ -12,7 +12,7 @@ const localSet = (k, v) => { try { localStorage.setItem(k, v); } catch {} };
 export { localGet, localSet };
 
 const CAPS = { qa:false, progressReset:false, restore:false, snapshotExport:false, showControl:false,
-  audioDirector:false, audioCatalog:false, audioPlayback:false, push:false };
+  audioDirector:false, audioCatalog:false, audioPlayback:false, push:false, karaoke:false };
 let cached = { state:EMPTY_STATE, version:0, connected:false, socketOpen:false, stale:false, ready:false, lastAction:null,
   environment:"local", capabilities:CAPS, you:null, gm:null, build:"fit", serverBuild:"fit", updateReady:false,
   pushKey:null, tvs:null, tvsAt:0, arriveCode:null };
@@ -53,13 +53,20 @@ export const triviaBank = async () => globalThis.__FIT_BANK__ ? { ok:true, categ
 export const triviaClip = offline;
 export const triviaClipCheck = offline;
 export const triviaPhotoUrl = async id => `/api/trivia/photo/${encodeURIComponent(id)}`;
+/* the commissioner's video check, as the scenario hands it (dev/fit/scenarios.js `karaokeCheck`) */
+export const karaokeCheck = async () => globalThis.__FIT_KARAOKE_CHECK__
+  ? { ok:true, results:globalThis.__FIT_KARAOKE_CHECK__ } : globalThis.__FIT_SPOTIFY__?.karaokeCheck || offline();
 export const reportClientError = () => {};
 /* the scenario's stubbed Spotify answers (dev/fit/scenarios.js FIT_SPOTIFY) */
 const stubbed = key => async () => globalThis.__FIT_SPOTIFY__?.[key] || offline();
 export const spotifyStatus = stubbed("status");
 export const spotifyPlayer = stubbed("player");
-export const spotifySearch = offline;
+export const spotifySearch = stubbed("search");
 export const songSnippet = offline;
+/* karaoke songs on YouTube: a scenario's stand-in answers (dev/fit/scenarios.js
+   FIT_KARAOKE), never YouTube */
+export const karaokeVideos = stubbed("karaokeVideos");
+export const karaokeVideo = stubbed("karaokeVideo");
 export const songPreview = offline;
 export const spotifyAuthorize = offline;
 export const spotifyDisconnect = offline;

@@ -64,9 +64,15 @@ function element() {
 
 export const trackKey = track => track?.trackId || null;
 
-/* the snippet player (SnippetPlayer.jsx) and the clip never play together */
-let stopSnippet = null;
-export const onClipStart = stop => { stopSnippet = stop; return () => { if (stopSnippet === stop) stopSnippet = null; }; };
+/* One source plays at a time: this clip, the win song's snippet
+   (SnippetPreview.jsx), a karaoke preview (features/karaoke). Each YouTube
+   player registers its stop; whatever starts stops the rest. */
+const clipStops = new Set();
+export const onClipStart = stop => { clipStops.add(stop); return () => { clipStops.delete(stop); }; };
+/* a source starting: every registered player but `except` stops */
+export function clipStarting(except = null) {
+  for (const stop of [...clipStops]) if (stop !== except) { try { stop(); } catch {} }
+}
 
 /* Call straight from the tap. The same song toggles; another song replaces. */
 export function togglePreview(track) {
@@ -76,7 +82,7 @@ export function togglePreview(track) {
   if (state.key === key && state.status === "playing") { el.pause(); emit({ status:"paused" }); return; }
   /* the session switches before play, inside the tap, or iOS mutes the start */
   setPreviewSession(true);
-  try { stopSnippet?.(); } catch {}
+  clipStarting();
   if (state.key === key && state.status === "paused") { el.play().catch(() => {}); emit({ status:"playing" }); return; }
   const mine = ++request;
   el.pause();

@@ -10608,7 +10608,7 @@ var init_camera = __esm({
 });
 
 // src/features/gags/bits/registry.js
-var BIT_SHAPES, SHAPES, BIT_STYLES, STYLES, MOMENT_MS, LETTER_LAND_MS, LETTER_PLACES, READ_MS, spanOf, freezeAll, freeze, QD, quickdraw, AN, anvil, RR, roadrunner, EW, explosionwalk, DL, dontlookback, QS, quicksand, ACTION_BITS, IDLE_MS, ROOM, NP, nap, AW, armwrestle, SG, saguaro, PU, pushups, SW, sweep, MP, map, IDLE, SPG, springglove, TH, toohype, DY, dynamite, SLAPSTICK, BT, butte, SS, sunset, ST, statue, VU, vulture, DESERT2, TEAM_MIN, TEAM_MAX, TEAM, DM, dominoes, TW, tugofwar, SM, slowmowalk, PY, pyramid, TP, teamphoto, VL, victorylap, TEAM_BITS, BITS, BY_ID;
+var BIT_SHAPES, SHAPES, BIT_STYLES, STYLES, MOMENT_MS, LETTER_LAND_MS, LETTER_PLACES, READ_MS, spanOf, freezeAll, freeze, QD, QD_PAIR_LAG, quickdraw, AN, anvil, RR, roadrunner, EW, EW_PAIR_LAG, explosionwalk, DL, dontlookback, QS, quicksand, ACTION_BITS, IDLE_MS, ROOM, NP, nap, AW, armwrestle, SG, saguaro, PU, pushups, SW, sweep, MP, map, IDLE, SPG, SPG_PAIR_LAG, springglove, TH, toohype, DY, dynamite, SLAPSTICK, BT, BT_PAIR_LAG, butte, SS, sunset, ST, statue, VU, vulture, DESERT2, TEAM_MIN, TEAM_MAX, TEAM, DM, dominoes, TW, tugofwar, SM, slowmowalk, PY, pyramid, TP, teamphoto, VL, victorylap, TEAM_BITS, BITS, BY_ID;
 var init_registry = __esm({
   "src/features/gags/bits/registry.js"() {
     init_camera();
@@ -10644,6 +10644,7 @@ var init_registry = __esm({
       drop: 4470,
       look: 4600
     };
+    QD_PAIR_LAG = 240;
     quickdraw = {
       id: "quickdraw",
       name: "Quick draw",
@@ -10678,7 +10679,16 @@ var init_registry = __esm({
         { at: QD.spin, sound: "bitTwirl", pan: -0.38 },
         { at: QD.bonk, sound: "bitBonk", pan: -0.38 },
         { at: QD.drop, sound: "bitClink", pan: -0.3 }
-      ]
+      ],
+      /* a pair of winners: the second shot a beat after the first, its own
+         white frame, kick and fumble */
+      pairLag: QD_PAIR_LAG,
+      pairs: [{ sides: { a: 2 }, washes: [QD.bang + QD_PAIR_LAG], shakes: [{ at: QD.bang + QD_PAIR_LAG, big: true }], cues: [
+        { at: QD.bang + QD_PAIR_LAG, sound: "bitCrack", pan: -0.45 },
+        { at: QD.kick + QD_PAIR_LAG, sound: "bitSkid", pan: -0.6 },
+        { at: QD.bonk + QD_PAIR_LAG, sound: "bitBonk", pan: -0.55 },
+        { at: QD.drop + QD_PAIR_LAG, sound: "bitClink", pan: -0.5 }
+      ] }]
     };
     AN = {
       admire: 200,
@@ -10763,6 +10773,7 @@ var init_registry = __esm({
       ]
     };
     EW = { boom: 1200, ember: 1420, land: 2600, stop: 3e3, lower: 3260, look: 3440, up: 4040, glint: 4170 };
+    EW_PAIR_LAG = 160;
     explosionwalk = {
       id: "explosionwalk",
       name: "Explosion walk",
@@ -10793,7 +10804,14 @@ var init_registry = __esm({
         { at: EW.lower + 30, sound: "bitShades", pan: 0.04 },
         { at: EW.up, sound: "bitShades", pan: 0.04, opts: { up: true } },
         { at: EW.glint, sound: "bitGlint", pan: 0.1 }
-      ]
+      ],
+      /* a pair both look over their glasses, the second a beat after the first */
+      pairLag: EW_PAIR_LAG,
+      pairs: [{ sides: { a: 2 }, cues: [
+        { at: EW.lower + 30 + EW_PAIR_LAG, sound: "bitShades", pan: 0.2 },
+        { at: EW.up + EW_PAIR_LAG, sound: "bitShades", pan: 0.2, opts: { up: true } },
+        { at: EW.glint + EW_PAIR_LAG, sound: "bitGlint", pan: 0.25 }
+      ] }]
     };
     DL = { fuse: 340, top: 1340, boom: 1780, rain: 2280, bonk: 2760, hat: 3420 };
     dontlookback = {
@@ -11119,6 +11137,7 @@ var init_registry = __esm({
       look: 3760,
       thumb: 4080
     };
+    SPG_PAIR_LAG = 240;
     springglove = {
       id: "springglove",
       name: "Spring glove",
@@ -11150,6 +11169,25 @@ var init_registry = __esm({
         { at: SPG.retract, sound: "bitZip", pan: 0.25 },
         { at: SPG.boop, sound: "bitBonk", pan: -0.36 },
         { at: SPG.boop + 60, sound: "bitBoing", pan: -0.36, opts: { small: true } }
+      ],
+      /* a pair of winners is a pincer, one launcher at each end: the whole
+         stage held wide on the middle. Against a pair, the second glove
+         punches the second favorite a beat after the first (against one,
+         both land at once) */
+      pairLag: SPG_PAIR_LAG,
+      pairs: [
+        { sides: { a: 2 }, camera: { zoom: 1.5, x: "mid", fit: true, moves: [
+          { at: 200, ms: 1200, zoom: 1.56 },
+          { at: SPG.hit, ms: 70, zoom: 1.62, ease: CAMERA_EASE.snap },
+          /* back out for the boops and both thumbs, at either end */
+          { at: SPG.fly + 160, ms: 620, zoom: 1.5 }
+        ], shakes: [{ at: SPG.hit, big: true }, { at: SPG.home }] } },
+        { sides: { a: 2, b: 2 }, shakes: [{ at: SPG.hit + SPG_PAIR_LAG, big: true }], cues: [
+          { at: SPG.fire + SPG_PAIR_LAG, sound: "bitSproing", pan: 0.4 },
+          { at: SPG.hit + SPG_PAIR_LAG, sound: "bitPow", pan: 0.3 },
+          { at: SPG.fly + SPG_PAIR_LAG, sound: "bitStreak", pan: 0.2, opts: { from: 0.3, to: -0.5 } },
+          { at: SPG.boop + SPG_PAIR_LAG, sound: "bitBonk", pan: 0.7 }
+        ] }
       ]
     };
     TH = { hop1: 0, hop2: 270, hop3: 630, wind: 1110, launch: 1330, fall: 2200, crash: 2400, pop: 2940, turn: 3280, walk: 3400, arrive: 4e3 };
@@ -11244,6 +11282,7 @@ var init_registry = __esm({
       puff: 4520,
       dust: 4720
     };
+    BT_PAIR_LAG = 160;
     butte = {
       id: "butte",
       name: "Butte",
@@ -11276,7 +11315,15 @@ var init_registry = __esm({
         { at: BT.puff, sound: "bitFarThud", pan: 0.25 },
         { at: BT.dust, sound: "bitPat", pan: -0.12, opts: { step: 0 } },
         { at: BT.dust + 170, sound: "bitPat", pan: -0.12, opts: { step: 1 } }
-      ]
+      ],
+      /* a pair of winners pokes the stem from both lips, the second a beat
+         after the first, and dusts off on the far side */
+      pairLag: BT_PAIR_LAG,
+      pairs: [{ sides: { a: 2 }, cues: [
+        { at: BT.poke + 70 + BT_PAIR_LAG, sound: "bitPoke", pan: 0.3 },
+        { at: BT.dust + BT_PAIR_LAG, sound: "bitPat", pan: 0.4, opts: { step: 0 } },
+        { at: BT.dust + 170 + BT_PAIR_LAG, sound: "bitPat", pan: 0.4, opts: { step: 1 } }
+      ] }]
     };
     SS = { sink: 200, set: 1480, lower: 1660, settle: 2760, glint: 2980, weed: 3140, yank: 3860 };
     sunset = {

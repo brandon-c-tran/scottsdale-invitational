@@ -17384,6 +17384,9 @@ button.fd-home-riding.is-yours {
   display: block;
   line-height: 0;
 }
+.cast-flip .cast-face {
+  transform: scaleX(-1);
+}
 .cast-wear {
   position: absolute;
   left: 0;
@@ -17928,7 +17931,7 @@ button.fd-home-riding.is-yours {
 }
 .is-quickdraw .qd-a .cast-move {
   transform: var(--kick);
-  --ba:qd-kick 300ms cubic-bezier(.12,.82,.3,1) calc(var(--tl) + var(--b-kick) + var(--i) * 60ms) both;
+  --ba:qd-kick 300ms cubic-bezier(.12,.82,.3,1) calc(var(--tl) + var(--b-kick) + var(--pd, calc(var(--i) * 60ms))) both;
   animation: var(--ba);
 }
 @keyframes qd-kick {
@@ -17940,7 +17943,7 @@ button.fd-home-riding.is-yours {
   }
 }
 .is-quickdraw .qd-a .cast-body {
-  --ba:qd-skid 460ms linear calc(var(--tl) + var(--b-kick) + var(--i) * 60ms) both;
+  --ba:qd-skid 460ms linear calc(var(--tl) + var(--b-kick) + var(--pd, calc(var(--i) * 60ms))) both;
   animation: var(--ba);
 }
 @keyframes qd-skid {
@@ -17964,6 +17967,9 @@ button.fd-home-riding.is-yours {
     transform: translateX(0px) rotate(0deg) translateX(0px);
   }
 }
+.is-quickdraw .qd-a.is-pair .is-lead:not(.is-pair) .cast-hand.is-back > .cast-hand-in {
+  transform: translate(26px, -6px);
+}
 .is-quickdraw .qd-a .cast-more {
   transform: var(--kick);
   --ba:qd-kick 300ms cubic-bezier(.12,.82,.3,1) calc(var(--tl) + var(--b-kick) + 240ms) both;
@@ -17977,7 +17983,7 @@ button.fd-home-riding.is-yours {
   border-radius: 3px;
   background: color-mix(in srgb, var(--ink0) 55%, transparent);
   transform-origin: 100% 50%;
-  --ba:qd-mark 300ms cubic-bezier(.12,.82,.3,1) calc(var(--tl) + var(--b-kick)) both;
+  --ba:qd-mark 300ms cubic-bezier(.12,.82,.3,1) calc(var(--tl) + var(--b-kick) + var(--pd, 0ms)) both;
   animation: var(--ba);
 }
 @keyframes qd-mark {
@@ -18000,10 +18006,10 @@ button.fd-home-riding.is-yours {
 .is-quickdraw .qd-a .is-lead .cast-hand.is-front > .cast-hand-in {
   transform: var(--grab);
   --ba:qd-draw 110ms cubic-bezier(.2,.9,.25,1.25) calc(var(--tl) + var(--b-draw)) both,
-    qd-recoil 520ms linear calc(var(--tl) + var(--b-kick)) forwards,
-    qd-raise 220ms var(--ease-out) calc(var(--tl) + var(--b-blow) - 200ms) forwards,
-    qd-lower 200ms var(--ease-out) calc(var(--tl) + var(--b-spin) - 200ms) forwards,
-    qd-grab 130ms cubic-bezier(.2,.8,.3,1) calc(var(--tl) + var(--b-fumble)) forwards;
+    qd-recoil 520ms linear calc(var(--tl) + var(--b-kick) + var(--pd, 0ms)) forwards,
+    qd-raise 220ms var(--ease-out) calc(var(--tl) + var(--b-blow) - 200ms + var(--pd, 0ms)) forwards,
+    qd-lower 200ms var(--ease-out) calc(var(--tl) + var(--b-spin) - 200ms + var(--pd, 0ms)) forwards,
+    qd-grab 130ms cubic-bezier(.2,.8,.3,1) calc(var(--tl) + var(--b-fumble) + var(--pd, 0ms)) forwards;
   animation: var(--ba);
 }
 @keyframes qd-draw {
@@ -18058,7 +18064,7 @@ button.fd-home-riding.is-yours {
 .is-quickdraw .qd-a .is-lead .cast-pose.is-point .cast-held-fx {
   transform: rotate(1080deg);
   opacity: 0;
-  --ba:qd-twirl 380ms cubic-bezier(.12,.55,.4,1) calc(var(--tl) + var(--b-spin)) both, bit-hide 1ms step-start calc(var(--tl) + var(--b-fumble)) both;
+  --ba:qd-twirl 380ms cubic-bezier(.12,.55,.4,1) calc(var(--tl) + var(--b-spin) + var(--pd, 0ms)) both, bit-hide 1ms step-start calc(var(--tl) + var(--b-fumble) + var(--pd, 0ms)) both;
   animation: var(--ba);
 }
 @keyframes qd-twirl {
@@ -18074,7 +18080,7 @@ button.fd-home-riding.is-yours {
   left: 0;
   top: 0;
   opacity: 0;
-  --ba:qd-whirl 380ms linear calc(var(--tl) + var(--b-spin)) both;
+  --ba:qd-whirl 380ms linear calc(var(--tl) + var(--b-spin) + var(--pd, 0ms)) both;
   animation: var(--ba);
 }
 @keyframes qd-whirl {
@@ -18092,7 +18098,7 @@ button.fd-home-riding.is-yours {
   }
 }
 .is-quickdraw .qd-a .is-lead .cast-body-in {
-  --ba:qd-lean 600ms ease-in-out calc(var(--tl) + var(--b-blow) - 100ms) both;
+  --ba:qd-lean 600ms ease-in-out calc(var(--tl) + var(--b-blow) - 100ms + var(--pd, 0ms)) both;
   animation: var(--ba);
 }
 @keyframes qd-lean {
@@ -18104,7 +18110,7 @@ button.fd-home-riding.is-yours {
   }
 }
 .is-quickdraw .qd-a .is-lead .cast-hop {
-  --ba:qd-jolt 220ms var(--ease-out) calc(var(--tl) + var(--b-fumble)) both;
+  --ba:qd-jolt 220ms var(--ease-out) calc(var(--tl) + var(--b-fumble) + var(--pd, 0ms)) both;
   animation: var(--ba);
 }
 @keyframes qd-jolt {
@@ -18117,7 +18123,7 @@ button.fd-home-riding.is-yours {
 }
 .is-quickdraw .qd-a .is-lead .cast-chip-in {
   transform: var(--cast-turn) rotateX(-20deg);
-  --ba:qd-look-down 400ms var(--ease-out) calc(var(--tl) + var(--b-look)) both;
+  --ba:qd-look-down 400ms var(--ease-out) calc(var(--tl) + var(--b-look) + var(--pd, 0ms)) both;
   animation: var(--ba);
 }
 @keyframes qd-look-down {
@@ -18130,7 +18136,7 @@ button.fd-home-riding.is-yours {
 }
 .is-quickdraw .qd-flash {
   opacity: 0;
-  --ba:qd-flash 150ms linear calc(var(--tl) + var(--b-bang) - 16ms) both;
+  --ba:qd-flash 150ms linear calc(var(--tl) + var(--b-bang) - 16ms + var(--pd, 0ms)) both;
   animation: var(--ba);
 }
 @keyframes qd-flash {
@@ -18157,7 +18163,7 @@ button.fd-home-riding.is-yours {
   }
 }
 .is-quickdraw .qd-flash-in {
-  --ba:qd-flicker 32ms step-start calc(var(--tl) + var(--b-bang) - 16ms) 2 both;
+  --ba:qd-flicker 32ms step-start calc(var(--tl) + var(--b-bang) - 16ms + var(--pd, 0ms)) 2 both;
   animation: var(--ba);
 }
 @keyframes qd-flicker {
@@ -18173,7 +18179,7 @@ button.fd-home-riding.is-yours {
 }
 .is-quickdraw .qd-wisp {
   opacity: 0;
-  --ba:qd-wisp 820ms cubic-bezier(.25,.6,.4,1) calc(var(--tl) + var(--b-kick) + 380ms + var(--d)) both;
+  --ba:qd-wisp 820ms cubic-bezier(.25,.6,.4,1) calc(var(--tl) + var(--b-kick) + 380ms + var(--d) + var(--pd, 0ms)) both;
   animation: var(--ba);
 }
 @keyframes qd-wisp {
@@ -18195,7 +18201,7 @@ button.fd-home-riding.is-yours {
 }
 .is-quickdraw .qd-blowpuff {
   opacity: 0;
-  --ba:qd-blowpuff 460ms cubic-bezier(.2,.8,.3,1) calc(var(--tl) + var(--b-blow)) both;
+  --ba:qd-blowpuff 460ms cubic-bezier(.2,.8,.3,1) calc(var(--tl) + var(--b-blow) + var(--pd, 0ms)) both;
   animation: var(--ba);
 }
 @keyframes qd-blowpuff {
@@ -18215,10 +18221,10 @@ button.fd-home-riding.is-yours {
 .is-quickdraw .qd-loose {
   opacity: 1;
   transform: var(--land);
-  --ba:bit-show 1ms step-start calc(var(--tl) + var(--b-fumble)) both,
-    qd-toss 130ms cubic-bezier(.2,.7,.4,1) calc(var(--tl) + var(--b-fumble)) both,
-    qd-drop 260ms cubic-bezier(.55,0,.9,.45) calc(var(--tl) + var(--b-bonk)) forwards,
-    qd-bounce 240ms ease-out calc(var(--tl) + var(--b-drop)) forwards;
+  --ba:bit-show 1ms step-start calc(var(--tl) + var(--b-fumble) + var(--pd, 0ms)) both,
+    qd-toss 130ms cubic-bezier(.2,.7,.4,1) calc(var(--tl) + var(--b-fumble) + var(--pd, 0ms)) both,
+    qd-drop 260ms cubic-bezier(.55,0,.9,.45) calc(var(--tl) + var(--b-bonk) + var(--pd, 0ms)) forwards,
+    qd-bounce 240ms ease-out calc(var(--tl) + var(--b-drop) + var(--pd, 0ms)) forwards;
   animation: var(--ba);
 }
 @keyframes qd-toss {
@@ -18250,7 +18256,7 @@ button.fd-home-riding.is-yours {
 }
 .is-quickdraw .qd-loose-turn {
   transform: rotate(700deg);
-  --ba:qd-loose-spin 390ms linear calc(var(--tl) + var(--b-fumble)) both, qd-loose-settle 240ms ease-out calc(var(--tl) + var(--b-drop)) forwards;
+  --ba:qd-loose-spin 390ms linear calc(var(--tl) + var(--b-fumble) + var(--pd, 0ms)) both, qd-loose-settle 240ms ease-out calc(var(--tl) + var(--b-drop) + var(--pd, 0ms)) forwards;
   animation: var(--ba);
 }
 @keyframes qd-loose-spin {
@@ -19113,10 +19119,10 @@ button.fd-home-riding.is-yours {
 }
 .is-explosionwalk .ew-walker.is-lead .cast-hand.is-front > .cast-hand-in {
   transform: translate(0px, 0px) rotate(0deg);
-  --ba:ew-reach 200ms var(--ease-out) calc(var(--tl) + var(--b-lower) - 200ms) both,
-    ew-hook 180ms cubic-bezier(.4,0,.3,1) calc(var(--tl) + var(--b-lower)) forwards,
-    ew-push 120ms cubic-bezier(.3,0,.2,1) calc(var(--tl) + var(--b-up)) forwards,
-    ew-drop 220ms var(--ease-out) calc(var(--tl) + var(--b-up) + 220ms) forwards;
+  --ba:ew-reach 200ms var(--ease-out) calc(var(--tl) + var(--b-lower) - 200ms + var(--pd, 0ms)) both,
+    ew-hook 180ms cubic-bezier(.4,0,.3,1) calc(var(--tl) + var(--b-lower) + var(--pd, 0ms)) forwards,
+    ew-push 120ms cubic-bezier(.3,0,.2,1) calc(var(--tl) + var(--b-up) + var(--pd, 0ms)) forwards,
+    ew-drop 220ms var(--ease-out) calc(var(--tl) + var(--b-up) + 220ms + var(--pd, 0ms)) forwards;
   animation: var(--ba);
 }
 @keyframes ew-reach {
@@ -19153,7 +19159,7 @@ button.fd-home-riding.is-yours {
 }
 .is-explosionwalk .ew-shades.is-lead {
   transform: translateY(0px);
-  --ba:ew-shades-down 180ms cubic-bezier(.4,0,.3,1) calc(var(--tl) + var(--b-lower)) both, ew-shades-up 120ms cubic-bezier(.3,0,.2,1) calc(var(--tl) + var(--b-up)) forwards;
+  --ba:ew-shades-down 180ms cubic-bezier(.4,0,.3,1) calc(var(--tl) + var(--b-lower) + var(--pd, 0ms)) both, ew-shades-up 120ms cubic-bezier(.3,0,.2,1) calc(var(--tl) + var(--b-up) + var(--pd, 0ms)) forwards;
   animation: var(--ba);
 }
 @keyframes ew-shades-down {
@@ -19174,7 +19180,7 @@ button.fd-home-riding.is-yours {
 }
 .is-explosionwalk .ew-walker.is-lead .cast-chip-in {
   transform: var(--cast-turn) rotateX(0deg);
-  --ba:ew-chin-down 220ms cubic-bezier(.4,0,.3,1) calc(var(--tl) + var(--b-lower)) both, ew-chin-up 160ms cubic-bezier(.3,0,.2,1) calc(var(--tl) + var(--b-up)) forwards;
+  --ba:ew-chin-down 220ms cubic-bezier(.4,0,.3,1) calc(var(--tl) + var(--b-lower) + var(--pd, 0ms)) both, ew-chin-up 160ms cubic-bezier(.3,0,.2,1) calc(var(--tl) + var(--b-up) + var(--pd, 0ms)) forwards;
   animation: var(--ba);
 }
 @keyframes ew-chin-down {
@@ -19195,7 +19201,7 @@ button.fd-home-riding.is-yours {
 }
 .is-explosionwalk .ew-glint {
   opacity: 0;
-  --ba:ew-glint 380ms ease-out calc(var(--tl) + var(--b-glint)) both;
+  --ba:ew-glint 380ms ease-out calc(var(--tl) + var(--b-glint) + var(--pd, 0ms)) both;
   animation: var(--ba);
 }
 @keyframes ew-glint {
@@ -22547,6 +22553,14 @@ button.fd-home-riding.is-yours {
 .is-springglove .sg-flip {
   transform: scaleX(-1);
 }
+.is-springglove .sg-mirror {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 1920px;
+  height: 1080px;
+  transform: scaleX(-1);
+}
 .is-springglove .sg-b .cast-hop {
   --ba:sg-bounce 260ms linear calc(var(--tl) + var(--b-hop) + var(--i) * 40ms) 3 both;
   animation: var(--ba);
@@ -22585,8 +22599,8 @@ button.fd-home-riding.is-yours {
 .is-springglove .sg-b .cast-body {
   transform: translateY(var(--cy)) rotate(var(--fly-rot)) scale(1.5, .7) rotate(var(--fly-anti)) translateY(calc(var(--cy) * -1));
   --ba:sg-squash 260ms linear calc(var(--tl) + var(--b-hop) + var(--i) * 40ms) 3 both,
-    sg-hit 30ms ease-out calc(var(--tl) + var(--b-hit) + var(--i) * 50ms) forwards,
-    sg-stretch 90ms ease-out calc(var(--tl) + var(--b-fly) + var(--i) * 50ms) forwards;
+    sg-hit 30ms ease-out calc(var(--tl) + var(--b-hit) + var(--pd, calc(var(--i) * 50ms))) forwards,
+    sg-stretch 90ms ease-out calc(var(--tl) + var(--b-fly) + var(--pd, calc(var(--i) * 50ms))) forwards;
   animation: var(--ba);
 }
 @keyframes sg-squash {
@@ -22671,7 +22685,7 @@ button.fd-home-riding.is-yours {
 .is-springglove .sg-b .cast-move {
   transform: var(--fly);
   opacity: 0;
-  --ba:sg-fly 420ms cubic-bezier(.1,.7,.3,1) calc(var(--tl) + var(--b-fly) + var(--i) * 50ms) both;
+  --ba:sg-fly 420ms cubic-bezier(.1,.7,.3,1) calc(var(--tl) + var(--b-fly) + var(--pd, calc(var(--i) * 50ms))) both;
   animation: var(--ba);
 }
 @keyframes sg-fly {
@@ -22689,7 +22703,7 @@ button.fd-home-riding.is-yours {
 }
 .is-springglove .sg-b .cast-shadow {
   opacity: 0;
-  --ba:bit-hide 60ms linear calc(var(--tl) + var(--b-hit) + var(--i) * 50ms) both;
+  --ba:bit-hide 60ms linear calc(var(--tl) + var(--b-hit) + var(--pd, calc(var(--i) * 50ms))) both;
   animation: var(--ba);
 }
 .is-springglove .sg-b .cast-more {
@@ -22713,7 +22727,7 @@ button.fd-home-riding.is-yours {
 }
 .is-springglove .sg-pow {
   opacity: 0;
-  --ba:sg-pow 120ms linear calc(var(--tl) + var(--b-hit) - 8ms) both;
+  --ba:sg-pow 120ms linear calc(var(--tl) + var(--b-hit) - 8ms + var(--pd, 0ms)) both;
   animation: var(--ba);
 }
 @keyframes sg-pow {
@@ -22746,7 +22760,7 @@ button.fd-home-riding.is-yours {
 }
 .is-springglove .sg-zip {
   opacity: 0;
-  --ba:sg-zip 300ms linear calc(var(--tl) + var(--b-fly) + var(--i) * 50ms + 30ms) both;
+  --ba:sg-zip 300ms linear calc(var(--tl) + var(--b-fly) + var(--pd, calc(var(--i) * 50ms)) + 30ms) both;
   animation: var(--ba);
 }
 @keyframes sg-zip {
@@ -22802,7 +22816,7 @@ button.fd-home-riding.is-yours {
 }
 .is-springglove .sg-a .is-lead .cast-hand.is-front > .cast-hand-in {
   transform: var(--hold-low);
-  --ba:sg-hold 1ms linear calc(var(--tl) + 0ms) both, sg-relax 360ms ease-in-out calc(var(--tl) + var(--b-look)) forwards;
+  --ba:sg-hold 1ms linear calc(var(--tl) + 0ms) both, sg-relax 360ms ease-in-out calc(var(--tl) + var(--b-look) + var(--pd, 0ms)) forwards;
   animation: var(--ba);
 }
 @keyframes sg-hold {
@@ -22819,9 +22833,9 @@ button.fd-home-riding.is-yours {
   }
 }
 .is-springglove .sg-device {
-  --ba:sg-jolt 180ms ease-out calc(var(--tl) + var(--b-press)) both,
-    sg-kick 240ms cubic-bezier(.2,.8,.3,1) calc(var(--tl) + var(--b-fire)) forwards,
-    sg-recoil 320ms cubic-bezier(.2,.8,.3,1) calc(var(--tl) + var(--b-home)) forwards;
+  --ba:sg-jolt 180ms ease-out calc(var(--tl) + var(--b-press) + var(--pd, 0ms)) both,
+    sg-kick 240ms cubic-bezier(.2,.8,.3,1) calc(var(--tl) + var(--b-fire) + var(--pd, 0ms)) forwards,
+    sg-recoil 320ms cubic-bezier(.2,.8,.3,1) calc(var(--tl) + var(--b-home) + var(--pd, 0ms)) forwards;
   animation: var(--ba);
 }
 @keyframes sg-jolt {
@@ -22849,7 +22863,7 @@ button.fd-home-riding.is-yours {
   }
 }
 .is-springglove .bit-punch-button {
-  --ba:sg-button 220ms ease-out calc(var(--tl) + var(--b-press)) both;
+  --ba:sg-button 220ms ease-out calc(var(--tl) + var(--b-press) + var(--pd, 0ms)) both;
   animation: var(--ba);
 }
 @keyframes sg-button {
@@ -22863,9 +22877,9 @@ button.fd-home-riding.is-yours {
 .is-springglove .sg-spring {
   transform-origin: 0 0;
   transform: scaleX(.02);
-  --ba:sg-extend 80ms cubic-bezier(.5,0,.9,.6) calc(var(--tl) + var(--b-fire)) both,
-    sg-over 280ms ease-out calc(var(--tl) + var(--b-hit)) forwards,
-    sg-pull 130ms cubic-bezier(.55,0,1,.6) calc(var(--tl) + var(--b-retract)) forwards;
+  --ba:sg-extend 80ms cubic-bezier(.5,0,.9,.6) calc(var(--tl) + var(--b-fire) + var(--pd, 0ms)) both,
+    sg-over 280ms ease-out calc(var(--tl) + var(--b-hit) + var(--pd, 0ms)) forwards,
+    sg-pull 130ms cubic-bezier(.55,0,1,.6) calc(var(--tl) + var(--b-retract) + var(--pd, 0ms)) forwards;
   animation: var(--ba);
 }
 @keyframes sg-extend {
@@ -22898,11 +22912,11 @@ button.fd-home-riding.is-yours {
 .is-springglove .sg-glove {
   transform: translateX(0px);
   opacity: 1;
-  --ba:sg-glove-out 80ms cubic-bezier(.5,0,.9,.6) calc(var(--tl) + var(--b-fire)) both,
-    sg-glove-over 280ms ease-out calc(var(--tl) + var(--b-hit)) forwards,
-    sg-glove-in 130ms cubic-bezier(.55,0,1,.6) calc(var(--tl) + var(--b-retract)) forwards,
-    bit-hide 1ms step-start calc(var(--tl) + var(--b-home)) both,
-    sg-glove-back 200ms cubic-bezier(.3,1.4,.5,1) calc(var(--tl) + var(--b-boop) + 420ms) forwards;
+  --ba:sg-glove-out 80ms cubic-bezier(.5,0,.9,.6) calc(var(--tl) + var(--b-fire) + var(--pd, 0ms)) both,
+    sg-glove-over 280ms ease-out calc(var(--tl) + var(--b-hit) + var(--pd, 0ms)) forwards,
+    sg-glove-in 130ms cubic-bezier(.55,0,1,.6) calc(var(--tl) + var(--b-retract) + var(--pd, 0ms)) forwards,
+    bit-hide 1ms step-start calc(var(--tl) + var(--b-home) + var(--pd, 0ms)) both,
+    sg-glove-back 200ms cubic-bezier(.3,1.4,.5,1) calc(var(--tl) + var(--b-boop) + 420ms + var(--pd, 0ms)) forwards;
   animation: var(--ba);
 }
 @keyframes sg-glove-out {
@@ -22946,7 +22960,7 @@ button.fd-home-riding.is-yours {
   }
 }
 .is-springglove .sg-arm {
-  --ba:sg-quiver 700ms linear calc(var(--tl) + var(--b-hit) + 30ms) both;
+  --ba:sg-quiver 700ms linear calc(var(--tl) + var(--b-hit) + 30ms + var(--pd, 0ms)) both;
   animation: var(--ba);
 }
 @keyframes sg-quiver {
@@ -22973,21 +22987,21 @@ button.fd-home-riding.is-yours {
   opacity: 0;
 }
 .is-springglove .sg-trail.is-out {
-  --ba:bit-show 1ms step-start calc(var(--tl) + var(--b-fire) + 16ms) both, bit-hide 120ms linear calc(var(--tl) + var(--b-hit)) forwards;
+  --ba:bit-show 1ms step-start calc(var(--tl) + var(--b-fire) + 16ms + var(--pd, 0ms)) both, bit-hide 120ms linear calc(var(--tl) + var(--b-hit) + var(--pd, 0ms)) forwards;
   animation: var(--ba);
 }
 .is-springglove .sg-trail.is-in {
-  --ba:bit-show 1ms step-start calc(var(--tl) + var(--b-retract) + 16ms) both, bit-hide 80ms linear calc(var(--tl) + var(--b-home)) forwards;
+  --ba:bit-show 1ms step-start calc(var(--tl) + var(--b-retract) + 16ms + var(--pd, 0ms)) both, bit-hide 80ms linear calc(var(--tl) + var(--b-home) + var(--pd, 0ms)) forwards;
   animation: var(--ba);
 }
 .is-springglove .sg-back {
   opacity: 0;
-  --ba:bit-show 1ms step-start calc(var(--tl) + var(--b-boop) - 100ms) both, bit-hide 1ms step-start calc(var(--tl) + var(--b-boop) + 420ms) forwards;
+  --ba:bit-show 1ms step-start calc(var(--tl) + var(--b-boop) - 100ms + var(--pd, 0ms)) both, bit-hide 1ms step-start calc(var(--tl) + var(--b-boop) + 420ms + var(--pd, 0ms)) forwards;
   animation: var(--ba);
 }
 .is-springglove .sg-back-x {
   transform: translateX(var(--back-in));
-  --ba:sg-back-out 100ms cubic-bezier(.2,.7,.4,1) calc(var(--tl) + var(--b-boop) - 100ms) both, sg-back-in 220ms cubic-bezier(.5,0,.8,.5) calc(var(--tl) + var(--b-boop) + 200ms) forwards;
+  --ba:sg-back-out 100ms cubic-bezier(.2,.7,.4,1) calc(var(--tl) + var(--b-boop) - 100ms + var(--pd, 0ms)) both, sg-back-in 220ms cubic-bezier(.5,0,.8,.5) calc(var(--tl) + var(--b-boop) + 200ms + var(--pd, 0ms)) forwards;
   animation: var(--ba);
 }
 @keyframes sg-back-out {
@@ -23008,10 +23022,10 @@ button.fd-home-riding.is-yours {
 }
 .is-springglove .sg-a .is-lead .cast-hand.is-back > .cast-hand-in {
   transform: var(--thumb);
-  --ba:sg-lift 130ms cubic-bezier(.2,.8,.3,1) calc(var(--tl) + var(--b-raise)) both,
-    sg-slam 40ms cubic-bezier(.6,0,1,.6) calc(var(--tl) + var(--b-press) - 40ms) forwards,
-    sg-unslam 200ms ease-out calc(var(--tl) + var(--b-press) + 160ms) forwards,
-    sg-to-thumb 340ms linear calc(var(--tl) + var(--b-look) + 20ms) forwards;
+  --ba:sg-lift 130ms cubic-bezier(.2,.8,.3,1) calc(var(--tl) + var(--b-raise) + var(--pd, 0ms)) both,
+    sg-slam 40ms cubic-bezier(.6,0,1,.6) calc(var(--tl) + var(--b-press) - 40ms + var(--pd, 0ms)) forwards,
+    sg-unslam 200ms ease-out calc(var(--tl) + var(--b-press) + 160ms + var(--pd, 0ms)) forwards,
+    sg-to-thumb 340ms linear calc(var(--tl) + var(--b-look) + 20ms + var(--pd, 0ms)) forwards;
   animation: var(--ba);
 }
 @keyframes sg-lift {
@@ -23052,7 +23066,7 @@ button.fd-home-riding.is-yours {
   }
 }
 .is-springglove .sg-a .is-lead .cast-hand.is-back .cast-hand-fx {
-  --ba:sg-thumb-pop 260ms ease-out calc(var(--tl) + var(--b-thumb)) both;
+  --ba:sg-thumb-pop 260ms ease-out calc(var(--tl) + var(--b-thumb) + var(--pd, 0ms)) both;
   animation: var(--ba);
 }
 @keyframes sg-thumb-pop {
@@ -23064,7 +23078,7 @@ button.fd-home-riding.is-yours {
   }
 }
 .is-springglove .sg-a .is-lead .cast-body-in {
-  --ba:sg-wobble 640ms linear calc(var(--tl) + var(--b-boop)) both;
+  --ba:sg-wobble 640ms linear calc(var(--tl) + var(--b-boop) + var(--pd, 0ms)) both;
   animation: var(--ba);
 }
 @keyframes sg-wobble {
@@ -23089,9 +23103,9 @@ button.fd-home-riding.is-yours {
 }
 .is-springglove .sg-a .is-lead .cast-chip-in {
   transform: rotateY(0deg) rotateX(-10deg);
-  --ba:sg-knock 160ms ease-out calc(var(--tl) + var(--b-boop)) both,
-    sg-unknock 360ms ease-in-out calc(var(--tl) + var(--b-boop) + 260ms) forwards,
-    sg-look 340ms cubic-bezier(.45,0,.35,1) calc(var(--tl) + var(--b-look)) forwards;
+  --ba:sg-knock 160ms ease-out calc(var(--tl) + var(--b-boop) + var(--pd, 0ms)) both,
+    sg-unknock 360ms ease-in-out calc(var(--tl) + var(--b-boop) + 260ms + var(--pd, 0ms)) forwards,
+    sg-look 340ms cubic-bezier(.45,0,.35,1) calc(var(--tl) + var(--b-look) + var(--pd, 0ms)) forwards;
   animation: var(--ba);
 }
 @keyframes sg-knock {
@@ -24121,9 +24135,6 @@ button.fd-home-riding.is-yours {
   width: 0;
   height: 0;
 }
-.is-butte .bit-dim {
-  opacity: .4;
-}
 .is-butte .bt-hole {
   position: absolute;
   left: 0;
@@ -24153,6 +24164,14 @@ button.fd-home-riding.is-yours {
 .is-butte .bt-rock {
   position: absolute;
   inset: 0;
+}
+.is-butte .bt-mirror {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 1920px;
+  height: 1080px;
+  transform: scaleX(-1);
 }
 .is-butte .bt-crack {
   fill: none;
@@ -24430,7 +24449,7 @@ button.fd-home-riding.is-yours {
 }
 .is-butte .bt-a .is-lead .cast-body {
   transform: rotate(0deg);
-  --ba:bt-lean 260ms var(--ease-out) calc(var(--tl) + var(--b-peek)) both, bt-unlean 240ms var(--ease-out) calc(var(--tl) + var(--b-dust) - 200ms) forwards;
+  --ba:bt-lean 260ms var(--ease-out) calc(var(--tl) + var(--b-peek) + var(--pd, 0ms)) both, bt-unlean 240ms var(--ease-out) calc(var(--tl) + var(--b-dust) - 200ms + var(--pd, 0ms)) forwards;
   animation: var(--ba);
 }
 @keyframes bt-lean {
@@ -24451,10 +24470,10 @@ button.fd-home-riding.is-yours {
 }
 .is-butte .bt-a .is-lead .cast-hand.is-front > .cast-hand-in {
   transform: var(--dust-front);
-  --ba:bt-raise 180ms var(--ease-out) calc(var(--tl) + var(--b-raise)) both,
-    bt-jab 230ms linear calc(var(--tl) + var(--b-poke)) forwards,
-    bt-home 260ms var(--ease-out) calc(var(--tl) + var(--b-poke) + 520ms) forwards,
-    bt-to-dust 200ms var(--ease-out) calc(var(--tl) + var(--b-dust) - 160ms) forwards;
+  --ba:bt-raise 180ms var(--ease-out) calc(var(--tl) + var(--b-raise) + var(--pd, 0ms)) both,
+    bt-jab 230ms linear calc(var(--tl) + var(--b-poke) + var(--pd, 0ms)) forwards,
+    bt-home 260ms var(--ease-out) calc(var(--tl) + var(--b-poke) + 520ms + var(--pd, 0ms)) forwards,
+    bt-to-dust 200ms var(--ease-out) calc(var(--tl) + var(--b-dust) - 160ms + var(--pd, 0ms)) forwards;
   animation: var(--ba);
 }
 @keyframes bt-raise {
@@ -24500,7 +24519,7 @@ button.fd-home-riding.is-yours {
 }
 .is-butte .bt-a .is-lead .cast-hand.is-back > .cast-hand-in {
   transform: var(--dust-back);
-  --ba:bt-to-dust-back 200ms var(--ease-out) calc(var(--tl) + var(--b-dust) - 160ms) both;
+  --ba:bt-to-dust-back 200ms var(--ease-out) calc(var(--tl) + var(--b-dust) - 160ms + var(--pd, 0ms)) both;
   animation: var(--ba);
 }
 @keyframes bt-to-dust-back {
@@ -24512,7 +24531,7 @@ button.fd-home-riding.is-yours {
   }
 }
 .is-butte .bt-a .is-lead .cast-hand.is-front .cast-hand-fx {
-  --ba:bt-brush 170ms ease-in-out calc(var(--tl) + var(--b-dust)) 2 both;
+  --ba:bt-brush 170ms ease-in-out calc(var(--tl) + var(--b-dust) + var(--pd, 0ms)) 2 both;
   animation: var(--ba);
 }
 @keyframes bt-brush {
@@ -24525,7 +24544,7 @@ button.fd-home-riding.is-yours {
 }
 .is-butte .bt-a .is-lead .cast-hand.is-back .cast-hand-fx {
   transform: scaleX(-1) translateX(0px);
-  --ba:bt-brush-back 170ms ease-in-out calc(var(--tl) + var(--b-dust)) 2 both;
+  --ba:bt-brush-back 170ms ease-in-out calc(var(--tl) + var(--b-dust) + var(--pd, 0ms)) 2 both;
   animation: var(--ba);
 }
 @keyframes bt-brush-back {
@@ -24563,9 +24582,6 @@ button.fd-home-riding.is-yours {
   position: absolute;
   inset: 0;
   overflow: visible;
-}
-.is-sunset .bit-dim {
-  opacity: .5;
 }
 .is-sunset .ss-node {
   position: absolute;
@@ -24829,9 +24845,6 @@ button.fd-home-riding.is-yours {
   top: 0;
   width: 1920px;
   overflow: hidden;
-}
-.is-statue .bit-dim {
-  opacity: .55;
 }
 .is-statue .st-cast .cast-body {
   transform: scale(1, 1);
@@ -30548,7 +30561,7 @@ button.fd-home-riding.is-yours {
 }
 .bit-dim {
   position: absolute;
-  inset: 0;
+  inset: -48px;
   pointer-events: none;
   background:
     linear-gradient(
@@ -47914,39 +47927,12 @@ summary:focus-visible {
 .fd-qa-bet.is-clear {
   color: var(--clay-text);
 }
-.fd-qa-gags {
-  margin-top: 4px;
-}
-.fd-qa-gags .fd-qa-session-head {
-  min-height: 32px;
-  margin-bottom: 4px;
-}
-.fd-qa-bet.is-random {
-  font-weight: 800;
-}
 .fd-qa-bet:disabled {
   opacity: .4;
   cursor: default;
 }
 .fd-qa-bet[aria-busy=true] {
   opacity: .6;
-}
-.fd-qa-session {
-  margin-top: 12px;
-}
-.fd-qa-session-head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 44px;
-  margin: 0 2px 6px;
-  font: 700 13px/1.2 var(--fd-display);
-  letter-spacing: .08em;
-  text-transform: uppercase;
-  color: var(--muted2);
-}
-.fd-qa-session-head > span {
-  flex: 1;
 }
 .fd-qa-list {
   border: 1px solid var(--line);
@@ -47955,26 +47941,43 @@ summary:focus-visible {
   box-shadow: var(--glass-edge);
   padding: 0 10px 0 14px;
 }
-.fd-qa-row {
+.fd-qa-pick {
   display: flex;
   align-items: center;
   gap: 8px;
-  min-height: 52px;
-  padding: 4px 0;
-  border-bottom: 1px solid var(--line);
+  margin-bottom: 8px;
 }
-.fd-qa-row:last-child {
-  border-bottom: 0;
-}
-.fd-qa-row > b {
-  flex: 1;
+.fd-qa-select {
+  flex: 1 1 0;
   min-width: 0;
-  font: 900 17px/1.15 var(--fd-show);
+  min-height: 48px;
+  padding: 0 34px 0 12px;
+  border: 1px solid var(--ghost-line);
+  border-radius: 10px;
+  background: var(--bg) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='gray' stroke-width='2'/%3E%3C/svg%3E") no-repeat right 12px center;
   color: var(--ink);
-  overflow-wrap: anywhere;
+  font: 600 15px/1.2 var(--fd-body);
+  appearance: none;
+  -webkit-appearance: none;
+  text-overflow: ellipsis;
 }
-.fd-qa-row > b.is-done {
-  color: var(--muted);
+.fd-qa-select:disabled {
+  opacity: .55;
+}
+.fd-qa-select:focus-visible {
+  outline: 2px solid var(--lamp-info);
+  outline-offset: 2px;
+}
+.fd-qa-moment .fd-btn,
+.fd-qa-moment button {
+  flex: 0 0 auto;
+  min-height: 48px;
+}
+.fd-qa-strip-switch {
+  margin-top: 10px;
+}
+.fd-qa-strip-switch .fd-menu-section {
+  margin: 0;
 }
 .fd-qa-seg {
   display: flex;
@@ -48012,8 +48015,9 @@ summary:focus-visible {
   opacity: .55;
 }
 .fd-qa-end {
-  min-height: 44px;
-  min-width: 50px;
+  flex: 0 0 auto;
+  min-height: 48px;
+  min-width: 56px;
   padding: 0 12px;
   border: 1px solid var(--line);
   border-radius: 8px;

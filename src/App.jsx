@@ -64,7 +64,7 @@ import {
   resolveEventLifecycle, resolveWeekendOperation, resolveCurrentContest, contestBetEligibility, wagerMatchesContest, draftTurn,
   RESET_PROGRESS_CONFIRMATION, DUEL_DAILY_LIMIT, duelAccepted, duelBetween, duelLapsesAt, duelOpen, duelPhase, duelRoom, duelsSentToday,
   presentPlayers, suggestParticipants, teamFit, shapeLabel, refundText, bracketOrder, bracketMatchOpen,
-  correctionText, announcementTakeBack, lockerRoomAvailability, postCountRulingApplies,
+  correctionText, announcementTakeBack, lockerRoomAvailability, postCountRulingApplies, arrivalsOpen,
 } from "../shared/core.js";
 import { QuickDrawGame } from "./features/duels/QuickDraw.jsx";
 import { DuelDesk, openDuelsForDesk } from "./features/duels/DuelDesk.jsx";
@@ -89,10 +89,10 @@ import { cleanBackName, cleanVenmo, jerseyConfirmed, setupTodo } from "../shared
 import { WinSongPicker } from "./features/music/WinSongPicker.jsx";
 import { deskNote } from "./features/awards/awardsModel.js";
 import { directorPill } from "./features/director/directorPill.js";
-import { resolveShowScene, resolveDirector } from "../shared/show.js";
+import { resolveShowScene, resolveDirector, autopilotHeld } from "../shared/show.js";
 import {
   useTournament, dispatch, uploadPhoto, downloadSnapshot, localGet, localSet, setGmToken, hasGmToken,
-  reportTvSound, setTvView,
+  reportTvSound, setTvView, spotifyAutoWinSongs,
 } from "./lib/client.js";
 import { writeError } from "./lib/writeErrors.js";
 
@@ -101,11 +101,11 @@ import { usePhaseTheme } from "./ui/usePhaseTheme.js";
 import { DISPLAY, SANS, BONE, GOLD_GRAD, CARD_BG, label, pStyle } from "./ui/theme.js";
 import { Tag, ActionButton, IconButton, Btn, Sheet, SheetDock } from "./ui/controls.jsx";
 import { MenuSections } from "./ui/Menu.jsx";
-import { commissionerMenu, moreMenu } from "./features/director/menuModel.js";
+import { commissionerMenu, moreMenu, settingsMenu, settingsOff } from "./features/director/menuModel.js";
 import { readyCheck, readyTodo, readyValue } from "./features/director/readyCheck.js";
 import { tvAmbient, tvNowLabel } from "./features/director/tvSheetModel.js";
 import { speakerValue } from "./features/speaker/speakerModel.js";
-import { useSpeakerStatus } from "./features/speaker/speakerStatus.js";
+import { setSpeakerStatus, useSpeakerStatus } from "./features/speaker/speakerStatus.js";
 import { Icon } from "./ui/Icon.jsx";
 
 const Onboarding = lazy(() => import("./features/check-in/Onboarding.jsx")
@@ -381,7 +381,7 @@ function TournamentApp({ tournament, onUpdateReload }) {
   /* the Speaker row's value: read each time the commissioner menu (or the
      Ready check, which counts the speaker) opens */
   const speakerStatus = useSpeakerStatus(gmView && audioDirectorAllowed
-    && ["gmMenu", "readyCheck"].includes(modalStack.at(-1)?.type));
+    && ["gmMenu", "readyCheck", "settings"].includes(modalStack.at(-1)?.type));
 
   const events = useMemo(() => allEventsOf(state), [state]);
   const activeShowScene = useMemo(
@@ -1537,7 +1537,35 @@ function TournamentApp({ tournament, onUpdateReload }) {
   /* the More menu and the commissioner's menu: one model, one renderer
      (features/director/menuModel.js, ui/Menu.jsx); each row's id acts here */
   const readyFacts = { capabilities, tvs:tournament.tvs, receivedAt:tournament.tvsAt, speaker:speakerStatus };
+  /* every switch, for the Settings sheet and the menu row's value */
+  const settingsFacts = ["gmMenu", "settings"].includes(modal?.type) ? {
+    autopilotHeld:autopilotHeld(state), gags:!state.gagsOff,
+    audioDirector:audioDirectorAllowed,
+    autoWinSongs:speakerStatus?.ok && speakerStatus.configured ? speakerStatus.autoWinSongs !== false : null,
+    doorOpen:arrivalsOpen(state), jerseysLocked:!!state.jerseysLocked, qaAllowed, qaOn:qa,
+  } : null;
+  const settingItem = id => {
+    switch (id) {
+      case "autopilot": {
+        const hold = !settingsFacts.autopilotHeld;
+        return act("setAutopilot", { hold }, hold ? "Autopilot paused" : "Autopilot on");
+      }
+      case "gags": return act("setGags", { on:!settingsFacts.gags }, settingsFacts.gags ? "Gags off" : "Gags on");
+      case "autoWinSongs": return spotifyAutoWinSongs(!settingsFacts.autoWinSongs).then(result => {
+        if (!result.ok) return notify(result.error || "Could not change win songs");
+        setSpeakerStatus(current => ({ ...current, autoWinSongs:result.autoWinSongs }));
+      });
+      case "door": return setArrivalsOpen(!settingsFacts.doorOpen);
+      case "jerseys": {
+        const locked = !settingsFacts.jerseysLocked;
+        return act("lockJerseys", { locked }, locked ? "Jerseys locked" : "Jerseys unlocked");
+      }
+      case "qaStrip": return toggleQa();
+      default: return undefined;
+    }
+  };
   const gmMenuFacts = modal?.type === "gmMenu" ? {
+    settingsOff:settingsOff(settingsFacts),
     live:!!state.live, readyCheck:readyValue(readyTodo(readyCheck(state, readyFacts))),
     audioDirector:audioDirectorAllowed, speaker:speakerValue(speakerStatus),
     tvNow:tvNowLabel(activeShowScene, tvAmbient(state, events, weekendOperation.event)),
@@ -1571,7 +1599,8 @@ function TournamentApp({ tournament, onUpdateReload }) {
         if (!gm) return sheet("pin");
         setGuestLens(false); return sheet("gmMenu");
       case "showControl": case "audioDirector": case "qa": case "crown": case "attendance": case "lockerRoom":
-      case "unfreeze": case "logistics": case "travelSheet": case "gmDevices": case "readyCheck": return sheet(id);
+      case "unfreeze": case "logistics": case "travelSheet": case "gmDevices": case "readyCheck": case "settings": return sheet(id);
+      case "karaoke": return sheet("karaokeDesk");
       case "geo": return sheet("geoDesk");
       case "trivia": return sheet("triviaDesk");
       case "awards": return sheet("awards");
@@ -1728,6 +1757,9 @@ function TournamentApp({ tournament, onUpdateReload }) {
         }} />}
       {modal?.type === "gmMenu" && <Sheet title="Commissioner" onClose={() => setModal(null)} onBack={modalBack}>
         <MenuSections sections={commissionerMenu(gmMenuFacts)} onItem={menuItem} />
+      </Sheet>}
+      {gmView && modal?.type === "settings" && <Sheet title="Settings" onClose={() => setModal(null)} onBack={modalBack}>
+        <MenuSections sections={settingsMenu(settingsFacts)} onItem={settingItem} />
       </Sheet>}
       {gmView && modal?.type === "awards" && <Suspense fallback={null}><AwardsDesk state={state} events={events} notify={notify}
         onClose={() => setModal(null)} onBack={modalBack} /></Suspense>}

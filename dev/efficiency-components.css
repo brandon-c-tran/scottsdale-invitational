@@ -47738,16 +47738,17 @@ summary:focus-visible {
   color: var(--muted2);
 }
 .tv-karaoke-legend-word {
-  position: absolute;
-  left: 50%;
-  top: 46%;
-  font-size: 200px;
+  order: -1;
+  margin-bottom: -28px;
+  position: relative;
+  z-index: 1;
+  font-size: 180px;
   line-height: 1;
   color: var(--tier-6);
   text-transform: uppercase;
   letter-spacing: .02em;
   white-space: nowrap;
-  transform: translate(-50%, -50%) rotate(-6deg);
+  transform: rotate(-6deg);
   text-shadow:
     3px 3px 0 var(--ink0),
     -3px 3px 0 var(--ink0),
@@ -47759,11 +47760,11 @@ summary:focus-visible {
 @keyframes tv-karaoke-word {
   0% {
     opacity: 0;
-    transform: translate(-50%, -50%) rotate(-6deg) scale(1.8);
+    transform: rotate(-6deg) scale(1.8);
   }
   60% {
     opacity: 1;
-    transform: translate(-50%, -50%) rotate(-6deg) scale(.96);
+    transform: rotate(-6deg) scale(.96);
   }
 }
 @media (prefers-reduced-motion: reduce) {

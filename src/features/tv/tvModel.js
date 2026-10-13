@@ -801,18 +801,20 @@ export function tickerFactWidth(item) {
     ? String(part).length * 16.5 : String(part.amount).length * 20), 0);
   return Math.ceil(tag + faces + text);
 }
-export function tickerPages(items = []) {
+/* the arrivals corner (tv-arrivals.css --tv-corner-room) narrows the plate by this */
+export const TICKER_CORNER_PX = 236;
+export function tickerPages(items = [], half = TICKER_HALF_PX) {
   const pages = [];
   for (let i = 0; i < items.length; i++) {
     const a = items[i], b = items[i + 1];
-    if (b && tickerFactWidth(a) <= TICKER_HALF_PX && tickerFactWidth(b) <= TICKER_HALF_PX) { pages.push([a, b]); i++; }
+    if (b && tickerFactWidth(a) <= half && tickerFactWidth(b) <= half) { pages.push([a, b]); i++; }
     else pages.push([a]);
   }
   return pages;
 }
 /* the packed page on the server clock: every TV shows the same pair */
-export function tickerSpread(items, now, period = TV_TICKER_PAGE_MS) {
-  const pages = tickerPages(items);
+export function tickerSpread(items, now, period = TV_TICKER_PAGE_MS, half = TICKER_HALF_PX) {
+  const pages = tickerPages(items, half);
   const count = Math.max(1, pages.length);
   const index = count > 1 ? Math.floor(Math.max(0, Number(now) || 0) / period) % count : 0;
   return { index, pages:count, items:pages[index] || [] };

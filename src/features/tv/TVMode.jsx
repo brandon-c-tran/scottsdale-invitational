@@ -24,7 +24,7 @@ import {
   tvCanvasFit, tvSceneView, ambientIndex, TV_AMBIENT_MS, TV_AMBIENT_TURN_MS, TV_TROPHY_HOLD_MS, TV_TICKER_PAGE_MS, TV_RESULT_MOMENT_MS,
   tvLiveEvent, nextUpEvent, nextOpenMatch, latestResultOf, resultPresentation, resultMomentPhase, resultMomentFor,
   advanceMoment, advanceHoldUntil, correctionMoment, dockCard, decidedWinner, contestSideView,
-  tvConnection, tickerItems, tickerSpread, tvBusy, podiumGroups, championView, contestLamp, sideNameFit, stageChrome, boardLevel,
+  tvConnection, tickerItems, tickerSpread, TICKER_HALF_PX, TICKER_CORNER_PX, tvBusy, podiumGroups, championView, contestLamp, sideNameFit, stageChrome, boardLevel,
   backersRail,
 } from "./tvModel.js";
 import { IntroOverlay, TVDrawReveal } from "./TVCeremony.jsx";
@@ -222,12 +222,14 @@ function TickerPage({ items, className = "" }) {
    one; the outgoing page fades as the next arrives. Reduced motion cuts. */
 /* `quiet` (a live trivia or Where and When question) holds one page still,
    so nothing moves under the room while it thinks */
-function Ticker({ items, reducedMotion, now, quiet = false }) {
+function Ticker({ items, reducedMotion, now, quiet = false, narrow = false }) {
   /* nothing new to say: no plate at all, never a line that repeats the masthead */
   if (!items?.length) return <div className="tv-ticker is-empty" aria-hidden="true" />;
-  const page = tickerSpread(items, quiet ? 0 : now);
+  /* the arrivals corner narrows the plate: a pair must fit what is left */
+  const half = narrow ? TICKER_HALF_PX - TICKER_CORNER_PX / 2 : TICKER_HALF_PX;
+  const page = tickerSpread(items, quiet ? 0 : now, TV_TICKER_PAGE_MS, half);
   const age = Math.max(0, Number(now) || 0) % TV_TICKER_PAGE_MS;
-  const prev = !quiet && !reducedMotion && page.pages > 1 && age < 1000 ? tickerSpread(items, now - TV_TICKER_PAGE_MS) : null;
+  const prev = !quiet && !reducedMotion && page.pages > 1 && age < 1000 ? tickerSpread(items, now - TV_TICKER_PAGE_MS, TV_TICKER_PAGE_MS, half) : null;
   return (
     <div className={`tv-ticker${reducedMotion ? " is-cut" : ""}`} aria-label={`Ticker, ${page.index + 1} of ${page.pages}`}>
       <div className="tv-ticker-glass" aria-hidden="true" data-fit-region="ticker" />
@@ -1442,7 +1444,7 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied: allT
         {cornerShown && <TVArriveCorner board={arrivals} url={arriveLink} />}
         {showTicker && (railOn ? <BackersRail state={state} model={rail.model} anchor={rail.anchor} now={now}
           key={`rail:${rail.model.eventId}:${rail.model.revision}:${rail.anchor}`} />
-          : <Ticker items={items} reducedMotion={reducedMotion} now={now} quiet={quietTicker} />)}
+          : <Ticker items={items} reducedMotion={reducedMotion} now={now} quiet={quietTicker} narrow={cornerShown} />)}
         {sceneIntroEv && <IntroOverlay key={sceneIntroEv.id} state={state} ev={sceneIntroEv} reducedMotion={reducedMotion}
           sceneAt={showScene?.active?.startedAt} now={introClock}
           handoff={!!(state.draws?.[sceneIntroEv.id] || state.stages?.[sceneIntroEv.id])} />}

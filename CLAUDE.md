@@ -735,11 +735,13 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   behind; CSS adds `var(--pd, 0ms)` where partners go a beat apart). A
   2 v 1 or 1 v 2 stages each side by its own size. Quickdraw: two
   revolvers, the second held over its partner's head, two BANGs 240 ms
-  apart; springglove: two launchers, the second higher over its
-  partner's shoulder, each punching its own favorite a beat apart (both
-  at once against one); butte: a pincer, a pit centred on the stem and a
-  poker at each lip (the second mirrored, `.bt-mirror`, its photo
-  flipped back by `.cast-flip`); explosionwalk, toohype, sunset and
+  apart; springglove: a pincer, a launcher at each end (the second the
+  first mirrored about the middle, `.sg-mirror.cast-flip`), favorites
+  back to back each punched by the nearer a beat apart, flights crossing
+  (against one, both land at once and it goes straight up; its pairs
+  entry carries its own wide `camera`); butte: a pincer, a pit centred
+  on the stem and a poker at each lip (the second mirrored, `.bt-mirror`,
+  its photo flipped back by `.cast-flip`); explosionwalk, toohype, sunset and
   statue: both walk, look, bounce, wear the shades, turn gold. A bit's
   `pairLag` is that beat and its `pairs` entries (`{ sides:{ a:2 }, cues,
   shakes, washes }`) add the second shot's sound, kick and white frame,

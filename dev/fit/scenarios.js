@@ -1415,7 +1415,7 @@ export const PHONE_SCENARIOS = Object.freeze([
   { id:"bit-bigloss", build:() => gagWeekend("bigloss", { own:FIT_GUEST }).state, land:"bigloss", landOpts:{ own:FIT_GUEST },
     settle:false, tabs:[], sheets:["bit"], sheetSizes:["375"] },
   { id:"walkout-pair", build:() => walkoutRecord(bracketWonBy("die", "Henry"), "Henry"), settle:false, tabs:[], sheets:["walkout"] },
-  { id:"walkout-team7", build:() => teamWinSong(fresh("event:bball5:done"), "bball5"), settle:false, tabs:[],
+  { id:"walkout-team7", build:() => teamWinSong(fresh("event:bball5:done", 1), "bball5"), settle:false, tabs:[],
     sheets:["walkout"] },
   /* naming your team: the card on Home (a team of seven, a team of three),
      writing your own, and the longest names on every phone board */

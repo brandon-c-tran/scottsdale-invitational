@@ -16,7 +16,7 @@ import {
   SPOTIFY_TRACK_URI, buildWalkout, reconcileWalkout, sameWalkout, walkoutLive, walkoutOf,
 } from "../shared/audio.js";
 import { BUILD_ID } from "../shared/build.js";
-import { applyAction } from "./actions.js";
+import { ACTIONS, applyAction } from "./actions.js";
 import { QA_CHECKPOINT_LIMIT, cleanCheckpointName, qaCheckpointSummary, qaProgressOf } from "../shared/qa.js";
 import { createStateSerializer } from "./publicState.js";
 import { WAGER_OPS_KEY, hydrateStoredState, splitStoredState } from "./state.js";
@@ -51,7 +51,11 @@ import { WIN_SONG_CLIP_MS, WIN_SONG_STOP_ACTIONS, winSongFor } from "./winSong.j
 import { autoBeat } from "../shared/autopilot.js";
 import { SIM_WRITES_PER_ALARM, qaSimOf, simContext, simDue, simNext } from "../shared/qaSim.js";
 import { findPreview, previewCache } from "./previews.js";
-import { findAlbumUpload } from "./youtube.js";
+import { YOUTUBE_KEEP_MS, findAlbumUpload } from "./youtube.js";
+import {
+  checkKaraokeVideos, findKaraokeVideos, isYouTubeId, karaokeCheckList, karaokeCheckReport, karaokeLookupFresh,
+  karaokePreflight, karaokeProblemText, karaokeWindowOpened, youtubeFailure,
+} from "./karaokeVideos.js";
 import { projectPrompts } from "../shared/prompts.js";
 import { MomentDesk, MOMENT_PREFIX, jpegInfo, stripJpegMetadata } from "./moments.js";
 import { geoPhotoId, geoShownIds } from "../shared/geo.js";
@@ -123,15 +127,37 @@ const SPOTIFY_SEARCH_WINDOW_MS = 60 * 1000;
 const PRESENCE_FRESH_MS = 40 * 1000;
 /* what a TV socket says about its own sound (client.js reportTvSound) */
 const TV_SOUND = new Set(["on", "blocked"]);
+/* what a TV socket says about the karaoke video it plays (docs/KARAOKE.md
+   "The TV report"): { key:"<gameId>:<index>:<video>", state, code, at }.
+   Presence only, like its sound: never state, never stored. */
+const TV_VIDEO_STATES = new Set(["ready", "playing", "blocked", "error"]);
+const TV_VIDEO_KEY = /^[\w:-]{1,60}$/;
+/* the reports already turned into a write (karaokeTvPlaying, karaokeTvError) */
+const TV_VIDEO_SEEN_LIMIT = 64;
+function cleanTvVideo(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  if (typeof value.key !== "string" || !TV_VIDEO_KEY.test(value.key) || !TV_VIDEO_STATES.has(value.state)) return null;
+  const code = value.code ?? null, at = value.at ?? null;
+  if (code !== null && !(Number.isInteger(code) && code >= 0 && code <= 999)) return null;
+  if (at !== null && !Number.isFinite(at)) return null;
+  return { key:value.key, state:value.state, code, at };
+}
 const SPOTIFY_SEARCH_LIMIT = 40;
 /* preview clip lookups per device per minute (answers are cached) */
 const PREVIEW_LIMIT = 60;
-/* YouTube album uploads by Spotify track id: private, kept for good (a miss
-   is asked again after a day); a search spends a fifth of a percent of the
-   key's daily quota, so a device may start at most 10 a minute */
+/* YouTube album uploads by Spotify track id: private, kept 30 days
+   (YOUTUBE_KEEP_MS, YouTube's storage rule; a miss is asked again after a
+   day); a search is one of the key's 100 search.list calls a day, so a
+   device may start at most 10 a minute */
 const SNIPPET_KEY_PREFIX = "private:youtube:";
 const SNIPPET_MISS_MS = 24 * 60 * 60 * 1000;
 const SNIPPET_LIMIT = 10;
+/* karaoke uploads by Spotify track id (worker/karaokeVideos.js): private,
+   30 days, a miss asked again after a day. A pasted link and the
+   commissioner's check each read one videos.list (1 unit). */
+const KARAOKE_KEY_PREFIX = "private:karaoke:";
+const KARAOKE_LINK_LIMIT = 20;
+const KARAOKE_CHECK_LIMIT = 6;
 /* eight characters, 40 bits; 256 is a multiple of the 32-letter alphabet, so no bias */
 function newArriveCode() {
   const bytes = crypto.getRandomValues(new Uint8Array(8));
@@ -213,6 +239,10 @@ export class Tournament {
       push:configured && !!this.vapid,
       /* the Win song picker's exact-snippet preview (worker/youtube.js) */
       songSnippets:configured && this.env.M2_AUDIO_CATALOG_ENABLED === "true" && !!this.env.YOUTUBE_API_KEY,
+      /* karaoke songs (docs/KARAOKE.md): audioCatalog && songSnippets, the
+         Spotify search and the YouTube key */
+      karaoke:configured && this.env.M2_AUDIO_CATALOG_ENABLED === "true" && spotifyConfigured(this.env)
+        && !!this.env.YOUTUBE_API_KEY,
     };
   }
 
@@ -297,6 +327,9 @@ export class Tournament {
     if (url.pathname === "/api/admin/prompts" || url.pathname.startsWith("/api/admin/prompts/")
         || url.pathname === "/api/prompts" || url.pathname.startsWith("/api/prompts/"))
       return this.handlePrompts(req, url);
+    /* karaoke songs on YouTube, the commissioner's check included (ahead of /api/admin/) */
+    if (url.pathname.startsWith("/api/karaoke/") || url.pathname.startsWith("/api/admin/karaoke/"))
+      return this.handleKaraoke(req, url);
     if (url.pathname.startsWith("/api/admin/")) return this.handleAdmin(req, url);
     if (url.pathname.startsWith("/api/spotify/")) return this.handleSpotify(req, url);
     if (url.pathname === "/api/moments" || url.pathname.startsWith("/api/moments/"))
@@ -472,6 +505,82 @@ export class Tournament {
     return found;
   }
 
+  /* ── Karaoke songs on YouTube (docs/KARAOKE.md, worker/karaokeVideos.js) ──
+     GET /api/karaoke/videos?trackId&name&artist&durationMs   a chosen song's
+         karaoke uploads (device claim or GM token): one search and one read,
+         kept in private:karaoke:<trackId> 30 days (YouTube's storage rule),
+         a miss asked again after a day; a failure is never kept
+     GET /api/karaoke/video?id     a pasted link: one read, the same checks
+     GET /api/admin/karaoke/check  (GM token) every roster player's saved
+         video and alternates in one batched read; stores nothing
+     Not found unless the karaoke capability is on. */
+  async handleKaraoke(req, url) {
+    if (!this.capabilities.karaoke) return new Response("Not found", { status:404 });
+    if (req.method !== "GET") return spotifyJson({ ok:false, error:"Method not allowed" }, 405);
+    const key = this.env.YOUTUBE_API_KEY, fetchImpl = this.youtubeFetch || fetch;
+    const failed = (event, error) => {
+      console.error(JSON.stringify({ event, reason:error?.reason || error?.detail || null,
+        error:String(error?.message || error).slice(0, 200) }));
+      const answer = youtubeFailure(error);
+      return spotifyJson({ ok:false, error:answer.error, code:answer.code }, answer.status);
+    };
+    if (url.pathname === "/api/admin/karaoke/check") {
+      if (!await this.gmAuthorized(req)) return spotifyJson({ ok:false, error:"Commissioner only" }, 403);
+      if (!this.spotifyRateLimit("karaoke-check:gm", KARAOKE_CHECK_LIMIT))
+        return spotifyJson({ ok:false, error:"Too many checks; wait a minute", retryAfter:60 }, 429);
+      const roster = rosterOf(this.state);
+      const list = karaokeCheckList(this.state, roster);
+      const ids = Object.values(list).flat();
+      let results = {};
+      if (ids.length) {
+        try { results = await checkKaraokeVideos(ids, key, fetchImpl); }
+        catch (error) { return failed("karaoke-check-failed", error); }
+      }
+      return spotifyJson({ ok:true, results:karaokeCheckReport(roster, list, results) });
+    }
+    const authorized = await this.spotifySearchAuthorized(req);
+    if (!authorized.ok) return spotifyJson({ ok:false, error:"Check in first" }, 403);
+    if (url.pathname === "/api/karaoke/videos") {
+      const trackId = url.searchParams.get("trackId") || "";
+      const name = (url.searchParams.get("name") || "").slice(0, 120);
+      const artist = (url.searchParams.get("artist") || "").slice(0, 120);
+      const durationMs = Math.floor(Number(url.searchParams.get("durationMs")) || 0);
+      if (!/^[A-Za-z0-9]{22}$/.test(trackId) || !name.trim() || durationMs < 1000)
+        return spotifyJson({ ok:false, error:"Pick a song first" }, 400);
+      const storeKey = `${KARAOKE_KEY_PREFIX}${trackId}`;
+      let saved = await this.ctx.storage.get(storeKey);
+      if (!karaokeLookupFresh(saved)) {
+        if (!this.spotifyRateLimit(`karaoke:${authorized.key}`, SNIPPET_LIMIT))
+          return spotifyJson({ ok:false, error:"Too many lookups; wait a minute", retryAfter:60 }, 429);
+        try {
+          const videos = await findKaraokeVideos({ name, artists:[artist], durationMs }, key, fetchImpl);
+          saved = { videos, at:Date.now() };
+          await this.ctx.storage.put(storeKey, saved);
+        } catch (error) {
+          /* an answer past its 30 days goes, even when the refresh fails */
+          if (saved && Date.now() - Number(saved.at) > YOUTUBE_KEEP_MS) {
+            try { await this.ctx.storage.delete(storeKey); } catch {}
+          }
+          return failed("karaoke-lookup-failed", error);
+        }
+      }
+      return saved.videos.length ? spotifyJson({ ok:true, videos:saved.videos })
+        : spotifyJson({ ok:false, error:"No karaoke version found. Paste a YouTube link.", code:"none", videos:[] }, 404);
+    }
+    if (url.pathname === "/api/karaoke/video") {
+      const id = url.searchParams.get("id") || "";
+      if (!isYouTubeId(id)) return spotifyJson({ ok:false, error:karaokeProblemText("invalid"), code:"invalid" }, 400);
+      if (!this.spotifyRateLimit(`karaoke-link:${authorized.key}`, KARAOKE_LINK_LIMIT))
+        return spotifyJson({ ok:false, error:"Too many lookups; wait a minute", retryAfter:60 }, 429);
+      let checked;
+      try { checked = (await checkKaraokeVideos([id], key, fetchImpl))[id]; }
+      catch (error) { return failed("karaoke-link-failed", error); }
+      return checked?.ok ? spotifyJson({ ok:true, video:checked.video })
+        : spotifyJson({ ok:false, error:karaokeProblemText(checked?.code), code:checked?.code || "removed" }, 422);
+    }
+    return spotifyJson({ ok:false, error:"Not found" }, 404);
+  }
+
   /* a commissioner token on an HTTP request (Bearer or the GM header) */
   async adminGmToken(req) {
     const auth = req.headers.get("Authorization") || "";
@@ -486,6 +595,7 @@ export class Tournament {
     const result = applyAction(nextState, type, payload, {
       isGm, player, deviceId, actionId:null, environment:this.environment,
       progressReset:this.capabilities.progressReset, showControl:this.capabilities.showControl, qa:this.capabilities.qa,
+      karaoke:this.capabilities.karaoke,
     });
     if (!result.ok || result.extra?.unchanged) return result;
     this.carryWalkout(nextState);
@@ -810,7 +920,7 @@ export class Tournament {
       if (!write) return;
       const before = this.state;
       const nextState = structuredClone(this.state);
-      const shared = { environment:this.environment, showControl:this.capabilities.showControl };
+      const shared = { environment:this.environment, showControl:this.capabilities.showControl, karaoke:this.capabilities.karaoke };
       const result = applyAction(nextState, write.type, write.payload, sim
         ? { ...shared, ...simContext(write), qa:this.capabilities.qa }
         : { ...shared, isGm:true, auto:true, player:null, deviceId:"autopilot", actionId:write.key });
@@ -835,6 +945,7 @@ export class Tournament {
       if (sim) { if (write.gm) this.queueWinSong(before, this.state, write.type); continue; }
       this.queueAlerts(before, this.state, null);
       this.queueWinSong(before, this.state, write.type);
+      this.queueKaraokeCheck(before, this.state);
     }
   }
 
@@ -1152,7 +1263,9 @@ export class Tournament {
         return spotifyJson({ ok:false, error:"No song to preview" }, 400);
       const storeKey = `${SNIPPET_KEY_PREFIX}${trackId}`;
       let saved = await this.ctx.storage.get(storeKey);
-      if (!saved || (!saved.videoId && Date.now() - Number(saved.at) > SNIPPET_MISS_MS)) {
+      /* an answer is looked up again after 30 days (YouTube's storage rule) */
+      const age = Date.now() - Number(saved?.at);
+      if (!saved || !(age <= YOUTUBE_KEEP_MS) || (!saved.videoId && age > SNIPPET_MISS_MS)) {
         if (!this.spotifyRateLimit(`snippet:${authorized.key}`, SNIPPET_LIMIT))
           return spotifyJson({ ok:false, error:"Too many previews; wait a minute", retryAfter:60 }, 429);
         try {
@@ -1162,6 +1275,10 @@ export class Tournament {
           await this.ctx.storage.put(storeKey, saved);
         } catch (error) {
           console.error(JSON.stringify({ event:"snippet-lookup-failed", error:String(error?.message || error).slice(0, 200) }));
+          /* one past its 30 days goes, even when the refresh fails */
+          if (saved && !(age <= YOUTUBE_KEEP_MS)) {
+            try { await this.ctx.storage.delete(storeKey); } catch {}
+          }
           return spotifyJson({ ok:false, error:"YouTube did not answer. Try again" }, 502);
         }
       }
@@ -1565,14 +1682,16 @@ export class Tournament {
     return { deviceId:validDeviceId(meta?.deviceId), gm:meta?.gm === true, tv:meta?.tv === true,
       gmId:typeof meta?.gmId === "string" ? meta.gmId : null,
       fg:meta?.fg === true, seenAt:Number(meta?.seenAt) || 0,
-      sound:meta?.tv === true && TV_SOUND.has(meta?.sound) ? meta.sound : null };
+      sound:meta?.tv === true && TV_SOUND.has(meta?.sound) ? meta.sound : null,
+      video:meta?.tv === true ? cleanTvVideo(meta?.video) : null };
   }
 
   setSocketMeta(ws, meta) {
     const clean = { deviceId:validDeviceId(meta?.deviceId), gm:meta?.gm === true, tv:meta?.tv === true,
       gmId:meta?.gm === true && typeof meta?.gmId === "string" ? meta.gmId : null,
       fg:meta?.fg === true, seenAt:Number(meta?.seenAt) || 0,
-      sound:meta?.tv === true && TV_SOUND.has(meta?.sound) ? meta.sound : null };
+      sound:meta?.tv === true && TV_SOUND.has(meta?.sound) ? meta.sound : null,
+      video:meta?.tv === true ? cleanTvVideo(meta?.video) : null };
     try { ws?.serializeAttachment?.(clean); } catch {}
     if (ws && typeof ws === "object") this.socketFallback.set(ws, clean);
     return clean;
@@ -1620,9 +1739,50 @@ export class Tournament {
       if (ws === skip) continue;
       const meta = this.socketMeta(ws);
       if (!meta.tv) continue;
-      tvs.push({ sound:meta.sound || "unknown", visible:meta.fg, ageMs:Math.max(0, now - (meta.seenAt || 0)) });
+      tvs.push({ sound:meta.sound || "unknown", visible:meta.fg, ageMs:Math.max(0, now - (meta.seenAt || 0)),
+        video:meta.video || null });
     }
     return tvs;
+  }
+
+  /* A TV's karaoke video report: the first "playing" (`at`, when the
+     video's time 0 played) and the first "error" for a turn and video
+     become the game's own writes (karaokeTvPlaying, karaokeTvError) on the
+     ordinary reducer with the autopilot's commissioner context, persisted
+     and broadcast like any write. The report itself is never stored; a
+     repeat (every ping carries it) is answered from memory, and the write
+     is a no-op once its turn or video has moved on. Never fails or holds
+     up the socket that sent it. */
+  async applyTvVideo(video) {
+    if (video?.state !== "playing" && video?.state !== "error") return;
+    const parts = video.key.split(":");
+    const payload = { gameId:parts[0], index:Number(parts[1]), video:Number(parts[2]) };
+    if (parts.length !== 3 || !payload.gameId || !Number.isSafeInteger(payload.index) || !Number.isSafeInteger(payload.video)) return;
+    const type = video.state === "playing" ? "karaokeTvPlaying" : "karaokeTvError";
+    if (type === "karaokeTvPlaying") {
+      if (video.at === null) return;
+      payload.playingAt = video.at;
+    } else payload.code = video.code ?? 0;
+    const id = `${video.key}:${video.state}`;
+    this.tvVideoSeen ||= new Set();
+    if (this.tvVideoSeen.has(id)) return;
+    this.tvVideoSeen.add(id);
+    if (this.tvVideoSeen.size > TV_VIDEO_SEEN_LIMIT) this.tvVideoSeen.delete(this.tvVideoSeen.values().next().value);
+    try {
+      const nextState = structuredClone(this.state);
+      const result = applyAction(nextState, type, payload, {
+        isGm:true, auto:true, player:null, deviceId:"tv", actionId:`tv:${id}`,
+        environment:this.environment, showControl:this.capabilities.showControl, karaoke:this.capabilities.karaoke,
+      });
+      if (!result.ok || result.extra?.unchanged) return;
+      await this.persistAndBroadcast(type, nextState);
+      await this.scheduleAlarm();
+    } catch (error) {
+      /* a failed save is tried again on the TV's next report */
+      this.tvVideoSeen.delete(id);
+      console.error(JSON.stringify({ event:"tv-video-failed", action:type,
+        error:String(error?.message || error).slice(0, 200) }));
+    }
   }
 
   /* a TV spoke (hello, ping, presence) or left: tell commissioner sockets */
@@ -1705,14 +1865,17 @@ export class Tournament {
        the app gets no pocket alert. A client that never says is foreground. */
     const visible = typeof payload?.visible === "boolean" ? payload.visible : null;
     const tvSound = TV_SOUND.has(payload?.tvSound) ? payload.tvSound : null;
+    const tvVideo = cleanTvVideo(payload?.tvVideo);
     if (type === "hello") {
       const gmId = await this.gmTokenId(gmToken);
       const tv = payload?.view === "tv";
       meta = this.setSocketMeta(ws, { ...meta, tv, gm:!!gmId, gmId,
-        fg:visible !== false, seenAt:Date.now(), sound:tv ? tvSound ?? meta.sound : null });
+        fg:visible !== false, seenAt:Date.now(), sound:tv ? tvSound ?? meta.sound : null,
+        video:tv ? tvVideo ?? meta.video : null });
       const nonce = Number.isSafeInteger(payload?.nonce) ? payload.nonce : undefined;
       this.sendState(ws, nonce === undefined ? {} : { hello:nonce });
       if (tv) this.sendTvs();
+      if (tv && tvVideo) await this.applyTvVideo(tvVideo);
       return;
     }
     if (type === "ping" || type === "presence") {
@@ -1720,13 +1883,15 @@ export class Tournament {
       const wasTv = !!meta.tv;
       const tv = payload?.view === "tv" ? true : payload?.view === "app" ? false : wasTv;
       meta = this.setSocketMeta(ws, { ...meta, tv, fg:visible ?? (type === "ping" ? meta.fg : false),
-        seenAt:Date.now(), sound:tv ? tvSound ?? meta.sound : null });
+        seenAt:Date.now(), sound:tv ? tvSound ?? meta.sound : null, video:tv ? tvVideo ?? meta.video : null });
       if (type === "ping") try { ws.send(JSON.stringify({ type: "pong", serverNow:Date.now(),
         /* a TV left on picks up the code once check-in opens at Friday's midnight */
         ...(tv ? { arrive:this.arriveCodeForTv() } : {}) })); } catch {}
       /* the app's own TV mode turning on or off: the code follows the view */
       else if (tv !== wasTv) try { ws.send(JSON.stringify({ type:"arrive", code:tv ? this.arriveCodeForTv() : null })); } catch {}
       if (tv || wasTv) this.sendTvs();
+      /* after the socket's own answers: a karaoke video that started or failed */
+      if (tv && tvVideo) await this.applyTvVideo(tvVideo);
       return;
     }
 
@@ -1830,6 +1995,8 @@ export class Tournament {
       progressReset:this.capabilities.progressReset,
       showControl:this.capabilities.showControl,
       qa:this.capabilities.qa,
+      /* Lock and start opens karaoke's pick window only with the capability */
+      karaoke:this.capabilities.karaoke,
       /* a guest's check-in must carry the TV's current code */
       ...(type === "setArrived" ? { arriveCode:this.arriveCode } : {}),
       ...(qaCheckpoint ? { qaCheckpoint } : {}),
@@ -1884,6 +2051,7 @@ export class Tournament {
     if (!QUIET_ACTIONS.has(type)) {
       this.queueAlerts(before, this.state, isActivePlayer(claimed, this.state) ? claimed : null);
       this.queueWinSong(before, this.state, type);
+      this.queueKaraokeCheck(before, this.state);
     } else if (type === "qaAdvance" && QA_SONG_TARGETS.has(payload?.target) && !result.extra?.rewound) {
       this.queueWinSong(before, this.state, type);
     }
@@ -1934,6 +2102,58 @@ export class Tournament {
       claims:this.claims, fetchImpl:this.pushFetch || fetch })).catch(() => null);
     try { this.ctx.waitUntil?.(work); } catch {}
     return work;
+  }
+
+  /* ── karaoke: the pick window's video check (docs/KARAOKE.md) ──
+     After a write that opened a pick window persisted and its broadcast
+     left, one batched videos.list reads every present player's saved video
+     and alternates, and karaokePreflight (worker/karaoke.js) says which
+     failed, through the ordinary reducer as an autopilot write. Best
+     effort, like a win song: it never holds up, delays or fails the start,
+     and a YouTube failure writes nothing (the TV's own error report still
+     moves to an alternate). */
+  queueKaraokeCheck(before, after) {
+    if (!this.capabilities.karaoke) return null;
+    const gameId = karaokeWindowOpened(before, after);
+    if (!gameId) return null;
+    const work = this.checkKaraokeWindow(gameId).catch(error => {
+      console.error(JSON.stringify({ event:"karaoke-check-failed", error:String(error?.message || error).slice(0, 200) }));
+      return null;
+    });
+    try { this.ctx.waitUntil?.(work); } catch {}
+    return work;
+  }
+
+  async checkKaraokeWindow(gameId) {
+    /* the reducer is worker/karaoke.js's; without it there is nothing to write */
+    if (!Object.hasOwn(ACTIONS, "karaokePreflight")) return null;
+    const list = karaokeCheckList(this.state);
+    const ids = Object.values(list).flat();
+    if (!ids.length) return null;
+    let results;
+    try { results = await checkKaraokeVideos(ids, this.env.YOUTUBE_API_KEY, this.youtubeFetch || fetch); }
+    catch (error) {
+      console.error(JSON.stringify({ event:"karaoke-preflight-lookup-failed", reason:error?.reason || null,
+        error:String(error?.message || error).slice(0, 200) }));
+      return null;
+    }
+    /* the window may have closed or restarted while YouTube answered */
+    if (this.state.karaoke?.id !== gameId || this.state.karaoke?.phase !== "pick") return null;
+    const nextState = structuredClone(this.state);
+    const opened = Number(this.state.karaoke.startedAt) || 0;
+    const result = applyAction(nextState, "karaokePreflight", { gameId, ...karaokePreflight(list, results) }, {
+      isGm:true, auto:true, player:null, deviceId:"autopilot", actionId:`karaoke:${gameId}:${opened}:preflight`,
+      environment:this.environment, showControl:this.capabilities.showControl, karaoke:this.capabilities.karaoke,
+    });
+    if (!result.ok || result.extra?.unchanged) return result;
+    this.carryWalkout(nextState);
+    try { await this.persistAndBroadcast("karaokePreflight", nextState); }
+    catch (error) {
+      console.error(JSON.stringify({ event:"karaoke-preflight-write-failed", error:String(error?.message || error).slice(0, 300) }));
+      return { ok:false };
+    }
+    await this.scheduleAlarm();
+    return result;
   }
 
   /* ── QA checkpoints (commissioner, QA capability) ──

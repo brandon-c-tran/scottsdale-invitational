@@ -7,6 +7,7 @@ import { computeStandings, resolveWeekendOperation, resolveCurrentContest, sugge
 import { awardsRevealBlocker, revealBallot, revealedCount } from "./prompts.js";
 import { geoBeat } from "./geo.js";
 import { triviaBeat } from "./trivia.js";
+import { karaokeBeat } from "./karaoke.js";
 
 const SHOW_HISTORY_LIMIT = 20;
 const SHOW_TERMINAL_OUTCOMES = Object.freeze(["completed", "skipped", "cancelled"]);
@@ -318,7 +319,8 @@ const LIFECYCLE_LABELS = {
 export const draftsByDefault = ev => ev?.kind === "team" && !ev.finale
   && ((Number(ev.teamCfg?.size) || 0) >= 3 || ev.participation?.type === "all");
 
-function lifecycleBeat(state, operation) {
+/* `karaoke`: the karaoke capability, so the pill may offer Start karaoke */
+function lifecycleBeat(state, operation, { karaoke = false, now = Date.now() } = {}) {
   const action = operation.nextAction;
   const ev = operation.event;
   const none = { ...operation, scene:null, secondary:null, extras:[] };
@@ -375,7 +377,7 @@ function lifecycleBeat(state, operation) {
   /* Where and When plays its rounds before its result */
   if (["enter-result", "post-result"].includes(action.type)
       || (action.type === "record-contest-winner" && contest?.kind === "ffa")) {
-    const geo = geoBeat(state, ev) || triviaBeat(state, ev);
+    const geo = geoBeat(state, ev) || triviaBeat(state, ev) || karaokeBeat(state, ev, { karaoke, now });
     if (geo) return beat({ ...action, ...geo });
   }
   if (action.type === "record-contest-winner" && contest && contest.kind !== "ffa")
@@ -387,11 +389,11 @@ function lifecycleBeat(state, operation) {
   return beat({ ...action, label:LIFECYCLE_LABELS[action.type] || action.label, subject });
 }
 
-function resolveDirector(state, events = [], { showControl = false, now = Date.now() } = {}) {
+function resolveDirector(state, events = [], { showControl = false, karaoke = false, now = Date.now() } = {}) {
   const operation = resolveWeekendOperation(state, events);
   const control = state.showControl;
   const history = Array.isArray(control?.history) ? control.history : [];
-  const base = lifecycleBeat(state, operation);
+  const base = lifecycleBeat(state, operation, { karaoke, now });
   const only = (scene, nextAction) => ({ ...operation, scene, secondary:null, extras:[], nextAction });
 
   if (showControl) {

@@ -135,6 +135,8 @@ function pickNow(state) {
   }
   /* the Trivia board's fixtures stand their moment on the state's own write time */
   if (at.board !== undefined) return (Number(state.updatedAt) || Date.now()) + at.board;
+  /* and Karaoke's (dev/fit/karaokeFixtures.js) */
+  if (at.karaoke !== undefined) return (Number(state.updatedAt) || Date.now()) + at.karaoke;
   if (at.trivia !== undefined) {
     const game = state.trivia, q = game?.questions?.[game.index];
     const time = game?.times?.[q?.id] || {};

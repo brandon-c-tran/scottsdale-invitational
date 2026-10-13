@@ -162,8 +162,19 @@ const sameWalkout = (left, right) => (!left && !right) || (!!left && !!right
   && left.player === right.player && left.trackId === right.trackId
   && left.startedAt === right.startedAt && left.until === right.until && !!left.auto === !!right.auto);
 
+/* a song's name as the room knows it: a release's suffix ("- Single
+   Version", "- Remastered 2011", "(Radio Edit)") is not part of it. Home's
+   song line and the karaoke video search (worker/karaokeVideos.js) read it */
+const SONG_SUFFIX = /\s*(?:-\s+[^-]*\b(?:version|remaster(?:ed)?|edit|mix|mono|stereo|live|single|radio|explicit|clean)\b[^-]*|[([][^)\]]*\b(?:version|remaster(?:ed)?|edit|mix|mono|stereo|live|radio|explicit|clean)\b[^)\]]*[)\]])\s*$/i;
+const songTitle = name => {
+  const full = String(name || "").trim();
+  const short = full.replace(SONG_SUFFIX, "").trim();
+  return short || full;
+};
+
 export {
   MAX_TRACK_DURATION_MS,
+  SONG_SUFFIX,
   SPOTIFY_TRACK_ID,
   SPOTIFY_TRACK_URI,
   WALKOUT_DRIFT_MS,
@@ -175,6 +186,7 @@ export {
   cleanWalkout,
   reconcileWalkout,
   sameWalkout,
+  songTitle,
   validateSpotifyTrack,
   walkoutLive,
   walkoutOf,

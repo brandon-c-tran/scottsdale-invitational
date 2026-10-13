@@ -82,17 +82,20 @@ import { AwardsHome } from "./features/awards/AwardsHome.jsx";
 import { TeamNameCard, TeamNameDesk } from "./features/teams/TeamNameCard.jsx";
 import { GeoHome, GeoPlaySheet } from "./features/geo/GeoPlay.jsx";
 import { TriviaHome, TriviaPlaySheet } from "./features/trivia/TriviaPlay.jsx";
+import { KaraokeSheet } from "./features/karaoke/KaraokePlay.jsx";
+import { KaraokeHome } from "./features/karaoke/KaraokeHome.jsx";
 import { triviaQuestionTotal } from "../shared/trivia.js";
 import { JerseySection } from "./features/jersey/Jersey.jsx";
 import { TripDetails } from "./features/profile/TripDetails.jsx";
 import { cleanBackName, cleanVenmo, jerseyConfirmed, setupTodo } from "../shared/guestSetup.js";
 import { WinSongPicker } from "./features/music/WinSongPicker.jsx";
+import { KaraokeSongPicker } from "./features/karaoke/KaraokeSongPicker.jsx";
 import { deskNote } from "./features/awards/awardsModel.js";
 import { directorPill } from "./features/director/directorPill.js";
 import { resolveShowScene, resolveDirector, autopilotHeld } from "../shared/show.js";
 import {
   useTournament, dispatch, uploadPhoto, downloadSnapshot, localGet, localSet, setGmToken, hasGmToken,
-  reportTvSound, setTvView, spotifyAutoWinSongs,
+  reportTvSound, setTvView, spotifyAutoWinSongs, reportTvVideo,
 } from "./lib/client.js";
 import { writeError } from "./lib/writeErrors.js";
 
@@ -103,6 +106,7 @@ import { Tag, ActionButton, IconButton, Btn, Sheet, SheetDock } from "./ui/contr
 import { MenuSections } from "./ui/Menu.jsx";
 import { commissionerMenu, moreMenu, settingsMenu, settingsOff } from "./features/director/menuModel.js";
 import { readyCheck, readyTodo, readyValue } from "./features/director/readyCheck.js";
+import { karaokeSongCount } from "./features/karaoke/deskModel.js";
 import { tvAmbient, tvNowLabel } from "./features/director/tvSheetModel.js";
 import { speakerValue } from "./features/speaker/speakerModel.js";
 import { setSpeakerStatus, useSpeakerStatus } from "./features/speaker/speakerStatus.js";
@@ -117,6 +121,7 @@ const QABar = /* @__PURE__ */ lazyPart(() => import("./features/qa/QABar.jsx"), 
 const QASheet = /* @__PURE__ */ lazyPart(() => import("./features/qa/QASheet.jsx"), "QASheet");
 const GeoDesk = /* @__PURE__ */ lazyPart(() => import("./features/geo/GeoDesk.jsx"), "GeoDesk");
 const TriviaDesk = /* @__PURE__ */ lazyPart(() => import("./features/trivia/TriviaDesk.jsx"), "TriviaDesk");
+const KaraokeDesk = /* @__PURE__ */ lazyPart(() => import("./features/karaoke/KaraokeDesk.jsx"), "KaraokeDesk");
 const AwardsDesk = /* @__PURE__ */ lazyPart(() => import("./features/awards/AwardsDesk.jsx"), "AwardsDesk");
 const PokerSetupSheet = /* @__PURE__ */ lazyPart(() => import("./features/director/FinaleSheets.jsx"), "PokerSetupSheet");
 const CrownSheet = /* @__PURE__ */ lazyPart(() => import("./features/director/FinaleSheets.jsx"), "CrownSheet");
@@ -126,7 +131,7 @@ const ReadyCheck = /* @__PURE__ */ lazyPart(() => import("./features/director/Re
 /* Scan the TV: the scanner (and its decoder, loaded inside it) only once a guest opens it */
 const ArriveScanner = /* @__PURE__ */ lazyPart(() => import("./features/arrivals/Scanner.jsx"), "ArriveScanner");
 const COMMISSIONER_PARTS = [QABar, QASheet, GeoDesk, TriviaDesk, AwardsDesk, PokerSetupSheet, CrownSheet, TvSheet, SpeakerSheet,
-  ReadyCheck];
+  KaraokeDesk, ReadyCheck];
 
 
 const prefersReducedMotion = () => typeof window !== "undefined" &&
@@ -407,8 +412,8 @@ function TournamentApp({ tournament, onUpdateReload }) {
   /* the pill reads the director; the TV keeps reading weekendOperation so
      director copy never leaks to the room */
   const director = useMemo(
-    () => resolveDirector(state, events, { showControl:showControlAllowed }),
-    [state, events, showControlAllowed],
+    () => resolveDirector(state, events, { showControl:showControlAllowed, karaoke:capabilities.karaoke === true }),
+    [state, events, showControlAllowed, capabilities.karaoke],
   );
   const standings = useMemo(() => computeStandings(state), [state]);
   const allTied = standings.length > 0 && standings[0].pts === standings[standings.length-1].pts && !state.frozen;
@@ -498,6 +503,8 @@ function TournamentApp({ tournament, onUpdateReload }) {
   usePocketAlerts({ connected, you:tournament.you, capabilities, pushKey:tournament.pushKey,
     ready:ready && onboardStep === 99 && !tv, onRoute:route => {
       if (!ready || onboardStep !== 99 || tv) return false;
+      /* You're up next (karaoke): Home, the game's sheet open over it */
+      if (route.reason === "sing") { setModal(null); setTab("board"); setKaraokeForce(n => n + 1); return true; }
       const ev = route.reason === "pick" ? events.find(item => item.id === route.ev) : null;
       if (ev && state.drafts?.[ev.id]) setModal({ type:"draft", ev });
       else { setModal(null); setTab("board"); }
@@ -586,6 +593,8 @@ function TournamentApp({ tournament, onUpdateReload }) {
   const [geoForce, setGeoForce] = useState(0);
   /* Home's Trivia row reopens the game */
   const [triviaForce, setTriviaForce] = useState(0);
+  /* Home's karaoke row (and its strip, and You're up next) reopens the game */
+  const [karaokeForce, setKaraokeForce] = useState(0);
   useEffect(() => { setFlightsAnswered(!!me && localGet(`si-flights-asked:${me}`) === "yes"); }, [me]);
   const openSince = route => {
     setSince(null);
@@ -1485,7 +1494,7 @@ function TournamentApp({ tournament, onUpdateReload }) {
           rankDeltas={deltas} connection={{ ready, connected, status:tournament.status, version }}
           ceremony={tvCeremonyHold ? null : { intro:shownIntro, handoff:introHasQueuedReveal, reveal,
             onIntroDone:() => setIntro(null), onRevealDone:closeReveal }}
-          onSoundStatus={reportTvSound} arriveCode={tournament.arriveCode}
+          onSoundStatus={reportTvSound} arriveCode={tournament.arriveCode} onVideoStatus={reportTvVideo}
           onExit={() => setTv(false)} /></Suspense>
         <Confetti burst={burst} />
       </Shell>
@@ -1574,6 +1583,7 @@ function TournamentApp({ tournament, onUpdateReload }) {
     away:Object.keys(state.away || {}), out:Object.keys(state.out || {}), coming:rosterOf(state).length, geoPhotos:(state.geoRounds || []).length,
     arrivals:state.arrivals?.open ? { here:rosterOf(state).filter(p => state.arrivals.at?.[p]).length, total:rosterOf(state).length } : null,
     triviaQuestions:triviaQuestionTotal(state.triviaRounds), awardsNote:deskNote(state),
+    karaoke:capabilities.karaoke === true, karaokeSongs:karaokeSongCount(state),
     onDeck:state.onDeck ? onDeckEv?.name || "Open" : null,
     takeBacks:events.filter(ev => announcementTakeBack(state, ev).enabled),
     frozen:state.live && state.frozen, snapshotExport:capabilities.snapshotExport === true,
@@ -1662,10 +1672,11 @@ function TournamentApp({ tournament, onUpdateReload }) {
             if (result?.ok) { setFlightsAnswered(true); saveMine(`si-flights-asked:${me}`, "yes"); }
             return result;
           }}
-          setup={me ? setupTodo(state, me, { songs:audioCatalogAllowed }) : []}
+          setup={me ? setupTodo(state, me, { songs:audioCatalogAllowed, karaoke:capabilities.karaoke === true }) : []}
           onSetup={item => setModal({type:"profile", section:item.section})}
           songs={audioCatalogAllowed} onWinSong={() => setModal({type:"profile", section:"walkout"})}
           onScan={me ? () => setModal({ type:"scan" }) : null}
+          onKaraoke={() => setKaraokeForce(n => n + 1)}
           onPlayer={p => setModal({type:"player", p})} onLastCard={lastCard.crowned ? lastCard.show : undefined}
           onBets={() => setTab("bets")} onStandings={() => setModal({type:"standings"})}
           duelContent={me && <HomeDuels state={state} me={me} gm={gmView}
@@ -1673,10 +1684,12 @@ function TournamentApp({ tournament, onUpdateReload }) {
             onPlay={openDuel} onAccept={acceptDuel} onDecline={declineDuel}
             onWithdraw={withdrawDuel} onVoid={voidDuel} />}
           awardsContent={<AwardsHome state={state} me={me} onPlayer={p => setModal({type:"player", p})} />}
-          /* the in-app games in progress, as rows of Home's Now card (Karaoke's joins here) */
+          /* the in-app games in progress, as rows of Home's Now card */
           gameContent={<>
             <GeoHome state={state} me={me} inCard onOpen={() => setGeoForce(n => n + 1)} />
             <TriviaHome state={state} me={me} inCard onOpen={() => setTriviaForce(n => n + 1)} />
+            <KaraokeHome state={state} me={me} inCard karaoke={capabilities.karaoke === true} onOpen={() => setKaraokeForce(n => n + 1)}
+              onSong={() => setModal({type:"profile", section:"karaoke"})} />
           </>}
           pokerContent={<PokerCard state={state} standings={standings} me={me} gm={gmView}
                 onBuyin={() => setModal({type:"pokerBuyin"})}
@@ -1718,7 +1731,7 @@ function TournamentApp({ tournament, onUpdateReload }) {
         {gm && qaActive && qaStrip}
         {gmView && !modal && ready && <DirectorPill model={pillModel} state={state} events={events}
           audio={cueRack ? cueRack("pill") : null}
-          director={director} showControl={showControlAllowed} onWrite={directorWrite} onOpen={directorOpen} onPlayer={p => setModal({type:"player", p})}
+          director={director} showControl={showControlAllowed} karaoke={capabilities.karaoke === true} onWrite={directorWrite} onOpen={directorOpen} onPlayer={p => setModal({type:"player", p})}
           health={<TvHealth tvs={tournament.tvs} receivedAt={tournament.tvsAt} live={!!state.live} />} />}
       </CommissionerDock>}
 
@@ -1746,10 +1759,14 @@ function TournamentApp({ tournament, onUpdateReload }) {
       {modal?.type === "pin" && <PinSheet onClose={() => setModal(null)} onBack={modalBack} unlock={unlockGm} />}
       {me && <GeoPlaySheet state={state} me={me} blocked={!!modal} force={geoForce} />}
       {me && <TriviaPlaySheet state={state} me={me} blocked={!!modal} force={triviaForce} />}
+      {me && <KaraokeSheet state={state} me={me} blocked={!!modal} force={karaokeForce} gm={gmView}
+        karaoke={capabilities.karaoke === true} />}
       {modal?.type === "profile" && <ProfileSheet state={state} me={me} onClose={() => setModal(null)} onBack={modalBack} onChip={pickChip}
         initialSection={modal.section}
         spotifyCatalogEnabled={audioCatalogAllowed}
         songSnippets={capabilities.songSnippets === true}
+        karaoke={capabilities.karaoke === true}
+        onKaraoke={track => act("karaokeSong", { track }, null, { retry:true, quiet:true })}
         save={async prof => {
           const saved = await saveProfile(me, prof);
           if (saved.ok) { setModal(null); notify(prof.confirmJersey ? "Jersey confirmed" : "Profile saved"); }
@@ -1769,6 +1786,9 @@ function TournamentApp({ tournament, onUpdateReload }) {
       {gmView && modal?.type === "triviaDesk" && <Sheet title="Trivia" onClose={() => setModal(null)} onBack={modalBack}>
         <Suspense fallback={null}><TriviaDesk state={state} me={me} events={events} notify={notify}
           onAct={(type, payload) => act(type, payload)} /></Suspense>
+      </Sheet>}
+      {gmView && modal?.type === "karaokeDesk" && <Sheet title="Karaoke" onClose={() => setModal(null)} onBack={modalBack}>
+        <Suspense fallback={null}><KaraokeDesk state={state} /></Suspense>
       </Sheet>}
       {gmView && modal?.type === "showControl" && <Suspense fallback={null}>
         <TvSheet state={state} events={events} scene={activeShowScene} operationEvent={weekendOperation.event}
@@ -3456,7 +3476,7 @@ function GmDevicesSheet({ state, onClose, onBack, notify, onSignedOut }) {
 }
 
 function ProfileSheet({ state, me, onClose, onBack, initialSection = "card", save, onChip, spotifyCatalogEnabled,
-  songSnippets = false }) {
+  songSnippets = false, karaoke = false, onKaraoke }) {
   const [section, setSection] = useState(initialSection);
   const [display, setDisplay] = useState(state.profiles?.[me]?.display || me || "");
   const [photo, setPhoto] = useState(null);
@@ -3478,14 +3498,15 @@ function ProfileSheet({ state, me, onClose, onBack, initialSection = "card", sav
   const [error, setError] = useState("");
   const pending = useRef(null);
   /* A chip claim and a profile/photo save share one guard. Keep the draft
-     fixed and the sheet open until every write in the operation settles. */
-  const submit = operation => {
+     fixed and the sheet open until every write in the operation settles.
+     `inline`: the control that wrote shows its own failure (the karaoke song) */
+  const submit = (operation, { inline = false } = {}) => {
     if (pending.current) return pending.current;
     setBusy(true); setError("");
     pending.current = Promise.resolve().then(operation)
       .catch(failure => ({ ok:false, error:writeError(failure, "Your profile didn't save. Tap again.") }))
       .then(result => {
-        if (result?.ok !== true) setError(writeError(result, "Your profile didn't save. Tap again."));
+        if (result?.ok !== true && !inline) setError(writeError(result, "Your profile didn't save. Tap again."));
         return result;
       })
       .finally(() => { pending.current = null; setBusy(false); });
@@ -3528,7 +3549,11 @@ function ProfileSheet({ state, me, onClose, onBack, initialSection = "card", sav
   };
   const walkoutSaved = state.profiles?.[me]?.walkoutTrack;
   const walkoutTab = spotifyCatalogEnabled || !!walkoutSaved;
-  const sections = [["card","Card"],["jersey","Jersey"],["travel","Trip"],...(walkoutTab ? [["walkout","Win song"]] : [])];
+  /* the karaoke song saves itself (karaokeSong), never with Save */
+  const karaokeSaved = state.profiles?.[me]?.karaokeTrack || null;
+  const karaokeTab = karaoke || !!karaokeSaved;
+  const sections = [["card","Card"],["jersey","Jersey"],["travel","Trip"],...(walkoutTab ? [["walkout","Win song"]] : []),
+    ...(karaokeTab ? [["karaoke","Karaoke"]] : [])];
   if (!me) return null;
   return (
     <Sheet title="Your profile" onClose={close} onBack={onBack} busy={busy}>
@@ -3561,18 +3586,23 @@ function ProfileSheet({ state, me, onClose, onBack, initialSection = "card", sav
         {spotifyCatalogEnabled ? <WinSongPicker value={walkoutTrack} onChange={setWalkoutTrack} snippets={songSnippets} />
           : <SpotifyTrackCard track={walkoutSaved} />}
       </div>}
+      {karaokeTab && <div hidden={section !== "karaoke"}>
+        <KaraokeSongPicker value={karaokeSaved} enabled={karaoke && !!onKaraoke} active={section === "karaoke"}
+          onChoose={track => submit(() => onKaraoke(track), { inline:true })} />
+      </div>}
       </fieldset>
-      <div className="fd-profile-save">
+      {/* the Karaoke section's Use is its save: no second Save there */}
+      {(section !== "karaoke" || confirmDiscard || error) && <div className="fd-profile-save">
       {confirmDiscard && <div className="fd-profile-discard" role="alert">
         <p>Your new photo is not saved.</p>
         <div><ActionButton compact variant="destructive" onClick={onClose}>Discard photo</ActionButton>
           <ActionButton compact variant="secondary" onClick={() => setConfirmDiscard(false)}>Keep editing</ActionButton></div>
       </div>}
       {error && <div role="alert" style={{ fontFamily:SANS, fontSize:13, color:"var(--clay-text)", marginTop:14 }}>{error}</div>}
-      <ActionButton disabled={busy || !display.trim() || badDraft} pending={busy}
+      {section !== "karaoke" && <ActionButton disabled={busy || !display.trim() || badDraft} pending={busy}
         onClick={() => submit(() => save(confirming ? { ...changedFields(), confirmJersey:true } : changedFields()))}
-        style={{ width:"100%", fontSize:16, padding:"14px" }}>{confirming ? "Confirm jersey" : "Save"}</ActionButton>
-      </div>
+        style={{ width:"100%", fontSize:16, padding:"14px" }}>{confirming ? "Confirm jersey" : "Save"}</ActionButton>}
+      </div>}
     </Sheet>
   );
 }

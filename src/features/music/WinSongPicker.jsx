@@ -11,8 +11,9 @@ const searched = new Map();
 const artistsOf = track => (track.artists || []).join(", ");
 
 /* The album art is the play button: tap to hear the song's 30-second clip
-   on this phone, tap again to pause. A ring fills as it plays. */
-function PlayArt({ track, size }) {
+   on this phone, tap again to pause. A ring fills as it plays. (The
+   karaoke song picker, features/karaoke, uses it too.) */
+export function PlayArt({ track, size }) {
   const preview = usePreview(track);
   const playing = preview.status === "playing", loading = preview.status === "loading";
   const r = size / 2 - 2, around = 2 * Math.PI * r;
@@ -34,8 +35,11 @@ const PlayGlyph = () => <svg viewBox="0 0 16 16" width="16" height="16"><path d=
 const PauseGlyph = () => <svg viewBox="0 0 16 16" width="16" height="16"><path d="M4 2.5h3v11H4zM9 2.5h3v11H9z" /></svg>;
 
 /* Results arrive as the guest types; the list stays put while the next
-   answer loads, and a slower, older answer never replaces a newer one. */
-function SongSearch({ onPick, onCancel, search }) {
+   answer loads, and a slower, older answer never replaces a newer one.
+   The karaoke song picker uses it too: `clips` off draws each cover still
+   (nothing plays aloud), `credit` is the line under the results. */
+const SEARCH_CREDIT = "Songs from Spotify. Previews from Deezer.";
+export function SongSearch({ onPick, onCancel, search, clips = true, credit = SEARCH_CREDIT }) {
   const [text, setText] = useState("");
   const [found, setFound] = useState({ status:"idle", tracks:[], error:"" });
   const input = useRef(null);
@@ -74,7 +78,7 @@ function SongSearch({ onPick, onCancel, search }) {
     </div>
     {!!found.tracks.length && <ul className={`fd-song-results${found.status === "loading" ? " is-stale" : ""}`}>
       {found.tracks.map(track => <li key={track.trackId} className="fd-song-row">
-        <PlayArt track={track} size={52} />
+        {clips ? <PlayArt track={track} size={52} /> : <StillArt track={track} size={52} />}
         <button type="button" className="fd-song-use" onClick={() => onPick(track)}
           aria-label={`Use ${track.name} by ${artistsOf(track)}`}>
           <span className="fd-song-text"><strong>{track.name}{track.explicit && <i className="fd-song-e">E</i>}</strong>
@@ -83,8 +87,16 @@ function SongSearch({ onPick, onCancel, search }) {
         </button>
       </li>)}
     </ul>}
-    <p className="fd-song-credit">Songs from Spotify. Previews from Deezer.</p>
+    {credit && <p className="fd-song-credit">{credit}</p>}
   </div>;
+}
+
+/* the album art, still: no clip to play */
+export function StillArt({ track, size }) {
+  return <span className="fd-song-play is-still" style={{ width:size, height:size }} aria-hidden="true">
+    {track?.imageUrl ? <img src={track.imageUrl} alt="" width={size} height={size} />
+      : <span className="fd-song-play-blank" />}
+  </span>;
 }
 
 /* The start point: the whole song as a timeline with the 30-second window

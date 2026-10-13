@@ -37,6 +37,9 @@
 .fd-song-play-glyph svg { width:40%; height:40%; max-width:28px; max-height:28px; fill:var(--bone); }
 .fd-song-play.is-playing .fd-song-play-glyph { background:color-mix(in srgb, var(--ink0) 45%, transparent); }
 .fd-song-play:active { transform:scale(.96); }
+/* a cover with no clip behind it (StillArt) */
+.fd-song-play.is-still { display:block; cursor:default; }
+.fd-song-play.is-still:active { transform:none; }
 .fd-song-ring { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; }
 .fd-song-ring circle { fill:none; stroke-width:3; }
 .fd-song-ring-track { stroke:color-mix(in srgb, var(--bone) 22%, transparent); }

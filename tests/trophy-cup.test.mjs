@@ -5,11 +5,11 @@
    states (dev/fit/scenarios.js). */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { EMPTY_STATE, SESSIONS, allEventsOf, computeStandings } from "../shared/core.js";
+import { BUILTIN_EVENTS, EMPTY_STATE, SESSIONS, allEventsOf, computeStandings } from "../shared/core.js";
 import { fresh, longNames, act } from "../dev/fit/scenarios.js";
 import {
-  CUP_TV, ENGRAVE, cupEngravings, cupTvLayout, engraveTotal, fitChampionName, fitPlateName, plateEngraving, plateNameWidth,
-  trophyCup,
+  CUP_ROW, CUP_TV, ENGRAVE, cupCols, cupEngravings, cupRows, cupTvLayout, engraveTotal, fitChampionName, fitPlateName,
+  plateEngraving, plateNameWidth, trophyCup,
 } from "../src/features/weekend/trophy.js";
 import { engraveCues } from "../src/features/tv/roomSound.js";
 
@@ -25,7 +25,10 @@ test("one band per session, top to bottom in time, plates in slate order; the fi
   const slate = events.filter(ev => !ev.finale).map(ev => ev.id);
   assert.deepEqual(cup.bands.flatMap(band => band.plates.map(plate => plate.eventId)), slate, "slate order, band by band");
   assert.ok(!cup.plates.some(plate => plate.eventId === "poker"), "the finale has no plate");
-  assert.equal(cup.total, 12);
+  assert.equal(cup.total, BUILTIN_EVENTS.filter(ev => !ev.finale).length, "one plate per built-in event but the finale");
+  assert.deepEqual(cup.bands.map(band => band.plates.length),
+    cup.bands.map(band => BUILTIN_EVENTS.filter(ev => ev.session === band.session).length), "every session's events on its band");
+  assert.ok(cup.bands[0].plates.some(plate => plate.eventId === "karaoke"), "Karaoke is Friday's");
   assert.equal(cup.posted, 0);
   assert.ok(cup.plates.every(plate => !plate.posted && !plate.engraving), "every plate blank before a result");
   assert.equal(cup.crowned, false);
@@ -34,12 +37,12 @@ test("one band per session, top to bottom in time, plates in slate order; the fi
 
 test("a reordered slate keeps each band's plates in the new order; a skipped event has no plate", () => {
   const state = structuredClone(EMPTY_STATE);
-  state.eventOrder = ["where", "putt", "die"];
+  state.eventOrder = ["where", "karaoke", "putt", "die"];
   state.shelved = { pong:true };
   const cup = cupOf(state);
-  assert.deepEqual(cup.bands[0].plates.map(plate => plate.eventId), ["where", "putt", "die"]);
+  assert.deepEqual(cup.bands[0].plates.map(plate => plate.eventId), ["where", "karaoke", "putt", "die"]);
   assert.ok(!plateOf(cup, "pong"));
-  assert.equal(cup.total, 11);
+  assert.equal(cup.total, cupOf(structuredClone(EMPTY_STATE)).total - 1, "the skipped event's plate is gone");
 });
 
 test("posted plates are engraved, the rest stay blank, the next one is outlined", () => {
@@ -50,8 +53,9 @@ test("posted plates are engraved, the rest stay blank, the next one is outlined"
   assert.deepEqual(early.plates.filter(plate => plate.next).map(plate => plate.eventId), ["where"], "the next event is outlined");
   assert.ok(!plateOf(early, "where").live, "not lit until it is in play");
 
-  const mid = cupOf(fresh("event:volley:done"));
-  assert.equal(mid.posted, 7);
+  const midState = fresh("event:volley:done");
+  const mid = cupOf(midState);
+  assert.equal(mid.posted, allEventsOf(midState).findIndex(ev => ev.id === "volley") + 1, "every event through Volleyball");
   assert.equal(mid.bands[2].plates.filter(plate => plate.posted).length, 1, "Saturday afternoon: one engraved");
 
   const live = cupOf(fresh("event:putt:open"));
@@ -111,20 +115,43 @@ test("renamed teams are engraved by their new names, every one fitting a TV plat
 });
 
 test("the TV's cup keeps the 24px floor and stays inside the canvas", () => {
-  const layout = cupTvLayout(cupOf(structuredClone(EMPTY_STATE)));
+  const cup = cupOf(structuredClone(EMPTY_STATE));
+  const layout = cupTvLayout(cup);
   assert.ok(layout.width <= 1920 - 2 * 64, "inside the title-safe width");
   assert.equal(layout.bands.length, 4);
-  layout.bands.forEach(band => {
-    assert.equal(band.cols, 3);
+  layout.bands.forEach((band, index) => {
+    const plates = cup.bands[index].plates.length;
+    assert.ok(band.cols <= CUP_ROW && band.rows * band.cols >= plates && (band.rows - 1) * band.cols < plates,
+      `${band.session}: rows of three at most, no row empty`);
     assert.ok(band.plateH >= 2 * CUP_TV.plate.name.two * 1.12, "a plaque holds a name in two lines beside its mark and faces");
     assert.ok(band.width <= layout.width, "no tier wider than the cup's room");
   });
+  /* Friday's four stand two and two: its pairs (Beer Die) keep the longest
+     name a team can take on one line, well over the floor */
+  const friday = layout.bands[0];
+  assert.deepEqual([friday.rows, friday.cols], [2, 2]);
+  const pair = fitPlateName("Les Quizerables Reunited", plateNameWidth(friday.plateW, 2));
+  assert.equal(pair.lines.length, 1);
+  assert.ok(pair.size >= CUP_TV.plate.name.min, `${pair.size}px`);
   const used = CUP_TV.bowl.height + CUP_TV.collar - CUP_TV.sag + CUP_TV.top + CUP_TV.foot
     + layout.bands.reduce((sum, band) => sum + band.height, 0) + 3 * CUP_TV.rim;
   assert.ok(used <= CUP_TV.height, `the cup fits the main area (${used})`);
   assert.equal(fitChampionName("Adi").size, 52);
   const long = fitChampionName("Squilliam & Henry Nguyen");
   assert.ok(long.size >= 24 && long.lines.length === 2, "co-champions take two lines");
+});
+
+test("a band's plaques: three a row at most, evened out (phone and TV); a crowded cup goes back to four", () => {
+  assert.deepEqual([1, 2, 3, 4, 5, 6, 7].map(n => [cupRows(n), cupCols(n)]),
+    [[1, 1], [1, 2], [1, 3], [2, 2], [2, 3], [2, 3], [3, 3]], "four stand two and two, never three over one");
+  const cupWith = counts => ({ bands:counts.map((n, k) => ({ session:`s${k}`,
+    plates:Array.from({ length:n }, (_, i) => ({ eventId:`e${k}x${i}` })) })) });
+  /* seven Friday events (the commissioner's own added): rows of three would
+     leave a plaque too short for a name in two lines */
+  const crowded = cupTvLayout(cupWith([7, 3, 3, 3]));
+  assert.deepEqual([crowded.bands[0].rows, crowded.bands[0].cols], [2, 4]);
+  crowded.bands.forEach(band => assert.ok(band.plateH >= 2 * CUP_TV.plate.name.two * 1.12, `${band.session}: ${band.plateH}`));
+  assert.deepEqual(cupTvLayout(cupWith([3, 3, 3, 3])).bands.map(band => [band.rows, band.cols]), [[1, 3], [1, 3], [1, 3], [1, 3]]);
 });
 
 test("the crown engraves the champion on the cup", () => {

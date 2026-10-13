@@ -203,6 +203,41 @@ export const RULE_PICTURES = {
     {crown(32, 10, 0.85)}
   </g>,
 
+  /* ── Karaoke: the vote's six tiers are painted inserts (--tier-1..6) ── */
+  /* your phone's song list, one picked */
+  "karaoke.1":<g>
+    <rect x="18" y="2.5" width="22" height="35" rx="3.2" />
+    <Faint><rect x="21.5" y="7" width="5" height="5" rx="1" /><path d="M29 9.5H36.5" /></Faint>
+    <Lit><rect x="21.5" y="16" width="5" height="5" rx="1" {...F} /><path d="M29 18.5H36.5" strokeWidth="2" /></Lit>
+    <Faint><rect x="21.5" y="25" width="5" height="5" rx="1" /><path d="M29 27.5H36.5" /></Faint>
+    <Lit><path d="M48.5 25V12.4l7-1.6v12.6" /><circle cx="46.7" cy="25" r="1.9" {...F} /><circle cx="53.7" cy="23.4" r="1.9" {...F} /></Lit>
+  </g>,
+  /* the singer at the stand, the words rolling on the TV */
+  "karaoke.2":<g>
+    {floor()}
+    {bust(11, 12, 2.6)}
+    <path d="M19.5 34V19.4M16 34h7" />
+    <circle cx="18" cy="16.6" r="2.1" {...F} /><path d="M18.9 18.4l.6 1" />
+    {tv(30, 4, 30, 20)}
+    <Faint><path d="M34 11H56M35.5 17H54.5" /></Faint>
+    <Lit><path d="M34 11H46.5" strokeWidth="2.2" /></Lit>
+  </g>,
+  /* the room's six tiers, low to high, a vote coming down on one */
+  "karaoke.3":<g>
+    {floor()}
+    {[1, 2, 3, 4, 5, 6].map((tier, i) => <rect key={tier} x={5.5 + i * 9} y={28 - i * 4.4} width="7" height={6 + i * 4.4} rx="1.4"
+      fill={`var(--tier-${tier})`} />)}
+    <Lit>{trail("M45 0.8V6.6")}{head(45, 7.4, 90)}</Lit>
+  </g>,
+  /* each singer's average in the tier it is nearest; the highest takes it */
+  "karaoke.4":<g>
+    {floor()}
+    <rect x="12" y="20" width="9" height="14" rx="1.4" fill="var(--tier-3)" />
+    <Lit><rect x="27.5" y="13" width="9" height="21" rx="1.4" fill="var(--tier-6)" /></Lit>
+    <rect x="43" y="17" width="9" height="17" rx="1.4" fill="var(--tier-4)" />
+    {crown(32, 10, 0.85)}
+  </g>,
+
   /* ── Basketball 1v1 ── */
   "basketball:1v1.1":checkUp,
   "basketball:1v1.2":<g>
@@ -645,6 +680,8 @@ export const NOTE_GLYPHS = {
   semis:<path d="M3.5 5h5v6h-5M8.5 8h4M3.5 13h5v6h-5M8.5 16h4M12.5 8v8M12.5 12h8" />,
   crew:<><circle cx="12" cy="12" r="7.5" strokeDasharray="2 2.4" /><circle cx="12" cy="12" r="3" /></>,
   putt:<><path d="M12 20V4" /><path d="M12 4l7 2.6-7 2.6z" {...F} /><ellipse cx="12" cy="20" rx="5" ry="1.6" /></>,
+  /* the votes in order, the lowest and the highest struck (karaoke's trim) */
+  trim:<><path d="M8.5 19.5v-7.5M12 19.5v-9.5M15.5 19.5v-11.5" /><g className="fd-rp-gone"><path d="M5 19.5v-4.5M19 19.5v-15" /></g></>,
 };
 
 export const PICTURE_KEYS = Object.freeze(Object.keys(RULE_PICTURES));

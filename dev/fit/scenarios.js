@@ -14,6 +14,8 @@ import {
 } from "../../shared/core.js";
 import { applyAction as apply } from "../../worker/actions.js";
 import { boardDeskStage, boardPlayed, boardStage } from "./boardFixtures.js";
+import { karaokeStage } from "./karaokeFixtures.js";
+import { karaokePhoneStage } from "./karaokePhoneFixtures.js";
 
 /* display names the audit stresses: a long one, a lowercase pair, a
    surname. Applied after the fill, so qaAdvance never sees them as touched */
@@ -516,6 +518,22 @@ function teamWinSong(state, evId) {
   return walkoutRecord(state, singer, { cover:true });
 }
 
+/* Karaoke under way for the QA console (worker/karaoke.js): Lock and start
+   with the karaoke capability opens the pick window; "votes" also gives
+   everyone a practice song, draws the order and starts the first song. */
+function karaokeQa(step) {
+  const state = fresh("event:karaoke:open");
+  const contest = resolveCurrentContest(state, eventOf(state, "karaoke"));
+  act(state, "lockAndStart", { evId:"karaoke", contestId:contest.id, contestRevision:contest.revision }, { ...gmCtx(), karaoke:true });
+  if (step === "votes") {
+    const gameId = state.karaoke.id;
+    act(state, "karaokeSimSongs", { gameId });
+    act(state, "karaokeEndPick", { gameId });
+    act(state, "karaokeStartSong", { gameId, index:0 });
+  }
+  return state;
+}
+
 /* flights saved on the guest's and the host's own profiles */
 function withFlights(state) {
   const set = (p, inLeg, outLeg) => { state.profiles[p] = { ...state.profiles[p], flightsBooked:true, flightIn:inLeg, flightOut:outLeg }; };
@@ -546,6 +564,36 @@ function withSongs(state) {
   for (const [player, track] of Object.entries(songs)) state.profiles[player] = { ...state.profiles[player], walkoutTrack:track };
   return state;
 }
+/* Karaoke songs (the profile's Karaoke section): the guest's saved song, as
+   the karaoke song picker shows it, and the answers its search and video
+   lookup stand in with (dev/fit/client.js reads `spotify`). Stand-in covers
+   and thumbnails: the audit never reaches Spotify's or YouTube's image hosts. */
+const FIT_KARAOKE_THUMB = `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 90">
+<rect width="160" height="90" fill="#0d1430"/><rect x="20" y="34" width="120" height="9" rx="4" fill="#f2b33d"/>
+<rect x="34" y="50" width="92" height="7" rx="3" fill="#e9dfc8"/></svg>`)}`;
+const FIT_KARAOKE_TRACK = Object.freeze({ provider:"spotify", trackId:"77NNZQSqzLNqh2A9JhLRkg",
+  uri:"spotify:track:77NNZQSqzLNqh2A9JhLRkg", url:"https://open.spotify.com/track/77NNZQSqzLNqh2A9JhLRkg",
+  name:"Don't Stop Believin' - Remastered 2022", artists:Object.freeze(["Journey"]), durationMs:250000, imageUrl:FIT_COVER,
+  explicit:false, startMs:0 });
+const FIT_KARAOKE_VIDEOS = Object.freeze([
+  { id:"fitKaraoke1", title:"Journey - Don't Stop Believin' (Karaoke Version)", channel:"Stingray Karaoke", seconds:245 },
+  { id:"fitKaraoke2", title:"Don't Stop Believin' (Karaoke Version) With Lyrics On Screen", channel:"Zoom Karaoke Official", seconds:282 },
+  { id:"fitKaraoke3", title:"Don't Stop Believin' | Karaoke Version | KaraFun", channel:"PARTY TYME KARAOKE CHANNEL", seconds:251 },
+].map(video => Object.freeze({ ...video, thumb:FIT_KARAOKE_THUMB })));
+export const FIT_KARAOKE = Object.freeze({
+  search:{ ok:true, tracks:[FIT_KARAOKE_TRACK, { ...FIT_KARAOKE_TRACK, trackId:"4bHsxqR3GMrXTxEPLuK5ue",
+    uri:"spotify:track:4bHsxqR3GMrXTxEPLuK5ue", url:"https://open.spotify.com/track/4bHsxqR3GMrXTxEPLuK5ue",
+    name:"Don't Stop Believin' (Live in Houston, 1981)", imageUrl:null }] },
+  karaokeVideos:{ ok:true, videos:FIT_KARAOKE_VIDEOS },
+});
+/* the guest's saved karaoke song (the karaokeSong write keeps this shape) */
+function withKaraokeSong(state, player = FIT_GUEST) {
+  const { startMs, ...track } = FIT_KARAOKE_TRACK;
+  state.profiles[player] = { ...state.profiles[player], karaokeTrack:{ ...track, artists:[...track.artists],
+    video:{ ...FIT_KARAOKE_VIDEOS[0] }, alts:FIT_KARAOKE_VIDEOS.slice(1).map(video => ({ ...video })), at:Date.now(), checkedAt:null } };
+  return state;
+}
+
 const CALLBACK = "https://fielddayseries.com/api/spotify/callback";
 export const FIT_SPOTIFY = Object.freeze({
   connected:{
@@ -616,6 +664,8 @@ function readyBoard(stage) {
     });
   });
   if (some) delete state.seeds.Ben;
+  /* karaoke songs, for the views run with the karaoke capability: six in the middle, everyone's at the end */
+  karaokeDeskSongs(state, ROSTER.filter(player => !state.out?.[player]).slice(0, some ? 6 : ROSTER.length));
   TRIVIA_FIT_ROUNDS.forEach(round => act(state, "triviaSaveRound", { round:structuredClone(round) }));
   GEO_ROUNDS.forEach(round => act(state, "geoSaveRound", structuredClone(round)));
   if (!some) act(state, "promptSave", { id:"bfitready", kind:"awards", questions:[
@@ -623,6 +673,43 @@ function readyBoard(stage) {
     { id:"qdressed", title:"Best dressed", nominees:null }, { id:"qcomeback", title:"Comeback of the weekend", nominees:null }] });
   return state;
 }
+/* The commissioner's Karaoke desk (features/karaoke/KaraokeDesk.jsx): songs
+   as a profile keeps them (shared/karaoke.js cleanKaraokeTrack), written on
+   the profiles like the win songs above, with stand-in Spotify and YouTube
+   ids that nothing loads (the desk shows no video). Nine of thirteen picked
+   before the weekend; the desk's check (dev/fit/client.js karaokeCheck)
+   answers with most playing, one on an alternate, one only on YouTube and
+   one gone, and leaves Henry out (a song saved after a check reads
+   unchecked). */
+const KARAOKE_DESK_SONGS = Object.freeze([
+  ["Mr. Brightside", ["The Killers"], 223], ["Don't Stop Believin'", ["Journey"], 251],
+  ["Bohemian Rhapsody - Remastered 2011", ["Queen"], 355], ["Livin' On A Prayer", ["Bon Jovi"], 249],
+  ["I Want It That Way", ["Backstreet Boys"], 213], ["Sweet Caroline", ["Neil Diamond"], 203],
+  ["Africa", ["TOTO"], 295], ["Party In The U.S.A.", ["Miley Cyrus"], 202],
+  ["Under Pressure - Remastered 2011", ["Queen", "David Bowie"], 248], ["Wonderwall", ["Oasis"], 258],
+]);
+const karaokeDeskTrack = (k, [name, artists, seconds]) => {
+  const n = String(k + 1).padStart(2, "0");
+  const trackId = `fitKaraokeSong${n}xxxxxx`;
+  return { provider:"spotify", trackId, uri:`spotify:track:${trackId}`, url:`https://open.spotify.com/track/${trackId}`, name,
+    artists:[...artists], durationMs:seconds * 1000, imageUrl:null, explicit:false,
+    video:{ id:`fitKaraok${n}`, title:`${name} (Karaoke Version)`, channel:"Stingray Karaoke", seconds:seconds + 8 },
+    alts:[{ id:`fitKarAlt${n}`, title:`${name} Karaoke`, channel:"KaraFun", seconds:seconds + 4 }], at:1, checkedAt:null };
+};
+function karaokeDeskSongs(state, players) {
+  players.forEach((player, k) => {
+    state.profiles[player] = { ...state.profiles[player],
+      karaokeTrack:karaokeDeskTrack(k, KARAOKE_DESK_SONGS[k % KARAOKE_DESK_SONGS.length]) };
+  });
+  return state;
+}
+const KARAOKE_DESK_PICKED = Object.freeze(["Brandon", "Evan", "Eyob", "Sahil", "Khoa", "Chinh", "Adi", "Richard", "Henry"]);
+export const KARAOKE_DESK_CHECK = Object.freeze({ Brandon:{ ok:true, code:null, video:0 }, Evan:{ ok:true, code:null, video:0 },
+  Eyob:{ ok:true, code:"removed", video:1 }, Sahil:{ ok:false, code:"embedding", video:null }, Khoa:{ ok:true, code:null, video:0 },
+  Chinh:{ ok:true, code:null, video:0 }, Adi:{ ok:false, code:"removed", video:null }, Richard:{ ok:true, code:null, video:0 },
+  Chiang:{ ok:false, code:"none", video:null }, Allan:{ ok:false, code:"none", video:null }, Ben:{ ok:false, code:"none", video:null },
+  Jeremy:{ ok:false, code:"none", video:null } });
+const karaokeDesk = () => karaokeDeskSongs(fresh("locker"), KARAOKE_DESK_PICKED);
 /* Gags (Oct 8; the bits since Oct 10, features/gags): each trigger derived
    from a weekend the real reducers played, and the QA console's test. Each
    comes in two parts, the weekend just before the write that owes the
@@ -1020,6 +1107,21 @@ export const TV_SCENARIOS = Object.freeze([
   { id:"tv-board-real-answer", build:() => boardPlayed("answer"), at:{ board:0 } },
   { id:"tv-board-real-reveal", build:() => boardPlayed("reveal"), at:{ board:0 }, wait:1500 },
   { id:"tv-board-real-final-reveal", build:() => boardPlayed("final-reveal"), at:{ board:0 } },
+  /* Karaoke (dev/fit/karaokeFixtures.js, built from its contract and
+     projected as a TV's frame carries it): the pick window, the order
+     dealing, a singer up next, a song (the video's stand-in, a practice
+     song's card, a failed video's card), the vote, the Legendary rain and
+     the reveal mid-way and at 1st. A still never creates a player. */
+  { id:"tv-karaoke-pick", build:() => karaokeStage("pick"), at:{ karaoke:0 }, wait:1200 },
+  { id:"tv-karaoke-order", build:() => karaokeStage("order"), at:{ karaoke:0 }, pause:true, wait:400 },
+  { id:"tv-karaoke-up", build:() => karaokeStage("up"), at:{ karaoke:0 }, wait:1200 },
+  { id:"tv-karaoke-singing", build:() => karaokeStage("singing"), at:{ karaoke:0 }, wait:1200 },
+  { id:"tv-karaoke-practice", build:() => karaokeStage("practice"), at:{ karaoke:0 }, wait:1200 },
+  { id:"tv-karaoke-failed", build:() => karaokeStage("failed"), at:{ karaoke:0 }, wait:1200 },
+  { id:"tv-karaoke-voting", build:() => karaokeStage("voting"), at:{ karaoke:0 }, wait:1200 },
+  { id:"tv-karaoke-legendary", build:() => karaokeStage("legendary"), at:{ karaoke:0 }, pause:true, wait:400 },
+  { id:"tv-karaoke-reveal-mid", build:() => karaokeStage("reveal-mid"), at:{ karaoke:0 }, wait:1600 },
+  { id:"tv-karaoke-reveal-podium", build:() => karaokeStage("reveal-podium"), at:{ karaoke:0 }, wait:1600 },
   { id:"tv-walkout", build:() => fresh("event:putt:done"), moment:{ kind:"walkout", t:3000, player:"Brandon" } },
   /* a team's win walks out as the team: the moment is read from the record
      and the win it follows (walkoutView), a pair with no cover, seven with one */
@@ -1099,8 +1201,8 @@ export const TV_SCENARIOS = Object.freeze([
      wins, a pair's upsets, the best bettor at 16 letters and the worst,
      and Quick Draw's fastest and most wins */
   { id:"tv-records-h2h", build:recordsDuels, at:{ record:{ kind:"h2h", players:["Richard", "Henry"] } } },
-  { id:"tv-records-h2h-team", build:() => fresh("session:sam", 1),
-    at:{ record:{ kind:"h2h", players:["Brandon", "Henry", "Evan", "Ben"] } } },
+  { id:"tv-records-h2h-team", build:() => fresh("session:sam", 13),
+    at:{ record:{ kind:"h2h", players:["Brandon", "Ben", "Eyob", "Henry"] } } },
   { id:"tv-records-swing", build:() => fresh("session:sam"), at:{ record:{ kind:"swing" } } },
   { id:"tv-records-swing-loss", build:recordsLoss, at:{ record:{ kind:"swing", players:["Henry"] } } },
   { id:"tv-records-swing-duel", build:recordsDuelSwing, at:{ record:{ kind:"swing", players:["Khoa"] } } },
@@ -1108,8 +1210,8 @@ export const TV_SCENARIOS = Object.freeze([
   { id:"tv-records-upsets", build:() => fresh("session:fri"), at:{ record:{ kind:"upsets" } } },
   /* a record three share: a team's streak with Henry Nguyen in it, and a
      trio's upsets with Squilliam and j vo (other seeded weekends) */
-  { id:"tv-records-streak-trio", build:() => fresh("session:sam", 5), at:{ record:{ kind:"streak", players:["Henry"] } } },
-  { id:"tv-records-upsets-trio", build:() => fresh("event:volley:done", 11),
+  { id:"tv-records-streak-trio", build:() => fresh("session:sam", 28), at:{ record:{ kind:"streak", players:["Henry"] } } },
+  { id:"tv-records-upsets-trio", build:() => fresh("event:volley:done", 147),
     at:{ record:{ kind:"upsets", players:["Richard", "Jeremy"] } } },
   { id:"tv-records-bettor", build:() => renamed(fresh("session:sap"), "Allan", RECORDS_LONG_NAME),
     at:{ record:{ kind:"bettor", worst:false } } },
@@ -1202,6 +1304,9 @@ export const PHONE_SCENARIOS = Object.freeze([
   { id:"gm-settings", build:() => withArrivals(fresh("locker"), 9), viewer:"gm", show:true, audio:true, qa:true,
     spotify:FIT_SPOTIFY.connected, tabs:[], sheets:["settings", "gm-menu"] },
   { id:"gm-settings-bare", build:() => fresh("event:putt:open"), viewer:"gm", tabs:[], sheets:["settings"] },
+  /* the QA console in a karaoke game: Sim songs in the pick window, Sim votes once a song has started */
+  { id:"gm-qa-karaoke-songs", build:() => karaokeQa("songs"), viewer:"gm", qa:true, settle:false, tabs:[], sheets:["qa"] },
+  { id:"gm-qa-karaoke-votes", build:() => karaokeQa("votes"), viewer:"gm", qa:true, settle:false, tabs:[], sheets:["qa"] },
   { id:"guest-menu", build:() => fresh("event:putt:open"), tabs:[], sheets:["menu"] },
   /* a win song playing on the commissioner's phone: its Stop rides in the
      pill's row (Audio Director on); and one that missed, offered again */
@@ -1250,6 +1355,35 @@ export const PHONE_SCENARIOS = Object.freeze([
   { id:"board-real-rebound", build:() => boardPlayed("rebound"), settle:false, freeze:true, tabs:["home"] },
   { id:"board-real-answer", build:() => boardPlayed("answer"), settle:false, freeze:true, tabs:["home"] },
   { id:"board-real-final-clue", build:() => boardPlayed("final-clue"), settle:false, freeze:true, tabs:["home"] },
+  /* Karaoke on the guest's phone (dev/fit/karaokePhoneFixtures.js, built
+     from its contract; `freeze` holds the page's clock on the moment): the
+     pick window (your song, Change's picker, a failed video, locked in),
+     your walk-up, your song and its Legendary, the next singer's walk-up
+     (opened from Home), the vote (not yet, yours in, the song's grace, the
+     close), the reveal mid-way, Home's rows (before the game, and with the
+     sheet put away), the commissioner's tray, and your You're up landing */
+  { id:"karaoke-pick", build:() => karaokePhoneStage("pick"), settle:false, freeze:true, karaoke:true, tabs:["home"] },
+  { id:"karaoke-pick-change", build:() => karaokePhoneStage("pick"), settle:false, freeze:true, karaoke:true, tabs:[],
+    sheets:["karaoke-change"], sheetSizes:["375"] },
+  { id:"karaoke-pick-broken", build:() => karaokePhoneStage("pick-broken"), settle:false, freeze:true, karaoke:true, tabs:["home"] },
+  { id:"karaoke-pick-locked", build:() => karaokePhoneStage("pick-locked"), settle:false, freeze:true, karaoke:true, tabs:["home"] },
+  { id:"karaoke-up", build:() => karaokePhoneStage("up"), settle:false, freeze:true, karaoke:true, tabs:["home"] },
+  { id:"karaoke-singing", build:() => karaokePhoneStage("singing"), settle:false, freeze:true, karaoke:true, tabs:["home"] },
+  { id:"karaoke-legendary", build:() => karaokePhoneStage("legendary"), settle:false, freeze:true, karaoke:true, tabs:["home"] },
+  { id:"karaoke-up-watch", build:() => karaokePhoneStage("up-watch"), settle:false, freeze:true, karaoke:true, tabs:[],
+    sheets:["karaoke-open"], sheetSizes:["375"] },
+  { id:"karaoke-vote", build:() => karaokePhoneStage("vote"), settle:false, freeze:true, karaoke:true, tabs:["home"] },
+  { id:"karaoke-voted", build:() => karaokePhoneStage("voted"), settle:false, freeze:true, karaoke:true, tabs:["home"] },
+  { id:"karaoke-closing", build:() => karaokePhoneStage("closing"), settle:false, freeze:true, karaoke:true, tabs:["home"] },
+  { id:"karaoke-closed", build:() => karaokePhoneStage("closed"), settle:false, freeze:true, karaoke:true, tabs:["home"] },
+  { id:"karaoke-reveal", build:() => karaokePhoneStage("reveal"), settle:false, freeze:true, karaoke:true, tabs:["home"] },
+  { id:"karaoke-home-ahead", build:() => karaokePhoneStage("ahead"), settle:false, freeze:true, karaoke:true, tabs:["home"] },
+  { id:"karaoke-home-vote", build:() => karaokePhoneStage("vote"), settle:false, freeze:true, karaoke:true, tabs:[],
+    sheets:["karaoke-home"], sheetSizes:["375"] },
+  { id:"karaoke-gm", build:() => karaokePhoneStage("vote"), viewer:"gm", settle:false, freeze:true, karaoke:true, tabs:[],
+    sheets:["karaoke-tray"], sheetSizes:["375"] },
+  { id:"karaoke-moment", build:() => karaokePhoneStage("up"), settle:false, freeze:true, karaoke:true, tabs:[],
+    sheets:["karaoke-moment"], sheetSizes:["375"] },
   /* the announcement sheet as betting opens: a free-for-all (Where and
      When), a pairs bracket (Beer Die) and a team game (5v5) */
   { id:"ann-where", build:() => fresh("event:where:open"), settle:false, tabs:[], sheets:["announce"] },
@@ -1257,6 +1391,10 @@ export const PHONE_SCENARIOS = Object.freeze([
   { id:"ann-team", build:() => fresh("event:bball5:open"), settle:false, tabs:[], sheets:["announce", "announce-closed"] },
   /* a fresh team draw on Home: the team name row in the Now card, opened by itself */
   { id:"ann-team-home", build:() => fresh("event:bball5:open"), settle:false, tabs:["home"] },
+  /* Karaoke's intro at the head of its announcement, and its drawn how-to
+     (Weekend > Games), at both widths */
+  { id:"ann-karaoke", build:() => fresh("event:karaoke:open"), settle:false, tabs:[], sheets:["announce", "weekend-karaoke"],
+    sheetSizes:["375"] },
   /* the House sheet's flights board: the guest's own legs (codes) beside the
      host's (times only), and the commissioner, who is the host */
   { id:"house-guest", build:() => withFlights(fresh("event:putt:open")), tabs:[], sheets:["weekend-house"] },
@@ -1277,7 +1415,7 @@ export const PHONE_SCENARIOS = Object.freeze([
   { id:"bit-bigloss", build:() => gagWeekend("bigloss", { own:FIT_GUEST }).state, land:"bigloss", landOpts:{ own:FIT_GUEST },
     settle:false, tabs:[], sheets:["bit"], sheetSizes:["375"] },
   { id:"walkout-pair", build:() => walkoutRecord(bracketWonBy("die", "Henry"), "Henry"), settle:false, tabs:[], sheets:["walkout"] },
-  { id:"walkout-team7", build:() => teamWinSong(fresh("event:bball5:done"), "bball5"), settle:false, tabs:[],
+  { id:"walkout-team7", build:() => teamWinSong(fresh("event:bball5:done", 1), "bball5"), settle:false, tabs:[],
     sheets:["walkout"] },
   /* naming your team: the card on Home (a team of seven, a team of three),
      writing your own, and the longest names on every phone board */
@@ -1312,6 +1450,14 @@ export const PHONE_SCENARIOS = Object.freeze([
   /* a guest still in Safari: the Add to Home Screen card on Home, the steps
      opened on Weekend; and the profile sheet with its card on show */
   { id:"install-card", build:() => fresh("event:putt:open"), install:true, tabs:["home"], sheets:["install-open", "profile"] },
+  /* the profile's Karaoke section (docs/KARAOKE.md): no song yet (Home's
+     list names it), a song searched and picked with its three videos, and
+     the song saved with its video */
+  { id:"karaoke-song", build:() => fresh("locker"), karaoke:true, tabs:["home"], sheets:["profile-karaoke"] },
+  { id:"karaoke-song-found", build:() => fresh("locker"), karaoke:true, spotify:FIT_KARAOKE, tabs:[],
+    sheets:["profile-karaoke-found"], sheetSizes:["375"] },
+  { id:"karaoke-song-chosen", build:() => withKaraokeSong(withSong(fresh("locker"), FIT_GUEST)), karaoke:true, tabs:[],
+    sheets:["profile-karaoke"], sheetSizes:["375"] },
   /* arrivals (Oct 4): before check-in opens nothing is new; in the lobby
      the guest still on the way gets Scan the TV at the top of Home, and its
      scanner: looking (a camera frame with no code), the TV's code read and
@@ -1333,13 +1479,17 @@ export const PHONE_SCENARIOS = Object.freeze([
      photos, no TV, Spotify not set up, alerts off, the autopilot paused),
      the usual middle (two TVs, one muted; Spotify with no speaker chosen)
      at both widths, and the morning it is all set; the menu with its row */
-  { id:"gm-ready-missing", build:() => readyBoard("missing"), viewer:"gm", photos:[], audio:true, catalog:true,
+  { id:"gm-ready-missing", build:() => readyBoard("missing"), viewer:"gm", photos:[], audio:true, catalog:true, karaoke:true,
     spotify:FIT_SPOTIFY.setup, tvs:[], tabs:[], sheets:["ready-check"] },
-  { id:"gm-ready-partial", build:() => readyBoard("partial"), viewer:"gm", audio:true, catalog:true,
+  { id:"gm-ready-partial", build:() => readyBoard("partial"), viewer:"gm", audio:true, catalog:true, karaoke:true,
     spotify:{ status:{ ...FIT_SPOTIFY.connected.status, device:null } }, tvs:[{ ageMs:1000, sound:"on" }, { ageMs:1000, sound:"blocked" }],
     tabs:[], sheets:["ready-check", "gm-menu"], sheetSizes:["375"] },
-  { id:"gm-ready-all", build:() => readyBoard("all"), viewer:"gm", photos:ROSTER, audio:true, catalog:true, push:true,
+  { id:"gm-ready-all", build:() => readyBoard("all"), viewer:"gm", photos:ROSTER, audio:true, catalog:true, karaoke:true, push:true,
     spotify:FIT_SPOTIFY.connected, tvs:[{ ageMs:1000, sound:"on" }], tabs:[], sheets:["ready-check", "gm-menu"] },
+  /* the Karaoke desk, from the commissioner's menu (its row in Games): the
+     songs hidden as it opens, then shown and checked, at both widths */
+  { id:"gm-karaoke-desk", build:karaokeDesk, viewer:"gm", karaoke:true, karaokeCheck:KARAOKE_DESK_CHECK, tabs:[],
+    sheets:["gm-menu", "karaoke-desk", "karaoke-desk-shown"], sheetSizes:["375"] },
 ]);
 export const PHONE_SIZES = Object.freeze([{ w:390, h:844, id:"390" }, { w:375, h:667, id:"375" }]);
 

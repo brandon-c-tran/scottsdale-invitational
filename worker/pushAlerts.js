@@ -7,6 +7,8 @@
      "You're playing" stamp: a contest you are in, not a wide free-for-all).
    - pick: it became your turn in a captains draft.
    - duel: someone sent a challenge to you by name.
+   - sing: karaoke, a song just started and yours is next ("You’re up
+     next"); never a song's name, which stays the room's until it is up.
    Each carries a dedupe key (player + reason + contest) so a correction
    that reopens the same contest, a retry, or a replay never alerts twice. */
 
@@ -14,8 +16,9 @@ import {
   allEventsOf, disp, draftTurn, isActivePlayer, isAway, isAbsent, resolveCurrentContest,
   resolveWeekendOperation, teamLabel, DUEL_GAMES,
 } from "../shared/core.js";
+import { karaokeLive, karaokeNextSinger, karaokeSinger, karaokeTurn } from "../shared/karaoke.js";
 
-export const ALERT_REASONS = Object.freeze(["playing", "pick", "duel"]);
+export const ALERT_REASONS = Object.freeze(["playing", "pick", "duel", "sing"]);
 const LIVE_PHASES = new Set(["betting-open", "betting-locked", "in-progress"]);
 
 /* the current contest, while it is open or being played */
@@ -92,11 +95,34 @@ function duelAlerts(prev, next) {
     }));
 }
 
+/* karaoke: as a song starts (its turn's songAt written: the start, never a
+   later video swap or a delayed end), the next present singer hears they
+   are next. One alert per player, game and turn; silent outside a running
+   game. */
+function singAlerts(prev, next) {
+  const game = next?.karaoke;
+  if (!game?.id || game.phase !== "turns" || !karaokeLive(next)) return [];
+  const singer = karaokeSinger(game), turn = karaokeTurn(game, singer);
+  if (!turn || !Number.isFinite(turn.songAt) || turn.closedAt || turn.skipped) return [];
+  const was = prev?.karaoke;
+  const before = was?.id === game.id && was.phase === "turns" && was.index === game.index && karaokeSinger(was) === singer
+    ? karaokeTurn(was, singer) : null;
+  if (Number.isFinite(before?.songAt)) return [];
+  const player = karaokeNextSinger(next, game);
+  if (!player || !isActivePlayer(player, next) || isAbsent(next, player)) return [];
+  const name = allEventsOf(next).find(ev => ev.id === game.eventId)?.name || "Karaoke";
+  return [{
+    player, reason:"sing", key:`sing:${player}:${game.id}:${game.index}`,
+    message:{ title:"You’re up next", body:name, tag:`sing:${game.id}`, topic:"sing", url:"/?alert=sing" },
+  }];
+}
+
 /* `actor` is the player claimed by the device that made the write (null for
    an unclaimed commissioner device); they already know. */
 export function alertsFor(prev, next, { actor = null } = {}) {
   if (!next || prev === next) return [];
-  const alerts = [...playingAlerts(prev || {}, next), ...pickAlerts(prev || {}, next), ...duelAlerts(prev || {}, next)];
+  const alerts = [...playingAlerts(prev || {}, next), ...pickAlerts(prev || {}, next), ...duelAlerts(prev || {}, next),
+    ...singAlerts(prev || {}, next)];
   const seen = new Set();
   return alerts.filter(alert => {
     if (!alert.player || alert.player === actor || seen.has(alert.key)) return false;

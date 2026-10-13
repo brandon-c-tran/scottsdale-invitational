@@ -125,8 +125,8 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   capability is on, valued with the chosen speaker; Settings (Oct 13,
   `settingsMenu`): every switch in one sheet, each the same write as its
   own home: Autopilot, Gags, Play win songs automatically, Check-in,
-  Jerseys ordered, QA strip), Games (Where and When, Trivia, Karaoke when
-  App passes `karaoke`, Awards; a desk is one entry in `GAME_DESKS`),
+  Jerseys ordered, QA strip), Games (Where and When, Karaoke with the karaoke
+  capability in the slate's order, Trivia, Awards; a desk is one entry in `GAME_DESKS`),
   People, Setup (devices, export, QA opens the console, Reset game
   progress, its one entry), Exit alone. The QA console runs Watch it play
   (Sim players), Step, Jump to (one event picker with Open / Mid / Done,
@@ -219,7 +219,7 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   title beside it (`WinLine`). **One Now card** (Oct 12): Home's contest card
   is the only game surface on Home. Whatever else is happening for you is a
   row of it (`ui/NowRow.jsx`): an in-app game in progress (`GeoHome` /
-  `TriviaHome` with `inCard`, App's `gameContent`, where Karaoke joins), a
+  `TriviaHome` and `KaraokeHome` with `inCard`, App's `gameContent`), a
   draft waiting on someone else (`DraftNowRow`), another event's team name
   (`TeamNameNow`) and another event's open market. The card's own team keeps
   its pencil on its name (`useTeamNameNow`). Team names open once by
@@ -535,7 +535,7 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   ordinary player writes with a synthetic context (`simContext`:
   `deviceId:"sim:<player>"`, `actionId` = the move's key, `sim:true`).
   `SIM_PLANNERS` is the per-game table (trivia rounds, board, geo, bets,
-  draft, night; Karaoke adds its own): each plans `{ at, type, payload,
+  karaoke, draft, night): each plans `{ at, type, payload,
   player, key }` from a seeded hash of (seed, game, question/contest,
   player, field), never Math.random, and reads the state so a made move is
   never planned again. `simDue`/`simNext` feed the Durable Object's alarm
@@ -886,6 +886,68 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   its chip at one size, the record as one big numeral (chips amber, a loss
   clay, counts bone; "3 to 1" between two sides, the side behind lilac),
   rising in on the turn's own instant. Fit views `tv-records-*`.
+- **Karaoke songs** (Oct 12, docs/KARAOKE.md "YouTube"; `worker/karaokeVideos.js`,
+  `features/karaoke/KaraokeSongPicker.jsx` on the pure `songPick.js`): a
+  guest searches Spotify (the win song's `SongSearch`), picks, and `GET
+  /api/karaoke/videos` (device claim or GM token, 10 lookups a device a
+  minute) runs ONE search.list ("{first artist} {song name} karaoke",
+  release suffix and featured artists dropped by `songTitle`/
+  `karaokeSongName`) and ONE videos.list; `chooseKaraoke` keeps uploads an
+  embedded player can play in the US (embeddable, public or unlisted,
+  processed, not age restricted, not blocked in the US, not live, 60 to 900
+  s) that say karaoke, never a "- Topic" channel or Sing King, and ranks
+  the song's own name, then `KARAOKE_CHANNELS` (Stingray first), then title
+  words, then the length nearest Spotify's, one per channel first: up to
+  three, kept in `private:karaoke:<trackId>` 30 days (YouTube's storage
+  rule; a miss a day; a failure never). The win song's
+  `private:youtube:<trackId>` refreshes after 30 days too. A quota answer
+  reads "YouTube's daily limit is used up. Paste a YouTube link."
+  (`youtubeFailure`; search.list is its own 100-call bucket). `GET
+  /api/karaoke/video?id` checks a pasted link (play checks only); `GET
+  /api/admin/karaoke/check` (GM) reads every roster song's video and
+  alternates in one call and stores nothing. After a write opens a pick
+  window, the DO reads every present player's videos in one call and
+  writes `karaokePreflight { gameId, bad, videos }` as an auto write, never
+  holding up the start. The picker: thumbnails (`karaokeThumb`, 128x72)
+  open YouTube's own player one at a time (`previewPlayer` `onClipStart`
+  is a set; whatever starts stops the rest), Use writes `karaokeSong` with
+  the other candidates as `alts`, a pasted link joins the candidates,
+  `muted` (the pick window) keeps covers still and previews silent.
+  Profile > Karaoke (`capabilities.karaoke`, audioCatalog and songSnippets)
+  has no Save: Use is the save. Home's list adds "Pick a karaoke song".
+  Fit views `karaoke-song*` (stand-in thumbnails ride a `thumb` field the
+  server never sends).
+- **Karaoke** (Oct 13, the contract is `docs/KARAOKE.md`; pure model
+  `shared/karaoke.js`, reducers `worker/karaoke.js`, the TV
+  `features/tv/TVKaraoke.jsx` on `karaokeTv.js`, the phones
+  `features/karaoke/` on `karaokeModel.js`): Friday's free-for-all in
+  Hypixel Build Battle's shape, only with `capabilities.karaoke`. Lock and
+  start opens a 2-minute pick window in the same write (`karaokeStart`):
+  Keep or Change on every phone (the picker muted), the TV lighting chips
+  as each locks in, the DO's one batched video check (`karaokePreflight`,
+  server-only `bad` by video id). The window's end draws the running order
+  from the game id (no song: sits out, backers returned); each singer is Up
+  next 20 s, then `karaokeStartSong` plays the YouTube upload on the TV in
+  its own box with nothing drawn over it (`karaokePlayer.js`: cue at up,
+  play at songAt on the server clock, late TVs seek, stop at ENDED or
+  endAt, reports ready/playing/error/blocked as presence `tvVideo`, which
+  the DO turns into `karaokeTvPlaying` / `karaokeTvError`; muted by the
+  TV's Sound switch; never a player in a fixed still). Every present
+  player but the singer votes six tiers on the phone (single flight), the
+  vote closes 20 s after the song (or once all are in); a quarter
+  Legendary rains on the TV, delaying the next singer or the reveal; the
+  reveal runs last to first on the server clock and phones hold each row
+  to the TV's instant; `karaokeFinish` posts through beginResultEntry +
+  saveResult. Votes never leave the Worker (frames carry who voted and
+  when) and are deleted when the result posts. Every clock beat is an
+  autopilot write (`karaokeAutoBeat`) the pill offers as `karaoke-step`
+  with a tray (More time, Later, End song, Next video, Skip, Restart).
+  Home: the You strip speaks what the game asks (`karaokeYou`), the Now
+  card's `KaraokeHome inCard` row the rest. QA: `playKaraoke`, Sim songs,
+  Sim votes; Sim players' `planKaraoke` keeps or takes practice songs
+  (`karaokeSimSong`, sims only, never a profile) and votes on a human
+  clock. Practice songs have no video: the TV plays a lit card for 30 s.
+  Fit views `tv-karaoke-*`, `karaoke-*`, `gm-karaoke-desk`, `gm-qa-karaoke-*`.
 
 ## Current redesign direction
 
@@ -1075,7 +1137,7 @@ match is outlined (`bracketLayout`, features/weekend/CompetitionBracket.jsx).
 shapes, 7 to 16 seed into the next power of two with byes to the top seeds.
 1v1 Basketball is a bracket of everyone present (teams of one, `teamFit`
 shrinks it for Away). The v2 slate (Sept 29): Long Putt, Beer Die Doubles,
-Where and When (Fri); 5v5, Pickleball Doubles, 1v1 (Sat AM); Volleyball as 4 teams of 3,
+Where and When, Karaoke (Fri; Karaoke since Oct 12); 5v5, Pickleball Doubles, 1v1 (Sat AM); Volleyball as 4 teams of 3,
 Trivia (solo, in the app), 8-Ball, Beer Pong (Sat PM/night); Rage Cage, Beerio
 Kart; poker. Trivia is played in the app when it has a set list, and Where
 and When when it has photos (else each is entered like any result). 5v5 is everyone-plays (`participation:{type:"all"}`): the draw
@@ -1677,11 +1739,19 @@ as a bare URL. The absolute URL comes from `SITE_URL`, which defaults to the liv
 
 Add a `BUILTIN_EVENTS` entry in `shared/core.js` (id, session, value, kind,
 sport, `game`, teamCfg if teams), or use the GM add-event flow for one-offs
-(its "Looks like" picker borrows a known game's mark, hero, and how-to).
-Optionally give the `game` id a `GAMES` howto (core), a `MARKS` icon and a
-`GAME_HEROES` animation (App.jsx). Every surface (schedule, strips, sheets,
-betting band, event intro, TV) reads those registries; anything missing falls
-back to the GameMark, then the FD chip. Nothing else to wire.
+(its "Looks like" picker borrows a known game's mark, intro and how-to; an
+in-app game's, Karaoke's, is never offered: `GAME_MARK_IDS`). Give the
+`game` id a `GAMES` howto (core) and its drawn steps (`features/rules/`:
+`STEP_SETS`, `rulesWords.js`, `RulePictures.jsx`), a `MARKS` icon
+(`ui/GameMark.jsx`) and an intro: its `INTRO_SCENES` key
+(`intro/introTiming.js`), its `SCENES` diorama (`IntroScenes.jsx`) and its
+`INTRO_FOLEY` (`lib/soundKit.js`); the tests require all of them for a
+built-in. Every surface (schedule, strips, sheets, betting band, event intro,
+TV) reads those registries; anything missing falls back to the GameMark,
+then the FD chip. A built-in added after a Reorder was saved has no place in
+the stored `eventOrder` and sorts last: give it one on hydration as
+`worker/state.js` `placeKaraoke` does. The cup lays each session's plaques
+in rows of three at most (`weekend/trophy.js` `cupRows`).
 
 ## Backlog
 

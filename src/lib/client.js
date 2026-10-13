@@ -73,6 +73,7 @@ const DEFAULT_CAPABILITIES = {
   audioCatalog:false,
   audioPlayback:false,
   push:false,
+  karaoke:false,
 };
 const snapshot = {
   state: EMPTY_STATE,
@@ -140,18 +141,32 @@ const pageVisible = () => typeof document === "undefined" || document.hidden !==
 /* the TV says whether its sound runs, so the commissioner can see a muted
    TV (reportTvSound, fed by TV mode from the sound engine) */
 let tvSound = null;
+/* and how its karaoke video is doing (reportTvVideo, fed by TV mode's
+   player, docs/KARAOKE.md "The TV report"): { key, state, code?, at? }, the
+   key `${gameId}:${index}:${video}`, so the Worker hears when a song really
+   started and the commissioner sees a video the TV could not play */
+let tvVideo = null;
+const TV_VIDEO_STATES = new Set(["ready", "playing", "blocked", "error"]);
+function cleanTvVideo(status) {
+  if (!status || typeof status !== "object" || !TV_VIDEO_STATES.has(status.state)) return null;
+  const key = typeof status.key === "string" && /^[\w:-]{1,40}$/.test(status.key) ? status.key : null;
+  if (!key) return null;
+  const code = Number(status.code), at = Number(status.at);
+  return { key, state:status.state, ...(Number.isInteger(code) && code >= 0 && code <= 999 ? { code } : {}),
+    ...(Number.isFinite(at) && at > 0 ? { at:Math.round(at) } : {}) };
+}
 /* a device showing TV mode inside the app (the menu's TV mode, not the /tv
    route) is a TV too: App calls setTvView, and hello, ping and presence say
    which view this socket is on, so the commissioner's TV check counts it */
 let tvView = false;
 const isTvView = () => tvView || isTvRoute();
 const viewName = () => isTvView() ? "tv" : "app";
-const tvSoundPayload = () => isTvView() && tvSound ? { tvSound } : {};
+const tvSoundPayload = () => isTvView() ? { ...(tvSound ? { tvSound } : {}), ...(tvVideo ? { tvVideo } : {}) } : {};
 export function setTvView(on) {
   const next = !!on;
   if (tvView === next) return;
   tvView = next;
-  if (!isTvView()) tvSound = null;
+  if (!isTvView()) { tvSound = null; tvVideo = null; }
   send({ type:"presence", payload:{ visible:pageVisible(), view:viewName(), ...tvSoundPayload() } });
 }
 export function reportTvSound(status) {
@@ -159,6 +174,12 @@ export function reportTvSound(status) {
   if (!isTvView() || tvSound === next) return;
   tvSound = next;
   send({ type:"presence", payload:{ visible:pageVisible(), view:viewName(), tvSound } });
+}
+export function reportTvVideo(status) {
+  const next = cleanTvVideo(status);
+  if (!isTvView() || JSON.stringify(next) === JSON.stringify(tvVideo)) return;
+  tvVideo = next;
+  send({ type:"presence", payload:{ visible:pageVisible(), view:viewName(), ...tvSoundPayload() } });
 }
 
 function sendHello() {
@@ -574,6 +595,24 @@ export async function triviaPhotoUrl(id) {
     return r.ok ? URL.createObjectURL(await r.blob()) : null;
   } catch { return null; }
 }
+
+/* Karaoke songs on YouTube (worker/tournament.js handleKaraoke): a chosen
+   song's karaoke uploads { videos }, a pasted link's check { video }, and
+   the commissioner's check of every saved video { results } (the GM token
+   rides momentHeaders). A lookup is two YouTube calls of up to 8 seconds
+   each, so 12 seconds. A failure carries the server's line and, for
+   YouTube's own refusals, a `code` (none, quota, busy, key, embedding...). */
+const KARAOKE_LOOKUP_MS = 12000;
+const KARAOKE_SLOW = "YouTube did not answer. Try again";
+export const karaokeVideos = ({ trackId = "", name = "", artist = "", durationMs = 0 } = {}) =>
+  momentRequest(`/api/karaoke/videos?${new URLSearchParams({ trackId, name, artist, durationMs:String(durationMs || 0) })}`,
+    { headers:momentHeaders(), cache:"no-store" },
+    { ms:KARAOKE_LOOKUP_MS, timeout:KARAOKE_SLOW, failed:"Couldn't find videos. Try again." });
+export const karaokeVideo = id => momentRequest(`/api/karaoke/video?${new URLSearchParams({ id:String(id || "") })}`,
+  { headers:momentHeaders(), cache:"no-store" },
+  { ms:KARAOKE_LOOKUP_MS, timeout:KARAOKE_SLOW, failed:"Couldn't check that link. Try again." });
+export const karaokeCheck = () => momentRequest("/api/admin/karaoke/check", { headers:momentHeaders(), cache:"no-store" },
+  { ms:KARAOKE_LOOKUP_MS, timeout:KARAOKE_SLOW, failed:"Couldn't check the videos. Try again." });
 
 /* Crash reports for `wrangler tail`. Best effort, never throws. */
 export function reportClientError(report) {

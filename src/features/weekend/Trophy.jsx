@@ -6,7 +6,7 @@ import { GameMark } from "../../ui/GameMark.jsx";
 import { useFreshChange } from "../../lib/motion.js";
 import { programCover } from "./programModel.js";
 import {
-  CUP_TV, ENGRAVE, PLATE_FACES, cupEngravings, cupTvLayout, engraveTotal, fitChampionName, fitPlateName, plateNameWidth,
+  CUP_TV, ENGRAVE, PLATE_FACES, cupCols, cupEngravings, cupTvLayout, engraveTotal, fitChampionName, fitPlateName, plateNameWidth,
   trophyCup, trophyPlates,
 } from "./trophy.js";
 import "./trophy.css";
@@ -326,7 +326,7 @@ export function TrophyCup({ state, events, variant = "phone", onPlate = null, en
               ? <>{words[0]}<br />{words.slice(1).join(" ")}</> : band.label}</span>}
             <ol className="fd-cup-plates" aria-label={band.label}
               style={{ gridTemplateColumns:dims ? `repeat(${dims.cols}, ${dims.plateW}px)`
-                : `repeat(${Math.min(3, band.plates.length)}, minmax(0, 1fr))` }}>
+                : `repeat(${cupCols(band.plates.length)}, minmax(0, 1fr))` }}>
               {band.plates.map(plate => <CupPlate key={plate.eventId} plate={plate} tv={tv} dims={dims}
                 engraveAt={engrave?.[plate.eventId] ?? null} onPlate={onPlate} />)}
             </ol>

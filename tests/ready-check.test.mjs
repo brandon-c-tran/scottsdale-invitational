@@ -13,6 +13,7 @@ import { buildSync } from "esbuild";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { EMPTY_STATE, ROSTER } from "../shared/core.js";
+import { cleanKaraokeTrack } from "../shared/karaoke.js";
 import { publicState } from "../worker/publicState.js";
 import { applyAction } from "./support/confirmed-start.mjs";
 import { commissionerMenu } from "../src/features/director/menuModel.js";
@@ -167,6 +168,29 @@ test("win songs: a row only while guests can pick one, opening the Speaker when 
   const songs = rowOf(state, "songs", { capabilities:{ audioCatalog:true, audioDirector:true } });
   assert.deepEqual({ have:songs.have, state:songs.state, opens:songs.opens }, { have:1, state:"partial", opens:"audioDirector" });
   assert.equal(rowOf(state, "songs", { capabilities:{ audioCatalog:true } }).opens, null, "no Speaker sheet, no target");
+});
+
+test("karaoke songs: a row only with the karaoke capability while Karaoke is still to play, opening its desk", () => {
+  const state = signedUp();
+  const karaoke = (n, name) => {
+    const trackId = `readyKaraokeSong${n}`.padEnd(22, "x");
+    return cleanKaraokeTrack({ provider:"spotify", trackId, uri:`spotify:track:${trackId}`, name, artists:["A"], durationMs:200000,
+      video:{ id:`readyVideo${n}`, title:`${name} karaoke`, channel:"Stingray Karaoke", seconds:205 } });
+  };
+  state.profiles.Evan.karaokeTrack = karaoke(1, "Mr. Brightside");
+  state.profiles.Khoa.karaokeTrack = karaoke(2, "Africa");
+  assert.ok(!ids(state).includes("karaoke"), "the capability off: no row");
+  assert.ok(!ids(state, { capabilities:{ audioCatalog:true, audioDirector:true } }).includes("karaoke"));
+  const on = { capabilities:{ audioCatalog:true, karaoke:true } };
+  const row = rowOf(state, "karaoke", on);
+  assert.deepEqual({ label:row.label, have:row.have, of:row.of, state:row.state, opens:row.opens },
+    { label:"Karaoke songs", have:2, of:ROSTER.length, state:"partial", opens:"karaoke" });
+  assert.deepEqual(row.missing, ROSTER.filter(player => !["Evan", "Khoa"].includes(player)), "faces in roster order");
+  assert.deepEqual(sections(state, on)[0].rows.map(item => item.id),
+    ["checkedIn", "photos", "colors", "jerseys", "songs", "karaoke", "flights", "venmo", "drinks"], "after the win songs");
+  /* Karaoke posted or skipped: nothing left to pick for */
+  assert.ok(!ids({ ...state, results:{ karaoke:{ slots:[["Evan"], [], []] } } }, on).includes("karaoke"));
+  assert.ok(!ids({ ...state, shelved:{ karaoke:true } }, on).includes("karaoke"));
 });
 
 test("games: Trivia's questions, Where and When's complete photos, the awards written", () => {

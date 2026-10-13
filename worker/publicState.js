@@ -9,8 +9,9 @@
    - Private ratings (seeds) are the commissioner's. A player gets their own
      back so the rating form can show saved answers.
    - Shirt size, flights, the jersey confirmation, Venmo, drinking and food
-     needs are for the commissioner and the owner. Name, jersey back name,
-     number, chip, photo and walkout stay public: every card renders them.
+     needs, and the karaoke song are for the commissioner and the owner.
+     Name, jersey back name, number, chip, photo and walkout stay public:
+     every card renders them.
    - Logistics stay public (the house, and Brandon's own times).
    - Arrivals: while the door is open, a player still on the way carries
      their arrival leg's time alone (`arrivals.eta`), for the TV's Landed.
@@ -25,6 +26,10 @@
      commissioner's; a game sends only the questions shown so far, an answer
      once revealed, a team its own live pick and every team's locked or not,
      and every pick once revealed. A commissioner on a team plays it blind.
+   - Karaoke (shared/karaoke.js projectKaraoke): the same game for everyone,
+     the commissioner and the TV included: each song once its singer is up,
+     who voted and when (never a tier), the ranking from the reveal; a
+     player also gets their own song, votes and failed video check.
    - Photo desk records (worker/moments.js) are not in state; the Durable
      Object passes its index in. Everyone gets the visible ones, the
      commissioner also the hidden ones; never byte counts or device ids.
@@ -35,6 +40,7 @@ import * as core from "../shared/core.js";
 import { projectPrompts } from "../shared/prompts.js";
 import { projectGeo } from "../shared/geo.js";
 import { projectTrivia } from "../shared/trivia.js";
+import { projectKaraoke } from "../shared/karaoke.js";
 import { publicMoments } from "./moments.js";
 
 const { isActivePlayer } = core;
@@ -50,8 +56,9 @@ const scrub = (key, value) => NEVER_SENT_FIELDS.has(key) ? undefined : value;
 /* `bounties` is the leader bounty's stamp (cut Oct 4): kept in storage, never read */
 const SERVER_ONLY_EVENT_OP_KEYS = Object.freeze(["contestCommands", "draftCommands", "nameCommands", "bounties"]);
 const PRIVATE_PROFILE_FIELDS = Object.freeze(["size", "jersey", "flightsBooked", "flightIn", "flightOut",
-  "jerseyOk", "venmo", "drinking", "needs"]);
-const PER_VIEWER_KEYS = Object.freeze(["seeds", "profiles", "duels", "prompts", "moments", "geo", "geoRounds", "trivia", "triviaRounds", "logistics"]);
+  "jerseyOk", "venmo", "drinking", "needs", "karaokeTrack"]);
+const PER_VIEWER_KEYS = Object.freeze(["seeds", "profiles", "duels", "prompts", "moments", "geo", "geoRounds", "trivia", "triviaRounds", "logistics",
+  "karaoke"]);
 /* the host's own legs in the trip sheet are public as times only: his flight
    codes go to the commissioner and to him, never to another guest */
 const HOST = "Brandon";
@@ -164,6 +171,7 @@ function viewerProjection(state, viewer, extras = {}) {
     prompts:projectPrompts(state?.prompts, { isGm, player, roster:core.rosterOf(state) }),
     ...projectGeo(state?.geo, state?.geoRounds, { isGm, player }),
     ...projectTrivia(state?.trivia, state?.triviaRounds, { isGm, player }),
+    karaoke:projectKaraoke(state, player),
     ...(moments.length ? { moments } : {}),
     ...(state && "logistics" in state ? { logistics:projectLogistics(state.logistics, { isGm, player }) } : {}),
   };

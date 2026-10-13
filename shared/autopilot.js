@@ -7,6 +7,9 @@
      every player has locked in), holds the reveal, then puts up the next
      photo; after the last one it posts the result.
    - Trivia does the same per question, with the scores between rounds.
+   - Karaoke ends its pick window, starts each song after its walk-up,
+     closes each vote and posts the result after the reveal
+     (shared/karaoke.js karaokeAutoBeat).
 
    `autoBeat(state)` is the one source: the next write the server owes, as
    { at, from, type, payload, key }, or null (`from` is when the wait
@@ -25,6 +28,7 @@ import { GEO_GRACE_MS, geoCurrentId, geoLastRound, geoPlayers } from "./geo.js";
 /* trivia exports triviaAutoBeat; read through the namespace so a build
    without it simply has no trivia beats */
 import * as trivia from "./trivia.js";
+import * as karaoke from "./karaoke.js";
 
 /* a photo's reveal: the pins drop and the lines run in about three seconds,
    then every phone counts its score; the room needs the rest to react */
@@ -67,6 +71,7 @@ export function autoBeat(state, { showControl = false } = {}) {
     showControl ? sceneAutoBeat(state) : null,
     geoAutoBeat(state),
     trivia.triviaAutoBeat?.(state) || null,
+    karaoke.karaokeAutoBeat?.(state) || null,
   ].filter(beat => beat && Number.isFinite(beat.at));
   if (!beats.length) return null;
   return beats.reduce((first, beat) => beat.at < first.at ? beat : first);

@@ -26,6 +26,7 @@ import { InstallCard } from "../check-in/InstallHint.jsx";
 import { playSound } from "../../lib/sound.js";
 import { youreUpTakes } from "../moments/youreUp.js";
 import { yourSongLine } from "../music/winSongModel.js";
+import { songTitle } from "../../../shared/audio.js";
 import { PayoutLadder } from "../../ui/PayoutLadder.jsx";
 import { ScanPane, ScanRow, useScanOffer } from "../arrivals/ArrivalHome.jsx";
 import "./home.css";
@@ -165,14 +166,9 @@ function useYoureUp(contest, me) {
   return yours ? playing : null;
 }
 
-/* a song's name as the room knows it: a release's suffix ("- Single
-   Version", "- Remastered 2011", "(Radio Edit)") is not part of it */
-const SONG_SUFFIX = /\s*(?:-\s+[^-]*\b(?:version|remaster(?:ed)?|edit|mix|mono|stereo|live|single|radio|explicit|clean)\b[^-]*|[([][^)\]]*\b(?:version|remaster(?:ed)?|edit|mix|mono|stereo|live|radio|explicit|clean)\b[^)\]]*[)\]])\s*$/i;
-export const songTitle = name => {
-  const full = String(name || "").trim();
-  const short = full.replace(SONG_SUFFIX, "").trim();
-  return short || full;
-};
+/* a song's name as the room knows it (shared/audio.js, which the karaoke
+   video search reads too) */
+export { songTitle };
 /* What a win means for you, one line: where it puts you ("Win and you're
    2nd"), and in your own 1v1 or free-for-all the song it plays, drawn as a
    chip with its title (or the way to pick one). Either half may stand alone.
@@ -197,7 +193,7 @@ function YouStrip({ state, me, strip, onRoute, inset = false, stamp = null }) {
   /* lettered into the contest's pane the strip is read, not tapped: the
      pane's one way into the event is its name. Your draft pick is the
      exception: the strip is the way into the draft. */
-  const tap = strip.route && (!inset || strip.route.type === "draft") ? () => onRoute(strip.route) : null;
+  const tap = strip.route && (!inset || strip.route.type === "draft" || strip.route.type === "karaoke") ? () => onRoute(strip.route) : null;
   /* with its own painting the strip is a pane of glass you can press */
   const paneRef = useRef(null);
   useGlassTilt(paneRef, { enabled:!inset && !!strip.text });
@@ -213,7 +209,7 @@ function YouStrip({ state, me, strip, onRoute, inset = false, stamp = null }) {
         <strong key={stamp || "word"} className={`fd-show fd-you-strip-word${stamp ? " is-stamping" : ""}`}>{strip.word}</strong>
         {strip.line && <span className="fd-you-strip-detail">{strip.path ? <PathText text={strip.line} /> : strip.line}</span>}
       </span>
-      {tap && <Icon name={strip.route.type === "draft" ? "open" : "next"} size={18} className="fd-you-strip-go" />}</span>
+      {tap && <Icon name={strip.route.type === "draft" || strip.route.type === "karaoke" ? "open" : "next"} size={18} className="fd-you-strip-go" />}</span>
   </>;
   const className = `fd-you-strip ${inset ? "is-inset" : "fd-glass-scene"} is-${strip.tone}${tap ? " is-tap" : ""}`;
   return tap ? <button type="button" ref={paneRef} className={className} onClick={tap} aria-label={strip.text}>{body}</button>
@@ -279,7 +275,8 @@ function EventTable({ model, state, me, events, standings, onOpen, onRules, onBe
   const termsFor = side => terms?.odds && !terms.wide ? terms.sides[side.key] : null;
   /* sides of three or more read as team blocks, not a row of names */
   const teamSides = sided && teamBlocks;
-  const song = !away ? yourSongLine(state, contest, me, { songs }) : null;
+  /* karaoke sings its own song: a win song line there would read as it */
+  const song = !away && event.game !== "karaoke" ? yourSongLine(state, contest, me, { songs }) : null;
   /* the panel is a lamp: steady while betting is open or the game is on,
      flashing while it waits on a result, unlit before it starts */
   const phase = current.lifecycle.phase;
@@ -426,7 +423,7 @@ function FlightsQuestion({ onYes, onNotYet }) {
    profile section that finishes it, the flights question in travel's place.
    Gone once nothing is left. */
 function SetupList({ items, flights, onOpen }) {
-  const at = flights ? items.findIndex(item => item.id === "details" || item.id === "song") : -1;
+  const at = flights ? items.findIndex(item => item.id === "details" || item.id === "song" || item.id === "karaoke") : -1;
   const rows = items.map(item => <button type="button" key={item.id} onClick={() => onOpen(item)}>
     <span>{item.label}</span><Next /></button>);
   if (flights) rows.splice(at < 0 ? rows.length : at, 0, <React.Fragment key="flights">{flights}</React.Fragment>);
@@ -440,7 +437,7 @@ export function GuestHome({ state, me, events, standings, onPlayer, onEvents,
   onOpen, onRules = onOpen, onBets, onBracket, onStandings, onDraft, deltas, GameMark, StatPills, pokerContent, duelContent,
   awardsContent = null, gameContent = null,
   since, onSince, onSinceDismiss, flightsAnswered = false, onFlightsYes, onFlightsNotYet, onLastCard,
-  setup = [], onSetup, songs = false, onWinSong, onScan = null }) {
+  setup = [], onSetup, songs = false, onWinSong, onScan = null, onKaraoke = null }) {
   const model = deriveHomeModel({ state, me, events, standings });
   const before = model.mode === "before", finale = model.mode === "finale", complete = model.mode === "complete";
   const leaders = (standings || []).filter(row => row.rank === 1);
@@ -457,6 +454,7 @@ export function GuestHome({ state, me, events, standings, onPlayer, onEvents,
     && !profile.flightIn && !profile.flightOut;
   const strip = me ? deriveYouStrip({ state, me, events, standings:standings || [], model }) : null;
   const routeStrip = route => route.type === "bets" ? onBets?.()
+    : route.type === "karaoke" && onKaraoke ? onKaraoke()
     : route.type === "draft" ? (onDraft || onOpen)?.(route.ev)
       : route.type === "bracket" && onBracket ? onBracket(route.ev) : onOpen?.(route.ev);
   /* one painting per viewport: the contest carries it, your strip lettered

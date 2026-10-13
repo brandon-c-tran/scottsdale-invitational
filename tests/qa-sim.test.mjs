@@ -53,7 +53,7 @@ const lockAndStart = (state, evId) => {
 const simOn = (state, extra = {}, ctx = gm()) => act(state, "qaSimPlayers", { on:true, seed:4242, ...extra }, ctx);
 
 /* the Durable Object, in memory: storage, no sockets */
-async function room(state) {
+async function room(state, env = {}) {
   const { Tournament } = await import("../worker/tournament.js");
   const entries = new Map();
   const storage = {
@@ -65,7 +65,7 @@ async function room(state) {
     async transaction(fn) { return fn(storage); }, async setAlarm() {}, async getAlarm() { return null; }, async deleteAlarm() {},
   };
   const tournament = new Tournament({ blockConcurrencyWhile() {}, getWebSockets:() => [], storage, waitUntil() {} },
-    { APP_ENV:"local", QA_ENABLED:"true", PROGRESS_RESET_ENABLED:"true" });
+    { APP_ENV:"local", QA_ENABLED:"true", PROGRESS_RESET_ENABLED:"true", ...env });
   await tournament.hydrateFromStorage();
   tournament.state = state;
   /* every write the alarm made, with its server time */
@@ -218,7 +218,7 @@ test("deterministic: the same state plans the same moves at the same instants wi
   const spent = new Set([a[0].key]);
   assert.ok(!simMoves(state, T0, spent).some(move => move.key === a[0].key));
   assert.deepEqual(simContext(a[0]), { isGm:false, sim:true, player:a[0].player, deviceId:`sim:${a[0].player}`, actionId:a[0].key });
-  assert.deepEqual(Object.keys(SIM_PLANNERS), ["trivia", "board", "geo", "bets", "draft", "night"]);
+  assert.deepEqual(Object.keys(SIM_PLANNERS), ["trivia", "board", "geo", "karaoke", "bets", "draft", "night"]);
 });
 
 test("off stops everything at once, and an absent player stops on the spot", async () => {
@@ -344,6 +344,70 @@ test("Where and When: pins near and far, dates, lock-ins on their own clocks, pl
   /* a guess is the skill's shape: the same player's guesses are the same each time */
   const sim = qaSimOf(tournament.state);
   assert.deepEqual(geoSimGuess(sim, GEO_ROUNDS[0], "Evan"), geoSimGuess(sim, GEO_ROUNDS[0], "Evan"));
+});
+
+/* ── Karaoke ── */
+const KARAOKE_ENV = { M2_AUDIO_CATALOG_ENABLED:"true", SPOTIFY_CLIENT_ID:"id", SPOTIFY_CLIENT_SECRET:"secret", YOUTUBE_API_KEY:"key" };
+const karaokeTrack = n => {
+  const trackId = `kt${String(n).padStart(20, "0")}`;
+  return { provider:"spotify", trackId, uri:`spotify:track:${trackId}`, name:`Song ${n}`, artists:[`Artist ${n}`],
+    durationMs:200_000, imageUrl:null, explicit:false, alts:[],
+    video:{ id:`kv${String(n).padStart(2, "0")}0aaaaaa`, title:`Song ${n} (Karaoke Version)`, channel:"Sing Along Karaoke", seconds:200 } };
+};
+test("Karaoke: sims keep their song or take a practice one, vote over each song on a human clock, played to the posted result", async () => {
+  const state = structuredClone(EMPTY_STATE);
+  act(state, "qaAdvance", { target:"event:karaoke:open", seed:7 });
+  /* three of the room picked a song ahead */
+  const ahead = ["Evan", "Sahil", "Chiang"].filter(p => presentPlayers(state).includes(p));
+  ahead.forEach((player, k) => act(state, "karaokeSong", { track:karaokeTrack(k + 1) },
+    { isGm:false, player, deviceId:`d-${player}`, actionId:`s${k}` }));
+  const profiles = structuredClone(state.profiles);
+  at(T0, () => simOn(state));
+  const contest = resolveCurrentContest(state, eventOf(state, "karaoke"));
+  at(T0, () => act(state, "lockAndStart", { evId:"karaoke", contestId:contest.id, contestRevision:contest.revision },
+    gm(ME, { karaoke:true })));
+  assert.equal(state.karaoke?.phase, "pick", "the window opened");
+  /* the practice pick is the simulated room's alone: never a phone's, never without QA */
+  const probe = structuredClone(state);
+  const simSong = ctx => applyAction(probe, "karaokeSimSong", { gameId:probe.karaoke.id, k:2 }, ctx).ok;
+  assert.equal(simSong({ isGm:false, player:"Evan", deviceId:"d-Evan", actionId:"x1" }), false, "a phone");
+  assert.equal(simSong({ ...simContext({ player:"Evan", key:"x2" }), qa:false }), false, "QA off");
+  assert.equal(simSong({ ...simContext({ player:"Evan", key:"x3" }), qa:true }), true);
+  assert.equal(probe.profiles.Evan?.karaokeTrack?.trackId, state.profiles.Evan?.karaokeTrack?.trackId, "never the profile");
+  const tournament = await room(state, KARAOKE_ENV);
+  /* the window: every sim locks in on their own clock, the commissioner's player never */
+  await play(tournament, s => s.karaoke?.phase !== "pick", { from:T0 });
+  const players = simPlayers(tournament.state);
+  const picks = [...writesOf(tournament, "karaokeReady"), ...writesOf(tournament, "karaokeSimSong")];
+  assert.equal(picks.length, players.length, "one pick each");
+  assert.equal(writesOf(tournament, "karaokeReady").length, ahead.length, "a song picked ahead is kept");
+  const times = picks.map(entry => entry.at);
+  assert.ok(Math.max(...times) - Math.min(...times) >= 10_000, "picks spread over the window");
+  assert.ok(times.every(t => t > T0 + 3000), "never at the gun");
+  const game = tournament.state.karaoke;
+  assert.ok(!game.order.includes(ME), "the commissioner's player, with no song, sits out");
+  assert.equal(game.order.length, players.length);
+  for (const player of ahead) assert.equal(game.songs[player].trackId, karaokeTrack(ahead.indexOf(player) + 1).trackId);
+  const practice = players.filter(p => !ahead.includes(p)).map(p => game.songs[p]);
+  assert.ok(practice.every(song => song.practice), "the rest sing practice songs");
+  assert.equal(new Set(practice.map(song => song.trackId)).size, practice.length, "each a different one");
+  /* the turns: the autopilot runs the clock, the room votes while it watches */
+  await play(tournament, s => !!s.results?.karaoke, { from:Math.max(...times) });
+  const done = tournament.state;
+  assert.ok(done.results.karaoke, "the result posted");
+  const votes = writesOf(tournament, "karaokeVote");
+  const voters = players.length - 1;
+  assert.ok(votes.length >= game.order.length * voters, `every sim votes on every singer (${votes.length})`);
+  const ranking = done.karaoke.ranking;
+  /* the score drops one highest and one lowest from six votes on */
+  assert.ok(ranking.every(row => row.count === (voters >= 6 ? voters - 2 : voters)), "every singer has the sims' votes, never the commissioner's");
+  const scores = ranking.map(row => row.score);
+  assert.ok(Math.max(...scores) - Math.min(...scores) > 3, "the room's tiers tell singers apart");
+  /* votes land while the song plays, not all at once */
+  const counts = new Map();
+  for (const entry of votes) counts.set(entry.at, (counts.get(entry.at) || 0) + 1);
+  assert.ok(Math.max(...counts.values()) <= 2, "votes land one by one");
+  assert.deepEqual(done.profiles, profiles, "no profile written");
 });
 
 /* ── bets ── */

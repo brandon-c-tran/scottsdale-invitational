@@ -16,6 +16,7 @@ import {
 import { SHOW_SCENE_DEFINITIONS, autopilotHeld, contestName, draftsByDefault, resolveDirector, resolveShowScene } from "../../../shared/show.js";
 import { triviaFinalEntry, triviaQuestionTotal, triviaRoundCount } from "../../../shared/trivia.js";
 import { BOARD_FORMAT, FINAL_PHASES, isBoardGame, triviaFormatOf } from "../../../shared/triviaBoard.js";
+import { hasKaraokeSong, karaokeResultSlots } from "../../../shared/karaoke.js";
 import { namesOf } from "./directorPill.js";
 
 export const RUN_SLOTS = Object.freeze(["Now", "Next", "Then"]);
@@ -133,8 +134,37 @@ function triviaPlan(state, ev) {
   return out;
 }
 
-const decideBeats = (state, ev, contest) => contest.kind === "ffa"
-  ? geoPlan(state, ev) || triviaPlan(state, ev) || [beat("enter-result", "Enter result", ev.name)]
+/* Karaoke, the same way: the pick window, a Start song and a Close vote
+   for each singer still to come, then the result (shared/karaoke.js
+   karaokeBeat). A game not started yet plays only with the karaoke
+   capability (`karaoke`); until the order is drawn its singers are counted
+   from who is here with a song. Null when the ordinary result entry
+   applies. */
+function karaokePlan(state, ev, karaoke = false) {
+  if (ev?.game !== "karaoke" || state.results?.[ev.id]) return null;
+  const game = state.karaoke?.eventId === ev.id ? state.karaoke : null;
+  if (!game && !karaoke) return null;
+  if (game && (game.empty || game.phase === "done" || game.finishedAt
+    || (game.phase === "reveal" && !karaokeResultSlots(game.ranking).length))) return null;
+  const out = game || !state.eventOps?.[ev.id]?.startedAt ? [] : [beat("karaoke-start", "Start karaoke", ev.name)];
+  if (!game || game.phase === "pick") out.push(beat("karaoke-step", "Start singing", ev.name));
+  if (!game || game.phase !== "reveal") {
+    const here = presentPlayers(state);
+    const n = game?.phase === "turns" ? game.order.length
+      : here.filter(player => hasKaraokeSong(state, player) || game?.songs?.[player]).length || here.length;
+    const turn = game?.phase === "turns" ? game.turns?.[game.order[game.index]] : null;
+    const singer = i => `Singer ${i + 1} of ${n}`;
+    for (let i = game?.phase === "turns" ? game.index : 0; i < n; i++) {
+      if (!(turn && i === game.index && Number.isFinite(turn.songAt))) out.push(beat("karaoke-step", "Start song", singer(i)));
+      out.push(beat("karaoke-step", "Close vote", singer(i)));
+    }
+  }
+  out.push(beat("karaoke-step", "Post result", ev.name));
+  return out;
+}
+
+const decideBeats = (state, ev, contest, karaoke = false) => contest.kind === "ffa"
+  ? geoPlan(state, ev) || triviaPlan(state, ev) || karaokePlan(state, ev, karaoke) || [beat("enter-result", "Enter result", ev.name)]
   : [beat("record-contest-winner", "Record winner", contest.name)];
 
 /* After a result posts: the winner scene's standings step, when the TV
@@ -143,14 +173,14 @@ const afterResult = (showControl, state) => showControl && autopilotHeld(state)
   ? [beat("advance-scene", "Show standings", sceneSubject("winner", 0))] : [];
 
 /* An event from its announcement: announce, then every contest. */
-function eventBeats(state, ev, showControl) {
+function eventBeats(state, ev, showControl, karaoke = false) {
   if (ev.finale) return pokerBeats(state, ev, null, showControl);
   const drawNeeded = (ev.teamCfg && !state.draws?.[ev.id]) || (ev.stageCfg && !state.stages?.[ev.id]);
   const out = drawNeeded && draftsByDefault(ev) && !state.draws?.[ev.id]
     ? [beat("captains-draft", "Captains draft", ev.name), beat("announce", "Announce", ev.name)]
     : [beat(drawNeeded ? "announce-draw" : "announce", drawNeeded ? "Announce and draw" : "Announce", ev.name)];
   contestPlan(state, ev).forEach(contest => out.push(beat("lock-start", "Lock and start",
-    contest.kind === "ffa" ? ev.name : contest.name), ...decideBeats(state, ev, contest)));
+    contest.kind === "ffa" ? ev.name : contest.name), ...decideBeats(state, ev, contest, karaoke)));
   return [...out, ...afterResult(showControl, state)];
 }
 
@@ -168,8 +198,9 @@ function pokerBeats(state, ev, from, showControl) {
   return steps.slice((start ?? 0) + 1);
 }
 
-/* The lifecycle after the current beat, through the rest of the slate. */
-function lifecycleAfter(state, events, director, showControl) {
+/* The lifecycle after the current beat, through the rest of the slate.
+   `karaoke`: the karaoke capability (a game not started yet plays). */
+function lifecycleAfter(state, events, director, showControl, karaoke = false) {
   const now = director?.nextAction;
   const ev = director?.event || null;
   if (!now) return [];
@@ -182,18 +213,20 @@ function lifecycleAfter(state, events, director, showControl) {
     const current = plan[0];
     const rest = plan.slice(1);
     const contestBeats = list => list.flatMap(contest => [beat("lock-start", "Lock and start",
-      contest.kind === "ffa" ? ev.name : contest.name), ...decideBeats(state, ev, contest)]);
+      contest.kind === "ffa" ? ev.name : contest.name), ...decideBeats(state, ev, contest, karaoke)]);
     if (["announce", "announce-draw", "captains-draft", "open-betting", "continue-draft", "prepare-draw", "prepare-stages"].includes(now.type)) {
       if (["captains-draft", "continue-draft", "prepare-draw", "prepare-stages"].includes(now.type))
         out.push(beat("announce", "Announce", ev.name));
       out.push(...contestBeats(plan), ...afterResult(showControl, state));
     } else if (now.type === "lock-start" || now.type === "lock-betting" || now.type === "start-event") {
-      if (current) out.push(...decideBeats(state, ev, current));
+      if (current) out.push(...decideBeats(state, ev, current, karaoke));
       out.push(...contestBeats(rest), ...afterResult(showControl, state));
     } else if (now.type?.startsWith("geo-")) {
       out.push(...(geoPlan(state, ev) || []).slice(1), ...afterResult(showControl, state));
     } else if (now.type?.startsWith("trivia-") || now.type === "board-step") {
       out.push(...(triviaPlan(state, ev) || []).slice(1), ...afterResult(showControl, state));
+    } else if (now.type?.startsWith("karaoke-")) {
+      out.push(...(karaokePlan(state, ev, karaoke) || []).slice(1), ...afterResult(showControl, state));
     } else if (now.type === "record-contest-winner") {
       out.push(...contestBeats(rest), ...afterResult(showControl, state));
     } else if (now.type === "enter-result" || now.type === "post-result") {
@@ -202,7 +235,7 @@ function lifecycleAfter(state, events, director, showControl) {
   }
   const later = events.filter(item => item.id !== ev?.id && !state.results?.[item.id] && !state.shelved?.[item.id]);
   for (const item of later) {
-    out.push(...eventBeats(state, item, showControl));
+    out.push(...eventBeats(state, item, showControl, karaoke));
     if (out.length > 8) break;
   }
   return out;
@@ -245,9 +278,9 @@ function sceneAfter(state, events, now) {
 }
 
 /* The pill's beats from Now on, as many as `limit`. */
-export function projectBeats(state, events = allEventsOf(state), director = null, { showControl = false, now = Date.now(),
-  limit = RUN_SLOTS.length } = {}) {
-  const current = director || resolveDirector(state, events, { showControl, now });
+export function projectBeats(state, events = allEventsOf(state), director = null, { showControl = false, karaoke = false,
+  now = Date.now(), limit = RUN_SLOTS.length } = {}) {
+  const current = director || resolveDirector(state, events, { showControl, karaoke, now });
   const first = current?.nextAction;
   if (!first) return [];
   const out = [{ type:first.type, label:first.label, subject:first.subject || current.event?.name || "",
@@ -260,13 +293,13 @@ export function projectBeats(state, events = allEventsOf(state), director = null
     out.push(...after.beats);
     if (!after.state) return out.slice(0, limit);
     probe = after.state;
-    director_ = resolveDirector(probe, events, { showControl, now });
+    director_ = resolveDirector(probe, events, { showControl, karaoke, now });
     const next = director_?.nextAction;
     if (!next) return out.slice(0, limit);
     out.push({ type:next.type, label:next.label, subject:next.subject || director_.event?.name || "", blocked:null });
   }
   if (out.length < limit && !SCENE_BEATS.has(director_?.nextAction?.type))
-    out.push(...lifecycleAfter(probe, events, director_, showControl));
+    out.push(...lifecycleAfter(probe, events, director_, showControl, karaoke));
   /* the pill offers setup and start of the table as one step */
   const merged = out.filter((item, index) => index === 0
     || !(item.label === out[index - 1].label && item.subject === out[index - 1].subject));
@@ -295,10 +328,10 @@ function owedReplay(state, events, current, now) {
 }
 
 /* Everything the run-of-show panel shows. */
-export function runOfShow(state, events = allEventsOf(state), director = null, { showControl = false,
+export function runOfShow(state, events = allEventsOf(state), director = null, { showControl = false, karaoke = false,
   now = Date.now() } = {}) {
-  const current = director || resolveDirector(state, events, { showControl, now });
-  const beats = projectBeats(state, events, current, { showControl, now })
+  const current = director || resolveDirector(state, events, { showControl, karaoke, now });
+  const beats = projectBeats(state, events, current, { showControl, karaoke, now })
     .map((item, index) => ({ ...item, slot:RUN_SLOTS[index] }));
   const ev = current?.event || null;
   const startedAt = ev?.finale ? Number(state.poker?.startedAt) || 0

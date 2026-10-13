@@ -21,6 +21,7 @@ import { checkInComplete } from "../../../shared/checkin.js";
 import { jerseyConfirmed } from "../../../shared/guestSetup.js";
 import { cleanWhen } from "../../../shared/geo.js";
 import { triviaQuestionTotal } from "../../../shared/trivia.js";
+import { hasKaraokeSong } from "../../../shared/karaoke.js";
 import { deskBallot } from "../awards/awardsModel.js";
 import { speakerValue } from "../speaker/speakerModel.js";
 import { liveTvs } from "./tvHealth.js";
@@ -54,6 +55,10 @@ function guestRows(state, capabilities) {
     /* only while guests can pick one; the Speaker sheet lists them */
     capabilities.audioCatalog === true && guestRow(state, roster, "songs", "Win songs", profile => !!profile?.walkoutTrack,
       capabilities.audioDirector === true ? "audioDirector" : null),
+    /* only while Karaoke is still to play and guests can pick its songs;
+       the Karaoke desk shows whose video plays */
+    capabilities.karaoke === true && ahead(state, allEventsOf(state), "karaoke")
+      && guestRow(state, roster, "karaoke", "Karaoke songs", (profile, player) => hasKaraokeSong(state, player), "karaoke"),
     guestRow(state, roster, "flights", "Flights", flightsDone, "travelSheet"),
     guestRow(state, roster, "venmo", "Venmo", profile => !!profile?.venmo, "travelSheet"),
     guestRow(state, roster, "drinks", "Drinks answered", profile => typeof profile?.drinking === "boolean", "travelSheet"),

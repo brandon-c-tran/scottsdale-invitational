@@ -27,7 +27,7 @@
 
 import { allEventsOf, resolveDuel, resolveWager, rosterOf } from "../../../shared/core.js";
 import { eventMeetings } from "../profile/seasonStats.js";
-import { entrySides, gagWrites, winStreaks } from "../gags/gagModel.js";
+import { entrySides, gagWrites, upsetPick, winStreaks } from "../gags/gagModel.js";
 import { TV_AMBIENT_TURN_MS, biggestSwing } from "./tvModel.js";
 
 export const MIN_MEETINGS = 2;
@@ -216,20 +216,10 @@ export function streakCard(state, events = allEventsOf(state)) {
    underdog (the gags' strike: a recorded contest's odds, or a two-sided
    game played as one result) */
 export function upsetWinners(state, write) {
-  const op = state.eventOps?.[write.ev.id] || {};
-  if (write.entry) {
-    const odds = op.odds?.[write.entry.id];
-    if (!odds || !known(odds.underdog) || odds.underdog !== write.entry.winner) return null;
-    return entrySides(state, write.ev.id, write.entry)?.win.players || null;
-  }
-  if (write.type !== "result" || write.contests) return null;
-  const draw = state.draws?.[write.ev.id];
-  if (draw?.teams?.length !== 2) return null;
-  const odds = op.odds?.[`ffa:${write.ev.id}:${draw.id}`];
-  if (!odds || !known(odds.underdog)) return null;
-  const dog = draw.teams[odds.underdog]?.players || [];
-  const first = write.res?.slots?.[0] || [];
-  return dog.length && dog.length === first.length && dog.every(player => first.includes(player)) ? [...dog] : null;
+  const pick = upsetPick(state, write);
+  if (!pick) return null;
+  if (write.entry) return entrySides(state, write.ev.id, write.entry)?.win.players || null;
+  return [...(state.draws[write.ev.id].teams[pick.win]?.players || [])];
 }
 
 export function upsetsCard(state, events = allEventsOf(state)) {

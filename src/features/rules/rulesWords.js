@@ -160,13 +160,14 @@ export const RULES_WORDS = Object.freeze({
 
   /* betting */
   "betting.1": "Bet the live contest",
-  "betting.2": "Winner pays 1:1",
-  "betting.3": "Winner pays 2:1",
+  "betting.2": "Winners split the pool",
+  "betting.3": "Smaller side pays more",
   "betting.4": "Half your stack, max",
   "betting.floor": "Never capped under 500",
   "betting.own": "Playing? Back your side",
   "betting.side": "One side per contest",
   "betting.lock": "Locks when play starts",
+  "betting.max": "Pays 10× at most",
   "betting.fix": "Corrections fix payouts",
   "betting.void": "Brandon voids any bet",
 
@@ -183,10 +184,8 @@ export const RULES_WORDS = Object.freeze({
   "duels.lapse": "Lapses after 10 minutes",
   "duels.finale": "Void once poker deals",
 
-  /* comebacks (v3.1): awaiting Brandon's review */
-  "comebacks.1": "Underdog: Winner pays 2:1",
-  "comebacks.gap": "Underdog: 1,000 behind",
-  "comebacks.2": "Byes to the bottom",
+  /* comebacks: the pool replaced the underdog (Oct 13); the byes stay */
+  "comebacks.1": "Byes to the bottom",
 
   /* draws */
   "draws.1": "Teams balanced by skill",

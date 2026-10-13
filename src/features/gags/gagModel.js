@@ -32,7 +32,7 @@
    writes state. */
 
 import {
-  START, ROSTER, rosterOf, allEventsOf, contestStackOf, disp, resolveSlot, stageEntrantView, stageFinalists, teamLabel,
+  START, ROSTER, rosterOf, allEventsOf, contestStackOf, contestUpset, disp, priceText, resolveSlot, stageEntrantView, stageFinalists, teamLabel,
 } from "../../../shared/core.js";
 import { GAG_SHAPES, GAG_TEST_AMOUNT } from "../../../shared/gags.js";
 import { TEAM_MAX, bitById, isTeamBit, pickBit, poolKey, poolOf } from "./bits/registry.js";
@@ -232,28 +232,39 @@ function winnerSide(state, write) {
   return first.length ? { players:[...first], name:team ? teamLabel(state, team) : teamLabel(state, { players:first }) } : null;
 }
 
-/* an upset: the stored odds named the winner the underdog */
-function upsetOf(state, write) {
-  const op = state.eventOps?.[write.ev.id] || {};
+/* An upset: the winner's side was priced UPSET_PRICE or longer when betting
+   locked (a contest opened before pools: its stored odds named the winner
+   the underdog). A two-sided game played as one result (the full court)
+   prices it under its free-for-all contest. Returns the winning and beaten
+   team indexes for that, {} for a recorded contest. */
+export function upsetPick(state, write) {
   if (write.entry) {
-    const odds = op.odds?.[write.entry.id];
-    if (!odds || !known(odds.underdog) || odds.underdog !== write.entry.winner) return null;
+    const { upset, price } = contestUpset(state, write.ev.id, write.entry.id, write.entry.winner);
+    return upset ? { price } : null;
+  }
+  if (write.type !== "result" || write.contests) return null;
+  const draw = state.draws?.[write.ev.id];
+  if (draw?.teams?.length !== 2) return null;
+  const win = draw.teams.findIndex(team => team?.players?.length && sameSet(team.players, write.res?.slots?.[0] || []));
+  if (win < 0) return null;
+  const { upset, price } = contestUpset(state, write.ev.id, `ffa:${write.ev.id}:${draw.id}`, win);
+  return upset ? { win, lose:1 - win, price } : null;
+}
+/* the upset lettered with what it paid ("4.2×"), else the word */
+const upsetFact = pick => pick?.price ? priceText(pick.price) : UPSET_FACT;
+function upsetOf(state, write) {
+  const pick = upsetPick(state, write);
+  if (!pick) return null;
+  if (write.entry) {
     const sides = entrySides(state, write.ev.id, write.entry);
     if (!sides) return null;
     const beaten = sides.lose[0] || null;
-    return { trigger:"upset", players:sides.win.players, name:sides.win.name, fact:UPSET_FACT,
+    return { trigger:"upset", players:sides.win.players, name:sides.win.name, fact:upsetFact(pick),
       beaten:beaten?.players || [], beatenName:beaten?.name || null };
   }
-  if (write.type !== "result" || write.contests) return null;
-  /* a two-sided game played as one result (the full court) keeps its odds
-     under its free-for-all contest */
-  const draw = state.draws?.[write.ev.id];
-  if (draw?.teams?.length !== 2) return null;
-  const odds = op.odds?.[`ffa:${write.ev.id}:${draw.id}`];
-  if (!odds || !known(odds.underdog)) return null;
-  const dog = draw.teams[odds.underdog], other = draw.teams[odds.underdog === 0 ? 1 : 0];
-  if (!dog?.players?.length || !sameSet(dog.players, write.res.slots[0] || [])) return null;
-  return { trigger:"upset", players:[...dog.players], name:teamLabel(state, dog), fact:UPSET_FACT,
+  const draw = state.draws[write.ev.id];
+  const dog = draw.teams[pick.win], other = draw.teams[pick.lose];
+  return { trigger:"upset", players:[...dog.players], name:teamLabel(state, dog), fact:upsetFact(pick),
     beaten:[...(other?.players || [])], beatenName:other ? teamLabel(state, other) : null };
 }
 

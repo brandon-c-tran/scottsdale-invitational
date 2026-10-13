@@ -14,7 +14,7 @@ import {
   RESET_PROGRESS_CONFIRMATION, RESET_PROGRESS_PRESERVED_KEYS,
   enforceExposure, refundTotals, voidWagerRecords, contestStackOf, contestEntryLabel, applyContestCorrection,
   contestCorrectionAvailability, announcementTakeBack, lockerRoomAvailability, pokerSetupPreview, wagerSide,
-  oddsFor, seedBracket,
+  seedBracket, poolSeed,
 } from "../shared/core.js";
 import {
   SHOW_HISTORY_LIMIT,
@@ -332,6 +332,7 @@ const reopenCompetition = (state, evId) => {
 const resetContestSetup = (state, evId) => {
   const op = eventOp(state, evId);
   delete op.odds;
+  delete op.pools;
   delete op.contest;
   delete op.lastContest;
   delete op.contestStack;
@@ -355,20 +356,20 @@ const contestReferenceError = (state, ev, payload, required = false) => {
     return err("That matchup already moved on. Check the board");
   return null;
 };
-/* Underdog odds are fixed when a contest's market first opens. A contest
-   that opens again (a correction replaying it) keeps what it opened with. */
-const stampOdds = (state, op, target, now) => {
-  if (op.odds?.[target.id]) return;
-  const odds = oddsFor(state, target);
-  if (!odds) return;
-  op.odds = { ...(op.odds || {}), [target.id]:{ underdog:odds.underdog ?? null,
-    ...(odds.underdog !== null && odds.underdog !== undefined ? { mult:odds.mult } : {}), gap:odds.gap, at:now } };
+/* Every market opened since Oct 13 is a pool: the bank's seed is fixed the
+   first time a contest opens, from the standings then, and a contest that
+   opens again (a correction replaying it) keeps its seed. Stored odds still
+   answer contests opened before pools. */
+const stampPool = (state, op, target, now) => {
+  if (op.pools?.[target.id] || op.odds?.[target.id]) return;
+  if (pokerLive(state) || stacksPosted(state)) return;
+  op.pools = { ...(op.pools || {}), [target.id]:{ seed:poolSeed(state, target), at:now } };
 };
 const openContest = (state, ev, now = Date.now()) => {
   const target = resolveCurrentContest(state, ev);
   if (!target) return err("Set up the next contest first");
   const op = eventOp(state, ev.id);
-  stampOdds(state, op, target, now);
+  stampPool(state, op, target, now);
   const revision = Number(op.contestRevision || 0) + 1;
   op.contestRevision = revision;
   op.contest = { id:target.id, revision, phase:"betting-open" };
@@ -949,8 +950,10 @@ export const ACTIONS = {
       return err("You can only back yourself or your team in this contest");
     const held = contestSideOf(state, contest, player, events);
     if (held !== null && held !== sideKey) return err("One side per contest. Your chips are on the other side");
-    /* every new ticket keeps the payout it was placed at */
-    clean.mult = contestMult(contest, sideKey);
+    /* a pooled contest's ticket settles at the pool's price; a contest
+       opened before pools keeps the fixed payout it was placed at */
+    if (contest.pool) clean.pool = 1;
+    else clean.mult = contestMult(contest, sideKey);
 
     /* Exposure and balance remain server authoritative. */
     const pts = computeStandings(state).find(r => r.player === player)?.pts ?? 0;
@@ -2092,6 +2095,7 @@ export const ACTIONS = {
       delete op.bettingLockedAt;
       delete op.contest;
       delete op.odds;
+      delete op.pools;
     }
     return ok();
   },

@@ -112,7 +112,7 @@ export function YoureUpTakeover({ state, moment, me, onBets }) {
         <p className="fd-moment-against"><b>{other.name}</b></p>
         {moment.partners?.length > 0 && <p className="fd-moment-with">With {moment.partners.map(p => disp(state, p)).join(" & ")}</p>}
         {onBets && <button type="button" className="fd-moment-action" onClick={back}>Back yourself</button>}
-        <p className="fd-moment-pays">Winner pays 1:1</p>
+        {moment.price ? <p className="fd-moment-pays">{moment.price}</p> : moment.pool ? null : <p className="fd-moment-pays">Winner pays 1:1</p>}
       </div>
       <button type="button" className="fd-moment-x" aria-label="Dismiss" onClick={event => { event.stopPropagation(); dismiss(); }}><Icon name="close" size={18} /></button>
     </div>

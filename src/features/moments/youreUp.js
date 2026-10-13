@@ -8,7 +8,7 @@
    Home card instead. Pure model here; the hook latches it. */
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { allEventsOf, resolveCurrentContest } from "../../../shared/core.js";
+import { allEventsOf, contestPool, priceText, resolveCurrentContest } from "../../../shared/core.js";
 import { useFreshChange, useReducedMotion } from "../../lib/motion.js";
 import { serverNow } from "../../lib/serverClock.js";
 import { playSound } from "../../lib/sound.js";
@@ -50,8 +50,12 @@ export function youreUpView(state, events, found, me) {
   const base = { key:faceOffKey(found.ev, found.contest), event:found.ev.name, label:view.label, record:view.record,
     sides:view.sides, contestId:found.contest.id, evId:found.ev.id };
   if (mineIndex < 0) return { ...base, role:"spectator" };
+  /* a pool: what your side pays now ("Pays 1.6×") */
+  const pool = contestPool(state, found.contest);
+  const price = pool ? pool.price(view.sides[mineIndex].key) : null;
   return { ...base, role:"player", mine:view.sides[mineIndex], other:view.sides[1 - mineIndex],
-    partners:view.sides[mineIndex].players.filter(player => player !== me) };
+    partners:view.sides[mineIndex].players.filter(player => player !== me),
+    pool:!!pool, price:price ? `Pays ${priceText(price)}` : null };
 }
 
 /* The takeover to draw now ({ ...view, elapsed }), or null. */

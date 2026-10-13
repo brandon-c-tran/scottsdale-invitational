@@ -92,3 +92,59 @@
   .tv-faceoff-teach, .tv-bye-key { animation:none; }
   .tv-pay-lamp.is-teach, .tv-pay-lamp.is-teach .fd-insert { animation:none; }
 }
+
+/* ── the pool's price (Oct 13): a tote reel, "3.4×". Bone at rest; the long
+   shot (an upset if it wins) lit amber, the chips lamp. The × is a plate
+   after the windows, never a window of its own. ── */
+.fd-price { display:inline-flex; align-items:baseline; gap:.04em; color:var(--ink); font:900 var(--price-size, 20px)/1 var(--fd-show);
+  letter-spacing:0; font-variant-numeric:tabular-nums; white-space:nowrap; }
+.fd-price .fd-reel { color:inherit; }
+.fd-price-x { font-size:.72em; font-weight:800; opacity:.8; }
+.fd-price.is-long { color:var(--sun); text-shadow:0 0 14px color-mix(in srgb, var(--sun) 40%, transparent); }
+.fd-price.is-sm { --price-size:16px; }
+.fd-price.is-md { --price-size:22px; }
+.fd-price.is-lg { --price-size:44px; }
+.fd-price.is-xl { --price-size:72px; }
+.fd-side-pays-tap.is-pool { gap:6px; color:inherit; }
+
+/* the pool drawn: one brace over two towers, the pool's total over it, each
+   side's chips and what it pays under its tower, the short tower's lit */
+.fd-pool-explain { display:grid; grid-template-columns:1fr 1fr; justify-items:center; align-items:end; gap:0 18px; margin:0;
+  padding:12px 18px 12px; border-radius:12px; background:color-mix(in srgb, var(--sun) 6%, var(--paper));
+  box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--sun) 28%, transparent); }
+.fd-px-total { grid-column:1 / -1; display:inline-flex; align-items:baseline; gap:8px; color:var(--ink);
+  font:900 20px/1 var(--fd-show); font-variant-numeric:tabular-nums; }
+.fd-px-total small { color:var(--muted2); font:800 13px/1 var(--fd-display); letter-spacing:.08em; text-transform:uppercase; }
+.fd-px-brace { grid-column:1 / -1; width:78%; height:14px; margin:4px 0 8px; fill:none; stroke:var(--muted2); stroke-width:2;
+  vector-effect:non-scaling-stroke; }
+.fd-pool-explain .fd-ux-col>small.fd-px-pays { color:var(--ink); font-size:16px; }
+.fd-pool-explain.is-tv { gap:0 40px; padding:6px 8px 0; background:none; box-shadow:none; }
+.fd-pool-explain.is-tv .fd-px-total { font-size:40px; }
+.fd-pool-explain.is-tv .fd-px-total small { font-size:26px; }
+.fd-pool-explain.is-tv .fd-px-brace { height:22px; stroke-width:3; }
+.fd-pool-explain.is-tv .fd-ux-col>small { font-size:28px; }
+.fd-pool-explain.is-tv .fd-ux-col>small.fd-ux-pays, .fd-pool-explain.is-tv .fd-ux-col>small.fd-px-pays { font-size:34px; }
+
+/* the TV: a side's price on the board (lg), the tote's price column (its
+   size from the row, --price-size), the long shot breathing once it is
+   first taught (teach.js) */
+.tv-terms.is-price { display:inline-flex; align-items:center; }
+.tv-tote-price { display:flex; justify-content:flex-end; align-items:center; flex:none; }
+.tv-tote-price .fd-price-x { font-size:.62em; }
+.tv-terms.is-price.is-teach .fd-price { animation:tv-teach-breathe var(--motion-beat, 2000ms) ease-in-out infinite; }
+.tv-side-terms.is-band .fd-price { --price-size:36px; }
+@media (prefers-reduced-motion: reduce) { .tv-terms.is-price.is-teach .fd-price { animation:none; } }
+/* the cap: every unbacked side of a wide board sits there, read dim */
+.fd-price.is-cap { color:var(--muted2); }
+.fd-price.is-sm .fd-price-x { font-size:max(12px, .62em); }
+.tv-tote-price .fd-price-x { font-size:max(24px, .62em); }
+/* the room reads the price from the couch: the board's sides at 56px, the
+   face-off's at 96px under the names */
+.tv-side-win .tv-terms.is-price .fd-price { --price-size:56px; }
+.tv-faceoff-terms .fd-price { --price-size:96px; }
+.tv-faceoff-terms .fd-price-x { font-size:.55em; }
+/* a priced felt: the price stands in its top-left corner, level with the
+   side's total in the middle */
+.tv-felt.has-price { position:relative; }
+.tv-felt-price { position:absolute; left:18px; top:8px; z-index:1; }
+.tv-felt-price .fd-price { --price-size:52px; }

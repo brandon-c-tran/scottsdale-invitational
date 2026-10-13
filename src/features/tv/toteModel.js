@@ -65,7 +65,7 @@ function stripLayout(sides, width, spec, label, lines = 1) {
 
 /* `sides`: [{ key, name, players, total, stacks:[{ player, stake }] }] in
    the contest's order. `width`, `height`: the board's body in canvas px. */
-export function toteBoard(sides = [], { width = 1792, height = 440 } = {}) {
+export function toteBoard(sides = [], { width = 1792, height = 440, prices = false } = {}) {
   const indexed = sides.map((side, index) => ({ ...side, index, total:Math.max(0, Number(side.total) || 0) }));
   const money = indexed.filter(side => side.total > 0).sort((a, b) => b.total - a.total || a.index - b.index);
   const idle = indexed.filter(side => !(side.total > 0));
@@ -90,6 +90,8 @@ export function toteBoard(sides = [], { width = 1792, height = 440 } = {}) {
   const facesW = Math.ceil(facesWidth(most, face));
   const reelSize = clamp(Math.round(rowH * 0.5), 30, 46);
   const reelW = Math.ceil(Math.max(5, ...money.map(side => side.total.toLocaleString("en-US").length)) * 0.72 * reelSize) + 12;
+  /* a pool's price after the total, the tote's own column ("10.0×" at most) */
+  const priceW = prices ? Math.ceil(5 * 0.62 * reelSize) + 8 : 0;
   const backer = clamp(rowH - 26, 34, 48);
   const slots = cols === 2 ? 4 : width >= TOTE.twoColMin ? 7 : 4;
   const backersW = slots * backer + (slots - 1) * 6;
@@ -97,7 +99,7 @@ export function toteBoard(sides = [], { width = 1792, height = 440 } = {}) {
   const nameMax = clamp(Math.round(rowH * 0.48), 28, 44);
   const nameW = Math.min(Math.ceil(longest * ADVANCE * nameMax) + 4, Math.floor(colW * 0.24));
   const nameSize = Math.max(TOTE.nameMin, Math.min(nameMax, Math.floor(nameW / (longest * ADVANCE))));
-  const barW = colW - TOTE.pad * 2 - facesW - nameW - reelW - backersW - TOTE.gap * 4;
+  const barW = colW - TOTE.pad * 2 - facesW - nameW - reelW - backersW - TOTE.gap * 4 - (prices ? priceW + TOTE.gap : 0);
   const notch = chipNotch(top);
   const notchPx = notch ? Math.round((notch.pct / 100) * barW * 100) / 100 : 0;
 
@@ -113,7 +115,7 @@ export function toteBoard(sides = [], { width = 1792, height = 440 } = {}) {
   });
   return {
     any:true, top, rows, idle:idle.map(sideKey), strip, cols, perCol,
-    row:{ height:rowH, colW, face, facesW, nameW, nameSize, barW, notchPx, reelSize, reelW, backer, backersW, slots },
+    row:{ height:rowH, colW, face, facesW, nameW, nameSize, barW, notchPx, reelSize, reelW, priceW, backer, backersW, slots },
   };
 }
 const sideKey = side => side.key;

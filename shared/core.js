@@ -330,6 +330,72 @@ const wagerMult = w => Number.isInteger(w?.mult) && w.mult >= 1 ? w.mult
 const UNDERDOG_GAP = 10 * PT;
 const UNDERDOG_MULT = 2;
 
+/* ── the pool (Oct 13) ──
+   Every contest opened since is a pool: its tickets carry `pool:1` and the
+   bank seeds each side when the market opens (eventOps[ev].pools[contestId],
+   POOL_SEED a side, split by the sides' average chips so the stronger side
+   opens shorter). A side's price is the whole pool over what rides on it,
+   to a tenth, never under POOL_MIN or over POOL_CAP. Betting closes at Lock
+   and start, so that is the price a ticket settles at; a void moves it like
+   any record. A winning ticket takes stake x (price - 1), to the nearest
+   chip and never less than one; a losing one loses its stake. Derived from
+   the tickets every time, never stored. */
+const POOL_SEED = PT;
+const POOL_CAP = 10;
+const POOL_MIN = 1.1;
+/* a decided contest whose winner was priced this long is an upset */
+const UPSET_PRICE = 3;
+const poolPrice = (total, onSide) => !(onSide > 0) ? POOL_CAP
+  : Math.min(POOL_CAP, Math.max(POOL_MIN, Math.floor(total * 10 / onSide + 1e-9) / 10));
+const poolNet = (stake, price) => Math.max(PT, Math.round(stake * (price - 1) / PT + 1e-9) * PT);
+const sideId = key => key === null || key === undefined ? null : String(key);
+/* the bank's opening stake per side, from the standings at open */
+function poolSeed(state, contest, rows = computeStandings(state)) {
+  const sides = contest?.sides || [];
+  if (!sides.length) return {};
+  const pts = Object.fromEntries(rows.map(row => [row.player, row.pts]));
+  const weight = sides.map(side => {
+    const counted = (side.players || []).filter(p => pts[p] !== undefined);
+    const avg = counted.length ? counted.reduce((sum, p) => sum + pts[p], 0) / counted.length : START;
+    return Math.max(PT, avg);
+  });
+  const sum = weight.reduce((a, b) => a + b, 0);
+  return Object.fromEntries(sides.map((side, i) =>
+    [sideId(side.key), Math.round(POOL_SEED * sides.length * weight[i] / sum * 100) / 100]));
+}
+/* one contest's pool: the seed, every live pool ticket, each side's price */
+function poolOf(state, eventId, contestId) {
+  const seed = state.eventOps?.[eventId]?.pools?.[contestId]?.seed || {};
+  const sides = {};
+  const side = key => (sides[key] ||= { seed:Number(seed[key]) || 0, stake:0, bettors:0 });
+  Object.keys(seed).forEach(side);
+  for (const w of state.wagers || []) {
+    if (!w.pool || w.contestId !== contestId || w.eventId !== eventId || w.status === "void") continue;
+    const key = sideId(wagerSide(state, w));
+    if (key === null) continue;
+    side(key).stake += Number(w.stake) || 0;
+    side(key).bettors += 1;
+  }
+  const total = Object.values(sides).reduce((sum, s) => sum + s.seed + s.stake, 0);
+  for (const s of Object.values(sides)) s.price = poolPrice(total, s.seed + s.stake);
+  return { contestId, eventId, total, sides,
+    price:key => sides[sideId(key)]?.price ?? poolPrice(total, 0) };
+}
+/* every pool on the board at once, so standings price each pool one time */
+function poolBook(state) {
+  const book = new Map();
+  for (const w of state.wagers || []) {
+    if (!w.pool || !w.contestId || book.has(w.contestId)) continue;
+    book.set(w.contestId, poolOf(state, w.eventId, w.contestId));
+  }
+  return book;
+}
+function winDelta(state, w, book) {
+  if (!w.pool) return wagerMult(w) * w.stake;
+  const pool = book?.get(w.contestId) || poolOf(state, w.eventId, w.contestId);
+  return poolNet(w.stake, pool.price(wagerSide(state, w)));
+}
+
 /* head-to-head phone duels: challenge one player or anyone, the other side
    accepts, both play a 5-second minigame on their own phone, the pot settles
    itself. The challenger names the ante and both sides put up the same;
@@ -751,7 +817,7 @@ function stageEntrantView(state, st, key) {
 }
 
 /* wager resolution is DERIVED from official state, never written. */
-function resolveWager(state, w, events) {
+function resolveWager(state, w, events, book = null) {
   if (w.status === "void") return { status:"void", delta:0 };
   const ev = events.find(e => e.id === w.eventId);
   if (!ev) return { status:"void", delta:0 };
@@ -768,7 +834,7 @@ function resolveWager(state, w, events) {
     const won = w.pickTeam
       ? w.pickPlayers.every(p => winners.includes(p))
       : winners.includes(w.pick);
-    return { status: won ? "won" : "lost", delta: won ? wagerMult(w) * w.stake : -w.stake };
+    return { status: won ? "won" : "lost", delta: won ? winDelta(state, w, book) : -w.stake };
   }
   if (w.kind === "match") {
     const draw = state.draws[w.eventId];
@@ -778,7 +844,7 @@ function resolveWager(state, w, events) {
     if (!match) return { status:"void", delta:0 };
     if (match.winner === null || match.winner === undefined) return { status:"pending", delta:0 };
     const won = match.winner === w.teamIdx;
-    return { status: won ? "won" : "lost", delta: won ? wagerMult(w) * w.stake : -w.stake };
+    return { status: won ? "won" : "lost", delta: won ? winDelta(state, w, book) : -w.stake };
   }
   if (w.kind === "stage" || w.kind === "heat") {
     const st = state.stages[w.eventId];
@@ -790,18 +856,18 @@ function resolveWager(state, w, events) {
     if (w.final) {
       if (st.finalWinner === null || st.finalWinner === undefined) return { status:"pending", delta:0 };
       const won = st.finalWinner === w.pickKey;
-      return { status: won ? "won" : "lost", delta: won ? wagerMult(w) * w.stake : -w.stake };
+      return { status: won ? "won" : "lost", delta: won ? winDelta(state, w, book) : -w.stake };
     }
     const g = st.groups[w.group];
     if (!g) return { status:"void", delta:0 };
     if (w.kind === "heat") {
       if (g.winner === null || g.winner === undefined) return { status:"pending", delta:0 };
       const won = g.winner === w.pickKey;
-      return { status:won ? "won" : "lost", delta:won ? wagerMult(w) * w.stake : -w.stake };
+      return { status:won ? "won" : "lost", delta:won ? winDelta(state, w, book) : -w.stake };
     }
     if ((g.through || []).length < st.advance) return { status:"pending", delta:0 };
     const won = g.through.includes(w.pickKey);
-    return { status: won ? "won" : "lost", delta: won ? wagerMult(w) * w.stake : -w.stake };
+    return { status: won ? "won" : "lost", delta: won ? winDelta(state, w, book) : -w.stake };
   }
   return { status:"void", delta:0 };
 }
@@ -1198,8 +1264,9 @@ function computeStandings(state) {
       if (place === 0) wins[player] += 1;
     });
   });
+  const book = poolBook(state);
   (state.wagers || []).forEach(w => {
-    const r = resolveWager(state, w, evs);
+    const r = resolveWager(state, w, evs, book);
     if (r.status === "won" || r.status === "lost") {
       if (pts[w.player] !== undefined) { pts[w.player] += r.delta; betNet[w.player] += r.delta; }
     }
@@ -1607,7 +1674,8 @@ function resolveCurrentContest(state, ev) {
         : target.kind === "ffa" ? lifecycleAction("enter-result", "Enter result")
           : lifecycleAction("record-contest-winner", "Record winner");
   const odds = op.odds?.[target.id];
-  return { ...target, eventId:ev.id, revision:same ? Number(stored.revision || 0) : Number(op.contestRevision || 0),
+  const pooled = !!op.pools?.[target.id];
+  return { ...target, ...(pooled ? { pool:true } : {}), eventId:ev.id, revision:same ? Number(stored.revision || 0) : Number(op.contestRevision || 0),
     phase, legacy, players:[...new Set(target.sides.flatMap(side => side.players))], nextAction,
     ...(odds && odds.underdog !== null && odds.underdog !== undefined ? { odds } : {}) };
 }
@@ -1623,6 +1691,42 @@ const contestMult = (contest, sideKey) => wideField(contest) ? OUTRIGHT_MULT
 /* each side's payout, for one payout line per side */
 const contestSideMults = contest => Object.fromEntries((contest?.sides || [])
   .map(side => [side.key, contestMult(contest, side.key)]));
+/* A pooled contest's sides in board order: the bank's seed, what rides on
+   each, its price now (the price it settles at once betting locks). */
+function contestPool(state, contest) {
+  if (!contest?.pool) return null;
+  const pool = poolOf(state, contest.eventId, contest.id);
+  const sides = contest.sides.map(side => {
+    const s = pool.sides[sideId(side.key)] || { seed:0, stake:0, bettors:0 };
+    return { key:side.key, seed:s.seed, stake:s.stake, bettors:s.bettors, price:pool.price(side.key) };
+  });
+  const prices = sides.map(s => s.price);
+  return { total:pool.total, sides, price:pool.price, staked:sides.reduce((sum, s) => sum + s.stake, 0),
+    favorite:sides.length ? sides[prices.indexOf(Math.min(...prices))].key : null,
+    longshot:sides.length ? sides[prices.indexOf(Math.max(...prices))].key : null };
+}
+/* The price a decided contest's winner was paid at, and whether that is an
+   upset. Legacy contests answer from their stored underdog odds. */
+function contestUpset(state, eventId, contestId, winnerKey) {
+  const op = state.eventOps?.[eventId] || {};
+  if (op.pools?.[contestId]) {
+    const price = poolOf(state, eventId, contestId).price(winnerKey);
+    return { price, upset:price >= UPSET_PRICE };
+  }
+  const odds = op.odds?.[contestId];
+  const upset = !!odds && odds.underdog !== null && odds.underdog !== undefined
+    && String(odds.underdog) === String(winnerKey);
+  return { price:upset ? (odds.mult || UNDERDOG_MULT) + 1 : null, upset };
+}
+/* What a ticket pays back per chip: its pool's price now (its settled
+   price once its contest is decided), or a legacy ticket's fixed payout. */
+function wagerPrice(state, w) {
+  if (!w) return null;
+  if (!w.pool) return wagerMult(w) + 1;
+  return poolOf(state, w.eventId, w.contestId).price(wagerSide(state, w));
+}
+/* "3.4×" */
+const priceText = price => `${(Math.round(Number(price) * 10) / 10).toFixed(1)}×`;
 function contestBetEligibility(contest, player, sideKey) {
   const side = contest?.sides.find(item => item.key === sideKey);
   if (!side || !isActivePlayer(player)) return false;
@@ -2125,5 +2229,6 @@ export {
   contestMult, contestSideMults, wagerSide, contestSideOf,
   refundText, eventInPlay,
   UNDERDOG_GAP, UNDERDOG_MULT, oddsFor,
+  POOL_SEED, POOL_CAP, POOL_MIN, UPSET_PRICE, poolPrice, poolNet, poolSeed, poolOf, poolBook, contestPool, contestUpset, priceText, wagerPrice,
   bracketByeSlots, bracketSeeds, seedBracket,
 };

@@ -31,10 +31,10 @@ export const STEP_SETS = Object.freeze({
 
   /* the weekend's rules (Weekend > Rules), drawn the same way */
   fieldday:{ steps:4, win:4, notes:[["teams", "shuffle"]] },
-  betting:{ steps:4, notes:[["floor", "floor"], ["own", "own"], ["side", "side"], ["lock", "lock"], ["fix", "fix"], ["void", "void"]] },
+  betting:{ steps:4, notes:[["floor", "floor"], ["own", "own"], ["side", "side"], ["lock", "lock"], ["max", "max"], ["fix", "fix"], ["void", "void"]] },
   duels:{ steps:4, win:4, notes:[["early", "early"], ["even", "tie"], ["fouls", "tie"], ["daily", "daily"], ["pair", "pair"], ["lapse", "lapse"], ["finale", "cards"]] },
   draws:{ steps:3, notes:[["private", "private"]] },
-  comebacks:{ steps:2, notes:[["gap", "floor"]] },
+  comebacks:{ steps:1, notes:[] },
   safety:{ steps:0, notes:[["optional", "drink"], ["na", "na"], ["forced", "forced"], ["water", "water"], ["own", "own"],
     ["contact", "contact"], ["house", "home"], ["camera", "camera"], ["stop", "stop"]] },
   payouts:{ steps:0, notes:[["team", "group"], ["semis", "semis"], ["crew", "crew"], ["ties", "tie"], ["crown", "putt"]] },

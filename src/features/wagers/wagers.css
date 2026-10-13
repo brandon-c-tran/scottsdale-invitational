@@ -457,3 +457,26 @@
 .fd-wagers-record-card { display:flex; align-items:center; justify-content:space-between; gap:8px; min-height:48px; padding:0 14px;
   border:1px solid color-mix(in srgb, var(--sun) 55%, transparent); border-radius:8px; background:var(--sun-tint); color:var(--sun);
   font:600 15px/1 var(--fd-body); box-shadow:var(--glass-edge); cursor:pointer; }
+
+/* ── the pool (Oct 13): the heading carries the whole pool on a reel; a
+   matchup's terms row its side's price; a wide board's row its price
+   before the well, one fixed column so the prices line up as a tote. ── */
+.fd-wagers-pays.is-pool .fd-reel { font-size:17px; }
+.fd-wagers-pays.is-paid .fd-price { --price-size:17px; }
+.fd-wagers-terms { flex-direction:row; align-items:center; justify-content:flex-start; }
+.fd-wagers-row-price { flex:none; width:58px; min-height:44px; justify-content:flex-end; overflow:visible; }
+.fd-wagers-row-price .fd-side-pays-tap { min-height:44px; }
+.fd-wagers-row-price .fd-info-lamp { display:none; }
+/* your stack's line under the felt: what it wins at the price now */
+.fd-wagers-stack-name.is-win { color:var(--you); font-variant-numeric:tabular-nums; }
+/* a priced row: the price says what the money says, so the others' total
+   leaves the row (their pile still opens the list); a long name ellipses */
+.fd-wagers-pick.is-one-line.has-price .fd-wagers-row-backers .fd-wagers-pot-total { display:none; }
+.fd-wagers-pick.is-one-line.has-price > .fd-wagers-pot.is-row { gap:8px; }
+.fd-wagers-pick.is-one-line .fd-wagers-player { min-width:0; max-width:100%; }
+.fd-wagers-pick.is-one-line .fd-wagers-player-text { min-width:0; }
+.fd-wagers-pick.is-one-line .fd-wagers-player-text > span:first-child { display:block; overflow-wrap:anywhere; }
+/* your own row is already lit as yours: its pot drops the word and keeps the number */
+.fd-wagers-pick.is-one-line.has-price .fd-wagers-pot-you-amount small { display:none; }
+.fd-wagers-row-price { width:50px; }
+.fd-wagers-row-price .fd-price-x { font-size:12px; }

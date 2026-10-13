@@ -9,7 +9,7 @@
    freshContestWins  contests this player's side won in the step (the shower) */
 
 import { PT, START, allEventsOf, computeStandings, contestStackOf, disp, resolveDuel, resolveWager,
-  resultAwards, stageEntrantView, teamLabel, wagerMult } from "../../../shared/core.js";
+  resultAwards, stageEntrantView, teamLabel, wagerMult, wagerPrice, priceText } from "../../../shared/core.js";
 import { freshFactFor } from "./weekendFacts.js";
 
 const fmt = n => Math.abs(Math.round(Number(n) || 0)).toLocaleString("en-US");
@@ -194,14 +194,17 @@ export function resultMoment({ prev, next, prevState, state, events = allEventsO
     if (was?.status !== "pending" || (now.status !== "won" && now.status !== "lost")) continue;
     const wager = (state.wagers || []).find(item => item.id === id);
     const pick = wagerPickName(state, wager);
-    const mult = wagerMult(wager);
-    const key = `${now.eventId}|${pick}|${now.status}|${mult}`;
+    /* a pool ticket settles at its pool's price ("300 at 3.4×"); a legacy
+       one at its fixed payout ("300 at 1:1") */
+    const mult = wager?.pool ? null : wagerMult(wager);
+    const at = wager?.pool ? priceText(wagerPrice(state, wager)) : `${mult}:1`;
+    const key = `${now.eventId}|${pick}|${now.status}|${at}`;
     const line = bets.get(key) || { id:`bet:${id}`, kind:"bet", eventId:now.eventId, delta:0, stake:0,
-      won:now.status === "won", label:`Bet on ${pick}`, mult };
+      won:now.status === "won", label:`Bet on ${pick}`, mult, at };
     line.delta += now.delta; line.stake += now.stake;
     bets.set(key, line);
   }
-  for (const line of bets.values()) lines.push({ ...line, detail:`${fmt(line.stake)} at ${line.mult}:1` });
+  for (const line of bets.values()) lines.push({ ...line, detail:`${fmt(line.stake)} at ${line.at}` });
   for (const [id, duel] of Object.entries(next.duels)) {
     if (prev.duels[id] || id === skipDuel || !duel.delta) continue;
     lines.push({ id:`duel:${id}`, kind:"duel", delta:duel.delta, won:false,

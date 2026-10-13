@@ -553,14 +553,23 @@ export const RULE_PICTURES = {
     <Lit><rect x="8" y="15.5" width="48" height="9" rx="2" /></Lit>
     <Lit>{chip(49, 20, 3)}</Lit>
   </g>,
+  /* the pool: both sides' chips under one brace, all of it to the winners */
   "betting.2":<g>
-    {bust(13, 9, 2.6)}{bust(51, 9, 2.6)}
-    <Faint><path d="M32 6v16" /></Faint>
-    <Lit><Num x={32} y={35} size={14}>1:1</Num></Lit>
+    {floor()}
+    <Faint>{stack(14, 34, 3, 11)}</Faint>
+    <Faint>{stack(30, 34, 5, 11)}</Faint>
+    <path d="M7 12V9.5q0-2 2-2h26q2 0 2 2V12M22 7.5V4" />
+    {trail("M38 20H44")}{head(44.4, 20, 0)}
+    <Lit>{stack(53, 34, 8, 11)}</Lit>
+    {crown(53, 6, 0.6)}
   </g>,
+  /* the smaller side pays more: a tall stack at 1.5×, a short one lit at 4× */
   "betting.3":<g>
-    {bust(9, 9, 2.2)}{bust(24, 9, 2.2)}{bust(40, 9, 2.2)}{bust(55, 9, 2.2)}
-    <Lit><Num x={32} y={35} size={14}>2:1</Num></Lit>
+    {floor()}
+    <Faint>{stack(16, 34, 7, 12)}</Faint>
+    <Faint><Num x={16} y={6} size={10}>1.5×</Num></Faint>
+    <Lit>{stack(48, 34, 2, 12)}</Lit>
+    <Lit><Num x={48} y={20} size={12}>4×</Num></Lit>
   </g>,
   "betting.4":<g>
     <rect x="5" y="15" width="54" height="10" rx="5" />
@@ -590,15 +599,8 @@ export const RULE_PICTURES = {
     <Lit>{stack(46, 34, 6, 14)}</Lit>
     {crown(46, 9, 0.85)}
   </g>,
-  /* comebacks (v3.1): the underdog, the bye */
+  /* comebacks: the bye (the pool replaced the underdog, Oct 13) */
   "comebacks.1":<g>
-    {floor()}
-    <g>{stack(14, 34, 7, 11)}</g>
-    <Faint>{stack(50, 34, 2, 11)}</Faint>
-    <Lit><Num x={50} y={21} size={12}>2:1</Num></Lit>
-    <Faint><path d="M24 9.5h4M36 9.5h4" /></Faint>
-  </g>,
-  "comebacks.2":<g>
     <path d="M4 7h10v8H4M14 11h8M4 27h10" />
     <path d="M22 11v10h10" />
     <Lit><path d="M14 27H32" strokeDasharray="2 2" /><circle cx="9" cy="27" r="2.6" {...F} /></Lit>

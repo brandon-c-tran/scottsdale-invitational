@@ -6,7 +6,7 @@ import { FACEOFF_TIMING as F, faceOffChipSize } from "./faceOff.js";
 import { Takeover } from "./TVTakeover.jsx";
 import { EventName } from "../../ui/OneSafe.jsx";
 import { contestTerms } from "../comebacks/comebacks.js";
-import { UnderdogExplainer } from "../comebacks/Comebacks.jsx";
+import { PoolExplainer, UnderdogExplainer } from "../comebacks/Comebacks.jsx";
 
 /* a display size that keeps a side's name on one line in its half, so both
    halves stand at the same height: Big Shoulders 900 runs about 0.5em a letter */
@@ -17,15 +17,15 @@ export const faceOffNameSize = text =>
    rule drawn (two stacks, the gap measured, 1:1 and 2:1), stamped in just
    after the win lines on the face-off's own clock; it lifts with the
    face-off. Silent: nothing here rides the face-off's sound. */
-function UnderdogStamp() {
-  return <div className="tv-teach tv-faceoff-teach" role="img" aria-label="Underdog: winner pays 2:1"
+function UnderdogStamp({ pool = false }) {
+  return <div className="tv-teach tv-faceoff-teach" role="img" aria-label={pool ? "The pool: winners split it" : "Underdog: winner pays 2:1"}
     style={{ animationDelay:`calc(var(--tl) + ${F.lines + F.linesMs + 100}ms)` }}>
-    <span className="tv-teach-title"><i className="fd-insert" aria-hidden="true" />Underdog</span>
-    <UnderdogExplainer tv />
+    <span className="tv-teach-title"><i className="fd-insert" aria-hidden="true" />{pool ? "The pool" : "Underdog"}</span>
+    {pool ? <PoolExplainer tv /> : <UnderdogExplainer tv />}
   </div>;
 }
 
-function FaceOffSide({ side, from, lines, terms = null, teach = false }) {
+function FaceOffSide({ side, from, lines, terms = null, teach = false, longshot = false }) {
   const size = faceOffChipSize(side.players.length);
   return (
     <div className={`tv-faceoff-side is-${from}`}>
@@ -35,7 +35,7 @@ function FaceOffSide({ side, from, lines, terms = null, teach = false }) {
       <div className="fd-show tv-faceoff-name" style={{ fontSize:faceOffNameSize(side.name) }}>{side.name}</div>
       <div className="tv-faceoff-line"><TVWinLine lines={lines} sideKey={side.key} /></div>
       {terms && <div className="tv-faceoff-termwrap"><TVSideTerms terms={terms} className="tv-faceoff-terms" />
-        {teach && terms.underdog && <UnderdogStamp />}</div>}
+        {teach && (terms.underdog || longshot) && <UnderdogStamp pool={longshot} />}</div>}
     </div>
   );
 }
@@ -61,9 +61,11 @@ export function FaceOff({ state, events, ev, contest, view, moment, teach = fals
         {view.label && <span className="tv-faceoff-event">{view.event}</span>}
       </div>
       <div className="tv-faceoff-sides">
-        <FaceOffSide side={view.sides[0]} from="left" lines={lines} terms={termsOf(view.sides[0])} teach={teach} />
+        <FaceOffSide side={view.sides[0]} from="left" lines={lines} terms={termsOf(view.sides[0])} teach={teach}
+          longshot={!!terms?.pool && view.sides[0].key === terms.longshot} />
         <div className="fd-show tv-faceoff-vs">VS</div>
-        <FaceOffSide side={view.sides[1]} from="right" lines={lines} terms={termsOf(view.sides[1])} teach={teach} />
+        <FaceOffSide side={view.sides[1]} from="right" lines={lines} terms={termsOf(view.sides[1])} teach={teach}
+          longshot={!!terms?.pool && view.sides[1].key === terms.longshot} />
       </div>
       <div className="tv-display tv-faceoff-record" aria-label={record || undefined}>
         {[...record].map((ch, i) => <span key={i} aria-hidden="true"

@@ -12,12 +12,14 @@ import { FACEOFF_TIMING as F, faceOffStart } from "./faceOff.js";
 /* after the face-off lifts, the board keeps teaching this long */
 export const UNDERDOG_TEACH_MS = 8000;
 export const BYE_TEACH_MS = 10000;
-const STORE = { underdog:"si-tv-taught-underdog", bye:"si-tv-taught-bye" };
+/* the pool (Oct 13) replaced the underdog; every TV teaches it once afresh */
+const STORE = { underdog:"si-tv-taught-pool", bye:"si-tv-taught-bye" };
 
 /* a two-sided contest whose market opened with an underdog: the face-off's
    start (faceAt), and the board's window after it lifts */
 export function underdogTeachWindow(state, ev, contest) {
-  if (!ev || !contest?.odds || contest.odds.underdog === null || contest.odds.underdog === undefined) return null;
+  const underdog = !!contest?.odds && contest.odds.underdog !== null && contest.odds.underdog !== undefined;
+  if (!ev || !(contest?.pool || underdog)) return null;
   if (contest.phase !== "betting-open" || contest.sides?.length !== 2) return null;
   const faceAt = faceOffStart(state, ev);
   if (!faceAt) return null;

@@ -10,7 +10,7 @@ import { postedFinalUndo } from "../../../shared/show.js";
 import { autoBeat, autopilotHeld } from "../../../shared/autopilot.js";
 import { geoPlayers } from "../../../shared/geo.js";
 import { triviaActive, triviaGame } from "../../../shared/trivia.js";
-import { payLine } from "../comebacks/comebacks.js";
+import { contestTerms, longshotLine, payLine } from "../comebacks/comebacks.js";
 
 const fmt = n => (n ?? 0).toLocaleString("en-US");
 /* the pill's verb carries at most two lines under it */
@@ -190,10 +190,14 @@ export function directorPill(state, events, director, { me = null, now = Date.no
       && resolveWager(state, wager, events).status === "pending").length;
     openedAt = Number(state.eventOps?.[ev.id]?.bettingOpenedAt) || null;
   }
-  /* v3.1: the underdog's payout, said once on the beat that locks it in */
+  /* the long shot's price, said once on the beat that locks it in (a pool);
+     a contest opened before pools names its underdog's fixed payout */
   if (beat.type === "lock-start" && contest) {
-    const underdog = contest.odds ? contest.sides.find(side => side.key === contest.odds.underdog) : null;
-    if (underdog) note(2, `${sideName(state, underdog)}: ${payLine(contest.odds.mult)}`);
+    const terms = contestTerms(state, contest);
+    const long = longshotLine(terms, key => sideName(state, contest.sides.find(side => side.key === key)));
+    const underdog = !terms?.pool && contest.odds ? contest.sides.find(side => side.key === contest.odds.underdog) : null;
+    if (long) note(2, long);
+    else if (underdog) note(2, `${sideName(state, underdog)}: ${payLine(contest.odds.mult)}`);
   }
   if (beat.type === "record-contest-winner" && contest?.players.includes(me)) note(2, "You’re playing");
   if (beat.type === "geo-reveal" && state.geo) {

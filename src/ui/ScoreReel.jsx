@@ -182,7 +182,7 @@ function DrumDigit({ digit, value, live, land, register, index }) {
 }
 
 export function ScoreReel({ value, tone = null, label = null, className = "", clack = false, drum = false, spin = false,
-  motion = "fresh", from = null, at = 0, landKey = null, slim = false }) {
+  motion = "fresh", from = null, at = 0, landKey = null, slim = false, tenths = false }) {
   const n = Number(value) || 0;
   const reduced = useReducedMotion();
   /* the fresh gate: a change carried by a fresh frame opens a short window
@@ -220,7 +220,10 @@ export function ScoreReel({ value, tone = null, label = null, className = "", cl
   }
   const land = landing.current;
   const spinnable = drum && spin;
-  const text = `${n < 0 ? "−" : ""}${Math.abs(n).toLocaleString("en-US")}`;
+  /* tenths: the value counts tenths and reads with its point ("34" is 3.4,
+     a pool's price), the point a fixed window like a comma */
+  const text = tenths ? `${n < 0 ? "−" : ""}${Math.floor(Math.abs(n) / 10).toLocaleString("en-US")}.${Math.abs(n) % 10}`
+    : `${n < 0 ? "−" : ""}${Math.abs(n).toLocaleString("en-US")}`;
   const cells = [...text];
   const digitCount = cells.filter(ch => /\d/.test(ch)).length;
   const spinAll = (speed, sign) => {

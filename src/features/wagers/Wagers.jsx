@@ -1,6 +1,6 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
-  PT, OUTRIGHT_MULT, atRisk, disp, maxRisk, contestBetEligibility, contestMult, contestSideOf, wagerMult,
+  PT, OUTRIGHT_MULT, atRisk, disp, maxRisk, contestBetEligibility, contestMult, contestSideOf, wagerMult, wagerPrice, poolNet,
   resolveCurrentContest, duelReserve, resolveDuel, resolveEventLifecycle, resolveWager, stacksPosted, teamLabel,
 } from "../../../shared/core.js";
 import { DISPLAY, SANS } from "../../ui/theme.js";
@@ -25,7 +25,7 @@ import { RenameText } from "../teams/RenameText.jsx";
 import { Coin } from "../../ui/Coin.jsx";
 import { ScoreReel } from "../../ui/ScoreReel.jsx";
 import { useGlassTilt } from "../../ui/useGlassTilt.js";
-import { SideTerms } from "../comebacks/Comebacks.jsx";
+import { PriceLamp, SideTerms } from "../comebacks/Comebacks.jsx";
 import { contestTerms } from "../comebacks/comebacks.js";
 import "./wagers.css";
 
@@ -359,7 +359,9 @@ function MarketPick({ state, me, players, name, bets, marketOpen, canPick, onPic
     /* whose it is, under the amount: a face alone is a stranger (the TV
        letters the same first name under each stack) */
     const body = <>{stackOf(item, chip)}<span className="fd-stacks-value">{fmt(item.stake)}</span>
-      <span className="fd-wagers-stack-name">{item.player === me ? "You" : stackName(state, item.player)}</span></>;
+      {item.player === me && terms?.price !== undefined
+        ? <span className="fd-wagers-stack-name is-win" aria-label={`Wins ${fmt(poolNet(item.stake, terms.price))} at ${terms.text}`}>+{fmt(poolNet(item.stake, terms.price))}</span>
+        : <span className="fd-wagers-stack-name">{item.player === me ? "You" : stackName(state, item.player)}</span>}</>;
     if (item.player === me) return marketOpen
       ? <button type="button" key={item.player} ref={mineRef} className="fd-wagers-stack is-you" disabled={!!busyKind}
         onClick={retract} {...retractLabel}>{body}</button>
@@ -402,7 +404,7 @@ function MarketPick({ state, me, players, name, bets, marketOpen, canPick, onPic
     && players.some(player => disp(state, player).length > 8);
   /* an unnamed pair is two competitors, each lettered on a row of its own */
   const pair = players.length === 2 && !named && lines !== 1;
-  return <div className={`fd-wagers-pick${lines === 1 ? " is-one-line" : ""}${mineTotal ? " is-mine" : ""}${sideTotal ? " has-chips" : ""}${roleLabel ? " is-your-side" : ""}${selfBet ? " is-self-bet" : ""}${unavailableReason ? " is-unavailable" : ""}${busyKind ? ` is-pending-${busyKind}` : ""}`}>
+  return <div className={`fd-wagers-pick${terms?.price !== undefined ? " has-price" : ""}${lines === 1 ? " is-one-line" : ""}${mineTotal ? " is-mine" : ""}${sideTotal ? " has-chips" : ""}${roleLabel ? " is-your-side" : ""}${selfBet ? " is-self-bet" : ""}${unavailableReason ? " is-unavailable" : ""}${busyKind ? ` is-pending-${busyKind}` : ""}`}>
     <div className={`fd-wagers-pick-identity${players.length > 2 || named ? " is-team" : pair ? " is-pair" : ""}`}>
       {players.length === 1 ? <button type="button" className="fd-wagers-player" disabled={!onPlayer}
         onClick={() => onPlayer?.(players[0])} aria-label={`View ${name}'s player card`}>
@@ -447,6 +449,7 @@ function MarketPick({ state, me, players, name, bets, marketOpen, canPick, onPic
             <span className="fd-wagers-pot-total">{fmt(othersTotal)}</span>
           </button>}
         </span>
+        {terms?.price !== undefined && <SideTerms terms={terms} size="sm" className="fd-wagers-row-price" />}
         {wellCell()}
       </div>
       : openSeat
@@ -529,6 +532,11 @@ function DenomChip({ size = RACK_COIN, value }) {
   return <ChipFace size={size} stamp={value} valueRing color={DENOM_COLOR} isLight={HOUSE_CHIP.isLight} skin={HOUSE_CHIP.skin} />;
 }
 
+/* a pool's heading: the whole pool on a reel, the chips lamp beside it */
+function PoolLamp({ total, label = "Pool" }) {
+  return <span className="fd-wagers-pays is-pool"><i className="fd-insert" aria-hidden="true" />{label}
+    <ScoreReel value={Math.round(total)} tone="chip" slim label={fmt(Math.round(total))} /></span>;
+}
 /* what a side pays, as a lit amber label: the money lamp beside the words.
    "1:1" is a ratio, not a lone 1 beside letters, so it stays unflagged */
 function PayLamp({ mult }) {
@@ -573,6 +581,9 @@ function HeldBoard({ state, me, held, view, onSkip }) {
     return () => clearTimeout(timer);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const { contest, ev, label, winSlot = false, termsSlot = false, identity = "solo" } = held;
+  const terms = contestTerms(state, contest);
+  const wonSide = view.sides.find(side => side.won);
+  const wonTerms = terms?.pool && wonSide ? terms.sides[wonSide.key] : null;
   const lines = (contest.sides || []).length > 2 ? 1 : 2;
   const sides = contest.kind === "ffa" ? view.sides.filter(side => side.won || side.stacks.length) : view.sides;
   const nameOf = side => {
@@ -603,7 +614,9 @@ function HeldBoard({ state, me, held, view, onSkip }) {
   return <section className="fd-wagers-event fd-wagers-held" onClick={onSkip} aria-label={`${label} settled`}>
     <div className="fd-wagers-contest-heading">
       {contest.kind !== "ffa" && <h2><OneSafe text={label} /></h2>}
-      {!contest.odds && <PayLamp mult={contestMult(contest)} />}
+      {wonTerms ? <span className="fd-wagers-pays is-paid"><i className="fd-insert" aria-hidden="true" />Paid
+        <PriceLamp price={wonTerms.price} long={wonTerms.long} size="sm" motion="never" /></span>
+        : !contest.odds && !terms?.pool && <PayLamp mult={contestMult(contest)} />}
     </div>
     <div className={`fd-wagers-picks${lines === 1 ? " is-rows" : ` is-id-${identity}`}`}>{sides.map(side => {
       const head = side.won ? side.paid > 0 && <span className="fd-wagers-held-head is-up">+{fmt(side.paid)}</span>
@@ -628,7 +641,8 @@ function HeldBoard({ state, me, held, view, onSkip }) {
           </>}
         </div>
         {winSlot && !(lines === 1 && side.players.length === 1) && <div className="fd-wagers-win-slot" />}
-        {termsSlot && lines !== 1 && <div className="fd-side-terms fd-wagers-terms" />}
+        {termsSlot && lines !== 1 && <div className="fd-side-terms fd-wagers-terms">
+          {terms?.pool && terms.sides[side.key] && <PriceLamp price={terms.sides[side.key].price} long={terms.sides[side.key].long} motion="never" />}</div>}
         {/* the live board's shape: the felt with the well's cell kept, then
             every stack; a winner's stack grows by what it pays, a loser's
             goes back to the bank */}
@@ -715,7 +729,9 @@ function BetRecord({ group, me, onLastCard }) {
 function WagerLine({ x, state, events, gm, manage = false, onVoid, onPlayer }) {
   const { w, r } = x;
   const label = wagerPickLabel(state, w, events);
-  const win = wagerMult(w) * w.stake;
+  /* a pool ticket wins at its pool's price now (fixed once betting locks) */
+  const price = w.pool ? wagerPrice(state, w) : null;
+  const win = w.pool ? poolNet(w.stake, price) : wagerMult(w) * w.stake;
   const [confirming, setConfirming] = useState(false), [voiding, setVoiding] = useState(false);
   const voidBusy = useRef(false);
   const ids = w.ids || [w.id];
@@ -732,7 +748,7 @@ function WagerLine({ x, state, events, gm, manage = false, onVoid, onPlayer }) {
       <span className="fd-wagers-line-context">{label.ctx}</span>
     </div>
     <div className="fd-wagers-line-result">
-      {r.status === "pending" && <><small>To win</small><strong>+{fmt(win)}</strong></>}
+      {r.status === "pending" && <><small>{price ? `To win at ${price.toFixed(1)}×` : "To win"}</small><strong>+{fmt(win)}</strong></>}
       {r.status === "won" && <><small>Won</small><strong>+{fmt(r.delta)}</strong></>}
       {r.status === "lost" && <><small>Lost</small><strong>{fmt(r.delta)}</strong></>}
       {r.status === "void" && <small className="is-void">Void</small>}
@@ -878,7 +894,7 @@ function Wagers({ state, me, standings, gm, events, wagerEv, onEvents, onEvent, 
       onRetract:id => onRetract(id, { contestId:contest.id, contestRevision:contest.revision }),
       onPlayer, tapStake, bets:pending.filter(x => samePick(x.w, pick)), winLine:wide && !own ? null : winLineFor(winLines, side.key),
       roleLabel:own ? side.players.length > 1 ? "Your team" : "You" : null,
-      terms:termsSlot ? terms.sides[side.key] : null, termsSlot,
+      terms:termsSlot || terms?.pool ? terms.sides[side.key] : null, termsSlot,
       unavailableReason:restricted && !eligible ? restriction
         : otherSide && marketOpen ? "One side per contest. Your chips are on the other side." : null,
       unavailableLabel:restricted && !eligible ? "Opponent" : "Other side",
@@ -1034,9 +1050,9 @@ function Wagers({ state, me, standings, gm, events, wagerEv, onEvents, onEvent, 
     {ev && !holding && <section className="fd-wagers-event">
       {/* the contest by its name, and what it pays as a lit amber label; a
           board with odds says each side's payout on that side instead */}
-      {contest && (contest.kind !== "ffa" || !terms?.odds) && <div className="fd-wagers-contest-heading">
+      {contest && (contest.kind !== "ffa" || !terms?.odds || terms?.pool) && <div className="fd-wagers-contest-heading">
         {contest.kind !== "ffa" && <h2><OneSafe text={contest.label || "Bets"} /></h2>}
-        {!terms?.odds && <PayLamp mult={contestMult(contest)} />}
+        {terms?.pool ? <PoolLamp total={terms.total} /> : !terms?.odds && <PayLamp mult={contestMult(contest)} />}
       </div>}
       {contest && picks.length > 0 ? <div className="fd-wagers-play">
         <section className={`fd-wagers-market fd-wagers-contest is-${contest.kind}${dealing ? " is-dealing" : ""}`}

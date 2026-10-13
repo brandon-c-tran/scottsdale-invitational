@@ -1,39 +1,61 @@
-/* Each side's payout when a contest carries underdog odds, and the drawing
-   of that rule. Amber: chips. */
+/* What each side pays, and the drawing of why. Since Oct 13 that is the
+   pool's price (a reel, "3.4×", the long shot lit amber: chips); a contest
+   opened before pools keeps its fixed "Winner pays 2:1" and the underdog
+   drawing. */
 import React, { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { UNDERDOG_GAP, UNDERDOG_MULT } from "../../../shared/core.js";
+import { ScoreReel } from "../../ui/ScoreReel.jsx";
 import "./comebacks.css";
 
-/* one side's terms row: its payout (when the contest carries odds); an
-   empty row keeps every card the same height. On a phone the underdog's
-   "Winner pays 2:1" is a tap that draws why. */
-export function SideTerms({ terms, className = "", tv = false, style }) {
+/* A price as a tote reel: the tenths roll the short way when the money
+   moves, the × a fixed plate after them. Bone at rest, amber for the long
+   shot (the side an upset would pay). */
+export function PriceLamp({ price, long = false, cap = false, size = "md", className = "", label = null, motion = "fresh" }) {
+  const tenths = Math.round(Number(price) * 10) || 0;
+  const text = `${(tenths / 10).toFixed(1)}×`;
+  return <span className={`fd-price is-${size}${long ? " is-long" : cap ? " is-cap" : ""} ${className}`} role="img" aria-label={label || `Pays ${text}`}>
+    <ScoreReel value={tenths} tenths slim={size !== "xl"} tone={long ? "chip" : null} motion={motion} label={text} />
+    <span className="fd-price-x" aria-hidden="true">×</span>
+  </span>;
+}
+
+/* one side's terms row: its price (a pool) or its fixed payout (a legacy
+   contest with odds); an empty row keeps every card the same height. On a
+   phone a price is a tap that draws how the pool pays. */
+export function SideTerms({ terms, className = "", tv = false, style, size }) {
   const cls = `fd-side-terms${tv ? " is-tv" : ""} ${className}`;
   if (!terms) return <div className={cls} style={style} />;
+  if (terms.price !== undefined) return <div className={cls} style={style}>
+    {tv ? <PriceLamp price={terms.price} long={terms.long} cap={terms.cap} size={size || "lg"} />
+      : <TeachTap kind="pool" label={`Pays ${terms.text}. How the pool pays`}>
+        <PriceLamp price={terms.price} long={terms.long} cap={terms.cap} size={size || "md"} /></TeachTap>}
+  </div>;
   return <div className={cls} style={style}>
-    {terms.payLine && (terms.underdog && !tv ? <UnderdogPays line={terms.payLine} />
+    {terms.payLine && (terms.underdog && !tv ? <TeachTap kind="underdog" label={terms.payLine}>
+      <span className="fd-side-pays is-underdog">{terms.payLine}</span></TeachTap>
       : <span className={`fd-side-pays${terms.underdog ? " is-underdog" : ""}`}>{terms.payLine}</span>)}
   </div>;
 }
 
-/* the underdog's payout as a control: the words with a cyan info lamp
-   beside them (cyan is the info lamp's job), and a tap lays the drawing over
+/* A payout as a control: the price (or the words) with a cyan info lamp
+   beside it (cyan is the info lamp's job), and a tap lays the drawing over
    the board beside it (a popover on the page's one fixed layer, so no card
-   changes size); a tap anywhere puts it away. The first underdog this phone
-   ever shows opens it once by itself, when the words are on screen and
-   nothing covers them (TAUGHT_KEY, per device). */
-export const TAUGHT_KEY = "si-underdog-taught";
+   changes size); a tap anywhere puts it away. The first pool (or underdog)
+   this phone ever shows opens it once by itself, when the price is on screen
+   and nothing covers it (TAUGHT_KEYS, per device). */
+export const TAUGHT_KEYS = { pool:"si-pool-taught", underdog:"si-underdog-taught" };
+export const TAUGHT_KEY = TAUGHT_KEYS.underdog;
 const TEACH_AFTER_MS = 900;
 let teaching = false;
-const taught = () => { try { return localStorage.getItem(TAUGHT_KEY) === "yes"; } catch { return true; } };
-const markTaught = () => { try { localStorage.setItem(TAUGHT_KEY, "yes"); } catch {} };
-function UnderdogPays({ line }) {
+const taught = kind => { try { return localStorage.getItem(TAUGHT_KEYS[kind]) === "yes"; } catch { return true; } };
+const markTaught = kind => { try { localStorage.setItem(TAUGHT_KEYS[kind], "yes"); } catch {} };
+export function TeachTap({ kind = "pool", label, children }) {
   const ref = useRef(null);
   const [at, setAt] = useState(null);
   const id = useId();
-  /* it rides with the words through a scroll or a resize (the toolbar
-     settling, a rotation), and goes away once they leave the screen */
+  /* it rides with the price through a scroll or a resize (the toolbar
+     settling, a rotation), and goes away once it leaves the screen */
   const open = !!at;
   useEffect(() => {
     if (!open) return undefined;
@@ -51,16 +73,16 @@ function UnderdogPays({ line }) {
     if (!box) return null;
     const width = Math.min(300, window.innerWidth - 32);
     const left = Math.max(16, Math.min(window.innerWidth - 16 - width, box.left + box.width / 2 - width / 2));
-    const below = box.bottom + 8 + 170 < window.innerHeight;
+    const below = box.bottom + 8 + 190 < window.innerHeight;
     return { left, width, top:below ? box.bottom + 8 : null, bottom:below ? null : window.innerHeight - box.top + 8 };
   };
-  /* once per device: open by itself when the words are on screen and on
-     top (a sheet over the board, such as the event's announcement, waits:
-     it checks again each second while the words are mounted) */
+  /* once per device: open by itself when the price is on screen and on top
+     (a sheet over the board, such as the event's announcement, waits: it
+     checks again each second while the price is mounted) */
   useEffect(() => {
-    if (typeof window === "undefined" || taught()) return undefined;
+    if (typeof window === "undefined" || taught(kind)) return undefined;
     const timer = setInterval(() => {
-      if (taught()) { clearInterval(timer); return; }
+      if (taught(kind)) { clearInterval(timer); return; }
       const node = ref.current;
       if (!node || teaching || document.visibilityState === "hidden") return;
       const box = node.getBoundingClientRect();
@@ -71,26 +93,26 @@ function UnderdogPays({ line }) {
       if (!spot) return;
       clearInterval(timer);
       teaching = true;
-      markTaught();
+      markTaught(kind);
       setAt({ ...spot, taught:true });
     }, TEACH_AFTER_MS);
     return () => clearInterval(timer);
-  }, []);
+  }, [kind]);
   useEffect(() => () => { if (at?.taught) teaching = false; }, [at]);
   const toggle = event => {
     event.stopPropagation();
     if (at) { setAt(null); return; }
-    markTaught();
+    markTaught(kind);
     const spot = place();
     if (spot) setAt(spot);
   };
   return <>
-    <button type="button" ref={ref} className="fd-side-pays is-underdog fd-side-pays-tap" aria-expanded={!!at} aria-controls={at ? id : undefined}
-      onClick={toggle}>{line}<InfoLamp /></button>
+    <button type="button" ref={ref} className={`fd-side-pays-tap is-${kind}`} aria-expanded={!!at} aria-controls={at ? id : undefined}
+      aria-label={label} onClick={toggle}>{children}<InfoLamp /></button>
     {at && typeof document !== "undefined" && createPortal(<div className="fd-underdog-layer" onClick={() => setAt(null)} role="presentation">
       <div id={id} className={`fd-underdog-pop${at.taught ? " is-taught" : ""}`}
         style={{ left:at.left, width:at.width, top:at.top ?? "auto", bottom:at.bottom ?? "auto" }}>
-        <UnderdogExplainer />
+        {kind === "pool" ? <PoolExplainer /> : <UnderdogExplainer />}
       </div>
     </div>, document.body)}
   </>;
@@ -115,10 +137,31 @@ function Tower({ n, scale = 1 }) {
   </svg>;
 }
 
-/* The underdog rule as a drawing, three labels: two sides' stacks standing
-   apart, the gap between them measured (1,000+), the side ahead paying
-   1:1 and the side behind 2:1, lit amber. The TV draws it larger (`tv`),
-   its labels on the canvas's 24px floor and up. */
+/* The pool as a drawing: the two sides' chips standing under one brace,
+   the whole pool lettered over it (600), each side's chips under its tower
+   (400, 200) and what it pays, the pool over its own chips (1.5×, 3.0×,
+   the short tower's lit amber). The TV draws it larger (`tv`). */
+const POOL_EXAMPLE = [{ chips:400, n:6 }, { chips:200, n:2 }];
+export function PoolExplainer({ className = "", tv = false }) {
+  const total = POOL_EXAMPLE.reduce((sum, side) => sum + side.chips, 0);
+  const scale = tv ? 1.6 : 1;
+  const fmt = n => n.toLocaleString("en-US");
+  return <figure className={`fd-pool-explain${tv ? " is-tv" : ""} ${className}`}
+    aria-label={`Winners split the whole pool. ${fmt(total)} in the pool: ${fmt(POOL_EXAMPLE[0].chips)} on one side pays ${(total / POOL_EXAMPLE[0].chips).toFixed(1)} times, ${fmt(POOL_EXAMPLE[1].chips)} on the other pays ${(total / POOL_EXAMPLE[1].chips).toFixed(1)} times.`}>
+    <span className="fd-px-total" aria-hidden="true"><small>Pool</small>{fmt(total)}</span>
+    <svg className="fd-px-brace" viewBox="0 0 200 16" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+      <path d="M4 14 V8 Q4 4 8 4 H92 Q100 4 100 0 Q100 4 108 4 H192 Q196 4 196 8 V14" /></svg>
+    {POOL_EXAMPLE.map((side, i) => <span key={side.chips} className={`fd-ux-col${i === 1 ? " is-under" : ""}`} aria-hidden="true">
+      <Tower n={side.n} scale={scale} />
+      <small>{fmt(side.chips)}</small>
+      <small className={i === 1 ? "fd-ux-pays" : "fd-px-pays"}>{(total / side.chips).toFixed(1)}×</small>
+    </span>)}
+  </figure>;
+}
+
+/* The underdog rule as a drawing (contests opened before pools), three
+   labels: two sides' stacks standing apart, the gap between them measured
+   (1,000+), the side ahead paying 1:1 and the side behind 2:1, lit amber. */
 export function UnderdogExplainer({ className = "", tv = false }) {
   const gap = UNDERDOG_GAP.toLocaleString("en-US");
   const scale = tv ? 1.6 : 1;

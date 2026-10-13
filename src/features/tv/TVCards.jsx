@@ -8,6 +8,7 @@ import { FDMark } from "../../ui/Brand.jsx";
 import { RenameText } from "../teams/RenameText.jsx";
 import { ENGRAVE, TrophyCup, TrophyHero, cupEngravings, engraveTotal, trophyCup } from "../weekend/Trophy.jsx";
 import { useReducedMotion } from "../../lib/motion.js";
+import { PriceLamp } from "../comebacks/Comebacks.jsx";
 import { useEngraveSound } from "./roomSound.js";
 import { editionLabel } from "./tvModel.js";
 import { contestWinLines, winLineFor } from "../standings/winImpact.js";
@@ -37,8 +38,11 @@ export function PayLamp({ text, lit = false, className = "" }) {
 }
 /* `teach`: the first underdog this TV shows keeps its lamp breathing on
    the board for a few seconds after the face-off lifts (teach.js) */
-export function TVSideTerms({ terms, className = "", teach = false }) {
+export function TVSideTerms({ terms, className = "", teach = false, size = "lg" }) {
   if (!terms) return null;
+  /* a pool: the side's price as a tote reel, the long shot lit amber */
+  if (terms.price !== undefined) return <span className={`tv-terms is-price${terms.long ? " is-long" : ""}${teach && terms.long ? " is-teach" : ""}${className ? ` ${className}` : ""}`}>
+    <PriceLamp price={terms.price} long={terms.long} cap={terms.cap} size={size} /></span>;
   return <span className={`tv-terms${className ? ` ${className}` : ""}`}>
     {terms.payLine && <PayLamp text={terms.payLine} lit={!!terms.underdog}
       className={teach && terms.underdog ? "is-teach" : ""} />}

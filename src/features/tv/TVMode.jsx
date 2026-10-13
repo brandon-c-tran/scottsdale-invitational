@@ -79,6 +79,7 @@ import { recordAt, recordCards, withRecordTurns } from "./recordsModel.js";
 import { TVAttract } from "./TVAttract.jsx";
 import { ATTRACT_EARLY_MS, attractAt, attractRoom, withAttractTurns } from "./attractModel.js";
 import { contestTerms } from "../comebacks/comebacks.js";
+import { PriceLamp } from "../comebacks/Comebacks.jsx";
 import { CORNER_GAP, CORNER_W, TVArriveCorner, TVLobby } from "./TVArrivals.jsx";
 import { arrivalsBoard, arriveUrl } from "../arrivals/arrivalsModel.js";
 import "./tv.css";
@@ -504,7 +505,10 @@ function ToteBoard({ state, ev, contest, stacks, width, height }) {
     return { key:side.key, ...contestSideView(state, ev, contest, side), total:ride.total, stacks:ride.stacks };
   });
   const byKey = new Map(sides.map(side => [side.key, side]));
-  const board = toteBoard(sides, { width, height });
+  /* a pool prices every row: the money sorts it, so the prices climb down the board */
+  const terms = contestTerms(state, contest);
+  const prices = !!terms?.pool;
+  const board = toteBoard(sides, { width, height, prices });
   const order = board.rows.map(row => String(row.key)).join("|");
   const sums = board.rows.map(row => `${row.key}:${row.total}`).join("|");
   const reorder = useFreshChange(order, contest.id);
@@ -528,6 +532,8 @@ function ToteBoard({ state, ev, contest, stacks, width, height }) {
                 <i className={`tv-tote-bar${r.notchPx >= 6 ? "" : " is-plain"}`} style={{ width:`${(row.share * 100).toFixed(2)}%`,
                   "--notch":`${r.notchPx}px` }} /></span>
               <span className="tv-side-total tv-tote-total" style={{ width:r.reelW }}><SideTotal total={row.total} /></span>
+              {prices && <span className="tv-tote-price" style={{ width:r.priceW, "--price-size":`${r.reelSize}px` }}>
+                <PriceLamp price={terms.sides[row.key]?.price} long={!!terms.sides[row.key]?.long} cap={!!terms.sides[row.key]?.cap} size="tote" /></span>}
               <span className="tv-tote-backers" style={{ width:r.backersW }} data-backers={row.backers.join(" ")}
                 role="img" aria-label={`Backed by ${side.stacks.map(item => stackName(state, item.player)).join(", ")}`}>
                 {row.backers.map(p => <ChipFace key={p} p={p} size={r.backer} />)}
@@ -599,7 +605,7 @@ function ContestBand({ state, ev, contest, stacks, width, lamp, teach = false })
         {cards[0]}
         <div className="tv-versus-col">
           <div className="tv-versus fd-show" aria-label="versus">VS</div>
-          <div className="tv-contest-odds"><PayLamp text={oddsLine(contest)} lit={isTwoToOne(contest)} /></div>
+          <div className="tv-contest-odds"><PayLamp text={terms?.pool ? poolLine(terms) : oddsLine(contest)} lit={terms?.pool || isTwoToOne(contest)} /></div>
         </div>
         {cards[1]}
       </div>
@@ -607,6 +613,8 @@ function ContestBand({ state, ev, contest, stacks, width, lamp, teach = false })
   );
 }
 
+/* a pool's foot: the whole pool, the long shot's lamp lit */
+const poolLine = terms => `Pool ${fmt(Math.round(terms.total))}`;
 /* a contest that pays 2:1 lights its payout lamp */
 const isTwoToOne = contest => !!contest && contestMult(contest) === 2;
 
@@ -652,8 +660,12 @@ function ContestBoard({ state, events, ev, contest, width = BOARD_W, teach = fal
     .filter(level => level.slots === Infinity).length - 1, [ladder, size.chip]);
   useEffect(() => { if (any && !tight && floor >= smallest) setTightFor(contest.id); }, [any, tight, floor, smallest, contest.id]);
   /* v3.1: each side's payout (underdog odds) */
-  const terms = field ? null : contestTerms(state, contest);
-  const termsRow = !!terms?.any && !terms.wide;
+  const poolTerms = contestTerms(state, contest);
+  const terms = field ? null : poolTerms;
+  /* a pool with chips down prices each side in its felt's corner, so the
+     felt keeps its room; with none (no felt) the price takes the terms row */
+  const feltPrice = !!terms?.pool && any;
+  const termsRow = !!terms?.any && !terms.wide && !feltPrice;
   let body;
   if (field) body = <ToteBoard state={state} ev={ev} contest={contest} stacks={stacks} width={inner}
     height={TOTE_H - (head ? TOTE_HEAD : 0)} />;
@@ -705,7 +717,8 @@ function ContestBoard({ state, events, ev, contest, width = BOARD_W, teach = fal
           {(anyWinLine || termsRow) && <div className={`tv-side-win${termsRow ? " has-terms" : ""}`}>
             {termsRow && <TVSideTerms terms={terms.sides[side.key]} teach={teach} />}
             {anyWinLine && <TVWinLine lines={winLines} sideKey={side.key} />}</div>}
-          {any && <div className={`tv-felt${ride.stacks.length ? "" : " is-empty"}`}>
+          {any && <div className={`tv-felt${ride.stacks.length ? "" : " is-empty"}${feltPrice ? " has-price" : ""}`}>
+            {feltPrice && <TVSideTerms terms={terms.sides[side.key]} teach={teach} className="tv-felt-price" />}
             {ride.total > 0 && <div className="tv-side-total"><SideTotal total={ride.total} /></div>}
             {felt || <span className="tv-felt-empty">No bets</span>}
           </div>}
@@ -723,7 +736,8 @@ function ContestBoard({ state, events, ev, contest, width = BOARD_W, teach = fal
       {head && <div className="tv-contest-head">
         {upNow && <i className="fd-beat-dot tv-beat" aria-hidden="true" />}<OneSafe text={head} /></div>}
       {body}
-      {oddsLine(contest) && <div className="tv-contest-foot"><PayLamp text={oddsLine(contest)} lit={isTwoToOne(contest)} /></div>}
+      {(poolTerms?.pool || oddsLine(contest)) && <div className="tv-contest-foot">
+        <PayLamp text={poolTerms?.pool ? poolLine(poolTerms) : oddsLine(contest)} lit={!!poolTerms?.pool || isTwoToOne(contest)} /></div>}
     </div>
   );
 }

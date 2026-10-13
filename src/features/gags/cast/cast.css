@@ -49,6 +49,10 @@
   transform-style:preserve-3d; }
 .cast-edge { position:absolute; left:0; display:block; }
 .cast-face { position:absolute; left:0; top:0; display:block; line-height:0; }
+/* a cast member drawn mirrored (a partner across the stage from its
+   partner: butte's far poker): the whole of it flipped by the bit, its
+   photo flipped back so the face and the number read */
+.cast-flip .cast-face { transform:scaleX(-1); }
 .cast-wear { position:absolute; left:0; top:0; width:100%; height:100%; }
 
 /* the gloves and shoes: ink a keyline wider, then paint */

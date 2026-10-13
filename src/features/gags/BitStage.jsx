@@ -8,7 +8,7 @@ import { Backglass } from "../tv/DesertBand.jsx";
 import { useBitSound } from "../tv/bitSound.js";
 import { CastPhotosProvider } from "./cast/CastChip.jsx";
 import { cameraCss } from "./bits/camera.js";
-import { BIT_IN_MS, BIT_OUT_MS, beatVars, bitById } from "./bits/registry.js";
+import { BIT_IN_MS, BIT_OUT_MS, beatVars, bitById, castBit } from "./bits/registry.js";
 import { SCENES } from "./bits/scenes.jsx";
 import "../tv/tv.css";
 import "./bits.css";
@@ -81,7 +81,8 @@ const runOf = (items, make) => items.map((item, i) => make(item, i === 0 ? "both
    slows it (the reel). */
 export function BitLayer({ bit: bitOrId, cast = {}, state = null, phase = "fri", name, fact = null, start, at, frozen = false,
   reduced: reducedProp, sound = false, rate = 1, mode = "tv", runKey = null, letters = true, onLayer }) {
-  const bit = typeof bitOrId === "string" ? bitById(bitOrId) : bitOrId;
+  /* the bit as this cast plays it: a pair adds its second shot (castBit) */
+  const bit = castBit(typeof bitOrId === "string" ? bitById(bitOrId) : bitOrId, cast);
   const reducedPref = useReducedMotion();
   const reduced = reducedProp ?? reducedPref;
   const key = `${bit?.id}:${runKey ?? start ?? at ?? 0}:${reduced ? "still" : "live"}`;

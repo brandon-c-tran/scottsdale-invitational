@@ -206,19 +206,33 @@ export function CastChip({ player, photo, size = CAST.size, x = 0, y = CAST.floo
    with the side; --more-drop is how far below it the floor is). `dir` is
    the way the side extends from the lead. Each member gets .is-lead or
    .is-mate and --i (0 for the lead) for a bit to stagger them. `lead` and
-   `mates` are CastChip props for each. */
-export function CastSide({ players = [], x, y = CAST.floor, dir = -1, facing = 0, max = 4, lead = {}, mates = {}, className = "" }) {
-  const layout = clusterLayout(players.length, { max, dir });
+   `mates` are CastChip props for each, or (i, player) => props.
+   A pair (Oct 13, clusterLayout's `pair`): the two stand apart and BOTH
+   play the lead (.is-lead.is-pair, the lead's props), the second `lag` ms
+   behind the first as --pd (a bit adds var(--pd, 0ms) where partners go
+   a beat apart); `pairStep` spaces them and `sizes` sizes them (a bit
+   whose whole cast has to fit one shot). */
+export function CastSide({ players = [], x, y = CAST.floor, dir = -1, facing = 0, max = 4, lead = {}, mates = {}, lag = null,
+  pairStep, sizes, className = "" }) {
+  const layout = clusterLayout(players.length, { max, dir, ...(pairStep ? { pairStep } : {}), ...(sizes ? { sizes } : {}) });
   const shown = players.slice(0, layout.shown);
   const edge = x + (layout.xs[layout.xs.length - 1] || 0) + dir * layout.size * 0.92;
   const middle = castGeometry(layout.size).center.y;
+  const propsOf = (i, player) => {
+    const own = i === 0 || layout.pair ? lead : mates;
+    return (typeof own === "function" ? own(i, player) : own) || {};
+  };
   return (
-    <div className={`cast-side${className ? ` ${className}` : ""}`} data-count={players.length}>
+    <div className={`cast-side${layout.pair ? " is-pair" : ""}${className ? ` ${className}` : ""}`} data-count={players.length}>
       {/* drawn back to front: the lead last, in front of its mates */}
-      {shown.map((player, i) => ({ player, i })).reverse().map(({ player, i }) => (
-        <CastChip key={player} player={player} size={layout.size} x={x + layout.xs[i]} y={y} facing={facing}
-          className={i === 0 ? "is-lead" : "is-mate"} style={{ "--i":i }} {...(i === 0 ? lead : mates)} />
-      ))}
+      {shown.map((player, i) => ({ player, i })).reverse().map(({ player, i }) => {
+        const { style, className:own, ...props } = propsOf(i, player);
+        return (
+          <CastChip key={player} player={player} size={layout.size} x={x + layout.xs[i]} y={y} facing={facing}
+            className={[i === 0 ? "is-lead" : layout.pair ? "is-lead is-pair" : "is-mate", own].filter(Boolean).join(" ")}
+            style={{ "--i":i, ...(layout.pair && lag !== null ? { "--pd":`${Math.round(i * lag)}ms` } : {}), ...style }} {...props} />
+        );
+      })}
       {layout.more > 0 && <span className="cast-more" style={{ left:edge, top:y + middle, "--more-drop":`${-middle}px` }}>
         <span className="cast-more-in fd-show" style={{ transform:`translate(${dir < 0 ? "-100%" : "0%"}, -50%)` }}>{`+${layout.more}`}</span>
       </span>}

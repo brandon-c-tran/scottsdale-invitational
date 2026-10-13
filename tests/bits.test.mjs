@@ -280,7 +280,7 @@ test("the rig: everything hangs off the feet, scaled with the chip; a side shows
   const half = geometry.castGeometry(120);
   assert.equal(half.hands.r.x * 2, g.hands.r.x);
   assert.equal(geometry.castGeometry(240, { shoes:false }).bottom, 0, "no shoes: the rim on the floor");
-  assert.deepEqual(geometry.clusterLayout(1), { shown:1, more:0, size:240, step:187, xs:[0], reach:geometry.clusterLayout(1).reach });
+  assert.deepEqual(geometry.clusterLayout(1), { shown:1, more:0, size:240, step:187, pair:false, xs:[0], reach:geometry.clusterLayout(1).reach });
   const six = geometry.clusterLayout(6, { dir:1 });
   assert.equal(six.shown, 4);
   assert.equal(six.more, 2);

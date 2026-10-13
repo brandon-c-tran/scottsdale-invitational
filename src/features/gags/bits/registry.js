@@ -32,7 +32,13 @@
      cast       the roles the scene needs: { a:{ role, max }, b:... }; a
                 team bit's roles carry min:TEAM_MIN (a side of 3 or more)
      cues      [{ at, sound, pan, opts }]: kit recipes on the room bus
-     fits       the triggers it suits (default: every trigger of its shape) */
+     fits       the triggers it suits (default: every trigger of its shape)
+     pairLag    a pair's beat (Oct 13): in a solo bit both partners of a
+                side of exactly two act, the second this many ms after the
+                first where they go a beat apart (two shots, two pokes)
+     pairs      [{ sides:{ a:2, b:2 }, cues, shakes, washes }]: what a
+                cast of that shape adds on the bit's clock (the second
+                gunshot's crack, kick and white frame), merged by castBit */
 import { CAMERA_EASE } from "./camera.js";
 
 export const BIT_SHAPES = Object.freeze({
@@ -69,6 +75,7 @@ const freeze = bit => freezeAll({ ...bit, fits:bit.fits || BIT_SHAPES[bit.shape]
    it... and fumbles it. ── */
 const QD = { tumble:40, twitch:1360, draw:1580, bang:1660, kick:1700, whip:2040, fall:2700, land:3040, blow:3380, spin:3700,
   fumble:4080, bonk:4210, drop:4470, look:4600 };
+const QD_PAIR_LAG = 240;
 const quickdraw = {
   id:"quickdraw", name:"Quick draw", shape:"versus", style:"action", ms:5400, beats:QD, still:5020, summary:"bitCrack",
   letter:{ at:QD.land + 200, over:"a", place:"top-left" },
@@ -97,6 +104,15 @@ const quickdraw = {
     { at:QD.bonk, sound:"bitBonk", pan:-0.38 },
     { at:QD.drop, sound:"bitClink", pan:-0.3 },
   ],
+  /* a pair of winners: the second shot a beat after the first, its own
+     white frame, kick and fumble */
+  pairLag:QD_PAIR_LAG,
+  pairs:[{ sides:{ a:2 }, washes:[QD.bang + QD_PAIR_LAG], shakes:[{ at:QD.bang + QD_PAIR_LAG, big:true }], cues:[
+    { at:QD.bang + QD_PAIR_LAG, sound:"bitCrack", pan:-0.45 },
+    { at:QD.kick + QD_PAIR_LAG, sound:"bitSkid", pan:-0.6 },
+    { at:QD.bonk + QD_PAIR_LAG, sound:"bitBonk", pan:-0.55 },
+    { at:QD.drop + QD_PAIR_LAG, sound:"bitClink", pan:-0.5 },
+  ] }],
 };
 
 /* ── anvil: the chip admires its own stack. A shadow grows under it.
@@ -451,6 +467,7 @@ const IDLE = [nap, armwrestle, saguaro, pushups, sweep, map];
    room, thumbs up. ── */
 const SPG = { hop:0, turn:800, raise:1320, press:1540, fire:1570, hit:1650, fly:1710, twinkle:2450, retract:3000, home:3130, boop:3240,
   look:3760, thumb:4080 };
+const SPG_PAIR_LAG = 240;
 const springglove = {
   id:"springglove", name:"Spring glove", shape:"versus", style:"slapstick", ms:4850, beats:SPG, still:4420, summary:"bitPow",
   letter:{ at:SPG.look + 120, over:"a", place:"top-left" },
@@ -476,6 +493,15 @@ const springglove = {
     { at:SPG.boop, sound:"bitBonk", pan:-0.36 },
     { at:SPG.boop + 60, sound:"bitBoing", pan:-0.36, opts:{ small:true } },
   ],
+  /* a pair against a pair: the second glove punches the second favorite
+     a beat after the first (a pair against one: both land at once) */
+  pairLag:SPG_PAIR_LAG,
+  pairs:[{ sides:{ a:2, b:2 }, shakes:[{ at:SPG.hit + SPG_PAIR_LAG, big:true }], cues:[
+    { at:SPG.fire + SPG_PAIR_LAG, sound:"bitSproing", pan:-0.1 },
+    { at:SPG.hit + SPG_PAIR_LAG, sound:"bitPow", pan:0.6 },
+    { at:SPG.fly + SPG_PAIR_LAG, sound:"bitStreak", pan:0.62, opts:{ from:0.6, to:0.95 } },
+    { at:SPG.boop + SPG_PAIR_LAG, sound:"bitBonk", pan:-0.6 },
+  ] }],
 };
 
 /* ── toohype: a run of wins. It bounces on the spot, fists pumping, each
@@ -927,6 +953,28 @@ export function pickBit(shape, seed, recent = [], sides = null) {
     candidates = pool.length > 1 ? pool.filter(bit => bit.id !== newest) : pool;
   }
   return candidates[seedHash(`${shape}:${seed}`) % candidates.length];
+}
+
+/* The bit as this cast plays it (Oct 13): its `pairs` entries whose
+   sides match the cast (a side named with a count matches a side of
+   exactly that many) add their cues, shakes and white frames on the
+   bit's clock. The same object for the same match, and a cast bit casts
+   to itself. */
+const CAST_BITS = new Map();
+const byAt = (x, y) => (x?.at ?? x) - (y?.at ?? y);
+export function castBit(bit, cast) {
+  if (!bit?.pairs?.length) return bit;
+  const hits = bit.pairs.map((entry, i) => [entry, i])
+    .filter(([entry]) => Object.entries(entry.sides || {}).every(([role, n]) => sideCount(cast?.[role]) === n));
+  if (!hits.length) return bit;
+  const key = `${bit.id}:${hits.map(([, i]) => i).join(",")}`;
+  if (!CAST_BITS.has(key)) {
+    const add = name => hits.flatMap(([entry]) => entry[name] || []);
+    CAST_BITS.set(key, freezeAll({ ...bit, pairs:[], cues:[...bit.cues, ...add("cues")].sort(byAt),
+      camera:{ ...bit.camera, shakes:[...(bit.camera?.shakes || []), ...add("shakes")].sort(byAt),
+        washes:[...(bit.camera?.washes || []), ...add("washes")].sort(byAt) } }));
+  }
+  return CAST_BITS.get(key);
 }
 
 /* a bit's beats as custom properties for its scene's CSS */

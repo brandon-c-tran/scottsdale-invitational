@@ -725,7 +725,7 @@ test("a phone plays its moment only from a fresh frame, at the TV's instant; it 
   const source = readFileSync(new URL("../src/features/gags/phoneBit.js", import.meta.url), "utf8");
   assert.match(source, /useFreshChange\(owed\?\.id \|\| null, me \|\| null\)/, "latched on a fresh change only");
   assert.match(readFileSync(new URL("../src/features/gags/PhoneBit.jsx", import.meta.url), "utf8"),
-    /useBitSound\(\{ bit, start:moment\?\.start, enabled:!!bit && !!moment, reduced, key:`phone:\$\{moment\?\.id\}`, bus:"you" \}\)/);
+    /useBitSound\(\{ bit, start:moment\?\.start, enabled:!!bit && !!moment, reduced, key:`phone:\$\{moment\?\.id\}`, bus:"you", cast:gagCast\(moment\) \}\)/);
 });
 
 test("the bit first, then the receipt: from the fresh frame to the bit's end the phone holds the stage the receipt waits on", () => {

@@ -44,7 +44,7 @@ export function PhoneBit({ state, moment, phase = "fri", onDismiss = null }) {
   const bit = bitById(moment?.bit);
   const reduced = useReducedMotion();
   const joined = useJoined(moment?.id, moment?.start);
-  useBitSound({ bit, start:moment?.start, enabled:!!bit && !!moment, reduced, key:`phone:${moment?.id}`, bus:"you" });
+  useBitSound({ bit, start:moment?.start, enabled:!!bit && !!moment, reduced, key:`phone:${moment?.id}`, bus:"you", cast:gagCast(moment) });
   if (!moment || !bit) return null;
   const fit = phoneBitNameFit(moment.name);
   const loss = bit.shape === "loss";

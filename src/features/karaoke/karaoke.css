@@ -31,7 +31,7 @@
 .fd-karaoke-drain { position:absolute; inset:0; display:block; transform-origin:left center; transform:scaleX(var(--drain-left));
   background:var(--lamp-live); box-shadow:0 0 10px color-mix(in srgb, var(--lamp-live) 70%, transparent);
   animation:fd-karaoke-drain var(--drain-ms) linear var(--drain-wait, 0ms) both,
-    fd-karaoke-drain-low 1ms steps(1, end) var(--drain-low) forwards; }
+    fd-karaoke-drain-low 1ms step-start var(--drain-low) forwards; }
 @keyframes fd-karaoke-drain { from { transform:scaleX(var(--drain-left)); } to { transform:scaleX(0); } }
 @keyframes fd-karaoke-drain-low { to { background:var(--clay); box-shadow:0 0 10px var(--clay); } }
 
@@ -189,6 +189,9 @@
 .fd-karaoke-home em { font:700 15px/1.2 var(--fd-body); font-style:normal; color:var(--lamp-live-text); font-variant-numeric:tabular-nums; }
 .fd-karaoke-home em .fd-karaoke-clock { font:inherit; min-width:0; color:inherit; }
 .fd-karaoke-home em.is-tier { display:inline-flex; align-items:center; gap:6px; color:var(--ink); font:800 15px/1.2 var(--fd-display);
+  letter-spacing:.06em; text-transform:uppercase; }
+/* the Now card's row: your tier, in its paint, under the singer */
+.fd-karaoke-tiermark { display:inline-flex; align-items:center; gap:6px; color:var(--ink); font:800 14px/1.2 var(--fd-display);
   letter-spacing:.06em; text-transform:uppercase; }
 /* before the game: one quiet row into your profile's karaoke song */
 .fd-karaoke-home.is-ahead { border-color:var(--line); background:var(--paper); box-shadow:var(--glass-edge); }

@@ -1684,7 +1684,7 @@ function TournamentApp({ tournament, onUpdateReload }) {
             onPlay={openDuel} onAccept={acceptDuel} onDecline={declineDuel}
             onWithdraw={withdrawDuel} onVoid={voidDuel} />}
           awardsContent={<AwardsHome state={state} me={me} onPlayer={p => setModal({type:"player", p})} />}
-          /* the in-app games in progress, as rows of Home's Now card (Karaoke's joins here) */
+          /* the in-app games in progress, as rows of Home's Now card */
           gameContent={<>
             <GeoHome state={state} me={me} inCard onOpen={() => setGeoForce(n => n + 1)} />
             <TriviaHome state={state} me={me} inCard onOpen={() => setTriviaForce(n => n + 1)} />

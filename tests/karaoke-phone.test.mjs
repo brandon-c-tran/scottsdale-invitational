@@ -348,7 +348,16 @@ test("Home's row by phase, gone once the result posts; the song row before the g
   assert.match(home(stage("singing")), />Singing</);
   assert.match(home(stage("up-watch")), />Up next: Henry</);
   assert.match(home(stage("vote")), />Henry<\/strong><em[^>]*>Vote</);
-  assert.match(home(stage("voted")), /class="is-tier"[^>]*>Epic</, "your tier, in its paint");
+  assert.match(home(stage("voted")), /class="is-tier"[^>]*>(?:<span[^>]*><\/span>)?Epic</, "your tier, in its paint");
+  /* the same rows inside Home's Now card (ui/NowRow.jsx) */
+  const card = (state, player = ME, extra = {}) => home(state, player, { inCard:true, ...extra });
+  assert.match(card(stage("pick")), /class="fd-now-row is-live is-primary fd-karaoke-now"/, "Pick your song fills the verb");
+  assert.match(card(stage("pick")), />Pick your song</);
+  assert.match(card(stage("vote")), /fd-now-row-go">Vote</, "Vote is the verb");
+  assert.match(card(stage("voted")), /class="is-tier">Epic</, "your tier, in its paint");
+  assert.doesNotMatch(card(stage("voted")), /is-primary/, "voted asks nothing");
+  assert.match(card(stage("up-watch")), /Singer \d+ of \d+/);
+  assert.match(card(stage("ahead"), ME, { karaoke:true }), />Pick a karaoke song</);
   assert.match(home(stage("reveal")), />Results</);
   const posted = stage("reveal");
   posted.results = { ...posted.results, karaoke:{ slots:[[at(6)]] } };
@@ -481,7 +490,9 @@ test("the commissioner's tray: the pill's beat and its moves, the same writes, h
 test("App mounts the game beside Trivia's, waits on modals, and Home's row and strip reopen it", () => {
   const app = read("src/App.jsx");
   assert.match(app, /\{me && <KaraokeSheet state=\{state\} me=\{me\} blocked=\{!!modal\} force=\{karaokeForce\} gm=\{gmView\}/);
-  assert.match(app, /<KaraokeHome state=\{state\} me=\{me\} karaoke=\{capabilities\.karaoke === true\} onOpen=\{\(\) => setKaraokeForce\(n => n \+ 1\)\}/);
+  /* a row of Home's Now card, beside Where and When's and Trivia's */
+  assert.match(app, /<KaraokeHome state=\{state\} me=\{me\} inCard karaoke=\{capabilities\.karaoke === true\} onOpen=\{\(\) => setKaraokeForce\(n => n \+ 1\)\}/);
+  assert.ok(app.indexOf("<TriviaHome state={state} me={me} inCard") < app.indexOf("<KaraokeHome"), "inside gameContent, after Trivia's");
   assert.match(app, /onKaraoke=\{\(\) => setKaraokeForce\(n => n \+ 1\)\}/);
   assert.ok(app.indexOf("<TriviaPlaySheet") < app.indexOf("<KaraokeSheet"));
   const home = read("src/features/home/GuestHome.jsx");

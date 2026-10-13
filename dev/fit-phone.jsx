@@ -253,14 +253,14 @@ async function openSheet(kind) {
     return ok && !!document.querySelector(".fd-karaoke-body.is-picking");
   }
   if (kind === "karaoke-open") {
-    const ok = await tap(() => document.querySelector(".fd-karaoke-home"));
+    const ok = await tap(() => document.querySelector(".fd-karaoke-now, .fd-karaoke-home"));
     await sleep(500);
     return ok && !!document.querySelector(".fd-karaoke-game");
   }
   if (kind === "karaoke-home") {
     const ok = await tap(() => document.querySelector(".fd-karaoke-close"));
     await sleep(500);
-    return ok && !document.querySelector(".fd-karaoke-game") && !!document.querySelector(".fd-karaoke-home");
+    return ok && !document.querySelector(".fd-karaoke-game");
   }
   if (kind === "karaoke-tray") {
     const ok = await tap(() => document.querySelector(".fd-karaoke-more"));

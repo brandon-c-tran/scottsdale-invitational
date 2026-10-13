@@ -3,7 +3,7 @@ import { Icon } from "../../ui/Icon.jsx";
 import { NowRow } from "../../ui/NowRow.jsx";
 import { EventName, OneSafe } from "../../ui/OneSafe.jsx";
 import { Countdown, useKaraokeNow } from "./KaraokeClock.jsx";
-import { karaokeHomeLine, karaokeSongAhead, karaokeView, tierPaint } from "./karaokeModel.js";
+import { karaokeHomeLine, karaokeSongAhead, karaokeView, karaokeYou, tierPaint } from "./karaokeModel.js";
 import "./karaoke.css";
 
 /* your tier, in its paint */
@@ -34,6 +34,10 @@ export function KaraokeHome({ state, me, onOpen, onSong = null, karaoke = false,
   if (!line) return null;
   const paint = tierPaint(line.tier);
   if (inCard) {
+    /* what the game asks of you is the card's headline (the You strip,
+       karaokeYou), so its row stays away; the row is the rest: your tier,
+       the room's place, a spectator's way in */
+    if (karaokeYou(state, me)?.word) return null;
     /* what asks you now fills the row's verb */
     const voting = line.em === "Vote";
     const asks = (view.phase === "pick" && view.here && !view.myReady) || voting

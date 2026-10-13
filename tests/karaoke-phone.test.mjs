@@ -351,9 +351,10 @@ test("Home's row by phase, gone once the result posts; the song row before the g
   assert.match(home(stage("voted")), /class="is-tier"[^>]*>(?:<span[^>]*><\/span>)?Epic</, "your tier, in its paint");
   /* the same rows inside Home's Now card (ui/NowRow.jsx) */
   const card = (state, player = ME, extra = {}) => home(state, player, { inCard:true, ...extra });
-  assert.match(card(stage("pick")), /class="fd-now-row is-live is-primary fd-karaoke-now"/, "Pick your song fills the verb");
-  assert.match(card(stage("pick")), />Pick your song</);
-  assert.match(card(stage("vote")), /fd-now-row-go">Vote</, "Vote is the verb");
+  /* what the game asks of you is the card's headline (the You strip): no row */
+  assert.equal(card(stage("pick")), "", "Pick your song is the strip's");
+  assert.equal(card(stage("vote")), "", "Vote is the strip's");
+  assert.match(card(stage("voted")), /class="fd-now-row is-live fd-karaoke-now"/);
   assert.match(card(stage("voted")), /class="is-tier">Epic</, "your tier, in its paint");
   assert.doesNotMatch(card(stage("voted")), /is-primary/, "voted asks nothing");
   assert.match(card(stage("up-watch")), /Singer \d+ of \d+/);

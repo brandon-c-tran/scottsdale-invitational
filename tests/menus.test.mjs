@@ -11,7 +11,7 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { EMPTY_STATE, allEventsOf } from "../shared/core.js";
 import { resolveDirector } from "../shared/show.js";
-import { commissionerMenu, moreMenu } from "../src/features/director/menuModel.js";
+import { commissionerMenu, moreMenu, settingsMenu, settingsOff } from "../src/features/director/menuModel.js";
 import { deviceLabel, speakerStage, speakerValue } from "../src/features/speaker/speakerModel.js";
 import { directorPill } from "../src/features/director/directorPill.js";
 
@@ -41,14 +41,17 @@ test("the More menu: You, Weekend, Commissioner, by icon, no sentences", () => {
   for (const section of guest) assert.ok(section.icon && section.title.split(" ").length <= 2, section.id);
 });
 
-test("the commissioner's menu: Now, TV and sound, Games, People and trip, Setup, Exit alone at the foot", () => {
+test("the commissioner's menu: Now, The show, Games, People, Setup, Exit alone at the foot", () => {
   const menu = commissionerMenu(full);
   assert.deepEqual(menu.map(section => section.id), ["now", "room", "games", "people", "setup", "exit"]);
-  assert.deepEqual(menu.map(section => section.title), ["Now", "TV and sound", "Games", "People and trip", "Setup", null]);
+  assert.deepEqual(menu.map(section => section.title), ["Now", "The show", "Games", "People", "Setup", null]);
   const of = id => menu.find(section => section.id === id).items.map(item => item.id);
   assert.deepEqual(of("now"), ["crown", "lockStart", "takeBack:putt", "lockerRoom", "unfreeze"], "only what is actionable now, first");
-  assert.deepEqual(of("room"), ["showControl", "audioDirector"]);
+  assert.deepEqual(of("room"), ["showControl", "audioDirector", "settings"]);
   assert.deepEqual(of("games"), ["geo", "trivia", "awards"]);
+  /* Karaoke's desk, when the build has one, sits between Trivia and Awards */
+  assert.deepEqual(ids(commissionerMenu({ karaoke:"6 songs" })).filter(id => ["geo", "trivia", "karaoke", "awards"].includes(id)),
+    ["geo", "trivia", "karaoke", "awards"]);
   assert.deepEqual(of("people"), ["attendance", "travelSheet", "logistics"]);
   assert.deepEqual(of("setup"), ["gmDevices", "snapshot", "qa", "reset"]);
   const flat = menu.flatMap(section => section.items);
@@ -79,10 +82,34 @@ test("the Speaker row stands whenever audio is on, whatever the TV capability", 
   for (const showControl of [true, false]) {
     const menu = commissionerMenu({ audioDirector:true, showControl, speaker:"Not connected" });
     const room = menu.find(section => section.id === "room");
-    assert.deepEqual(room.items.map(item => item.id), ["showControl", "audioDirector"], `showControl ${showControl}`);
+    assert.deepEqual(room.items.map(item => item.id), ["showControl", "audioDirector", "settings"], `showControl ${showControl}`);
     assert.equal(room.items[1].value, "Not connected");
   }
   assert.ok(!ids(commissionerMenu({ showControl:true })).includes("audioDirector"), "no audio, no Speaker row");
+});
+
+test("Settings: every switch in one list, each the same write as its own home", () => {
+  const all = settingsMenu({ audioDirector:true, autoWinSongs:true, qaAllowed:true, qaOn:false, doorOpen:true, jerseysLocked:false });
+  assert.deepEqual(all.map(section => section.id), ["show", "people", "setup"]);
+  assert.deepEqual(ids(all), ["autopilot", "gags", "autoWinSongs", "door", "jerseys", "qaStrip"]);
+  const row = (sections, id) => sections.flatMap(section => section.items).find(item => item.id === id);
+  for (const item of all.flatMap(section => section.items)) assert.equal(typeof item.pressed, "boolean", `${item.id} is a switch`);
+  assert.equal(row(all, "autopilot").pressed, true, "running unless held");
+  assert.equal(row(settingsMenu({ autopilotHeld:true }), "autopilot").pressed, false);
+  assert.equal(row(all, "gags").pressed, true);
+  assert.equal(row(settingsMenu({ gags:false }), "gags").pressed, false);
+  assert.equal(row(all, "door").value, "Open");
+  assert.equal(row(settingsMenu({}), "door").value, "Closed");
+  assert.equal(row(settingsMenu({ audioDirector:true, autoWinSongs:null }), "autoWinSongs").disabled, true, "unknown until Spotify answers");
+  /* capabilities off: their switches are gone */
+  assert.deepEqual(ids(settingsMenu({})), ["autopilot", "gags", "door", "jerseys"]);
+  assert.equal(settingsOff({ gags:true }), null);
+  assert.equal(settingsOff({ autopilotHeld:true, gags:false, autoWinSongs:false }), "Autopilot, Gags, Win songs off");
+  /* the App: the row opens the sheet, and each switch makes its home's write */
+  const app = readFileSync(new URL("../src/App.jsx", import.meta.url), "utf8");
+  assert.match(app, /case "settings": case "readyCheck": return sheet\(id\)/);
+  for (const write of [/act\("setAutopilot", \{ hold \}/, /act\("setGags", \{ on:/, /spotifyAutoWinSongs\(/, /setArrivalsOpen\(!settingsFacts\.doorOpen\)/,
+    /act\("lockJerseys", \{ locked \}/, /case "qaStrip": return toggleQa\(\)/]) assert.match(app, write);
 });
 
 test("the Speaker row's value: the speaker, else what stands between", () => {

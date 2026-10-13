@@ -3,8 +3,9 @@
    (src/ui/Menu.jsx MenuSections); App maps each item id to its action.
 
    The commissioner's sections run in the order a hand reaches for them:
-   what needs doing now, the room's TV and speaker, the games he runs, the
-   people and the trip, then setup. Destructive rows still open their own
+   what needs doing now, the show (the TV, the speaker, and Settings: every
+   switch the weekend has in one list, settingsMenu below), the games he
+   runs, the people and the trip, then setup. Destructive rows still open their own
    confirm; Exit stands alone at the foot. Values are state ("2 away",
    "8 photos", the speaker's name), never a sentence about the row. A new
    desk (Trivia) is one more item in GAME_DESKS. Pure. */
@@ -38,6 +39,9 @@ export function moreMenu(f = {}) {
 const GAME_DESKS = [
   f => ({ id:"geo", name:"Where and When", icon:"pin", value:plural(f.geoPhotos || 0, "photo") }),
   f => ({ id:"trivia", name:"Trivia", icon:"games", value:plural(f.triviaQuestions || 0, "question") }),
+  /* Karaoke's desk, when the build has one (f.karaoke: its value, or "") */
+  f => f.karaoke !== undefined && f.karaoke !== null
+    ? { id:"karaoke", name:"Karaoke", icon:"song", value:f.karaoke || null } : null,
   f => ({ id:"awards", name:"Awards", icon:"awards", value:f.awardsNote || null }),
 ];
 
@@ -58,12 +62,14 @@ export function commissionerMenu(f = {}) {
       f.frozen && { id:"unfreeze", name:"Unfreeze board", tone:"destructive" },
       !f.live && ready,
     ]),
-    section("room", "TV and sound", "tv", [
+    section("room", "The show", "tv", [
       { id:"showControl", name:"TV", icon:"tv", value:f.tvNow || null },
-      f.audioDirector && { id:"audioDirector", name:"Speaker", icon:"song", value:f.speaker || null },
+      f.audioDirector && { id:"audioDirector", name:"Speaker", icon:"sound", value:f.speaker || null },
+      /* every switch in one list; its value names what is off */
+      { id:"settings", name:"Settings", icon:"menu", value:f.settingsOff || null },
     ]),
     section("games", "Games", "games", GAME_DESKS.map(desk => desk(f))),
-    section("people", "People and trip", "people", [
+    section("people", "People", "people", [
       { id:"attendance", name:"Who is coming", icon:"people",
         value:f.arrivals ? `${f.arrivals.here} of ${f.arrivals.total} here`
           : out.length ? `${f.coming} coming` : away.length ? `${away.length} away` : "Everyone" },
@@ -81,4 +87,35 @@ export function commissionerMenu(f = {}) {
       { id:"exit", name:"Exit commissioner", icon:"exit", chevron:false },
     ]),
   ].filter(item => item.items.length);
+}
+
+/* Every switch the weekend has, in one list (the menu's Settings row).
+   Each item is a switch (`pressed`) and its id is the write App makes: the
+   same write as the switch's own home, which keeps its control too (the
+   pill's tray, the TV sheet, Speaker, Who is coming, the travel sheet, the
+   QA console). A switch whose capability is off is not listed. */
+export function settingsMenu(f = {}) {
+  return [
+    section("show", "The show", "tv", [
+      { id:"autopilot", name:"Autopilot", pressed:!f.autopilotHeld },
+      { id:"gags", name:"Gags", pressed:f.gags !== false },
+      /* the speaker's own setting: unknown until Spotify answers */
+      f.audioDirector && { id:"autoWinSongs", name:"Play win songs automatically",
+        pressed:f.autoWinSongs === true, disabled:typeof f.autoWinSongs !== "boolean" },
+    ]),
+    section("people", "People", "people", [
+      { id:"door", name:"Check-in", value:f.doorOpen ? "Open" : "Closed", pressed:!!f.doorOpen },
+      { id:"jerseys", name:"Jerseys ordered", pressed:!!f.jerseysLocked },
+    ]),
+    section("setup", "Setup", "lock", [
+      f.qaAllowed && { id:"qaStrip", name:"QA strip", pressed:!!f.qaOn },
+    ]),
+  ].filter(item => item.items.length);
+}
+
+/* the Settings row's value: what is off that the weekend means to run */
+export function settingsOff(f = {}) {
+  const off = [f.autopilotHeld && "Autopilot", f.gags === false && "Gags", f.autoWinSongs === false && "Win songs"]
+    .filter(Boolean);
+  return off.length ? `${off.join(", ")} off` : null;
 }

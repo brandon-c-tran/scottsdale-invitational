@@ -1155,6 +1155,13 @@ export const PHONE_SCENARIOS = Object.freeze([
   { id:"gm-speaker-setup", build:() => fresh("locker"), viewer:"gm", audio:true, spotify:FIT_SPOTIFY.setup,
     tabs:[], sheets:["speaker"] },
   { id:"gm-qa", build:() => fresh("event:putt:open"), viewer:"gm", qa:true, tabs:["home", "bets"], sheets:["qa", "pill-more"] },
+  /* the console before the weekend (Jump to opens on the first event) */
+  { id:"gm-qa-locker", build:() => fresh("locker"), viewer:"gm", qa:true, tabs:[], sheets:["qa"] },
+  /* Settings: every switch at once (the speaker connected, QA allowed),
+     the door open, and again with the door shut and nothing but the board's own */
+  { id:"gm-settings", build:() => withArrivals(fresh("locker"), 9), viewer:"gm", show:true, audio:true, qa:true,
+    spotify:FIT_SPOTIFY.connected, tabs:[], sheets:["settings", "gm-menu"] },
+  { id:"gm-settings-bare", build:() => fresh("event:putt:open"), viewer:"gm", tabs:[], sheets:["settings"] },
   { id:"guest-menu", build:() => fresh("event:putt:open"), tabs:[], sheets:["menu"] },
   /* a win song playing on the commissioner's phone: its Stop rides in the
      pill's row (Audio Director on); and one that missed, offered again */

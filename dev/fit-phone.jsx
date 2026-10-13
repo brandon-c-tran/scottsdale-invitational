@@ -283,11 +283,11 @@ async function openSheet(kind) {
     return ok && !!document.querySelector(".fd-trivia-desk");
   }
   /* the commissioner's Who is coming, Travel sheet and Ready check, from their menu rows */
-  if (kind === "roster" || kind === "travel-sheet" || kind === "ready-check") {
+  if (kind === "roster" || kind === "travel-sheet" || kind === "ready-check" || kind === "settings") {
     const opened = await tap(() => [...document.querySelectorAll("header button[aria-label='Commissioner']")].find(visible));
     if (!opened) return false;
     await sleep(600);
-    const name = { roster:"Who is coming", "travel-sheet":"Travel sheet", "ready-check":"Ready check" }[kind];
+    const name = { roster:"Who is coming", "travel-sheet":"Travel sheet", "ready-check":"Ready check", settings:"Settings" }[kind];
     return tap(() => [...document.querySelectorAll("[role=dialog] .fd-menu-row")].find(b => visible(b)
       && b.querySelector(".fd-menu-name")?.textContent.trim() === name));
   }

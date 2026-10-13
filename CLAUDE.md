@@ -1037,6 +1037,16 @@ Brandon's review; roll staging back to the Oct 9 build with `npx wrangler
 rollback a0e4800c-4fd5-4661-9731-a89df7b0c8ac --env staging`. A local e2e
 server on the production build needs `--var APP_ENV:local` and a short
 `--persist-to` (a long Windows path fails the Durable Object's storage).
+**v5** (tag `v5`, branch `staging/oct12`, Oct 13; `APP_VERSION` "v5"):
+everything above from Oct 9 on, plus the bits step-start fix, Trivia board
+for 13, Sim players and Run the night, the Home Now card, team and pair
+bits, the one Settings sheet, the TV tote board and Karaoke; 1292 tests.
+Staging `7a3fc0af-8923-4fb1-963b-a80a2b6e4754`, then PRODUCTION
+`bcff6ab8-d3bd-48c1-b27a-f75388a2d51a`, deployed at Brandon's call without
+a snapshot (read-only smoke passed). Roll production back with `npx
+wrangler rollback bc0ce2f2-5596-465e-9aaf-b0a23a9bc416`; the older build
+does not hide karaoke picks, so reset game progress first if a karaoke
+game ran.
 
 **September 5 correction (history for the visuals).** Brandon rejected the light
 redesign and the rewritten voice. It made the app harder to use and broke

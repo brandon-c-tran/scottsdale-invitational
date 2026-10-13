@@ -118,14 +118,21 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   and the final; spectators, crew and replays see nothing new.
 - **Commissioner menu (Oct 3):** `director/menuModel.js` sections in the
   order a hand reaches: Now (crown, lock bets, take back, locker room,
-  unfreeze; only what applies), TV and sound (TV: `director/TvSheet.jsx`
+  unfreeze; only what applies), The show (TV: `director/TvSheet.jsx`
   on the pure `tvSheetModel.js`, what is on the TV now with its steps as
   lamps, the TVs and their sound, scenes as tiles, the kiosk shortcut;
   Speaker: `features/speaker/`, always its own row when the audio
-  capability is on, valued with the chosen speaker), Games (Where and
-  When, Awards; a desk is one entry in `GAME_DESKS`), People and trip,
-  Setup (devices, export, QA opens the console with the strip's switch
-  inside, Reset game progress, its one entry), Exit alone. **Ready check**
+  capability is on, valued with the chosen speaker; Settings (Oct 13,
+  `settingsMenu`): every switch in one sheet, each the same write as its
+  own home: Autopilot, Gags, Play win songs automatically, Check-in,
+  Jerseys ordered, QA strip), Games (Where and When, Trivia, Karaoke when
+  App passes `karaoke`, Awards; a desk is one entry in `GAME_DESKS`),
+  People, Setup (devices, export, QA opens the console, Reset game
+  progress, its one entry), Exit alone. The QA console runs Watch it play
+  (Sim players), Step, Jump to (one event picker with Open / Mid / Done,
+  one milestone picker with Go), Bets and duels, Test a moment (moment,
+  bit or Random, Play), Checkpoints (with the strip's switch), Lens,
+  Reset. **Ready check**
   (Oct 8, pure `director/readyCheck.js`, lazy `ReadyCheck.jsx`) is the one
   sheet of what the weekend still needs, read only from the commissioner's
   frame (guests' answers counted over `rosterOf`, Trivia, Where and When,

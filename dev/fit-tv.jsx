@@ -250,7 +250,7 @@ function MomentLayer({ state, events }) {
     const contest = ev ? resolveCurrentContest(state, ev) : null;
     const view = ev && contest ? faceOffView(state, ev, contest, events) : null;
     node = view ? <FaceOff state={state} events={events} ev={ev} contest={contest} moment={{ id:"fit-faceoff", anchor,
-      elapsed:moment.t }} view={{ ...view, record:view.record || "Tied 1-1" }} teach={!!contest.odds} /> : null;
+      elapsed:moment.t }} view={{ ...view, record:view.record || "Tied 1-1" }} teach={!!(contest.odds || contest.pool)} /> : null;
   }
   return node ? createPortal(node, host) : null;
 }

@@ -146,5 +146,5 @@
 /* a priced felt: the price stands in its top-left corner, level with the
    side's total in the middle */
 .tv-felt.has-price { position:relative; }
-.tv-felt-price { position:absolute; left:18px; top:8px; z-index:1; }
-.tv-felt-price .fd-price { --price-size:52px; }
+.tv-felt-price { position:absolute; left:18px; top:4px; z-index:1; }
+.tv-felt-price .fd-price { --price-size:46px; }

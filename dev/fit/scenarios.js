@@ -10,7 +10,7 @@
    harnesses (dev/fit-tv.jsx, dev/fit-phone.jsx) and tests/fit-audit.test.mjs. */
 import {
   EMPTY_STATE, ROSTER, RESET_PROGRESS_CONFIRMATION, allEventsOf, computeStandings, draftTurn, presentPlayers, resolveCurrentContest,
-  resolveWager,
+  resolveWager, contestPool,
 } from "../../shared/core.js";
 import { applyAction as apply } from "../../worker/actions.js";
 import { boardDeskStage, boardPlayed, boardStage } from "./boardFixtures.js";
@@ -731,9 +731,25 @@ function decidedLast(state, evId) {
 /* the commissioner's winner tap on the live contest: the side `pick` names */
 const winnerTap = (evId, pick) => state => {
   const live = resolveCurrentContest(state, eventOf(state, evId));
-  act(state, "recordContestWinner", { evId, contestId:live.id, contestRevision:live.revision, winner:pick(live).key, postResult:true });
+  act(state, "recordContestWinner", { evId, contestId:live.id, contestRevision:live.revision, winner:pick(live, state).key, postResult:true });
   return state;
 };
+/* the pool's long shot and favorite on a live two-sided contest */
+const poolSide = (state, live, which) => {
+  const pool = contestPool(state, live);
+  const key = pool ? pool[which] : null;
+  return live.sides.find(item => item.key === key) || null;
+};
+/* an outsider (ruled up so the stake fits) backs a side of a match */
+function backMatch(state, evId, side, stake, skip = []) {
+  const ev = eventOf(state, evId);
+  const live = resolveCurrentContest(state, ev);
+  const who = presentPlayers(state).find(item => !live.players.includes(item) && !skip.includes(item));
+  act(state, "adjust", { player:who, delta:stake * 2, reason:"fit" });
+  act(state, "placeWager", { wager:{ kind:"match", eventId:evId, evName:ev.name, stake, contestId:live.id,
+    contestRevision:live.revision, match:live.match, teamIdx:side.key, drawId:live.drawId } }, playerCtx(who));
+  return who;
+}
 /* a streak: the guest wins Long Putt, then their pair takes every Beer
    Die match it plays; the moment rides the final, which posts the result */
 function streakParts(player = FIT_GUEST) {
@@ -757,9 +773,13 @@ function streakParts(player = FIT_GUEST) {
    reopens so the odds are fixed then), and it won */
 function upsetParts(player = null) {
   if (!player) {
+    /* the room backs the leaders' side, so the other side is the pool's
+       long shot (an upset: 3x or longer) and wins */
     const state = comebackBoard({ bets:false });
+    const open = resolveCurrentContest(state, eventOf(state, "die"));
+    backMatch(state, "die", poolSide(state, open, "favorite") || open.sides[0], 500);
     lockCurrent(state, "die");
-    const tap = winnerTap("die", live => live.sides.find(item => item.key === live.odds?.underdog) || live.sides[1]);
+    const tap = winnerTap("die", (live, now) => poolSide(now, live, "longshot") || live.sides[1]);
     return { state, write:next => decidedLast(tap(next), "die"), action:"recordContestWinner" };
   }
   const state = withoutBets(fresh("event:die:open"));
@@ -769,8 +789,9 @@ function upsetParts(player = null) {
   act(state, "takeBackAnnouncement", { evId:"die" });
   favorite.players.forEach((who, i) => act(state, "adjust", { player:who, delta:i ? 900 : 1500, reason:"fit" }));
   act(state, "announceEvent", { evId:"die" });
+  backMatch(state, "die", favorite, 500, [player]);
   lockCurrent(state, "die");
-  const tap = winnerTap("die", live => live.sides.find(item => item.key === live.odds?.underdog) || live.sides[0]);
+  const tap = winnerTap("die", (live, now) => poolSide(now, live, "longshot") || live.sides[0]);
   return { state, write:next => decidedLast(tap(next), "die"), action:"recordContestWinner" };
 }
 /* a big losing bet: a player with no photo (Henry Nguyen when he is not
@@ -782,13 +803,15 @@ function bigLossParts(bettors = ["Henry", "Allan", "Ben", "Jeremy"], { own = nul
   const contest = resolveCurrentContest(state, ev);
   const mine = own ? contest.sides.find(item => item.players.includes(own)) : null;
   const winner = mine ? contest.sides.find(item => item !== mine)
-    : contest.sides.find(item => item.key !== contest.odds?.underdog) || contest.sides[0];
+    : poolSide(state, contest, "favorite") || contest.sides[0];
   const loser = contest.sides.find(item => item !== winner);
   const who = own && mine ? own : bettors.find(item => !contest.players.includes(item))
     || presentPlayers(state).find(item => !contest.players.includes(item));
   act(state, "adjust", { player:who, delta:2000, reason:"fit" });
   act(state, "placeWager", { wager:{ kind:"match", eventId:"die", evName:ev.name, stake:1000, contestId:contest.id,
     contestRevision:contest.revision, match:contest.match, teamIdx:loser.key, drawId:contest.drawId } }, playerCtx(who));
+  /* the winners stay the favorite, so the loss is not also an upset */
+  backMatch(state, "die", winner, 1500, [who, ...bettors]);
   lockCurrent(state, "die");
   const tap = winnerTap("die", live => live.sides.find(item => item.key === winner.key));
   return { state, write:next => decidedLast(tap(next), "die"), action:"recordContestWinner" };

@@ -442,6 +442,41 @@ var init_teamNames = __esm({
 });
 
 // shared/core.js
+function poolOf(state, eventId, contestId) {
+  const seed = state.eventOps?.[eventId]?.pools?.[contestId]?.seed || {};
+  const sides = {};
+  const side = (key) => sides[key] ||= { seed: Number(seed[key]) || 0, stake: 0, bettors: 0 };
+  Object.keys(seed).forEach(side);
+  for (const w of state.wagers || []) {
+    if (!w.pool || w.contestId !== contestId || w.eventId !== eventId || w.status === "void") continue;
+    const key = sideId(wagerSide(state, w));
+    if (key === null) continue;
+    side(key).stake += Number(w.stake) || 0;
+    side(key).bettors += 1;
+  }
+  const total = Object.values(sides).reduce((sum, s) => sum + s.seed + s.stake, 0);
+  for (const s of Object.values(sides)) s.price = poolPrice(total, s.seed + s.stake);
+  return {
+    contestId,
+    eventId,
+    total,
+    sides,
+    price: (key) => sides[sideId(key)]?.price ?? poolPrice(total, 0)
+  };
+}
+function poolBook(state) {
+  const book = /* @__PURE__ */ new Map();
+  for (const w of state.wagers || []) {
+    if (!w.pool || !w.contestId || book.has(w.contestId)) continue;
+    book.set(w.contestId, poolOf(state, w.eventId, w.contestId));
+  }
+  return book;
+}
+function winDelta(state, w, book) {
+  if (!w.pool) return wagerMult(w) * w.stake;
+  const pool = book?.get(w.contestId) || poolOf(state, w.eventId, w.contestId);
+  return poolNet(w.stake, pool.price(wagerSide(state, w)));
+}
 function cleanLeg(v) {
   if (v === null || v === void 0 || v === "") return null;
   if (typeof v === "string") return v.trim() ? { note: v.trim().slice(0, 90) } : null;
@@ -703,7 +738,7 @@ function stageEntrantView(state, st, key) {
   }
   return { players: [key], name: disp(state, key) };
 }
-function resolveWager(state, w, events) {
+function resolveWager(state, w, events, book = null) {
   if (w.status === "void") return { status: "void", delta: 0 };
   const ev = events.find((e) => e.id === w.eventId);
   if (!ev) return { status: "void", delta: 0 };
@@ -717,7 +752,7 @@ function resolveWager(state, w, events) {
     if (!res || !res.slots?.[0]) return { status: "pending", delta: 0 };
     const winners = res.slots[0];
     const won = w.pickTeam ? w.pickPlayers.every((p) => winners.includes(p)) : winners.includes(w.pick);
-    return { status: won ? "won" : "lost", delta: won ? wagerMult(w) * w.stake : -w.stake };
+    return { status: won ? "won" : "lost", delta: won ? winDelta(state, w, book) : -w.stake };
   }
   if (w.kind === "match") {
     const draw = state.draws[w.eventId];
@@ -727,7 +762,7 @@ function resolveWager(state, w, events) {
     if (!match) return { status: "void", delta: 0 };
     if (match.winner === null || match.winner === void 0) return { status: "pending", delta: 0 };
     const won = match.winner === w.teamIdx;
-    return { status: won ? "won" : "lost", delta: won ? wagerMult(w) * w.stake : -w.stake };
+    return { status: won ? "won" : "lost", delta: won ? winDelta(state, w, book) : -w.stake };
   }
   if (w.kind === "stage" || w.kind === "heat") {
     const st = state.stages[w.eventId];
@@ -739,18 +774,18 @@ function resolveWager(state, w, events) {
     if (w.final) {
       if (st.finalWinner === null || st.finalWinner === void 0) return { status: "pending", delta: 0 };
       const won2 = st.finalWinner === w.pickKey;
-      return { status: won2 ? "won" : "lost", delta: won2 ? wagerMult(w) * w.stake : -w.stake };
+      return { status: won2 ? "won" : "lost", delta: won2 ? winDelta(state, w, book) : -w.stake };
     }
     const g = st.groups[w.group];
     if (!g) return { status: "void", delta: 0 };
     if (w.kind === "heat") {
       if (g.winner === null || g.winner === void 0) return { status: "pending", delta: 0 };
       const won2 = g.winner === w.pickKey;
-      return { status: won2 ? "won" : "lost", delta: won2 ? wagerMult(w) * w.stake : -w.stake };
+      return { status: won2 ? "won" : "lost", delta: won2 ? winDelta(state, w, book) : -w.stake };
     }
     if ((g.through || []).length < st.advance) return { status: "pending", delta: 0 };
     const won = g.through.includes(w.pickKey);
-    return { status: won ? "won" : "lost", delta: won ? wagerMult(w) * w.stake : -w.stake };
+    return { status: won ? "won" : "lost", delta: won ? winDelta(state, w, book) : -w.stake };
   }
   return { status: "void", delta: 0 };
 }
@@ -850,8 +885,9 @@ function computeStandings(state) {
       if (place2 === 0) wins[player] += 1;
     });
   });
+  const book = poolBook(state);
   (state.wagers || []).forEach((w) => {
-    const r = resolveWager(state, w, evs);
+    const r = resolveWager(state, w, evs, book);
     if (r.status === "won" || r.status === "lost") {
       if (pts[w.player] !== void 0) {
         pts[w.player] += r.delta;
@@ -1019,8 +1055,10 @@ function resolveCurrentContest(state, ev) {
   else phase = op.bettingLockedAt ? "betting-locked" : "scheduled";
   const nextAction = phase === "betting-open" ? lifecycleAction("lock-betting", "Lock and start") : phase === "betting-locked" ? lifecycleAction("start-event", "Start") : phase === "awaiting-result" ? lifecycleAction("post-result", "Post result") : phase === "scheduled" ? lifecycleAction("open-betting", "Open betting") : target.kind === "ffa" ? lifecycleAction("enter-result", "Enter result") : lifecycleAction("record-contest-winner", "Record winner");
   const odds = op.odds?.[target.id];
+  const pooled = !!op.pools?.[target.id];
   return {
     ...target,
+    ...pooled ? { pool: true } : {},
     eventId: ev.id,
     revision: same ? Number(stored.revision || 0) : Number(op.contestRevision || 0),
     phase,
@@ -1029,6 +1067,28 @@ function resolveCurrentContest(state, ev) {
     nextAction,
     ...odds && odds.underdog !== null && odds.underdog !== void 0 ? { odds } : {}
   };
+}
+function contestPool(state, contest) {
+  if (!contest?.pool) return null;
+  const pool = poolOf(state, contest.eventId, contest.id);
+  const sides = contest.sides.map((side) => {
+    const s = pool.sides[sideId(side.key)] || { seed: 0, stake: 0, bettors: 0 };
+    return { key: side.key, seed: s.seed, stake: s.stake, bettors: s.bettors, price: pool.price(side.key) };
+  });
+  const prices = sides.map((s) => s.price);
+  return {
+    total: pool.total,
+    sides,
+    price: pool.price,
+    staked: sides.reduce((sum, s) => sum + s.stake, 0),
+    favorite: sides.length ? sides[prices.indexOf(Math.min(...prices))].key : null,
+    longshot: sides.length ? sides[prices.indexOf(Math.max(...prices))].key : null
+  };
+}
+function wagerPrice(state, w) {
+  if (!w) return null;
+  if (!w.pool) return wagerMult(w) + 1;
+  return poolOf(state, w.eventId, w.contestId).price(wagerSide(state, w));
 }
 function contestBetEligibility(contest, player, sideKey) {
   const side = contest?.sides.find((item) => item.key === sideKey);
@@ -1367,7 +1427,7 @@ function eventInPlay(state, ev) {
   if (phase === "in-progress" || phase === "result-entry") return true;
   return phase === "betting-locked" && !!state.eventOps?.[ev.id]?.bettingLockedAt;
 }
-var ROSTER_CONFIG, ROSTER_STATUSES, rosterPlayers, ALL_PLAYERS, ROSTER, isOut, rosterOf, isActivePlayer, isAway, arrivalsOpen, hasArrived, isOnTheWay, isAbsent, isArriveCode, presentPlayers, PT, START, MAX_RISK, BUYIN_FLOOR, maxRisk, AWARDS, awardTable, SPORTS, RATINGS, SESSIONS, RAW_BUILTIN_EVENTS, OVERFLOW_ROLES, OVERFLOW_ROLE_META, overflowRoleMeta, participationForEvent, BUILTIN_EVENTS, GAMES, OUTRIGHT_MULT, wagerMult, UNDERDOG_GAP, UNDERDOG_MULT, SIZES, AIRLINES, CHIP_GRAY, CHIP_COLORS, CHIP_SKINS, EDITION, LOGISTICS, EMPTY_STATE, RESET_PROGRESS_PRESERVED_KEYS, shapeLabel, MIN_PLAYING, disp, shuffle, snakeTeam, TEAM_NAMES, pokerLive, stacksPosted, CHIP_MIN, POKER_CONFIG, DUEL_LAPSE_MS, duelAccepted, duelLapsed, duelLapsesAt, duelOpen, DUEL_READY_MS, duelReadyUntil, duelBetween, DUEL_DAILY_LIMIT, duelsSentToday, postCountRuling, postCountRulingApplies, MAX_BRACKET, ROUND_NAMES, bracketRoundName, bracketChampion, EVENT_PHASE_LABELS, eventOpOf, bracketStarted, stagesStarted, needsStageSetup, wideField, contestMult, contestSideMults, contestOfEntry, contestUndoAvailability, contestCorrections, refundText, duelPairText, lifecycleAction;
+var ROSTER_CONFIG, ROSTER_STATUSES, rosterPlayers, ALL_PLAYERS, ROSTER, isOut, rosterOf, isActivePlayer, isAway, arrivalsOpen, hasArrived, isOnTheWay, isAbsent, isArriveCode, presentPlayers, PT, START, MAX_RISK, BUYIN_FLOOR, maxRisk, AWARDS, awardTable, SPORTS, RATINGS, SESSIONS, RAW_BUILTIN_EVENTS, OVERFLOW_ROLES, OVERFLOW_ROLE_META, overflowRoleMeta, participationForEvent, BUILTIN_EVENTS, GAMES, OUTRIGHT_MULT, wagerMult, UNDERDOG_GAP, UNDERDOG_MULT, POOL_CAP, POOL_MIN, UPSET_PRICE, poolPrice, poolNet, sideId, SIZES, AIRLINES, CHIP_GRAY, CHIP_COLORS, CHIP_SKINS, EDITION, LOGISTICS, EMPTY_STATE, RESET_PROGRESS_PRESERVED_KEYS, shapeLabel, MIN_PLAYING, disp, shuffle, snakeTeam, TEAM_NAMES, pokerLive, stacksPosted, CHIP_MIN, POKER_CONFIG, DUEL_LAPSE_MS, duelAccepted, duelLapsed, duelLapsesAt, duelOpen, DUEL_READY_MS, duelReadyUntil, duelBetween, DUEL_DAILY_LIMIT, duelsSentToday, postCountRuling, postCountRulingApplies, MAX_BRACKET, ROUND_NAMES, bracketRoundName, bracketChampion, EVENT_PHASE_LABELS, eventOpOf, bracketStarted, stagesStarted, needsStageSetup, wideField, contestMult, contestSideMults, priceText, contestOfEntry, contestUndoAvailability, contestCorrections, refundText, duelPairText, lifecycleAction;
 var init_core = __esm({
   "shared/core.js"() {
     init_teamNames();
@@ -1809,6 +1869,12 @@ var init_core = __esm({
     wagerMult = (w) => Number.isInteger(w?.mult) && w.mult >= 1 ? w.mult : w?.kind === "outright" ? OUTRIGHT_MULT : 1;
     UNDERDOG_GAP = 10 * PT;
     UNDERDOG_MULT = 2;
+    POOL_CAP = 10;
+    POOL_MIN = 1.1;
+    UPSET_PRICE = 3;
+    poolPrice = (total, onSide) => !(onSide > 0) ? POOL_CAP : Math.min(POOL_CAP, Math.max(POOL_MIN, Math.floor(total * 10 / onSide + 1e-9) / 10));
+    poolNet = (stake, price) => Math.max(PT, Math.round(stake * (price - 1) / PT + 1e-9) * PT);
+    sideId = (key) => key === null || key === void 0 ? null : String(key);
     SIZES = ["S", "M", "L", "XL", "XXL"];
     AIRLINES = ["WN", "AA", "UA", "DL", "AS", "B6", "NK", "F9"];
     CHIP_GRAY = "#6B6558";
@@ -2033,6 +2099,7 @@ var init_core = __esm({
     wideField = (contest) => contest?.kind === "ffa" && contest.sides.length > 2;
     contestMult = (contest, sideKey) => wideField(contest) ? OUTRIGHT_MULT : contest?.odds && Number.isInteger(contest.odds.mult) && sideKey !== void 0 && sideKey !== null && contest.odds.underdog === sideKey ? contest.odds.mult : 1;
     contestSideMults = (contest) => Object.fromEntries((contest?.sides || []).map((side) => [side.key, contestMult(contest, side.key)]));
+    priceText = (price) => `${(Math.round(Number(price) * 10) / 10).toFixed(1)}\xD7`;
     contestOfEntry = (evId, entry) => ({
       id: entry.id,
       eventId: evId,
@@ -3961,9 +4028,40 @@ var init_autopilot = __esm({
 // src/features/comebacks/comebacks.js
 function contestTerms(state, contest) {
   if (!contest) return null;
+  const wide = (contest.sides || []).length > 2;
+  const pool = contestPool(state, contest);
+  if (pool) {
+    const sides2 = {};
+    for (const side of pool.sides) {
+      const share = pool.total > 0 ? (side.seed + side.stake) / pool.total : 0;
+      sides2[side.key] = {
+        size: (contest.sides.find((item) => item.key === side.key)?.players || []).length,
+        price: side.price,
+        text: priceText(side.price),
+        stake: side.stake,
+        bettors: side.bettors,
+        share,
+        /* a matchup's long shot lights; a wide board's unbacked sides all
+           sit at the cap, so none lights there (the cap reads dim instead) */
+        long: !wide && side.key === pool.longshot && side.price >= UPSET_PRICE,
+        cap: side.price >= POOL_CAP,
+        favorite: side.key === pool.favorite && !wide
+      };
+    }
+    return {
+      pool: true,
+      odds: true,
+      any: true,
+      wide,
+      sides: sides2,
+      total: pool.total,
+      staked: pool.staked,
+      longshot: pool.longshot,
+      favorite: pool.favorite
+    };
+  }
   const mults = contestSideMults(contest);
   const odds = !!contest.odds;
-  const wide = (contest.sides || []).length > 2;
   const sides = {};
   for (const side of contest.sides || []) {
     sides[side.key] = {
@@ -3974,7 +4072,7 @@ function contestTerms(state, contest) {
       underdog: odds && contest.odds.underdog === side.key
     };
   }
-  return { odds, wide, sides, any: odds };
+  return { pool: false, odds, wide, sides, any: odds };
 }
 var payLine;
 var init_comebacks = __esm({
@@ -8184,7 +8282,8 @@ function ScoreReel({
   from = null,
   at = 0,
   landKey = null,
-  slim = false
+  slim = false,
+  tenths = false
 }) {
   const n = Number(value) || 0;
   const reduced = useReducedMotion();
@@ -8220,7 +8319,7 @@ function ScoreReel({
   }
   const land = landing.current;
   const spinnable = drum && spin;
-  const text = `${n < 0 ? "\u2212" : ""}${Math.abs(n).toLocaleString("en-US")}`;
+  const text = tenths ? `${n < 0 ? "\u2212" : ""}${Math.floor(Math.abs(n) / 10).toLocaleString("en-US")}.${Math.abs(n) % 10}` : `${n < 0 ? "\u2212" : ""}${Math.abs(n).toLocaleString("en-US")}`;
   const cells = [...text];
   const digitCount = cells.filter((ch) => /\d/.test(ch)).length;
   const spinAll = (speed, sign) => {
@@ -10252,12 +10351,18 @@ var init_comebacks2 = __esm({
 // src/features/comebacks/Comebacks.jsx
 import React38, { useEffect as useEffect21, useId as useId5, useRef as useRef21, useState as useState22 } from "react";
 import { createPortal as createPortal3 } from "react-dom";
-function SideTerms({ terms, className = "", tv: tv2 = false, style }) {
+function PriceLamp({ price, long = false, cap = false, size = "md", className = "", label: label2 = null, motion = "fresh" }) {
+  const tenths = Math.round(Number(price) * 10) || 0;
+  const text = `${(tenths / 10).toFixed(1)}\xD7`;
+  return /* @__PURE__ */ React38.createElement("span", { className: `fd-price is-${size}${long ? " is-long" : cap ? " is-cap" : ""} ${className}`, role: "img", "aria-label": label2 || `Pays ${text}` }, /* @__PURE__ */ React38.createElement(ScoreReel, { value: tenths, tenths: true, slim: size !== "xl", tone: long ? "chip" : null, motion, label: text }), /* @__PURE__ */ React38.createElement("span", { className: "fd-price-x", "aria-hidden": "true" }, "\xD7"));
+}
+function SideTerms({ terms, className = "", tv: tv2 = false, style, size }) {
   const cls = `fd-side-terms${tv2 ? " is-tv" : ""} ${className}`;
   if (!terms) return /* @__PURE__ */ React38.createElement("div", { className: cls, style });
-  return /* @__PURE__ */ React38.createElement("div", { className: cls, style }, terms.payLine && (terms.underdog && !tv2 ? /* @__PURE__ */ React38.createElement(UnderdogPays, { line: terms.payLine }) : /* @__PURE__ */ React38.createElement("span", { className: `fd-side-pays${terms.underdog ? " is-underdog" : ""}` }, terms.payLine)));
+  if (terms.price !== void 0) return /* @__PURE__ */ React38.createElement("div", { className: cls, style }, tv2 ? /* @__PURE__ */ React38.createElement(PriceLamp, { price: terms.price, long: terms.long, cap: terms.cap, size: size || "lg" }) : /* @__PURE__ */ React38.createElement(TeachTap, { kind: "pool", label: `Pays ${terms.text}. How the pool pays` }, /* @__PURE__ */ React38.createElement(PriceLamp, { price: terms.price, long: terms.long, cap: terms.cap, size: size || "md" })));
+  return /* @__PURE__ */ React38.createElement("div", { className: cls, style }, terms.payLine && (terms.underdog && !tv2 ? /* @__PURE__ */ React38.createElement(TeachTap, { kind: "underdog", label: terms.payLine }, /* @__PURE__ */ React38.createElement("span", { className: "fd-side-pays is-underdog" }, terms.payLine)) : /* @__PURE__ */ React38.createElement("span", { className: `fd-side-pays${terms.underdog ? " is-underdog" : ""}` }, terms.payLine)));
 }
-function UnderdogPays({ line }) {
+function TeachTap({ kind = "pool", label: label2, children }) {
   const ref = useRef21(null);
   const [at, setAt] = useState22(null);
   const id = useId5();
@@ -10287,13 +10392,13 @@ function UnderdogPays({ line }) {
     if (!box2) return null;
     const width = Math.min(300, window.innerWidth - 32);
     const left = Math.max(16, Math.min(window.innerWidth - 16 - width, box2.left + box2.width / 2 - width / 2));
-    const below = box2.bottom + 8 + 170 < window.innerHeight;
+    const below = box2.bottom + 8 + 190 < window.innerHeight;
     return { left, width, top: below ? box2.bottom + 8 : null, bottom: below ? null : window.innerHeight - box2.top + 8 };
   };
   useEffect21(() => {
-    if (typeof window === "undefined" || taught()) return void 0;
+    if (typeof window === "undefined" || taught(kind)) return void 0;
     const timer = setInterval(() => {
-      if (taught()) {
+      if (taught(kind)) {
         clearInterval(timer);
         return;
       }
@@ -10307,11 +10412,11 @@ function UnderdogPays({ line }) {
       if (!spot) return;
       clearInterval(timer);
       teaching = true;
-      markTaught();
+      markTaught(kind);
       setAt({ ...spot, taught: true });
     }, TEACH_AFTER_MS);
     return () => clearInterval(timer);
-  }, []);
+  }, [kind]);
   useEffect21(() => () => {
     if (at?.taught) teaching = false;
   }, [at]);
@@ -10321,7 +10426,7 @@ function UnderdogPays({ line }) {
       setAt(null);
       return;
     }
-    markTaught();
+    markTaught(kind);
     const spot = place2();
     if (spot) setAt(spot);
   };
@@ -10330,12 +10435,13 @@ function UnderdogPays({ line }) {
     {
       type: "button",
       ref,
-      className: "fd-side-pays is-underdog fd-side-pays-tap",
+      className: `fd-side-pays-tap is-${kind}`,
       "aria-expanded": !!at,
       "aria-controls": at ? id : void 0,
+      "aria-label": label2,
       onClick: toggle
     },
-    line,
+    children,
     /* @__PURE__ */ React38.createElement(InfoLamp, null)
   ), at && typeof document !== "undefined" && createPortal3(/* @__PURE__ */ React38.createElement("div", { className: "fd-underdog-layer", onClick: () => setAt(null), role: "presentation" }, /* @__PURE__ */ React38.createElement(
     "div",
@@ -10344,7 +10450,7 @@ function UnderdogPays({ line }) {
       className: `fd-underdog-pop${at.taught ? " is-taught" : ""}`,
       style: { left: at.left, width: at.width, top: at.top ?? "auto", bottom: at.bottom ?? "auto" }
     },
-    /* @__PURE__ */ React38.createElement(UnderdogExplainer, null)
+    kind === "pool" ? /* @__PURE__ */ React38.createElement(PoolExplainer, null) : /* @__PURE__ */ React38.createElement(UnderdogExplainer, null)
   )), document.body));
 }
 function InfoLamp() {
@@ -10357,6 +10463,21 @@ function Tower({ n, scale = 1 }) {
     return /* @__PURE__ */ React38.createElement("path", { key: i, className: "fd-ux-rim", d: `M2 ${y}v${t}a16 ${ry} 0 0 0 32 0v${-t}` });
   });
   return /* @__PURE__ */ React38.createElement("svg", { className: "fd-ux-tower", viewBox: `0 0 ${w} ${h}`, width: w * scale, height: h * scale, "aria-hidden": "true", focusable: "false" }, chips, /* @__PURE__ */ React38.createElement("ellipse", { className: "fd-ux-top", cx: "18", cy: h - ry - 1 - n * t, rx: "16", ry }));
+}
+function PoolExplainer({ className = "", tv: tv2 = false }) {
+  const total = POOL_EXAMPLE.reduce((sum, side) => sum + side.chips, 0);
+  const scale = tv2 ? 1.6 : 1;
+  const fmt14 = (n) => n.toLocaleString("en-US");
+  return /* @__PURE__ */ React38.createElement(
+    "figure",
+    {
+      className: `fd-pool-explain${tv2 ? " is-tv" : ""} ${className}`,
+      "aria-label": `Winners split the whole pool. ${fmt14(total)} in the pool: ${fmt14(POOL_EXAMPLE[0].chips)} on one side pays ${(total / POOL_EXAMPLE[0].chips).toFixed(1)} times, ${fmt14(POOL_EXAMPLE[1].chips)} on the other pays ${(total / POOL_EXAMPLE[1].chips).toFixed(1)} times.`
+    },
+    /* @__PURE__ */ React38.createElement("span", { className: "fd-px-total", "aria-hidden": "true" }, /* @__PURE__ */ React38.createElement("small", null, "Pool"), fmt14(total)),
+    /* @__PURE__ */ React38.createElement("svg", { className: "fd-px-brace", viewBox: "0 0 200 16", preserveAspectRatio: "none", "aria-hidden": "true", focusable: "false" }, /* @__PURE__ */ React38.createElement("path", { d: "M4 14 V8 Q4 4 8 4 H92 Q100 4 100 0 Q100 4 108 4 H192 Q196 4 196 8 V14" })),
+    POOL_EXAMPLE.map((side, i) => /* @__PURE__ */ React38.createElement("span", { key: side.chips, className: `fd-ux-col${i === 1 ? " is-under" : ""}`, "aria-hidden": "true" }, /* @__PURE__ */ React38.createElement(Tower, { n: side.n, scale }), /* @__PURE__ */ React38.createElement("small", null, fmt14(side.chips)), /* @__PURE__ */ React38.createElement("small", { className: i === 1 ? "fd-ux-pays" : "fd-px-pays" }, (total / side.chips).toFixed(1), "\xD7")))
+  );
 }
 function UnderdogExplainer({ className = "", tv: tv2 = false }) {
   const gap = UNDERDOG_GAP.toLocaleString("en-US");
@@ -10372,27 +10493,30 @@ function UnderdogExplainer({ className = "", tv: tv2 = false }) {
     /* @__PURE__ */ React38.createElement("span", { className: "fd-ux-col is-under" }, /* @__PURE__ */ React38.createElement(Tower, { n: 2, scale }), /* @__PURE__ */ React38.createElement("small", { className: "fd-ux-pays" }, UNDERDOG_MULT, ":1"))
   );
 }
-var TAUGHT_KEY, TEACH_AFTER_MS, teaching, taught, markTaught;
+var TAUGHT_KEYS, TAUGHT_KEY, TEACH_AFTER_MS, teaching, taught, markTaught, POOL_EXAMPLE;
 var init_Comebacks = __esm({
   "src/features/comebacks/Comebacks.jsx"() {
     init_core();
+    init_ScoreReel();
     init_comebacks2();
-    TAUGHT_KEY = "si-underdog-taught";
+    TAUGHT_KEYS = { pool: "si-pool-taught", underdog: "si-underdog-taught" };
+    TAUGHT_KEY = TAUGHT_KEYS.underdog;
     TEACH_AFTER_MS = 900;
     teaching = false;
-    taught = () => {
+    taught = (kind) => {
       try {
-        return localStorage.getItem(TAUGHT_KEY) === "yes";
+        return localStorage.getItem(TAUGHT_KEYS[kind]) === "yes";
       } catch {
         return true;
       }
     };
-    markTaught = () => {
+    markTaught = (kind) => {
       try {
-        localStorage.setItem(TAUGHT_KEY, "yes");
+        localStorage.setItem(TAUGHT_KEYS[kind], "yes");
       } catch {
       }
     };
+    POOL_EXAMPLE = [{ chips: 400, n: 6 }, { chips: 200, n: 2 }];
   }
 });
 
@@ -12874,7 +12998,7 @@ function MarketPick({
     }
   );
   const stackCell = (item) => {
-    const body = /* @__PURE__ */ React59.createElement(React59.Fragment, null, stackOf(item, chip2), /* @__PURE__ */ React59.createElement("span", { className: "fd-stacks-value" }, fmt9(item.stake)), /* @__PURE__ */ React59.createElement("span", { className: "fd-wagers-stack-name" }, item.player === me ? "You" : stackName(state, item.player)));
+    const body = /* @__PURE__ */ React59.createElement(React59.Fragment, null, stackOf(item, chip2), /* @__PURE__ */ React59.createElement("span", { className: "fd-stacks-value" }, fmt9(item.stake)), item.player === me && terms?.price !== void 0 ? /* @__PURE__ */ React59.createElement("span", { className: "fd-wagers-stack-name is-win", "aria-label": `Wins ${fmt9(poolNet(item.stake, terms.price))} at ${terms.text}` }, "+", fmt9(poolNet(item.stake, terms.price))) : /* @__PURE__ */ React59.createElement("span", { className: "fd-wagers-stack-name" }, item.player === me ? "You" : stackName(state, item.player)));
     if (item.player === me) return marketOpen ? /* @__PURE__ */ React59.createElement(
       "button",
       {
@@ -12957,7 +13081,7 @@ function MarketPick({
   const felt = lines === 1 ? null : groupStacks(everyone, FELT_CELLS - 1, mineTotal > 0 ? me : null);
   const faceOnly = players.length > 3 || (lines === 1 && players.length > 2 || named) && players.some((player) => disp(state, player).length > 8);
   const pair = players.length === 2 && !named && lines !== 1;
-  return /* @__PURE__ */ React59.createElement("div", { className: `fd-wagers-pick${lines === 1 ? " is-one-line" : ""}${mineTotal ? " is-mine" : ""}${sideTotal ? " has-chips" : ""}${roleLabel ? " is-your-side" : ""}${selfBet ? " is-self-bet" : ""}${unavailableReason ? " is-unavailable" : ""}${busyKind ? ` is-pending-${busyKind}` : ""}` }, /* @__PURE__ */ React59.createElement("div", { className: `fd-wagers-pick-identity${players.length > 2 || named ? " is-team" : pair ? " is-pair" : ""}` }, players.length === 1 ? /* @__PURE__ */ React59.createElement(
+  return /* @__PURE__ */ React59.createElement("div", { className: `fd-wagers-pick${terms?.price !== void 0 ? " has-price" : ""}${lines === 1 ? " is-one-line" : ""}${mineTotal ? " is-mine" : ""}${sideTotal ? " has-chips" : ""}${roleLabel ? " is-your-side" : ""}${selfBet ? " is-self-bet" : ""}${unavailableReason ? " is-unavailable" : ""}${busyKind ? ` is-pending-${busyKind}` : ""}` }, /* @__PURE__ */ React59.createElement("div", { className: `fd-wagers-pick-identity${players.length > 2 || named ? " is-team" : pair ? " is-pair" : ""}` }, players.length === 1 ? /* @__PURE__ */ React59.createElement(
     "button",
     {
       type: "button",
@@ -13028,6 +13152,7 @@ function MarketPick({
       )),
       /* @__PURE__ */ React59.createElement("span", { className: "fd-wagers-pot-total" }, fmt9(othersTotal))
     )),
+    terms?.price !== void 0 && /* @__PURE__ */ React59.createElement(SideTerms, { terms, size: "sm", className: "fd-wagers-row-price" }),
     wellCell()
   ) : openSeat ? /* @__PURE__ */ React59.createElement(
     "div",
@@ -13086,6 +13211,9 @@ function RackChip({ value, disabled, selected, onClick }) {
 function DenomChip({ size = RACK_COIN, value }) {
   return /* @__PURE__ */ React59.createElement(ChipFace, { size, stamp: value, valueRing: true, color: DENOM_COLOR, isLight: HOUSE_CHIP.isLight, skin: HOUSE_CHIP.skin });
 }
+function PoolLamp({ total, label: label2 = "Pool" }) {
+  return /* @__PURE__ */ React59.createElement("span", { className: "fd-wagers-pays is-pool" }, /* @__PURE__ */ React59.createElement("i", { className: "fd-insert", "aria-hidden": "true" }), label2, /* @__PURE__ */ React59.createElement(ScoreReel, { value: Math.round(total), tone: "chip", slim: true, label: fmt9(Math.round(total)) }));
+}
 function PayLamp({ mult }) {
   return /* @__PURE__ */ React59.createElement("span", { className: "fd-wagers-pays" }, /* @__PURE__ */ React59.createElement("i", { className: "fd-insert", "aria-hidden": "true" }), mult === 1 ? "Winner pays 1:1" : "Winner pays 2:1");
 }
@@ -13129,6 +13257,9 @@ function HeldBoard({ state, me, held: held2, view, onSkip }) {
     return () => clearTimeout(timer);
   }, []);
   const { contest, ev, label: label2, winSlot = false, termsSlot = false, identity = "solo" } = held2;
+  const terms = contestTerms(state, contest);
+  const wonSide = view.sides.find((side) => side.won);
+  const wonTerms = terms?.pool && wonSide ? terms.sides[wonSide.key] : null;
   const lines = (contest.sides || []).length > 2 ? 1 : 2;
   const sides = contest.kind === "ffa" ? view.sides.filter((side) => side.won || side.stacks.length) : view.sides;
   const nameOf3 = (side) => {
@@ -13165,7 +13296,7 @@ function HeldBoard({ state, me, held: held2, view, onSkip }) {
       values && /* @__PURE__ */ React59.createElement("span", { className: "fd-wagers-stack-name" }, item.player === me ? "You" : stackName(state, item.player))
     )), rest && /* @__PURE__ */ React59.createElement("span", { key: "group", className: `fd-wagers-stack is-group${side.won ? "" : " fd-stacks-slot is-lost"}` }, /* @__PURE__ */ React59.createElement(ChipStack, { chip: groupChip(rest.count), count: stackChipCount(rest.total), size, tag: false, tower: true }), values && /* @__PURE__ */ React59.createElement("span", { className: "fd-stacks-value fd-wagers-stack-count" }, "+", rest.count)));
   };
-  return /* @__PURE__ */ React59.createElement("section", { className: "fd-wagers-event fd-wagers-held", onClick: onSkip, "aria-label": `${label2} settled` }, /* @__PURE__ */ React59.createElement("div", { className: "fd-wagers-contest-heading" }, contest.kind !== "ffa" && /* @__PURE__ */ React59.createElement("h2", null, /* @__PURE__ */ React59.createElement(OneSafe, { text: label2 })), !contest.odds && /* @__PURE__ */ React59.createElement(PayLamp, { mult: contestMult(contest) })), /* @__PURE__ */ React59.createElement("div", { className: `fd-wagers-picks${lines === 1 ? " is-rows" : ` is-id-${identity}`}` }, sides.map((side) => {
+  return /* @__PURE__ */ React59.createElement("section", { className: "fd-wagers-event fd-wagers-held", onClick: onSkip, "aria-label": `${label2} settled` }, /* @__PURE__ */ React59.createElement("div", { className: "fd-wagers-contest-heading" }, contest.kind !== "ffa" && /* @__PURE__ */ React59.createElement("h2", null, /* @__PURE__ */ React59.createElement(OneSafe, { text: label2 })), wonTerms ? /* @__PURE__ */ React59.createElement("span", { className: "fd-wagers-pays is-paid" }, /* @__PURE__ */ React59.createElement("i", { className: "fd-insert", "aria-hidden": "true" }), "Paid", /* @__PURE__ */ React59.createElement(PriceLamp, { price: wonTerms.price, long: wonTerms.long, size: "sm", motion: "never" })) : !contest.odds && !terms?.pool && /* @__PURE__ */ React59.createElement(PayLamp, { mult: contestMult(contest) })), /* @__PURE__ */ React59.createElement("div", { className: `fd-wagers-picks${lines === 1 ? " is-rows" : ` is-id-${identity}`}` }, sides.map((side) => {
     const head2 = side.won ? side.paid > 0 && /* @__PURE__ */ React59.createElement("span", { className: "fd-wagers-held-head is-up" }, "+", fmt9(side.paid)) : side.total > 0 && /* @__PURE__ */ React59.createElement("span", { className: "fd-wagers-held-head is-down" }, "\u2212", fmt9(side.total));
     const team = side.players.length > 2 || namedPair(side);
     const pair = side.players.length === 2 && !team && lines !== 1;
@@ -13176,7 +13307,7 @@ function HeldBoard({ state, me, held: held2, view, onSkip }) {
         style: side.players.length > 3 ? { "--fd-team-n": side.players.length } : void 0
       },
       side.players.map((player) => /* @__PURE__ */ React59.createElement("span", { key: player, className: "fd-wagers-held-face" }, /* @__PURE__ */ React59.createElement(Avatar, { state, p: player, size: side.players.length > 3 ? 28 : 24 }), side.players.length <= 3 && /* @__PURE__ */ React59.createElement("span", null, disp(state, player))))
-    ))), winSlot && !(lines === 1 && side.players.length === 1) && /* @__PURE__ */ React59.createElement("div", { className: "fd-wagers-win-slot" }), termsSlot && lines !== 1 && /* @__PURE__ */ React59.createElement("div", { className: "fd-side-terms fd-wagers-terms" }), lines === 1 ? /* @__PURE__ */ React59.createElement("div", { className: "fd-wagers-pot is-row is-held" }, /* @__PURE__ */ React59.createElement("span", { className: "fd-wagers-row-stacks" }, side.stacks.length > 0 && /* @__PURE__ */ React59.createElement("span", { className: "fd-wagers-row-pile" }, heldStacks(side, ROW_STACKS + 1)), head2), side.won && /* @__PURE__ */ React59.createElement("span", { className: "fd-wagers-won", "aria-label": "Won" }, "WON")) : /* @__PURE__ */ React59.createElement("div", { className: "fd-wagers-felt is-held", style: { "--fd-stack-h": `${FELT_STACK_H}px` } }, /* @__PURE__ */ React59.createElement("div", { className: "fd-wagers-felt-head" }, head2, side.won && /* @__PURE__ */ React59.createElement("span", { className: "fd-wagers-won", "aria-label": "Won" }, "WON")), /* @__PURE__ */ React59.createElement("div", { className: "fd-wagers-felt-stacks" }, /* @__PURE__ */ React59.createElement("span", { className: "fd-wagers-well is-closed", "aria-hidden": "true" }), heldStacks(side, FELT_CELLS - 1, true))));
+    ))), winSlot && !(lines === 1 && side.players.length === 1) && /* @__PURE__ */ React59.createElement("div", { className: "fd-wagers-win-slot" }), termsSlot && lines !== 1 && /* @__PURE__ */ React59.createElement("div", { className: "fd-side-terms fd-wagers-terms" }, terms?.pool && terms.sides[side.key] && /* @__PURE__ */ React59.createElement(PriceLamp, { price: terms.sides[side.key].price, long: terms.sides[side.key].long, motion: "never" })), lines === 1 ? /* @__PURE__ */ React59.createElement("div", { className: "fd-wagers-pot is-row is-held" }, /* @__PURE__ */ React59.createElement("span", { className: "fd-wagers-row-stacks" }, side.stacks.length > 0 && /* @__PURE__ */ React59.createElement("span", { className: "fd-wagers-row-pile" }, heldStacks(side, ROW_STACKS + 1)), head2), side.won && /* @__PURE__ */ React59.createElement("span", { className: "fd-wagers-won", "aria-label": "Won" }, "WON")) : /* @__PURE__ */ React59.createElement("div", { className: "fd-wagers-felt is-held", style: { "--fd-stack-h": `${FELT_STACK_H}px` } }, /* @__PURE__ */ React59.createElement("div", { className: "fd-wagers-felt-head" }, head2, side.won && /* @__PURE__ */ React59.createElement("span", { className: "fd-wagers-won", "aria-label": "Won" }, "WON")), /* @__PURE__ */ React59.createElement("div", { className: "fd-wagers-felt-stacks" }, /* @__PURE__ */ React59.createElement("span", { className: "fd-wagers-well is-closed", "aria-hidden": "true" }), heldStacks(side, FELT_CELLS - 1, true))));
   })));
 }
 function RoomReadout({ cap, room, capBinds, capped }) {
@@ -13213,7 +13344,8 @@ function BetRecord({ group, me, onLastCard }) {
 function WagerLine({ x, state, events, gm, manage = false, onVoid, onPlayer }) {
   const { w, r } = x;
   const label2 = wagerPickLabel(state, w, events);
-  const win = wagerMult(w) * w.stake;
+  const price = w.pool ? wagerPrice(state, w) : null;
+  const win = w.pool ? poolNet(w.stake, price) : wagerMult(w) * w.stake;
   const [confirming, setConfirming] = useState46(false), [voiding, setVoiding] = useState46(false);
   const voidBusy = useRef38(false);
   const ids = w.ids || [w.id];
@@ -13236,7 +13368,7 @@ function WagerLine({ x, state, events, gm, manage = false, onVoid, onPlayer }) {
       onClick: () => onPlayer?.(w.player)
     },
     disp(state, w.player)
-  ), " ", /* @__PURE__ */ React59.createElement("span", null, fmt9(w.stake), " chips")), /* @__PURE__ */ React59.createElement("strong", null, label2.pick), /* @__PURE__ */ React59.createElement("span", { className: "fd-wagers-line-context" }, label2.ctx)), /* @__PURE__ */ React59.createElement("div", { className: "fd-wagers-line-result" }, r.status === "pending" && /* @__PURE__ */ React59.createElement(React59.Fragment, null, /* @__PURE__ */ React59.createElement("small", null, "To win"), /* @__PURE__ */ React59.createElement("strong", null, "+", fmt9(win))), r.status === "won" && /* @__PURE__ */ React59.createElement(React59.Fragment, null, /* @__PURE__ */ React59.createElement("small", null, "Won"), /* @__PURE__ */ React59.createElement("strong", null, "+", fmt9(r.delta))), r.status === "lost" && /* @__PURE__ */ React59.createElement(React59.Fragment, null, /* @__PURE__ */ React59.createElement("small", null, "Lost"), /* @__PURE__ */ React59.createElement("strong", null, fmt9(r.delta))), r.status === "void" && /* @__PURE__ */ React59.createElement("small", { className: "is-void" }, "Void"), voidable && !confirming && /* @__PURE__ */ React59.createElement(
+  ), " ", /* @__PURE__ */ React59.createElement("span", null, fmt9(w.stake), " chips")), /* @__PURE__ */ React59.createElement("strong", null, label2.pick), /* @__PURE__ */ React59.createElement("span", { className: "fd-wagers-line-context" }, label2.ctx)), /* @__PURE__ */ React59.createElement("div", { className: "fd-wagers-line-result" }, r.status === "pending" && /* @__PURE__ */ React59.createElement(React59.Fragment, null, /* @__PURE__ */ React59.createElement("small", null, price ? `To win at ${price.toFixed(1)}\xD7` : "To win"), /* @__PURE__ */ React59.createElement("strong", null, "+", fmt9(win))), r.status === "won" && /* @__PURE__ */ React59.createElement(React59.Fragment, null, /* @__PURE__ */ React59.createElement("small", null, "Won"), /* @__PURE__ */ React59.createElement("strong", null, "+", fmt9(r.delta))), r.status === "lost" && /* @__PURE__ */ React59.createElement(React59.Fragment, null, /* @__PURE__ */ React59.createElement("small", null, "Lost"), /* @__PURE__ */ React59.createElement("strong", null, fmt9(r.delta))), r.status === "void" && /* @__PURE__ */ React59.createElement("small", { className: "is-void" }, "Void"), voidable && !confirming && /* @__PURE__ */ React59.createElement(
     "button",
     {
       type: "button",
@@ -13406,7 +13538,7 @@ function Wagers({
       bets: pending.filter((x) => samePick(x.w, pick)),
       winLine: wide && !own ? null : winLineFor(winLines, side.key),
       roleLabel: own ? side.players.length > 1 ? "Your team" : "You" : null,
-      terms: termsSlot ? terms.sides[side.key] : null,
+      terms: termsSlot || terms?.pool ? terms.sides[side.key] : null,
       termsSlot,
       unavailableReason: restricted && !eligible ? restriction : otherSide && marketOpen ? "One side per contest. Your chips are on the other side." : null,
       unavailableLabel: restricted && !eligible ? "Opponent" : "Other side",
@@ -13538,7 +13670,7 @@ function Wagers({
       }
     ),
     !frozen && !ev && !holding && /* @__PURE__ */ React59.createElement("section", { className: `fd-wagers-waiting fd-glass-field fd-field-info${finaleClosed ? " is-finished" : ""}` }, /* @__PURE__ */ React59.createElement("div", { className: "fd-wagers-waiting-copy" }, /* @__PURE__ */ React59.createElement("h2", null, finaleClosed ? "Betting is closed for the finale" : state.live ? "Between events" : "Betting opens with the first event"), !finaleClosed && /* @__PURE__ */ React59.createElement(ActionButton, { variant: "secondary", onClick: onEvents }, "Browse the events"))),
-    ev && !holding && /* @__PURE__ */ React59.createElement("section", { className: "fd-wagers-event" }, contest && (contest.kind !== "ffa" || !terms?.odds) && /* @__PURE__ */ React59.createElement("div", { className: "fd-wagers-contest-heading" }, contest.kind !== "ffa" && /* @__PURE__ */ React59.createElement("h2", null, /* @__PURE__ */ React59.createElement(OneSafe, { text: contest.label || "Bets" })), !terms?.odds && /* @__PURE__ */ React59.createElement(PayLamp, { mult: contestMult(contest) })), contest && picks.length > 0 ? /* @__PURE__ */ React59.createElement("div", { className: "fd-wagers-play" }, /* @__PURE__ */ React59.createElement(
+    ev && !holding && /* @__PURE__ */ React59.createElement("section", { className: "fd-wagers-event" }, contest && (contest.kind !== "ffa" || !terms?.odds || terms?.pool) && /* @__PURE__ */ React59.createElement("div", { className: "fd-wagers-contest-heading" }, contest.kind !== "ffa" && /* @__PURE__ */ React59.createElement("h2", null, /* @__PURE__ */ React59.createElement(OneSafe, { text: contest.label || "Bets" })), terms?.pool ? /* @__PURE__ */ React59.createElement(PoolLamp, { total: terms.total }) : !terms?.odds && /* @__PURE__ */ React59.createElement(PayLamp, { mult: contestMult(contest) })), contest && picks.length > 0 ? /* @__PURE__ */ React59.createElement("div", { className: "fd-wagers-play" }, /* @__PURE__ */ React59.createElement(
       "section",
       {
         className: `fd-wagers-market fd-wagers-contest is-${contest.kind}${dealing ? " is-dealing" : ""}`,
@@ -14956,13 +15088,14 @@ var RULES_WORDS = Object.freeze({
   "fieldday.teams": "Teams redrawn every event",
   /* betting */
   "betting.1": "Bet the live contest",
-  "betting.2": "Winner pays 1:1",
-  "betting.3": "Winner pays 2:1",
+  "betting.2": "Winners split the pool",
+  "betting.3": "Smaller side pays more",
   "betting.4": "Half your stack, max",
   "betting.floor": "Never capped under 500",
   "betting.own": "Playing? Back your side",
   "betting.side": "One side per contest",
   "betting.lock": "Locks when play starts",
+  "betting.max": "Pays 10\xD7 at most",
   "betting.fix": "Corrections fix payouts",
   "betting.void": "Brandon voids any bet",
   /* duels */
@@ -14977,10 +15110,8 @@ var RULES_WORDS = Object.freeze({
   "duels.pair": "One duel per pair",
   "duels.lapse": "Lapses after 10 minutes",
   "duels.finale": "Void once poker deals",
-  /* comebacks (v3.1): awaiting Brandon's review */
-  "comebacks.1": "Underdog: Winner pays 2:1",
-  "comebacks.gap": "Underdog: 1,000 behind",
-  "comebacks.2": "Byes to the bottom",
+  /* comebacks: the pool replaced the underdog (Oct 13); the byes stay */
+  "comebacks.1": "Byes to the bottom",
   /* draws */
   "draws.1": "Teams balanced by skill",
   "draws.2": "Results count more later",
@@ -15035,10 +15166,10 @@ var STEP_SETS = Object.freeze({
   foosball: { steps: 3, win: 3, notes: [["serve", "serve"], ["dead", "redemption"]] },
   /* the weekend's rules (Weekend > Rules), drawn the same way */
   fieldday: { steps: 4, win: 4, notes: [["teams", "shuffle"]] },
-  betting: { steps: 4, notes: [["floor", "floor"], ["own", "own"], ["side", "side"], ["lock", "lock"], ["fix", "fix"], ["void", "void"]] },
+  betting: { steps: 4, notes: [["floor", "floor"], ["own", "own"], ["side", "side"], ["lock", "lock"], ["max", "max"], ["fix", "fix"], ["void", "void"]] },
   duels: { steps: 4, win: 4, notes: [["early", "early"], ["even", "tie"], ["fouls", "tie"], ["daily", "daily"], ["pair", "pair"], ["lapse", "lapse"], ["finale", "cards"]] },
   draws: { steps: 3, notes: [["private", "private"]] },
-  comebacks: { steps: 2, notes: [["gap", "floor"]] },
+  comebacks: { steps: 1, notes: [] },
   safety: { steps: 0, notes: [
     ["optional", "drink"],
     ["na", "na"],
@@ -15229,16 +15360,17 @@ var RULE_PICTURES = {
   "fieldday.3": /* @__PURE__ */ React6.createElement("g", null, floor(), /* @__PURE__ */ React6.createElement(Lit, null, stack(14, 34, 7, 14)), trail("M25 20H34"), head(34.4, 20, 0), /* @__PURE__ */ React6.createElement("rect", { x: "39", y: "9", width: "11", height: "16", rx: "1.8", transform: "rotate(-10 44.5 17)" }), /* @__PURE__ */ React6.createElement("rect", { x: "46", y: "10", width: "11", height: "16", rx: "1.8", transform: "rotate(10 51.5 18)", className: "fd-rp-card" }), /* @__PURE__ */ React6.createElement("path", { d: "m51.5 13.4 2.4 3.4-2.4 3.4-2.4-3.4z", ...F })),
   "fieldday.4": tallestCrowned,
   "betting.1": /* @__PURE__ */ React6.createElement("g", null, /* @__PURE__ */ React6.createElement(Faint, null, /* @__PURE__ */ React6.createElement("rect", { x: "8", y: "3.5", width: "48", height: "9", rx: "2" }), /* @__PURE__ */ React6.createElement("rect", { x: "8", y: "27.5", width: "48", height: "9", rx: "2" })), /* @__PURE__ */ React6.createElement(Lit, null, /* @__PURE__ */ React6.createElement("rect", { x: "8", y: "15.5", width: "48", height: "9", rx: "2" })), /* @__PURE__ */ React6.createElement(Lit, null, chip(49, 20, 3))),
-  "betting.2": /* @__PURE__ */ React6.createElement("g", null, bust(13, 9, 2.6), bust(51, 9, 2.6), /* @__PURE__ */ React6.createElement(Faint, null, /* @__PURE__ */ React6.createElement("path", { d: "M32 6v16" })), /* @__PURE__ */ React6.createElement(Lit, null, /* @__PURE__ */ React6.createElement(Num, { x: 32, y: 35, size: 14 }, "1:1"))),
-  "betting.3": /* @__PURE__ */ React6.createElement("g", null, bust(9, 9, 2.2), bust(24, 9, 2.2), bust(40, 9, 2.2), bust(55, 9, 2.2), /* @__PURE__ */ React6.createElement(Lit, null, /* @__PURE__ */ React6.createElement(Num, { x: 32, y: 35, size: 14 }, "2:1"))),
+  /* the pool: both sides' chips under one brace, all of it to the winners */
+  "betting.2": /* @__PURE__ */ React6.createElement("g", null, floor(), /* @__PURE__ */ React6.createElement(Faint, null, stack(14, 34, 3, 11)), /* @__PURE__ */ React6.createElement(Faint, null, stack(30, 34, 5, 11)), /* @__PURE__ */ React6.createElement("path", { d: "M7 12V9.5q0-2 2-2h26q2 0 2 2V12M22 7.5V4" }), trail("M38 20H44"), head(44.4, 20, 0), /* @__PURE__ */ React6.createElement(Lit, null, stack(53, 34, 8, 11)), crown(53, 6, 0.6)),
+  /* the smaller side pays more: a tall stack at 1.5×, a short one lit at 4× */
+  "betting.3": /* @__PURE__ */ React6.createElement("g", null, floor(), /* @__PURE__ */ React6.createElement(Faint, null, stack(16, 34, 7, 12)), /* @__PURE__ */ React6.createElement(Faint, null, /* @__PURE__ */ React6.createElement(Num, { x: 16, y: 6, size: 10 }, "1.5\xD7")), /* @__PURE__ */ React6.createElement(Lit, null, stack(48, 34, 2, 12)), /* @__PURE__ */ React6.createElement(Lit, null, /* @__PURE__ */ React6.createElement(Num, { x: 48, y: 20, size: 12 }, "4\xD7"))),
   "betting.4": /* @__PURE__ */ React6.createElement("g", null, /* @__PURE__ */ React6.createElement("rect", { x: "5", y: "15", width: "54", height: "10", rx: "5" }), /* @__PURE__ */ React6.createElement(Lit, null, /* @__PURE__ */ React6.createElement("rect", { x: "5", y: "15", width: "27", height: "10", rx: "5", ...F })), /* @__PURE__ */ React6.createElement("path", { d: "M32 9v22", strokeWidth: "2" })),
   "duels.1": /* @__PURE__ */ React6.createElement("g", null, /* @__PURE__ */ React6.createElement("rect", { x: "7", y: "4", width: "21", height: "31", rx: "3" }), /* @__PURE__ */ React6.createElement("circle", { cx: "17.5", cy: "15", r: "5", ...F }), /* @__PURE__ */ React6.createElement(Faint, null, /* @__PURE__ */ React6.createElement("path", { d: "M12 25h11M12 29h7" })), trail("M31 19.5H40"), head(40.4, 19.5, 0), bust(51, 13, 3)),
   "duels.2": /* @__PURE__ */ React6.createElement("g", null, floor(), /* @__PURE__ */ React6.createElement(Lit, null, stack(14, 34, 3, 14), stack(50, 34, 3, 14)), /* @__PURE__ */ React6.createElement("path", { d: "M27 21h10M27 26h10" })),
   "duels.3": /* @__PURE__ */ React6.createElement("g", null, /* @__PURE__ */ React6.createElement("rect", { x: "21", y: "3", width: "22", height: "34", rx: "3.4" }), /* @__PURE__ */ React6.createElement(Lit, null, /* @__PURE__ */ React6.createElement("circle", { cx: "32", cy: "16", r: "3.4", ...F }), /* @__PURE__ */ React6.createElement("path", { d: "M32 8.6V6.4M32 23.4v2.2M24.6 16h-2.2M39.4 16h2.2M26.8 10.8l-1.6-1.6M37.2 10.8l1.6-1.6M26.8 21.2l-1.6 1.6M37.2 21.2l1.6 1.6" })), /* @__PURE__ */ React6.createElement(Faint, null, /* @__PURE__ */ React6.createElement("circle", { cx: "32", cy: "31", r: "2.2" }))),
   "duels.4": /* @__PURE__ */ React6.createElement("g", null, floor(), stopwatch(15, 22, 9.5), /* @__PURE__ */ React6.createElement(Lit, null, stack(46, 34, 6, 14)), crown(46, 9, 0.85)),
-  /* comebacks (v3.1): the underdog, the bye */
-  "comebacks.1": /* @__PURE__ */ React6.createElement("g", null, floor(), /* @__PURE__ */ React6.createElement("g", null, stack(14, 34, 7, 11)), /* @__PURE__ */ React6.createElement(Faint, null, stack(50, 34, 2, 11)), /* @__PURE__ */ React6.createElement(Lit, null, /* @__PURE__ */ React6.createElement(Num, { x: 50, y: 21, size: 12 }, "2:1")), /* @__PURE__ */ React6.createElement(Faint, null, /* @__PURE__ */ React6.createElement("path", { d: "M24 9.5h4M36 9.5h4" }))),
-  "comebacks.2": /* @__PURE__ */ React6.createElement("g", null, /* @__PURE__ */ React6.createElement("path", { d: "M4 7h10v8H4M14 11h8M4 27h10" }), /* @__PURE__ */ React6.createElement("path", { d: "M22 11v10h10" }), /* @__PURE__ */ React6.createElement(Lit, null, /* @__PURE__ */ React6.createElement("path", { d: "M14 27H32", strokeDasharray: "2 2" }), /* @__PURE__ */ React6.createElement("circle", { cx: "9", cy: "27", r: "2.6", ...F })), /* @__PURE__ */ React6.createElement("path", { d: "M32 21v6M32 24h14" }), crown(52, 25, 0.75)),
+  /* comebacks: the bye (the pool replaced the underdog, Oct 13) */
+  "comebacks.1": /* @__PURE__ */ React6.createElement("g", null, /* @__PURE__ */ React6.createElement("path", { d: "M4 7h10v8H4M14 11h8M4 27h10" }), /* @__PURE__ */ React6.createElement("path", { d: "M22 11v10h10" }), /* @__PURE__ */ React6.createElement(Lit, null, /* @__PURE__ */ React6.createElement("path", { d: "M14 27H32", strokeDasharray: "2 2" }), /* @__PURE__ */ React6.createElement("circle", { cx: "9", cy: "27", r: "2.6", ...F })), /* @__PURE__ */ React6.createElement("path", { d: "M32 21v6M32 24h14" }), crown(52, 25, 0.75)),
   "draws.1": /* @__PURE__ */ React6.createElement("g", null, /* @__PURE__ */ React6.createElement("path", { d: "M32 7v27M24 34h16M12 11h40" }), /* @__PURE__ */ React6.createElement("path", { d: "M12 11 7 22M12 11l5 11M52 11l-5 11M52 11l5 11" }), /* @__PURE__ */ React6.createElement("path", { d: "M6 22a6 3 0 0 0 12 0zM46 22a6 3 0 0 0 12 0z" }), /* @__PURE__ */ React6.createElement("g", { ...F }, /* @__PURE__ */ React6.createElement("circle", { cx: "9.6", cy: "19", r: "1.7" }), /* @__PURE__ */ React6.createElement("circle", { cx: "14.4", cy: "19", r: "1.7" }), /* @__PURE__ */ React6.createElement("circle", { cx: "49.6", cy: "19", r: "1.7" }), /* @__PURE__ */ React6.createElement("circle", { cx: "54.4", cy: "19", r: "1.7" }))),
   "draws.2": /* @__PURE__ */ React6.createElement("g", null, floor(), /* @__PURE__ */ React6.createElement("g", { ...F }, /* @__PURE__ */ React6.createElement("rect", { x: "7", y: "28", width: "7", height: "6", rx: "1" }), /* @__PURE__ */ React6.createElement("rect", { x: "18", y: "24", width: "7", height: "10", rx: "1" }), /* @__PURE__ */ React6.createElement("rect", { x: "29", y: "19", width: "7", height: "15", rx: "1" }), /* @__PURE__ */ React6.createElement("rect", { x: "40", y: "13", width: "7", height: "21", rx: "1" })), /* @__PURE__ */ React6.createElement(Lit, null, /* @__PURE__ */ React6.createElement("rect", { x: "51", y: "6", width: "7", height: "28", rx: "1", ...F }))),
   "draws.3": /* @__PURE__ */ React6.createElement("g", null, bust(11, 12, 2.8), bust(53, 12, 2.8), /* @__PURE__ */ React6.createElement(Lit, null, /* @__PURE__ */ React6.createElement("circle", { cx: "11", cy: "20.6", r: "1.6", ...F }), /* @__PURE__ */ React6.createElement("circle", { cx: "53", cy: "20.6", r: "1.6", ...F })), ball(26, 30, 2), ball(32, 30, 2), ball(38, 30, 2), trail("M24 26Q19 22 17 18"), head(17, 18, 235))

@@ -5,7 +5,7 @@
    the same authoritative broadcasts and that wagers settle simultaneously. */
 
 import { ROSTER, resolveWager, resolveCurrentContest, computeStandings, allEventsOf, resolveSlot, bracketChampion, CHIP_COLORS,
-  RESET_PROGRESS_CONFIRMATION, resultAwards }
+  RESET_PROGRESS_CONFIRMATION, resultAwards, poolNet, poolOf }
   from "../shared/core.js";
 
 const BASE = process.env.WS_BASE || "ws://localhost:5173/ws";
@@ -232,7 +232,11 @@ for (let guard = 0; guard < 12; guard++) {
   await b.waitVersion(a.version);
   if (contest.id === opening.id) {
     const res = resolveWager(b.state, b.state.wagers.find(w => w.player === "Evan" && w.eventId === "8ball"), allEventsOf(b.state));
-    assert(res.status === "won" && res.delta === 400, "the matchup wager settled WON +400 (even money) on window B immediately");
+    /* the pool: Evan's 400 alone on the backed side, the bank's seed on both */
+    const evanTicket = b.state.wagers.find(w => w.player === "Evan" && w.eventId === "8ball");
+    const paid = poolNet(400, poolOf(b.state, "8ball", opening.id).price(backed));
+    assert(evanTicket.pool === 1 && res.status === "won" && res.delta === paid,
+      `the matchup wager settled WON +${paid} at the pool's price on window B immediately (got ${res.delta})`);
     const resA = resolveWager(a.state, a.state.wagers.find(w => w.player === "Evan" && w.eventId === "8ball"), allEventsOf(a.state));
     assert(resA.status === res.status, "both windows agree on matchup settlement");
   }

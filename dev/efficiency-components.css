@@ -9916,6 +9916,162 @@ button.fd-now-card {
     animation: none;
   }
 }
+.fd-price {
+  display: inline-flex;
+  align-items: baseline;
+  gap: .04em;
+  color: var(--ink);
+  font: 900 var(--price-size, 20px)/1 var(--fd-show);
+  letter-spacing: 0;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.fd-price .fd-reel {
+  color: inherit;
+}
+.fd-price-x {
+  font-size: .72em;
+  font-weight: 800;
+  opacity: .8;
+}
+.fd-price.is-long {
+  color: var(--sun);
+  text-shadow: 0 0 14px color-mix(in srgb, var(--sun) 40%, transparent);
+}
+.fd-price.is-sm {
+  --price-size:16px;
+}
+.fd-price.is-md {
+  --price-size:22px;
+}
+.fd-price.is-lg {
+  --price-size:44px;
+}
+.fd-price.is-xl {
+  --price-size:72px;
+}
+.fd-side-pays-tap.is-pool {
+  gap: 6px;
+  color: inherit;
+}
+.fd-pool-explain {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  justify-items: center;
+  align-items: end;
+  gap: 0 18px;
+  margin: 0;
+  padding: 12px 18px 12px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--sun) 6%, var(--paper));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--sun) 28%, transparent);
+}
+.fd-px-total {
+  grid-column: 1 / -1;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  color: var(--ink);
+  font: 900 20px/1 var(--fd-show);
+  font-variant-numeric: tabular-nums;
+}
+.fd-px-total small {
+  color: var(--muted2);
+  font: 800 13px/1 var(--fd-display);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.fd-px-brace {
+  grid-column: 1 / -1;
+  width: 78%;
+  height: 14px;
+  margin: 4px 0 8px;
+  fill: none;
+  stroke: var(--muted2);
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+.fd-pool-explain .fd-ux-col > small.fd-px-pays {
+  color: var(--ink);
+  font-size: 16px;
+}
+.fd-pool-explain.is-tv {
+  gap: 0 40px;
+  padding: 6px 8px 0;
+  background: none;
+  box-shadow: none;
+}
+.fd-pool-explain.is-tv .fd-px-total {
+  font-size: 40px;
+}
+.fd-pool-explain.is-tv .fd-px-total small {
+  font-size: 26px;
+}
+.fd-pool-explain.is-tv .fd-px-brace {
+  height: 22px;
+  stroke-width: 3;
+}
+.fd-pool-explain.is-tv .fd-ux-col > small {
+  font-size: 28px;
+}
+.fd-pool-explain.is-tv .fd-ux-col > small.fd-ux-pays,
+.fd-pool-explain.is-tv .fd-ux-col > small.fd-px-pays {
+  font-size: 34px;
+}
+.tv-terms.is-price {
+  display: inline-flex;
+  align-items: center;
+}
+.tv-tote-price {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  flex: none;
+}
+.tv-tote-price .fd-price-x {
+  font-size: .62em;
+}
+.tv-terms.is-price.is-teach .fd-price {
+  animation: tv-teach-breathe var(--motion-beat, 2000ms) ease-in-out infinite;
+}
+.tv-side-terms.is-band .fd-price {
+  --price-size:36px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .tv-terms.is-price.is-teach .fd-price {
+    animation: none;
+  }
+}
+.fd-price.is-cap {
+  color: var(--muted2);
+}
+.fd-price.is-sm .fd-price-x {
+  font-size: max(12px, .62em);
+}
+.tv-tote-price .fd-price-x {
+  font-size: max(24px, .62em);
+}
+.tv-side-win .tv-terms.is-price .fd-price {
+  --price-size:56px;
+}
+.tv-faceoff-terms .fd-price {
+  --price-size:96px;
+}
+.tv-faceoff-terms .fd-price-x {
+  font-size: .55em;
+}
+.tv-felt.has-price {
+  position: relative;
+}
+.tv-felt-price {
+  position: absolute;
+  left: 18px;
+  top: 4px;
+  z-index: 1;
+}
+.tv-felt-price .fd-price {
+  --price-size:46px;
+}
 
 /* src/features/teams/teams.css */
 .fd-teamname {
@@ -17168,6 +17324,60 @@ button.fd-home-riding.is-yours {
   font: 600 15px/1 var(--fd-body);
   box-shadow: var(--glass-edge);
   cursor: pointer;
+}
+.fd-wagers-pays.is-pool .fd-reel {
+  font-size: 17px;
+}
+.fd-wagers-pays.is-paid .fd-price {
+  --price-size:17px;
+}
+.fd-wagers-terms {
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+}
+.fd-wagers-row-price {
+  flex: none;
+  width: 58px;
+  min-height: 44px;
+  justify-content: flex-end;
+  overflow: visible;
+}
+.fd-wagers-row-price .fd-side-pays-tap {
+  min-height: 44px;
+}
+.fd-wagers-row-price .fd-info-lamp {
+  display: none;
+}
+.fd-wagers-stack-name.is-win {
+  color: var(--you);
+  font-variant-numeric: tabular-nums;
+}
+.fd-wagers-pick.is-one-line.has-price .fd-wagers-row-backers .fd-wagers-pot-total {
+  display: none;
+}
+.fd-wagers-pick.is-one-line.has-price > .fd-wagers-pot.is-row {
+  gap: 8px;
+}
+.fd-wagers-pick.is-one-line .fd-wagers-player {
+  min-width: 0;
+  max-width: 100%;
+}
+.fd-wagers-pick.is-one-line .fd-wagers-player-text {
+  min-width: 0;
+}
+.fd-wagers-pick.is-one-line .fd-wagers-player-text > span:first-child {
+  display: block;
+  overflow-wrap: anywhere;
+}
+.fd-wagers-pick.is-one-line.has-price .fd-wagers-pot-you-amount small {
+  display: none;
+}
+.fd-wagers-row-price {
+  width: 50px;
+}
+.fd-wagers-row-price .fd-price-x {
+  font-size: 12px;
 }
 
 /* src/features/profile/player-sheet.css */
@@ -34739,7 +34949,7 @@ button.fd-home-riding.is-yours {
   padding: 0 16px;
 }
 
-/* ../../../node_modules/maplibre-gl/dist/maplibre-gl.css */
+/* ../scottsdale-invitational/node_modules/maplibre-gl/dist/maplibre-gl.css */
 .maplibregl-map {
   font:
     12px/20px Helvetica Neue,
@@ -35432,7 +35642,7 @@ a.maplibregl-ctrl-logo.maplibregl-compact {
   z-index: 99999;
 }
 
-/* ../../../node_modules/leaflet/dist/leaflet.css */
+/* ../scottsdale-invitational/node_modules/leaflet/dist/leaflet.css */
 .leaflet-pane,
 .leaflet-tile,
 .leaflet-marker-icon,

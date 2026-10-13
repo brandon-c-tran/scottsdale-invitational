@@ -560,7 +560,7 @@ test("a restored checkpoint must be well formed and from this version", () => {
 /* ── the console itself, rendered ── */
 const root = fileURLToPath(new URL("../", import.meta.url));
 const compiled = buildSync({
-  stdin:{ contents:`export { QASheet } from "./src/features/qa/QASheet.jsx";
+  stdin:{ contents:`export { QASheet, MOMENTS, momentPayload } from "./src/features/qa/QASheet.jsx";
     export { QABar } from "./src/features/qa/QABar.jsx";
     export { PlayerIdentityProvider } from "./src/features/identity/PlayerIdentityContext.js";`, resolveDir:root, loader:"jsx" },
   bundle:true, platform:"node", format:"cjs", external:["react"], loader:{ ".css":"empty" }, write:false, logLevel:"silent",
@@ -569,11 +569,24 @@ const consoleModule = new Module(fileURLToPath(new URL("qa-fast.cjs", import.met
 consoleModule.filename = consoleModule.id;
 consoleModule.paths = Module._nodeModulePaths(root);
 consoleModule._compile(compiled.outputFiles[0].text, consoleModule.filename);
-const { QASheet, QABar, PlayerIdentityProvider } = consoleModule.exports;
+const { QASheet, QABar, PlayerIdentityProvider, MOMENTS, momentPayload } = consoleModule.exports;
+
+test("Test a moment: a shape and its team version, Random or a bit, one qaGag payload the server takes", () => {
+  assert.deepEqual(MOMENTS.map(moment => moment.name), ["Upset", "Team upset", "Win", "Team win", "Loss"]);
+  const of = name => MOMENTS.find(moment => moment.name === name);
+  assert.deepEqual(momentPayload(of("Upset"), ""), { shape:"versus" }, "Random lets the TVs pick");
+  assert.deepEqual(momentPayload(of("Loss"), "anvil"), { bit:"anvil" });
+  assert.deepEqual(momentPayload(of("Loss"), "dominoes"), { shape:"loss" }, "a bit from another moment falls back to Random");
+  const team = momentPayload(of("Team win"), "", () => 0);
+  assert.deepEqual(team, { bit:of("Team win").bits[0].id }, "a team Random picks one of its team bits here");
+  /* every bit of every shape is reachable, once */
+  const every = MOMENTS.flatMap(moment => moment.bits.map(bit => bit.id));
+  assert.equal(new Set(every).size, every.length);
+});
 const inProvider = (state, element) => renderToStaticMarkup(React.createElement(PlayerIdentityProvider,
   { profiles:state.profiles || {} }, element));
 
-test("the console: Step, Bets, Jump to, Lens, Checkpoints and Reset, every target 44px", () => {
+test("the console: Watch it play, Step, Jump to, Bets and duels, Test a moment, Checkpoints, Lens and Reset, every target 44px", () => {
   const state = reach("event:8ball:mid").state;
   const status = { environment:"staging", version:3, schema:9, profiles:13, completed:1, total:17, pendingWagers:6,
     openDuels:0, current:"8-Ball Doubles", phase:"Betting open", next:"Lock and start", blockers:[] };
@@ -584,20 +597,30 @@ test("the console: Step, Bets, Jump to, Lens, Checkpoints and Reset, every targe
     onDuelMe:noop, onDuels:noop, pokerOn:false, onBustOne:noop, onCountRest:noop, onRerun:noop,
     onReplayMine:noop, qaOn:true, onStrip:noop, onClose:noop };
   const html = inProvider(state, React.createElement(QASheet, props));
-  for (const text of ["Step", "Bets", "Jump to", "Lens", "Checkpoints", "Reset", "Sim contest", "Finish event", "Play live",
+  for (const text of ["Watch it play", "Step", "Bets and duels", "Jump to", "Test a moment", "Lens", "Checkpoints", "Reset",
+    "Sim contest", "Finish event", "Play live", "Random", "Team upset", "Team win",
     "Everyone bets", "Back the favorite", "Spread evenly", "Clear bets", "Locker room",
     "Friday Night", "Saturday Night", "Finale", "Crowned", "Reopen check-in", "Guest view", "QA strip"])
     assert.ok(html.includes(text), text);
   /* one destination for the reset: the commissioner menu's Setup */
   assert.ok(!html.includes("Reset game progress"), "no duplicate reset in the console");
   assert.match(html, /aria-pressed="true"[^>]*><span class="fd-menu-name">QA strip<\/span>/, "the strip's switch");
-  /* the order: Step, Bets, Jump to, Lens, Checkpoints, Reset last */
-  const order = ["Step", "Bets", "Jump to", "Lens", "Checkpoints", "Reset"]
+  /* the order a rehearsal runs, Reset last */
+  const order = ["Watch it play", "Step", "Jump to", "Bets and duels", "Test a moment", "Checkpoints", "Lens", "Reset"]
     .map(label => html.search(new RegExp(`<span>${label}</span>(<span class="fd-qa-aside">[^<]*</span>)?</h3>`)));
   assert.ok(order.every((index, i) => index > 0 && (i === 0 || index > order[i - 1])), `sections in order: ${order}`);
-  for (const ev of slateOf(state)) assert.ok(html.includes(`aria-label="${ev.name.replace("&", "&amp;")}: Mid"`), ev.name);
+  /* Jump to: one event picker holding every event, opened on the board's own, and its three places */
+  for (const ev of slateOf(state)) assert.ok(html.includes(`>${ev.name.replace("&", "&amp;")}</option>`), ev.name);
+  assert.equal((html.match(/aria-label="[^"]*: Mid"/g) || []).length, 1, "one event's places at a time");
   assert.equal((html.match(/class="is-current"/g) || []).length, 1, "one place is current");
   assert.ok(html.includes('aria-label="8-Ball Doubles: Mid" class="is-current"'));
+  assert.match(html, /aria-label="Milestone"/);
+  assert.match(html, /<optgroup label="Finale">/);
+  /* Test a moment: two pickers and one Play, never a button per bit */
+  assert.equal((html.match(/aria-label="Upset: /g) || []).length, 0, "no button per bit");
+  assert.match(html, /aria-label="Moment"/);
+  assert.match(html, /aria-label="Bit"[^>]*><option value="" selected="">Random<\/option>/);
+  assert.ok(html.indexOf("Checkpoints") < html.indexOf(">QA strip<"), "the strip's switch sits with Checkpoints");
   const text = html.replace(/<[^>]+>/g, " ");
   assert.ok(!/—|!/.test(text), "no em dashes or exclamation marks");
   assert.doesNotMatch(text, /releases every claimed|keeps people, travel/, "no explanatory sentences");

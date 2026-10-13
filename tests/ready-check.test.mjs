@@ -309,7 +309,7 @@ test("the App: one menu id opens the sheet, loaded on first use, reading the sam
   assert.match(app, /case "readyCheck": return sheet\(id\)/);
   assert.match(app, /readyCheck:readyValue\(readyTodo\(readyCheck\(state, readyFacts\)\)\)/);
   assert.match(app, /<ReadyCheck state=\{state\} capabilities=\{capabilities\}[^>]*onOpen=\{menuItem\}/);
-  assert.match(app, /\["gmMenu", "readyCheck"\]\.includes\(modalStack\.at\(-1\)\?\.type\)/, "the speaker is read when it opens");
+  assert.match(app, /\["gmMenu", "readyCheck", "settings"\]\.includes\(modalStack\.at\(-1\)\?\.type\)/, "the speaker is read when it opens");
 });
 
 /* ── the sheet ── */

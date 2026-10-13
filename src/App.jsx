@@ -1599,7 +1599,7 @@ function TournamentApp({ tournament, onUpdateReload }) {
         if (!gm) return sheet("pin");
         setGuestLens(false); return sheet("gmMenu");
       case "showControl": case "audioDirector": case "qa": case "crown": case "attendance": case "lockerRoom":
-      case "unfreeze": case "logistics": case "travelSheet": case "gmDevices": case "readyCheck": case "settings": return sheet(id);
+      case "unfreeze": case "logistics": case "travelSheet": case "gmDevices": case "settings": case "readyCheck": return sheet(id);
       case "karaoke": return sheet("karaokeDesk");
       case "geo": return sheet("geoDesk");
       case "trivia": return sheet("triviaDesk");

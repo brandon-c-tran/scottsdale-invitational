@@ -1,17 +1,21 @@
-/* The commissioner QA console, in the menu system's sections: where the
-   rehearsal stands, Step (with Sim players: the room plays itself on a
-   human clock, worker/tournament.js and shared/qaSim.js), Bets, Gags (any of the TV's bits on demand), Jump to, Lens (with the dock strip's
-   switch), Checkpoints, then Reset last. Reset game progress lives in the
-   commissioner menu's Setup, its one entry. Every jump, step, bets action and checkpoint is one server write.
-   The slow live driver (real broadcasts, one player at a time) stays as
-   Play live. Commissioner and QA capability only. */
+/* The commissioner QA console, in the menu system's sections, in the order
+   a rehearsal runs: where it stands, Watch it play (Sim players: the room
+   plays itself on a human clock, worker/tournament.js and shared/qaSim.js),
+   Step (one-shot steps, and Play live: the slow driver on this phone, real
+   broadcasts one player at a time), Jump to (one event picker and its
+   Open / Mid / Done, then one picker of the milestones), Bets and duels,
+   Test a moment (one shape, one bit or Random, one Play: worker qaGag),
+   Checkpoints (with the dock strip's switch), Lens, then Reset last. Reset
+   game progress lives in the commissioner menu's Setup, its one entry.
+   Every jump, step, bets action, moment and checkpoint is one server write.
+   Commissioner and QA capability only. */
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "../../ui/Icon.jsx";
 import { rosterOf, allEventsOf, disp } from "../../../shared/core.js";
 import { qaCheckpointSummary, qaTargets } from "../../../shared/qa.js";
 import { qaSimOf, simPlayers } from "../../../shared/qaSim.js";
 import { GAG_SHAPES } from "../../../shared/gags.js";
-import { BIT_SHAPES, bitsOf } from "../gags/bits/registry.js";
+import { bitsOf, isTeamBit } from "../gags/bits/registry.js";
 import { Btn, Sheet, Tag } from "../../ui/controls.jsx";
 import { MenuGroup, MenuRow } from "../../ui/Menu.jsx";
 import { Avatar } from "../identity/PlayerIdentity.jsx";
@@ -70,25 +74,56 @@ const BET_ACTIONS = [
   ["spread", "Spread evenly"],
   ["clear", "Clear bets"],
 ];
-/* every moment bit on the TV on demand (worker qaGag), each with a
-   stand-in cast from the board, by shape: Random lets the TVs pick one of
-   the shape's, then each bit by name */
-const GAG_GROUPS = GAG_SHAPES.map(shape => ({ shape, name:BIT_SHAPES[shape]?.name || shape,
-  actions:[{ key:`shape:${shape}`, label:"Random", payload:{ shape } },
-    ...bitsOf(shape).map(bit => ({ key:bit.id, label:bit.name, payload:{ bit:bit.id } }))] }));
+
+/* The moments a QA test can play, by what happened: each shape's solo
+   bits, and its team bits (a side of 3 or more) as their own choice when
+   the registry has any. Random on a solo moment lets the TVs pick (the
+   server's { shape }); a team moment has no server Random, so this phone
+   picks one of its bits. */
+const SHAPE_NAMES = { versus:"Upset", win:"Win", loss:"Loss" };
+export const MOMENTS = GAG_SHAPES.flatMap(shape => {
+  const all = bitsOf(shape);
+  const solo = all.filter(bit => !isTeamBit(bit));
+  const team = all.filter(isTeamBit);
+  const name = SHAPE_NAMES[shape] || shape;
+  return [
+    solo.length && { key:shape, shape, name, team:false, bits:solo.map(bit => ({ id:bit.id, name:bit.name })) },
+    team.length && { key:`${shape}:team`, shape, name:`Team ${name.toLowerCase()}`, team:true,
+      bits:team.map(bit => ({ id:bit.id, name:bit.name })) },
+  ].filter(Boolean);
+});
+export function momentPayload(moment, bitId = "", random = Math.random) {
+  if (!moment) return null;
+  if (bitId && moment.bits.some(bit => bit.id === bitId)) return { bit:bitId };
+  if (!moment.team) return { shape:moment.shape };
+  return { bit:moment.bits[Math.floor(random() * moment.bits.length) % moment.bits.length].id };
+}
+
+/* where the jump picker opens: the event the board is at, else the next
+   one not done, else the last */
+function defaultEvent(rows) {
+  return (rows.find(row => row.phases.some(phase => phase.current))
+    || rows.find(row => row.stage < 3) || rows.at(-1))?.id || "";
+}
 
 export function QASheet({ state, status, me, guestLens, busy, environment, dispatch, notify, market = null,
   onSwitch, onLens, onPlayLive, onDuelMe, onDuels, pokerOn, onBustOne, onCountRest,
   onRerun, onReplayMine, qaOn = false, onStrip, onBack, onClose }) {
   const [confirmRerun, setConfirmRerun] = useState(false);
   const [name, setName] = useState("");
-  const [gagBusy, setGagBusy] = useState(null);
-  const playGag = ({ key, payload }) => {
-    if (gagBusy) return;
-    setGagBusy(key);
+  const [momentKey, setMomentKey] = useState(MOMENTS[0]?.key || "");
+  const [bitId, setBitId] = useState("");
+  const [momentBusy, setMomentBusy] = useState(false);
+  const [pickedEvent, setPickedEvent] = useState("");
+  const [pickedMark, setPickedMark] = useState("");
+  const moment = MOMENTS.find(item => item.key === momentKey) || MOMENTS[0];
+  const playMoment = () => {
+    const payload = momentPayload(moment, bitId);
+    if (momentBusy || !payload) return;
+    setMomentBusy(true);
     Promise.resolve(dispatch("qaGag", payload))
       .then(result => notify?.(result?.ok ? "On the TV" : result?.error || "Not saved"), () => notify?.("Not saved"))
-      .finally(() => setGagBusy(null));
+      .finally(() => setMomentBusy(false));
   };
   const qa = useQaFast({ dispatch, environment, notify,
     onDone:type => { if (type === "qaAdvance" || type === "qaRestore" || type === "qaBets") onClose(); } });
@@ -96,6 +131,20 @@ export function QASheet({ state, status, me, guestLens, busy, environment, dispa
   const events = useMemo(() => allEventsOf(state), [state]);
   const targets = useMemo(() => qaTargets(state, events), [state, events]);
   const here = useMemo(() => qaCheckpointSummary(state, events).label, [state, events]);
+  const rows = useMemo(() => targets.sessions.flatMap(session => session.events), [targets]);
+  const eventId = rows.some(row => row.id === pickedEvent) ? pickedEvent : defaultEvent(rows);
+  const eventRow = rows.find(row => row.id === eventId) || null;
+  /* the milestones: the locker room, each session's end, the poker table's stages, crowned */
+  const marks = useMemo(() => [
+    { key:"locker", label:targets.locker.label, done:targets.locker.label },
+    ...targets.sessions.filter(session => session.key)
+      .map(session => ({ key:session.key, label:`End of ${session.label}`, done:`End of ${session.label}`, reached:session.reached })),
+    ...targets.poker.map(item => ({ key:item.key, label:`Poker ${{ set:"set", live:"live", counted:"counted" }[item.phase]}`,
+      done:`Poker · ${item.label}`, reached:item.reached, finale:true })),
+    ...(targets.poker.length ? [{ key:"crowned", label:targets.crowned.label, done:"Champion crowned",
+      reached:targets.crowned.reached, finale:true }] : []),
+  ], [targets]);
+  const mark = marks.find(item => item.key === pickedMark) || marks.find(item => item.key !== "locker" && !item.reached) || marks[0];
   const off = busy || !!qa.pending;
   const finished = status.current === "No active event";
   const simOn = !!qaSimOf(state);
@@ -121,7 +170,7 @@ export function QASheet({ state, status, me, guestLens, busy, environment, dispa
         </dl>
       </div>
 
-      <Part icon="then" title="Step" aside={simOn
+      <Part icon="play" title="Watch it play" aside={simOn
         ? <span className="fd-qa-aside fd-qa-sim-lamp"><span className="fd-qa-pulse" aria-hidden="true" />{simCount} playing</span>
         : null}>
         <div className="fd-qa-sim">
@@ -133,6 +182,9 @@ export function QASheet({ state, status, me, guestLens, busy, environment, dispa
               onClick={() => qa.sim(true, { night:!nightOn })} />
           </MenuGroup>
         </div>
+      </Part>
+
+      <Part icon="then" title="Step">
         <div className="fd-qa-actions">
           <Btn kind="primary" compact disabled={off || finished} onClick={() => qa.jump("step", "Contest simmed")}>
             Sim contest</Btn>
@@ -153,7 +205,32 @@ export function QASheet({ state, status, me, guestLens, busy, environment, dispa
         </div>
       </Part>
 
-      <Part icon="bets" title="Bets" aside={market
+      <Part icon="events" title="Jump to">
+        {eventRow && <div className="fd-qa-pick">
+          <select className="fd-qa-select" value={eventId} disabled={off} aria-label="Event"
+            onChange={event => setPickedEvent(event.target.value)}>
+            {targets.sessions.map(session => (
+              <optgroup key={session.id || "added"} label={session.label}>
+                {session.events.map(row => <option key={row.id} value={row.id}>{row.name}</option>)}
+              </optgroup>
+            ))}
+          </select>
+          <Segments phases={eventRow.phases} qa={qa} name={eventRow.name} />
+        </div>}
+        <div className="fd-qa-pick">
+          <select className="fd-qa-select" value={mark.key} disabled={off} aria-label="Milestone"
+            onChange={event => setPickedMark(event.target.value)}>
+            {marks.filter(item => !item.finale).map(item => <option key={item.key} value={item.key}>{item.label}</option>)}
+            {marks.some(item => item.finale) && <optgroup label="Finale">
+              {marks.filter(item => item.finale).map(item => <option key={item.key} value={item.key}>{item.label}</option>)}
+            </optgroup>}
+          </select>
+          <button type="button" className="fd-qa-end" disabled={off} aria-busy={qa.pending === mark.key || undefined}
+            aria-label={`Go to ${mark.label}`} onClick={() => qa.jump(mark.key, mark.done)}>Go</button>
+        </div>
+      </Part>
+
+      <Part icon="bets" title="Bets and duels" aside={market
         ? <span className="fd-qa-aside">{market.bets} bet{market.bets === 1 ? "" : "s"}{market.chips ? `, ${fmt(market.chips)}` : ""}</span>
         : <span className="fd-qa-aside">Closed</span>}>
         <div className="fd-qa-bets">
@@ -169,83 +246,20 @@ export function QASheet({ state, status, me, guestLens, busy, environment, dispa
         </div>
       </Part>
 
-      <Part icon="tv" title="Gags">
-        {GAG_GROUPS.map(group => (
-          <div key={group.shape} className="fd-qa-session fd-qa-gags">
-            <div className="fd-qa-session-head"><span>{group.name}</span></div>
-            <div className="fd-qa-bets">
-              {group.actions.map(action => (
-                <button key={action.key} type="button" className={`fd-qa-bet${action.payload.shape ? " is-random" : ""}`}
-                  disabled={off || !!gagBusy} aria-busy={gagBusy === action.key || undefined}
-                  aria-label={`${group.name}: ${action.label}`} onClick={() => playGag(action)}>{action.label}</button>
-              ))}
-            </div>
-          </div>
-        ))}
-      </Part>
-
-      <Part icon="events" title="Jump to">
-        <div className="fd-qa-list">
-          <div className="fd-qa-row">
-            <b>{targets.locker.label}</b>
-            <button type="button" className={`fd-qa-end${targets.locker.current ? " is-current" : ""}`} disabled={off}
-              aria-busy={qa.pending === "locker" || undefined}
-              aria-label="Go to the locker room" onClick={() => qa.jump("locker", targets.locker.label)}>Go</button>
-          </div>
+      {moment && <Part icon="tv" title="Test a moment">
+        <div className="fd-qa-pick fd-qa-moment">
+          <select className="fd-qa-select" value={moment.key} disabled={off || momentBusy} aria-label="Moment"
+            onChange={event => { setMomentKey(event.target.value); setBitId(""); }}>
+            {MOMENTS.map(item => <option key={item.key} value={item.key}>{item.name}</option>)}
+          </select>
+          <select className="fd-qa-select" value={bitId} disabled={off || momentBusy} aria-label="Bit"
+            onChange={event => setBitId(event.target.value)}>
+            <option value="">Random</option>
+            {moment.bits.map(bit => <option key={bit.id} value={bit.id}>{bit.name}</option>)}
+          </select>
+          <Btn kind="primary" compact disabled={off || momentBusy} onClick={playMoment}>Play</Btn>
         </div>
-        {targets.sessions.map(session => (
-          <div key={session.id || "added"} className="fd-qa-session">
-            <div className="fd-qa-session-head">
-              <span>{session.label}</span>
-              {session.key && (
-                <button type="button" className={`fd-qa-end${session.reached ? " is-reached" : ""}`} disabled={off}
-                  aria-busy={qa.pending === session.key || undefined}
-                  aria-label={`End of ${session.label}`} onClick={() => qa.jump(session.key, `End of ${session.label}`)}>End</button>
-              )}
-            </div>
-            <div className="fd-qa-list">
-              {session.events.map(row => (
-                <div key={row.id} className="fd-qa-row">
-                  <b className={row.stage === 3 ? "is-done" : ""}>{row.name}</b>
-                  <Segments phases={row.phases} qa={qa} name={row.name} />
-                </div>
-              ))}
-            </div>
-          </div>
-        ))}
-        {targets.poker.length > 0 && (
-          <div className="fd-qa-session">
-            <div className="fd-qa-session-head"><span>Finale</span></div>
-            <div className="fd-qa-list">
-              <div className="fd-qa-row">
-                <b>Poker</b>
-                <Segments phases={targets.poker.map(item => ({ ...item,
-                  label:{ set:"Set", live:"Live", counted:"Counted" }[item.phase] }))} qa={qa} name="Poker" />
-              </div>
-              <div className="fd-qa-row">
-                <b>{targets.crowned.label}</b>
-                <button type="button" className={`fd-qa-end${targets.crowned.current ? " is-current" : ""}`}
-                  disabled={off} aria-busy={qa.pending === "crowned" || undefined}
-                  aria-label="Go to crowned" onClick={() => qa.jump("crowned", "Champion crowned")}>Go</button>
-              </div>
-            </div>
-          </div>
-        )}
-      </Part>
-
-      <Part icon="person" title="Lens">
-        <div className="fd-qa-players" role="group" aria-label="As player">
-          {rosterOf(state).map(player => (
-            <button key={player} type="button" disabled={off} aria-pressed={me === player}
-              onClick={() => onSwitch(player)}><Avatar state={state} p={player} size={24} />{disp(state, player)}</button>
-          ))}
-        </div>
-        <MenuGroup>
-          <MenuRow name="Guest view" pressed={!!guestLens} onClick={onLens} />
-          {onStrip && <MenuRow name="QA strip" pressed={!!qaOn} onClick={onStrip} />}
-          <MenuRow name="Redo check-in here" icon="undo" onClick={onReplayMine} />
-        </MenuGroup>
-      </Part>
+      </Part>}
 
       <Part icon="check" title="Checkpoints">
         <form className="fd-qa-save" onSubmit={event => {
@@ -270,6 +284,22 @@ export function QASheet({ state, status, me, guestLens, busy, environment, dispa
             </div>
           ))}
         </div>}
+        {onStrip && <div className="fd-qa-strip-switch">
+          <MenuGroup><MenuRow name="QA strip" pressed={!!qaOn} onClick={onStrip} /></MenuGroup>
+        </div>}
+      </Part>
+
+      <Part icon="person" title="Lens">
+        <div className="fd-qa-players" role="group" aria-label="As player">
+          {rosterOf(state).map(player => (
+            <button key={player} type="button" disabled={off} aria-pressed={me === player}
+              onClick={() => onSwitch(player)}><Avatar state={state} p={player} size={24} />{disp(state, player)}</button>
+          ))}
+        </div>
+        <MenuGroup>
+          <MenuRow name="Guest view" pressed={!!guestLens} onClick={onLens} />
+          <MenuRow name="Redo check-in here" icon="undo" onClick={onReplayMine} />
+        </MenuGroup>
       </Part>
 
       <MenuGroup title="Reset" icon="undo">

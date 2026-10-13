@@ -1159,11 +1159,12 @@ test("the phone's moment: the stage across its width, the name and the fact lett
   assert.ok(!/#[0-9a-f]{3,6}\b/i.test(css), "tokens only");
 });
 
-test("the QA console lists every moment bit by shape, Random first, each one write", () => {
+test("the QA console reaches every moment bit by shape, Random first, each one write", () => {
   const source = readFileSync(new URL("../src/features/qa/QASheet.jsx", import.meta.url), "utf8");
-  assert.match(source, /GAG_SHAPES\.map\(shape =>/);
-  assert.match(source, /label:"Random", payload:\{ shape \}/);
-  assert.match(source, /bitsOf\(shape\)\.map\(bit => \(\{ key:bit\.id, label:bit\.name, payload:\{ bit:bit\.id \} \}\)\)/);
+  assert.match(source, /GAG_SHAPES\.flatMap\(shape =>/);
+  assert.match(source, /const all = bitsOf\(shape\)/);
+  assert.match(source, /<option value="">Random<\/option>/);
+  assert.match(source, /if \(!moment\.team\) return \{ shape:moment\.shape \}/);
   assert.match(source, /dispatch\("qaGag", payload\)/);
   assert.doesNotMatch(source, /turkey|gutter|vultures/i, "the old four are gone");
 });

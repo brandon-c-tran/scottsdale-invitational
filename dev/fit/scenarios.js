@@ -816,6 +816,25 @@ const crownBeats = [
   ["title", 1000], ["towers", 2600], ["steps", 6000], ["holdtwo", 10800], ["rise", 13600], ["flood", 14900],
   ["name", 16800], ["count", 18400], ["end", 23000],
 ];
+/* the team bits' fit views: a versus at 3 v 3 (volleyball's teams, a
+   long team name) and 7 v 6 (the full court), a win at three and seven */
+const TEAM_THREE = ["Henry", "Jeremy", "Adi"], TEAM_THREE_B = ["Brandon", "Evan", "Khoa"];
+const COURT_SEVEN = ["Brandon", "Evan", "Eyob", "Khoa", "Adi", "Chiang", "Richard"];
+const COURT_SIX = ["Henry", "Jeremy", "Chinh", "Allan", "Sahil", "Ben"];
+const TEAM_GAG_VIEWS = [
+  ...["dominoes", "tugofwar", "slowmowalk"].flatMap(bit => [
+    { id:`tv-gag-${bit}-3v3`, build:() => longNames(fresh("event:volley:open"), "volley"),
+      moment:{ kind:"gag", t:"letter", gag:{ bit, players:TEAM_THREE, name:"Les Quizerables Reunited", fact:"Upset", beaten:TEAM_THREE_B } } },
+    { id:`tv-gag-${bit}-7v6`, build:() => fresh("event:bball5:done"),
+      moment:{ kind:"gag", t:"letter", gag:{ bit, players:COURT_SEVEN, name:"Team Brandon", fact:"Upset", beaten:COURT_SIX } } },
+  ]),
+  ...["pyramid", "teamphoto", "victorylap"].flatMap(bit => [
+    { id:`tv-gag-${bit}-3`, build:() => longNames(fresh("event:volley:open"), "volley"),
+      moment:{ kind:"gag", t:"letter", gag:{ bit, players:TEAM_THREE, name:"Les Quizerables Reunited", fact:"3 in a row" } } },
+    { id:`tv-gag-${bit}-7`, build:() => fresh("event:bball5:done"),
+      moment:{ kind:"gag", t:"letter", gag:{ bit, players:COURT_SEVEN, name:"Team Brandon", fact:"3 in a row" } } },
+  ]),
+];
 export const TV_SCENARIOS = Object.freeze([
   /* Quick Draw's showdown in a gap: the lamps lighting, the draw's flash,
      the result (reels, WON, the antes taken), a foul; and with an event
@@ -851,6 +870,11 @@ export const TV_SCENARIOS = Object.freeze([
     moment:{ kind:"gag", t:"letter", gag:{ bit:"anvil", players:["Henry"], fact:"-12,500" } } },
   { id:"tv-gag-dontlookback", build:() => fresh("event:pong:done"),
     moment:{ kind:"gag", t:"letter", gag:{ bit:"dontlookback", players:["Richard"], fact:"13th" } } },
+  /* the team bits (Oct 12) at volleyball's 3 v 3 and the full court's
+     7 v 6 (a win: a team of three, of seven), each held as its lettering
+     lands; and the QA console's test of one, its team from the board */
+  ...TEAM_GAG_VIEWS,
+  { id:"tv-gag-test-dominoes", build:() => gagTest({ bit:"dominoes" }), at:{ gag:"letter" }, pause:true, wait:300 },
   ...["versus", "win", "loss"].map(shape => ({ id:`tv-gag-test-${shape}`, build:() => gagTest({ shape }), at:{ gag:"letter" },
     pause:true, wait:300 })),
   { id:"tv-gag-test-roadrunner", build:() => gagTest({ bit:"roadrunner" }), at:{ gag:"letter" }, pause:true, wait:300 },

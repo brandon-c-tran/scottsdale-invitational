@@ -38,7 +38,7 @@ const {
   aloneFirst, aloneLast, gagAt, gagAudience, gagCast, gagForPlayer, gagHoldMs, gagLamp, gagPlan, gagWrites, latestGag, lossFact,
   momentLog, nextGagEdge, recentFor, resultGagAt, streakFact, testGag, winStreaks, writeResults,
 } = gags;
-const { BIT_OUT_MS, LETTER_LAND_MS, READ_MS, bitById, bitsOf, pickBit } = await import("../src/features/gags/bits/registry.js");
+const { BIT_OUT_MS, LETTER_LAND_MS, READ_MS, bitById, bitsOf, pickBit, poolKey, poolOf, isTeamBit, TEAM_MAX } = await import("../src/features/gags/bits/registry.js");
 const { HIGHLIGHT_CARD, highlightAt, highlightReel, highlightSince, withHighlightTurns } = await import("../src/features/gags/highlights.js");
 const { PHONE_BIT_HOLD_MAX_MS, PHONE_BIT_HOLD_SLACK_MS, phoneBitHoldMs, phoneBitStep } = await import("../src/features/gags/phoneBit.js");
 const { holdStage, stageHeld } = await import("../src/lib/motion.js");
@@ -454,18 +454,29 @@ test("no repeats: each shape plays round its pool before a bit comes back, and n
   const log = momentLog(s, events(s));
   const moments = log.filter(step => step.moment);
   assert.ok(moments.length >= 8, `a weekend's worth of moments (${moments.length})`);
-  for (const shape of GAG_SHAPES) {
-    const picks = moments.filter(step => step.moment.shape === shape);
+  /* each pool keeps its own round: a shape's solo bits, and its team bits
+     (a moment whose larger side has 3 or more, the registry's poolOf) */
+  const sidesOf = step => ({ a:step.moment.players, b:step.moment.shape === "versus" ? step.moment.beaten : [] });
+  const pools = new Set(moments.map(step => poolKey(step.moment.shape, sidesOf(step))));
+  /* volleyball's 3 v 3 upset plays a team bit; the pairs and the 1v1s solo ones */
+  const volley = moments.find(step => step.write.ev.id === "volley" && step.moment.trigger === "upset");
+  assert.ok(volley && volley.moment.players.length === 3 && isTeamBit(bitById(volley.moment.bit)), "a team of three: a team bit");
+  assert.ok(moments.filter(step => Math.max(step.moment.players.length, step.moment.beaten?.length || 0) < 3)
+    .every(step => !isTeamBit(bitById(step.moment.bit))), "a side of one or two: a solo bit");
+  for (const key of pools) {
+    const picks = moments.filter(step => poolKey(step.moment.shape, sidesOf(step)) === key);
+    const shape = picks[0].moment.shape;
     const ids = picks.map(step => step.moment.bit);
-    const n = bitsOf(shape).length;
-    ids.forEach((id, i) => { if (i) assert.notEqual(id, ids[i - 1], `${shape}: ${id} twice running`); });
+    const n = poolOf(shape, sidesOf(picks[0])).length;
+    assert.ok(ids.every(id => poolOf(shape, sidesOf(picks[0])).some(bit => bit.id === id)), `${key}: from its own pool`);
+    ids.forEach((id, i) => { if (i) assert.notEqual(id, ids[i - 1], `${key}: ${id} twice running`); });
     for (let k = 0; k < ids.length; k += n) {
       const round = ids.slice(k, k + n);
-      assert.equal(new Set(round).size, round.length, `${shape}: a round of the pool repeats (${round.join(", ")})`);
+      assert.equal(new Set(round).size, round.length, `${key}: a round of the pool repeats (${round.join(", ")})`);
     }
-    /* replayed in order: each pick is the write's seed against the shape's picks before it */
+    /* replayed in order: each pick is the write's seed against the pool's picks before it */
     picks.forEach((step, i) => assert.equal(step.moment.bit,
-      pickBit(shape, step.write.key, recentFor(ids.slice(0, i), n)).id));
+      pickBit(shape, step.write.key, recentFor(ids.slice(0, i), n), sidesOf(step)).id));
   }
   assert.deepEqual(momentLog(structuredClone(s), events(s)).map(step => step.moment?.bit || null),
     log.map(step => step.moment?.bit || null), "every screen replays the same weekend");
@@ -786,6 +797,9 @@ test("a highlights turn on the server clock: the first after the newest moment r
 
 test("the shapes and their bits: the Worker's list is the registry's", () => {
   for (const shape of GAG_SHAPES) assert.deepEqual(GAG_BITS[shape], bitsOf(shape).map(bit => bit.id), shape);
+  assert.deepEqual(shared.GAG_TEAM_BITS, GAG_SHAPES.flatMap(shape => bitsOf(shape)).filter(isTeamBit).map(bit => bit.id),
+    "the Worker's team bits are the registry's");
+  assert.equal(shared.GAG_TEAM_MAX, TEAM_MAX);
   assert.equal(gagShapeOf("anvil"), "loss");
   assert.equal(gagShapeOf("quickdraw"), "versus");
   assert.equal(gagShapeOf("nap"), null, "an idle vignette is no moment");
@@ -840,6 +854,34 @@ test("qaGag: a named bit or a shape's Random, the commissioner with the QA capab
   const table = structuredClone(s);
   table.poker = { id:"poker", ts:Date.now(), seats:[...ROSTER], outs:[] };
   refuse(table, "qaGag", { bit:"anvil" }, gm({ qa:true }), /poker table has the TV/);
+});
+
+test("qaGag: a team bit plays a whole team from the board; a solo bit and Random stay one a side", () => {
+  const s = fresh();
+  s.live = true;
+  rule(s, "Khoa", 900);
+  rule(s, "Adi", 400);
+  rule(s, "Jeremy", -300);
+  const board = shared.gagTestCast(s, "loss").players;
+  act(s, "qaGag", { bit:"dominoes" }, gm({ qa:true }));
+  const { players, beaten } = s.gagTest;
+  assert.deepEqual([players.length, beaten.length], [6, 7], "the room split as the full court splits it");
+  assert.equal(players[0], "Jeremy", "the underdogs from last place up");
+  assert.equal(beaten[0], "Khoa", "the favorites from the leader down");
+  assert.equal(new Set([...players, ...beaten]).size, 13, "nobody on both sides");
+  const gag = testGag(s);
+  assert.deepEqual([gag.bit, gag.players, gag.beaten], ["dominoes", players, beaten], "the TV plays every one of them");
+  assert.match(gag.name, /^Team /);
+  act(s, "qaGag", { bit:"pyramid" }, gm({ qa:true }));
+  assert.deepEqual(s.gagTest.players, ["Khoa", "Adi", s.gagTest.players[2]], "a win's team: the top three");
+  assert.equal(testGag(s).players.length, 3);
+  act(s, "qaGag", { bit:"anvil" }, gm({ qa:true }));
+  assert.deepEqual(s.gagTest.players, board, "a solo bit: last place alone");
+  for (let i = 0; i < 8; i++) {
+    later(1000);
+    act(s, "qaGag", { shape:i % 2 ? "versus" : "win" }, gm({ qa:true }));
+    assert.equal(isTeamBit(bitById(testGag(s).bit)), false, "Random casts one a side, so it plays a solo bit");
+  }
 });
 
 test("a QA test plays its bit on the TVs just after its write, even with Gags off; Random picks the same on every TV", () => {

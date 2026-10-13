@@ -16,6 +16,7 @@
        &bit=<id>    the QA console's test of that bit (qaGag { bit })
        &off=1       Gags off on the TV sheet (a test still plays)
        &t=<ms>      the bit already that far in on load (a TV joining late, silent)
+       &in=<ms>     the write already landed, its bit starting that long after load (a live run from the top)
        &pause=1     frozen there (stills)
        &reduced=1   reduced motion: the still for the window and its one sound
        &bare=1      no controls */
@@ -41,7 +42,7 @@ const TEST = params.get("test") === "1" || !!BIT;
 const SONG = params.get("song") === "1" && !TEST;
 const OFF = params.get("off") === "1";
 const REDUCED = params.get("reduced") === "1";
-const T = params.has("t") ? Math.max(0, Number(params.get("t")) || 0) : null;
+const T = params.has("t") ? Math.max(0, Number(params.get("t")) || 0) : params.has("in") ? -Math.max(0, Number(params.get("in")) || 0) : null;
 const PAUSED = params.get("pause") === "1";
 const BARE = params.get("bare") === "1";
 const LABEL = Object.freeze({ upset:"Upset", streak:"Streak", leader:"New leader", bigloss:"Big losing bet", last:"New last place" });

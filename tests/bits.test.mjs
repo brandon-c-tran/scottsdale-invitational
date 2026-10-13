@@ -135,6 +135,73 @@ test("pickBit: never one already played while another remains; never the newest 
   assert.equal(pickBit("loss", "x", "not a list")?.shape, "loss", "a bad recent list is ignored");
 });
 
+/* ── the team bits (Oct 12) ── */
+
+test("team bits: six of them, each casting a side of 3 to 7, versus and win only", () => {
+  const { TEAM_MIN, TEAM_MAX, isTeamBit } = registry;
+  const team = BITS.filter(isTeamBit);
+  assert.deepEqual(team.map(bit => [bit.id, bit.shape, bit.style]), [
+    ["dominoes", "versus", "slapstick"], ["tugofwar", "versus", "slapstick"], ["slowmowalk", "versus", "action"],
+    ["pyramid", "win", "slapstick"], ["teamphoto", "win", "desert"], ["victorylap", "win", "action"],
+  ]);
+  assert.deepEqual([TEAM_MIN, TEAM_MAX], [3, 7]);
+  for (const bit of team) {
+    const roles = bit.shape === "versus" ? ["a", "b"] : ["a"];
+    assert.deepEqual(Object.keys(bit.cast).sort(), roles, `${bit.id}: its roles`);
+    for (const role of roles) assert.deepEqual([bit.cast[role].min, bit.cast[role].max], [TEAM_MIN, TEAM_MAX], `${bit.id}.${role}`);
+    assert.equal(bit.letter.over, "a", `${bit.id}: letters the winners`);
+  }
+  assert.equal(bitsOf("loss").some(isTeamBit) || bitsOf("idle").some(isTeamBit), false, "a loss is one player; idle is the room");
+  assert.equal(BITS.filter(bit => !isTeamBit(bit)).every(bit => Object.values(bit.cast).every(role => !role.min)), true,
+    "the solo bits keep no minimum");
+});
+
+test("pickBit: a moment whose larger side has 3 or more picks a team bit, anything smaller a solo one", () => {
+  const { isTeamBit, poolOf, poolKey, teamSized } = registry;
+  const n = k => Array.from({ length:k }, (_, i) => ROSTER[i]);
+  /* a versus picks by the larger of its two sides */
+  for (const [a, b, team] of [[1, 1, false], [2, 2, false], [1, 2, false], [3, 3, true], [2, 3, true], [3, 1, true], [7, 6, true],
+    [6, 7, true], [4, 6, true]]) {
+    const sides = { a:n(a), b:n(b) };
+    assert.equal(teamSized(sides), team, `${a} v ${b}`);
+    assert.equal(teamSized({ a, b }), team, `${a} v ${b} as counts`);
+    for (let i = 0; i < 40; i++) {
+      const bit = pickBit("versus", `contest:volley:${i}`, [], sides);
+      assert.equal(bit.shape, "versus");
+      assert.equal(isTeamBit(bit), team, `${a} v ${b}: ${bit.id}`);
+    }
+  }
+  for (const [k, team] of [[1, false], [2, false], [3, true], [5, true], [7, true]]) {
+    const picks = new Set(Array.from({ length:60 }, (_, i) => pickBit("win", `w${i}`, [], { a:n(k) }).id));
+    assert.ok([...picks].every(id => isTeamBit(bitById(id)) === team), `a win of ${k}`);
+    if (team) assert.deepEqual([...picks].sort(), ["pyramid", "teamphoto", "victorylap"], `a win of ${k}: every team bit comes up`);
+  }
+  assert.equal(isTeamBit(pickBit("loss", "x", [], { a:n(5) })), false, "a loss has no team bits: the solo pool");
+  assert.equal(isTeamBit(pickBit("versus", "x")), false, "no sides: the solo pool, as before");
+  /* the solo picks are exactly what they were before the team bits existed */
+  for (let i = 0; i < 40; i++) {
+    const solo = bitsOf("versus").filter(bit => !isTeamBit(bit));
+    assert.equal(pickBit("versus", `s${i}`, [], { a:["Adi", "Chiang"], b:["Ben", "Evan"] }).id,
+      solo[seedHash(`versus:s${i}`) % solo.length].id, "the same seed, the same solo bit");
+  }
+  assert.deepEqual([poolKey("versus", { a:3, b:3 }), poolKey("versus", { a:2, b:2 }), poolKey("loss", { a:4 })], ["versus:team", "versus", "loss"]);
+  assert.deepEqual(poolOf("win", { a:3 }).map(bit => bit.id), ["pyramid", "teamphoto", "victorylap"]);
+});
+
+test("pickBit in the team pool: deterministic on every screen, never a played one while another remains", () => {
+  const sides = { a:SEVEN_PLAYERS(), b:SEVEN_PLAYERS().slice(0, 6) };
+  const pool = registry.poolOf("versus", sides).map(bit => bit.id);
+  assert.deepEqual(pool, ["dominoes", "tugofwar", "slowmowalk"]);
+  for (let i = 0; i < 60; i++) {
+    const seed = `contest:bball5:${i}`;
+    assert.equal(pickBit("versus", seed, [], sides).id, pickBit("versus", seed, [], structuredClone(sides)).id, "the same on every screen");
+    for (const played of pool) assert.notEqual(pickBit("versus", seed, [played], sides).id, played, "a played bit waits");
+    assert.equal(pickBit("versus", seed, pool.filter(id => id !== "tugofwar"), sides).id, "tugofwar", "the one left");
+    assert.notEqual(pickBit("versus", seed, [...pool.slice(1), pool[0]], sides).id, pool[0], "never the newest twice running");
+  }
+});
+const SEVEN_PLAYERS = () => ROSTER.slice(0, 7);
+
 /* ── the room's cues ── */
 
 test("a bit's cues land on its own clock, open past a win song; reduced motion is its one summary", () => {
@@ -315,6 +382,14 @@ const text = html => html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
 const SAMPLE_CASTS = { versus:[{ a:["Khoa"], b:["Sahil"] }, { a:["Adi", "Chiang"], b:["Richard", "Allan"] },
   { a:["Brandon", "Evan", "Eyob", "Ben"], b:["Henry", "Jeremy", "Chinh", "Khoa", "Sahil", "Adi"] }], loss:[{ a:["Evan"] }],
   win:[{ a:["Eyob"] }, { a:["Adi", "Chiang"] }, { a:["Adi", "Chiang", "Ben", "Evan", "Eyob"] }, { a:["Brandon", "Evan", "Eyob", "Ben", "Henry", "Jeremy"] }] };
+/* the team bits' sides (Oct 12): 3 to 7 a side, and an odd 2 v 3 or 3 v 7 */
+const SEVEN = ["Brandon", "Evan", "Eyob", "Khoa", "Adi", "Chiang", "Richard"], SIX = ["Henry", "Jeremy", "Chinh", "Allan", "Sahil", "Ben"];
+const TEAM_CASTS = {
+  versus:[{ a:SEVEN.slice(0, 3), b:SIX.slice(0, 3) }, { a:SEVEN.slice(0, 4), b:SIX.slice(0, 5) }, { a:SEVEN, b:SIX }, { a:SIX, b:SEVEN },
+    { a:SEVEN.slice(0, 2), b:SIX.slice(0, 3) }, { a:SIX.slice(0, 3), b:SEVEN }],
+  win:[3, 4, 5, 6, 7].map(n => ({ a:SEVEN.slice(0, n) })),
+};
+const castsOf = bit => registry.isTeamBit(bit) ? TEAM_CASTS[bit.shape] : SAMPLE_CASTS[bit.shape] || [{}];
 
 test("the camera: a clamped framing always covers the canvas with the painting, and puts the floor near the foot", () => {
   const { CAMERA } = camera;
@@ -333,7 +408,7 @@ test("the camera: a clamped framing always covers the canvas with the painting, 
 test("every bit is shot: medium shots, the cast in frame, every move on the bit's clock", () => {
   for (const bit of BITS) {
     const Scene = SCENES[bit.id];
-    for (const cast of SAMPLE_CASTS[bit.shape] || [{}]) {
+    for (const cast of castsOf(bit)) {
       const anchors = Scene.anchors?.(cast) || {};
       const track = camera.cameraTrack(bit, anchors);
       const at = `${bit.id} ${Object.values(cast).map(side => side.length).join("v")}:`;
@@ -376,7 +451,8 @@ test("every registered bit has a scene", () => {
 test("every scene draws on the painting with its cast, letters the name and the fact, on the bit's clock", () => {
   const casts = { versus:{ a:["Khoa"], b:["Sahil"] }, win:{ a:["Eyob"] }, loss:{ a:["Evan"] }, idle:{ a:["Evan", "Sahil", "Khoa"] } };
   for (const bit of BITS) {
-    const cast = casts[bit.shape];
+    /* a team bit: every chip of a 7 v 6 (or a team of seven) on the stage */
+    const cast = registry.isTeamBit(bit) ? TEAM_CASTS[bit.shape][2] || TEAM_CASTS[bit.shape][4] : casts[bit.shape];
     const html = stage({ bit:bit.id, cast, fact:bit.shape === "loss" ? "-1,000" : null, at:1234, frozen:true });
     assert.match(html, new RegExp(`class="bit-layer bit-art is-${bit.id} is-${bit.shape} is-frozen"`), bit.id);
     assert.match(html, /class="tv-desert is-glass tv-backdrop"/, `${bit.id}: on the session's painting`);

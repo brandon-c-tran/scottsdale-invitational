@@ -69,6 +69,28 @@ export function clusterLayout(count, { max = 4, dir = -1, sizes = CLUSTER_SIZES,
   };
 }
 
+/* A team abreast (the team bits, Oct 12): up to `max` chips in one line,
+   centred on 0, feet `step` chips apart, so each chip's two gloves
+   hanging at rest stay plainly its own and nobody clumps; a bigger side
+   stands smaller chips (seven still fit the TV's safe sides at the
+   camera's widest). `half` is how far the line reaches either side of
+   its middle, gloves included. A bit that folds the gloves away (in
+   front of the chip, on a rope) can pass a tighter `step`. */
+export const LINE_SIZES = Object.freeze([240, 230, 210, 190, 170, 150, 136]);
+/* a resting glove's fingers reach this far from the chip's middle, in chips */
+export const REST_REACH = 0.8;
+export function lineLayout(count, { max = 7, step = 1.75, sizes = LINE_SIZES } = {}) {
+  const n = Math.max(0, Math.floor(Number(count) || 0));
+  const shown = Math.min(n, max);
+  const size = sizes[Math.max(0, Math.min(sizes.length - 1, shown - 1))] || CAST.size;
+  const gap = Math.round(size * step);
+  return {
+    shown, more:Math.max(0, n - shown), size, step:gap,
+    xs:Array.from({ length:shown }, (_, i) => Math.round((i - (shown - 1) / 2) * gap) || 0),
+    half:shown ? Math.round((shown - 1) / 2 * gap + size * REST_REACH) : 0,
+  };
+}
+
 /* stereo place for a canvas x: the room hears it where it happens */
 export const panAt = x => {
   const at = Number.isFinite(Number(x)) ? Number(x) : 960;

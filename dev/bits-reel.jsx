@@ -17,7 +17,7 @@ import { createRoot } from "react-dom/client";
 import { ROSTER, CHIP_COLORS } from "../shared/core.js";
 import { PlayerIdentityProvider, TextFloor } from "../src/features/identity/PlayerIdentityContext.js";
 import { BitStage } from "../src/features/gags/BitStage.jsx";
-import { BIT_SHAPES, BIT_STYLES, BITS, SHAPES, bitsOf, pickBit } from "../src/features/gags/bits/registry.js";
+import { BIT_SHAPES, BIT_STYLES, BITS, SHAPES, TEAM_MIN, bitsOf, isTeamBit, pickBit } from "../src/features/gags/bits/registry.js";
 import { CastChip, CastPhotosProvider, GloveArt, ShoeArt } from "../src/features/gags/cast/CastChip.jsx";
 import { GLOVE_POSE_NAMES } from "../src/features/gags/cast/gloveArt.js";
 import { Anvil, ChipStack, DizzyStars, Emanata, MuzzleFlash, Puff, Revolver, Roadrunner, SpeedLines, Sunglasses,
@@ -51,10 +51,19 @@ const CASTS = {
     { key:"1v1", label:"1 v 1", cast:{ a:["Khoa"], b:["Sahil"] } },
     { key:"2v2", label:"2 v 2", cast:{ a:["Adi", "Chiang"], b:["Richard", "Allan"] } },
     { key:"4v6", label:"4 v 6", cast:{ a:["Brandon", "Evan", "Eyob", "Ben"], b:["Henry", "Jeremy", "Chinh", "Khoa", "Sahil", "Adi"] } },
+    /* the team bits' sides: volleyball's three, the full court's 7 v 6 */
+    { key:"3v3", label:"3 v 3", team:true, cast:{ a:["Adi", "Chiang", "Richard"], b:["Brandon", "Evan", "Khoa"] } },
+    { key:"6v7", label:"6 v 7", team:true, cast:{ a:["Henry", "Jeremy", "Chinh", "Allan", "Sahil", "Ben"],
+      b:["Brandon", "Evan", "Eyob", "Khoa", "Adi", "Chiang", "Richard"] } },
+    { key:"7v6", label:"7 v 6", team:true, cast:{ a:["Brandon", "Evan", "Eyob", "Khoa", "Adi", "Chiang", "Richard"],
+      b:["Henry", "Jeremy", "Chinh", "Allan", "Sahil", "Ben"] } },
   ],
   win:[
     { key:"1", label:"Solo", cast:{ a:["Eyob"] } },
     { key:"2", label:"Pair", cast:{ a:["Adi", "Chiang"] } },
+    { key:"3", label:"Three", team:true, cast:{ a:["Adi", "Chiang", "Richard"] } },
+    { key:"5", label:"Five", team:true, cast:{ a:["Brandon", "Evan", "Eyob", "Khoa", "Sahil"] } },
+    { key:"7", label:"Seven", team:true, cast:{ a:["Brandon", "Evan", "Eyob", "Khoa", "Adi", "Chiang", "Richard"] } },
   ],
   loss:[
     { key:"1", label:"Evan", cast:{ a:["Evan"] } },
@@ -65,7 +74,13 @@ const CASTS = {
 /* what a moment letters under the name, by trigger */
 const FACTS = { "A big losing bet":"-1,000", "A new last place":"13th", "3 straight wins":"3 in a row" };
 const PHASES = [["fri", "Friday"], ["sam", "Sat morning"], ["sap", "Sat afternoon"], ["san", "Sat night"], ["fin", "Finale"]];
-const castFor = (bit, key) => (CASTS[bit.shape] || CASTS.loss).find(item => item.key === key) || (CASTS[bit.shape] || CASTS.loss)[0];
+/* a team bit's casts are the sides of 3 or more; a solo bit's the rest */
+const castsFor = bit => {
+  const all = CASTS[bit.shape] || CASTS.loss;
+  return isTeamBit(bit) ? all.filter(item => Math.max(...Object.values(item.cast).map(side => side.length)) >= TEAM_MIN)
+    : all.filter(item => !item.team);
+};
+const castFor = (bit, key) => castsFor(bit).find(item => item.key === key) || castsFor(bit)[0];
 const secs = ms => (Math.round(ms / 10) / 100).toFixed(2);
 
 /* sound: the reel is a TV, so the room bus; the iPhone's playback
@@ -126,7 +141,7 @@ function BitCard({ bit, phase, reduced, request, onPlayed }) {
           {bit.fits.map(item => <button key={item} type="button" aria-pressed={trigger === item} onClick={() => setTrigger(item)}>{item}</button>)}
         </div>
         <div className="br-seg" role="group" aria-label="Cast">
-          {(CASTS[bit.shape] || []).map(item => <button key={item.key} type="button" aria-pressed={castKey === item.key}
+          {castsFor(bit).map(item => <button key={item.key} type="button" aria-pressed={castKey === item.key}
             onClick={() => setCastKey(item.key)}>{item.label}</button>)}
         </div>
         <div className="br-seg" role="group" aria-label="Speed">

@@ -695,9 +695,30 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   skids A back a step), anvil (a loss: pancaked, peeled up, it turns to the
   room for a beat before it limps off) and roadrunner (a loss: a long skid,
   a leaning beep beep, the shadow left behind winding up before it runs).
-  The pool (19): versus quickdraw, springglove, butte; win explosionwalk,
+  The solo pool (19): versus quickdraw, springglove, butte; win explosionwalk,
   toohype, sunset, statue; loss anvil, roadrunner, dontlookback, quicksand,
   dynamite, vulture; idle nap, armwrestle, saguaro, pushups, sweep, map.
+  **Team bits** (Oct 12, Brandon's set): most of the slate is pairs and
+  teams, and the bits above clump a side where only the front chip acts,
+  so six more lay out any side of 3 to 7 (`TEAM_MIN`, `TEAM_MAX`; roles
+  carry `min:3`), spaced so every glove is its own chip's and every chip
+  takes part: versus dominoes, tugofwar, slowmowalk; win pyramid,
+  teamphoto, victorylap (`lineLayout` in castGeometry.js stands a line).
+  `pickBit(shape, seed, recent, sides)` picks from `poolOf(shape, sides)`:
+  the team bits when the moment's LARGER side has 3 or more (`teamSized`:
+  a 3 v 3, a 7 v 6, an odd 2 v 3), the solo bits otherwise (and always for
+  a loss, which is one player); the same seed picks the same solo bit as
+  before. `momentLog` keeps each pool's own rotation (`poolKey`, e.g.
+  "versus:team"). `shared/gags.js` `GAG_TEAM_BITS` mirrors the registry
+  (tests hold it); a QA test of a team bit (`qaGag { bit }`) casts a team
+  from the board (`gagTestCast(..., { team })`: a versus the bottom of the
+  board beating the top, 6 v 7 for thirteen; a win the top three) and
+  plays every one of them; Random stays one a side. Reel casts `3v3`,
+  `6v7`, `7v6`, win `3`, `5`, `7`; fit views `tv-gag-<bit>-3v3|7v6`, win
+  `-3|-7`, `tv-gag-test-dominoes`. `node scripts/bit-live.mjs <id> <ms...>`
+  plays a bit LIVE on the gags rehearsal (its new `&in=<ms>`: the bit
+  starting that long after load) and sets each instant beside the same
+  instant frozen, since frozen frames once hid a live-only bug.
   Idle vignettes are the TV's downtime: 6 to 10 s (`IDLE_MS`), cast from
   the room (the players present, a vignette takes one or two), `letter:null`
   (no name, no fact, the painting at full light), `still` the punchline.

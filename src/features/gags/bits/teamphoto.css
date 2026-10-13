@@ -1,0 +1,113 @@
+/* teamphoto (teamphoto.jsx): every move on a beat from registry.js
+   (--b-<name>), every animation on --ba (bits.css), each element resting
+   on its end state. A run of moves on one property: the first fills both
+   ways, the rest only forwards. The camera, the white frame and the shake
+   are the stage's (the registry). The timer runs 2500 ms (timer to flash),
+   the tip 800 (tip to crash). */
+
+.is-teamphoto .tp { position:absolute; inset:0; }
+.is-teamphoto .tp-node { position:absolute; display:block; width:0; height:0; }
+.is-teamphoto .tp-ink { fill:var(--bit-ink); stroke:var(--bit-ink); stroke-linecap:round; stroke-linejoin:round; }
+.is-teamphoto .tp-ink[fill="none"] { fill:none; }
+.is-teamphoto .tp-tripod-art, .is-teamphoto .tp-lamp-art, .is-teamphoto .tp-burst-art, .is-teamphoto .tp-bench { position:absolute; display:block;
+  overflow:visible; }
+.is-teamphoto .tp-leg { stroke:var(--bit-wood); stroke-linecap:round; }
+.is-teamphoto .tp-leg-back { stroke:var(--bit-wood-dark); stroke-linecap:round; }
+.is-teamphoto .tp-body { fill:var(--bit-metal-dark); }
+.is-teamphoto .tp-band { stroke:var(--bit-metal); stroke-linecap:butt; }
+.is-teamphoto .tp-barrel { fill:var(--bit-gold); }
+.is-teamphoto .tp-glass { fill:var(--bit-iron-lit); }
+.is-teamphoto .tp-metal { stroke:var(--bit-metal); stroke-linecap:round; }
+.is-teamphoto .tp-dish { fill:var(--bit-iron-lit); }
+.is-teamphoto .tp-button { fill:var(--bit-red); }
+.is-teamphoto .tp-lamp-off { fill:var(--bit-red-dark); }
+.is-teamphoto .tp-lamp-on { fill:var(--bit-red-lit); }
+.is-teamphoto .tp-lamp-hot { fill:var(--bone); }
+.is-teamphoto .tp-lamp-halo { fill:color-mix(in srgb, var(--bit-red) 38%, transparent); }
+.is-teamphoto .tp-burst { fill:var(--bone); }
+.is-teamphoto .tp-burst-hot { fill:var(--bit-fire-hot); }
+.is-teamphoto .tp-wood { fill:var(--bit-wood); }
+.is-teamphoto .tp-wood-dark { fill:var(--bit-wood-dark); }
+.is-teamphoto .tp-wood-lit { stroke:var(--bit-wood-lit); stroke-linecap:round; }
+.is-teamphoto .tp-shadow { border-radius:50%; background:var(--bit-shadow); }
+
+/* ── the runner: its glove on the button, a poke; it turns and hurries
+   back round behind the camera into its place, hopping, and turns to the
+   camera ── */
+.is-teamphoto .is-runner .cast-move { transform:translateX(0px);
+  --ba:tp-run 540ms cubic-bezier(.45,0,.4,1) calc(var(--tl) + var(--b-run)) both; animation:var(--ba); }
+@keyframes tp-run { from { transform:translateX(var(--run)); } to { transform:translateX(0px); } }
+.is-teamphoto .is-runner .cast-hop {
+  --ba:tp-hurry 180ms linear calc(var(--tl) + var(--b-run)) 3 both; animation:var(--ba); }
+@keyframes tp-hurry { 0%, 100% { transform:translateY(0px); } 45% { transform:translateY(-16px); } }
+.is-teamphoto .is-runner .cast-chip-in { transform:var(--cast-turn);
+  --ba:tp-turn 140ms ease-in-out calc(var(--tl) + var(--b-home) - 80ms) both; animation:var(--ba); }
+@keyframes tp-turn { from { transform:rotateY(16deg); } to { transform:var(--cast-turn); } }
+.is-teamphoto .is-runner .cast-hand.is-l > .cast-hand-in { transform:var(--hl);
+  --ba:tp-poke 200ms ease-in-out calc(var(--tl) + var(--b-press) - 80ms) both,
+    tp-unpress 160ms ease-out calc(var(--tl) + var(--b-run)) forwards,
+    tp-hand-l 200ms cubic-bezier(.2,.9,.25,1.25) calc(var(--tl) + var(--b-pose) + var(--t)) forwards; animation:var(--ba); }
+@keyframes tp-poke { 0%, 100% { transform:var(--press); } 45% { transform:var(--poke); } }
+@keyframes tp-unpress { from { transform:var(--press); } to { transform:translate(0px, 0px); } }
+.is-teamphoto .is-runner .cast-hand.is-l .cast-hand-fx { transform:var(--fl);
+  --ba:tp-press-fx 160ms ease-out calc(var(--tl) + var(--b-run)) both,
+    tp-fx-l 200ms cubic-bezier(.2,.9,.25,1.25) calc(var(--tl) + var(--b-pose) + var(--t)) forwards; animation:var(--ba); }
+@keyframes tp-press-fx { from { transform:scaleX(1) rotate(-16deg); } to { transform:scaleX(1) rotate(0deg); } }
+
+/* ── the pose: a little crouch and up into it, the gloves to their
+   places, each on its own count; then nobody moves ── */
+.is-teamphoto .tp-m .cast-body { transform:scale(1, 1);
+  --ba:tp-crouch 160ms ease-in-out calc(var(--tl) + var(--b-pose) + var(--t) - 160ms) both,
+    tp-spring 280ms cubic-bezier(.2,.9,.25,1.25) calc(var(--tl) + var(--b-pose) + var(--t)) forwards; animation:var(--ba); }
+@keyframes tp-crouch { from { transform:scale(1, 1); } to { transform:scale(1.07, .9); } }
+@keyframes tp-spring { 0% { transform:scale(1.07, .9); } 45% { transform:scale(.95, 1.07); } 100% { transform:scale(1, 1); } }
+.is-teamphoto .tp-m .cast-hand.is-r > .cast-hand-in { transform:var(--hr);
+  --ba:tp-hand-r 200ms cubic-bezier(.2,.9,.25,1.25) calc(var(--tl) + var(--b-pose) + var(--t)) both; animation:var(--ba); }
+@keyframes tp-hand-r { from { transform:translate(0px, 0px); } to { transform:var(--hr); } }
+.is-teamphoto .tp-m:not(.is-runner) .cast-hand.is-l > .cast-hand-in { transform:var(--hl);
+  --ba:tp-hand-l 200ms cubic-bezier(.2,.9,.25,1.25) calc(var(--tl) + var(--b-pose) + var(--t)) both; animation:var(--ba); }
+@keyframes tp-hand-l { from { transform:translate(0px, 0px); } to { transform:var(--hl); } }
+.is-teamphoto .tp-m .cast-hand.is-r .cast-hand-fx { transform:var(--fr);
+  --ba:tp-fx-r 200ms cubic-bezier(.2,.9,.25,1.25) calc(var(--tl) + var(--b-pose) + var(--t)) both; animation:var(--ba); }
+@keyframes tp-fx-r { from { transform:scaleX(1) rotate(0deg); } to { transform:var(--fr); } }
+.is-teamphoto .tp-m:not(.is-runner) .cast-hand.is-l .cast-hand-fx { transform:var(--fl);
+  --ba:tp-fx-l 200ms cubic-bezier(.2,.9,.25,1.25) calc(var(--tl) + var(--b-pose) + var(--t)) both; animation:var(--ba); }
+@keyframes tp-fx-l { from { transform:scaleX(1) rotate(0deg); } to { transform:var(--fl); } }
+
+/* ── the self-timer: blinks faster and faster, the last ones nearly
+   steady (bitTimer's own spacing), out at the flash ── */
+.is-teamphoto .tp-lamp { opacity:0;
+  --ba:tp-blink 2500ms linear calc(var(--tl) + var(--b-timer)) both; animation:var(--ba); }
+@keyframes tp-blink { 0% { opacity:1; } 2.80% { opacity:1; } 2.81% { opacity:0; } 16.80% { opacity:1; } 19.60% { opacity:1; } 19.61% { opacity:0; }
+  30.24% { opacity:1; } 33.04% { opacity:1; } 33.05% { opacity:0; } 40.99% { opacity:1; } 43.79% { opacity:1; } 43.80% { opacity:0; }
+  49.59% { opacity:1; } 52.39% { opacity:1; } 52.40% { opacity:0; } 56.47% { opacity:1; } 59.23% { opacity:1; } 59.24% { opacity:0; }
+  61.98% { opacity:1; } 64.18% { opacity:1; } 64.19% { opacity:0; } 66.38% { opacity:1; } 68.15% { opacity:1; } 68.16% { opacity:0; }
+  69.91% { opacity:1; } 71.32% { opacity:1; } 71.33% { opacity:0; } 72.73% { opacity:1; } 74.13% { opacity:1; } 74.14% { opacity:0; }
+  75.53% { opacity:1; } 76.93% { opacity:1; } 76.94% { opacity:0; } 78.33% { opacity:1; } 79.73% { opacity:1; } 79.74% { opacity:0; }
+  81.13% { opacity:1; } 82.53% { opacity:1; } 82.54% { opacity:0; } 83.93% { opacity:1; } 85.33% { opacity:1; } 85.34% { opacity:0; }
+  86.73% { opacity:1; } 88.13% { opacity:1; } 88.14% { opacity:0; } 89.53% { opacity:1; } 90.93% { opacity:1; } 90.94% { opacity:0; }
+  92.33% { opacity:1; } 93.73% { opacity:1; } 93.74% { opacity:0; } 95.13% { opacity:1; } 96.53% { opacity:1; } 96.54% { opacity:0; }
+  97.93% { opacity:1; } 99.33% { opacity:1; } 99.34% { opacity:0; } 100% { opacity:0; } }
+
+/* ── the flash: a burst off the dish for a few frames under the stage's
+   white frame, and a little smoke curling up off it ── */
+.is-teamphoto .tp-flash { opacity:0;
+  --ba:tp-burst 170ms linear calc(var(--tl) + var(--b-flash) - 16ms) both; animation:var(--ba); }
+@keyframes tp-burst { 0% { opacity:0; transform:scale(.6) rotate(0deg); } 1% { opacity:1; transform:scale(.9) rotate(0deg); }
+  45% { opacity:1; transform:scale(1.05) rotate(8deg); } 100% { opacity:0; transform:scale(.4) rotate(16deg); } }
+.is-teamphoto .tp-smoke { opacity:0;
+  --ba:tp-smoke 1500ms cubic-bezier(.25,.6,.4,1) calc(var(--tl) + var(--b-flash) + 60ms) both; animation:var(--ba); }
+@keyframes tp-smoke { 0% { opacity:0; transform:scale(.4); } 10% { opacity:.9; transform:scale(.6); } 70% { opacity:.7; }
+  100% { opacity:0; transform:translate(-30px, -150px) scale(1.4); } }
+
+/* ── then the camera, on its tripod, slowly tips over on its right foot:
+   a lean, a hesitation, the long way down; a bounce with its legs in the
+   air ── */
+.is-teamphoto .tp-tip { transform:rotate(90deg);
+  --ba:tp-tip 800ms linear calc(var(--tl) + var(--b-tip)) both,
+    tp-crash 260ms ease-out calc(var(--tl) + var(--b-crash)) forwards; animation:var(--ba); }
+@keyframes tp-tip { 0% { transform:rotate(0deg); animation-timing-function:cubic-bezier(.4,0,.6,1); }
+  30% { transform:rotate(5deg); animation-timing-function:ease-in-out; } 46% { transform:rotate(4deg); animation-timing-function:cubic-bezier(.5,0,1,.4); }
+  100% { transform:rotate(90deg); } }
+@keyframes tp-crash { 0% { transform:rotate(90deg); } 35% { transform:rotate(83deg); } 70% { transform:rotate(91deg); } 100% { transform:rotate(90deg); } }
+.is-teamphoto .tp-dust { --dust-ms:640ms; }

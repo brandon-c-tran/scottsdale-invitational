@@ -1266,6 +1266,58 @@ export const BIT_PARTS = Object.freeze([
   { id:"bitShing", name:"Knife and fork", ms:1000,
     play:(E, t) => { swell(E, voice(E, { send:0.3, bright:1, gain:1 }), t, { d:0.24, f0:2500, f1:6500, q:6, peak:0.3 });
       M.bell(E, t + 0.2, NOTE.A6, { gain:0.25, dec:0.7, send:0.35 }); M.bell(E, t + 0.2, NOTE.E6, { gain:0.12, dec:0.5, send:0.35 }); } },
+  /* ══ the team bits (Oct 12) ══ */
+  /* ── dominoes ── */
+  /* a line going over (opts.ms): clacks one after another, a little
+     faster as the chain runs, panned along it left to right (opts.dir -1:
+     right to left) */
+  { id:"bitClatter", name:"Domino chain", ms:900,
+    play:(E, t, o = {}) => { const d = Math.max(0.2, (o.ms || 800) / 1000), n = Math.max(3, Math.min(8, Math.round(d / 0.12)));
+      const way = o.dir < 0 ? -1 : 1;
+      for (let i = 0; i < n; i++) {
+        const x = d * Math.pow(i / Math.max(1, n - 1), 1.12), pan = n > 1 ? way * (-0.6 + 1.2 * i / (n - 1)) : 0;
+        M.clack(E, t + x, { pitch:0.86 + (i % 3) * 0.05, gain:0.5, double:false, pan });
+        M.felt(E, t + x + 0.004, { gain:0.18 });
+      } } },
+  /* ── tugofwar ── */
+  /* ── slowmowalk ── */
+  /* the rest of a chain of far blasts along the horizon (opts.ms): after
+     the first, dull booms one after another, panned left to right */
+  { id:"bitBoomChain", name:"Far blasts in a row", ms:1600,
+    play:(E, t, o = {}) => { const d = Math.max(0.3, (o.ms || 1200) / 1000), n = Math.max(3, Math.min(6, Math.round(d / 0.24) + 1));
+      for (let i = 1; i < n; i++) {
+        const x = d * i / (n - 1), pan = -0.5 + 1 * i / (n - 1);
+        M.drum(E, t + x, { f:NOTE.D2 * (0.9 + (i % 2) * 0.12), dec:0.7, gain:0.55, pan });
+        noiseBed(E, voice(E, { send:0.45, bright:0.4, gain:0.5, pan }), t + x + 0.005, { d:0.6, f:420, peak:0.45 });
+      } } },
+  /* ── pyramid ── */
+  /* ── teamphoto ── */
+  /* a camera's self-timer (opts.ms): blips coming faster and faster, the
+     last ones nearly a tone */
+  { id:"bitTimer", name:"Self-timer", ms:2500,
+    play:(E, t, o = {}) => { const d = Math.max(0.6, (o.ms || 2500) / 1000);
+      const v = voice(E, { send:0.15, bright:1, gain:0.5 });
+      for (let x = 0, gap = 0.42; x < d - 0.02; x += gap, gap = Math.max(0.07, gap * 0.8)) {
+        held(E, v, t + x, NOTE.A6, Math.min(0.07, gap * 0.5), 0.3, { type:"triangle", a:0.003 });
+        M.tick(E, t + x, { gain:0.12, pitch:1.8 });
+      } } },
+  /* a flash going off: the shutter's clack, the flash's rising whine */
+  { id:"bitShutter", name:"Shutter and flash", ms:900,
+    play:(E, t) => { M.clack(E, t, { pitch:1.1, gain:0.6, double:true }); M.tick(E, t + 0.03, { gain:0.35, pitch:1.6 });
+      glide(E, voice(E, { send:0.2, bright:1, gain:0.18 }), t + 0.05, NOTE.D6, NOTE.D6 * 2, 0.6, 0.12, { type:"sine" }); } },
+  /* ── victorylap ── */
+  /* a flag snapping in the wind (opts.ms): soft cloth cracks in a slow run */
+  { id:"bitFlagFlap", name:"Flag flapping", ms:2400,
+    play:(E, t, o = {}) => { const d = Math.max(0.4, (o.ms || 2400) / 1000);
+      for (let x = 0, i = 0; x < d; x += 0.34 + (i % 2) * 0.12, i++) {
+        const v = voice(E, { send:0.2, bright:0.7, gain:0.5, pan:rnd(-0.15, 0.15) });
+        burst(E, v, t + x, { type:"bandpass", f:900 + (i % 3) * 180, q:0.7, d:0.07, peak:0.55, a:0.01 });
+      } } },
+  /* the wind dropping out of a flag: the last of the gust sliding down,
+     and a soft falling whistle as it hangs limp */
+  { id:"bitFlagSag", name:"Flag goes limp", ms:1000,
+    play:(E, t) => { swell(E, voice(E, { send:0.25, bright:0.6, gain:0.6 }), t, { d:0.5, f0:1200, f1:300, q:0.8, peak:0.2 });
+      glide(E, voice(E, { send:0.3, bright:0.8, gain:0.35 }), t + 0.15, NOTE.A5, NOTE.D5, 0.7, 0.1, { type:"sine" }); } },
 ].map(Object.freeze));
 
 /* idle's helpers (BIT_PARTS above) */

@@ -32,7 +32,13 @@
      cast       the roles the scene needs: { a:{ role, max }, b:... }; a
                 team bit's roles carry min:TEAM_MIN (a side of 3 or more)
      cues      [{ at, sound, pan, opts }]: kit recipes on the room bus
-     fits       the triggers it suits (default: every trigger of its shape) */
+     fits       the triggers it suits (default: every trigger of its shape)
+     pairLag    a pair's beat (Oct 13): in a solo bit both partners of a
+                side of exactly two act, the second this many ms after the
+                first where they go a beat apart (two shots, two pokes)
+     pairs      [{ sides:{ a:2, b:2 }, cues, shakes, washes }]: what a
+                cast of that shape adds on the bit's clock (the second
+                gunshot's crack, kick and white frame), merged by castBit */
 import { CAMERA_EASE } from "./camera.js";
 
 export const BIT_SHAPES = Object.freeze({
@@ -69,6 +75,7 @@ const freeze = bit => freezeAll({ ...bit, fits:bit.fits || BIT_SHAPES[bit.shape]
    it... and fumbles it. ── */
 const QD = { tumble:40, twitch:1360, draw:1580, bang:1660, kick:1700, whip:2040, fall:2700, land:3040, blow:3380, spin:3700,
   fumble:4080, bonk:4210, drop:4470, look:4600 };
+const QD_PAIR_LAG = 240;
 const quickdraw = {
   id:"quickdraw", name:"Quick draw", shape:"versus", style:"action", ms:5400, beats:QD, still:5020, summary:"bitCrack",
   letter:{ at:QD.land + 200, over:"a", place:"top-left" },
@@ -97,6 +104,15 @@ const quickdraw = {
     { at:QD.bonk, sound:"bitBonk", pan:-0.38 },
     { at:QD.drop, sound:"bitClink", pan:-0.3 },
   ],
+  /* a pair of winners: the second shot a beat after the first, its own
+     white frame, kick and fumble */
+  pairLag:QD_PAIR_LAG,
+  pairs:[{ sides:{ a:2 }, washes:[QD.bang + QD_PAIR_LAG], shakes:[{ at:QD.bang + QD_PAIR_LAG, big:true }], cues:[
+    { at:QD.bang + QD_PAIR_LAG, sound:"bitCrack", pan:-0.45 },
+    { at:QD.kick + QD_PAIR_LAG, sound:"bitSkid", pan:-0.6 },
+    { at:QD.bonk + QD_PAIR_LAG, sound:"bitBonk", pan:-0.55 },
+    { at:QD.drop + QD_PAIR_LAG, sound:"bitClink", pan:-0.5 },
+  ] }],
 };
 
 /* ── anvil: the chip admires its own stack. A shadow grows under it.
@@ -179,6 +195,7 @@ const roadrunner = {
    from the start to the boom, one slow one from the boom to the land, one
    from the land to the stop. */
 const EW = { boom:1200, ember:1420, land:2600, stop:3000, lower:3260, look:3440, up:4040, glint:4170 };
+const EW_PAIR_LAG = 160;
 const explosionwalk = {
   id:"explosionwalk", name:"Explosion walk", shape:"win", style:"action", ms:4800, beats:EW, still:3800, summary:"bitBoom",
   letter:{ at:EW.stop + 20, over:"a", place:"top-left" },
@@ -203,6 +220,13 @@ const explosionwalk = {
     { at:EW.up, sound:"bitShades", pan:0.04, opts:{ up:true } },
     { at:EW.glint, sound:"bitGlint", pan:0.1 },
   ],
+  /* a pair both look over their glasses, the second a beat after the first */
+  pairLag:EW_PAIR_LAG,
+  pairs:[{ sides:{ a:2 }, cues:[
+    { at:EW.lower + 30 + EW_PAIR_LAG, sound:"bitShades", pan:0.2 },
+    { at:EW.up + EW_PAIR_LAG, sound:"bitShades", pan:0.2, opts:{ up:true } },
+    { at:EW.glint + EW_PAIR_LAG, sound:"bitGlint", pan:0.25 },
+  ] }],
 };
 
 /* ── dontlookback: the loser stands facing us, its own tall stack of chips
@@ -451,6 +475,7 @@ const IDLE = [nap, armwrestle, saguaro, pushups, sweep, map];
    room, thumbs up. ── */
 const SPG = { hop:0, turn:800, raise:1320, press:1540, fire:1570, hit:1650, fly:1710, twinkle:2450, retract:3000, home:3130, boop:3240,
   look:3760, thumb:4080 };
+const SPG_PAIR_LAG = 240;
 const springglove = {
   id:"springglove", name:"Spring glove", shape:"versus", style:"slapstick", ms:4850, beats:SPG, still:4420, summary:"bitPow",
   letter:{ at:SPG.look + 120, over:"a", place:"top-left" },
@@ -475,6 +500,25 @@ const springglove = {
     { at:SPG.retract, sound:"bitZip", pan:0.25 },
     { at:SPG.boop, sound:"bitBonk", pan:-0.36 },
     { at:SPG.boop + 60, sound:"bitBoing", pan:-0.36, opts:{ small:true } },
+  ],
+  /* a pair of winners is a pincer, one launcher at each end: the whole
+     stage held wide on the middle. Against a pair, the second glove
+     punches the second favorite a beat after the first (against one,
+     both land at once) */
+  pairLag:SPG_PAIR_LAG,
+  pairs:[
+    { sides:{ a:2 }, camera:{ zoom:1.5, x:"mid", fit:true, moves:[
+      { at:200, ms:1200, zoom:1.56 },
+      { at:SPG.hit, ms:70, zoom:1.62, ease:CAMERA_EASE.snap },
+      /* back out for the boops and both thumbs, at either end */
+      { at:SPG.fly + 160, ms:620, zoom:1.5 },
+    ], shakes:[{ at:SPG.hit, big:true }, { at:SPG.home }] } },
+    { sides:{ a:2, b:2 }, shakes:[{ at:SPG.hit + SPG_PAIR_LAG, big:true }], cues:[
+      { at:SPG.fire + SPG_PAIR_LAG, sound:"bitSproing", pan:0.4 },
+      { at:SPG.hit + SPG_PAIR_LAG, sound:"bitPow", pan:0.3 },
+      { at:SPG.fly + SPG_PAIR_LAG, sound:"bitStreak", pan:0.2, opts:{ from:0.3, to:-0.5 } },
+      { at:SPG.boop + SPG_PAIR_LAG, sound:"bitBonk", pan:0.7 },
+    ] },
   ],
 };
 
@@ -555,6 +599,7 @@ const SLAPSTICK = [springglove, toohype, dynamite];
    A side of more: the whole beaten side stands on the pillar. ── */
 const BT = { look:140, walk:420, raise:980, poke:1160, crack:1780, crumble:2040, down:2490, face:2890, drop:3570, peek:3700,
   puff:4520, dust:4720 };
+const BT_PAIR_LAG = 160;
 const butte = {
   id:"butte", name:"Butte", shape:"versus", style:"desert", ms:5300, beats:BT, still:3320, summary:"bitCrumble",
   letter:{ at:BT.crumble + 260, over:"a", place:"top-left" },
@@ -581,6 +626,14 @@ const butte = {
     { at:BT.dust, sound:"bitPat", pan:-0.12, opts:{ step:0 } },
     { at:BT.dust + 170, sound:"bitPat", pan:-0.12, opts:{ step:1 } },
   ],
+  /* a pair of winners pokes the stem from both lips, the second a beat
+     after the first, and dusts off on the far side */
+  pairLag:BT_PAIR_LAG,
+  pairs:[{ sides:{ a:2 }, cues:[
+    { at:BT.poke + 70 + BT_PAIR_LAG, sound:"bitPoke", pan:0.3 },
+    { at:BT.dust + BT_PAIR_LAG, sound:"bitPat", pan:0.4, opts:{ step:0 } },
+    { at:BT.dust + 170 + BT_PAIR_LAG, sound:"bitPat", pan:0.4, opts:{ step:1 } },
+  ] }],
 };
 
 /* ── sunset: a win. The winner on top of a butte, fists on hips, the sun
@@ -927,6 +980,30 @@ export function pickBit(shape, seed, recent = [], sides = null) {
     candidates = pool.length > 1 ? pool.filter(bit => bit.id !== newest) : pool;
   }
   return candidates[seedHash(`${shape}:${seed}`) % candidates.length];
+}
+
+/* The bit as this cast plays it (Oct 13): its `pairs` entries whose
+   sides match the cast (a side named with a count matches a side of
+   exactly that many) add their cues, shakes and white frames on the
+   bit's clock. The same object for the same match, and a cast bit casts
+   to itself. */
+const CAST_BITS = new Map();
+const byAt = (x, y) => (x?.at ?? x) - (y?.at ?? y);
+export function castBit(bit, cast) {
+  if (!bit?.pairs?.length) return bit;
+  const hits = bit.pairs.map((entry, i) => [entry, i])
+    .filter(([entry]) => Object.entries(entry.sides || {}).every(([role, n]) => sideCount(cast?.[role]) === n));
+  if (!hits.length) return bit;
+  const key = `${bit.id}:${hits.map(([, i]) => i).join(",")}`;
+  if (!CAST_BITS.has(key)) {
+    const add = name => hits.flatMap(([entry]) => entry[name] || []);
+    /* an entry's own camera (a pincer's wider shot) stands in for the bit's */
+    const camera = hits.reduce((cam, [entry]) => entry.camera ? { ...cam, ...entry.camera } : cam, bit.camera || {});
+    CAST_BITS.set(key, freezeAll({ ...bit, pairs:[], cues:[...bit.cues, ...add("cues")].sort(byAt),
+      camera:{ ...camera, shakes:[...(camera.shakes || []), ...add("shakes")].sort(byAt),
+        washes:[...(camera.washes || []), ...add("washes")].sort(byAt) } }));
+  }
+  return CAST_BITS.get(key);
 }
 
 /* a bit's beats as custom properties for its scene's CSS */

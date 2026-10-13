@@ -56,13 +56,24 @@ export function castGeometry(size = CAST.size, { shoes = true } = {}) {
    lead outward (the lead stands nearest the action); `dir` is the way the
    side extends from the lead (-1 to the left, 1 to the right). */
 export const CLUSTER_SIZES = Object.freeze([240, 210, 180, 160]);
-export function clusterLayout(count, { max = 4, dir = -1, sizes = CLUSTER_SIZES, gap = 0.78 } = {}) {
+/* A pair (Oct 13: the doubles, Beer Die, Pickleball, 8-Ball, Beer Pong):
+   both partners act in a solo bit, so a side of exactly two stands
+   apart, PAIR_STEP chips feet to feet, each glove plainly its own chip's
+   and nobody in a clump (`pair` says so; a bit gives both the lead's
+   part). `pairStep` asks for a different spacing. */
+export const PAIR_STEP = 1.8;
+/* a versus whose two sides both stand in one shot stands a pair a little
+   smaller and closer (a 2 v 2 standoff still fits the TV) */
+export const PAIR_TIGHT = Object.freeze({ sizes:Object.freeze([240, 200, 180, 160]), pairStep:1.75 });
+export const isPair = side => (Array.isArray(side) ? side.length : Math.floor(Number(side) || 0)) === 2;
+export function clusterLayout(count, { max = 4, dir = -1, sizes = CLUSTER_SIZES, gap = 0.78, pairStep = PAIR_STEP } = {}) {
   const n = Math.max(0, Math.floor(Number(count) || 0));
   const shown = Math.min(n, max);
   const size = sizes[Math.max(0, Math.min(sizes.length - 1, shown - 1))] || CAST.size;
-  const step = Math.round(size * gap);
+  const pair = n === 2 && shown === 2;
+  const step = Math.round(size * (pair ? pairStep : gap));
   return {
-    shown, more:Math.max(0, n - shown), size, step,
+    shown, more:Math.max(0, n - shown), size, step, pair,
     xs:Array.from({ length:shown }, (_, i) => i * step * (dir < 0 ? -1 : 1) || 0),
     /* how far the side reaches from the lead's feet, chips and gloves */
     reach:shown ? (shown - 1) * step + size * (0.5 + RIG.handX) : 0,

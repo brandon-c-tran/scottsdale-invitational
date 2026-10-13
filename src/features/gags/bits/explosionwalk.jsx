@@ -1,5 +1,5 @@
 import React from "react";
-import { CAST, castGeometry, clusterLayout } from "../cast/castGeometry.js";
+import { CAST, PAIR_STEP, castGeometry, clusterLayout } from "../cast/castGeometry.js";
 import { CastChip } from "../cast/CastChip.jsx";
 import { GLOVE_POSES } from "../cast/gloveArt.js";
 import { DUST_LOW, Dust, Fireball, Flame, Glint, LooseChip, MuzzleFlash, Puff, SmokeCloud, Sunglasses } from "../props/Props.jsx";
@@ -22,6 +22,7 @@ import "./explosionwalk.css";
    explosionwalk.css. The scene names its anchors: "walk" (the side's
    middle) and "lead" (the lead at its stop). */
 const EW = bitById("explosionwalk").beats;
+const PAIR_LAG = bitById("explosionwalk").pairLag;
 export const EW_STAGE = Object.freeze({ x:960, floor:CAST.floor, from:Object.freeze({ y:898, s:0.66 }), horizon:858,
   blast:Object.freeze({ x:1010, y:700, scale:2.5 }), slow:3.5 });
 
@@ -44,7 +45,7 @@ export const walkAt = p => {
    a little more than shoulder to shoulder so their gloves swing clear */
 export function walkSquad(count = 1) {
   const layout = clusterLayout(Math.max(1, count), { max:4 });
-  const step = Math.round(layout.size * 1.12);
+  const step = Math.round(layout.size * (layout.pair ? PAIR_STEP : 1.12));
   const slots = [[0], [-0.5, 0.5], [0, -1, 1], [-0.5, 0.5, -1.5, 1.5]][layout.shown - 1] || [0];
   const xs = slots.map(slot => Math.round(slot * step));
   const reach = Math.round(layout.size * 0.82);
@@ -82,6 +83,9 @@ export function ExplosionWalk({ cast }) {
   if (!side.length) return null;
   const squad = walkSquad(side.length);
   const shown = side.slice(0, squad.shown);
+  /* a pair (Oct 13) both play the lead: both look over their glasses, a beat apart */
+  const leads = i => i === 0 || squad.pair;
+  const lagOf = i => squad.pair ? i * PAIR_LAG : 0;
   const p = walkProgress();
   const at = { start:walkAt(0), boom:walkAt(p.boom), land:walkAt(p.land), stop:walkAt(1) };
   const step = ({ y, s }) => `translateY(${px(y - EW_STAGE.floor)}) scale(${s})`;
@@ -161,9 +165,10 @@ export function ExplosionWalk({ cast }) {
       <span className="ew-node ew-walk" style={{ left:EW_STAGE.x, top:EW_STAGE.floor }}>
         {shown.map((player, i) => ({ player, i })).reverse().map(({ player, i }) => (
           <CastChip key={player} player={player} size={size} x={squad.xs[i]} y={0} facing={0}
-            className={`ew-walker ${i === 0 ? "is-lead" : "is-mate"}`} style={{ "--i":i }}
-            hands={i === 0 ? { front:[["rest", 0], ["point", EW.lower - 120], ["rest", EW.up + 240]], back:"rest" } : { l:"rest", r:"rest" }}
-            wear={i === 0 ? leadWear : wear} />
+            className={`ew-walker ${leads(i) ? "is-lead" : "is-mate"}`} style={{ "--i":i, ...(squad.pair ? { "--pd":`${i * PAIR_LAG}ms` } : {}) }}
+            hands={leads(i) ? { front:[["rest", 0], ["point", EW.lower - 120 + lagOf(i)], ["rest", EW.up + 240 + lagOf(i)]], back:"rest" }
+              : { l:"rest", r:"rest" }}
+            wear={leads(i) ? leadWear : wear} />
         ))}
         {squad.more > 0 && <span className="cast-more" style={{ left:squad.right + 24, top:g.center.y }}>
           <span className="cast-more-in fd-show" style={{ transform:"translate(0%, -50%)" }}>{`+${squad.more}`}</span>
@@ -177,5 +182,6 @@ export function ExplosionWalk({ cast }) {
    its stop (the look) */
 ExplosionWalk.anchors = cast => {
   const squad = walkSquad(cast?.a?.length || 1);
-  return { walk:EW_STAGE.x, lead:EW_STAGE.x + squad.xs[0] };
+  /* a pair both look over their glasses: the look is the two of them */
+  return { walk:EW_STAGE.x, lead:squad.pair ? EW_STAGE.x : EW_STAGE.x + squad.xs[0] };
 };

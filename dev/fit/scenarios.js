@@ -854,6 +854,22 @@ const TEAM_GAG_VIEWS = [
       moment:{ kind:"gag", t:"letter", gag:{ bit, players:COURT_SEVEN, name:"Team Brandon", fact:"3 in a row" } } },
   ]),
 ];
+/* the doubles in the solo bits (Oct 13): a 2 v 2 for each versus bit
+   (butte's is tv-gag-butte-pairs), a pair against one each way, and a
+   winning pair for each win bit, each held as its lettering lands */
+const PAIR_A = ["Henry", "Richard"], PAIR_B = ["Adi", "Chiang"];
+const PAIR_GAG_VIEWS = [
+  ...["quickdraw", "springglove"].map(bit => ({ id:`tv-gag-${bit}-2v2`, build:() => fresh("event:die:done"),
+    moment:{ kind:"gag", t:"letter", gag:{ bit, players:PAIR_A, name:"Henry Nguyen & Squilliam", fact:"Upset", beaten:PAIR_B } } })),
+  { id:"tv-gag-quickdraw-2v1", build:() => fresh("event:die:done"),
+    moment:{ kind:"gag", t:"letter", gag:{ bit:"quickdraw", players:PAIR_A, name:"Henry Nguyen & Squilliam", fact:"Upset", beaten:["Sahil"] } } },
+  { id:"tv-gag-springglove-1v2", build:() => fresh("event:die:done"),
+    moment:{ kind:"gag", t:"letter", gag:{ bit:"springglove", players:["Khoa"], fact:"Upset", beaten:PAIR_B } } },
+  { id:"tv-gag-butte-2v1", build:() => fresh("event:die:done"),
+    moment:{ kind:"gag", t:"letter", gag:{ bit:"butte", players:PAIR_A, name:"Henry Nguyen & Squilliam", fact:"Upset", beaten:["Sahil"] } } },
+  ...["explosionwalk", "toohype", "sunset", "statue"].map(bit => ({ id:`tv-gag-${bit}-2`, build:() => fresh("event:die:done"),
+    moment:{ kind:"gag", t:"letter", gag:{ bit, players:PAIR_A, name:"Henry Nguyen & Squilliam", fact:"3 in a row" } } })),
+];
 export const TV_SCENARIOS = Object.freeze([
   /* Quick Draw's showdown in a gap: the lamps lighting, the draw's flash,
      the result (reels, WON, the antes taken), a foul; and with an event
@@ -893,6 +909,7 @@ export const TV_SCENARIOS = Object.freeze([
      7 v 6 (a win: a team of three, of seven), each held as its lettering
      lands; and the QA console's test of one, its team from the board */
   ...TEAM_GAG_VIEWS,
+  ...PAIR_GAG_VIEWS,
   { id:"tv-gag-test-dominoes", build:() => gagTest({ bit:"dominoes" }), at:{ gag:"letter" }, pause:true, wait:300 },
   ...["versus", "win", "loss"].map(shape => ({ id:`tv-gag-test-${shape}`, build:() => gagTest({ shape }), at:{ gag:"letter" },
     pause:true, wait:300 })),

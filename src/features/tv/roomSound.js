@@ -74,7 +74,7 @@ import { awardOnTv } from "../../../shared/prompts.js";
 import { awardCues } from "../awards/awardsModel.js";
 import { introScene } from "../intro/introTiming.js";
 import { boardCues, boardSnapshot } from "./boardSound.js";
-import { gagHoldMs } from "../gags/gagModel.js";
+import { gagCast, gagHoldMs } from "../gags/gagModel.js";
 import { bitCues } from "./bitSound.js";
 
 /* the settle board on the TV (TVMode SettleBoard): losers slide, then winners grow */
@@ -464,7 +464,7 @@ export function useEngraveSound(plan = [], cut = 0) {
    song. */
 export function gagCues(gag, { reduced = false } = {}) {
   if (!gag?.id || !Number.isFinite(Number(gag.start))) return [];
-  return bitCues(gag.bit, { start:Number(gag.start), reduced, key:`gag:${gag.id}` });
+  return bitCues(gag.bit, { start:Number(gag.start), reduced, key:`gag:${gag.id}`, cast:gagCast(gag) });
 }
 
 /* A moment sounds once, as it takes the room, and only when the write

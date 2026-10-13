@@ -1,5 +1,5 @@
 import React from "react";
-import { CAST, castGeometry } from "../cast/castGeometry.js";
+import { CAST, PAIR_STEP, castGeometry } from "../cast/castGeometry.js";
 import { CastChip, GloveArt, ShoeArt } from "../cast/CastChip.jsx";
 import { DUST_FAN, DUST_LOW, DirtMound, Dust, SpeedLines } from "../props/Props.jsx";
 import { bitById } from "./registry.js";
@@ -21,7 +21,8 @@ const TH = bitById("toohype").beats;
    it goes. A pair of winners bounces side by side and misses outward,
    each pair of shoes walking off to its own. The stage's camera shoots
    it (the registry's camera); the scene names its anchors. */
-export const TH_STAGE = Object.freeze({ mid:960, solo:800, floor:CAST.floor, cut:944, miss:340, plant:84, gap:10, mound:0.8 });
+export const TH_STAGE = Object.freeze({ mid:960, solo:800, floor:CAST.floor, cut:944, miss:340, plant:84, gap:10, mound:0.8,
+  pair:PAIR_STEP + 0.6 });
 const HOPS = Object.freeze([44, 104, 212]);
 
 const r1 = n => Math.round(n * 10) / 10;
@@ -37,7 +38,8 @@ export function hypeStaging(n = 1) {
   const shoeX = g.shoes.r.x;
   const members = Array.from({ length:shown }, (_, i) => {
     const dir = shown === 1 ? 1 : i === 0 ? -1 : 1;
-    const x0 = shown === 1 ? TH_STAGE.solo : TH_STAGE.mid + (i === 0 ? -1 : 1) * 0.5 * size;
+    /* a pair stands apart, both bounce: wider than PAIR_STEP, as the pumping fists swing out */
+    const x0 = shown === 1 ? TH_STAGE.solo : TH_STAGE.mid + (i === 0 ? -1 : 1) * 0.5 * TH_STAGE.pair * size;
     const miss = TH_STAGE.miss * k * (shown > 1 ? 0.9 : 1);
     const x1 = x0 + dir * miss;
     /* the near shoe stops short of the dirt round it */

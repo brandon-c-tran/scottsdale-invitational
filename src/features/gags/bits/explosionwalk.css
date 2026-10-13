@@ -82,10 +82,10 @@
    under the bridge), hooks them down, holds, pushes them back up, and
    drops away ── */
 .is-explosionwalk .ew-walker.is-lead .cast-hand.is-front > .cast-hand-in { transform:translate(0px, 0px) rotate(0deg);
-  --ba:ew-reach 200ms var(--ease-out) calc(var(--tl) + var(--b-lower) - 200ms) both,
-    ew-hook 180ms cubic-bezier(.4,0,.3,1) calc(var(--tl) + var(--b-lower)) forwards,
-    ew-push 120ms cubic-bezier(.3,0,.2,1) calc(var(--tl) + var(--b-up)) forwards,
-    ew-drop 220ms var(--ease-out) calc(var(--tl) + var(--b-up) + 220ms) forwards;
+  --ba:ew-reach 200ms var(--ease-out) calc(var(--tl) + var(--b-lower) - 200ms + var(--pd, 0ms)) both,
+    ew-hook 180ms cubic-bezier(.4,0,.3,1) calc(var(--tl) + var(--b-lower) + var(--pd, 0ms)) forwards,
+    ew-push 120ms cubic-bezier(.3,0,.2,1) calc(var(--tl) + var(--b-up) + var(--pd, 0ms)) forwards,
+    ew-drop 220ms var(--ease-out) calc(var(--tl) + var(--b-up) + 220ms + var(--pd, 0ms)) forwards;
   animation:var(--ba); }
 @keyframes ew-reach { from { transform:translate(0px, 0px) rotate(0deg); } to { transform:var(--to-shades); } }
 @keyframes ew-hook { from { transform:var(--to-shades); } to { transform:var(--shades-down); } }
@@ -93,21 +93,21 @@
 @keyframes ew-drop { from { transform:var(--to-shades); } to { transform:translate(0px, 0px) rotate(0deg); } }
 /* the glasses slide down with the finger and back up */
 .is-explosionwalk .ew-shades.is-lead { transform:translateY(0px);
-  --ba:ew-shades-down 180ms cubic-bezier(.4,0,.3,1) calc(var(--tl) + var(--b-lower)) both,
-    ew-shades-up 120ms cubic-bezier(.3,0,.2,1) calc(var(--tl) + var(--b-up)) forwards;
+  --ba:ew-shades-down 180ms cubic-bezier(.4,0,.3,1) calc(var(--tl) + var(--b-lower) + var(--pd, 0ms)) both,
+    ew-shades-up 120ms cubic-bezier(.3,0,.2,1) calc(var(--tl) + var(--b-up) + var(--pd, 0ms)) forwards;
   animation:var(--ba); }
 @keyframes ew-shades-down { from { transform:translateY(0px); } to { transform:var(--shades-drop); } }
 @keyframes ew-shades-up { from { transform:var(--shades-drop); } to { transform:translateY(0px); } }
 /* the chin dips to look over them, and comes back up with them */
 .is-explosionwalk .ew-walker.is-lead .cast-chip-in { transform:var(--cast-turn) rotateX(0deg);
-  --ba:ew-chin-down 220ms cubic-bezier(.4,0,.3,1) calc(var(--tl) + var(--b-lower)) both,
-    ew-chin-up 160ms cubic-bezier(.3,0,.2,1) calc(var(--tl) + var(--b-up)) forwards;
+  --ba:ew-chin-down 220ms cubic-bezier(.4,0,.3,1) calc(var(--tl) + var(--b-lower) + var(--pd, 0ms)) both,
+    ew-chin-up 160ms cubic-bezier(.3,0,.2,1) calc(var(--tl) + var(--b-up) + var(--pd, 0ms)) forwards;
   animation:var(--ba); }
 @keyframes ew-chin-down { from { transform:var(--cast-turn) rotateX(0deg); } to { transform:var(--cast-turn) rotateX(-13deg); } }
 @keyframes ew-chin-up { from { transform:var(--cast-turn) rotateX(-13deg); } to { transform:var(--cast-turn) rotateX(0deg); } }
 /* the glint off the lens */
 .is-explosionwalk .ew-glint { opacity:0;
-  --ba:ew-glint 380ms ease-out calc(var(--tl) + var(--b-glint)) both; animation:var(--ba); }
+  --ba:ew-glint 380ms ease-out calc(var(--tl) + var(--b-glint) + var(--pd, 0ms)) both; animation:var(--ba); }
 @keyframes ew-glint { 0% { opacity:0; transform:scale(.1) rotate(0deg); } 1% { opacity:1; transform:scale(.1) rotate(0deg); }
   35% { opacity:1; transform:scale(1.25) rotate(30deg); } 100% { opacity:0; transform:scale(.4) rotate(70deg); } }
 

@@ -50,6 +50,9 @@ const CASTS = {
   versus:[
     { key:"1v1", label:"1 v 1", cast:{ a:["Khoa"], b:["Sahil"] } },
     { key:"2v2", label:"2 v 2", cast:{ a:["Adi", "Chiang"], b:["Richard", "Allan"] } },
+    /* a pair against one (Oct 13): each side staged by its own size */
+    { key:"2v1", label:"2 v 1", cast:{ a:["Adi", "Chiang"], b:["Sahil"] } },
+    { key:"1v2", label:"1 v 2", cast:{ a:["Khoa"], b:["Richard", "Allan"] } },
     { key:"4v6", label:"4 v 6", cast:{ a:["Brandon", "Evan", "Eyob", "Ben"], b:["Henry", "Jeremy", "Chinh", "Khoa", "Sahil", "Adi"] } },
     /* the team bits' sides: volleyball's three, the full court's 7 v 6 */
     { key:"3v3", label:"3 v 3", team:true, cast:{ a:["Adi", "Chiang", "Richard"], b:["Brandon", "Evan", "Khoa"] } },

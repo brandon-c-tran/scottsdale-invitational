@@ -16,6 +16,7 @@
      node scripts/bit-live.mjs dominoes 1200 2600 4400
        --out <dir>    default .impeccable/review/bits/live
        --single       also keep each live and frozen frame whole
+       --cast <key>   the test cast as doubles: 2v2, 2v1, 1v2 or pair
    BIT_LIVE_PORT the server's port (default 5241; never 5173). Prints each
    PNG's path and the instant each was caught at. */
 import fs from "node:fs";
@@ -29,9 +30,11 @@ import { standInGeo, standInPhoto } from "../dev/fit/standins.js";
 const ROOT = fileURLToPath(new URL("../", import.meta.url));
 const args = process.argv.slice(2);
 const value = name => { const i = args.indexOf(name); return i >= 0 ? args[i + 1] : null; };
-const positional = args.filter((arg, i) => !arg.startsWith("--") && args[i - 1] !== "--out");
+const positional = args.filter((arg, i) => !arg.startsWith("--") && !["--out", "--cast"].includes(args[i - 1]));
+const CAST = value("--cast");
 const [bit, ...times] = positional;
-if (!bit || !times.length) { console.error("usage: node scripts/bit-live.mjs <bit> <ms...> [--out dir] [--single]"); process.exit(2); }
+const NAME = `${bit}${CAST ? `-${CAST}` : ""}`;
+if (!bit || !times.length) { console.error("usage: node scripts/bit-live.mjs <bit> <ms...> [--out dir] [--single] [--cast 2v2]"); process.exit(2); }
 const OUT = path.resolve(ROOT, value("--out") || ".impeccable/review/bits/live");
 const SINGLE = args.includes("--single");
 const PORT = Number(process.env.BIT_LIVE_PORT || 5241);
@@ -93,7 +96,8 @@ const CLOCK = `(() => { const layer = document.querySelector(".bit-layer"); if (
   return anim.currentTime - parseFloat(layer.style.getPropertyValue("--tl") || "0"); })()`;
 /* every load its own URL, so a load is never the page already there */
 let loads = 0;
-const url = params => `${BASE}/dev/gags-preview.html?${new URLSearchParams({ bit, bare:"1", ...params, load:String(++loads) })}`;
+const url = params => `${BASE}/dev/gags-preview.html?${new URLSearchParams({ bit, bare:"1", ...(CAST ? { cast:CAST } : {}), ...params,
+  load:String(++loads) })}`;
 /* a fresh page's bit (its clock still near its start), or a frozen one's */
 const fresh = (limit = 900) => chrome.until(`(() => { const t = ${CLOCK}; return t !== null && t < ${limit}; })()`, { timeout:14000 });
 /* Load until the TV is playing the bit. The TV skips a moment, never
@@ -134,7 +138,7 @@ try {
       throw new Error(`${bit}: could not catch the bit live at ${target} ms (${bit}-fail.png)`);
     }
     await sleep(150);
-    const live = path.join(OUT, `${bit}-${target}-live.png`);
+    const live = path.join(OUT, `${NAME}-${target}-live.png`);
     await chrome.screenshot(live);
     /* then frozen at that instant: the rehearsal joins the bit there and
        holds it (its mount can land a few ms on, so the ask is nudged
@@ -148,7 +152,7 @@ try {
       if (Math.abs(at - ms) <= 25) break;
       ask = Math.max(0, ask - (at - ms));
     }
-    const frozen = path.join(OUT, `${bit}-${target}-frozen.png`);
+    const frozen = path.join(OUT, `${NAME}-${target}-frozen.png`);
     await chrome.screenshot(frozen);
     /* side by side, live on the left */
     const pair = `<!doctype html><body style="margin:0;background:#000;display:flex;gap:8px">
@@ -156,11 +160,11 @@ try {
         <figcaption style="position:absolute;left:8px;bottom:8px;font:700 22px sans-serif;color:#fff;background:#000a;padding:2px 8px">LIVE ${ms} ms</figcaption></figure>
       <figure style="margin:0;position:relative"><img src="${pathToFileURL(frozen).href}" width="956">
         <figcaption style="position:absolute;left:8px;bottom:8px;font:700 22px sans-serif;color:#fff;background:#000a;padding:2px 8px">FROZEN ${at} ms</figcaption></figure></body>`;
-    const pairHtml = path.join(OUT, `${bit}-${target}-pair.html`);
+    const pairHtml = path.join(OUT, `${NAME}-${target}-pair.html`);
     fs.writeFileSync(pairHtml, pair);
     await chrome.load(pathToFileURL(pairHtml).href);
     await sleep(300);
-    const file = path.join(OUT, `${bit}-${target}-pair.png`);
+    const file = path.join(OUT, `${NAME}-${target}-pair.png`);
     await chrome.resize(1920, 538);
     await chrome.screenshot(file);
     await chrome.resize(1920, 1080);

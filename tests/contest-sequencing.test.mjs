@@ -69,7 +69,9 @@ test("untouched events are scheduled; FFA allows an intentional chip on anyone i
   fail(s,"saveResult",{evId:ev.id,slots:[[ROSTER[0],ROSTER[1]]]},gm(),/one winner/);
   act(s,"saveResult",{evId:ev.id,slots:[[ROSTER[0]]]});
   assert.equal(current(s,ev.id),null);
-  assert.deepEqual(s.wagers.map(w=>resolveWager(s,w,allEventsOf(s)).delta).sort((a,b)=>a-b),[-100,200]);
+  /* the pool: 13 seeds of 100 and 200 staked is 1,500; the winner's side
+     holds 200 of it, 7.5x, so the 100 chip nets 650, to the nearest 100 */
+  assert.deepEqual(s.wagers.map(w=>resolveWager(s,w,allEventsOf(s)).delta).sort((a,b)=>a-b),[-100,700]);
 });
 
 test("bracket markets expose exactly one matchup; queued chips and host results cannot land on the next one", () => {

@@ -60,10 +60,47 @@ export const SIM_GEO = Object.freeze({
 export const SIM_BETS = Object.freeze({
   share:0.6, twice:0.3,
   firstMs:[3000, 25000], againMs:[2000, 8000],
-  stakes:Object.freeze([PT, 2 * PT, 2 * PT, 3 * PT, 5 * PT]),
-  /* how much a side's strength pulls a bettor toward it */
-  lean:0.35,
 });
+/* How a room of 13 bets a pool (Oct 13), for Sim players and QA's bets
+   and fast-forward alike: most back the favorite by the standings (the
+   side with the most chips a player, the one the bank seeds heaviest),
+   the rest a long shot, one chip off the rack, the bigger chips rarer.
+   A wide free-for-all spreads wider. So a pool comes out lopsided, and
+   now and then a 3x long shot wins. */
+export const ROOM_BETS = Object.freeze({
+  rack:Object.freeze([PT, 2 * PT, 5 * PT, 10 * PT]),
+  /* each rack chip's share, as a running total */
+  rackOdds:Object.freeze([0.4, 0.75, 0.93, 1]),
+  favorite:0.7,
+  favoriteWide:0.35,
+});
+/* the side with the most chips a player, by the standings; null when the
+   top is shared (a level board has no favorite) */
+export function roomFavorite(contest, rows) {
+  const pts = new Map(rows.map(row => [row.player, row.pts]));
+  let best = null, shared = false;
+  for (const side of contest?.sides || []) {
+    const counted = side.players.filter(player => pts.has(player));
+    const avg = counted.length ? counted.reduce((sum, player) => sum + pts.get(player), 0) / counted.length : 0;
+    if (best && avg === best.avg) shared = true;
+    else if (!best || avg > best.avg) { best = { key:side.key, avg }; shared = false; }
+  }
+  return best && !shared ? best.key : null;
+}
+/* One bettor's chip: `open` the sides they may back, `room` what they may
+   still put at risk, u* three uniforms in [0, 1) (a seeded hash or the
+   QA run's generator). Null when there is no room for a chip. */
+export function roomBet(contest, open, favoriteKey, room, { side:uSide, pick:uPick, stake:uStake }) {
+  if (!open.length || room < PT) return null;
+  const favorite = open.find(item => item.key === favoriteKey) || null;
+  const others = open.filter(item => item !== favorite);
+  const lean = contest.sides.length > 2 ? ROOM_BETS.favoriteWide : ROOM_BETS.favorite;
+  const side = favorite && (!others.length || uSide < lean) ? favorite
+    : others[Math.min(others.length - 1, Math.floor(uPick * others.length))];
+  const chip = ROOM_BETS.rack[ROOM_BETS.rackOdds.findIndex(edge => uStake < edge)] ?? PT;
+  const stake = Math.min(Math.floor(room / PT) * PT, chip);
+  return stake >= PT ? { side, stake } : null;
+}
 export const SIM_DRAFT = Object.freeze({ pickMs:[3000, 8000] });
 /* writes the Durable Object applies per alarm before it re-arms */
 export const SIM_WRITES_PER_ALARM = 32;
@@ -368,7 +405,7 @@ function planBets(state, sim, players, now) {
   const contest = resolveCurrentContest(state, ev);
   if (contest?.phase !== "betting-open") return [];
   const opened = startOf(sim, state.eventOps?.[ev.id]?.bettingOpenedAt);
-  let rows = null, strengths = null;
+  let rows = null, favorite;
   const moves = [];
   for (const player of players) {
     const h = field => simHash(sim.seed, "bet", ev.id, contest.id, contest.revision, player, field);
@@ -387,18 +424,11 @@ function planBets(state, sim, players, now) {
     const open = contest.sides.filter(side => contestBetEligibility(contest, player, side.key)
       && (held === null || held === side.key));
     if (!open.length) continue;
-    if (!strengths) {
-      const raw = new Map(contest.sides.map(side => [side.key, side.players.reduce((sum, p) =>
-        sum + playerStrength(state, p, ev.sport, rows), 0) / Math.max(1, side.players.length)]));
-      const values = [...raw.values()], low = Math.min(...values), high = Math.max(...values);
-      strengths = new Map([...raw].map(([k, v]) => [k, high > low ? (v - low) / (high - low) : 0.5]));
-    }
-    /* a mild lean to the favorite: the side's strength adds to its draw */
-    const side = open.reduce((best, item) => {
-      const score = simHash(sim.seed, "bet", contest.id, player, "side", item.key) + SIM_BETS.lean * strengths.get(item.key);
-      return !best || score > best.score ? { side:item, score } : best;
-    }, null).side;
-    const stake = Math.min(Math.floor(room / PT) * PT, SIM_BETS.stakes[Math.floor(h(`stake${placed}`) * SIM_BETS.stakes.length)]);
+    if (favorite === undefined) favorite = roomFavorite(contest, rows);
+    const chip = roomBet(contest, open, favorite, room, { side:simHash(sim.seed, "bet", contest.id, player, "side"),
+      pick:simHash(sim.seed, "bet", contest.id, player, "pick"), stake:h(`stake${placed}`) });
+    if (!chip) continue;
+    const { side, stake } = chip;
     const first = opened + between(SIM_BETS.firstMs, h("firstMs"));
     const at = placed ? first + between(SIM_BETS.againMs, h("againMs")) : first;
     moves.push({ at:Math.round(at), type:"placeWager", player, payload:{ wager:simWager(ev, contest, side, stake) },

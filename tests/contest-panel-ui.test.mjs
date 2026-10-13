@@ -252,7 +252,13 @@ for (const kind of ["bracket", "heats"]) test(`actual guest board and host panel
       : contest.kind === "stage-final" ? "Record order" : `Winner: ${names(winner)}`)).ok, true);
     winners.push(winner.players);
     const settled = resolveWager(state, state.wagers.find(item => item.id === wager.id), BUILTIN_EVENTS);
-    assert.equal(settled.delta, contest.kind === "heat" ? -100 : 100, "A qualifying non-winner loses a winner bet; winners pay even");
+    /* the pool by hand: the bank's stored seed plus this one 100 chip, the
+       backed side's price to a tenth, its net to the nearest 100 */
+    const seed = state.eventOps[ev.id].pools[contest.id].seed;
+    const total = Object.values(seed).reduce((sum, value) => sum + value, 0) + 100;
+    const price = Math.floor(total * 10 / (seed[String(backed.key)] + 100) + 1e-9) / 10;
+    assert.equal(settled.delta, contest.kind === "heat" ? -100 : Math.max(100, Math.round(price - 1) * 100),
+      "A qualifying non-winner loses a winner bet; a winner takes its share of the pool");
   }
   assert.deepEqual(played, kind === "bracket" ? Array(5).fill("match") : ["heat", "heat", "heat", "stage-final"]);
   /* the final's decisive tap posts the official result in the same write */

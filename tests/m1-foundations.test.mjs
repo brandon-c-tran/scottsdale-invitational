@@ -407,7 +407,9 @@ test("wager ledger is retry-safe, aggregates intentional chips, retracts one chi
     evId:"putt",
     slots:[["Khoa"], ["Brandon"], ["Eyob"]],
   }, gm).ok, true);
-  assert.equal(computeStandings(state).find(row => row.player === "Evan").betNet, 300);
+  /* the pool: 13 seeds of 100 and 300 staked is 1,600; Khoa's side holds 300
+     of it, 5.3x, so 200 nets 860 (900), and the 100 on Brandon is lost */
+  assert.equal(computeStandings(state).find(row => row.player === "Evan").betNet, 800);
 
   assert.equal(applyAction(state, "saveResult", {
     evId:"putt",
@@ -415,7 +417,8 @@ test("wager ledger is retry-safe, aggregates intentional chips, retracts one chi
     confirmOverwrite:true,
     correctionReason:"Signed scorecard correction",
   }, gm).ok, true);
-  assert.equal(computeStandings(state).find(row => row.player === "Evan").betNet, 0);
+  /* corrected, derived again: Brandon's side holds 200 of 1,600, 8.0x, so 100 nets 700, less the 200 on Khoa */
+  assert.equal(computeStandings(state).find(row => row.player === "Evan").betNet, 500);
   assert.equal(Object.keys(state.wagerOps).length, 4);
 });
 

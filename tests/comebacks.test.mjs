@@ -1,12 +1,15 @@
 /* v3.1 comebacks: underdog odds and byes to the bottom (the leader bounty
    was cut on Oct 4). Both are fixed at a named moment, so corrections move
-   them with the record and later standings never do. */
+   them with the record and later standings never do. Underdog odds were
+   replaced by the pool on Oct 13 (tests/pool.test.mjs): a contest opened
+   before then keeps its stored odds, covered here as legacy. */
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
   EMPTY_STATE, ROSTER, PT, START, UNDERDOG_MULT, allEventsOf, computeStandings, resolveCurrentContest,
   resolveWager, makeBracket, seedBracket, bracketByeSlots, oddsFor, contestMult,
   wagerMult, atRisk, maxRisk, resolveSlot, stacksPosted,
+  UPSET_PRICE, contestStackOf, contestUpset, poolNet, poolOf, wagerSide,
 } from "../shared/core.js";
 import { applyAction } from "./support/confirmed-start.mjs";
 
@@ -47,9 +50,21 @@ function dieBoard(setup = () => {}) {
   return s;
 }
 
-test("underdog odds: a 1,000 gap pays the lower side 2:1, fixed at the open", () => {
+/* a contest whose market opened before pools: its stored underdog odds, no pool */
+function legacyOdds(s, evId, underdog) {
+  const op = s.eventOps[evId];
+  const id = current(s, evId).id;
+  delete op.pools[id];
+  op.odds = { ...(op.odds || {}), [id]:{ underdog, mult:UNDERDOG_MULT, gap:1000, at:1 } };
+}
+
+test("legacy underdog odds: a contest opened before pools keeps the lower side's 2:1, fixed at the open", () => {
   const s = dieBoard(state => { rule(state, ROSTER[8], 500); rule(state, ROSTER[9], 500); });
+  assert.equal(s.eventOps.die.odds, undefined, "a contest opened now stamps a pool, never odds");
+  assert.ok(s.eventOps.die.pools[current(s, "die").id]);
+  legacyOdds(s, "die", 3);
   const c = current(s, "die");
+  assert.equal(c.pool, undefined, "no pool on a legacy contest");
   assert.deepEqual(c.odds && { underdog:c.odds.underdog, mult:c.odds.mult }, { underdog:3, mult:UNDERDOG_MULT });
   assert.equal(contestMult(c, 3), 2);
   assert.equal(contestMult(c, 4), 1);
@@ -60,6 +75,7 @@ test("underdog odds: a 1,000 gap pays the lower side 2:1, fixed at the open", ()
   const [dog] = s.wagers.filter(w => w.player === spectator);
   assert.equal(dog.mult, 2, "the ticket keeps the payout it was placed at");
   assert.equal(fav.mult, 1);
+  assert.equal(dog.pool, undefined, "a legacy contest's ticket is no pool ticket");
   /* competitors still back only their own side, one side per contest */
   reject(s, "placeWager", { wager:matchChip(s, "die", 4) }, guest(ROSTER[6]), /yourself or your team/);
   reject(s, "placeWager", { wager:matchChip(s, "die", 4) }, guest(spectator), /One side per contest/);
@@ -73,16 +89,18 @@ test("underdog odds: a 1,000 gap pays the lower side 2:1, fixed at the open", ()
   const events = allEventsOf(s);
   assert.deepEqual(resolveWager(s, dog, events), { status:"won", delta:2 * dog.stake });
   assert.deepEqual(resolveWager(s, fav, events), { status:"lost", delta:-fav.stake });
-  /* a correction reopening the contest keeps its stored odds */
+  /* a correction reopening the contest keeps its stored odds and takes no pool */
   const top = s.eventOps.die.contestStack.at(-1);
   act(s, "undoLastContest", { evId:"die", contestId:top.id, contestRevision:s.eventOps.die.contestRevision });
   assert.equal(current(s, "die").odds.underdog, 3);
+  assert.equal(s.eventOps.die.pools[top.id], undefined);
+  assert.equal(current(s, "die").pool, undefined);
 });
 
-test("underdog odds: |average A - average B| x the smaller side's size, 1,000 or more", () => {
+test("legacy underdog odds (oddsFor): |average A - average B| x the smaller side's size, 1,000 or more", () => {
   const close = dieBoard(state => { rule(state, ROSTER[8], 400); rule(state, ROSTER[9], 500); });
-  assert.equal(current(close, "die").odds, undefined, "a 900 gap is even money");
-  assert.equal(close.eventOps.die.odds[current(close, "die").id].underdog, null);
+  assert.equal(current(close, "die").odds, undefined, "a contest opened now carries no odds");
+  assert.equal(close.eventOps.die.odds, undefined);
   const pairs = { sides:[{ key:0, players:[ROSTER[0], ROSTER[1]] }, { key:1, players:[ROSTER[2], ROSTER[3]] }] };
   const s = fresh();
   rule(s, ROSTER[2], 500); rule(s, ROSTER[3], 500);
@@ -186,7 +204,7 @@ test("a level board keeps the draw order, and the live draw seeds its bracket", 
 
 test("the full weekend still closes through the QA fast-forward with comebacks in play", () => {
   const LOCAL = { isGm:true, qa:true, progressReset:true, environment:"local" };
-  let dogs = 0, byes = 0;
+  let pools = 0, longShots = 0, upsets = 0, byes = 0;
   for (const seed of [7, 1234, 99]) {
     const s = fresh();
     const result = applyAction(s, "qaAdvance", { target:"crowned", seed }, LOCAL);
@@ -198,16 +216,25 @@ test("the full weekend still closes through the QA fast-forward with comebacks i
         .reduce((sum, a) => sum + a.delta, 0);
       assert.equal(item.pts, (stacks.stacks[item.player] ?? 0) + after, `${seed}: ${item.player} is their counted stack`);
     });
-    for (const op of Object.values(s.eventOps)) {
-      dogs += Object.values(op.odds || {}).filter(odds => odds.underdog !== null).length;
+    for (const [evId, op] of Object.entries(s.eventOps)) {
+      assert.equal(op.odds, undefined, `${seed}: ${evId} stamps no odds`);
+      for (const id of Object.keys(op.pools || {})) {
+        pools += 1;
+        if (Object.values(poolOf(s, evId, id).sides).some(side => side.price >= UPSET_PRICE)) longShots += 1;
+      }
+      for (const entry of contestStackOf(s, evId)) if (contestUpset(s, evId, entry.id, entry.winner).upset) upsets += 1;
     }
     byes += Object.values(s.brackets).filter(br => br.byes?.length).length;
     s.wagers.filter(w => w.status !== "void").forEach(w => {
+      assert.equal(w.pool, 1, "every ticket is a pool ticket");
       const resolved = resolveWager(s, w, allEventsOf(s));
-      if (resolved.status === "won") assert.equal(resolved.delta, wagerMult(w) * w.stake);
+      if (resolved.status === "won")
+        assert.equal(resolved.delta, poolNet(w.stake, poolOf(s, w.eventId, w.contestId).price(wagerSide(s, w))));
     });
   }
-  assert.ok(dogs > 0, "some contests opened with underdog odds");
+  assert.ok(pools > 0, "every market opened as a pool");
+  assert.ok(longShots > 0, "the room's bets leave long shots at 3x or more");
+  assert.ok(upsets > 0, "and a long shot wins now and then");
   assert.ok(byes > 0, "brackets seated byes");
 });
 

@@ -1,8 +1,9 @@
 /* Gags (Oct 8; the bits since Oct 10, features/gags): the room's moments,
    derived from the record. The win/loss timeline (contests, free-for-all
    results, heats, an event counted once, a correction that rewinds a
-   contest, a shelved event, the finale); the five triggers (an upset from
-   the stored odds, a run of straight wins, a new leader and a new last
+   contest, a shelved event, the finale); the five triggers (an upset: a
+   winner the pool priced 3x or longer, or a legacy contest's stored
+   underdog; a run of straight wins, a new leader and a new last
    place after a posted result, a big losing bet of 1,000 or more), their
    thresholds and one moment per write in priority order; which bit plays
    (seeded by the write, no repeats across the weekend); the windows and
@@ -25,8 +26,8 @@ mock.timers.enable({ apis:["Date"], now:1_900_000_000_000 });
 const later = (ms = 1000) => mock.timers.tick(ms);
 
 const {
-  EMPTY_STATE, ROSTER, RESET_PROGRESS_CONFIRMATION, RESET_PROGRESS_PRESERVED_KEYS, allEventsOf, computeStandings, makeBracket,
-  resolveCurrentContest,
+  EMPTY_STATE, ROSTER, RESET_PROGRESS_CONFIRMATION, RESET_PROGRESS_PRESERVED_KEYS, UPSET_PRICE, allEventsOf, computeStandings,
+  contestPool, makeBracket, resolveCurrentContest,
 } = await import("../shared/core.js");
 const { QA_PROGRESS_KEYS } = await import("../shared/qa.js");
 const shared = await import("../shared/gags.js");
@@ -116,8 +117,20 @@ const newest = s => gagWrites(s, events(s)).at(-1);
 const posted = (s, evId) => Number(s.results[evId].confirmedAt);
 /* the newest write's moment, whatever the switch and the lifecycle say */
 const lastMoment = s => momentLog(s, events(s)).at(-1)?.moment || null;
-/* the underdogs of play-in 1: Richard and Allan ruled 500 up each */
-const upsetBoard = (setup = () => {}) => dieBoard(state => { rule(state, "Richard", 500); rule(state, "Allan", 500); setup(state); });
+/* play-in 1's long shot: Richard and Allan ruled 500 up each, so the bank
+   seeds Adi & Chiang 80 and them 120, and Ben's 100 on the favorite makes
+   Adi & Chiang 300 over 80: 3.7x */
+const upsetBoard = (setup = () => {}) => {
+  const s = dieBoard(state => { rule(state, "Richard", 500); rule(state, "Allan", 500); setup(state); });
+  act(s, "placeWager", matchBet(s, 4, 100), guest("Ben"));
+  return s;
+};
+/* the winners' side backed too, so a big loss on the other side is no long
+   shot's win: Brandon (out of play-in 1) ruled 2,000 up puts 1,500 on Adi & Chiang */
+const backWinners = s => {
+  rule(s, "Brandon", 2000);
+  act(s, "placeWager", matchBet(s, 3, 1500), guest("Brandon"));
+};
 
 /* ── the record ── */
 
@@ -195,12 +208,12 @@ test("a shelved event and the poker finale never count", () => {
 
 /* ── the five triggers ── */
 
-test("an upset: the stored odds named the winner the underdog, both sides cast; the favorite winning is no moment", () => {
+test("an upset: the winner was priced 3x or longer, both sides cast, lettered with its price; the favorite winning is no moment", () => {
   const upset = upsetBoard();
-  assert.equal(current(upset, "die").odds.underdog, 3);
+  assert.equal(contestPool(upset, current(upset, "die")).price(3), 3.7);
   decide(upset, "die", 3);
   const gag = latestGag(upset, events(upset));
-  assert.deepEqual([gag.trigger, gag.shape, gag.fact], ["upset", "versus", UPSET_FACT]);
+  assert.deepEqual([gag.trigger, gag.shape, gag.fact], ["upset", "versus", "3.7×"]);
   assert.deepEqual(gag.players, TEAM[3]);
   assert.equal(gag.name, "Adi & Chiang");
   assert.deepEqual(gag.beaten, TEAM[4]);
@@ -213,6 +226,24 @@ test("an upset: the stored odds named the winner the underdog, both sides cast; 
   const chalk = upsetBoard();
   decide(chalk, "die", 4);
   assert.equal(latestGag(chalk, events(chalk)), null);
+  /* the side the bank seeded light, unbacked, is 200 over 80: 2.5x, short of 3x */
+  const light = dieBoard(state => { rule(state, "Richard", 500); rule(state, "Allan", 500); });
+  assert.ok(contestPool(light, current(light, "die")).price(3) < UPSET_PRICE);
+  decide(light, "die", 3);
+  assert.equal(latestGag(light, events(light)), null);
+  /* a contest opened before pools: its stored odds named the underdog, lettered at 2:1's 3.0x */
+  const legacy = dieBoard();
+  const id = current(legacy, "die").id;
+  delete legacy.eventOps.die.pools[id];
+  legacy.eventOps.die.odds = { [id]:{ underdog:3, mult:2, gap:1000, at:1 } };
+  decide(legacy, "die", 3);
+  assert.deepEqual([latestGag(legacy, events(legacy)).trigger, latestGag(legacy, events(legacy)).fact], ["upset", "3.0×"]);
+  const legacyChalk = dieBoard();
+  const chalkId = current(legacyChalk, "die").id;
+  delete legacyChalk.eventOps.die.pools[chalkId];
+  legacyChalk.eventOps.die.odds = { [chalkId]:{ underdog:3, mult:2, gap:1000, at:1 } };
+  decide(legacyChalk, "die", 4);
+  assert.equal(latestGag(legacyChalk, events(legacyChalk)), null, "the stored favorite winning is none");
 });
 
 test("an upset in a two-sided game played as one result (the full court), over its result's podium", () => {
@@ -221,10 +252,16 @@ test("an upset in a two-sided game played as one result (the full court), over i
   const left = ROSTER.slice(0, 7), right = ROSTER.slice(7);
   right.forEach(player => rule(s, player, 500));
   s.draws.bball5 = { id:"draw-court", ts:1, teams:[{ players:[...left] }, { players:[...right] }] };
-  playFfa(s, "bball5", [left]);
-  assert.equal(s.eventOps.bball5.odds["ffa:bball5:draw-court"].underdog, 0);
+  /* the bank seeds 1,000 a head against 1,500 as 80 and 120; Chiang's 100 on
+     his own side makes the left 300 over 80: 3.7x */
+  playFfa(s, "bball5", [left], { before:c => {
+    act(s, "placeWager", { wager:{ kind:"outright", eventId:"bball5", evName:"5v5", ...refs(c), pickTeam:true,
+      pickPlayers:[...right], drawId:"draw-court", stake:100 } }, guest(right[0]));
+    assert.equal(c.id, "ffa:bball5:draw-court");
+    assert.equal(contestPool(s, current(s, "bball5")).price(0), 3.7);
+  } });
   const gag = latestGag(s, events(s));
-  assert.deepEqual([gag.trigger, gag.shape], ["upset", "versus"]);
+  assert.deepEqual([gag.trigger, gag.shape, gag.fact], ["upset", "versus", "3.7×"]);
   assert.deepEqual(gag.players, left);
   assert.deepEqual(gag.beaten, right);
   assert.equal(gag.start, posted(s, "bball5") + resultGagAt(gag.ms));
@@ -304,7 +341,9 @@ test("a big losing bet: one bettor's net loss on the write, 1,000 or more; the b
   const s = dieBoard(state => { rule(state, "Jeremy", 2000); rule(state, "Henry", 2000); });
   act(s, "placeWager", matchBet(s, 4, 1200), guest("Jeremy"));
   act(s, "placeWager", matchBet(s, 4, 1000), guest("Henry"));
-  act(s, "placeWager", matchBet(s, 3, 300), guest("Brandon"));
+  backWinners(s);
+  /* 200 seed and 3,700 staked is 3,900 over the winners' 1,600: 2.4x, no long shot */
+  assert.equal(contestPool(s, current(s, "die")).price(3), 2.4);
   decide(s, "die", 3);
   const gag = latestGag(s, events(s));
   assert.deepEqual([gag.trigger, gag.shape, gag.players, gag.amount, gag.name, gag.fact],
@@ -315,6 +354,7 @@ test("a big losing bet: one bettor's net loss on the write, 1,000 or more; the b
   /* under the line: no moment */
   const small = dieBoard(state => rule(state, "Jeremy", 2000));
   act(small, "placeWager", matchBet(small, 4, BIG_LOSS_MIN - 100), guest("Jeremy"));
+  backWinners(small);
   decide(small, "die", 3);
   assert.equal(latestGag(small, events(small)), null, "900 is not a big losing bet");
 });
@@ -385,11 +425,12 @@ test("one moment per write, in order: upset, streak, new leader, big losing bet,
   decide(both, "die", 3);
   decide(both, "die", 2);
   decide(both, "die", 3);
-  /* the other finalists ruled clear before the final's market opens: Adi and Chiang go in as its underdog */
+  /* the other finalists ruled clear before the final's market opens, and Ben backs them */
   rule(both, "Khoa", 600);
   rule(both, "Chinh", 600);
   decide(both, "die", 2);
-  assert.equal(current(both, "die").odds?.underdog, 3);
+  act(both, "placeWager", matchBet(both, 2, 100), guest("Ben"));
+  assert.ok(contestPool(both, current(both, "die")).price(3) >= UPSET_PRICE, "Adi and Chiang go in as its long shot");
   decide(both, "die", 3, { postResult:true });
   assert.deepEqual(winStreaks(both, events(both)).at(-1).reached.map(item => item.count), [3, 3], "a streak too");
   assert.equal(latestGag(both, events(both)).trigger, "upset");
@@ -402,6 +443,7 @@ test("one moment per write, in order: upset, streak, new leader, big losing bet,
   const run = dieBoard(state => rule(state, "Jeremy", 1000));
   [3, 2, 3, 2].forEach(key => decide(run, "die", key));
   act(run, "placeWager", matchBet(run, 2, 1000), guest("Jeremy"));
+  backWinners(run);
   decide(run, "die", 3, { postResult:true });
   assert.equal(latestGag(run, events(run)).trigger, "streak");
   /* a new leader and a new last place on one result: the leader */
@@ -450,7 +492,8 @@ test("no repeats: each shape plays round its pool before a bit comes back, and n
   assert.deepEqual(recentFor(["a", "b"], 3), ["a", "b"]);
   assert.deepEqual(recentFor(["a", "b", "c"], 3), ["c"], "a round's start: only the newest waits");
   assert.deepEqual(recentFor(["a", "b", "c", "b"], 3), ["b"]);
-  const s = scenarios.fresh("event:pong:done");
+  /* seed 1: a weekend whose pools leave Volleyball a 3 v 3 long shot that wins */
+  const s = scenarios.fresh("event:pong:done", 1);
   const log = momentLog(s, events(s));
   const moments = log.filter(step => step.moment);
   assert.ok(moments.length >= 8, `a weekend's worth of moments (${moments.length})`);
@@ -682,6 +725,7 @@ test("the phones it is about: both sides of an upset, a win's winners, a loss's 
   assert.equal(gagForPlayer(upset, events(upset), null), null);
   const loss = dieBoard(state => rule(state, "Jeremy", 2000));
   act(loss, "placeWager", matchBet(loss, 4, 1000), guest("Jeremy"));
+  backWinners(loss);
   decide(loss, "die", 3);
   assert.equal(gagForPlayer(loss, events(loss), "Jeremy").trigger, "bigloss");
   assert.equal(gagForPlayer(loss, events(loss), "Adi"), null, "the winners of that contest are not the loss's");
@@ -999,10 +1043,10 @@ test("the TV plays the moment's bit in its window, never before or after, letter
   const gag = latestGag(s, events(s));
   const during = tv(s, gag.start + 2500);
   assert.match(during, /class="tv-takeover tv-gag is-versus"/);
-  assert.match(during, /aria-label="Adi &amp; Chiang, Upset"/);
+  assert.match(during, /aria-label="Adi &amp; Chiang, 3\.7×"/, "lettered with the price the upset paid");
   assert.match(during, new RegExp(`data-bit="${gag.bit}"`));
   assert.match(during, /--tl:-2500ms/, "a TV joining 2.5 s in plays from there");
-  assert.match(text(during), /Adi &amp; Chiang Upset/);
+  assert.match(text(during), /Adi &amp; Chiang 3\.7×/);
   assert.doesNotMatch(tv(s, gag.start - 50), /tv-gag/);
   assert.doesNotMatch(tv(s, gag.end + 50), /tv-gag/);
   s.gagsOff = true;

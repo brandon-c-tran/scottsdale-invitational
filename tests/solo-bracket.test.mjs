@@ -210,12 +210,13 @@ test("a full 13-player 1v1 bracket plays through current contests to a posted re
   assert.equal(bracketPath(s, eventOf(s), seed1).text, "Quarterfinal vs winner of Round 1 Match 1");
   assert.equal(bracketPath(s, eventOf(s), p8).text, "Round 1 now");
 
-  /* seed 9 wins Round 1 Match 1: seed 1's bet pays 1:1, p8's chip is lost */
+  /* seed 9 wins Round 1 Match 1: 200 seed and 300 staked is 500 over seed
+     1's side's 300, 1.6x, so the 200 nets 120 (100); p8's chip is lost */
   const before = computeStandings(s);
   play(s, () => 8);
   const after = computeStandings(s);
   const delta = p => after.find(row => row.player === p).pts - before.find(row => row.player === p).pts;
-  assert.equal(delta(seed1), 200);
+  assert.equal(delta(seed1), 100);
   assert.equal(delta(p8), -100);
   assert.equal(bracketPath(s, eventOf(s), p9).text, "Round 1 ✓ → Quarterfinal vs " + teamLabel(s, draw.teams[0]));
   assert.equal(contestEntryLabel(s, eventOf(s), s.eventOps.bball1.contestStack.at(-1)), "Round 1 Match 1");

@@ -120,7 +120,8 @@ test("a result presentation splits every change into event award and bets, and n
   const state = structuredClone(EMPTY_STATE);
   act(state, "announceEvent", { evId:"putt" });
   const contest = resolveCurrentContest(state, BUILTIN_EVENTS.find(e => e.id === "putt"));
-  /* Adi's 100 at 2:1 plus 2nd place (200) ties Evan's 400 for 1st */
+  /* the pool: 13 seeds of 100 and Adi's 100 is 1,400 over Evan's 200, 7.0x:
+     Adi's 100 nets 600, and with 2nd place (200) passes Evan's 400 */
   const wager = { kind:"outright", eventId:"putt", stake:100, pick:"Evan",
     contestId:contest.id, contestRevision:contest.revision };
   const bet = applyAction(state, "placeWager", { wager }, { player:"Adi", deviceId:"adi", actionId:"w1" });
@@ -136,11 +137,12 @@ test("a result presentation splits every change into event award and bets, and n
   const adi = model.rows.find(row => row.player === "Adi");
   assert.equal(evan.award, 400);
   assert.equal(adi.award, 200);
-  assert.equal(adi.bets, 200);
-  assert.equal(evan.rankAfter, 1);
+  assert.equal(adi.bets, 600);
+  assert.equal(adi.rankAfter, 1);
+  assert.equal(evan.rankAfter, 2);
   assert.deepEqual(model.revealOrder.map(item => item.place), [3, 2, 1]);
   assert.equal(model.leadChanged, true);
-  assert.deepEqual(model.leader.players.sort(), ["Adi", "Evan"]);
+  assert.deepEqual(model.leader.players, ["Adi"]);
   assert.equal(model.previousLeader, null);
 });
 

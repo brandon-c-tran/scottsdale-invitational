@@ -85,7 +85,8 @@ test("correcting a decided contest reads as a correction, not as a voided bet", 
   const snap = state => chipSnapshot(state, bettor, allEventsOf(state), computeStandings(state));
   const notice = resultMoment({ prev:snap(won), next:snap(s), prevState:won, state:s,
     frame:{ fresh:false, live:true, correction:true } });
-  assert.deepEqual(notice, { kind:"notice", delta:-200, text:"Result corrected: −200" });
+  /* the win it takes back: 200 seed and the 200 chip is 400 over 300, 1.3x, 60 to the nearest 100 */
+  assert.deepEqual(notice, { kind:"notice", delta:-100, text:"Result corrected: −100" });
 });
 
 test("numbered bracket rounds read singular in the draw reveal", () => {

@@ -86,11 +86,12 @@ test("a recorded bracket match names its side from the draw (the real reducers)"
   const events = allEventsOf(state);
   const walkout = state.showControl.audio.walkout;
   const team = walkoutTeam(state, events, walkout);
-  assert.deepEqual(team.players, ["Henry", "Richard"]);
-  assert.equal(team.name, "Henry Nguyen & Squilliam");
+  /* the seeded QA run draws Henry's partner */
+  assert.deepEqual(team.players, ["Henry", "Sahil"]);
+  assert.equal(team.name, "Henry Nguyen & Sahil");
   /* the contest stack alone carries it too: drop the posted results */
   state.results = {};
-  assert.deepEqual(walkoutTeam(state, events, walkout).players, ["Henry", "Richard"]);
+  assert.deepEqual(walkoutTeam(state, events, walkout).players, ["Henry", "Sahil"]);
   const seven = buildScenario(TV_SCENARIOS, "tv-walkout-team7").state;
   const big = walkoutTeam(seven, allEventsOf(seven), seven.showControl.audio.walkout);
   assert.equal(big.players.length, 7);

@@ -20,7 +20,8 @@ import { renderToStaticMarkup } from "react-dom/server";
 mock.timers.enable({ apis:["Date"], now:1_900_000_000_000 });
 const later = (ms = 1000) => mock.timers.tick(ms);
 
-const { EMPTY_STATE, ROSTER, allEventsOf, computeStandings, makeBracket, resolveCurrentContest } = await import("../shared/core.js");
+const { EMPTY_STATE, ROSTER, UPSET_PRICE, allEventsOf, computeStandings, contestPool, makeBracket, resolveCurrentContest } =
+  await import("../shared/core.js");
 const { applyAction } = await import("./support/confirmed-start.mjs");
 const { headToHead } = await import("../src/features/profile/seasonStats.js");
 const { TV_AMBIENT_TURN_MS, biggestSwing } = await import("../src/features/tv/tvModel.js");
@@ -173,7 +174,7 @@ test("the biggest swing: the ticker's own (an event's award and bets for one pla
   rule(s, "Jeremy", 2000);
   assert.equal(swingCard(s, events(s)), null, "a ruling is the commissioner's, never a swing");
   playFfa(s, "putt", [["Khoa"], ["Adi"], ["Evan"]], { before:c => {
-    act(s, "placeWager", outright(c, "Khoa", 300), guest("Khoa"));     /* +400 for 1st, +600 at 2:1 */
+    act(s, "placeWager", outright(c, "Ben", 300), guest("Khoa"));      /* +400 for 1st, -300: +100 */
     act(s, "placeWager", outright(c, "Ben", 1200), guest("Jeremy"));   /* -1,200 */
   } });
   const card = swingCard(s, events(s));
@@ -181,11 +182,13 @@ test("the biggest swing: the ticker's own (an event's award and bets for one pla
   assert.deepEqual(card.cause, { kind:"event", evId:"putt", name:"Long Putt", game:"putting", variant:null });
   const ticker = biggestSwing(s, events(s), "putt");
   assert.deepEqual([ticker.player, ticker.change], [card.players[0], card.amount], "the ticker's Biggest swing, the same");
-  /* a correction moves it: Ben takes 1st, Jeremy's chips pay 2:1 */
+  /* a correction moves it: Ben takes 1st. The bank seeded 1,300 by the
+     standings (Jeremy's side 260, the rest 86.67 each), so Ben's side holds
+     1,586.67 of 2,800.04, 1.7x: Jeremy's 1,200 nets 840, to the nearest 100 */
   later(5000);
   act(s, "saveResult", { evId:"putt", slots:[["Ben"], ["Adi"], ["Evan"]], confirmOverwrite:true, correctionReason:"Measured again" });
   const corrected = swingCard(s, events(s));
-  assert.deepEqual([corrected.players, corrected.amount], [["Jeremy"], 2400]);
+  assert.deepEqual([corrected.players, corrected.amount], [["Jeremy"], 800]);
   assert.equal(corrected.cause.evId, "putt");
 });
 
@@ -194,17 +197,22 @@ test("an event played as contests swings by all of its bets once its result post
   rule(s, "Jeremy", 2000);
   const back = key => ({ wager:{ kind:"match", eventId:"die", evName:"Beer Die Doubles", stake:600, ...refs(current(s, "die")),
     match:current(s, "die").match, teamIdx:key, drawId:"draw-die" } });
-  act(s, "placeWager", back(3), guest("Jeremy"));   /* the play-in, +600 */
+  const against = (key, player) => act(s, "placeWager", { wager:{ ...back(key).wager, stake:500 } }, guest(player));
+  /* the play-in: 200 seed and 1,100 staked is 1,300 over 700, 1.8x: +480, to the nearest 100 */
+  act(s, "placeWager", back(3), guest("Jeremy"));
+  against(4, "Brandon");
   decide(s, "die", 3);
   decide(s, "die", 2);
   assert.equal(swingCard(s, events(s)), null, "an event still being played has no swing yet");
-  act(s, "placeWager", back(3), guest("Jeremy"));   /* the semifinal, +600 */
+  /* the semifinal: the bank leans to Brandon & Evan's side, still 1.8x: +500 */
+  act(s, "placeWager", back(3), guest("Jeremy"));
+  against(current(s, "die").sides.find(side => side.key !== 3).key, "Henry");
   decide(s, "die", 3);
   decide(s, "die", 2);
   decide(s, "die", 3, { postResult:true });
   const card = swingCard(s, events(s));
-  assert.deepEqual([card.players, card.amount, card.cause.evId], [["Jeremy"], 1200, "die"]);
-  assert.equal(biggestSwing(s, events(s), "die").change, 1200);
+  assert.deepEqual([card.players, card.amount, card.cause.evId], [["Jeremy"], 1000, "die"]);
+  assert.equal(biggestSwing(s, events(s), "die").change, 1000);
 });
 
 test("a swing under 500 is no card; a duel's swing names who it was against", () => {
@@ -241,15 +249,21 @@ test("the longest streak: three straight wins or more, its wins drawn; an undone
   assert.deepEqual(four.wins.map(win => win.game), ["die", "die", "die", "putting"]);
 });
 
-test("the most upsets: wins the stored odds named underdog, two or more", () => {
+test("the most upsets: wins priced 3x or longer when betting locked, two or more", () => {
   const s = fresh();
   ["Richard", "Allan", "Brandon", "Evan"].forEach(player => rule(s, player, 600));
   pairs(s, "die");
-  assert.equal(current(s, "die").odds.underdog, 3);
-  decide(s, "die", 3);                             /* Adi & Chiang, 1,200 behind: an upset */
+  /* the bank seeds 1,000 a head against 1,600 as 76.92 and 123.08; Jeremy's
+     100 on the favorite makes it 300 over 76.92: 3.9x */
+  const onFavorite = key => act(s, "placeWager", { wager:{ kind:"match", eventId:"die", evName:"Beer Die Doubles", stake:100,
+    ...refs(current(s, "die")), match:current(s, "die").match, teamIdx:key, drawId:"draw-die" } }, guest("Jeremy"));
+  onFavorite(4);
+  assert.equal(contestPool(s, current(s, "die")).price(3), 3.9);
+  decide(s, "die", 3);                             /* Adi & Chiang at 3.9x: an upset */
   assert.equal(upsetsCard(s, events(s)), null, `one upset is not a record (${UPSETS_MIN})`);
   decide(s, "die", 2);
-  assert.equal(current(s, "die").odds.underdog, 3, "again the underdog against Brandon & Evan");
+  onFavorite(0);
+  assert.ok(contestPool(s, current(s, "die")).price(3) >= UPSET_PRICE, "again the long shot against Brandon & Evan");
   decide(s, "die", 3);
   const card = upsetsCard(s, events(s));
   assert.deepEqual([card.kind, card.players, card.count], ["upsets", ["Adi", "Chiang"], 2]);
@@ -260,6 +274,13 @@ test("the most upsets: wins the stored odds named underdog, two or more", () => 
   pairs(chalk, "die");
   decide(chalk, "die", 4);
   assert.equal(R.upsetWinners(chalk, { ev:ev(chalk, "die"), entry:chalk.eventOps.die.contestStack.at(-1), type:"contest" }), null);
+  /* nor the side the bank seeded light, unbacked: 200 over 76.92 is 2.6x, short of 3x */
+  const light = fresh();
+  ["Richard", "Allan"].forEach(player => rule(light, player, 600));
+  pairs(light, "die");
+  assert.equal(contestPool(light, current(light, "die")).price(3), 2.6);
+  decide(light, "die", 3);
+  assert.equal(R.upsetWinners(light, { ev:ev(light, "die"), entry:light.eventOps.die.contestStack.at(-1), type:"contest" }), null);
 });
 
 /* ── bets ── */
@@ -268,12 +289,14 @@ test("the best and the worst bettor: the net of settled bets, 500 either way; a 
   const s = fresh();
   rule(s, "Henry", 1000);
   playFfa(s, "putt", [["Khoa"], ["Adi"], ["Evan"]], { before:c => {
-    act(s, "placeWager", outright(c, "Khoa", 500), guest("Henry"));    /* +1,000 */
+    act(s, "placeWager", outright(c, "Khoa", 500), guest("Henry"));    /* +1,600 (below) */
     act(s, "placeWager", outright(c, "Ben", 500), guest("Jeremy"));    /* -500 */
     act(s, "placeWager", outright(c, "Adi", 200), guest("Sahil"));     /* -200 */
   } });
+  /* the bank seeded Henry's side 185.71 (2,000 chips) and every other 92.86,
+     so Khoa's side holds 592.86 of 2,500: 4.2x, 500 nets 1,600 */
   const [best, worst] = bettorCards(s, events(s));
-  assert.deepEqual([best.kind, best.players, best.amount, best.worst], ["bettor", ["Henry"], 1000, false]);
+  assert.deepEqual([best.kind, best.players, best.amount, best.worst], ["bettor", ["Henry"], 1600, false]);
   assert.deepEqual([worst.players, worst.amount, worst.worst], [["Jeremy"], -BETTOR_MIN, true]);
   assert.equal(recordLabel(best), "Best bettor");
   assert.equal(recordLabel(worst), "Worst bettor");

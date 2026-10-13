@@ -298,17 +298,15 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   at a named moment so a correction moves it with the record and later
   standings never do. **Leader bounty** was cut on Oct 4 at Brandon's call
   (hard to understand); a stored `eventOps[ev].bounties` is ignored and
-  never sent. **Underdog odds** (`UNDERDOG_GAP` 1,000, `UNDERDOG_MULT` 2):
-  `oddsFor` takes a two-sided contest's gap as |average chips per player
-  of side A - side B| x the smaller side's size (a 1v1 needs a 1,000-chip
-  gap, a pair 1,000 combined, the 7 v 6 compares at six players) when its
-  market first opens (`openContest`), stored in
-  `eventOps[ev].odds[contestId]` (`underdog` side key or null) and kept if
-  that contest opens again (a correction's replay); every new ticket stores
-  `mult` = `contestMult(contest, side)`, and `wagerMult` reads any ticket's
-  `mult` (legacy outright 2, other legacy 1), so settlement stays derived.
-  `resolveCurrentContest` attaches `odds` (only with an underdog).
-  **Byes to the bottom**: `seedBracket(state, draw)` (every
+  never sent. **Underdog odds** were replaced by the pool on Oct 13 (Pool
+  betting below): no new contest stamps odds. Stored
+  `eventOps[ev].odds[contestId]` (`oddsFor`, `UNDERDOG_GAP` 1,000,
+  `UNDERDOG_MULT` 2) still answer contests opened before then: a reopened
+  legacy contest keeps its odds and takes no pool, its tickets keep the
+  `mult` they were placed at (`wagerMult`; legacy outright 2, other 1),
+  `resolveCurrentContest` attaches `odds` only with an underdog, and
+  `contestUpset` reads its stored underdog as an upset at 3.0x.
+  **Byes to the bottom** (unchanged): `seedBracket(state, draw)` (every
   draw and finalized draft) gives `bracketByeSlots` (slots whose first
   match is after round one, so 5's three and 6's two) to the lowest teams
   by average chips, lowest into the earliest slot, ties by a hash of the
@@ -319,6 +317,32 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   pill's lock beat names the underdog; a bye enters its bracket advanced
   with an info lamp. Weekend > Rules draws them as the "Comebacks" set
   (words await Brandon's review).
+- **Pool betting (Oct 13, approved by Brandon)**: every contest's market is
+  parimutuel. `openContest` (`stampPool` in `worker/actions.js`) stores
+  `eventOps[ev].pools[contestId] = { seed, at }` the first time a contest
+  opens: the bank's `POOL_SEED` (100) a side, split by the sides' average
+  chips (`poolSeed`, a side at or under 100 weighs 100), kept if the
+  contest opens again, dropped with the draw (`resetContestSetup`,
+  `clearDraw`), never during the finale. `resolveCurrentContest` attaches
+  `pool:true`; `placeWager` stamps `pool:1` and no `mult`. A side's price
+  is the pool (seed and live tickets) over the seed and stakes on that
+  side, floored to a tenth, between `POOL_MIN` 1.1 and `POOL_CAP` 10
+  (`poolPrice`); betting closes at Lock and start, so that is the price it
+  settles at, and a void (Away, exposure, the commissioner's) or a
+  correction reprices it, derived. A winning pool ticket nets
+  `poolNet(stake, price)` = stake x (price - 1) to the nearest 100, never
+  under 100; a loser loses its stake. `poolOf` (one contest), `poolBook`
+  (every pool once, for `computeStandings`) and `resolveWager(state, w,
+  events, book)` derive it every time; `contestPool` is the board's view
+  (each side's seed, stake, bettors, price, the favorite and the long
+  shot), `wagerPrice` a ticket's price now (legacy: mult + 1), `priceText`
+  "3.4×". `contestUpset` is an upset when the winner's price was
+  `UPSET_PRICE` (3) or longer; the gags' upset (`upsetPick`, lettered with
+  its price) and the records' "Most upsets" read it. QA's quick bets,
+  fast-forward filler and Sim players bet like a room
+  (`shared/qaSim.js` `roomBet`, `roomFavorite`): mostly the favorite by the
+  standings, some a long shot, rack chips 100/200/500/1,000 inside the cap.
+  `tests/pool.test.mjs` covers it, with a room of 13 on one contest.
 - **Before the draw (v3.1)**: the director pill never runs a draw of
   people directly. A team draw, heats or a captains draft (and the Random
   draw / Captains draft alternatives) open `features/director/CrewCheck.jsx`
@@ -1241,18 +1265,20 @@ first use is the awards ballot (D6). Its plan is in `docs/REFOUNDATION.md`.
    BankChip = PT = one physical 100 chip. Standings = 1,000 + event awards +
    wager net + rulings, computed fresh from state
    every time. No stored balances.
-4. **Current-contest betting:** a free-for-all with more than two sides pays
-   2:1 (`OUTRIGHT_MULT`); the current matchup, heat/pool winner, or stage-final
-   winner pays 1:1. Any contest with exactly two sides, including a
-   two-team game like Volleyball, Flip Cup or 5v5, is a matchup paying 1:1,
-   except its underdog's side when the sides opened 1,000 or more apart
-   (|average chips per player of A - of B| x the smaller side's size): that
-   side pays 2:1 (v3.1, Comebacks
-   above). Competitors may back only their own side. Payout copy is always
-   "Winner pays 1:1" or "Winner pays 2:1", never "even", said per side when a
-   contest carries odds. Every bettor holds one side
-   per contest. Every new ticket stores its `mult`; legacy tickets without
-   one keep 2:1 (outright) or 1:1 (everything else). The board exposes only that one current contest,
+4. **Current-contest betting is a pool** (Oct 13, Pool betting above):
+   every contest, a wide free-for-all, a matchup, a heat or a stage final,
+   pays from its own pool. The bank seeds 100 a side at the open, split by
+   the sides' average chips; a side's price is the whole pool over what
+   rides on it, to a tenth, 1.1 to 10, settled at the price when betting
+   locks; a winner nets stake x (price - 1) to the nearest 100, never under
+   100, derived every time. Competitors may back only their own side. A
+   side's payout reads as its price ("3.4×"), never "even". Every bettor
+   holds one side per contest. New tickets carry `pool:1` and no `mult`.
+   Contests opened before Oct 13 keep their fixed payouts: a free-for-all of
+   more than two sides 2:1 (`OUTRIGHT_MULT`), any other side 1:1, a stored
+   underdog 2:1, each ticket's `mult`; legacy tickets without one keep 2:1
+   (outright) or 1:1 (everything else), and that copy stays "Winner pays 1:1"
+   or "Winner pays 2:1". The board exposes only that one current contest,
    never every unresolved bracket matchup or an event-wide outright market
    for an event being played as matches or stages. A competitor may optionally
    back themself or their own team in that contest; spectators may back any

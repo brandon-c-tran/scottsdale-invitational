@@ -6,8 +6,8 @@ import { build } from "esbuild";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import {
-  EMPTY_STATE, ROSTER, AWARDS, PT, OUTRIGHT_MULT, allEventsOf, resolveCurrentContest, resolveWager, computeStandings,
-  atRisk, maxRisk, makeBracket, resolveSlot, defaultQaParticipants, contestMult, resultAwards, awardPlan,
+  EMPTY_STATE, ROSTER, AWARDS, PT, allEventsOf, resolveCurrentContest, resolveWager, computeStandings,
+  atRisk, maxRisk, makeBracket, resolveSlot, defaultQaParticipants, resultAwards, awardPlan,
   pokerDenoms, pokerDistribution, pokerInventory, drawTeams, resolveEventLifecycle, teamLabel,
 } from "../shared/core.js";
 import { applyAction } from "./support/confirmed-start.mjs";
@@ -75,14 +75,15 @@ const heats = (id = "beerio") => {
 };
 
 /* ── 1. two-sided contests are matchups ── */
-test("every two-team event pays 1:1, keeps competitors on their side, and holds one side per bettor", () => {
+test("every two-team event is a two-sided pool, keeps competitors on their side, and holds one side per bettor", () => {
   /* an even two-team game with crew, and a bracket match of teams */
   for (const id of ["flip", "volley"]) {
     const s = withFlip();
     drawn(s, id);
     const c = current(s, id);
     assert.equal(c.sides.length, 2);
-    assert.equal(contestMult(c), 1, `${id} pays 1:1`);
+    assert.equal(c.pool, true, `${id} is a pool`);
+    assert.deepEqual(s.eventOps[id].pools[c.id].seed, { [c.sides[0].key]:100, [c.sides[1].key]:100 }, "a level board seeds 100 a side");
     const competitor = c.sides[0].players[0], spectator = crewOf(s, id)[0];
     assert.match(bet(s, id, competitor, c.sides[1].key).error, /only back yourself or your team/);
     assert.equal(bet(s, id, competitor, c.sides[0].key, 300).ok, true);
@@ -93,14 +94,15 @@ test("every two-team event pays 1:1, keeps competitors on their side, and holds 
     if (c.kind === "match") {
       lock(s, id); win(s, id, c.sides[1].key);
       const after = pts(s);
-      assert.equal(after[spectator] - before[spectator], 300, "even money on the match");
+      /* 200 seed and 600 staked is 800 over the winners' 400: 2.0x */
+      assert.equal(after[spectator] - before[spectator], 300, "2.0x on the match");
       assert.equal(after[competitor] - before[competitor], -300);
       continue;
     }
     post(s, id, [c.sides[1].players, c.sides[0].players]);
     const after = pts(s), crewAward = AWARDS[event(s, id).value][2];
     assert.equal(crewAward, 400);
-    assert.equal(after[spectator] - before[spectator], 300 + crewAward, "even money plus the crew award");
+    assert.equal(after[spectator] - before[spectator], 300 + crewAward, "2.0x plus the crew award");
     assert.equal(after[competitor] - before[competitor], -300 + AWARDS[event(s, id).value][1]);
   }
 
@@ -111,7 +113,7 @@ test("every two-team event pays 1:1, keeps competitors on their side, and holds 
   assert.deepEqual(s.draws.bball5.teams.map(team => team.players.length).sort(), [6, 7]);
   assert.deepEqual(crewOf(s, "bball5"), []);
   assert.equal(c.sides.length, 2);
-  assert.equal(contestMult(c), 1, "bball5 pays 1:1");
+  assert.equal(c.pool, true, "bball5 is a pool");
   const [winner, loser] = [c.sides[0].players[0], c.sides[1].players[0]];
   assert.match(bet(s, "bball5", loser, c.sides[0].key).error, /only back yourself or your team/);
   assert.equal(bet(s, "bball5", loser, c.sides[1].key, 300).ok, true);
@@ -120,7 +122,8 @@ test("every two-team event pays 1:1, keeps competitors on their side, and holds 
   const before = pts(s);
   post(s, "bball5", [c.sides[0].players, c.sides[1].players]);
   const after = pts(s);
-  assert.equal(after[winner] - before[winner], 200 + 800, "even money plus the winners' 800");
+  /* 200 seed and 500 staked is 700 over the winners' 300: 2.3x, so 200 nets 260, to the nearest 100 */
+  assert.equal(after[winner] - before[winner], 300 + 800, "the pool's 2.3x plus the winners' 800");
   assert.equal(after[loser] - before[loser], -300, "the other side takes no award");
 });
 
@@ -152,16 +155,19 @@ test("no two-sided contest can be hedged at a profit", () => {
   }
 });
 
-test("a wide free-for-all still pays 2:1 across any sides, and older 2:1 team tickets keep their contract", () => {
+test("a wide free-for-all is one pool across any sides, and older 2:1 team tickets keep their contract", () => {
   const s = fresh();
   act(s, "announceEvent", { evId:"putt" });
   const c = current(s, "putt");
-  assert.equal(contestMult(c), OUTRIGHT_MULT);
+  assert.equal(c.pool, true);
+  assert.equal(Object.keys(s.eventOps.putt.pools[c.id].seed).length, ROSTER.length, "the bank seeds every side");
   assert.equal(bet(s, "putt", ROSTER[0], ROSTER[1]).ok, true);
   assert.equal(bet(s, "putt", ROSTER[0], ROSTER[2]).ok, true);
   const before = pts(s)[ROSTER[0]];
   runFfa(s, "putt", [[ROSTER[1]]]);
-  assert.equal(pts(s)[ROSTER[0]] - before, 2 * PT - PT);
+  /* 13 seeds of 100 and 200 staked is 1,500 over the winner's 200: 7.5x,
+     so the winning 100 nets 650 (to the nearest 100) and the other loses 100 */
+  assert.equal(pts(s)[ROSTER[0]] - before, 7 * PT - PT);
 
   const legacy = withFlip();
   drawn(legacy, "flip");
@@ -256,11 +262,16 @@ test("undoing a contest voids duel antes that the restored balance cannot cover"
   const s = fresh();
   drawn(s, "8ball");
   const c1 = current(s, "8ball");
-  const spectator = ROSTER.find(p => !c1.players.includes(p));
+  const [spectator, other] = ROSTER.filter(p => !c1.players.includes(p));
+  /* 200 seed and 2,000 staked is 2,200 over the winners' 1,100: 2.0x, so
+     each 500 nets 500 and both winners' 1,500 hold a 700 ante */
   assert.equal(bet(s, "8ball", spectator, c1.sides[0].key, 500).ok, true);
   assert.equal(bet(s, "8ball", c1.sides[0].players[0], c1.sides[0].key, 500).ok, true);
+  assert.equal(bet(s, "8ball", c1.sides[1].players[0], c1.sides[1].key, 500).ok, true);
+  assert.equal(bet(s, "8ball", other, c1.sides[1].key, 500).ok, true);
   lock(s, "8ball");
   win(s, "8ball", c1.sides[0].key);
+  assert.equal(pts(s)[spectator], 1500);
   act(s, "sendDuel", { to:c1.sides[0].players[0], stake:700 }, guest(spectator));
   s.duels[0].ts += 1000; // the duel is the newest commitment
   const undo = act(s, "undoLastContest", { evId:"8ball", contestId:c1.id, contestRevision:s.eventOps["8ball"].contestRevision });

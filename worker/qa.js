@@ -32,6 +32,7 @@ import { parseQaTarget, qaEventStage, qaPokerStage, qaSlate } from "../shared/qa
 import { triviaActive, triviaBeat, triviaConfigured, triviaCurrent, triviaGame } from "../shared/trivia.js";
 import { BOARD_FORMAT, boardAutoBeat, boardRace, isBoardGame, triviaFormatOf } from "../shared/triviaBoard.js";
 import { karaokeTurn } from "../shared/karaoke.js";
+import { roomBet, roomFavorite } from "../shared/qaSim.js";
 
 const QA_DEVICE = "qa-sim";
 const QA_REQUEST_PREFIX = `request:${QA_DEVICE}:`;
@@ -175,9 +176,11 @@ function fillEmptyCheckIns(run, { production }) {
   return filled;
 }
 
-/* Several players put realistic chips on the current contest: random sides
-   they may back, stakes in 100s inside their cap and balance. A refusal
-   skips that player. Only a contest nobody has backed yet gets filler. */
+/* Half the room or more puts a chip on the current contest the way a room
+   bets a pool (shared/qaSim.js roomBet): mostly the favorite by the
+   standings, some a long shot, a rack chip inside their cap and balance.
+   A refusal skips that player. Only a contest nobody has backed yet gets
+   filler. */
 function placeFillerBets(run, ev, contest) {
   const { state } = run;
   const list = run.events();
@@ -185,7 +188,8 @@ function placeFillerBets(run, ev, contest) {
     && resolveWager(state, wager, list).status === "pending");
   if (backed) return 0;
   const rows = computeStandings(state);
-  const bettors = shuffled(run, presentPlayers(state)).slice(0, 4 + Math.floor(run.rng() * 4));
+  const bettors = shuffled(run, presentPlayers(state)).slice(0, 6 + Math.floor(run.rng() * 5));
+  const favorite = roomFavorite(contest, rows);
   let placed = 0;
   for (const player of bettors) {
     const pts = rows.find(row => row.player === player)?.pts ?? 0;
@@ -195,9 +199,9 @@ function placeFillerBets(run, ev, contest) {
     const held = contestSideOf(state, contest, player, list);
     const sides = contest.sides.filter(side => contestBetEligibility(contest, player, side.key)
       && (held === null || held === side.key));
-    if (!sides.length) continue;
-    const side = pick(run, sides);
-    const stake = Math.min(Math.floor(room / PT) * PT, pick(run, [PT, PT, 2 * PT, 2 * PT, 3 * PT, 5 * PT]));
+    const chip = roomBet(contest, sides, favorite, room, { side:run.rng(), pick:run.rng(), stake:run.rng() });
+    if (!chip) continue;
+    const { side, stake } = chip;
     const wager = { eventId:ev.id, evName:ev.name, contestId:contest.id, contestRevision:contest.revision,
       pickPlayers:[...side.players], pickTeam:!!contest.drawId, drawId:contest.drawId, stake };
     if (contest.kind === "ffa") Object.assign(wager, { kind:"outright", pick:side.key });
@@ -624,13 +628,14 @@ function runQaAdvance(state, target, { applyAction, ctx, seed, production = fals
    holds and the chips land as ordinary bets. The actor (the commissioner's
    own claimed player) is left alone, so their own chips stay theirs to tap.
 
-     everyone   each player with room backs a side of their choosing
+     everyone   each player with room bets the way a room bets a pool
+                (shared/qaSim.js roomBet): mostly the favorite by the
+                standings, some a long shot, rack chips
      favorite   everyone who may backs the strongest side; a competitor
                 who may only back their own side backs that
      spread     bettors dealt round the sides in turn, one even stake each
      clear      every pending chip on the contest goes back */
 const QA_BET_MODES = Object.freeze(["everyone", "favorite", "spread", "clear"]);
-const QA_STAKES = Object.freeze([PT, PT, 2 * PT, 2 * PT, 3 * PT, 5 * PT]);
 
 /* the event whose current contest takes bets right now, with that contest */
 function qaBetMarket(state, events = allEventsOf(state)) {
@@ -683,6 +688,7 @@ function runQaBets(state, mode, { applyAction, ctx, seed }) {
     const strength = side => side.players.reduce((sum, player) =>
       sum + playerStrength(state, player, ev.sport, rows), 0) / Math.max(1, side.players.length);
     const favorite = [...contest.sides].sort((a, b) => strength(b) - strength(a))[0];
+    const leader = roomFavorite(contest, rows);
     const dealt = new Map(contest.sides.map(side => [side.key, 0]));
     const bettors = shuffled(run, presentPlayers(state).filter(player => player !== ctx.player));
     bettors.forEach((player, index) => {
@@ -695,15 +701,16 @@ function runQaBets(state, mode, { applyAction, ctx, seed }) {
       let side, stake;
       if (mode === "favorite") {
         side = open.find(item => item.key === favorite.key) || open[0];
-        stake = pick(run, [2 * PT, 3 * PT, 5 * PT]);
+        stake = pick(run, [2 * PT, 2 * PT, 5 * PT, 10 * PT]);
       } else if (mode === "spread") {
         const turn = contest.sides[index % contest.sides.length];
         side = open.find(item => item.key === turn.key)
           || [...open].sort((a, b) => dealt.get(a.key) - dealt.get(b.key))[0];
         stake = 2 * PT;
       } else {
-        side = pick(run, open);
-        stake = pick(run, QA_STAKES);
+        const chip = roomBet(contest, open, leader, room, { side:run.rng(), pick:run.rng(), stake:run.rng() });
+        if (!chip) return;
+        ({ side, stake } = chip);
       }
       stake = Math.min(Math.floor(room / PT) * PT, stake);
       if (!run.as(player, "placeWager", { wager:wagerFor(ev, contest, side, stake) }).ok) return;

@@ -241,11 +241,13 @@ test("M5: a decided contest is read from the record: winner, settled stacks, pay
   const [won, lost] = view.sides;
   assert.equal(won.won, true);
   assert.equal(lost.won, false);
-  assert.deepEqual(won.stacks.map(item => [item.player, item.stake, item.paid]), [[a, 300, 300], [b, 200, 200]]);
+  /* the pool: 100 + 100 seed and 900 staked is 1,100 over the winners' 600,
+     1.8x: 300 nets 240 and 200 nets 160, each to the nearest 100 */
+  assert.deepEqual(won.stacks.map(item => [item.player, item.stake, item.paid]), [[a, 300, 200], [b, 200, 200]]);
   assert.deepEqual(lost.stacks.map(item => [item.player, item.stake, item.status]), [[c, 400, "lost"]]);
-  assert.equal(view.paid, 500);
+  assert.equal(view.paid, 400);
   assert.equal(view.lost, 400);
-  assert.equal(decidedPayout(view, a), 600, "stake back plus 1:1");
+  assert.equal(decidedPayout(view, a), 500, "stake back plus its share of the pool");
   assert.equal(decidedPayout(view, c), 0);
   /* Undo rewinds the record: the hold has nothing left to show */
   const undo = contestUndoAvailability(state, evOf(state, "8ball"));

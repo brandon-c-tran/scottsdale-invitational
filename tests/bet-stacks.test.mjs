@@ -135,16 +135,18 @@ test("settling grows a winner by its payout and sends a loser back to the bank",
   act(state, "recordContestWinner", { evId:"8ball", winner:contest.sides[0].key, ...ref(state, "8ball") });
   const view = settledStacks(state, allEventsOf(state), contest);
   assert.deepEqual(view.winners.map(item => [item.stake, item.paid, item.after]),
-    [[1000, 1000, 2000], [500, 500, 1000], [300, 300, 600], [200, 200, 400]], "1:1 doubles");
+    [[1000, 700, 1700], [500, 400, 900], [300, 200, 500], [200, 100, 300]],
+    "the pool: 100 + 100 seed and 3,500 staked is 3,700 over the winners' 2,100, 1.7x, each net to the nearest 100");
   assert.deepEqual(view.losers.map(item => item.stake), [800, 400, 200, 100]);
-  assert.equal(view.paid, 2000);
+  assert.equal(view.paid, 1400);
   assert.equal(view.lost, 1500);
   /* the TV's advance moment carries the same derived settlement */
   const moment = advanceMoment(state, evOf(state, "8ball"), state.eventOps["8ball"].lastContest.decidedAt + 500);
-  assert.equal(moment.settle.paid, 2000);
+  assert.equal(moment.settle.paid, 1400);
   assert.equal(moment.settle.losers.length, 4);
 
-  /* a free-for-all pays 2:1: the backers' stacks triple */
+  /* a free-for-all's pool: 13 seeds of 100 and 500 staked is 1,800; Evan's
+     side holds 300 of it, 6.0x, so Adi's 200 nets 1,000 */
   const ffa = structuredClone(EMPTY_STATE);
   act(ffa, "announceEvent", { evId:"putt" });
   bet(ffa, "putt", "Adi", ROSTER.indexOf("Evan"), 200);
@@ -153,7 +155,7 @@ test("settling grows a winner by its payout and sends a loser back to the bank",
   act(ffa, "beginResultEntry", { evId:"putt" });
   act(ffa, "saveResult", { evId:"putt", slots:[["Evan"], ["Khoa"], ["Adi"]] });
   const won = eventWinnerStacks(ffa, allEventsOf(ffa), "putt");
-  assert.deepEqual(won.winners.map(item => [item.player, item.stake, item.after]), [["Adi", 200, 600]]);
+  assert.deepEqual(won.winners.map(item => [item.player, item.stake, item.after]), [["Adi", 200, 1200]]);
   assert.deepEqual(won.losers.map(item => item.player), ["Ben"]);
 });
 

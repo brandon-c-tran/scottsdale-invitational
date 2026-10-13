@@ -125,6 +125,13 @@ export const sameKaraokeTrack = (a, b) => !!a && !!b
 export const karaokeTrackOf = (state, player) => state?.profiles?.[player]?.karaokeTrack || null;
 export const hasKaraokeSong = (state, player) => !!karaokeTrackOf(state, player)?.video;
 export const karaokeArtists = song => (song?.artists || []).join(", ");
+/* a song's name as the room knows it: a release's suffix ("- Remastered
+   2011", "(Radio Edit)", "- Single Version") is not part of it */
+const SONG_SUFFIX = /\s*(?:-\s+[^-]*\b(?:version|remaster(?:ed)?|edit|mix|mono|stereo|live|single|radio|explicit|clean)\b[^-]*|[([][^)\]]*\b(?:version|remaster(?:ed)?|edit|mix|mono|stereo|live|radio|explicit|clean)\b[^)\]]*[)\]])\s*$/i;
+export function karaokeSongTitle(name) {
+  const full = String(name || "").trim();
+  return full.replace(SONG_SUFFIX, "").trim() || full;
+}
 /* the snapshot the game keeps of a song at the window's end */
 export const karaokeSnapshot = track => track ? {
   provider:track.provider, trackId:track.trackId, name:track.name, artists:[...(track.artists || [])],
@@ -184,6 +191,12 @@ export function karaokeStage(turn, now) {
    start late counts from when it really started) */
 export const karaokeVideoSeconds = (turn, now) => turn && Number.isFinite(turn.songAt)
   ? Math.max(0, (now - (Number(turn.playedAt) || turn.songAt)) / 1000) : 0;
+/* the key a TV reports a turn's video under (the TV report): the game, the
+   turn, and which of the song's uploads it plays (0 the chosen one) */
+export function karaokeVideoKey(game, index = game?.index) {
+  if (!game?.id || !Number.isInteger(index) || index < 0) return null;
+  return `${game.id}:${index}:${Number(game.turns?.[game.order?.[index]]?.video) || 0}`;
+}
 /* who may vote on a singer: everyone present but the singer */
 export const karaokeVoters = (state, singer) => presentPlayers(state).filter(player => player !== singer);
 export const karaokeVoteOpen = (turn, now) => !!turn && !turn.closedAt && !turn.skipped

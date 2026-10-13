@@ -14,6 +14,7 @@ import {
 } from "../../shared/core.js";
 import { applyAction as apply } from "../../worker/actions.js";
 import { boardDeskStage, boardPlayed, boardStage } from "./boardFixtures.js";
+import { karaokeStage } from "./karaokeFixtures.js";
 
 /* display names the audit stresses: a long one, a lowercase pair, a
    surname. Applied after the fill, so qaAdvance never sees them as touched */
@@ -1088,6 +1089,21 @@ export const TV_SCENARIOS = Object.freeze([
   { id:"tv-board-real-answer", build:() => boardPlayed("answer"), at:{ board:0 } },
   { id:"tv-board-real-reveal", build:() => boardPlayed("reveal"), at:{ board:0 }, wait:1500 },
   { id:"tv-board-real-final-reveal", build:() => boardPlayed("final-reveal"), at:{ board:0 } },
+  /* Karaoke (dev/fit/karaokeFixtures.js, built from its contract and
+     projected as a TV's frame carries it): the pick window, the order
+     dealing, a singer up next, a song (the video's stand-in, a practice
+     song's card, a failed video's card), the vote, the Legendary rain and
+     the reveal mid-way and at 1st. A still never creates a player. */
+  { id:"tv-karaoke-pick", build:() => karaokeStage("pick"), at:{ karaoke:0 }, wait:1200 },
+  { id:"tv-karaoke-order", build:() => karaokeStage("order"), at:{ karaoke:0 }, pause:true, wait:400 },
+  { id:"tv-karaoke-up", build:() => karaokeStage("up"), at:{ karaoke:0 }, wait:1200 },
+  { id:"tv-karaoke-singing", build:() => karaokeStage("singing"), at:{ karaoke:0 }, wait:1200 },
+  { id:"tv-karaoke-practice", build:() => karaokeStage("practice"), at:{ karaoke:0 }, wait:1200 },
+  { id:"tv-karaoke-failed", build:() => karaokeStage("failed"), at:{ karaoke:0 }, wait:1200 },
+  { id:"tv-karaoke-voting", build:() => karaokeStage("voting"), at:{ karaoke:0 }, wait:1200 },
+  { id:"tv-karaoke-legendary", build:() => karaokeStage("legendary"), at:{ karaoke:0 }, pause:true, wait:400 },
+  { id:"tv-karaoke-reveal-mid", build:() => karaokeStage("reveal-mid"), at:{ karaoke:0 }, wait:1600 },
+  { id:"tv-karaoke-reveal-podium", build:() => karaokeStage("reveal-podium"), at:{ karaoke:0 }, wait:1600 },
   { id:"tv-walkout", build:() => fresh("event:putt:done"), moment:{ kind:"walkout", t:3000, player:"Brandon" } },
   /* a team's win walks out as the team: the moment is read from the record
      and the win it follows (walkoutView), a pair with no cover, seven with one */

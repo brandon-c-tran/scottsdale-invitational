@@ -1368,7 +1368,17 @@ function farBeep(E, t, f) {
   held(E, bp, t, f, 0.11, 0.4, { type:"square", a:0.004, glide:-0.08 });
 }
 
-export const SOUNDS = Object.freeze(Object.fromEntries([...KIT, ...PARTS, ...BOARD_PARTS, ...BIT_PARTS].map(s => [s.id, s])));
+/* ── karaoke (features/tv/karaokeSound.js cues them on the room's clock) ── */
+export const KARAOKE_PARTS = Object.freeze([
+  /* a Legendary vote rains over its singer: a drum and a slap, the motif
+     rung up bright, then a sparkle of high bells falling through it */
+  { id:"legendary", name:"Legendary", ms:2600,
+    play:(E, t) => { M.drum(E, t, { f:NOTE.D2, dec:0.8, gain:0.8 }); M.slap(E, t + 0.004, { gain:0.5 });
+      [NOTE.D5, NOTE.Fs5, NOTE.A5, NOTE.D6].forEach((f, i) => M.bell(E, t + i * 0.07, f, { gain:0.5 - i * 0.04, dec:2.2, send:0.35 }));
+      for (let i = 0; i < 9; i++) M.bell(E, t + 0.32 + i * 0.11, ladderNote(13 - (i % 6)), { gain:0.14, dec:0.5, send:0.4 }); } },
+].map(Object.freeze));
+
+export const SOUNDS = Object.freeze(Object.fromEntries([...KIT, ...PARTS, ...BOARD_PARTS, ...BIT_PARTS, ...KARAOKE_PARTS].map(s => [s.id, s])));
 export const SOUND_IDS = Object.freeze(KIT.map(s => s.id));
 export const isSound = id => Object.prototype.hasOwnProperty.call(SOUNDS, id);
 

@@ -265,11 +265,12 @@ for (const [label, win] of [["A", a], ["B", b]])
 const sA = computeStandings(a.state), sB = computeStandings(b.state);
 assert(JSON.stringify(sA) === JSON.stringify(sB), "standings identical on both windows");
 const evanRow = sB.find(x => x.player === "Evan");
-/* +400 on the matchup, plus whatever the result pays Evan (crew take 3rd) */
+/* the matchup's pool payout, plus whatever the result pays Evan (crew take 3rd) */
+const evanBet = resolveWager(b.state, b.state.wagers.find(w => w.player === "Evan" && w.eventId === "8ball"), allEventsOf(b.state)).delta;
 const evanAward = resultAwards(b.state, allEventsOf(b.state).find(ev => ev.id === "8ball"), b.state.results["8ball"])
   .filter(award => award.player === "Evan").reduce((sum, award) => sum + award.pts, 0);
-assert(evanRow.pts === 1000 + 400 + evanAward && evanRow.betNet === 400 && evanRow.awardPts === evanAward,
-  `Evan at ${1000 + 400 + evanAward} chips (1000 start +400 matchup +${evanAward} award), got ${evanRow.pts}`);
+assert(evanBet > 0 && evanRow.pts === 1000 + evanBet + evanAward && evanRow.betNet === evanBet && evanRow.awardPts === evanAward,
+  `Evan at ${1000 + evanBet + evanAward} chips (1000 start +${evanBet} matchup +${evanAward} award), got ${evanRow.pts}`);
 const lastA = a.broadcasts.at(-1), lastB = b.broadcasts.at(-1);
 assert(lastA.version === lastB.version && lastA.lastAction === "saveResult" && lastB.lastAction === "saveResult",
   `both windows received the saveResult broadcast at version ${lastA.version}, ${Math.abs(lastA.at - lastB.at)}ms apart`);

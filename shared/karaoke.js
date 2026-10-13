@@ -31,11 +31,11 @@ import { validateSpotifyTrack } from "./audio.js";
    tier (1 to 6); a score counts its points, Hypixel's own values for these
    names (a low vote still adds a little; the top two are worth most). ── */
 export const KARAOKE_TIERS = Object.freeze([
-  Object.freeze({ value:1, id:"superpoop", name:"Super Poop", points:1 }),
-  Object.freeze({ value:2, id:"poop", name:"Poop", points:2 }),
+  Object.freeze({ value:1, id:"superass", name:"Super Ass", points:1 }),
+  Object.freeze({ value:2, id:"ass", name:"Ass", points:2 }),
   Object.freeze({ value:3, id:"ok", name:"OK", points:7 }),
   Object.freeze({ value:4, id:"good", name:"Good", points:10 }),
-  Object.freeze({ value:5, id:"epic", name:"Epic", points:14 }),
+  Object.freeze({ value:5, id:"amazing", name:"Amazing", points:14 }),
   Object.freeze({ value:6, id:"legendary", name:"Legendary", points:18 }),
 ]);
 export const isKaraokeTier = value => Number.isInteger(value) && value >= 1 && value <= KARAOKE_TIERS.length;

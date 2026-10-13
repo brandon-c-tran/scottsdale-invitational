@@ -515,7 +515,7 @@ test("ranking: a tie on the score goes to more Legendary, then the earlier singe
       B:{ x:{ tier:6 }, y:{ tier:2 } },
       C:{ x:{ tier:4 }, y:{ tier:4 } },
     } };
-  /* A and C both 10.0 on two Goods; B 10.0 on Legendary + Poop: more Legendary first */
+  /* A and C both 10.0 on two Goods; B 10.0 on Legendary + Ass: more Legendary first */
   assert.deepEqual(karaokeRanking(game).map(row => row.player), ["B", "A", "C", "D"]);
   assert.deepEqual(karaokeResultSlots(karaokeRanking(game)), [["B"], ["A"], ["C"]]);
 });

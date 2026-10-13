@@ -134,9 +134,9 @@ const RAW_BUILTIN_EVENTS = [
   { id:"where", n:3, session:"fri", value:400, name:"Where and When", kind:"solo", game:"where",
     desc:"Photos from Brandon's past. Pin where each was taken and guess the date and hour. Highest total wins." },
   /* everyone sings the song they picked; the room votes each one, Build
-     Battle's Super Poop to Legendary (shared/karaoke.js, docs/KARAOKE.md) */
+     Battle's Super Ass to Legendary (shared/karaoke.js, docs/KARAOKE.md) */
   { id:"karaoke", n:4, session:"fri", value:400, name:"Karaoke", kind:"solo", game:"karaoke",
-    desc:"Sing the song you picked while the room votes, Super Poop to Legendary. Best average wins." },
+    desc:"Sing the song you picked while the room votes, Super Ass to Legendary. Best average wins." },
   /* ── Saturday morning · 800 ── */
   /* everyone plays: captains draft two sides of seven and six. Winners only. */
   { id:"bball5", n:5, session:"sam", value:800, name:"5v5 Full Court", kind:"team", sport:"bball", game:"basketball", variant:"5v5",
@@ -299,9 +299,9 @@ const GAMES = {
     objective:"The room's favorite performance of the night.",
     steps:["Pick a karaoke song in your profile. When Karaoke starts you have two minutes to keep it or change it.",
       "When you're up, your song plays on the TV. Sing it.",
-      "Everyone else votes, Super Poop to Legendary. A vote can change until it closes.",
+      "Everyone else votes, Super Ass to Legendary. A vote can change until it closes.",
       "With six or more votes, your highest and lowest are dropped."],
-    win:"Highest average wins. A tie goes to more Legendary votes, then Epic, and down." } },
+    win:"Highest average wins. A tie goes to more Legendary votes, then Amazing, and down." } },
   poker: { name:"Poker", howto:{ players:"Everyone, one table", gear:["Cards","Chips","The clock"],
     objective:"Finish with the biggest stack.",
     steps:["Whatever you have Saturday night is the stack you start the finale with.","No-limit hold'em. Blinds rise on the clock.","Bust and you are out.","When the last level ends, count your stack."],

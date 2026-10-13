@@ -144,7 +144,7 @@ function Tower({ n, scale = 1 }) {
 const POOL_EXAMPLE = [{ chips:400, n:6 }, { chips:200, n:2 }];
 export function PoolExplainer({ className = "", tv = false }) {
   const total = POOL_EXAMPLE.reduce((sum, side) => sum + side.chips, 0);
-  const scale = tv ? 1.6 : 1;
+  const scale = tv ? 0.9 : 1;
   const fmt = n => n.toLocaleString("en-US");
   return <figure className={`fd-pool-explain${tv ? " is-tv" : ""} ${className}`}
     aria-label={`Winners split the whole pool. ${fmt(total)} in the pool: ${fmt(POOL_EXAMPLE[0].chips)} on one side pays ${(total / POOL_EXAMPLE[0].chips).toFixed(1)} times, ${fmt(POOL_EXAMPLE[1].chips)} on the other pays ${(total / POOL_EXAMPLE[1].chips).toFixed(1)} times.`}>

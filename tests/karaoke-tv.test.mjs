@@ -98,7 +98,7 @@ test("every stage draws through the real TV, the song alone on the stage with th
     singing:[/class="tv-karaoke-video"><\/div>/, /tv-karaoke-standin/, /tv-karaoke-strip/],
     practice:[/tv-karaoke-card/, /tv-karaoke-drain/],
     failed:[/tv-karaoke-card/, /Total Eclipse/],
-    voting:[/>Vote</, /Super Poop/, /Legendary/, /8 of 12/],
+    voting:[/>Vote</, /Super Ass/, /Legendary/, /8 of 12/],
     legendary:[/tv-karaoke-rain/, /tv-karaoke-legend-word[^>]*>Legendary</],
     "reveal-mid":[/Results/, /is-waiting/],
     "reveal-podium":[/Results/, /tv-karaoke-row is-first/],

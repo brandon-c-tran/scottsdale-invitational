@@ -118,12 +118,16 @@
 .fd-px-brace { grid-column:1 / -1; width:78%; height:14px; margin:4px 0 8px; fill:none; stroke:var(--muted2); stroke-width:2;
   vector-effect:non-scaling-stroke; }
 .fd-pool-explain .fd-ux-col>small.fd-px-pays { color:var(--ink); font-size:16px; }
-.fd-pool-explain.is-tv { gap:0 40px; padding:6px 8px 0; background:none; box-shadow:none; }
+.fd-pool-explain.is-tv { grid-template-columns:auto auto auto; align-items:end; gap:0 30px; padding:4px 4px 0; background:none; box-shadow:none; }
+/* on the TV the drawing runs in one row beside its title: the pool, then each side */
+.fd-pool-explain.is-tv .fd-px-total { grid-column:auto; flex-direction:column; align-items:center; align-self:center; gap:6px; }
+.fd-pool-explain.is-tv .fd-px-brace { display:none; }
+.fd-pool-explain.is-tv .fd-ux-col { gap:6px; }
 .fd-pool-explain.is-tv .fd-px-total { font-size:40px; }
 .fd-pool-explain.is-tv .fd-px-total small { font-size:26px; }
 .fd-pool-explain.is-tv .fd-px-brace { height:22px; stroke-width:3; }
-.fd-pool-explain.is-tv .fd-ux-col>small { font-size:28px; }
-.fd-pool-explain.is-tv .fd-ux-col>small.fd-ux-pays, .fd-pool-explain.is-tv .fd-ux-col>small.fd-px-pays { font-size:34px; }
+.fd-pool-explain.is-tv .fd-ux-col>small { font-size:26px; line-height:1.1; }
+.fd-pool-explain.is-tv .fd-ux-col>small.fd-ux-pays, .fd-pool-explain.is-tv .fd-ux-col>small.fd-px-pays { font-size:30px; }
 
 /* the TV: a side's price on the board (lg), the tote's price column (its
    size from the row, --price-size), the long shot breathing once it is
@@ -141,10 +145,14 @@
 /* the room reads the price from the couch: the board's sides at 56px, the
    face-off's at 96px under the names */
 .tv-side-win .tv-terms.is-price .fd-price { --price-size:56px; }
-.tv-faceoff-terms .fd-price { --price-size:96px; }
+.tv-faceoff-terms .fd-price { --price-size:80px; }
 .tv-faceoff-terms .fd-price-x { font-size:.55em; }
 /* a priced felt: the price stands in its top-left corner, level with the
    side's total in the middle */
 .tv-felt.has-price { position:relative; }
 .tv-felt-price { position:absolute; left:18px; top:4px; z-index:1; }
 .tv-felt-price .fd-price { --price-size:46px; }
+
+/* the lesson sits close under the price, so a 1v1 face-off keeps it in the safe area */
+.tv-faceoff-termwrap .tv-faceoff-teach { top:calc(100% + 4px); }
+.tv-faceoff-teach:has(.fd-pool-explain) { padding-block:8px; }

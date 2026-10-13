@@ -256,7 +256,7 @@ test("the vote's six: painted inserts, yours lit, closed at its close, never on 
   assert.match(vote, /--tier:var\(--tier-6\);--tier-text:var\(--tier-6-ink\)/, "Legendary's gold takes the dark ink");
   assert.doesNotMatch(vote, /aria-pressed="true"/, "nothing lit before you vote");
   const voted = sheet(stage("voted"));
-  assert.match(voted, /class="fd-karaoke-tier is-epic is-mine" aria-pressed="true"/, "your Epic, lit in the filament");
+  assert.match(voted, /class="fd-karaoke-tier is-amazing is-mine" aria-pressed="true"/, "your Amazing, lit in the filament");
   const closed = sheet(stage("closed"));
   assert.match(closed, />Vote closed</);
   assert.equal((closed.match(/class="fd-karaoke-tier[^"]*" aria-pressed="[a-z]+" disabled=""/g) || []).length, KARAOKE_TIERS.length);
@@ -348,14 +348,14 @@ test("Home's row by phase, gone once the result posts; the song row before the g
   assert.match(home(stage("singing")), />Singing</);
   assert.match(home(stage("up-watch")), />Up next: Henry</);
   assert.match(home(stage("vote")), />Henry<\/strong><em[^>]*>Vote</);
-  assert.match(home(stage("voted")), /class="is-tier"[^>]*>(?:<span[^>]*><\/span>)?Epic</, "your tier, in its paint");
+  assert.match(home(stage("voted")), /class="is-tier"[^>]*>(?:<span[^>]*><\/span>)?Amazing</, "your tier, in its paint");
   /* the same rows inside Home's Now card (ui/NowRow.jsx) */
   const card = (state, player = ME, extra = {}) => home(state, player, { inCard:true, ...extra });
   /* what the game asks of you is the card's headline (the You strip): no row */
   assert.equal(card(stage("pick")), "", "Pick your song is the strip's");
   assert.equal(card(stage("vote")), "", "Vote is the strip's");
   assert.match(card(stage("voted")), /class="fd-now-row is-live fd-karaoke-now"/);
-  assert.match(card(stage("voted")), /class="is-tier">Epic</, "your tier, in its paint");
+  assert.match(card(stage("voted")), /class="is-tier">Amazing</, "your tier, in its paint");
   assert.doesNotMatch(card(stage("voted")), /is-primary/, "voted asks nothing");
   assert.match(card(stage("up-watch")), /Singer \d+ of \d+/);
   assert.match(card(stage("ahead"), ME, { karaoke:true }), />Pick a karaoke song</);

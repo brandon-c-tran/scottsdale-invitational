@@ -73,9 +73,9 @@
   border:0; background:none; color:inherit; text-align:left; cursor:pointer; }
 .fd-moment-banner-chips { display:flex; align-items:center; gap:2px; flex-shrink:0; }
 .fd-moment-banner-chips i { margin:0 4px; font:800 13px/1 var(--fd-display); font-style:normal; text-transform:uppercase; color:var(--muted2); }
-.fd-moment-banner-text { min-width:0; display:grid; }
+.fd-moment-banner-text { flex:1; min-width:0; display:grid; grid-template-columns:minmax(0, 1fr); }
 .fd-moment-banner-text small { font:700 13px/1.2 var(--fd-display); letter-spacing:.1em; text-transform:uppercase; color:var(--lamp-live-text, var(--muted2)); }
-.fd-moment-banner-text b { font:700 16px/1.2 var(--fd-body); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.fd-moment-banner-text b { font:700 16px/1.2 var(--fd-body); overflow-wrap:anywhere; }
 .fd-moment-banner-x { flex-shrink:0; width:44px; height:44px; border:0; background:none; color:var(--muted2); font-size:15px; cursor:pointer; }
 
 /* the Walkout on the winner's phone: the whole screen, top to foot. The

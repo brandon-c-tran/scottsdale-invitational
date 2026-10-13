@@ -40,7 +40,7 @@ export const RULES_WORDS = Object.freeze({
   /* Karaoke (karaoke, Oct 12): awaiting Brandon's review */
   "karaoke.1": "Pick a song ahead",
   "karaoke.2": "Sing when you’re up",
-  "karaoke.3": "Super Poop to Legendary",
+  "karaoke.3": "Super Ass to Legendary",
   "karaoke.4": "Highest average wins",
   "karaoke.window": "Two minutes to change",
   "karaoke.change": "Change votes until close",

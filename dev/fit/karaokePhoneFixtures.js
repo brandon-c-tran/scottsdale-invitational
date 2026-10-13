@@ -20,7 +20,7 @@
      up-watch     the next singer's walk-up, the viewer's turn closed
      legendary    the viewer's turn just closed Legendary, the next singer up after the rain
      vote         the next singer's song playing, the viewer not voted yet
-     voted        the same, the viewer's Epic in
+     voted        the same, the viewer's Amazing in
      closing      that song over, its vote still open, the viewer not voted
      closed       that vote past its close, the write still owed
      reveal       every singer done, the reveal mid-way (eight rows turned)

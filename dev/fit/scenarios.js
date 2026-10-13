@@ -782,7 +782,8 @@ function upsetParts(player = null) {
     const tap = winnerTap("die", (live, now) => poolSide(now, live, "longshot") || live.sides[1]);
     return { state, write:next => decidedLast(tap(next), "die"), action:"recordContestWinner" };
   }
-  const state = withoutBets(fresh("event:die:open"));
+  /* seed 6 seats the guest in the first match (the room's seeded bets move the draw) */
+  const state = withoutBets(fresh("event:die:open", 6));
   const ev = eventOf(state, "die");
   const sides = resolveCurrentContest(state, ev).sides;
   const favorite = sides.find(side => !side.players.includes(player)) || sides[0];
@@ -798,7 +799,7 @@ function upsetParts(player = null) {
    playing) puts 1,000 on the side that loses; or `own`, a player backs
    their own side for 1,000 and it loses */
 function bigLossParts(bettors = ["Henry", "Allan", "Ben", "Jeremy"], { own = null } = {}) {
-  const state = withoutBets(fresh("event:die:open"));
+  const state = withoutBets(fresh("event:die:open", own ? 6 : 7));
   const ev = eventOf(state, "die");
   const contest = resolveCurrentContest(state, ev);
   const mine = own ? contest.sides.find(item => item.players.includes(own)) : null;

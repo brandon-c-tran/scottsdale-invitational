@@ -50,8 +50,8 @@ this file first, then the code.
    where the room is. An absent singer (Away) is skipped when their turn
    comes.
 6. **The vote.** From the song's start until the vote closes, every present
-   player but the singer may vote with Build Battle's six tiers: Super Poop,
-   Poop, OK, Good, Epic, Legendary. A vote can change until it closes; the
+   player but the singer may vote with Build Battle's six tiers: Super Ass,
+   Ass, OK, Good, Amazing, Legendary. A vote can change until it closes; the
    same tier again changes nothing. Each voter's phone opens the vote when
    the song starts (Build Battle votes while you watch), and once more when
    the song ends if they have not voted; Home's row opens it any time. The
@@ -74,7 +74,7 @@ this file first, then the code.
 ## Scoring (shared/karaoke.js)
 
 - A vote stores its tier (1 to 6). It counts Hypixel's points for these
-  names: Super Poop 1, Poop 2, OK 7, Good 10, Epic 14, Legendary 18 (their
+  names: Super Ass 1, Ass 2, OK 7, Good 10, Amazing 14, Legendary 18 (their
   current values; Hypixel added "Meh" in Nov 2024 and we keep the six the
   room remembers) **(call)**.
 - A singer's score is the mean of their points after dropping one highest
@@ -83,13 +83,13 @@ this file first, then the code.
   plain mean. A missing vote simply does not count (Hypixel since Nov 2024
   fills a missing vote with the average, which ranks the same).
 - Ranking is strict (one player per place): score (exact, sum/count
-  cross-multiplied), then more Legendary votes, then Epic, and down, then
+  cross-multiplied), then more Legendary votes, then Amazing, and down, then
   more votes, then the earlier singer in the running order. `saveResult`
   refuses a shared 1st on a free-for-all, so a place is never shared.
 - A singer nobody voted on has no score and ranks after everyone who has
   one. Nobody voted on anyone: `karaokeFinish` refuses ("Nobody voted") and
   the event is entered by hand like any free-for-all.
-- Shown with one decimal ("15.6") beside the tier it is nearest ("Epic"),
+- Shown with one decimal ("15.6") beside the tier it is nearest ("Amazing"),
   in that tier's color.
 
 ## State

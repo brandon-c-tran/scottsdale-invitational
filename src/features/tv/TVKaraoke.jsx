@@ -259,7 +259,7 @@ function Legendary({ state, game, rain, now }) {
         animationDuration:`${drop.d}ms`, animationDelay:at(drop.delay) }} />)}
     </div>
     <div className="tv-karaoke-legend">
-      <span className="tv-karaoke-legend-chip"><ChipFace p={rain.player} size={320} /></span>
+      <span className="tv-karaoke-legend-chip"><ChipFace p={rain.player} size={260} /></span>
       <span className="fd-show tv-karaoke-legend-name">{disp(state, rain.player)}</span>
       {song && <span className="tv-karaoke-legend-song">{karaokeSongTitle(song.name)}</span>}
       <span className="fd-show is-marquee tv-karaoke-legend-word" style={{ animationDelay:at(250) }}>Legendary</span>

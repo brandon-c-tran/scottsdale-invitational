@@ -23,7 +23,7 @@ import { cleanWhen, geoCurrentId, geoPlayers } from "./geo.js";
 import { resolveDirector } from "./show.js";
 import { triviaCurrent, triviaGame } from "./trivia.js";
 import {
-  KARAOKE_PRACTICE_SONGS, KARAOKE_TIERS, hasKaraokeSong, karaokeLive, karaokeSinger, karaokeTurn, karaokeVoters,
+  KARAOKE_TIERS, hasKaraokeSong, karaokeLive, karaokeSinger, karaokeTurn, karaokeVoters,
 } from "./karaoke.js";
 import {
   BUZZ_EARLY_MS, DD_MIN, DD_STING_MS, FINAL_INTRO_MS, WAGER_STEP, answeredOn, boardActive, boardClue, boardLog,
@@ -434,7 +434,7 @@ function planDraft(state, sim, players) {
 /* ── Karaoke (docs/KARAOKE.md): the pick window and the room's votes ──
    In the window a simulated player with a profile song keeps it
    (karaokeReady); one without takes a practice song in the game only
-   (karaokeSimSong, never a profile). Over each song, every simulated voter
+   (karaokeSimSong, its roster place choosing the song, never a profile). Over each song, every simulated voter
    votes Build Battle's way, while they watch: most during the song, some
    in the grace after it, a few changing their mind once. A singer's
    knack sets where the room's tiers sit, so the night has a winner and
@@ -469,7 +469,7 @@ function planKaraoke(state, sim, players) {
       moves.push(keep
         ? { at:Math.round(at), type:"karaokeReady", player, payload:{ gameId:game.id }, key:`sim:karaoke:${game.id}:${player}:pick` }
         : { at:Math.round(at), type:"karaokeSimSong", player,
-          payload:{ gameId:game.id, k:Math.floor(h("song") * KARAOKE_PRACTICE_SONGS.length) },
+          payload:{ gameId:game.id, k:Math.max(0, rosterOf(state).indexOf(player)) },
           key:`sim:karaoke:${game.id}:${player}:pick` });
     }
     return moves;

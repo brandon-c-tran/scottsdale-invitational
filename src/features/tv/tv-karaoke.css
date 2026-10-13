@@ -167,12 +167,12 @@
 .tv-karaoke-legend-chip { display:grid; animation:tv-karaoke-land .5s var(--ease-land) calc(var(--tl) + 0ms) both; }
 .tv-karaoke-legend-name { font-size:80px; line-height:1.05; color:var(--bone); }
 .tv-karaoke-legend-song { font:600 36px/1.2 var(--fd-body); color:var(--muted2); }
-.tv-karaoke-legend-word { position:absolute; left:50%; top:46%; font-size:200px; line-height:1; color:var(--tier-6);
-  text-transform:uppercase; letter-spacing:.02em; white-space:nowrap; transform:translate(-50%, -50%) rotate(-6deg);
+.tv-karaoke-legend-word { order:-1; margin-bottom:-28px; position:relative; z-index:1; font-size:180px; line-height:1; color:var(--tier-6);
+  text-transform:uppercase; letter-spacing:.02em; white-space:nowrap; transform:rotate(-6deg);
   text-shadow:3px 3px 0 var(--ink0), -3px 3px 0 var(--ink0), 3px -3px 0 var(--ink0), -3px -3px 0 var(--ink0), 0 10px 0 var(--ink0);
   animation:tv-karaoke-word .6s var(--ease-land) both; }
-@keyframes tv-karaoke-word { 0% { opacity:0; transform:translate(-50%, -50%) rotate(-6deg) scale(1.8); }
-  60% { opacity:1; transform:translate(-50%, -50%) rotate(-6deg) scale(.96); } }
+@keyframes tv-karaoke-word { 0% { opacity:0; transform:rotate(-6deg) scale(1.8); }
+  60% { opacity:1; transform:rotate(-6deg) scale(.96); } }
 /* reduced motion: the inserts stand where they fell */
 @media (prefers-reduced-motion: reduce) { .tv-karaoke-rain i { top:var(--y); } }
 

@@ -388,7 +388,9 @@ test("Karaoke: sims keep their song or take a practice one, vote over each song 
   assert.ok(!game.order.includes(ME), "the commissioner's player, with no song, sits out");
   assert.equal(game.order.length, players.length);
   for (const player of ahead) assert.equal(game.songs[player].trackId, karaokeTrack(ahead.indexOf(player) + 1).trackId);
-  assert.ok(players.filter(p => !ahead.includes(p)).every(p => game.songs[p].practice), "the rest sing practice songs");
+  const practice = players.filter(p => !ahead.includes(p)).map(p => game.songs[p]);
+  assert.ok(practice.every(song => song.practice), "the rest sing practice songs");
+  assert.equal(new Set(practice.map(song => song.trackId)).size, practice.length, "each a different one");
   /* the turns: the autopilot runs the clock, the room votes while it watches */
   await play(tournament, s => !!s.results?.karaoke, { from:Math.max(...times) });
   const done = tournament.state;

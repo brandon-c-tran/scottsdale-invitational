@@ -581,6 +581,7 @@ const SLAPSTICK = [springglove, toohype, dynamite];
    A side of more: the whole beaten side stands on the pillar. ── */
 const BT = { look:140, walk:420, raise:980, poke:1160, crack:1780, crumble:2040, down:2490, face:2890, drop:3570, peek:3700,
   puff:4520, dust:4720 };
+const BT_PAIR_LAG = 160;
 const butte = {
   id:"butte", name:"Butte", shape:"versus", style:"desert", ms:5300, beats:BT, still:3320, summary:"bitCrumble",
   letter:{ at:BT.crumble + 260, over:"a", place:"top-left" },
@@ -607,6 +608,14 @@ const butte = {
     { at:BT.dust, sound:"bitPat", pan:-0.12, opts:{ step:0 } },
     { at:BT.dust + 170, sound:"bitPat", pan:-0.12, opts:{ step:1 } },
   ],
+  /* a pair of winners pokes the stem from both lips, the second a beat
+     after the first, and dusts off on the far side */
+  pairLag:BT_PAIR_LAG,
+  pairs:[{ sides:{ a:2 }, cues:[
+    { at:BT.poke + 70 + BT_PAIR_LAG, sound:"bitPoke", pan:0.3 },
+    { at:BT.dust + BT_PAIR_LAG, sound:"bitPat", pan:0.4, opts:{ step:0 } },
+    { at:BT.dust + 170 + BT_PAIR_LAG, sound:"bitPat", pan:0.4, opts:{ step:1 } },
+  ] }],
 };
 
 /* ── sunset: a win. The winner on top of a butte, fists on hips, the sun

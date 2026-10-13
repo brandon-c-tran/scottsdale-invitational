@@ -15,6 +15,8 @@
 .is-butte .bt-lip { fill:none; stroke:var(--d-rim, var(--bit-desert-rock)); stroke-width:5px; stroke-linecap:round; }
 .is-butte .bt-pit { position:absolute; left:0; top:0; width:1920px; overflow:hidden; }
 .is-butte .bt-rock { position:absolute; inset:0; }
+/* a pincer's second poker: the first's whole part mirrored about the stem */
+.is-butte .bt-mirror { position:absolute; left:0; top:0; width:1920px; height:1080px; transform:scaleX(-1); }
 
 /* ── the crack: from the finger up to the top, a piece at a time ── */
 .is-butte .bt-crack { fill:none; stroke:var(--bit-ink); stroke-linecap:round; stroke-linejoin:round; opacity:1;
@@ -96,17 +98,17 @@
 @keyframes bt-a-done { from { transform:var(--cast-turn) rotateX(-30deg); } to { transform:var(--cast-turn) rotateX(0deg); } }
 /* leaning out over the edge to look, and back */
 .is-butte .bt-a .is-lead .cast-body { transform:rotate(0deg);
-  --ba:bt-lean 260ms var(--ease-out) calc(var(--tl) + var(--b-peek)) both,
-    bt-unlean 240ms var(--ease-out) calc(var(--tl) + var(--b-dust) - 200ms) forwards; animation:var(--ba); }
+  --ba:bt-lean 260ms var(--ease-out) calc(var(--tl) + var(--b-peek) + var(--pd, 0ms)) both,
+    bt-unlean 240ms var(--ease-out) calc(var(--tl) + var(--b-dust) - 200ms + var(--pd, 0ms)) forwards; animation:var(--ba); }
 @keyframes bt-lean { from { transform:rotate(0deg); } to { transform:rotate(9deg); } }
 @keyframes bt-unlean { from { transform:rotate(9deg); } to { transform:rotate(0deg); } }
 /* the finger: up and out, one jab, held, home; later both gloves meet in
    front to dust each other off */
 .is-butte .bt-a .is-lead .cast-hand.is-front > .cast-hand-in { transform:var(--dust-front);
-  --ba:bt-raise 180ms var(--ease-out) calc(var(--tl) + var(--b-raise)) both,
-    bt-jab 230ms linear calc(var(--tl) + var(--b-poke)) forwards,
-    bt-home 260ms var(--ease-out) calc(var(--tl) + var(--b-poke) + 520ms) forwards,
-    bt-to-dust 200ms var(--ease-out) calc(var(--tl) + var(--b-dust) - 160ms) forwards;
+  --ba:bt-raise 180ms var(--ease-out) calc(var(--tl) + var(--b-raise) + var(--pd, 0ms)) both,
+    bt-jab 230ms linear calc(var(--tl) + var(--b-poke) + var(--pd, 0ms)) forwards,
+    bt-home 260ms var(--ease-out) calc(var(--tl) + var(--b-poke) + 520ms + var(--pd, 0ms)) forwards,
+    bt-to-dust 200ms var(--ease-out) calc(var(--tl) + var(--b-dust) - 160ms + var(--pd, 0ms)) forwards;
   animation:var(--ba); }
 @keyframes bt-raise { from { transform:translate(0px, 0px); } to { transform:var(--raise); } }
 @keyframes bt-jab { 0% { transform:var(--raise); animation-timing-function:cubic-bezier(.3,0,.6,1); }
@@ -115,14 +117,14 @@
 @keyframes bt-home { from { transform:var(--raise); } to { transform:translate(0px, 0px); } }
 @keyframes bt-to-dust { from { transform:translate(0px, 0px); } to { transform:var(--dust-front); } }
 .is-butte .bt-a .is-lead .cast-hand.is-back > .cast-hand-in { transform:var(--dust-back);
-  --ba:bt-to-dust-back 200ms var(--ease-out) calc(var(--tl) + var(--b-dust) - 160ms) both; animation:var(--ba); }
+  --ba:bt-to-dust-back 200ms var(--ease-out) calc(var(--tl) + var(--b-dust) - 160ms + var(--pd, 0ms)) both; animation:var(--ba); }
 @keyframes bt-to-dust-back { from { transform:translate(0px, 0px); } to { transform:var(--dust-back); } }
 .is-butte .bt-a .is-lead .cast-hand.is-front .cast-hand-fx {
-  --ba:bt-brush 170ms ease-in-out calc(var(--tl) + var(--b-dust)) 2 both; animation:var(--ba); }
+  --ba:bt-brush 170ms ease-in-out calc(var(--tl) + var(--b-dust) + var(--pd, 0ms)) 2 both; animation:var(--ba); }
 @keyframes bt-brush { 0%, 100% { transform:translateX(0px); } 50% { transform:translateX(var(--brush)); } }
 /* the back glove turned to lie the same way as the front, under it */
 .is-butte .bt-a .is-lead .cast-hand.is-back .cast-hand-fx { transform:scaleX(-1) translateX(0px);
-  --ba:bt-brush-back 170ms ease-in-out calc(var(--tl) + var(--b-dust)) 2 both; animation:var(--ba); }
+  --ba:bt-brush-back 170ms ease-in-out calc(var(--tl) + var(--b-dust) + var(--pd, 0ms)) 2 both; animation:var(--ba); }
 @keyframes bt-brush-back { 0%, 100% { transform:scaleX(-1) translateX(0px); } 50% { transform:scaleX(-1) translateX(var(--brush)); } }
 
 /* ── far below: a small puff of dust comes up into the bottom of the

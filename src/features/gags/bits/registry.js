@@ -195,6 +195,7 @@ const roadrunner = {
    from the start to the boom, one slow one from the boom to the land, one
    from the land to the stop. */
 const EW = { boom:1200, ember:1420, land:2600, stop:3000, lower:3260, look:3440, up:4040, glint:4170 };
+const EW_PAIR_LAG = 160;
 const explosionwalk = {
   id:"explosionwalk", name:"Explosion walk", shape:"win", style:"action", ms:4800, beats:EW, still:3800, summary:"bitBoom",
   letter:{ at:EW.stop + 20, over:"a", place:"top-left" },
@@ -219,6 +220,13 @@ const explosionwalk = {
     { at:EW.up, sound:"bitShades", pan:0.04, opts:{ up:true } },
     { at:EW.glint, sound:"bitGlint", pan:0.1 },
   ],
+  /* a pair both look over their glasses, the second a beat after the first */
+  pairLag:EW_PAIR_LAG,
+  pairs:[{ sides:{ a:2 }, cues:[
+    { at:EW.lower + 30 + EW_PAIR_LAG, sound:"bitShades", pan:0.2 },
+    { at:EW.up + EW_PAIR_LAG, sound:"bitShades", pan:0.2, opts:{ up:true } },
+    { at:EW.glint + EW_PAIR_LAG, sound:"bitGlint", pan:0.25 },
+  ] }],
 };
 
 /* ── dontlookback: the loser stands facing us, its own tall stack of chips

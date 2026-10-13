@@ -1071,6 +1071,12 @@ a snapshot (read-only smoke passed). Roll production back with `npx
 wrangler rollback bc0ce2f2-5596-465e-9aaf-b0a23a9bc416`; the older build
 does not hide karaoke picks, so reset game progress first if a karaoke
 game ran.
+**Pool betting** (branch `pool/betting` on v5, Oct 13; not on production): the
+pool replaces fixed payouts, the karaoke tiers read Super Ass to Legendary;
+1308 tests, the 575-view fit audit and the local e2e (141 of 142, the same
+stale assertion) pass. STAGING as `9c7e675f-7519-492c-80ad-46f0df95a0c2`,
+awaiting Brandon's review; roll staging back to v5 with `npx wrangler
+rollback 7a3fc0af-8923-4fb1-963b-a80a2b6e4754 --env staging`.
 
 **September 5 correction (history for the visuals).** Brandon rejected the light
 redesign and the rewritten voice. It made the app harder to use and broke

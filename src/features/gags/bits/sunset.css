@@ -4,8 +4,6 @@
    forwards. The camera is the stage's (the registry). */
 
 .is-sunset .ss { position:absolute; inset:0; overflow:visible; }
-/* the winner stands high in the frame: the sky's dim is lighter */
-.is-sunset .bit-dim { opacity:.5; }
 .is-sunset .ss-node { position:absolute; display:block; width:0; height:0; }
 /* one sun in the sky: the painting's own sun or moon steps aside */
 .is-sunset .bit-painting .tv-desert-disc { opacity:0; }

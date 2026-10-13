@@ -26,7 +26,8 @@ import "./butte.css";
    wider cap over a wider pit and drops one after another; A's walks up
    behind its lead. */
 const BT = bitById("butte").beats;
-export const BT_STAGE = Object.freeze({ floor:CAST.floor, edge:960, height:380, walk:200, stem:150, capH:64, below:290, fall:1180 });
+const PAIR_LAG = bitById("butte").pairLag;
+export const BT_STAGE = Object.freeze({ floor:CAST.floor, edge:960, mid:960, height:380, walk:200, stem:150, capH:64, below:290, fall:1180 });
 
 const r1 = n => Math.round(n * 10) / 10;
 const px = n => `${r1(n)}px`;
@@ -34,30 +35,40 @@ const lerp = (a, b, t) => a + (b - a) * t;
 
 /* Where everyone stands and where the finger lands. A's lead ends its
    walk with its front toe at the lip; the stem's left face is exactly
-   where its jab reaches; B's side stands centred on the cap. */
+   where its jab reaches; B's side stands centred on the cap.
+   A pair of winners (Oct 13, `pincer`): one at each lip of a pit centred
+   on the stem, the second the first mirrored about it, poking the stem
+   from both sides a beat apart; each stands alone at full size, and B's
+   side (a pair of favorites smaller, `BT_PINCER_B`) stands centred on the
+   cap, inside the pit. */
+export const BT_PINCER_B = Object.freeze({ sizes:Object.freeze([240, 160, 150, 140]), pairStep:1.7 });
 export function butteStaging(a = 1, b = 1) {
-  const la = clusterLayout(a, { dir:-1 }), lb = clusterLayout(b, { dir:1 });
+  const pincer = a === 2;
+  const la = clusterLayout(pincer ? 1 : a, { dir:-1 }), lb = clusterLayout(b, { dir:1, ...(pincer ? BT_PINCER_B : {}) });
   const ka = la.size / CAST.size, kb = lb.size / CAST.size;
-  const F = BT_STAGE.floor, edge = BT_STAGE.edge;
+  const F = BT_STAGE.floor;
   const ga = castGeometry(la.size), gb = castGeometry(lb.size);
   const toe = la.size * RIG.shoeX + 34 * ka;
-  const ax = r1(edge - toe - 10 * ka), walk = Math.round(BT_STAGE.walk * ka), ax0 = r1(ax - walk);
-  const wrist = { x:ax + ga.hands.r.x, y:F + ga.hands.r.y };
   /* the point pose's fingertip from its wrist (gloveArt.js: the finger runs to 88, 15 wide) */
   const tip = { x:95.5 * ga.glove, y:GLOVE_POSES.point.held.y * ga.glove };
   const raise = { x:r1(4 * ka), y:r1(-14 * ka) }, jab = r1(34 * ka);
+  /* a pincer stands the stem in the middle of the stage (the lip moves left) */
+  const stem = -toe - 10 * ka + ga.hands.r.x + raise.x + tip.x + jab + 75;
+  const edge = pincer ? r1(BT_STAGE.mid - stem) : BT_STAGE.edge;
+  const ax = r1(edge - toe - 10 * ka), walk = Math.round(BT_STAGE.walk * ka), ax0 = r1(ax - walk);
+  const wrist = { x:ax + ga.hands.r.x, y:F + ga.hands.r.y };
   const contact = { x:r1(wrist.x + raise.x + tip.x + jab), y:r1(wrist.y + raise.y + tip.y) };
   const pillar = r1(contact.x + 75);
   const top = F - BT_STAGE.height;
   /* B's side stands from the stem rightward, the cap overhanging after it,
-     so a big side never hangs out over A's floor */
-  const bx = r1(pillar - Math.min((lb.shown - 1) * lb.step / 2, 30 * kb));
+     so a big side never hangs out over A's floor (a pincer's: centred) */
+  const bx = r1(pillar - (pincer ? (lb.shown - 1) * lb.step / 2 : Math.min((lb.shown - 1) * lb.step / 2, 30 * kb)));
   const capX = r1(bx + (lb.shown - 1) * lb.step / 2);
   const capW = Math.round(Math.max(BT_STAGE.stem + 150, (lb.shown - 1) * lb.step + lb.size * 1.3));
   const minX = Math.round(ax0 - la.reach - (la.more ? 110 : 0));
-  const maxX = Math.round(Math.max(capX + capW / 2 + 20, bx + (lb.shown - 1) * lb.step + lb.size * (0.5 + RIG.handX) + 40 * kb
-    + (lb.more ? 110 : 0)));
-  return { la, lb, ka, kb, ga, gb, F, edge, ax, ax0, walk, raise, jab, contact, pillar, top, bx, capX, capW, minX, maxX,
+  const maxX = pincer ? Math.round(2 * pillar - minX)
+    : Math.round(Math.max(capX + capW / 2 + 20, bx + (lb.shown - 1) * lb.step + lb.size * (0.5 + RIG.handX) + 40 * kb + (lb.more ? 110 : 0)));
+  return { pincer, la, lb, ka, kb, ga, gb, F, edge, ax, ax0, walk, raise, jab, contact, pillar, top, bx, capX, capW, minX, maxX,
     mid:Math.round((minX + maxX) / 2) };
 }
 
@@ -72,7 +83,9 @@ export function butteRock(s, { crackMs = 200 } = {}) {
   const capH = BT_STAGE.capH, y0 = top + capH, yB = F + BT_STAGE.below;
   const pinch = lerp(y0, F, 0.3);
   const left = [[y0, -66], [pinch, -58], [contact.y, contact.x - pillar], [F, -86], [yB, -100]].sort((p, q) => p[0] - q[0]);
-  const right = [[y0, 68], [pinch, 60], [lerp(pinch, F, 0.55), 74], [F, 88], [yB, 102]];
+  /* a pincer's second finger meets the right face where the first meets the left */
+  const right = (s.pincer ? [[y0, 68], [pinch, 60], [contact.y, pillar - contact.x], [F, 88], [yB, 102]]
+    : [[y0, 68], [pinch, 60], [lerp(pinch, F, 0.55), 74], [F, 88], [yB, 102]]).sort((p, q) => p[0] - q[0]);
   const at = (face, y) => {
     if (y <= face[0][0]) return face[0][1];
     for (let i = 0; i < face.length - 1; i++) {
@@ -204,27 +217,42 @@ export function Butte({ cast, phase = "sap" }) {
       <Dust className="bt-burst" at={BT.crumble + 10} puffs={DUST_FAN} spread={1.15} size={1.05}
         style={{ left:pillar, top:lerp(top, F, 0.55) }} />
       <Dust className="bt-billow" at={BT.crumble + 300} puffs={BILLOW} spread={1} size={1.1} style={{ left:pit.x, top:pit.y }} />
-      <CastSide players={a} x={s.ax0} y={F} dir={-1} facing={1} className="bt-a"
-        lead={{ hands:{ front, back } }} mates={{ hands:{ front:"rest", back:"rest" } }} />
+      {/* A's side; a pincer's second is the first mirrored about the stem
+          (its photo flipped back), a beat behind */}
+      {(s.pincer ? [a[0], a[1]] : [a]).map((side, j) => {
+        const lag = j * PAIR_LAG;
+        const lead = { hands:{ front:poseLag(front, lag), back:poseLag(back, lag) },
+          ...(j ? { className:"cast-flip", style:{ "--i":1, "--pd":`${lag}ms` } } : {}) };
+        const at = j ? BT.dust + lag : BT.dust;
+        const unit = <>
+          <CastSide players={j || s.pincer ? [side] : side} x={s.ax0} y={F} dir={-1} facing={1} className="bt-a"
+            lead={lead} mates={{ hands:{ front:"rest", back:"rest" } }} />
+          {/* the dust shaken off its gloves */}
+          {[0, 1].map(i => <Dust key={i} className="bt-pat" at={at + 40 + i * 170} puffs={PAT} spread={ka} size={0.75 * ka}
+            style={{ left:s.ax + ga.size * 0.52, top:F - ga.size * 0.36 }} />)}
+        </>;
+        return j ? <div key={j} className="bt-mirror" style={{ transformOrigin:`${s.pillar}px 0px` }}>{unit}</div>
+          : <React.Fragment key={j}>{unit}</React.Fragment>;
+      })}
       {/* the puff from far below, up out of the hole */}
       <span className="bt-node bt-puff" style={{ left:pit.x - 6, top:pit.y + 4 }}>
         <Puff scale={0.8 * kb} fill="var(--bit-dust)" shade="var(--bit-dust-shade)" /></span>
-      {/* the dust shaken off A's gloves */}
-      {[0, 1].map(i => <Dust key={i} className="bt-pat" at={BT.dust + 40 + i * 170} puffs={PAT} spread={ka} size={0.75 * ka}
-        style={{ left:s.ax + ga.size * 0.52, top:F - ga.size * 0.36 }} />)}
     </div>
   );
 }
+/* a pose timeline a beat later (the first pose still from the start) */
+const poseLag = (list, lag) => lag ? list.map(([pose, ms], i) => [pose, i ? ms + lag : ms]) : list;
 
 /* the pit: an ellipse on the floor round the hoodoo's foot, its left tip
    just past A's toes; `rim` the opening, `wall` the far wall inside its
    far rim, `lip` the near rim's lit edge, `y` its middle (where things
    drop out of sight) */
 export function butteHole(s) {
-  const left = s.edge + 22 * s.ka;
+  const left = s.edge + (s.pincer ? -4 : 22) * s.ka;
   const half = Math.max(250, s.capW / 2 + 40, s.pillar - left + 30);
   const reach = s.lb.shown ? s.bx + (s.lb.shown - 1) * s.lb.step + s.lb.size * (0.5 + RIG.handX) + 30 * s.kb : s.pillar;
-  const rx = Math.round(Math.max(half, (reach - left) / 2 + 10));
+  /* a pincer's pit is centred on the stem, a lip at each poker's toes */
+  const rx = Math.round(s.pincer ? s.pillar - left : Math.max(half, (reach - left) / 2 + 10));
   const x = Math.round(left + rx), y = Math.round(s.F - 14), ry = Math.round(rx * 0.15);
   const arc = (r, k, sweep) => `A${r},${k} 0 0 ${sweep}`;
   return {
@@ -238,5 +266,7 @@ export function butteHole(s) {
    rock, "b" the side on the cap, "a" A at the lip; minX to maxX the span */
 Butte.anchors = cast => {
   const s = butteStaging(cast?.a?.length || 1, cast?.b?.length || 1);
+  /* a pincer: both fingers, both pokers and the side between them are all about the stem */
+  if (s.pincer) return { mid:s.mid, poke:Math.round(s.pillar), b:Math.round(s.pillar), a:Math.round(s.pillar), minX:s.minX, maxX:s.maxX };
   return { mid:s.mid, poke:Math.round(s.contact.x - 30 * s.ka), b:Math.round(s.pillar), a:Math.round(s.ax + 70 * s.ka), minX:s.minX, maxX:s.maxX };
 };

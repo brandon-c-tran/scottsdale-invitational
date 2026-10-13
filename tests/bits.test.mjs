@@ -280,7 +280,7 @@ test("the rig: everything hangs off the feet, scaled with the chip; a side shows
   const half = geometry.castGeometry(120);
   assert.equal(half.hands.r.x * 2, g.hands.r.x);
   assert.equal(geometry.castGeometry(240, { shoes:false }).bottom, 0, "no shoes: the rim on the floor");
-  assert.deepEqual(geometry.clusterLayout(1), { shown:1, more:0, size:240, step:187, xs:[0], reach:geometry.clusterLayout(1).reach });
+  assert.deepEqual(geometry.clusterLayout(1), { shown:1, more:0, size:240, step:187, pair:false, xs:[0], reach:geometry.clusterLayout(1).reach });
   const six = geometry.clusterLayout(6, { dir:1 });
   assert.equal(six.shown, 4);
   assert.equal(six.more, 2);
@@ -380,6 +380,7 @@ const text = html => html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
 /* ── the camera ── */
 
 const SAMPLE_CASTS = { versus:[{ a:["Khoa"], b:["Sahil"] }, { a:["Adi", "Chiang"], b:["Richard", "Allan"] },
+  { a:["Adi", "Chiang"], b:["Sahil"] }, { a:["Khoa"], b:["Richard", "Allan"] },
   { a:["Brandon", "Evan", "Eyob", "Ben"], b:["Henry", "Jeremy", "Chinh", "Khoa", "Sahil", "Adi"] }], loss:[{ a:["Evan"] }],
   win:[{ a:["Eyob"] }, { a:["Adi", "Chiang"] }, { a:["Adi", "Chiang", "Ben", "Evan", "Eyob"] }, { a:["Brandon", "Evan", "Eyob", "Ben", "Henry", "Jeremy"] }] };
 /* the team bits' sides (Oct 12): 3 to 7 a side, and an odd 2 v 3 or 3 v 7 */
@@ -410,7 +411,7 @@ test("every bit is shot: medium shots, the cast in frame, every move on the bit'
     const Scene = SCENES[bit.id];
     for (const cast of castsOf(bit)) {
       const anchors = Scene.anchors?.(cast) || {};
-      const track = camera.cameraTrack(bit, anchors);
+      const track = camera.cameraTrack(registry.castBit(bit, cast), anchors);
       const at = `${bit.id} ${Object.values(cast).map(side => side.length).join("v")}:`;
       assert.equal(track[0].at, 0, `${at} framed from the start`);
       track.forEach((point, i) => {
@@ -426,7 +427,7 @@ test("every bit is shot: medium shots, the cast in frame, every move on the bit'
         assert.ok(left >= 0 && right <= 1920, `${at} the cast in frame (${left} to ${right})`);
         if (base.zoom > camera.CAMERA.minZoom) assert.ok(left >= 63 && right <= 1857, `${at} inside the safe sides`);
       }
-      const css = camera.cameraCss(bit, anchors);
+      const css = camera.cameraCss(registry.castBit(bit, cast), anchors);
       assert.match(css.css, new RegExp(`@keyframes ${css.name} \\{ 0% `), `${at} one keyframes from 0%`);
       assert.match(css.css, / 100% \{ transform:translate\(960px, 990px\) scale\(/, `${at} to 100%`);
       assert.equal(css.rest, camera.framingTransform(track[track.length - 1]), `${at} rests on its last framing`);
@@ -436,7 +437,7 @@ test("every bit is shot: medium shots, the cast in frame, every move on the bit'
   }
   const versus = camera.cameraTrack(bitById("quickdraw"), SCENES.quickdraw.anchors(SAMPLE_CASTS.versus[0]))[0];
   assert.ok(versus.zoom * 240 >= 330 && versus.zoom * 240 <= 390, `a 1 v 1 two-shot as tight as both sides allow (${versus.zoom * 240} px)`);
-  const big = camera.cameraTrack(bitById("quickdraw"), SCENES.quickdraw.anchors(SAMPLE_CASTS.versus[2]))[0];
+  const big = camera.cameraTrack(bitById("quickdraw"), SCENES.quickdraw.anchors(SAMPLE_CASTS.versus[4]))[0];
   assert.ok(big.zoom < versus.zoom, "a bigger cast, a wider shot");
   const shot = camera.cameraTrack(bitById("quickdraw"), SCENES.quickdraw.anchors(SAMPLE_CASTS.versus[0]));
   assert.ok(camera.framingAt(shot, bitById("quickdraw").beats.bang + 200).zoom > versus.zoom, "a punch-in on the shot");
@@ -477,6 +478,19 @@ test("every scene draws on the painting with its cast, letters the name and the 
     if (bit.shape === "loss") assert.match(words, /-1,000/, `${bit.id}: the fact under it`);
     assert.match(html, /data:image\/svg\+xml/, `${bit.id}: the stand-in photos reach the chips`);
     assert.doesNotMatch(html, /class="cast-glove"[^>]*>\s*<\/svg>/, `${bit.id}: no empty glove`);
+  }
+});
+
+test("the sky's dim lies over the painting and under the scene: no cast is ever dimmed (Oct 13)", () => {
+  for (const id of ["pyramid", "statue", "quickdraw"]) {
+    const bit = bitById(id);
+    const cast = registry.isTeamBit(bit) ? { a:["Adi", "Chiang", "Richard"] } : bit.shape === "versus" ? { a:["Khoa"], b:["Sahil"] } : { a:["Eyob"] };
+    const html = stage({ bit:id, cast, at:bit.still, frozen:true });
+    const painting = html.indexOf("bit-painting"), dim = html.indexOf('class="bit-dim"'), scene = html.indexOf('class="bit-scene"');
+    assert.ok(painting > 0 && dim > painting && scene > dim, `${id}: painting, then the dim, then the cast`);
+    const worlds = [...html.matchAll(/<div class="bit-world[^"]*" style="([^"]*)"/g)].map(m => m[1]);
+    assert.equal(worlds.length, 2, `${id}: the shot in two layers`);
+    assert.equal(worlds[0], worlds[1], `${id}: on one camera`);
   }
 });
 
@@ -635,4 +649,163 @@ test("butte: the finger lands on the stem, the crack falls with its strata, B's 
     assert.ok(pit.x - pit.rx <= s.bx - s.lb.size * 0.5 && pit.x + pit.rx >= reach - 20, `${at} B's whole side drops into the pit`);
     assert.ok(pit.x - pit.rx > s.ax, `${at} A stands on the floor, not over the pit`);
   }
+});
+
+/* ── pairs (Oct 13): the doubles. In a solo bit a side of exactly two
+   stands apart, each glove its own chip's, and both partners act ── */
+const pairs = new Module(fileURLToPath(new URL("bits-pairs.cjs", import.meta.url)));
+pairs.filename = pairs.id;
+pairs.paths = Module._nodeModulePaths(root);
+pairs._compile(buildSync({
+  stdin:{ contents:`export { quickdrawStaging, quickdrawShooters } from "./src/features/gags/bits/quickdraw.jsx";
+    export { springLaunchers } from "./src/features/gags/bits/springglove.jsx";
+    export { walkSquad } from "./src/features/gags/bits/explosionwalk.jsx";
+    export { sunsetStaging } from "./src/features/gags/bits/sunset.jsx";
+    export { statueStaging } from "./src/features/gags/bits/statue.jsx";`, resolveDir:root, loader:"jsx" },
+  bundle:true, platform:"node", format:"cjs", external:["react", "react-dom"], loader:{ ".css":"empty" }, write:false, logLevel:"silent",
+}).outputFiles[0].text, pairs.filename);
+const { quickdrawStaging, quickdrawShooters, springLaunchers, walkSquad, sunsetStaging, statueStaging } = pairs.exports;
+const PAIR_BITS = ["quickdraw", "springglove", "butte", "explosionwalk", "toohype", "sunset", "statue"];
+/* two chips whose resting gloves never meet: feet further apart than both reaches */
+const apart = (gap, size, at) => assert.ok(gap >= 2 * geometry.REST_REACH * size, `${at}: ${gap} px apart for ${size} px chips, the gloves clear`);
+
+test("a pair stands apart: two chips at PAIR_STEP, every glove its own; a side of one, three or more as before", () => {
+  const two = geometry.clusterLayout(2, { dir:-1 });
+  assert.equal(two.pair, true);
+  assert.equal(two.step, Math.round(two.size * geometry.PAIR_STEP));
+  apart(two.step, two.size, "clusterLayout(2)");
+  assert.equal(geometry.clusterLayout(1).pair, false);
+  assert.equal(geometry.clusterLayout(3).pair, false, "three stand shoulder to shoulder");
+  assert.ok(geometry.clusterLayout(3).step < two.size, "a cluster still clusters");
+  assert.ok(geometry.isPair(["Adi", "Chiang"]) && geometry.isPair(2) && !geometry.isPair(3) && !geometry.isPair(["Adi"]));
+  const tight = geometry.clusterLayout(2, geometry.PAIR_TIGHT);
+  apart(tight.step, tight.size, "PAIR_TIGHT");
+  /* each solo bit's own staging of a pair */
+  const qd = quickdrawStaging(2, 2);
+  apart(qd.la.step, qd.la.size, "quickdraw A");
+  apart(qd.lb.step, qd.lb.size, "quickdraw B");
+  const sg = springStaging(2, 2), sg12 = springStaging(1, 2);
+  apart(2 * (960 - sg.ax), sg.la.size, "springglove's pincer");
+  apart(2 * (960 - sg.bx), sg.lb.size, "springglove's favorites");
+  apart(sg12.lb.step, sg12.lb.size, "springglove B against one");
+  const ew = walkSquad(2);
+  apart(ew.xs[1] - ew.xs[0], ew.size, "explosionwalk");
+  const th = hypeStaging(2);
+  apart(th.members[1].x0 - th.members[0].x0, th.size, "toohype");
+  const ss = sunsetStaging(2), st = statueStaging(2);
+  apart(ss.l.step, ss.l.size, "sunset");
+  apart(st.l.step, st.l.size, "statue");
+  /* the team bits keep the larger sides; a solo bit's cast never changes size by role */
+  assert.ok(PAIR_BITS.every(id => !registry.isTeamBit(bitById(id))), "the solo pool");
+});
+
+test("a pair both act: both partners play the lead in every versus and win bit, the second a beat behind", () => {
+  const casts = { versus:[{ a:["Adi", "Chiang"], b:["Richard", "Allan"] }, { a:["Adi", "Chiang"], b:["Sahil"] }, { a:["Khoa"], b:["Richard", "Allan"] }],
+    win:[{ a:["Adi", "Chiang"] }] };
+  const castOf = (html, player) => (new RegExp(`<div class="(cast[^"]*)" data-player="${player}" style="([^"]*)"`).exec(html) || []).slice(1);
+  for (const id of PAIR_BITS) {
+    const bit = bitById(id);
+    for (const cast of casts[bit.shape]) {
+      const at = `${id} ${cast.a.length}v${cast.b?.length || 0}`;
+      const html = stage({ bit:id, cast, at:bit.still, frozen:true });
+      for (const side of Object.values(cast)) {
+        for (const player of side) assert.ok(castOf(html, player).length, `${at}: ${player} is cast`);
+        if (side.length !== 2 || id === "toohype") continue;
+        side.forEach(player => assert.match(castOf(html, player)[0], /\bis-lead\b/, `${at}: ${player} plays the lead`));
+      }
+      /* the winners' second goes a beat behind, where the bit has one */
+      if (cast.a.length === 2 && bit.pairLag && !(id === "springglove" && cast.b.length === 1))
+        assert.match(castOf(html, cast.a[1])[1], new RegExp(`--pd:${bit.pairLag}ms`), `${at}: the second a beat behind`);
+    }
+  }
+  /* butte's pair: one at each lip, the second the first mirrored about the stem (its photo read the right way) */
+  const butte = stage({ bit:"butte", cast:{ a:["Adi", "Chiang"], b:["Richard", "Allan"] }, at:1200, frozen:true });
+  assert.match(butte, /class="bt-mirror" style="transform-origin:[\d.]+px 0px"/);
+  assert.match(castOf(butte, "Chiang")[0], /\bcast-flip\b/);
+  assert.doesNotMatch(castOf(butte, "Adi")[0], /\bcast-flip\b/);
+});
+
+test("a pair's second shooter: its own revolver up over its partner's head, its own shot, kick and fumble", () => {
+  const [one, two] = quickdrawShooters(2, 2);
+  assert.equal(one.lag, 0);
+  assert.equal(two.lag, bitById("quickdraw").pairLag);
+  assert.ok(two.x < one.x, "behind its partner");
+  const top = geometry.castGeometry(quickdrawStaging(2, 2).la.size).top + geometry.CAST.floor;
+  assert.ok(two.m.muzzleAim.y < top, `the second's muzzle (${two.m.muzzleAim.y}) is over its partner's head (${top})`);
+  assert.equal(quickdrawShooters(1, 1).length, 1);
+  const html = stage({ bit:"quickdraw", cast:{ a:["Adi", "Chiang"], b:["Richard", "Allan"] }, at:1000, frozen:true });
+  assert.equal((html.match(/class="qd-shot"/g) || []).length, 2, "two flashes, two smokes, two loose revolvers");
+  assert.ok((html.match(/\bbit-revolver\b/g) || []).length >= 6, "a revolver in each hand and each loose one");
+  /* springglove: a pincer, a launcher at each end; against a pair each its own favorite a beat apart */
+  const s2 = springStaging(2, 2), [l0, l1] = springLaunchers(s2);
+  assert.ok(s2.pincer && l1.mirror && !l0.mirror, "the second is the first mirrored");
+  assert.equal(l0.x + l1.x, 1920, "about the middle");
+  assert.equal(l1.target, 1);
+  assert.equal(l1.lag, bitById("springglove").pairLag);
+  assert.ok(s2.contact.x > s2.bx - s2.lb.size / 2 && s2.contact.x < s2.bx, "the knuckles land in the nearer favorite");
+  apart(2 * (960 - s2.bx), s2.lb.size, "the favorites back to back");
+  assert.ok(s2.bx - s2.ax > s2.lb.size * 2, "a launcher's spring to cross");
+  const single = springStaging(2, 1), [, solo] = springLaunchers(single);
+  assert.equal(single.bx, 960, "one favorite in the middle");
+  assert.equal(single.vp.x, 960, "and it goes straight up");
+  assert.equal(solo.target, 0);
+  assert.equal(solo.lag, 0, "against one, both land at once");
+  const sgHtml = stage({ bit:"springglove", cast:{ a:["Adi", "Chiang"], b:["Richard", "Allan"] }, at:1000, frozen:true });
+  assert.match(sgHtml, /class="sg-mirror cast-flip" style="transform-origin:960px 0px"/);
+  const pincer = registry.castBit(bitById("springglove"), { a:["Adi", "Chiang"], b:["Sahil"] });
+  assert.ok(pincer.camera.moves.every(move => move.x === undefined || move.x === "mid"), "a pincer is shot on the middle");
+});
+
+test("butte's pair pokes the stem from both lips: a pit centred on the stem, both fingers on the rock", () => {
+  for (const b of [1, 2]) {
+    const s = butteStaging(2, b);
+    const at = `2v${b}:`;
+    assert.ok(s.pincer, `${at} a pincer`);
+    assert.ok(Math.abs(s.pillar - 960) < 1, `${at} the stem in the middle of the stage`);
+    const pit = butteHole(s);
+    assert.equal(pit.x, Math.round(s.pillar), `${at} the pit centred on the stem`);
+    assert.ok(pit.x - pit.rx > s.ax, `${at} the first poker on the floor`);
+    assert.ok(pit.x + pit.rx < 2 * s.pillar - s.ax, `${at} its mirror on the floor too`);
+    const rock = butteRock(s);
+    const holder = rock.find(piece => piece.key !== "cap" && piece.c.y + Math.min(...piece.points.map(p => p[1])) <= s.contact.y
+      && piece.c.y + Math.max(...piece.points.map(p => p[1])) >= s.contact.y);
+    const left = Math.min(...holder.points.map(p => p[0])) + holder.c.x, right = Math.max(...holder.points.map(p => p[0])) + holder.c.x;
+    assert.ok(Math.abs(left - s.contact.x) < 16, `${at} the first finger meets the rock`);
+    assert.ok(Math.abs(right - (2 * s.pillar - s.contact.x)) < 16, `${at} the second meets it on the far side (${right})`);
+    const reach = s.bx + (s.lb.shown - 1) * s.lb.step + s.lb.size * 1.1;
+    assert.ok(pit.x - pit.rx <= s.bx - s.lb.size * 0.5 && pit.x + pit.rx >= reach - 20, `${at} B's side drops into the pit`);
+    if (b === 2) apart(s.lb.step, s.lb.size, `${at} the favorites`);
+  }
+  assert.equal(butteStaging(1, 2).pincer, false, "one winner against a pair keeps the one-sided staging");
+});
+
+test("castBit: a pair adds its second shot on the bit's clock, to the camera and the room's sound alike", () => {
+  const qd = bitById("quickdraw");
+  assert.equal(registry.castBit(qd, { a:["Khoa"], b:["Sahil"] }), qd, "a 1 v 1 plays the bit as registered");
+  const two = registry.castBit(qd, { a:["Adi", "Chiang"], b:["Sahil"] });
+  assert.notEqual(two, qd);
+  assert.equal(registry.castBit(qd, { a:["Ben", "Evan"], b:["Richard", "Allan"] }), two, "the same object for the same match");
+  assert.equal(registry.castBit(two, { a:["Adi", "Chiang"] }), two, "a cast bit casts to itself");
+  assert.equal(two.camera.washes.length, qd.camera.washes.length + 1, "a second white frame");
+  assert.ok(two.camera.washes.includes(qd.beats.bang + qd.pairLag));
+  assert.ok(two.camera.shakes.some(shake => shake.at === qd.beats.bang + qd.pairLag && shake.big), "a second kick of the shot");
+  assert.equal(two.cues.filter(cue => cue.sound === "bitCrack").length, 2, "two cracks");
+  for (const bit of BITS.filter(b => b.pairs?.length)) {
+    assert.ok(PAIR_BITS.includes(bit.id), `${bit.id}: only a solo bit has pairs`);
+    assert.ok(bit.pairLag > 0 && bit.pairLag <= 400, `${bit.id}: a beat, not a pause`);
+    for (const entry of bit.pairs) {
+      assert.ok(Object.values(entry.sides).every(n => n === 2), `${bit.id}: a pair's entry`);
+      for (const cue of entry.cues || []) {
+        assert.ok(cue.at > 0 && cue.at < bit.ms, `${bit.id}: ${cue.sound} at ${cue.at} inside the bit`);
+        assert.ok(kit.isSound(cue.sound), `${bit.id}: ${cue.sound} is a kit recipe`);
+      }
+      for (const shake of entry.shakes || []) assert.ok(shake.at > 0 && shake.at < bit.ms, `${bit.id}: a shake inside the bit`);
+      for (const wash of entry.washes || []) assert.ok(wash >= 40 && wash < bit.ms, `${bit.id}: a white frame inside the bit`);
+    }
+  }
+  const cues = bitCues("quickdraw", { start:10_000, cast:{ a:["Adi", "Chiang"], b:["Richard", "Allan"] } });
+  assert.equal(cues.filter(cue => cue.id === "bitCrack").length, 2, "the room hears both shots");
+  assert.equal(bitCues("quickdraw", { start:10_000 }).filter(cue => cue.id === "bitCrack").length, 1, "no cast, the bit as registered");
+  const html = stage({ bit:"quickdraw", cast:{ a:["Adi", "Chiang"], b:["Richard", "Allan"] }, at:1000, frozen:true });
+  assert.equal((html.match(/bit-wash \d+ms/g) || []).length, 2, "the stage flashes white twice");
 });

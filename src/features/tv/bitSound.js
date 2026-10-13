@@ -7,14 +7,15 @@
    A cue more than 300 ms late is dropped (sound.js), so a screen that
    joins a bit late hears only what is still ahead. Reduced motion plays
    the bit's one summary sound. `rate` slows the clock with the picture
-   (the reel's 0.25x); each cue's own length (opts.ms) stretches with it. */
+   (the reel's 0.25x); each cue's own length (opts.ms) stretches with it.
+   `cast` (the moment's sides) adds what a pair plays (registry castBit). */
 
 import { useEffect, useRef } from "react";
 import { playSound } from "../../lib/sound.js";
-import { bitById } from "../gags/bits/registry.js";
+import { bitById, castBit } from "../gags/bits/registry.js";
 
-export function bitCues(bit, { start, reduced = false, rate = 1, key = null, bus = "room" } = {}) {
-  const b = typeof bit === "string" ? bitById(bit) : bit;
+export function bitCues(bit, { start, reduced = false, rate = 1, key = null, bus = "room", cast = null } = {}) {
+  const b = castBit(typeof bit === "string" ? bitById(bit) : bit, cast);
   const t0 = Number(start);
   if (!b || !Number.isFinite(t0)) return [];
   const k = key ?? `bit:${b.id}:${Math.round(t0)}`;
@@ -34,11 +35,11 @@ export const playBitCues = cues => cues.map(cue => playSound(cue.id, { bus:cue.b
 
 /* a bit's sound, scheduled once per `key` while `enabled`, cancelled
    when the bit leaves the screen */
-export function useBitSound({ bit, start, enabled = false, reduced = false, rate = 1, key = null, bus = "room" }) {
+export function useBitSound({ bit, start, enabled = false, reduced = false, rate = 1, key = null, bus = "room", cast = null }) {
   const handles = useRef([]);
   useEffect(() => {
     if (!enabled || !bit) return undefined;
-    handles.current = playBitCues(bitCues(bit, { start, reduced, rate, key, bus }));
+    handles.current = playBitCues(bitCues(bit, { start, reduced, rate, key, bus, cast }));
     return () => { handles.current.forEach(handle => handle?.cancel?.()); handles.current = []; };
   }, [enabled, key]); // eslint-disable-line react-hooks/exhaustive-deps
 }

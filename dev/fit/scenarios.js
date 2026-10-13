@@ -402,6 +402,25 @@ export function ffaCrowd() {
   }
   return state;
 }
+/* the tote board's extremes: every bettor on one side; every side backed
+   once (a bettor holds one side a contest), stakes from 100 to 2,400 */
+export function ffaTote(shape = "all") {
+  const state = withoutBets(fresh("event:putt:open"));
+  const ev = eventOf(state, "putt");
+  const players = presentPlayers(state);
+  players.forEach((player, i) => { if (i % 3 === 0) act(state, "adjust", { player, delta:4000, reason:"fit" }); });
+  const contest = resolveCurrentContest(state, ev);
+  const stakes = [2400, 100, 700, 1300, 500, 200, 1800, 300, 900, 400, 1100, 600, 200];
+  players.forEach((player, i) => {
+    const side = shape === "one" ? contest.sides.find(item => item.players.includes("Khoa")) || contest.sides[0]
+      : contest.sides[(i + 1) % contest.sides.length];
+    const wager = amount => ({ wager:{ kind:"outright", eventId:ev.id, evName:ev.name, contestId:contest.id,
+      contestRevision:contest.revision, pick:side.key, pickPlayers:[...side.players], stake:amount } });
+    try { act(state, "placeWager", wager(stakes[i] || 100), playerCtx(player)); }
+    catch { act(state, "placeWager", wager(100), playerCtx(player)); }
+  });
+  return state;
+}
 /* the commissioner's pill on Beer Die's draw beat: the crew check opens */
 const crewBeat = () => fresh("event:putt:done");
 
@@ -903,6 +922,10 @@ export const TV_SCENARIOS = Object.freeze([
   { id:"tv-intro-team", build:() => fresh("session:fri"), ceremony:{ intro:"bball5" } },
   { id:"tv-ffa-open", build:() => fresh("event:putt:open") },
   { id:"tv-ffa-crowd", build:ffaCrowd },
+  { id:"tv-ffa-nobets", build:() => withoutBets(fresh("event:putt:open")) },
+  { id:"tv-ffa-all13", build:() => ffaTote("all") },
+  { id:"tv-ffa-one", build:() => ffaTote("one") },
+  { id:"tv-heats-nobets", build:() => withoutBets(fresh("event:beerio:open")) },
   { id:"tv-pairs-open", build:() => fresh("event:die:open") },
   { id:"tv-pairs-bracket-mid", build:() => fresh("event:pickleball:mid") },
   { id:"tv-team-open", build:() => fresh("event:bball5:open") },

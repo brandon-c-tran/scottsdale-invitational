@@ -16,13 +16,16 @@ import { PayoutLadder } from "../../ui/PayoutLadder.jsx";
 import { mergeWagerLines } from "../wagers/Wagers.jsx";
 import { BetStacks, FitStacks } from "../wagers/BetStacks.jsx";
 import { STACK_CAP, contestStacks, fitLevels, stackName } from "../wagers/betStacks.js";
+import { STRIP_LABEL, toteBoard } from "./toteModel.js";
+import { MOTION, useFreshChange } from "../../lib/motion.js";
+import { useFlip, useFreshHold } from "../../lib/motionKit.js";
 import {
   fmt, signed, editionLabel, oddsLine, phaseBand,
   tvCanvasFit, tvSceneView, ambientIndex, TV_AMBIENT_MS, TV_AMBIENT_TURN_MS, TV_TROPHY_HOLD_MS, TV_TICKER_PAGE_MS, TV_RESULT_MOMENT_MS,
   tvLiveEvent, nextUpEvent, nextOpenMatch, latestResultOf, resultPresentation, resultMomentPhase, resultMomentFor,
   advanceMoment, advanceHoldUntil, correctionMoment, dockCard, decidedWinner, contestSideView,
   tvConnection, tickerItems, tickerSpread, tvBusy, podiumGroups, championView, contestLamp, sideNameFit, stageChrome, boardLevel,
-  backersRail, fieldNameFit,
+  backersRail,
 } from "./tvModel.js";
 import { IntroOverlay, TVDrawReveal } from "./TVCeremony.jsx";
 import { TVDraft } from "./TVDraft.jsx";
@@ -474,64 +477,74 @@ const TV_STACKS = {
   grid:{ face:72, faceMany:56, chip:52 },
 };
 const PANEL_PAD = 28;
+/* the tote board's body: the contest pane less its padding and payout
+   foot, and less the contest's heading when it has one ("Heat 1") */
+const TOTE_H = 440, TOTE_HEAD = 55;
 /* the smallest chip a crowded felt steps down to: small enough that the
    tallest stack, its amount and its name always stand inside the felt,
    and a face still holds its initials at the TV floor */
 const TV_FELT_MIN = 32;
-const FIELD = { gap:14, chip:44, small:40 };
-/* a wide field's felt: one row up to seven sides, two past that; every spot
-   one fixed size (the rows share the board's height) before any chip lands */
-export function fieldLayout(count, width) {
-  const n = Math.max(1, count);
-  const rows = n > 7 ? 2 : 1;
-  const perRow = Math.ceil(n / rows);
-  const spot = Math.floor((width - (perRow - 1) * FIELD.gap) / perRow);
-  const chip = spot >= 220 ? FIELD.chip : FIELD.small;
-  return { rows, perRow, spot, chip };
-}
 /* a side's total on the felt: the contest's own number, so it rolls on a
    reel as bets land (a fresh frame only) */
 const SideTotal = ({ total }) => <ScoreReel value={total} tone="chip" label={fmt(total)} />;
-/* A spot is three fixed bands, so nothing in it can stand on anything
-   else: the faces and name, the side's total on a line of its own (two
-   stacks or more; one stack carries its own amount), then the stacks, each
-   with its amount beside it and a first name under it, fitted into what is
-   left (smaller chips, then the smallest fold into "+N"). Every spot draws
-   one chip size: each reports the level it needs and all stand at the
-   deepest. A spot nobody backs keeps only its name, quiet. */
-function FieldFelt({ state, ev, contest, stacks, width }) {
-  const layout = fieldLayout(contest.sides.length, width);
-  const any = contest.sides.some(side => (stacks.get(side.key)?.stacks.length || 0) > 0);
-  const views = contest.sides.map(side => contestSideView(state, ev, contest, side));
-  /* every spot letters its name at one size, on one line, beside faces of one size */
-  const nameFit = fieldNameFit(views.map(view => view.name), layout.spot, Math.max(1, ...views.map(view => view.players.length)));
-  const [fitNeed, setFitNeed] = useState({});
-  const floor = Math.max(0, ...contest.sides.map(side => fitNeed[`${contest.id}:${String(side.key)}`] || 0));
-  const ladder = Math.max(0, ...contest.sides.map(side => stacks.get(side.key)?.stacks.length || 0));
-  const reportFit = key => level => setFitNeed(prev => prev[key] === level ? prev : { ...prev, [key]:level });
+/* The tote board (toteModel): a contest of three sides or more. The sides
+   with money are rows ranked by their total, each its photo chips and name,
+   an amber bar scaled to the biggest total, the total on a reel and the
+   backers' photo chips; every side nobody backs is one unlit strip under
+   them (with no bets, the field). A fresh frame re-sorts the rows (FLIP),
+   brings a new row in and grows the bars; anything else is placed. */
+function ToteBoard({ state, ev, contest, stacks, width, height }) {
+  const sides = contest.sides.map(side => {
+    const ride = stacks.get(side.key) || { stacks:[], total:0 };
+    return { key:side.key, ...contestSideView(state, ev, contest, side), total:ride.total, stacks:ride.stacks };
+  });
+  const byKey = new Map(sides.map(side => [side.key, side]));
+  const board = toteBoard(sides, { width, height });
+  const order = board.rows.map(row => String(row.key)).join("|");
+  const sums = board.rows.map(row => `${row.key}:${row.total}`).join("|");
+  const reorder = useFreshChange(order, contest.id);
+  const growing = useFreshHold(sums, contest.id, MOTION.rowSlide + 200);
+  const rowsRef = useRef(null);
+  useFlip(rowsRef, { play:reorder.animate, duration:MOTION.rowSlide, stagger:MOTION.rowStagger });
+  const r = board.row;
   return (
-    <div className={`tv-sides is-field${any ? "" : " is-quiet"}`}
-      style={{ gridTemplateColumns:`repeat(${layout.perRow}, minmax(0, 1fr))`,
-        gridTemplateRows:any ? `repeat(${layout.rows}, minmax(0, 1fr))` : undefined }}>
-      {contest.sides.map((side, index) => {
-        const view = views[index];
-        const ride = stacks.get(side.key) || { stacks:[], total:0 };
-        const summed = ride.stacks.length > 1;
-        return (
-          <div key={String(side.key)} className={`tv-side is-spot${ride.stacks.length ? " has-chips" : ""}`}>
-            <div className="tv-spot-id">
-              <Faces players={view.players} size={nameFit.face} overlap />
-              <div className="fd-show tv-spot-name" style={{ fontSize:nameFit.size }}>{view.name}</div>
-            </div>
-            {any && <div className="tv-spot-total">{summed && <div className="tv-side-total"><SideTotal total={ride.total} /></div>}</div>}
-            {any && <div className="tv-spot-felt">
-              {ride.stacks.length > 0 && <FitStacks stacks={ride.stacks} total={0} chip={layout.chip} cap={STACK_CAP} min={TV_FELT_MIN}
-                className="tv-stacks-fit tv-spot-fit" names={p => stackName(state, p)} valueAt="side"
-                ladder={ladder} floor={floor} onLevel={reportFit(`${contest.id}:${String(side.key)}`)} />}
-            </div>}
-          </div>
-        );
-      })}
+    <div className={`tv-sides tv-tote${board.any ? "" : " is-quiet"}${growing ? " is-growing" : ""}`}>
+      {board.any && <ol ref={rowsRef} className="tv-tote-rows" aria-label="Bets by side"
+        style={{ gridTemplateColumns:`repeat(${board.cols}, ${r.colW}px)`, gridTemplateRows:`repeat(${board.perCol}, ${r.height}px)` }}>
+        {board.rows.map(row => {
+          const side = byKey.get(row.key);
+          return (
+            <li key={String(row.key)} data-flip={String(row.key)} className="tv-tote-row"
+              style={{ "--face":`${r.face}px`, "--reel":`${r.reelSize}px` }}>
+              <span className="tv-tote-faces" style={{ width:r.facesW }}>
+                <Faces players={side.players} size={r.face} overlap /></span>
+              <span className="fd-show tv-tote-name" style={{ width:r.nameW, fontSize:r.nameSize }}>{side.name}</span>
+              <span className="tv-tote-track" style={{ width:r.barW }} aria-hidden="true">
+                <i className={`tv-tote-bar${r.notchPx >= 6 ? "" : " is-plain"}`} style={{ width:`${(row.share * 100).toFixed(2)}%`,
+                  "--notch":`${r.notchPx}px` }} /></span>
+              <span className="tv-side-total tv-tote-total" style={{ width:r.reelW }}><SideTotal total={row.total} /></span>
+              <span className="tv-tote-backers" style={{ width:r.backersW }}>
+                {row.backers.map(p => <ChipFace key={p} p={p} size={r.backer} />)}
+                {row.more > 0 && <b className="tv-tote-more" style={{ height:r.backer, minWidth:r.backer }}>+{row.more}</b>}
+              </span>
+            </li>
+          );
+        })}
+      </ol>}
+      {board.strip && <div className={`tv-tote-strip is-${board.strip.kind}`}>
+        {board.strip.kind === "strip" && <span className="tv-tote-strip-label" style={{ width:board.strip.labelW }}>{STRIP_LABEL}</span>}
+        <ul className="tv-tote-idle" style={{ width:board.strip.width, gap:board.strip.gap }}>
+          {board.idle.map(key => {
+            const side = byKey.get(key);
+            return (
+              <li key={String(key)} className="tv-tote-idle-side" style={{ width:board.strip.slot }}>
+                <Faces players={side.players} size={board.strip.chip} overlap />
+                {board.strip.names && <span className="fd-show tv-tote-idle-name" style={{ fontSize:board.strip.nameSize }}>{side.name}</span>}
+              </li>
+            );
+          })}
+        </ul>
+      </div>}
     </div>
   );
 }
@@ -604,8 +617,9 @@ function ContestBoard({ state, events, ev, contest, width = BOARD_W, teach = fal
   const stacks = contestStacks(state, events, contest);
   const n = contest.sides.length;
   const h2h = n === 2;
-  const field = n > 4;
-  /* X8: a wide field's spots have no room for the line */
+  /* three sides or more: the tote board, ranked by the money on each */
+  const field = n > 2;
+  /* X8: a tote row has no room for the line */
   const winLines = useContestWinLines(state, ev, field ? null : contest, events);
   const lamp = contestLamp(contest);
   const upNow = contest.kind === "match";
@@ -634,7 +648,8 @@ function ContestBoard({ state, events, ev, contest, width = BOARD_W, teach = fal
   const terms = field ? null : contestTerms(state, contest);
   const termsRow = !!terms?.any && !terms.wide;
   let body;
-  if (field) body = <FieldFelt state={state} ev={ev} contest={contest} stacks={stacks} width={inner} />;
+  if (field) body = <ToteBoard state={state} ev={ev} contest={contest} stacks={stacks} width={inner}
+    height={TOTE_H - (head ? TOTE_HEAD : 0)} />;
   else {
     const anyWinLine = contest.sides.some(side => !!winLineFor(winLines, side.key));
     /* three or four sides stand in one row, each its full height */

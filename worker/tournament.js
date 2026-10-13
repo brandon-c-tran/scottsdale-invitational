@@ -127,6 +127,21 @@ const SPOTIFY_SEARCH_WINDOW_MS = 60 * 1000;
 const PRESENCE_FRESH_MS = 40 * 1000;
 /* what a TV socket says about its own sound (client.js reportTvSound) */
 const TV_SOUND = new Set(["on", "blocked"]);
+/* what a TV socket says about the karaoke video it plays (docs/KARAOKE.md
+   "The TV report"): { key:"<gameId>:<index>:<video>", state, code, at }.
+   Presence only, like its sound: never state, never stored. */
+const TV_VIDEO_STATES = new Set(["ready", "playing", "blocked", "error"]);
+const TV_VIDEO_KEY = /^[\w:-]{1,60}$/;
+/* the reports already turned into a write (karaokeTvPlaying, karaokeTvError) */
+const TV_VIDEO_SEEN_LIMIT = 64;
+function cleanTvVideo(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  if (typeof value.key !== "string" || !TV_VIDEO_KEY.test(value.key) || !TV_VIDEO_STATES.has(value.state)) return null;
+  const code = value.code ?? null, at = value.at ?? null;
+  if (code !== null && !(Number.isInteger(code) && code >= 0 && code <= 999)) return null;
+  if (at !== null && !Number.isFinite(at)) return null;
+  return { key:value.key, state:value.state, code, at };
+}
 const SPOTIFY_SEARCH_LIMIT = 40;
 /* preview clip lookups per device per minute (answers are cached) */
 const PREVIEW_LIMIT = 60;
@@ -580,6 +595,7 @@ export class Tournament {
     const result = applyAction(nextState, type, payload, {
       isGm, player, deviceId, actionId:null, environment:this.environment,
       progressReset:this.capabilities.progressReset, showControl:this.capabilities.showControl, qa:this.capabilities.qa,
+      karaoke:this.capabilities.karaoke,
     });
     if (!result.ok || result.extra?.unchanged) return result;
     this.carryWalkout(nextState);
@@ -904,7 +920,7 @@ export class Tournament {
       if (!write) return;
       const before = this.state;
       const nextState = structuredClone(this.state);
-      const shared = { environment:this.environment, showControl:this.capabilities.showControl };
+      const shared = { environment:this.environment, showControl:this.capabilities.showControl, karaoke:this.capabilities.karaoke };
       const result = applyAction(nextState, write.type, write.payload, sim
         ? { ...shared, ...simContext(write), qa:this.capabilities.qa }
         : { ...shared, isGm:true, auto:true, player:null, deviceId:"autopilot", actionId:write.key });
@@ -1666,14 +1682,16 @@ export class Tournament {
     return { deviceId:validDeviceId(meta?.deviceId), gm:meta?.gm === true, tv:meta?.tv === true,
       gmId:typeof meta?.gmId === "string" ? meta.gmId : null,
       fg:meta?.fg === true, seenAt:Number(meta?.seenAt) || 0,
-      sound:meta?.tv === true && TV_SOUND.has(meta?.sound) ? meta.sound : null };
+      sound:meta?.tv === true && TV_SOUND.has(meta?.sound) ? meta.sound : null,
+      video:meta?.tv === true ? cleanTvVideo(meta?.video) : null };
   }
 
   setSocketMeta(ws, meta) {
     const clean = { deviceId:validDeviceId(meta?.deviceId), gm:meta?.gm === true, tv:meta?.tv === true,
       gmId:meta?.gm === true && typeof meta?.gmId === "string" ? meta.gmId : null,
       fg:meta?.fg === true, seenAt:Number(meta?.seenAt) || 0,
-      sound:meta?.tv === true && TV_SOUND.has(meta?.sound) ? meta.sound : null };
+      sound:meta?.tv === true && TV_SOUND.has(meta?.sound) ? meta.sound : null,
+      video:meta?.tv === true ? cleanTvVideo(meta?.video) : null };
     try { ws?.serializeAttachment?.(clean); } catch {}
     if (ws && typeof ws === "object") this.socketFallback.set(ws, clean);
     return clean;
@@ -1721,9 +1739,50 @@ export class Tournament {
       if (ws === skip) continue;
       const meta = this.socketMeta(ws);
       if (!meta.tv) continue;
-      tvs.push({ sound:meta.sound || "unknown", visible:meta.fg, ageMs:Math.max(0, now - (meta.seenAt || 0)) });
+      tvs.push({ sound:meta.sound || "unknown", visible:meta.fg, ageMs:Math.max(0, now - (meta.seenAt || 0)),
+        video:meta.video || null });
     }
     return tvs;
+  }
+
+  /* A TV's karaoke video report: the first "playing" (`at`, when the
+     video's time 0 played) and the first "error" for a turn and video
+     become the game's own writes (karaokeTvPlaying, karaokeTvError) on the
+     ordinary reducer with the autopilot's commissioner context, persisted
+     and broadcast like any write. The report itself is never stored; a
+     repeat (every ping carries it) is answered from memory, and the write
+     is a no-op once its turn or video has moved on. Never fails or holds
+     up the socket that sent it. */
+  async applyTvVideo(video) {
+    if (video?.state !== "playing" && video?.state !== "error") return;
+    const parts = video.key.split(":");
+    const payload = { gameId:parts[0], index:Number(parts[1]), video:Number(parts[2]) };
+    if (parts.length !== 3 || !payload.gameId || !Number.isSafeInteger(payload.index) || !Number.isSafeInteger(payload.video)) return;
+    const type = video.state === "playing" ? "karaokeTvPlaying" : "karaokeTvError";
+    if (type === "karaokeTvPlaying") {
+      if (video.at === null) return;
+      payload.playingAt = video.at;
+    } else payload.code = video.code ?? 0;
+    const id = `${video.key}:${video.state}`;
+    this.tvVideoSeen ||= new Set();
+    if (this.tvVideoSeen.has(id)) return;
+    this.tvVideoSeen.add(id);
+    if (this.tvVideoSeen.size > TV_VIDEO_SEEN_LIMIT) this.tvVideoSeen.delete(this.tvVideoSeen.values().next().value);
+    try {
+      const nextState = structuredClone(this.state);
+      const result = applyAction(nextState, type, payload, {
+        isGm:true, auto:true, player:null, deviceId:"tv", actionId:`tv:${id}`,
+        environment:this.environment, showControl:this.capabilities.showControl, karaoke:this.capabilities.karaoke,
+      });
+      if (!result.ok || result.extra?.unchanged) return;
+      await this.persistAndBroadcast(type, nextState);
+      await this.scheduleAlarm();
+    } catch (error) {
+      /* a failed save is tried again on the TV's next report */
+      this.tvVideoSeen.delete(id);
+      console.error(JSON.stringify({ event:"tv-video-failed", action:type,
+        error:String(error?.message || error).slice(0, 200) }));
+    }
   }
 
   /* a TV spoke (hello, ping, presence) or left: tell commissioner sockets */
@@ -1806,14 +1865,17 @@ export class Tournament {
        the app gets no pocket alert. A client that never says is foreground. */
     const visible = typeof payload?.visible === "boolean" ? payload.visible : null;
     const tvSound = TV_SOUND.has(payload?.tvSound) ? payload.tvSound : null;
+    const tvVideo = cleanTvVideo(payload?.tvVideo);
     if (type === "hello") {
       const gmId = await this.gmTokenId(gmToken);
       const tv = payload?.view === "tv";
       meta = this.setSocketMeta(ws, { ...meta, tv, gm:!!gmId, gmId,
-        fg:visible !== false, seenAt:Date.now(), sound:tv ? tvSound ?? meta.sound : null });
+        fg:visible !== false, seenAt:Date.now(), sound:tv ? tvSound ?? meta.sound : null,
+        video:tv ? tvVideo ?? meta.video : null });
       const nonce = Number.isSafeInteger(payload?.nonce) ? payload.nonce : undefined;
       this.sendState(ws, nonce === undefined ? {} : { hello:nonce });
       if (tv) this.sendTvs();
+      if (tv && tvVideo) await this.applyTvVideo(tvVideo);
       return;
     }
     if (type === "ping" || type === "presence") {
@@ -1821,13 +1883,15 @@ export class Tournament {
       const wasTv = !!meta.tv;
       const tv = payload?.view === "tv" ? true : payload?.view === "app" ? false : wasTv;
       meta = this.setSocketMeta(ws, { ...meta, tv, fg:visible ?? (type === "ping" ? meta.fg : false),
-        seenAt:Date.now(), sound:tv ? tvSound ?? meta.sound : null });
+        seenAt:Date.now(), sound:tv ? tvSound ?? meta.sound : null, video:tv ? tvVideo ?? meta.video : null });
       if (type === "ping") try { ws.send(JSON.stringify({ type: "pong", serverNow:Date.now(),
         /* a TV left on picks up the code once check-in opens at Friday's midnight */
         ...(tv ? { arrive:this.arriveCodeForTv() } : {}) })); } catch {}
       /* the app's own TV mode turning on or off: the code follows the view */
       else if (tv !== wasTv) try { ws.send(JSON.stringify({ type:"arrive", code:tv ? this.arriveCodeForTv() : null })); } catch {}
       if (tv || wasTv) this.sendTvs();
+      /* after the socket's own answers: a karaoke video that started or failed */
+      if (tv && tvVideo) await this.applyTvVideo(tvVideo);
       return;
     }
 
@@ -1931,6 +1995,8 @@ export class Tournament {
       progressReset:this.capabilities.progressReset,
       showControl:this.capabilities.showControl,
       qa:this.capabilities.qa,
+      /* Lock and start opens karaoke's pick window only with the capability */
+      karaoke:this.capabilities.karaoke,
       /* a guest's check-in must carry the TV's current code */
       ...(type === "setArrived" ? { arriveCode:this.arriveCode } : {}),
       ...(qaCheckpoint ? { qaCheckpoint } : {}),

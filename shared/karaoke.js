@@ -24,7 +24,7 @@
                 skipped, later, closedAt, legendary }
        votes = { [singer]:{ [voter]:{ tier, at } } }
    Pure. */
-import { presentPlayers } from "./core.js";
+import { disp, presentPlayers, resolveEventLifecycle } from "./core.js";
 import { validateSpotifyTrack } from "./audio.js";
 
 /* ── the vote: Build Battle's classic ladder, low to high. A vote stores its
@@ -324,10 +324,72 @@ export function karaokeAutoBeat(state) {
       key:`${base}:next:${game.index}:${singer}` };
   }
   if (game.phase === "reveal") {
+    /* nobody voted on anyone: nothing to post, the result is entered by hand */
+    if (!karaokeResultSlots(game.ranking).length) return null;
     const revealAt = Number(game.revealAt) || 0;
     return { at:revealAt + karaokeRevealSchedule(game.ranking).span + KARAOKE_REVEAL_HOLD_MS, from:revealAt,
       type:"karaokeFinish", payload:{ gameId:game.id }, key:`${base}:finish` };
   }
+  return null;
+}
+
+/* ── the director pill (shared/show.js lifecycleBeat chains it after
+   triviaBeat) ── While a game runs, one "karaoke-step" beat: the write the
+   game owes next, its write and payload karaokeAutoBeat's own (the same
+   object, so the pill draws the autopilot's drain and a tap takes the beat
+   early), a note counting the room, and the tray's other moves for that
+   moment (`tray`: { label, write, payload, kind?, confirm? }; `confirm`
+   names what a move throws away, asked before it is sent). "karaoke-start"
+   while the event is under way with no game and the director's `karaoke`
+   option (the capability) is on. Null where the ordinary result entry
+   applies: no game, an empty or finished one, or a reveal nobody voted in. */
+export function karaokeBeat(state, ev, { karaoke = false, now = Date.now() } = {}) {
+  if (ev?.game !== "karaoke" || state?.results?.[ev.id] || state?.shelved?.[ev.id]) return null;
+  const game = karaokeGame(state, ev.id);
+  if (!game) {
+    if (!karaoke || karaokeLive(state) || resolveEventLifecycle(state, ev).phase !== "in-progress") return null;
+    return { type:"karaoke-start", label:"Start karaoke", subject:ev.name };
+  }
+  if (game.empty || game.phase === "done" || game.finishedAt) return null;
+  const auto = karaokeAutoBeat(state);
+  if (!auto) return null;
+  const gameId = game.id;
+  const step = (label, subject, note, tray = []) => ({ type:"karaoke-step", label, subject, ...(note ? { note } : {}),
+    write:auto.type, payload:auto.payload, tray });
+  const restart = { label:"Restart", kind:"skip", write:"karaokeRestart", payload:{ gameId, confirm:true },
+    confirm:"Karaoke starts over. Every lock-in and vote is lost." };
+  if (game.phase === "pick") {
+    const more = (Number(game.moreTime) || 0) < KARAOKE_MORE_TIME_MAX
+      ? [{ label:"More time", write:"karaokeMoreTime", payload:{ gameId } }] : [];
+    return step("Start singing", ev.name, `${karaokeReadyPlayers(state, game).length} of ${presentPlayers(state).length} locked in`,
+      [...more, restart]);
+  }
+  if (game.phase === "turns") {
+    const singer = karaokeSinger(game), turn = karaokeTurn(game, singer);
+    if (!singer || !turn) return null;
+    const index = game.index, name = disp(state, singer);
+    const ref = { gameId, index };
+    const started = Number.isFinite(turn.songAt);
+    const nextVideo = game.songs?.[singer]?.alts?.[Number(turn.video) || 0]
+      ? { label:"Next video", write:"karaokeNextVideo", payload:ref } : null;
+    const tray = [];
+    if (!started) {
+      if (!turn.later && game.order.length > index + 1) tray.push({ label:"Later", write:"karaokeLater", payload:ref });
+      if (nextVideo) tray.push(nextVideo);
+    } else if (now < Number(turn.endAt)) {
+      if (!turn.cut) tray.push({ label:"End song", write:"karaokeEndSong", payload:ref });
+      if (nextVideo) tray.push(nextVideo);
+    }
+    tray.push({ label:`Skip ${name}`, kind:"skip", write:"karaokeSkip", payload:ref,
+      confirm:`${name} is skipped. Their song scores nothing.` });
+    /* a restart throws away every vote: offered only until someone has sung */
+    if (!game.order.some(player => game.turns?.[player]?.closedAt && !game.turns[player].skipped)) tray.push(restart);
+    const subject = `Singer ${index + 1} of ${game.order.length}`;
+    if (!started) return step("Start song", subject, `${name} up`, tray);
+    const voters = karaokeVoters(state, singer), votes = karaokeVotesOn(game, singer);
+    return step("Close vote", subject, `${voters.filter(voter => votes[voter]).length} of ${voters.length} voted`, tray);
+  }
+  if (game.phase === "reveal" && karaokeResultSlots(game.ranking).length) return step("Post result", ev.name, null);
   return null;
 }
 

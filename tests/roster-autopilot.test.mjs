@@ -98,8 +98,11 @@ test("poker: the last seat can never bust when an away player sits out", () => {
   assert.equal(applyAction(next, "qaAdvance", { target:"poker:live", seed:3 }, gm({ qa:true, progressReset:true })).ok, true);
   const seats = next.poker.seats;
   assert.ok(!seats.includes(ROSTER[0]));
-  seats.slice(0, -1).forEach(player => { if (!next.poker.outs.some(out => out.player === player)) act(next, "pokerBust", { player }); });
-  assert.match(refuse(next, "pokerBust", { player:seats.at(-1) }), /.+/);
+  /* bust every seat still in but one (QA may already have busted the last listed) */
+  const alive = seats.filter(player => !next.poker.outs.some(out => out.player === player));
+  assert.ok(alive.length >= 2);
+  alive.slice(0, -1).forEach(player => act(next, "pokerBust", { player }));
+  assert.match(refuse(next, "pokerBust", { player:alive.at(-1) }), /.+/);
 });
 
 /* ── the winner scene plays itself ── */

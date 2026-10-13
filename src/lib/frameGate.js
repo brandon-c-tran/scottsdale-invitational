@@ -22,6 +22,8 @@ export const REWIND_ACTIONS = Object.freeze(new Set([
   "clearResult", "correctContest", "undoLastContest", "voidWager", "voidDuel", "voidOpenDuels",
   "removeAdjustment", "undoDraftPick", "cancelDraft", "takeBackAnnouncement", "returnToLockerRoom",
   "resetTournament", "restoreEvent", "pokerCancel", "pokerUnbust", "clearDraw", "clearStages",
+  /* karaoke starts over: every vote and lock-in gone */
+  "karaokeRestart",
 ]));
 
 /* Rehearsal jumps: one write that plays many reducers to land on a named

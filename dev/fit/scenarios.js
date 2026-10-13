@@ -516,6 +516,22 @@ function teamWinSong(state, evId) {
   return walkoutRecord(state, singer, { cover:true });
 }
 
+/* Karaoke under way for the QA console (worker/karaoke.js): Lock and start
+   with the karaoke capability opens the pick window; "votes" also gives
+   everyone a practice song, draws the order and starts the first song. */
+function karaokeQa(step) {
+  const state = fresh("event:karaoke:open");
+  const contest = resolveCurrentContest(state, eventOf(state, "karaoke"));
+  act(state, "lockAndStart", { evId:"karaoke", contestId:contest.id, contestRevision:contest.revision }, { ...gmCtx(), karaoke:true });
+  if (step === "votes") {
+    const gameId = state.karaoke.id;
+    act(state, "karaokeSimSongs", { gameId });
+    act(state, "karaokeEndPick", { gameId });
+    act(state, "karaokeStartSong", { gameId, index:0 });
+  }
+  return state;
+}
+
 /* flights saved on the guest's and the host's own profiles */
 function withFlights(state) {
   const set = (p, inLeg, outLeg) => { state.profiles[p] = { ...state.profiles[p], flightsBooked:true, flightIn:inLeg, flightOut:outLeg }; };
@@ -1254,6 +1270,9 @@ export const PHONE_SCENARIOS = Object.freeze([
   { id:"gm-settings", build:() => withArrivals(fresh("locker"), 9), viewer:"gm", show:true, audio:true, qa:true,
     spotify:FIT_SPOTIFY.connected, tabs:[], sheets:["settings", "gm-menu"] },
   { id:"gm-settings-bare", build:() => fresh("event:putt:open"), viewer:"gm", tabs:[], sheets:["settings"] },
+  /* the QA console in a karaoke game: Sim songs in the pick window, Sim votes once a song has started */
+  { id:"gm-qa-karaoke-songs", build:() => karaokeQa("songs"), viewer:"gm", qa:true, settle:false, tabs:[], sheets:["qa"] },
+  { id:"gm-qa-karaoke-votes", build:() => karaokeQa("votes"), viewer:"gm", qa:true, settle:false, tabs:[], sheets:["qa"] },
   { id:"guest-menu", build:() => fresh("event:putt:open"), tabs:[], sheets:["menu"] },
   /* a win song playing on the commissioner's phone: its Stop rides in the
      pill's row (Audio Director on); and one that missed, offered again */

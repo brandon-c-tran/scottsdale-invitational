@@ -38,6 +38,7 @@ import {
 import { PROMPT_ACTIONS, PROMPT_ACTION_TYPES } from "./prompts.js";
 import { geoActions } from "./geo.js";
 import { triviaActions } from "./trivia.js";
+import { karaokeActions } from "./karaoke.js";
 import { teamNameActions } from "./teamNames.js";
 import { defaultTeamNames } from "../shared/teamNames.js";
 import { GAG_SHAPES, gagShapeOf, gagTestCast, isTeamGag } from "../shared/gags.js";
@@ -236,6 +237,8 @@ const POKER_TABLE_ALLOWED_ACTIONS = new Set([
   ...PROMPT_ACTION_TYPES,
   /* the TV's bits never touch it either (a test at the table says why it waits) */
   "setGags", "qaGag",
+  /* a guest's karaoke song is a profile answer, like saveProfile */
+  "karaokeSong",
 ]);
 /* QA writes are rehearsal tools on a server that may hold real guests.
    Anything outside local and staging counts as production. Production always
@@ -309,6 +312,10 @@ function playerRecord(state, player) {
   if (state.poker && seatsOf(state.poker).includes(player)) return "is seated at the poker table";
   if (Object.values(state.geo?.guesses || {}).some(round => round?.[player])) return "is playing Where and When";
   if ((state.trivia?.players || []).includes(player)) return "is playing Trivia";
+  /* a karaoke game's order, lock-ins and votes; a profile song alone is an answer */
+  const karaoke = state.karaoke;
+  if (karaoke && ((karaoke.order || []).includes(player) || karaoke.ready?.[player] || karaoke.votes?.[player]
+      || Object.values(karaoke.votes || {}).some(votes => votes?.[player]))) return "is playing Karaoke";
   return null;
 }
 const competitionLive = (state, ev) => {
@@ -523,6 +530,8 @@ export const ACTIONS = {
   ...geoActions({ ok, err, gmOnly, run:(type, state, payload, ctx) => ACTIONS[type](state, payload, ctx) }),
   /* Trivia (worker/trivia.js): a finish posts through saveResult */
   ...triviaActions({ ok, err, gmOnly, run:(type, state, payload, ctx) => ACTIONS[type](state, payload, ctx) }),
+  /* Karaoke (worker/karaoke.js): a finish posts through saveResult */
+  ...karaokeActions({ ok, err, gmOnly, run:(type, state, payload, ctx) => ACTIONS[type](state, payload, ctx) }),
   /* a team's name: its members until it locks, the commissioner always */
   ...teamNameActions({ ok, err }),
   /* ── identity / profile ── */
@@ -1534,6 +1543,10 @@ export const ACTIONS = {
       ACTIONS.geoStart(state, { evId }, ctx);
     if (ev.game === "trivia" && (state.triviaRounds || []).length && !state.trivia)
       ACTIONS.triviaStart(state, { evId }, ctx);
+    /* karaoke's pick window, when the capability is on; its start checks
+       everything before it writes, so a refusal leaves the event as it is */
+    if (ev.game === "karaoke" && ctx.karaoke && state.karaoke?.eventId !== evId)
+      try { ACTIONS.karaokeStart(state, { evId }, ctx); } catch {}
     return ok();
   },
   recordContestWinner(state, payload, ctx) {

@@ -158,7 +158,10 @@ test("the TV walks out the team: its name, every chip, the singer marked, the so
 test("a teammate's phone: the team's name, everyone's chip, theirs lit", () => {
   const { state } = buildScenario(TV_SCENARIOS, "tv-walkout-team7");
   const view = ui.walkoutView(state, allEventsOf(state));
-  const html = render(state, React.createElement(ui.PhoneWalkout, { state, me:"Richard",
+  /* a teammate who is not the one whose song plays */
+  const me = view.team.players.find(player => player !== state.showControl.audio.walkout.player);
+  assert.ok(me);
+  const html = render(state, React.createElement(ui.PhoneWalkout, { state, me,
     moment:{ ...view, id:"m", anchor:0, elapsed:1500 } }));
   assert.match(html, /fd-moment-walkout is-team/);
   assert.ok(html.includes(inHtml(drawnName(state, view.team.players))));

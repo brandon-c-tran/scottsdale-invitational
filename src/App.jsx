@@ -410,8 +410,8 @@ function TournamentApp({ tournament, onUpdateReload }) {
   /* the pill reads the director; the TV keeps reading weekendOperation so
      director copy never leaks to the room */
   const director = useMemo(
-    () => resolveDirector(state, events, { showControl:showControlAllowed }),
-    [state, events, showControlAllowed],
+    () => resolveDirector(state, events, { showControl:showControlAllowed, karaoke:capabilities.karaoke === true }),
+    [state, events, showControlAllowed, capabilities.karaoke],
   );
   const standings = useMemo(() => computeStandings(state), [state]);
   const allTied = standings.length > 0 && standings[0].pts === standings[standings.length-1].pts && !state.frozen;
@@ -1723,7 +1723,7 @@ function TournamentApp({ tournament, onUpdateReload }) {
         {gm && qaActive && qaStrip}
         {gmView && !modal && ready && <DirectorPill model={pillModel} state={state} events={events}
           audio={cueRack ? cueRack("pill") : null}
-          director={director} showControl={showControlAllowed} onWrite={directorWrite} onOpen={directorOpen} onPlayer={p => setModal({type:"player", p})}
+          director={director} showControl={showControlAllowed} karaoke={capabilities.karaoke === true} onWrite={directorWrite} onOpen={directorOpen} onPlayer={p => setModal({type:"player", p})}
           health={<TvHealth tvs={tournament.tvs} receivedAt={tournament.tvsAt} live={!!state.live} />} />}
       </CommissionerDock>}
 

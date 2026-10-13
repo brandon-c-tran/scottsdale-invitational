@@ -1201,8 +1201,8 @@ export const TV_SCENARIOS = Object.freeze([
      wins, a pair's upsets, the best bettor at 16 letters and the worst,
      and Quick Draw's fastest and most wins */
   { id:"tv-records-h2h", build:recordsDuels, at:{ record:{ kind:"h2h", players:["Richard", "Henry"] } } },
-  { id:"tv-records-h2h-team", build:() => fresh("session:sam", 1),
-    at:{ record:{ kind:"h2h", players:["Brandon", "Henry", "Evan", "Ben"] } } },
+  { id:"tv-records-h2h-team", build:() => fresh("session:sam", 13),
+    at:{ record:{ kind:"h2h", players:["Brandon", "Ben", "Eyob", "Henry"] } } },
   { id:"tv-records-swing", build:() => fresh("session:sam"), at:{ record:{ kind:"swing" } } },
   { id:"tv-records-swing-loss", build:recordsLoss, at:{ record:{ kind:"swing", players:["Henry"] } } },
   { id:"tv-records-swing-duel", build:recordsDuelSwing, at:{ record:{ kind:"swing", players:["Khoa"] } } },
@@ -1210,8 +1210,8 @@ export const TV_SCENARIOS = Object.freeze([
   { id:"tv-records-upsets", build:() => fresh("session:fri"), at:{ record:{ kind:"upsets" } } },
   /* a record three share: a team's streak with Henry Nguyen in it, and a
      trio's upsets with Squilliam and j vo (other seeded weekends) */
-  { id:"tv-records-streak-trio", build:() => fresh("session:sam", 5), at:{ record:{ kind:"streak", players:["Henry"] } } },
-  { id:"tv-records-upsets-trio", build:() => fresh("event:volley:done", 11),
+  { id:"tv-records-streak-trio", build:() => fresh("session:sam", 28), at:{ record:{ kind:"streak", players:["Henry"] } } },
+  { id:"tv-records-upsets-trio", build:() => fresh("event:volley:done", 147),
     at:{ record:{ kind:"upsets", players:["Richard", "Jeremy"] } } },
   { id:"tv-records-bettor", build:() => renamed(fresh("session:sap"), "Allan", RECORDS_LONG_NAME),
     at:{ record:{ kind:"bettor", worst:false } } },

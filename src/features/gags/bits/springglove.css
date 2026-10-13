@@ -7,6 +7,8 @@
 .is-springglove .sg { position:absolute; inset:0; }
 .is-springglove .sg-node { position:absolute; display:block; width:0; height:0; }
 .is-springglove .sg-flip { transform:scaleX(-1); }
+/* a pincer's second half: the first's whole part mirrored about the middle */
+.is-springglove .sg-mirror { position:absolute; left:0; top:0; width:1920px; height:1080px; transform:scaleX(-1); }
 
 /* ── B: the victory bounce, fists up and chin up; the turn; the fists
    start to come down; then the punch takes it off in a straight line ── */

@@ -501,15 +501,25 @@ const springglove = {
     { at:SPG.boop, sound:"bitBonk", pan:-0.36 },
     { at:SPG.boop + 60, sound:"bitBoing", pan:-0.36, opts:{ small:true } },
   ],
-  /* a pair against a pair: the second glove punches the second favorite
-     a beat after the first (a pair against one: both land at once) */
+  /* a pair of winners is a pincer, one launcher at each end: the whole
+     stage held wide on the middle. Against a pair, the second glove
+     punches the second favorite a beat after the first (against one,
+     both land at once) */
   pairLag:SPG_PAIR_LAG,
-  pairs:[{ sides:{ a:2, b:2 }, shakes:[{ at:SPG.hit + SPG_PAIR_LAG, big:true }], cues:[
-    { at:SPG.fire + SPG_PAIR_LAG, sound:"bitSproing", pan:-0.1 },
-    { at:SPG.hit + SPG_PAIR_LAG, sound:"bitPow", pan:0.6 },
-    { at:SPG.fly + SPG_PAIR_LAG, sound:"bitStreak", pan:0.62, opts:{ from:0.6, to:0.95 } },
-    { at:SPG.boop + SPG_PAIR_LAG, sound:"bitBonk", pan:-0.6 },
-  ] }],
+  pairs:[
+    { sides:{ a:2 }, camera:{ zoom:1.5, x:"mid", fit:true, moves:[
+      { at:200, ms:1200, zoom:1.56 },
+      { at:SPG.hit, ms:70, zoom:1.62, ease:CAMERA_EASE.snap },
+      /* back out for the boops and both thumbs, at either end */
+      { at:SPG.fly + 160, ms:620, zoom:1.5 },
+    ], shakes:[{ at:SPG.hit, big:true }, { at:SPG.home }] } },
+    { sides:{ a:2, b:2 }, shakes:[{ at:SPG.hit + SPG_PAIR_LAG, big:true }], cues:[
+      { at:SPG.fire + SPG_PAIR_LAG, sound:"bitSproing", pan:0.4 },
+      { at:SPG.hit + SPG_PAIR_LAG, sound:"bitPow", pan:0.3 },
+      { at:SPG.fly + SPG_PAIR_LAG, sound:"bitStreak", pan:0.2, opts:{ from:0.3, to:-0.5 } },
+      { at:SPG.boop + SPG_PAIR_LAG, sound:"bitBonk", pan:0.7 },
+    ] },
+  ],
 };
 
 /* ── toohype: a run of wins. It bounces on the spot, fists pumping, each
@@ -987,9 +997,11 @@ export function castBit(bit, cast) {
   const key = `${bit.id}:${hits.map(([, i]) => i).join(",")}`;
   if (!CAST_BITS.has(key)) {
     const add = name => hits.flatMap(([entry]) => entry[name] || []);
+    /* an entry's own camera (a pincer's wider shot) stands in for the bit's */
+    const camera = hits.reduce((cam, [entry]) => entry.camera ? { ...cam, ...entry.camera } : cam, bit.camera || {});
     CAST_BITS.set(key, freezeAll({ ...bit, pairs:[], cues:[...bit.cues, ...add("cues")].sort(byAt),
-      camera:{ ...bit.camera, shakes:[...(bit.camera?.shakes || []), ...add("shakes")].sort(byAt),
-        washes:[...(bit.camera?.washes || []), ...add("washes")].sort(byAt) } }));
+      camera:{ ...camera, shakes:[...(camera.shakes || []), ...add("shakes")].sort(byAt),
+        washes:[...(camera.washes || []), ...add("washes")].sort(byAt) } }));
   }
   return CAST_BITS.get(key);
 }

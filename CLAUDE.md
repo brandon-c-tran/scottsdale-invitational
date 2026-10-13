@@ -726,6 +726,31 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   plays a bit LIVE on the gags rehearsal (its new `&in=<ms>`: the bit
   starting that long after load) and sets each instant beside the same
   instant frozen, since frozen frames once hid a live-only bug.
+  **Pairs** (Oct 13, Brandon's call: the doubles, Beer Die, Pickleball,
+  8-Ball, Beer Pong): in the solo versus and win bits both partners act.
+  A side of exactly two stands apart (`clusterLayout`'s `pair`,
+  `PAIR_STEP` 1.8 chips feet to feet; `PAIR_TIGHT` smaller and closer
+  where a 2 v 2 must fit one shot), never a clump, and `CastSide` gives
+  both the lead's part (`.is-lead.is-pair`, the second `--pd` a beat
+  behind; CSS adds `var(--pd, 0ms)` where partners go a beat apart). A
+  2 v 1 or 1 v 2 stages each side by its own size. Quickdraw: two
+  revolvers, the second held over its partner's head, two BANGs 240 ms
+  apart; springglove: two launchers, the second higher over its
+  partner's shoulder, each punching its own favorite a beat apart (both
+  at once against one); butte: a pincer, a pit centred on the stem and a
+  poker at each lip (the second mirrored, `.bt-mirror`, its photo
+  flipped back by `.cast-flip`); explosionwalk, toohype, sunset and
+  statue: both walk, look, bounce, wear the shades, turn gold. A bit's
+  `pairLag` is that beat and its `pairs` entries (`{ sides:{ a:2 }, cues,
+  shakes, washes }`) add the second shot's sound, kick and white frame,
+  merged for the cast by `castBit` (BitLayer, `bitCues({ cast })` on the
+  room bus and a phone). Loss bits stay one player; 3 or more stay on the
+  team bits. Reel casts `2v1`, `1v2`; `/dev/gags-preview.html&cast=2v2|
+  2v1|1v2|pair` (and `bit-live.mjs --cast`) recasts a test as doubles;
+  fit views `tv-gag-<bit>-2v2|-2`, `tv-gag-quickdraw-2v1`,
+  `tv-gag-springglove-1v2`, `tv-gag-butte-2v1`. The sky's dim (Oct 13)
+  lies over the painting and under the scene (the shot is two layers on
+  one camera), so no cast is dimmed however high it stacks.
   Idle vignettes are the TV's downtime: 6 to 10 s (`IDLE_MS`), cast from
   the room (the players present, a vignette takes one or two), `letter:null`
   (no name, no fact, the painting at full light), `still` the punchline.

@@ -411,7 +411,7 @@ test("every bit is shot: medium shots, the cast in frame, every move on the bit'
     const Scene = SCENES[bit.id];
     for (const cast of castsOf(bit)) {
       const anchors = Scene.anchors?.(cast) || {};
-      const track = camera.cameraTrack(bit, anchors);
+      const track = camera.cameraTrack(registry.castBit(bit, cast), anchors);
       const at = `${bit.id} ${Object.values(cast).map(side => side.length).join("v")}:`;
       assert.equal(track[0].at, 0, `${at} framed from the start`);
       track.forEach((point, i) => {
@@ -427,7 +427,7 @@ test("every bit is shot: medium shots, the cast in frame, every move on the bit'
         assert.ok(left >= 0 && right <= 1920, `${at} the cast in frame (${left} to ${right})`);
         if (base.zoom > camera.CAMERA.minZoom) assert.ok(left >= 63 && right <= 1857, `${at} inside the safe sides`);
       }
-      const css = camera.cameraCss(bit, anchors);
+      const css = camera.cameraCss(registry.castBit(bit, cast), anchors);
       assert.match(css.css, new RegExp(`@keyframes ${css.name} \\{ 0% `), `${at} one keyframes from 0%`);
       assert.match(css.css, / 100% \{ transform:translate\(960px, 990px\) scale\(/, `${at} to 100%`);
       assert.equal(css.rest, camera.framingTransform(track[track.length - 1]), `${at} rests on its last framing`);
@@ -684,9 +684,10 @@ test("a pair stands apart: two chips at PAIR_STEP, every glove its own; a side o
   const qd = quickdrawStaging(2, 2);
   apart(qd.la.step, qd.la.size, "quickdraw A");
   apart(qd.lb.step, qd.lb.size, "quickdraw B");
-  const sg = springStaging(2, 2);
-  apart(sg.la.step, sg.la.size, "springglove A");
-  apart(sg.lb.step, sg.lb.size, "springglove B");
+  const sg = springStaging(2, 2), sg12 = springStaging(1, 2);
+  apart(2 * (960 - sg.ax), sg.la.size, "springglove's pincer");
+  apart(2 * (960 - sg.bx), sg.lb.size, "springglove's favorites");
+  apart(sg12.lb.step, sg12.lb.size, "springglove B against one");
   const ew = walkSquad(2);
   apart(ew.xs[1] - ew.xs[0], ew.size, "explosionwalk");
   const th = hypeStaging(2);
@@ -735,15 +736,24 @@ test("a pair's second shooter: its own revolver up over its partner's head, its 
   const html = stage({ bit:"quickdraw", cast:{ a:["Adi", "Chiang"], b:["Richard", "Allan"] }, at:1000, frozen:true });
   assert.equal((html.match(/class="qd-shot"/g) || []).length, 2, "two flashes, two smokes, two loose revolvers");
   assert.ok((html.match(/\bbit-revolver\b/g) || []).length >= 6, "a revolver in each hand and each loose one");
-  /* springglove: each launcher its own reach; against a pair, each its own favorite a beat apart */
+  /* springglove: a pincer, a launcher at each end; against a pair each its own favorite a beat apart */
   const s2 = springStaging(2, 2), [l0, l1] = springLaunchers(s2);
-  assert.ok(l1.device.y < l0.device.y, "the second launcher held higher, over its partner's shoulder");
+  assert.ok(s2.pincer && l1.mirror && !l0.mirror, "the second is the first mirrored");
+  assert.equal(l0.x + l1.x, 1920, "about the middle");
   assert.equal(l1.target, 1);
   assert.equal(l1.lag, bitById("springglove").pairLag);
-  assert.ok(Math.abs(l1.contact.x - (s2.contact.x + s2.lb.xs[1])) < 0.5, "its knuckles land in the second favorite");
-  const [, solo] = springLaunchers(springStaging(2, 1));
+  assert.ok(s2.contact.x > s2.bx - s2.lb.size / 2 && s2.contact.x < s2.bx, "the knuckles land in the nearer favorite");
+  apart(2 * (960 - s2.bx), s2.lb.size, "the favorites back to back");
+  assert.ok(s2.bx - s2.ax > s2.lb.size * 2, "a launcher's spring to cross");
+  const single = springStaging(2, 1), [, solo] = springLaunchers(single);
+  assert.equal(single.bx, 960, "one favorite in the middle");
+  assert.equal(single.vp.x, 960, "and it goes straight up");
   assert.equal(solo.target, 0);
   assert.equal(solo.lag, 0, "against one, both land at once");
+  const sgHtml = stage({ bit:"springglove", cast:{ a:["Adi", "Chiang"], b:["Richard", "Allan"] }, at:1000, frozen:true });
+  assert.match(sgHtml, /class="sg-mirror cast-flip" style="transform-origin:960px 0px"/);
+  const pincer = registry.castBit(bitById("springglove"), { a:["Adi", "Chiang"], b:["Sahil"] });
+  assert.ok(pincer.camera.moves.every(move => move.x === undefined || move.x === "mid"), "a pincer is shot on the middle");
 });
 
 test("butte's pair pokes the stem from both lips: a pit centred on the stem, both fingers on the rock", () => {

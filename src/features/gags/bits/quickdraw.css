@@ -55,6 +55,9 @@
   56% { transform:translateX(var(--heel)) rotate(-10deg) translateX(var(--heel-back)); animation-timing-function:cubic-bezier(.4,0,.6,1); }
   76% { transform:translateX(0px) rotate(5deg) translateX(0px); animation-timing-function:ease-in-out; }
   100% { transform:translateX(0px) rotate(0deg) translateX(0px); } }
+/* a pair (Oct 13): the front shooter's back glove tucked in to its own
+   side, clear of its partner's gun hand reaching up behind it */
+.is-quickdraw .qd-a.is-pair .is-lead:not(.is-pair) .cast-hand.is-back > .cast-hand-in { transform:translate(26px, -6px); }
 /* A's "+N" goes back with the last of its side (B's stays lettered) */
 .is-quickdraw .qd-a .cast-more { transform:var(--kick);
   --ba:qd-kick 300ms cubic-bezier(.12,.82,.3,1) calc(var(--tl) + var(--b-kick) + 240ms) both; animation:var(--ba); }

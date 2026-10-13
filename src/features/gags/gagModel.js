@@ -408,12 +408,13 @@ export function testGag(state, events = allEventsOf(state)) {
   const beaten = (Array.isArray(test.beaten) ? test.beaten : []).filter(player => typeof player === "string" && player);
   const bit = named || pickBit(test.shape, `test:${at}`, [], { a:players, b:test.shape === "versus" ? beaten : [] });
   if (!bit) return null;
-  /* a team bit plays its whole team (the board's, qaGag); a solo bit its lead */
+  /* a team bit plays its whole team (the board's, qaGag); a solo bit its lead, or a pair as
+     a doubles side plays it (a rehearsal's; the console's own test is one a side) */
   const team = isTeamBit(bit);
-  const side = team ? players.slice(0, TEAM_MAX) : [players[0]];
+  const side = team ? players.slice(0, TEAM_MAX) : players.slice(0, players.length === 2 ? 2 : 1);
   const view = windowed({ id:`test:${at}:${bit.id}`, write:`test:${at}`, test:true, at, trigger:null, shape:test.shape,
     bit:bit.id, ms:bit.span, players:side,
-    beaten:test.shape !== "versus" ? [] : team ? beaten.slice(0, TEAM_MAX) : beaten.slice(0, 1),
+    beaten:test.shape !== "versus" ? [] : team ? beaten.slice(0, TEAM_MAX) : beaten.slice(0, beaten.length === 2 ? 2 : 1),
     name:team ? teamLabel(state, { players:side }) : disp(state, players[0]), fact:TEST_FACT[test.shape] }, at + GAG_TEST_LEAD_MS);
   return walkoutHolds(walkoutSpan(state, events), view) ? null : view;
 }

@@ -19,7 +19,8 @@
        &in=<ms>     the write already landed, its bit starting that long after load (a live run from the top)
        &pause=1     frozen there (stills)
        &reduced=1   reduced motion: the still for the window and its one sound
-       &bare=1      no controls */
+       &bare=1      no controls
+       &cast=2v2|2v1|1v2|pair   a test cast as doubles (a pair a side) */
 import React, { useEffect, useMemo, useState } from "react";
 import { flushSync } from "react-dom";
 import { createRoot } from "react-dom/client";
@@ -45,6 +46,7 @@ const REDUCED = params.get("reduced") === "1";
 const T = params.has("t") ? Math.max(0, Number(params.get("t")) || 0) : params.has("in") ? -Math.max(0, Number(params.get("in")) || 0) : null;
 const PAUSED = params.get("pause") === "1";
 const BARE = params.get("bare") === "1";
+const CAST = /^(2v2|2v1|1v2|pair)$/.test(params.get("cast") || "") ? params.get("cast") : null;
 const LABEL = Object.freeze({ upset:"Upset", streak:"Streak", leader:"New leader", bigloss:"Big losing bet", last:"New last place" });
 /* how long the board sits before the write lands, after Play */
 const LAND_MS = 900;
@@ -85,7 +87,21 @@ const asFrame = state => JSON.parse(JSON.stringify(state));
 function weekend(kind) {
   const parts = gagWeekend(kind, { test:TEST, shape:TRIGGER_SHAPE[kind], bit:BIT });
   if (OFF) act(parts.state, "setGags", { on:false });
-  return { ...parts, state:dress(aged(asFrame(parts.state))) };
+  const write = CAST && TEST ? next => recast(parts.write(next)) : parts.write;
+  return { ...parts, write, state:dress(aged(asFrame(parts.state))) };
+}
+/* &cast=2v2|2v1|1v2|pair (Oct 13): a test's stand-in cast as doubles, its
+   partners the next players down the board (the QA console's own test
+   stays one a side) */
+function recast(state) {
+  const test = state.gagTest;
+  if (!test) return state;
+  const [a, b] = CAST === "pair" ? [2, 0] : CAST.split("v").map(Number);
+  const taken = new Set([...(test.players || []), ...(test.beaten || [])]);
+  const spare = computeStandings(state).map(row => row.player).filter(player => !taken.has(player));
+  const grow = (side, n) => [...side, ...spare.splice(0, Math.max(0, n - side.length))].slice(0, n);
+  state.gagTest = { ...test, players:grow(test.players || [], a || 1), beaten:test.shape === "versus" ? grow(test.beaten || [], b || 1) : [] };
+  return state;
 }
 const landed = (parts, state) => asFrame(parts.write(structuredClone(state)));
 const owedBy = state => gagPlan(state, allEventsOf(state))[0] || null;

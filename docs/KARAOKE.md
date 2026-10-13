@@ -117,9 +117,15 @@ state.karaoke = {                       // progress: a reset clears it; absent u
   votes:  { [singer]: { [voter]: { tier, at } } },   // SERVER ONLY, never projected
   revealAt, ranking: [{ player, place, score, sum, count, votes }],
   empty,                                // nobody had a song: entered by hand
-  finishedAt, ops                       // ops: server-only retry ledger
+  finishedAt, ops,                      // ops: server-only retry ledger
+  bad:    { [player]: { [videoId]: code } }  // SERVER ONLY: the window's video check
 }
 ```
+
+`ops` and `bad` never leave the Worker: projectKaraoke builds every frame
+field by field. `ops` keeps the last few retried action keys per scope
+(`gm` for the commissioner's and the autopilot's beats, `v:<voter>` for
+each voter).
 
 `turn.songAt` is null until `karaokeStartSong`. `turn.video` is 0 for the
 chosen upload, 1 or 2 for an alternate. `turn.playedAt` is when a TV really
@@ -149,7 +155,8 @@ stale })`, as the board's autoStale):
 - `karaokeStartSong { gameId, index }`: songAt = now + SONG_LEAD.
 - `karaokeEndSong { gameId, index }`: endAt = now (cut), closeAt follows.
 - `karaokeNextVideo { gameId, index }`: the next alternate, songAt = now +
-  SONG_LEAD (votes so far stay).
+  SONG_LEAD (votes so far stay). Before the song has started it only
+  switches the upload (no songAt is written; the walk-up's clock runs on).
 - `karaokeLater { gameId, index }`: the up singer moves to the end of the
   order, once, before their song starts.
 - `karaokeSkip { gameId, index }`: the current singer sits out (no score,
@@ -157,7 +164,8 @@ stale })`, as the board's autoStale):
 - `karaokeNext { gameId, index }`: closes this vote (closedAt, legendary),
   puts the next present singer up (upAt = now, plus KARAOKE_LEGENDARY_MS
   after a Legendary vote), skipping anyone absent; after the last, the
-  reveal (ranking computed, revealAt = now).
+  reveal (ranking computed, revealAt = now, plus KARAOKE_LEGENDARY_MS when
+  the last vote was Legendary: the rain plays before the reveal).
 - `karaokeFinish { gameId }`: posts the ranking's slots through
   `run('beginResultEntry')` + `run('saveResult')` as triviaFinish does,
   then phase done and the votes deleted.
@@ -170,15 +178,29 @@ System writes (the Durable Object, from a TV's report or a check, auto ctx):
   KARAOKE_LATE_MAX_MS); stamps playedAt. Only ever moves the end later.
 - `karaokeTvError { gameId, index, video, code }`: switches to the next
   alternate (as karaokeNextVideo); with none left, stamps `failed`.
-- `karaokePreflight { gameId, bad:{ [player]: code } }`: from the window's
-  video check; a song whose main video failed but has a working alternate
-  gets that alternate promoted in the game's copy at the order draw; with
-  none, `broken[player]` (their sheet asks for another song).
+- `karaokePreflight { gameId, bad:{ [player]: { [videoId]: code } } }`:
+  from the window's video check, keyed by video id (only ids of that
+  player's saved song count), kept in the server-only `bad` map; a song
+  whose main video failed but has a working alternate gets that alternate
+  promoted in the game's copy at the order draw; with none,
+  `broken[player]` (their sheet asks for another song, and they are no
+  longer locked in). A check for a window that has closed is a no-op.
 QA (commissioner + qa capability): `karaokeSimSongs` (every present player
 without a song gets a practice song in the GAME only, never a profile),
 `karaokeSimVotes` (every present voter without a vote votes a tier seeded
 from the game id, voter and singer). QA's `playKaraoke` plays a game to its
 result in one run (practice songs, `run.wait`, `run.back`), deterministic.
+Practice songs (`KARAOKE_PRACTICE_SONGS`) have no video: the TV plays the
+lit card for KARAOKE_PRACTICE_MS (30 s).
+
+Sim players (shared/qaSim.js `planKaraoke`, the "Sim players" switch): in
+the window a simulated player with a profile song keeps it
+(`karaokeReady`), one without takes a practice song through
+`karaokeSimSong { gameId, k }` (a simulated player's context and the qa
+capability only, never a phone; the game only, never a profile; locks
+them in). Over each song every simulated voter votes on a human clock,
+mostly during the song, some in the grace, a few changing their mind once,
+their tiers centred on the singer's seeded knack.
 
 `playerRecord` (Not coming guard): in the game's order, ready or votes.
 A profile song alone is never a record.
@@ -192,6 +214,8 @@ A profile song alone is never a record.
   voter has voted (vote times ride in the projection, so the pill's drain
   agrees with the server).
 - reveal: `karaokeFinish` at revealAt + span + KARAOKE_REVEAL_HOLD_MS.
+  Nobody voted on anyone: no finish beat (the autopilot stops; the
+  commissioner enters the result by hand).
 
 ## The pill (`karaokeBeat` in shared/karaoke.js, chained in show.js lifecycleBeat)
 
@@ -252,6 +276,36 @@ keeps it in socket meta, adds it to the commissioner's `tvs`, and turns
 the first "playing" (with `at` = when the video's time 0 played) and the
 first "error" per key into `karaokeTvPlaying` / `karaokeTvError`. The pill
 shows "Video blocked on the TV" with Next video.
+
+## The screens
+
+- TV (`features/tv/TVKaraoke.jsx` on the pure `karaokeTv.js`): pick (the
+  room's chips lighting over the ring), order (dealt as a queue), up (chip,
+  name, song stamped in, on deck, the ring to the song), singing (the video
+  in its own 1536x864 box, `KARAOKE_VIDEO_BOX`, nothing ever drawn over it;
+  the singer's strip and the room's vote lamps under it; a practice song or
+  a failed upload is the lit card in the box's place), voting (who has
+  voted, never how), Legendary rain, reveal (13 rows, last place first).
+  The player (`karaokePlayer.js`, one YT.Player a game, never in a fixed
+  still) cues at up, plays at songAt on the server clock, seeks a late TV
+  to where the room is, stops at ENDED or endAt, reports ready, playing,
+  error and blocked ("Click to play" in the strip), and mutes with the TV's
+  Sound switch. TVMode takes the room for the game (`karaokeOnTv`), makes
+  the song a takeover (`karaokeSongOn`) and never reloads for a new build
+  from the first singer to the result (`karaokeTvBusy`). Room sounds:
+  `karaokeSound.js` through roomSound.
+- Phone (`features/karaoke/`, the pure `karaokeModel.js`): `KaraokeSheet`
+  opens itself once per moment (pick with Keep and Change, the picker's
+  previews muted; You're up; Singing; the vote's six tiers, single flight
+  through `voteFlight.js`; closing; closed; your Legendary; the reveal,
+  each row held to the TV's instant). Home: the You strip speaks what the
+  game asks of you (`karaokeYou`); `KaraokeHome inCard` is the Now card's
+  row for the rest (your tier, the room's place, a spectator's way in, a
+  song to pick before the game). The singer's takeover (`singerUp.js`) and
+  the pocket alert ("sing", worker/pushAlerts.js) say You're up next.
+- The commissioner: the pill's karaoke step and tray, the sheet's own tray
+  while it is open, and Commissioner > Games > Karaoke (`KaraokeDesk`, in
+  the slate's order, only with the capability).
 
 ## Capability
 

@@ -125,8 +125,8 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   capability is on, valued with the chosen speaker; Settings (Oct 13,
   `settingsMenu`): every switch in one sheet, each the same write as its
   own home: Autopilot, Gags, Play win songs automatically, Check-in,
-  Jerseys ordered, QA strip), Games (Where and When, Trivia, Karaoke when
-  App passes `karaoke`, Awards; a desk is one entry in `GAME_DESKS`),
+  Jerseys ordered, QA strip), Games (Where and When, Karaoke with the karaoke
+  capability in the slate's order, Trivia, Awards; a desk is one entry in `GAME_DESKS`),
   People, Setup (devices, export, QA opens the console, Reset game
   progress, its one entry), Exit alone. The QA console runs Watch it play
   (Sim players), Step, Jump to (one event picker with Open / Mid / Done,
@@ -219,7 +219,7 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   title beside it (`WinLine`). **One Now card** (Oct 12): Home's contest card
   is the only game surface on Home. Whatever else is happening for you is a
   row of it (`ui/NowRow.jsx`): an in-app game in progress (`GeoHome` /
-  `TriviaHome` with `inCard`, App's `gameContent`, where Karaoke joins), a
+  `TriviaHome` and `KaraokeHome` with `inCard`, App's `gameContent`), a
   draft waiting on someone else (`DraftNowRow`), another event's team name
   (`TeamNameNow`) and another event's open market. The card's own team keeps
   its pencil on its name (`useTeamNameNow`). Team names open once by
@@ -535,7 +535,7 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   ordinary player writes with a synthetic context (`simContext`:
   `deviceId:"sim:<player>"`, `actionId` = the move's key, `sim:true`).
   `SIM_PLANNERS` is the per-game table (trivia rounds, board, geo, bets,
-  draft, night; Karaoke adds its own): each plans `{ at, type, payload,
+  karaoke, draft, night): each plans `{ at, type, payload,
   player, key }` from a seeded hash of (seed, game, question/contest,
   player, field), never Math.random, and reads the state so a made move is
   never planned again. `simDue`/`simNext` feed the Durable Object's alarm
@@ -890,6 +890,37 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   has no Save: Use is the save. Home's list adds "Pick a karaoke song".
   Fit views `karaoke-song*` (stand-in thumbnails ride a `thumb` field the
   server never sends).
+- **Karaoke** (Oct 13, the contract is `docs/KARAOKE.md`; pure model
+  `shared/karaoke.js`, reducers `worker/karaoke.js`, the TV
+  `features/tv/TVKaraoke.jsx` on `karaokeTv.js`, the phones
+  `features/karaoke/` on `karaokeModel.js`): Friday's free-for-all in
+  Hypixel Build Battle's shape, only with `capabilities.karaoke`. Lock and
+  start opens a 2-minute pick window in the same write (`karaokeStart`):
+  Keep or Change on every phone (the picker muted), the TV lighting chips
+  as each locks in, the DO's one batched video check (`karaokePreflight`,
+  server-only `bad` by video id). The window's end draws the running order
+  from the game id (no song: sits out, backers returned); each singer is Up
+  next 20 s, then `karaokeStartSong` plays the YouTube upload on the TV in
+  its own box with nothing drawn over it (`karaokePlayer.js`: cue at up,
+  play at songAt on the server clock, late TVs seek, stop at ENDED or
+  endAt, reports ready/playing/error/blocked as presence `tvVideo`, which
+  the DO turns into `karaokeTvPlaying` / `karaokeTvError`; muted by the
+  TV's Sound switch; never a player in a fixed still). Every present
+  player but the singer votes six tiers on the phone (single flight), the
+  vote closes 20 s after the song (or once all are in); a quarter
+  Legendary rains on the TV, delaying the next singer or the reveal; the
+  reveal runs last to first on the server clock and phones hold each row
+  to the TV's instant; `karaokeFinish` posts through beginResultEntry +
+  saveResult. Votes never leave the Worker (frames carry who voted and
+  when) and are deleted when the result posts. Every clock beat is an
+  autopilot write (`karaokeAutoBeat`) the pill offers as `karaoke-step`
+  with a tray (More time, Later, End song, Next video, Skip, Restart).
+  Home: the You strip speaks what the game asks (`karaokeYou`), the Now
+  card's `KaraokeHome inCard` row the rest. QA: `playKaraoke`, Sim songs,
+  Sim votes; Sim players' `planKaraoke` keeps or takes practice songs
+  (`karaokeSimSong`, sims only, never a profile) and votes on a human
+  clock. Practice songs have no video: the TV plays a lit card for 30 s.
+  Fit views `tv-karaoke-*`, `karaoke-*`, `gm-karaoke-desk`, `gm-qa-karaoke-*`.
 
 ## Current redesign direction
 

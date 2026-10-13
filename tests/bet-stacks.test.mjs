@@ -14,13 +14,14 @@ import {
 } from "../src/features/wagers/betStacks.js";
 import { seatStacks, trayStacks, pokerChip, POKER_CHIPS, TRAY_TUBE } from "../src/features/poker/pokerChips.js";
 import { advanceMoment, contestRiders } from "../src/features/tv/tvModel.js";
+import { STRIP_LABEL, TOTE, toteBoard } from "../src/features/tv/toteModel.js";
 
 /* Everyone's bets as stacks of their own identity chip. The model is pure;
    the render checks run the real components, as the other UI suites do. */
 const root = fileURLToPath(new URL("../", import.meta.url));
 const compiled = buildSync({
   stdin:{ contents:`
-    export { TVMode, fieldLayout } from "./src/features/tv/TVMode.jsx";
+    export { TVMode } from "./src/features/tv/TVMode.jsx";
     export { Wagers, FELT_CELLS, ROW_STACKS } from "./src/features/wagers/Wagers.jsx";
     export { PokerSetupSheet } from "./src/features/director/FinaleSheets.jsx";
     export { PlayerIdentityProvider } from "./src/features/identity/PlayerIdentityContext.js";
@@ -32,7 +33,7 @@ const bundle = new Module(fileURLToPath(new URL("bet-stacks.cjs", import.meta.ur
 bundle.filename = bundle.id;
 bundle.paths = Module._nodeModulePaths(root);
 bundle._compile(compiled.outputFiles[0].text, bundle.filename);
-const { TVMode, fieldLayout, Wagers, FELT_CELLS, ROW_STACKS, PokerSetupSheet, PlayerIdentityProvider } = bundle.exports;
+const { TVMode, Wagers, FELT_CELLS, ROW_STACKS, PokerSetupSheet, PlayerIdentityProvider } = bundle.exports;
 
 let seq = 0;
 const gm = () => ({ isGm:true, player:"Brandon", deviceId:"gm-device", actionId:`bs-${++seq}` });
@@ -279,23 +280,28 @@ test("TV: bettors ride as named stacks, never a Name 200 list", () => {
   assert.ok(contest);
 });
 
-test("TV free-for-all: a player's spot on the felt holds the stacks backing them, an empty spot stays quiet", () => {
+test("TV free-for-all: a tote board, the backed sides ranked by their money, the rest one unlit strip", () => {
   const state = structuredClone(EMPTY_STATE);
   act(state, "announceEvent", { evId:"putt" });
   bet(state, "putt", "Adi", ROSTER.indexOf("Khoa"), 200);
   bet(state, "putt", "Ben", ROSTER.indexOf("Khoa"), 300);
   bet(state, "putt", "Evan", ROSTER.indexOf("Evan"), 100);
   const html = renderTv(state);
-  const card = player => {
-    const cards = html.split('class="tv-side is-spot').slice(1);
-    return cards.find(chunk => new RegExp(`tv-spot-name"[^>]*>${player}<`).test(chunk)) || "";
-  };
-  assert.match(card("Khoa"), /data-stack-player="Adi"/);
-  assert.match(card("Khoa"), /data-stack-player="Ben"/);
-  assert.match(card("Khoa"), /tv-side-total"><span class="fd-reel[^"]*" role="img" aria-label="500"/);
-  assert.match(card("Evan"), /data-stack-player="Evan"/);
-  assert.doesNotMatch(card("Chinh"), /data-stack-player|tv-side-total|No chips/);
-  /* the card no longer repeats its own name with a number */
+  const rows = html.split('class="tv-tote-row"').slice(1);
+  assert.equal(rows.length, 2, "one row a side with money");
+  /* biggest total first: Khoa's 500 over Evan's 100 */
+  assert.match(rows[0], /tv-tote-name"[^>]*>Khoa</);
+  assert.match(rows[0], /tv-side-total tv-tote-total"[^>]*><span class="fd-reel[^"]*" role="img" aria-label="500"/);
+  assert.match(rows[0], /data-backers="Ben Adi"/, "the backers, most money first");
+  assert.match(rows[1], /tv-tote-name"[^>]*>Evan</);
+  /* the bar is on the biggest total's scale */
+  assert.match(rows[0], /tv-tote-bar[^"]*" style="width:100.00%/);
+  assert.match(rows[1], /tv-tote-bar[^"]*" style="width:20.00%/);
+  const strip = html.slice(html.indexOf('class="tv-tote-strip'), html.indexOf('class="tv-contest-foot"'));
+  assert.match(strip, />No bets</);
+  assert.equal(strip.split('class="tv-tote-idle-side"').length - 1, 11, "every other side is in the strip");
+  assert.doesNotMatch(strip, /tv-tote-bar|fd-reel/);
+  /* no line of the board pairs a name with a number */
   const sides = html.slice(html.indexOf('class="tv-sides'), html.indexOf('class="tv-contest-foot"'));
   assert.ok(textNodes(sides).every(text => !/[A-Za-z] \d/.test(text)), textNodes(sides).join(" | "));
 });
@@ -326,30 +332,48 @@ test("poker starting stacks are drawn chips on the setup sheet and the TV, never
   }
 });
 
-test("TV wide field: one felt, every spot sized before any chip lands; an empty board is one line", () => {
-  const layout = fieldLayout(13, 1784);
-  assert.equal(layout.rows, 2, "thirteen sides stand in two rows of one felt");
-  assert.equal(layout.perRow, 7);
-  assert.equal(fieldLayout(6, 1784).rows, 1);
+test("TV tote board: the field with no bets, one side holding everything, all thirteen backed", () => {
+  const side = (i, total, backers = 0) => ({ key:i, name:ROSTER[i], players:[ROSTER[i]], total,
+    stacks:Array.from({ length:backers }, (_, j) => ({ player:ROSTER[(i + j + 1) % 13], stake:100 })) });
+  /* no bets: the field alone, every name under its chip, the payout under it */
+  const none = toteBoard(ROSTER.map((_, i) => side(i, 0)), { width:1792, height:440 });
+  assert.equal(none.any, false);
+  assert.equal(none.rows.length, 0);
+  assert.equal(none.strip.kind, "field");
+  assert.equal(none.idle.length, 13);
+  assert.ok(none.strip.names && none.strip.nameSize >= 24, "the field letters every name at the TV floor or larger");
+  assert.ok(none.strip.width <= 1792 && none.strip.height <= 440);
+  /* one side holds everything: one row, its bar full, its crowd folded into +N */
+  const one = toteBoard(ROSTER.map((_, i) => side(i, i === 4 ? 7600 : 0, i === 4 ? 13 : 0)), { width:1792, height:440 });
+  assert.equal(one.rows.length, 1);
+  assert.equal(one.rows[0].share, 1);
+  assert.equal(one.rows[0].backers.length + one.rows[0].more, 13);
+  assert.ok(one.rows[0].more > 0, "past what a row holds, the rest read +N");
+  assert.equal(one.idle.length, 12);
+  assert.equal(one.strip.kind, "strip");
+  assert.ok(one.row.height + TOTE.stripGap + one.strip.height <= 440);
+  /* all thirteen backed: two columns ranked down the first, every row above the floor */
+  const totals = [100, 2400, 700, 1300, 500, 200, 1800, 300, 900, 400, 1100, 600, 200];
+  const all = toteBoard(ROSTER.map((_, i) => side(i, totals[i], 1)), { width:1792, height:440 });
+  assert.equal(all.strip, null);
+  assert.equal(all.cols, 2);
+  assert.equal(all.perCol, 7);
+  assert.deepEqual(all.rows.map(row => row.total), [...totals].sort((a, b) => b - a));
+  assert.deepEqual(all.rows.slice(0, 7).map(row => row.col), [0, 0, 0, 0, 0, 0, 0]);
+  assert.ok(all.perCol * all.row.height + (all.perCol - 1) * TOTE.rowGap <= 440, "seven rows stand in the board's height");
+  assert.ok(all.row.nameSize >= 24 && all.row.barW > 120, `a row: ${JSON.stringify(all.row)}`);
+  /* a tie keeps the contest's order: the two 200s read in side order */
+  const tied = all.rows.filter(row => row.total === 200).map(row => row.key);
+  assert.deepEqual(tied, [5, 12]);
+  /* rendered: no bets is the field and the lit payout, never a "No bets" line */
   const state = structuredClone(EMPTY_STATE);
   act(state, "announceEvent", { evId:"putt" });
   const empty = renderTv(state);
-  assert.doesNotMatch(empty, /No bets/, "an empty board needs no words: its felt is simply not there");
+  assert.doesNotMatch(empty, new RegExp(`>${STRIP_LABEL}<`), "with no bets the field needs no label");
+  assert.doesNotMatch(empty, /tv-tote-row/);
+  assert.match(empty, /class="tv-tote-strip is-field"/);
   assert.match(empty, /class="tv-contest-foot"><span class="tv-pay-lamp is-lit"><i class="fd-insert" aria-hidden="true"><\/i>Winner pays 2:1</,
     "the payout stays, the board's lit payout lamp");
-  assert.doesNotMatch(empty, /tv-spot-felt/, "and its felt collapses");
-  bet(state, "putt", "Adi", ROSTER.indexOf("Khoa"), 500);
-  const riding = renderTv(state);
-  bet(state, "putt", "Ben", ROSTER.indexOf("Evan"), 300);
-  const second = renderTv(state);
-  /* the rows share the board's height, so every spot is one size whatever rides it */
-  const rows = html => html.match(/grid-template-rows:repeat\((\d+), minmax\(0, 1fr\)\)/)?.[1];
-  assert.equal(rows(riding), String(layout.rows));
-  assert.equal(rows(second), rows(riding), "a second side's first chip moves no spot");
-  assert.equal(riding.split('class="tv-spot-felt"').length - 1, 13, "every spot keeps its felt once chips ride");
-  /* the total stands on a line of its own, never over the stacks */
-  assert.equal(second.split('class="tv-spot-total"').length - 1, 13, "every spot reserves its total's line");
-  assert.doesNotMatch(second, /class="tv-spot-felt"><div class="tv-side-total"/, "no total inside the stacks' band");
 });
 
 test("a wide board is one row a side: mini stacks with their total (yours ringed), then a quiet well", () => {

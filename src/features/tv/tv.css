@@ -297,37 +297,47 @@
 .tv-contest-foot .tv-pay-lamp { font-size:32px; gap:12px; }
 .tv-contest-foot .tv-pay-lamp .fd-insert { width:18px; height:18px; }
 
-/* a wide field: one felt, a spot per side, every spot one size before any
-   chip lands; a side with chips shows its stacks and total */
-.tv-sides.is-field { gap:16px 14px; align-content:start; }
-.tv-sides.is-field:not(.is-quiet) { flex:1; min-height:0; align-content:stretch; }
-.tv-sides.is-field.is-quiet { align-content:center; }
-.tv-side.is-spot { gap:10px; padding:12px 16px; border-radius:14px; }
-/* with chips on the board a spot is three fixed bands (name, total, stacks) */
-.tv-sides.is-field:not(.is-quiet) .tv-side.is-spot { gap:4px; padding:8px 12px; }
-/* once any chip lands every spot with money is a window cut in the pane;
-   a spot nobody backed stays a quiet outline, so the money reads first */
-.tv-sides.is-field:not(.is-quiet) .tv-side.is-spot { border-radius:10px; background:var(--tv-window); box-shadow:var(--tv-cut); }
-.tv-sides.is-field:not(.is-quiet) .tv-side.is-spot:not(.has-chips) { background:transparent;
-  box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--line) 70%, transparent); }
-.tv-sides.is-field:not(.is-quiet) .tv-side.is-spot:not(.has-chips) .tv-spot-name { color:var(--muted2); }
-.tv-sides.is-field:not(.is-quiet) .tv-side.is-spot:not(.has-chips) .tv-spot-id .tv-faces { opacity:.55; }
-.tv-spot-id { display:flex; align-items:center; gap:12px; min-width:0; height:60px; flex-shrink:0; }
-.tv-sides.is-field:not(.is-quiet) .tv-spot-id { height:48px; }
-/* a name lettered as written, one line, at the size every spot shares */
-.tv-spot-name { min-width:0; line-height:1.15; color:var(--bone); white-space:nowrap; }
-/* the side's total: its own line, never under a stack */
-.tv-spot-total { flex-shrink:0; height:36px; display:flex; align-items:center; justify-content:center; }
-.tv-spot-total > .tv-side-total { margin:0; font-size:36px; line-height:1; }
-/* the stacks: standing on the band's floor, centred, each amount beside its
-   chips and the first name under them; fitted (FitStacks) into the band */
-.tv-spot-felt { position:relative; flex:1; min-height:0; display:flex; }
-.tv-spot-fit .fd-fit-stacks { top:auto; bottom:0; transform:none; justify-content:center; }
-.tv-spot-fit .fd-stacks { gap:4px 10px; }
-.tv-spot-fit .fd-stacks-slot { width:auto; min-width:0; }
-.tv-spot-fit .fd-stacks-body { gap:6px; }
-.tv-spot-fit .fd-stacks-value { font-size:26px; line-height:1; padding-bottom:2px; }
-.tv-spot-fit .fd-stacks-name { max-width:none; font-size:24px; line-height:1.1; }
+/* the tote board (ToteBoard, toteModel): three sides or more. The sides
+   with money are rows ranked by their total, each a window cut in the pane:
+   photo chips, name, an amber bar on the biggest total's scale, the total
+   on a reel, the backers' chips. The rest is one unlit strip under them. */
+.tv-tote { display:flex; flex-direction:column; justify-content:flex-start; gap:14px; }
+.tv-tote.is-quiet { justify-content:center; }
+.tv-tote-rows { display:grid; grid-auto-flow:column; gap:10px 28px; margin:0; padding:0; list-style:none; flex:none; }
+.tv-tote-row { display:flex; align-items:center; gap:18px; min-width:0; padding:0 16px; border-radius:10px;
+  background:var(--tv-window); box-shadow:var(--tv-cut); }
+.tv-tote-faces { display:flex; align-items:center; flex:none; }
+.tv-tote-name { flex:none; min-width:0; line-height:1.2; color:var(--bone); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+/* the bar: the chips lamp on a dark track, notched a chip (or 500, 1,000)
+   at a time on the biggest total's scale (boardModel chipNotch) */
+.tv-tote-track { position:relative; flex:none; height:22px; border-radius:4px;
+  background:color-mix(in srgb, var(--bone) 7%, transparent); overflow:hidden; }
+.tv-tote-bar { position:absolute; inset:0 auto 0 0; display:block; border-radius:4px; background:var(--lamp-chip);
+  background-image:repeating-linear-gradient(90deg, transparent 0 calc(var(--notch) - 2px),
+    color-mix(in srgb, var(--ink0) 45%, transparent) calc(var(--notch) - 2px) var(--notch));
+  box-shadow:0 0 16px color-mix(in srgb, var(--lamp-chip) 30%, transparent); }
+.tv-tote-bar.is-plain { background-image:none; }
+/* a fresh bet grows the bars (held while it plays; a load is placed) */
+.tv-tote.is-growing .tv-tote-bar { transition:width var(--motion-row) var(--ease-out); }
+.tv-tote-total { flex:none; margin:0; display:flex; justify-content:flex-end; font-size:var(--reel); line-height:1; }
+.tv-tote-total .fd-reel { font-size:1em; }
+.tv-tote-backers { flex:none; display:flex; align-items:center; gap:6px; }
+.tv-tote-more { display:inline-flex; align-items:center; justify-content:center; padding:0 8px; border-radius:99px;
+  font:800 24px/1 var(--fd-display); color:var(--muted2); background:color-mix(in srgb, var(--bone) 10%, transparent); }
+/* the strip: every side nobody backs, its chips unlit; with no bets at
+   all it is the field, larger, in the middle of the pane */
+.tv-tote-strip { display:flex; align-items:center; gap:10px; flex:none; min-width:0; }
+.tv-tote-strip.is-field { justify-content:center; }
+/* under the rows, the strip stands at the foot of the pane, so a new row
+   never moves it */
+.tv-tote-strip.is-strip { margin-top:auto; }
+.tv-tote-strip-label { flex:none; font:800 24px/1.2 var(--fd-display); letter-spacing:.06em; text-transform:uppercase; color:var(--muted); }
+/* one or two lines, a second centred under the first */
+.tv-tote-idle { display:flex; flex-wrap:wrap; justify-content:center; gap:10px; margin:0; padding:0; list-style:none; min-width:0; }
+.tv-tote-strip.is-strip .tv-tote-idle { justify-content:flex-start; }
+.tv-tote-idle-side { display:flex; flex-direction:column; align-items:center; gap:6px; flex:none; min-width:0; }
+.tv-tote-idle-side .tv-faces { opacity:.5; filter:saturate(.45); }
+.tv-tote-idle-name { max-width:100%; line-height:1.2; color:var(--muted2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 
 /* ── the bracket, drawn ── */
 .tv-bracket { flex-shrink:0; padding-top:12px; }

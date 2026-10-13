@@ -1048,8 +1048,8 @@ function wagerSide(state, w) {
 }
 function contestSideOf(state, contest, player, events = allEventsOf(state)) {
   if (!contest || wideField(contest)) return null;
-  const held = (state.wagers || []).find((w) => w.player === player && wagerMatchesContest(w, contest) && resolveWager(state, w, events).status === "pending");
-  return held ? wagerSide(state, held) : null;
+  const held2 = (state.wagers || []).find((w) => w.player === player && wagerMatchesContest(w, contest) && resolveWager(state, w, events).status === "pending");
+  return held2 ? wagerSide(state, held2) : null;
 }
 function wagerMatchesContest(wager, contest) {
   if (!contest || wager.eventId !== contest.eventId) return false;
@@ -1890,7 +1890,14 @@ var init_core = __esm({
       geoRounds: [],
       geo: null,
       triviaRounds: [],
+      triviaFormat: "rounds",
       trivia: null,
+      /* the TV's gags (src/features/gags): the commissioner's switch, and the
+         QA console's test */
+      gagsOff: false,
+      gagTest: null,
+      /* QA's simulated room (shared/qaSim.js): { on, me, includeMe, seed, at } */
+      qaSim: null,
       updatedAt: 0
     };
     RESET_PROGRESS_PRESERVED_KEYS = Object.freeze([
@@ -1912,7 +1919,11 @@ var init_core = __esm({
       "geoRounds",
       /* Trivia's set list (bank picks and the commissioner's own questions) is
          configuration; the game played on it (state.trivia) is progress */
-      "triviaRounds"
+      "triviaRounds",
+      /* and which format it plays (Rounds or the Board) */
+      "triviaFormat",
+      /* the TV's Gags switch is a setting; a QA test gag (gagTest) is progress */
+      "gagsOff"
     ]);
     shapeLabel = (fit2) => !fit2 ? "" : fit2.split && new Set(fit2.split).size > 1 ? fit2.split.join(" v ") : fit2.size === 1 ? `${fit2.teams} players` : `${fit2.teams} teams of ${fit2.size}`;
     MIN_PLAYING = 10;
@@ -3060,10 +3071,25 @@ var init_geo = __esm({
   }
 });
 
+// shared/triviaBoard.js
+var BOARD_FORMAT, TRIVIA_GAME_FORMATS, BOARD_VALUES, BOARD_CLUE_FORMATS, FINAL_PHASES, BOARD_PHASES;
+var init_triviaBoard = __esm({
+  "shared/triviaBoard.js"() {
+    init_core();
+    BOARD_FORMAT = "board";
+    TRIVIA_GAME_FORMATS = Object.freeze(["rounds", BOARD_FORMAT]);
+    BOARD_VALUES = Object.freeze([200, 400, 600, 800, 1e3]);
+    BOARD_CLUE_FORMATS = Object.freeze(["choice", "picture", "tune"]);
+    FINAL_PHASES = Object.freeze(["final-wager", "final-clue", "final-reveal", "final-board"]);
+    BOARD_PHASES = Object.freeze(["pick", "clue", "answer", "reveal", "dd-wager", "dd-clue", ...FINAL_PHASES]);
+  }
+});
+
 // shared/trivia.js
 var TRIVIA_FORMATS, TRIVIA_FORMAT_NAMES, TRIVIA_MS, TRIVIA_NEAR;
 var init_trivia = __esm({
   "shared/trivia.js"() {
+    init_triviaBoard();
     TRIVIA_FORMATS = Object.freeze(["choice", "number", "tune", "picture"]);
     TRIVIA_FORMAT_NAMES = Object.freeze({
       choice: "Multiple choice",
@@ -3411,7 +3437,8 @@ function ChipFace({
   color: colorOverride,
   isLight: lightOverride,
   valueRing = false,
-  flat = false
+  flat = false,
+  photo: photoOverride
 }) {
   const uid = useId2().replace(/:/g, "");
   const clipId = `chip-edge-${uid}`, faceId = `chip-face-${uid}`;
@@ -3433,7 +3460,8 @@ function ChipFace({
   const skinInk = light ? "var(--ink0)" : "var(--chip-mark)";
   const inlay = light ? "rgba(42,33,25,0.08)" : "rgba(251,243,228,0.10)";
   const inlayLine = light ? "rgba(42,33,25,0.38)" : "rgba(251,243,228,0.36)";
-  const photo = stampOverride == null && identity.photo && failed !== identity.photo ? identity.photo : null;
+  const source = photoOverride !== void 0 ? photoOverride : identity.photo;
+  const photo = stampOverride == null && source && failed !== source ? source : null;
   const photoR = chipPhotoRadius(size);
   const lettered = stampOverride == null && fallback == null;
   const mark = lettered && p ? chipLetters(size, floor2, initials) : null;
@@ -4086,7 +4114,7 @@ function settledStacks(state, events, contest, matches = (wager) => wagerMatches
     if (result.status === "won") cur.paid += Math.max(0, result.delta);
     into.set(wager.player, cur);
   });
-  const shape = (map, status) => [...map.values()].map((item) => ({
+  const shape = (map2, status) => [...map2.values()].map((item) => ({
     ...item,
     ...stackView(item.stake),
     status,
@@ -5247,6 +5275,272 @@ function whoosh(E, t, { d = 0.45, f0 = 320, f1 = 2600, peak = 0.32, pan = 0 } = 
   const v = voice(E, { pan, send: 0.2, bright: 0.9 });
   swell(E, v, t, { d, f0, f1, q: 0.9, peak });
 }
+function held(E, dest, t, f, d, peak, { type = "sine", a = 0.02, glide: glide2 = 0 } = {}) {
+  const c = E.ctx;
+  const o = c.createOscillator();
+  o.type = type;
+  o.frequency.setValueAtTime(f * (1 + glide2), t);
+  if (glide2) o.frequency.exponentialRampToValueAtTime(f, t + Math.min(0.12, d * 0.4));
+  const g = c.createGain();
+  g.gain.setValueAtTime(1e-4, t);
+  g.gain.linearRampToValueAtTime(peak, t + a);
+  g.gain.setValueAtTime(peak, t + Math.max(a, d * 0.7));
+  g.gain.exponentialRampToValueAtTime(1e-4, t + d);
+  o.connect(g);
+  g.connect(dest);
+  track(E, o, g);
+  trackSource(E, o);
+  o.start(t);
+  o.stop(t + d + 0.03);
+  return o;
+}
+function wobble(E, param, t, d, { rate = 5.5, depth = 1, fade = 0 } = {}) {
+  const c = E.ctx;
+  const lfo = c.createOscillator();
+  lfo.type = "sine";
+  lfo.frequency.value = rate;
+  const amount = c.createGain();
+  amount.gain.setValueAtTime(fade ? 0 : depth, t);
+  if (fade) amount.gain.linearRampToValueAtTime(depth, t + fade);
+  lfo.connect(amount);
+  amount.connect(param);
+  track(E, lfo, amount);
+  trackSource(E, lfo);
+  lfo.start(t);
+  lfo.stop(t + d + 0.03);
+}
+function glide(E, dest, t, f0, f1, d, peak, { type = "sine", vib = 0, depth = 0.03 } = {}) {
+  const c = E.ctx;
+  const o = c.createOscillator();
+  o.type = type;
+  o.frequency.setValueAtTime(f0, t);
+  o.frequency.exponentialRampToValueAtTime(f1, t + d * 0.85);
+  const g = c.createGain();
+  g.gain.setValueAtTime(1e-4, t);
+  g.gain.linearRampToValueAtTime(peak, t + Math.min(0.04, d * 0.2));
+  g.gain.setValueAtTime(peak, t + d * 0.7);
+  g.gain.exponentialRampToValueAtTime(1e-4, t + d);
+  o.connect(g);
+  g.connect(dest);
+  track(E, o, g);
+  trackSource(E, o);
+  if (vib > 0) {
+    const lfo = c.createOscillator();
+    lfo.type = "sine";
+    lfo.frequency.value = vib;
+    const amount = c.createGain();
+    amount.gain.value = f1 * depth;
+    lfo.connect(amount);
+    amount.connect(o.frequency);
+    track(E, lfo, amount);
+    trackSource(E, lfo);
+    lfo.start(t);
+    lfo.stop(t + d + 0.03);
+  }
+  o.start(t);
+  o.stop(t + d + 0.03);
+}
+function travelWhoosh(E, t, { d = 0.28, from = 0.9, to = -0.9, peak = 0.45, f0 = 500, f1 = 3800 } = {}) {
+  const c = E.ctx;
+  const g = c.createGain();
+  g.gain.value = 1;
+  const p = c.createStereoPanner();
+  const travel = E.listen === "phone" ? 0 : 1;
+  p.pan.setValueAtTime(clampPan(from) * travel, t);
+  p.pan.linearRampToValueAtTime(clampPan(to) * travel, t + d);
+  const s = c.createGain();
+  s.gain.value = 0.2;
+  g.connect(p);
+  p.connect(E.open && E.openDry ? E.openDry : E.dry);
+  p.connect(s);
+  s.connect(E.wet);
+  track(E, g, p, s);
+  swell(E, g, t, { d, f0, f1, q: 0.8, peak });
+}
+function fallWhistle(E, t, d) {
+  const c = E.ctx;
+  const v = voice(E, { send: 0.28, bright: 0.9, gain: 1 });
+  const o = c.createOscillator();
+  o.type = "sine";
+  o.frequency.setValueAtTime(NOTE.D6, t);
+  o.frequency.exponentialRampToValueAtTime(NOTE.D4, t + d);
+  const g = c.createGain();
+  g.gain.setValueAtTime(1e-4, t);
+  g.gain.linearRampToValueAtTime(0.05, t + 0.08);
+  g.gain.linearRampToValueAtTime(0.2, t + d * 0.95);
+  g.gain.linearRampToValueAtTime(1e-4, t + d);
+  o.connect(g);
+  g.connect(v);
+  track(E, o, g);
+  trackSource(E, o);
+  o.start(t);
+  o.stop(t + d + 0.03);
+  wobble(E, o.frequency, t, d, { rate: 6, depth: 12, fade: d * 0.3 });
+}
+function boing(E, t, { f = NOTE.D4, d = 0.6, peak = 0.24 } = {}) {
+  const c = E.ctx;
+  const v = voice(E, { send: 0.25, bright: 0.8, gain: 1 });
+  const o = c.createOscillator();
+  o.type = "triangle";
+  o.frequency.setValueAtTime(f * 0.6, t);
+  o.frequency.exponentialRampToValueAtTime(f * 1.3, t + 0.05);
+  o.frequency.exponentialRampToValueAtTime(f, t + 0.12);
+  const g = c.createGain();
+  g.gain.setValueAtTime(1e-4, t);
+  g.gain.linearRampToValueAtTime(peak, t + 6e-3);
+  g.gain.exponentialRampToValueAtTime(1e-4, t + d);
+  o.connect(g);
+  g.connect(v);
+  track(E, o, g);
+  trackSource(E, o);
+  o.start(t);
+  o.stop(t + d + 0.03);
+  const lfo = c.createOscillator();
+  lfo.type = "sine";
+  lfo.frequency.value = 17;
+  const depth = c.createGain();
+  depth.gain.setValueAtTime(f * 0.14, t);
+  depth.gain.exponentialRampToValueAtTime(0.5, t + d);
+  lfo.connect(depth);
+  depth.connect(o.frequency);
+  track(E, lfo, depth);
+  trackSource(E, lfo);
+  lfo.start(t);
+  lfo.stop(t + d + 0.03);
+  phantom(E, v, t, f, d * 0.5, peak * 0.6);
+}
+function beep(E, t, f) {
+  const c = E.ctx;
+  const v = voice(E, { send: 0.2, bright: 1, gain: 1 });
+  const bp = c.createBiquadFilter();
+  bp.type = "bandpass";
+  bp.frequency.value = f * 2;
+  bp.Q.value = 0.9;
+  bp.connect(v);
+  track(E, bp);
+  held(E, bp, t, f, 0.11, 0.42, { type: "square", a: 4e-3, glide: -0.08 });
+  held(E, bp, t, f * 2, 0.08, 0.1, { type: "sine", a: 4e-3 });
+  M.tick(E, t, { gain: 0.25, pitch: 1.9 });
+}
+function desertWind(E, t, d) {
+  const c = E.ctx;
+  [[420, 900, 1.1, 5], [1300, 2100, 0.3, 16]].forEach(([lo, hi, peak, q]) => {
+    const v = voice(E, { send: 0.4, bright: 0.9 });
+    const s = c.createBufferSource();
+    s.buffer = E.noise;
+    s.loop = true;
+    const bp = c.createBiquadFilter();
+    bp.type = "bandpass";
+    bp.Q.value = q;
+    bp.frequency.setValueAtTime(lo, t);
+    bp.frequency.linearRampToValueAtTime(hi, t + d * 0.4);
+    bp.frequency.linearRampToValueAtTime(lo * 1.2, t + d * 0.75);
+    bp.frequency.linearRampToValueAtTime(hi * 0.8, t + d);
+    const g = c.createGain();
+    g.gain.setValueAtTime(1e-4, t);
+    g.gain.linearRampToValueAtTime(peak, t + d * 0.3);
+    g.gain.linearRampToValueAtTime(peak * 0.6, t + d * 0.7);
+    g.gain.exponentialRampToValueAtTime(1e-4, t + d);
+    s.connect(bp);
+    bp.connect(g);
+    g.connect(v);
+    track(E, s, bp, g);
+    trackSource(E, s);
+    s.start(t, Math.random() * 0.5, d + 0.05);
+  });
+}
+function noiseBed(E, dest, t, { d = 1, f = 500, q = 0.7, peak = 0.4, a = 4e-3, type = "lowpass", hold = false } = {}) {
+  const c = E.ctx;
+  const s = c.createBufferSource();
+  s.buffer = E.noise;
+  s.loop = true;
+  const fl = c.createBiquadFilter();
+  fl.type = type;
+  fl.frequency.value = f;
+  fl.Q.value = q;
+  const g = c.createGain();
+  g.gain.setValueAtTime(1e-4, t);
+  g.gain.linearRampToValueAtTime(peak, t + a);
+  if (hold) g.gain.setValueAtTime(peak, t + Math.max(a, d - 0.05));
+  g.gain.exponentialRampToValueAtTime(1e-4, t + Math.max(a + 0.01, d));
+  s.connect(fl);
+  fl.connect(g);
+  g.connect(dest);
+  track(E, s, fl, g);
+  trackSource(E, s);
+  s.start(t, Math.random() * 0.5);
+  s.stop(t + Math.max(a + 0.01, d) + 0.05);
+  return g;
+}
+function crackle(E, t, d, { gain = 0.25, every = 0.05 } = {}) {
+  for (let x = 0, i = 0; x < d && i < 48; i++, x += every * rnd(0.5, 1.5)) M.tick(E, t + x, { gain: gain * rnd(0.4, 1), pitch: rnd(1.2, 2) });
+}
+function explosion(E, t, { slow = false } = {}) {
+  const v = voice(E, { send: 0.36, bright: slow ? 0.4 : 0.9, gain: 1 });
+  burst(E, v, t, { type: "highpass", f: 1800, q: 0.7, d: 0.02, peak: 0.9 });
+  burst(E, v, t + 3e-3, { f: 700, q: 0.6, d: 0.1, peak: 0.85 });
+  M.drum(E, t, { f: slow ? NOTE.D2 / 2 : NOTE.D2, dec: slow ? 1.6 : 0.9, gain: 1 });
+  mode(E, v, t, slow ? 33 : 46, slow ? 1.8 : 1.1, 0.75, { drop: 1.2 });
+  phantom(E, v, t, 46, 0.4, 0.5);
+  noiseBed(E, v, t + 0.01, { d: slow ? 2.6 : 1.4, f: slow ? 340 : 760, peak: 0.55 });
+  [[0.32, 0.24, 0.5], [0.71, 0.12, -0.55]].forEach(([dt, gain, pan]) => noiseBed(E, voice(E, { send: 0.55, bright: 0.4, gain, pan }), t + dt * (slow ? 1.6 : 1), { d: 0.5, f: 520, peak: 0.6 }));
+  crackle(E, t + (slow ? 0.6 : 0.25), slow ? 1.4 : 0.8, { gain: slow ? 0.1 : 0.2, every: slow ? 0.12 : 0.06 });
+}
+function flutter(E, t, d) {
+  const c = E.ctx, v = voice(E, { send: 0.15, bright: 0.7 });
+  const s = c.createBufferSource();
+  s.buffer = E.noise;
+  s.loop = true;
+  const bp = c.createBiquadFilter();
+  bp.type = "bandpass";
+  bp.frequency.value = 520;
+  bp.Q.value = 1.1;
+  const trem = c.createGain();
+  trem.gain.value = 0.5;
+  const g = c.createGain();
+  g.gain.setValueAtTime(1e-4, t);
+  g.gain.linearRampToValueAtTime(0.16, t + Math.min(0.2, d * 0.3));
+  g.gain.setValueAtTime(0.16, t + d * 0.75);
+  g.gain.exponentialRampToValueAtTime(1e-4, t + d);
+  s.connect(bp);
+  bp.connect(trem);
+  trem.connect(g);
+  g.connect(v);
+  track(E, s, bp, trem, g);
+  trackSource(E, s);
+  s.start(t, Math.random() * 0.5, d + 0.05);
+  wobble(E, trem.gain, t, d, { rate: 24, depth: 0.5 });
+}
+function creak(E, t, d, k = 1) {
+  const v = voice(E, { send: 0.2, bright: 0.8 });
+  for (let x = 0, i = 0; x < d && i < 40; i++, x += 0.03 + Math.random() * 0.04)
+    burst(E, v, t + x, { f: 650 + Math.random() * 450, q: 6, d: 0.03, peak: 0.9 * k });
+  const g = voice(E, { send: 0.2, bright: 0.5, gain: 0.6 });
+  const bp = E.ctx.createBiquadFilter();
+  bp.type = "bandpass";
+  bp.frequency.value = 560;
+  bp.Q.value = 5;
+  bp.connect(g);
+  track(E, bp);
+  const o = held(E, bp, t, NOTE.A2, d, 0.16 * k, { type: "sawtooth", a: d * 0.3 });
+  wobble(E, o.frequency, t, d, { rate: 3.2, depth: 6 });
+}
+function paperCrackle(E, t, d, k = 1, f = 4200, density = 1) {
+  const v = voice(E, { send: 0.18, bright: 1 });
+  for (let x = 0, i = 0; x < d && i < 80; i++, x += (8e-3 + Math.random() * 0.03) / density)
+    burst(E, v, t + x, { type: "highpass", f: f * (0.7 + Math.random() * 0.6), d: 6e-3 + Math.random() * 0.01, peak: (0.08 + Math.random() * 0.12) * k });
+  swell(E, voice(E, { send: 0.15, bright: 0.7 }), t, { d, f0: 1400, f1: 2600, q: 0.8, peak: 0.03 * k });
+}
+function farBeep(E, t, f) {
+  const v = voice(E, { send: 0.55, bright: 0.7, gain: 0.3 });
+  const bp = E.ctx.createBiquadFilter();
+  bp.type = "bandpass";
+  bp.frequency.value = f * 2;
+  bp.Q.value = 0.9;
+  bp.connect(v);
+  track(E, bp);
+  held(E, bp, t, f, 0.11, 0.4, { type: "square", a: 4e-3, glide: -0.08 });
+}
 function playRecipe(E, id, t, { pan = 0, open = false, ...opts } = {}) {
   const s = SOUNDS[id];
   if (!s || !E) return false;
@@ -5268,7 +5562,7 @@ function playRecipe(E, id, t, { pan = 0, open = false, ...opts } = {}) {
   }
   return true;
 }
-var NOTE, LADDER, ladderNote, CROWN_CHORD, ROOMS, roomKeyFor, roomForPhase, PHONE_WET, wetLevel, highpassFor, rnd, clampPan, PHANTOM, M, HIT, PLAY, bloop, bounce, swish, hum, INTRO_FOLEY, KIT, CHIP_WEIGHT, PARTS, SOUNDS, SOUND_IDS, isSound, CHIP_DENSITY;
+var NOTE, LADDER, ladderNote, CROWN_CHORD, ROOMS, roomKeyFor, roomForPhase, PHONE_WET, wetLevel, highpassFor, rnd, clampPan, PHANTOM, M, HIT, PLAY, bloop, bounce, swish, hum, INTRO_FOLEY, KIT, CHIP_WEIGHT, PARTS, THINK, THINK_BAR_S, BOARD_PARTS, BIT_PARTS, SOUNDS, SOUND_IDS, isSound, CHIP_DENSITY;
 var init_soundKit = __esm({
   "src/lib/soundKit.js"() {
     init_introTiming();
@@ -6093,7 +6387,1235 @@ var init_soundKit = __esm({
         }
       }
     ].map(Object.freeze));
-    SOUNDS = Object.freeze(Object.fromEntries([...KIT, ...PARTS].map((s) => [s.id, s])));
+    THINK = Object.freeze([
+      [NOTE.D5, NOTE.Fs5, NOTE.A5, NOTE.Fs5],
+      [NOTE.E5, NOTE.A5, NOTE.B5, NOTE.A5],
+      [NOTE.D5, NOTE.Fs5, NOTE.A5, NOTE.D6],
+      [NOTE.B5, NOTE.A5, NOTE.Fs5, NOTE.E5]
+    ]);
+    THINK_BAR_S = 2;
+    BOARD_PARTS = Object.freeze([
+      /* a cell flies up into its clue: a chip lifted, the whoosh, the landing */
+      {
+        id: "boardZoom",
+        name: "A cell flies up",
+        ms: 1400,
+        play: (E, t) => {
+          M.clack(E, t, { pitch: 1.2, gain: 0.5, double: false });
+          whoosh(E, t + 0.05, { d: 1.05, f0: 260, f1: 2400, peak: 0.16 });
+          M.knock(E, t + 1.18, { gain: 0.4 });
+          M.bell(E, t + 1.19, NOTE.A4, { gain: 0.32, dec: 1.4 });
+        }
+      },
+      /* the buzzers arm: a relay catches and the lamps run up the motif */
+      {
+        id: "boardArm",
+        name: "The buzzers arm",
+        ms: 900,
+        play: (E, t) => {
+          M.knock(E, t, { pitch: 1.3, gain: 0.4 });
+          M.clack(E, t + 8e-3, { pitch: 1.15, gain: 0.5, double: false });
+          [NOTE.A4, NOTE.D5, NOTE.Fs5, NOTE.A5].forEach((f, i) => M.bell(E, t + 0.02 + i * 0.045, f, { gain: 0.3, dec: 0.9, send: 0.25 }));
+          hum(E, t, 0.32, 900, 2400, 0.04);
+        }
+      },
+      /* a buzz lands (panned to the player's chip), each one a step higher */
+      {
+        id: "buzzIn",
+        name: "A buzz lands",
+        ms: 400,
+        play: (E, t, o = {}) => {
+          M.clack(E, t, { pitch: 1.15, gain: 0.6, double: false });
+          M.bell(E, t + 4e-3, ladderNote(7 + Math.min(5, Number(o.step) || 0)), { gain: 0.34, dec: 0.4, send: 0.15 });
+        }
+      },
+      /* a place in the buzz order stamps (opts.place: 1 loudest, highest) */
+      {
+        id: "orderStamp",
+        name: "A place in the order",
+        ms: 900,
+        play: (E, t, o = {}) => {
+          const place2 = Math.max(1, Number(o.place) || 1);
+          M.slap(E, t, { gain: place2 === 1 ? 0.8 : 0.5 });
+          M.knock(E, t + 8e-3, { pitch: place2 === 1 ? 1.1 : 0.95, gain: 0.45 });
+          M.bell(E, t + 0.01, [NOTE.D5, NOTE.A4, NOTE.Fs4, NOTE.E4, NOTE.D4][Math.min(4, place2 - 1)], { gain: place2 === 1 ? 0.45 : 0.28, dec: 0.9 });
+        }
+      },
+      /* right: the motif rung up bright */
+      {
+        id: "boardRight",
+        name: "Right",
+        ms: 1800,
+        play: (E, t) => {
+          M.clack(E, t, { gain: 0.45, double: false });
+          M.bell(E, t, NOTE.D5, { gain: 0.5, dec: 1.4 });
+          M.bell(E, t + 0.09, NOTE.Fs5, { gain: 0.5, dec: 1.4 });
+          M.bell(E, t + 0.18, NOTE.A5, { gain: 0.55, dec: 1.8 });
+          M.bell(E, t + 0.18, NOTE.D6, { gain: 0.22, dec: 1.6 });
+        }
+      },
+      /* wrong: a dead knock and a sagging two-note "wah" */
+      {
+        id: "boardWrong",
+        name: "Wrong",
+        ms: 1e3,
+        play: (E, t) => {
+          M.knock(E, t, { pitch: 0.8, gain: 0.7 });
+          M.drum(E, t, { f: NOTE.A2, dec: 0.35, gain: 0.5 });
+          const v = voice(E, { send: 0.12, bright: 0.35, gain: 0.55 });
+          mode(E, v, t + 0.02, NOTE.B4 / 2, 0.2, 0.1, { type: "sawtooth", a: 0.01 });
+          mode(E, v, t + 0.24, NOTE.Fs4 / 2, 0.5, 0.12, { type: "sawtooth", drop: 0.06, a: 0.012 });
+          phantom(E, v, t + 0.24, NOTE.Fs4 / 2, 0.35, 0.1);
+        }
+      },
+      /* the Daily Double: the letters pop in up the ladder, a whistle slides
+         up into a spring, and the chord lands with the drum (opts.summary:
+         the chord alone) */
+      {
+        id: "ddSting",
+        name: "Daily Double",
+        ms: 2600,
+        play: (E, t, o = {}) => {
+          const chord = (at) => {
+            M.drum(E, at, { f: NOTE.D2, dec: 0.9, gain: 0.85 });
+            M.slap(E, at, { gain: 0.6 });
+            [NOTE.D4, NOTE.Fs4, NOTE.A4, NOTE.D5].forEach((f, i) => M.bell(E, at + 0.01 + i * 0.012, f, { gain: 0.42, dec: 2.2 }));
+          };
+          if (o.summary) {
+            chord(t);
+            return;
+          }
+          swell(E, voice(E, { send: 0.25, bright: 0.6 }), t, { d: 0.5, f0: 300, f1: 1200, q: 0.8, peak: 0.12 });
+          for (let i = 0; i < 11; i++) bloop(E, t + 0.15 + i * 0.085, ladderNote(i % 7 + 2), 0.26);
+          glide(E, voice(E, { send: 0.3, bright: 0.9, gain: 0.4 }), t + 1.05, NOTE.D5, NOTE.D6, 0.42, 0.09, { vib: 7 });
+          glide(E, voice(E, { send: 0.2, bright: 0.7, gain: 0.5 }), t + 1.5, NOTE.A3, NOTE.D4, 0.5, 0.16, { vib: 24, depth: 0.08 });
+          chord(t + 1.55);
+          M.bell(E, t + 1.95, NOTE.A5, { gain: 0.3, dec: 1.6 });
+        }
+      },
+      /* one bar of the Final's thinking loop (opts.bar; opts.last resolves):
+         a wooden tick-tock under four bells on the motif */
+      {
+        id: "think",
+        name: "The Final's clock",
+        ms: THINK_BAR_S * 1e3,
+        play: (E, t, o = {}) => {
+          const bar = Math.max(0, Math.floor(Number(o.bar) || 0));
+          const beat = THINK_BAR_S / 4;
+          for (let i = 0; i < 8; i++) M.knock(E, t + i * beat / 2, { pitch: i % 2 ? 1.45 : 1.7, gain: i % 2 ? 0.16 : 0.22 });
+          if (bar % 2 === 0) M.bowl(E, t, NOTE.D3, { gain: 0.22, dec: 2.4 });
+          if (o.last) {
+            [NOTE.D5, NOTE.A5, NOTE.D6].forEach((f) => M.bell(E, t, f, { gain: 0.32, dec: 2.2, send: 0.3 }));
+            return;
+          }
+          THINK[bar % THINK.length].forEach((f, i) => M.bell(E, t + i * beat, f, { gain: i === 0 ? 0.26 : 0.2, dec: 0.9, send: 0.3 }));
+        }
+      },
+      /* a Final turn: the card turns over, then the tally lands (opts.up) */
+      {
+        id: "finalTurn",
+        name: "A Final turns",
+        ms: 600,
+        play: (E, t) => {
+          M.tick(E, t, { gain: 0.5 });
+          M.tick(E, t + 0.06, { pitch: 1.15, gain: 0.35 });
+          M.knock(E, t + 0.08, { pitch: 0.9, gain: 0.35 });
+        }
+      },
+      {
+        id: "tally",
+        name: "A total rolls",
+        ms: 900,
+        play: (E, t, o = {}) => {
+          const notes = o.up === false ? [NOTE.A4, NOTE.Fs4, NOTE.D4] : [NOTE.D5, NOTE.Fs5, NOTE.A5];
+          notes.forEach((f, i) => M.bell(E, t + i * 0.07, f, { gain: 0.3, dec: 0.8, send: 0.2 }));
+          M.clack(E, t, { gain: 0.35, double: false });
+        }
+      },
+      /* the phone's buzzer: a fat arcade button bottoming out, and the dead
+         thunk of one pressed before its lamp */
+      {
+        id: "buzzPress",
+        name: "Your buzzer",
+        ms: 300,
+        play: (E, t) => {
+          M.knock(E, t, { pitch: 1.25, gain: 0.75 });
+          M.clack(E, t + 4e-3, { pitch: 0.95, gain: 0.6 });
+          M.bell(E, t + 0.01, NOTE.A5, { gain: 0.24, dec: 0.35, send: 0.1 });
+        }
+      },
+      {
+        id: "buzzDead",
+        name: "Too early",
+        ms: 300,
+        play: (E, t) => {
+          M.knock(E, t, { pitch: 0.72, gain: 0.65 });
+          M.felt(E, t + 0.01, { gain: 0.5 });
+        }
+      }
+    ].map(Object.freeze));
+    BIT_PARTS = Object.freeze([
+      /* a gunshot in the desert: the crack, a thump, and the buttes answering twice */
+      {
+        id: "bitCrack",
+        name: "Gun crack",
+        ms: 900,
+        play: (E, t) => {
+          const v = voice(E, { send: 0.32, bright: 1, gain: 1 });
+          burst(E, v, t, { type: "highpass", f: 2400, q: 0.7, d: 0.012, peak: 0.95 });
+          burst(E, v, t + 2e-3, { f: 1100, q: 0.8, d: 0.05, peak: 0.75 });
+          mode(E, v, t, 95, 0.12, 0.8, { drop: 1.2 });
+          phantom(E, v, t, 95, 0.1, 0.6);
+          burst(E, v, t + 0.01, { type: "lowpass", f: 1800, q: 0.5, d: 0.3, peak: 0.22 });
+          [[0.19, 0.3, 0.5], [0.42, 0.12, -0.6]].forEach(([dt, gain, pan]) => {
+            const e = voice(E, { send: 0.5, bright: 0.45, gain, pan });
+            burst(E, e, t + dt, { f: 900, q: 0.7, d: 0.08, peak: 0.8 });
+            mode(E, e, t + dt, 90, 0.1, 0.5, { drop: 0.6 });
+          });
+        }
+      },
+      /* a bullet off a rock: a whine falling away, wobbling */
+      {
+        id: "bitRicochet",
+        name: "Ricochet",
+        ms: 650,
+        play: (E, t) => {
+          M.tick(E, t, { gain: 0.5, pitch: 1.6 });
+          glide(E, voice(E, { send: 0.35, bright: 1, gain: 0.5 }), t + 0.01, 3e3, 1400, 0.55, 0.22, { type: "triangle", vib: 28, depth: 0.04 });
+        }
+      },
+      /* an anvil landing: a dead heavy thump and the iron ringing on */
+      {
+        id: "bitClang",
+        name: "Anvil clang",
+        ms: 2200,
+        play: (E, t) => {
+          M.drum(E, t, { f: NOTE.D2, dec: 0.5, gain: 1 });
+          M.slap(E, t, { gain: 0.8 });
+          const v = voice(E, { send: 0.42, bright: 1, gain: 1 });
+          burst(E, v, t, { f: 3200, q: 0.8, d: 0.04, peak: 0.6 });
+          [[1, 0.26, 1.8], [2.76, 0.13, 1.1], [5.4, 0.06, 0.6], [8.93, 0.03, 0.35]].forEach(([r, amp, d]) => mode(E, v, t, NOTE.D5 * r * (1 + rnd(-2e-3, 2e-3)), d, amp, { a: 1e-3 }));
+          mode(E, v, t, NOTE.D5 * 1.004, 1.6, 0.1, { a: 1e-3 });
+        }
+      },
+      /* something falling from very high (opts.ms) */
+      {
+        id: "bitWhistle",
+        name: "Slide whistle down",
+        ms: 1200,
+        play: (E, t, o = {}) => fallWhistle(E, t, Math.max(0.3, (o.ms || 1200) / 1e3))
+      },
+      /* a fast thing past the camera, across the room (opts.from, opts.to) */
+      {
+        id: "bitStreak",
+        name: "Whoosh streak",
+        ms: 350,
+        play: (E, t, o = {}) => travelWhoosh(E, t, { d: 0.28, from: o.from ?? 0.9, to: o.to ?? -0.9 })
+      },
+      /* a two-tone bird call: beep beep */
+      {
+        id: "bitBeep",
+        name: "Bird beep",
+        ms: 500,
+        play: (E, t) => {
+          beep(E, t, NOTE.A5);
+          beep(E, t + 0.19, NOTE.D6);
+        }
+      },
+      /* flat in the dirt: a thud and the dust it throws */
+      {
+        id: "bitThud",
+        name: "Dust thud",
+        ms: 500,
+        play: (E, t) => {
+          M.drum(E, t, { f: 58, dec: 0.32, gain: 1 });
+          M.felt(E, t, { gain: 0.9 });
+          burst(E, voice(E, { send: 0.18, bright: 0.5, gain: 0.6 }), t + 0.01, { type: "lowpass", f: 700, q: 0.5, d: 0.3, peak: 0.45 });
+        }
+      },
+      /* the desert's wind (opts.ms) */
+      {
+        id: "bitWind",
+        name: "Desert wind",
+        ms: 2e3,
+        play: (E, t, o = {}) => desertWind(E, t, Math.max(0.6, (o.ms || 2e3) / 1e3))
+      },
+      /* a spring (opts.small: a little one) */
+      {
+        id: "bitBoing",
+        name: "Boing",
+        ms: 700,
+        play: (E, t, o = {}) => boing(E, t, o.small ? { f: NOTE.A4, d: 0.35, peak: 0.14 } : { f: NOTE.D4, d: 0.6, peak: 0.24 })
+      },
+      /* a little metal thing in the dirt: tink, tink */
+      {
+        id: "bitClink",
+        name: "Clink",
+        ms: 500,
+        play: (E, t) => {
+          M.bell(E, t, NOTE.A6, { gain: 0.3, dec: 0.25, send: 0.2 });
+          M.tick(E, t, { gain: 0.5, pitch: 1.8 });
+          M.bell(E, t + 0.12, NOTE.Fs6, { gain: 0.16, dec: 0.2, send: 0.2 });
+          M.tick(E, t + 0.12, { gain: 0.25, pitch: 1.7 });
+        }
+      },
+      /* a gun whipped out: a short swish and the hammer */
+      {
+        id: "bitDraw",
+        name: "Draw",
+        ms: 150,
+        play: (E, t) => {
+          burst(E, voice(E, { send: 0.15, bright: 1, gain: 0.5 }), t, { f: 3e3, q: 1, d: 0.09, peak: 0.5 });
+          M.clack(E, t + 0.08, { pitch: 1.4, gain: 0.35, double: false });
+        }
+      },
+      /* a breath across a barrel */
+      {
+        id: "bitPuff",
+        name: "Blow",
+        ms: 400,
+        play: (E, t) => swell(E, voice(E, { send: 0.15, bright: 0.7, gain: 1 }), t, { d: 0.32, f0: 1400, f1: 700, q: 0.9, peak: 0.32 })
+      },
+      /* a revolver spun on a finger: a whirr of clicks winding down */
+      {
+        id: "bitTwirl",
+        name: "Twirl",
+        ms: 450,
+        play: (E, t) => {
+          for (let i = 0, x = 0, dt = 0.022; i < 16; i++, x += dt, dt *= 1.09) M.tick(E, t + x, { gain: 0.5 - i * 0.02, pitch: 1.5 });
+          swell(E, voice(E, { send: 0.2, bright: 0.8 }), t, { d: 0.36, f0: 2200, f1: 1200, q: 1, peak: 0.07 });
+        }
+      },
+      /* off a glove: a hollow bonk */
+      {
+        id: "bitBonk",
+        name: "Bonk",
+        ms: 300,
+        play: (E, t) => {
+          mode(E, voice(E, { send: 0.2, bright: 0.7, gain: 0.7 }), t, NOTE.A4, 0.16, 0.4, { drop: 0.3, type: "triangle" });
+          M.knock(E, t, { pitch: 1.5, gain: 0.4 });
+        }
+      },
+      /* stars round a dizzy head: little bells round the motif (opts.ms) */
+      {
+        id: "bitStars",
+        name: "Dizzy stars",
+        ms: 900,
+        play: (E, t, o = {}) => {
+          const d = Math.max(0.3, (o.ms || 900) / 1e3), notes = [NOTE.A6, NOTE.Fs6, NOTE.D6, NOTE.Fs6];
+          for (let i = 0, x = 0; x < d; i++, x += 0.12) M.bell(E, t + x, notes[i % 4], { gain: 0.22, dec: 0.25, send: 0.3 });
+        }
+      },
+      /* peeling up off the floor: a sticky rip rising */
+      {
+        id: "bitPeel",
+        name: "Peel",
+        ms: 450,
+        play: (E, t) => {
+          const c = E.ctx, v = voice(E, { send: 0.15, bright: 1, gain: 1 });
+          const s = c.createBufferSource();
+          s.buffer = E.noise;
+          const bp = c.createBiquadFilter();
+          bp.type = "bandpass";
+          bp.Q.value = 2;
+          bp.frequency.setValueAtTime(700, t);
+          bp.frequency.exponentialRampToValueAtTime(3600, t + 0.36);
+          const g = c.createGain();
+          g.gain.setValueAtTime(1e-4, t);
+          g.gain.linearRampToValueAtTime(0.35, t + 0.25);
+          g.gain.exponentialRampToValueAtTime(1e-4, t + 0.4);
+          s.connect(bp);
+          bp.connect(g);
+          g.connect(v);
+          track(E, s, bp, g);
+          trackSource(E, s);
+          s.start(t, Math.random(), 0.45);
+          wobble(E, g.gain, t, 0.4, { rate: 42, depth: 0.18 });
+        }
+      },
+      /* a hop (opts.step): a light knock in the dirt */
+      {
+        id: "bitHop",
+        name: "Hop",
+        ms: 150,
+        play: (E, t, o = {}) => {
+          M.knock(E, t, { pitch: 1.35 + (Number(o.step) || 0) % 2 * 0.1, gain: 0.32 });
+          M.felt(E, t + 4e-3, { gain: 0.25 });
+        }
+      },
+      /* heels dug into the dirt (opts.ms: how long it slides) */
+      {
+        id: "bitSkid",
+        name: "Skid",
+        ms: 350,
+        play: (E, t, o = {}) => {
+          const v = voice(E, { send: 0.15, bright: 0.9, gain: 1 });
+          const d = Math.max(0.12, (o.ms || 260) / 1e3), n = Math.min(18, Math.round(d / 0.024));
+          for (let i = 0; i < n; i++) burst(E, v, t + i * 0.024, { f: 2600 - i * 900 / n, q: 2.5, d: 0.03, peak: 0.3 - i * 0.2 / n });
+          M.felt(E, t + d - 0.02, { gain: 0.4 });
+        }
+      },
+      /* winding up to run: feet a blur on the spot, faster and higher (opts.ms) */
+      {
+        id: "bitRev",
+        name: "Wind up",
+        ms: 400,
+        play: (E, t, o = {}) => {
+          const d = Math.max(0.15, (o.ms || 400) / 1e3);
+          for (let x = 0, dt = 0.05, i = 0; x < d && i < 40; i++, x += dt, dt = Math.max(0.016, dt * 0.86))
+            M.knock(E, t + x, { pitch: 1.3 + x / d * 0.9, gain: 0.2 + x / d * 0.22 });
+          swell(E, voice(E, { send: 0.2, bright: 0.7 }), t, { d, f0: 300, f1: 1400, q: 1.2, peak: 0.1 });
+        }
+      },
+      /* off like a shot: a little whistle up and a swish away to the left */
+      {
+        id: "bitZip",
+        name: "Zip",
+        ms: 300,
+        play: (E, t) => {
+          glide(E, voice(E, { send: 0.2, bright: 1, gain: 0.5 }), t, NOTE.D6, NOTE.A6, 0.16, 0.12);
+          travelWhoosh(E, t, { d: 0.22, from: 0, to: -0.9, peak: 0.3 });
+        }
+      },
+      /* ══ action movie (explosionwalk, dontlookback, quicksand) ══ */
+      /* the horizon going up (opts.slow: the shot drops into slow motion under it) */
+      {
+        id: "bitBoom",
+        name: "Explosion",
+        ms: 2800,
+        play: (E, t, o = {}) => explosion(E, t, { slow: !!o.slow })
+      },
+      /* a boot on the dirt (opts.step: left, right) */
+      {
+        id: "bitStep",
+        name: "Boot step",
+        ms: 200,
+        play: (E, t, o = {}) => {
+          const p = 1 + (Number(o.step) || 0) % 2 * 0.06;
+          M.knock(E, t, { pitch: 0.72 * p, gain: 0.55 });
+          M.felt(E, t + 3e-3, { gain: 0.38 });
+          burst(E, voice(E, { send: 0.1, bright: 0.7, gain: 0.5 }), t + 0.01, { f: 1500, q: 0.9, d: 0.06, peak: 0.18 });
+        }
+      },
+      /* a burning chip slamming into the dirt, and burning on */
+      {
+        id: "bitSlam",
+        name: "Burning chip lands",
+        ms: 900,
+        play: (E, t) => {
+          M.drum(E, t, { f: 82, dec: 0.32, gain: 0.95 });
+          M.clack(E, t + 2e-3, { pitch: 0.72, gain: 0.8 });
+          M.felt(E, t + 4e-3, { gain: 0.8 });
+          noiseBed(E, voice(E, { send: 0.2, bright: 0.8, gain: 0.7 }), t + 0.02, { type: "bandpass", f: 1300, d: 0.5, peak: 0.25 });
+          crackle(E, t + 0.1, 0.7, { gain: 0.2, every: 0.05 });
+        }
+      },
+      /* dark glasses slid down a nose (opts.up: pushed back up, a click home) */
+      {
+        id: "bitShades",
+        name: "Glasses slide",
+        ms: 250,
+        play: (E, t, o = {}) => {
+          const up = !!o.up;
+          M.tick(E, t + (up ? 0.08 : 0), { gain: 0.65, pitch: up ? 1.9 : 1.5 });
+          swell(E, voice(E, { send: 0.12, bright: 1, gain: 0.8 }), t, { d: 0.12, f0: up ? 1600 : 3200, f1: up ? 3400 : 1500, q: 2, peak: 0.22 });
+        }
+      },
+      /* light off a lens */
+      {
+        id: "bitGlint",
+        name: "Glint",
+        ms: 1100,
+        play: (E, t) => {
+          M.bell(E, t, NOTE.D6, { gain: 0.5, dec: 1, send: 0.35 });
+          M.bell(E, t + 0.05, NOTE.A6, { gain: 0.32, dec: 0.8, send: 0.35 });
+          burst(E, voice(E, { send: 0.3, bright: 1, gain: 0.4 }), t, { type: "highpass", f: 6500, d: 0.06, peak: 0.12 });
+        }
+      },
+      /* a lit fuse fizzing up (opts.ms), stopping dead */
+      {
+        id: "bitFuse",
+        name: "Fuse",
+        ms: 1e3,
+        play: (E, t, o = {}) => {
+          const d = Math.max(0.3, (o.ms || 1e3) / 1e3);
+          const g = noiseBed(E, voice(E, { send: 0.15, bright: 1, gain: 1 }), t, { type: "bandpass", f: 5200, q: 1.1, d, peak: 0.14, a: 0.03, hold: true });
+          wobble(E, g.gain, t, d, { rate: 23, depth: 0.05 });
+          crackle(E, t + 0.02, d - 0.06, { gain: 0.16, every: 0.045 });
+        }
+      },
+      /* a chip coming down in the dirt and hopping once (opts.step) */
+      {
+        id: "bitChipDrop",
+        name: "Chip lands in the dirt",
+        ms: 300,
+        play: (E, t, o = {}) => {
+          const p = 0.92 + (Number(o.step) || 0) % 4 * 0.04;
+          M.clack(E, t, { pitch: p, gain: 0.6 });
+          M.felt(E, t + 4e-3, { gain: 0.32 });
+          M.clack(E, t + 0.13, { pitch: p * 1.02, gain: 0.2, double: false });
+        }
+      },
+      /* a chip landing flat and settling like a coin */
+      {
+        id: "bitSpinDown",
+        name: "Chip settles flat",
+        ms: 900,
+        play: (E, t) => {
+          M.clack(E, t, { pitch: 0.9, gain: 0.6 });
+          spinDown(E, t + 0.04, { dur: 0.5, gain: 0.55 });
+        }
+      },
+      /* quicksand taking something (opts.ms): a gurgle and its blups;
+         opts.deep is a big glug as it goes under */
+      {
+        id: "bitSink",
+        name: "Quicksand",
+        ms: 1200,
+        play: (E, t, o = {}) => {
+          const d = Math.max(0.25, (o.ms || 1200) / 1e3);
+          const v = voice(E, { send: 0.2, bright: 0.5, gain: 1 });
+          const g = noiseBed(E, v, t, { type: "bandpass", f: 320, q: 3, d, peak: o.deep ? 0.5 : 0.32, a: 0.06, hold: true });
+          wobble(E, g.gain, t, d, { rate: 7.5, depth: 0.2 });
+          const blups = [[NOTE.D4, NOTE.A4], [NOTE.A3, NOTE.D4], [NOTE.Fs4, NOTE.D5]];
+          for (let x = 0.08, i = 0; x < d - 0.05 && i < 12; i++, x += rnd(0.14, 0.3)) glide(E, v, t + x, ...blups[i % 3], 0.07, 0.14);
+          if (o.deep) {
+            glide(E, v, t, NOTE.D3, NOTE.D2, 0.3, 0.4);
+            noiseBed(E, v, t, { f: 300, d: 0.35, peak: 0.3 });
+          }
+        }
+      },
+      /* gloves thrashing the air (opts.ms), sand thrown */
+      {
+        id: "bitFlail",
+        name: "Flailing",
+        ms: 700,
+        play: (E, t, o = {}) => {
+          const d = Math.max(0.2, (o.ms || 700) / 1e3);
+          for (let x = 0, i = 0; x < d - 0.05 && i < 10; i++, x += 0.115)
+            travelWhoosh(E, t + x, { d: 0.1, from: i % 2 ? 0.3 : -0.3, to: i % 2 ? -0.3 : 0.3, peak: 0.2, f0: 700, f1: 2600 });
+          crackle(E, t + 0.05, d, { gain: 0.12, every: 0.09 });
+        }
+      },
+      /* reaching for all it is worth (opts.ms): a thin note straining up */
+      {
+        id: "bitStrain",
+        name: "Straining",
+        ms: 500,
+        play: (E, t, o = {}) => {
+          const d = Math.max(0.2, (o.ms || 500) / 1e3);
+          glide(E, voice(E, { send: 0.2, bright: 0.8, gain: 0.6 }), t, NOTE.A4, NOTE.D5, d, 0.12, { type: "triangle", vib: 11, depth: 0.025 });
+        }
+      },
+      /* a rubber glove closing */
+      {
+        id: "bitSqueak",
+        name: "Glove squeak",
+        ms: 150,
+        play: (E, t) => {
+          glide(E, voice(E, { send: 0.12, bright: 1, gain: 0.5 }), t, NOTE.E5, NOTE.B5, 0.09, 0.24, { type: "square" });
+          M.tick(E, t, { gain: 0.2, pitch: 1.4 });
+        }
+      },
+      /* one bubble up through the sand: blup, pop */
+      {
+        id: "bitBubble",
+        name: "Bubble",
+        ms: 300,
+        play: (E, t) => {
+          const v = voice(E, { send: 0.25, bright: 0.9, gain: 0.8 });
+          glide(E, v, t, NOTE.D4, NOTE.A4, 0.1, 0.3);
+          M.tick(E, t + 0.11, { gain: 0.5, pitch: 1.5 });
+          burst(E, v, t + 0.11, { type: "highpass", f: 3e3, d: 0.03, peak: 0.2 });
+        }
+      },
+      /* ── idle (Oct 10): the downtime vignettes' foley, kept low (the room is
+         talking); helpers below the list ── */
+      /* a sleeper's breath: in through the nose, out on a thin whistle (opts.small: quieter) */
+      {
+        id: "bitSnore",
+        name: "Snore",
+        ms: 1500,
+        play: (E, t, o = {}) => {
+          const k = o.small ? 0.7 : 1;
+          swell(E, voice(E, { send: 0.25, bright: 0.6 }), t, { d: 0.7, f0: 450, f1: 1e3, q: 1.2, peak: 0.16 * k });
+          glide(E, voice(E, { send: 0.3, bright: 0.9, gain: 0.5 }), t + 0.78, NOTE.D6, NOTE.A5, 0.5, 0.05 * k, { vib: 5, depth: 0.01 });
+          swell(E, voice(E, { send: 0.25, bright: 0.5 }), t + 0.75, { d: 0.6, f0: 900, f1: 420, q: 1, peak: 0.09 * k });
+        }
+      },
+      /* a moth's wings (opts.ms) */
+      { id: "bitFlutter", name: "Moth flutter", ms: 1500, play: (E, t, o = {}) => flutter(E, t, Math.max(0.3, (o.ms || 1500) / 1e3)) },
+      /* a glove slapped down on a face */
+      {
+        id: "bitSwat",
+        name: "Swat",
+        ms: 400,
+        play: (E, t) => {
+          M.slap(E, t, { gain: 0.55 });
+          M.felt(E, t + 4e-3, { gain: 0.35 });
+          burst(E, voice(E, { send: 0.15, bright: 1, gain: 0.4 }), t, { type: "highpass", f: 2400, d: 0.03, peak: 0.4 });
+        }
+      },
+      /* a little table straining (opts.ms; opts.small: shorter, softer) */
+      { id: "bitCreak", name: "Creak", ms: 900, play: (E, t, o = {}) => creak(E, t, Math.max(0.2, (o.ms || 900) / 1e3), o.small ? 0.6 : 1) },
+      /* a drop of sweat (opts.small: quieter) */
+      {
+        id: "bitDrip",
+        name: "Drip",
+        ms: 250,
+        play: (E, t, o = {}) => {
+          const k = o.small ? 0.6 : 1;
+          glide(E, voice(E, { send: 0.3, bright: 1, gain: 0.6 }), t, NOTE.D6, NOTE.A6, 0.08, 0.16 * k);
+          M.tick(E, t, { gain: 0.12 * k, pitch: 1.8 });
+        }
+      },
+      /* a cactus spine: a sharp tick and a yip up (opts.big: the last one) */
+      {
+        id: "bitPrick",
+        name: "Prick",
+        ms: 400,
+        play: (E, t, o = {}) => {
+          const k = o.big ? 1.5 : 1;
+          M.tick(E, t, { gain: 0.35 * k, pitch: 2 });
+          M.bell(E, t, NOTE.A6, { gain: 0.12 * k, dec: 0.2, send: 0.2 });
+          glide(E, voice(E, { send: 0.2, bright: 1, gain: 0.5 }), t + 0.02, NOTE.A5, NOTE.D6 * (o.big ? 2 : 1), 0.14, 0.07 * k, { type: "triangle" });
+        }
+      },
+      /* a hurt glove shaken out: quick swishes, fading */
+      {
+        id: "bitShake",
+        name: "Shake it out",
+        ms: 500,
+        play: (E, t) => {
+          const v = voice(E, { send: 0.15, bright: 0.9, gain: 1 });
+          for (let i = 0; i < 6; i++) burst(E, v, t + i * 0.075, { f: 2600 - i * 120, q: 1.1, d: 0.045, peak: 0.16 - i * 0.02 });
+        }
+      },
+      /* a little stepladder set down, or going over (opts.small) */
+      {
+        id: "bitLadder",
+        name: "Stepladder",
+        ms: 300,
+        play: (E, t, o = {}) => {
+          const k = o.small ? 0.6 : 1;
+          M.knock(E, t, { pitch: 1.15, gain: 0.4 * k });
+          M.knock(E, t + 0.06, { pitch: 1.35, gain: 0.25 * k });
+          M.bell(E, t + 4e-3, NOTE.Fs6, { gain: 0.05 * k, dec: 0.18, send: 0.15 });
+        }
+      },
+      /* a push-up's breath, harder each time (opts.step) */
+      {
+        id: "bitHuff",
+        name: "Huff",
+        ms: 450,
+        play: (E, t, o = {}) => {
+          const s = Math.min(3, Math.max(0, Number(o.step) || 0));
+          swell(E, voice(E, { send: 0.15, bright: 0.6 }), t, { d: 0.2 + s * 0.07, f0: 950 + s * 60, f1: 520, q: 1.1, peak: 0.2 + s * 0.06 });
+        }
+      },
+      /* flat on the floor, softly (the dust thud, quieter, for a vignette) */
+      {
+        id: "bitFlop",
+        name: "Flop",
+        ms: 450,
+        play: (E, t) => {
+          M.drum(E, t, { f: 62, dec: 0.26, gain: 0.4 });
+          M.felt(E, t, { gain: 0.45 });
+          burst(E, voice(E, { send: 0.18, bright: 0.5, gain: 0.4 }), t + 0.01, { type: "lowpass", f: 700, q: 0.5, d: 0.25, peak: 0.35 });
+        }
+      },
+      /* a rubber glove's squeak */
+      {
+        id: "bitSqueakSoft",
+        name: "Soft squeak",
+        ms: 250,
+        play: (E, t) => glide(E, voice(E, { send: 0.2, bright: 1, gain: 0.5 }), t, NOTE.A5, NOTE.D6, 0.15, 0.09, { type: "triangle", vib: 18, depth: 0.02 })
+      },
+      /* a broom's stroke across the dirt (opts.step varies it) */
+      {
+        id: "bitSweep",
+        name: "Sweep",
+        ms: 400,
+        play: (E, t, o = {}) => {
+          const p = 1 + (Number(o.step) || 0) % 3 * 0.06, v = voice(E, { send: 0.15, bright: 0.9 });
+          swell(E, v, t, { d: 0.28, f0: 3200 * p, f1: 2200 * p, q: 0.9, peak: 0.16 });
+          for (let i = 0; i < 5; i++) burst(E, v, t + 0.03 + i * 0.045, { type: "highpass", f: 3600, d: 6e-3, peak: 0.1 });
+        }
+      },
+      /* a gust across the room, right to left (opts.ms) */
+      {
+        id: "bitGust",
+        name: "Gust",
+        ms: 1300,
+        play: (E, t, o = {}) => {
+          const d = Math.max(0.5, (o.ms || 1300) / 1e3);
+          travelWhoosh(E, t, { d, from: 0.8, to: -0.8, peak: 0.22, f0: 260, f1: 1300 });
+          desertWind(E, t + 0.1, d * 0.8);
+        }
+      },
+      /* paper unfolding, or turned (opts.ms; opts.small: quieter) */
+      { id: "bitPaper", name: "Paper", ms: 900, play: (E, t, o = {}) => paperCrackle(E, t, Math.max(0.15, (o.ms || 900) / 1e3), o.small ? 0.6 : 1, 4200) },
+      /* paper crumpled into a ball */
+      { id: "bitCrumple", name: "Crumple", ms: 500, play: (E, t) => paperCrackle(E, t, 0.45, 1.3, 2400, 2.2) },
+      /* a paper ball off a rock, or into the dirt (opts.small) */
+      {
+        id: "bitPap",
+        name: "Paper ball",
+        ms: 200,
+        play: (E, t, o = {}) => {
+          const k = o.small ? 0.6 : 1;
+          M.knock(E, t, { pitch: 1.7, gain: 0.28 * k });
+          M.felt(E, t + 3e-3, { gain: 0.2 * k });
+        }
+      },
+      /* a roadrunner's beep beep, far off along the horizon */
+      {
+        id: "bitBeepFar",
+        name: "Far beep",
+        ms: 500,
+        play: (E, t) => {
+          farBeep(E, t, NOTE.A5);
+          farBeep(E, t + 0.19, NOTE.D6);
+        }
+      },
+      /* ── the slapstick bits (springglove, toohype, dynamite) ── */
+      /* a big button slammed: a chunky plastic click */
+      {
+        id: "bitClick",
+        name: "Button",
+        ms: 200,
+        play: (E, t) => {
+          M.knock(E, t, { pitch: 1.7, gain: 0.6 });
+          M.clack(E, t + 4e-3, { pitch: 0.75, gain: 0.55, double: false });
+          M.tick(E, t + 0.05, { gain: 0.3, pitch: 1.2 });
+        }
+      },
+      /* a spring let go: a twang sliding up, a whoosh out, the coil humming on */
+      {
+        id: "bitSproing",
+        name: "Spring lets go",
+        ms: 900,
+        play: (E, t) => {
+          glide(E, voice(E, { send: 0.22, bright: 1, gain: 0.8 }), t, NOTE.D4, NOTE.D6, 0.12, 0.22, { type: "triangle", vib: 30, depth: 0.05 });
+          travelWhoosh(E, t, { d: 0.12, from: -0.35, to: 0.45, peak: 0.4, f0: 900, f1: 4200 });
+          boing(E, t + 0.07, { f: NOTE.A4, d: 0.7, peak: 0.16 });
+        }
+      },
+      /* a punch landing: a leather thwack on a low thump */
+      {
+        id: "bitPow",
+        name: "Punch",
+        ms: 600,
+        play: (E, t) => {
+          M.drum(E, t, { f: 72, dec: 0.32, gain: 1 });
+          M.slap(E, t, { gain: 0.95 });
+          const v = voice(E, { send: 0.2, bright: 0.8, gain: 0.9 });
+          burst(E, v, t, { f: 900, q: 0.9, d: 0.07, peak: 0.8 });
+          burst(E, v, t + 3e-3, { type: "lowpass", f: 500, q: 0.6, d: 0.16, peak: 0.6 });
+          M.knock(E, t + 6e-3, { pitch: 0.7, gain: 0.5 });
+        }
+      },
+      /* very far away in the sky: a high ping and its shimmer */
+      {
+        id: "bitTwinkle",
+        name: "Ping",
+        ms: 1400,
+        play: (E, t) => {
+          M.bell(E, t, NOTE.A6, { gain: 0.72, dec: 1.2, send: 0.42 });
+          M.bell(E, t, NOTE.D6, { gain: 0.32, dec: 1, send: 0.42 });
+          [NOTE.Fs6, NOTE.A6, NOTE.D6 * 2].forEach((f, i) => M.bell(E, t + 0.05 + i * 0.045, f, { gain: 0.14, dec: 0.4, send: 0.5 }));
+        }
+      },
+      /* a rubber bounce, a step up D each time (opts.step 0..3) */
+      {
+        id: "bitBounce",
+        name: "Bounce",
+        ms: 400,
+        play: (E, t, o = {}) => {
+          const step = Math.max(0, Math.min(3, Number(o.step) || 0)), f = [NOTE.D4, NOTE.Fs4, NOTE.A4, NOTE.D5][step];
+          glide(E, voice(E, { send: 0.2, bright: 0.8, gain: 0.7 }), t, f * 0.7, f * 1.5, 0.16 + step * 0.03, 0.2, { type: "triangle" });
+          M.knock(E, t, { pitch: 1.2, gain: 0.3 });
+          M.felt(E, t + 4e-3, { gain: 0.25 });
+        }
+      },
+      /* straight up like a rocket: a pop out of the shoes, a whistle climbing */
+      {
+        id: "bitLaunch",
+        name: "Launch",
+        ms: 700,
+        play: (E, t) => {
+          M.knock(E, t, { pitch: 1.5, gain: 0.5 });
+          burst(E, voice(E, { send: 0.1, gain: 0.6 }), t, { f: 600, q: 1, d: 0.05, peak: 0.6 });
+          glide(E, voice(E, { send: 0.3, bright: 1, gain: 0.6 }), t + 0.02, NOTE.D5, NOTE.D6 * 2, 0.42, 0.14);
+          swell(E, voice(E, { send: 0.25, bright: 1 }), t, { d: 0.4, f0: 500, f1: 4e3, q: 0.8, peak: 0.32 });
+        }
+      },
+      /* coming back down fast: a whistle falling (opts.ms) */
+      {
+        id: "bitFall",
+        name: "Falling",
+        ms: 400,
+        play: (E, t, o = {}) => {
+          const d = Math.max(0.15, (o.ms || 260) / 1e3);
+          glide(E, voice(E, { send: 0.25, bright: 0.9, gain: 0.7 }), t, NOTE.A6, NOTE.D5, d, 0.16);
+          swell(E, voice(E, { send: 0.2, bright: 0.9 }), t, { d, f0: 3e3, f1: 600, q: 0.8, peak: 0.22 });
+        }
+      },
+      /* into the ground: a heavy thump and the dirt cracking round it */
+      {
+        id: "bitPlant",
+        name: "Planted",
+        ms: 800,
+        play: (E, t) => {
+          M.drum(E, t, { f: NOTE.D2, dec: 0.6, gain: 1 });
+          M.slap(E, t, { gain: 0.7 });
+          burst(E, voice(E, { send: 0.2, bright: 0.6, gain: 0.8 }), t + 4e-3, { type: "lowpass", f: 800, q: 0.5, d: 0.3, peak: 0.7 });
+          for (let i = 0; i < 7; i++) M.knock(E, t + 0.03 + i * 0.03 + rnd(0, 0.015), { pitch: rnd(1.4, 2.2), gain: 0.2 * (1 - i / 9) });
+        }
+      },
+      /* up out of the dirt: a cork pop */
+      {
+        id: "bitPop",
+        name: "Pop",
+        ms: 250,
+        play: (E, t) => {
+          const v = voice(E, { send: 0.18, bright: 1, gain: 0.8 });
+          burst(E, v, t, { f: 1400, q: 1.4, d: 0.02, peak: 0.7 });
+          mode(E, v, t, NOTE.D5, 0.08, 0.35, { drop: -0.35 });
+        }
+      },
+      /* a little sneaker step, a squeak (opts.step alternates) */
+      {
+        id: "bitSneaker",
+        name: "Sneaker step",
+        ms: 150,
+        play: (E, t, o = {}) => {
+          const up = (Number(o.step) || 0) % 2;
+          glide(E, voice(E, { send: 0.12, bright: 1, gain: 0.7 }), t, up ? NOTE.Fs5 : NOTE.E5, up ? NOTE.B5 : NOTE.A5, 0.07, 0.14);
+          M.knock(E, t, { pitch: 1.6, gain: 0.24 });
+        }
+      },
+      /* a match struck: the scratch and the flare */
+      {
+        id: "bitMatch",
+        name: "Match",
+        ms: 500,
+        play: (E, t) => {
+          const v = voice(E, { send: 0.15, bright: 1, gain: 0.8 });
+          for (let i = 0; i < 4; i++) burst(E, v, t + i * 0.012, { f: 3200 - i * 300, q: 1.6, d: 0.02, peak: 0.35 });
+          swell(E, voice(E, { send: 0.2, bright: 0.6 }), t + 0.05, { d: 0.35, f0: 300, f1: 1300, q: 0.7, peak: 0.3 });
+        }
+      },
+      /* a lit fuse: the hiss and its crackle, hotter as it burns down (opts.ms) */
+      {
+        id: "bitFuseHiss",
+        name: "Fuse hiss",
+        ms: 1800,
+        play: (E, t, o = {}) => {
+          const d = Math.max(0.4, (o.ms || 1800) / 1e3), c = E.ctx, v = voice(E, { send: 0.15, bright: 1 });
+          const s = c.createBufferSource();
+          s.buffer = E.noise;
+          s.loop = true;
+          const bp = c.createBiquadFilter();
+          bp.type = "bandpass";
+          bp.frequency.value = 5200;
+          bp.Q.value = 0.8;
+          const g = c.createGain();
+          g.gain.setValueAtTime(1e-4, t);
+          g.gain.linearRampToValueAtTime(0.16, t + 0.06);
+          g.gain.linearRampToValueAtTime(0.26, t + d * 0.95);
+          g.gain.exponentialRampToValueAtTime(1e-4, t + d);
+          s.connect(bp);
+          bp.connect(g);
+          g.connect(v);
+          track(E, s, bp, g);
+          trackSource(E, s);
+          s.start(t, Math.random(), d + 0.05);
+          wobble(E, g.gain, t, d, { rate: 23, depth: 0.08 });
+          for (let x = 0.05; x < d - 0.05; x += rnd(0.04, 0.11)) M.tick(E, t + x, { gain: 0.12 + 0.12 * (x / d), pitch: rnd(1.4, 2.2) });
+        }
+      },
+      /* the dynamite: a deep blast, the air cracking, the bits coming down */
+      {
+        id: "bitBlast",
+        name: "Dynamite blast",
+        ms: 2600,
+        play: (E, t) => {
+          M.drum(E, t, { f: NOTE.D2, dec: 1.4, gain: 1 });
+          M.drum(E, t + 0.01, { f: 44, dec: 1.8, gain: 0.8 });
+          const v = voice(E, { send: 0.4, bright: 0.9, gain: 1 });
+          burst(E, v, t, { type: "highpass", f: 1800, q: 0.6, d: 0.03, peak: 0.9 });
+          burst(E, v, t + 2e-3, { f: 700, q: 0.6, d: 0.25, peak: 0.9 });
+          burst(E, v, t + 0.01, { type: "lowpass", f: 420, q: 0.5, d: 1.6, peak: 0.75 });
+          for (let i = 0; i < 10; i++) M.knock(
+            E,
+            t + 0.25 + Math.pow(i / 10, 1.4) * 1.1 + rnd(0, 0.04),
+            { pitch: rnd(1.2, 2.4), gain: 0.16 * (1 - i / 12), pan: rnd(-0.6, 0.6) }
+          );
+        }
+      },
+      /* one dry cough of smoke */
+      {
+        id: "bitCough",
+        name: "Cough",
+        ms: 400,
+        play: (E, t) => {
+          const v = voice(E, { send: 0.15, bright: 0.8, gain: 1 });
+          burst(E, v, t, { f: 1300, q: 1.1, d: 0.08, peak: 0.85 });
+          burst(E, v, t + 4e-3, { type: "lowpass", f: 500, q: 0.6, d: 0.06, peak: 0.6 });
+          burst(E, v, t + 0.13, { f: 1100, q: 1.1, d: 0.06, peak: 0.45 });
+        }
+      },
+      /* a glove landing in the dirt */
+      {
+        id: "bitGloveFlop",
+        name: "Glove flop",
+        ms: 300,
+        play: (E, t) => {
+          M.felt(E, t, { gain: 0.6 });
+          M.knock(E, t + 6e-3, { pitch: 0.95, gain: 0.28 });
+          burst(E, voice(E, { send: 0.1, bright: 0.5, gain: 0.4 }), t + 0.01, { type: "lowpass", f: 600, d: 0.12, peak: 0.4 });
+        }
+      },
+      /* ── the deadpan desert (butte, sunset, statue, vulture) ── */
+      /* a fingertip on stone: one dry tock */
+      {
+        id: "bitPoke",
+        name: "Poke",
+        ms: 200,
+        play: (E, t) => {
+          M.knock(E, t, { pitch: 2.3, gain: 0.26 });
+          M.tick(E, t + 2e-3, { gain: 0.3, pitch: 1.4 });
+        }
+      },
+      /* a crack running up rock (opts.ms): sharp ticks climbing, a snap at the top */
+      {
+        id: "bitCrackle",
+        name: "Rock cracks",
+        ms: 260,
+        play: (E, t, o = {}) => {
+          const d = Math.max(0.1, (o.ms || 200) / 1e3), v = voice(E, { send: 0.2, bright: 1, gain: 0.9 });
+          for (let i = 0, x = 0; i < 12 && x < d; i++, x += d / 11) burst(E, v, t + x + rnd(0, 6e-3), { type: "highpass", f: 1800 + i * 300, q: 0.8, d: 0.01, peak: 0.32 + i * 0.02 });
+          mode(E, v, t, 140, 0.12, 0.25, { drop: 0.4 });
+          burst(E, v, t + d, { f: 2600, q: 0.7, d: 0.03, peak: 0.5 });
+        }
+      },
+      /* rock breaking up and dropping away down a hole: a crunch, a rumble,
+         stones knocking, falling away lower and quieter */
+      {
+        id: "bitCrumble",
+        name: "Rock crumbles",
+        ms: 1100,
+        play: (E, t) => {
+          M.drum(E, t, { f: NOTE.D2, dec: 0.4, gain: 0.7 });
+          M.slap(E, t, { gain: 0.5 });
+          burst(E, voice(E, { send: 0.3, bright: 0.5, gain: 0.8 }), t, { type: "lowpass", f: 600, q: 0.6, d: 0.7, peak: 0.4 });
+          for (let i = 0; i < 16; i++) {
+            const x = Math.pow(i / 16, 1.3) * 0.75;
+            M.knock(E, t + 0.02 + x + rnd(0, 0.01), { pitch: rnd(0.6, 1.3) * (1 - x * 0.4), gain: 0.5 - i * 0.025 });
+          }
+        }
+      },
+      /* falling away from us a long way (opts.ms): a whistle sliding down, quieter as it goes, cut dead */
+      {
+        id: "bitFallAway",
+        name: "Falling away",
+        ms: 700,
+        play: (E, t, o = {}) => {
+          const d = Math.max(0.25, (o.ms || 700) / 1e3), c = E.ctx, v = voice(E, { send: 0.35, bright: 0.9 });
+          const osc = c.createOscillator();
+          osc.type = "sine";
+          osc.frequency.setValueAtTime(NOTE.A6, t);
+          osc.frequency.exponentialRampToValueAtTime(NOTE.D5, t + d);
+          const g = c.createGain();
+          g.gain.setValueAtTime(1e-4, t);
+          g.gain.linearRampToValueAtTime(0.22, t + 0.04);
+          g.gain.exponentialRampToValueAtTime(0.03, t + d * 0.95);
+          g.gain.linearRampToValueAtTime(1e-4, t + d);
+          osc.connect(g);
+          g.connect(v);
+          track(E, osc, g);
+          trackSource(E, osc);
+          osc.start(t);
+          osc.stop(t + d + 0.03);
+        }
+      },
+      /* far below: a small, soft thud and a long room */
+      {
+        id: "bitFarThud",
+        name: "Far below",
+        ms: 900,
+        play: (E, t) => {
+          M.drum(E, t, { f: NOTE.D2 * 1.2, dec: 0.3, gain: 0.32, send: 0.6 });
+          burst(E, voice(E, { send: 0.6, bright: 0.35, gain: 0.5 }), t + 0.01, { type: "lowpass", f: 500, q: 0.5, d: 0.25, peak: 0.3 });
+        }
+      },
+      /* gloves dusted off on each other (opts.step) */
+      {
+        id: "bitPat",
+        name: "Dusting off",
+        ms: 200,
+        play: (E, t, o = {}) => {
+          M.felt(E, t, { gain: 0.35 });
+          burst(E, voice(E, { send: 0.15, bright: 0.8, gain: 0.6 }), t, { f: 1700 + (Number(o.step) || 0) % 2 * 300, q: 0.7, d: 0.07, peak: 0.35 });
+        }
+      },
+      /* a backglass lamp relay catching (opts.step): the sky steps warmer */
+      {
+        id: "bitRelamp",
+        name: "Relamp",
+        ms: 250,
+        play: (E, t, o = {}) => {
+          const s = Math.max(0, Number(o.step) || 0);
+          M.clack(E, t, { pitch: 0.7 + s * 0.04, gain: 0.22, double: false, bright: 0.6 });
+          M.knock(E, t + 4e-3, { pitch: 1.1, gain: 0.12 });
+        }
+      },
+      /* a winch letting out rope, click by click (opts.ms), a last clunk */
+      {
+        id: "bitRatchet",
+        name: "Winch",
+        ms: 1200,
+        play: (E, t, o = {}) => {
+          const d = Math.max(0.3, (o.ms || 1100) / 1e3);
+          for (let x = 0, i = 0; x < d - 0.05 && i < 30; x += 0.085, i++) M.tick(E, t + x, { gain: 0.32, pitch: 1.2 - i % 2 * 0.08 });
+          M.knock(E, t + d, { pitch: 1.3, gain: 0.3 });
+        }
+      },
+      /* a glint off a lens: a bright ping */
+      {
+        id: "bitGleam",
+        name: "Gleam",
+        ms: 1300,
+        play: (E, t) => {
+          M.bell(E, t, NOTE.A6, { gain: 0.42, dec: 1.1, send: 0.4 });
+          M.bell(E, t + 4e-3, NOTE.A6 * 1.5, { gain: 0.12, dec: 0.6, send: 0.4 });
+          burst(E, voice(E, { send: 0.3, bright: 1, gain: 0.3 }), t, { type: "highpass", f: 6e3, d: 0.05, peak: 0.25 });
+        }
+      },
+      /* yanked straight up and away: a snap and a rising zip */
+      {
+        id: "bitYank",
+        name: "Yank",
+        ms: 300,
+        play: (E, t) => {
+          M.tick(E, t, { gain: 0.5, pitch: 1.6 });
+          glide(E, voice(E, { send: 0.2, bright: 1, gain: 0.5 }), t + 0.01, NOTE.D5, NOTE.A6, 0.16, 0.14);
+          swell(E, voice(E, { send: 0.15, bright: 0.9 }), t, { d: 0.18, f0: 900, f1: 4200, q: 0.9, peak: 0.3 });
+        }
+      },
+      /* a sheen running down metal: bells run down the motif over a shimmer */
+      {
+        id: "bitSheen",
+        name: "Turned to gold",
+        ms: 1400,
+        play: (E, t) => {
+          [NOTE.A6, NOTE.Fs6, NOTE.D6, NOTE.A5, NOTE.Fs5].forEach((f, i) => M.bell(E, t + i * 0.07, f, { gain: 0.24, dec: 0.9, send: 0.4 }));
+          swell(E, voice(E, { send: 0.4, bright: 1 }), t, { d: 0.5, f0: 7e3, f1: 3e3, q: 2, peak: 0.08 });
+        }
+      },
+      /* a stone block grinding up out of the ground (opts.ms) */
+      {
+        id: "bitGrind",
+        name: "Stone grinds",
+        ms: 700,
+        play: (E, t, o = {}) => {
+          const d = Math.max(0.2, (o.ms || 600) / 1e3), c = E.ctx, v = voice(E, { send: 0.2, bright: 0.6, gain: 1 });
+          const s = c.createBufferSource();
+          s.buffer = E.noise;
+          s.loop = true;
+          const bp = c.createBiquadFilter();
+          bp.type = "bandpass";
+          bp.frequency.value = 380;
+          bp.Q.value = 1.4;
+          const g = c.createGain();
+          g.gain.setValueAtTime(1e-4, t);
+          g.gain.linearRampToValueAtTime(0.5, t + 0.06);
+          g.gain.setValueAtTime(0.5, t + d * 0.8);
+          g.gain.exponentialRampToValueAtTime(1e-4, t + d);
+          s.connect(bp);
+          bp.connect(g);
+          g.connect(v);
+          track(E, s, bp, g);
+          trackSource(E, s);
+          s.start(t, Math.random(), d + 0.05);
+          wobble(E, g.gain, t, d, { rate: 23, depth: 0.2 });
+          held(E, v, t, NOTE.D2, d, 0.12, { a: 0.05 });
+        }
+      },
+      /* wings (opts.small: a little bird; opts.step) */
+      {
+        id: "bitFlap",
+        name: "Wings",
+        ms: 250,
+        play: (E, t, o = {}) => {
+          const small = !!o.small, v = voice(E, { send: 0.15, bright: small ? 0.9 : 0.5, gain: small ? 0.4 : 0.8 });
+          burst(E, v, t, { type: "lowpass", f: small ? 2400 : 700, q: 0.6, d: small ? 0.05 : 0.12, peak: 0.6, a: 0.012 });
+          if (!small) M.felt(E, t + 0.01, { gain: 0.25 });
+        }
+      },
+      /* a beak on gold: tink */
+      {
+        id: "bitTink",
+        name: "Tink",
+        ms: 700,
+        play: (E, t) => {
+          M.bell(E, t, NOTE.A6, { gain: 0.38, dec: 0.6, send: 0.3 });
+          M.tick(E, t, { gain: 0.45, pitch: 2 });
+        }
+      },
+      /* a little bird fluffing itself up: a quick soft flutter */
+      {
+        id: "bitFluff",
+        name: "Fluff",
+        ms: 300,
+        play: (E, t) => {
+          const v = voice(E, { send: 0.15, bright: 0.8, gain: 0.5 });
+          for (let i = 0; i < 6; i++) burst(E, v, t + i * 0.035, { f: 2200 - i * 120, q: 0.8, d: 0.03, peak: 0.45 - i * 0.03 });
+        }
+      },
+      /* a metal arm sagging slowly (opts.ms): a long creak sliding down */
+      {
+        id: "bitDroop",
+        name: "Metal sags",
+        ms: 1e3,
+        play: (E, t, o = {}) => {
+          const d = Math.max(0.3, (o.ms || 900) / 1e3), c = E.ctx, v = voice(E, { send: 0.25, bright: 0.7, gain: 1 });
+          const bp = c.createBiquadFilter();
+          bp.type = "bandpass";
+          bp.frequency.value = 900;
+          bp.Q.value = 3;
+          bp.connect(v);
+          track(E, bp);
+          const osc = held(E, bp, t, NOTE.D4, d, 0.36, { type: "sawtooth", a: 0.08 });
+          osc.frequency.exponentialRampToValueAtTime(NOTE.A3, t + d);
+          wobble(E, osc.frequency, t, d, { rate: 11, depth: 6 });
+        }
+      },
+      /* a short shuffle in the dirt (opts.step) */
+      {
+        id: "bitScoot",
+        name: "Scoot",
+        ms: 150,
+        play: (E, t, o = {}) => {
+          const s = (Number(o.step) || 0) % 2;
+          swell(E, voice(E, { send: 0.1, bright: 0.8, gain: 0.9 }), t, { d: 0.09, f0: 2400 - s * 300, f1: 900, q: 1, peak: 0.35 });
+          M.felt(E, t + 0.07, { gain: 0.2 });
+        }
+      },
+      /* a napkin flicked open and tucked in */
+      {
+        id: "bitFwip",
+        name: "Napkin",
+        ms: 200,
+        play: (E, t) => {
+          const v = voice(E, { send: 0.15, bright: 1, gain: 0.8 });
+          burst(E, v, t, { type: "highpass", f: 3e3, q: 0.7, d: 0.02, peak: 0.4 });
+          swell(E, v, t, { d: 0.12, f0: 1500, f1: 4e3, q: 0.9, peak: 0.3 });
+        }
+      },
+      /* a knife drawn across a fork: shing */
+      {
+        id: "bitShing",
+        name: "Knife and fork",
+        ms: 1e3,
+        play: (E, t) => {
+          swell(E, voice(E, { send: 0.3, bright: 1, gain: 1 }), t, { d: 0.24, f0: 2500, f1: 6500, q: 6, peak: 0.3 });
+          M.bell(E, t + 0.2, NOTE.A6, { gain: 0.25, dec: 0.7, send: 0.35 });
+          M.bell(E, t + 0.2, NOTE.E6, { gain: 0.12, dec: 0.5, send: 0.35 });
+        }
+      },
+      /* ══ the team bits (Oct 12) ══ */
+      /* ── dominoes ── */
+      /* a line going over (opts.ms): clacks one after another, a little
+         faster as the chain runs, panned along it left to right (opts.dir -1:
+         right to left) */
+      {
+        id: "bitClatter",
+        name: "Domino chain",
+        ms: 900,
+        play: (E, t, o = {}) => {
+          const d = Math.max(0.2, (o.ms || 800) / 1e3), n = Math.max(3, Math.min(8, Math.round(d / 0.12)));
+          const way = o.dir < 0 ? -1 : 1;
+          for (let i = 0; i < n; i++) {
+            const x = d * Math.pow(i / Math.max(1, n - 1), 1.12), pan = n > 1 ? way * (-0.6 + 1.2 * i / (n - 1)) : 0;
+            M.clack(E, t + x, { pitch: 0.86 + i % 3 * 0.05, gain: 0.5, double: false, pan });
+            M.felt(E, t + x + 4e-3, { gain: 0.18 });
+          }
+        }
+      },
+      /* ── tugofwar ── */
+      /* ── slowmowalk ── */
+      /* the rest of a chain of far blasts along the horizon (opts.ms): after
+         the first, dull booms one after another, panned left to right */
+      {
+        id: "bitBoomChain",
+        name: "Far blasts in a row",
+        ms: 1600,
+        play: (E, t, o = {}) => {
+          const d = Math.max(0.3, (o.ms || 1200) / 1e3), n = Math.max(3, Math.min(6, Math.round(d / 0.24) + 1));
+          for (let i = 1; i < n; i++) {
+            const x = d * i / (n - 1), pan = -0.5 + 1 * i / (n - 1);
+            M.drum(E, t + x, { f: NOTE.D2 * (0.9 + i % 2 * 0.12), dec: 0.7, gain: 0.55, pan });
+            noiseBed(E, voice(E, { send: 0.45, bright: 0.4, gain: 0.5, pan }), t + x + 5e-3, { d: 0.6, f: 420, peak: 0.45 });
+          }
+        }
+      },
+      /* ── pyramid ── */
+      /* ── teamphoto ── */
+      /* a camera's self-timer (opts.ms): blips coming faster and faster, the
+         last ones nearly a tone */
+      {
+        id: "bitTimer",
+        name: "Self-timer",
+        ms: 2500,
+        play: (E, t, o = {}) => {
+          const d = Math.max(0.6, (o.ms || 2500) / 1e3);
+          const v = voice(E, { send: 0.15, bright: 1, gain: 0.5 });
+          for (let x = 0, gap = 0.42; x < d - 0.02; x += gap, gap = Math.max(0.07, gap * 0.8)) {
+            held(E, v, t + x, NOTE.A6, Math.min(0.07, gap * 0.5), 0.3, { type: "triangle", a: 3e-3 });
+            M.tick(E, t + x, { gain: 0.12, pitch: 1.8 });
+          }
+        }
+      },
+      /* a flash going off: the shutter's clack, the flash's rising whine */
+      {
+        id: "bitShutter",
+        name: "Shutter and flash",
+        ms: 900,
+        play: (E, t) => {
+          M.clack(E, t, { pitch: 1.1, gain: 0.6, double: true });
+          M.tick(E, t + 0.03, { gain: 0.35, pitch: 1.6 });
+          glide(E, voice(E, { send: 0.2, bright: 1, gain: 0.18 }), t + 0.05, NOTE.D6, NOTE.D6 * 2, 0.6, 0.12, { type: "sine" });
+        }
+      },
+      /* ── victorylap ── */
+      /* a flag snapping in the wind (opts.ms): soft cloth cracks in a slow run */
+      {
+        id: "bitFlagFlap",
+        name: "Flag flapping",
+        ms: 2400,
+        play: (E, t, o = {}) => {
+          const d = Math.max(0.4, (o.ms || 2400) / 1e3);
+          for (let x = 0, i = 0; x < d; x += 0.34 + i % 2 * 0.12, i++) {
+            const v = voice(E, { send: 0.2, bright: 0.7, gain: 0.5, pan: rnd(-0.15, 0.15) });
+            burst(E, v, t + x, { type: "bandpass", f: 900 + i % 3 * 180, q: 0.7, d: 0.07, peak: 0.55, a: 0.01 });
+          }
+        }
+      },
+      /* the wind dropping out of a flag: the last of the gust sliding down,
+         and a soft falling whistle as it hangs limp */
+      {
+        id: "bitFlagSag",
+        name: "Flag goes limp",
+        ms: 1e3,
+        play: (E, t) => {
+          swell(E, voice(E, { send: 0.25, bright: 0.6, gain: 0.6 }), t, { d: 0.5, f0: 1200, f1: 300, q: 0.8, peak: 0.2 });
+          glide(E, voice(E, { send: 0.3, bright: 0.8, gain: 0.35 }), t + 0.15, NOTE.A5, NOTE.D5, 0.7, 0.1, { type: "sine" });
+        }
+      }
+    ].map(Object.freeze));
+    SOUNDS = Object.freeze(Object.fromEntries([...KIT, ...PARTS, ...BOARD_PARTS, ...BIT_PARTS].map((s) => [s.id, s])));
     SOUND_IDS = Object.freeze(KIT.map((s) => s.id));
     isSound = (id) => Object.prototype.hasOwnProperty.call(SOUNDS, id);
     CHIP_DENSITY = Object.freeze({ minGap: 120, crowd: 3, window: 400 });
@@ -7544,7 +9066,7 @@ function GlassArtView({ phase = null, className = "", depth = false, clear = fal
     }
   ))));
   const range = /* @__PURE__ */ React22.createElement(React22.Fragment, null, /* @__PURE__ */ React22.createElement("path", { className: "fd-glass-far", d: SCENE.far }), /* @__PURE__ */ React22.createElement("path", { className: "fd-glass-mid", d: SCENE.hump }));
-  const buttes = SCENE.buttes.map((butte, i) => /* @__PURE__ */ React22.createElement("g", { key: i }, /* @__PURE__ */ React22.createElement("path", { className: "fd-glass-mesa", d: butte.lit }), /* @__PURE__ */ React22.createElement("path", { className: "fd-glass-shade", d: butte.shade })));
+  const buttes = SCENE.buttes.map((butte2, i) => /* @__PURE__ */ React22.createElement("g", { key: i }, /* @__PURE__ */ React22.createElement("path", { className: "fd-glass-mesa", d: butte2.lit }), /* @__PURE__ */ React22.createElement("path", { className: "fd-glass-shade", d: butte2.shade })));
   const below = depth ? 80 : 0;
   const floor2 = /* @__PURE__ */ React22.createElement(React22.Fragment, null, /* @__PURE__ */ React22.createElement("rect", { className: "fd-glass-ground", y: horizon, width, height: SCENE.floor - horizon + below }), /* @__PURE__ */ React22.createElement("rect", { className: "fd-glass-rim", y: horizon, width, height: 6 }), /* @__PURE__ */ React22.createElement("g", { className: "fd-glass-cactus" }, SCENE.cacti.filter((c) => standsClear(c, left, zone)).map((c, i) => /* @__PURE__ */ React22.createElement("path", { key: i, d: c.d, transform: `translate(${c.x} ${c.y}) scale(${c.scale})` }))));
   const clipDef = /* @__PURE__ */ React22.createElement("defs", null, /* @__PURE__ */ React22.createElement("clipPath", { id: clip }, /* @__PURE__ */ React22.createElement("rect", { y: top, width, height: horizon - top })));
@@ -7806,12 +9328,12 @@ function Trivia() {
   const desk = mix("var(--art-violet)", 70, "var(--art-plum)");
   const lit = "var(--art-cream)", dark = mix("var(--art-cream)", 18, K);
   const desks = [300, 450, 600, 750, 900];
-  const blink = (i, k) => run("fi-blink", 180, 900 + (k * 5 + i) * 110, "steps(1, end)");
+  const blink = (i, k) => run("fi-blink", 180, 900 + (k * 5 + i) * 110, "steps(1, start)");
   return /* @__PURE__ */ React23.createElement(
     Plates,
     {
       mid: /* @__PURE__ */ React23.createElement(React23.Fragment, null, /* @__PURE__ */ React23.createElement("g", { style: { ...box, ...run("fi-card-back", 150, 900, "cubic-bezier(.5,0,.8,.5)") } }, /* @__PURE__ */ React23.createElement("rect", { x: "474", y: "196", width: "252", height: "166", rx: "14", fill: mix("var(--art-cobalt)", 80, K), stroke: K, strokeWidth: "6" }), /* @__PURE__ */ React23.createElement("rect", { x: "490", y: "212", width: "220", height: "134", rx: "8", fill: "none", stroke: BONE2, strokeOpacity: ".4", strokeWidth: "3", strokeDasharray: "8 8" })), /* @__PURE__ */ React23.createElement("g", { style: { ...box, ...run("fi-card-front", 200, 1050, "var(--ease-land)") } }, /* @__PURE__ */ React23.createElement("rect", { x: "474", y: "196", width: "252", height: "166", rx: "14", fill: BONE2, stroke: K, strokeWidth: "6" }), /* @__PURE__ */ React23.createElement("path", { d: "M570 252C570 222 630 222 630 252C630 276 600 278 600 302", fill: "none", stroke: K, strokeWidth: "18", strokeLinecap: "round" }), /* @__PURE__ */ React23.createElement("circle", { cx: "600", cy: "334", r: "10", fill: K }))),
-      near: /* @__PURE__ */ React23.createElement(React23.Fragment, null, desks.map((x, i) => /* @__PURE__ */ React23.createElement("g", { key: x }, /* @__PURE__ */ React23.createElement("g", { style: i === 3 ? { ...box, ...run("fi-buzz", 220, INTRO_TIMING.hit - 60, "var(--ease-land)") } : void 0 }, /* @__PURE__ */ React23.createElement("ellipse", { cx: x, cy: "420", rx: "28", ry: "12", fill: i === 3 ? "var(--art-rose)" : mix("var(--art-rose)", 40, K), stroke: K, strokeWidth: "4" }), /* @__PURE__ */ React23.createElement("ellipse", { cx: x, cy: "415", rx: "19", ry: "7", fill: BONE2, opacity: ".18" })), /* @__PURE__ */ React23.createElement("path", { d: `M${x - 60} 428H${x + 60}V444H${x - 60}Z`, fill: BONE2, stroke: K, strokeWidth: "4" }), /* @__PURE__ */ React23.createElement("path", { d: `M${x - 52} 444H${x + 52}L${x + 45} 590H${x - 45}Z`, fill: desk, stroke: K, strokeWidth: "5", strokeLinejoin: "round" }), /* @__PURE__ */ React23.createElement("circle", { cx: x, cy: "492", r: "17", fill: dark, stroke: K, strokeWidth: "3" }), [0, 1].map((k) => /* @__PURE__ */ React23.createElement("circle", { key: k, cx: x, cy: "492", r: "17", fill: lit, style: blink(i, k), opacity: "0" })), i === 3 && /* @__PURE__ */ React23.createElement("circle", { cx: x, cy: "492", r: "17", fill: lit, style: run("fi-on", 120, INTRO_TIMING.hit, "steps(1, end)") }))), /* @__PURE__ */ React23.createElement(Burst, { x: 750, y: 418, r: 60, flat: 0.6 }))
+      near: /* @__PURE__ */ React23.createElement(React23.Fragment, null, desks.map((x, i) => /* @__PURE__ */ React23.createElement("g", { key: x }, /* @__PURE__ */ React23.createElement("g", { style: i === 3 ? { ...box, ...run("fi-buzz", 220, INTRO_TIMING.hit - 60, "var(--ease-land)") } : void 0 }, /* @__PURE__ */ React23.createElement("ellipse", { cx: x, cy: "420", rx: "28", ry: "12", fill: i === 3 ? "var(--art-rose)" : mix("var(--art-rose)", 40, K), stroke: K, strokeWidth: "4" }), /* @__PURE__ */ React23.createElement("ellipse", { cx: x, cy: "415", rx: "19", ry: "7", fill: BONE2, opacity: ".18" })), /* @__PURE__ */ React23.createElement("path", { d: `M${x - 60} 428H${x + 60}V444H${x - 60}Z`, fill: BONE2, stroke: K, strokeWidth: "4" }), /* @__PURE__ */ React23.createElement("path", { d: `M${x - 52} 444H${x + 52}L${x + 45} 590H${x - 45}Z`, fill: desk, stroke: K, strokeWidth: "5", strokeLinejoin: "round" }), /* @__PURE__ */ React23.createElement("circle", { cx: x, cy: "492", r: "17", fill: dark, stroke: K, strokeWidth: "3" }), [0, 1].map((k) => /* @__PURE__ */ React23.createElement("circle", { key: k, cx: x, cy: "492", r: "17", fill: lit, style: blink(i, k), opacity: "0" })), i === 3 && /* @__PURE__ */ React23.createElement("circle", { cx: x, cy: "492", r: "17", fill: lit, style: run("fi-on", 120, INTRO_TIMING.hit, "steps(1, start)") }))), /* @__PURE__ */ React23.createElement(Burst, { x: 750, y: 418, r: 60, flat: 0.6 }))
     }
   );
 }
@@ -8067,30 +9589,30 @@ var init_GameIntro = __esm({
 import { useLayoutEffect as useLayoutEffect6, useRef as useRef13, useState as useState14 } from "react";
 function useFreshHold(value, key = null, ms = MOTION.story, options) {
   const change = useFreshChange(value, key, options);
-  const [held, setHeld] = useState14(0);
+  const [held2, setHeld] = useState14(0);
   useLayoutEffect6(() => {
     if (!change.animate) return void 0;
     setHeld(change.changeId);
     const t = setTimeout(() => setHeld((current) => current === change.changeId ? 0 : current), ms);
     return () => clearTimeout(t);
   }, [change.changeId]);
-  return change.animate ? change.changeId : held;
+  return change.animate ? change.changeId : held2;
 }
 function childOffsets(container, attr = "data-flip") {
-  const map = /* @__PURE__ */ new Map();
-  if (!container || typeof container.getBoundingClientRect !== "function") return map;
+  const map2 = /* @__PURE__ */ new Map();
+  if (!container || typeof container.getBoundingClientRect !== "function") return map2;
   const box2 = container.getBoundingClientRect();
   const scale = container.offsetWidth ? box2.width / container.offsetWidth || 1 : 1;
   for (const el of container.querySelectorAll(`[${attr}]`)) {
     const r = el.getBoundingClientRect();
-    map.set(el.getAttribute(attr), {
+    map2.set(el.getAttribute(attr), {
       left: (r.left - box2.left) / scale,
       top: (r.top - box2.top) / scale,
       width: r.width / scale,
       height: r.height / scale
     });
   }
-  return map;
+  return map2;
 }
 function flipMoves(before, after, { threshold = 0.5 } = {}) {
   const moves = [], entering = [];
@@ -8186,7 +9708,7 @@ var init_poker_motion = __esm({
 });
 
 // src/features/poker/PokerMotion.jsx
-import React27, { useEffect as useEffect16, useLayoutEffect as useLayoutEffect7, useRef as useRef15, useState as useState16 } from "react";
+import React28, { useEffect as useEffect16, useLayoutEffect as useLayoutEffect7, useRef as useRef15, useState as useState16 } from "react";
 var init_PokerMotion = __esm({
   "src/features/poker/PokerMotion.jsx"() {
     init_core();
@@ -8221,7 +9743,7 @@ var init_poker_chips = __esm({
 });
 
 // src/features/poker/PokerChips.jsx
-import React28, { useLayoutEffect as useLayoutEffect8, useRef as useRef16 } from "react";
+import React29, { useLayoutEffect as useLayoutEffect8, useRef as useRef16 } from "react";
 var init_PokerChips = __esm({
   "src/features/poker/PokerChips.jsx"() {
     init_BetStacks();
@@ -8282,7 +9804,7 @@ var init_fdMark = __esm({
 });
 
 // src/ui/Brand.jsx
-import React32, { useId as useId4, useMemo as useMemo3 } from "react";
+import React33, { useId as useId4, useMemo as useMemo3 } from "react";
 var init_Brand = __esm({
   "src/ui/Brand.jsx"() {
     init_fdMark();
@@ -8290,12 +9812,35 @@ var init_Brand = __esm({
 });
 
 // src/ui/layout.jsx
-import React35 from "react";
+import React36 from "react";
 function PageHeading({ title, children, aside }) {
-  return /* @__PURE__ */ React35.createElement("header", { className: "fd-page-heading" }, /* @__PURE__ */ React35.createElement("div", { className: "fd-page-heading-row" }, /* @__PURE__ */ React35.createElement("h1", null, title), aside), children);
+  return /* @__PURE__ */ React36.createElement("header", { className: "fd-page-heading" }, /* @__PURE__ */ React36.createElement("div", { className: "fd-page-heading-row" }, /* @__PURE__ */ React36.createElement("h1", null, title), aside), children);
 }
 var init_layout = __esm({
   "src/ui/layout.jsx"() {
+  }
+});
+
+// src/features/standings/boardModel.js
+var NOTCH_STEPS, BOARD_BEATS;
+var init_boardModel = __esm({
+  "src/features/standings/boardModel.js"() {
+    NOTCH_STEPS = Object.freeze([100, 500, 1e3, 5e3]);
+    BOARD_BEATS = Object.freeze({
+      count: 150,
+      // numbers start counting in 100s, the change rises off them
+      slide: 950,
+      // rows move to their new rank
+      roll: 1300,
+      // rank digits roll once the rows have landed
+      rollStagger: 16,
+      arrows: 1500,
+      // rank-change arrows pop
+      leader: 1500,
+      // the new leader's row warms, one sweep under it
+      settle: 3e3
+      // everything is at rest
+    });
   }
 });
 
@@ -8556,12 +10101,12 @@ var init_comebacks2 = __esm({
 });
 
 // src/features/comebacks/Comebacks.jsx
-import React37, { useEffect as useEffect21, useId as useId5, useRef as useRef21, useState as useState22 } from "react";
+import React38, { useEffect as useEffect21, useId as useId5, useRef as useRef21, useState as useState22 } from "react";
 import { createPortal as createPortal3 } from "react-dom";
 function SideTerms({ terms, className = "", tv: tv2 = false, style }) {
   const cls = `fd-side-terms${tv2 ? " is-tv" : ""} ${className}`;
-  if (!terms) return /* @__PURE__ */ React37.createElement("div", { className: cls, style });
-  return /* @__PURE__ */ React37.createElement("div", { className: cls, style }, terms.payLine && (terms.underdog && !tv2 ? /* @__PURE__ */ React37.createElement(UnderdogPays, { line: terms.payLine }) : /* @__PURE__ */ React37.createElement("span", { className: `fd-side-pays${terms.underdog ? " is-underdog" : ""}` }, terms.payLine)));
+  if (!terms) return /* @__PURE__ */ React38.createElement("div", { className: cls, style });
+  return /* @__PURE__ */ React38.createElement("div", { className: cls, style }, terms.payLine && (terms.underdog && !tv2 ? /* @__PURE__ */ React38.createElement(UnderdogPays, { line: terms.payLine }) : /* @__PURE__ */ React38.createElement("span", { className: `fd-side-pays${terms.underdog ? " is-underdog" : ""}` }, terms.payLine)));
 }
 function UnderdogPays({ line }) {
   const ref = useRef21(null);
@@ -8631,7 +10176,7 @@ function UnderdogPays({ line }) {
     const spot = place2();
     if (spot) setAt(spot);
   };
-  return /* @__PURE__ */ React37.createElement(React37.Fragment, null, /* @__PURE__ */ React37.createElement(
+  return /* @__PURE__ */ React38.createElement(React38.Fragment, null, /* @__PURE__ */ React38.createElement(
     "button",
     {
       type: "button",
@@ -8642,40 +10187,40 @@ function UnderdogPays({ line }) {
       onClick: toggle
     },
     line,
-    /* @__PURE__ */ React37.createElement(InfoLamp, null)
-  ), at && typeof document !== "undefined" && createPortal3(/* @__PURE__ */ React37.createElement("div", { className: "fd-underdog-layer", onClick: () => setAt(null), role: "presentation" }, /* @__PURE__ */ React37.createElement(
+    /* @__PURE__ */ React38.createElement(InfoLamp, null)
+  ), at && typeof document !== "undefined" && createPortal3(/* @__PURE__ */ React38.createElement("div", { className: "fd-underdog-layer", onClick: () => setAt(null), role: "presentation" }, /* @__PURE__ */ React38.createElement(
     "div",
     {
       id,
       className: `fd-underdog-pop${at.taught ? " is-taught" : ""}`,
       style: { left: at.left, width: at.width, top: at.top ?? "auto", bottom: at.bottom ?? "auto" }
     },
-    /* @__PURE__ */ React37.createElement(UnderdogExplainer, null)
+    /* @__PURE__ */ React38.createElement(UnderdogExplainer, null)
   )), document.body));
 }
 function InfoLamp() {
-  return /* @__PURE__ */ React37.createElement("svg", { className: "fd-info-lamp", viewBox: "0 0 16 16", width: "16", height: "16", "aria-hidden": "true", focusable: "false" }, /* @__PURE__ */ React37.createElement("circle", { cx: "8", cy: "8", r: "6.75" }), /* @__PURE__ */ React37.createElement("path", { d: "M8 7.2v4.3" }), /* @__PURE__ */ React37.createElement("circle", { className: "is-dot", cx: "8", cy: "4.7", r: "1.1" }));
+  return /* @__PURE__ */ React38.createElement("svg", { className: "fd-info-lamp", viewBox: "0 0 16 16", width: "16", height: "16", "aria-hidden": "true", focusable: "false" }, /* @__PURE__ */ React38.createElement("circle", { cx: "8", cy: "8", r: "6.75" }), /* @__PURE__ */ React38.createElement("path", { d: "M8 7.2v4.3" }), /* @__PURE__ */ React38.createElement("circle", { className: "is-dot", cx: "8", cy: "4.7", r: "1.1" }));
 }
 function Tower({ n, scale = 1 }) {
   const w = 36, t = 6, ry = 5, h = n * t + ry * 2 + 2;
   const chips = Array.from({ length: n }, (_, i) => {
     const y = h - ry - 1 - (i + 1) * t;
-    return /* @__PURE__ */ React37.createElement("path", { key: i, className: "fd-ux-rim", d: `M2 ${y}v${t}a16 ${ry} 0 0 0 32 0v${-t}` });
+    return /* @__PURE__ */ React38.createElement("path", { key: i, className: "fd-ux-rim", d: `M2 ${y}v${t}a16 ${ry} 0 0 0 32 0v${-t}` });
   });
-  return /* @__PURE__ */ React37.createElement("svg", { className: "fd-ux-tower", viewBox: `0 0 ${w} ${h}`, width: w * scale, height: h * scale, "aria-hidden": "true", focusable: "false" }, chips, /* @__PURE__ */ React37.createElement("ellipse", { className: "fd-ux-top", cx: "18", cy: h - ry - 1 - n * t, rx: "16", ry }));
+  return /* @__PURE__ */ React38.createElement("svg", { className: "fd-ux-tower", viewBox: `0 0 ${w} ${h}`, width: w * scale, height: h * scale, "aria-hidden": "true", focusable: "false" }, chips, /* @__PURE__ */ React38.createElement("ellipse", { className: "fd-ux-top", cx: "18", cy: h - ry - 1 - n * t, rx: "16", ry }));
 }
 function UnderdogExplainer({ className = "", tv: tv2 = false }) {
   const gap = UNDERDOG_GAP.toLocaleString("en-US");
   const scale = tv2 ? 1.6 : 1;
-  return /* @__PURE__ */ React37.createElement(
+  return /* @__PURE__ */ React38.createElement(
     "figure",
     {
       className: `fd-underdog-explain${tv2 ? " is-tv" : ""} ${className}`,
       "aria-label": `When the two sides open ${gap} chips or more apart, the side behind pays ${UNDERDOG_MULT}:1 and the side ahead 1:1.`
     },
-    /* @__PURE__ */ React37.createElement("span", { className: "fd-ux-col" }, /* @__PURE__ */ React37.createElement(Tower, { n: 7, scale }), /* @__PURE__ */ React37.createElement("small", null, "1:1")),
-    /* @__PURE__ */ React37.createElement("span", { className: "fd-ux-col is-gap" }, /* @__PURE__ */ React37.createElement("svg", { className: "fd-ux-measure", viewBox: "0 0 24 40", "aria-hidden": "true", focusable: "false" }, /* @__PURE__ */ React37.createElement("path", { d: "M12 3v34M6 9l6-6 6 6M6 31l6 6 6-6" })), /* @__PURE__ */ React37.createElement("small", null, gap, "+")),
-    /* @__PURE__ */ React37.createElement("span", { className: "fd-ux-col is-under" }, /* @__PURE__ */ React37.createElement(Tower, { n: 2, scale }), /* @__PURE__ */ React37.createElement("small", { className: "fd-ux-pays" }, UNDERDOG_MULT, ":1"))
+    /* @__PURE__ */ React38.createElement("span", { className: "fd-ux-col" }, /* @__PURE__ */ React38.createElement(Tower, { n: 7, scale }), /* @__PURE__ */ React38.createElement("small", null, "1:1")),
+    /* @__PURE__ */ React38.createElement("span", { className: "fd-ux-col is-gap" }, /* @__PURE__ */ React38.createElement("svg", { className: "fd-ux-measure", viewBox: "0 0 24 40", "aria-hidden": "true", focusable: "false" }, /* @__PURE__ */ React38.createElement("path", { d: "M12 3v34M6 9l6-6 6 6M6 31l6 6 6-6" })), /* @__PURE__ */ React38.createElement("small", null, gap, "+")),
+    /* @__PURE__ */ React38.createElement("span", { className: "fd-ux-col is-under" }, /* @__PURE__ */ React38.createElement(Tower, { n: 2, scale }), /* @__PURE__ */ React38.createElement("small", { className: "fd-ux-pays" }, UNDERDOG_MULT, ":1"))
   );
 }
 var TAUGHT_KEY, TEACH_AFTER_MS, teaching, taught, markTaught;
@@ -8719,7 +10264,7 @@ var init_teams = __esm({
 });
 
 // src/features/teams/RenameText.jsx
-import React38, { useEffect as useEffect22, useLayoutEffect as useLayoutEffect10, useState as useState23 } from "react";
+import React39, { useEffect as useEffect22, useLayoutEffect as useLayoutEffect10, useState as useState23 } from "react";
 function RenameText({ name, as: Tag2 = "span", className = "", style, children }) {
   const change = useFreshChange(name);
   const [flash, setFlash] = useState23(0);
@@ -8731,7 +10276,7 @@ function RenameText({ name, as: Tag2 = "span", className = "", style, children }
     const timer = setTimeout(() => setFlash(0), RELETTER_MS + 200);
     return () => clearTimeout(timer);
   }, [flash]);
-  return /* @__PURE__ */ React38.createElement(
+  return /* @__PURE__ */ React39.createElement(
     Tag2,
     {
       key: flash || "rest",
@@ -8804,16 +10349,16 @@ var init_install2 = __esm({
 });
 
 // src/features/check-in/InstallHint.jsx
-import React41, { useEffect as useEffect25, useState as useState26 } from "react";
+import React42, { useEffect as useEffect25, useState as useState26 } from "react";
 function InstallSteps() {
-  return /* @__PURE__ */ React41.createElement("ol", { className: "fd-install-steps", "aria-label": "Add to Home Screen: tap Share, then Add to Home Screen" }, /* @__PURE__ */ React41.createElement("li", { className: "fd-install-key", "aria-hidden": "true" }, /* @__PURE__ */ React41.createElement(ShareGlyph, null), /* @__PURE__ */ React41.createElement("span", null, "Share")), /* @__PURE__ */ React41.createElement("li", { className: "fd-install-then", "aria-hidden": "true" }, /* @__PURE__ */ React41.createElement(Icon, { name: "then", size: 18 })), /* @__PURE__ */ React41.createElement("li", { className: "fd-install-row", "aria-hidden": "true" }, /* @__PURE__ */ React41.createElement("span", null, "Add to Home Screen"), /* @__PURE__ */ React41.createElement(AddGlyph, null)));
+  return /* @__PURE__ */ React42.createElement("ol", { className: "fd-install-steps", "aria-label": "Add to Home Screen: tap Share, then Add to Home Screen" }, /* @__PURE__ */ React42.createElement("li", { className: "fd-install-key", "aria-hidden": "true" }, /* @__PURE__ */ React42.createElement(ShareGlyph, null), /* @__PURE__ */ React42.createElement("span", null, "Share")), /* @__PURE__ */ React42.createElement("li", { className: "fd-install-then", "aria-hidden": "true" }, /* @__PURE__ */ React42.createElement(Icon, { name: "then", size: 18 })), /* @__PURE__ */ React42.createElement("li", { className: "fd-install-row", "aria-hidden": "true" }, /* @__PURE__ */ React42.createElement("span", null, "Add to Home Screen"), /* @__PURE__ */ React42.createElement(AddGlyph, null)));
 }
 function InstallHint() {
   const [, bump] = useState26(0);
   useEffect25(() => onInstallReady(() => bump((x) => x + 1)), []);
-  if (installEvt) return /* @__PURE__ */ React41.createElement(Btn, { onClick: () => installEvt.prompt(), style: { alignSelf: "flex-start" } }, "Add to Home Screen");
-  if (isIOS2()) return /* @__PURE__ */ React41.createElement(InstallSteps, null);
-  return /* @__PURE__ */ React41.createElement("ol", { className: "fd-install-steps", "aria-label": "In your browser menu, choose Add to Home Screen" }, /* @__PURE__ */ React41.createElement("li", { className: "fd-install-key", "aria-hidden": "true" }, /* @__PURE__ */ React41.createElement(Icon, { name: "more", size: 22 }), /* @__PURE__ */ React41.createElement("span", null, "Menu")), /* @__PURE__ */ React41.createElement("li", { className: "fd-install-then", "aria-hidden": "true" }, /* @__PURE__ */ React41.createElement(Icon, { name: "then", size: 18 })), /* @__PURE__ */ React41.createElement("li", { className: "fd-install-row", "aria-hidden": "true" }, /* @__PURE__ */ React41.createElement("span", null, "Add to Home Screen"), /* @__PURE__ */ React41.createElement(AddGlyph, null)));
+  if (installEvt) return /* @__PURE__ */ React42.createElement(Btn, { onClick: () => installEvt.prompt(), style: { alignSelf: "flex-start" } }, "Add to Home Screen");
+  if (isIOS2()) return /* @__PURE__ */ React42.createElement(InstallSteps, null);
+  return /* @__PURE__ */ React42.createElement("ol", { className: "fd-install-steps", "aria-label": "In your browser menu, choose Add to Home Screen" }, /* @__PURE__ */ React42.createElement("li", { className: "fd-install-key", "aria-hidden": "true" }, /* @__PURE__ */ React42.createElement(Icon, { name: "more", size: 22 }), /* @__PURE__ */ React42.createElement("span", null, "Menu")), /* @__PURE__ */ React42.createElement("li", { className: "fd-install-then", "aria-hidden": "true" }, /* @__PURE__ */ React42.createElement(Icon, { name: "then", size: 18 })), /* @__PURE__ */ React42.createElement("li", { className: "fd-install-row", "aria-hidden": "true" }, /* @__PURE__ */ React42.createElement("span", null, "Add to Home Screen"), /* @__PURE__ */ React42.createElement(AddGlyph, null)));
 }
 var ShareGlyph, AddGlyph;
 var init_InstallHint = __esm({
@@ -8822,7 +10367,7 @@ var init_InstallHint = __esm({
     init_Icon();
     init_install();
     init_install2();
-    ShareGlyph = () => /* @__PURE__ */ React41.createElement(
+    ShareGlyph = () => /* @__PURE__ */ React42.createElement(
       "svg",
       {
         className: "fd-install-glyph",
@@ -8837,10 +10382,10 @@ var init_InstallHint = __esm({
         strokeLinecap: "round",
         strokeLinejoin: "round"
       },
-      /* @__PURE__ */ React41.createElement("path", { d: "M8.5 9.5H7a1.5 1.5 0 0 0-1.5 1.5v8A1.5 1.5 0 0 0 7 20.5h10a1.5 1.5 0 0 0 1.5-1.5v-8A1.5 1.5 0 0 0 17 9.5h-1.5" }),
-      /* @__PURE__ */ React41.createElement("path", { d: "M12 14V3.5M8.5 7 12 3.5 15.5 7" })
+      /* @__PURE__ */ React42.createElement("path", { d: "M8.5 9.5H7a1.5 1.5 0 0 0-1.5 1.5v8A1.5 1.5 0 0 0 7 20.5h10a1.5 1.5 0 0 0 1.5-1.5v-8A1.5 1.5 0 0 0 17 9.5h-1.5" }),
+      /* @__PURE__ */ React42.createElement("path", { d: "M12 14V3.5M8.5 7 12 3.5 15.5 7" })
     );
-    AddGlyph = () => /* @__PURE__ */ React41.createElement(
+    AddGlyph = () => /* @__PURE__ */ React42.createElement(
       "svg",
       {
         className: "fd-install-glyph",
@@ -8855,8 +10400,8 @@ var init_InstallHint = __esm({
         strokeLinecap: "round",
         strokeLinejoin: "round"
       },
-      /* @__PURE__ */ React41.createElement("rect", { x: "4", y: "4", width: "16", height: "16", rx: "4" }),
-      /* @__PURE__ */ React41.createElement("path", { d: "M12 8.5v7M8.5 12h7" })
+      /* @__PURE__ */ React42.createElement("rect", { x: "4", y: "4", width: "16", height: "16", rx: "4" }),
+      /* @__PURE__ */ React42.createElement("path", { d: "M12 8.5v7M8.5 12h7" })
     );
   }
 });
@@ -8888,7 +10433,7 @@ var init_showdown = __esm({
 });
 
 // src/features/tv/tvModel.js
-var RESULT_PODIUM_BEATS_MS, RESULT_PODIUM_STEP_MS, PODIUM_STAGE, BACKERS_RAIL, TICKER_ROLES, FACT_ROLES, TICKER_FACT_TAGS, CUE_WINDOW_MS;
+var RESULT_PODIUM_BEATS_MS, RESULT_PODIUM_STEP_MS, RESULT_STANDINGS_AT_MS, RESULT_SORT_DELAY_MS, PODIUM_STAGE, BACKERS_RAIL, TICKER_ROLES, FACT_ROLES, TICKER_FACT_TAGS, CUE_WINDOW_MS;
 var init_tvModel = __esm({
   "src/features/tv/tvModel.js"() {
     init_discLetters();
@@ -8900,6 +10445,8 @@ var init_tvModel = __esm({
     init_showdown();
     RESULT_PODIUM_BEATS_MS = Object.freeze([0, 900, 2400]);
     RESULT_PODIUM_STEP_MS = RESULT_PODIUM_BEATS_MS[1];
+    RESULT_STANDINGS_AT_MS = 7e3;
+    RESULT_SORT_DELAY_MS = 1500;
     PODIUM_STAGE = Object.freeze({
       floor: 756,
       lid: 26,
@@ -9020,8 +10567,1124 @@ var init_tvMotion = __esm({
   }
 });
 
-// src/features/tv/faceOff.js
+// shared/gags.js
+var GAG_SHAPES, GAG_BITS, GAG_TEAM_BITS, GAG_TEST_AMOUNT;
+var init_gags = __esm({
+  "shared/gags.js"() {
+    init_core();
+    GAG_SHAPES = Object.freeze(["versus", "win", "loss"]);
+    GAG_BITS = Object.freeze({
+      versus: Object.freeze(["quickdraw", "springglove", "butte", "dominoes", "tugofwar", "slowmowalk"]),
+      win: Object.freeze(["explosionwalk", "toohype", "sunset", "statue", "pyramid", "teamphoto", "victorylap"]),
+      loss: Object.freeze(["anvil", "roadrunner", "dontlookback", "quicksand", "dynamite", "vulture"])
+    });
+    GAG_TEAM_BITS = Object.freeze(["dominoes", "tugofwar", "slowmowalk", "pyramid", "teamphoto", "victorylap"]);
+    GAG_TEST_AMOUNT = 1e3;
+  }
+});
+
+// src/features/gags/bits/camera.js
+var CAMERA2, CAMERA_EASE;
+var init_camera = __esm({
+  "src/features/gags/bits/camera.js"() {
+    CAMERA2 = Object.freeze({
+      zoom: 1.8,
+      x: 960,
+      floor: 930,
+      screenFloor: 990,
+      width: 1920,
+      height: 1080,
+      safe: 64,
+      /* below this the painting's sky would show its top edge */
+      minZoom: 1.07,
+      maxZoom: 3
+    });
+    CAMERA_EASE = Object.freeze({
+      move: "cubic-bezier(.45,0,.55,1)",
+      snap: "cubic-bezier(.2,.8,.2,1)",
+      whip: "cubic-bezier(.7,0,.3,1)"
+    });
+  }
+});
+
+// src/features/gags/bits/registry.js
+var BIT_SHAPES, SHAPES, BIT_STYLES, STYLES, MOMENT_MS, LETTER_LAND_MS, LETTER_PLACES, READ_MS, spanOf, freezeAll, freeze, QD, quickdraw, AN, anvil, RR, roadrunner, EW, explosionwalk, DL, dontlookback, QS, quicksand, ACTION_BITS, IDLE_MS, ROOM, NP, nap, AW, armwrestle, SG, saguaro, PU, pushups, SW, sweep, MP, map, IDLE, SPG, springglove, TH, toohype, DY, dynamite, SLAPSTICK, BT, butte, SS, sunset, ST, statue, VU, vulture, DESERT2, TEAM_MIN, TEAM_MAX, TEAM, DM, dominoes, TW, tugofwar, SM, slowmowalk, PY, pyramid, TP, teamphoto, VL, victorylap, TEAM_BITS, BITS, BY_ID;
+var init_registry = __esm({
+  "src/features/gags/bits/registry.js"() {
+    init_camera();
+    BIT_SHAPES = Object.freeze({
+      versus: Object.freeze({ name: "Versus", triggers: Object.freeze(["An upset"]) }),
+      win: Object.freeze({ name: "Win", triggers: Object.freeze(["3 straight wins", "A new leader"]) }),
+      loss: Object.freeze({ name: "Loss", triggers: Object.freeze(["A big losing bet", "A new last place"]) }),
+      idle: Object.freeze({ name: "Idle", triggers: Object.freeze(["Between games"]) })
+    });
+    SHAPES = Object.freeze(Object.keys(BIT_SHAPES));
+    BIT_STYLES = Object.freeze({ action: "Action movie", slapstick: "Cartoon slapstick", desert: "Deadpan desert" });
+    STYLES = Object.freeze(Object.keys(BIT_STYLES));
+    MOMENT_MS = Object.freeze({ min: 3e3, max: 5500 });
+    LETTER_LAND_MS = 480;
+    LETTER_PLACES = Object.freeze(["top-left", "top-right", "top"]);
+    READ_MS = 1800;
+    spanOf = (bit) => bit.letter ? Math.max(bit.ms, Math.round(bit.letter.at + LETTER_LAND_MS + READ_MS)) : bit.ms;
+    freezeAll = (value) => Array.isArray(value) ? Object.freeze(value.map(freezeAll)) : value && typeof value === "object" ? Object.freeze(Object.fromEntries(Object.entries(value).map(([k, v]) => [k, freezeAll(v)]))) : value;
+    freeze = (bit) => freezeAll({ ...bit, fits: bit.fits || BIT_SHAPES[bit.shape].triggers, span: spanOf(bit) });
+    QD = {
+      tumble: 40,
+      twitch: 1360,
+      draw: 1580,
+      bang: 1660,
+      kick: 1700,
+      whip: 2040,
+      fall: 2700,
+      land: 3040,
+      blow: 3380,
+      spin: 3700,
+      fumble: 4080,
+      bonk: 4210,
+      drop: 4470,
+      look: 4600
+    };
+    quickdraw = {
+      id: "quickdraw",
+      name: "Quick draw",
+      shape: "versus",
+      style: "action",
+      ms: 5400,
+      beats: QD,
+      still: 5020,
+      summary: "bitCrack",
+      letter: { at: QD.land + 200, over: "a", place: "top-left" },
+      camera: { zoom: 1.5, x: "mid", fit: true, moves: [
+        /* lean in through the standoff */
+        { at: 300, ms: 1250, zoom: 1.6 },
+        /* punch in on the shot, and stay for its kick */
+        { at: QD.bang, ms: 90, zoom: 1.95, x: "a", ease: CAMERA_EASE.snap },
+        /* whip to B, who just stands there */
+        { at: QD.whip, ms: 170, zoom: 1.95, x: "b", ease: CAMERA_EASE.whip },
+        /* back out for the rest of it */
+        { at: QD.land + 60, ms: 480, zoom: 1.5, x: "mid" }
+      ], shakes: [{ at: QD.bang, big: true }, { at: QD.land }], washes: [QD.bang] },
+      cast: { a: { role: "winner", max: 4 }, b: { role: "beaten", max: 4 } },
+      cues: [
+        { at: 0, sound: "bitWind", pan: 0, opts: { ms: QD.twitch + 200 } },
+        { at: QD.tumble + 367, sound: "bitHop", pan: 0.3, opts: { step: 0 } },
+        { at: QD.tumble + 733, sound: "bitHop", pan: -0.28, opts: { step: 1 } },
+        { at: QD.draw, sound: "bitDraw", pan: -0.3 },
+        { at: QD.bang, sound: "bitCrack", pan: -0.25 },
+        { at: QD.kick, sound: "bitSkid", pan: -0.4 },
+        { at: QD.whip, sound: "bitStreak", pan: 0, opts: { from: -0.4, to: 0.4 } },
+        { at: QD.land, sound: "bitThud", pan: 0.3 },
+        { at: QD.blow, sound: "bitPuff", pan: -0.42 },
+        { at: QD.spin, sound: "bitTwirl", pan: -0.38 },
+        { at: QD.bonk, sound: "bitBonk", pan: -0.38 },
+        { at: QD.drop, sound: "bitClink", pan: -0.3 }
+      ]
+    };
+    AN = {
+      admire: 200,
+      shadow: 420,
+      notice: 1640,
+      sweat: 1750,
+      drop: 1900,
+      hit: 2020,
+      rebound: 2080,
+      stars: 2130,
+      thud: 2350,
+      peel: 2780,
+      pop: 3100,
+      look: 3560,
+      limp: 4580
+    };
+    anvil = {
+      id: "anvil",
+      name: "Anvil",
+      shape: "loss",
+      style: "slapstick",
+      ms: 5450,
+      beats: AN,
+      still: 2720,
+      summary: "bitClang",
+      letter: { at: AN.stars + 60, over: "a", place: "top-right" },
+      /* world x: the chip stands at 820, its stack at 1180 (anvil.jsx) */
+      camera: { zoom: 1.8, x: 900, moves: [
+        /* ease in while the shadow grows */
+        { at: AN.shadow, ms: 1220, zoom: 1.92, x: 860 },
+        /* the clang */
+        { at: AN.hit, ms: 70, zoom: 2, x: 830, ease: CAMERA_EASE.snap },
+        /* back out for the pancake and its stars */
+        { at: AN.stars + 120, ms: 520, zoom: 1.8, x: 860 },
+        /* in on it, looking at the room */
+        { at: AN.look, ms: 520, zoom: 2.3, x: 815 },
+        /* out as it limps off */
+        { at: AN.limp, ms: 700, zoom: 1.8, x: 760 }
+      ], shakes: [{ at: AN.hit, big: true }, { at: AN.thud }] },
+      cast: { a: { role: "loser", max: 1 } },
+      cues: [
+        { at: AN.shadow, sound: "bitWhistle", pan: 0, opts: { ms: AN.notice - AN.shadow - 160 } },
+        { at: AN.hit, sound: "bitClang", pan: -0.1 },
+        { at: AN.thud, sound: "bitThud", pan: -0.4 },
+        { at: AN.stars, sound: "bitStars", pan: -0.1, opts: { ms: AN.peel - AN.stars - 80 } },
+        { at: AN.peel, sound: "bitPeel", pan: -0.1 },
+        { at: AN.pop, sound: "bitBoing", pan: -0.1 },
+        /* each limp lands at the end of its 240 ms hop (anvil.css an-limp-bob) */
+        ...[0, 1, 2].map((i) => ({ at: AN.limp + 240 * (i + 1), sound: "bitHop", pan: Math.round((-0.12 - i * 0.14) * 100) / 100, opts: { step: i } }))
+      ]
+    };
+    RR = { arrive: 1e3, skid: 1110, stop: 1410, beep: 1760, turn: 1800, leave: 2160, clear: 2900, notice: 3420, windup: 3640, zip: 4140 };
+    roadrunner = {
+      id: "roadrunner",
+      name: "Roadrunner",
+      shape: "loss",
+      style: "desert",
+      ms: 5e3,
+      beats: RR,
+      still: 3390,
+      summary: "bitBeep",
+      letter: { at: RR.clear, over: "a", place: "top-left" },
+      /* world x: the chip stands at 880, the bird stops at 1330 (roadrunner.jsx) */
+      camera: { zoom: 1.8, x: 1080, moves: [
+        /* the chip alone: the faintest drift in */
+        { at: 0, ms: RR.arrive - 80, zoom: 1.86, x: 1060 },
+        /* lean in on what is left */
+        { at: RR.clear - 120, ms: 720, zoom: 2.3, x: 910 },
+        /* a flinch after it as it goes, then the empty floor */
+        { at: RR.zip, ms: 240, zoom: 2.1, x: 740, ease: CAMERA_EASE.whip }
+      ], shakes: [{ at: RR.stop }] },
+      cast: { a: { role: "loser", max: 1 } },
+      cues: [
+        { at: 0, sound: "bitWind", pan: 0, opts: { ms: 4800 } },
+        { at: RR.arrive, sound: "bitStreak", pan: 0, opts: { from: 0.95, to: 0.5 } },
+        { at: RR.skid, sound: "bitSkid", pan: 0.45, opts: { ms: RR.stop - RR.skid } },
+        { at: RR.beep, sound: "bitBeep", pan: 0.34 },
+        { at: RR.leave, sound: "bitStreak", pan: 0, opts: { from: 0.35, to: -0.95 } },
+        { at: RR.notice, sound: "bitBoing", pan: 0, opts: { small: true } },
+        { at: RR.windup, sound: "bitRev", pan: 0.08, opts: { ms: RR.zip - RR.windup } },
+        { at: RR.zip, sound: "bitZip", pan: -0.2 }
+      ]
+    };
+    EW = { boom: 1200, ember: 1420, land: 2600, stop: 3e3, lower: 3260, look: 3440, up: 4040, glint: 4170 };
+    explosionwalk = {
+      id: "explosionwalk",
+      name: "Explosion walk",
+      shape: "win",
+      style: "action",
+      ms: 4800,
+      beats: EW,
+      still: 3800,
+      summary: "bitBoom",
+      letter: { at: EW.stop + 20, over: "a", place: "top-left" },
+      /* world x: the walkers centre on 960 and come toward us (explosionwalk.jsx) */
+      camera: { zoom: 1.45, x: "walk", moves: [
+        /* the slow motion leans in */
+        { at: EW.boom + 80, ms: EW.land - EW.boom - 80, zoom: 1.62 },
+        /* it arrives */
+        { at: EW.land, ms: EW.stop - EW.land + 120, zoom: 1.86, x: "lead" },
+        /* in on the look over the glasses */
+        { at: EW.lower - 40, ms: 460, zoom: 2.45, x: "lead" }
+      ], shakes: [{ at: EW.boom, big: true }, { at: EW.land }], washes: [EW.boom] },
+      cast: { a: { role: "winner", max: 4 } },
+      cues: [
+        { at: 400, sound: "bitStep", pan: -0.06, opts: { step: 0 } },
+        { at: 800, sound: "bitStep", pan: 0.06, opts: { step: 1 } },
+        { at: EW.boom, sound: "bitBoom", pan: 0.04, opts: { slow: true } },
+        { at: EW.land, sound: "bitSlam", pan: 0.3 },
+        { at: EW.land + 10, sound: "bitStep", pan: 0.06, opts: { step: 1 } },
+        { at: EW.stop, sound: "bitStep", pan: -0.06, opts: { step: 2 } },
+        { at: EW.lower + 30, sound: "bitShades", pan: 0.04 },
+        { at: EW.up, sound: "bitShades", pan: 0.04, opts: { up: true } },
+        { at: EW.glint, sound: "bitGlint", pan: 0.1 }
+      ]
+    };
+    DL = { fuse: 340, top: 1340, boom: 1780, rain: 2280, bonk: 2760, hat: 3420 };
+    dontlookback = {
+      id: "dontlookback",
+      name: "Don't look back",
+      shape: "loss",
+      style: "action",
+      ms: 4600,
+      beats: DL,
+      still: 4040,
+      summary: "bitBoom",
+      letter: { at: DL.hat + 60, over: "a", place: "top-left" },
+      /* world x: the chip stands at 860, its stack behind it at 1050 (dontlookback.jsx) */
+      camera: { zoom: 1.8, x: 940, moves: [
+        /* lean in on the fuse */
+        { at: DL.fuse, ms: DL.top - DL.fuse, zoom: 1.9, x: 960 },
+        /* in on the face that does not move, while its chips come down */
+        { at: DL.boom + 420, ms: 1500, zoom: 2.12, x: 880 }
+      ], shakes: [{ at: DL.boom, big: true }, { at: DL.bonk }], washes: [DL.boom] },
+      cast: { a: { role: "loser", max: 1 } },
+      cues: [
+        { at: DL.fuse, sound: "bitFuse", pan: 0.22, opts: { ms: DL.top - DL.fuse } },
+        { at: DL.boom, sound: "bitBoom", pan: 0.2 },
+        /* the chips landing (dontlookback.jsx RAIN), the bonk, the hat */
+        ...[[0, -0.42], [150, 0.34], [250, -0.2], [380, 0.46], [560, -0.5], [700, 0.28]].map(([dt, pan], i) => ({ at: DL.rain + dt, sound: "bitChipDrop", pan, opts: { step: i } })),
+        { at: DL.bonk, sound: "bitBonk", pan: -0.08 },
+        { at: DL.hat, sound: "bitSpinDown", pan: -0.06 }
+      ]
+    };
+    QS = { sink: 520, notice: 1300, flail: 1700, reach: 2380, slip: 2860, under: 3160, thumb: 3330, gone: 3480, bubble: 4230 };
+    quicksand = {
+      id: "quicksand",
+      name: "Quicksand",
+      shape: "loss",
+      style: "action",
+      ms: 4800,
+      beats: QS,
+      still: 3780,
+      summary: "bitSink",
+      letter: { at: QS.under + 40, over: "a", place: "top-left" },
+      /* world x: the chip sinks at 860, the saguaro stands at 1340 (quicksand.jsx) */
+      camera: { zoom: 1.8, x: 1060, moves: [
+        /* it looks down: so do we */
+        { at: QS.notice, ms: 520, zoom: 1.9, x: 1010 },
+        /* the reach, and the gap */
+        { at: QS.reach - 60, ms: 360, zoom: 2.15, x: 1090 },
+        /* the last glove */
+        { at: QS.under - 80, ms: 700, zoom: 2.4, x: "glove" }
+      ], shakes: [] },
+      cast: { a: { role: "loser", max: 1 } },
+      cues: [
+        { at: 0, sound: "bitWind", pan: 0, opts: { ms: 1700 } },
+        { at: QS.sink, sound: "bitSink", pan: -0.1, opts: { ms: QS.notice - QS.sink } },
+        { at: QS.flail, sound: "bitFlail", pan: -0.1, opts: { ms: QS.reach - QS.flail } },
+        { at: QS.flail + 80, sound: "bitSink", pan: -0.1, opts: { ms: QS.under - QS.flail } },
+        { at: QS.reach, sound: "bitStrain", pan: 0.18, opts: { ms: QS.slip - QS.reach } },
+        { at: QS.under, sound: "bitSink", pan: -0.08, opts: { ms: 320, deep: true } },
+        { at: QS.thumb, sound: "bitSqueak", pan: 0.04 },
+        { at: QS.gone, sound: "bitSink", pan: 0.04, opts: { ms: QS.bubble - QS.gone - 80 } },
+        { at: QS.bubble, sound: "bitBubble", pan: 0.04 }
+      ]
+    };
+    ACTION_BITS = [explosionwalk, dontlookback, quicksand];
+    IDLE_MS = Object.freeze({ min: 6e3, max: 1e4 });
+    ROOM = (role) => ({ a: { role: "room", max: role } });
+    NP = {
+      mark1: 300,
+      enter: 1200,
+      circle: 2200,
+      mark2: 2300,
+      land: 3300,
+      twitch: 3900,
+      lift: 4300,
+      flee: 4960,
+      swat: 5e3,
+      perch: 6150,
+      sigh: 6500,
+      mark3: 6700
+    };
+    nap = {
+      id: "nap",
+      name: "Nap",
+      shape: "idle",
+      style: "desert",
+      ms: 8e3,
+      beats: NP,
+      still: 7e3,
+      summary: "bitSnore",
+      letter: null,
+      camera: { zoom: 2.06, x: 960, moves: [
+        /* the faintest drift in while it sleeps and the moth comes round */
+        { at: 0, ms: NP.land, zoom: 2.3, x: 962 },
+        /* a nudge in on the swat */
+        { at: NP.swat, ms: 70, zoom: 2.42, x: 966, ease: CAMERA_EASE.snap },
+        /* settle for the ending */
+        { at: NP.swat + 600, ms: 1400, zoom: 2.3, x: 964 }
+      ], shakes: [{ at: NP.swat }] },
+      cast: ROOM(1),
+      cues: [
+        { at: NP.mark1, sound: "bitSnore", pan: 0, opts: { small: true } },
+        { at: NP.enter, sound: "bitFlutter", pan: -0.3, opts: { ms: NP.land - NP.enter } },
+        { at: NP.mark2, sound: "bitSnore", pan: 0, opts: { small: true } },
+        { at: NP.flee, sound: "bitFlutter", pan: 0.05, opts: { ms: NP.perch - NP.flee } },
+        { at: NP.swat, sound: "bitSwat", pan: 0.05 },
+        { at: NP.sigh, sound: "bitSnore", pan: 0 }
+      ]
+    };
+    AW = { sweatA: 700, tiltA: 1e3, backA: 2200, tiltB: 3e3, backB: 4e3, sweatB: 4300, center: 4700, look: 5700, drip: 7600 };
+    armwrestle = {
+      id: "armwrestle",
+      name: "Arm wrestle",
+      shape: "idle",
+      style: "action",
+      ms: 9e3,
+      beats: AW,
+      still: 6900,
+      summary: "bitCreak",
+      letter: null,
+      camera: { zoom: 1.62, x: 960, moves: [
+        /* lean in through the struggle; then the camera holds still for the look */
+        { at: 300, ms: AW.center - 300, zoom: 1.84, x: 960 }
+      ] },
+      cast: ROOM(2),
+      cues: [
+        { at: AW.sweatA, sound: "bitDrip", pan: -0.3, opts: { small: true } },
+        { at: AW.tiltA, sound: "bitCreak", pan: -0.1, opts: { ms: 900 } },
+        { at: AW.backA, sound: "bitCreak", pan: 0, opts: { ms: 500, small: true } },
+        { at: AW.tiltB, sound: "bitCreak", pan: 0.1, opts: { ms: 800 } },
+        { at: AW.backB, sound: "bitCreak", pan: 0, opts: { ms: 500, small: true } },
+        { at: AW.sweatB, sound: "bitDrip", pan: 0.3, opts: { small: true } },
+        { at: AW.look - 300, sound: "bitWind", pan: 0, opts: { ms: 3500 } },
+        { at: AW.drip, sound: "bitDrip", pan: -0.25 }
+      ]
+    };
+    SG = {
+      look: 200,
+      reach1: 700,
+      prick1: 1e3,
+      reach2: 1900,
+      prick2: 2200,
+      exit: 2900,
+      enter: 3500,
+      set: 4200,
+      climb: 4500,
+      reach: 4800,
+      giveup: 5800,
+      lean: 6300,
+      prick3: 6700,
+      jump: 6760,
+      top: 7300,
+      face: 7950
+    };
+    saguaro = {
+      id: "saguaro",
+      name: "Saguaro",
+      shape: "idle",
+      style: "desert",
+      ms: 9400,
+      beats: SG,
+      still: 8500,
+      summary: "bitPrick",
+      letter: null,
+      /* world x: the chip at 730, the ladder at 990, the cactus at 1160 (saguaro.jsx) */
+      camera: { zoom: 1.66, x: 975, moves: [
+        /* in on the stepladder */
+        { at: SG.set - 200, ms: 900, zoom: 1.75, x: 1010 },
+        /* out with the leap, the whole of the saguaro */
+        { at: SG.jump, ms: 620, zoom: 1.18, x: 1080, ease: CAMERA_EASE.snap }
+      ], shakes: [{ at: SG.top }] },
+      cast: ROOM(1),
+      cues: [
+        { at: SG.prick1, sound: "bitPrick", pan: 0.05 },
+        { at: SG.prick1 + 120, sound: "bitShake", pan: -0.1 },
+        { at: SG.prick2, sound: "bitPrick", pan: 0.05 },
+        { at: SG.prick2 + 120, sound: "bitShake", pan: -0.12 },
+        { at: SG.set, sound: "bitLadder", pan: 0 },
+        { at: SG.climb + 200, sound: "bitHop", pan: 0, opts: { step: 0 } },
+        { at: SG.prick3, sound: "bitPrick", pan: 0.1, opts: { big: true } },
+        { at: SG.jump, sound: "bitBoing", pan: 0.1 },
+        { at: SG.jump + 160, sound: "bitLadder", pan: -0.05, opts: { small: true } },
+        { at: SG.top, sound: "bitHop", pan: 0.15, opts: { step: 1 } }
+      ]
+    };
+    PU = {
+      down1: 500,
+      up1: 850,
+      down2: 1350,
+      up2: 1800,
+      down3: 2550,
+      up3: 3050,
+      sweat: 3300,
+      down4: 4150,
+      strain: 4750,
+      collapse: 5150,
+      flat: 5300,
+      thumb: 6100
+    };
+    pushups = {
+      id: "pushups",
+      name: "Push-ups",
+      shape: "idle",
+      style: "slapstick",
+      ms: 7400,
+      beats: PU,
+      still: 6600,
+      summary: "bitFlop",
+      letter: null,
+      /* world x: the chip at 960, its gloves 168 either side (pushups.jsx) */
+      camera: { zoom: 1.9, x: 960, moves: [
+        /* closer as it gets hard */
+        { at: PU.down3, ms: PU.down4 - PU.down3, zoom: 2.1, x: 960 },
+        /* toward the glove, the chip still in the shot */
+        { at: PU.thumb - 200, ms: 800, zoom: 2.16, x: 1010 }
+      ], shakes: [{ at: PU.flat }] },
+      cast: ROOM(1),
+      cues: [
+        { at: PU.up1, sound: "bitHuff", pan: 0, opts: { step: 0 } },
+        { at: PU.up2, sound: "bitHuff", pan: 0, opts: { step: 1 } },
+        { at: PU.up3, sound: "bitHuff", pan: 0, opts: { step: 2 } },
+        { at: PU.sweat, sound: "bitDrip", pan: 0.12, opts: { small: true } },
+        { at: PU.strain, sound: "bitHuff", pan: 0, opts: { step: 3 } },
+        { at: PU.flat, sound: "bitFlop", pan: 0 },
+        { at: PU.thumb, sound: "bitSqueakSoft", pan: 0.12 }
+      ]
+    };
+    SW = {
+      stroke1: 200,
+      stroke2: 900,
+      stroke3: 1600,
+      stroke4: 2300,
+      pat: 2950,
+      admire: 3350,
+      weed: 3900,
+      gust: 4e3,
+      stare: 5e3,
+      again: 6450,
+      again2: 7150
+    };
+    sweep = {
+      id: "sweep",
+      name: "Sweep",
+      shape: "idle",
+      style: "desert",
+      ms: 8e3,
+      beats: SW,
+      still: 5800,
+      summary: "bitSweep",
+      letter: null,
+      camera: { zoom: 1.78, x: 1e3, moves: [
+        /* in on the pile as it gets tidy */
+        { at: SW.stroke2, ms: SW.admire - SW.stroke2, zoom: 1.94, x: 1010 },
+        /* hold on the stare, a touch closer */
+        { at: SW.stare, ms: 1200, zoom: 2.04, x: 980 }
+      ] },
+      cast: ROOM(1),
+      cues: [
+        ...[SW.stroke1, SW.stroke2, SW.stroke3, SW.stroke4].map((at, i) => ({ at, sound: "bitSweep", pan: 0.1, opts: { step: i } })),
+        { at: SW.pat, sound: "bitHop", pan: 0.2, opts: { step: 0 } },
+        { at: SW.pat + 180, sound: "bitHop", pan: 0.2, opts: { step: 1 } },
+        { at: SW.gust - 250, sound: "bitGust", pan: 0, opts: { ms: 1300 } },
+        { at: SW.weed + 420, sound: "bitHop", pan: 0.3, opts: { step: 0 } },
+        { at: SW.weed + 820, sound: "bitHop", pan: -0.1, opts: { step: 1 } },
+        { at: SW.again, sound: "bitSweep", pan: 0.1, opts: { step: 4 } },
+        { at: SW.again2, sound: "bitSweep", pan: 0.1, opts: { step: 5 } }
+      ]
+    };
+    MP = {
+      unfold1: 300,
+      unfold2: 650,
+      unfold3: 1e3,
+      study: 1400,
+      turn1: 2e3,
+      turn2: 3e3,
+      runner: 3550,
+      crumple: 4400,
+      toss: 5e3,
+      rock: 5420,
+      bonk: 5940,
+      drop: 6300
+    };
+    map = {
+      id: "map",
+      name: "Map",
+      shape: "idle",
+      style: "desert",
+      ms: 8e3,
+      beats: MP,
+      still: 6060,
+      summary: "bitPaper",
+      letter: null,
+      camera: { zoom: 1.8, x: 980, moves: [
+        /* in on the map */
+        { at: MP.unfold1, ms: 1300, zoom: 1.92, x: 960 },
+        /* out a little for the throw and the rock */
+        { at: MP.toss - 200, ms: 500, zoom: 1.7, x: 1060 }
+      ], shakes: [{ at: MP.bonk }] },
+      cast: ROOM(1),
+      cues: [
+        { at: MP.unfold1, sound: "bitPaper", pan: 0, opts: { ms: 900 } },
+        { at: MP.turn1, sound: "bitPaper", pan: 0, opts: { ms: 350, small: true } },
+        { at: MP.turn2, sound: "bitPaper", pan: 0, opts: { ms: 350, small: true } },
+        { at: MP.runner, sound: "bitStreak", pan: 0, opts: { from: 0.8, to: -0.8 } },
+        { at: MP.runner + 260, sound: "bitBeepFar", pan: -0.7 },
+        { at: MP.crumple, sound: "bitCrumple", pan: 0 },
+        { at: MP.rock, sound: "bitPap", pan: 0.5 },
+        { at: MP.bonk, sound: "bitBonk", pan: 0 },
+        { at: MP.drop, sound: "bitPap", pan: 0.05, opts: { small: true } }
+      ]
+    };
+    IDLE = [nap, armwrestle, saguaro, pushups, sweep, map];
+    SPG = {
+      hop: 0,
+      turn: 800,
+      raise: 1320,
+      press: 1540,
+      fire: 1570,
+      hit: 1650,
+      fly: 1710,
+      twinkle: 2450,
+      retract: 3e3,
+      home: 3130,
+      boop: 3240,
+      look: 3760,
+      thumb: 4080
+    };
+    springglove = {
+      id: "springglove",
+      name: "Spring glove",
+      shape: "versus",
+      style: "slapstick",
+      ms: 4850,
+      beats: SPG,
+      still: 4420,
+      summary: "bitPow",
+      letter: { at: SPG.look + 120, over: "a", place: "top-left" },
+      camera: { zoom: 1.5, x: "mid", fit: true, moves: [
+        /* lean in on the bounce and the standoff */
+        { at: 200, ms: 1200, zoom: 1.56 },
+        /* after the punch, drift to the empty spot and the sky over it */
+        { at: SPG.fly + 160, ms: 620, zoom: 1.45, x: "sky" },
+        /* whip back with the spring to A */
+        { at: SPG.retract - 30, ms: 200, zoom: 1.95, x: "a", ease: CAMERA_EASE.whip },
+        /* in on A for the thumbs up */
+        { at: SPG.look, ms: 1e3, zoom: 2.06 }
+      ], shakes: [{ at: SPG.hit, big: true }, { at: SPG.home }] },
+      cast: { a: { role: "winner", max: 4 }, b: { role: "beaten", max: 4 } },
+      cues: [
+        ...[0, 1, 2].map((i) => ({ at: SPG.hop + 260 * i + 218, sound: "bitHop", pan: 0.42, opts: { step: i } })),
+        { at: SPG.press, sound: "bitClick", pan: -0.22 },
+        { at: SPG.fire, sound: "bitSproing", pan: 0.05 },
+        { at: SPG.hit, sound: "bitPow", pan: 0.38 },
+        { at: SPG.fly, sound: "bitStreak", pan: 0.45, opts: { from: 0.4, to: 0.95 } },
+        { at: SPG.twinkle, sound: "bitTwinkle", pan: 0.62 },
+        { at: SPG.retract, sound: "bitZip", pan: 0.25 },
+        { at: SPG.boop, sound: "bitBonk", pan: -0.36 },
+        { at: SPG.boop + 60, sound: "bitBoing", pan: -0.36, opts: { small: true } }
+      ]
+    };
+    TH = { hop1: 0, hop2: 270, hop3: 630, wind: 1110, launch: 1330, fall: 2200, crash: 2400, pop: 2940, turn: 3280, walk: 3400, arrive: 4e3 };
+    toohype = {
+      id: "toohype",
+      name: "Too hype",
+      shape: "win",
+      style: "slapstick",
+      ms: 4500,
+      beats: TH,
+      still: 4100,
+      summary: "bitPlant",
+      letter: { at: TH.pop, over: "a", place: "top-left" },
+      camera: { zoom: 1.8, x: "mid", fit: true, moves: [
+        /* lean in with the bounces */
+        { at: 200, ms: 1e3, zoom: 1.86 },
+        /* the shoes, alone: creep in on them */
+        { at: TH.launch + 260, ms: 640, zoom: 1.98, x: "beat" },
+        /* back out for the shoes' walk */
+        { at: TH.crash + 260, ms: 700, zoom: 1.84, x: "mid" }
+      ], shakes: [{ at: TH.crash, big: true }] },
+      cast: { a: { role: "winner", max: 2 } },
+      cues: [
+        { at: TH.hop1 + 70, sound: "bitBounce", pan: -0.12, opts: { step: 0 } },
+        { at: TH.hop2 + 60, sound: "bitBounce", pan: -0.12, opts: { step: 1 } },
+        { at: TH.hop3 + 60, sound: "bitBounce", pan: -0.12, opts: { step: 2 } },
+        { at: TH.launch, sound: "bitLaunch", pan: -0.12 },
+        { at: TH.fall - 60, sound: "bitFall", pan: 0.24, opts: { ms: 260 } },
+        { at: TH.crash, sound: "bitPlant", pan: 0.24 },
+        { at: TH.crash + 60, sound: "bitBoing", pan: 0.24 },
+        { at: TH.pop, sound: "bitPop", pan: 0.4 },
+        { at: TH.turn, sound: "bitSneaker", pan: -0.12, opts: { step: 1 } },
+        ...[0, 1, 2, 3, 4, 5].map((j) => ({ at: TH.walk + 100 * (j + 1), sound: "bitSneaker", pan: Math.round((-0.1 + j * 0.04) * 100) / 100, opts: { step: j } }))
+      ]
+    };
+    DY = {
+      strike: 300,
+      light: 650,
+      lit: 680,
+      out: 900,
+      admire: 1100,
+      realize: 1800,
+      look: 2050,
+      boom: 2850,
+      clear: 3500,
+      cough: 3780,
+      drop: 4080,
+      land: 4260
+    };
+    dynamite = {
+      id: "dynamite",
+      name: "Dynamite",
+      shape: "loss",
+      style: "slapstick",
+      ms: 4800,
+      beats: DY,
+      still: 4400,
+      summary: "bitBlast",
+      letter: { at: DY.clear, over: "a", place: "top-right" },
+      /* world x: the chip stands at 820, the table at 1080 (dynamite.jsx) */
+      camera: { zoom: 1.8, x: "mid", moves: [
+        /* in a little as it leans in to admire it */
+        { at: DY.admire, ms: 800, zoom: 1.92, x: 930 },
+        /* in on its face as it turns to the room */
+        { at: DY.look, ms: 520, zoom: 2.25, x: "chip" },
+        /* the blast throws the shot back */
+        { at: DY.boom, ms: 90, zoom: 1.72, x: "mid", ease: CAMERA_EASE.snap },
+        /* and it creeps back in on what is left */
+        { at: DY.clear - 200, ms: 1100, zoom: 1.95, x: 880 }
+      ], shakes: [{ at: DY.boom, big: true }], washes: [DY.boom] },
+      cast: { a: { role: "loser", max: 1 } },
+      cues: [
+        { at: DY.strike, sound: "bitMatch", pan: 0 },
+        { at: DY.lit, sound: "bitFuseHiss", pan: 0.2, opts: { ms: DY.boom - DY.lit } },
+        { at: DY.boom, sound: "bitBlast", pan: 0.1 },
+        { at: DY.cough, sound: "bitCough", pan: -0.12 },
+        { at: DY.land, sound: "bitGloveFlop", pan: -0.3 }
+      ]
+    };
+    SLAPSTICK = [springglove, toohype, dynamite];
+    BT = {
+      look: 140,
+      walk: 420,
+      raise: 980,
+      poke: 1160,
+      crack: 1780,
+      crumble: 2040,
+      down: 2490,
+      face: 2890,
+      drop: 3570,
+      peek: 3700,
+      puff: 4520,
+      dust: 4720
+    };
+    butte = {
+      id: "butte",
+      name: "Butte",
+      shape: "versus",
+      style: "desert",
+      ms: 5300,
+      beats: BT,
+      still: 3320,
+      summary: "bitCrumble",
+      letter: { at: BT.crumble + 260, over: "a", place: "top-left" },
+      /* world x: the cliff's edge at 960, the pillar a gap past it (butte.jsx) */
+      camera: { zoom: 1.38, x: "mid", fit: true, moves: [
+        /* in on the finger */
+        { at: BT.raise - 140, ms: 420, zoom: 1.84, x: "poke" },
+        /* out as the crack runs up */
+        { at: BT.crack, ms: 220, zoom: 1.38, x: "mid", ease: CAMERA_EASE.snap },
+        /* creep in on B, standing on nothing */
+        { at: BT.down - 220, ms: 1e3, zoom: 1.46, x: "b" },
+        /* over to A for the dust-off */
+        { at: BT.drop + 380, ms: 620, zoom: 1.5, x: "a" }
+      ], shakes: [{ at: BT.crumble }] },
+      cast: { a: { role: "winner", max: 4 }, b: { role: "beaten", max: 4 } },
+      cues: [
+        { at: 0, sound: "bitWind", pan: 0, opts: { ms: 1500 } },
+        ...[0, 1, 2].map((i) => ({ at: BT.walk + 140 * (i + 1) - 10, sound: "bitHop", pan: Math.round((-0.3 + i * 0.05) * 100) / 100, opts: { step: i } })),
+        { at: BT.poke + 70, sound: "bitPoke", pan: 0.12 },
+        { at: BT.crack, sound: "bitCrackle", pan: 0.2, opts: { ms: 200 } },
+        { at: BT.crumble, sound: "bitCrumble", pan: 0.25 },
+        { at: BT.drop + 50, sound: "bitFallAway", pan: 0.25, opts: { ms: BT.puff - BT.drop - 400 } },
+        { at: BT.puff, sound: "bitFarThud", pan: 0.25 },
+        { at: BT.dust, sound: "bitPat", pan: -0.12, opts: { step: 0 } },
+        { at: BT.dust + 170, sound: "bitPat", pan: -0.12, opts: { step: 1 } }
+      ]
+    };
+    SS = { sink: 200, set: 1480, lower: 1660, settle: 2760, glint: 2980, weed: 3140, yank: 3860 };
+    sunset = {
+      id: "sunset",
+      name: "Sunset",
+      shape: "win",
+      style: "desert",
+      ms: 5e3,
+      beats: SS,
+      still: 3090,
+      summary: "bitGleam",
+      letter: { at: SS.set + 60, over: "a", place: "top-left" },
+      /* world x: the butte under the winner at 960 (sunset.jsx) */
+      camera: { zoom: 1.5, x: "chip", moves: [
+        /* a slow push in through the sunset and the shades coming down */
+        { at: 0, ms: SS.settle, zoom: 1.66, x: "chip" }
+      ] },
+      cast: { a: { role: "winner", max: 4 } },
+      cues: [
+        { at: 0, sound: "bitWind", pan: 0, opts: { ms: 1700 } },
+        ...[0, 1, 2, 3, 4, 5].map((i) => ({ at: SS.sink + 80 + i * 150, sound: "bitRelamp", pan: 0, opts: { step: i } })),
+        { at: SS.lower, sound: "bitRatchet", pan: 0, opts: { ms: SS.settle - SS.lower } },
+        { at: SS.glint, sound: "bitGleam", pan: -0.05 },
+        { at: SS.weed, sound: "bitWind", pan: -0.2, opts: { ms: 800 } },
+        { at: SS.weed + 250, sound: "bitHop", pan: -0.3, opts: { step: 0 } },
+        { at: SS.weed + 500, sound: "bitHop", pan: 0.25, opts: { step: 1 } },
+        { at: SS.yank, sound: "bitYank", pan: 0 }
+      ]
+    };
+    ST = { crouch: 260, pose: 480, sheen: 900, rise: 1440, thump: 2040, wren: 2420, land: 2800, peck: 3060, fluff: 3380, droop: 3700 };
+    statue = {
+      id: "statue",
+      name: "Statue",
+      shape: "win",
+      style: "desert",
+      ms: 5200,
+      beats: ST,
+      still: 4720,
+      summary: "bitTink",
+      letter: { at: ST.thump + 80, over: "a", place: "top-left" },
+      /* world x: the winner at 900 (statue.jsx) */
+      camera: { zoom: 1.76, x: "chip", fit: true, moves: [
+        /* back out as the plinth lifts it */
+        { at: ST.rise, ms: 620, zoom: 1.42, x: "chip" },
+        /* in on the bird and the finger */
+        { at: ST.wren + 200, ms: 1400, zoom: 1.6, x: "top" }
+      ], shakes: [{ at: ST.thump }] },
+      cast: { a: { role: "winner", max: 4 } },
+      cues: [
+        { at: ST.pose, sound: "bitStreak", pan: 0, opts: { from: -0.1, to: 0.1 } },
+        { at: ST.sheen, sound: "bitSheen", pan: 0 },
+        { at: ST.rise, sound: "bitGrind", pan: 0, opts: { ms: ST.thump - ST.rise } },
+        { at: ST.thump, sound: "bitThud", pan: 0 },
+        { at: ST.wren, sound: "bitFlap", pan: -0.4, opts: { small: true, step: 0 } },
+        { at: ST.wren + 150, sound: "bitFlap", pan: -0.25, opts: { small: true, step: 1 } },
+        { at: ST.land - 100, sound: "bitFlap", pan: -0.1, opts: { small: true, step: 2 } },
+        { at: ST.peck, sound: "bitTink", pan: -0.02 },
+        { at: ST.fluff, sound: "bitFluff", pan: -0.02 },
+        { at: ST.droop, sound: "bitDroop", pan: 0.1, opts: { ms: 900 } }
+      ]
+    };
+    VU = {
+      glide: 420,
+      land: 1080,
+      fold: 1260,
+      stare: 1560,
+      scoot: 2180,
+      follow: 2420,
+      scoot2: 2700,
+      follow2: 2840,
+      napkin: 3160,
+      cutlery: 3520,
+      look: 3960
+    };
+    vulture = {
+      id: "vulture",
+      name: "Vulture",
+      shape: "loss",
+      style: "desert",
+      ms: 5300,
+      beats: VU,
+      still: 4700,
+      summary: "bitShing",
+      letter: { at: VU.land + 160, over: "a", place: "top-left" },
+      /* world x: the chip at 820, the vulture lands at 1170 (vulture.jsx) */
+      camera: { zoom: 1.8, x: 1e3, moves: [
+        /* in a little on the two of them */
+        { at: VU.stare - 200, ms: 600, zoom: 1.9, x: 975 },
+        /* after them as they scoot */
+        { at: VU.scoot, ms: 820, zoom: 1.9, x: 900 },
+        /* in on the chip, the knife and fork at its shoulder */
+        { at: VU.look - 120, ms: 560, zoom: 2.2, x: 840 }
+      ], shakes: [{ at: VU.land }] },
+      cast: { a: { role: "loser", max: 1 } },
+      cues: [
+        { at: 0, sound: "bitWind", pan: 0, opts: { ms: 1200 } },
+        ...[0, 1, 2].map((i) => ({ at: VU.glide + 120 + i * 180, sound: "bitFlap", pan: 0.5 - i * 0.08, opts: { step: i } })),
+        { at: VU.land, sound: "bitThud", pan: 0.3 },
+        { at: VU.fold, sound: "bitFlap", pan: 0.3, opts: { step: 3 } },
+        { at: VU.scoot, sound: "bitScoot", pan: -0.15, opts: { step: 0 } },
+        { at: VU.follow, sound: "bitScoot", pan: 0.2, opts: { step: 1 } },
+        { at: VU.scoot2, sound: "bitScoot", pan: -0.22, opts: { step: 2 } },
+        { at: VU.follow2, sound: "bitScoot", pan: 0.12, opts: { step: 3 } },
+        { at: VU.napkin, sound: "bitFwip", pan: 0.12 },
+        { at: VU.cutlery, sound: "bitShing", pan: 0.08 }
+      ]
+    };
+    DESERT2 = [butte, sunset, statue, vulture];
+    TEAM_MIN = 3;
+    TEAM_MAX = 7;
+    TEAM = (role) => ({ role, min: TEAM_MIN, max: TEAM_MAX });
+    DM = { walk: 300, stop: 1150, raise: 1350, tap: 1600, chain: 1640, last: 2440, wobble: 2480, drop: 3820, flat: 4e3, nod: 4440 };
+    dominoes = {
+      id: "dominoes",
+      name: "Dominoes",
+      shape: "versus",
+      style: "slapstick",
+      ms: 5200,
+      beats: DM,
+      still: 4820,
+      summary: "bitClatter",
+      letter: { at: DM.flat + 100, over: "a", place: "top-left" },
+      /* fitted: the whole line and the watchers; every zoom below scales
+         with that fit, so a 7 v 6 and a 3 v 3 get the same shots */
+      camera: { zoom: 1.5, x: "mid", fit: true, moves: [
+        /* in on the tapper and the first favorite for the tap */
+        { at: DM.raise - 250, ms: 450, zoom: 2.4, x: "tap" },
+        /* along the line with the chain, ending on the last */
+        { at: DM.chain + 40, ms: DM.last - DM.chain + 120, zoom: 2.2, x: "last", ease: CAMERA_EASE.move },
+        /* closer while it teeters */
+        { at: DM.wobble + 260, ms: 1e3, zoom: 2.6, x: "last" },
+        /* out for the underdogs' nod */
+        { at: DM.flat + 60, ms: 380, zoom: 1.5, x: "mid" }
+      ], shakes: [{ at: DM.flat }] },
+      cast: { a: TEAM("winner"), b: TEAM("beaten") },
+      cues: [
+        ...[0, 1, 2].map((i) => ({ at: DM.walk + 280 * i + 200, sound: "bitHop", pan: Math.round((0.4 - i * 0.06) * 100) / 100, opts: { step: i } })),
+        { at: DM.tap, sound: "bitPoke", pan: 0.2 },
+        { at: DM.chain, sound: "bitClatter", pan: 0, opts: { ms: DM.last - DM.chain, dir: -1 } },
+        { at: DM.wobble, sound: "bitCreak", pan: -0.45, opts: { ms: DM.drop - DM.wobble } },
+        { at: DM.flat, sound: "bitThud", pan: -0.45 }
+      ]
+    };
+    TW = { lean: 200, strain: 800, set: 1800, yank: 2100, fly: 2140, land: 2640, ouch: 3240, hop: 4150, sting: 4650 };
+    tugofwar = {
+      id: "tugofwar",
+      name: "Tug of war",
+      shape: "versus",
+      style: "slapstick",
+      ms: 5300,
+      beats: TW,
+      still: 4900,
+      summary: "bitPrick",
+      letter: { at: TW.land + 160, over: "a", place: "top-left" },
+      camera: { zoom: 1.5, x: "mid", fit: true, moves: [
+        /* onto the underdogs as they wind up */
+        { at: TW.set, ms: 280, zoom: 1.75, x: "a" },
+        /* out for the yank */
+        { at: TW.yank, ms: 110, zoom: 1.5, x: "mid", ease: CAMERA_EASE.snap },
+        /* whip to the patch, landing with them */
+        { at: TW.fly + 150, ms: 350, zoom: 2.5, x: "patch", ease: CAMERA_EASE.whip },
+        /* in on the chorus */
+        { at: TW.ouch - 300, ms: 900, zoom: 2.75 }
+      ], shakes: [{ at: TW.land, big: true }, { at: TW.sting }] },
+      cast: { a: TEAM("winner"), b: TEAM("beaten") },
+      cues: [
+        { at: TW.lean, sound: "bitCreak", pan: 0.1, opts: { ms: 700, small: true } },
+        { at: TW.strain, sound: "bitStrain", pan: -0.35, opts: { ms: TW.set - TW.strain } },
+        { at: TW.yank, sound: "bitYank", pan: -0.35 },
+        { at: TW.yank + 20, sound: "bitZip", pan: 0.3 },
+        { at: TW.fly, sound: "bitStreak", pan: 0.2, opts: { from: 0.5, to: 0 } },
+        { at: TW.land, sound: "bitThud", pan: 0 },
+        /* the chorus runs 640 ms, left to right, whatever the side's size */
+        ...[0, 1, 2, 3].map((k) => ({ at: TW.ouch + Math.round(k * 640 / 3), sound: "bitPrick", pan: Math.round((-0.24 + k * 0.16) * 100) / 100 })),
+        { at: TW.hop, sound: "bitBoing", pan: 0, opts: { small: true } },
+        { at: TW.sting, sound: "bitPrick", pan: 0, opts: { big: true } }
+      ]
+    };
+    SM = { boom: 700, last: 1900, stop: 2900, late: 3500, glint: 4150 };
+    slowmowalk = {
+      id: "slowmowalk",
+      name: "Slow-mo walk",
+      shape: "versus",
+      style: "action",
+      ms: 5e3,
+      beats: SM,
+      still: 4300,
+      summary: "bitBoom",
+      letter: { at: SM.late + 60, over: "a", place: "top-left" },
+      camera: { zoom: 1.4, x: "mid", fit: true, moves: [
+        /* the slow walk leans in */
+        { at: 0, ms: SM.stop, zoom: 1.47 },
+        /* the last one goes: a punch in on the faces that do not turn */
+        { at: SM.late, ms: 80, zoom: 1.58, ease: CAMERA_EASE.snap },
+        { at: SM.late + 520, ms: 560, zoom: 1.47 }
+      ], shakes: [{ at: SM.boom, big: true }, { at: SM.late, big: true }], washes: [SM.boom, SM.late] },
+      cast: { a: TEAM("winner"), b: TEAM("beaten") },
+      cues: [
+        ...[1, 2, 3, 4].map((k) => ({ at: Math.round(SM.stop * k / 4), sound: "bitStep", pan: 0, opts: { step: k } })),
+        { at: SM.boom, sound: "bitBoom", pan: -0.3, opts: { slow: true } },
+        { at: SM.boom, sound: "bitBoomChain", pan: 0, opts: { ms: SM.last - SM.boom } },
+        { at: SM.last + 300, sound: "bitFuse", pan: 0, opts: { ms: SM.late - SM.last - 300 } },
+        { at: SM.late, sound: "bitBoom", pan: 0, opts: { slow: true } },
+        { at: SM.glint, sound: "bitGlint", pan: 0 }
+      ]
+    };
+    PY = { build: 100, hop0: 760, hop1: 1140, hop2: 1520, top: 1900, wobble: 2200, hold: 3500, thumb: 3900 };
+    pyramid = {
+      id: "pyramid",
+      name: "Pyramid",
+      shape: "win",
+      style: "slapstick",
+      ms: 5e3,
+      beats: PY,
+      still: 4500,
+      summary: "bitBoing",
+      letter: { at: PY.top + 100, over: "a", place: "top-left" },
+      /* the chips are sized (pyramid.jsx PY_STAGE) so the tallest pyramid's
+         top stays under the lettering at the wobble's zoom */
+      camera: { zoom: 1.3, x: "mid", fit: true, moves: [
+        { at: PY.wobble, ms: 900, zoom: 1.45, x: "top" }
+      ], shakes: [{ at: PY.top }] },
+      cast: { a: TEAM("winner") },
+      cues: [
+        { at: PY.build + 300, sound: "bitStrain", pan: 0, opts: { ms: 320 } },
+        { at: PY.hop0, sound: "bitHop", pan: -0.2, opts: { step: 0 } },
+        { at: PY.hop1, sound: "bitHop", pan: 0.2, opts: { step: 1 } },
+        { at: PY.hop2, sound: "bitHop", pan: -0.1, opts: { step: 2 } },
+        { at: PY.top, sound: "bitHop", pan: 0, opts: { step: 3 } },
+        { at: PY.wobble, sound: "bitCreak", pan: 0, opts: { ms: PY.hold - PY.wobble } },
+        { at: PY.thumb, sound: "bitSqueak", pan: 0.2 }
+      ]
+    };
+    TP = { press: 500, timer: 560, run: 640, home: 1180, pose: 1320, flash: 3060, tip: 3660, crash: 4460 };
+    teamphoto = {
+      id: "teamphoto",
+      name: "Team photo",
+      shape: "win",
+      style: "desert",
+      ms: 5300,
+      beats: TP,
+      still: 4920,
+      summary: "bitShutter",
+      letter: { at: TP.flash + 120, over: "a", place: "top-left" },
+      camera: { zoom: 1.4, x: "mid", fit: true, moves: [
+        /* in on the team and the lamp through the count */
+        { at: TP.timer, ms: TP.flash - TP.timer, zoom: 1.6, x: "shot" },
+        /* back out as the tripod goes */
+        { at: TP.tip - 250, ms: 600, zoom: 1.4, x: "mid" }
+      ], shakes: [{ at: TP.crash }], washes: [TP.flash] },
+      cast: { a: TEAM("winner") },
+      cues: [
+        { at: TP.press, sound: "bitClick", pan: 0.6 },
+        { at: TP.timer, sound: "bitTimer", pan: 0.55, opts: { ms: TP.flash - TP.timer } },
+        ...[0, 1, 2].map((i) => ({ at: TP.run + 180 * i + 80, sound: "bitSneaker", pan: Math.round((0.6 - i * 0.08) * 100) / 100, opts: { step: i } })),
+        { at: TP.pose, sound: "bitSqueak", pan: 0 },
+        { at: TP.flash, sound: "bitShutter", pan: 0.55 },
+        { at: TP.tip, sound: "bitCreak", pan: 0.6, opts: { ms: TP.crash - TP.tip } },
+        { at: TP.crash, sound: "bitThud", pan: 0.7 },
+        { at: TP.crash + 40, sound: "bitClink", pan: 0.7 }
+      ]
+    };
+    VL = { bend: 1100, arrive: 2800, plant: 2950, droop: 3600, look: 4050 };
+    victorylap = {
+      id: "victorylap",
+      name: "Victory lap",
+      shape: "win",
+      style: "action",
+      ms: 4800,
+      beats: VL,
+      still: 4400,
+      summary: "bitFlagFlap",
+      letter: { at: VL.plant + 120, over: "a", place: "top-left" },
+      camera: { zoom: 1.4, x: "mid", fit: true, moves: [
+        /* down the straight, the shot leans in */
+        { at: VL.bend, ms: VL.arrive - VL.bend, zoom: 1.5 },
+        /* the pole goes in */
+        { at: VL.plant, ms: 80, zoom: 1.58, ease: CAMERA_EASE.snap },
+        { at: VL.plant + 200, ms: 400, zoom: 1.5 },
+        /* in on the lead and its flag as the wind drops */
+        { at: VL.droop - 100, ms: 900, zoom: 1.72, x: "flag" }
+      ], shakes: [{ at: VL.plant }] },
+      cast: { a: TEAM("winner") },
+      cues: [
+        { at: 0, sound: "bitFlagFlap", pan: 0, opts: { ms: VL.droop } },
+        ...[3, 4, 5].map((k) => ({ at: Math.round(VL.arrive * k / 5), sound: "bitStep", pan: 0, opts: { step: k } })),
+        { at: VL.plant, sound: "bitPlant", pan: 0.1 },
+        { at: VL.droop, sound: "bitFlagSag", pan: 0.1 },
+        { at: VL.look, sound: "bitSqueakSoft", pan: 0 }
+      ]
+    };
+    TEAM_BITS = [dominoes, tugofwar, slowmowalk, pyramid, teamphoto, victorylap];
+    BITS = Object.freeze([quickdraw, anvil, roadrunner, ...ACTION_BITS, ...IDLE, ...SLAPSTICK, ...DESERT2, ...TEAM_BITS].map(freeze));
+    BY_ID = new Map(BITS.map((bit) => [bit.id, bit]));
+  }
+});
+
+// src/features/results/resultMoment.js
+var init_resultMoment = __esm({
+  "src/features/results/resultMoment.js"() {
+    init_core();
+    init_weekendFacts();
+  }
+});
+
+// src/features/results/lastCard.js
+var SESSION_ORDER, SESSION_TICKS;
+var init_lastCard = __esm({
+  "src/features/results/lastCard.js"() {
+    init_core();
+    init_resultMoment();
+    SESSION_ORDER = SESSIONS.map((session) => session.id);
+    SESSION_TICKS = Object.freeze({ fri: "FRI", sam: "SAT AM", sap: "SAT PM", san: "SAT NIGHT", fin: "POKER" });
+  }
+});
+
+// src/features/results/weekendFacts.js
+var FACT_TAGS;
+var init_weekendFacts = __esm({
+  "src/features/results/weekendFacts.js"() {
+    init_core();
+    init_lastCard();
+    init_resultMoment();
+    init_seasonStats();
+    FACT_TAGS = Object.freeze({ streak: "Streak", first: "First", wins: "Milestone", bet: "Record" });
+  }
+});
+
+// shared/audio.js
+var MAX_TRACK_DURATION_MS, WALKOUT_MAX_MS, WIN_SONG_CLIP_MS;
+var init_audio = __esm({
+  "shared/audio.js"() {
+    MAX_TRACK_DURATION_MS = 12 * 60 * 60 * 1e3;
+    WALKOUT_MAX_MS = 4 * 60 * 1e3;
+    WIN_SONG_CLIP_MS = 30 * 1e3;
+  }
+});
+
+// src/features/moments/walkoutTeam.js
+var WALKOUT_WIN_MS;
+var init_walkoutTeam = __esm({
+  "src/features/moments/walkoutTeam.js"() {
+    init_core();
+    WALKOUT_WIN_MS = 30 * 1e3;
+  }
+});
+
+// src/features/moments/walkout.js
 import { useEffect as useEffect27, useRef as useRef25, useState as useState28 } from "react";
+var WALKOUT_TIMING;
+var init_walkout = __esm({
+  "src/features/moments/walkout.js"() {
+    init_audio();
+    init_motion();
+    init_serverClock();
+    init_tvMotion();
+    init_tvModel();
+    init_walkoutTeam();
+    init_walkoutTeam();
+    WALKOUT_TIMING = Object.freeze({
+      flood: 0,
+      floodMs: 800,
+      // their color floods out from their chip
+      art: 250,
+      artMs: 520,
+      // the album art and their photo stand up
+      stamp: 700,
+      stampMs: 360,
+      // the name stamps as the song fades in; the stinger
+      sub: 1100,
+      subMs: 400,
+      // the song and artist
+      dock: 8400,
+      dockMs: 700,
+      // it docks into the Now playing strip
+      total: 9100
+    });
+  }
+});
+
+// src/features/gags/gagModel.js
+var GAG_TRIGGERS, TRIGGER_SHAPE, STREAK_MIN, UPSET_FACT, RESULT_GAG_AT_MS, RESULT_GAG_END_MS, fmt8, streakFact, lossFact, TEST_FACT;
+var init_gagModel = __esm({
+  "src/features/gags/gagModel.js"() {
+    init_core();
+    init_gags();
+    init_registry();
+    init_chipInk();
+    init_playerIdentity();
+    init_seasonStats();
+    init_weekendFacts();
+    init_walkout();
+    init_tvModel();
+    GAG_TRIGGERS = Object.freeze(["upset", "streak", "leader", "bigloss", "last"]);
+    TRIGGER_SHAPE = Object.freeze({ upset: "versus", streak: "win", leader: "win", bigloss: "loss", last: "loss" });
+    STREAK_MIN = 3;
+    UPSET_FACT = "Upset";
+    RESULT_GAG_AT_MS = RESULT_PODIUM_BEATS_MS[RESULT_PODIUM_BEATS_MS.length - 1] + 1e3;
+    RESULT_GAG_END_MS = RESULT_STANDINGS_AT_MS + RESULT_SORT_DELAY_MS;
+    fmt8 = (n) => Math.round(Number(n) || 0).toLocaleString("en-US");
+    streakFact = (count) => `${count} in a row`;
+    lossFact = (amount) => `-${fmt8(amount)}`;
+    TEST_FACT = Object.freeze({ versus: UPSET_FACT, win: streakFact(STREAK_MIN), loss: lossFact(GAG_TEST_AMOUNT) });
+  }
+});
+
+// src/features/tv/faceOff.js
+import { useEffect as useEffect28, useRef as useRef26, useState as useState29 } from "react";
 var FACEOFF_TIMING;
 var init_faceOff = __esm({
   "src/features/tv/faceOff.js"() {
@@ -9032,6 +11695,8 @@ var init_faceOff = __esm({
     init_drawReveal();
     init_tvModel();
     init_tvMotion();
+    init_gagModel();
+    init_walkout();
     FACEOFF_TIMING = Object.freeze({
       dim: 0,
       dimMs: 900,
@@ -9055,16 +11720,6 @@ var init_faceOff = __esm({
       // it lifts off the betting board
       total: 3 * MOTION.beat + 1100
     });
-  }
-});
-
-// shared/audio.js
-var MAX_TRACK_DURATION_MS, WALKOUT_MAX_MS, WIN_SONG_CLIP_MS;
-var init_audio = __esm({
-  "shared/audio.js"() {
-    MAX_TRACK_DURATION_MS = 12 * 60 * 60 * 1e3;
-    WALKOUT_MAX_MS = 4 * 60 * 1e3;
-    WIN_SONG_CLIP_MS = 30 * 1e3;
   }
 });
 
@@ -9149,7 +11804,7 @@ var init_trophy2 = __esm({
 });
 
 // src/features/weekend/Trophy.jsx
-import React48, { useEffect as useEffect31, useId as useId6, useLayoutEffect as useLayoutEffect12, useState as useState36 } from "react";
+import React49, { useEffect as useEffect32, useId as useId6, useLayoutEffect as useLayoutEffect12, useState as useState37 } from "react";
 var BOWL_BOX, ENGRAVE_MS;
 var init_Trophy = __esm({
   "src/features/weekend/Trophy.jsx"() {
@@ -9163,37 +11818,6 @@ var init_Trophy = __esm({
     init_trophy2();
     BOWL_BOX = Object.freeze({ w: 600, h: 330 });
     ENGRAVE_MS = ENGRAVE.sweep + ENGRAVE.settle;
-  }
-});
-
-// src/features/results/weekendFacts.js
-var FACT_TAGS;
-var init_weekendFacts = __esm({
-  "src/features/results/weekendFacts.js"() {
-    init_core();
-    init_lastCard();
-    init_resultMoment();
-    init_seasonStats();
-    FACT_TAGS = Object.freeze({ streak: "Streak", first: "First", wins: "Milestone", bet: "Record" });
-  }
-});
-
-// src/features/results/resultMoment.js
-var init_resultMoment = __esm({
-  "src/features/results/resultMoment.js"() {
-    init_core();
-    init_weekendFacts();
-  }
-});
-
-// src/features/results/lastCard.js
-var SESSION_ORDER, SESSION_TICKS;
-var init_lastCard = __esm({
-  "src/features/results/lastCard.js"() {
-    init_core();
-    init_resultMoment();
-    SESSION_ORDER = SESSIONS.map((session) => session.id);
-    SESSION_TICKS = Object.freeze({ fri: "FRI", sam: "SAT AM", sap: "SAT PM", san: "SAT NIGHT", fin: "POKER" });
   }
 });
 
@@ -9287,14 +11911,14 @@ var init_travel = __esm({
 });
 
 // src/features/travel/Travel.jsx
-import React54, { useState as useState42 } from "react";
+import React55, { useState as useState43 } from "react";
 function TravelMap() {
   const arc = (c) => {
     const mx = (c.x + TRAVEL_DEST.x) / 2;
     const lift = 9 + Math.abs(c.x - TRAVEL_DEST.x) * 0.3;
     return `M${c.x} ${c.y} Q${mx} ${Math.min(c.y, TRAVEL_DEST.y) - lift} ${TRAVEL_DEST.x} ${TRAVEL_DEST.y}`;
   };
-  return /* @__PURE__ */ React54.createElement(
+  return /* @__PURE__ */ React55.createElement(
     "svg",
     {
       viewBox: "-5 -3 110 104",
@@ -9304,8 +11928,8 @@ function TravelMap() {
       "aria-hidden": "true",
       style: { display: "block", overflow: "hidden", maxWidth: "100%", maxHeight: "100%" }
     },
-    /* @__PURE__ */ React54.createElement("g", { style: { animation: "si-fade .8s ease-out both" } }, US_DOTS.map(([x, y], i) => /* @__PURE__ */ React54.createElement("circle", { key: i, cx: x, cy: y, r: "0.62", fill: "var(--muted)", opacity: "0.45" }))),
-    TRAVEL_CITIES.map((c, i) => /* @__PURE__ */ React54.createElement(
+    /* @__PURE__ */ React55.createElement("g", { style: { animation: "si-fade .8s ease-out both" } }, US_DOTS.map(([x, y], i) => /* @__PURE__ */ React55.createElement("circle", { key: i, cx: x, cy: y, r: "0.62", fill: "var(--muted)", opacity: "0.45" }))),
+    TRAVEL_CITIES.map((c, i) => /* @__PURE__ */ React55.createElement(
       "path",
       {
         key: "r" + c.n,
@@ -9319,7 +11943,7 @@ function TravelMap() {
         style: { "--len": 140, animation: `si-route 1.1s ease-out ${0.3 + i * 0.18}s both` }
       }
     )),
-    TRAVEL_CITIES.map((c, i) => /* @__PURE__ */ React54.createElement(
+    TRAVEL_CITIES.map((c, i) => /* @__PURE__ */ React55.createElement(
       "circle",
       {
         className: "fd-travel-motion",
@@ -9330,10 +11954,10 @@ function TravelMap() {
         strokeWidth: "0.5",
         opacity: "0"
       },
-      /* @__PURE__ */ React54.createElement("set", { attributeName: "opacity", to: "1", begin: `${1.2 + i * 0.18}s` }),
-      /* @__PURE__ */ React54.createElement("animateMotion", { dur: "3.6s", begin: `${1.2 + i * 0.18}s`, repeatCount: "indefinite", path: arc(c) })
+      /* @__PURE__ */ React55.createElement("set", { attributeName: "opacity", to: "1", begin: `${1.2 + i * 0.18}s` }),
+      /* @__PURE__ */ React55.createElement("animateMotion", { dur: "3.6s", begin: `${1.2 + i * 0.18}s`, repeatCount: "indefinite", path: arc(c) })
     )),
-    TRAVEL_CITIES.map((c, i) => /* @__PURE__ */ React54.createElement("g", { key: c.n, style: { animation: `si-in .4s ease-out ${i * 0.18}s both` } }, /* @__PURE__ */ React54.createElement("circle", { cx: c.x, cy: c.y, r: "1.9", fill: "var(--paper)", stroke: "var(--bone)", strokeWidth: "0.9" }), /* @__PURE__ */ React54.createElement(
+    TRAVEL_CITIES.map((c, i) => /* @__PURE__ */ React55.createElement("g", { key: c.n, style: { animation: `si-in .4s ease-out ${i * 0.18}s both` } }, /* @__PURE__ */ React55.createElement("circle", { cx: c.x, cy: c.y, r: "1.9", fill: "var(--paper)", stroke: "var(--bone)", strokeWidth: "0.9" }), /* @__PURE__ */ React55.createElement(
       "text",
       {
         x: c.x + c.dx,
@@ -9347,7 +11971,7 @@ function TravelMap() {
       },
       c.n.toUpperCase()
     ))),
-    /* @__PURE__ */ React54.createElement(
+    /* @__PURE__ */ React55.createElement(
       "circle",
       {
         cx: TRAVEL_DEST.x,
@@ -9359,8 +11983,8 @@ function TravelMap() {
         style: { animation: "si-land 2.2s ease-in-out infinite" }
       }
     ),
-    /* @__PURE__ */ React54.createElement("circle", { cx: TRAVEL_DEST.x, cy: TRAVEL_DEST.y, r: "2.8", fill: "var(--sun)", stroke: "var(--ink0)", strokeWidth: "0.8" }),
-    /* @__PURE__ */ React54.createElement(
+    /* @__PURE__ */ React55.createElement("circle", { cx: TRAVEL_DEST.x, cy: TRAVEL_DEST.y, r: "2.8", fill: "var(--sun)", stroke: "var(--ink0)", strokeWidth: "0.8" }),
+    /* @__PURE__ */ React55.createElement(
       "text",
       {
         x: TRAVEL_DEST.x,
@@ -9377,7 +12001,7 @@ function TravelMap() {
   );
 }
 function HouseArt() {
-  return /* @__PURE__ */ React54.createElement("div", { style: { position: "relative", aspectRatio: "16 / 9", background: "var(--paper2)", overflow: "hidden" } }, /* @__PURE__ */ React54.createElement(
+  return /* @__PURE__ */ React55.createElement("div", { style: { position: "relative", aspectRatio: "16 / 9", background: "var(--paper2)", overflow: "hidden" } }, /* @__PURE__ */ React55.createElement(
     "img",
     {
       src: "/airbnb-compound-field-day.webp",
@@ -9397,12 +12021,12 @@ function HouseArt() {
   ));
 }
 function InfoCell({ lb, v, first }) {
-  return /* @__PURE__ */ React54.createElement("div", { style: {
+  return /* @__PURE__ */ React55.createElement("div", { style: {
     flex: 1,
     minWidth: 0,
     padding: "11px 14px",
     borderLeft: first ? "none" : "1px solid var(--line)"
-  } }, /* @__PURE__ */ React54.createElement("div", { style: { ...label, marginBottom: 4 } }, lb), /* @__PURE__ */ React54.createElement("div", { style: {
+  } }, /* @__PURE__ */ React55.createElement("div", { style: { ...label, marginBottom: 4 } }, lb), /* @__PURE__ */ React55.createElement("div", { style: {
     fontFamily: SANS,
     fontWeight: 700,
     fontSize: 14,
@@ -9417,20 +12041,20 @@ function VenueCard({ lg, compact = false }) {
     inL && ["Lands", inL.note || legTime(inL.time) && `Fri ${legTime(inL.time)}`],
     outL && ["Leaves", outL.note || legTime(outL.time) && `Sun ${legTime(outL.time)}`]
   ].filter((x) => x && x[1]);
-  return /* @__PURE__ */ React54.createElement("div", null, /* @__PURE__ */ React54.createElement("div", { style: CARD }, !compact && /* @__PURE__ */ React54.createElement(HouseArt, null), /* @__PURE__ */ React54.createElement("div", { style: { padding: "12px 14px", borderTop: compact ? void 0 : "1px solid var(--line)" } }, /* @__PURE__ */ React54.createElement("div", { style: { ...label, marginBottom: 5 } }, "The house"), lg.venue && /* @__PURE__ */ React54.createElement("div", { style: {
+  return /* @__PURE__ */ React55.createElement("div", null, /* @__PURE__ */ React55.createElement("div", { style: CARD }, !compact && /* @__PURE__ */ React55.createElement(HouseArt, null), /* @__PURE__ */ React55.createElement("div", { style: { padding: "12px 14px", borderTop: compact ? void 0 : "1px solid var(--line)" } }, /* @__PURE__ */ React55.createElement("div", { style: { ...label, marginBottom: 5 } }, "The house"), lg.venue && /* @__PURE__ */ React55.createElement("div", { style: {
     fontFamily: SANS,
     fontWeight: 600,
     fontSize: 15.5,
     lineHeight: 1.45,
     userSelect: "text",
     color: "var(--ink)"
-  } }, lg.venue), lg.venueNote && /* @__PURE__ */ React54.createElement("div", { style: {
+  } }, lg.venue), lg.venueNote && /* @__PURE__ */ React55.createElement("div", { style: {
     fontFamily: SANS,
     fontSize: 13,
     color: "var(--muted2)",
     marginTop: 5,
     lineHeight: 1.5
-  } }, lg.venueNote), mapUrl && /* @__PURE__ */ React54.createElement(
+  } }, lg.venueNote), mapUrl && /* @__PURE__ */ React55.createElement(
     "a",
     {
       href: mapUrl,
@@ -9450,8 +12074,8 @@ function VenueCard({ lg, compact = false }) {
       }
     },
     "Open in Maps",
-    /* @__PURE__ */ React54.createElement(Icon, { name: "open", size: 16 })
-  )), (lg.checkIn || lg.checkOut) && /* @__PURE__ */ React54.createElement("div", { style: { display: "flex", borderTop: "1px solid var(--line)" } }, /* @__PURE__ */ React54.createElement(InfoCell, { lb: "Check in", v: lg.checkIn || "TBD", first: true }), /* @__PURE__ */ React54.createElement(InfoCell, { lb: "Checkout", v: lg.checkOut || "TBD" }))), (lg.airport || hostLegs.length > 0) && /* @__PURE__ */ React54.createElement("div", { style: CARD }, lg.airport && /* @__PURE__ */ React54.createElement("div", { style: { display: "flex", alignItems: "center", gap: 14, padding: "12px 14px" } }, /* @__PURE__ */ React54.createElement("span", { style: { display: "flex", flexShrink: 0, color: "var(--accent2)" } }, /* @__PURE__ */ React54.createElement(Icon, { name: "plane", size: 20, lit: true })), /* @__PURE__ */ React54.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React54.createElement("div", { style: { ...label, marginBottom: 3 } }, "Fly into"), /* @__PURE__ */ React54.createElement("div", { style: { fontFamily: SANS, fontSize: 13, color: "var(--muted2)" } }, lg.airportName)), /* @__PURE__ */ React54.createElement("div", { style: {
+    /* @__PURE__ */ React55.createElement(Icon, { name: "open", size: 16 })
+  )), (lg.checkIn || lg.checkOut) && /* @__PURE__ */ React55.createElement("div", { style: { display: "flex", borderTop: "1px solid var(--line)" } }, /* @__PURE__ */ React55.createElement(InfoCell, { lb: "Check in", v: lg.checkIn || "TBD", first: true }), /* @__PURE__ */ React55.createElement(InfoCell, { lb: "Checkout", v: lg.checkOut || "TBD" }))), (lg.airport || hostLegs.length > 0) && /* @__PURE__ */ React55.createElement("div", { style: CARD }, lg.airport && /* @__PURE__ */ React55.createElement("div", { style: { display: "flex", alignItems: "center", gap: 14, padding: "12px 14px" } }, /* @__PURE__ */ React55.createElement("span", { style: { display: "flex", flexShrink: 0, color: "var(--accent2)" } }, /* @__PURE__ */ React55.createElement(Icon, { name: "plane", size: 20, lit: true })), /* @__PURE__ */ React55.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React55.createElement("div", { style: { ...label, marginBottom: 3 } }, "Fly into"), /* @__PURE__ */ React55.createElement("div", { style: { fontFamily: SANS, fontSize: 13, color: "var(--muted2)" } }, lg.airportName)), /* @__PURE__ */ React55.createElement("div", { style: {
     fontFamily: DISPLAY,
     fontWeight: 700,
     fontSize: 30,
@@ -9460,7 +12084,7 @@ function VenueCard({ lg, compact = false }) {
     lineHeight: 1
   } }, lg.airport)), hostLegs.length > 0 && /* the flight codes matter to nobody but Brandon; the times are how
      people work out who they are sharing a ride with */
-  /* @__PURE__ */ React54.createElement("div", { style: { borderTop: lg.airport ? "1px solid var(--line)" : "none" } }, /* @__PURE__ */ React54.createElement("div", { style: { ...label, padding: "10px 14px 0" } }, "My flights"), /* @__PURE__ */ React54.createElement("div", { style: { display: "flex" } }, hostLegs.map(([lb, v], i) => /* @__PURE__ */ React54.createElement(InfoCell, { key: lb, lb, v, first: i === 0 }))))));
+  /* @__PURE__ */ React55.createElement("div", { style: { borderTop: lg.airport ? "1px solid var(--line)" : "none" } }, /* @__PURE__ */ React55.createElement("div", { style: { ...label, padding: "10px 14px 0" } }, "My flights"), /* @__PURE__ */ React55.createElement("div", { style: { display: "flex" } }, hostLegs.map(([lb, v], i) => /* @__PURE__ */ React55.createElement(InfoCell, { key: lb, lb, v, first: i === 0 }))))));
 }
 function FlightEntry({ leg: raw, dir, setLeg }) {
   const leg = raw || {};
@@ -9487,7 +12111,7 @@ function FlightEntry({ leg: raw, dir, setLeg }) {
     color: "var(--ink)"
   };
   const cap = { ...label, marginTop: 5, color: "var(--muted)" };
-  return /* @__PURE__ */ React54.createElement("div", { className: "fd-flight-entry-wrap" }, /* @__PURE__ */ React54.createElement("div", { className: "fd-flight-entry" }, /* @__PURE__ */ React54.createElement("div", { style: { minWidth: 0 } }, /* @__PURE__ */ React54.createElement("div", { style: box2 }, /* @__PURE__ */ React54.createElement(
+  return /* @__PURE__ */ React55.createElement("div", { className: "fd-flight-entry-wrap" }, /* @__PURE__ */ React55.createElement("div", { className: "fd-flight-entry" }, /* @__PURE__ */ React55.createElement("div", { style: { minWidth: 0 } }, /* @__PURE__ */ React55.createElement("div", { style: box2 }, /* @__PURE__ */ React55.createElement(
     "input",
     {
       value: leg.air || "",
@@ -9498,7 +12122,7 @@ function FlightEntry({ leg: raw, dir, setLeg }) {
       onChange: (e) => set({ air: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 3) }),
       style: { ...bare, fontFamily: SANS, fontWeight: 700, fontSize: 16, letterSpacing: "0.1em" }
     }
-  )), /* @__PURE__ */ React54.createElement("div", { style: cap }, "Airline")), /* @__PURE__ */ React54.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React54.createElement("div", { style: box2 }, /* @__PURE__ */ React54.createElement(
+  )), /* @__PURE__ */ React55.createElement("div", { style: cap }, "Airline")), /* @__PURE__ */ React55.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React55.createElement("div", { style: box2 }, /* @__PURE__ */ React55.createElement(
     "input",
     {
       value: leg.num || "",
@@ -9508,7 +12132,7 @@ function FlightEntry({ leg: raw, dir, setLeg }) {
       onChange: (e) => set({ num: e.target.value.replace(/\D/g, "").slice(0, 4) }),
       style: { ...bare, fontFamily: SANS, fontWeight: 700, fontSize: 16 }
     }
-  )), /* @__PURE__ */ React54.createElement("div", { style: cap }, "Flight no.")), /* @__PURE__ */ React54.createElement("div", { className: "fd-flight-time", style: { minWidth: 0 } }, /* @__PURE__ */ React54.createElement("div", { style: box2 }, /* @__PURE__ */ React54.createElement(
+  )), /* @__PURE__ */ React55.createElement("div", { style: cap }, "Flight no.")), /* @__PURE__ */ React55.createElement("div", { className: "fd-flight-time", style: { minWidth: 0 } }, /* @__PURE__ */ React55.createElement("div", { style: box2 }, /* @__PURE__ */ React55.createElement(
     "input",
     {
       type: "time",
@@ -9523,19 +12147,19 @@ function FlightEntry({ leg: raw, dir, setLeg }) {
         color: leg.time ? "var(--ink)" : "var(--muted)"
       }
     }
-  )), /* @__PURE__ */ React54.createElement("div", { style: cap }, dir === "out" ? "Takes off" : "Lands"))));
+  )), /* @__PURE__ */ React55.createElement("div", { style: cap }, dir === "out" ? "Takes off" : "Lands"))));
 }
 function FlightPass({ leg: raw, dir, small, edit, setLeg, person = null, codeless = false }) {
-  if (edit) return /* @__PURE__ */ React54.createElement(FlightEntry, { leg: raw, dir, setLeg });
+  if (edit) return /* @__PURE__ */ React55.createElement(FlightEntry, { leg: raw, dir, setLeg });
   const leg = cleanLeg(raw);
   if (!leg) return null;
-  if (leg.note) return /* @__PURE__ */ React54.createElement("div", { className: "fd-flight-pass is-note" }, person, /* @__PURE__ */ React54.createElement("span", { className: "fd-flight-pass-note" }, leg.note));
+  if (leg.note) return /* @__PURE__ */ React55.createElement("div", { className: "fd-flight-pass is-note" }, person, /* @__PURE__ */ React55.createElement("span", { className: "fd-flight-pass-note" }, leg.note));
   const t = legTime(leg.time);
-  return /* @__PURE__ */ React54.createElement("div", { className: `fd-flight-pass${small ? " is-small" : ""}` }, /* @__PURE__ */ React54.createElement("span", { className: "fd-flight-pass-who" }, person || /* @__PURE__ */ React54.createElement(Icon, { name: "plane", size: small ? 16 : 18, lit: true })), !codeless && /* @__PURE__ */ React54.createElement("span", { className: "fd-flight-pass-code" }, leg.air && /* @__PURE__ */ React54.createElement("small", null, leg.air), leg.num && /* @__PURE__ */ React54.createElement("b", null, leg.num)), /* @__PURE__ */ React54.createElement("span", { className: "fd-flight-pass-when" }, t && /* @__PURE__ */ React54.createElement("b", null, t), /* @__PURE__ */ React54.createElement("small", null, dir === "out" ? "Leaves Sun" : "Lands Fri")));
+  return /* @__PURE__ */ React55.createElement("div", { className: `fd-flight-pass${small ? " is-small" : ""}` }, /* @__PURE__ */ React55.createElement("span", { className: "fd-flight-pass-who" }, person || /* @__PURE__ */ React55.createElement(Icon, { name: "plane", size: small ? 16 : 18, lit: true })), !codeless && /* @__PURE__ */ React55.createElement("span", { className: "fd-flight-pass-code" }, leg.air && /* @__PURE__ */ React55.createElement("small", null, leg.air), leg.num && /* @__PURE__ */ React55.createElement("b", null, leg.num)), /* @__PURE__ */ React55.createElement("span", { className: "fd-flight-pass-when" }, t && /* @__PURE__ */ React55.createElement("b", null, t), /* @__PURE__ */ React55.createElement("small", null, dir === "out" ? "Leaves Sun" : "Lands Fri")));
 }
 function LegField({ lb, dir, leg, setLeg }) {
   const filled = leg && (leg.air || leg.num || leg.time);
-  return /* @__PURE__ */ React54.createElement("div", { style: { marginBottom: 12 } }, /* @__PURE__ */ React54.createElement("div", { style: { display: "flex", alignItems: "baseline", gap: 8, marginBottom: 6 } }, /* @__PURE__ */ React54.createElement("span", { style: label }, lb), filled && /* @__PURE__ */ React54.createElement("button", { onClick: () => setLeg(null), style: {
+  return /* @__PURE__ */ React55.createElement("div", { style: { marginBottom: 12 } }, /* @__PURE__ */ React55.createElement("div", { style: { display: "flex", alignItems: "baseline", gap: 8, marginBottom: 6 } }, /* @__PURE__ */ React55.createElement("span", { style: label }, lb), filled && /* @__PURE__ */ React55.createElement("button", { onClick: () => setLeg(null), style: {
     marginLeft: "auto",
     background: "none",
     border: "none",
@@ -9549,13 +12173,13 @@ function LegField({ lb, dir, leg, setLeg }) {
     letterSpacing: "0.1em",
     textTransform: "uppercase",
     color: "var(--muted)"
-  } }, "Clear")), /* @__PURE__ */ React54.createElement(FlightPass, { leg, dir, edit: true, setLeg }));
+  } }, "Clear")), /* @__PURE__ */ React55.createElement(FlightPass, { leg, dir, edit: true, setLeg }));
 }
 function TravelLists() {
-  return /* @__PURE__ */ React54.createElement("datalist", { id: "fd-airlines" }, AIRLINES.map((a) => /* @__PURE__ */ React54.createElement("option", { key: a, value: a })));
+  return /* @__PURE__ */ React55.createElement("datalist", { id: "fd-airlines" }, AIRLINES.map((a) => /* @__PURE__ */ React55.createElement("option", { key: a, value: a })));
 }
 function SizeRow({ lb, value, onPick, allowClear }) {
-  return /* @__PURE__ */ React54.createElement("div", { style: { marginBottom: 12 } }, /* @__PURE__ */ React54.createElement("div", { style: { ...label, marginBottom: 6 } }, lb), /* @__PURE__ */ React54.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 5 } }, SIZES.map((sz) => /* @__PURE__ */ React54.createElement(
+  return /* @__PURE__ */ React55.createElement("div", { style: { marginBottom: 12 } }, /* @__PURE__ */ React55.createElement("div", { style: { ...label, marginBottom: 6 } }, lb), /* @__PURE__ */ React55.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 5 } }, SIZES.map((sz) => /* @__PURE__ */ React55.createElement(
     "button",
     {
       key: sz,
@@ -9591,13 +12215,13 @@ function TravelFields({ booked, setBooked, flightIn, setFlightIn, flightOut, set
     color: on ? "var(--ink0)" : "var(--ink)",
     border: on ? "1.5px solid var(--ink0)" : "1.5px solid var(--line)"
   });
-  return /* @__PURE__ */ React54.createElement("div", null, /* @__PURE__ */ React54.createElement(TravelLists, null), /* @__PURE__ */ React54.createElement("div", { style: {
+  return /* @__PURE__ */ React55.createElement("div", null, /* @__PURE__ */ React55.createElement(TravelLists, null), /* @__PURE__ */ React55.createElement("div", { style: {
     fontFamily: SANS,
     fontWeight: 600,
     fontSize: 15,
     color: "var(--ink)",
     marginBottom: 8
-  } }, "Booked your flights?"), /* @__PURE__ */ React54.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 14 } }, /* @__PURE__ */ React54.createElement("button", { onClick: () => setBooked(true), "aria-pressed": booked === true, style: opt(booked === true) }, "Yes"), /* @__PURE__ */ React54.createElement(
+  } }, "Booked your flights?"), /* @__PURE__ */ React55.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 14 } }, /* @__PURE__ */ React55.createElement("button", { onClick: () => setBooked(true), "aria-pressed": booked === true, style: opt(booked === true) }, "Yes"), /* @__PURE__ */ React55.createElement(
     "button",
     {
       onClick: () => {
@@ -9609,7 +12233,7 @@ function TravelFields({ booked, setBooked, flightIn, setFlightIn, flightOut, set
       style: opt(booked === false)
     },
     "Not yet"
-  )), booked === true && /* @__PURE__ */ React54.createElement(React54.Fragment, null, /* @__PURE__ */ React54.createElement(LegField, { lb: "Landing Friday", dir: "in", leg: flightIn, setLeg: setFlightIn }), /* @__PURE__ */ React54.createElement(LegField, { lb: "Leaving Sunday", dir: "out", leg: flightOut, setLeg: setFlightOut })), booked === false && /* @__PURE__ */ React54.createElement("div", { style: {
+  )), booked === true && /* @__PURE__ */ React55.createElement(React55.Fragment, null, /* @__PURE__ */ React55.createElement(LegField, { lb: "Landing Friday", dir: "in", leg: flightIn, setLeg: setFlightIn }), /* @__PURE__ */ React55.createElement(LegField, { lb: "Leaving Sunday", dir: "out", leg: flightOut, setLeg: setFlightOut })), booked === false && /* @__PURE__ */ React55.createElement("div", { style: {
     fontFamily: SANS,
     fontSize: 13.5,
     color: "var(--muted2)",
@@ -9715,19 +12339,19 @@ var init_Travel = __esm({
 });
 
 // src/ui/Coin.jsx
-import React57 from "react";
+import React58 from "react";
 function Coin({ p = null, color = null, unlit = false, className = "", children }) {
   const identity = usePlayerIdentity(p);
   const tone = unlit ? null : color || identity.color;
-  return /* @__PURE__ */ React57.createElement(
+  return /* @__PURE__ */ React58.createElement(
     "span",
     {
       className: `fd-coin3d${unlit ? " is-unlit" : ""}${className ? ` ${className}` : ""}`,
       "aria-hidden": "true",
       style: tone ? { "--coin-color": tone } : void 0
     },
-    Array.from({ length: COIN_EDGE_LAYERS2 }, (_, i) => /* @__PURE__ */ React57.createElement("span", { key: i, className: "fd-coin3d-edge", style: { "--z": i + 1 } })),
-    /* @__PURE__ */ React57.createElement("span", { className: "fd-coin3d-face" }, children)
+    Array.from({ length: COIN_EDGE_LAYERS2 }, (_, i) => /* @__PURE__ */ React58.createElement("span", { key: i, className: "fd-coin3d-edge", style: { "--z": i + 1 } })),
+    /* @__PURE__ */ React58.createElement("span", { className: "fd-coin3d-face" }, children)
   );
 }
 var COIN_EDGE_LAYERS2;
@@ -9745,12 +12369,12 @@ var init_wagers = __esm({
 });
 
 // src/features/wagers/Wagers.jsx
-import React58, { useEffect as useEffect36, useLayoutEffect as useLayoutEffect13, useMemo as useMemo9, useRef as useRef37, useState as useState45 } from "react";
+import React59, { useEffect as useEffect37, useLayoutEffect as useLayoutEffect13, useMemo as useMemo9, useRef as useRef38, useState as useState46 } from "react";
 function CompetitorName({ name }) {
-  return /* @__PURE__ */ React58.createElement("span", { className: "fd-wagers-player-name", style: nameFit(name) }, name);
+  return /* @__PURE__ */ React59.createElement("span", { className: "fd-wagers-player-name", style: nameFit(name) }, name);
 }
 function PairName({ name }) {
-  return /* @__PURE__ */ React58.createElement("span", { className: "fd-wagers-pair-name", style: nameFit(name) }, name);
+  return /* @__PURE__ */ React59.createElement("span", { className: "fd-wagers-pair-name", style: nameFit(name) }, name);
 }
 function wagerPickLabel(state, w, events) {
   const ev = events.find((e) => e.id === w.eventId);
@@ -9788,16 +12412,16 @@ function BetWin({ state, line, side, inline = false }) {
   const whole = movers.length >= side.length;
   const shown = whole ? [] : movers.slice(0, WIN_FACES);
   const extra = whole ? 0 : movers.length - shown.length;
-  return /* @__PURE__ */ React58.createElement(
+  return /* @__PURE__ */ React59.createElement(
     "span",
     {
       className: `fd-wagers-win${inline ? " is-inline" : ""}${line.kind === "rank" ? " is-rank" : " is-chips"}`,
       role: "img",
       "aria-label": line.text
     },
-    /* @__PURE__ */ React58.createElement("small", null, "Win"),
-    shown.length > 0 && /* @__PURE__ */ React58.createElement("span", { className: "fd-wagers-win-faces" }, shown.map((player) => /* @__PURE__ */ React58.createElement(Avatar, { key: player, state, p: player, size: 20 })), extra > 0 && /* @__PURE__ */ React58.createElement("span", { className: "fd-wagers-win-more" }, "+", extra)),
-    line.kind === "rank" ? /* @__PURE__ */ React58.createElement("b", { className: "fd-wagers-win-rank" }, /* @__PURE__ */ React58.createElement(Icon, { name: "up", size: 14 }), line.tied ? "Tie " : "", ordinal2(line.rank)) : /* @__PURE__ */ React58.createElement("b", { className: "fd-wagers-win-chips" }, "+", fmt8(line.award))
+    /* @__PURE__ */ React59.createElement("small", null, "Win"),
+    shown.length > 0 && /* @__PURE__ */ React59.createElement("span", { className: "fd-wagers-win-faces" }, shown.map((player) => /* @__PURE__ */ React59.createElement(Avatar, { key: player, state, p: player, size: 20 })), extra > 0 && /* @__PURE__ */ React59.createElement("span", { className: "fd-wagers-win-more" }, "+", extra)),
+    line.kind === "rank" ? /* @__PURE__ */ React59.createElement("b", { className: "fd-wagers-win-rank" }, /* @__PURE__ */ React59.createElement(Icon, { name: "up", size: 14 }), line.tied ? "Tie " : "", ordinal2(line.rank)) : /* @__PURE__ */ React59.createElement("b", { className: "fd-wagers-win-chips" }, "+", fmt9(line.award))
   );
 }
 function MarketPick({
@@ -9825,13 +12449,13 @@ function MarketPick({
   termsSlot = false,
   pointer = null
 }) {
-  const [pendingAction, setPendingAction] = useState45(null);
-  const [actionError, setActionError] = useState45(null);
-  const [checking, setChecking] = useState45(null);
-  const pendingRef = useRef37(false);
-  const pendingKindRef = useRef37(null), queueRef = useRef37([]);
-  const [queued, setQueued] = useState45(0);
-  const wellRef = useRef37(null), mineRef = useRef37(null), flightRef = useRef37(null);
+  const [pendingAction, setPendingAction] = useState46(null);
+  const [actionError, setActionError] = useState46(null);
+  const [checking, setChecking] = useState46(null);
+  const pendingRef = useRef38(false);
+  const pendingKindRef = useRef38(null), queueRef = useRef38([]);
+  const [queued, setQueued] = useState46(0);
+  const wellRef = useRef38(null), mineRef = useRef38(null), flightRef = useRef38(null);
   const mine = bets.filter((x) => x.w.player === me).sort((a, b) => {
     const latest = ({ w }) => w.chips?.[w.chips.length - 1]?.ts || w.updatedAt || w.ts || 0;
     return latest(a) - latest(b);
@@ -9839,24 +12463,24 @@ function MarketPick({
   const mineTotal = mine.reduce((total, x) => total + x.w.stake, 0);
   const chip2 = lines === 1 ? ROW_CHIP : PHONE_CHIP;
   const myColor = usePlayerIdentity(me).color;
-  const live2 = useRef37({ state, mineTotal });
+  const live2 = useRef38({ state, mineTotal });
   live2.current = { state, mineTotal };
   const mineChips = mine.flatMap(({ w }) => w.chips?.length ? w.chips.map((chip3) => chip3.stake) : [w.stake]);
   const otherStacks = orderStacks(bets.filter((x) => x.w.player !== me).map(({ w }) => ({ player: w.player, stake: w.stake })));
   const sideTotal = mineTotal + stacksTotal(otherStacks);
   const landed = (kind, before, total) => kind === "place" ? total > before : total < before;
-  const shownTotal = useRef37(mineTotal);
-  useEffect36(() => {
+  const shownTotal = useRef38(mineTotal);
+  useEffect37(() => {
     if (shownTotal.current === mineTotal) return;
     shownTotal.current = mineTotal;
     setActionError(null);
   }, [mineTotal]);
-  const alive = useRef37(true);
-  useEffect36(() => () => {
+  const alive = useRef38(true);
+  useEffect37(() => () => {
     alive.current = false;
     flightRef.current?.cancel();
   }, []);
-  useEffect36(() => {
+  useEffect37(() => {
     if (!checking || checking.settled || state === checking.state) return;
     if (!landed(checking.kind, checking.before, mineTotal)) {
       setActionError(checking.kind === "place" ? "Not placed" : "Not removed");
@@ -9885,7 +12509,7 @@ function MarketPick({
     } catch {
     }
     fly(source, hoverRect(anchor, chip2, face ? 10 : 6), {
-      node: /* @__PURE__ */ React58.createElement(BankChip, { p: me, size: RACK_COIN, val: tapStake }),
+      node: /* @__PURE__ */ React59.createElement(BankChip, { p: me, size: RACK_COIN, val: tapStake }),
       coinColor: myColor,
       arc: 64,
       hold
@@ -9920,7 +12544,7 @@ function MarketPick({
     return {
       land: () => {
         const to = flightTarget(rackTargetFor(value, RACK_DENOMS, tapStake));
-        if (to) fly(from, to, { node: /* @__PURE__ */ React58.createElement(BankChip, { p: me, size: Math.round(from.width), val: value }), coinColor: myColor, arc: 48, land: true });
+        if (to) fly(from, to, { node: /* @__PURE__ */ React59.createElement(BankChip, { p: me, size: Math.round(from.width), val: value }), coinColor: myColor, arc: 48, land: true });
       },
       back: () => {
       },
@@ -10019,7 +12643,7 @@ function MarketPick({
   };
   const busyKind = pendingAction || checking?.kind || null;
   const everyone = orderStacks([...otherStacks, ...mineTotal > 0 ? [{ player: me, stake: mineTotal }] : []]);
-  const [listOpen, setListOpen] = useState45(false);
+  const [listOpen, setListOpen] = useState46(false);
   const showWell = !unavailableReason && marketOpen && players.length > 0;
   const lockedWell = !!unavailableReason && marketOpen && players.length > 0;
   const winInline = lines === 1 && players.length === 1;
@@ -10029,29 +12653,29 @@ function MarketPick({
     disabled: !canPick || busyPlace,
     onClick: () => act("place", onPick),
     "aria-label": canPick ? `Place a chip on ${name}` : name,
-    "aria-description": unavailableReason || capReason || (canPick ? `Add ${fmt8(tapStake)} chips` : void 0)
+    "aria-description": unavailableReason || capReason || (canPick ? `Add ${fmt9(tapStake)} chips` : void 0)
   };
-  const wellValue = () => capLabel !== "" && /* @__PURE__ */ React58.createElement("span", { className: "fd-wagers-well-value" }, capLabel || fmt8(tapStake));
+  const wellValue = () => capLabel !== "" && /* @__PURE__ */ React59.createElement("span", { className: "fd-wagers-well-value" }, capLabel || fmt9(tapStake));
   const openSeat = lines !== 1 && showWell && sideTotal === 0;
   const wellClass = `fd-wagers-well${sideTotal > 0 ? " is-lit" : ""}${capLabel != null ? " is-capped" : ""}`;
-  const wellCell = () => showWell ? /* @__PURE__ */ React58.createElement("button", { type: "button", ...placeProps, className: wellClass }, /* @__PURE__ */ React58.createElement("span", { className: "fd-wagers-well-ring", "aria-hidden": "true" }, /* @__PURE__ */ React58.createElement(Icon, { name: "plus", size: lines === 1 ? 20 : 22 })), lines !== 1 && wellValue()) : lockedWell ? /* @__PURE__ */ React58.createElement(
+  const wellCell = () => showWell ? /* @__PURE__ */ React59.createElement("button", { type: "button", ...placeProps, className: wellClass }, /* @__PURE__ */ React59.createElement("span", { className: "fd-wagers-well-ring", "aria-hidden": "true" }, /* @__PURE__ */ React59.createElement(Icon, { name: "plus", size: lines === 1 ? 20 : 22 })), lines !== 1 && wellValue()) : lockedWell ? /* @__PURE__ */ React59.createElement(
     "span",
     {
       className: `fd-wagers-well is-locked${pointer ? ` is-point-${pointer}` : ""}`,
       role: "img",
       "aria-label": `${unavailableLabel}: ${unavailableReason}`
     },
-    /* @__PURE__ */ React58.createElement("span", { className: "fd-wagers-well-ring", "aria-hidden": "true" }, /* @__PURE__ */ React58.createElement(Icon, { name: "lock", size: lines === 1 ? 16 : 18 }), lines === 1 && pointer && /* @__PURE__ */ React58.createElement("span", { className: "fd-wagers-well-badge" }, /* @__PURE__ */ React58.createElement(Icon, { name: pointer, size: 12 }))),
-    lines !== 1 && pointer && /* @__PURE__ */ React58.createElement("span", { className: "fd-wagers-well-pointer", "aria-hidden": "true" }, pointer === "back" && /* @__PURE__ */ React58.createElement(Icon, { name: "back", size: 12 }), "Yours", pointer === "next" && /* @__PURE__ */ React58.createElement(Icon, { name: "next", size: 12 }))
-  ) : /* @__PURE__ */ React58.createElement("span", { className: "fd-wagers-well is-closed", "aria-hidden": "true" });
+    /* @__PURE__ */ React59.createElement("span", { className: "fd-wagers-well-ring", "aria-hidden": "true" }, /* @__PURE__ */ React59.createElement(Icon, { name: "lock", size: lines === 1 ? 16 : 18 }), lines === 1 && pointer && /* @__PURE__ */ React59.createElement("span", { className: "fd-wagers-well-badge" }, /* @__PURE__ */ React59.createElement(Icon, { name: pointer, size: 12 }))),
+    lines !== 1 && pointer && /* @__PURE__ */ React59.createElement("span", { className: "fd-wagers-well-pointer", "aria-hidden": "true" }, pointer === "back" && /* @__PURE__ */ React59.createElement(Icon, { name: "back", size: 12 }), "Yours", pointer === "next" && /* @__PURE__ */ React59.createElement(Icon, { name: "next", size: 12 }))
+  ) : /* @__PURE__ */ React59.createElement("span", { className: "fd-wagers-well is-closed", "aria-hidden": "true" });
   const selfBet = !!roleLabel && mineTotal > 0;
-  const role = roleLabel && /* @__PURE__ */ React58.createElement("span", { className: `fd-wagers-pick-role${selfBet ? " is-backed" : ""}` }, selfBet && /* @__PURE__ */ React58.createElement("i", { className: "fd-insert", "aria-hidden": "true" }), roleLabel);
+  const role = roleLabel && /* @__PURE__ */ React59.createElement("span", { className: `fd-wagers-pick-role${selfBet ? " is-backed" : ""}` }, selfBet && /* @__PURE__ */ React59.createElement("i", { className: "fd-insert", "aria-hidden": "true" }), roleLabel);
   const retract = () => act("remove", () => onRetract(mine[mine.length - 1].w.id));
   const retractLabel = {
     "aria-label": `Retract your last chip on ${name}`,
-    "aria-description": `Remove ${fmt8(mineChips[mineChips.length - 1])} chips; ${fmt8(mineTotal)} total on this pick`
+    "aria-description": `Remove ${fmt9(mineChips[mineChips.length - 1])} chips; ${fmt9(mineTotal)} total on this pick`
   };
-  const stackOf = (item, size) => /* @__PURE__ */ React58.createElement(
+  const stackOf = (item, size) => /* @__PURE__ */ React59.createElement(
     ChipStack,
     {
       p: item.player,
@@ -10064,8 +12688,8 @@ function MarketPick({
     }
   );
   const stackCell = (item) => {
-    const body = /* @__PURE__ */ React58.createElement(React58.Fragment, null, stackOf(item, chip2), /* @__PURE__ */ React58.createElement("span", { className: "fd-stacks-value" }, fmt8(item.stake)), /* @__PURE__ */ React58.createElement("span", { className: "fd-wagers-stack-name" }, item.player === me ? "You" : stackName(state, item.player)));
-    if (item.player === me) return marketOpen ? /* @__PURE__ */ React58.createElement(
+    const body = /* @__PURE__ */ React59.createElement(React59.Fragment, null, stackOf(item, chip2), /* @__PURE__ */ React59.createElement("span", { className: "fd-stacks-value" }, fmt9(item.stake)), /* @__PURE__ */ React59.createElement("span", { className: "fd-wagers-stack-name" }, item.player === me ? "You" : stackName(state, item.player)));
+    if (item.player === me) return marketOpen ? /* @__PURE__ */ React59.createElement(
       "button",
       {
         type: "button",
@@ -10077,18 +12701,18 @@ function MarketPick({
         ...retractLabel
       },
       body
-    ) : /* @__PURE__ */ React58.createElement(
+    ) : /* @__PURE__ */ React59.createElement(
       "span",
       {
         key: item.player,
         ref: mineRef,
         className: "fd-wagers-stack is-you",
         role: "img",
-        "aria-label": `${fmt8(mineTotal)} of your chips on ${name}`
+        "aria-label": `${fmt9(mineTotal)} of your chips on ${name}`
       },
       body
     );
-    return /* @__PURE__ */ React58.createElement(
+    return /* @__PURE__ */ React59.createElement(
       "button",
       {
         type: "button",
@@ -10097,12 +12721,12 @@ function MarketPick({
         disabled: !onPlayer,
         onClick: () => onPlayer?.(item.player),
         title: disp(state, item.player),
-        "aria-label": `View ${disp(state, item.player)}'s player card (${fmt8(item.stake)} chips)`
+        "aria-label": `View ${disp(state, item.player)}'s player card (${fmt9(item.stake)} chips)`
       },
       body
     );
   };
-  const groupCell = (rest) => rest && /* @__PURE__ */ React58.createElement(
+  const groupCell = (rest) => rest && /* @__PURE__ */ React59.createElement(
     "button",
     {
       type: "button",
@@ -10110,15 +12734,15 @@ function MarketPick({
       className: "fd-wagers-stack is-group",
       onClick: () => setListOpen(true),
       "aria-label": `All ${everyone.length} backing ${name}`,
-      "aria-description": `${rest.count} more: ${fmt8(rest.total)} chips`
+      "aria-description": `${rest.count} more: ${fmt9(rest.total)} chips`
     },
-    /* @__PURE__ */ React58.createElement(ChipStack, { chip: groupChip(rest.count), count: stackChipCount(rest.total), size: chip2, tag: false, tower: true }),
-    /* @__PURE__ */ React58.createElement("span", { className: "fd-stacks-value fd-wagers-stack-count" }, "+", rest.count)
+    /* @__PURE__ */ React59.createElement(ChipStack, { chip: groupChip(rest.count), count: stackChipCount(rest.total), size: chip2, tag: false, tower: true }),
+    /* @__PURE__ */ React59.createElement("span", { className: "fd-stacks-value fd-wagers-stack-count" }, "+", rest.count)
   );
   const backerRow = (item) => {
     const you = item.player === me;
-    const body = /* @__PURE__ */ React58.createElement(React58.Fragment, null, /* @__PURE__ */ React58.createElement(Avatar, { state, p: item.player, size: 32 }), /* @__PURE__ */ React58.createElement("span", { className: "fd-wagers-backer-name" }, you ? "You" : disp(state, item.player)), /* @__PURE__ */ React58.createElement("span", { className: "fd-wagers-backer-amount" }, fmt8(item.stake)), you && marketOpen && /* @__PURE__ */ React58.createElement(Icon, { name: "undo", size: 16, className: "fd-wagers-backer-back" }));
-    if (you) return marketOpen ? /* @__PURE__ */ React58.createElement("li", { key: item.player }, /* @__PURE__ */ React58.createElement(
+    const body = /* @__PURE__ */ React59.createElement(React59.Fragment, null, /* @__PURE__ */ React59.createElement(Avatar, { state, p: item.player, size: 32 }), /* @__PURE__ */ React59.createElement("span", { className: "fd-wagers-backer-name" }, you ? "You" : disp(state, item.player)), /* @__PURE__ */ React59.createElement("span", { className: "fd-wagers-backer-amount" }, fmt9(item.stake)), you && marketOpen && /* @__PURE__ */ React59.createElement(Icon, { name: "undo", size: 16, className: "fd-wagers-backer-back" }));
+    if (you) return marketOpen ? /* @__PURE__ */ React59.createElement("li", { key: item.player }, /* @__PURE__ */ React59.createElement(
       "button",
       {
         type: "button",
@@ -10128,15 +12752,15 @@ function MarketPick({
         ...retractLabel
       },
       body
-    )) : /* @__PURE__ */ React58.createElement("li", { key: item.player }, /* @__PURE__ */ React58.createElement("span", { className: "fd-wagers-backer is-you", role: "img", "aria-label": `${fmt8(mineTotal)} of your chips on ${name}` }, body));
-    return /* @__PURE__ */ React58.createElement("li", { key: item.player }, /* @__PURE__ */ React58.createElement(
+    )) : /* @__PURE__ */ React59.createElement("li", { key: item.player }, /* @__PURE__ */ React59.createElement("span", { className: "fd-wagers-backer is-you", role: "img", "aria-label": `${fmt9(mineTotal)} of your chips on ${name}` }, body));
+    return /* @__PURE__ */ React59.createElement("li", { key: item.player }, /* @__PURE__ */ React59.createElement(
       "button",
       {
         type: "button",
         className: "fd-wagers-backer",
         disabled: !onPlayer,
         onClick: () => onPlayer?.(item.player),
-        "aria-label": `View ${disp(state, item.player)}'s player card (${fmt8(item.stake)} chips)`
+        "aria-label": `View ${disp(state, item.player)}'s player card (${fmt9(item.stake)} chips)`
       },
       body
     ));
@@ -10147,7 +12771,7 @@ function MarketPick({
   const felt = lines === 1 ? null : groupStacks(everyone, FELT_CELLS - 1, mineTotal > 0 ? me : null);
   const faceOnly = players.length > 3 || (lines === 1 && players.length > 2 || named) && players.some((player) => disp(state, player).length > 8);
   const pair = players.length === 2 && !named && lines !== 1;
-  return /* @__PURE__ */ React58.createElement("div", { className: `fd-wagers-pick${lines === 1 ? " is-one-line" : ""}${mineTotal ? " is-mine" : ""}${sideTotal ? " has-chips" : ""}${roleLabel ? " is-your-side" : ""}${selfBet ? " is-self-bet" : ""}${unavailableReason ? " is-unavailable" : ""}${busyKind ? ` is-pending-${busyKind}` : ""}` }, /* @__PURE__ */ React58.createElement("div", { className: `fd-wagers-pick-identity${players.length > 2 || named ? " is-team" : pair ? " is-pair" : ""}` }, players.length === 1 ? /* @__PURE__ */ React58.createElement(
+  return /* @__PURE__ */ React59.createElement("div", { className: `fd-wagers-pick${lines === 1 ? " is-one-line" : ""}${mineTotal ? " is-mine" : ""}${sideTotal ? " has-chips" : ""}${roleLabel ? " is-your-side" : ""}${selfBet ? " is-self-bet" : ""}${unavailableReason ? " is-unavailable" : ""}${busyKind ? ` is-pending-${busyKind}` : ""}` }, /* @__PURE__ */ React59.createElement("div", { className: `fd-wagers-pick-identity${players.length > 2 || named ? " is-team" : pair ? " is-pair" : ""}` }, players.length === 1 ? /* @__PURE__ */ React59.createElement(
     "button",
     {
       type: "button",
@@ -10156,9 +12780,9 @@ function MarketPick({
       onClick: () => onPlayer?.(players[0]),
       "aria-label": `View ${name}'s player card`
     },
-    /* @__PURE__ */ React58.createElement(Avatar, { state, p: players[0], size: lines === 1 ? 36 : 32 }),
-    winInline ? /* @__PURE__ */ React58.createElement("span", { className: "fd-wagers-player-text" }, /* @__PURE__ */ React58.createElement("span", null, name), /* @__PURE__ */ React58.createElement(BetWin, { state, line: winLine, side: players, inline: true })) : /* @__PURE__ */ React58.createElement(CompetitorName, { name })
-  ) : pair ? /* @__PURE__ */ React58.createElement("span", { className: "fd-wagers-team-players is-pair" }, players.map((player) => /* @__PURE__ */ React58.createElement(
+    /* @__PURE__ */ React59.createElement(Avatar, { state, p: players[0], size: lines === 1 ? 36 : 32 }),
+    winInline ? /* @__PURE__ */ React59.createElement("span", { className: "fd-wagers-player-text" }, /* @__PURE__ */ React59.createElement("span", null, name), /* @__PURE__ */ React59.createElement(BetWin, { state, line: winLine, side: players, inline: true })) : /* @__PURE__ */ React59.createElement(CompetitorName, { name })
+  ) : pair ? /* @__PURE__ */ React59.createElement("span", { className: "fd-wagers-team-players is-pair" }, players.map((player) => /* @__PURE__ */ React59.createElement(
     "button",
     {
       type: "button",
@@ -10167,15 +12791,15 @@ function MarketPick({
       onClick: () => onPlayer?.(player),
       "aria-label": `View ${disp(state, player)}'s player card`
     },
-    /* @__PURE__ */ React58.createElement(Avatar, { state, p: player, size: 28 }),
-    /* @__PURE__ */ React58.createElement(PairName, { name: stackName(state, player) })
-  ))) : /* @__PURE__ */ React58.createElement(React58.Fragment, null, (players.length > 2 || named) && /* @__PURE__ */ React58.createElement(RenameText, { name, className: "fd-wagers-team-name", style: nameFit(name) }), /* @__PURE__ */ React58.createElement(
+    /* @__PURE__ */ React59.createElement(Avatar, { state, p: player, size: 28 }),
+    /* @__PURE__ */ React59.createElement(PairName, { name: stackName(state, player) })
+  ))) : /* @__PURE__ */ React59.createElement(React59.Fragment, null, (players.length > 2 || named) && /* @__PURE__ */ React59.createElement(RenameText, { name, className: "fd-wagers-team-name", style: nameFit(name) }), /* @__PURE__ */ React59.createElement(
     "span",
     {
       className: `fd-wagers-team-players${faceOnly ? " is-many" : ""}`,
       style: faceOnly ? { "--fd-team-n": players.length } : void 0
     },
-    players.map((player) => /* @__PURE__ */ React58.createElement(
+    players.map((player) => /* @__PURE__ */ React59.createElement(
       "button",
       {
         type: "button",
@@ -10185,10 +12809,10 @@ function MarketPick({
         title: disp(state, player),
         "aria-label": `View ${disp(state, player)}'s player card`
       },
-      /* @__PURE__ */ React58.createElement(Avatar, { state, p: player, size: faceOnly ? 28 : 24 }),
-      !faceOnly && /* @__PURE__ */ React58.createElement("span", null, disp(state, player))
+      /* @__PURE__ */ React59.createElement(Avatar, { state, p: player, size: faceOnly ? 28 : 24 }),
+      !faceOnly && /* @__PURE__ */ React59.createElement("span", null, disp(state, player))
     ))
-  ))), winSlot && !winInline && /* @__PURE__ */ React58.createElement("div", { className: "fd-wagers-win-slot" }, /* @__PURE__ */ React58.createElement(BetWin, { state, line: winLine, side: players })), termsSlot && /* @__PURE__ */ React58.createElement(SideTerms, { terms, className: "fd-wagers-terms" }), lines === 1 ? /* @__PURE__ */ React58.createElement(
+  ))), winSlot && !winInline && /* @__PURE__ */ React59.createElement("div", { className: "fd-wagers-win-slot" }, /* @__PURE__ */ React59.createElement(BetWin, { state, line: winLine, side: players })), termsSlot && /* @__PURE__ */ React59.createElement(SideTerms, { terms, className: "fd-wagers-terms" }), lines === 1 ? /* @__PURE__ */ React59.createElement(
     "div",
     {
       className: "fd-wagers-pot is-row",
@@ -10198,7 +12822,7 @@ function MarketPick({
       "aria-description": unavailableReason || void 0
     },
     role,
-    /* @__PURE__ */ React58.createElement("span", { className: "fd-wagers-row-stacks" }, mineTotal > 0 && (marketOpen ? /* @__PURE__ */ React58.createElement("button", { type: "button", ref: mineRef, className: "fd-wagers-pot-you", disabled: !!busyKind, onClick: retract, ...retractLabel }, stackOf({ player: me, stake: mineTotal }, ROW_CHIP), /* @__PURE__ */ React58.createElement("span", { className: "fd-wagers-pot-you-amount" }, /* @__PURE__ */ React58.createElement("small", null, "You"), fmt8(mineTotal))) : /* @__PURE__ */ React58.createElement("span", { ref: mineRef, className: "fd-wagers-pot-you", role: "img", "aria-label": `${fmt8(mineTotal)} of your chips on ${name}` }, stackOf({ player: me, stake: mineTotal }, ROW_CHIP), /* @__PURE__ */ React58.createElement("span", { className: "fd-wagers-pot-you-amount" }, /* @__PURE__ */ React58.createElement("small", null, "You"), fmt8(mineTotal)))), others.length > 0 && /* @__PURE__ */ React58.createElement(
+    /* @__PURE__ */ React59.createElement("span", { className: "fd-wagers-row-stacks" }, mineTotal > 0 && (marketOpen ? /* @__PURE__ */ React59.createElement("button", { type: "button", ref: mineRef, className: "fd-wagers-pot-you", disabled: !!busyKind, onClick: retract, ...retractLabel }, stackOf({ player: me, stake: mineTotal }, ROW_CHIP), /* @__PURE__ */ React59.createElement("span", { className: "fd-wagers-pot-you-amount" }, /* @__PURE__ */ React59.createElement("small", null, "You"), fmt9(mineTotal))) : /* @__PURE__ */ React59.createElement("span", { ref: mineRef, className: "fd-wagers-pot-you", role: "img", "aria-label": `${fmt9(mineTotal)} of your chips on ${name}` }, stackOf({ player: me, stake: mineTotal }, ROW_CHIP), /* @__PURE__ */ React59.createElement("span", { className: "fd-wagers-pot-you-amount" }, /* @__PURE__ */ React59.createElement("small", null, "You"), fmt9(mineTotal)))), others.length > 0 && /* @__PURE__ */ React59.createElement(
       "button",
       {
         type: "button",
@@ -10206,7 +12830,7 @@ function MarketPick({
         onClick: () => setListOpen(true),
         "aria-label": `${others.length} backing ${name}`
       },
-      /* @__PURE__ */ React58.createElement("span", { className: "fd-wagers-row-pile" }, rowPile.shown.map((item) => /* @__PURE__ */ React58.createElement(React58.Fragment, { key: item.player }, stackOf(item, ROW_CHIP))), rowPile.rest && /* @__PURE__ */ React58.createElement(
+      /* @__PURE__ */ React59.createElement("span", { className: "fd-wagers-row-pile" }, rowPile.shown.map((item) => /* @__PURE__ */ React59.createElement(React59.Fragment, { key: item.player }, stackOf(item, ROW_CHIP))), rowPile.rest && /* @__PURE__ */ React59.createElement(
         ChipStack,
         {
           chip: groupChip(rowPile.rest.count),
@@ -10216,10 +12840,10 @@ function MarketPick({
           tower: true
         }
       )),
-      /* @__PURE__ */ React58.createElement("span", { className: "fd-wagers-pot-total" }, fmt8(othersTotal))
+      /* @__PURE__ */ React59.createElement("span", { className: "fd-wagers-pot-total" }, fmt9(othersTotal))
     )),
     wellCell()
-  ) : openSeat ? /* @__PURE__ */ React58.createElement(
+  ) : openSeat ? /* @__PURE__ */ React59.createElement(
     "div",
     {
       className: "fd-wagers-felt is-open",
@@ -10228,8 +12852,8 @@ function MarketPick({
       "aria-busy": !!busyKind,
       style: { "--fd-stack-h": `${FELT_STACK_H}px` }
     },
-    /* @__PURE__ */ React58.createElement("button", { type: "button", ...placeProps, className: `fd-wagers-open${capLabel != null ? " is-capped" : ""}` }, /* @__PURE__ */ React58.createElement("span", { className: "fd-wagers-felt-head" }, role), /* @__PURE__ */ React58.createElement("span", { className: "fd-wagers-open-body" }, /* @__PURE__ */ React58.createElement("span", { ref: mineRef, className: "fd-wagers-well-ring", "aria-hidden": "true" }, /* @__PURE__ */ React58.createElement(Icon, { name: "plus", size: 26 })), wellValue()))
-  ) : /* @__PURE__ */ React58.createElement(
+    /* @__PURE__ */ React59.createElement("button", { type: "button", ...placeProps, className: `fd-wagers-open${capLabel != null ? " is-capped" : ""}` }, /* @__PURE__ */ React59.createElement("span", { className: "fd-wagers-felt-head" }, role), /* @__PURE__ */ React59.createElement("span", { className: "fd-wagers-open-body" }, /* @__PURE__ */ React59.createElement("span", { ref: mineRef, className: "fd-wagers-well-ring", "aria-hidden": "true" }, /* @__PURE__ */ React59.createElement(Icon, { name: "plus", size: 26 })), wellValue()))
+  ) : /* @__PURE__ */ React59.createElement(
     "div",
     {
       className: "fd-wagers-felt",
@@ -10239,26 +12863,26 @@ function MarketPick({
       "aria-description": unavailableReason || void 0,
       style: { "--fd-stack-h": `${FELT_STACK_H}px` }
     },
-    /* @__PURE__ */ React58.createElement("div", { className: "fd-wagers-felt-head" }, sideTotal > 0 && /* @__PURE__ */ React58.createElement("span", { className: "fd-wagers-pot-total" }, /* @__PURE__ */ React58.createElement(ScoreReel, { value: sideTotal, tone: "chip", slim: true, label: fmt8(sideTotal) })), role),
-    /* @__PURE__ */ React58.createElement("div", { className: "fd-wagers-felt-stacks" }, wellCell(), felt.shown.map(stackCell), groupCell(felt.rest))
-  ), checking && /* @__PURE__ */ React58.createElement("p", { className: "fd-wagers-pick-checking", role: "status" }, "Checking\u2026"), actionError && !checking && /* @__PURE__ */ React58.createElement("p", { className: "fd-wagers-pick-error", role: "alert" }, actionError), listOpen && /* @__PURE__ */ React58.createElement(Sheet, { title: name, onClose: () => setListOpen(false), className: "fd-wagers-backers-sheet" }, /* @__PURE__ */ React58.createElement("div", { className: "fd-wagers-sheet-head" }, /* @__PURE__ */ React58.createElement("span", { className: "fd-wagers-pot-total" }, fmt8(sideTotal))), /* @__PURE__ */ React58.createElement("ol", { className: "fd-wagers-backers is-all" }, everyone.map(backerRow))));
+    /* @__PURE__ */ React59.createElement("div", { className: "fd-wagers-felt-head" }, sideTotal > 0 && /* @__PURE__ */ React59.createElement("span", { className: "fd-wagers-pot-total" }, /* @__PURE__ */ React59.createElement(ScoreReel, { value: sideTotal, tone: "chip", slim: true, label: fmt9(sideTotal) })), role),
+    /* @__PURE__ */ React59.createElement("div", { className: "fd-wagers-felt-stacks" }, wellCell(), felt.shown.map(stackCell), groupCell(felt.rest))
+  ), checking && /* @__PURE__ */ React59.createElement("p", { className: "fd-wagers-pick-checking", role: "status" }, "Checking\u2026"), actionError && !checking && /* @__PURE__ */ React59.createElement("p", { className: "fd-wagers-pick-error", role: "alert" }, actionError), listOpen && /* @__PURE__ */ React59.createElement(Sheet, { title: name, onClose: () => setListOpen(false), className: "fd-wagers-backers-sheet" }, /* @__PURE__ */ React59.createElement("div", { className: "fd-wagers-sheet-head" }, /* @__PURE__ */ React59.createElement("span", { className: "fd-wagers-pot-total" }, fmt9(sideTotal))), /* @__PURE__ */ React59.createElement("ol", { className: "fd-wagers-backers is-all" }, everyone.map(backerRow))));
 }
 function SettleStrip({ me, settling }) {
   const { view, label: label2 } = settling;
-  return /* @__PURE__ */ React58.createElement(
+  return /* @__PURE__ */ React59.createElement(
     "section",
     {
       className: "fd-wagers-settle",
       role: "status",
-      "aria-label": `${label2} settled: ${fmt8(view.paid)} paid, ${fmt8(view.lost)} lost`
+      "aria-label": `${label2} settled: ${fmt9(view.paid)} paid, ${fmt9(view.lost)} lost`
     },
-    /* @__PURE__ */ React58.createElement("h2", null, label2),
-    /* @__PURE__ */ React58.createElement("div", { className: "fd-wagers-settle-row", "aria-hidden": "true" }, view.winners.length > 0 && /* @__PURE__ */ React58.createElement("div", { className: "fd-wagers-settle-zone is-won" }, /* @__PURE__ */ React58.createElement("strong", null, "+", fmt8(view.paid)), /* @__PURE__ */ React58.createElement(BetStacks, { stacks: view.winners, size: 24, delay: 900, mine: me })), view.losers.length > 0 && /* @__PURE__ */ React58.createElement("div", { className: "fd-wagers-settle-zone is-lost" }, /* @__PURE__ */ React58.createElement("strong", null, "\u2212", fmt8(view.lost)), /* @__PURE__ */ React58.createElement(BetStacks, { stacks: view.losers, size: 24, delay: 450, mine: me })))
+    /* @__PURE__ */ React59.createElement("h2", null, label2),
+    /* @__PURE__ */ React59.createElement("div", { className: "fd-wagers-settle-row", "aria-hidden": "true" }, view.winners.length > 0 && /* @__PURE__ */ React59.createElement("div", { className: "fd-wagers-settle-zone is-won" }, /* @__PURE__ */ React59.createElement("strong", null, "+", fmt9(view.paid)), /* @__PURE__ */ React59.createElement(BetStacks, { stacks: view.winners, size: 24, delay: 900, mine: me })), view.losers.length > 0 && /* @__PURE__ */ React59.createElement("div", { className: "fd-wagers-settle-zone is-lost" }, /* @__PURE__ */ React59.createElement("strong", null, "\u2212", fmt9(view.lost)), /* @__PURE__ */ React59.createElement(BetStacks, { stacks: view.losers, size: 24, delay: 450, mine: me })))
   );
 }
 function RackChip({ value, disabled, selected, onClick }) {
   const target = useFlightTarget(`bets:rack:${value}`);
-  return /* @__PURE__ */ React58.createElement(
+  return /* @__PURE__ */ React59.createElement(
     "button",
     {
       type: "button",
@@ -10270,18 +12894,18 @@ function RackChip({ value, disabled, selected, onClick }) {
       "aria-label": `Bet ${value} a tap`,
       className: selected ? "is-selected" : disabled ? "is-unlit" : ""
     },
-    /* @__PURE__ */ React58.createElement(Coin, { color: DENOM_COLOR, unlit: disabled }, disabled ? /* @__PURE__ */ React58.createElement(UnlitChip, { value }) : /* @__PURE__ */ React58.createElement(DenomChip, { size: RACK_COIN, value }))
+    /* @__PURE__ */ React59.createElement(Coin, { color: DENOM_COLOR, unlit: disabled }, disabled ? /* @__PURE__ */ React59.createElement(UnlitChip, { value }) : /* @__PURE__ */ React59.createElement(DenomChip, { size: RACK_COIN, value }))
   );
 }
 function DenomChip({ size = RACK_COIN, value }) {
-  return /* @__PURE__ */ React58.createElement(ChipFace, { size, stamp: value, valueRing: true, color: DENOM_COLOR, isLight: HOUSE_CHIP.isLight, skin: HOUSE_CHIP.skin });
+  return /* @__PURE__ */ React59.createElement(ChipFace, { size, stamp: value, valueRing: true, color: DENOM_COLOR, isLight: HOUSE_CHIP.isLight, skin: HOUSE_CHIP.skin });
 }
 function PayLamp({ mult }) {
-  return /* @__PURE__ */ React58.createElement("span", { className: "fd-wagers-pays" }, /* @__PURE__ */ React58.createElement("i", { className: "fd-insert", "aria-hidden": "true" }), mult === 1 ? "Winner pays 1:1" : "Winner pays 2:1");
+  return /* @__PURE__ */ React59.createElement("span", { className: "fd-wagers-pays" }, /* @__PURE__ */ React59.createElement("i", { className: "fd-insert", "aria-hidden": "true" }), mult === 1 ? "Winner pays 1:1" : "Winner pays 2:1");
 }
 function UnlitChip({ value }) {
   const ticks = Array.from({ length: 8 }, (_, i) => i * 45);
-  return /* @__PURE__ */ React58.createElement("svg", { className: "fd-wagers-unlit", viewBox: "0 0 46 46", width: RACK_COIN, height: RACK_COIN, "aria-hidden": "true", focusable: "false" }, /* @__PURE__ */ React58.createElement("circle", { cx: "23", cy: "23", r: "21.5", className: "fd-wagers-unlit-body" }), ticks.map((angle) => /* @__PURE__ */ React58.createElement(
+  return /* @__PURE__ */ React59.createElement("svg", { className: "fd-wagers-unlit", viewBox: "0 0 46 46", width: RACK_COIN, height: RACK_COIN, "aria-hidden": "true", focusable: "false" }, /* @__PURE__ */ React59.createElement("circle", { cx: "23", cy: "23", r: "21.5", className: "fd-wagers-unlit-body" }), ticks.map((angle) => /* @__PURE__ */ React59.createElement(
     "rect",
     {
       key: angle,
@@ -10293,13 +12917,13 @@ function UnlitChip({ value }) {
       className: "fd-wagers-unlit-tick",
       transform: `rotate(${angle} 23 23)`
     }
-  )), /* @__PURE__ */ React58.createElement("circle", { cx: "23", cy: "23", r: "12.5", className: "fd-wagers-unlit-face" }), /* @__PURE__ */ React58.createElement("text", { x: "23", y: "23", className: "fd-wagers-unlit-value", textAnchor: "middle", dominantBaseline: "central" }, value));
+  )), /* @__PURE__ */ React59.createElement("circle", { cx: "23", cy: "23", r: "12.5", className: "fd-wagers-unlit-face" }), /* @__PURE__ */ React59.createElement("text", { x: "23", y: "23", className: "fd-wagers-unlit-value", textAnchor: "middle", dominantBaseline: "central" }, value));
 }
-function HeldBoard({ state, me, held, view, onSkip }) {
-  const mineRef = useRef37(null);
-  useStageHold(`bets:held:${held.id}`, true);
+function HeldBoard({ state, me, held: held2, view, onSkip }) {
+  const mineRef = useRef38(null);
+  useStageHold(`bets:held:${held2.id}`, true);
   const paid = (view.sides.find((side) => side.won)?.stacks || []).filter((item) => item.player === me).reduce((sum, item) => sum + item.paid, 0);
-  useEffect36(() => {
+  useEffect37(() => {
     if (!me || paid <= 0) return void 0;
     const timer = setTimeout(() => {
       const svg = mineRef.current?.querySelector(".fd-stack > svg");
@@ -10307,7 +12931,7 @@ function HeldBoard({ state, me, held, view, onSkip }) {
       const from = faceRect(svg.getBoundingClientRect());
       const count = Math.max(1, Math.min(5, Math.round(paid / PT)));
       for (let i = 0; i < count; i++) fly(from, "tab:home", {
-        node: /* @__PURE__ */ React58.createElement(BankChip, { p: me, size: Math.round(from.width), val: PT }),
+        node: /* @__PURE__ */ React59.createElement(BankChip, { p: me, size: Math.round(from.width), val: PT }),
         delay: i * 70,
         arc: 60,
         duration: 560,
@@ -10318,7 +12942,7 @@ function HeldBoard({ state, me, held, view, onSkip }) {
     }, HOME_FLIGHT_AT);
     return () => clearTimeout(timer);
   }, []);
-  const { contest, ev, label: label2, winSlot = false, termsSlot = false, identity = "solo" } = held;
+  const { contest, ev, label: label2, winSlot = false, termsSlot = false, identity = "solo" } = held2;
   const lines = (contest.sides || []).length > 2 ? 1 : 2;
   const sides = contest.kind === "ffa" ? view.sides.filter((side) => side.won || side.stacks.length) : view.sides;
   const nameOf3 = (side) => {
@@ -10329,7 +12953,7 @@ function HeldBoard({ state, me, held, view, onSkip }) {
   const heldStacks = (side, slots, values = false) => {
     const { shown, rest } = groupStacks(side.stacks, slots, side.stacks.some((item) => item.player === me) ? me : null);
     const size = values ? PHONE_CHIP : ROW_CHIP;
-    return /* @__PURE__ */ React58.createElement(React58.Fragment, null, shown.map((item, index) => /* @__PURE__ */ React58.createElement(
+    return /* @__PURE__ */ React59.createElement(React59.Fragment, null, shown.map((item, index) => /* @__PURE__ */ React59.createElement(
       "span",
       {
         key: item.player,
@@ -10337,7 +12961,7 @@ function HeldBoard({ state, me, held, view, onSkip }) {
         className: `fd-wagers-stack fd-wagers-held-stack${side.won ? "" : " fd-stacks-slot is-lost"}${item.player === me ? " is-you" : ""}`,
         style: side.won ? void 0 : { animationDelay: `${200 + index * 90}ms` }
       },
-      /* @__PURE__ */ React58.createElement(
+      /* @__PURE__ */ React59.createElement(
         ChipStack,
         {
           p: item.player,
@@ -10351,26 +12975,26 @@ function HeldBoard({ state, me, held, view, onSkip }) {
           mine: item.player === me
         }
       ),
-      values && /* @__PURE__ */ React58.createElement("span", { className: `fd-stacks-value${side.won ? " is-up" : ""}` }, side.won ? `+${fmt8(item.paid)}` : fmt8(item.stake)),
-      values && /* @__PURE__ */ React58.createElement("span", { className: "fd-wagers-stack-name" }, item.player === me ? "You" : stackName(state, item.player))
-    )), rest && /* @__PURE__ */ React58.createElement("span", { key: "group", className: `fd-wagers-stack is-group${side.won ? "" : " fd-stacks-slot is-lost"}` }, /* @__PURE__ */ React58.createElement(ChipStack, { chip: groupChip(rest.count), count: stackChipCount(rest.total), size, tag: false, tower: true }), values && /* @__PURE__ */ React58.createElement("span", { className: "fd-stacks-value fd-wagers-stack-count" }, "+", rest.count)));
+      values && /* @__PURE__ */ React59.createElement("span", { className: `fd-stacks-value${side.won ? " is-up" : ""}` }, side.won ? `+${fmt9(item.paid)}` : fmt9(item.stake)),
+      values && /* @__PURE__ */ React59.createElement("span", { className: "fd-wagers-stack-name" }, item.player === me ? "You" : stackName(state, item.player))
+    )), rest && /* @__PURE__ */ React59.createElement("span", { key: "group", className: `fd-wagers-stack is-group${side.won ? "" : " fd-stacks-slot is-lost"}` }, /* @__PURE__ */ React59.createElement(ChipStack, { chip: groupChip(rest.count), count: stackChipCount(rest.total), size, tag: false, tower: true }), values && /* @__PURE__ */ React59.createElement("span", { className: "fd-stacks-value fd-wagers-stack-count" }, "+", rest.count)));
   };
-  return /* @__PURE__ */ React58.createElement("section", { className: "fd-wagers-event fd-wagers-held", onClick: onSkip, "aria-label": `${label2} settled` }, /* @__PURE__ */ React58.createElement("div", { className: "fd-wagers-contest-heading" }, contest.kind !== "ffa" && /* @__PURE__ */ React58.createElement("h2", null, /* @__PURE__ */ React58.createElement(OneSafe, { text: label2 })), !contest.odds && /* @__PURE__ */ React58.createElement(PayLamp, { mult: contestMult(contest) })), /* @__PURE__ */ React58.createElement("div", { className: `fd-wagers-picks${lines === 1 ? " is-rows" : ` is-id-${identity}`}` }, sides.map((side) => {
-    const head2 = side.won ? side.paid > 0 && /* @__PURE__ */ React58.createElement("span", { className: "fd-wagers-held-head is-up" }, "+", fmt8(side.paid)) : side.total > 0 && /* @__PURE__ */ React58.createElement("span", { className: "fd-wagers-held-head is-down" }, "\u2212", fmt8(side.total));
+  return /* @__PURE__ */ React59.createElement("section", { className: "fd-wagers-event fd-wagers-held", onClick: onSkip, "aria-label": `${label2} settled` }, /* @__PURE__ */ React59.createElement("div", { className: "fd-wagers-contest-heading" }, contest.kind !== "ffa" && /* @__PURE__ */ React59.createElement("h2", null, /* @__PURE__ */ React59.createElement(OneSafe, { text: label2 })), !contest.odds && /* @__PURE__ */ React59.createElement(PayLamp, { mult: contestMult(contest) })), /* @__PURE__ */ React59.createElement("div", { className: `fd-wagers-picks${lines === 1 ? " is-rows" : ` is-id-${identity}`}` }, sides.map((side) => {
+    const head2 = side.won ? side.paid > 0 && /* @__PURE__ */ React59.createElement("span", { className: "fd-wagers-held-head is-up" }, "+", fmt9(side.paid)) : side.total > 0 && /* @__PURE__ */ React59.createElement("span", { className: "fd-wagers-held-head is-down" }, "\u2212", fmt9(side.total));
     const team = side.players.length > 2 || namedPair(side);
     const pair = side.players.length === 2 && !team && lines !== 1;
-    return /* @__PURE__ */ React58.createElement("div", { key: String(side.key), className: `fd-wagers-pick fd-wagers-held-side${lines === 1 ? " is-one-line" : ""} ${side.won ? "is-won" : "is-lost"}` }, /* @__PURE__ */ React58.createElement("div", { className: `fd-wagers-pick-identity${team ? " is-team" : pair ? " is-pair" : ""}` }, side.players.length === 1 ? /* @__PURE__ */ React58.createElement("span", { className: "fd-wagers-player" }, /* @__PURE__ */ React58.createElement(Avatar, { state, p: side.players[0], size: lines === 1 ? 36 : 32 }), /* @__PURE__ */ React58.createElement(CompetitorName, { name: nameOf3(side) })) : pair ? /* @__PURE__ */ React58.createElement("span", { className: "fd-wagers-team-players is-pair" }, side.players.map((player) => /* @__PURE__ */ React58.createElement("span", { key: player, className: "fd-wagers-held-face" }, /* @__PURE__ */ React58.createElement(Avatar, { state, p: player, size: 28 }), /* @__PURE__ */ React58.createElement(PairName, { name: stackName(state, player) })))) : /* @__PURE__ */ React58.createElement(React58.Fragment, null, team && /* @__PURE__ */ React58.createElement("span", { className: "fd-wagers-team-name", style: nameFit(nameOf3(side)) }, nameOf3(side)), /* @__PURE__ */ React58.createElement(
+    return /* @__PURE__ */ React59.createElement("div", { key: String(side.key), className: `fd-wagers-pick fd-wagers-held-side${lines === 1 ? " is-one-line" : ""} ${side.won ? "is-won" : "is-lost"}` }, /* @__PURE__ */ React59.createElement("div", { className: `fd-wagers-pick-identity${team ? " is-team" : pair ? " is-pair" : ""}` }, side.players.length === 1 ? /* @__PURE__ */ React59.createElement("span", { className: "fd-wagers-player" }, /* @__PURE__ */ React59.createElement(Avatar, { state, p: side.players[0], size: lines === 1 ? 36 : 32 }), /* @__PURE__ */ React59.createElement(CompetitorName, { name: nameOf3(side) })) : pair ? /* @__PURE__ */ React59.createElement("span", { className: "fd-wagers-team-players is-pair" }, side.players.map((player) => /* @__PURE__ */ React59.createElement("span", { key: player, className: "fd-wagers-held-face" }, /* @__PURE__ */ React59.createElement(Avatar, { state, p: player, size: 28 }), /* @__PURE__ */ React59.createElement(PairName, { name: stackName(state, player) })))) : /* @__PURE__ */ React59.createElement(React59.Fragment, null, team && /* @__PURE__ */ React59.createElement("span", { className: "fd-wagers-team-name", style: nameFit(nameOf3(side)) }, nameOf3(side)), /* @__PURE__ */ React59.createElement(
       "span",
       {
         className: `fd-wagers-team-players${side.players.length > 3 ? " is-many" : ""}`,
         style: side.players.length > 3 ? { "--fd-team-n": side.players.length } : void 0
       },
-      side.players.map((player) => /* @__PURE__ */ React58.createElement("span", { key: player, className: "fd-wagers-held-face" }, /* @__PURE__ */ React58.createElement(Avatar, { state, p: player, size: side.players.length > 3 ? 28 : 24 }), side.players.length <= 3 && /* @__PURE__ */ React58.createElement("span", null, disp(state, player))))
-    ))), winSlot && !(lines === 1 && side.players.length === 1) && /* @__PURE__ */ React58.createElement("div", { className: "fd-wagers-win-slot" }), termsSlot && lines !== 1 && /* @__PURE__ */ React58.createElement("div", { className: "fd-side-terms fd-wagers-terms" }), lines === 1 ? /* @__PURE__ */ React58.createElement("div", { className: "fd-wagers-pot is-row is-held" }, /* @__PURE__ */ React58.createElement("span", { className: "fd-wagers-row-stacks" }, side.stacks.length > 0 && /* @__PURE__ */ React58.createElement("span", { className: "fd-wagers-row-pile" }, heldStacks(side, ROW_STACKS + 1)), head2), side.won && /* @__PURE__ */ React58.createElement("span", { className: "fd-wagers-won", "aria-label": "Won" }, "WON")) : /* @__PURE__ */ React58.createElement("div", { className: "fd-wagers-felt is-held", style: { "--fd-stack-h": `${FELT_STACK_H}px` } }, /* @__PURE__ */ React58.createElement("div", { className: "fd-wagers-felt-head" }, head2, side.won && /* @__PURE__ */ React58.createElement("span", { className: "fd-wagers-won", "aria-label": "Won" }, "WON")), /* @__PURE__ */ React58.createElement("div", { className: "fd-wagers-felt-stacks" }, /* @__PURE__ */ React58.createElement("span", { className: "fd-wagers-well is-closed", "aria-hidden": "true" }), heldStacks(side, FELT_CELLS - 1, true))));
+      side.players.map((player) => /* @__PURE__ */ React59.createElement("span", { key: player, className: "fd-wagers-held-face" }, /* @__PURE__ */ React59.createElement(Avatar, { state, p: player, size: side.players.length > 3 ? 28 : 24 }), side.players.length <= 3 && /* @__PURE__ */ React59.createElement("span", null, disp(state, player))))
+    ))), winSlot && !(lines === 1 && side.players.length === 1) && /* @__PURE__ */ React59.createElement("div", { className: "fd-wagers-win-slot" }), termsSlot && lines !== 1 && /* @__PURE__ */ React59.createElement("div", { className: "fd-side-terms fd-wagers-terms" }), lines === 1 ? /* @__PURE__ */ React59.createElement("div", { className: "fd-wagers-pot is-row is-held" }, /* @__PURE__ */ React59.createElement("span", { className: "fd-wagers-row-stacks" }, side.stacks.length > 0 && /* @__PURE__ */ React59.createElement("span", { className: "fd-wagers-row-pile" }, heldStacks(side, ROW_STACKS + 1)), head2), side.won && /* @__PURE__ */ React59.createElement("span", { className: "fd-wagers-won", "aria-label": "Won" }, "WON")) : /* @__PURE__ */ React59.createElement("div", { className: "fd-wagers-felt is-held", style: { "--fd-stack-h": `${FELT_STACK_H}px` } }, /* @__PURE__ */ React59.createElement("div", { className: "fd-wagers-felt-head" }, head2, side.won && /* @__PURE__ */ React59.createElement("span", { className: "fd-wagers-won", "aria-label": "Won" }, "WON")), /* @__PURE__ */ React59.createElement("div", { className: "fd-wagers-felt-stacks" }, /* @__PURE__ */ React59.createElement("span", { className: "fd-wagers-well is-closed", "aria-hidden": "true" }), heldStacks(side, FELT_CELLS - 1, true))));
   })));
 }
 function RoomReadout({ cap, room, capBinds, capped }) {
-  return capBinds ? /* @__PURE__ */ React58.createElement("span", { className: "fd-wagers-meter-room is-max", "aria-hidden": "true" }, /* @__PURE__ */ React58.createElement("strong", null, "Max ", fmt8(cap))) : /* @__PURE__ */ React58.createElement("span", { className: `fd-wagers-meter-room${capped ? " is-capped" : ""}`, "aria-hidden": "true" }, /* @__PURE__ */ React58.createElement("strong", null, /* @__PURE__ */ React58.createElement(ScoreReel, { value: room, tone: "chip", label: fmt8(room) })), /* @__PURE__ */ React58.createElement("small", null, "to bet"));
+  return capBinds ? /* @__PURE__ */ React59.createElement("span", { className: "fd-wagers-meter-room is-max", "aria-hidden": "true" }, /* @__PURE__ */ React59.createElement("strong", null, "Max ", fmt9(cap))) : /* @__PURE__ */ React59.createElement("span", { className: `fd-wagers-meter-room${capped ? " is-capped" : ""}`, "aria-hidden": "true" }, /* @__PURE__ */ React59.createElement("strong", null, /* @__PURE__ */ React59.createElement(ScoreReel, { value: room, tone: "chip", label: fmt9(room) })), /* @__PURE__ */ React59.createElement("small", null, "to bet"));
 }
 function StackMeter({ pts, cap, bets, duels, room }) {
   const exposure = bets + duels;
@@ -10380,7 +13004,7 @@ function StackMeter({ pts, cap, bets, duels, room }) {
   const betsIn = Math.min(bets, cap), duelsIn = Math.min(duels, Math.max(0, cap - betsIn));
   const over = Math.max(0, exposure - cap);
   const capped = room < PT && pts - exposure >= PT;
-  return /* @__PURE__ */ React58.createElement(
+  return /* @__PURE__ */ React59.createElement(
     "div",
     {
       className: `fd-wagers-meter${capped ? " is-capped" : ""}${over ? " is-over" : ""}`,
@@ -10389,26 +13013,26 @@ function StackMeter({ pts, cap, bets, duels, room }) {
       "aria-valuemin": 0,
       "aria-valuemax": Math.max(cap, exposure),
       "aria-valuenow": exposure,
-      "aria-valuetext": `${fmt8(exposure)} at risk, ${fmt8(cap)} maximum, ${fmt8(pts)} in your stack${duels ? `, ${fmt8(duels)} reserved for duels` : ""}`
+      "aria-valuetext": `${fmt9(exposure)} at risk, ${fmt9(cap)} maximum, ${fmt9(pts)} in your stack${duels ? `, ${fmt9(duels)} reserved for duels` : ""}`
     },
-    /* @__PURE__ */ React58.createElement("div", { className: "fd-wagers-meter-bar", "aria-hidden": "true" }, betsIn > 0 && /* @__PURE__ */ React58.createElement("span", { className: "is-bets", style: { left: 0, width: pct(betsIn) } }), duelsIn > 0 && /* @__PURE__ */ React58.createElement("span", { className: "is-duels", style: { left: pct(betsIn), width: pct(duelsIn) } }), over > 0 && /* @__PURE__ */ React58.createElement("span", { className: "is-over", style: { left: pct(cap), width: pct(over) } }), /* @__PURE__ */ React58.createElement("i", { className: "fd-wagers-meter-notch", style: { left: pct(cap) } }))
+    /* @__PURE__ */ React59.createElement("div", { className: "fd-wagers-meter-bar", "aria-hidden": "true" }, betsIn > 0 && /* @__PURE__ */ React59.createElement("span", { className: "is-bets", style: { left: 0, width: pct(betsIn) } }), duelsIn > 0 && /* @__PURE__ */ React59.createElement("span", { className: "is-duels", style: { left: pct(betsIn), width: pct(duelsIn) } }), over > 0 && /* @__PURE__ */ React59.createElement("span", { className: "is-over", style: { left: pct(cap), width: pct(over) } }), /* @__PURE__ */ React59.createElement("i", { className: "fd-wagers-meter-notch", style: { left: pct(cap) } }))
   );
 }
 function BetRecord({ group, me, onLastCard }) {
   const won = group ? group.lines.filter((x) => x.r.status === "won").length : 0;
   const lost = group ? group.lines.filter((x) => x.r.status === "lost").length : 0;
   const net = group?.net || 0;
-  return /* @__PURE__ */ React58.createElement("section", { className: "fd-wagers-record fd-glass-field fd-field-chip", "aria-label": "Your bets" }, me && /* @__PURE__ */ React58.createElement(React58.Fragment, null, /* @__PURE__ */ React58.createElement("h2", null, "Your bets"), group ? /* @__PURE__ */ React58.createElement("div", { className: "fd-wagers-record-row" }, /* @__PURE__ */ React58.createElement("strong", { className: `fd-wagers-record-net${net > 0 ? " is-up" : net < 0 ? " is-down" : ""}` }, net > 0 ? "+" : net < 0 ? "\u2212" : "", /* @__PURE__ */ React58.createElement(ScoreReel, { value: Math.abs(net), label: fmt8(Math.abs(net)) })), /* @__PURE__ */ React58.createElement("span", { className: "fd-wagers-record-tally" }, /* @__PURE__ */ React58.createElement("span", { className: "is-won" }, /* @__PURE__ */ React58.createElement("i", { className: "fd-insert", "aria-hidden": "true" }), /* @__PURE__ */ React58.createElement("b", null, won), /* @__PURE__ */ React58.createElement("small", null, "Won")), /* @__PURE__ */ React58.createElement("span", { className: "is-lost" }, /* @__PURE__ */ React58.createElement("i", { className: "fd-insert is-done", "aria-hidden": "true" }), /* @__PURE__ */ React58.createElement("b", null, lost), /* @__PURE__ */ React58.createElement("small", null, "Lost")))) : /* @__PURE__ */ React58.createElement("p", { className: "fd-wagers-record-none" }, "No bets")), onLastCard && /* @__PURE__ */ React58.createElement("button", { type: "button", className: "fd-wagers-record-card", onClick: onLastCard }, me ? "Your last card" : "The champion's card", /* @__PURE__ */ React58.createElement(Icon, { name: "open", size: 18 })));
+  return /* @__PURE__ */ React59.createElement("section", { className: "fd-wagers-record fd-glass-field fd-field-chip", "aria-label": "Your bets" }, me && /* @__PURE__ */ React59.createElement(React59.Fragment, null, /* @__PURE__ */ React59.createElement("h2", null, "Your bets"), group ? /* @__PURE__ */ React59.createElement("div", { className: "fd-wagers-record-row" }, /* @__PURE__ */ React59.createElement("strong", { className: `fd-wagers-record-net${net > 0 ? " is-up" : net < 0 ? " is-down" : ""}` }, net > 0 ? "+" : net < 0 ? "\u2212" : "", /* @__PURE__ */ React59.createElement(ScoreReel, { value: Math.abs(net), label: fmt9(Math.abs(net)) })), /* @__PURE__ */ React59.createElement("span", { className: "fd-wagers-record-tally" }, /* @__PURE__ */ React59.createElement("span", { className: "is-won" }, /* @__PURE__ */ React59.createElement("i", { className: "fd-insert", "aria-hidden": "true" }), /* @__PURE__ */ React59.createElement("b", null, won), /* @__PURE__ */ React59.createElement("small", null, "Won")), /* @__PURE__ */ React59.createElement("span", { className: "is-lost" }, /* @__PURE__ */ React59.createElement("i", { className: "fd-insert is-done", "aria-hidden": "true" }), /* @__PURE__ */ React59.createElement("b", null, lost), /* @__PURE__ */ React59.createElement("small", null, "Lost")))) : /* @__PURE__ */ React59.createElement("p", { className: "fd-wagers-record-none" }, "No bets")), onLastCard && /* @__PURE__ */ React59.createElement("button", { type: "button", className: "fd-wagers-record-card", onClick: onLastCard }, me ? "Your last card" : "The champion's card", /* @__PURE__ */ React59.createElement(Icon, { name: "open", size: 18 })));
 }
 function WagerLine({ x, state, events, gm, manage = false, onVoid, onPlayer }) {
   const { w, r } = x;
   const label2 = wagerPickLabel(state, w, events);
   const win = wagerMult(w) * w.stake;
-  const [confirming, setConfirming] = useState45(false), [voiding, setVoiding] = useState45(false);
-  const voidBusy = useRef37(false);
+  const [confirming, setConfirming] = useState46(false), [voiding, setVoiding] = useState46(false);
+  const voidBusy = useRef38(false);
   const ids = w.ids || [w.id];
   const voidable = gm && manage && r.status === "pending" && !!onVoid;
-  return /* @__PURE__ */ React58.createElement("article", { className: `fd-wagers-line is-${r.status}` }, /* @__PURE__ */ React58.createElement(
+  return /* @__PURE__ */ React59.createElement("article", { className: `fd-wagers-line is-${r.status}` }, /* @__PURE__ */ React59.createElement(
     "button",
     {
       type: "button",
@@ -10417,8 +13041,8 @@ function WagerLine({ x, state, events, gm, manage = false, onVoid, onPlayer }) {
       onClick: () => onPlayer?.(w.player),
       "aria-label": `View ${disp(state, w.player)}'s player card`
     },
-    /* @__PURE__ */ React58.createElement(Avatar, { state, p: w.player, size: 32 })
-  ), /* @__PURE__ */ React58.createElement("div", { className: "fd-wagers-line-copy" }, /* @__PURE__ */ React58.createElement("span", { className: "fd-wagers-line-bettor" }, /* @__PURE__ */ React58.createElement(
+    /* @__PURE__ */ React59.createElement(Avatar, { state, p: w.player, size: 32 })
+  ), /* @__PURE__ */ React59.createElement("div", { className: "fd-wagers-line-copy" }, /* @__PURE__ */ React59.createElement("span", { className: "fd-wagers-line-bettor" }, /* @__PURE__ */ React59.createElement(
     "button",
     {
       type: "button",
@@ -10426,7 +13050,7 @@ function WagerLine({ x, state, events, gm, manage = false, onVoid, onPlayer }) {
       onClick: () => onPlayer?.(w.player)
     },
     disp(state, w.player)
-  ), " ", /* @__PURE__ */ React58.createElement("span", null, fmt8(w.stake), " chips")), /* @__PURE__ */ React58.createElement("strong", null, label2.pick), /* @__PURE__ */ React58.createElement("span", { className: "fd-wagers-line-context" }, label2.ctx)), /* @__PURE__ */ React58.createElement("div", { className: "fd-wagers-line-result" }, r.status === "pending" && /* @__PURE__ */ React58.createElement(React58.Fragment, null, /* @__PURE__ */ React58.createElement("small", null, "To win"), /* @__PURE__ */ React58.createElement("strong", null, "+", fmt8(win))), r.status === "won" && /* @__PURE__ */ React58.createElement(React58.Fragment, null, /* @__PURE__ */ React58.createElement("small", null, "Won"), /* @__PURE__ */ React58.createElement("strong", null, "+", fmt8(r.delta))), r.status === "lost" && /* @__PURE__ */ React58.createElement(React58.Fragment, null, /* @__PURE__ */ React58.createElement("small", null, "Lost"), /* @__PURE__ */ React58.createElement("strong", null, fmt8(r.delta))), r.status === "void" && /* @__PURE__ */ React58.createElement("small", { className: "is-void" }, "Void"), voidable && !confirming && /* @__PURE__ */ React58.createElement(
+  ), " ", /* @__PURE__ */ React59.createElement("span", null, fmt9(w.stake), " chips")), /* @__PURE__ */ React59.createElement("strong", null, label2.pick), /* @__PURE__ */ React59.createElement("span", { className: "fd-wagers-line-context" }, label2.ctx)), /* @__PURE__ */ React59.createElement("div", { className: "fd-wagers-line-result" }, r.status === "pending" && /* @__PURE__ */ React59.createElement(React59.Fragment, null, /* @__PURE__ */ React59.createElement("small", null, "To win"), /* @__PURE__ */ React59.createElement("strong", null, "+", fmt9(win))), r.status === "won" && /* @__PURE__ */ React59.createElement(React59.Fragment, null, /* @__PURE__ */ React59.createElement("small", null, "Won"), /* @__PURE__ */ React59.createElement("strong", null, "+", fmt9(r.delta))), r.status === "lost" && /* @__PURE__ */ React59.createElement(React59.Fragment, null, /* @__PURE__ */ React59.createElement("small", null, "Lost"), /* @__PURE__ */ React59.createElement("strong", null, fmt9(r.delta))), r.status === "void" && /* @__PURE__ */ React59.createElement("small", { className: "is-void" }, "Void"), voidable && !confirming && /* @__PURE__ */ React59.createElement(
     "button",
     {
       type: "button",
@@ -10434,7 +13058,7 @@ function WagerLine({ x, state, events, gm, manage = false, onVoid, onPlayer }) {
       onClick: () => setConfirming(true)
     },
     "Void"
-  )), voidable && confirming && /* @__PURE__ */ React58.createElement("div", { className: "fd-wagers-void-confirm", role: "group", "aria-label": "Confirm void" }, /* @__PURE__ */ React58.createElement("span", null, disp(state, w.player), ", ", ids.length, " bet", ids.length === 1 ? "" : "s", ", ", fmt8(w.stake), " chips back"), /* @__PURE__ */ React58.createElement("button", { type: "button", className: "is-commit", disabled: voiding, onClick: async () => {
+  )), voidable && confirming && /* @__PURE__ */ React59.createElement("div", { className: "fd-wagers-void-confirm", role: "group", "aria-label": "Confirm void" }, /* @__PURE__ */ React59.createElement("span", null, disp(state, w.player), ", ", ids.length, " bet", ids.length === 1 ? "" : "s", ", ", fmt9(w.stake), " chips back"), /* @__PURE__ */ React59.createElement("button", { type: "button", className: "is-commit", disabled: voiding, onClick: async () => {
     if (voidBusy.current) return void 0;
     voidBusy.current = true;
     setVoiding(true);
@@ -10446,7 +13070,7 @@ function WagerLine({ x, state, events, gm, manage = false, onVoid, onPlayer }) {
       voidBusy.current = false;
       setVoiding(false);
     }
-  } }, voiding ? "Voiding\u2026" : `Void ${ids.length === 1 ? "bet" : `${ids.length} bets`}`), /* @__PURE__ */ React58.createElement("button", { type: "button", disabled: voiding, onClick: () => setConfirming(false) }, "Keep")));
+  } }, voiding ? "Voiding\u2026" : `Void ${ids.length === 1 ? "bet" : `${ids.length} bets`}`), /* @__PURE__ */ React59.createElement("button", { type: "button", disabled: voiding, onClick: () => setConfirming(false) }, "Keep")));
 }
 function contestPick(contest, side, event) {
   const common = {
@@ -10510,23 +13134,23 @@ function Wagers({
   onLastCard
 }) {
   const frozen = !!state.frozen;
-  const [settledOpen, setSettledOpen] = useState45(() => (openSettled || frozen) && me ? `st:${me}` : null);
-  const [settledShown, setSettledShown] = useState45(!!openSettled || frozen);
-  useEffect36(() => {
+  const [settledOpen, setSettledOpen] = useState46(() => (openSettled || frozen) && me ? `st:${me}` : null);
+  const [settledShown, setSettledShown] = useState46(!!openSettled || frozen);
+  useEffect37(() => {
     if (!frozen) return;
     setSettledShown(true);
     if (me) setSettledOpen((current) => current || `st:${me}`);
   }, [frozen]);
-  const settledRef = useRef37(null);
-  useEffect36(() => {
+  const settledRef = useRef38(null);
+  useEffect37(() => {
     if (!openSettled) return;
     setSettledShown(true);
     if (me) setSettledOpen(`st:${me}`);
     settledRef.current?.scrollIntoView?.({ block: "start" });
     onSettledSeen?.();
   }, [openSettled]);
-  const [denom, setDenom] = useState45(PT);
-  const [manage, setManage] = useState45(false);
+  const [denom, setDenom] = useState46(PT);
+  const [manage, setManage] = useState46(false);
   const resolved = useMemo9(
     () => (state.wagers || []).map((w) => ({ w, r: resolveWager(state, w, events) })),
     [state, events]
@@ -10552,7 +13176,7 @@ function Wagers({
   const myExp = wagerRisk + duelAntes;
   const room = me ? Math.max(0, Math.min(myCap - myExp, myPts - myExp)) : 0;
   const capBinds = !!me && room < PT && myPts - myExp >= PT;
-  useEffect36(() => {
+  useEffect37(() => {
     if (denom > PT && room >= PT && denom > room)
       setDenom([...RACK_DENOMS].reverse().find((value) => value <= room) || PT);
   }, [room, denom]);
@@ -10601,8 +13225,8 @@ function Wagers({
       unavailableReason: restricted && !eligible ? restriction : otherSide && marketOpen ? "One side per contest. Your chips are on the other side." : null,
       unavailableLabel: restricted && !eligible ? "Opponent" : "Other side",
       canPick: marketOpen && room >= PT && eligible && !otherSide,
-      capLabel: marketOpen && eligible && !otherSide && capBinds ? `Max ${fmt8(myCap)}` : null,
-      capReason: marketOpen && eligible && !otherSide && capBinds ? `At your ${fmt8(myCap)} limit` : null,
+      capLabel: marketOpen && eligible && !otherSide && capBinds ? `Max ${fmt9(myCap)}` : null,
+      capReason: marketOpen && eligible && !otherSide && capBinds ? `At your ${fmt9(myCap)} limit` : null,
       onPick: () => onPick({ ...pick, stake: tapStake })
     };
   });
@@ -10625,10 +13249,10 @@ function Wagers({
   const boardKey = ev ? `${ev.id}:${contest?.id || ""}` : "";
   const boardChange = useFreshChange(boardKey);
   const frame2 = useMotionFrame();
-  const watched = useRef37(null);
-  const [settling, setSettling] = useState45(null);
-  const [held, setHeld] = useState45(null);
-  const [dealing, setDealing] = useState45(0);
+  const watched = useRef38(null);
+  const [settling, setSettling] = useState46(null);
+  const [held2, setHeld] = useState46(null);
+  const [dealing, setDealing] = useState46(0);
   useLayoutEffect13(() => {
     const prev = watched.current;
     watched.current = ev && contest ? {
@@ -10650,47 +13274,47 @@ function Wagers({
     const view = settledStacks(state, events, prev.contest);
     if (view.any) setSettling({ id: prev.contest.id, label: prev.label, view });
   }, [boardKey]);
-  const heldView = held ? decidedContest(state, events, held.ev.id, held.contest) : null;
+  const heldView = held2 ? decidedContest(state, events, held2.ev.id, held2.contest) : null;
   const endHold = () => {
     setHeld(null);
     setDealing((value) => value + 1);
   };
-  useEffect36(() => {
-    if (!held) return void 0;
+  useEffect37(() => {
+    if (!held2) return void 0;
     const timer = setTimeout(endHold, MOTION.settleHold);
     return () => clearTimeout(timer);
-  }, [held?.id]);
-  useEffect36(() => {
-    if (held && (!heldView || frame2.correction)) setHeld(null);
-  }, [held?.id, !!heldView, frame2.seq]);
-  useEffect36(() => {
+  }, [held2?.id]);
+  useEffect37(() => {
+    if (held2 && (!heldView || frame2.correction)) setHeld(null);
+  }, [held2?.id, !!heldView, frame2.seq]);
+  useEffect37(() => {
     if (!dealing) return void 0;
     const timer = setTimeout(() => setDealing(0), MOTION.story + 200);
     return () => clearTimeout(timer);
   }, [dealing]);
-  useEffect36(() => {
+  useEffect37(() => {
     if (!settling) return void 0;
     const timer = setTimeout(() => setSettling(null), SETTLE_SHOW_MS);
     return () => clearTimeout(timer);
   }, [settling?.id]);
   const peek = !!onEvent && !!ev && !state.results?.[ev.id] && !!state.brackets?.[ev.id] && !!state.draws?.[ev.id];
   const contextLabel = contest?.kind === "match" || state.brackets?.[ev?.id] ? "Full bracket" : contest?.kind === "heat" || contest?.kind === "stage-final" || state.stages?.[ev?.id] ? "Heats and final" : "Event details";
-  const holding = !!(held && heldView);
-  const headEv = holding ? held.ev : ev;
+  const holding = !!(held2 && heldView);
+  const headEv = holding ? held2.ev : ev;
   const liveDot = marketOpen && !holding;
   const rackShown = !!(me && ev && marketOpen);
   const rackLive = rackShown && !holding;
-  const rackRef = useRef37(null);
+  const rackRef = useRef38(null);
   useGlassTilt(rackRef, { enabled: rackLive, max: 2 });
   const rackCapped = room < PT && myPts - myExp >= PT;
   const openEvent2 = onEvent && headEv ? () => onEvent(headEv) : null;
-  return /* @__PURE__ */ React58.createElement(
+  return /* @__PURE__ */ React59.createElement(
     "div",
     {
       className: `fd-wagers${rackShown ? " has-rack" : ""}`,
       style: { "--fd-wagers-numerals": DISPLAY, "--fd-wagers-body": SANS }
     },
-    headEv ? /* @__PURE__ */ React58.createElement("header", { className: `fd-wagers-event-heading fd-lamp${liveDot ? " is-live" : ""}` }, /* @__PURE__ */ React58.createElement("div", { className: "fd-wagers-scene fd-glass-scene" }, /* @__PURE__ */ React58.createElement(GlassArt, { clear: true }), /* @__PURE__ */ React58.createElement("h1", { className: "fd-show fd-glass-letter" }, openEvent2 ? /* @__PURE__ */ React58.createElement("button", { type: "button", className: "fd-wagers-scene-button", onClick: openEvent2, "aria-label": `${headEv.name}: ${contextLabel}` }, /* @__PURE__ */ React58.createElement(EventName, { name: headEv.name })) : /* @__PURE__ */ React58.createElement(EventName, { name: headEv.name })), /* @__PURE__ */ React58.createElement("span", { className: "fd-wagers-scene-side" }, openEvent2 && /* @__PURE__ */ React58.createElement("span", { className: "fd-wagers-scene-open", "aria-hidden": "true" }, /* @__PURE__ */ React58.createElement(Icon, { name: "open", size: 18 })), GameMark2 && /* @__PURE__ */ React58.createElement("span", { className: "fd-wagers-event-mark" }, /* @__PURE__ */ React58.createElement(GameMark2, { id: headEv.game, variant: headEv.variant, size: 34 })))), rackShown ? /* @__PURE__ */ React58.createElement(
+    headEv ? /* @__PURE__ */ React59.createElement("header", { className: `fd-wagers-event-heading fd-lamp${liveDot ? " is-live" : ""}` }, /* @__PURE__ */ React59.createElement("div", { className: "fd-wagers-scene fd-glass-scene" }, /* @__PURE__ */ React59.createElement(GlassArt, { clear: true }), /* @__PURE__ */ React59.createElement("h1", { className: "fd-show fd-glass-letter" }, openEvent2 ? /* @__PURE__ */ React59.createElement("button", { type: "button", className: "fd-wagers-scene-button", onClick: openEvent2, "aria-label": `${headEv.name}: ${contextLabel}` }, /* @__PURE__ */ React59.createElement(EventName, { name: headEv.name })) : /* @__PURE__ */ React59.createElement(EventName, { name: headEv.name })), /* @__PURE__ */ React59.createElement("span", { className: "fd-wagers-scene-side" }, openEvent2 && /* @__PURE__ */ React59.createElement("span", { className: "fd-wagers-scene-open", "aria-hidden": "true" }, /* @__PURE__ */ React59.createElement(Icon, { name: "open", size: 18 })), GameMark2 && /* @__PURE__ */ React59.createElement("span", { className: "fd-wagers-event-mark" }, /* @__PURE__ */ React59.createElement(GameMark2, { id: headEv.game, variant: headEv.variant, size: 34 })))), rackShown ? /* @__PURE__ */ React59.createElement(
       "section",
       {
         ref: rackRef,
@@ -10698,10 +13322,10 @@ function Wagers({
         "aria-label": "Choose your betting chip",
         inert: holding ? "" : void 0
       },
-      /* @__PURE__ */ React58.createElement("span", { className: "fd-sr", role: "status" }, holding ? "Settled" : status),
-      /* @__PURE__ */ React58.createElement("div", { className: "fd-wagers-rack-row" }, /* @__PURE__ */ React58.createElement(RoomReadout, { cap: myCap, room, capBinds, capped: rackCapped }), /* @__PURE__ */ React58.createElement("div", { className: "fd-wagers-denoms", role: "group", "aria-label": "Chip value per tap" }, RACK_DENOMS.map((value) => {
+      /* @__PURE__ */ React59.createElement("span", { className: "fd-sr", role: "status" }, holding ? "Settled" : status),
+      /* @__PURE__ */ React59.createElement("div", { className: "fd-wagers-rack-row" }, /* @__PURE__ */ React59.createElement(RoomReadout, { cap: myCap, room, capBinds, capped: rackCapped }), /* @__PURE__ */ React59.createElement("div", { className: "fd-wagers-denoms", role: "group", "aria-label": "Chip value per tap" }, RACK_DENOMS.map((value) => {
         const affordable = value <= room;
-        return /* @__PURE__ */ React58.createElement(
+        return /* @__PURE__ */ React59.createElement(
           RackChip,
           {
             key: value,
@@ -10715,11 +13339,11 @@ function Wagers({
           }
         );
       }))),
-      /* @__PURE__ */ React58.createElement(StackMeter, { pts: myPts, cap: myCap, bets: wagerRisk, duels: duelAntes, room })
-    ) : /* @__PURE__ */ React58.createElement("div", { className: "fd-wagers-event-meta" }, /* @__PURE__ */ React58.createElement("span", { className: `fd-wagers-status${liveDot ? " is-open" : ""}` }, /* @__PURE__ */ React58.createElement("i", { className: liveDot ? "fd-insert fd-beat-dot" : "fd-insert is-done", "aria-hidden": "true" }), holding ? "Settled" : status))) : /* @__PURE__ */ React58.createElement(PageHeading, { title: "Bets" }),
-    settling && /* @__PURE__ */ React58.createElement(SettleStrip, { key: settling.id, me, settling }),
-    holding && /* @__PURE__ */ React58.createElement(HeldBoard, { key: held.id, state, me, held, view: heldView, onSkip: endHold }),
-    frozen && !ev && !holding && /* @__PURE__ */ React58.createElement(
+      /* @__PURE__ */ React59.createElement(StackMeter, { pts: myPts, cap: myCap, bets: wagerRisk, duels: duelAntes, room })
+    ) : /* @__PURE__ */ React59.createElement("div", { className: "fd-wagers-event-meta" }, /* @__PURE__ */ React59.createElement("span", { className: `fd-wagers-status${liveDot ? " is-open" : ""}` }, /* @__PURE__ */ React59.createElement("i", { className: liveDot ? "fd-insert fd-beat-dot" : "fd-insert is-done", "aria-hidden": "true" }), holding ? "Settled" : status))) : /* @__PURE__ */ React59.createElement(PageHeading, { title: "Bets" }),
+    settling && /* @__PURE__ */ React59.createElement(SettleStrip, { key: settling.id, me, settling }),
+    holding && /* @__PURE__ */ React59.createElement(HeldBoard, { key: held2.id, state, me, held: held2, view: heldView, onSkip: endHold }),
+    frozen && !ev && !holding && /* @__PURE__ */ React59.createElement(
       BetRecord,
       {
         group: me ? settledByPlayer.find((group) => group.player === me) : null,
@@ -10727,16 +13351,16 @@ function Wagers({
         onLastCard
       }
     ),
-    !frozen && !ev && !holding && /* @__PURE__ */ React58.createElement("section", { className: `fd-wagers-waiting fd-glass-field fd-field-info${finaleClosed ? " is-finished" : ""}` }, /* @__PURE__ */ React58.createElement("div", { className: "fd-wagers-waiting-copy" }, /* @__PURE__ */ React58.createElement("h2", null, finaleClosed ? "Betting is closed for the finale" : state.live ? "Between events" : "Betting opens with the first event"), !finaleClosed && /* @__PURE__ */ React58.createElement(ActionButton, { variant: "secondary", onClick: onEvents }, "Browse the events"))),
-    ev && !holding && /* @__PURE__ */ React58.createElement("section", { className: "fd-wagers-event" }, contest && (contest.kind !== "ffa" || !terms?.odds) && /* @__PURE__ */ React58.createElement("div", { className: "fd-wagers-contest-heading" }, contest.kind !== "ffa" && /* @__PURE__ */ React58.createElement("h2", null, /* @__PURE__ */ React58.createElement(OneSafe, { text: contest.label || "Bets" })), !terms?.odds && /* @__PURE__ */ React58.createElement(PayLamp, { mult: contestMult(contest) })), contest && picks.length > 0 ? /* @__PURE__ */ React58.createElement("div", { className: "fd-wagers-play" }, /* @__PURE__ */ React58.createElement(
+    !frozen && !ev && !holding && /* @__PURE__ */ React59.createElement("section", { className: `fd-wagers-waiting fd-glass-field fd-field-info${finaleClosed ? " is-finished" : ""}` }, /* @__PURE__ */ React59.createElement("div", { className: "fd-wagers-waiting-copy" }, /* @__PURE__ */ React59.createElement("h2", null, finaleClosed ? "Betting is closed for the finale" : state.live ? "Between events" : "Betting opens with the first event"), !finaleClosed && /* @__PURE__ */ React59.createElement(ActionButton, { variant: "secondary", onClick: onEvents }, "Browse the events"))),
+    ev && !holding && /* @__PURE__ */ React59.createElement("section", { className: "fd-wagers-event" }, contest && (contest.kind !== "ffa" || !terms?.odds) && /* @__PURE__ */ React59.createElement("div", { className: "fd-wagers-contest-heading" }, contest.kind !== "ffa" && /* @__PURE__ */ React59.createElement("h2", null, /* @__PURE__ */ React59.createElement(OneSafe, { text: contest.label || "Bets" })), !terms?.odds && /* @__PURE__ */ React59.createElement(PayLamp, { mult: contestMult(contest) })), contest && picks.length > 0 ? /* @__PURE__ */ React59.createElement("div", { className: "fd-wagers-play" }, /* @__PURE__ */ React59.createElement(
       "section",
       {
         className: `fd-wagers-market fd-wagers-contest is-${contest.kind}${dealing ? " is-dealing" : ""}`,
         "aria-label": contest.label
       },
-      /* @__PURE__ */ React58.createElement("div", { className: `fd-wagers-picks${lines === 1 ? " is-rows" : ` is-id-${identity}`}` }, picks.map((pick) => /* @__PURE__ */ React58.createElement(MarketPick, { ...pick, key: `${contest.id}:${pick.key}` })))
-    )) : /* @__PURE__ */ React58.createElement("p", { className: "fd-wagers-contest-waiting" }, state.results?.[ev.id] ? "Result posted." : "Waiting for the next contest."), me && marketOpen && myPts - myExp < PT && /* @__PURE__ */ React58.createElement("p", { className: "fd-wagers-limit", role: "status" }, "No chips available."), peek && /* @__PURE__ */ React58.createElement(BracketPeek, { state, ev, me, onOpen: onEvent, card: true })),
-    pendingLines.length > 0 && /* @__PURE__ */ React58.createElement("details", { className: "fd-wagers-history", open: !contest || void 0 }, /* @__PURE__ */ React58.createElement("summary", null, "Open bets ", /* @__PURE__ */ React58.createElement("span", null, pendingLines.length), /* @__PURE__ */ React58.createElement(Icon, { name: "plus", size: 20, className: "fd-wagers-summary-icon" })), gm && onVoid && /* @__PURE__ */ React58.createElement(
+      /* @__PURE__ */ React59.createElement("div", { className: `fd-wagers-picks${lines === 1 ? " is-rows" : ` is-id-${identity}`}` }, picks.map((pick) => /* @__PURE__ */ React59.createElement(MarketPick, { ...pick, key: `${contest.id}:${pick.key}` })))
+    )) : /* @__PURE__ */ React59.createElement("p", { className: "fd-wagers-contest-waiting" }, state.results?.[ev.id] ? "Result posted." : "Waiting for the next contest."), me && marketOpen && myPts - myExp < PT && /* @__PURE__ */ React59.createElement("p", { className: "fd-wagers-limit", role: "status" }, "No chips available."), peek && /* @__PURE__ */ React59.createElement(BracketPeek, { state, ev, me, onOpen: onEvent, card: true })),
+    pendingLines.length > 0 && /* @__PURE__ */ React59.createElement("details", { className: "fd-wagers-history", open: !contest || void 0 }, /* @__PURE__ */ React59.createElement("summary", null, "Open bets ", /* @__PURE__ */ React59.createElement("span", null, pendingLines.length), /* @__PURE__ */ React59.createElement(Icon, { name: "plus", size: 20, className: "fd-wagers-summary-icon" })), gm && onVoid && /* @__PURE__ */ React59.createElement(
       "button",
       {
         type: "button",
@@ -10745,8 +13369,8 @@ function Wagers({
         onClick: () => setManage((value) => !value)
       },
       manage ? "Done" : "Manage"
-    ), /* @__PURE__ */ React58.createElement("div", { className: "fd-wagers-ledger" }, pendingLines.map((x) => /* @__PURE__ */ React58.createElement(WagerLine, { key: x.w.id, x, state, events, gm, manage, onVoid, onPlayer })))),
-    settledLines.length > 0 && /* @__PURE__ */ React58.createElement(
+    ), /* @__PURE__ */ React59.createElement("div", { className: "fd-wagers-ledger" }, pendingLines.map((x) => /* @__PURE__ */ React59.createElement(WagerLine, { key: x.w.id, x, state, events, gm, manage, onVoid, onPlayer })))),
+    settledLines.length > 0 && /* @__PURE__ */ React59.createElement(
       "details",
       {
         className: "fd-wagers-history",
@@ -10754,10 +13378,10 @@ function Wagers({
         open: settledShown,
         onToggle: (event) => setSettledShown(event.currentTarget.open)
       },
-      /* @__PURE__ */ React58.createElement("summary", null, "Settled ", /* @__PURE__ */ React58.createElement("span", null, settledLines.length), /* @__PURE__ */ React58.createElement(Icon, { name: "plus", size: 20, className: "fd-wagers-summary-icon" })),
-      /* @__PURE__ */ React58.createElement("div", { className: "fd-wagers-settled-list" }, settledByPlayer.map((group) => {
+      /* @__PURE__ */ React59.createElement("summary", null, "Settled ", /* @__PURE__ */ React59.createElement("span", null, settledLines.length), /* @__PURE__ */ React59.createElement(Icon, { name: "plus", size: 20, className: "fd-wagers-summary-icon" })),
+      /* @__PURE__ */ React59.createElement("div", { className: "fd-wagers-settled-list" }, settledByPlayer.map((group) => {
         const key = `st:${group.player}`, open = settledOpen === key;
-        return /* @__PURE__ */ React58.createElement("div", { className: `fd-wagers-settled${open ? " is-open" : ""}`, key: group.player }, /* @__PURE__ */ React58.createElement("div", { className: "fd-wagers-settled-row" }, /* @__PURE__ */ React58.createElement(
+        return /* @__PURE__ */ React59.createElement("div", { className: `fd-wagers-settled${open ? " is-open" : ""}`, key: group.player }, /* @__PURE__ */ React59.createElement("div", { className: "fd-wagers-settled-row" }, /* @__PURE__ */ React59.createElement(
           "button",
           {
             type: "button",
@@ -10766,9 +13390,9 @@ function Wagers({
             onClick: () => onPlayer?.(group.player),
             "aria-label": `View ${disp(state, group.player)}'s player card`
           },
-          /* @__PURE__ */ React58.createElement(Avatar, { state, p: group.player, size: 32 }),
-          /* @__PURE__ */ React58.createElement("strong", null, disp(state, group.player))
-        ), /* @__PURE__ */ React58.createElement(
+          /* @__PURE__ */ React59.createElement(Avatar, { state, p: group.player, size: 32 }),
+          /* @__PURE__ */ React59.createElement("strong", null, disp(state, group.player))
+        ), /* @__PURE__ */ React59.createElement(
           "button",
           {
             type: "button",
@@ -10777,15 +13401,15 @@ function Wagers({
             "aria-label": `${open ? "Hide" : "View"} settled bets by ${disp(state, group.player)}`,
             onClick: () => setSettledOpen((current) => current === key ? null : key)
           },
-          /* @__PURE__ */ React58.createElement("small", null, group.lines.length, " bet", group.lines.length === 1 ? "" : "s"),
-          /* @__PURE__ */ React58.createElement("span", { className: `fd-wagers-net${group.net > 0 ? " is-up" : group.net < 0 ? " is-down" : ""}` }, group.net > 0 ? "+" : "", fmt8(group.net)),
-          /* @__PURE__ */ React58.createElement("span", { className: "fd-wagers-settled-arrow" }, /* @__PURE__ */ React58.createElement(Icon, { name: open ? "minus" : "plus", size: 20 }))
-        )), open && /* @__PURE__ */ React58.createElement("div", { className: "fd-wagers-settled-detail" }, group.lines.map((x) => /* @__PURE__ */ React58.createElement(WagerLine, { key: x.w.id, x, state, events, gm, onVoid, onPlayer }))));
+          /* @__PURE__ */ React59.createElement("small", null, group.lines.length, " bet", group.lines.length === 1 ? "" : "s"),
+          /* @__PURE__ */ React59.createElement("span", { className: `fd-wagers-net${group.net > 0 ? " is-up" : group.net < 0 ? " is-down" : ""}` }, group.net > 0 ? "+" : "", fmt9(group.net)),
+          /* @__PURE__ */ React59.createElement("span", { className: "fd-wagers-settled-arrow" }, /* @__PURE__ */ React59.createElement(Icon, { name: open ? "minus" : "plus", size: 20 }))
+        )), open && /* @__PURE__ */ React59.createElement("div", { className: "fd-wagers-settled-detail" }, group.lines.map((x) => /* @__PURE__ */ React59.createElement(WagerLine, { key: x.w.id, x, state, events, gm, onVoid, onPlayer }))));
       }))
     )
   );
 }
-var PHONE_CHIP, ROW_CHIP, FELT_CELLS, ROW_STACKS, FELT_STACK_H, fmt8, nameFit, RACK_DENOMS, WIN_FACES, isUncertainResult, PLACE_QUEUE, SETTLE_SHOW_MS, DENOM_COLOR, RACK_COIN, HOME_FLIGHT_AT;
+var PHONE_CHIP, ROW_CHIP, FELT_CELLS, ROW_STACKS, FELT_STACK_H, fmt9, nameFit, RACK_DENOMS, WIN_FACES, isUncertainResult, PLACE_QUEUE, SETTLE_SHOW_MS, DENOM_COLOR, RACK_COIN, HOME_FLIGHT_AT;
 var init_Wagers = __esm({
   "src/features/wagers/Wagers.jsx"() {
     init_core();
@@ -10816,7 +13440,7 @@ var init_Wagers = __esm({
     FELT_CELLS = 6;
     ROW_STACKS = 2;
     FELT_STACK_H = Math.ceil(stackMaxHeight(PHONE_CHIP));
-    fmt8 = (n) => (n ?? 0).toLocaleString("en-US");
+    fmt9 = (n) => (n ?? 0).toLocaleString("en-US");
     nameFit = (name) => ({ "--fd-name-ch": Math.max(1, String(name || "").length) });
     RACK_DENOMS = [PT, 2 * PT, 5 * PT, 10 * PT];
     WIN_FACES = 2;
@@ -10830,7 +13454,7 @@ var init_Wagers = __esm({
 });
 
 // src/PhotoCropper.jsx
-import React59, { useCallback as useCallback3, useEffect as useEffect37, useRef as useRef38, useState as useState46 } from "react";
+import React60, { useCallback as useCallback3, useEffect as useEffect38, useRef as useRef39, useState as useState47 } from "react";
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
@@ -10853,18 +13477,18 @@ function PhotoCropper({
   outputSize = 384,
   quality = 0.84
 }) {
-  const dialogRef = useRef38(null);
-  const cancelRef = useRef38(null);
-  const stageRef = useRef38(null);
-  const imageRef = useRef38(null);
-  const dragRef = useRef38(null);
-  const [image, setImage] = useState46(null);
-  const [stageSize, setStageSize] = useState46(0);
-  const [view, setView] = useState46({ zoom: 1, x: 0, y: 0 });
-  const [status, setStatus] = useState46("loading");
-  const [error, setError] = useState46("");
+  const dialogRef = useRef39(null);
+  const cancelRef = useRef39(null);
+  const stageRef = useRef39(null);
+  const imageRef = useRef39(null);
+  const dragRef = useRef39(null);
+  const [image, setImage] = useState47(null);
+  const [stageSize, setStageSize] = useState47(0);
+  const [view, setView] = useState47({ zoom: 1, x: 0, y: 0 });
+  const [status, setStatus] = useState47("loading");
+  const [error, setError] = useState47("");
   const diameter = Math.max(0, stageSize - 32);
-  useEffect37(() => {
+  useEffect38(() => {
     const node = stageRef.current;
     if (!node) return void 0;
     const measure = () => setStageSize(node.getBoundingClientRect().width);
@@ -10877,7 +13501,7 @@ function PhotoCropper({
       window.removeEventListener("resize", measure);
     };
   }, []);
-  useEffect37(() => {
+  useEffect38(() => {
     let disposed = false;
     setStatus("loading");
     setError("");
@@ -10913,10 +13537,10 @@ function PhotoCropper({
       nextImage.onerror = null;
     };
   }, [src]);
-  useEffect37(() => {
+  useEffect38(() => {
     setView((current) => fit(current, image, diameter));
   }, [image, diameter]);
-  useEffect37(() => {
+  useEffect38(() => {
     const previousFocus = document.activeElement;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -11037,7 +13661,7 @@ function PhotoCropper({
   const coverScale = image && diameter ? Math.max(diameter / image.width, diameter / image.height) : 0;
   const renderedWidth = image ? image.width * coverScale * view.zoom : 0;
   const renderedHeight = image ? image.height * coverScale * view.zoom : 0;
-  return /* @__PURE__ */ React59.createElement("div", { className: "fd-crop-overlay", role: "presentation" }, /* @__PURE__ */ React59.createElement("style", null, `
+  return /* @__PURE__ */ React60.createElement("div", { className: "fd-crop-overlay", role: "presentation" }, /* @__PURE__ */ React60.createElement("style", null, `
         .fd-crop-overlay {
           position: fixed;
           inset: 0;
@@ -11224,7 +13848,7 @@ function PhotoCropper({
         @media (prefers-reduced-motion: reduce) {
           .fd-crop-overlay, .fd-crop-dialog { animation: none; }
         }
-      `), /* @__PURE__ */ React59.createElement(
+      `), /* @__PURE__ */ React60.createElement(
     "section",
     {
       ref: dialogRef,
@@ -11234,7 +13858,7 @@ function PhotoCropper({
       "aria-labelledby": "fd-crop-title",
       onKeyDown: onDialogKeyDown
     },
-    /* @__PURE__ */ React59.createElement("header", { className: "fd-crop-header" }, /* @__PURE__ */ React59.createElement("div", null, /* @__PURE__ */ React59.createElement("h2", { id: "fd-crop-title", className: "fd-crop-title" }, "Frame your photo")), /* @__PURE__ */ React59.createElement(
+    /* @__PURE__ */ React60.createElement("header", { className: "fd-crop-header" }, /* @__PURE__ */ React60.createElement("div", null, /* @__PURE__ */ React60.createElement("h2", { id: "fd-crop-title", className: "fd-crop-title" }, "Frame your photo")), /* @__PURE__ */ React60.createElement(
       "button",
       {
         ref: cancelRef,
@@ -11243,9 +13867,9 @@ function PhotoCropper({
         "aria-label": "Cancel photo crop",
         onClick: onCancel
       },
-      /* @__PURE__ */ React59.createElement(Icon, { name: "close", size: 20 })
+      /* @__PURE__ */ React60.createElement(Icon, { name: "close", size: 20 })
     )),
-    /* @__PURE__ */ React59.createElement(
+    /* @__PURE__ */ React60.createElement(
       "div",
       {
         ref: stageRef,
@@ -11259,7 +13883,7 @@ function PhotoCropper({
         onPointerUp: endPointer,
         onPointerCancel: endPointer
       },
-      /* @__PURE__ */ React59.createElement("div", { className: "fd-crop-window" }, status === "ready" && /* @__PURE__ */ React59.createElement(
+      /* @__PURE__ */ React60.createElement("div", { className: "fd-crop-window" }, status === "ready" && /* @__PURE__ */ React60.createElement(
         "img",
         {
           className: "fd-crop-image",
@@ -11275,9 +13899,9 @@ function PhotoCropper({
           }
         }
       )),
-      status !== "ready" && /* @__PURE__ */ React59.createElement("div", { className: "fd-crop-loading", role: "status" }, status === "loading" ? "Opening photo\u2026" : "Photo unavailable")
+      status !== "ready" && /* @__PURE__ */ React60.createElement("div", { className: "fd-crop-loading", role: "status" }, status === "loading" ? "Opening photo\u2026" : "Photo unavailable")
     ),
-    /* @__PURE__ */ React59.createElement("div", { className: "fd-crop-controls" }, /* @__PURE__ */ React59.createElement("div", { className: "fd-crop-zoom-row" }, /* @__PURE__ */ React59.createElement(
+    /* @__PURE__ */ React60.createElement("div", { className: "fd-crop-controls" }, /* @__PURE__ */ React60.createElement("div", { className: "fd-crop-zoom-row" }, /* @__PURE__ */ React60.createElement(
       "button",
       {
         type: "button",
@@ -11286,8 +13910,8 @@ function PhotoCropper({
         disabled: status !== "ready" || view.zoom <= MIN_ZOOM,
         onClick: () => updateZoom(view.zoom - ZOOM_STEP)
       },
-      /* @__PURE__ */ React59.createElement("span", { "aria-hidden": "true" }, "\u2212")
-    ), /* @__PURE__ */ React59.createElement(
+      /* @__PURE__ */ React60.createElement("span", { "aria-hidden": "true" }, "\u2212")
+    ), /* @__PURE__ */ React60.createElement(
       "input",
       {
         className: "fd-crop-range",
@@ -11300,7 +13924,7 @@ function PhotoCropper({
         "aria-label": `Photo zoom, ${Math.round(view.zoom * 100)} percent`,
         onChange: (event) => updateZoom(event.target.value)
       }
-    ), /* @__PURE__ */ React59.createElement(
+    ), /* @__PURE__ */ React60.createElement(
       "button",
       {
         type: "button",
@@ -11309,8 +13933,8 @@ function PhotoCropper({
         disabled: status !== "ready" || view.zoom >= MAX_ZOOM,
         onClick: () => updateZoom(view.zoom + ZOOM_STEP)
       },
-      /* @__PURE__ */ React59.createElement("span", { "aria-hidden": "true" }, "+")
-    )), error && /* @__PURE__ */ React59.createElement("p", { className: "fd-crop-error", role: "alert" }, error), /* @__PURE__ */ React59.createElement("div", { className: "fd-crop-actions" }, /* @__PURE__ */ React59.createElement(
+      /* @__PURE__ */ React60.createElement("span", { "aria-hidden": "true" }, "+")
+    )), error && /* @__PURE__ */ React60.createElement("p", { className: "fd-crop-error", role: "alert" }, error), /* @__PURE__ */ React60.createElement("div", { className: "fd-crop-actions" }, /* @__PURE__ */ React60.createElement(
       "button",
       {
         type: "button",
@@ -11318,7 +13942,7 @@ function PhotoCropper({
         onClick: onCancel
       },
       "Cancel"
-    ), /* @__PURE__ */ React59.createElement(
+    ), /* @__PURE__ */ React60.createElement(
       "button",
       {
         type: "button",
@@ -11341,7 +13965,7 @@ var init_PhotoCropper = __esm({
 });
 
 // src/features/profile/ProfileEditor.jsx
-import React60, { useEffect as useEffect38, useId as useId7, useRef as useRef39, useState as useState47 } from "react";
+import React61, { useEffect as useEffect39, useId as useId7, useRef as useRef40, useState as useState48 } from "react";
 function ProfileEditor({
   state,
   me,
@@ -11358,9 +13982,9 @@ function ProfileEditor({
   numLocked = false
 }) {
   const identity = usePlayerIdentity(me);
-  const fileRef = useRef39(null);
+  const fileRef = useRef40(null);
   const numberErrorId = useId7();
-  const [cropSource, setCropSource] = useState47(null);
+  const [cropSource, setCropSource] = useState48(null);
   const prof = state.profiles?.[me];
   const current = photo || (prof?.photoV ? `/api/photo/${encodeURIComponent(me)}?v=${prof.photoV}` : null);
   const takenBy = num !== "" ? Object.entries(state.profiles || {}).find(([p, pr]) => p !== me && pr?.num === Number(num)) : null;
@@ -11372,14 +13996,14 @@ function ProfileEditor({
     reader.readAsDataURL(f);
     e.target.value = "";
   };
-  return /* @__PURE__ */ React60.createElement("div", { className: "fd-profile-editor" }, me && /* @__PURE__ */ React60.createElement(PlayerPass, { state, p: me, display, num, photo, compact: true, mint: true, viewer: me }), /* @__PURE__ */ React60.createElement("div", { className: "fd-profile-controls" }, /* @__PURE__ */ React60.createElement(
+  return /* @__PURE__ */ React61.createElement("div", { className: "fd-profile-editor" }, me && /* @__PURE__ */ React61.createElement(PlayerPass, { state, p: me, display, num, photo, compact: true, mint: true, viewer: me }), /* @__PURE__ */ React61.createElement("div", { className: "fd-profile-controls" }, /* @__PURE__ */ React61.createElement(
     "div",
     {
       "aria-hidden": "true",
       className: "fd-profile-color-rail",
       style: { background: me ? identity.color : "var(--accent)" }
     }
-  ), /* @__PURE__ */ React60.createElement("div", { className: "fd-profile-fields" }, /* @__PURE__ */ React60.createElement("div", { className: "fd-profile-photo-row" }, /* @__PURE__ */ React60.createElement(
+  ), /* @__PURE__ */ React61.createElement("div", { className: "fd-profile-fields" }, /* @__PURE__ */ React61.createElement("div", { className: "fd-profile-photo-row" }, /* @__PURE__ */ React61.createElement(
     "button",
     {
       type: "button",
@@ -11387,10 +14011,10 @@ function ProfileEditor({
       className: "fd-profile-photo-button",
       "aria-label": current ? "Change your photo" : "Add your photo"
     },
-    /* @__PURE__ */ React60.createElement(Icon, { name: "camera", size: 18 }),
-    /* @__PURE__ */ React60.createElement("span", null, current ? "Change photo" : "Add a photo"),
-    /* @__PURE__ */ React60.createElement("span", { "aria-hidden": "true", className: "fd-profile-photo-action" }, /* @__PURE__ */ React60.createElement(Icon, { name: current ? "open" : "plus", size: "1em" }))
-  ), /* @__PURE__ */ React60.createElement("input", { ref: fileRef, type: "file", accept: "image/*", onChange: onFile, style: { display: "none" } }), cropSource && /* @__PURE__ */ React60.createElement(
+    /* @__PURE__ */ React61.createElement(Icon, { name: "camera", size: 18 }),
+    /* @__PURE__ */ React61.createElement("span", null, current ? "Change photo" : "Add a photo"),
+    /* @__PURE__ */ React61.createElement("span", { "aria-hidden": "true", className: "fd-profile-photo-action" }, /* @__PURE__ */ React61.createElement(Icon, { name: current ? "open" : "plus", size: "1em" }))
+  ), /* @__PURE__ */ React61.createElement("input", { ref: fileRef, type: "file", accept: "image/*", onChange: onFile, style: { display: "none" } }), cropSource && /* @__PURE__ */ React61.createElement(
     PhotoCropper,
     {
       src: cropSource,
@@ -11400,7 +14024,7 @@ function ProfileEditor({
         setCropSource(null);
       }
     }
-  )), /* @__PURE__ */ React60.createElement("div", { className: "fd-profile-name-row" }, /* @__PURE__ */ React60.createElement("label", { className: "fd-profile-field" }, /* @__PURE__ */ React60.createElement("span", null, "Display name"), /* @__PURE__ */ React60.createElement(
+  )), /* @__PURE__ */ React61.createElement("div", { className: "fd-profile-name-row" }, /* @__PURE__ */ React61.createElement("label", { className: "fd-profile-field" }, /* @__PURE__ */ React61.createElement("span", null, "Display name"), /* @__PURE__ */ React61.createElement(
     "input",
     {
       value: display,
@@ -11409,7 +14033,7 @@ function ProfileEditor({
       "aria-label": "Display name",
       autoComplete: "nickname"
     }
-  )), /* @__PURE__ */ React60.createElement("label", { className: "fd-profile-field fd-profile-number-field" }, /* @__PURE__ */ React60.createElement("span", null, "No."), /* @__PURE__ */ React60.createElement(
+  )), /* @__PURE__ */ React61.createElement("label", { className: "fd-profile-field fd-profile-number-field" }, /* @__PURE__ */ React61.createElement("span", null, "No."), /* @__PURE__ */ React61.createElement(
     "input",
     {
       value: num,
@@ -11421,7 +14045,7 @@ function ProfileEditor({
       "aria-describedby": takenBy ? numberErrorId : void 0,
       onChange: (e) => setNum(e.target.value.replace(/\D/g, "").slice(0, 2))
     }
-  ))), takenBy && /* @__PURE__ */ React60.createElement("div", { id: numberErrorId, className: "fd-profile-number-error", role: "status" }, disp(state, takenBy[0]), " already has ", Number(num), ".")), onChip && me && /* @__PURE__ */ React60.createElement(ChipPicker, { state, me, onChip, num, embedded: true })), showSize && /* @__PURE__ */ React60.createElement("div", { style: { marginTop: 18 } }, /* @__PURE__ */ React60.createElement(SizeRow, { lb: "T-shirt size", value: size, onPick: setSize, allowClear: true })));
+  ))), takenBy && /* @__PURE__ */ React61.createElement("div", { id: numberErrorId, className: "fd-profile-number-error", role: "status" }, disp(state, takenBy[0]), " already has ", Number(num), ".")), onChip && me && /* @__PURE__ */ React61.createElement(ChipPicker, { state, me, onChip, num, embedded: true })), showSize && /* @__PURE__ */ React61.createElement("div", { style: { marginTop: 18 } }, /* @__PURE__ */ React61.createElement(SizeRow, { lb: "T-shirt size", value: size, onPick: setSize, allowClear: true })));
 }
 function ChipPicker({ state, me, onChip, num, embedded = false }) {
   const mine = state.profiles?.[me] || {};
@@ -11430,9 +14054,9 @@ function ChipPicker({ state, me, onChip, num, embedded = false }) {
   const lateClaim = !!state.live && !mine.color;
   const locked = !!state.live && !lateClaim;
   const { skin: savedSkin } = usePlayerIdentity(me);
-  const [draftSkin, setDraftSkin] = useState47(null);
+  const [draftSkin, setDraftSkin] = useState48(null);
   const skin = lateClaim ? draftSkin || mine.skin || CHIP_SKINS[0] : savedSkin;
-  const patterns = /* @__PURE__ */ React60.createElement(
+  const patterns = /* @__PURE__ */ React61.createElement(
     PatternPicker,
     {
       me,
@@ -11442,26 +14066,26 @@ function ChipPicker({ state, me, onChip, num, embedded = false }) {
       onPick: (sk) => lateClaim ? setDraftSkin(sk) : onChip(void 0, sk)
     }
   );
-  const wasLate = useRef39(lateClaim);
-  const [justClaimed, setJustClaimed] = useState47(false);
-  useEffect38(() => {
+  const wasLate = useRef40(lateClaim);
+  const [justClaimed, setJustClaimed] = useState48(false);
+  useEffect39(() => {
     if (wasLate.current && locked) setJustClaimed(true);
     wasLate.current = lateClaim;
   }, [lateClaim, locked]);
-  if (locked) return /* @__PURE__ */ React60.createElement("div", { className: "fd-profile-chip-locked" }, /* @__PURE__ */ React60.createElement(ChipCoin, { key: justClaimed ? "minted" : "locked", p: me, size: 48, fallback: stamp, mintOnMount: justClaimed }), /* @__PURE__ */ React60.createElement("div", null, /* @__PURE__ */ React60.createElement("strong", null, CHIP_SKIN_META[skin] || "Classic", " pattern"), /* @__PURE__ */ React60.createElement("p", null, "Locked")));
-  return /* @__PURE__ */ React60.createElement("div", { className: "fd-chip-picker", style: {
+  if (locked) return /* @__PURE__ */ React61.createElement("div", { className: "fd-profile-chip-locked" }, /* @__PURE__ */ React61.createElement(ChipCoin, { key: justClaimed ? "minted" : "locked", p: me, size: 48, fallback: stamp, mintOnMount: justClaimed }), /* @__PURE__ */ React61.createElement("div", null, /* @__PURE__ */ React61.createElement("strong", null, CHIP_SKIN_META[skin] || "Classic", " pattern"), /* @__PURE__ */ React61.createElement("p", null, "Locked")));
+  return /* @__PURE__ */ React61.createElement("div", { className: "fd-chip-picker", style: {
     background: "var(--paper)",
     border: embedded ? "none" : "1px solid var(--line)",
     borderTop: embedded ? "1px solid var(--line)" : void 0,
     borderRadius: embedded ? 0 : 14,
     padding: embedded ? "14px 12px 13px" : 12
-  } }, !embedded && /* @__PURE__ */ React60.createElement("div", { style: { display: "flex", alignItems: "center", gap: 14, marginBottom: 15 } }, /* @__PURE__ */ React60.createElement("div", { style: { position: "relative", width: 80, height: 80, flexShrink: 0, display: "grid", placeItems: "center" } }, /* @__PURE__ */ React60.createElement("span", { "aria-hidden": "true", style: {
+  } }, !embedded && /* @__PURE__ */ React61.createElement("div", { style: { display: "flex", alignItems: "center", gap: 14, marginBottom: 15 } }, /* @__PURE__ */ React61.createElement("div", { style: { position: "relative", width: 80, height: 80, flexShrink: 0, display: "grid", placeItems: "center" } }, /* @__PURE__ */ React61.createElement("span", { "aria-hidden": "true", style: {
     position: "absolute",
     inset: 4,
     borderRadius: "50%",
     background: "var(--sun-tint)",
     border: "1px solid var(--line)"
-  } }), /* @__PURE__ */ React60.createElement("div", { style: { position: "relative" } }, /* @__PURE__ */ React60.createElement(ChipFace, { p: me, size: 70, fallback: stamp }))), /* @__PURE__ */ React60.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React60.createElement("div", { style: {
+  } }), /* @__PURE__ */ React61.createElement("div", { style: { position: "relative" } }, /* @__PURE__ */ React61.createElement(ChipFace, { p: me, size: 70, fallback: stamp }))), /* @__PURE__ */ React61.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React61.createElement("div", { style: {
     fontFamily: SANS,
     fontWeight: 700,
     fontSize: 12,
@@ -11469,24 +14093,24 @@ function ChipPicker({ state, me, onChip, num, embedded = false }) {
     textTransform: "uppercase",
     color: "var(--accent2)",
     marginBottom: 4
-  } }, "Chip design"), /* @__PURE__ */ React60.createElement("div", { style: {
+  } }, "Chip design"), /* @__PURE__ */ React61.createElement("div", { style: {
     fontFamily: DISPLAY,
     fontWeight: 700,
     fontSize: 26,
     lineHeight: 1,
     textTransform: "uppercase",
     color: "var(--ink)"
-  } }, "Your chip"), mine.color && /* @__PURE__ */ React60.createElement("div", { style: { fontFamily: SANS, fontSize: 12.5, color: "var(--muted2)", lineHeight: 1.45, marginTop: 5 } }, CHIP_SKIN_META[skin] || "Classic", " pattern"))), lateClaim && patterns, lateClaim && /* @__PURE__ */ React60.createElement("p", { className: "fd-chip-late-note" }, "Claiming a color locks your chip for the weekend."), /* @__PURE__ */ React60.createElement("div", { style: {
+  } }, "Your chip"), mine.color && /* @__PURE__ */ React61.createElement("div", { style: { fontFamily: SANS, fontSize: 12.5, color: "var(--muted2)", lineHeight: 1.45, marginTop: 5 } }, CHIP_SKIN_META[skin] || "Classic", " pattern"))), lateClaim && patterns, lateClaim && /* @__PURE__ */ React61.createElement("p", { className: "fd-chip-late-note" }, "Claiming a color locks your chip for the weekend."), /* @__PURE__ */ React61.createElement("div", { style: {
     display: "flex",
     alignItems: "baseline",
     justifyContent: "space-between",
     gap: 10,
     marginBottom: 8
-  } }, /* @__PURE__ */ React60.createElement("div", { style: { ...label } }, "Color"), !mine.color && /* @__PURE__ */ React60.createElement("div", { style: { fontFamily: SANS, fontSize: 12, color: "var(--muted)" } }, "First come, first served")), /* @__PURE__ */ React60.createElement("div", { className: "fd-chip-colors" }, CHIP_COLORS.map((c) => {
+  } }, /* @__PURE__ */ React61.createElement("div", { style: { ...label } }, "Color"), !mine.color && /* @__PURE__ */ React61.createElement("div", { style: { fontFamily: SANS, fontSize: 12, color: "var(--muted)" } }, "First come, first served")), /* @__PURE__ */ React61.createElement("div", { className: "fd-chip-colors" }, CHIP_COLORS.map((c) => {
     const by = owner(c.hex);
     const isMine = by === me;
     const taken = by && !isMine;
-    return /* @__PURE__ */ React60.createElement(
+    return /* @__PURE__ */ React61.createElement(
       "button",
       {
         type: "button",
@@ -11511,7 +14135,7 @@ function ChipPicker({ state, me, onChip, num, embedded = false }) {
           opacity: taken ? 0.42 : locked && !isMine ? 0.55 : 1
         }
       },
-      /* @__PURE__ */ React60.createElement("span", { style: {
+      /* @__PURE__ */ React61.createElement("span", { style: {
         position: "relative",
         display: "grid",
         placeItems: "center",
@@ -11521,12 +14145,12 @@ function ChipPicker({ state, me, onChip, num, embedded = false }) {
         borderRadius: "50%",
         background: c.hex,
         border: "1.5px solid var(--bone-line)"
-      } }, taken && /* @__PURE__ */ React60.createElement("span", { style: {
+      } }, taken && /* @__PURE__ */ React61.createElement("span", { style: {
         fontFamily: SANS,
         fontWeight: 800,
         fontSize: 12,
         color: chipInkIsDark(c.hex) ? "var(--ink0)" : "var(--bone)"
-      } }, initialsOf(state.profiles, by)), isMine && /* @__PURE__ */ React60.createElement(
+      } }, initialsOf(state.profiles, by)), isMine && /* @__PURE__ */ React61.createElement(
         "svg",
         {
           width: "14",
@@ -11539,19 +14163,19 @@ function ChipPicker({ state, me, onChip, num, embedded = false }) {
           strokeLinejoin: "round",
           "aria-hidden": "true"
         },
-        /* @__PURE__ */ React60.createElement("path", { d: "m3.2 8.3 3 3 6.6-6.6" })
+        /* @__PURE__ */ React61.createElement("path", { d: "m3.2 8.3 3 3 6.6-6.6" })
       ))
     );
   })), !lateClaim && patterns);
 }
 function PatternPicker({ me, skin, locked, stamp, onPick }) {
-  return /* @__PURE__ */ React60.createElement(React60.Fragment, null, /* @__PURE__ */ React60.createElement("div", { style: {
+  return /* @__PURE__ */ React61.createElement(React61.Fragment, null, /* @__PURE__ */ React61.createElement("div", { style: {
     display: "flex",
     alignItems: "baseline",
     justifyContent: "space-between",
     gap: 10,
     marginBottom: 8
-  } }, /* @__PURE__ */ React60.createElement("div", { style: { ...label } }, "Pattern")), /* @__PURE__ */ React60.createElement("div", { className: "fd-chip-patterns" }, CHIP_SKINS.map((sk) => /* @__PURE__ */ React60.createElement(
+  } }, /* @__PURE__ */ React61.createElement("div", { style: { ...label } }, "Pattern")), /* @__PURE__ */ React61.createElement("div", { className: "fd-chip-patterns" }, CHIP_SKINS.map((sk) => /* @__PURE__ */ React61.createElement(
     "button",
     {
       type: "button",
@@ -11576,8 +14200,8 @@ function PatternPicker({ me, skin, locked, stamp, onPick }) {
         opacity: locked && skin !== sk ? 0.55 : 1
       }
     },
-    /* @__PURE__ */ React60.createElement(ChipFace, { p: me, size: 42, skin: sk, fallback: stamp }),
-    /* @__PURE__ */ React60.createElement("span", { style: {
+    /* @__PURE__ */ React61.createElement(ChipFace, { p: me, size: 42, skin: sk, fallback: stamp }),
+    /* @__PURE__ */ React61.createElement("span", { style: {
       fontFamily: SANS,
       fontWeight: 700,
       fontSize: 12,
@@ -11616,44 +14240,9 @@ var init_ProfileEditor = __esm({
   }
 });
 
-// src/features/moments/walkoutTeam.js
-var WALKOUT_WIN_MS;
-var init_walkoutTeam = __esm({
-  "src/features/moments/walkoutTeam.js"() {
-    init_core();
-    WALKOUT_WIN_MS = 30 * 1e3;
-  }
-});
-
-// src/features/moments/walkout.js
-import { useEffect as useEffect42, useRef as useRef43, useState as useState50 } from "react";
-var WALKOUT_TIMING;
-var init_walkout = __esm({
-  "src/features/moments/walkout.js"() {
-    init_audio();
-    init_motion();
-    init_serverClock();
-    init_tvMotion();
-    init_walkoutTeam();
-    init_walkoutTeam();
-    WALKOUT_TIMING = Object.freeze({
-      flood: 0,
-      floodMs: 800,
-      // their color floods out from their chip
-      art: 250,
-      artMs: 520,
-      // the album art and their photo stand up
-      stamp: 700,
-      stampMs: 360,
-      // the name stamps as the song fades in; the stinger
-      sub: 1100,
-      subMs: 400,
-      // the song and artist
-      dock: 8400,
-      dockMs: 700,
-      // it docks into the Now playing strip
-      total: 9100
-    });
+// shared/checkin.js
+var init_checkin = __esm({
+  "shared/checkin.js"() {
   }
 });
 
@@ -11704,7 +14293,7 @@ var init_geo2 = __esm({
 });
 
 // src/features/geo/GeoMap.jsx
-import React77, { useEffect as useEffect54, useRef as useRef54, useState as useState61 } from "react";
+import React78, { useEffect as useEffect55, useRef as useRef55, useState as useState62 } from "react";
 var init_GeoMap = __esm({
   "src/features/geo/GeoMap.jsx"() {
     init_geo2();
@@ -11712,7 +14301,7 @@ var init_GeoMap = __esm({
 });
 
 // src/features/geo/Wheel.jsx
-import React78, { useEffect as useEffect55, useLayoutEffect as useLayoutEffect17, useRef as useRef55, useState as useState62 } from "react";
+import React79, { useEffect as useEffect56, useLayoutEffect as useLayoutEffect17, useRef as useRef56, useState as useState63 } from "react";
 var ROWS, CENTER2;
 var init_Wheel = __esm({
   "src/features/geo/Wheel.jsx"() {
@@ -11734,7 +14323,7 @@ var init_geoModel = __esm({
 });
 
 // src/features/geo/WhenPicker.jsx
-import React79, { useEffect as useEffect56, useMemo as useMemo13 } from "react";
+import React80, { useEffect as useEffect57, useMemo as useMemo15 } from "react";
 var MONTHS, MONTH_ITEMS, YEAR_ITEMS, HOUR_ITEMS;
 var init_WhenPicker = __esm({
   "src/features/geo/WhenPicker.jsx"() {
@@ -11748,7 +14337,7 @@ var init_WhenPicker = __esm({
 });
 
 // src/features/geo/PlaceSearch.jsx
-import React80, { useEffect as useEffect57, useRef as useRef56, useState as useState63 } from "react";
+import React81, { useEffect as useEffect58, useRef as useRef57, useState as useState64 } from "react";
 var init_PlaceSearch = __esm({
   "src/features/geo/PlaceSearch.jsx"() {
     init_haptics();
@@ -11768,6 +14357,47 @@ var init_triviaModel = __esm({
 // src/features/trivia/trivia.css
 var init_trivia2 = __esm({
   "src/features/trivia/trivia.css"() {
+  }
+});
+
+// src/features/trivia/boardModel.js
+var FINAL_STEP, FINAL_STEP_QUICK, BUZZ_SCENES, BOARD_TV;
+var init_boardModel2 = __esm({
+  "src/features/trivia/boardModel.js"() {
+    init_core();
+    init_triviaBoard();
+    FINAL_STEP = Object.freeze({ pick: 350, wager: 1100, total: 1700 });
+    FINAL_STEP_QUICK = Object.freeze({ pick: 250, wager: 250, total: 500 });
+    BUZZ_SCENES = Object.freeze(["clue", "armed", "rebound", "rebound-armed"]);
+    BOARD_TV = Object.freeze({ edge: 64, top: 138, bottom: 1026, railH: 180, railGap: 14, head: 104, gap: 10 });
+  }
+});
+
+// src/features/trivia/board.css
+var init_board = __esm({
+  "src/features/trivia/board.css"() {
+  }
+});
+
+// src/features/speaker/speakerModel.js
+var init_speakerModel = __esm({
+  "src/features/speaker/speakerModel.js"() {
+  }
+});
+
+// src/features/director/readyCheck.js
+var READY_STATES;
+var init_readyCheck = __esm({
+  "src/features/director/readyCheck.js"() {
+    init_core();
+    init_checkin();
+    init_guestSetup();
+    init_geo();
+    init_trivia();
+    init_awardsModel();
+    init_speakerModel();
+    init_tvHealth();
+    READY_STATES = Object.freeze(["ready", "partial", "missing", "off"]);
   }
 });
 
@@ -11792,14 +14422,8 @@ var init_tvSheetModel = __esm({
   }
 });
 
-// src/features/speaker/speakerModel.js
-var init_speakerModel = __esm({
-  "src/features/speaker/speakerModel.js"() {
-  }
-});
-
 // src/features/speaker/speakerStatus.js
-import { useEffect as useEffect62, useSyncExternalStore as useSyncExternalStore6 } from "react";
+import { useEffect as useEffect64, useSyncExternalStore as useSyncExternalStore6 } from "react";
 var init_speakerStatus = __esm({
   "src/features/speaker/speakerStatus.js"() {
     init_client();
@@ -11839,13 +14463,13 @@ var Onboarding_exports = {};
 __export(Onboarding_exports, {
   Onboarding: () => Onboarding
 });
-import React89, { useEffect as useEffect64, useRef as useRef63, useState as useState69 } from "react";
+import React91, { useEffect as useEffect66, useRef as useRef65, useState as useState71 } from "react";
 function InvitationArt({ count }) {
-  return /* @__PURE__ */ React89.createElement("div", { className: "fd-invitation-art", "aria-label": `Field Day. ${EDITION.name}, ${EDITION.year}.` }, /* @__PURE__ */ React89.createElement(LampChase, { tone: "live" }), /* @__PURE__ */ React89.createElement("div", { className: "fd-invitation-scene fd-glass-scene" }, /* @__PURE__ */ React89.createElement(GlassArt, { clear: true }), /* @__PURE__ */ React89.createElement("div", { className: "fd-invitation-wordmark", "aria-hidden": "true" }, /* @__PURE__ */ React89.createElement("span", null, "Field"), /* @__PURE__ */ React89.createElement("span", null, "Day"))), /* @__PURE__ */ React89.createElement("div", { className: "fd-invitation-seal", "aria-hidden": "true" }, /* @__PURE__ */ React89.createElement("svg", { viewBox: "0 0 100 100" }, /* @__PURE__ */ React89.createElement("path", { d: "M50 1 59 10 72 6 77 19 91 23 90 37 100 50 90 60 94 74 80 79 76 93 62 91 50 100 40 90 26 94 21 80 7 76 9 62 0 50 10 40 6 26 20 21 24 7 38 9Z", fill: "currentColor" })), /* @__PURE__ */ React89.createElement("span", null, /* @__PURE__ */ React89.createElement("strong", null, count), /* @__PURE__ */ React89.createElement("small", null, "Players"))), /* @__PURE__ */ React89.createElement("div", { className: "fd-invitation-edition" }, /* @__PURE__ */ React89.createElement("span", null, "Scottsdale, AZ"), /* @__PURE__ */ React89.createElement("span", null, /* @__PURE__ */ React89.createElement(OneSafe, { text: EDITION.short }), /* @__PURE__ */ React89.createElement("br", null), EDITION.year)));
+  return /* @__PURE__ */ React91.createElement("div", { className: "fd-invitation-art", "aria-label": `Field Day. ${EDITION.name}, ${EDITION.year}.` }, /* @__PURE__ */ React91.createElement(LampChase, { tone: "live" }), /* @__PURE__ */ React91.createElement("div", { className: "fd-invitation-scene fd-glass-scene" }, /* @__PURE__ */ React91.createElement(GlassArt, { clear: true }), /* @__PURE__ */ React91.createElement("div", { className: "fd-invitation-wordmark", "aria-hidden": "true" }, /* @__PURE__ */ React91.createElement("span", null, "Field"), /* @__PURE__ */ React91.createElement("span", null, "Day"))), /* @__PURE__ */ React91.createElement("div", { className: "fd-invitation-seal", "aria-hidden": "true" }, /* @__PURE__ */ React91.createElement("svg", { viewBox: "0 0 100 100" }, /* @__PURE__ */ React91.createElement("path", { d: "M50 1 59 10 72 6 77 19 91 23 90 37 100 50 90 60 94 74 80 79 76 93 62 91 50 100 40 90 26 94 21 80 7 76 9 62 0 50 10 40 6 26 20 21 24 7 38 9Z", fill: "currentColor" })), /* @__PURE__ */ React91.createElement("span", null, /* @__PURE__ */ React91.createElement("strong", null, count), /* @__PURE__ */ React91.createElement("small", null, "Players"))), /* @__PURE__ */ React91.createElement("div", { className: "fd-invitation-edition" }, /* @__PURE__ */ React91.createElement("span", null, "Scottsdale, AZ"), /* @__PURE__ */ React91.createElement("span", null, /* @__PURE__ */ React91.createElement(OneSafe, { text: EDITION.short }), /* @__PURE__ */ React91.createElement("br", null), EDITION.year)));
 }
 function RatingForm({ ratings, setRatings }) {
   const rated = SPORTS.filter((s) => ratings[s.id] !== void 0).length;
-  return /* @__PURE__ */ React89.createElement("div", null, /* @__PURE__ */ React89.createElement("div", { className: "fd-rating-status" }, /* @__PURE__ */ React89.createElement("span", { role: "status" }, rated, " of ", SPORTS.length, " rated"), rated < SPORTS.length && /* @__PURE__ */ React89.createElement(
+  return /* @__PURE__ */ React91.createElement("div", null, /* @__PURE__ */ React91.createElement("div", { className: "fd-rating-status" }, /* @__PURE__ */ React91.createElement("span", { role: "status" }, rated, " of ", SPORTS.length, " rated"), rated < SPORTS.length && /* @__PURE__ */ React91.createElement(
     "button",
     {
       type: "button",
@@ -11853,7 +14477,7 @@ function RatingForm({ ratings, setRatings }) {
       onClick: () => setRatings((current) => Object.fromEntries(SPORTS.map((s) => [s.id, current[s.id] ?? 2])))
     },
     "Set remaining to Average"
-  )), [["sport", "Sports"], ["drink", "Drinking games"]].map(([group, title]) => /* @__PURE__ */ React89.createElement("div", { className: "fd-rating-group", key: group }, /* @__PURE__ */ React89.createElement("h3", { className: "fd-eyebrow" }, title), /* @__PURE__ */ React89.createElement("div", { className: "fd-rating-labels", "aria-hidden": "true" }, /* @__PURE__ */ React89.createElement("span", null), /* @__PURE__ */ React89.createElement("div", null, ["Never", "Rough", "Avg", "Solid", "Elite"].map((text) => /* @__PURE__ */ React89.createElement("span", { key: text }, text)))), SPORTS.filter((s) => s.group === group).map((s) => /* @__PURE__ */ React89.createElement("div", { className: "fd-rating-row", key: s.id }, /* @__PURE__ */ React89.createElement("div", null, /* @__PURE__ */ React89.createElement("strong", null, s.label), /* @__PURE__ */ React89.createElement("small", null, RATINGS.find((r) => r.v === ratings[s.id])?.label || "Not rated")), /* @__PURE__ */ React89.createElement("div", { className: "fd-rating-options", role: "group", "aria-label": s.label }, RATINGS.map((r, i) => /* @__PURE__ */ React89.createElement(
+  )), [["sport", "Sports"], ["drink", "Drinking games"]].map(([group, title]) => /* @__PURE__ */ React91.createElement("div", { className: "fd-rating-group", key: group }, /* @__PURE__ */ React91.createElement("h3", { className: "fd-eyebrow" }, title), /* @__PURE__ */ React91.createElement("div", { className: "fd-rating-labels", "aria-hidden": "true" }, /* @__PURE__ */ React91.createElement("span", null), /* @__PURE__ */ React91.createElement("div", null, ["Never", "Rough", "Avg", "Solid", "Elite"].map((text) => /* @__PURE__ */ React91.createElement("span", { key: text }, text)))), SPORTS.filter((s) => s.group === group).map((s) => /* @__PURE__ */ React91.createElement("div", { className: "fd-rating-row", key: s.id }, /* @__PURE__ */ React91.createElement("div", null, /* @__PURE__ */ React91.createElement("strong", null, s.label), /* @__PURE__ */ React91.createElement("small", null, RATINGS.find((r) => r.v === ratings[s.id])?.label || "Not rated")), /* @__PURE__ */ React91.createElement("div", { className: "fd-rating-options", role: "group", "aria-label": s.label }, RATINGS.map((r, i) => /* @__PURE__ */ React91.createElement(
     "button",
     {
       type: "button",
@@ -11867,21 +14491,21 @@ function RatingForm({ ratings, setRatings }) {
   ))))))));
 }
 function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, back, done, onTv, onChip }) {
-  const [selected, setSelected] = useState69(me || null);
-  const [ratings, setRatings] = useState69({});
-  const [display, setDisplay] = useState69("");
-  const [photo, setPhoto] = useState69(null);
-  const [num, setNum] = useState69("");
-  const [size, setSize] = useState69(null);
-  const [flightsBooked, setFlightsBooked] = useState69(null);
-  const [flightIn, setFlightIn] = useState69(null);
-  const [flightOut, setFlightOut] = useState69(null);
-  const [busy, setBusy] = useState69(false);
-  const [error, setError] = useState69("");
-  const submit = useRef63(createCheckInSubmission());
-  const heading = useRef63(null);
-  const hydratedPlayer = useRef63(null);
-  useEffect64(() => {
+  const [selected, setSelected] = useState71(me || null);
+  const [ratings, setRatings] = useState71({});
+  const [display, setDisplay] = useState71("");
+  const [photo, setPhoto] = useState71(null);
+  const [num, setNum] = useState71("");
+  const [size, setSize] = useState71(null);
+  const [flightsBooked, setFlightsBooked] = useState71(null);
+  const [flightIn, setFlightIn] = useState71(null);
+  const [flightOut, setFlightOut] = useState71(null);
+  const [busy, setBusy] = useState71(false);
+  const [error, setError] = useState71("");
+  const submit = useRef65(createCheckInSubmission());
+  const heading = useRef65(null);
+  const hydratedPlayer = useRef65(null);
+  useEffect66(() => {
     if (!me || hydratedPlayer.current === me) return;
     hydratedPlayer.current = me;
     const profile = state.profiles?.[me];
@@ -11894,7 +14518,7 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, bac
     setPhoto(null);
     setRatings({ ...state.seeds?.[me] });
   }, [me, state.profiles, state.seeds]);
-  useEffect64(() => {
+  useEffect66(() => {
     setError("");
     heading.current?.focus({ preventScroll: true });
     window.scrollTo({ top: 0, behavior: "instant" });
@@ -11936,12 +14560,12 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, bac
     if (step === 5) return saveAndGo(() => submitSeeds(ratings), done);
     next();
   };
-  return /* @__PURE__ */ React89.createElement("main", { className: "fd-arrival", "aria-busy": busy }, /* @__PURE__ */ React89.createElement("header", { className: "fd-arrival-header" }, /* @__PURE__ */ React89.createElement("span", { className: "fd-arrival-mark" }, "Field Day ", /* @__PURE__ */ React89.createElement("span", null, EDITION.label)), /* @__PURE__ */ React89.createElement("span", { className: "fd-arrival-progress" }, step < 0 ? "WELCOME" : /* @__PURE__ */ React89.createElement(OneSafe, { all: true, text: `${String(step + 1).padStart(2, "0")} / 06` })), step >= 0 && /* @__PURE__ */ React89.createElement("div", { className: "fd-arrival-progress-track", "aria-label": `Check-in step ${step + 1} of 6: ${STAGES[step]}` }, STAGES.map((stage, i) => /* @__PURE__ */ React89.createElement("span", { key: stage, className: i <= step ? "is-complete" : "" })))), /* @__PURE__ */ React89.createElement("div", { className: `fd-arrival-layout${step <= 0 ? " is-invitation" : ""}` }, /* @__PURE__ */ React89.createElement("aside", { className: "fd-arrival-aside" }, step <= 0 ? /* @__PURE__ */ React89.createElement(InvitationArt, { count: rosterOf(state).length }) : /* @__PURE__ */ React89.createElement("div", { className: "fd-arrival-chapter", "aria-hidden": "true" }, /* @__PURE__ */ React89.createElement("strong", null, String(step + 1).padStart(2, "0")), /* @__PURE__ */ React89.createElement("span", { className: "fd-chapter-name" }, STAGES[step]), /* @__PURE__ */ React89.createElement("span", { className: "fd-chapter-date" }, EDITION.long))), /* @__PURE__ */ React89.createElement("section", { className: "fd-arrival-main", key: step }, /* @__PURE__ */ React89.createElement("div", { className: "fd-arrival-heading" }, /* @__PURE__ */ React89.createElement("h1", { ref: heading, tabIndex: -1 }, title), intro && /* @__PURE__ */ React89.createElement("p", null, intro)), /* @__PURE__ */ React89.createElement("fieldset", { className: "fd-arrival-fields", disabled: busy }, step === -1 && /* @__PURE__ */ React89.createElement("div", { className: "fd-install" }, /* @__PURE__ */ React89.createElement(InstallHint, null)), step === 0 && /* @__PURE__ */ React89.createElement("div", { className: "fd-guest-list", role: "group", "aria-label": "Who are you?" }, rosterOf(state).map((p, i) => /* @__PURE__ */ React89.createElement("button", { type: "button", key: p, onClick: () => setSelected(p), "aria-pressed": selected === p }, /* @__PURE__ */ React89.createElement("span", { className: "fd-guest-index" }, /* @__PURE__ */ React89.createElement(OneSafe, { all: true, text: String(i + 1).padStart(2, "0") })), /* @__PURE__ */ React89.createElement("span", { className: "fd-guest-name" }, p)))), step === 1 && /* @__PURE__ */ React89.createElement(React89.Fragment, null, /* @__PURE__ */ React89.createElement("div", { className: "fd-starting-stack" }, /* @__PURE__ */ React89.createElement("strong", null, /* @__PURE__ */ React89.createElement(ScoreReel, { value: 1e3, tone: "chip", label: "1,000 chips" }), /* @__PURE__ */ React89.createElement("span", null, "Chips")), /* @__PURE__ */ React89.createElement("span", { className: "fd-starting-stack-sub" }, "Everyone\u2019s starting stack")), /* @__PURE__ */ React89.createElement("div", { className: "fd-weekend-rules" }, [
+  return /* @__PURE__ */ React91.createElement("main", { className: "fd-arrival", "aria-busy": busy }, /* @__PURE__ */ React91.createElement("header", { className: "fd-arrival-header" }, /* @__PURE__ */ React91.createElement("span", { className: "fd-arrival-mark" }, "Field Day ", /* @__PURE__ */ React91.createElement("span", null, EDITION.label)), /* @__PURE__ */ React91.createElement("span", { className: "fd-arrival-progress" }, step < 0 ? "WELCOME" : /* @__PURE__ */ React91.createElement(OneSafe, { all: true, text: `${String(step + 1).padStart(2, "0")} / 06` })), step >= 0 && /* @__PURE__ */ React91.createElement("div", { className: "fd-arrival-progress-track", "aria-label": `Check-in step ${step + 1} of 6: ${STAGES[step]}` }, STAGES.map((stage, i) => /* @__PURE__ */ React91.createElement("span", { key: stage, className: i <= step ? "is-complete" : "" })))), /* @__PURE__ */ React91.createElement("div", { className: `fd-arrival-layout${step <= 0 ? " is-invitation" : ""}` }, /* @__PURE__ */ React91.createElement("aside", { className: "fd-arrival-aside" }, step <= 0 ? /* @__PURE__ */ React91.createElement(InvitationArt, { count: rosterOf(state).length }) : /* @__PURE__ */ React91.createElement("div", { className: "fd-arrival-chapter", "aria-hidden": "true" }, /* @__PURE__ */ React91.createElement("strong", null, String(step + 1).padStart(2, "0")), /* @__PURE__ */ React91.createElement("span", { className: "fd-chapter-name" }, STAGES[step]), /* @__PURE__ */ React91.createElement("span", { className: "fd-chapter-date" }, EDITION.long))), /* @__PURE__ */ React91.createElement("section", { className: "fd-arrival-main", key: step }, /* @__PURE__ */ React91.createElement("div", { className: "fd-arrival-heading" }, /* @__PURE__ */ React91.createElement("h1", { ref: heading, tabIndex: -1 }, title), intro && /* @__PURE__ */ React91.createElement("p", null, intro)), /* @__PURE__ */ React91.createElement("fieldset", { className: "fd-arrival-fields", disabled: busy }, step === -1 && /* @__PURE__ */ React91.createElement("div", { className: "fd-install" }, /* @__PURE__ */ React91.createElement(InstallHint, null)), step === 0 && /* @__PURE__ */ React91.createElement("div", { className: "fd-guest-list", role: "group", "aria-label": "Who are you?" }, rosterOf(state).map((p, i) => /* @__PURE__ */ React91.createElement("button", { type: "button", key: p, onClick: () => setSelected(p), "aria-pressed": selected === p }, /* @__PURE__ */ React91.createElement("span", { className: "fd-guest-index" }, /* @__PURE__ */ React91.createElement(OneSafe, { all: true, text: String(i + 1).padStart(2, "0") })), /* @__PURE__ */ React91.createElement("span", { className: "fd-guest-name" }, p)))), step === 1 && /* @__PURE__ */ React91.createElement(React91.Fragment, null, /* @__PURE__ */ React91.createElement("div", { className: "fd-starting-stack" }, /* @__PURE__ */ React91.createElement("strong", null, /* @__PURE__ */ React91.createElement(ScoreReel, { value: 1e3, tone: "chip", label: "1,000 chips" }), /* @__PURE__ */ React91.createElement("span", null, "Chips")), /* @__PURE__ */ React91.createElement("span", { className: "fd-starting-stack-sub" }, "Everyone\u2019s starting stack")), /* @__PURE__ */ React91.createElement("div", { className: "fd-weekend-rules" }, [
     ["01", "Collect chips", "Win events and bets. Whatever you have Saturday night is your poker stack."],
     ["02", "Betting", "Bet on each contest before it starts. Only half your chips can be at risk at one time."],
     ["03", "Duels", "Challenge anyone to Quick Draw for an ante you name. Fastest tap wins both antes."],
     ["04", "The trophy", `The winner of the poker finale is the Field Day champion and takes home the ${EDITION.name} ${EDITION.year} trophy.`]
-  ].map(([n, name, body]) => /* @__PURE__ */ React89.createElement("div", { key: n }, /* @__PURE__ */ React89.createElement("span", null, n), /* @__PURE__ */ React89.createElement("div", null, /* @__PURE__ */ React89.createElement("h2", null, name), /* @__PURE__ */ React89.createElement("p", null, body)))))), step === 2 && /* @__PURE__ */ React89.createElement("div", { className: "fd-arrival-map" }, /* @__PURE__ */ React89.createElement(TravelMap, null), /* @__PURE__ */ React89.createElement("div", { className: "fd-destination-note" }, /* @__PURE__ */ React89.createElement("strong", null, "Scottsdale, Arizona"), /* @__PURE__ */ React89.createElement("span", null, EDITION.long))), step === 3 && /* @__PURE__ */ React89.createElement(React89.Fragment, null, /* @__PURE__ */ React89.createElement(VenueCard, { lg: state.logistics || {} }), /* @__PURE__ */ React89.createElement("div", { className: "fd-details-panel" }, /* @__PURE__ */ React89.createElement("h2", null, "Information I need"), /* @__PURE__ */ React89.createElement(TravelFields, { booked: flightsBooked, setBooked: setFlightsBooked, flightIn, setFlightIn, flightOut, setFlightOut }), /* @__PURE__ */ React89.createElement(SizeRow, { lb: "T-shirt size", value: size, onPick: setSize }))), step === 4 && /* @__PURE__ */ React89.createElement(
+  ].map(([n, name, body]) => /* @__PURE__ */ React91.createElement("div", { key: n }, /* @__PURE__ */ React91.createElement("span", null, n), /* @__PURE__ */ React91.createElement("div", null, /* @__PURE__ */ React91.createElement("h2", null, name), /* @__PURE__ */ React91.createElement("p", null, body)))))), step === 2 && /* @__PURE__ */ React91.createElement("div", { className: "fd-arrival-map" }, /* @__PURE__ */ React91.createElement(TravelMap, null), /* @__PURE__ */ React91.createElement("div", { className: "fd-destination-note" }, /* @__PURE__ */ React91.createElement("strong", null, "Scottsdale, Arizona"), /* @__PURE__ */ React91.createElement("span", null, EDITION.long))), step === 3 && /* @__PURE__ */ React91.createElement(React91.Fragment, null, /* @__PURE__ */ React91.createElement(VenueCard, { lg: state.logistics || {} }), /* @__PURE__ */ React91.createElement("div", { className: "fd-details-panel" }, /* @__PURE__ */ React91.createElement("h2", null, "Information I need"), /* @__PURE__ */ React91.createElement(TravelFields, { booked: flightsBooked, setBooked: setFlightsBooked, flightIn, setFlightIn, flightOut, setFlightOut }), /* @__PURE__ */ React91.createElement(SizeRow, { lb: "T-shirt size", value: size, onPick: setSize }))), step === 4 && /* @__PURE__ */ React91.createElement(
     ProfileEditor,
     {
       state,
@@ -11955,7 +14579,7 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, bac
       showSize: false,
       onChip: saveChip
     }
-  ), step === 5 && /* @__PURE__ */ React89.createElement(RatingForm, { ratings, setRatings })), /* @__PURE__ */ React89.createElement("footer", { className: "fd-arrival-actions" }, error && /* @__PURE__ */ React89.createElement("p", { className: "fd-save-error", role: "alert" }, error), /* @__PURE__ */ React89.createElement("button", { type: "button", className: "fd-continue", disabled: busy || !canContinue, onClick: go }, /* @__PURE__ */ React89.createElement("span", null, busy ? "Saving\u2026" : continueLabel), /* @__PURE__ */ React89.createElement(Icon, { name: "then", size: "1.1em" })), /* @__PURE__ */ React89.createElement("div", { className: "fd-arrival-links" }, step > 0 && /* @__PURE__ */ React89.createElement("button", { type: "button", className: "fd-text-button", disabled: busy, onClick: back }, /* @__PURE__ */ React89.createElement(Icon, { name: "back", size: "1em" }), "Back"), step === 0 && onTv && /* @__PURE__ */ React89.createElement("button", { type: "button", className: "fd-text-button", onClick: onTv, disabled: busy }, "TV mode"), step === 4 && !state.profiles?.[me]?.color && /* @__PURE__ */ React89.createElement("span", null, "Choose a chip color to continue."))))));
+  ), step === 5 && /* @__PURE__ */ React91.createElement(RatingForm, { ratings, setRatings })), /* @__PURE__ */ React91.createElement("footer", { className: "fd-arrival-actions" }, error && /* @__PURE__ */ React91.createElement("p", { className: "fd-save-error", role: "alert" }, error), /* @__PURE__ */ React91.createElement("button", { type: "button", className: "fd-continue", disabled: busy || !canContinue, onClick: go }, /* @__PURE__ */ React91.createElement("span", null, busy ? "Saving\u2026" : continueLabel), /* @__PURE__ */ React91.createElement(Icon, { name: "then", size: "1.1em" })), /* @__PURE__ */ React91.createElement("div", { className: "fd-arrival-links" }, step > 0 && /* @__PURE__ */ React91.createElement("button", { type: "button", className: "fd-text-button", disabled: busy, onClick: back }, /* @__PURE__ */ React91.createElement(Icon, { name: "back", size: "1em" }), "Back"), step === 0 && onTv && /* @__PURE__ */ React91.createElement("button", { type: "button", className: "fd-text-button", onClick: onTv, disabled: busy }, "TV mode"), step === 4 && !state.profiles?.[me]?.color && /* @__PURE__ */ React91.createElement("span", null, "Choose a chip color to continue."))))));
 }
 var STAGES;
 var init_Onboarding = __esm({
@@ -12529,10 +15153,10 @@ function removeUnit(slots, players) {
   return copy(slots).map((slot) => without(slot, players));
 }
 function tapUnit(slots, players, target, { editable, sidesInPlay = Infinity, ...rules } = {}) {
-  const held = unitPlace(slots, players);
+  const held2 = unitPlace(slots, players);
   const anyHeld = (slots || []).findIndex((slot) => players.some((p) => (slot || []).includes(p)));
-  if (held >= 0 || anyHeld >= 0) {
-    const place2 = held >= 0 ? held : anyHeld;
+  if (held2 >= 0 || anyHeld >= 0) {
+    const place2 = held2 >= 0 ? held2 : anyHeld;
     if (!editable.includes(place2)) return { slots, target };
     const next2 = removeUnit(slots, players);
     return { slots: next2, target: next2[place2].length ? target ?? nextTarget(next2, editable, sidesInPlay) : place2 };
@@ -13715,12 +16339,18 @@ init_sound();
 init_motionKit();
 init_draftModel();
 init_OneSafe();
-import React26, { useEffect as useEffect15, useRef as useRef14, useState as useState15 } from "react";
+import React27, { useEffect as useEffect15, useRef as useRef14, useState as useState15 } from "react";
 init_Icon();
+
+// src/ui/NowRow.jsx
+init_Icon();
+import React26 from "react";
+
+// src/features/draft/DraftSheet.jsx
 var identityStyle = (state, player) => ({ "--draft-color": resolvePlayerIdentity(state.profiles, player).color });
 var reference = (turn) => ({ draftId: turn.draftId, pickIndex: turn.pickIndex, draftRevision: turn.draftRevision });
 function PlayerLink({ state, player, onPlayer, children, disabled }) {
-  return /* @__PURE__ */ React26.createElement(
+  return /* @__PURE__ */ React27.createElement(
     "button",
     {
       type: "button",
@@ -13729,15 +16359,15 @@ function PlayerLink({ state, player, onPlayer, children, disabled }) {
       onClick: () => onPlayer?.(player),
       "aria-label": `View ${disp(state, player)}'s player card`
     },
-    /* @__PURE__ */ React26.createElement(Avatar, { state, p: player, size: 30 }),
-    /* @__PURE__ */ React26.createElement("span", null, children || disp(state, player))
+    /* @__PURE__ */ React27.createElement(Avatar, { state, p: player, size: 30 }),
+    /* @__PURE__ */ React27.createElement("span", null, children || disp(state, player))
   );
 }
 function DraftEntry({ state, ev, me, onOpen }) {
   const draft = state.drafts?.[ev?.id];
   if (!draft || state.draws?.[ev.id]) return null;
   const turn = draftTurn(draft), mine = turn.captain === me;
-  return /* @__PURE__ */ React26.createElement(
+  return /* @__PURE__ */ React27.createElement(
     "button",
     {
       type: "button",
@@ -13745,9 +16375,9 @@ function DraftEntry({ state, ev, me, onOpen }) {
       onClick: onOpen,
       "aria-label": `Open ${ev.name} draft`
     },
-    /* @__PURE__ */ React26.createElement(BankChip, { p: turn.captain || draft.teams[0].captain, size: 44 }),
-    /* @__PURE__ */ React26.createElement("span", null, /* @__PURE__ */ React26.createElement("strong", null, /* @__PURE__ */ React26.createElement("i", { className: `fd-insert ${turn.complete ? "is-done" : mine ? "is-pending" : "fd-beat-dot"}`, "aria-hidden": "true" }), mine && !turn.complete ? "Your pick" : /* @__PURE__ */ React26.createElement(EventName, { name: ev.name })), /* @__PURE__ */ React26.createElement("span", null, turn.complete ? "Teams picked" : mine ? /* @__PURE__ */ React26.createElement(EventName, { name: ev.name }) : `${disp(state, turn.captain)}'s pick`)),
-    /* @__PURE__ */ React26.createElement("b", { "aria-hidden": "true" }, /* @__PURE__ */ React26.createElement(Icon, { name: "open", size: "1em" }))
+    /* @__PURE__ */ React27.createElement(BankChip, { p: turn.captain || draft.teams[0].captain, size: 44 }),
+    /* @__PURE__ */ React27.createElement("span", null, /* @__PURE__ */ React27.createElement("strong", null, /* @__PURE__ */ React27.createElement("i", { className: `fd-insert ${turn.complete ? "is-done" : mine ? "is-pending" : "fd-beat-dot"}`, "aria-hidden": "true" }), mine && !turn.complete ? "Your pick" : /* @__PURE__ */ React27.createElement(EventName, { name: ev.name })), /* @__PURE__ */ React27.createElement("span", null, turn.complete ? "Teams picked" : mine ? /* @__PURE__ */ React27.createElement(EventName, { name: ev.name }) : `${disp(state, turn.captain)}'s pick`)),
+    /* @__PURE__ */ React27.createElement("b", { "aria-hidden": "true" }, /* @__PURE__ */ React27.createElement(Icon, { name: "open", size: "1em" }))
   );
 }
 function DraftSheet({
@@ -13793,7 +16423,7 @@ function DraftSheet({
     } : seat;
     setArriving(landing.player);
     fly({ left: box2.left + from.left, top: box2.top + from.top, width: from.width, height: from.height }, to, {
-      node: /* @__PURE__ */ React26.createElement(PickFlyer, { state, player: landing.player }),
+      node: /* @__PURE__ */ React27.createElement(PickFlyer, { state, player: landing.player }),
       duration: MOTION.cardFlight,
       arc: offscreen ? 0 : 36,
       fade: offscreen
@@ -13853,7 +16483,7 @@ function DraftSheet({
     setCaptains((previous) => previous.includes(player) ? previous.filter((p) => p !== player) : previous.length < n ? [...previous, player] : previous);
   };
   const crew = draft?.roles || roles;
-  const shell = (children) => /* @__PURE__ */ React26.createElement(
+  const shell = (children) => /* @__PURE__ */ React27.createElement(
     Sheet,
     {
       title: ev.name,
@@ -13867,7 +16497,7 @@ function DraftSheet({
     children
   );
   const confirmed = state.draws?.[ev.id];
-  if (!draft && confirmed?.sourceDraftId && (!pool || !gm)) return shell(/* @__PURE__ */ React26.createElement(
+  if (!draft && confirmed?.sourceDraftId && (!pool || !gm)) return shell(/* @__PURE__ */ React27.createElement(
     ConfirmedTeams,
     {
       state,
@@ -13877,8 +16507,8 @@ function DraftSheet({
       onPlayer
     }
   ));
-  if (!draft && (!pool || !gm)) return shell(/* @__PURE__ */ React26.createElement("p", null, "Draft closed."));
-  if (!draft) return shell(/* @__PURE__ */ React26.createElement("div", { className: "fd-draft" }, /* @__PURE__ */ React26.createElement("div", { className: "fd-draft-section-title" }, /* @__PURE__ */ React26.createElement("h2", null, "Choose ", n, " captains"), /* @__PURE__ */ React26.createElement("span", null, n, " teams of ", size)), /* @__PURE__ */ React26.createElement("div", { className: "fd-draft-methods", "aria-label": "Choose captains" }, [["pick", "Choose"], ["seed", "Balanced"], ["random", "Random"]].map(([id, text]) => /* @__PURE__ */ React26.createElement(
+  if (!draft && (!pool || !gm)) return shell(/* @__PURE__ */ React27.createElement("p", null, "Draft closed."));
+  if (!draft) return shell(/* @__PURE__ */ React27.createElement("div", { className: "fd-draft" }, /* @__PURE__ */ React27.createElement("div", { className: "fd-draft-section-title" }, /* @__PURE__ */ React27.createElement("h2", null, "Choose ", n, " captains"), /* @__PURE__ */ React27.createElement("span", null, n, " teams of ", size)), /* @__PURE__ */ React27.createElement("div", { className: "fd-draft-methods", "aria-label": "Choose captains" }, [["pick", "Choose"], ["seed", "Balanced"], ["random", "Random"]].map(([id, text]) => /* @__PURE__ */ React27.createElement(
     "button",
     {
       type: "button",
@@ -13888,7 +16518,7 @@ function DraftSheet({
       onClick: () => chooseMethod(id)
     },
     text
-  ))), /* @__PURE__ */ React26.createElement("ol", { className: "fd-draft-captain-order", "aria-label": "Captain pick order" }, Array.from({ length: n }, (_, index) => /* @__PURE__ */ React26.createElement("li", { key: `${index}:${captains[index] || "empty"}`, className: captains[index] ? "is-filled" : "" }, /* @__PURE__ */ React26.createElement("small", null, index + 1), captains[index] ? /* @__PURE__ */ React26.createElement(
+  ))), /* @__PURE__ */ React27.createElement("ol", { className: "fd-draft-captain-order", "aria-label": "Captain pick order" }, Array.from({ length: n }, (_, index) => /* @__PURE__ */ React27.createElement("li", { key: `${index}:${captains[index] || "empty"}`, className: captains[index] ? "is-filled" : "" }, /* @__PURE__ */ React27.createElement("small", null, index + 1), captains[index] ? /* @__PURE__ */ React27.createElement(
     "button",
     {
       type: "button",
@@ -13896,10 +16526,10 @@ function DraftSheet({
       onClick: () => toggleCaptain(captains[index]),
       "aria-label": `Remove ${disp(state, captains[index])} as captain`
     },
-    /* @__PURE__ */ React26.createElement(BankChip, { p: captains[index], size: 36 }),
-    /* @__PURE__ */ React26.createElement("span", null, disp(state, captains[index])),
-    /* @__PURE__ */ React26.createElement("b", { "aria-hidden": "true" }, /* @__PURE__ */ React26.createElement(Icon, { name: "close", size: "1em" }))
-  ) : /* @__PURE__ */ React26.createElement("span", null, "Captain ", index + 1)))), /* @__PURE__ */ React26.createElement("div", { className: "fd-draft-pool", "aria-label": "Players" }, (pool || []).map((player) => /* @__PURE__ */ React26.createElement("div", { className: "fd-draft-candidate", key: player }, /* @__PURE__ */ React26.createElement(
+    /* @__PURE__ */ React27.createElement(BankChip, { p: captains[index], size: 36 }),
+    /* @__PURE__ */ React27.createElement("span", null, disp(state, captains[index])),
+    /* @__PURE__ */ React27.createElement("b", { "aria-hidden": "true" }, /* @__PURE__ */ React27.createElement(Icon, { name: "close", size: "1em" }))
+  ) : /* @__PURE__ */ React27.createElement("span", null, "Captain ", index + 1)))), /* @__PURE__ */ React27.createElement("div", { className: "fd-draft-pool", "aria-label": "Players" }, (pool || []).map((player) => /* @__PURE__ */ React27.createElement("div", { className: "fd-draft-candidate", key: player }, /* @__PURE__ */ React27.createElement(
     "button",
     {
       type: "button",
@@ -13909,10 +16539,10 @@ function DraftSheet({
       disabled: !!pending || !captains.includes(player) && captains.length === n,
       onClick: () => toggleCaptain(player)
     },
-    /* @__PURE__ */ React26.createElement(Avatar, { state, p: player, size: 36 }),
-    /* @__PURE__ */ React26.createElement("span", null, disp(state, player)),
-    /* @__PURE__ */ React26.createElement("b", { "aria-hidden": "true" }, captains.includes(player) ? captains.indexOf(player) + 1 : "+")
-  )))), !!crew.length && /* @__PURE__ */ React26.createElement(DraftCrew, { state, roles: crew, onPlayer, disabled: !!pending }), error && /* @__PURE__ */ React26.createElement("p", { className: "fd-draft-error", role: "alert" }, error), /* @__PURE__ */ React26.createElement("div", { className: "fd-draft-footer" }, /* @__PURE__ */ React26.createElement(
+    /* @__PURE__ */ React27.createElement(Avatar, { state, p: player, size: 36 }),
+    /* @__PURE__ */ React27.createElement("span", null, disp(state, player)),
+    /* @__PURE__ */ React27.createElement("b", { "aria-hidden": "true" }, captains.includes(player) ? captains.indexOf(player) + 1 : "+")
+  )))), !!crew.length && /* @__PURE__ */ React27.createElement(DraftCrew, { state, roles: crew, onPlayer, disabled: !!pending }), error && /* @__PURE__ */ React27.createElement("p", { className: "fd-draft-error", role: "alert" }, error), /* @__PURE__ */ React27.createElement("div", { className: "fd-draft-footer" }, /* @__PURE__ */ React27.createElement(
     ActionButton,
     {
       disabled: captains.length !== n || blocked,
@@ -13937,16 +16567,16 @@ function DraftSheet({
       () => playSound("S18", { bus: "you", delayMs: prefersReducedMotion() ? 0 : MOTION.cardFlight })
     );
   };
-  return shell(/* @__PURE__ */ React26.createElement("div", { className: `fd-draft${passing ? " is-fresh" : ""}${handing ? " is-passing" : ""}`, ref: board, tabIndex: -1 }, /* @__PURE__ */ React26.createElement(
+  return shell(/* @__PURE__ */ React27.createElement("div", { className: `fd-draft${passing ? " is-fresh" : ""}${handing ? " is-passing" : ""}`, ref: board, tabIndex: -1 }, /* @__PURE__ */ React27.createElement(
     "section",
     {
       className: `fd-draft-turn${myTurn ? " is-mine" : ""}${turn.complete ? " is-complete" : ""}`,
       "aria-label": "Current pick",
       style: identityStyle(state, turn.captain || draft.teams[0].captain)
     },
-    /* @__PURE__ */ React26.createElement("div", { className: "fd-draft-turn-copy", key: `${draft.id}:${turn.draftRevision}` }, /* @__PURE__ */ React26.createElement("h2", null, turn.complete ? "Teams picked" : myTurn ? "Your pick" : `${disp(state, turn.captain)}'s pick`), /* @__PURE__ */ React26.createElement("small", null, turn.complete ? /* @__PURE__ */ React26.createElement(React26.Fragment, null, /* @__PURE__ */ React26.createElement("span", null, draft.teams.length, " teams"), /* @__PURE__ */ React26.createElement("span", null, size, " players each")) : /* @__PURE__ */ React26.createElement(React26.Fragment, null, /* @__PURE__ */ React26.createElement("span", null, /* @__PURE__ */ React26.createElement(OneSafe, { text: `Round ${turn.round}` })), /* @__PURE__ */ React26.createElement("span", null, /* @__PURE__ */ React26.createElement(OneSafe, { text: `Pick ${turn.pickIndex + 1} of ${turn.totalPicks}` })))), !turn.complete && canPick && gm && !myTurn && /* @__PURE__ */ React26.createElement("p", null, `Picking for ${disp(state, turn.captain)}`)),
-    /* @__PURE__ */ React26.createElement("span", { className: "fd-draft-turn-chip", key: `${draft.id}:${turn.captain || "done"}`, "aria-hidden": "true" }, /* @__PURE__ */ React26.createElement(BankChip, { p: turn.captain || draft.teams[0].captain, size: 64 })),
-    /* @__PURE__ */ React26.createElement(
+    /* @__PURE__ */ React27.createElement("div", { className: "fd-draft-turn-copy", key: `${draft.id}:${turn.draftRevision}` }, /* @__PURE__ */ React27.createElement("h2", null, turn.complete ? "Teams picked" : myTurn ? "Your pick" : `${disp(state, turn.captain)}'s pick`), /* @__PURE__ */ React27.createElement("small", null, turn.complete ? /* @__PURE__ */ React27.createElement(React27.Fragment, null, /* @__PURE__ */ React27.createElement("span", null, draft.teams.length, " teams"), /* @__PURE__ */ React27.createElement("span", null, size, " players each")) : /* @__PURE__ */ React27.createElement(React27.Fragment, null, /* @__PURE__ */ React27.createElement("span", null, /* @__PURE__ */ React27.createElement(OneSafe, { text: `Round ${turn.round}` })), /* @__PURE__ */ React27.createElement("span", null, /* @__PURE__ */ React27.createElement(OneSafe, { text: `Pick ${turn.pickIndex + 1} of ${turn.totalPicks}` })))), !turn.complete && canPick && gm && !myTurn && /* @__PURE__ */ React27.createElement("p", null, `Picking for ${disp(state, turn.captain)}`)),
+    /* @__PURE__ */ React27.createElement("span", { className: "fd-draft-turn-chip", key: `${draft.id}:${turn.captain || "done"}`, "aria-hidden": "true" }, /* @__PURE__ */ React27.createElement(BankChip, { p: turn.captain || draft.teams[0].captain, size: 64 })),
+    /* @__PURE__ */ React27.createElement(
       "div",
       {
         className: "fd-draft-progress",
@@ -13956,20 +16586,20 @@ function DraftSheet({
         "aria-valuemin": 0,
         "aria-valuemax": turn.totalPicks
       },
-      /* @__PURE__ */ React26.createElement("span", { style: { width: `${turn.totalPicks ? turn.pickIndex / turn.totalPicks * 100 : 100}%` } })
+      /* @__PURE__ */ React27.createElement("span", { style: { width: `${turn.totalPicks ? turn.pickIndex / turn.totalPicks * 100 : 100}%` } })
     )
-  ), /* @__PURE__ */ React26.createElement("p", { className: "fd-draft-sr", role: "status", "aria-live": "polite", "aria-atomic": "true" }, last ? `${disp(state, last.player)} joined ${disp(state, draft.teams[last.team].captain)}. ` : "", turn.complete ? "All players picked." : `Pick ${turn.pickIndex + 1}. ${disp(state, turn.captain)} to choose.`), !turn.complete && /* @__PURE__ */ React26.createElement("ol", { className: "fd-draft-queue", "aria-label": "Upcoming pick order", ref: queueBox }, remainingOrder.map(({ pick: pickIndex, team }, index) => /* @__PURE__ */ React26.createElement("li", { key: pickIndex, "data-flip": pickIndex, "aria-current": index === 0 ? "step" : void 0 }, /* @__PURE__ */ React26.createElement("small", null, index === 0 ? "Now" : `Pick ${pickIndex + 1}`), /* @__PURE__ */ React26.createElement("span", null, disp(state, draft.teams[team].captain))))), last && /* @__PURE__ */ React26.createElement(
+  ), /* @__PURE__ */ React27.createElement("p", { className: "fd-draft-sr", role: "status", "aria-live": "polite", "aria-atomic": "true" }, last ? `${disp(state, last.player)} joined ${disp(state, draft.teams[last.team].captain)}. ` : "", turn.complete ? "All players picked." : `Pick ${turn.pickIndex + 1}. ${disp(state, turn.captain)} to choose.`), !turn.complete && /* @__PURE__ */ React27.createElement("ol", { className: "fd-draft-queue", "aria-label": "Upcoming pick order", ref: queueBox }, remainingOrder.map(({ pick: pickIndex, team }, index) => /* @__PURE__ */ React27.createElement("li", { key: pickIndex, "data-flip": pickIndex, "aria-current": index === 0 ? "step" : void 0 }, /* @__PURE__ */ React27.createElement("small", null, index === 0 ? "Now" : `Pick ${pickIndex + 1}`), /* @__PURE__ */ React27.createElement("span", null, disp(state, draft.teams[team].captain))))), last && /* @__PURE__ */ React27.createElement(
     "div",
     {
       className: "fd-draft-latest",
       key: `${draft.id}:${draft.picks.length}:${last.player}`,
       style: identityStyle(state, draft.teams[last.team].captain)
     },
-    /* @__PURE__ */ React26.createElement("span", { className: "fd-draft-pick-stamp" }, /* @__PURE__ */ React26.createElement("small", null, "Pick"), /* @__PURE__ */ React26.createElement("b", null, draft.picks.length)),
-    /* @__PURE__ */ React26.createElement(PlayerLink, { state, player: last.player, onPlayer, disabled: !!pending }),
-    /* @__PURE__ */ React26.createElement("span", { className: "fd-draft-latest-to", "aria-hidden": "true" }, /* @__PURE__ */ React26.createElement(Icon, { name: "next", size: 18 })),
-    /* @__PURE__ */ React26.createElement("span", { className: "fd-draft-latest-team" }, /* @__PURE__ */ React26.createElement(BankChip, { p: draft.teams[last.team].captain, size: 30 }), /* @__PURE__ */ React26.createElement("span", null, draft.teams[last.team].players.includes(me) ? "Your team" : `${disp(state, draft.teams[last.team].captain)}'s team`))
-  ), blocked && /* @__PURE__ */ React26.createElement("p", { className: "fd-draft-error", role: "status" }, "Draft paused."), error && /* @__PURE__ */ React26.createElement("p", { className: "fd-draft-error", role: "alert" }, error), /* @__PURE__ */ React26.createElement("div", { className: `fd-draft-body${turn.complete ? " is-complete" : ""}` }, !turn.complete && /* @__PURE__ */ React26.createElement("section", { className: "fd-draft-available", "aria-label": "Available players" }, /* @__PURE__ */ React26.createElement("div", { className: "fd-draft-section-title" }, /* @__PURE__ */ React26.createElement("h3", null, "Available"), /* @__PURE__ */ React26.createElement("span", null, turn.remaining, " left")), /* @__PURE__ */ React26.createElement("div", { className: "fd-draft-pool", ref: poolBox }, draft.pool.map((player) => /* @__PURE__ */ React26.createElement(
+    /* @__PURE__ */ React27.createElement("span", { className: "fd-draft-pick-stamp" }, /* @__PURE__ */ React27.createElement("small", null, "Pick"), /* @__PURE__ */ React27.createElement("b", null, draft.picks.length)),
+    /* @__PURE__ */ React27.createElement(PlayerLink, { state, player: last.player, onPlayer, disabled: !!pending }),
+    /* @__PURE__ */ React27.createElement("span", { className: "fd-draft-latest-to", "aria-hidden": "true" }, /* @__PURE__ */ React27.createElement(Icon, { name: "next", size: 18 })),
+    /* @__PURE__ */ React27.createElement("span", { className: "fd-draft-latest-team" }, /* @__PURE__ */ React27.createElement(BankChip, { p: draft.teams[last.team].captain, size: 30 }), /* @__PURE__ */ React27.createElement("span", null, draft.teams[last.team].players.includes(me) ? "Your team" : `${disp(state, draft.teams[last.team].captain)}'s team`))
+  ), blocked && /* @__PURE__ */ React27.createElement("p", { className: "fd-draft-error", role: "status" }, "Draft paused."), error && /* @__PURE__ */ React27.createElement("p", { className: "fd-draft-error", role: "alert" }, error), /* @__PURE__ */ React27.createElement("div", { className: `fd-draft-body${turn.complete ? " is-complete" : ""}` }, !turn.complete && /* @__PURE__ */ React27.createElement("section", { className: "fd-draft-available", "aria-label": "Available players" }, /* @__PURE__ */ React27.createElement("div", { className: "fd-draft-section-title" }, /* @__PURE__ */ React27.createElement("h3", null, "Available"), /* @__PURE__ */ React27.createElement("span", null, turn.remaining, " left")), /* @__PURE__ */ React27.createElement("div", { className: "fd-draft-pool", ref: poolBox }, draft.pool.map((player) => /* @__PURE__ */ React27.createElement(
     "div",
     {
       className: `fd-draft-candidate${pending === `pick:${player}` ? " is-lifting" : ""}`,
@@ -13977,7 +16607,7 @@ function DraftSheet({
       "data-flip": player,
       style: identityStyle(state, player)
     },
-    /* @__PURE__ */ React26.createElement(
+    /* @__PURE__ */ React27.createElement(
       "button",
       {
         type: "button",
@@ -13986,9 +16616,9 @@ function DraftSheet({
         onClick: () => onPlayer?.(player),
         "aria-label": `View ${disp(state, player)}'s player card`
       },
-      /* @__PURE__ */ React26.createElement(Avatar, { state, p: player, size: 36 })
+      /* @__PURE__ */ React27.createElement(Avatar, { state, p: player, size: 36 })
     ),
-    /* @__PURE__ */ React26.createElement(
+    /* @__PURE__ */ React27.createElement(
       "button",
       {
         type: "button",
@@ -13997,10 +16627,10 @@ function DraftSheet({
         "aria-label": `Draft ${disp(state, player)}`,
         onClick: () => pick(player)
       },
-      /* @__PURE__ */ React26.createElement("span", null, disp(state, player)),
-      /* @__PURE__ */ React26.createElement("small", null, pending === `pick:${player}` ? "Picking\u2026" : canPick ? "Pick +" : "Available")
+      /* @__PURE__ */ React27.createElement("span", null, disp(state, player)),
+      /* @__PURE__ */ React27.createElement("small", null, pending === `pick:${player}` ? "Picking\u2026" : canPick ? "Pick +" : "Available")
     )
-  )))), /* @__PURE__ */ React26.createElement("section", { "aria-label": "Draft teams" }, /* @__PURE__ */ React26.createElement("div", { className: "fd-draft-section-title" }, /* @__PURE__ */ React26.createElement("h3", null, "Teams"), /* @__PURE__ */ React26.createElement("span", null, turn.pickIndex, "/", turn.totalPicks, " picks")), /* @__PURE__ */ React26.createElement("div", { className: "fd-draft-teams", style: { "--draft-columns": Math.min(n, 3) } }, draft.teams.map((team, index) => /* @__PURE__ */ React26.createElement(
+  )))), /* @__PURE__ */ React27.createElement("section", { "aria-label": "Draft teams" }, /* @__PURE__ */ React27.createElement("div", { className: "fd-draft-section-title" }, /* @__PURE__ */ React27.createElement("h3", null, "Teams"), /* @__PURE__ */ React27.createElement("span", null, turn.pickIndex, "/", turn.totalPicks, " picks")), /* @__PURE__ */ React27.createElement("div", { className: "fd-draft-teams", style: { "--draft-columns": Math.min(n, 3) } }, draft.teams.map((team, index) => /* @__PURE__ */ React27.createElement(
     "section",
     {
       key: team.captain,
@@ -14008,15 +16638,15 @@ function DraftSheet({
       style: identityStyle(state, team.captain),
       "aria-label": `${disp(state, team.captain)}'s team`
     },
-    /* @__PURE__ */ React26.createElement("header", null, /* @__PURE__ */ React26.createElement("small", null, team.players.includes(me) ? "Your team" : `Team ${index + 1}`), /* @__PURE__ */ React26.createElement("span", null, team.players.length, "/", size)),
-    /* @__PURE__ */ React26.createElement(PlayerLink, { state, player: team.captain, onPlayer, disabled: !!pending }),
-    /* @__PURE__ */ React26.createElement("small", { className: "fd-draft-captain-label" }, "Captain"),
-    /* @__PURE__ */ React26.createElement("ol", null, Array.from({ length: size - 1 }, (_, slot) => {
+    /* @__PURE__ */ React27.createElement("header", null, /* @__PURE__ */ React27.createElement("small", null, team.players.includes(me) ? "Your team" : `Team ${index + 1}`), /* @__PURE__ */ React27.createElement("span", null, team.players.length, "/", size)),
+    /* @__PURE__ */ React27.createElement(PlayerLink, { state, player: team.captain, onPlayer, disabled: !!pending }),
+    /* @__PURE__ */ React27.createElement("small", { className: "fd-draft-captain-label" }, "Captain"),
+    /* @__PURE__ */ React27.createElement("ol", null, Array.from({ length: size - 1 }, (_, slot) => {
       const player = team.players[slot + 1];
       const seatClass = !player ? "is-empty" : `is-seated${player === last?.player ? " is-latest" : ""}${player === arriving ? " is-arriving" : ""}${player === landed ? " is-landed" : ""}`;
-      return /* @__PURE__ */ React26.createElement("li", { key: player || `empty:${slot}`, "data-seat": player || void 0, className: seatClass }, player ? /* @__PURE__ */ React26.createElement(PlayerLink, { state, player, onPlayer, disabled: !!pending }) : /* @__PURE__ */ React26.createElement(React26.Fragment, null, /* @__PURE__ */ React26.createElement("span", { className: "fd-draft-empty-chip", "aria-hidden": "true" }), /* @__PURE__ */ React26.createElement("span", null, "Pick ", Array.from({ length: turn.totalPicks }, (_2, k) => k).filter((k) => snakeTeam(k, n) === index)[slot] + 1)));
+      return /* @__PURE__ */ React27.createElement("li", { key: player || `empty:${slot}`, "data-seat": player || void 0, className: seatClass }, player ? /* @__PURE__ */ React27.createElement(PlayerLink, { state, player, onPlayer, disabled: !!pending }) : /* @__PURE__ */ React27.createElement(React27.Fragment, null, /* @__PURE__ */ React27.createElement("span", { className: "fd-draft-empty-chip", "aria-hidden": "true" }), /* @__PURE__ */ React27.createElement("span", null, "Pick ", Array.from({ length: turn.totalPicks }, (_2, k) => k).filter((k) => snakeTeam(k, n) === index)[slot] + 1)));
     }))
-  ))))), !!crew.length && /* @__PURE__ */ React26.createElement(DraftCrew, { state, roles: crew, onPlayer, disabled: !!pending }), gm && /* @__PURE__ */ React26.createElement("div", { className: "fd-draft-footer" }, turn.complete && /* @__PURE__ */ React26.createElement(
+  ))))), !!crew.length && /* @__PURE__ */ React27.createElement(DraftCrew, { state, roles: crew, onPlayer, disabled: !!pending }), gm && /* @__PURE__ */ React27.createElement("div", { className: "fd-draft-footer" }, turn.complete && /* @__PURE__ */ React27.createElement(
     ActionButton,
     {
       disabled: blocked,
@@ -14024,7 +16654,7 @@ function DraftSheet({
       onClick: () => submit("finish", () => onFinalize(ref), onClose)
     },
     "Confirm teams"
-  ), /* @__PURE__ */ React26.createElement("div", { className: "fd-draft-secondary-actions" }, /* @__PURE__ */ React26.createElement(
+  ), /* @__PURE__ */ React27.createElement("div", { className: "fd-draft-secondary-actions" }, /* @__PURE__ */ React27.createElement(
     ActionButton,
     {
       compact: true,
@@ -14033,7 +16663,7 @@ function DraftSheet({
       onClick: () => submit("undo", () => onUndo(ref))
     },
     "Undo last pick"
-  ), /* @__PURE__ */ React26.createElement(ActionButton, { compact: true, variant: "tertiary", disabled: blocked || !!pending, onClick: () => setConfirmCancel((value) => !value) }, "Cancel draft")), confirmCancel && /* @__PURE__ */ React26.createElement("div", { className: "fd-draft-cancel" }, /* @__PURE__ */ React26.createElement("p", null, "Discard this draft and its picks?"), /* @__PURE__ */ React26.createElement(
+  ), /* @__PURE__ */ React27.createElement(ActionButton, { compact: true, variant: "tertiary", disabled: blocked || !!pending, onClick: () => setConfirmCancel((value) => !value) }, "Cancel draft")), confirmCancel && /* @__PURE__ */ React27.createElement("div", { className: "fd-draft-cancel" }, /* @__PURE__ */ React27.createElement("p", null, "Discard this draft and its picks?"), /* @__PURE__ */ React27.createElement(
     ActionButton,
     {
       compact: true,
@@ -14042,15 +16672,15 @@ function DraftSheet({
       onClick: () => submit("cancel", () => onCancel(ref), onClose)
     },
     "Discard draft"
-  ), /* @__PURE__ */ React26.createElement(ActionButton, { compact: true, variant: "secondary", disabled: !!pending, onClick: () => setConfirmCancel(false) }, "Keep drafting")))));
+  ), /* @__PURE__ */ React27.createElement(ActionButton, { compact: true, variant: "secondary", disabled: !!pending, onClick: () => setConfirmCancel(false) }, "Keep drafting")))));
 }
 function ConfirmedTeams({ state, draw, me, size, onPlayer }) {
   const order = draw.teams.map((team, index) => ({ team, index })).sort((a, b) => Number(b.team.players.includes(me)) - Number(a.team.players.includes(me)));
   const role = (draw.roles || []).find((item) => item.player === me);
-  return /* @__PURE__ */ React26.createElement("div", { className: "fd-draft" }, /* @__PURE__ */ React26.createElement("div", { className: "fd-draft-section-title" }, /* @__PURE__ */ React26.createElement("h2", null, "Teams confirmed"), /* @__PURE__ */ React26.createElement("span", null, draw.teams.length, " teams of ", size)), role && /* @__PURE__ */ React26.createElement("p", { className: "fd-draft-note fd-draft-role" }, /* @__PURE__ */ React26.createElement("small", null, "Your role"), /* @__PURE__ */ React26.createElement("strong", null, overflowRoleMeta(role.role).label)), /* @__PURE__ */ React26.createElement("div", { className: "fd-draft-teams", style: { "--draft-columns": Math.min(draw.teams.length, 3) } }, order.map(({ team, index }) => {
+  return /* @__PURE__ */ React27.createElement("div", { className: "fd-draft" }, /* @__PURE__ */ React27.createElement("div", { className: "fd-draft-section-title" }, /* @__PURE__ */ React27.createElement("h2", null, "Teams confirmed"), /* @__PURE__ */ React27.createElement("span", null, draw.teams.length, " teams of ", size)), role && /* @__PURE__ */ React27.createElement("p", { className: "fd-draft-note fd-draft-role" }, /* @__PURE__ */ React27.createElement("small", null, "Your role"), /* @__PURE__ */ React27.createElement("strong", null, overflowRoleMeta(role.role).label)), /* @__PURE__ */ React27.createElement("div", { className: "fd-draft-teams", style: { "--draft-columns": Math.min(draw.teams.length, 3) } }, order.map(({ team, index }) => {
     const captain = team.captain || team.players[0];
     const yours = team.players.includes(me);
-    return /* @__PURE__ */ React26.createElement(
+    return /* @__PURE__ */ React27.createElement(
       "section",
       {
         key: captain,
@@ -14058,19 +16688,19 @@ function ConfirmedTeams({ state, draw, me, size, onPlayer }) {
         style: identityStyle(state, captain),
         "aria-label": yours ? "Your team" : `${disp(state, captain)}'s team`
       },
-      /* @__PURE__ */ React26.createElement("header", null, /* @__PURE__ */ React26.createElement("small", null, yours ? "Your team" : team.name || `Team ${index + 1}`), /* @__PURE__ */ React26.createElement("span", null, team.players.length, "/", size)),
-      yours && team.name && /* @__PURE__ */ React26.createElement("strong", { className: "fd-draft-team-name" }, team.name),
-      /* @__PURE__ */ React26.createElement(PlayerLink, { state, player: captain, onPlayer }),
-      /* @__PURE__ */ React26.createElement("small", { className: "fd-draft-captain-label" }, "Captain"),
-      /* @__PURE__ */ React26.createElement("ol", null, team.players.filter((player) => player !== captain).map((player) => /* @__PURE__ */ React26.createElement("li", { key: player, className: "is-seated" }, /* @__PURE__ */ React26.createElement(PlayerLink, { state, player, onPlayer }))))
+      /* @__PURE__ */ React27.createElement("header", null, /* @__PURE__ */ React27.createElement("small", null, yours ? "Your team" : team.name || `Team ${index + 1}`), /* @__PURE__ */ React27.createElement("span", null, team.players.length, "/", size)),
+      yours && team.name && /* @__PURE__ */ React27.createElement("strong", { className: "fd-draft-team-name" }, team.name),
+      /* @__PURE__ */ React27.createElement(PlayerLink, { state, player: captain, onPlayer }),
+      /* @__PURE__ */ React27.createElement("small", { className: "fd-draft-captain-label" }, "Captain"),
+      /* @__PURE__ */ React27.createElement("ol", null, team.players.filter((player) => player !== captain).map((player) => /* @__PURE__ */ React27.createElement("li", { key: player, className: "is-seated" }, /* @__PURE__ */ React27.createElement(PlayerLink, { state, player, onPlayer }))))
     );
-  })), !!draw.roles?.length && /* @__PURE__ */ React26.createElement(DraftCrew, { state, roles: draw.roles, onPlayer }));
+  })), !!draw.roles?.length && /* @__PURE__ */ React27.createElement(DraftCrew, { state, roles: draw.roles, onPlayer }));
 }
 function PickFlyer({ state, player }) {
-  return /* @__PURE__ */ React26.createElement("div", { className: "fd-draft-flyer", style: identityStyle(state, player) }, /* @__PURE__ */ React26.createElement(Avatar, { state, p: player, size: 36 }), /* @__PURE__ */ React26.createElement("span", null, disp(state, player)));
+  return /* @__PURE__ */ React27.createElement("div", { className: "fd-draft-flyer", style: identityStyle(state, player) }, /* @__PURE__ */ React27.createElement(Avatar, { state, p: player, size: 36 }), /* @__PURE__ */ React27.createElement("span", null, disp(state, player)));
 }
 function DraftCrew({ state, roles, onPlayer, disabled }) {
-  return /* @__PURE__ */ React26.createElement("div", { className: "fd-draft-crew" }, /* @__PURE__ */ React26.createElement("small", null, "Crew"), roles.map(({ player, role }) => /* @__PURE__ */ React26.createElement("div", { key: player }, /* @__PURE__ */ React26.createElement(PlayerLink, { state, player, onPlayer, disabled }), /* @__PURE__ */ React26.createElement("span", null, overflowRoleMeta(role).label))));
+  return /* @__PURE__ */ React27.createElement("div", { className: "fd-draft-crew" }, /* @__PURE__ */ React27.createElement("small", null, "Crew"), roles.map(({ player, role }) => /* @__PURE__ */ React27.createElement("div", { key: player }, /* @__PURE__ */ React27.createElement(PlayerLink, { state, player, onPlayer, disabled }), /* @__PURE__ */ React27.createElement("span", null, overflowRoleMeta(role).label))));
 }
 
 // src/App.jsx
@@ -14082,7 +16712,7 @@ init_haptics();
 init_PokerChips();
 init_PokerMotion();
 init_pokerMotion();
-import React29, { useEffect as useEffect17, useRef as useRef17, useState as useState17 } from "react";
+import React30, { useEffect as useEffect17, useRef as useRef17, useState as useState17 } from "react";
 import { createPortal as createPortal2 } from "react-dom";
 
 // src/features/poker/tableView.js
@@ -14099,12 +16729,12 @@ var DIGITS2 = [..."0123456789"];
 init_drawReveal();
 
 // src/features/home/HomeDuels.jsx
-import React31, { useRef as useRef19, useState as useState20 } from "react";
+import React32, { useRef as useRef19, useState as useState20 } from "react";
 
 // src/features/duels/DuelCard.jsx
 init_PlayerIdentity();
 init_BetStacks();
-import React30, { useRef as useRef18, useState as useState18 } from "react";
+import React31, { useRef as useRef18, useState as useState18 } from "react";
 
 // src/features/duels/duelView.js
 init_core();
@@ -14269,15 +16899,15 @@ function DuelCard({ state, duel, me, gm, now: now2, onPlay, onAccept, onDecline,
   ].filter(Boolean);
   const highlight = view.canPlay || view.canAccept;
   const lamp = lampFor(view);
-  const who = /* @__PURE__ */ React30.createElement(React30.Fragment, null, other ? /* @__PURE__ */ React30.createElement(ChipFace, { p: other, size: 44, flat: true }) : /* @__PURE__ */ React30.createElement(ChipFace, { size: 44, empty: true }), /* @__PURE__ */ React30.createElement("span", { className: "fd-duel-who" }, /* @__PURE__ */ React30.createElement("strong", { className: "fd-show" }, name), /* @__PURE__ */ React30.createElement("span", { className: "fd-duel-status" }, lamp && /* @__PURE__ */ React30.createElement("i", { className: `fd-insert${lamp === "pending" ? " is-pending" : ""}`, "aria-hidden": "true" }), view.status)));
-  return /* @__PURE__ */ React30.createElement(
+  const who = /* @__PURE__ */ React31.createElement(React31.Fragment, null, other ? /* @__PURE__ */ React31.createElement(ChipFace, { p: other, size: 44, flat: true }) : /* @__PURE__ */ React31.createElement(ChipFace, { size: 44, empty: true }), /* @__PURE__ */ React31.createElement("span", { className: "fd-duel-who" }, /* @__PURE__ */ React31.createElement("strong", { className: "fd-show" }, name), /* @__PURE__ */ React31.createElement("span", { className: "fd-duel-status" }, lamp && /* @__PURE__ */ React31.createElement("i", { className: `fd-insert${lamp === "pending" ? " is-pending" : ""}`, "aria-hidden": "true" }), view.status)));
+  return /* @__PURE__ */ React31.createElement(
     "article",
     {
       "aria-label": `Quick Draw with ${name}`,
       "aria-busy": busy,
       className: `fd-duel-card${bare ? " is-bare" : ` fd-glass-field fd-field-chip fd-lamp is-chip${highlight ? " is-live" : ""}`}`
     },
-    /* @__PURE__ */ React30.createElement("div", { className: "fd-duel-head" }, other && onPlayer ? /* @__PURE__ */ React30.createElement(
+    /* @__PURE__ */ React31.createElement("div", { className: "fd-duel-head" }, other && onPlayer ? /* @__PURE__ */ React31.createElement(
       "button",
       {
         type: "button",
@@ -14287,8 +16917,8 @@ function DuelCard({ state, duel, me, gm, now: now2, onPlay, onAccept, onDecline,
         onClick: () => interact(() => onPlayer?.(other))
       },
       who
-    ) : /* @__PURE__ */ React30.createElement("div", { className: "fd-duel-person" }, who), /* @__PURE__ */ React30.createElement("span", { className: "fd-duel-ante", "aria-label": `${fmt6(duel.stake)} each` }, /* @__PURE__ */ React30.createElement(ChipStack, { p: null, stake: duel.stake || 0, size: 24, chip: HOUSE_CHIP, tag: false }), /* @__PURE__ */ React30.createElement("strong", null, fmt6(duel.stake || 0)))),
-    acknowledged ? /* @__PURE__ */ React30.createElement("p", { role: "status", className: "fd-duel-done" }, /* @__PURE__ */ React30.createElement("i", { className: "fd-insert is-void", "aria-hidden": "true" }), acknowledged) : !!actions.length && /* @__PURE__ */ React30.createElement("div", { className: "fd-duel-actions", style: { "--duel-actions": actions.length } }, actions.map((action) => /* @__PURE__ */ React30.createElement(
+    ) : /* @__PURE__ */ React31.createElement("div", { className: "fd-duel-person" }, who), /* @__PURE__ */ React31.createElement("span", { className: "fd-duel-ante", "aria-label": `${fmt6(duel.stake)} each` }, /* @__PURE__ */ React31.createElement(ChipStack, { p: null, stake: duel.stake || 0, size: 24, chip: HOUSE_CHIP, tag: false }), /* @__PURE__ */ React31.createElement("strong", null, fmt6(duel.stake || 0)))),
+    acknowledged ? /* @__PURE__ */ React31.createElement("p", { role: "status", className: "fd-duel-done" }, /* @__PURE__ */ React31.createElement("i", { className: "fd-insert is-void", "aria-hidden": "true" }), acknowledged) : !!actions.length && /* @__PURE__ */ React31.createElement("div", { className: "fd-duel-actions", style: { "--duel-actions": actions.length } }, actions.map((action) => /* @__PURE__ */ React31.createElement(
       "button",
       {
         type: "button",
@@ -14300,7 +16930,7 @@ function DuelCard({ state, duel, me, gm, now: now2, onPlay, onAccept, onDecline,
       },
       action.label
     ))),
-    error && /* @__PURE__ */ React30.createElement("p", { role: "alert", className: "fd-duel-error" }, error)
+    error && /* @__PURE__ */ React31.createElement("p", { role: "alert", className: "fd-duel-error" }, error)
   );
 }
 
@@ -14318,10 +16948,10 @@ init_PlayerIdentity();
 init_core();
 init_Brand();
 init_controls();
-import React34 from "react";
+import React35 from "react";
 
 // src/ui/UpdateReady.jsx
-import React33 from "react";
+import React34 from "react";
 
 // src/ui/AppChrome.jsx
 init_ScoreReel();
@@ -14339,39 +16969,20 @@ init_PlayerIdentity();
 init_PlayerIdentityContext();
 init_PlayerPass();
 init_layout();
-import React43, { useLayoutEffect as useLayoutEffect11, useMemo as useMemo6, useRef as useRef28, useState as useState31 } from "react";
+import React44, { useLayoutEffect as useLayoutEffect11, useMemo as useMemo6, useRef as useRef29, useState as useState32 } from "react";
 
 // src/features/standings/Standings.jsx
 init_core();
 init_PlayerIdentity();
 init_PlayerIdentityContext();
 init_motion();
-import React36, { useCallback as useCallback2, useEffect as useEffect19, useLayoutEffect as useLayoutEffect9, useMemo as useMemo4, useRef as useRef20, useState as useState21 } from "react";
-
-// src/features/standings/boardModel.js
-var NOTCH_STEPS = Object.freeze([100, 500, 1e3, 5e3]);
-var BOARD_BEATS = Object.freeze({
-  count: 150,
-  // numbers start counting in 100s, the change rises off them
-  slide: 950,
-  // rows move to their new rank
-  roll: 1300,
-  // rank digits roll once the rows have landed
-  rollStagger: 16,
-  arrows: 1500,
-  // rank-change arrows pop
-  leader: 1500,
-  // the new leader's row warms, one sweep under it
-  settle: 3e3
-  // everything is at rest
-});
-
-// src/features/standings/Standings.jsx
+init_boardModel();
 init_controls();
 init_ScoreReel();
 init_OneSafe();
 init_layout();
 init_Icon();
+import React37, { useCallback as useCallback2, useEffect as useEffect19, useLayoutEffect as useLayoutEffect9, useMemo as useMemo4, useRef as useRef20, useState as useState21 } from "react";
 
 // src/features/weekend/scheduleModel.js
 init_core();
@@ -14434,7 +17045,7 @@ init_serverClock();
 init_PlayerIdentity();
 init_Icon();
 init_RenameText();
-import React39, { useEffect as useEffect23, useRef as useRef22, useState as useState24 } from "react";
+import React40, { useEffect as useEffect23, useRef as useRef22, useState as useState24 } from "react";
 
 // src/features/teams/teamNameModel.js
 init_core();
@@ -14518,9 +17129,9 @@ function NameEditor({ state, naming, round, onRound, onSend, onDone }) {
     tapTick();
     send(name);
   };
-  return /* @__PURE__ */ React39.createElement("div", { className: "fd-teamname-edit", "aria-busy": pending !== null }, /* @__PURE__ */ React39.createElement("div", { className: "fd-teamname-chips", role: "group", "aria-label": "Suggestions" }, [...current && !naming.suggestions.includes(current) ? [current] : [], ...naming.suggestions].map((name) => {
+  return /* @__PURE__ */ React40.createElement("div", { className: "fd-teamname-edit", "aria-busy": pending !== null }, /* @__PURE__ */ React40.createElement("div", { className: "fd-teamname-chips", role: "group", "aria-label": "Suggestions" }, [...current && !naming.suggestions.includes(current) ? [current] : [], ...naming.suggestions].map((name) => {
     const on = pending !== null ? pending === name : current === name;
-    return /* @__PURE__ */ React39.createElement(
+    return /* @__PURE__ */ React40.createElement(
       "button",
       {
         type: "button",
@@ -14530,10 +17141,10 @@ function NameEditor({ state, naming, round, onRound, onSend, onDone }) {
         disabled: pending !== null,
         onClick: () => pick(name)
       },
-      name === current ? /* @__PURE__ */ React39.createElement(RenameText, { name }) : name,
-      name === current && pending === null && /* @__PURE__ */ React39.createElement(NamedBy, { state, named: naming.named, size: 22 })
+      name === current ? /* @__PURE__ */ React40.createElement(RenameText, { name }) : name,
+      name === current && pending === null && /* @__PURE__ */ React40.createElement(NamedBy, { state, named: naming.named, size: 22 })
     );
-  }), /* @__PURE__ */ React39.createElement(
+  }), /* @__PURE__ */ React40.createElement(
     "button",
     {
       type: "button",
@@ -14545,11 +17156,11 @@ function NameEditor({ state, naming, round, onRound, onSend, onDone }) {
         onRound(round + 1);
       }
     },
-    /* @__PURE__ */ React39.createElement(Icon, { name: "shuffle", size: 20 })
-  )), writing ? /* @__PURE__ */ React39.createElement("form", { className: "fd-teamname-write", onSubmit: (event) => {
+    /* @__PURE__ */ React40.createElement(Icon, { name: "shuffle", size: 20 })
+  )), writing ? /* @__PURE__ */ React40.createElement("form", { className: "fd-teamname-write", onSubmit: (event) => {
     event.preventDefault();
     send(draft);
-  } }, /* @__PURE__ */ React39.createElement(
+  } }, /* @__PURE__ */ React40.createElement(
     "input",
     {
       type: "text",
@@ -14568,7 +17179,7 @@ function NameEditor({ state, naming, round, onRound, onSend, onDone }) {
         setError("");
       }
     }
-  ), /* @__PURE__ */ React39.createElement("button", { type: "submit", className: "fd-teamname-save", disabled: pending !== null || !draft.trim() }, pending !== null ? "Saving\u2026" : "Save")) : /* @__PURE__ */ React39.createElement("div", { className: "fd-teamname-own" }, /* @__PURE__ */ React39.createElement(
+  ), /* @__PURE__ */ React40.createElement("button", { type: "submit", className: "fd-teamname-save", disabled: pending !== null || !draft.trim() }, pending !== null ? "Saving\u2026" : "Save")) : /* @__PURE__ */ React40.createElement("div", { className: "fd-teamname-own" }, /* @__PURE__ */ React40.createElement(
     "button",
     {
       type: "button",
@@ -14580,9 +17191,9 @@ function NameEditor({ state, naming, round, onRound, onSend, onDone }) {
         setError("");
       }
     },
-    /* @__PURE__ */ React39.createElement(Icon, { name: "pencil", size: 18 }),
+    /* @__PURE__ */ React40.createElement(Icon, { name: "pencil", size: 18 }),
     "Write your own"
-  ), naming.pair && current && /* @__PURE__ */ React39.createElement(
+  ), naming.pair && current && /* @__PURE__ */ React40.createElement(
     "button",
     {
       type: "button",
@@ -14591,11 +17202,11 @@ function NameEditor({ state, naming, round, onRound, onSend, onDone }) {
       onClick: () => send(null)
     },
     "Use our names"
-  )), error && /* @__PURE__ */ React39.createElement("p", { className: "fd-teamname-error", role: "alert" }, error));
+  )), error && /* @__PURE__ */ React40.createElement("p", { className: "fd-teamname-error", role: "alert" }, error));
 }
 function NamedBy({ state, named, size = 28 }) {
   if (!named?.by) return null;
-  return /* @__PURE__ */ React39.createElement("span", { className: "fd-teamname-by", role: "img", "aria-label": `Named by ${disp(state, named.by)}` }, /* @__PURE__ */ React39.createElement(Avatar, { state, p: named.by, size }));
+  return /* @__PURE__ */ React40.createElement("span", { className: "fd-teamname-by", role: "img", "aria-label": `Named by ${disp(state, named.by)}` }, /* @__PURE__ */ React40.createElement(Avatar, { state, p: named.by, size }));
 }
 function TeamNameCard({ state, naming: given, ev, me, gm = false, index = null, onSend = sendName, className = "" }) {
   const [round, setRound] = useState24(0);
@@ -14606,13 +17217,13 @@ function TeamNameCard({ state, naming: given, ev, me, gm = false, index = null, 
   const chosen = !!naming.named;
   const expanded = open ?? (!naming.pair && !chosen && !gm);
   const lamp = chosen || gm ? "" : " fd-lamp is-info is-pending";
-  return /* @__PURE__ */ React39.createElement(
+  return /* @__PURE__ */ React40.createElement(
     "section",
     {
       className: `fd-teamname fd-glass-field fd-field-info${lamp}${gm ? " is-desk" : ""} ${className}`.trim(),
       "aria-label": gm ? `${naming.label} name` : "Name your team"
     },
-    /* @__PURE__ */ React39.createElement("div", { className: "fd-teamname-head" }, expanded && !gm ? /* @__PURE__ */ React39.createElement("h2", { className: "fd-teamname-ask" }, "Name your team") : /* @__PURE__ */ React39.createElement("div", { className: "fd-teamname-current" }, !gm && !naming.name ? /* @__PURE__ */ React39.createElement("h2", { className: "fd-teamname-ask" }, "Name your team") : /* @__PURE__ */ React39.createElement(RenameText, { name: naming.label, as: "h2", className: "fd-show fd-teamname-name" }), naming.name && /* @__PURE__ */ React39.createElement(NamedBy, { state, named: naming.named })), /* @__PURE__ */ React39.createElement(
+    /* @__PURE__ */ React40.createElement("div", { className: "fd-teamname-head" }, expanded && !gm ? /* @__PURE__ */ React40.createElement("h2", { className: "fd-teamname-ask" }, "Name your team") : /* @__PURE__ */ React40.createElement("div", { className: "fd-teamname-current" }, !gm && !naming.name ? /* @__PURE__ */ React40.createElement("h2", { className: "fd-teamname-ask" }, "Name your team") : /* @__PURE__ */ React40.createElement(RenameText, { name: naming.label, as: "h2", className: "fd-show fd-teamname-name" }), naming.name && /* @__PURE__ */ React40.createElement(NamedBy, { state, named: naming.named })), /* @__PURE__ */ React40.createElement(
       "button",
       {
         type: "button",
@@ -14621,9 +17232,9 @@ function TeamNameCard({ state, naming: given, ev, me, gm = false, index = null, 
         "aria-label": expanded ? "Close" : "Rename",
         onClick: () => setOpen(!expanded)
       },
-      /* @__PURE__ */ React39.createElement(Icon, { name: expanded ? "collapse" : "pencil", size: 20 })
+      /* @__PURE__ */ React40.createElement(Icon, { name: expanded ? "collapse" : "pencil", size: 20 })
     )),
-    expanded && /* @__PURE__ */ React39.createElement(
+    expanded && /* @__PURE__ */ React40.createElement(
       NameEditor,
       {
         state,
@@ -14641,7 +17252,7 @@ function TeamNameCard({ state, naming: given, ev, me, gm = false, index = null, 
 function TeamNameDesk({ state, ev, onSend }) {
   const teams = state?.draws?.[ev?.id]?.teams || [];
   if (!teams.some((team) => (team.players?.length || 0) >= 2)) return null;
-  return /* @__PURE__ */ React39.createElement("div", { className: "fd-teamname-desk", role: "group", "aria-label": "Team names" }, /* @__PURE__ */ React39.createElement("h3", null, "Team names"), teams.map((team, index) => (team.players?.length || 0) >= 2 && /* @__PURE__ */ React39.createElement(TeamNameCard, { key: `${state.draws[ev.id].id}:${index}`, state, ev, index, gm: true, onSend })));
+  return /* @__PURE__ */ React40.createElement("div", { className: "fd-teamname-desk", role: "group", "aria-label": "Team names" }, /* @__PURE__ */ React40.createElement("h3", null, "Team names"), teams.map((team, index) => (team.players?.length || 0) >= 2 && /* @__PURE__ */ React40.createElement(TeamNameCard, { key: `${state.draws[ev.id].id}:${index}`, state, ev, index, gm: true, onSend })));
 }
 
 // src/features/home/GuestHome.jsx
@@ -14650,7 +17261,7 @@ init_motion();
 // src/features/alerts/Alerts.jsx
 init_client();
 init_install();
-import React40, { useEffect as useEffect24, useRef as useRef23, useState as useState25, useSyncExternalStore as useSyncExternalStore3 } from "react";
+import React41, { useEffect as useEffect24, useRef as useRef23, useState as useState25, useSyncExternalStore as useSyncExternalStore3 } from "react";
 
 // src/features/alerts/pocketAlerts.js
 init_client();
@@ -14672,7 +17283,7 @@ init_serverClock();
 init_sound();
 init_faceOff();
 init_tvMotion();
-import { useEffect as useEffect28, useMemo as useMemo5, useRef as useRef26, useState as useState29 } from "react";
+import { useEffect as useEffect29, useMemo as useMemo5, useRef as useRef27, useState as useState30 } from "react";
 var UP_TIMING = Object.freeze({
   flood: 0,
   floodMs: 700,
@@ -14706,7 +17317,7 @@ init_haptics();
 init_serverClock();
 init_arrivalsModel();
 init_arrivals();
-import React42, { useEffect as useEffect29, useRef as useRef27, useState as useState30 } from "react";
+import React43, { useEffect as useEffect30, useRef as useRef28, useState as useState31 } from "react";
 
 // src/features/home/GuestHome.jsx
 init_writeErrors();
@@ -14725,24 +17336,25 @@ init_haptics();
 // src/features/profile/VibrationToggle.jsx
 init_haptics();
 init_player_pass();
-import React44, { useState as useState32 } from "react";
+import React45, { useState as useState33 } from "react";
 
 // src/features/profile/SoundToggle.jsx
 init_sound();
 init_haptics();
 init_player_pass();
-import React45, { useState as useState33 } from "react";
+import React46, { useState as useState34 } from "react";
 
 // src/App.jsx
 init_sound();
 
 // src/lib/lazyPart.js
-import React46, { lazy, useState as useState34 } from "react";
+import React47, { lazy, useState as useState35 } from "react";
 
 // src/features/home/phoneSound.js
 init_core();
 init_sound();
-import { useEffect as useEffect30, useRef as useRef29 } from "react";
+init_boardModel();
+import { useEffect as useEffect31, useRef as useRef30 } from "react";
 
 // src/App.jsx
 init_drawReveal();
@@ -14755,7 +17367,7 @@ init_core();
 init_PlayerIdentity();
 init_layout();
 init_PayoutLadder();
-import React47, { useRef as useRef30, useState as useState35 } from "react";
+import React48, { useRef as useRef31, useState as useState36 } from "react";
 init_Icon();
 init_OneSafe();
 
@@ -14770,7 +17382,7 @@ init_controls();
 init_InstallHint();
 init_install();
 init_Trophy();
-import React56, { useRef as useRef36, useState as useState44 } from "react";
+import React57, { useRef as useRef37, useState as useState45 } from "react";
 
 // src/features/results/Keepsake.jsx
 init_core();
@@ -14781,7 +17393,7 @@ init_playerIdentity();
 init_PlayerPass();
 init_CompetitionBracket();
 init_Trophy();
-import React51, { useEffect as useEffect34, useMemo as useMemo8, useRef as useRef33, useState as useState39 } from "react";
+import React52, { useEffect as useEffect35, useMemo as useMemo8, useRef as useRef34, useState as useState40 } from "react";
 
 // src/features/results/LastCard.jsx
 init_PlayerIdentity();
@@ -14792,7 +17404,7 @@ init_motion();
 init_useRisoTilt();
 init_serverClock();
 init_lastCard();
-import React50, { useEffect as useEffect33, useMemo as useMemo7, useRef as useRef32, useState as useState38 } from "react";
+import React51, { useEffect as useEffect34, useMemo as useMemo7, useRef as useRef33, useState as useState39 } from "react";
 
 // src/features/results/cardImage.js
 init_lastCard();
@@ -14807,7 +17419,7 @@ init_crownTiming();
 init_sound();
 
 // src/features/results/SavePoster.jsx
-import React49, { useEffect as useEffect32, useRef as useRef31, useState as useState37 } from "react";
+import React50, { useEffect as useEffect33, useRef as useRef32, useState as useState38 } from "react";
 init_classPhoto();
 
 // src/features/results/posterImage.js
@@ -14844,7 +17456,7 @@ init_GlassArt();
 init_client();
 init_photoModel();
 init_prepareMoment();
-import React53, { useRef as useRef35, useState as useState41 } from "react";
+import React54, { useRef as useRef36, useState as useState42 } from "react";
 
 // src/features/photos/PhotoGrid.jsx
 init_core();
@@ -14852,7 +17464,7 @@ init_PlayerIdentity();
 init_controls();
 init_client();
 init_photoModel();
-import React52, { useEffect as useEffect35, useRef as useRef34, useState as useState40 } from "react";
+import React53, { useEffect as useEffect36, useRef as useRef35, useState as useState41 } from "react";
 init_Icon();
 
 // src/features/photos/PhotoDesk.jsx
@@ -14870,7 +17482,7 @@ init_OneSafe();
 init_PayoutLadder();
 init_PlayerIdentity();
 init_Travel();
-import React55, { useState as useState43 } from "react";
+import React56, { useState as useState44 } from "react";
 init_programModel();
 var HOST = ROSTER.includes("Brandon") ? "Brandon" : null;
 
@@ -14882,12 +17494,12 @@ init_PlayerIdentityContext();
 init_PlayerIdentity();
 init_Travel();
 init_ProfileEditor();
-import React90, { useState as useState70, useEffect as useEffect65, useLayoutEffect as useLayoutEffect19, useRef as useRef64, useMemo as useMemo15, useCallback as useCallback6, useId as useId10, lazy as lazy2, Suspense } from "react";
+import React92, { useState as useState72, useEffect as useEffect67, useLayoutEffect as useLayoutEffect20, useRef as useRef66, useMemo as useMemo17, useCallback as useCallback6, useId as useId10, lazy as lazy2, Suspense as Suspense2 } from "react";
 
 // src/features/profile/PlayerSheet.jsx
 init_core();
 init_controls();
-import React62, { useEffect as useEffect39, useMemo as useMemo10, useRef as useRef40, useState as useState48 } from "react";
+import React63, { useEffect as useEffect40, useMemo as useMemo10, useRef as useRef41, useState as useState49 } from "react";
 
 // src/features/duels/DuelSend.jsx
 init_PlayerIdentity();
@@ -14896,11 +17508,11 @@ init_Wagers();
 init_Coin();
 init_controls();
 init_haptics();
-import React61 from "react";
-var fmt9 = (n) => (n ?? 0).toLocaleString("en-US");
+import React62 from "react";
+var fmt10 = (n) => (n ?? 0).toLocaleString("en-US");
 var COIN = 44;
 function UnlitCoin({ value }) {
-  return /* @__PURE__ */ React61.createElement("svg", { className: "fd-duel-unlit", viewBox: "0 0 46 46", width: COIN, height: COIN, "aria-hidden": "true", focusable: "false" }, /* @__PURE__ */ React61.createElement("circle", { cx: "23", cy: "23", r: "21.5", className: "fd-duel-unlit-body" }), Array.from({ length: 8 }, (_, i) => /* @__PURE__ */ React61.createElement(
+  return /* @__PURE__ */ React62.createElement("svg", { className: "fd-duel-unlit", viewBox: "0 0 46 46", width: COIN, height: COIN, "aria-hidden": "true", focusable: "false" }, /* @__PURE__ */ React62.createElement("circle", { cx: "23", cy: "23", r: "21.5", className: "fd-duel-unlit-body" }), Array.from({ length: 8 }, (_, i) => /* @__PURE__ */ React62.createElement(
     "rect",
     {
       key: i,
@@ -14912,29 +17524,29 @@ function UnlitCoin({ value }) {
       className: "fd-duel-unlit-tick",
       transform: `rotate(${i * 45} 23 23)`
     }
-  )), /* @__PURE__ */ React61.createElement("circle", { cx: "23", cy: "23", r: "12.5", className: "fd-duel-unlit-face" }), /* @__PURE__ */ React61.createElement("text", { x: "23", y: "23", className: "fd-duel-unlit-value", textAnchor: "middle", dominantBaseline: "central" }, value));
+  )), /* @__PURE__ */ React62.createElement("circle", { cx: "23", cy: "23", r: "12.5", className: "fd-duel-unlit-face" }), /* @__PURE__ */ React62.createElement("text", { x: "23", y: "23", className: "fd-duel-unlit-value", textAnchor: "middle", dominantBaseline: "central" }, value));
 }
 function DuelSend({ me, p, own, name, ante, anteMax, onAnte, pending, error, rematch, onSend }) {
   const capBinds = anteMax < RACK_DENOMS[RACK_DENOMS.length - 1];
-  return /* @__PURE__ */ React61.createElement("div", { className: "fd-duel-send fd-glass-field fd-field-chip" }, /* @__PURE__ */ React61.createElement("div", { className: "fd-duel-send-face", "aria-hidden": "true" }, /* @__PURE__ */ React61.createElement(ChipFace, { p: me, size: 48, flat: true }), /* @__PURE__ */ React61.createElement("span", { className: "fd-show fd-duel-send-vs" }, "vs"), own ? /* @__PURE__ */ React61.createElement(ChipFace, { size: 48, empty: true }) : /* @__PURE__ */ React61.createElement(ChipFace, { p, size: 48, flat: true })), /* @__PURE__ */ React61.createElement("div", { className: "fd-duel-rack", role: "group", "aria-label": "Ante, each" }, RACK_DENOMS.map((value) => {
+  return /* @__PURE__ */ React62.createElement("div", { className: "fd-duel-send fd-glass-field fd-field-chip" }, /* @__PURE__ */ React62.createElement("div", { className: "fd-duel-send-face", "aria-hidden": "true" }, /* @__PURE__ */ React62.createElement(ChipFace, { p: me, size: 48, flat: true }), /* @__PURE__ */ React62.createElement("span", { className: "fd-show fd-duel-send-vs" }, "vs"), own ? /* @__PURE__ */ React62.createElement(ChipFace, { size: 48, empty: true }) : /* @__PURE__ */ React62.createElement(ChipFace, { p, size: 48, flat: true })), /* @__PURE__ */ React62.createElement("div", { className: "fd-duel-rack", role: "group", "aria-label": "Ante, each" }, RACK_DENOMS.map((value) => {
     const off = value > anteMax || pending;
-    return /* @__PURE__ */ React61.createElement(
+    return /* @__PURE__ */ React62.createElement(
       "button",
       {
         type: "button",
         key: value,
         disabled: off,
         "aria-pressed": ante === value,
-        "aria-label": `Ante ${fmt9(value)} chips each`,
+        "aria-label": `Ante ${fmt10(value)} chips each`,
         className: ante === value && !off ? "is-selected" : "",
         onClick: () => {
           tapTick();
           onAnte(value);
         }
       },
-      /* @__PURE__ */ React61.createElement(Coin, { color: HOUSE_CHIP.color, unlit: value > anteMax }, value > anteMax ? /* @__PURE__ */ React61.createElement(UnlitCoin, { value }) : /* @__PURE__ */ React61.createElement(ChipFace, { size: COIN, stamp: value, valueRing: true, color: HOUSE_CHIP.color, isLight: HOUSE_CHIP.isLight, skin: HOUSE_CHIP.skin }))
+      /* @__PURE__ */ React62.createElement(Coin, { color: HOUSE_CHIP.color, unlit: value > anteMax }, value > anteMax ? /* @__PURE__ */ React62.createElement(UnlitCoin, { value }) : /* @__PURE__ */ React62.createElement(ChipFace, { size: COIN, stamp: value, valueRing: true, color: HOUSE_CHIP.color, isLight: HOUSE_CHIP.isLight, skin: HOUSE_CHIP.skin }))
     );
-  })), capBinds && /* @__PURE__ */ React61.createElement("span", { className: "fd-duel-max" }, "Max ", fmt9(anteMax)), error && /* @__PURE__ */ React61.createElement("p", { className: "fd-duel-error", role: "alert" }, error), /* @__PURE__ */ React61.createElement(
+  })), capBinds && /* @__PURE__ */ React62.createElement("span", { className: "fd-duel-max" }, "Max ", fmt10(anteMax)), error && /* @__PURE__ */ React62.createElement("p", { className: "fd-duel-error", role: "alert" }, error), /* @__PURE__ */ React62.createElement(
     ActionButton,
     {
       type: "button",
@@ -14942,10 +17554,10 @@ function DuelSend({ me, p, own, name, ante, anteMax, onAnte, pending, error, rem
       onClick: onSend,
       disabled: pending || ante > anteMax,
       pending,
-      "aria-label": rematch ? void 0 : own ? `Challenge anyone for ${fmt9(ante)}` : `Challenge ${name} for ${fmt9(ante)}`,
+      "aria-label": rematch ? void 0 : own ? `Challenge anyone for ${fmt10(ante)}` : `Challenge ${name} for ${fmt10(ante)}`,
       style: { width: "100%" }
     },
-    pending ? "Sending\u2026" : rematch ? `Rematch for ${fmt9(ante)}` : `Send ${fmt9(ante)}`
+    pending ? "Sending\u2026" : rematch ? `Rematch for ${fmt10(ante)}` : `Send ${fmt10(ante)}`
   ));
 }
 
@@ -14955,7 +17567,7 @@ init_seasonStats();
 init_motion2();
 init_serverClock();
 init_haptics();
-var fmt10 = (n) => (n ?? 0).toLocaleString("en-US");
+var fmt11 = (n) => (n ?? 0).toLocaleString("en-US");
 var OUTCOME = { won: "Won", lost: "Lost", push: "Push", void: "Void" };
 function rematchAvailable(state, me, p, { events = [], now: now2 = serverNow() } = {}) {
   if (!me || !p || me === p || !duelsOpen(state)) return false;
@@ -14979,11 +17591,11 @@ function PlayerSheet({
   onWithdraw,
   openDuel = false
 }) {
-  const [ante, setAnte] = useState48(PT);
-  const [picking, setPicking] = useState48(!!openDuel);
-  const [pending, setPending] = useState48(false);
-  const [error, setError] = useState48("");
-  const sending = useRef40(false);
+  const [ante, setAnte] = useState49(PT);
+  const [picking, setPicking] = useState49(!!openDuel);
+  const [pending, setPending] = useState49(false);
+  const [error, setError] = useState49("");
+  const sending = useRef41(false);
   const now2 = serverNow();
   const row = standings.find((item) => item.player === p);
   const duels = state.duels || [];
@@ -15003,8 +17615,8 @@ function PlayerSheet({
   const dailyLimit = !!me && duelsSentToday(state, me, now2) >= DUEL_DAILY_LIMIT;
   const unavailable = dailyLimit ? "Daily limit of 3 challenges reached." : anteMax < PT ? "Not enough chips for an ante." : "";
   const rematch = !!last && last.outcome !== "void" && ante === last.stake;
-  const [turned, setTurned] = useState48(false);
-  const duelRef = useRef40(null);
+  const [turned, setTurned] = useState49(false);
+  const duelRef = useRef41(null);
   const reducedMotion = useReducedMotion();
   const canRematch = useMemo10(
     () => !!onDuel && rematchAvailable(state, me, p, { events, now: now2 }),
@@ -15017,10 +17629,10 @@ function PlayerSheet({
     section?.scrollIntoView?.({ block: "center", behavior: reducedMotion ? "auto" : "smooth" });
     section?.querySelector?.("[data-duel-send]")?.focus?.({ preventScroll: true });
   };
-  useEffect39(() => {
+  useEffect40(() => {
     setAnte((currentAnte) => currentAnte <= anteMax ? currentAnte : ANTES.filter((value) => value <= anteMax).at(-1) || PT);
   }, [anteMax]);
-  useEffect39(() => {
+  useEffect40(() => {
     setAnte(last && last.stake <= anteMax ? last.stake : PT);
     setError("");
     setPicking(!!openDuel);
@@ -15042,7 +17654,7 @@ function PlayerSheet({
       setPending(false);
     }
   };
-  return /* @__PURE__ */ React62.createElement(Sheet, { title: disp(state, p), onClose, onBack, busy: pending, show: true }, /* @__PURE__ */ React62.createElement("div", { className: "fd-player-sheet" }, /* @__PURE__ */ React62.createElement(
+  return /* @__PURE__ */ React63.createElement(Sheet, { title: disp(state, p), onClose, onBack, busy: pending, show: true }, /* @__PURE__ */ React63.createElement("div", { className: "fd-player-sheet" }, /* @__PURE__ */ React63.createElement(
     PlayerPass,
     {
       key: p,
@@ -15055,7 +17667,7 @@ function PlayerSheet({
       standings,
       onFlip: setTurned
     }
-  ), turned && canRematch && /* @__PURE__ */ React62.createElement(
+  ), turned && canRematch && /* @__PURE__ */ React63.createElement(
     ActionButton,
     {
       type: "button",
@@ -15063,7 +17675,7 @@ function PlayerSheet({
       onClick: openRematch
     },
     "Rematch"
-  ), own && onEdit && /* @__PURE__ */ React62.createElement(
+  ), own && onEdit && /* @__PURE__ */ React63.createElement(
     ActionButton,
     {
       type: "button",
@@ -15072,7 +17684,7 @@ function PlayerSheet({
       style: { width: "100%" }
     },
     "Edit your profile"
-  ), canDuel && (current || !away) && /* @__PURE__ */ React62.createElement("section", { ref: duelRef, className: "fd-player-duel", "aria-label": "Quick Draw challenge" }, current ? /* @__PURE__ */ React62.createElement(
+  ), canDuel && (current || !away) && /* @__PURE__ */ React63.createElement("section", { ref: duelRef, className: "fd-player-duel", "aria-label": "Quick Draw challenge" }, current ? /* @__PURE__ */ React63.createElement(
     DuelCard,
     {
       bare: true,
@@ -15085,7 +17697,7 @@ function PlayerSheet({
       onDecline,
       onWithdraw
     }
-  ) : unavailable ? /* @__PURE__ */ React62.createElement("p", { className: "fd-player-unavailable", role: "status" }, unavailable) : picking ? /* @__PURE__ */ React62.createElement(
+  ) : unavailable ? /* @__PURE__ */ React63.createElement("p", { className: "fd-player-unavailable", role: "status" }, unavailable) : picking ? /* @__PURE__ */ React63.createElement(
     DuelSend,
     {
       me,
@@ -15100,7 +17712,7 @@ function PlayerSheet({
       rematch,
       onSend: challenge
     }
-  ) : /* @__PURE__ */ React62.createElement(ActionButton, { type: "button", variant: "secondary", onClick: () => setPicking(true), style: { width: "100%" } }, own ? "Duel anyone" : `Duel ${disp(state, p)}`)), !!me && history.length > 0 && /* @__PURE__ */ React62.createElement("section", { className: "fd-player-duel-results", "aria-label": "Quick Draw results" }, /* @__PURE__ */ React62.createElement("h2", null, own ? "Your duels" : `You vs ${disp(state, p)}`), record && /* @__PURE__ */ React62.createElement("p", { className: "fd-player-duel-score" }, /* @__PURE__ */ React62.createElement("strong", null, record.won, "-", record.lost), /* @__PURE__ */ React62.createElement("span", null, signedChips2(record.net))), /* @__PURE__ */ React62.createElement("ul", null, history.map((line) => /* @__PURE__ */ React62.createElement("li", { key: line.id, className: `is-${line.outcome}` }, /* @__PURE__ */ React62.createElement("span", null, own ? `vs ${line.name}` : `${fmt10(line.stake)} each`, line.times && /* @__PURE__ */ React62.createElement("small", null, line.times)), /* @__PURE__ */ React62.createElement("strong", null, OUTCOME[line.outcome], line.delta !== 0 && ` ${signedChips2(line.delta)}`)))))));
+  ) : /* @__PURE__ */ React63.createElement(ActionButton, { type: "button", variant: "secondary", onClick: () => setPicking(true), style: { width: "100%" } }, own ? "Duel anyone" : `Duel ${disp(state, p)}`)), !!me && history.length > 0 && /* @__PURE__ */ React63.createElement("section", { className: "fd-player-duel-results", "aria-label": "Quick Draw results" }, /* @__PURE__ */ React63.createElement("h2", null, own ? "Your duels" : `You vs ${disp(state, p)}`), record && /* @__PURE__ */ React63.createElement("p", { className: "fd-player-duel-score" }, /* @__PURE__ */ React63.createElement("strong", null, record.won, "-", record.lost), /* @__PURE__ */ React63.createElement("span", null, signedChips2(record.net))), /* @__PURE__ */ React63.createElement("ul", null, history.map((line) => /* @__PURE__ */ React63.createElement("li", { key: line.id, className: `is-${line.outcome}` }, /* @__PURE__ */ React63.createElement("span", null, own ? `vs ${line.name}` : `${fmt11(line.stake)} each`, line.times && /* @__PURE__ */ React63.createElement("small", null, line.times)), /* @__PURE__ */ React63.createElement("strong", null, OUTCOME[line.outcome], line.delta !== 0 && ` ${signedChips2(line.delta)}`)))))));
 }
 
 // src/App.jsx
@@ -15119,13 +17731,13 @@ init_BetStacks();
 init_motion();
 init_sound();
 init_resultMoment();
-import React64, { useEffect as useEffect41, useLayoutEffect as useLayoutEffect14, useRef as useRef42 } from "react";
+import React65, { useEffect as useEffect42, useLayoutEffect as useLayoutEffect14, useRef as useRef43 } from "react";
 
 // src/features/results/ChipShower.jsx
 init_PlayerIdentity();
 init_motion();
 init_sound();
-import React63, { useEffect as useEffect40, useMemo as useMemo11, useRef as useRef41, useState as useState49 } from "react";
+import React64, { useEffect as useEffect41, useMemo as useMemo11, useRef as useRef42, useState as useState50 } from "react";
 var SHOWER_CHIPS = 16;
 var RAIN = Object.freeze({ min: 4, max: SHOWER_CHIPS, first: 420, gap: 110, fall: 620, bounce: 280, hold: 650, sweep: 520 });
 
@@ -15140,9 +17752,32 @@ init_sound();
 init_haptics();
 init_walkout();
 init_walkoutTeam();
-import React65, { useEffect as useEffect43, useRef as useRef44 } from "react";
+import React66, { Suspense, useEffect as useEffect44, useMemo as useMemo13, useRef as useRef45 } from "react";
 init_OneSafe();
 init_ScoreReel();
+init_phase();
+
+// src/features/gags/phoneBit.js
+init_motion();
+init_serverClock();
+init_gagModel();
+import { useEffect as useEffect43, useMemo as useMemo12, useRef as useRef44, useState as useState51 } from "react";
+
+// src/features/moments/PhoneMoments.jsx
+var BitBoundary = class extends React66.Component {
+  constructor(props) {
+    super(props);
+    this.state = { failed: false };
+  }
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+  componentDidCatch() {
+  }
+  render() {
+    return this.state.failed ? null : this.props.children;
+  }
+};
 
 // src/features/moments/SkyStrip.jsx
 init_core();
@@ -15156,15 +17791,20 @@ init_Icon();
 init_PlayerIdentityContext();
 init_desertModel();
 init_walkoutTeam();
-import React66, { useEffect as useEffect44, useMemo as useMemo12, useState as useState51 } from "react";
+import React67, { useEffect as useEffect45, useMemo as useMemo14, useState as useState52 } from "react";
 
 // src/features/results/useCrownMoment.js
 init_motion();
 init_lastCard();
-import { useCallback as useCallback4, useEffect as useEffect45, useState as useState52 } from "react";
+import { useCallback as useCallback4, useEffect as useEffect46, useState as useState53 } from "react";
 
 // src/App.jsx
 init_install();
+
+// src/features/check-in/returning.js
+init_checkin();
+
+// src/App.jsx
 init_core();
 
 // src/features/duels/QuickDraw.jsx
@@ -15174,7 +17814,7 @@ init_controls();
 init_GlassArt();
 init_ScoreReel();
 init_BetStacks();
-import React67, { useCallback as useCallback5, useEffect as useEffect46, useLayoutEffect as useLayoutEffect15, useRef as useRef45, useState as useState53 } from "react";
+import React68, { useCallback as useCallback5, useEffect as useEffect47, useLayoutEffect as useLayoutEffect15, useRef as useRef46, useState as useState54 } from "react";
 init_showdown();
 init_serverClock();
 init_haptics();
@@ -15196,24 +17836,26 @@ var READY = Object.freeze({
 // src/features/duels/DuelDesk.jsx
 init_core();
 init_controls();
-import React68, { useRef as useRef46, useState as useState54 } from "react";
+import React69, { useRef as useRef47, useState as useState55 } from "react";
 
 // src/features/director/DirectorPill.jsx
 init_core();
 init_PlayerIdentity();
 init_directorPill();
 init_haptics();
-import React70, { useEffect as useEffect48, useRef as useRef48, useState as useState55 } from "react";
+import React71, { useEffect as useEffect49, useRef as useRef49, useState as useState56 } from "react";
 
 // src/features/director/RunOfShow.jsx
 init_Icon();
 init_serverClock();
 init_haptics();
-import React69, { useEffect as useEffect47, useRef as useRef47 } from "react";
+import React70, { useEffect as useEffect48, useRef as useRef48 } from "react";
 
 // src/features/director/runOfShow.js
 init_core();
 init_show();
+init_trivia();
+init_triviaBoard();
 init_directorPill();
 var RUN_SLOTS = Object.freeze(["Now", "Next", "Then"]);
 
@@ -15230,7 +17872,7 @@ init_core();
 init_client();
 init_serverClock();
 init_haptics();
-import React71, { useEffect as useEffect49, useState as useState56, useSyncExternalStore as useSyncExternalStore4 } from "react";
+import React72, { useEffect as useEffect50, useState as useState57, useSyncExternalStore as useSyncExternalStore4 } from "react";
 
 // src/features/director/walkout.js
 init_audio();
@@ -15243,24 +17885,24 @@ var MISS_SHOWN_MS = 10 * 60 * 1e3;
 // src/features/director/TvHealth.jsx
 init_tvHealth();
 init_Icon();
-import React72, { useEffect as useEffect50, useState as useState57 } from "react";
+import React73, { useEffect as useEffect51, useState as useState58 } from "react";
 
 // src/features/roster/RosterSheet.jsx
 init_core();
 init_controls();
 init_PlayerIdentity();
 init_haptics();
-import React73, { useRef as useRef49, useState as useState58 } from "react";
+import React74, { useRef as useRef50, useState as useState59 } from "react";
 init_writeErrors();
 
 // src/features/arrivals/useArriveLink.js
 init_arrivalsModel();
-import { useEffect as useEffect51, useRef as useRef50 } from "react";
+import { useEffect as useEffect52, useRef as useRef51 } from "react";
 var atLoad = typeof window !== "undefined" ? window.location.href : "";
 var LINK_CODE = arriveCodeFrom(atLoad);
 
 // src/features/director/CommissionerDock.jsx
-import React74, { useLayoutEffect as useLayoutEffect16, useRef as useRef51 } from "react";
+import React75, { useLayoutEffect as useLayoutEffect16, useRef as useRef52 } from "react";
 
 // src/features/director/CrewCheck.jsx
 init_core();
@@ -15270,7 +17912,7 @@ init_Icon();
 init_haptics();
 init_motion();
 init_writeErrors();
-import React75, { useEffect as useEffect52, useRef as useRef52, useState as useState59 } from "react";
+import React76, { useEffect as useEffect53, useRef as useRef53, useState as useState60 } from "react";
 
 // src/features/director/crewCheck.js
 init_core();
@@ -15286,7 +17928,7 @@ init_awardsModel();
 init_awards();
 init_Icon();
 init_writeErrors();
-import React76, { useEffect as useEffect53, useRef as useRef53, useState as useState60 } from "react";
+import React77, { useEffect as useEffect54, useRef as useRef54, useState as useState61 } from "react";
 
 // src/features/geo/GeoPlay.jsx
 init_client();
@@ -15301,8 +17943,8 @@ init_PlaceSearch();
 init_geoModel();
 init_geo2();
 init_Icon();
+import React82, { useEffect as useEffect59, useRef as useRef58, useState as useState65 } from "react";
 init_ScoreReel();
-import React81, { useEffect as useEffect58, useRef as useRef57, useState as useState64 } from "react";
 
 // src/features/trivia/TriviaPlay.jsx
 init_client();
@@ -15315,12 +17957,32 @@ init_trivia();
 init_PlayerIdentity();
 init_Wheel();
 init_Icon();
+import React84, { useEffect as useEffect61, useRef as useRef60, useState as useState67 } from "react";
 init_OneSafe();
 init_triviaModel();
 init_geo2();
 init_trivia2();
 init_writeErrors();
-import React82, { useEffect as useEffect59, useRef as useRef58, useState as useState65 } from "react";
+init_triviaBoard();
+
+// src/features/trivia/BoardPlay.jsx
+init_client();
+init_serverClock();
+init_haptics();
+init_sound();
+init_core();
+init_triviaBoard();
+init_PlayerIdentity();
+init_Wheel();
+init_Icon();
+import React83, { useEffect as useEffect60, useLayoutEffect as useLayoutEffect18, useRef as useRef59, useState as useState66 } from "react";
+init_ScoreReel();
+init_writeErrors();
+init_triviaModel();
+init_boardModel2();
+init_geo2();
+init_trivia2();
+init_board();
 
 // src/App.jsx
 init_trivia();
@@ -15329,19 +17991,19 @@ init_trivia();
 init_core();
 init_guestSetup();
 init_Travel();
-import React83, { useId as useId8 } from "react";
+import React85, { useId as useId8 } from "react";
 init_Icon();
 
 // src/features/profile/TripDetails.jsx
 init_guestSetup();
-import React84, { useId as useId9 } from "react";
+import React86, { useId as useId9 } from "react";
 
 // src/App.jsx
 init_guestSetup();
 
 // src/features/music/WinSongPicker.jsx
 init_client();
-import React86, { useEffect as useEffect61, useRef as useRef60, useState as useState67 } from "react";
+import React88, { useEffect as useEffect63, useRef as useRef62, useState as useState69 } from "react";
 
 // src/features/music/previewPlayer.js
 init_client();
@@ -15352,7 +18014,7 @@ var KNOWN_MS = 8 * 60 * 1e3;
 // src/features/music/SnippetPreview.jsx
 init_client();
 init_sound();
-import React85, { useEffect as useEffect60, useRef as useRef59, useState as useState66 } from "react";
+import React87, { useEffect as useEffect62, useRef as useRef61, useState as useState68 } from "react";
 
 // src/features/music/WinSongPicker.jsx
 init_Icon();
@@ -15365,16 +18027,16 @@ init_client();
 init_writeErrors();
 
 // src/ui/Shell.jsx
-import React87 from "react";
+import React89 from "react";
 init_backglass();
 function Shell({ children, tv: tv2, arrival, environment = "production" }) {
-  return /* @__PURE__ */ React87.createElement("div", { className: `fd-shell${tv2 ? " fd-night" : ""}` }, /* @__PURE__ */ React87.createElement("div", { className: `fd-shell-inner${tv2 ? " is-tv" : arrival ? " is-arrival" : ""}` }, environment !== "production" && /* @__PURE__ */ React87.createElement("div", { className: "fd-environment", "aria-label": `${environment} environment` }, environment, " \xB7 Field Day"), children));
+  return /* @__PURE__ */ React89.createElement("div", { className: `fd-shell${tv2 ? " fd-night" : ""}` }, /* @__PURE__ */ React89.createElement("div", { className: `fd-shell-inner${tv2 ? " is-tv" : arrival ? " is-arrival" : ""}` }, environment !== "production" && /* @__PURE__ */ React89.createElement("div", { className: "fd-environment", "aria-label": `${environment} environment` }, environment, " \xB7 Field Day"), children));
 }
 
 // src/ui/usePhaseTheme.js
 init_phase();
 init_motion2();
-import { useLayoutEffect as useLayoutEffect18, useMemo as useMemo14, useRef as useRef61 } from "react";
+import { useLayoutEffect as useLayoutEffect19, useMemo as useMemo16, useRef as useRef63 } from "react";
 var STAGING = (() => {
   try {
     return import.meta.env?.MODE === "staging";
@@ -15387,6 +18049,7 @@ var STAGING = (() => {
 init_theme();
 init_controls();
 init_Menu();
+init_readyCheck();
 init_tvSheetModel();
 init_speakerModel();
 init_speakerStatus();
@@ -15398,8 +18061,8 @@ init_controls();
 init_writeErrors();
 init_motion();
 init_haptics();
-import React88, { useEffect as useEffect63, useRef as useRef62, useState as useState68 } from "react";
-var fmt11 = (n) => (Number(n) || 0).toLocaleString("en-US");
+import React90, { useEffect as useEffect65, useRef as useRef64, useState as useState70 } from "react";
+var fmt12 = (n) => (Number(n) || 0).toLocaleString("en-US");
 var POST = { width: "100%", fontSize: 16, padding: "14px" };
 var HALF = { flex: 1 };
 function initialSlots(state, ev, table) {
@@ -15446,28 +18109,28 @@ function ResultEntry({ ev, state, onClose, save }) {
   const crew = table[2] > 0 ? (draw?.roles || []).map((role) => role.player).filter(Boolean) : [];
   const fieldOf = (placedSlots) => [.../* @__PURE__ */ new Set([...presentPlayers(state), ...placedSlots.flat()])];
   const sidesFor = (placedSlots) => teams ? teams.length : fieldOf(placedSlots).length;
-  const [pick, setPick] = useState68(() => {
+  const [pick, setPick] = useState70(() => {
     const start = initialSlots(state, ev, table);
     return { slots: start, target: twoTeams ? null : nextTarget(start, editable, sidesFor(start)) };
   });
   const { slots, target } = pick;
   const fieldPlayers = fieldOf(slots);
   const sidesInPlay = sidesFor(slots);
-  const [byPlayer, setByPlayer] = useState68(false);
-  const [confirmCorrection, setConfirmCorrection] = useState68(false);
-  const [correctionReason, setCorrectionReason] = useState68("");
-  const [pending, setPending] = useState68(false), [error, setError] = useState68("");
-  const [emptyCheck, setEmptyCheck] = useState68(null);
-  const saving = useRef62(false);
+  const [byPlayer, setByPlayer] = useState70(false);
+  const [confirmCorrection, setConfirmCorrection] = useState70(false);
+  const [correctionReason, setCorrectionReason] = useState70("");
+  const [pending, setPending] = useState70(false), [error, setError] = useState70("");
+  const [emptyCheck, setEmptyCheck] = useState70(null);
+  const saving = useRef64(false);
   const rules = { sequenced, fixedFirst: winnerKnown };
   const emptyPaid = twoTeams ? [] : emptyPaidPlaces(slots, editable, sidesInPlay);
   const firstIsTeam = sequenced && !!teams && target === 0;
   const mode2 = teams && (!byPlayer || firstIsTeam || twoTeams) ? "teams" : "players";
   const unchanged = !!existing && JSON.stringify(existing.slots || []) === JSON.stringify(slots);
   const reduced = useReducedMotion();
-  const root = useRef62(null), flight = useRef62(null);
-  const [arriving, setArriving] = useState68(null);
-  useEffect63(() => {
+  const root = useRef64(null), flight = useRef64(null);
+  const [arriving, setArriving] = useState70(null);
+  useEffect65(() => {
     const next = flight.current;
     if (!next) return;
     flight.current = null;
@@ -15495,10 +18158,10 @@ function ResultEntry({ ev, state, onClose, save }) {
   };
   const tap = (key, players) => {
     if (saving.current) return;
-    const held = slots.some((slot) => players.some((p) => slot.includes(p)));
-    if (held || target !== null && editable.includes(target)) {
+    const held2 = slots.some((slot) => players.some((p) => slot.includes(p)));
+    if (held2 || target !== null && editable.includes(target)) {
       tapTick();
-      takeOff(key, held, target);
+      takeOff(key, held2, target);
     }
     setPick((prev) => {
       const next = tapUnit(prev.slots, players, prev.target, { editable, sidesInPlay: sidesFor(prev.slots), ...rules });
@@ -15548,7 +18211,7 @@ function ResultEntry({ ev, state, onClose, save }) {
     const tieable = !fixed && tieAllowed(place2, rules) && unitsLeft;
     const lit = !fixed && target === place2;
     const count = units.length + (lit && players.length && tieable ? 1 : 0);
-    return /* @__PURE__ */ React88.createElement(
+    return /* @__PURE__ */ React90.createElement(
       Socket,
       {
         key: place2,
@@ -15567,7 +18230,7 @@ function ResultEntry({ ev, state, onClose, save }) {
       },
       units.map((unit) => {
         const label2 = unit.team !== null ? teamLabel(state, teams[unit.team]) : disp(state, unit.players[0]);
-        return /* @__PURE__ */ React88.createElement(
+        return /* @__PURE__ */ React90.createElement(
           SeatUnit,
           {
             key: unit.key,
@@ -15586,7 +18249,7 @@ function ResultEntry({ ev, state, onClose, save }) {
       })
     );
   });
-  if (crew.length) sockets.push(/* @__PURE__ */ React88.createElement(CrewStep, { key: "crew", state, players: crew, amount: table[2] }));
+  if (crew.length) sockets.push(/* @__PURE__ */ React90.createElement(CrewStep, { key: "crew", state, players: crew, amount: table[2] }));
   const placeOf = (players) => {
     const whole = unitPlace(slots, players);
     return whole >= 0 ? whole : -1;
@@ -15596,9 +18259,9 @@ function ResultEntry({ ev, state, onClose, save }) {
   let field = null;
   if (mode2 === "teams") {
     const shown = teams.map((team, index) => ({ team, index })).filter(({ team }) => !team.players.some((p) => fixedFirst.includes(p)));
-    field = /* @__PURE__ */ React88.createElement("div", { className: `fd-pp-field is-teams${twoTeams ? " is-two" : ""}`, role: "group", "aria-label": "Teams" }, shown.map(({ team, index }, i) => {
+    field = /* @__PURE__ */ React90.createElement("div", { className: `fd-pp-field is-teams${twoTeams ? " is-two" : ""}`, role: "group", "aria-label": "Teams" }, shown.map(({ team, index }, i) => {
       const key = `team:${index}`;
-      return /* @__PURE__ */ React88.createElement(
+      return /* @__PURE__ */ React90.createElement(
         TeamTile,
         {
           key,
@@ -15616,9 +18279,9 @@ function ResultEntry({ ev, state, onClose, save }) {
       );
     }));
   } else {
-    field = /* @__PURE__ */ React88.createElement("div", { className: "fd-pp-field", role: "group", "aria-label": "Players" }, fieldPlayers.filter((p) => !fixedFirst.includes(p)).map((p) => {
+    field = /* @__PURE__ */ React90.createElement("div", { className: "fd-pp-field", role: "group", "aria-label": "Players" }, fieldPlayers.filter((p) => !fixedFirst.includes(p)).map((p) => {
       const key = `player:${p}`;
-      return /* @__PURE__ */ React88.createElement(
+      return /* @__PURE__ */ React90.createElement(
         FieldTile,
         {
           key,
@@ -15636,7 +18299,7 @@ function ResultEntry({ ev, state, onClose, save }) {
     }));
   }
   const picking = twoTeams || editable.length > 0;
-  return /* @__PURE__ */ React88.createElement(Sheet, { title: ev.name, show: true, onClose, busy: pending }, /* @__PURE__ */ React88.createElement("div", { className: "fd-pp", ref: root }, /* @__PURE__ */ React88.createElement(Podium, { columns: sockets.length, still: twoTeams || !editable.length }, sockets), picking && /* @__PURE__ */ React88.createElement("fieldset", { className: "fd-pp-fieldset", disabled: pending }, teams && !twoTeams && /* @__PURE__ */ React88.createElement(
+  return /* @__PURE__ */ React90.createElement(Sheet, { title: ev.name, show: true, onClose, busy: pending }, /* @__PURE__ */ React90.createElement("div", { className: "fd-pp", ref: root }, /* @__PURE__ */ React90.createElement(Podium, { columns: sockets.length, still: twoTeams || !editable.length }, sockets), picking && /* @__PURE__ */ React90.createElement("fieldset", { className: "fd-pp-fieldset", disabled: pending }, teams && !twoTeams && /* @__PURE__ */ React90.createElement(
     FieldModes,
     {
       mode: mode2,
@@ -15645,7 +18308,7 @@ function ResultEntry({ ev, state, onClose, save }) {
       onTeams: () => setByPlayer(false),
       onPlayers: () => setByPlayer(true)
     }
-  ), field), error && /* @__PURE__ */ React88.createElement("p", { role: "alert", className: "fd-pp-error" }, error), emptyCheck && emptyPaid.length > 0 && /* @__PURE__ */ React88.createElement("div", { role: "alert", className: "fd-pp-check" }, emptyPaid.map((i) => /* @__PURE__ */ React88.createElement("p", { key: i }, PLACE_NAMES[i], " place pays ", fmt11(table[i]), ". Nobody selected.")), /* @__PURE__ */ React88.createElement("div", { className: "fd-pp-actions" }, /* @__PURE__ */ React88.createElement(ActionButton, { variant: "commit", style: HALF, disabled: pending, onClick: () => post(emptyCheck, true) }, "Leave empty"), /* @__PURE__ */ React88.createElement(
+  ), field), error && /* @__PURE__ */ React90.createElement("p", { role: "alert", className: "fd-pp-error" }, error), emptyCheck && emptyPaid.length > 0 && /* @__PURE__ */ React90.createElement("div", { role: "alert", className: "fd-pp-check" }, emptyPaid.map((i) => /* @__PURE__ */ React90.createElement("p", { key: i }, PLACE_NAMES[i], " place pays ", fmt12(table[i]), ". Nobody selected.")), /* @__PURE__ */ React90.createElement("div", { className: "fd-pp-actions" }, /* @__PURE__ */ React90.createElement(ActionButton, { variant: "commit", style: HALF, disabled: pending, onClick: () => post(emptyCheck, true) }, "Leave empty"), /* @__PURE__ */ React90.createElement(
     ActionButton,
     {
       variant: "tertiary",
@@ -15657,7 +18320,7 @@ function ResultEntry({ ev, state, onClose, save }) {
       }
     },
     "Choose"
-  ))), !existing ? /* @__PURE__ */ React88.createElement(ActionButton, { style: POST, disabled: slots[0].length === 0 || pending, onClick: () => post() }, "Post official result") : !confirmCorrection ? /* @__PURE__ */ React88.createElement(
+  ))), !existing ? /* @__PURE__ */ React90.createElement(ActionButton, { style: POST, disabled: slots[0].length === 0 || pending, onClick: () => post() }, "Post official result") : !confirmCorrection ? /* @__PURE__ */ React90.createElement(
     ActionButton,
     {
       style: POST,
@@ -15665,7 +18328,7 @@ function ResultEntry({ ev, state, onClose, save }) {
       onClick: () => setConfirmCorrection(true)
     },
     unchanged ? "Official result" : "Review result correction"
-  ) : /* @__PURE__ */ React88.createElement("div", { className: "fd-pp-check is-correction" }, /* @__PURE__ */ React88.createElement("label", { className: "fd-pp-reason" }, /* @__PURE__ */ React88.createElement("span", null, "Reason for the correction"), /* @__PURE__ */ React88.createElement(
+  ) : /* @__PURE__ */ React90.createElement("div", { className: "fd-pp-check is-correction" }, /* @__PURE__ */ React90.createElement("label", { className: "fd-pp-reason" }, /* @__PURE__ */ React90.createElement("span", null, "Reason for the correction"), /* @__PURE__ */ React90.createElement(
     "input",
     {
       value: correctionReason,
@@ -15674,7 +18337,7 @@ function ResultEntry({ ev, state, onClose, save }) {
       maxLength: 100,
       "aria-label": "Reason for the correction"
     }
-  )), /* @__PURE__ */ React88.createElement("div", { className: "fd-pp-actions" }, /* @__PURE__ */ React88.createElement(
+  )), /* @__PURE__ */ React90.createElement("div", { className: "fd-pp-actions" }, /* @__PURE__ */ React90.createElement(
     ActionButton,
     {
       variant: "commit",
@@ -15683,7 +18346,7 @@ function ResultEntry({ ev, state, onClose, save }) {
       onClick: () => post({ confirmOverwrite: true, correctionReason })
     },
     "Replace official result"
-  ), /* @__PURE__ */ React88.createElement(
+  ), /* @__PURE__ */ React90.createElement(
     ActionButton,
     {
       variant: "tertiary",
@@ -15701,7 +18364,7 @@ function ResultEntry({ ev, state, onClose, save }) {
 // src/App.jsx
 var Onboarding2 = lazy2(() => Promise.resolve().then(() => (init_Onboarding(), Onboarding_exports)).then((module) => ({ default: module.Onboarding })));
 var prefersReducedMotion2 = () => typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
-var fmt12 = (n) => (n ?? 0).toLocaleString("en-US");
+var fmt13 = (n) => (n ?? 0).toLocaleString("en-US");
 var SINCE_HOLD_MS = 5 * 60 * 1e3;
 var DUEL_LAPSE_NOTICE_MS = 15 * 60 * 1e3;
 var centeredGridCell = (i, count, columns = 3, gap = 6) => {
@@ -15710,7 +18373,7 @@ var centeredGridCell = (i, count, columns = 3, gap = 6) => {
   return { gridColumn: "1 / -1", width: `calc(${100 / columns}% - ${gap / 2}px)`, justifySelf: "center" };
 };
 function PlayerChip({ name, selected, disabled, onClick, small, style }) {
-  return /* @__PURE__ */ React90.createElement("button", { onClick, disabled, "aria-pressed": selected, style: {
+  return /* @__PURE__ */ React92.createElement("button", { onClick, disabled, "aria-pressed": selected, style: {
     fontFamily: SANS,
     fontWeight: 600,
     fontSize: small ? 13 : 14,
@@ -15731,7 +18394,7 @@ function PlayerChip({ name, selected, disabled, onClick, small, style }) {
 }
 function EventIntro({ state, ev, handoff, onClose, onBets }) {
   const reduced = prefersReducedMotion2();
-  return /* @__PURE__ */ React90.createElement(
+  return /* @__PURE__ */ React92.createElement(
     EventAnnouncement,
     {
       state,
@@ -15748,8 +18411,8 @@ function EventIntro({ state, ev, handoff, onClose, onBets }) {
 }
 function ChipCounter({ start, onDone }) {
   const denominations = [1e3, 500, 100, 25];
-  const countId = useId10(), saving = useRef64(false);
-  const [counts, setCounts] = useState70(() => {
+  const countId = useId10(), saving = useRef66(false);
+  const [counts, setCounts] = useState72(() => {
     let left = start || 0;
     return Object.fromEntries(denominations.map((value) => {
       const n = Math.floor(left / value);
@@ -15757,12 +18420,12 @@ function ChipCounter({ start, onDone }) {
       return [value, n];
     }));
   });
-  const [pending, setPending] = useState70(false), [error, setError] = useState70("");
+  const [pending, setPending] = useState72(false), [error, setError] = useState72("");
   const total = denominations.reduce((sum, value) => sum + Number(counts[value] || 0) * value, 0);
   const set = (value, count) => {
     if (!saving.current) setCounts((current) => ({ ...current, [value]: count }));
   };
-  return /* @__PURE__ */ React90.createElement("div", { className: "fd-chip-counter" }, denominations.map((value) => /* @__PURE__ */ React90.createElement("div", { className: "fd-chip-count-row", key: value }, /* @__PURE__ */ React90.createElement("label", { htmlFor: countId + value }, fmt12(value), " chips"), /* @__PURE__ */ React90.createElement(
+  return /* @__PURE__ */ React92.createElement("div", { className: "fd-chip-counter" }, denominations.map((value) => /* @__PURE__ */ React92.createElement("div", { className: "fd-chip-count-row", key: value }, /* @__PURE__ */ React92.createElement("label", { htmlFor: countId + value }, fmt13(value), " chips"), /* @__PURE__ */ React92.createElement(
     "button",
     {
       type: "button",
@@ -15770,8 +18433,8 @@ function ChipCounter({ start, onDone }) {
       "aria-label": "Remove one " + value + " chip",
       onClick: () => set(value, Math.max(0, Number(counts[value] || 0) - 1))
     },
-    /* @__PURE__ */ React90.createElement(Icon, { name: "minus", size: 16 })
-  ), /* @__PURE__ */ React90.createElement(
+    /* @__PURE__ */ React92.createElement(Icon, { name: "minus", size: 16 })
+  ), /* @__PURE__ */ React92.createElement(
     "input",
     {
       id: countId + value,
@@ -15784,7 +18447,7 @@ function ChipCounter({ start, onDone }) {
         if (/^\d*$/.test(event.target.value)) set(value, event.target.value);
       }
     }
-  ), /* @__PURE__ */ React90.createElement("button", { type: "button", disabled: pending, "aria-label": "Add one " + value + " chip", onClick: () => set(value, Number(counts[value] || 0) + 1) }, /* @__PURE__ */ React90.createElement(Icon, { name: "plus", size: 16 })))), /* @__PURE__ */ React90.createElement("div", { className: "fd-chip-count-total" }, /* @__PURE__ */ React90.createElement("span", null, "Total"), /* @__PURE__ */ React90.createElement("strong", null, fmt12(total))), error && /* @__PURE__ */ React90.createElement("p", { role: "alert" }, error), /* @__PURE__ */ React90.createElement(ActionButton, { className: "fd-chip-count-save", disabled: pending || total <= 0, onClick: async () => {
+  ), /* @__PURE__ */ React92.createElement("button", { type: "button", disabled: pending, "aria-label": "Add one " + value + " chip", onClick: () => set(value, Number(counts[value] || 0) + 1) }, /* @__PURE__ */ React92.createElement(Icon, { name: "plus", size: 16 })))), /* @__PURE__ */ React92.createElement("div", { className: "fd-chip-count-total" }, /* @__PURE__ */ React92.createElement("span", null, "Total"), /* @__PURE__ */ React92.createElement("strong", null, fmt13(total))), error && /* @__PURE__ */ React92.createElement("p", { role: "alert" }, error), /* @__PURE__ */ React92.createElement(ActionButton, { className: "fd-chip-count-save", disabled: pending || total <= 0, onClick: async () => {
     if (saving.current || total <= 0) return;
     saving.current = true;
     setPending(true);
@@ -15802,9 +18465,9 @@ function ChipCounter({ start, onDone }) {
 }
 function PokerResultSheet({ state, onClose, onCount, onBust, onUnbust, onPost }) {
   const pk = state.poker;
-  const [fixing, setFixing] = useState70(null);
-  const [pending, setPending] = useState70(false), [error, setError] = useState70("");
-  const saving = useRef64(false);
+  const [fixing, setFixing] = useState72(null);
+  const [pending, setPending] = useState72(false), [error, setError] = useState72("");
+  const saving = useRef66(false);
   const act = async (callback) => {
     if (saving.current) return { ok: false, error: "Saving\u2026" };
     saving.current = true;
@@ -15830,10 +18493,10 @@ function PokerResultSheet({ state, onClose, onCount, onBust, onUnbust, onPost })
   const counted = alive.filter((p) => pk.counts?.[p] !== void 0);
   const sum = counted.reduce((s, p) => s + pk.counts[p], 0);
   const allIn = counted.length === alive.length;
-  return /* @__PURE__ */ React90.createElement(Sheet, { title: "The table", onClose, busy: pending }, seats.map((p) => {
+  return /* @__PURE__ */ React92.createElement(Sheet, { title: "The table", onClose, busy: pending }, seats.map((p) => {
     const out = outSet.has(p);
     const c = pk.counts?.[p];
-    return /* @__PURE__ */ React90.createElement("div", { key: p }, /* @__PURE__ */ React90.createElement("div", { className: "fd-poker-count-row" + (out ? " is-out" : "") }, /* @__PURE__ */ React90.createElement(
+    return /* @__PURE__ */ React92.createElement("div", { key: p }, /* @__PURE__ */ React92.createElement("div", { className: "fd-poker-count-row" + (out ? " is-out" : "") }, /* @__PURE__ */ React92.createElement(
       "button",
       {
         className: "fd-poker-count-player",
@@ -15844,10 +18507,10 @@ function PokerResultSheet({ state, onClose, onCount, onBust, onUnbust, onPost })
           if (!saving.current) setFixing((f) => f === p ? null : p);
         }
       },
-      /* @__PURE__ */ React90.createElement(Avatar, { state, p, size: 28 }),
-      /* @__PURE__ */ React90.createElement("span", null, disp(state, p)),
-      out ? /* @__PURE__ */ React90.createElement(Tag, null, "Out") : c !== void 0 ? /* @__PURE__ */ React90.createElement("strong", null, fmt12(c)) : /* @__PURE__ */ React90.createElement("small", null, "counting")
-    ), /* @__PURE__ */ React90.createElement(
+      /* @__PURE__ */ React92.createElement(Avatar, { state, p, size: 28 }),
+      /* @__PURE__ */ React92.createElement("span", null, disp(state, p)),
+      out ? /* @__PURE__ */ React92.createElement(Tag, null, "Out") : c !== void 0 ? /* @__PURE__ */ React92.createElement("strong", null, fmt13(c)) : /* @__PURE__ */ React92.createElement("small", null, "counting")
+    ), /* @__PURE__ */ React92.createElement(
       "button",
       {
         className: "fd-poker-count-action",
@@ -15860,27 +18523,27 @@ function PokerResultSheet({ state, onClose, onCount, onBust, onUnbust, onPost })
         })
       },
       out ? "Back in" : "Bust"
-    )), fixing === p && !out && /* @__PURE__ */ React90.createElement("div", { className: "fd-night", style: {
+    )), fixing === p && !out && /* @__PURE__ */ React92.createElement("div", { className: "fd-night", style: {
       padding: "10px 0",
       borderBottom: "1px solid var(--line)",
       background: "var(--night)",
       margin: "0 -16px",
       paddingLeft: 16,
       paddingRight: 16
-    } }, /* @__PURE__ */ React90.createElement(ChipCounter, { start: c, onDone: (total) => act(async () => {
+    } }, /* @__PURE__ */ React92.createElement(ChipCounter, { start: c, onDone: (total) => act(async () => {
       const result = await onCount(p, total);
       if (result?.ok) setFixing(null);
       return result;
     }) })));
-  }), /* @__PURE__ */ React90.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, padding: "12px 0 4px" } }, /* @__PURE__ */ React90.createElement("span", { style: { ...label, flex: 1 } }, "Counted"), /* @__PURE__ */ React90.createElement("span", { style: {
+  }), /* @__PURE__ */ React92.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, padding: "12px 0 4px" } }, /* @__PURE__ */ React92.createElement("span", { style: { ...label, flex: 1 } }, "Counted"), /* @__PURE__ */ React92.createElement("span", { style: {
     fontFamily: DISPLAY,
     fontWeight: 700,
     fontSize: 22,
     color: allIn && sum === pk.total ? "var(--green)" : "var(--ink)"
-  } }, fmt12(sum)), /* @__PURE__ */ React90.createElement("span", { style: { fontFamily: SANS, fontSize: 12.5, color: "var(--muted)" } }, "of ", fmt12(pk.total))), allIn && sum !== pk.total && /* @__PURE__ */ React90.createElement("div", { style: { fontFamily: SANS, fontSize: 12.5, color: "var(--clay-text)", marginBottom: 10 } }, sum > pk.total ? `${fmt12(sum - pk.total)} over` : `${fmt12(pk.total - sum)} short`, "."), error && /* @__PURE__ */ React90.createElement("p", { role: "alert", style: { color: "var(--clay-text)", fontSize: 13 } }, error), /* @__PURE__ */ React90.createElement(Btn, { disabled: !allIn || pending, onClick: () => act(onPost), style: { width: "100%", marginTop: 8 } }, allIn ? "Post the counts" : `Waiting on ${alive.length - counted.length}`));
+  } }, fmt13(sum)), /* @__PURE__ */ React92.createElement("span", { style: { fontFamily: SANS, fontSize: 12.5, color: "var(--muted)" } }, "of ", fmt13(pk.total))), allIn && sum !== pk.total && /* @__PURE__ */ React92.createElement("div", { style: { fontFamily: SANS, fontSize: 12.5, color: "var(--clay-text)", marginBottom: 10 } }, sum > pk.total ? `${fmt13(sum - pk.total)} over` : `${fmt13(pk.total - sum)} short`, "."), error && /* @__PURE__ */ React92.createElement("p", { role: "alert", style: { color: "var(--clay-text)", fontSize: 13 } }, error), /* @__PURE__ */ React92.createElement(Btn, { disabled: !allIn || pending, onClick: () => act(onPost), style: { width: "100%", marginTop: 8 } }, allIn ? "Post the counts" : `Waiting on ${alive.length - counted.length}`));
 }
 function PlayerLinks({ state, players, onPlayer, size = 26 }) {
-  return /* @__PURE__ */ React90.createElement("div", { className: "fd-player-links" }, players.map((p) => /* @__PURE__ */ React90.createElement(
+  return /* @__PURE__ */ React92.createElement("div", { className: "fd-player-links" }, players.map((p) => /* @__PURE__ */ React92.createElement(
     "button",
     {
       type: "button",
@@ -15889,16 +18552,16 @@ function PlayerLinks({ state, players, onPlayer, size = 26 }) {
       onClick: () => onPlayer(p),
       "aria-label": `View ${disp(state, p)}'s player card`
     },
-    /* @__PURE__ */ React90.createElement(Avatar, { state, p, size }),
-    /* @__PURE__ */ React90.createElement("span", null, disp(state, p))
+    /* @__PURE__ */ React92.createElement(Avatar, { state, p, size }),
+    /* @__PURE__ */ React92.createElement("span", null, disp(state, p))
   )));
 }
 function EventCrewCard({ state, roles, compact = false, onPlayer }) {
   const assignments = (roles || []).filter((item) => item?.player);
   if (!assignments.length) return null;
   if (compact) {
-    if (onPlayer) return /* @__PURE__ */ React90.createElement("div", { className: "fd-event-crew-compact" }, /* @__PURE__ */ React90.createElement("span", { style: label }, "Event crew"), assignments.map((item) => /* @__PURE__ */ React90.createElement("button", { type: "button", key: item.player, onClick: () => onPlayer(item.player), "aria-label": `View ${disp(state, item.player)}'s player card` }, /* @__PURE__ */ React90.createElement(Avatar, { state, p: item.player, size: 24 }), /* @__PURE__ */ React90.createElement("span", null, disp(state, item.player)), /* @__PURE__ */ React90.createElement("small", null, overflowRoleMeta(item.role).short))));
-    return /* @__PURE__ */ React90.createElement("div", { style: {
+    if (onPlayer) return /* @__PURE__ */ React92.createElement("div", { className: "fd-event-crew-compact" }, /* @__PURE__ */ React92.createElement("span", { style: label }, "Event crew"), assignments.map((item) => /* @__PURE__ */ React92.createElement("button", { type: "button", key: item.player, onClick: () => onPlayer(item.player), "aria-label": `View ${disp(state, item.player)}'s player card` }, /* @__PURE__ */ React92.createElement(Avatar, { state, p: item.player, size: 24 }), /* @__PURE__ */ React92.createElement("span", null, disp(state, item.player)), /* @__PURE__ */ React92.createElement("small", null, overflowRoleMeta(item.role).short))));
+    return /* @__PURE__ */ React92.createElement("div", { style: {
       display: "flex",
       alignItems: "center",
       gap: 8,
@@ -15906,7 +18569,7 @@ function EventCrewCard({ state, roles, compact = false, onPlayer }) {
       marginTop: 9,
       paddingTop: 8,
       borderTop: "1px solid var(--line)"
-    } }, /* @__PURE__ */ React90.createElement("span", { style: { ...label, color: "var(--muted2)", flexShrink: 0 } }, "Event crew"), /* @__PURE__ */ React90.createElement(AvatarStack, { state, players: assignments.map((item) => item.player), size: 20, max: 3 }), /* @__PURE__ */ React90.createElement("span", { style: {
+    } }, /* @__PURE__ */ React92.createElement("span", { style: { ...label, color: "var(--muted2)", flexShrink: 0 } }, "Event crew"), /* @__PURE__ */ React92.createElement(AvatarStack, { state, players: assignments.map((item) => item.player), size: 20, max: 3 }), /* @__PURE__ */ React92.createElement("span", { style: {
       fontFamily: SANS,
       fontWeight: 600,
       fontSize: 12,
@@ -15916,7 +18579,7 @@ function EventCrewCard({ state, roles, compact = false, onPlayer }) {
       textOverflow: "ellipsis",
       whiteSpace: "nowrap",
       flex: 1
-    } }, assignments.map((item) => disp(state, item.player)).join(", ")), /* @__PURE__ */ React90.createElement("span", { style: {
+    } }, assignments.map((item) => disp(state, item.player)).join(", ")), /* @__PURE__ */ React92.createElement("span", { style: {
       fontFamily: SANS,
       fontWeight: 700,
       fontSize: 12,
@@ -15924,15 +18587,15 @@ function EventCrewCard({ state, roles, compact = false, onPlayer }) {
       flexShrink: 0
     } }, assignments.map((item) => overflowRoleMeta(item.role).short).join(" + ")));
   }
-  return /* @__PURE__ */ React90.createElement("div", { style: {
+  return /* @__PURE__ */ React92.createElement("div", { style: {
     margin: "10px 0 4px",
     padding: "11px 12px",
     borderRadius: 14,
     background: "var(--paper2)",
     border: "1px solid var(--bone-line)"
-  } }, /* @__PURE__ */ React90.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 8 } }, /* @__PURE__ */ React90.createElement("span", { style: { ...label, color: "var(--muted2)", flex: 1 } }, "Event crew")), assignments.map((item, index) => {
+  } }, /* @__PURE__ */ React92.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 8 } }, /* @__PURE__ */ React92.createElement("span", { style: { ...label, color: "var(--muted2)", flex: 1 } }, "Event crew")), assignments.map((item, index) => {
     const meta = overflowRoleMeta(item.role);
-    if (onPlayer) return /* @__PURE__ */ React90.createElement(
+    if (onPlayer) return /* @__PURE__ */ React92.createElement(
       "button",
       {
         type: "button",
@@ -15941,18 +18604,18 @@ function EventCrewCard({ state, roles, compact = false, onPlayer }) {
         onClick: () => onPlayer(item.player),
         "aria-label": `View ${disp(state, item.player)}'s player card`
       },
-      /* @__PURE__ */ React90.createElement(Avatar, { state, p: item.player, size: 30 }),
-      /* @__PURE__ */ React90.createElement("span", null, /* @__PURE__ */ React90.createElement("strong", null, disp(state, item.player))),
-      /* @__PURE__ */ React90.createElement("small", null, meta.label)
+      /* @__PURE__ */ React92.createElement(Avatar, { state, p: item.player, size: 30 }),
+      /* @__PURE__ */ React92.createElement("span", null, /* @__PURE__ */ React92.createElement("strong", null, disp(state, item.player))),
+      /* @__PURE__ */ React92.createElement("small", null, meta.label)
     );
-    return /* @__PURE__ */ React90.createElement("div", { key: `${item.player}-${index}`, style: {
+    return /* @__PURE__ */ React92.createElement("div", { key: `${item.player}-${index}`, style: {
       display: "flex",
       alignItems: "center",
       gap: 9,
       padding: index ? "8px 0 0" : "0",
       marginTop: index ? 8 : 0,
       borderTop: index ? "1px solid var(--line)" : "none"
-    } }, /* @__PURE__ */ React90.createElement(Avatar, { state, p: item.player, size: 30 }), /* @__PURE__ */ React90.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React90.createElement("div", { style: {
+    } }, /* @__PURE__ */ React92.createElement(Avatar, { state, p: item.player, size: 30 }), /* @__PURE__ */ React92.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React92.createElement("div", { style: {
       fontFamily: SANS,
       fontWeight: 700,
       fontSize: 13,
@@ -15960,7 +18623,7 @@ function EventCrewCard({ state, roles, compact = false, onPlayer }) {
       overflow: "hidden",
       textOverflow: "ellipsis",
       whiteSpace: "nowrap"
-    } }, disp(state, item.player))), /* @__PURE__ */ React90.createElement("span", { style: {
+    } }, disp(state, item.player))), /* @__PURE__ */ React92.createElement("span", { style: {
       fontFamily: SANS,
       fontWeight: 700,
       fontSize: 12,
@@ -15980,14 +18643,14 @@ function StageGrid({ state, ev, gm, onThrough, onFinal, onPlayer, size = "md" })
     md: { av: 24, f: 13.5, tf: 13, pad: "7px 10px", gap: 8, col: "1fr 1fr" },
     lg: { av: 36, f: 19, tf: 17, pad: "11px 14px", gap: 14, col: `repeat(${Math.min(st.groups.length + (finalists ? 1 : 0), 4)}, 1fr)` }
   }[size];
-  const GroupCard = ({ title, entrants, through, gIdx, isFinal, wide }) => /* @__PURE__ */ React90.createElement("div", { style: {
+  const GroupCard = ({ title, entrants, through, gIdx, isFinal, wide }) => /* @__PURE__ */ React92.createElement("div", { style: {
     background: "var(--paper2)",
     border: "1px solid " + (isFinal ? "var(--ghost-line)" : "var(--line)"),
     borderRadius: 14,
     overflow: "hidden",
     boxShadow: "var(--shadow-1)",
     ...wide ? { gridColumn: "1 / -1" } : {}
-  } }, /* @__PURE__ */ React90.createElement("div", { style: {
+  } }, /* @__PURE__ */ React92.createElement("div", { style: {
     ...label,
     fontSize: size === "lg" ? 13 : 12,
     padding: size === "lg" ? "9px 14px 5px" : "7px 10px 3px",
@@ -15998,12 +18661,12 @@ function StageGrid({ state, ev, gm, onThrough, onFinal, onPlayer, size = "md" })
     const decided3 = isFinal ? st.finalWinner !== null && st.finalWinner !== void 0 : (through || []).length >= st.advance;
     const dimmed = decided3 && !isThrough;
     const clickable = gm && (isFinal ? onFinal : onThrough);
-    if (!gm && onPlayer) return /* @__PURE__ */ React90.createElement("div", { key: String(key), style: {
+    if (!gm && onPlayer) return /* @__PURE__ */ React92.createElement("div", { key: String(key), style: {
       padding: dims.pad,
       borderTop: "1px solid var(--line)",
       background: isThrough ? "var(--accent-tint)" : "transparent"
-    } }, /* @__PURE__ */ React90.createElement(PlayerLinks, { state, players: v.players, onPlayer, size: dims.av }), isThrough && /* @__PURE__ */ React90.createElement("small", { style: { color: "var(--accent2)" } }, isFinal ? "Winner" : "Advanced"));
-    return /* @__PURE__ */ React90.createElement(
+    } }, /* @__PURE__ */ React92.createElement(PlayerLinks, { state, players: v.players, onPlayer, size: dims.av }), isThrough && /* @__PURE__ */ React92.createElement("small", { style: { color: "var(--accent2)" } }, isFinal ? "Winner" : "Advanced"));
+    return /* @__PURE__ */ React92.createElement(
       "button",
       {
         key: String(key),
@@ -16023,8 +18686,8 @@ function StageGrid({ state, ev, gm, onThrough, onFinal, onPlayer, size = "md" })
           opacity: dimmed ? 0.38 : 1
         }
       },
-      /* @__PURE__ */ React90.createElement(AvatarStack, { state, players: v.players, size: dims.av, max: 3 }),
-      /* @__PURE__ */ React90.createElement("span", { style: {
+      /* @__PURE__ */ React92.createElement(AvatarStack, { state, players: v.players, size: dims.av, max: 3 }),
+      /* @__PURE__ */ React92.createElement("span", { style: {
         fontFamily: SANS,
         fontWeight: 700,
         fontSize: dims.f,
@@ -16034,10 +18697,10 @@ function StageGrid({ state, ev, gm, onThrough, onFinal, onPlayer, size = "md" })
         whiteSpace: "nowrap",
         color: isThrough ? "var(--accent2)" : "var(--ink)"
       } }, v.name),
-      isThrough && /* @__PURE__ */ React90.createElement("span", { style: { fontFamily: SANS, fontWeight: 700, fontSize: dims.tf, color: "var(--accent2)" } }, /* @__PURE__ */ React90.createElement(Icon, { name: isFinal ? "trophy" : "check", size: "1em" }))
+      isThrough && /* @__PURE__ */ React92.createElement("span", { style: { fontFamily: SANS, fontWeight: 700, fontSize: dims.tf, color: "var(--accent2)" } }, /* @__PURE__ */ React92.createElement(Icon, { name: isFinal ? "trophy" : "check", size: "1em" }))
     );
   }));
-  return /* @__PURE__ */ React90.createElement("div", { style: { display: "grid", gridTemplateColumns: dims.col, gap: dims.gap, alignItems: "start" } }, st.groups.map((g, i) => /* @__PURE__ */ React90.createElement(
+  return /* @__PURE__ */ React92.createElement("div", { style: { display: "grid", gridTemplateColumns: dims.col, gap: dims.gap, alignItems: "start" } }, st.groups.map((g, i) => /* @__PURE__ */ React92.createElement(
     GroupCard,
     {
       key: i,
@@ -16046,7 +18709,7 @@ function StageGrid({ state, ev, gm, onThrough, onFinal, onPlayer, size = "md" })
       through: g.through,
       gIdx: i
     }
-  )), finalists && /* @__PURE__ */ React90.createElement(
+  )), finalists && /* @__PURE__ */ React92.createElement(
     GroupCard,
     {
       title: "The Final",
@@ -16091,7 +18754,7 @@ function EventSheet({
   onTakeBack
 }) {
   const res = state.results[ev.id];
-  const [confirmTakeBack, setConfirmTakeBack] = useState70(false);
+  const [confirmTakeBack, setConfirmTakeBack] = useState72(false);
   const contestOps = useContestOperations();
   const draw = state.draws[ev.id];
   const draftLive = state.drafts?.[ev.id];
@@ -16099,20 +18762,20 @@ function EventSheet({
   const st = state.stages[ev.id];
   const table = AWARDS[ev.value] ? awardTable(ev) : void 0;
   const shelvedNow = !!state.shelved[ev.id];
-  const [confirmRedraw, setConfirmRedraw] = useState70(false);
-  const [confirmRemove, setConfirmRemove] = useState70(false);
-  const [confirmClear, setConfirmClear] = useState70(false);
-  const [clearReason, setClearReason] = useState70("");
-  const [confirmScrap, setConfirmScrap] = useState70(false);
-  const [confirmShelve, setConfirmShelve] = useState70(false);
+  const [confirmRedraw, setConfirmRedraw] = useState72(false);
+  const [confirmRemove, setConfirmRemove] = useState72(false);
+  const [confirmClear, setConfirmClear] = useState72(false);
+  const [clearReason, setClearReason] = useState72("");
+  const [confirmScrap, setConfirmScrap] = useState72(false);
+  const [confirmShelve, setConfirmShelve] = useState72(false);
   const openBets = (state.wagers || []).filter((w) => w.eventId === ev.id && resolveWager(state, w, allEventsOf(state)).status === "pending");
-  const [editOpen, setEditOpen] = useState70(false);
-  const [howTo, setHowTo] = useState70(false);
-  const [more, setMore] = useState70(false);
-  const [eName, setEName] = useState70("");
-  const [eDesc, setEDesc] = useState70("");
-  const [eValue, setEValue] = useState70(400);
-  const [eSession, setESession] = useState70(null);
+  const [editOpen, setEditOpen] = useState72(false);
+  const [howTo, setHowTo] = useState72(false);
+  const [more, setMore] = useState72(false);
+  const [eName, setEName] = useState72("");
+  const [eDesc, setEDesc] = useState72("");
+  const [eValue, setEValue] = useState72(400);
+  const [eSession, setESession] = useState72(null);
   const openEdit = () => {
     setEName(ev.name);
     setEDesc(ev.desc || "");
@@ -16120,16 +18783,16 @@ function EventSheet({
     setESession(SESSIONS.find((s) => s.id === ev.session) ? ev.session : null);
     setEditOpen(true);
   };
-  const [suggested] = useState70(() => ev.teamCfg && !state.draws?.[ev.id] ? suggestParticipants(state, ev) : null);
-  const [outs, setOuts] = useState70(() => (suggested?.roles || []).map((item) => item.player));
-  const [outRoles, setOutRoles] = useState70(() => Object.fromEntries((suggested?.roles || []).map((item) => [item.player, item.role])));
-  const [swapOut, setSwapOut] = useState70(""), [swapIn, setSwapIn] = useState70("");
-  const [showOuts, setShowOuts] = useState70(false);
-  const [stageCfgOpen, setStageCfgOpen] = useState70(!!ev.stageCfg);
-  const [nGroups, setNGroups] = useState70(null);
-  const [advance, setAdvance] = useState70(ev.stageCfg?.advance || 1);
-  const [setupPending, setSetupPending] = useState70(false);
-  const [contestPending, setContestPending] = useState70(false);
+  const [suggested] = useState72(() => ev.teamCfg && !state.draws?.[ev.id] ? suggestParticipants(state, ev) : null);
+  const [outs, setOuts] = useState72(() => (suggested?.roles || []).map((item) => item.player));
+  const [outRoles, setOutRoles] = useState72(() => Object.fromEntries((suggested?.roles || []).map((item) => [item.player, item.role])));
+  const [swapOut, setSwapOut] = useState72(""), [swapIn, setSwapIn] = useState72("");
+  const [showOuts, setShowOuts] = useState72(false);
+  const [stageCfgOpen, setStageCfgOpen] = useState72(!!ev.stageCfg);
+  const [nGroups, setNGroups] = useState72(null);
+  const [advance, setAdvance] = useState72(ev.stageCfg?.advance || 1);
+  const [setupPending, setSetupPending] = useState72(false);
+  const [contestPending, setContestPending] = useState72(false);
   const waitForContest = async (callback) => {
     setContestPending(true);
     try {
@@ -16138,8 +18801,8 @@ function EventSheet({
       setContestPending(false);
     }
   };
-  const [setupError, setSetupError] = useState70("");
-  const setupBusy = useRef64(false);
+  const [setupError, setSetupError] = useState72("");
+  const setupBusy = useRef66(false);
   const saveSetup = async (callback) => {
     if (setupBusy.current) return;
     setupBusy.current = true;
@@ -16194,8 +18857,8 @@ function EventSheet({
     onResult: () => waitForContest(enterResult),
     onPlayNext: onPlayNext ? (payload) => waitForContest(() => onPlayNext(payload)) : void 0
   };
-  const who = /* @__PURE__ */ React90.createElement(React90.Fragment, null, draftLive && !draw && /* @__PURE__ */ React90.createElement("div", { className: "fd-es-block" }, /* @__PURE__ */ React90.createElement(DraftEntry, { state, ev, me, onOpen: () => openDraft() })), draw && !br && !st && !contestShowsSides && /* @__PURE__ */ React90.createElement(EventTeams, { state, ev, draw, me, onPlayer }), br && !contestActive && /* @__PURE__ */ React90.createElement("div", { className: "fd-es-block" }, /* @__PURE__ */ React90.createElement(CompetitionBracket, { state, ev, me, onPlayer })), st && /* @__PURE__ */ React90.createElement("div", { className: "fd-es-block" }, /* @__PURE__ */ React90.createElement(StageGrid, { state, ev, gm: false, onPlayer })), !draw && !draftLive && !st && !ev.teamCfg && !isPoker && stage === "before" && /* @__PURE__ */ React90.createElement(EventField, { state, ev, me, onPlayer }), roles && /* @__PURE__ */ React90.createElement(EventCrew, { state, roles, me, onPlayer }));
-  return /* @__PURE__ */ React90.createElement(
+  const who = /* @__PURE__ */ React92.createElement(React92.Fragment, null, draftLive && !draw && /* @__PURE__ */ React92.createElement("div", { className: "fd-es-block" }, /* @__PURE__ */ React92.createElement(DraftEntry, { state, ev, me, onOpen: () => openDraft() })), draw && !br && !st && !contestShowsSides && /* @__PURE__ */ React92.createElement(EventTeams, { state, ev, draw, me, onPlayer }), br && !contestActive && /* @__PURE__ */ React92.createElement("div", { className: "fd-es-block" }, /* @__PURE__ */ React92.createElement(CompetitionBracket, { state, ev, me, onPlayer })), st && /* @__PURE__ */ React92.createElement("div", { className: "fd-es-block" }, /* @__PURE__ */ React92.createElement(StageGrid, { state, ev, gm: false, onPlayer })), !draw && !draftLive && !st && !ev.teamCfg && !isPoker && stage === "before" && /* @__PURE__ */ React92.createElement(EventField, { state, ev, me, onPlayer }), roles && /* @__PURE__ */ React92.createElement(EventCrew, { state, roles, me, onPlayer }));
+  return /* @__PURE__ */ React92.createElement(
     Sheet,
     {
       title: ev.name,
@@ -16204,20 +18867,20 @@ function EventSheet({
       onBack,
       wide: !!br,
       busy: setupPending || contestPending,
-      headerActions: /* @__PURE__ */ React90.createElement(React90.Fragment, null, (draw || st) && onReplay && /* @__PURE__ */ React90.createElement("button", { type: "button", disabled: setupPending || contestPending, onClick: onReplay }, "Replay draw"), hasGameRules(ev) && stage !== "before" && /* @__PURE__ */ React90.createElement("button", { type: "button", disabled: setupPending || contestPending, onClick: () => setHowTo(true) }, "Rules"))
+      headerActions: /* @__PURE__ */ React92.createElement(React92.Fragment, null, (draw || st) && onReplay && /* @__PURE__ */ React92.createElement("button", { type: "button", disabled: setupPending || contestPending, onClick: onReplay }, "Replay draw"), hasGameRules(ev) && stage !== "before" && /* @__PURE__ */ React92.createElement("button", { type: "button", disabled: setupPending || contestPending, onClick: () => setHowTo(true) }, "Rules"))
     },
-    howTo && /* @__PURE__ */ React90.createElement(HowToSheet, { gameId: ev.game, variant: ev.variant, ev, onClose: () => setHowTo(false) }),
-    /* @__PURE__ */ React90.createElement(ContestPanel, { ...contestProps, part: "contest" }),
-    /* @__PURE__ */ React90.createElement(TeamNameCard, { state, ev, me }),
-    stage === "before" && /* @__PURE__ */ React90.createElement(React90.Fragment, null, who, /* @__PURE__ */ React90.createElement(GameSteps, { game: ev, size: "card", className: "fd-es-steps" }), !GAMES[ev.game] && ev.desc && /* @__PURE__ */ React90.createElement("p", { className: "fd-es-gm-note" }, ev.desc), table && /* @__PURE__ */ React90.createElement(EventPays, { ev, crew: crewAward })),
-    stage === "live" && /* @__PURE__ */ React90.createElement(React90.Fragment, null, path?.mine && /* @__PURE__ */ React90.createElement("p", { className: "fd-es-path" }, path.text), who, /* @__PURE__ */ React90.createElement(EventRiding, { state, ev })),
-    stage === "after" && /* @__PURE__ */ React90.createElement(React90.Fragment, null, /* @__PURE__ */ React90.createElement(EventResult, { state, ev, me, onPlayer }), br && /* @__PURE__ */ React90.createElement("details", { className: "fd-event-info" }, /* @__PURE__ */ React90.createElement("summary", null, /* @__PURE__ */ React90.createElement("span", null, "Bracket")), /* @__PURE__ */ React90.createElement(CompetitionBracket, { state, ev, me, onPlayer })), st && /* @__PURE__ */ React90.createElement("details", { className: "fd-event-info" }, /* @__PURE__ */ React90.createElement("summary", null, /* @__PURE__ */ React90.createElement("span", null, st.kind === "heats" ? "Heats" : "Pools")), /* @__PURE__ */ React90.createElement(StageGrid, { state, ev, gm: false, onPlayer }))),
-    !contestActive && onBets && stage !== "after" && /* @__PURE__ */ React90.createElement(ActionButton, { variant: "secondary", onClick: onBets, style: { width: "100%", marginBottom: 12 } }, "View bets"),
-    gm && /* @__PURE__ */ React90.createElement("section", { className: "fd-es-gm", "aria-labelledby": `fd-es-gm-${ev.id}` }, /* @__PURE__ */ React90.createElement("h2", { id: `fd-es-gm-${ev.id}` }, "Commissioner"), /* @__PURE__ */ React90.createElement(ContestPanel, { ...contestProps, part: "commissioner" }), /* @__PURE__ */ React90.createElement(TeamNameDesk, { state, ev }), !state.frozen && /* @__PURE__ */ React90.createElement(React90.Fragment, null, ev.teamCfg && !draw && !draftLive && !res && (() => {
+    howTo && /* @__PURE__ */ React92.createElement(HowToSheet, { gameId: ev.game, variant: ev.variant, ev, onClose: () => setHowTo(false) }),
+    /* @__PURE__ */ React92.createElement(ContestPanel, { ...contestProps, part: "contest" }),
+    /* @__PURE__ */ React92.createElement(TeamNameCard, { state, ev, me }),
+    stage === "before" && /* @__PURE__ */ React92.createElement(React92.Fragment, null, who, /* @__PURE__ */ React92.createElement(GameSteps, { game: ev, size: "card", className: "fd-es-steps" }), !GAMES[ev.game] && ev.desc && /* @__PURE__ */ React92.createElement("p", { className: "fd-es-gm-note" }, ev.desc), table && /* @__PURE__ */ React92.createElement(EventPays, { ev, crew: crewAward })),
+    stage === "live" && /* @__PURE__ */ React92.createElement(React92.Fragment, null, path?.mine && /* @__PURE__ */ React92.createElement("p", { className: "fd-es-path" }, path.text), who, /* @__PURE__ */ React92.createElement(EventRiding, { state, ev })),
+    stage === "after" && /* @__PURE__ */ React92.createElement(React92.Fragment, null, /* @__PURE__ */ React92.createElement(EventResult, { state, ev, me, onPlayer }), br && /* @__PURE__ */ React92.createElement("details", { className: "fd-event-info" }, /* @__PURE__ */ React92.createElement("summary", null, /* @__PURE__ */ React92.createElement("span", null, "Bracket")), /* @__PURE__ */ React92.createElement(CompetitionBracket, { state, ev, me, onPlayer })), st && /* @__PURE__ */ React92.createElement("details", { className: "fd-event-info" }, /* @__PURE__ */ React92.createElement("summary", null, /* @__PURE__ */ React92.createElement("span", null, st.kind === "heats" ? "Heats" : "Pools")), /* @__PURE__ */ React92.createElement(StageGrid, { state, ev, gm: false, onPlayer }))),
+    !contestActive && onBets && stage !== "after" && /* @__PURE__ */ React92.createElement(ActionButton, { variant: "secondary", onClick: onBets, style: { width: "100%", marginBottom: 12 } }, "View bets"),
+    gm && /* @__PURE__ */ React92.createElement("section", { className: "fd-es-gm", "aria-labelledby": `fd-es-gm-${ev.id}` }, /* @__PURE__ */ React92.createElement("h2", { id: `fd-es-gm-${ev.id}` }, "Commissioner"), /* @__PURE__ */ React92.createElement(ContestPanel, { ...contestProps, part: "commissioner" }), /* @__PURE__ */ React92.createElement(TeamNameDesk, { state, ev }), !state.frozen && /* @__PURE__ */ React92.createElement(React92.Fragment, null, ev.teamCfg && !draw && !draftLive && !res && (() => {
       const shape = teamFit(ev, present.length) || ev.teamCfg;
       const fit2 = shape.teams * shape.size;
       const diff = inPlayers.length - fit2;
-      return /* @__PURE__ */ React90.createElement(React90.Fragment, null, /* @__PURE__ */ React90.createElement("div", { className: "fd-es-gm-fit" }, /* @__PURE__ */ React90.createElement("span", null, shapeLabel(shape)), /* @__PURE__ */ React90.createElement(
+      return /* @__PURE__ */ React92.createElement(React92.Fragment, null, /* @__PURE__ */ React92.createElement("div", { className: "fd-es-gm-fit" }, /* @__PURE__ */ React92.createElement("span", null, shapeLabel(shape)), /* @__PURE__ */ React92.createElement(
         "button",
         {
           type: "button",
@@ -16229,8 +18892,8 @@ function EventSheet({
         inPlayers.length,
         shape.size === 1 ? "" : ` / ${fit2}`,
         " ",
-        /* @__PURE__ */ React90.createElement(Icon, { name: showOuts ? "collapse" : "expand", size: "1em" })
-      )), showOuts && /* @__PURE__ */ React90.createElement(React90.Fragment, null, /* @__PURE__ */ React90.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 5, marginBottom: 10 } }, present.map((p, i) => /* @__PURE__ */ React90.createElement(
+        /* @__PURE__ */ React92.createElement(Icon, { name: showOuts ? "collapse" : "expand", size: "1em" })
+      )), showOuts && /* @__PURE__ */ React92.createElement(React92.Fragment, null, /* @__PURE__ */ React92.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 5, marginBottom: 10 } }, present.map((p, i) => /* @__PURE__ */ React92.createElement(
         PlayerChip,
         {
           key: p,
@@ -16240,22 +18903,22 @@ function EventSheet({
           onClick: () => setOuts((o) => o.includes(p) ? o.filter((x) => x !== p) : [...o, p]),
           style: centeredGridCell(i, present.length, 3, 5)
         }
-      ))), overflowAssignments.length > 0 && /* @__PURE__ */ React90.createElement("div", { style: {
+      ))), overflowAssignments.length > 0 && /* @__PURE__ */ React92.createElement("div", { style: {
         background: "var(--paper2)",
         border: "1px solid var(--bone-line)",
         borderRadius: 14,
         padding: "11px 12px",
         marginBottom: 10
-      } }, /* @__PURE__ */ React90.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 3 } }, /* @__PURE__ */ React90.createElement("span", { style: { ...label, flex: 1 } }, "Crew"), table?.[2] > 0 && /* @__PURE__ */ React90.createElement("b", { style: { color: "var(--sun)", fontFamily: DISPLAY, fontWeight: 800, fontSize: 16 } }, "+", fmt12(table[2]))), overflowAssignments.map(({ player }, index) => {
+      } }, /* @__PURE__ */ React92.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 3 } }, /* @__PURE__ */ React92.createElement("span", { style: { ...label, flex: 1 } }, "Crew"), table?.[2] > 0 && /* @__PURE__ */ React92.createElement("b", { style: { color: "var(--sun)", fontFamily: DISPLAY, fontWeight: 800, fontSize: 16 } }, "+", fmt13(table[2]))), overflowAssignments.map(({ player }, index) => {
         const role = outRoles[player] || "sit-out";
-        return /* @__PURE__ */ React90.createElement("div", { key: player, style: {
+        return /* @__PURE__ */ React92.createElement("div", { key: player, style: {
           display: "flex",
           alignItems: "center",
           gap: 9,
           padding: index ? "9px 0 0" : "0",
           marginTop: index ? 9 : 0,
           borderTop: index ? "1px solid var(--line)" : "none"
-        } }, /* @__PURE__ */ React90.createElement(Avatar, { state, p: player, size: 32 }), /* @__PURE__ */ React90.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React90.createElement("div", { style: {
+        } }, /* @__PURE__ */ React92.createElement(Avatar, { state, p: player, size: 32 }), /* @__PURE__ */ React92.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React92.createElement("div", { style: {
           fontFamily: SANS,
           fontWeight: 700,
           fontSize: 12.5,
@@ -16263,7 +18926,7 @@ function EventSheet({
           overflow: "hidden",
           textOverflow: "ellipsis",
           whiteSpace: "nowrap"
-        } }, disp(state, player))), /* @__PURE__ */ React90.createElement(
+        } }, disp(state, player))), /* @__PURE__ */ React92.createElement(
           "select",
           {
             "aria-label": `${disp(state, player)} event crew role`,
@@ -16282,9 +18945,9 @@ function EventSheet({
               fontSize: 12
             }
           },
-          OVERFLOW_ROLES.map((value) => /* @__PURE__ */ React90.createElement("option", { key: value, value }, overflowRoleMeta(value).label))
+          OVERFLOW_ROLES.map((value) => /* @__PURE__ */ React92.createElement("option", { key: value, value }, overflowRoleMeta(value).label))
         ));
-      }))), !participantFit.ok && /* @__PURE__ */ React90.createElement("p", { className: "fd-es-gm-note", role: "alert", style: { color: "var(--clay-text)" } }, participantFit.error), /* @__PURE__ */ React90.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 10 } }, /* @__PURE__ */ React90.createElement(
+      }))), !participantFit.ok && /* @__PURE__ */ React92.createElement("p", { className: "fd-es-gm-note", role: "alert", style: { color: "var(--clay-text)" } }, participantFit.error), /* @__PURE__ */ React92.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 10 } }, /* @__PURE__ */ React92.createElement(
         Btn,
         {
           disabled: !participantFit.ok || setupPending,
@@ -16292,7 +18955,7 @@ function EventSheet({
           style: { flex: 1, whiteSpace: "nowrap", padding: "12px 8px" }
         },
         setupPending ? "Drawing\u2026" : announceNext ? "Announce and draw" : "Run the draw"
-      ), ev.kind === "team" && /* @__PURE__ */ React90.createElement(
+      ), ev.kind === "team" && /* @__PURE__ */ React92.createElement(
         Btn,
         {
           kind: "dark",
@@ -16302,10 +18965,10 @@ function EventSheet({
         },
         "Captains draft"
       )));
-    })(), ev.teamCfg && draw && !res && setupAllowed && (confirmRedraw ? /* @__PURE__ */ React90.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 10 } }, /* @__PURE__ */ React90.createElement(Btn, { kind: "danger", onClick: () => {
+    })(), ev.teamCfg && draw && !res && setupAllowed && (confirmRedraw ? /* @__PURE__ */ React92.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 10 } }, /* @__PURE__ */ React92.createElement(Btn, { kind: "danger", onClick: () => {
       onClearDraw();
       setConfirmRedraw(false);
-    }, style: { flex: 1 } }, "Scrap the draw"), /* @__PURE__ */ React90.createElement(Btn, { kind: "ghost", onClick: () => setConfirmRedraw(false), style: { flex: 1 } }, "Keep it")) : /* @__PURE__ */ React90.createElement(Btn, { kind: "ghost", onClick: () => setConfirmRedraw(true), style: { width: "100%", marginBottom: 10 } }, "Redraw")), (draw || st?.entrantType === "solo") && !res && onSwap && (() => {
+    }, style: { flex: 1 } }, "Scrap the draw"), /* @__PURE__ */ React92.createElement(Btn, { kind: "ghost", onClick: () => setConfirmRedraw(false), style: { flex: 1 } }, "Keep it")) : /* @__PURE__ */ React92.createElement(Btn, { kind: "ghost", onClick: () => setConfirmRedraw(true), style: { width: "100%", marginBottom: 10 } }, "Redraw")), (draw || st?.entrantType === "solo") && !res && onSwap && (() => {
       const drawn = draw ? draw.teams.flatMap((team) => team.players) : st.groups.flatMap((group) => group.entrants);
       const bench = present.filter((player) => !drawn.includes(player));
       if (!bench.length) return null;
@@ -16322,7 +18985,7 @@ function EventSheet({
         fontWeight: 700,
         fontSize: 12.5
       };
-      return /* @__PURE__ */ React90.createElement("details", { className: "fd-event-info" }, /* @__PURE__ */ React90.createElement("summary", null, /* @__PURE__ */ React90.createElement("span", null, "Swap in a player")), /* @__PURE__ */ React90.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 8 } }, /* @__PURE__ */ React90.createElement(
+      return /* @__PURE__ */ React92.createElement("details", { className: "fd-event-info" }, /* @__PURE__ */ React92.createElement("summary", null, /* @__PURE__ */ React92.createElement("span", null, "Swap in a player")), /* @__PURE__ */ React92.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 8 } }, /* @__PURE__ */ React92.createElement(
         "select",
         {
           "aria-label": "Player leaving",
@@ -16331,9 +18994,9 @@ function EventSheet({
           onChange: (event) => setSwapOut(event.target.value),
           style: selectStyle
         },
-        /* @__PURE__ */ React90.createElement("option", { value: "" }, "Leaving"),
-        drawn.map((player) => /* @__PURE__ */ React90.createElement("option", { key: player, value: player }, disp(state, player)))
-      ), /* @__PURE__ */ React90.createElement(
+        /* @__PURE__ */ React92.createElement("option", { value: "" }, "Leaving"),
+        drawn.map((player) => /* @__PURE__ */ React92.createElement("option", { key: player, value: player }, disp(state, player)))
+      ), /* @__PURE__ */ React92.createElement(
         "select",
         {
           "aria-label": "Player coming in",
@@ -16342,9 +19005,9 @@ function EventSheet({
           onChange: (event) => setSwapIn(event.target.value),
           style: selectStyle
         },
-        /* @__PURE__ */ React90.createElement("option", { value: "" }, "Coming in"),
-        bench.map((player) => /* @__PURE__ */ React90.createElement("option", { key: player, value: player }, disp(state, player)))
-      ), /* @__PURE__ */ React90.createElement(
+        /* @__PURE__ */ React92.createElement("option", { value: "" }, "Coming in"),
+        bench.map((player) => /* @__PURE__ */ React92.createElement("option", { key: player, value: player }, disp(state, player)))
+      ), /* @__PURE__ */ React92.createElement(
         ActionButton,
         {
           compact: true,
@@ -16359,14 +19022,14 @@ function EventSheet({
           })
         },
         "Swap in"
-      )), /* @__PURE__ */ React90.createElement("p", null, "Voids bets on the player leaving."));
-    })(), (canHeats || canPools) && !st && setupAllowed && (!stageCfgOpen ? /* @__PURE__ */ React90.createElement(Btn, { kind: "dark", onClick: () => setStageCfgOpen(true), style: { width: "100%", marginBottom: 10 } }, canHeats ? "Run heats" : "Set up pools") : /* @__PURE__ */ React90.createElement("div", { style: {
+      )), /* @__PURE__ */ React92.createElement("p", null, "Voids bets on the player leaving."));
+    })(), (canHeats || canPools) && !st && setupAllowed && (!stageCfgOpen ? /* @__PURE__ */ React92.createElement(Btn, { kind: "dark", onClick: () => setStageCfgOpen(true), style: { width: "100%", marginBottom: 10 } }, canHeats ? "Run heats" : "Set up pools") : /* @__PURE__ */ React92.createElement("div", { style: {
       background: "var(--paper2)",
       border: "1px solid var(--line)",
       borderRadius: 14,
       padding: "12px 13px",
       marginBottom: 10
-    } }, canHeats && /* @__PURE__ */ React90.createElement(React90.Fragment, null, /* @__PURE__ */ React90.createElement("div", { style: { display: "flex", alignItems: "center", marginBottom: 8 } }, /* @__PURE__ */ React90.createElement("div", { style: { ...label, flex: 1 } }, "Heats"), /* @__PURE__ */ React90.createElement("button", { onClick: () => setShowOuts((v) => !v), style: {
+    } }, canHeats && /* @__PURE__ */ React92.createElement(React92.Fragment, null, /* @__PURE__ */ React92.createElement("div", { style: { display: "flex", alignItems: "center", marginBottom: 8 } }, /* @__PURE__ */ React92.createElement("div", { style: { ...label, flex: 1 } }, "Heats"), /* @__PURE__ */ React92.createElement("button", { onClick: () => setShowOuts((v) => !v), style: {
       cursor: "pointer",
       fontFamily: SANS,
       fontWeight: 700,
@@ -16376,7 +19039,7 @@ function EventSheet({
       background: "var(--paper)",
       border: "1px solid var(--line)",
       color: "var(--ink)"
-    } }, inPlayers.length, " playing ", /* @__PURE__ */ React90.createElement(Icon, { name: showOuts ? "collapse" : "expand", size: "1em" }))), showOuts && /* @__PURE__ */ React90.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 5, marginBottom: 10 } }, present.map((p, i) => /* @__PURE__ */ React90.createElement(
+    } }, inPlayers.length, " playing ", /* @__PURE__ */ React92.createElement(Icon, { name: showOuts ? "collapse" : "expand", size: "1em" }))), showOuts && /* @__PURE__ */ React92.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 5, marginBottom: 10 } }, present.map((p, i) => /* @__PURE__ */ React92.createElement(
       PlayerChip,
       {
         key: p,
@@ -16386,7 +19049,7 @@ function EventSheet({
         onClick: () => setOuts((o) => o.includes(p) ? o.filter((x) => x !== p) : [...o, p]),
         style: centeredGridCell(i, present.length, 3, 5)
       }
-    ))), !heatsFit && /* @__PURE__ */ React90.createElement("p", { role: "alert", style: { ...pStyle, color: "var(--clay-text)", fontSize: 13 } }, "Heats need at least 2 players each")), /* @__PURE__ */ React90.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 8 } }, /* @__PURE__ */ React90.createElement("span", { style: { ...label } }, canHeats ? "Heats" : "Pools"), [2, 3, 4].filter((n) => n <= stageEntrantCount).map((n) => /* @__PURE__ */ React90.createElement("button", { key: n, onClick: () => setNGroups(n), style: {
+    ))), !heatsFit && /* @__PURE__ */ React92.createElement("p", { role: "alert", style: { ...pStyle, color: "var(--clay-text)", fontSize: 13 } }, "Heats need at least 2 players each")), /* @__PURE__ */ React92.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 8 } }, /* @__PURE__ */ React92.createElement("span", { style: { ...label } }, canHeats ? "Heats" : "Pools"), [2, 3, 4].filter((n) => n <= stageEntrantCount).map((n) => /* @__PURE__ */ React92.createElement("button", { key: n, onClick: () => setNGroups(n), style: {
       width: 44,
       height: 44,
       borderRadius: 10,
@@ -16397,7 +19060,7 @@ function EventSheet({
       background: groupsChoice === n ? GOLD_GRAD : "var(--paper)",
       color: groupsChoice === n ? "var(--ink0)" : "var(--ink)",
       border: groupsChoice === n ? "1.5px solid var(--ink0)" : "1.5px solid var(--line)"
-    } }, n)), /* @__PURE__ */ React90.createElement("span", { style: { flex: 1 } }), /* @__PURE__ */ React90.createElement("span", { style: { ...label } }, "Through"), [1, 2].map((n) => /* @__PURE__ */ React90.createElement("button", { key: n, onClick: () => setAdvance(n), style: {
+    } }, n)), /* @__PURE__ */ React92.createElement("span", { style: { flex: 1 } }), /* @__PURE__ */ React92.createElement("span", { style: { ...label } }, "Through"), [1, 2].map((n) => /* @__PURE__ */ React92.createElement("button", { key: n, onClick: () => setAdvance(n), style: {
       width: 44,
       height: 44,
       borderRadius: 10,
@@ -16408,7 +19071,7 @@ function EventSheet({
       background: advance === n ? GOLD_GRAD : "var(--paper)",
       color: advance === n ? "var(--ink0)" : "var(--ink)",
       border: advance === n ? "1.5px solid var(--ink0)" : "1.5px solid var(--line)"
-    } }, n))), /* @__PURE__ */ React90.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React90.createElement(
+    } }, n))), /* @__PURE__ */ React92.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React92.createElement(
       ActionButton,
       {
         disabled: setupPending || canHeats && !heatsFit,
@@ -16426,17 +19089,17 @@ function EventSheet({
         style: { flex: 1 }
       },
       setupPending ? "Drawing\u2026" : announceNext ? "Announce and draw" : canHeats ? "Draw heats" : "Draw pools"
-    ), /* @__PURE__ */ React90.createElement(ActionButton, { variant: "tertiary", onClick: () => setStageCfgOpen(false) }, "Cancel")))), setupError && /* @__PURE__ */ React90.createElement("p", { className: "fd-contest-error", role: "alert" }, setupError), st && !res && setupAllowed && (confirmScrap ? /* @__PURE__ */ React90.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 10 } }, /* @__PURE__ */ React90.createElement(ActionButton, { variant: "commit", onClick: () => {
+    ), /* @__PURE__ */ React92.createElement(ActionButton, { variant: "tertiary", onClick: () => setStageCfgOpen(false) }, "Cancel")))), setupError && /* @__PURE__ */ React92.createElement("p", { className: "fd-contest-error", role: "alert" }, setupError), st && !res && setupAllowed && (confirmScrap ? /* @__PURE__ */ React92.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 10 } }, /* @__PURE__ */ React92.createElement(ActionButton, { variant: "commit", onClick: () => {
       onClearStages();
       setConfirmScrap(false);
-    }, style: { flex: 1 } }, "Scrap ", st.kind === "heats" ? "heats" : "pools"), /* @__PURE__ */ React90.createElement(ActionButton, { variant: "tertiary", onClick: () => setConfirmScrap(false), style: { flex: 1 } }, "Keep")) : /* @__PURE__ */ React90.createElement(ActionButton, { variant: "destructive", onClick: () => setConfirmScrap(true), style: { width: "100%", marginBottom: 10 } }, "Scrap ", st.kind === "heats" ? "heats" : "pools")), /* @__PURE__ */ React90.createElement("div", { style: { display: "flex", gap: 8, marginTop: 6, flexWrap: "wrap" } }, res && !isPoker && /* @__PURE__ */ React90.createElement(
+    }, style: { flex: 1 } }, "Scrap ", st.kind === "heats" ? "heats" : "pools"), /* @__PURE__ */ React92.createElement(ActionButton, { variant: "tertiary", onClick: () => setConfirmScrap(false), style: { flex: 1 } }, "Keep")) : /* @__PURE__ */ React92.createElement(ActionButton, { variant: "destructive", onClick: () => setConfirmScrap(true), style: { width: "100%", marginBottom: 10 } }, "Scrap ", st.kind === "heats" ? "heats" : "pools")), /* @__PURE__ */ React92.createElement("div", { style: { display: "flex", gap: 8, marginTop: 6, flexWrap: "wrap" } }, res && !isPoker && /* @__PURE__ */ React92.createElement(
       ActionButton,
       {
         onClick: enterResult,
         style: { flex: 1, whiteSpace: "nowrap", padding: "12px 8px" }
       },
       "Edit result"
-    ), !res && lifecycle.nextAction?.type === "open-betting" && /* @__PURE__ */ React90.createElement(
+    ), !res && lifecycle.nextAction?.type === "open-betting" && /* @__PURE__ */ React92.createElement(
       ActionButton,
       {
         variant: "secondary",
@@ -16444,7 +19107,7 @@ function EventSheet({
         style: { flex: 1, whiteSpace: "nowrap", padding: "12px 8px" }
       },
       "Open betting"
-    ), !res && !contestActive && lifecycle.nextAction?.type === "lock-betting" && /* @__PURE__ */ React90.createElement(
+    ), !res && !contestActive && lifecycle.nextAction?.type === "lock-betting" && /* @__PURE__ */ React92.createElement(
       ActionButton,
       {
         variant: "secondary",
@@ -16452,20 +19115,20 @@ function EventSheet({
         style: { flex: 1, whiteSpace: "nowrap", padding: "12px 8px" }
       },
       "Lock and start"
-    ), !res && !contestActive && lifecycle.nextAction?.type === "start-event" && /* @__PURE__ */ React90.createElement(
+    ), !res && !contestActive && lifecycle.nextAction?.type === "start-event" && /* @__PURE__ */ React92.createElement(
       ActionButton,
       {
         onClick: onStart,
         style: { flex: 1, whiteSpace: "nowrap", padding: "12px 8px" }
       },
       "Start event"
-    ), res && !confirmClear && /* @__PURE__ */ React90.createElement(ActionButton, { variant: "destructive", onClick: () => setConfirmClear(true), style: { flex: 1 } }, "Clear")), !res && !contestActive && lifecycle.blockers?.length > 0 && /* @__PURE__ */ React90.createElement("div", { style: { ...pStyle, marginTop: 8, color: "var(--muted)", fontSize: 13 } }, lifecycle.blockers[0]), res && confirmClear && /* @__PURE__ */ React90.createElement("div", { style: {
+    ), res && !confirmClear && /* @__PURE__ */ React92.createElement(ActionButton, { variant: "destructive", onClick: () => setConfirmClear(true), style: { flex: 1 } }, "Clear")), !res && !contestActive && lifecycle.blockers?.length > 0 && /* @__PURE__ */ React92.createElement("div", { style: { ...pStyle, marginTop: 8, color: "var(--muted)", fontSize: 13 } }, lifecycle.blockers[0]), res && confirmClear && /* @__PURE__ */ React92.createElement("div", { style: {
       marginTop: 10,
       padding: "12px 13px",
       background: "var(--paper2)",
       border: "1px solid var(--line)",
       borderRadius: 14
-    } }, /* @__PURE__ */ React90.createElement("div", { style: { ...label, marginBottom: 6 } }, "Reason for clearing"), /* @__PURE__ */ React90.createElement(
+    } }, /* @__PURE__ */ React92.createElement("div", { style: { ...label, marginBottom: 6 } }, "Reason for clearing"), /* @__PURE__ */ React92.createElement(
       "input",
       {
         value: clearReason,
@@ -16486,7 +19149,7 @@ function EventSheet({
           outline: "none"
         }
       }
-    ), /* @__PURE__ */ React90.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React90.createElement(
+    ), /* @__PURE__ */ React92.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React92.createElement(
       ActionButton,
       {
         variant: "commit",
@@ -16495,7 +19158,7 @@ function EventSheet({
         style: { flex: 1 }
       },
       "Clear official result"
-    ), /* @__PURE__ */ React90.createElement(
+    ), /* @__PURE__ */ React92.createElement(
       ActionButton,
       {
         variant: "tertiary",
@@ -16506,13 +19169,13 @@ function EventSheet({
         style: { flex: 1 }
       },
       "Keep it"
-    ))), editOpen ? /* @__PURE__ */ React90.createElement("div", { style: {
+    ))), editOpen ? /* @__PURE__ */ React92.createElement("div", { style: {
       background: "var(--paper2)",
       border: "1px solid var(--line)",
       borderRadius: 14,
       padding: "12px 13px",
       marginTop: 8
-    } }, /* @__PURE__ */ React90.createElement("div", { style: { ...label, marginBottom: 6 } }, "Name"), /* @__PURE__ */ React90.createElement(
+    } }, /* @__PURE__ */ React92.createElement("div", { style: { ...label, marginBottom: 6 } }, "Name"), /* @__PURE__ */ React92.createElement(
       "input",
       {
         value: eName,
@@ -16533,7 +19196,7 @@ function EventSheet({
           outline: "none"
         }
       }
-    ), /* @__PURE__ */ React90.createElement("div", { style: { ...label, marginBottom: 6 } }, "How to play"), /* @__PURE__ */ React90.createElement(
+    ), /* @__PURE__ */ React92.createElement("div", { style: { ...label, marginBottom: 6 } }, "How to play"), /* @__PURE__ */ React92.createElement(
       "textarea",
       {
         value: eDesc,
@@ -16556,7 +19219,7 @@ function EventSheet({
           resize: "vertical"
         }
       }
-    ), /* @__PURE__ */ React90.createElement("div", { style: { ...label, marginBottom: 6 } }, "Worth"), /* @__PURE__ */ React90.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 12 } }, [400, 800, 1200, 1600].map((v) => /* @__PURE__ */ React90.createElement("button", { key: v, disabled: !!res, onClick: () => setEValue(v), style: {
+    ), /* @__PURE__ */ React92.createElement("div", { style: { ...label, marginBottom: 6 } }, "Worth"), /* @__PURE__ */ React92.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 12 } }, [400, 800, 1200, 1600].map((v) => /* @__PURE__ */ React92.createElement("button", { key: v, disabled: !!res, onClick: () => setEValue(v), style: {
       flex: 1,
       height: 44,
       borderRadius: 10,
@@ -16567,7 +19230,7 @@ function EventSheet({
       background: eValue === v ? GOLD_GRAD : "var(--paper)",
       color: eValue === v ? "var(--ink0)" : "var(--ink)",
       border: eValue === v ? "1.5px solid var(--ink0)" : "1.5px solid var(--line)"
-    } }, v))), /* @__PURE__ */ React90.createElement("div", { style: { ...label, marginBottom: 6 } }, "Session"), /* @__PURE__ */ React90.createElement("div", { style: { display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 } }, [...SESSIONS.map((s) => [s.id, s.label]), [null, "Anytime"]].map(([id, lb]) => /* @__PURE__ */ React90.createElement("button", { key: String(id), onClick: () => setESession(id), style: {
+    } }, v))), /* @__PURE__ */ React92.createElement("div", { style: { ...label, marginBottom: 6 } }, "Session"), /* @__PURE__ */ React92.createElement("div", { style: { display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 } }, [...SESSIONS.map((s) => [s.id, s.label]), [null, "Anytime"]].map(([id, lb]) => /* @__PURE__ */ React92.createElement("button", { key: String(id), onClick: () => setESession(id), style: {
       fontFamily: SANS,
       fontWeight: 600,
       fontSize: 12.5,
@@ -16577,7 +19240,7 @@ function EventSheet({
       background: eSession === id ? GOLD_GRAD : "var(--paper)",
       color: eSession === id ? "var(--ink0)" : "var(--ink)",
       border: eSession === id ? "1.5px solid var(--ink0)" : "1.5px solid var(--line)"
-    } }, lb))), /* @__PURE__ */ React90.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React90.createElement(
+    } }, lb))), /* @__PURE__ */ React92.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React92.createElement(
       Btn,
       {
         disabled: !eName.trim(),
@@ -16588,9 +19251,9 @@ function EventSheet({
         style: { flex: 1 }
       },
       "Save"
-    ), /* @__PURE__ */ React90.createElement(Btn, { kind: "ghost", onClick: () => setEditOpen(false) }, "Cancel"))) : takeBackOpen && confirmTakeBack ? (
+    ), /* @__PURE__ */ React92.createElement(Btn, { kind: "ghost", onClick: () => setEditOpen(false) }, "Cancel"))) : takeBackOpen && confirmTakeBack ? (
       /* the take-back's confirm opens where its row was */
-      /* @__PURE__ */ React90.createElement("div", { className: "fd-es-gm-confirm", role: "group", "aria-label": `Take back ${ev.name}` }, /* @__PURE__ */ React90.createElement("p", null, refundText(state, announcementTakeBack(state, ev).refunds) || "No open bets."), /* @__PURE__ */ React90.createElement("div", null, /* @__PURE__ */ React90.createElement(
+      /* @__PURE__ */ React92.createElement("div", { className: "fd-es-gm-confirm", role: "group", "aria-label": `Take back ${ev.name}` }, /* @__PURE__ */ React92.createElement("p", null, refundText(state, announcementTakeBack(state, ev).refunds) || "No open bets."), /* @__PURE__ */ React92.createElement("div", null, /* @__PURE__ */ React92.createElement(
         ActionButton,
         {
           variant: "commit",
@@ -16603,10 +19266,10 @@ function EventSheet({
           })
         },
         setupPending ? "Taking back\u2026" : "Take it back"
-      ), /* @__PURE__ */ React90.createElement(ActionButton, { variant: "tertiary", disabled: setupPending, onClick: () => setConfirmTakeBack(false) }, "Keep it")))
+      ), /* @__PURE__ */ React92.createElement(ActionButton, { variant: "tertiary", disabled: setupPending, onClick: () => setConfirmTakeBack(false) }, "Keep it")))
     ) : !more ? (
       /* the quiet edge of the section: the rare and destructive left, More right */
-      /* @__PURE__ */ React90.createElement("div", { className: "fd-es-gm-edge" }, takeBackOpen && /* @__PURE__ */ React90.createElement(
+      /* @__PURE__ */ React92.createElement("div", { className: "fd-es-gm-edge" }, takeBackOpen && /* @__PURE__ */ React92.createElement(
         "button",
         {
           type: "button",
@@ -16614,13 +19277,13 @@ function EventSheet({
           "aria-label": "Take back the announcement",
           onClick: () => setConfirmTakeBack(true)
         },
-        /* @__PURE__ */ React90.createElement(Icon, { name: "undo", size: 16 }),
+        /* @__PURE__ */ React92.createElement(Icon, { name: "undo", size: 16 }),
         "Take back"
-      ), /* @__PURE__ */ React90.createElement("button", { type: "button", className: "fd-es-gm-edge-act", onClick: () => setMore(true) }, "More ", /* @__PURE__ */ React90.createElement(Icon, { name: "expand", size: "1em" })))
-    ) : /* @__PURE__ */ React90.createElement("div", { style: { display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" } }, /* @__PURE__ */ React90.createElement(Btn, { kind: "ghost", onClick: openEdit, style: { flex: 1 } }, "Edit details"), !res && !confirmShelve && /* @__PURE__ */ React90.createElement(Btn, { kind: "ghost", onClick: () => shelvedNow || !openBets.length ? onShelve(!shelvedNow) : setConfirmShelve(true), style: { flex: 1 } }, shelvedNow ? "Restore" : "Shelve"), !res && confirmShelve && /* @__PURE__ */ React90.createElement(React90.Fragment, null, /* @__PURE__ */ React90.createElement(Btn, { kind: "danger", onClick: () => {
+      ), /* @__PURE__ */ React92.createElement("button", { type: "button", className: "fd-es-gm-edge-act", onClick: () => setMore(true) }, "More ", /* @__PURE__ */ React92.createElement(Icon, { name: "expand", size: "1em" })))
+    ) : /* @__PURE__ */ React92.createElement("div", { style: { display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" } }, /* @__PURE__ */ React92.createElement(Btn, { kind: "ghost", onClick: openEdit, style: { flex: 1 } }, "Edit details"), !res && !confirmShelve && /* @__PURE__ */ React92.createElement(Btn, { kind: "ghost", onClick: () => shelvedNow || !openBets.length ? onShelve(!shelvedNow) : setConfirmShelve(true), style: { flex: 1 } }, shelvedNow ? "Restore" : "Shelve"), !res && confirmShelve && /* @__PURE__ */ React92.createElement(React92.Fragment, null, /* @__PURE__ */ React92.createElement(Btn, { kind: "danger", onClick: () => {
       setConfirmShelve(false);
       onShelve(true, true);
-    }, style: { flex: 1 } }, "Shelve. Returns ", openBets.length, " bet", openBets.length === 1 ? "" : "s", ", ", fmt12(openBets.reduce((sum, w) => sum + w.stake, 0)), " chips"), /* @__PURE__ */ React90.createElement(Btn, { kind: "ghost", onClick: () => setConfirmShelve(false) }, "Keep")), ev.custom && !confirmRemove && /* @__PURE__ */ React90.createElement(Btn, { kind: "danger", onClick: () => setConfirmRemove(true) }, "Remove"), ev.custom && confirmRemove && /* @__PURE__ */ React90.createElement(Btn, { kind: "danger", onClick: onRemove }, "Confirm remove"), takeBackOpen && /* @__PURE__ */ React90.createElement(
+    }, style: { flex: 1 } }, "Shelve. Returns ", openBets.length, " bet", openBets.length === 1 ? "" : "s", ", ", fmt13(openBets.reduce((sum, w) => sum + w.stake, 0)), " chips"), /* @__PURE__ */ React92.createElement(Btn, { kind: "ghost", onClick: () => setConfirmShelve(false) }, "Keep")), ev.custom && !confirmRemove && /* @__PURE__ */ React92.createElement(Btn, { kind: "danger", onClick: () => setConfirmRemove(true) }, "Remove"), ev.custom && confirmRemove && /* @__PURE__ */ React92.createElement(Btn, { kind: "danger", onClick: onRemove }, "Confirm remove"), takeBackOpen && /* @__PURE__ */ React92.createElement(
       "button",
       {
         type: "button",
@@ -16628,13 +19291,13 @@ function EventSheet({
         "aria-label": "Take back the announcement",
         onClick: () => setConfirmTakeBack(true)
       },
-      /* @__PURE__ */ React90.createElement(Icon, { name: "undo", size: 16 }),
+      /* @__PURE__ */ React92.createElement(Icon, { name: "undo", size: 16 }),
       "Take back"
     ))))
   );
 }
 function BracketSheet({ ev, state, me, gm, onClose, onBack, onPlayer, onLock, onWinner, onUndo, onPlayNext, onBets, onPostResult }) {
-  const [pending, setPending] = useState70(false);
+  const [pending, setPending] = useState72(false);
   const waitFor = async (callback) => {
     setPending(true);
     try {
@@ -16647,7 +19310,7 @@ function BracketSheet({ ev, state, me, gm, onClose, onBack, onPlayer, onLock, on
   if (!br || !draw) return null;
   const contest = resolveCurrentContest(state, ev);
   const active = contest && ["betting-open", "betting-locked", "in-progress", "awaiting-result"].includes(contest.phase);
-  return /* @__PURE__ */ React90.createElement(Sheet, { title: ev.name, subtitle: "Bracket", show: true, onClose, onBack, busy: pending, wide: true }, /* @__PURE__ */ React90.createElement(
+  return /* @__PURE__ */ React92.createElement(Sheet, { title: ev.name, subtitle: "Bracket", show: true, onClose, onBack, busy: pending, wide: true }, /* @__PURE__ */ React92.createElement(
     ContestPanel,
     {
       state,
@@ -16662,13 +19325,13 @@ function BracketSheet({ ev, state, me, gm, onClose, onBack, onPlayer, onLock, on
       onResult: () => waitFor(onPostResult),
       onPlayNext: onPlayNext ? (payload) => waitFor(() => onPlayNext(payload)) : void 0
     }
-  ), !active && /* @__PURE__ */ React90.createElement(CompetitionBracket, { state, ev, me, onPlayer }), /* @__PURE__ */ React90.createElement(EventCrewCard, { state, roles: draw.roles, compact: true, onPlayer }));
+  ), !active && /* @__PURE__ */ React92.createElement(CompetitionBracket, { state, ev, me, onPlayer }), /* @__PURE__ */ React92.createElement(EventCrewCard, { state, roles: draw.roles, compact: true, onPlayer }));
 }
 function ResultSheet(props) {
-  return /* @__PURE__ */ React90.createElement(ResultEntry, { ...props });
+  return /* @__PURE__ */ React92.createElement(ResultEntry, { ...props });
 }
 function Reveal({ state, reveal, me, onClose, onBets, onPlayer }) {
-  return /* @__PURE__ */ React90.createElement(DrawAnnouncement, { state, reveal, me, synced: true, onClose, onBets, onPlayer });
+  return /* @__PURE__ */ React92.createElement(DrawAnnouncement, { state, reveal, me, synced: true, onClose, onBets, onPlayer });
 }
 
 // <stdin>

@@ -523,7 +523,8 @@ function ToteBoard({ state, ev, contest, stacks, width, height }) {
                 <i className={`tv-tote-bar${r.notchPx >= 6 ? "" : " is-plain"}`} style={{ width:`${(row.share * 100).toFixed(2)}%`,
                   "--notch":`${r.notchPx}px` }} /></span>
               <span className="tv-side-total tv-tote-total" style={{ width:r.reelW }}><SideTotal total={row.total} /></span>
-              <span className="tv-tote-backers" style={{ width:r.backersW }}>
+              <span className="tv-tote-backers" style={{ width:r.backersW }} data-backers={row.backers.join(" ")}
+                role="img" aria-label={`Backed by ${side.stacks.map(item => stackName(state, item.player)).join(", ")}`}>
                 {row.backers.map(p => <ChipFace key={p} p={p} size={r.backer} />)}
                 {row.more > 0 && <b className="tv-tote-more" style={{ height:r.backer, minWidth:r.backer }}>+{row.more}</b>}
               </span>
@@ -537,7 +538,8 @@ function ToteBoard({ state, ev, contest, stacks, width, height }) {
           {board.idle.map(key => {
             const side = byKey.get(key);
             return (
-              <li key={String(key)} className="tv-tote-idle-side" style={{ width:board.strip.slot }}>
+              <li key={String(key)} className="tv-tote-idle-side" style={{ width:board.strip.slot }}
+                aria-label={board.strip.names ? undefined : side.name}>
                 <Faces players={side.players} size={board.strip.chip} overlap />
                 {board.strip.names && <span className="fd-show tv-tote-idle-name" style={{ fontSize:board.strip.nameSize }}>{side.name}</span>}
               </li>

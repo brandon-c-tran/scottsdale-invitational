@@ -15,6 +15,7 @@ import {
 import { applyAction as apply } from "../../worker/actions.js";
 import { boardDeskStage, boardPlayed, boardStage } from "./boardFixtures.js";
 import { karaokeStage } from "./karaokeFixtures.js";
+import { karaokePhoneStage } from "./karaokePhoneFixtures.js";
 
 /* display names the audit stresses: a long one, a lowercase pair, a
    surname. Applied after the fill, so qaAdvance never sees them as touched */
@@ -1337,6 +1338,35 @@ export const PHONE_SCENARIOS = Object.freeze([
   { id:"board-real-rebound", build:() => boardPlayed("rebound"), settle:false, freeze:true, tabs:["home"] },
   { id:"board-real-answer", build:() => boardPlayed("answer"), settle:false, freeze:true, tabs:["home"] },
   { id:"board-real-final-clue", build:() => boardPlayed("final-clue"), settle:false, freeze:true, tabs:["home"] },
+  /* Karaoke on the guest's phone (dev/fit/karaokePhoneFixtures.js, built
+     from its contract; `freeze` holds the page's clock on the moment): the
+     pick window (your song, Change's picker, a failed video, locked in),
+     your walk-up, your song and its Legendary, the next singer's walk-up
+     (opened from Home), the vote (not yet, yours in, the song's grace, the
+     close), the reveal mid-way, Home's rows (before the game, and with the
+     sheet put away), the commissioner's tray, and your You're up landing */
+  { id:"karaoke-pick", build:() => karaokePhoneStage("pick"), settle:false, freeze:true, karaoke:true, tabs:["home"] },
+  { id:"karaoke-pick-change", build:() => karaokePhoneStage("pick"), settle:false, freeze:true, karaoke:true, tabs:[],
+    sheets:["karaoke-change"], sheetSizes:["375"] },
+  { id:"karaoke-pick-broken", build:() => karaokePhoneStage("pick-broken"), settle:false, freeze:true, karaoke:true, tabs:["home"] },
+  { id:"karaoke-pick-locked", build:() => karaokePhoneStage("pick-locked"), settle:false, freeze:true, karaoke:true, tabs:["home"] },
+  { id:"karaoke-up", build:() => karaokePhoneStage("up"), settle:false, freeze:true, karaoke:true, tabs:["home"] },
+  { id:"karaoke-singing", build:() => karaokePhoneStage("singing"), settle:false, freeze:true, karaoke:true, tabs:["home"] },
+  { id:"karaoke-legendary", build:() => karaokePhoneStage("legendary"), settle:false, freeze:true, karaoke:true, tabs:["home"] },
+  { id:"karaoke-up-watch", build:() => karaokePhoneStage("up-watch"), settle:false, freeze:true, karaoke:true, tabs:[],
+    sheets:["karaoke-open"], sheetSizes:["375"] },
+  { id:"karaoke-vote", build:() => karaokePhoneStage("vote"), settle:false, freeze:true, karaoke:true, tabs:["home"] },
+  { id:"karaoke-voted", build:() => karaokePhoneStage("voted"), settle:false, freeze:true, karaoke:true, tabs:["home"] },
+  { id:"karaoke-closing", build:() => karaokePhoneStage("closing"), settle:false, freeze:true, karaoke:true, tabs:["home"] },
+  { id:"karaoke-closed", build:() => karaokePhoneStage("closed"), settle:false, freeze:true, karaoke:true, tabs:["home"] },
+  { id:"karaoke-reveal", build:() => karaokePhoneStage("reveal"), settle:false, freeze:true, karaoke:true, tabs:["home"] },
+  { id:"karaoke-home-ahead", build:() => karaokePhoneStage("ahead"), settle:false, freeze:true, karaoke:true, tabs:["home"] },
+  { id:"karaoke-home-vote", build:() => karaokePhoneStage("vote"), settle:false, freeze:true, karaoke:true, tabs:[],
+    sheets:["karaoke-home"], sheetSizes:["375"] },
+  { id:"karaoke-gm", build:() => karaokePhoneStage("vote"), viewer:"gm", settle:false, freeze:true, karaoke:true, tabs:[],
+    sheets:["karaoke-tray"], sheetSizes:["375"] },
+  { id:"karaoke-moment", build:() => karaokePhoneStage("up"), settle:false, freeze:true, karaoke:true, tabs:[],
+    sheets:["karaoke-moment"], sheetSizes:["375"] },
   /* the announcement sheet as betting opens: a free-for-all (Where and
      When), a pairs bracket (Beer Die) and a team game (5v5) */
   { id:"ann-where", build:() => fresh("event:where:open"), settle:false, tabs:[], sheets:["announce"] },

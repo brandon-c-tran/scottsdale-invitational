@@ -5,6 +5,7 @@ import {
   stageEntrantView, stageFinalists, stacksPosted, teamLabel, wagerBoardEvent,
 } from "../../../shared/core.js";
 import { guestPhaseLabel } from "../weekend/scheduleModel.js";
+import { karaokeYou } from "../karaoke/karaokeModel.js";
 
 const RUNNING = new Set(["in-progress", "result-entry"]);
 const isFinale = event => !!event?.finale && event.game === "poker";
@@ -274,7 +275,14 @@ export function deriveYouStrip({ state, me, events = allEventsOf(state), standin
 
   const current = model.current;
   const contest = current?.contest;
-  if (contest && contest.players?.includes(me) && UP_PHASES.has(current.lifecycle.phase)) {
+  /* karaoke speaks for itself while its game runs: the singer's You’re up
+     and Singing, a voter's Vote, the next singer's Up next; a game that asks
+     nothing of you leaves the generic You’re up unsaid (the whole room is
+     its field) */
+  const sing = ev && state.karaoke?.eventId === ev.id ? karaokeYou(state, me) : null;
+  if (sing?.word) return { ...base, tone:sing.tone, ...(sing.flash ? { flash:true } : {}), ...(sing.up ? { up:true } : {}),
+    ...headline(sing.word, sing.line || ""), route:{ type:"karaoke", ev } };
+  if (!sing && contest && contest.players?.includes(me) && UP_PHASES.has(current.lifecycle.phase)) {
     const others = contest.sides.filter(side => !side.players.includes(me));
     /* a team's opponents are named by the card's own team blocks; a wide
        field has no one opponent */

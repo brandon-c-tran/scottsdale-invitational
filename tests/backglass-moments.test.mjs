@@ -171,8 +171,19 @@ test("you're up: competitors take over, everyone else gets the banner, on the fa
     moment:{ ...mine, id:"m1", elapsed:200 } }));
   assert.match(html, /You’re up/);
   assert.match(html, /Back yourself/);
-  assert.match(html, /Winner pays 1:1/);
+  /* a pool: your side's price now, two seeds of 100 and nothing staked: 2.0x */
+  assert.deepEqual([mine.pool, mine.price], [true, "Pays 2.0×"]);
+  assert.match(html, /<p class="fd-moment-pays">Pays 2\.0×<\/p>/);
+  assert.doesNotMatch(html, /Winner pays/);
   assert.match(html, /--moment-color:#/, "in your own identity color");
+  /* a contest opened before pools keeps its fixed payout line */
+  const legacy = structuredClone(state);
+  delete legacy.eventOps.bball1.pools;
+  const old = ui.currentFaceOff(legacy, allEventsOf(legacy));
+  const oldView = ui.youreUpView(legacy, allEventsOf(legacy), old, a);
+  assert.deepEqual([oldView.pool, oldView.price], [false, null]);
+  assert.match(render(legacy, React.createElement(ui.YoureUpTakeover, { state:legacy, me:a, onBets:() => {},
+    moment:{ ...oldView, id:"m1", elapsed:200 } })), /<p class="fd-moment-pays">Winner pays 1:1<\/p>/);
   const banner = render(state, React.createElement(ui.UpBanner, { state, onBets:() => {},
     moment:{ ...ui.youreUpView(state, events, found, bystander), id:"m2", elapsed:0 } }));
   assert.match(banner, / vs /);

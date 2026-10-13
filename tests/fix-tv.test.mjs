@@ -773,7 +773,13 @@ test("T16/T17/T19: sides read as teams, riders merge per bettor, and advances ca
   /* the bettor rides as their own two-chip stack, named, never "Name 200" */
   assert.match(html, new RegExp(`data-stack-player="${bettor}" data-stack-chips="2"`));
   assert.ok(!html.replace(/<[^>]*>/g, " ").includes(`${bettor} 200`));
-  assert.ok(html.includes("Winner pays 1:1") && !/ to 1\b|even/.test(html.replace(/<[^>]*>/g, " ")));
+  /* a pooled matchup with chips down: each felt carries its price in the
+     corner (200 seed and 200 staked: 1.3x for the backed side, 4.0x the
+     long shot, lit), and the foot the pool, never a fixed payout */
+  assert.match(html, /class="tv-felt has-price"><span class="tv-terms is-price tv-felt-price"><span class="fd-price is-lg " role="img" aria-label="Pays 1\.3×"/);
+  assert.match(html, /class="tv-felt is-empty has-price"><span class="tv-terms is-price is-long tv-felt-price"><span class="fd-price is-lg is-long " role="img" aria-label="Pays 4\.0×"/);
+  assert.match(html, /<span class="tv-pay-lamp is-lit"><i class="fd-insert" aria-hidden="true"><\/i>Pool 400<\/span>/);
+  assert.ok(!html.includes("Winner pays") && !/ to 1\b|even/.test(html.replace(/<[^>]*>/g, " ")));
   act(state, "lockAndStart", { evId:"8ball", ...ref(state, "8ball") }, gm(false));
   act(state, "recordContestWinner", { evId:"8ball", winner:side.key, ...ref(state, "8ball") }, gm(false));
   const moment = advanceMoment(state, ev, state.eventOps["8ball"].lastContest.decidedAt + 500);
@@ -783,7 +789,15 @@ test("T16/T17/T19: sides read as teams, riders merge per bettor, and advances ca
   act(volley, "announceAndDraw", { evId:"volley", players:ROSTER.slice(0, 12) }, gm(false));
   const vhtml = renderTv(volley, { showControl:false });
   assert.ok(vhtml.includes("is-h2h"));
-  assert.ok(vhtml.includes("Winner pays 1:1"), "two teams pay 1:1, even as a free-for-all");
+  /* two teams are a two-sided pool, even played as a free-for-all: no chips
+     down, each side's price on its terms row, 2.0x on a level board */
+  assert.equal((vhtml.match(/<div class="tv-side-win has-terms"><span class="tv-terms is-price"><span class="fd-price is-lg " role="img" aria-label="Pays 2\.0×"/g) || []).length, 2);
+  assert.match(vhtml, /<\/i>Pool 200<\/span>/);
+  /* opened before pools, the same board keeps its fixed payout */
+  const oldVolley = structuredClone(volley);
+  delete oldVolley.eventOps.volley.pools;
+  const ohtml = renderTv(oldVolley, { showControl:false });
+  assert.ok(ohtml.includes("Winner pays 1:1") && !ohtml.includes("fd-price"), "a legacy two-team board pays 1:1");
   const names = [...vhtml.matchAll(/class="tv-side-name">([^<]*)</g)].map(m => m[1]);
   assert.equal(names.length, 2);
   /* a team reads as its team name, never as its members joined up (a

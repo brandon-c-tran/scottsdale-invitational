@@ -374,8 +374,23 @@ test("TV tote board: the field with no bets, one side holding everything, all th
   assert.doesNotMatch(empty, new RegExp(`>${STRIP_LABEL}<`), "with no bets the field needs no label");
   assert.doesNotMatch(empty, /tv-tote-row/);
   assert.match(empty, /class="tv-tote-strip is-field"/);
-  assert.match(empty, /class="tv-contest-foot"><span class="tv-pay-lamp is-lit"><i class="fd-insert" aria-hidden="true"><\/i>Winner pays 2:1</,
-    "the payout stays, the board's lit payout lamp");
+  assert.match(empty, /class="tv-contest-foot"><span class="tv-pay-lamp is-lit"><i class="fd-insert" aria-hidden="true"><\/i>Pool 1,300</,
+    "the pool stays on the board's lit lamp: the bank's 13 seeds before a chip is down");
+  assert.doesNotMatch(empty, /Winner pays/);
+  /* a price column: the same seven rows still stand, the bar gives it the room */
+  const priced = toteBoard(ROSTER.map((_, i) => side(i, totals[i], 1)), { width:1792, height:440, prices:true });
+  assert.ok(priced.row.priceW > 0 && all.row.priceW === 0);
+  assert.ok(priced.row.barW < all.row.barW && priced.row.barW > 120);
+  assert.deepEqual([priced.cols, priced.perCol], [all.cols, all.perCol]);
+  /* backed: each row its price, the foot the pool. 1,300 seed and 1,200
+     staked is 2,500: Khoa's 1,100 at 2.2x, Evan's 300 at 8.3x */
+  const khoa = ROSTER.indexOf("Khoa");
+  [["Adi", 400], ["Ben", 300], ["Evan", 200], ["Chinh", 100]].forEach(([player, stake]) => bet(state, "putt", player, khoa, stake));
+  bet(state, "putt", "Henry", ROSTER.indexOf("Evan"), 200);
+  const backed = renderTv(state);
+  assert.match(backed, /class="tv-contest-foot"><span class="tv-pay-lamp is-lit"><i class="fd-insert" aria-hidden="true"><\/i>Pool 2,500</);
+  const tote = [...backed.matchAll(/class="tv-tote-price"[^>]*><span class="fd-price is-tote [^"]*" role="img" aria-label="Pays ([\d.]+)×"/g)].map(m => m[1]);
+  assert.deepEqual(tote, ["2.2", "8.3"], "the two backed rows, biggest first");
 });
 
 test("a wide board is one row a side: mini stacks with their total (yours ringed), then a quiet well", () => {
@@ -388,7 +403,15 @@ test("a wide board is one row a side: mini stacks with their total (yours ringed
       wagerEv:evOf(state, "putt"), onEvents() {}, onEvent() {}, onPick() {}, onRetract() {}, onPlayer() {} })));
   const onKhoa = html => { const at = html.indexOf('aria-label="Bets on Khoa"'); return html.slice(at, html.indexOf('aria-label="Bets on ', at + 1)); };
   const spectator = onKhoa(phone("Henry"));
-  assert.match(phone("Henry"), /fd-wagers-pick is-one-line/, "every card on a wide board is one line");
+  assert.match(phone("Henry"), /fd-wagers-pick has-price is-one-line/, "every card on a wide board is one line, its price in it");
+  /* each row's price before its well: 13 seeds of 100 and 1,000 on Khoa is
+     2,300; Khoa's side 1,100 is 2.0x, every empty side at the 10x cap, dimmed */
+  const prices = [...phone("Henry").matchAll(/class="fd-side-terms fd-wagers-row-price"><button type="button" class="fd-side-pays-tap is-pool"[^>]*><span class="fd-price is-sm ([^"]*)" role="img" aria-label="Pays ([\d.]+)×"/g)]
+    .map(m => [m[1].trim(), m[2]]);
+  assert.equal(prices.length, ROSTER.length, "a price on every row");
+  assert.deepEqual(prices.filter(([, price]) => price !== "10.0"), [["", "2.0"]]);
+  assert.ok(prices.filter(([, price]) => price === "10.0").every(([cls]) => cls === "is-cap"), "the cap reads dim");
+  assert.doesNotMatch(phone("Henry"), /is-long/, "a wide field names no long shot");
   /* the two biggest stand as mini stacks, the rest one silver pile; no people glyph */
   assert.equal((spectator.match(/data-stack-player=/g) || []).length, 1, "one backer's stack, then the +N pile");
   assert.match(spectator, /data-stack-player="Adi"/);
@@ -461,13 +484,20 @@ test("the competitor out-letters its backers, the payout is a lit lamp, a self-b
   for (const player of contest.sides[0].players)
     assert.match(spectator, new RegExp(`class="fd-wagers-pair-name"[^>]*>${player}<`));
   assert.match(spectator, /class="fd-wagers-picks is-id-pair"/, "the board sizes its identity row for pairs");
-  assert.match(spectator, /<span class="fd-wagers-pays"><i class="fd-insert" aria-hidden="true"><\/i>Winner pays 1:1<\/span>/);
+  /* the board's head: the pool, seed included (200 + 3,500 staked) */
+  assert.match(spectator, /<span class="fd-wagers-pays is-pool"><i class="fd-insert" aria-hidden="true"><\/i>Pool<span class="fd-reel is-chip is-slim" role="img" aria-label="3,700">/);
+  assert.doesNotMatch(spectator, /Winner pays/, "a pool says no fixed payout");
   assert.doesNotMatch(spectator, /fd-wagers-payout/, "said once, on the board, not muted in the painting");
+  /* each side's price, a tap that teaches the pool: 3,700 over 2,100 is 1.7x, over 1,600 2.3x */
+  for (const price of ["1.7", "2.3"])
+    assert.match(spectator, new RegExp(`<button type="button" class="fd-side-pays-tap is-pool" aria-expanded="false" aria-label="Pays ${price.replace(".", "\\.")}×\\. How the pool pays"><span class="fd-price is-md " role="img" aria-label="Pays ${price.replace(".", "\\.")}×">`));
+  assert.match(spectator, /<svg class="fd-info-lamp"/, "the cyan info lamp says it opens something");
+  assert.doesNotMatch(spectator, /fd-price[^"]*is-long/, "2.3x is no long shot");
   /* a competitor backing their own side */
   const me = contest.sides[0].players[0];
   bet(state, "8ball", me, 0, 200);
   const mine = phoneBoard(state, me, "8ball").html;
-  assert.match(mine, /fd-wagers-pick is-mine has-chips is-your-side is-self-bet/);
+  assert.match(mine, /fd-wagers-pick has-price is-mine has-chips is-your-side is-self-bet/);
   assert.match(mine, /class="fd-wagers-pick-role is-backed"><i class="fd-insert" aria-hidden="true"><\/i>Your team</);
   assert.match(mine, /class="fd-wagers-stack is-you"/);
   assert.match(mine, /class="fd-stack-ring"/, "your chips' ring under your stack");
@@ -475,6 +505,18 @@ test("the competitor out-letters its backers, the payout is a lit lamp, a self-b
      under it, in your filament, "Yours" pointing at your own side */
   assert.match(mine, /class="fd-wagers-well is-locked is-point-back" role="img" aria-label="Opponent: You can only bet on your team in this match\."/);
   assert.match(mine, /class="fd-wagers-well-pointer" aria-hidden="true"><svg[^>]*>.*?<\/svg>Yours<\/span>/);
+  /* your stack's name line is what it wins now: 3,900 over 2,300 is 1.6x, 200 nets 120 (100) */
+  assert.match(mine, /class="fd-wagers-stack-name is-win" aria-label="Wins 100 at 1\.6×">\+100</);
+  assert.equal((mine.match(/fd-wagers-stack-name is-win/g) || []).length, 1, "only your own stack");
+  assert.match(mine, /To win at 1\.6×/, "the ledger's pending line reads the price");
+
+  /* a contest opened before pools keeps the lit fixed payout */
+  const legacy = structuredClone(EMPTY_STATE);
+  act(legacy, "announceAndDraw", { evId:"8ball", players:ROSTER.slice(0, 12) });
+  delete legacy.eventOps["8ball"].pools;
+  const old = phoneBoard(legacy, ROSTER[12], "8ball").html;
+  assert.match(old, /<span class="fd-wagers-pays"><i class="fd-insert" aria-hidden="true"><\/i>Winner pays 1:1<\/span>/);
+  assert.doesNotMatch(old, /fd-wagers-pays is-pool|fd-price/);
 });
 
 /* X8 on a bet card is drawn to fit its row by construction (the fit

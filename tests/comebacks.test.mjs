@@ -254,7 +254,7 @@ const ui = (() => {
     stdin:{ contents:`export { CrewCheck } from "./src/features/director/CrewCheck.jsx";
       export { PlayerIdentityProvider } from "./src/features/identity/PlayerIdentityContext.js";
       export { SideTerms } from "./src/features/comebacks/Comebacks.jsx";
-      export { contestTerms } from "./src/features/comebacks/comebacks.js";
+      export { contestTerms, longshotLine } from "./src/features/comebacks/comebacks.js";
       export { Leaderboard } from "./src/features/standings/Standings.jsx";`, resolveDir:root, loader:"jsx" },
     bundle:true, platform:"node", format:"cjs", external:["react"], loader:{ ".css":"empty" }, write:false, logLevel:"silent",
   });
@@ -386,20 +386,41 @@ test("a face's choices: Crew takes a role or the next in turn, Sit out only whil
 /* ── a side's terms: only its payout (the leader bounty was cut on Oct 4) ── */
 const html = (state, element) => renderToStaticMarkup(React.createElement(ui.PlayerIdentityProvider, { profiles:{} }, element));
 
-test("a side's terms carry only its payout, and a clear leader lights nothing", () => {
+test("a side's terms carry its price, and a clear leader lights no long shot", () => {
   const s = dieBoard(st => rule(st, ROSTER[6], 600));
   const contest = current(s, "die");
   const terms = ui.contestTerms(s, contest);
-  assert.equal(terms.any, false, "no odds, nothing to letter");
-  for (const side of Object.values(terms.sides)) assert.deepEqual(Object.keys(side).sort(), ["each", "mult", "payLine", "size", "underdog"]);
+  assert.deepEqual([terms.pool, terms.any, terms.wide], [true, true, false]);
+  for (const side of Object.values(terms.sides))
+    assert.deepEqual(Object.keys(side).sort(), ["bettors", "cap", "favorite", "long", "price", "share", "size", "stake", "text"]);
+  /* Adi's 1,600 lifts his pair's average to 1,300 against 1,000: the bank
+     seeds 113.04 and 86.96, so 200 prices them 1.7x and 2.2x, short of a long shot */
+  assert.deepEqual([terms.sides[3].text, terms.sides[4].text], ["1.7×", "2.2×"]);
+  assert.equal(terms.total, 200);
+  assert.ok(Object.values(terms.sides).every(side => !side.long && !side.cap), "a clear leader lights nothing");
+  assert.equal(terms.favorite, 3);
+  assert.equal(ui.longshotLine(terms, key => String(key)), null);
   assert.equal(contest.bounty, undefined, "the contest carries no bounty");
+  /* 300 on the favorite: 500 over 86.96 is 5.7x, the long shot lit */
+  act(s, "placeWager", { wager:matchChip(s, "die", 3, 300) }, guest(ROSTER[12]));
+  const long = ui.contestTerms(s, current(s, "die"));
+  assert.deepEqual([long.sides[4].text, long.sides[4].long, long.longshot], ["5.7×", true, 4]);
+  assert.equal(ui.longshotLine(long, key => key === 4 ? "Richard & Allan" : "?"), "Richard & Allan 5.7×");
+  const lamp = html(s, React.createElement(ui.SideTerms, { terms:long.sides[4] }));
+  assert.match(lamp, /<span class="fd-price is-md is-long " role="img" aria-label="Pays 5\.7×">/);
+  assert.doesNotMatch(lamp, /Bounty|\+200|fd-bounty|Winner pays/);
   lock(s, "die");
   assert.equal(s.eventOps.die.bounties, undefined, "a lock stamps nothing");
-  const odds = { ...contest, odds:{ underdog:contest.sides[1].key, mult:UNDERDOG_MULT } };
+  /* a contest opened before pools: no odds is nothing to letter, its underdog's 2:1 */
+  const plain = { ...contest, pool:undefined };
+  const legacy = ui.contestTerms(s, plain);
+  assert.deepEqual([legacy.pool, legacy.any], [false, false]);
+  for (const side of Object.values(legacy.sides)) assert.deepEqual(Object.keys(side).sort(), ["each", "mult", "payLine", "size", "underdog"]);
+  const odds = { ...plain, odds:{ underdog:contest.sides[1].key, mult:UNDERDOG_MULT } };
   const lit = ui.contestTerms(s, odds);
   const markup = html(s, React.createElement(ui.SideTerms, { terms:lit.sides[contest.sides[1].key] }));
   assert.match(markup, /Winner pays 2:1/);
-  assert.doesNotMatch(markup, /Bounty|\+200|fd-bounty/);
+  assert.doesNotMatch(markup, /Bounty|\+200|fd-bounty|fd-price/);
 });
 
 /* ── H10: the first underdog and the first byes, taught where they appear ── */
@@ -419,22 +440,33 @@ const teachUi = (() => {
   return mod.exports;
 })();
 
-test("the phone's underdog payout shows it opens something: a cyan info lamp beside the words", () => {
+test("the phone's payout shows it opens something: a cyan info lamp beside the price, or a legacy underdog's words", () => {
   const s = dieBoard(state => { rule(state, ROSTER[8], 500); rule(state, ROSTER[9], 500); });
   const contest = current(s, "die");
   const terms = ui.contestTerms(s, contest);
-  const dog = html(s, React.createElement(ui.SideTerms, { terms:terms.sides[contest.odds.underdog] }));
-  assert.match(dog, /<button type="button" class="fd-side-pays is-underdog fd-side-pays-tap" aria-expanded="false">Winner pays 2:1<svg class="fd-info-lamp"/);
-  const fav = html(s, React.createElement(ui.SideTerms, { terms:terms.sides[contest.sides.find(side => side.key !== contest.odds.underdog).key] }));
+  /* seeds 80 and 120: 2.5x and 1.6x, each a tap that draws how the pool pays */
+  for (const [key, price] of [[3, "2\\.5"], [4, "1\\.6"]]) {
+    const side = html(s, React.createElement(ui.SideTerms, { terms:terms.sides[key] }));
+    assert.match(side, new RegExp(`<button type="button" class="fd-side-pays-tap is-pool" aria-expanded="false" aria-label="Pays ${price}×\\. How the pool pays"><span class="fd-price is-md " role="img" aria-label="Pays ${price}×">`));
+    assert.match(side, /<svg class="fd-info-lamp"/);
+  }
+  /* a contest opened before pools: the underdog's words open the drawing, 1:1 is a plain label */
+  const old = dieBoard(state => { rule(state, ROSTER[8], 500); rule(state, ROSTER[9], 500); });
+  legacyOdds(old, "die", 3);
+  const was = current(old, "die");
+  const oldTerms = ui.contestTerms(old, was);
+  const dog = html(old, React.createElement(ui.SideTerms, { terms:oldTerms.sides[was.odds.underdog] }));
+  assert.match(dog, /<button type="button" class="fd-side-pays-tap is-underdog" aria-expanded="false" aria-label="Winner pays 2:1"><span class="fd-side-pays is-underdog">Winner pays 2:1<\/span><svg class="fd-info-lamp"/);
+  const fav = html(old, React.createElement(ui.SideTerms, { terms:oldTerms.sides[was.sides.find(side => side.key !== was.odds.underdog).key] }));
   assert.doesNotMatch(fav, /fd-info-lamp|<button/, "1:1 is a plain label");
 });
 
-test("the TV teaches the first underdog once: in its face-off, then its lamp on the board, on the server clock", () => {
+test("the TV teaches the first pool once: in its face-off on the long shot, then on the board, on the server clock", () => {
   const { underdogTeachWindow, teachState, FACEOFF_TIMING:F, UNDERDOG_TEACH_MS } = teachUi;
   const s = dieBoard(state => { rule(state, ROSTER[8], 500); rule(state, ROSTER[9], 500); });
   const ev = event(s, "die"), contest = current(s, "die");
   const win = underdogTeachWindow(s, ev, contest);
-  assert.ok(win, "a market that opens with an underdog teaches");
+  assert.ok(win, "a market that opens as a pool teaches");
   assert.equal(win.start - win.faceAt, F.settle, "the board's part starts as the face-off lifts");
   assert.equal(win.end - win.faceAt, F.total + UNDERDOG_TEACH_MS);
   const key = `${win.id}@${win.end}`;
@@ -443,17 +475,34 @@ test("the TV teaches the first underdog once: in its face-off, then its lamp on 
   assert.equal(teachState(win, win.start + 1, key).active, true, "a reload inside the window keeps it");
   assert.equal(teachState(win, win.start + 1, "die:other@1"), null, "a TV that was taught stays quiet");
   assert.equal(teachState(win, win.end, null), null, "and it ends");
+  /* a level pool teaches too: the pool is new to the room, whoever leads */
   const even = dieBoard();
-  assert.equal(underdogTeachWindow(even, event(even, "die"), current(even, "die")), null, "even money teaches nothing");
-  /* the face-off stamps the drawing under the underdog's payout only */
+  assert.ok(underdogTeachWindow(even, event(even, "die"), current(even, "die")));
+  /* a contest opened before pools: even money teaches nothing, a stored underdog teaches */
+  const plain = dieBoard();
+  delete plain.eventOps.die.pools;
+  assert.equal(underdogTeachWindow(plain, event(plain, "die"), current(plain, "die")), null, "legacy even money teaches nothing");
+  const old = dieBoard(state => { rule(state, ROSTER[8], 500); rule(state, ROSTER[9], 500); });
+  legacyOdds(old, "die", 3);
+  assert.ok(underdogTeachWindow(old, event(old, "die"), current(old, "die")), "a legacy underdog still teaches");
+  /* the face-off stamps the pool's drawing on the long shot only (80 seeded: 2.5x against 1.6x) */
   const view = teachUi.faceOffView(s, ev, contest);
-  const face = teach => renderToStaticMarkup(React.createElement(teachUi.PlayerIdentityProvider, { profiles:{} },
-    React.createElement(teachUi.FaceOff, { state:s, events:allEventsOf(s), ev, contest, view, moment:{ elapsed:5000 }, teach })));
-  const taught = face(true);
-  assert.equal((taught.match(/class="tv-teach tv-faceoff-teach"/g) || []).length, 1, "one stamp, on the underdog's side");
-  assert.match(taught, /aria-label="Underdog: winner pays 2:1"/);
-  assert.match(taught, /fd-underdog-explain is-tv/, "the rule drawn: two stacks, the gap, 1:1 and 2:1");
-  assert.doesNotMatch(face(false), /tv-faceoff-teach/);
+  const face = (state, c, teach) => renderToStaticMarkup(React.createElement(teachUi.PlayerIdentityProvider, { profiles:{} },
+    React.createElement(teachUi.FaceOff, { state, events:allEventsOf(state), ev:event(state, "die"), contest:c,
+      view:teachUi.faceOffView(state, event(state, "die"), c), moment:{ elapsed:5000 }, teach })));
+  const taught = face(s, contest, true);
+  assert.equal((taught.match(/class="tv-teach tv-faceoff-teach"/g) || []).length, 1, "one stamp");
+  assert.match(taught, /aria-label="The pool: winners split it"/);
+  assert.match(taught, /fd-pool-explain is-tv/, "the rule drawn: the pool over its two sides' chips");
+  const longSide = view.sides.findIndex(side => side.key === 3);
+  const sides = taught.split('class="tv-faceoff-side is-');
+  assert.match(sides[1 + longSide], /tv-faceoff-teach/, "the stamp stands under the long shot");
+  assert.doesNotMatch(sides[2 - longSide], /tv-faceoff-teach/);
+  assert.doesNotMatch(face(s, contest, false), /tv-faceoff-teach/);
+  /* legacy: the underdog's stamp and drawing */
+  const oldFace = face(old, current(old, "die"), true);
+  assert.match(oldFace, /aria-label="Underdog: winner pays 2:1"/);
+  assert.match(oldFace, /fd-underdog-explain is-tv/, "the rule drawn: two stacks, the gap, 1:1 and 2:1");
 });
 
 test("the TV teaches the first byes once, after the first face-off lifts", () => {

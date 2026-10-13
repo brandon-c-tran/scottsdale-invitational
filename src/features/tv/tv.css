@@ -328,6 +328,9 @@
    all it is the field, larger, in the middle of the pane */
 .tv-tote-strip { display:flex; align-items:center; gap:10px; flex:none; min-width:0; }
 .tv-tote-strip.is-field { justify-content:center; }
+/* under the rows, the strip stands at the foot of the pane, so a new row
+   never moves it */
+.tv-tote-strip.is-strip { margin-top:auto; }
 .tv-tote-strip-label { flex:none; font:800 24px/1.2 var(--fd-display); letter-spacing:.06em; text-transform:uppercase; color:var(--muted); }
 /* one or two lines, a second centred under the first */
 .tv-tote-idle { display:flex; flex-wrap:wrap; justify-content:center; gap:10px; margin:0; padding:0; list-style:none; min-width:0; }

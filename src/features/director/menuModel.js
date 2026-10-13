@@ -38,13 +38,13 @@ export function moreMenu(f = {}) {
 /* the games the commissioner runs from a desk of their own */
 const GAME_DESKS = [
   f => ({ id:"geo", name:"Where and When", icon:"pin", value:plural(f.geoPhotos || 0, "photo") }),
-  /* only with the karaoke capability (Spotify search and the YouTube key):
-     who has picked a song, of everyone coming */
-  f => f.karaoke && ({ id:"karaoke", name:"Karaoke", icon:"song", value:`${f.karaokeSongs || 0} of ${f.coming || 0} songs` }),
+  /* Karaoke's desk, only with the karaoke capability (Spotify search and
+     the YouTube key), in the slate's order (Friday's two, then Trivia):
+     who has picked a song, of everyone coming. `f.karaoke` is true, or
+     the value itself */
+  f => f.karaoke ? { id:"karaoke", name:"Karaoke", icon:"song",
+    value:typeof f.karaoke === "string" ? f.karaoke : `${f.karaokeSongs || 0} of ${f.coming || 0} songs` } : null,
   f => ({ id:"trivia", name:"Trivia", icon:"games", value:plural(f.triviaQuestions || 0, "question") }),
-  /* Karaoke's desk, when the build has one (f.karaoke: its value, or "") */
-  f => f.karaoke !== undefined && f.karaoke !== null
-    ? { id:"karaoke", name:"Karaoke", icon:"song", value:f.karaoke || null } : null,
   f => ({ id:"awards", name:"Awards", icon:"awards", value:f.awardsNote || null }),
 ];
 

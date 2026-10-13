@@ -49,9 +49,9 @@ test("the commissioner's menu: Now, The show, Games, People, Setup, Exit alone a
   assert.deepEqual(of("now"), ["crown", "lockStart", "takeBack:putt", "lockerRoom", "unfreeze"], "only what is actionable now, first");
   assert.deepEqual(of("room"), ["showControl", "audioDirector", "settings"]);
   assert.deepEqual(of("games"), ["geo", "trivia", "awards"]);
-  /* Karaoke's desk, when the build has one, sits between Trivia and Awards */
+  /* Karaoke's desk, with the capability, sits in the slate's order */
   assert.deepEqual(ids(commissionerMenu({ karaoke:"6 songs" })).filter(id => ["geo", "trivia", "karaoke", "awards"].includes(id)),
-    ["geo", "trivia", "karaoke", "awards"]);
+    ["geo", "karaoke", "trivia", "awards"]);
   assert.deepEqual(of("people"), ["attendance", "travelSheet", "logistics"]);
   assert.deepEqual(of("setup"), ["gmDevices", "snapshot", "qa", "reset"]);
   const flat = menu.flatMap(section => section.items);

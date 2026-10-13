@@ -1607,7 +1607,6 @@ function TournamentApp({ tournament, onUpdateReload }) {
       case "karaoke": return sheet("karaokeDesk");
       case "geo": return sheet("geoDesk");
       case "trivia": return sheet("triviaDesk");
-      case "karaoke": return sheet("karaokeDesk");
       case "awards": return sheet("awards");
       case "reset": return sheet("resetProgress");
       /* one action, one name: the pill's Lock and start, never a lock alone */

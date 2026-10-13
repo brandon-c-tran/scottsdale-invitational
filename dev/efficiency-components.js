@@ -1474,11 +1474,23 @@ var init_core = __esm({
         game: "where",
         desc: "Photos from Brandon's past. Pin where each was taken and guess the date and hour. Highest total wins."
       },
+      /* everyone sings the song they picked; the room votes each one, Build
+         Battle's Super Poop to Legendary (shared/karaoke.js, docs/KARAOKE.md) */
+      {
+        id: "karaoke",
+        n: 4,
+        session: "fri",
+        value: 400,
+        name: "Karaoke",
+        kind: "solo",
+        game: "karaoke",
+        desc: "Sing the song you picked while the room votes, Super Poop to Legendary. Best average wins."
+      },
       /* ── Saturday morning · 800 ── */
       /* everyone plays: captains draft two sides of seven and six. Winners only. */
       {
         id: "bball5",
-        n: 4,
+        n: 5,
         session: "sam",
         value: 800,
         name: "5v5 Full Court",
@@ -1493,7 +1505,7 @@ var init_core = __esm({
       },
       {
         id: "pickleball",
-        n: 5,
+        n: 6,
         session: "sam",
         value: 800,
         name: "Pickleball Doubles",
@@ -1507,7 +1519,7 @@ var init_core = __esm({
          draw, and the top seeds take the byes */
       {
         id: "bball1",
-        n: 6,
+        n: 7,
         session: "sam",
         value: 800,
         name: "1v1 Basketball",
@@ -1521,7 +1533,7 @@ var init_core = __esm({
       /* ── Saturday afternoon · 1200 ── */
       {
         id: "volley",
-        n: 7,
+        n: 8,
         session: "sap",
         value: 1200,
         name: "Sand Volleyball",
@@ -1533,7 +1545,7 @@ var init_core = __esm({
       },
       {
         id: "8ball",
-        n: 8,
+        n: 9,
         session: "sap",
         value: 1200,
         name: "8-Ball Doubles",
@@ -1545,7 +1557,7 @@ var init_core = __esm({
       },
       {
         id: "pong",
-        n: 9,
+        n: 10,
         session: "sap",
         value: 1200,
         name: "Beer Pong Doubles",
@@ -1558,7 +1570,7 @@ var init_core = __esm({
       /* ── Saturday night · 1600 ── */
       {
         id: "trivia",
-        n: 10,
+        n: 11,
         session: "san",
         value: 1600,
         name: "Trivia",
@@ -1568,7 +1580,7 @@ var init_core = __esm({
       },
       {
         id: "ragecage",
-        n: 11,
+        n: 12,
         session: "san",
         value: 1600,
         name: "Rage Cage",
@@ -1580,7 +1592,7 @@ var init_core = __esm({
       },
       {
         id: "beerio",
-        n: 12,
+        n: 13,
         session: "san",
         value: 1600,
         name: "Beerio Kart",
@@ -1594,7 +1606,7 @@ var init_core = __esm({
          BECOME the standings, it never pays awards. ── */
       {
         id: "poker",
-        n: 13,
+        n: 14,
         session: "fin",
         name: "Championship Poker",
         kind: "solo",
@@ -1773,6 +1785,18 @@ var init_core = __esm({
         ],
         win: "Most points wins. A tie goes to whoever locked their scoring answers faster."
       } },
+      karaoke: { name: "Karaoke", howto: {
+        players: "Solo",
+        gear: ["Your phone", "The TV"],
+        objective: "The room's favorite performance of the night.",
+        steps: [
+          "Pick a karaoke song in your profile. When Karaoke starts you have two minutes to keep it or change it.",
+          "When you're up, your song plays on the TV. Sing it.",
+          "Everyone else votes, Super Poop to Legendary. A vote can change until it closes.",
+          "With six or more votes, your highest and lowest are dropped."
+        ],
+        win: "Highest average wins. A tie goes to more Legendary votes, then Epic, and down."
+      } },
       poker: { name: "Poker", howto: {
         players: "Everyone, one table",
         gear: ["Cards", "Chips", "The clock"],
@@ -1892,6 +1916,7 @@ var init_core = __esm({
       triviaRounds: [],
       triviaFormat: "rounds",
       trivia: null,
+      karaoke: null,
       /* the TV's gags (src/features/gags): the commissioner's switch, and the
          QA console's test */
       gagsOff: false,
@@ -2068,7 +2093,9 @@ var init_frameGate = __esm({
       "pokerCancel",
       "pokerUnbust",
       "clearDraw",
-      "clearStages"
+      "clearStages",
+      /* karaoke starts over: every vote and lock-in gone */
+      "karaokeRestart"
     ]));
     JUMP_ACTIONS = Object.freeze(/* @__PURE__ */ new Set(["qaAdvance", "qaRestore"]));
     INITIAL = Object.freeze({
@@ -3102,6 +3129,66 @@ var init_trivia = __esm({
   }
 });
 
+// shared/audio.js
+var MAX_TRACK_DURATION_MS, WALKOUT_MAX_MS, WIN_SONG_CLIP_MS;
+var init_audio = __esm({
+  "shared/audio.js"() {
+    MAX_TRACK_DURATION_MS = 12 * 60 * 60 * 1e3;
+    WALKOUT_MAX_MS = 4 * 60 * 1e3;
+    WIN_SONG_CLIP_MS = 30 * 1e3;
+  }
+});
+
+// shared/karaoke.js
+var KARAOKE_TIERS, KARAOKE_PICK_MS, KARAOKE_MORE_TIME_MS, KARAOKE_UP_MS, KARAOKE_MAX_SONG_MS, KARAOKE_PRACTICE_MS, KARAOKE_VOTE_GRACE_MS, KARAOKE_LATE_MAX_MS, KARAOKE_SECONDS, KARAOKE_PRACTICE_SONGS;
+var init_karaoke = __esm({
+  "shared/karaoke.js"() {
+    init_core();
+    init_audio();
+    KARAOKE_TIERS = Object.freeze([
+      Object.freeze({ value: 1, id: "superpoop", name: "Super Poop", points: 1 }),
+      Object.freeze({ value: 2, id: "poop", name: "Poop", points: 2 }),
+      Object.freeze({ value: 3, id: "ok", name: "OK", points: 7 }),
+      Object.freeze({ value: 4, id: "good", name: "Good", points: 10 }),
+      Object.freeze({ value: 5, id: "epic", name: "Epic", points: 14 }),
+      Object.freeze({ value: 6, id: "legendary", name: "Legendary", points: 18 })
+    ]);
+    KARAOKE_PICK_MS = 2 * 60 * 1e3;
+    KARAOKE_MORE_TIME_MS = 60 * 1e3;
+    KARAOKE_UP_MS = 20 * 1e3;
+    KARAOKE_MAX_SONG_MS = 5 * 60 * 1e3;
+    KARAOKE_PRACTICE_MS = 30 * 1e3;
+    KARAOKE_VOTE_GRACE_MS = 20 * 1e3;
+    KARAOKE_LATE_MAX_MS = 2 * 60 * 1e3;
+    KARAOKE_SECONDS = Object.freeze({ min: 60, max: 900 });
+    KARAOKE_PRACTICE_SONGS = Object.freeze([
+      ["Mr. Brightside", "The Killers"],
+      ["Don't Stop Believin'", "Journey"],
+      ["Wonderwall", "Oasis"],
+      ["Livin' on a Prayer", "Bon Jovi"],
+      ["Bohemian Rhapsody", "Queen"],
+      ["I Want It That Way", "Backstreet Boys"],
+      ["Sweet Caroline", "Neil Diamond"],
+      ["Africa", "Toto"],
+      ["Hey Ya!", "OutKast"],
+      ["Toxic", "Britney Spears"],
+      ["Mamma Mia", "ABBA"],
+      ["Party in the U.S.A.", "Miley Cyrus"],
+      ["All Star", "Smash Mouth"]
+    ].map(([name, artist], k) => Object.freeze({
+      provider: "practice",
+      trackId: `practice${k + 1}`,
+      name,
+      artists: Object.freeze([artist]),
+      imageUrl: null,
+      durationMs: KARAOKE_PRACTICE_MS,
+      video: null,
+      alts: Object.freeze([]),
+      practice: true
+    })));
+  }
+});
+
 // shared/show.js
 function contestName(state, ev, contest) {
   if (!contest) return ev?.name || "";
@@ -3139,6 +3226,7 @@ var init_show = __esm({
     init_prompts();
     init_geo();
     init_trivia();
+    init_karaoke();
     SHOW_TERMINAL_OUTCOMES = Object.freeze(["completed", "skipped", "cancelled"]);
     SHOW_SCENE_DEFINITIONS = Object.freeze({
       opening: Object.freeze({
@@ -3865,6 +3953,7 @@ var init_autopilot = __esm({
     init_show();
     init_geo();
     init_trivia();
+    init_karaoke();
     GEO_REVEAL_HOLD_MS = 14 * 1e3;
   }
 });
@@ -4680,7 +4769,7 @@ function GameMark({ id, size = 54, hero = false, variant }) {
     )
   );
 }
-var BALL, MARKS, CHIP, GAME_MARK_IDS;
+var BALL, MARKS, CHIP, NOT_BORROWED, GAME_MARK_IDS;
 var init_GameMark = __esm({
   "src/ui/GameMark.jsx"() {
     BALL = { fill: "currentColor", stroke: "none" };
@@ -4691,6 +4780,9 @@ var init_GameMark = __esm({
       die: /* @__PURE__ */ React16.createElement(React16.Fragment, null, /* @__PURE__ */ React16.createElement("rect", { x: "5.4", y: "5.4", width: "13.2", height: "13.2", rx: "3", transform: "rotate(-12 12 12)" }), /* @__PURE__ */ React16.createElement("g", { ...BALL }, /* @__PURE__ */ React16.createElement("circle", { cx: "8.8", cy: "9.4", r: "1.35" }), /* @__PURE__ */ React16.createElement("circle", { cx: "12", cy: "12", r: "1.35" }), /* @__PURE__ */ React16.createElement("circle", { cx: "15.2", cy: "14.6", r: "1.35" }))),
       /* Where and When: a pin dropped on the map, its ring on the ground */
       where: /* @__PURE__ */ React16.createElement(React16.Fragment, null, /* @__PURE__ */ React16.createElement("path", { d: "M12 16.6s-5-4.3-5-8.4a5 5 0 0 1 10 0c0 4.1-5 8.4-5 8.4z" }), /* @__PURE__ */ React16.createElement("circle", { cx: "12", cy: "8.2", r: "1.9", ...BALL }), /* @__PURE__ */ React16.createElement("path", { d: "M7.4 16.9c-2 .5-3.2 1.2-3.2 2 0 1.4 3.5 2.4 7.8 2.4s7.8-1 7.8-2.4c0-.8-1.2-1.5-3.2-2" })),
+      /* Karaoke: the handheld mic, its grille the one solid object with one
+         band of its mesh cut through */
+      karaoke: /* @__PURE__ */ React16.createElement("g", { transform: "rotate(34 12 12)" }, /* @__PURE__ */ React16.createElement("circle", { cx: "12", cy: "6.4", r: "4", ...BALL }), /* @__PURE__ */ React16.createElement("path", { d: "M8.3 6.4h7.4", stroke: "var(--fd-mark-glass)", strokeWidth: "1" }), /* @__PURE__ */ React16.createElement("path", { d: "M9.2 10.8h5.6M9.8 10.8l1.1 9a1.1 1.1 0 0 0 2.2 0l1.1-9" })),
       /* basketball: a ball with its seams (5v5); 1v1 is the hoop, side on, the
          shot coming in */
       basketball: /* @__PURE__ */ React16.createElement(React16.Fragment, null, /* @__PURE__ */ React16.createElement("circle", { cx: "12", cy: "12", r: "8.4" }), /* @__PURE__ */ React16.createElement("path", { d: "M3.6 12h16.8M12 3.6v16.8M6.1 6c2.4 1.6 3.4 3.6 3.4 6s-1 4.4-3.4 6M17.9 6c-2.4 1.6-3.4 3.6-3.4 6s1 4.4 3.4 6" })),
@@ -4722,7 +4814,8 @@ var init_GameMark = __esm({
       const a = deg * Math.PI / 180, x = (r) => (12 + Math.cos(a) * r).toFixed(2), y = (r) => (12 + Math.sin(a) * r).toFixed(2);
       return `M${x(5.2)} ${y(5.2)}L${x(6.6)} ${y(6.6)}`;
     }).join("") }));
-    GAME_MARK_IDS = Object.freeze(Object.keys(MARKS).filter((id) => !id.includes(":")));
+    NOT_BORROWED = Object.freeze(["karaoke"]);
+    GAME_MARK_IDS = Object.freeze(Object.keys(MARKS).filter((id) => !id.includes(":") && !NOT_BORROWED.includes(id)));
   }
 });
 
@@ -4771,6 +4864,7 @@ var init_introTiming = __esm({
       "putting",
       "die",
       "where",
+      "karaoke",
       "basketball:5v5",
       "pickleball",
       "basketball:1v1",
@@ -5562,7 +5656,7 @@ function playRecipe(E, id, t, { pan = 0, open = false, ...opts } = {}) {
   }
   return true;
 }
-var NOTE, LADDER, ladderNote, CROWN_CHORD, ROOMS, roomKeyFor, roomForPhase, PHONE_WET, wetLevel, highpassFor, rnd, clampPan, PHANTOM, M, HIT, PLAY, bloop, bounce, swish, hum, INTRO_FOLEY, KIT, CHIP_WEIGHT, PARTS, THINK, THINK_BAR_S, BOARD_PARTS, BIT_PARTS, SOUNDS, SOUND_IDS, isSound, CHIP_DENSITY;
+var NOTE, LADDER, ladderNote, CROWN_CHORD, ROOMS, roomKeyFor, roomForPhase, PHONE_WET, wetLevel, highpassFor, rnd, clampPan, PHANTOM, M, HIT, PLAY, bloop, bounce, swish, hum, INTRO_FOLEY, KIT, CHIP_WEIGHT, PARTS, THINK, THINK_BAR_S, BOARD_PARTS, BIT_PARTS, KARAOKE_PARTS, SOUNDS, SOUND_IDS, isSound, CHIP_DENSITY;
 var init_soundKit = __esm({
   "src/lib/soundKit.js"() {
     init_introTiming();
@@ -5741,6 +5835,20 @@ var init_soundKit = __esm({
         hum(E, t + HIT - 0.35, 0.34, 2400, 800, 0.08);
         M.felt(E, t + HIT, { gain: 0.8 });
         M.knock(E, t + HIT + 5e-3, { gain: 0.6 });
+      },
+      /* two taps on the mic, the follow spot swinging round, its shutter
+         opening on the hit, the PA coming up under the first note */
+      karaoke: (E, t) => {
+        M.felt(E, t + 1, { gain: 0.55 });
+        M.knock(E, t + 1, { pitch: 0.55, gain: 0.32 });
+        M.felt(E, t + 1.24, { gain: 0.6 });
+        M.knock(E, t + 1.24, { pitch: 0.55, gain: 0.36 });
+        hum(E, t + PLAY, HIT - PLAY, 260, 760, 0.045);
+        M.knock(E, t + HIT - 0.03, { pitch: 0.62, gain: 0.6 });
+        M.clack(E, t + HIT - 0.028, { pitch: 0.6, gain: 0.28, double: false });
+        const v = voice(E, { send: 0.3, bright: 0.5, gain: 0.4 });
+        mode(E, v, t + HIT + 0.04, NOTE.D3, 1.1, 0.05, { a: 0.08 });
+        M.bell(E, t + HIT + 0.32, NOTE.A5, { gain: 0.12, dec: 0.9, send: 0.3 });
       },
       "basketball:5v5": (E, t) => {
         bounce(E, t + 0.45, 0.5);
@@ -7615,7 +7723,22 @@ var init_soundKit = __esm({
         }
       }
     ].map(Object.freeze));
-    SOUNDS = Object.freeze(Object.fromEntries([...KIT, ...PARTS, ...BOARD_PARTS, ...BIT_PARTS].map((s) => [s.id, s])));
+    KARAOKE_PARTS = Object.freeze([
+      /* a Legendary vote rains over its singer: a drum and a slap, the motif
+         rung up bright, then a sparkle of high bells falling through it */
+      {
+        id: "legendary",
+        name: "Legendary",
+        ms: 2600,
+        play: (E, t) => {
+          M.drum(E, t, { f: NOTE.D2, dec: 0.8, gain: 0.8 });
+          M.slap(E, t + 4e-3, { gain: 0.5 });
+          [NOTE.D5, NOTE.Fs5, NOTE.A5, NOTE.D6].forEach((f, i) => M.bell(E, t + i * 0.07, f, { gain: 0.5 - i * 0.04, dec: 2.2, send: 0.35 }));
+          for (let i = 0; i < 9; i++) M.bell(E, t + 0.32 + i * 0.11, ladderNote(13 - i % 6), { gain: 0.14, dec: 0.5, send: 0.4 });
+        }
+      }
+    ].map(Object.freeze));
+    SOUNDS = Object.freeze(Object.fromEntries([...KIT, ...PARTS, ...BOARD_PARTS, ...BIT_PARTS, ...KARAOKE_PARTS].map((s) => [s.id, s])));
     SOUND_IDS = Object.freeze(KIT.map((s) => s.id));
     isSound = (id) => Object.prototype.hasOwnProperty.call(SOUNDS, id);
     CHIP_DENSITY = Object.freeze({ minGap: 120, crowd: 3, window: 400 });
@@ -9217,6 +9340,31 @@ function Where() {
     }
   );
 }
+function Karaoke() {
+  const own = React23.useId().replace(/[^a-z0-9]/gi, "");
+  const beam = `fi-beam-${own}`, boards = `fi-boards-${own}`;
+  const light = "var(--art-cream)";
+  const wood = mix("var(--art-plum)", 62, "var(--art-umber)");
+  const glass = mix("var(--art-indigo)", 72, K);
+  const cone = "M388 -220H412L676 500H404Z";
+  return /* @__PURE__ */ React23.createElement(
+    Plates,
+    {
+      far: /* @__PURE__ */ React23.createElement(React23.Fragment, null, /* @__PURE__ */ React23.createElement("path", { d: "M776 400V476", stroke: K, strokeWidth: "12" }), /* @__PURE__ */ React23.createElement("rect", { x: "648", y: "262", width: "256", height: "146", rx: "10", fill: K }), /* @__PURE__ */ React23.createElement("rect", { x: "660", y: "274", width: "232", height: "122", rx: "4", fill: glass }), /* @__PURE__ */ React23.createElement("path", { d: "M684 316H868M702 352H850", stroke: BONE2, strokeOpacity: ".22", strokeWidth: "10", strokeLinecap: "round" }), /* @__PURE__ */ React23.createElement(
+        "path",
+        {
+          d: "M684 316H868",
+          stroke: light,
+          strokeWidth: "10",
+          strokeLinecap: "round",
+          style: { ...box, transformOrigin: "left center", ...run("fi-wipe", 1500, INTRO_TIMING.hit + 80, "linear") }
+        }
+      )),
+      mid: /* @__PURE__ */ React23.createElement(React23.Fragment, null, /* @__PURE__ */ React23.createElement("path", { d: "M330 468H870L940 522H260Z", fill: wood, stroke: K, strokeWidth: "5", strokeLinejoin: "round" }), /* @__PURE__ */ React23.createElement("path", { d: "M260 522H940V556H260Z", fill: mix(wood, 55, K), stroke: K, strokeWidth: "5", strokeLinejoin: "round" }), /* @__PURE__ */ React23.createElement("path", { d: "M340 476H860", stroke: BONE2, strokeOpacity: ".12", strokeWidth: "6" }), /* @__PURE__ */ React23.createElement("ellipse", { cx: "540", cy: "498", rx: "138", ry: "22", fill: light, fillOpacity: ".3", style: { ...box, ...run("fi-spot-snap", 240, INTRO_TIMING.hit, "linear") } }), /* @__PURE__ */ React23.createElement("path", { d: "M548 356C566 392 548 440 560 474S650 508 690 490", fill: "none", stroke: K, strokeWidth: "5", strokeLinecap: "round" }), /* @__PURE__ */ React23.createElement("ellipse", { cx: "540", cy: "496", rx: "44", ry: "10", fill: K }), /* @__PURE__ */ React23.createElement("path", { d: "M540 494V338", stroke: K, strokeWidth: "13", strokeLinecap: "round" }), /* @__PURE__ */ React23.createElement("path", { d: "M540 492V340", stroke: "var(--silver)", strokeWidth: "5" }), /* @__PURE__ */ React23.createElement("g", { transform: "rotate(-14 540 338)" }, /* @__PURE__ */ React23.createElement("path", { d: "M530 342h20", stroke: K, strokeWidth: "10", strokeLinecap: "round" }), /* @__PURE__ */ React23.createElement("path", { d: "M528 296L534 344H546L552 296Z", fill: mix(K, 80, BONE2), stroke: K, strokeWidth: "4", strokeLinejoin: "round" }), /* @__PURE__ */ React23.createElement("rect", { x: "524", y: "286", width: "32", height: "12", rx: "3", fill: "var(--silver)", stroke: K, strokeWidth: "4" }), /* @__PURE__ */ React23.createElement("circle", { cx: "540", cy: "266", r: "25", fill: mix("var(--silver)", 40, K), stroke: K, strokeWidth: "5" }), /* @__PURE__ */ React23.createElement("path", { d: "M518 258H562M518 274H562M529 246V286M540 242V290M551 246V286", stroke: K, strokeOpacity: ".55", strokeWidth: "2.5" }), /* @__PURE__ */ React23.createElement("g", { style: run("fi-spot-snap", 240, INTRO_TIMING.hit, "linear") }, /* @__PURE__ */ React23.createElement("circle", { cx: "540", cy: "266", r: "22.5", fill: light }), /* @__PURE__ */ React23.createElement("path", { d: "M520 258H560M520 274H560M529 247V285M540 244V288M551 247V285", stroke: mix(light, 50, K), strokeWidth: "2.5" }), /* @__PURE__ */ React23.createElement("path", { d: "M526 252a18 18 0 0 1 16-7", fill: "none", stroke: BONE2, strokeWidth: "4", strokeLinecap: "round" })))),
+      near: /* @__PURE__ */ React23.createElement(React23.Fragment, null, /* @__PURE__ */ React23.createElement("defs", null, /* @__PURE__ */ React23.createElement("linearGradient", { id: beam, gradientUnits: "userSpaceOnUse", x1: "0", y1: "180", x2: "0", y2: "380" }, /* @__PURE__ */ React23.createElement("stop", { offset: "0", stopColor: light, stopOpacity: "0" }), /* @__PURE__ */ React23.createElement("stop", { offset: "1", stopColor: light, stopOpacity: "1" })), /* @__PURE__ */ React23.createElement("clipPath", { id: boards }, /* @__PURE__ */ React23.createElement("rect", { x: "-400", y: "-300", width: "2000", height: "812" }))), /* @__PURE__ */ React23.createElement("g", { clipPath: `url(#${boards})` }, /* @__PURE__ */ React23.createElement("g", { style: { transformOrigin: "400px -220px", ...run("fi-spot-sweep", INTRO_TIMING.hit - INTRO_TIMING.play, INTRO_TIMING.play, "cubic-bezier(.45,.05,.4,1)") } }, /* @__PURE__ */ React23.createElement("path", { d: cone, fill: `url(#${beam})`, fillOpacity: ".14", style: run("fi-on", 220, INTRO_TIMING.play) }))), /* @__PURE__ */ React23.createElement("path", { d: cone, fill: `url(#${beam})`, fillOpacity: ".26", style: run("fi-spot-snap", 240, INTRO_TIMING.hit, "linear") }), /* @__PURE__ */ React23.createElement(Burst, { x: 523, y: 268, r: 58 }))
+    }
+  );
+}
 function Ball({ r, fill = "var(--art-tangerine)", seams = true }) {
   return /* @__PURE__ */ React23.createElement(React23.Fragment, null, /* @__PURE__ */ React23.createElement("circle", { r, fill, stroke: K, strokeWidth: Math.max(3, r * 0.12) }), seams && /* @__PURE__ */ React23.createElement(
     "path",
@@ -9493,6 +9641,7 @@ var init_IntroScenes = __esm({
       putting: Putting,
       die: Die,
       where: Where,
+      karaoke: Karaoke,
       "basketball:5v5": FullCourt,
       pickleball: Pickleball,
       "basketball:1v1": OneOnOne,
@@ -11602,16 +11751,6 @@ var init_weekendFacts = __esm({
     init_resultMoment();
     init_seasonStats();
     FACT_TAGS = Object.freeze({ streak: "Streak", first: "First", wins: "Milestone", bet: "Record" });
-  }
-});
-
-// shared/audio.js
-var MAX_TRACK_DURATION_MS, WALKOUT_MAX_MS, WIN_SONG_CLIP_MS;
-var init_audio = __esm({
-  "shared/audio.js"() {
-    MAX_TRACK_DURATION_MS = 12 * 60 * 60 * 1e3;
-    WALKOUT_MAX_MS = 4 * 60 * 1e3;
-    WIN_SONG_CLIP_MS = 30 * 1e3;
   }
 });
 
@@ -14293,7 +14432,7 @@ var init_geo2 = __esm({
 });
 
 // src/features/geo/GeoMap.jsx
-import React78, { useEffect as useEffect55, useRef as useRef55, useState as useState62 } from "react";
+import React78, { useEffect as useEffect56, useRef as useRef56, useState as useState63 } from "react";
 var init_GeoMap = __esm({
   "src/features/geo/GeoMap.jsx"() {
     init_geo2();
@@ -14301,7 +14440,7 @@ var init_GeoMap = __esm({
 });
 
 // src/features/geo/Wheel.jsx
-import React79, { useEffect as useEffect56, useLayoutEffect as useLayoutEffect17, useRef as useRef56, useState as useState63 } from "react";
+import React79, { useEffect as useEffect57, useLayoutEffect as useLayoutEffect17, useRef as useRef57, useState as useState64 } from "react";
 var ROWS, CENTER2;
 var init_Wheel = __esm({
   "src/features/geo/Wheel.jsx"() {
@@ -14323,7 +14462,7 @@ var init_geoModel = __esm({
 });
 
 // src/features/geo/WhenPicker.jsx
-import React80, { useEffect as useEffect57, useMemo as useMemo15 } from "react";
+import React80, { useEffect as useEffect58, useMemo as useMemo15 } from "react";
 var MONTHS, MONTH_ITEMS, YEAR_ITEMS, HOUR_ITEMS;
 var init_WhenPicker = __esm({
   "src/features/geo/WhenPicker.jsx"() {
@@ -14337,7 +14476,7 @@ var init_WhenPicker = __esm({
 });
 
 // src/features/geo/PlaceSearch.jsx
-import React81, { useEffect as useEffect58, useRef as useRef57, useState as useState64 } from "react";
+import React81, { useEffect as useEffect59, useRef as useRef58, useState as useState65 } from "react";
 var init_PlaceSearch = __esm({
   "src/features/geo/PlaceSearch.jsx"() {
     init_haptics();
@@ -14379,6 +14518,15 @@ var init_board = __esm({
   }
 });
 
+// src/lib/youtube.js
+var YT_STATE, YT_ERRORS;
+var init_youtube = __esm({
+  "src/lib/youtube.js"() {
+    YT_STATE = Object.freeze({ UNSTARTED: -1, ENDED: 0, PLAYING: 1, PAUSED: 2, BUFFERING: 3, CUED: 5 });
+    YT_ERRORS = Object.freeze([2, 5, 100, 101, 150, 153]);
+  }
+});
+
 // src/features/speaker/speakerModel.js
 var init_speakerModel = __esm({
   "src/features/speaker/speakerModel.js"() {
@@ -14394,10 +14542,31 @@ var init_readyCheck = __esm({
     init_guestSetup();
     init_geo();
     init_trivia();
+    init_karaoke();
     init_awardsModel();
     init_speakerModel();
     init_tvHealth();
     READY_STATES = Object.freeze(["ready", "partial", "missing", "off"]);
+  }
+});
+
+// src/features/karaoke/deskModel.js
+var KARAOKE_PROBLEMS;
+var init_deskModel = __esm({
+  "src/features/karaoke/deskModel.js"() {
+    init_core();
+    init_karaoke();
+    KARAOKE_PROBLEMS = Object.freeze({
+      removed: "Video gone",
+      private: "Private video",
+      processing: "Still processing",
+      embedding: "YouTube only",
+      age: "Age restricted",
+      region: "Blocked in the US",
+      live: "Live stream",
+      length: "Wrong length",
+      invalid: "Not a video"
+    });
   }
 });
 
@@ -14423,7 +14592,7 @@ var init_tvSheetModel = __esm({
 });
 
 // src/features/speaker/speakerStatus.js
-import { useEffect as useEffect64, useSyncExternalStore as useSyncExternalStore6 } from "react";
+import { useEffect as useEffect68, useSyncExternalStore as useSyncExternalStore6 } from "react";
 var init_speakerStatus = __esm({
   "src/features/speaker/speakerStatus.js"() {
     init_client();
@@ -14463,13 +14632,13 @@ var Onboarding_exports = {};
 __export(Onboarding_exports, {
   Onboarding: () => Onboarding
 });
-import React91, { useEffect as useEffect66, useRef as useRef65, useState as useState71 } from "react";
+import React95, { useEffect as useEffect70, useRef as useRef69, useState as useState75 } from "react";
 function InvitationArt({ count }) {
-  return /* @__PURE__ */ React91.createElement("div", { className: "fd-invitation-art", "aria-label": `Field Day. ${EDITION.name}, ${EDITION.year}.` }, /* @__PURE__ */ React91.createElement(LampChase, { tone: "live" }), /* @__PURE__ */ React91.createElement("div", { className: "fd-invitation-scene fd-glass-scene" }, /* @__PURE__ */ React91.createElement(GlassArt, { clear: true }), /* @__PURE__ */ React91.createElement("div", { className: "fd-invitation-wordmark", "aria-hidden": "true" }, /* @__PURE__ */ React91.createElement("span", null, "Field"), /* @__PURE__ */ React91.createElement("span", null, "Day"))), /* @__PURE__ */ React91.createElement("div", { className: "fd-invitation-seal", "aria-hidden": "true" }, /* @__PURE__ */ React91.createElement("svg", { viewBox: "0 0 100 100" }, /* @__PURE__ */ React91.createElement("path", { d: "M50 1 59 10 72 6 77 19 91 23 90 37 100 50 90 60 94 74 80 79 76 93 62 91 50 100 40 90 26 94 21 80 7 76 9 62 0 50 10 40 6 26 20 21 24 7 38 9Z", fill: "currentColor" })), /* @__PURE__ */ React91.createElement("span", null, /* @__PURE__ */ React91.createElement("strong", null, count), /* @__PURE__ */ React91.createElement("small", null, "Players"))), /* @__PURE__ */ React91.createElement("div", { className: "fd-invitation-edition" }, /* @__PURE__ */ React91.createElement("span", null, "Scottsdale, AZ"), /* @__PURE__ */ React91.createElement("span", null, /* @__PURE__ */ React91.createElement(OneSafe, { text: EDITION.short }), /* @__PURE__ */ React91.createElement("br", null), EDITION.year)));
+  return /* @__PURE__ */ React95.createElement("div", { className: "fd-invitation-art", "aria-label": `Field Day. ${EDITION.name}, ${EDITION.year}.` }, /* @__PURE__ */ React95.createElement(LampChase, { tone: "live" }), /* @__PURE__ */ React95.createElement("div", { className: "fd-invitation-scene fd-glass-scene" }, /* @__PURE__ */ React95.createElement(GlassArt, { clear: true }), /* @__PURE__ */ React95.createElement("div", { className: "fd-invitation-wordmark", "aria-hidden": "true" }, /* @__PURE__ */ React95.createElement("span", null, "Field"), /* @__PURE__ */ React95.createElement("span", null, "Day"))), /* @__PURE__ */ React95.createElement("div", { className: "fd-invitation-seal", "aria-hidden": "true" }, /* @__PURE__ */ React95.createElement("svg", { viewBox: "0 0 100 100" }, /* @__PURE__ */ React95.createElement("path", { d: "M50 1 59 10 72 6 77 19 91 23 90 37 100 50 90 60 94 74 80 79 76 93 62 91 50 100 40 90 26 94 21 80 7 76 9 62 0 50 10 40 6 26 20 21 24 7 38 9Z", fill: "currentColor" })), /* @__PURE__ */ React95.createElement("span", null, /* @__PURE__ */ React95.createElement("strong", null, count), /* @__PURE__ */ React95.createElement("small", null, "Players"))), /* @__PURE__ */ React95.createElement("div", { className: "fd-invitation-edition" }, /* @__PURE__ */ React95.createElement("span", null, "Scottsdale, AZ"), /* @__PURE__ */ React95.createElement("span", null, /* @__PURE__ */ React95.createElement(OneSafe, { text: EDITION.short }), /* @__PURE__ */ React95.createElement("br", null), EDITION.year)));
 }
 function RatingForm({ ratings, setRatings }) {
   const rated = SPORTS.filter((s) => ratings[s.id] !== void 0).length;
-  return /* @__PURE__ */ React91.createElement("div", null, /* @__PURE__ */ React91.createElement("div", { className: "fd-rating-status" }, /* @__PURE__ */ React91.createElement("span", { role: "status" }, rated, " of ", SPORTS.length, " rated"), rated < SPORTS.length && /* @__PURE__ */ React91.createElement(
+  return /* @__PURE__ */ React95.createElement("div", null, /* @__PURE__ */ React95.createElement("div", { className: "fd-rating-status" }, /* @__PURE__ */ React95.createElement("span", { role: "status" }, rated, " of ", SPORTS.length, " rated"), rated < SPORTS.length && /* @__PURE__ */ React95.createElement(
     "button",
     {
       type: "button",
@@ -14477,7 +14646,7 @@ function RatingForm({ ratings, setRatings }) {
       onClick: () => setRatings((current) => Object.fromEntries(SPORTS.map((s) => [s.id, current[s.id] ?? 2])))
     },
     "Set remaining to Average"
-  )), [["sport", "Sports"], ["drink", "Drinking games"]].map(([group, title]) => /* @__PURE__ */ React91.createElement("div", { className: "fd-rating-group", key: group }, /* @__PURE__ */ React91.createElement("h3", { className: "fd-eyebrow" }, title), /* @__PURE__ */ React91.createElement("div", { className: "fd-rating-labels", "aria-hidden": "true" }, /* @__PURE__ */ React91.createElement("span", null), /* @__PURE__ */ React91.createElement("div", null, ["Never", "Rough", "Avg", "Solid", "Elite"].map((text) => /* @__PURE__ */ React91.createElement("span", { key: text }, text)))), SPORTS.filter((s) => s.group === group).map((s) => /* @__PURE__ */ React91.createElement("div", { className: "fd-rating-row", key: s.id }, /* @__PURE__ */ React91.createElement("div", null, /* @__PURE__ */ React91.createElement("strong", null, s.label), /* @__PURE__ */ React91.createElement("small", null, RATINGS.find((r) => r.v === ratings[s.id])?.label || "Not rated")), /* @__PURE__ */ React91.createElement("div", { className: "fd-rating-options", role: "group", "aria-label": s.label }, RATINGS.map((r, i) => /* @__PURE__ */ React91.createElement(
+  )), [["sport", "Sports"], ["drink", "Drinking games"]].map(([group, title]) => /* @__PURE__ */ React95.createElement("div", { className: "fd-rating-group", key: group }, /* @__PURE__ */ React95.createElement("h3", { className: "fd-eyebrow" }, title), /* @__PURE__ */ React95.createElement("div", { className: "fd-rating-labels", "aria-hidden": "true" }, /* @__PURE__ */ React95.createElement("span", null), /* @__PURE__ */ React95.createElement("div", null, ["Never", "Rough", "Avg", "Solid", "Elite"].map((text) => /* @__PURE__ */ React95.createElement("span", { key: text }, text)))), SPORTS.filter((s) => s.group === group).map((s) => /* @__PURE__ */ React95.createElement("div", { className: "fd-rating-row", key: s.id }, /* @__PURE__ */ React95.createElement("div", null, /* @__PURE__ */ React95.createElement("strong", null, s.label), /* @__PURE__ */ React95.createElement("small", null, RATINGS.find((r) => r.v === ratings[s.id])?.label || "Not rated")), /* @__PURE__ */ React95.createElement("div", { className: "fd-rating-options", role: "group", "aria-label": s.label }, RATINGS.map((r, i) => /* @__PURE__ */ React95.createElement(
     "button",
     {
       type: "button",
@@ -14491,21 +14660,21 @@ function RatingForm({ ratings, setRatings }) {
   ))))))));
 }
 function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, back, done, onTv, onChip }) {
-  const [selected, setSelected] = useState71(me || null);
-  const [ratings, setRatings] = useState71({});
-  const [display, setDisplay] = useState71("");
-  const [photo, setPhoto] = useState71(null);
-  const [num, setNum] = useState71("");
-  const [size, setSize] = useState71(null);
-  const [flightsBooked, setFlightsBooked] = useState71(null);
-  const [flightIn, setFlightIn] = useState71(null);
-  const [flightOut, setFlightOut] = useState71(null);
-  const [busy, setBusy] = useState71(false);
-  const [error, setError] = useState71("");
-  const submit = useRef65(createCheckInSubmission());
-  const heading = useRef65(null);
-  const hydratedPlayer = useRef65(null);
-  useEffect66(() => {
+  const [selected, setSelected] = useState75(me || null);
+  const [ratings, setRatings] = useState75({});
+  const [display, setDisplay] = useState75("");
+  const [photo, setPhoto] = useState75(null);
+  const [num, setNum] = useState75("");
+  const [size, setSize] = useState75(null);
+  const [flightsBooked, setFlightsBooked] = useState75(null);
+  const [flightIn, setFlightIn] = useState75(null);
+  const [flightOut, setFlightOut] = useState75(null);
+  const [busy, setBusy] = useState75(false);
+  const [error, setError] = useState75("");
+  const submit = useRef69(createCheckInSubmission());
+  const heading = useRef69(null);
+  const hydratedPlayer = useRef69(null);
+  useEffect70(() => {
     if (!me || hydratedPlayer.current === me) return;
     hydratedPlayer.current = me;
     const profile = state.profiles?.[me];
@@ -14518,7 +14687,7 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, bac
     setPhoto(null);
     setRatings({ ...state.seeds?.[me] });
   }, [me, state.profiles, state.seeds]);
-  useEffect66(() => {
+  useEffect70(() => {
     setError("");
     heading.current?.focus({ preventScroll: true });
     window.scrollTo({ top: 0, behavior: "instant" });
@@ -14560,12 +14729,12 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, bac
     if (step === 5) return saveAndGo(() => submitSeeds(ratings), done);
     next();
   };
-  return /* @__PURE__ */ React91.createElement("main", { className: "fd-arrival", "aria-busy": busy }, /* @__PURE__ */ React91.createElement("header", { className: "fd-arrival-header" }, /* @__PURE__ */ React91.createElement("span", { className: "fd-arrival-mark" }, "Field Day ", /* @__PURE__ */ React91.createElement("span", null, EDITION.label)), /* @__PURE__ */ React91.createElement("span", { className: "fd-arrival-progress" }, step < 0 ? "WELCOME" : /* @__PURE__ */ React91.createElement(OneSafe, { all: true, text: `${String(step + 1).padStart(2, "0")} / 06` })), step >= 0 && /* @__PURE__ */ React91.createElement("div", { className: "fd-arrival-progress-track", "aria-label": `Check-in step ${step + 1} of 6: ${STAGES[step]}` }, STAGES.map((stage, i) => /* @__PURE__ */ React91.createElement("span", { key: stage, className: i <= step ? "is-complete" : "" })))), /* @__PURE__ */ React91.createElement("div", { className: `fd-arrival-layout${step <= 0 ? " is-invitation" : ""}` }, /* @__PURE__ */ React91.createElement("aside", { className: "fd-arrival-aside" }, step <= 0 ? /* @__PURE__ */ React91.createElement(InvitationArt, { count: rosterOf(state).length }) : /* @__PURE__ */ React91.createElement("div", { className: "fd-arrival-chapter", "aria-hidden": "true" }, /* @__PURE__ */ React91.createElement("strong", null, String(step + 1).padStart(2, "0")), /* @__PURE__ */ React91.createElement("span", { className: "fd-chapter-name" }, STAGES[step]), /* @__PURE__ */ React91.createElement("span", { className: "fd-chapter-date" }, EDITION.long))), /* @__PURE__ */ React91.createElement("section", { className: "fd-arrival-main", key: step }, /* @__PURE__ */ React91.createElement("div", { className: "fd-arrival-heading" }, /* @__PURE__ */ React91.createElement("h1", { ref: heading, tabIndex: -1 }, title), intro && /* @__PURE__ */ React91.createElement("p", null, intro)), /* @__PURE__ */ React91.createElement("fieldset", { className: "fd-arrival-fields", disabled: busy }, step === -1 && /* @__PURE__ */ React91.createElement("div", { className: "fd-install" }, /* @__PURE__ */ React91.createElement(InstallHint, null)), step === 0 && /* @__PURE__ */ React91.createElement("div", { className: "fd-guest-list", role: "group", "aria-label": "Who are you?" }, rosterOf(state).map((p, i) => /* @__PURE__ */ React91.createElement("button", { type: "button", key: p, onClick: () => setSelected(p), "aria-pressed": selected === p }, /* @__PURE__ */ React91.createElement("span", { className: "fd-guest-index" }, /* @__PURE__ */ React91.createElement(OneSafe, { all: true, text: String(i + 1).padStart(2, "0") })), /* @__PURE__ */ React91.createElement("span", { className: "fd-guest-name" }, p)))), step === 1 && /* @__PURE__ */ React91.createElement(React91.Fragment, null, /* @__PURE__ */ React91.createElement("div", { className: "fd-starting-stack" }, /* @__PURE__ */ React91.createElement("strong", null, /* @__PURE__ */ React91.createElement(ScoreReel, { value: 1e3, tone: "chip", label: "1,000 chips" }), /* @__PURE__ */ React91.createElement("span", null, "Chips")), /* @__PURE__ */ React91.createElement("span", { className: "fd-starting-stack-sub" }, "Everyone\u2019s starting stack")), /* @__PURE__ */ React91.createElement("div", { className: "fd-weekend-rules" }, [
+  return /* @__PURE__ */ React95.createElement("main", { className: "fd-arrival", "aria-busy": busy }, /* @__PURE__ */ React95.createElement("header", { className: "fd-arrival-header" }, /* @__PURE__ */ React95.createElement("span", { className: "fd-arrival-mark" }, "Field Day ", /* @__PURE__ */ React95.createElement("span", null, EDITION.label)), /* @__PURE__ */ React95.createElement("span", { className: "fd-arrival-progress" }, step < 0 ? "WELCOME" : /* @__PURE__ */ React95.createElement(OneSafe, { all: true, text: `${String(step + 1).padStart(2, "0")} / 06` })), step >= 0 && /* @__PURE__ */ React95.createElement("div", { className: "fd-arrival-progress-track", "aria-label": `Check-in step ${step + 1} of 6: ${STAGES[step]}` }, STAGES.map((stage, i) => /* @__PURE__ */ React95.createElement("span", { key: stage, className: i <= step ? "is-complete" : "" })))), /* @__PURE__ */ React95.createElement("div", { className: `fd-arrival-layout${step <= 0 ? " is-invitation" : ""}` }, /* @__PURE__ */ React95.createElement("aside", { className: "fd-arrival-aside" }, step <= 0 ? /* @__PURE__ */ React95.createElement(InvitationArt, { count: rosterOf(state).length }) : /* @__PURE__ */ React95.createElement("div", { className: "fd-arrival-chapter", "aria-hidden": "true" }, /* @__PURE__ */ React95.createElement("strong", null, String(step + 1).padStart(2, "0")), /* @__PURE__ */ React95.createElement("span", { className: "fd-chapter-name" }, STAGES[step]), /* @__PURE__ */ React95.createElement("span", { className: "fd-chapter-date" }, EDITION.long))), /* @__PURE__ */ React95.createElement("section", { className: "fd-arrival-main", key: step }, /* @__PURE__ */ React95.createElement("div", { className: "fd-arrival-heading" }, /* @__PURE__ */ React95.createElement("h1", { ref: heading, tabIndex: -1 }, title), intro && /* @__PURE__ */ React95.createElement("p", null, intro)), /* @__PURE__ */ React95.createElement("fieldset", { className: "fd-arrival-fields", disabled: busy }, step === -1 && /* @__PURE__ */ React95.createElement("div", { className: "fd-install" }, /* @__PURE__ */ React95.createElement(InstallHint, null)), step === 0 && /* @__PURE__ */ React95.createElement("div", { className: "fd-guest-list", role: "group", "aria-label": "Who are you?" }, rosterOf(state).map((p, i) => /* @__PURE__ */ React95.createElement("button", { type: "button", key: p, onClick: () => setSelected(p), "aria-pressed": selected === p }, /* @__PURE__ */ React95.createElement("span", { className: "fd-guest-index" }, /* @__PURE__ */ React95.createElement(OneSafe, { all: true, text: String(i + 1).padStart(2, "0") })), /* @__PURE__ */ React95.createElement("span", { className: "fd-guest-name" }, p)))), step === 1 && /* @__PURE__ */ React95.createElement(React95.Fragment, null, /* @__PURE__ */ React95.createElement("div", { className: "fd-starting-stack" }, /* @__PURE__ */ React95.createElement("strong", null, /* @__PURE__ */ React95.createElement(ScoreReel, { value: 1e3, tone: "chip", label: "1,000 chips" }), /* @__PURE__ */ React95.createElement("span", null, "Chips")), /* @__PURE__ */ React95.createElement("span", { className: "fd-starting-stack-sub" }, "Everyone\u2019s starting stack")), /* @__PURE__ */ React95.createElement("div", { className: "fd-weekend-rules" }, [
     ["01", "Collect chips", "Win events and bets. Whatever you have Saturday night is your poker stack."],
     ["02", "Betting", "Bet on each contest before it starts. Only half your chips can be at risk at one time."],
     ["03", "Duels", "Challenge anyone to Quick Draw for an ante you name. Fastest tap wins both antes."],
     ["04", "The trophy", `The winner of the poker finale is the Field Day champion and takes home the ${EDITION.name} ${EDITION.year} trophy.`]
-  ].map(([n, name, body]) => /* @__PURE__ */ React91.createElement("div", { key: n }, /* @__PURE__ */ React91.createElement("span", null, n), /* @__PURE__ */ React91.createElement("div", null, /* @__PURE__ */ React91.createElement("h2", null, name), /* @__PURE__ */ React91.createElement("p", null, body)))))), step === 2 && /* @__PURE__ */ React91.createElement("div", { className: "fd-arrival-map" }, /* @__PURE__ */ React91.createElement(TravelMap, null), /* @__PURE__ */ React91.createElement("div", { className: "fd-destination-note" }, /* @__PURE__ */ React91.createElement("strong", null, "Scottsdale, Arizona"), /* @__PURE__ */ React91.createElement("span", null, EDITION.long))), step === 3 && /* @__PURE__ */ React91.createElement(React91.Fragment, null, /* @__PURE__ */ React91.createElement(VenueCard, { lg: state.logistics || {} }), /* @__PURE__ */ React91.createElement("div", { className: "fd-details-panel" }, /* @__PURE__ */ React91.createElement("h2", null, "Information I need"), /* @__PURE__ */ React91.createElement(TravelFields, { booked: flightsBooked, setBooked: setFlightsBooked, flightIn, setFlightIn, flightOut, setFlightOut }), /* @__PURE__ */ React91.createElement(SizeRow, { lb: "T-shirt size", value: size, onPick: setSize }))), step === 4 && /* @__PURE__ */ React91.createElement(
+  ].map(([n, name, body]) => /* @__PURE__ */ React95.createElement("div", { key: n }, /* @__PURE__ */ React95.createElement("span", null, n), /* @__PURE__ */ React95.createElement("div", null, /* @__PURE__ */ React95.createElement("h2", null, name), /* @__PURE__ */ React95.createElement("p", null, body)))))), step === 2 && /* @__PURE__ */ React95.createElement("div", { className: "fd-arrival-map" }, /* @__PURE__ */ React95.createElement(TravelMap, null), /* @__PURE__ */ React95.createElement("div", { className: "fd-destination-note" }, /* @__PURE__ */ React95.createElement("strong", null, "Scottsdale, Arizona"), /* @__PURE__ */ React95.createElement("span", null, EDITION.long))), step === 3 && /* @__PURE__ */ React95.createElement(React95.Fragment, null, /* @__PURE__ */ React95.createElement(VenueCard, { lg: state.logistics || {} }), /* @__PURE__ */ React95.createElement("div", { className: "fd-details-panel" }, /* @__PURE__ */ React95.createElement("h2", null, "Information I need"), /* @__PURE__ */ React95.createElement(TravelFields, { booked: flightsBooked, setBooked: setFlightsBooked, flightIn, setFlightIn, flightOut, setFlightOut }), /* @__PURE__ */ React95.createElement(SizeRow, { lb: "T-shirt size", value: size, onPick: setSize }))), step === 4 && /* @__PURE__ */ React95.createElement(
     ProfileEditor,
     {
       state,
@@ -14579,7 +14748,7 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, bac
       showSize: false,
       onChip: saveChip
     }
-  ), step === 5 && /* @__PURE__ */ React91.createElement(RatingForm, { ratings, setRatings })), /* @__PURE__ */ React91.createElement("footer", { className: "fd-arrival-actions" }, error && /* @__PURE__ */ React91.createElement("p", { className: "fd-save-error", role: "alert" }, error), /* @__PURE__ */ React91.createElement("button", { type: "button", className: "fd-continue", disabled: busy || !canContinue, onClick: go }, /* @__PURE__ */ React91.createElement("span", null, busy ? "Saving\u2026" : continueLabel), /* @__PURE__ */ React91.createElement(Icon, { name: "then", size: "1.1em" })), /* @__PURE__ */ React91.createElement("div", { className: "fd-arrival-links" }, step > 0 && /* @__PURE__ */ React91.createElement("button", { type: "button", className: "fd-text-button", disabled: busy, onClick: back }, /* @__PURE__ */ React91.createElement(Icon, { name: "back", size: "1em" }), "Back"), step === 0 && onTv && /* @__PURE__ */ React91.createElement("button", { type: "button", className: "fd-text-button", onClick: onTv, disabled: busy }, "TV mode"), step === 4 && !state.profiles?.[me]?.color && /* @__PURE__ */ React91.createElement("span", null, "Choose a chip color to continue."))))));
+  ), step === 5 && /* @__PURE__ */ React95.createElement(RatingForm, { ratings, setRatings })), /* @__PURE__ */ React95.createElement("footer", { className: "fd-arrival-actions" }, error && /* @__PURE__ */ React95.createElement("p", { className: "fd-save-error", role: "alert" }, error), /* @__PURE__ */ React95.createElement("button", { type: "button", className: "fd-continue", disabled: busy || !canContinue, onClick: go }, /* @__PURE__ */ React95.createElement("span", null, busy ? "Saving\u2026" : continueLabel), /* @__PURE__ */ React95.createElement(Icon, { name: "then", size: "1.1em" })), /* @__PURE__ */ React95.createElement("div", { className: "fd-arrival-links" }, step > 0 && /* @__PURE__ */ React95.createElement("button", { type: "button", className: "fd-text-button", disabled: busy, onClick: back }, /* @__PURE__ */ React95.createElement(Icon, { name: "back", size: "1em" }), "Back"), step === 0 && onTv && /* @__PURE__ */ React95.createElement("button", { type: "button", className: "fd-text-button", onClick: onTv, disabled: busy }, "TV mode"), step === 4 && !state.profiles?.[me]?.color && /* @__PURE__ */ React95.createElement("span", null, "Choose a chip color to continue."))))));
 }
 var STAGES;
 var init_Onboarding = __esm({
@@ -14632,6 +14801,15 @@ var RULES_WORDS = Object.freeze({
   "where.clock": "60 seconds a photo",
   "where.max": "5,000 where, 5,000 when",
   "where.tie": "Tie: pins, then speed",
+  /* Karaoke (karaoke, Oct 12): awaiting Brandon's review */
+  "karaoke.1": "Pick a song ahead",
+  "karaoke.2": "Sing when you\u2019re up",
+  "karaoke.3": "Super Poop to Legendary",
+  "karaoke.4": "Highest average wins",
+  "karaoke.window": "Two minutes to change",
+  "karaoke.change": "Change votes until close",
+  "karaoke.trim": "6+ votes: extremes dropped",
+  "karaoke.tie": "Tie: more Legendary votes",
   /* Basketball 1v1 */
   "basketball:1v1.1": "Check it up top",
   "basketball:1v1.2": "Every bucket counts one",
@@ -14794,6 +14972,7 @@ var STEP_SETS = Object.freeze({
   putting: { steps: 3, win: 3, notes: [["tie", "tie"]] },
   die: { steps: 4, win: 4, notes: [["score", "tally"], ["call", "height"], ["plunk", "plunk"]] },
   where: { steps: 4, win: 4, notes: [["clock", "timer"], ["max", "max"], ["tie", "tie"]] },
+  karaoke: { steps: 4, win: 4, notes: [["window", "timer"], ["change", "lock"], ["trim", "trim"], ["tie", "tie"]] },
   "basketball:1v1": { steps: 4, win: 4, notes: [["fouls", "whistle"]] },
   "basketball:5v5": { steps: 4, win: 4, notes: [["half", "half"], ["fouls", "whistle"], ["contact", "contact"]] },
   pickleball: { steps: 4, win: 4, notes: [["serve", "serve"]] },
@@ -14912,6 +15091,26 @@ var RULE_PICTURES = {
   "where.2": /* @__PURE__ */ React6.createElement("g", null, /* @__PURE__ */ React6.createElement("rect", { x: "4", y: "7", width: "28", height: "26", rx: "2.2" }), /* @__PURE__ */ React6.createElement(Faint, null, /* @__PURE__ */ React6.createElement("path", { d: "M4 21Q15 15 32 24M15 7v26" })), /* @__PURE__ */ React6.createElement(Lit, null, /* @__PURE__ */ React6.createElement("path", { d: "M18 24.5s-5-4.3-5-8.4a5 5 0 0 1 10 0c0 4.1-5 8.4-5 8.4z", ...F })), /* @__PURE__ */ React6.createElement("circle", { className: "fd-rp-glass", cx: "18", cy: "16", r: "1.7" }), /* @__PURE__ */ React6.createElement("rect", { x: "37", y: "9", width: "23", height: "23", rx: "2.2" }), /* @__PURE__ */ React6.createElement("path", { d: "M37 15H60M42 6.5v4.5M55 6.5v4.5" }), /* @__PURE__ */ React6.createElement("g", { ...F }, /* @__PURE__ */ React6.createElement("circle", { cx: "42.5", cy: "20.5", r: "1.3" }), /* @__PURE__ */ React6.createElement("circle", { cx: "48.5", cy: "20.5", r: "1.3" }), /* @__PURE__ */ React6.createElement("circle", { cx: "54.5", cy: "20.5", r: "1.3" }), /* @__PURE__ */ React6.createElement("circle", { cx: "42.5", cy: "26.5", r: "1.3" }), /* @__PURE__ */ React6.createElement("circle", { cx: "54.5", cy: "26.5", r: "1.3" })), /* @__PURE__ */ React6.createElement(Lit, null, /* @__PURE__ */ React6.createElement("circle", { cx: "48.5", cy: "26.5", r: "2.6" }))),
   "where.3": /* @__PURE__ */ React6.createElement("g", null, /* @__PURE__ */ React6.createElement(Faint, null, /* @__PURE__ */ React6.createElement("path", { d: "M8 4V34H60" })), /* @__PURE__ */ React6.createElement("path", { d: "M9 7C20 25 34 31 58 32.5" }), /* @__PURE__ */ React6.createElement(Lit, null, ball(12, 11.6, 2.4)), ball(44, 31, 2)),
   "where.4": /* @__PURE__ */ React6.createElement("g", null, floor(), /* @__PURE__ */ React6.createElement("rect", { x: "12", y: "20", width: "8", height: "14", rx: "1" }), /* @__PURE__ */ React6.createElement("path", { d: "M12 27h8" }), /* @__PURE__ */ React6.createElement(Lit, null, /* @__PURE__ */ React6.createElement("rect", { x: "28", y: "13", width: "8", height: "21", rx: "1" }), /* @__PURE__ */ React6.createElement("path", { d: "M28 23.5h8" })), /* @__PURE__ */ React6.createElement("rect", { x: "44", y: "25", width: "8", height: "9", rx: "1" }), /* @__PURE__ */ React6.createElement("path", { d: "M44 29.5h8" }), crown(32, 10, 0.85)),
+  /* ── Karaoke: the vote's six tiers are painted inserts (--tier-1..6) ── */
+  /* your phone's song list, one picked */
+  "karaoke.1": /* @__PURE__ */ React6.createElement("g", null, /* @__PURE__ */ React6.createElement("rect", { x: "18", y: "2.5", width: "22", height: "35", rx: "3.2" }), /* @__PURE__ */ React6.createElement(Faint, null, /* @__PURE__ */ React6.createElement("rect", { x: "21.5", y: "7", width: "5", height: "5", rx: "1" }), /* @__PURE__ */ React6.createElement("path", { d: "M29 9.5H36.5" })), /* @__PURE__ */ React6.createElement(Lit, null, /* @__PURE__ */ React6.createElement("rect", { x: "21.5", y: "16", width: "5", height: "5", rx: "1", ...F }), /* @__PURE__ */ React6.createElement("path", { d: "M29 18.5H36.5", strokeWidth: "2" })), /* @__PURE__ */ React6.createElement(Faint, null, /* @__PURE__ */ React6.createElement("rect", { x: "21.5", y: "25", width: "5", height: "5", rx: "1" }), /* @__PURE__ */ React6.createElement("path", { d: "M29 27.5H36.5" })), /* @__PURE__ */ React6.createElement(Lit, null, /* @__PURE__ */ React6.createElement("path", { d: "M48.5 25V12.4l7-1.6v12.6" }), /* @__PURE__ */ React6.createElement("circle", { cx: "46.7", cy: "25", r: "1.9", ...F }), /* @__PURE__ */ React6.createElement("circle", { cx: "53.7", cy: "23.4", r: "1.9", ...F }))),
+  /* the singer at the stand, the words rolling on the TV */
+  "karaoke.2": /* @__PURE__ */ React6.createElement("g", null, floor(), bust(11, 12, 2.6), /* @__PURE__ */ React6.createElement("path", { d: "M19.5 34V19.4M16 34h7" }), /* @__PURE__ */ React6.createElement("circle", { cx: "18", cy: "16.6", r: "2.1", ...F }), /* @__PURE__ */ React6.createElement("path", { d: "M18.9 18.4l.6 1" }), tv(30, 4, 30, 20), /* @__PURE__ */ React6.createElement(Faint, null, /* @__PURE__ */ React6.createElement("path", { d: "M34 11H56M35.5 17H54.5" })), /* @__PURE__ */ React6.createElement(Lit, null, /* @__PURE__ */ React6.createElement("path", { d: "M34 11H46.5", strokeWidth: "2.2" }))),
+  /* the room's six tiers, low to high, a vote coming down on one */
+  "karaoke.3": /* @__PURE__ */ React6.createElement("g", null, floor(), [1, 2, 3, 4, 5, 6].map((tier, i) => /* @__PURE__ */ React6.createElement(
+    "rect",
+    {
+      key: tier,
+      x: 5.5 + i * 9,
+      y: 28 - i * 4.4,
+      width: "7",
+      height: 6 + i * 4.4,
+      rx: "1.4",
+      fill: `var(--tier-${tier})`
+    }
+  )), /* @__PURE__ */ React6.createElement(Lit, null, trail("M45 0.8V6.6"), head(45, 7.4, 90))),
+  /* each singer's average in the tier it is nearest; the highest takes it */
+  "karaoke.4": /* @__PURE__ */ React6.createElement("g", null, floor(), /* @__PURE__ */ React6.createElement("rect", { x: "12", y: "20", width: "9", height: "14", rx: "1.4", fill: "var(--tier-3)" }), /* @__PURE__ */ React6.createElement(Lit, null, /* @__PURE__ */ React6.createElement("rect", { x: "27.5", y: "13", width: "9", height: "21", rx: "1.4", fill: "var(--tier-6)" })), /* @__PURE__ */ React6.createElement("rect", { x: "43", y: "17", width: "9", height: "17", rx: "1.4", fill: "var(--tier-4)" }), crown(32, 10, 0.85)),
   /* ── Basketball 1v1 ── */
   "basketball:1v1.1": checkUp,
   "basketball:1v1.2": /* @__PURE__ */ React6.createElement("g", null, floor(36), hoop(), trail("M8 32Q26 -4 46 11"), /* @__PURE__ */ React6.createElement(Lit, null, ball(46.5, 11, 2.4), /* @__PURE__ */ React6.createElement(Num, { x: 22, y: 24, size: 14 }, "1"))),
@@ -15050,7 +15249,9 @@ var NOTE_GLYPHS = {
   stop: /* @__PURE__ */ React6.createElement(React6.Fragment, null, /* @__PURE__ */ React6.createElement("path", { d: "M8.6 3.5h6.8l5 5v6.8l-5 5H8.6l-5-5V8.5z" }), /* @__PURE__ */ React6.createElement("path", { d: "M8 12h8" })),
   semis: /* @__PURE__ */ React6.createElement("path", { d: "M3.5 5h5v6h-5M8.5 8h4M3.5 13h5v6h-5M8.5 16h4M12.5 8v8M12.5 12h8" }),
   crew: /* @__PURE__ */ React6.createElement(React6.Fragment, null, /* @__PURE__ */ React6.createElement("circle", { cx: "12", cy: "12", r: "7.5", strokeDasharray: "2 2.4" }), /* @__PURE__ */ React6.createElement("circle", { cx: "12", cy: "12", r: "3" })),
-  putt: /* @__PURE__ */ React6.createElement(React6.Fragment, null, /* @__PURE__ */ React6.createElement("path", { d: "M12 20V4" }), /* @__PURE__ */ React6.createElement("path", { d: "M12 4l7 2.6-7 2.6z", ...F }), /* @__PURE__ */ React6.createElement("ellipse", { cx: "12", cy: "20", rx: "5", ry: "1.6" }))
+  putt: /* @__PURE__ */ React6.createElement(React6.Fragment, null, /* @__PURE__ */ React6.createElement("path", { d: "M12 20V4" }), /* @__PURE__ */ React6.createElement("path", { d: "M12 4l7 2.6-7 2.6z", ...F }), /* @__PURE__ */ React6.createElement("ellipse", { cx: "12", cy: "20", rx: "5", ry: "1.6" })),
+  /* the votes in order, the lowest and the highest struck (karaoke's trim) */
+  trim: /* @__PURE__ */ React6.createElement(React6.Fragment, null, /* @__PURE__ */ React6.createElement("path", { d: "M8.5 19.5v-7.5M12 19.5v-9.5M15.5 19.5v-11.5" }), /* @__PURE__ */ React6.createElement("g", { className: "fd-rp-gone" }, /* @__PURE__ */ React6.createElement("path", { d: "M5 19.5v-4.5M19 19.5v-15" })))
 };
 var PICTURE_KEYS = Object.freeze(Object.keys(RULE_PICTURES));
 
@@ -16989,6 +17190,18 @@ init_core();
 
 // src/features/home/homeModel.js
 init_core();
+
+// src/features/karaoke/karaokeModel.js
+init_core();
+init_karaoke();
+var BEAT_LABEL = Object.freeze({
+  karaokeEndPick: "Start singing",
+  karaokeStartSong: "Start song",
+  karaokeNext: "Close vote",
+  karaokeFinish: "Post result"
+});
+
+// src/features/home/homeModel.js
 var unresolved = (match) => match.winner === null || match.winner === void 0;
 function bracketPath(state, event, me) {
   const bracket = state.brackets?.[event?.id], draw = state.draws?.[event?.id];
@@ -17265,7 +17478,7 @@ import React41, { useEffect as useEffect24, useRef as useRef23, useState as useS
 
 // src/features/alerts/pocketAlerts.js
 init_client();
-var ALERT_REASONS = Object.freeze(["playing", "pick", "duel"]);
+var ALERT_REASONS = Object.freeze(["playing", "pick", "duel", "sing"]);
 var store = { checked: false, permission: "default", subscribed: false, busy: false, error: "", asked: false };
 var cached = { ...store };
 
@@ -17305,6 +17518,7 @@ var UP_TIMING = Object.freeze({
 init_audio();
 
 // src/features/home/GuestHome.jsx
+init_audio();
 init_PayoutLadder();
 
 // src/features/arrivals/ArrivalHome.jsx
@@ -17494,7 +17708,7 @@ init_PlayerIdentityContext();
 init_PlayerIdentity();
 init_Travel();
 init_ProfileEditor();
-import React92, { useState as useState72, useEffect as useEffect67, useLayoutEffect as useLayoutEffect20, useRef as useRef66, useMemo as useMemo17, useCallback as useCallback6, useId as useId10, lazy as lazy2, Suspense as Suspense2 } from "react";
+import React96, { useState as useState76, useEffect as useEffect71, useLayoutEffect as useLayoutEffect20, useRef as useRef70, useMemo as useMemo17, useCallback as useCallback6, useId as useId10, lazy as lazy2, Suspense as Suspense2 } from "react";
 
 // src/features/profile/PlayerSheet.jsx
 init_core();
@@ -17752,7 +17966,7 @@ init_sound();
 init_haptics();
 init_walkout();
 init_walkoutTeam();
-import React66, { Suspense, useEffect as useEffect44, useMemo as useMemo13, useRef as useRef45 } from "react";
+import React66, { Suspense, useEffect as useEffect45, useMemo as useMemo13, useRef as useRef46 } from "react";
 init_OneSafe();
 init_ScoreReel();
 init_phase();
@@ -17763,7 +17977,17 @@ init_serverClock();
 init_gagModel();
 import { useEffect as useEffect43, useMemo as useMemo12, useRef as useRef44, useState as useState51 } from "react";
 
+// src/features/karaoke/singerUp.js
+init_motion();
+init_serverClock();
+init_sound();
+init_karaoke();
+import { useEffect as useEffect44, useRef as useRef45, useState as useState52 } from "react";
+init_tvMotion();
+var SINGER_UP_MS = Math.min(UP_TIMING.total, KARAOKE_UP_MS);
+
 // src/features/moments/PhoneMoments.jsx
+init_karaoke();
 var BitBoundary = class extends React66.Component {
   constructor(props) {
     super(props);
@@ -17791,12 +18015,12 @@ init_Icon();
 init_PlayerIdentityContext();
 init_desertModel();
 init_walkoutTeam();
-import React67, { useEffect as useEffect45, useMemo as useMemo14, useState as useState52 } from "react";
+import React67, { useEffect as useEffect46, useMemo as useMemo14, useState as useState53 } from "react";
 
 // src/features/results/useCrownMoment.js
 init_motion();
 init_lastCard();
-import { useCallback as useCallback4, useEffect as useEffect46, useState as useState53 } from "react";
+import { useCallback as useCallback4, useEffect as useEffect47, useState as useState54 } from "react";
 
 // src/App.jsx
 init_install();
@@ -17814,7 +18038,7 @@ init_controls();
 init_GlassArt();
 init_ScoreReel();
 init_BetStacks();
-import React68, { useCallback as useCallback5, useEffect as useEffect47, useLayoutEffect as useLayoutEffect15, useRef as useRef46, useState as useState54 } from "react";
+import React68, { useCallback as useCallback5, useEffect as useEffect48, useLayoutEffect as useLayoutEffect15, useRef as useRef47, useState as useState55 } from "react";
 init_showdown();
 init_serverClock();
 init_haptics();
@@ -17836,26 +18060,27 @@ var READY = Object.freeze({
 // src/features/duels/DuelDesk.jsx
 init_core();
 init_controls();
-import React69, { useRef as useRef47, useState as useState55 } from "react";
+import React69, { useRef as useRef48, useState as useState56 } from "react";
 
 // src/features/director/DirectorPill.jsx
 init_core();
 init_PlayerIdentity();
 init_directorPill();
 init_haptics();
-import React71, { useEffect as useEffect49, useRef as useRef49, useState as useState56 } from "react";
+import React71, { useEffect as useEffect50, useRef as useRef50, useState as useState57 } from "react";
 
 // src/features/director/RunOfShow.jsx
 init_Icon();
 init_serverClock();
 init_haptics();
-import React70, { useEffect as useEffect48, useRef as useRef48 } from "react";
+import React70, { useEffect as useEffect49, useRef as useRef49 } from "react";
 
 // src/features/director/runOfShow.js
 init_core();
 init_show();
 init_trivia();
 init_triviaBoard();
+init_karaoke();
 init_directorPill();
 var RUN_SLOTS = Object.freeze(["Now", "Next", "Then"]);
 
@@ -17872,7 +18097,7 @@ init_core();
 init_client();
 init_serverClock();
 init_haptics();
-import React72, { useEffect as useEffect50, useState as useState57, useSyncExternalStore as useSyncExternalStore4 } from "react";
+import React72, { useEffect as useEffect51, useState as useState58, useSyncExternalStore as useSyncExternalStore4 } from "react";
 
 // src/features/director/walkout.js
 init_audio();
@@ -17885,24 +18110,24 @@ var MISS_SHOWN_MS = 10 * 60 * 1e3;
 // src/features/director/TvHealth.jsx
 init_tvHealth();
 init_Icon();
-import React73, { useEffect as useEffect51, useState as useState58 } from "react";
+import React73, { useEffect as useEffect52, useState as useState59 } from "react";
 
 // src/features/roster/RosterSheet.jsx
 init_core();
 init_controls();
 init_PlayerIdentity();
 init_haptics();
-import React74, { useRef as useRef50, useState as useState59 } from "react";
+import React74, { useRef as useRef51, useState as useState60 } from "react";
 init_writeErrors();
 
 // src/features/arrivals/useArriveLink.js
 init_arrivalsModel();
-import { useEffect as useEffect52, useRef as useRef51 } from "react";
+import { useEffect as useEffect53, useRef as useRef52 } from "react";
 var atLoad = typeof window !== "undefined" ? window.location.href : "";
 var LINK_CODE = arriveCodeFrom(atLoad);
 
 // src/features/director/CommissionerDock.jsx
-import React75, { useLayoutEffect as useLayoutEffect16, useRef as useRef52 } from "react";
+import React75, { useLayoutEffect as useLayoutEffect16, useRef as useRef53 } from "react";
 
 // src/features/director/CrewCheck.jsx
 init_core();
@@ -17912,7 +18137,7 @@ init_Icon();
 init_haptics();
 init_motion();
 init_writeErrors();
-import React76, { useEffect as useEffect53, useRef as useRef53, useState as useState60 } from "react";
+import React76, { useEffect as useEffect54, useRef as useRef54, useState as useState61 } from "react";
 
 // src/features/director/crewCheck.js
 init_core();
@@ -17928,7 +18153,7 @@ init_awardsModel();
 init_awards();
 init_Icon();
 init_writeErrors();
-import React77, { useEffect as useEffect54, useRef as useRef54, useState as useState61 } from "react";
+import React77, { useEffect as useEffect55, useRef as useRef55, useState as useState62 } from "react";
 
 // src/features/geo/GeoPlay.jsx
 init_client();
@@ -17943,7 +18168,7 @@ init_PlaceSearch();
 init_geoModel();
 init_geo2();
 init_Icon();
-import React82, { useEffect as useEffect59, useRef as useRef58, useState as useState65 } from "react";
+import React82, { useEffect as useEffect60, useRef as useRef59, useState as useState66 } from "react";
 init_ScoreReel();
 
 // src/features/trivia/TriviaPlay.jsx
@@ -17957,7 +18182,7 @@ init_trivia();
 init_PlayerIdentity();
 init_Wheel();
 init_Icon();
-import React84, { useEffect as useEffect61, useRef as useRef60, useState as useState67 } from "react";
+import React84, { useEffect as useEffect62, useRef as useRef61, useState as useState68 } from "react";
 init_OneSafe();
 init_triviaModel();
 init_geo2();
@@ -17975,7 +18200,7 @@ init_triviaBoard();
 init_PlayerIdentity();
 init_Wheel();
 init_Icon();
-import React83, { useEffect as useEffect60, useLayoutEffect as useLayoutEffect18, useRef as useRef59, useState as useState66 } from "react";
+import React83, { useEffect as useEffect61, useLayoutEffect as useLayoutEffect18, useRef as useRef60, useState as useState67 } from "react";
 init_ScoreReel();
 init_writeErrors();
 init_triviaModel();
@@ -17984,26 +18209,30 @@ init_geo2();
 init_trivia2();
 init_board();
 
-// src/App.jsx
-init_trivia();
-
-// src/features/jersey/Jersey.jsx
+// src/features/karaoke/KaraokePlay.jsx
+init_client();
+init_haptics();
+init_motion();
+init_sound();
+init_writeErrors();
 init_core();
-init_guestSetup();
-init_Travel();
-import React85, { useId as useId8 } from "react";
+init_karaoke();
+init_PlayerIdentity();
+import React89, { useEffect as useEffect67, useRef as useRef66, useState as useState73 } from "react";
 init_Icon();
+init_Menu();
 
-// src/features/profile/TripDetails.jsx
-init_guestSetup();
-import React86, { useId as useId9 } from "react";
-
-// src/App.jsx
-init_guestSetup();
+// src/features/karaoke/KaraokeSongPicker.jsx
+init_client();
+init_sound();
+init_youtube();
+init_writeErrors();
+init_audio();
+import React87, { useEffect as useEffect65, useRef as useRef64, useState as useState71 } from "react";
 
 // src/features/music/WinSongPicker.jsx
 init_client();
-import React88, { useEffect as useEffect63, useRef as useRef62, useState as useState69 } from "react";
+import React86, { useEffect as useEffect64, useRef as useRef63, useState as useState70 } from "react";
 
 // src/features/music/previewPlayer.js
 init_client();
@@ -18014,12 +18243,40 @@ var KNOWN_MS = 8 * 60 * 1e3;
 // src/features/music/SnippetPreview.jsx
 init_client();
 init_sound();
-import React87, { useEffect as useEffect62, useRef as useRef61, useState as useState68 } from "react";
+import React85, { useEffect as useEffect63, useRef as useRef62, useState as useState69 } from "react";
+init_youtube();
 
 // src/features/music/WinSongPicker.jsx
 init_Icon();
 
+// src/features/karaoke/songPick.js
+init_karaoke();
+
+// src/features/karaoke/KaraokeClock.jsx
+init_serverClock();
+import React88, { useEffect as useEffect66, useRef as useRef65, useState as useState72 } from "react";
+
+// src/features/karaoke/KaraokeHome.jsx
+init_Icon();
+import React90 from "react";
+init_OneSafe();
+
 // src/App.jsx
+init_trivia();
+
+// src/features/jersey/Jersey.jsx
+init_core();
+init_guestSetup();
+init_Travel();
+import React91, { useId as useId8 } from "react";
+init_Icon();
+
+// src/features/profile/TripDetails.jsx
+init_guestSetup();
+import React92, { useId as useId9 } from "react";
+
+// src/App.jsx
+init_guestSetup();
 init_awardsModel();
 init_directorPill();
 init_show();
@@ -18027,16 +18284,16 @@ init_client();
 init_writeErrors();
 
 // src/ui/Shell.jsx
-import React89 from "react";
+import React93 from "react";
 init_backglass();
 function Shell({ children, tv: tv2, arrival, environment = "production" }) {
-  return /* @__PURE__ */ React89.createElement("div", { className: `fd-shell${tv2 ? " fd-night" : ""}` }, /* @__PURE__ */ React89.createElement("div", { className: `fd-shell-inner${tv2 ? " is-tv" : arrival ? " is-arrival" : ""}` }, environment !== "production" && /* @__PURE__ */ React89.createElement("div", { className: "fd-environment", "aria-label": `${environment} environment` }, environment, " \xB7 Field Day"), children));
+  return /* @__PURE__ */ React93.createElement("div", { className: `fd-shell${tv2 ? " fd-night" : ""}` }, /* @__PURE__ */ React93.createElement("div", { className: `fd-shell-inner${tv2 ? " is-tv" : arrival ? " is-arrival" : ""}` }, environment !== "production" && /* @__PURE__ */ React93.createElement("div", { className: "fd-environment", "aria-label": `${environment} environment` }, environment, " \xB7 Field Day"), children));
 }
 
 // src/ui/usePhaseTheme.js
 init_phase();
 init_motion2();
-import { useLayoutEffect as useLayoutEffect19, useMemo as useMemo16, useRef as useRef63 } from "react";
+import { useLayoutEffect as useLayoutEffect19, useMemo as useMemo16, useRef as useRef67 } from "react";
 var STAGING = (() => {
   try {
     return import.meta.env?.MODE === "staging";
@@ -18050,6 +18307,7 @@ init_theme();
 init_controls();
 init_Menu();
 init_readyCheck();
+init_deskModel();
 init_tvSheetModel();
 init_speakerModel();
 init_speakerStatus();
@@ -18061,7 +18319,7 @@ init_controls();
 init_writeErrors();
 init_motion();
 init_haptics();
-import React90, { useEffect as useEffect65, useRef as useRef64, useState as useState70 } from "react";
+import React94, { useEffect as useEffect69, useRef as useRef68, useState as useState74 } from "react";
 var fmt12 = (n) => (Number(n) || 0).toLocaleString("en-US");
 var POST = { width: "100%", fontSize: 16, padding: "14px" };
 var HALF = { flex: 1 };
@@ -18109,28 +18367,28 @@ function ResultEntry({ ev, state, onClose, save }) {
   const crew = table[2] > 0 ? (draw?.roles || []).map((role) => role.player).filter(Boolean) : [];
   const fieldOf = (placedSlots) => [.../* @__PURE__ */ new Set([...presentPlayers(state), ...placedSlots.flat()])];
   const sidesFor = (placedSlots) => teams ? teams.length : fieldOf(placedSlots).length;
-  const [pick, setPick] = useState70(() => {
+  const [pick, setPick] = useState74(() => {
     const start = initialSlots(state, ev, table);
     return { slots: start, target: twoTeams ? null : nextTarget(start, editable, sidesFor(start)) };
   });
   const { slots, target } = pick;
   const fieldPlayers = fieldOf(slots);
   const sidesInPlay = sidesFor(slots);
-  const [byPlayer, setByPlayer] = useState70(false);
-  const [confirmCorrection, setConfirmCorrection] = useState70(false);
-  const [correctionReason, setCorrectionReason] = useState70("");
-  const [pending, setPending] = useState70(false), [error, setError] = useState70("");
-  const [emptyCheck, setEmptyCheck] = useState70(null);
-  const saving = useRef64(false);
+  const [byPlayer, setByPlayer] = useState74(false);
+  const [confirmCorrection, setConfirmCorrection] = useState74(false);
+  const [correctionReason, setCorrectionReason] = useState74("");
+  const [pending, setPending] = useState74(false), [error, setError] = useState74("");
+  const [emptyCheck, setEmptyCheck] = useState74(null);
+  const saving = useRef68(false);
   const rules = { sequenced, fixedFirst: winnerKnown };
   const emptyPaid = twoTeams ? [] : emptyPaidPlaces(slots, editable, sidesInPlay);
   const firstIsTeam = sequenced && !!teams && target === 0;
   const mode2 = teams && (!byPlayer || firstIsTeam || twoTeams) ? "teams" : "players";
   const unchanged = !!existing && JSON.stringify(existing.slots || []) === JSON.stringify(slots);
   const reduced = useReducedMotion();
-  const root = useRef64(null), flight = useRef64(null);
-  const [arriving, setArriving] = useState70(null);
-  useEffect65(() => {
+  const root = useRef68(null), flight = useRef68(null);
+  const [arriving, setArriving] = useState74(null);
+  useEffect69(() => {
     const next = flight.current;
     if (!next) return;
     flight.current = null;
@@ -18211,7 +18469,7 @@ function ResultEntry({ ev, state, onClose, save }) {
     const tieable = !fixed && tieAllowed(place2, rules) && unitsLeft;
     const lit = !fixed && target === place2;
     const count = units.length + (lit && players.length && tieable ? 1 : 0);
-    return /* @__PURE__ */ React90.createElement(
+    return /* @__PURE__ */ React94.createElement(
       Socket,
       {
         key: place2,
@@ -18230,7 +18488,7 @@ function ResultEntry({ ev, state, onClose, save }) {
       },
       units.map((unit) => {
         const label2 = unit.team !== null ? teamLabel(state, teams[unit.team]) : disp(state, unit.players[0]);
-        return /* @__PURE__ */ React90.createElement(
+        return /* @__PURE__ */ React94.createElement(
           SeatUnit,
           {
             key: unit.key,
@@ -18249,7 +18507,7 @@ function ResultEntry({ ev, state, onClose, save }) {
       })
     );
   });
-  if (crew.length) sockets.push(/* @__PURE__ */ React90.createElement(CrewStep, { key: "crew", state, players: crew, amount: table[2] }));
+  if (crew.length) sockets.push(/* @__PURE__ */ React94.createElement(CrewStep, { key: "crew", state, players: crew, amount: table[2] }));
   const placeOf = (players) => {
     const whole = unitPlace(slots, players);
     return whole >= 0 ? whole : -1;
@@ -18259,9 +18517,9 @@ function ResultEntry({ ev, state, onClose, save }) {
   let field = null;
   if (mode2 === "teams") {
     const shown = teams.map((team, index) => ({ team, index })).filter(({ team }) => !team.players.some((p) => fixedFirst.includes(p)));
-    field = /* @__PURE__ */ React90.createElement("div", { className: `fd-pp-field is-teams${twoTeams ? " is-two" : ""}`, role: "group", "aria-label": "Teams" }, shown.map(({ team, index }, i) => {
+    field = /* @__PURE__ */ React94.createElement("div", { className: `fd-pp-field is-teams${twoTeams ? " is-two" : ""}`, role: "group", "aria-label": "Teams" }, shown.map(({ team, index }, i) => {
       const key = `team:${index}`;
-      return /* @__PURE__ */ React90.createElement(
+      return /* @__PURE__ */ React94.createElement(
         TeamTile,
         {
           key,
@@ -18279,9 +18537,9 @@ function ResultEntry({ ev, state, onClose, save }) {
       );
     }));
   } else {
-    field = /* @__PURE__ */ React90.createElement("div", { className: "fd-pp-field", role: "group", "aria-label": "Players" }, fieldPlayers.filter((p) => !fixedFirst.includes(p)).map((p) => {
+    field = /* @__PURE__ */ React94.createElement("div", { className: "fd-pp-field", role: "group", "aria-label": "Players" }, fieldPlayers.filter((p) => !fixedFirst.includes(p)).map((p) => {
       const key = `player:${p}`;
-      return /* @__PURE__ */ React90.createElement(
+      return /* @__PURE__ */ React94.createElement(
         FieldTile,
         {
           key,
@@ -18299,7 +18557,7 @@ function ResultEntry({ ev, state, onClose, save }) {
     }));
   }
   const picking = twoTeams || editable.length > 0;
-  return /* @__PURE__ */ React90.createElement(Sheet, { title: ev.name, show: true, onClose, busy: pending }, /* @__PURE__ */ React90.createElement("div", { className: "fd-pp", ref: root }, /* @__PURE__ */ React90.createElement(Podium, { columns: sockets.length, still: twoTeams || !editable.length }, sockets), picking && /* @__PURE__ */ React90.createElement("fieldset", { className: "fd-pp-fieldset", disabled: pending }, teams && !twoTeams && /* @__PURE__ */ React90.createElement(
+  return /* @__PURE__ */ React94.createElement(Sheet, { title: ev.name, show: true, onClose, busy: pending }, /* @__PURE__ */ React94.createElement("div", { className: "fd-pp", ref: root }, /* @__PURE__ */ React94.createElement(Podium, { columns: sockets.length, still: twoTeams || !editable.length }, sockets), picking && /* @__PURE__ */ React94.createElement("fieldset", { className: "fd-pp-fieldset", disabled: pending }, teams && !twoTeams && /* @__PURE__ */ React94.createElement(
     FieldModes,
     {
       mode: mode2,
@@ -18308,7 +18566,7 @@ function ResultEntry({ ev, state, onClose, save }) {
       onTeams: () => setByPlayer(false),
       onPlayers: () => setByPlayer(true)
     }
-  ), field), error && /* @__PURE__ */ React90.createElement("p", { role: "alert", className: "fd-pp-error" }, error), emptyCheck && emptyPaid.length > 0 && /* @__PURE__ */ React90.createElement("div", { role: "alert", className: "fd-pp-check" }, emptyPaid.map((i) => /* @__PURE__ */ React90.createElement("p", { key: i }, PLACE_NAMES[i], " place pays ", fmt12(table[i]), ". Nobody selected.")), /* @__PURE__ */ React90.createElement("div", { className: "fd-pp-actions" }, /* @__PURE__ */ React90.createElement(ActionButton, { variant: "commit", style: HALF, disabled: pending, onClick: () => post(emptyCheck, true) }, "Leave empty"), /* @__PURE__ */ React90.createElement(
+  ), field), error && /* @__PURE__ */ React94.createElement("p", { role: "alert", className: "fd-pp-error" }, error), emptyCheck && emptyPaid.length > 0 && /* @__PURE__ */ React94.createElement("div", { role: "alert", className: "fd-pp-check" }, emptyPaid.map((i) => /* @__PURE__ */ React94.createElement("p", { key: i }, PLACE_NAMES[i], " place pays ", fmt12(table[i]), ". Nobody selected.")), /* @__PURE__ */ React94.createElement("div", { className: "fd-pp-actions" }, /* @__PURE__ */ React94.createElement(ActionButton, { variant: "commit", style: HALF, disabled: pending, onClick: () => post(emptyCheck, true) }, "Leave empty"), /* @__PURE__ */ React94.createElement(
     ActionButton,
     {
       variant: "tertiary",
@@ -18320,7 +18578,7 @@ function ResultEntry({ ev, state, onClose, save }) {
       }
     },
     "Choose"
-  ))), !existing ? /* @__PURE__ */ React90.createElement(ActionButton, { style: POST, disabled: slots[0].length === 0 || pending, onClick: () => post() }, "Post official result") : !confirmCorrection ? /* @__PURE__ */ React90.createElement(
+  ))), !existing ? /* @__PURE__ */ React94.createElement(ActionButton, { style: POST, disabled: slots[0].length === 0 || pending, onClick: () => post() }, "Post official result") : !confirmCorrection ? /* @__PURE__ */ React94.createElement(
     ActionButton,
     {
       style: POST,
@@ -18328,7 +18586,7 @@ function ResultEntry({ ev, state, onClose, save }) {
       onClick: () => setConfirmCorrection(true)
     },
     unchanged ? "Official result" : "Review result correction"
-  ) : /* @__PURE__ */ React90.createElement("div", { className: "fd-pp-check is-correction" }, /* @__PURE__ */ React90.createElement("label", { className: "fd-pp-reason" }, /* @__PURE__ */ React90.createElement("span", null, "Reason for the correction"), /* @__PURE__ */ React90.createElement(
+  ) : /* @__PURE__ */ React94.createElement("div", { className: "fd-pp-check is-correction" }, /* @__PURE__ */ React94.createElement("label", { className: "fd-pp-reason" }, /* @__PURE__ */ React94.createElement("span", null, "Reason for the correction"), /* @__PURE__ */ React94.createElement(
     "input",
     {
       value: correctionReason,
@@ -18337,7 +18595,7 @@ function ResultEntry({ ev, state, onClose, save }) {
       maxLength: 100,
       "aria-label": "Reason for the correction"
     }
-  )), /* @__PURE__ */ React90.createElement("div", { className: "fd-pp-actions" }, /* @__PURE__ */ React90.createElement(
+  )), /* @__PURE__ */ React94.createElement("div", { className: "fd-pp-actions" }, /* @__PURE__ */ React94.createElement(
     ActionButton,
     {
       variant: "commit",
@@ -18346,7 +18604,7 @@ function ResultEntry({ ev, state, onClose, save }) {
       onClick: () => post({ confirmOverwrite: true, correctionReason })
     },
     "Replace official result"
-  ), /* @__PURE__ */ React90.createElement(
+  ), /* @__PURE__ */ React94.createElement(
     ActionButton,
     {
       variant: "tertiary",
@@ -18373,7 +18631,7 @@ var centeredGridCell = (i, count, columns = 3, gap = 6) => {
   return { gridColumn: "1 / -1", width: `calc(${100 / columns}% - ${gap / 2}px)`, justifySelf: "center" };
 };
 function PlayerChip({ name, selected, disabled, onClick, small, style }) {
-  return /* @__PURE__ */ React92.createElement("button", { onClick, disabled, "aria-pressed": selected, style: {
+  return /* @__PURE__ */ React96.createElement("button", { onClick, disabled, "aria-pressed": selected, style: {
     fontFamily: SANS,
     fontWeight: 600,
     fontSize: small ? 13 : 14,
@@ -18394,7 +18652,7 @@ function PlayerChip({ name, selected, disabled, onClick, small, style }) {
 }
 function EventIntro({ state, ev, handoff, onClose, onBets }) {
   const reduced = prefersReducedMotion2();
-  return /* @__PURE__ */ React92.createElement(
+  return /* @__PURE__ */ React96.createElement(
     EventAnnouncement,
     {
       state,
@@ -18411,8 +18669,8 @@ function EventIntro({ state, ev, handoff, onClose, onBets }) {
 }
 function ChipCounter({ start, onDone }) {
   const denominations = [1e3, 500, 100, 25];
-  const countId = useId10(), saving = useRef66(false);
-  const [counts, setCounts] = useState72(() => {
+  const countId = useId10(), saving = useRef70(false);
+  const [counts, setCounts] = useState76(() => {
     let left = start || 0;
     return Object.fromEntries(denominations.map((value) => {
       const n = Math.floor(left / value);
@@ -18420,12 +18678,12 @@ function ChipCounter({ start, onDone }) {
       return [value, n];
     }));
   });
-  const [pending, setPending] = useState72(false), [error, setError] = useState72("");
+  const [pending, setPending] = useState76(false), [error, setError] = useState76("");
   const total = denominations.reduce((sum, value) => sum + Number(counts[value] || 0) * value, 0);
   const set = (value, count) => {
     if (!saving.current) setCounts((current) => ({ ...current, [value]: count }));
   };
-  return /* @__PURE__ */ React92.createElement("div", { className: "fd-chip-counter" }, denominations.map((value) => /* @__PURE__ */ React92.createElement("div", { className: "fd-chip-count-row", key: value }, /* @__PURE__ */ React92.createElement("label", { htmlFor: countId + value }, fmt13(value), " chips"), /* @__PURE__ */ React92.createElement(
+  return /* @__PURE__ */ React96.createElement("div", { className: "fd-chip-counter" }, denominations.map((value) => /* @__PURE__ */ React96.createElement("div", { className: "fd-chip-count-row", key: value }, /* @__PURE__ */ React96.createElement("label", { htmlFor: countId + value }, fmt13(value), " chips"), /* @__PURE__ */ React96.createElement(
     "button",
     {
       type: "button",
@@ -18433,8 +18691,8 @@ function ChipCounter({ start, onDone }) {
       "aria-label": "Remove one " + value + " chip",
       onClick: () => set(value, Math.max(0, Number(counts[value] || 0) - 1))
     },
-    /* @__PURE__ */ React92.createElement(Icon, { name: "minus", size: 16 })
-  ), /* @__PURE__ */ React92.createElement(
+    /* @__PURE__ */ React96.createElement(Icon, { name: "minus", size: 16 })
+  ), /* @__PURE__ */ React96.createElement(
     "input",
     {
       id: countId + value,
@@ -18447,7 +18705,7 @@ function ChipCounter({ start, onDone }) {
         if (/^\d*$/.test(event.target.value)) set(value, event.target.value);
       }
     }
-  ), /* @__PURE__ */ React92.createElement("button", { type: "button", disabled: pending, "aria-label": "Add one " + value + " chip", onClick: () => set(value, Number(counts[value] || 0) + 1) }, /* @__PURE__ */ React92.createElement(Icon, { name: "plus", size: 16 })))), /* @__PURE__ */ React92.createElement("div", { className: "fd-chip-count-total" }, /* @__PURE__ */ React92.createElement("span", null, "Total"), /* @__PURE__ */ React92.createElement("strong", null, fmt13(total))), error && /* @__PURE__ */ React92.createElement("p", { role: "alert" }, error), /* @__PURE__ */ React92.createElement(ActionButton, { className: "fd-chip-count-save", disabled: pending || total <= 0, onClick: async () => {
+  ), /* @__PURE__ */ React96.createElement("button", { type: "button", disabled: pending, "aria-label": "Add one " + value + " chip", onClick: () => set(value, Number(counts[value] || 0) + 1) }, /* @__PURE__ */ React96.createElement(Icon, { name: "plus", size: 16 })))), /* @__PURE__ */ React96.createElement("div", { className: "fd-chip-count-total" }, /* @__PURE__ */ React96.createElement("span", null, "Total"), /* @__PURE__ */ React96.createElement("strong", null, fmt13(total))), error && /* @__PURE__ */ React96.createElement("p", { role: "alert" }, error), /* @__PURE__ */ React96.createElement(ActionButton, { className: "fd-chip-count-save", disabled: pending || total <= 0, onClick: async () => {
     if (saving.current || total <= 0) return;
     saving.current = true;
     setPending(true);
@@ -18465,9 +18723,9 @@ function ChipCounter({ start, onDone }) {
 }
 function PokerResultSheet({ state, onClose, onCount, onBust, onUnbust, onPost }) {
   const pk = state.poker;
-  const [fixing, setFixing] = useState72(null);
-  const [pending, setPending] = useState72(false), [error, setError] = useState72("");
-  const saving = useRef66(false);
+  const [fixing, setFixing] = useState76(null);
+  const [pending, setPending] = useState76(false), [error, setError] = useState76("");
+  const saving = useRef70(false);
   const act = async (callback) => {
     if (saving.current) return { ok: false, error: "Saving\u2026" };
     saving.current = true;
@@ -18493,10 +18751,10 @@ function PokerResultSheet({ state, onClose, onCount, onBust, onUnbust, onPost })
   const counted = alive.filter((p) => pk.counts?.[p] !== void 0);
   const sum = counted.reduce((s, p) => s + pk.counts[p], 0);
   const allIn = counted.length === alive.length;
-  return /* @__PURE__ */ React92.createElement(Sheet, { title: "The table", onClose, busy: pending }, seats.map((p) => {
+  return /* @__PURE__ */ React96.createElement(Sheet, { title: "The table", onClose, busy: pending }, seats.map((p) => {
     const out = outSet.has(p);
     const c = pk.counts?.[p];
-    return /* @__PURE__ */ React92.createElement("div", { key: p }, /* @__PURE__ */ React92.createElement("div", { className: "fd-poker-count-row" + (out ? " is-out" : "") }, /* @__PURE__ */ React92.createElement(
+    return /* @__PURE__ */ React96.createElement("div", { key: p }, /* @__PURE__ */ React96.createElement("div", { className: "fd-poker-count-row" + (out ? " is-out" : "") }, /* @__PURE__ */ React96.createElement(
       "button",
       {
         className: "fd-poker-count-player",
@@ -18507,10 +18765,10 @@ function PokerResultSheet({ state, onClose, onCount, onBust, onUnbust, onPost })
           if (!saving.current) setFixing((f) => f === p ? null : p);
         }
       },
-      /* @__PURE__ */ React92.createElement(Avatar, { state, p, size: 28 }),
-      /* @__PURE__ */ React92.createElement("span", null, disp(state, p)),
-      out ? /* @__PURE__ */ React92.createElement(Tag, null, "Out") : c !== void 0 ? /* @__PURE__ */ React92.createElement("strong", null, fmt13(c)) : /* @__PURE__ */ React92.createElement("small", null, "counting")
-    ), /* @__PURE__ */ React92.createElement(
+      /* @__PURE__ */ React96.createElement(Avatar, { state, p, size: 28 }),
+      /* @__PURE__ */ React96.createElement("span", null, disp(state, p)),
+      out ? /* @__PURE__ */ React96.createElement(Tag, null, "Out") : c !== void 0 ? /* @__PURE__ */ React96.createElement("strong", null, fmt13(c)) : /* @__PURE__ */ React96.createElement("small", null, "counting")
+    ), /* @__PURE__ */ React96.createElement(
       "button",
       {
         className: "fd-poker-count-action",
@@ -18523,27 +18781,27 @@ function PokerResultSheet({ state, onClose, onCount, onBust, onUnbust, onPost })
         })
       },
       out ? "Back in" : "Bust"
-    )), fixing === p && !out && /* @__PURE__ */ React92.createElement("div", { className: "fd-night", style: {
+    )), fixing === p && !out && /* @__PURE__ */ React96.createElement("div", { className: "fd-night", style: {
       padding: "10px 0",
       borderBottom: "1px solid var(--line)",
       background: "var(--night)",
       margin: "0 -16px",
       paddingLeft: 16,
       paddingRight: 16
-    } }, /* @__PURE__ */ React92.createElement(ChipCounter, { start: c, onDone: (total) => act(async () => {
+    } }, /* @__PURE__ */ React96.createElement(ChipCounter, { start: c, onDone: (total) => act(async () => {
       const result = await onCount(p, total);
       if (result?.ok) setFixing(null);
       return result;
     }) })));
-  }), /* @__PURE__ */ React92.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, padding: "12px 0 4px" } }, /* @__PURE__ */ React92.createElement("span", { style: { ...label, flex: 1 } }, "Counted"), /* @__PURE__ */ React92.createElement("span", { style: {
+  }), /* @__PURE__ */ React96.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, padding: "12px 0 4px" } }, /* @__PURE__ */ React96.createElement("span", { style: { ...label, flex: 1 } }, "Counted"), /* @__PURE__ */ React96.createElement("span", { style: {
     fontFamily: DISPLAY,
     fontWeight: 700,
     fontSize: 22,
     color: allIn && sum === pk.total ? "var(--green)" : "var(--ink)"
-  } }, fmt13(sum)), /* @__PURE__ */ React92.createElement("span", { style: { fontFamily: SANS, fontSize: 12.5, color: "var(--muted)" } }, "of ", fmt13(pk.total))), allIn && sum !== pk.total && /* @__PURE__ */ React92.createElement("div", { style: { fontFamily: SANS, fontSize: 12.5, color: "var(--clay-text)", marginBottom: 10 } }, sum > pk.total ? `${fmt13(sum - pk.total)} over` : `${fmt13(pk.total - sum)} short`, "."), error && /* @__PURE__ */ React92.createElement("p", { role: "alert", style: { color: "var(--clay-text)", fontSize: 13 } }, error), /* @__PURE__ */ React92.createElement(Btn, { disabled: !allIn || pending, onClick: () => act(onPost), style: { width: "100%", marginTop: 8 } }, allIn ? "Post the counts" : `Waiting on ${alive.length - counted.length}`));
+  } }, fmt13(sum)), /* @__PURE__ */ React96.createElement("span", { style: { fontFamily: SANS, fontSize: 12.5, color: "var(--muted)" } }, "of ", fmt13(pk.total))), allIn && sum !== pk.total && /* @__PURE__ */ React96.createElement("div", { style: { fontFamily: SANS, fontSize: 12.5, color: "var(--clay-text)", marginBottom: 10 } }, sum > pk.total ? `${fmt13(sum - pk.total)} over` : `${fmt13(pk.total - sum)} short`, "."), error && /* @__PURE__ */ React96.createElement("p", { role: "alert", style: { color: "var(--clay-text)", fontSize: 13 } }, error), /* @__PURE__ */ React96.createElement(Btn, { disabled: !allIn || pending, onClick: () => act(onPost), style: { width: "100%", marginTop: 8 } }, allIn ? "Post the counts" : `Waiting on ${alive.length - counted.length}`));
 }
 function PlayerLinks({ state, players, onPlayer, size = 26 }) {
-  return /* @__PURE__ */ React92.createElement("div", { className: "fd-player-links" }, players.map((p) => /* @__PURE__ */ React92.createElement(
+  return /* @__PURE__ */ React96.createElement("div", { className: "fd-player-links" }, players.map((p) => /* @__PURE__ */ React96.createElement(
     "button",
     {
       type: "button",
@@ -18552,16 +18810,16 @@ function PlayerLinks({ state, players, onPlayer, size = 26 }) {
       onClick: () => onPlayer(p),
       "aria-label": `View ${disp(state, p)}'s player card`
     },
-    /* @__PURE__ */ React92.createElement(Avatar, { state, p, size }),
-    /* @__PURE__ */ React92.createElement("span", null, disp(state, p))
+    /* @__PURE__ */ React96.createElement(Avatar, { state, p, size }),
+    /* @__PURE__ */ React96.createElement("span", null, disp(state, p))
   )));
 }
 function EventCrewCard({ state, roles, compact = false, onPlayer }) {
   const assignments = (roles || []).filter((item) => item?.player);
   if (!assignments.length) return null;
   if (compact) {
-    if (onPlayer) return /* @__PURE__ */ React92.createElement("div", { className: "fd-event-crew-compact" }, /* @__PURE__ */ React92.createElement("span", { style: label }, "Event crew"), assignments.map((item) => /* @__PURE__ */ React92.createElement("button", { type: "button", key: item.player, onClick: () => onPlayer(item.player), "aria-label": `View ${disp(state, item.player)}'s player card` }, /* @__PURE__ */ React92.createElement(Avatar, { state, p: item.player, size: 24 }), /* @__PURE__ */ React92.createElement("span", null, disp(state, item.player)), /* @__PURE__ */ React92.createElement("small", null, overflowRoleMeta(item.role).short))));
-    return /* @__PURE__ */ React92.createElement("div", { style: {
+    if (onPlayer) return /* @__PURE__ */ React96.createElement("div", { className: "fd-event-crew-compact" }, /* @__PURE__ */ React96.createElement("span", { style: label }, "Event crew"), assignments.map((item) => /* @__PURE__ */ React96.createElement("button", { type: "button", key: item.player, onClick: () => onPlayer(item.player), "aria-label": `View ${disp(state, item.player)}'s player card` }, /* @__PURE__ */ React96.createElement(Avatar, { state, p: item.player, size: 24 }), /* @__PURE__ */ React96.createElement("span", null, disp(state, item.player)), /* @__PURE__ */ React96.createElement("small", null, overflowRoleMeta(item.role).short))));
+    return /* @__PURE__ */ React96.createElement("div", { style: {
       display: "flex",
       alignItems: "center",
       gap: 8,
@@ -18569,7 +18827,7 @@ function EventCrewCard({ state, roles, compact = false, onPlayer }) {
       marginTop: 9,
       paddingTop: 8,
       borderTop: "1px solid var(--line)"
-    } }, /* @__PURE__ */ React92.createElement("span", { style: { ...label, color: "var(--muted2)", flexShrink: 0 } }, "Event crew"), /* @__PURE__ */ React92.createElement(AvatarStack, { state, players: assignments.map((item) => item.player), size: 20, max: 3 }), /* @__PURE__ */ React92.createElement("span", { style: {
+    } }, /* @__PURE__ */ React96.createElement("span", { style: { ...label, color: "var(--muted2)", flexShrink: 0 } }, "Event crew"), /* @__PURE__ */ React96.createElement(AvatarStack, { state, players: assignments.map((item) => item.player), size: 20, max: 3 }), /* @__PURE__ */ React96.createElement("span", { style: {
       fontFamily: SANS,
       fontWeight: 600,
       fontSize: 12,
@@ -18579,7 +18837,7 @@ function EventCrewCard({ state, roles, compact = false, onPlayer }) {
       textOverflow: "ellipsis",
       whiteSpace: "nowrap",
       flex: 1
-    } }, assignments.map((item) => disp(state, item.player)).join(", ")), /* @__PURE__ */ React92.createElement("span", { style: {
+    } }, assignments.map((item) => disp(state, item.player)).join(", ")), /* @__PURE__ */ React96.createElement("span", { style: {
       fontFamily: SANS,
       fontWeight: 700,
       fontSize: 12,
@@ -18587,15 +18845,15 @@ function EventCrewCard({ state, roles, compact = false, onPlayer }) {
       flexShrink: 0
     } }, assignments.map((item) => overflowRoleMeta(item.role).short).join(" + ")));
   }
-  return /* @__PURE__ */ React92.createElement("div", { style: {
+  return /* @__PURE__ */ React96.createElement("div", { style: {
     margin: "10px 0 4px",
     padding: "11px 12px",
     borderRadius: 14,
     background: "var(--paper2)",
     border: "1px solid var(--bone-line)"
-  } }, /* @__PURE__ */ React92.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 8 } }, /* @__PURE__ */ React92.createElement("span", { style: { ...label, color: "var(--muted2)", flex: 1 } }, "Event crew")), assignments.map((item, index) => {
+  } }, /* @__PURE__ */ React96.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 8 } }, /* @__PURE__ */ React96.createElement("span", { style: { ...label, color: "var(--muted2)", flex: 1 } }, "Event crew")), assignments.map((item, index) => {
     const meta = overflowRoleMeta(item.role);
-    if (onPlayer) return /* @__PURE__ */ React92.createElement(
+    if (onPlayer) return /* @__PURE__ */ React96.createElement(
       "button",
       {
         type: "button",
@@ -18604,18 +18862,18 @@ function EventCrewCard({ state, roles, compact = false, onPlayer }) {
         onClick: () => onPlayer(item.player),
         "aria-label": `View ${disp(state, item.player)}'s player card`
       },
-      /* @__PURE__ */ React92.createElement(Avatar, { state, p: item.player, size: 30 }),
-      /* @__PURE__ */ React92.createElement("span", null, /* @__PURE__ */ React92.createElement("strong", null, disp(state, item.player))),
-      /* @__PURE__ */ React92.createElement("small", null, meta.label)
+      /* @__PURE__ */ React96.createElement(Avatar, { state, p: item.player, size: 30 }),
+      /* @__PURE__ */ React96.createElement("span", null, /* @__PURE__ */ React96.createElement("strong", null, disp(state, item.player))),
+      /* @__PURE__ */ React96.createElement("small", null, meta.label)
     );
-    return /* @__PURE__ */ React92.createElement("div", { key: `${item.player}-${index}`, style: {
+    return /* @__PURE__ */ React96.createElement("div", { key: `${item.player}-${index}`, style: {
       display: "flex",
       alignItems: "center",
       gap: 9,
       padding: index ? "8px 0 0" : "0",
       marginTop: index ? 8 : 0,
       borderTop: index ? "1px solid var(--line)" : "none"
-    } }, /* @__PURE__ */ React92.createElement(Avatar, { state, p: item.player, size: 30 }), /* @__PURE__ */ React92.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React92.createElement("div", { style: {
+    } }, /* @__PURE__ */ React96.createElement(Avatar, { state, p: item.player, size: 30 }), /* @__PURE__ */ React96.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React96.createElement("div", { style: {
       fontFamily: SANS,
       fontWeight: 700,
       fontSize: 13,
@@ -18623,7 +18881,7 @@ function EventCrewCard({ state, roles, compact = false, onPlayer }) {
       overflow: "hidden",
       textOverflow: "ellipsis",
       whiteSpace: "nowrap"
-    } }, disp(state, item.player))), /* @__PURE__ */ React92.createElement("span", { style: {
+    } }, disp(state, item.player))), /* @__PURE__ */ React96.createElement("span", { style: {
       fontFamily: SANS,
       fontWeight: 700,
       fontSize: 12,
@@ -18643,14 +18901,14 @@ function StageGrid({ state, ev, gm, onThrough, onFinal, onPlayer, size = "md" })
     md: { av: 24, f: 13.5, tf: 13, pad: "7px 10px", gap: 8, col: "1fr 1fr" },
     lg: { av: 36, f: 19, tf: 17, pad: "11px 14px", gap: 14, col: `repeat(${Math.min(st.groups.length + (finalists ? 1 : 0), 4)}, 1fr)` }
   }[size];
-  const GroupCard = ({ title, entrants, through, gIdx, isFinal, wide }) => /* @__PURE__ */ React92.createElement("div", { style: {
+  const GroupCard = ({ title, entrants, through, gIdx, isFinal, wide }) => /* @__PURE__ */ React96.createElement("div", { style: {
     background: "var(--paper2)",
     border: "1px solid " + (isFinal ? "var(--ghost-line)" : "var(--line)"),
     borderRadius: 14,
     overflow: "hidden",
     boxShadow: "var(--shadow-1)",
     ...wide ? { gridColumn: "1 / -1" } : {}
-  } }, /* @__PURE__ */ React92.createElement("div", { style: {
+  } }, /* @__PURE__ */ React96.createElement("div", { style: {
     ...label,
     fontSize: size === "lg" ? 13 : 12,
     padding: size === "lg" ? "9px 14px 5px" : "7px 10px 3px",
@@ -18661,12 +18919,12 @@ function StageGrid({ state, ev, gm, onThrough, onFinal, onPlayer, size = "md" })
     const decided3 = isFinal ? st.finalWinner !== null && st.finalWinner !== void 0 : (through || []).length >= st.advance;
     const dimmed = decided3 && !isThrough;
     const clickable = gm && (isFinal ? onFinal : onThrough);
-    if (!gm && onPlayer) return /* @__PURE__ */ React92.createElement("div", { key: String(key), style: {
+    if (!gm && onPlayer) return /* @__PURE__ */ React96.createElement("div", { key: String(key), style: {
       padding: dims.pad,
       borderTop: "1px solid var(--line)",
       background: isThrough ? "var(--accent-tint)" : "transparent"
-    } }, /* @__PURE__ */ React92.createElement(PlayerLinks, { state, players: v.players, onPlayer, size: dims.av }), isThrough && /* @__PURE__ */ React92.createElement("small", { style: { color: "var(--accent2)" } }, isFinal ? "Winner" : "Advanced"));
-    return /* @__PURE__ */ React92.createElement(
+    } }, /* @__PURE__ */ React96.createElement(PlayerLinks, { state, players: v.players, onPlayer, size: dims.av }), isThrough && /* @__PURE__ */ React96.createElement("small", { style: { color: "var(--accent2)" } }, isFinal ? "Winner" : "Advanced"));
+    return /* @__PURE__ */ React96.createElement(
       "button",
       {
         key: String(key),
@@ -18686,8 +18944,8 @@ function StageGrid({ state, ev, gm, onThrough, onFinal, onPlayer, size = "md" })
           opacity: dimmed ? 0.38 : 1
         }
       },
-      /* @__PURE__ */ React92.createElement(AvatarStack, { state, players: v.players, size: dims.av, max: 3 }),
-      /* @__PURE__ */ React92.createElement("span", { style: {
+      /* @__PURE__ */ React96.createElement(AvatarStack, { state, players: v.players, size: dims.av, max: 3 }),
+      /* @__PURE__ */ React96.createElement("span", { style: {
         fontFamily: SANS,
         fontWeight: 700,
         fontSize: dims.f,
@@ -18697,10 +18955,10 @@ function StageGrid({ state, ev, gm, onThrough, onFinal, onPlayer, size = "md" })
         whiteSpace: "nowrap",
         color: isThrough ? "var(--accent2)" : "var(--ink)"
       } }, v.name),
-      isThrough && /* @__PURE__ */ React92.createElement("span", { style: { fontFamily: SANS, fontWeight: 700, fontSize: dims.tf, color: "var(--accent2)" } }, /* @__PURE__ */ React92.createElement(Icon, { name: isFinal ? "trophy" : "check", size: "1em" }))
+      isThrough && /* @__PURE__ */ React96.createElement("span", { style: { fontFamily: SANS, fontWeight: 700, fontSize: dims.tf, color: "var(--accent2)" } }, /* @__PURE__ */ React96.createElement(Icon, { name: isFinal ? "trophy" : "check", size: "1em" }))
     );
   }));
-  return /* @__PURE__ */ React92.createElement("div", { style: { display: "grid", gridTemplateColumns: dims.col, gap: dims.gap, alignItems: "start" } }, st.groups.map((g, i) => /* @__PURE__ */ React92.createElement(
+  return /* @__PURE__ */ React96.createElement("div", { style: { display: "grid", gridTemplateColumns: dims.col, gap: dims.gap, alignItems: "start" } }, st.groups.map((g, i) => /* @__PURE__ */ React96.createElement(
     GroupCard,
     {
       key: i,
@@ -18709,7 +18967,7 @@ function StageGrid({ state, ev, gm, onThrough, onFinal, onPlayer, size = "md" })
       through: g.through,
       gIdx: i
     }
-  )), finalists && /* @__PURE__ */ React92.createElement(
+  )), finalists && /* @__PURE__ */ React96.createElement(
     GroupCard,
     {
       title: "The Final",
@@ -18754,7 +19012,7 @@ function EventSheet({
   onTakeBack
 }) {
   const res = state.results[ev.id];
-  const [confirmTakeBack, setConfirmTakeBack] = useState72(false);
+  const [confirmTakeBack, setConfirmTakeBack] = useState76(false);
   const contestOps = useContestOperations();
   const draw = state.draws[ev.id];
   const draftLive = state.drafts?.[ev.id];
@@ -18762,20 +19020,20 @@ function EventSheet({
   const st = state.stages[ev.id];
   const table = AWARDS[ev.value] ? awardTable(ev) : void 0;
   const shelvedNow = !!state.shelved[ev.id];
-  const [confirmRedraw, setConfirmRedraw] = useState72(false);
-  const [confirmRemove, setConfirmRemove] = useState72(false);
-  const [confirmClear, setConfirmClear] = useState72(false);
-  const [clearReason, setClearReason] = useState72("");
-  const [confirmScrap, setConfirmScrap] = useState72(false);
-  const [confirmShelve, setConfirmShelve] = useState72(false);
+  const [confirmRedraw, setConfirmRedraw] = useState76(false);
+  const [confirmRemove, setConfirmRemove] = useState76(false);
+  const [confirmClear, setConfirmClear] = useState76(false);
+  const [clearReason, setClearReason] = useState76("");
+  const [confirmScrap, setConfirmScrap] = useState76(false);
+  const [confirmShelve, setConfirmShelve] = useState76(false);
   const openBets = (state.wagers || []).filter((w) => w.eventId === ev.id && resolveWager(state, w, allEventsOf(state)).status === "pending");
-  const [editOpen, setEditOpen] = useState72(false);
-  const [howTo, setHowTo] = useState72(false);
-  const [more, setMore] = useState72(false);
-  const [eName, setEName] = useState72("");
-  const [eDesc, setEDesc] = useState72("");
-  const [eValue, setEValue] = useState72(400);
-  const [eSession, setESession] = useState72(null);
+  const [editOpen, setEditOpen] = useState76(false);
+  const [howTo, setHowTo] = useState76(false);
+  const [more, setMore] = useState76(false);
+  const [eName, setEName] = useState76("");
+  const [eDesc, setEDesc] = useState76("");
+  const [eValue, setEValue] = useState76(400);
+  const [eSession, setESession] = useState76(null);
   const openEdit = () => {
     setEName(ev.name);
     setEDesc(ev.desc || "");
@@ -18783,16 +19041,16 @@ function EventSheet({
     setESession(SESSIONS.find((s) => s.id === ev.session) ? ev.session : null);
     setEditOpen(true);
   };
-  const [suggested] = useState72(() => ev.teamCfg && !state.draws?.[ev.id] ? suggestParticipants(state, ev) : null);
-  const [outs, setOuts] = useState72(() => (suggested?.roles || []).map((item) => item.player));
-  const [outRoles, setOutRoles] = useState72(() => Object.fromEntries((suggested?.roles || []).map((item) => [item.player, item.role])));
-  const [swapOut, setSwapOut] = useState72(""), [swapIn, setSwapIn] = useState72("");
-  const [showOuts, setShowOuts] = useState72(false);
-  const [stageCfgOpen, setStageCfgOpen] = useState72(!!ev.stageCfg);
-  const [nGroups, setNGroups] = useState72(null);
-  const [advance, setAdvance] = useState72(ev.stageCfg?.advance || 1);
-  const [setupPending, setSetupPending] = useState72(false);
-  const [contestPending, setContestPending] = useState72(false);
+  const [suggested] = useState76(() => ev.teamCfg && !state.draws?.[ev.id] ? suggestParticipants(state, ev) : null);
+  const [outs, setOuts] = useState76(() => (suggested?.roles || []).map((item) => item.player));
+  const [outRoles, setOutRoles] = useState76(() => Object.fromEntries((suggested?.roles || []).map((item) => [item.player, item.role])));
+  const [swapOut, setSwapOut] = useState76(""), [swapIn, setSwapIn] = useState76("");
+  const [showOuts, setShowOuts] = useState76(false);
+  const [stageCfgOpen, setStageCfgOpen] = useState76(!!ev.stageCfg);
+  const [nGroups, setNGroups] = useState76(null);
+  const [advance, setAdvance] = useState76(ev.stageCfg?.advance || 1);
+  const [setupPending, setSetupPending] = useState76(false);
+  const [contestPending, setContestPending] = useState76(false);
   const waitForContest = async (callback) => {
     setContestPending(true);
     try {
@@ -18801,8 +19059,8 @@ function EventSheet({
       setContestPending(false);
     }
   };
-  const [setupError, setSetupError] = useState72("");
-  const setupBusy = useRef66(false);
+  const [setupError, setSetupError] = useState76("");
+  const setupBusy = useRef70(false);
   const saveSetup = async (callback) => {
     if (setupBusy.current) return;
     setupBusy.current = true;
@@ -18857,8 +19115,8 @@ function EventSheet({
     onResult: () => waitForContest(enterResult),
     onPlayNext: onPlayNext ? (payload) => waitForContest(() => onPlayNext(payload)) : void 0
   };
-  const who = /* @__PURE__ */ React92.createElement(React92.Fragment, null, draftLive && !draw && /* @__PURE__ */ React92.createElement("div", { className: "fd-es-block" }, /* @__PURE__ */ React92.createElement(DraftEntry, { state, ev, me, onOpen: () => openDraft() })), draw && !br && !st && !contestShowsSides && /* @__PURE__ */ React92.createElement(EventTeams, { state, ev, draw, me, onPlayer }), br && !contestActive && /* @__PURE__ */ React92.createElement("div", { className: "fd-es-block" }, /* @__PURE__ */ React92.createElement(CompetitionBracket, { state, ev, me, onPlayer })), st && /* @__PURE__ */ React92.createElement("div", { className: "fd-es-block" }, /* @__PURE__ */ React92.createElement(StageGrid, { state, ev, gm: false, onPlayer })), !draw && !draftLive && !st && !ev.teamCfg && !isPoker && stage === "before" && /* @__PURE__ */ React92.createElement(EventField, { state, ev, me, onPlayer }), roles && /* @__PURE__ */ React92.createElement(EventCrew, { state, roles, me, onPlayer }));
-  return /* @__PURE__ */ React92.createElement(
+  const who = /* @__PURE__ */ React96.createElement(React96.Fragment, null, draftLive && !draw && /* @__PURE__ */ React96.createElement("div", { className: "fd-es-block" }, /* @__PURE__ */ React96.createElement(DraftEntry, { state, ev, me, onOpen: () => openDraft() })), draw && !br && !st && !contestShowsSides && /* @__PURE__ */ React96.createElement(EventTeams, { state, ev, draw, me, onPlayer }), br && !contestActive && /* @__PURE__ */ React96.createElement("div", { className: "fd-es-block" }, /* @__PURE__ */ React96.createElement(CompetitionBracket, { state, ev, me, onPlayer })), st && /* @__PURE__ */ React96.createElement("div", { className: "fd-es-block" }, /* @__PURE__ */ React96.createElement(StageGrid, { state, ev, gm: false, onPlayer })), !draw && !draftLive && !st && !ev.teamCfg && !isPoker && stage === "before" && /* @__PURE__ */ React96.createElement(EventField, { state, ev, me, onPlayer }), roles && /* @__PURE__ */ React96.createElement(EventCrew, { state, roles, me, onPlayer }));
+  return /* @__PURE__ */ React96.createElement(
     Sheet,
     {
       title: ev.name,
@@ -18867,20 +19125,20 @@ function EventSheet({
       onBack,
       wide: !!br,
       busy: setupPending || contestPending,
-      headerActions: /* @__PURE__ */ React92.createElement(React92.Fragment, null, (draw || st) && onReplay && /* @__PURE__ */ React92.createElement("button", { type: "button", disabled: setupPending || contestPending, onClick: onReplay }, "Replay draw"), hasGameRules(ev) && stage !== "before" && /* @__PURE__ */ React92.createElement("button", { type: "button", disabled: setupPending || contestPending, onClick: () => setHowTo(true) }, "Rules"))
+      headerActions: /* @__PURE__ */ React96.createElement(React96.Fragment, null, (draw || st) && onReplay && /* @__PURE__ */ React96.createElement("button", { type: "button", disabled: setupPending || contestPending, onClick: onReplay }, "Replay draw"), hasGameRules(ev) && stage !== "before" && /* @__PURE__ */ React96.createElement("button", { type: "button", disabled: setupPending || contestPending, onClick: () => setHowTo(true) }, "Rules"))
     },
-    howTo && /* @__PURE__ */ React92.createElement(HowToSheet, { gameId: ev.game, variant: ev.variant, ev, onClose: () => setHowTo(false) }),
-    /* @__PURE__ */ React92.createElement(ContestPanel, { ...contestProps, part: "contest" }),
-    /* @__PURE__ */ React92.createElement(TeamNameCard, { state, ev, me }),
-    stage === "before" && /* @__PURE__ */ React92.createElement(React92.Fragment, null, who, /* @__PURE__ */ React92.createElement(GameSteps, { game: ev, size: "card", className: "fd-es-steps" }), !GAMES[ev.game] && ev.desc && /* @__PURE__ */ React92.createElement("p", { className: "fd-es-gm-note" }, ev.desc), table && /* @__PURE__ */ React92.createElement(EventPays, { ev, crew: crewAward })),
-    stage === "live" && /* @__PURE__ */ React92.createElement(React92.Fragment, null, path?.mine && /* @__PURE__ */ React92.createElement("p", { className: "fd-es-path" }, path.text), who, /* @__PURE__ */ React92.createElement(EventRiding, { state, ev })),
-    stage === "after" && /* @__PURE__ */ React92.createElement(React92.Fragment, null, /* @__PURE__ */ React92.createElement(EventResult, { state, ev, me, onPlayer }), br && /* @__PURE__ */ React92.createElement("details", { className: "fd-event-info" }, /* @__PURE__ */ React92.createElement("summary", null, /* @__PURE__ */ React92.createElement("span", null, "Bracket")), /* @__PURE__ */ React92.createElement(CompetitionBracket, { state, ev, me, onPlayer })), st && /* @__PURE__ */ React92.createElement("details", { className: "fd-event-info" }, /* @__PURE__ */ React92.createElement("summary", null, /* @__PURE__ */ React92.createElement("span", null, st.kind === "heats" ? "Heats" : "Pools")), /* @__PURE__ */ React92.createElement(StageGrid, { state, ev, gm: false, onPlayer }))),
-    !contestActive && onBets && stage !== "after" && /* @__PURE__ */ React92.createElement(ActionButton, { variant: "secondary", onClick: onBets, style: { width: "100%", marginBottom: 12 } }, "View bets"),
-    gm && /* @__PURE__ */ React92.createElement("section", { className: "fd-es-gm", "aria-labelledby": `fd-es-gm-${ev.id}` }, /* @__PURE__ */ React92.createElement("h2", { id: `fd-es-gm-${ev.id}` }, "Commissioner"), /* @__PURE__ */ React92.createElement(ContestPanel, { ...contestProps, part: "commissioner" }), /* @__PURE__ */ React92.createElement(TeamNameDesk, { state, ev }), !state.frozen && /* @__PURE__ */ React92.createElement(React92.Fragment, null, ev.teamCfg && !draw && !draftLive && !res && (() => {
+    howTo && /* @__PURE__ */ React96.createElement(HowToSheet, { gameId: ev.game, variant: ev.variant, ev, onClose: () => setHowTo(false) }),
+    /* @__PURE__ */ React96.createElement(ContestPanel, { ...contestProps, part: "contest" }),
+    /* @__PURE__ */ React96.createElement(TeamNameCard, { state, ev, me }),
+    stage === "before" && /* @__PURE__ */ React96.createElement(React96.Fragment, null, who, /* @__PURE__ */ React96.createElement(GameSteps, { game: ev, size: "card", className: "fd-es-steps" }), !GAMES[ev.game] && ev.desc && /* @__PURE__ */ React96.createElement("p", { className: "fd-es-gm-note" }, ev.desc), table && /* @__PURE__ */ React96.createElement(EventPays, { ev, crew: crewAward })),
+    stage === "live" && /* @__PURE__ */ React96.createElement(React96.Fragment, null, path?.mine && /* @__PURE__ */ React96.createElement("p", { className: "fd-es-path" }, path.text), who, /* @__PURE__ */ React96.createElement(EventRiding, { state, ev })),
+    stage === "after" && /* @__PURE__ */ React96.createElement(React96.Fragment, null, /* @__PURE__ */ React96.createElement(EventResult, { state, ev, me, onPlayer }), br && /* @__PURE__ */ React96.createElement("details", { className: "fd-event-info" }, /* @__PURE__ */ React96.createElement("summary", null, /* @__PURE__ */ React96.createElement("span", null, "Bracket")), /* @__PURE__ */ React96.createElement(CompetitionBracket, { state, ev, me, onPlayer })), st && /* @__PURE__ */ React96.createElement("details", { className: "fd-event-info" }, /* @__PURE__ */ React96.createElement("summary", null, /* @__PURE__ */ React96.createElement("span", null, st.kind === "heats" ? "Heats" : "Pools")), /* @__PURE__ */ React96.createElement(StageGrid, { state, ev, gm: false, onPlayer }))),
+    !contestActive && onBets && stage !== "after" && /* @__PURE__ */ React96.createElement(ActionButton, { variant: "secondary", onClick: onBets, style: { width: "100%", marginBottom: 12 } }, "View bets"),
+    gm && /* @__PURE__ */ React96.createElement("section", { className: "fd-es-gm", "aria-labelledby": `fd-es-gm-${ev.id}` }, /* @__PURE__ */ React96.createElement("h2", { id: `fd-es-gm-${ev.id}` }, "Commissioner"), /* @__PURE__ */ React96.createElement(ContestPanel, { ...contestProps, part: "commissioner" }), /* @__PURE__ */ React96.createElement(TeamNameDesk, { state, ev }), !state.frozen && /* @__PURE__ */ React96.createElement(React96.Fragment, null, ev.teamCfg && !draw && !draftLive && !res && (() => {
       const shape = teamFit(ev, present.length) || ev.teamCfg;
       const fit2 = shape.teams * shape.size;
       const diff = inPlayers.length - fit2;
-      return /* @__PURE__ */ React92.createElement(React92.Fragment, null, /* @__PURE__ */ React92.createElement("div", { className: "fd-es-gm-fit" }, /* @__PURE__ */ React92.createElement("span", null, shapeLabel(shape)), /* @__PURE__ */ React92.createElement(
+      return /* @__PURE__ */ React96.createElement(React96.Fragment, null, /* @__PURE__ */ React96.createElement("div", { className: "fd-es-gm-fit" }, /* @__PURE__ */ React96.createElement("span", null, shapeLabel(shape)), /* @__PURE__ */ React96.createElement(
         "button",
         {
           type: "button",
@@ -18892,8 +19150,8 @@ function EventSheet({
         inPlayers.length,
         shape.size === 1 ? "" : ` / ${fit2}`,
         " ",
-        /* @__PURE__ */ React92.createElement(Icon, { name: showOuts ? "collapse" : "expand", size: "1em" })
-      )), showOuts && /* @__PURE__ */ React92.createElement(React92.Fragment, null, /* @__PURE__ */ React92.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 5, marginBottom: 10 } }, present.map((p, i) => /* @__PURE__ */ React92.createElement(
+        /* @__PURE__ */ React96.createElement(Icon, { name: showOuts ? "collapse" : "expand", size: "1em" })
+      )), showOuts && /* @__PURE__ */ React96.createElement(React96.Fragment, null, /* @__PURE__ */ React96.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 5, marginBottom: 10 } }, present.map((p, i) => /* @__PURE__ */ React96.createElement(
         PlayerChip,
         {
           key: p,
@@ -18903,22 +19161,22 @@ function EventSheet({
           onClick: () => setOuts((o) => o.includes(p) ? o.filter((x) => x !== p) : [...o, p]),
           style: centeredGridCell(i, present.length, 3, 5)
         }
-      ))), overflowAssignments.length > 0 && /* @__PURE__ */ React92.createElement("div", { style: {
+      ))), overflowAssignments.length > 0 && /* @__PURE__ */ React96.createElement("div", { style: {
         background: "var(--paper2)",
         border: "1px solid var(--bone-line)",
         borderRadius: 14,
         padding: "11px 12px",
         marginBottom: 10
-      } }, /* @__PURE__ */ React92.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 3 } }, /* @__PURE__ */ React92.createElement("span", { style: { ...label, flex: 1 } }, "Crew"), table?.[2] > 0 && /* @__PURE__ */ React92.createElement("b", { style: { color: "var(--sun)", fontFamily: DISPLAY, fontWeight: 800, fontSize: 16 } }, "+", fmt13(table[2]))), overflowAssignments.map(({ player }, index) => {
+      } }, /* @__PURE__ */ React96.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 3 } }, /* @__PURE__ */ React96.createElement("span", { style: { ...label, flex: 1 } }, "Crew"), table?.[2] > 0 && /* @__PURE__ */ React96.createElement("b", { style: { color: "var(--sun)", fontFamily: DISPLAY, fontWeight: 800, fontSize: 16 } }, "+", fmt13(table[2]))), overflowAssignments.map(({ player }, index) => {
         const role = outRoles[player] || "sit-out";
-        return /* @__PURE__ */ React92.createElement("div", { key: player, style: {
+        return /* @__PURE__ */ React96.createElement("div", { key: player, style: {
           display: "flex",
           alignItems: "center",
           gap: 9,
           padding: index ? "9px 0 0" : "0",
           marginTop: index ? 9 : 0,
           borderTop: index ? "1px solid var(--line)" : "none"
-        } }, /* @__PURE__ */ React92.createElement(Avatar, { state, p: player, size: 32 }), /* @__PURE__ */ React92.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React92.createElement("div", { style: {
+        } }, /* @__PURE__ */ React96.createElement(Avatar, { state, p: player, size: 32 }), /* @__PURE__ */ React96.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React96.createElement("div", { style: {
           fontFamily: SANS,
           fontWeight: 700,
           fontSize: 12.5,
@@ -18926,7 +19184,7 @@ function EventSheet({
           overflow: "hidden",
           textOverflow: "ellipsis",
           whiteSpace: "nowrap"
-        } }, disp(state, player))), /* @__PURE__ */ React92.createElement(
+        } }, disp(state, player))), /* @__PURE__ */ React96.createElement(
           "select",
           {
             "aria-label": `${disp(state, player)} event crew role`,
@@ -18945,9 +19203,9 @@ function EventSheet({
               fontSize: 12
             }
           },
-          OVERFLOW_ROLES.map((value) => /* @__PURE__ */ React92.createElement("option", { key: value, value }, overflowRoleMeta(value).label))
+          OVERFLOW_ROLES.map((value) => /* @__PURE__ */ React96.createElement("option", { key: value, value }, overflowRoleMeta(value).label))
         ));
-      }))), !participantFit.ok && /* @__PURE__ */ React92.createElement("p", { className: "fd-es-gm-note", role: "alert", style: { color: "var(--clay-text)" } }, participantFit.error), /* @__PURE__ */ React92.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 10 } }, /* @__PURE__ */ React92.createElement(
+      }))), !participantFit.ok && /* @__PURE__ */ React96.createElement("p", { className: "fd-es-gm-note", role: "alert", style: { color: "var(--clay-text)" } }, participantFit.error), /* @__PURE__ */ React96.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 10 } }, /* @__PURE__ */ React96.createElement(
         Btn,
         {
           disabled: !participantFit.ok || setupPending,
@@ -18955,7 +19213,7 @@ function EventSheet({
           style: { flex: 1, whiteSpace: "nowrap", padding: "12px 8px" }
         },
         setupPending ? "Drawing\u2026" : announceNext ? "Announce and draw" : "Run the draw"
-      ), ev.kind === "team" && /* @__PURE__ */ React92.createElement(
+      ), ev.kind === "team" && /* @__PURE__ */ React96.createElement(
         Btn,
         {
           kind: "dark",
@@ -18965,10 +19223,10 @@ function EventSheet({
         },
         "Captains draft"
       )));
-    })(), ev.teamCfg && draw && !res && setupAllowed && (confirmRedraw ? /* @__PURE__ */ React92.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 10 } }, /* @__PURE__ */ React92.createElement(Btn, { kind: "danger", onClick: () => {
+    })(), ev.teamCfg && draw && !res && setupAllowed && (confirmRedraw ? /* @__PURE__ */ React96.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 10 } }, /* @__PURE__ */ React96.createElement(Btn, { kind: "danger", onClick: () => {
       onClearDraw();
       setConfirmRedraw(false);
-    }, style: { flex: 1 } }, "Scrap the draw"), /* @__PURE__ */ React92.createElement(Btn, { kind: "ghost", onClick: () => setConfirmRedraw(false), style: { flex: 1 } }, "Keep it")) : /* @__PURE__ */ React92.createElement(Btn, { kind: "ghost", onClick: () => setConfirmRedraw(true), style: { width: "100%", marginBottom: 10 } }, "Redraw")), (draw || st?.entrantType === "solo") && !res && onSwap && (() => {
+    }, style: { flex: 1 } }, "Scrap the draw"), /* @__PURE__ */ React96.createElement(Btn, { kind: "ghost", onClick: () => setConfirmRedraw(false), style: { flex: 1 } }, "Keep it")) : /* @__PURE__ */ React96.createElement(Btn, { kind: "ghost", onClick: () => setConfirmRedraw(true), style: { width: "100%", marginBottom: 10 } }, "Redraw")), (draw || st?.entrantType === "solo") && !res && onSwap && (() => {
       const drawn = draw ? draw.teams.flatMap((team) => team.players) : st.groups.flatMap((group) => group.entrants);
       const bench = present.filter((player) => !drawn.includes(player));
       if (!bench.length) return null;
@@ -18985,7 +19243,7 @@ function EventSheet({
         fontWeight: 700,
         fontSize: 12.5
       };
-      return /* @__PURE__ */ React92.createElement("details", { className: "fd-event-info" }, /* @__PURE__ */ React92.createElement("summary", null, /* @__PURE__ */ React92.createElement("span", null, "Swap in a player")), /* @__PURE__ */ React92.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 8 } }, /* @__PURE__ */ React92.createElement(
+      return /* @__PURE__ */ React96.createElement("details", { className: "fd-event-info" }, /* @__PURE__ */ React96.createElement("summary", null, /* @__PURE__ */ React96.createElement("span", null, "Swap in a player")), /* @__PURE__ */ React96.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 8 } }, /* @__PURE__ */ React96.createElement(
         "select",
         {
           "aria-label": "Player leaving",
@@ -18994,9 +19252,9 @@ function EventSheet({
           onChange: (event) => setSwapOut(event.target.value),
           style: selectStyle
         },
-        /* @__PURE__ */ React92.createElement("option", { value: "" }, "Leaving"),
-        drawn.map((player) => /* @__PURE__ */ React92.createElement("option", { key: player, value: player }, disp(state, player)))
-      ), /* @__PURE__ */ React92.createElement(
+        /* @__PURE__ */ React96.createElement("option", { value: "" }, "Leaving"),
+        drawn.map((player) => /* @__PURE__ */ React96.createElement("option", { key: player, value: player }, disp(state, player)))
+      ), /* @__PURE__ */ React96.createElement(
         "select",
         {
           "aria-label": "Player coming in",
@@ -19005,9 +19263,9 @@ function EventSheet({
           onChange: (event) => setSwapIn(event.target.value),
           style: selectStyle
         },
-        /* @__PURE__ */ React92.createElement("option", { value: "" }, "Coming in"),
-        bench.map((player) => /* @__PURE__ */ React92.createElement("option", { key: player, value: player }, disp(state, player)))
-      ), /* @__PURE__ */ React92.createElement(
+        /* @__PURE__ */ React96.createElement("option", { value: "" }, "Coming in"),
+        bench.map((player) => /* @__PURE__ */ React96.createElement("option", { key: player, value: player }, disp(state, player)))
+      ), /* @__PURE__ */ React96.createElement(
         ActionButton,
         {
           compact: true,
@@ -19022,14 +19280,14 @@ function EventSheet({
           })
         },
         "Swap in"
-      )), /* @__PURE__ */ React92.createElement("p", null, "Voids bets on the player leaving."));
-    })(), (canHeats || canPools) && !st && setupAllowed && (!stageCfgOpen ? /* @__PURE__ */ React92.createElement(Btn, { kind: "dark", onClick: () => setStageCfgOpen(true), style: { width: "100%", marginBottom: 10 } }, canHeats ? "Run heats" : "Set up pools") : /* @__PURE__ */ React92.createElement("div", { style: {
+      )), /* @__PURE__ */ React96.createElement("p", null, "Voids bets on the player leaving."));
+    })(), (canHeats || canPools) && !st && setupAllowed && (!stageCfgOpen ? /* @__PURE__ */ React96.createElement(Btn, { kind: "dark", onClick: () => setStageCfgOpen(true), style: { width: "100%", marginBottom: 10 } }, canHeats ? "Run heats" : "Set up pools") : /* @__PURE__ */ React96.createElement("div", { style: {
       background: "var(--paper2)",
       border: "1px solid var(--line)",
       borderRadius: 14,
       padding: "12px 13px",
       marginBottom: 10
-    } }, canHeats && /* @__PURE__ */ React92.createElement(React92.Fragment, null, /* @__PURE__ */ React92.createElement("div", { style: { display: "flex", alignItems: "center", marginBottom: 8 } }, /* @__PURE__ */ React92.createElement("div", { style: { ...label, flex: 1 } }, "Heats"), /* @__PURE__ */ React92.createElement("button", { onClick: () => setShowOuts((v) => !v), style: {
+    } }, canHeats && /* @__PURE__ */ React96.createElement(React96.Fragment, null, /* @__PURE__ */ React96.createElement("div", { style: { display: "flex", alignItems: "center", marginBottom: 8 } }, /* @__PURE__ */ React96.createElement("div", { style: { ...label, flex: 1 } }, "Heats"), /* @__PURE__ */ React96.createElement("button", { onClick: () => setShowOuts((v) => !v), style: {
       cursor: "pointer",
       fontFamily: SANS,
       fontWeight: 700,
@@ -19039,7 +19297,7 @@ function EventSheet({
       background: "var(--paper)",
       border: "1px solid var(--line)",
       color: "var(--ink)"
-    } }, inPlayers.length, " playing ", /* @__PURE__ */ React92.createElement(Icon, { name: showOuts ? "collapse" : "expand", size: "1em" }))), showOuts && /* @__PURE__ */ React92.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 5, marginBottom: 10 } }, present.map((p, i) => /* @__PURE__ */ React92.createElement(
+    } }, inPlayers.length, " playing ", /* @__PURE__ */ React96.createElement(Icon, { name: showOuts ? "collapse" : "expand", size: "1em" }))), showOuts && /* @__PURE__ */ React96.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 5, marginBottom: 10 } }, present.map((p, i) => /* @__PURE__ */ React96.createElement(
       PlayerChip,
       {
         key: p,
@@ -19049,7 +19307,7 @@ function EventSheet({
         onClick: () => setOuts((o) => o.includes(p) ? o.filter((x) => x !== p) : [...o, p]),
         style: centeredGridCell(i, present.length, 3, 5)
       }
-    ))), !heatsFit && /* @__PURE__ */ React92.createElement("p", { role: "alert", style: { ...pStyle, color: "var(--clay-text)", fontSize: 13 } }, "Heats need at least 2 players each")), /* @__PURE__ */ React92.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 8 } }, /* @__PURE__ */ React92.createElement("span", { style: { ...label } }, canHeats ? "Heats" : "Pools"), [2, 3, 4].filter((n) => n <= stageEntrantCount).map((n) => /* @__PURE__ */ React92.createElement("button", { key: n, onClick: () => setNGroups(n), style: {
+    ))), !heatsFit && /* @__PURE__ */ React96.createElement("p", { role: "alert", style: { ...pStyle, color: "var(--clay-text)", fontSize: 13 } }, "Heats need at least 2 players each")), /* @__PURE__ */ React96.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 8 } }, /* @__PURE__ */ React96.createElement("span", { style: { ...label } }, canHeats ? "Heats" : "Pools"), [2, 3, 4].filter((n) => n <= stageEntrantCount).map((n) => /* @__PURE__ */ React96.createElement("button", { key: n, onClick: () => setNGroups(n), style: {
       width: 44,
       height: 44,
       borderRadius: 10,
@@ -19060,7 +19318,7 @@ function EventSheet({
       background: groupsChoice === n ? GOLD_GRAD : "var(--paper)",
       color: groupsChoice === n ? "var(--ink0)" : "var(--ink)",
       border: groupsChoice === n ? "1.5px solid var(--ink0)" : "1.5px solid var(--line)"
-    } }, n)), /* @__PURE__ */ React92.createElement("span", { style: { flex: 1 } }), /* @__PURE__ */ React92.createElement("span", { style: { ...label } }, "Through"), [1, 2].map((n) => /* @__PURE__ */ React92.createElement("button", { key: n, onClick: () => setAdvance(n), style: {
+    } }, n)), /* @__PURE__ */ React96.createElement("span", { style: { flex: 1 } }), /* @__PURE__ */ React96.createElement("span", { style: { ...label } }, "Through"), [1, 2].map((n) => /* @__PURE__ */ React96.createElement("button", { key: n, onClick: () => setAdvance(n), style: {
       width: 44,
       height: 44,
       borderRadius: 10,
@@ -19071,7 +19329,7 @@ function EventSheet({
       background: advance === n ? GOLD_GRAD : "var(--paper)",
       color: advance === n ? "var(--ink0)" : "var(--ink)",
       border: advance === n ? "1.5px solid var(--ink0)" : "1.5px solid var(--line)"
-    } }, n))), /* @__PURE__ */ React92.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React92.createElement(
+    } }, n))), /* @__PURE__ */ React96.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React96.createElement(
       ActionButton,
       {
         disabled: setupPending || canHeats && !heatsFit,
@@ -19089,17 +19347,17 @@ function EventSheet({
         style: { flex: 1 }
       },
       setupPending ? "Drawing\u2026" : announceNext ? "Announce and draw" : canHeats ? "Draw heats" : "Draw pools"
-    ), /* @__PURE__ */ React92.createElement(ActionButton, { variant: "tertiary", onClick: () => setStageCfgOpen(false) }, "Cancel")))), setupError && /* @__PURE__ */ React92.createElement("p", { className: "fd-contest-error", role: "alert" }, setupError), st && !res && setupAllowed && (confirmScrap ? /* @__PURE__ */ React92.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 10 } }, /* @__PURE__ */ React92.createElement(ActionButton, { variant: "commit", onClick: () => {
+    ), /* @__PURE__ */ React96.createElement(ActionButton, { variant: "tertiary", onClick: () => setStageCfgOpen(false) }, "Cancel")))), setupError && /* @__PURE__ */ React96.createElement("p", { className: "fd-contest-error", role: "alert" }, setupError), st && !res && setupAllowed && (confirmScrap ? /* @__PURE__ */ React96.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 10 } }, /* @__PURE__ */ React96.createElement(ActionButton, { variant: "commit", onClick: () => {
       onClearStages();
       setConfirmScrap(false);
-    }, style: { flex: 1 } }, "Scrap ", st.kind === "heats" ? "heats" : "pools"), /* @__PURE__ */ React92.createElement(ActionButton, { variant: "tertiary", onClick: () => setConfirmScrap(false), style: { flex: 1 } }, "Keep")) : /* @__PURE__ */ React92.createElement(ActionButton, { variant: "destructive", onClick: () => setConfirmScrap(true), style: { width: "100%", marginBottom: 10 } }, "Scrap ", st.kind === "heats" ? "heats" : "pools")), /* @__PURE__ */ React92.createElement("div", { style: { display: "flex", gap: 8, marginTop: 6, flexWrap: "wrap" } }, res && !isPoker && /* @__PURE__ */ React92.createElement(
+    }, style: { flex: 1 } }, "Scrap ", st.kind === "heats" ? "heats" : "pools"), /* @__PURE__ */ React96.createElement(ActionButton, { variant: "tertiary", onClick: () => setConfirmScrap(false), style: { flex: 1 } }, "Keep")) : /* @__PURE__ */ React96.createElement(ActionButton, { variant: "destructive", onClick: () => setConfirmScrap(true), style: { width: "100%", marginBottom: 10 } }, "Scrap ", st.kind === "heats" ? "heats" : "pools")), /* @__PURE__ */ React96.createElement("div", { style: { display: "flex", gap: 8, marginTop: 6, flexWrap: "wrap" } }, res && !isPoker && /* @__PURE__ */ React96.createElement(
       ActionButton,
       {
         onClick: enterResult,
         style: { flex: 1, whiteSpace: "nowrap", padding: "12px 8px" }
       },
       "Edit result"
-    ), !res && lifecycle.nextAction?.type === "open-betting" && /* @__PURE__ */ React92.createElement(
+    ), !res && lifecycle.nextAction?.type === "open-betting" && /* @__PURE__ */ React96.createElement(
       ActionButton,
       {
         variant: "secondary",
@@ -19107,7 +19365,7 @@ function EventSheet({
         style: { flex: 1, whiteSpace: "nowrap", padding: "12px 8px" }
       },
       "Open betting"
-    ), !res && !contestActive && lifecycle.nextAction?.type === "lock-betting" && /* @__PURE__ */ React92.createElement(
+    ), !res && !contestActive && lifecycle.nextAction?.type === "lock-betting" && /* @__PURE__ */ React96.createElement(
       ActionButton,
       {
         variant: "secondary",
@@ -19115,20 +19373,20 @@ function EventSheet({
         style: { flex: 1, whiteSpace: "nowrap", padding: "12px 8px" }
       },
       "Lock and start"
-    ), !res && !contestActive && lifecycle.nextAction?.type === "start-event" && /* @__PURE__ */ React92.createElement(
+    ), !res && !contestActive && lifecycle.nextAction?.type === "start-event" && /* @__PURE__ */ React96.createElement(
       ActionButton,
       {
         onClick: onStart,
         style: { flex: 1, whiteSpace: "nowrap", padding: "12px 8px" }
       },
       "Start event"
-    ), res && !confirmClear && /* @__PURE__ */ React92.createElement(ActionButton, { variant: "destructive", onClick: () => setConfirmClear(true), style: { flex: 1 } }, "Clear")), !res && !contestActive && lifecycle.blockers?.length > 0 && /* @__PURE__ */ React92.createElement("div", { style: { ...pStyle, marginTop: 8, color: "var(--muted)", fontSize: 13 } }, lifecycle.blockers[0]), res && confirmClear && /* @__PURE__ */ React92.createElement("div", { style: {
+    ), res && !confirmClear && /* @__PURE__ */ React96.createElement(ActionButton, { variant: "destructive", onClick: () => setConfirmClear(true), style: { flex: 1 } }, "Clear")), !res && !contestActive && lifecycle.blockers?.length > 0 && /* @__PURE__ */ React96.createElement("div", { style: { ...pStyle, marginTop: 8, color: "var(--muted)", fontSize: 13 } }, lifecycle.blockers[0]), res && confirmClear && /* @__PURE__ */ React96.createElement("div", { style: {
       marginTop: 10,
       padding: "12px 13px",
       background: "var(--paper2)",
       border: "1px solid var(--line)",
       borderRadius: 14
-    } }, /* @__PURE__ */ React92.createElement("div", { style: { ...label, marginBottom: 6 } }, "Reason for clearing"), /* @__PURE__ */ React92.createElement(
+    } }, /* @__PURE__ */ React96.createElement("div", { style: { ...label, marginBottom: 6 } }, "Reason for clearing"), /* @__PURE__ */ React96.createElement(
       "input",
       {
         value: clearReason,
@@ -19149,7 +19407,7 @@ function EventSheet({
           outline: "none"
         }
       }
-    ), /* @__PURE__ */ React92.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React92.createElement(
+    ), /* @__PURE__ */ React96.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React96.createElement(
       ActionButton,
       {
         variant: "commit",
@@ -19158,7 +19416,7 @@ function EventSheet({
         style: { flex: 1 }
       },
       "Clear official result"
-    ), /* @__PURE__ */ React92.createElement(
+    ), /* @__PURE__ */ React96.createElement(
       ActionButton,
       {
         variant: "tertiary",
@@ -19169,13 +19427,13 @@ function EventSheet({
         style: { flex: 1 }
       },
       "Keep it"
-    ))), editOpen ? /* @__PURE__ */ React92.createElement("div", { style: {
+    ))), editOpen ? /* @__PURE__ */ React96.createElement("div", { style: {
       background: "var(--paper2)",
       border: "1px solid var(--line)",
       borderRadius: 14,
       padding: "12px 13px",
       marginTop: 8
-    } }, /* @__PURE__ */ React92.createElement("div", { style: { ...label, marginBottom: 6 } }, "Name"), /* @__PURE__ */ React92.createElement(
+    } }, /* @__PURE__ */ React96.createElement("div", { style: { ...label, marginBottom: 6 } }, "Name"), /* @__PURE__ */ React96.createElement(
       "input",
       {
         value: eName,
@@ -19196,7 +19454,7 @@ function EventSheet({
           outline: "none"
         }
       }
-    ), /* @__PURE__ */ React92.createElement("div", { style: { ...label, marginBottom: 6 } }, "How to play"), /* @__PURE__ */ React92.createElement(
+    ), /* @__PURE__ */ React96.createElement("div", { style: { ...label, marginBottom: 6 } }, "How to play"), /* @__PURE__ */ React96.createElement(
       "textarea",
       {
         value: eDesc,
@@ -19219,7 +19477,7 @@ function EventSheet({
           resize: "vertical"
         }
       }
-    ), /* @__PURE__ */ React92.createElement("div", { style: { ...label, marginBottom: 6 } }, "Worth"), /* @__PURE__ */ React92.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 12 } }, [400, 800, 1200, 1600].map((v) => /* @__PURE__ */ React92.createElement("button", { key: v, disabled: !!res, onClick: () => setEValue(v), style: {
+    ), /* @__PURE__ */ React96.createElement("div", { style: { ...label, marginBottom: 6 } }, "Worth"), /* @__PURE__ */ React96.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 12 } }, [400, 800, 1200, 1600].map((v) => /* @__PURE__ */ React96.createElement("button", { key: v, disabled: !!res, onClick: () => setEValue(v), style: {
       flex: 1,
       height: 44,
       borderRadius: 10,
@@ -19230,7 +19488,7 @@ function EventSheet({
       background: eValue === v ? GOLD_GRAD : "var(--paper)",
       color: eValue === v ? "var(--ink0)" : "var(--ink)",
       border: eValue === v ? "1.5px solid var(--ink0)" : "1.5px solid var(--line)"
-    } }, v))), /* @__PURE__ */ React92.createElement("div", { style: { ...label, marginBottom: 6 } }, "Session"), /* @__PURE__ */ React92.createElement("div", { style: { display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 } }, [...SESSIONS.map((s) => [s.id, s.label]), [null, "Anytime"]].map(([id, lb]) => /* @__PURE__ */ React92.createElement("button", { key: String(id), onClick: () => setESession(id), style: {
+    } }, v))), /* @__PURE__ */ React96.createElement("div", { style: { ...label, marginBottom: 6 } }, "Session"), /* @__PURE__ */ React96.createElement("div", { style: { display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 } }, [...SESSIONS.map((s) => [s.id, s.label]), [null, "Anytime"]].map(([id, lb]) => /* @__PURE__ */ React96.createElement("button", { key: String(id), onClick: () => setESession(id), style: {
       fontFamily: SANS,
       fontWeight: 600,
       fontSize: 12.5,
@@ -19240,7 +19498,7 @@ function EventSheet({
       background: eSession === id ? GOLD_GRAD : "var(--paper)",
       color: eSession === id ? "var(--ink0)" : "var(--ink)",
       border: eSession === id ? "1.5px solid var(--ink0)" : "1.5px solid var(--line)"
-    } }, lb))), /* @__PURE__ */ React92.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React92.createElement(
+    } }, lb))), /* @__PURE__ */ React96.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React96.createElement(
       Btn,
       {
         disabled: !eName.trim(),
@@ -19251,9 +19509,9 @@ function EventSheet({
         style: { flex: 1 }
       },
       "Save"
-    ), /* @__PURE__ */ React92.createElement(Btn, { kind: "ghost", onClick: () => setEditOpen(false) }, "Cancel"))) : takeBackOpen && confirmTakeBack ? (
+    ), /* @__PURE__ */ React96.createElement(Btn, { kind: "ghost", onClick: () => setEditOpen(false) }, "Cancel"))) : takeBackOpen && confirmTakeBack ? (
       /* the take-back's confirm opens where its row was */
-      /* @__PURE__ */ React92.createElement("div", { className: "fd-es-gm-confirm", role: "group", "aria-label": `Take back ${ev.name}` }, /* @__PURE__ */ React92.createElement("p", null, refundText(state, announcementTakeBack(state, ev).refunds) || "No open bets."), /* @__PURE__ */ React92.createElement("div", null, /* @__PURE__ */ React92.createElement(
+      /* @__PURE__ */ React96.createElement("div", { className: "fd-es-gm-confirm", role: "group", "aria-label": `Take back ${ev.name}` }, /* @__PURE__ */ React96.createElement("p", null, refundText(state, announcementTakeBack(state, ev).refunds) || "No open bets."), /* @__PURE__ */ React96.createElement("div", null, /* @__PURE__ */ React96.createElement(
         ActionButton,
         {
           variant: "commit",
@@ -19266,10 +19524,10 @@ function EventSheet({
           })
         },
         setupPending ? "Taking back\u2026" : "Take it back"
-      ), /* @__PURE__ */ React92.createElement(ActionButton, { variant: "tertiary", disabled: setupPending, onClick: () => setConfirmTakeBack(false) }, "Keep it")))
+      ), /* @__PURE__ */ React96.createElement(ActionButton, { variant: "tertiary", disabled: setupPending, onClick: () => setConfirmTakeBack(false) }, "Keep it")))
     ) : !more ? (
       /* the quiet edge of the section: the rare and destructive left, More right */
-      /* @__PURE__ */ React92.createElement("div", { className: "fd-es-gm-edge" }, takeBackOpen && /* @__PURE__ */ React92.createElement(
+      /* @__PURE__ */ React96.createElement("div", { className: "fd-es-gm-edge" }, takeBackOpen && /* @__PURE__ */ React96.createElement(
         "button",
         {
           type: "button",
@@ -19277,13 +19535,13 @@ function EventSheet({
           "aria-label": "Take back the announcement",
           onClick: () => setConfirmTakeBack(true)
         },
-        /* @__PURE__ */ React92.createElement(Icon, { name: "undo", size: 16 }),
+        /* @__PURE__ */ React96.createElement(Icon, { name: "undo", size: 16 }),
         "Take back"
-      ), /* @__PURE__ */ React92.createElement("button", { type: "button", className: "fd-es-gm-edge-act", onClick: () => setMore(true) }, "More ", /* @__PURE__ */ React92.createElement(Icon, { name: "expand", size: "1em" })))
-    ) : /* @__PURE__ */ React92.createElement("div", { style: { display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" } }, /* @__PURE__ */ React92.createElement(Btn, { kind: "ghost", onClick: openEdit, style: { flex: 1 } }, "Edit details"), !res && !confirmShelve && /* @__PURE__ */ React92.createElement(Btn, { kind: "ghost", onClick: () => shelvedNow || !openBets.length ? onShelve(!shelvedNow) : setConfirmShelve(true), style: { flex: 1 } }, shelvedNow ? "Restore" : "Shelve"), !res && confirmShelve && /* @__PURE__ */ React92.createElement(React92.Fragment, null, /* @__PURE__ */ React92.createElement(Btn, { kind: "danger", onClick: () => {
+      ), /* @__PURE__ */ React96.createElement("button", { type: "button", className: "fd-es-gm-edge-act", onClick: () => setMore(true) }, "More ", /* @__PURE__ */ React96.createElement(Icon, { name: "expand", size: "1em" })))
+    ) : /* @__PURE__ */ React96.createElement("div", { style: { display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" } }, /* @__PURE__ */ React96.createElement(Btn, { kind: "ghost", onClick: openEdit, style: { flex: 1 } }, "Edit details"), !res && !confirmShelve && /* @__PURE__ */ React96.createElement(Btn, { kind: "ghost", onClick: () => shelvedNow || !openBets.length ? onShelve(!shelvedNow) : setConfirmShelve(true), style: { flex: 1 } }, shelvedNow ? "Restore" : "Shelve"), !res && confirmShelve && /* @__PURE__ */ React96.createElement(React96.Fragment, null, /* @__PURE__ */ React96.createElement(Btn, { kind: "danger", onClick: () => {
       setConfirmShelve(false);
       onShelve(true, true);
-    }, style: { flex: 1 } }, "Shelve. Returns ", openBets.length, " bet", openBets.length === 1 ? "" : "s", ", ", fmt13(openBets.reduce((sum, w) => sum + w.stake, 0)), " chips"), /* @__PURE__ */ React92.createElement(Btn, { kind: "ghost", onClick: () => setConfirmShelve(false) }, "Keep")), ev.custom && !confirmRemove && /* @__PURE__ */ React92.createElement(Btn, { kind: "danger", onClick: () => setConfirmRemove(true) }, "Remove"), ev.custom && confirmRemove && /* @__PURE__ */ React92.createElement(Btn, { kind: "danger", onClick: onRemove }, "Confirm remove"), takeBackOpen && /* @__PURE__ */ React92.createElement(
+    }, style: { flex: 1 } }, "Shelve. Returns ", openBets.length, " bet", openBets.length === 1 ? "" : "s", ", ", fmt13(openBets.reduce((sum, w) => sum + w.stake, 0)), " chips"), /* @__PURE__ */ React96.createElement(Btn, { kind: "ghost", onClick: () => setConfirmShelve(false) }, "Keep")), ev.custom && !confirmRemove && /* @__PURE__ */ React96.createElement(Btn, { kind: "danger", onClick: () => setConfirmRemove(true) }, "Remove"), ev.custom && confirmRemove && /* @__PURE__ */ React96.createElement(Btn, { kind: "danger", onClick: onRemove }, "Confirm remove"), takeBackOpen && /* @__PURE__ */ React96.createElement(
       "button",
       {
         type: "button",
@@ -19291,13 +19549,13 @@ function EventSheet({
         "aria-label": "Take back the announcement",
         onClick: () => setConfirmTakeBack(true)
       },
-      /* @__PURE__ */ React92.createElement(Icon, { name: "undo", size: 16 }),
+      /* @__PURE__ */ React96.createElement(Icon, { name: "undo", size: 16 }),
       "Take back"
     ))))
   );
 }
 function BracketSheet({ ev, state, me, gm, onClose, onBack, onPlayer, onLock, onWinner, onUndo, onPlayNext, onBets, onPostResult }) {
-  const [pending, setPending] = useState72(false);
+  const [pending, setPending] = useState76(false);
   const waitFor = async (callback) => {
     setPending(true);
     try {
@@ -19310,7 +19568,7 @@ function BracketSheet({ ev, state, me, gm, onClose, onBack, onPlayer, onLock, on
   if (!br || !draw) return null;
   const contest = resolveCurrentContest(state, ev);
   const active = contest && ["betting-open", "betting-locked", "in-progress", "awaiting-result"].includes(contest.phase);
-  return /* @__PURE__ */ React92.createElement(Sheet, { title: ev.name, subtitle: "Bracket", show: true, onClose, onBack, busy: pending, wide: true }, /* @__PURE__ */ React92.createElement(
+  return /* @__PURE__ */ React96.createElement(Sheet, { title: ev.name, subtitle: "Bracket", show: true, onClose, onBack, busy: pending, wide: true }, /* @__PURE__ */ React96.createElement(
     ContestPanel,
     {
       state,
@@ -19325,13 +19583,13 @@ function BracketSheet({ ev, state, me, gm, onClose, onBack, onPlayer, onLock, on
       onResult: () => waitFor(onPostResult),
       onPlayNext: onPlayNext ? (payload) => waitFor(() => onPlayNext(payload)) : void 0
     }
-  ), !active && /* @__PURE__ */ React92.createElement(CompetitionBracket, { state, ev, me, onPlayer }), /* @__PURE__ */ React92.createElement(EventCrewCard, { state, roles: draw.roles, compact: true, onPlayer }));
+  ), !active && /* @__PURE__ */ React96.createElement(CompetitionBracket, { state, ev, me, onPlayer }), /* @__PURE__ */ React96.createElement(EventCrewCard, { state, roles: draw.roles, compact: true, onPlayer }));
 }
 function ResultSheet(props) {
-  return /* @__PURE__ */ React92.createElement(ResultEntry, { ...props });
+  return /* @__PURE__ */ React96.createElement(ResultEntry, { ...props });
 }
 function Reveal({ state, reveal, me, onClose, onBets, onPlayer }) {
-  return /* @__PURE__ */ React92.createElement(DrawAnnouncement, { state, reveal, me, synced: true, onClose, onBets, onPlayer });
+  return /* @__PURE__ */ React96.createElement(DrawAnnouncement, { state, reveal, me, synced: true, onClose, onBets, onPlayer });
 }
 
 // <stdin>

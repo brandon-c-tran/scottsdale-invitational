@@ -148,6 +148,10 @@ export function Spot({ spot, table, state, me, contestLabel, name, named = false
         aria-description={capLabel ? capLabel : preview ? `Brings back ${fmtChips(preview)} if ${name} wins` : undefined} />}
       <div className="fd-spot-ink">
         <div className="fd-spot-who">
+          {/* your own side (you are playing): a filament tag over its faces, so
+              the side closed to you reads at once as the other one (a grid's
+              sides are all open, and your face is the spot) */}
+          {roleLabel && shape !== "grid" && <span className="fd-spot-role" aria-hidden="true">{roleLabel}</span>}
           <span className={`fd-spot-faces${spot.players.length > 3 ? " is-many" : ""}`} style={{ "--n":spot.players.length }}>
             {spot.players.map(player => <button key={player} type="button" className="fd-spot-face" disabled={!onPlayer}
               onClick={() => onPlayer?.(player)} aria-label={`View ${disp(state, player)}'s player card`}>
@@ -174,9 +178,8 @@ export function Spot({ spot, table, state, me, contestLabel, name, named = false
             {settled === "won" ? backLine(spot.mine, spot.back) : `−${fmtChips(spot.mine)}`}</span>
           : <span className="fd-spot-back is-blank" aria-hidden="true" />)
         : unavailableReason && marketOpen && !yours
-          ? <span className={`fd-spot-lock${pointer ? ` is-point-${pointer}` : ""}`} role="img" aria-label={unavailableReason}>
-            <Icon name="lock" size={shape === "grid" ? 12 : 14} />
-            {shape !== "grid" && pointer && <span className="fd-spot-yours">{pointer === "back" && <Icon name="back" size={12} />}Yours{pointer === "next" && <Icon name="next" size={12} />}</span>}
+          ? <span className="fd-spot-lock" role="img" aria-label={unavailableReason}>
+            <Icon name="lock" size={shape === "grid" ? 12 : 16} />
           </span>
           : shape !== "grid" && (yours
           ? <span className="fd-spot-back is-you" aria-label={`Your ${fmtChips(spot.mine)} brings back ${fmtChips(spot.back)}`}>

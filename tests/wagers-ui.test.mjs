@@ -205,10 +205,11 @@ test("match participants can manually back their team while opponents stay visib
   assert.ok(ownSpot(view.html, 0), "your team's spot is marked");
   assert.ok(!ownSpot(view.html, 3));
   assert.ok(noPlace(view, opponent), "a side you cannot back takes no chip");
-  /* the closed spot says why on its lock, and "Yours" points back at your own spot */
-  assert.match(view.html, /<span class="fd-spot-lock is-point-back" role="img" aria-label="You can only bet on your team in this match.">/,
+  /* the closed spot says why on its lock; your own spot carries the tag */
+  assert.match(view.html, /<span class="fd-spot-lock" role="img" aria-label="You can only bet on your team in this match.">/,
     "the felt says why");
-  assert.match(plain(view.html), /Yours/);
+  assert.match(view.html, /<span class="fd-spot-role" aria-hidden="true">Your team<\/span>/, "your side is tagged");
+  assert.doesNotMatch(plain(view.html), /Yours/);
   assert.deepEqual(view.picks, []);
   view.click(`Open the full ${pairs.name} bracket`);
   assert.deepEqual(opened, [pairs.id]);

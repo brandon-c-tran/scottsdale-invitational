@@ -21,6 +21,7 @@ import { haptic, setHapticSurface } from "./lib/haptics.js";
 import { VibrationToggle } from "./features/profile/VibrationToggle.jsx";
 import { AlertsToggle, usePocketAlerts } from "./features/alerts/Alerts.jsx";
 import { SoundToggle } from "./features/profile/SoundToggle.jsx";
+import { ChipPhysicsToggle } from "./features/profile/ChipPhysicsToggle.jsx";
 import { useSoundSystem, tvKioskCommand } from "./lib/sound.js";
 import { lazyPart } from "./lib/lazyPart.js";
 import { usePhoneSounds } from "./features/home/phoneSound.js";
@@ -3570,6 +3571,7 @@ function ProfileSheet({ state, me, onClose, onBack, initialSection = "card", sav
         numLocked={jerseysLocked} />
       <VibrationToggle />
       <SoundToggle />
+      <ChipPhysicsToggle />
       <AlertsToggle />
       </div>
       <div hidden={section !== "jersey"}>

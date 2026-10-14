@@ -533,8 +533,9 @@ test("a spot letters its competitors, the pool heads the felt, a self-bet takes 
   const mine = phoneBoard(state, me, "8ball").html;
   assert.match(mine, new RegExp(`<div class="fd-spot is-match is-mine is-own-side is-open" data-spot="${contest.sides[0].key}"`));
   assert.match(mine, /class="fd-spot-mine"[^>]*>.*?class="fd-stack is-mine"/, "your chips stand ringed");
-  /* the other team: no place target, a lock that says why, and "Yours" pointing back at your own side */
-  assert.match(mine, /<span class="fd-spot-lock is-point-back" role="img" aria-label="You can only bet on your team in this match\."><svg[^>]*>.*?<\/svg><span class="fd-spot-yours"><svg[^>]*>.*?<\/svg>Yours<\/span><\/span>/);
+  /* the other team: no place target and a lock that says why; your own side wears the tag */
+  assert.match(mine, /<span class="fd-spot-lock" role="img" aria-label="You can only bet on your team in this match\."><svg[^>]*>.*?<\/svg><\/span>/);
+  assert.match(mine, /<span class="fd-spot-role" aria-hidden="true">Your team<\/span>/);
   assert.doesNotMatch(mine, new RegExp(`Place 100 on ${contest.sides[1].players.join(" &amp; ")}`));
   /* your spot reads what your chips bring back at its price now: 3,900 over 2,300 is 1.6x, 200 nets 100 */
   const spot = tableView(state, allEventsOf(state), resolveCurrentContest(state, evOf(state, "8ball")), me).spots[0];

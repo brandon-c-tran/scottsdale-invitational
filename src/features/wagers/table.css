@@ -105,7 +105,12 @@
   background:var(--sun); color:var(--ink0); font:900 15px/1 var(--fd-display); white-space:nowrap; box-shadow:0 6px 16px -6px rgba(0,0,0,.7);
   animation:fd-spot-pop var(--motion-stamp, 320ms) var(--ease-land, var(--ease-out)) both; }
 @keyframes fd-spot-pop { from { opacity:0; transform:scale(.8); } }
-/* a side closed to you: the fill dims, a lock in its corner, "Yours" pointing */
+/* a side closed to you: dimmed, a lock where its payout would be; your
+   own side carries a filament tag ("You", "Your team") in its corner */
+.fd-spot.is-closed .fd-spot-pct, .fd-spot.is-closed .fd-spot-chips, .fd-spot.is-closed .fd-spot-win { opacity:.55; }
+.fd-spot-role { display:inline-block; padding:3px 7px 2px; border-radius:6px; pointer-events:none;
+  background:var(--you); color:var(--ink0); font:900 12px/1 var(--fd-display); letter-spacing:.06em; text-transform:uppercase; }
+
 .fd-spot.is-closed .fd-spot-fill { opacity:.55; }
 .fd-spot-lock { display:inline-flex; align-items:center; justify-content:center; gap:6px; min-height:18px; color:var(--muted2); }
 .fd-spot.is-grid .fd-spot-lock { min-height:0; }

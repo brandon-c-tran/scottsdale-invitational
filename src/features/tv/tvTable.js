@@ -115,3 +115,19 @@ export function backerPile(stacks = [], room = 4) {
   if (list.length <= room) return { shown:list.map(item => item.player), more:0 };
   return { shown:list.slice(0, room - 1).map(item => item.player), more:list.length - (room - 1) };
 }
+
+/* ── the chip layer (features/chips3d) on this felt ──
+   The chip a shape's stacks start at, the smallest before the smallest
+   fold into "+N", and whether each stack keeps room beside it for its
+   payout and a plate under it. A grid cell's chips are small and plain
+   (its backers' faces already say whose). */
+export function chipLayer(layout) {
+  if (layout.shape === "grid" && !layout.band) return { chip:28, min:18, pairs:false, labels:false };
+  return { chip:layout.chip || 48, min:layout.chipMin || 30, pairs:true, labels:true };
+}
+/* the dealer's glove as the chip layer meets it: its centre's path across
+   the felt (the sweep's glove is 220 wide, the rake's 180, the band's 120) */
+export const glovePath = Object.freeze({
+  sweep:width => ({ x0:-260 + 110, x1:width + 60 + 110 }),
+  rake:(x0, x1, band = false) => { const half = band ? 60 : 90; return { x0:x0 - 60 + half, x1:x1 + half }; },
+});

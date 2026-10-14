@@ -1,0 +1,16 @@
+/* The chip layer (ChipPhysics.jsx): a canvas over the host's padding box,
+   never a tap target, with the stacks' plates riding under their stacks. */
+.c3d { position:absolute; inset:0; z-index:2; pointer-events:none; border-radius:inherit; overflow:hidden; }
+.c3d-canvas { position:absolute; inset:0; display:block; width:100%; height:100%; }
+.c3d-labels { position:absolute; inset:0; }
+.c3d-label { position:absolute; translate:-50% 0; white-space:nowrap; }
+.c3d-label.is-in { animation:c3d-in 280ms ease-out var(--c3d-in, 0ms) both; }
+.c3d-label.is-out { animation:c3d-out 420ms ease-in var(--c3d-out, 0ms) both; }
+@keyframes c3d-in { from { opacity:0; transform:translateY(8px); } }
+@keyframes c3d-out { to { opacity:0; transform:translateY(-6px); } }
+/* each player's chip face, drawn once to paint their texture */
+.c3d-sources { position:absolute; width:0; height:0; overflow:hidden; visibility:hidden; }
+@media (prefers-reduced-motion: reduce) {
+  .c3d-label.is-in { animation:none; }
+  .c3d-label.is-out { animation:none; opacity:0; }
+}

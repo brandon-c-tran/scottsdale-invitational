@@ -194,3 +194,11 @@
 
 /* the face-off: each side's % of the room under its name */
 .tv-faceoff-terms.tv-faceoff-pct { display:flex; justify-content:center; margin-top:4px; }
+
+/* ── the chip layer (features/chips3d): real chips over the felt ──
+   With it on, a spot draws no DOM stacks: the layer stands them anywhere on
+   the spot's felt clear of its faces, name and %, each with its plate. */
+.tvt-c3-plate { display:flex; flex-direction:column; align-items:center; line-height:1; gap:3px;
+  text-shadow:0 2px 0 var(--ink0), 0 0 10px color-mix(in srgb, var(--ink0) 80%, transparent); }
+.tvt-c3-plate b { color:var(--sun); font:800 26px/1 var(--fd-display); font-variant-numeric:tabular-nums; letter-spacing:.02em; }
+.tvt-c3-plate span { color:var(--bone); font:700 24px/1.05 var(--fd-display); }

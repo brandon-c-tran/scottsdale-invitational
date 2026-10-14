@@ -232,7 +232,7 @@ test("the result step rises from the board before the event to the board after",
 });
 
 /* ── the bundle ── */
-test("three.js is a TV-only lazy chunk: nothing on the main path imports it statically", () => {
+test("three.js is a lazy chunk: nothing on the main path imports it statically", () => {
   const files = [];
   const walk = dir => readdirSync(dir, { withFileTypes:true }).forEach(entry => {
     const path = join(dir, entry.name);
@@ -243,7 +243,9 @@ test("three.js is a TV-only lazy chunk: nothing on the main path imports it stat
   walk(join(root, "shared"));
   const importsThree = /(?:^|\n)\s*import[^;]*from\s*["']three["']/;
   const staticThree = files.filter(file => importsThree.test(readFileSync(file, "utf8")));
-  assert.deepEqual(staticThree.map(file => file.replace(/\\/g, "/").split("/src/")[1]), ["features/tv/ChipTowers.jsx"]);
+  /* the TV's towers, and the table's chip layer (features/chips3d, behind its own gate) */
+  assert.deepEqual(staticThree.map(file => file.replace(/\\/g, "/").split("/src/")[1]).sort(),
+    ["features/chips3d/ChipPhysics.jsx", "features/tv/ChipTowers.jsx"]);
   const staticTowers = files.filter(file => /import[^;(]*from\s*["'][^"']*ChipTowers(\.jsx)?["']/.test(readFileSync(file, "utf8")));
   assert.deepEqual(staticTowers, [], "ChipTowers is never imported statically");
   const gate = readFileSync(join(root, "src/features/tv/TowersBoard.jsx"), "utf8");

@@ -28,7 +28,9 @@ import { fillLevel, fmtChips, settledTable, tableView } from "../wagers/tableMod
 import { DealerGlove } from "../wagers/DealerGlove.jsx";
 import { PayLamp, TVWinLine, useContestWinLines } from "./TVCards.jsx";
 import { contestLamp, contestSideView, oddsLine, sideNameFit } from "./tvModel.js";
-import { SETTLE, SWEEP, SWEEP_MS, TABLE_H, BAND_TABLE_H, backerPile, entryContest, spotX, sweepWindow, tableLayout } from "./tvTable.js";
+import { SETTLE, SWEEP, SWEEP_MS, TABLE_H, BAND_TABLE_H, backerPile, entryContest, spotX, sweepWindow, tableLayout, chipLayer, glovePath } from "./tvTable.js";
+import { ChipPhysicsLayer, useChipPhysics } from "../chips3d/ChipPhysicsLayer.jsx";
+import { roomChipsLanded } from "../../lib/sound.js";
 import "./tv-table.css";
 
 /* the room's %: a reel with a smaller % plate after it; the long shot lit */
@@ -95,14 +97,14 @@ function useSharedFit(contestId, spots, layout) {
 }
 
 /* one spot of an open or locked table */
-function Spot({ state, spot, name, fit, layout, winLines = null, teach = false, contestId, nameSize }) {
+function Spot({ state, spot, name, fit, layout, winLines = null, teach = false, contestId, nameSize, physics = false }) {
   const ref = useRef(null);
   useLandings(ref, spot, `${contestId}:${String(spot.key)}`);
   const n = spot.players.length;
   const cls = `tvt-spot is-${layout.band ? "band" : layout.shape}${layout.wide ? " is-wide" : ""}${spot.long ? " is-long" : ""}${spot.stacks.length ? " has-chips" : ""}`;
   const style = { "--fill":fillLevel(spot.share), width:layout.spotW, height:layout.spotH };
   const label = `${name}: ${spot.pct}% of the pool${spot.stacks.length ? `, ${spot.stacks.length} backing` : ""}`;
-  const stacks = spot.stacks.length > 0 && <FitStacks stacks={spot.stacks} total={0} chip={layout.chip} cap={STACK_CAP}
+  const stacks = !physics && spot.stacks.length > 0 && <FitStacks stacks={spot.stacks} total={0} chip={layout.chip} cap={STACK_CAP}
     min={layout.chipMin} className="tv-stacks-fit tvt-stacks" names={p => stackName(state, p)} valueAt={layout.band ? "side" : "below"}
     ladder={fit.ladder} floor={fit.floor} onLevel={fit.report(spot)} />;
   const pct = <TVPct pct={spot.pct} long={spot.long} size={layout.pct} teach={teach && spot.long} />;
@@ -213,6 +215,9 @@ export function LockSweep({ lockAt, clock, width }) {
 /* The live table: an open market, or a locked one in play. */
 export function TVTable({ state, events, ev, contest, width, height = TABLE_H, band = false, teach = false, clock = () => Date.now() }) {
   const table = useMemo(() => tableView(state, events, contest), [state, events, contest]);
+  const host = useRef(null);
+  const reduced = useReducedMotion();
+  const physics = useChipPhysics({ tv:true, want:table.staked > 0 });
   const layout = tableLayout({ shape:table.shape, count:table.spots.length, width, height, band });
   const names = contest.sides.map(side => contestSideView(state, ev, contest, side).name);
   const sizing = nameSizing(names, layout);
@@ -225,9 +230,11 @@ export function TVTable({ state, events, ev, contest, width, height = TABLE_H, b
   const upNow = contest.kind === "match";
   const label = upNow ? matchLabel(contest.label) : contest.label !== ev.name ? contest.label : null;
   const spots = table.spots.map((spot, i) => <Spot key={String(spot.key)} state={state} spot={band && i === 1 ? { ...spot, right:true } : spot}
-    name={names[i]} fit={fit} layout={layout} winLines={anyLine ? lines : null} teach={teach} contestId={contest.id} nameSize={sizing[i]} />);
+    name={names[i]} fit={fit} layout={layout} winLines={anyLine ? lines : null} teach={teach} contestId={contest.id} nameSize={sizing[i]}
+    physics={physics} />);
+  const chips = chipLayer(layout);
   return (
-    <section className={`tvt tv-glass is-${band ? "band" : table.shape}${open ? " is-open" : " is-locked"}${lamp ? " fd-lamp is-live" : ""}`}
+    <section ref={host} className={`tvt tv-glass is-${band ? "band" : table.shape}${open ? " is-open" : " is-locked"}${lamp ? " fd-lamp is-live" : ""}`}
       style={{ width, height }} aria-label={label || ev.name}>
       {band ? <div className="tvt-band">
         {spots[0]}
@@ -242,10 +249,26 @@ export function TVTable({ state, events, ev, contest, width, height = TABLE_H, b
           {spots}
         </div>
       </>}
+      {physics && <ChipPhysicsLayer host={host} quality="tv" contestId={contest.id} phase={open ? "open" : "locked"}
+        spots={table.spots.map(spot => ({ key:spot.key, stacks:spot.stacks }))} chip={chips.chip} chipMin={chips.min} pairs={chips.pairs}
+        areaSelector={CHIP_AREA} keepoutSelector={CHIP_KEEPOUT}
+        label={chips.labels ? stackPlate(state) : null} clock={clock} reducedMotion={reduced} onLand={roomChipsLanded}
+        lockSweep={!open && lockAt > 0 ? { at:lockAt + SWEEP.glove, ms:SWEEP.gloveMs, ...glovePath.sweep(width) } : null} />}
       {!open && lockAt > 0 && <LockSweep key={lockAt} lockAt={lockAt} clock={clock} width={width} />}
     </section>
   );
 }
+
+/* the chip layer stands its stacks anywhere on a spot's felt clear of what reads there */
+const CHIP_AREA = ".tvt-ink";
+const CHIP_KEEPOUT = ".tvt-faces, .tvt-name, .tvt-pct, .tvt-winline, .tvt-pays, .tvt-verdict, .tvt-pile";
+/* under each real stack, its plate: what it holds, whose it is (a fold's "+N") */
+const plateName = (state, item) => item.group ? `+${item.count}` : stackName(state, item.player);
+export const stackPlate = state => ({
+  h:60,
+  w:item => Math.ceil(Math.max(fmtChips(item.stake).length * 12, plateName(state, item).length * 11)) + 8,
+  render:item => <span className="tvt-c3-plate"><b>{fmtChips(item.stake)}</b><span>{plateName(state, item)}</span></span>,
+});
 
 /* "Round 1 · Match 3" reads "Round 1 Match 3", "Semifinals · Match 2"
    "Semifinal 2" (the shape of bracketMatchName in core) */
@@ -262,14 +285,14 @@ export const matchLabel = label => {
    payout; a loser's fill drains and its chips go to the bank. Every delay
    counts from the decision (`elapsed` is how far in this TV joined). On
    the band the winner's WON stands where its % was. */
-function SettledSpot({ state, spot, name, layout, nameSize, elapsed }) {
+function SettledSpot({ state, spot, name, layout, nameSize, elapsed, physics = false }) {
   const n = spot.players.length;
   const won = !!spot.won;
   const cls = `tvt-spot is-${layout.band ? "band" : layout.shape}${layout.wide ? " is-wide" : ""} is-settled ${won ? "is-won" : "is-lost"}${spot.right ? " is-right" : ""}`;
   const slots = layout.band ? 3 : layout.shape === "match" ? (layout.wide ? 6 : 3) : 2;
   const size = layout.band ? 34 : layout.shape === "match" ? (layout.wide ? 52 : 40) : 36;
   const at = ms => Math.round(ms - elapsed);
-  const stacks = spot.stacks.length > 0 && <BetStacks stacks={spot.stacks} size={size} names={layout.band ? null : p => stackName(state, p)}
+  const stacks = !physics && spot.stacks.length > 0 && <BetStacks stacks={spot.stacks} size={size} names={layout.band ? null : p => stackName(state, p)}
     delay={won ? at(SETTLE.pay) : at(SETTLE.rake)} className="tv-stacks tvt-stacks" slots={slots} valueAt={layout.band ? "side" : "below"} />;
   const face = faceFor(n, layout.face, layout.band ? 150 : layout.wide ? Math.floor(layout.spotW * 0.42) - 28 : layout.spotW - 36);
   const verdict = won && <span className="tvt-verdict">
@@ -282,7 +305,7 @@ function SettledSpot({ state, spot, name, layout, nameSize, elapsed }) {
     "--flood-at":`${at(SETTLE.flood)}ms`, "--drain-at":`${at(SETTLE.rake)}ms` };
   const label = `${name}${won ? " won" : ""}: ${spot.pct}% of the pool`;
   if (layout.band) return (
-    <div className={cls} style={style} role="group" aria-label={label}>
+    <div className={cls} style={style} role="group" aria-label={label} data-spot={String(spot.key)}>
       <span className="tvt-fill" aria-hidden="true" />
       <div className="tvt-ink">
         <Faces players={spot.players} size={face} />
@@ -293,7 +316,7 @@ function SettledSpot({ state, spot, name, layout, nameSize, elapsed }) {
     </div>
   );
   return (
-    <div className={cls} style={style} role="group" aria-label={label}>
+    <div className={cls} style={style} role="group" aria-label={label} data-spot={String(spot.key)}>
       <span className="tvt-fill" aria-hidden="true" />
       <div className="tvt-ink">
         <div className="tvt-col">
@@ -318,6 +341,8 @@ export function TVSettledTable({ state, events, ev, advance, width, height = TAB
   const table = useMemo(() => contest && decided ? settledTable(state, contest, decided) : null, [state, contest, decided]);
   const [elapsed] = useState(() => Math.max(0, clock() - Number(advance.decidedAt)));
   const reduced = useReducedMotion();
+  const host = useRef(null);
+  const physics = useChipPhysics({ tv:true, want:!!table && table.staked > 0 });
   if (!table) return null;
   const layout = tableLayout({ shape:table.shape, count:table.spots.length, width, height, band });
   const names = contest.sides.map(side => contestSideView(state, ev, contest, side).name);
@@ -330,9 +355,15 @@ export function TVSettledTable({ state, events, ev, advance, width, height = TAB
   /* what the win means next ("Semifinals next"); a final's win says nothing more */
   const detail = advance.next && !/^Win/.test(advance.verb || "") ? `${advance.next} next` : null;
   const spots = table.spots.map((spot, i) => <SettledSpot key={String(spot.key)} state={state}
-    spot={band && i === 1 ? { ...spot, right:true } : spot} name={names[i]} layout={layout} nameSize={sizing[i]} elapsed={elapsed} />);
+    spot={band && i === 1 ? { ...spot, right:true } : spot} name={names[i]} layout={layout} nameSize={sizing[i]} elapsed={elapsed}
+    physics={physics} />);
+  const chips = chipLayer(layout);
+  const decidedAt = Number(advance.decidedAt) || clock();
+  const rakeX0 = rake ? spotX(layout, rakeFrom, width) + layout.spotW * 0.15 : 0;
+  const settle = { payAt:decidedAt + SETTLE.pay,
+    rake:{ at:decidedAt + SETTLE.rake + 100, ms:SETTLE.rakeMs, ...glovePath.rake(rakeX0, rakeTo, band), to:{ x:band ? width / 2 : width - 200, y:band ? 16 : 28 } } };
   return (
-    <section className={`tvt tv-glass is-settled is-${band ? "band" : table.shape}${reduced ? " is-still" : ""}`}
+    <section ref={host} className={`tvt tv-glass is-settled is-${band ? "band" : table.shape}${reduced ? " is-still" : ""}`}
       style={{ width, height, "--tl":`${-Math.round(elapsed)}ms` }} role="status"
       aria-label={`${advance.name} ${advance.verb}${detail ? `, ${detail}` : ""}`}>
       {band ? <div className="tvt-band">
@@ -351,6 +382,10 @@ export function TVSettledTable({ state, events, ev, advance, width, height = TAB
         style={{ "--rake-at":`${Math.round(SETTLE.rake - elapsed)}ms`, "--rake-ms":`${SETTLE.rakeMs}ms`,
           "--rake-x0":`${Math.round(spotX(layout, rakeFrom, width) + layout.spotW * 0.15)}px`, "--rake-x1":`${rakeTo}px` }}>
         <DealerGlove pose="flat" size={band ? 120 : 180} flip={rakeLeft} /></span>}
+      {physics && <ChipPhysicsLayer host={host} quality="tv" contestId={`${contest.id}:settled`} phase="settled"
+        spots={table.spots.map(spot => ({ key:spot.key, stacks:spot.stacks }))} chip={chips.chip} chipMin={chips.min} pairs={chips.pairs}
+        areaSelector={CHIP_AREA} keepoutSelector={CHIP_KEEPOUT}
+        label={chips.labels ? stackPlate(state) : null} clock={clock} reducedMotion={reduced} settle={settle} />}
     </section>
   );
 }

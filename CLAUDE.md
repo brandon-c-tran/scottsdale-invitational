@@ -44,8 +44,10 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   reveal in `TVCeremony.jsx`, cards in `TVCards.jsx`), drawn on a fixed
   1920x1080 letterboxed canvas with 24px minimum text; it reloads for a new
   build only in an idle gap. TV standings are `ChipTowers.jsx`, a cel-shaded 3D
-  table of each player's chip (one per 100); `three` is imported only there and
-  only through `TowersBoard.jsx`'s dynamic import, so phones never download it,
+  table of each player's chip (one per 100); `three` is imported only there
+  (through `TowersBoard.jsx`'s dynamic import) and in the table's chip layer
+  (`chips3d/ChipPhysics.jsx`, through its own gate), so a phone downloads it
+  only with Chip physics on and chips on its table,
   and no WebGL, a failed load, a lost context or a slow TV falls back to the flat
   board for the session. `DesertBand` is the paper-cut backdrop by session phase
   (`--desert-*` tokens mixed from existing ones) with a star per winner from
@@ -365,6 +367,30 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   clock) and rakes the losers on a result while the winner floods and
   stamps WON. Home's contest card shows each side's `SharePip`; You're up
   says your side's share ("29% of the pool").
+- **Chips you can feel (Oct 13, `src/features/chips3d/`)**: the table's
+  chips as real bodies. `ChipPhysics.jsx` (three draws, `cannon-es` 0.20.0
+  moves; both only in this lazy chunk) covers its host element's padding
+  box with a pointer-events:none canvas and stands each bettor's stack
+  inside its side's chip area, clear of the spot's keepouts (faces, name,
+  %), scattered on a seed (contest + spot + player, pure `chipScatter.js`
+  `scatterStacks`, so every screen agrees), one chip per 100 to the cap
+  plus the tower's one or two, each in its owner's ChipFace and edge skin
+  (`chipPaint.jsx`, shared with ChipTowers), cel-shaded with a shadow on
+  the felt; past the room the smallest fold into one silver "+N". On a
+  fresh frame only, a bet's chips arc in from the room's edge, land,
+  bounce and settle (a TV clack per landing through `onLand` =
+  `roomChipsLanded`); the lock squares each stack as the glove passes; a
+  result rakes the losers toward the bank on the glove's path and rains
+  each winner's payout onto a pile beside its stake. Bodies at rest are
+  static; it renders only while something moves, pauses when hidden or
+  off screen, holds tv 300 / phone 120 bodies. `ChipPhysicsLayer.jsx` is
+  the gate in the main bundle (`useChipPhysics({ tv, want })`: the TV
+  ignores the switch, a phone needs `useChipPhysicsEnabled()`); no WebGL,
+  a failed load, a lost context or sustained slow frames (tv 45 ms, phone
+  22 ms) fall back to the DOM stacks for the session
+  (`chipPhysicsFellBack`). The TV table passes `.tvt-ink` as the area and
+  draws each stack's plate (`stackPlate`); a rehearsal reads
+  `layer.chipStats` (frames, step and draw ms).
 - **Before the draw (v3.1)**: the director pill never runs a draw of
   people directly. A team draw, heats or a captains draft (and the Random
   draw / Captains draft alternatives) open `features/director/CrewCheck.jsx`

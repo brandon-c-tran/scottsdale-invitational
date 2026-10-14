@@ -1,9 +1,10 @@
 ﻿/* Chip Towers, the TV's standings as the real thing: every player's tower
    of their own chip, one chip per 100, in rank order on a flat table.
 
-   This file is the only importer of three.js and is loaded with a dynamic
-   import from TowersBoard, so it ships as a TV-only chunk that phones never
-   download. Everything stays flat: a three-step cel ramp with nearest
+   This file imports three.js and is loaded with a dynamic import from
+   TowersBoard, so it ships as a TV-only chunk that phones never download
+   (the table's chip layer, chips3d/ChipPhysics.jsx, is the only other
+   importer, behind its own gate). Everything stays flat: a three-step cel ramp with nearest
    filtering (hard steps, no gradient), an --ink0 inverted-hull outline, no
    shadows, no bloom, no environment. It renders on demand: frames run only
    while a chip falls or a tower moves, then the scene idles at 0 fps. */
@@ -14,8 +15,7 @@ import {
   MeshToonMaterial, MeshBasicMaterial, DataTexture, CanvasTexture, NearestFilter, RGBAFormat, BackSide,
   DirectionalLight, Object3D, SRGBColorSpace, Color, Matrix4,
 } from "three";
-import { ChipFace } from "../identity/PlayerIdentity.jsx";
-import { usePlayerIdentity } from "../identity/PlayerIdentityContext.js";
+import { FaceSource, token } from "../chips3d/chipPaint.jsx";
 import {
   TOWER_GEOMETRY as G, TOWER_TIMING as T, TOWER_LAYOUT, TOWER_LABEL_GAP, towerTransition, towerSchedule, towerLayout,
   towerChipSpan, towerLeaders, towerSignature, towerChips, towerSounds, dropEase, easeInOutCubic, easeOutCubic, frameMonitor,
@@ -24,19 +24,11 @@ import {
 import { cueAt, freshFrameNow, roomChipsLanded } from "../../lib/sound.js";
 import { serverNow } from "../../lib/serverClock.js";
 
-const TEX = 512;
 /* 36 sides reads as round at TV size: 288 triangles a chip with its
    outline, so a Saturday-night board of ~450 chips is ~130k */
 const SEGMENTS = 36;
 const EL = G.elevationDeg * Math.PI / 180;
 const TOP_YAW = Math.PI / 2; /* turns the stamp upright toward the room */
-
-/* tokens, read once from :root so the scene never carries a raw color */
-const token = (name, fallback) => {
-  try { return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback; }
-  catch { return fallback; }
-};
-const resolveVars = markup => markup.replace(/var\((--[\w-]+)\)/g, (_, name) => token(name, "currentColor"));
 
 /* stable per-chip jitter and yaw, so a re-render never reshuffles a stack */
 function seeded(player, j) {
@@ -44,100 +36,6 @@ function seeded(player, j) {
   for (const ch of `${player}#${j}`) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619) >>> 0; }
   const a = (h & 0xffff) / 0xffff, b = ((h >>> 16) & 0xffff) / 0xffff;
   return { yaw:a * Math.PI * 2, jx:(b - 0.5) * 0.07, jz:(a - 0.5) * 0.05 };
-}
-
-/* The face is the player's actual ChipFace (edge skin and all) rasterized
-   from the DOM, then their saved photo is set in its middle, drawn last as
-   the 2D chip does. Without a photo the middle stays plain: a jersey number
-   never stands in for a person. */
-async function paintFace(svg, identity) {
-  const canvas = document.createElement("canvas");
-  canvas.width = canvas.height = TEX;
-  const g = canvas.getContext("2d");
-  g.fillStyle = identity.color;
-  g.fillRect(0, 0, TEX, TEX);
-  try {
-    const markup = resolveVars(new XMLSerializer().serializeToString(svg)).replace(/filter:[^;"]*;?/g, "");
-    const img = new Image();
-    img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(markup)}`;
-    await img.decode();
-    /* the chip circle (r 14.7 + half its stroke) fills the cap */
-    const k = 16 / 15.42, size = TEX * k, off = (TEX - size) / 2;
-    g.drawImage(img, off, off, size, size);
-  } catch { /* the flat color face still reads */ }
-  if (identity.photo) {
-    try {
-      const photo = new Image();
-      photo.src = identity.photo;
-      await photo.decode();
-      /* the portrait medallion: r 9.3 of the chip's 32, cover-cropped */
-      const k = TEX / 32 * (16 / 15.42), r = 9.3 * k;
-      const w = photo.naturalWidth || photo.width || 1, h = photo.naturalHeight || photo.height || 1;
-      const side = Math.min(w, h);
-      g.save();
-      g.beginPath(); g.arc(TEX / 2, TEX / 2, r, 0, Math.PI * 2); g.clip();
-      g.drawImage(photo, (w - side) / 2, (h - side) / 2, side, side, TEX / 2 - r, TEX / 2 - r, 2 * r, 2 * r);
-      g.restore();
-      g.lineWidth = 0.9 * k;
-      g.strokeStyle = identity.isLight ? token("--ink0", "#0a0910") : token("--chip-mark", "#f4ecd8");
-      g.beginPath(); g.arc(TEX / 2, TEX / 2, r, 0, Math.PI * 2); g.stroke();
-    } catch { /* the plain middle still reads as their chip */ }
-  }
-  return canvas;
-}
-
-/* the edge skin on the actual rim, as inserts on a clay chip */
-function paintSide(identity) {
-  const w = 1024, h = 32;
-  const canvas = document.createElement("canvas");
-  canvas.width = w; canvas.height = h;
-  const g = canvas.getContext("2d");
-  g.fillStyle = identity.color;
-  g.fillRect(0, 0, w, h);
-  const ink = identity.isLight ? token("--ink0", "#0a0910") : token("--bone", "#f4ecd8");
-  g.fillStyle = ink; g.strokeStyle = ink; g.lineWidth = 4; g.lineJoin = "round";
-  const each = (n, draw) => { for (let i = 0; i < n; i++) draw((i + 0.5) * w / n); };
-  const skin = identity.skin;
-  if (skin === "plain") return canvas;
-  if (skin === "dots") each(12, x => { g.beginPath(); g.arc(x, h / 2, 6, 0, Math.PI * 2); g.fill(); });
-  else if (skin === "quad") each(4, x => g.fillRect(x - 46, 6, 92, h - 12));
-  else if (skin === "ring") { g.fillRect(0, h / 2 - 3, w, 6); }
-  else if (skin === "dash") each(6, x => g.fillRect(x - 56, 9, 112, h - 18));
-  else if (skin === "saw") {
-    g.beginPath();
-    for (let i = 0; i <= 44; i++) g.lineTo(i * w / 44, i % 2 ? 6 : h - 6);
-    g.stroke();
-  } else if (skin === "wave") {
-    g.beginPath();
-    for (let x = 0; x <= w; x += 4) g.lineTo(x, h / 2 + Math.sin(x / w * Math.PI * 28) * 8);
-    g.stroke();
-  } else if (skin === "flame" || skin === "star" || skin === "bolt" || skin === "crown") {
-    each(skin === "crown" ? 4 : 6, x => {
-      g.beginPath();
-      if (skin === "star") { g.moveTo(x, 4); g.lineTo(x + 12, h / 2); g.lineTo(x, h - 4); g.lineTo(x - 12, h / 2); }
-      else if (skin === "bolt") { g.moveTo(x - 14, 6); g.lineTo(x, h - 12); g.lineTo(x + 14, 6); g.lineTo(x + 14, 14); g.lineTo(x, h - 4); g.lineTo(x - 14, 14); }
-      else if (skin === "crown") { g.moveTo(x - 22, h - 6); g.lineTo(x - 18, 6); g.lineTo(x - 8, 16); g.lineTo(x, 4); g.lineTo(x + 8, 16); g.lineTo(x + 18, 6); g.lineTo(x + 22, h - 6); }
-      else { g.moveTo(x, 4); g.quadraticCurveTo(x + 12, h * 0.6, x, h - 4); g.quadraticCurveTo(x - 12, h * 0.6, x, 4); }
-      g.closePath(); g.fill();
-    });
-  } else each(8, x => g.fillRect(x - 16, 6, 32, h - 12)); /* ticks, the default */
-  return canvas;
-}
-
-/* one hidden ChipFace per player, the source of that player's textures */
-function FaceSource({ p, onPaint }) {
-  const identity = usePlayerIdentity(p);
-  const ref = useRef(null);
-  const sig = `${identity.color}|${identity.skin}|${identity.photo}|${identity.isLight}`;
-  useEffect(() => {
-    let live = true;
-    const svg = ref.current?.querySelector("svg");
-    Promise.resolve(svg ? paintFace(svg, identity) : null).then(face => {
-      if (live) onPaint.current(p, { face, side:paintSide(identity), identity, sig });
-    });
-    return () => { live = false; };
-  }, [p, sig]); // eslint-disable-line react-hooks/exhaustive-deps
-  return <span ref={ref}><ChipFace p={p} size={128} stamp="" /></span>;
 }
 
 const texture = canvas => {

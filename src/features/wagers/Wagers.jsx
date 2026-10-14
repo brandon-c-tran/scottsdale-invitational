@@ -17,7 +17,7 @@ import {
   stacksTotal, settledStacks,
 } from "./betStacks.js";
 import { EASE, MOTION, fly, flightTarget, prefersReducedMotion, useFlightTarget, useFreshChange, useMotionFrame, useStageHold } from "../../lib/motion.js";
-import { contestWinLines, ordinal, winLineFor } from "../standings/winImpact.js";
+import { contestWinLines, winLineFor } from "../standings/winImpact.js";
 import { GlassArt } from "../../ui/GlassArt.jsx";
 import { EventName, OneSafe } from "../../ui/OneSafe.jsx";
 import { Icon } from "../../ui/Icon.jsx";
@@ -94,30 +94,6 @@ function mergeWagerLines(list) {
     }
   }
   return [...out.values()];
-}
-
-/* X8 on a bet card, drawn so it fits its one row by construction: "Win",
-   then who climbs (only when it is not the whole side, which the card
-   already names: their faces, two at most and a count), then where to, as
-   an up arrow and the place ("4th", "Tie 4th"), or the chips it posts
-   ("+400"). The sentence is the accessible name. */
-const WIN_FACES = 2;
-function BetWin({ state, line, side, inline = false }) {
-  if (!line?.text) return null;
-  const movers = line.players || [];
-  const whole = movers.length >= side.length;
-  const shown = whole ? [] : movers.slice(0, WIN_FACES);
-  const extra = whole ? 0 : movers.length - shown.length;
-  return <span className={`fd-wagers-win${inline ? " is-inline" : ""}${line.kind === "rank" ? " is-rank" : " is-chips"}`}
-    role="img" aria-label={line.text}>
-    <small>Win</small>
-    {shown.length > 0 && <span className="fd-wagers-win-faces">
-      {shown.map(player => <Avatar key={player} state={state} p={player} size={20} />)}
-      {extra > 0 && <span className="fd-wagers-win-more">+{extra}</span>}</span>}
-    {line.kind === "rank"
-      ? <b className="fd-wagers-win-rank"><Icon name="up" size={14} />{line.tied ? "Tie " : ""}{ordinal(line.rank)}</b>
-      : <b className="fd-wagers-win-chips">+{fmt(line.award)}</b>}
-  </span>;
 }
 
 /* A timed-out write may still have landed (the engine lives in useChipActions.js) */

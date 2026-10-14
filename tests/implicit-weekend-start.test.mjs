@@ -288,10 +288,10 @@ test("the real wagering board takes manual chips as soon as the first market ope
   } finally { React.createElement = create; }
   assert.match(html, /Betting open/);
   assert.match(html, /Choose your betting chip/);
-  const picks = buttons.filter(button => button["aria-label"]?.startsWith("Place a chip on "));
+  const picks = buttons.filter(button => /^Place [0-9,]+ on /.test(button["aria-label"] || ""));
   assert.equal(picks.length, ROSTER.length);
   assert.ok(picks.every(button => !button.disabled));
-  const chosen = picks.find(button => button["aria-label"] === `Place a chip on ${ROSTER[1]}`);
+  const chosen = picks.find(button => button["aria-label"] === `Place 100 on ${ROSTER[1]}`);
   chosen.onClick();
   assert.equal(state.wagers.length, 1);
   assert.equal(state.wagers[0].pick, ROSTER[1]);

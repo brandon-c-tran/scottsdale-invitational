@@ -171,9 +171,16 @@ test("you're up: competitors take over, everyone else gets the banner, on the fa
     moment:{ ...mine, id:"m1", elapsed:200 } }));
   assert.match(html, /You’re up/);
   assert.match(html, /Back yourself/);
-  /* a pool: your side's price now, two seeds of 100 and nothing staked: 2.0x */
-  assert.deepEqual([mine.pool, mine.price], [true, "Pays 2.0×"]);
-  assert.match(html, /<p class="fd-moment-pays">Pays 2\.0×<\/p>/);
+  /* a pool: your side's share of it now, the table's own %: two seeds of 100 and nothing staked */
+  assert.deepEqual([mine.pool, mine.price], [true, "50% of the pool"]);
+  assert.match(html, /<p class="fd-moment-pays">50% of the pool<\/p>/);
+  /* money on the other side shrinks your share: 100 of 100 + 100 + 300 */
+  const backed = structuredClone(state);
+  const placed = applyAction(backed, "placeWager", { wager:{ kind:"match", eventId:"bball1", contestId:found.contest.id,
+    contestRevision:found.contest.revision, drawId:found.contest.drawId, match:[...found.contest.match], teamIdx:found.contest.sides[1].key,
+    pickTeam:true, pickPlayers:[b], stake:300 } }, { player:bystander, deviceId:"d-up", actionId:"up-1" });
+  assert.equal(placed.ok, true, placed.error);
+  assert.equal(ui.youreUpView(backed, allEventsOf(backed), ui.currentFaceOff(backed, allEventsOf(backed)), a).price, "20% of the pool");
   assert.doesNotMatch(html, /Winner pays/);
   assert.match(html, /--moment-color:#/, "in your own identity color");
   /* a contest opened before pools keeps its fixed payout line */

@@ -30,6 +30,9 @@ export function useChipActions({ state, me, tapStake, mineTotal, mineChips, chip
   const [checking, setChecking] = useState(null);
   const pendingRef = useRef(false);
   const pendingKindRef = useRef(null), queueRef = useRef([]);
+  /* a write held as "Checking…": a tap then is refused, never queued (a
+     queued tap would go out after some later, unrelated chip) */
+  const heldRef = useRef(false);
   const [queued, setQueued] = useState(0);
   const flightRef = useRef(null);
   const myColor = usePlayerIdentity(me).color;
@@ -53,6 +56,7 @@ export function useChipActions({ state, me, tapStake, mineTotal, mineChips, chip
       checking.flight?.back();
     } else checking.flight?.land();
     pendingRef.current = false;
+    heldRef.current = false;
     setChecking(null);
   }, [state, mineTotal, checking]);
   const mineFace = () => mineRef?.current?.querySelector(".fd-stack > svg")?.getBoundingClientRect() || null;
@@ -108,7 +112,7 @@ export function useChipActions({ state, me, tapStake, mineTotal, mineChips, chip
      saving queues behind it (still one write at a time), up to PLACE_QUEUE */
   const act = (kind, callback, { stake = tapStake, queuedTap = false } = {}) => {
     if (pendingRef.current) {
-      if (kind === "place" && pendingKindRef.current === "place" && !queuedTap && queueRef.current.length < PLACE_QUEUE) {
+      if (kind === "place" && pendingKindRef.current === "place" && !heldRef.current && !queuedTap && queueRef.current.length < PLACE_QUEUE) {
         tapTick();
         chipSound(kind, stake);
         queueRef.current.push({ callback, stake });
@@ -137,6 +141,7 @@ export function useChipActions({ state, me, tapStake, mineTotal, mineChips, chip
       if (isUncertainResult(result)) {
         if (!landed(kind, before, live.current.mineTotal)) {
           holding = true;
+          heldRef.current = true;
           const settled = typeof result?.settled?.then === "function";
           setChecking({ kind, before, state:live.current.state, settled, flight });
           if (settled) result.settled.then(outcome => outcome, () => ({ ok:false })).then(outcome => {
@@ -148,6 +153,7 @@ export function useChipActions({ state, me, tapStake, mineTotal, mineChips, chip
               flight?.back();
             } else flight?.land();
             pendingRef.current = false;
+            heldRef.current = false;
             setChecking(null);
           });
         } else flight?.land();

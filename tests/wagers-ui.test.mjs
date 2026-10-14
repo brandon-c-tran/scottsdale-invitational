@@ -72,10 +72,17 @@ function controls(state, event, overrides = {}, select = []) {
   return {
     picks, retractions, retractionRefs, voids, html, named, names:buttons.map(button => button.name),
     click(name) { const button = named(name); assert.equal(button.disabled, false, `${name} is disabled`); return button.click(); },
-    pickAll() { buttons.filter(button => !button.disabled && button.name.startsWith("Place a chip on "))
+    pickAll() { buttons.filter(button => !button.disabled && /^Place [\d,]+ on /.test(button.name))
       .forEach(button => button.click()); return picks; },
   };
 }
+
+/* a spot is the bet: its hit target names the rack's chip and the side */
+const placeOn = (name, stake = 100) => `Place ${stake} on ${name}`;
+/* no spot of that side takes a chip (a closed side draws no hit target) */
+const noPlace = (view, name) => !view.names.some(item => item === name || /^Place [\d,]+ on /.test(item) && item.endsWith(` on ${name}`));
+/* your own side is marked on the felt (a competitor's spot wears the filament keyline) */
+const ownSpot = (html, key) => new RegExp(`class="fd-spot [^"]*is-own-side[^"]*" data-spot="${key}"`).test(html);
 
 function withTeams(state, event = pairs) {
   state.draws[event.id] = { id:"draw-current", teams:Array.from({ length:4 }, (_, index) => ({
@@ -103,8 +110,13 @@ test("the FFA board retains every manual winner choice, including yourself", () 
   const state = fresh(solo), single = controls(state, solo);
   assert.deepEqual(single.picks, []);
   assert.deepEqual(state.wagers, []);
-  assert.match(single.html, /class="fd-wagers-pick-role">You</, "your own side reads You");
-  single.click(`Place a chip on ${ROSTER[1]}`);
+  /* your own spot wears the filament keyline, and it is the only one */
+  assert.ok(ownSpot(single.html, player), "your own side is marked");
+  assert.equal((single.html.match(/is-own-side/g) || []).length, 1);
+  /* a free-for-all keeps your own spot where the draw put it (spots never move) */
+  assert.deepEqual([...single.html.matchAll(/data-spot="([^"]+)"/g)].map(match => match[1]),
+    resolveCurrentContest(state, solo).sides.map(side => String(side.key)));
+  single.click(placeOn(ROSTER[1]));
   assert.deepEqual(single.picks, [{ kind:"outright", eventId:solo.id, pick:ROSTER[1],
     pickPlayers:[ROSTER[1]], pickTeam:false, evName:solo.name, stake:100, ...refs(state, solo) }]);
   assert.equal(controls(state, solo).pickAll().length, ROSTER.length);
@@ -116,11 +128,11 @@ test("the FFA board retains every manual winner choice, including yourself", () 
   /* two teams are a matchup: an observer may back either side at even money */
   const teams = controls(teamState, event, { me:ROSTER.at(-1) }), team = draw.teams[1];
   assert.match(plain(teams.html), /Winner pays 1:1/);
-  teams.click(`Place a chip on ${teamLabel(teamState, team)}`);
+  teams.click(placeOn(teamLabel(teamState, team)));
   assert.deepEqual(teams.picks, [{ kind:"outright", eventId:event.id, pickTeam:true,
     pickPlayers:team.players, drawId:draw.id, evName:event.name, stake:100, ...refs(teamState, event) }]);
   /* a side you cannot back draws no well (no dead button, no word) */
-  assert.ok(!controls(teamState, event).names.some(name => name === teamLabel(teamState, team) || name === `Place a chip on ${teamLabel(teamState, team)}`), "a side you cannot back has no well");
+  assert.ok(noPlace(controls(teamState, event), teamLabel(teamState, team)), "a side you cannot back takes no chip");
 });
 
 test("observers bet only the current bracket matchup, then its successor and final", () => {
@@ -172,8 +184,8 @@ test("large teams retain their drawn names and every player target alongside man
   assert.deepEqual(viewed, ROSTER.slice(0, 12));
   assert.deepEqual(view.picks, []);
   /* a Sidewinder backs only the Sidewinders */
-  assert.ok(!view.names.some(name => name === "The Coyotes" || name === `Place a chip on ${"The Coyotes"}`), "a side you cannot back has no well");
-  view.click("Place a chip on The Sidewinders");
+  assert.ok(noPlace(view, "The Coyotes"), "a side you cannot back takes no chip");
+  view.click(placeOn("The Sidewinders"));
   assert.deepEqual(view.picks[0].pickPlayers, draw.teams[0].players);
   assert.equal(view.picks[0].drawId, draw.id);
   assert.equal(view.picks[0].stake, 100);
@@ -190,15 +202,18 @@ test("match participants can manually back their team while opponents stay visib
   state.brackets[pairs.id] = makeBracket(4);
   const opened = [], view = controls(state, pairs, { onEvent:event => opened.push(event.id) });
   const opponent = teamLabel(state, draw.teams[3]);
-  assert.match(view.html, /Your team/);
-  assert.match(view.html, /You can only bet on your team in this match/);
-  assert.ok(!view.names.some(name => name === opponent || name === `Place a chip on ${opponent}`), "a side you cannot back has no well");
-  assert.match(view.html, /aria-description="You can only bet on your team in this match."/, "the felt says why");
+  assert.ok(ownSpot(view.html, 0), "your team's spot is marked");
+  assert.ok(!ownSpot(view.html, 3));
+  assert.ok(noPlace(view, opponent), "a side you cannot back takes no chip");
+  /* the closed spot says why on its lock, and "Yours" points back at your own spot */
+  assert.match(view.html, /<span class="fd-spot-lock is-point-back" role="img" aria-label="You can only bet on your team in this match.">/,
+    "the felt says why");
+  assert.match(plain(view.html), /Yours/);
   assert.deepEqual(view.picks, []);
   view.click(`Open the full ${pairs.name} bracket`);
   assert.deepEqual(opened, [pairs.id]);
   assert.deepEqual(view.picks, []);
-  view.click(`Place a chip on ${teamLabel(state, draw.teams[0])}`);
+  view.click(placeOn(teamLabel(state, draw.teams[0])));
   assert.equal(view.picks.length, 1);
   assert.equal(view.picks[0].teamIdx, 0);
 });
@@ -218,8 +233,8 @@ test("heat winner betting offers one heat at a time and a separate final", () =>
     group:0, groupName:resolveCurrentContest(state, solo).label, pickKey:ROSTER[0], pickPlayers:[ROSTER[0]],
     pickTeam:false, evName:solo.name, stake:100, ...refs(state, solo) });
   const participant = controls(state, solo);
-  assert.match(participant.html, /class="fd-wagers-pick-role">You</);
-  assert.ok(!participant.names.some(name => name === ROSTER[1] || name === `Place a chip on ${ROSTER[1]}`), "a side you cannot back has no well");
+  assert.ok(ownSpot(participant.html, player));
+  assert.ok(noPlace(participant, ROSTER[1]), "a side you cannot back takes no chip");
   assert.equal(participant.pickAll().length, 1);
   assert.equal(participant.picks[0].pickKey, player);
 
@@ -239,7 +254,7 @@ test("heat winner betting offers one heat at a time and a separate final", () =>
   assert.ok(picks.every(pick => pick.stagesId === stage.id));
   const finalist = controls(state, solo);
   assert.equal(finalist.pickAll().length, 1);
-  assert.match(finalist.html, /You can only bet on yourself in this final/);
+  assert.match(finalist.html, /class="fd-spot-lock[^"]*" role="img" aria-label="You can only bet on yourself in this final."/);
   stage.finalWinner = ROSTER[0];
   assert.equal(controls(state, solo, observer).pickAll().length, 0);
 });
@@ -266,7 +281,9 @@ test("locked markets and full exposure disable picks while the rack respects ava
   state.wagers = [{ id:"at-cap", player, kind:"outright", eventId:solo.id,
     pick:ROSTER[1], pickPlayers:[ROSTER[1]], stake:500 }];
   const capped = controls(state, solo);
-  assert.equal(capped.named(ROSTER[1]).disabled, true);
+  /* at the cap no spot takes a chip, and the rack's readout says the cap */
+  assert.ok(noPlace(capped, ROSTER[1]));
+  assert.match(capped.html, /class="fd-wagers-meter-room is-max"[^>]*><strong>Max 500</);
   assert.equal(capped.named("Bet 100 a tap").disabled, true);
   assert.equal(capped.pickAll().length, 0);
   capped.click(`Retract your last chip on ${ROSTER[1]}`);
@@ -274,7 +291,7 @@ test("locked markets and full exposure disable picks while the rack respects ava
   state.onDeck = null;
   const locked = controls(state, solo);
   /* a locked market draws no well */
-  assert.ok(!locked.names.some(name => name === ROSTER[1] || name === `Place a chip on ${ROSTER[1]}`), "a side you cannot back has no well");
+  assert.ok(noPlace(locked, ROSTER[1]), "a side you cannot back takes no chip");
   assert.equal(locked.pickAll().length, 0);
   assert.equal(locked.names.includes(`Retract your last chip on ${ROSTER[1]}`), false);
 });
@@ -371,7 +388,7 @@ test("player cards and chip placement have independent targets on the same board
   view.click(`View ${ROSTER[1]}'s player card`);
   assert.deepEqual(viewed, [ROSTER[1]]);
   assert.deepEqual(view.picks, []);
-  view.click(`Place a chip on ${ROSTER[1]}`);
+  view.click(placeOn(ROSTER[1]));
   assert.equal(view.picks.length, 1);
   assert.deepEqual(viewed, [ROSTER[1]]);
 
@@ -386,10 +403,20 @@ test("player cards and chip placement have independent targets on the same board
   otherBettor.wagers = [{ id:"other-chip", player:ROSTER[2], kind:"outright", eventId:solo.id,
     pick:ROSTER[1], pickPlayers:[ROSTER[1]], stake:200 }];
   const chips = controls(otherBettor, solo, { onPlayer:p => viewed.push(p) });
-  /* a wide board's row says how many back a side; their cards are in that list */
-  chips.click(`1 backing ${ROSTER[1]}`);
-  assert.deepEqual(chips.picks, []);
-  assert.deepEqual(chips.retractions, []);
+  /* a 13-way grid spot counts its backers; it is no target of its own */
+  assert.match(chips.html, new RegExp(`<span class="fd-spot-count" aria-label="1 backing ${ROSTER[1]}">1</span>`));
+  assert.ok(!chips.names.includes(`1 backing ${ROSTER[1]}`));
+
+  /* a matchup stands everyone's chips on the spot: another bettor's stack opens their card */
+  const match = fresh(pairs), matchDraw = withTeams(match);
+  match.brackets[pairs.id] = makeBracket(4);
+  match.wagers = [{ id:"other-match-chip", player:ROSTER[10], kind:"match", eventId:pairs.id, pickTeam:true,
+    drawId:matchDraw.id, match:[0, 0], teamIdx:0, pickPlayers:matchDraw.teams[0].players, stake:200 }];
+  const stacks = controls(match, pairs, { me:ROSTER.at(-1), onPlayer:p => viewed.push(p) });
+  stacks.click(`${ROSTER[10]}: 200 on ${teamLabel(match, matchDraw.teams[0])}`);
+  assert.equal(viewed.at(-1), ROSTER[10]);
+  assert.deepEqual(stacks.picks, []);
+  assert.deepEqual(stacks.retractions, []);
 });
 
 test("before the weekend and between events the page keeps the original empty-state copy", () => {
@@ -452,15 +479,20 @@ test("a pending chip action waits for acknowledgment before accepting another ac
     sent.push(pick);
     return new Promise(resolve => { acknowledge = resolve; });
   } });
-  const first = view.click(`Place a chip on ${ROSTER[1]}`);
-  view.click(`Place a chip on ${ROSTER[1]}`);
+  const first = view.click(placeOn(ROSTER[1]));
+  /* a second tap while the first saves queues behind it: nothing is sent yet */
+  assert.equal(view.click(placeOn(ROSTER[1])), undefined);
   assert.equal(sent.length, 1);
   acknowledge({ ok:true });
   await first;
-  const next = view.click(`Place a chip on ${ROSTER[1]}`);
+  /* the queued tap writes only once the first is acknowledged */
   assert.equal(sent.length, 2);
+  assert.deepEqual(sent.map(pick => pick.stake), [100, 100]);
+  view.click(placeOn(ROSTER[1]));
+  assert.equal(sent.length, 2, "a third tap waits behind the queued write");
   acknowledge({ ok:false, error:"Betting is locked" });
-  await next;
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(sent.length, 2, "a failure drops the rest of the queue");
   assert.deepEqual(state.wagers, []);
 });
 
@@ -476,13 +508,13 @@ test("failed retraction preserves the server stack and allows a later retry", as
   } });
   const first = view.click(`Retract your last chip on ${ROSTER[1]}`);
   view.click(`Retract your last chip on ${ROSTER[1]}`);
-  view.click(`Place a chip on ${ROSTER[1]}`);
+  view.click(placeOn(ROSTER[1]));
   assert.deepEqual(sent, ["owned"]);
   assert.deepEqual(view.picks, []);
   acknowledge({ ok:false, error:"Connection lost" });
   await first;
   assert.deepEqual(state.wagers, before);
-  const retry = view.click(`Retract your last chip on ${ROSTER[1]}`);
+  const retry = view.click(`Retract your last chip on ${ROSTER[1]}`)
   assert.deepEqual(sent, ["owned", "owned"]);
   acknowledge({ ok:true });
   await retry;
@@ -495,9 +527,9 @@ test("a rejected action promise is contained and releases the target for retry",
     attempts += 1;
     return attempts === 1 ? Promise.reject(new Error("Connection lost")) : Promise.resolve({ ok:true });
   } });
-  const failed = await view.click(`Place a chip on ${ROSTER[1]}`);
+  const failed = await view.click(placeOn(ROSTER[1]));
   assert.deepEqual(failed, { ok:false, error:"Connection lost" });
-  const retried = await view.click(`Place a chip on ${ROSTER[1]}`);
+  const retried = await view.click(placeOn(ROSTER[1]));
   assert.deepEqual(retried, { ok:true });
   assert.equal(attempts, 2);
   assert.deepEqual(state.wagers, []);

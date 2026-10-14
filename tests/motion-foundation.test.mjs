@@ -390,8 +390,16 @@ test("tapTick toggles a hidden switch through its label and leaves nothing behin
 
 test("the tick is wired into the user's own taps and never the Quick Draw reaction", () => {
   const src = path => read(path);
-  assert.match(src("src/features/wagers/Wagers.jsx"), /queueRef\.current\.length < PLACE_QUEUE\) \{\s*tapTick\(\);[\s\S]*\/\* the iOS tick belongs to the tap itself[^*]*\*\/\s*if \(!queuedTap\) tapTick\(\);/);
+  /* a spot's chip writes (useChipActions.js): a queued tap ticks as it is
+     queued, the first tap ticks before its write goes out, a write the
+     queue sends later is silent (it is not a tap) */
+  const chips = src("src/features/wagers/useChipActions.js");
+  assert.match(chips, /queueRef\.current\.length < PLACE_QUEUE\) \{\s*tapTick\(\);/);
+  assert.match(chips, /if \(!queuedTap\) \{ tapTick\(\); chipSound\(kind, stake\); \}/);
+  assert.ok(chips.indexOf("if (!queuedTap) { tapTick();") < chips.indexOf("const result = callback();"), "the tick lands before the write");
   assert.match(src("src/features/wagers/Wagers.jsx"), /onClick=\{\(\) => \{ tapTick\(\); setDenom\(value\); \}\}/);
+  /* lifting a rack chip to drag it is the user's own gesture too */
+  assert.match(src("src/features/wagers/Wagers.jsx"), /p\.dragging = true;[\s\S]{0,120}?tapTick\(\);\s*tableDrag\.start\(value/);
   assert.match(src("src/features/draft/DraftSheet.jsx"), /if \(!canPick \|\| saving\.current\) return;\s*tapTick\(\);/);
   assert.match(src("src/features/duels/DuelCard.jsx"), /if \(action === "accept"\) tapTick\(\);/);
   assert.match(src("src/features/profile/PlayerSheet.jsx"), /ante > anteMax\) return;\s*tapTick\(\);/);

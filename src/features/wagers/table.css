@@ -56,6 +56,13 @@
   letter-spacing:.01em; text-transform:uppercase; overflow-wrap:anywhere; text-wrap:balance; }
 .fd-spot.is-row .fd-spot-name { font-size:14px; }
 
+/* X8: the side's win line, one row on every spot of a board once any side has one */
+.fd-spot-win { display:flex; justify-content:center; min-width:0; max-width:100%; min-height:24px; overflow:hidden; }
+.fd-spot .fd-wagers-win { display:flex; align-items:center; gap:6px; height:24px; min-width:0; white-space:nowrap; }
+.fd-spot.is-row .fd-spot-win { min-height:20px; }
+.fd-spot.is-row .fd-wagers-win { gap:3px; height:20px; }
+.fd-spot.is-row .fd-wagers-win > small { display:none; }
+
 /* the room's %: a reel, the sign a smaller plate after it */
 .fd-spot-pct { display:inline-flex; align-items:baseline; gap:.02em; color:var(--ink); font:900 54px/1 var(--fd-display); font-variant-numeric:tabular-nums; }
 .fd-spot.is-row .fd-spot-pct { font-size:34px; }

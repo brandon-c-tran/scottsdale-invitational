@@ -591,9 +591,9 @@ test("no component calls sound outside the sound module API", () => {
   }
   assert.deepEqual(offenders, []);
   /* the own-tap sounds ride the same handler as the tap tick */
-  const wagers = read("src/features/wagers/Wagers.jsx");
-  assert.match(wagers, /tapTick\(\);\s*chipSound\(kind\);/, "a queued tap");
-  assert.match(wagers, /if \(!queuedTap\) tapTick\(\);\s*if \(!queuedTap\) chipSound\(kind\);/, "the first tap");
+  const chips = read("src/features/wagers/useChipActions.js");
+  assert.match(chips, /PLACE_QUEUE\) \{\s*tapTick\(\);\s*chipSound\(kind, stake\);/, "a queued tap");
+  assert.match(chips, /if \(!queuedTap\) \{ tapTick\(\); chipSound\(kind, stake\); \}/, "the first tap");
   assert.match(read("src/features/draft/DraftSheet.jsx"), /tapTick\(\);\s*unlockSound\(\);/);
   /* the hush reads the walkout contract where the Worker writes it */
   assert.match(read("src/lib/sound.js"), /state\?\.showControl\?\.audio\?\.walkout/);

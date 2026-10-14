@@ -104,31 +104,37 @@ test("P1: the TV felt and the phone board render every bettor or a +N group, the
   const html = renderToStaticMarkup(React.createElement(PlayerIdentityProvider, { profiles:state.profiles },
     React.createElement(Wagers, { state, me, events:allEventsOf(state), standings:computeStandings(state), gm:false,
       wagerEv:evOf(state, "8ball"), onEvents() {}, onEvent() {}, onPick() {}, onRetract() {}, onPlayer() {} })));
-  /* the phone's felt (Oct 4): five stacks biggest first, then the rest as
-     one "+N" pile (the whole list one tap away); the side's total heads it */
-  assert.equal((html.match(/data-stack-player=/g) || []).length, 4, "four backers' stacks beside the well, then the pile");
-  const amounts = [...html.matchAll(/class="fd-stacks-value">([^<]+)</g)].map(match => match[1]);
-  assert.deepEqual(amounts, ["800", "700", "600", "500"]);
-  assert.match(html, /fd-wagers-stack-count">\+4</);
-  assert.match(html, /aria-label="All 8 backing [^"]+"/);
-  assert.match(html, /class="fd-wagers-pot-total"><span class="fd-reel[^"]*" role="img" aria-label="3,600"/);
+  /* the phone's spot (Oct 13): a matchup's spot stands four, so three
+     stacks biggest first, then the rest as one "+N" pile; the pool heads the felt */
+  assert.equal((html.match(/data-stack-player=/g) || []).length, 3, "three backers' stacks, then the pile");
+  assert.deepEqual(stackAmounts(html), ["800", "700", "600"]);
+  assert.match(html, /<span class="fd-spot-stack is-group" role="img" aria-label="5 more on [^"]+">/);
+  assert.match(html, /class="fd-table-pool"><small>Pool<\/small><span class="fd-reel[^"]*" role="img" aria-label="3,800"/);
   assert.doesNotMatch(html, /fd-stack-tag|has-tag|fd-stack-fan/);
 });
+/* a stack's amount rides its button's name ("Adi: 800 on Ben & Evan") */
+const stackAmounts = html => [...html.matchAll(/class="fd-spot-stack" aria-label="[^"]+: ([0-9,]+) on [^"]+"/g)].map(match => match[1]);
 
-test("P1: your own row keeps its biggest-first place and never folds into N more", () => {
+test("P1: your own stack stands first on its spot and never folds into N more", () => {
   const { state, bystanders } = liveMatch();
   bystanders.slice(0, 8).forEach((player, i) => bet(state, player, 0, 100 * (i + 1)));
   const render = me => renderToStaticMarkup(React.createElement(PlayerIdentityProvider, { profiles:state.profiles },
     React.createElement(Wagers, { state, me, events:allEventsOf(state), standings:computeStandings(state), gm:false,
       wagerEv:evOf(state, "8ball"), onEvents() {}, onEvent() {}, onPick() {}, onRetract() {}, onPlayer() {} })));
-  const amounts = html => [...html.matchAll(/class="fd-stacks-value">([^<]+)</g)].map(match => match[1]);
-  /* the 700 bettor sees the same order a spectator sees, lit in place */
-  assert.deepEqual(amounts(render(bystanders[6])), amounts(render(bystanders[8])));
-  /* the 100 bettor would fold into the pile; their stack takes the last cell instead */
+  const spectator = render(bystanders[8]);
+  assert.deepEqual(stackAmounts(spectator), ["800", "700", "600"]);
+  assert.match(spectator, /aria-label="5 more on [^"]+"/);
+  /* yours stands first, ringed, and everyone else keeps biggest-first behind it */
+  const mid = render(bystanders[6]);
+  assert.match(mid, /<div class="fd-spot-chips"><button type="button" class="fd-spot-mine" aria-label="Retract your last chip on [^"]+"[^>]*><span class="fd-stack is-mine"/);
+  assert.deepEqual(stackAmounts(mid), ["800", "600", "500"]);
+  assert.match(mid, /aria-label="4 more on [^"]+"/);
+  /* the 100 bettor would fold into the pile; their stack never does */
   const smallest = render(bystanders[0]);
-  assert.deepEqual(amounts(smallest), ["800", "700", "600", "100"]);
-  assert.match(smallest, /Retract your last chip on/);
-  assert.match(smallest, /fd-wagers-stack-count">\+4</);
+  assert.match(smallest, /class="fd-spot-mine" aria-label="Retract your last chip on [^"]+" aria-description="Remove 100 chips; 100 total on this pick"/);
+  assert.deepEqual(stackAmounts(smallest), ["800", "700", "600"]);
+  assert.match(smallest, /aria-label="4 more on [^"]+"/);
+  assert.equal((smallest.match(/data-stack-player=/g) || []).length, 4, "your stack and three others");
 });
 
 test("one cap everywhere: past it a stack stands a tower on a break, so 1,000, 1,200 and 2,500 differ", () => {
@@ -181,7 +187,7 @@ test("M4: the pending guard still admits one write at a time; flights ride along
   let clicks = [];
   const createElement = React.createElement;
   React.createElement = (type, props, ...children) => {
-    if (type === "button" && props?.onClick && /^Place a chip on/.test(props["aria-label"] || "")) clicks.push(props.onClick);
+    if (type === "button" && props?.onClick && /^Place [0-9,]+ on /.test(props["aria-label"] || "")) clicks.push(props.onClick);
     return createElement(type, props, ...children);
   };
   try {
@@ -204,7 +210,7 @@ test("roulette taps: + tapped while a chip saves queues behind it, one write at 
     let clicks = [];
     const createElement = React.createElement;
     React.createElement = (type, props, ...children) => {
-      if (type === "button" && props?.onClick && /^Place a chip on/.test(props["aria-label"] || "")) clicks.push(props.onClick);
+      if (type === "button" && props?.onClick && /^Place [0-9,]+ on /.test(props["aria-label"] || "")) clicks.push(props.onClick);
       return createElement(type, props, ...children);
     };
     try {

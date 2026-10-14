@@ -280,10 +280,10 @@ test("the meter draws stack, cap notch, bets, hatched duels and loss overflow wi
   state.wagers[0].stake = 500;
   const capped = wagers(state, putt);
   assert.match(capped.html, /fd-wagers-meter is-capped/);
-  const pick = capped.named(ROSTER[1]);
-  assert.equal(pick.disabled, true);
-  assert.equal(capped.named(ROSTER[2]).description, "At your 500 limit");
-  assert.match(capped.html, /Max 500/);
+  /* at the cap no spot takes a chip; the rack says the cap once; your chips still come back */
+  assert.equal(capped.buttons.filter(button => /^Place [0-9,]+ on /.test(button.name)).length, 0);
+  assert.match(capped.html, /<span class="fd-wagers-meter-room is-max" aria-hidden="true"><strong>Max 500<\/strong><\/span>/);
+  assert.equal(capped.named(`Retract your last chip on ${ROSTER[1]}`).disabled, false);
 
   state.adjustments = [{ id:"loss", player:ROSTER[0], delta:-400, ts:1 }];
   state.wagers[0].stake = 600;
@@ -291,11 +291,16 @@ test("the meter draws stack, cap notch, bets, hatched duels and loss overflow wi
   assert.match(over.html, /class="is-over"/);
 });
 
-test("free-for-all boards lead with the viewer's own name", () => {
-  const view = wagers({ ...fresh(), onDeck:putt.id }, putt, { me:ROSTER[5] });
-  const picks = view.buttons.filter(button => button.name.startsWith("Place a chip on "));
-  assert.equal(picks[0].name, `Place a chip on ${ROSTER[5]}`);
+test("a free-for-all's spots keep the contest's order: your own never jumps to the front", () => {
+  /* Oct 13 (deliberate): spots never move, so a phone's table matches the TV's */
+  const state = { ...fresh(), onDeck:putt.id };
+  const view = wagers(state, putt, { me:ROSTER[5] });
+  const picks = view.buttons.filter(button => /^Place [0-9,]+ on /.test(button.name));
+  const order = resolveCurrentContest(state, putt).sides.map(side => side.key);
+  assert.deepEqual(picks.map(button => button.name), order.map(key => `Place 100 on ${key}`));
   assert.equal(picks.length, ROSTER.length);
+  assert.notEqual(picks[0].name, `Place 100 on ${ROSTER[5]}`);
+  assert.match(view.html, new RegExp(`class="fd-spot is-grid is-own-side is-open" data-spot="${ROSTER[5]}"`), "yours is marked where it stands");
 });
 
 test("a timed-out chip holds as Checking instead of inviting a duplicate tap", async () => {
@@ -306,14 +311,14 @@ test("a timed-out chip holds as Checking instead of inviting a duplicate tap", a
   for (const reply of [{ ok:false, error:"No response, try again" }, { ok:false, uncertain:true, error:"Checking" }]) {
     const sent = [];
     const view = wagers({ ...fresh(), onDeck:putt.id }, putt, { onPick:pick => { sent.push(pick); return Promise.resolve(reply); } });
-    await view.click(`Place a chip on ${ROSTER[1]}`);
-    view.click(`Place a chip on ${ROSTER[1]}`);
+    await view.click(`Place 100 on ${ROSTER[1]}`);
+    assert.equal(view.click(`Place 100 on ${ROSTER[1]}`), undefined, "the tap is refused, not queued");
     assert.equal(sent.length, 1, "no second chip until the next broadcast answers the first");
   }
   const sent = [];
   const failed = wagers({ ...fresh(), onDeck:putt.id }, putt, { onPick:pick => { sent.push(pick); return Promise.resolve({ ok:false, error:"Betting is locked" }); } });
-  await failed.click(`Place a chip on ${ROSTER[1]}`);
-  await failed.click(`Place a chip on ${ROSTER[1]}`);
+  await failed.click(`Place 100 on ${ROSTER[1]}`);
+  await failed.click(`Place 100 on ${ROSTER[1]}`);
   assert.equal(sent.length, 2, "an ordinary rejection releases the pick for retry");
 });
 
@@ -713,10 +718,17 @@ test("G19: Checking… waits for the transport to settle, not for any broadcast"
   let settle;
   const reply = { ok:false, uncertain:true, error:"No response, try again", settled:new Promise(resolve => { settle = resolve; }) };
   const sent = [];
-  const view = wagers({ ...fresh(), onDeck:putt.id }, putt, { onPick:pick => { sent.push(pick); return Promise.resolve(reply); } });
-  await view.click(`Place a chip on ${ROSTER[1]}`);
-  view.click(`Place a chip on ${ROSTER[1]}`);
+  const view = wagers({ ...fresh(), onDeck:putt.id }, putt, { onPick:pick => {
+    sent.push(pick); return Promise.resolve(sent.length === 1 ? reply : { ok:true }); } });
+  await view.click(`Place 100 on ${ROSTER[1]}`);
+  view.click(`Place 100 on ${ROSTER[1]}`);
   assert.equal(sent.length, 1, "held while Checking");
   settle({ ok:true, late:true });
   await reply.settled;
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(sent.length, 1, "the tap made while Checking never goes out later");
+  /* the transport settled the write: the spot takes the next tap */
+  await view.click(`Place 100 on ${ROSTER[1]}`);
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(sent.length, 2, "one new chip, no phantom behind it");
 });

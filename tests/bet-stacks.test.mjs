@@ -14,7 +14,7 @@ import {
 } from "../src/features/wagers/betStacks.js";
 import { seatStacks, trayStacks, pokerChip, POKER_CHIPS, TRAY_TUBE } from "../src/features/poker/pokerChips.js";
 import { advanceMoment, contestRiders } from "../src/features/tv/tvModel.js";
-import { fillLevel, tableView } from "../src/features/wagers/tableModel.js";
+import { fillLevel, nextBack, tableView } from "../src/features/wagers/tableModel.js";
 import { BAND_TABLE_H, SWEEP_MS, TABLE_H, backerPile, entryContest, sweepWindow, tableLayout } from "../src/features/tv/tvTable.js";
 
 /* Everyone's bets as stacks of their own identity chip. The model is pure;
@@ -190,7 +190,7 @@ function renderWithButtons(element) {
       : typeof value === "string" || typeof value === "number" ? String(value) : "").join("");
   React.createElement = (type, props, ...children) => {
     if (type === "button" && props?.onClick) buttons.push({ name:(props["aria-label"] || textOf(children)).trim(),
-      disabled:!!props.disabled, click:props.onClick, html:null });
+      description:props["aria-description"], disabled:!!props.disabled, click:props.onClick, html:null });
     return createElement(type, props, ...children);
   };
   let html;
@@ -203,7 +203,7 @@ function renderWithButtons(element) {
   return { html, buttons, named };
 }
 
-test("phone: every backer's chips stand on the felt; your stack retracts, anyone else's opens their card", () => {
+test("phone: every backer's chips stand on the spot; your stack retracts, anyone else's opens their card", () => {
   const { state, contest, bystanders } = bracketWithBets();
   const me = bystanders[1];
   bet(state, "8ball", me, 1, 100);
@@ -215,19 +215,21 @@ test("phone: every backer's chips stand on the felt; your stack retracts, anyone
       wagerEv:evOf(state, "8ball"), onEvents:() => {}, onEvent:() => {}, onPick:pick => picks.push(pick),
       onRetract:id => retracted.push(id), onPlayer:p => viewed.push(p), onVoid:() => {} })));
   const retract = view.named(`Retract your last chip on ${name}`);
+  assert.equal(retract.description, "Remove 100 chips; 300 total on this pick", "it names the chip it lifts");
   retract.click();
   assert.equal(retracted.length, 1, "your stack takes your last chip back");
   assert.deepEqual(viewed, [], "and opens no card");
   const others = [[bystanders[3], 100], [bystanders[5], 800], [bystanders[7], 400]];
   for (const [player, stake] of others) {
-    view.named(`View ${player}'s player card (${stake} chips)`).click();
+    view.named(`${player}: ${stake} on ${name}`).click();
     assert.equal(viewed.at(-1), player);
   }
   assert.equal(retracted.length, 1, "another bettor's stack never retracts");
   assert.deepEqual(picks, [], "and never places a chip");
-  /* the felt (Oct 4): a stack per backer, built of that backer's own chip */
-  assert.equal(view.html.split('class="fd-wagers-felt"').length - 1, 2, "one felt a side");
-  for (const [player] of others) assert.match(view.html, new RegExp(`data-stack-player="${player}"`), `${player} stands on the felt`);
+  /* the table (Oct 13): one felt, a spot a side, each backer's stack of their own chip on it */
+  assert.equal((view.html.match(/<section class="fd-table is-match is-open"/g) || []).length, 1, "one felt");
+  assert.equal((view.html.match(/<div class="fd-spot is-match/g) || []).length, 2, "a spot a side");
+  for (const [player] of others) assert.match(view.html, new RegExp(`data-stack-player="${player}"`), `${player} stands on the spot`);
   assert.match(view.html, new RegExp(`data-stack-player="${me}"`), "and so do you");
   const stackColors = html => new Map([...html.matchAll(/class="fd-stack[^"]*" style="--stack-color:([^;]+);[^"]*" data-stack-player="([^"]+)"/g)]
     .map(m => [m[2], m[1]]));
@@ -240,13 +242,19 @@ test("phone: every backer's chips stand on the felt; your stack retracts, anyone
       wagerEv:evOf(claimed, "8ball"), onEvents() {}, onEvent() {}, onPick() {}, onRetract() {}, onPlayer() {}, onVoid() {} })));
   assert.equal(stackColors(colored).get(bystanders[5]), CHIP_COLORS[3].hex, "a backer's stack wears their claimed color");
   assert.equal(stackColors(colored).get(me), CHIP_COLORS[9].hex, "and so does yours");
-  assert.match(view.html, /class="fd-wagers-pot-total"><span class="fd-reel[^"]*" role="img" aria-label="1,600"/, "the side's total heads its felt");
-  /* yours wears the filament ring; biggest first, each with its amount */
-  assert.match(view.html, /class="fd-wagers-stack is-you"[^>]*>.*?class="fd-stack-ring"/);
-  const order = view.buttons.map(b => /^View (.+)'s player card \(/.exec(b.name)?.[1]).filter(Boolean);
-  assert.deepEqual(order.slice(-3), [bystanders[5], bystanders[7], bystanders[3]]);
-  const values = [...view.html.matchAll(/class="fd-stacks-value">([^<]+)</g)].map(m => m[1]);
-  assert.ok(values.includes("800") && values.includes("400"), `value lines: ${values}`);
+  /* the felt's corner is the pool, the seeds included; each spot its share of it */
+  const table = tableView(state, allEventsOf(state), resolveCurrentContest(state, evOf(state, "8ball")), me);
+  assert.match(view.html, new RegExp(`class="fd-table-pool"><small>Pool</small><span class="fd-reel[^"]*" role="img" aria-label="${table.total.toLocaleString("en-US")}"`));
+  for (const spot of table.spots) assert.match(view.html, new RegExp(`data-spot="${spot.key}" role="group" aria-label="[^"]+: ${spot.pct}% of the pool" style="--fill:${fillLevel(spot.share)}"`));
+  assert.equal(table.spots.reduce((sum, spot) => sum + spot.pct, 0), 100);
+  /* yours wears the filament ring and reads what it brings back */
+  assert.match(view.html, /class="fd-spot-mine"[^>]*>.*?class="fd-stack is-mine"/);
+  const mine = table.spots.find(spot => spot.key === side.key);
+  assert.equal(mine.mine, 300);
+  assert.match(view.html, new RegExp(`<span class="fd-spot-back is-you" aria-label="Your 300 brings back ${mine.back}">300 → ${mine.back}</span>`));
+  /* everyone else's stacks biggest first */
+  const order = view.buttons.map(b => new RegExp(`^(.+): [0-9,]+ on ${name}$`).exec(b.name)?.[1]).filter(Boolean);
+  assert.deepEqual(order, [bystanders[5], bystanders[7], bystanders[3]]);
 });
 
 test("a felt holds the well and five stacks; past that the smallest fold into +N, never yours", () => {
@@ -412,7 +420,7 @@ test("a decided contest's table reads its sides back from the record, and settle
   assert.doesNotMatch(feltOf(renderTv(state, decidedAt + 5200)), /is-settled/);
 });
 
-test("a wide board is one row a side: mini stacks with their total (yours ringed), then a quiet well", () => {
+test("a 13-way field is a 7-wide grid: each spot its share, its backers counted, yours ringed; the focus line prices it", () => {
   const state = structuredClone(EMPTY_STATE);
   act(state, "announceEvent", { evId:"putt" });
   const khoa = ROSTER.indexOf("Khoa");
@@ -420,38 +428,39 @@ test("a wide board is one row a side: mini stacks with their total (yours ringed
   const phone = me => renderToStaticMarkup(React.createElement(PlayerIdentityProvider, { profiles:state.profiles },
     React.createElement(Wagers, { state, me, events:allEventsOf(state), standings:computeStandings(state), gm:false,
       wagerEv:evOf(state, "putt"), onEvents() {}, onEvent() {}, onPick() {}, onRetract() {}, onPlayer() {} })));
-  const onKhoa = html => { const at = html.indexOf('aria-label="Bets on Khoa"'); return html.slice(at, html.indexOf('aria-label="Bets on ', at + 1)); };
-  const spectator = onKhoa(phone("Henry"));
-  assert.match(phone("Henry"), /fd-wagers-pick has-price is-one-line/, "every card on a wide board is one line, its price in it");
-  /* each row's price before its well: 13 seeds of 100 and 1,000 on Khoa is
-     2,300; Khoa's side 1,100 is 2.0x, every empty side at the 10x cap, dimmed */
-  const prices = [...phone("Henry").matchAll(/class="fd-side-terms fd-wagers-row-price"><button type="button" class="fd-side-pays-tap is-pool"[^>]*><span class="fd-price is-sm ([^"]*)" role="img" aria-label="Pays ([\d.]+)×"/g)]
-    .map(m => [m[1].trim(), m[2]]);
-  assert.equal(prices.length, ROSTER.length, "a price on every row");
-  assert.deepEqual(prices.filter(([, price]) => price !== "10.0"), [["", "2.0"]]);
-  assert.ok(prices.filter(([, price]) => price === "10.0").every(([cls]) => cls === "is-cap"), "the cap reads dim");
-  assert.doesNotMatch(phone("Henry"), /is-long/, "a wide field names no long shot");
-  /* the two biggest stand as mini stacks, the rest one silver pile; no people glyph */
-  assert.equal((spectator.match(/data-stack-player=/g) || []).length, 1, "one backer's stack, then the +N pile");
-  assert.match(spectator, /data-stack-player="Adi"/);
-  assert.doesNotMatch(spectator, /fd-icon[^>]*>[^<]*<circle cx="9" cy="8.6"/, "no people glyph");
-  assert.match(spectator, /fd-wagers-pot-total">1,000</);
-  assert.match(spectator, /aria-label="4 backing Khoa"/, "the stacks are one tap from the list");
-  /* a row with chips lights its well; a row without stays a quiet slot */
-  assert.match(spectator, /class="fd-wagers-well is-lit"/);
-  const quiet = phone("Henry"), at = quiet.indexOf('aria-label="Bets on Evan"');
-  assert.match(quiet.slice(at, quiet.indexOf('aria-label="Bets on ', at + 1)), /class="fd-wagers-well"/);
-  /* yours, lit: a tap takes your last chip back */
-  const mine = onKhoa(phone("Chinh"));
-  assert.match(mine, /class="fd-wagers-pot-you"[^>]*aria-label="Retract your last chip on Khoa"/);
-  assert.match(mine, /class="fd-wagers-pot-you"[^>]*>.*?class="fd-stack-ring"/, "your mini stack wears your ring");
-  /* a matchup keeps two lines */
+  const spotOf = (html, key) => { const at = html.indexOf(`data-spot="${key}"`); return html.slice(at, html.indexOf('<div class="fd-spot ', at + 1)); };
+  const spectator = phone("Henry");
+  assert.match(spectator, /<section class="fd-table is-grid is-open"[^>]*>.*?<div class="fd-table-felt" style="--cols:7">/);
+  assert.equal((spectator.match(/<div class="fd-spot is-grid/g) || []).length, ROSTER.length, "a spot for every player");
+  /* every spot is the room's share: 13 seeds of 100 and 1,000 on Khoa is 2,300 */
+  const contest = resolveCurrentContest(state, evOf(state, "putt"));
+  const table = tableView(state, allEventsOf(state), contest, "Henry");
+  assert.equal(table.total, 2300);
+  assert.equal(table.spots.reduce((sum, spot) => sum + spot.pct, 0), 100, "the shares add to 100");
+  assert.equal(table.spots.find(spot => spot.key === "Khoa").pct, 48);
+  for (const spot of table.spots) assert.match(spectator, new RegExp(`data-spot="${spot.key}" role="group" aria-label="${spot.key}: ${spot.pct}% of the pool"`));
+  assert.doesNotMatch(spectator, /is-long/, "a wide field names no long shot");
+  /* a grid spot is too small for stacks: it counts its backers, no people glyph */
+  assert.match(spotOf(spectator, "Khoa"), /<span class="fd-spot-count" aria-label="4 backing Khoa">4<\/span>/);
+  assert.doesNotMatch(spotOf(spectator, "Khoa"), /data-stack-player=/);
+  assert.doesNotMatch(spotOf(spectator, "Evan"), /fd-spot-count/, "an unbacked spot counts nobody");
+  /* nothing of yours down: the focus line is blank, kept for its height */
+  assert.match(spectator, /<p class="fd-table-focus is-blank" aria-hidden="true"><\/p>/);
+  /* yours: your chip ringed on the spot, a tap takes it back; the focus line says what it brings back */
+  const mine = phone("Chinh");
+  const yours = tableView(state, allEventsOf(state), contest, "Chinh").spots.find(spot => spot.key === "Khoa");
+  assert.match(mine, /<div class="fd-spot is-grid is-mine is-open" data-spot="Khoa"/);
+  assert.match(spotOf(mine, "Khoa"), /<button type="button" class="fd-spot-mine" aria-label="Retract your last chip on Khoa"/);
+  assert.match(spotOf(mine, "Khoa"), /aria-label="3 backing Khoa">3</, "the count is everyone else");
+  assert.match(mine, new RegExp(`<p class="fd-table-focus is-you" role="status"><b>Khoa</b><span>48%</span><span class="fd-table-focus-back">100 → ${yours.back}</span></p>`));
+  /* a matchup is two big spots */
   const { state:match, bystanders } = bracketWithBets();
   const two = renderToStaticMarkup(React.createElement(PlayerIdentityProvider, { profiles:match.profiles },
     React.createElement(Wagers, { state:match, me:bystanders[8], events:allEventsOf(match), standings:computeStandings(match),
       gm:false, wagerEv:evOf(match, "8ball"), onEvents() {}, onEvent() {}, onPick() {}, onRetract() {}, onPlayer() {} })));
-  assert.match(two, /class="fd-wagers-felt-stacks"/, "a matchup's sides stand their backers on a felt");
-  assert.doesNotMatch(two, /is-one-line/);
+  assert.match(two, /<section class="fd-table is-match is-open"/);
+  assert.equal((two.match(/<div class="fd-spot is-match/g) || []).length, 2);
+  assert.doesNotMatch(two, /fd-table-focus/, "only the grid needs the focus line");
 });
 
 /* ── the Bets board, Oct 3 (critique: first viewport, empty side, names) ── */
@@ -459,24 +468,30 @@ const phoneBoard = (state, me, evId, extra = {}) => renderWithButtons(h => h(Pla
   h(Wagers, { state, me, events:allEventsOf(state), standings:computeStandings(state), gm:false,
     wagerEv:evOf(state, evId), onEvents() {}, onEvent() {}, onPick() {}, onRetract() {}, onPlayer() {}, onVoid() {}, ...extra })));
 
-test("the rack is the board's head pane's lower glass: above the board, amber house chips", () => {
+test("the rack is your seat: docked after the table, amber house chips, what is left to bet", () => {
   const { state, bystanders } = bracketWithBets();
   const view = phoneBoard(state, bystanders[8], "8ball");
   const head = view.html.indexOf('class="fd-wagers-event-heading');
-  const rack = view.html.indexOf('class="fd-wagers-rack');
-  const board = view.html.indexOf('class="fd-wagers-picks');
-  assert.ok(head >= 0 && head < rack && rack < board, "painting, then the rack, then the board");
-  assert.ok(rack < view.html.indexOf("</header>"), "the rack sits inside the head pane");
+  const table = view.html.indexOf('<section class="fd-table ');
+  const rack = view.html.indexOf('<section class="fd-wagers-rack is-seat"');
+  assert.ok(head >= 0 && head < table && table < rack, "painting, then the table, then your seat");
+  assert.ok(rack > view.html.indexOf("</header>"), "the seat is no longer inside the head pane");
+  assert.ok(view.html.indexOf('class="fd-wagers-history') < 0 || view.html.indexOf('class="fd-wagers-history') < rack,
+    "the seat is last in the page's flow, so scrolling to the end uncovers everything above it");
   /* every denomination is the chip lamp's amber, never the viewer's identity color */
   const coins = [...view.html.matchAll(/class="fd-coin3d[^"]*"[^>]*style="--coin-color:([^"]+)"/g)].map(m => m[1]);
   assert.ok(coins.length >= 1 && coins.every(color => color === "var(--sun)"), `rack coins are amber: ${coins}`);
   assert.match(view.html, /<circle cx="16" cy="16" r="14.7" fill="var\(--sun\)"/, "the coin's face is the pot's own chip");
+  /* a rack chip is a tap target and a drag source (touch-action none) */
+  assert.match(view.html, /<button type="button" data-fly-coin="" style="touch-action:none" aria-pressed="true" aria-label="Bet 100 a tap"/);
+  /* the readout says what is left to bet: 2,500 standing, its cap half of that in 100s */
+  assert.match(view.html, /class="fd-wagers-meter-room"[^>]*><strong><span class="fd-reel is-chip" role="img" aria-label="1,200"/);
   /* the open market's state is read aloud; the painting is the way into the event */
   assert.match(view.html, /<span class="fd-sr" role="status">Betting open<\/span>/);
   assert.ok(view.named(`${evOf(state, "8ball").name}: Full bracket`), "the painting opens the bracket");
 });
 
-test("a side nobody backs is one lit seat: the only place target, no hollow pot or 0", () => {
+test("a side nobody backs is still a whole spot: its seed's share, one place target, what the first chip brings back", () => {
   const state = structuredClone(EMPTY_STATE);
   ROSTER.forEach(player => act(state, "adjust", { player, delta:1500, reason:"Test" }));
   act(state, "announceAndDraw", { evId:"8ball", players:ROSTER.slice(0, 12) });
@@ -485,49 +500,48 @@ test("a side nobody backs is one lit seat: the only place target, no hollow pot 
   bet(state, "8ball", bystanders[0], 1, 300);
   const view = phoneBoard(state, bystanders[1], "8ball");
   const empty = contest.sides[0].players.join(" & "), backed = contest.sides[1].players.join(" & ");
-  assert.equal(view.html.split('class="fd-wagers-open"').length - 1, 1, "the empty side is one seat");
-  assert.equal(view.buttons.filter(b => b.name === `Place a chip on ${empty}`).length, 1, "one place target on it");
-  assert.equal(view.buttons.filter(b => b.name === `Place a chip on ${backed}`).length, 1, "the backed side keeps its +");
-  assert.doesNotMatch(view.html, /fd-wagers-seat|fd-wagers-pot-total[^"]*">0</, "no void felt, no hollow 0");
-  /* every card keeps one shape: the seat spans the pot's rows */
-  assert.match(view.html, /<div class="fd-wagers-felt is-open"[^>]*><button[^>]*class="fd-wagers-open"/);
-  /* the backed side's well is a lit slot, never a solid amber button */
-  assert.match(view.html, /<button[^>]*class="fd-wagers-well is-lit"/);
-  assert.doesNotMatch(view.html, /fd-wagers-place/);
+  assert.equal(view.buttons.filter(b => b.name === `Place 100 on ${empty}`).length, 1, "one place target on it");
+  assert.equal(view.buttons.filter(b => b.name === `Place 100 on ${backed}`).length, 1, "and one on the backed side");
+  const table = tableView(state, allEventsOf(state), contest, bystanders[1]);
+  const [quiet, lit] = table.spots;
+  /* the bank's seed keeps an unbacked spot's fill above the floor: never a hollow 0 */
+  assert.ok(quiet.pct > 0 && fillLevel(quiet.share) > 0);
+  assert.match(view.html, new RegExp(`data-spot="${quiet.key}" role="group" aria-label="[^"]+: ${quiet.pct}% of the pool" style="--fill:${fillLevel(quiet.share)}"`));
+  assert.ok(lit.pct > quiet.pct, "the backed spot's fill stands higher");
+  /* each open spot says what the next chip brings back, priced into the pool */
+  for (const spot of table.spots)
+    assert.match(view.html, new RegExp(`<span class="fd-spot-back" aria-hidden="true">100 → ${nextBack(spot, table, 100).toLocaleString("en-US")}</span>`));
+  assert.ok(nextBack(quiet, table, 100) > nextBack(lit, table, 100), "the empty side pays more");
+  assert.doesNotMatch(view.html, /fd-spot-mine|fd-spot-count/, "no stack of yours, and no grid count");
 });
 
-test("the competitor out-letters its backers, the payout is a lit lamp, a self-bet takes the filament", () => {
+test("a spot letters its competitors, the pool heads the felt, a self-bet takes the filament", () => {
   const { state, contest, bystanders } = bracketWithBets();
   const spectator = phoneBoard(state, bystanders[8], "8ball").html;
-  /* a pair's two competitors are lettered in the show face over their faces */
-  for (const player of contest.sides[0].players)
-    assert.match(spectator, new RegExp(`class="fd-wagers-pair-name"[^>]*>${player}<`));
-  assert.match(spectator, /class="fd-wagers-picks is-id-pair"/, "the board sizes its identity row for pairs");
-  /* the board's head: the pool, seed included (200 + 3,500 staked) */
-  assert.match(spectator, /<span class="fd-wagers-pays is-pool"><i class="fd-insert" aria-hidden="true"><\/i>Pool<span class="fd-reel is-chip is-slim" role="img" aria-label="3,700">/);
+  /* an unnamed pair's two competitors are lettered under their faces */
+  for (const side of contest.sides)
+    assert.match(spectator, new RegExp(`<span class="fd-spot-name">${side.players.join(" &amp; ")}</span>`));
+  /* the felt's head: the pool, seed included (200 + 3,500 staked) */
+  assert.match(spectator, /<span class="fd-table-pool"><small>Pool<\/small><span class="fd-reel is-chip is-slim" role="img" aria-label="3,700">/);
   assert.doesNotMatch(spectator, /Winner pays/, "a pool says no fixed payout");
-  assert.doesNotMatch(spectator, /fd-wagers-payout/, "said once, on the board, not muted in the painting");
-  /* each side's price, a tap that teaches the pool: 3,700 over 2,100 is 1.7x, over 1,600 2.3x */
-  for (const price of ["1.7", "2.3"])
-    assert.match(spectator, new RegExp(`<button type="button" class="fd-side-pays-tap is-pool" aria-expanded="false" aria-label="Pays ${price.replace(".", "\\.")}×\\. How the pool pays"><span class="fd-price is-md " role="img" aria-label="Pays ${price.replace(".", "\\.")}×">`));
-  assert.match(spectator, /<svg class="fd-info-lamp"/, "the cyan info lamp says it opens something");
-  assert.doesNotMatch(spectator, /fd-price[^"]*is-long/, "2.3x is no long shot");
+  /* each spot's share of the room: 2,100 and 1,600 of 3,700 */
+  for (const pct of [57, 43]) assert.match(spectator, new RegExp(`role="img" aria-label="${pct}%"`));
+  assert.doesNotMatch(spectator, /is-long/, "2.3x is no long shot");
   /* a competitor backing their own side */
   const me = contest.sides[0].players[0];
   bet(state, "8ball", me, 0, 200);
   const mine = phoneBoard(state, me, "8ball").html;
-  assert.match(mine, /fd-wagers-pick has-price is-mine has-chips is-your-side is-self-bet/);
-  assert.match(mine, /class="fd-wagers-pick-role is-backed"><i class="fd-insert" aria-hidden="true"><\/i>Your team</);
-  assert.match(mine, /class="fd-wagers-stack is-you"/);
-  assert.match(mine, /class="fd-stack-ring"/, "your chips' ring under your stack");
-  /* the other team: no well, an unlit slot with a lock that says why, and
-     under it, in your filament, "Yours" pointing at your own side */
-  assert.match(mine, /class="fd-wagers-well is-locked is-point-back" role="img" aria-label="Opponent: You can only bet on your team in this match\."/);
-  assert.match(mine, /class="fd-wagers-well-pointer" aria-hidden="true"><svg[^>]*>.*?<\/svg>Yours<\/span>/);
-  /* your stack's name line is what it wins now: 3,900 over 2,300 is 1.6x, 200 nets 120 (100) */
-  assert.match(mine, /class="fd-wagers-stack-name is-win" aria-label="Wins 100 at 1\.6×">\+100</);
-  assert.equal((mine.match(/fd-wagers-stack-name is-win/g) || []).length, 1, "only your own stack");
-  assert.match(mine, /To win at 1\.6×/, "the ledger's pending line reads the price");
+  assert.match(mine, new RegExp(`<div class="fd-spot is-match is-mine is-own-side is-open" data-spot="${contest.sides[0].key}"`));
+  assert.match(mine, /class="fd-spot-mine"[^>]*>.*?class="fd-stack is-mine"/, "your chips stand ringed");
+  /* the other team: no place target, a lock that says why, and "Yours" pointing back at your own side */
+  assert.match(mine, /<span class="fd-spot-lock is-point-back" role="img" aria-label="You can only bet on your team in this match\."><svg[^>]*>.*?<\/svg><span class="fd-spot-yours"><svg[^>]*>.*?<\/svg>Yours<\/span><\/span>/);
+  assert.doesNotMatch(mine, new RegExp(`Place 100 on ${contest.sides[1].players.join(" &amp; ")}`));
+  /* your spot reads what your chips bring back at its price now: 3,900 over 2,300 is 1.6x, 200 nets 100 */
+  const spot = tableView(state, allEventsOf(state), resolveCurrentContest(state, evOf(state, "8ball")), me).spots[0];
+  assert.equal(spot.back, 300);
+  assert.match(mine, /<span class="fd-spot-back is-you" aria-label="Your 200 brings back 300">200 → 300<\/span>/);
+  assert.equal((mine.match(/fd-spot-back is-you/g) || []).length, 1, "only your own spot");
+  assert.match(mine, /<small>To win<\/small><strong>\+100<\/strong>/, "the ledger's open line says what it wins");
 
   /* a contest opened before pools keeps the lit fixed payout */
   const legacy = structuredClone(EMPTY_STATE);
@@ -536,6 +550,8 @@ test("the competitor out-letters its backers, the payout is a lit lamp, a self-b
   const old = phoneBoard(legacy, ROSTER[12], "8ball").html;
   assert.match(old, /<span class="fd-wagers-pays"><i class="fd-insert" aria-hidden="true"><\/i>Winner pays 1:1<\/span>/);
   assert.doesNotMatch(old, /fd-wagers-pays is-pool|fd-price/);
+  /* a fixed 1:1 doubles the chip: the next 100 brings back 200 */
+  assert.match(old, /<span class="fd-spot-back" aria-hidden="true">100 → 200<\/span>/);
 });
 
 /* X8 on a bet card is drawn to fit its row by construction (the fit

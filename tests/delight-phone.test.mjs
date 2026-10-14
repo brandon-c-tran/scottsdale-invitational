@@ -405,12 +405,15 @@ test("contests you played in or bet on vibrate once when they settle; correction
 
 test("haptics hook the guest paths and never the TV", () => {
   const app = readFileSync(new URL("../src/App.jsx", import.meta.url), "utf8");
-  const wagers = readFileSync(new URL("../src/features/wagers/Wagers.jsx", import.meta.url), "utf8");
+  /* the chip engine every betting spot shares (moved out of Wagers.jsx, Oct 13) */
+  const chips = readFileSync(new URL("../src/features/wagers/useChipActions.js", import.meta.url), "utf8");
   assert.match(app, /setHapticSurface\(tv \? "tv" : "phone"\)/);
   assert.match(app, /if \(!tv\) haptic\("pick"\)/);
   assert.match(app, /tv \? null : updateHaptic\(prev, next/);
   assert.match(app, /<VibrationToggle \/>/);
-  assert.match(wagers, /haptic\(kind === "place" \? "place" : "retract"\)/);
+  /* the buzz answers the acknowledgement (a saved write, or a settled uncertain one), never the tap */
+  assert.match(chips, /else if \(result\?\.ok === true\) \{ saved = true; haptic\(kind === "place" \? "place" : "retract"\);/);
+  assert.match(chips, /if \(outcome\?\.ok === true\) \{ haptic\(kind === "place" \? "place" : "retract"\);/);
   const tv = readFileSync(new URL("../src/features/tv/TVMode.jsx", import.meta.url), "utf8");
   assert.doesNotMatch(tv, /haptic|vibrate/);
 });

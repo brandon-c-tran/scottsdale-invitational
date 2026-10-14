@@ -20,6 +20,7 @@ import { OneSafe } from "../../ui/OneSafe.jsx";
 import { useFreshChange } from "../../lib/motion.js";
 import { playSound } from "../../lib/sound.js";
 import { RenameText } from "../teams/RenameText.jsx";
+import { ordinal } from "../standings/winImpact.js";
 import { ChipStack, groupChip } from "./BetStacks.jsx";
 import { groupStacks, stackChipCount, stackName } from "./betStacks.js";
 import { backLine, fillLevel, fmtChips, nextBack } from "./tableModel.js";
@@ -56,6 +57,30 @@ export const tableDrag = {
   cancel() { drag = null; emit(); },
 };
 
+/* X8 on a spot, drawn so it fits its one row by construction: "Win",
+   then who climbs (only when it is not the whole side, which the card
+   already names: their faces, two at most and a count), then where to, as
+   an up arrow and the place ("4th", "Tie 4th"), or the chips it posts
+   ("+400"). The sentence is the accessible name. */
+const WIN_FACES = 2;
+export function BetWin({ state, line, side, inline = false }) {
+  if (!line?.text) return null;
+  const movers = line.players || [];
+  const whole = movers.length >= side.length;
+  const shown = whole ? [] : movers.slice(0, WIN_FACES);
+  const extra = whole ? 0 : movers.length - shown.length;
+  return <span className={`fd-wagers-win${inline ? " is-inline" : ""}${line.kind === "rank" ? " is-rank" : " is-chips"}`}
+    role="img" aria-label={line.text}>
+    <small>Win</small>
+    {shown.length > 0 && <span className="fd-wagers-win-faces">
+      {shown.map(player => <Avatar key={player} state={state} p={player} size={20} />)}
+      {extra > 0 && <span className="fd-wagers-win-more">+{extra}</span>}</span>}
+    {line.kind === "rank"
+      ? <b className="fd-wagers-win-rank"><Icon name="up" size={14} />{line.tied ? "Tie " : ""}{ordinal(line.rank)}</b>
+      : <b className="fd-wagers-win-chips">+{fmtChips(line.award)}</b>}
+  </span>;
+}
+
 /* stacks a spot stands, by layout: a matchup's spot a full row, a row's
    spot two, a grid spot only its bettor count */
 const SPOT_STACKS = { match:4, row:2, grid:0 };
@@ -63,7 +88,7 @@ const SPOT_CHIP = { match:30, row:22, grid:0 };
 
 export function Spot({ spot, table, state, me, contestLabel, name, named = false, marketOpen, canPick, onPick, onRetract,
   onPlayer, tapStake, denoms, capLabel = null, unavailableReason = null, pointer = null, roleLabel = null, shape, settled = null,
-  bets = null }) {
+  bets = null, winLine = null, winSlot = false }) {
   const mineRef = useRef(null), anchorRef = useRef(null);
   /* your open records on this side (`bets`: the side's pending lines, a
      legacy ticket without a contest id included), oldest chip first, so
@@ -132,6 +157,10 @@ export function Spot({ spot, table, state, me, contestLabel, name, named = false
             : showNames ? <span className="fd-spot-name">{spot.players.map(p => stackName(state, p)).join(" & ")}</span>
               : <span className="fd-spot-name">{name}</span>)}
         </div>
+        {/* X8: what this side's win does to the standings; every spot of
+            a board keeps the row once any side has a line, so they stay level */}
+        {winSlot && shape !== "grid" && !settled && <div className="fd-spot-win">
+          <BetWin state={state} line={winLine} side={spot.players} inline={shape === "row"} /></div>}
         <div className="fd-spot-pct" aria-hidden="true">
           <ScoreReel value={spot.pct} tone={spot.long ? "chip" : null} slim={shape !== "match"} label={pctLabel} />
           <span className="fd-spot-pct-sign">%</span>

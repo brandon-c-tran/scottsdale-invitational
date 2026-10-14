@@ -237,14 +237,19 @@ test("chip ink is computed for contrast; the measured failures now use the dark 
 });
 
 /* ── the bets rack never covers the board ── */
-test("the bets rack sits at the board's head, in the page's flow, never over the board", () => {
-  /* Oct 3: the rack is the lower glass of the board's head pane, above the
-     board, so no pot total, + or backer is under it at any scroll position */
+test("the bets rack is your seat: last in the page's flow, docked by sticky, never fixed over the board", () => {
+  /* Oct 13: the rack docks along the bottom as your seat. It is the page's
+     last section, after the table and the ledgers, and sticks rather than
+     floats: scrolled to the end it sits in its own place, so nothing on the
+     table or the ledger is ever left under it */
   const wagers = read("src/features/wagers/Wagers.jsx");
-  assert.match(wagers, /<header className=\{`fd-wagers-event-heading[\s\S]*className=\{`fd-wagers-rack[\s\S]*<\/header>[\s\S]*fd-wagers-picks/);
-  const css = read("src/features/wagers/wagers.css");
-  assert.doesNotMatch(css, /\.fd-wagers-rack \{[^}]*position:(fixed|sticky)/);
-  assert.doesNotMatch(css, /\.fd-wagers-rack \{[^}]*bottom:/);
+  assert.match(wagers, /<\/header> : <PageHeading title="Bets" \/>\}[\s\S]*<BetTable [\s\S]*className="fd-wagers-history"[\s\S]*className=\{`fd-wagers-rack is-seat[\s\S]*<DragChip me=\{me\} \/>\s*<\/div>;/);
+  assert.doesNotMatch(wagers.slice(wagers.indexOf("fd-wagers-event-heading"), wagers.indexOf("</header>")), /fd-wagers-rack/,
+    "the rack is out of the head pane");
+  const table = read("src/features/wagers/table.css");
+  assert.match(table, /\.fd-wagers-rack\.is-seat \{[^}]*position:sticky; bottom:calc\(var\(--fd-nav-height/, "docked over the tab bar");
+  const css = read("src/features/wagers/wagers.css") + table;
+  assert.doesNotMatch(css, /\.fd-wagers-rack[^{]*\{[^}]*position:fixed/);
 });
 
 /* ── dev previews ── */

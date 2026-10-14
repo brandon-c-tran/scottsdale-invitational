@@ -22,6 +22,7 @@ import { playSound } from "../../lib/sound.js";
 import { RenameText } from "../teams/RenameText.jsx";
 import { ordinal } from "../standings/winImpact.js";
 import { ChipStack, groupChip } from "./BetStacks.jsx";
+import { Sheet } from "../../ui/controls.jsx";
 import { groupStacks, stackChipCount, stackName } from "./betStacks.js";
 import { backLine, fillLevel, fmtChips, nextBack } from "./tableModel.js";
 import { useChipActions } from "./useChipActions.js";
@@ -119,6 +120,7 @@ export function Spot({ spot, table, state, me, contestLabel, name, named = false
   /* the % rolls only for a fresh change; a moved % stays lit until shown */
   const moved = useFreshChange(spot.pct, `${table.contestId}:${spot.key}`);
   const [lit, setLit] = useState(false);
+  const [listOpen, setListOpen] = useState(false);
   useEffect(() => {
     if (!moved.animate) return undefined;
     setLit(true);
@@ -199,9 +201,11 @@ export function Spot({ spot, table, state, me, contestLabel, name, named = false
             <ChipStack p={item.player} stake={item.stake} size={SPOT_CHIP[shape]} tag={false} tower
               paid={settled === "won" ? item.paid || 0 : 0} settle={settled === "won" ? "won" : null} />
           </button>)}
-          {pile?.rest && <span className="fd-spot-stack is-group" role="img" aria-label={`${pile.rest.count} more on ${name}`}>
+          {/* the smallest backers past the spot's stacks, as one "+N" pile: a tap lists everyone */}
+          {pile?.rest && <button type="button" className="fd-spot-stack is-group" onClick={() => setListOpen(true)}
+            aria-label={`All ${spot.stacks.length} backing ${name}`} aria-description={`${pile.rest.count} more: ${fmtChips(pile.rest.total)} chips`}>
             <ChipStack chip={groupChip(pile.rest.count)} count={stackChipCount(pile.rest.total)} size={SPOT_CHIP[shape]} tag={false} tower />
-          </span>}
+          </button>}
           {shape === "grid" && stacks.length > 0 && <span className="fd-spot-count" aria-label={`${stacks.length} backing ${name}`}>
             {stacks.length}</span>}
         </div>
@@ -212,6 +216,14 @@ export function Spot({ spot, table, state, me, contestLabel, name, named = false
       {over && <span className="fd-spot-drop" aria-hidden="true">{backLine(spot.mine + previewStake, preview)}</span>}
       {checking && <span className="fd-spot-note" role="status">Checking…</span>}
       {actionError && !checking && <span className="fd-spot-note is-error" role="alert">{actionError}</span>}
+      {listOpen && <Sheet title={name} onClose={() => setListOpen(false)} className="fd-spot-backers-sheet">
+        <ol className="fd-spot-backers">{spot.stacks.map(item => <li key={item.player}>
+          <button type="button" disabled={!onPlayer} onClick={() => onPlayer?.(item.player)}
+            aria-label={`View ${disp(state, item.player)}'s player card (${fmtChips(item.stake)} chips)`}>
+            <Avatar state={state} p={item.player} size={32} />
+            <span>{item.player === me ? "You" : disp(state, item.player)}</span><b>{fmtChips(item.stake)}</b>
+          </button></li>)}</ol>
+      </Sheet>}
 
     </div>
   );

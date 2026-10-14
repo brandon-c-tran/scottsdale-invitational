@@ -128,6 +128,16 @@
 .fd-spot.is-lost .fd-spot-chips > * { animation:fd-spot-rake 700ms var(--ease-in, ease-in) 700ms both; }
 @keyframes fd-spot-rake { to { opacity:0; transform:translate(-40px, -30px) scale(.6); } }
 
+/* everyone backing a side, from its "+N" pile */
+.fd-spot-backers { margin:0; padding:0 4px 12px; list-style:none; }
+.fd-spot-backers button { display:flex; align-items:center; gap:12px; width:100%; min-height:52px; margin:0; padding:6px 8px; border:0;
+  border-bottom:1px solid var(--line); background:none; color:var(--ink); font:600 16px/1.2 var(--fd-body); text-align:left; cursor:pointer; }
+.fd-spot-backers button span { flex:1; min-width:0; }
+.fd-spot-backers b { color:var(--sun); font:800 18px/1 var(--fd-display); font-variant-numeric:tabular-nums; }
+/* a team past three: its faces wrap in rows, each its own target, none overlapping */
+.fd-spot-faces.is-many { flex-wrap:wrap; gap:2px; max-width:100%; }
+.fd-spot-faces.is-many .fd-spot-face + .fd-spot-face { margin-left:0; }
+
 /* the grid's focus line: the spot you are on, said once under the grid */
 .fd-table-focus { display:flex; align-items:baseline; gap:10px; min-height:22px; margin:8px 4px 0; color:var(--ink); font:800 15px/1.2 var(--fd-display);
   letter-spacing:.02em; font-variant-numeric:tabular-nums; }

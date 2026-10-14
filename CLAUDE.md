@@ -343,6 +343,28 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   (`shared/qaSim.js` `roomBet`, `roomFavorite`): mostly the favorite by the
   standings, some a long shot, rack chips 100/200/500/1,000 inside the cap.
   `tests/pool.test.mjs` covers it, with a room of 13 on one contest.
+- **The table (Oct 13, "your seat at the table", Brandon's pick)**: every
+  betting screen is one printed felt with a spot per side
+  (`features/wagers/BetTable.jsx` on the pure `tableModel.js`; the TV's
+  `features/tv/TVTable.jsx` on `tvTable.js`). Odds are split by job: a
+  spot's % is the room's (its share of the pool, seed included,
+  `sharePcts`), drawn as an amber fill rising to that share (`fillLevel`);
+  what a chip pays rides the chip ("300 → 1,020", what comes back,
+  `mineBack`/`nextBack`); the × only stamps "Paid 4.1×" when a long shot
+  (price ≥ 3) wins. Shapes (`tableShape`): two big spots for a match, a row
+  for 3 to 6 sides, a 7-wide grid for 7+ (13 = 7 + 6, the grid's focus line
+  names the spot you are on). Spots never move; the fill does. A spot is
+  the bet (`button.fd-spot-hit` under its printed content); faces open
+  cards; your stack takes back your newest chip; the "+N" pile lists every
+  backer. The rack docks as your seat at the board's foot; a rack chip
+  dragged over the spots previews what it brings back and drops at its own
+  value (`tableDrag`). The chip write engine is `useChipActions.js` (one
+  write at a time, the place queue, Checking…, flights). The dealer is the
+  gags' glove (`DealerGlove.jsx`): it sweeps "No more bets" at lock
+  (phones on a fresh frame, the TV from `bettingLockedAt` on the server
+  clock) and rakes the losers on a result while the winner floods and
+  stamps WON. Home's contest card shows each side's `SharePip`; You're up
+  says your side's share ("29% of the pool").
 - **Before the draw (v3.1)**: the director pill never runs a draw of
   people directly. A team draw, heats or a captains draft (and the Random
   draw / Captains draft alternatives) open `features/director/CrewCheck.jsx`

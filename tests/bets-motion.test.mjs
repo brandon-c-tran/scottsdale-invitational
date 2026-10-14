@@ -108,7 +108,8 @@ test("P1: the TV felt and the phone board render every bettor or a +N group, the
      stacks biggest first, then the rest as one "+N" pile; the pool heads the felt */
   assert.equal((html.match(/data-stack-player=/g) || []).length, 3, "three backers' stacks, then the pile");
   assert.deepEqual(stackAmounts(html), ["800", "700", "600"]);
-  assert.match(html, /<span class="fd-spot-stack is-group" role="img" aria-label="5 more on [^"]+">/);
+  /* the +N pile is a button that lists every backer, its fold named in its description */
+  assert.match(html, /<button type="button" class="fd-spot-stack is-group" aria-label="All [0-9]+ backing [^"]+" aria-description="5 more: [^"]+">/);
   assert.match(html, /class="fd-table-pool"><small>Pool<\/small><span class="fd-reel[^"]*" role="img" aria-label="3,800"/);
   assert.doesNotMatch(html, /fd-stack-tag|has-tag|fd-stack-fan/);
 });
@@ -123,17 +124,17 @@ test("P1: your own stack stands first on its spot and never folds into N more", 
       wagerEv:evOf(state, "8ball"), onEvents() {}, onEvent() {}, onPick() {}, onRetract() {}, onPlayer() {} })));
   const spectator = render(bystanders[8]);
   assert.deepEqual(stackAmounts(spectator), ["800", "700", "600"]);
-  assert.match(spectator, /aria-label="5 more on [^"]+"/);
+  assert.match(spectator, /aria-description="5 more: [^"]+"/);
   /* yours stands first, ringed, and everyone else keeps biggest-first behind it */
   const mid = render(bystanders[6]);
   assert.match(mid, /<div class="fd-spot-chips"><button type="button" class="fd-spot-mine" aria-label="Retract your last chip on [^"]+"[^>]*><span class="fd-stack is-mine"/);
   assert.deepEqual(stackAmounts(mid), ["800", "600", "500"]);
-  assert.match(mid, /aria-label="4 more on [^"]+"/);
+  assert.match(mid, /aria-description="4 more: [^"]+"/);
   /* the 100 bettor would fold into the pile; their stack never does */
   const smallest = render(bystanders[0]);
   assert.match(smallest, /class="fd-spot-mine" aria-label="Retract your last chip on [^"]+" aria-description="Remove 100 chips; 100 total on this pick"/);
   assert.deepEqual(stackAmounts(smallest), ["800", "700", "600"]);
-  assert.match(smallest, /aria-label="4 more on [^"]+"/);
+  assert.match(smallest, /aria-description="4 more: [^"]+"/);
   assert.equal((smallest.match(/data-stack-player=/g) || []).length, 4, "your stack and three others");
 });
 

@@ -499,6 +499,13 @@ test("the TV teaches the first pool once: in its face-off on the long shot, then
   assert.match(sides[1 + longSide], /tv-faceoff-teach/, "the stamp stands under the long shot");
   assert.doesNotMatch(sides[2 - longSide], /tv-faceoff-teach/);
   assert.doesNotMatch(face(s, contest, false), /tv-faceoff-teach/);
+  /* each side's terms are the room's % (the table's own number), never the x price */
+  const pcts = [...taught.matchAll(/class="tv-faceoff-terms tv-faceoff-pct"><span class="tvt-pct[^"]*"[^>]*><span class="fd-reel[^"]*" role="img" aria-label="(\d+)%"/g)]
+    .map(m => Number(m[1]));
+  assert.equal(pcts.length, 2, "a % under each side");
+  assert.equal(pcts[0] + pcts[1], 100);
+  assert.ok(pcts[longSide] < pcts[1 - longSide], "the long shot holds the smaller share");
+  assert.doesNotMatch(taught, /class="tv-terms is-price/);
   /* legacy: the underdog's stamp and drawing */
   const oldFace = face(old, current(old, "die"), true);
   assert.match(oldFace, /aria-label="Underdog: winner pays 2:1"/);

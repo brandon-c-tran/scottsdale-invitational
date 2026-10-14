@@ -1,0 +1,194 @@
+/* The table (Oct 13): one printed felt on the glass, a spot per side. The
+   felt's print is bone hairlines (a double rule, like a layout's border);
+   a spot's fill is the chips lamp's amber rising to its share of the pool;
+   yours wears the filament; the long shot's % is lit amber. */
+.fd-table { position:relative; margin:10px 0 14px; padding:10px 10px 8px; border-radius:16px;
+  background:var(--lg-fall), var(--paper); box-shadow:var(--glass-edge), inset 0 0 0 1px var(--line); }
+/* the layout's inner rule */
+.fd-table::before { content:""; position:absolute; inset:5px; border-radius:12px; pointer-events:none;
+  box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--bone) 7%, transparent); }
+.fd-table-head { position:relative; display:flex; align-items:center; justify-content:space-between; gap:12px; min-height:30px; margin:0 4px 8px; }
+.fd-table-label { margin:0; min-width:0; color:var(--ink); font:800 15px/1.1 var(--fd-display); letter-spacing:.08em; text-transform:uppercase; }
+.fd-table-pool { display:inline-flex; align-items:center; gap:8px; margin-left:auto; color:var(--sun); white-space:nowrap; }
+.fd-table-pool small { color:var(--muted2); font:800 12px/1 var(--fd-display); letter-spacing:.12em; text-transform:uppercase; }
+.fd-table-pool .fd-reel { font:900 18px/1 var(--fd-display); }
+
+.fd-table-felt { position:relative; display:grid; gap:8px; }
+.fd-table.is-match .fd-table-felt { grid-template-columns:repeat(2, minmax(0, 1fr)); }
+.fd-table.is-row .fd-table-felt { grid-template-columns:repeat(var(--cols, 3), minmax(0, 1fr)); gap:6px; }
+.fd-table.is-grid .fd-table-felt { grid-template-columns:repeat(7, minmax(0, 1fr)); gap:5px; }
+
+/* ── a spot ── */
+.fd-spot { --fill:0; position:relative; isolation:isolate; overflow:hidden; border-radius:12px; min-width:0;
+  background:color-mix(in srgb, var(--bg) 55%, var(--paper2)); box-shadow:inset 0 0 0 1.5px color-mix(in srgb, var(--bone) 16%, transparent);
+  transition:box-shadow var(--motion-fast, 160ms) var(--ease-out), transform var(--motion-fast, 160ms) var(--ease-out); }
+.fd-spot.is-match { min-height:252px; }
+.fd-spot.is-row { min-height:198px; border-radius:10px; }
+.fd-spot.is-grid { min-height:98px; border-radius:9px; }
+/* the fill: the side's share, rising from the floor of the spot with a lit
+   meniscus at its top; it eases when money lands */
+.fd-spot-fill { position:absolute; left:0; right:0; bottom:0; z-index:0; height:calc(var(--fill) * 100%);
+  background:linear-gradient(to top, color-mix(in srgb, var(--sun) 24%, transparent), color-mix(in srgb, var(--sun) 9%, transparent));
+  border-top:2px solid color-mix(in srgb, var(--sun) 72%, transparent);
+  box-shadow:0 -8px 16px -10px color-mix(in srgb, var(--sun) 70%, transparent);
+  transition:height var(--motion-row, 560ms) var(--ease-out); }
+.fd-spot.is-long .fd-spot-fill { border-top-color:var(--sun); background:linear-gradient(to top, color-mix(in srgb, var(--sun) 34%, transparent), color-mix(in srgb, var(--sun) 12%, transparent)); }
+/* the whole spot is the bet */
+.fd-spot-hit { position:absolute; inset:0; z-index:1; margin:0; padding:0; border:0; border-radius:inherit; background:none; cursor:pointer;
+  -webkit-tap-highlight-color:transparent; }
+.fd-spot-hit:focus-visible { outline:2px solid var(--sun); outline-offset:-3px; }
+.fd-spot-hit:active { background:color-mix(in srgb, var(--sun) 7%, transparent); }
+.fd-spot-hit:disabled { cursor:progress; }
+.fd-spot-ink { position:relative; z-index:2; display:flex; flex-direction:column; align-items:center; gap:6px; height:100%;
+  min-height:inherit; box-sizing:border-box; padding:10px 8px 10px; pointer-events:none; text-align:center; }
+.fd-spot-ink button { pointer-events:auto; }
+.fd-spot.is-grid .fd-spot-ink { gap:3px; padding:6px 2px 6px; }
+.fd-spot.is-row .fd-spot-ink { gap:5px; padding:8px 4px 8px; }
+
+.fd-spot-who { display:flex; flex-direction:column; align-items:center; gap:5px; min-width:0; max-width:100%; }
+.fd-spot-faces { display:flex; justify-content:center; gap:4px; }
+.fd-spot-faces.is-many { gap:0; }
+.fd-spot-faces.is-many .fd-spot-face + .fd-spot-face { margin-left:-8px; }
+.fd-spot-face { display:inline-flex; margin:0; padding:2px; border:0; border-radius:99px; background:none; cursor:pointer; }
+.fd-spot-face:disabled { cursor:default; }
+.fd-spot-face:focus-visible { outline:2px solid var(--lamp-info); outline-offset:1px; }
+.fd-spot-name { display:block; max-width:100%; color:var(--ink); font:900 19px/1.05 var(--fd-show);
+  letter-spacing:.01em; text-transform:uppercase; overflow-wrap:anywhere; text-wrap:balance; }
+.fd-spot.is-row .fd-spot-name { font-size:14px; }
+
+/* the room's %: a reel, the sign a smaller plate after it */
+.fd-spot-pct { display:inline-flex; align-items:baseline; gap:.02em; color:var(--ink); font:900 54px/1 var(--fd-display); font-variant-numeric:tabular-nums; }
+.fd-spot.is-row .fd-spot-pct { font-size:34px; }
+.fd-spot.is-grid .fd-spot-pct { font-size:19px; margin-top:auto; }
+.fd-spot-pct .fd-reel { color:inherit; }
+.fd-spot-pct-sign { font-size:max(12px, .46em); font-weight:800; opacity:.8; }
+/* the % reads as printed on the felt: the reel rolls, but without window plates */
+.fd-spot-pct .fd-reel-cell { background:none; box-shadow:none; }
+.fd-spot-pct .fd-reel-cell::after { display:none; }
+.fd-spot.is-long .fd-spot-pct { color:var(--sun); text-shadow:0 0 16px color-mix(in srgb, var(--sun) 45%, transparent); }
+/* a % that just moved stays lit until it has been seen */
+.fd-spot.is-moved .fd-spot-pct { color:var(--sun); text-shadow:0 0 18px color-mix(in srgb, var(--sun) 55%, transparent);
+  transition:color 1.2s var(--ease-out) .6s, text-shadow 1.2s var(--ease-out) .6s; }
+
+/* what a chip brings back: yours in the filament, the next one quieter */
+.fd-spot-back { display:block; min-height:18px; color:var(--muted2); font:800 15px/1.2 var(--fd-display); letter-spacing:.02em;
+  font-variant-numeric:tabular-nums; white-space:nowrap; }
+.fd-spot.is-row .fd-spot-back { font-size:13px; }
+.fd-spot-back.is-you { color:var(--you); }
+.fd-spot-back.is-over { color:var(--sun); }
+.fd-spot-back.is-cap { color:var(--ink); }
+
+/* the chips standing on the spot */
+.fd-spot-chips { display:flex; flex-wrap:wrap; align-items:flex-end; justify-content:center; gap:4px; margin-top:auto; min-height:58px; }
+.fd-spot.is-row .fd-spot-chips { min-height:40px; gap:2px; }
+.fd-spot.is-grid .fd-spot-chips { min-height:24px; margin-top:2px; gap:2px; }
+.fd-spot-mine, .fd-spot-stack { display:inline-flex; align-items:flex-end; margin:0; padding:2px; border:0; background:none; cursor:pointer; }
+.fd-spot-stack:disabled { cursor:default; }
+.fd-spot-mine { border-radius:8px; }
+.fd-spot-mine:focus-visible, .fd-spot-stack:focus-visible { outline:2px solid var(--you); outline-offset:1px; }
+.fd-spot-count { display:inline-grid; place-items:center; min-width:18px; height:18px; padding:0 4px; border-radius:99px;
+  background:color-mix(in srgb, var(--sun) 22%, var(--bg)); color:var(--sun); font:800 12px/1 var(--fd-display); }
+
+/* yours: the filament keyline; your own side (a competitor) a fainter one */
+.fd-spot.is-mine { box-shadow:inset 0 0 0 2px var(--you), 0 0 18px -6px var(--you-bloom, color-mix(in srgb, var(--you) 50%, transparent)); }
+.fd-spot.is-own-side:not(.is-mine) { box-shadow:inset 0 0 0 1.5px color-mix(in srgb, var(--you) 45%, transparent); }
+/* a chip held over a spot lifts it and says what that chip brings back */
+.fd-spot.is-over { box-shadow:inset 0 0 0 2px var(--sun), 0 0 22px -6px color-mix(in srgb, var(--sun) 70%, transparent); transform:translateY(-2px); }
+.fd-spot-drop { position:absolute; left:50%; top:46%; z-index:4; translate:-50% -50%; padding:6px 10px; border-radius:99px; pointer-events:none;
+  background:var(--sun); color:var(--ink0); font:900 15px/1 var(--fd-display); white-space:nowrap; box-shadow:0 6px 16px -6px rgba(0,0,0,.7);
+  animation:fd-spot-pop var(--motion-stamp, 320ms) var(--ease-land, var(--ease-out)) both; }
+@keyframes fd-spot-pop { from { opacity:0; transform:scale(.8); } }
+/* a side closed to you: the fill dims, a lock in its corner, "Yours" pointing */
+.fd-spot.is-closed .fd-spot-fill { opacity:.55; }
+.fd-spot-lock { display:inline-flex; align-items:center; justify-content:center; gap:6px; min-height:18px; color:var(--muted2); }
+.fd-spot.is-grid .fd-spot-lock { min-height:0; }
+.fd-spot-yours { display:inline-flex; align-items:center; gap:2px; color:var(--you); font:800 12px/1 var(--fd-display); letter-spacing:.06em; text-transform:uppercase; }
+.fd-spot-note { position:absolute; left:6px; right:6px; bottom:6px; z-index:3; padding:4px 6px; border-radius:8px; background:var(--bg);
+  color:var(--muted2); font:600 12px/1.2 var(--fd-body); text-align:center; }
+.fd-spot-note.is-error { color:var(--clay-text); }
+/* a pending place: the spot breathes amber until the write answers */
+.fd-spot.is-pending-place .fd-spot-fill { animation:fd-spot-breathe 900ms ease-in-out infinite; }
+@keyframes fd-spot-breathe { 50% { filter:brightness(1.35); } }
+
+/* settled: the winner's fill floods, WON stamps; a loser's chips are raked */
+.fd-spot.is-won { box-shadow:inset 0 0 0 2px var(--green), 0 0 26px -8px var(--green); }
+.fd-spot.is-won .fd-spot-fill { height:100%; transition-duration:900ms; }
+.fd-spot-won { position:absolute; left:50%; top:42%; z-index:4; translate:-50% -50%; rotate:-8deg; padding:4px 12px; border:3px solid var(--green);
+  border-radius:8px; color:var(--green); font:900 30px/1 var(--fd-show); letter-spacing:.06em; background:color-mix(in srgb, var(--bg) 70%, transparent);
+  animation:fd-spot-stamp var(--motion-stamp, 320ms) var(--ease-land, var(--ease-out)) .5s both; }
+@keyframes fd-spot-stamp { from { opacity:0; transform:scale(1.6); } }
+.fd-spot.is-lost .fd-spot-fill { opacity:.3; transition:opacity 600ms ease .7s; }
+.fd-spot.is-lost .fd-spot-chips > * { animation:fd-spot-rake 700ms var(--ease-in, ease-in) 700ms both; }
+@keyframes fd-spot-rake { to { opacity:0; transform:translate(-40px, -30px) scale(.6); } }
+
+/* the grid's focus line: the spot you are on, said once under the grid */
+.fd-table-focus { display:flex; align-items:baseline; gap:10px; min-height:22px; margin:8px 4px 0; color:var(--ink); font:800 15px/1.2 var(--fd-display);
+  letter-spacing:.02em; font-variant-numeric:tabular-nums; }
+.fd-table-focus b { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:900; text-transform:uppercase; }
+.fd-table-focus-back { margin-left:auto; color:var(--sun); }
+.fd-table-focus.is-you .fd-table-focus-back { color:var(--you); }
+.fd-table-state { margin:8px 4px 0; color:var(--muted2); font:800 13px/1 var(--fd-display); letter-spacing:.1em; text-transform:uppercase; }
+
+/* "No more bets": the dealer's glove sweeps the felt, the words stamp */
+.fd-table-sweep { position:absolute; inset:-4px; z-index:6; display:grid; place-items:center; pointer-events:none; overflow:hidden; border-radius:12px;
+  animation:fd-sweep-dim 1900ms ease both; }
+@keyframes fd-sweep-dim { 0% { background:transparent; } 20%, 70% { background:color-mix(in srgb, var(--bg) 55%, transparent); } 100% { background:transparent; } }
+.fd-table-sweep-glove { position:absolute; left:0; top:50%; translate:0 -50%; animation:fd-sweep-glove 1100ms var(--ease-out) both; }
+@keyframes fd-sweep-glove { 0% { transform:translateX(-90px) rotate(-6deg); } 60% { transform:translateX(calc(100cqw - 20px)) rotate(4deg); }
+  100% { transform:translateX(calc(100cqw + 90px)) rotate(6deg); } }
+.fd-table-felt { container-type:inline-size; }
+.fd-table-sweep-words { color:var(--bone); font:900 30px/1 var(--fd-show); letter-spacing:.04em; text-transform:uppercase;
+  text-shadow:0 2px 0 var(--ink0), 0 0 22px color-mix(in srgb, var(--lamp-live) 50%, transparent);
+  animation:fd-sweep-words 1900ms var(--ease-land, var(--ease-out)) both; }
+@keyframes fd-sweep-words { 0%, 25% { opacity:0; transform:scale(1.4); } 40% { opacity:1; transform:scale(1); } 80% { opacity:1; } 100% { opacity:0; } }
+
+/* a side's share as a small spot (Home): the % over its fill */
+.fd-share-pip { --fill:0; position:relative; isolation:isolate; display:inline-flex; align-items:baseline; justify-content:center; gap:1px;
+  min-width:52px; padding:4px 8px 3px; overflow:hidden; border-radius:8px; color:var(--ink); font:900 18px/1 var(--fd-display);
+  font-variant-numeric:tabular-nums; box-shadow:inset 0 0 0 1.5px color-mix(in srgb, var(--bone) 16%, transparent); }
+.fd-share-pip small { font-size:12px; font-weight:800; opacity:.8; }
+.fd-share-pip-fill { position:absolute; left:0; right:0; bottom:0; z-index:-1; height:calc(var(--fill) * 100%);
+  background:color-mix(in srgb, var(--sun) 20%, transparent); border-top:2px solid color-mix(in srgb, var(--sun) 72%, transparent); }
+.fd-share-pip.is-long { color:var(--sun); }
+.fd-share-pip.is-mine { box-shadow:inset 0 0 0 2px var(--you); }
+
+/* the dealer's glove: the bits' keyline and paint */
+.fd-glove { display:block; overflow:visible; }
+.fd-glove.is-flip { transform:scaleX(-1); }
+.fd-glove-ink { fill:var(--ink0); stroke:var(--ink0); stroke-linecap:round; stroke-linejoin:round; }
+.fd-glove-ink[fill="none"] { fill:none; }
+.fd-glove-paint { fill:var(--bone); }
+.fd-glove-paint.is-cap { fill:none; stroke:var(--bone); stroke-linecap:round; stroke-linejoin:round; }
+.fd-glove-shade { fill:color-mix(in srgb, var(--bone) 70%, var(--art-violet, #4a2690)); }
+
+/* your seat: the rack docked over the tab bar, the table above it */
+.fd-wagers-rack.is-seat { position:sticky; bottom:calc(var(--fd-nav-height, 72px) + var(--fd-dock-h, 0px)); z-index:20; margin:0 -4px;
+  border:0; border-radius:14px 14px 0 0; background:var(--lg-fall), color-mix(in srgb, var(--paper) 94%, transparent);
+  box-shadow:var(--glass-edge), 0 -10px 24px -14px rgba(0,0,0,.85); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); }
+/* the drag: the chip under your finger */
+.fd-table-dragchip { position:fixed; z-index:200; pointer-events:none; translate:-50% -60%; filter:drop-shadow(0 8px 10px rgba(0,0,0,.6)); }
+
+/* settled: your line, and the long shot's price, lit but quiet */
+.fd-spot-back.is-lost { color:var(--clay-text); text-decoration:line-through; text-decoration-thickness:2px; }
+.fd-spot-paid { display:inline-block; margin-top:2px; padding:3px 8px; border-radius:99px; color:var(--sun); font:900 14px/1 var(--fd-display);
+  letter-spacing:.06em; text-transform:uppercase; box-shadow:inset 0 0 0 1.5px color-mix(in srgb, var(--sun) 70%, transparent), 0 0 14px -4px var(--sun);
+  animation:fd-spot-pop var(--motion-stamp, 320ms) var(--ease-land, var(--ease-out)) 1.1s both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .fd-spot-paid { animation:none; }
+  .fd-spot, .fd-spot-fill, .fd-spot.is-moved .fd-spot-pct { transition:none; }
+  .fd-spot-drop, .fd-spot-won, .fd-spot.is-lost .fd-spot-chips > *, .fd-spot.is-pending-place .fd-spot-fill { animation:none; }
+  .fd-table-sweep-glove { display:none; }
+  .fd-table-sweep, .fd-table-sweep-words { animation-duration:1ms; animation-delay:0s; }
+}
+
+/* the rake: once the table is decided, the dealer's glove pulls the losing
+   chips back across the felt to the bank */
+.fd-table-rake { position:absolute; inset:0; z-index:6; pointer-events:none; overflow:hidden; border-radius:12px; container-type:inline-size; }
+.fd-table-rake-glove { position:absolute; right:0; top:62%; translate:0 -50%; animation:fd-rake-glove 1200ms var(--ease-in-out, ease-in-out) 600ms both; }
+@keyframes fd-rake-glove { 0% { transform:translateX(80px); opacity:0; } 15% { opacity:1; } 85% { opacity:1; }
+  100% { transform:translateX(calc(-100cqw - 60px)); opacity:0; } }
+@media (prefers-reduced-motion: reduce) { .fd-table-rake { display:none; } }
+/* printed %: the digits sit tight, as type, while they still roll */
+.fd-spot-pct .fd-reel.fd-reel { gap:0; --reel-pad:0; --reel-h:1.12em; }
+.fd-spot-pct .fd-reel-cell { padding:0; }

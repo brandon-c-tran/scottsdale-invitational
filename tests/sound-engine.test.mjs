@@ -509,7 +509,7 @@ test("A3: one write, one beat: a rehearsal jump sounds only its newest intro and
   assert.deepEqual(room.roomCues(base, crowned, { now:400, reduced:true }).map(cue => cue.id), ["S1"]);
 });
 
-test("A3: a decided match on ADVANCE_TIMING; the crown on CROWN_TIMING; reduced motion is one summary sound", () => {
+test("A3: a decided match on ADVANCE_TIMING; the crown on CROWN_TIMING; reduced motion is one summary sound", async () => {
   const advance = { id:"c1", decidedAt:1_000, settle:{ winners:[{}], losers:[{}] } };
   const motion = { anchor:1_000, matches:[{ target:{ r:1, m:0, index:0 } }], hotTo:[1, 0] };
   assert.deepEqual(room.advanceCues(advance, motion).map(cue => [cue.id, cue.at - 1_000]), [
@@ -517,6 +517,13 @@ test("A3: a decided match on ADVANCE_TIMING; the crown on CROWN_TIMING; reduced 
     ["ride", ADVANCE_TIMING.ride - 60], ["land", ADVANCE_TIMING.land], ["upNow", ADVANCE_TIMING.upNow]]);
   assert.deepEqual(room.advanceCues({ ...advance, settle:null }).map(cue => cue.id), ["S10"], "a heat: WON only");
   assert.deepEqual(room.advanceCues(advance, motion, { reduced:true }).map(cue => cue.id), ["S10"]);
+  /* a long shot that won: its price lamp lights on the table with one stamp, on the table's own beat */
+  const upset = room.advanceCues({ ...advance, upset:4.1 }).map(cue => [cue.id, cue.at - 1_000]);
+  assert.deepEqual(upset.at(-1), ["stamp", room.SETTLE_SOUND.price]);
+  const table = await import("../src/features/tv/tvTable.js");
+  assert.deepEqual([table.SETTLE.rake, table.SETTLE.pay, table.SETTLE.paid], [room.SETTLE_SOUND.lose, room.SETTLE_SOUND.pay, room.SETTLE_SOUND.price],
+    "the table settles on the beats the room hears");
+  assert.equal(table.SETTLE.won, ADVANCE_TIMING.stamp, "WON stamps with S10");
   /* the produced crown (Backglass, Oct 2): night, the towers, one tower out
      per place from last up to 3rd, the hold, 2nd, the rise, the flood */
   const crown = room.crownCues({ id:"scene:x", anchor:50_000 }, { count:13 });

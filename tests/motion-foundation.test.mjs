@@ -309,7 +309,7 @@ test("the live indicators share the one beat", () => {
   assert.match(read("src/features/standings/Standings.jsx"), /fd-now-status"><i className="fd-beat-dot"/);
   assert.match(read("src/features/tv/tv.css"), /\.tv-status\.is-live i \{[^}]*animation:fd-beat-dot/);
   assert.doesNotMatch(read("src/features/tv/tv.css"), /si-pulse/);
-  assert.match(read("src/features/tv/TVMode.jsx"), /upNow && <i className="fd-beat-dot tv-beat"/);
+  assert.match(read("src/features/tv/TVTable.jsx"), /live && <i className="fd-beat-dot tv-beat"/);
 });
 
 /* ── HX: the iOS tap tick ── */

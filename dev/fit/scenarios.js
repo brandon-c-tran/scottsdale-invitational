@@ -480,6 +480,24 @@ function heatFinal() {
       winner:contest.sides[contest.sides.length - 1].key });
   return state;
 }
+/* The table's two moments on the TV (TVTable.jsx), on a state the room
+   reaches: Lock and start (the dealer's sweep, from bettingLockedAt), and
+   a contest decided by the winner's tap (the settle, from decidedAt).
+   `pick`: "long" decides for the board's long shot (an upset that pays its
+   price), else the first side. */
+function lockedTable(base, evId) {
+  const state = typeof base === "function" ? base() : fresh(base);
+  lockCurrent(state, evId);
+  return state;
+}
+function decidedTable(base, evId, { pick = "first" } = {}) {
+  const state = typeof base === "function" ? base() : fresh(base);
+  const live = lockCurrent(state, evId);
+  const pool = contestPool(state, live);
+  const winner = pick === "long" && pool ? pool.longshot : live.sides[0].key;
+  act(state, "recordContestWinner", { evId, contestId:live.id, contestRevision:live.revision, winner });
+  return state;
+}
 /* a bracket of nine seeded on a moved board: the byes sit at the bottom */
 function byeBracket() {
   const state = fresh("event:putt:done");
@@ -1183,6 +1201,20 @@ export const TV_SCENARIOS = Object.freeze([
   { id:"tv-felt-6-3", build:() => matchupBets(6, 3) },
   { id:"tv-felt-9-4", build:() => matchupBets(9, 4) },
   { id:"tv-felt-4-8", build:() => matchupBets(4, 8) },
+  /* the table's moments: the dealer's sweep at Lock and start (mid-sweep,
+     then the calm table in play), and a decided contest settling (the flood
+     and WON, then the losers raked and the winners paid; an upset's price
+     lamp; a heat's row; a big bracket's band) */
+  { id:"tv-lock-pairs", build:() => lockedTable(() => matchupBets(4, 3), "pickleball"), at:{ lock:900 }, pause:true, wait:400 },
+  { id:"tv-lock-ffa", build:() => lockedTable(ffaCrowd, "putt"), at:{ lock:900 }, pause:true, wait:400 },
+  { id:"tv-bracket13-lock", build:() => lockedTable(() => bracketOf(13), "bball1"), at:{ lock:900 }, pause:true, wait:400 },
+  { id:"tv-locked-pairs", build:() => lockedTable(() => matchupBets(4, 3), "pickleball"), at:{ lock:6000 } },
+  { id:"tv-settle-pairs-won", build:() => decidedTable(() => matchupBets(4, 3), "pickleball"), at:{ decided:500 }, pause:true, wait:400 },
+  { id:"tv-settle-pairs-paid", build:() => decidedTable(() => matchupBets(4, 3), "pickleball"), at:{ decided:2600 }, pause:true, wait:400 },
+  { id:"tv-settle-pairs-rake", build:() => decidedTable(() => matchupBets(4, 3), "pickleball"), at:{ decided:1100 }, pause:true, wait:400 },
+  { id:"tv-settle-upset", build:() => decidedTable(() => matchupBets(6, 2), "pickleball", { pick:"long" }), at:{ decided:2600 }, pause:true, wait:400 },
+  { id:"tv-settle-heats", build:() => decidedTable("event:beerio:open", "beerio"), at:{ decided:2600 }, pause:true, wait:400 },
+  { id:"tv-bracket13-settle", build:() => decidedTable(() => bracketOf(13), "bball1"), at:{ decided:2600 }, pause:true, wait:400 },
   { id:"tv-bust", build:() => fresh("poker:live"), moment:{ kind:"bust", t:1500, player:"Richard" } },
   { id:"tv-blinds", build:() => fresh("poker:live"), moment:{ kind:"blinds", t:1500 } },
   { id:"tv-nowplaying", build:() => walkoutRecord(fresh("event:putt:open"), "Richard"), at:{ walkout:12000 } },

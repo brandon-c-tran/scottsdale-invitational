@@ -160,6 +160,12 @@ function pickNow(state) {
     const gag = gagPlan(state, allEventsOf(state))[0];
     return (gag?.start || Date.now()) + (params.get("t") ? Number(params.get("t")) : bitInstant(bitById(gag?.bit), at.gag));
   }
+  /* the table's moments: `lock` ms after the newest Lock and start, `decided`
+     ms after the newest decided contest (features/tv/TVTable.jsx) */
+  if (at.lock !== undefined) return Math.max(0, ...Object.values(state.eventOps || {})
+    .map(op => Number(op?.bettingLockedAt) || 0)) + at.lock;
+  if (at.decided !== undefined) return Math.max(0, ...Object.values(state.eventOps || {})
+    .map(op => Number(op?.lastContest?.decidedAt) || 0)) + at.decided;
   /* `faceoff` ms after the live contest's face-off starts (the TV's teach windows) */
   if (at.faceoff !== undefined) {
     const ev = wagerBoardEvent(state, allEventsOf(state));

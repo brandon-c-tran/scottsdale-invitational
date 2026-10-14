@@ -292,8 +292,10 @@ test("bracket play shows the current match large with a strip, then an advances 
   act(state, "announceAndDraw", { evId:"pong", players:ROSTER.slice(0, 12) }, gm(false));
   act(state, "lockAndStart", { evId:"pong", ...ref(state, "pong") }, gm(false));
   const live = renderTv(state, { showControl:false });
-  assert.ok(live.includes("is-up-now"));
-  assert.ok(live.includes("tv-contest-head") && !live.includes("Up now · "), "the match by its name beside its lit lamp, no meta line");
+  /* the match is the table: its name printed in the felt's corner beside its live beat, no meta line */
+  assert.match(live, /<section class="tvt tv-glass is-match is-locked fd-lamp is-live"/);
+  assert.match(live, /class="tvt-label"><i class="fd-beat-dot tv-beat" aria-hidden="true"><\/i><span class="tvt-label-text">/);
+  assert.ok(!live.includes("Up now · "), "the match by its name beside its lit lamp, no meta line");
   assert.ok(live.includes("tv-bracket"), "the drawn bracket under the match");
   assert.ok(!live.includes("tv-ondeck"), "the header does not repeat the board");
   const contest = resolveCurrentContest(state, BUILTIN_EVENTS.find(e => e.id === "pong"));
@@ -302,7 +304,10 @@ test("bracket play shows the current match large with a strip, then an advances 
   const moment = advanceMoment(state, BUILTIN_EVENTS.find(e => e.id === "pong"), decidedAt + 1000);
   assert.equal(moment.verb, "Advance", "a pair takes the plural verb");
   assert.equal(advanceMoment(state, BUILTIN_EVENTS.find(e => e.id === "pong"), decidedAt + 5001), null);
-  assert.ok(renderTv(state, { now:decidedAt + 1000, showControl:false }).includes("tv-advance"));
+  /* the decided match's table settles in its place: the winner's spot stamps WON */
+  const settling = renderTv(state, { now:decidedAt + 1000, showControl:false });
+  assert.match(settling, /class="tv-advance-table"><section class="tvt tv-glass is-settled is-match/);
+  assert.match(settling, /is-settled is-won[\s\S]*>Won</);
   const strip = bracketStrip(state, BUILTIN_EVENTS.find(e => e.id === "pong"), null);
   assert.ok(strip.some(round => round.matches.some(match => match.sides.some(side => side.won))));
   assert.ok(nextOpenMatch(state.brackets.pong));
@@ -653,10 +658,16 @@ test("T8: a decided bracket shows its winner and the bracket, never a commission
   playBracket(state, "8ball");
   const winner = decidedWinner(state, evOf(state, "8ball"));
   assert.equal(winner?.players.length, 2);
-  const html = renderTv(state, { showControl:false });
+  /* once the final's table has settled (TV_ADVANCE_MS), the winner and the whole draw */
+  const decidedAt = state.eventOps["8ball"].lastContest.decidedAt;
+  const html = renderTv(state, { now:decidedAt + 6000, showControl:false });
   assert.ok(html.includes("tv-decided"));
   assert.ok(html.includes("tv-bracket"));
   assert.ok(!/Post the|Enter the|Record /.test(html.replace(/<[^>]*>/g, " ")));
+  /* inside it, the final's own table settles first, its winner stamped */
+  const settling = renderTv(state, { now:decidedAt + 1000, showControl:false });
+  assert.match(settling, /is-settled is-won[\s\S]*>Won</);
+  assert.ok(!/Post the|Enter the|Record /.test(settling.replace(/<[^>]*>/g, " ")));
 });
 
 test("T2: the TV draws the intro and the draw inside its canvas", () => {
@@ -773,12 +784,13 @@ test("T16/T17/T19: sides read as teams, riders merge per bettor, and advances ca
   /* the bettor rides as their own two-chip stack, named, never "Name 200" */
   assert.match(html, new RegExp(`data-stack-player="${bettor}" data-stack-chips="2"`));
   assert.ok(!html.replace(/<[^>]*>/g, " ").includes(`${bettor} 200`));
-  /* a pooled matchup with chips down: each felt carries its price in the
-     corner (200 seed and 200 staked: 1.3x for the backed side, 4.0x the
-     long shot, lit), and the foot the pool, never a fixed payout */
-  assert.match(html, /class="tv-felt has-price"><span class="tv-terms is-price tv-felt-price"><span class="fd-price is-lg " role="img" aria-label="Pays 1\.3×"/);
-  assert.match(html, /class="tv-felt is-empty has-price"><span class="tv-terms is-price is-long tv-felt-price"><span class="fd-price is-lg is-long " role="img" aria-label="Pays 4\.0×"/);
-  assert.match(html, /<span class="tv-pay-lamp is-lit"><i class="fd-insert" aria-hidden="true"><\/i>Pool 400<\/span>/);
+  /* a pooled matchup with chips down: each spot carries the room's % (200
+     seed and 200 staked: 75% on the backed side, 25% the long shot, lit, a
+     4.0x price that the TV never prints), the felt's corner the pool */
+  assert.match(html, /class="tvt-spot is-match[^"]*has-chips"[^>]*>[\s\S]*?aria-label="75%"/);
+  assert.match(html, /class="tvt-spot is-match[^"]* is-long"[^>]*>[\s\S]*?class="tvt-pct is-long"[\s\S]*?aria-label="25%"/);
+  assert.match(html, /class="tvt-pool"><small>Pool<\/small><span class="fd-reel[^"]*" role="img" aria-label="400"/);
+  assert.doesNotMatch(html.replace(/<[^>]*>/g, " "), /×/);
   assert.ok(!html.includes("Winner pays") && !/ to 1\b|even/.test(html.replace(/<[^>]*>/g, " ")));
   act(state, "lockAndStart", { evId:"8ball", ...ref(state, "8ball") }, gm(false));
   act(state, "recordContestWinner", { evId:"8ball", winner:side.key, ...ref(state, "8ball") }, gm(false));
@@ -788,17 +800,17 @@ test("T16/T17/T19: sides read as teams, riders merge per bettor, and advances ca
   const volley = structuredClone(EMPTY_STATE);
   act(volley, "announceAndDraw", { evId:"volley", players:ROSTER.slice(0, 12) }, gm(false));
   const vhtml = renderTv(volley, { showControl:false });
-  assert.ok(vhtml.includes("is-h2h"));
-  /* two teams are a two-sided pool, even played as a free-for-all: no chips
-     down, each side's price on its terms row, 2.0x on a level board */
-  assert.equal((vhtml.match(/<div class="tv-side-win has-terms"><span class="tv-terms is-price"><span class="fd-price is-lg " role="img" aria-label="Pays 2\.0×"/g) || []).length, 2);
-  assert.match(vhtml, /<\/i>Pool 200<\/span>/);
+  /* two teams are a two-sided pool, even played as a free-for-all: a
+     matchup's two spots, no chips down, 50% each on a level board */
+  assert.match(vhtml, /<section class="tvt tv-glass is-match /);
+  assert.equal((vhtml.match(/class="tvt-pct"[^>]*><span class="fd-reel[^"]*" role="img" aria-label="50%"/g) || []).length, 2);
+  assert.match(vhtml, /class="tvt-pool"><small>Pool<\/small><span class="fd-reel[^"]*" role="img" aria-label="200"/);
   /* opened before pools, the same board keeps its fixed payout */
   const oldVolley = structuredClone(volley);
   delete oldVolley.eventOps.volley.pools;
   const ohtml = renderTv(oldVolley, { showControl:false });
-  assert.ok(ohtml.includes("Winner pays 1:1") && !ohtml.includes("fd-price"), "a legacy two-team board pays 1:1");
-  const names = [...vhtml.matchAll(/class="tv-side-name">([^<]*)</g)].map(m => m[1]);
+  assert.ok(ohtml.includes("Winner pays 1:1") && !ohtml.includes("tvt-pool"), "a legacy two-team board pays 1:1");
+  const names = [...vhtml.matchAll(/class="tvt-name"><span[^>]*>([^<]*)</g)].map(m => m[1]);
   assert.equal(names.length, 2);
   /* a team reads as its team name, never as its members joined up (a
      generated name may itself carry an "&", like "Basalt & Pepper") */
@@ -915,7 +927,9 @@ test("podium: first is lit in its winner's own color and the frame runs in it", 
   const podium = readFileSync(new URL("../src/features/tv/TVPodium.jsx", import.meta.url), "utf8");
   assert.ok(!/BetStacks|winnerStacks/.test(podium.slice(0, podium.indexOf("export function BackersRail"))),
     "the backers ride their own rail, never inside 1st's step");
-  assert.ok(!/\.tv-felt \{[^}]*border:/.test(css) && /\.tv-felt \{[^}]*var\(--tv-window\)/.test(css), "felts are windows in the pane");
+  const table = readFileSync(new URL("../src/features/tv/tv-table.css", import.meta.url), "utf8");
+  assert.ok(!/\.tv-felt\b/.test(css), "the old felts are gone: the contest is the table");
+  assert.match(table, /\.tvt-spot \{[^}]*box-shadow:inset 0 0 0 2px/, "a spot is printed on the felt, not a card in a card");
 });
 
 test("result step: every tower keeps its name; a tower that did not move shows nothing on its count line", () => {

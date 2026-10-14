@@ -1,0 +1,196 @@
+/* The table on the TV (Oct 13): one printed felt on the glass, a spot per
+   side. The felt's print is bone hairlines (a double rule); a spot's fill
+   is the chips lamp's amber rising to its share of the pool with a lit
+   meniscus; the long shot's % is lit amber; magenta is the live lamp on
+   the pane's edge; WON is the green stamp. Text never under 24px. */
+.tvt { position:relative; isolation:isolate; display:flex; flex-direction:column; box-sizing:border-box; flex:none;
+  padding:16px 24px 18px; overflow:hidden; }
+.tvt.fd-lamp { border-width:2px; }
+/* the layout's printed inner rule */
+.tvt::before { content:""; position:absolute; inset:7px; border-radius:13px; pointer-events:none; z-index:0;
+  box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--bone) 8%, transparent); }
+.tvt.is-band { padding:12px 20px; justify-content:center; }
+
+/* the printed corners: the contest, the pool */
+.tvt-head { position:relative; z-index:1; display:flex; align-items:center; justify-content:space-between; gap:24px;
+  height:46px; margin:0 6px 10px; flex:none; }
+.tvt-label { display:inline-flex; align-items:center; min-width:0; color:var(--bone); font:800 34px/1.1 var(--fd-display);
+  letter-spacing:.06em; text-transform:uppercase; white-space:nowrap; }
+.tvt-label .fd-beat-dot { background:var(--lamp-live); }
+.tvt-label-text { display:inline-block; }
+.tvt-detail { margin-left:28px; color:var(--muted2); font:700 28px/1.1 var(--fd-display); letter-spacing:.06em; }
+.tvt-pool { display:inline-flex; align-items:baseline; gap:12px; margin-left:auto; color:var(--sun); white-space:nowrap; }
+.tvt-pool small, .tvt-band-mid small { color:var(--muted2); font:800 24px/1 var(--fd-display); letter-spacing:.14em; text-transform:uppercase; }
+.tvt-pool .fd-reel { font:900 42px/1 var(--fd-display); }
+.tvt-odds { font:700 28px/1.2 var(--fd-display); letter-spacing:.06em; text-transform:uppercase; }
+
+.tvt-body { position:relative; z-index:1; flex:1; min-height:0; display:grid; gap:var(--gap, 16px); align-content:start; justify-content:center; }
+.tvt-body.is-match { grid-template-columns:repeat(2, auto); }
+.tvt-body.is-row { grid-template-columns:repeat(var(--cols, 3), auto); }
+.tvt-body.is-grid { grid-template-columns:repeat(7, auto); }
+
+/* ── a spot: a printed square, its fill rising to the side's share ── */
+.tvt-spot { --fill:0; position:relative; isolation:isolate; overflow:hidden; box-sizing:border-box; border-radius:16px; min-width:0;
+  background:color-mix(in srgb, var(--ink0) 52%, transparent);
+  box-shadow:inset 0 0 0 2px color-mix(in srgb, var(--bone) 18%, transparent); }
+.tvt-spot::after { content:""; position:absolute; inset:6px; border-radius:11px; pointer-events:none; z-index:0;
+  box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--bone) 7%, transparent); }
+.tvt-spot.is-grid { border-radius:12px; }
+.tvt-spot.is-grid::after { inset:5px; border-radius:8px; }
+.tvt-fill { position:absolute; left:0; right:0; bottom:0; z-index:0; height:calc(var(--fill) * 100%);
+  background:linear-gradient(to top, color-mix(in srgb, var(--sun) 30%, transparent), color-mix(in srgb, var(--sun) 10%, transparent));
+  border-top:3px solid color-mix(in srgb, var(--sun) 78%, transparent);
+  box-shadow:0 -14px 26px -14px color-mix(in srgb, var(--sun) 75%, transparent);
+  transition:height 900ms var(--ease-out, ease-out); }
+.tvt-spot.is-long .tvt-fill { border-top-color:var(--sun);
+  background:linear-gradient(to top, color-mix(in srgb, var(--sun) 40%, transparent), color-mix(in srgb, var(--sun) 13%, transparent)); }
+.tvt-ink { position:relative; z-index:1; box-sizing:border-box; height:100%; min-height:0; }
+
+/* the room's %: printed on the felt, rolling on its reel (no window plates) */
+.tvt-pct { display:inline-flex; align-items:baseline; gap:.02em; color:var(--bone); font:900 1em/1 var(--fd-display);
+  font-variant-numeric:tabular-nums; white-space:nowrap; flex:none; }
+.tvt-pct .fd-reel { --reel-pad:0; gap:.01em; color:inherit; font:inherit; }
+.tvt-pct .fd-reel-cell { background:none; box-shadow:none; }
+.tvt-pct .fd-reel-cell::after { display:none; }
+.tvt-pct-sign { font-size:.46em; font-weight:800; opacity:.8; }
+/* the glow is a filter on the whole figure: a text-shadow would be cut square by each reel window */
+.tvt-pct.is-long { color:var(--sun); filter:drop-shadow(0 0 16px color-mix(in srgb, var(--sun) 45%, transparent)); }
+/* the first long shot a TV shows breathes for a few seconds (teach.js) */
+.tvt-pct.is-teach { animation:tvt-breathe 1.6s ease-in-out infinite; }
+@keyframes tvt-breathe { 50% { filter:drop-shadow(0 0 30px color-mix(in srgb, var(--sun) 85%, transparent)) brightness(1.18); } }
+
+.tvt-name { min-width:0; max-width:100%; color:var(--bone); line-height:1.08; }
+.tvt-name > span { display:block; font-family:var(--fd-display); font-weight:800; letter-spacing:.01em; white-space:nowrap; }
+.tvt-name.is-cell { font-family:var(--fd-display); font-weight:800; line-height:1.15; white-space:nowrap; }
+.tvt-winline { min-height:34px; }
+.tvt-winline .tv-win-line { font-size:26px; }
+.tvt-pays { font-size:26px; }
+
+/* a matchup: the side's column (faces, name, the %) and its felt of stacks */
+.tvt-spot.is-match .tvt-ink { display:flex; flex-direction:column; gap:10px; padding:18px 20px 14px; }
+.tvt-spot.is-match.is-wide .tvt-ink { display:grid; grid-template-columns:42% minmax(0, 1fr); gap:20px; padding:22px 24px 18px; }
+.tvt-col { display:flex; flex-direction:column; align-items:flex-start; gap:10px; min-width:0; min-height:0; }
+.tvt-spot.is-match.is-wide .tvt-col { gap:12px; }
+.tvt-spot.is-match.is-wide .tvt-pct { margin-top:auto; margin-bottom:-.06em; }
+.tvt-felt-stacks { position:relative; display:flex; flex:1; min-width:0; min-height:0; }
+.tvt-felt-stacks > .fd-fit { flex:1; }
+/* stacks stand on the felt, from its floor up */
+.tvt-stacks.fd-fit .fd-fit-stacks { top:auto; bottom:0; transform:none; justify-content:center; }
+.tvt-spot.is-match.is-wide .tvt-stacks.fd-fit .fd-fit-stacks { justify-content:flex-end; }
+
+/* a row: everything centred down the spot */
+.tvt-spot.is-row .tvt-ink { display:flex; flex-direction:column; align-items:center; gap:8px; padding:16px 12px 12px; text-align:center; }
+.tvt-spot.is-row .tvt-col { align-items:center; gap:8px; }
+.tvt-spot.is-row .tvt-felt-stacks { align-self:stretch; }
+
+/* a grid cell: the face and the % on top, the name, the backers' pile */
+.tvt-spot.is-grid .tvt-ink { display:flex; flex-direction:column; gap:6px; padding:12px 14px 12px; }
+.tvt-top { display:flex; align-items:center; justify-content:space-between; gap:8px; min-width:0; }
+.tvt-pile { display:flex; align-items:center; min-height:36px; }
+.tvt-spot.is-grid .tvt-pct { margin-top:auto; margin-bottom:-.06em; }
+.tvt-backer { display:inline-flex; border-radius:99px; }
+.tvt-backer + .tvt-backer { margin-left:-10px; }
+.tvt-more { display:inline-flex; align-items:center; justify-content:center; min-width:40px; height:36px; margin-left:6px; padding:0 8px;
+  border-radius:99px; background:var(--silver); color:var(--ink0); font:800 24px/1 var(--fd-display); font-variant-numeric:tabular-nums; }
+
+/* ── the band above a big bracket: one row, the pool between ── */
+.tvt-band { position:relative; z-index:1; display:grid; grid-template-columns:auto auto auto; justify-content:center; align-items:center; gap:16px; }
+.tvt-band-mid { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; width:210px; color:var(--sun); }
+.tvt-band-mid .fd-reel { font:900 48px/1 var(--fd-display); }
+.tvt-spot.is-band .tvt-ink { display:flex; align-items:center; gap:18px; padding:10px 18px; }
+.tvt-spot.is-band.is-right .tvt-ink { flex-direction:row-reverse; text-align:right; }
+.tvt-band-who { display:flex; flex-direction:column; gap:4px; min-width:0; max-width:330px; flex:none; }
+.tvt-spot.is-band.is-right .tvt-band-who { align-items:flex-end; }
+.tvt-band-felt { position:relative; display:flex; flex:1; align-self:stretch; min-width:0; }
+.tvt-band-felt > .fd-fit, .tvt-band-felt > .fd-stacks { flex:1; }
+.tvt-band-felt .tvt-stacks.fd-fit .fd-fit-stacks { top:50%; bottom:auto; transform:translateY(-50%); }
+.tvt-spot.is-band .tv-stacks-fit .fd-stacks-value, .tvt-spot.is-band .tv-stacks .fd-stacks-value { font-size:26px; line-height:1; padding-bottom:2px; }
+.tvt-spot.is-band .tv-stacks-fit .fd-stacks-slot, .tvt-spot.is-band .tv-stacks .fd-stacks-slot { width:auto; }
+.tvt-band-felt > .fd-stacks { align-items:center; justify-content:center; flex-wrap:nowrap; }
+
+/* ── "No more bets": the dealer's glove sweeps the felt ── */
+.tvt-sweep { position:absolute; inset:0; z-index:6; display:grid; place-items:center; pointer-events:none; border-radius:inherit;
+  animation:tvt-sweep-dim var(--sweep-ms) ease var(--tl) both; }
+@keyframes tvt-sweep-dim { 0% { background:transparent; } 12%, 78% { background:color-mix(in srgb, var(--ink0) 58%, transparent); }
+  100% { background:transparent; } }
+.tvt-sweep-glove { position:absolute; left:0; top:50%; translate:0 -50%; filter:drop-shadow(0 18px 18px rgba(0,0,0,.55));
+  animation:tvt-sweep-glove var(--glove-ms) cubic-bezier(.45,.05,.4,1) var(--tl) both; }
+@keyframes tvt-sweep-glove { 0% { transform:translateX(-260px) rotate(-8deg); }
+  55% { transform:translateX(calc(var(--sweep-w) * .55)) rotate(3deg); }
+  100% { transform:translateX(calc(var(--sweep-w) + 60px)) rotate(8deg); } }
+.tvt-sweep-words { color:var(--bone); font-size:104px; line-height:1; letter-spacing:.03em; text-transform:uppercase; white-space:nowrap;
+  text-shadow:0 4px 0 var(--ink0), 0 0 40px color-mix(in srgb, var(--lamp-live) 55%, transparent);
+  animation:tvt-sweep-words var(--sweep-ms) cubic-bezier(.2,.9,.25,1.15) var(--tl) both; }
+.tvt.is-band .tvt-sweep-words { font-size:72px; }
+@keyframes tvt-sweep-words { 0%, 12% { opacity:0; transform:scale(1.5); } 26% { opacity:1; transform:scale(1); } 80% { opacity:1; transform:none; }
+  100% { opacity:0; transform:none; } }
+.tvt-sweep.is-still { animation-name:tvt-sweep-still; }
+@keyframes tvt-sweep-still { 0%, 100% { background:color-mix(in srgb, var(--ink0) 58%, transparent); } }
+.tvt-sweep.is-still .tvt-sweep-words { animation:tvt-sweep-fade var(--sweep-ms) linear var(--tl) both; }
+@keyframes tvt-sweep-fade { 0%, 85% { opacity:1; } 100% { opacity:0; } }
+
+/* ── the settle ── */
+/* the winner floods: its fill rises to the top, the keyline turns green */
+.tvt-spot.is-won { box-shadow:inset 0 0 0 3px var(--green), 0 0 34px -10px var(--green); }
+.tvt-spot.is-won .tvt-fill { animation:tvt-flood 700ms var(--ease-out, ease-out) var(--flood-at, 0ms) both; transition:none; }
+@keyframes tvt-flood { from { height:calc(var(--fill) * 100%); } to { height:100%; } }
+.tvt-spot.is-lost .tvt-fill { animation:tvt-drain 900ms ease-in var(--drain-at, 700ms) both; transition:none; }
+@keyframes tvt-drain { to { opacity:.28; } }
+.tvt-spot.is-lost .tvt-col, .tvt-spot.is-lost.is-band .tvt-ink > :not(.tvt-band-felt) {
+  animation:tvt-dim 600ms ease var(--drain-at, 700ms) both; }
+@keyframes tvt-dim { to { opacity:.55; } }
+/* the verdict beside the %: WON stamped, a long shot's price lit under it */
+.tvt-pctrow { display:flex; align-items:center; gap:22px; margin-top:auto; min-width:0; }
+.tvt-spot.is-match.is-wide .tvt-pctrow .tvt-pct { margin-top:0; }
+.tvt-spot.is-row .tvt-pctrow { flex-direction:column; gap:8px; margin-top:0; }
+.tvt-verdict { display:flex; flex-direction:column; align-items:flex-start; gap:12px; flex:none; }
+.tvt-spot.is-row .tvt-verdict, .tvt-spot.is-band .tvt-verdict { align-items:center; }
+.tvt-won { display:inline-block; rotate:-6deg; padding:4px 16px 2px; border:5px solid var(--green); border-radius:12px;
+  color:var(--green); font-size:64px; line-height:1; letter-spacing:.06em; text-transform:uppercase;
+  background:color-mix(in srgb, var(--ink0) 72%, transparent); box-shadow:0 0 26px -6px var(--green);
+  animation:tvt-stamp 320ms cubic-bezier(.2,.9,.25,1.2) both; }
+.tvt-spot.is-row .tvt-won { font-size:48px; border-width:4px; }
+.tvt-spot.is-band .tvt-won { font-size:52px; border-width:4px; padding:2px 14px 0; }
+@keyframes tvt-stamp { from { opacity:0; transform:scale(1.7); } to { opacity:1; transform:none; } }
+/* a long shot that won: the price it paid, lit, low-key */
+.tvt-paid { display:inline-flex; align-items:center; gap:10px; padding:6px 16px; border-radius:99px;
+  background:color-mix(in srgb, var(--ink0) 70%, transparent); color:var(--sun);
+  font:800 32px/1 var(--fd-display); letter-spacing:.04em; text-transform:uppercase; white-space:nowrap;
+  text-shadow:0 0 18px color-mix(in srgb, var(--sun) 55%, transparent); animation:tvt-lamp 600ms ease both; }
+.tvt-paid .fd-insert { --lamp:var(--sun); width:16px; height:16px; }
+.tvt-spot.is-row .tvt-paid, .tvt-spot.is-band .tvt-paid { font-size:26px; padding:4px 12px; }
+@keyframes tvt-lamp { 0% { opacity:0; filter:brightness(2.2); } 40% { opacity:1; } 100% { opacity:1; filter:none; } }
+/* the losers' chips leave for the bank, every one (a folded "+N" too) */
+.tvt-felt-stacks.is-raked > *, .tvt-band-felt.is-raked > * {
+  animation:tvt-rake-out 700ms cubic-bezier(.5,0,.75,.4) calc(var(--drain-at, 700ms) + 300ms) both; }
+@keyframes tvt-rake-out { to { opacity:0; transform:translate(180px, -110px) scale(.7); } }
+/* settled stacks: one row on the felt's floor */
+.tvt-felt-stacks.is-settle { align-items:flex-end; justify-content:center; }
+.tvt-felt-stacks.is-settle > .fd-stacks { flex-wrap:nowrap; justify-content:center; }
+/* the rake: the glove crosses the felt toward the pool's corner (the bank) */
+.tvt-rake { position:absolute; left:0; top:52%; z-index:5; pointer-events:none; filter:drop-shadow(0 16px 16px rgba(0,0,0,.5));
+  animation:tvt-rake var(--rake-ms) cubic-bezier(.45,0,.55,1) calc(var(--rake-at) + 100ms) both; }
+.tvt.is-band .tvt-rake { top:18%; }
+@keyframes tvt-rake { 0% { opacity:0; transform:translate(calc(var(--rake-x0) - 60px), 0) rotate(-4deg); } 14% { opacity:1; }
+  78% { opacity:1; } 100% { opacity:0; transform:translate(var(--rake-x1), -150px) rotate(-16deg); } }
+.tvt.is-band .tvt-rake { animation-name:tvt-rake-band; }
+@keyframes tvt-rake-band { 0% { opacity:0; transform:translate(calc(var(--rake-x0) - 40px), 0) rotate(-4deg); } 14% { opacity:1; }
+  78% { opacity:1; } 100% { opacity:0; transform:translate(var(--rake-x1), -20px) rotate(-10deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .tvt-fill { transition:none; }
+  .tvt-pct.is-teach, .tvt-won, .tvt-paid, .tvt-rake { animation:none; }
+  .tvt-felt-stacks.is-raked > *, .tvt-band-felt.is-raked > * { animation:none; opacity:0; }
+  .tvt-rake { display:none; }
+  .tvt-spot.is-won .tvt-fill { animation:none; height:100%; }
+  .tvt-spot.is-lost .tvt-fill { animation:none; opacity:.28; }
+  .tvt-spot.is-lost .tvt-col { animation:none; opacity:.55; }
+  .tvt-sweep-glove { display:none; }
+}
+.tvt.is-still .tvt-won, .tvt.is-still .tvt-paid { animation:none; }
+
+/* the decided contest's table stands over the live one for its moment */
+.tv-advance-table { position:absolute; inset:0; z-index:5; display:flex; }
+
+/* the face-off: each side's % of the room under its name */
+.tv-faceoff-terms.tv-faceoff-pct { display:flex; justify-content:center; margin-top:4px; }

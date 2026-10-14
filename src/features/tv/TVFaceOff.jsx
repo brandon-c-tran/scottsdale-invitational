@@ -6,6 +6,8 @@ import { FACEOFF_TIMING as F, faceOffChipSize } from "./faceOff.js";
 import { Takeover } from "./TVTakeover.jsx";
 import { EventName } from "../../ui/OneSafe.jsx";
 import { contestTerms } from "../comebacks/comebacks.js";
+import { tableView } from "../wagers/tableModel.js";
+import { TVPct } from "./TVTable.jsx";
 import { PoolExplainer, UnderdogExplainer } from "../comebacks/Comebacks.jsx";
 
 /* a display size that keeps a side's name on one line in its half, so both
@@ -25,7 +27,9 @@ function UnderdogStamp({ pool = false }) {
   </div>;
 }
 
-function FaceOffSide({ side, from, lines, terms = null, teach = false, longshot = false }) {
+/* each side's terms: a pool's % of the room (the table's own number, the
+   long shot lit), else a legacy contest's fixed payout */
+function FaceOffSide({ side, from, lines, terms = null, spot = null, teach = false, longshot = false }) {
   const size = faceOffChipSize(side.players.length);
   return (
     <div className={`tv-faceoff-side is-${from}`}>
@@ -34,7 +38,9 @@ function FaceOffSide({ side, from, lines, terms = null, teach = false, longshot 
       </div>
       <div className="fd-show tv-faceoff-name" style={{ fontSize:faceOffNameSize(side.name) }}>{side.name}</div>
       <div className="tv-faceoff-line"><TVWinLine lines={lines} sideKey={side.key} /></div>
-      {terms && <div className="tv-faceoff-termwrap"><TVSideTerms terms={terms} className="tv-faceoff-terms" />
+      {terms && <div className="tv-faceoff-termwrap">{spot
+        ? <div className="tv-faceoff-terms tv-faceoff-pct"><TVPct pct={spot.pct} long={spot.long} size={72} /></div>
+        : <TVSideTerms terms={terms} className="tv-faceoff-terms" />}
         {teach && (terms.underdog || longshot) && <UnderdogStamp pool={longshot} />}</div>}
     </div>
   );
@@ -50,6 +56,9 @@ export function FaceOff({ state, events, ev, contest, view, moment, teach = fals
   const record = view.record || "";
   const terms = contestTerms(state, contest);
   const termsOf = side => terms?.any ? terms.sides[side.key] || null : null;
+  /* the room's % on each side, the table's own (a pool only) */
+  const table = terms?.pool ? tableView(state, events, contest) : null;
+  const spotOf = side => table?.spots.find(spot => spot.key === side.key) || null;
   return (
     <Takeover kind="faceoff" className="tv-faceoff" label={`${view.event}${view.label ? `, ${view.label}` : ""}: ${
       view.sides.map(side => side.name).join(" vs ")}`}
@@ -61,10 +70,10 @@ export function FaceOff({ state, events, ev, contest, view, moment, teach = fals
         {view.label && <span className="tv-faceoff-event">{view.event}</span>}
       </div>
       <div className="tv-faceoff-sides">
-        <FaceOffSide side={view.sides[0]} from="left" lines={lines} terms={termsOf(view.sides[0])} teach={teach}
+        <FaceOffSide side={view.sides[0]} from="left" lines={lines} terms={termsOf(view.sides[0])} spot={spotOf(view.sides[0])} teach={teach}
           longshot={!!terms?.pool && view.sides[0].key === terms.longshot} />
         <div className="fd-show tv-faceoff-vs">VS</div>
-        <FaceOffSide side={view.sides[1]} from="right" lines={lines} terms={termsOf(view.sides[1])} teach={teach}
+        <FaceOffSide side={view.sides[1]} from="right" lines={lines} terms={termsOf(view.sides[1])} spot={spotOf(view.sides[1])} teach={teach}
           longshot={!!terms?.pool && view.sides[1].key === terms.longshot} />
       </div>
       <div className="tv-display tv-faceoff-record" aria-label={record || undefined}>

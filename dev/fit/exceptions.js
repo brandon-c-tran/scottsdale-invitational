@@ -3,6 +3,8 @@
    view id), the rule, the element (a regex over its selector), and why it
    is right as it is. Keep this list short; a fix beats an exception. */
 export const FIT_EXCEPTIONS = Object.freeze([
+  { view:"^phone-", rule:"overlap", sel:"fd-spot-hit",
+    reason:"a betting spot is its own bet target, laid under its printed content (faces, %, chips), which ignores taps; the faces and stacks over it are their own targets (a card, your last chip back), as on a roulette layout" },
   { view:"^tv-geo", rule:"small", sel:"maplibregl-ctrl-attrib",
     reason:"the map tiles' licence notice (OpenFreeMap, OpenStreetMap), MapLibre's own control at its own size: a credit the licence requires, not text the room reads" },
   { view:"^tv-geo", rule:"overlap", sel:"fd-geo-marker|fd-geo-head",

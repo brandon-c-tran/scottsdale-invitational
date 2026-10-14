@@ -197,7 +197,7 @@ const renderTv = (state, { now = Date.now(), showControl = false } = {}) => {
     connection:{ ready:true, connected:true, version:3 }, now, onExit:() => {} }));
 };
 
-test("a decided match keeps the bracket in view: the card takes the contest's space, UP NOW moves on", () => {
+test("a decided match keeps the bracket in view: its table settles in the contest's space, UP NOW moves on", () => {
   const state = structuredClone(EMPTY_STATE);
   act(state, "announceAndDraw", { evId:"pong", players:ROSTER.slice(0, 12) });
   const before = renderTv(state);
@@ -206,9 +206,9 @@ test("a decided match keeps the bracket in view: the card takes the contest's sp
   recordCurrent(state, "pong", 0);
   const decidedAt = state.eventOps.pong.lastContest.decidedAt;
   const html = renderTv(state, { now:decidedAt + 1000 });
-  assert.match(html, /class="tv-advance is-slot"/);
-  assert.match(html, /class="tv-contest-slot"/);
-  assert.ok(html.indexOf("tv-contest-slot") < html.indexOf("tv-bracket is-side"), "the bracket sits below the card");
+  assert.match(html, /class="tv-contest-slot"><div class="tv-advance-table"><section class="tvt tv-glass is-settled/);
+  assert.ok(!html.includes('class="tvt tv-glass is-match is-open'), "the next match's table waits for the settle");
+  assert.ok(html.indexOf("tv-contest-slot") < html.indexOf("tv-bracket is-side"), "the bracket stands beside the table");
   assert.ok(!html.includes("tv-br-win") && !html.includes("tv-br-token"),
     "a render nobody saw arrive fresh shows the end state");
   assert.equal(advanceMoment(state, BUILTIN_EVENTS.find(e => e.id === "pong"), decidedAt + 1000).kind, "match");

@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import qrcode from "qrcode-generator";
 import {
-  ROSTER, rosterOf, disp, resolveWager, resolveCurrentContest, resolveWeekendOperation, contestMult,
+  ROSTER, rosterOf, disp, resolveWager, resolveCurrentContest, resolveWeekendOperation,
 } from "../../../shared/core.js";
 import { resolveShowScene } from "../../../shared/show.js";
 import { ChipFace } from "../identity/PlayerIdentity.jsx";
@@ -11,30 +11,25 @@ import { resolvePlayerIdentity } from "../identity/playerIdentity.js";
 import { GameMark } from "../../ui/GameMark.jsx";
 import { FDMark } from "../../ui/Brand.jsx";
 import { ScoreReel } from "../../ui/ScoreReel.jsx";
-import { EventName, OneSafe } from "../../ui/OneSafe.jsx";
+import { EventName } from "../../ui/OneSafe.jsx";
 import { PayoutLadder } from "../../ui/PayoutLadder.jsx";
 import { mergeWagerLines } from "../wagers/Wagers.jsx";
-import { BetStacks, FitStacks } from "../wagers/BetStacks.jsx";
-import { STACK_CAP, contestStacks, fitLevels, stackName } from "../wagers/betStacks.js";
-import { STRIP_LABEL, toteBoard } from "./toteModel.js";
-import { MOTION, useFreshChange } from "../../lib/motion.js";
-import { useFlip, useFreshHold } from "../../lib/motionKit.js";
+import { TVTable, TVSettledTable, matchLabel } from "./TVTable.jsx";
+import { BAND_TABLE_H, TABLE_H, entryContest } from "./tvTable.js";
 import {
-  fmt, signed, editionLabel, oddsLine, phaseBand,
+  fmt, signed, editionLabel, phaseBand,
   tvCanvasFit, tvSceneView, ambientIndex, TV_AMBIENT_MS, TV_AMBIENT_TURN_MS, TV_TROPHY_HOLD_MS, TV_TICKER_PAGE_MS, TV_RESULT_MOMENT_MS,
   tvLiveEvent, nextUpEvent, nextOpenMatch, latestResultOf, resultPresentation, resultMomentPhase, resultMomentFor,
-  advanceMoment, advanceHoldUntil, correctionMoment, dockCard, decidedWinner, contestSideView,
-  tvConnection, tickerItems, tickerSpread, TICKER_HALF_PX, TICKER_CORNER_PX, tvBusy, podiumGroups, championView, contestLamp, sideNameFit, stageChrome, boardLevel,
+  advanceMoment, advanceHoldUntil, correctionMoment, dockCard, decidedWinner,
+  tvConnection, tickerItems, tickerSpread, TICKER_HALF_PX, TICKER_CORNER_PX, tvBusy, podiumGroups, championView, contestLamp, stageChrome, boardLevel,
   backersRail,
 } from "./tvModel.js";
 import { IntroOverlay, TVDrawReveal } from "./TVCeremony.jsx";
 import { TVDraft } from "./TVDraft.jsx";
 import { TVPoker } from "./TVPoker.jsx";
-import { StageGroups, RosterWall, TrophyCard, TVWinLine, PayLamp, TVSideTerms, useContestWinLines } from "./TVCards.jsx";
-import { winLineFor } from "../standings/winImpact.js";
+import { StageGroups, RosterWall, TrophyCard } from "./TVCards.jsx";
 import { TVBracket } from "./TVBracket.jsx";
 import { TVPodium, BackersRail } from "./TVPodium.jsx";
-import { RenameText } from "../teams/RenameText.jsx";
 import { ChampionMoment } from "./TVChampion.jsx";
 import { CROWN_TIMING, useBracketMotion, useCrownMoment } from "./tvMotion.js";
 import { ClassPhoto, useClassMoment } from "./TVClassPhoto.jsx";
@@ -78,8 +73,6 @@ import { TVRecord } from "./TVRecords.jsx";
 import { recordAt, recordCards, withRecordTurns } from "./recordsModel.js";
 import { TVAttract } from "./TVAttract.jsx";
 import { ATTRACT_EARLY_MS, attractAt, attractRoom, withAttractTurns } from "./attractModel.js";
-import { contestTerms } from "../comebacks/comebacks.js";
-import { PriceLamp } from "../comebacks/Comebacks.jsx";
 import { CORNER_GAP, CORNER_W, TVArriveCorner, TVLobby } from "./TVArrivals.jsx";
 import { arrivalsBoard, arriveUrl } from "../arrivals/arrivalsModel.js";
 import "./tv.css";
@@ -457,290 +450,10 @@ function Horizon({ state, standings, towers, road = null, width = 1920 }) {
   );
 }
 
-/* A side's name, as large as its column allows, on one line or two lines
-   broken at the team's "&". */
-const SIDE_NAME_STACK = 40, STACKED_FACE = 48;
-const sharedNameSize = specs => Math.min(...specs.map(spec => sideNameFit(spec.name, spec.width, { max:spec.max, min:spec.min, caps:true }).size));
-/* `size`: the board's one size (every side letters at the smallest any side
-   needs), so a matchup never reads as one big name and one small */
-function SideName({ name, width, max, min, size = null }) {
-  const fit = sideNameFit(name, width, { max, min, caps:true });
-  return (
-    <div className="tv-side-title" style={{ fontSize:size ? Math.min(size, fit.size) : fit.size }}>
-      {/* a team renamed on a fresh frame re-letters in place (features/teams) */}
-      <RenameText name={name} as="div" className="tv-side-name">{fit.lines.length > 1 ? <>{fit.lines[0]}<br />{fit.lines[1]}</> : name}</RenameText>
-    </div>
-  );
-}
-
-/* The current contest, large: every side's photo chips and name, and the
-   chips riding it as each bettor's own stack, a first name under each and
-   the side's total at the head of its felt. Any two-sided contest is a
-   head-to-head. A bracket match is the up-now board: lit, round named
-   once. A wide field is one felt with a spot per side. */
-const TV_STACKS = {
-  h2h:{ face:96, faceMany:64, chip:64 },
-  grid:{ face:72, faceMany:56, chip:52 },
-};
-const PANEL_PAD = 28;
-/* the tote board's body: the contest pane less its padding and payout
-   foot, and less the contest's heading when it has one ("Heat 1") */
-const TOTE_H = 440, TOTE_HEAD = 55;
-/* the smallest chip a crowded felt steps down to: small enough that the
-   tallest stack, its amount and its name always stand inside the felt,
-   and a face still holds its initials at the TV floor */
-const TV_FELT_MIN = 32;
-/* a side's total on the felt: the contest's own number, so it rolls on a
-   reel as bets land (a fresh frame only) */
-const SideTotal = ({ total }) => <ScoreReel value={total} tone="chip" label={fmt(total)} />;
-/* The tote board (toteModel): a contest of three sides or more. The sides
-   with money are rows ranked by their total, each its photo chips and name,
-   an amber bar scaled to the biggest total, the total on a reel and the
-   backers' photo chips; every side nobody backs is one unlit strip under
-   them (with no bets, the field). A fresh frame re-sorts the rows (FLIP),
-   brings a new row in and grows the bars; anything else is placed. */
-function ToteBoard({ state, ev, contest, stacks, width, height }) {
-  const sides = contest.sides.map(side => {
-    const ride = stacks.get(side.key) || { stacks:[], total:0 };
-    return { key:side.key, ...contestSideView(state, ev, contest, side), total:ride.total, stacks:ride.stacks };
-  });
-  const byKey = new Map(sides.map(side => [side.key, side]));
-  /* a pool prices every row: the money sorts it, so the prices climb down the board */
-  const terms = contestTerms(state, contest);
-  const prices = !!terms?.pool;
-  const board = toteBoard(sides, { width, height, prices });
-  const order = board.rows.map(row => String(row.key)).join("|");
-  const sums = board.rows.map(row => `${row.key}:${row.total}`).join("|");
-  const reorder = useFreshChange(order, contest.id);
-  const growing = useFreshHold(sums, contest.id, MOTION.rowSlide + 200);
-  const rowsRef = useRef(null);
-  useFlip(rowsRef, { play:reorder.animate, duration:MOTION.rowSlide, stagger:MOTION.rowStagger });
-  const r = board.row;
-  return (
-    <div className={`tv-sides tv-tote${board.any ? "" : " is-quiet"}${growing ? " is-growing" : ""}`}>
-      {board.any && <ol ref={rowsRef} className="tv-tote-rows" aria-label="Bets by side"
-        style={{ gridTemplateColumns:`repeat(${board.cols}, ${r.colW}px)`, gridTemplateRows:`repeat(${board.perCol}, ${r.height}px)` }}>
-        {board.rows.map(row => {
-          const side = byKey.get(row.key);
-          return (
-            <li key={String(row.key)} data-flip={String(row.key)} className="tv-tote-row"
-              style={{ "--face":`${r.face}px`, "--reel":`${r.reelSize}px` }}>
-              <span className="tv-tote-faces" style={{ width:r.facesW }}>
-                <Faces players={side.players} size={r.face} overlap /></span>
-              <span className="fd-show tv-tote-name" style={{ width:r.nameW, fontSize:r.nameSize }}>{side.name}</span>
-              <span className="tv-tote-track" style={{ width:r.barW }} aria-hidden="true">
-                <i className={`tv-tote-bar${r.notchPx >= 6 ? "" : " is-plain"}`} style={{ width:`${(row.share * 100).toFixed(2)}%`,
-                  "--notch":`${r.notchPx}px` }} /></span>
-              <span className="tv-side-total tv-tote-total" style={{ width:r.reelW }}><SideTotal total={row.total} /></span>
-              {prices && <span className="tv-tote-price" style={{ width:r.priceW, "--price-size":`${r.reelSize}px` }}>
-                <PriceLamp price={terms.sides[row.key]?.price} long={!!terms.sides[row.key]?.long} cap={!!terms.sides[row.key]?.cap} size="tote" /></span>}
-              <span className="tv-tote-backers" style={{ width:r.backersW }} data-backers={row.backers.join(" ")}
-                role="img" aria-label={`Backed by ${side.stacks.map(item => stackName(state, item.player)).join(", ")}`}>
-                {row.backers.map(p => <ChipFace key={p} p={p} size={r.backer} />)}
-                {row.more > 0 && <b className="tv-tote-more" style={{ height:r.backer, minWidth:r.backer }}>+{row.more}</b>}
-              </span>
-            </li>
-          );
-        })}
-      </ol>}
-      {board.strip && <div className={`tv-tote-strip is-${board.strip.kind}`}>
-        {board.strip.kind === "strip" && <span className="tv-tote-strip-label" style={{ width:board.strip.labelW }}>{STRIP_LABEL}</span>}
-        <ul className="tv-tote-idle" style={{ width:board.strip.width, gap:board.strip.gap }}>
-          {board.idle.map(key => {
-            const side = byKey.get(key);
-            return (
-              <li key={String(key)} className="tv-tote-idle-side" style={{ width:board.strip.slot }}
-                aria-label={board.strip.names ? undefined : side.name}>
-                <Faces players={side.players} size={board.strip.chip} overlap />
-                {board.strip.names && <span className="fd-show tv-tote-idle-name" style={{ fontSize:board.strip.nameSize }}>{side.name}</span>}
-              </li>
-            );
-          })}
-        </ul>
-      </div>}
-    </div>
-  );
-}
-/* The current match above a big bracket's band: one row, the two sides
-   facing each other across VS with the payout under it. With bets each
-   side's stacks stand beside its name; with none the faces and names take
-   the room (no empty felt, no "No bets" line). The round is the bracket's
-   own outline below, never a second heading. */
-function ContestBand({ state, ev, contest, stacks, width, lamp, teach = false }) {
-  const any = contest.sides.some(side => (stacks.get(side.key)?.stacks.length || 0) > 0);
-  const terms = contestTerms(state, contest);
-  const half = Math.floor((width - PANEL_PAD * 2 - 260) / 2);
-  const face = any ? 76 : 112;
-  const specs = contest.sides.map(side => {
-    const view = contestSideView(state, ev, contest, side);
-    const facesW = face + (view.players.length - 1) * face * (1 - DISC_OVERLAP);
-    return { view, name:view.name, width:(any ? Math.floor(half * 0.46) : half) - facesW - 24, max:any ? 60 : 88, min:36 };
-  });
-  const nameSize = sharedNameSize(specs);
-  const cards = contest.sides.map((side, index) => {
-    const { view, width:nameW } = specs[index];
-    const ride = stacks.get(side.key) || { stacks:[], total:0 };
-    return (
-      <div key={String(side.key)} className={`tv-side is-band${index ? " is-right" : ""}${ride.stacks.length ? " has-chips" : ""}`}>
-        <div className="tv-side-top">
-          <Faces players={view.players} size={face} overlap={view.players.length > 1} />
-          {/* v3.1: the side's terms under its name, in the name's own width, so
-              the felt keeps its room */}
-          {terms?.any ? <div className="tv-band-name" style={{ maxWidth:Math.max(nameW, 180) }}>
-            <SideName name={view.name} width={nameW} max={any ? 60 : 88} min={36} size={nameSize} />
-            <TVSideTerms terms={terms.sides[side.key]} className="is-band" teach={teach} />
-          </div> : <SideName name={view.name} width={nameW} max={any ? 60 : 88} min={36} size={nameSize} />}
-        </div>
-        {any && <div className={`tv-felt${ride.stacks.length ? "" : " is-empty"}`}>
-          {ride.total > 0 && <div className="tv-side-total"><SideTotal total={ride.total} /></div>}
-          {ride.stacks.length > 0 && <FitStacks stacks={ride.stacks} total={0} chip={48} cap={STACK_CAP} min={TV_FELT_MIN}
-            className="tv-stacks-fit" names={p => stackName(state, p)} valueAt="side" />}
-        </div>}
-      </div>
-    );
-  });
-  return (
-    <div className={`tv-contest tv-glass is-band${any ? "" : " is-quiet"}${lamp ? " fd-lamp is-live" : ""}`}>
-      <div className="tv-sides is-h2h">
-        {cards[0]}
-        <div className="tv-versus-col">
-          <div className="tv-versus fd-show" aria-label="versus">VS</div>
-          <div className="tv-contest-odds"><PayLamp text={terms?.pool ? poolLine(terms) : oddsLine(contest)} lit={terms?.pool || isTwoToOne(contest)} /></div>
-        </div>
-        {cards[1]}
-      </div>
-    </div>
-  );
-}
-
-/* a pool's foot: the whole pool, the long shot's lamp lit */
-const poolLine = terms => `Pool ${fmt(Math.round(terms.total))}`;
-/* a contest that pays 2:1 lights its payout lamp */
-const isTwoToOne = contest => !!contest && contestMult(contest) === 2;
-
-/* "Round 1 · Match 3" reads as "Round 1 Match 3", "Semifinals · Match 2"
-   as "Semifinal 2" (the shape of bracketMatchName in core) */
-export const matchTitle = label => {
-  const match = /^(.*) · Match (\d+)$/.exec(String(label || ""));
-  if (!match) return label;
-  const [, round, n] = match;
-  /* an older stored label: a final is just "Final" */
-  if (/^Finals?$/.test(round)) return "Final";
-  return /\d$/.test(round) ? `${round} Match ${n}` : `${round.replace(/s$/, "")} ${n}`;
-};
-function ContestBoard({ state, events, ev, contest, width = BOARD_W, teach = false }) {
-  const stacks = contestStacks(state, events, contest);
-  const n = contest.sides.length;
-  const h2h = n === 2;
-  /* three sides or more: the tote board, ranked by the money on each */
-  const field = n > 2;
-  /* X8: a tote row has no room for the line */
-  const winLines = useContestWinLines(state, ev, field ? null : contest, events);
-  const lamp = contestLamp(contest);
-  const upNow = contest.kind === "match";
-  /* the match by its name ("Semifinal 1", "Round 1 Match 3"): the lit lamp
-     beside it says it is the one being played */
-  const head = upNow ? matchTitle(contest.label) : contest.label !== ev.name ? contest.label : null;
-  const size = h2h ? TV_STACKS.h2h : TV_STACKS.grid;
-  const inner = width - PANEL_PAD * 2;
-  /* every felt on the board draws one chip size: each reports the level it
-     needs, and all stand at the deepest */
-  const [fitNeed, setFitNeed] = useState({});
-  const sideKeys = contest.sides.map(side => String(side.key));
-  const floor = Math.max(0, ...sideKeys.map(key => fitNeed[`${contest.id}:${key}`] || 0));
-  const ladder = Math.max(0, ...contest.sides.map(side => stacks.get(side.key)?.stacks.length || 0));
-  const reportFit = key => level => setFitNeed(prev => prev[key] === level ? prev : { ...prev, [key]:level });
-  const any = contest.sides.some(side => (stacks.get(side.key)?.stacks.length || 0) > 0);
-  /* a felt that had to reach the smallest chip to fit stands its total
-     smaller, so its stacks get the room back; held for this contest, so the
-     board never flips between the two */
-  const [tightFor, setTightFor] = useState(null);
-  const tight = tightFor === contest.id;
-  const smallest = useMemo(() => fitLevels(ladder, { chip:size.chip, cap:STACK_CAP, min:TV_FELT_MIN })
-    .filter(level => level.slots === Infinity).length - 1, [ladder, size.chip]);
-  useEffect(() => { if (any && !tight && floor >= smallest) setTightFor(contest.id); }, [any, tight, floor, smallest, contest.id]);
-  /* v3.1: each side's payout (underdog odds) */
-  const poolTerms = contestTerms(state, contest);
-  const terms = field ? null : poolTerms;
-  /* a pool with chips down prices each side in its felt's corner, so the
-     felt keeps its room; with none (no felt) the price takes the terms row */
-  const feltPrice = !!terms?.pool && any;
-  const termsRow = !!terms?.any && !terms.wide && !feltPrice;
-  let body;
-  if (field) body = <ToteBoard state={state} ev={ev} contest={contest} stacks={stacks} width={inner}
-    height={TOTE_H - (head ? TOTE_HEAD : 0)} />;
-  else {
-    const anyWinLine = contest.sides.some(side => !!winLineFor(winLines, side.key));
-    /* three or four sides stand in one row, each its full height */
-    const sideW = h2h ? Math.floor((inner - 120 - 2 * 16) / 2) - 40 : Math.floor((inner - (n - 1) * 16) / n) - 40;
-    const cols = h2h ? "minmax(0, 1fr) auto minmax(0, 1fr)" : `repeat(${n}, minmax(0, 1fr))`;
-    /* every side's name at one size: the smallest any side needs. A team
-       past three stands its name over overlapped chips. A matchup whose
-       names would letter small beside full faces tries that too (each name
-       on one line over smaller chips, so the felt keeps its room), else
-       keeps the names beside smaller, overlapped chips */
-    const specsFor = mode => contest.sides.map(side => {
-      const view = contestSideView(state, ev, contest, side);
-      const team = view.players.length > 1;
-      const many = view.players.length > 3 || (mode === "stacked" && team);
-      const small = mode !== "inline" && team && view.players.length <= 3;
-      const face = view.players.length > 3 ? 56 : small ? STACKED_FACE : view.players.length > 2 ? size.faceMany : size.face;
-      const overlap = many || (small && team);
-      const facesW = overlap ? face + (view.players.length - 1) * face * (1 - DISC_OVERLAP) : view.players.length * (face + 8);
-      return { view, many, face, overlap, name:view.name, width:many || !h2h ? sideW : sideW - facesW - 18, max:h2h ? 64 : 48,
-        min:many ? 36 : h2h ? 44 : 32 };
-    });
-    let specs = specsFor("inline");
-    if (h2h && sharedNameSize(specs) < SIDE_NAME_STACK) {
-      const stacked = specsFor("stacked");
-      const oneLine = stacked.every(spec => sideNameFit(spec.name, spec.width, { max:spec.max, min:spec.min, caps:true }).lines.length === 1);
-      specs = oneLine && sharedNameSize(stacked) >= SIDE_NAME_STACK ? stacked : specsFor("tight");
-    }
-    const nameSize = sharedNameSize(specs);
-    const cards = contest.sides.map((side, index) => {
-      const { view, many, face, overlap, width:nameW, max:nameMax, min:nameMin } = specs[index];
-      const ride = stacks.get(side.key) || { stacks:[], total:0 };
-      /* a felt fits any number of bettors without covering its total (P1); the
-         stacks stand as one pile centered in it */
-      const felt = ride.stacks.length > 0 && <FitStacks stacks={ride.stacks} total={0}
-        chip={size.chip} cap={STACK_CAP} min={TV_FELT_MIN} className="tv-stacks-fit" names={p => stackName(state, p)}
-        valueAt="below" ladder={ladder} floor={floor} onLevel={reportFit(`${contest.id}:${String(side.key)}`)} />;
-      return (
-        <div key={String(side.key)} className={`tv-side${ride.stacks.length ? " has-chips" : ""}`}>
-          <div className={`tv-side-top${many ? " is-many" : ""}`}>
-            {many && <SideName name={view.name} width={nameW} max={nameMax} min={nameMin} size={nameSize} />}
-            <Faces players={view.players} size={face} overlap={overlap} />
-            {!many && <SideName name={view.name} width={nameW} max={nameMax} min={nameMin} size={nameSize} />}
-          </div>
-          {/* this side's terms (the payout lamp) and the quieter win
-              line share one row, so the felt keeps its room */}
-          {(anyWinLine || termsRow) && <div className={`tv-side-win${termsRow ? " has-terms" : ""}`}>
-            {termsRow && <TVSideTerms terms={terms.sides[side.key]} teach={teach} />}
-            {anyWinLine && <TVWinLine lines={winLines} sideKey={side.key} />}</div>}
-          {any && <div className={`tv-felt${ride.stacks.length ? "" : " is-empty"}${feltPrice ? " has-price" : ""}`}>
-            {feltPrice && <TVSideTerms terms={terms.sides[side.key]} teach={teach} className="tv-felt-price" />}
-            {ride.total > 0 && <div className="tv-side-total"><SideTotal total={ride.total} /></div>}
-            {felt || <span className="tv-felt-empty">No bets</span>}
-          </div>}
-        </div>
-      );
-    });
-    body = (
-      <div className={`tv-sides${h2h ? " is-h2h" : " is-grid"}${any ? "" : " is-quiet"}${tight ? " is-tight" : ""}`} style={{ gridTemplateColumns:cols }}>
-        {h2h ? [cards[0], <div key="vs" className="tv-versus fd-show" aria-label="versus">VS</div>, cards[1]] : cards}
-      </div>
-    );
-  }
-  return (
-    <div className={`tv-contest tv-glass${upNow ? " is-up-now" : ""}${lamp ? " fd-lamp is-live" : ""}`}>
-      {head && <div className="tv-contest-head">
-        {upNow && <i className="fd-beat-dot tv-beat" aria-hidden="true" />}<OneSafe text={head} /></div>}
-      {body}
-      {(poolTerms?.pool || oddsLine(contest)) && <div className="tv-contest-foot">
-        <PayLamp text={poolTerms?.pool ? poolLine(poolTerms) : oddsLine(contest)} lit={!!poolTerms?.pool || isTwoToOne(contest)} /></div>}
-    </div>
-  );
-}
+/* The current contest is the table (TVTable.jsx): the felt every phone is
+   a seat at, from above at room scale, a spot per side with the room's %
+   rising in it as an amber fill and the bettors' stacks standing on it. */
+export const matchTitle = matchLabel;
 
 /* a finished bracket or stage waiting on its official result: the room sees
    who won it and the whole draw, never the commissioner's next step */
@@ -758,64 +471,32 @@ function DecidedWinner({ state, ev, winner, motion = null }) {
   );
 }
 
-/* The decided contest's chips settle: the winners' stacks grow by their
-   payout, every other stack slides back to the bank. One row, always: past
-   `fit` stacks a zone folds its smallest into one "+N" stack, so a crowd of
-   bettors never stacks the board into a column. */
-const SETTLE_LOSE_AT = 700, SETTLE_PAY_AT = 1300;
-const SETTLE_FIT = { won:6, lost:3 }, SETTLE_SLOT_FIT = { won:4, lost:2 };
-function SettleBoard({ state, settle, size = 56, fit = SETTLE_FIT }) {
-  if (!settle?.any) return null;
-  const names = p => stackName(state, p);
-  return (
-    <div className="tv-settle">
-      {settle.winners.length > 0 && <div className="tv-settle-zone is-won">
-        <div className="tv-settle-head" style={{ animationDelay:`${SETTLE_PAY_AT}ms` }}>{signed(settle.paid)}</div>
-        <BetStacks stacks={settle.winners} size={size} names={names} delay={SETTLE_PAY_AT} className="tv-stacks"
-          slots={fit.won} valueAt="below" />
-      </div>}
-      {settle.losers.length > 0 && <div className="tv-settle-zone is-lost">
-        <div className="tv-settle-head" style={{ animationDelay:`${SETTLE_LOSE_AT}ms` }}>{signed(-settle.lost)}</div>
-        <BetStacks stacks={settle.losers} size={size} names={names} delay={SETTLE_LOSE_AT} className="tv-stacks"
-          slots={fit.lost} valueAt="below" />
-      </div>}
-    </div>
-  );
-}
-
 /* the round under the stamp, with what the win means next: each its own
    unit, spaced apart, never joined by a dot */
 const AdvanceDetail = ({ moment }) => {
   const parts = [moment.round, ...String(moment.detail || "").split(" · ")].filter(Boolean);
   return parts.length ? <div className="tv-advance-detail">{parts.map(part => <span key={part}>{part}</span>)}</div> : null;
 };
-function AdvanceMoment({ state, moment, slot = false }) {
-  const chips = !!moment.settle?.any;
-  /* over a bracket, the card keeps to the contest's space so the bracket
-     beside it can carry the winners forward; with bets to pay, the winner
-     sits on top and the chips settle in one row under it */
-  if (slot) return (
-    <div className={`tv-advance is-slot${chips ? " has-settle" : ""}`} role="status">
-      <div className="tv-advance-who">
-        <div className="tv-advance-line">
-          <Faces players={moment.players} size={chips ? 72 : 88} />
-          <div className="tv-display tv-advance-name">{moment.name}</div>
-        </div>
-        <div className="tv-advance-call">
-          <div key={moment.id} className="fd-show tv-advance-stamp">{moment.verb}</div>
-          <AdvanceDetail moment={moment} />
-        </div>
-      </div>
-      <SettleBoard key={`settle-${moment.id}`} state={state} settle={moment.settle} size={48} fit={SETTLE_SLOT_FIT} />
+/* The decided contest: its table settling on the decision's server time
+   (TVSettledTable: the winner's spot floods and stamps WON, the glove
+   rakes the losers' chips to the bank, the winners' stacks grow). Over a
+   bracket it keeps to the contest's space, so the bracket beside it can
+   carry the winners forward. A contest whose sides cannot be read back
+   (an old record) keeps the winner's card. */
+function AdvanceMoment({ state, events, ev, moment, width, band = false, clock }) {
+  const entry = (state.eventOps?.[ev.id]?.contestStack || []).find(item => item.id === moment.id) || state.eventOps?.[ev.id]?.lastContest;
+  if (entryContest(state, ev, entry)) return (
+    <div className={`tv-advance-table${band ? " is-band" : ""}`}>
+      <TVSettledTable key={moment.id} state={state} events={events} ev={ev} advance={moment} width={width}
+        height={band ? BAND_TABLE_H : TABLE_H} band={band} clock={clock} />
     </div>
   );
   return (
-    <div className={`tv-advance${chips ? " has-settle" : ""}`} role="status">
-      <Faces players={moment.players} size={chips ? 104 : 128} />
+    <div className="tv-advance" role="status">
+      <Faces players={moment.players} size={band ? 72 : 128} />
       <div className="tv-display tv-advance-name">{moment.name}</div>
       <div key={moment.id} className="fd-show tv-advance-stamp">{moment.verb}</div>
-      <AdvanceDetail moment={moment} />
-      <SettleBoard key={`settle-${moment.id}`} state={state} settle={moment.settle} />
+      {!band && <AdvanceDetail moment={moment} />}
     </div>
   );
 }
@@ -1322,15 +1003,12 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied: allT
     const band = !!beside && !!activeBracketEv && (state.draws?.[activeBracketEv.id]?.teams?.length || 0) >= BIG_BRACKET;
     if (band) content = <div className="tv-live is-band">
       <div className="tv-live-main">
+        {/* the decided contest's table settles in the next one's place for its moment */}
         <div className="tv-contest-slot">
-          {liveContest.sides.length === 2
-            ? <ContestBand state={state} ev={liveEv} contest={liveContest} stacks={contestStacks(state, events, liveContest)}
-              width={BOARD_W} lamp={contestLamp(liveContest)} teach={!!underdogTeach?.active} />
-            : <ContestBoard state={state} events={events} ev={liveEv} contest={liveContest} width={BOARD_W}
-              teach={!!underdogTeach?.active} />}
-          {slotAdvance && <AdvanceMoment state={state} moment={advance} slot />}
+          {advance ? <AdvanceMoment state={state} events={events} ev={liveEv} moment={advance} width={BOARD_W} band clock={introClock} />
+            : <TVTable state={state} events={events} ev={liveEv} contest={liveContest} width={BOARD_W}
+              height={BAND_TABLE_H} band={liveContest.sides.length === 2} teach={!!underdogTeach?.active} clock={introClock} />}
         </div>
-        {advance && !slotAdvance && <AdvanceMoment state={state} moment={advance} />}
         {faceOff && (() => {
           const view = faceOffView(state, liveEv, liveContest, events);
           return view ? <FaceOff state={state} events={events} ev={liveEv} contest={liveContest} view={view} moment={faceOff}
@@ -1344,13 +1022,15 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied: allT
     </div>;
     else content = <div className="tv-live">
       <div className="tv-live-main">
-        {inContest ? <>
-          <div className="tv-contest-slot">
-            <ContestBoard state={state} events={events} ev={liveEv} contest={liveContest}
-              width={beside ? BOARD_W - SIDE_W - 28 : BOARD_W} teach={!!underdogTeach?.active} />
-            {slotAdvance && <AdvanceMoment state={state} moment={advance} slot />}
-          </div>
-        </> : decided ? <DecidedWinner state={state} ev={liveEv} winner={decided} motion={bracketMotion} />
+        {/* the decided contest's table settles in the live table's place
+            for its moment (over a bracket, beside it), then the next deals in */}
+        {advance ? <div className="tv-contest-slot">
+          <AdvanceMoment state={state} events={events} ev={liveEv} moment={advance}
+            width={slotAdvance ? BOARD_W - SIDE_W - 28 : BOARD_W} clock={introClock} />
+        </div> : inContest ? <div className="tv-contest-slot">
+          <TVTable state={state} events={events} ev={liveEv} contest={liveContest}
+            width={beside ? BOARD_W - SIDE_W - 28 : BOARD_W} teach={!!underdogTeach?.active} clock={introClock} />
+        </div> : decided ? <DecidedWinner state={state} ev={liveEv} winner={decided} motion={bracketMotion} />
           : activeBracketEv ? <div className="tv-glass tv-live-bracket"><TVBracket state={state} ev={activeBracketEv} size="full"
             hot={upNext ? [upNext.r, upNext.m] : null} motion={bracketMotion} teachBye={byeTeach} now={now} /></div>
             : activeStageEv ? <div className="tv-glass tv-live-bracket"><StageGroups state={state} ev={activeStageEv} /></div>
@@ -1358,7 +1038,6 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied: allT
                 <GameMark id={liveEv.game} variant={liveEv.variant} size={130} />
                 <PayoutLadder ev={liveEv} size="tv" />
               </div>}
-        {advance && !slotAdvance && <AdvanceMoment state={state} moment={advance} />}
         {faceOff && inContest && (() => {
           const view = faceOffView(state, liveEv, liveContest, events);
           return view ? <FaceOff state={state} events={events} ev={liveEv} contest={liveContest} view={view} moment={faceOff}

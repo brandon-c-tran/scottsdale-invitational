@@ -17,6 +17,8 @@ import { contestStacks, stackName } from "../wagers/betStacks.js";
 import { contestWinLines, ordinal, winLineFor } from "../standings/winImpact.js";
 import { SideTerms } from "../comebacks/Comebacks.jsx";
 import { contestTerms } from "../comebacks/comebacks.js";
+import { tableView } from "../wagers/tableModel.js";
+import { SharePip } from "../wagers/BetTable.jsx";
 import { DEALT } from "../standings/Standings.jsx";
 import { TeamNameNow, useTeamNameNow } from "../teams/TeamNameCard.jsx";
 import { homeTeamNameEvent, namingEvents } from "../teams/teamNameModel.js";
@@ -272,7 +274,13 @@ function EventTable({ model, state, me, events, standings, onOpen, onRules, onBe
   const twoUp = sided && contest.sides.length === 2 && contest.sides.every(side => side.players.length <= 2);
   /* v3.1: what each side pays, said on the side */
   const terms = sided && contest ? contestTerms(state, contest) : null;
-  const termsFor = side => terms?.odds && !terms.wide ? terms.sides[side.key] : null;
+  /* a pool: each side's share as a small spot of the table (its %, the
+     amber fill); a contest opened before pools keeps its payout line */
+  const table = sided && contest && terms?.pool ? tableView(state, events, contest, me) : null;
+  const spotFor = side => table ? table.spots.find(spot => spot.key === side.key) || null : null;
+  const termsFor = side => !table && terms?.odds && !terms.wide ? terms.sides[side.key] : null;
+  const sideMark = side => spotFor(side) ? <SharePip spot={spotFor(side)} />
+    : termsFor(side) ? <SideTerms terms={termsFor(side)} className="fd-home-terms" /> : null;
   /* sides of three or more read as team blocks, not a row of names */
   const teamSides = sided && teamBlocks;
   /* karaoke sings its own song: a win song line there would read as it */
@@ -331,7 +339,7 @@ function EventTable({ model, state, me, events, standings, onOpen, onRules, onBe
                     {pot > 0 && <span className="fd-home-pot" aria-label={`${fmt(pot)} chips bet on this side`}><strong>{fmt(pot)}</strong></span>}
                     {yours && naming.pencil}</h3>
                   <TeamFaces state={state} players={side.players} onPlayer={onPlayer} />
-                  {termsFor(side) && <SideTerms terms={termsFor(side)} className="fd-home-terms" />}
+                  {sideMark(side)}
                 </div>
               </React.Fragment>;
             })}
@@ -344,10 +352,10 @@ function EventTable({ model, state, me, events, standings, onOpen, onRules, onBe
                 <div className={`fd-home-side${side.players.includes(me) || backed ? " is-mine" : ""}`}>
                   <People state={state} players={side.players} onPlayer={onPlayer} short={side.players.length > 1} />
                   {/* what is bet on the side, and under it what it pays when the contest carries odds */}
-                  {(pot > 0 || termsFor(side)) && <span className="fd-home-pot-col">
+                  {(pot > 0 || sideMark(side)) && <span className="fd-home-pot-col">
                     {pot > 0 && <span className="fd-home-pot" aria-label={`${fmt(pot)} chips bet on this side`}>
                       <strong>{fmt(pot)}</strong></span>}
-                    {termsFor(side) && <SideTerms terms={termsFor(side)} className="fd-home-terms" />}</span>}
+                    {sideMark(side)}</span>}
                 </div>
               </React.Fragment>;
             })}

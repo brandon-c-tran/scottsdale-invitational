@@ -5,7 +5,7 @@
 import { DISC_OVERLAP } from "../identity/discLetters.js";
 import {
   awardTable, ROSTER, rosterOf, EDITION, ROUND_NAMES, SESSIONS, bracketOrder, bracketChampion, resultAwards,
-  computeStandings, resolveWager, resolveDuel, resolveCurrentContest, resolveSlot, eventInPlay, contestMult,
+  computeStandings, resolveWager, resolveDuel, resolveCurrentContest, resolveSlot, eventInPlay, contestMult, contestUpset,
   disp, teamLabel, stageEntrantView, overflowRoleMeta, pokerLive, pokerClock,
 } from "../../../shared/core.js";
 import { constellationStars, constellationLines } from "./desertModel.js";
@@ -507,8 +507,11 @@ export function advanceMoment(state, ev, now) {
   /* the decided contest's chips: winners grow by their payout, the rest go
      back to the bank. Derived from resolveWager, so a correction redraws it. */
   const settle = settledStacks(state, [ev], contestOfEntry(ev.id, last));
+  /* a long shot that won: the price its backers were paid (the table's
+     "Paid 3.4×" lamp and its stamp) */
+  const upset = contestUpset(state, ev.id, last.id, last.winner);
   return { kind:last.kind, players, name, round, verb:won ? (plural ? "Win" : "Wins") : (plural ? "Advance" : "Advances"),
-    detail, beat, next, decidedAt:last.decidedAt, id:last.id, settle };
+    detail, beat, next, decidedAt:last.decidedAt, id:last.id, settle, upset:upset.upset ? upset.price : null };
 }
 
 /* a finished bracket or stage waiting on its official result: who won it */

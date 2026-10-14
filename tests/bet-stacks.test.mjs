@@ -14,7 +14,8 @@ import {
 } from "../src/features/wagers/betStacks.js";
 import { seatStacks, trayStacks, pokerChip, POKER_CHIPS, TRAY_TUBE } from "../src/features/poker/pokerChips.js";
 import { advanceMoment, contestRiders } from "../src/features/tv/tvModel.js";
-import { STRIP_LABEL, TOTE, toteBoard } from "../src/features/tv/toteModel.js";
+import { fillLevel, tableView } from "../src/features/wagers/tableModel.js";
+import { BAND_TABLE_H, SWEEP_MS, TABLE_H, backerPile, entryContest, sweepWindow, tableLayout } from "../src/features/tv/tvTable.js";
 
 /* Everyone's bets as stacks of their own identity chip. The model is pure;
    the render checks run the real components, as the other UI suites do. */
@@ -264,48 +265,65 @@ const renderTv = (state, now = Date.now()) => {
 /* no single line of TV text pairs a name with a number */
 const textNodes = html => [...html.matchAll(/>([^<>]+)</g)].map(match => match[1].trim()).filter(Boolean);
 
-test("TV: bettors ride as named stacks, never a Name 200 list", () => {
+/* the TV's table (TVTable.jsx): one felt, the contest printed in a corner
+   and the pool in the other, a spot per side */
+const feltOf = html => html.slice(html.indexOf('<section class="tvt '), html.indexOf("</section>", html.indexOf('<section class="tvt ')));
+const spotsOf = felt => felt.split('class="tvt-spot ').slice(1);
+
+test("TV: the table's spots carry the room's %, a fill to their share and the bettors as named stacks", () => {
   const { state, contest, bystanders } = bracketWithBets();
   const html = renderTv(state);
-  const board = html.slice(html.indexOf('class="tv-sides'), html.indexOf('class="tv-contest-foot"'));
-  assert.ok(board.length > 0);
+  const felt = feltOf(html);
+  assert.ok(felt.length > 0, "the live contest is the table");
+  assert.match(felt, /<section class="tvt tv-glass is-match is-open/);
+  const table = tableView(state, allEventsOf(state), contest);
+  /* the corners: the match by its name, the pool on its reel (the bank's seeds and every chip) */
+  assert.match(felt, /class="tvt-label-text">/);
+  assert.match(felt, new RegExp(`class="tvt-pool"><small>Pool</small><span class="fd-reel[^"]*" role="img" aria-label="${table.total.toLocaleString("en-US")}"`));
+  const spots = spotsOf(felt);
+  assert.equal(spots.length, 2, "a matchup is two spots");
+  table.spots.forEach((spot, i) => {
+    /* the room's % on its reel, the fill risen to the side's share */
+    assert.match(spots[i], new RegExp(`aria-label="${spot.pct}%"`));
+    assert.match(spots[i], new RegExp(`--fill:${fillLevel(spot.share)}`));
+  });
+  assert.equal(table.spots[0].pct + table.spots[1].pct, 100);
   for (const player of bystanders.slice(0, 8)) {
-    assert.match(board, new RegExp(`data-stack-player="${player}"`));
-    assert.match(board, new RegExp(`class="fd-stacks-name">${player}<`));
+    assert.match(felt, new RegExp(`data-stack-player="${player}"`));
+    assert.match(felt, new RegExp(`class="fd-stacks-name">${player}<`));
   }
-  assert.ok(textNodes(board).every(text => !/[A-Za-z] \d/.test(text)), textNodes(board).join(" | "));
-  assert.doesNotMatch(board, /tv-side-riders/);
-  assert.match(board, /tv-side-total"><span class="fd-reel[^"]*" role="img" aria-label="2,000"/);
-  assert.match(board, /tv-side-total"><span class="fd-reel[^"]*" role="img" aria-label="1,500"/);
+  /* no line of the felt pairs a name with a number, and no × price is shown */
+  assert.ok(textNodes(felt).every(text => !/[A-Za-z] \d/.test(text)), textNodes(felt).join(" | "));
+  assert.doesNotMatch(felt.replace(/<[^>]*>/g, " "), /×/);
   /* a 1,000 stake caps at ten chips and stamps its value */
-  assert.match(board, new RegExp(`data-stack-player="${bystanders[0]}" data-stack-chips="${STACK_CAP}"`));
-  assert.ok(contest);
+  assert.match(felt, new RegExp(`data-stack-player="${bystanders[0]}" data-stack-chips="${STACK_CAP}"`));
 });
 
-test("TV free-for-all: a tote board, the backed sides ranked by their money, the rest one unlit strip", () => {
+test("TV free-for-all: a 7-wide grid of spots, each its face, name, % and its backers' pile", () => {
   const state = structuredClone(EMPTY_STATE);
   act(state, "announceEvent", { evId:"putt" });
   bet(state, "putt", "Adi", ROSTER.indexOf("Khoa"), 200);
   bet(state, "putt", "Ben", ROSTER.indexOf("Khoa"), 300);
   bet(state, "putt", "Evan", ROSTER.indexOf("Evan"), 100);
   const html = renderTv(state);
-  const rows = html.split('class="tv-tote-row"').slice(1);
-  assert.equal(rows.length, 2, "one row a side with money");
-  /* biggest total first: Khoa's 500 over Evan's 100 */
-  assert.match(rows[0], /tv-tote-name"[^>]*>Khoa</);
-  assert.match(rows[0], /tv-side-total tv-tote-total"[^>]*><span class="fd-reel[^"]*" role="img" aria-label="500"/);
-  assert.match(rows[0], /data-backers="Ben Adi"/, "the backers, most money first");
-  assert.match(rows[1], /tv-tote-name"[^>]*>Evan</);
-  /* the bar is on the biggest total's scale */
-  assert.match(rows[0], /tv-tote-bar[^"]*" style="width:100.00%/);
-  assert.match(rows[1], /tv-tote-bar[^"]*" style="width:20.00%/);
-  const strip = html.slice(html.indexOf('class="tv-tote-strip'), html.indexOf('class="tv-contest-foot"'));
-  assert.match(strip, />No bets</);
-  assert.equal(strip.split('class="tv-tote-idle-side"').length - 1, 11, "every other side is in the strip");
-  assert.doesNotMatch(strip, /tv-tote-bar|fd-reel/);
-  /* no line of the board pairs a name with a number */
-  const sides = html.slice(html.indexOf('class="tv-sides'), html.indexOf('class="tv-contest-foot"'));
-  assert.ok(textNodes(sides).every(text => !/[A-Za-z] \d/.test(text)), textNodes(sides).join(" | "));
+  const felt = feltOf(html);
+  assert.match(felt, /class="tvt-body is-grid"/);
+  const spots = spotsOf(felt);
+  assert.equal(spots.length, 13, "a spot for every side, none hidden in a strip");
+  const contest = resolveCurrentContest(state, evOf(state, "putt"));
+  const table = tableView(state, allEventsOf(state), contest);
+  assert.equal(table.shape, "grid");
+  /* spots never move: they stand in the contest's own order */
+  assert.deepEqual(spots.map(spot => /data-spot="([^"]+)"/.exec(spot)[1]), contest.sides.map(side => String(side.key)));
+  const khoa = spots[ROSTER.indexOf("Khoa")];
+  assert.match(khoa, /class="tvt-name is-cell"[^>]*><span[^>]*>Khoa</);
+  /* its backers, most money first, as a pile of their faces */
+  assert.deepEqual([...khoa.matchAll(/data-backer="([^"]+)"/g)].map(m => m[1]), ["Ben", "Adi"]);
+  assert.match(khoa, new RegExp(`aria-label="${table.spots[ROSTER.indexOf("Khoa")].pct}%"`));
+  /* the % adds to 100 across the felt; a grid lights no long shot (every quiet spot sits long) */
+  assert.equal(table.spots.reduce((sum, spot) => sum + spot.pct, 0), 100);
+  assert.doesNotMatch(felt, /tvt-pct is-long/);
+  assert.ok(textNodes(felt).every(text => !/[A-Za-z] \d/.test(text)), textNodes(felt).join(" | "));
 });
 
 test("poker starting stacks are drawn chips on the setup sheet and the TV, never multiplication", () => {
@@ -334,63 +352,64 @@ test("poker starting stacks are drawn chips on the setup sheet and the TV, never
   }
 });
 
-test("TV tote board: the field with no bets, one side holding everything, all thirteen backed", () => {
-  const side = (i, total, backers = 0) => ({ key:i, name:ROSTER[i], players:[ROSTER[i]], total,
-    stacks:Array.from({ length:backers }, (_, j) => ({ player:ROSTER[(i + j + 1) % 13], stake:100 })) });
-  /* no bets: the field alone, every name under its chip, the payout under it */
-  const none = toteBoard(ROSTER.map((_, i) => side(i, 0)), { width:1792, height:440 });
-  assert.equal(none.any, false);
-  assert.equal(none.rows.length, 0);
-  assert.equal(none.strip.kind, "field");
-  assert.equal(none.idle.length, 13);
-  assert.ok(none.strip.names && none.strip.nameSize >= 24, "the field letters every name at the TV floor or larger");
-  assert.ok(none.strip.width <= 1792 && none.strip.height <= 440);
-  /* one side holds everything: one row, its bar full, its crowd folded into +N */
-  const one = toteBoard(ROSTER.map((_, i) => side(i, i === 4 ? 7600 : 0, i === 4 ? 13 : 0)), { width:1792, height:440 });
-  assert.equal(one.rows.length, 1);
-  assert.equal(one.rows[0].share, 1);
-  assert.equal(one.rows[0].backers.length + one.rows[0].more, 13);
-  assert.ok(one.rows[0].more > 0, "past what a row holds, the rest read +N");
-  assert.equal(one.idle.length, 12);
-  assert.equal(one.strip.kind, "strip");
-  assert.ok(one.row.height + TOTE.stripGap + one.strip.height <= 440);
-  /* all thirteen backed: two columns ranked down the first, every row above the floor */
-  const totals = [100, 2400, 700, 1300, 500, 200, 1800, 300, 900, 400, 1100, 600, 200];
-  const all = toteBoard(ROSTER.map((_, i) => side(i, totals[i], 1)), { width:1792, height:440 });
-  assert.equal(all.strip, null);
-  assert.equal(all.cols, 2);
-  assert.equal(all.perCol, 7);
-  assert.deepEqual(all.rows.map(row => row.total), [...totals].sort((a, b) => b - a));
-  assert.deepEqual(all.rows.slice(0, 7).map(row => row.col), [0, 0, 0, 0, 0, 0, 0]);
-  assert.ok(all.perCol * all.row.height + (all.perCol - 1) * TOTE.rowGap <= 440, "seven rows stand in the board's height");
-  assert.ok(all.row.nameSize >= 24 && all.row.barW > 120, `a row: ${JSON.stringify(all.row)}`);
-  /* a tie keeps the contest's order: the two 200s read in side order */
-  const tied = all.rows.filter(row => row.total === 200).map(row => row.key);
-  assert.deepEqual(tied, [5, 12]);
-  /* rendered: no bets is the field and the lit payout, never a "No bets" line */
+test("the TV table's geometry: every shape fits its felt at the TV's floor, and its moments keep the server's time", () => {
+  /* a matchup, a row of 3 to 6, a grid of 7+, full width and beside a bracket */
+  for (const width of [1792, 1004]) {
+    for (const [shape, count] of [["match", 2], ["row", 3], ["row", 4], ["row", 6], ["grid", 13], ["grid", 9]]) {
+      const layout = tableLayout({ shape, count, width });
+      const cols = shape === "grid" ? 7 : count;
+      assert.ok(cols * layout.spotW + (cols - 1) * 12 <= width - 48, `${shape} ${count} at ${width}: ${layout.spotW}px spots fit`);
+      assert.ok(layout.rows * layout.spotH <= TABLE_H, `${shape} ${count}: the rows stand in the live row`);
+      assert.ok(layout.pct >= 48, `${shape} ${count}: the % reads from the couch`);
+      if (layout.name) assert.ok(layout.name >= 24);
+      if (layout.nameMin) assert.ok(layout.nameMin >= 24);
+    }
+  }
+  assert.equal(tableLayout({ shape:"grid", count:13, width:1792 }).rows, 2, "13 is 7 + 6");
+  assert.ok(tableLayout({ shape:"match", count:2, width:1792 }).wide, "a full-width matchup puts its stacks beside the %");
+  const band = tableLayout({ shape:"match", count:2, width:1792, height:BAND_TABLE_H, band:true });
+  assert.ok(band.band && band.spotH <= BAND_TABLE_H && band.spotW * 2 + band.center + band.gap * 2 <= 1792 - 40);
+  /* a grid cell's pile: three faces at most, the rest +N */
+  const stacks = n => Array.from({ length:n }, (_, i) => ({ player:ROSTER[i], stake:100 }));
+  assert.deepEqual(backerPile(stacks(2), 3), { shown:[ROSTER[0], ROSTER[1]], more:0 });
+  assert.deepEqual(backerPile(stacks(6), 3), { shown:[ROSTER[0], ROSTER[1]], more:4 });
+  /* the sweep plays from the lock's server time: a late TV joins mid-sweep, a later one sees the table */
+  assert.deepEqual(sweepWindow(10_000, 10_900), { at:10_000, elapsed:900 });
+  assert.equal(sweepWindow(10_000, 10_000 + SWEEP_MS), null);
+  assert.equal(sweepWindow(0, 5), null);
+  /* rendered: no bets is still the table, the bank's 13 seeds in its pool */
   const state = structuredClone(EMPTY_STATE);
   act(state, "announceEvent", { evId:"putt" });
-  const empty = renderTv(state);
-  assert.doesNotMatch(empty, new RegExp(`>${STRIP_LABEL}<`), "with no bets the field needs no label");
-  assert.doesNotMatch(empty, /tv-tote-row/);
-  assert.match(empty, /class="tv-tote-strip is-field"/);
-  assert.match(empty, /class="tv-contest-foot"><span class="tv-pay-lamp is-lit"><i class="fd-insert" aria-hidden="true"><\/i>Pool 1,300</,
-    "the pool stays on the board's lit lamp: the bank's 13 seeds before a chip is down");
-  assert.doesNotMatch(empty, /Winner pays/);
-  /* a price column: the same seven rows still stand, the bar gives it the room */
-  const priced = toteBoard(ROSTER.map((_, i) => side(i, totals[i], 1)), { width:1792, height:440, prices:true });
-  assert.ok(priced.row.priceW > 0 && all.row.priceW === 0);
-  assert.ok(priced.row.barW < all.row.barW && priced.row.barW > 120);
-  assert.deepEqual([priced.cols, priced.perCol], [all.cols, all.perCol]);
-  /* backed: each row its price, the foot the pool. 1,300 seed and 1,200
-     staked is 2,500: Khoa's 1,100 at 2.2x, Evan's 300 at 8.3x */
-  const khoa = ROSTER.indexOf("Khoa");
-  [["Adi", 400], ["Ben", 300], ["Evan", 200], ["Chinh", 100]].forEach(([player, stake]) => bet(state, "putt", player, khoa, stake));
-  bet(state, "putt", "Henry", ROSTER.indexOf("Evan"), 200);
-  const backed = renderTv(state);
-  assert.match(backed, /class="tv-contest-foot"><span class="tv-pay-lamp is-lit"><i class="fd-insert" aria-hidden="true"><\/i>Pool 2,500</);
-  const tote = [...backed.matchAll(/class="tv-tote-price"[^>]*><span class="fd-price is-tote [^"]*" role="img" aria-label="Pays ([\d.]+)×"/g)].map(m => m[1]);
-  assert.deepEqual(tote, ["2.2", "8.3"], "the two backed rows, biggest first");
+  const empty = feltOf(renderTv(state));
+  assert.match(empty, /class="tvt-pool"><small>Pool<\/small><span class="fd-reel[^"]*" role="img" aria-label="1,300"/,
+    "the pool is the bank's 13 seeds before a chip is down");
+  assert.equal(spotsOf(empty).length, 13);
+  assert.doesNotMatch(empty, /Winner pays|data-stack-player|data-backer/);
+});
+
+test("a decided contest's table reads its sides back from the record, and settles on the TV", () => {
+  const { state, contest } = bracketWithBets();
+  act(state, "lockAndStart", { evId:"8ball", ...ref(state, "8ball") });
+  act(state, "recordContestWinner", { evId:"8ball", winner:contest.sides[0].key, ...ref(state, "8ball") });
+  const ev = evOf(state, "8ball");
+  const entry = state.eventOps["8ball"].lastContest;
+  const back = entryContest(state, ev, entry);
+  assert.equal(back.id, contest.id);
+  assert.equal(back.pool, true);
+  assert.deepEqual(back.sides, contest.sides, "the bracket's match gives its sides back");
+  const decidedAt = entry.decidedAt;
+  const felt = feltOf(renderTv(state, decidedAt + 2600));
+  assert.match(felt, /<section class="tvt tv-glass is-settled is-match/);
+  const spots = spotsOf(felt);
+  assert.match(spots[0], /^[^"]*is-settled is-won/);
+  assert.match(spots[1], /^[^"]*is-settled is-lost/);
+  assert.match(spots[0], />Won</);
+  /* the winners' stacks grow by their payout; the losers' leave for the bank */
+  assert.match(spots[0], /class="tvt-felt-stacks is-settle"/);
+  assert.match(spots[1], /class="tvt-felt-stacks is-settle is-raked"/);
+  assert.match(felt, /class="tvt-rake"/, "the glove rakes the losing spot");
+  /* five seconds on, the next match is the table again */
+  assert.doesNotMatch(feltOf(renderTv(state, decidedAt + 5200)), /is-settled/);
 });
 
 test("a wide board is one row a side: mini stacks with their total (yours ringed), then a quiet well", () => {

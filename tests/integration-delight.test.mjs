@@ -98,17 +98,17 @@ test("numbered bracket rounds read singular in the draw reveal", () => {
     ["Play-in 1", "Play-in 2"]);
 });
 
-test("the TV podium names the finale once, and a settled slot card keeps a pair's name on one line", () => {
+test("the TV podium names the finale once, and a settled table keeps a pair's name on one line", () => {
   const tv = src("src/features/tv/TVMode.jsx");
   assert.doesNotMatch(tv, /· final stacks/);
-  assert.match(tv, /className=\{`tv-advance is-slot\$\{chips \? " has-settle" : ""\}`\}/);
-  const css = src("src/features/tv/tvScenes.css");
-  assert.match(css, /\.tv-advance\.is-slot\.has-settle \.tv-advance-name \{[^}]*white-space:nowrap/);
-  /* the settled chips are one row under the winner, clipped to the card */
-  assert.match(css, /\.tv-advance\.is-slot\.has-settle \{[^}]*flex-direction:column[^}]*overflow:hidden/);
-  assert.match(src("src/features/tv/tv.css"), /\.tv-settle \.tv-stacks \{[^}]*flex-wrap:nowrap/);
-  assert.match(tv, /slots=\{fit\.won\}/);
-  assert.match(tv, /slots=\{fit\.lost\}/);
+  /* a decided contest settles as its own table in the live table's place */
+  assert.match(tv, /<TVSettledTable key=\{moment\.id\}/);
+  const table = src("src/features/tv/TVTable.jsx");
+  const css = src("src/features/tv/tv-table.css");
+  assert.match(css, /\.tvt-name > span \{[^}]*white-space:nowrap/);
+  /* the settled chips stand in one row on the felt's floor, each side folding past its slots */
+  assert.match(css, /\.tvt-felt-stacks\.is-settle > \.fd-stacks \{[^}]*flex-wrap:nowrap/);
+  assert.match(table, /<BetStacks stacks=\{spot\.stacks\}[\s\S]*?slots=\{slots\}/);
 });
 
 test("a captain's turn nudge leaves with the turn and stays quiet over the open draft", () => {

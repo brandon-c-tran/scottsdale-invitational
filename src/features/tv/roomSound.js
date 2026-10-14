@@ -84,8 +84,10 @@ import { karaokeCues, karaokeRoomSnapshot } from "./karaokeSound.js";
 import { gagCast, gagHoldMs } from "../gags/gagModel.js";
 import { bitCues } from "./bitSound.js";
 
-/* the settle board on the TV (TVMode SettleBoard): losers slide, then winners grow */
-export const SETTLE_SOUND = Object.freeze({ lose:700, pay:1300 });
+/* the settle on the TV's table (TVTable TVSettledTable, tvTable SETTLE): the
+   losers' chips go to the bank, the winners' stacks grow, a long shot's
+   price lights */
+export const SETTLE_SOUND = Object.freeze({ lose:700, pay:1300, price:1700 });
 
 const posted = res => Number(res?.confirmedAt || res?.ts) || 0;
 const panAt = (col, cols) => cols > 1 ? Math.round((-0.6 + 1.2 * col / (cols - 1)) * 100) / 100 : 0;
@@ -371,6 +373,8 @@ export function advanceCues(advance, motion = null, { reduced = false } = {}) {
   const cues = [{ id:"S10", at:at(A.stamp), key:`${key}:won` }];
   if (advance.settle?.losers?.length) cues.push({ id:"S11", at:at(SETTLE_SOUND.lose), key:`${key}:bank` });
   if (advance.settle?.winners?.length) cues.push({ id:"S12", at:at(SETTLE_SOUND.pay), key:`${key}:paid` });
+  /* a long shot paid: its price lamp lights on the winning spot (TVTable) */
+  if (advance.upset) cues.push({ id:"stamp", at:at(SETTLE_SOUND.price), key:`${key}:price` });
   if (motion) {
     if (motion.matches?.some(match => match.target)) {
       cues.push({ id:"ride", at:at(A.ride - 60), opts:{ ms:A.rideMs }, key:`${key}:ride` });

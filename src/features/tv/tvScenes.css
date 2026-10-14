@@ -51,34 +51,9 @@
 @keyframes tv-br-land { 0% { transform:none; border-color:var(--bone); } 40% { transform:translateY(5px); border-color:var(--bone); }
   100% { transform:none; border-color:var(--line); } }
 
-/* the decided match's card sits in the contest's own space, so the bracket
-   under it stays in view while the winners move through it */
+/* the live table's place: the decided contest's table settles in it for
+   its moment, so the bracket beside it stays in view */
 .tv-contest-slot { position:relative; flex:1; min-height:0; display:flex; flex-direction:column; }
-.tv-advance.is-slot { flex-direction:row; align-items:center; justify-content:space-between; gap:36px; padding:16px 32px;
-  text-align:left; border:1px solid var(--ghost-line); border-radius:18px; }
-.tv-advance-who { flex:1; min-width:0; display:flex; flex-direction:column; align-items:flex-start; gap:10px; }
-.tv-advance-line { display:flex; align-items:center; gap:18px; min-width:0; max-width:100%; }
-.tv-advance.is-slot .tv-advance-name { font-size:56px; min-width:0; }
-.tv-advance.is-slot .tv-advance-stamp { font-size:96px; }
-.tv-advance.is-slot .tv-advance-detail { font-size:30px; }
-.tv-advance.is-slot .tv-settle { margin-top:0; flex-shrink:0; }
-.tv-advance-call { display:flex; flex-direction:column; align-items:flex-start; gap:10px; min-width:0; }
-/* with bets to pay: the winner on top, the stamp and what it means beside
-   each other, then the settled chips as one row across the card. Nothing
-   leaves the card; a lost stack fades out on its way to the bank. */
-.tv-advance.is-slot.has-settle { flex-direction:column; align-items:stretch; justify-content:center; gap:22px;
-  padding:22px 36px; overflow:hidden; }
-.tv-advance.is-slot.has-settle .tv-advance-who { flex:0 0 auto; gap:6px; }
-.tv-advance.is-slot.has-settle .tv-advance-name { font-size:56px; min-width:0; white-space:nowrap;
-  overflow:hidden; text-overflow:ellipsis; }
-.tv-advance.is-slot.has-settle .tv-advance-call { flex-direction:row; align-items:center; column-gap:36px; max-width:100%; }
-.tv-advance.is-slot.has-settle .tv-advance-stamp { font-size:84px; flex-shrink:0; }
-/* the round and what it means wrap to a second line beside the stamp */
-.tv-advance.is-slot.has-settle .tv-advance-detail { min-width:0; row-gap:2px; column-gap:28px; white-space:nowrap; }
-.tv-advance.is-slot.has-settle .tv-settle { justify-content:flex-start; gap:24px; max-width:100%; }
-.tv-advance.is-slot.has-settle .tv-settle-zone { min-width:0; padding:12px 22px; }
-.tv-advance.is-slot.has-settle .tv-settle-head { font-size:44px; }
-
 /* ── the crown ──
    At rest (a reload, a late TV, after the produced crown): the champion's
    frame on their color under the masthead. Playing: the produced crown, a

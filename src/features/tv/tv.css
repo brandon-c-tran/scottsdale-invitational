@@ -195,54 +195,6 @@
 .tv-live.is-band .tv-live-main { flex:1; min-height:0; }
 .tv-live-band { flex-shrink:0; display:flex; flex-direction:column; padding:12px 28px; }
 .tv-live-band .tv-bracket { padding-top:0; }
-.tv-contest.is-band { flex:1; min-height:0; justify-content:center; padding:10px 28px; }
-.tv-contest.is-band .tv-sides.is-h2h { flex:1; min-height:0; grid-template-columns:minmax(0, 1fr) 236px minmax(0, 1fr);
-  align-items:stretch; gap:16px; }
-.tv-side.is-band { flex-direction:row; align-items:center; gap:24px; padding:0; overflow:visible; }
-.tv-side.is-band.is-right { flex-direction:row-reverse; }
-.tv-side.is-band .tv-side-top { flex:0 1 auto; min-height:0; }
-.tv-side.is-band.is-right .tv-side-top { flex-direction:row-reverse; text-align:right; }
-.tv-side.is-band .tv-felt { flex:1; align-self:stretch; min-width:0; flex-direction:row; align-items:center; gap:14px; padding:8px 14px; }
-.tv-side.is-band .tv-felt > .tv-side-total { font-size:56px; }
-.tv-side.is-band .tv-felt > .tv-stacks-fit { flex:1; align-self:stretch; min-width:0; position:relative; }
-/* the band's felt is short: each amount stands beside its chips, the name
-   under them, and a slot is only as wide as what it holds */
-.tv-side.is-band .tv-stacks-fit .fd-stacks { gap:4px 12px; }
-.tv-side.is-band .tv-stacks-fit .fd-stacks-slot { width:auto; min-width:0; }
-.tv-side.is-band .tv-stacks-fit .fd-stacks-body { gap:6px; }
-.tv-side.is-band .tv-stacks-fit .fd-stacks-value { font-size:26px; line-height:1; padding-bottom:2px; }
-.tv-side.is-band .tv-stacks-fit .fd-stacks-name { max-width:none; line-height:1.1; }
-.tv-contest.is-band.is-quiet .tv-side.is-band { justify-content:flex-end; }
-.tv-contest.is-band.is-quiet .tv-side.is-band.is-right { justify-content:flex-end; }
-.tv-versus-col { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; min-width:0; }
-.tv-versus-col .tv-versus { padding:0; }
-.tv-contest-odds { font:700 24px/1.2 var(--fd-display); letter-spacing:.06em; text-transform:uppercase; color:var(--muted); white-space:nowrap; }
-
-/* the current contest on lit glass */
-.tv-contest { flex:1; min-height:0; display:flex; flex-direction:column; gap:14px; padding:18px 28px 16px; }
-.tv-contest.fd-lamp { border-width:2px; }
-.tv-contest-head { display:flex; align-items:center; gap:16px; font:800 36px/1.15 var(--fd-display); text-transform:uppercase;
-  letter-spacing:.06em; color:var(--muted2); }
-.tv-contest-head .fd-beat-dot { background:var(--lamp-live); margin-right:0; }
-.tv-sides { flex:1; min-height:0; display:grid; gap:16px; align-content:stretch; }
-.tv-sides.is-quiet { align-content:center; align-items:center; }
-.tv-side { min-width:0; min-height:0; display:flex; flex-direction:column; gap:14px; padding:12px 4px; overflow:hidden; }
-.tv-side-top { display:flex; flex-wrap:nowrap; align-items:center; gap:12px 20px; min-width:0; }
-.tv-side-row { display:flex; align-items:center; gap:20px; width:100%; min-width:0; }
-.tv-side-title { flex:1 1 auto; min-width:0; font-size:56px; }
-/* clipped to its column: the line box holds the descenders */
-.tv-side-name { font:800 1em/1.22 var(--fd-display); color:var(--bone); white-space:nowrap;
-  overflow:hidden; text-overflow:ellipsis; }
-/* the side's total: its amount, in the side's own header row */
-.tv-side-total { flex-shrink:0; margin-left:auto; font:800 56px/1.1 var(--fd-display); color:var(--sun); font-variant-numeric:tabular-nums; }
-.tv-side-total .fd-reel { font-size:.8em; }
-.tv-felt > .tv-side-total { margin:0; align-self:center; font-size:56px; }
-/* a felt that needed the smallest chips: its total stands smaller and the
-   stacks take that room (ContestBoard's tight latch) */
-.tv-sides.is-tight .tv-felt { gap:2px; padding-top:8px; padding-bottom:8px; }
-.tv-sides.is-tight .tv-felt > .tv-side-total { font-size:40px; }
-.tv-felt.is-empty > .tv-felt-empty { align-self:center; }
-.tv-side-win { height:34px; min-width:0; }
 .tv-win-line { min-width:0; font:500 26px/1.2 var(--fd-body); color:var(--muted2); white-space:nowrap; overflow:hidden;
   text-overflow:ellipsis; }
 .tv-win-line.is-rank { color:var(--muted2); }
@@ -256,28 +208,10 @@
 .tv-pay-lamp .fd-insert { width:16px; height:16px; }
 .tv-pay-lamp.is-lit { color:var(--sun); }
 .tv-pay-lamp.is-lit { text-shadow:0 0 18px color-mix(in srgb, var(--sun) 35%, transparent); }
-.tv-side-win.has-terms .tv-win-line { margin-left:auto; }
-/* the band over a big bracket: the terms stack under the name, in its width */
-.tv-terms.is-band { flex-wrap:wrap; gap:6px 14px; }
-.tv-side.is-band.is-right .tv-terms.is-band { justify-content:flex-end; }
-.tv-terms.is-band .tv-pay-lamp { font-size:24px; gap:8px; }
-.tv-contest-odds .tv-pay-lamp { font-size:24px; gap:8px; }
-.tv-contest-odds .tv-pay-lamp .fd-insert { width:14px; height:14px; }
 /* the face-off: the terms under the side's name, one height either side */
 .tv-terms.tv-faceoff-terms { display:flex; justify-content:center; min-height:44px; margin-top:14px; }
-/* the felt: a window cut in the contest's one pane, where each bettor's
-   own stack stands on the side it backs; no card inside the card */
-.tv-felt { flex:1; min-height:0; position:relative; display:flex; flex-direction:column; justify-content:flex-start; align-items:stretch; gap:6px;
-  padding:14px 18px; border-radius:10px; background:var(--tv-window); box-shadow:var(--tv-cut); }
-/* an empty felt is one line */
-.tv-felt.is-empty { flex:none; justify-content:center; padding:10px 18px; }
-.tv-felt-empty { font:700 28px/1.2 var(--fd-display); letter-spacing:.06em; text-transform:uppercase; color:var(--muted); }
 /* the stacks stand as one pile in the middle of the felt */
 .tv-stacks-fit .fd-fit-stacks { top:50%; bottom:auto; transform:translateY(-50%); justify-content:center; }
-/* a team past three: name first, chips overlapped beneath */
-.tv-side-top.is-many { flex-direction:column; align-items:flex-start; justify-content:center; gap:10px; }
-.tv-side-top.is-many .tv-side-title { width:100%; }
-.tv-sides.is-h2h .tv-side-top { min-height:112px; }
 /* every stack is one unit on one axis: the chips, its amount centred under
    them, the name under that; every slot the same width so stacks sit on a grid */
 .tv-stacks, .tv-stacks-fit .fd-stacks { gap:10px 14px; }
@@ -286,59 +220,6 @@
   font-variant-numeric:tabular-nums; }
 .tv-stacks .fd-stacks-slot, .tv-stacks-fit .fd-stacks-slot { gap:2px; width:112px; }
 .tv-stacks .fd-stacks-slot > .fd-stacks-value, .tv-stacks-fit .fd-stacks-slot > .fd-stacks-value { margin-top:4px; }
-/* three or four sides in a row: chips over the name, the felt below */
-.tv-sides.is-grid .tv-side-top { flex-direction:column; align-items:flex-start; gap:10px; }
-.tv-sides.is-grid .tv-side-title { width:100%; }
-.tv-sides.is-grid .tv-side-total { font-size:40px; }
-/* versus: lettering between the two sides, not a control and not a lamp */
-.tv-versus { align-self:center; padding:0 8px; font-size:56px; line-height:1.1; color:var(--muted); }
-/* the board's payout lamp: lit amber when the contest pays 2:1 */
-.tv-contest-foot { display:flex; align-items:center; min-height:40px; }
-.tv-contest-foot .tv-pay-lamp { font-size:32px; gap:12px; }
-.tv-contest-foot .tv-pay-lamp .fd-insert { width:18px; height:18px; }
-
-/* the tote board (ToteBoard, toteModel): three sides or more. The sides
-   with money are rows ranked by their total, each a window cut in the pane:
-   photo chips, name, an amber bar on the biggest total's scale, the total
-   on a reel, the backers' chips. The rest is one unlit strip under them. */
-.tv-tote { display:flex; flex-direction:column; justify-content:flex-start; gap:14px; }
-.tv-tote.is-quiet { justify-content:center; }
-.tv-tote-rows { display:grid; grid-auto-flow:column; gap:10px 28px; margin:0; padding:0; list-style:none; flex:none; }
-.tv-tote-row { display:flex; align-items:center; gap:18px; min-width:0; padding:0 16px; border-radius:10px;
-  background:var(--tv-window); box-shadow:var(--tv-cut); }
-.tv-tote-faces { display:flex; align-items:center; flex:none; }
-.tv-tote-name { flex:none; min-width:0; line-height:1.2; color:var(--bone); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-/* the bar: the chips lamp on a dark track, notched a chip (or 500, 1,000)
-   at a time on the biggest total's scale (boardModel chipNotch) */
-.tv-tote-track { position:relative; flex:none; height:22px; border-radius:4px;
-  background:color-mix(in srgb, var(--bone) 7%, transparent); overflow:hidden; }
-.tv-tote-bar { position:absolute; inset:0 auto 0 0; display:block; border-radius:4px; background:var(--lamp-chip);
-  background-image:repeating-linear-gradient(90deg, transparent 0 calc(var(--notch) - 2px),
-    color-mix(in srgb, var(--ink0) 45%, transparent) calc(var(--notch) - 2px) var(--notch));
-  box-shadow:0 0 16px color-mix(in srgb, var(--lamp-chip) 30%, transparent); }
-.tv-tote-bar.is-plain { background-image:none; }
-/* a fresh bet grows the bars (held while it plays; a load is placed) */
-.tv-tote.is-growing .tv-tote-bar { transition:width var(--motion-row) var(--ease-out); }
-.tv-tote-total { flex:none; margin:0; display:flex; justify-content:flex-end; font-size:var(--reel); line-height:1; }
-.tv-tote-total .fd-reel { font-size:1em; }
-.tv-tote-backers { flex:none; display:flex; align-items:center; gap:6px; }
-.tv-tote-more { display:inline-flex; align-items:center; justify-content:center; padding:0 8px; border-radius:99px;
-  font:800 24px/1 var(--fd-display); color:var(--muted2); background:color-mix(in srgb, var(--bone) 10%, transparent); }
-/* the strip: every side nobody backs, its chips unlit; with no bets at
-   all it is the field, larger, in the middle of the pane */
-.tv-tote-strip { display:flex; align-items:center; gap:10px; flex:none; min-width:0; }
-.tv-tote-strip.is-field { justify-content:center; }
-/* under the rows, the strip stands at the foot of the pane, so a new row
-   never moves it */
-.tv-tote-strip.is-strip { margin-top:auto; }
-.tv-tote-strip-label { flex:none; font:800 24px/1.2 var(--fd-display); letter-spacing:.06em; text-transform:uppercase; color:var(--muted); }
-/* one or two lines, a second centred under the first */
-.tv-tote-idle { display:flex; flex-wrap:wrap; justify-content:center; gap:10px; margin:0; padding:0; list-style:none; min-width:0; }
-.tv-tote-strip.is-strip .tv-tote-idle { justify-content:flex-start; }
-.tv-tote-idle-side { display:flex; flex-direction:column; align-items:center; gap:6px; flex:none; min-width:0; }
-.tv-tote-idle-side .tv-faces { opacity:.5; filter:saturate(.45); }
-.tv-tote-idle-name { max-width:100%; line-height:1.2; color:var(--muted2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-
 /* ── the bracket, drawn ── */
 .tv-bracket { flex-shrink:0; padding-top:12px; }
 .tv-bracket-heads { position:relative; height:34px; }
@@ -398,23 +279,6 @@
 .tv-advance-stamp { font-size:128px; line-height:1.05; color:var(--bone); animation:si-flag .55s ease-out both; }
 .tv-advance-name { font-size:72px; line-height:1.05; color:var(--bone); text-transform:none; }
 .tv-advance-detail { display:flex; flex-wrap:wrap; column-gap:32px; font:600 40px/1.2 var(--fd-body); color:var(--muted2); }
-.tv-advance.has-settle { gap:14px; }
-.tv-advance.has-settle .tv-advance-stamp { font-size:120px; }
-.tv-advance.has-settle .tv-advance-name { font-size:56px; }
-/* a decided contest's chips: the winners' stacks grow, the rest go back */
-.tv-settle { display:flex; align-items:stretch; justify-content:center; gap:36px; margin-top:14px; max-width:100%; }
-.tv-settle-zone { display:flex; flex-direction:column; align-items:center; justify-content:flex-end; gap:8px; min-width:260px;
-  padding:14px 26px 14px; border-radius:14px; }
-.tv-settle-zone.is-won { background:var(--tv-window); box-shadow:var(--tv-cut); }
-.tv-settle-zone.is-lost { --bank-x:160px; --bank-y:70px; min-width:0; }
-.tv-settle-head { font:800 56px/1 var(--fd-display); font-variant-numeric:tabular-nums; animation:si-fade .45s ease-out both; }
-.tv-settle-zone.is-won .tv-settle-head { color:var(--green); }
-.tv-settle-zone.is-lost .tv-settle-head { color:var(--clay-text); }
-.tv-settle .tv-stacks { flex-wrap:nowrap; align-items:flex-end; justify-content:center; }
-@media (prefers-reduced-motion: reduce) {
-  .tv-settle-head { animation:none; }
-}
-
 .tv-faces.is-rows { display:grid; grid-template-columns:repeat(var(--face-cols), auto); justify-content:center; }
 
 /* ── result: the podium is TVPodium (tv-podium.css); then the standings ── */

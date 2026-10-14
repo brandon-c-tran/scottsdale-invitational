@@ -26,7 +26,9 @@
    table holds at most CHIP3D.budget bodies (tv 300, phone 120).
 
    Props (render it as a child of the host element, position:relative):
-     host          ref to the host element; the canvas covers its padding box
+     host          ref to the element holding the [data-spot] spots (default:
+                   the layer's parent); render the layer as a direct child of
+                   a position:relative element: the canvas covers its padding box
      spots         [{ key, stacks:[{ player, stake, status?, paid? }] }]:
                    status "won" | "lost" and paid on a settled table
      contestId     a new id clears the table
@@ -310,8 +312,10 @@ class ChipEngine {
   makeStack(id, spot, item, r, seed) {
     const base = this.toFloor(item.x, item.y);
     const s = r / this.unitPx(base);
-    const payBase = this.toFloor(item.x + item.pairDir * r * (2 + CHIP3D.pairGap), item.y);
-    const st = { id, spot, player:item.player, owner:item.group ? "+group" : item.player, item, r, s, seed, base, payBase,
+    /* the payout's pile stands beside the stake, or (no room kept) on top of it */
+    const paired = this.pairs !== false;
+    const payBase = paired ? this.toFloor(item.x + item.pairDir * r * (2 + CHIP3D.pairGap), item.y) : base;
+    const st = { paired, id, spot, player:item.player, owner:item.group ? "+group" : item.player, item, r, s, seed, base, payBase,
       px:{ x:item.x, y:item.y }, pairDir:item.pairDir, yaw:item.yaw, chips:[], pay:[], gone:false };
     this.stacks.set(id, st);
     return st;
@@ -326,7 +330,8 @@ class ChipEngine {
   restPose(st, j, pay, chip) {
     const base = pay ? st.payBase : st.base;
     const jit = chipJitter(st.seed, `${st.player}${pay ? "$" : ""}`, j);
-    chip.pos.set(base.x + jit.dx * st.s, st.s * CHIP3D.thick * (j + 0.5), base.z + jit.dz * st.s);
+    const under = pay && !st.paired ? st.chips.length : 0;
+    chip.pos.set(base.x + jit.dx * st.s, st.s * CHIP3D.thick * (j + under + 0.5), base.z + jit.dz * st.s);
     chip.quat.copy(yawQuat(jit.yaw));
     return jit;
   }
@@ -363,7 +368,7 @@ class ChipEngine {
     const chip = this.newChip(st, true);
     const next = rng(hash32(`${st.seed}|${st.player}|pay|${k}`));
     const base = st.payBase;
-    chip.pos.set(base.x + (next() - 0.5) * 0.35 * st.s, st.s * (CHIP3D.thick * (k + 0.5) + 2.2 + next() * 0.9), base.z + (next() - 0.5) * 0.35 * st.s);
+    chip.pos.set(base.x + (next() - 0.5) * 0.35 * st.s, st.s * (CHIP3D.thick * (k + (st.paired ? 0 : st.chips.length) + 0.5) + 2.2 + next() * 0.9), base.z + (next() - 0.5) * 0.35 * st.s);
     chip.quat.copy(yawQuat(next() * Math.PI * 2, (next() - 0.5) * 0.5, (next() - 0.5) * 0.5));
     chip.state = "wait";
     chip.drop = { t0:performance.now() + delay, spin:(next() - 0.5) * 6 };
@@ -592,6 +597,7 @@ class ChipEngine {
   /* ── the table as it now stands ── */
   sync({ spots, contestId, phase, chip, chipMin, pairs, label, areas, animate, settle, lockSweep, clock, reduced, budget, onLand }) {
     this.onLand = onLand;
+    this.pairs = pairs;
     const nowClock = clock(), nowPerf = performance.now();
     const toPerf = at => nowPerf + (at - nowClock);
     if (contestId !== this.contestId) {
@@ -713,11 +719,11 @@ class ChipEngine {
 }
 
 /* each spot's chip area, in the layer's own px (the host's padding box) */
-function measure(layer, spots, selector, keepoutSelector) {
+function measure(layer, spots, selector, keepoutSelector, root = null) {
   const box = layer.getBoundingClientRect();
   const W = layer.offsetWidth, H = layer.offsetHeight;
   const scale = W ? box.width / W : 1;
-  const host = layer.parentElement;
+  const host = root || layer.parentElement;
   const areas = new Map();
   for (const spot of spots || []) {
     const key = String(spot.key);
@@ -755,14 +761,14 @@ export default function ChipPhysics({ host, spots = [], contestId = "", phase = 
   const ran = useRef(null);
   const diameter = chip || (tv ? 52 : 22);
   live.current = { spots, contestId, phase, chip:diameter, chipMin, pairs, label, clock, lockSweep, settle, reduced:reducedMotion,
-    budget:CHIP3D.budget[tv ? "tv" : "phone"], onLand, areaSelector, keepoutSelector };
+    budget:CHIP3D.budget[tv ? "tv" : "phone"], onLand, host, areaSelector, keepoutSelector };
   const ratio = pixelRatio || (tv ? 1 : Math.min(2, (typeof window !== "undefined" && window.devicePixelRatio) || 1));
 
   const run = animate => {
     const engine = engineRef.current, layer = layerRef.current;
     if (!engine || !layer) return;
     const p = live.current;
-    const { W, H, areas } = measure(layer, p.spots, p.areaSelector, p.keepoutSelector);
+    const { W, H, areas } = measure(layer, p.spots, p.areaSelector, p.keepoutSelector, p.host?.current || null);
     if (!W || !H) return;
     /* a new box re-stands every stack at rest (a settled one in its final state) */
     if (engine.frame(W, H, p.chip / 2)) engine.clear();

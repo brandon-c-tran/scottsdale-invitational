@@ -62,19 +62,22 @@ const SPOT_STACKS = { match:4, row:2, grid:0 };
 const SPOT_CHIP = { match:30, row:22, grid:0 };
 
 export function Spot({ spot, table, state, me, contestLabel, name, named = false, marketOpen, canPick, onPick, onRetract,
-  onPlayer, tapStake, denoms, capLabel = null, unavailableReason = null, pointer = null, roleLabel = null, shape, settled = null }) {
+  onPlayer, tapStake, denoms, capLabel = null, unavailableReason = null, pointer = null, roleLabel = null, shape, settled = null,
+  bets = null }) {
   const mineRef = useRef(null), anchorRef = useRef(null);
-  const mineChips = (spot.stacks.find(item => item.player === me) ? (state.wagers || [])
-    .filter(w => w.player === me && w.contestId === table.contestId && w.status !== "void")
-    .flatMap(w => w.chips?.length ? w.chips.map(chip => chip.stake) : [w.stake]) : []);
+  /* your open records on this side (`bets`: the side's pending lines, a
+     legacy ticket without a contest id included), oldest chip first, so
+     the take-back always lifts the newest chip */
+  const latest = w => w.chips?.at(-1)?.ts || w.updatedAt || w.ts || 0;
+  const mine = (bets || []).map(x => x.w).filter(w => w.player === me).sort((a, b) => latest(a) - latest(b));
+  const mineChips = mine.flatMap(w => w.chips?.length ? w.chips.map(chip => chip.stake) : [w.stake]);
   const actions = useChipActions({ state, me, tapStake, mineTotal:spot.mine, mineChips, chipSize:SPOT_CHIP[shape] || 24,
     denoms, capped:!!capLabel, mineRef, anchorRef });
   const { act, busyKind, busyPlace, checking, actionError } = actions;
   const place = (stake = tapStake) => act("place", () => onPick(stake), { stake });
   const retract = () => {
-    const mine = (state.wagers || []).filter(w => w.player === me && w.contestId === table.contestId && w.status !== "void");
-    const last = mine.sort((a, b) => (a.chips?.at(-1)?.ts || a.ts || 0) - (b.chips?.at(-1)?.ts || b.ts || 0)).at(-1);
-    if (last) act("remove", () => onRetract(last.id));
+    const last = mine.at(-1);
+    return last ? act("remove", () => onRetract(last.id)) : undefined;
   };
   /* a rack chip dropped here places at its own value */
   useEffect(() => {
@@ -155,7 +158,8 @@ export function Spot({ spot, table, state, me, contestLabel, name, named = false
         <div className="fd-spot-chips">
           {yours && (marketOpen
             ? <button type="button" ref={mineRef} className="fd-spot-mine" disabled={!!busyKind} onClick={retract}
-              aria-label={`Retract your last chip on ${name}`}>
+              aria-label={`Retract your last chip on ${name}`}
+              aria-description={mineChips.length ? `Remove ${fmtChips(mineChips.at(-1))} chips; ${fmtChips(spot.mine)} total on this pick` : undefined}>
               {shape === "grid" ? <ChipFace p={me} size={22} /> : <ChipStack p={me} stake={spot.mine} size={SPOT_CHIP[shape]} tag={false} tower mine />}
             </button>
             : <span ref={mineRef} className="fd-spot-mine" role="img" aria-label={`${fmtChips(spot.mine)} of your chips on ${name}`}>
@@ -176,7 +180,7 @@ export function Spot({ spot, table, state, me, contestLabel, name, named = false
         {/* a long shot that came in says what it paid, quietly */}
         {settled === "won" && spot.long && <span className="fd-spot-paid">Paid {priceText(spot.price)}</span>}
       </div>
-      {over && <span className="fd-spot-drop" aria-hidden="true">{backLine(previewStake, preview)}</span>}
+      {over && <span className="fd-spot-drop" aria-hidden="true">{backLine(spot.mine + previewStake, preview)}</span>}
       {checking && <span className="fd-spot-note" role="status">Checking…</span>}
       {actionError && !checking && <span className="fd-spot-note is-error" role="alert">{actionError}</span>}
 

@@ -158,6 +158,8 @@ function RackChip({ value, disabled, selected, onClick }) {
     onPointerDown:event => {
       if (event.pointerType === "mouse" && event.button !== 0) return;
       press.current = { id:event.pointerId, x:event.clientX, y:event.clientY, dragging:false };
+      /* hold the pointer from the press, so a quick flick off the chip still drags */
+      try { event.currentTarget.setPointerCapture(event.pointerId); } catch {}
     },
     onPointerMove:event => {
       const p = press.current;
@@ -165,7 +167,6 @@ function RackChip({ value, disabled, selected, onClick }) {
       if (!p.dragging && Math.hypot(event.clientX - p.x, event.clientY - p.y) < DRAG_START_PX) return;
       if (!p.dragging) {
         p.dragging = true;
-        try { event.currentTarget.setPointerCapture(event.pointerId); } catch {}
         tapTick();
         tableDrag.start(value, event.clientX, event.clientY);
       }

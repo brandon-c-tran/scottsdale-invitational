@@ -192,3 +192,8 @@
 /* printed %: the digits sit tight, as type, while they still roll */
 .fd-spot-pct .fd-reel.fd-reel { gap:0; --reel-pad:0; --reel-h:1.12em; }
 .fd-spot-pct .fd-reel-cell { padding:0; }
+/* the drag preview sits where the chip under your finger cannot cover it:
+   at the spot's foot (a grid spot is too small, its focus line says it) */
+.fd-spot-drop { top:auto; bottom:8px; translate:-50% 0; }
+.fd-spot.is-grid .fd-spot-drop { display:none; }
+.fd-table-dragchip { translate:-50% -115%; }

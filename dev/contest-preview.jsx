@@ -137,8 +137,10 @@ function Preview() {
       result = await act("runStages", { evId:ev.id, cfg:{ kind:"heats", nGroups:3, advance:kind === "heats" ? 2 : 1, players:[...ROSTER] } });
       if (!result.ok) { setError(result.error); return result; }
     }
-    result = ev.teamCfg ? await act("announceAndDraw", { evId:ev.id, players:ROSTER.slice(0, 12), roles:[{ player:ROSTER[12], role:"photographer" }] })
-      : await act("announceEvent", { evId:ev.id });
+    /* the first game opening starts the weekend: the same one-tap flag the pill sends */
+    const startWeekend = !stateRef.current.live;
+    result = ev.teamCfg ? await act("announceAndDraw", { evId:ev.id, startWeekend, players:ROSTER.slice(0, 12), roles:[{ player:ROSTER[12], role:"photographer" }] })
+      : await act("announceEvent", { evId:ev.id, startWeekend });
     if (!result.ok) setError(result.error);
     return result;
   };

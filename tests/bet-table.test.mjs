@@ -237,10 +237,10 @@ test("drag: a rack chip held past the slop and dropped on a spot places that chi
   const table = tableView(state, allEventsOf(state), current(state, "putt"), me);
   const back = nextBack(table.spots.find(item => item.key === target), table, 500);
   assert.match(air, new RegExp(`<div class="fd-spot is-grid is-open is-over" data-spot="${target}"`));
-  assert.equal((air.match(/is-over/g) || []).length, 1, "only the spot under the finger");
+  assert.equal((air.match(/class="fd-spot [^"]*is-over/g) || []).length, 1, "only the spot under the finger");
   assert.match(air, new RegExp(`<span class="fd-spot-drop" aria-hidden="true">${backLine(500, back)}</span>`));
-  /* the grid's focus line follows the finger */
-  assert.match(air, new RegExp(`<p class="fd-table-focus" role="status"><b>${target}</b>`));
+  /* the wide field's spots (3 a row since Oct 13) say it in their own line too */
+  assert.match(air, new RegExp(`<span class="fd-spot-back is-over" aria-hidden="true">${backLine(500, back)}</span>`));
   assert.deepEqual(picks, [], "nothing is placed while the chip is in the air");
   chip.onPointerUp(pointer(150));
   assert.equal(picks.length, 1, "the drop places one chip");

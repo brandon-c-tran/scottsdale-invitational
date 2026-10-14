@@ -23,6 +23,10 @@ export function KaraokeHome({ state, me, onOpen, onSong = null, karaoke = false,
   if (!view) {
     const ahead = onSong ? karaokeSongAhead(state, me, { karaoke }) : null;
     if (!ahead) return null;
+    /* the Now card is the current game's: the ask joins it only once
+       Karaoke itself is up (on deck or announced); before that it rides
+       Karaoke's row in Coming up (GuestHome) */
+    if (inCard && state.onDeck !== ahead.id && !state.eventOps?.[ahead.id]?.announcedAt) return null;
     if (inCard) return <NowRow className="fd-karaoke-now" tone="info" label={<EventName name={ahead.name} />}
       status="Pick a karaoke song" go="Pick" onClick={onSong} ariaLabel={`${ahead.name}. Pick a karaoke song`} />;
     return <button type="button" className="fd-karaoke-home is-ahead" onClick={onSong}>

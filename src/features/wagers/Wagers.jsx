@@ -26,7 +26,7 @@ import { Coin } from "../../ui/Coin.jsx";
 import { ScoreReel } from "../../ui/ScoreReel.jsx";
 import { useGlassTilt } from "../../ui/useGlassTilt.js";
 import { PriceLamp, SideTerms } from "../comebacks/Comebacks.jsx";
-import { BetTable, GridFocus, LockSweep, Spot, tableDrag, tableDragJustEnded, useTableDrag } from "./BetTable.jsx";
+import { BetTable, LockSweep, Spot, tableDrag, tableDragJustEnded, useTableDrag } from "./BetTable.jsx";
 import { settledTable, tableView } from "./tableModel.js";
 import { DealerGlove } from "./DealerGlove.jsx";
 import { createPortal } from "react-dom";
@@ -625,8 +625,6 @@ function Wagers({ state, me, standings, gm, events, wagerEv, onEvents, onEvent, 
       {contest && table && picks.length > 0 ? <div className={`fd-wagers-play${dealing ? " is-dealing" : ""}`}>
         <BetTable table={table} spots={picks.length} contestLabel={contest.kind !== "ffa" ? contest.label : null}
           marketOpen={marketOpen} phase={marketOpen ? null : status}
-          focus={table.shape === "grid" ? <GridFocus table={table} spots={table.spots} me={me} tapStake={tapStake}
-            names={new Map(picks.map(pick => [String(pick.key), pick.name]))} /> : null}
           dealer={<LockSweep lockKey={contest.id} locked={contest.phase !== "betting-open"} />}>
           {picks.map(pick => <Spot {...pick} key={`${contest.id}:${pick.key}`} spot={table.spots.find(item => item.key === pick.key)}
             table={table} shape={table.shape} denoms={RACK_DENOMS} contestLabel={contest.label} />)}

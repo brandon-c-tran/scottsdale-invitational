@@ -86,8 +86,8 @@ export function BetWin({ state, line, side, inline = false }) {
 
 /* stacks a spot stands, by layout: a matchup's spot a full row, a row's
    spot two, a grid spot only its bettor count */
-const SPOT_STACKS = { match:4, row:2, grid:0 };
-const SPOT_CHIP = { match:30, row:22, grid:0 };
+const SPOT_STACKS = { match:4, row:2, grid:2 };
+const SPOT_CHIP = { match:30, row:22, grid:20 };
 
 export function Spot({ spot, table, state, me, contestLabel, name, named = false, marketOpen, canPick, onPick, onRetract,
   onPlayer, tapStake, denoms, capLabel = null, unavailableReason = null, pointer = null, roleLabel = null, shape, settled = null,
@@ -153,21 +153,21 @@ export function Spot({ spot, table, state, me, contestLabel, name, named = false
           {/* your own side (you are playing): a filament tag over its faces, so
               the side closed to you reads at once as the other one (a grid's
               sides are all open, and your face is the spot) */}
-          {roleLabel && shape !== "grid" && <span className="fd-spot-role" aria-hidden="true">{roleLabel}</span>}
+          {roleLabel && <span className="fd-spot-role" aria-hidden="true">{roleLabel}</span>}
           <span className={`fd-spot-faces${spot.players.length > 3 ? " is-many" : ""}`} style={{ "--n":spot.players.length }}>
             {spot.players.map(player => <button key={player} type="button" className="fd-spot-face" disabled={!onPlayer}
               onClick={() => onPlayer?.(player)} aria-label={`View ${disp(state, player)}'s player card`}>
-              <Avatar state={state} p={player} size={shape === "grid" ? faceSize : spot.players.length > 3 ? 24 : faceSize} />
+              <Avatar state={state} p={player} size={spot.players.length > 3 ? 24 : faceSize} />
             </button>)}
           </span>
-          {shape !== "grid" && (named || spot.players.length > 2
+          {(named || spot.players.length > 2
             ? <RenameText name={name} className="fd-spot-name" />
             : showNames ? <span className="fd-spot-name">{spot.players.map(p => stackName(state, p)).join(" & ")}</span>
               : <span className="fd-spot-name">{name}</span>)}
         </div>
         {/* X8: what this side's win does to the standings; every spot of
             a board keeps the row once any side has a line, so they stay level */}
-        {winSlot && shape !== "grid" && !settled && <div className="fd-spot-win">
+        {winSlot && !settled && <div className="fd-spot-win">
           <BetWin state={state} line={winLine} side={spot.players} inline={shape === "row"} /></div>}
         <div className="fd-spot-pct" aria-hidden="true">
           <ScoreReel value={spot.pct} tone={spot.long ? "chip" : null} slim={shape !== "match"} label={pctLabel} />
@@ -181,9 +181,9 @@ export function Spot({ spot, table, state, me, contestLabel, name, named = false
           : <span className="fd-spot-back is-blank" aria-hidden="true" />)
         : unavailableReason && marketOpen && !yours
           ? <span className="fd-spot-lock" role="img" aria-label={unavailableReason}>
-            <Icon name="lock" size={shape === "grid" ? 12 : 16} />
+            <Icon name="lock" size={16} />
           </span>
-          : shape !== "grid" && (yours
+          : (yours
           ? <span className="fd-spot-back is-you" aria-label={`Your ${fmtChips(spot.mine)} brings back ${fmtChips(spot.back)}`}>
             {backLine(spot.mine, spot.back)}</span>
           : preview > 0 ? <span className={`fd-spot-back${over ? " is-over" : ""}`} aria-hidden="true">
@@ -196,10 +196,10 @@ export function Spot({ spot, table, state, me, contestLabel, name, named = false
             ? <button type="button" ref={mineRef} className="fd-spot-mine" disabled={!!busyKind} onClick={retract}
               aria-label={`Retract your last chip on ${name}`}
               aria-description={mineChips.length ? `Remove ${fmtChips(mineChips.at(-1))} chips; ${fmtChips(spot.mine)} total on this pick` : undefined}>
-              {shape === "grid" ? <ChipFace p={me} size={22} /> : <ChipStack p={me} stake={spot.mine} size={SPOT_CHIP[shape]} tag={false} tower mine />}
+              {<ChipStack p={me} stake={spot.mine} size={SPOT_CHIP[shape]} tag={false} tower mine />}
             </button>
             : <span ref={mineRef} className="fd-spot-mine" role="img" aria-label={`${fmtChips(spot.mine)} of your chips on ${name}`}>
-              {shape === "grid" ? <ChipFace p={me} size={22} /> : <ChipStack p={me} stake={spot.mine} size={SPOT_CHIP[shape]} tag={false} tower mine />}
+              {<ChipStack p={me} stake={spot.mine} size={SPOT_CHIP[shape]} tag={false} tower mine />}
             </span>)}
           {pile && pile.shown.map(item => <button key={item.player} type="button" className="fd-spot-stack" disabled={!onPlayer}
             onClick={() => onPlayer?.(item.player)} aria-label={`${disp(state, item.player)}: ${fmtChips(item.stake)} on ${name}`}>
@@ -211,8 +211,6 @@ export function Spot({ spot, table, state, me, contestLabel, name, named = false
             aria-label={`All ${spot.stacks.length} backing ${name}`} aria-description={`${pile.rest.count} more: ${fmtChips(pile.rest.total)} chips`}>
             <ChipStack chip={groupChip(pile.rest.count)} count={stackChipCount(pile.rest.total)} size={SPOT_CHIP[shape]} tag={false} tower />
           </button>}
-          {shape === "grid" && stacks.length > 0 && <span className="fd-spot-count" aria-label={`${stacks.length} backing ${name}`}>
-            {stacks.length}</span>}
         </div>
         {settled === "won" && <span className="fd-spot-won" aria-label="Won">WON</span>}
         {/* a long shot that came in says what it paid, quietly */}
@@ -277,12 +275,12 @@ export function BetTable({ table, spots, contestLabel, phase, marketOpen, childr
         <span className="fd-table-pool"><small>Pool</small>
           <ScoreReel value={table.total} tone="chip" slim label={fmtChips(table.total)} /></span>
       </header>
-      <div ref={feltRef} className={`fd-table-felt${physics ? " has-chips3d" : ""}`} style={{ "--cols":shape === "grid" ? Math.min(7, spots) : spots }}>
+      <div ref={feltRef} className={`fd-table-felt${physics ? " has-chips3d" : ""}`} style={{ "--cols":shape === "grid" ? 3 : spots }}>
         {children}
         {physics && <ChipPhysicsLayer quality="phone" host={feltRef} contestId={table.contestId}
           phase={settled ? "settled" : marketOpen ? "open" : "locked"}
           spots={table.spots.map(spot => ({ key:spot.key, stacks:spot.stacks }))}
-          chip={shape === "grid" ? 16 : shape === "row" ? 22 : 30} chipMin={shape === "grid" ? 12 : 18}
+          chip={shape === "match" ? 30 : 22} chipMin={shape === "match" ? 18 : 14}
           areaSelector=".fd-spot-chips" reducedMotion={reduced} clock={serverNow} />}
         {dealer}
       </div>

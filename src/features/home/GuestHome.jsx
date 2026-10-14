@@ -18,6 +18,7 @@ import { contestWinLines, ordinal, winLineFor } from "../standings/winImpact.js"
 import { SideTerms } from "../comebacks/Comebacks.jsx";
 import { contestTerms } from "../comebacks/comebacks.js";
 import { tableView } from "../wagers/tableModel.js";
+import { karaokeSongAhead } from "../karaoke/karaokeModel.js";
 import { SharePip } from "../wagers/BetTable.jsx";
 import { DEALT } from "../standings/Standings.jsx";
 import { TeamNameNow, useTeamNameNow } from "../teams/TeamNameCard.jsx";
@@ -445,7 +446,7 @@ export function GuestHome({ state, me, events, standings, onPlayer, onEvents,
   onOpen, onRules = onOpen, onBets, onBracket, onStandings, onDraft, deltas, GameMark, StatPills, pokerContent, duelContent,
   awardsContent = null, gameContent = null,
   since, onSince, onSinceDismiss, flightsAnswered = false, onFlightsYes, onFlightsNotYet, onLastCard,
-  setup = [], onSetup, songs = false, onWinSong, onScan = null, onKaraoke = null }) {
+  setup = [], onSetup, songs = false, onWinSong, onScan = null, onKaraoke = null, onKaraokeSong = null, karaoke = false }) {
   const model = deriveHomeModel({ state, me, events, standings });
   const before = model.mode === "before", finale = model.mode === "finale", complete = model.mode === "complete";
   const leaders = (standings || []).filter(row => row.rank === 1);
@@ -572,9 +573,16 @@ export function GuestHome({ state, me, events, standings, onPlayer, onEvents,
 
     {model.upcoming.length > 0 && <section className="fd-home-upcoming" aria-label="Coming up">
       <SectionHeading title="Coming up" action={<button type="button" className="fd-home-text-link" onClick={onEvents}>All events <Arrow /></button>} />
-      {model.upcoming.slice(0, 2).map(event => <button type="button" key={event.id} className="fd-home-next" onClick={() => onOpen(event)}>
-        <GameMark id={event.game} variant={event.variant} size={34} /><span><strong className="fd-show"><EventName name={event.name} /></strong></span>
-        <Next /></button>)}
+      {model.upcoming.slice(0, 2).map(event => {
+        /* Karaoke still to come and you have no song: its row says so and
+           opens your song picker */
+        const pick = onKaraokeSong && karaokeSongAhead(state, me, { karaoke })?.id === event.id;
+        return <button type="button" key={event.id} className="fd-home-next" onClick={() => pick ? onKaraokeSong() : onOpen(event)}
+          aria-label={pick ? `${event.name}. Pick a karaoke song` : undefined}>
+          <GameMark id={event.game} variant={event.variant} size={34} /><span><strong className="fd-show"><EventName name={event.name} /></strong></span>
+          {pick && <span className="fd-home-next-ask"><i className="fd-insert is-info is-pending" aria-hidden="true" />Pick a song</span>}
+          <Next /></button>;
+      })}
     </section>}
   </div>;
 }

@@ -223,3 +223,16 @@
 .fd-spot-drop { top:auto; bottom:8px; translate:-50% 0; }
 .fd-spot.is-grid .fd-spot-drop { display:none; }
 .fd-table-dragchip { translate:-50% -115%; }
+
+/* the phone's wide field (Oct 13, Brandon: the 7-wide grid was too small to
+   use): three spots a row, each a row spot's content (face, name, %, what a
+   chip brings back, the stacks), so 13 is five rows with the seat docked
+   under them */
+.fd-table.is-grid .fd-table-felt { grid-template-columns:repeat(3, minmax(0, 1fr)); gap:6px; }
+.fd-spot.is-grid { min-height:150px; border-radius:10px; }
+.fd-spot.is-grid .fd-spot-ink { gap:4px; padding:8px 4px 8px; }
+.fd-spot.is-grid .fd-spot-name { font-size:14px; }
+.fd-spot.is-grid .fd-spot-pct { font-size:30px; margin-top:0; }
+.fd-spot.is-grid .fd-spot-back { font-size:13px; }
+.fd-spot.is-grid .fd-spot-chips { min-height:40px; gap:2px; margin-top:auto; }
+.fd-spot.is-grid .fd-spot-drop { display:block; font-size:13px; padding:5px 8px; }

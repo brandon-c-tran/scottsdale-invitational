@@ -404,9 +404,11 @@ test("player cards and chip placement have independent targets on the same board
   otherBettor.wagers = [{ id:"other-chip", player:ROSTER[2], kind:"outright", eventId:solo.id,
     pick:ROSTER[1], pickPlayers:[ROSTER[1]], stake:200 }];
   const chips = controls(otherBettor, solo, { onPlayer:p => viewed.push(p) });
-  /* a 13-way grid spot counts its backers; it is no target of its own */
-  assert.match(chips.html, new RegExp(`<span class="fd-spot-count" aria-label="1 backing ${ROSTER[1]}">1</span>`));
-  assert.ok(!chips.names.includes(`1 backing ${ROSTER[1]}`));
+  /* a 13-way grid spot stands its backer's chips: the stack opens that bettor's card, never a chip action */
+  assert.ok(chips.names.includes(`${ROSTER[2]}: 200 on ${ROSTER[1]}`));
+  chips.click(`${ROSTER[2]}: 200 on ${ROSTER[1]}`);
+  assert.equal(viewed.at(-1), ROSTER[2]);
+  assert.deepEqual(chips.picks, []);
 
   /* a matchup stands everyone's chips on the spot: another bettor's stack opens their card */
   const match = fresh(pairs), matchDraw = withTeams(match);

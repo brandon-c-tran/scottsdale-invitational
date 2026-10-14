@@ -420,7 +420,7 @@ test("a decided contest's table reads its sides back from the record, and settle
   assert.doesNotMatch(feltOf(renderTv(state, decidedAt + 5200)), /is-settled/);
 });
 
-test("a 13-way field is a 7-wide grid: each spot its share, its backers counted, yours ringed; the focus line prices it", () => {
+test("a 13-way field is a 3-wide grid on the phone: each spot its share, name, stacks and what a chip brings back", () => {
   const state = structuredClone(EMPTY_STATE);
   act(state, "announceEvent", { evId:"putt" });
   const khoa = ROSTER.indexOf("Khoa");
@@ -430,7 +430,7 @@ test("a 13-way field is a 7-wide grid: each spot its share, its backers counted,
       wagerEv:evOf(state, "putt"), onEvents() {}, onEvent() {}, onPick() {}, onRetract() {}, onPlayer() {} })));
   const spotOf = (html, key) => { const at = html.indexOf(`data-spot="${key}"`); return html.slice(at, html.indexOf('<div class="fd-spot ', at + 1)); };
   const spectator = phone("Henry");
-  assert.match(spectator, /<section class="fd-table is-grid is-open"[^>]*>.*?<div class="fd-table-felt" style="--cols:7">/);
+  assert.match(spectator, /<section class="fd-table is-grid is-open"[^>]*>.*?<div class="fd-table-felt" style="--cols:3">/);
   assert.equal((spectator.match(/<div class="fd-spot is-grid/g) || []).length, ROSTER.length, "a spot for every player");
   /* every spot is the room's share: 13 seeds of 100 and 1,000 on Khoa is 2,300 */
   const contest = resolveCurrentContest(state, evOf(state, "putt"));
@@ -440,19 +440,20 @@ test("a 13-way field is a 7-wide grid: each spot its share, its backers counted,
   assert.equal(table.spots.find(spot => spot.key === "Khoa").pct, 48);
   for (const spot of table.spots) assert.match(spectator, new RegExp(`data-spot="${spot.key}" role="group" aria-label="${spot.key}: ${spot.pct}% of the pool"`));
   assert.doesNotMatch(spectator, /is-long/, "a wide field names no long shot");
-  /* a grid spot is too small for stacks: it counts its backers, no people glyph */
-  assert.match(spotOf(spectator, "Khoa"), /<span class="fd-spot-count" aria-label="4 backing Khoa">4<\/span>/);
-  assert.doesNotMatch(spotOf(spectator, "Khoa"), /data-stack-player=/);
-  assert.doesNotMatch(spotOf(spectator, "Evan"), /fd-spot-count/, "an unbacked spot counts nobody");
-  /* nothing of yours down: the focus line is blank, kept for its height */
-  assert.match(spectator, /<p class="fd-table-focus is-blank" aria-hidden="true"><\/p>/);
+  /* three a row leaves room for a row spot's content: the name, two stacks
+     and a "+N" pile that lists every backer; an unbacked spot stands none */
+  assert.match(spotOf(spectator, "Khoa"), /<span class="fd-spot-name">Khoa<\/span>/);
+  assert.equal((spotOf(spectator, "Khoa").match(/class="fd-spot-stack"/g) || []).length, 1, "the biggest stack, then the pile");
+  assert.match(spotOf(spectator, "Khoa"), /aria-label="All 4 backing Khoa"/);
+  assert.doesNotMatch(spotOf(spectator, "Evan"), /fd-spot-stack/, "an unbacked spot stands nobody");
+  assert.doesNotMatch(spectator, /fd-table-focus/, "the spots say it themselves: no focus line");
   /* yours: your chip ringed on the spot, a tap takes it back; the focus line says what it brings back */
   const mine = phone("Chinh");
   const yours = tableView(state, allEventsOf(state), contest, "Chinh").spots.find(spot => spot.key === "Khoa");
   assert.match(mine, /<div class="fd-spot is-grid is-mine is-open" data-spot="Khoa"/);
   assert.match(spotOf(mine, "Khoa"), /<button type="button" class="fd-spot-mine" aria-label="Retract your last chip on Khoa"/);
-  assert.match(spotOf(mine, "Khoa"), /aria-label="3 backing Khoa">3</, "the count is everyone else");
-  assert.match(mine, new RegExp(`<p class="fd-table-focus is-you" role="status"><b>Khoa</b><span>48%</span><span class="fd-table-focus-back">100 → ${yours.back}</span></p>`));
+  assert.match(spotOf(mine, "Khoa"), /aria-label="All 4 backing Khoa"/, "the pile counts everyone, you too");
+  assert.match(spotOf(mine, "Khoa"), new RegExp(`<span class="fd-spot-back is-you" aria-label="Your 100 brings back ${yours.back.toLocaleString("en-US")}">100 → ${yours.back.toLocaleString("en-US")}</span>`));
   /* a matchup is two big spots */
   const { state:match, bystanders } = bracketWithBets();
   const two = renderToStaticMarkup(React.createElement(PlayerIdentityProvider, { profiles:match.profiles },

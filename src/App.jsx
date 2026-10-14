@@ -1678,6 +1678,7 @@ function TournamentApp({ tournament, onUpdateReload }) {
           songs={audioCatalogAllowed} onWinSong={() => setModal({type:"profile", section:"walkout"})}
           onScan={me ? () => setModal({ type:"scan" }) : null}
           onKaraoke={() => setKaraokeForce(n => n + 1)}
+          karaoke={capabilities.karaoke === true} onKaraokeSong={() => setModal({type:"profile", section:"karaoke"})}
           onPlayer={p => setModal({type:"player", p})} onLastCard={lastCard.crowned ? lastCard.show : undefined}
           onBets={() => setTab("bets")} onStandings={() => setModal({type:"standings"})}
           duelContent={me && <HomeDuels state={state} me={me} gm={gmView}

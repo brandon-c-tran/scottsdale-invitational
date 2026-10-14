@@ -452,3 +452,8 @@ button.fd-home-riding.is-yours { margin:-3px 0; }
 .fd-home-team.is-row h3:has(> .fd-teamname-pencil) { min-height:0; }
 .fd-home-team.is-row h3 .fd-teamname-pencil { margin:0; }
 .fd-home-contest-label .fd-teamname-pencil { margin:-6px -10px -4px auto; }
+/* a row still owed something (Karaoke without your song): an info lamp and the ask, before the chevron */
+.fd-home-next-ask { display:inline-flex; align-items:center; gap:6px; margin-left:auto; color:var(--lamp-info); font:800 13px/1 var(--fd-display);
+  letter-spacing:.08em; text-transform:uppercase; white-space:nowrap; }
+.fd-home-next-ask .fd-insert { --lamp:var(--lamp-info); width:8px; height:8px; }
+.fd-home-next > span:not(.fd-home-next-ask) { min-width:0; }

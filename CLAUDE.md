@@ -1096,7 +1096,9 @@ game ran.
 **Pool betting** (branch `pool/betting` on v5, Oct 13; not on production): the
 pool replaces fixed payouts, the karaoke tiers read Super Ass to Legendary;
 1308 tests, the 575-view fit audit and the local e2e (141 of 142, the same
-stale assertion) pass. STAGING as `9c7e675f-7519-492c-80ad-46f0df95a0c2`,
+stale assertion) pass. STAGING as `9c7e675f-7519-492c-80ad-46f0df95a0c2`, then with the table ("your seat
+at the table", 1317 tests, the 585-view fit audit clean but the Trivia
+Daily Double stamp, e2e 141 of 142) as `ac95855e-7b5b-4f6a-94df-8399310b89ab`,
 awaiting Brandon's review; roll staging back to v5 with `npx wrangler
 rollback 7a3fc0af-8923-4fb1-963b-a80a2b6e4754 --env staging`.
 

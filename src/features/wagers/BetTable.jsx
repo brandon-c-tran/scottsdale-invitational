@@ -17,7 +17,9 @@ import { Avatar, ChipFace } from "../identity/PlayerIdentity.jsx";
 import { ScoreReel } from "../../ui/ScoreReel.jsx";
 import { Icon } from "../../ui/Icon.jsx";
 import { OneSafe } from "../../ui/OneSafe.jsx";
-import { useFreshChange } from "../../lib/motion.js";
+import { useFreshChange, useReducedMotion } from "../../lib/motion.js";
+import { serverNow } from "../../lib/serverClock.js";
+import { ChipPhysicsLayer, useChipPhysics } from "../chips3d/ChipPhysicsLayer.jsx";
 import { playSound } from "../../lib/sound.js";
 import { RenameText } from "../teams/RenameText.jsx";
 import { ordinal } from "../standings/winImpact.js";
@@ -259,8 +261,15 @@ function GridFocus({ table, spots, names, me, tapStake }) {
 
 /* The felt: the contest's label printed in its corner, the pool's total in
    the other, the spots, and the dealer's glove when betting locks. */
-export function BetTable({ table, spots, contestLabel, phase, marketOpen, children, focus = null, dealer = null }) {
+export function BetTable({ table, spots, contestLabel, phase, marketOpen, children, focus = null, dealer = null, settled = false }) {
   const shape = table.shape;
+  /* the chips you can feel (chips3d): real 3D chips in each spot's chip
+     area, tossed in as bets land, raked and paid on a result; the DOM
+     stacks keep their taps underneath. Off (the switch, no WebGL, a slow
+     phone) the flat stacks draw as before. */
+  const feltRef = useRef(null);
+  const physics = useChipPhysics({ tv:false, want:table.staked > 0 || !!settled });
+  const reduced = useReducedMotion();
   return (
     <section className={`fd-table is-${shape}${marketOpen ? " is-open" : " is-locked"}`} aria-label={contestLabel || "Bets"}>
       <header className="fd-table-head">
@@ -268,8 +277,13 @@ export function BetTable({ table, spots, contestLabel, phase, marketOpen, childr
         <span className="fd-table-pool"><small>Pool</small>
           <ScoreReel value={table.total} tone="chip" slim label={fmtChips(table.total)} /></span>
       </header>
-      <div className="fd-table-felt" style={{ "--cols":shape === "grid" ? Math.min(7, spots) : spots }}>
+      <div ref={feltRef} className={`fd-table-felt${physics ? " has-chips3d" : ""}`} style={{ "--cols":shape === "grid" ? Math.min(7, spots) : spots }}>
         {children}
+        {physics && <ChipPhysicsLayer quality="phone" host={feltRef} contestId={table.contestId}
+          phase={settled ? "settled" : marketOpen ? "open" : "locked"}
+          spots={table.spots.map(spot => ({ key:spot.key, stacks:spot.stacks }))}
+          chip={shape === "grid" ? 16 : shape === "row" ? 22 : 30} chipMin={shape === "grid" ? 12 : 18}
+          areaSelector=".fd-spot-chips" reducedMotion={reduced} clock={serverNow} />}
         {dealer}
       </div>
       {focus}

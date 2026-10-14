@@ -234,7 +234,7 @@ function HeldBoard({ state, me, held, view, onSkip }) {
   /* the decided table: the winner floods and stamps, the losers' chips are
      raked to the bank; a tap anywhere deals the next contest in */
   return <section ref={boardRef} className="fd-wagers-event fd-wagers-held" onClick={onSkip} aria-label={`${label} settled`}>
-    <BetTable table={table} spots={table.spots.length} contestLabel={contest.kind !== "ffa" ? label : null} marketOpen={false}
+    <BetTable table={table} spots={table.spots.length} contestLabel={contest.kind !== "ffa" ? label : null} marketOpen={false} settled
       phase={null} dealer={<RakeSweep />}>
       {table.spots.map(spot => <Spot key={String(spot.key)} spot={spot} table={table} state={state} me={me} shape={table.shape}
         name={nameOf(spot)} named={spot.players.length === 2 && !!state.draws?.[ev.id]?.teams?.[spot.key]?.name}

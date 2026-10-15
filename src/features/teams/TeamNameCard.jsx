@@ -36,7 +36,9 @@ function NameEditor({ state, naming, round, onRound, onSend, onDone }) {
   };
   const pick = name => { tapTick(); send(name); };
   return <div className="fd-teamname-edit" aria-busy={pending !== null}>
-    <div className="fd-teamname-chips" role="group" aria-label="Suggestions">
+    {/* one flow: the names, the shuffle, then a name of your own (and a
+        pair's own names), so the links ride the last row of chips */}
+    <div className="fd-teamname-chips" role="group" aria-label="Team names">
       {/* the name the team has now, lit, with whoever chose it; then the suggestions */}
       {[...(current && !naming.suggestions.includes(current) ? [current] : []), ...naming.suggestions].map(name => {
         const on = pending !== null ? pending === name : current === name;
@@ -47,21 +49,20 @@ function NameEditor({ state, naming, round, onRound, onSend, onDone }) {
       })}
       <button type="button" className="fd-teamname-chip is-tool" aria-label="More names" disabled={pending !== null}
         onClick={() => { tapTick(); onRound(round + 1); }}><Icon name="shuffle" size={20} /></button>
+      {!writing && <>
+        <button type="button" className="fd-teamname-link" disabled={pending !== null}
+          onClick={() => { setWriting(true); setDraft(""); setError(""); }}><Icon name="pencil" size={18} />Write your own</button>
+        {naming.pair && current && <button type="button" className="fd-teamname-link" disabled={pending !== null}
+          onClick={() => send(null)}>Use our names</button>}
+      </>}
     </div>
-    {writing
-      ? <form className="fd-teamname-write" onSubmit={event => { event.preventDefault(); send(draft); }}>
-          <input type="text" value={draft} maxLength={TEAM_NAME_MAX} autoFocus enterKeyHint="done" autoComplete="off"
-            autoCapitalize="words" spellCheck={false} aria-label="Team name" placeholder={naming.label}
-            disabled={pending !== null} onChange={event => { setDraft(event.target.value.replace(/[\r\n]+/g, " ")); setError(""); }} />
-          <button type="submit" className="fd-teamname-save" disabled={pending !== null || !draft.trim()}>
-            {pending !== null ? "Saving…" : "Save"}</button>
-        </form>
-      : <div className="fd-teamname-own">
-          <button type="button" className="fd-teamname-link" disabled={pending !== null}
-            onClick={() => { setWriting(true); setDraft(""); setError(""); }}><Icon name="pencil" size={18} />Write your own</button>
-          {naming.pair && current && <button type="button" className="fd-teamname-link" disabled={pending !== null}
-            onClick={() => send(null)}>Use our names</button>}
-        </div>}
+    {writing && <form className="fd-teamname-write" onSubmit={event => { event.preventDefault(); send(draft); }}>
+      <input type="text" value={draft} maxLength={TEAM_NAME_MAX} autoFocus enterKeyHint="done" autoComplete="off"
+        autoCapitalize="words" spellCheck={false} aria-label="Team name" placeholder={naming.label}
+        disabled={pending !== null} onChange={event => { setDraft(event.target.value.replace(/[\r\n]+/g, " ")); setError(""); }} />
+      <button type="submit" className="fd-teamname-save" disabled={pending !== null || !draft.trim()}>
+        {pending !== null ? "Saving…" : "Save"}</button>
+    </form>}
     {error && <p className="fd-teamname-error" role="alert">{error}</p>}
   </div>;
 }

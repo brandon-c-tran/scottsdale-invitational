@@ -17,7 +17,7 @@
 .fd-teamname-toggle:active { transform:translateY(1px); }
 
 .fd-teamname-edit { margin-top:10px; }
-.fd-teamname-chips { display:flex; flex-wrap:wrap; gap:6px; }
+.fd-teamname-chips { display:flex; flex-wrap:wrap; gap:4px 6px; }
 .fd-teamname-chip { display:inline-flex; align-items:center; gap:8px; min-height:44px; max-width:100%; padding:8px 12px; border:1px solid var(--line); border-radius:10px;
   background:var(--bg); color:var(--ink); font:800 18px/1.15 var(--fd-show); letter-spacing:.01em; text-align:left;
   box-shadow:var(--glass-edge); cursor:pointer; overflow-wrap:anywhere;
@@ -30,7 +30,9 @@
 .fd-teamname-chip.is-on[aria-pressed="true"] { animation:fd-teamname-pick var(--motion-stamp, 320ms) var(--ease-land, ease-out) both; }
 @keyframes fd-teamname-pick { 0% { transform:scale(.94); } 60% { transform:scale(1.04); } 100% { transform:scale(1); } }
 
-.fd-teamname-own { display:flex; flex-wrap:wrap; gap:4px 16px; margin-top:4px; }
+/* a name of your own rides the chips' last row, a link beside them */
+.fd-teamname-chips > .fd-teamname-link { margin-left:6px; }
+.fd-teamname-chips > .fd-teamname-link + .fd-teamname-link { margin-left:10px; }
 .fd-teamname-link { display:inline-flex; align-items:center; gap:6px; min-height:44px; padding:0; border:0; background:none;
   color:var(--lamp-info); font:600 14px/1.2 var(--fd-body); cursor:pointer; }
 .fd-teamname-link:disabled { opacity:.5; cursor:default; }

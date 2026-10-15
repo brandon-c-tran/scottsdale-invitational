@@ -19,7 +19,7 @@ import { legKeyframes, fly, MAX_HOLD_MS } from "../src/lib/motion.js";
 const root = fileURLToPath(new URL("../", import.meta.url));
 const compiled = buildSync({
   stdin:{ contents:`
-    export { Wagers } from "./src/features/wagers/Wagers.jsx";
+    export { Wagers, RACK_DENOMS } from "./src/features/wagers/Wagers.jsx";
     export { BetStacks, FitStacks } from "./src/features/wagers/BetStacks.jsx";
     export { PlayerIdentityProvider } from "./src/features/identity/PlayerIdentityContext.js";
   `, resolveDir:root, loader:"jsx" },
@@ -30,7 +30,7 @@ const bundle = new Module(fileURLToPath(new URL("bets-motion.cjs", import.meta.u
 bundle.filename = bundle.id;
 bundle.paths = Module._nodeModulePaths(root);
 bundle._compile(compiled.outputFiles[0].text, bundle.filename);
-const { Wagers, BetStacks, FitStacks, PlayerIdentityProvider } = bundle.exports;
+const { Wagers, RACK_DENOMS, BetStacks, FitStacks, PlayerIdentityProvider } = bundle.exports;
 
 let seq = 0;
 const gm = () => ({ isGm:true, player:"Brandon", deviceId:"gm-device", actionId:`bm-${++seq}` });
@@ -160,9 +160,11 @@ test("M4: a waiting chip hovers over the stack, lands on its face, and flies hom
   assert.deepEqual(hoverRect(anchor, 28, 10), { left:100, top:162, width:28, height:28 });
   assert.equal(hoverRect(null, 28), null, "no anchor, no flight");
   assert.deepEqual(faceRect({ left:10, top:50, width:30, height:60 }), { left:10, top:44, width:30, height:30 });
-  const denoms = [100, 200, 500, 1000];
+  /* the rack is the set's 100, 500 and 1000 (Wagers RACK_DENOMS) */
+  const denoms = RACK_DENOMS;
+  assert.deepEqual(denoms, [100, 500, 1000]);
   assert.equal(rackTargetFor(500, denoms, 100), "bets:rack:500");
-  assert.equal(rackTargetFor(300, denoms, 200), "bets:rack:200", "an odd legacy chip goes to the selected slot");
+  assert.equal(rackTargetFor(200, denoms, 100), "bets:rack:100", "a chip the rack has no slot for (an old 200) goes to the selected slot");
   /* the second leg starts where the first ended and lands exactly on the target */
   const base = { left:0, top:0, width:46, height:46 }, hover = { left:100, top:100, width:28, height:28 };
   const target = { left:100, top:140, width:28, height:28 };

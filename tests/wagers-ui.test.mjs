@@ -125,7 +125,7 @@ test("the FFA board retains every manual winner choice, including yourself", () 
   const event = legacyEvent("flip");
   const teamState = withLegacyEvents(fresh(event), ["flip"]), draw = withTeams(teamState, event);
   draw.teams = draw.teams.slice(0, 2);
-  /* two teams are a matchup: an observer may back either side at even money */
+  /* two teams are a matchup opened before pools: an observer may back either side, Winner pays 1:1 */
   const teams = controls(teamState, event, { me:ROSTER.at(-1) }), team = draw.teams[1];
   assert.match(plain(teams.html), /Winner pays 1:1/);
   teams.click(placeOn(teamLabel(teamState, team)));

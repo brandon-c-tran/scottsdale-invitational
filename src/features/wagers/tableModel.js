@@ -12,7 +12,8 @@ import { POOL_MIN, UPSET_PRICE, PT, contestMult, contestPool, poolNet, poolPrice
 import { contestStacks } from "./betStacks.js";
 
 /* the layouts: a matchup is two big spots, three to six sides one row,
-   seven or more a grid of GRID_COLS a row (13 is 7 + 6) */
+   seven or more a grid: on the TV, GRID_COLS a row (13 is 7 + 6); the
+   phone lays a grid three a row (table.css) */
 export const GRID_COLS = 7;
 export const tableShape = count => count <= 2 ? "match" : count <= 6 ? "row" : "grid";
 export const gridRows = (count, cols = GRID_COLS) => Math.max(1, Math.ceil(count / cols));

@@ -34,6 +34,7 @@ import { PlayerIdentityProvider, TextFloor } from "../src/features/identity/Play
 import { Shell } from "../src/ui/Shell.jsx";
 import { FIT_ARRIVE_CODE, TV_SCENARIOS, buildScenario, latestPostedAt } from "./fit/scenarios.js";
 import { DRAW_INTRO_MS, buildEventReveal, drawStepDelay } from "../src/features/weekend/drawReveal.js";
+import { __resetSoundEngine, primeSound, setSoundSurface } from "../src/lib/sound.js";
 import "../src/ui/shell.css";
 
 const params = new URLSearchParams(location.search);
@@ -329,4 +330,15 @@ function Harness() {
 /* each view is its own TV: nothing taught yet (teach.js) */
 try { localStorage.removeItem("si-tv-taught-underdog"); localStorage.removeItem("si-tv-taught-bye"); } catch {}
 publishFrame({ version:1, fresh:false });
+/* sound:"blocked": a TV whose browser has not allowed sound yet, its
+   context made (as primeSound makes it) and left waiting for a click */
+if (scenario.sound === "blocked" && globalThis.AudioContext) {
+  class Waiting extends globalThis.AudioContext {
+    get state() { return "suspended"; }
+    resume() { return Promise.resolve(); }
+  }
+  __resetSoundEngine({ factory:Waiting });
+  setSoundSurface("tv");
+  primeSound();
+}
 createRoot(document.getElementById("tv")).render(<Harness />);

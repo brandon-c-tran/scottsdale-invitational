@@ -394,7 +394,10 @@ test("A5: the TV shows Click for sound only while its context waits for a click"
   assert.equal(bundle.soundUnlockNeeded(), true);
   const html = renderToStaticMarkup(React.createElement(bundle.SoundUnlockChip));
   assert.match(html, /Click for sound/);
-  assert.match(read("src/features/tv/tv-sound.css"), /font:600 26px/, "24px or more on the canvas");
+  assert.match(read("src/features/tv/tv-sound.css"), /\.tv-sound-chip-text b \{ font-size:36px;/, "24px or more on the canvas");
+  /* its own slot in the masthead row, never laid over it */
+  assert.doesNotMatch(read("src/features/tv/tv-sound.css").split("/* The TV's")[0], /position:(absolute|fixed)/);
+  assert.match(read("src/features/tv/TVMode.jsx"), /\{playing\}\s*<SoundUnlockChip \/>\s*<div className="tv-mast-right"/);
   fake.made[0].state = "running";
   assert.equal(bundle.soundUnlockNeeded(), false);
   assert.equal(renderToStaticMarkup(React.createElement(bundle.SoundUnlockChip)), "");

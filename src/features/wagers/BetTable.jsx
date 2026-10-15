@@ -10,7 +10,8 @@
    chip; tap your stack to take the last one back; drag a rack chip across
    the spots and each previews what that chip would bring back. A face is
    its own target: it opens the player's card. Layouts: a matchup is two
-   big spots, three to six sides one row, seven or more a 7-wide grid. */
+   big spots, three to six sides one row, seven or more three a row (the
+   TV's felt lays them seven a row). */
 import React, { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { PT, disp, priceText } from "../../../shared/core.js";
 import { Avatar, ChipFace } from "../identity/PlayerIdentity.jsx";
@@ -241,25 +242,9 @@ export function SharePip({ spot }) {
     <span className="fd-share-pip-fill" aria-hidden="true" /><b>{spot.pct}</b><small>%</small></span>;
 }
 
-/* The grid's focus line: a 7-wide grid has no room for the payout in each
-   spot, so the spot you are on (your chips, else the one under your drag)
-   says it in one line under the grid. */
-function GridFocus({ table, spots, names, me, tapStake }) {
-  const dragging = useTableDrag();
-  const overKey = dragging?.over ?? null;
-  const spot = spots.find(item => String(item.key) === overKey) || spots.find(item => item.mine > 0) || null;
-  if (!spot) return <p className="fd-table-focus is-blank" aria-hidden="true" />;
-  const stake = overKey != null && String(spot.key) === overKey ? dragging.stake : 0;
-  const back = stake ? nextBack(spot, table, stake) : spot.back;
-  return <p className={`fd-table-focus${spot.mine > 0 && !stake ? " is-you" : ""}`} role="status">
-    <b>{names.get(String(spot.key))}</b><span>{spot.pct}%</span>
-    <span className="fd-table-focus-back">{backLine(stake ? spot.mine + stake : spot.mine, back)}</span>
-  </p>;
-}
-
 /* The felt: the contest's label printed in its corner, the pool's total in
    the other, the spots, and the dealer's glove when betting locks. */
-export function BetTable({ table, spots, contestLabel, phase, marketOpen, children, focus = null, dealer = null, settled = false }) {
+export function BetTable({ table, spots, contestLabel, phase, marketOpen, children, dealer = null, settled = false }) {
   const shape = table.shape;
   /* the chips you can feel (chips3d): real 3D chips in each spot's chip
      area, tossed in as bets land, raked and paid on a result; the DOM
@@ -284,12 +269,10 @@ export function BetTable({ table, spots, contestLabel, phase, marketOpen, childr
           areaSelector=".fd-spot-chips" reducedMotion={reduced} clock={serverNow} />}
         {dealer}
       </div>
-      {focus}
       {!marketOpen && phase && <p className="fd-table-state">{phase}</p>}
     </section>
   );
 }
-export { GridFocus };
 
 /* "No more bets": the dealer's glove sweeps across the felt the moment a
    fresh frame locks the market, and the room's % settle under it. Plays

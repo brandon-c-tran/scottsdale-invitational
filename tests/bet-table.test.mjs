@@ -84,7 +84,7 @@ test("a spot's fill: none without money, never a hairline, never quite full", ()
   assert.equal(fillLevel(1), 0.96, "a spot with all the money still reads as a fill");
 });
 
-test("table shapes: two sides a match, three to six a row, seven or more a 7-wide grid", () => {
+test("table shapes: two sides a match, three to six a row, seven or more a grid (7 a row on the TV)", () => {
   assert.deepEqual([1, 2, 3, 6, 7, 13].map(tableShape), ["match", "match", "row", "row", "grid", "grid"]);
   assert.equal(GRID_COLS, 7);
   assert.deepEqual([0, 7, 8, 13, 14, 15].map(count => gridRows(count)), [1, 1, 2, 2, 2, 3], "13 is 7 + 6");

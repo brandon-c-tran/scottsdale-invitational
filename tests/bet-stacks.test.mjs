@@ -453,8 +453,7 @@ test("a 13-way field is a 3-wide grid on the phone: each spot its share, name, s
   assert.equal((spotOf(spectator, "Khoa").match(/class="fd-spot-stack"/g) || []).length, 1, "the biggest stack, then the pile");
   assert.match(spotOf(spectator, "Khoa"), /aria-label="All 4 backing Khoa"/);
   assert.doesNotMatch(spotOf(spectator, "Evan"), /fd-spot-stack/, "an unbacked spot stands nobody");
-  assert.doesNotMatch(spectator, /fd-table-focus/, "the spots say it themselves: no focus line");
-  /* yours: your chip ringed on the spot, a tap takes it back; the focus line says what it brings back */
+  /* yours: your chip ringed on the spot, a tap takes it back; the spot says what it brings back */
   const mine = phone("Chinh");
   const yours = tableView(state, allEventsOf(state), contest, "Chinh").spots.find(spot => spot.key === "Khoa");
   assert.match(mine, /<div class="fd-spot is-grid is-mine is-open" data-spot="Khoa"/);
@@ -468,7 +467,6 @@ test("a 13-way field is a 3-wide grid on the phone: each spot its share, name, s
       gm:false, wagerEv:evOf(match, "8ball"), onEvents() {}, onEvent() {}, onPick() {}, onRetract() {}, onPlayer() {} })));
   assert.match(two, /<section class="fd-table is-match is-open"/);
   assert.equal((two.match(/<div class="fd-spot is-match/g) || []).length, 2);
-  assert.doesNotMatch(two, /fd-table-focus/, "only the grid needs the focus line");
 });
 
 /* ── the Bets board, Oct 3 (critique: first viewport, empty side, names) ── */

@@ -149,8 +149,10 @@ assert(b.state.showControl.active === null
 TVScene.win.ws.close();
 
 r = await a.dispatch("runDraw", { evId: "8ball", players: ROSTER });
-assert(!r.ok && /exactly 12/i.test(r.error),
-  "GM cannot silently squeeze 13 players into a 12-seat format (rejected: " + r.error + ")");
+/* the shape fits whoever is playing: thirteen make no even pairs, so the
+   draw is refused with the reason rather than a player left out silently */
+assert(!r.ok && /^13 can't make even teams of 2$/.test(r.error),
+  "GM cannot silently squeeze 13 players into teams of 2 (rejected: " + r.error + ")");
 /* Evan sits out the draw so his wagers are never against his own team */
 r = await a.dispatch("runDraw", {
   evId: "8ball",

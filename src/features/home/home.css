@@ -416,12 +416,14 @@ button.fd-home-riding.is-yours .fd-home-arrow { color:var(--lamp-info); }
 button.fd-home-riding.is-yours:focus-visible { outline:2px solid var(--lamp-info); outline-offset:2px; border-radius:4px; }
 /* a team's chips are each as wide as the first name under it and wrap
    whole, so two names never share the same ground (Fits By Construction);
-   the row form is chosen in JS only when the name and every chip fit */
-.fd-home-team-faces { display:flex; flex-wrap:wrap; gap:0 4px; margin:2px -2px 0; }
-.fd-home-team-faces button { flex:none; min-width:44px; padding:2px 3px 1px; }
+   the row form is chosen in JS only when the name and every chip fit.
+   Touching 44px targets, each name inset by its chip's padding: seven
+   44px chips hold one row of a 375px phone's Now card */
+.fd-home-team-faces { display:flex; flex-wrap:wrap; gap:0; margin:2px -4px 0; }
+.fd-home-team-faces button { flex:none; min-width:44px; padding:0 3px 1px; }
 .fd-home-team-name { max-width:none; }
 .fd-home-team.is-row { flex-wrap:wrap; column-gap:8px; row-gap:0; }
-.fd-home-team.is-row .fd-home-team-faces { display:flex; flex-wrap:nowrap; margin:0 -2px; }
+.fd-home-team.is-row .fd-home-team-faces { display:flex; flex-wrap:nowrap; margin:0 -4px; }
 .fd-home-team.is-row > .fd-home-terms { flex-basis:100%; }
 /* the stake's 44px target stays clear of the status line above it */
 .fd-home-action-status { row-gap:4px; }
@@ -443,7 +445,7 @@ button.fd-home-riding.is-yours { margin:-3px 0; }
 .fd-teamname-pencil.is-owed > .fd-icon { padding:5px; box-sizing:content-box; border-radius:50%;
   box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--lamp-info) 55%, transparent); }
 .fd-home-assignment small .fd-teamname-pencil { margin:-14px 0 -14px 2px; }
-.fd-teamname-inline { margin:8px 0 4px; }
+.fd-teamname-inline { margin:4px 0 0; }
 .fd-teamname-inline .fd-teamname-edit { margin-top:0; }
 .fd-home-extra-row { padding:0 14px; }
 /* the pencil keeps its 44px clear of the faces under it */

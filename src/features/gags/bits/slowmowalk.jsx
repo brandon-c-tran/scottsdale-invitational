@@ -40,7 +40,8 @@ function Stack({ owner, x, y, chips, scale, big, at, i }) {
   const thick = 18, width = 150;
   const h = chips * thick;
   return (
-    <span className={`neon-node sw-s${big ? " is-big" : ""}`} style={{ left:x, top:y, "--neon-player":color, "--t":ms(at), "--j":i }}>
+    <span className={`neon-node sw-s${big ? " is-big" : ""}`} data-player={owner}
+      style={{ left:x, top:y, "--neon-player":color, "--t":ms(at), "--j":i }}>
       <span className="neon-node" style={{ transform:`scale(${scale})` }}>
         <span className="neon-node sw-stack"><NeonStack count={chips} width={width} thick={thick} top="player" /></span>
         {/* the owner's chip on top, flung off when it goes */}

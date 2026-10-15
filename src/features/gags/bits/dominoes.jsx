@@ -81,7 +81,7 @@ export function Dominoes({ cast }) {
   const a = (cast?.a || []).slice(0, 7), b = (cast?.b || []).slice(0, 7);
   if (!a.length || !b.length) return null;
   const s = dominoesStaging(a.length, b.length);
-  const { size, floor = DM_STAGE.floor } = { ...s, floor:DM_STAGE.floor };
+  const { size } = s, floor = DM_STAGE.floor;
   const n = b.length;
   /* each step of the chain, and when the last is reached */
   const dt = n > 1 ? Math.min(DM_STAGE.stepMs, (DM.last - DM.chain) / (n - 1)) : 0;

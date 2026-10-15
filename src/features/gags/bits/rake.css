@@ -1,0 +1,74 @@
+/* rake (rake.jsx): beats from registry.js (--b-<name>), every animation
+   on --ba, each element resting on its end state. A run of moves on one
+   property: the first fills both ways, the rest forwards. The camera and
+   the shakes are the stage's. */
+
+.is-rake .rk { position:absolute; inset:0;
+  /* the felt's lamp: a table's green, lit (the one tube that is not a job) */
+  --rk-felt:color-mix(in srgb, var(--neon-cyan, #5fdcf0) 38%, #34e27e);
+  --rk-c-fall:translate(330px, 780px); }
+
+/* ── the house hand: in with the rake, a strained push, the long shove,
+   a step back, the nudge, back again; two taps on the felt ── */
+.is-rake .rk-hand { z-index:3; }
+.is-rake .rk-hand .hh-reach { transform:var(--rk-back);
+  --ba:rk-in 520ms cubic-bezier(.2,.8,.3,1) calc(var(--tl) + var(--b-reach)) both,
+    rk-dig 550ms cubic-bezier(.5,0,.6,1) calc(var(--tl) + var(--b-push)) forwards,
+    rk-slide 300ms cubic-bezier(.45,0,.4,1) calc(var(--tl) + var(--b-slide)) forwards,
+    rk-wind 300ms ease-in-out calc(var(--tl) + var(--b-cling) + 380ms) forwards,
+    rk-nudge 120ms cubic-bezier(.3,0,.4,1) calc(var(--tl) + var(--b-shove) - 120ms) forwards,
+    rk-off 400ms ease-in-out calc(var(--tl) + var(--b-gone)) forwards; animation:var(--ba); }
+@keyframes rk-in { from { transform:translateX(-1300px); } to { transform:translateX(0px); } }
+/* stick and slip: it gives a little, then a little more */
+@keyframes rk-dig { 0% { transform:translateX(0px); } 30% { transform:translateX(4px); } 45% { transform:var(--rk-dig); }
+  60% { transform:var(--rk-dig); } 100% { transform:var(--rk-dig); } }
+@keyframes rk-slide { from { transform:var(--rk-dig); } to { transform:var(--rk-slide); } }
+@keyframes rk-wind { from { transform:var(--rk-slide); } to { transform:var(--rk-back); } }
+@keyframes rk-nudge { from { transform:var(--rk-back); } to { transform:var(--rk-nudge); } }
+@keyframes rk-off { from { transform:var(--rk-nudge); } to { transform:var(--rk-back); } }
+/* the strain while it digs in, then the taps, satisfied */
+.is-rake .rk-hand .hh-fx { transform:translate(0px, 0px) rotate(0deg);
+  --ba:rk-strain 520ms linear calc(var(--tl) + var(--b-push)) both,
+    rk-tap 260ms ease-in-out calc(var(--tl) + var(--b-tap1)) forwards,
+    rk-tap 260ms ease-in-out calc(var(--tl) + var(--b-tap2)) forwards; animation:var(--ba); }
+@keyframes rk-strain { 0%, 100% { transform:translate(0px, 0px) rotate(0deg); } 15% { transform:translate(1px, -2px) rotate(-.6deg); }
+  30% { transform:translate(-1px, 2px) rotate(.6deg); } 45% { transform:translate(1px, -2px) rotate(-.6deg); }
+  60% { transform:translate(-1px, 1px) rotate(.4deg); } 80% { transform:translate(1px, -1px) rotate(-.3deg); } }
+@keyframes rk-tap { 0%, 100% { transform:translate(0px, 0px) rotate(0deg); } 40% { transform:translate(0px, -22px) rotate(-2deg); }
+  80% { transform:translate(0px, 1px) rotate(0deg); } }
+
+/* ── the chip: digs in, leaning back into the rake; slides anyway; at the
+   edge, teeters, finds its feet (phew); the nudge; over and gone ── */
+.is-rake .rk-chip { z-index:2; }
+.is-rake .rk-chip .nc-move { transform:var(--rk-c-fall);
+  --ba:rk-c-dig 550ms cubic-bezier(.5,0,.6,1) calc(var(--tl) + var(--b-push)) both,
+    rk-c-slide 300ms cubic-bezier(.45,0,.4,1) calc(var(--tl) + var(--b-slide) + 15ms) forwards,
+    rk-c-fall 460ms linear calc(var(--tl) + var(--b-fall)) forwards; animation:var(--ba); }
+@keyframes rk-c-dig { 0% { transform:translateX(0px); } 30% { transform:translateX(4px); } 45% { transform:var(--rk-c-dig); }
+  100% { transform:var(--rk-c-dig); } }
+@keyframes rk-c-slide { from { transform:var(--rk-c-dig); } to { transform:var(--rk-c-edge); } }
+@keyframes rk-c-fall { 0% { transform:var(--rk-c-edge); animation-timing-function:cubic-bezier(.4,0,.9,.5); }
+  100% { transform:var(--rk-c-fall); } }
+.is-rake .rk-chip .nc-tilt { transform:rotate(150deg);
+  --ba:rk-lean 260ms ease-out calc(var(--tl) + var(--b-push)) both,
+    rk-lurch 200ms ease-out calc(var(--tl) + var(--b-edge)) forwards,
+    rk-teeter 760ms ease-in-out calc(var(--tl) + var(--b-edge) + 200ms) forwards,
+    rk-tip 420ms cubic-bezier(.45,0,.9,.5) calc(var(--tl) + var(--b-shove) - 40ms) forwards; animation:var(--ba); }
+@keyframes rk-lean { from { transform:rotate(0deg); } to { transform:rotate(-22deg); } }
+@keyframes rk-lurch { from { transform:rotate(-22deg); } to { transform:rotate(24deg); } }
+@keyframes rk-teeter { 0% { transform:rotate(24deg); } 18% { transform:rotate(-12deg); } 38% { transform:rotate(28deg); } 58% { transform:rotate(-8deg); }
+  76% { transform:rotate(14deg); } 90% { transform:rotate(-3deg); } 100% { transform:rotate(0deg); } }
+@keyframes rk-tip { from { transform:rotate(0deg); } to { transform:rotate(150deg); } }
+/* at the edge it looks over it; then back at the room (phew) */
+.is-rake .rk-chip .nc-spin { transform:rotateY(0deg) rotateX(0deg);
+  --ba:rk-peer 220ms ease-out calc(var(--tl) + var(--b-edge) + 60ms) both,
+    rk-phew 260ms ease-in-out calc(var(--tl) + var(--b-cling) + 560ms) forwards; animation:var(--ba); }
+@keyframes rk-peer { from { transform:rotateY(0deg) rotateX(0deg); } to { transform:rotateY(34deg) rotateX(-22deg); } }
+@keyframes rk-phew { from { transform:rotateY(34deg) rotateX(-22deg); } to { transform:rotateY(0deg) rotateX(0deg); } }
+.is-rake .rk-chip .nc-pool { opacity:0; --ba:bit-hide 120ms linear calc(var(--tl) + var(--b-fall)) both; animation:var(--ba); }
+.is-rake .rk-alarm { opacity:0;
+  --ba:neon-ignite 240ms linear calc(var(--tl) + var(--b-edge)) both, neon-die 260ms linear calc(var(--tl) + var(--b-cling) + 680ms) forwards;
+  animation:var(--ba); }
+/* the felt scuffs where it digs in */
+.is-rake .rk-scuff { opacity:0; --ba:rk-scuff 320ms ease-out calc(var(--tl) + var(--b-push) + 200ms) forwards; animation:var(--ba); }
+@keyframes rk-scuff { 0% { opacity:1; transform:scale(.4); } 60% { opacity:1; } 100% { opacity:0; transform:scale(1.2); } }

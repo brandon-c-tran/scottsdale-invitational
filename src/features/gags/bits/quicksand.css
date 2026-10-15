@@ -1,0 +1,86 @@
+/* quicksand (quicksand.jsx): beats from registry.js (--b-<name>), every
+   animation on --ba, each element resting on its end state. A run of
+   moves on one property: the first fills both ways, the rest forwards.
+   The camera and the shakes are the stage's. */
+
+.is-quicksand .qs { position:absolute; inset:0; }
+/* the sand's surface: everything of the chip below it is cut away */
+.is-quicksand .qs-clip { position:absolute; left:0; top:0; width:1920px; overflow:hidden; }
+
+/* the swirl turns, slowly, all along */
+.is-quicksand .qs-swirl { opacity:.6; --ba:qs-swirl 9000ms linear calc(var(--tl) + 0ms) infinite both; animation:var(--ba); }
+@keyframes qs-swirl { from { transform:rotate(0deg); } to { transform:rotate(-360deg); } }
+
+/* ── the chip going down: a little at first, then with every landing,
+   sunk to its rim, then under ── */
+.is-quicksand .qs-chip .nc-move { transform:translateY(270px);
+  --ba:qs-settle 380ms ease-out calc(var(--tl) + var(--b-settle)) both,
+    qs-sink 1850ms cubic-bezier(.35,.1,.75,.85) calc(var(--tl) + var(--b-struggle)) forwards,
+    qs-under 340ms cubic-bezier(.5,0,.9,.5) calc(var(--tl) + var(--b-gone)) forwards; animation:var(--ba); }
+@keyframes qs-settle { 0% { transform:translateY(0px); } 50% { transform:translateY(58px); } 100% { transform:translateY(50px); } }
+@keyframes qs-sink { from { transform:translateY(50px); } to { transform:translateY(178px); } }
+@keyframes qs-under { 0% { transform:translateY(178px); } 30% { transform:translateY(166px); } 100% { transform:translateY(270px); } }
+/* the hops: each lower than the last; the last one barely a hop */
+.is-quicksand .qs-chip .nc-hop { perspective:900px; transform:translateY(0px);
+  --ba:qs-hop1 340ms ease-out calc(var(--tl) + var(--b-h1)) both,
+    qs-hop2 320ms ease-out calc(var(--tl) + var(--b-h2)) forwards,
+    qs-hop3 300ms ease-out calc(var(--tl) + var(--b-h3)) forwards,
+    qs-hop4 280ms ease-out calc(var(--tl) + var(--b-lastHop)) forwards; animation:var(--ba); }
+@keyframes qs-hop1 { 0%, 100% { transform:translateY(0px); } 45% { transform:translateY(-62px); } }
+@keyframes qs-hop2 { 0%, 100% { transform:translateY(0px); } 45% { transform:translateY(-50px); } }
+@keyframes qs-hop3 { 0%, 100% { transform:translateY(0px); } 45% { transform:translateY(-38px); } }
+@keyframes qs-hop4 { 0%, 100% { transform:translateY(0px); } 45% { transform:translateY(-34px); } }
+/* squashed on each landing in the muck */
+.is-quicksand .qs-chip .nc-body { transform:scale(1, 1);
+  --ba:qs-land 200ms ease-out calc(var(--tl) + var(--b-h1) + 300ms) both,
+    qs-land 200ms ease-out calc(var(--tl) + var(--b-h2) + 280ms) forwards,
+    qs-land 200ms ease-out calc(var(--tl) + var(--b-h3) + 260ms) forwards; animation:var(--ba); }
+@keyframes qs-land { 0% { transform:scale(1, 1); } 35% { transform:scale(1.12, .88); } 100% { transform:scale(1, 1); } }
+/* the wiggle, and a lean into every hop */
+.is-quicksand .qs-chip .nc-tilt { transform:rotate(0deg);
+  --ba:qs-wiggle 620ms linear calc(var(--tl) + var(--b-struggle)) both,
+    qs-lean-l 320ms ease-in-out calc(var(--tl) + var(--b-h1)) forwards,
+    qs-lean-r 300ms ease-in-out calc(var(--tl) + var(--b-h2)) forwards,
+    qs-lean-l 280ms ease-in-out calc(var(--tl) + var(--b-h3)) forwards,
+    qs-shiver 300ms linear calc(var(--tl) + var(--b-rim) + 60ms) forwards; animation:var(--ba); }
+@keyframes qs-wiggle { 0%, 100% { transform:rotate(0deg); } 12% { transform:rotate(-11deg); } 30% { transform:rotate(10deg); }
+  48% { transform:rotate(-10deg); } 66% { transform:rotate(9deg); } 84% { transform:rotate(-6deg); } }
+@keyframes qs-lean-l { 0%, 100% { transform:rotate(0deg); } 40% { transform:rotate(-9deg); } 70% { transform:rotate(5deg); } }
+@keyframes qs-lean-r { 0%, 100% { transform:rotate(0deg); } 40% { transform:rotate(9deg); } 70% { transform:rotate(-5deg); } }
+@keyframes qs-shiver { 0%, 100% { transform:rotate(0deg); } 20% { transform:rotate(-3deg); } 40% { transform:rotate(3deg); }
+  60% { transform:rotate(-2deg); } 80% { transform:rotate(2deg); } }
+/* it looks down at what it is standing in; at its rim, up at the sky */
+.is-quicksand .qs-chip .nc-spin { transform:rotateX(22deg);
+  --ba:qs-look-down 220ms var(--ease-out) calc(var(--tl) + var(--b-notice)) both,
+    qs-look-back 160ms ease-out calc(var(--tl) + var(--b-struggle)) forwards,
+    qs-look-up 260ms var(--ease-out) calc(var(--tl) + var(--b-rim) - 120ms) forwards; animation:var(--ba); }
+@keyframes qs-look-down { from { transform:rotateX(0deg); } to { transform:rotateX(-30deg); } }
+@keyframes qs-look-back { from { transform:rotateX(-30deg); } to { transform:rotateX(0deg); } }
+@keyframes qs-look-up { from { transform:rotateX(0deg); } to { transform:rotateX(22deg); } }
+.is-quicksand .qs-alarm { opacity:0;
+  --ba:neon-ignite 260ms linear calc(var(--tl) + var(--b-notice)) both,
+    neon-die 220ms linear calc(var(--tl) + var(--b-h1)) forwards; animation:var(--ba); }
+.is-quicksand .qs-sweat { opacity:1; transform:scale(1);
+  --ba:qs-sweat 220ms var(--ease-land) calc(var(--tl) + var(--b-h2) + 120ms) both; animation:var(--ba); }
+@keyframes qs-sweat { 0% { opacity:0; transform:scale(.2); } 1% { opacity:1; } 60% { opacity:1; transform:scale(1.2); }
+  100% { opacity:1; transform:scale(1); } }
+
+/* ── ripples off every landing ── */
+.is-quicksand .qs-ripple { opacity:0; }
+.is-quicksand .qs-ripple.is-settle { --ba:qs-ripple 900ms ease-out calc(var(--tl) + var(--b-settle) + 120ms) forwards; animation:var(--ba); }
+.is-quicksand .qs-ripple.is-h1 { --ba:qs-ripple 900ms ease-out calc(var(--tl) + var(--b-h1) + 300ms) forwards; animation:var(--ba); }
+.is-quicksand .qs-ripple.is-h2 { --ba:qs-ripple 900ms ease-out calc(var(--tl) + var(--b-h2) + 280ms) forwards; animation:var(--ba); }
+.is-quicksand .qs-ripple.is-h3 { --ba:qs-ripple 900ms ease-out calc(var(--tl) + var(--b-h3) + 260ms) forwards; animation:var(--ba); }
+.is-quicksand .qs-ripple.is-gone { --ba:qs-ripple 1100ms ease-out calc(var(--tl) + var(--b-gone) + 200ms) forwards; animation:var(--ba); }
+@keyframes qs-ripple { 0% { opacity:1; transform:scale(.35); } 100% { opacity:0; transform:scale(1.5); } }
+
+/* ── one bubble comes up and pops ── */
+.is-quicksand .qs-bubble { opacity:0;
+  --ba:bit-show 1ms step-start calc(var(--tl) + var(--b-bubble)) both, bit-hide 1ms step-start calc(var(--tl) + var(--b-pop)) forwards;
+  animation:var(--ba); }
+.is-quicksand .qs-bubble-up { transform:translateY(-60px) scale(1);
+  --ba:qs-rise 400ms cubic-bezier(.2,.7,.4,1) calc(var(--tl) + var(--b-bubble)) both; animation:var(--ba); }
+@keyframes qs-rise { 0% { transform:translateY(0px) scale(.2); } 50% { transform:translateY(-40px) scale(.85, 1.1); }
+  80% { transform:translateY(-56px) scale(1.06, .95); } 100% { transform:translateY(-60px) scale(1); } }
+.is-quicksand .qs-pop { opacity:0; --ba:qs-pop 260ms ease-out calc(var(--tl) + var(--b-pop)) forwards; animation:var(--ba); }
+@keyframes qs-pop { 0% { opacity:1; transform:scale(.4); } 60% { opacity:1; transform:scale(1.1); } 100% { opacity:0; transform:scale(1.35); } }

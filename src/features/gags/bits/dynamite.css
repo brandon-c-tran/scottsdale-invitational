@@ -1,0 +1,117 @@
+/* dynamite (dynamite.jsx): beats from registry.js (--b-<name>), every
+   animation on --ba, each element resting on its end state. A run of
+   moves on one property: the first fills both ways, the rest forwards.
+   The camera, the shakes and the white frame on the boom are the stage's. */
+
+.is-dynamite .dy { position:absolute; inset:0; }
+
+/* ── the bundle, its fuse burning down from the end, gone in the boom ── */
+.is-dynamite .dy-bundle { z-index:2; opacity:0;
+  --ba:bit-hide 1ms step-start calc(var(--tl) + var(--b-boom)) both; animation:var(--ba); }
+.is-dynamite .dy-bundle .ng-f6 { opacity:0; --ba:neon-off 1ms step-start calc(var(--tl) + var(--b-boom) - 1830ms) both; animation:var(--ba); }
+.is-dynamite .dy-bundle .ng-f5 { opacity:0; --ba:neon-off 1ms step-start calc(var(--tl) + var(--b-boom) - 1465ms) both; animation:var(--ba); }
+.is-dynamite .dy-bundle .ng-f4 { opacity:0; --ba:neon-off 1ms step-start calc(var(--tl) + var(--b-boom) - 1100ms) both; animation:var(--ba); }
+.is-dynamite .dy-bundle .ng-f3 { opacity:0; --ba:neon-off 1ms step-start calc(var(--tl) + var(--b-boom) - 735ms) both; animation:var(--ba); }
+.is-dynamite .dy-bundle .ng-f2 { opacity:0; --ba:neon-off 1ms step-start calc(var(--tl) + var(--b-boom) - 370ms) both; animation:var(--ba); }
+.is-dynamite .dy-bundle .ng-f1 { opacity:0; --ba:neon-off 1ms step-start calc(var(--tl) + var(--b-boom)) both; animation:var(--ba); }
+/* the spark runs back down the fuse, joint by joint */
+.is-dynamite .dy-spark { transform:var(--dy-p6);
+  --ba:dy-burn 2200ms linear calc(var(--tl) + var(--b-boom) - 2200ms) both; animation:var(--ba); }
+@keyframes dy-burn { 0% { transform:var(--dy-p0); } 16.67% { transform:var(--dy-p1); } 33.33% { transform:var(--dy-p2); }
+  50% { transform:var(--dy-p3); } 66.67% { transform:var(--dy-p4); } 83.33% { transform:var(--dy-p5); } 100% { transform:var(--dy-p6); } }
+/* the fizz: never still */
+.is-dynamite .dy-fizz { --ba:dy-fizz 180ms steps(3, start) calc(var(--tl) + 0ms) infinite both; animation:var(--ba); }
+@keyframes dy-fizz { 0% { transform:scale(.8) rotate(0deg); opacity:1; } 33% { transform:scale(1.25) rotate(20deg); opacity:.7; }
+  66% { transform:scale(.95) rotate(-12deg); opacity:1; } 100% { transform:scale(1.1) rotate(8deg); opacity:.85; } }
+
+/* ── the chip: humming, a glance, away, the double take, blown back ── */
+.is-dynamite .dy-chip .nc-hop { perspective:900px; transform:translateY(0px);
+  --ba:dy-hum 500ms ease-in-out calc(var(--tl) + 150ms) 2 both,
+    dy-take 220ms ease-out calc(var(--tl) + var(--b-notice)) forwards,
+    dy-blown 420ms linear calc(var(--tl) + var(--b-boom)) forwards; animation:var(--ba); }
+@keyframes dy-hum { 0%, 100% { transform:translateY(0px); } 45% { transform:translateY(-16px); } }
+@keyframes dy-take { 0%, 100% { transform:translateY(0px); } 40% { transform:translateY(-34px); } }
+@keyframes dy-blown { 0% { transform:translateY(0px); animation-timing-function:cubic-bezier(.2,.7,.4,1); }
+  40% { transform:translateY(-70px); animation-timing-function:cubic-bezier(.6,0,.9,.5); } 100% { transform:translateY(0px); } }
+.is-dynamite .dy-chip .nc-move { transform:translateX(-56px);
+  --ba:dy-push 420ms cubic-bezier(.2,.7,.4,1) calc(var(--tl) + var(--b-boom)) both; animation:var(--ba); }
+@keyframes dy-push { from { transform:translateX(0px); } to { transform:translateX(-56px); } }
+.is-dynamite .dy-chip .nc-tilt { transform:rotate(0deg);
+  --ba:dy-sway 1100ms ease-in-out calc(var(--tl) + 100ms) both,
+    dy-glance 220ms ease-out calc(var(--tl) + var(--b-glance)) forwards,
+    dy-away 260ms ease-in-out calc(var(--tl) + var(--b-away)) forwards,
+    dy-double 300ms ease-out calc(var(--tl) + var(--b-notice)) forwards,
+    dy-rock 700ms ease-out calc(var(--tl) + var(--b-boom)) forwards; animation:var(--ba); }
+@keyframes dy-sway { 0%, 100% { transform:rotate(0deg); } 25% { transform:rotate(-5deg); } 75% { transform:rotate(5deg); } }
+@keyframes dy-glance { from { transform:rotate(0deg); } to { transform:rotate(8deg); } }
+@keyframes dy-away { from { transform:rotate(8deg); } to { transform:rotate(-4deg); } }
+@keyframes dy-double { 0% { transform:rotate(-4deg); } 35% { transform:rotate(14deg); } 100% { transform:rotate(9deg); } }
+@keyframes dy-rock { 0% { transform:rotate(9deg); } 15% { transform:rotate(-16deg); } 45% { transform:rotate(6deg); } 70% { transform:rotate(-2deg); }
+  100% { transform:rotate(0deg); } }
+/* it turns to look at the bundle, back (nothing there), then snaps round */
+.is-dynamite .dy-chip .nc-spin { transform:rotateY(0deg);
+  --ba:dy-look 220ms ease-out calc(var(--tl) + var(--b-glance)) both,
+    dy-unlook 300ms ease-in-out calc(var(--tl) + var(--b-away)) forwards,
+    dy-snap 110ms cubic-bezier(.2,.8,.3,1) calc(var(--tl) + var(--b-notice)) forwards,
+    dy-front 200ms ease-out calc(var(--tl) + var(--b-boom)) forwards; animation:var(--ba); }
+@keyframes dy-look { from { transform:rotateY(0deg); } to { transform:rotateY(36deg); } }
+@keyframes dy-unlook { from { transform:rotateY(36deg); } to { transform:rotateY(-10deg); } }
+@keyframes dy-snap { from { transform:rotateY(-10deg); } to { transform:rotateY(42deg); } }
+@keyframes dy-front { from { transform:rotateY(42deg); } to { transform:rotateY(0deg); } }
+/* stiff as a board, it goes over on its face */
+.is-dynamite .dy-chip .nc-body { transform:rotateX(-84deg);
+  --ba:dy-blast-squash 200ms ease-out calc(var(--tl) + var(--b-boom)) both,
+    dy-topple 300ms cubic-bezier(.55,0,.95,.4) calc(var(--tl) + var(--b-topple)) forwards,
+    dy-settle 600ms ease-out calc(var(--tl) + var(--b-flat)) forwards; animation:var(--ba); }
+@keyframes dy-blast-squash { 0% { transform:scale(1, 1) rotateX(0deg); } 30% { transform:scale(.86, 1.16) rotateX(0deg); }
+  100% { transform:scale(1, 1) rotateX(0deg); } }
+@keyframes dy-topple { from { transform:scale(1, 1) rotateX(0deg); } to { transform:scale(1, 1) rotateX(-84deg); } }
+@keyframes dy-settle { 0% { transform:rotateX(-84deg); } 25% { transform:rotateX(-77deg); } 55% { transform:rotateX(-84deg); }
+  80% { transform:rotateX(-81deg); } 100% { transform:rotateX(-84deg); } }
+.is-dynamite .dy-alarm { opacity:0;
+  --ba:neon-ignite 240ms linear calc(var(--tl) + var(--b-notice)) both, bit-hide 1ms step-start calc(var(--tl) + var(--b-boom)) forwards;
+  animation:var(--ba); }
+.is-dynamite .dy-sweat { opacity:0;
+  --ba:dy-sweat 180ms var(--ease-land) calc(var(--tl) + var(--b-sweat)) both, bit-hide 1ms step-start calc(var(--tl) + var(--b-boom)) forwards;
+  animation:var(--ba); }
+@keyframes dy-sweat { 0% { opacity:0; transform:scale(.2); } 1% { opacity:1; } 60% { opacity:1; transform:scale(1.2); }
+  100% { opacity:1; transform:scale(1); } }
+
+/* ── scorched: soot over its face, the rim stuttering like a dying tube
+   and settling dim, smoke curling off its top ── */
+.is-dynamite .dy-soot, .is-dynamite .dy-rimout { position:absolute; display:block; box-sizing:border-box; border-radius:50%; pointer-events:none; }
+.is-dynamite .dy-soot { opacity:1;
+  background:radial-gradient(50% 50% at 50% 50%, rgba(6, 7, 12, .5), rgba(6, 7, 12, .72) 70%, rgba(6, 7, 12, .9));
+  --ba:bit-show 1ms step-start calc(var(--tl) + var(--b-boom)) both; animation:var(--ba); }
+.is-dynamite .dy-rimout { opacity:.62; border:24px solid rgba(6, 7, 13, .97);
+  --ba:dy-rimflick 1700ms linear calc(var(--tl) + var(--b-boom)) both; animation:var(--ba); }
+@keyframes dy-rimflick { 0% { opacity:0; } 1% { opacity:1; } 30% { opacity:1; } 33% { opacity:.2; } 37% { opacity:.95; } 46% { opacity:.4; }
+  49% { opacity:1; } 60% { opacity:.3; } 63% { opacity:.85; } 74% { opacity:.5; } 77% { opacity:.9; } 88% { opacity:.55; } 91% { opacity:.75; }
+  100% { opacity:.62; } }
+.is-dynamite .dy-wisp { opacity:0; }
+.is-dynamite .dy-wisp.is-0 { --ba:dy-wisp 1500ms ease-out calc(var(--tl) + var(--b-boom) + 500ms) infinite both; animation:var(--ba); }
+.is-dynamite .dy-wisp.is-1 { --ba:dy-wisp 1500ms ease-out calc(var(--tl) + var(--b-boom) + 1250ms) infinite both; animation:var(--ba); }
+@keyframes dy-wisp { 0% { opacity:0; transform:translateY(0px) scale(.7); } 20% { opacity:.85; } 70% { opacity:.6; }
+  100% { opacity:0; transform:translateY(-90px) scale(1.15); } }
+.is-dynamite .dy-cough { opacity:0; --ba:dy-cough 800ms ease-out calc(var(--tl) + var(--b-cough)) forwards; animation:var(--ba); }
+@keyframes dy-cough { 0% { opacity:1; transform:translateY(0px) scale(.4); } 60% { opacity:.9; } 100% { opacity:0; transform:translateY(-110px) scale(1.5); } }
+
+/* ── the blast: a jagged flash that holds a moment and dies; smoke rings
+   rolling out; the smoke over the chip, clearing ── */
+.is-dynamite .dy-blast { z-index:5; opacity:0; --ba:dy-blast 760ms linear calc(var(--tl) + var(--b-boom)) forwards; animation:var(--ba); }
+@keyframes dy-blast { 0% { opacity:1; transform:scale(.3); } 12% { transform:scale(1.1); } 24% { transform:scale(1); } 46% { opacity:1; }
+  56% { opacity:.25; } 64% { opacity:.9; } 100% { opacity:0; transform:scale(1.12); } }
+.is-dynamite .dy-ring { z-index:4; opacity:0; }
+.is-dynamite .dy-ring.is-0 { --ba:dy-ring 1000ms ease-out calc(var(--tl) + var(--b-boom) + 120ms) forwards; animation:var(--ba); }
+.is-dynamite .dy-ring.is-1 { --ba:dy-ring 1100ms ease-out calc(var(--tl) + var(--b-boom) + 300ms) forwards; animation:var(--ba); }
+.is-dynamite .dy-ring.is-2 { --ba:dy-ring 1200ms ease-out calc(var(--tl) + var(--b-boom) + 480ms) forwards; animation:var(--ba); }
+@keyframes dy-ring { 0% { opacity:1; transform:translateY(0px) scale(.3); } 100% { opacity:0; transform:translateY(-170px) scale(1.7); } }
+.is-dynamite .dy-smoke { z-index:4; opacity:0; }
+.is-dynamite .dy-smoke.is-0 { --ba:dy-smoke 850ms ease-out calc(var(--tl) + var(--b-boom) + 40ms) forwards; animation:var(--ba); }
+.is-dynamite .dy-smoke.is-1 { --ba:dy-smoke 950ms ease-out calc(var(--tl) + var(--b-boom) + 20ms) forwards; animation:var(--ba); }
+.is-dynamite .dy-smoke.is-2 { --ba:dy-smoke 800ms ease-out calc(var(--tl) + var(--b-boom) + 60ms) forwards; animation:var(--ba); }
+.is-dynamite .dy-smoke.is-3 { --ba:dy-smoke 900ms ease-out calc(var(--tl) + var(--b-boom) + 80ms) forwards; animation:var(--ba); }
+@keyframes dy-smoke { 0% { opacity:1; transform:translate(0px, 0px) scale(.4); } 14% { opacity:1; transform:translate(0px, -10px) scale(1); }
+  55% { opacity:1; transform:translate(-20px, -40px) scale(1.1); } 100% { opacity:0; transform:translate(-40px, -120px) scale(1.3); } }
+.is-dynamite .dy-landpuff { opacity:0; --ba:dy-landpuff 600ms ease-out calc(var(--tl) + var(--b-flat)) forwards; animation:var(--ba); }
+@keyframes dy-landpuff { 0% { opacity:1; transform:scale(.5, .6); } 100% { opacity:0; transform:scale(1.35, 1.6); } }

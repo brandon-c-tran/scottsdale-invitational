@@ -1,0 +1,96 @@
+/* needlescratch (needlescratch.jsx): beats from registry.js (--b-<name>),
+   every animation on --ba, each element resting on its end state. A run
+   of moves on one property: the first fills both ways, the rest forwards.
+   The camera and the shakes are the stage's; the Worker cuts the song on
+   --b-scratch. */
+
+.is-needlescratch .ns { position:absolute; inset:0; }
+
+/* ── the record turns until the scratch, then spins down ── */
+.is-needlescratch .ns-platter { transform:rotate(2480deg);
+  --ba:ns-spin var(--b-scratch) linear calc(var(--tl) + 0ms) both,
+    ns-spindown 1300ms cubic-bezier(.1,.7,.3,1) calc(var(--tl) + var(--b-scratch)) forwards; animation:var(--ba); }
+@keyframes ns-spin { from { transform:rotate(0deg); } to { transform:rotate(2160deg); } }
+@keyframes ns-spindown { from { transform:rotate(2160deg); } to { transform:rotate(2480deg); } }
+/* the deck's lamp goes out with the music */
+.is-needlescratch .ng-lamp { opacity:0; --ba:neon-die 400ms linear calc(var(--tl) + var(--b-scratch) + 80ms) both; animation:var(--ba); }
+/* the scratch: a bright jag, then a dim scar */
+.is-needlescratch .ns-scratch { opacity:.4;
+  --ba:ns-scar 700ms linear calc(var(--tl) + var(--b-scratch)) both; animation:var(--ba); }
+@keyframes ns-scar { 0% { opacity:0; } 1% { opacity:1; } 40% { opacity:1; } 55% { opacity:.3; } 62% { opacity:.9; } 100% { opacity:.4; } }
+
+/* ── the notes ── */
+.is-needlescratch .ns-early { opacity:0; }
+.is-needlescratch .ns-early.is-0 { --ba:ns-float 1700ms linear calc(var(--tl) + 0ms) both; animation:var(--ba); }
+.is-needlescratch .ns-early.is-1 { --ba:ns-float 1700ms linear calc(var(--tl) + 500ms) both; animation:var(--ba); }
+@keyframes ns-float { 0% { opacity:0; transform:translate(0px, 0px) rotate(-6deg); } 10% { opacity:1; } 70% { opacity:1; }
+  100% { opacity:0; transform:translate(24px, -320px) rotate(8deg); } }
+/* each rises to its height on the scratch, stops dead, and drops */
+.is-needlescratch .ns-note-rise { transform:var(--ns-rise); }
+.is-needlescratch .ns-note.is-0 .ns-note-rise { --ba:ns-rise 2100ms linear calc(var(--tl) + var(--b-scratch) - 2100ms) both; animation:var(--ba); }
+.is-needlescratch .ns-note.is-1 .ns-note-rise { --ba:ns-rise 1450ms linear calc(var(--tl) + var(--b-scratch) - 1450ms) both; animation:var(--ba); }
+.is-needlescratch .ns-note.is-2 .ns-note-rise { --ba:ns-rise 880ms linear calc(var(--tl) + var(--b-scratch) - 880ms) both; animation:var(--ba); }
+.is-needlescratch .ns-note.is-3 .ns-note-rise { --ba:ns-rise 420ms linear calc(var(--tl) + var(--b-scratch) - 420ms) both; animation:var(--ba); }
+@keyframes ns-rise { from { transform:translate(0px, 0px); } to { transform:var(--ns-rise); } }
+.is-needlescratch .ns-note { opacity:0; }
+.is-needlescratch .ns-note.is-0 { --ba:ns-note-in 200ms linear calc(var(--tl) + var(--b-scratch) - 2100ms) both,
+  neon-die 380ms linear calc(var(--tl) + var(--b-gone)) forwards; animation:var(--ba); }
+.is-needlescratch .ns-note.is-1 { --ba:ns-note-in 200ms linear calc(var(--tl) + var(--b-scratch) - 1450ms) both,
+  neon-die 380ms linear calc(var(--tl) + var(--b-gone) + 60ms) forwards; animation:var(--ba); }
+.is-needlescratch .ns-note.is-2 { --ba:ns-note-in 200ms linear calc(var(--tl) + var(--b-scratch) - 880ms) both,
+  neon-die 380ms linear calc(var(--tl) + var(--b-gone) + 20ms) forwards; animation:var(--ba); }
+.is-needlescratch .ns-note.is-3 { --ba:ns-note-in 200ms linear calc(var(--tl) + var(--b-scratch) - 420ms) both,
+  neon-die 380ms linear calc(var(--tl) + var(--b-gone) + 100ms) forwards; animation:var(--ba); }
+@keyframes ns-note-in { from { opacity:0; } to { opacity:1; } }
+.is-needlescratch .ns-note-fall { transform:var(--ns-drop);
+  --ba:ns-drop 380ms cubic-bezier(.5,0,.9,.5) calc(var(--tl) + var(--b-drop)) both; animation:var(--ba); }
+.is-needlescratch .ns-note.is-1 .ns-note-fall { --ba:ns-drop 340ms cubic-bezier(.5,0,.9,.5) calc(var(--tl) + var(--b-drop) + 40ms) both; animation:var(--ba); }
+.is-needlescratch .ns-note.is-2 .ns-note-fall { --ba:ns-drop 300ms cubic-bezier(.5,0,.9,.5) calc(var(--tl) + var(--b-drop) + 90ms) both; animation:var(--ba); }
+.is-needlescratch .ns-note.is-3 .ns-note-fall { --ba:ns-drop 240ms cubic-bezier(.5,0,.9,.5) calc(var(--tl) + var(--b-drop) + 20ms) both; animation:var(--ba); }
+@keyframes ns-drop { from { transform:translateY(0px); } to { transform:var(--ns-drop); } }
+/* they land and tip over */
+.is-needlescratch .ns-note-tip { transform:rotate(-78deg);
+  --ba:ns-tip 300ms ease-out calc(var(--tl) + var(--b-drop) + 300ms) both; animation:var(--ba); }
+@keyframes ns-tip { 0% { transform:rotate(0deg); } 60% { transform:rotate(-86deg); } 100% { transform:rotate(-78deg); } }
+
+/* ── the chip: bops along, tries a spin, overbalances, goes over flat
+   on its back on the scratch ── */
+.is-needlescratch .ns-chip .nc-hop { perspective:900px; transform:translateY(0px);
+  --ba:ns-bob 480ms cubic-bezier(.3,0,.7,1) calc(var(--tl) + 0ms) 3 both,
+    ns-jump 420ms ease-out calc(var(--tl) + var(--b-spin)) forwards; animation:var(--ba); }
+@keyframes ns-bob { 0%, 100% { transform:translateY(0px); } 50% { transform:translateY(-26px); } }
+@keyframes ns-jump { 0%, 100% { transform:translateY(0px); } 45% { transform:translateY(-58px); } }
+.is-needlescratch .ns-chip .nc-tilt { transform:rotate(0deg);
+  --ba:ns-sway 960ms ease-in-out calc(var(--tl) + 0ms) both,
+    ns-sway 960ms ease-in-out calc(var(--tl) + 960ms) forwards,
+    ns-wobble 300ms ease-in-out calc(var(--tl) + var(--b-wobble)) forwards; animation:var(--ba); }
+@keyframes ns-sway { 0%, 100% { transform:rotate(0deg); } 25% { transform:rotate(-7deg); } 75% { transform:rotate(7deg); } }
+@keyframes ns-wobble { 0% { transform:rotate(0deg); } 30% { transform:rotate(-11deg); } 65% { transform:rotate(9deg); } 100% { transform:rotate(0deg); } }
+.is-needlescratch .ns-chip .nc-body { transform:scale(1, 1) rotateX(84deg);
+  --ba:ns-pump 480ms ease-in-out calc(var(--tl) + 0ms) 3 both,
+    ns-keel 250ms cubic-bezier(.5,0,.9,.4) calc(var(--tl) + var(--b-scratch) - 250ms) forwards,
+    ns-rattle 900ms ease-out calc(var(--tl) + var(--b-scratch)) forwards; animation:var(--ba); }
+@keyframes ns-pump { 0%, 100% { transform:scale(1, 1) rotateX(0deg); } 12% { transform:scale(1.06, .93) rotateX(0deg); }
+  50% { transform:scale(.98, 1.03) rotateX(0deg); } }
+@keyframes ns-keel { from { transform:scale(1, 1) rotateX(0deg); } to { transform:scale(1, 1) rotateX(84deg); } }
+@keyframes ns-rattle { 0% { transform:scale(1, 1) rotateX(84deg); } 15% { transform:scale(1, 1) rotateX(76deg); }
+  30% { transform:scale(1, 1) rotateX(84deg); } 45% { transform:scale(1, 1) rotateX(79deg); } 60% { transform:scale(1, 1) rotateX(84deg); }
+  75% { transform:scale(1, 1) rotateX(82deg); } 100% { transform:scale(1, 1) rotateX(84deg); } }
+/* the pirouette */
+.is-needlescratch .ns-chip .nc-spin { transform:rotateY(360deg);
+  --ba:ns-twirl 420ms cubic-bezier(.3,.1,.5,1) calc(var(--tl) + var(--b-spin)) both; animation:var(--ba); }
+@keyframes ns-twirl { from { transform:rotateY(0deg); } to { transform:rotateY(360deg); } }
+
+/* ── after: a tumbleweed rolls by behind, slowly ── */
+.is-needlescratch .ns-weed { transform:translateX(2100px);
+  --ba:ns-weed 2200ms linear calc(var(--tl) + var(--b-weed)) both; animation:var(--ba); }
+@keyframes ns-weed { from { transform:translateX(0px); } to { transform:translateX(2100px); } }
+.is-needlescratch .ns-weed-hop { --ba:ns-weed-hop 2200ms linear calc(var(--tl) + var(--b-weed)) both; animation:var(--ba); }
+@keyframes ns-weed-hop { 0%, 25%, 50%, 75%, 100% { transform:translateY(0px); animation-timing-function:cubic-bezier(.2,.7,.4,1); }
+  12.5% { transform:translateY(-44px); animation-timing-function:cubic-bezier(.6,0,.9,.4); }
+  37.5% { transform:translateY(-30px); animation-timing-function:cubic-bezier(.6,0,.9,.4); }
+  62.5% { transform:translateY(-38px); animation-timing-function:cubic-bezier(.6,0,.9,.4); }
+  87.5% { transform:translateY(-22px); animation-timing-function:cubic-bezier(.6,0,.9,.4); } }
+.is-needlescratch .ns-weed-spin { transform:rotate(1080deg);
+  --ba:ns-weed-spin 2200ms linear calc(var(--tl) + var(--b-weed)) both; animation:var(--ba); }
+@keyframes ns-weed-spin { from { transform:rotate(0deg); } to { transform:rotate(1080deg); } }

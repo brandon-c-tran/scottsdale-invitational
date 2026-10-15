@@ -1128,7 +1128,12 @@ Daily Double stamp, e2e 141 of 142) as `ac95855e-7b5b-4f6a-94df-8399310b89ab`, t
 on the TV and, with the Chip physics switch, phones; 1329 tests) as
 `22602353-2f6f-4f7f-bc2b-3dfa1a21a113`, then the Oct 14 economy (awards x1.5, the finale dealt from
 Brandon's chip case, the rack 100/500/1000 in his set's colors; 1338 tests,
-the 585-view fit audit, e2e 141 of 142) as `8ac269e0-67b1-4210-a53f-7bf12dce7e84`,
+the 585-view fit audit, e2e 141 of 142) as `8ac269e0-67b1-4210-a53f-7bf12dce7e84`, and then PRODUCTION as **v6** (tag `v6`, merged into master, Oct 14)
+`82407443-b12a-46af-94be-9ba76159aaf9`, deployed at Brandon's call without a
+snapshot; production's 13 profiles loaded clean and migrated to `awardLadder` 2.
+Roll production back to v5 with `npx wrangler rollback
+bcff6ab8-d3bd-48c1-b27a-f75388a2d51a` (v5 does not know the new award values:
+a custom event saved on v6 would pay nothing there),
 awaiting Brandon's review; roll staging back to v5 with `npx wrangler
 rollback 7a3fc0af-8923-4fb1-963b-a80a2b6e4754 --env staging`.
 

@@ -106,7 +106,6 @@ const slowmowalk = {
     { at:SW.first, sound:"bitBoomChain", pan:0, opts:{ ms:1400 } },
     { at:SW.fuse, sound:"bitFuse", pan:0, opts:{ ms:SW.boom - SW.fuse } },
     { at:SW.boom, sound:"bitBoom", pan:0 },
-    { at:SW.boom, sound:"bitBass", pan:0 },
   ],
 };
 
@@ -130,13 +129,16 @@ const pyramid = {
   cast:{ a:SIDE("winner") },
   cues:[
     { at:PY.gather + 470, sound:"bitHop", pan:0, opts:{ step:0, small:true } },
-    { at:PY.top - 1080, sound:"bitHop", pan:-0.25, opts:{ step:1 } },
-    { at:PY.top - 540, sound:"bitHop", pan:0.25, opts:{ step:2 } },
-    { at:PY.top - 520, sound:"bitStrain", pan:0, opts:{ ms:300 } },
+    { at:PY.top - 470, sound:"bitHop", pan:-0.3, opts:{ step:1 } },
     { at:PY.top, sound:"bitPlant", pan:0 },
     { at:PY.top + 20, sound:"bitTwinkle", pan:0.2 },
     { at:PY.top + 160, sound:"bitCreak", pan:0, opts:{ ms:1200, small:true } },
   ],
+  /* six and seven stand three rows high: the middle row lands a climb before the top */
+  pairs:[6, 7].map(n => ({ sides:{ a:n }, cues:[
+    { at:PY.top - 540, sound:"bitHop", pan:0.25, opts:{ step:2 } },
+    { at:PY.top - 520, sound:"bitStrain", pan:0, opts:{ ms:300 } },
+  ] })),
 };
 
 /* ── teamphoto: a neon camera on a tripod. The team hops into place and

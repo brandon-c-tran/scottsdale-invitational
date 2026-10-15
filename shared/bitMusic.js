@@ -42,6 +42,7 @@ export const SONG_STYLES = Object.freeze(["music", "punchline", "songless"]);
 
 /* a stored latency as a whole number of ms in range, else null */
 export function cleanLatency(value) {
+  if (value === null || value === undefined || value === "") return null;
   const ms = Number(value);
   if (!Number.isFinite(ms) || ms < 0 || ms > MAX_LATENCY_MS) return null;
   return Math.round(ms / 10) * 10;
@@ -170,13 +171,15 @@ export function latencyFromTaps({ clicks = [], speaker = [] } = {}) {
      { step:"idle" | "clicks" | "speaker" | "done", clicks, speaker, round,
        heard (the current sound's instant), latency }
    events: start; sound { at } (a sound was played, or the play request
-   sent); tap { at }; next (the next round); fail; reset. */
+   sent); tap { at }; retry (nobody tapped: the round again); fail; reset. */
 export const CALIBRATION_IDLE = Object.freeze({ step:"idle", clicks:[], speaker:[], round:0, heard:null, latency:null, error:null });
 export function calibrationStep(state = CALIBRATION_IDLE, event = {}) {
   const s = state || CALIBRATION_IDLE;
   switch (event.type) {
     case "start": return { ...CALIBRATION_IDLE, step:"clicks" };
     case "reset": return CALIBRATION_IDLE;
+    /* a round nobody answered runs again */
+    case "retry": return s.step === "clicks" || s.step === "speaker" ? { ...s, heard:null } : s;
     case "fail": return { ...s, step:"idle", error:String(event.error || "The speaker didn't answer") };
     case "sound": return s.step === "clicks" || s.step === "speaker" ? { ...s, heard:Number(event.at) } : s;
     case "tap": {

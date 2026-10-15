@@ -125,7 +125,7 @@ export function BitLayer({ bit: bitOrId, cast = {}, state = null, phase = "fri",
     t0.current = { key:runId, start:Number.isFinite(Number(start)) && rate === 1 ? Number(start) : serverNow() - clock.elapsed / (rate || 1) };
   }
   useBitSound({ bit, start:t0.current.start, origin:rate === 1 ? origin : undefined, song, enabled:sound && !frozen && !!bit, reduced,
-    rate, key:`${runId}:${origin ?? ""}` });
+    rate, key:runId });
   if (!bit) return null;
   const Scene = SCENES[bit.id];
   const camera = cameraCss(bit, Scene?.anchors?.(cast) || {});

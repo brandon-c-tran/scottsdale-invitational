@@ -472,12 +472,14 @@ export function useEngraveSound(plan = [], cut = 0) {
 /* A moment's bit (features/gags) on the room's clock, from the moment's
    own start: the bit's foley on its beats, panned to where each thing
    happens on the canvas (bitSound.js). Reduced motion plays the bit's one
-   summary sound. A moment after a walkout plays while the win song runs on
-   in the Now playing strip, so its sounds are open: never ducked under the
-   song. */
+   summary sound. A win song on the bit's beat (gag.song) ducks the foley
+   after that beat; a music bit's foley from its hold on runs on its second
+   clock (gag.origin). */
+export const gagSongComing = gag => !!gag?.song && gag.song.status !== "none";
 export function gagCues(gag, { reduced = false } = {}) {
   if (!gag?.id || !Number.isFinite(Number(gag.start))) return [];
-  return bitCues(gag.bit, { start:Number(gag.start), reduced, key:`gag:${gag.id}`, cast:gagCast(gag) });
+  return bitCues(gag.bit, { start:Number(gag.start), origin:gag.origin, song:gagSongComing(gag), reduced, key:`gag:${gag.id}`,
+    cast:gagCast(gag) });
 }
 
 /* A moment sounds once, as it takes the room, and only when the write
@@ -500,14 +502,25 @@ export function useGagSound({ state, plan = [], gag = null }) {
   }, [state]); // eslint-disable-line react-hooks/exhaustive-deps
   const played = useRef(null);
   const pending = useRef([]);
+  const later = useRef({ key:null, handles:[] });
   useEffect(() => {
     if (gag?.id && played.current === gag.id) return;
     pending.current.forEach(handle => handle?.cancel?.());
     pending.current = [];
     if (!gag?.id) return;
     played.current = gag.id;
-    if (fresh.current.includes(gag.id)) pending.current = playCues(gagCues(gag, { reduced:reducedNow() }));
+    if (fresh.current.includes(gag.id)) pending.current = playCues(gagCues(gag, { reduced:reducedNow() }).filter(cue => cue.part !== "post"));
   }, [gag?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  /* a music bit's cues from its hold on, again whenever its second clock
+     moves (the speaker took the song) */
+  useEffect(() => {
+    const key = gag?.id ? `${gag.id}:${gag.origin}` : null;
+    if (later.current.key === key) return;
+    later.current.handles.forEach(handle => handle?.cancel?.());
+    later.current = { key, handles:[] };
+    if (!gag?.id || !fresh.current.includes(gag.id)) return;
+    later.current.handles = playCues(gagCues(gag, { reduced:reducedNow() }).filter(cue => cue.part === "post"));
+  }, [gag?.id, gag?.origin]); // eslint-disable-line react-hooks/exhaustive-deps
 }
 
 /* The fresh gate: the first snapshot (a load, a TV joining late) and any

@@ -178,14 +178,11 @@
    keep their taps (your last chip back, a backer's card) invisibly */
 .fd-table-felt.has-chips3d .fd-spot-chips .fd-stack { opacity:0; }
 
-/* the dealer's glove: the bits' keyline and paint */
-.fd-glove { display:block; overflow:visible; }
+/* the dealer's hand: the house hand in neon (DealerGlove.jsx), its sleeve
+   running back off the felt behind it */
+.fd-glove { position:relative; display:block; overflow:visible; }
 .fd-glove.is-flip { transform:scaleX(-1); }
-.fd-glove-ink { fill:var(--ink0); stroke:var(--ink0); stroke-linecap:round; stroke-linejoin:round; }
-.fd-glove-ink[fill="none"] { fill:none; }
-.fd-glove-paint { fill:var(--bone); }
-.fd-glove-paint.is-cap { fill:none; stroke:var(--bone); stroke-linecap:round; stroke-linejoin:round; }
-.fd-glove-shade { fill:color-mix(in srgb, var(--bone) 70%, var(--art-violet, #4a2690)); }
+.fd-glove-wrist { position:absolute; display:block; width:0; height:0; }
 
 /* your seat: the rack docked over the tab bar, the table above it */
 .fd-wagers-rack.is-seat { position:sticky; bottom:calc(var(--fd-nav-height, 72px) + var(--fd-dock-h, 0px)); z-index:20; margin:0 -4px;

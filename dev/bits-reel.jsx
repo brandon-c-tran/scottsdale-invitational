@@ -272,9 +272,9 @@ function SheetView() {
                 <div className="bit-layer bit-art br-sheet" style={{ "--tl":"0ms", "--bit-ms":"1ms", animation:"none" }}>
                   <div className="bit-night" />
                   {hand ? HAND_POSE_NAMES.map((pose, i) => ["neon", "glove"].map((look, j) =>
-                    <span key={`${pose}:${look}`} className="br-at" style={{ left:420 + j * 900, top:120 + i * 196 }}>
-                      <span className="br-at" style={{ transform:"scale(1.25)" }}><HandArt pose={pose} look={look} /></span>
-                      <span className="br-tag" style={{ left:340, top:-20 }}>{`${pose} · ${look}`}</span>
+                    <span key={`${pose}:${look}`} className="br-hand-cell" style={{ left:40 + j * 940, top:22 + i * 210 }}>
+                      <span className="br-at" style={{ left:330, top:100, transform:"scale(1.3)" }}><HandArt pose={pose} look={look} /></span>
+                      <span className="br-tag" style={{ left:700, top:150 }}>{`${pose} · ${look}`}</span>
                     </span>)) : <>
                     {HAND_POSE_NAMES.map((pose, i) => <span key={pose} className="br-at" style={{ left:150 + i * 380, top:120 }}>
                       <HandArt pose={pose} /><span className="br-tag" style={{ left:40, top:70 }}>{pose}</span>

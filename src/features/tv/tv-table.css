@@ -113,7 +113,7 @@
   animation:tvt-sweep-dim var(--sweep-ms) ease var(--tl) both; }
 @keyframes tvt-sweep-dim { 0% { background:transparent; } 12%, 78% { background:color-mix(in srgb, var(--ink0) 58%, transparent); }
   100% { background:transparent; } }
-.tvt-sweep-glove { position:absolute; left:0; top:50%; translate:0 -50%; filter:drop-shadow(0 18px 18px rgba(0,0,0,.55));
+.tvt-sweep-glove { position:absolute; left:0; top:50%; translate:0 -50%;
   animation:tvt-sweep-glove var(--glove-ms) cubic-bezier(.45,.05,.4,1) var(--tl) both; }
 @keyframes tvt-sweep-glove { 0% { transform:translateX(-260px) rotate(-8deg); }
   55% { transform:translateX(calc(var(--sweep-w) * .55)) rotate(3deg); }
@@ -168,7 +168,7 @@
 .tvt-felt-stacks.is-settle { align-items:flex-end; justify-content:center; }
 .tvt-felt-stacks.is-settle > .fd-stacks { flex-wrap:nowrap; justify-content:center; }
 /* the rake: the glove crosses the felt toward the pool's corner (the bank) */
-.tvt-rake { position:absolute; left:0; top:52%; z-index:5; pointer-events:none; filter:drop-shadow(0 16px 16px rgba(0,0,0,.5));
+.tvt-rake { position:absolute; left:0; top:52%; z-index:5; pointer-events:none;
   animation:tvt-rake var(--rake-ms) cubic-bezier(.45,0,.55,1) calc(var(--rake-at) + 100ms) both; }
 .tvt.is-band .tvt-rake { top:18%; }
 @keyframes tvt-rake { 0% { opacity:0; transform:translate(calc(var(--rake-x0) - 60px), 0) rotate(-4deg); } 14% { opacity:1; }

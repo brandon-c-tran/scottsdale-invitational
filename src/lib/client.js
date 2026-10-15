@@ -679,6 +679,10 @@ export const spotifyAutoWinSongs = on =>
   spotifyRequest("auto", { method:"POST", gm:true, body:{ on:!!on } });
 export const spotifyDevice = ({ deviceId:targetDevice = "", name = "" } = {}) =>
   spotifyRequest("device", { method:"POST", gm:true, body:{ deviceId:targetDevice, name } });
+/* the speaker's latency (Tap on the beat, shared/bitMusic.js): save it, or null to forget it */
+export const spotifyLatency = ms => spotifyRequest("latency", { method:"POST", gm:true, body:{ ms } });
+/* one round of Tap on the beat: the speaker plays a saved win song, its request sent at the answer's `at` */
+export const spotifyCalibrate = () => spotifyRequest("calibrate", { method:"POST", gm:true, body:{} });
 /* replay the win song that did not play (showControl.audio.miss) */
 export const spotifyRetry = () => spotifyRequest("retry", { method:"POST", gm:true, body:{} });
 export const spotifyPause =({ deviceId:targetDevice = "" } = {}) =>

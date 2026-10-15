@@ -1,6 +1,8 @@
 /* The commissioner's Speaker: the Spotify account that plays the room's
-   music, the speaker it plays on, whether win songs play themselves, what
-   is playing now, every player's win song, and a search to play anything.
+   music, the speaker it plays on, whether win songs play themselves, its
+   timing (Tap on the beat: how late the speaker sounds, so a win song
+   lands on its bit's beat), what is playing now, every player's win song,
+   and a search to play anything.
    Before Spotify is set up or connected the sheet is that one state. */
 import React, { useCallback, useEffect, useState } from "react";
 import { rosterOf, disp } from "../../../shared/core.js";
@@ -13,6 +15,7 @@ import { Icon } from "../../ui/Icon.jsx";
 import { MenuGroup, MenuRow } from "../../ui/Menu.jsx";
 import { Avatar } from "../identity/PlayerIdentity.jsx";
 import { deviceLabel, speakerStage } from "./speakerModel.js";
+import { SpeakerTiming } from "./SpeakerTiming.jsx";
 import { refreshSpeakerStatus, setSpeakerStatus, useSpeakerStatus } from "./speakerStatus.js";
 import "./speaker.css";
 
@@ -215,6 +218,12 @@ export function SpeakerSheet({ state, onClose, onBack, notify }) {
           <MenuRow name="Play win songs automatically" pressed={status.autoWinSongs !== false} disabled={busy === "auto"}
             onClick={toggleAuto} />
         </MenuGroup>
+
+        <section className="fd-menu-section" aria-label="Speaker timing">
+          <Head icon="sound">Speaker timing</Head>
+          <SpeakerTiming latencyMs={status.latencyMs ?? null} latencyDefault={status.latencyDefault || 900}
+            onSaved={ms => { setSpeakerStatus(current => current ? { ...current, latencyMs:ms } : current); notify(`Speaker timing ${ms} ms`); }} />
+        </section>
 
         {nowTrack && (
           <section className="fd-menu-section" aria-label="Now playing">

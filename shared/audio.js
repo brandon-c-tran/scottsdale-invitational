@@ -115,17 +115,21 @@ function cleanWalkout(value, { players = null } = {}) {
   const startedAt = finiteMs(value.startedAt);
   const until = finiteMs(value.until);
   if (startedAt === null || until === null || until <= startedAt) return null;
-  return { player, trackId, startedAt, until, ...(value.auto === true ? { auto:true } : {}) };
+  const bit = typeof value.bit === "string" && GAG_ID.test(value.bit) ? value.bit : null;
+  const audibleAt = finiteMs(value.audibleAt);
+  return { player, trackId, startedAt, until, ...(value.auto === true ? { auto:true } : {}), ...(bit ? { bit } : {}),
+    ...(bit && audibleAt !== null ? { audibleAt } : {}) };
 }
 
-/* `clipMs` ends the record early (a win song's clip); never past the song. */
-function buildWalkout({ player = null, trackId = null, startedAt, durationMs, positionMs = 0, clipMs = null, auto = false },
-  options) {
+/* `clipMs` ends the record early (a win song's clip); never past the song.
+   `bit` and `audibleAt`: a win song timed to a bit's beat (shared/bitMusic.js). */
+function buildWalkout({ player = null, trackId = null, startedAt, durationMs, positionMs = 0, clipMs = null, auto = false, bit = null,
+  audibleAt = null }, options) {
   const start = finiteMs(startedAt);
   if (start === null) return null;
   const remaining = walkoutRemainingMs({ durationMs, positionMs });
   const clip = finiteMs(clipMs);
-  return cleanWalkout({ player, trackId, startedAt:start, auto,
+  return cleanWalkout({ player, trackId, startedAt:start, auto, bit, audibleAt,
     until:start + (clip ? Math.max(WALKOUT_MIN_MS, Math.min(remaining, clip)) : remaining) }, options);
 }
 
@@ -160,7 +164,56 @@ function reconcileWalkout(walkout, playback, now) {
 
 const sameWalkout = (left, right) => (!left && !right) || (!!left && !!right
   && left.player === right.player && left.trackId === right.trackId
-  && left.startedAt === right.startedAt && left.until === right.until && !!left.auto === !!right.auto);
+  && left.startedAt === right.startedAt && left.until === right.until && !!left.auto === !!right.auto
+  && (left.bit || null) === (right.bit || null) && (left.audibleAt ?? null) === (right.audibleAt ?? null));
+
+/* ── a win song on a bit's beat (Oct 14, shared/bitMusic.js) ──
+   state.showControl.audio.cue = { gag, player, at } while the Worker means
+   to play a write's win song on its moment's beat: written as soon as it
+   decides (so a music bit holds its wind-up for the song), cleared when the
+   walkout that plays it is stamped (walkout.bit carries the moment on) or
+   when it does not play (a miss, a take-back). `at` is when the room should
+   hear it. Presentation only, like the walkout. */
+const GAG_ID = /^[A-Za-z0-9_:.@-]{1,200}$/;
+function cleanSongCue(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const gag = typeof value.gag === "string" && GAG_ID.test(value.gag) ? value.gag : null;
+  const at = finiteMs(value.at);
+  const player = typeof value.player === "string" && value.player.length <= 40 ? value.player : null;
+  return gag && at !== null ? { gag, player, at } : null;
+}
+const songCueOf = state => cleanSongCue(state?.showControl?.audio?.cue);
+
+/* state.showControl.audio.songs: the win songs that actually played, newest
+   last, { player, startedAt, until } with `until` cut short when one was
+   stopped early. A loss's bit may cut a song still playing (needle
+   scratch); the record says which moments had one, so every screen and a
+   reload pick the same bit. Cleared with the progress (a reset). */
+const SONG_LOG_MAX = 80;
+function cleanSongLog(value) {
+  if (!Array.isArray(value)) return [];
+  return value.map(item => {
+    const startedAt = finiteMs(item?.startedAt), until = finiteMs(item?.until);
+    if (startedAt === null || until === null || until <= startedAt) return null;
+    const player = typeof item.player === "string" && item.player.length <= 40 ? item.player : null;
+    return { player, startedAt, until };
+  }).filter(Boolean).slice(-SONG_LOG_MAX);
+}
+const songLogOf = state => cleanSongLog(state?.showControl?.audio?.songs);
+/* the log after a walkout starts (`walkout`) or stops early at `at` */
+function logSong(log, walkout) {
+  const list = cleanSongLog(log);
+  if (!walkout) return list;
+  if (list.some(item => item.startedAt === walkout.startedAt && item.player === (walkout.player ?? null))) return list;
+  return [...list, { player:walkout.player ?? null, startedAt:walkout.startedAt, until:walkout.until }].slice(-SONG_LOG_MAX);
+}
+function logSongStop(log, walkout, at) {
+  const stop = finiteMs(at);
+  return cleanSongLog(log).map(item => walkout && stop !== null && item.startedAt === walkout.startedAt && stop < item.until
+    ? { ...item, until:Math.max(item.startedAt + 1, stop) } : item);
+}
+/* a song playing from at or before `at` through at least `at + runway` */
+const songPlayingAt = (log, at, runway = 0) => cleanSongLog(log).some(item => item.startedAt <= Number(at) && item.until > Number(at) + runway);
 
 /* a song's name as the room knows it: a release's suffix ("- Single
    Version", "- Remastered 2011", "(Radio Edit)") is not part of it. Home's
@@ -173,6 +226,15 @@ const songTitle = name => {
 };
 
 export {
+  GAG_ID,
+  SONG_LOG_MAX,
+  cleanSongCue,
+  cleanSongLog,
+  logSong,
+  logSongStop,
+  songCueOf,
+  songLogOf,
+  songPlayingAt,
   MAX_TRACK_DURATION_MS,
   SONG_SUFFIX,
   SPOTIFY_TRACK_ID,

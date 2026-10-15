@@ -185,19 +185,20 @@ export function NeonChip({ player, photo, size = 240, x = 0, y = 930, pool = tru
 
 /* ── the house hand ── */
 
-const HAND_TUBES = pose => {
+const HAND_TUBES = (pose, k = 1) => {
   const art = HAND_POSES[pose] || HAND_POSES.point;
   return [
-    { d:art.d, tone:"bone", w:TUBE.w * 0.66 },
-    ...art.lines.map(d => ({ d, tone:"bone", w:TUBE.w * 0.42 })),
-    { d:HAND_CUFF_EDGE, tone:"cyan", w:TUBE.w * 0.6, g:"cuff" },
-    { d:HAND_SLEEVE_EDGES, tone:"cyan", w:TUBE.w * 0.46, g:"cuff" },
+    { d:art.d, tone:"bone", w:TUBE.w * 0.66 * k },
+    ...art.lines.map(d => ({ d, tone:"bone", w:TUBE.w * 0.42 * k })),
+    { d:HAND_CUFF_EDGE, tone:"cyan", w:TUBE.w * 0.6 * k, g:"cuff" },
+    { d:HAND_SLEEVE_EDGES, tone:"cyan", w:TUBE.w * 0.46 * k, g:"cuff" },
   ];
 };
 const HAND_FILLS = pose => [{ d:HAND_SLEEVE }, { d:HAND_CUFF }, { d:(HAND_POSES[pose] || HAND_POSES.point).d }];
 
-/* one pose of the hand, drawn in its look, wrist on the node */
-export function HandArt({ pose = "point", look = "neon", scale = 1 }) {
+/* one pose of the hand, drawn in its look, wrist on the node; `weight`
+   thickens the tubes for a small hand (the betting table's) */
+export function HandArt({ pose = "point", look = "neon", scale = 1, weight = 1 }) {
   const uid = useId().replace(/:/g, "");
   const art = HAND_POSES[pose] || HAND_POSES.point;
   if (look === "glove") {
@@ -222,7 +223,7 @@ export function HandArt({ pose = "point", look = "neon", scale = 1 }) {
       </span>
     );
   }
-  return <Neon box={HAND_BOX} scale={scale} className="hh-art" tubes={HAND_TUBES(pose)} fills={HAND_FILLS(pose)} />;
+  return <Neon box={HAND_BOX} scale={scale} className="hh-art" tubes={HAND_TUBES(pose, weight)} fills={HAND_FILLS(pose)} />;
 }
 
 /* The house hand, wrist at (x, y), pointing along `angle` degrees (0 is

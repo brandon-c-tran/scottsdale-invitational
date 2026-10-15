@@ -2,6 +2,7 @@ import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "re
 import { serverNow } from "../../lib/serverClock.js";
 import { Takeover } from "../tv/TVTakeover.jsx";
 import { BitLayer } from "./BitStage.jsx";
+import { holdBeatOf } from "../../../shared/bitMusic.js";
 import { bitById } from "./bits/registry.js";
 import { gagAt, gagCast, gagPlan, nextGagEdge } from "./gagModel.js";
 import "./gags.css";
@@ -88,11 +89,16 @@ export function TVGag({ state, gag, phase = "fri" }) {
   const bit = gag ? bitById(gag.bit) : null;
   if (!gag || !bit) return null;
   const label = [gag.name, gag.fact].filter(Boolean).join(", ");
+  /* a music bit with its song on the way runs on the server clock, so it
+     can hold its wind-up until the speaker plays (shared/bitMusic.js) */
+  const song = !!gag.song && gag.song.status !== "none";
+  const clock = song && holdBeatOf(bit) !== null && Number.isFinite(Number(gag.start))
+    ? { start:gag.start, origin:gag.origin } : { at:joined };
   return (
     <Takeover kind="gag" className={`tv-gag is-${bit.shape}`} label={label}>
       <span ref={anchor} hidden />
       <BitLayer bit={bit} cast={gagCast(gag)} state={state} phase={phase} name={gag.name || null} fact={gag.fact || null}
-        at={joined} runKey={gag.id} />
+        song={song} {...clock} runKey={gag.id} />
     </Takeover>
   );
 }

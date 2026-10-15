@@ -70,3 +70,7 @@ button:focus-visible, select:focus-visible, input:focus-visible { outline:2px so
 .br-at { position:absolute; display:block; width:0; height:0; }
 .br-tag { position:absolute; white-space:nowrap; font:800 26px/1.15 var(--fd-display); letter-spacing:.06em; text-transform:uppercase;
   color:var(--bone); }
+
+/* the house hand sheet: one cell a pose and look, its sleeve cut at the cell */
+.br-hand-cell { position:absolute; width:900px; height:200px; overflow:hidden; border-radius:18px;
+  background:rgba(255,255,255,.03); outline:1px solid rgba(255,255,255,.06); }

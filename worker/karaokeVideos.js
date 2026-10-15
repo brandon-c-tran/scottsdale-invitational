@@ -22,7 +22,7 @@
    no cloudflare:* or node:* imports. */
 import { presentPlayers } from "../shared/core.js";
 import { songTitle } from "../shared/audio.js";
-import { KARAOKE_ALTS_MAX, KARAOKE_SECONDS, isYouTubeId } from "../shared/karaoke.js";
+import { KARAOKE_ALTS_MAX, KARAOKE_SECONDS, isYouTubeId, karaokeVideoKind } from "../shared/karaoke.js";
 import { YOUTUBE_KEEP_MS, isoDurationMs } from "./youtube.js";
 
 export { isYouTubeId };
@@ -214,6 +214,113 @@ export async function findKaraokeVideos({ name = "", artists = [], artist = "", 
   if (!ids.length) return [];
   const details = await youtubeJson("videos", { part:"snippet,contentDetails,status", id:ids.join(",") }, key, fetchImpl);
   return chooseKaraoke(details?.items, durationMs, { name });
+}
+
+/* ── the backing track: an instrumental upload (Oct 15, docs/KARAOKE.md
+   "YouTube") ── A song sung with our own lyrics plays over an upload with
+   no vocals and no words on it, of the same recording: its length within
+   INSTRUMENTAL_MATCH_MS of Spotify's (so LRCLIB's times line up), its title
+   saying it is the instrumental (shared/karaoke.js karaokeVideoKind) and
+   naming the song, nothing in it that changes the arrangement (a piano
+   cover, a remix, slowed...), never a "- Topic" channel. Ranked by how
+   close its length is (whole seconds), then its title's words, then the
+   artist's own channel; one a channel first. */
+export const INSTRUMENTAL_MATCH_MS = 2500;
+/* the one search: "{first artist} {the song's name} instrumental" */
+export function backingQuery({ name, artists = [], artist = "" } = {}) {
+  const title = karaokeSongName(name);
+  if (!title) return "";
+  const first = String((Array.isArray(artists) ? artists[0] : "") || artist || "").trim();
+  return `${`${first} ${title}`.replace(/\s+/g, " ").trim().slice(0, 140)} instrumental`;
+}
+/* words that make it another arrangement (unless the song's own name says them) */
+const ARRANGED = Object.freeze(["piano", "acoustic", "cover", "remix", "live", "orchestral", "orchestra", "lofi", "lo fi",
+  "nightcore", "8d", "slowed", "sped up", "speed up", "reverb", "guitar", "drum", "drums", "bass", "lesson", "tutorial",
+  "reaction", "8 bit", "music box", "violin", "cello", "sax", "saxophone", "ukulele", "marimba", "remake", "mashup"]);
+const INSTRUMENTAL_UP = Object.freeze([["official"], ["original"], ["studio"]]);
+const INSTRUMENTAL_DOWN = Object.freeze([["backing vocals", "bgv"], ["extended"], ["hq"], ["remastered"]]);
+const hasWords = (title, name, word) => {
+  const text = ` ${words(title).join(" ")} `, own = ` ${words(karaokeSongName(name)).join(" ")} `;
+  return text.includes(` ${word} `) && !own.includes(` ${word} `);
+};
+/* why a playable video is not this song's instrumental, or null */
+export function instrumentalProblem(item, durationMs, { name = "" } = {}) {
+  const title = item?.snippet?.title || "";
+  if (karaokeVideoKind({ title }, name) !== "instrumental") return "kind";
+  if (/\s-\sTopic$/i.test(item?.snippet?.channelTitle || "")) return "topic";
+  if (sameChannel(item?.snippet, SING_KING)) return "singking";
+  if (nameShare(title, name) < NAME_SHARE) return "name";
+  const seconds = secondsOf(item);
+  if (!Number.isFinite(seconds) || Math.abs(seconds * 1000 - (Number(durationMs) || 0)) > INSTRUMENTAL_MATCH_MS) return "length";
+  if (ARRANGED.some(word => hasWords(title, name, word))) return "arrangement";
+  return null;
+}
+/* the artist's own channel ("Journey", "JourneyVEVO") */
+const artistChannel = (snippet, artist) => {
+  const channel = squash(snippet?.channelTitle), own = squash(artist);
+  return !!own && (channel === own || channel === `${own}vevo` || channel === `${own}official`);
+};
+/* The search's videos.list items that are this song's instrumental, best
+   first, one a channel before any second: [{ id, title, channel, seconds }]. */
+export function chooseInstrumentals(items, durationMs, { name = "", artist = "" } = {}) {
+  const target = Number(durationMs) || 0;
+  const seen = new Set();
+  const rows = (Array.isArray(items) ? items : [])
+    .filter(item => !karaokePlayProblem(item) && !instrumentalProblem(item, target, { name }))
+    .filter(item => !seen.has(item.id) && seen.add(item.id))
+    .map((item, at) => {
+      const video = videoOf(item);
+      const score = INSTRUMENTAL_UP.filter(group => group.some(word => hasWords(video.title, name, word))).length
+        - INSTRUMENTAL_DOWN.filter(group => group.some(word => hasWords(video.title, name, word))).length;
+      return { video, at, channel:item.snippet?.channelId || squash(item.snippet?.channelTitle),
+        off:Math.round(Math.abs(video.seconds * 1000 - target) / 1000), score, own:artistChannel(item.snippet, artist) };
+    })
+    .sort((a, b) => a.off - b.off || b.score - a.score || Number(b.own) - Number(a.own) || a.at - b.at);
+  const firsts = [], rest = [], channels = new Set();
+  for (const row of rows) (channels.has(row.channel) ? rest : (channels.add(row.channel), firsts)).push(row);
+  return [...firsts, ...rest].map(row => row.video);
+}
+/* The choices a guest is offered: with synced lyrics, instrumentals first
+   (a karaoke upload kept among them as the fallback when there is one);
+   without, the karaoke uploads alone (an instrumental would show no words).
+   Up to KARAOKE_CHOICES. */
+export function chooseBacking(instrumentals, karaokes, hasLyrics) {
+  const inst = Array.isArray(instrumentals) ? instrumentals : [], kar = Array.isArray(karaokes) ? karaokes : [];
+  if (!hasLyrics) return kar.slice(0, KARAOKE_CHOICES);
+  const lead = inst.slice(0, kar.length ? KARAOKE_CHOICES - 1 : KARAOKE_CHOICES);
+  const out = [...lead, ...kar, ...inst.slice(lead.length)];
+  return out.filter((video, k) => out.findIndex(other => other.id === video.id) === k).slice(0, KARAOKE_CHOICES);
+}
+
+/* A chosen song's backing (Oct 15): ONE search for its instrumental (ids
+   read in ONE videos.list); a second search, for karaoke uploads, only
+   when the first found none and the song has no instrumental with synced
+   lyrics to sing over. `lyrics`: whether LRCLIB has synced lyrics (a
+   promise is awaited only once the search has answered). { videos, searches }. */
+export async function findBackingVideos({ name = "", artists = [], artist = "", durationMs = 0 } = {}, key, fetchImpl = fetch,
+  { lyrics = false } = {}) {
+  const first = String((Array.isArray(artists) ? artists[0] : "") || artist || "").trim();
+  const q = backingQuery({ name, artists, artist });
+  if (!q) return { videos:[], searches:0 };
+  const read = async (query, known = new Set()) => {
+    const found = await youtubeJson("search", { part:"snippet", type:"video", videoEmbeddable:"true", videoSyndicated:"true",
+      regionCode:"US", relevanceLanguage:"en", safeSearch:"none", maxResults:String(KARAOKE_SEARCH_RESULTS), q:query }, key, fetchImpl);
+    const ids = [...new Set((found?.items || []).map(item => item?.id?.videoId).filter(isYouTubeId))].filter(id => !known.has(id));
+    if (!ids.length) return [];
+    const details = await youtubeJson("videos", { part:"snippet,contentDetails,status", id:ids.join(",") }, key, fetchImpl);
+    return Array.isArray(details?.items) ? details.items : [];
+  };
+  const items = await read(q);
+  const instrumentals = chooseInstrumentals(items, durationMs, { name, artist:first });
+  let karaokes = chooseKaraoke(items, durationMs, { name });
+  const has = !!(await lyrics);
+  let searches = 1;
+  if (!karaokes.length && (!instrumentals.length || !has)) {
+    const more = await read(karaokeQuery({ name, artists, artist }), new Set(items.map(item => item?.id)));
+    searches += 1;
+    karaokes = chooseKaraoke([...items, ...more], durationMs, { name });
+  }
+  return { videos:chooseBacking(instrumentals, karaokes, has), searches };
 }
 
 /* Saved or pasted videos, read again: one videos.list per 50 ids, the same

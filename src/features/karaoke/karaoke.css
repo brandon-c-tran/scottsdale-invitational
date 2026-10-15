@@ -216,3 +216,16 @@
   .fd-karaoke-tier.is-mine, .fd-karaoke-legendary, .fd-karaoke-ranking li.is-shown, .fd-karaoke-primary.is-done,
   .fd-karaoke-drain, .fd-karaoke-singer > :first-child { animation:none; }
 }
+
+/* ── our own lyrics (docs/KARAOKE.md "Lyrics") ── */
+/* how your song will play, under it in the pick window */
+.fd-karaoke-way { align-self:center; }
+/* the singer's teleprompter: who and what along the top, the line to sing
+   lit word by word in the middle of the screen, the next under it */
+.fd-karaoke-body.is-prompt { gap:16px; padding-top:14px; }
+.fd-karaoke-prompt-head { display:flex; align-items:center; gap:10px; min-width:0; }
+.fd-karaoke-prompt-head .fd-karaoke-song.is-sm { flex:1; min-width:0; }
+.fd-karaoke-body.is-prompt .fd-lyrics { margin:auto 0; padding:0 2px; }
+/* a voter's one line, between the singer and the vote */
+.fd-karaoke-body.is-vote .fd-lyrics.is-line { padding:10px 12px; border:1px solid var(--line); border-radius:14px;
+  background:var(--paper); box-shadow:var(--glass-edge); }

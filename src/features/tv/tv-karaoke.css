@@ -208,3 +208,26 @@
 /* the decimal point: a square of bone on the windows' baseline */
 .tv-karaoke-point { align-self:flex-end; flex-shrink:0; width:.16em; height:.16em; margin:0 .08em .1em; border-radius:.02em;
   background:currentColor; }
+
+/* ── sung over an instrumental with our own lyrics (docs/KARAOKE.md
+   "Lyrics"): the player compact in the top right corner (480x270 at
+   1376,54; YouTube's minimum is 200x200, and still nothing over it), the
+   singer's plate beside it, the lyric stage on glass between them and the
+   strip, and the strip the room's votes alone ── */
+.tv-karaoke-video.is-compact, .tv-karaoke-standin.is-compact { left:1376px; top:54px; width:480px; height:270px; }
+.tv-karaoke-standin.is-compact { border-radius:0; }
+.tv-karaoke-plate { position:absolute; left:64px; top:54px; width:1280px; height:270px; display:flex; align-items:center; gap:34px;
+  padding:0 44px 22px 36px; }
+.tv-karaoke-plate.is-live { border-color:var(--lamp-live); box-shadow:var(--live-bloom), var(--glass-edge), var(--shadow-2); }
+.tv-karaoke-plate > :first-child { flex-shrink:0; }
+.tv-karaoke-plate-who { flex:1; min-width:0; display:flex; flex-direction:column; gap:6px; }
+.tv-karaoke-plate-name { font-size:88px; line-height:1.2; color:var(--bone); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.tv-karaoke-plate-song { font:700 40px/1.25 var(--fd-body); color:var(--bone); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.tv-karaoke-plate-artist { font:600 32px/1.25 var(--fd-body); color:var(--muted2); white-space:nowrap; overflow:hidden;
+  text-overflow:ellipsis; }
+.tv-karaoke-plate .tv-karaoke-drain { left:36px; right:44px; bottom:22px; height:12px; }
+.tv-karaoke-lyrics { position:absolute; left:64px; top:356px; width:1792px; height:548px; display:flex; align-items:center;
+  justify-content:center; padding:24px 72px; border-radius:18px; background:var(--tv-sheen), var(--tv-glass);
+  border:1px solid var(--line); box-shadow:var(--glass-edge), var(--shadow-2); }
+.tv-karaoke-lyrics .fd-lyrics { width:100%; }
+.tv-karaoke-strip.is-room { justify-content:center; gap:28px; }

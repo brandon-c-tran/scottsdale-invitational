@@ -80,7 +80,8 @@ test("the fixtures stand each moment where the contract puts it, projected as a 
 test("the fit audit's karaoke views build, each on its own instant", async () => {
   const { TV_SCENARIOS, buildScenario } = await import("../dev/fit/scenarios.js");
   const ids = TV_SCENARIOS.map(spec => spec.id).filter(id => id.startsWith("tv-karaoke-"));
-  assert.deepEqual(ids, ["tv-karaoke-pick", "tv-karaoke-order", "tv-karaoke-up", "tv-karaoke-singing", "tv-karaoke-practice",
+  assert.deepEqual(ids, ["tv-karaoke-pick", "tv-karaoke-order", "tv-karaoke-up", "tv-karaoke-singing", "tv-karaoke-lyrics",
+    "tv-karaoke-lyrics-wait", "tv-karaoke-practice",
     "tv-karaoke-failed", "tv-karaoke-voting", "tv-karaoke-legendary", "tv-karaoke-reveal-mid", "tv-karaoke-reveal-podium"]);
   for (const id of ids) {
     const built = buildScenario(TV_SCENARIOS, id);

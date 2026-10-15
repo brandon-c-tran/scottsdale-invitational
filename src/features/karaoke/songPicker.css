@@ -60,3 +60,6 @@
 .fd-ksong-paste input:focus { border-color:var(--lamp-info); box-shadow:0 0 0 1px var(--lamp-info); }
 .fd-ksong-error { margin:0; color:var(--clay-text); font:500 13px/1.45 var(--fd-body); }
 .fd-ksong button:focus-visible, .fd-ksong-paste input:focus-visible { outline:2px solid var(--lamp-info); outline-offset:2px; }
+/* how the upload will play, after its length */
+.fd-ksong-video-text small { display:flex; align-items:center; flex-wrap:wrap; gap:4px 12px; }
+.fd-ksong-way { font-size:12px; }

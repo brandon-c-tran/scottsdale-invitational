@@ -593,22 +593,24 @@ const FIT_KARAOKE_TRACK = Object.freeze({ provider:"spotify", trackId:"77NNZQSqz
   uri:"spotify:track:77NNZQSqzLNqh2A9JhLRkg", url:"https://open.spotify.com/track/77NNZQSqzLNqh2A9JhLRkg",
   name:"Don't Stop Believin' - Remastered 2022", artists:Object.freeze(["Journey"]), durationMs:250000, imageUrl:FIT_COVER,
   explicit:false, startMs:0 });
+/* the lookup's answer since Oct 15: two instrumentals (our lyrics) and a karaoke upload (its own) */
 const FIT_KARAOKE_VIDEOS = Object.freeze([
-  { id:"fitKaraoke1", title:"Journey - Don't Stop Believin' (Karaoke Version)", channel:"Stingray Karaoke", seconds:245 },
-  { id:"fitKaraoke2", title:"Don't Stop Believin' (Karaoke Version) With Lyrics On Screen", channel:"Zoom Karaoke Official", seconds:282 },
-  { id:"fitKaraoke3", title:"Don't Stop Believin' | Karaoke Version | KaraFun", channel:"PARTY TYME KARAOKE CHANNEL", seconds:251 },
+  { id:"fitKaraoke1", title:"Journey - Don't Stop Believin' (Official Instrumental)", channel:"JourneyVEVO", seconds:250 },
+  { id:"fitKaraoke2", title:"Don't Stop Believin' Instrumental", channel:"Backing Tracks Studio", seconds:251 },
+  { id:"fitKaraoke3", title:"Journey - Don't Stop Believin' (Karaoke Version)", channel:"Stingray Karaoke", seconds:245 },
 ].map(video => Object.freeze({ ...video, thumb:FIT_KARAOKE_THUMB })));
 export const FIT_KARAOKE = Object.freeze({
   search:{ ok:true, tracks:[FIT_KARAOKE_TRACK, { ...FIT_KARAOKE_TRACK, trackId:"4bHsxqR3GMrXTxEPLuK5ue",
     uri:"spotify:track:4bHsxqR3GMrXTxEPLuK5ue", url:"https://open.spotify.com/track/4bHsxqR3GMrXTxEPLuK5ue",
     name:"Don't Stop Believin' (Live in Houston, 1981)", imageUrl:null }] },
-  karaokeVideos:{ ok:true, videos:FIT_KARAOKE_VIDEOS },
+  karaokeVideos:{ ok:true, videos:FIT_KARAOKE_VIDEOS, lyrics:true },
 });
 /* the guest's saved karaoke song (the karaokeSong write keeps this shape) */
 function withKaraokeSong(state, player = FIT_GUEST) {
   const { startMs, ...track } = FIT_KARAOKE_TRACK;
   state.profiles[player] = { ...state.profiles[player], karaokeTrack:{ ...track, artists:[...track.artists],
-    video:{ ...FIT_KARAOKE_VIDEOS[0] }, alts:FIT_KARAOKE_VIDEOS.slice(1).map(video => ({ ...video })), at:Date.now(), checkedAt:null } };
+    video:{ ...FIT_KARAOKE_VIDEOS[0] }, alts:FIT_KARAOKE_VIDEOS.slice(1).map(video => ({ ...video })), at:Date.now(), checkedAt:null,
+    lyrics:true } };
   return state;
 }
 
@@ -706,13 +708,18 @@ const KARAOKE_DESK_SONGS = Object.freeze([
   ["Africa", ["TOTO"], 295], ["Party In The U.S.A.", ["Miley Cyrus"], 202],
   ["Under Pressure - Remastered 2011", ["Queen", "David Bowie"], 248], ["Wonderwall", ["Oasis"], 258],
 ]);
+/* every other song since Oct 15 sung over its instrumental with our lyrics
+   (one nudged half a second earlier), the rest karaoke uploads */
 const karaokeDeskTrack = (k, [name, artists, seconds]) => {
   const n = String(k + 1).padStart(2, "0");
   const trackId = `fitKaraokeSong${n}xxxxxx`;
+  const karaoke = { id:`fitKaraok${n}`, title:`${name} (Karaoke Version)`, channel:"Stingray Karaoke", seconds:seconds + 8 };
+  const lyrics = k % 2 === 0;
   return { provider:"spotify", trackId, uri:`spotify:track:${trackId}`, url:`https://open.spotify.com/track/${trackId}`, name,
     artists:[...artists], durationMs:seconds * 1000, imageUrl:null, explicit:false,
-    video:{ id:`fitKaraok${n}`, title:`${name} (Karaoke Version)`, channel:"Stingray Karaoke", seconds:seconds + 8 },
-    alts:[{ id:`fitKarAlt${n}`, title:`${name} Karaoke`, channel:"KaraFun", seconds:seconds + 4 }], at:1, checkedAt:null };
+    video:lyrics ? { id:`fitInstru${n}`, title:`${name} (Instrumental)`, channel:artists[0], seconds } : karaoke,
+    alts:lyrics ? [karaoke] : [{ id:`fitKarAlt${n}`, title:`${name} Karaoke`, channel:"KaraFun", seconds:seconds + 4 }],
+    at:1, checkedAt:null, lyrics, ...(k === 2 ? { lyricsOffset:500 } : {}) };
 };
 function karaokeDeskSongs(state, players) {
   players.forEach((player, k) => {
@@ -728,6 +735,13 @@ export const KARAOKE_DESK_CHECK = Object.freeze({ Brandon:{ ok:true, code:null, 
   Chiang:{ ok:false, code:"none", video:null }, Allan:{ ok:false, code:"none", video:null }, Ben:{ ok:false, code:"none", video:null },
   Jeremy:{ ok:false, code:"none", video:null } });
 const karaokeDesk = () => karaokeDeskSongs(fresh("locker"), KARAOKE_DESK_PICKED);
+function karaokeDeskLive() {
+  const state = karaokePhoneStage("singing-lyrics");
+  const singer = state.karaoke.order[state.karaoke.index];
+  state.karaoke.songs[singer] = { ...state.karaoke.songs[singer], lyricsOffset:-250 };
+  state.away = { ...(state.away || {}), [FIT_GM]:{ at:Date.now() - 60000 } };
+  return state;
+}
 /* Gags (Oct 8; the bits since Oct 10, features/gags): each trigger derived
    from a weekend the real reducers played, and the QA console's test. Each
    comes in two parts, the weekend just before the write that owes the
@@ -1158,6 +1172,9 @@ export const TV_SCENARIOS = Object.freeze([
   { id:"tv-karaoke-order", build:() => karaokeStage("order"), at:{ karaoke:0 }, pause:true, wait:400 },
   { id:"tv-karaoke-up", build:() => karaokeStage("up"), at:{ karaoke:0 }, wait:1200 },
   { id:"tv-karaoke-singing", build:() => karaokeStage("singing"), at:{ karaoke:0 }, wait:1200 },
+  /* sung over an instrumental with our lyrics (stand-in lines): the player compact, the lyric stage */
+  { id:"tv-karaoke-lyrics", build:() => karaokeStage("lyrics"), at:{ karaoke:0 }, wait:1200 },
+  { id:"tv-karaoke-lyrics-wait", build:() => karaokeStage("lyrics-wait"), at:{ karaoke:0 }, wait:1200 },
   { id:"tv-karaoke-practice", build:() => karaokeStage("practice"), at:{ karaoke:0 }, wait:1200 },
   { id:"tv-karaoke-failed", build:() => karaokeStage("failed"), at:{ karaoke:0 }, wait:1200 },
   { id:"tv-karaoke-voting", build:() => karaokeStage("voting"), at:{ karaoke:0 }, wait:1200 },
@@ -1433,6 +1450,11 @@ export const PHONE_SCENARIOS = Object.freeze([
   { id:"karaoke-pick-locked", build:() => karaokePhoneStage("pick-locked"), settle:false, freeze:true, karaoke:true, tabs:["home"] },
   { id:"karaoke-up", build:() => karaokePhoneStage("up"), settle:false, freeze:true, karaoke:true, tabs:["home"] },
   { id:"karaoke-singing", build:() => karaokePhoneStage("singing"), settle:false, freeze:true, karaoke:true, tabs:["home"] },
+  /* our lyrics: the singer's teleprompter, a voter's line, the window's lamp */
+  { id:"karaoke-singing-lyrics", build:() => karaokePhoneStage("singing-lyrics"), settle:false, freeze:true, karaoke:true,
+    tabs:["home"] },
+  { id:"karaoke-vote-lyrics", build:() => karaokePhoneStage("vote-lyrics"), settle:false, freeze:true, karaoke:true, tabs:["home"] },
+  { id:"karaoke-pick-lyrics", build:() => karaokePhoneStage("pick-lyrics"), settle:false, freeze:true, karaoke:true, tabs:["home"] },
   { id:"karaoke-legendary", build:() => karaokePhoneStage("legendary"), settle:false, freeze:true, karaoke:true, tabs:["home"] },
   { id:"karaoke-up-watch", build:() => karaokePhoneStage("up-watch"), settle:false, freeze:true, karaoke:true, tabs:[],
     sheets:["karaoke-open"], sheetSizes:["375"] },
@@ -1554,6 +1576,9 @@ export const PHONE_SCENARIOS = Object.freeze([
      songs hidden as it opens, then shown and checked, at both widths */
   { id:"gm-karaoke-desk", build:karaokeDesk, viewer:"gm", karaoke:true, karaokeCheck:KARAOKE_DESK_CHECK, tabs:[],
     sheets:["gm-menu", "karaoke-desk", "karaoke-desk-shown"], sheetSizes:["375"] },
+  /* the desk while a song is sung with our lyrics: the singer marked, their nudge (the commissioner away, so the game's own sheet stays shut) */
+  { id:"gm-karaoke-desk-live", build:karaokeDeskLive, viewer:"gm", karaoke:true, settle:false, freeze:true, tabs:[],
+    sheets:["karaoke-desk"], sheetSizes:["375"] },
 ]);
 export const PHONE_SIZES = Object.freeze([{ w:390, h:844, id:"390" }, { w:375, h:667, id:"375" }]);
 

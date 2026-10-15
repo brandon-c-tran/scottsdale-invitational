@@ -176,9 +176,11 @@ test("the desk: the count, Show songs and Check videos, a lamp per player, title
 test("the desk's styles: tokens only, the Ready check's lamps, no row cut short", () => {
   const css = readFileSync(new URL("../src/features/karaoke/karaokeDesk.css", import.meta.url), "utf8");
   assert.doesNotMatch(css, /#[0-9a-f]{3,8}\b|rgba?\(/i, "tokens only");
-  assert.match(css, /\.fd-karaoke-desk-row \.fd-insert \{ --lamp:var\(--lamp-info\); \}/, "cyan: the video plays");
-  assert.match(css, /\.fd-karaoke-desk-row\.is-partial \.fd-insert \{ --lamp:var\(--sun\); \}/, "amber: unchecked or will not play");
-  assert.match(css, /\.fd-karaoke-desk-row\.is-missing \.fd-insert \{ background:var\(--lens-off\)/, "unlit: no song");
+  /* the row's own lamp (its child), never the lamp of how a song plays inside it */
+  assert.match(css, /\.fd-karaoke-desk-row > \.fd-insert \{ --lamp:var\(--lamp-info\); \}/, "cyan: the video plays");
+  assert.match(css, /\.fd-karaoke-desk-row\.is-partial > \.fd-insert \{ --lamp:var\(--sun\); \}/, "amber: unchecked or will not play");
+  assert.match(css, /\.fd-karaoke-desk-row\.is-missing > \.fd-insert \{ background:var\(--lens-off\)/, "unlit: no song");
+  assert.match(css, /\.fd-karaoke-desk-row\.is-singing > \.fd-insert \{ --lamp:var\(--lamp-live\); \}/, "magenta: singing now");
   assert.match(css, /\.fd-karaoke-desk-problem \{[^}]*color:var\(--clay-text\)/);
   assert.doesNotMatch(css, /text-overflow\s*:/, "a long title wraps");
   assert.match(css, /\.fd-karaoke-desk-song \{ overflow-wrap:anywhere;/);

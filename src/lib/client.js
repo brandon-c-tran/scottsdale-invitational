@@ -603,12 +603,16 @@ export async function triviaPhotoUrl(id) {
 }
 
 /* Karaoke songs on YouTube (worker/tournament.js handleKaraoke): a chosen
-   song's karaoke uploads { videos }, a pasted link's check { video }, and
-   the commissioner's check of every saved video { results } (the GM token
-   rides momentHeaders). A lookup is two YouTube calls of up to 8 seconds
-   each, so 12 seconds. A failure carries the server's line and, for
-   YouTube's own refusals, a `code` (none, quota, busy, key, embedding...). */
-const KARAOKE_LOOKUP_MS = 12000;
+   song's uploads and whether it has synced lyrics { videos, lyrics }, a
+   pasted link's check { video }, and the commissioner's check of every
+   saved video and how each song will play { results } (the GM token rides
+   momentHeaders). A lookup is up to two searches and two reads of up to
+   8 seconds each beside LRCLIB, so 20 seconds; the check reads LRCLIB and
+   may search for every song, so 40. A failure carries the server's line
+   and, for YouTube's own refusals, a `code` (none, quota, busy, key,
+   embedding...). */
+const KARAOKE_LOOKUP_MS = 20000;
+const KARAOKE_CHECK_MS = 40000;
 const KARAOKE_SLOW = "YouTube did not answer. Try again";
 export const karaokeVideos = ({ trackId = "", name = "", artist = "", durationMs = 0 } = {}) =>
   momentRequest(`/api/karaoke/videos?${new URLSearchParams({ trackId, name, artist, durationMs:String(durationMs || 0) })}`,
@@ -618,7 +622,7 @@ export const karaokeVideo = id => momentRequest(`/api/karaoke/video?${new URLSea
   { headers:momentHeaders(), cache:"no-store" },
   { ms:KARAOKE_LOOKUP_MS, timeout:KARAOKE_SLOW, failed:"Couldn't check that link. Try again." });
 export const karaokeCheck = () => momentRequest("/api/admin/karaoke/check", { headers:momentHeaders(), cache:"no-store" },
-  { ms:KARAOKE_LOOKUP_MS, timeout:KARAOKE_SLOW, failed:"Couldn't check the videos. Try again." });
+  { ms:KARAOKE_CHECK_MS, timeout:KARAOKE_SLOW, failed:"Couldn't check the videos. Try again." });
 
 /* Crash reports for `wrangler tail`. Best effort, never throws. */
 export function reportClientError(report) {

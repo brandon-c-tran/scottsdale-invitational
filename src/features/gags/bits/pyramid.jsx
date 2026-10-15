@@ -57,7 +57,8 @@ export function pyramidStaging(count = 3) {
   const byFrom = [...slots].sort((p, q) => p.from - q.from);
   byFrom.forEach((slot, idx) => { slot.idx = idx; });
   const xs = slots.map(slot => slot.from);
-  const half = Math.round((Math.max(...xs) - Math.min(...xs)) / 2 + size / 2);
+  /* how far the line reaches either side of the middle (the shot stays on the pyramid) */
+  const half = Math.round(Math.max(...xs.map(x => Math.abs(x - mid))) + size / 2);
   return { n, size, rows, slots, half, top:Math.round(ys[ys.length - 1] - size / 2) };
 }
 

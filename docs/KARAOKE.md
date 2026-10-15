@@ -16,10 +16,14 @@ this file first, then the code.
 
 1. **Before the weekend.** Each guest picks a karaoke song in their profile
    (Profile > Karaoke): search Spotify exactly as for the win song, then the
-   server finds up to three embeddable YouTube karaoke uploads for it (one
-   YouTube search per chosen track, cached). The guest previews one on the
-   phone (with sound) and taps Use. A pasted YouTube link works too. The
-   song is private: its owner and the commissioner only.
+   server finds up to three embeddable YouTube uploads for it: its
+   INSTRUMENTAL first when LRCLIB has the song's synced lyrics (our own words
+   on the TV and the singer's phone, "Lyrics"), karaoke uploads as the
+   second tier (their words are on the video, "Video lyrics"); one search
+   per chosen track, cached. Each upload says which way it plays. The guest
+   previews one on the phone (with sound) and taps Use. A pasted YouTube
+   link works too. The song is private: its owner and the commissioner
+   only.
 2. **Announce.** Karaoke is an ordinary free-for-all event: the intro plays,
    the free-for-all market opens ("Winner pays 2:1"), bets go on.
 3. **Lock and start** opens the **pick window** in the same write when the
@@ -45,10 +49,12 @@ this file first, then the code.
    from here), the queue; the singer's phone says "You're up". Then the
    song starts by its own write (`karaokeStartSong`, so "Pause autopilot"
    holds a singer at Up next) `KARAOKE_SONG_LEAD_MS` after it lands, and the
-   karaoke video plays on the TV for its length, capped at
-   `KARAOKE_MAX_SONG_MS` (5 min) **(call)**. A late or reloaded TV seeks to
-   where the room is. An absent singer (Away) is skipped when their turn
-   comes.
+   video plays on the TV for its length, capped at `KARAOKE_MAX_SONG_MS`
+   (5 min) **(call)**. Over an instrumental with synced lyrics the TV keeps
+   the player compact in a corner and fills the rest with our lyric stage,
+   and the singer's phone is a teleprompter (see "Lyrics"). A late or
+   reloaded TV seeks to where the room is. An absent singer (Away) is
+   skipped when their turn comes.
 6. **The vote.** From the song's start until the vote closes, every present
    player but the singer may vote with Build Battle's six tiers: Super Ass,
    Ass, OK, Good, Amazing, Legendary. A vote can change until it closes; the
@@ -100,8 +106,15 @@ profiles[p].karaokeTrack = {           // configuration: owner + commissioner on
                                         // the Spotify half, validateSpotifyTrack (no startMs)
   video: { id, title, channel, seconds },   // the chosen YouTube upload (60 to 900 s)
   alts:  [{ id, title, channel, seconds }], // up to two more, for "Next video"
-  at, checkedAt
+  at, checkedAt,
+  lyrics,                               // true/false: LRCLIB had synced lyrics when it was saved
+                                        // (the server's kept answer, never the phone's); absent:
+                                        // unknown (every song saved before Oct 15)
+  lyricsOffset                          // the commissioner's nudge, ms, ±250 steps, ±10 s;
+                                        // positive shows the words earlier; absent: 0
 }
+// an upload's kind (instrumental, karaoke, other) is read from its title
+// (karaokeVideoKind, the song's own name ignored), never stored
 
 state.karaoke = {                       // progress: a reset clears it; absent until Lock and start
   id, eventId, startedAt,               // id = karaokeGameId(eventId, startedAt)
@@ -119,11 +132,15 @@ state.karaoke = {                       // progress: a reset clears it; absent u
   empty,                                // nobody had a song: entered by hand
   finishedAt, ops,                      // ops: server-only retry ledger
   bad:    { [player]: { [videoId]: code } }  // SERVER ONLY: the window's video check
+  lyrics: { [trackId]: [{ t, text, words? }] | false },  // SERVER ONLY: each song's synced lyrics
+                                        // (false: none); frames carry the current singer's only
+  upgrade:{ [player]: { trackId, video | null } }  // SERVER ONLY: an instrumental found for a
+                                        // song saved before instrumentals were offered
 }
 ```
 
-`ops` and `bad` never leave the Worker: projectKaraoke builds every frame
-field by field. `ops` keeps the last few retried action keys per scope
+`ops`, `bad`, `lyrics` (whole) and `upgrade` never leave the Worker:
+projectKaraoke builds every frame field by field. `ops` keeps the last few retried action keys per scope
 (`gm` for the commissioner's and the autopilot's beats, `v:<voter>` for
 each voter).
 
@@ -138,7 +155,11 @@ the result posts; the ranking stays (a cleared result re-posts from it).
 
 Guest (device claim, active and present unless noted):
 - `karaokeSong { track | null }`: the owner's profile song through
-  `cleanKaraokeTrack`; null clears. An identical song (`sameKaraokeTrack`)
+  `cleanKaraokeTrack`; null clears. Its `lyrics` is the Durable Object's
+  kept LRCLIB answer for the track (`ctx.karaokeLyrics`, read from
+  `private:lyrics:<trackId>` before the write, never a lookup), else the
+  saved song's when it is the same track; the phone's own `lyrics` and
+  `lyricsOffset` are dropped; the same track keeps its nudge. An identical song (`sameKaraokeTrack`)
   is a no-op. During a pick window it also locks the owner in (one write).
   Allowed while the poker table is dealt (POKER_TABLE_ALLOWED_ACTIONS).
   Never needs presence (a guest picks from home weeks ahead).
@@ -185,6 +206,18 @@ System writes (the Durable Object, from a TV's report or a check, auto ctx):
   promoted in the game's copy at the order draw; with none,
   `broken[player]` (their sheet asks for another song, and they are no
   longer locked in). A check for a window that has closed is a no-op.
+- `karaokeLyrics { gameId, songs:{ [player]: { trackId, lines?, upgrade? } } }`:
+  from the Durable Object's lyric fill (below). `lines` (cleanLyrics; null
+  or junk is `false`) kept in `lyrics[trackId]`, `upgrade` (an
+  instrumental upload, or null) in `upgrade[player]`; an entry whose
+  trackId is no longer that player's song is dropped; nothing new is a
+  no-op. From the order draw, every song not yet started (and not moved to
+  another upload) is arranged anew (karaokeArrange).
+Commissioner (configuration, allowed while the poker table is dealt):
+- `karaokeNudge { player, trackId, offsetMs }`: the song's whole offset
+  (cleanLyricsOffset), written on the profile song and on the game's copy
+  (so the room follows it at once); a song changed since is refused ("That
+  song changed. Look again"); the same offset is a no-op.
 QA (commissioner + qa capability): `karaokeSimSongs` (every present player
 without a song gets a practice song in the GAME only, never a profile),
 `karaokeSimVotes` (every present voter without a vote votes a tier seeded
@@ -234,7 +267,12 @@ Everyone, the commissioner and the TV included: phase, times, order, out,
 index, turns, ready, who voted on each turn and when (`voted`, never the
 tier), the songs of every turn up to the current one, and the ranking once
 the reveal starts. A player also gets their own song and votes (`mine`)
-and their own `broken` flag. The commissioner sees songs no sooner than
+and their own `broken` flag, and `ways: { [viewer]: "lyrics" | "video" }`,
+how their own song will play (the window's lamp). `lyrics` carries the
+current singer's lines alone (`{ [trackId]: lines | false }`), from the
+moment they are up: as public as the song itself (every screen, the
+singer's own phone included), never earlier and never a song still to
+come. The commissioner sees songs no sooner than
 anyone (he sings too); his Karaoke desk reads the profiles, titles hidden
 until he taps Show. Nobody gets anyone else's vote. `karaoke` is in
 PER_VIEWER_KEYS; `karaokeTrack` is in PRIVATE_PROFILE_FIELDS.
@@ -243,9 +281,27 @@ PER_VIEWER_KEYS; `karaokeTrack` is in PRIVATE_PROFILE_FIELDS.
 
 - `GET /api/karaoke/videos?trackId&name&artist&durationMs` (device claim or
   GM token, rate limited, cached in `private:karaoke:<trackId>` for at most
-  30 days per YouTube's storage rule): one search.list (q "{artist} {name}
-  karaoke", type video, videoEmbeddable, videoSyndicated, regionCode US,
-  maxResults 15) and one videos.list (snippet, contentDetails, status).
+  30 days per YouTube's storage rule, with `v:2`; a lookup kept before Oct
+  15 is asked again) answers `{ ok, videos, lyrics }`. Since Oct 15
+  (`findBackingVideos`): LRCLIB is asked beside ONE search.list (q "{artist}
+  {name} instrumental") and ONE videos.list. An instrumental is kept when
+  its title says so (instrumental, backing track, no vocals, minus one;
+  never karaoke or lyrics), it names the song, its length is within
+  `INSTRUMENTAL_MATCH_MS` (2.5 s) of Spotify's (the same recording, so
+  LRCLIB's times line up), nothing in it changes the arrangement (piano,
+  acoustic, cover, remix, live, slowed...), never a "- Topic" channel, and
+  the play checks below; ranked by length (whole seconds), then title words
+  (official, original, studio up; backing vocals, extended down), then the
+  artist's own channel, one a channel first **(call)**. The same results'
+  karaoke uploads (the rules below) are the second tier. A second search
+  (q "{artist} {name} karaoke", only ids not already read) runs only when
+  the first found no karaoke upload and there is no instrumental with
+  synced lyrics. The choices (`chooseBacking`): with lyrics, up to two
+  instrumentals then a karaoke upload as the fallback; without, karaoke
+  uploads alone. A lookup whose LRCLIB call failed is answered but never
+  kept. The karaoke tier, as before Oct 15: one search.list (q "{artist}
+  {name} karaoke", type video, videoEmbeddable, videoSyndicated, regionCode
+  US, maxResults 15) and one videos.list (snippet, contentDetails, status).
   Keep: embeddable, public or unlisted, processed, not age restricted, not
   blocked in the US, not live, 60 to 900 s, "karaoke" in the title, never a
   "- Topic" channel. Rank: known embeddable karaoke channels first (Stingray
@@ -261,11 +317,86 @@ PER_VIEWER_KEYS; `karaokeTrack` is in PRIVATE_PROFILE_FIELDS.
 - The window's check: after karaokeStart persists, the DO makes one
   batched videos.list for every present player's saved videos and writes
   `karaokePreflight` (never blocking or failing the start).
+- `GET /api/admin/karaoke/check` also answers each song's `way`: its
+  lyrics (LRCLIB) and, for a song saved before Oct 15, the instrumental the
+  window would put first (a kept lookup, else one search), four at a time.
 - Players: one YT.Player on the TV, never overlaid (YouTube's rules forbid
   anything in front of an embedded player), at least 480x270, removed at
   ENDED or endAt; phones preview in YouTube's own visible player. Never a
   no-referrer policy (error 153). One shared IFrame API loader
   (`src/lib/youtube.js`).
+
+## Lyrics (Oct 15)
+
+Brandon's call: native karaoke, "like Songsterr's premium YouTube backing".
+A song plays one of three ways (`karaokeWay`): **lyrics** (an instrumental
+upload, our synced words on the TV and the singer's phone), **video** (a
+karaoke upload with its words on it, or any upload without synced lyrics:
+the behavior before Oct 15), **card** (no upload: a practice song, a
+failed one).
+
+- LRCLIB (`worker/lyrics.js`): free, no key. One `GET
+  https://lrclib.net/api/search?track_name&artist_name` a song (the name
+  without its release suffix or featured artists), with our User-Agent
+  (`FieldDay/1.0 (https://fielddayseries.com)`, LRCLIB's one request). The
+  record kept: synced lyrics, not instrumental, its length within
+  `LYRICS_MATCH_MS` (3 s) of Spotify's, the song's own name first, nearest
+  length. Parsed (`shared/karaokeLyrics.js parseLrc`: every stamp a line,
+  `[offset:]` applied, enhanced `<mm:ss.xx>` word stamps kept as `words`)
+  and cleaned (`cleanLyrics`: sorted whole ms, 400 lines, 160 characters,
+  no break first or twice). Kept in `private:lyrics:<trackId>` 30 days, a
+  miss a day, a failure never.
+- When: the picker's lookup asks it; `karaokeSong` reads the kept answer
+  into the profile's `lyrics`; after every persisted write (the socket's and
+  the autopilot's) the DO's lyric fill (`queueKaraokeLyrics`) looks up what
+  `karaokeLyricsWanted` says the game still owes (the window: every present
+  player's profile song; from the order draw: every song whose turn has not
+  closed), one song after another, and for a song saved before Oct 15
+  (`lyrics` unknown, no instrumental among its uploads) whose lyrics were
+  found, its instrumental (the kept lookup, else one search); then ONE
+  `karaokeLyrics` write (autopilot context). It never holds up or fails a
+  write; a song whose lookup failed is asked again a minute later, on a
+  later write.
+- The order (`karaokeArrange`, at the order draw and on a later lyrics
+  write for any song not yet started): with lyrics, a song saved before Oct
+  15 plays an instrumental first (one among its uploads, else the
+  upgrade's, its own uploads as the alternates) **(call)**; a guest who
+  chose a karaoke upload over an offered instrumental keeps it. Without
+  lyrics, an instrumental steps behind the song's karaoke upload. The
+  profile is never rewritten. A failing instrumental goes to its alternates
+  as any upload does (Next video, the TV's error): a karaoke alternate then
+  plays its own words.
+- The clock: the TV reads its player (`getCurrentTime()` every frame,
+  `karaokePlayer.js time()`), the server clock until it plays; a phone reads
+  the server clock from when a TV saw the song start (`playedAt`, else
+  `songAt`; `lyricClockMs`). Both add the song's `lyricsOffset`.
+  `lyricCue(lines, ms)`: the line being sung, the next (a break is never the
+  next), how far through its sweep, each word's share of it. A line with
+  word stamps lights by them; without, it sweeps at about 80 ms a character
+  (1.2 s at least, never past the next line) **(call)**; a sung line stays
+  lit until the next (the last goes 4 s after it is sung).
+- The nudge (`karaokeNudge`): Commissioner > Games > Karaoke marks the
+  singer on now ("Singing", the live lamp) and, when their song is sung
+  with our lyrics, Earlier and Later a quarter second a tap with the offset
+  between ("0.5 s earlier"); a song nudged before says by how much.
+- The TV (`TVKaraoke.jsx LyricStage`): the player compact in the top right
+  corner (`KARAOKE_LYRIC_VIDEO_BOX`, 480x270 at 1376,54: YouTube's minimum
+  is 200x200, and nothing is drawn over it), the singer's plate beside it
+  (chip, name, song, artist, the song draining), the lyric stage on glass
+  under them (`KARAOKE_LYRIC_STAGE`): the line being sung in Big Shoulders
+  900 at up to 132 px, two lines at most (`karaokeLyricSize`), each word
+  filling bone left to right as it is sung; the next line dim at 60 px; a
+  break, three bulbs. The strip is the room's votes alone.
+- The phones (`features/karaoke/Lyrics.jsx`, the same component): the
+  singer's Singing screen is a teleprompter (the line to sing large, the
+  next under it); a voter's vote has the line being sung, small, above the
+  tiers.
+- The pick window's sheet, the picker (each upload and the saved song) and
+  the desk say which way a song plays (`KaraokeWay`): "Lyrics" (the info
+  lamp lit) or "Video lyrics" (unlit).
+- Verified offline only: YouTube's and LRCLIB's answers are stood in by the
+  tests and the fit audit (`dev/fit/karaokeLyricsFixture.js`, lines written
+  for the audit, never a real song's words).
 
 ## The TV report
 
@@ -284,7 +415,8 @@ shows "Video blocked on the TV" with Next video.
   name, song stamped in, on deck, the ring to the song), singing (the video
   in its own 1536x864 box, `KARAOKE_VIDEO_BOX`, nothing ever drawn over it;
   the singer's strip and the room's vote lamps under it; a practice song or
-  a failed upload is the lit card in the box's place), voting (who has
+  a failed upload is the lit card in the box's place; sung with our
+  lyrics, the compact player and the lyric stage, see "Lyrics"), voting (who has
   voted, never how), Legendary rain, reveal (13 rows, last place first).
   The player (`karaokePlayer.js`, one YT.Player a game, never in a fixed
   still) cues at up, plays at songAt on the server clock, seeks a late TV
@@ -323,5 +455,6 @@ the TV's "playing" report moves the song's end by the ad's length.
 
 ## Not doing
 
-Pitch scoring, a phone microphone, lyrics on phones, duets, running
-scores, a song's tier counts, anyone's vote, ranking ties.
+Pitch scoring, a phone microphone, duets, running scores, a song's tier
+counts, anyone's vote, ranking ties, our lyrics over a karaoke upload (it
+has its own), plain (untimed) lyrics.

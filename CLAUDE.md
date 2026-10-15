@@ -1126,7 +1126,9 @@ stale assertion) pass. STAGING as `9c7e675f-7519-492c-80ad-46f0df95a0c2`, then w
 at the table", 1317 tests, the 585-view fit audit clean but the Trivia
 Daily Double stamp, e2e 141 of 142) as `ac95855e-7b5b-4f6a-94df-8399310b89ab`, then with the 3D chips (cannon-es
 on the TV and, with the Chip physics switch, phones; 1329 tests) as
-`22602353-2f6f-4f7f-bc2b-3dfa1a21a113`,
+`22602353-2f6f-4f7f-bc2b-3dfa1a21a113`, then the Oct 14 economy (awards x1.5, the finale dealt from
+Brandon's chip case, the rack 100/500/1000 in his set's colors; 1338 tests,
+the 585-view fit audit, e2e 141 of 142) as `8ac269e0-67b1-4210-a53f-7bf12dce7e84`,
 awaiting Brandon's review; roll staging back to v5 with `npx wrangler
 rollback 7a3fc0af-8923-4fb1-963b-a80a2b6e4754 --env staging`.
 

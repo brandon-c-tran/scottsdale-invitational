@@ -845,6 +845,9 @@ test("the Durable Object: Lock and start opens the window only with the capabili
     await tournament.hydrateFromStorage();
     tournament.gmToken = GM_TOKEN;
     tournament.state = announced();
+    /* YouTube and LRCLIB stand in: nothing found */
+    tournament.youtubeFetch = async () => new Response(JSON.stringify({ items:[] }));
+    tournament.lyricsFetch = async () => new Response("[]");
     const capabilities = tournament.capabilities;
     Object.defineProperty(tournament, "capabilities", { get:() => ({ ...capabilities, karaoke:capability }) });
     const host = socketIn(memory);

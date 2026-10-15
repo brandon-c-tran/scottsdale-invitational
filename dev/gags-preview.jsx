@@ -5,13 +5,17 @@
    Play lands the write now as a fresh frame, so the TV runs the room's own
    sequence: the decided contest or the result's podium, the moment's bit
    on its slot with its sounds on the room bus, then whatever follows (the
-   next face-off waits for it). With a win song, the speaker's write lands
-   SONG_LAG_MS later as the Worker's does: the walkout first, then the bit.
-   The tap that plays is the one sound needs.
+   next face-off waits for it). With a win song (Oct 14), the Worker's two
+   writes land as they would: its cue just after the write (a music bit
+   holds its wind-up for it), then the walkout that carries the bit, the
+   song heard on the bit's beat (`late` ms after it: a slow speaker, so a
+   music bit's hold shows); a songless bit's song after it, a plain
+   walkout. The tap that plays is the one sound needs.
 
      /dev/gags-preview.html
        ?trigger=upset|streak|leader|bigloss|last   which moment (default upset)
-       &song=1      the winner's win song walks out first
+       &song=1      the winner's win song, on the bit's beat (or after a songless bit)
+       &late=<ms>   the speaker answers that late (a music bit holds its wind-up)
        &test=1      the QA console's test of its shape (qaGag { shape })
        &bit=<id>    the QA console's test of that bit (qaGag { bit })
        &off=1       Gags off on the TV sheet (a test still plays)
@@ -27,6 +31,7 @@ import { createRoot } from "react-dom/client";
 import { allEventsOf, computeStandings } from "../shared/core.js";
 import { GAG_SHAPES } from "../shared/gags.js";
 import { GAG_TRIGGERS, TRIGGER_SHAPE, gagPlan, gagWrites, winnersOf } from "../src/features/gags/gagModel.js";
+import { SONG_AFTER_BIT_MS, songBeatOf } from "../shared/bitMusic.js";
 import { bitById, bitsOf } from "../src/features/gags/bits/registry.js";
 import { TVMode } from "../src/features/tv/TVMode.jsx";
 import { PlayerIdentityProvider } from "../src/features/identity/PlayerIdentityContext.js";
@@ -50,8 +55,13 @@ const CAST = /^(2v2|2v1|1v2|pair)$/.test(params.get("cast") || "") ? params.get(
 const LABEL = Object.freeze({ upset:"Upset", streak:"Streak", leader:"New leader", bigloss:"Big losing bet", last:"New last place" });
 /* how long the board sits before the write lands, after Play */
 const LAND_MS = 900;
-/* how long after the write the speaker answers and its walkout lands */
-const SONG_LAG_MS = 1200;
+/* the Worker's cue lands this long after the write */
+const CUE_LAG_MS = 150;
+/* the speaker answers this much later than the bit's beat (?late) */
+const LATE_MS = Math.max(0, Number(params.get("late")) || 0);
+/* the walkout is stamped once the speaker took the request, this long
+   before the room hears it */
+const STAMP_LEAD_MS = 300;
 const WIN_CLIP_MS = 30000;
 
 /* ?pause: the CSS held where it stands (Play lets it go) */
@@ -105,16 +115,31 @@ function recast(state) {
 }
 const landed = (parts, state) => asFrame(parts.write(structuredClone(state)));
 const owedBy = state => gagPlan(state, allEventsOf(state))[0] || null;
-/* the speaker's write (the Worker's stampWalkout): the newest write's
-   winner's song, started `at` (default SONG_LAG_MS after that write) */
-function sung(state, at = null) {
+/* the Worker's writes for the newest write's win song (worker/tournament.js
+   scheduleWinSong): "cue" (the song on its way to the bit's beat), then
+   "walkout" (the song heard on the beat, or after a songless bit) */
+function songPlan(state) {
   const write = gagWrites(state, allEventsOf(state)).at(-1);
   const player = write ? winnersOf(state, write)[0] : null;
-  if (!player) return state;
-  const start = at ?? write.at + SONG_LAG_MS;
+  const gag = owedBy(state);
+  if (!player || !gag || gag.test) return null;
+  const beat = songBeatOf(bitById(gag.bit));
+  const onBeat = beat !== null && (gag.players || []).includes(player);
+  const heard = onBeat ? gag.start + beat + LATE_MS : gag.end + SONG_AFTER_BIT_MS;
+  return { player, gag, onBeat, heard };
+}
+function sung(state, stage) {
+  const plan = songPlan(state);
+  if (!plan) return state;
   const next = structuredClone(state);
-  next.showControl = { ...(next.showControl || {}), audio:{ ...(next.showControl?.audio || {}),
-    walkout:{ player, trackId:null, startedAt:start, until:start + WIN_CLIP_MS, auto:true } } };
+  const audio = { ...(next.showControl?.audio || {}) };
+  if (stage === "cue") { if (plan.onBeat) audio.cue = { gag:plan.gag.id, player:plan.player, at:plan.gag.start + songBeatOf(bitById(plan.gag.bit)) }; }
+  else {
+    delete audio.cue;
+    audio.walkout = { player:plan.player, trackId:null, startedAt:plan.heard, until:plan.heard + WIN_CLIP_MS, auto:true,
+      ...(plan.onBeat ? { bit:plan.gag.id, audibleAt:plan.heard } : {}) };
+  }
+  next.showControl = { ...(next.showControl || {}), audio };
   return next;
 }
 /* every server stamp moved so the owed gag started `t` ms ago */
@@ -141,7 +166,7 @@ function Rehearsal() {
   const [run, setRun] = useState(() => {
     const parts = weekend(KIND);
     const landedNow = landed(parts, parts.state);
-    const after = SONG ? sung(landedNow) : landedNow;
+    const after = SONG ? sung(sung(landedNow, "cue"), "walkout") : landedNow;
     const owed = owedBy(after);
     /* ?t: a TV that joins the gag that far in (a first snapshot, silent);
        with ?pause its clock holds there too */
@@ -167,21 +192,24 @@ function Rehearsal() {
     const timer = setTimeout(() => {
       const after = landed(run.parts, run.state);
       flushSync(() => {
-        setRun(prev => prev.id === run.id ? { ...prev, state:after, owed:owedBy(SONG ? sung(after) : after), landing:false,
-          song:SONG } : prev);
+        setRun(prev => prev.id === run.id ? { ...prev, state:after, owed:owedBy(after), landing:false, song:SONG } : prev);
         publishFrame({ version:run.id, fresh:true, lastAction:run.parts.action });
       });
     }, LAND_MS);
     return () => clearTimeout(timer);
   }, [run.id, run.landing]); // eslint-disable-line react-hooks/exhaustive-deps
-  /* ?song: the speaker answers, and its write lands as the Worker's does */
+  /* ?song: the Worker's cue, then the speaker answers and its walkout lands */
   useEffect(() => {
     if (!run.song) return undefined;
-    const timer = setTimeout(() => flushSync(() => {
-      setRun(prev => prev.id === run.id ? { ...prev, state:sung(prev.state, Date.now()), song:false } : prev);
-      publishFrame({ version:run.id, fresh:true, lastAction:"walkoutStart" });
-    }), SONG_LAG_MS);
-    return () => clearTimeout(timer);
+    const plan = songPlan(run.state);
+    if (!plan) return undefined;
+    const write = (stage, lastAction) => flushSync(() => {
+      setRun(prev => prev.id === run.id ? { ...prev, state:sung(prev.state, stage), song:stage === "walkout" ? false : prev.song } : prev);
+      publishFrame({ version:run.id * 10 + (stage === "cue" ? 1 : 2), fresh:true, lastAction });
+    });
+    const cue = setTimeout(() => write("cue", "songCue"), CUE_LAG_MS);
+    const walkout = setTimeout(() => write("walkout", "walkoutStart"), Math.max(CUE_LAG_MS + 50, plan.heard - STAMP_LEAD_MS - Date.now()));
+    return () => { clearTimeout(cue); clearTimeout(walkout); };
   }, [run.id, run.song]); // eslint-disable-line react-hooks/exhaustive-deps
   const go = extra => {
     const next = new URLSearchParams({ trigger:run.kind, ...(SONG ? { song:"1" } : {}), ...(TEST && !BIT ? { test:"1" } : {}),

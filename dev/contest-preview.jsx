@@ -19,6 +19,7 @@ import { ActionButton, Sheet } from "../src/ui/controls.jsx";
 
 const scenarios = [
   { id:"ffa", label:"Long Putt · everyone plays", evId:"putt" },
+  { id:"team", label:"5v5 Full Court · two teams", evId:"bball5" },
   { id:"bracket", label:"8-Ball · six teams", evId:"8ball" },
   { id:"heat", label:"Beerio Kart · heat winner", evId:"beerio" },
   { id:"heats", label:"Beerio Kart · two advance", evId:"beerio" },
@@ -139,7 +140,10 @@ function Preview() {
     }
     /* the first game opening starts the weekend: the same one-tap flag the pill sends */
     const startWeekend = !stateRef.current.live;
-    result = ev.teamCfg ? await act("announceAndDraw", { evId:ev.id, startWeekend, players:ROSTER.slice(0, 12), roles:[{ player:ROSTER[12], role:"photographer" }] })
+    /* an everyone-plays team game (5v5) splits all thirteen, no crew */
+    const everyone = ev.participation?.type === "all";
+    result = ev.teamCfg ? await act("announceAndDraw", { evId:ev.id, startWeekend,
+      ...everyone ? { players:[...ROSTER] } : { players:ROSTER.slice(0, 12), roles:[{ player:ROSTER[12], role:"photographer" }] } })
       : await act("announceEvent", { evId:ev.id, startWeekend });
     if (!result.ok) setError(result.error);
     return result;
@@ -183,7 +187,8 @@ function Preview() {
       {tab === "contest" && <>
         <h2 style={{ fontSize:25 }}>{ev.name}</h2>
         {setupNeeded ? <section style={card}>
-          <p>{kind === "heats" ? "Three heats. Two players advance from each; six play the final." : kind === "heat" ? "Three heats. Each winner advances to the final." : ev.teamCfg ? "Six teams of two. One player photographs. Five matches, including the final." : `All ${ROSTER.length} players compete. Bet on the winner.`}</p>
+          <p>{kind === "heats" ? "Three heats. Two players advance from each; six play the final." : kind === "heat" ? "Three heats. Each winner advances to the final."
+            : kind === "team" ? `All ${ROSTER.length} players, drawn seven and six. One game.` : ev.teamCfg ? "Six teams of two. One player photographs. Five matches, including the final." : `All ${ROSTER.length} players compete. Bet on the winner.`}</p>
           {gm ? <ActionButton disabled={pending > 0} pending={pending > 0} onClick={setup}>{ev.teamCfg ? "Draw teams and open betting" : ["heats", "heat"].includes(kind) ? "Set heats and open betting" : "Announce and open betting"}</ActionButton>
             : <p>Waiting for the commissioner to announce this event.</p>}
         </section> : <ContestPanel state={state} ev={ev} me={me} gm={gm} onPlayer={setPlayer} onBets={() => setTab("bets")}

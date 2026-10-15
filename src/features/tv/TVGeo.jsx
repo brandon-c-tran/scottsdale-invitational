@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useRef } from "react";
 import { disp } from "../../../shared/core.js";
 import { ChipFace } from "../identity/PlayerIdentity.jsx";
 import { GeoMap } from "../geo/GeoMap.jsx";
@@ -31,6 +31,12 @@ export function geoRevealRows(count, L = GEO_LIST) {
    pin and the round's scores, and at the end the final order. */
 export function TVGeo({ state, now }) {
   const view = geoView(state, null, now);
+  /* how far into this photo's reveal the TV came in, fixed when it first
+     drew it: the map's beats and the scores' entrance join there */
+  const joined = useRef({ key:null, since:0 });
+  const revealKey = view?.revealed ? `${view.roundId}:${view.revealedAt}` : null;
+  if (revealKey && joined.current.key !== revealKey)
+    joined.current = { key:revealKey, since:view.revealedAt ? Math.max(0, (now ?? Date.now()) - view.revealedAt) : 0 };
   if (!view) return null;
   const head = <div className="tv-geo-head">
     <span className="tv-display tv-geo-count">Photo {view.n} of {view.total}</span>
@@ -72,17 +78,19 @@ export function TVGeo({ state, now }) {
   </div>;
 
   const fit = geoRevealRows(view.results.length);
-  return <div className="tv-geo is-reveal">
+  const since = joined.current.since;
+  /* the answer's card stands in the top corner no pin covers (GeoMap) */
+  return <div className="tv-geo is-reveal" style={{ "--geo-since":`${since}ms` }}>
     <div className="tv-geo-stage">
       <GeoMap mode="reveal" animate interactive={false} answer={answer} className="tv-geo-map" label="The answer and every guess"
-        pad={{ top:260, bottom:90, left:80, right:80 }}
+        pad={{ top:40, bottom:40, left:48, right:48 }} since={since}
         guesses={view.results.filter(row => row.miles !== null).map(row => ({ lat:row.guess.lat, lng:row.guess.lng,
-          color:colorOf(state, row.player), label:initials(state, row.player) }))} />
-      <div className="tv-geo-answer">
-        <span className="fd-show tv-geo-place">{answer.place}</span>
-        <span className="tv-geo-when">{whenLabel(answer.when)}</span>
-        {answer.caption && <em>{answer.caption}</em>}
-      </div>
+          player:row.player, color:colorOf(state, row.player), label:initials(state, row.player) }))}
+        card={<div className="tv-geo-answer">
+          <span className="fd-show tv-geo-place">{answer.place}</span>
+          <span className="tv-geo-when">{whenLabel(answer.when)}</span>
+          {answer.caption && <em>{answer.caption}</em>}
+        </div>} />
     </div>
     {/* the round: its photo, then each guess with where and when scored
         apart, so the room sees why the order is the order. A big field

@@ -21,15 +21,18 @@
 
 .tv-geo-map { position:absolute; inset:0; height:auto; border:0; border-radius:0; }
 /* the room reads the pins from across it (sized by their parts: the map
-   positions each pin with its own transform) */
-.tv-geo-map .fd-geo-marker { width:60px; height:80px; }
-.tv-geo-map .fd-geo-head { width:54px; height:54px; border-width:4px; }
+   positions each pin with its own transform); a guess is its player's
+   photo chip on a needle */
+.tv-geo-map .fd-geo-marker { width:64px; height:88px; }
+.tv-geo-map .fd-geo-head { width:60px; height:60px; border-width:4px; }
 .tv-geo-map .fd-geo-head b { font-size:24px; line-height:1; }
-.tv-geo-map .fd-geo-stem { width:4px; height:24px; }
+.tv-geo-map .fd-geo-stem { width:4px; height:28px; }
 .tv-geo-map .fd-geo-marker.is-answer { width:70px; height:70px; }
 .tv-geo-map .fd-geo-marker.is-answer .fd-geo-head { width:54px; height:54px; border-width:6px; }
 .tv-geo-map .fd-geo-marker.is-answer .fd-geo-head i { width:16px; height:16px; }
-.tv-geo-answer { position:absolute; left:28px; top:28px; z-index:500; max-width:62%; display:grid; gap:6px;
+/* the answer's card: GeoMap stands it in the top corner no pin covers */
+.tv-geo-map .fd-geo-card { max-width:62%; }
+.tv-geo-answer { display:grid; gap:6px;
   padding:20px 26px 22px; border-radius:18px; background:var(--tv-sheen), var(--tv-glass-deep); border:1px solid var(--line); box-shadow:var(--glass-edge), var(--shadow-3); }
 .tv-geo-place { font-size:56px; line-height:1.02; color:var(--bone); overflow-wrap:anywhere; }
 .tv-geo-when { font:800 32px/1.2 var(--fd-display); letter-spacing:.03em; color:var(--bone); }
@@ -42,7 +45,7 @@
 /* the round's scores slide in, best first, after the answer lands; each a
    window in the one pane */
 .tv-geo-results li { display:grid; gap:8px; padding:12px 16px 14px; border-radius:10px; background:var(--tv-window); box-shadow:var(--tv-cut);
-  animation:tv-geo-row .45s cubic-bezier(.2,.8,.2,1) calc(2.6s + var(--row, 0) * 120ms) both; }
+  animation:tv-geo-row .45s cubic-bezier(.2,.8,.2,1) calc(2.6s + var(--row, 0) * 120ms - var(--geo-since, 0ms)) both; }
 @keyframes tv-geo-row { from { opacity:0; transform:translateX(40px); } }
 .tv-geo-row { display:flex; align-items:center; gap:16px; min-width:0; }
 .tv-geo-who { flex:1; min-width:0; font:900 40px/1.1 var(--fd-show); color:var(--bone); overflow-wrap:anywhere; }

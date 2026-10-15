@@ -15,6 +15,7 @@ import { BUILD_ID, buildsDiffer } from "../../shared/build.js";
 import { noteServerTime } from "./serverClock.js";
 import { classifyFrame, publishFrame } from "./frameGate.js";
 import { WRITE_ERRORS, writeError } from "./writeErrors.js";
+import { noteMapsKey } from "./mapsKey.js";
 
 const localGet = k => { try { return localStorage.getItem(k); } catch { return null; } };
 const localSet = (k, v) => { try { localStorage.setItem(k, v); } catch {} };
@@ -74,6 +75,7 @@ const DEFAULT_CAPABILITIES = {
   audioPlayback:false,
   push:false,
   karaoke:false,
+  googleMaps:false,
 };
 const snapshot = {
   state: EMPTY_STATE,
@@ -98,6 +100,8 @@ const snapshot = {
   updateReady: false,
   /* the VAPID public key pocket alerts subscribe with, when alerts are on */
   pushKey: null,
+  /* Google's browser key for Where and When's map, when capabilities.googleMaps */
+  mapsKey: null,
   /* commissioner only: each connected TV's sound report (presence, never
      state); tvsAt is when this device received it (tvHealth) */
   tvs: null,
@@ -301,6 +305,8 @@ function receiveState(msg) {
     snapshot.environment = msg.environment || "production";
     snapshot.capabilities = msg.capabilities || { ...DEFAULT_CAPABILITIES };
     snapshot.pushKey = typeof msg.pushKey === "string" ? msg.pushKey : null;
+    snapshot.mapsKey = typeof msg.mapsKey === "string" ? msg.mapsKey : null;
+    noteMapsKey(snapshot.capabilities, snapshot.mapsKey);
     if ("you" in msg) snapshot.you = msg.you || null;
   }
   /* A frame sent before the server read this socket's token says nothing

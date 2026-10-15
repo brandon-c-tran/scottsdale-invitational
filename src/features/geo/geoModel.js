@@ -54,6 +54,8 @@ export function geoView(state, me = null, now = Date.now()) {
   const standings = geoStandings(geo, rounds, players);
   return {
     phase:geo.phase, index:geo.index, n:geo.index + 1, total, roundId:id, round,
+    /* the server instant this photo's answer showed (the reveal's clock) */
+    revealedAt:revealed ? Number(geo.revealedAt) || 0 : 0,
     closesAt:Number(geo.closesAt) || 0, secondsLeft:Math.max(0, Math.ceil(((Number(geo.closesAt) || 0) - now) / 1000)),
     players, guessed, lockedIn, drafting, playing:!!me && players.includes(me), mine:me ? guesses[me] || null : null,
     revealed:!!revealed, results, mineScored:me ? results.find(row => row.player === me) || null : null,

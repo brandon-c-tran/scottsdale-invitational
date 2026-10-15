@@ -195,7 +195,7 @@ function YourReveal({ me, view }) {
   return <>
     <main className="fd-geo-game-body is-reveal">
       <GeoMap mode="reveal" animate answer={answer} className="fd-geo-full" label="The answer and your pin"
-        guesses={score && score.miles !== null ? [{ lat:score.guess.lat, lng:score.guess.lng, color:identity.color, label:"" }] : []} />
+        guesses={score && score.miles !== null ? [{ lat:score.guess.lat, lng:score.guess.lng, player:me, color:identity.color, label:"" }] : []} />
     </main>
     <footer className="fd-geo-game-foot is-reveal">
       <div className="fd-geo-result">

@@ -185,6 +185,9 @@ async function secureTokenEqual(provided, expected) {
   return difference === 0;
 }
 
+/* the Google Maps browser key (a Worker secret), trimmed; "" when unset */
+export const mapsKeyOf = env => typeof env?.GOOGLE_MAPS_KEY === "string" ? env.GOOGLE_MAPS_KEY.trim() : "";
+
 export class Tournament {
   constructor(ctx, env) {
     this.ctx = ctx;
@@ -243,6 +246,10 @@ export class Tournament {
          Spotify search and the YouTube key */
       karaoke:configured && this.env.M2_AUDIO_CATALOG_ENABLED === "true" && spotifyConfigured(this.env)
         && !!this.env.YOUTUBE_API_KEY,
+      /* Where and When on Google's map: on with the GOOGLE_MAPS_KEY secret
+         (a browser key restricted by referrer, docs/GOOGLE-MAPS.md), else
+         the MapLibre map */
+      googleMaps:configured && !!mapsKeyOf(this.env),
     };
   }
 
@@ -1830,6 +1837,9 @@ export class Tournament {
       capabilities,
       /* the VAPID public key a phone subscribes with; public by nature */
       ...(capabilities.push ? { pushKey:this.vapid.publicKey } : {}),
+      /* Google's browser key for Where and When's map: public by nature
+         (every page that draws the map carries it), locked to our referrers */
+      ...(capabilities.googleMaps ? { mapsKey:mapsKeyOf(this.env) } : {}),
       build:BUILD_ID,
       boot:this.bootId,
       applied:meta.deviceId ? this.appliedActions.get(meta.deviceId) || [] : [],

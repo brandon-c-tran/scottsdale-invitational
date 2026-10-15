@@ -654,6 +654,7 @@ test("environment capabilities fail closed and production restore routes hard de
     push:false,
     songSnippets:false,
     karaoke:false,
+    googleMaps:false,
   });
 
   const local = tournamentFor({
@@ -678,6 +679,7 @@ test("environment capabilities fail closed and production restore routes hard de
     push:false,
     songSnippets:false,
     karaoke:false,
+    googleMaps:false,
   });
 
   const production = tournamentFor({
@@ -698,6 +700,7 @@ test("environment capabilities fail closed and production restore routes hard de
     push:false,
     songSnippets:false,
     karaoke:false,
+    googleMaps:false,
   });
   production.gmToken = "test-token";
   const weakRequest = new Request("https://fielddayseries.com/api/admin/snapshot", {

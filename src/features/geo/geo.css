@@ -20,6 +20,26 @@
 .fd-geo-map .leaflet-bar a { background:var(--paper); color:var(--ink); border-color:var(--line); }
 .fd-geo-map-failed { position:absolute; inset:0; display:grid; place-items:center; margin:0; padding:16px; text-align:center;
   color:var(--muted2); font:500 13px/1.4 var(--fd-body); }
+/* Map / Satellite (Google's map only): two lamps in a dark pill */
+.fd-geo-type { position:absolute; z-index:3; top:10px; right:10px; display:flex; padding:3px; border-radius:99px;
+  background:color-mix(in srgb, var(--bg) 84%, transparent); border:1px solid var(--line); box-shadow:var(--shadow-2); }
+.fd-geo-type button { min-width:44px; min-height:38px; padding:0 14px; border:0; border-radius:99px; background:none;
+  color:var(--muted2); font:800 14px/1 var(--fd-display); letter-spacing:.06em; text-transform:uppercase; cursor:pointer; }
+.fd-geo-type button[aria-pressed="true"] { background:var(--info-tint); color:var(--lamp-info);
+  box-shadow:inset 0 0 0 1px var(--lamp-info); }
+/* under the floating search on the phone's game */
+.fd-geo-game-map .fd-geo-type { top:68px; right:12px; }
+/* Google's pins ride an overlay pane: placed at their point, seated on
+   their foot (a guess) or their middle (the answer) */
+.fd-geo-gpin { position:absolute; left:0; top:0; width:0; height:0; }
+.fd-geo-gpin-seat { position:absolute; left:0; top:0; transform:translate(-50%, -100%); }
+.fd-geo-gpin.is-center .fd-geo-gpin-seat { transform:translate(-50%, -50%); }
+.fd-geo-gpin.is-dragging .fd-geo-marker { cursor:grabbing; }
+/* the answer's card over a reveal: in the top corner no pin covers, shown
+   once that corner is known */
+.fd-geo-card { position:absolute; z-index:500; top:28px; left:28px; opacity:0; transition:opacity .3s ease; }
+.fd-geo-card.is-tr { left:auto; right:28px; }
+.fd-geo-card.is-placed { opacity:1; }
 .fd-geo-pick { height:min(46vh, 320px); }
 .fd-geo-full { position:absolute; inset:0; height:auto; border:0; border-radius:0; }
 
@@ -31,6 +51,9 @@
 .fd-geo-head { position:relative; z-index:1; display:grid; place-items:center; width:30px; height:30px; border-radius:50%;
   background:var(--pin, var(--sun)); border:3px solid var(--ink0); box-shadow:var(--shadow-2); }
 .fd-geo-head b { font:800 12px/1 var(--fd-body); letter-spacing:.02em; color:var(--ink0); }
+/* a player's own photo chip is the head: the chip draws its own edge */
+.fd-geo-head.has-chip { background:none; border:0; }
+.fd-geo-head.has-chip > svg { display:block; }
 /* a bone needle with a dark edge reads on any map */
 .fd-geo-stem { width:4px; height:16px; margin-top:-2px; border-radius:0 0 99px 99px; background:var(--bone);
   box-shadow:0 0 0 1.5px var(--ink0); }
@@ -220,6 +243,7 @@
   .fd-geo-marker.is-dropping > *, .fd-geo-marker.is-dropping::after, .fd-geo-clock.is-low b,
   .fd-geo-game.is-urgent .fd-geo-timebar i { animation:none; }
   .fd-geo-final { animation:none; opacity:.9; }
+  .fd-geo-card { transition:none; }
 }
 
 /* ── the commissioner's desk ── */

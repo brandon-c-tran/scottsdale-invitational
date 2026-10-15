@@ -27,7 +27,9 @@
     "M2_SHOW_CONTROL_ENABLED": "true",
     /* win songs (Spotify search and speaker) and their YouTube snippet
        preview: each also needs its secrets (SPOTIFY_CLIENT_ID,
-       SPOTIFY_CLIENT_SECRET, YOUTUBE_API_KEY) or it stays off */
+       SPOTIFY_CLIENT_SECRET, YOUTUBE_API_KEY) or it stays off.
+       Where and When draws Google's map with the GOOGLE_MAPS_KEY secret
+       (docs/GOOGLE-MAPS.md), else MapLibre's */
     "M2_AUDIO_CATALOG_ENABLED": "true",
     "M2_AUDIO_PLAYBACK_ENABLED": "true"
   },
@@ -54,6 +56,9 @@
            are required or already vars. Empty keeps alerts off. */
         "VAPID_PUBLIC_KEY": "",
         "VAPID_PRIVATE_KEY": "",
+        /* a Google Maps browser key in .dev.vars puts Where and When on
+           Google's map locally; empty keeps MapLibre */
+        "GOOGLE_MAPS_KEY": "",
         "APP_VERSION": "v6",
         "QA_ENABLED": "true",
         "PROGRESS_RESET_ENABLED": "true",

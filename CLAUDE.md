@@ -455,13 +455,25 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   Frames carry `projectGeo`: the commissioner everything; anyone else only
   the photos shown so far, an answer once revealed, their own guesses, who
   has locked in, and everyone's guesses on revealed rounds; a photo is
-  served to anyone only once its round is shown. The map is MapLibre GL
-  over OpenFreeMap's free "Liberty" vector style (no key: OpenStreetMap's
-  landmarks, parks, water, roads and street names with icons, the closest
-  free match to Google Maps, whose data needs a paid key; its own chunk,
-  preloaded once a game runs); a device without WebGL falls back to
-  Leaflet over OpenStreetMap raster tiles.
-  CARTO's free basemaps now need an API key, so they are not used.
+  served to anyone only once its round is shown. The map (Oct 14) is one
+  game over three renderers behind one adapter (`geo/mapModel.js`
+  `ADAPTER_MEMBERS`, renderers in `geo/maps/`, zooms in 256 px tiles):
+  Google's own map when the Worker has the `GOOGLE_MAPS_KEY` secret (a
+  browser key restricted by referrer, docs/GOOGLE-MAPS.md;
+  `capabilities.googleMaps` and `mapsKey` ride the frame into
+  `src/lib/mapsKey.js`), else MapLibre GL over OpenFreeMap's free "Liberty"
+  style, else Leaflet raster tiles without WebGL. Google's script loads by
+  tag (`googleLoader.js`, only through GeoMap's dynamic import, never in the
+  bundle); a refused key, a failed or silent script falls back to MapLibre
+  for the session (`googleState.js`). Google draws in the Backglass JSON
+  style (no Map ID), pins are our HTML nodes on an OverlayView, interactive
+  maps offer Map / Satellite (remembered per device), greedy gestures, no
+  Google chrome. The reveal's beats are pure (`revealPlan`, `revealAt`): the
+  TV joins them from `geo.revealedAt` on the server clock, the phone from
+  when it opens; guesses drop as players' photo chips; `placeReveal` frames
+  the pins by their real size and stands the answer's card in the top
+  corner no pin covers. CARTO's free basemaps need an API key, so they are
+  not used.
 - **Trivia** (Oct 3, individual since Oct 4; `shared/trivia.js`, `worker/trivia.js`,
   `worker/triviaBank.js`, `src/features/trivia/`, `features/tv/TVTrivia.jsx`):
   a solo free-for-all (`kind:"solo"`, no draw, no draft; Brandon

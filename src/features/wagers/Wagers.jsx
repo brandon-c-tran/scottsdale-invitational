@@ -73,7 +73,9 @@ function wagerPickLabel(state, w, events) {
 
 /* A chip always moves in PT. Larger denominations keep growing stacks quick
    to play; unaffordable denominations stay visible in the rack. */
-const RACK_DENOMS = [PT, 2 * PT, 5 * PT, 10 * PT];
+/* the rack is Brandon's set's betting chips: 100 (black), 500 (purple),
+   1000 (gold) (Oct 14; his set has no 200). Bets still move in 100s. */
+const RACK_DENOMS = [PT, 5 * PT, 10 * PT];
 
 /* New wagers are aggregated by the server. This compatibility merge keeps
    older snapshots with separate same-pick records equally readable. w.ids
@@ -159,7 +161,7 @@ function RackChip({ value, disabled, selected, onClick }) {
   return <button type="button" ref={target} disabled={disabled} onClick={onClick} data-fly-coin="" {...handlers}
     style={{ touchAction:"none" }}
     aria-pressed={selected} aria-label={`Bet ${value} a tap`} className={selected ? "is-selected" : disabled ? "is-unlit" : ""}>
-    <Coin color={DENOM_COLOR} unlit={disabled}>
+    <Coin color={`var(--chip-${value}-edge)`} unlit={disabled}>
       {disabled ? <UnlitChip value={value} /> : <DenomChip size={RACK_COIN} value={value} />}
     </Coin>
   </button>;
@@ -169,10 +171,11 @@ function RackChip({ value, disabled, selected, onClick }) {
    the chip lamp's amber, its value stamped in the middle. A placed chip
    leaves the rack as the bettor's own chip (BankChip), the one their stack
    is built from. */
-const DENOM_COLOR = HOUSE_CHIP.color;
+
 const RACK_COIN = 44;
 function DenomChip({ size = RACK_COIN, value }) {
-  return <ChipFace size={size} stamp={value} valueRing color={DENOM_COLOR} isLight={HOUSE_CHIP.isLight} skin={HOUSE_CHIP.skin} />;
+  return <ChipFace size={size} stamp={value} valueRing color="var(--chip-body)" isLight skin="quad"
+    edge={`var(--chip-${value}-edge)`} ink="var(--chip-ink-gold)" />;
 }
 
 /* a pool's heading: the whole pool on a reel, the chips lamp beside it */

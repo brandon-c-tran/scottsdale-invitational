@@ -132,7 +132,7 @@ const chipMarks = (skin, cx = 16, edge = 12.4, ink = "var(--chip-mark)") => {
    value, a blind level, or "" for blank. `photo` stands in for the saved
    photo's URL where there is no photo server (a rehearsal's stand-ins). */
 function ChipFace({ p, size=18, empty, stamp: stampOverride, fallback, skin: skinOverride,
-  color: colorOverride, isLight: lightOverride, valueRing=false, flat=false, photo: photoOverride }) {
+  color: colorOverride, isLight: lightOverride, valueRing=false, flat=false, photo: photoOverride, edge = null, ink = null }) {
   const uid = useId().replace(/:/g, "");
   const clipId = `chip-edge-${uid}`, faceId = `chip-face-${uid}`;
   const identity = usePlayerIdentity(p);
@@ -144,7 +144,9 @@ function ChipFace({ p, size=18, empty, stamp: stampOverride, fallback, skin: ski
   const color = colorOverride || identity.color;
   const light = lightOverride ?? identity.isLight;
   const skin = skinOverride || identity.skin;
-  const skinInk = light ? "var(--ink0)" : "var(--chip-mark)";
+  /* a value chip of Brandon's set: `edge` colors its edge spots and value
+     ring, `ink` its numeral (white body, colored spots, gold foil) */
+  const skinInk = edge || (light ? "var(--ink0)" : "var(--chip-mark)");
   const inlay = light ? "rgba(42,33,25,0.08)" : "rgba(251,243,228,0.10)";
   const inlayLine = light ? "rgba(42,33,25,0.38)" : "rgba(251,243,228,0.36)";
   const source = photoOverride !== undefined ? photoOverride : identity.photo;
@@ -180,12 +182,12 @@ function ChipFace({ p, size=18, empty, stamp: stampOverride, fallback, skin: ski
       <path d="M24.6 22.6A10.8 10.8 0 0 1 7.4 22.6" fill="none"
         stroke="rgba(23,16,9,.45)" strokeWidth=".7" strokeLinecap="round" opacity=".55" />
       {valueRing && <circle cx="16" cy="16" r="7.25" fill="none" strokeWidth=".8"
-        stroke={light ? "var(--ink0)" : "var(--bone)"} opacity=".48"/>}
+        stroke={edge || (light ? "var(--ink0)" : "var(--bone)")} opacity={edge ? ".85" : ".48"}/>}
       {!photo && (plate || size >= 20) && stamp != null && stamp !== "" && (
         <text x="16" y="16.8" textAnchor="middle" dominantBaseline="central"
           fontFamily={DISPLAY} fontWeight={plate ? 800 : 700} fontStyle="normal" fontSize={plate ? initialsUnits : valueRing && stamp >= 100 ? 8.7 : 11.7}
           letterSpacing={plate ? ".02em" : undefined}
-          fill={plate ? (plate.dark ? "var(--ink0)" : "var(--bone)") : light ? "var(--ink0)" : "var(--bone)"}>{stamp}</text>
+          fill={plate ? (plate.dark ? "var(--ink0)" : "var(--bone)") : ink || (light ? "var(--ink0)" : "var(--bone)")}>{stamp}</text>
       )}
     </svg>
   );

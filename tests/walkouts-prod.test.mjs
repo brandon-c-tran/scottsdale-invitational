@@ -224,7 +224,9 @@ test("stop clears the walkout; a failed stop keeps it", async () => {
   const { result } = await withSpotify(() => json(204, null), () => call(tournament, "pause", {}));
   assert.deepEqual(await result.json(), { ok:true, walkout:null });
   assert.equal(walkoutOf(tournament.state), null);
-  assert.deepEqual(tournament.state.showControl.audio, { walkout:null });
+  assert.equal(tournament.state.showControl.audio.walkout, null);
+  assert.equal(tournament.state.showControl.audio.songs.length, 1, "the song log keeps what played");
+  assert.ok(tournament.state.showControl.audio.songs[0].until <= Date.now(), "cut short where it stopped");
   assert.equal(tv.frames.at(-1).lastAction, "walkoutStop");
   const version = tournament.version;
   await withSpotify(() => json(204, null), () => call(tournament, "pause", {}));
@@ -347,6 +349,8 @@ const compiled = await build({
       export const spotifyPlay = body => globalThis.__cueCalls.push(["play", body]) && globalThis.__cueAnswer("play");
       export const spotifyPause = body => globalThis.__cueCalls.push(["pause", body]) && globalThis.__cueAnswer("pause");
       export const spotifyRetry = () => globalThis.__cueCalls.push(["retry"]) && globalThis.__cueAnswer("retry");
+      export const spotifyLatency = async () => ({ ok:false });
+      export const spotifyCalibrate = async () => ({ ok:false });
       export const spotifyPlayer = () => globalThis.__cueCalls.push(["player"]) && globalThis.__cueAnswer("player");
     ` }));
   } }],

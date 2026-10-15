@@ -75,5 +75,7 @@ export const spotifyPlay = offline;
 export const spotifyAutoWinSongs = offline;
 export const spotifyDevice = offline;
 export const spotifyRetry = offline;
+export const spotifyLatency = offline;
+export const spotifyCalibrate = offline;
 export const spotifyPause = offline;
 export const downloadSnapshot = offline;

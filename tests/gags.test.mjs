@@ -8,8 +8,9 @@
    thresholds and one moment per write in priority order; which bit plays
    (seeded by the write, no repeats across the weekend); the windows and
    who owns the TV after one, the face-off waiting it out, the switch, a
-   frozen board and the poker table, a win song walking out first; the
-   phones a moment plays on, only from a fresh frame, and the receipt
+   frozen board and the poker table, a win song on the bit's beat (Oct 14:
+   the bit at the moment, a music bit holding for its song); the phones a
+   moment plays on, only from a fresh frame, and the receipt
    after it; the highlight reel's turn; the QA test and both actions'
    gating; the room's cues; and the TV's, the phone's and the QA
    console's real markup. */
@@ -36,7 +37,7 @@ const { applyAction } = await import("./support/confirmed-start.mjs");
 const gags = await import("../src/features/gags/gagModel.js");
 const {
   BIG_LOSS_MIN, GAG_TEST_LEAD_MS, GAG_TRIGGERS, LEADER_FACT, RESULT_GAG_AT_MS, RESULT_GAG_END_MS, STREAK_MIN, TRIGGER_SHAPE, UPSET_FACT,
-  aloneFirst, aloneLast, gagAt, gagAudience, gagCast, gagForPlayer, gagHoldMs, gagLamp, gagPlan, gagWrites, latestGag, lossFact,
+  aloneFirst, aloneLast, gagAt, gagAudience, gagCast, gagForPlayer, gagHoldMs, gagLamp, gagPlan, gagSong, gagWindow, gagWrites, latestGag, lossFact,
   momentLog, nextGagEdge, recentFor, resultGagAt, streakFact, testGag, winStreaks, writeResults,
 } = gags;
 const { BIT_OUT_MS, LETTER_LAND_MS, READ_MS, bitById, bitsOf, pickBit, poolKey, poolOf, isTeamBit, TEAM_MAX } = await import("../src/features/gags/bits/registry.js");
@@ -45,8 +46,8 @@ const { PHONE_BIT_HOLD_MAX_MS, PHONE_BIT_HOLD_SLACK_MS, phoneBitHoldMs, phoneBit
 const { holdStage, stageHeld } = await import("../src/lib/motion.js");
 const { TV_ADVANCE_MS, TV_AMBIENT_TURN_MS, TV_RESULT_MOMENT_MS, podiumBeatAt, resultMomentPhase } = await import("../src/features/tv/tvModel.js");
 const { faceOffStart } = await import("../src/features/tv/faceOff.js");
-const { WALKOUT_CLEAR_MS, WALKOUT_OF_WRITE_MS, WALKOUT_TIMING, afterWalkout, walkoutForWrite, walkoutSpan } =
-  await import("../src/features/moments/walkout.js");
+const { WALKOUT_CLEAR_MS, WALKOUT_TIMING, afterWalkout, walkoutSpan } = await import("../src/features/moments/walkoutModel.js");
+const { CUE_MAX_WAIT_MS, songBeatOf } = await import("../shared/bitMusic.js");
 const room = await import("../src/features/tv/roomSound.js");
 const { bitCues } = await import("../src/features/tv/bitSound.js");
 const kit = await import("../src/lib/soundKit.js");
@@ -479,7 +480,9 @@ test("which bit: its shape's pool, seeded by the write's key, so every screen pi
   const s = upsetBoard();
   decide(s, "die", 3);
   const gag = latestGag(s, events(s));
-  assert.equal(gag.bit, pickBit("versus", gag.write, []).id, "the weekend's first versus: its key alone picks it");
+  assert.equal(gag.bit, pickBit("versus", gag.write, [], { a:gag.players, b:gag.beaten }).id,
+    "the weekend's first versus: its key and its sides pick it (a doubles upset: a team bit)");
+  assert.equal(isTeamBit(bitById(gag.bit)), true);
   assert.equal(latestGag(structuredClone(s), events(s)).bit, gag.bit, "another screen, the same bit");
   for (const shape of GAG_SHAPES) assert.ok(bitsOf(shape).length > 0);
   assert.equal(bitsOf("idle").some(bit => GAG_BITS.versus.includes(bit.id) || GAG_BITS.win.includes(bit.id)
@@ -498,14 +501,16 @@ test("no repeats: each shape plays round its pool before a bit comes back, and n
   const moments = log.filter(step => step.moment);
   assert.ok(moments.length >= 8, `a weekend's worth of moments (${moments.length})`);
   /* each pool keeps its own round: a shape's solo bits, and its team bits
-     (a moment whose larger side has 3 or more, the registry's poolOf) */
+     (a moment whose larger side has 2 or more, the registry's poolOf) */
   const sidesOf = step => ({ a:step.moment.players, b:step.moment.shape === "versus" ? step.moment.beaten : [] });
   const pools = new Set(moments.map(step => poolKey(step.moment.shape, sidesOf(step))));
-  /* volleyball's 3 v 3 upset plays a team bit; the pairs and the 1v1s solo ones */
+  /* volleyball's 3 v 3 upset plays a team bit, the pairs too; a one a side a solo one */
   const volley = moments.find(step => step.write.ev.id === "volley" && step.moment.trigger === "upset");
   assert.ok(volley && volley.moment.players.length === 3 && isTeamBit(bitById(volley.moment.bit)), "a team of three: a team bit");
-  assert.ok(moments.filter(step => Math.max(step.moment.players.length, step.moment.beaten?.length || 0) < 3)
-    .every(step => !isTeamBit(bitById(step.moment.bit))), "a side of one or two: a solo bit");
+  assert.ok(moments.filter(step => Math.max(step.moment.players.length, step.moment.beaten?.length || 0) < 2)
+    .every(step => !isTeamBit(bitById(step.moment.bit))), "one a side: a solo bit");
+  assert.ok(moments.filter(step => step.moment.shape !== "loss" && Math.max(step.moment.players.length, step.moment.beaten?.length || 0) >= 2)
+    .every(step => isTeamBit(bitById(step.moment.bit))), "two or more a side: a team bit");
   for (const key of pools) {
     const picks = moments.filter(step => poolKey(step.moment.shape, sidesOf(step)) === key);
     const shape = picks[0].moment.shape;
@@ -602,75 +607,87 @@ test("Gags off, a frozen board and the poker table play nothing; the winner's so
   table.poker = { id:"poker", ts:Date.now(), seats:[...ROSTER], outs:[] };
   assert.equal(latestGag(table, events(table)), null);
   assert.equal(gags.gagsAllowed({ ...table, results:{ poker:{ stacks:{} } } }), true, "a posted count frees the TV");
+  /* the bit plays at the moment; the write's song meets it on its beat */
   const song = make();
   const decided = song.eventOps.die.lastContest.decidedAt;
-  song.showControl.audio = { walkout:{ player:"Adi", trackId:null, startedAt:decided + 900, until:decided + 30900, auto:true } };
-  assert.equal(latestGag(song, events(song)).start, decided + 900 + WALKOUT_TIMING.total + WALKOUT_CLEAR_MS,
-    "the winner's song walks out, then the bit");
+  const gag = latestGag(song, events(song));
+  assert.equal(gag.start, decided + TV_ADVANCE_MS, "at the moment, after its advance");
+  song.showControl.audio = { walkout:{ player:"Adi", trackId:null, startedAt:gag.start + 2000, until:gag.start + 32000, auto:true,
+    bit:gag.id, audibleAt:gag.start + 2000 } };
+  assert.equal(walkoutSpan(song, events(song)), null, "a song on the bit's beat walks out nowhere");
+  assert.deepEqual([latestGag(song, events(song)).start, latestGag(song, events(song)).end], [gag.start, gag.end], "never moves it");
+  /* another win's song still walking out holds the room: the bit is skipped */
+  song.showControl.audio = { walkout:{ player:"Evan", trackId:null, startedAt:decided + 900, until:decided + 30900, auto:true } };
+  assert.equal(latestGag(song, events(song)), null);
   song.showControl.audio.walkout.auto = false;
   assert.equal(latestGag(song, events(song)).start, decided + TV_ADVANCE_MS, "a song the commissioner put on is no takeover");
   song.showControl.audio.walkout = { player:"Adi", trackId:null, startedAt:decided - 20000, until:decided + 10000, auto:true };
   assert.equal(latestGag(song, events(song)).start, decided + TV_ADVANCE_MS, "a walkout long docked");
 });
 
-/* ── after the walkout ── */
-const songOf = (player, startedAt) => ({ walkout:{ player, trackId:null, startedAt, until:startedAt + 30000, auto:true } });
+/* ── the song on the bit's beat (Oct 14) ── */
 
-test("a contest's bit plays once its own win song has walked out", () => {
-  const s = upsetBoard();
-  decide(s, "die", 3);                         /* Adi and Chiang, the underdogs: an upset */
-  const decided = s.eventOps.die.lastContest.decidedAt;
-  const first = latestGag(s, events(s));
-  assert.equal(first.start, decided + TV_ADVANCE_MS, "before the song's write: right after the advance moment");
-  s.showControl.audio = songOf("Chiang", decided + 1200);
-  const span = walkoutSpan(s, events(s));
-  assert.deepEqual([span.anchor, span.end], [decided + 1200, decided + 1200 + WALKOUT_TIMING.total], "the TV's walkout window");
-  assert.deepEqual(walkoutForWrite(s, events(s), { at:decided, players:["Adi", "Chiang"] }), span, "either winner's song is the write's");
-  const gag = latestGag(s, events(s));
-  assert.equal(gag.id, first.id, "the same moment, moved");
-  assert.equal(gag.bit, first.bit, "and the same bit");
-  assert.equal(gag.start, span.end + WALKOUT_CLEAR_MS);
-  assert.equal(gag.end, gag.start + gag.ms);
-  assert.deepEqual(gagPlan(s, events(s)).map(item => item.start), [gag.start], "the plan (and its sounds) use the moved window");
-  assert.equal(gagAt(gagPlan(s, events(s)), span.end - 1), null, "nothing under the walkout");
-  assert.equal(walkoutForWrite(s, events(s), { at:decided - WALKOUT_OF_WRITE_MS - 1300, players:["Chiang"] }), null);
+test("a moment's window: a music bit held for its song ends that much later, a punchline bit never moves", () => {
+  const start = 100_000;
+  const music = { id:"m", bit:"headphones", ms:bitById("headphones").span };
+  const click = songBeatOf(bitById("headphones"));
+  assert.deepEqual([gagWindow(music, start).origin, gagWindow(music, start).end], [start, start + music.ms], "no song: as drawn");
+  assert.equal(gagWindow(music, start, { status:"pending" }).end, start + CUE_MAX_WAIT_MS + music.ms, "on its way: the longest it may hold");
+  const late = gagWindow(music, start, { status:"set", audibleAt:start + click + 500 });
+  assert.deepEqual([late.origin, late.end], [start + 500, start + 500 + music.ms], "heard late: the action waits for it");
+  const punch = gagWindow({ ...music, bit:"standoff", ms:bitById("standoff").span }, start, { status:"set", audibleAt:start + 9000 });
+  assert.deepEqual([punch.origin, punch.end], [start, start + bitById("standoff").span], "a punchline bit keeps its time");
 });
 
-test("a result's bit plays after its winner's walkout, which waits for 1st on the podium", () => {
+test("the song from the record: the Worker's cue, then the walkout that carries the bit; the face-off waits the bit out", () => {
+  const s = upsetBoard();
+  decide(s, "die", 3);
+  const d = s.eventOps.die.lastContest.decidedAt;
+  const gag = latestGag(s, events(s));
+  assert.deepEqual(gag.song, { status:"none" });
+  s.showControl.audio = { cue:{ gag:gag.id, player:"Adi", at:gag.start + songBeatOf(bitById(gag.bit)) } };
+  assert.equal(latestGag(s, events(s)).song.status, "pending");
+  assert.deepEqual(gagSong(s, gag.id), { status:"pending", at:gag.start + songBeatOf(bitById(gag.bit)) });
+  const heard = gag.start + songBeatOf(bitById(gag.bit)) + 80;
+  s.showControl.audio = { walkout:{ player:"Adi", trackId:null, startedAt:heard, until:heard + 30000, auto:true, bit:gag.id,
+    audibleAt:heard } };
+  const set = latestGag(s, events(s));
+  assert.deepEqual(set.song, { status:"set", audibleAt:heard });
+  assert.equal(gagHoldMs(s, ev(s, "die")), set.end - (d + TV_ADVANCE_MS), "the hold runs to the bit's end");
+  assert.equal(faceOffStart(s, ev(s, "die")), set.end, "the face-off follows the bit, no walkout between");
+});
+
+test("a result's bit plays over its podium at the moment; a plain song after it waits", () => {
   const s = fresh();
   s.live = true;
   playFfa(s, "putt", [["Evan"], ["Adi"], ["Ben"]]);
   const at = posted(s, "putt");
-  assert.equal(latestGag(s, events(s)).start, at + resultGagAt(latestGag(s, events(s)).ms));
-  s.showControl.audio = songOf("Evan", at + 800);
-  const span = walkoutSpan(s, events(s));
-  assert.equal(span.anchor, at + podiumBeatAt(2) + 600, "the walkout holds for 1st to turn (podiumHoldUntil)");
   const gag = latestGag(s, events(s));
   assert.equal(gag.trigger, "leader");
-  assert.equal(gag.start, span.end + WALKOUT_CLEAR_MS);
+  assert.equal(gag.start, at + resultGagAt(gag.ms));
+  /* a song after a songless bit is a plain walkout: its window follows the bit */
+  s.showControl.audio = songOf("Evan", gag.end + 300);
+  assert.equal(latestGag(s, events(s)).start, gag.start, "never moved");
+  assert.ok(walkoutSpan(s, events(s)).anchor >= gag.end, "the walkout after it");
 });
 
-test("the next face-off waits for its decision's walkout, then the bit; a new leader's S15 moves with them", () => {
+test("the next face-off waits for a plain walkout on the TV, then the bit; a new leader's S15 moves with them", () => {
   const plain = dieBoard();
   decide(plain, "die", 3);
   const d1 = plain.eventOps.die.lastContest.decidedAt;
   assert.equal(faceOffStart(plain, ev(plain, "die")), d1 + TV_ADVANCE_MS);
   plain.showControl.audio = songOf("Adi", d1 + 1000);
-  assert.equal(faceOffStart(plain, ev(plain, "die")), d1 + 1000 + WALKOUT_TIMING.total + WALKOUT_CLEAR_MS);
+  assert.equal(faceOffStart(plain, ev(plain, "die")), d1 + 1000 + WALKOUT_TIMING.total + WALKOUT_CLEAR_MS, "no moment: the song walks out");
   assert.equal(gagHoldMs(plain, ev(plain, "die")), 0);
   const s = upsetBoard();
   decide(s, "die", 3);
   const d = s.eventOps.die.lastContest.decidedAt;
-  const ms = latestGag(s, events(s)).ms;
-  assert.equal(gagHoldMs(s, ev(s, "die")), ms);
-  s.showControl.audio = songOf("Adi", d + 1000);
   const gag = latestGag(s, events(s));
-  assert.equal(gagHoldMs(s, ev(s, "die")), gag.end - (d + TV_ADVANCE_MS), "the hold runs to the moved bit's end");
-  assert.equal(faceOffStart(s, ev(s, "die")), gag.end);
-  const ring = { decidedAt:d, at:d + TV_ADVANCE_MS + ms };
-  const snap = { decidedAt:d, gagHold:gagHoldMs(s, ev(s, "die")) };
-  assert.equal(room.leadRingMoves(ring, snap, d + 1100), gag.end);
-  assert.equal(room.leadRingMoves(ring, { decidedAt:d, gagHold:ms }, d + 1100), null, "nothing moved");
+  assert.equal(gagHoldMs(s, ev(s, "die")), gag.ms);
+  const ring = { decidedAt:d, at:d + TV_ADVANCE_MS + gag.ms };
+  const snap = { decidedAt:d, gagHold:gag.ms + 900 };
+  assert.equal(room.leadRingMoves(ring, snap, d + 1100), ring.at + 900);
+  assert.equal(room.leadRingMoves(ring, { decidedAt:d, gagHold:gag.ms }, d + 1100), null, "nothing moved");
   assert.equal(room.leadRingMoves(ring, { ...snap, decidedAt:d + 9000 }, d + 1100), null, "another decision");
   assert.equal(room.leadRingMoves(ring, snap, ring.at - 100), null, "already on the audio clock");
   assert.equal(afterWalkout({ anchor:20_000, end:29_100 }, 19_000), 19_000);
@@ -678,7 +695,7 @@ test("the next face-off waits for its decision's walkout, then the bit; a new le
   assert.equal(afterWalkout(null, 25_000), 25_000);
 });
 
-test("a walkout from another write never moves the bit", () => {
+test("another write's walkout never moves the bit: long docked it plays, still on the TV it holds the room", () => {
   const make = () => {
     const s = upsetBoard();
     decide(s, "die", 3);
@@ -687,26 +704,19 @@ test("a walkout from another write never moves the bit", () => {
   const s = make();
   const d = s.eventOps.die.lastContest.decidedAt;
   s.showControl.audio = songOf("Adi", d - 20000);
-  assert.equal(walkoutForWrite(s, events(s), { at:d, players:["Adi", "Chiang"] }), null, "an earlier win's song");
   assert.equal(latestGag(s, events(s)).start, d + TV_ADVANCE_MS, "long docked: the bit keeps its time");
   const other = make();
   const d2 = other.eventOps.die.lastContest.decidedAt;
   other.showControl.audio = songOf("Evan", d2 + 1000);
-  assert.equal(walkoutForWrite(other, events(other), { at:d2, players:["Adi", "Chiang"] }), null);
-  assert.equal(latestGag(other, events(other)), null);
+  assert.equal(latestGag(other, events(other)), null, "a walkout over its window: skipped, never queued");
   assert.equal(faceOffStart(other, ev(other, "die")), Math.max(d2 + 1000 + WALKOUT_TIMING.total + WALKOUT_CLEAR_MS,
     d2 + TV_ADVANCE_MS + gagHoldMs(other, ev(other, "die"))), "the face-off still waits for whatever walkout holds the room");
-});
-
-test("a late walkout: the bit already up gives the room away and the face-off waits for the song", () => {
-  const s = upsetBoard();
-  decide(s, "die", 3);
-  const d = s.eventOps.die.lastContest.decidedAt;
-  const ms = latestGag(s, events(s)).ms;
-  s.showControl.audio = songOf("Adi", d + 5500);
-  assert.equal(latestGag(s, events(s)), null, "the bit gives way, and is never moved after the song");
-  assert.equal(gagHoldMs(s, ev(s, "die")), ms, "its own window still holds the room");
-  assert.equal(faceOffStart(s, ev(s, "die")), d + 5500 + WALKOUT_TIMING.total + WALKOUT_CLEAR_MS);
+  const late = make();
+  const d3 = late.eventOps.die.lastContest.decidedAt;
+  const ms = latestGag(late, events(late)).ms;
+  late.showControl.audio = songOf("Evan", d3 + 5500);
+  assert.equal(latestGag(late, events(late)), null, "a walkout that lands on it takes the room");
+  assert.equal(gagHoldMs(late, ev(late, "die")), ms, "its own window still holds the room");
 });
 
 /* ── the phones ── */
@@ -763,13 +773,13 @@ test("a phone plays its moment only from a fresh frame, at the TV's instant; it 
   /* a fresh frame that is not this moment's arrival does not latch it */
   assert.equal(phoneBitStep(null, { owed:moment, fresh:"m2", now:5_000 }), null);
   /* sound on the phone's own bus, centred, open past a win song; reduced motion its one summary */
-  const cues = bitCues("quickdraw", { start:50_000, bus:"you", key:"p" });
+  const cues = bitCues("standoff", { start:50_000, bus:"you", key:"p" });
   assert.ok(cues.length > 3 && cues.every(cue => cue.bus === "you" && cue.pan === 0 && cue.open));
   assert.deepEqual(bitCues("anvil", { start:50_000, bus:"you", reduced:true }).map(cue => [cue.id, cue.bus]), [["bitClang", "you"]]);
   const source = readFileSync(new URL("../src/features/gags/phoneBit.js", import.meta.url), "utf8");
   assert.match(source, /useFreshChange\(owed\?\.id \|\| null, me \|\| null\)/, "latched on a fresh change only");
   assert.match(readFileSync(new URL("../src/features/gags/PhoneBit.jsx", import.meta.url), "utf8"),
-    /useBitSound\(\{ bit, start:moment\?\.start, enabled:!!bit && !!moment, reduced, key:`phone:\$\{moment\?\.id\}`, bus:"you", cast:gagCast\(moment\) \}\)/);
+    /useBitSound\(\{ bit, start:moment\?\.start, origin:moment\?\.origin, song, enabled:!!bit && !!moment, reduced, key:`phone:\$\{moment\?\.id\}`, bus:"you",\s+cast:gagCast\(moment\) \}\)/);
 });
 
 test("the bit first, then the receipt: from the fresh frame to the bit's end the phone holds the stage the receipt waits on", () => {
@@ -845,7 +855,7 @@ test("the shapes and their bits: the Worker's list is the registry's", () => {
     "the Worker's team bits are the registry's");
   assert.equal(shared.GAG_TEAM_MAX, TEAM_MAX);
   assert.equal(gagShapeOf("anvil"), "loss");
-  assert.equal(gagShapeOf("quickdraw"), "versus");
+  assert.equal(gagShapeOf("standoff"), "versus");
   assert.equal(gagShapeOf("nap"), null, "an idle vignette is no moment");
   assert.equal(shared.GAG_KINDS, undefined, "the four literal gags are gone");
 });
@@ -940,7 +950,7 @@ test("a QA test plays its bit on the TVs just after its write, even with Gags of
   assert.equal(gagPlan(s, events(s))[0].id, gag.id);
   assert.equal(testGag({ ...s, frozen:true }), null);
   assert.equal(testGag({ ...s, gagTest:{ kind:"turkey", at:Date.now(), players:["Adi"] } }), null, "an old test plays nothing");
-  assert.equal(testGag({ ...s, gagTest:{ ...s.gagTest, bit:"quickdraw" } }), null, "a bit of another shape");
+  assert.equal(testGag({ ...s, gagTest:{ ...s.gagTest, bit:"standoff" } }), null, "a bit of another shape");
   later(1000);
   act(s, "qaGag", { shape:"versus" }, gm({ qa:true }));
   const random = testGag(s);
@@ -978,15 +988,17 @@ test("the chase and the lamp: a versus and a win in the winner's flood color, a 
 
 /* ── sound ── */
 
-test("the room hears the bit's own foley from the moment's start, open past a win song; reduced motion its one summary", () => {
-  const gag = { id:"g1", bit:"quickdraw", start:50_000 };
+test("the room hears the bit's own foley from the moment's start, ducked under its song after the beat; reduced motion its one summary", () => {
+  const gag = { id:"g1", bit:"standoff", start:50_000 };
   const cues = room.gagCues(gag);
-  const bit = bitById("quickdraw");
+  const bit = bitById("standoff");
   assert.deepEqual(cues.map(cue => [cue.id, cue.at]), bit.cues.map(cue => [cue.sound, 50_000 + cue.at]));
-  assert.ok(cues.every(cue => cue.open && kit.isSound(cue.id) && cue.key.startsWith("gag:g1:")));
+  assert.ok(cues.every(cue => cue.open && kit.isSound(cue.id) && cue.key.startsWith("gag:g1:")), "no song coming: all at full");
+  const sung = room.gagCues({ ...gag, song:{ status:"set", audibleAt:50_000 + bit.beats.hit } });
+  sung.forEach((cue, i) => assert.equal(cue.open, bit.cues[i].at <= bit.beats.hit, `${cue.id}: open to the hit, ducked after`));
   assert.deepEqual(room.gagCues(gag, { reduced:true }).map(cue => [cue.id, cue.at]), [[bit.summary, 50_000]]);
   assert.deepEqual(room.gagCues(null), []);
-  assert.deepEqual(room.gagCues({ id:"x", bit:"quickdraw" }), [], "no start, no cues");
+  assert.deepEqual(room.gagCues({ id:"x", bit:"standoff" }), [], "no start, no cues");
   assert.deepEqual(room.gagCues({ id:"x", bit:"spare", start:0 }), []);
 });
 
@@ -1053,14 +1065,15 @@ test("the TV plays the moment's bit in its window, never before or after, letter
   assert.doesNotMatch(tv(s, gag.start + 2500), /tv-gag/, "Gags off");
 });
 
-test("the TV draws a bit moved by its walkout in the new window, never under the walkout", () => {
+test("the TV plays a moment whose song came on its beat, with no walkout over it", () => {
   const s = upsetBoard();
   decide(s, "die", 3);
-  const d = s.eventOps.die.lastContest.decidedAt;
-  s.showControl.audio = songOf("Adi", d + 1000);
   const gag = latestGag(s, events(s));
-  assert.doesNotMatch(tv(s, d + TV_ADVANCE_MS + 2500), /tv-gag/, "its old window is the walkout's");
-  assert.match(tv(s, gag.start + 2500), /class="tv-takeover tv-gag is-versus"/);
+  const heard = gag.start + songBeatOf(bitById(gag.bit));
+  s.showControl.audio = { walkout:{ player:"Adi", trackId:null, startedAt:heard, until:heard + 30000, auto:true, bit:gag.id, audibleAt:heard } };
+  const html = tv(s, gag.start + 2500);
+  assert.match(html, /class="tv-takeover tv-gag is-versus"/);
+  assert.doesNotMatch(html, /tv-walkout/, "the bit was the moment: no walkout");
 });
 
 test("a moment plays once on a TV: given away to a late walkout, or begun before its window moved, it never comes back", () => {
@@ -1184,11 +1197,11 @@ test("the phone's moment: the stage across its width, the name and the fact lett
   assert.match(loss, /aria-label="Squilliam, -1,000"/);
   assert.match(loss, /class="fd-show fd-bit-fact is-loss"/, "a loss's fact in the clay");
   assert.match(loss, /--tl:-3000ms/, "joined where the room is");
-  assert.match(loss, /--moment-hold:5450ms/, "it leaves as the bit ends");
+  assert.match(loss, /--moment-hold:5000ms/, "it leaves as its window ends");
   assert.match(loss, /aria-label="Dismiss"/);
   assert.doesNotMatch(loss, /class="bit-words/, "the stage letters nothing at a phone's scale");
   assert.match(loss, /class="bit-layer bit-art is-anvil/);
-  const versus = draw({ bit:"quickdraw", shape:"versus", players:["Henry", "Richard"], beaten:["Adi", "Chiang"],
+  const versus = draw({ bit:"dominoes", shape:"versus", players:["Henry", "Richard"], beaten:["Adi", "Chiang"],
     name:"Henry Nguyen & Squilliam", fact:"Upset" });
   assert.match(text(versus), /Henry Nguyen &amp; Squilliam Upset/);
   assert.match(versus, /data-player="Adi"/, "both sides cast");

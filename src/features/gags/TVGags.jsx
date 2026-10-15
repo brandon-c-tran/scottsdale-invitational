@@ -2,7 +2,7 @@ import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "re
 import { serverNow } from "../../lib/serverClock.js";
 import { Takeover } from "../tv/TVTakeover.jsx";
 import { BitLayer } from "./BitStage.jsx";
-import { holdBeatOf } from "../../../shared/bitMusic.js";
+import { bitElapsed, holdBeatOf } from "../../../shared/bitMusic.js";
 import { bitById } from "./bits/registry.js";
 import { gagAt, gagCast, gagPlan, nextGagEdge } from "./gagModel.js";
 import "./gags.css";
@@ -34,7 +34,10 @@ export function useGagWindow(state, events, { now: nowOverride } = {}) {
     return () => clearTimeout(timer);
   }, [edge]);
   const gag = gagAt(plan, now);
-  return { plan, gag:gag ? { ...gag, elapsed:Math.max(0, now - gag.start) } : null };
+  /* how far in (a music bit held for its song counts its hold), and whether
+     the instant is held (a rehearsal's `now`) */
+  return { plan, gag:gag ? { ...gag, elapsed:Math.max(0, bitElapsed(bitById(gag.bit), gag.start, gag.origin, now)),
+    fixed:nowOverride !== undefined } : null };
 }
 
 /* Whether this TV plays the moment in its window: decided as the window
@@ -92,7 +95,7 @@ export function TVGag({ state, gag, phase = "fri" }) {
   /* a music bit with its song on the way runs on the server clock, so it
      can hold its wind-up until the speaker plays (shared/bitMusic.js) */
   const song = !!gag.song && gag.song.status !== "none";
-  const clock = song && holdBeatOf(bit) !== null && Number.isFinite(Number(gag.start))
+  const clock = song && !gag.fixed && holdBeatOf(bit) !== null && Number.isFinite(Number(gag.start))
     ? { start:gag.start, origin:gag.origin } : { at:joined };
   return (
     <Takeover kind="gag" className={`tv-gag is-${bit.shape}`} label={label}>

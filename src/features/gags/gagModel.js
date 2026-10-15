@@ -403,7 +403,7 @@ export const walkoutHolds = (span, gag) => !!span && !!gag && span.anchor < gag.
 /* a moment's window: from its start until its bit has run its span on its
    second clock (a music bit held for its song ends that much later, one
    whose song came early that much sooner) */
-function windowed(gag, start, song = { status:"none" }) {
+export function gagWindow(gag, start, song = { status:"none" }) {
   const origin = bitOrigin(bitById(gag.bit), start, song);
   return { ...gag, start, origin, song, end:origin + gag.ms };
 }
@@ -414,7 +414,7 @@ function gagView(state, events, step) {
   const { write, moment } = step;
   if (!moment) return null;
   const id = `${write.key}:${moment.trigger}`;
-  return windowed({ ...moment, id, write:write.key, evId:write.ev.id, at:write.at, winners:winnersOf(state, write) },
+  return gagWindow({ ...moment, id, write:write.key, evId:write.ev.id, at:write.at, winners:winnersOf(state, write) },
     gagStartOf(write, moment.ms), gagSong(state, id));
 }
 
@@ -453,7 +453,7 @@ export function testGag(state, events = allEventsOf(state)) {
   /* a team bit plays its whole team (the board's, qaGag); a solo bit its lead */
   const team = isTeamBit(bit);
   const side = team ? players.slice(0, TEAM_MAX) : players.slice(0, 1);
-  const view = windowed({ id:`test:${at}:${bit.id}`, write:`test:${at}`, test:true, at, trigger:null, shape:test.shape,
+  const view = gagWindow({ id:`test:${at}:${bit.id}`, write:`test:${at}`, test:true, at, trigger:null, shape:test.shape,
     bit:bit.id, ms:bit.span, players:side,
     beaten:test.shape !== "versus" ? [] : team ? beaten.slice(0, TEAM_MAX) : beaten.slice(0, 1),
     name:team ? teamLabel(state, { players:side }) : disp(state, players[0]), fact:TEST_FACT[test.shape] }, at + GAG_TEST_LEAD_MS);

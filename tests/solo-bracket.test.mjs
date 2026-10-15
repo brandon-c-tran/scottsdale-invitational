@@ -157,8 +157,8 @@ test("1v1 basketball is a bracket of everyone present, not heats", () => {
   /* the commissioner may put people on crew, down to ten playing */
   assert.equal(validateEventParticipants(ev, ROSTER.slice(1), ROSTER).ok, true, "twelve of thirteen may play");
   assert.equal(validateEventParticipants(ev, ROSTER.slice(4), ROSTER).ok, false, "nine is too few");
-  /* Saturday morning pays 800 / 400 / 200, and each semifinal loser takes the full 3rd */
-  assert.deepEqual(awardPlan(ev).map(row => [row.place, row.pts]), [[0, 800], [1, 400], [2, 200]]);
+  /* Saturday morning pays 1,200 / 600 / 300, and each semifinal loser takes the full 3rd */
+  assert.deepEqual(awardPlan(ev).map(row => [row.place, row.pts]), [[0, 1200], [1, 600], [2, 300]]);
   assert.ok(awardPlan(ev).every(row => !row.split), "3rd is never split");
   /* a bracket event never splits into heats */
   refuse(s, "runStages", { evId:"bball1", cfg:{ kind:"heats", nGroups:3, advance:1, players:[...ROSTER] } },
@@ -244,12 +244,12 @@ test("a full 13-player 1v1 bracket plays through current contests to a posted re
   assert.deepEqual(res.slots, [draw.teams[champion].players, draw.teams[runner].players,
     semiLosers.flatMap(key => draw.teams[key].players)]);
   const awards = resultAwards(s, eventOf(s), res);
-  assert.deepEqual(awards.map(award => [award.place, award.pts]), [[0, 800], [1, 400], [2, 200], [2, 200]],
-    "both semifinal losers take the full 200");
+  assert.deepEqual(awards.map(award => [award.place, award.pts]), [[0, 1200], [1, 600], [2, 300], [2, 300]],
+    "both semifinal losers take the full 300");
   assert.equal(awards.filter(award => award.place === "crew").length, 0);
   const board = computeStandings(s);
   assert.equal(board.find(row => row.player === draw.teams[champion].players[0]).wins, 1);
-  assert.equal(AWARDS[eventOf(s).value][0], 800);
+  assert.equal(AWARDS[eventOf(s).value][0], 1200);
   assert.equal(current(s), null);
 });
 

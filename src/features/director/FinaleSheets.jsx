@@ -1,5 +1,5 @@
 import React, { useRef, useState } from "react";
-import { disp, pokerInventory, pokerSetupPreview, computeStandings } from "../../../shared/core.js";
+import { disp, pokerInventory, pokerSeatChips, pokerSetupPreview, computeStandings } from "../../../shared/core.js";
 import { ActionButton, Sheet } from "../../ui/controls.jsx";
 import { Avatar } from "../identity/PlayerIdentity.jsx";
 import { DenomStacks, ChipTray, GrantMark } from "../poker/PokerChips.jsx";
@@ -37,10 +37,11 @@ export function PokerSetupSheet({ state, onClose, onBack, onDeal }) {
   const commit = useCommit();
   const dealt = state.poker && !state.results?.[state.poker.id] ? state.poker : null;
   const preview = dealt ? {
-    rows:Object.entries(dealt.startingStacks || {}).map(([player, stack]) => ({ player, stack, grant:0 })),
+    rows:Object.entries(dealt.startingStacks || {}).map(([player, stack]) => ({ player, stack, grant:0,
+      denominations:pokerSeatChips(dealt, player) })),
     away:Object.keys(dealt.unseated || {}),
     total:dealt.total,
-    inventory:pokerInventory(dealt.startingStacks || {}),
+    inventory:pokerInventory(dealt),
     voidDuels:0,
   } : pokerSetupPreview(state);
   const board = Object.fromEntries(computeStandings(state).map(row => [row.player, row.pts]));
@@ -61,7 +62,7 @@ export function PokerSetupSheet({ state, onClose, onBack, onDeal }) {
     {preview.rows.map(row => <div className={`fd-stack-row${row.grant > 0 ? " is-grant" : ""}`} key={row.player}>
       <Avatar state={state} p={row.player} size={30} />
       <span><b>{disp(state, row.player)}</b>
-        <DenomStacks stack={row.stack} size={30} /></span>
+        <DenomStacks chips={row.denominations} size={30} /></span>
       <span className="fd-stack-total"><strong>{fmt(row.stack)}</strong><GrantMark grant={row.grant} /></span>
     </div>)}
     {away.map(({ player, pts }) => <div className="fd-stack-row is-away" key={player}>

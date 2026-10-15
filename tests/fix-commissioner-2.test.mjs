@@ -329,20 +329,20 @@ test("C7: crew earn the full 3rd-place award, also when both semifinal losers sh
   const s = fresh(["pickleball"]); s.live = true;
   act(s, "announceAndDraw", { evId:"pickleball" });
   const ev = eventOf(s, "pickleball"), teams = s.draws.pickleball.teams, crew = s.draws.pickleball.roles[0].player;
-  assert.deepEqual(awardPlan(ev, s.draws.pickleball).find(row => row.place === "crew").pts, 200);
+  assert.deepEqual(awardPlan(ev, s.draws.pickleball).find(row => row.place === "crew").pts, 300);
   const split = resultAwards(s, ev, { slots:[teams[0].players, teams[1].players, [...teams[2].players, ...teams[3].players]] });
-  assert.equal(split.find(a => a.player === crew).pts, 200);
+  assert.equal(split.find(a => a.player === crew).pts, 300);
   for (const player of [...teams[2].players, ...teams[3].players])
-    assert.equal(split.find(a => a.player === player).pts, 200, "each semifinal loser takes the full 3rd");
+    assert.equal(split.find(a => a.player === player).pts, 300, "each semifinal loser takes the full 3rd");
   const single = resultAwards(s, ev, { slots:[teams[0].players, teams[1].players, teams[2].players] });
-  assert.equal(single.find(a => a.player === crew).pts, 200);
+  assert.equal(single.find(a => a.player === crew).pts, 300);
   /* a two-team game posts no 3rd place, and crew still earn the 3rd-place
-     award (the even two-team game with a crew seat is legacy Flip Cup, 1600) */
+     award (the even two-team game with a crew seat is legacy Flip Cup, 2400) */
   const flip = withLegacyEvents(fresh(["flip"]), ["flip"]); flip.live = true;
   act(flip, "announceAndDraw", { evId:"flip" });
   const fteams = flip.draws.flip.teams, fcrew = flip.draws.flip.roles[0].player;
   assert.equal(resultAwards(flip, eventOf(flip, "flip"), { slots:[fteams[0].players, fteams[1].players] })
-    .find(a => a.player === fcrew).pts, 400);
+    .find(a => a.player === fcrew).pts, 600);
 });
 
 /* ── C8: take back an announcement; skip and restore ── */

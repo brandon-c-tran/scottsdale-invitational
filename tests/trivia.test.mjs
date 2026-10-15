@@ -76,7 +76,7 @@ function ready(rounds = [BANK, CUSTOM], { start = false, away = [] } = {}) {
 const current = state => state.trivia.questions[state.trivia.index];
 const players = state => state.trivia.players;
 
-test("Trivia is a solo free-for-all: no teams, no draw, no draft, the 1,600 ladder", () => {
+test("Trivia is a solo free-for-all: no teams, no draw, no draft, the 2,400 ladder", () => {
   const ev = trivia(structuredClone(EMPTY_STATE));
   assert.equal(ev.kind, "solo");
   assert.equal(ev.teamCfg, undefined);
@@ -252,7 +252,7 @@ test("the director runs it by hand: start, reveal, next, scores at a round's end
       assert.deepEqual(done.extra.slots, state.results.trivia.slots);
       const after = computeStandings(state).find(row => row.player === winner.player);
       /* the award alone (bets may ride on the same result) */
-      assert.equal(after.awardPts - before.awardPts, 1600, "the 1,600 ladder pays 1st");
+      assert.equal(after.awardPts - before.awardPts, 2400, "the 2,400 ladder pays 1st");
     }
   }
   assert.deepEqual(beats, ["Reveal", "Next question", "Reveal", "Scores", "Next round", "Reveal", "Next question", "Reveal",

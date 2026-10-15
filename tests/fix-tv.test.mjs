@@ -121,7 +121,7 @@ test("a result presentation splits every change into event award and bets, and n
   act(state, "announceEvent", { evId:"putt" });
   const contest = resolveCurrentContest(state, BUILTIN_EVENTS.find(e => e.id === "putt"));
   /* the pool: 13 seeds of 100 and Adi's 100 is 1,400 over Evan's 200, 7.0x:
-     Adi's 100 nets 600, and with 2nd place (200) passes Evan's 400 */
+     Adi's 100 nets 600, and with 2nd place (300) passes Evan's 600 */
   const wager = { kind:"outright", eventId:"putt", stake:100, pick:"Evan",
     contestId:contest.id, contestRevision:contest.revision };
   const bet = applyAction(state, "placeWager", { wager }, { player:"Adi", deviceId:"adi", actionId:"w1" });
@@ -135,8 +135,8 @@ test("a result presentation splits every change into event award and bets, and n
   for (const row of model.rows) assert.equal(row.change, row.award + row.bets, row.player);
   const evan = model.rows.find(row => row.player === "Evan");
   const adi = model.rows.find(row => row.player === "Adi");
-  assert.equal(evan.award, 400);
-  assert.equal(adi.award, 200);
+  assert.equal(evan.award, 600);
+  assert.equal(adi.award, 300);
   assert.equal(adi.bets, 600);
   assert.equal(adi.rankAfter, 1);
   assert.equal(evan.rankAfter, 2);
@@ -360,11 +360,11 @@ test("the blind clock nudges fresh, pauses exactly, and never sticks at 0:00", (
   act(state, "pokerStart");
   const pk = state.poker;
   const start = pk.startedAt;
-  assert.equal(pokerClock(pk, start + 16 * 60000).idx, 1, "levels still advance on their own");
+  assert.equal(pokerClock(pk, start + 13 * 60000).idx, 1, "levels still advance on their own");
   act(state, "pokerLevel", { delta:1 });
   const nudged = pokerClock(state.poker, state.poker.levelStartedAt + 1000);
   assert.equal(nudged.idx, 1);
-  assert.equal(nudged.msLeft, 15 * 60000 - 1000, "the nudged level starts fresh");
+  assert.equal(nudged.msLeft, 12 * 60000 - 1000, "the nudged level starts fresh");
   act(state, "pokerPause", { paused:true });
   const pausedAt = state.poker.pausedAt;
   const held = pokerClock(state.poker, pausedAt + 10 * 60000);
@@ -373,14 +373,14 @@ test("the blind clock nudges fresh, pauses exactly, and never sticks at 0:00", (
   assert.equal(applyAction(state, "pokerPause", { paused:true }, gm()).extra?.unchanged, true);
   act(state, "pokerPause", { paused:false });
   assert.equal(state.poker.pausedAt, null);
-  const last = { ...state.poker, levelIdx:6, levelStartedAt:0, pausedAt:null };
+  const last = { ...state.poker, levelIdx:state.poker.levels.length - 1, levelStartedAt:0, pausedAt:null };
   const end = pokerClock(last, 10 * 60 * 60000);
   assert.equal(end.last, true);
   assert.equal(end.final, true);
   /* legacy tables keep deriving from startedAt and offset */
   const legacy = { startedAt:1000, levels:state.poker.levels, levelOffset:-1 };
   const late = pokerClock(legacy, 1000 + 3 * 60 * 60000);
-  assert.equal(late.idx, 5);
+  assert.equal(late.idx, 8);
   assert.ok(late.msLeft > 0, "a shifted legacy level is never reported expired");
 });
 

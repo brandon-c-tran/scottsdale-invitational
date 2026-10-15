@@ -129,10 +129,10 @@ function playTurns(state, tierOf = () => 4) {
   }
 }
 
-test("Karaoke is Friday's solo free-for-all at 400: every player a side, a wide field that pays 2:1", () => {
+test("Karaoke is Friday's solo free-for-all at 600: every player a side, a wide field that pays 2:1", () => {
   const ev = karaokeEv(structuredClone(EMPTY_STATE));
-  assert.deepEqual([ev.session, ev.value, ev.kind, ev.game, ev.participation.type], ["fri", 400, "solo", "karaoke", "all"]);
-  assert.deepEqual(awardTable(ev), [400, 200, 100]);
+  assert.deepEqual([ev.session, ev.value, ev.kind, ev.game, ev.participation.type], ["fri", 600, "solo", "karaoke", "all"]);
+  assert.deepEqual(awardTable(ev), [600, 300, 200]);
   const state = structuredClone(EMPTY_STATE);
   act(state, "announceEvent", { evId:"karaoke" });
   const contest = resolveCurrentContest(state, karaokeEv(state));
@@ -474,7 +474,7 @@ test("the reveal and the result: one per place through the ordinary result write
   assert.deepEqual(state.results.karaoke.slots, slots);
   assert.deepEqual(slots.map(slot => slot.length), [1, 1, 1]);
   const rows = Object.fromEntries(computeStandings(state).map(row => [row.player, row]));
-  assert.deepEqual(slots.map(([player]) => rows[player].awardPts), [400, 200, 100]);
+  assert.deepEqual(slots.map(([player]) => rows[player].awardPts), [600, 300, 200]);
   const events = allEventsOf(state);
   assert.equal(resolveWager(state, state.wagers.find(wager => wager.pick === ROSTER[1]), events).status, "won");
   assert.equal(resolveWager(state, state.wagers.find(wager => wager.pick === ROSTER[2]), events).status, "lost");

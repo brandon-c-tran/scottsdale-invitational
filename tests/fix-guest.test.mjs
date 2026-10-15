@@ -152,7 +152,7 @@ test("home keeps the room's matchup and adds the viewer's own bracket position, 
 });
 
 test("an added event without a game has no dead rules target and opens its own description", () => {
-  const custom = { id:"cornhole", name:"Cornhole", session:"fri", value:400, kind:"solo", custom:true, desc:"Three bags each." };
+  const custom = { id:"cornhole", name:"Cornhole", session:"fri", value:600, kind:"solo", custom:true, desc:"Three bags each." };
   assert.equal(ui.hasGameRules(custom), false);
   assert.equal(ui.hasGameRules(putt), true);
   assert.equal(ui.hasGameRules(BUILTIN_EVENTS.find(event => event.id === "bball5")), true, "variant-only games have rules");
@@ -186,7 +186,7 @@ test("one update summary joins every source, signs numbers once, and names corre
   after.results[putt.id] = { slots:[[me], [], []], ts:5, revision:1 };
   const next = ui.guestLedger(after, me, events);
   const summary = ui.summarizeUpdate(prev, next, { state:after, events });
-  assert.equal(summary.msg, `1st in ${putt.name} +400 · bet +800 · you lead`);
+  assert.equal(summary.msg, `1st in ${putt.name} +600 · bet +800 · you lead`);
   assert.equal(summary.tone, "gold");
   assert.deepEqual(ui.freshResults(ui.resultMarkers(before), after), [putt.id]);
 
@@ -206,7 +206,7 @@ test("one update summary joins every source, signs numbers once, and names corre
   corrected.results[putt.id] = { slots:[[ROSTER[5]], [], []], ts:9, revision:2, correctedAt:9, correctionReason:"Wrong card" };
   corrected.eventOps[putt.id] = { corrections:[{ type:"overwrite", at:9, reason:"Wrong card" }] };
   const correction = ui.summarizeUpdate(next, ui.guestLedger(corrected, me, events), { state:corrected, events });
-  assert.equal(correction.msg, `Correction · ${putt.name} · -1,600`);
+  assert.equal(correction.msg, `Correction · ${putt.name} · -1,800`);
   assert.deepEqual(ui.freshResults(ui.resultMarkers(after), corrected), [], "a correction never celebrates");
 
   const unaffected = ui.guestLedger(corrected, ROSTER[9], events);
@@ -615,9 +615,9 @@ test("G13 G15: a settled duel joins the update line instead of replacing it", ()
   after.duels[0].runs[ROSTER[7]] = { ms:260 };
   after.results[putt.id] = { slots:[[me], [], []], ts:2, revision:1 };
   const summary = ui.summarizeUpdate(prev, ui.guestLedger(after, me, events), { state:after, events });
-  assert.equal(summary.msg, `1st in ${putt.name} +400 · bet +200 · Quick Draw vs ${ROSTER[7]} +300 · you lead`);
+  assert.equal(summary.msg, `1st in ${putt.name} +600 · bet +200 · Quick Draw vs ${ROSTER[7]} +300 · you lead`);
   assert.equal(ui.summarizeUpdate(prev, ui.guestLedger(after, me, events), { state:after, events, skipDuel:"qd" }).msg,
-    `1st in ${putt.name} +400 · bet +200 · you lead`, "the Quick Draw layer already shows its own duel");
+    `1st in ${putt.name} +600 · bet +200 · you lead`, "the Quick Draw layer already shows its own duel");
 });
 
 test("G20: an away guest sits out on Home and nobody can challenge an away player", () => {

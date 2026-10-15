@@ -3,7 +3,7 @@
    the next tick is due so the level turns on the same server beat as the
    TV, and the Screen Wake Lock gate. TableView.jsx draws it. */
 
-import { ROSTER, pokerClock, pokerDenoms } from "../../../shared/core.js";
+import { ROSTER, pokerClock, pokerSeatChips, raceOffText } from "../../../shared/core.js";
 
 /* "seated" (the only state that offers the view), else why not:
    "none" (no live table), "guest" (no claimed player), "unseated",
@@ -48,7 +48,8 @@ export function tableViewModel(state, me, now) {
     msLeft:clk.msLeft, paused:clk.paused, final:clk.final, last:clk.last,
     clock:clk.final ? "Final level" : mmss(clk.msLeft),
     late:!clk.paused && !clk.final && !clk.last && clk.msLeft < 60000,
-    stack, stackText:fmt(stack), denoms:pokerDenoms(stack),
+    raceOff:raceOffText(levels[clk.idx]),
+    stack, stackText:fmt(stack), denoms:pokerSeatChips(pk, me),
     alive:seats.length - outs.length,
     busted:outIdx >= 0, finish:outIdx >= 0 ? seats.length - outIdx : null,
   };

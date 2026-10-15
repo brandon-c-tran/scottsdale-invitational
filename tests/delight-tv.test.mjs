@@ -223,11 +223,11 @@ test("the result step rises from the board before the event to the board after",
   assert.equal(before.length, ROSTER.length);
   assert.ok(before.every(row => row.pts === 1000 && !row.award));
   assert.equal(after[0].player, "Evan");
-  assert.equal(after[0].award, 400);
+  assert.equal(after[0].award, 600);
   const tr = towerTransition(before, after);
   assert.equal(tr.mode, "animate");
   assert.deepEqual(tr.adds, Object.fromEntries(after.filter(row => row.award).map(row => [row.player, row.award / 100])));
-  assert.equal(tr.adds.Evan, 4, "a Friday win drops four chips");
+  assert.equal(tr.adds.Evan, 6, "a Friday win drops six chips");
   assert.deepEqual(tr.leadTo, ["Evan"]);
 });
 

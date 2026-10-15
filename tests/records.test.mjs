@@ -215,15 +215,15 @@ test("an event played as contests swings by all of its bets once its result post
   assert.equal(biggestSwing(s, events(s), "die").change, 1000);
 });
 
-test("a swing under 500 is no card; a duel's swing names who it was against", () => {
+test("a swing under 700 is no card; a duel's swing names who it was against", () => {
   const s = fresh();
   playFfa(s, "putt", [["Khoa"], ["Adi"], ["Evan"]]);
-  assert.equal(swingCard(s, events(s)), null, `${400} for 1st is under ${SWING_MIN}`);
+  assert.equal(swingCard(s, events(s)), null, `${600} for 1st is under ${SWING_MIN}`);
   rule(s, "Sahil", 1000);
   rule(s, "Ben", 1000);
-  duel(s, "Sahil", "Ben", { a:240, b:300, stake:600 });
+  duel(s, "Sahil", "Ben", { a:240, b:300, stake:800 });
   const card = swingCard(s, events(s));
-  assert.deepEqual([card.players, card.amount, card.cause], [["Sahil"], 600, { kind:"duel", against:["Ben"] }],
+  assert.deepEqual([card.players, card.amount, card.cause], [["Sahil"], 800, { kind:"duel", against:["Ben"] }],
     "a gain wins a tie with the loss beside it");
 });
 

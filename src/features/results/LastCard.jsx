@@ -105,7 +105,7 @@ function HeldCard({ children }) {
    champion's face rises with the TV's tower, their color floods the whole
    screen on the same beat as the TV (a circle scaled up from their face),
    this phone sounds its note of the room's chord, the chip drops and
-   turns, and the stack counts in 25s. --tl is minus the ms already gone
+   turns, and the stack counts up. --tl is minus the ms already gone
    when this phone joined, so every delay reads "this long after the
    crown". A tie stays on night. */
 function ChampionMoment({ leaders, you, elapsed, flood, floodColor, floodInk, onSkip, cup = null }) {

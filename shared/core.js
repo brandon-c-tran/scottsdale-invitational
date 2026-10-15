@@ -83,10 +83,31 @@ const BUYIN_FLOOR = 6 * PT; // finale minimum: nobody sits down under 600
    below MAX_RISK. The rack meter draws this rather than stating it */
 const maxRisk = pts => Math.max(MAX_RISK, Math.floor(pts / 2 / PT) * PT);
 
-/* The ladder: 1st takes the event value, 2nd half, 3rd a quarter. The keys
-   are the legal event values. An event may carry its own `pays` table
-   instead (5v5 pays winners only; Rage Cage pays 1st and 2nd the same). */
-const AWARDS = { 400:[400,200,100], 800:[800,400,200], 1200:[1200,600,300], 1600:[1600,800,400] };
+/* The ladder (Oct 14, x1.5): 1st takes the event value, 2nd half, 3rd a
+   quarter rounded to 100s. The keys are the legal event values. An event may
+   carry its own `pays` table instead (5v5 pays winners only; Rage Cage pays
+   1st and 2nd the same). */
+const AWARDS = { 600:[600,300,200], 1200:[1200,600,300], 1800:[1800,900,500], 2400:[2400,1200,600] };
+const AWARD_VALUES = Object.freeze(Object.keys(AWARDS).map(Number).sort((a, b) => a - b));
+/* The ladder before Oct 14, as its stored event values and award amounts map
+   onto this one: a custom event or value edit stored before then moves once,
+   on hydration (migrateAwardLadder, marked by state.awardLadder). */
+const AWARD_LADDER = 2;
+const OLD_LADDER_VALUES = Object.freeze({ 400:600, 800:1200, 1200:1800, 1600:2400 });
+const OLD_LADDER_AMOUNTS = Object.freeze({ 100:200, 200:300, 300:500, 400:600, 600:900, 800:1200, 1200:1800, 1600:2400 });
+const ladderAmount = n => OLD_LADDER_AMOUNTS[n] ?? Math.round(Number(n) * 1.5 / PT) * PT;
+function migrateAwardLadder(state) {
+  if (!state || typeof state !== "object" || state.awardLadder === AWARD_LADDER) return state;
+  const move = ev => {
+    if (!ev || typeof ev !== "object") return;
+    if (ev.value !== undefined && OLD_LADDER_VALUES[ev.value]) ev.value = OLD_LADDER_VALUES[ev.value];
+    if (Array.isArray(ev.pays)) ev.pays = ev.pays.map(n => Number.isFinite(Number(n)) && n > 0 ? ladderAmount(n) : n);
+  };
+  for (const edit of Object.values(state.eventEdits || {})) move(edit);
+  for (const ev of Array.isArray(state.customEvents) ? state.customEvents : []) move(ev);
+  state.awardLadder = AWARD_LADDER;
+  return state;
+}
 const awardTable = ev => Array.isArray(ev?.pays) && ev.pays.length === 3 ? ev.pays : AWARDS[ev?.value] || [0, 0, 0];
 
 /* rated skills, grouped for onboarding; ids are referenced by event.sport for balanced draws */
@@ -115,59 +136,59 @@ const RATINGS = [
 ];
 
 const SESSIONS = [
-  { id:"fri", label:"Friday Night",       tag:"400 CHIPS" },
-  { id:"sam", label:"Saturday Morning",   tag:"800 CHIPS" },
-  { id:"sap", label:"Saturday Afternoon", tag:"1200 CHIPS" },
-  { id:"san", label:"Saturday Night",     tag:"1600 CHIPS" },
+  { id:"fri", label:"Friday Night",       tag:"600 CHIPS" },
+  { id:"sam", label:"Saturday Morning",   tag:"1200 CHIPS" },
+  { id:"sap", label:"Saturday Afternoon", tag:"1800 CHIPS" },
+  { id:"san", label:"Saturday Night",     tag:"2400 CHIPS" },
   { id:"fin", label:"The Finale",         tag:"POKER" },
 ];
 
 /* events reference a GAMES entry by `game` for the how-to; `variant` picks the
    tab inside a multi-variant game like basketball */
 const RAW_BUILTIN_EVENTS = [
-  /* ── Friday night · 400 ── */
-  { id:"putt", n:1, session:"fri", value:400, name:"Long Putt", kind:"solo", sport:"golf", game:"putting",
+  /* ── Friday night · 600 ── */
+  { id:"putt", n:1, session:"fri", value:600, name:"Long Putt", kind:"solo", sport:"golf", game:"putting",
     desc:"Three attempts from one spot. Closest wins. A sunk putt beats everything. Ties: sudden death." },
-  { id:"die", n:2, session:"fri", value:400, name:"Beer Die Doubles", kind:"pairs", sport:"die", game:"die",
+  { id:"die", n:2, session:"fri", value:600, name:"Beer Die Doubles", kind:"pairs", sport:"die", game:"die",
     teamCfg:{ teams:6, size:2, bracket:6 },
     desc:"Single elimination doubles. Toss the die over the line, they catch off the bounce. Sinking it in a cup wins the game." },
-  { id:"where", n:3, session:"fri", value:400, name:"Where and When", kind:"solo", game:"where",
+  { id:"where", n:3, session:"fri", value:600, name:"Where and When", kind:"solo", game:"where",
     desc:"Photos from Brandon's past. Pin where each was taken and guess the date and hour. Highest total wins." },
   /* everyone sings the song they picked; the room votes each one, Build
      Battle's Super Ass to Legendary (shared/karaoke.js, docs/KARAOKE.md) */
-  { id:"karaoke", n:4, session:"fri", value:400, name:"Karaoke", kind:"solo", game:"karaoke",
+  { id:"karaoke", n:4, session:"fri", value:600, name:"Karaoke", kind:"solo", game:"karaoke",
     desc:"Sing the song you picked while the room votes, Super Ass to Legendary. Best average wins." },
-  /* ── Saturday morning · 800 ── */
+  /* ── Saturday morning · 1200 ── */
   /* everyone plays: captains draft two sides of seven and six. Winners only. */
-  { id:"bball5", n:5, session:"sam", value:800, name:"5v5 Full Court", kind:"team", sport:"bball", game:"basketball", variant:"5v5",
-    teamCfg:{ teams:2, size:6 }, pays:[800, 0, 0],
+  { id:"bball5", n:5, session:"sam", value:1200, name:"5v5 Full Court", kind:"team", sport:"bball", game:"basketball", variant:"5v5",
+    teamCfg:{ teams:2, size:6 }, pays:[1200, 0, 0],
     participation:{ type:"all", allowSitOut:true, overflowRoles:[] },
     desc:"Captains draft two sides, seven and six. Full court, twos and threes on the clock. Ahead at the horn wins." },
-  { id:"pickleball", n:6, session:"sam", value:800, name:"Pickleball Doubles", kind:"pairs", sport:"pickleball", game:"pickleball",
+  { id:"pickleball", n:6, session:"sam", value:1200, name:"Pickleball Doubles", kind:"pairs", sport:"pickleball", game:"pickleball",
     teamCfg:{ teams:6, size:2, bracket:6 },
     desc:"Single elimination doubles. No volleys in the kitchen. Games to 11, win by 2." },
   /* a bracket of everyone present: entrants are teams of one, seeded by the
      draw, and the top seeds take the byes */
-  { id:"bball1", n:7, session:"sam", value:800, name:"1v1 Basketball", kind:"solo", sport:"bball", game:"basketball", variant:"1v1",
+  { id:"bball1", n:7, session:"sam", value:1200, name:"1v1 Basketball", kind:"solo", sport:"bball", game:"basketball", variant:"1v1",
     teamCfg:{ teams:13, size:1, bracket:13 },
     desc:"Single elimination, everyone in. Ones to 5, make it take it, win by 1." },
-  /* ── Saturday afternoon · 1200 ── */
-  { id:"volley", n:8, session:"sap", value:1200, name:"Sand Volleyball", kind:"team", sport:"volley", game:"volleyball",
+  /* ── Saturday afternoon · 1800 ── */
+  { id:"volley", n:8, session:"sap", value:1800, name:"Sand Volleyball", kind:"team", sport:"volley", game:"volleyball",
     teamCfg:{ teams:4, size:3, bracket:4 },
     desc:"Four teams of three, single elimination. Best of three sets to 15, cap 17. Rotate servers." },
-  { id:"8ball", n:9, session:"sap", value:1200, name:"8-Ball Doubles", kind:"pairs", sport:"pool", game:"8ball",
+  { id:"8ball", n:9, session:"sap", value:1800, name:"8-Ball Doubles", kind:"pairs", sport:"pool", game:"8ball",
     teamCfg:{ teams:6, size:2, bracket:6 },
     desc:"Single elimination. One rack per matchup, alternating shots. Ball-in-hand on scratches." },
-  { id:"pong", n:10, session:"sap", value:1200, name:"Beer Pong Doubles", kind:"pairs", sport:"pong", game:"pong",
+  { id:"pong", n:10, session:"sap", value:1800, name:"Beer Pong Doubles", kind:"pairs", sport:"pong", game:"pong",
     teamCfg:{ teams:6, size:2, bracket:6 },
     desc:"Single elimination. Six cups, one re-rack. Bounce counts two, can be swatted. Redemption in semis and final." },
-  /* ── Saturday night · 1600 ── */
-  { id:"trivia", n:11, session:"san", value:1600, name:"Trivia", kind:"solo", game:"trivia",
+  /* ── Saturday night · 2400 ── */
+  { id:"trivia", n:11, session:"san", value:2400, name:"Trivia", kind:"solo", game:"trivia",
     desc:"Everyone plays on their phone. Most points wins." },
-  { id:"ragecage", n:12, session:"san", value:1600, name:"Rage Cage", kind:"solo", sport:"cage", game:"ragecage",
-    pays:[1600, 1600, 400],
+  { id:"ragecage", n:12, session:"san", value:2400, name:"Rage Cage", kind:"solo", sport:"cage", game:"ragecage",
+    pays:[2400, 2400, 600],
     desc:"Everyone circles the cups, two balls in play. Get stacked on and you are out. The last two go head to head." },
-  { id:"beerio", n:13, session:"san", value:1600, name:"Beerio Kart", kind:"solo", sport:"kart", game:"beerio",
+  { id:"beerio", n:13, session:"san", value:2400, name:"Beerio Kart", kind:"solo", sport:"kart", game:"beerio",
     stageCfg:{ kind:"heats", nGroups:4, advance:1 },
     desc:"Heats of four, then a final. Crack a beer at the line, pull over to drink, finish it before you cross. Highest total wins." },
   /* ── The Finale · poker. No value: the result carries chip stacks that
@@ -509,7 +530,7 @@ function cleanLogistics(stored) {
   return out;
 }
 
-const EMPTY_STATE = { v:9, live:false, results:{}, wagers:[], wagerOps:{}, adjustments:[], seeds:{}, draws:{}, brackets:{},
+const EMPTY_STATE = { v:9, awardLadder:AWARD_LADDER, live:false, results:{}, wagers:[], wagerOps:{}, adjustments:[], seeds:{}, draws:{}, brackets:{},
   stages:{}, drafts:{}, duels:[], poker:null, profiles:{}, customEvents:[], shelved:{}, away:{}, out:{}, arrivals:null, onDeck:null, frozen:false,
   onboardEpoch:0, eventEdits:{}, eventOrder:[], eventOps:{}, showControl:{ active:null, history:[] },
   logistics:{ ...LOGISTICS }, prompts:{ ballots:[], responses:{} }, jerseysLocked:false,
@@ -916,27 +937,39 @@ const pokerLive = state => {
 const stacksPosted = state =>
   Object.values(state.results || {}).some(r => r?.stacks);
 /* the board is already denominated in chips, so the buy-in is not a
-   conversion: 2,200 points is 2,200 in front of you. Real tournament
-   denominations, so any standard set works. */
-const CHIP_MIN = 25;       // smallest denomination; counts move in 25s
+   conversion: 2,200 points is 2,200 in front of you. The chips are
+   Brandon's own case (a Slowplay set, Oct 14): its 1s stay in the case and
+   the 5s are the smallest chip in play, so counts move in 5s. */
+const CHIP_MIN = 5;        // smallest chip in play; counts move in 5s
+const CHIP_SET = Object.freeze({ 1:100, 5:150, 25:100, 100:100, 500:50, 1000:50 });
+/* kept back in the bank for change and color-ups, never dealt */
+const CHIP_RESERVE = Object.freeze({ 1:100, 5:10, 25:10, 100:10, 500:4, 1000:3 });
 const POKER_CONFIG = Object.freeze({
   minimumStack:BUYIN_FLOOR,
   stackQuantum:PT,
   countQuantum:CHIP_MIN,
   maxStack:null,
   rounding:"exact",
-  denominations:Object.freeze([1000, 500, 100, 25]),
-  blindPack:Object.freeze({ denomination:25, count:8, minimumStack:400 }),
-  /* small chips to play with before any 1000 is dealt */
-  workingLayer:Object.freeze([Object.freeze({ v:100, n:10 }), Object.freeze({ v:500, n:2 })]),
+  denominations:Object.freeze([1000, 500, 100, 25, 5]),
+  chipSet:CHIP_SET,
+  reserve:CHIP_RESERVE,
+  /* the working layer leaves this many of a chip per seat in the case for
+     the bulk to fall back on */
+  layerHold:Object.freeze({ 100:4, 500:1 }),
+  /* the exchange pass trades small chips onto stacks of this much and up */
+  exchangeFrom:2000,
 });
-/* blind schedule: seven levels, about an hour 45; median stack ~40 BB deep */
+/* blind schedule (Oct 14): ten 12-minute levels, two hours. The 5s race
+   off after level 2 and the 25s after level 5; the level that follows
+   carries the note (raceOffText). */
 const POKER_LEVELS = [
-  { sb:25, bb:50, mins:15 }, { sb:50, bb:100, mins:15 }, { sb:100, bb:200, mins:15 },
-  { sb:150, bb:300, mins:15 }, { sb:250, bb:500, mins:15 }, { sb:400, bb:800, mins:15 },
-  { sb:600, bb:1200, mins:15 },
+  { sb:10, bb:20, mins:12 }, { sb:25, bb:50, mins:12 }, { sb:50, bb:100, mins:12, raceOff:5 },
+  { sb:100, bb:200, mins:12 }, { sb:150, bb:300, mins:12 }, { sb:200, bb:400, mins:12, raceOff:25 },
+  { sb:300, bb:600, mins:12 }, { sb:500, bb:1000, mins:12 }, { sb:800, bb:1600, mins:12 },
+  { sb:1000, bb:2000, mins:12 },
 ];
 const pokerLevels = () => POKER_LEVELS.map(l => ({ ...l }));
+const raceOffText = level => level?.raceOff ? `Race off the ${level.raceOff}s` : null;
 /* pure clock walk; clients tick a 1s interval and re-derive from a
    server-anchored now. The current level carries its own start and an
    optional pause, so a nudge starts the new level fresh and a pause holds
@@ -980,42 +1013,82 @@ function pokerClockAnchor(poker, now) {
   const levels = poker.levels || POKER_LEVELS;
   return { idx:clk.idx, levelStartedAt:now - (levels[clk.idx].mins * 60000 - clk.msLeft) };
 }
-/* Physical dealing breakdown: reserve eight 25s for blinds when practical,
-   then a working layer (up to ten 100s and two 500s) so nobody opens with a
-   stack of 1000s they cannot bet with, then greedily. The final 25 pass keeps
-   post-finale counts exact too. */
-function pokerDenoms(pts) {
-  const value = Number(pts);
-  if (!Number.isInteger(value) || value < 0 || value % POKER_CONFIG.countQuantum !== 0)
-    return [];
-  if (value === 0) return [];
-  if (value < POKER_CONFIG.blindPack.minimumStack)
-    return [{ v:POKER_CONFIG.blindPack.denomination,
-      n:value / POKER_CONFIG.blindPack.denomination }];
-
-  let chips = value;
-  const counts = new Map();
-  const add = (v, n) => {
-    if (n > 0) counts.set(v, (counts.get(v) || 0) + n);
+/* The table's deal from the case (Oct 14). Pure in the seats' stacks (ties
+   by player id), so every screen derives the same chips; pokerSetup stores
+   it. Every seat's odd tail first (a stack in 5s takes its tail in 5s and
+   25s), then the same working layer for every seat, smallest chip first
+   (5s, 25s, 100s, 500s; a short stack gets as much as it holds, each step
+   closing on a round value), the bulk in 1000s (falling back to smaller
+   chips only if the 1000s run out), then an exchange pass: the small chips
+   still in the case replace a bigger chip on the biggest stacks, round the
+   table, so the set is used evenly whatever the board comes to. The bank
+   reserve is never dealt. { ok, seats:{ player:[{ v, n }] }, inventory,
+   left:{ v:n } }; ok is false when the case cannot cover the stacks. */
+function pokerDeal(stacks, { set = POKER_CONFIG.chipSet, reserve = POKER_CONFIG.reserve } = {}) {
+  const denoms = POKER_CONFIG.denominations;
+  const small = [...denoms].sort((a, b) => a - b);
+  const up = d => small[small.indexOf(d) + 1] || d;
+  const left = Object.fromEntries(denoms.map(d =>
+    [d, Math.max(0, (Number(set?.[d]) || 0) - (Number(reserve?.[d]) || 0))]));
+  const entries = Array.isArray(stacks)
+    ? stacks.map((item, index) => typeof item === "number" ? [`seat-${index + 1}`, item] : [item?.player, item?.stack])
+    : Object.entries(stacks || {});
+  const seats = entries.map(([player, stack]) => ({ player:String(player), stack:Number(stack), rest:Number(stack), chips:{} }))
+    .sort((a, b) => a.stack - b.stack || (a.player < b.player ? -1 : a.player > b.player ? 1 : 0));
+  const result = ok => ({
+    ok,
+    seats:Object.fromEntries(seats.map(seat => [seat.player,
+      denoms.filter(d => seat.chips[d] > 0).map(v => ({ v, n:seat.chips[v] }))])),
+    inventory:denoms.map(v => ({ v, n:seats.reduce((sum, seat) => sum + (seat.chips[v] || 0), 0) }))
+      .filter(item => item.n > 0),
+    left:{ ...left },
+  });
+  if (seats.some(seat => !Number.isInteger(seat.stack) || seat.stack < 0 || seat.stack % CHIP_MIN !== 0))
+    return { ...result(false), seats:{}, inventory:[] };
+  const n = seats.length;
+  if (!n) return result(true);
+  const give = (seat, d, k) => {
+    if (k > 0) { seat.chips[d] = (seat.chips[d] || 0) + k; seat.rest -= d * k; left[d] -= k; }
   };
-  const pack = POKER_CONFIG.blindPack;
-  add(pack.denomination, pack.count);
-  chips -= pack.denomination * pack.count;
-  for (const { v, n:most } of POKER_CONFIG.workingLayer) {
-    const n = Math.min(most, Math.floor(chips / v));
-    add(v, n);
-    chips -= n * v;
+  const fits = (seat, d, k) => Math.max(0, Math.min(k, left[d], Math.floor(seat.rest / d)));
+  /* the largest count <= k that leaves the seat's rest a multiple of mod */
+  const aligned = (seat, d, k, mod) => { while (k > 0 && (seat.rest - d * k) % mod) k--; return k; };
+  const tails = small.filter(d => d < PT);
+  const layer = small.filter(d => d < denoms[0]);
+  for (const seat of seats)
+    for (const d of tails) give(seat, d, fits(seat, d, Math.floor((seat.rest % up(d)) / d)));
+  const hold = POKER_CONFIG.layerHold;
+  const target = Object.fromEntries(layer.map(d => [d, Math.max(0, Math.floor((left[d] - (hold[d] || 0) * n) / n))]));
+  for (const seat of seats) {
+    for (const d of layer)
+      give(seat, d, d < PT ? aligned(seat, d, fits(seat, d, target[d]), up(d)) : fits(seat, d, target[d]));
+    for (const d of denoms) give(seat, d, fits(seat, d, Infinity));
   }
-  for (const v of POKER_CONFIG.denominations.filter(v => v !== pack.denomination)) {
-    const n = Math.floor(chips / v);
-    add(v, n);
-    chips -= n * v;
+  /* biggest first: 1000s for 500s, 500s for 100s, 100s for 25s, 25s for 5s */
+  for (const big of denoms) {
+    const smaller = small[small.indexOf(big) - 1];
+    if (!smaller) continue;
+    const k = big / smaller;
+    for (let moved = true; moved;) {
+      moved = false;
+      for (const seat of [...seats].reverse()) {
+        if (left[smaller] < k || !(seat.chips[big] > 0) || seat.stack < POKER_CONFIG.exchangeFrom) continue;
+        seat.chips[big] -= 1; seat.rest += big; left[big] += 1;
+        give(seat, smaller, k);
+        moved = true;
+      }
+    }
   }
-  add(pack.denomination, chips / pack.denomination);
-  return POKER_CONFIG.denominations
-    .filter(v => counts.has(v))
-    .map(v => ({ v, n:counts.get(v) }));
+  return result(seats.every(seat => seat.rest === 0) && denoms.every(d => left[d] >= 0));
 }
+/* a table's deal: the one pokerSetup stored, else the same deal derived
+   from its starting stacks (a table set before the deal was stored) */
+function pokerTableDeal(poker) {
+  if (poker?.deal?.seats) return { seats:poker.deal.seats, inventory:poker.deal.inventory || [] };
+  const deal = pokerDeal(poker?.startingStacks || {});
+  return { seats:deal.seats, inventory:deal.inventory };
+}
+const pokerSeatChips = (poker, player) => pokerTableDeal(poker).seats[player] || [];
 
 /* Pure finale audit used by setup and deterministic 12/13/14-player
    rehearsals. Weekend points are already exact 100-chip units; M1 does not
@@ -1040,32 +1113,27 @@ function pokerDistribution(entries) {
     const uncapped = Math.max(POKER_CONFIG.minimumStack, legalBefore);
     const stack = POKER_CONFIG.maxStack === null
       ? uncapped : Math.min(POKER_CONFIG.maxStack, uncapped);
-    const denominations = pokerDenoms(stack);
-    if (denominations.reduce((sum, chip) => sum + chip.v * chip.n, 0) !== stack)
-      errors.push(`Cannot deal ${player}'s stack exactly`);
-    return {
-      player,
-      before:legalBefore,
-      stack,
-      grant:stack - legalBefore,
-      denominations,
-    };
+    return { player, before:legalBefore, stack, grant:stack - legalBefore };
   });
+  const deal = errors.length ? null : pokerDeal(rows.map(row => ({ player:row.player, stack:row.stack })));
+  if (deal && !deal.ok) errors.push("The chip case can't cover these stacks. Deal them by hand");
+  const seats = deal?.seats || {};
   return {
     ok:errors.length === 0,
     errors,
-    rows,
+    rows:rows.map(row => ({ ...row, denominations:seats[row.player] || [] })),
     total:rows.reduce((sum, row) => sum + row.stack, 0),
     minimumCount:rows.filter(row => row.grant > 0).length,
-    inventory:pokerInventory(rows.map(row => row.stack)),
+    inventory:deal?.inventory || [],
+    deal:{ seats, inventory:deal?.inventory || [] },
   };
 }
-/* the tray: how many of each chip the whole table is dealt */
-function pokerInventory(stacks) {
-  const totals = new Map();
-  (Array.isArray(stacks) ? stacks : Object.values(stacks || {})).forEach(stack =>
-    pokerDenoms(stack).forEach(({ v, n }) => totals.set(v, (totals.get(v) || 0) + n)));
-  return POKER_CONFIG.denominations.filter(v => totals.has(v)).map(v => ({ v, n:totals.get(v) }));
+/* the tray: how many of each chip the whole table is dealt, from a table
+   (its stored deal) or from the stacks themselves */
+function pokerInventory(source) {
+  if (source && typeof source === "object" && !Array.isArray(source) && ("startingStacks" in source || "deal" in source))
+    return pokerTableDeal(source).inventory;
+  return pokerDeal(source).inventory;
 }
 
 /* ─────────── duels: challenges are offers ───────────
@@ -2203,20 +2271,20 @@ export {
   ROSTER_CONFIG, ROSTER_STATUSES, ALL_PLAYERS, ROSTER, rosterPlayers, rosterRecord, isActivePlayer, isAway, presentPlayers,
   isOut, rosterOf, MIN_PLAYING, eventPool, crewRotation, arrivalsOpen, hasArrived, isOnTheWay, isAbsent, canCheckIn,
   ARRIVE_CODE_ALPHABET, isArriveCode,
-  AWARDS, awardTable, PT, START, MAX_RISK, BUYIN_FLOOR, maxRisk, SPORTS, RATINGS, SESSIONS, BUILTIN_EVENTS, SLOT_META,
+  AWARDS, AWARD_VALUES, AWARD_LADDER, OLD_LADDER_VALUES, migrateAwardLadder, awardTable, PT, START, MAX_RISK, BUYIN_FLOOR, maxRisk, SPORTS, RATINGS, SESSIONS, BUILTIN_EVENTS, SLOT_META,
   OUTRIGHT_MULT, DUEL_STAKE, DUEL_GAMES, EMPTY_STATE, EDITION, LOGISTICS, SIZES, TEAM_NAMES, GAMES,
   RESET_PROGRESS_CONFIRMATION, RESET_PROGRESS_PRESERVED_KEYS,
   OVERFLOW_ROLES, OVERFLOW_ROLE_META, overflowRoleMeta, participationForEvent, eventCapacity, validateEventParticipants,
   teamFit, shapeLabel, suggestParticipants,
   normalizeOverflowRoles, defaultQaParticipants, coalescePendingReveals,
   AIRLINES, cleanLeg, cleanLogistics, legTime, legText,
-  CHIP_GRAY, CHIP_COLORS, CHIP_SKINS, CHIP_MIN, POKER_CONFIG,
+  CHIP_GRAY, CHIP_COLORS, CHIP_SKINS, CHIP_MIN, CHIP_SET, CHIP_RESERVE, POKER_CONFIG, POKER_LEVELS, raceOffText,
   allEventsOf, disp, shuffle, snakeTeam, draftTurn, teamLabel, stageFinalists, stageEntrantView,
   resolveWager, wagerMult, wagerBoardEvent, resolveDuel, pokerLive,
   DUEL_LAPSE_MS, DUEL_DAILY_LIMIT, duelAccepted, duelLapsed, duelLapsesAt, duelPhase, duelOpen,
   DUEL_READY_MS, DUEL_FIRE_MIN_MS, DUEL_FIRE_SPAN_MS, DUEL_LATE_MS, duelReadyUntil, duelMode, duelFireAt,
-  duelReserve, duelRoom, duelBetween, duelsSentToday, redactDuelsForViewer, stacksPosted, pokerLevels, pokerClock, pokerClockAnchor, pokerDenoms,
-  pokerDistribution, pokerInventory,
+  duelReserve, duelRoom, duelBetween, duelsSentToday, redactDuelsForViewer, stacksPosted, pokerLevels, pokerClock, pokerClockAnchor,
+  pokerDeal, pokerTableDeal, pokerSeatChips, pokerDistribution, pokerInventory,
   resultAwards, awardPlan, postCountRuling, postCountRulingApplies,
   computeStandings, atRisk, drawTeams, splitIntoGroups,
   enforceExposure, refundTotals, voidWagerRecords,

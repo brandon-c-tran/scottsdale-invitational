@@ -2427,6 +2427,8 @@ export const ACTIONS = {
       id:ev.id,
       total:distribution.total,
       startingStacks:Object.fromEntries(distribution.rows.map(row => [row.player, row.stack])),
+      /* the table's deal from the case: every screen shows these chips */
+      deal:distribution.deal,
       minimumGrantIds,
       voidedDuelIds,
       startedAt:null,
@@ -2533,7 +2535,7 @@ export const ACTIONS = {
     if (pk.outs.find(o => o.player === player))
       return c === 0 ? ok({ unchanged:true }) : err("You are out, your count is 0");
     if (!Number.isFinite(c) || c < 0) return err("Counts are 0 or more");
-    if (c % CHIP_MIN !== 0) return err("Counts move in 25s");
+    if (c % CHIP_MIN !== 0) return err(`Counts move in ${CHIP_MIN}s`);
     /* nobody walks away with more than the table was dealt */
     if (Number.isInteger(pk.total) && c > pk.total)
       return err(`Only ${pk.total.toLocaleString("en-US")} chips were dealt`);
@@ -2635,10 +2637,10 @@ export const ACTIONS = {
     if (!Number.isInteger(delta) || Math.abs(delta) > 100000) return err("Rulings are whole amounts up to 100,000");
     const frozen = frozenGuard(state); if (frozen) return frozen;
     /* the board moves in 100s all weekend; once the finale counts post the
-       standings are exact chip counts, so corrections move in 25s instead */
+       standings are exact chip counts, so corrections move in 5s instead */
     const stacks = Object.values(state.results || {}).find(res => res?.stacks);
     if (stacks) {
-      if (delta % CHIP_MIN !== 0) return err("Counts move in 25s");
+      if (delta % CHIP_MIN !== 0) return err(`Counts move in ${CHIP_MIN}s`);
     } else if (delta % PT !== 0) return err("Rulings move in 100s");
     if (pokerLive(state)) return err("The finale is live, correct it after the count");
     const now = Date.now();

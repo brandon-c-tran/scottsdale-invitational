@@ -31,7 +31,7 @@ mod.filename = mod.id; mod.paths = Module._nodeModulePaths(root);
 mod._compile(compiled.outputFiles[0].text, mod.filename);
 const { GameIntro, SCENES, IntroOverlay, EventAnnouncement, PlayerIdentityProvider } = mod.exports;
 const html = element => renderToStaticMarkup(React.createElement(PlayerIdentityProvider, { profiles:{} }, element));
-const CUSTOM = { id:"custom", name:"Cornhole", session:"san", value:1600, kind:"solo", game:"cornhole" };
+const CUSTOM = { id:"custom", name:"Cornhole", session:"san", value:2400, kind:"solo", game:"cornhole" };
 
 /* ── the timing contract ── */
 

@@ -6,7 +6,7 @@ import { DISC_OVERLAP } from "../identity/discLetters.js";
 import {
   awardTable, ROSTER, rosterOf, EDITION, ROUND_NAMES, SESSIONS, bracketOrder, bracketChampion, resultAwards,
   computeStandings, resolveWager, resolveDuel, resolveCurrentContest, resolveSlot, eventInPlay, contestMult, contestUpset,
-  disp, teamLabel, stageEntrantView, overflowRoleMeta, pokerLive, pokerClock,
+  disp, teamLabel, stageEntrantView, overflowRoleMeta, pokerLive, pokerClock, CHIP_MIN,
 } from "../../../shared/core.js";
 import { constellationStars, constellationLines } from "./desertModel.js";
 import { liveEventOf, openEvent } from "../../ui/phase.js";
@@ -778,14 +778,14 @@ export function pokerTickerItems(state, now) {
   const clk = pokerClock(pk, now);
   const levels = pk.levels || [];
   const next = levels[clk.idx + 1];
-  if (next) items.push(fact("Next level", "info", [], [`Blinds ${fmt(next.sb)} / ${fmt(next.bb)}`]));
+  if (next) items.push(fact("Next level", "info", [], [`Blinds ${fmt(next.sb)} / ${fmt(next.bb)}${next.raceOff ? `, race off the ${next.raceOff}s` : ""}`]));
   const starting = pk.startingStacks || {};
   const inPlay = seats.filter(p => !outs.includes(p) && Number.isFinite(Number(starting[p])));
   if (inPlay.length) {
     const deep = [...inPlay].sort((a, b) => Number(starting[b]) - Number(starting[a]))[0];
     items.push(fact("Deepest stack", "chip", [deep], [`${disp(state, deep)} `, amount(fmt(Number(starting[deep])))]));
     const total = inPlay.reduce((n, p) => n + Number(starting[p]), 0);
-    items.push(fact("Average stack", "chip", [], [amount(fmt(Math.round(total / inPlay.length / 25) * 25)), ` across ${inPlay.length} seats`]));
+    items.push(fact("Average stack", "chip", [], [amount(fmt(Math.round(total / inPlay.length / CHIP_MIN) * CHIP_MIN)), ` across ${inPlay.length} seats`]));
   }
   /* nothing new to say: the ticker stays quiet (the masthead already
      names the weekend) */

@@ -418,6 +418,8 @@
   display:flex; flex-direction:column; align-items:center; gap:8px; text-align:center; }
 .tv-table-level { display:flex; align-items:center; gap:18px; }
 .tv-table-level .tv-label { color:var(--muted2); }
+/* the level's race-off note (the 5s after level 2, the 25s after level 5) */
+.tv-table-level .tv-race-off { color:var(--sun); }
 /* the blinds roll inside their own window: the line box holds the slash */
 .tv-blinds { font-size:120px; line-height:1.12; color:var(--bone); font-variant-numeric:tabular-nums; }
 .tv-blinds .fd-roll { padding-block:.1em; }

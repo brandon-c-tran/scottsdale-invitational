@@ -323,7 +323,7 @@ test("a new leader: a posted result leaves a different player alone at the top; 
   assert.equal(latestGag(s, events(s)), null, "Evan was alone at the top and still is");
   const tie = fresh();
   tie.live = true;
-  rule(tie, "Khoa", 400);
+  rule(tie, "Khoa", 600);
   playFfa(tie, "putt", [["Evan"], ["Adi"], ["Ben"]]);
   assert.equal(latestGag(tie, events(tie)), null, "Evan ties Khoa: nobody alone at the top");
   /* a contest's bets can move the lead, but only a posted result names a new leader */
@@ -492,8 +492,8 @@ test("no repeats: each shape plays round its pool before a bit comes back, and n
   assert.deepEqual(recentFor(["a", "b"], 3), ["a", "b"]);
   assert.deepEqual(recentFor(["a", "b", "c"], 3), ["c"], "a round's start: only the newest waits");
   assert.deepEqual(recentFor(["a", "b", "c", "b"], 3), ["b"]);
-  /* seed 1: a weekend whose pools leave Volleyball a 3 v 3 long shot that wins */
-  const s = scenarios.fresh("event:pong:done", 1);
+  /* seed 2: a weekend whose pools leave Volleyball a 3 v 3 long shot that wins */
+  const s = scenarios.fresh("event:pong:done", 2);
   const log = momentLog(s, events(s));
   const moments = log.filter(step => step.moment);
   assert.ok(moments.length >= 8, `a weekend's worth of moments (${moments.length})`);

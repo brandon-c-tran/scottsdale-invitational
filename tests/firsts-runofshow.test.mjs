@@ -121,14 +121,14 @@ test("first to each thousand, and the biggest bet paid, from chip history", () =
   const state = fresh();
   const cage = events.find(event => event.id === "ragecage");
   state.wagers = [
-    { id:"w1", player:khoa, kind:"outright", eventId:cage.id, pick:evan, pickPlayers:[evan], stake:500, mult:2, ts:1 },
+    { id:"w1", player:khoa, kind:"outright", eventId:cage.id, pick:evan, pickPlayers:[evan], stake:1000, mult:2, ts:1 },
   ];
   post(state, cage, [evan], 5_000_000, [], [adi]);
   const facts = ui.weekendFacts(state, events);
-  /* Evan's 1,600 award takes him to 2,600; Khoa's +1,000 bet takes him to 2,000 in the same write */
+  /* Evan's 2,400 award takes him to 3,400; Khoa's +2,000 bet takes him to 3,000 in the same write */
   const first = facts.find(fact => fact.kind === "first");
-  assert.equal(first.text, `First to 2,000: ${evan} and ${khoa}`);
-  assert.equal(first.own, "First to 2,000");
+  assert.equal(first.text, `First to 3,000: ${evan} and ${khoa}`);
+  assert.equal(first.own, "First to 3,000");
   /* same write, so the bet record is not a second fact */
   assert.equal(facts.length, 1);
 
@@ -136,15 +136,15 @@ test("first to each thousand, and the biggest bet paid, from chip history", () =
   const later = structuredClone(state);
   const putt = events.find(event => event.id === "putt");
   later.wagers.push({ id:"w2", player:ben, kind:"outright", eventId:putt.id, pick:sahil, pickPlayers:[sahil],
-    stake:700, mult:2, ts:2 });
+    stake:1100, mult:2, ts:2 });
   post(later, putt, [sahil], 9_000_000);
   const bet = ui.weekendFacts(later, events).find(fact => fact.kind === "bet");
-  assert.equal(bet.text, `Biggest bet paid: ${ben}, +1,400 on ${sahil}`);
+  assert.equal(bet.text, `Biggest bet paid: ${ben}, +2,200 on ${sahil}`);
   assert.equal(bet.own, "Biggest bet paid yet");
   assert.deepEqual(bet.players, [ben]);
   later.adjustments = [{ id:"r1", player:adi, delta:3000, reason:"Test", ts:12_000_000 }];
   const jump = ui.weekendFacts(later, events).filter(fact => fact.kind === "first");
-  assert.deepEqual(jump.map(fact => fact.text), [`First to 2,000: ${evan} and ${khoa}`, `First to 4,000: ${adi}`]);
+  assert.deepEqual(jump.map(fact => fact.text), [`First to 3,000: ${evan} and ${khoa}`, `First to 4,000: ${adi}`]);
 });
 
 test("facts are deterministic and a correction re-derives them", () => {

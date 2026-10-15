@@ -13,7 +13,7 @@ import {
   bracketChampion,
   computeStandings,
   defaultQaParticipants,
-  pokerDenoms,
+  pokerDeal,
   pokerDistribution,
   resolveEventLifecycle,
   resolveCurrentContest,
@@ -139,12 +139,17 @@ test("configured poker distribution is exact and legal for 12, 13, and 14 seats"
     }
   }
 
-  assert.deepEqual(pokerDenoms(625), [
-    { v:100, n:4 },
-    { v:25, n:9 },
-  ]);
-  assert.deepEqual(pokerDenoms(75), [{ v:25, n:3 }]);
-  assert.deepEqual(pokerDenoms(610), []);
+  assert.equal(CHIP_MIN, 5);
+  /* a stack in 5s takes its tail in 5s and 25s; anything off the 5s is no deal */
+  const odd = pokerDeal({ a:625, b:75 });
+  assert.equal(odd.ok, true);
+  assert.equal(odd.seats.a.reduce((sum, chip) => sum + chip.v * chip.n, 0), 625);
+  assert.deepEqual(odd.seats.b, [{ v:25, n:3 }]);
+  assert.equal(pokerDeal({ a:612 }).ok, false);
+  /* no chip set can cover a table this deep: a clear refusal, not a silent short deal */
+  const deep = pokerDistribution(Array.from({ length:13 }, (_, index) => ({ player:`P${index}`, pts:20000 })));
+  assert.equal(deep.ok, false);
+  assert.match(deep.errors[0], /chip case/);
 });
 
 test("deterministic rehearsal completes every event, locks the dealt board, and reverses poker exactly", () => {

@@ -55,9 +55,9 @@ import { useCrownMoment } from "./features/results/useCrownMoment.js";
 import { firstOnboardStep, isStandalone } from "./features/check-in/install.js";
 import { CHECK_IN_MARKER, returningAfterClaim, returningFromHello } from "./features/check-in/returning.js";
 import {
-  ROSTER, rosterOf, AWARDS, awardTable, SPORTS, RATINGS, SESSIONS, SLOT_META, OUTRIGHT_MULT, wagerMult, SIZES, GAMES,
-  DUEL_STAKE, DUEL_GAMES, CHIP_COLORS, CHIP_SKINS, PT, maxRisk, CHIP_MIN,
-  pokerLive, pokerClock, pokerDenoms, pokerInventory, resultAwards, awardPlan, stacksPosted,
+  ROSTER, rosterOf, AWARDS, AWARD_VALUES, awardTable, SPORTS, RATINGS, SESSIONS, SLOT_META, OUTRIGHT_MULT, wagerMult, SIZES, GAMES,
+  DUEL_STAKE, DUEL_GAMES, CHIP_COLORS, CHIP_SKINS, PT, maxRisk, CHIP_MIN, POKER_CONFIG,
+  pokerLive, pokerClock, pokerSeatChips, pokerInventory, resultAwards, awardPlan, stacksPosted,
   allEventsOf, disp, shuffle, snakeTeam, teamLabel, stageFinalists, stageEntrantView,
   resolveWager, wagerBoardEvent, resolveDuel, computeStandings, atRisk, ROUND_NAMES, resolveSlot, bracketChampion, EDITION,
   cleanLeg, legTime, eventCapacity, validateEventParticipants,
@@ -932,7 +932,7 @@ function TournamentApp({ tournament, onUpdateReload }) {
       if (!pokerLive(s)) return;
       const clk = pokerClock(s.poker, serverNow());
       if (prevPokerLevel.current !== null && clk.idx > prevPokerLevel.current && onboardStep >= 99)
-        notify(`Blinds up: ${fmt(clk.sb)} / ${fmt(clk.bb)}`, null, "gold");
+        notify(`Blinds up: ${fmt(clk.sb)} / ${fmt(clk.bb)}${clk.raceOff ? `. Race off the ${clk.raceOff}s` : ""}`, null, "gold");
       prevPokerLevel.current = clk.idx;
     }, 1000);
     return () => clearInterval(iv);
@@ -2246,7 +2246,7 @@ export function PokerCard({ state, standings, me, gm, onBuyin, onStart, onCancel
   );
 
   if (!pk.startedAt) {
-    const d = myRow && !unseated ? pokerDenoms(myRow.pts) : null;
+    const d = myRow && !unseated ? pokerSeatChips(pk, me) : null;
     return (
       <div id="fd-poker-table" className="fd-night" style={card}>
         <div style={{ display:"flex", alignItems:"center", gap:12, padding:"12px 14px" }}>
@@ -2265,7 +2265,7 @@ export function PokerCard({ state, standings, me, gm, onBuyin, onStart, onCancel
           <button onClick={onBuyin} style={{ ...seatButton, background:"transparent", color:BONE,
             border:"1.5px solid var(--ghost-line)" }}>All stacks</button>
         </div>
-        {myRow && d?.length > 0 && <div style={{ padding:"0 14px 12px 60px" }}><DenomStacks stack={myRow.pts} size={26} build /></div>}
+        {myRow && d?.length > 0 && <div style={{ padding:"0 14px 12px 60px" }}><DenomStacks chips={d} size={26} build /></div>}
         {notSeated}
         {gm && (confirmCancel ? (
           <div style={{ padding:"0 14px 12px" }}>
@@ -2391,7 +2391,7 @@ export function PokerCard({ state, standings, me, gm, onBuyin, onStart, onCancel
 
 /* count your stack by denomination; the app does the math. Values in chips. */
 function ChipCounter({ start, onDone }) {
-  const denominations = [1000,500,100,25];
+  const denominations = POKER_CONFIG.denominations;
   const countId = useId(), saving = useRef(false);
   const [counts,setCounts] = useState(()=>{
     let left = start || 0;
@@ -2441,7 +2441,7 @@ function PokerBuyinSheet({ state, standings, gm, onClose, onStart }) {
           <span style={{ flex:1, minWidth:0, display:"flex", flexDirection:"column", gap:4 }}>
             <span style={{ fontFamily:SANS, fontWeight:600, fontSize:14, color:"var(--ink)",
               overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{disp(state, r.player)}</span>
-            <DenomStacks stack={r.pts} size={30} />
+            <DenomStacks chips={pokerSeatChips(pk, r.player)} size={30} />
           </span>
           <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:19, color:"var(--ink)", minWidth:52,
             textAlign:"right" }}>{fmt(r.pts)}</span>
@@ -2463,7 +2463,7 @@ function PokerBuyinSheet({ state, standings, gm, onClose, onStart }) {
       </div>
       {gm && <div className="fd-stack-tray" style={{ margin:"0 0 14px" }}>
         <span style={label}>The tray</span>
-        <ChipTray inventory={pokerInventory(pk.startingStacks || standings.map(r => r.pts))} />
+        <ChipTray inventory={pokerInventory(pk)} />
       </div>}
       {gm && !pk.startedAt && <Btn onClick={onStart} style={{ width:"100%" }}>Start the table</Btn>}
     </Sheet>
@@ -2733,10 +2733,10 @@ function EventSheet({ ev, state, me, gm, onLock, onWinner, onUndo, onClose, onBa
   const [more, setMore] = useState(false);
   const [eName, setEName] = useState("");
   const [eDesc, setEDesc] = useState("");
-  const [eValue, setEValue] = useState(400);
+  const [eValue, setEValue] = useState(AWARD_VALUES[0]);
   const [eSession, setESession] = useState(null);
   const openEdit = () => {
-    setEName(ev.name); setEDesc(ev.desc || ""); setEValue(ev.value ?? 400);
+    setEName(ev.name); setEDesc(ev.desc || ""); setEValue(ev.value ?? AWARD_VALUES[0]);
     setESession(SESSIONS.find(s => s.id === ev.session) ? ev.session : null);
     setEditOpen(true);
   };
@@ -3089,7 +3089,7 @@ function EventSheet({ ev, state, me, gm, onLock, onWinner, onUndo, onClose, onBa
                   marginBottom:12, outline:"none", resize:"vertical" }} />
               <div style={{ ...label, marginBottom:6 }}>Worth</div>
               <div style={{ display:"flex", gap:8, marginBottom:12 }}>
-                {[400,800,1200,1600].map(v => (
+                {AWARD_VALUES.map(v => (
                   <button key={v} disabled={!!res} onClick={() => setEValue(v)} style={{ flex:1, height:44, borderRadius:10, cursor:res ? "default" : "pointer",
                     fontFamily:DISPLAY, fontWeight:700, fontSize:16,
                     background: eValue===v ? GOLD_GRAD : "var(--paper)",
@@ -3160,7 +3160,7 @@ function EventSheet({ ev, state, me, gm, onLock, onWinner, onUndo, onClose, onBa
 /* ─────────── add event ─────────── */
 function AddEventSheet({ state, onClose, save }) {
   const [name, setName] = useState("");
-  const [value, setValue] = useState(400);
+  const [value, setValue] = useState(AWARD_VALUES[0]);
   const [fmt, setFmt] = useState("solo");
   const [sess, setSess] = useState(null);
   const [game, setGame] = useState(null);
@@ -3197,7 +3197,7 @@ function AddEventSheet({ state, onClose, save }) {
           padding:"12px 13px", color:"var(--ink)", fontFamily:SANS, fontWeight:600, fontSize:16, marginBottom:14, outline:"none" }} />
       <div style={{ ...label, marginBottom:6 }}>Worth</div>
       <div style={{ display:"flex", gap:8, marginBottom:14 }}>
-        {[400,800,1200,1600].map(v => (
+        {AWARD_VALUES.map(v => (
           <button key={v} onClick={() => setValue(v)} style={{ flex:1, height:44, borderRadius:10, cursor:"pointer",
             fontFamily:DISPLAY, fontWeight:700, fontSize:19,
             background: value===v ? GOLD_GRAD : "var(--paper)",
@@ -3343,7 +3343,7 @@ function ResetProgressSheet({ state, environment, busy, onClose, onBack, onConfi
 
 /* ─────────── GM sheets ─────────── */
 /* One pending write at a time, success only on the server's ack. After the
-   finale counts post, rulings move in 25s; the number field takes any size. */
+   finale counts post, rulings move in 5s; the number field takes any size. */
 function AdjustSheet({ state, player, onClose, save, onRemove }) {
   const step = stacksPosted(state) ? CHIP_MIN : PT;
   const [delta, setDelta] = useState(step);

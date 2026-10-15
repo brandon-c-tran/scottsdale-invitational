@@ -80,8 +80,14 @@
   --silver:#a9b4c2; --bronze:#d08a52;
   /* the session's own lamp: the line along the top of the header */
   --phase:var(--pool);
-  /* the finale's poker chips, one flat color per denomination */
-  --poker-25:#3f9a5f; --poker-100:#30313b; --poker-500:#7a4fc0; --poker-1000:#f0b53c;
+  /* the finale's poker chips, Brandon's Slowplay set: a white body, the
+     value's color in spots round the edge, the numeral in gold foil. The
+     betting rack shares them. --poker-<v> is the value's edge color. */
+  --chip-body:#f6f3ec; --chip-body-side:#d6d0c2; --chip-ink-gold:#b8892a;
+  --chip-1-edge:#c4c8cf; --chip-5-edge:#d23b36; --chip-25-edge:#159a7f; --chip-100-edge:#1b1c22;
+  --chip-500-edge:#7a4fc0; --chip-1000-edge:#f2bd2c;
+  --poker-1:var(--chip-1-edge); --poker-5:var(--chip-5-edge); --poker-25:var(--chip-25-edge);
+  --poker-100:var(--chip-100-edge); --poker-500:var(--chip-500-edge); --poker-1000:var(--chip-1000-edge);
   /* the TV backglass painting's inks (art only, never text or state): the
      session's sky, mesas and desert floor, mixed per phase in tv.css */
   --art-indigo:#18205e; --art-cobalt:#2443c4; --art-violet:#4a2690; --art-plum:#2c1240;

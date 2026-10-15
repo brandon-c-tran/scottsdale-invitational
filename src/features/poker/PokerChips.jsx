@@ -2,7 +2,7 @@ import React, { useLayoutEffect, useRef } from "react";
 import { ChipStack } from "../wagers/BetStacks.jsx";
 import { EASE } from "../../lib/motion.js";
 import { useFreshMount } from "../../lib/motionKit.js";
-import { pokerChip, seatStacks, trayStacks, TRAY_TUBE } from "./pokerChips.js";
+import { POKER_CHIPS, pokerChip, seatStacks, trayStacks, TRAY_TUBE } from "./pokerChips.js";
 import { buildSchedule } from "./pokerMotion.js";
 import "./poker-chips.css";
 
@@ -16,12 +16,16 @@ const DROP = [
 ];
 const DROP_MS = 260;
 
-/* A seat's starting chips as the dealer builds them: one short stack per
-   denomination, height = count, the count on the stack's base. With
+/* the chip's edge color rides on its stack's box, for poker-chips.css */
+const edgeOf = v => ({ "--chip-edge":(POKER_CHIPS[v] || POKER_CHIPS[100]).edge });
+
+/* A seat's starting chips (its share of the table's deal, [{ v, n }]) as
+   the dealer builds them: one short stack per denomination, height =
+   count, the count on the stack's base. With
    `build`, stacks put on screen by a fresh deal (pokerSetup) build chip by
    chip after `buildDelay` ms (M17); any other mount shows them built. */
-export function DenomStacks({ stack, size = 24, counts = true, className = "", build = false, buildDelay = 0 }) {
-  const { stacks } = seatStacks(stack);
+export function DenomStacks({ chips, size = 24, counts = true, className = "", build = false, buildDelay = 0 }) {
+  const { stacks } = seatStacks(chips);
   const box = useRef(null);
   const dealt = useFreshMount("pokerSetup");
   const building = build && dealt;
@@ -51,7 +55,7 @@ export function DenomStacks({ stack, size = 24, counts = true, className = "", b
     <div ref={box} className={`fd-poker-stacks${className ? ` ${className}` : ""}`}
       role="img" aria-label={stacks.map(item => `${item.n} of ${fmt(item.v)}`).join(", ")}>
       {stacks.map(({ v, n }) => (
-        <div className="fd-poker-stack" key={v} data-denom={v} data-count={n}>
+        <div className="fd-poker-stack" key={v} data-denom={v} data-count={n} style={edgeOf(v)}>
           <ChipStack chip={pokerChip(v)} count={n} size={size} cap={TRAY_TUBE} tag={false} />
           {counts && <span className="fd-poker-count">{n}</span>}
         </div>
@@ -69,7 +73,7 @@ export function ChipTray({ inventory, size = 22, className = "" }) {
     <div className={`fd-poker-tray${className ? ` ${className}` : ""}`} role="img"
       aria-label={rows.map(item => `${item.n} of ${fmt(item.v)}`).join(", ")}>
       {rows.map(({ v, n, tubes }) => (
-        <div className="fd-poker-tray-denom" key={v} data-denom={v} data-count={n}>
+        <div className="fd-poker-tray-denom" key={v} data-denom={v} data-count={n} style={edgeOf(v)}>
           <div className="fd-poker-tray-tubes">
             {tubes.map((count, index) => <ChipStack key={index} chip={pokerChip(v)} count={count} size={size}
               cap={TRAY_TUBE} tag={false} />)}

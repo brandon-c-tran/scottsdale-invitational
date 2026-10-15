@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { buildSync } from "esbuild";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { CHIP_COLORS, EMPTY_STATE, ROSTER, allEventsOf, computeStandings, resolveCurrentContest, pokerDenoms, pokerInventory } from "../shared/core.js";
+import { CHIP_COLORS, EMPTY_STATE, ROSTER, allEventsOf, computeStandings, resolveCurrentContest, pokerDeal, pokerInventory } from "../shared/core.js";
 import { applyAction } from "./support/confirmed-start.mjs";
 import {
   STACK_CAP, stackChipCount, stackView, orderStacks, stacksTotal, contestStacks, settleStack, settledStacks,
@@ -161,24 +161,31 @@ test("settling grows a winner by its payout and sends a loser back to the bank",
 });
 
 test("a seat's starting chips are one short stack per denomination; the tray is rows of twenty", () => {
-  const seat = seatStacks(600);
-  assert.deepEqual(seat.stacks, [{ v:25, n:8 }, { v:100, n:4 }], "small chips first, counts from pokerDenoms");
+  const stacks = { a:600, b:1000, c:2900, d:3600 };
+  const deal = pokerDeal(stacks);
+  const seat = seatStacks(deal.seats.a);
+  assert.deepEqual(seat.stacks, [{ v:5, n:35 }, { v:25, n:17 }], "small chips first, counts from the table's deal");
   assert.equal(seat.total, 600);
-  for (const stack of [600, 1000, 1700, 2900, 6400]) {
-    const view = seatStacks(stack);
+  for (const [player, stack] of Object.entries(stacks)) {
+    const view = seatStacks(deal.seats[player]);
     assert.equal(view.total, stack, `${stack} deals exactly`);
-    assert.equal(view.stacks.length, pokerDenoms(stack).length);
+    assert.equal(view.stacks.length, deal.seats[player].length);
   }
-  const tray = trayStacks(pokerInventory([600, 1000, 2900, 3600]));
-  const quarters = tray.find(item => item.v === 25);
-  assert.equal(quarters.n, 32);
-  assert.deepEqual(quarters.tubes, [TRAY_TUBE, 12]);
+  const tray = trayStacks(pokerInventory(stacks));
+  const fives = tray.find(item => item.v === 5);
+  assert.equal(fives.n, 140, "the case's 5s less the bank's ten, shared evenly");
+  assert.deepEqual(fives.tubes, Array(7).fill(TRAY_TUBE));
+  assert.equal(tray[0].v, 5, "small chips first");
   assert.ok(tray.every(item => item.tubes.reduce((sum, n) => sum + n, 0) === item.n));
-  /* each denomination has its own flat token color; only gold carries dark ink */
-  assert.deepEqual(Object.keys(POKER_CHIPS).map(Number).sort((a, b) => a - b), [25, 100, 500, 1000]);
-  assert.ok(Object.values(POKER_CHIPS).every(chip => /^var\(--poker-\d+\)$/.test(chip.color)));
-  assert.equal(pokerChip(1000).isLight, true);
+  /* Brandon's Slowplay set: a white body for every value, its own edge color */
+  assert.deepEqual(Object.keys(POKER_CHIPS).map(Number).sort((a, b) => a - b), [1, 5, 25, 100, 500, 1000]);
+  assert.ok(Object.values(POKER_CHIPS).every(chip => chip.color === "var(--chip-body)" && chip.isLight));
+  assert.ok(Object.entries(POKER_CHIPS).every(([v, chip]) => chip.edge === `var(--chip-${v}-edge)`));
   assert.equal(pokerChip(100).stamp, 100);
+  const css = readFileSync(new URL("../src/ui/experience.css", import.meta.url), "utf8");
+  for (const token of ["--chip-body", "--chip-body-side", "--chip-ink-gold", ...[1, 5, 25, 100, 500, 1000].map(v => `--chip-${v}-edge`)])
+    assert.match(css, new RegExp(`${token}:#[0-9a-f]{6};`), token);
+  for (const v of [1, 5, 25, 100, 500, 1000]) assert.ok(css.includes(`--poker-${v}:var(--chip-${v}-edge)`), `--poker-${v}`);
 });
 
 /* capture native buttons during a real render, then drive them by name */
@@ -342,7 +349,7 @@ test("poker starting stacks are drawn chips on the setup sheet and the TV, never
   const sheet = renderToStaticMarkup(React.createElement(PlayerIdentityProvider, { profiles:state.profiles },
     React.createElement(PokerSetupSheet, { state, onClose:() => {}, onDeal:() => ({ ok:true }) })));
   assert.doesNotMatch(sheet, /×| x \d|\d x /);
-  assert.match(sheet, /data-denom="25" data-count="8"/);
+  assert.match(sheet, /data-denom="5" data-count="10"/);
   assert.match(sheet, /class="fd-poker-tray"/);
   assert.match(sheet, /aria-label="Minimum stack, 200 added"/);
   act(state, "pokerSetup", {});

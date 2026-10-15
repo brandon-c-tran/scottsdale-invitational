@@ -1,5 +1,5 @@
 import React from "react";
-import { disp, pokerClock } from "../../../shared/core.js";
+import { disp, pokerClock, pokerSeatChips, raceOffText } from "../../../shared/core.js";
 import { DenomStacks } from "../poker/PokerChips.jsx";
 import { LevelChip, RollNumber, SeatChip, useBustTip, useLevelRoll } from "../poker/PokerMotion.jsx";
 import { ScoreReel } from "../../ui/ScoreReel.jsx";
@@ -52,7 +52,7 @@ function Seat({ state, row, at, index, dealing, tipping }) {
         {out ? <span className="tv-seat-out">Out <b>{placeName(row.finish)}</b></span>
           : <span className="tv-seat-stack">{fmt(row.starting)}</span>}
         {/* the deal builds each stack chip by chip; the counts are the dealer's, on the phone */}
-        {dealing && <DenomStacks stack={row.starting} size={18} counts={false} className="tv-seat-denoms" build buildDelay={index * SEAT_STAGGER} />}
+        {dealing && <DenomStacks chips={pokerSeatChips(state.poker, row.player)} size={18} counts={false} className="tv-seat-denoms" build buildDelay={index * SEAT_STAGGER} />}
       </div>
     </div>
   );
@@ -111,11 +111,13 @@ function TVPokerLive({ state, standings, now }) {
   const blinds = `${fmt(clk.sb)} / ${fmt(clk.bb)}`;
   const roll = useLevelRoll(pk, clk.idx, blinds, now);
   const left = pokerSeats(pk).length - pk.outs.length;
+  const race = raceOffText(pk.levels?.[clk.idx]);
   const center = <>
     <div className="tv-display tv-blinds"><RollNumber text={blinds} roll={roll} /></div>
     <div className="tv-table-level">
       <LevelChip level={clk.idx} roll={roll} size={68} />
       <span className="tv-label"><OneSafe text={`Level ${clk.idx + 1} of ${pk.levels.length}`} /></span>
+      {race && <span className="tv-label tv-race-off">{race}</span>}
     </div>
     <div className="tv-table-clock">
       <LevelRing clk={clk} />

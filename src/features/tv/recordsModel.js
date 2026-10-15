@@ -34,7 +34,8 @@ export const MIN_MEETINGS = 2;
 export const H2H_MAX = 3;
 /* a side merged from teammates stands at most this many (a team of three) */
 export const H2H_SIDE_MAX = 3;
-export const SWING_MIN = 500;
+/* past a Friday win (600, Oct 14 ladder): one quiet result is no swing */
+export const SWING_MIN = 700;
 export const STREAK_MIN = 3;
 export const UPSETS_MIN = 2;
 export const BETTOR_MIN = 500;

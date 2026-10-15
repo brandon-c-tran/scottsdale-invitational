@@ -262,17 +262,17 @@ test("custom 2, 3 and 4 team events floor their size, put the remainder on crew,
   for (const [teams, size] of [[2, 6], [3, 4], [4, 3]]) {
     const state = fresh();
     const id = `custom-${teams}`;
-    act(state, "addEvent", { ev:{ id, name:`${teams} teams`, value:400, kind:"team", teamCfg:{ teams, size } } });
+    act(state, "addEvent", { ev:{ id, name:`${teams} teams`, value:600, kind:"team", teamCfg:{ teams, size } } });
     act(state, "announceAndDraw", { evId:id });
     assert.equal(state.draws[id].teams.length, teams);
     assert.ok(state.draws[id].teams.every(team => team.players.length === size));
     assert.equal(state.draws[id].roles.length, 13 - teams * size);
     assert.equal(state.onDeck, id);
   }
-  refuse(fresh(), "addEvent", { ev:{ id:"big", name:"Too big", value:400, kind:"team", teamCfg:{ teams:4, size:4 } } }, /need 16 players/);
+  refuse(fresh(), "addEvent", { ev:{ id:"big", name:"Too big", value:600, kind:"team", teamCfg:{ teams:4, size:4 } } }, /need 16 players/);
   /* a custom event that looks like poker is still a normal event */
   const state = fresh(["cash"]);
-  act(state, "addEvent", { ev:{ id:"cash", name:"Cash game", value:400, kind:"solo", game:"poker", finale:true } });
+  act(state, "addEvent", { ev:{ id:"cash", name:"Cash game", value:600, kind:"solo", game:"poker", finale:true } });
   assert.equal(eventOf(state, "cash").finale, undefined);
   act(state, "announceEvent", { evId:"cash" });
   assert.equal(current(state, "cash").kind, "ffa");

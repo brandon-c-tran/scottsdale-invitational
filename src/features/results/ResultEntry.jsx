@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { AWARDS, awardTable, bracketChampion, resolveSlot, stageEntrantView, stageFinalists, presentPlayers, disp,
+import { AWARDS, AWARD_VALUES, awardTable, bracketChampion, resolveSlot, stageEntrantView, stageFinalists, presentPlayers, disp,
   teamLabel } from "../../../shared/core.js";
 import { Sheet, ActionButton } from "../../ui/controls.jsx";
 import { writeError } from "../../lib/writeErrors.js";
@@ -50,7 +50,7 @@ function initialSlots(state, ev, table) {
    takes them back. */
 export function ResultEntry({ ev, state, onClose, save }) {
   const existing = state.results[ev.id];
-  const table = AWARDS[ev.value] || ev.pays ? awardTable(ev) : [400, 0, 0];
+  const table = AWARDS[ev.value] || ev.pays ? awardTable(ev) : [AWARD_VALUES[0], 0, 0];
   const paid = paidPlaces(table);
   const bracket = state.brackets[ev.id], stage = state.stages[ev.id], draw = state.draws[ev.id];
   const sequenced = !!state.eventOps?.[ev.id]?.contest;

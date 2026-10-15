@@ -12,7 +12,7 @@ import { PT } from "../../../shared/core.js";
 export const TOWER_GEOMETRY = Object.freeze({ radius:1, chip:0.2, elevationDeg:20, maxPxPerUnit:54, minPxPerUnit:4 });
 
 /* ms, from the spec: a 300 hold after the broadcast, 420 per falling chip on
-   a 110 stagger (a 1,600 award is 16 chips, about 2.2s), a 250 beat, a 900
+   a 110 stagger (a 2,400 award is 24 chips, about 3s), a 250 beat, a 900
    re-sort, then the lead ring slides for 600 */
 export const TOWER_TIMING = Object.freeze({
   hold:300, drop:420, stagger:110, lift:380, liftStagger:60, sortDelay:250, sort:900, ring:600, fall:9,
@@ -215,7 +215,7 @@ export function frameMonitor({ limit = TOWER_SLOW_FRAME_MS, frames = TOWER_SLOW_
 }
 
 /* The 3D board needs WebGL, a scene that has not failed this session, and
-   chip-denominated values (the poker finale's final stacks move in 25s, so
+   chip-denominated values (the poker finale's final stacks move in 5s, so
    that one stays the flat list with its busts and away seats). Loading is
    its own state: the flat board shows until the chunk is in. */
 export function towersMode({ supported = false, loaded = false, failed = null, kind = "awards" } = {}) {

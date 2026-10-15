@@ -196,7 +196,7 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   settling, duels, rulings, won chips flying into a counting total; swipe or
   tap away, it leaves on its own, later moments merge in). It replaced the
   result toast. A correction or returned bet is one quiet toast line
-  ("Result corrected: −400"); a catch-up says nothing (the since line owns
+  ("Result corrected: −600"); a catch-up says nothing (the since line owns
   absences). Only your own win (event, match, bet) showers YOUR identity
   chips (`ChipShower`); phones never play confetti, the TV keeps its burst
   for results (its crown is the M18 scene, not confetti).
@@ -408,8 +408,8 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   `eventPool` (at least `MIN_PLAYING` 10 play; a room of 10 sits nobody
   out). The shape fits whoever is left (`teamFit` on the pool), crew is
   still the overflow it cannot seat and still earns the 3rd-place award; a
-  sit-out earns nothing (Brandon chose this, so sitting out a 1,600 game is
-  never a free 400). The draw, stage or draft records them as `out`.
+  sit-out earns nothing (Brandon chose this, so sitting out a 2,400 game is
+  never a free 600). The draw, stage or draft records them as `out`.
   Crew is the commissioner's call too: the shape fits whoever is playing
   (`validateEventParticipants` fits `teamFit` to the players, down to the
   shape ten make), and the crew check adds the odd one out to the crew by
@@ -947,7 +947,7 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   Quick Draws), teammates with the very same record standing as one side
   (three at most); the closest, the most lopsided, the most played. Biggest
   swing: the biggest the ticker ever named (`biggestSwing`) or a Quick
-  Draw's ante, 500+ either way, never a ruling, and on its turn the ticker's
+  Draw's ante, 700+ either way (past a Friday win), never a ruling, and on its turn the ticker's
   own steps aside. Longest streak (gags' `winStreaks`, 3+), most upsets (the
   stored `odds`, 2+), best and worst bettor (settled net, 500+), Quick
   Draw's fastest settled reaction and most wins (2+); a record more than
@@ -1053,7 +1053,7 @@ reflection, parallax painting, coin chips; the per-team draw partner beat (repla
 in-app TV mode counted as a TV) went to staging as `d87c5798`. Wave 3 (new
 mark "the chip, lit" and icon set; `npm run audit:fit` fit audit, 179 views
 clean; 23.5 s crown; champion card and big-bracket stage; PayoutLadder
-podium; no rules prose or "400 · 200 · 100" lines; Weekend as "the program"
+podium; no rules prose or "600 · 300 · 200" lines; Weekend as "the program"
 with drawn GameSteps (`src/features/rules/`, words in `rulesWords.js`, owner
 review at /dev/rules-review.html, approved Oct 3 with one edit; Gauntlet, Flip Cup and general basketball removed); state-driven event
 sheet with a separate Commissioner section; text sweep (/dev/copy-review.html);
@@ -1320,9 +1320,10 @@ first use is the awards ballot (D6). Its plan is in `docs/REFOUNDATION.md`.
    conversion and the app never asks anyone to do arithmetic: the number you
    carried all weekend is the stack you are dealt. Every value in the economy
    (awards, stakes, duel antes, rulings) is a multiple of PT and one rendered
-   BankChip = PT = one physical 100 chip. Standings = 1,000 + event awards +
-   wager net + rulings, computed fresh from state
-   every time. No stored balances.
+   BankChip = PT = one physical 100 chip (the finale's own chips go down to
+   5s, invariant 8). Standings = 1,000 + event awards + wager net + rulings,
+   computed fresh from state every time. No stored balances. The start stays
+   1,000 while awards went x1.5 (Oct 14, after the economy simulation).
 4. **Current-contest betting is a pool** (Oct 13, Pool betting above):
    every contest, a wide free-for-all, a matchup, a heat or a stage final,
    pays from its own pool. The bank seeds 100 a side at the open, split by
@@ -1343,11 +1344,14 @@ first use is the awards ballot (D6). Its plan is in `docs/REFOUNDATION.md`.
    of its sides. Free-for-all choices remain unrestricted. There is no
    automatic wager or required self-bet. Legacy outright and advancement
    tickets keep their original settlement and payout contracts; they are not
-   converted to new winner bets. Awards are a ladder by session (Sept 29,
-   v2 slate): 1st takes 400/800/1200/1600, 2nd half, 3rd a quarter
-   (`AWARDS` keys ARE the legal event values), paid to every player in the
-   place. An event may carry its own `pays` (5v5 winners only [800,0,0];
-   Rage Cage [1600,1600,400]); `awardTable(ev)` is the one lookup, never
+   converted to new winner bets. Awards are a ladder by session (Oct 14,
+   x1.5): 600/300/200 Friday, 1200/600/300 Saturday morning, 1800/900/500
+   Saturday afternoon, 2400/1200/600 Saturday night (`AWARDS` keys ARE the
+   legal event values, `AWARD_VALUES`), paid to every player in the place.
+   An event may carry its own `pays` (5v5 winners only [1200,0,0]; Rage
+   Cage [2400,2400,600]). A custom event or value edit stored on the old
+   ladder (400/800/1200/1600) moves once on hydration (`migrateAwardLadder`,
+   marked by `state.awardLadder`). `awardTable(ev)` is the one lookup, never
    `AWARDS[ev.value]`. Both of a bracket's semifinal losers take the full
    3rd-place award, and crew (a draw's roles) take it too; `resultAwards` is
    the one derivation every surface reads. The at-risk cap is `maxRisk(pts)` = pts/2 floored to 100s, never
@@ -1526,25 +1530,37 @@ first use is the awards ballot (D6). Its plan is in `docs/REFOUNDATION.md`.
    (`redactDuelsForViewer`).
 8. **The poker finale settles on stacks.** There is NO buy-in conversion: the
    board is already in chips, so a stack of 2,900 sits down with 2,900 in front
-   of it, dealt in real denominations 25/100/500/1000 (`pokerDenoms`, blind
-   pack of eight 25s), blinds 25/50 to 600/1200. Counts are entered in chips
-   (multiples of CHIP_MIN=25) and `pokerResult` counts BECOME the standings
+   of it, dealt from Brandon's own case (`CHIP_SET`, a Slowplay set: 100
+   1s, 150 5s, 100 25s, 100 100s, 50 500s, 50 1000s; the 1s stay in it)
+   less a bank reserve (`CHIP_RESERVE`: 10 5s, 10 25s, 10 100s, 4 500s, 3
+   1000s). `pokerDeal` is one pure TABLE deal (Oct 14): every seat's odd
+   tail, one working layer of 5s/25s/100s/500s smallest first, the bulk in
+   1000s, then an exchange pass trading leftover small chips onto stacks of
+   2,000 and up; `pokerSetup` stores it (`poker.deal`, read through
+   `pokerSeatChips`/`pokerInventory`; a table without one derives it) and
+   refuses a board the case cannot cover. The chips are drawn as the set:
+   a white body (`--chip-body`), the value's edge spots (`--chip-<v>-edge`,
+   aliased `--poker-<v>`), a gold numeral (`--chip-ink-gold`). Blinds are ten 12-minute levels,
+   10/20 to 1000/2000; the 5s race off after level 2 and the 25s after
+   level 5 (`raceOffText` on the level that follows: phone, Table view, TV,
+   ticker, pill). Counts are entered in chips (multiples of CHIP_MIN=5) and
+   `pokerResult` counts BECOME the standings
    verbatim (chip leader = champion, elimination order breaks 0-count ties).
    `pokerSetup` tops anyone under 600 up to 600 (a "Minimum stack" ruling; a
    negative balance deals as 0) so nobody sits out the finale, requires every
    wager settled or voided first, and voids unplayed duels in the same write,
    so dealt stacks always match the board (`pokerCancel` reverts the Minimum
    stack grants, and is refused once cards are live). Away players are not
-   seated; their board total carries as their stack. The deal lays a working
-   layer of small chips first and reports tray totals (`pokerInventory`). A
+   seated; their board total carries as their stack. The tray totals are
+   `pokerInventory`. A
    counted 0 is a bust, a count above the dealt total is refused, and the last
    seat cannot bust. Post-count rulings carry the `pokerRevision` they correct.
    The blind clock stores each level's start and an optional pause. The whole economy freezes while cards are live
    (`pokerLive`) and betting stays CLOSED once counts post (`stacksPosted`):
    no wagers, duels, or on-deck after the finale settles; rulings then move
-   in 25s (chip units). Derived and reversible: `clearResult` re-arms the
+   in 5s (chip units). Derived and reversible: `clearResult` re-arms the
    table. `POKER_CONFIG` is the explicit contract: 600 minimum, exact 100-chip
-   starting stacks, 25-chip final counts, no cap, no silent rounding. Once
+   starting stacks, 5-chip final counts, no cap, no silent rounding. Once
    `pokerSetup` deals the board, every non-poker tournament mutation is blocked
    until `pokerCancel`; minimum grants carry table-specific IDs so cancellation
    reverses exactly that table. Setup, start, identical counts, final posting,

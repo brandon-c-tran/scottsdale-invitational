@@ -751,7 +751,7 @@ test("the Final: everyone wagers, 0 up to their score or 1,000; answers change u
   assert.deepEqual(done.extra.slots, boardResultSlots(boardStandings(game)));
   assert.ok(game.finishedAt);
   const after = computeStandings(state).find(row => row.player === d);
-  assert.equal(after.awardPts - before.awardPts, 1600, "the 1,600 ladder pays 1st like any result");
+  assert.equal(after.awardPts - before.awardPts, 2400, "the 2,400 ladder pays 1st like any result");
   assert.equal(triviaLive(state), false);
   assert.equal(boardAutoBeat(state), null);
   assert.equal(triviaBeat(state, trivia(state)), null);

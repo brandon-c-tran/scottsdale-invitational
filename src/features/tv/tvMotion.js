@@ -51,7 +51,7 @@ export const CROWN_TIMING = Object.freeze({
   tag:15900, tagMs:300,              // CHAMPION stamps
   name:16200, nameStagger:60, nameMs:380,
   stats:17200, statsMs:300,
-  count:17600, countMs:1800,         // the final stack counts in 25s
+  count:17600, countMs:1800,         // the final stack counts up
   path:18200, pathStagger:110, pathMs:300,
   lines:19800, lineStagger:300, lineMs:300, // the constellation joins
   total:23500,

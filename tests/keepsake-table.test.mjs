@@ -253,6 +253,7 @@ test("the view reads the blind clock at a server instant and turns on the stored
   assert.equal(at.blinds, `${pk.levels[1].sb} / ${pk.levels[1].bb}`);
   assert.equal(at.next, `${pk.levels[2].sb} / ${pk.levels[2].bb}`);
   assert.equal(at.clock, mmss(minutes - 30_500));
+  assert.equal(at.raceOff, null, "level 2 still plays the 5s");
   assert.equal(at.stack, pk.startingStacks[me]);
   assert.equal(at.denoms.reduce((sum, chip) => sum + chip.v * chip.n, 0), pk.startingStacks[me], "the tray deals the stack exactly");
   const clk = pokerClock(pk, 1_000_000 + minutes);
@@ -366,7 +367,8 @@ test("the table view renders the level, blinds, clock and dealt stack; the entry
   const pk = state.poker;
   pk.levelIdx = 2; pk.levelStartedAt = 5_000_000; pk.pausedAt = null;
   const html = render(state, React.createElement(ui.TableView, { state, me, now:5_000_000 + 61_000, width:390 }));
-  assert.match(html, /Level 3 of 7/);
+  assert.match(html, /Level 3 of 10/);
+  assert.match(html, /class="fd-table-view-label fd-poker-race">Race off the 5s</, "level 3 says the 5s come off");
   assert.ok(html.includes(`${pk.levels[2].sb} / ${pk.levels[2].bb}`));
   assert.ok(html.includes(mmss(pk.levels[2].mins * 60000 - 61_000)));
   assert.ok(html.includes(pk.startingStacks[me].toLocaleString("en-US")));

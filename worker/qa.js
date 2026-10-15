@@ -519,10 +519,10 @@ function playPoker(run, phase) {
     if (want === 2) {
       if (!Object.keys(state.poker.counts || {}).length)
         for (const player of shuffled(run, open()).slice(0, 2))
-          run.gm("pokerCount", { player, count:(12 + Math.floor(run.rng() * 40)) * 4 * CHIP_MIN });
+          run.gm("pokerCount", { player, count:(12 + Math.floor(run.rng() * 40)) * PT });
       return;
     }
-    /* the rest of the dealt chips, split unevenly, in 25s, summing exactly */
+    /* the rest of the dealt chips, split unevenly, in 5s, summing exactly */
     const todo = shuffled(run, open());
     const counted = Object.values(state.poker.counts || {}).reduce((sum, count) => sum + count, 0);
     let left = Math.max(0, Math.floor((state.poker.total - counted) / CHIP_MIN));

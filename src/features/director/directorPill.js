@@ -4,7 +4,7 @@
    test both read this, so the count measures the real controls. */
 import {
   disp, resolveCurrentContest, overflowRoleMeta, computeStandings, resolveWager, wagerMatchesContest,
-  pokerClock, contestUndoAvailability, duelOpen, rosterOf, isActivePlayer, isAway,
+  pokerClock, raceOffText, contestUndoAvailability, duelOpen, rosterOf, isActivePlayer, isAway,
 } from "../../../shared/core.js";
 import { postedFinalUndo } from "../../../shared/show.js";
 import { autoBeat, autopilotHeld } from "../../../shared/autopilot.js";
@@ -220,6 +220,7 @@ export function directorPill(state, events, director, { me = null, now = Date.no
   if (beat.type === "run-poker" && state.poker?.startedAt) {
     const clock = pokerClock(state.poker, now);
     note(1, `Blinds ${fmt(clock.sb)} / ${fmt(clock.bb)}`);
+    note(2, raceOffText(clock));
   }
   if (beat.type === "post-poker-result" && state.poker) {
     const out = new Set((state.poker.outs || []).map(item => item.player));

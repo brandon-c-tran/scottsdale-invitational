@@ -352,7 +352,7 @@ test("brackets of any supported size, byes and one-player entrants play generica
   assert.ok(sizes.includes(3) && sizes.includes(5));
   for (const n of sizes) {
     const state = empty();
-    state.customEvents = [{ id:`qa${n}`, custom:true, name:`Solo ${n}`, value:1200, kind:"solo", session:"fri",
+    state.customEvents = [{ id:`qa${n}`, custom:true, name:`Solo ${n}`, value:1800, kind:"solo", session:"fri",
       teamCfg:{ teams:n, size:1, bracket:n } }];
     state.eventOrder = [`qa${n}`];
     const mid = reach(`event:qa${n}:mid`, state).state;
@@ -472,7 +472,7 @@ test("checkpoints save privately and restore only game progress, behind a backup
   /* move on, and change what a restore must never touch */
   assert.equal((await asGm("qaAdvance", { target:"crowned" })).ok, true);
   assert.equal((await asGm("saveProfile", { player:"Evan", display:"Evan T" })).ok, true);
-  assert.equal((await asGm("addEvent", { ev:{ id:"late1", name:"Late Game", value:400, kind:"solo" } })).ok, true);
+  assert.equal((await asGm("addEvent", { ev:{ id:"late1", name:"Late Game", value:600, kind:"solo" } })).ok, true);
   assert.equal((await asGm("saveLogistics", { venueNote:"Gate code 12" })).ok, true);
   const before = structuredClone(tournament.state);
   const claims = structuredClone(tournament.claims);

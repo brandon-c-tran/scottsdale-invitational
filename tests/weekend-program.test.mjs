@@ -62,7 +62,9 @@ test("payouts: one ladder per session, an event that pays its own way on its own
   const rows = payoutRows(allEventsOf(structuredClone(EMPTY_STATE)));
   const own = rows.filter(row => row.own).map(row => row.events[0].id);
   assert.deepEqual(own.sort(), ["bball5", "ragecage"]);
-  assert.deepEqual(rows.find(row => row.events.some(ev => ev.id === "putt")).pays, [400, 200, 100]);
+  assert.deepEqual(rows.find(row => row.events.some(ev => ev.id === "putt")).pays, [600, 300, 200]);
+  assert.deepEqual(rows.map(row => row.pays[0]).filter((v, i, all) => all.indexOf(v) === i),
+    [600, 1200, 1800, 2400], "the Oct 14 ladder, x1.5");
   assert.ok(!rows.some(row => row.events.some(ev => ev.finale)));
 });
 

@@ -30,7 +30,7 @@ const { seasonStats, eventRow, headToHead, rivalries, betRecord, betsOn, duelTal
 const [A, B, C, D, E, F, G, H, I, J, K, L, M] = ROSTER;
 const ev = (s, id) => allEventsOf(s).find(item => item.id === id);
 
-/* Beer Pong Doubles (1,200: 1,200 / 600 / 300) played as a six-team
+/* Beer Pong Doubles (1,800: 1,800 / 900 / 500) played as a six-team
    bracket: T0 beats T3 and T1 in the final, T1 beats T5, T3 and T5 won
    their play-ins. M crews. */
 function played() {
@@ -49,17 +49,17 @@ function played() {
 test("an event row carries the place and award the board paid", () => {
   const s = played();
   const pong = ev(s, "pong");
-  assert.deepEqual(pick(eventRow(s, pong, A)), { status:"placed", place:"1st", award:1200 });
-  assert.deepEqual(pick(eventRow(s, pong, C)), { status:"placed", place:"2nd", award:600 });
-  assert.deepEqual(pick(eventRow(s, pong, G)), { status:"placed", place:"3rd", award:300 },
+  assert.deepEqual(pick(eventRow(s, pong, A)), { status:"placed", place:"1st", award:1800 });
+  assert.deepEqual(pick(eventRow(s, pong, C)), { status:"placed", place:"2nd", award:900 });
+  assert.deepEqual(pick(eventRow(s, pong, G)), { status:"placed", place:"3rd", award:500 },
     "each semifinal loser takes the full 3rd");
-  assert.deepEqual(pick(eventRow(s, pong, K)), { status:"placed", place:"3rd", award:300 });
+  assert.deepEqual(pick(eventRow(s, pong, K)), { status:"placed", place:"3rd", award:500 });
   assert.deepEqual(pick(eventRow(s, pong, E)), { status:"out", place:"Play-in", award:0 });
-  assert.deepEqual(pick(eventRow(s, pong, M)), { status:"crew", place:"Crew", award:300 });
+  assert.deepEqual(pick(eventRow(s, pong, M)), { status:"crew", place:"Crew", award:500 });
   const standings = computeStandings(s);
   const byPlayer = Object.fromEntries(standings.map(row => [row.player, row.pts]));
-  assert.equal(byPlayer[G], 1300, "the card reads the same derived award as the board");
-  assert.equal(byPlayer[M], 1300, "crew take the 3rd-place award");
+  assert.equal(byPlayer[G], 1500, "the card reads the same derived award as the board");
+  assert.equal(byPlayer[M], 1500, "crew take the 3rd-place award");
 });
 const pick = row => row && ({ status:row.status, place:row.place, award:row.award });
 
@@ -194,7 +194,7 @@ test("the season stats bundle carries rank, chips, the viewer's record and own r
   const standings = computeStandings(s);
   const mine = seasonStats(s, A, { standings, viewer:A });
   assert.equal(mine.rank, standings.find(row => row.player === A).rank);
-  assert.equal(mine.pts, 2200);
+  assert.equal(mine.pts, 2800);
   assert.equal(mine.wins, 1);
   assert.equal(mine.versus, null);
   assert.ok(mine.rivals.length > 0);
@@ -246,8 +246,8 @@ test("the card back prints the season, your record against them, and your rivals
   assert.match(theirs.html, /You vs Chiang/);
   assert.doesNotMatch(theirs.html, /Beer Pong Doubles · Final/, "the meeting names the event, no round meta");
   assert.match(theirs.html, /Beer Pong Doubles/);
-  assert.match(theirs.html, /\+1,200/);
-  assert.match(theirs.html, /2,200/);
+  assert.match(theirs.html, /\+1,800/);
+  assert.match(theirs.html, /2,800/);
   assert.doesNotMatch(theirs.html, /Rivalries/);
   assert.equal(theirs.buttons.some(button => button.name === "Rematch"), false, "Rematch waits for the card to turn");
   const own = render(PlayerSheet, { ...base, me:A, p:A });

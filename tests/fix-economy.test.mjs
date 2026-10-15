@@ -8,7 +8,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import {
   EMPTY_STATE, ROSTER, AWARDS, PT, allEventsOf, resolveCurrentContest, resolveWager, computeStandings,
   atRisk, maxRisk, makeBracket, resolveSlot, defaultQaParticipants, resultAwards, awardPlan,
-  pokerDenoms, pokerDistribution, pokerInventory, drawTeams, resolveEventLifecycle, teamLabel,
+  pokerDeal, pokerDistribution, pokerInventory, drawTeams, resolveEventLifecycle, teamLabel,
 } from "../shared/core.js";
 import { applyAction } from "./support/confirmed-start.mjs";
 import { withLegacyEvents } from "./support/legacy-events.mjs";
@@ -101,7 +101,7 @@ test("every two-team event is a two-sided pool, keeps competitors on their side,
     }
     post(s, id, [c.sides[1].players, c.sides[0].players]);
     const after = pts(s), crewAward = AWARDS[event(s, id).value][2];
-    assert.equal(crewAward, 400);
+    assert.equal(crewAward, 600);
     assert.equal(after[spectator] - before[spectator], 300 + crewAward, "2.0x plus the crew award");
     assert.equal(after[competitor] - before[competitor], -300 + AWARDS[event(s, id).value][1]);
   }
@@ -123,7 +123,7 @@ test("every two-team event is a two-sided pool, keeps competitors on their side,
   post(s, "bball5", [c.sides[0].players, c.sides[1].players]);
   const after = pts(s);
   /* 200 seed and 500 staked is 700 over the winners' 300: 2.3x, so 200 nets 260, to the nearest 100 */
-  assert.equal(after[winner] - before[winner], 300 + 800, "the pool's 2.3x plus the winners' 800");
+  assert.equal(after[winner] - before[winner], 300 + 1200, "the pool's 2.3x plus the winners' 1,200");
   assert.equal(after[loser] - before[loser], -300, "the other side takes no award");
 });
 
@@ -187,7 +187,7 @@ test("event crew earn the 3rd-place award and both bracket semifinal losers take
   assert.equal(crew.length, 1);
   const before = pts(s)[crew[0]];
   post(s, "flip", [s.draws.flip.teams[0].players, s.draws.flip.teams[1].players]);
-  assert.equal(pts(s)[crew[0]] - before, 400, "Flip Cup's 3rd at 1,600");
+  assert.equal(pts(s)[crew[0]] - before, 600, "Flip Cup's 3rd at 2,400");
   assert.equal(computeStandings(s).find(row => row.player === crew[0]).wins, 0);
 
   /* Friday pays three places now, so its crew earn Friday's 3rd */
@@ -195,11 +195,11 @@ test("event crew earn the 3rd-place award and both bracket semifinal losers take
   drawn(friday, "die");
   const crewDie = crewOf(friday, "die")[0];
   assert.deepEqual(awardPlan(event(friday, "die"), friday.draws.die).map(row => [row.place, row.pts]),
-    [[0, 400], [1, 200], [2, 100], ["crew", 100]]);
+    [[0, 600], [1, 300], [2, 200], ["crew", 200]]);
   assert.deepEqual(resultAwards(friday, event(friday, "die"), { slots:[[ROSTER[0]]] })
-    .filter(a => a.player === crewDie).map(a => [a.place, a.pts]), [["crew", 100]]);
+    .filter(a => a.player === crewDie).map(a => [a.place, a.pts]), [["crew", 200]]);
 
-  /* pickleball is the 800 bracket: each semifinal loser takes the full 200 */
+  /* pickleball is the 1,200 bracket: each semifinal loser takes the full 300 */
   const pb = fresh();
   drawn(pb, "pickleball");
   const br = pb.brackets.pickleball, teams = pb.draws.pickleball.teams;
@@ -210,19 +210,19 @@ test("event crew earn the 3rd-place award and both bracket semifinal losers take
   const [champ, runner] = [final.winner, [resolveSlot(br, final.a), resolveSlot(br, final.b)].find(x => x !== final.winner)];
   const third = semis.flatMap(side => teams[side].players);
   const awards = resultAwards(pb, event(pb, "pickleball"), { slots:[teams[champ].players, teams[runner].players, third] });
-  assert.deepEqual(awards.filter(a => a.place === 2).map(a => a.pts), [200, 200, 200, 200], "no split: all four take 200");
-  assert.deepEqual(awards.filter(a => a.place === 0).map(a => a.pts), [800, 800]);
-  assert.deepEqual(awards.filter(a => a.place === 1).map(a => a.pts), [400, 400]);
+  assert.deepEqual(awards.filter(a => a.place === 2).map(a => a.pts), [300, 300, 300, 300], "no split: all four take 300");
+  assert.deepEqual(awards.filter(a => a.place === 0).map(a => a.pts), [1200, 1200]);
+  assert.deepEqual(awards.filter(a => a.place === 1).map(a => a.pts), [600, 600]);
   /* crew earn what a 3rd-place player gets */
-  assert.deepEqual(awards.filter(a => a.place === "crew").map(a => a.pts), [200]);
+  assert.deepEqual(awards.filter(a => a.place === "crew").map(a => a.pts), [300]);
   const oneSide = resultAwards(pb, event(pb, "pickleball"), { slots:[teams[champ].players, [], teams[semis[0]].players] });
-  assert.deepEqual([...new Set(oneSide.filter(a => a.place === 2).map(a => a.pts))], [200]);
+  assert.deepEqual([...new Set(oneSide.filter(a => a.place === 2).map(a => a.pts))], [300]);
   const threeSides = resultAwards(pb, event(pb, "pickleball"),
     { slots:[teams[champ].players, [], [...third, ...teams[runner].players]] });
-  assert.deepEqual(threeSides.filter(a => a.place === 2).map(a => a.pts), [200, 200, 200, 200, 200, 200],
-    "three sides in 3rd still take the full 200 each");
+  assert.deepEqual(threeSides.filter(a => a.place === 2).map(a => a.pts), [300, 300, 300, 300, 300, 300],
+    "three sides in 3rd still take the full 300 each");
   const plan = awardPlan(event(pb, "pickleball"), pb.draws.pickleball);
-  assert.deepEqual(plan.map(row => [row.place, row.pts]), [[0, 800], [1, 400], [2, 200], ["crew", 200]]);
+  assert.deepEqual(plan.map(row => [row.place, row.pts]), [[0, 1200], [1, 600], [2, 300], ["crew", 300]]);
 });
 
 /* ── 5. corrections never strand a negative board ── */
@@ -311,8 +311,8 @@ test("posted chips move only with a reason, never on a frozen board, and never t
   act(s, "announceEvent", { evId:"putt" });
   assert.equal(bet(s, "putt", ROSTER[3], ROSTER[3], 500).ok, true);
   runFfa(s, "putt", [[ROSTER[3]], [ROSTER[4]]]);
-  fail(s, "editEvent", { id:"putt", patch:{ value:1600 } }, gm(), /Clear the result/);
-  act(s, "editEvent", { id:"putt", patch:{ name:"Long Putt", value:400 } });
+  fail(s, "editEvent", { id:"putt", patch:{ value:2400 } }, gm(), /Clear the result/);
+  act(s, "editEvent", { id:"putt", patch:{ name:"Long Putt", value:600 } });
   const won = s.wagers[0];
   fail(s, "voidWager", { id:won.id }, gm(), /Reason required/);
 
@@ -428,17 +428,18 @@ test("a draw with chips riding on it cannot be redrawn or cleared", () => {
 
 /* ── 12 and 13. dealing and ids ── */
 test("the deal opens with a working layer, stays exact, and reports the tray", () => {
-  for (let v = 0; v <= 60000; v += 25) {
-    const chips = pokerDenoms(v);
-    assert.equal(chips.reduce((sum, c) => sum + c.v * c.n, 0), v);
+  for (let v = 600; v <= 30000; v += 100) {
+    const deal = pokerDeal({ a:v, b:1000, c:2900 });
+    assert.equal(deal.ok, true, `${v} deals`);
+    assert.equal(deal.seats.a.reduce((sum, c) => sum + c.v * c.n, 0), v);
   }
-  assert.deepEqual(pokerDenoms(1000), [{ v:100, n:8 }, { v:25, n:8 }]);
-  assert.deepEqual(pokerDenoms(2900), [{ v:500, n:3 }, { v:100, n:12 }, { v:25, n:8 }]);
-  assert.deepEqual(pokerDenoms(12900), [{ v:1000, n:10 }, { v:500, n:3 }, { v:100, n:12 }, { v:25, n:8 }]);
   const s = fresh();
   const setup = act(s, "pokerSetup");
   assert.deepEqual(setup.extra.inventory, pokerInventory(s.poker.startingStacks));
+  assert.deepEqual(s.poker.deal.inventory, setup.extra.inventory, "the table stores its deal");
   assert.equal(setup.extra.inventory.reduce((sum, c) => sum + c.v * c.n, 0), s.poker.total);
+  /* thirteen seats of 1,000: every seat the same chips */
+  assert.equal(new Set(Object.values(s.poker.deal.seats).map(chips => JSON.stringify(chips))).size, 1);
 });
 
 test("balanced draws made in the same millisecond never share an id", () => {
@@ -492,7 +493,7 @@ const sheet = (state, ev, clicks = []) => {
 };
 
 test("two teams, one game: the result is picking the winner, and the other team is 2nd when 2nd pays", () => {
-  /* Flip Cup (legacy, 6 v 6 at 1,600) pays the other team 2nd */
+  /* Flip Cup (legacy, 6 v 6 at 2,400) pays the other team 2nd */
   const s = withFlip();
   drawn(s, "flip");
   const teams = s.draws.flip.teams;
@@ -500,11 +501,11 @@ test("two teams, one game: the result is picking the winner, and the other team 
   const open = sheet(s, event(s, "flip"));
   /* no places to aim at and no teams/players switch: the field is the two teams */
   assert.doesNotMatch(open.html, /aria-label="2nd place"|Players</, "no places to fill");
-  assert.match(open.html, /aria-label="1st place, 1,600"/);
+  assert.match(open.html, /aria-label="1st place, 2,400"/);
   const posted = sheet(s, event(s, "flip"), [teamLabel(s, teams[1]), "Post official result"]);
   assert.deepEqual(posted.saved, [[[...teams[1].players], [...teams[0].players], []]]);
   /* the podium reads the payout: the winners on 1st, the other team on 2nd */
-  assert.match(posted.html, /aria-label="2nd place, 800"/);
+  assert.match(posted.html, /aria-label="2nd place, 1,200"/);
 
   /* 5v5 pays winners only: the other team takes no place */
   const full = fresh();
@@ -515,34 +516,34 @@ test("two teams, one game: the result is picking the winner, and the other team 
   assert.doesNotMatch(fullOpen.html, /aria-label="2nd place|Players</, "no places to fill");
   const fullPosted = sheet(full, event(full, "bball5"), [teamLabel(full, sides[1]), "Post official result"]);
   assert.deepEqual(fullPosted.saved, [[[...sides[1].players], [], []]]);
-  assert.match(fullPosted.html, /aria-label="1st place, 800"/);
+  assert.match(fullPosted.html, /aria-label="1st place, 1,200"/);
   assert.doesNotMatch(fullPosted.html, /2nd place|Crew, /);
 });
 
 test("the result sheet prefills both semifinal losers in 3rd and a stage runner-up, and asks before leaving a paid place empty", () => {
-  /* Pickleball pays 800 / 400 / 200: both semifinal losers take 200, and so does crew */
+  /* Pickleball pays 1,200 / 600 / 300: both semifinal losers take 300, and so does crew */
   const pb = fresh();
   drawn(pb, "pickleball");
   while (current(pb, "pickleball")) { lock(pb, "pickleball"); win(pb, "pickleball", current(pb, "pickleball").sides[0].key); }
   const pbView = sheet(pb, event(pb, "pickleball"), ["Post official result"]);
   /* 1st is the bracket's, fixed; 2nd and 3rd are places to aim at */
-  assert.match(pbView.html, /aria-label="1st place, 800"/);
+  assert.match(pbView.html, /aria-label="1st place, 1,200"/);
   assert.doesNotMatch(pbView.html, /aria-label="1st place"/);
-  assert.match(pbView.html, /aria-label="2nd place"[^]*?400/);
-  assert.match(pbView.html, /aria-label="3rd place"[^]*?200/);
+  assert.match(pbView.html, /aria-label="2nd place"[^]*?600/);
+  assert.match(pbView.html, /aria-label="3rd place"[^]*?300/);
   /* the crew stand on their own step, paid the 3rd-place award */
-  assert.match(pbView.html, /aria-label="Crew, 200 each"/);
+  assert.match(pbView.html, /aria-label="Crew, 300 each"/);
   assert.equal(pbView.saved.length, 1, "every paid place is filled, so it posts");
   assert.equal(pbView.saved[0][1].length, 2, "the runner-up pair");
   assert.equal(pbView.saved[0][2].length, 4, "both semifinal losers");
 
-  /* Beerio Kart pays 1,600 / 800 / 400 */
+  /* Beerio Kart pays 2,400 / 1,200 / 600 */
   const pp = heats("beerio");
   lock(pp, "beerio"); win(pp, "beerio", current(pp, "beerio").sides[0].key);
   const stage = pp.stages.beerio;
   const view = sheet(pp, event(pp, "beerio"), ["Post official result"]);
   assert.equal(view.saved.length, 0, "an empty paid place stops the post");
-  assert.match(view.html, /3rd place pays 400\. Nobody selected\./);
+  assert.match(view.html, /3rd place pays 600\. Nobody selected\./);
   assert.doesNotMatch(view.html, /2nd place pays/, "the two-finalist runner-up is prefilled");
   assert.match(view.html, /Leave empty/);
   const runner = stage.groups.flatMap(g => g.through).find(key => key !== stage.finalWinner);

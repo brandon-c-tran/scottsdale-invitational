@@ -159,7 +159,7 @@ test("C19: a bracket final's recorded winner posts the result in the same write,
   assert.equal(posted.slots[1].length, 2, "Runner-up is placed");
   assert.equal(posted.slots[2].length, 4, "Both semifinal losers share 3rd");
   const third = resultAwards(state, ev, posted).filter(award => award.place === 2);
-  assert.ok(third.every(award => award.pts === 200), "Split 3rd: 400 over two teams");
+  assert.ok(third.every(award => award.pts === 300), "Both 3rd-place teams take the full 300");
   assert.equal(state.showControl.active.kind, "winner");
 
   /* the 10-second Undo takes the result back and reopens the final */

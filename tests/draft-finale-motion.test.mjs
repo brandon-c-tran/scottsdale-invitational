@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { buildSync } from "esbuild";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { EMPTY_STATE, ROSTER, allEventsOf, computeStandings, draftTurn, snakeTeam } from "../shared/core.js";
+import { EMPTY_STATE, ROSTER, allEventsOf, computeStandings, draftTurn, pokerSeatChips, snakeTeam } from "../shared/core.js";
 import { withLegacyEvents } from "./support/legacy-events.mjs";
 import { applyAction } from "./support/confirmed-start.mjs";
 import { draftSeats, draftBoard, landedPick } from "../src/features/draft/draftModel.js";
@@ -203,8 +203,8 @@ test("poker renders built on any ordinary mount: the stacks, the level chip, the
   const state = dealt(), standings = computeStandings(state);
   const setup = render(state, React.createElement(TVPoker, { state, standings, now:Date.now() }));
   assert.match(setup, /class="tv-pane tv-table"/);
-  assert.match(setup, /data-denom="25"/);
-  const stacks = render(state, React.createElement(DenomStacks, { stack:2900, build:true }));
+  assert.match(setup, /data-denom="5"/);
+  const stacks = render(state, React.createElement(DenomStacks, { chips:pokerSeatChips(state.poker, ROSTER[0]), build:true }));
   assert.match(stacks, /fd-poker-stacks/);
   act(state, "pokerStart", {});
   const seats = state.poker.seats || ROSTER;
@@ -212,7 +212,7 @@ test("poker renders built on any ordinary mount: the stacks, the level chip, the
   act(state, "pokerBust", { player:seats[0] });
   const live = render(state, React.createElement(TVPoker, { state, standings, now:Date.now() }));
   assert.match(live, /aria-label="Level 1"/);
-  assert.match(live, /25 \/ 50/);
+  assert.match(live, /10 \/ 20/);
   assert.doesNotMatch(live, /fd-roll-out|is-tipping|fd-level-face is-out/, "a first render never animates");
   /* the table: every seat keeps its place on the rail; a bust is struck where it sat */
   const order = [...live.matchAll(/data-seat="([^"]+)"/g)].map(match => match[1]);
@@ -240,7 +240,8 @@ test("a roll draws the old value leaving and the new one arriving; at rest only 
 test("the phone table card uses the finale motion components and keeps its stacks", () => {
   const app = readFileSync(new URL("../src/App.jsx", import.meta.url), "utf8");
   const card = app.slice(app.indexOf("export function PokerCard"), app.indexOf("function ChipCounter"));
-  assert.match(card, /<DenomStacks stack=\{myRow\.pts\} size=\{26\} build \/>/);
+  assert.match(card, /<DenomStacks chips=\{d\} size=\{26\} build \/>/);
+  assert.match(card, /pokerSeatChips\(pk, me\)/, "your share of the table's stored deal");
   assert.match(card, /<PokerBlinds /);
   assert.match(card, /<PokerSeatChips /);
 });

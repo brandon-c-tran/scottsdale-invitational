@@ -1,5 +1,5 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { disp } from "../../../shared/core.js";
+import { disp, raceOffText } from "../../../shared/core.js";
 import { ChipFace } from "../identity/PlayerIdentity.jsx";
 import { ChipStack } from "../wagers/BetStacks.jsx";
 import { MOTION, useFreshChange, useReducedMotion } from "../../lib/motion.js";
@@ -71,7 +71,8 @@ export function PokerBlinds({ pk, clk, now, alive }) {
     <div className="fd-poker-blinds">
       <RollNumber className="fd-poker-blinds-num" text={blinds} roll={roll} />
       {/* labels and numbers, no sentence: the level and who is still in */}
-      <span className="fd-poker-blinds-meta"><span>Level {clk.idx + 1} of {pk.levels.length}</span><span>{alive} in</span></span>
+      <span className="fd-poker-blinds-meta"><span>Level {clk.idx + 1} of {pk.levels.length}</span><span>{alive} in</span>
+        {raceOffText(pk.levels?.[clk.idx]) && <span className="fd-poker-race">{raceOffText(pk.levels[clk.idx])}</span>}</span>
     </div>
   </>;
 }

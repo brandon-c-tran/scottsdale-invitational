@@ -1,4 +1,4 @@
-import { EMPTY_STATE, allEventsOf, cleanLeg, cleanLogistics } from "../shared/core.js";
+import { EMPTY_STATE, allEventsOf, cleanLeg, cleanLogistics, migrateAwardLadder } from "../shared/core.js";
 
 /* The wager retry ledger lives under its own storage key. At its 2048-entry
    cap it is the largest single part of the tournament, and keeping it out of
@@ -46,6 +46,11 @@ function hydrateStoredState(stored, storedWagerOps) {
     ? structuredClone(stored)
     : structuredClone(EMPTY_STATE);
 
+  /* Oct 14: the award ladder went x1.5. A stored custom event or value edit
+     on the old ladder (400/800/1200/1600) moves to the new one once, before
+     the defaults below mark the state as on it; an unmoved 400 would pay
+     nothing. Posted results are derived and pay the new table. */
+  migrateAwardLadder(state);
   for (const [key, value] of Object.entries(EMPTY_STATE))
     if (state[key] === undefined) state[key] = structuredClone(value);
   if (storedWagerOps !== undefined)

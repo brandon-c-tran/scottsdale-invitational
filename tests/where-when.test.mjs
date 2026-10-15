@@ -132,7 +132,7 @@ test("the game: start once under way, guess until the reveal, next, and the top 
   const finished = act(state, "geoFinish", { evId:"where" });
   assert.deepEqual(finished.extra.slots, [[khoa], [sahil], [evan]]);
   assert.deepEqual(state.results.where.slots, [[khoa], [sahil], [evan]]);
-  assert.equal(computeStandings(state).find(row => row.player === khoa).pts, before + 400);
+  assert.equal(computeStandings(state).find(row => row.player === khoa).pts, before + 600);
   assert.equal(state.geo.phase, "done");
   assert.equal(geoBeat(state, where(state)), null, "nothing left to direct");
 });

@@ -38,7 +38,7 @@ const ui = await load("result-card.cjs", `
 
 const events = BUILTIN_EVENTS;
 const putt = events.find(event => event.id === "putt");
-/* Rage Cage: the Saturday-night solo free-for-all; it pays 1st and 2nd the same (1,600, 1,600, 400) */
+/* Rage Cage: the Saturday-night solo free-for-all; it pays 1st and 2nd the same (2,400, 2,400, 600) */
 const cage = events.find(event => event.id === "ragecage");
 const pairs = events.find(event => event.id === "8ball");
 const poker = events.find(event => event.id === "poker");
@@ -63,12 +63,12 @@ test("a fresh result makes one receipt: your place, each bet settling, the total
   const receipt = moment(before, after);
   assert.equal(receipt.kind, "receipt");
   assert.deepEqual(receipt.lines.map(line => [line.label, line.detail, line.delta]), [
-    ["2nd place", "Event award", 1600],
+    ["2nd place", "Event award", 2400],
     [`Bet on ${khoa}`, "200 at 2:1", 400],
     [`Bet on ${sahil}`, "200 at 2:1", -200],
   ]);
   assert.equal(receipt.from, START);
-  assert.equal(receipt.to, START + 1600 + 400 - 200);
+  assert.equal(receipt.to, START + 2400 + 400 - 200);
   assert.equal(receipt.title, cage.name);
   assert.equal(receipt.subtitle, `${khoa} won`);
   assert.equal(receipt.chip, khoa, "the winner's chip heads the card");
@@ -90,7 +90,7 @@ test("only a fresh frame makes a receipt; a catch-up says nothing and a correcti
   corrected.results[putt.id] = { slots:[[adi], [], []], ts:9, revision:2, correctedAt:9 };
   corrected.eventOps[putt.id] = { corrections:[{ type:"overwrite", at:9, reason:"Wrong card" }] };
   const notice = moment(after, corrected, { fresh:false, live:true, correction:true });
-  assert.deepEqual(notice, { kind:"notice", delta:-400, text:"Result corrected: −400" });
+  assert.deepEqual(notice, { kind:"notice", delta:-600, text:"Result corrected: −600" });
   assert.equal(moment(after, corrected, FRESH).kind, "notice", "a revised result is a correction whatever the frame says");
 });
 
@@ -206,7 +206,7 @@ test("the chip history replays the weekend in order and always lands on the boar
   const board = computeStandings(state).find(row => row.player === me).pts;
   assert.equal(history[0].pts, START);
   assert.equal(history.at(-1).pts, board);
-  assert.deepEqual(history.map(step => step.pts), [1000, 1200, 1400, 1300, 1200, 2200]);
+  assert.deepEqual(history.map(step => step.pts), [1000, 1400, 1600, 1500, 1400, 2600]);
   assert.deepEqual(history.map(step => step.session), ["fri", "fri", "fri", "fri", "fri", "san"]);
 
   for (const player of ROSTER)
@@ -238,7 +238,7 @@ test("the last card says only what happened: place, stack, wins, best bet, Quick
   assert.deepEqual(card.leaders.map(leader => leader.player), [khoa]);
   assert.deepEqual(card.wins, [putt.name]);
   assert.deepEqual(card.facts.map(fact => [fact.id, fact.value]), [
-    ["wins", putt.name], ["best", "+600"], ["qd", "+100"], ["high", "2,200"]]);
+    ["wins", putt.name], ["best", "+600"], ["qd", "+100"], ["high", "2,600"]]);
   assert.equal(card.facts[1].label, `Best bet on ${khoa}`);
   assert.equal(card.facts[2].label, "Quick Draw 1–1");
   assert.equal(card.dates, "OCT 30 TO NOV 1");
@@ -254,7 +254,7 @@ test("the chart is a step line with the high marked and session ticks that never
   const chart = ui.chartModel(history, { width:330, height:128 });
   assert.match(chart.d, /^M4 [\d.]+ H[\d.]+ V[\d.]+/);
   assert.equal(chart.points.length, history.length);
-  assert.equal(chart.last.pts, 2200);
+  assert.equal(chart.last.pts, 2600);
   assert.equal(chart.peak, null, "a high that is also the last point is drawn once");
   assert.ok(chart.ticks.length >= 1 && chart.ticks[0].label === "FRI");
   for (let i = 1; i < chart.ticks.length; i++) assert.ok(chart.ticks[i].x - chart.ticks[i - 1].x >= chart.ticks[i - 1].label.length * 7.8 + 6, "labels never touch");
@@ -286,11 +286,11 @@ test("the receipt, the last card and Home's way back render their real content",
   const receipt = { ...moment(before, after), animate:false };
   const html = render(React.createElement(ui.ChipReceipt, { moment:receipt, onDismiss:() => {}, onStandings:() => {}, onSettled:() => {} }));
   assert.match(html, /2nd place/);
-  assert.match(html, /\+1,600/);
+  assert.match(html, /\+2,400/);
   assert.match(html, /Settled bets/);
-  /* the total's reel stands on its end state: its windows read 3,000 */
+  /* the total's reel stands on its end state: its windows read 3,800 */
   const total = html.match(/fd-receipt-to">([\s\S]*?)<\/strong>/)[1];
-  assert.equal([...total.matchAll(/fd-reel-strip[^"]*" style="--d:(\d+)/g)].map(m => Number(m[1]) % 10).join(""), "3000",
+  assert.equal([...total.matchAll(/fd-reel-strip[^"]*" style="--d:(\d+)/g)].map(m => Number(m[1]) % 10).join(""), "3800",
     "reduced or static: the total shows its end state");
   assert.doesNotMatch(html, /—/);
 
@@ -348,7 +348,7 @@ test("the canvas card draws every fact without throwing", () => {
   const texts = calls.filter(call => call[0] === "fillText").map(call => call[1]);
   assert.ok(texts.includes("PLAYER 01"));
   assert.ok(texts.some(text => /^Quick Draw/.test(text)));
-  assert.ok(texts.includes("2,200"));
+  assert.ok(texts.includes("2,600"));
 });
 
 test("App: results no longer rain confetti on every phone; receipts, own-chip showers and the crown are wired", () => {

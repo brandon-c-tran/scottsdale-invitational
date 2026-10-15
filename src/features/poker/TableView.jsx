@@ -117,6 +117,7 @@ export function TableView({ state, me, onClose, now: fixedNow = null, width = nu
       <span className="fd-table-view-label">Blinds</span>
       <div className="fd-table-view-blinds-fit" style={{ fontSize:size }}>
         <RollNumber className="fd-table-view-blinds-num" text={model.blinds} roll={roll} /></div>
+      {model.raceOff && <span className="fd-table-view-label fd-poker-race">{model.raceOff}</span>}
     </div>
 
     <div className="fd-table-view-clock">
@@ -129,7 +130,7 @@ export function TableView({ state, me, onClose, now: fixedNow = null, width = nu
       {model.busted ? <p className="fd-table-view-out">Out <b>{ordinal(model.finish)}</b></p> : <>
         <div className="fd-table-view-stack"><span className="fd-table-view-label">Starting stack</span>
           <b><ScoreReel value={model.stack} tone="chip" label={model.stackText} /></b></div>
-        <DenomStacks stack={model.stack} size={30} className="fd-table-view-denoms" />
+        <DenomStacks chips={model.denoms} size={30} className="fd-table-view-denoms" />
       </>}
       <div className="fd-table-view-in">
         <PokerSeatChips state={state} pk={pk} size={24} />

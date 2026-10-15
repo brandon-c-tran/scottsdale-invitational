@@ -1,4 +1,4 @@
-/* The finale's chips, drawn: flat denomination colors from :root. */
+/* The finale's chips, drawn: the Slowplay set's tokens from :root. */
 .fd-poker-stacks { display:flex; align-items:flex-end; gap:6px; min-width:0; }
 .fd-poker-stack { display:flex; flex-direction:column; align-items:center; gap:2px; }
 .fd-poker-count { min-width:18px; padding:1px 4px; border-radius:99px; background:var(--ink-tint); color:var(--ink);
@@ -9,3 +9,12 @@
 .fd-poker-tray-denom { display:flex; flex-direction:column; align-items:center; gap:4px; }
 .fd-poker-tray-tubes { display:flex; align-items:flex-end; gap:2px; }
 .fd-poker-tray-count { font:700 18px/1 var(--fd-display, var(--fd-display)); color:var(--ink); font-variant-numeric:tabular-nums; }
+/* Brandon's Slowplay chips: a white body, the value's color in spots round
+   the edge and on the face (--chip-edge, set per denomination by
+   PokerChips.jsx), the numeral printed in gold */
+:is(.fd-poker-stacks, .fd-poker-tray) .fd-stack.is-light .fd-stack-rim { fill:var(--chip-body-side); }
+:is(.fd-poker-stacks, .fd-poker-tray) .fd-stack.is-light .fd-stack-insert { fill:var(--chip-edge); }
+:is(.fd-poker-stacks, .fd-poker-tray) .fd-stack.is-light .fd-stack-face line { stroke:var(--chip-edge); }
+:is(.fd-poker-stacks, .fd-poker-tray) .fd-stack.is-light .fd-stack-num { fill:var(--chip-ink-gold); }
+/* the level's race-off: a quiet amber note beside the blinds */
+.fd-poker-race { color:var(--sun); font-weight:700; }

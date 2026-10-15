@@ -1,9 +1,11 @@
 import React, { useEffect, useRef, useState } from "react";
 import { disp } from "../../../shared/core.js";
 import {
-  KARAOKE_TIERS, KARAOKE_UP_MS, karaokeArtists, karaokeScoreText, karaokeSinger, karaokeSongTitle, karaokeThumb, karaokeTurn,
-  karaokeVideoOf,
+  KARAOKE_TIERS, KARAOKE_UP_MS, karaokeArtists, karaokeLinesFor, karaokeScoreText, karaokeSinger, karaokeSongTitle, karaokeThumb,
+  karaokeTurn, karaokeTurnWay, karaokeVideoOf,
 } from "../../../shared/karaoke.js";
+import { lyricClockMs } from "../../../shared/karaokeLyrics.js";
+import { Lyrics } from "../karaoke/Lyrics.jsx";
 import { ChipFace } from "../identity/PlayerIdentity.jsx";
 import { Icon } from "../../ui/Icon.jsx";
 import { OneSafe } from "../../ui/OneSafe.jsx";
@@ -14,8 +16,8 @@ import { useKaraokePlayer } from "./karaokePlayer.js";
 import { useKaraokeRoomClock } from "./karaokeSound.js";
 import {
   KARAOKE_DEAL, KARAOKE_ROW_BEATS, KARAOKE_UP_BEATS, karaokeClock, karaokeDealAt, karaokeDealSlots, karaokeNextInstant,
-  karaokePickRoom, karaokeQueue, karaokeRain, karaokeRevealColumns, karaokeRevealRows, karaokeTitleFit, karaokeTvStage,
-  karaokeVoteRoom,
+  KARAOKE_LYRIC_STAGE, karaokeLyricSize, karaokePickRoom, karaokeQueue, karaokeRain, karaokeRevealColumns, karaokeRevealRows,
+  karaokeTitleFit, karaokeTvStage, karaokeVoteRoom,
 } from "./karaokeTv.js";
 import "./tv-karaoke.css";
 
@@ -181,31 +183,70 @@ function Drain({ from, until, now }) {
   return <span className="tv-karaoke-drain" aria-hidden="true"><i style={{ transform:`scaleX(${k.toFixed(4)})` }} /></span>;
 }
 
+/* Sung over an instrumental with our own lyrics: the singer's plate beside
+   the compact player (their chip, name and song, the song draining), and
+   the lyric stage under them, timed to the player's own position (the
+   server clock until it plays, and on a still) plus the song's nudge. */
+function LyricStage({ state, game, singer, song, turn, now, fixed, player }) {
+  const lines = karaokeLinesFor(game, song);
+  const offset = Number(song?.lyricsOffset) || 0;
+  const clock = useRef(null);
+  clock.current = () => {
+    const t = player.time?.();
+    return Number.isFinite(t) ? t * 1000 + offset : lyricClockMs(karaokeTurn(game, singer), serverNow(), offset);
+  };
+  const [read] = useState(() => () => clock.current());
+  return <>
+    <div className="tv-karaoke-plate tv-glass is-live">
+      <ChipFace p={singer} size={196} />
+      <div className="tv-karaoke-plate-who">
+        <span className="fd-show tv-karaoke-plate-name">{disp(state, singer)}</span>
+        <span className="tv-karaoke-plate-song" data-fit="ellipsis"><b>{karaokeSongTitle(song?.name)}</b></span>
+        <span className="tv-karaoke-plate-artist" data-fit="ellipsis">{karaokeArtists(song)}</span>
+      </div>
+      <Drain from={Number(turn.songAt)} until={Number(turn.endAt)} now={now} />
+    </div>
+    <div className="tv-karaoke-lyrics">
+      <Lyrics lines={lines} variant="tv" clock={fixed ? null : read}
+        at={fixed ? lyricClockMs(turn, now, offset) : null}
+        sizeOf={text => karaokeLyricSize(text, KARAOKE_LYRIC_STAGE.w - 160)} />
+    </div>
+  </>;
+}
+
 /* The song's own layer, over the whole canvas from the first singer up to
    the reveal: the video's box (the player's host, always mounted, shown
    only while the video plays; nothing is ever drawn over it), and while
    the song plays the strip under it. A practice song or a failed upload is
-   the lit card in the box's place; a still holds a stand-in there. */
+   the lit card in the box's place; a still holds a stand-in there. Sung
+   with our lyrics, the box is compact in the top right corner and the
+   lyric stage takes the rest. */
 function SongLayer({ state, game, now, stage, fixed, player }) {
   const singer = karaokeSinger(game), turn = karaokeTurn(game, singer);
   const song = game.songs?.[singer] || null;
   const video = karaokeVideoOf(song, turn);
   const singing = stage === "singing" && !!turn;
   const card = singing && (!video || !!turn.failed);
+  const lyric = !!turn && karaokeTurnWay(game, singer, turn) === "lyrics";
   const room = karaokeVoteRoom(state, game, singer);
-  return <div className="tv-karaoke-song">
-    <div ref={player.host} className="tv-karaoke-video" />
-    {singing && fixed && !card && <div className="tv-karaoke-standin" aria-hidden="true"><Icon name="play" size={160} /></div>}
+  return <div className={`tv-karaoke-song${lyric ? " is-lyrics" : ""}`}>
+    <div ref={player.host} className={`tv-karaoke-video${lyric ? " is-compact" : ""}`} />
+    {singing && fixed && !card && <div className={`tv-karaoke-standin${lyric ? " is-compact" : ""}`} aria-hidden="true">
+      <Icon name="play" size={lyric ? 96 : 160} /></div>}
+    {singing && lyric && !card && <LyricStage state={state} game={game} singer={singer} song={song} turn={turn} now={now}
+      fixed={fixed} player={player} />}
     {card && <div className="tv-karaoke-card tv-glass">
       <Title text={karaokeSongTitle(song?.name)} width={CARD_TITLE_W} className="tv-karaoke-card-title" hero={170} max={128} />
       <span className="fd-show tv-karaoke-card-artist">{karaokeArtists(song)}</span>
       <Drain from={Number(turn.songAt)} until={Number(turn.endAt)} now={now} />
     </div>}
-    {singing && <div className="tv-karaoke-strip tv-glass">
-      <ChipFace p={singer} size={64} />
-      <span className="fd-show tv-karaoke-strip-name">{disp(state, singer)}</span>
-      <span className="tv-karaoke-strip-song" data-fit="ellipsis"><b>{karaokeSongTitle(song?.name)}</b>
-        <span>{karaokeArtists(song)}</span></span>
+    {singing && <div className={`tv-karaoke-strip tv-glass${lyric && !card ? " is-room" : ""}`}>
+      {!(lyric && !card) && <>
+        <ChipFace p={singer} size={64} />
+        <span className="fd-show tv-karaoke-strip-name">{disp(state, singer)}</span>
+        <span className="tv-karaoke-strip-song" data-fit="ellipsis"><b>{karaokeSongTitle(song?.name)}</b>
+          <span>{karaokeArtists(song)}</span></span>
+      </>}
       {player.blocked
         ? <button type="button" className="tv-karaoke-play fd-lamp is-live is-pending" onClick={() => player.play()}>
           <Icon name="play" size={40} lit /><b className="fd-show">Click to play</b></button>

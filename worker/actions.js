@@ -237,8 +237,9 @@ const POKER_TABLE_ALLOWED_ACTIONS = new Set([
   ...PROMPT_ACTION_TYPES,
   /* the TV's bits never touch it either (a test at the table says why it waits) */
   "setGags", "qaGag",
-  /* a guest's karaoke song is a profile answer, like saveProfile */
-  "karaokeSong",
+  /* a guest's karaoke song is a profile answer, like saveProfile; its
+     lyrics' nudge is that song's configuration */
+  "karaokeSong", "karaokeNudge",
 ]);
 /* QA writes are rehearsal tools on a server that may hold real guests.
    Anything outside local and staging counts as production. Production always

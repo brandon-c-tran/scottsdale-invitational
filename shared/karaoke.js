@@ -11,21 +11,31 @@
    - `profiles[p].karaokeTrack`, the guest's song: the Spotify track exactly
      as validateSpotifyTrack keeps a win song (provider, trackId, uri, url,
      name, artists, durationMs, imageUrl, explicit, isrc), less startMs, plus
-       video:{ id, title, channel, seconds }, alts:[video], at, checkedAt
+       video:{ id, title, channel, seconds }, alts:[video], at, checkedAt,
+       lyrics (true/false: LRCLIB had synced lyrics for it when it was
+       saved; absent: unknown, as for a song saved before Oct 15),
+       lyricsOffset (the commissioner's nudge in ms; positive shows the
+       words earlier)
      Configuration, private to its owner and the commissioner, kept by a
-     progress reset.
+     progress reset. An upload's kind (instrumental, karaoke, other) is
+     read from its title (karaokeVideoKind), never stored.
    - `state.karaoke`, the game (progress, cleared by a reset):
        { id, eventId, startedAt, phase:"pick"|"turns"|"reveal"|"done",
          pickUntil, moreTime, ready:{ [player]:at }, broken:{ [player]:code },
          order:[player], out:[player], songs:{ [player]:song },
          index, turns:{ [player]:turn }, votes (server only), revealAt,
-         ranking, empty, finishedAt, ops (server only) }
+         ranking, empty, finishedAt, ops (server only),
+         lyrics (server only: { [trackId]:lines | false }, each song's
+           synced lyrics as the Durable Object found them, false: none),
+         upgrade (server only: { [player]:{ trackId, video | null } }, an
+           instrumental found for a song saved before they were offered) }
        turn = { upAt, songAt, endAt, closeAt, video, playedAt, failed, cut,
                 skipped, later, closedAt, legendary }
        votes = { [singer]:{ [voter]:{ tier, at } } }
    Pure. */
 import { disp, presentPlayers, resolveEventLifecycle } from "./core.js";
 import { validateSpotifyTrack } from "./audio.js";
+import { cleanLyricsOffset } from "./karaokeLyrics.js";
 
 /* ── the vote: Build Battle's classic ladder, low to high. A vote stores its
    tier (1 to 6); a score counts its points, Hypixel's own values for these
@@ -104,6 +114,21 @@ export function cleanKaraokeVideo(input) {
   return { id:input.id, title:text(input.title, 140), channel:text(input.channel, 80), seconds };
 }
 
+/* What an upload is, read from its title: "karaoke" (its words are on the
+   video: a karaoke or lyric upload), "instrumental" (the backing alone:
+   instrumental, backing track, no vocals, minus one), else "other" (a
+   pasted video of anything). Only an instrumental takes our own lyrics.
+   `name`: the song's own name, whose words never count ("Singalong",
+   "Lyric" in a title are the song's, not the upload's). */
+const KIND_KARAOKE = /\b(?:karaoke|lyrics?|sing[ -]?along)\b/i;
+const KIND_INSTRUMENTAL = /\b(?:instrumental|backing[ -]?track|no vocals?|without vocals?|minus[ -]?one|vocals? removed|accompaniment)\b/i;
+export function karaokeVideoKind(video, name = "") {
+  const own = String(name || "").split(/s+-s+|s*[([]/)[0].trim().toLowerCase();
+  const title = own.length >= 3 ? String(video?.title || "").toLowerCase().split(own).join(" ") : String(video?.title || "");
+  if (KIND_KARAOKE.test(title)) return "karaoke";
+  return KIND_INSTRUMENTAL.test(title) ? "instrumental" : "other";
+}
+
 /* A guest's song as the profile stores it, or null when it is not one: the
    Spotify half through validateSpotifyTrack (as a win song), the video
    required (a song the TV cannot play is not a karaoke song); alternates
@@ -117,7 +142,9 @@ export function cleanKaraokeTrack(input, { now = 0 } = {}) {
   const alts = (Array.isArray(input.alts) ? input.alts : []).map(cleanKaraokeVideo)
     .filter((alt, k, list) => alt && alt.id !== video.id && list.findIndex(other => other?.id === alt.id) === k)
     .slice(0, KARAOKE_ALTS_MAX);
-  return { ...spotify, video, alts, at:Number(input.at) || now || null, checkedAt:Number(input.checkedAt) || null };
+  const offset = cleanLyricsOffset(input.lyricsOffset);
+  return { ...spotify, video, alts, at:Number(input.at) || now || null, checkedAt:Number(input.checkedAt) || null,
+    ...(typeof input.lyrics === "boolean" ? { lyrics:input.lyrics } : {}), ...(offset ? { lyricsOffset:offset } : {}) };
 }
 /* the same song, ignoring when it was saved (a retried save is a no-op) */
 export const sameKaraokeTrack = (a, b) => !!a && !!b
@@ -138,6 +165,8 @@ export const karaokeSnapshot = track => track ? {
   imageUrl:track.imageUrl || null, durationMs:track.durationMs || null, ...(track.isrc ? { isrc:track.isrc } : {}),
   video:track.video ? { ...track.video } : null, alts:(track.alts || []).map(alt => ({ ...alt })),
   ...(track.practice ? { practice:true } : {}),
+  ...(typeof track.lyrics === "boolean" ? { lyrics:track.lyrics } : {}),
+  ...(cleanLyricsOffset(track.lyricsOffset) ? { lyricsOffset:cleanLyricsOffset(track.lyricsOffset) } : {}),
 } : null;
 
 /* QA's practice songs: titles only, no video (the TV plays a lit card for
@@ -166,6 +195,94 @@ export const karaokeVideoOf = (song, turn) => {
   const k = Number(turn?.video) || 0;
   return k === 0 ? song?.video || null : song?.alts?.[k - 1] || null;
 };
+/* ── our own words over an instrumental (docs/KARAOKE.md "Lyrics") ── */
+/* whether a song has synced lyrics: the game's lines when the Durable
+   Object has looked (an array, or false for none), else the profile's
+   boolean (true, false, or undefined while unknown) */
+export function karaokeHasLyrics(song, lines) {
+  if (Array.isArray(lines)) return lines.length > 0;
+  if (lines === false) return false;
+  return typeof song?.lyrics === "boolean" ? song.lyrics : null;
+}
+/* a game's lines for a song (null without them) */
+export const karaokeLinesFor = (game, song) => {
+  const lines = song?.trackId ? game?.lyrics?.[song.trackId] : null;
+  return Array.isArray(lines) && lines.length ? lines : null;
+};
+/* How an upload plays: "lyrics" (an instrumental, our words on the
+   screens), "video" (its own words on it, or no synced lyrics to show),
+   "card" (no upload: a practice song, a failed one). */
+export function karaokeWay(video, hasLyrics, name = "") {
+  if (!video?.id) return "card";
+  return hasLyrics === true && karaokeVideoKind(video, name) === "instrumental" ? "lyrics" : "video";
+}
+/* A song's uploads put in the order it should play them: with synced
+   lyrics, an instrumental first when the song was saved before they were
+   offered (`lyrics` unknown on the song: a guest who picked a karaoke
+   upload over an offered instrumental keeps it), the upgrade's found one
+   when the song has none; without lyrics, a karaoke upload ahead of an
+   instrumental (no words would be shown over it). The same object when
+   nothing moves. Pure. */
+export function karaokeArrange(song, lines, upgrade = null) {
+  if (!song?.video) return song;
+  const has = karaokeHasLyrics(song, lines);
+  const videos = [song.video, ...(Array.isArray(song.alts) ? song.alts : [])];
+  const front = k => ({ ...song, video:{ ...videos[k] },
+    alts:videos.filter((_, i) => i !== k).slice(0, KARAOKE_ALTS_MAX).map(video => ({ ...video })) });
+  const instrumental = video => karaokeVideoKind(video, song.name) === "instrumental";
+  if (has === true && song.lyrics === undefined && !instrumental(song.video)) {
+    const k = videos.findIndex(instrumental);
+    if (k > 0) return front(k);
+    const found = cleanKaraokeVideo(upgrade?.video);
+    if (found && upgrade.trackId === song.trackId && instrumental(found) && !videos.some(video => video.id === found.id))
+      return { ...song, video:found, alts:videos.slice(0, KARAOKE_ALTS_MAX).map(video => ({ ...video })) };
+  }
+  if (has === false && instrumental(song.video)) {
+    const k = videos.findIndex(video => !instrumental(video));
+    if (k > 0) return front(k);
+  }
+  return song;
+}
+/* how a song will play, as the pick sheet and the desk say it */
+export function karaokeSongWay(song, lines, upgrade = null) {
+  if (!song?.video) return song ? "card" : null;
+  const arranged = karaokeArrange(song, lines, upgrade);
+  return karaokeWay(arranged.video, karaokeHasLyrics(song, lines), song.name);
+}
+/* the way the turn on now plays: its upload, the game's lines */
+export function karaokeTurnWay(game, singer = karaokeSinger(game), turn = karaokeTurn(game, singer)) {
+  const song = singer ? game?.songs?.[singer] : null;
+  if (!song || !turn) return null;
+  if (turn.failed !== null && turn.failed !== undefined) return "card";
+  return karaokeWay(karaokeVideoOf(song, turn), !!karaokeLinesFor(game, song), song.name);
+}
+/* The songs whose lyrics (or, for a song saved before instrumentals were
+   offered, whose instrumental) the Durable Object still owes the game:
+   in the pick window every present player's profile song, from the order
+   draw every song whose turn has not closed (an upgrade only before its
+   song starts). [{ player, trackId, name, artists, durationMs, lyrics,
+   upgrade }] with `lyrics`/`upgrade` what is owed. Spotify songs only. */
+export function karaokeLyricsWanted(state) {
+  const game = state?.karaoke;
+  if (!game?.id || !karaokeLive(state) || !["pick", "turns"].includes(game.phase)) return [];
+  const out = [];
+  const add = (player, song, { upgrade = true } = {}) => {
+    if (!song?.video || song.provider !== "spotify" || !song.trackId) return;
+    const lyrics = game.lyrics?.[song.trackId] === undefined;
+    const legacy = upgrade && song.lyrics === undefined && game.upgrade?.[player]?.trackId !== song.trackId
+      && ![song.video, ...(song.alts || [])].some(video => karaokeVideoKind(video, song.name) === "instrumental");
+    if (lyrics || legacy) out.push({ player, trackId:song.trackId, name:song.name, artists:[...(song.artists || [])],
+      durationMs:Number(song.durationMs) || 0, lyrics, upgrade:legacy });
+  };
+  if (game.phase === "pick") for (const player of presentPlayers(state)) add(player, karaokeTrackOf(state, player));
+  else for (const player of game.order || []) {
+    const turn = game.turns?.[player];
+    if (turn?.closedAt || turn?.skipped) continue;
+    add(player, game.songs?.[player], { upgrade:!Number.isFinite(turn?.songAt) });
+  }
+  return out;
+}
+
 export const karaokeSongMs = (song, turn = null) => {
   const video = karaokeVideoOf(song, turn);
   return video ? Math.min(video.seconds * 1000, KARAOKE_MAX_SONG_MS) : KARAOKE_PRACTICE_MS;
@@ -454,12 +571,23 @@ export function projectKaraoke(state, viewer = null) {
     if (viewer && votes?.[viewer]) mine[singer] = Number(votes[viewer].tier);
   }
   const revealed = game.phase === "reveal" || game.phase === "done";
+  /* the words go with the song: the current singer's only, from the
+     moment they are up (as public as the song itself), never a song still
+     to come, the singer's own included */
+  const singer = karaokeSinger(game), current = singer ? game.songs?.[singer] : null;
+  const lines = current?.trackId ? game.lyrics?.[current.trackId] : undefined;
+  const lyrics = current?.trackId && (Array.isArray(lines) || lines === false)
+    ? { [current.trackId]:Array.isArray(lines) ? lines.map(line => ({ ...line })) : false } : {};
+  /* how the viewer's own song will play (the pick sheet's lamp) */
+  const own = viewer && (game.phase === "pick" || game.phase === "turns")
+    ? (game.phase === "pick" ? state.profiles?.[viewer]?.karaokeTrack || game.songs?.[viewer] : game.songs?.[viewer]) : null;
+  const ways = own ? { [viewer]:karaokeSongWay(own, own.trackId ? game.lyrics?.[own.trackId] : undefined, game.upgrade?.[viewer]) } : {};
   return {
     id:game.id, eventId:game.eventId, startedAt:game.startedAt, phase:game.phase,
     pickUntil:game.pickUntil, moreTime:Number(game.moreTime) || 0, ready:{ ...(game.ready || {}) },
     broken:viewer && game.broken?.[viewer] ? { [viewer]:game.broken[viewer] } : {},
     order:[...order], out:[...(game.out || [])], index:Number.isInteger(game.index) ? game.index : -1,
-    turns:JSON.parse(JSON.stringify(game.turns || {})), songs, voted, mine,
+    turns:JSON.parse(JSON.stringify(game.turns || {})), songs, voted, mine, lyrics, ways,
     revealAt:game.revealAt || null, ranking:revealed ? (game.ranking || []).map(row => ({ ...row })) : null,
     empty:!!game.empty, finishedAt:game.finishedAt || null,
   };

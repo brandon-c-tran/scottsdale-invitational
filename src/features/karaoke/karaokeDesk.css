@@ -13,11 +13,11 @@
 .fd-karaoke-desk-row { display:grid; grid-template-columns:12px 36px minmax(0, 1fr); align-items:center; column-gap:12px;
   min-height:56px; padding:6px 0; border-bottom:1px solid var(--line); }
 .fd-karaoke-desk-row:last-child { border-bottom:0; }
-.fd-karaoke-desk-row .fd-insert { --lamp:var(--lamp-info); }
-.fd-karaoke-desk-row.is-partial .fd-insert { --lamp:var(--sun); }
+.fd-karaoke-desk-row > .fd-insert { --lamp:var(--lamp-info); }
+.fd-karaoke-desk-row.is-partial > .fd-insert { --lamp:var(--sun); }
 /* no song: the lens with its lamp off, never a dim live */
-.fd-karaoke-desk-row.is-missing .fd-insert { background:var(--lens-off); box-shadow:var(--lens-rim); }
-.fd-karaoke-desk-row.is-missing .fd-insert::after { opacity:.38; }
+.fd-karaoke-desk-row.is-missing > .fd-insert { background:var(--lens-off); box-shadow:var(--lens-rim); }
+.fd-karaoke-desk-row.is-missing > .fd-insert::after { opacity:.38; }
 .fd-karaoke-desk-face { display:inline-flex; border-radius:50%; }
 .fd-karaoke-desk-who { display:flex; flex-direction:column; gap:2px; min-width:0; }
 /* a long name or title takes another line, never an ellipsis */
@@ -26,3 +26,17 @@
 .fd-karaoke-desk-song { overflow-wrap:anywhere; font:600 14px/1.25 var(--fd-body); color:var(--ink); }
 .fd-karaoke-desk-artist { overflow-wrap:anywhere; font:500 13px/1.25 var(--fd-body); color:var(--muted2); }
 .fd-karaoke-desk-problem { font:700 13px/1.2 var(--fd-display); letter-spacing:.06em; text-transform:uppercase; color:var(--clay-text); }
+
+/* how the song will play, and the singer on now (the live lamp's word) */
+.fd-karaoke-desk-way { display:flex; flex-wrap:wrap; align-items:center; gap:4px 12px; margin-top:3px; }
+.fd-karaoke-desk-live { font:800 13px/1.2 var(--fd-display); letter-spacing:.07em; text-transform:uppercase; color:var(--lamp-live-text); }
+.fd-karaoke-desk-row.is-singing > .fd-insert { --lamp:var(--lamp-live); }
+/* a song sung with our lyrics: Earlier and Later, its offset between */
+.fd-karaoke-nudge { display:flex; flex-wrap:wrap; align-items:center; gap:6px 8px; margin:6px 0 2px; }
+.fd-karaoke-nudge button { min-width:76px; min-height:44px; padding:0 12px; border:1px solid var(--line); border-radius:8px;
+  background:var(--paper); color:var(--ink); font:700 15px/1 var(--fd-body); box-shadow:var(--glass-edge); cursor:pointer; }
+.fd-karaoke-nudge button:disabled { opacity:.55; cursor:default; }
+.fd-karaoke-nudge output { min-width:96px; text-align:center; font:800 15px/1.2 var(--fd-display); letter-spacing:.04em;
+  font-variant-numeric:tabular-nums; color:var(--bone); }
+.fd-karaoke-nudge .fd-karaoke-desk-problem { flex-basis:100%; }
+.fd-karaoke-desk-offset { font:700 13px/1.2 var(--fd-display); letter-spacing:.04em; color:var(--muted2); font-variant-numeric:tabular-nums; }

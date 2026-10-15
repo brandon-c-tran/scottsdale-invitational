@@ -39,16 +39,18 @@ import {
   KARAOKE_ALTS_MAX, KARAOKE_LATE_MAX_MS, KARAOKE_LATE_MIN_MS, KARAOKE_LEGENDARY_MS, KARAOKE_MORE_TIME_MAX,
   KARAOKE_MORE_TIME_MS, KARAOKE_ORDER_HOLD_MS, KARAOKE_PICK_MS, KARAOKE_PRACTICE_SONGS, KARAOKE_SONG_LEAD_MS,
   KARAOKE_TIERS, KARAOKE_VOTE_GRACE_MS,
-  cleanKaraokeTrack, isKaraokeTier, isYouTubeId, karaokeAutoBeat, karaokeGameId, karaokeLegendary, karaokeLive,
-  karaokeOrder, karaokeRanking, karaokeResultSlots, karaokeSchedule, karaokeSeed, karaokeSinger, karaokeSnapshot,
-  karaokeStage, karaokeTrackOf, karaokeTurn, karaokeVoteOpen, karaokeVoters, sameKaraokeTrack,
+  cleanKaraokeTrack, cleanKaraokeVideo, isKaraokeTier, isYouTubeId, karaokeArrange, karaokeAutoBeat, karaokeGameId,
+  karaokeLegendary, karaokeLive, karaokeOrder, karaokeRanking, karaokeResultSlots, karaokeSchedule, karaokeSeed, karaokeSinger,
+  karaokeSnapshot, karaokeStage, karaokeTrackOf, karaokeTurn, karaokeVideoKind, karaokeVoteOpen, karaokeVoters,
+  sameKaraokeTrack,
 } from "../shared/karaoke.js";
+import { cleanLyrics, cleanLyricsOffset } from "../shared/karaokeLyrics.js";
 
 export const KARAOKE_ACTION_TYPES = Object.freeze([
   "karaokeSong", "karaokeReady", "karaokeVote",
   "karaokeStart", "karaokeMoreTime", "karaokeEndPick", "karaokeStartSong", "karaokeEndSong", "karaokeNextVideo",
   "karaokeLater", "karaokeSkip", "karaokeNext", "karaokeFinish", "karaokeRestart",
-  "karaokeTvPlaying", "karaokeTvError", "karaokePreflight",
+  "karaokeTvPlaying", "karaokeTvError", "karaokePreflight", "karaokeLyrics", "karaokeNudge",
   "karaokeSimSongs", "karaokeSimVotes", "karaokeSimSong",
 ]);
 
@@ -236,10 +238,20 @@ export function karaokeActions({ ok, err, gmOnly, run }) {
       if (track !== null) {
         if (!track || typeof track !== "object" || Array.isArray(track)) return err(BAD_SONG);
         const checkedAt = Number(track.checkedAt);
-        next = cleanKaraokeTrack({ ...track, at:now, checkedAt:checkedAt > 0 ? Math.min(checkedAt, now) : null }, { now });
+        /* whether the song has synced lyrics is the server's to say (the
+           Durable Object reads its own LRCLIB answer into ctx.karaokeLyrics),
+           and the nudge the commissioner's: neither is taken from a phone */
+        const { lyrics:claimed, lyricsOffset:nudged, ...asked } = track;
+        next = cleanKaraokeTrack({ ...asked, at:now, checkedAt:checkedAt > 0 ? Math.min(checkedAt, now) : null }, { now });
         if (!next) return err(BAD_SONG);
       }
       const saved = karaokeTrackOf(state, player);
+      if (next) {
+        const known = ctx?.karaokeLyrics?.[next.trackId];
+        if (typeof known === "boolean") next.lyrics = known;
+        else if (saved?.trackId === next.trackId && typeof saved.lyrics === "boolean") next.lyrics = saved.lyrics;
+        if (saved?.trackId === next.trackId && cleanLyricsOffset(saved.lyricsOffset)) next.lyricsOffset = cleanLyricsOffset(saved.lyricsOffset);
+      }
       const same = next ? sameKaraokeTrack(saved, next) : !saved;
       const game = pickWindow(state);
       const broken = game && next ? brokenCode(next, game.bad?.[player]) : null;
@@ -353,7 +365,8 @@ export function karaokeActions({ ok, err, gmOnly, run }) {
       for (const player of present) {
         const track = karaokeTrackOf(state, player);
         const song = track?.video ? promote(karaokeSnapshot(track), game.bad?.[player]) : game.songs?.[player] || null;
-        if (song) songs[player] = song;
+        /* an instrumental leads when the song has our lyrics, a karaoke upload when it has none */
+        if (song) songs[player] = karaokeArrange(song, game.lyrics?.[song.trackId], game.upgrade?.[player]);
       }
       const singers = present.filter(player => songs[player]);
       const out = present.filter(player => !songs[player]);
@@ -586,6 +599,84 @@ export function karaokeActions({ ok, err, gmOnly, run }) {
         delete game.ready[player];
       }
       return ok({ broken:Object.keys(game.broken) });
+    },
+
+    /* The game's lyrics, from the Durable Object (worker/tournament.js
+       fillKaraokeLyrics): { [player]: { trackId, lines?, upgrade? } } for
+       the songs karaokeLyricsWanted named. `lines` are LRCLIB's synced
+       lyrics (null or false: none found), kept by track id; `upgrade` an
+       instrumental found for a song saved before they were offered (null:
+       none). An entry for a song its player has since changed is dropped.
+       From the order draw, every song not yet started is arranged anew
+       (karaokeArrange): an instrumental first with lyrics, a karaoke upload
+       first without. Server only: frames carry the current singer's lines
+       alone (projectKaraoke). */
+    karaokeLyrics(state, { gameId, songs } = {}, ctx) {
+      const g = systemOnly(ctx); if (g) return g;
+      const game = state.karaoke;
+      if (!game?.id || game.id !== gameId || !["pick", "turns"].includes(game.phase) || !karaokeLive(state))
+        return ok({ unchanged:true, stale:true });
+      if (!songs || typeof songs !== "object" || Array.isArray(songs)) return err("Nothing was looked up");
+      const lyrics = { ...(game.lyrics || {}) }, upgrade = { ...(game.upgrade || {}) };
+      let changed = false;
+      for (const [player, entry] of Object.entries(songs).slice(0, 40)) {
+        if (!isActivePlayer(player, state) || !entry || typeof entry !== "object" || Array.isArray(entry)) continue;
+        const song = game.phase === "pick" ? karaokeTrackOf(state, player) : game.songs?.[player];
+        if (!song?.trackId || song.trackId !== entry.trackId) continue;
+        if (Object.hasOwn(entry, "lines")) {
+          const lines = Array.isArray(entry.lines) ? cleanLyrics(entry.lines) || false : false;
+          if (JSON.stringify(lyrics[song.trackId]) !== JSON.stringify(lines)) { lyrics[song.trackId] = lines; changed = true; }
+        }
+        if (Object.hasOwn(entry, "upgrade")) {
+          const video = entry.upgrade ? cleanKaraokeVideo(entry.upgrade) : null;
+          const next = { trackId:song.trackId, video:video && karaokeVideoKind(video, song.name) === "instrumental" ? video : null };
+          if (JSON.stringify(upgrade[player]) !== JSON.stringify(next)) { upgrade[player] = next; changed = true; }
+        }
+      }
+      if (!changed) return ok({ unchanged:true });
+      game.lyrics = lyrics;
+      game.upgrade = upgrade;
+      if (game.phase === "turns") {
+        for (const player of game.order || []) {
+          const turn = game.turns?.[player], song = game.songs?.[player];
+          /* a started, closed or skipped song stays as it is, and so does one
+             the commissioner or a TV already moved to another upload */
+          if (!song || turn?.closedAt || turn?.skipped || Number.isFinite(turn?.songAt) || (Number(turn?.video) || 0) !== 0) continue;
+          const arranged = karaokeArrange(song, lyrics[song.trackId], upgrade[player]);
+          if (arranged !== song) game.songs = { ...game.songs, [player]:arranged };
+        }
+      }
+      return ok();
+    },
+    /* The commissioner's nudge on a song's lyrics (the Karaoke desk's
+       Lyrics earlier / later): `offsetMs` the song's whole offset, a
+       multiple of LYRICS_NUDGE_STEP_MS within LYRICS_NUDGE_MAX_MS, positive
+       showing the words earlier. Written on the player's profile song
+       (configuration, kept by a reset) and on the game's copy, so the TV
+       and the phones follow it at once. The same offset again changes
+       nothing; `trackId` names the song, so a song changed since is not
+       nudged. */
+    karaokeNudge(state, { player, trackId, offsetMs } = {}, ctx) {
+      const g = gmOnly(ctx); if (g) return g;
+      if (!isActivePlayer(player, state)) return err("That player isn't on this weekend's roster");
+      const ms = Number(offsetMs);
+      if (!Number.isFinite(ms)) return err("Pick a nudge");
+      const offset = cleanLyricsOffset(ms);
+      const profile = karaokeTrackOf(state, player);
+      const copy = state.karaoke?.id ? state.karaoke.songs?.[player] : null;
+      const mine = song => !!song && typeof trackId === "string" && song.trackId === trackId;
+      if (!mine(profile) && !mine(copy)) return err("That song changed. Look again");
+      const nudged = song => {
+        const next = { ...song };
+        if (offset) next.lyricsOffset = offset; else delete next.lyricsOffset;
+        return next;
+      };
+      const moves = [mine(profile) && cleanLyricsOffset(profile.lyricsOffset) !== offset,
+        mine(copy) && cleanLyricsOffset(copy.lyricsOffset) !== offset];
+      if (!moves.some(Boolean)) return ok({ unchanged:true, offset });
+      if (moves[0]) state.profiles = { ...state.profiles, [player]:{ ...state.profiles[player], karaokeTrack:nudged(profile) } };
+      if (moves[1]) state.karaoke.songs = { ...state.karaoke.songs, [player]:nudged(copy) };
+      return ok({ offset });
     },
 
     /* ── QA (commissioner and the qa capability) ── */

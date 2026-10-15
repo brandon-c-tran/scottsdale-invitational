@@ -18,7 +18,9 @@
    the server clock, "error" with YouTube's code, "blocked" when the
    browser would not start it (onAutoplayBlocked, or still unstarted or
    cued 3 s after it was told to play); the TV then shows Click to play
-   (play()). The TV's Sound switch mutes it. A TV held still (`fixed`: the
+   (play()). The TV's Sound switch mutes it. `time()` is the video's own
+   position in seconds while it plays (null otherwise), the clock the
+   lyric stage lights the words by. A TV held still (`fixed`: the
    fit audit, a rehearsal) never creates a player, and nothing here runs
    at import time. */
 import { useEffect, useRef, useState } from "react";
@@ -182,6 +184,14 @@ export function createKaraokeController({ host, read, onBlocked = () => {}, load
   return {
     sync,
     mute(off) { muted = !!off; if (ready) call(muted ? "mute" : "unMute"); },
+    /* the video's own time while it plays, paused or buffers; else null */
+    time() {
+      if (!ready || !started || gone) return null;
+      const state = call("getPlayerState");
+      if (state !== YT_STATE.PLAYING && state !== YT_STATE.PAUSED && state !== YT_STATE.BUFFERING) return null;
+      const t = Number(call("getCurrentTime"));
+      return Number.isFinite(t) ? t : null;
+    },
     /* Click to play: one press on the TV lets the browser start it with
        sound (and the room's own sounds); a second TV joins the room where
        it is, the first plays from the start and its report moves the end */
@@ -233,5 +243,6 @@ export function useKaraokePlayer({ game, fixed = false, onStatus = null }) {
   }, [on, game?.id]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { ctl.current?.sync(); }, [step]);
   useEffect(() => { ctl.current?.mute(!sound); }, [sound]);
-  return { host, blocked:!!plan && plan.mode === "play" && blockedKey === plan.key, play:() => ctl.current?.play() };
+  return { host, blocked:!!plan && plan.mode === "play" && blockedKey === plan.key, play:() => ctl.current?.play(),
+    time:() => ctl.current?.time() ?? null };
 }

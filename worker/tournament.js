@@ -53,9 +53,11 @@ import { SIM_WRITES_PER_ALARM, qaSimOf, simContext, simDue, simNext } from "../s
 import { findPreview, previewCache } from "./previews.js";
 import { YOUTUBE_KEEP_MS, findAlbumUpload } from "./youtube.js";
 import {
-  checkKaraokeVideos, findKaraokeVideos, isYouTubeId, karaokeCheckList, karaokeCheckReport, karaokeLookupFresh,
+  checkKaraokeVideos, findBackingVideos, isYouTubeId, karaokeCheckList, karaokeCheckReport, karaokeLookupFresh,
   karaokePreflight, karaokeProblemText, karaokeWindowOpened, youtubeFailure,
 } from "./karaokeVideos.js";
+import { findLyrics, lyricsFresh, lyricsKey } from "./lyrics.js";
+import { karaokeLyricsWanted, karaokeSongWay, karaokeVideoKind } from "../shared/karaoke.js";
 import { projectPrompts } from "../shared/prompts.js";
 import { MomentDesk, MOMENT_PREFIX, jpegInfo, stripJpegMetadata } from "./moments.js";
 import { geoPhotoId, geoShownIds } from "../shared/geo.js";
@@ -156,6 +158,10 @@ const SNIPPET_LIMIT = 10;
    30 days, a miss asked again after a day. A pasted link and the
    commissioner's check each read one videos.list (1 unit). */
 const KARAOKE_KEY_PREFIX = "private:karaoke:";
+/* a lookup kept before instrumentals were looked for (Oct 15) is asked again */
+const KARAOKE_LOOKUP_V = 2;
+/* a song whose lyrics or instrumental could not be looked up is asked again after this */
+const KARAOKE_LYRICS_RETRY_MS = 60 * 1000;
 const KARAOKE_LINK_LIMIT = 20;
 const KARAOKE_CHECK_LIMIT = 6;
 /* eight characters, 40 bits; 256 is a multiple of the 32-letter alphabet, so no bias */
@@ -536,7 +542,22 @@ export class Tournament {
         try { results = await checkKaraokeVideos(ids, key, fetchImpl); }
         catch (error) { return failed("karaoke-check-failed", error); }
       }
-      return spotifyJson({ ok:true, results:karaokeCheckReport(roster, list, results) });
+      const report = karaokeCheckReport(roster, list, results);
+      /* how each song will play: its lyrics (LRCLIB, free) and, for a song
+         saved before instrumentals were offered, the instrumental the
+         window would put first (a kept lookup, else one search) */
+      const songs = roster.map(player => [player, this.state.profiles?.[player]?.karaokeTrack])
+        .filter(([player, track]) => track?.video && report[player]);
+      /* four at a time: LRCLIB is a free service */
+      for (let at = 0; at < songs.length; at += 4) {
+        await Promise.all(songs.slice(at, at + 4).map(async ([player, track]) => {
+          try {
+            const plan = await this.karaokePlan(track);
+            report[player].way = karaokeSongWay(track, plan.lines || false, plan.upgrade);
+          } catch { /* LRCLIB or YouTube did not answer: the desk reads the profile */ }
+        }));
+      }
+      return spotifyJson({ ok:true, results:report });
     }
     const authorized = await this.spotifySearchAuthorized(req);
     if (!authorized.ok) return spotifyJson({ ok:false, error:"Check in first" }, 403);
@@ -549,13 +570,11 @@ export class Tournament {
         return spotifyJson({ ok:false, error:"Pick a song first" }, 400);
       const storeKey = `${KARAOKE_KEY_PREFIX}${trackId}`;
       let saved = await this.ctx.storage.get(storeKey);
-      if (!karaokeLookupFresh(saved)) {
+      if (!this.karaokeLookupKept(saved)) {
         if (!this.spotifyRateLimit(`karaoke:${authorized.key}`, SNIPPET_LIMIT))
           return spotifyJson({ ok:false, error:"Too many lookups; wait a minute", retryAfter:60 }, 429);
         try {
-          const videos = await findKaraokeVideos({ name, artists:[artist], durationMs }, key, fetchImpl);
-          saved = { videos, at:Date.now() };
-          await this.ctx.storage.put(storeKey, saved);
+          saved = await this.karaokeLookup({ trackId, name, artists:[artist], durationMs });
         } catch (error) {
           /* an answer past its 30 days goes, even when the refresh fails */
           if (saved && Date.now() - Number(saved.at) > YOUTUBE_KEEP_MS) {
@@ -564,8 +583,9 @@ export class Tournament {
           return failed("karaoke-lookup-failed", error);
         }
       }
-      return saved.videos.length ? spotifyJson({ ok:true, videos:saved.videos })
-        : spotifyJson({ ok:false, error:"No karaoke version found. Paste a YouTube link.", code:"none", videos:[] }, 404);
+      const lyrics = saved.lyrics === true;
+      return saved.videos.length ? spotifyJson({ ok:true, videos:saved.videos, lyrics })
+        : spotifyJson({ ok:false, error:"No karaoke version found. Paste a YouTube link.", code:"none", videos:[], lyrics }, 404);
     }
     if (url.pathname === "/api/karaoke/video") {
       const id = url.searchParams.get("id") || "";
@@ -946,6 +966,7 @@ export class Tournament {
       this.queueAlerts(before, this.state, null);
       this.queueWinSong(before, this.state, write.type);
       this.queueKaraokeCheck(before, this.state);
+      this.queueKaraokeLyrics();
     }
   }
 
@@ -1984,6 +2005,9 @@ export class Tournament {
     }
     const qaCheckpoint = type === "qaRestore" && isGm && this.capabilities.qa
       ? await this.qaCheckpointBody(payload?.id) : null;
+    /* a karaoke song's lyrics are the server's word: LRCLIB's kept answer
+       for that track, read before the write (never a lookup here) */
+    const karaokeLyrics = type === "karaokeSong" ? await this.keptLyrics(payload?.track?.trackId) : null;
     const claimed = this.claims[deviceId];
     const nextState = structuredClone(this.state);
     const result = applyAction(nextState, type, payload, {
@@ -2000,6 +2024,7 @@ export class Tournament {
       /* a guest's check-in must carry the TV's current code */
       ...(type === "setArrived" ? { arriveCode:this.arriveCode } : {}),
       ...(qaCheckpoint ? { qaCheckpoint } : {}),
+      ...(karaokeLyrics ? { karaokeLyrics } : {}),
     });
     if (!result.ok) {
       if (viewChanged) this.sendState(ws);
@@ -2052,6 +2077,7 @@ export class Tournament {
       this.queueAlerts(before, this.state, isActivePlayer(claimed, this.state) ? claimed : null);
       this.queueWinSong(before, this.state, type);
       this.queueKaraokeCheck(before, this.state);
+      this.queueKaraokeLyrics();
     } else if (type === "qaAdvance" && QA_SONG_TARGETS.has(payload?.target) && !result.extra?.rewound) {
       this.queueWinSong(before, this.state, type);
     }
@@ -2102,6 +2128,125 @@ export class Tournament {
       claims:this.claims, fetchImpl:this.pushFetch || fetch })).catch(() => null);
     try { this.ctx.waitUntil?.(work); } catch {}
     return work;
+  }
+
+  /* ── karaoke: lyrics and the backing track (docs/KARAOKE.md "Lyrics") ──
+     A song's synced lyrics (LRCLIB, worker/lyrics.js) are kept in
+     private:lyrics:<trackId> (30 days, a miss a day; a failure never); a
+     song's lookup (an instrumental search, karaoke uploads as the second
+     tier, worker/karaokeVideos.js findBackingVideos) in
+     private:karaoke:<trackId> with `v` and whether it had lyrics. */
+  /* { [trackId]: whether it has lyrics } from the kept answer, or null */
+  async keptLyrics(trackId) {
+    if (typeof trackId !== "string" || !/^[A-Za-z0-9]{22}$/.test(trackId)) return null;
+    const saved = await this.ctx.storage.get(lyricsKey(trackId));
+    return saved && Number.isFinite(Number(saved.at)) ? { [trackId]:Array.isArray(saved.lines) && saved.lines.length > 0 } : null;
+  }
+  karaokeLookupKept(saved, now = Date.now()) {
+    return karaokeLookupFresh(saved, now) && saved.v === KARAOKE_LOOKUP_V;
+  }
+  /* the song's lines, kept or looked up now (null: none); throws when LRCLIB did not answer */
+  async songLyrics(song) {
+    const key = lyricsKey(song.trackId);
+    const saved = await this.ctx.storage.get(key);
+    if (lyricsFresh(saved)) return Array.isArray(saved.lines) && saved.lines.length ? saved.lines : null;
+    const found = await findLyrics({ name:song.name, artists:song.artists, durationMs:song.durationMs }, this.lyricsFetch || fetch);
+    const record = { lines:found?.lines || null, id:found?.id || null, at:Date.now() };
+    await this.ctx.storage.put(key, record);
+    return record.lines;
+  }
+  /* A song's lookup, run now: LRCLIB beside the instrumental search (a
+     second search for karaoke uploads only when it is needed), kept 30
+     days unless LRCLIB failed (a lookup that could not know the lyrics is
+     not kept). Throws a YouTubeError. */
+  async karaokeLookup(song) {
+    let lyricsFailed = false;
+    const lyrics = this.songLyrics(song).then(lines => !!lines?.length, error => {
+      lyricsFailed = true;
+      console.error(JSON.stringify({ event:"karaoke-lyrics-failed", error:String(error?.message || error).slice(0, 200) }));
+      return false;
+    });
+    const { videos } = await findBackingVideos(song, this.env.YOUTUBE_API_KEY, this.youtubeFetch || fetch, { lyrics });
+    const saved = { videos, lyrics:await lyrics, at:Date.now(), v:KARAOKE_LOOKUP_V };
+    if (!lyricsFailed) await this.ctx.storage.put(`${KARAOKE_KEY_PREFIX}${song.trackId}`, saved);
+    return saved;
+  }
+  /* What the room would play for a saved song: { lines, upgrade } (an
+     instrumental for a song saved before they were offered, found once
+     the song has lyrics). Throws when LRCLIB or YouTube did not answer. */
+  async karaokePlan(song, { lines: known } = {}) {
+    const lines = known !== undefined ? known : await this.songLyrics(song);
+    const legacy = song.lyrics === undefined
+      && ![song.video, ...(song.alts || [])].some(video => karaokeVideoKind(video, song.name) === "instrumental");
+    if (!lines || !legacy) return { lines, upgrade:null };
+    let saved = await this.ctx.storage.get(`${KARAOKE_KEY_PREFIX}${song.trackId}`);
+    if (!this.karaokeLookupKept(saved)) saved = await this.karaokeLookup(song);
+    const video = (saved.videos || []).find(item => karaokeVideoKind(item, song.name) === "instrumental") || null;
+    return { lines, upgrade:video ? { trackId:song.trackId, video } : null };
+  }
+
+  /* After a write persisted: the game's songs whose lyrics (or whose
+     instrumental, for a song saved before they were offered) the game
+     still lacks are looked up, one song after another, and written in one
+     karaokeLyrics write (an autopilot context). Best effort, like the
+     window's video check: it never holds up or fails a write; a song whose
+     lookup failed is asked again a minute later, on a later write. */
+  queueKaraokeLyrics() {
+    if (!this.capabilities.karaoke || !Object.hasOwn(ACTIONS, "karaokeLyrics")) return null;
+    if (this.lyricsWork) { this.lyricsAgain = true; return this.lyricsWork; }
+    const now = Date.now();
+    const retry = this.lyricsRetryAt ||= new Map();
+    const wanted = karaokeLyricsWanted(this.state).filter(item => !((retry.get(item.trackId) || 0) > now));
+    if (!wanted.length) return null;
+    const work = this.fillKaraokeLyrics(wanted).catch(error => {
+      console.error(JSON.stringify({ event:"karaoke-lyrics-write-failed", error:String(error?.message || error).slice(0, 300) }));
+      return null;
+    }).finally(() => {
+      this.lyricsWork = null;
+      if (this.lyricsAgain) { this.lyricsAgain = false; this.queueKaraokeLyrics(); }
+    });
+    this.lyricsWork = work;
+    try { this.ctx.waitUntil?.(work); } catch {}
+    return work;
+  }
+
+  async fillKaraokeLyrics(wanted) {
+    const gameId = this.state.karaoke?.id;
+    const retry = this.lyricsRetryAt ||= new Map();
+    const songs = {};
+    for (const item of wanted) {
+      const later = error => {
+        retry.set(item.trackId, Date.now() + KARAOKE_LYRICS_RETRY_MS);
+        console.error(JSON.stringify({ event:"karaoke-lyrics-lookup-failed", reason:error?.reason || null,
+          error:String(error?.message || error).slice(0, 200) }));
+      };
+      let lines;
+      try { lines = await this.songLyrics(item); } catch (error) { later(error); continue; }
+      const entry = { trackId:item.trackId };
+      if (item.lyrics) entry.lines = lines;
+      if (item.upgrade) {
+        try {
+          const song = item.player && this.state.karaoke?.phase === "pick"
+            ? this.state.profiles?.[item.player]?.karaokeTrack : this.state.karaoke?.songs?.[item.player];
+          entry.upgrade = song?.trackId === item.trackId ? (await this.karaokePlan(song, { lines })).upgrade?.video || null : null;
+        } catch (error) {
+          later(error);
+          if (!item.lyrics) continue;
+        }
+      }
+      songs[item.player] = entry;
+    }
+    if (!Object.keys(songs).length || this.state.karaoke?.id !== gameId) return null;
+    const nextState = structuredClone(this.state);
+    const result = applyAction(nextState, "karaokeLyrics", { gameId, songs }, {
+      isGm:true, auto:true, player:null, deviceId:"autopilot", actionId:`karaoke:${gameId}:lyrics:${Date.now()}`,
+      environment:this.environment, showControl:this.capabilities.showControl, karaoke:this.capabilities.karaoke,
+    });
+    if (!result.ok || result.extra?.unchanged) return result;
+    this.carryWalkout(nextState);
+    await this.persistAndBroadcast("karaokeLyrics", nextState);
+    await this.scheduleAlarm();
+    return result;
   }
 
   /* ── karaoke: the pick window's video check (docs/KARAOKE.md) ──

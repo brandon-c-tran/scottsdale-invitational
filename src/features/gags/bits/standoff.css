@@ -1,0 +1,118 @@
+/* standoff (standoff.jsx): beats from registry.js (--b-<name>), every
+   animation on --ba, each element resting on its end state. The camera,
+   the shakes and the white frame on the hit are the stage's. */
+
+.is-standoff .so { position:absolute; inset:0; }
+
+/* ── the tumbleweed rolls through behind them, bouncing ── */
+.is-standoff .so-weed { transform:translateX(-1900px);
+  --ba:so-weed 1900ms linear calc(var(--tl) + var(--b-tumble)) both; animation:var(--ba); }
+@keyframes so-weed { from { transform:translateX(0px); } to { transform:translateX(-1900px); } }
+.is-standoff .so-weed-hop { --ba:so-weed-hop 1900ms linear calc(var(--tl) + var(--b-tumble)) both; animation:var(--ba); }
+@keyframes so-weed-hop { 0%, 23%, 46%, 69%, 92%, 100% { transform:translateY(0px); animation-timing-function:cubic-bezier(.2,.7,.4,1); }
+  11% { transform:translateY(-70px); animation-timing-function:cubic-bezier(.6,0,.9,.4); }
+  34% { transform:translateY(-46px); animation-timing-function:cubic-bezier(.6,0,.9,.4); }
+  57% { transform:translateY(-58px); animation-timing-function:cubic-bezier(.6,0,.9,.4); }
+  80% { transform:translateY(-34px); animation-timing-function:cubic-bezier(.6,0,.9,.4); } }
+.is-standoff .so-weed-spin { transform:rotate(-1080deg);
+  --ba:so-weed-spin 1900ms linear calc(var(--tl) + var(--b-tumble)) both; animation:var(--ba); }
+@keyframes so-weed-spin { from { transform:rotate(0deg); } to { transform:rotate(-1080deg); } }
+
+/* ── the standoff: they lean in; the favorite gives a cocky little bob ── */
+.is-standoff .so-a .nc-tilt { transform:rotate(0deg);
+  --ba:so-lean-a 420ms ease-in-out calc(var(--tl) + var(--b-lean)) both,
+    so-unlean 120ms ease-out calc(var(--tl) + var(--b-flick) - 60ms) forwards,
+    so-settle-wobble 1000ms ease-out calc(var(--tl) + var(--b-settle)) forwards; animation:var(--ba); }
+@keyframes so-lean-a { from { transform:rotate(0deg); } to { transform:rotate(6deg); } }
+@keyframes so-unlean { from { transform:rotate(6deg); } to { transform:rotate(-8deg); } }
+/* a coin settling: the wobble dies away */
+@keyframes so-settle-wobble { 0% { transform:rotate(-8deg); } 14% { transform:rotate(11deg); } 28% { transform:rotate(-9deg); }
+  42% { transform:rotate(7deg); } 56% { transform:rotate(-5deg); } 70% { transform:rotate(3deg); } 84% { transform:rotate(-1.5deg); }
+  100% { transform:rotate(0deg); } }
+.is-standoff .so-b .nc-tilt { transform:rotate(0deg);
+  --ba:so-lean-b 420ms ease-in-out calc(var(--tl) + var(--b-lean)) both,
+    so-knock 520ms ease-out calc(var(--tl) + var(--b-ping)) forwards; animation:var(--ba); }
+@keyframes so-lean-b { from { transform:rotate(0deg); } to { transform:rotate(-6deg); } }
+@keyframes so-knock { 0% { transform:rotate(-6deg); } 20% { transform:rotate(14deg); } 45% { transform:rotate(-7deg); }
+  70% { transform:rotate(3deg); } 100% { transform:rotate(0deg); } }
+.is-standoff .so-b .nc-hop { --ba:so-bob 230ms ease-in-out calc(var(--tl) + var(--b-bob)) 2 both; animation:var(--ba); }
+@keyframes so-bob { 0%, 100% { transform:translateY(0px); } 45% { transform:translateY(-28px); } }
+
+/* ── the house hand: in behind A, cocks, flicks, gone ── */
+.is-standoff .so-hand .hh-reach { transform:translateX(-1300px);
+  --ba:so-hand-in 450ms cubic-bezier(.2,.8,.3,1) calc(var(--tl) + var(--b-reach)) both,
+    so-hand-out 520ms cubic-bezier(.6,0,.9,.5) calc(var(--tl) + var(--b-ping) + 60ms) forwards; animation:var(--ba); }
+@keyframes so-hand-in { from { transform:translateX(-1300px); } to { transform:translateX(0px); } }
+@keyframes so-hand-out { from { transform:translateX(0px); } to { transform:translateX(-1300px); } }
+.is-standoff .so-hand .hh-fx { transform:translateX(0px);
+  --ba:so-hand-load 250ms ease-in-out calc(var(--tl) + var(--b-set)) both,
+    so-hand-kick 200ms cubic-bezier(.2,.9,.3,1) calc(var(--tl) + var(--b-flick)) forwards; animation:var(--ba); }
+@keyframes so-hand-load { from { transform:translateX(0px); } to { transform:translateX(-16px) rotate(-3deg); } }
+@keyframes so-hand-kick { 0% { transform:translateX(-16px) rotate(-3deg); } 30% { transform:translateX(30px) rotate(4deg); }
+  100% { transform:translateX(0px) rotate(0deg); } }
+
+/* ── A: flicked across the floor, off B, up into the stack, off it, and
+   down onto the pile, spinning the whole way ── */
+.is-standoff .so-a { z-index:4; }
+.is-standoff .so-a .nc-move { transform:var(--so-rest);
+  --ba:so-fly 1100ms linear calc(var(--tl) + var(--b-flick)) both; animation:var(--ba); }
+@keyframes so-fly {
+  0% { transform:translate(0px, 0px); animation-timing-function:cubic-bezier(.15,.7,.5,1); }
+  16.4% { transform:var(--so-ping); animation-timing-function:cubic-bezier(.2,.8,.5,1); }
+  31% { transform:var(--so-over); animation-timing-function:cubic-bezier(.5,0,.8,.6); }
+  42.7% { transform:var(--so-hit); animation-timing-function:cubic-bezier(.2,.7,.4,1); }
+  59% { transform:var(--so-pop); animation-timing-function:cubic-bezier(.6,0,.9,.5); }
+  100% { transform:var(--so-rest); } }
+.is-standoff .so-a .nc-roll { transform:rotate(1080deg);
+  --ba:so-spin 470ms linear calc(var(--tl) + var(--b-flick)) both; animation:var(--ba); }
+@keyframes so-spin { from { transform:rotate(0deg); } to { transform:rotate(1080deg); } }
+/* it lands spinning on its edge and spins itself out */
+.is-standoff .so-a .nc-spin { transform:rotateY(0deg);
+  --ba:so-spindown 1000ms cubic-bezier(.1,.6,.3,1) calc(var(--tl) + var(--b-settle)) both; animation:var(--ba); }
+@keyframes so-spindown { from { transform:rotateY(1440deg); } to { transform:rotateY(0deg); } }
+/* its light stays on the floor while it flies (and goes up onto the pile with it) */
+.is-standoff .so-a .nc-pool { opacity:.7;
+  --ba:bit-hide 120ms linear calc(var(--tl) + var(--b-ping)) both, so-pool-back 200ms linear calc(var(--tl) + var(--b-settle)) forwards;
+  animation:var(--ba); }
+@keyframes so-pool-back { from { opacity:0; } to { opacity:.7; } }
+.is-standoff .so-trail { opacity:0;
+  --ba:bit-show 1ms step-start calc(var(--tl) + var(--b-flick)) both, bit-hide 180ms linear calc(var(--tl) + var(--b-hit)) forwards;
+  animation:var(--ba); }
+
+/* ── B: knocked spinning on its edge by the glance, then flattened ── */
+.is-standoff .so-b { z-index:2; }
+.is-standoff .so-b .nc-spin { transform:rotateY(0deg);
+  --ba:so-b-spin 640ms cubic-bezier(.15,.7,.4,1) calc(var(--tl) + var(--b-ping)) both; animation:var(--ba); }
+@keyframes so-b-spin { from { transform:rotateY(0deg); } to { transform:rotateY(720deg); } }
+.is-standoff .so-b .nc-body { transform:scale(1.32, .24);
+  --ba:so-flatten 80ms ease-out calc(var(--tl) + var(--b-crash) - 30ms) both; animation:var(--ba); }
+@keyframes so-flatten { from { transform:scale(1, 1); } to { transform:scale(1.32, .24); } }
+
+/* ── the stack: hit at the top, it goes over like a felled tree about its
+   left corner, flat on B, and bounces once ── */
+.is-standoff .so-stack { z-index:3; transform:rotate(-90deg);
+  --ba:so-fell 380ms cubic-bezier(.55,0,.95,.45) calc(var(--tl) + var(--b-hit) + 20ms) both,
+    so-fell-bounce 220ms ease-out calc(var(--tl) + var(--b-crash)) forwards; animation:var(--ba); }
+@keyframes so-fell { 0% { transform:rotate(0deg); } 12% { transform:rotate(3deg); } 100% { transform:rotate(-90deg); } }
+@keyframes so-fell-bounce { 0% { transform:rotate(-90deg); } 40% { transform:rotate(-85deg); } 100% { transform:rotate(-90deg); } }
+
+/* ── two chips spill off it as it lands ── */
+.is-standoff .so-loose { z-index:4; opacity:0; }
+.is-standoff .so-loose.is-1 { transform:translate(-210px, 56px) rotate(-200deg);
+  --ba:bit-show 1ms step-start calc(var(--tl) + var(--b-crash)) both,
+    so-spill-1 520ms linear calc(var(--tl) + var(--b-crash)) both; animation:var(--ba); }
+@keyframes so-spill-1 { 0% { transform:translate(0px, 0px) rotate(0deg); animation-timing-function:cubic-bezier(.2,.7,.4,1); }
+  45% { transform:translate(-110px, -170px) rotate(-120deg); animation-timing-function:cubic-bezier(.6,0,.9,.5); }
+  100% { transform:translate(-210px, 56px) rotate(-200deg); } }
+.is-standoff .so-loose.is-2 { transform:translate(330px, 76px) rotate(180deg);
+  --ba:bit-show 1ms step-start calc(var(--tl) + var(--b-crash) + 40ms) both,
+    so-spill-2 600ms linear calc(var(--tl) + var(--b-crash) + 40ms) both; animation:var(--ba); }
+@keyframes so-spill-2 { 0% { transform:translate(0px, 0px) rotate(0deg); animation-timing-function:cubic-bezier(.2,.7,.4,1); }
+  45% { transform:translate(160px, -230px) rotate(90deg); animation-timing-function:cubic-bezier(.6,0,.9,.5); }
+  100% { transform:translate(330px, 76px) rotate(180deg); } }
+
+/* ── the glance and the hit: sparks ── */
+.is-standoff .so-spark { z-index:5; opacity:0; }
+.is-standoff .so-spark.is-ping { --ba:so-spark 280ms ease-out calc(var(--tl) + var(--b-ping)) forwards; animation:var(--ba); }
+.is-standoff .so-spark.is-hit { --ba:so-spark 380ms ease-out calc(var(--tl) + var(--b-hit)) forwards; animation:var(--ba); }
+@keyframes so-spark { 0% { opacity:1; transform:scale(.3); } 60% { opacity:1; transform:scale(1.15); } 100% { opacity:0; transform:scale(1.3); } }

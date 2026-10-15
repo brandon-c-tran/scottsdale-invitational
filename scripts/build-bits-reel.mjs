@@ -7,6 +7,9 @@
      node scripts/build-bits-reel.mjs              .impeccable/review/bits/bits-reel.html
        --out <file>       somewhere else
        --local-fonts      Big Shoulders inline from public/fonts (no network at all: the frames tool)
+       --only <group>     the reel of one catalog group (upset, music, show, loss, team, idle):
+                          every other group's entries and scenes left out, so one group's work in
+                          progress never breaks another's frames
        --check            open it in headless Chrome, as the host would wrap it, at a phone's size
                           and the TV's, and fail on a console error or a request to any other host */
 import fs from "node:fs";
@@ -20,11 +23,32 @@ const args = process.argv.slice(2);
 const value = name => { const i = args.indexOf(name); return i >= 0 ? args[i + 1] : null; };
 export const REEL_OUT = path.join(ROOT, ".impeccable/review/bits/bits-reel.html");
 const LIMIT = 3 * 1024 * 1024;
-const GOOGLE_FONTS = "https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800;900&display=swap";
+const GOOGLE_FONTS = "https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800;900&family=Big+Shoulders+Inline+Display:wght@700;800;900&display=swap";
 export const REEL_TITLE = "Field Day Bits";
 
-export async function buildReel({ out = REEL_OUT, localFonts = false } = {}) {
+/* the catalog's groups (src/features/gags/bits/catalog/<group>.js and
+   bits/scenes-<group>.jsx) and their export names */
+export const REEL_GROUPS = Object.freeze({ upset:"UPSET", music:"MUSIC", show:"SHOW", loss:"LOSS", team:"TEAM", idle:"IDLE" });
+/* esbuild: every group but `only` resolves to an empty one */
+const onlyGroup = only => ({
+  name:"fd-reel-only",
+  setup(b) {
+    b.onResolve({ filter:/(?:^|\/)(?:catalog\/(?:upset|music|show|loss|team|idle)\.js|scenes-(?:upset|music|show|loss|team|idle)\.jsx)$/ }, args => {
+      const group = (args.path.match(/(upset|music|show|loss|team|idle)/) || [])[1];
+      if (!group || group === only) return null;
+      return { path:`${group}:${args.path.includes("scenes-") ? "scenes" : "catalog"}`, namespace:"fd-reel-empty" };
+    });
+    b.onLoad({ filter:/.*/, namespace:"fd-reel-empty" }, args => {
+      const [group, kind] = args.path.split(":");
+      return { contents:kind === "scenes" ? `export const ${REEL_GROUPS[group]}_SCENES = {};` : `export const ${REEL_GROUPS[group]} = [];`, loader:"js" };
+    });
+  },
+});
+
+export async function buildReel({ out = REEL_OUT, localFonts = false, only = null } = {}) {
+  if (only && !REEL_GROUPS[only]) throw new Error(`no catalog group ${only} (${Object.keys(REEL_GROUPS).join(", ")})`);
   const result = await build({
+    plugins:only ? [onlyGroup(only)] : [],
     absWorkingDir:ROOT, entryPoints:["dev/bits-reel.jsx"], bundle:true, write:false, outdir:"bits-reel-out",
     format:"iife", platform:"browser", target:["es2020", "chrome100", "safari15"], minify:true, legalComments:"none",
     define:{ "process.env.NODE_ENV":"\"production\"", __FD_BUILD_ID__:"\"bits-reel\"" },
@@ -37,8 +61,7 @@ export async function buildReel({ out = REEL_OUT, localFonts = false } = {}) {
   const stray = css.match(/url\((?!["']?data:)[^)]*\)/g) || [];
   if (stray.length) throw new Error(`the reel's CSS still loads ${stray.join(", ")}`);
   const fonts = localFonts
-    ? `<style>@font-face{font-family:'Big Shoulders Display';font-style:normal;font-weight:100 900;font-display:block;src:url(data:font/woff2;base64,${
-      fs.readFileSync(path.join(ROOT, "public/fonts/big-shoulders-display-latin.woff2")).toString("base64")}) format('woff2')}</style>`
+    ? `<style>@font-face{font-family:'Big Shoulders Display';font-style:normal;font-weight:100 900;font-display:block;src:url(data:font/woff2;base64,${fs.readFileSync(path.join(ROOT, "public/fonts/big-shoulders-display-latin.woff2")).toString("base64")}) format('woff2')}@font-face{font-family:'Big Shoulders Inline Display';font-style:normal;font-weight:700 900;font-display:block;src:url(data:font/woff2;base64,${fs.readFileSync(path.join(ROOT, "public/fonts/big-shoulders-inline-display-latin.woff2")).toString("base64")}) format('woff2')}</style>`
     : `<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>`
       + `<link rel="stylesheet" href="${GOOGLE_FONTS}">`;
   const html = `<meta charset="utf-8">\n<title>${REEL_TITLE}</title>\n${fonts}\n`
@@ -93,7 +116,8 @@ async function check(file) {
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] || "").href) {
-  const { out, bytes } = await buildReel({ out:value("--out") ? path.resolve(value("--out")) : REEL_OUT, localFonts:args.includes("--local-fonts") });
+  const { out, bytes } = await buildReel({ out:value("--out") ? path.resolve(value("--out")) : REEL_OUT, localFonts:args.includes("--local-fonts"),
+    only:value("--only") });
   const size = bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(2)} MB` : `${(bytes / 1024).toFixed(0)} KB`;
   console.log(`${path.relative(ROOT, out)}  ${size} (${bytes} bytes)`);
   if (bytes > LIMIT) { console.error(`over the ${LIMIT / 1024 / 1024} MB limit`); process.exitCode = 1; }

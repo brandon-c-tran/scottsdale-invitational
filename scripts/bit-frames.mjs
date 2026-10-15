@@ -9,6 +9,7 @@
        --trigger <n>                 which of the bit's triggers (its fact)
        --reduced                     reduced motion's still (no instants needed)
        --out <dir>                   default .impeccable/review/bits/frames
+       --only <group>                build only that catalog group (upset, music, show, loss, team, idle)
      node scripts/bit-frames.mjs sheet   the rig and the props on the painting
      node scripts/bit-frames.mjs --soundcheck   every recipe and cue sheet, offline: not silent, not clipped
      node scripts/bit-frames.mjs anvil --wav <file>   the bit's cue sheet as the soundcheck renders it
@@ -23,7 +24,7 @@ import { launchChrome } from "./headless-chrome.mjs";
 
 const ROOT = fileURLToPath(new URL("../", import.meta.url));
 const args = process.argv.slice(2);
-const flags = new Set(["--phase", "--cast", "--trigger", "--out", "--wav"]);
+const flags = new Set(["--phase", "--cast", "--trigger", "--out", "--wav", "--only"]);
 const value = name => { const i = args.indexOf(name); return i >= 0 ? args[i + 1] : null; };
 const positional = args.filter((arg, i) => !arg.startsWith("--") && !flags.has(args[i - 1]));
 const [bit = "quickdraw", ...times] = positional;
@@ -33,7 +34,7 @@ const cast = value("--cast");
 const trigger = value("--trigger");
 const reduced = args.includes("--reduced");
 
-const { out } = await buildReel({ out:path.join(OUT, "reel.html"), localFonts:true });
+const { out } = await buildReel({ out:path.join(OUT, "reel.html"), localFonts:true, only:value("--only") });
 const page = pathToFileURL(wrapForLocal(out)).href;
 const chrome = await launchChrome({ width:1920, height:1080 });
 const errors = [];

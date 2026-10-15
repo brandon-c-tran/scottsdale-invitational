@@ -663,195 +663,132 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   the TV plays the showdown anchored on `armedAt` (with an event live, the
   ticker carries the result). The economy is unchanged (antes, cap, lapse,
   daily limit, redaction until settled, `resolveDuel`).
-- **Gags** (Oct 8; the bits since Oct 10, `src/features/gags/`: pure
-  `gagModel.js`, `highlights.js`, `phoneBit.js`; `TVGags.jsx`,
+- **Gags** (Oct 8; the bits since Oct 10, neon since Oct 14, `src/features/gags/`:
+  pure `gagModel.js`, `highlights.js`, `phoneBit.js`; `TVGags.jsx`,
   `TVHighlight.jsx`, `PhoneBit.jsx`; `shared/gags.js`): the room's comic
   moments, each a bit (below) on the TV and on the phones it is about. At
-  most one per write, the first trigger that holds: an upset (the stored
-  `odds` named an `underdog` and it won; shape versus, the winners `a`,
-  the side they beat `b`, "Upset"), a streak (a player's third straight
-  win, again at 4, 5..., on a pure W/L timeline: contests by `decidedAt`,
-  W to the winning side, L to the beaten, a heat's non-qualifiers L; an
-  event without contests counts its posted result, 1st W and everyone
-  else who played L; never an event twice, a shelved event or the poker
-  finale; win, "3 in a row", a whole side on one run letters its name), a
-  new leader (a posted result leaves a different player alone at the top,
-  from `chipWrites` before and after it; win, "In the lead"), a big losing
-  bet (one bettor's net loss on the write's bets is `BIG_LOSS_MIN`, 1,000,
-  or more; loss, "-1,000"), a new last place (a posted result leaves a
-  different player alone at the bottom; loss, "13th"). `momentLog` replays
-  every write in order and picks each moment's bit with `pickBit(shape,
-  write key, recentFor(...))`: the same bit on every screen, a shape plays
-  round its pool before a bit comes back, never one twice running. A
-  contest's bit plays from `decidedAt + TV_ADVANCE_MS` and pushes the next
-  face-off, a new leader's card and S15 by its length (`gagHoldMs`); a
-  result's plays over its podium from `postedAt + resultGagAt(ms)` (1st
-  has stood a second; it lifts off as the towers re-sort, and one too long
-  for that holds the sort, picture and sound, until it lifts:
-  `resultMomentPhase` `holdSort`). A bit's length on screen is its
-  registry `span`: its last frame held until the name and fact have stood
-  `READ_MS` (1.8 s), on the TV window, the phone overlay and the stage's
-  lift-off alike (`--bit-span`; the scene's own motion keeps `ms`). The win song
-  that write started walks out first: the bit plays 300 ms after the
-  walkout leaves (`walkoutForWrite`, `walkoutSpan`), and the next face-off
-  waits for any walkout on screen, then the bit (`afterWalkout`,
-  `useLiveStart`). Only the newest write plays and a later lifecycle write
-  ends it; never on a frozen board, at the live poker table, under another
-  walkout or another takeover (decided as the window opens: skipped, never
-  queued); a winner scene at any step lets it play. The TV: a full-canvas
-  takeover through `BitLayer` on the session's painting, the name and fact
-  lettered on its sky, the frame chasing in the winner's flood (a loss,
-  the clay), the bit's own foley (`gagCues`) on the room bus from a fresh
-  frame only (`useGagSound`), reduced motion its `still` and one summary
-  sound. The phones (`usePhoneBit`, `gagAudience`: both sides of an upset,
-  a win's winners, a loss's loser): latched only from a fresh frame (a
-  phone that opens after the write sees nothing), on the TV's instant, its
-  start following the state until it plays, then held to its end; full
-  screen on the dark glass, the 16:9 stage across the phone and the name
-  and fact stamped under it (the stage letters nothing, `letters` false),
-  a tap puts it away; sound on the `you` bus, centred; the drawing loads
-  on first use (`lazyPart`). It holds the stage (`holdStage`) from the
-  fresh frame to its end, so that write's `ChipReceipt` docks after the
-  bit. The highlight reel: in a real gap (`tvPhotoGap`) one "highlights"
-  turn after the records (`withHighlightTurns`) replays the weekend's
-  moments newest first, one a turn on the server clock (`highlightAt` from
-  `highlightSince`, so a gap's first replays the newest): the bit in a
-  window of glass with a cyan Replay lamp and its event, played from the
-  turn and held on its punchline, on its own session's painting, silent.
-  The TV sheet's Gags switch (`setGags`, top-level `state.gagsOff`, kept by
-  a progress reset) turns off the moments, the phones' and the reel. The QA
-  console's Gags part lists every moment bit by shape, Random first
-  (`qaGag { bit }` or `{ shape }`, commissioner and the qa capability, no
-  confirmation or backup), writing `state.gagTest` with a cast from the
-  board (a versus is last place beating the leader, a win the leader, a
-  loss last place), played on the TVs only 300 ms after its write even
-  with Gags off, cleared by a reset. `/dev/gags-preview.html` lands each
-  trigger's write live on the real TV (`?trigger=`, `&song=1` the walkout
-  first, `&bit=<id>` a QA test of that bit); fit views `tv-gag-*`,
-  `tv-highlight*` and the phone's `bit-*` (the write lands on a fresh
-  frame).
-- **Bits** (Oct 10, `src/features/gags/`, approved by Brandon and played
-  as the Gags above since Oct 11): the gags' replacement. Straight-faced
-  physical comedy whose cast is the players' own photo chips. The rig
-  (`cast/CastChip.jsx`, pure `castGeometry.js` and `gloveArt.js`): the chip
-  on its edge with a coin's thickness, two floating white gloves in eight
-  poses (rest, ready, open, fist, grip, point, flat, thumb; `hands` takes a
-  pose or `[[pose, ms], ...]`, `hold` a prop in a hand, behind the fingers),
-  optional shoes, a shadow that walks with it, every layer a node of no size
-  hung off the feet (`.cast-move`, `.cast-hop`, `.cast-body`, `.cast-chip-in`,
-  `.cast-hand-in`, `.cast-held-fx`...), so a bit squashes, tilts, gestures
-  and throws by class; `CastSide` stands up to four and letters "+N" past
-  the outer glove at the chips' middle (`.cast-more`, a node a bit can move
-  with the side). No eyes over a photo. Props (`props/Props.jsx`): revolver,
-  muzzle flash, puff, dust, tumbleweed, anvil, floor shadow, dizzy stars,
-  sweat drop, sunglasses, speed lines, emanata, whirl, chip stack,
-  roadrunner; one ink keyline (`CAST.line`) and flat `--bit-*` inks mixed
-  from the painting's. `bits/registry.js` is the pure contract: each bit's
-  shape (versus, win, loss, idle), style (action, slapstick, desert), `ms`
-  (3 to 5.5 s for a moment), named `beats` (CSS reads `var(--b-<name>)`,
-  cues land on them), `still` (reduced motion's frame, after the lettering
-  lands), `summary`, `letter` (`at`, `over`, and `place`: top-left,
-  top-right or top, wherever that bit's action is not), `camera`, `cast`
-  roles and `cues`; `pickBit(shape, seed, recent)` picks the same bit on
-  every screen and never repeats one while another remains. `bits/scenes.jsx`
-  maps ids to scenes. Every motion is `--ba:<animation>; animation:var(--ba)`
+  most one per write, the first trigger that holds: an upset (the winner's
+  pool price was 3x or longer (`contestUpset`); shape versus, the winners `a`, the
+  side they beat `b`, "Upset"), a streak (a player's third straight win,
+  again at 4, 5...; win, "3 in a row"), a new leader (a posted result leaves
+  a different player alone at the top; win, "In the lead"), a big losing bet
+  (one bettor's net loss on the write's bets is `BIG_LOSS_MIN`, 1,000, or
+  more; loss, "-1,000"), a new last place (loss, "13th"). `momentLog`
+  replays every write in order and picks each moment's bit with
+  `pickBit(shape, write key, recentFor(...), sides, { songPlaying })`: the
+  same bit on every screen and in the Worker, a shape's pool round before a
+  bit comes back, never one twice running; a moment whose larger side has 2
+  or more (the doubles to the 7 v 6) plays a team bit. The bit plays AT the
+  moment: a contest's from `decidedAt + TV_ADVANCE_MS`, a result's over its
+  podium from `postedAt + resultGagAt(ms)`; the next face-off, a new leader's
+  card and S15 wait for it (`gagHoldMs`). The write's win song meets the bit
+  on a beat (below); a song that is not on its beat walks out after it.
+  Only the newest write plays and a later lifecycle write ends it; never on
+  a frozen board, at the live poker table, under another win song's walkout
+  or another takeover (decided as the window opens: skipped, never queued).
+  The TV: a full-canvas takeover through `BitLayer`, the frame chasing in
+  the winner's flood (a loss, the clay). The phones (`usePhoneBit`,
+  `gagAudience`): latched only from a fresh frame, on the TV's instant, a
+  tap puts it away; it holds the stage (`holdStage`) so that write's
+  `ChipReceipt` docks after it. The highlight reel replays the weekend's
+  moments in a real gap, silent. The TV sheet's Gags switch (`setGags`,
+  `state.gagsOff`) turns off the moments, the phones' and the reel. The QA
+  console's Gags part lists every moment bit by shape and its team version,
+  Random first (`qaGag { bit }` or `{ shape }`, `state.gagTest`, played on
+  the TVs only 300 ms after its write even with Gags off).
+  `/dev/gags-preview.html` lands each trigger's write live on the real TV
+  (`?trigger=`, `&song=1` the Worker's cue then the walkout on the bit's
+  beat, `&late=<ms>` a slow speaker so a music bit holds, `&bit=<id>` a QA
+  test of that bit); fit views `tv-gag-*` (one per moment bit, the team bits
+  at 2 v 2 to 7 v 6, `tv-gag-song-on-beat`), `tv-highlight*` and the
+  phone's `bit-*`.
+- **Bits** (Oct 14, Brandon: the neon catalog, `src/features/gags/`): every
+  bit is an animated Vegas neon sign on the session's painting gone to
+  night (`bit-night`): single glowing tubes in the lamps' jobs (magenta
+  live and music, amber chips and stars, cyan cool and information, bone
+  the plain tube, clay a loss, ember fire, and the player's own lit color;
+  never filament, which is "you" alone), cut-in frames (`Swaps`, `1ms
+  step-start`), flicker (`neon-ignite`, `neon-die`, a rim's buzz) and smooth
+  motion; the name lights in the Inline cut like the sign's own lettering
+  (`bit-sign`). The toolkit (`neon/`: pure `neonArt.js`, `Neon.jsx`,
+  `NeonProps.jsx`, `neon.css`): `Neon` draws one drawing four times from its
+  paths (a CSS-blurred halo and glow, the tube, a white-hot core) over dark
+  glass fills, groups a scene can light or put out (`.ng-<g>`), unlit glass
+  for a sign's off frames; `NeonChip` is a player: their photo chip as a
+  dark glass coin rimmed in their lit color, with NO hands, no eyes, no
+  shoes, acting by motion alone through nodes of no size (`.nc-move`,
+  `.nc-pool`, `.nc-hop`, `.nc-body`, `.nc-tilt`, `.nc-roll`, `.nc-spin`,
+  `.nc-wear`; a 3D fall flat on `.nc-body` under `.nc-hop`'s perspective);
+  props come to the chip. `HouseHand` is the one hand in the world, a
+  croupier's in neon (a bone tube over dark glass, a cyan cuff and a sleeve
+  running back off screen; poses `point`, `cock`, `flat`, `pinch`, `grip`,
+  each holding a prop at its `at`), reaching in along its arm
+  (`.hh-reach`); the "glove" look (black satin, a lamp's glint) is kept
+  for the review sheet only. The betting table's dealer (`DealerGlove`,
+  the sweep and the rake on phones and the TV) is the same house hand.
+  `bits/registry.js` is the pure contract (its entries in
+  `bits/catalog/<group>.js`, the scenes in `bits/scenes-<group>.jsx`):
+  shape, style (`music`, `punchline`, `songless`), `ms` (3 to 5.5 s; idle 6
+  to 10 s), named `beats` (CSS reads `var(--b-<name>)`), `still`, `song`
+  (`{ beat, hold }` for music, `{ beat }` for a punchline, null songless),
+  `letter`, `camera`, `cast` (solo one a side; `team` sides of 1 to 7),
+  `cues` (an `unless:"song"` cue plays only with no song coming), `needs`
+  and `cut` (the needle scratch). The catalog (32): upsets standoff,
+  flipper, rockslide; music wins headphones, needledrop, disco, jukebox,
+  lowrider, piano; show wins sunset, statue, victoryspin, fireworks; losses
+  anvil, roadrunner, quicksand, dynamite, vulture, rake, needlescratch (only
+  while a win song plays: `showControl.audio.songs`); team dominoes,
+  tugofwar, slowmowalk, pyramid, teamphoto, victorylap; idle nap, edgepush,
+  saguaro, coinspin, polish, losttourist (attract mode; the two contests
+  take two chips). Every motion is `--ba:<animation>; animation:var(--ba)`
   from `calc(var(--tl) + ...)`, filled so each element rests on its end
-  state; a frozen bit (`is-frozen`) holds any instant through shell.css's
-  reduced-motion rule (`tests/bits.test.mjs` scans the convention). A
-  one-shot stepped switch (a pose layer, a prop shown or hidden) jumps at
-  its START (`step-start`, `steps(n, start)`): Chrome can leave a finished
-  animation a hair under progress 1, and an end jump then rests on its
-  FIRST value, so live TVs drew stacked gloves and doubled props that no
-  frozen frame showed (Oct 12; `tests/stepped-fill.test.mjs` scans src).
-  **The camera** (pure `bits/camera.js`): every bit is shot, never staged
-  wide. Its registry `camera: { zoom, x, fit, moves, shakes, washes }`:
-  `x` is a world x or an anchor its scene names (`Scene.anchors(cast)`:
-  quickdraw's `a`, `b`, `mid`, `minX`, `maxX`), `fit` caps the zoom so
-  `minX` to `maxX` fits the TV's safe sides (a versus as tight as both sides
-  allow, wider for a bigger cast) and scales every move with it, `moves`
-  are `{ at, ms, zoom?, x?, ease? }` on the bit's clock (a punch-in at the
-  hit, a whip, a pull-back for the hold), `shakes` kick the shot and a
-  `washes` instant gets one white frame just before it. A solo medium shot
-  is zoom 1.8 (a 432 px chip); every framing is clamped so the painting
-  covers the canvas. `BitStage.jsx` turns the track into one keyframes
-  animation on `.bit-world`, which zooms the session's painting, a pool of
-  floor light and the scene together about the floor (world y 930 held at
-  screen y 990); the lettering stays in screen space: the name (at most
-  110 px, `bitNameSize`) and the moment's fact ("-1,000") stamp at the
-  hit or the hold in the letter's place inside the TV's title-safe edges,
-  and the stage cues its foley on the room bus from its start
-  (`tv/bitSound.js`; the kit's `BIT_PARTS`, open past a win song). The
-  exemplars: quickdraw (an upset: the BANG is a white frame, a flash bigger
-  than the shooter held three frames, a big shake, then the tiny gun's kick
-  skids A back a step), anvil (a loss: pancaked, peeled up, it turns to the
-  room for a beat before it limps off) and roadrunner (a loss: a long skid,
-  a leaning beep beep, the shadow left behind winding up before it runs).
-  The solo pool (19): versus quickdraw, springglove, butte; win explosionwalk,
-  toohype, sunset, statue; loss anvil, roadrunner, dontlookback, quicksand,
-  dynamite, vulture; idle nap, armwrestle, saguaro, pushups, sweep, map.
-  **Team bits** (Oct 12, Brandon's set): most of the slate is pairs and
-  teams, and the bits above clump a side where only the front chip acts,
-  so six more lay out any side of 3 to 7 (`TEAM_MIN`, `TEAM_MAX`; roles
-  carry `min:3`), spaced so every glove is its own chip's and every chip
-  takes part: versus dominoes, tugofwar, slowmowalk; win pyramid,
-  teamphoto, victorylap (`lineLayout` in castGeometry.js stands a line).
-  `pickBit(shape, seed, recent, sides)` picks from `poolOf(shape, sides)`:
-  the team bits when the moment's LARGER side has 3 or more (`teamSized`:
-  a 3 v 3, a 7 v 6, an odd 2 v 3), the solo bits otherwise (and always for
-  a loss, which is one player); the same seed picks the same solo bit as
-  before. `momentLog` keeps each pool's own rotation (`poolKey`, e.g.
-  "versus:team"). `shared/gags.js` `GAG_TEAM_BITS` mirrors the registry
-  (tests hold it); a QA test of a team bit (`qaGag { bit }`) casts a team
-  from the board (`gagTestCast(..., { team })`: a versus the bottom of the
-  board beating the top, 6 v 7 for thirteen; a win the top three) and
-  plays every one of them; Random stays one a side. Reel casts `3v3`,
-  `6v7`, `7v6`, win `3`, `5`, `7`; fit views `tv-gag-<bit>-3v3|7v6`, win
-  `-3|-7`, `tv-gag-test-dominoes`. `node scripts/bit-live.mjs <id> <ms...>`
-  plays a bit LIVE on the gags rehearsal (its new `&in=<ms>`: the bit
-  starting that long after load) and sets each instant beside the same
-  instant frozen, since frozen frames once hid a live-only bug.
-  **Pairs** (Oct 13, Brandon's call: the doubles, Beer Die, Pickleball,
-  8-Ball, Beer Pong): in the solo versus and win bits both partners act.
-  A side of exactly two stands apart (`clusterLayout`'s `pair`,
-  `PAIR_STEP` 1.8 chips feet to feet; `PAIR_TIGHT` smaller and closer
-  where a 2 v 2 must fit one shot), never a clump, and `CastSide` gives
-  both the lead's part (`.is-lead.is-pair`, the second `--pd` a beat
-  behind; CSS adds `var(--pd, 0ms)` where partners go a beat apart). A
-  2 v 1 or 1 v 2 stages each side by its own size. Quickdraw: two
-  revolvers, the second held over its partner's head, two BANGs 240 ms
-  apart; springglove: a pincer, a launcher at each end (the second the
-  first mirrored about the middle, `.sg-mirror.cast-flip`), favorites
-  back to back each punched by the nearer a beat apart, flights crossing
-  (against one, both land at once and it goes straight up; its pairs
-  entry carries its own wide `camera`); butte: a pincer, a pit centred
-  on the stem and a poker at each lip (the second mirrored, `.bt-mirror`,
-  its photo flipped back by `.cast-flip`); explosionwalk, toohype, sunset and
-  statue: both walk, look, bounce, wear the shades, turn gold. A bit's
-  `pairLag` is that beat and its `pairs` entries (`{ sides:{ a:2 }, cues,
-  shakes, washes }`) add the second shot's sound, kick and white frame,
-  merged for the cast by `castBit` (BitLayer, `bitCues({ cast })` on the
-  room bus and a phone). Loss bits stay one player; 3 or more stay on the
-  team bits. Reel casts `2v1`, `1v2`; `/dev/gags-preview.html&cast=2v2|
-  2v1|1v2|pair` (and `bit-live.mjs --cast`) recasts a test as doubles;
-  fit views `tv-gag-<bit>-2v2|-2`, `tv-gag-quickdraw-2v1`,
-  `tv-gag-springglove-1v2`, `tv-gag-butte-2v1`. The sky's dim (Oct 13)
-  lies over the painting and under the scene (the shot is two layers on
-  one camera), so no cast is dimmed however high it stacks.
-  Idle vignettes are the TV's downtime: 6 to 10 s (`IDLE_MS`), cast from
-  the room (the players present, a vignette takes one or two), `letter:null`
-  (no name, no fact, the painting at full light), `still` the punchline.
-  Attract mode (Oct 11, pure `tv/attractModel.js`, `tv/TVAttract.jsx`)
-  plays them in TVMode: one turn a gap rotation, after the records; the
-  turn's server start picks the vignette (never the same twice running, the
-  arm wrestle only with two present) and its cast from `presentPlayers`; it
-  plays once from that start over the board, which keeps the rest of the
-  turn, its foley ducked and only on a TV that saw it start.
-  A name two styles both invented carries its style (`IdleSaguaro`,
-  `--bit-idle-cactus`, `--bit-slap-soot`, `--bit-desert-rock`, `bitSqueakSoft`).
-  `/dev/bits-reel.html` plays them all; `node scripts/build-bits-reel.mjs`
-  bundles it into one page for review and `node scripts/bit-frames.mjs <id>
-  <ms...>` renders frames (`--contact` a sheet, `--cast 2v2|4v6` a bigger
-  side, `--soundcheck` the foley offline).
+  state; a frozen bit holds any instant; a one-shot stepped switch jumps at
+  its START (`tests/stepped-fill.test.mjs`). The camera (`bits/camera.js`)
+  shoots every bit as before. New foley is synthesized in the kit
+  (`soundKit.js` NEON_PARTS: neonBuzz, neonFlick, bitGroove, bitNeedle,
+  bitScratch, bitSwitch, bitDisco, bitCoin, bitSputter, bitBass,
+  bitHydraulic, bitChord, bitPlink, bitFlipper, bitBumper, bitSpotlight,
+  bitSparks, bitFirework, bitBang, bitRake, bitRumble, bitRoll, bitEngine).
+  `/dev/bits-reel.html` plays them all (`?sheet=hand` the house hand in both
+  looks); `node scripts/build-bits-reel.mjs` bundles it and `node
+  scripts/bit-frames.mjs <id> <ms...>` renders frames (`--contact`, `--cast`,
+  `--only <group>` builds one catalog group).
+- **The win song on the bit's beat** (Oct 14, pure `shared/bitMusic.js`):
+  a moment's bit plays at the moment and the winner's song arrives on a
+  beat of it. A music bit's song starts ON its action (`song.beat`: the
+  headphones click on, the needle drops); its wind-up runs to `song.hold`
+  and holds there (`.bit-hold-loop` keeps one thing moving) until the
+  speaker plays, so the action lands with the music. A punchline bit's
+  song starts on its hit; its own foley plays first and ducks under the
+  song after (`bitCues` `open` up to the beat). A songless bit (a loss, a
+  bit about someone else) plays alone and the song walks out after it
+  (`SONG_AFTER_BIT_MS`). The Worker reads the same pure moment model
+  (`latestGag`, imported from `src/features/gags/gagModel.js`, whose imports
+  stay React and DOM free) and `songPlan` sends the play request early by
+  the speaker's latency (`private:spotify:latency`, default 900 ms): it
+  writes `showControl.audio.cue { gag, player, at }` at once (a music bit
+  holds for it, up to `CUE_MAX_WAIT_MS`), waits off the song lane, plays at
+  the room's level with no fade, and stamps the walkout with `bit` and
+  `audibleAt` (its `startedAt`), which takes over from the cue; a take-back
+  drops it, a miss clears it. A walkout that carries a bit plays no
+  takeover on the TV or a phone (`walkoutKey`, `walkoutSpan` null): the bit
+  was the moment and Now playing carries the rest; the duck starts as the
+  room hears it. The screens' second clock: `bitOrigin` (pending, the
+  latest it may hold; set, `audibleAt - beat`), `bitPhase` and
+  `bitElapsed` (BitStage's `useBitClock`), `cueTime` (a music bit's cues
+  from its hold on run on the origin, rescheduled under keys that carry
+  it). The needle scratch's `cut` beat stops a song still playing
+  (`queueSongCut`); the song log (`showControl.audio.songs`, `logSong`,
+  `logSongStop`) records which songs played and when they stopped, so
+  every screen picks the scratch the same. Without Spotify there is no cue
+  and nothing waits: the bit plays with its own foley. **Tap on the beat**
+  (Speaker sheet, `speaker/SpeakerTiming.jsx`, the pure
+  `calibrationStep`): three taps on the phone's own click, then three on
+  the speaker (`POST /api/spotify/calibrate` plays a saved win song from a
+  request sent at its answer's `at`, never over a win song); the latency is
+  the speaker taps' median less the clicks' (the reaction cancels), saved
+  with `POST /api/spotify/latency` and read back in the status
+  (`latencyMs`).
 - **Arrivals** (Oct 4, `state.arrivals`, `setArrived`, `setArrivalsOpen`):
   Friday starts with people still on the road, so games may run before all
   13 are in. Once the door opens (the first check-in, or the commissioner),

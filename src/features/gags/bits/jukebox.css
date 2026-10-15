@@ -1,0 +1,119 @@
+/* jukebox (jukebox.jsx): beats from registry.js (--b-<name>), every
+   animation on --ba, each element resting on its end state. The wind-up
+   holds on --b-hold while the song is on its way (shared/bitMusic.js);
+   the jukebox's flicker is the one thing that moves then (.bit-hold-loop). */
+
+.is-jukebox .jb { position:absolute; inset:0; }
+
+/* ── dark: only the outline is lit; its other tubes are bent glass ── */
+.is-jukebox .jb-off .ng:not(.ng-main) { opacity:0; }
+
+/* ── the chip: three hops over, a hip-check, back off and lean away,
+   the hard one on the kick, then it bobs beside it ── */
+.is-jukebox .jb-chip { z-index:2; }
+.is-jukebox .jb-chip .nc-move { transform:translateX(-14px);
+  --ba:jb-approach 900ms linear calc(var(--tl) + var(--b-hop)) both,
+    jb-check 90ms cubic-bezier(.5,0,.9,.5) calc(var(--tl) + var(--b-check) - 90ms) forwards,
+    jb-rebound 240ms ease-out calc(var(--tl) + var(--b-check)) forwards,
+    jb-back 300ms ease-in-out calc(var(--tl) + var(--b-wind)) forwards,
+    jb-slam 110ms cubic-bezier(.5,0,.9,.5) calc(var(--tl) + var(--b-kick) - 110ms) forwards,
+    jb-settle 260ms ease-out calc(var(--tl) + var(--b-kick)) forwards; animation:var(--ba); }
+@keyframes jb-approach { from { transform:translateX(-340px); } to { transform:translateX(-40px); } }
+@keyframes jb-check { from { transform:translateX(-40px); } to { transform:translateX(8px); } }
+@keyframes jb-rebound { from { transform:translateX(8px); } to { transform:translateX(-14px); } }
+@keyframes jb-back { from { transform:translateX(-14px); } to { transform:translateX(-86px); } }
+@keyframes jb-slam { from { transform:translateX(-86px); } to { transform:translateX(8px); } }
+@keyframes jb-settle { from { transform:translateX(8px); } to { transform:translateX(-14px); } }
+.is-jukebox .jb-chip .nc-hop { transform:translateY(0px);
+  --ba:jb-hops 300ms linear calc(var(--tl) + var(--b-hop)) 3 both,
+    jb-bob 480ms cubic-bezier(.3,0,.7,1) calc(var(--tl) + var(--b-groove)) infinite forwards; animation:var(--ba); }
+@keyframes jb-hops { 0% { transform:translateY(0px); animation-timing-function:cubic-bezier(.2,.7,.4,1); }
+  45% { transform:translateY(-70px); animation-timing-function:cubic-bezier(.6,0,.9,.4); } 100% { transform:translateY(0px); } }
+@keyframes jb-bob { 0%, 100% { transform:translateY(0px); } 50% { transform:translateY(-14px); } }
+.is-jukebox .jb-chip .nc-tilt { transform:rotate(7deg);
+  --ba:jb-t-load 140ms ease-out calc(var(--tl) + var(--b-check) - 230ms) both,
+    jb-t-hit 90ms ease-in calc(var(--tl) + var(--b-check) - 90ms) forwards,
+    jb-t-back 300ms ease-out calc(var(--tl) + var(--b-check)) forwards,
+    jb-t-wind 300ms ease-in-out calc(var(--tl) + var(--b-wind)) forwards,
+    jb-t-slam 110ms ease-in calc(var(--tl) + var(--b-kick) - 110ms) forwards,
+    jb-t-settle 300ms ease-out calc(var(--tl) + var(--b-kick)) forwards,
+    jb-t-groove 480ms ease-in-out calc(var(--tl) + var(--b-groove)) infinite forwards; animation:var(--ba); }
+@keyframes jb-t-load { from { transform:rotate(0deg); } to { transform:rotate(-10deg); } }
+@keyframes jb-t-hit { from { transform:rotate(-10deg); } to { transform:rotate(8deg); } }
+@keyframes jb-t-back { from { transform:rotate(8deg); } to { transform:rotate(0deg); } }
+@keyframes jb-t-wind { from { transform:rotate(0deg); } to { transform:rotate(-22deg); } }
+@keyframes jb-t-slam { from { transform:rotate(-22deg); } to { transform:rotate(12deg); } }
+@keyframes jb-t-settle { from { transform:rotate(12deg); } to { transform:rotate(7deg); } }
+/* leaning on it, cool, nodding to the beat */
+@keyframes jb-t-groove { 0%, 100% { transform:rotate(7deg); } 30% { transform:rotate(10deg); } }
+.is-jukebox .jb-chip .nc-body { transform:scale(1, 1);
+  --ba:jb-squash 220ms ease-out calc(var(--tl) + var(--b-check)) both,
+    jb-squash 260ms ease-out calc(var(--tl) + var(--b-kick)) forwards; animation:var(--ba); }
+@keyframes jb-squash { 0% { transform:scale(1, 1); } 30% { transform:scale(.86, 1.08); } 100% { transform:scale(1, 1); } }
+
+/* ── the jukebox: rocks on each bump, thumps to the beat ── */
+.is-jukebox .jb-rock { transform:rotate(0deg);
+  --ba:jb-rock 380ms ease-out calc(var(--tl) + var(--b-check)) both,
+    jb-rock-big 480ms ease-out calc(var(--tl) + var(--b-kick)) forwards; animation:var(--ba); }
+@keyframes jb-rock { 0% { transform:rotate(0deg); } 25% { transform:rotate(3deg); } 60% { transform:rotate(-1deg); } 100% { transform:rotate(0deg); } }
+@keyframes jb-rock-big { 0% { transform:rotate(0deg); } 22% { transform:rotate(4.5deg); } 55% { transform:rotate(-1.6deg); }
+  80% { transform:rotate(.6deg); } 100% { transform:rotate(0deg); } }
+.is-jukebox .jb-pump { transform:scale(1, 1);
+  --ba:jb-cough-jolt 220ms ease-out calc(var(--tl) + var(--b-cough)) both,
+    jb-pump 480ms ease-out calc(var(--tl) + var(--b-groove)) infinite forwards; animation:var(--ba); }
+@keyframes jb-cough-jolt { 0%, 100% { transform:scale(1, 1); } 35% { transform:scale(1.04, .95); } }
+@keyframes jb-pump { 0%, 100% { transform:scale(1, 1); } 15% { transform:scale(1.02, .97); } 50% { transform:scale(.99, 1.02); } }
+
+/* ── the sputter: its dome and window catch and drop, on and off ── */
+.is-jukebox .jb-sput { opacity:0;
+  --ba:jb-sputter 1000ms linear calc(var(--tl) + var(--b-sputter)) both; animation:var(--ba); }
+@keyframes jb-sputter { 0% { opacity:0; } 6% { opacity:.9; } 10% { opacity:0; } 16% { opacity:.6; } 18% { opacity:0; }
+  34% { opacity:0; } 38% { opacity:1; } 41% { opacity:.1; } 47% { opacity:.7; } 50% { opacity:0; } 64% { opacity:0; }
+  68% { opacity:.8; } 71% { opacity:.2; } 78% { opacity:.55; } 83% { opacity:.15; } 90% { opacity:.6; } 96% { opacity:.1; } 100% { opacity:0; } }
+/* waiting on the speaker: it keeps sputtering */
+.is-jukebox.is-holding .jb-sput { --ba:jb-flicker 760ms linear calc(var(--tl) + 0ms) infinite both; animation:var(--ba); }
+@keyframes jb-flicker { 0% { opacity:.55; } 12% { opacity:.1; } 20% { opacity:.7; } 26% { opacity:0; } 50% { opacity:0; } 55% { opacity:.9; }
+  60% { opacity:.2; } 72% { opacity:.6; } 80% { opacity:.05; } 100% { opacity:.55; } }
+
+/* ── it kicks in: every tube lights, then the dome and the keys chase ── */
+.is-jukebox .jb-on { opacity:1; --ba:neon-ignite 420ms linear calc(var(--tl) + var(--b-kick)) both; animation:var(--ba); }
+.is-jukebox .jb-on :is(.ng-dome, .ng-keys) { --ba:jb-chase 480ms linear calc(var(--tl) + var(--b-groove)) infinite both; animation:var(--ba); }
+.is-jukebox .jb-on .ng-inner { --ba:jb-chase 480ms linear calc(var(--tl) + var(--b-groove) + 240ms) infinite both; animation:var(--ba); }
+@keyframes jb-chase { 0%, 100% { opacity:1; } 45% { opacity:.3; } }
+.is-jukebox .jb-kick { opacity:0; --ba:jb-burst 300ms ease-out calc(var(--tl) + var(--b-kick)) forwards; animation:var(--ba); }
+@keyframes jb-burst { 0% { opacity:1; transform:scale(.4); } 60% { opacity:1; transform:scale(1.1); } 100% { opacity:0; transform:scale(1.3); } }
+
+/* ── bubbles run up its tubes ── */
+.is-jukebox .jb-bubble { opacity:0;
+  --ba:jb-bubble 1440ms linear calc(var(--tl) + var(--b-kick) + 120ms + var(--d, 0ms)) infinite both; animation:var(--ba); }
+.is-jukebox .jb-bubble.is-1 { --d:360ms; }
+.is-jukebox .jb-bubble.is-2 { --d:720ms; }
+.is-jukebox .jb-bubble.is-3 { --d:1080ms; }
+@keyframes jb-bubble { 0% { opacity:0; transform:translateY(0px) scale(.6); } 8% { opacity:1; } 88% { opacity:1; }
+  100% { opacity:0; transform:translateY(-350px) scale(1.1); } }
+
+/* ── notes stream out of the dome ── */
+.is-jukebox .jb-note { opacity:0;
+  --ba:jb-note 1920ms ease-out calc(var(--tl) + var(--b-groove) + var(--d, 0ms)) infinite both; animation:var(--ba); }
+.is-jukebox .jb-note.is-1 { --d:480ms; --dx:120px; }
+.is-jukebox .jb-note.is-2 { --d:960ms; }
+.is-jukebox .jb-note.is-3 { --d:1440ms; --dx:120px; }
+@keyframes jb-note { 0% { opacity:0; transform:translate(0px, 40px) rotate(-6deg) scale(.7); } 8% { opacity:1; }
+  14% { opacity:.3; } 20% { opacity:1; } 70% { opacity:1; }
+  100% { opacity:0; transform:translate(var(--dx, -120px), -240px) rotate(10deg) scale(1.05); } }
+
+/* ── the cough: two notes pop out of the top, droop and flop to the
+   floor, and go out ── */
+.is-jukebox .jb-cough { opacity:0; }
+.is-jukebox .jb-cough.is-0 { --ba:jb-cough-0 1100ms linear calc(var(--tl) + var(--b-cough)) forwards; animation:var(--ba); }
+.is-jukebox .jb-cough.is-1 { --ba:jb-cough-1 1100ms linear calc(var(--tl) + var(--b-cough) + 90ms) forwards; animation:var(--ba); }
+@keyframes jb-cough-0 { 0% { opacity:1; transform:translate(0px, 30px) rotate(0deg) scale(.5); animation-timing-function:cubic-bezier(.2,.7,.4,1); }
+  22% { opacity:1; transform:translate(90px, -40px) rotate(18deg) scale(1); animation-timing-function:cubic-bezier(.6,0,.9,.5); }
+  52% { opacity:1; transform:translate(200px, 494px) rotate(95deg) scale(1); animation-timing-function:ease-out; }
+  60% { transform:translate(206px, 482px) rotate(88deg) scale(1); } 66% { opacity:1; transform:translate(210px, 494px) rotate(92deg) scale(1); }
+  80% { opacity:.2; } 84% { opacity:.8; } 100% { opacity:0; transform:translate(210px, 494px) rotate(92deg) scale(1); } }
+@keyframes jb-cough-1 { 0% { opacity:1; transform:translate(0px, 30px) rotate(0deg) scale(.5); animation-timing-function:cubic-bezier(.2,.7,.4,1); }
+  22% { opacity:1; transform:translate(110px, -30px) rotate(-14deg) scale(1); animation-timing-function:cubic-bezier(.6,0,.9,.5); }
+  50% { opacity:1; transform:translate(260px, 470px) rotate(-100deg) scale(1); animation-timing-function:ease-out; }
+  58% { transform:translate(268px, 457px) rotate(-94deg) scale(1); } 64% { opacity:1; transform:translate(272px, 470px) rotate(-98deg) scale(1); }
+  78% { opacity:.2; } 82% { opacity:.8; } 100% { opacity:0; transform:translate(272px, 470px) rotate(-98deg) scale(1); } }

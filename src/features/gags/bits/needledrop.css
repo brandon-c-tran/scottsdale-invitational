@@ -1,0 +1,111 @@
+/* needle drop (needledrop.jsx): beats from registry.js (--b-<name>), every
+   animation on --ba, each element resting on its end state. The wind-up
+   holds on --b-hover while the song is on its way (shared/bitMusic.js);
+   the arm trembling in the hand is the one thing that moves then
+   (.bit-hold-loop). */
+
+.is-needledrop .nd { position:absolute; inset:0; }
+
+/* ── the chip: a crouch, a hop up onto the platter, and it falls flat on
+   its back like a dropped record, rattling down ── */
+.is-needledrop .nd-chip .nc-move { transform:translate(0px, 0px);
+  --ba:nd-hop-in 550ms linear calc(var(--tl) + var(--b-hop)) both; animation:var(--ba); }
+@keyframes nd-hop-in { 0% { transform:translate(-420px, 127px); animation-timing-function:cubic-bezier(.2,.7,.4,1); }
+  50% { transform:translate(-190px, -150px); animation-timing-function:cubic-bezier(.6,0,.9,.5); }
+  100% { transform:translate(0px, 0px); } }
+.is-needledrop .nd-chip .nc-hop { perspective:1600px; transform:translateY(0px);
+  --ba:nd-thump 480ms ease-out calc(var(--tl) + var(--b-groove)) infinite both; animation:var(--ba); }
+@keyframes nd-thump { 0%, 100% { transform:translateY(0px); } 18% { transform:translateY(-9px); } 55% { transform:translateY(0px); } }
+.is-needledrop .nd-chip .nc-body { transform:scale(1, 1) rotateX(60deg);
+  --ba:nd-crouch 150ms ease-in-out calc(var(--tl) + var(--b-hop) - 150ms) both,
+    nd-land 160ms ease-out calc(var(--tl) + var(--b-land)) forwards,
+    nd-flop 360ms cubic-bezier(.5,0,.95,.5) calc(var(--tl) + var(--b-flop)) forwards,
+    nd-rattle 760ms ease-out calc(var(--tl) + var(--b-flat)) forwards; animation:var(--ba); }
+@keyframes nd-crouch { 0% { transform:scale(1, 1) rotateX(0deg); } 60% { transform:scale(1.12, .86) rotateX(0deg); }
+  100% { transform:scale(.92, 1.1) rotateX(0deg); } }
+@keyframes nd-land { 0% { transform:scale(.92, 1.1) rotateX(0deg); } 40% { transform:scale(1.14, .86) rotateX(0deg); }
+  100% { transform:scale(1, 1) rotateX(0deg); } }
+@keyframes nd-flop { from { transform:scale(1, 1) rotateX(0deg); } to { transform:scale(1, 1) rotateX(68deg); } }
+@keyframes nd-rattle { 0% { transform:scale(1, 1) rotateX(68deg); } 18% { transform:scale(1, 1) rotateX(53deg); }
+  34% { transform:scale(1, 1) rotateX(64deg); } 50% { transform:scale(1, 1) rotateX(56deg); } 66% { transform:scale(1, 1) rotateX(62deg); }
+  82% { transform:scale(1, 1) rotateX(59deg); } 100% { transform:scale(1, 1) rotateX(60deg); } }
+/* the record spins in its own plane once the needle is down */
+.is-needledrop .nd-chip .nc-roll { transform:rotate(0deg);
+  --ba:nd-spin 1100ms linear calc(var(--tl) + var(--b-drop)) infinite both; animation:var(--ba); }
+@keyframes nd-spin { from { transform:rotate(0deg); } to { transform:rotate(360deg); } }
+
+/* ── the hand: in from the upper right, pinches the arm's head, carries
+   it, lets go on the drop and goes ── */
+.is-needledrop .nd-hand .hh-reach { transform:translateX(-1100px);
+  --ba:nd-hand-in 450ms cubic-bezier(.2,.75,.3,1) calc(var(--tl) + var(--b-reach)) both,
+    nd-hand-out 520ms cubic-bezier(.55,0,.9,.5) calc(var(--tl) + var(--b-drop) + 90ms) forwards; animation:var(--ba); }
+@keyframes nd-hand-in { from { transform:translateX(-1100px); } to { transform:translateX(0px); } }
+@keyframes nd-hand-out { from { transform:translateX(0px); } to { transform:translateX(-1100px); } }
+.is-needledrop .nd-hand .hh-fx { transform:translateX(-14px) rotate(-6deg);
+  --ba:nd-pinch 160ms ease-out calc(var(--tl) + var(--b-grab)) both,
+    nd-letgo 160ms ease-out calc(var(--tl) + var(--b-drop)) forwards; animation:var(--ba); }
+@keyframes nd-pinch { 0% { transform:translateX(0px) rotate(0deg); } 50% { transform:translateX(7px) rotate(0deg); }
+  100% { transform:translateX(0px) rotate(0deg); } }
+@keyframes nd-letgo { from { transform:translateX(0px) rotate(0deg); } to { transform:translateX(-14px) rotate(-6deg); } }
+
+/* ── the arm: off its rest, over the record, lowered until the needle
+   hovers, dropped; then it rides the record. The hand's node turns back
+   the other way, so the hand keeps its angle as it carries the arm. ── */
+.is-needledrop .nd-rig { transform:rotate(0deg);
+  --ba:nd-swing 450ms cubic-bezier(.45,0,.3,1) calc(var(--tl) + var(--b-swing)) both,
+    nd-lower 320ms ease-out calc(var(--tl) + var(--b-lower)) forwards,
+    nd-drop 70ms cubic-bezier(.6,0,1,.6) calc(var(--tl) + var(--b-drop) - 70ms) forwards,
+    nd-ride 480ms ease-in-out calc(var(--tl) + var(--b-groove)) infinite forwards; animation:var(--ba); }
+@keyframes nd-swing { from { transform:rotate(-34deg); } to { transform:rotate(11deg); } }
+@keyframes nd-lower { from { transform:rotate(11deg); } to { transform:rotate(7deg); } }
+@keyframes nd-drop { from { transform:rotate(7deg); } to { transform:rotate(0deg); } }
+@keyframes nd-ride { 0%, 100% { transform:rotate(0deg); } 20% { transform:rotate(1.2deg); } 55% { transform:rotate(0deg); } }
+.is-needledrop .nd-grip { transform:rotate(0deg);
+  --ba:nd-swing-c 450ms cubic-bezier(.45,0,.3,1) calc(var(--tl) + var(--b-swing)) both,
+    nd-lower-c 320ms ease-out calc(var(--tl) + var(--b-lower)) forwards,
+    nd-drop-c 70ms cubic-bezier(.6,0,1,.6) calc(var(--tl) + var(--b-drop) - 70ms) forwards; animation:var(--ba); }
+@keyframes nd-swing-c { from { transform:rotate(34deg); } to { transform:rotate(-11deg); } }
+@keyframes nd-lower-c { from { transform:rotate(-11deg); } to { transform:rotate(-7deg); } }
+@keyframes nd-drop-c { from { transform:rotate(-7deg); } to { transform:rotate(0deg); } }
+/* waiting on the speaker: the needle trembles just over the groove */
+.is-needledrop.is-holding .nd-hover { --ba:nd-tremble 760ms ease-in-out calc(var(--tl) + 0ms) infinite both; animation:var(--ba); }
+@keyframes nd-tremble { 0%, 100% { transform:rotate(0deg); } 50% { transform:rotate(1.6deg); } }
+
+/* ── the drop: a spark where the needle lands ── */
+.is-needledrop .nd-spark { opacity:0; --ba:nd-spark 320ms ease-out calc(var(--tl) + var(--b-drop)) forwards; animation:var(--ba); }
+@keyframes nd-spark { 0% { opacity:1; transform:scale(.3); } 55% { opacity:1; transform:scale(1.1); } 100% { opacity:0; transform:scale(1.3); } }
+
+/* ── the platter's strobe dots: dim until it spins, then chasing ── */
+.is-needledrop .nd-strobe { opacity:1; --ba:nd-strobe-on 1ms step-start calc(var(--tl) + var(--b-drop)) both; animation:var(--ba); }
+@keyframes nd-strobe-on { from { opacity:.18; } to { opacity:1; } }
+.is-needledrop .nd-strobe .ng { --ba:nd-chase 220ms linear calc(var(--tl) + var(--b-drop)) infinite both; animation:var(--ba); }
+.is-needledrop .nd-strobe.is-odd .ng { --ba:nd-chase 220ms linear calc(var(--tl) + var(--b-drop) + 110ms) infinite both; animation:var(--ba); }
+@keyframes nd-chase { 0%, 49% { opacity:1; } 50%, 100% { opacity:.12; } }
+
+/* ── the meter: low until the drop, then jumping to the beat ── */
+.is-needledrop .nd-bar { transform:scaleY(var(--pk));
+  --ba:nd-vu-up 140ms ease-out calc(var(--tl) + var(--b-drop)) both,
+    nd-vu 480ms ease-in-out calc(var(--tl) + var(--b-drop) + 140ms + var(--o, 0ms)) infinite forwards; animation:var(--ba); }
+.is-needledrop .nd-bar.is-1 { --o:60ms; }
+.is-needledrop .nd-bar.is-2 { --o:180ms; }
+.is-needledrop .nd-bar.is-3 { --o:30ms; }
+.is-needledrop .nd-bar.is-4 { --o:240ms; }
+.is-needledrop .nd-bar.is-5 { --o:120ms; }
+.is-needledrop .nd-bar.is-6 { --o:300ms; }
+@keyframes nd-vu-up { from { transform:scaleY(.12); } to { transform:scaleY(var(--pk)); } }
+@keyframes nd-vu { 0%, 100% { transform:scaleY(var(--pk)); } 50% { transform:scaleY(calc(var(--pk) * .35)); } }
+
+/* ── notes rise off the record, one after another ── */
+.is-needledrop .nd-note { opacity:0;
+  --ba:nd-note 1920ms ease-out calc(var(--tl) + var(--b-notes) + var(--d, 0ms)) infinite both; animation:var(--ba); }
+.is-needledrop .nd-note.is-1 { --d:480ms; }
+.is-needledrop .nd-note.is-2 { --d:960ms; }
+.is-needledrop .nd-note.is-3 { --d:1440ms; }
+@keyframes nd-note { 0% { opacity:0; transform:translate(0px, 0px) rotate(-6deg) scale(.7); } 8% { opacity:1; }
+  14% { opacity:.3; } 20% { opacity:1; } 70% { opacity:1; } 100% { opacity:0; transform:translate(70px, -300px) rotate(10deg) scale(1.05); } }
+
+/* ── rings of the music off the platter, on the beat ── */
+.is-needledrop .nd-ring { opacity:0;
+  --ba:nd-ring 960ms ease-out calc(var(--tl) + var(--b-drop) + var(--d, 0ms)) infinite both; animation:var(--ba); }
+.is-needledrop .nd-ring.is-1 { --d:480ms; }
+@keyframes nd-ring { 0% { opacity:0; transform:scale(1); } 6% { opacity:.9; } 100% { opacity:0; transform:scale(1.7); } }

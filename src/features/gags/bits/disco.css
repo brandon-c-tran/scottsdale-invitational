@@ -1,0 +1,120 @@
+/* disco switch (disco.jsx): beats from registry.js (--b-<name>), every
+   animation on --ba, each element resting on its end state. The wind-up
+   holds on --b-ready while the song is on its way (shared/bitMusic.js);
+   the hand straining on the switch is the one thing that moves then
+   (.bit-hold-loop). */
+
+.is-disco .dc { position:absolute; inset:0; }
+
+/* ── the switch: open, wound back a touch, thrown home, a clunk ── */
+.is-disco .dc-lever { transform:rotate(0deg);
+  --ba:dc-wind 300ms ease-out calc(var(--tl) + var(--b-strain)) both,
+    dc-throw 110ms cubic-bezier(.5,0,.9,.4) calc(var(--tl) + var(--b-throw) - 110ms) forwards,
+    dc-clunk 240ms ease-out calc(var(--tl) + var(--b-throw)) forwards; animation:var(--ba); }
+@keyframes dc-wind { from { transform:rotate(52deg); } to { transform:rotate(60deg); } }
+@keyframes dc-throw { from { transform:rotate(60deg); } to { transform:rotate(-4deg); } }
+@keyframes dc-clunk { 0% { transform:rotate(-4deg); } 40% { transform:rotate(3deg); } 100% { transform:rotate(0deg); } }
+/* the hand's node turns back the other way, so the hand keeps its angle */
+.is-disco .dc-grip { transform:rotate(0deg);
+  --ba:dc-wind-c 300ms ease-out calc(var(--tl) + var(--b-strain)) both,
+    dc-throw-c 110ms cubic-bezier(.5,0,.9,.4) calc(var(--tl) + var(--b-throw) - 110ms) forwards,
+    dc-clunk-c 240ms ease-out calc(var(--tl) + var(--b-throw)) forwards; animation:var(--ba); }
+@keyframes dc-wind-c { from { transform:rotate(-52deg); } to { transform:rotate(-60deg); } }
+@keyframes dc-throw-c { from { transform:rotate(-60deg); } to { transform:rotate(4deg); } }
+@keyframes dc-clunk-c { 0% { transform:rotate(4deg); } 40% { transform:rotate(-3deg); } 100% { transform:rotate(0deg); } }
+/* waiting on the speaker: the hand strains on it, ready */
+.is-disco.is-holding .dc-strain { --ba:dc-tremble 210ms linear calc(var(--tl) + 0ms) infinite both; animation:var(--ba); }
+@keyframes dc-tremble { 0%, 100% { transform:rotate(0deg); } 25% { transform:rotate(-1.3deg); } 75% { transform:rotate(1deg); } }
+
+/* ── the hand: in from the right, grips, throws, goes ── */
+.is-disco .dc-hand .hh-reach { transform:translateX(-1100px);
+  --ba:dc-hand-in 480ms cubic-bezier(.2,.75,.3,1) calc(var(--tl) + var(--b-reach)) both,
+    dc-hand-out 520ms cubic-bezier(.55,0,.9,.5) calc(var(--tl) + var(--b-throw) + 180ms) forwards; animation:var(--ba); }
+@keyframes dc-hand-in { from { transform:translateX(-1100px); } to { transform:translateX(0px); } }
+@keyframes dc-hand-out { from { transform:translateX(0px); } to { transform:translateX(-1100px); } }
+.is-disco .dc-hand .hh-fx { transform:translateX(0px);
+  --ba:dc-squeeze 160ms ease-out calc(var(--tl) + var(--b-grip)) both; animation:var(--ba); }
+@keyframes dc-squeeze { 0%, 100% { transform:translateX(0px); } 50% { transform:translateX(8px); } }
+
+/* ── the zap at the clips; the lamps go from clay to live ── */
+.is-disco .dc-zap { opacity:0; --ba:dc-zap 380ms ease-out calc(var(--tl) + var(--b-throw)) forwards; animation:var(--ba); }
+@keyframes dc-zap { 0% { opacity:1; transform:scale(.4); } 20% { opacity:.3; } 35% { opacity:1; transform:scale(1); }
+  100% { opacity:0; transform:scale(1.25); } }
+.is-disco .dc-lamps.is-off { opacity:0; --ba:bit-hide 1ms step-start calc(var(--tl) + var(--b-throw)) both; animation:var(--ba); }
+.is-disco .dc-lamps.is-on { opacity:1; --ba:neon-ignite 320ms linear calc(var(--tl) + var(--b-throw)) both; animation:var(--ba); }
+
+/* ── its cables: dim, then live up to the ball ── */
+.is-disco .dc-cables { opacity:.3; }
+.is-disco .dc-power { opacity:1; --ba:neon-ignite 300ms linear calc(var(--tl) + var(--b-throw) + 30ms) both; animation:var(--ba); }
+
+/* ── the ball: drops in on its chain, bounces on it, sways, turns ── */
+.is-disco .dc-hang { transform:translateY(0px);
+  --ba:dc-drop 300ms cubic-bezier(.55,0,1,.6) calc(var(--tl) + var(--b-land) - 300ms) both,
+    dc-bounce 640ms ease-out calc(var(--tl) + var(--b-land)) forwards; animation:var(--ba); }
+@keyframes dc-drop { from { transform:translateY(-900px); } to { transform:translateY(0px); } }
+@keyframes dc-bounce { 0% { transform:translateY(0px); } 18% { transform:translateY(36px); } 45% { transform:translateY(-12px); }
+  70% { transform:translateY(5px); } 100% { transform:translateY(0px); } }
+.is-disco .dc-sway { transform:rotate(0deg);
+  --ba:dc-sway 1920ms ease-in-out calc(var(--tl) + var(--b-land)) infinite both; animation:var(--ba); }
+@keyframes dc-sway { 0%, 100% { transform:rotate(0deg); } 25% { transform:rotate(1.4deg); } 75% { transform:rotate(-1.4deg); } }
+.is-disco .dc-turn.is-a { --ba:dc-turn 480ms linear calc(var(--tl) + var(--b-land)) infinite both; animation:var(--ba); }
+.is-disco .dc-turn.is-b { --ba:dc-turn 480ms linear calc(var(--tl) + var(--b-land) + 240ms) infinite both; animation:var(--ba); }
+@keyframes dc-turn { 0%, 49% { opacity:1; } 50%, 100% { opacity:0; } }
+.is-disco .dc-glint { opacity:0;
+  --ba:dc-twinkle 960ms ease-in-out calc(var(--tl) + var(--b-land) + var(--d, 0ms)) infinite both; animation:var(--ba); }
+
+/* ── the beams: on as it lands, sweeping the room ── */
+.is-disco .dc-beams { transform:rotate(0deg);
+  --ba:dc-sweep 1920ms ease-in-out calc(var(--tl) + var(--b-land)) infinite both; animation:var(--ba); }
+.is-disco .dc-beams.is-b { --ba:dc-sweep-b 1920ms ease-in-out calc(var(--tl) + var(--b-land)) infinite both; animation:var(--ba); }
+@keyframes dc-sweep { 0%, 100% { transform:rotate(-14deg); } 50% { transform:rotate(14deg); } }
+@keyframes dc-sweep-b { 0%, 100% { transform:rotate(12deg); } 50% { transform:rotate(-12deg); } }
+.is-disco .dc-beams > .neon { opacity:.55; --ba:dc-beams-on 360ms linear calc(var(--tl) + var(--b-land)) both; animation:var(--ba); }
+@keyframes dc-beams-on { 0% { opacity:0; } 15% { opacity:.5; } 25% { opacity:.05; } 45% { opacity:.6; } 55% { opacity:.2; } 100% { opacity:.55; } }
+
+/* ── glints round the room, twinkling ── */
+.is-disco .dc-spark { opacity:0;
+  --ba:dc-twinkle 960ms ease-in-out calc(var(--tl) + var(--b-land) + var(--d, 0ms)) infinite both; animation:var(--ba); }
+.is-disco :is(.dc-spark, .dc-glint).is-1 { --d:360ms; }
+.is-disco :is(.dc-spark, .dc-glint).is-2 { --d:720ms; }
+.is-disco :is(.dc-spark, .dc-glint).is-3 { --d:120ms; }
+.is-disco .dc-spark.is-4 { --d:480ms; }
+.is-disco .dc-spark.is-5 { --d:840ms; }
+.is-disco .dc-spark.is-6 { --d:240ms; }
+.is-disco .dc-spark.is-7 { --d:600ms; }
+@keyframes dc-twinkle { 0% { opacity:0; transform:scale(.3) rotate(0deg); } 30% { opacity:1; transform:scale(1) rotate(20deg); }
+  60% { opacity:0; transform:scale(.4) rotate(45deg); } 100% { opacity:0; transform:scale(.3) rotate(45deg); } }
+
+/* ── the floor: dim tiles, then the even and the odd take turns ── */
+.is-disco .dc-tiles:not(.is-even):not(.is-odd) { opacity:.3; }
+.is-disco .dc-tiles.is-even { opacity:1;
+  --ba:bit-show 1ms step-start calc(var(--tl) + var(--b-land)) both,
+    dc-tile 960ms linear calc(var(--tl) + var(--b-land)) infinite forwards; animation:var(--ba); }
+.is-disco .dc-tiles.is-odd { opacity:1;
+  --ba:bit-show 1ms step-start calc(var(--tl) + var(--b-land)) both,
+    dc-tile 960ms linear calc(var(--tl) + var(--b-land) + 480ms) infinite forwards; animation:var(--ba); }
+@keyframes dc-tile { 0%, 49% { opacity:1; } 50%, 100% { opacity:.1; } }
+
+/* ── the chip: leans to watch the switch, starts at the throw, then
+   spins on its edge under the ball on the beat, bobbing ── */
+.is-disco .dc-chip .nc-tilt { transform:rotate(0deg);
+  --ba:dc-lean 320ms ease-in-out calc(var(--tl) + var(--b-look)) both,
+    dc-startle 160ms ease-out calc(var(--tl) + var(--b-throw)) forwards,
+    dc-groove 960ms ease-in-out calc(var(--tl) + var(--b-groove)) infinite forwards; animation:var(--ba); }
+@keyframes dc-lean { from { transform:rotate(0deg); } to { transform:rotate(8deg); } }
+@keyframes dc-startle { from { transform:rotate(8deg); } to { transform:rotate(-5deg); } }
+@keyframes dc-groove { 0%, 100% { transform:rotate(-5deg); } 50% { transform:rotate(5deg); } }
+.is-disco .dc-chip .nc-body { transform:scale(1, 1);
+  --ba:dc-tiptoe 300ms ease-out calc(var(--tl) + var(--b-strain)) both,
+    dc-unto 160ms ease-out calc(var(--tl) + var(--b-throw)) forwards; animation:var(--ba); }
+@keyframes dc-tiptoe { from { transform:scale(1, 1); } to { transform:scale(.95, 1.06); } }
+@keyframes dc-unto { 0% { transform:scale(.95, 1.06); } 50% { transform:scale(1.1, .9); } 100% { transform:scale(1, 1); } }
+.is-disco .dc-chip .nc-hop { transform:translateY(0px);
+  --ba:dc-jump 300ms ease-in-out calc(var(--tl) + var(--b-throw)) both,
+    dc-bob 480ms cubic-bezier(.3,0,.7,1) calc(var(--tl) + var(--b-groove)) infinite forwards; animation:var(--ba); }
+@keyframes dc-jump { 0%, 100% { transform:translateY(0px); } 40% { transform:translateY(-60px); } }
+@keyframes dc-bob { 0%, 100% { transform:translateY(0px); } 50% { transform:translateY(-28px); } }
+.is-disco .dc-chip .nc-spin { transform:rotateY(0deg);
+  --ba:dc-spin 960ms linear calc(var(--tl) + var(--b-groove)) infinite both; animation:var(--ba); }
+@keyframes dc-spin { 0% { transform:rotateY(0deg); animation-timing-function:cubic-bezier(.45,0,.25,1); } 45% { transform:rotateY(360deg); }
+  100% { transform:rotateY(360deg); } }

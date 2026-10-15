@@ -429,7 +429,7 @@ test("a duel ante accounts for both balances, reserved antes, duplicate pairs, a
   const poorer = fresh();
   poorer.adjustments = [{ player:other, delta:-700 }];
   const limited = controls(PlayerSheet, poorer, { openDuel:true });
-  assert.equal(limited.named("Ante 200 chips each").disabled, false);
+  assert.equal(limited.named("Ante 100 chips each").disabled, false);
   assert.equal(limited.named("Ante 500 chips each").disabled, true);
 
   const reserved = fresh();

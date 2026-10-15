@@ -259,7 +259,7 @@ test("drag: released off the table or cancelled, nothing is placed", () => {
   act(state, "announceEvent", { evId:"putt" });
   const picks = [];
   const view = board(state, ROSTER[0], pick => { picks.push(pick); return { ok:true }; }, { runEffects:true });
-  const chip = view.rack(200);
+  const chip = view.rack(100);
   withSpotUnderFinger(ROSTER[1], () => {
     /* dragged, but let go where no spot is */
     chip.onPointerDown(pointer(10));

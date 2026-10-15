@@ -655,7 +655,7 @@ test("the player card's Duel opens the Bets rack capped by the duel cap, then Se
   const sent = [];
   const open = render(PlayerSheet, { state:s, me:evan, p:khoa, standings:computeStandings(s), events:allEventsOf(s),
     onClose:() => {}, onDuel:stake => { sent.push(stake); return { ok:true }; }, openDuel:true });
-  for (const value of [100, 200]) assert.equal(open.named(`Ante ${value} chips each`).disabled, false);
+  for (const value of [100]) assert.equal(open.named(`Ante ${value} chips each`).disabled, false);
   for (const value of ["500", "1,000"]) assert.equal(open.named(`Ante ${value} chips each`).disabled, true);
   assert.match(open.html, /Max 200/);
   assert.match(open.html, />Send 100</);

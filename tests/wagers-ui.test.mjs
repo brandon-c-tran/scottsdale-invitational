@@ -277,7 +277,7 @@ test("locked markets and full exposure disable picks while the rack respects ava
   const smallStack = controls(state, solo, {
     standings:computeStandings(state).map(row => row.player === player ? { ...row, pts:300 } : row),
   });
-  assert.equal(smallStack.named("Bet 200 a tap").disabled, false);
+  assert.equal(smallStack.named("Bet 100 a tap").disabled, false);
   assert.equal(smallStack.named("Bet 500 a tap").disabled, true);
   state.wagers = [{ id:"at-cap", player, kind:"outright", eventId:solo.id,
     pick:ROSTER[1], pickPlayers:[ROSTER[1]], stake:500 }];
@@ -304,7 +304,7 @@ test("open duel antes reduce available betting chips without preventing a retrac
   state.duels = [{ id:"reserved-duel", from:player, to:ROSTER[2], stake:200, status:"open", runs:{} }];
   const view = controls(state, solo);
   assert.equal(view.named("Bet 100 a tap").disabled, false);
-  assert.equal(view.named("Bet 200 a tap").disabled, true);
+  assert.equal(view.named("Bet 500 a tap").disabled, true);
   assert.match(view.html, /400 at risk, 500 maximum, 1,000 in your stack, 200 reserved for duels/);
   view.click(`Retract your last chip on ${ROSTER[1]}`);
   assert.deepEqual(view.retractions, ["reserved-bet"]);

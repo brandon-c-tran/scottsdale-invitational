@@ -476,7 +476,7 @@ const phoneBoard = (state, me, evId, extra = {}) => renderWithButtons(h => h(Pla
   h(Wagers, { state, me, events:allEventsOf(state), standings:computeStandings(state), gm:false,
     wagerEv:evOf(state, evId), onEvents() {}, onEvent() {}, onPick() {}, onRetract() {}, onPlayer() {}, onVoid() {}, ...extra })));
 
-test("the rack is your seat: docked after the table, amber house chips, what is left to bet", () => {
+test("the rack is your seat: docked after the table, the set's 100, 500 and 1000, what is left to bet", () => {
   const { state, bystanders } = bracketWithBets();
   const view = phoneBoard(state, bystanders[8], "8ball");
   const head = view.html.indexOf('class="fd-wagers-event-heading');
@@ -486,10 +486,12 @@ test("the rack is your seat: docked after the table, amber house chips, what is 
   assert.ok(rack > view.html.indexOf("</header>"), "the seat is no longer inside the head pane");
   assert.ok(view.html.indexOf('class="fd-wagers-history') < 0 || view.html.indexOf('class="fd-wagers-history') < rack,
     "the seat is last in the page's flow, so scrolling to the end uncovers everything above it");
-  /* every denomination is the chip lamp's amber, never the viewer's identity color */
+  /* the rack is Brandon's set's betting chips, each coin's side its own edge color, never the viewer's identity color */
   const coins = [...view.html.matchAll(/class="fd-coin3d[^"]*"[^>]*style="--coin-color:([^"]+)"/g)].map(m => m[1]);
-  assert.ok(coins.length >= 1 && coins.every(color => color === "var(--sun)"), `rack coins are amber: ${coins}`);
-  assert.match(view.html, /<circle cx="16" cy="16" r="14.7" fill="var\(--sun\)"/, "the coin's face is the pot's own chip");
+  assert.deepEqual(coins, ["var(--chip-100-edge)", "var(--chip-500-edge)", "var(--chip-1000-edge)"], `rack coins: ${coins}`);
+  /* each face is the set's white body, its numeral in gold foil */
+  assert.ok(view.html.includes('<circle cx="16" cy="16" r="14.7" fill="var(--chip-body)"'), "the coin's face is the set's white chip");
+  assert.ok(view.html.includes('fill="var(--chip-ink-gold)">100<'), "the numeral in gold");
   /* a rack chip is a tap target and a drag source (touch-action none) */
   assert.match(view.html, /<button type="button" data-fly-coin="" style="touch-action:none" aria-pressed="true" aria-label="Bet 100 a tap"/);
   /* the readout says what is left to bet: 2,500 standing, its cap half of that in 100s */

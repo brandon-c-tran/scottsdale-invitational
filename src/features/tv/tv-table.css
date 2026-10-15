@@ -108,7 +108,7 @@
 .tvt-spot.is-band .tv-stacks-fit .fd-stacks-slot, .tvt-spot.is-band .tv-stacks .fd-stacks-slot { width:auto; }
 .tvt-band-felt > .fd-stacks { align-items:center; justify-content:center; flex-wrap:nowrap; }
 
-/* ── "No more bets": the dealer's glove sweeps the felt ── */
+/* ── "No more bets": the house hand (the dealer's, in neon) sweeps the felt ── */
 .tvt-sweep { position:absolute; inset:0; z-index:6; display:grid; place-items:center; pointer-events:none; border-radius:inherit;
   animation:tvt-sweep-dim var(--sweep-ms) ease var(--tl) both; }
 @keyframes tvt-sweep-dim { 0% { background:transparent; } 12%, 78% { background:color-mix(in srgb, var(--ink0) 58%, transparent); }
@@ -167,7 +167,7 @@
 /* settled stacks: one row on the felt's floor */
 .tvt-felt-stacks.is-settle { align-items:flex-end; justify-content:center; }
 .tvt-felt-stacks.is-settle > .fd-stacks { flex-wrap:nowrap; justify-content:center; }
-/* the rake: the glove crosses the felt toward the pool's corner (the bank) */
+/* the rake: the house hand crosses the felt toward the pool's corner (the bank) */
 .tvt-rake { position:absolute; left:0; top:52%; z-index:5; pointer-events:none;
   animation:tvt-rake var(--rake-ms) cubic-bezier(.45,0,.55,1) calc(var(--rake-at) + 100ms) both; }
 .tvt.is-band .tvt-rake { top:18%; }

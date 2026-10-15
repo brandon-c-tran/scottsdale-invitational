@@ -1,0 +1,56 @@
+/* slowmowalk (slowmowalk.jsx): every move on a beat from registry.js
+   (--b-<name>), every animation on --ba (bits.css), each element resting
+   on its end state. A stack's blast runs from --b-first + its --t. */
+
+.is-slowmowalk .sw { position:absolute; inset:0; }
+
+/* ── the walkers: from far and small to close, slowing as they arrive;
+   a slow bob and sway, four strides, a settle as they stop ── */
+.is-slowmowalk .sw-walk { transform:none;
+  --ba:sw-walk calc(var(--b-stop) + 0ms) cubic-bezier(.3,.12,.4,1) calc(var(--tl) + 0ms) both; animation:var(--ba); }
+@keyframes sw-walk { from { transform:var(--sw-from); } to { transform:none; } }
+.is-slowmowalk .sw-a .nc-hop { transform:translateY(0px);
+  --ba:sw-bob 690ms ease-in-out calc(var(--tl) + var(--b-stop) - 2760ms - var(--i) * 90ms) 4 both; animation:var(--ba); }
+@keyframes sw-bob { 0%, 100% { transform:translateY(0px); } 50% { transform:translateY(var(--sw-bob)); } }
+.is-slowmowalk .sw-a .nc-tilt { transform:rotate(0deg);
+  --ba:sw-sway 1380ms ease-in-out calc(var(--tl) + var(--b-stop) - 2760ms - var(--i) * 90ms) 2 both; animation:var(--ba); }
+@keyframes sw-sway { 0%, 50%, 100% { transform:rotate(0deg); } 25% { transform:rotate(4deg); } 75% { transform:rotate(-4deg); } }
+.is-slowmowalk .sw-a .nc-body { transform:scale(1, 1);
+  --ba:sw-stop 420ms ease-out calc(var(--tl) + var(--b-stop) - var(--i) * 90ms) both; animation:var(--ba); }
+@keyframes sw-stop { 0% { transform:scale(1, 1); } 35% { transform:scale(1.05, .94); } 100% { transform:scale(1, 1); } }
+
+/* ── the horizon: each stack goes up on its turn ── */
+.is-slowmowalk .sw-stack { opacity:0; --ba:neon-die 240ms linear calc(var(--tl) + var(--b-first) + var(--t)) both; animation:var(--ba); }
+.is-slowmowalk .sw-coin { opacity:0; transform:translate(var(--fx), var(--fy));
+  --ba:sw-coin 1100ms cubic-bezier(.15,.75,.4,1) calc(var(--tl) + var(--b-first) + var(--t)) both; animation:var(--ba); }
+@keyframes sw-coin { 0% { opacity:1; transform:translate(0px, 0px); } 75% { opacity:1; } 100% { opacity:0; transform:translate(var(--fx), var(--fy)); } }
+.is-slowmowalk .sw-coin-spin { transform:rotate(720deg);
+  --ba:sw-spin 1100ms ease-out calc(var(--tl) + var(--b-first) + var(--t)) both; animation:var(--ba); }
+@keyframes sw-spin { from { transform:rotate(0deg); } to { transform:rotate(720deg); } }
+.is-slowmowalk .sw-ring { opacity:0; --ba:sw-ring 460ms ease-out calc(var(--tl) + var(--b-first) + var(--t)) forwards; animation:var(--ba); }
+@keyframes sw-ring { 0% { opacity:1; transform:scale(.2); } 100% { opacity:0; transform:scale(1.5); } }
+.is-slowmowalk .sw-fire { opacity:0; --ba:sw-fire 760ms ease-out calc(var(--tl) + var(--b-first) + var(--t)) forwards; animation:var(--ba); }
+.is-slowmowalk .sw-fire.is-in { --ba:sw-fire 620ms ease-out calc(var(--tl) + var(--b-first) + var(--t) + 40ms) forwards; }
+@keyframes sw-fire { 0% { opacity:1; transform:scale(.3) rotate(0deg); } 28% { opacity:1; transform:scale(1) rotate(6deg); }
+  60% { opacity:.8; } 100% { opacity:0; transform:scale(1.3) rotate(12deg); } }
+.is-slowmowalk .sw-smoke { opacity:0;
+  --ba:sw-smoke 1600ms ease-out calc(var(--tl) + var(--b-first) + var(--t) + 160ms + var(--k) * 90ms) forwards; animation:var(--ba); }
+@keyframes sw-smoke { 0% { opacity:.55; transform:translate(0px, 0px) scale(.4); } 100% { opacity:0; transform:translate(0px, -170px) scale(1.4); } }
+.is-slowmowalk .sw-fling { opacity:0; transform:translate(var(--fx), 160px) rotate(var(--fs));
+  --ba:sw-fling 1200ms linear calc(var(--tl) + var(--b-first) + var(--t) + var(--k) * 30ms) forwards; animation:var(--ba); }
+@keyframes sw-fling { 0% { opacity:1; transform:translate(0px, 0px) rotate(0deg); animation-timing-function:cubic-bezier(.2,.75,.45,1); }
+  42% { opacity:1; transform:translate(calc(var(--fx) * .6), var(--fy)) rotate(calc(var(--fs) * .5)); animation-timing-function:cubic-bezier(.55,0,.9,.5); }
+  88% { opacity:1; } 100% { opacity:0; transform:translate(var(--fx), 160px) rotate(var(--fs)); } }
+
+/* the big one: its fuse fizzes while they come, then it goes, biggest */
+.is-slowmowalk .sw-fuse { opacity:0;
+  --ba:bit-show 1ms step-start calc(var(--tl) + var(--b-fuse)) both, sw-fizz 120ms linear calc(var(--tl) + var(--b-fuse)) 7 forwards,
+    bit-hide 1ms step-start calc(var(--tl) + var(--b-boom)) forwards;
+  animation:var(--ba); }
+@keyframes sw-fizz { 0%, 100% { opacity:1; transform:scale(.8) rotate(0deg); } 50% { opacity:.4; transform:scale(1.2) rotate(20deg); } }
+.is-slowmowalk .sw-s.is-big .sw-fire { --ba:sw-fire-big 1100ms ease-out calc(var(--tl) + var(--b-first) + var(--t)) forwards; }
+.is-slowmowalk .sw-s.is-big .sw-fire.is-in { --ba:sw-fire-big 900ms ease-out calc(var(--tl) + var(--b-first) + var(--t) + 60ms) forwards; }
+@keyframes sw-fire-big { 0% { opacity:1; transform:scale(.3) rotate(0deg); } 22% { opacity:1; transform:scale(1.9) rotate(8deg); }
+  60% { opacity:.85; transform:scale(2.2) rotate(12deg); } 100% { opacity:0; transform:scale(2.4) rotate(16deg); } }
+.is-slowmowalk .sw-s.is-big .sw-ring { --ba:sw-ring-big 620ms ease-out calc(var(--tl) + var(--b-first) + var(--t)) forwards; }
+@keyframes sw-ring-big { 0% { opacity:1; transform:scale(.3); } 100% { opacity:0; transform:scale(3.2); } }

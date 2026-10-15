@@ -407,7 +407,8 @@ test("every scene draws in neon at night on the painting, with its cast, the nam
     assert.match(html, /<div class="bit-world" style="transform:translate\(960px, 990px\) scale\([\d.]+\) translate\(-[\d.]+px, -930px\)/,
       `${bit.id}: shot by its camera`);
     assert.match(html, /class="neon[ "]/, `${bit.id}: drawn in neon`);
-    const players = bit.shape === "idle" ? cast.a.slice(0, bit.cast.a.max) : Object.values(cast).flat();
+    /* the slow-mo walk draws the favorites as their stacks going up on the horizon, not as chips */
+    const players = bit.shape === "idle" ? cast.a.slice(0, bit.cast.a.max) : bit.id === "slowmowalk" ? cast.a : Object.values(cast).flat();
     players.forEach(player => assert.match(html, new RegExp(`data-player="${player}"`), `${bit.id}: ${player} cast`));
     assert.match(html, /data:image\/svg\+xml/, `${bit.id}: the stand-in photos reach the chips`);
     if (bit.shape === "idle") {

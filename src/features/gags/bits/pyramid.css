@@ -1,0 +1,62 @@
+/* pyramid (pyramid.jsx): every move on a beat from registry.js
+   (--b-<name>), every animation on --ba (bits.css), each element resting
+   on its end state. A climber lands --py-before ahead of PY.top; the
+   chips under it squash as each row above lands (.is-under1: the top's
+   landing; .is-under2: the middle row's too). */
+
+.is-pyramid .py { position:absolute; inset:0; }
+.is-pyramid .py-c.is-climb { z-index:calc(2 + var(--r)); }
+
+/* ── the base: one hop sideways into place, shoulder to shoulder ── */
+.is-pyramid .py-c .nc-move { transform:var(--py-to); }
+.is-pyramid .py-c.is-base .nc-move {
+  --ba:py-arc var(--py-hop) linear calc(var(--tl) + var(--b-gather) + var(--j) * 80ms) both; animation:var(--ba); }
+/* ── a climber: up in one arc onto the row below ── */
+.is-pyramid .py-c.is-climb .nc-move {
+  --ba:py-arc var(--py-hop) linear calc(var(--tl) + var(--b-top) - var(--py-before) - var(--py-hop)) both; animation:var(--ba); }
+@keyframes py-arc { 0% { transform:translate(0px, 0px); animation-timing-function:cubic-bezier(.2,.7,.4,1); }
+  50% { transform:var(--py-mid); animation-timing-function:cubic-bezier(.6,0,.85,.4); } 100% { transform:var(--py-to); } }
+/* waiting their turn: eager little bobs */
+.is-pyramid .py-c.is-climb .nc-hop { transform:translateY(0px);
+  --ba:py-bob 300ms ease-in-out calc(var(--tl) + var(--b-gather) + 260ms + var(--i) * 70ms) var(--py-bobs) both; animation:var(--ba); }
+@keyframes py-bob { 0%, 100% { transform:translateY(0px); } 45% { transform:translateY(var(--py-bob)); } }
+
+/* ── squash and stretch: the base lands, a climber crouches, leaps and
+   lands, and everyone under a landing squashes ── */
+.is-pyramid .py-c .nc-body { transform:scale(1, 1); }
+.is-pyramid .py-c.is-base .nc-body {
+  --ba:py-land 300ms ease-out calc(var(--tl) + var(--b-gather) + var(--j) * 80ms + var(--py-hop)) both; animation:var(--ba); }
+.is-pyramid .py-c.is-base.is-under1 .nc-body {
+  --ba:py-land 300ms ease-out calc(var(--tl) + var(--b-gather) + var(--j) * 80ms + var(--py-hop)) both,
+    py-land 340ms ease-out calc(var(--tl) + var(--b-top)) forwards; animation:var(--ba); }
+.is-pyramid .py-c.is-base.is-under2 .nc-body {
+  --ba:py-land 300ms ease-out calc(var(--tl) + var(--b-gather) + var(--j) * 80ms + var(--py-hop)) both,
+    py-land 300ms ease-out calc(var(--tl) + var(--b-top) - var(--py-climb)) forwards,
+    py-land 340ms ease-out calc(var(--tl) + var(--b-top)) forwards; animation:var(--ba); }
+.is-pyramid .py-c.is-climb .nc-body {
+  --ba:py-crouch 220ms ease-in-out calc(var(--tl) + var(--b-top) - var(--py-before) - var(--py-hop) - 200ms) both,
+    py-land 320ms ease-out calc(var(--tl) + var(--b-top) - var(--py-before)) forwards; animation:var(--ba); }
+.is-pyramid .py-c.is-climb.is-under1 .nc-body {
+  --ba:py-crouch 220ms ease-in-out calc(var(--tl) + var(--b-top) - var(--py-before) - var(--py-hop) - 200ms) both,
+    py-land 320ms ease-out calc(var(--tl) + var(--b-top) - var(--py-before)) forwards,
+    py-land 340ms ease-out calc(var(--tl) + var(--b-top)) forwards; animation:var(--ba); }
+@keyframes py-crouch { 0% { transform:scale(1, 1); } 70% { transform:scale(1.12, .84); } 100% { transform:scale(.94, 1.08); } }
+@keyframes py-land { 0% { transform:scale(1, 1); } 28% { transform:scale(1.15, .83); } 62% { transform:scale(.97, 1.04); } 100% { transform:scale(1, 1); } }
+
+/* ── the top: it wobbles, wobbles, holds; the rows under it sway with it ── */
+.is-pyramid .py-c .nc-tilt { transform:rotate(0deg);
+  --ba:py-sway 1500ms ease-in-out calc(var(--tl) + var(--b-top) + 140ms) both; animation:var(--ba); }
+.is-pyramid .py-c.is-top .nc-tilt {
+  --ba:py-wobble 1500ms ease-in-out calc(var(--tl) + var(--b-top) + 140ms) both; animation:var(--ba); }
+@keyframes py-wobble { 0%, 100% { transform:rotate(0deg); } 12% { transform:rotate(11deg); } 28% { transform:rotate(-10deg); }
+  44% { transform:rotate(8deg); } 60% { transform:rotate(-5deg); } 76% { transform:rotate(2.5deg); } 90% { transform:rotate(-1deg); } }
+@keyframes py-sway { 0%, 100% { transform:rotate(0deg); } 12% { transform:rotate(3deg); } 28% { transform:rotate(-3deg); }
+  44% { transform:rotate(2deg); } 60% { transform:rotate(-1.2deg); } 76% { transform:rotate(.5deg); } }
+
+/* ── the sparkle: a burst as the top lands, stars lighting round it ── */
+.is-pyramid .py-burst { opacity:0; --ba:py-burst 460ms ease-out calc(var(--tl) + var(--b-top)) forwards; animation:var(--ba); }
+@keyframes py-burst { 0% { opacity:1; transform:scale(.5); } 60% { opacity:.9; } 100% { opacity:0; transform:scale(1.35); } }
+.is-pyramid .py-star { transform:scale(1) rotate(0deg);
+  --ba:neon-ignite 320ms linear calc(var(--tl) + var(--b-top) + 80ms + var(--k) * 70ms) both,
+    py-twinkle 640ms ease-in-out calc(var(--tl) + var(--b-top) + 520ms + var(--k) * 110ms) 3 forwards; animation:var(--ba); }
+@keyframes py-twinkle { 0%, 100% { transform:scale(1) rotate(0deg); } 50% { transform:scale(1.4) rotate(18deg); } }

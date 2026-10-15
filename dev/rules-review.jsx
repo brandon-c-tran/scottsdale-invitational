@@ -29,7 +29,7 @@ const ORDER = [...slate, ...others, ...RULE_SET_ORDER, "payouts"];
 const eventsFor = id => BUILTIN_EVENTS.filter(ev => gameStepsModel(ev)?.id === id);
 
 const ELSEWHERE = [
-  ["Winner pays 1:1 / Winner pays 2:1", "Bets board and rack, Home's contest, the You're up banner, the TV board (fixed wording)"],
+  ["Winner pays 1:1 / Winner pays 2:1", "only a contest opened before pools (Oct 13): its sides on the Bets board, Home's contest and the TV board; a pool's side reads its % and what a chip brings back"],
   [DUEL_GAMES.quickdraw.desc, "Quick Draw, before you tap Ready (src/features/duels/QuickDraw.jsx, DUEL_GAMES in core)"],
   ["Max N · N to bet · N in bets", "the betting rack's meter (src/features/wagers/Wagers.jsx)"],
   ["An added event's own description", "the event sheet and its rules sheet, only for an event with no drawn game (App.jsx, HowToSheet.jsx)"],

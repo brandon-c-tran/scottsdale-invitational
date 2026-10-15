@@ -3,9 +3,9 @@
    instant (ms from the bit's start), from the bits reel bundled with its
    fonts inline (no network).
 
-     node scripts/bit-frames.mjs quickdraw 0 1300 1500 1900 2600 3400 4300
+     node scripts/bit-frames.mjs standoff 0 1300 1500 1900 2600 3400 4300
        --phase fri|sam|sap|san|fin   the session's painting (default sap)
-       --cast <key>                  a reel cast (versus 1v1 2v2 4v6, loss 1 long, win 1 2)
+       --cast <key>                  a reel cast (versus 1v1, team 2v2 2v1 3v3 6v7 7v6; win 1, team 2 3 5 7; loss 1 long; idle room others)
        --trigger <n>                 which of the bit's triggers (its fact)
        --reduced                     reduced motion's still (no instants needed)
        --out <dir>                   default .impeccable/review/bits/frames
@@ -27,7 +27,7 @@ const args = process.argv.slice(2);
 const flags = new Set(["--phase", "--cast", "--trigger", "--out", "--wav", "--only"]);
 const value = name => { const i = args.indexOf(name); return i >= 0 ? args[i + 1] : null; };
 const positional = args.filter((arg, i) => !arg.startsWith("--") && !flags.has(args[i - 1]));
-const [bit = "quickdraw", ...times] = positional;
+const [bit = "standoff", ...times] = positional;
 const OUT = path.resolve(ROOT, value("--out") || ".impeccable/review/bits/frames");
 const phase = value("--phase") || "sap";
 const cast = value("--cast");

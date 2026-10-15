@@ -1109,9 +1109,16 @@ the 585-view fit audit, e2e 141 of 142) as `8ac269e0-67b1-4210-a53f-7bf12dce7e84
 snapshot; production's 13 profiles loaded clean and migrated to `awardLadder` 2.
 Roll production back to v5 with `npx wrangler rollback
 bcff6ab8-d3bd-48c1-b27a-f75388a2d51a` (v5 does not know the new award values:
-a custom event saved on v6 would pay nothing there),
-awaiting Brandon's review; roll staging back to v5 with `npx wrangler
-rollback 7a3fc0af-8923-4fb1-963b-a80a2b6e4754 --env staging`.
+a custom event saved on v6 would pay nothing there).
+**Oct 15 queue** (branch `pool/betting` past v6, merging `q/karaoke`,
+`q/gags`, `q/maps`, `q/loose`; not on production): native karaoke (YouTube
+instrumentals with LRCLIB lyrics), the neon bits with the house hand and the
+win song on the bit's beat, Google Maps for Where and When (off until the
+`GOOGLE_MAPS_KEY` secret), and the loose ends; 1375 tests, the 612-view fit
+audit and the local e2e (143 of 143) pass. STAGING only, as
+`c8f793b0-5e81-4d49-9d7f-612ac2b9dc05`, awaiting Brandon's review; roll
+staging back to v6 with `npx wrangler rollback
+8ac269e0-67b1-4210-a53f-7bf12dce7e84 --env staging`.
 
 **September 5 correction (history for the visuals).** Brandon rejected the light
 redesign and the rewritten voice. It made the app harder to use and broke

@@ -192,7 +192,7 @@ const tv = (state, now) => {
       onExit:() => {}, now })));
 };
 const vignetteOn = html => /class="tv-takeover tv-attract"/.test(html) ? /data-bit="([a-z]+)"/.exec(html)?.[1] || "?" : null;
-const castOn = html => [...html.matchAll(/class="cast[^"]*" data-player="([^"]+)"/g)].map(match => match[1]);
+const castOn = html => [...html.matchAll(/class="nc[^"]*" data-player="([^"]+)"/g)].map(match => match[1]);
 const base = Math.ceil(Date.now() / (P * 840)) * P * 840;
 
 test("the TV plays it only in a gap, on its turn, over the board, then gives the turn back to the board", () => {

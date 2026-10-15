@@ -626,6 +626,7 @@ test("Gags off, a frozen board and the poker table play nothing; the winner's so
 });
 
 /* ── the song on the bit's beat (Oct 14) ── */
+const songOf = (player, startedAt) => ({ walkout:{ player, trackId:null, startedAt, until:startedAt + 30000, auto:true } });
 
 test("a moment's window: a music bit held for its song ends that much later, a punchline bit never moves", () => {
   const start = 100_000;

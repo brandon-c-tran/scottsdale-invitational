@@ -1,0 +1,144 @@
+/* flipper (flipper.jsx): beats from registry.js (--b-<name>), every
+   animation on --ba, each element resting on its end state. A run of
+   moves on one property: the first fills both ways, the rest forwards.
+   The camera, the shakes and the white frame on the smash are the
+   stage's. */
+
+.is-flipper .flp { position:absolute; inset:0; }
+
+/* ── A: out of the sky onto the flipper, a bounce, the roll down it; fired
+   across into B; back up off the smash and down where B stood ── */
+.is-flipper .flp-a { z-index:4; }
+.is-flipper .flp-a .nc-move { transform:translate(0px, 0px);
+  --ba:flp-a-drop 270ms cubic-bezier(.55,0,1,.5) calc(var(--tl) + var(--b-drop)) both,
+    flp-a-roll 940ms linear calc(var(--tl) + var(--b-land)) forwards,
+    flp-a-fly 300ms linear calc(var(--tl) + var(--b-fire)) forwards,
+    flp-a-recoil 440ms linear calc(var(--tl) + var(--b-smash)) forwards; animation:var(--ba); }
+@keyframes flp-a-drop { from { transform:var(--flp-sky); } to { transform:var(--flp-drop); } }
+@keyframes flp-a-roll {
+  0% { transform:var(--flp-drop); animation-timing-function:cubic-bezier(.2,.7,.4,1); }
+  13% { transform:var(--flp-bounce); animation-timing-function:cubic-bezier(.6,0,.9,.4); }
+  27% { transform:var(--flp-drop); animation-timing-function:cubic-bezier(.45,0,.9,.55); }
+  100% { transform:var(--flp-tip); } }
+@keyframes flp-a-fly {
+  0% { transform:var(--flp-tip); animation-timing-function:cubic-bezier(.2,.6,.5,1); }
+  48% { transform:var(--flp-apex); animation-timing-function:cubic-bezier(.5,0,.8,.5); }
+  100% { transform:var(--flp-hit); } }
+@keyframes flp-a-recoil {
+  0% { transform:var(--flp-hit); animation-timing-function:cubic-bezier(.2,.7,.4,1); }
+  45% { transform:var(--flp-pop); animation-timing-function:cubic-bezier(.6,0,.9,.5); }
+  100% { transform:translate(0px, 0px); } }
+/* rolling down the flipper, then spinning through the shot */
+.is-flipper .flp-a .nc-roll { transform:rotate(720deg);
+  --ba:flp-a-turn 940ms cubic-bezier(.45,0,.9,.55) calc(var(--tl) + var(--b-land)) both,
+    flp-a-spin 740ms linear calc(var(--tl) + var(--b-fire)) forwards; animation:var(--ba); }
+@keyframes flp-a-turn { 0%, 27% { transform:rotate(0deg); } 100% { transform:rotate(100deg); } }
+@keyframes flp-a-spin { from { transform:rotate(100deg); } to { transform:rotate(720deg); } }
+/* squashed landing on the flipper, on B, and on the floor */
+.is-flipper .flp-a .nc-body { transform:scale(1, 1);
+  --ba:flp-squash 220ms ease-out calc(var(--tl) + var(--b-land)) both,
+    flp-smush 160ms ease-out calc(var(--tl) + var(--b-smash)) forwards,
+    flp-squash 260ms ease-out calc(var(--tl) + var(--b-aland)) forwards; animation:var(--ba); }
+@keyframes flp-squash { 0% { transform:scale(1, 1); } 30% { transform:scale(1.16, .82); } 65% { transform:scale(.96, 1.05); }
+  100% { transform:scale(1, 1); } }
+@keyframes flp-smush { 0% { transform:scale(1, 1); } 35% { transform:scale(.8, 1.14); } 100% { transform:scale(1, 1); } }
+/* down where B stood: a proud little rock, settled */
+.is-flipper .flp-a .nc-tilt { transform:rotate(0deg);
+  --ba:flp-settle 760ms ease-out calc(var(--tl) + var(--b-aland) + 120ms) both; animation:var(--ba); }
+@keyframes flp-settle { 0% { transform:rotate(0deg); } 20% { transform:rotate(-9deg); } 45% { transform:rotate(6deg); }
+  70% { transform:rotate(-3deg); } 100% { transform:rotate(0deg); } }
+/* its light stays dark until it is on the floor */
+.is-flipper .flp-a .nc-pool { opacity:.7;
+  --ba:bit-hide 1ms step-start calc(var(--tl) + 0ms) both, flp-pool-on 200ms linear calc(var(--tl) + var(--b-aland)) forwards;
+  animation:var(--ba); }
+@keyframes flp-pool-on { from { opacity:0; } to { opacity:.7; } }
+.is-flipper .flp-trail { opacity:0;
+  --ba:bit-show 1ms step-start calc(var(--tl) + var(--b-fire)) both, bit-hide 120ms linear calc(var(--tl) + var(--b-smash)) forwards;
+  animation:var(--ba); }
+
+/* ── the flipper: snaps up on the fire, held, let down ── */
+.is-flipper .flp-flip { transform:rotate(13deg);
+  --ba:flp-fire 60ms cubic-bezier(.2,.9,.3,1) calc(var(--tl) + var(--b-fire)) both,
+    flp-let 170ms cubic-bezier(.5,0,.9,.5) calc(var(--tl) + var(--b-release)) forwards; animation:var(--ba); }
+@keyframes flp-fire { from { transform:rotate(13deg); } to { transform:rotate(-32deg); } }
+@keyframes flp-let { 0% { transform:rotate(-32deg); } 80% { transform:rotate(15deg); } 100% { transform:rotate(13deg); } }
+/* the button goes down under the finger */
+.is-flipper .flp-dome { transform:translateY(0px);
+  --ba:flp-press 70ms ease-out calc(var(--tl) + var(--b-press)) both,
+    flp-unpress 140ms ease-out calc(var(--tl) + var(--b-release)) forwards; animation:var(--ba); }
+@keyframes flp-press { from { transform:translateY(0px); } to { transform:translateY(18px); } }
+@keyframes flp-unpress { from { transform:translateY(18px); } to { transform:translateY(0px); } }
+
+/* ── the house hand: down over the button, poised, the jab, gone ── */
+.is-flipper .flp-hand .hh-reach { transform:translateX(-1100px);
+  --ba:flp-hand-in 460ms cubic-bezier(.2,.8,.3,1) calc(var(--tl) + var(--b-reach)) both,
+    flp-hand-out 520ms cubic-bezier(.6,0,.9,.5) calc(var(--tl) + var(--b-smash) + 140ms) forwards; animation:var(--ba); }
+@keyframes flp-hand-in { from { transform:translateX(-1100px); } to { transform:translateX(0px); } }
+@keyframes flp-hand-out { from { transform:translateX(0px); } to { transform:translateX(-1100px); } }
+.is-flipper .flp-hand .hh-fx { transform:translateX(0px);
+  --ba:flp-poise 300ms ease-in-out calc(var(--tl) + var(--b-press) - 380ms) both,
+    flp-jab 70ms cubic-bezier(.5,0,.9,.4) calc(var(--tl) + var(--b-press) - 70ms) forwards,
+    flp-lift 180ms ease-out calc(var(--tl) + var(--b-fire) + 60ms) forwards; animation:var(--ba); }
+@keyframes flp-poise { from { transform:translateX(0px); } to { transform:translateX(-26px); } }
+@keyframes flp-jab { from { transform:translateX(-26px); } to { transform:translateX(16px); } }
+@keyframes flp-lift { from { transform:translateX(16px); } to { transform:translateX(0px); } }
+
+/* ── B: smug across the floor; smashed, pinged off both bumpers, down on
+   the floor seeing stars ── */
+.is-flipper .flp-b { z-index:3; }
+.is-flipper .flp-b .nc-hop { --ba:flp-bob 240ms ease-in-out calc(var(--tl) + var(--b-bob)) 2 both; animation:var(--ba); }
+@keyframes flp-bob { 0%, 100% { transform:translateY(0px); } 45% { transform:translateY(-30px); } }
+.is-flipper .flp-b .nc-tilt { transform:rotate(0deg);
+  --ba:flp-shimmy 600ms ease-in-out calc(var(--tl) + var(--b-bob) + 520ms) both,
+    flp-daze 900ms ease-in-out calc(var(--tl) + var(--b-stars)) infinite forwards; animation:var(--ba); }
+@keyframes flp-shimmy { 0%, 100% { transform:rotate(0deg); } 25% { transform:rotate(-7deg); } 75% { transform:rotate(7deg); } }
+@keyframes flp-daze { 0%, 100% { transform:rotate(-6deg); } 50% { transform:rotate(6deg); } }
+.is-flipper .flp-b .nc-move { transform:var(--flp-bland);
+  --ba:flp-b-out 150ms cubic-bezier(.2,.8,.4,1) calc(var(--tl) + var(--b-smash)) both,
+    flp-b-up 190ms cubic-bezier(.2,.8,.4,1) calc(var(--tl) + var(--b-ding)) forwards,
+    flp-b-fall 270ms linear calc(var(--tl) + var(--b-ding2)) forwards,
+    flp-b-hop 240ms linear calc(var(--tl) + var(--b-bland)) forwards; animation:var(--ba); }
+@keyframes flp-b-out { from { transform:translate(0px, 0px); } to { transform:var(--flp-b1); } }
+@keyframes flp-b-up { from { transform:var(--flp-b1); } to { transform:var(--flp-b2); } }
+@keyframes flp-b-fall { 0% { transform:var(--flp-b2); animation-timing-function:cubic-bezier(.2,.7,.4,1); }
+  35% { transform:var(--flp-bpeak); animation-timing-function:cubic-bezier(.6,0,.9,.5); } 100% { transform:var(--flp-bland); } }
+@keyframes flp-b-hop { 0% { transform:var(--flp-bland); animation-timing-function:cubic-bezier(.2,.7,.4,1); }
+  45% { transform:var(--flp-bhop); animation-timing-function:cubic-bezier(.6,0,.9,.5); } 100% { transform:var(--flp-bland); } }
+.is-flipper .flp-b .nc-roll { transform:rotate(-720deg);
+  --ba:flp-b-spin 620ms linear calc(var(--tl) + var(--b-smash)) both; animation:var(--ba); }
+@keyframes flp-b-spin { from { transform:rotate(0deg); } to { transform:rotate(-720deg); } }
+.is-flipper .flp-b .nc-body { transform:scale(1, 1);
+  --ba:flp-smush 160ms ease-out calc(var(--tl) + var(--b-smash)) both,
+    flp-squash 260ms ease-out calc(var(--tl) + var(--b-bland)) forwards; animation:var(--ba); }
+.is-flipper .flp-b .nc-pool { opacity:.7;
+  --ba:bit-hide 80ms linear calc(var(--tl) + var(--b-smash)) both, flp-pool-on 200ms linear calc(var(--tl) + var(--b-bland)) forwards;
+  animation:var(--ba); }
+.is-flipper .flp-stars { opacity:0; --orbit-at:var(--b-stars);
+  --ba:neon-ignite 260ms linear calc(var(--tl) + var(--b-stars)) forwards; animation:var(--ba); }
+
+/* ── the bumpers: dark until hit; a kick and a ring of light on each
+   ding, then every lamp on the table chases ── */
+.is-flipper .flp-bump.is-1 { --flp-at:var(--b-ding); }
+.is-flipper .flp-bump.is-2 { --flp-at:var(--b-ding2); }
+.is-flipper .flp-bump-kick { transform:scale(1);
+  --ba:flp-kick 260ms ease-out calc(var(--tl) + var(--flp-at)) both; animation:var(--ba); }
+@keyframes flp-kick { 0% { transform:scale(1); } 25% { transform:scale(1.24); } 60% { transform:scale(.94); } 100% { transform:scale(1); } }
+.is-flipper .flp-bump .ng-lit {
+  --ba:bit-hide 1ms step-start calc(var(--tl) + 0ms) both, bit-show 1ms step-start calc(var(--tl) + var(--flp-at)) forwards,
+    flp-chase 420ms linear calc(var(--tl) + var(--flp-at) + 260ms) infinite forwards; animation:var(--ba); }
+.is-flipper .flp-ding { opacity:0;
+  --ba:flp-ring 360ms ease-out calc(var(--tl) + var(--flp-at)) forwards; animation:var(--ba); }
+@keyframes flp-ring { 0% { opacity:1; transform:scale(.6); } 55% { opacity:1; } 100% { opacity:0; transform:scale(1.25); } }
+@keyframes flp-chase { 0%, 49% { opacity:1; } 50%, 100% { opacity:.18; } }
+
+/* ── the lane's arrows: dark, lit in a run as A goes by, then chasing ── */
+.is-flipper .flp-arrow.is-0 { --d:0ms; }
+.is-flipper .flp-arrow.is-1 { --d:50ms; }
+.is-flipper .flp-arrow.is-2 { --d:100ms; }
+.is-flipper .flp-arrow .ng-lit {
+  --ba:bit-hide 1ms step-start calc(var(--tl) + 0ms) both, bit-show 1ms step-start calc(var(--tl) + var(--b-fire) + var(--d)) forwards,
+    flp-chase 450ms linear calc(var(--tl) + var(--b-smash) + var(--d) * 3) infinite forwards; animation:var(--ba); }
+
+/* ── the smash ── */
+.is-flipper .flp-smash { z-index:5; opacity:0;
+  --ba:flp-ring 380ms ease-out calc(var(--tl) + var(--b-smash)) forwards; animation:var(--ba); }

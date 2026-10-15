@@ -178,6 +178,7 @@ function Masthead({ event = null, lamp = null, connection, lastUpdateAt, final, 
         </> : <span className="tv-mast-title fd-show">Field Day</span>}
       </div>
       {playing}
+      <SoundUnlockChip />
       <div className="tv-mast-right" data-fit-region="masthead">
         {dock ? <div className="tv-dock">{dock}</div>
           : offline ? <span className="tv-status is-offline" role="status"><i />
@@ -1150,7 +1151,6 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied: allT
         {showdown && <TVShowdown key={showdown.duel.id} state={state} active={showdown} now={nowOverride} />}
         {gag && <TVGag key={gag.id} state={state} gag={gag} phase={phase} />}
         <FrameLamps color={chrome.chase?.color || null} pace={chrome.chase?.pace || "rest"} />
-        <SoundUnlockChip />
       </div>
       <SoundEarlyControl idle={!pointerActive} />
       <button type="button" className={`tv-exit${pointerActive ? "" : " is-idle"}`} onClick={onExit}

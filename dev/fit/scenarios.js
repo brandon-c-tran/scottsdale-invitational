@@ -1280,6 +1280,14 @@ export const TV_SCENARIOS = Object.freeze([
      stepladder reaching for the blossom */
   { id:"tv-attract-armwrestle", build:() => fresh("session:sam"), at:{ attract:{ id:"armwrestle", ms:3400 } } },
   { id:"tv-attract-saguaro", build:() => fresh("session:fri"), at:{ attract:{ id:"saguaro", ms:5000 } } },
+  /* a TV whose browser has not allowed sound yet (sound:"blocked", the
+     harness's context stays suspended): "Click for sound" in its own slot
+     of the masthead row, beside the longest plate (a bracket's live match),
+     a win song's strip, the lobby and the locker room */
+  { id:"tv-sound-locker", build:() => fresh("locker"), sound:"blocked" },
+  { id:"tv-sound-bracket", build:() => fresh("event:pickleball:mid"), sound:"blocked" },
+  { id:"tv-sound-nowplaying", build:() => walkoutRecord(fresh("event:putt:open"), "Richard"), at:{ walkout:12000 }, sound:"blocked" },
+  { id:"tv-sound-lobby", build:() => withArrivals(fresh("locker"), 4), at:{ clock:ARRIVE_CLOCK, turn:0 }, sound:"blocked" },
 ]);
 
 /* ── the phone ──

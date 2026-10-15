@@ -1,76 +1,112 @@
 /* roadrunner (roadrunner.jsx): beats from registry.js (--b-<name>), every
-   animation on --ba, each element resting on its end state. A run of moves
-   on one property: the first fills both ways, the rest forwards. The
-   camera and the shake are the stage's (the registry). */
+   animation on --ba, each element resting on its end state. A run of
+   moves on one property: the first fills both ways, the rest forwards.
+   The camera and the shakes are the stage's. */
 
 .is-roadrunner .rr { position:absolute; inset:0; }
-.is-roadrunner .rr-node { position:absolute; display:block; width:0; height:0; }
 
-/* ── the chip: waiting (the faintest sway), it turns to look at the
-   bird, then it is gone; its shadow stays on the floor ── */
-.is-roadrunner .rr-chip .cast-body-in { --ba:rr-sway 2200ms ease-in-out calc(var(--tl) + 160ms) both; animation:var(--ba); }
-@keyframes rr-sway { 0%, 100% { transform:rotate(0deg); } 50% { transform:rotate(-1.6deg); } }
-.is-roadrunner .rr-chip .cast-chip-in { transform:rotateY(-36deg);
-  --ba:rr-turn 340ms ease-in-out calc(var(--tl) + var(--b-turn)) both; animation:var(--ba); }
-@keyframes rr-turn { from { transform:rotateY(0deg); } to { transform:rotateY(-36deg); } }
-/* as the bird goes by, the chip is pulled after it into its wake, and gone */
-.is-roadrunner .rr-chip .cast-body { transform:translateX(-170px) scale(1.9, .72);
-  --ba:rr-yank 70ms cubic-bezier(.5,0,1,.5) calc(var(--tl) + var(--b-leave) + 30ms) both; animation:var(--ba); }
-@keyframes rr-yank { from { transform:translateX(0px) scale(1, 1); } to { transform:translateX(-170px) scale(1.9, .72); } }
-.is-roadrunner .rr-chip .cast-hop { opacity:0;
-  --ba:bit-hide 1ms step-start calc(var(--tl) + var(--b-leave) + 100ms) both; animation:var(--ba); }
+/* ── the bird: in from the right like a shot, a long skid, and gone ── */
+.is-roadrunner .rr-bird { z-index:3; }
+.is-roadrunner .rr-run { transform:translateX(-2600px);
+  --ba:rr-in 260ms linear calc(var(--tl) + var(--b-arrive)) both,
+    rr-skid 440ms cubic-bezier(.15,.6,.35,1) calc(var(--tl) + var(--b-skid)) forwards,
+    rr-out 230ms cubic-bezier(.6,0,1,.6) calc(var(--tl) + var(--b-leave)) forwards; animation:var(--ba); }
+@keyframes rr-in { from { transform:translateX(1100px); } to { transform:translateX(150px); } }
+@keyframes rr-skid { from { transform:translateX(150px); } to { transform:translateX(0px); } }
+@keyframes rr-out { from { transform:translateX(0px); } to { transform:translateX(-2600px); } }
+/* stretched while it runs, back in shape as it brakes, a smear as it goes */
+.is-roadrunner .rr-streak { transform:scale(1.9, .8);
+  --ba:rr-unstretch 200ms ease-out calc(var(--tl) + var(--b-skid)) both,
+    rr-crouch 300ms ease-in calc(var(--tl) + var(--b-windup)) forwards,
+    rr-smear 90ms ease-in calc(var(--tl) + var(--b-leave)) forwards; animation:var(--ba); }
+@keyframes rr-unstretch { from { transform:scale(1.45, .88); } to { transform:scale(1, 1); } }
+@keyframes rr-crouch { from { transform:scale(1, 1); } to { transform:scale(1.08, .9); } }
+@keyframes rr-smear { from { transform:scale(1.08, .9); } to { transform:scale(1.9, .8); } }
+.is-roadrunner .rr-trail { opacity:1;
+  --ba:bit-hide 160ms linear calc(var(--tl) + var(--b-skid)) both, bit-show 1ms step-start calc(var(--tl) + var(--b-leave)) forwards;
+  animation:var(--ba); }
 
-/* ── the bird: in like a shot, then a long skid to a stop beside the
-   chip (it is doing most of its speed when its heels dig in), and away ── */
-.is-roadrunner .rr-bird-x { transform:translateX(-1800px);
-  --ba:rr-arrive 110ms linear calc(var(--tl) + var(--b-arrive)) both,
-    rr-slide 300ms cubic-bezier(.2,.75,.3,1) calc(var(--tl) + var(--b-skid)) forwards,
-    rr-leave 170ms linear calc(var(--tl) + var(--b-leave)) forwards; animation:var(--ba); }
-@keyframes rr-arrive { from { transform:translateX(1150px); } to { transform:var(--slide); } }
-@keyframes rr-slide { from { transform:var(--slide); } to { transform:translateX(0px); } }
-@keyframes rr-leave { from { transform:translateX(0px); } to { transform:translateX(-1800px); } }
-/* its lean about its feet: way back on its heels through the skid, a
-   pitch forward at the stop; then leaning in to the chip for each beep */
-.is-roadrunner .rr-bird-in { transform:rotate(0deg);
-  --ba:rr-skid-lean 520ms linear calc(var(--tl) + var(--b-skid)) both,
-    rr-beep-lean 190ms ease-out calc(var(--tl) + var(--b-beep) - 30ms) 2 forwards; animation:var(--ba); }
-@keyframes rr-skid-lean { 0% { transform:rotate(0deg); animation-timing-function:cubic-bezier(.2,.8,.3,1); }
-  9% { transform:rotate(30deg); animation-timing-function:ease-in-out; }
-  58% { transform:rotate(22deg); animation-timing-function:cubic-bezier(.5,0,.7,.4); }
-  73% { transform:rotate(-11deg); animation-timing-function:ease-in-out; } 87% { transform:rotate(3deg); } 100% { transform:rotate(0deg); } }
-@keyframes rr-beep-lean { 0% { transform:rotate(0deg); } 30% { transform:rotate(-13deg); } 100% { transform:rotate(0deg); } }
-/* each beep stretches it up from its feet */
-.is-roadrunner .rr-bird-pop {
-  --ba:rr-pop 190ms ease-out calc(var(--tl) + var(--b-beep) - 10ms) 2 both; animation:var(--ba); }
-@keyframes rr-pop { 0%, 100% { transform:scale(1, 1); } 30% { transform:scale(1.06, 1.14); } 60% { transform:scale(.98, 1.02); } }
-/* the beep's marks off the beak, a pop per beep */
-.is-roadrunner .rr-beep { opacity:0;
-  --ba:rr-beep 170ms ease-out calc(var(--tl) + var(--b-beep) + var(--d)) both; animation:var(--ba); }
-@keyframes rr-beep { 0% { opacity:0; transform:scale(.4); } 1% { opacity:1; transform:scale(.4); } 40% { opacity:1; transform:scale(1.1); }
-  70% { opacity:1; transform:scale(1); } 100% { opacity:0; transform:scale(1.04); } }
-/* its wake, only while it moves fast */
-.is-roadrunner .rr-lines { opacity:0; }
-.is-roadrunner .rr-lines.is-in { --ba:bit-show 1ms step-start calc(var(--tl) + var(--b-arrive)) both,
-  bit-hide 160ms linear calc(var(--tl) + var(--b-skid) + 40ms) forwards; animation:var(--ba); }
-.is-roadrunner .rr-lines.is-out { --ba:bit-show 1ms step-start calc(var(--tl) + var(--b-leave)) both,
-  bit-hide 120ms linear calc(var(--tl) + var(--b-leave) + 170ms) forwards; animation:var(--ba); }
-/* the skid's dust hangs a little; the cloud where the chip stood clears slowly */
-.is-roadrunner :is(.rr-plough, .rr-spray) { --dust-ms:900ms; }
-.is-roadrunner .rr-cloud { --dust-ms:820ms; }
-.is-roadrunner .rr-kick { --dust-ms:420ms; }
+/* the upper body: leaning into the run, back on the skid, rocking to a
+   stop, then in on the chip; down into the crouch before it goes */
+.is-roadrunner .rr-lean { transform:rotate(-14deg);
+  --ba:rr-l-skid 160ms ease-out calc(var(--tl) + var(--b-skid)) both,
+    rr-l-stop 420ms ease-out calc(var(--tl) + var(--b-stop)) forwards,
+    rr-l-in 260ms cubic-bezier(.2,.8,.3,1) calc(var(--tl) + var(--b-lean)) forwards,
+    rr-l-peck 190ms ease-in-out calc(var(--tl) + var(--b-beep) - 40ms) 2 forwards,
+    rr-l-wind 220ms ease-in-out calc(var(--tl) + var(--b-windup)) forwards; animation:var(--ba); }
+@keyframes rr-l-skid { from { transform:rotate(-14deg); } to { transform:rotate(18deg); } }
+@keyframes rr-l-stop { 0% { transform:rotate(18deg); } 40% { transform:rotate(-7deg); } 70% { transform:rotate(3deg); } 100% { transform:rotate(0deg); } }
+@keyframes rr-l-in { from { transform:rotate(0deg); } to { transform:rotate(-30deg); } }
+@keyframes rr-l-peck { 0%, 100% { transform:rotate(-30deg); } 40% { transform:rotate(-34deg); } }
+@keyframes rr-l-wind { from { transform:rotate(-30deg); } to { transform:rotate(-14deg); } }
+/* the legs' wheel turns while lit */
+.is-roadrunner .rr-wheel { --ba:rr-wheel 150ms linear calc(var(--tl) + 0ms) infinite both; animation:var(--ba); }
+@keyframes rr-wheel { from { transform:rotate(0deg); } to { transform:rotate(-360deg); } }
+/* beep beep: two arcs off the beak */
+.is-roadrunner .rr-beep { opacity:0; }
+.is-roadrunner .rr-beep.is-1 { --ba:rr-beep 200ms ease-out calc(var(--tl) + var(--b-beep) - 30ms) forwards; animation:var(--ba); }
+.is-roadrunner .rr-beep.is-2 { --ba:rr-beep 220ms ease-out calc(var(--tl) + var(--b-beep2) - 30ms) forwards; animation:var(--ba); }
+@keyframes rr-beep { 0% { opacity:1; transform:translateX(0px); } 70% { opacity:1; } 100% { opacity:0; transform:translateX(-26px); } }
 
-/* ── the shadow: it notices (a start), pulls back away from where it
-   will run and crouches, revs on the spot, and is off after it like a
-   shot ── */
-.is-roadrunner .rr-chip .cast-shadow { background:color-mix(in srgb, var(--ink0) 80%, transparent); transform:translate(-1300px, 0px) scale(2.4, .8);
-  --ba:rr-notice 300ms ease-out calc(var(--tl) + var(--b-notice)) both,
-    rr-windup 200ms cubic-bezier(.3,.7,.4,1) calc(var(--tl) + var(--b-windup)) forwards,
-    rr-rev 50ms linear calc(var(--tl) + var(--b-windup) + 200ms) 6 forwards,
-    rr-zip 260ms cubic-bezier(.6,0,1,.5) calc(var(--tl) + var(--b-zip)) forwards; animation:var(--ba); }
-@keyframes rr-notice { 0%, 100% { transform:translate(0px, 0px) scale(1, 1); } 30% { transform:translate(0px, -18px) scale(.84, 1.9); }
-  62% { transform:translate(0px, 0px) scale(1.1, .86); } }
-@keyframes rr-windup { from { transform:translate(0px, 0px) scale(1, 1); } to { transform:translate(var(--pull), 0px) scale(.58, 1.32); } }
-@keyframes rr-rev { 0%, 100% { transform:translate(var(--pull), 0px) scale(.58, 1.32); }
-  25% { transform:translate(calc(var(--pull) + 9px), -2px) scale(.62, 1.27); }
-  75% { transform:translate(calc(var(--pull) - 7px), 1px) scale(.55, 1.36); } }
-@keyframes rr-zip { from { transform:translate(var(--pull), 0px) scale(.58, 1.32); } to { transform:translate(-1300px, 0px) scale(2.4, .8); } }
+/* ── the dust: a spray off the skid; a cloud left where it stood ── */
+.is-roadrunner .rr-dust { opacity:0; }
+.is-roadrunner .rr-dust.is-0 { --ba:rr-dust 520ms ease-out calc(var(--tl) + var(--b-skid) + 60ms) forwards; animation:var(--ba); }
+.is-roadrunner .rr-dust.is-1 { --ba:rr-dust 520ms ease-out calc(var(--tl) + var(--b-skid) + 170ms) forwards; animation:var(--ba); }
+.is-roadrunner .rr-dust.is-2 { --ba:rr-dust 560ms ease-out calc(var(--tl) + var(--b-skid) - 20ms) forwards; animation:var(--ba); }
+@keyframes rr-dust { 0% { opacity:1; transform:translate(0px, 0px) scale(.3); } 45% { opacity:1; transform:translate(-40px, -30px) scale(1); }
+  100% { opacity:0; transform:translate(-70px, -60px) scale(1.25); } }
+.is-roadrunner .rr-cloud { opacity:0; }
+.is-roadrunner .rr-cloud.is-0 { --ba:rr-cloud 1300ms ease-out calc(var(--tl) + var(--b-leave)) forwards; animation:var(--ba); }
+.is-roadrunner .rr-cloud.is-1 { --ba:rr-cloud 1200ms ease-out calc(var(--tl) + var(--b-leave) + 50ms) forwards; animation:var(--ba); }
+.is-roadrunner .rr-cloud.is-2 { --ba:rr-cloud 1100ms ease-out calc(var(--tl) + var(--b-leave) + 20ms) forwards; animation:var(--ba); }
+@keyframes rr-cloud { 0% { opacity:1; transform:translateY(0px) scale(.6); } 12% { opacity:1; transform:translateY(-40px) scale(1.2); }
+  55% { opacity:.9; transform:translateY(-70px) scale(1.3); } 100% { opacity:0; transform:translateY(-110px) scale(1.5); } }
+/* the skid marks stay */
+.is-roadrunner .rr-marks { opacity:1; transform:scaleX(1);
+  --ba:rr-marks 440ms cubic-bezier(.15,.6,.35,1) calc(var(--tl) + var(--b-skid)) both; animation:var(--ba); }
+@keyframes rr-marks { from { opacity:1; transform:scaleX(0); } to { opacity:1; transform:scaleX(1); } }
+
+/* ── the chip: leans in at the bird, jolts at each beep, sweats; spins
+   like a top in the wake, wobbles down and keels over flat ── */
+.is-roadrunner .rr-chip .nc-hop { perspective:900px;
+  --ba:rr-jump 200ms ease-out calc(var(--tl) + var(--b-beep)) both,
+    rr-jump 200ms ease-out calc(var(--tl) + var(--b-beep2)) forwards; animation:var(--ba); }
+@keyframes rr-jump { 0%, 100% { transform:translateY(0px); } 40% { transform:translateY(-22px); } }
+.is-roadrunner .rr-chip .nc-tilt { transform:rotate(0deg);
+  --ba:rr-curious 300ms ease-in-out calc(var(--tl) + var(--b-stop) + 150ms) both,
+    rr-jolt 200ms ease-out calc(var(--tl) + var(--b-beep)) forwards,
+    rr-jolt2 260ms ease-out calc(var(--tl) + var(--b-beep2)) forwards,
+    rr-precess 1150ms ease-in calc(var(--tl) + var(--b-spin)) forwards; animation:var(--ba); }
+@keyframes rr-curious { from { transform:rotate(0deg); } to { transform:rotate(5deg); } }
+@keyframes rr-jolt { from { transform:rotate(5deg); } to { transform:rotate(-6deg); } }
+@keyframes rr-jolt2 { 0% { transform:rotate(-6deg); } 50% { transform:rotate(-12deg); } 100% { transform:rotate(-9deg); } }
+/* a top running down: the wobble grows as the spin dies */
+@keyframes rr-precess { 0% { transform:rotate(-9deg); } 10% { transform:rotate(3deg); } 25% { transform:rotate(-4deg); }
+  42% { transform:rotate(6deg); } 58% { transform:rotate(-9deg); } 74% { transform:rotate(12deg); } 88% { transform:rotate(-14deg); }
+  100% { transform:rotate(0deg); } }
+.is-roadrunner .rr-chip .nc-spin { transform:rotateY(2520deg);
+  --ba:rr-top 1150ms cubic-bezier(.12,.62,.38,1) calc(var(--tl) + var(--b-spin)) both; animation:var(--ba); }
+@keyframes rr-top { from { transform:rotateY(0deg); } to { transform:rotateY(2520deg); } }
+.is-roadrunner .rr-chip .nc-body { transform:rotateX(84deg);
+  --ba:rr-keel 260ms cubic-bezier(.5,0,.9,.4) calc(var(--tl) + var(--b-topple)) both,
+    rr-rattle 900ms ease-out calc(var(--tl) + var(--b-flat)) forwards; animation:var(--ba); }
+@keyframes rr-keel { from { transform:rotateX(0deg); } to { transform:rotateX(84deg); } }
+@keyframes rr-rattle { 0% { transform:rotateX(84deg); } 15% { transform:rotateX(76deg); } 30% { transform:rotateX(84deg); }
+  45% { transform:rotateX(79deg); } 60% { transform:rotateX(84deg); } 75% { transform:rotateX(82deg); } 100% { transform:rotateX(84deg); } }
+.is-roadrunner .rr-sweat { opacity:0;
+  --ba:rr-sweat 200ms var(--ease-land) calc(var(--tl) + var(--b-beep2) + 120ms) both,
+    bit-hide 1ms step-start calc(var(--tl) + var(--b-leave)) forwards; animation:var(--ba); }
+@keyframes rr-sweat { 0% { opacity:0; transform:scale(.2); } 1% { opacity:1; } 60% { opacity:1; transform:scale(1.2); }
+  100% { opacity:1; transform:scale(1); } }
+
+/* ── one feather, seesawing down onto it ── */
+.is-roadrunner .rr-feather { opacity:1; transform:translateY(0px);
+  --ba:rr-feather-in 1ms step-start calc(var(--tl) + var(--b-leave)) both,
+    rr-fall 2050ms cubic-bezier(.3,.1,.6,1) calc(var(--tl) + var(--b-leave)) forwards; animation:var(--ba); }
+@keyframes rr-feather-in { from { opacity:0; } to { opacity:1; } }
+@keyframes rr-fall { from { transform:translate(40px, -500px); } to { transform:translate(0px, 0px); } }
+.is-roadrunner .rr-feather-sway { transform:translateX(0px) rotate(4deg);
+  --ba:rr-sway 2050ms ease-in-out calc(var(--tl) + var(--b-leave)) both; animation:var(--ba); }
+@keyframes rr-sway { 0% { transform:translateX(0px) rotate(0deg); } 18% { transform:translateX(-70px) rotate(-22deg); }
+  36% { transform:translateX(50px) rotate(20deg); } 54% { transform:translateX(-60px) rotate(-18deg); }
+  72% { transform:translateX(36px) rotate(14deg); } 88% { transform:translateX(-14px) rotate(-6deg); } 100% { transform:translateX(0px) rotate(4deg); } }

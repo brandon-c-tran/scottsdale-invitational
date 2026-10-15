@@ -5,6 +5,7 @@ import { useReducedMotion } from "../../lib/motion.js";
 import { serverNow } from "../../lib/serverClock.js";
 import { useBitSound } from "../tv/bitSound.js";
 import { BitStage } from "./BitStage.jsx";
+import { holdBeatOf } from "../../../shared/bitMusic.js";
 import { bitById } from "./bits/registry.js";
 import { gagCast, gagLamp } from "./gagModel.js";
 import "./phone-bit.css";
@@ -44,19 +45,24 @@ export function PhoneBit({ state, moment, phase = "fri", onDismiss = null }) {
   const bit = bitById(moment?.bit);
   const reduced = useReducedMotion();
   const joined = useJoined(moment?.id, moment?.start);
-  useBitSound({ bit, start:moment?.start, enabled:!!bit && !!moment, reduced, key:`phone:${moment?.id}`, bus:"you", cast:gagCast(moment) });
+  const song = !!moment?.song && moment.song.status !== "none";
+  useBitSound({ bit, start:moment?.start, origin:moment?.origin, song, enabled:!!bit && !!moment, reduced, key:`phone:${moment?.id}`, bus:"you",
+    cast:gagCast(moment) });
   if (!moment || !bit) return null;
+  /* a music bit with its song on the way runs on the server clock (it may
+     hold its wind-up until the speaker plays) */
+  const clock = song && holdBeatOf(bit) !== null ? { start:moment.start, origin:moment.origin } : { at:joined };
   const fit = phoneBitNameFit(moment.name);
   const loss = bit.shape === "loss";
   const label = [moment.name, moment.fact].filter(Boolean).join(", ");
   return (
     <div className={`fd-moment fd-bit is-${bit.shape}`} role="dialog" aria-modal="false" aria-label={label}
       data-bit={bit.id} onClick={() => onDismiss?.()}
-      style={{ "--tl":`${-joined}ms`, "--moment-hold":`${bit.span || bit.ms}ms`, "--b-letter":`${Math.round(bit.letter?.at || 0)}ms`,
+      style={{ "--tl":`${-joined}ms`, "--moment-hold":`${Math.round(Number(moment.end) - Number(moment.start)) || bit.span || bit.ms}ms`, "--b-letter":`${Math.round(bit.letter?.at || 0)}ms`,
         "--bit-lamp":gagLamp(state, moment)?.color || "var(--sun)" }}>
       <div className="fd-bit-body">
         <div className="fd-bit-screen" aria-hidden="true">
-          <BitStage phase={phase} bit={bit} cast={gagCast(moment)} state={state} at={joined} runKey={moment.id} letters={false} />
+          <BitStage phase={phase} bit={bit} cast={gagCast(moment)} state={state} {...clock} runKey={moment.id} letters={false} />
         </div>
         <div className="fd-bit-words">
           <h2 className="fd-show fd-bit-name" style={{ fontSize:fit.size }}>

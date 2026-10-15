@@ -13,6 +13,9 @@ import {
   resolveWager, contestPool,
 } from "../../shared/core.js";
 import { applyAction as apply } from "../../worker/actions.js";
+import { latestGag } from "../../src/features/gags/gagModel.js";
+import { songBeatOf } from "../../shared/bitMusic.js";
+import { bitById } from "../../src/features/gags/bits/registry.js";
 import { boardDeskStage, boardPlayed, boardStage } from "./boardFixtures.js";
 import { karaokeStage } from "./karaokeFixtures.js";
 import { karaokePhoneStage } from "./karaokePhoneFixtures.js";
@@ -910,12 +913,16 @@ const gagTest = payload => playedOut(testParts(payload));
 /* the upset's winners' song, started 1.2 s after the decision in its own
    write: the walkout has the TV first and docks, then the bit plays
    (moments/walkout.js walkoutSpan) */
-function gagAfterWalkout() {
+/* the upset's song came in on its bit's beat (Oct 14): the walkout carries
+   the bit, so no takeover; the bit plays, the song docked in Now playing */
+function gagSongOnBeat() {
   const state = gagUpset();
+  const gag = latestGag(state, allEventsOf(state));
   const last = state.eventOps.die.lastContest;
   const player = state.draws.die.teams[last.winner].players[0];
+  const heard = gag.start + (songBeatOf(bitById(gag.bit)) ?? 0);
   state.showControl.audio = { ...(state.showControl.audio || {}), walkout:{ player, trackId:null,
-    startedAt:last.decidedAt + 1200, until:last.decidedAt + 31200, auto:true } };
+    startedAt:heard, until:heard + 30000, auto:true, bit:gag.id, audibleAt:heard } };
   return state;
 }
 
@@ -978,8 +985,10 @@ const crownBeats = [
   ["title", 1000], ["towers", 2600], ["steps", 6000], ["holdtwo", 10800], ["rise", 13600], ["flood", 14900],
   ["name", 16800], ["count", 18400], ["end", 23000],
 ];
-/* the team bits' fit views: a versus at 3 v 3 (volleyball's teams, a
-   long team name) and 7 v 6 (the full court), a win at three and seven */
+/* the team bits' fit views (a side of 2 or more since Oct 14): a versus at
+   3 v 3 (volleyball's teams, a long team name) and 7 v 6 (the full court),
+   a win at three and seven; the doubles (2 v 2, a pair against one each
+   way, a winning pair) below */
 const TEAM_THREE = ["Henry", "Jeremy", "Adi"], TEAM_THREE_B = ["Brandon", "Evan", "Khoa"];
 const COURT_SEVEN = ["Brandon", "Evan", "Eyob", "Khoa", "Adi", "Chiang", "Richard"];
 const COURT_SIX = ["Henry", "Jeremy", "Chinh", "Allan", "Sahil", "Ben"];
@@ -997,21 +1006,30 @@ const TEAM_GAG_VIEWS = [
       moment:{ kind:"gag", t:"letter", gag:{ bit, players:COURT_SEVEN, name:"Team Brandon", fact:"3 in a row" } } },
   ]),
 ];
-/* the doubles in the solo bits (Oct 13): a 2 v 2 for each versus bit
-   (butte's is tv-gag-butte-pairs), a pair against one each way, and a
-   winning pair for each win bit, each held as its lettering lands */
+/* the doubles (Oct 14: team bits): a 2 v 2 for each team versus, a pair
+   against one each way, and a winning pair for each team win, each held as
+   its lettering lands */
 const PAIR_A = ["Henry", "Richard"], PAIR_B = ["Adi", "Chiang"];
 const PAIR_GAG_VIEWS = [
-  ...["quickdraw", "springglove"].map(bit => ({ id:`tv-gag-${bit}-2v2`, build:() => fresh("event:die:done"),
+  ...["dominoes", "tugofwar", "slowmowalk"].map(bit => ({ id:`tv-gag-${bit}-2v2`, build:() => fresh("event:die:done"),
     moment:{ kind:"gag", t:"letter", gag:{ bit, players:PAIR_A, name:"Henry Nguyen & Squilliam", fact:"Upset", beaten:PAIR_B } } })),
-  { id:"tv-gag-quickdraw-2v1", build:() => fresh("event:die:done"),
-    moment:{ kind:"gag", t:"letter", gag:{ bit:"quickdraw", players:PAIR_A, name:"Henry Nguyen & Squilliam", fact:"Upset", beaten:["Sahil"] } } },
-  { id:"tv-gag-springglove-1v2", build:() => fresh("event:die:done"),
-    moment:{ kind:"gag", t:"letter", gag:{ bit:"springglove", players:["Khoa"], fact:"Upset", beaten:PAIR_B } } },
-  { id:"tv-gag-butte-2v1", build:() => fresh("event:die:done"),
-    moment:{ kind:"gag", t:"letter", gag:{ bit:"butte", players:PAIR_A, name:"Henry Nguyen & Squilliam", fact:"Upset", beaten:["Sahil"] } } },
-  ...["explosionwalk", "toohype", "sunset", "statue"].map(bit => ({ id:`tv-gag-${bit}-2`, build:() => fresh("event:die:done"),
+  { id:"tv-gag-dominoes-2v1", build:() => fresh("event:die:done"),
+    moment:{ kind:"gag", t:"letter", gag:{ bit:"dominoes", players:PAIR_A, name:"Henry Nguyen & Squilliam", fact:"Upset", beaten:["Sahil"] } } },
+  { id:"tv-gag-tugofwar-1v2", build:() => fresh("event:die:done"),
+    moment:{ kind:"gag", t:"letter", gag:{ bit:"tugofwar", players:["Khoa"], fact:"Upset", beaten:PAIR_B } } },
+  ...["pyramid", "teamphoto", "victorylap"].map(bit => ({ id:`tv-gag-${bit}-2`, build:() => fresh("event:die:done"),
     moment:{ kind:"gag", t:"letter", gag:{ bit, players:PAIR_A, name:"Henry Nguyen & Squilliam", fact:"3 in a row" } } })),
+];
+/* every solo moment bit (a 1 v 1 upset, a win, a loss) with the longest
+   name, held as its lettering lands where its shot leaves room */
+const SOLO_GAG_VIEWS = [
+  ...["standoff", "flipper", "rockslide"].map(bit => ({ id:`tv-gag-${bit}`, build:() => fresh("event:putt:done"),
+    moment:{ kind:"gag", t:"letter", gag:{ bit, players:["Henry"], fact:"4.2×", beaten:["Khoa"] } } })),
+  ...["headphones", "needledrop", "disco", "jukebox", "lowrider", "piano", "sunset", "statue", "victoryspin", "fireworks"].map(bit =>
+    ({ id:`tv-gag-${bit}`, build:() => fresh("event:putt:done"),
+      moment:{ kind:"gag", t:"letter", gag:{ bit, players:["Henry"], fact:"In the lead" } } })),
+  ...["roadrunner", "quicksand", "dynamite", "vulture", "rake", "needlescratch"].map(bit => ({ id:`tv-gag-${bit}`,
+    build:() => fresh("event:pong:done"), moment:{ kind:"gag", t:"letter", gag:{ bit, players:["Henry"], fact:"13th" } } })),
 ];
 export const TV_SCENARIOS = Object.freeze([
   /* Quick Draw's showdown in a gap: the lamps lighting, the draw's flash,
@@ -1034,20 +1052,9 @@ export const TV_SCENARIOS = Object.freeze([
   { id:"tv-gag-leader", build:() => gagLeader(), at:{ gag:"letter" }, pause:true, wait:300 },
   { id:"tv-gag-bigloss", build:() => gagBigLoss(), at:{ gag:"letter" }, pause:true, wait:300 },
   { id:"tv-gag-last", build:() => gagLast(), at:{ gag:"letter" }, pause:true, wait:300 },
-  { id:"tv-gag-quickdraw-team", build:() => longNames(fresh("event:volley:open"), "volley"),
-    moment:{ kind:"gag", t:"letter", gag:{ bit:"quickdraw", players:["Henry", "Jeremy", "Adi"], name:"Les Quizerables Reunited",
-      fact:"Upset", beaten:["Brandon", "Evan", "Khoa"] } } },
-  { id:"tv-gag-butte-pairs", build:() => fresh("event:die:done"),
-    moment:{ kind:"gag", t:"letter", gag:{ bit:"butte", players:["Henry", "Richard"], name:"Henry Nguyen & Squilliam", fact:"Upset",
-      beaten:["Adi", "Chiang"] } } },
-  { id:"tv-gag-sunset-five", build:() => fresh("event:bball5:done"),
-    moment:{ kind:"gag", t:"letter", gag:{ bit:"sunset", players:["Richard", "Henry", "Jeremy", "Adi", "Evan"], fact:"3 in a row" } } },
-  { id:"tv-gag-toohype", build:() => fresh("event:putt:done"),
-    moment:{ kind:"gag", t:"letter", gag:{ bit:"toohype", players:["Richard"], fact:"In the lead" } } },
   { id:"tv-gag-anvil-big", build:() => fresh("event:pong:done"),
     moment:{ kind:"gag", t:"letter", gag:{ bit:"anvil", players:["Henry"], fact:"-12,500" } } },
-  { id:"tv-gag-dontlookback", build:() => fresh("event:pong:done"),
-    moment:{ kind:"gag", t:"letter", gag:{ bit:"dontlookback", players:["Richard"], fact:"13th" } } },
+  ...SOLO_GAG_VIEWS,
   /* the team bits (Oct 12) at volleyball's 3 v 3 and the full court's
      7 v 6 (a win: a team of three, of seven), each held as its lettering
      lands; and the QA console's test of one, its team from the board */
@@ -1057,9 +1064,9 @@ export const TV_SCENARIOS = Object.freeze([
   ...["versus", "win", "loss"].map(shape => ({ id:`tv-gag-test-${shape}`, build:() => gagTest({ shape }), at:{ gag:"letter" },
     pause:true, wait:300 })),
   { id:"tv-gag-test-roadrunner", build:() => gagTest({ bit:"roadrunner" }), at:{ gag:"letter" }, pause:true, wait:300 },
-  /* the winners' song walked out first: the bit in its moved window, the
-     song docked in the Now playing strip under it */
-  { id:"tv-gag-after-walkout", build:gagAfterWalkout, at:{ gag:"letter" }, pause:true, wait:300 },
+  /* the winners' song came in on the bit's beat: the bit, no walkout over
+     it, the song docked in the Now playing strip */
+  { id:"tv-gag-song-on-beat", build:gagSongOnBeat, at:{ gag:"letter" }, pause:true, wait:300 },
   { id:"tv-highlight", build:() => fresh("event:die:done"), at:{ highlight:{ ms:4200 } }, pause:true, wait:300 },
   { id:"tv-highlight-still", build:() => fresh("event:die:done"), at:{ highlight:{ ms:14000 } }, pause:true, wait:300 },
   { id:"tv-locker", build:() => fresh("locker") },
@@ -1293,9 +1300,9 @@ export const TV_SCENARIOS = Object.freeze([
   { id:"tv-records-duels", build:recordsDuels, at:{ record:{ kind:"duels" } } },
   /* attract mode (Oct 11, features/tv/attractModel.js): an idle vignette on
      its attract turn, `ms` into it (the chrome stepped out, the rest lamps
-     lit): two of the room at the table mid-struggle, and one alone on the
-     stepladder reaching for the blossom */
-  { id:"tv-attract-armwrestle", build:() => fresh("session:sam"), at:{ attract:{ id:"armwrestle", ms:3400 } } },
+     lit): two of the room pushing edge to edge, and one alone at the
+     saguaro */
+  { id:"tv-attract-edgepush", build:() => fresh("session:sam"), at:{ attract:{ id:"edgepush", ms:3400 } } },
   { id:"tv-attract-saguaro", build:() => fresh("session:fri"), at:{ attract:{ id:"saguaro", ms:5000 } } },
   /* a TV whose browser has not allowed sound yet (sound:"blocked", the
      harness's context stays suspended): "Click for sound" in its own slot

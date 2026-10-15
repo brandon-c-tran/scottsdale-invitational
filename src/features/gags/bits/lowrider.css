@@ -1,0 +1,88 @@
+/* lowrider (lowrider.jsx): beats from registry.js (--b-<name>), every
+   animation on --ba, each element resting on its end state. The wind-up
+   holds on --b-ready while the song is on its way (shared/bitMusic.js);
+   the engine's shudder is the one thing that moves then (.bit-hold-loop).
+   The hydraulics run one 1920 ms routine (four beats) on a loop from the
+   bass: front up, back up, front up, the whole car off the floor. */
+
+.is-lowrider .lr { position:absolute; inset:0; }
+
+/* ── it rolls in from the left, wheels turning, and stops ── */
+.is-lowrider .lr-roll { transform:translateX(0px);
+  --ba:lr-roll 1250ms cubic-bezier(.25,.6,.35,1) calc(var(--tl) + 0ms) both; animation:var(--ba); }
+@keyframes lr-roll { from { transform:translateX(-1450px); } to { transform:translateX(0px); } }
+.is-lowrider .lr-spin { transform:rotate(1480deg);
+  --ba:lr-spin 1250ms cubic-bezier(.25,.6,.35,1) calc(var(--tl) + 0ms) both; animation:var(--ba); }
+@keyframes lr-spin { from { transform:rotate(0deg); } to { transform:rotate(1480deg); } }
+
+/* ── the body: a nose dip as it stops, a squat on the rev; then the
+   hydraulics: front up (about the rear axle) and back up (about the
+   front axle), on the beat ── */
+.is-lowrider .lr-front { transform:rotate(0deg);
+  --ba:lr-dip 460ms ease-out calc(var(--tl) + var(--b-stop)) both,
+    lr-front 1920ms ease-in-out calc(var(--tl) + var(--b-bass)) infinite forwards; animation:var(--ba); }
+@keyframes lr-dip { 0% { transform:rotate(0deg); } 30% { transform:rotate(1.6deg); } 65% { transform:rotate(-.6deg); } 100% { transform:rotate(0deg); } }
+@keyframes lr-front {
+  0% { transform:rotate(0deg); animation-timing-function:cubic-bezier(.2,.9,.3,1); }
+  4.7% { transform:rotate(-10deg); animation-timing-function:ease-in-out; }
+  12% { transform:rotate(-8deg); animation-timing-function:cubic-bezier(.6,0,.9,.5); }
+  21% { transform:rotate(0deg); } 23% { transform:rotate(.9deg); } 26%, 50% { transform:rotate(0deg); animation-timing-function:cubic-bezier(.2,.9,.3,1); }
+  54.7% { transform:rotate(-11deg); animation-timing-function:ease-in-out; }
+  62% { transform:rotate(-9deg); animation-timing-function:cubic-bezier(.6,0,.9,.5); }
+  71% { transform:rotate(0deg); } 73% { transform:rotate(.9deg); } 75% { transform:rotate(0deg); animation-timing-function:cubic-bezier(.2,.8,.4,1); }
+  81% { transform:rotate(-5deg); animation-timing-function:cubic-bezier(.6,0,.9,.5); } 88% { transform:rotate(0deg); } 100% { transform:rotate(0deg); } }
+.is-lowrider .lr-rear { transform:rotate(0deg);
+  --ba:lr-squat 300ms ease-out calc(var(--tl) + var(--b-rev)) both,
+    lr-rear 1920ms ease-in-out calc(var(--tl) + var(--b-bass)) infinite forwards; animation:var(--ba); }
+@keyframes lr-squat { 0% { transform:rotate(0deg); } 35% { transform:rotate(-1.4deg); } 100% { transform:rotate(-.5deg); } }
+@keyframes lr-rear { 0%, 25% { transform:rotate(0deg); animation-timing-function:cubic-bezier(.2,.9,.3,1); }
+  29.7% { transform:rotate(7deg); animation-timing-function:ease-in-out; }
+  37% { transform:rotate(5.5deg); animation-timing-function:cubic-bezier(.6,0,.9,.5); }
+  46% { transform:rotate(0deg); } 48% { transform:rotate(-.7deg); } 50%, 100% { transform:rotate(0deg); } }
+/* the whole car, wheels and all, off the floor on the fourth beat */
+.is-lowrider .lr-air { transform:translateY(0px);
+  --ba:lr-air 1920ms linear calc(var(--tl) + var(--b-bass)) infinite both; animation:var(--ba); }
+@keyframes lr-air { 0%, 75% { transform:translateY(0px); animation-timing-function:cubic-bezier(.2,.8,.4,1); }
+  82% { transform:translateY(-120px); animation-timing-function:cubic-bezier(.6,0,.9,.5); }
+  88% { transform:translateY(0px); animation-timing-function:ease-out; } 91% { transform:translateY(-16px); animation-timing-function:ease-in; }
+  94%, 100% { transform:translateY(0px); } }
+
+/* ── the engine idling: a shudder, which stops once it plays ── */
+.is-lowrider .lr-shudder { transform:translateY(0px);
+  --ba:lr-idle 90ms linear calc(var(--tl) + var(--b-idle)) infinite both,
+    lr-still 1ms step-start calc(var(--tl) + var(--b-bass)) forwards; animation:var(--ba); }
+@keyframes lr-idle { 0%, 100% { transform:translateY(0px); } 50% { transform:translateY(-3px); } }
+@keyframes lr-still { from { transform:translateY(0px); } to { transform:translateY(0px); } }
+/* waiting on the speaker: it idles on */
+.is-lowrider.is-holding .lr-shudder { --ba:lr-idle 90ms linear calc(var(--tl) + 0ms) infinite both; animation:var(--ba); }
+
+/* ── the tailpipe puffs while it idles ── */
+.is-lowrider .lr-puff { opacity:0;
+  --ba:lr-puff 600ms ease-out calc(var(--tl) + var(--b-stop) + var(--d, 0ms)) infinite both,
+    bit-hide 1ms step-start calc(var(--tl) + var(--b-bass)) forwards; animation:var(--ba); }
+.is-lowrider .lr-puff.is-1 { --d:200ms; }
+.is-lowrider .lr-puff.is-2 { --d:400ms; }
+@keyframes lr-puff { 0% { opacity:0; transform:translate(0px, 0px) scale(.4); } 15% { opacity:.85; }
+  100% { opacity:0; transform:translate(-110px, -40px) scale(1.7); } }
+
+/* ── rings of bass off the car, on the beat ── */
+.is-lowrider .lr-ring { opacity:0;
+  --ba:lr-ring 960ms ease-out calc(var(--tl) + var(--b-bass) + var(--d, 0ms)) infinite both; animation:var(--ba); }
+.is-lowrider .lr-ring.is-1 { --d:480ms; }
+@keyframes lr-ring { 0% { opacity:0; transform:scale(.7); } 5% { opacity:.9; } 100% { opacity:0; transform:scale(1.35); } }
+
+/* ── the lamps: the head lamp catches as it stops ── */
+.is-lowrider .lr .ng-head { --ba:neon-ignite 300ms linear calc(var(--tl) + var(--b-stop)) both; animation:var(--ba); }
+
+/* ── the driver: rides along, leans in on the rev, whiplashed back by
+   the bass, then nods on the beat ── */
+.is-lowrider .lr-chip .nc-tilt { transform:rotate(0deg);
+  --ba:lr-lean 300ms ease-out calc(var(--tl) + var(--b-rev)) both,
+    lr-whip 260ms ease-out calc(var(--tl) + var(--b-bass)) forwards,
+    lr-nod 480ms ease-in-out calc(var(--tl) + var(--b-bass) + 260ms) infinite forwards; animation:var(--ba); }
+@keyframes lr-lean { from { transform:rotate(0deg); } to { transform:rotate(7deg); } }
+@keyframes lr-whip { 0% { transform:rotate(7deg); } 35% { transform:rotate(-12deg); } 100% { transform:rotate(-4deg); } }
+@keyframes lr-nod { 0%, 100% { transform:rotate(-4deg); } 40% { transform:rotate(5deg); } }
+.is-lowrider .lr-chip .nc-hop { transform:translateY(0px);
+  --ba:lr-bob 480ms cubic-bezier(.3,0,.7,1) calc(var(--tl) + var(--b-bass) + 120ms) infinite both; animation:var(--ba); }
+@keyframes lr-bob { 0%, 100% { transform:translateY(0px); } 45% { transform:translateY(-22px); } }

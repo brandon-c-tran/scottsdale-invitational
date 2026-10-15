@@ -42,9 +42,11 @@ function attractTurns(ambient, room, turns = 600) {
   return out;
 }
 
-test("the six idle vignettes: one takes two chips, the rest one", () => {
-  assert.deepEqual([...IDLE].sort(), ["armwrestle", "map", "nap", "pushups", "saguaro", "sweep"]);
-  for (const id of IDLE) assert.equal(attractNeeds(bitById(id)), id === "armwrestle" ? 2 : 1, id);
+/* the two contests take two chips from the room */
+const PAIRED = ["coinspin", "edgepush"];
+test("the six idle vignettes: the two contests take two chips, the rest one", () => {
+  assert.deepEqual([...IDLE].sort(), ["coinspin", "edgepush", "losttourist", "nap", "polish", "saguaro"]);
+  for (const id of IDLE) assert.equal(attractNeeds(bitById(id)), PAIRED.includes(id) ? 2 : 1, id);
   for (const id of IDLE) assert.equal(bitById(id).letter, null, `${id} letters nothing`);
 });
 
@@ -127,7 +129,7 @@ test("never the same vignette twice in a row, in any rotation and any room", () 
         if (i) assert.notEqual(pick.id, turns[i - 1].pick.id, `${cards.length} cards, ${size} in the room, attract turn ${i}`);
       });
       /* every vignette the room can cast comes round */
-      assert.equal(new Set(turns.map(({ pick }) => pick.id)).size, size >= 2 ? 6 : 5);
+      assert.equal(new Set(turns.map(({ pick }) => pick.id)).size, size >= 2 ? 6 : 4);
     }
   }
 });
@@ -137,18 +139,18 @@ test("a two-chip vignette needs two in the room, else a one-chip one, never the 
   for (let k = 0; k < 2000; k++) {
     const alone = attractVignette(k, 1);
     assert.equal(attractNeeds(alone), 1, `k ${k}`);
-    if (idleAt(k).id === "armwrestle") {
+    if (PAIRED.includes(idleAt(k).id)) {
       swapped++;
-      assert.notEqual(alone.id, "armwrestle");
+      assert.ok(!PAIRED.includes(alone.id));
       assert.notEqual(alone.id, attractVignette(k - 1, 1)?.id);
       assert.notEqual(alone.id, attractVignette(k + 1, 1).id);
-      assert.equal(attractVignette(k, 2).id, "armwrestle", "two in the room: the arm wrestle plays");
+      assert.equal(attractVignette(k, 2).id, idleAt(k).id, "two in the room: the contest plays");
     } else assert.equal(alone.id, idleAt(k).id, "a one-chip vignette plays for one");
   }
   assert.ok(swapped > 100);
   assert.equal(attractVignette(4, 0), null, "nobody in the room: nothing");
-  /* the arm wrestle casts two different chips from the room */
-  const two = attractTurns(withAttractTurns(["board", "next"], 2), ["Khoa", "Evan"], 400).find(({ pick }) => pick.id === "armwrestle");
+  /* a contest casts two different chips from the room */
+  const two = attractTurns(withAttractTurns(["board", "next"], 2), ["Khoa", "Evan"], 400).find(({ pick }) => PAIRED.includes(pick.id));
   assert.ok(two);
   assert.deepEqual([...two.pick.cast.a].sort(), ["Evan", "Khoa"]);
 });
@@ -190,7 +192,7 @@ const tv = (state, now) => {
       onExit:() => {}, now })));
 };
 const vignetteOn = html => /class="tv-takeover tv-attract"/.test(html) ? /data-bit="([a-z]+)"/.exec(html)?.[1] || "?" : null;
-const castOn = html => [...html.matchAll(/class="cast[^"]*" data-player="([^"]+)"/g)].map(match => match[1]);
+const castOn = html => [...html.matchAll(/class="nc[^"]*" data-player="([^"]+)"/g)].map(match => match[1]);
 const base = Math.ceil(Date.now() / (P * 840)) * P * 840;
 
 test("the TV plays it only in a gap, on its turn, over the board, then gives the turn back to the board", () => {

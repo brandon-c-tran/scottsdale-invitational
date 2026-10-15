@@ -9,12 +9,18 @@
      client immediately receives the full authoritative state. */
 
 import {
-  ALL_PLAYERS, ARRIVE_CODE_ALPHABET, ROSTER, canCheckIn, isActivePlayer, isArriveCode, rosterOf,
+  ALL_PLAYERS, ARRIVE_CODE_ALPHABET, ROSTER, allEventsOf, canCheckIn, isActivePlayer, isArriveCode, rosterOf,
 } from "../shared/core.js";
 import { checkInComplete } from "../shared/checkin.js";
 import {
-  SPOTIFY_TRACK_URI, buildWalkout, reconcileWalkout, sameWalkout, walkoutLive, walkoutOf,
+  SPOTIFY_TRACK_URI, buildWalkout, cleanSongCue, logSong, logSongStop, reconcileWalkout, sameWalkout, songCueOf, walkoutLive, walkoutOf,
 } from "../shared/audio.js";
+import { DEFAULT_LATENCY_MS, cleanLatency, latencyOf, songPlan } from "../shared/bitMusic.js";
+/* the moment a write carries, read with the same pure model every screen
+   reads (its imports are React and DOM free: tests/gags.test.mjs), so the
+   Worker times a win song to the very bit the room is watching */
+import { latestGag } from "../src/features/gags/gagModel.js";
+import { bitById } from "../src/features/gags/bits/registry.js";
 import { BUILD_ID } from "../shared/build.js";
 import { ACTIONS, applyAction } from "./actions.js";
 import { QA_CHECKPOINT_LIMIT, cleanCheckpointName, qaCheckpointSummary, qaProgressOf } from "../shared/qa.js";
@@ -110,6 +116,17 @@ const WIN_FADE_OUT_MS = 3000;
 const WIN_FADE_STOP_MS = 1000;
 const WIN_FADE_STEPS = 6;
 const SPOTIFY_STATE_TTL_MS = 10 * 60 * 1000;
+/* the speaker's latency, from a request to the room hearing it (the
+   Speaker sheet's "Tap on the beat"; shared/bitMusic.js) */
+const SPOTIFY_LATENCY_KEY = "private:spotify:latency";
+/* a moment this old is not the write's (a win song never waits on it) */
+const MOMENT_FRESH_MS = 15000;
+/* a win song waits for its bit's beat at most this long */
+const SONG_PLAN_MAX_WAIT_MS = 30000;
+/* "Tap on the beat": the speaker plays this long after the request is
+   asked for (the phone counts it in), and stops this long after */
+const CALIBRATE_LEAD_MS = 1600;
+const CALIBRATE_PLAY_MS = 3200;
 /* QA checkpoints: named game-progress saves, private (never in a snapshot,
    a backup, or any frame). An index plus one key per checkpoint, so no
    value approaches the per-value limit. */
@@ -845,9 +862,17 @@ export class Tournament {
     const nextState = structuredClone(this.state);
     const control = nextState.showControl && typeof nextState.showControl === "object"
       ? nextState.showControl : { active:null, history:[] };
-    /* a song that plays settles any earlier miss */
+    /* a song that plays settles any earlier miss; the log keeps which
+       songs played, and when one ended early (a loss's bit may cut a song
+       still playing: shared/audio.js songPlayingAt) */
     const audio = { ...(control.audio || {}), walkout:walkout || null };
-    if (walkout) delete audio.miss;
+    const stopAt = walkout ? walkout.startedAt : Date.now();
+    if (current && (!walkout || current.startedAt !== walkout.startedAt)) audio.songs = logSongStop(audio.songs, current, stopAt);
+    if (walkout) {
+      delete audio.miss;
+      audio.songs = logSong(audio.songs, walkout);
+      if (audio.cue && cleanSongCue(audio.cue)?.gag === walkout.bit) delete audio.cue;
+    }
     nextState.showControl = { ...control, audio };
     try {
       await this.persistAndBroadcast(reason, nextState);
@@ -873,9 +898,12 @@ export class Tournament {
     const nextState = structuredClone(this.state);
     const control = nextState.showControl && typeof nextState.showControl === "object"
       ? nextState.showControl : { active:null, history:[] };
-    nextState.showControl = { ...control, audio:{ ...(control.audio || {}), miss:{
+    const audio = { ...(control.audio || {}), miss:{
       player:song.player, key:song.key, whole:song.clipMs === null, reason, at:Date.now(),
-    } } };
+    } };
+    /* a song that missed its bit's beat is no longer on its way */
+    delete audio.cue;
+    nextState.showControl = { ...control, audio };
     try { await this.persistAndBroadcast("walkoutMiss", nextState); }
     catch (writeError) {
       console.error(JSON.stringify({ event:"walkout-miss-write-failed", error:String(writeError?.message || writeError).slice(0, 200) }));
@@ -1080,23 +1108,35 @@ export class Tournament {
     return stored >= WIN_LEVEL_FLOOR ? stored : WIN_LEVEL_DEFAULT;
   }
 
-  async startWinSong(song) {
+  /* A song on a bit's beat (`sync`: { bit, latency, at }) comes in at the
+     room's level with no fade, its request sent at `at` (the speaker made
+     ready before then), and its walkout carries the bit and when the room
+     hears it. */
+  async startWinSong(song, sync = null) {
     const speaker = await this.spotifySpeaker("");
     let before = null;
     try { before = compactSpotifyPlayback(await this.spotifyUserApi("/me/player")); } catch {}
     const device = before?.device;
     const level = await this.roomLevel(device);
-    let fade = device?.id && device.supportsVolume && (!speaker || device.id === speaker)
+    let fade = !sync && device?.id && device.supportsVolume && (!speaker || device.id === speaker)
       ? { device:device.id, volume:level } : null;
     if (fade) { try { await this.spotifyVolume(0, fade.device); } catch { fade = null; } }
+    if (sync && device?.supportsVolume && Number(device.volume) < WIN_LEVEL_FLOOR) {
+      try { await this.spotifyVolume(level, device.id || speaker); } catch {}
+    }
+    if (sync && Number(sync.at) > Date.now()) await this.wait(Math.min(SONG_PLAN_MAX_WAIT_MS, Number(sync.at) - Date.now()));
+    if (sync && !this.songStillOwed(sync)) return;
+    const sentAt = Date.now();
     try {
       await this.spotifyPlayOnSpeaker(speaker, { uris:[song.track.uri], position_ms:song.track.startMs || 0 });
     } catch (error) {
       if (fade) { try { await this.spotifyVolume(fade.volume, fade.device); } catch {} }
       throw error;
     }
+    const heard = sync ? sentAt + latencyOf(sync.latency) : null;
     await this.stampWalkout({ uri:song.track.uri, player:song.player, positionMs:song.track.startMs || 0,
-      durationMs:song.track.durationMs, clipMs:song.clipMs, auto:true });
+      durationMs:song.track.durationMs, clipMs:song.clipMs, auto:true,
+      ...(sync ? { bit:sync.bit, audibleAt:heard, startedAt:heard } : {}) });
     if (!fade) {
       /* a speaker that was asleep: now that it plays, make sure it is not
          sitting at the silence a refused restore left */
@@ -1125,12 +1165,18 @@ export class Tournament {
       return null;
     }
     const takeBack = !song && WIN_SONG_STOP_ACTIONS.has(type);
+    /* the moment this write carries (its bit and window), and a loss's
+       bit that cuts a song still playing (needle scratch) */
+    const moment = this.momentOf(after);
+    if (!takeBack) this.queueSongCut(moment);
     if (!song && !takeBack) return null;
+    if (takeBack) this.pendingSong = null;
     return this.songQueue(async () => {
       if (await this.ctx.storage.get(SPOTIFY_AUTO_KEY) === false) return;
       const session = await this.ctx.storage.get(SPOTIFY_SESSION_KEY);
       const connected = !!(session?.refreshToken || session?.accessToken) && !session.reauthorize;
       if (takeBack) {
+        if (songCueOf(this.state)) await this.setSongCue(null, "songCueOff");
         const live = walkoutLive(this.state, Date.now());
         if (connected && live?.auto && await this.stopWinSong(live, WIN_FADE_STOP_MS)) await this.setWalkout(null, "walkoutStop");
         return;
@@ -1141,14 +1187,112 @@ export class Tournament {
         await this.setSongMiss(song, { code:session?.reauthorize ? "reauthorize" : "not_connected" });
         return;
       }
-      await this.playWinSong(song);
+      const latency = await this.speakerLatency();
+      const plan = songPlan({ gag:moment, bit:moment ? bitById(moment.bit) : null, singer:song.player, latencyMs:latency, now:Date.now() });
+      if (plan.mode === "now") { await this.playWinSong(song); return; }
+      this.scheduleWinSong(song, moment, plan, latency);
     });
   }
 
-  /* start a win song, and on failure say so where the commissioner looks */
-  async playWinSong(song) {
+  /* the moment the newest write carries, when it is that write's (fresh) */
+  momentOf(state) {
     try {
-      await this.startWinSong(song);
+      const gag = latestGag(state, allEventsOf(state));
+      return gag && !gag.test && Math.abs(Date.now() - Number(gag.at)) <= MOMENT_FRESH_MS ? gag : null;
+    } catch (error) {
+      console.error(JSON.stringify({ event:"moment-read-failed", error:String(error?.message || error).slice(0, 200) }));
+      return null;
+    }
+  }
+
+  /* the speaker's measured latency, or the middle of Spotify's */
+  async speakerLatency() {
+    try { return latencyOf(await this.ctx.storage.get(SPOTIFY_LATENCY_KEY)); } catch { return DEFAULT_LATENCY_MS; }
+  }
+
+  /* the win-song cue (showControl.audio.cue): the song is on its way to a
+     moment's beat, so a music bit holds its wind-up for it */
+  async setSongCue(cue, reason = "songCue") {
+    const nextState = structuredClone(this.state);
+    const control = nextState.showControl && typeof nextState.showControl === "object"
+      ? nextState.showControl : { active:null, history:[] };
+    const audio = { ...(control.audio || {}) };
+    const clean = cleanSongCue(cue);
+    if (clean) audio.cue = clean; else delete audio.cue;
+    nextState.showControl = { ...control, audio };
+    try { await this.persistAndBroadcast(reason, nextState); }
+    catch (error) {
+      console.error(JSON.stringify({ event:"song-cue-write-failed", error:String(error?.message || error).slice(0, 200) }));
+    }
+  }
+
+  /* A win song timed to its moment (shared/bitMusic.js songPlan): on the
+     bit's beat (the cue written now, the request sent early by the
+     speaker's latency) or after a songless bit. A take-back, or a later
+     win, drops it (pendingSong). Off the song lane while it waits, so a
+     Stop or a fade still runs. */
+  scheduleWinSong(song, moment, plan, latency) {
+    const pending = { key:song.key, gag:moment.id, mode:plan.mode };
+    this.pendingSong = pending;
+    const run = (async () => {
+      if (plan.mode === "beat") await this.setSongCue({ gag:moment.id, player:song.player, at:plan.audibleAt });
+      /* make the speaker ready a little before the request (the lane does
+         the volume work first), then send it on the beat's early mark */
+      const lead = plan.mode === "beat" ? 1500 : 0;
+      const wait = Math.min(SONG_PLAN_MAX_WAIT_MS, Number(plan.requestAt) - Date.now() - lead);
+      if (wait > 0) await this.wait(wait);
+      if (this.pendingSong !== pending) return;
+      await this.songQueue(async () => {
+        if (this.pendingSong !== pending) return;
+        this.pendingSong = null;
+        if (plan.mode !== "beat") { await this.playWinSong(song); return; }
+        /* the moment gone (taken back, moved): no beat to land on */
+        if (!this.songStillOwed({ bit:moment.id })) {
+          if (songCueOf(this.state)?.gag === moment.id) await this.setSongCue(null, "songCueOff");
+          await this.playWinSong(song);
+          return;
+        }
+        await this.playWinSong(song, { bit:moment.id, latency, at:plan.requestAt });
+      });
+    })().catch(error => console.error(JSON.stringify({ event:"win-song-schedule-failed",
+      error:String(error?.message || error).slice(0, 200) })));
+    try { this.ctx.waitUntil?.(run); } catch {}
+    return run;
+  }
+
+  /* a song on its way to a bit's beat still has that bit to land on */
+  songStillOwed(sync) {
+    const gag = this.momentOf(this.state);
+    return !!gag && gag.id === sync.bit;
+  }
+
+  /* A loss's bit that cuts a song still playing (registry `cut`, needle
+     scratch): the speaker stops on that beat, sent early by its latency */
+  queueSongCut(moment) {
+    const bit = moment ? bitById(moment.bit) : null;
+    const cut = bit?.cut ? Number(bit.beats?.[bit.cut]) : NaN;
+    if (!bit || !Number.isFinite(cut) || this.lastSongCut === moment.id) return;
+    const live = walkoutLive(this.state, Date.now());
+    if (!live?.auto) return;
+    this.lastSongCut = moment.id;
+    const run = (async () => {
+      const latency = await this.speakerLatency();
+      const wait = Math.min(SONG_PLAN_MAX_WAIT_MS, Number(moment.start) + cut - latency - Date.now());
+      if (wait > 0) await this.wait(wait);
+      if (this.momentOf(this.state)?.id !== moment.id) return;
+      await this.songQueue(async () => {
+        const still = walkoutLive(this.state, Date.now());
+        if (!still || still.startedAt !== live.startedAt) return;
+        if (await this.stopWinSong(still, 0)) await this.setWalkout(null, "walkoutCut");
+      });
+    })().catch(error => console.error(JSON.stringify({ event:"song-cut-failed", error:String(error?.message || error).slice(0, 200) })));
+    try { this.ctx.waitUntil?.(run); } catch {}
+  }
+
+  /* start a win song, and on failure say so where the commissioner looks */
+  async playWinSong(song, sync = null) {
+    try {
+      await this.startWinSong(song, sync);
       return { ok:true };
     } catch (error) {
       console.error(JSON.stringify({ event:"win-song-play-failed",
@@ -1169,6 +1313,15 @@ export class Tournament {
     return this.songQueue(() => this.playWinSong(song));
   }
 
+  /* the song "Tap on the beat" plays: the first saved win song, in roster order */
+  calibrationTrack() {
+    for (const player of rosterOf(this.state)) {
+      const track = this.state.profiles?.[player]?.walkoutTrack;
+      if (track?.uri) return track;
+    }
+    return null;
+  }
+
   /* a player's saved cue for this track, when exactly one player saved it */
   walkoutPlayerFor(trackId) {
     if (!trackId) return null;
@@ -1182,15 +1335,16 @@ export class Tournament {
      the player's saved track; a search result sends its own; a resume reads
      the speaker once and otherwise assumes the longest walkout. Never throws:
      the song is already playing. */
-  async stampWalkout({ uri, player, positionMs, durationMs, clipMs = null, auto = false }) {
-    const startedAt = Date.now();
+  async stampWalkout({ uri, player, positionMs, durationMs, clipMs = null, auto = false, bit = null, audibleAt = null,
+    startedAt:heard = null }) {
+    const startedAt = heard !== null && heard !== undefined && Number.isFinite(Number(heard)) ? Math.round(Number(heard)) : Date.now();
     try {
       if (uri) {
         const trackId = uri.match(SPOTIFY_TRACK_URI)?.[1] || null;
         const saved = player ? this.state.profiles?.[player]?.walkoutTrack : null;
         const length = saved?.trackId === trackId ? saved.durationMs : durationMs;
         return await this.setWalkout(buildWalkout({ player, trackId, startedAt, durationMs:length, positionMs,
-          clipMs, auto }), "walkoutStart");
+          clipMs, auto, bit, audibleAt }), "walkoutStart");
       }
       let playback = null;
       try { playback = compactSpotifyPlayback(await this.spotifyUserApi("/me/player")); } catch {}
@@ -1357,6 +1511,8 @@ export class Tournament {
           ...(session.reauthorize ? { error:REAUTHORIZE_MESSAGE } : {}),
           premium:session.account?.product ? session.account.product === "premium" : null,
           device:device?.id ? { id:device.id, name:device.name || null } : null,
+          latencyMs:cleanLatency(await this.ctx.storage.get(SPOTIFY_LATENCY_KEY)),
+          latencyDefault:DEFAULT_LATENCY_MS,
         } : {}),
       });
     }
@@ -1396,6 +1552,42 @@ export class Tournament {
       if (typeof body?.on !== "boolean") return spotifyJson({ ok:false, error:"Choose on or off" }, 400);
       await this.ctx.storage.put(SPOTIFY_AUTO_KEY, body.on);
       return spotifyJson({ ok:true, autoWinSongs:body.on });
+    }
+
+    /* the speaker's latency, measured on the Speaker sheet (Tap on the
+       beat); null forgets it */
+    if (url.pathname === "/api/spotify/latency" && req.method === "POST") {
+      let body = {};
+      try { body = await req.json(); } catch {}
+      if (body?.ms === null) {
+        await this.ctx.storage.delete(SPOTIFY_LATENCY_KEY);
+        return spotifyJson({ ok:true, latencyMs:null });
+      }
+      const ms = cleanLatency(body?.ms);
+      if (ms === null) return spotifyJson({ ok:false, error:"That timing is out of range" }, 400);
+      await this.ctx.storage.put(SPOTIFY_LATENCY_KEY, ms);
+      return spotifyJson({ ok:true, latencyMs:ms });
+    }
+
+    /* one round of Tap on the beat: a saved win song plays on the speaker,
+       its request sent at `at` (the phone counts it in and times the tap
+       from it), stopped a few seconds later. Never over a win song. */
+    if (url.pathname === "/api/spotify/calibrate" && req.method === "POST") {
+      if (walkoutLive(this.state, Date.now()) || this.pendingSong)
+        return spotifyJson({ ok:false, error:"A win song is playing. Try again after it" }, 409);
+      const track = this.calibrationTrack();
+      if (!track) return spotifyJson({ ok:false, error:"Save a win song first" }, 409);
+      const at = Date.now() + CALIBRATE_LEAD_MS;
+      const run = this.songQueue(async () => {
+        const speaker = await this.spotifySpeaker("");
+        const wait = at - Date.now();
+        if (wait > 0) await this.wait(wait);
+        await this.spotifyPlayOnSpeaker(speaker, { uris:[track.uri], position_ms:track.startMs || 0 });
+        await this.wait(CALIBRATE_PLAY_MS);
+        await this.spotifyUserApi(`/me/player/pause${speaker ? `?device_id=${encodeURIComponent(speaker)}` : ""}`, { method:"PUT" });
+      });
+      try { this.ctx.waitUntil?.(run); } catch {}
+      return spotifyJson({ ok:true, at, track:{ name:track.name, artists:track.artists || [] } });
     }
 
     if (url.pathname === "/api/spotify/device" && req.method === "POST") {

@@ -104,11 +104,14 @@ export const setSoundOptOut = off => {
 export const busAllowed = (bus, surface) => !!BUSES[bus] && BUSES[bus] === (surface === "tv" ? "tv" : "phone");
 
 /* The walkout contract (A6, written only by the Worker): ducked while
-   `walkout && serverNow() < walkout.until`. */
+   `walkout && serverNow() < walkout.until`, from its start: a song timed
+   to a bit's beat is stamped a little before the room hears it
+   (walkout.startedAt is when it is heard), and the bit's own foley up to
+   that beat stays at full. */
 export function walkoutActive(walkout, now = serverNow()) {
   if (!walkout || typeof walkout !== "object") return false;
-  const until = Number(walkout.until);
-  return Number.isFinite(until) && now < until;
+  const until = Number(walkout.until), from = Number(walkout.startedAt) || 0;
+  return Number.isFinite(until) && now < until && now >= from;
 }
 /* Quick Draw's mute outranks a walkout's duck */
 export function hushReason({ walkout = null, quickDraw = false, now = serverNow() } = {}) {
@@ -293,10 +296,19 @@ export function setWalkout(walkout) {
   if (same) return;
   clearTimeout(engine.walkoutTimer);
   applyHush();
-  if (next && walkoutActive(next)) {
+  const now = serverNow();
+  if (next && now < next.startedAt) {
+    /* close the gate as the song is heard, then reopen it at `until` */
+    engine.walkoutTimer = setTimeout(() => setWalkoutEdge(next), Math.min(10 * 60 * 1000, next.startedAt - now + 5));
+  } else if (next && walkoutActive(next, now)) {
     /* reopen the gate when `until` passes, even if nothing else changes */
-    engine.walkoutTimer = setTimeout(() => applyHush(), Math.min(10 * 60 * 1000, Math.max(0, next.until - serverNow()) + 20));
+    engine.walkoutTimer = setTimeout(() => applyHush(), Math.min(10 * 60 * 1000, Math.max(0, next.until - now) + 20));
   }
+}
+function setWalkoutEdge(walkout) {
+  if (engine.walkout !== walkout) return;
+  applyHush();
+  engine.walkoutTimer = setTimeout(() => applyHush(), Math.min(10 * 60 * 1000, Math.max(0, walkout.until - serverNow()) + 20));
 }
 /* Quick Draw: closed from armed until the reaction is captured */
 /* ── song previews (features/music/previewPlayer.js) ──

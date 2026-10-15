@@ -1,0 +1,90 @@
+/* fireworks (fireworks.jsx): beats from registry.js (--b-<name>), every
+   animation on --ba, each element resting on its end state (the finale
+   lit, the dud's stick on the floor, the chip looking up at it). Each
+   shell's rocket flies from its launch to its bang (--up, --at, --fly).
+   The camera and the shakes are the stage's. */
+
+.is-fireworks .fwk { position:absolute; inset:0; }
+
+/* each shell's launch, bang and flight */
+.is-fireworks .is-dud { --up:var(--b-launch); --at:var(--b-dud); --fly:520ms; }
+.is-fireworks .is-b1 { --up:var(--b-launch1); --at:var(--b-bang1); --fly:550ms; }
+.is-fireworks .is-b2 { --up:var(--b-launch2); --at:var(--b-bang2); --fly:400ms; }
+.is-fireworks .is-b3 { --up:var(--b-launch3); --at:var(--b-bang3); --fly:400ms; }
+.is-fireworks .is-b4 { --up:var(--b-launch4); --at:var(--b-bang4); --fly:450ms; }
+.is-fireworks .is-b5 { --up:var(--b-launch4) + 120ms; --at:var(--b-bang4) + 120ms; --fly:450ms; }
+
+/* ── the rockets: up from the rack, gone at the bang ── */
+.is-fireworks .fwk-rocket { z-index:2; opacity:0;
+  --ba:bit-show 1ms step-start calc(var(--tl) + var(--up)) both, bit-hide 1ms step-start calc(var(--tl) + var(--at)) forwards;
+  animation:var(--ba); }
+.is-fireworks .fwk-fly { transform:translateX(var(--len));
+  --ba:fwk-fly var(--fly) cubic-bezier(.25,.6,.45,1) calc(var(--tl) + var(--up)) both; animation:var(--ba); }
+@keyframes fwk-fly { from { transform:translateX(0px); } to { transform:translateX(var(--len)); } }
+/* the dud's flight wobbles */
+.is-fireworks .is-dud .fwk-wobble { --ba:fwk-wobble 130ms ease-in-out calc(var(--tl) + var(--up)) infinite alternate both; animation:var(--ba); }
+@keyframes fwk-wobble { from { transform:translateY(-12px) rotate(-10deg); } to { transform:translateY(12px) rotate(10deg); } }
+
+/* ── the bursts: they bloom out from the bang, droop and die; the finale
+   stays lit ── */
+.is-fireworks .fwk-shell { z-index:1; opacity:0;
+  --ba:neon-ignite 260ms linear calc(var(--tl) + var(--at)) forwards, neon-die 600ms linear calc(var(--tl) + var(--at) + 1100ms) forwards;
+  animation:var(--ba); }
+.is-fireworks .fwk-shell:is(.is-b4, .is-b5) { opacity:1;
+  --ba:neon-ignite 260ms linear calc(var(--tl) + var(--at)) both; animation:var(--ba); }
+.is-fireworks .fwk-bloom { transform:translateY(34px) scale(1);
+  --ba:fwk-bloom 1700ms linear calc(var(--tl) + var(--at)) both; animation:var(--ba); }
+@keyframes fwk-bloom { 0% { transform:translateY(0px) scale(.12); animation-timing-function:cubic-bezier(.1,.8,.3,1); }
+  26% { transform:translateY(0px) scale(1.04); animation-timing-function:ease-out; } 100% { transform:translateY(34px) scale(1); } }
+/* the lights at the spokes' ends twinkle as they drift */
+.is-fireworks .fwk-shell .ng-dots { --ba:fwk-twinkle 260ms linear calc(var(--tl) + var(--at) + 300ms) infinite both; animation:var(--ba); }
+@keyframes fwk-twinkle { 0%, 100% { opacity:1; } 50% { opacity:.4; } }
+
+/* ── the dud: a sad puff, and its stick drops back to the floor ── */
+.is-fireworks .fwk-shell.is-dud { --ba:fwk-fizzle 700ms ease-out calc(var(--tl) + var(--at)) forwards; animation:var(--ba); }
+@keyframes fwk-fizzle { 0% { opacity:1; } 60% { opacity:.8; } 100% { opacity:0; } }
+.is-fireworks .fwk-shell.is-dud .fwk-bloom { transform:translateY(-14px) scale(1.2);
+  --ba:fwk-puff 700ms ease-out calc(var(--tl) + var(--at)) both; animation:var(--ba); }
+@keyframes fwk-puff { from { transform:translateY(0px) scale(.5); } to { transform:translateY(-14px) scale(1.2); } }
+.is-fireworks .fwk-stick { z-index:2; opacity:1; transform:translateY(var(--fall));
+  --ba:bit-show 1ms step-start calc(var(--tl) + var(--b-dud)) both,
+    fwk-drop 420ms cubic-bezier(.5,0,1,.6) calc(var(--tl) + var(--b-dud) + 60ms) both; animation:var(--ba); }
+@keyframes fwk-drop { from { transform:translateY(0px); } to { transform:translateY(var(--fall)); } }
+.is-fireworks .fwk-stick-turn { transform:rotate(180deg);
+  --ba:fwk-tumble 420ms linear calc(var(--tl) + var(--b-dud) + 60ms) both; animation:var(--ba); }
+@keyframes fwk-tumble { from { transform:rotate(-90deg); } to { transform:rotate(180deg); } }
+
+/* ── the chip: looks up at the first one; sags at the fizzle; leaps at
+   the bang, bounces on each one after, and ends looking up at it ── */
+.is-fireworks .fwk-chip { z-index:3; }
+.is-fireworks .fwk-chip .nc-hop { perspective:1000px; transform:translateY(0px);
+  --ba:fwk-leap 560ms linear calc(var(--tl) + var(--b-bang1)) both,
+    fwk-hop 300ms linear calc(var(--tl) + var(--b-bang2)) forwards,
+    fwk-hop 300ms linear calc(var(--tl) + var(--b-bang3)) forwards,
+    fwk-hop 300ms linear calc(var(--tl) + var(--b-bang4)) forwards; animation:var(--ba); }
+@keyframes fwk-leap { 0% { transform:translateY(0px); animation-timing-function:cubic-bezier(.2,.7,.4,1); }
+  45% { transform:translateY(-130px); animation-timing-function:cubic-bezier(.6,0,.9,.5); } 100% { transform:translateY(0px); } }
+@keyframes fwk-hop { 0% { transform:translateY(0px); animation-timing-function:cubic-bezier(.2,.7,.4,1); }
+  45% { transform:translateY(-52px); animation-timing-function:cubic-bezier(.6,0,.9,.5); } 100% { transform:translateY(0px); } }
+.is-fireworks .fwk-chip .nc-spin { transform:rotateX(18deg);
+  --ba:fwk-look 260ms ease-out calc(var(--tl) + var(--b-look)) both,
+    fwk-unlook 300ms ease-in-out calc(var(--tl) + var(--b-droop)) forwards,
+    fwk-relook 200ms ease-out calc(var(--tl) + var(--b-bang1)) forwards; animation:var(--ba); }
+@keyframes fwk-look { from { transform:rotateX(0deg); } to { transform:rotateX(26deg); } }
+@keyframes fwk-unlook { from { transform:rotateX(26deg); } to { transform:rotateX(-12deg); } }
+@keyframes fwk-relook { from { transform:rotateX(-12deg); } to { transform:rotateX(18deg); } }
+.is-fireworks .fwk-chip .nc-body { transform:scale(1, 1);
+  --ba:fwk-sag 340ms ease-in-out calc(var(--tl) + var(--b-droop)) both,
+    fwk-unsag 160ms ease-out calc(var(--tl) + var(--b-bang1)) forwards,
+    fwk-land 260ms ease-out calc(var(--tl) + var(--b-bang1) + 560ms) forwards,
+    fwk-land 220ms ease-out calc(var(--tl) + var(--b-bang2) + 300ms) forwards,
+    fwk-land 220ms ease-out calc(var(--tl) + var(--b-bang3) + 300ms) forwards,
+    fwk-land 220ms ease-out calc(var(--tl) + var(--b-bang4) + 300ms) forwards; animation:var(--ba); }
+@keyframes fwk-sag { from { transform:scale(1, 1); } to { transform:scale(1.05, .9); } }
+@keyframes fwk-unsag { from { transform:scale(1.05, .9); } to { transform:scale(.94, 1.08); } }
+@keyframes fwk-land { 0% { transform:scale(1, 1); } 30% { transform:scale(1.12, .86); } 65% { transform:scale(.98, 1.04); } 100% { transform:scale(1, 1); } }
+.is-fireworks .fwk-chip .nc-tilt { transform:rotate(0deg);
+  --ba:fwk-slump 340ms ease-in-out calc(var(--tl) + var(--b-droop)) both,
+    fwk-unslump 200ms ease-out calc(var(--tl) + var(--b-bang1)) forwards; animation:var(--ba); }
+@keyframes fwk-slump { from { transform:rotate(0deg); } to { transform:rotate(9deg); } }
+@keyframes fwk-unslump { from { transform:rotate(9deg); } to { transform:rotate(0deg); } }

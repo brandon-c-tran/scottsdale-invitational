@@ -1,163 +1,111 @@
 import React from "react";
-import { CAST, RIG } from "../cast/castGeometry.js";
-import { CastChip } from "../cast/CastChip.jsx";
+import { NeonChip } from "../neon/Neon.jsx";
+import { Burst, NeonStar } from "../neon/NeonProps.jsx";
+import { teamLine } from "../neon/neonArt.js";
 import { bitById } from "./registry.js";
 import "./pyramid.css";
 
 const PY = bitById("pyramid").beats;
 
-/* pyramid (team, win, slapstick): the team stands in a row facing the
-   room. The middle of the row shuffles together into the base and
-   braces; the rest bounce on their toes to psych up and hop up onto
-   shoulders one after another, the top last, the rows under it giving
-   under its landing. The top wobbles, wobbles (the row under it leaning
-   against it), holds dead still... and one glove comes up: thumbs up.
+/* pyramid (team win, punchline): the team stands in a line. The base row
+   hops into place, shoulder to shoulder; then each row above hops up onto
+   the one below, the chips under it squashing as it lands; the last one
+   leaps from the end of the line to the top (the song), wobbles, wobbles,
+   holds, the whole pyramid swaying with it, sparkles lighting round it.
 
-   The rows (PY_ROWS) are a cheer pyramid's: the base widest, each chip up
-   standing on the two under it (its shoes in the dip between their
-   rims, its gloves on their heads), a single on one's head where the rows
-   go three to one, and a seventh up on the top's head (discs can't do a
-   4-2-1: a top across two middles a gap apart drops through to the base).
-   Every glove is its own chip's: the base keeps its hands behind its
-   own back (an end chip's outer glove hangs free), the middles' rest on
-   the heads they stand on, the top's are out for balance. The pyramid
-   stands over the middle of the base's start places, so the base only
-   ever shuffles in. The chips are sized from the pyramid's height, so the
-   tallest keeps its top under the lettering at the camera's closest. */
-export const PY_STAGE = Object.freeze({ mid:960, floor:CAST.floor, max:240,
-  /* the start row's spacing, the base's, in chips */
-  line:1.3, step:1.1,
-  /* the screen the pyramid may fill, floor to just under the lettering,
-     at the closest zoom the camera takes (the registry's wobble move) */
-  room:660, zoom:1.45,
-  /* how high over the higher end a hop arcs, in chips */
-  arc:0.45 });
-/* the climbers' landings: the last up always lands on PY.top, the ones
-   before it on the beats before (a smaller team's bounce in place on them) */
-export const PY_LANDS = Object.freeze([PY.hop0, PY.hop1, PY.hop2, PY.top]);
+   Rows by team size: 2 is one on one, 3 is 2 + 1, 4 is 3 + 1, 5 is 3 + 2,
+   6 is 3 + 2 + 1, 7 is 4 + 2 + 1. The base is the middle of the line; the
+   climbers come from its ends, the top one last. Each row lands a
+   CLIMB_MS before the next, the top on PY.top. */
+export const PY_STAGE = Object.freeze({ mid:960, floor:930, rise:0.87, gap:1.02, climbMs:540, hopMs:470 });
+export const PY_ROWS = Object.freeze([[1], [1, 1], [2, 1], [3, 1], [3, 2], [3, 2, 1], [4, 2, 1]]);
 
-/* the rows from the bottom; each row's chips stand on these of the row
-   under (one index: on its head; two: in the dip between them) */
-export const PY_ROWS = Object.freeze({
-  1:[[1]], 2:[[1], [1]], 3:[[2], [1]], 4:[[3], [1]], 5:[[3], [2]], 6:[[3], [2], [1]], 7:[[3], [2], [1], [1]],
-});
-function supportsOf(below, count) {
-  if (below === 1) return [[0]];
-  if (count === below - 1) return Array.from({ length:count }, (_, k) => [k, k + 1]);
-  if (below === 3 && count === 1) return [[1]];
-  if (below === 4 && count === 2) return [[0, 1], [2, 3]];
-  return Array.from({ length:count }, (_, k) => [Math.min(k, below - 1)]);
-}
-
-const CY = RIG.lift + 0.5;
-/* where a shoe `dx` from a support's middle stands on its rim */
-const rimAt = dx => CY + Math.sqrt(Math.max(0, 0.25 - dx * dx));
-
-/* the pyramid in chip units (x from its middle, y up from the floor):
-   every chip's spot, its feet's height, how far its shoes spread, what it
-   stands on, and the order the climbers go up */
-export function pyramidShape(count = 3) {
-  const n = Math.max(1, Math.min(7, Math.floor(Number(count) || 1)));
-  const rows = PY_ROWS[n].map(([k]) => k);
-  const spots = [];
-  rows.forEach((k, r) => {
-    if (!r) {
-      for (let j = 0; j < k; j++) spots.push({ row:0, j, x:(j - (k - 1) / 2) * PY_STAGE.step, y:0, split:0, on:[] });
-      return;
-    }
-    const below = spots.filter(spot => spot.row === r - 1);
-    supportsOf(below.length, k).forEach((on, j) => {
-      const sup = on.map(i => below[i]);
-      const x = sup.reduce((sum, spot) => sum + spot.x, 0) / sup.length;
-      const half = sup.length > 1 ? Math.abs(sup[1].x - sup[0].x) / 2 : 0;
-      /* the shoes spread to land on the rims either side, three tenths in */
-      const shoe = sup.length > 1 ? Math.max(RIG.shoeX, half - 0.3) : RIG.shoeX;
-      const y = sup[0].y + rimAt(sup.length > 1 ? half - shoe : shoe);
-      spots.push({ row:r, j, x, y, split:Math.max(0, shoe - RIG.shoeX), on:sup.map(spot => spots.indexOf(spot)) });
-    });
-  });
-  const top = spots[spots.length - 1];
-  return { n, rows, spots, height:top.y + RIG.lift + 1, base:rows[0] };
-}
-
-/* the start row, who takes which spot (the base the middle of the row,
-   the climbers the nearest free spot, in hop order), where the pyramid
-   stands (over the base's start places) and the climbers' landings */
-export function pyramidStaging(count = 3) {
-  const shape = pyramidShape(count);
-  const { n, spots, base } = shape;
-  const size = Math.round(Math.min(PY_STAGE.max, PY_STAGE.room / (shape.height * PY_STAGE.zoom)));
-  const line = Array.from({ length:n }, (_, k) => (k - (n - 1) / 2) * PY_STAGE.line);
-  const first = Math.floor((n - base) / 2);
-  const cx = (line[first] + line[first + base - 1]) / 2;
-  shape.spots.forEach(spot => { spot.x += cx; });
-  const slot = new Array(n).fill(-1);
-  for (let j = 0; j < base; j++) slot[first + j] = j;
-  const free = line.map((x, k) => k).filter(k => slot[k] < 0);
-  const order = [];
-  spots.slice(base).forEach((spot, h) => {
-    const best = free.reduce((pick, k) => pick < 0 || Math.abs(line[k] - spot.x) < Math.abs(line[pick] - spot.x) ? k : pick, -1);
-    free.splice(free.indexOf(best), 1);
-    slot[best] = base + h;
-    order.push(best);
-  });
-  const lands = PY_LANDS.slice(PY_LANDS.length - order.length);
-  const px = u => Math.round(PY_STAGE.mid + u * size);
-  const reach = 0.55 + 0.3;
-  /* the start row, the base, and the top's balance gloves past a narrow base */
-  const topX = spots[spots.length - 1].x;
-  const minU = Math.min(line[0] - reach, spots[0].x - reach, topX - 1.15);
-  const maxU = Math.max(line[n - 1] + reach, spots[base - 1].x + reach, topX + 1.15);
-  return { ...shape, size, line, slot, order, lands, px, cx:px(cx), minX:px(minU), maxX:px(maxU) };
-}
-
+const px = n => `${Math.round(n * 10) / 10}px`;
 const ms = n => `${Math.round(n)}ms`;
-const len = n => `${Math.round(n * 10) / 10}px`;
+
+/* the slots, bottom row first: x offsets in chips from the middle, and
+   how high each row stands (a chip over a gap nests into it; one right
+   on top of another stands a whole chip up) */
+export function pyramidStaging(count = 3) {
+  const n = Math.max(1, Math.min(7, count));
+  const { size } = teamLine(n);
+  const rows = PY_ROWS[n - 1];
+  const { mid, floor, gap, rise } = PY_STAGE;
+  let y = floor;
+  const ys = rows.map((m, r) => {
+    if (r > 0) y -= size * ((m - rows[r - 1]) % 2 ? rise : 0.97);
+    return Math.round(y);
+  });
+  /* the base stands in the middle (a little loose, it hops in tight);
+     the climbers wait outside it, left and right in turn, the first to
+     climb nearest, the top one furthest out */
+  const step = size * 1.12;
+  const slots = [];
+  rows.forEach((m, r) => {
+    for (let j = 0; j < m; j++) slots.push({ row:r, j, m, x:Math.round(mid + (j - (m - 1) / 2) * size * gap), y:ys[r] });
+  });
+  const base = slots.filter(slot => slot.row === 0);
+  base.forEach(slot => { slot.from = Math.round(mid + (slot.j - (slot.m - 1) / 2) * step); });
+  const climbers = slots.filter(slot => slot.row > 0);
+  const edge = (rows[0] - 1) / 2 * step;
+  climbers.forEach((slot, k) => {
+    const side = (k + (climbers.length % 2 ? 0 : 1)) % 2 ? 1 : -1;
+    const out = Math.floor(k / 2) + 1;
+    slot.from = Math.round(mid + side * (edge + out * step));
+  });
+  /* the line, left to right: who stands where */
+  const byFrom = [...slots].sort((p, q) => p.from - q.from);
+  byFrom.forEach((slot, idx) => { slot.idx = idx; });
+  const xs = slots.map(slot => slot.from);
+  const half = Math.round((Math.max(...xs) - Math.min(...xs)) / 2 + size / 2);
+  return { n, size, rows, slots, half, top:Math.round(ys[ys.length - 1] - size / 2) };
+}
+
+/* when a slot's chip lands, before PY.top */
+const landBefore = (slot, rows) => slot.row === 0 ? null
+  : (rows.length - 1 - slot.row) * PY_STAGE.climbMs + (slot.m - 1 - slot.j) * 90;
 
 export function Pyramid({ cast }) {
   const team = (cast?.a || []).slice(0, 7);
-  const s = pyramidStaging(team.length || 1);
-  const { size, spots, base } = s;
-  const floor = PY_STAGE.floor;
-  const topIndex = spots.length - 1;
-  /* the chips, drawn row by row so each one up stands in front of its supports */
-  const cast_ = team.map((player, k) => ({ player, k, spot:spots[s.slot[k]], at:s.slot[k] }))
-    .sort((p, q) => p.at - q.at);
+  if (!team.length) return null;
+  const s = pyramidStaging(team.length);
+  const { size } = s;
+  const R = s.rows.length;
+  const topX = s.slots[s.slots.length - 1].x;
+  const stars = [[-1.05, -0.35, 1], [1.08, -0.5, 0.8], [-0.7, -1.0, 0.7], [0.75, -1.05, 1.05], [0, -1.3, 0.75], [-1.2, 0.35, 0.65],
+    [1.2, 0.3, 0.7]];
   return (
-    <div className="py" style={{ "--tuck":len(size * RIG.handX), "--bob":len(-size * 0.18), "--on-x":len(size * 0.25),
-      "--on-y":len(size * 0.32), "--bal-x":len(-size * 0.08), "--bal-y":len(-size * 0.12), "--thumb-y":len(-size * 0.42) }}>
-      {cast_.map(({ player, k, spot, at }) => {
-        const solo = spots.length === 1;
-        const climb = s.order.indexOf(k);
-        /* a team of one hops in place onto the top of its own pyramid */
-        const land = climb >= 0 ? s.lands[climb] : solo ? PY.top : null;
-        /* a single top has its gloves out for balance; a top row of two
-           (a team of five) keeps them on the heads under it, wobbles as
-           one, and its outer glove gives the thumbs up */
-        const crown = spot.row && spot.row === s.rows.length - 1 && s.rows[spot.row] > 1;
-        const isTop = at === topIndex && !crown;
-        const kind = isTop ? (spot.row ? "is-top" : "is-base is-top") : spot.row === 0 ? "is-base"
-          : crown ? `is-mid is-crown${at === topIndex ? " is-thumb" : ""}` : "is-mid";
-        const dx = (spot.x - s.line[k]) * size, dy = -spot.y * size;
-        /* practice bounces at the hop beats before its own */
-        const bounces = land === null ? 0 : PY_LANDS.indexOf(land);
-        /* the base's end chips let their outer glove hang free */
-        const end = solo || spot.row ? null : base > 1 ? (spot.j === 0 ? "l" : spot.j === base - 1 ? "r" : null) : "both";
-        const style = {
-          "--dx":len(dx), "--dy":len(dy), "--arc":len(-(spot.y / 2 + PY_STAGE.arc) * size),
-          "--land":ms(land ?? PY.top), "--bounces":String(bounces), "--split":len(spot.split * size),
-        };
-        const hands = isTop || at === topIndex ? { l:"flat", r:[["flat", 0], ["thumb", PY.thumb]] } : spot.row ? "flat" : "rest";
-        return <CastChip key={player} player={player} size={size} x={s.px(s.line[k])} y={floor} facing={0}
-          className={`py-chip ${kind}${land !== null ? " is-climber" : ""}${end ? ` is-end-${end}` : ""}`} style={style} hands={hands} />;
+    <div className="py" style={{ "--py-hop":ms(PY_STAGE.hopMs), "--py-bob":px(-size * 0.14), "--py-climb":ms(PY_STAGE.climbMs) }}>
+      {s.slots.map(slot => {
+        const player = team[slot.idx];
+        const from = slot.from;
+        const dx = slot.x - from, dy = slot.y - PY_STAGE.floor;
+        /* a team of one just leaps up in place, on the top's beat */
+        const solo = s.n === 1, climb = slot.row > 0 || solo;
+        const before = solo ? 0 : landBefore(slot, s.rows);
+        const under = R - 1 - slot.row;
+        const height = !climb ? size * 0.3 : size * (0.38 + 0.2 * Math.max(1, slot.row)) + Math.abs(dx) * 0.06;
+        return (
+          <NeonChip key={player} player={player} size={size} x={from} y={PY_STAGE.floor}
+            className={`py-c${climb ? " is-climb" : " is-base"}${slot.row === R - 1 ? " is-top" : ""} is-under${Math.min(2, under)}`}
+            style={{ "--i":slot.idx, "--j":slot.j, "--r":slot.row, "--py-before":ms(before ?? 0),
+              /* eager bobs while it waits its turn, as many as fit before its crouch */
+              "--py-bobs":climb ? Math.max(1, Math.floor((PY.top - (before ?? 0) - PY_STAGE.hopMs - 260 - (PY.gather + 260 + slot.idx * 70)) / 300)) : 0,
+              "--py-to":`translate(${px(dx)}, ${px(dy)})`, "--py-mid":`translate(${px(dx * 0.5)}, ${px(dy - height)})` }} />
+        );
       })}
+      {/* the sparkle round the top */}
+      <span className="neon-node py-shine" style={{ left:topX, top:s.top }}>
+        <span className="neon-node py-burst"><Burst n={14} r0={size * 0.62} r1={size * 0.95} tone="amber" /></span>
+        {stars.map(([u, v, k], i) => <span key={i} className="neon-node py-star" style={{ left:u * size, top:v * size, "--k":i }}>
+          <NeonStar r={Math.round(size * 0.12 * k + 6)} tone={i % 3 === 1 ? "cyan" : "amber"} /></span>)}
+      </span>
     </div>
   );
 }
 
-/* the camera's anchors: the pyramid's middle ("top", where its top
-   stands), and the start row and the pyramid's span */
+/* the camera's anchors: the line, and the pyramid's middle */
 Pyramid.anchors = cast => {
   const s = pyramidStaging(Math.min(7, cast?.a?.length || 1));
-  return { mid:Math.round((s.minX + s.maxX) / 2), top:s.cx, minX:s.minX, maxX:s.maxX };
+  return { minX:Math.round(PY_STAGE.mid - s.half - 60), maxX:Math.round(PY_STAGE.mid + s.half + 60), mid:PY_STAGE.mid };
 };

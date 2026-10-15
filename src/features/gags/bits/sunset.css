@@ -1,74 +1,76 @@
 /* sunset (sunset.jsx): beats from registry.js (--b-<name>), every
-   animation on --ba (bits.css), each element resting on its end state. A
-   run of moves on one property: the first fills both ways, the rest
-   forwards. The camera is the stage's (the registry). */
+   animation on --ba, each element resting on its end state (the sun lit,
+   the chip on its mark). The camera and the shake are the stage's. */
 
-.is-sunset .ss { position:absolute; inset:0; overflow:visible; }
-.is-sunset .ss-node { position:absolute; display:block; width:0; height:0; }
-/* one sun in the sky: the painting's own sun or moon steps aside */
-.is-sunset .bit-painting .tv-desert-disc { opacity:0; }
-.is-sunset .ss-sky, .is-sunset .ss-butte { position:absolute; left:0; top:0; display:block; }
-.is-sunset .ss-sky { overflow:hidden; }
-.is-sunset .ss-butte { overflow:visible; }
+.is-sunset .sns { position:absolute; inset:0; }
 
-/* ── the sunset's inks: a plum sky warming to gold at the horizon, the
-   range in silhouette, nearer is darker ── */
-.is-sunset .ss-band.is-sky { fill:color-mix(in srgb, var(--art-plum) 72%, var(--ink0)); }
-.is-sunset .ss-band.is-sky2 { fill:color-mix(in srgb, var(--art-violet) 62%, var(--art-plum)); }
-.is-sunset .ss-band.is-sky3 { fill:color-mix(in srgb, var(--art-rose) 78%, var(--art-violet)); }
-.is-sunset .ss-band.is-sky4 { fill:var(--art-tangerine); }
-.is-sunset .ss-band.is-glow { fill:color-mix(in srgb, var(--sun) 78%, var(--art-cream)); }
-.is-sunset .ss-sun { fill:color-mix(in srgb, var(--art-cream) 72%, var(--sun)); }
-.is-sunset .ss-dark-far { fill:color-mix(in srgb, var(--art-plum) 62%, var(--art-violet)); }
-.is-sunset .ss-dark-mid { fill:color-mix(in srgb, var(--art-plum) 80%, var(--ink0)); }
-.is-sunset .ss-dark-mesa, .is-sunset .ss-dark-shade { fill:color-mix(in srgb, var(--art-plum) 62%, var(--ink0)); }
-.is-sunset .ss-dark-cactus path { fill:var(--ink0); }
-.is-sunset .ss-rock { fill:var(--d-mesa, var(--bit-desert-rock)); }
-.is-sunset .ss-rock-shade { fill:var(--d-shade, var(--bit-desert-rock-shade)); }
-.is-sunset .ss-dark-butte { fill:color-mix(in srgb, var(--art-plum) 38%, var(--ink0)); }
-.is-sunset .ss-rim { fill:none; stroke:var(--sun); stroke-width:5px; stroke-linecap:round; }
+/* ── the chip: rolls in on its edge, a touch past its mark, back onto it,
+   settles; one hop onto the mark ── */
+.is-sunset .sns-chip { z-index:4; }
+.is-sunset .sns-chip .nc-move { transform:translateX(0px);
+  --ba:sns-roll 1250ms cubic-bezier(.25,.3,.3,1) calc(var(--tl) + var(--b-roll)) both,
+    sns-back 300ms ease-in-out calc(var(--tl) + var(--b-stop)) forwards; animation:var(--ba); }
+@keyframes sns-roll { from { transform:var(--sn-from); } to { transform:var(--sn-over); } }
+@keyframes sns-back { from { transform:var(--sn-over); } to { transform:translateX(0px); } }
+.is-sunset .sns-chip .nc-roll { transform:rotate(720deg);
+  --ba:sns-turn 1250ms cubic-bezier(.25,.3,.3,1) calc(var(--tl) + var(--b-roll)) both,
+    sns-unturn 300ms ease-in-out calc(var(--tl) + var(--b-stop)) forwards; animation:var(--ba); }
+@keyframes sns-turn { from { transform:rotate(0deg); } to { transform:rotate(753deg); } }
+@keyframes sns-unturn { from { transform:rotate(753deg); } to { transform:rotate(720deg); } }
+/* a rolling coin leans into its run and comes up as it slows; the
+   settle's wobble; then basking, a slow sway */
+.is-sunset .sns-chip .nc-tilt { transform:rotate(0deg);
+  --ba:sns-lean 1250ms ease-out calc(var(--tl) + var(--b-roll)) both,
+    sns-wobble 420ms ease-out calc(var(--tl) + var(--b-settle)) forwards,
+    sns-bask 1800ms ease-in-out calc(var(--tl) + var(--b-sway)) infinite forwards; animation:var(--ba); }
+@keyframes sns-lean { 0% { transform:rotate(9deg); } 70% { transform:rotate(4deg); } 100% { transform:rotate(0deg); } }
+@keyframes sns-wobble { 0% { transform:rotate(0deg); } 25% { transform:rotate(-6deg); } 55% { transform:rotate(4deg); } 80% { transform:rotate(-1.5deg); }
+  100% { transform:rotate(0deg); } }
+@keyframes sns-bask { 0%, 100% { transform:rotate(0deg); } 30% { transform:rotate(-3deg); } 70% { transform:rotate(3deg); } }
+.is-sunset .sns-chip .nc-hop { --ba:sns-hop 240ms linear calc(var(--tl) + var(--b-hop)) both; animation:var(--ba); }
+@keyframes sns-hop { 0% { transform:translateY(0px); animation-timing-function:cubic-bezier(.2,.7,.4,1); }
+  50% { transform:translateY(-64px); animation-timing-function:cubic-bezier(.6,0,.9,.5); } 100% { transform:translateY(0px); } }
+.is-sunset .sns-chip .nc-body { transform:scale(1, 1);
+  --ba:sns-squash 260ms ease-out calc(var(--tl) + var(--b-press)) both,
+    sns-squash 220ms ease-out calc(var(--tl) + var(--b-full)) forwards; animation:var(--ba); }
+@keyframes sns-squash { 0% { transform:scale(1, 1); } 30% { transform:scale(1.14, .84); } 65% { transform:scale(.97, 1.04); } 100% { transform:scale(1, 1); } }
+/* its own light on the floor warms as the sun comes on */
+.is-sunset .sns-chip .nc-pool { transform:scale(1, 1);
+  --ba:sns-pool 500ms ease-out calc(var(--tl) + var(--b-full)) both; animation:var(--ba); }
+@keyframes sns-pool { 0% { transform:scale(1, 1); } 30% { transform:scale(1.6, 1.3); } 100% { transform:scale(1, 1); } }
 
-/* ── the sun goes down fast behind the butte; the sky relamps in six
-   hard steps as it goes ── */
-.is-sunset .ss-sun-go { transform:var(--sun-set);
-  --ba:ss-set 1280ms cubic-bezier(.4,0,.8,.55) calc(var(--tl) + var(--b-sink)) both; animation:var(--ba); }
-@keyframes ss-set { from { transform:translateY(0px); } to { transform:var(--sun-set); } }
-.is-sunset .ss-dark, .is-sunset .ss-dusk { opacity:1;
-  --ba:ss-relamp 900ms steps(6, start) calc(var(--tl) + var(--b-sink) + 80ms) both; animation:var(--ba); }
-@keyframes ss-relamp { from { opacity:0; } to { opacity:1; } }
+/* ── the mark: it lights under the hop ── */
+.is-sunset .sns-mark { transform:scale(1);
+  --ba:sns-mark 300ms ease-out calc(var(--tl) + var(--b-press)) both; animation:var(--ba); }
+@keyframes sns-mark { 0% { transform:scale(1); } 30% { transform:scale(1.5, 1.3); } 100% { transform:scale(1); } }
 
-/* ── the winner: fists on hips, and that is all it does ── */
-.is-sunset .ss-a .cast-hand.is-r > .cast-hand-in { transform:var(--hip); }
-.is-sunset .ss-a .cast-hand.is-l > .cast-hand-in { transform:var(--hip-l); }
-.is-sunset .ss-a .cast-hand.is-r .cast-hand-fx { transform:scaleX(-1) rotate(40deg); }
-.is-sunset .ss-a .cast-hand.is-l .cast-hand-fx { transform:scaleX(-1) rotate(-40deg); }
-
-/* ── the shades: down slowly on the string, swaying, a settle; a glint;
-   then yanked straight up and out ── */
-.is-sunset .ss-string { position:absolute; left:-2.5px; top:-1500px; width:5px; height:1484px; border-radius:3px; background:var(--ink0); }
-.is-sunset .ss-lower { transform:translateY(-1150px);
-  --ba:ss-lower 1100ms cubic-bezier(.25,.1,.3,1) calc(var(--tl) + var(--b-lower) + var(--i) * 90ms) both,
-    ss-settle 240ms ease-out calc(var(--tl) + var(--b-settle) + var(--i) * 90ms) forwards,
-    ss-yank 150ms cubic-bezier(.6,0,.9,.4) calc(var(--tl) + var(--b-yank) + var(--i) * 40ms) forwards;
+/* ── the sun: dark glass, the bands lit bottom to top, then the disc on
+   full, its warm light, the horizon, and the rays one after another ── */
+.is-sunset .sns-sun .ng-b0 { --d:0ms; }
+.is-sunset .sns-sun .ng-b1 { --d:70ms; }
+.is-sunset .sns-sun .ng-b2 { --d:140ms; }
+.is-sunset .sns-sun .ng-b3 { --d:210ms; }
+.is-sunset .sns-sun .ng-b4 { --d:280ms; }
+.is-sunset .sns-sun :is(.ng-b0, .ng-b1, .ng-b2, .ng-b3, .ng-b4) {
+  --ba:bit-hide 1ms step-start calc(var(--tl) + 0ms) both, neon-ignite 260ms linear calc(var(--tl) + var(--b-bands) + var(--d)) forwards;
   animation:var(--ba); }
-@keyframes ss-lower { from { transform:translateY(-1150px); } to { transform:translateY(-6px); } }
-@keyframes ss-settle { 0% { transform:translateY(-6px); } 45% { transform:translateY(4px); } 100% { transform:translateY(0px); } }
-@keyframes ss-yank { 0% { transform:translateY(0px); } 30% { transform:translateY(7px); } 100% { transform:translateY(-1150px); } }
-.is-sunset .ss-sway { transform-origin:0 -1500px;
-  --ba:ss-sway 1340ms ease-in-out calc(var(--tl) + var(--b-lower) + var(--i) * 90ms) both; animation:var(--ba); }
-@keyframes ss-sway { 0% { transform:rotate(1.4deg); } 35% { transform:rotate(-1deg); } 70% { transform:rotate(.5deg); } 100% { transform:rotate(0deg); } }
-.is-sunset .ss-glint { opacity:0;
-  --ba:ss-glint 420ms ease-out calc(var(--tl) + var(--b-glint) + var(--i) * 60ms) both; animation:var(--ba); }
-@keyframes ss-glint { 0% { opacity:0; transform:scale(.1) rotate(0deg); } 1% { opacity:1; transform:scale(.1) rotate(0deg); }
-  35% { opacity:1; transform:scale(1.15) rotate(30deg); } 100% { opacity:0; transform:scale(.4) rotate(70deg); } }
-
-/* ── a tumbleweed blows past at the butte's foot ── */
-.is-sunset .ss-weed { transform:translateX(2300px);
-  --ba:ss-weed 780ms linear calc(var(--tl) + var(--b-weed)) both; animation:var(--ba); }
-@keyframes ss-weed { from { transform:translateX(0px); } to { transform:translateX(2300px); } }
-.is-sunset .ss-weed-hop { top:-46px; --ba:ss-hop 260ms linear calc(var(--tl) + var(--b-weed)) 3 both; animation:var(--ba); }
-@keyframes ss-hop { 0% { transform:translateY(0px); animation-timing-function:cubic-bezier(.2,.7,.4,1); }
-  45% { transform:translateY(-54px); animation-timing-function:cubic-bezier(.6,0,.8,.3); } 100% { transform:translateY(0px); } }
-.is-sunset .ss-weed-spin { transform:rotate(1500deg);
-  --ba:ss-spin 780ms linear calc(var(--tl) + var(--b-weed)) both; animation:var(--ba); }
-@keyframes ss-spin { from { transform:rotate(0deg); } to { transform:rotate(1500deg); } }
+.is-sunset .sns-sun .ng-rim {
+  --ba:bit-hide 1ms step-start calc(var(--tl) + 0ms) both, neon-ignite 200ms linear calc(var(--tl) + var(--b-full) - 120ms) forwards;
+  animation:var(--ba); }
+.is-sunset .sns-sun { transform:scale(1);
+  --ba:sns-thump 360ms ease-out calc(var(--tl) + var(--b-full)) both; animation:var(--ba); }
+@keyframes sns-thump { 0% { transform:scale(1); } 25% { transform:scale(1.035); } 100% { transform:scale(1); } }
+.is-sunset .sns-glow { opacity:1;
+  --ba:sns-glow 420ms ease-out calc(var(--tl) + var(--b-full)) both,
+    sns-breathe 2200ms ease-in-out calc(var(--tl) + var(--b-full) + 420ms) infinite forwards; animation:var(--ba); }
+@keyframes sns-glow { 0% { opacity:0; } 20% { opacity:1; } 45% { opacity:.6; } 100% { opacity:1; } }
+@keyframes sns-breathe { 0%, 100% { opacity:1; } 50% { opacity:.72; } }
+.is-sunset .sns-sky { position:absolute; display:block; pointer-events:none; opacity:1;
+  background:radial-gradient(46% 78% at 50% 100%, color-mix(in srgb, var(--neon-ember) 55%, transparent),
+    color-mix(in srgb, var(--neon-magenta) 22%, transparent) 55%, transparent 100%);
+  --ba:sns-glow 520ms ease-out calc(var(--tl) + var(--b-full)) both; animation:var(--ba); }
+.is-sunset .sns-horizon { opacity:1;
+  --ba:neon-ignite 300ms linear calc(var(--tl) + var(--b-full)) both; animation:var(--ba); }
+.is-sunset .sns-ray .ng-lit {
+  --ba:bit-hide 1ms step-start calc(var(--tl) + 0ms) both, neon-ignite 260ms linear calc(var(--tl) + var(--b-rays) + var(--i) * 70ms) forwards;
+  animation:var(--ba); }

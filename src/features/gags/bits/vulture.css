@@ -1,66 +1,83 @@
 /* vulture (vulture.jsx): beats from registry.js (--b-<name>), every
-   animation on --ba (bits.css), each element resting on its end state. A
-   run of moves on one property: the first fills both ways, the rest
-   forwards. The camera and the shake are the stage's (the registry). */
+   animation on --ba, each element resting on its end state. A run of
+   moves on one property: the first fills both ways, the rest forwards.
+   The camera is the stage's. */
 
 .is-vulture .vu { position:absolute; inset:0; }
-.is-vulture .vu-node { position:absolute; display:block; width:0; height:0; }
-.is-vulture .vu-dust { --dust-ms:720ms; }
 
-/* ── the chip: glum, looking at the floor; it turns to the bird, scoots
-   off, scoots again, and at the end turns and looks at us ── */
-.is-vulture .vu-chip .cast-chip-in { transform:rotateY(0deg) rotateX(-6deg);
-  --ba:vu-glum 1ms step-start calc(var(--tl) + 0ms) both,
-    vu-turn 300ms ease-in-out calc(var(--tl) + var(--b-stare)) forwards,
-    vu-look 520ms cubic-bezier(.45,0,.35,1) calc(var(--tl) + var(--b-look)) forwards; animation:var(--ba); }
-@keyframes vu-glum { from { transform:rotateY(0deg) rotateX(-14deg); } to { transform:rotateY(0deg) rotateX(-14deg); } }
-@keyframes vu-turn { from { transform:rotateY(0deg) rotateX(-14deg); } to { transform:rotateY(-34deg) rotateX(0deg); } }
-@keyframes vu-look { from { transform:rotateY(-34deg) rotateX(0deg); } to { transform:rotateY(0deg) rotateX(-6deg); } }
-.is-vulture .vu-chip .cast-move { transform:var(--step2);
-  --ba:vu-scoot1 140ms cubic-bezier(.3,0,.3,1) calc(var(--tl) + var(--b-scoot)) both,
-    vu-scoot2 100ms cubic-bezier(.3,0,.3,1) calc(var(--tl) + var(--b-scoot2)) forwards; animation:var(--ba); }
-@keyframes vu-scoot1 { from { transform:translateX(0px); } to { transform:var(--step1); } }
-@keyframes vu-scoot2 { from { transform:var(--step1); } to { transform:var(--step2); } }
-/* each scoot a little shuffle up off the floor */
-.is-vulture .vu-chip .cast-hop {
-  --ba:vu-shuffle 140ms ease-out calc(var(--tl) + var(--b-scoot)) both, vu-shuffle 100ms ease-out calc(var(--tl) + var(--b-scoot2)) forwards;
-  animation:var(--ba); }
-@keyframes vu-shuffle { 0%, 100% { transform:translateY(0px); } 40% { transform:translateY(-12px); } }
+/* ── the bird: a swoop in from the sky onto the branch, then two hops
+   down after the chip ── */
+.is-vulture .vu-bird { z-index:3; }
+.is-vulture .vu-fly { transform:var(--vu-g2);
+  --ba:vu-glide 900ms linear calc(var(--tl) + var(--b-glide)) both,
+    vu-hop1 380ms linear calc(var(--tl) + var(--b-hop1)) forwards,
+    vu-hop2 380ms linear calc(var(--tl) + var(--b-hop2)) forwards; animation:var(--ba); }
+@keyframes vu-glide { 0% { transform:var(--vu-sky); animation-timing-function:cubic-bezier(.3,.1,.6,.9); }
+  62% { transform:var(--vu-swoop); animation-timing-function:cubic-bezier(.2,.6,.4,1); } 100% { transform:translate(0px, 0px); } }
+@keyframes vu-hop1 { 0% { transform:translate(0px, 0px); animation-timing-function:cubic-bezier(.2,.7,.4,1); }
+  40% { transform:var(--vu-g1up); animation-timing-function:cubic-bezier(.6,0,.9,.5); } 100% { transform:var(--vu-g1); } }
+@keyframes vu-hop2 { 0% { transform:var(--vu-g1); animation-timing-function:cubic-bezier(.2,.7,.4,1); }
+  40% { transform:var(--vu-g2up); animation-timing-function:cubic-bezier(.6,0,.9,.5); } 100% { transform:var(--vu-g2); } }
+/* a bank on the glide, the settle on each landing, a little lean in at the table */
+.is-vulture .vu-bob { transform:scale(1, 1) rotate(0deg);
+  --ba:vu-bank 900ms ease-in-out calc(var(--tl) + var(--b-glide)) both,
+    vu-settle 320ms ease-out calc(var(--tl) + var(--b-land)) forwards,
+    vu-settle 300ms ease-out calc(var(--tl) + var(--b-hop1) + 380ms) forwards,
+    vu-settle 300ms ease-out calc(var(--tl) + var(--b-hop2) + 380ms) forwards,
+    vu-tuck 260ms ease-out calc(var(--tl) + var(--b-napkin)) forwards,
+    vu-ready 300ms cubic-bezier(.2,.8,.3,1) calc(var(--tl) + var(--b-cutlery)) forwards; animation:var(--ba); }
+@keyframes vu-bank { 0% { transform:scale(1, 1) rotate(-12deg); } 60% { transform:scale(1, 1) rotate(8deg); } 100% { transform:scale(1, 1) rotate(0deg); } }
+@keyframes vu-settle { 0% { transform:scale(1, 1) rotate(0deg); } 35% { transform:scale(1.1, .88) rotate(0deg); } 100% { transform:scale(1, 1) rotate(0deg); } }
+@keyframes vu-tuck { 0% { transform:scale(1, 1) rotate(0deg); } 40% { transform:scale(1.04, .96) rotate(-4deg); } 100% { transform:scale(1, 1) rotate(0deg); } }
+@keyframes vu-ready { 0% { transform:scale(1, 1) rotate(0deg); } 40% { transform:scale(1.06, 1.06) rotate(-3deg); } 100% { transform:scale(1, 1) rotate(0deg); } }
+/* the head cocks: sizing it up, twice */
+.is-vulture .vu-head { transform:rotate(0deg);
+  --ba:vu-cock 200ms ease-out calc(var(--tl) + var(--b-tilt)) both,
+    vu-uncock 160ms ease-out calc(var(--tl) + var(--b-scoot) + 80ms) forwards,
+    vu-cock 200ms ease-out calc(var(--tl) + var(--b-look2) + 150ms) forwards,
+    vu-uncock 160ms ease-out calc(var(--tl) + var(--b-scoot2) + 80ms) forwards; animation:var(--ba); }
+@keyframes vu-cock { from { transform:rotate(0deg); } to { transform:rotate(-22deg); } }
+@keyframes vu-uncock { from { transform:rotate(-22deg); } to { transform:rotate(0deg); } }
+.is-vulture .vu-glint { opacity:0; --ba:vu-glint 420ms ease-out calc(var(--tl) + var(--b-shing)) forwards; animation:var(--ba); }
+@keyframes vu-glint { 0% { opacity:1; transform:scale(.3) rotate(0deg); } 50% { opacity:1; transform:scale(1.2) rotate(30deg); }
+  100% { opacity:0; transform:scale(.6) rotate(60deg); } }
 
-/* ── the bird: in from the right on the air, down, a landing; it leans
-   in to look; it scoots after the chip, twice ── */
-.is-vulture .vu-fly-x { transform:translateX(0px);
-  --ba:vu-fly-x 660ms cubic-bezier(.25,.5,.4,1) calc(var(--tl) + var(--b-glide)) both; animation:var(--ba); }
-@keyframes vu-fly-x { from { transform:translateX(760px); } to { transform:translateX(0px); } }
-.is-vulture .vu-fly-y { transform:translateY(0px);
-  --ba:vu-fly-y 660ms cubic-bezier(.45,0,.6,1) calc(var(--tl) + var(--b-glide)) both; animation:var(--ba); }
-@keyframes vu-fly-y { from { transform:translateY(-640px); } to { transform:translateY(0px); } }
-.is-vulture .vu-shadow { position:absolute; left:-110px; top:-12px; width:220px; height:24px; border-radius:50%;
-  background:var(--bit-shadow); opacity:1;
-  --ba:vu-shadow 660ms ease-in calc(var(--tl) + var(--b-glide)) both; animation:var(--ba); }
-@keyframes vu-shadow { from { opacity:0; transform:scale(.4); } to { opacity:1; transform:scale(1); } }
-.is-vulture .vu-hop { transform:scale(1, 1);
-  --ba:vu-land 260ms ease-out calc(var(--tl) + var(--b-land)) both,
-    vu-step 160ms ease-out calc(var(--tl) + var(--b-follow)) forwards,
-    vu-step 120ms ease-out calc(var(--tl) + var(--b-follow2)) forwards; animation:var(--ba); }
-@keyframes vu-land { 0% { transform:translateY(0px) scale(1, 1); } 30% { transform:translateY(0px) scale(1.1, .88); }
-  100% { transform:translateY(0px) scale(1, 1); } }
-@keyframes vu-step { 0%, 100% { transform:translateY(0px) scale(1, 1); } 40% { transform:translateY(-16px) scale(1, 1); } }
-.is-vulture .vu-scoot { transform:var(--step2);
-  --ba:vu-scoot1 160ms cubic-bezier(.3,0,.3,1) calc(var(--tl) + var(--b-follow)) both,
-    vu-scoot2 120ms cubic-bezier(.3,0,.3,1) calc(var(--tl) + var(--b-follow2)) forwards; animation:var(--ba); }
-.is-vulture .vu-lean { transform:rotate(0deg);
-  --ba:vu-lean 900ms ease-in-out calc(var(--tl) + var(--b-stare) + 80ms) both; animation:var(--ba); }
-@keyframes vu-lean { 0%, 100% { transform:rotate(0deg); } 30%, 70% { transform:rotate(-7deg); } }
-
-/* ── table manners: the napkin flicked in under the beak, then the knife
-   and fork up in its wingtips ── */
-.is-vulture .vu-napkin { opacity:1; transform:scale(1) rotate(0deg);
-  --ba:vu-napkin 300ms cubic-bezier(.2,.9,.25,1.25) calc(var(--tl) + var(--b-napkin)) both; animation:var(--ba); }
-@keyframes vu-napkin { 0% { opacity:0; transform:scale(.2) rotate(-40deg); } 1% { opacity:1; transform:scale(.2) rotate(-40deg); }
-  60% { opacity:1; transform:scale(1.08) rotate(6deg); } 100% { opacity:1; transform:scale(1) rotate(0deg); } }
-.is-vulture :is(.vu-fork, .vu-knife) { opacity:1; transform:translateY(0px) scale(1);
-  --ba:vu-cutlery 280ms cubic-bezier(.2,.9,.25,1.25) calc(var(--tl) + var(--b-cutlery)) both; animation:var(--ba); }
-.is-vulture .vu-knife { --ba:vu-cutlery 280ms cubic-bezier(.2,.9,.25,1.25) calc(var(--tl) + var(--b-cutlery) + 40ms) both; }
-@keyframes vu-cutlery { 0% { opacity:0; transform:translateY(30px) scale(.4); } 1% { opacity:1; transform:translateY(30px) scale(.4); }
-  100% { opacity:1; transform:translateY(0px) scale(1); } }
+/* ── the chip: glum; it looks; it scoots away; again; it trembles ── */
+.is-vulture .vu-chip .nc-move { transform:var(--vu-c2);
+  --ba:vu-scoot1 320ms cubic-bezier(.3,.6,.4,1) calc(var(--tl) + var(--b-scoot)) both,
+    vu-scoot2 320ms cubic-bezier(.3,.6,.4,1) calc(var(--tl) + var(--b-scoot2)) forwards; animation:var(--ba); }
+@keyframes vu-scoot1 { from { transform:translateX(0px); } to { transform:var(--vu-c1); } }
+@keyframes vu-scoot2 { from { transform:var(--vu-c1); } to { transform:var(--vu-c2); } }
+.is-vulture .vu-chip .nc-hop { perspective:900px; transform:translateY(0px);
+  --ba:vu-patter 320ms linear calc(var(--tl) + var(--b-scoot)) both,
+    vu-patter 320ms linear calc(var(--tl) + var(--b-scoot2)) forwards; animation:var(--ba); }
+@keyframes vu-patter { 0%, 33%, 66%, 100% { transform:translateY(0px); } 16%, 50%, 83% { transform:translateY(-16px); } }
+/* glum: slumped, a long sigh */
+.is-vulture .vu-chip .nc-body { transform:scale(1, 1);
+  --ba:vu-sigh 1100ms ease-in-out calc(var(--tl) + 150ms) both,
+    vu-perk 200ms ease-out calc(var(--tl) + var(--b-look)) forwards; animation:var(--ba); }
+@keyframes vu-sigh { 0% { transform:scale(1.02, .95); } 40% { transform:scale(.98, 1.03); } 100% { transform:scale(1.03, .93); } }
+@keyframes vu-perk { from { transform:scale(1.03, .93); } to { transform:scale(1, 1); } }
+/* it turns to look at the bird, away as it scoots, back to look again */
+.is-vulture .vu-chip .nc-spin { transform:rotateY(22deg);
+  --ba:vu-look 240ms ease-out calc(var(--tl) + var(--b-look)) both,
+    vu-away 120ms ease-out calc(var(--tl) + var(--b-scoot) - 40ms) forwards,
+    vu-look-b 240ms ease-out calc(var(--tl) + var(--b-look2)) forwards,
+    vu-away-b 120ms ease-out calc(var(--tl) + var(--b-scoot2) - 40ms) forwards,
+    vu-look-c 260ms ease-out calc(var(--tl) + var(--b-cutlery) + 120ms) forwards; animation:var(--ba); }
+@keyframes vu-look { from { transform:rotateY(0deg); } to { transform:rotateY(34deg); } }
+@keyframes vu-away { from { transform:rotateY(34deg); } to { transform:rotateY(-30deg); } }
+@keyframes vu-look-b { from { transform:rotateY(-30deg); } to { transform:rotateY(34deg); } }
+@keyframes vu-away-b { from { transform:rotateY(34deg); } to { transform:rotateY(-30deg); } }
+@keyframes vu-look-c { from { transform:rotateY(-30deg); } to { transform:rotateY(22deg); } }
+.is-vulture .vu-chip .nc-tilt { transform:rotate(0deg);
+  --ba:vu-droop 600ms ease-in-out calc(var(--tl) + 100ms) both,
+    vu-up 200ms ease-out calc(var(--tl) + var(--b-look)) forwards,
+    vu-shiver 130ms linear calc(var(--tl) + var(--b-cutlery) + 300ms) infinite forwards; animation:var(--ba); }
+@keyframes vu-droop { from { transform:rotate(0deg); } to { transform:rotate(-5deg); } }
+@keyframes vu-up { from { transform:rotate(-5deg); } to { transform:rotate(0deg); } }
+@keyframes vu-shiver { 0%, 100% { transform:rotate(0deg); } 25% { transform:rotate(-2.5deg); } 75% { transform:rotate(2.5deg); } }
+.is-vulture .vu-sweat { opacity:1; transform:scale(1);
+  --ba:vu-sweat 200ms var(--ease-land) calc(var(--tl) + var(--b-cutlery) + 250ms) both; animation:var(--ba); }
+@keyframes vu-sweat { 0% { opacity:0; transform:scale(.2); } 1% { opacity:1; } 60% { opacity:1; transform:scale(1.2); }
+  100% { opacity:1; transform:scale(1); } }

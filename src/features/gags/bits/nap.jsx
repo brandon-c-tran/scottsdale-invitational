@@ -1,77 +1,76 @@
 import React from "react";
-import { CAST, castGeometry } from "../cast/castGeometry.js";
-import { CastChip, GloveArt, Swaps } from "../cast/CastChip.jsx";
-import { Emanata, Moth, Pillow, SleepMark } from "../props/Props.jsx";
-import { bitById } from "./registry.js";
+import { Neon, NeonChip } from "../neon/Neon.jsx";
+import { Alarm } from "../neon/NeonProps.jsx";
+import { TUBE, ellipsePath } from "../neon/neonArt.js";
 import "./nap.css";
 
-/* nap (idle, desert): the chip asleep on its back in the middle of the
-   floor, its head on a little pillow, its gloves flopped either side,
-   breathing slow; sleep marks drift up off it. A moth comes fluttering in,
-   goes round once and lands on its face, riding the breaths. The near
-   glove twitches, then comes up off the floor, slowly, and hangs there.
-   SWAT: its own face. The moth was already off; it goes round again and
-   settles on the glove. The chip sighs and sleeps on.
+/* nap (idle, songless): the chip stands on the floor, nodding off; it
+   nods once, twice, and keels over backwards flat on the floor, rattling
+   down. It sleeps: breathing, Z's drifting up off it. A moth finds its
+   light, circles it and lands on it. The chip twitches; the moth lifts
+   off, circles, and lands again. It sleeps on.
 
-   Lying down is the rig tipped back about its feet (rotateX, a long
-   perspective from above, so the far rim recedes); its own gloves would
-   lie flattened in that plane, so the scene draws them itself, in the
-   same art, laid on the floor (squashed the same way) where it can lift
-   one. The stage's camera shoots it (the registry's camera, in this
-   stage's world x: the chip at 960). */
-const NP = bitById("nap").beats;
-export const NAP_STAGE = Object.freeze({ x:960, floor:CAST.floor });
+   World x: the chip at 940. The moth lands on its face (it lies flat, so
+   the face is a thin ellipse on the floor) a little right of its middle. */
+export const NP_STAGE = Object.freeze({ x:940, floor:930, chip:240, perch:{ x:58, y:-44 } });
 
-const px = n => `${Math.round(n * 10) / 10}px`;
-/* the smack's strokes, all the way round */
-const SMACK = Object.freeze([[-160, 70, 104], [-120, 62, 96], [-60, 62, 96], [-20, 70, 104], [20, 70, 100], [160, 70, 100]]);
+const W = TUBE.w;
+/* a moth seen from above, its body upright: a wing a node per side so
+   each flaps about the body */
+const MOTH_BODY = "M0 -24C7 -24 8 -12 8 0C8 16 5 30 0 34C-5 30 -8 16 -8 0C-8 -12 -7 -24 0 -24Z";
+const MOTH_HEAD = "M-4 -26C-10 -40 -20 -46 -28 -46M4 -26C10 -40 20 -46 28 -46";
+const WING = "M6 -16C26 -40 62 -46 70 -26C76 -10 58 4 34 6C52 12 58 28 46 38C34 46 16 34 6 14Z";
+const WING_SPOT = ellipsePath(46, -20, 7, 6);
+function MothWing({ side }) {
+  return <span className={`neon-node np-wing is-${side < 0 ? "l" : "r"}`}>
+    <span className="neon-node" style={{ transform:side < 0 ? "scaleX(-1)" : undefined }}>
+      <Neon box={[-4, -56, 90, 104]} fills={[{ d:WING }]} tubes={[
+        { d:WING, tone:"bone", w:W * 0.5 },
+        { d:WING_SPOT, tone:"amber", w:W * 0.4, g:"spot" },
+      ]} />
+    </span>
+  </span>;
+}
+export function Moth({ scale = 0.8 }) {
+  return <span className="neon-node" style={{ transform:`scale(${scale})` }}>
+    <MothWing side={-1} />
+    <MothWing side={1} />
+    <Neon box={[-34, -54, 68, 96]} fills={[{ d:MOTH_BODY }]} tubes={[
+      { d:MOTH_BODY, tone:"bone", w:W * 0.5 },
+      { d:MOTH_HEAD, tone:"bone", w:W * 0.32 },
+    ]} />
+  </span>;
+}
+
+/* one Z, bent from a single tube */
+const zPath = s => `M${-s} ${-s}L${s} ${-s}L${-s} ${s}L${s} ${s}`;
 
 export function Nap({ cast }) {
   const player = cast?.a?.[0];
   if (!player) return null;
-  const { x, floor } = NAP_STAGE;
-  const g = castGeometry(CAST.size);
-  /* the gloves lying either side of it; the face, lying down; the swat
-     lands on its upper half, where the moth sits */
-  const hand = { l:{ x:x - 150, y:floor - 52 }, r:{ x:x + 150, y:floor - 52 } };
-  const face = { x:x + 4, y:floor - 96 };
-  const swat = { x:face.x - hand.r.x + 2, y:face.y - hand.r.y + 34 };
-  const style = {
-    "--swat":`translate(${px(swat.x)}, ${px(swat.y)}) rotate(-4deg)`,
-    "--hover":`translate(${px(swat.x + 46)}, ${px(swat.y - 170)}) rotate(-12deg)`,
-    "--hover2":`translate(${px(swat.x + 30)}, ${px(swat.y - 190)}) rotate(-4deg)`,
-  };
-  const glove = pose => <GloveArt pose={pose} scale={g.glove} />;
-  const mirrored = node => <span className="np-node" style={{ transform:"scaleX(-1)" }}>{node}</span>;
+  const { x, floor, chip, perch } = NP_STAGE;
   return (
-    <div className="np" style={style}>
-      <span className="np-node np-pillow" style={{ left:x, top:floor - 128 }}><Pillow scale={0.86} /></span>
-      <CastChip player={player} x={x} y={floor} className="np-chip" hands={{ l:"rest", r:"rest" }} />
-      {/* the far glove, laid flat on the floor (a left hand: mirrored) */}
-      <span className="np-node np-hand is-back" style={{ left:hand.l.x, top:hand.l.y }}>
-        <span className="np-node" style={{ transform:"rotate(-10deg)" }}>{mirrored(glove("flat"))}</span>
+    <div className="np">
+      <NeonChip player={player} x={x} y={floor} className="np-chip"
+        wear={<span className="neon-node np-startle"><Alarm r={chip / 2} /></span>} />
+      {/* a first small z while it nods */}
+      <span className="neon-node np-doze" style={{ left:x + 150, top:floor - chip - 10 }}>
+        <Neon box={[-26, -26, 52, 52]} tubes={[{ d:zPath(14), tone:"cyan", w:W * 0.55 }]} />
       </span>
-      {/* the near glove: laid on the floor, up, and down flat on its own face */}
-      <span className="np-node np-hand is-front" style={{ left:hand.r.x, top:hand.r.y }}>
-        <span className="np-node np-hand-lift"><span className="np-node np-hand-twitch"><span className="np-node np-hand-squash">
-          <Swaps layers={[[<span className="np-node" style={{ transform:"rotate(10deg)" }}>{glove("flat")}</span>, 0],
-            [mirrored(glove("open")), NP.lift]]} />
-        </span></span></span>
+      {/* the Z's rise off it, one after another, while it sleeps */}
+      <span className="neon-node np-zees" style={{ left:x + 70, top:floor - 70 }}>
+        {[[0, 16], [1, 24], [2, 32]].map(([i, s]) => <span key={i} className={`neon-node np-z is-${i}`}>
+          <Neon box={[-s - 12, -s - 12, s * 2 + 24, s * 2 + 24]} tubes={[{ d:zPath(s), tone:"cyan", w:W * 0.62 }]} />
+        </span>)}
       </span>
-      {/* the smack: strokes flung out round the glove for a moment */}
-      <span className="np-node np-smack" style={{ left:hand.r.x + swat.x - 30, top:hand.r.y + swat.y - 40 }}>
-        <Emanata rays={SMACK} width={8} scale={1.2} />
-      </span>
-      {/* sleep marks: a small one and a bigger one each time */}
-      {[NP.mark1, NP.mark1 + 760, NP.mark2, NP.mark2 + 760, NP.mark3, NP.mark3 + 760].map((at, i) => (
-        <span key={i} className="np-node np-mark" style={{ left:x + 60, top:floor - 160, "--at":`${at}ms`, "--s":i % 2 ? 1.5 : 1.05 }}>
-          <SleepMark />
+      {/* the moth: one path through the night to its perch on the chip */}
+      <span className="neon-node np-moth" style={{ left:x + perch.x, top:floor + perch.y }}>
+        <span className="neon-node np-moth-fly">
+          <span className="neon-node np-moth-bank">
+            <span className="neon-node np-moth-art is-fly"><span className="neon-node np-moth-fx"><Moth scale={0.72} /></span></span>
+            <span className="neon-node np-moth-art is-rest"><Moth scale={0.62} /></span>
+          </span>
         </span>
-      ))}
-      {/* the moth: in, round, onto the face (riding its breaths), off at
-         the swat, round again, onto the glove */}
-      <span className="np-node np-moth" style={{ left:face.x, top:face.y }}>
-        <span className="np-node np-moth-ride"><span className="np-node np-moth-bob"><Moth scale={1.1} /></span></span>
       </span>
     </div>
   );

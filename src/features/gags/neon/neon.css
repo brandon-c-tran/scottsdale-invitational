@@ -1,0 +1,76 @@
+/* The bits' neon (Neon.jsx). A tube is drawn four times from one path: a
+   wide soft halo, a tight glow, the tube in its lamp, a white-hot core.
+   The halo and the glow are CSS blurs on their own <svg>, sized by the
+   drawing's widest tube (--neon-px), so the light spills past the art's
+   box and the drawing is lit once and moved by transforms. */
+
+.bit-art, .neon-scope {
+  --neon-magenta:var(--lamp-live, #ff3fa4);
+  --neon-amber:var(--sun, #ffa630);
+  --neon-cyan:var(--accent2, #5fdcf0);
+  --neon-bone:var(--bone, #f4ecd8);
+  --neon-clay:color-mix(in srgb, var(--clay, #e8433a) 72%, var(--clay-text, #ff8a7a));
+  --neon-ember:color-mix(in srgb, var(--sun, #ffa630) 55%, var(--clay, #e8433a));
+  /* the dark glass a sign's tubes are bent over */
+  --neon-backing:#070912;
+}
+
+.neon { position:absolute; display:block; pointer-events:none; }
+.neon > svg { position:absolute; left:0; top:0; display:block; overflow:visible; }
+.neon-halo { opacity:.5; filter:blur(calc(var(--neon-px, 6px) * 2.1)); }
+.neon-glow { opacity:.85; filter:blur(calc(var(--neon-px, 6px) * .55)); }
+.neon-fill { fill:var(--neon-backing); }
+/* a sign's unlit glass: the bent tube with no light in it */
+.neon-glass path { opacity:.2; }
+.neon-core { opacity:.85; }
+
+/* nodes of no size, so each transform turns about its node */
+.neon-swap, .nc, .nc :is(.nc-move, .nc-hop, .nc-body, .nc-tilt, .nc-roll, .nc-spin, .nc-wear),
+.hh, .hh :is(.hh-rot, .hh-reach, .hh-fx, .hh-pose, .hh-held), .neon-node {
+  position:absolute; left:0; top:0; width:0; height:0; transform-origin:0 0; }
+
+/* ── the chip ── */
+.nc-coin { position:absolute; display:block; }
+.nc-coin > .nc-face { position:absolute; left:0; top:0; display:block; }
+.nc-initials { font:900 30px/1 var(--fd-show); fill:var(--neon-player); letter-spacing:.02em; }
+/* spinning on its edge: the coin turns in 3D about its middle */
+.nc-roll { perspective:1100px; }
+.nc-spin { transform-style:preserve-3d; }
+/* its light on the floor: a pool of its own color */
+.nc-pool { position:absolute; display:block; border-radius:50%;
+  background:radial-gradient(50% 50% at 50% 50%, color-mix(in srgb, var(--neon-player) 62%, transparent),
+    color-mix(in srgb, var(--neon-player) 22%, transparent) 50%, transparent 100%); }
+
+/* a lit rim's small instabilities: now and then it dips, like a real tube
+   (each chip on its own phase, --nc-buzz) */
+.nc-rim { --ba:neon-buzz 4300ms linear calc(var(--tl) + var(--nc-buzz, 0ms)) infinite both; animation:var(--ba); }
+
+/* ── the house hand ── */
+.hh-art { position:absolute; display:block; }
+.hh-art > svg { display:block; overflow:visible; }
+.hh-held { z-index:0; }
+.hh-pose > .hh-art { z-index:1; }
+
+/* ── the moves every scene shares ── */
+/* a sign switching frames, or a prop shown or hidden: one step at its start */
+@keyframes neon-on { from { opacity:0; } to { opacity:1; } }
+@keyframes neon-off { from { opacity:1; } to { opacity:0; } }
+/* a tube lighting: it catches, drops, catches, holds */
+@keyframes neon-ignite { 0% { opacity:0; } 10% { opacity:.85; } 16% { opacity:.08; } 30% { opacity:1; } 38% { opacity:.25; }
+  48%, 100% { opacity:1; } }
+/* a tube dying: a stutter, then dark */
+@keyframes neon-die { 0% { opacity:1; } 18% { opacity:.2; } 30% { opacity:.9; } 52% { opacity:.1; } 64% { opacity:.6; }
+  100% { opacity:0; } }
+/* a tube's buzz: a lit sign's small instabilities, looped */
+@keyframes neon-buzz { 0%, 100% { opacity:1; } 41% { opacity:1; } 42% { opacity:.55; } 44% { opacity:1; } 77% { opacity:1; }
+  78% { opacity:.7; } 79% { opacity:1; } }
+
+/* stars going round (NeonProps DizzyStars): each one's x and y swing on
+   one period a quarter apart, so it runs an ellipse; --orbit-at is when a
+   scene starts them (a beat), --k spaces them round it */
+.neon-orbit-x { --ba:neon-ox 460ms ease-in-out calc(var(--tl) + var(--orbit-at, 0ms) - var(--k) * 307ms) infinite alternate both;
+  animation:var(--ba); }
+.neon-orbit-y { --ba:neon-oy 460ms ease-in-out calc(var(--tl) + var(--orbit-at, 0ms) - var(--k) * 307ms - 230ms) infinite alternate both;
+  animation:var(--ba); }
+@keyframes neon-ox { from { transform:translateX(calc(-1 * var(--rx, 120px))); } to { transform:translateX(var(--rx, 120px)); } }
+@keyframes neon-oy { from { transform:translateY(calc(-1 * var(--ry, 24px))); } to { transform:translateY(var(--ry, 24px)); } }

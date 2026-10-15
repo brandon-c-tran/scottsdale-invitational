@@ -1,112 +1,56 @@
 /* slowmowalk (slowmowalk.jsx): every move on a beat from registry.js
-   (--b-<name>) or on an instant the scene computed from them (--t, a
-   stack's turn to go up; --g, a lens's glint), every animation on --ba
-   (bits.css), each element resting on its end state. The camera, the
-   shakes and the white frames are the stage's (the registry).
+   (--b-<name>), every animation on --ba (bits.css), each element resting
+   on its end state. A stack's blast runs from --b-first + its --t. */
 
-   THE WALK: four slow strides from the start to the stop, the left foot
-   first, the bob hanging at the top of each (slow motion); each walker
-   comes down the floor and grows about its own feet. */
+.is-slowmowalk .sw { position:absolute; inset:0; }
 
-.is-slowmowalk .sm { position:absolute; inset:0; }
-.is-slowmowalk .sm-node { position:absolute; display:block; width:0; height:0; transform-origin:0 0; }
+/* ── the walkers: from far and small to close, slowing as they arrive;
+   a slow bob and sway, four strides, a settle as they stop ── */
+.is-slowmowalk .sw-walk { transform:none;
+  --ba:sw-walk calc(var(--b-stop) + 0ms) cubic-bezier(.3,.12,.4,1) calc(var(--tl) + 0ms) both; animation:var(--ba); }
+@keyframes sw-walk { from { transform:var(--sw-from); } to { transform:none; } }
+.is-slowmowalk .sw-a .nc-hop { transform:translateY(0px);
+  --ba:sw-bob 690ms ease-in-out calc(var(--tl) + var(--b-stop) - 2760ms - var(--i) * 90ms) 4 both; animation:var(--ba); }
+@keyframes sw-bob { 0%, 100% { transform:translateY(0px); } 50% { transform:translateY(var(--sw-bob)); } }
+.is-slowmowalk .sw-a .nc-tilt { transform:rotate(0deg);
+  --ba:sw-sway 1380ms ease-in-out calc(var(--tl) + var(--b-stop) - 2760ms - var(--i) * 90ms) 2 both; animation:var(--ba); }
+@keyframes sw-sway { 0%, 50%, 100% { transform:rotate(0deg); } 25% { transform:rotate(4deg); } 75% { transform:rotate(-4deg); } }
+.is-slowmowalk .sw-a .nc-body { transform:scale(1, 1);
+  --ba:sw-stop 420ms ease-out calc(var(--tl) + var(--b-stop) - var(--i) * 90ms) both; animation:var(--ba); }
+@keyframes sw-stop { 0% { transform:scale(1, 1); } 35% { transform:scale(1.05, .94); } 100% { transform:scale(1, 1); } }
 
-/* ── the line walks toward us ── */
-.is-slowmowalk .sm-walk { transform:translateY(0px) scale(1);
-  --ba:sm-approach var(--b-stop) cubic-bezier(.3,.25,.5,1) calc(var(--tl) + 0ms) both; animation:var(--ba); }
-@keyframes sm-approach { from { transform:var(--from); } to { transform:translateY(0px) scale(1); } }
-/* a stride: up off the heel, hanging, down onto the other foot */
-.is-slowmowalk .sm-walker .cast-hop {
-  --ba:sm-bob calc(var(--b-stop) / 4) linear calc(var(--tl) + 0ms) 4 both; animation:var(--ba); }
-@keyframes sm-bob { 0% { transform:translateY(0px); animation-timing-function:cubic-bezier(.2,.7,.4,1); }
-  40% { transform:translateY(var(--bob)); animation-timing-function:linear; }
-  62% { transform:translateY(var(--bob)); animation-timing-function:cubic-bezier(.6,0,.8,.5); } 100% { transform:translateY(0px); } }
-/* the swagger, slow; at the stop it settles back on its heels */
-.is-slowmowalk .sm-walker .cast-body-in {
-  --ba:sm-sway calc(var(--b-stop) / 2) ease-in-out calc(var(--tl) + 0ms) 2 both,
-    sm-settle 520ms ease-out calc(var(--tl) + var(--b-stop)) forwards;
-  animation:var(--ba); }
-@keyframes sm-sway { 0%, 50%, 100% { transform:rotate(0deg); } 25% { transform:rotate(3deg); } 75% { transform:rotate(-3deg); } }
-@keyframes sm-settle { 0%, 100% { transform:rotate(0deg) scale(1, 1); } 30% { transform:rotate(-1deg) scale(1.03, .96); }
-  65% { transform:rotate(.5deg) scale(.99, 1.01); } }
-/* each foot comes up on its own stride */
-.is-slowmowalk .sm-walker .cast-shoe.is-l .cast-shoe-in {
-  --ba:sm-lift calc(var(--b-stop) / 2) linear calc(var(--tl) + 0ms) 2 both; animation:var(--ba); }
-.is-slowmowalk .sm-walker .cast-shoe.is-r .cast-shoe-in {
-  --ba:sm-lift calc(var(--b-stop) / 2) linear calc(var(--tl) + var(--b-stop) / 4) 2 both; animation:var(--ba); }
-@keyframes sm-lift { 0%, 50%, 100% { transform:translateY(0px) scale(1); } 8% { transform:translateY(-3px) scale(1); }
-  25% { transform:translateY(-16px) scale(1.06); } 44% { transform:translateY(-2px) scale(1.02); } }
-/* the gloves swing loose, each against its own side's foot */
-.is-slowmowalk .sm-walker .cast-hand.is-r .cast-hand-fx {
-  --ba:sm-swing-r calc(var(--b-stop) / 2) ease-in-out calc(var(--tl) + 0ms) 2 both; animation:var(--ba); }
-.is-slowmowalk .sm-walker .cast-hand.is-l .cast-hand-fx {
-  --ba:sm-swing-l calc(var(--b-stop) / 2) ease-in-out calc(var(--tl) + 0ms) 2 both; animation:var(--ba); }
-@keyframes sm-swing-r { 0%, 50%, 100% { transform:none; } 25% { transform:translate(-8px, -12px) rotate(-14deg) scale(1.08); }
-  75% { transform:translate(6px, -4px) rotate(12deg) scale(.94); } }
-@keyframes sm-swing-l { 0%, 50%, 100% { transform:none; } 25% { transform:translate(-6px, -4px) rotate(-12deg) scale(.94); }
-  75% { transform:translate(8px, -12px) rotate(14deg) scale(1.08); } }
-/* a glint along the line of lenses, one after another */
-.is-slowmowalk .sm-glint { opacity:0;
-  --ba:sm-glint 380ms ease-out calc(var(--tl) + var(--g)) both; animation:var(--ba); }
-@keyframes sm-glint { 0% { opacity:0; transform:scale(.1) rotate(0deg); } 1% { opacity:1; transform:scale(.1) rotate(0deg); }
-  35% { opacity:1; transform:scale(1.25) rotate(30deg); } 100% { opacity:0; transform:scale(.4) rotate(70deg); } }
+/* ── the horizon: each stack goes up on its turn ── */
+.is-slowmowalk .sw-stack { opacity:0; --ba:neon-die 240ms linear calc(var(--tl) + var(--b-first) + var(--t)) both; animation:var(--ba); }
+.is-slowmowalk .sw-coin { opacity:0; transform:translate(var(--fx), var(--fy));
+  --ba:sw-coin 1100ms cubic-bezier(.15,.75,.4,1) calc(var(--tl) + var(--b-first) + var(--t)) both; animation:var(--ba); }
+@keyframes sw-coin { 0% { opacity:1; transform:translate(0px, 0px); } 75% { opacity:1; } 100% { opacity:0; transform:translate(var(--fx), var(--fy)); } }
+.is-slowmowalk .sw-coin-spin { transform:rotate(720deg);
+  --ba:sw-spin 1100ms ease-out calc(var(--tl) + var(--b-first) + var(--t)) both; animation:var(--ba); }
+@keyframes sw-spin { from { transform:rotate(0deg); } to { transform:rotate(720deg); } }
+.is-slowmowalk .sw-ring { opacity:0; --ba:sw-ring 460ms ease-out calc(var(--tl) + var(--b-first) + var(--t)) forwards; animation:var(--ba); }
+@keyframes sw-ring { 0% { opacity:1; transform:scale(.2); } 100% { opacity:0; transform:scale(1.5); } }
+.is-slowmowalk .sw-fire { opacity:0; --ba:sw-fire 760ms ease-out calc(var(--tl) + var(--b-first) + var(--t)) forwards; animation:var(--ba); }
+.is-slowmowalk .sw-fire.is-in { --ba:sw-fire 620ms ease-out calc(var(--tl) + var(--b-first) + var(--t) + 40ms) forwards; }
+@keyframes sw-fire { 0% { opacity:1; transform:scale(.3) rotate(0deg); } 28% { opacity:1; transform:scale(1) rotate(6deg); }
+  60% { opacity:.8; } 100% { opacity:0; transform:scale(1.3) rotate(12deg); } }
+.is-slowmowalk .sw-smoke { opacity:0;
+  --ba:sw-smoke 1600ms ease-out calc(var(--tl) + var(--b-first) + var(--t) + 160ms + var(--k) * 90ms) forwards; animation:var(--ba); }
+@keyframes sw-smoke { 0% { opacity:.55; transform:translate(0px, 0px) scale(.4); } 100% { opacity:0; transform:translate(0px, -170px) scale(1.4); } }
+.is-slowmowalk .sw-fling { opacity:0; transform:translate(var(--fx), 160px) rotate(var(--fs));
+  --ba:sw-fling 1200ms linear calc(var(--tl) + var(--b-first) + var(--t) + var(--k) * 30ms) forwards; animation:var(--ba); }
+@keyframes sw-fling { 0% { opacity:1; transform:translate(0px, 0px) rotate(0deg); animation-timing-function:cubic-bezier(.2,.75,.45,1); }
+  42% { opacity:1; transform:translate(calc(var(--fx) * .6), var(--fy)) rotate(calc(var(--fs) * .5)); animation-timing-function:cubic-bezier(.55,0,.9,.5); }
+  88% { opacity:1; } 100% { opacity:0; transform:translate(var(--fx), 160px) rotate(var(--fs)); } }
 
-/* ── the horizon: the favorites' stacks going up, each on its own --t ── */
-.is-slowmowalk .sm-far { position:absolute; left:0; top:0; width:1920px; height:864px; overflow:hidden; }
-/* the stack stands until its instant, and is gone in the flash */
-.is-slowmowalk .sm-stack { opacity:0;
-  --ba:bit-hide 1ms step-start calc(var(--tl) + var(--t)) both; animation:var(--ba); }
-/* the flash: bigger than the stack for three frames */
-.is-slowmowalk .sm-flash { opacity:0;
-  --ba:sm-flash 150ms linear calc(var(--tl) + var(--t) - 16ms) both; animation:var(--ba); }
-@keyframes sm-flash { 0% { opacity:0; transform:scale(.6) rotate(0deg); } 1% { opacity:1; transform:scale(.6) rotate(0deg); }
-  40% { opacity:1; transform:scale(1.05) rotate(8deg); } 100% { opacity:0; transform:scale(1.2) rotate(14deg); } }
-/* the fireball blooms fast for a frame, then slow (the shot is slow), and
-   burns down to a fire on the horizon */
-.is-slowmowalk .sm-fire { transform:translateY(34px) scale(.5);
-  --ba:sm-bloom 90ms cubic-bezier(.1,.7,.3,1) calc(var(--tl) + var(--t)) both,
-    sm-bloom-slow 900ms cubic-bezier(.2,.5,.5,1) calc(var(--tl) + var(--t) + 90ms) forwards,
-    sm-burn 1100ms ease-in-out calc(var(--tl) + var(--t) + 990ms) forwards;
+/* the big one: its fuse fizzes while they come, then it goes, biggest */
+.is-slowmowalk .sw-fuse { opacity:0;
+  --ba:bit-show 1ms step-start calc(var(--tl) + var(--b-fuse)) both, sw-fizz 120ms linear calc(var(--tl) + var(--b-fuse)) 7 forwards,
+    bit-hide 1ms step-start calc(var(--tl) + var(--b-boom)) forwards;
   animation:var(--ba); }
-@keyframes sm-bloom { from { transform:translateY(0px) scale(.12); } to { transform:translateY(0px) scale(.84); } }
-@keyframes sm-bloom-slow { from { transform:translateY(0px) scale(.84); } to { transform:translateY(-22px) scale(1.06); } }
-@keyframes sm-burn { from { transform:translateY(-22px) scale(1.06); } to { transform:translateY(34px) scale(.5); } }
-.is-slowmowalk .sm-boil { opacity:1;
-  --ba:bit-show 1ms step-start calc(var(--tl) + var(--t)) both,
-    sm-boil 900ms ease-in-out calc(var(--tl) + var(--t)) infinite;
-  animation:var(--ba); }
-@keyframes sm-boil { 0%, 100% { transform:rotate(0deg) scale(1, 1); } 50% { transform:rotate(2deg) scale(1.02, .98); } }
-.is-slowmowalk .sm-fire .bit-fire-layer.is-core { transform:scale(.4);
-  --ba:sm-cool-core 1800ms cubic-bezier(.3,0,.6,1) calc(var(--tl) + var(--t)) both; animation:var(--ba); }
-@keyframes sm-cool-core { 0% { transform:scale(1.15); } 40% { transform:scale(.9); } 100% { transform:scale(.4); } }
-/* black smoke climbs out of it, slow, and hangs over the horizon */
-.is-slowmowalk .sm-smoke { opacity:1; transform:translateY(-250px) scale(1.15);
-  --ba:sm-smoke 1500ms cubic-bezier(.2,.6,.5,1) calc(var(--tl) + var(--t) + 60ms) both,
-    sm-smoke-rise 2600ms ease-out calc(var(--tl) + var(--t) + 1560ms) forwards;
-  animation:var(--ba); }
-@keyframes sm-smoke { 0% { opacity:0; transform:translateY(30px) scale(.3); } 1% { opacity:1; transform:translateY(30px) scale(.3); }
-  100% { opacity:1; transform:translateY(-160px) scale(.95); } }
-@keyframes sm-smoke-rise { from { transform:translateY(-160px) scale(.95); } to { transform:translateY(-250px) scale(1.15); } }
-/* that player's chips, flung up out of it in slow motion, tumbling, and
-   gone down behind the horizon */
-.is-slowmowalk .sm-flung { opacity:0;
-  --ba:sm-fling 1100ms cubic-bezier(.15,.6,.45,1) calc(var(--tl) + var(--t) + 20ms) both,
-    sm-fall 900ms cubic-bezier(.55,0,.9,.5) calc(var(--tl) + var(--t) + 1120ms) forwards;
-  animation:var(--ba); }
-@keyframes sm-fling { 0% { opacity:0; transform:translate(0px, 0px); } 1% { opacity:1; transform:translate(0px, 0px); }
-  100% { opacity:1; transform:translate(var(--dx), var(--dy)); } }
-@keyframes sm-fall { from { opacity:1; transform:translate(var(--dx), var(--dy)); }
-  to { opacity:1; transform:translate(calc(var(--dx) * 1.5), 260px); } }
-.is-slowmowalk .sm-flung-turn { transform:rotate3d(1, .4, 0, 0deg);
-  --ba:sm-tumble 2000ms linear calc(var(--tl) + var(--t) + 20ms) both; animation:var(--ba); }
-@keyframes sm-tumble { from { transform:rotate3d(1, .4, 0, 0deg); } to { transform:rotate3d(1, .4, 0, var(--turn)); } }
-
-/* ── the last stack: it does not go with the rest. A spark fizzes on top
-   of it through the hold, and it goes up the biggest of them all ── */
-.is-slowmowalk .sm-spark { opacity:0;
-  --ba:bit-show 1ms step-start calc(var(--tl) + var(--b-last) + 300ms) both,
-    bit-hide 1ms step-start calc(var(--tl) + var(--b-late)) forwards;
-  animation:var(--ba); }
-.is-slowmowalk .sm-fizz { --ba:sm-fizz 180ms linear calc(var(--tl) + 0ms) infinite; animation:var(--ba); }
-@keyframes sm-fizz { 0%, 100% { transform:scale(1) rotate(0deg); } 33% { transform:scale(.7) rotate(25deg); }
-  66% { transform:scale(1.2) rotate(-15deg); } }
+@keyframes sw-fizz { 0%, 100% { opacity:1; transform:scale(.8) rotate(0deg); } 50% { opacity:.4; transform:scale(1.2) rotate(20deg); } }
+.is-slowmowalk .sw-s.is-big .sw-fire { --ba:sw-fire-big 1100ms ease-out calc(var(--tl) + var(--b-first) + var(--t)) forwards; }
+.is-slowmowalk .sw-s.is-big .sw-fire.is-in { --ba:sw-fire-big 900ms ease-out calc(var(--tl) + var(--b-first) + var(--t) + 60ms) forwards; }
+@keyframes sw-fire-big { 0% { opacity:1; transform:scale(.3) rotate(0deg); } 22% { opacity:1; transform:scale(1.9) rotate(8deg); }
+  60% { opacity:.85; transform:scale(2.2) rotate(12deg); } 100% { opacity:0; transform:scale(2.4) rotate(16deg); } }
+.is-slowmowalk .sw-s.is-big .sw-ring { --ba:sw-ring-big 620ms ease-out calc(var(--tl) + var(--b-first) + var(--t)) forwards; }
+@keyframes sw-ring-big { 0% { opacity:1; transform:scale(.3); } 100% { opacity:0; transform:scale(3.2); } }

@@ -1,6 +1,7 @@
 /* Attract mode (Oct 11): the TV's downtime plays an idle vignette (the
-   bits' shape "idle": nap, armwrestle, saguaro, pushups, sweep, map) on its
-   own ambient turn, cast from the players in the room. Pure: which turn is
+   bits' shape "idle", neon signs since Oct 14: nap, edge push, saguaro,
+   coin spin contest, polish, lost tourist) on its own ambient turn, cast
+   from the players in the room. Pure: which turn is
    an attract turn, which vignette it plays and who is in it, all from the
    turn's start on the server clock, so every TV in the house plays the same
    vignette with the same chips on the same frame.

@@ -8,7 +8,8 @@
      ?frame=<id>&t=<ms>       one bit frozen at an instant, full viewport
        &phase=fri|sam|sap|san|fin   &cast=<cast key>   &trigger=<n>
        &reduced=1             reduced motion's still
-     ?sheet=1                 the rig and the props on the painting
+     ?sheet=1                 the neon cast, the house hand (both looks) and the props
+       &sheet=hand            the house hand's poses in both looks, large
      ?soundcheck=1            every bit recipe and cue sheet rendered offline
      ?wav=<id>&phase=         one bit's cue sheet as a 16-bit WAV (window.__wav, base64)
    (scripts/bit-frames.mjs renders ?frame and ?sheet to PNGs, ?wav to a file.) */
@@ -18,12 +19,9 @@ import { ROSTER, CHIP_COLORS } from "../shared/core.js";
 import { PlayerIdentityProvider, TextFloor } from "../src/features/identity/PlayerIdentityContext.js";
 import { BitStage } from "../src/features/gags/BitStage.jsx";
 import { BIT_SHAPES, BIT_STYLES, BITS, SHAPES, TEAM_MIN, bitsOf, isTeamBit, pickBit } from "../src/features/gags/bits/registry.js";
-import { CastChip, CastPhotosProvider, GloveArt, ShoeArt } from "../src/features/gags/cast/CastChip.jsx";
-import { GLOVE_POSE_NAMES } from "../src/features/gags/cast/gloveArt.js";
-import { Anvil, ChipStack, DizzyStars, Emanata, MuzzleFlash, Puff, Revolver, Roadrunner, SpeedLines, Sunglasses,
-  SweatDrop, Tumbleweed } from "../src/features/gags/props/Props.jsx";
-import { ArmTable, Boulder, Broom, FoldedMap, IdleSaguaro, Moth, PaperBall, PaperMap, Pillow, SandPile, SleepMark,
-  Stepladder } from "../src/features/gags/props/Props.jsx";
+import { CastPhotosProvider, HandArt, NeonChip } from "../src/features/gags/neon/Neon.jsx";
+import { HAND_POSE_NAMES } from "../src/features/gags/neon/neonArt.js";
+import * as NeonProps from "../src/features/gags/neon/NeonProps.jsx";
 import { Backglass } from "../src/features/tv/DesertBand.jsx";
 import { setSoundRoom, setSoundSurface, unlockSound } from "../src/lib/sound.js";
 import { BIT_PARTS, makeEngine, playRecipe } from "../src/lib/soundKit.js";
@@ -45,16 +43,14 @@ const PROFILES = Object.fromEntries(ROSTER.map((player, i) => [player, {
 const PHOTOS = Object.fromEntries(ROSTER.map(player => [player, svgDataUri(standInPhoto(player))]));
 const STATE = { profiles:PROFILES };
 
-/* who plays each shape, by cast size */
+/* who plays each shape, by cast size: a solo bit's sides are one chip
+   each; a team bit's (Oct 14: a side of 2 or more) the doubles to the
+   full court's 7 v 6 */
 const CASTS = {
   versus:[
     { key:"1v1", label:"1 v 1", cast:{ a:["Khoa"], b:["Sahil"] } },
-    { key:"2v2", label:"2 v 2", cast:{ a:["Adi", "Chiang"], b:["Richard", "Allan"] } },
-    /* a pair against one (Oct 13): each side staged by its own size */
-    { key:"2v1", label:"2 v 1", cast:{ a:["Adi", "Chiang"], b:["Sahil"] } },
-    { key:"1v2", label:"1 v 2", cast:{ a:["Khoa"], b:["Richard", "Allan"] } },
-    { key:"4v6", label:"4 v 6", cast:{ a:["Brandon", "Evan", "Eyob", "Ben"], b:["Henry", "Jeremy", "Chinh", "Khoa", "Sahil", "Adi"] } },
-    /* the team bits' sides: volleyball's three, the full court's 7 v 6 */
+    { key:"2v2", label:"2 v 2", team:true, cast:{ a:["Adi", "Chiang"], b:["Richard", "Allan"] } },
+    { key:"2v1", label:"2 v 1", team:true, cast:{ a:["Adi", "Chiang"], b:["Sahil"] } },
     { key:"3v3", label:"3 v 3", team:true, cast:{ a:["Adi", "Chiang", "Richard"], b:["Brandon", "Evan", "Khoa"] } },
     { key:"6v7", label:"6 v 7", team:true, cast:{ a:["Henry", "Jeremy", "Chinh", "Allan", "Sahil", "Ben"],
       b:["Brandon", "Evan", "Eyob", "Khoa", "Adi", "Chiang", "Richard"] } },
@@ -63,7 +59,7 @@ const CASTS = {
   ],
   win:[
     { key:"1", label:"Solo", cast:{ a:["Eyob"] } },
-    { key:"2", label:"Pair", cast:{ a:["Adi", "Chiang"] } },
+    { key:"2", label:"Pair", team:true, cast:{ a:["Adi", "Chiang"] } },
     { key:"3", label:"Three", team:true, cast:{ a:["Adi", "Chiang", "Richard"] } },
     { key:"5", label:"Five", team:true, cast:{ a:["Brandon", "Evan", "Eyob", "Khoa", "Sahil"] } },
     { key:"7", label:"Seven", team:true, cast:{ a:["Brandon", "Evan", "Eyob", "Khoa", "Adi", "Chiang", "Richard"] } },
@@ -75,7 +71,7 @@ const CASTS = {
   idle:[{ key:"room", label:"The room", cast:{ a:["Brandon", "Evan", "Eyob"] } }, { key:"others", label:"Others", cast:{ a:["Sahil", "Khoa"] } }],
 };
 /* what a moment letters under the name, by trigger */
-const FACTS = { "A big losing bet":"-1,000", "A new last place":"13th", "3 straight wins":"3 in a row" };
+const FACTS = { "An upset":"Upset", "A big losing bet":"-1,000", "A new last place":"13th", "3 straight wins":"3 in a row", "A new leader":"In the lead" };
 const PHASES = [["fri", "Friday"], ["sam", "Sat morning"], ["sap", "Sat afternoon"], ["san", "Sat night"], ["fin", "Finale"]];
 /* a team bit's casts are the sides of 3 or more; a solo bit's the rest */
 const castsFor = bit => {
@@ -258,10 +254,13 @@ function useMarkReady() {
   }, []);
 }
 
-/* ── the rig sheet: every glove pose, the shoes, the cast, every prop ── */
+/* ── the neon sheet: the house hand in every pose and both looks, the
+   cast, and every prop on the painting at night ── */
 function SheetView() {
   useMarkReady();
   const phase = params.get("phase") || "sap";
+  const hand = params.get("sheet") === "hand";
+  const P = NeonProps;
   return (
     <div className="br-frame">
       <div className="bit-stage">
@@ -270,63 +269,43 @@ function SheetView() {
             <div className="tv-canvas bit-canvas" data-tv-canvas data-phase={phase} style={{ left:0, top:0 }}>
               <Backglass phase={phase} className="tv-backdrop" />
               <CastPhotosProvider photos={PHOTOS}>
-                {params.get("sheet") === "gloves" && <div className="bit-layer bit-art br-sheet" style={{ "--tl":"0ms", animation:"none" }}>
-                  {GLOVE_POSE_NAMES.map((pose, i) => <span key={pose} className="br-at" style={{ left:200 + (i % 4) * 460, top:i < 4 ? 330 : 800 }}>
-                    <span className="br-at"><GloveArt pose={pose} scale={2.4} /></span>
-                    <span className="br-tag" style={{ left:-150, top:170 }}>{pose}</span>
-                  </span>)}
-                </div>}
-                {params.get("sheet") === "idle" && <IdleSheet />}
-                {!["gloves", "idle"].includes(params.get("sheet")) && <div className="bit-layer bit-art br-sheet" style={{ "--tl":"0ms", "--bit-ms":"1ms", animation:"none" }}>
-                  {GLOVE_POSE_NAMES.map((pose, i) => <span key={pose} className="br-at" style={{ left:110 + i * 220, top:190 }}>
-                    <span className="br-at" style={{ left:-40, top:0 }}><GloveArt pose={pose} /></span>
-                    <span className="br-at" style={{ left:40, top:0, transform:"scaleX(-1)" }}><GloveArt pose={pose} scale={0.75} /></span>
-                    <span className="br-tag" style={{ left:-60, top:96 }}>{pose}</span>
-                  </span>)}
-                  <span className="br-at" style={{ left:1810, top:200 }}><ShoeArt /></span>
-                  <span className="br-at" style={{ left:110, top:420 }}><Revolver /></span>
-                  <span className="br-at" style={{ left:260, top:420 }}><Revolver pivot="guard" scale={1.6} /></span>
-                  <span className="br-at" style={{ left:440, top:400 }}><MuzzleFlash /></span>
-                  <span className="br-at" style={{ left:600, top:450 }}><Puff /></span>
-                  <span className="br-at" style={{ left:720, top:420 }}><Tumbleweed /></span>
-                  <span className="br-at" style={{ left:900, top:470 }}><SweatDrop /></span>
-                  <span className="br-at" style={{ left:1040, top:420 }}><Sunglasses /></span>
-                  <span className="br-at" style={{ left:1220, top:400 }}><DizzyStars at={0} /></span>
-                  <span className="br-at" style={{ left:1560, top:500 }}><Anvil /></span>
-                  <span className="br-at" style={{ left:180, top:930 }}><ChipStack player="Evan" /></span>
-                  <CastChip player="Khoa" x={480} y={930} facing={1} hands={{ front:"ready", back:"ready" }} />
-                  <CastChip player="Sahil" x={820} y={930} facing={-1} hands={{ front:"grip", back:"rest" }}
-                    hold={{ front:<Revolver /> }} />
-                  <CastChip player="Henry" x={1120} y={930} hands={{ l:"open", r:"point" }} />
-                  <span className="br-at" style={{ left:1560, top:930 }}><Roadrunner /></span>
-                  <span className="br-at" style={{ left:1500, top:700 }}><SpeedLines length={300} /></span>
-                  <span className="br-at" style={{ left:1420, top:600 }}><Emanata /></span>
-                </div>}
+                <div className="bit-layer bit-art br-sheet" style={{ "--tl":"0ms", "--bit-ms":"1ms", animation:"none" }}>
+                  <div className="bit-night" />
+                  {hand ? HAND_POSE_NAMES.map((pose, i) => ["neon", "glove"].map((look, j) =>
+                    <span key={`${pose}:${look}`} className="br-hand-cell" style={{ left:40 + j * 940, top:22 + i * 210 }}>
+                      <span className="br-at" style={{ left:330, top:100, transform:"scale(1.3)" }}><HandArt pose={pose} look={look} /></span>
+                      <span className="br-tag" style={{ left:700, top:150 }}>{`${pose} · ${look}`}</span>
+                    </span>)) : <>
+                    {HAND_POSE_NAMES.map((pose, i) => <span key={pose} className="br-at" style={{ left:150 + i * 380, top:120 }}>
+                      <HandArt pose={pose} /><span className="br-tag" style={{ left:40, top:70 }}>{pose}</span>
+                    </span>)}
+                    {HAND_POSE_NAMES.slice(0, 3).map((pose, i) => <span key={`g${pose}`} className="br-at" style={{ left:150 + i * 380, top:330 }}>
+                      <HandArt pose={pose} look="glove" /><span className="br-tag" style={{ left:40, top:70 }}>{`${pose} · glove`}</span>
+                    </span>)}
+                    <span className="br-at" style={{ left:1300, top:320 }}><P.Headphones r={90} /></span>
+                    <span className="br-at" style={{ left:1600, top:330 }}><P.Note /></span>
+                    <span className="br-at" style={{ left:1720, top:330 }}><P.Note two tone="amber" /></span>
+                    <span className="br-at" style={{ left:200, top:620 }}><P.Tumbleweed /></span>
+                    <span className="br-at" style={{ left:400, top:640 }}><P.NeonAnvil scale={0.7} /></span>
+                    <span className="br-at" style={{ left:640, top:560 }}><P.Burst /></span>
+                    <span className="br-at" style={{ left:860, top:560 }}><P.NeonStar /></span>
+                    <span className="br-at" style={{ left:960, top:520 }}><P.SweatDrop /></span>
+                    <span className="br-at" style={{ left:1120, top:600 }}><P.Target rx={120} ry={20} /></span>
+                    <span className="br-at" style={{ left:1420, top:560 }}><P.SpeedLines length={220} /></span>
+                    <span className="br-at" style={{ left:1700, top:620 }}><P.LooseChip /></span>
+                    <span className="br-at" style={{ left:160, top:930 }}><P.NeonStack count={8} /></span>
+                    <NeonChip player="Khoa" x={480} y={930} />
+                    <NeonChip player="Sahil" x={780} y={930} />
+                    <NeonChip player="Henry" x={1080} y={930} />
+                    <NeonChip player="Evan" x={1380} y={930} size={180} />
+                    <NeonChip player="Ben" x={1640} y={930} size={140} />
+                  </>}
+                </div>
               </CastPhotosProvider>
             </div>
           </div>
         </TextFloor>
       </div>
-    </div>
-  );
-}
-
-/* ── ?sheet=idle: the idle vignettes' props on the painting ── */
-function IdleSheet() {
-  return (
-    <div className="bit-layer bit-art br-sheet" style={{ "--tl":"0ms", "--bit-ms":"1ms", animation:"none" }}>
-      <span className="br-at" style={{ left:220, top:930 }}><IdleSaguaro /></span>
-      <span className="br-at" style={{ left:520, top:930 }}><Stepladder /></span>
-      <span className="br-at" style={{ left:720, top:930 }}><ArmTable /></span>
-      <span className="br-at" style={{ left:960, top:930 }}><SandPile /></span>
-      <span className="br-at" style={{ left:1160, top:930 }}><Boulder /></span>
-      <span className="br-at" style={{ left:1420, top:600 }}><Broom /></span>
-      <span className="br-at" style={{ left:1700, top:930 }}><Pillow /></span>
-      <span className="br-at" style={{ left:640, top:380 }}><PaperMap /></span>
-      <span className="br-at" style={{ left:960, top:380 }}><FoldedMap /></span>
-      <span className="br-at" style={{ left:1100, top:380 }}><PaperBall /></span>
-      <span className="br-at" style={{ left:1250, top:380 }}><Moth scale={1.6} /></span>
-      <span className="br-at" style={{ left:1700, top:380 }}><SleepMark scale={1.4} /></span>
     </div>
   );
 }

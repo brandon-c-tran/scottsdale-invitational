@@ -1,0 +1,60 @@
+/* headphones (headphones.jsx): beats from registry.js (--b-<name>), every
+   animation on --ba, each element resting on its end state. The wind-up
+   holds on --b-hover while the song is on its way (shared/bitMusic.js);
+   the hand's jiggle is the one thing that moves then (.bit-hold-loop). */
+
+.is-headphones .hp { position:absolute; inset:0; }
+
+/* ── the hand: down from above with the pair, holding them over the chip,
+   then pressing them on and away ── */
+.is-headphones .hp-hand .hh-reach { transform:translateX(-1100px);
+  --ba:hp-hand-in 820ms cubic-bezier(.2,.75,.3,1) calc(var(--tl) + var(--b-reach)) both,
+    hp-hand-out 560ms cubic-bezier(.55,0,.9,.5) calc(var(--tl) + var(--b-leave)) forwards; animation:var(--ba); }
+@keyframes hp-hand-in { from { transform:translateX(-1100px); } to { transform:translateX(0px); } }
+@keyframes hp-hand-out { from { transform:translateX(0px); } to { transform:translateX(-1100px); } }
+/* the press: down onto the chip in the beat before the click */
+.is-headphones .hp-hand .hh-fx { transform:translateX(0px);
+  --ba:hp-press 250ms cubic-bezier(.6,0,.4,1) calc(var(--tl) + var(--b-click) - 250ms) both,
+    hp-let-go 140ms ease-out calc(var(--tl) + var(--b-click) + 40ms) forwards; animation:var(--ba); }
+@keyframes hp-press { 0% { transform:translateX(0px); } 45% { transform:translateX(-10px); } 100% { transform:var(--hp-press); } }
+@keyframes hp-let-go { from { transform:var(--hp-press); } to { transform:translateX(20px) rotate(-8deg); } }
+/* waiting on the speaker: the hand dangles them, "ready when you are" */
+.is-headphones.is-holding .hp-hand { --ba:hp-dangle 900ms ease-in-out calc(var(--tl) + 0ms) infinite both; animation:var(--ba); }
+@keyframes hp-dangle { 0%, 100% { transform:translate(0px, 0px) rotate(0deg); } 30% { transform:translate(-6px, -10px) rotate(-1.5deg); }
+  65% { transform:translate(6px, -4px) rotate(1.5deg); } }
+
+/* ── the chip: idles, tips back to look up at them, then grooves ── */
+.is-headphones .hp-chip .nc-spin { transform:rotateX(0deg);
+  --ba:hp-idle 900ms ease-in-out calc(var(--tl) + 0ms) both,
+    hp-look 300ms var(--ease-out) calc(var(--tl) + var(--b-hover) - 200ms) forwards,
+    hp-unlook 120ms ease-out calc(var(--tl) + var(--b-click)) forwards; animation:var(--ba); }
+@keyframes hp-idle { 0%, 100% { transform:rotateX(0deg) rotateY(0deg); } 30% { transform:rotateX(0deg) rotateY(-14deg); }
+  70% { transform:rotateX(0deg) rotateY(10deg); } }
+@keyframes hp-look { from { transform:rotateX(0deg) rotateY(0deg); } to { transform:rotateX(28deg) rotateY(0deg); } }
+@keyframes hp-unlook { from { transform:rotateX(28deg) rotateY(0deg); } to { transform:rotateX(0deg) rotateY(0deg); } }
+/* clamped on: a squash on the click, then the bob, on the beat */
+.is-headphones .hp-chip .nc-body { transform:scale(1, 1);
+  --ba:hp-clamp 220ms ease-out calc(var(--tl) + var(--b-click)) both,
+    hp-pump 480ms ease-in-out calc(var(--tl) + var(--b-groove)) infinite forwards; animation:var(--ba); }
+@keyframes hp-clamp { 0% { transform:scale(1, 1); } 30% { transform:scale(1.12, .86); } 100% { transform:scale(1, 1); } }
+@keyframes hp-pump { 0%, 100% { transform:scale(1, 1); } 12% { transform:scale(1.06, .93); } 50% { transform:scale(.98, 1.03); } }
+.is-headphones .hp-chip .nc-hop { --ba:hp-bob 480ms cubic-bezier(.3,0,.7,1) calc(var(--tl) + var(--b-click) + 240ms) infinite both;
+  animation:var(--ba); }
+@keyframes hp-bob { 0%, 100% { transform:translateY(0px); } 50% { transform:translateY(-26px); } }
+.is-headphones .hp-chip .nc-tilt { --ba:hp-sway 960ms ease-in-out calc(var(--tl) + var(--b-groove)) infinite both; animation:var(--ba); }
+@keyframes hp-sway { 0%, 100% { transform:rotate(-6deg); } 50% { transform:rotate(6deg); } }
+
+/* ── the pair on the chip takes over at the click; its cups pulse ── */
+.is-headphones .hp-cans { opacity:1; --ba:bit-show 1ms step-start calc(var(--tl) + var(--b-click)) both; animation:var(--ba); }
+.is-headphones .hp-cans .ng-lights, .is-headphones .hp-cans .ng-pads {
+  --ba:hp-pulse 480ms linear calc(var(--tl) + var(--b-click)) infinite both; animation:var(--ba); }
+@keyframes hp-pulse { 0% { opacity:1; } 30% { opacity:.35; } 60%, 100% { opacity:1; } }
+
+/* ── notes rise off the cups, one after another ── */
+.is-headphones .hp-note { opacity:0;
+  --ba:hp-note 1920ms ease-out calc(var(--tl) + var(--b-notes) + var(--d, 0ms)) infinite both; animation:var(--ba); }
+.is-headphones .hp-note.is-1 { --d:480ms; }
+.is-headphones .hp-note.is-2 { --d:960ms; }
+.is-headphones .hp-note.is-3 { --d:1440ms; }
+@keyframes hp-note { 0% { opacity:0; transform:translate(0px, 0px) rotate(-6deg) scale(.7); } 8% { opacity:1; }
+  14% { opacity:.3; } 20% { opacity:1; } 70% { opacity:1; } 100% { opacity:0; transform:translate(18px, -280px) rotate(10deg) scale(1.05); } }

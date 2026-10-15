@@ -1,0 +1,85 @@
+/* saloon piano (piano.jsx): beats from registry.js (--b-<name>), every
+   animation on --ba, each element resting on its end state. The wind-up
+   holds on --b-hang while the song is on its way (shared/bitMusic.js);
+   the chip treading air at the top of its leap is the one thing that
+   moves then (.bit-hold-loop). The chip lands on the beat from --b-land:
+   820, 940, 1060, 1180, 1060, 940 (piano.jsx PN_STAGE.landings), each
+   480 ms after the last. */
+
+.is-piano .pn { position:absolute; inset:0; }
+
+/* ── the chip: a hop over, a crouch, the leap, the hang, the slam onto
+   the keys, then hopping along them on the beat (x from its rest at 960) ── */
+.is-piano .pn-chip .nc-move { transform:translateX(-20px);
+  --ba:pn-x1 320ms ease-out calc(var(--tl) + var(--b-hop)) both,
+    pn-x2 850ms linear calc(var(--tl) + var(--b-jump)) forwards,
+    pn-x3 2400ms linear calc(var(--tl) + var(--b-land)) forwards; animation:var(--ba); }
+@keyframes pn-x1 { from { transform:translateX(-540px); } to { transform:translateX(-420px); } }
+@keyframes pn-x2 { 0% { transform:translateX(-420px); animation-timing-function:cubic-bezier(.2,.8,.4,1); }
+  53% { transform:translateX(-200px); } 76.5% { transform:translateX(-170px); animation-timing-function:cubic-bezier(.6,0,1,.6); }
+  100% { transform:translateX(-140px); } }
+@keyframes pn-x3 { 0% { transform:translateX(-140px); animation-timing-function:ease-in-out; }
+  20% { transform:translateX(-20px); animation-timing-function:ease-in-out; } 40% { transform:translateX(100px); animation-timing-function:ease-in-out; }
+  60% { transform:translateX(220px); animation-timing-function:ease-in-out; } 80% { transform:translateX(100px); animation-timing-function:ease-in-out; }
+  100% { transform:translateX(-20px); } }
+.is-piano .pn-chip .nc-hop { transform:translateY(-306px);
+  --ba:pn-y1 320ms linear calc(var(--tl) + var(--b-hop)) both,
+    pn-y2 850ms linear calc(var(--tl) + var(--b-jump)) forwards,
+    pn-skip 480ms linear calc(var(--tl) + var(--b-land)) 5 forwards; animation:var(--ba); }
+@keyframes pn-y1 { 0% { transform:translateY(0px); animation-timing-function:cubic-bezier(.2,.7,.4,1); }
+  45% { transform:translateY(-80px); animation-timing-function:cubic-bezier(.6,0,.9,.4); } 100% { transform:translateY(0px); } }
+/* up, hang (a cartoon's beat in the air), and down like a dropped safe */
+@keyframes pn-y2 { 0% { transform:translateY(0px); animation-timing-function:cubic-bezier(.2,.8,.4,1); }
+  53% { transform:translateY(-398px); animation-timing-function:ease-in-out; }
+  76.5% { transform:translateY(-416px); animation-timing-function:cubic-bezier(.65,0,1,.55); } 100% { transform:translateY(-306px); } }
+@keyframes pn-skip { 0% { transform:translateY(-306px); animation-timing-function:cubic-bezier(.2,.7,.4,1); }
+  45% { transform:translateY(-408px); animation-timing-function:cubic-bezier(.6,0,.9,.4); } 100% { transform:translateY(-306px); } }
+.is-piano .pn-chip .nc-body { transform:scale(1, 1);
+  --ba:pn-crouch 200ms ease-out calc(var(--tl) + var(--b-crouch)) both,
+    pn-launch 260ms ease-out calc(var(--tl) + var(--b-jump)) forwards,
+    pn-slam 320ms ease-out calc(var(--tl) + var(--b-land)) forwards,
+    pn-squish 480ms ease-out calc(var(--tl) + var(--b-land) + 480ms) 5 forwards; animation:var(--ba); }
+@keyframes pn-crouch { from { transform:scale(1, 1); } to { transform:scale(1.15, .84); } }
+@keyframes pn-launch { 0% { transform:scale(1.15, .84); } 35% { transform:scale(.86, 1.16); } 100% { transform:scale(1, 1); } }
+@keyframes pn-slam { 0% { transform:scale(1.32, .7); } 40% { transform:scale(.93, 1.07); } 100% { transform:scale(1, 1); } }
+@keyframes pn-squish { 0% { transform:scale(1.14, .86); } 30% { transform:scale(.97, 1.04); } 50%, 100% { transform:scale(1, 1); } }
+/* at the top of the leap it looks down at the keys; on them it sways */
+.is-piano .pn-chip .nc-spin { transform:rotateX(0deg);
+  --ba:pn-look 220ms ease-out calc(var(--tl) + var(--b-apex)) both,
+    pn-unlook 120ms ease-out calc(var(--tl) + var(--b-land)) forwards; animation:var(--ba); }
+@keyframes pn-look { from { transform:rotateX(0deg); } to { transform:rotateX(-26deg); } }
+@keyframes pn-unlook { from { transform:rotateX(-26deg); } to { transform:rotateX(0deg); } }
+.is-piano .pn-chip .nc-tilt { transform:rotate(0deg);
+  --ba:pn-sway 960ms ease-in-out calc(var(--tl) + var(--b-land)) infinite both; animation:var(--ba); }
+@keyframes pn-sway { 0%, 100% { transform:rotate(0deg); } 25% { transform:rotate(6deg); } 75% { transform:rotate(-6deg); } }
+/* its light stays on the floor, a shadow under the leap, till it lands */
+.is-piano .pn-chip .nc-pool { opacity:0; --ba:bit-hide 120ms linear calc(var(--tl) + var(--b-land) - 60ms) both; animation:var(--ba); }
+/* waiting on the speaker: it treads air at the top of its leap */
+.is-piano.is-holding .pn-float { --ba:pn-tread 560ms ease-in-out calc(var(--tl) + 0ms) infinite both; animation:var(--ba); }
+@keyframes pn-tread { 0%, 100% { transform:translateY(0px); } 50% { transform:translateY(-10px); } }
+
+/* ── the keys light under each landing, then go out ── */
+.is-piano .pn-lit { opacity:0; --ba:pn-lit 700ms ease-out calc(var(--tl) + var(--b-land) + var(--d, 0ms)) forwards; animation:var(--ba); }
+.is-piano .pn-lit.is-0 { --ba:pn-lit 900ms ease-out calc(var(--tl) + var(--b-land)) forwards; animation:var(--ba); }
+@keyframes pn-lit { 0% { opacity:1; } 8% { opacity:.6; } 14%, 40% { opacity:1; } 100% { opacity:0; } }
+
+/* ── the mug jumps on every landing ── */
+.is-piano .pn-mug { transform:translateY(0px) rotate(0deg);
+  --ba:pn-mug 480ms linear calc(var(--tl) + var(--b-land)) 6 both; animation:var(--ba); }
+@keyframes pn-mug { 0% { transform:translateY(0px) rotate(0deg); animation-timing-function:cubic-bezier(.2,.8,.4,1); }
+  12% { transform:translateY(-32px) rotate(-7deg); animation-timing-function:cubic-bezier(.6,0,.9,.5); }
+  26% { transform:translateY(0px) rotate(3deg); } 38%, 100% { transform:translateY(0px) rotate(0deg); } }
+
+/* ── notes rise off the lid ── */
+.is-piano .pn-note { opacity:0;
+  --ba:pn-note 1920ms ease-out calc(var(--tl) + var(--b-notes) + var(--d, 0ms)) infinite both; animation:var(--ba); }
+.is-piano .pn-note.is-1 { --d:480ms; }
+.is-piano .pn-note.is-2 { --d:960ms; }
+.is-piano .pn-note.is-3 { --d:1440ms; }
+@keyframes pn-note { 0% { opacity:0; transform:translate(0px, 0px) rotate(-6deg) scale(.7); } 8% { opacity:1; }
+  14% { opacity:.3; } 20% { opacity:1; } 70% { opacity:1; } 100% { opacity:0; transform:translate(30px, -220px) rotate(10deg) scale(1.05); } }
+
+/* ── at the top of the leap: the ticks of a cartoon's "uh-oh" ── */
+.is-piano .pn-alarm { opacity:0;
+  --ba:neon-ignite 220ms linear calc(var(--tl) + var(--b-apex) + 60ms) both, bit-hide 1ms step-start calc(var(--tl) + var(--b-hang) + 40ms) forwards;
+  animation:var(--ba); }

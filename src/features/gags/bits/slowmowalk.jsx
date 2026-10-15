@@ -1,131 +1,99 @@
 import React from "react";
-import { CAST, lineLayout } from "../cast/castGeometry.js";
-import { CastChip } from "../cast/CastChip.jsx";
-import { ChipStack, Fireball, Glint, LooseChip, MuzzleFlash, SmokeCloud, Spark, Sunglasses } from "../props/Props.jsx";
+import { ChipCoin, Neon, NeonChip, useNeonColor } from "../neon/Neon.jsx";
+import { Burst, LooseChip, NeonStack } from "../neon/NeonProps.jsx";
+import { TUBE, circlePath, teamLine } from "../neon/neonArt.js";
 import { bitById } from "./registry.js";
 import "./slowmowalk.css";
 
-/* slowmowalk (team, versus, action): the trailer shot, for a whole side.
-   The underdogs walk toward us in a line abreast, in slow motion, every
-   one in dark glasses, every one stepping. Behind them, small and far on
-   the horizon, stand the favorites' chip stacks, one each in its owner's
-   color. They go up one after another along the horizon: a flash, a
-   fireball, smoke, that player's chips flung into the sky. All but one.
-   The walkers stop close. A beat. A spark fizzes on the last stack. It
-   goes up, the biggest of them. Nobody turns round. A glint runs along
-   the line of lenses.
+const SW = bitById("slowmowalk").beats;
 
-   Each walker is its own node, scaled about its own feet as it comes
-   down the floor, so the line's gaps stay where they are and each glove
-   stays its owner's; the stacks stand in those gaps (then just past the
-   ends, then behind a walker if the favorites outnumber them), so the
-   far horizon shows between the walkers. The chain runs over a fixed
-   span whatever the count (the cues are static). Anchors: mid, minX,
-   maxX (the line at its stop) and late (the last stack). */
-const SM = bitById("slowmowalk").beats;
-export const SM_STAGE = Object.freeze({ x:960, floor:CAST.floor, horizon:856, from:Object.freeze({ dy:-36, s:0.6 }), zoom:1.4 });
+/* slowmowalk (team versus, punchline): the underdogs (a) walk toward us
+   abreast in slow motion, a slow bob and sway, growing as they come.
+   Behind them, small on the horizon, stand the favorites' (b) chip
+   stacks, each in its owner's color with their chip on top. They go up
+   one after another, left to right, in neon fireballs, the chips flung
+   into the sky. The walkers stop close; the biggest stack, in the middle
+   behind them, goes up last (the song). Nobody turns round.
+
+   The six small blasts sit on the beat the kit's far blasts land on
+   (bitBoomChain: the first at `first`, the rest every BLAST_MS), so the
+   horizon is always seven stacks, the favorites owning them in turn. */
+export const SW_STAGE = Object.freeze({ mid:960, floor:930, horizon:792, far:0.54, rise:-84, spread:600, blastMs:280 });
+/* the horizon's stacks, left to right as they go up: [x across the
+   spread, chips high, scale]; the big one last, in the middle */
+const STACKS = [[-0.98, 7, 0.4], [-0.7, 9, 0.36], [-0.42, 6, 0.42], [0.42, 8, 0.38], [0.7, 6, 0.4], [0.98, 9, 0.36], [0, 16, 0.66]];
+/* where each stack's flung chips land, relative to it (x, peak, spin) */
+const FLING = [[-170, -300, -420], [150, -360, 380], [-60, -420, 260]];
 
 const px = n => `${Math.round(n * 10) / 10}px`;
+const ms = n => `${Math.round(n)}ms`;
 
-/* the line, the stacks' places on the horizon and when each goes up */
-export function slowmoStaging(cast) {
-  const players = cast?.a || [], beaten = cast?.b || [];
-  const line = lineLayout(Math.max(1, players.length));
-  const xs = line.xs.map(x => SM_STAGE.x + x);
-  const minX = SM_STAGE.x - line.half, maxX = SM_STAGE.x + line.half;
-  /* the camera's widest at its base zoom: places past the line's ends
-     are used only where that shot still holds them */
-  const span = maxX - minX;
-  const zoom = Math.min(SM_STAGE.zoom, (1920 - 128) / Math.max(1, span));
-  const reach = 960 / zoom - 60;
-  const gaps = xs.slice(1).map((x, i) => (x + xs[i]) / 2);
-  const ends = [xs[0] - line.step / 2, xs[xs.length - 1] + line.step / 2].filter(x => Math.abs(x - SM_STAGE.x) <= reach);
-  const open = [...gaps, ...ends].sort((p, q) => p - q);
-  const n = beaten.length;
-  let places;
-  if (n <= open.length) places = Array.from({ length:n }, (_, j) => open[Math.floor((j + 0.5) * open.length / n)]);
-  else {
-    /* more favorites than gaps: the rest stand behind a walker (their
-       fire still climbs over the heads) */
-    const extra = n - open.length;
-    places = [...open, ...Array.from({ length:extra }, (_, j) => xs[Math.floor((j + 0.5) * xs.length / extra)])];
-  }
-  places = places.sort((p, q) => p - q).map(Math.round);
-  /* the last to go: the place nearest the middle, in a gap if it can */
-  let late = 0;
-  places.forEach((x, i) => { if (Math.abs(x - SM_STAGE.x) < Math.abs(places[late] - SM_STAGE.x)) late = i; });
-  const chain = places.map((x, i) => i).filter(i => i !== late);
-  const times = places.map(() => SM.late);
-  chain.forEach((i, j) => { times[i] = Math.round(SM.boom + (chain.length > 1 ? j * (SM.last - SM.boom) / (chain.length - 1) : 0)); });
-  const stacks = places.map((x, i) => ({ player:beaten[i], x, t:times[i], late:n > 0 && i === late }));
-  return { line, xs, minX:Math.round(minX), maxX:Math.round(maxX), mid:SM_STAGE.x, stacks, lateX:places[late] ?? SM_STAGE.x };
+export function slowmoStaging(na = 2) {
+  const line = teamLine(Math.max(1, Math.min(7, na)));
+  const { mid, spread } = SW_STAGE;
+  return { ...line, xs:line.xs.map(x => mid + x), minX:Math.round(mid - Math.max(line.half, spread * 0.9) - 40),
+    maxX:Math.round(mid + Math.max(line.half, spread * 0.9) + 40) };
 }
 
-/* a stack's chips flung into the sky: [dx, dy, turn] at the top of the arc */
-const FLUNG = Object.freeze([[-70, -250, 300], [30, -330, -380], [96, -210, 260], [-130, -170, -220], [150, -300, 340]]);
-
-function Blast({ player, x, t, late, width }) {
-  const fire = late ? 1.25 : 0.72;
-  const chips = late ? FLUNG : FLUNG.slice(0, 3);
-  const chip = Math.round(width * (late ? 0.62 : 0.5));
+function Stack({ owner, x, y, chips, scale, big, at, i }) {
+  const color = useNeonColor(owner);
+  const thick = 18, width = 150;
+  const h = chips * thick;
   return (
-    <span className={`sm-node sm-blast${late ? " is-late" : ""}`} data-player={player} style={{ left:x, top:SM_STAGE.horizon, "--t":`${t}ms` }}>
-      <span className="sm-node sm-smoke" style={{ top:-60 * fire }}><SmokeCloud scale={(late ? 0.95 : 0.78) * fire} fire /></span>
-      <span className="sm-node sm-fire" style={{ top:-70 * fire }}>
-        <span className="sm-node sm-boil"><Fireball scale={fire} /></span>
-      </span>
-      <span className="sm-node sm-stack"><span className="sm-node" style={{ transform:`scale(${width / 150})` }}>
-        <ChipStack player={player} count={9} />
-      </span></span>
-      {late && <span className="sm-node sm-spark" style={{ top:-9 * 17 * width / 150 - 14 }}>
-        <span className="sm-node sm-fizz"><Spark scale={0.9} /></span>
-      </span>}
-      {chips.map(([dx, dy, turn], i) => (
-        <span key={i} className="sm-node sm-flung" style={{ top:-40, "--dx":px(dx * fire), "--dy":px(dy * fire), "--turn":`${turn}deg`, "--i":i }}>
-          <span className="sm-node sm-flung-turn"><LooseChip player={player} size={chip} /></span>
+    <span className={`neon-node sw-s${big ? " is-big" : ""}`} style={{ left:x, top:y, "--neon-player":color, "--t":ms(at), "--j":i }}>
+      <span className="neon-node" style={{ transform:`scale(${scale})` }}>
+        <span className="neon-node sw-stack"><NeonStack count={chips} width={width} thick={thick} top="player" /></span>
+        {/* the owner's chip on top, flung off when it goes */}
+        <span className="neon-node sw-coin" style={{ top:-h - 50, "--fx":px(FLING[i % 3][0] * 0.5), "--fy":px(-260 - (big ? 260 : 0)) }}>
+          <span className="neon-node sw-coin-spin"><ChipCoin player={owner} size={88} /></span>
         </span>
-      ))}
-      <span className="sm-node sm-flash" style={{ top:-50 * fire }}><MuzzleFlash scale={2.4 * fire} /></span>
+        {big && <span className="neon-node sw-fuse" style={{ left:70, top:-h - 6 }}><Burst n={8} r0={8} r1={34} tone="amber" /></span>}
+        {/* the blast: a flash ring, a fireball of spokes, smoke going up */}
+        <span className="neon-node sw-boom" style={{ top:-h * 0.6 }}>
+          <span className="neon-node sw-ring"><Neon box={[-140, -140, 280, 280]} tubes={[{ d:circlePath(0, 0, 120), tone:"ember", w:TUBE.w }]} /></span>
+          <span className="neon-node sw-fire"><Burst n={12} r0={50} r1={170} tone="ember" /></span>
+          <span className="neon-node sw-fire is-in"><Burst n={9} r0={24} r1={110} tone="amber" turn={20} /></span>
+          {[0, 1].map(k => <span key={k} className={`neon-node sw-smoke is-${k}`} style={{ left:(k - 0.5) * 90, "--k":k }}>
+            <Neon box={[-90, -90, 180, 180]} tubes={[{ d:circlePath(0, 0, 60 + k * 14), tone:"bone", w:TUBE.thin }]} /></span>)}
+        </span>
+        {/* chips flung out */}
+        {FLING.slice(0, big ? 3 : 2).map(([fx, fy, spin], k) => (
+          <span key={k} className="neon-node sw-fling" style={{ top:-h * 0.7, "--fx":px(fx * (big ? 1.4 : 1)), "--fy":px(fy * (big ? 1.3 : 1)),
+            "--fs":`${spin}deg`, "--k":k }}><LooseChip width={110} thick={16} tone="player" /></span>
+        ))}
+      </span>
     </span>
   );
 }
 
-export function Slowmowalk({ cast }) {
-  const players = cast?.a || [];
-  if (!players.length) return null;
-  const s = slowmoStaging(cast);
-  const { line } = s;
-  const size = line.size, sk = size / CAST.size;
-  const width = Math.round(Math.max(48, Math.min(80, size * 0.38)));
-  const shown = players.slice(0, line.shown);
-  const glintStep = shown.length > 1 ? 360 / (shown.length - 1) : 0;
-  const style = { "--from":`translateY(${px(SM_STAGE.from.dy)}) scale(${SM_STAGE.from.s})`, "--bob":px(-size * 0.075) };
+export function SlowmoWalk({ cast }) {
+  const a = (cast?.a || []).slice(0, 7), b = (cast?.b || []).slice(0, 7);
+  if (!a.length || !b.length) return null;
+  const s = slowmoStaging(a.length);
+  const { mid, floor, horizon, far, rise, spread, blastMs } = SW_STAGE;
   return (
-    <div className="sm" style={style}>
-      {/* far off on the horizon: the favorites' stacks */}
-      <div className="sm-far">
-        {s.stacks.map(stack => <Blast key={stack.player || stack.x} {...stack} width={width} />)}
-      </div>
-      {/* the line abreast, each walker its own node, coming down the floor */}
-      {shown.map((player, i) => (
-        <span key={player} className="sm-node sm-walk" style={{ left:s.xs[i], top:SM_STAGE.floor }}>
-          <CastChip player={player} size={size} x={0} y={0} facing={0} className="sm-walker" hands={{ l:"rest", r:"rest" }}
-            wear={<span className="sm-node" style={{ left:size / 2, top:size * 0.45 }}>
-              <Sunglasses scale={sk} />
-              <span className="sm-node sm-glint" style={{ left:-38 * sk, top:-4 * sk, "--g":`${Math.round(SM.glint + i * glintStep)}ms` }}>
-                <Glint scale={0.85 * sk} />
-              </span>
-            </span>} />
-        </span>
-      ))}
-      {line.more > 0 && <span className="cast-more" style={{ left:s.maxX + 16, top:SM_STAGE.floor - size * 0.6 }}>
-        <span className="cast-more-in fd-show" style={{ transform:"translate(0%, -50%)" }}>{`+${line.more}`}</span>
-      </span>}
+    <div className="sw" style={{ "--sw-bob":px(-s.size * 0.09) }}>
+      {/* the horizon: seven stacks, the favorites' in turn, the big one in the middle */}
+      {STACKS.map(([u, chips, scale], j) => {
+        const big = j === STACKS.length - 1;
+        return <Stack key={j} owner={b[big ? 0 : (j + 1) % b.length]} x={Math.round(mid + u * spread)} y={horizon} chips={chips}
+          scale={scale} big={big} i={j} at={big ? SW.boom - SW.first : j * blastMs} />;
+      })}
+      {/* the walkers, coming toward us; the middle ones in front */}
+      {a.map((player, k) => ({ player, k, x:s.xs[k] }))
+        .sort((p, q) => Math.abs(q.x - mid) - Math.abs(p.x - mid))
+        .map(({ player, k, x }) => (
+          <span key={player} className="neon-node sw-walk" style={{ left:x, top:floor,
+            "--sw-from":`translate(${px((x - mid) * (far - 1))}, ${px(rise)}) scale(${far})`, "--i":k }}>
+            <NeonChip player={player} size={s.size} x={0} y={0} className="sw-a" style={{ "--i":k }} />
+          </span>
+        ))}
     </div>
   );
 }
 
-Slowmowalk.anchors = cast => {
-  const s = slowmoStaging(cast);
-  return { mid:s.mid, minX:s.minX, maxX:s.maxX, late:s.lateX };
+/* the camera's anchors: the walkers where they stop, and the horizon */
+SlowmoWalk.anchors = cast => {
+  const s = slowmoStaging(Math.min(7, cast?.a?.length || 1));
+  return { minX:s.minX, maxX:s.maxX, mid:SW_STAGE.mid };
 };

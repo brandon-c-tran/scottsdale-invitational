@@ -1,4 +1,4 @@
-/* Gags (Oct 8; the bits since Oct 10, src/features/gags/): the TV's comic
+/* Gags (Oct 8; the bits since Oct 10, neon since Oct 14, src/features/gags/): the TV's comic
    moments. What the Worker needs of them: the shapes a moment comes in,
    each shape's bits (the registry, src/features/gags/bits/registry.js,
    holds their drawings and timings; tests/gags.test.mjs holds the lists
@@ -12,12 +12,13 @@ import { computeStandings } from "./core.js";
 export const GAG_SHAPES = Object.freeze(["versus", "win", "loss"]);
 /* each shape's bits, in the registry's order */
 export const GAG_BITS = Object.freeze({
-  versus:Object.freeze(["quickdraw", "springglove", "butte", "dominoes", "tugofwar", "slowmowalk"]),
-  win:Object.freeze(["explosionwalk", "toohype", "sunset", "statue", "pyramid", "teamphoto", "victorylap"]),
-  loss:Object.freeze(["anvil", "roadrunner", "dontlookback", "quicksand", "dynamite", "vulture"]),
+  versus:Object.freeze(["standoff", "flipper", "rockslide", "dominoes", "tugofwar", "slowmowalk"]),
+  win:Object.freeze(["headphones", "needledrop", "disco", "jukebox", "lowrider", "piano", "sunset", "statue", "victoryspin",
+    "fireworks", "pyramid", "teamphoto", "victorylap"]),
+  loss:Object.freeze(["anvil", "roadrunner", "quicksand", "dynamite", "vulture", "rake", "needlescratch"]),
 });
-/* the team bits (Oct 12): a side of 3 or more (the registry's TEAM_MIN),
-   cast with a whole team */
+/* the team bits (Oct 12; the neon catalog's since Oct 14): a side of 2 or
+   more (the registry's TEAM_MIN), cast with a whole team */
 export const GAG_TEAM_BITS = Object.freeze(["dominoes", "tugofwar", "slowmowalk", "pyramid", "teamphoto", "victorylap"]);
 export const GAG_TEAM_MAX = 7;
 export const gagShapeOf = bit => GAG_SHAPES.find(shape => GAG_BITS[shape].includes(bit)) || null;

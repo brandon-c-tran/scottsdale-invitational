@@ -1,0 +1,89 @@
+/* coinspin (coinspin.jsx): beats from registry.js (--b-<name>), every
+   animation on --ba, each element resting on its end state. A run of
+   moves on one property: the first fills both ways, the rest forwards.
+   The camera and the shakes are the stage's. A spin is rotateY on
+   .nc-spin (whole turns, so it ends square to the room), a wobble is
+   .nc-tilt, going down flat is rotateX on .nc-body. */
+
+.is-coinspin .cs { position:absolute; inset:0; }
+.is-coinspin .cs-chip .nc-hop { perspective:900px; }
+.is-coinspin .cs-chip.is-a { --dir:1; }
+.is-coinspin .cs-chip.is-b { --dir:-1; }
+
+/* ── the wind-up and the spin ── */
+.is-coinspin .cs-chip.is-a .nc-spin { transform:rotateY(3600deg);
+  --ba:cs-wind 300ms cubic-bezier(.3,0,.4,1) calc(var(--tl) + var(--b-wind)) both,
+    cs-spin-a 2900ms cubic-bezier(.3,.42,.5,1) calc(var(--tl) + var(--b-spin)) forwards; animation:var(--ba); }
+.is-coinspin .cs-chip.is-b .nc-spin { transform:rotateY(6120deg);
+  --ba:cs-wind 300ms cubic-bezier(.3,0,.4,1) calc(var(--tl) + var(--b-wind)) both,
+    cs-spin-b 4100ms linear calc(var(--tl) + var(--b-spin)) forwards,
+    cs-stop-b 950ms cubic-bezier(.35,.5,.5,1) calc(var(--tl) + var(--b-slowB)) forwards; animation:var(--ba); }
+@keyframes cs-wind { from { transform:rotateY(0deg); } to { transform:rotateY(-55deg); } }
+@keyframes cs-spin-a { from { transform:rotateY(-55deg); } to { transform:rotateY(3600deg); } }
+@keyframes cs-spin-b { from { transform:rotateY(-55deg); } to { transform:rotateY(5345deg); } }
+@keyframes cs-stop-b { from { transform:rotateY(5345deg); } to { transform:rotateY(6120deg); } }
+
+/* ── leans and wobbles: sizing up, the slowing coin's wobble ── */
+.is-coinspin .cs-chip.is-a .nc-tilt { transform:rotate(0deg);
+  --ba:cs-eye 900ms ease-in-out calc(var(--tl) + var(--b-eye)) both,
+    cs-wobble-a 1250ms linear calc(var(--tl) + var(--b-wobbleA)) forwards; animation:var(--ba); }
+.is-coinspin .cs-chip.is-b .nc-tilt { transform:rotate(0deg);
+  --ba:cs-eye 900ms ease-in-out calc(var(--tl) + var(--b-eye)) both,
+    cs-wobble-b 900ms linear calc(var(--tl) + var(--b-slowB) + 200ms) forwards; animation:var(--ba); }
+@keyframes cs-eye { 0%, 100% { transform:rotate(0deg); } 30%, 70% { transform:rotate(calc(var(--dir) * 9deg)); } }
+/* wider and slower as it dies: wa, wa, waaa */
+@keyframes cs-wobble-a { 0% { transform:rotate(0deg); } 8% { transform:rotate(3deg); } 18% { transform:rotate(-4deg); }
+  30% { transform:rotate(6deg); } 44% { transform:rotate(-8deg); } 60% { transform:rotate(11deg); } 78% { transform:rotate(-13deg); }
+  100% { transform:rotate(0deg); } }
+@keyframes cs-wobble-b { 0% { transform:rotate(0deg); } 25% { transform:rotate(-3deg); } 55% { transform:rotate(4deg); }
+  80% { transform:rotate(-2deg); } 100% { transform:rotate(0deg); } }
+
+/* ── going down: A flat on its back, rattling out; B squashes on the
+   wind-up, bows, and the bow takes it over onto its face ── */
+.is-coinspin .cs-chip.is-a .nc-body { transform:scale(1, 1) rotateX(82deg);
+  --ba:cs-crouch 300ms ease-out calc(var(--tl) + var(--b-wind)) both,
+    cs-release 260ms ease-out calc(var(--tl) + var(--b-spin)) forwards,
+    cs-fall-back 240ms cubic-bezier(.5,0,.9,.4) calc(var(--tl) + var(--b-fallA)) forwards,
+    cs-rattle-back 900ms ease-out calc(var(--tl) + var(--b-fallA) + 240ms) forwards; animation:var(--ba); }
+.is-coinspin .cs-chip.is-b .nc-body { transform:scale(1, 1) rotateX(-82deg);
+  --ba:cs-crouch 300ms ease-out calc(var(--tl) + var(--b-wind)) both,
+    cs-release 260ms ease-out calc(var(--tl) + var(--b-spin)) forwards,
+    cs-bow 420ms cubic-bezier(.45,0,.35,1) calc(var(--tl) + var(--b-bow)) forwards,
+    cs-topple 300ms cubic-bezier(.5,0,.9,.4) calc(var(--tl) + var(--b-topple)) forwards,
+    cs-rattle-face 900ms ease-out calc(var(--tl) + var(--b-topple) + 300ms) forwards; animation:var(--ba); }
+@keyframes cs-crouch { from { transform:scale(1, 1) rotateX(0deg); } to { transform:scale(1.08, .9) rotateX(0deg); } }
+@keyframes cs-release { 0% { transform:scale(1.08, .9) rotateX(0deg); } 40% { transform:scale(.95, 1.06) rotateX(0deg); }
+  100% { transform:scale(1, 1) rotateX(0deg); } }
+@keyframes cs-fall-back { from { transform:scale(1, 1) rotateX(0deg); } to { transform:scale(1, 1) rotateX(82deg); } }
+@keyframes cs-rattle-back { 0% { transform:scale(1, 1) rotateX(82deg); } 15% { transform:scale(1, 1) rotateX(72deg); }
+  30% { transform:scale(1, 1) rotateX(82deg); } 45% { transform:scale(1, 1) rotateX(76deg); } 60% { transform:scale(1, 1) rotateX(82deg); }
+  75% { transform:scale(1, 1) rotateX(80deg); } 100% { transform:scale(1, 1) rotateX(82deg); } }
+/* a bow: forward and held, a beat, then it keeps going */
+@keyframes cs-bow { 0% { transform:scale(1, 1) rotateX(0deg); } 60%, 100% { transform:scale(1, 1) rotateX(-34deg); } }
+@keyframes cs-topple { from { transform:scale(1, 1) rotateX(-34deg); } to { transform:scale(1, 1) rotateX(-82deg); } }
+@keyframes cs-rattle-face { 0% { transform:scale(1, 1) rotateX(-82deg); } 15% { transform:scale(1, 1) rotateX(-72deg); }
+  30% { transform:scale(1, 1) rotateX(-82deg); } 45% { transform:scale(1, 1) rotateX(-77deg); } 60% { transform:scale(1, 1) rotateX(-82deg); }
+  100% { transform:scale(1, 1) rotateX(-82deg); } }
+
+/* ── B, smug: a couple of little hops while it spins, drifting over ── */
+.is-coinspin .cs-chip.is-b .nc-hop { transform:translateY(0px);
+  --ba:cs-smug 640ms linear calc(var(--tl) + var(--b-smug)) both; animation:var(--ba); }
+@keyframes cs-smug { 0%, 50%, 100% { transform:translateY(0px); animation-timing-function:cubic-bezier(.2,.7,.4,1); }
+  25%, 75% { transform:translateY(-30px); animation-timing-function:cubic-bezier(.6,0,.9,.5); } }
+.is-coinspin .cs-chip.is-b .nc-move { transform:translateX(-70px);
+  --ba:cs-drift 1200ms cubic-bezier(.45,0,.55,1) calc(var(--tl) + var(--b-smug) - 300ms) both; animation:var(--ba); }
+@keyframes cs-drift { from { transform:translateX(0px); } to { transform:translateX(-70px); } }
+
+/* ── sparks off the rims while they spin, out as each slows ── */
+.is-coinspin .cs-sparks { opacity:0; }
+.is-coinspin .cs-chip.is-a .cs-sparks { --ba:bit-show 1ms step-start calc(var(--tl) + var(--b-spin)) both,
+  neon-die 400ms linear calc(var(--tl) + var(--b-wobbleA) + 300ms) forwards; animation:var(--ba); }
+.is-coinspin .cs-chip.is-b .cs-sparks { --ba:bit-show 1ms step-start calc(var(--tl) + var(--b-spin)) both,
+  neon-die 400ms linear calc(var(--tl) + var(--b-slowB) + 200ms) forwards; animation:var(--ba); }
+.is-coinspin .cs-spark { --ba:cs-spark 150ms linear calc(var(--tl) + var(--d, 0ms)) infinite both; animation:var(--ba); }
+.is-coinspin .cs-spark.is-r { --d:-70ms; }
+.is-coinspin .cs-chip.is-b .cs-spark.is-l { --d:-40ms; }
+@keyframes cs-spark { 0% { opacity:1; transform:translate(0px, 0px) rotate(0deg) scale(.6); }
+  50% { opacity:.9; transform:translate(calc(var(--sx, -1) * 16px), -14px) rotate(22deg) scale(1.1); }
+  100% { opacity:0; transform:translate(calc(var(--sx, -1) * 30px), -6px) rotate(45deg) scale(1.2); } }
+.is-coinspin .cs-spark.is-r { --sx:1; }

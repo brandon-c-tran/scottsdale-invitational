@@ -19,17 +19,24 @@
    advance moment (decidedAt + TV_ADVANCE_MS); a posted result (a
    free-for-all's, or the final whose winner tap posted it in the same
    write) plays over its podium once 1st has stood, lifting off as the
-   towers re-sort (resultGagAt). When that write's win song walks out
-   first, the bit plays once the walkout has left (moments/walkout.js
-   walkoutSpan, the window the TV's walkout plays in). The next contest's
-   face-off waits for a contest's bit (gagHoldMs, faceOff.js). Only the
-   newest write plays, and only until the next lifecycle write. Never with
-   Gags off (state.gagsOff), on a frozen board, at the poker table, or
-   under any other walkout. The QA console's test (state.gagTest) plays
-   its bit on the TVs with a stand-in cast (shared/gags.js).
+   towers re-sort (resultGagAt). The bit plays AT the moment (Oct 14):
+   the write's win song comes in on a beat of it (shared/bitMusic.js, the
+   Worker times it from this same model) or, for a songless bit, after it.
+   A music bit holds its wind-up while the song is on its way (gagSong:
+   the Worker's cue, then the walkout that carries the bit), which moves
+   its second clock (`origin`) and its window's end. A loss whose write
+   finds a win song still playing may cut it (needle scratch: the song log
+   in showControl.audio.songs says which moments had one). The next
+   contest's face-off waits for a contest's bit (gagHoldMs, faceOff.js).
+   Only the newest write plays, and only until the next lifecycle write.
+   Never with Gags off (state.gagsOff), on a frozen board, at the poker
+   table, or under another win song's walkout. The QA console's test
+   (state.gagTest) plays its bit on the TVs with a stand-in cast
+   (shared/gags.js).
 
    Pure: nothing here reads a clock beyond the `now` it is handed, or
-   writes state. */
+   writes state. The Worker imports it (worker/tournament.js), so its
+   imports stay free of React and the DOM (tests/gags.test.mjs scans). */
 
 import {
   START, ROSTER, rosterOf, allEventsOf, contestStackOf, contestUpset, disp, priceText, resolveSlot, stageEntrantView, stageFinalists, teamLabel,
@@ -40,7 +47,9 @@ import { floodColor } from "../identity/chipInk.js";
 import { resolvePlayerIdentity } from "../identity/playerIdentity.js";
 import { eventRow } from "../profile/seasonStats.js";
 import { chipWrites } from "../results/weekendFacts.js";
-import { WALKOUT_CLEAR_MS, walkoutForWrite, walkoutSpan } from "../moments/walkout.js";
+import { walkoutSpan } from "../moments/walkoutModel.js";
+import { songCueOf, songLogOf, songPlayingAt, walkoutOf } from "../../../shared/audio.js";
+import { bitOrigin } from "../../../shared/bitMusic.js";
 import { RESULT_PODIUM_BEATS_MS, RESULT_SORT_DELAY_MS, RESULT_STANDINGS_AT_MS, TV_ADVANCE_MS, lastLifecycleWrite }
   from "../tv/tvModel.js";
 
@@ -65,6 +74,9 @@ export const resultGagAt = ms => Math.max(RESULT_GAG_AT_MS, RESULT_GAG_END_MS - 
 export const GAG_TEST_LEAD_MS = 300;
 /* a final and the result it posted are one write */
 const SAME_WRITE_MS = 2000;
+/* a loss may cut a win song only when one plays from its write on for at
+   least this long (it outlasts the bit's way to its cut) */
+export const SCRATCH_RUNWAY_MS = 4000;
 
 const known = value => value !== null && value !== undefined;
 const postedAt = res => Number(res?.confirmedAt || res?.ts) || 0;
@@ -340,6 +352,7 @@ export function momentLog(state, events = allEventsOf(state)) {
   const steps = winStreaks(state, events);
   if (!steps.length) return [];
   const history = boardHistory(state, events);
+  const songs = songLogOf(state);
   const played = {};
   return steps.map(step => {
     const found = triggerOf(state, step, history);
@@ -348,7 +361,9 @@ export function momentLog(state, events = allEventsOf(state)) {
     const sides = { a:found.players || [], b:shape === "versus" ? found.beaten || [] : [] };
     const key = poolKey(shape, sides);
     const ran = played[key] || (played[key] = []);
-    const bit = pickBit(shape, step.write.key, recentFor(ran, poolOf(shape, sides).length), sides);
+    /* a loss written while a win song plays may cut it (needle scratch) */
+    const when = { songPlaying:shape === "loss" && songPlayingAt(songs, step.write.at, SCRATCH_RUNWAY_MS) };
+    const bit = pickBit(shape, step.write.key, recentFor(ran, poolOf(shape, sides).length), sides, when);
     if (!bit) return { ...step, moment:null };
     ran.push(bit.id);
     return { ...step, moment:{ ...found, shape, bit:bit.id, ms:bit.span } };
@@ -358,14 +373,24 @@ export function momentLog(state, events = allEventsOf(state)) {
 /* ── when ── */
 
 /* When a write's moment starts: after a contest's advance moment, or over
-   its result's podium (resultGagAt, by the bit's length). `walkout` is the
-   win song that write started (walkoutForWrite): one that began before
-   then has the room first, and the bit plays WALKOUT_CLEAR_MS after it
-   leaves. A song that began after (a slow speaker) finds the bit on the
-   TV, and the bit gives way to it (walkoutHolds), never to play again. */
-export function gagStartOf(write, walkout = null, ms = 0) {
-  const start = write.type === "result" ? write.at + resultGagAt(ms) : write.at + TV_ADVANCE_MS;
-  return walkout && walkout.startedAt < start ? Math.max(start, walkout.end + WALKOUT_CLEAR_MS) : start;
+   its result's podium (resultGagAt, by the bit's length). The bit plays
+   at the moment; the write's win song meets it on its beat (Oct 14). */
+export function gagStartOf(write, ms = 0) {
+  return write.type === "result" ? write.at + resultGagAt(ms) : write.at + TV_ADVANCE_MS;
+}
+
+/* The win song on a moment's beat (shared/bitMusic.js), from the record:
+     none     no song is coming on it (no Spotify, a songless bit, a miss)
+     pending  the Worker means to play it (showControl.audio.cue) and the
+              speaker has not taken it yet: a music bit holds its wind-up
+     set      the walkout that plays it carries the moment (walkout.bit)
+              and when the room hears it (audibleAt) */
+export function gagSong(state, gagId) {
+  if (!gagId) return { status:"none" };
+  const walkout = walkoutOf(state);
+  if (walkout?.bit === gagId && Number.isFinite(Number(walkout.audibleAt))) return { status:"set", audibleAt:Number(walkout.audibleAt) };
+  const cue = songCueOf(state);
+  return cue?.gag === gagId ? { status:"pending", at:cue.at } : { status:"none" };
 }
 
 /* the players a write's win went to, whose win song it can start */
@@ -375,16 +400,22 @@ export const winnersOf = (state, write) => winnerSide(state, write)?.players || 
    the room: the moment is skipped, never queued. */
 export const walkoutHolds = (span, gag) => !!span && !!gag && span.anchor < gag.end && span.end > gag.start;
 
-const windowed = (gag, start) => ({ ...gag, start, end:start + gag.ms });
+/* a moment's window: from its start until its bit has run its span on its
+   second clock (a music bit held for its song ends that much later, one
+   whose song came early that much sooner) */
+export function gagWindow(gag, start, song = { status:"none" }) {
+  const origin = bitOrigin(bitById(gag.bit), start, song);
+  return { ...gag, start, origin, song, end:origin + gag.ms };
+}
 
-/* a logged moment with its window: after its own win song when that
-   walked out first, else where gagStartOf puts it */
+/* a logged moment with its window, where gagStartOf puts it, and the win
+   song on its beat */
 function gagView(state, events, step) {
   const { write, moment } = step;
   if (!moment) return null;
-  const own = walkoutForWrite(state, events, { at:write.at, players:winnersOf(state, write) });
-  return windowed({ ...moment, id:`${write.key}:${moment.trigger}`, write:write.key, evId:write.ev.id, at:write.at },
-    gagStartOf(write, own, moment.ms));
+  const id = `${write.key}:${moment.trigger}`;
+  return gagWindow({ ...moment, id, write:write.key, evId:write.ev.id, at:write.at, winners:winnersOf(state, write) },
+    gagStartOf(write, moment.ms), gagSong(state, id));
 }
 
 /* The moment the newest write owes the room, with its window, or null. A
@@ -419,13 +450,12 @@ export function testGag(state, events = allEventsOf(state)) {
   const beaten = (Array.isArray(test.beaten) ? test.beaten : []).filter(player => typeof player === "string" && player);
   const bit = named || pickBit(test.shape, `test:${at}`, [], { a:players, b:test.shape === "versus" ? beaten : [] });
   if (!bit) return null;
-  /* a team bit plays its whole team (the board's, qaGag); a solo bit its lead, or a pair as
-     a doubles side plays it (a rehearsal's; the console's own test is one a side) */
+  /* a team bit plays its whole team (the board's, qaGag); a solo bit its lead */
   const team = isTeamBit(bit);
-  const side = team ? players.slice(0, TEAM_MAX) : players.slice(0, players.length === 2 ? 2 : 1);
-  const view = windowed({ id:`test:${at}:${bit.id}`, write:`test:${at}`, test:true, at, trigger:null, shape:test.shape,
+  const side = team ? players.slice(0, TEAM_MAX) : players.slice(0, 1);
+  const view = gagWindow({ id:`test:${at}:${bit.id}`, write:`test:${at}`, test:true, at, trigger:null, shape:test.shape,
     bit:bit.id, ms:bit.span, players:side,
-    beaten:test.shape !== "versus" ? [] : team ? beaten.slice(0, TEAM_MAX) : beaten.slice(0, beaten.length === 2 ? 2 : 1),
+    beaten:test.shape !== "versus" ? [] : team ? beaten.slice(0, TEAM_MAX) : beaten.slice(0, 1),
     name:team ? teamLabel(state, { players:side }) : disp(state, players[0]), fact:TEST_FACT[test.shape] }, at + GAG_TEST_LEAD_MS);
   return walkoutHolds(walkoutSpan(state, events), view) ? null : view;
 }

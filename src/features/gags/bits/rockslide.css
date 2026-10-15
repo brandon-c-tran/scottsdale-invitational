@@ -1,0 +1,111 @@
+/* rockslide (rockslide.jsx): beats from registry.js (--b-<name>), every
+   animation on --ba, each element resting on its end state. A run of
+   moves on one property: the first fills both ways, the rest forwards.
+   The camera, the shakes and the white frame on the landing are the
+   stage's. */
+
+.is-rockslide .rks { position:absolute; inset:0; }
+
+/* ── A on top: tips forward to look down at B; the nudge (a hop into
+   the boulder); then scoots out to the edge, tips forward over it to
+   look, and gives one small hop ── */
+.is-rockslide .rks-a { z-index:2; }
+.is-rockslide .rks-a .nc-hop { perspective:900px;
+  --ba:rks-hop 240ms ease-in-out calc(var(--tl) + var(--b-shrug)) both; animation:var(--ba); }
+@keyframes rks-hop { 0%, 100% { transform:translateY(0px); } 45% { transform:translateY(-26px); } }
+.is-rockslide .rks-a .nc-spin { transform:rotateX(-34deg);
+  --ba:rks-look 300ms ease-in-out calc(var(--tl) + var(--b-look)) both,
+    rks-unlook 240ms ease-in-out calc(var(--tl) + var(--b-look) + 640ms) forwards,
+    rks-look 300ms cubic-bezier(.3,0,.3,1) calc(var(--tl) + var(--b-peek) + 300ms) forwards; animation:var(--ba); }
+@keyframes rks-look { from { transform:rotateX(0deg); } to { transform:rotateX(-34deg); } }
+@keyframes rks-unlook { from { transform:rotateX(-34deg); } to { transform:rotateX(0deg); } }
+.is-rockslide .rks-a .nc-tilt { transform:rotate(12deg);
+  --ba:rks-lean 300ms ease-in-out calc(var(--tl) + var(--b-look)) both,
+    rks-unlean 240ms ease-in-out calc(var(--tl) + var(--b-look) + 640ms) forwards,
+    rks-lean 300ms cubic-bezier(.3,0,.3,1) calc(var(--tl) + var(--b-peek) + 300ms) forwards; animation:var(--ba); }
+@keyframes rks-lean { from { transform:rotate(0deg); } to { transform:rotate(12deg); } }
+@keyframes rks-unlean { from { transform:rotate(12deg); } to { transform:rotate(0deg); } }
+.is-rockslide .rks-a .nc-move { transform:var(--rk-brink);
+  --ba:rks-nudge 260ms linear calc(var(--tl) + var(--b-nudge)) both,
+    rks-scoot 320ms linear calc(var(--tl) + var(--b-peek)) forwards; animation:var(--ba); }
+@keyframes rks-nudge { 0% { transform:translate(0px, 0px); animation-timing-function:cubic-bezier(.2,.7,.4,1); }
+  45% { transform:translate(12px, -34px); animation-timing-function:cubic-bezier(.6,0,.9,.5); } 100% { transform:translate(22px, 0px); } }
+@keyframes rks-scoot { 0% { transform:translate(22px, 0px); animation-timing-function:ease-out; }
+  30% { transform:var(--rk-scoot); animation-timing-function:ease-in; } 100% { transform:var(--rk-brink); } }
+.is-rockslide .rks-a .nc-body { transform:scale(1, 1);
+  --ba:rks-bump 220ms ease-out calc(var(--tl) + var(--b-bump)) both; animation:var(--ba); }
+@keyframes rks-bump { 0% { transform:scale(1, 1); } 30% { transform:scale(.9, 1.08); } 65% { transform:scale(1.04, .97); } 100% { transform:scale(1, 1); } }
+
+/* ── the boulder: creeps to the edge, teeters there, goes over in an arc
+   onto B's head, and drives B flat; it rocks to rest on the pancake ── */
+.is-rockslide .rks-rock { z-index:4; transform:translate(0px, 0px);
+  --ba:rks-creep 600ms cubic-bezier(.5,0,.6,1) calc(var(--tl) + var(--b-creep)) both,
+    rks-over 230ms linear calc(var(--tl) + var(--b-tip)) forwards,
+    rks-crush 60ms ease-out calc(var(--tl) + var(--b-land)) forwards,
+    rks-rest 260ms ease-out calc(var(--tl) + var(--b-settle)) forwards; animation:var(--ba); }
+@keyframes rks-creep { from { transform:var(--rk-rest); } to { transform:var(--rk-edge); } }
+@keyframes rks-over { 0% { transform:var(--rk-edge); animation-timing-function:cubic-bezier(.3,0,.8,.6); }
+  30% { transform:var(--rk-arc); animation-timing-function:cubic-bezier(.5,0,1,.6); } 100% { transform:var(--rk-head); } }
+@keyframes rks-crush { from { transform:var(--rk-head); } to { transform:translate(0px, 0px); } }
+@keyframes rks-rest { 0% { transform:translate(0px, 0px); } 35% { transform:translate(0px, -24px); } 100% { transform:translate(0px, 0px); } }
+.is-rockslide .rks-roll { transform:rotate(112deg);
+  --ba:rks-turn 600ms cubic-bezier(.5,0,.6,1) calc(var(--tl) + var(--b-creep)) both,
+    rks-teeter 580ms ease-in-out calc(var(--tl) + var(--b-teeter)) forwards,
+    rks-tumble 290ms linear calc(var(--tl) + var(--b-tip)) forwards,
+    rks-rock 420ms ease-out calc(var(--tl) + var(--b-settle)) forwards; animation:var(--ba); }
+@keyframes rks-turn { from { transform:rotate(0deg); } to { transform:rotate(56deg); } }
+@keyframes rks-teeter { 0% { transform:rotate(56deg); } 22% { transform:rotate(66deg) translateX(10px); } 48% { transform:rotate(47deg) translateX(-8px); }
+  74% { transform:rotate(63deg) translateX(6px); } 100% { transform:rotate(56deg); } }
+@keyframes rks-tumble { from { transform:rotate(56deg); } to { transform:rotate(104deg); } }
+@keyframes rks-rock { 0% { transform:rotate(104deg); } 40% { transform:rotate(116deg); } 70% { transform:rotate(109deg); } 100% { transform:rotate(112deg); } }
+.is-rockslide .rks-fall { opacity:0;
+  --ba:bit-show 1ms step-start calc(var(--tl) + var(--b-tip) + 60ms) both, bit-hide 60ms linear calc(var(--tl) + var(--b-land)) forwards;
+  animation:var(--ba); }
+
+/* ── B: smug at the foot of the cliff; notices too late; flat ── */
+.is-rockslide .rks-b { z-index:3; }
+.is-rockslide .rks-b .nc-hop { perspective:900px;
+  --ba:rks-bob 240ms ease-in-out calc(var(--tl) + var(--b-bob)) 2 both; animation:var(--ba); }
+@keyframes rks-bob { 0%, 100% { transform:translateY(0px); } 45% { transform:translateY(-30px); } }
+.is-rockslide .rks-b .nc-tilt { transform:rotate(0deg);
+  --ba:rks-shimmy 640ms ease-in-out calc(var(--tl) + var(--b-bob) + 520ms) both; animation:var(--ba); }
+@keyframes rks-shimmy { 0%, 100% { transform:rotate(0deg); } 25% { transform:rotate(-8deg); } 75% { transform:rotate(8deg); } }
+.is-rockslide .rks-b .nc-spin { transform:rotateX(0deg);
+  --ba:rks-look-up 200ms var(--ease-out) calc(var(--tl) + var(--b-notice)) both,
+    rks-look-back 1ms step-start calc(var(--tl) + var(--b-land)) forwards; animation:var(--ba); }
+@keyframes rks-look-up { from { transform:rotateX(0deg); } to { transform:rotateX(40deg); } }
+@keyframes rks-look-back { from { transform:rotateX(40deg); } to { transform:rotateX(0deg); } }
+.is-rockslide .rks-b .nc-body { transform:var(--rk-squash);
+  --ba:rks-squash 60ms ease-out calc(var(--tl) + var(--b-land)) both; animation:var(--ba); }
+@keyframes rks-squash { from { transform:scale(1, 1); } to { transform:var(--rk-squash); } }
+.is-rockslide .rks-b .nc-pool { transform:scale(1.5, 1.2);
+  --ba:rks-pool 60ms linear calc(var(--tl) + var(--b-land)) both; animation:var(--ba); }
+@keyframes rks-pool { from { transform:scale(1, 1); } to { transform:scale(1.5, 1.2); } }
+.is-rockslide .rks-alarm { opacity:0;
+  --ba:neon-ignite 260ms linear calc(var(--tl) + var(--b-notice)) both, bit-hide 1ms step-start calc(var(--tl) + var(--b-land)) forwards;
+  animation:var(--ba); }
+.is-rockslide .rks-sweat { opacity:0;
+  --ba:rks-drop-in 200ms var(--ease-land) calc(var(--tl) + var(--b-sweat)) both,
+    bit-hide 1ms step-start calc(var(--tl) + var(--b-land)) forwards; animation:var(--ba); }
+@keyframes rks-drop-in { 0% { opacity:0; transform:scale(.2); } 1% { opacity:1; } 60% { opacity:1; transform:scale(1.2); }
+  100% { opacity:1; transform:scale(1); } }
+
+/* ── the landing: a ring of light, dust rolling out both ways, pebbles ── */
+.is-rockslide .rks-hit { z-index:5; opacity:0;
+  --ba:rks-ring 340ms ease-out calc(var(--tl) + var(--b-land)) forwards; animation:var(--ba); }
+@keyframes rks-ring { 0% { opacity:1; transform:scale(.55, .35); } 50% { opacity:1; } 100% { opacity:0; transform:scale(1.2, .55); } }
+.is-rockslide .rks-puff { z-index:5; opacity:0; }
+.is-rockslide .rks-puff.is-l { --rk-to:-170px; }
+.is-rockslide .rks-puff.is-r { --rk-to:170px; }
+.is-rockslide .rks-puff { --ba:rks-puff 900ms cubic-bezier(.2,.7,.4,1) calc(var(--tl) + var(--b-land)) forwards; animation:var(--ba); }
+@keyframes rks-puff { 0% { opacity:1; transform:translateX(0px) scale(.4); } 50% { opacity:1; }
+  100% { opacity:0; transform:translateX(var(--rk-to)) scale(1.25); } }
+.is-rockslide .rks-pebble { z-index:5; opacity:1; }
+.is-rockslide .rks-pebble.is-0 { --rk-up:translate(-150px, -200px) rotate(-160deg); --rk-down:translate(-290px, 36px) rotate(-300deg); }
+.is-rockslide .rks-pebble.is-1 { --rk-up:translate(40px, -260px) rotate(140deg); --rk-down:translate(120px, 36px) rotate(260deg); }
+.is-rockslide .rks-pebble.is-2 { --rk-up:translate(170px, -170px) rotate(200deg); --rk-down:translate(330px, 36px) rotate(380deg); }
+.is-rockslide .rks-pebble { transform:var(--rk-down);
+  --ba:bit-show 1ms step-start calc(var(--tl) + var(--b-land)) both,
+    rks-pebble 560ms linear calc(var(--tl) + var(--b-land)) both; animation:var(--ba); }
+@keyframes rks-pebble { 0% { transform:translate(0px, 0px) rotate(0deg); animation-timing-function:cubic-bezier(.2,.7,.4,1); }
+  45% { transform:var(--rk-up); animation-timing-function:cubic-bezier(.6,0,.9,.5); } 100% { transform:var(--rk-down); } }

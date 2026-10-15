@@ -1,31 +1,26 @@
-/* The dealer's hand: the gags' white cartoon glove (gags/cast/gloveArt.js,
-   the same drawing, keyline and paint) on its own, so the betting table
-   can sweep, rake and pay without loading the bits' rig. Right hand, wrist
-   at the left; `flip` mirrors it. */
+/* The dealer's hand: the house hand (gags/neon, Oct 14), the one hand in
+   the world, reaching in from off the felt. The same neon drawing the bits
+   use (a bone tube over dark glass, a cyan cuff and sleeve), on its own so
+   the betting table can sweep, rake and pay without loading the bits.
+   `size` is the hand's drawn width in px, cuff to fingertips; its sleeve
+   runs back off the felt behind it (the table clips it). Right hand,
+   wrist at the left; `flip` mirrors it. */
 import React from "react";
-import { GLOVE_BOX, GLOVE_POSES } from "../gags/cast/gloveArt.js";
+import { HandArt } from "../gags/neon/Neon.jsx";
 
-const LINE = 7;
-const inked = (parts, k, key) => parts.map(([kind, d, w], i) => kind === "cap"
-  ? <path key={`${key}${i}`} d={d} className="fd-glove-ink" fill="none" strokeWidth={w + LINE * k * 2} />
-  : <path key={`${key}${i}`} d={d} className="fd-glove-ink" strokeWidth={LINE * k * 2} />);
-const painted = (parts, key) => parts.map(([kind, d, w], i) => kind === "cap"
-  ? <path key={`${key}${i}`} d={d} className="fd-glove-paint is-cap" fill="none" strokeWidth={w} />
-  : <path key={`${key}${i}`} d={d} className="fd-glove-paint" />);
+/* the hand's own span in its art, cuff to fingertips, and its height */
+const HAND_W = 300, HAND_H = 140, WRIST_X = 60;
 
-/* `size` is the glove's drawn width in px */
 export function DealerGlove({ pose = "flat", size = 64, flip = false, className = "" }) {
-  const art = GLOVE_POSES[pose] || GLOVE_POSES.flat;
-  const { x, y, w, h } = GLOVE_BOX;
-  const scale = size / w;
-  const shadeAfter = art.shadeAt ?? 0;
+  const scale = size / HAND_W;
+  /* a small hand keeps a tube that reads: at least 2 px */
+  const weight = Math.max(1, Math.min(2.4, 2 / (4.62 * scale)));
   return (
-    <svg className={`fd-glove${flip ? " is-flip" : ""}${className ? ` ${className}` : ""}`} viewBox={`${x} ${y} ${w} ${h}`}
-      width={size} height={Math.round(h * scale)} aria-hidden="true" focusable="false">
-      {art.groups.map((parts, g) => <g key={g}>
-        {inked(parts, 1, `i${g}:`)}{painted(parts, `p${g}:`)}
-        {g === shadeAfter && (art.shade || []).map((d, i) => <path key={`s${i}`} d={d} className="fd-glove-shade" />)}
-      </g>)}
-    </svg>
+    <span className={`fd-glove neon-scope${flip ? " is-flip" : ""}${className ? ` ${className}` : ""}`} aria-hidden="true"
+      style={{ width:size, height:Math.round(HAND_H * scale) }}>
+      <span className="fd-glove-wrist" style={{ left:WRIST_X * scale, top:HAND_H / 2 * scale }}>
+        <HandArt pose={pose} scale={scale} weight={weight} />
+      </span>
+    </span>
   );
 }

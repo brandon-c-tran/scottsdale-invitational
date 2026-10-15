@@ -1,165 +1,112 @@
 /* saguaro (saguaro.jsx): beats from registry.js (--b-<name>), every
-   animation on --ba, each element resting on its end state (on top of the
-   saguaro, the ladder on its side, the blossom on its head). A run of
-   moves on one property: the first fills both ways, the rest forwards,
-   each starting where the last left off. The camera and the shake are the
-   stage's (the registry). */
+   animation on --ba, each element resting on its end state. A run of
+   moves on one property: the first fills both ways, the rest forwards.
+   The camera and the shakes are the stage's. The chip's x rides .nc-move
+   and its height .nc-hop, on the same beats. */
 
 .is-saguaro .sg { position:absolute; inset:0; }
-.is-saguaro .sg-node { position:absolute; display:block; width:0; height:0; }
+.is-saguaro .sg-chip { z-index:2; }
+.is-saguaro .sg-bloom { z-index:1; }
 
-/* ── where it goes: a hop back from each prick (a step in between), off
-   to the left and back with the ladder, up onto it, and the leap ── */
-.is-saguaro .sg-chip .cast-move { transform:var(--on-top);
-  --ba:sg-hop-back 280ms cubic-bezier(.2,.8,.3,1) calc(var(--tl) + var(--b-prick1)) both,
-    sg-step-in 250ms ease-in-out calc(var(--tl) + var(--b-reach2) - 250ms) forwards,
-    sg-hop-back2 300ms cubic-bezier(.2,.8,.3,1) calc(var(--tl) + var(--b-prick2)) forwards,
-    sg-exit 560ms linear calc(var(--tl) + var(--b-exit) + 40ms) forwards,
-    sg-enter 700ms cubic-bezier(.3,0,.5,1) calc(var(--tl) + var(--b-enter)) forwards,
-    sg-climb 300ms ease-out calc(var(--tl) + var(--b-climb)) forwards,
-    sg-leap 540ms linear calc(var(--tl) + var(--b-jump)) forwards; animation:var(--ba); }
-@keyframes sg-hop-back { from { transform:translate(0px, 0px); } to { transform:translate(-40px, 0px); } }
-@keyframes sg-step-in { from { transform:translate(-40px, 0px); } to { transform:translate(40px, 0px); } }
-@keyframes sg-hop-back2 { from { transform:translate(40px, 0px); } to { transform:translate(-50px, 0px); } }
-@keyframes sg-exit { from { transform:translate(-50px, 0px); } to { transform:translate(-620px, 0px); } }
-@keyframes sg-enter { from { transform:translate(-620px, 0px); } to { transform:translate(100px, 0px); } }
-@keyframes sg-climb { from { transform:translate(100px, 0px); } to { transform:var(--on-ladder); } }
-@keyframes sg-leap { 0% { transform:var(--on-ladder); animation-timing-function:cubic-bezier(.2,.75,.45,1); }
-  58% { transform:var(--leap-peak); animation-timing-function:cubic-bezier(.55,0,.85,.5); } 100% { transform:var(--on-top); } }
-/* the hops: each prick's, the walk's bob off and back, the climb's, two
-   little ones on the ladder reaching */
-.is-saguaro .sg-chip .cast-hop {
-  --ba:sg-hop 280ms ease-out calc(var(--tl) + var(--b-prick1)) both,
-    sg-hop 300ms ease-out calc(var(--tl) + var(--b-prick2)) forwards,
-    sg-bob 140ms ease-in-out calc(var(--tl) + var(--b-exit) + 40ms) 4 forwards,
-    sg-bob 140ms ease-in-out calc(var(--tl) + var(--b-enter)) 5 forwards,
-    sg-hop 300ms ease-out calc(var(--tl) + var(--b-climb)) forwards,
-    sg-bob 200ms ease-in-out calc(var(--tl) + var(--b-reach) + 420ms) forwards,
-    sg-bob 200ms ease-in-out calc(var(--tl) + var(--b-reach) + 720ms) forwards; animation:var(--ba); }
-@keyframes sg-hop { 0%, 100% { transform:translateY(0px); } 40% { transform:translateY(-44px); } }
-@keyframes sg-bob { 0%, 100% { transform:translateY(0px); } 50% { transform:translateY(-14px); } }
-/* off the floor on the ladder, and gone up the cactus: its shadow stays down */
-.is-saguaro .sg-chip .cast-shadow { opacity:0; --ba:bit-hide 1ms step-start calc(var(--tl) + var(--b-climb) + 120ms) both; animation:var(--ba); }
+/* ── where it goes: a hop at the spines and back, over to lean on the
+   arm, away from it, right back, and the run and the leap onto the tip ── */
+.is-saguaro .sg-chip .nc-move { transform:translateX(310px);
+  --ba:sg-x-hop2 600ms linear calc(var(--tl) + var(--b-hop2)) both,
+    sg-x-scoot 420ms cubic-bezier(.4,0,.4,1) calc(var(--tl) + var(--b-scoot)) forwards,
+    sg-x-away 460ms cubic-bezier(.2,.7,.4,1) calc(var(--tl) + var(--b-prick2)) forwards,
+    sg-x-backup 640ms cubic-bezier(.45,0,.55,1) calc(var(--tl) + var(--b-backup)) forwards,
+    sg-x-run 750ms linear calc(var(--tl) + var(--b-run)) forwards; animation:var(--ba); }
+@keyframes sg-x-hop2 { 0% { transform:translateX(0px); animation-timing-function:cubic-bezier(.3,.6,.6,1); }
+  47% { transform:translateX(152px); animation-timing-function:cubic-bezier(.2,.7,.5,1); } 100% { transform:translateX(30px); } }
+@keyframes sg-x-scoot { from { transform:translateX(30px); } to { transform:translateX(132px); } }
+@keyframes sg-x-away { from { transform:translateX(132px); } to { transform:translateX(-10px); } }
+@keyframes sg-x-backup { from { transform:translateX(-10px); } to { transform:translateX(-160px); } }
+@keyframes sg-x-run { 0% { transform:translateX(-160px); animation-timing-function:cubic-bezier(.6,0,1,.8); }
+  47% { transform:translateX(90px); animation-timing-function:linear; } 100% { transform:translateX(310px); } }
+.is-saguaro .sg-chip .nc-hop { transform:translateY(-270px);
+  --ba:sg-y-hop1 320ms linear calc(var(--tl) + var(--b-hop1)) both,
+    sg-y-hop2 600ms linear calc(var(--tl) + var(--b-hop2)) forwards,
+    sg-y-jump 460ms linear calc(var(--tl) + var(--b-prick2)) forwards,
+    sg-y-run 750ms linear calc(var(--tl) + var(--b-run)) forwards; animation:var(--ba); }
+@keyframes sg-y-hop1 { 0% { transform:translateY(0px); animation-timing-function:cubic-bezier(.2,.7,.4,1); }
+  45% { transform:translateY(-46px); animation-timing-function:cubic-bezier(.6,0,.9,.5); } 100% { transform:translateY(0px); } }
+@keyframes sg-y-hop2 { 0% { transform:translateY(0px); animation-timing-function:cubic-bezier(.2,.75,.4,1); }
+  47% { transform:translateY(-104px); animation-timing-function:cubic-bezier(.5,0,.9,.5); } 100% { transform:translateY(0px); } }
+@keyframes sg-y-jump { 0% { transform:translateY(0px); animation-timing-function:cubic-bezier(.1,.8,.3,1); }
+  40% { transform:translateY(-130px); animation-timing-function:cubic-bezier(.6,0,.9,.5); } 100% { transform:translateY(0px); } }
+@keyframes sg-y-run { 0%, 47% { transform:translateY(0px); animation-timing-function:cubic-bezier(.2,.7,.45,1); }
+  78% { transform:translateY(-330px); animation-timing-function:cubic-bezier(.55,0,.9,.5); } 100% { transform:translateY(-270px); } }
 
-/* ── its body: up on its toes reaching, a slump giving up, leaning back
-   into the cactus, jolted, squashed landing on top ── */
-.is-saguaro .sg-chip .cast-body { transform:scale(1, 1);
-  --ba:sg-tiptoe 300ms ease-out calc(var(--tl) + var(--b-reach)) both,
-    sg-slump 420ms ease-in-out calc(var(--tl) + var(--b-giveup)) forwards,
-    sg-land 380ms ease-out calc(var(--tl) + var(--b-top)) forwards; animation:var(--ba); }
-@keyframes sg-tiptoe { from { transform:scale(1, 1); } to { transform:scale(.97, 1.07); } }
-@keyframes sg-slump { 0% { transform:scale(.97, 1.07); } 60% { transform:scale(1.05, .93); } 100% { transform:scale(1, 1); } }
-@keyframes sg-land { 0% { transform:scale(1, 1); } 25% { transform:scale(1.16, .84); } 60% { transform:scale(.96, 1.05); }
-  100% { transform:scale(1, 1); } }
-.is-saguaro .sg-chip .cast-body-in { transform:rotate(0deg);
-  --ba:sg-lean 340ms ease-in calc(var(--tl) + var(--b-lean) + 60ms) both,
-    sg-unlean 200ms ease-out calc(var(--tl) + var(--b-jump)) forwards,
-    sg-teeter 900ms ease-in-out calc(var(--tl) + var(--b-top) + 260ms) forwards; animation:var(--ba); }
-@keyframes sg-lean { from { transform:rotate(0deg); } to { transform:rotate(9deg); } }
-@keyframes sg-unlean { from { transform:rotate(9deg); } to { transform:rotate(0deg); } }
-@keyframes sg-teeter { 0%, 100% { transform:rotate(0deg); } 25% { transform:rotate(-5deg); } 55% { transform:rotate(3.5deg); }
-  80% { transform:rotate(-1.5deg); } }
-/* where it looks: up at the blossom; off to the left and back; up again
-   on the ladder; round to the room to lean; the way it jumps; and at last
-   round to us */
-.is-saguaro .sg-chip .cast-chip-in { transform:rotateY(0deg) rotateX(-8deg);
-  --ba:sg-look-up 300ms ease-out calc(var(--tl) + var(--b-look)) both,
-    sg-look-down 200ms ease-in-out calc(var(--tl) + var(--b-reach1) - 120ms) forwards,
-    sg-turn-left 120ms ease-in-out calc(var(--tl) + var(--b-exit)) forwards,
-    sg-turn-right 1ms step-start calc(var(--tl) + var(--b-enter)) forwards,
-    sg-look-up2 300ms ease-out calc(var(--tl) + var(--b-reach)) forwards,
-    sg-look-down2 300ms ease-in-out calc(var(--tl) + var(--b-giveup)) forwards,
-    sg-to-room 220ms ease-in-out calc(var(--tl) + var(--b-lean)) forwards,
-    sg-to-jump 160ms ease-out calc(var(--tl) + var(--b-jump)) forwards,
-    sg-to-us 640ms cubic-bezier(.45,0,.35,1) calc(var(--tl) + var(--b-face)) forwards; animation:var(--ba); }
-@keyframes sg-look-up { from { transform:var(--cast-turn) rotateX(0deg); } to { transform:var(--cast-turn) rotateX(30deg); } }
-@keyframes sg-look-down { from { transform:var(--cast-turn) rotateX(30deg); } to { transform:var(--cast-turn) rotateX(0deg); } }
-@keyframes sg-turn-left { from { transform:var(--cast-turn) rotateX(0deg); } to { transform:rotateY(16deg) rotateX(0deg); } }
-@keyframes sg-turn-right { from { transform:rotateY(16deg) rotateX(0deg); } to { transform:var(--cast-turn) rotateX(0deg); } }
-@keyframes sg-look-up2 { from { transform:var(--cast-turn) rotateX(0deg); } to { transform:var(--cast-turn) rotateX(26deg); } }
-@keyframes sg-look-down2 { from { transform:var(--cast-turn) rotateX(26deg); } to { transform:var(--cast-turn) rotateX(0deg); } }
-@keyframes sg-to-room { from { transform:var(--cast-turn) rotateX(0deg); } to { transform:rotateY(0deg) rotateX(0deg); } }
-@keyframes sg-to-jump { from { transform:rotateY(0deg) rotateX(0deg); } to { transform:rotateY(-34deg) rotateX(0deg); } }
-@keyframes sg-to-us { from { transform:rotateY(-34deg) rotateX(0deg); } to { transform:rotateY(0deg) rotateX(-8deg); } }
-/* its shoes turn with it to walk off, and back */
-.is-saguaro .sg-chip .cast-shoe-in { transform:scaleX(1);
-  --ba:sg-shoe-left 1ms step-start calc(var(--tl) + var(--b-exit) + 60ms) both,
-    sg-shoe-right 1ms step-start calc(var(--tl) + var(--b-enter)) forwards; animation:var(--ba); }
-@keyframes sg-shoe-left { from { transform:scaleX(1); } to { transform:scaleX(-1); } }
-@keyframes sg-shoe-right { from { transform:scaleX(-1); } to { transform:scaleX(1); } }
+/* ── squash and stretch: the landings, the wind-up, the take-off ── */
+.is-saguaro .sg-chip .nc-body { transform:scale(1, 1);
+  --ba:sg-land 260ms ease-out calc(var(--tl) + var(--b-hop1) + 300ms) both,
+    sg-land 260ms ease-out calc(var(--tl) + var(--b-hop2) + 590ms) forwards,
+    sg-land 260ms ease-out calc(var(--tl) + var(--b-prick2) + 450ms) forwards,
+    sg-wind 300ms ease-out calc(var(--tl) + var(--b-wind)) forwards,
+    sg-launch 420ms ease-out calc(var(--tl) + var(--b-takeoff) - 60ms) forwards,
+    sg-perch 360ms ease-out calc(var(--tl) + var(--b-land)) forwards; animation:var(--ba); }
+@keyframes sg-land { 0% { transform:scale(1, 1); } 30% { transform:scale(1.16, .84); } 65% { transform:scale(.96, 1.04); } 100% { transform:scale(1, 1); } }
+@keyframes sg-wind { from { transform:scale(1, 1); } to { transform:scale(1.12, .86); } }
+@keyframes sg-launch { 0% { transform:scale(1.12, .86); } 25% { transform:scale(.86, 1.18); } 100% { transform:scale(1, 1); } }
+@keyframes sg-perch { 0% { transform:scale(1, 1); } 30% { transform:scale(1.14, .86); } 65% { transform:scale(.97, 1.03); } 100% { transform:scale(1, 1); } }
 
-/* ── the gloves: the near one grabs the arm, yanked back and shaken out;
-   the far one tries across its face, the same; the ladder carried and
-   set down; both up high; dropped; thrown up by the last prick ── */
-.is-saguaro .sg-chip .cast-hand.is-front > .cast-hand-in { transform:translate(0px, 0px);
-  --ba:sg-f-reach 300ms cubic-bezier(.3,.6,.4,1) calc(var(--tl) + var(--b-reach1)) both,
-    sg-f-yank 140ms cubic-bezier(.2,.9,.3,1) calc(var(--tl) + var(--b-prick1)) forwards,
-    sg-f-home 240ms ease-in-out calc(var(--tl) + var(--b-prick1) + 700ms) forwards,
-    sg-f-set 150ms ease-in calc(var(--tl) + var(--b-set)) forwards,
-    sg-f-unset 200ms ease-out calc(var(--tl) + var(--b-set) + 220ms) forwards,
-    sg-f-up 300ms cubic-bezier(.3,.7,.4,1) calc(var(--tl) + var(--b-reach)) forwards,
-    sg-f-drop 300ms ease-in calc(var(--tl) + var(--b-giveup)) forwards,
-    sg-f-jolt 160ms ease-out calc(var(--tl) + var(--b-prick3)) forwards,
-    sg-f-down 260ms ease-in-out calc(var(--tl) + var(--b-top) + 100ms) forwards; animation:var(--ba); }
-@keyframes sg-f-reach { from { transform:translate(0px, 0px); } to { transform:translate(115px, -56px); } }
-@keyframes sg-f-yank { from { transform:translate(115px, -56px); } to { transform:translate(10px, -112px); } }
-@keyframes sg-f-home { from { transform:translate(10px, -112px); } to { transform:translate(0px, 0px); } }
-@keyframes sg-f-set { from { transform:translate(0px, 0px); } to { transform:translate(0px, 40px); } }
-@keyframes sg-f-unset { from { transform:translate(0px, 40px); } to { transform:translate(0px, 0px); } }
-@keyframes sg-f-up { from { transform:translate(0px, 0px); } to { transform:translate(-34px, -78px); } }
-@keyframes sg-f-drop { from { transform:translate(-34px, -78px); } to { transform:translate(0px, 0px); } }
-@keyframes sg-f-jolt { from { transform:translate(0px, 0px); } to { transform:translate(26px, -70px); } }
-@keyframes sg-f-down { from { transform:translate(26px, -70px); } to { transform:translate(0px, 0px); } }
-.is-saguaro .sg-chip .cast-hand.is-back > .cast-hand-in { transform:translate(0px, 0px);
-  --ba:sg-b-reach 300ms cubic-bezier(.3,.6,.4,1) calc(var(--tl) + var(--b-reach2)) both,
-    sg-b-yank 140ms cubic-bezier(.2,.9,.3,1) calc(var(--tl) + var(--b-prick2)) forwards,
-    sg-b-home 240ms ease-in-out calc(var(--tl) + var(--b-prick2) + 600ms) forwards,
-    sg-b-up 300ms cubic-bezier(.3,.7,.4,1) calc(var(--tl) + var(--b-reach) + 40ms) forwards,
-    sg-b-drop 300ms ease-in calc(var(--tl) + var(--b-giveup)) forwards,
-    sg-b-jolt 160ms ease-out calc(var(--tl) + var(--b-prick3)) forwards,
-    sg-b-down 260ms ease-in-out calc(var(--tl) + var(--b-top) + 100ms) forwards; animation:var(--ba); }
-@keyframes sg-b-reach { from { transform:translate(0px, 0px); } to { transform:translate(362px, -92px); } }
-@keyframes sg-b-yank { from { transform:translate(362px, -92px); } to { transform:translate(250px, -150px); } }
-@keyframes sg-b-home { from { transform:translate(250px, -150px); } to { transform:translate(0px, 0px); } }
-@keyframes sg-b-up { from { transform:translate(0px, 0px); } to { transform:translate(38px, -78px); } }
-@keyframes sg-b-drop { from { transform:translate(38px, -78px); } to { transform:translate(0px, 0px); } }
-@keyframes sg-b-jolt { from { transform:translate(0px, 0px); } to { transform:translate(-26px, -70px); } }
-@keyframes sg-b-down { from { transform:translate(-26px, -70px); } to { transform:translate(0px, 0px); } }
-/* a pricked glove shaken out; then both grabbing at the air */
-.is-saguaro .sg-chip .cast-hand.is-front .cast-hand-fx {
-  --ba:sg-shake 90ms linear calc(var(--tl) + var(--b-prick1) + 140ms) 6 both,
-    sg-wiggle 220ms ease-in-out calc(var(--tl) + var(--b-reach) + 300ms) 3 forwards; animation:var(--ba); }
-.is-saguaro .sg-chip .cast-hand.is-back .cast-hand-fx {
-  --ba:sg-shake 90ms linear calc(var(--tl) + var(--b-prick2) + 140ms) 5 both,
-    sg-wiggle 220ms ease-in-out calc(var(--tl) + var(--b-reach) + 410ms) 3 forwards; animation:var(--ba); }
-@keyframes sg-shake { 0%, 100% { transform:rotate(0deg); } 25% { transform:rotate(-28deg); } 75% { transform:rotate(24deg); } }
-@keyframes sg-wiggle { 0%, 100% { transform:translateY(0px); } 50% { transform:translateY(-14px); } }
+/* ── leans: shaking it off, leaning on the arm to think, the start, the
+   run's lean, and teetering on the tip ── */
+.is-saguaro .sg-chip .nc-tilt { transform:rotate(0deg);
+  --ba:sg-shake 520ms linear calc(var(--tl) + var(--b-shake)) both,
+    sg-lean 340ms cubic-bezier(.4,0,.3,1) calc(var(--tl) + var(--b-lean)) forwards,
+    sg-ponder 700ms ease-in-out calc(var(--tl) + var(--b-think)) forwards,
+    sg-start 460ms ease-out calc(var(--tl) + var(--b-prick2)) forwards,
+    sg-rear 300ms ease-out calc(var(--tl) + var(--b-wind)) forwards,
+    sg-charge 400ms ease-in calc(var(--tl) + var(--b-run)) forwards,
+    sg-teeter 900ms ease-out calc(var(--tl) + var(--b-land) + 60ms) forwards; animation:var(--ba); }
+@keyframes sg-shake { 0%, 100% { transform:rotate(0deg); } 12% { transform:rotate(-13deg); } 26% { transform:rotate(12deg); }
+  40% { transform:rotate(-11deg); } 54% { transform:rotate(9deg); } 68% { transform:rotate(-6deg); } 82% { transform:rotate(3deg); } }
+@keyframes sg-lean { from { transform:rotate(0deg); } to { transform:rotate(12deg); } }
+@keyframes sg-ponder { 0%, 100% { transform:rotate(12deg); } 50% { transform:rotate(9deg); } }
+@keyframes sg-start { 0% { transform:rotate(12deg); } 25% { transform:rotate(-16deg); } 70% { transform:rotate(4deg); } 100% { transform:rotate(0deg); } }
+@keyframes sg-rear { from { transform:rotate(0deg); } to { transform:rotate(-8deg); } }
+@keyframes sg-charge { 0% { transform:rotate(-8deg); } 60% { transform:rotate(12deg); } 100% { transform:rotate(4deg); } }
+@keyframes sg-teeter { 0% { transform:rotate(4deg); } 20% { transform:rotate(-10deg); } 42% { transform:rotate(8deg); } 62% { transform:rotate(-5deg); }
+  82% { transform:rotate(2deg); } 100% { transform:rotate(0deg); } }
 
-/* ── the stepladder: carried in hanging from the glove, set down by the
-   trunk, kicked over by the leap ── */
-.is-saguaro .sg-ladder { transform:translate(0px, 0px);
-  --ba:sg-carry 700ms cubic-bezier(.3,0,.5,1) calc(var(--tl) + var(--b-enter)) both,
-    sg-setdown 150ms ease-in calc(var(--tl) + var(--b-set)) forwards; animation:var(--ba); }
-@keyframes sg-carry { from { transform:translate(-720px, -40px); } to { transform:translate(0px, -40px); } }
-@keyframes sg-setdown { from { transform:translate(0px, -40px); } to { transform:translate(0px, 0px); } }
-.is-saguaro .sg-ladder-tip { transform-origin:-40px 0px; transform:translate(-26px, 0px) rotate(-86deg);
-  --ba:sg-tip 420ms cubic-bezier(.5,0,.9,.6) calc(var(--tl) + var(--b-jump) + 40ms) both; animation:var(--ba); }
-@keyframes sg-tip { 0% { transform:translate(0px, 0px) rotate(0deg); } 85% { transform:translate(-22px, 0px) rotate(-90deg); }
-  100% { transform:translate(-26px, 0px) rotate(-86deg); } }
-.is-saguaro .sg-ladder-shadow { opacity:0; --ba:bit-show 120ms linear calc(var(--tl) + var(--b-set)) both,
-  bit-hide 160ms linear calc(var(--tl) + var(--b-jump) + 200ms) forwards; animation:var(--ba); }
+/* ── it looks up at the blossom (tipped back), again while it thinks,
+   and at the end turns to the room ── */
+.is-saguaro .sg-chip .nc-spin { transform:rotateX(-14deg) scale(1.04);
+  --ba:sg-look 320ms var(--ease-out) calc(var(--tl) + var(--b-look)) both,
+    sg-unlook 160ms ease-out calc(var(--tl) + var(--b-hop1) - 80ms) forwards,
+    sg-look 320ms var(--ease-out) calc(var(--tl) + var(--b-think)) forwards,
+    sg-unlook 120ms ease-out calc(var(--tl) + var(--b-prick2)) forwards,
+    sg-face 460ms cubic-bezier(.45,0,.35,1) calc(var(--tl) + var(--b-look2)) forwards; animation:var(--ba); }
+@keyframes sg-look { from { transform:rotateX(0deg) scale(1); } to { transform:rotateX(30deg) scale(1); } }
+@keyframes sg-unlook { from { transform:rotateX(30deg) scale(1); } to { transform:rotateX(0deg) scale(1); } }
+@keyframes sg-face { from { transform:rotateX(0deg) scale(1); } to { transform:rotateX(-14deg) scale(1.04); } }
+.is-saguaro .sg-chip .nc-pool { opacity:0;
+  --ba:bit-hide 200ms linear calc(var(--tl) + var(--b-takeoff)) both; animation:var(--ba); }
 
-/* ── the pricks' strokes: there for a moment each ── */
+/* ── pricked: the spines light hot, a burst where they got it, alarm
+   ticks on the chip, and a bead of sweat after the second ── */
+.is-saguaro .sg-hot { opacity:0;
+  --ba:sg-hot 520ms linear calc(var(--tl) + var(--b-prick1)) forwards,
+    sg-hot 520ms linear calc(var(--tl) + var(--b-prick2)) forwards; animation:var(--ba); }
+@keyframes sg-hot { 0% { opacity:1; } 14% { opacity:.2; } 26% { opacity:1; } 60% { opacity:1; } 100% { opacity:0; } }
 .is-saguaro .sg-ouch { opacity:0; }
-.is-saguaro .sg-ouch.is-1 { --ba:sg-ouch 240ms ease-out calc(var(--tl) + var(--b-prick1)) both; animation:var(--ba); }
-.is-saguaro .sg-ouch.is-2 { --ba:sg-ouch 240ms ease-out calc(var(--tl) + var(--b-prick2)) both; animation:var(--ba); }
-.is-saguaro .sg-ouch.is-3 { --ba:sg-ouch 260ms ease-out calc(var(--tl) + var(--b-prick3)) both; animation:var(--ba); }
-@keyframes sg-ouch { 0% { opacity:0; transform:scale(.5); } 1% { opacity:1; transform:scale(.5); } 50% { opacity:1; transform:scale(1.1); }
-  100% { opacity:0; transform:scale(1.2); } }
+.is-saguaro .sg-ouch.is-1 { --ba:sg-ouch 320ms ease-out calc(var(--tl) + var(--b-prick1)) forwards; animation:var(--ba); }
+.is-saguaro .sg-ouch.is-2 { --ba:sg-ouch 320ms ease-out calc(var(--tl) + var(--b-prick2)) forwards; animation:var(--ba); }
+@keyframes sg-ouch { 0% { opacity:1; transform:scale(.4); } 55% { opacity:1; transform:scale(1.1); } 100% { opacity:0; transform:scale(1.3); } }
+.is-saguaro .sg-alarm { opacity:0;
+  --ba:sg-alarm 480ms linear calc(var(--tl) + var(--b-prick1)) forwards,
+    sg-alarm 480ms linear calc(var(--tl) + var(--b-prick2)) forwards; animation:var(--ba); }
+@keyframes sg-alarm { 0% { opacity:1; transform:scale(.85); } 40% { opacity:1; transform:scale(1.08); } 55% { opacity:.3; } 66% { opacity:1; }
+  100% { opacity:0; transform:scale(1.1); } }
+.is-saguaro .sg-sweat { opacity:0;
+  --ba:sg-sweat 900ms linear calc(var(--tl) + var(--b-backup) + 200ms) forwards; animation:var(--ba); }
+@keyframes sg-sweat { 0% { opacity:0; transform:translateY(0px) scale(.4); } 10% { opacity:1; transform:translateY(0px) scale(1); }
+  60% { opacity:1; transform:translateY(40px) scale(1); } 100% { opacity:0; transform:translateY(80px) scale(.9); } }
 
-/* ── the blossom: knocked up off the top as it lands, onto its head ── */
-.is-saguaro .sg-bloom { transform:var(--bloom-land);
-  --ba:sg-bloom 620ms linear calc(var(--tl) + var(--b-top) + 20ms) both; animation:var(--ba); }
-@keyframes sg-bloom { 0% { transform:translate(0px, 0px) rotate(0deg); animation-timing-function:cubic-bezier(.2,.75,.4,1); }
-  55% { transform:translate(-14px, -340px) rotate(220deg); animation-timing-function:cubic-bezier(.6,0,.9,.5); }
-  88% { transform:translate(-6px, -250px) rotate(340deg); animation-timing-function:ease-out; } 100% { transform:var(--bloom-land); } }
+/* ── the blossom: lit and breathing like a prize; it shuts on its own
+   frames (Swaps) ── */
+.is-saguaro .sg-open { --ba:sg-glow 1400ms ease-in-out calc(var(--tl) + 0ms) infinite both; animation:var(--ba); }
+@keyframes sg-glow { 0%, 100% { opacity:1; } 50% { opacity:.72; } }
+.is-saguaro .sg-bloom { --ba:sg-buzz 360ms linear calc(var(--tl) + var(--b-close)) both; animation:var(--ba); }
+@keyframes sg-buzz { 0% { opacity:1; } 20% { opacity:.3; } 40% { opacity:1; } 60% { opacity:.5; } 100% { opacity:1; } }

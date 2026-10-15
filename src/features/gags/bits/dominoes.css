@@ -4,105 +4,97 @@
    the scene (--r0 upright, --u on the next one still standing, --k0..--k8
    the line riding the last one's teeter, --kd on the way down, --kf
    fallen, --kb its bounce), each the same two turns (three quarters to
-   the tapper, then back about its feet, in 3D), so any two interpolate as
-   one fall. */
+   the underdogs, then back about its feet, in 3D), so any two interpolate
+   as one fall. --t is a link's turn in the chain, --dm-lt when the chain
+   reaches the last. */
 
 .is-dominoes .dm { position:absolute; inset:0; }
-.is-dominoes .dm-node { position:absolute; display:block; width:0; height:0; }
 
-/* ── the favorites: fists on hips (behind the disc, the knuckles just
-   past its rim), chins up ── */
-.is-dominoes :is(.dm-b, .dm-watch) .cast-body-in { isolation:isolate; }
-.is-dominoes .dm-b .cast-hand { z-index:-1; }
-.is-dominoes .dm-b .cast-hand.is-r > .cast-hand-in { transform:translate(calc(-1 * var(--hips)), var(--hip-y)); }
-.is-dominoes .dm-b .cast-hand.is-l > .cast-hand-in { transform:translate(var(--hips), var(--hip-y)); }
-.is-dominoes .dm-b .cast-chip-in { transform:var(--cast-turn) rotateX(14deg); }
-/* seen from a little above, so one lying back foreshortens onto the floor */
-.is-dominoes .dm-b .cast-hop { perspective:var(--persp); perspective-origin:0 var(--persp-y); }
+/* ── the favorites: seen from a little above, so one lying back
+   foreshortens onto the floor ── */
+.is-dominoes .dm-b .nc-hop { perspective:var(--persp); perspective-origin:0 var(--persp-y);
+  --ba:dm-smug 300ms ease-in-out calc(var(--tl) + var(--b-smug) + (6 - var(--i)) * 55ms) both; animation:var(--ba); }
+/* a smug little ripple down the line before anything happens */
+@keyframes dm-smug { 0%, 100% { transform:translateY(0px); } 45% { transform:translateY(-14px); } }
 
-/* each goes over backwards, stiff, onto the next (the next goes the
-   instant it is touched), sags as the line runs on, rides the last one's
-   teeter, and settles when it goes over */
-.is-dominoes .dm-b.is-link .cast-body { transform:var(--kf);
-  --ba:dm-tip var(--dt) cubic-bezier(.55,0,.95,.55) calc(var(--tl) + var(--b-chain) + var(--t)) both,
+/* each goes over backwards onto the next (the next goes the instant it is
+   touched), sags as the line runs on, rides the last one's teeter, and
+   settles when it goes over */
+.is-dominoes .dm-b.is-link .nc-body { transform:var(--kf);
+  --ba:dm-tip var(--dm-dt) cubic-bezier(.55,0,.95,.55) calc(var(--tl) + var(--b-chain) + var(--t)) both,
     dm-sag var(--sag) ease-out calc(var(--tl) + var(--b-chain) + var(--sag-at)) forwards,
-    dm-teeter calc(var(--b-drop) - var(--b-last)) linear calc(var(--tl) + var(--b-last)) forwards,
+    dm-teeter calc(var(--b-drop) - var(--b-chain) - var(--dm-lt)) linear calc(var(--tl) + var(--b-chain) + var(--dm-lt)) forwards,
     dm-drop calc(var(--b-flat) - var(--b-drop)) linear calc(var(--tl) + var(--b-drop)) forwards,
-    dm-flop 300ms linear calc(var(--tl) + var(--b-flat)) forwards;
+    dm-flop 340ms linear calc(var(--tl) + var(--b-flat)) forwards;
   animation:var(--ba); }
-/* the last: knocked back onto its heels, rocking, balancing a long beat,
+/* the last: knocked back onto its heel, rocking, balancing a long beat,
    then flat on its back */
-.is-dominoes .dm-b.is-last .cast-body { transform:var(--kf);
-  --ba:dm-teeter calc(var(--b-drop) - var(--b-last)) linear calc(var(--tl) + var(--b-last)) both,
+.is-dominoes .dm-b.is-last .nc-body { transform:var(--kf);
+  --ba:dm-teeter calc(var(--b-drop) - var(--b-chain) - var(--dm-lt)) linear calc(var(--tl) + var(--b-chain) + var(--dm-lt)) both,
     dm-drop calc(var(--b-flat) - var(--b-drop)) linear calc(var(--tl) + var(--b-drop)) forwards,
-    dm-flop 300ms linear calc(var(--tl) + var(--b-flat)) forwards;
+    dm-flop 340ms linear calc(var(--tl) + var(--b-flat)) forwards;
   animation:var(--ba); }
 @keyframes dm-tip { from { transform:var(--r0); } to { transform:var(--u); } }
 @keyframes dm-sag { from { transform:var(--u); } to { transform:var(--k0); } }
-/* DM_TEETER's instants over its 1380 ms */
+/* DM_TEETER's fractions */
 @keyframes dm-teeter {
   0% { transform:var(--k0); animation-timing-function:cubic-bezier(.2,.8,.4,1); }
-  11.594% { transform:var(--k1); animation-timing-function:ease-in-out; }
-  23.913% { transform:var(--k2); animation-timing-function:ease-in-out; }
-  37.681% { transform:var(--k3); animation-timing-function:ease-in-out; }
+  12% { transform:var(--k1); animation-timing-function:ease-in-out; }
+  24% { transform:var(--k2); animation-timing-function:ease-in-out; }
+  38% { transform:var(--k3); animation-timing-function:ease-in-out; }
   50% { transform:var(--k4); animation-timing-function:ease-in-out; }
-  61.594% { transform:var(--k5); animation-timing-function:ease-in-out; }
-  71.014% { transform:var(--k6); animation-timing-function:ease-in-out; }
-  78.986% { transform:var(--k7); animation-timing-function:ease-in-out; }
+  62% { transform:var(--k5); animation-timing-function:ease-in-out; }
+  71% { transform:var(--k6); animation-timing-function:ease-in-out; }
+  79% { transform:var(--k7); animation-timing-function:ease-in-out; }
   100% { transform:var(--k8); } }
 /* over: slow off the balance, then flat, the line settling onto it */
 @keyframes dm-drop { 0% { transform:var(--k8); animation-timing-function:cubic-bezier(.5,0,.95,.5); }
-  70% { transform:var(--kd); animation-timing-function:cubic-bezier(.2,.6,.5,1); } 100% { transform:var(--kf); } }
+  72% { transform:var(--kd); animation-timing-function:cubic-bezier(.3,0,.9,.6); } 100% { transform:var(--kf); } }
 @keyframes dm-flop { 0% { transform:var(--kf); animation-timing-function:ease-out; } 35% { transform:var(--kb); animation-timing-function:ease-in; }
   65% { transform:var(--kf); animation-timing-function:ease-out; } 82% { transform:var(--kb); animation-timing-function:ease-in; }
   100% { transform:var(--kf); } }
-/* the last, shoved onto its toe: both gloves thrown up over its head, flailing */
-.is-dominoes .dm-b.is-last .cast-hand.is-r > .cast-hand-in { transform:translate(calc(-1 * var(--up-x)), var(--up-y));
-  --ba:dm-throw-r 140ms var(--ease-out) calc(var(--tl) + var(--b-last) + 100ms) both; animation:var(--ba); }
-.is-dominoes .dm-b.is-last .cast-hand.is-l > .cast-hand-in { transform:translate(var(--up-x), var(--up-y));
-  --ba:dm-throw-l 140ms var(--ease-out) calc(var(--tl) + var(--b-last) + 100ms) both; animation:var(--ba); }
-@keyframes dm-throw-r { from { transform:translate(calc(-1 * var(--hips)), var(--hip-y)); }
-  to { transform:translate(calc(-1 * var(--up-x)), var(--up-y)); } }
-@keyframes dm-throw-l { from { transform:translate(var(--hips), var(--hip-y)); } to { transform:translate(var(--up-x), var(--up-y)); } }
-.is-dominoes .dm-b.is-last .cast-hand.is-r .cast-hand-fx {
-  --ba:dm-flail 300ms ease-in-out calc(var(--tl) + var(--b-last) + 240ms) 4 both; animation:var(--ba); }
-.is-dominoes .dm-b.is-last .cast-hand.is-l .cast-hand-fx {
-  --ba:dm-flail 300ms ease-in-out calc(var(--tl) + var(--b-last) + 390ms) 4 both; animation:var(--ba); }
-@keyframes dm-flail { 0%, 100% { transform:rotate(0deg); } 30% { transform:rotate(-26deg); } 70% { transform:rotate(18deg); } }
-.is-dominoes .dm-dust { --dust-ms:640ms; }
 
-/* ── the underdogs: hands clasped behind their backs (behind their own
-   discs, out of sight), craning as the last one teeters, one nod at the
-   end ── */
-.is-dominoes .dm-watch .cast-body-in > .cast-hand { z-index:-1; }
-.is-dominoes .dm-watch .cast-hand.is-r > .cast-hand-in { transform:translate(calc(-1 * var(--fold)), var(--low)); }
-.is-dominoes .dm-watch .cast-hand.is-l > .cast-hand-in { transform:translate(var(--fold), var(--low)); }
-.is-dominoes .dm-watch .cast-body-in {
-  --ba:dm-crane 520ms ease-in-out calc(var(--tl) + var(--b-wobble)) both,
-    dm-uncrane 320ms ease-out calc(var(--tl) + var(--b-flat)) forwards; animation:var(--ba); }
-@keyframes dm-crane { from { transform:rotate(0deg) translateX(0px); } to { transform:rotate(-5deg) translateX(-6px); } }
-@keyframes dm-uncrane { from { transform:rotate(-5deg) translateX(-6px); } to { transform:rotate(0deg) translateX(0px); } }
-.is-dominoes .dm-a .cast-chip-in {
-  --ba:dm-nod 380ms ease-in-out calc(var(--tl) + var(--b-nod)) both; animation:var(--ba); }
-@keyframes dm-nod { 0%, 100% { transform:var(--cast-turn) rotateX(0deg); } 42% { transform:var(--cast-turn) rotateX(-26deg); } }
+/* the slap of the last one landing: a flat burst of dust on the floor */
+.is-dominoes .dm-slap { opacity:0; --ba:dm-slap 420ms ease-out calc(var(--tl) + var(--b-flat)) forwards; animation:var(--ba); }
+@keyframes dm-slap { 0% { opacity:1; transform:scale(.45, .14); } 55% { opacity:1; } 100% { opacity:0; transform:scale(1.25, .34); } }
 
-/* ── the tapper: three steps up to the line, the finger cocked, tap ── */
-.is-dominoes .dm-tapper .cast-move { transform:translateX(var(--walk));
-  --ba:dm-walk 840ms cubic-bezier(.35,0,.45,1) calc(var(--tl) + var(--b-walk) - 80ms) both; animation:var(--ba); }
-@keyframes dm-walk { from { transform:translateX(0px); } to { transform:translateX(var(--walk)); } }
-.is-dominoes .dm-tapper .cast-hop {
-  --ba:dm-hop 280ms linear calc(var(--tl) + var(--b-walk) - 80ms) 3 both; animation:var(--ba); }
+/* ── the underdogs: turned to watch the line, craning while the last one
+   teeters, one bounce once it is down ── */
+.is-dominoes .dm-a { z-index:2; }
+.is-dominoes .dm-a .nc-spin { transform:rotateY(24deg); }
+.is-dominoes .dm-a .nc-tilt { transform:rotate(0deg);
+  --ba:dm-crane 520ms ease-in-out calc(var(--tl) + var(--b-chain) + var(--dm-lt) + var(--i) * 60ms) both,
+    dm-uncrane 300ms ease-out calc(var(--tl) + var(--b-flat)) forwards; animation:var(--ba); }
+@keyframes dm-crane { from { transform:rotate(0deg); } to { transform:rotate(-8deg); } }
+@keyframes dm-uncrane { from { transform:rotate(-8deg); } to { transform:rotate(0deg); } }
+.is-dominoes .dm-a .nc-hop { transform:translateY(0px);
+  --ba:dm-bounce 440ms linear calc(var(--tl) + var(--b-bounce) + var(--i) * 70ms) both; animation:var(--ba); }
+@keyframes dm-bounce { 0% { transform:translateY(0px) scale(1, 1); animation-timing-function:ease-out; }
+  12% { transform:translateY(0px) scale(1.1, .88); animation-timing-function:cubic-bezier(.2,.7,.4,1); }
+  50% { transform:translateY(var(--dm-bounce)) scale(.96, 1.05); animation-timing-function:cubic-bezier(.6,0,.85,.4); }
+  86% { transform:translateY(0px) scale(1.08, .9); animation-timing-function:ease-out; } 100% { transform:translateY(0px) scale(1, 1); } }
+
+/* ── the tapper: two hops up to the line, a lean into the first one (the
+   bump), then it backs off a step as the line goes ── */
+.is-dominoes .dm-a.is-tapper .nc-move { transform:translateX(calc(var(--dm-walk) + var(--dm-recoil)));
+  --ba:dm-walk 600ms cubic-bezier(.35,0,.5,1) calc(var(--tl) + var(--b-hop)) both,
+    dm-recoil 520ms cubic-bezier(.3,0,.3,1) calc(var(--tl) + var(--b-tap) + 260ms) forwards; animation:var(--ba); }
+@keyframes dm-walk { from { transform:translateX(0px); } to { transform:translateX(var(--dm-walk)); } }
+@keyframes dm-recoil { from { transform:translateX(var(--dm-walk)); } to { transform:translateX(calc(var(--dm-walk) + var(--dm-recoil))); } }
+.is-dominoes .dm-a.is-tapper .nc-hop { transform:translateY(0px);
+  --ba:dm-hop 300ms linear calc(var(--tl) + var(--b-hop)) 2 both,
+    dm-bounce 440ms linear calc(var(--tl) + var(--b-bounce)) forwards; animation:var(--ba); }
 @keyframes dm-hop { 0% { transform:translateY(0px); animation-timing-function:cubic-bezier(.2,.7,.4,1); }
-  45% { transform:translateY(var(--hop)); animation-timing-function:cubic-bezier(.6,0,.8,.3); } 100% { transform:translateY(0px); } }
-.is-dominoes .dm-tapper .cast-hand.is-front > .cast-hand-in { transform:var(--rest);
-  --ba:dm-raise 240ms var(--ease-out) calc(var(--tl) + var(--b-raise)) both,
-    dm-jab 90ms cubic-bezier(.4,0,.2,1.4) calc(var(--tl) + var(--b-tap) - 90ms) forwards,
-    dm-lower 280ms ease-in-out calc(var(--tl) + var(--b-nod) - 300ms) forwards;
+  45% { transform:translateY(var(--dm-hop)); animation-timing-function:cubic-bezier(.6,0,.8,.3); } 100% { transform:translateY(0px); } }
+.is-dominoes .dm-a.is-tapper .nc-tilt { transform:rotate(0deg);
+  --ba:dm-bump 260ms ease-out calc(var(--tl) + var(--b-tap) - 110ms) both,
+    dm-crane 520ms ease-in-out calc(var(--tl) + var(--b-chain) + var(--dm-lt)) forwards,
+    dm-uncrane 300ms ease-out calc(var(--tl) + var(--b-flat)) forwards; animation:var(--ba); }
+@keyframes dm-bump { 0% { transform:rotate(0deg); } 40% { transform:rotate(-15deg) translateX(var(--dm-bump)); } 100% { transform:rotate(0deg); } }
+
+/* the last one balancing on its heel: a small sway in the plane too */
+.is-dominoes .dm-b.is-last .nc-tilt { transform:rotate(0deg);
+  --ba:dm-balance calc(var(--b-drop) - var(--b-chain) - var(--dm-lt)) ease-in-out calc(var(--tl) + var(--b-chain) + var(--dm-lt)) both;
   animation:var(--ba); }
-@keyframes dm-raise { from { transform:var(--rest); } to { transform:var(--aim); } }
-@keyframes dm-jab { from { transform:var(--aim); } to { transform:var(--jab); } }
-@keyframes dm-lower { from { transform:var(--jab); } to { transform:var(--rest); } }
-/* it leans into the tap, then straightens to watch */
-.is-dominoes .dm-tapper .cast-body-in {
-  --ba:dm-lean 420ms ease-in-out calc(var(--tl) + var(--b-tap) - 160ms) both; animation:var(--ba); }
-@keyframes dm-lean { 0%, 100% { transform:rotate(0deg); } 35%, 60% { transform:rotate(-6deg); } }
+@keyframes dm-balance { 0%, 100% { transform:rotate(0deg); } 14% { transform:rotate(4deg); } 30% { transform:rotate(-5deg); }
+  48% { transform:rotate(4.5deg); } 66% { transform:rotate(-3.5deg); } 84% { transform:rotate(2deg); } }

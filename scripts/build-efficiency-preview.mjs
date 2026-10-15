@@ -27,7 +27,7 @@ await build({
     builder.onLoad({ filter:/[\\/]src[\\/]lib[\\/]client\.js$/ }, () => ({
       contents:blocked(["useTournament", "dispatch", "uploadPhoto", "downloadSnapshot", "localGet", "localSet",
         "getDeviceId", "setGmToken", "hasGmToken", "spotifyStatus", "spotifyPlayer", "spotifySearch",
-        "spotifyAuthorize", "spotifyDisconnect", "spotifyPlay", "spotifyPause", "spotifyDevice", "spotifyAutoWinSongs", "songPreview", "songSnippet", "spotifyRetry", "geoUploadPhoto", "geoDeleteRound", "geoPhotoUrl", "triviaUploadPhoto", "triviaBank", "triviaClip", "triviaClipCheck", "triviaPhotoUrl", "reportTvSound", "setTvView", "karaokeVideos", "karaokeVideo", "karaokeCheck", "reportTvVideo",
+        "spotifyAuthorize", "spotifyDisconnect", "spotifyPlay", "spotifyPause", "spotifyDevice", "spotifyAutoWinSongs", "songPreview", "songSnippet", "spotifyRetry", "spotifyLatency", "spotifyCalibrate", "geoUploadPhoto", "geoDeleteRound", "geoPhotoUrl", "triviaUploadPhoto", "triviaBank", "triviaClip", "triviaClipCheck", "triviaPhotoUrl", "reportTvSound", "setTvView", "karaokeVideos", "karaokeVideo", "karaokeCheck", "reportTvVideo",
         "uploadMoment", "deleteMoment", "setMomentHidden", "hiddenMomentUrl"]), loader:"js",
     }));
     builder.onLoad({ filter:/[\\/]features[\\/]check-in[\\/]install\.js$/ }, () => ({

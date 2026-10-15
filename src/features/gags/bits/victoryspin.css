@@ -1,0 +1,86 @@
+/* victoryspin (victoryspin.jsx): beats from registry.js (--b-<name>),
+   every animation on --ba, each element resting on its end state (the
+   chip stopped facing the room on its scorched ring, the sparks out). A
+   run of moves on one property: the first fills both ways, the rest
+   forwards. The camera and the shakes are the stage's. */
+
+.is-victoryspin .vsp { position:absolute; inset:0; }
+
+/* ── the spin: a twist back to wind up; let go, faster and faster; at
+   full speed a whirl too fast to see; then dead stop, facing front ── */
+.is-victoryspin .vsp-chip { z-index:3; }
+.is-victoryspin .vsp-chip .nc-spin { transform:rotateY(0deg); opacity:1;
+  --ba:vsp-wind 360ms ease-in-out calc(var(--tl) + var(--b-wind)) both,
+    vsp-go 750ms cubic-bezier(.55,0,1,1) calc(var(--tl) + var(--b-go)) forwards,
+    vsp-fast 850ms linear calc(var(--tl) + var(--b-go) + 750ms) forwards,
+    vsp-whirl 84ms linear calc(var(--tl) + var(--b-full)) infinite forwards,
+    vsp-stop 460ms cubic-bezier(.15,.75,.3,1) calc(var(--tl) + var(--b-stop)) forwards,
+    vsp-dim 220ms ease-out calc(var(--tl) + var(--b-blur)) forwards,
+    vsp-undim 120ms ease-out calc(var(--tl) + var(--b-stop)) forwards; animation:var(--ba); }
+@keyframes vsp-wind { from { transform:rotateY(0deg); } to { transform:rotateY(-50deg); } }
+@keyframes vsp-go { from { transform:rotateY(-50deg); } to { transform:rotateY(1030deg); } }
+@keyframes vsp-fast { from { transform:rotateY(1030deg); } to { transform:rotateY(3730deg); } }
+@keyframes vsp-whirl { from { transform:rotateY(0deg); } to { transform:rotateY(360deg); } }
+@keyframes vsp-stop { from { transform:rotateY(-1080deg); } to { transform:rotateY(0deg); } }
+@keyframes vsp-dim { from { opacity:1; } to { opacity:.5; } }
+@keyframes vsp-undim { from { opacity:.5; } to { opacity:1; } }
+/* squats into the wind-up; lifts off the floor at full speed, hovering
+   like a top; drops back on the stop */
+.is-victoryspin .vsp-chip .nc-body { transform:scale(1.04, 1.04);
+  --ba:vsp-squat 360ms ease-in-out calc(var(--tl) + var(--b-wind)) both,
+    vsp-unsquat 120ms ease-out calc(var(--tl) + var(--b-go)) forwards,
+    vsp-land 300ms ease-out calc(var(--tl) + var(--b-land)) forwards; animation:var(--ba); }
+@keyframes vsp-squat { from { transform:scale(1, 1); } to { transform:scale(1.06, .92); } }
+@keyframes vsp-unsquat { from { transform:scale(1.06, .92); } to { transform:scale(1, 1); } }
+@keyframes vsp-land { 0% { transform:scale(1, 1); } 30% { transform:scale(1.14, .84); } 65% { transform:scale(.98, 1.06); } 100% { transform:scale(1.04, 1.04); } }
+.is-victoryspin .vsp-chip .nc-hop { transform:translateY(0px);
+  --ba:vsp-lift 240ms cubic-bezier(.2,.8,.3,1) calc(var(--tl) + var(--b-full)) both,
+    vsp-hover 300ms ease-in-out calc(var(--tl) + var(--b-full) + 240ms) infinite alternate forwards,
+    vsp-drop 150ms cubic-bezier(.6,0,1,.6) calc(var(--tl) + var(--b-land) - 150ms) forwards; animation:var(--ba); }
+@keyframes vsp-lift { from { transform:translateY(0px); } to { transform:translateY(-30px); } }
+@keyframes vsp-hover { from { transform:translateY(-30px); } to { transform:translateY(-40px); } }
+@keyframes vsp-drop { from { transform:translateY(-30px); } to { transform:translateY(0px); } }
+/* pleased with itself: leans back once it lands */
+.is-victoryspin .vsp-chip .nc-tilt { transform:rotate(-8deg);
+  --ba:vsp-proud 380ms cubic-bezier(.2,.9,.3,1.3) calc(var(--tl) + var(--b-proud)) both; animation:var(--ba); }
+@keyframes vsp-proud { from { transform:rotate(0deg); } to { transform:rotate(-8deg); } }
+.is-victoryspin .vsp-chip .nc-pool { transform:scale(1, 1);
+  --ba:vsp-pool 1500ms ease-in calc(var(--tl) + var(--b-go)) both, vsp-unpool 300ms ease-out calc(var(--tl) + var(--b-stop)) forwards;
+  animation:var(--ba); }
+@keyframes vsp-pool { from { transform:scale(1, 1); } to { transform:scale(1.5, 1.4); } }
+@keyframes vsp-unpool { from { transform:scale(1.5, 1.4); } to { transform:scale(1, 1); } }
+
+/* ── the blur: the orb comes up as it gets fast, its meridians strobing ── */
+.is-victoryspin .vsp-orb { opacity:0;
+  --ba:vsp-orb-in 500ms ease-in calc(var(--tl) + var(--b-blur)) both, bit-hide 90ms linear calc(var(--tl) + var(--b-stop) + 60ms) forwards;
+  animation:var(--ba); }
+@keyframes vsp-orb-in { from { opacity:0; } to { opacity:1; } }
+.is-victoryspin .vsp-orb .ng-m1 { --ba:vsp-strobe 84ms linear calc(var(--tl) + var(--b-blur)) infinite both; animation:var(--ba); }
+.is-victoryspin .vsp-orb .ng-m2 { --ba:vsp-strobe 84ms linear calc(var(--tl) + var(--b-blur) - 42ms) infinite both; animation:var(--ba); }
+@keyframes vsp-strobe { 0%, 49% { opacity:1; } 50%, 100% { opacity:.15; } }
+.is-victoryspin .vsp-orb .ng-whirl { --ba:vsp-strobe 120ms linear calc(var(--tl) + var(--b-full)) infinite both; animation:var(--ba); }
+
+/* ── full speed: a ring of light ── */
+.is-victoryspin .vsp-flash { z-index:4; opacity:0;
+  --ba:vsp-ring 380ms ease-out calc(var(--tl) + var(--b-full)) forwards; animation:var(--ba); }
+@keyframes vsp-ring { 0% { opacity:1; transform:scale(.55); } 55% { opacity:1; } 100% { opacity:0; transform:scale(1.3); } }
+
+/* ── the scorch: a ring burning into the floor, hotter with the speed ── */
+.is-victoryspin .vsp-scorch { opacity:1; transform:scale(1, 1);
+  --ba:vsp-burn 1000ms ease-in calc(var(--tl) + var(--b-sparks)) both, vsp-spread 1000ms ease-in calc(var(--tl) + var(--b-sparks)) both,
+    vsp-cool 600ms ease-out calc(var(--tl) + var(--b-stop) + 200ms) forwards; animation:var(--ba); }
+@keyframes vsp-burn { 0% { opacity:0; } 15% { opacity:.5; } 22% { opacity:.1; } 40% { opacity:.6; } 100% { opacity:1; } }
+@keyframes vsp-spread { from { transform:scale(.4, .6); } to { transform:scale(1, 1); } }
+@keyframes vsp-cool { 0% { opacity:1; } 100% { opacity:.7; } }
+
+/* ── sparks off the floor: a few once it gets going, a shower at full
+   speed, out as it stops ── */
+.is-victoryspin .vsp-spark { z-index:5; opacity:0; --at:var(--b-full);
+  --ba:vsp-fly 460ms linear calc(var(--tl) + var(--at) + var(--d)) infinite forwards,
+    bit-hide 1ms step-start calc(var(--tl) + var(--b-stop) + 150ms) forwards; animation:var(--ba); }
+.is-victoryspin .vsp-spark.is-early { --at:var(--b-sparks); }
+.is-victoryspin .vsp-spark-turn { transform:rotate(var(--a)); }
+@keyframes vsp-fly {
+  0% { opacity:1; transform:translate(0px, 0px); animation-timing-function:cubic-bezier(.2,.7,.4,1); }
+  45% { opacity:1; transform:translate(calc(var(--dx) * .55), var(--dy)); animation-timing-function:cubic-bezier(.6,0,.9,.5); }
+  100% { opacity:0; transform:translate(var(--dx), calc(var(--dy) * -.1 + 20px)); } }

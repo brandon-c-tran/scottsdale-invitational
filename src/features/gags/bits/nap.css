@@ -1,0 +1,106 @@
+/* nap (nap.jsx): beats from registry.js (--b-<name>), every animation on
+   --ba, each element resting on its end state. A run of moves on one
+   property: the first fills both ways, the rest forwards. The camera is
+   the stage's. */
+
+.is-nap .np { position:absolute; inset:0; }
+
+/* ── the chip nods off: once, twice, then keels over backwards flat on
+   the floor, rattles down, and breathes ── */
+.is-nap .np-chip .nc-hop { perspective:900px; transform:translateY(0px);
+  --ba:np-twitch 420ms linear calc(var(--tl) + var(--b-twitch)) both; animation:var(--ba); }
+@keyframes np-twitch { 0% { transform:translateY(0px); animation-timing-function:cubic-bezier(.2,.8,.4,1); }
+  30% { transform:translateY(-54px); animation-timing-function:cubic-bezier(.6,0,.9,.5); }
+  58% { transform:translateY(0px); animation-timing-function:cubic-bezier(.2,.8,.4,1); }
+  74% { transform:translateY(-12px); animation-timing-function:cubic-bezier(.6,0,.9,.5); } 100% { transform:translateY(0px); } }
+.is-nap .np-chip .nc-body { transform:rotateX(76deg);
+  --ba:np-nod1 900ms linear calc(var(--tl) + var(--b-nod1)) both,
+    np-nod2 760ms linear calc(var(--tl) + var(--b-nod2)) forwards,
+    np-keel 300ms cubic-bezier(.5,0,.9,.4) calc(var(--tl) + var(--b-keel)) forwards,
+    np-rattle 720ms ease-out calc(var(--tl) + var(--b-flat)) forwards,
+    np-breathe 1600ms ease-in-out calc(var(--tl) + var(--b-flat) + 720ms) infinite forwards; animation:var(--ba); }
+/* a nod: slowly forward, then caught with a jerk */
+@keyframes np-nod1 { 0% { transform:rotateX(0deg); animation-timing-function:cubic-bezier(.5,0,.8,.6); }
+  78% { transform:rotateX(-14deg); animation-timing-function:cubic-bezier(.2,.9,.3,1); } 100% { transform:rotateX(0deg); } }
+@keyframes np-nod2 { 0% { transform:rotateX(0deg); animation-timing-function:cubic-bezier(.5,0,.8,.6); }
+  80% { transform:rotateX(-22deg); animation-timing-function:cubic-bezier(.2,.9,.3,1); } 100% { transform:rotateX(4deg); } }
+@keyframes np-keel { from { transform:rotateX(4deg); } to { transform:rotateX(76deg); } }
+@keyframes np-rattle { 0% { transform:rotateX(76deg); } 18% { transform:rotateX(64deg); } 36% { transform:rotateX(76deg); }
+  56% { transform:rotateX(70deg); } 76% { transform:rotateX(76deg); } 88% { transform:rotateX(74deg); } 100% { transform:rotateX(76deg); } }
+/* asleep: the chest rises and falls */
+@keyframes np-breathe { 0%, 100% { transform:rotateX(76deg); } 45% { transform:rotateX(67deg); } }
+/* drowsy: its head drops to one side, is caught, drops further */
+.is-nap .np-chip .nc-tilt { transform:rotate(0deg);
+  --ba:np-droop1 900ms linear calc(var(--tl) + var(--b-nod1)) both,
+    np-droop2 760ms linear calc(var(--tl) + var(--b-nod2)) forwards,
+    np-unwind 300ms ease-in calc(var(--tl) + var(--b-keel)) forwards; animation:var(--ba); }
+@keyframes np-droop1 { 0% { transform:rotate(0deg); animation-timing-function:cubic-bezier(.5,0,.8,.6); }
+  78% { transform:rotate(-13deg); animation-timing-function:cubic-bezier(.2,.9,.3,1); } 100% { transform:rotate(1deg); } }
+@keyframes np-droop2 { 0% { transform:rotate(1deg); animation-timing-function:cubic-bezier(.5,0,.8,.6); }
+  80% { transform:rotate(-24deg); animation-timing-function:cubic-bezier(.2,.9,.3,1); } 100% { transform:rotate(3deg); } }
+@keyframes np-unwind { from { transform:rotate(3deg); } to { transform:rotate(0deg); } }
+.is-nap .np-chip .nc-pool { transform:scale(1.1, 1.1);
+  --ba:np-pool 300ms ease-out calc(var(--tl) + var(--b-flat)) both; animation:var(--ba); }
+@keyframes np-pool { 0% { transform:scale(1, 1); } 30% { transform:scale(1.25, 1.3); } 100% { transform:scale(1.1, 1.1); } }
+
+/* ── nodding: a small z comes on; it jerks awake (the z out, a start);
+   it comes on again as it goes ── */
+.is-nap .np-doze { opacity:0;
+  --ba:neon-ignite 300ms linear calc(var(--tl) + var(--b-nod1) + 300ms) both,
+    bit-hide 1ms step-start calc(var(--tl) + var(--b-nod1) + 700ms) forwards,
+    neon-ignite 300ms linear calc(var(--tl) + var(--b-nod2) + 200ms) forwards,
+    neon-die 260ms linear calc(var(--tl) + var(--b-keel)) forwards; animation:var(--ba); }
+.is-nap .np-startle { opacity:0;
+  --ba:np-startle 420ms linear calc(var(--tl) + var(--b-nod1) + 700ms) forwards; animation:var(--ba); }
+@keyframes np-startle { 0% { opacity:1; transform:scale(.9); } 50% { opacity:1; transform:scale(1.08); } 70% { opacity:.3; }
+  80% { opacity:.9; } 100% { opacity:0; transform:scale(1.1); } }
+
+/* ── the Z's: lit while it sleeps, out when it twitches, back after ── */
+.is-nap .np-zees { opacity:1;
+  --ba:bit-show 1ms step-start calc(var(--tl) + var(--b-zees)) both,
+    neon-die 320ms linear calc(var(--tl) + var(--b-twitch)) forwards,
+    neon-ignite 420ms linear calc(var(--tl) + var(--b-land2) + 300ms) forwards; animation:var(--ba); }
+.is-nap .np-z { opacity:0;
+  --ba:np-z 2400ms linear calc(var(--tl) + var(--b-zees) + var(--d, 0ms)) infinite both; animation:var(--ba); }
+.is-nap .np-z.is-1 { --d:800ms; }
+.is-nap .np-z.is-2 { --d:1600ms; }
+@keyframes np-z { 0% { opacity:0; transform:translate(0px, 0px) rotate(-8deg) scale(.6); } 6% { opacity:.9; } 10% { opacity:.2; }
+  16% { opacity:1; } 70% { opacity:1; } 100% { opacity:0; transform:translate(120px, -250px) rotate(10deg) scale(1.15); } }
+
+/* ── the moth: in out of the dark to the chip's light, round it, down on
+   it; up when it twitches, round again, down again ── */
+.is-nap .np-moth { z-index:3; }
+.is-nap .np-moth-fly { transform:translate(0px, 0px);
+  --ba:np-fly1 1600ms linear calc(var(--tl) + var(--b-moth)) both,
+    np-fly2 1600ms linear calc(var(--tl) + var(--b-twitch)) forwards; animation:var(--ba); }
+@keyframes np-fly1 { 0% { transform:translate(760px, -520px); } 14% { transform:translate(340px, -340px); }
+  26% { transform:translate(70px, -240px); } 36% { transform:translate(-180px, -170px); } 46% { transform:translate(-270px, -250px); }
+  56% { transform:translate(-90px, -340px); } 66% { transform:translate(170px, -280px); } 76% { transform:translate(200px, -150px); }
+  86% { transform:translate(60px, -84px); } 94% { transform:translate(10px, -22px); } 100% { transform:translate(0px, 0px); } }
+@keyframes np-fly2 { 0% { transform:translate(0px, 0px); } 9% { transform:translate(-50px, -170px); }
+  20% { transform:translate(-220px, -260px); } 32% { transform:translate(-80px, -350px); } 44% { transform:translate(180px, -310px); }
+  56% { transform:translate(260px, -190px); } 68% { transform:translate(90px, -120px); } 79% { transform:translate(-90px, -150px); }
+  90% { transform:translate(-30px, -56px); } 100% { transform:translate(0px, 0px); } }
+/* it banks into its turns and bobs as it flies */
+.is-nap .np-moth-bank { transform:rotate(0deg);
+  --ba:np-bank1 1600ms linear calc(var(--tl) + var(--b-moth)) both,
+    np-bank2 1600ms linear calc(var(--tl) + var(--b-twitch)) forwards; animation:var(--ba); }
+@keyframes np-bank1 { 0% { transform:rotate(-30deg); } 26% { transform:rotate(-24deg); } 46% { transform:rotate(20deg); }
+  66% { transform:rotate(30deg); } 86% { transform:rotate(-10deg); } 100% { transform:rotate(0deg); } }
+@keyframes np-bank2 { 0% { transform:rotate(0deg); } 20% { transform:rotate(-26deg); } 44% { transform:rotate(24deg); }
+  68% { transform:rotate(-20deg); } 90% { transform:rotate(-8deg); } 100% { transform:rotate(0deg); } }
+.is-nap .np-moth-fx { --ba:np-bob 260ms ease-in-out calc(var(--tl) + 0ms) infinite alternate both; animation:var(--ba); }
+@keyframes np-bob { from { transform:translateY(-6px); } to { transform:translateY(6px); } }
+/* wings beat fast in the air; landed, they fan slowly */
+.is-nap .np-wing { --ba:np-flap 110ms ease-in-out calc(var(--tl) + 0ms) infinite alternate both; animation:var(--ba); }
+@keyframes np-flap { from { transform:scaleX(1); } to { transform:scaleX(.22); } }
+.is-nap .np-moth-art.is-rest .np-wing { --ba:np-fan 1400ms ease-in-out calc(var(--tl) + 0ms) infinite both; animation:var(--ba); }
+@keyframes np-fan { 0%, 60%, 100% { transform:scaleX(1); } 75% { transform:scaleX(.55); } 88% { transform:scaleX(.9); } }
+.is-nap .np-moth-art.is-rest { opacity:1;
+  --ba:bit-show 1ms step-start calc(var(--tl) + var(--b-land)) both,
+    bit-hide 1ms step-start calc(var(--tl) + var(--b-twitch)) forwards,
+    bit-show 1ms step-start calc(var(--tl) + var(--b-land2)) forwards; animation:var(--ba); }
+.is-nap .np-moth-art.is-fly { opacity:0;
+  --ba:bit-hide 1ms step-start calc(var(--tl) + var(--b-land)) both,
+    bit-show 1ms step-start calc(var(--tl) + var(--b-twitch)) forwards,
+    bit-hide 1ms step-start calc(var(--tl) + var(--b-land2)) forwards; animation:var(--ba); }

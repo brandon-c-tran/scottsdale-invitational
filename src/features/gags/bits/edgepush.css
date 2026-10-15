@@ -1,0 +1,104 @@
+/* edgepush (edgepush.jsx): beats from registry.js (--b-<name>), every
+   animation on --ba, each element resting on its end state. A run of
+   moves on one property: the first fills both ways, the rest forwards.
+   The camera and the shakes are the stage's. */
+
+.is-edgepush .ep { position:absolute; inset:0; }
+.is-edgepush .ep-chip.is-a { --dir:-1; --stamp:var(--b-stampA); }
+.is-edgepush .ep-chip.is-b { --dir:1; --stamp:var(--b-stampB); }
+
+/* ── locomotion: the charge in from either side, then the whole lock
+   sliding one way, the other, and back to the middle ── */
+.is-edgepush .ep-chip .nc-move { transform:translateX(calc(var(--dir) * 34px));
+  --ba:ep-charge 300ms linear calc(var(--tl) + var(--b-charge)) both,
+    ep-push1 800ms cubic-bezier(.45,0,.55,1) calc(var(--tl) + var(--b-push1)) forwards,
+    ep-push2 1000ms cubic-bezier(.45,0,.55,1) calc(var(--tl) + var(--b-push2)) forwards,
+    ep-push3 700ms cubic-bezier(.45,0,.55,1) calc(var(--tl) + var(--b-push3)) forwards,
+    ep-square 260ms cubic-bezier(.2,.8,.3,1) calc(var(--tl) + var(--b-turn)) forwards; animation:var(--ba); }
+@keyframes ep-square { from { transform:translateX(0px); } to { transform:translateX(calc(var(--dir) * 34px)); } }
+@keyframes ep-charge { 0% { transform:translateX(calc(var(--dir) * 160px)); animation-timing-function:cubic-bezier(.55,0,.9,.5); }
+  66% { transform:translateX(calc(var(--dir) * -6px)); animation-timing-function:ease-out; }
+  82% { transform:translateX(calc(var(--dir) * 12px)); animation-timing-function:ease-in-out; } 100% { transform:translateX(0px); } }
+@keyframes ep-push1 { from { transform:translateX(0px); } to { transform:translateX(80px); } }
+@keyframes ep-push2 { 0% { transform:translateX(80px); } 30% { transform:translateX(86px); } 100% { transform:translateX(-80px); } }
+@keyframes ep-push3 { from { transform:translateX(-80px); } to { transform:translateX(0px); } }
+
+/* ── the lean: each into the other; the one winning leans further ── */
+.is-edgepush .ep-chip .nc-tilt { transform:rotate(calc(var(--dir) * -14deg));
+  --ba:ep-wind 300ms ease-out calc(var(--tl) + var(--b-set)) both,
+    ep-lean 220ms cubic-bezier(.3,0,.6,1) calc(var(--tl) + var(--b-charge) + 80ms) forwards,
+    ep-lean1 800ms cubic-bezier(.45,0,.55,1) calc(var(--tl) + var(--b-push1)) forwards,
+    ep-lean2 1000ms cubic-bezier(.45,0,.55,1) calc(var(--tl) + var(--b-push2)) forwards,
+    ep-lean3 700ms cubic-bezier(.45,0,.55,1) calc(var(--tl) + var(--b-push3)) forwards; animation:var(--ba); }
+@keyframes ep-wind { from { transform:rotate(0deg); } to { transform:rotate(calc(var(--dir) * 5deg)); } }
+@keyframes ep-lean { from { transform:rotate(calc(var(--dir) * 5deg)); } to { transform:rotate(calc(var(--dir) * -14deg)); } }
+.is-edgepush .ep-chip.is-a { --l1:19deg; --l2:9deg; }
+.is-edgepush .ep-chip.is-b { --l1:-9deg; --l2:-19deg; }
+@keyframes ep-lean1 { from { transform:rotate(calc(var(--dir) * -14deg)); } to { transform:rotate(var(--l1)); } }
+@keyframes ep-lean2 { from { transform:rotate(var(--l1)); } to { transform:rotate(var(--l2)); } }
+@keyframes ep-lean3 { from { transform:rotate(var(--l2)); } to { transform:rotate(calc(var(--dir) * -14deg)); } }
+
+/* ── the stamp (a hop, a heavy landing), then trembling with the strain ── */
+.is-edgepush .ep-chip .nc-hop { transform:translate(0px, 0px);
+  --ba:ep-stamp-hop 440ms linear calc(var(--tl) + var(--stamp)) both,
+    ep-tremble 96ms linear calc(var(--tl) + var(--b-clash) + 120ms + var(--ph, 0ms)) infinite forwards; animation:var(--ba); }
+.is-edgepush .ep-chip.is-b { --ph:-40ms; }
+@keyframes ep-stamp-hop { 0% { transform:translate(0px, 0px); animation-timing-function:cubic-bezier(.2,.7,.4,1); }
+  45% { transform:translate(0px, -70px); animation-timing-function:cubic-bezier(.7,0,1,.6); } 60%, 100% { transform:translate(0px, 0px); } }
+@keyframes ep-tremble { 0%, 100% { transform:translate(0px, 0px); } 25% { transform:translate(-3px, 1px); } 50% { transform:translate(3px, -2px); }
+  75% { transform:translate(-2px, 0px); } }
+.is-edgepush .ep-chip .nc-body { transform:scale(1, 1);
+  --ba:ep-stamp-body 440ms linear calc(var(--tl) + var(--stamp)) both,
+    ep-crouch 300ms ease-out calc(var(--tl) + var(--b-set)) forwards,
+    ep-spring 200ms ease-out calc(var(--tl) + var(--b-charge)) forwards; animation:var(--ba); }
+@keyframes ep-stamp-body { 0% { transform:scale(1, 1); } 20% { transform:scale(.92, 1.1); } 45% { transform:scale(.96, 1.04); }
+  60% { transform:scale(1.2, .8); } 78% { transform:scale(.97, 1.03); } 100% { transform:scale(1, 1); } }
+@keyframes ep-crouch { from { transform:scale(1, 1); } to { transform:scale(1.08, .9); } }
+@keyframes ep-spring { 0% { transform:scale(1.08, .9); } 50% { transform:scale(.94, 1.06); } 100% { transform:scale(1, 1); } }
+
+/* ── faced off, each on its edge toward the other; at the turn both
+   square up to the room at once ── */
+.is-edgepush .ep-chip .nc-roll { perspective:560px; }
+.is-edgepush .ep-chip .nc-spin { transform:rotateY(0deg) scale(1);
+  --ba:ep-turn 260ms cubic-bezier(.2,.8,.3,1) calc(var(--tl) + var(--b-turn)) both; animation:var(--ba); }
+@keyframes ep-turn { 0% { transform:rotateY(calc(var(--dir) * 46deg)) scale(1); } 60% { transform:rotateY(calc(var(--dir) * -7deg)) scale(1.05); }
+  100% { transform:rotateY(0deg) scale(1); } }
+
+/* ── dust: kicked out by the stamp, and from the feet of whoever is
+   being shoved ── */
+.is-edgepush .ep-dust { opacity:0; }
+.is-edgepush .ep-dust.is-stamp { --ba:ep-puff 460ms ease-out calc(var(--tl) + var(--stamp) + 260ms) forwards; animation:var(--ba); }
+.is-edgepush .ep-chip.is-b .ep-dust.is-skid { --ba:ep-skid 800ms ease-out calc(var(--tl) + var(--b-push1)) forwards; animation:var(--ba); }
+.is-edgepush .ep-chip.is-a .ep-dust.is-skid { --ba:ep-skid 1000ms ease-out calc(var(--tl) + var(--b-push2) + 200ms) forwards; animation:var(--ba); }
+@keyframes ep-puff { 0% { opacity:1; transform:scale(.5, .6); } 60% { opacity:.8; } 100% { opacity:0; transform:scale(1.3, 1.1); } }
+@keyframes ep-skid { 0% { opacity:0; transform:scale(.6); } 12% { opacity:1; } 30% { opacity:.4; transform:scale(1); } 45% { opacity:1; }
+  70% { opacity:.6; transform:scale(1.15); } 100% { opacity:0; transform:scale(1.3); } }
+
+/* ── sweat flies off each, one drop at a time; then one each, together ── */
+.is-edgepush .ep-sweat { opacity:0; }
+.is-edgepush .ep-chip.is-a .ep-sweat.is-0 { --at:var(--b-sweat1); }
+.is-edgepush .ep-chip.is-b .ep-sweat.is-0 { --at:var(--b-sweat2); }
+.is-edgepush .ep-chip.is-a .ep-sweat.is-1 { --at:var(--b-sweat3); }
+.is-edgepush .ep-chip.is-b .ep-sweat.is-1 { --at:var(--b-sweat4); }
+.is-edgepush .ep-sweat.is-2 { --at:var(--b-drip); }
+.is-edgepush .ep-sweat { --ba:ep-sweat 700ms linear calc(var(--tl) + var(--at, 0ms)) forwards; animation:var(--ba); }
+@keyframes ep-sweat { 0% { opacity:1; transform:translate(0px, 0px) rotate(0deg) scale(.4);
+    animation-timing-function:cubic-bezier(.2,.7,.4,1); }
+  15% { transform:translate(calc(var(--dir) * 30px), -30px) rotate(calc(var(--dir) * -30deg)) scale(1); }
+  40% { opacity:1; transform:translate(calc(var(--dir) * 70px), -60px) rotate(calc(var(--dir) * -60deg)) scale(1);
+    animation-timing-function:cubic-bezier(.6,0,.9,.5); }
+  100% { opacity:0; transform:translate(calc(var(--dir) * 120px), 120px) rotate(calc(var(--dir) * -120deg)) scale(.8); } }
+
+/* ── where they meet: one spark on the clash, then a grind of them,
+   riding the lock as it slides ── */
+.is-edgepush .ep-slide { transform:translateX(0px);
+  --ba:ep-push1 800ms cubic-bezier(.45,0,.55,1) calc(var(--tl) + var(--b-push1)) both,
+    ep-push2 1000ms cubic-bezier(.45,0,.55,1) calc(var(--tl) + var(--b-push2)) forwards,
+    ep-push3 700ms cubic-bezier(.45,0,.55,1) calc(var(--tl) + var(--b-push3)) forwards; animation:var(--ba); }
+.is-edgepush .ep-clash { opacity:0; --ba:ep-clash 360ms ease-out calc(var(--tl) + var(--b-clash)) forwards; animation:var(--ba); }
+@keyframes ep-clash { 0% { opacity:1; transform:scale(.4); } 50% { opacity:1; transform:scale(1.1); } 100% { opacity:0; transform:scale(1.3); } }
+.is-edgepush .ep-grind { opacity:1;
+  --ba:bit-show 1ms step-start calc(var(--tl) + var(--b-clash) + 200ms) both,
+    ep-grind 210ms linear calc(var(--tl) + var(--b-clash) + 200ms) infinite forwards; animation:var(--ba); }
+@keyframes ep-grind { 0% { opacity:1; transform:rotate(0deg) scale(.8); } 30% { opacity:.25; } 50% { opacity:.9; transform:rotate(30deg) scale(1.05); }
+  70% { opacity:.4; } 100% { opacity:1; transform:rotate(60deg) scale(.8); } }

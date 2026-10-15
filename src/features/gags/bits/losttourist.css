@@ -1,0 +1,107 @@
+/* losttourist (losttourist.jsx): beats from registry.js (--b-<name>),
+   every animation on --ba, each element resting on its end state. A run
+   of moves on one property: the first fills both ways, the rest
+   forwards. Rolling is .nc-move's x and .nc-roll's turn together, one
+   turn a little under a circumference (each roll ends upright). The camera is the
+   stage's. */
+
+.is-losttourist .lt { position:absolute; inset:0; }
+.is-losttourist .lt-chip { z-index:2; }
+.is-losttourist .lt-mirror { z-index:3; transform:scaleX(-1); }
+
+/* ── where it rolls: in, off right, back left, and off the way it came ── */
+.is-losttourist .lt-chip .nc-move { transform:translateX(-700px);
+  --ba:lt-wander 1350ms linear calc(var(--tl) + var(--b-wander)) both,
+    lt-go1 900ms cubic-bezier(.45,0,.4,1) calc(var(--tl) + var(--b-go1)) forwards,
+    lt-go2 950ms cubic-bezier(.45,0,.4,1) calc(var(--tl) + var(--b-go2)) forwards,
+    lt-go3 1000ms cubic-bezier(.5,0,.8,.6) calc(var(--tl) + var(--b-go3)) forwards; animation:var(--ba); }
+@keyframes lt-wander { 0% { transform:translateX(-570px); animation-timing-function:cubic-bezier(.3,0,.6,1); }
+  55% { transform:translateX(-170px); animation-timing-function:cubic-bezier(.4,0,.6,1); }
+  72% { transform:translateX(-120px); animation-timing-function:cubic-bezier(.4,0,.3,1); } 100% { transform:translateX(0px); } }
+@keyframes lt-go1 { from { transform:translateX(0px); } to { transform:translateX(480px); } }
+@keyframes lt-go2 { from { transform:translateX(480px); } to { transform:translateX(-60px); } }
+@keyframes lt-go3 { from { transform:translateX(-60px); } to { transform:translateX(-700px); } }
+.is-losttourist .lt-chip .nc-roll { transform:rotate(-330deg);
+  --ba:lt-wander-roll 1350ms linear calc(var(--tl) + var(--b-wander)) both,
+    lt-roll1 900ms cubic-bezier(.45,0,.4,1) calc(var(--tl) + var(--b-go1)) forwards,
+    lt-roll2 950ms cubic-bezier(.45,0,.4,1) calc(var(--tl) + var(--b-go2)) forwards,
+    lt-roll3 1000ms cubic-bezier(.5,0,.8,.6) calc(var(--tl) + var(--b-go3)) forwards; animation:var(--ba); }
+@keyframes lt-wander-roll { 0% { transform:rotate(-360deg); animation-timing-function:cubic-bezier(.3,0,.6,1); }
+  55% { transform:rotate(-107deg); animation-timing-function:cubic-bezier(.4,0,.6,1); }
+  72% { transform:rotate(-76deg); animation-timing-function:cubic-bezier(.4,0,.3,1); } 100% { transform:rotate(0deg); } }
+@keyframes lt-roll1 { from { transform:rotate(0deg); } to { transform:rotate(360deg); } }
+@keyframes lt-roll2 { from { transform:rotate(360deg); } to { transform:rotate(0deg); } }
+@keyframes lt-roll3 { from { transform:rotate(0deg); } to { transform:rotate(-330deg); } }
+
+/* ── rocking to a stop after each roll, and wobbling, puzzled ── */
+.is-losttourist .lt-chip .nc-tilt { transform:rotate(0deg);
+  --ba:lt-rock 600ms ease-out calc(var(--tl) + var(--b-wander) + 1350ms) both,
+    lt-rock 600ms ease-out calc(var(--tl) + var(--b-go1) + 900ms) forwards,
+    lt-rock-back 600ms ease-out calc(var(--tl) + var(--b-go2) + 950ms) forwards,
+    lt-puzzle 1100ms ease-in-out calc(var(--tl) + var(--b-puzzle)) forwards; animation:var(--ba); }
+@keyframes lt-rock { 0% { transform:rotate(0deg); } 25% { transform:rotate(7deg); } 55% { transform:rotate(-4deg); } 80% { transform:rotate(2deg); }
+  100% { transform:rotate(0deg); } }
+@keyframes lt-rock-back { 0% { transform:rotate(0deg); } 25% { transform:rotate(-7deg); } 55% { transform:rotate(4deg); } 80% { transform:rotate(-2deg); }
+  100% { transform:rotate(0deg); } }
+@keyframes lt-puzzle { 0%, 100% { transform:rotate(0deg); } 20% { transform:rotate(-7deg); } 45% { transform:rotate(6deg); } 70% { transform:rotate(-5deg); }
+  88% { transform:rotate(3deg); } }
+
+/* ── where it looks: up at the sign, back at it when it cuts, one way and
+   the other, at the hand ── */
+.is-losttourist .lt-chip .nc-spin { transform:rotateY(0deg) rotateX(0deg);
+  --ba:lt-look 300ms var(--ease-out) calc(var(--tl) + var(--b-look)) both,
+    lt-unlook 160ms ease-out calc(var(--tl) + var(--b-go1) - 120ms) forwards,
+    lt-look-back 300ms var(--ease-out) calc(var(--tl) + var(--b-back)) forwards,
+    lt-unlook-back 160ms ease-out calc(var(--tl) + var(--b-go2) - 120ms) forwards,
+    lt-both-ways 1200ms ease-in-out calc(var(--tl) + var(--b-puzzle)) forwards,
+    lt-to-hand 260ms var(--ease-out) calc(var(--tl) + var(--b-point) - 120ms) forwards,
+    lt-off 140ms ease-out calc(var(--tl) + var(--b-go3) - 100ms) forwards; animation:var(--ba); }
+@keyframes lt-look { from { transform:rotateY(0deg) rotateX(0deg); } to { transform:rotateY(14deg) rotateX(26deg); } }
+@keyframes lt-unlook { from { transform:rotateY(14deg) rotateX(26deg); } to { transform:rotateY(0deg) rotateX(0deg); } }
+@keyframes lt-look-back { from { transform:rotateY(0deg) rotateX(0deg); } to { transform:rotateY(-34deg) rotateX(18deg); } }
+@keyframes lt-unlook-back { from { transform:rotateY(-34deg) rotateX(18deg); } to { transform:rotateY(0deg) rotateX(0deg); } }
+@keyframes lt-both-ways { 0%, 100% { transform:rotateY(0deg) rotateX(0deg); } 18%, 36% { transform:rotateY(-40deg) rotateX(0deg); }
+  56%, 74% { transform:rotateY(40deg) rotateX(0deg); } }
+@keyframes lt-to-hand { from { transform:rotateY(0deg) rotateX(0deg); } to { transform:rotateY(32deg) rotateX(10deg); } }
+@keyframes lt-off { from { transform:rotateY(32deg) rotateX(10deg); } to { transform:rotateY(0deg) rotateX(0deg); } }
+/* a little start each time the sign cuts */
+.is-losttourist .lt-chip .nc-hop { transform:translateY(0px);
+  --ba:lt-start 300ms linear calc(var(--tl) + var(--b-flip1) + 80ms) both,
+    lt-start 300ms linear calc(var(--tl) + var(--b-flip2) + 80ms) forwards; animation:var(--ba); }
+@keyframes lt-start { 0%, 100% { transform:translateY(0px); animation-timing-function:cubic-bezier(.2,.8,.4,1); }
+  40% { transform:translateY(-34px); animation-timing-function:cubic-bezier(.6,0,.9,.5); } }
+
+/* ── the question mark: lit in its own color while it is lost ── */
+.is-losttourist .lt-q { opacity:0;
+  --ba:neon-ignite 420ms linear calc(var(--tl) + var(--b-puzzle) + 150ms) both,
+    neon-die 300ms linear calc(var(--tl) + var(--b-go3) - 100ms) forwards; animation:var(--ba); }
+.is-losttourist .lt-q-rock { --ba:lt-q-rock 1400ms ease-in-out calc(var(--tl) + var(--b-puzzle)) infinite both; animation:var(--ba); }
+@keyframes lt-q-rock { 0%, 100% { transform:rotate(-8deg); } 50% { transform:rotate(8deg); } }
+
+/* ── the sign: it swings and stutters each time it cuts; its bulbs chase ── */
+.is-losttourist .lt-sign-swing { transform:rotate(0deg);
+  --ba:lt-swing 700ms ease-out calc(var(--tl) + var(--b-flip1)) both,
+    lt-swing 700ms ease-out calc(var(--tl) + var(--b-flip2)) forwards,
+    lt-swing 700ms ease-out calc(var(--tl) + var(--b-flip3)) forwards; animation:var(--ba); }
+@keyframes lt-swing { 0% { transform:rotate(0deg); } 18% { transform:rotate(-5deg); } 42% { transform:rotate(4deg); } 66% { transform:rotate(-2deg); }
+  100% { transform:rotate(0deg); } }
+.is-losttourist .lt-sign-face { opacity:1;
+  --ba:lt-stutter 260ms linear calc(var(--tl) + var(--b-flip1)) both,
+    lt-stutter 260ms linear calc(var(--tl) + var(--b-flip2)) forwards,
+    lt-stutter 260ms linear calc(var(--tl) + var(--b-flip3)) forwards; animation:var(--ba); }
+@keyframes lt-stutter { 0% { opacity:1; } 15% { opacity:.25; } 35% { opacity:1; } 55% { opacity:.4; } 100% { opacity:1; } }
+.is-losttourist .lt-sign .ng-bulb0 { --ba:lt-chase 600ms linear calc(var(--tl) + 0ms) infinite both; animation:var(--ba); }
+.is-losttourist .lt-sign .ng-bulb1 { --ba:lt-chase 600ms linear calc(var(--tl) - 200ms) infinite both; animation:var(--ba); }
+.is-losttourist .lt-sign .ng-bulb2 { --ba:lt-chase 600ms linear calc(var(--tl) - 400ms) infinite both; animation:var(--ba); }
+@keyframes lt-chase { 0%, 30% { opacity:1; } 34%, 96% { opacity:.18; } 100% { opacity:1; } }
+
+/* ── the house hand: in from the right, a firm point, a second jab, gone ── */
+.is-losttourist .lt-hand .hh-reach { transform:translateX(-1500px);
+  --ba:lt-hand-in 560ms cubic-bezier(.2,.8,.3,1) calc(var(--tl) + var(--b-hand)) both,
+    lt-hand-out 700ms cubic-bezier(.55,0,.9,.5) calc(var(--tl) + var(--b-go3) + 500ms) forwards; animation:var(--ba); }
+@keyframes lt-hand-in { from { transform:translateX(-1500px); } to { transform:translateX(0px); } }
+@keyframes lt-hand-out { from { transform:translateX(0px); } to { transform:translateX(-1500px); } }
+.is-losttourist .lt-hand .hh-fx { transform:translateX(0px);
+  --ba:lt-jab 420ms linear calc(var(--tl) + var(--b-point)) both; animation:var(--ba); }
+@keyframes lt-jab { 0%, 100% { transform:translateX(0px); } 20% { transform:translateX(-16px); } 38% { transform:translateX(30px); }
+  56% { transform:translateX(0px); } 70% { transform:translateX(26px); } }

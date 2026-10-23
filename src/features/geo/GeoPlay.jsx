@@ -77,6 +77,7 @@ function GuessGame({ view, onGuess, now }) {
   const [fill, setFill] = useState(false);
   const [focus, setFocus] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [locking, setLocking] = useState(false);
   const [error, setError] = useState("");
   const [stamped, setStamped] = useState(0);
   const sent = useRef(null), inflight = useRef(null), again = useRef(false), lockedRef = useRef(!!mine?.done);
@@ -125,13 +126,19 @@ function GuessGame({ view, onGuess, now }) {
     if (!flushed.current && left < 1500 && left > -2500) { flushed.current = true; save(); }
   }, [left < 1500]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  /* the tap dims Lock in at once (pending) until the server has it */
+  const lockingRef = useRef(false);
   const lockIn = async () => {
-    if (!pin || !whenSet) return;
+    if (!pin || !whenSet || lockingRef.current) return;
     tapTick();
     lockedRef.current = true;
-    const result = await save(true);
-    if (result?.ok) setStamped(n => n + 1);
-    else lockedRef.current = !!mine?.done;
+    lockingRef.current = true;
+    setLocking(true);
+    try {
+      const result = await save(true);
+      if (result?.ok) setStamped(n => n + 1);
+      else lockedRef.current = !!mine?.done;
+    } finally { lockingRef.current = false; setLocking(false); }
   };
   const go = next => { tapTick(); setStep(next); };
   const locked = !!mine?.done;
@@ -144,7 +151,7 @@ function GuessGame({ view, onGuess, now }) {
       : { label:"Drop your pin", run:null })
       : !pin ? { label:"Drop your pin", run:() => go("map") }
         : locked ? { label:"Locked in", run:null, done:true }
-          : { label:"Lock in", run:lockIn, lock:true };
+          : { label:"Lock in", run:locking ? null : lockIn, lock:true, busy:locking };
   return <>
     <main className={`fd-geo-game-body is-${step}`}>
       {step === "photo" && <button type="button" className={`fd-geo-game-photo${fill ? " is-fill" : ""}`}
@@ -174,7 +181,8 @@ function GuessGame({ view, onGuess, now }) {
             onClick={() => go(id)}>{done && id !== "photo" && <i aria-hidden="true"><Icon name="check" size="1em" /></i>}{name}</button>)}
       </nav>
       {error && <p className="fd-geo-error" role="alert">{error}</p>}
-      <button type="button" key={`${primary.done ? "done" : "go"}:${stamped}`} disabled={!primary.run}
+      <button type="button" key={`${primary.done ? "done" : "go"}:${stamped}`} disabled={!primary.run && !primary.busy}
+        aria-busy={primary.busy || undefined} aria-disabled={primary.busy || undefined}
         className={`fd-geo-primary${primary.lock ? " is-lock" : ""}${primary.done ? " is-done" : ""}${hurry ? " is-hurry" : ""}`}
         onClick={primary.run || undefined}>
         {primary.done && <i aria-hidden="true"><Icon name="check" size="1em" /></i>}{primary.label}

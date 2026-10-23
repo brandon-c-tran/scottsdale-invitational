@@ -188,8 +188,10 @@
 .fd-geo-steps button.is-done i { color:var(--lamp-info); font-style:normal; font-weight:800; }
 .fd-geo-primary { min-height:56px; display:flex; align-items:center; justify-content:center; gap:8px; border:0; border-radius:14px;
   background:var(--action-fill); color:var(--action-ink); font:700 17px/1 var(--fd-body); cursor:pointer; box-shadow:var(--chip-bloom);
-  transition:transform .12s ease, background .2s ease; }
-.fd-geo-primary:active:not(:disabled) { transform:scale(.97); }
+  transition:transform .12s ease, background .2s ease, opacity .15s ease; }
+.fd-geo-primary:active:not(:disabled):not([aria-busy=true]) { transform:scale(.97); }
+/* Lock in, sent and not yet answered: pending, never a dead grey button */
+.fd-geo-primary[aria-busy=true] { opacity:.6; cursor:progress; }
 .fd-geo-primary:disabled { background:var(--paper2); color:var(--muted2); cursor:default; box-shadow:var(--glass-edge); }
 .fd-geo-primary.is-done { background:var(--info-tint); color:var(--lamp-info); box-shadow:inset 0 0 0 1px var(--lamp-info);
   animation:fd-geo-stamp .4s cubic-bezier(.2,.9,.3,1.4) both; }

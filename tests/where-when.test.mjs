@@ -309,10 +309,14 @@ test("the game ends on the phone when its result posts: no sheet, no Home row", 
   assert.equal(sheet(phone()), "", "the game's sheet does not reopen on the done frame");
 });
 
-test("the phone's foot: Saving… never moves the map or the wheels", async () => {
+test("the phone's foot: Lock in goes pending on the tap, and Saving… never moves the map or the wheels", async () => {
   const { readFileSync } = await import("node:fs");
+  const play = readFileSync(new URL("../src/features/geo/GeoPlay.jsx", import.meta.url), "utf8");
+  assert.match(play, /\{ label:"Lock in", run:locking \? null : lockIn, lock:true, busy:locking \}/);
+  assert.match(play, /aria-busy=\{primary\.busy \|\| undefined\}/);
   const css = readFileSync(new URL("../src/features/geo/geo.css", import.meta.url), "utf8");
   assert.match(css, /\.fd-geo-note \{ position:absolute;/, "the note floats over the game, it takes no row from it");
+  assert.match(css, /\.fd-geo-primary\[aria-busy=true\] \{ opacity:\.6;/, "pending reads as the house's 60%, not a dead grey");
 });
 
 test("Lock and start without photos leaves the game's Start beat on the pill", () => {

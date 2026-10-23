@@ -78,7 +78,7 @@ test("one plate per slate event, in order, with its official final order", () =>
   assert.ok(plates.some(plate => plate.bracket), "the brackets are there to open");
   /* a bracket's shared 3rd names both semifinal teams */
   const shared = plates.flatMap(plate => plate.places).find(place => place.place === 2 && place.players.length === 4);
-  if (shared) assert.match(shared.team || "", / · /);
+  if (shared) assert.match(shared.team || "", /, /);
 });
 
 test("a correction after the crown restamps the plate, because the plate reads the result", () => {

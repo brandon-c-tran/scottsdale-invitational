@@ -25,7 +25,7 @@ function placedTeam(state, evId, players) {
   const covered = teams.reduce((sum, team) => sum + team.players.length, 0);
   if (!teams.length || covered !== players.length || !teams.every(team => team.players.every(player => players.includes(player))))
     return null;
-  return teams.map(team => teamLabel(state, team)).join(" · ");
+  return teams.map(team => teamLabel(state, team)).join(", ");
 }
 
 /* One plate per event on the slate (not the finale, not a skipped event),

@@ -105,10 +105,12 @@ const checkUp = <g>
   <circle cx="23" cy="31" r="2.6" {...F} /><circle cx="41" cy="31" r="2.6" {...F} />
   {trail("M25.5 29Q32 21 38.5 29")}{head(38.5, 29, 50)}
 </g>;
+/* the outside numeral stands clear of the field's foot (a card tile is
+   cut at y 40) and of the arc above it */
 const scoreArc = (inside, outside) => <g>
   <Faint><path d="M4 3.5H60" /><path d="M9 3.5V7A23 23 0 0 0 55 7V3.5" /></Faint>{rimTop}
   <Num x={32} y={24.5} size={12}>{inside}</Num>
-  <Num x={32} y={39.5} size={11}>{outside}</Num>
+  <Num x={32} y={38.4} size={10}>{outside}</Num>
 </g>;
 
 export const RULE_PICTURES = {

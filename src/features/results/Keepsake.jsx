@@ -149,7 +149,7 @@ function KeptCardSheet({ state, model, onClose, onPlayer }) {
     </div>
     {preview && <div className="fd-crown-preview fd-kept-preview" role="dialog" aria-label="Saved card">
       <img src={preview} alt={`${model.name}'s last card`} />
-      <p>Press and hold the image to save it.</p>
+      <p>Press and hold to save</p>
       <button type="button" onClick={() => setPreview(null)}>Done</button>
     </div>}
   </Sheet>;
@@ -196,8 +196,8 @@ function SaveAllCards({ state, cards }) {
       {saving ? "Saving…" : blobs ? `Save all ${cards.length} cards` : "Drawing cards…"}</button>
     {step && card && <div className="fd-crown-preview fd-kept-preview" role="dialog" aria-label={`${card.name}'s last card`}>
       {url && <img src={url} alt={`${card.name}'s last card`} />}
-      <p>{step.index + 1} of {cards.length} · {card.name}</p>
-      {step.mode === "preview" && <p>Press and hold the image to save it.</p>}
+      <p>{card.name} ({step.index + 1} of {cards.length})</p>
+      {step.mode === "preview" && <p>Press and hold to save</p>}
       <div className="fd-kept-step">
         {step.mode === "each" && <button type="button" className="fd-kept-share" onClick={shareOne}>Share</button>}
         {step.index < cards.length - 1

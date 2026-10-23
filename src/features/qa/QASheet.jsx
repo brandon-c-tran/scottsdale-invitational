@@ -152,7 +152,7 @@ export function QASheet({ state, status, me, guestLens, busy, environment, dispa
     ...targets.sessions.filter(session => session.key)
       .map(session => ({ key:session.key, label:`End of ${session.label}`, done:`End of ${session.label}`, reached:session.reached })),
     ...targets.poker.map(item => ({ key:item.key, label:`Poker ${{ set:"set", live:"live", counted:"counted" }[item.phase]}`,
-      done:`Poker · ${item.label}`, reached:item.reached, finale:true })),
+      done:item.label, reached:item.reached, finale:true })),
     ...(targets.poker.length ? [{ key:"crowned", label:targets.crowned.label, done:"Champion crowned",
       reached:targets.crowned.reached, finale:true }] : []),
   ], [targets]);

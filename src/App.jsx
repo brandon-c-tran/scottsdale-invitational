@@ -3366,7 +3366,7 @@ function AdjustSheet({ state, player, onClose, save, onRemove }) {
   /* a ruling on a finale count names that count; a recount supersedes it */
   const countRes = Object.values(state.results || {}).find(res => res?.stacks) || null;
   const countLabel = a => a.pokerRevision === undefined ? ""
-    : ` · Count ${a.pokerRevision}${postCountRulingApplies(a, countRes) ? "" : ", not applied"}`;
+    : ` (count ${a.pokerRevision}${postCountRulingApplies(a, countRes) ? "" : ", not applied"})`;
   const legal = Number.isInteger(delta) && delta !== 0 && delta % step === 0;
   const field = { background:"var(--paper2)", border:"1px solid var(--line)", borderRadius:14,
     padding:"12px 13px", color:"var(--ink)", fontFamily:SANS, fontSize:14, outline:"none" };
@@ -3465,7 +3465,7 @@ function GmDevicesSheet({ state, onClose, onBack, notify, onSignedOut }) {
             <div style={{ flex:1, minWidth:0 }}>
               <div style={{ fontFamily:SANS, fontWeight:700, fontSize:13.5, color:"var(--ink)" }}>
                 {device.legacy ? "Older shared unlock" : device.player ? disp(state, device.player) : "Unknown phone"}
-                {device.current ? " · this device" : ""}</div>
+                {device.current ? " (this device)" : ""}</div>
               {!device.legacy && device.createdAt > 0 && <div style={{ fontFamily:SANS, fontSize:12, color:"var(--muted2)" }}>
                 Unlocked {new Date(device.createdAt).toLocaleString("en-US", { weekday:"short", hour:"numeric", minute:"2-digit" })}</div>}
             </div>
@@ -3610,11 +3610,6 @@ function ProfileSheet({ state, me, onClose, onBack, initialSection = "card", sav
   );
 }
 
-const audioClock = milliseconds => {
-  const total = Math.max(0, Math.floor((Number(milliseconds) || 0) / 1000));
-  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
-};
-
 function SpotifyTrackCard({ track, action, actionLabel = "Choose", compact = false }) {
   if (!track) return null;
   return (
@@ -3633,7 +3628,7 @@ function SpotifyTrackCard({ track, action, actionLabel = "Choose", compact = fal
           textOverflow:"ellipsis" }}>{track.name}</div>
         <div style={{ fontFamily:SANS, fontSize:12, color:"var(--muted)",
           whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
-          {(track.artists || []).join(", ")} · {audioClock(track.durationMs)}</div>
+          {(track.artists || []).join(", ")}</div>
         <a href={track.url} target="_blank" rel="noreferrer"
           style={{ fontFamily:SANS, fontWeight:700, fontSize:12, color:"var(--accent2)",
             textDecoration:"none" }}>Open in Spotify</a>

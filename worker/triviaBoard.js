@@ -103,7 +103,7 @@ export function boardActions({ ok, err, gmOnly, run, roundQuestions, dealOptions
   const seat = (state, game, ctx, join = false) => {
     const player = ctx?.player;
     if (!player) return { error:err("Check in first") };
-    if (isAbsent(state, player)) return { error:err(isAway(state, player) ? "You are marked away" : "Tap I'm here first") };
+    if (isAbsent(state, player)) return { error:err(isAway(state, player) ? "You are marked away" : "Scan the TV first") };
     if (boardPlays(game, player)) return { player, joining:false };
     if (!join || !Array.isArray(game.players) || !isActivePlayer(player, state)) return { error:err("You are not playing") };
     return { player, joining:true };

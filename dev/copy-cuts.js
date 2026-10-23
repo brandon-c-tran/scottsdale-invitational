@@ -126,4 +126,18 @@ export const CUTS = [
   { surface:"Home", file:"src/features/home/GuestHome.jsx", before:"{session} (Friday Night etc. beside First event, and under each Coming up row)", after:null },
   { surface:"Home", file:"src/features/home/GuestHome.jsx", before:"You are marked away", after:"\"Marked away\"" },
   { surface:"Standings", file:"src/features/standings/Standings.jsx", before:"{session} (Next event card)", after:null },
+  /* the Oct 22 copy pass */
+  { surface:"Karaoke", file:"worker/karaoke.js, worker/trivia.js, worker/triviaBoard.js", before:"Tap I'm here first (an on-the-way player)", after:"\"Scan the TV first\"" },
+  { surface:"Karaoke", file:"src/features/karaoke/KaraokeDesk.jsx", before:"Couldn't check the videos", after:"\"Couldn't check the videos. Try again.\"" },
+  { surface:"Pocket alerts", file:"worker/pushAlerts.js", before:"{event} · {contest} vs {side} / {event} draft · Round {n} / {game} · {stake} chips", after:"\"{event}, {contest} vs {side}\" / \"{event} draft, round {n}\" / \"{game} for {stake} chips\"" },
+  { surface:"Weekend", file:"src/features/results/keepsake.js", before:"{team} · {team} (a shared 3rd on a plate)", after:"\"{team}, {team}\"" },
+  { surface:"Weekend", file:"src/features/results/Keepsake.jsx", before:"{n} of {total} · {name} (Save all cards)", after:"\"{name} ({n} of {total})\"" },
+  { surface:"Weekend", file:"src/features/results/Keepsake.jsx", before:"Press and hold the image to save it.", after:"\"Press and hold to save\"" },
+  { surface:"Profile", file:"src/App.jsx SpotifyTrackCard", before:"{artist} · {length}", after:"\"{artist}\"" },
+  { surface:"Commissioner", file:"src/features/qa/QASheet.jsx", before:"Poker · {stage} (jump toast)", after:"\"{stage}\"" },
+  { surface:"Commissioner", file:"shared/prompts.js", before:"Draft · {n} awards / Voting · {n} of {m} voted / On TV · {n} of {m} / Voting closed · {n} voted (Awards menu value)", after:"\"{n} awards\" / \"{n} of {m} voted\" / \"{n} of {m} on TV\" / \"Voting closed\"" },
+  { surface:"Commissioner", file:"src/features/duels/DuelDesk.jsx", before:"Open duels · {n}", after:"\"{n} open duels\"" },
+  { surface:"Commissioner", file:"src/App.jsx", before:"{reason} · Count {n} (a finale ruling) / {name} · this device", after:"\"{reason} (count {n})\" / \"{name} (this device)\"" },
+  { surface:"Commissioner", file:"src/features/travel/Travel.jsx", before:"Arrival notes · optional", after:"\"Arrival notes\"" },
+  { surface:"Commissioner", file:"src/features/photos/PhotoGrid.jsx", before:"{time} · Hidden", after:"\"{time}, hidden\"" },
 ];

@@ -197,9 +197,9 @@ test("You're playing: the current contest's players, once, never the actor, not 
   const own = first.sides.find(side => side.players.includes(sample.player));
   const other = first.sides.find(side => side !== own);
   assert.equal(sample.message.title, "You’re playing");
-  assert.equal(sample.message.body, `${eventOf(s, "8ball").name} · ${first.label} vs ${other.players.join(" & ")}`);
+  assert.equal(sample.message.body, `${eventOf(s, "8ball").name}, ${first.label} vs ${other.players.join(" & ")}`);
   assert.equal(sample.message.url, "/?alert=playing&ev=8ball");
-  assert.doesNotMatch(JSON.stringify(opened), /—|!/);
+  assert.doesNotMatch(JSON.stringify(opened), /—|!| · /);
 
   /* locking and starting the same contest owes nothing new */
   assert.deepEqual(step(s, "lockAndStart", { evId:"8ball", ...refs(first) }), []);
@@ -233,7 +233,7 @@ test("Your pick: the captain whose turn it became, never the captain who just pi
     turn.captain === HOST ? [] : [[turn.captain, "pick"]]);
   if (started.length) {
     assert.equal(started[0].message.title, "Your pick");
-    assert.equal(started[0].message.body, `${ev.name} draft · Round 1`);
+    assert.equal(started[0].message.body, `${ev.name} draft, round 1`);
     assert.equal(started[0].key, `pick:${turn.captain}:${turn.draftId}:0`);
   }
   /* each pick hands the turn on; the snake's double turn is the picker's own */
@@ -256,7 +256,7 @@ test("A challenge by name alerts its recipient; an open challenge alerts no one"
   assert.equal(named.length, 1);
   assert.equal(named[0].player, P2);
   assert.equal(named[0].message.title, `${P1} challenged you`);
-  assert.equal(named[0].message.body, "Quick Draw · 200 chips");
+  assert.equal(named[0].message.body, "Quick Draw for 200 chips");
   assert.deepEqual(step(s, "sendDuel", { open:true, game:"quickdraw", stake:100 }, guest(P3)), []);
   assert.deepEqual(alertsFor(s, s), [], "the same board owes nothing");
 });

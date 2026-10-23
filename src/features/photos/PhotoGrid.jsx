@@ -77,7 +77,7 @@ export function PhotoViewer({ state, moment, list = [moment], me = null, gm = fa
   const ratio = moment.w && moment.h ? `${moment.w} / ${moment.h}` : undefined;
 
   return (
-    <Sheet title={name} subtitle={[momentWhen(moment), moment.hidden ? "Hidden" : ""].filter(Boolean).join(" · ")}
+    <Sheet title={name} subtitle={[momentWhen(moment), moment.hidden ? "hidden" : ""].filter(Boolean).join(", ")}
       onClose={onClose} busy={pending} className="fd-photo-sheet"
       headerActions={onPlayer ? <button type="button" className="fd-photo-author" aria-label={`${name}'s card`}
         onClick={() => onPlayer(moment.by)}><ChipFace p={moment.by} size={36} flat /></button> : null}>

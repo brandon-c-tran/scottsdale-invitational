@@ -246,7 +246,7 @@ export function triviaActions({ ok, err, gmOnly, run }) {
       if (!game || !running(state) || game.phase !== "question" || question?.id !== questionId) return err("That question is closed");
       const player = ctx.player;
       if (!player) return err("Check in first");
-      if (isAbsent(state, player)) return err(isAway(state, player) ? "You are marked away" : "Tap I'm here first");
+      if (isAbsent(state, player)) return err(isAway(state, player) ? "You are marked away" : "Scan the TV first");
       const joining = !triviaPlays(game, player);
       if (joining && (!Array.isArray(game.players) || !isActivePlayer(player, state))) return err("You are not playing");
       const now = Date.now();

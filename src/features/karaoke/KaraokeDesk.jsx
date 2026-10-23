@@ -65,9 +65,9 @@ export function KaraokeDesk({ state, check = karaokeCheck, onAct = sendNudge, in
     try {
       const answer = await check();
       if (answer?.ok) setChecks(karaokeChecked(asked, answer.results));
-      else setError(answer?.error || "Couldn't check the videos");
+      else setError(answer?.error || "Couldn't check the videos. Try again.");
     } catch {
-      setError("Couldn't check the videos");
+      setError("Couldn't check the videos. Try again.");
     } finally {
       setChecking(false);
     }

@@ -436,3 +436,22 @@ test("the tick is wired into the user's own taps and never the Quick Draw reacti
   for (const path of ["src/App.jsx", "src/features/home/guestUpdates.js"])
     assert.doesNotMatch(src(path), /tapTick/, `${path}: never on remote events`);
 });
+
+test("a smooth scroll is an animation: reduced motion jumps instead", async () => {
+  const { readdirSync, statSync } = await import("node:fs");
+  const { join, relative } = await import("node:path");
+  const root = new URL("../", import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, "$1");
+  const files = [];
+  (function walk(dir) {
+    for (const name of readdirSync(dir)) {
+      const path = join(dir, name);
+      if (statSync(path).isDirectory()) walk(path);
+      else if (/\.(jsx?|mjs)$/.test(name)) files.push(path);
+    }
+  })(join(root, "src"));
+  const bad = [];
+  for (const file of files) readFileSync(file, "utf8").split(/\r?\n/).forEach((line, i) => {
+    if (/behavior\s*:\s*["']smooth["']/.test(line)) bad.push(`${relative(root, file)}:${i + 1}`);
+  });
+  assert.deepEqual(bad, [], "write behavior:reduced ? \"auto\" : \"smooth\"");
+});

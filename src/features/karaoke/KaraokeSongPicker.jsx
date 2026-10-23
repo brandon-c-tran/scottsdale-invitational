@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { karaokeVideo, karaokeVideos, spotifySearch } from "../../lib/client.js";
 import { setPreviewSession } from "../../lib/sound.js";
+import { prefersReducedMotion } from "../../lib/motion.js";
 import { loadYouTube, YT_STATE } from "../../lib/youtube.js";
 import { writeError } from "../../lib/writeErrors.js";
 import { songTitle } from "../../../shared/audio.js";
@@ -200,7 +201,7 @@ function VideoPreview({ video, muted }) {
   useEffect(() => {
     let alive = true;
     setProblem("");
-    host.current?.scrollIntoView?.({ block:"nearest", behavior:"smooth" });
+    host.current?.scrollIntoView?.({ block:"nearest", behavior:prefersReducedMotion() ? "auto" : "smooth" });
     loadYouTube().then(YT => {
       if (!alive || !host.current) return;
       const slot = document.createElement("div");

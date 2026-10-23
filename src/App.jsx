@@ -1463,7 +1463,7 @@ function TournamentApp({ tournament, onUpdateReload }) {
     if (run.tab) return setTab(run.tab);
     if (run.open === "pokerClock") {
       setModal(null); setTab("board");
-      setTimeout(() => document.getElementById("fd-poker-table")?.scrollIntoView({ block:"start", behavior:"smooth" }), 80);
+      setTimeout(() => document.getElementById("fd-poker-table")?.scrollIntoView({ block:"start", behavior:prefersReducedMotion() ? "auto" : "smooth" }), 80);
       return;
     }
     if (run.open === "resultEntry") return ev && openResultEntry(ev);

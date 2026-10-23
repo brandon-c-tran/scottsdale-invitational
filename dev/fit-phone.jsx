@@ -66,13 +66,26 @@ publishFrame({ version:1, fresh:false });
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const visible = el => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
-async function tap(find, tries = 20) {
+/* up to 6 s for the element (a lazy sheet's chunk on a loaded machine
+   takes its time); a present one is tapped at once */
+async function tap(find, tries = 40) {
   for (let i = 0; i < tries; i++) {
     const el = find();
     if (el) { el.click(); return true; }
     await sleep(150);
   }
   return false;
+}
+/* a check that holds within `ms`: a sheet that mounts late still counts,
+   so a slow run never passes a view that did not open what it names */
+async function until(check, ms = 6000) {
+  const end = Date.now() + ms;
+  for (;;) {
+    const value = check();
+    if (value) return value;
+    if (Date.now() > end) return false;
+    await sleep(100);
+  }
 }
 /* the views that live in sheets, opened the way a guest opens them */
 async function openSheet(kind) {
@@ -155,6 +168,7 @@ async function openSheet(kind) {
     const next = frame();
     publishFrame({ version:next.version, fresh:true, lastAction:"recordContestWinner" });
     client.setFitFrame(next);
+    if (!(await until(() => document.querySelector(".fd-moment-walkout")))) return false;
     await sleep(2400);
     const style = document.createElement("style");
     style.textContent = "*, *::before, *::after { animation-play-state:paused !important; }";
@@ -346,8 +360,7 @@ async function openSheet(kind) {
     await sleep(600);
     const ok = await tap(() => [...document.querySelectorAll("[role=dialog] .fd-menu-row")].find(b => visible(b)
       && b.querySelector(".fd-menu-name")?.textContent.trim() === "Trivia"));
-    await sleep(900);
-    return ok && !!document.querySelector(".fd-trivia-desk");
+    return ok && !!(await until(() => document.querySelector(".fd-trivia-desk")));
   }
   /* the commissioner's Karaoke desk, from its menu row: as it opens (songs
      hidden), and with Show songs and Check videos tapped (the scenario's
@@ -358,8 +371,7 @@ async function openSheet(kind) {
     await sleep(600);
     const ok = await tap(() => [...document.querySelectorAll("[role=dialog] .fd-menu-row")].find(b => visible(b)
       && b.querySelector(".fd-menu-name")?.textContent.trim() === "Karaoke"));
-    await sleep(900);
-    if (!ok || !document.querySelector(".fd-karaoke-desk")) return false;
+    if (!ok || !(await until(() => document.querySelector(".fd-karaoke-desk")))) return false;
     if (kind === "karaoke-desk") return true;
     const button = text => [...document.querySelectorAll(".fd-karaoke-desk-actions button")].find(b => b.textContent.trim() === text);
     await tap(() => button("Show songs"));

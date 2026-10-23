@@ -16,6 +16,7 @@ import { applyAction as apply } from "../../worker/actions.js";
 import { latestGag } from "../../src/features/gags/gagModel.js";
 import { songBeatOf } from "../../shared/bitMusic.js";
 import { bitById } from "../../src/features/gags/bits/registry.js";
+import { recordCards } from "../../src/features/tv/recordsModel.js";
 import { boardDeskStage, boardPlayed, boardStage } from "./boardFixtures.js";
 import { karaokeStage } from "./karaokeFixtures.js";
 import { karaokePhoneStage } from "./karaokePhoneFixtures.js";
@@ -950,7 +951,7 @@ const recordsDuels = () => quickDraws(fresh("event:putt:done"),
    field and it goes to someone else */
 function recordsLoss() {
   const state = withoutBets(fresh("event:where:open"));
-  act(state, "adjust", { player:"Henry", delta:3000, reason:"fit" });
+  act(state, "adjust", { player:"Henry", delta:3800, reason:"fit" });
   const ev = eventOf(state, "where");
   const contest = resolveCurrentContest(state, ev);
   const side = contest.sides.find(item => !item.players.includes("Henry"));
@@ -962,16 +963,23 @@ function recordsLoss() {
   act(state, "saveResult", { evId:"where", slots:[[field[0]], [field[1]], [field[2]]] });
   return state;
 }
-/* a swing in a Quick Draw: Khoa takes 1,500 off Adi */
+/* a swing in a Quick Draw: Khoa takes 2,500 off Adi (more than Friday's
+   biggest result swing on the pool's seeded weekend) */
 function recordsDuelSwing() {
   const state = fresh("event:putt:done");
-  ["Khoa", "Adi"].forEach(player => act(state, "adjust", { player, delta:3000, reason:"fit" }));
-  return quickDraws(state, [["Khoa", "Adi", 214, 297]], { stake:1500 });
+  ["Khoa", "Adi"].forEach(player => act(state, "adjust", { player, delta:5000, reason:"fit" }));
+  return quickDraws(state, [["Khoa", "Adi", 214, 297]], { stake:2500 });
 }
 /* a display name at the 16 letters a profile allows */
 function renamed(state, player, display) {
   state.profiles[player] = { ...state.profiles[player], display };
   return state;
+}
+/* the long name on whoever holds the record, so the card letters it
+   whichever player the seeded weekend crowns */
+function renamedHolder(state, kind, display, { worst = false } = {}) {
+  const card = recordCards(state, allEventsOf(state)).find(item => item.kind === kind && !!item.worst === worst);
+  return card ? renamed(state, card.players[0], display) : state;
 }
 export const RECORDS_LONG_NAME = "Allan Montgomery";
 
@@ -1279,21 +1287,22 @@ export const TV_SCENARIOS = Object.freeze([
      names, two pairs who met twice (another seeded weekend), a swing up,
      one down and one in a Quick Draw, a streak of the lowercase name's
      wins, a pair's upsets, the best bettor at 16 letters and the worst,
-     and Quick Draw's fastest and most wins */
+     and Quick Draw's fastest and most wins (the seeds moved with pool
+     betting on Oct 22, each to a weekend that draws the card asked for) */
   { id:"tv-records-h2h", build:recordsDuels, at:{ record:{ kind:"h2h", players:["Richard", "Henry"] } } },
-  { id:"tv-records-h2h-team", build:() => fresh("session:sam", 13),
-    at:{ record:{ kind:"h2h", players:["Brandon", "Ben", "Eyob", "Henry"] } } },
+  { id:"tv-records-h2h-team", build:() => fresh("session:sam", 26),
+    at:{ record:{ kind:"h2h", players:["Brandon", "Evan", "Jeremy"] } } },
   { id:"tv-records-swing", build:() => fresh("session:sam"), at:{ record:{ kind:"swing" } } },
   { id:"tv-records-swing-loss", build:recordsLoss, at:{ record:{ kind:"swing", players:["Henry"] } } },
   { id:"tv-records-swing-duel", build:recordsDuelSwing, at:{ record:{ kind:"swing", players:["Khoa"] } } },
   { id:"tv-records-streak", build:() => fresh("session:sap"), at:{ record:{ kind:"streak" } } },
-  { id:"tv-records-upsets", build:() => fresh("session:fri"), at:{ record:{ kind:"upsets" } } },
+  { id:"tv-records-upsets", build:() => fresh("session:fri", 1), at:{ record:{ kind:"upsets" } } },
   /* a record three share: a team's streak with Henry Nguyen in it, and a
-     trio's upsets with Squilliam and j vo (other seeded weekends) */
-  { id:"tv-records-streak-trio", build:() => fresh("session:sam", 28), at:{ record:{ kind:"streak", players:["Henry"] } } },
-  { id:"tv-records-upsets-trio", build:() => fresh("event:volley:done", 147),
-    at:{ record:{ kind:"upsets", players:["Richard", "Jeremy"] } } },
-  { id:"tv-records-bettor", build:() => renamed(fresh("session:sap"), "Allan", RECORDS_LONG_NAME),
+     trio's upsets with Squilliam and Henry Nguyen (other seeded weekends) */
+  { id:"tv-records-streak-trio", build:() => fresh("session:sam", 26), at:{ record:{ kind:"streak", players:["Henry"] } } },
+  { id:"tv-records-upsets-trio", build:() => fresh("event:volley:done", 3),
+    at:{ record:{ kind:"upsets", players:["Richard", "Henry"] } } },
+  { id:"tv-records-bettor", build:() => renamedHolder(fresh("session:sap"), "bettor", RECORDS_LONG_NAME),
     at:{ record:{ kind:"bettor", worst:false } } },
   { id:"tv-records-bettor-worst", build:() => fresh("session:sap"), at:{ record:{ kind:"bettor", worst:true } } },
   { id:"tv-records-fastest", build:recordsDuels, at:{ record:{ kind:"fastest" } } },
@@ -1507,7 +1516,9 @@ export const PHONE_SCENARIOS = Object.freeze([
     settle:false, tabs:[], sheets:["bit"], sheetSizes:["375"] },
   { id:"bit-bigloss", build:() => gagWeekend("bigloss", { own:FIT_GUEST }).state, land:"bigloss", landOpts:{ own:FIT_GUEST },
     settle:false, tabs:[], sheets:["bit"], sheetSizes:["375"] },
-  { id:"walkout-pair", build:() => walkoutRecord(bracketWonBy("die", "Henry"), "Henry"), settle:false, tabs:[], sheets:["walkout"] },
+  /* a pair's walkout plays on its own players' phones: the guest's pair
+     wins, the partner's song (the seeded draw decides the partner) */
+  { id:"walkout-pair", build:() => teamWinSong(bracketWonBy("die", FIT_GUEST), "die"), settle:false, tabs:[], sheets:["walkout"] },
   { id:"walkout-team7", build:() => teamWinSong(fresh("event:bball5:done", 1), "bball5"), settle:false, tabs:[],
     sheets:["walkout"] },
   /* naming your team: the card on Home (a team of seven, a team of three),

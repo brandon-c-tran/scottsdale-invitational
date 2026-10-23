@@ -1,9 +1,13 @@
 /* The commissioner's dock: one glass shelf on the tab bar, never floating
    over the page. App pads the page by its height (--fd-dock-h, measured in
    CommissionerDock.jsx) so nothing under it is ever covered: the QA strip,
-   the cue rack's Stop, and the next step with its more button. */
+   the cue rack's Stop, and the next step with its more button. It may
+   grow up to the header (the more tray open over a winner card is 430px,
+   past half a 667px phone), so the pill's own targets never scroll under
+   its fold; the page is padded by whatever it measures. */
 .fd-gm-dock { position:fixed; left:0; right:0; bottom:var(--fd-nav-height); z-index:49; display:flex; justify-content:center; pointer-events:none; }
-.fd-gm-dock-inner { display:flex; flex-direction:column; gap:6px; width:100%; max-width:620px; max-height:48dvh; overflow-y:auto; overscroll-behavior:contain;
+.fd-gm-dock-inner { display:flex; flex-direction:column; gap:6px; width:100%; max-width:620px; max-height:calc(100dvh - var(--fd-nav-height) - 120px);
+  overflow-y:auto; overscroll-behavior:contain;
   padding:8px 12px; border-top:1px solid var(--line); background:var(--chrome); backdrop-filter:blur(18px); -webkit-backdrop-filter:blur(18px);
   pointer-events:auto; }
 /* nothing to show: no shelf (and a 0px --fd-dock-h). Everything the dock

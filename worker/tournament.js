@@ -1060,7 +1060,11 @@ export class Tournament {
   /* One lane for everything a win song does on the speaker (start and fade
      in, fade out and stop), so a fade never runs over the next song. */
   songQueue(task) {
-    const work = this.songGate = (this.songGate || Promise.resolve()).then(task).catch(() => null);
+    /* a task that throws (Tap on the beat's speaker refusing, say) is logged and the lane goes on */
+    const work = this.songGate = (this.songGate || Promise.resolve()).then(task).catch(error => {
+      console.error(JSON.stringify({ event:"song-lane-failed", error:String(error?.message || error).slice(0, 300) }));
+      return null;
+    });
     try { this.ctx.waitUntil?.(work); } catch {}
     return work;
   }
@@ -2108,7 +2112,25 @@ export class Tournament {
   }
 
   sendState(ws, extra = {}) {
-    try { ws.send(this.stateFrame(ws, this.serializer(), extra)); } catch {}
+    this.sendFrame(ws, this.serializer(), extra);
+  }
+
+  /* One socket's state frame. A frame that cannot be built (a projection
+     that throws) is logged, at most once in 10 s, rather than lost with a
+     closed socket's send error: every screen would freeze on it. */
+  sendFrame(ws, serialize, extra = {}, shared = null) {
+    let frame;
+    try { frame = this.stateFrame(ws, serialize, extra, shared); }
+    catch (error) {
+      const now = Date.now();
+      if (!(now - (this.frameFailedAt || 0) < 10000)) {
+        this.frameFailedAt = now;
+        console.error(JSON.stringify({ event:"frame-failed", action:extra?.lastAction || null,
+          error:String(error?.stack || error?.message || error).slice(0, 500) }));
+      }
+      return false;
+    }
+    try { ws.send(frame); return true; } catch { return false; }
   }
 
   async webSocketMessage(ws, raw) {
@@ -2230,7 +2252,7 @@ export class Tournament {
         const serialize = this.serializer();
         for (const socket of this.ctx.getWebSockets?.() || []) {
           if (this.socketMeta(socket).deviceId !== deviceId) continue;
-          try { socket.send(this.stateFrame(socket, serialize)); } catch {}
+          this.sendFrame(socket, serialize);
         }
       }
       /* A returning guest in a new browser or reinstalled app already has
@@ -2310,7 +2332,7 @@ export class Tournament {
        socket. Each frame carries the applied id. */
     const serialize = this.serializer();
     const shared = { environment:this.environment, capabilities:this.capabilities };
-    try { ws.send(this.stateFrame(ws, serialize, { lastAction:type }, shared)); } catch {}
+    this.sendFrame(ws, serialize, { lastAction:type }, shared);
     const extra = { ...(result.extra || {}), ...(persisted || {}) };
     reply({ ...result, ...(Object.keys(extra).length ? { extra } : {}), version: this.version });
     this.broadcastState(type, { serialize, shared, skip:ws });
@@ -2672,7 +2694,7 @@ export class Tournament {
   } = {}) {
     for (const ws of this.ctx.getWebSockets?.() || []) {
       if (ws === skip) continue;
-      try { ws.send(this.stateFrame(ws, serialize, { lastAction }, shared)); } catch {}
+      this.sendFrame(ws, serialize, { lastAction }, shared);
     }
   }
 

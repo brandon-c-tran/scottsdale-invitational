@@ -231,6 +231,31 @@ test("the alarm stops the speaker at the clip's end, only while that song still 
   assert.ok(!other.some(call => call.path.startsWith("PUT /me/player/pause")));
 });
 
+test("a frame that cannot be built, or a song lane task that throws, is logged and what follows still runs", async () => {
+  const world = await room();
+  const logged = [];
+  const original = console.error;
+  console.error = line => logged.push(JSON.parse(line));
+  try {
+    const build = world.tournament.stateFrame.bind(world.tournament);
+    world.tournament.stateFrame = () => { throw new Error("a projection's bug"); };
+    world.tournament.broadcastState("anything");
+    world.tournament.broadcastState("anything");
+    assert.deepEqual(logged.map(item => item.event), ["frame-failed"], "logged, once in a burst");
+    assert.match(logged[0].error, /a projection's bug/);
+    world.tournament.stateFrame = build;
+    const [ws] = world.memory.sockets;
+    const before = ws.frames.length;
+    world.tournament.broadcastState("anything");
+    assert.equal(ws.frames.length, before + 1, "frames flow again");
+    let after = false;
+    world.tournament.songQueue(async () => { throw new Error("the speaker refused"); });
+    await world.tournament.songQueue(async () => { after = true; });
+    assert.ok(logged.some(item => item.event === "song-lane-failed" && /refused/.test(item.error)));
+    assert.equal(after, true, "the lane goes on");
+  } finally { console.error = original; }
+});
+
 test("a planner that throws never takes the alarm with it: the clip still ends and the alarm is set again", async () => {
   const world = await room();
   await withSpotify(() => json(204, null), async () => { await recordFirstWinner(world); await world.settle(); });

@@ -442,12 +442,12 @@ var init_teamNames = __esm({
 });
 
 // shared/core.js
-function poolOf(state, eventId, contestId) {
+function poolOf(state, eventId, contestId, wagers = state.wagers || []) {
   const seed = state.eventOps?.[eventId]?.pools?.[contestId]?.seed || {};
   const sides = {};
   const side = (key) => sides[key] ||= { seed: Number(seed[key]) || 0, stake: 0, bettors: 0 };
   Object.keys(seed).forEach(side);
-  for (const w of state.wagers || []) {
+  for (const w of wagers) {
     if (!w.pool || w.contestId !== contestId || w.eventId !== eventId || w.status === "void") continue;
     const key = sideId(wagerSide(state, w));
     if (key === null) continue;
@@ -465,11 +465,15 @@ function poolOf(state, eventId, contestId) {
   };
 }
 function poolBook(state) {
-  const book = /* @__PURE__ */ new Map();
+  const byContest = /* @__PURE__ */ new Map();
   for (const w of state.wagers || []) {
-    if (!w.pool || !w.contestId || book.has(w.contestId)) continue;
-    book.set(w.contestId, poolOf(state, w.eventId, w.contestId));
+    if (!w.pool || !w.contestId) continue;
+    const group = byContest.get(w.contestId);
+    if (group) group.wagers.push(w);
+    else byContest.set(w.contestId, { eventId: w.eventId, wagers: [w] });
   }
+  const book = /* @__PURE__ */ new Map();
+  for (const [contestId, { eventId, wagers }] of byContest) book.set(contestId, poolOf(state, eventId, contestId, wagers));
   return book;
 }
 function winDelta(state, w, book) {
@@ -1364,7 +1368,8 @@ function resolveEventLifecycle(state, ev) {
     if (!state.poker) {
       const blockers = [];
       const events = allEventsOf(state);
-      const pendingWagers = (state.wagers || []).filter((w) => resolveWager(state, w, events).status === "pending").length;
+      const book = poolBook(state);
+      const pendingWagers = (state.wagers || []).filter((w) => resolveWager(state, w, events, book).status === "pending").length;
       if (pendingWagers)
         blockers.push(`Settle ${pendingWagers} open bet${pendingWagers === 1 ? "" : "s"} first`);
       return response(
@@ -2697,6 +2702,419 @@ var init_sheetMotion = __esm({
   }
 });
 
+// src/ui/useGlassTilt.js
+import { useEffect as useEffect3 } from "react";
+function leanToward(clientX, clientY, rect, { dragging = false } = {}) {
+  if (!rect?.width || !rect?.height) return { x: 0, y: 0 };
+  const reach = dragging ? 1 : GLASS_TILT.press;
+  return {
+    x: clampUnit((clientX - rect.left - rect.width / 2) / (rect.width / 2)) * reach,
+    y: clampUnit((clientY - rect.top - rect.height / 2) / (rect.height / 2)) * reach
+  };
+}
+function springStep(pos, vel, target, dt, { stiffness = GLASS_TILT.stiffness, damping = GLASS_TILT.damping } = {}) {
+  const step = Math.min(Math.max(dt, 0), 1 / 30);
+  const next = vel + (-(pos - target) * stiffness - vel * damping) * step;
+  return { pos: pos + next * step, vel: next };
+}
+function paneTransform({ x, y, z }, { base = "", max = GLASS_TILT.maxDeg, sink = GLASS_TILT.sinkPx } = {}) {
+  return `${base ? `${base} ` : ""}perspective(${GLASS_TILT.perspective}px) rotateX(${(-y * max).toFixed(3)}deg) rotateY(${(x * max).toFixed(3)}deg) translateZ(${(-z * sink).toFixed(2)}px)`;
+}
+function supports3d() {
+  if (typeof CSS === "undefined" || typeof CSS.supports !== "function") return true;
+  return CSS.supports("transform-style", "preserve-3d");
+}
+function useGlassTilt(ref, { enabled = true, max = GLASS_TILT.maxDeg, sink = GLASS_TILT.sinkPx, glare = true } = {}) {
+  useEffect3(() => {
+    const el = ref?.current;
+    if (!enabled || !el || typeof window === "undefined" || typeof document === "undefined") return void 0;
+    const lean3d = supports3d();
+    const s = { x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, tx: 0, ty: 0, tz: 0, raf: 0, last: 0, pointer: null, base: "", active: false };
+    let glareEl = null, band = null;
+    if (glare && window.getComputedStyle(el).position !== "static") {
+      glareEl = document.createElement("span");
+      glareEl.className = "fd-tilt-glare";
+      glareEl.setAttribute("aria-hidden", "true");
+      band = document.createElement("span");
+      glareEl.appendChild(band);
+      el.appendChild(glareEl);
+    }
+    el.setAttribute("data-glass-tilt", "rest");
+    let layers = [];
+    const write = () => {
+      if (lean3d) el.style.transform = paneTransform(s, { base: s.base, max, sink });
+      const [far, , , near] = GLASS_TILT.depthPx;
+      layers.forEach((layer) => {
+        const k = GLASS_TILT.depthPx[layer.depth] ?? (layer.depth > 0 ? near : far);
+        layer.el.style.translate = `${(s.x * k).toFixed(2)}px ${(s.y * k * 0.6).toFixed(2)}px`;
+      });
+      if (band) {
+        band.style.translate = `${(-s.x * GLASS_TILT.glareTravel * 100 / 0.28).toFixed(2)}% 0`;
+        glareEl.style.opacity = (0.5 + 0.5 * Math.min(1, Math.hypot(s.x, s.y) * 1.6 + s.z * 0.3)).toFixed(3);
+      }
+    };
+    const rest = () => {
+      s.active = false;
+      el.setAttribute("data-glass-tilt", "rest");
+      el.style.removeProperty("transform");
+      layers.forEach((layer) => layer.el.style.removeProperty("translate"));
+      if (band) {
+        band.style.removeProperty("translate");
+        glareEl.style.removeProperty("opacity");
+      }
+    };
+    const frame2 = (now2) => {
+      const dt = s.last ? (now2 - s.last) / 1e3 : 1 / 60;
+      s.last = now2;
+      const x = springStep(s.x, s.vx, s.tx, dt), y = springStep(s.y, s.vy, s.ty, dt), z = springStep(s.z, s.vz, s.tz, dt);
+      s.x = x.pos;
+      s.vx = x.vel;
+      s.y = y.pos;
+      s.vy = y.vel;
+      s.z = z.pos;
+      s.vz = z.vel;
+      const settled = springSettled(s.x, s.vx, s.tx) && springSettled(s.y, s.vy, s.ty) && springSettled(s.z, s.vz, s.tz);
+      if (settled && !s.pointer && !s.tx && !s.ty && !s.tz) {
+        s.raf = 0;
+        s.last = 0;
+        s.x = s.y = s.z = 0;
+        rest();
+        return;
+      }
+      write();
+      s.raf = requestAnimationFrame(frame2);
+    };
+    const start = () => {
+      if (!s.active) {
+        const own = window.getComputedStyle(el).transform;
+        s.base = own && own !== "none" ? own : "";
+        layers = [...el.querySelectorAll("[data-glass-depth]")].map((node) => ({ el: node, depth: Number(node.getAttribute("data-glass-depth")) || 0 }));
+        s.active = true;
+        el.setAttribute("data-glass-tilt", "on");
+      }
+      if (!s.raf) {
+        s.last = 0;
+        s.raf = requestAnimationFrame(frame2);
+      }
+    };
+    const aim = (target, z) => {
+      s.tx = target.x;
+      s.ty = target.y;
+      s.tz = z;
+      start();
+    };
+    const release = () => {
+      s.pointer = null;
+      s.tx = 0;
+      s.ty = 0;
+      s.tz = 0;
+      if (s.active) start();
+    };
+    const onDown = (event) => {
+      if (prefersReducedMotion() || event.pointerType === "mouse" && event.button !== 0) return;
+      const rect = el.getBoundingClientRect();
+      s.pointer = { id: event.pointerId, x0: event.clientX, y0: event.clientY, rect, dragging: false };
+      aim(leanToward(event.clientX, event.clientY, rect), 1);
+    };
+    const onMove = (event) => {
+      const p = s.pointer;
+      if (!p || event.pointerId !== p.id) return;
+      if (!p.dragging && Math.hypot(event.clientX - p.x0, event.clientY - p.y0) >= GLASS_TILT.dragPx) p.dragging = true;
+      aim(leanToward(event.clientX, event.clientY, p.rect, { dragging: p.dragging }), 1);
+    };
+    const onUp = (event) => {
+      if (s.pointer && event.pointerId === s.pointer.id) release();
+    };
+    const onLeave = (event) => {
+      if (s.pointer && event.pointerId === s.pointer.id && event.pointerType === "mouse") release();
+    };
+    el.addEventListener("pointerdown", onDown, { passive: true });
+    el.addEventListener("pointermove", onMove, { passive: true });
+    el.addEventListener("pointerup", onUp, { passive: true });
+    el.addEventListener("pointercancel", release, { passive: true });
+    el.addEventListener("pointerleave", onLeave, { passive: true });
+    return () => {
+      el.removeEventListener("pointerdown", onDown);
+      el.removeEventListener("pointermove", onMove);
+      el.removeEventListener("pointerup", onUp);
+      el.removeEventListener("pointercancel", release);
+      el.removeEventListener("pointerleave", onLeave);
+      if (s.raf) cancelAnimationFrame(s.raf);
+      rest();
+      el.removeAttribute("data-glass-tilt");
+      glareEl?.remove();
+    };
+  }, [ref, enabled, max, sink, glare]);
+}
+var GLASS_TILT, clampUnit, springSettled;
+var init_useGlassTilt = __esm({
+  "src/ui/useGlassTilt.js"() {
+    init_motion();
+    GLASS_TILT = Object.freeze({
+      maxDeg: 3,
+      press: 0.45,
+      // a still press leans this much of the way
+      dragPx: 6,
+      // movement before a press becomes a drag
+      sinkPx: 5,
+      perspective: 1100,
+      stiffness: 240,
+      // the spring back: one small overshoot, then level
+      damping: 24,
+      /* the painting's layers slide by depth per unit lean, far to near, so
+         the near floor moves most and the sky least */
+      depthPx: Object.freeze([-1.5, 0, 2.5, 4.5]),
+      /* the band slides this share of its pane per unit lean */
+      glareTravel: 0.22
+    });
+    clampUnit = (value) => Number.isFinite(value) ? Math.max(-1, Math.min(1, value)) : 0;
+    springSettled = (pos, vel, target) => Math.abs(pos - target) < 2e-3 && Math.abs(vel) < 0.01;
+  }
+});
+
+// src/ui/sheetDragModel.js
+function rubberband(x, limit, constant = 0.55) {
+  if (!(x > 0) || !(limit > 0)) return 0;
+  return x * limit * constant / (limit + constant * x);
+}
+function unband(y, limit, constant = 0.55) {
+  if (!(y > 0) || !(limit > 0)) return 0;
+  const capped = Math.min(y, limit * 0.999);
+  return capped * limit / (constant * (limit - capped));
+}
+function dragOffset(raw, { locked = false } = {}) {
+  if (!Number.isFinite(raw) || raw === 0) return 0;
+  if (raw < 0) return -rubberband(-raw, SHEET_DRAG.upLimit);
+  return locked ? rubberband(raw, SHEET_DRAG.lockedLimit) : raw;
+}
+function rawOffset(offset2, { locked = false } = {}) {
+  if (!Number.isFinite(offset2) || offset2 === 0) return 0;
+  if (offset2 < 0) return -unband(-offset2, SHEET_DRAG.upLimit);
+  return locked ? unband(offset2, SHEET_DRAG.lockedLimit) : offset2;
+}
+function project(velocity, rate = SHEET_DRAG.rate) {
+  return Number.isFinite(velocity) ? velocity * rate / (1 - rate) : 0;
+}
+function releaseVelocity(samples, liftedAt) {
+  const list = (samples || []).filter((s) => Number.isFinite(s?.t) && Number.isFinite(s?.y));
+  if (list.length < 2) return 0;
+  const last = list[list.length - 1];
+  if (Number.isFinite(liftedAt) && liftedAt - last.t > SHEET_DRAG.still) return 0;
+  const first = list.find((s) => last.t - s.t <= SHEET_DRAG.window) || last;
+  const dt = last.t - first.t;
+  return dt > 0 ? (last.y - first.y) / dt : 0;
+}
+function releasePlan({ offset: offset2, velocity, height, locked = false }) {
+  const stay = { dismiss: false, fallMs: null };
+  if (locked || !(height > 0) || !(offset2 > SHEET_DRAG.minFling)) return stay;
+  if (offset2 + project(velocity) <= height * SHEET_DRAG.share) return stay;
+  if (!(velocity > SHEET_DRAG.flungFrom)) return { dismiss: true, fallMs: null };
+  const left = Math.max(0, height - offset2);
+  const ms = Math.round(Math.min(SHEET_DRAG.fallMax, Math.max(SHEET_DRAG.fallMin, left / velocity)));
+  return { dismiss: true, fallMs: ms };
+}
+function scrimShare(offset2, height) {
+  if (!(height > 0) || !(offset2 > 0)) return 1;
+  return Math.max(0, 1 - offset2 / height);
+}
+function springFor(response = SHEET_DRAG.response, dampingRatio = 1) {
+  return { stiffness: (2 * Math.PI / response) ** 2, damping: 4 * Math.PI * dampingRatio / response };
+}
+var SHEET_DRAG, homeSettled;
+var init_sheetDragModel = __esm({
+  "src/ui/sheetDragModel.js"() {
+    SHEET_DRAG = Object.freeze({
+      slop: 8,
+      // movement before a press on the header is a drag
+      minFling: 24,
+      // a drag shorter than this never puts the sheet away
+      upLimit: 48,
+      // the most it ever lifts against its rest
+      lockedLimit: 56,
+      // the most a sheet that cannot close gives downward
+      rate: 0.998,
+      // the projection's deceleration
+      share: 0.5,
+      // a projected rest past this share of its height puts it away
+      window: 100,
+      // the release velocity reads the drag's last 100ms
+      still: 60,
+      // a finger held still this long before it lifts releases at rest
+      response: 0.3,
+      // the spring home (s), critically damped
+      flungFrom: 0.3,
+      // released faster than this, the fall keeps the finger's speed
+      fallMin: 140,
+      fallMax: 300
+    });
+    homeSettled = (offset2, velocityPerSecond) => Math.abs(offset2) < 0.5 && Math.abs(velocityPerSecond) < 20;
+  }
+});
+
+// src/ui/useSheetDrag.js
+import { useEffect as useEffect4, useRef as useRef2 } from "react";
+function useSheetDrag({ overlay, panel, grip, busy, onClose }) {
+  const live2 = useRef2(null);
+  live2.current = { busy, onClose };
+  useEffect4(() => {
+    const scrim = overlay.current, sheet = panel.current, handle = grip.current;
+    if (!scrim || !sheet || !handle || typeof window === "undefined") return void 0;
+    const s = { pointer: null, offset: 0, vel: 0, raf: 0, last: 0, dim: null, swallow: false };
+    const spring = springFor();
+    const thin = () => {
+      if (s.dim !== null) return;
+      s.dim = void 0;
+      if (typeof KeyframeEffect === "undefined" || !("pseudoElement" in KeyframeEffect.prototype)) return;
+      try {
+        s.dim = scrim.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 1e3, fill: "both", pseudoElement: "::before" });
+        s.dim.pause();
+      } catch {
+        s.dim = void 0;
+      }
+    };
+    const write = (offset2, height) => {
+      s.offset = offset2;
+      sheet.style.transform = offset2 ? `translate3d(0, ${offset2.toFixed(2)}px, 0)` : "";
+      if (s.dim) s.dim.currentTime = (1 - scrimShare(offset2, height)) * 1e3;
+    };
+    const rest = () => {
+      if (s.raf) cancelAnimationFrame(s.raf);
+      s.raf = 0;
+      s.last = 0;
+      s.vel = 0;
+      write(0);
+      s.dim?.cancel?.();
+      s.dim = null;
+      sheet.classList.remove("is-dragging");
+    };
+    const home = (velocity, height) => {
+      if (prefersReducedMotion()) {
+        rest();
+        return;
+      }
+      s.vel = velocity * 1e3;
+      s.last = 0;
+      const frame2 = (now2) => {
+        const dt = s.last ? (now2 - s.last) / 1e3 : 1 / 60;
+        s.last = now2;
+        const next = springStep(s.offset, s.vel, 0, dt, spring);
+        s.vel = next.vel;
+        if (homeSettled(next.pos, next.vel)) {
+          rest();
+          return;
+        }
+        write(next.pos, height);
+        s.raf = requestAnimationFrame(frame2);
+      };
+      s.raf = requestAnimationFrame(frame2);
+    };
+    const down = (event) => {
+      s.swallow = false;
+      if (event.pointerType === "mouse" || !event.isPrimary || s.pointer) return;
+      if (window.matchMedia?.(DIALOG).matches) return;
+      s.pointer = { id: event.pointerId, x: event.clientX, y: event.clientY, dragging: false, samples: [], height: 0, base: 0 };
+    };
+    const move = (event) => {
+      const p = s.pointer;
+      if (!p || event.pointerId !== p.id) return;
+      if (!p.dragging) {
+        const dx = event.clientX - p.x, dy = event.clientY - p.y;
+        if (Math.hypot(dx, dy) < SHEET_DRAG.slop) return;
+        if (Math.abs(dx) > Math.abs(dy)) {
+          s.pointer = null;
+          return;
+        }
+        if (s.raf) {
+          cancelAnimationFrame(s.raf);
+          s.raf = 0;
+        }
+        p.dragging = true;
+        p.y = event.clientY;
+        p.base = rawOffset(s.offset, { locked: live2.current.busy });
+        p.height = sheet.getBoundingClientRect().height || 1;
+        sheet.getAnimations?.().forEach((animation) => {
+          try {
+            animation.finish();
+          } catch {
+          }
+        });
+        try {
+          handle.setPointerCapture(event.pointerId);
+        } catch {
+        }
+        sheet.classList.add("is-dragging");
+        thin();
+      }
+      p.samples.push({ t: event.timeStamp, y: event.clientY });
+      if (p.samples.length > 24) p.samples.splice(0, p.samples.length - 24);
+      write(dragOffset(p.base + event.clientY - p.y, { locked: live2.current.busy }), p.height);
+    };
+    const lift = (event, cancelled) => {
+      const p = s.pointer;
+      if (!p || event.pointerId !== p.id) return;
+      s.pointer = null;
+      if (!p.dragging) return;
+      const lifted = s.swallow = Symbol("lift");
+      setTimeout(() => {
+        if (s.swallow === lifted) s.swallow = false;
+      }, 400);
+      sheet.classList.remove("is-dragging");
+      const velocity = cancelled ? 0 : releaseVelocity(p.samples, event.timeStamp);
+      const plan = cancelled ? { dismiss: false } : releasePlan({ offset: s.offset, velocity, height: p.height, locked: live2.current.busy });
+      if (!plan.dismiss) {
+        home(velocity, p.height);
+        return;
+      }
+      sheet.style.setProperty("--fd-sheet-drag", `${s.offset.toFixed(2)}px`);
+      if (s.dim) scrim.style.setProperty("--fd-sheet-dim", scrimShare(s.offset, p.height).toFixed(3));
+      if (plan.fallMs) {
+        scrim.style.setProperty("--fd-fling-ms", `${plan.fallMs}ms`);
+        scrim.classList.add("is-flung");
+      }
+      live2.current.onClose?.();
+      requestAnimationFrame(() => {
+        if (!sheet.isConnected) return;
+        sheet.style.removeProperty("--fd-sheet-drag");
+        scrim.style.removeProperty("--fd-sheet-dim");
+        scrim.style.removeProperty("--fd-fling-ms");
+        scrim.classList.remove("is-flung");
+        home(0, p.height);
+      });
+    };
+    const up = (event) => lift(event, false);
+    const cancel = (event) => lift(event, true);
+    const click = (event) => {
+      if (!s.swallow) return;
+      s.swallow = false;
+      event.preventDefault();
+      event.stopPropagation();
+    };
+    handle.addEventListener("pointerdown", down);
+    handle.addEventListener("pointermove", move);
+    handle.addEventListener("pointerup", up);
+    handle.addEventListener("pointercancel", cancel);
+    handle.addEventListener("click", click, true);
+    return () => {
+      handle.removeEventListener("pointerdown", down);
+      handle.removeEventListener("pointermove", move);
+      handle.removeEventListener("pointerup", up);
+      handle.removeEventListener("pointercancel", cancel);
+      handle.removeEventListener("click", click, true);
+      if (s.raf) cancelAnimationFrame(s.raf);
+      s.dim?.cancel?.();
+    };
+  }, []);
+}
+var DIALOG;
+var init_useSheetDrag = __esm({
+  "src/ui/useSheetDrag.js"() {
+    init_motion();
+    init_useGlassTilt();
+    init_sheetDragModel();
+    DIALOG = "(min-width: 700px)";
+  }
+});
+
 // src/ui/Icon.jsx
 import React2, { useId } from "react";
 function opticalStroke(size) {
@@ -2933,7 +3351,7 @@ var init_menu = __esm({
 });
 
 // src/ui/Menu.jsx
-import React4, { useRef as useRef2, useState as useState3 } from "react";
+import React4, { useRef as useRef3, useState as useState3 } from "react";
 var init_Menu = __esm({
   "src/ui/Menu.jsx"() {
     init_Icon();
@@ -2942,7 +3360,7 @@ var init_Menu = __esm({
 });
 
 // src/ui/controls.jsx
-import React5, { createContext, useContext, useState as useState4, useEffect as useEffect3, useRef as useRef3 } from "react";
+import React5, { createContext, useContext, useState as useState4, useEffect as useEffect5, useRef as useRef4 } from "react";
 function Tag({ children, tone = "dim", style }) {
   const tones = {
     dim: { color: "var(--muted)", background: "var(--ink-tint)" },
@@ -2964,7 +3382,7 @@ function Tag({ children, tone = "dim", style }) {
 }
 function ActionButton({ children, onClick, variant = "primary", pending, disabled, compact, style, ...props }) {
   const [busy, setBusy] = useState4(false);
-  const busyRef = useRef3(false);
+  const busyRef = useRef4(false);
   const waiting = !!pending || busy;
   const off = disabled || waiting;
   const handle = (event) => {
@@ -3062,13 +3480,15 @@ function Sheet({
   show = false,
   heading = true
 }) {
-  const dialog = useRef3(null);
-  const overlay = useRef3(null);
+  const dialog = useRef4(null);
+  const overlay = useRef4(null);
+  const grip = useRef4(null);
   useSheetPresence(overlay, dialog);
+  useSheetDrag({ overlay, panel: dialog, grip, busy, onClose });
   const dock = useContext(SheetDock);
-  const current = useRef3({ busy, onClose });
+  const current = useRef4({ busy, onClose });
   current.current = { busy, onClose };
-  useEffect3(() => {
+  useEffect5(() => {
     const previousFocus = document.activeElement;
     if (!openSheets++) {
       pageOverflow = document.body.style.overflow;
@@ -3119,7 +3539,7 @@ function Sheet({
       "aria-label": title,
       "aria-busy": busy || void 0
     },
-    /* @__PURE__ */ React5.createElement("div", { className: "fd-sheet-header" }, onBack && /* @__PURE__ */ React5.createElement(
+    /* @__PURE__ */ React5.createElement("div", { ref: grip, className: "fd-sheet-header" }, onBack && /* @__PURE__ */ React5.createElement(
       IconButton,
       {
         label: "Back",
@@ -3139,6 +3559,7 @@ var init_controls = __esm({
   "src/ui/controls.jsx"() {
     init_theme();
     init_sheetMotion();
+    init_useSheetDrag();
     init_Icon();
     init_OneSafe();
     init_Menu();
@@ -3156,11 +3577,18 @@ var init_controls = __esm({
   }
 });
 
+// shared/freeText.js
+var init_freeText = __esm({
+  "shared/freeText.js"() {
+  }
+});
+
 // shared/prompts.js
 var PROMPT_KINDS, PROMPT_RESULTS_WINDOW_MS;
 var init_prompts = __esm({
   "shared/prompts.js"() {
     init_core();
+    init_freeText();
     PROMPT_KINDS = Object.freeze(["awards"]);
     PROMPT_RESULTS_WINDOW_MS = 12 * 60 * 60 * 1e3;
   }
@@ -3194,6 +3622,7 @@ var TRIVIA_FORMATS, TRIVIA_FORMAT_NAMES, TRIVIA_MS, TRIVIA_NEAR;
 var init_trivia = __esm({
   "shared/trivia.js"() {
     init_triviaBoard();
+    init_freeText();
     TRIVIA_FORMATS = Object.freeze(["choice", "number", "tune", "picture"]);
     TRIVIA_FORMAT_NAMES = Object.freeze({
       choice: "Multiple choice",
@@ -3216,12 +3645,19 @@ var init_audio = __esm({
   }
 });
 
+// shared/karaokeLyrics.js
+var init_karaokeLyrics = __esm({
+  "shared/karaokeLyrics.js"() {
+  }
+});
+
 // shared/karaoke.js
 var KARAOKE_TIERS, KARAOKE_PICK_MS, KARAOKE_MORE_TIME_MS, KARAOKE_UP_MS, KARAOKE_MAX_SONG_MS, KARAOKE_PRACTICE_MS, KARAOKE_VOTE_GRACE_MS, KARAOKE_LATE_MAX_MS, KARAOKE_SECONDS, KARAOKE_PRACTICE_SONGS;
 var init_karaoke = __esm({
   "shared/karaoke.js"() {
     init_core();
     init_audio();
+    init_karaokeLyrics();
     KARAOKE_TIERS = Object.freeze([
       Object.freeze({ value: 1, id: "superass", name: "Super Ass", points: 1 }),
       Object.freeze({ value: 2, id: "ass", name: "Ass", points: 2 }),
@@ -3379,11 +3815,26 @@ function contrastRatio(a2, b2) {
   if (x === null || y === null) return null;
   return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
 }
+function remembered(table, key, make) {
+  if (table.has(key)) return table.get(key);
+  if (table.size >= MEMO_MAX) table.clear();
+  const value = make();
+  table.set(key, value);
+  return value;
+}
 function chipInkIsDark(color, inks = chipInks()) {
+  if (typeof color !== "string") return darkInkReads(color, inks);
+  return remembered(inkMemo, memoKey(color, inks.dark, inks.bone), () => darkInkReads(color, inks));
+}
+function darkInkReads(color, inks) {
   const dark = contrastRatio(color, inks.dark), bone = contrastRatio(color, inks.bone);
   return dark !== null && bone !== null && dark > bone;
 }
 function letterPlate(color, inks = chipInks(), min = 4.5) {
+  if (typeof color !== "string") return plateFor(color, inks, min);
+  return remembered(plateMemo, memoKey(color, inks.dark, inks.bone, min), () => Object.freeze(plateFor(color, inks, min)));
+}
+function plateFor(color, inks, min) {
   const c2 = channels(color);
   if (!c2) return { fill: color, ink: inks.bone, dark: false };
   const dark = chipInkIsDark(color, inks);
@@ -3395,12 +3846,16 @@ function letterPlate(color, inks = chipInks(), min = 4.5) {
   }
   return { fill, ink, dark };
 }
-var CHIP_INKS, HEX, live, toHex, FLOOD;
+var CHIP_INKS, HEX, live, MEMO_MAX, inkMemo, plateMemo, memoKey, toHex, FLOOD;
 var init_chipInk = __esm({
   "src/features/identity/chipInk.js"() {
     CHIP_INKS = Object.freeze({ dark: "#151c1c", bone: "#f2eddf" });
     HEX = /^#[0-9a-f]{6}$/i;
     live = null;
+    MEMO_MAX = 512;
+    inkMemo = /* @__PURE__ */ new Map();
+    plateMemo = /* @__PURE__ */ new Map();
+    memoKey = (...parts) => parts.join("");
     toHex = (c2) => "#" + c2.map((v) => Math.round(Math.max(0, Math.min(1, v)) * 255).toString(16).padStart(2, "0")).join("");
     FLOOD = Object.freeze({ light: 0.67, chroma: 0.13, neutral: 0.075, maxLight: 0.86, minContrast: 4.5 });
   }
@@ -3442,19 +3897,24 @@ function initialsTable(profiles) {
   const taken = /* @__PURE__ */ new Set(), table = {};
   for (const player of players) {
     const name = nameOf(key, player), letters2 = lettersOf(name);
-    if (!letters2) {
+    if (!letters2.length) {
       table[player] = "";
       continue;
     }
     const first = letters2[0];
-    const words = name.split(/\s+/).map(lettersOf).filter(Boolean);
+    if (letters2.length === 1 || WIDE_INITIAL.test(first)) {
+      taken.add(shapeOf(first));
+      table[player] = first;
+      continue;
+    }
+    const words = name.split(/\s+/).map(lettersOf).filter((word) => word.length);
     const options = [
       ...words.length > 1 ? [words[0][0] + words[1][0]] : [],
-      letters2.slice(0, 2),
+      letters2.slice(0, 2).join(""),
       first + letters2[letters2.length - 1],
-      ...[...letters2.slice(2)].map((ch) => first + ch)
+      ...letters2.slice(2).map((ch) => first + ch)
     ];
-    const pick = options.find((pair) => pair.length === 2 && !taken.has(shapeOf(pair))) || letters2.slice(0, 2);
+    const pick = options.find((pair) => [...pair].length === 2 && !taken.has(shapeOf(pair))) || letters2.slice(0, 2).join("");
     taken.add(shapeOf(pick));
     table[player] = pick;
   }
@@ -3471,7 +3931,7 @@ function usePlayerIdentity(player) {
   }
   return resolvePlayerIdentity(profiles, player);
 }
-var PlayerIdentityContext, LOOKALIKE, shapeOf, nameOf, lettersOf, tables, initialsOf, TextFloorContext, useTextFloor;
+var PlayerIdentityContext, LOOKALIKE, shapeOf, nameOf, lettersOf, WIDE_INITIAL, tables, initialsOf, TextFloorContext, useTextFloor;
 var init_PlayerIdentityContext = __esm({
   "src/features/identity/PlayerIdentityContext.js"() {
     init_playerIdentity();
@@ -3480,7 +3940,8 @@ var init_PlayerIdentityContext = __esm({
     LOOKALIKE = { Y: "V", D: "O", Q: "O" };
     shapeOf = (pair) => pair.replace(/[YDQ]/g, (ch) => LOOKALIKE[ch]);
     nameOf = (profiles, player) => String(profiles?.[player]?.display || player || "").trim().toUpperCase();
-    lettersOf = (name) => name.replace(/[^A-Z0-9]/g, "");
+    lettersOf = (name) => [...name.normalize("NFC").replace(/[^\p{L}\p{N}]/gu, "")];
+    WIDE_INITIAL = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/u;
     tables = /* @__PURE__ */ new WeakMap();
     initialsOf = (profiles, player) => initialsTable(profiles)[player] ?? (profiles?.[player]?.display || player || "").trim().slice(0, 2).toUpperCase();
     TextFloorContext = createContext2(12);
@@ -3492,14 +3953,14 @@ var init_PlayerIdentityContext = __esm({
 function avatarLetters(size, floor2 = 12, initials = "") {
   const { two, one } = letters(initials);
   const px = Math.max(floor2, Math.round(size * 0.42));
-  if (two.length > 1 && size >= px * 1.5) return { text: two, px };
+  if (two && size >= px * 1.5) return { text: two, px };
   return { text: one, px: floor2 };
 }
 function chipLetters(size, floor2 = 12, initials = "") {
   const { two, one } = letters(initials);
   if (!two) return { text: "", units: 0, r: CHIP_PLATE.standard };
   const f = floor2 * 32 / Math.max(1, size);
-  if (two.length > 1 && size >= floor2 * 2.2) return { text: two, units: Math.max(INITIALS_UNITS, f), r: CHIP_PLATE.standard };
+  if (size >= floor2 * 2.2) return { text: two, units: Math.max(INITIALS_UNITS, f), r: CHIP_PLATE.standard };
   if (two.length > 1 && f <= 19) return { text: two, units: f, r: CHIP_PLATE.wide };
   if (f <= 26) return { text: one, units: f, r: CHIP_PLATE.wide };
   return { text: one, units: f, r: CHIP_PLATE.full };
@@ -3510,8 +3971,8 @@ var init_discLetters = __esm({
     DISC_OVERLAP_MIN = 32;
     DISC_OVERLAP = 0.2;
     letters = (initials) => {
-      const two = String(initials || "").slice(0, 2);
-      return { two, one: two.slice(0, 1) };
+      const chars = [...String(initials || "")];
+      return { two: chars.slice(0, 2).join(""), one: chars[0] || "" };
     };
     CHIP_PLATE = Object.freeze({ standard: 8.75, wide: 12.6, full: 14.7 });
     INITIALS_UNITS = 13;
@@ -3837,7 +4298,7 @@ var init_competition_bracket = __esm({
 });
 
 // src/features/weekend/CompetitionBracket.jsx
-import React10, { useEffect as useEffect4, useRef as useRef4 } from "react";
+import React10, { useEffect as useEffect6, useRef as useRef5 } from "react";
 function bracketLayout(bracket) {
   const rounds = bracket?.rounds || [];
   const centers = rounds.map((round) => round.map(() => null));
@@ -3872,11 +4333,11 @@ function placeTree(rounds, centers, r, m, at) {
 }
 function CompetitionBracket({ state, ev, me, gm = false, onPick, onPlayer, size = "md", hot, pending = false, pickable = true }) {
   const bracket = state.brackets?.[ev.id], draw = state.draws?.[ev.id];
-  const scroller = useRef4(null);
+  const scroller = useRef5(null);
   const compact = size === "compact";
   const contest = bracket && draw ? resolveCurrentContest(state, ev) : null;
   const active = contest?.kind === "match" ? contest.match : null;
-  useEffect4(() => {
+  useEffect6(() => {
     const el = scroller.current;
     if (!el || compact || !active || el.scrollWidth <= el.clientWidth) return;
     const card = el.querySelector(".fd-bracket-match.is-current");
@@ -4327,7 +4788,7 @@ function settledStacks(state, events, contest, matches = (wager) => wagerMatches
     if (result.status === "won") cur.paid += Math.max(0, result.delta);
     into.set(wager.player, cur);
   });
-  const shape = (map2, status) => [...map2.values()].map((item) => ({
+  const shape = (map, status) => [...map.values()].map((item) => ({
     ...item,
     ...stackView(item.stake),
     status,
@@ -4451,7 +4912,7 @@ var init_bet_stacks = __esm({
 });
 
 // src/features/wagers/BetStacks.jsx
-import React13, { useEffect as useEffect6, useLayoutEffect as useLayoutEffect3, useMemo, useRef as useRef6, useState as useState7 } from "react";
+import React13, { useEffect as useEffect8, useLayoutEffect as useLayoutEffect3, useMemo, useRef as useRef7, useState as useState7 } from "react";
 function Rim({ cx, rx, ry, yt, t, inserts, turn, stroke }) {
   const yb = yt + t;
   const band = `M${r2(cx - rx)} ${r2(yt)}L${r2(cx - rx)} ${r2(yb)}A${r2(rx)} ${r2(ry)} 0 0 0 ${r2(cx + rx)} ${r2(yb)}L${r2(cx + rx)} ${r2(yt)}A${r2(rx)} ${r2(ry)} 0 0 1 ${r2(cx - rx)} ${r2(yt)}Z`;
@@ -4506,7 +4967,7 @@ function ChipStack({
   const shown = Math.max(1, Math.min(chips + paidChips, cap)) + tiers;
   const base = settle === "won" && chips + paidChips > cap ? Math.max(1, Math.min(cap - 1, Math.round(cap * chips / (chips + paidChips)))) : Math.min(chips, shown);
   const paying = settle === "won" && shown > base;
-  const seen = useRef6(null);
+  const seen = useRef7(null);
   if (!seen.current) seen.current = { shown, from: shown };
   else if (seen.current.shown !== shown)
     seen.current = { shown, from: shown > seen.current.shown ? seen.current.shown : shown };
@@ -5099,21 +5560,21 @@ var init_chip_coin = __esm({
 });
 
 // src/features/identity/ChipCoin.jsx
-import React17, { useEffect as useEffect7, useRef as useRef7, useState as useState8 } from "react";
+import React17, { useEffect as useEffect9, useRef as useRef8, useState as useState8 } from "react";
 function ChipCoin({ p, size = 48, stamp, fallback, mint = false, mintOnMount = false, className = "" }) {
   const identity = usePlayerIdentity(p);
   const reduced = useReducedMotion();
-  const spinRef = useRef7(null);
-  const drag2 = useRef7(null);
-  const angle = useRef7(0);
-  const frame2 = useRef7(0);
-  const settle = useRef7(0);
-  const dragged = useRef7(false);
+  const spinRef = useRef8(null);
+  const drag2 = useRef8(null);
+  const angle = useRef8(0);
+  const frame2 = useRef8(0);
+  const settle = useRef8(0);
+  const dragged = useRef8(false);
   const claimed = identity.color !== CHIP_GRAY;
   const key = `${identity.color}|${identity.skin}`;
-  const seen = useRef7(key);
+  const seen = useRef8(key);
   const [mints, setMints] = useState8(() => mintOnMount && claimed ? 1 : 0);
-  useEffect7(() => {
+  useEffect9(() => {
     if (seen.current === key) return;
     seen.current = key;
     if (mint && claimed && !reduced) {
@@ -5121,7 +5582,7 @@ function ChipCoin({ p, size = 48, stamp, fallback, mint = false, mintOnMount = f
       setMints((count) => count + 1);
     }
   }, [key, mint, claimed, reduced]);
-  useEffect7(() => () => {
+  useEffect9(() => () => {
     cancelAnimationFrame(frame2.current);
     clearTimeout(settle.current);
   }, []);
@@ -5759,6 +6220,24 @@ function farBeep(E, t, f) {
   track(E, bp);
   held(E, bp, t, f, 0.11, 0.4, { type: "square", a: 4e-3, glide: -0.08 });
 }
+function piano(E, t, f, { gain = 0.5, dec = 1.2, pan = 0 } = {}) {
+  const v = voice(E, { pan, send: 0.26, bright: 0.85, gain });
+  mode(E, v, t, f, dec, 0.22, { a: 2e-3, type: "triangle" });
+  mode(E, v, t, f * 1.006, dec * 0.9, 0.16, { a: 2e-3, type: "triangle" });
+  mode(E, v, t, f * 2.003, dec * 0.4, 0.06, { a: 2e-3 });
+  burst(E, v, t, { f: 2400, q: 0.8, d: 0.012, peak: 0.12 });
+}
+function buzz(E, t, d, { peak = 0.06, f = 120, up = false } = {}) {
+  const v = voice(E, { send: 0.12, bright: 0.9, gain: 1 });
+  const bp = E.ctx.createBiquadFilter();
+  bp.type = "bandpass";
+  bp.frequency.value = 1300;
+  bp.Q.value = 1.6;
+  bp.connect(v);
+  track(E, bp);
+  const o = held(E, bp, t, f, d, peak, { type: "sawtooth", a: up ? d * 0.5 : 0.01 });
+  wobble(E, o.frequency, t, d, { rate: 11, depth: up ? 6 : 1.5 });
+}
 function playRecipe(E, id, t, { pan = 0, open = false, ...opts } = {}) {
   const s = SOUNDS[id];
   if (!s || !E) return false;
@@ -5780,7 +6259,7 @@ function playRecipe(E, id, t, { pan = 0, open = false, ...opts } = {}) {
   }
   return true;
 }
-var NOTE, LADDER, ladderNote, CROWN_CHORD, ROOMS, roomKeyFor, roomForPhase, PHONE_WET, wetLevel, highpassFor, rnd, clampPan, PHANTOM, M, HIT, PLAY, bloop, bounce, swish, hum, INTRO_FOLEY, KIT, CHIP_WEIGHT, PARTS, THINK, THINK_BAR_S, BOARD_PARTS, BIT_PARTS, KARAOKE_PARTS, SOUNDS, SOUND_IDS, isSound, CHIP_DENSITY;
+var NOTE, LADDER, ladderNote, CROWN_CHORD, ROOMS, roomKeyFor, roomForPhase, PHONE_WET, wetLevel, highpassFor, rnd, clampPan, PHANTOM, M, HIT, PLAY, bloop, bounce, swish, hum, INTRO_FOLEY, KIT, CHIP_WEIGHT, PARTS, THINK, THINK_BAR_S, BOARD_PARTS, CARTOON_PARTS, semi, NEON_PARTS, BIT_PARTS, KARAOKE_PARTS, SOUNDS, SOUND_IDS, isSound, CHIP_DENSITY;
 var init_soundKit = __esm({
   "src/lib/soundKit.js"() {
     init_introTiming();
@@ -6786,7 +7265,7 @@ var init_soundKit = __esm({
         }
       }
     ].map(Object.freeze));
-    BIT_PARTS = Object.freeze([
+    CARTOON_PARTS = Object.freeze([
       /* a gunshot in the desert: the crack, a thump, and the buttes answering twice */
       {
         id: "bitCrack",
@@ -7847,6 +8326,293 @@ var init_soundKit = __esm({
         }
       }
     ].map(Object.freeze));
+    semi = (n) => NOTE.D4 * Math.pow(2, n / 12);
+    NEON_PARTS = Object.freeze([
+      /* a tube catching (opts.up: lighting, a rising crackle) or buzzing (opts.ms) */
+      {
+        id: "neonBuzz",
+        name: "Tube buzz",
+        ms: 400,
+        play: (E, t, o = {}) => {
+          const d = Math.max(0.12, (o.ms || 400) / 1e3);
+          buzz(E, t, d, { peak: o.small ? 0.04 : 0.07, up: !!o.up });
+          for (let i = 0; i < (o.up ? 5 : 3); i++) M.tick(E, t + i * d / (o.up ? 6 : 4) * rnd(0.6, 1.2), { gain: 0.22 * rnd(0.5, 1), pitch: rnd(1.6, 2.2) });
+          if (o.up) swell(E, voice(E, { send: 0.15, bright: 1, gain: 0.6 }), t, { d, f0: 500, f1: 2600, q: 1.4, peak: 0.08 });
+        }
+      },
+      /* a fingernail flick: a sharp snap */
+      {
+        id: "neonFlick",
+        name: "Flick",
+        ms: 160,
+        play: (E, t) => {
+          M.tick(E, t, { gain: 0.9, pitch: 2.1 });
+          M.knock(E, t + 2e-3, { pitch: 1.9, gain: 0.35 });
+          burst(E, voice(E, { send: 0.15, bright: 1, gain: 0.6 }), t, { type: "highpass", f: 5200, d: 0.018, peak: 0.4 });
+        }
+      },
+      /* a bit's own little groove when no win song comes (opts.ms): kick, hat
+         and a bass line in D at 125 bpm */
+      {
+        id: "bitGroove",
+        name: "Groove",
+        ms: 2600,
+        play: (E, t, o = {}) => {
+          const d = Math.max(0.5, (o.ms || 2600) / 1e3), beat = 0.48;
+          const bass = [NOTE.D3, NOTE.D3, NOTE.A2, NOTE.D3 * 0.75];
+          const v = voice(E, { send: 0.1, bright: 0.45, gain: 0.55 });
+          for (let i = 0, x = 0; x < d - 0.05; i++, x += beat / 2) {
+            if (i % 2 === 0) {
+              M.drum(E, t + x, { f: 58, dec: 0.22, gain: 0.55 });
+              held(E, v, t + x, bass[i / 2 % 4], beat * 0.42, 0.2, { type: "triangle", a: 4e-3 });
+            } else burst(E, voice(E, { send: 0.08, bright: 1, gain: 0.35 }), t + x, { type: "highpass", f: 7e3, d: 0.03, peak: 0.4 });
+            if (i % 8 === 4) M.slap(E, t + x, { gain: 0.35 });
+          }
+        }
+      },
+      /* a needle dropping on a record: the thump, the crackle of the run-in */
+      {
+        id: "bitNeedle",
+        name: "Needle drop",
+        ms: 900,
+        play: (E, t) => {
+          M.knock(E, t, { pitch: 0.72, gain: 0.55 });
+          M.tick(E, t + 4e-3, { gain: 0.5, pitch: 1.4 });
+          noiseBed(E, voice(E, { send: 0.1, bright: 1, gain: 0.6 }), t + 0.01, { type: "highpass", f: 3200, d: 0.85, peak: 0.05 });
+          crackle(E, t + 0.02, 0.8, { gain: 0.12, every: 0.07 });
+        }
+      },
+      /* a record scratch: the needle dragged across it, there and back */
+      {
+        id: "bitScratch",
+        name: "Record scratch",
+        ms: 500,
+        play: (E, t) => {
+          const v = voice(E, { send: 0.12, bright: 1, gain: 0.8 });
+          glide(E, v, t, 420, 1500, 0.12, 0.22, { type: "sawtooth" });
+          glide(E, v, t + 0.13, 1500, 260, 0.24, 0.24, { type: "sawtooth" });
+          swell(E, voice(E, { send: 0.1, bright: 1, gain: 0.9 }), t, { d: 0.34, f0: 700, f1: 3400, q: 1.2, peak: 0.3 });
+          M.tick(E, t + 0.37, { gain: 0.4, pitch: 1.3 });
+        }
+      },
+      /* a big knife switch thrown: the clunk and the zap */
+      {
+        id: "bitSwitch",
+        name: "Switch thrown",
+        ms: 700,
+        play: (E, t) => {
+          M.knock(E, t, { pitch: 0.6, gain: 0.95 });
+          M.clack(E, t + 4e-3, { pitch: 0.7, gain: 0.6, double: false });
+          burst(E, voice(E, { send: 0.2, bright: 1, gain: 0.6 }), t + 0.01, { type: "highpass", f: 5e3, d: 0.08, peak: 0.35 });
+          buzz(E, t + 0.02, 0.4, { peak: 0.09, f: 120 });
+          crackle(E, t + 0.02, 0.25, { gain: 0.2, every: 0.03 });
+        }
+      },
+      /* glitter off a disco ball (opts.ms): high bells scattered, turning */
+      {
+        id: "bitDisco",
+        name: "Glitter",
+        ms: 1500,
+        play: (E, t, o = {}) => {
+          const d = Math.max(0.4, (o.ms || 1500) / 1e3);
+          for (let x = 0, i = 0; x < d && i < 30; i++, x += rnd(0.05, 0.12))
+            M.bell(E, t + x, ladderNote(8 + Math.floor(rnd(0, 6))), { gain: 0.12 * rnd(0.5, 1), dec: 0.5, send: 0.45, pan: rnd(-0.5, 0.5) });
+          swell(E, voice(E, { send: 0.3, bright: 1 }), t, { d, f0: 3e3, f1: 6e3, q: 2, peak: 0.03 });
+        }
+      },
+      /* a coin dropping into a slot and rolling down inside */
+      {
+        id: "bitCoin",
+        name: "Coin in the slot",
+        ms: 900,
+        play: (E, t) => {
+          M.clack(E, t, { pitch: 1.5, gain: 0.6, double: false });
+          for (let i = 0; i < 5; i++) M.bell(E, t + 0.08 + i * 0.07, NOTE.A6, { gain: 0.12 - i * 0.015, dec: 0.15, send: 0.15 });
+          M.knock(E, t + 0.5, { pitch: 1.1, gain: 0.45 });
+        }
+      },
+      /* a machine trying to start (opts.ms): a motor that catches and drops */
+      {
+        id: "bitSputter",
+        name: "Sputter",
+        ms: 1200,
+        play: (E, t, o = {}) => {
+          const d = Math.max(0.3, (o.ms || 1200) / 1e3);
+          const v = voice(E, { send: 0.15, bright: 0.6, gain: 0.7 });
+          for (let x = 0, i = 0; x < d && i < 24; i++) {
+            const on = rnd(0.05, 0.14);
+            held(E, v, t + x, rnd(100, 160), on, 0.16, { type: "sawtooth", a: 6e-3 });
+            burst(E, voice(E, { send: 0.1, bright: 0.5, gain: 0.5 }), t + x, { type: "lowpass", f: 900, d: on * 0.6, peak: 0.3 });
+            x += on + rnd(0.02, 0.1);
+          }
+        }
+      },
+      /* one deep bass hit (an 808's boom) */
+      {
+        id: "bitBass",
+        name: "Bass hit",
+        ms: 1200,
+        play: (E, t) => {
+          const v = voice(E, { send: 0.15, bright: 0.4, gain: 1 });
+          mode(E, v, t, NOTE.D2 * 0.75, 1, 0.95, { drop: 1.6, a: 3e-3 });
+          phantom(E, v, t, NOTE.D2, 0.6, 0.7);
+          M.drum(E, t, { f: NOTE.D2, dec: 0.5, gain: 0.7 });
+          M.slap(E, t, { gain: 0.3 });
+        }
+      },
+      /* a lowrider's hydraulics: the hiss, the clunk, a spring */
+      {
+        id: "bitHydraulic",
+        name: "Hydraulics",
+        ms: 700,
+        play: (E, t) => {
+          noiseBed(E, voice(E, { send: 0.12, bright: 1, gain: 0.7 }), t, { type: "highpass", f: 2400, d: 0.22, peak: 0.3 });
+          M.knock(E, t + 0.16, { pitch: 0.55, gain: 0.9 });
+          boing(E, t + 0.18, { f: NOTE.A3, d: 0.3, peak: 0.1 });
+        }
+      },
+      /* a saloon piano chord (opts.step: I, IV, V in D) */
+      {
+        id: "bitChord",
+        name: "Piano chord",
+        ms: 1600,
+        play: (E, t, o = {}) => {
+          const roots = [0, 5, 7], r = roots[(Number(o.step) || 0) % 3];
+          [r, r + 4, r + 7, r + 12].forEach((n, i) => piano(E, t + i * 6e-3, semi(n), { gain: 0.42, dec: 1.5 }));
+          piano(E, t, semi(r - 12), { gain: 0.36, dec: 1.3 });
+        }
+      },
+      /* one piano key (opts.step: up the scale) */
+      {
+        id: "bitPlink",
+        name: "Piano key",
+        ms: 800,
+        play: (E, t, o = {}) => piano(E, t, ladderNote(4 + (Number(o.step) || 0) % 8), { gain: 0.4, dec: 0.8 })
+      },
+      /* a pinball flipper's solenoid: a thunk and its buzz */
+      {
+        id: "bitFlipper",
+        name: "Flipper",
+        ms: 400,
+        play: (E, t) => {
+          M.knock(E, t, { pitch: 0.9, gain: 0.9 });
+          M.clack(E, t + 3e-3, { pitch: 0.8, gain: 0.6, double: false });
+          buzz(E, t, 0.12, { peak: 0.08, f: 120 });
+        }
+      },
+      /* a pinball bumper: pop and ding */
+      {
+        id: "bitBumper",
+        name: "Bumper",
+        ms: 900,
+        play: (E, t) => {
+          M.knock(E, t, { pitch: 1.4, gain: 0.7 });
+          M.bell(E, t + 4e-3, NOTE.D6, { gain: 0.42, dec: 0.7, send: 0.3 });
+          M.bell(E, t + 4e-3, NOTE.A6, { gain: 0.24, dec: 0.5, send: 0.3 });
+        }
+      },
+      /* a big lamp clunking on, and humming */
+      {
+        id: "bitSpotlight",
+        name: "Spotlight",
+        ms: 1200,
+        play: (E, t) => {
+          M.knock(E, t, { pitch: 0.5, gain: 1 });
+          M.clack(E, t + 6e-3, { pitch: 0.6, gain: 0.5, double: false });
+          buzz(E, t + 0.02, 1, { peak: 0.05, f: 120 });
+          burst(E, voice(E, { send: 0.3, bright: 1, gain: 0.4 }), t + 0.01, { type: "highpass", f: 6e3, d: 0.2, peak: 0.15 });
+        }
+      },
+      /* grinding sparks (opts.ms) */
+      {
+        id: "bitSparks",
+        name: "Sparks",
+        ms: 1200,
+        play: (E, t, o = {}) => {
+          const d = Math.max(0.25, (o.ms || 1200) / 1e3);
+          noiseBed(E, voice(E, { send: 0.15, bright: 1, gain: 0.8 }), t, { type: "bandpass", f: 4200, q: 2.5, d, peak: 0.12, hold: true });
+          crackle(E, t, d, { gain: 0.3, every: 0.025 });
+        }
+      },
+      /* a rocket going up (opts.ms) and bursting */
+      {
+        id: "bitFirework",
+        name: "Firework",
+        ms: 1800,
+        play: (E, t, o = {}) => {
+          const up = Math.max(0.25, ((o.ms || 1800) - 900) / 1e3);
+          glide(E, voice(E, { send: 0.3, bright: 1, gain: 0.35 }), t, 900, 2600, up, 0.12, { type: "sine" });
+          noiseBed(E, voice(E, { send: 0.2, bright: 1, gain: 0.4 }), t, { type: "highpass", f: 3e3, d: up, peak: 0.06 });
+          const b2 = t + up;
+          M.drum(E, b2, { f: NOTE.D2, dec: 0.7, gain: 0.9 });
+          burst(E, voice(E, { send: 0.45, bright: 1, gain: 0.8 }), b2, { f: 1200, q: 0.6, d: 0.12, peak: 0.7 });
+          crackle(E, b2 + 0.15, 0.7, { gain: 0.25, every: 0.035 });
+        }
+      },
+      /* a firework burst, no rocket */
+      {
+        id: "bitBang",
+        name: "Firework burst",
+        ms: 1200,
+        play: (E, t) => {
+          M.drum(E, t, { f: NOTE.D2, dec: 0.7, gain: 0.9 });
+          M.slap(E, t, { gain: 0.5 });
+          burst(E, voice(E, { send: 0.45, bright: 1, gain: 0.8 }), t, { f: 1200, q: 0.6, d: 0.12, peak: 0.7 });
+          crackle(E, t + 0.15, 0.7, { gain: 0.25, every: 0.035 });
+        }
+      },
+      /* a croupier's rake across the felt (opts.ms) */
+      {
+        id: "bitRake",
+        name: "Rake",
+        ms: 700,
+        play: (E, t, o = {}) => {
+          const d = Math.max(0.2, (o.ms || 700) / 1e3);
+          swell(E, voice(E, { send: 0.12, bright: 0.6, gain: 1 }), t, { d, f0: 420, f1: 700, q: 0.7, peak: 0.32 });
+          M.felt(E, t + d - 0.04, { gain: 0.5 });
+        }
+      },
+      /* rock rumbling (opts.ms) */
+      {
+        id: "bitRumble",
+        name: "Rumble",
+        ms: 1500,
+        play: (E, t, o = {}) => {
+          const d = Math.max(0.4, (o.ms || 1500) / 1e3);
+          noiseBed(E, voice(E, { send: 0.25, bright: 0.4, gain: 1 }), t, { type: "lowpass", f: 220, d, peak: 0.55, a: 0.15 });
+          for (let x = 0, i = 0; x < d && i < 30; i++, x += rnd(0.08, 0.2)) M.knock(E, t + x, { pitch: rnd(0.45, 0.7), gain: rnd(0.15, 0.35) });
+        }
+      },
+      /* a coin rolling on its edge (opts.ms): a soft run of contacts */
+      {
+        id: "bitRoll",
+        name: "Rolling",
+        ms: 1200,
+        play: (E, t, o = {}) => {
+          const d = Math.max(0.3, (o.ms || 1200) / 1e3);
+          noiseBed(E, voice(E, { send: 0.1, bright: 0.5, gain: 0.6 }), t, { type: "lowpass", f: 700, d, peak: 0.12, hold: true });
+          for (let x = 0, i = 0; x < d && i < 60; i++, x += 0.09) M.clack(E, t + x, { pitch: 0.75, gain: 0.12, bright: 0.4, double: false });
+        }
+      },
+      /* an engine idling (opts.ms) */
+      {
+        id: "bitEngine",
+        name: "Engine idle",
+        ms: 1600,
+        play: (E, t, o = {}) => {
+          const d = Math.max(0.4, (o.ms || 1600) / 1e3);
+          const v = voice(E, { send: 0.12, bright: 0.35, gain: 1 });
+          const g = E.ctx.createGain();
+          g.gain.value = 0.7;
+          g.connect(v);
+          track(E, g);
+          held(E, g, t, NOTE.D2 * 0.75, d, 0.32, { type: "sawtooth", a: 0.08 });
+          held(E, g, t, NOTE.D2 * 1.5, d, 0.12, { type: "square", a: 0.08 });
+          wobble(E, g.gain, t, d, { rate: 9, depth: 0.35 });
+        }
+      }
+    ].map(Object.freeze));
+    BIT_PARTS = Object.freeze([...CARTOON_PARTS, ...NEON_PARTS]);
     KARAOKE_PARTS = Object.freeze([
       /* a Legendary vote rains over its singer: a drum and a slap, the motif
          rung up bright, then a sparkle of high bells falling through it */
@@ -7870,11 +8636,11 @@ var init_soundKit = __esm({
 });
 
 // src/lib/sound.js
-import { useEffect as useEffect8, useState as useState9 } from "react";
+import { useEffect as useEffect10, useState as useState9 } from "react";
 function walkoutActive(walkout, now2 = serverNow()) {
   if (!walkout || typeof walkout !== "object") return false;
-  const until = Number(walkout.until);
-  return Number.isFinite(until) && now2 < until;
+  const until = Number(walkout.until), from = Number(walkout.startedAt) || 0;
+  return Number.isFinite(until) && now2 < until && now2 >= from;
 }
 function hushReason({ walkout = null, quickDraw = false, now: now2 = serverNow() } = {}) {
   if (quickDraw) return "quickDraw";
@@ -8187,7 +8953,7 @@ var init_reelModel = __esm({
 });
 
 // src/ui/ScoreReel.jsx
-import React18, { useEffect as useEffect9, useLayoutEffect as useLayoutEffect4, useRef as useRef8 } from "react";
+import React18, { useEffect as useEffect11, useLayoutEffect as useLayoutEffect4, useRef as useRef9 } from "react";
 function place(el, prop, value) {
   el.style.transition = "none";
   el.style.setProperty(prop, value);
@@ -8200,8 +8966,8 @@ function drumSteps(from, to, direction) {
   return direction < 0 ? -((a2 - b2 + 10) % 10) : (b2 - a2 + 10) % 10;
 }
 function StripDigit({ digit, value, live: live2, land, faces }) {
-  const ref = useRef8(null);
-  const st = useRef8(null);
+  const ref = useRef9(null);
+  const st = useRef9(null);
   if (!st.current) {
     const index = land ? land.end : REEL.band + Number(digit);
     st.current = { digit, value, index, init: index };
@@ -8236,8 +9002,8 @@ function StripDigit({ digit, value, live: live2, land, faces }) {
   return /* @__PURE__ */ React18.createElement("span", { ref, className: `fd-reel-strip${rolling ? " is-rolling" : ""}`, style }, Array.from({ length: faces }, (_, i) => /* @__PURE__ */ React18.createElement("span", { key: i }, i % 10)));
 }
 function DrumDigit({ digit, value, live: live2, land, register, index }) {
-  const ref = useRef8(null);
-  const st = useRef8(null);
+  const ref = useRef9(null);
+  const st = useRef9(null);
   if (!st.current) st.current = { digit, value, angle: (land ? land.end : Number(digit)) * DRUM.faceDeg, timers: [], placed: false };
   useIsoLayoutEffect(() => {
     const el = ref.current, s = st.current;
@@ -8260,7 +9026,7 @@ function DrumDigit({ digit, value, live: live2, land, register, index }) {
     el.style.setProperty("--drum-ms", `${drumRollMs(steps)}ms`);
     el.style.setProperty("--a", `${s.angle}deg`);
   }, [digit, value]);
-  useEffect9(() => {
+  useEffect11(() => {
     if (!register) return void 0;
     return register(index, {
       spin(turns, delay, duration, sign) {
@@ -8279,7 +9045,7 @@ function DrumDigit({ digit, value, live: live2, land, register, index }) {
       }
     });
   }, [register, index]);
-  useEffect9(() => () => st.current?.timers.forEach(clearTimeout), []);
+  useEffect11(() => () => st.current?.timers.forEach(clearTimeout), []);
   const cur = String(digit);
   const rolling = !!land?.faces;
   return /* @__PURE__ */ React18.createElement("span", { className: `fd-drum${rolling ? " is-rolling" : ""}`, ref, style: rolling ? {
@@ -8314,12 +9080,12 @@ function ScoreReel({
   const n = Number(value) || 0;
   const reduced = useReducedMotion();
   const change = useFreshChange(n);
-  const liveUntil = useRef8(0);
+  const liveUntil = useRef9(0);
   const gate = reelMotion({ motion, reduced, animate: change.animate, now: now(), liveUntil: liveUntil.current });
   liveUntil.current = gate.liveUntil;
   const live2 = gate.live;
-  const last = useRef8({ value: n, at: 0 });
-  useEffect9(() => {
+  const last = useRef9({ value: n, at: 0 });
+  useEffect11(() => {
     const prev = last.current;
     if (prev.value === n) return;
     const at2 = now();
@@ -8328,15 +9094,15 @@ function ScoreReel({
       last.current = { value: n, at: at2 };
     } else last.current = { value: n, at: prev.at };
   }, [n, clack]);
-  const drums = useRef8(/* @__PURE__ */ new Map());
-  const register = useRef8((index, api) => {
+  const drums = useRef9(/* @__PURE__ */ new Map());
+  const register = useRef9((index, api) => {
     drums.current.set(index, api);
     return () => {
       if (drums.current.get(index) === api) drums.current.delete(index);
     };
   }).current;
-  const flick = useRef8(null);
-  const landing = useRef8(null);
+  const flick = useRef9(null);
+  const landing = useRef9(null);
   const landId = String(landKey ?? "");
   if (from === null || from === void 0) landing.current = null;
   else if (!landing.current || landing.current.id !== landId) {
@@ -8430,7 +9196,7 @@ var init_ScoreReel = __esm({
     init_backglass();
     DIGITS = "0123456789";
     CLACK_GAP_MS = 45;
-    useIsoLayoutEffect = typeof window === "undefined" ? useEffect9 : useLayoutEffect4;
+    useIsoLayoutEffect = typeof window === "undefined" ? useEffect11 : useLayoutEffect4;
     now = () => typeof performance !== "undefined" ? performance.now() : Date.now();
     cssTime = (at) => typeof at === "number" ? `${Math.round(at)}ms` : at || "0ms";
     DRUM = Object.freeze({
@@ -8460,23 +9226,23 @@ function dragTilt(dx, dy, width, height) {
   const dragging = Math.hypot(dx, dy) >= TILT.dragThreshold;
   if (!dragging) return { x: 0, y: 0, dragging: false };
   return {
-    x: clampUnit(dx / Math.max(1, width * TILT.dragReach)),
-    y: clampUnit(dy / Math.max(1, height * TILT.dragReach)),
+    x: clampUnit2(dx / Math.max(1, width * TILT.dragReach)),
+    y: clampUnit2(dy / Math.max(1, height * TILT.dragReach)),
     dragging: true
   };
 }
 function hoverTilt(clientX, clientY, rect) {
   if (!rect?.width || !rect?.height) return { x: 0, y: 0 };
   return {
-    x: clampUnit((clientX - rect.left - rect.width / 2) / (rect.width / 2)),
-    y: clampUnit((clientY - rect.top - rect.height / 2) / (rect.height / 2))
+    x: clampUnit2((clientX - rect.left - rect.width / 2) / (rect.width / 2)),
+    y: clampUnit2((clientY - rect.top - rect.height / 2) / (rect.height / 2))
   };
 }
 function orientationTilt({ gamma, beta }, base) {
   if (!Number.isFinite(gamma) || !Number.isFinite(beta) || !base) return { x: 0, y: 0 };
   return {
-    x: clampUnit((gamma - base.gamma) / TILT.orientationRange),
-    y: clampUnit((beta - base.beta) / TILT.orientationRange)
+    x: clampUnit2((gamma - base.gamma) / TILT.orientationRange),
+    y: clampUnit2((beta - base.beta) / TILT.orientationRange)
   };
 }
 function stepToward(current, target, rate) {
@@ -8491,7 +9257,7 @@ function canFollowOrientation({ userAgent = "", platform = "", OrientationEvent 
   if (/iPhone|iPad|iPod/i.test(userAgent)) return false;
   return /Android/i.test(platform) || /Android/i.test(userAgent);
 }
-var TILT, clampUnit, recenter, plateStrength;
+var TILT, clampUnit2, recenter, plateStrength;
 var init_tilt = __esm({
   "src/features/profile/tilt.js"() {
     TILT = Object.freeze({
@@ -8513,7 +9279,7 @@ var init_tilt = __esm({
       rotateX: 7,
       rotateY: 9
     });
-    clampUnit = (value) => Number.isFinite(value) ? Math.max(-1, Math.min(1, value)) : 0;
+    clampUnit2 = (value) => Number.isFinite(value) ? Math.max(-1, Math.min(1, value)) : 0;
     recenter = (base, reading, rate = TILT.recenter) => ({
       gamma: base.gamma + (reading.gamma - base.gamma) * rate,
       beta: base.beta + (reading.beta - base.beta) * rate
@@ -8523,9 +9289,9 @@ var init_tilt = __esm({
 });
 
 // src/features/profile/useRisoTilt.js
-import { useEffect as useEffect10, useLayoutEffect as useLayoutEffect5, useRef as useRef9 } from "react";
+import { useEffect as useEffect12, useLayoutEffect as useLayoutEffect5, useRef as useRef10 } from "react";
 function useRisoTilt(ref, enabled) {
-  const st = useRef9(null);
+  const st = useRef10(null);
   if (!st.current) st.current = {
     cur: { x: 0, y: 0 },
     target: { x: 0, y: 0 },
@@ -8616,7 +9382,7 @@ function useRisoTilt(ref, enabled) {
     if (rect.width > 0 && rect.bottom > 0 && rect.top < window.innerHeight) openSettle();
     return void 0;
   }, [enabled]);
-  useEffect10(() => {
+  useEffect12(() => {
     if (!enabled) return void 0;
     const el = ref.current;
     if (!el || typeof IntersectionObserver !== "function") return void 0;
@@ -8632,7 +9398,7 @@ function useRisoTilt(ref, enabled) {
     observer.observe(el);
     return () => observer.disconnect();
   }, [enabled]);
-  useEffect10(() => {
+  useEffect12(() => {
     if (!enabled || typeof window === "undefined") return void 0;
     const allowed = canFollowOrientation({
       userAgent: navigator.userAgent,
@@ -8654,7 +9420,7 @@ function useRisoTilt(ref, enabled) {
       s.orient = null;
     };
   }, [enabled]);
-  useEffect10(() => () => {
+  useEffect12(() => () => {
     if (s.raf) cancelAnimationFrame(s.raf);
     clearTimeout(s.timer);
   }, []);
@@ -8718,7 +9484,7 @@ var useIsoLayoutEffect2;
 var init_useRisoTilt = __esm({
   "src/features/profile/useRisoTilt.js"() {
     init_tilt();
-    useIsoLayoutEffect2 = typeof window === "undefined" ? useEffect10 : useLayoutEffect5;
+    useIsoLayoutEffect2 = typeof window === "undefined" ? useEffect12 : useLayoutEffect5;
   }
 });
 
@@ -8952,6 +9718,45 @@ var init_seasonStats = __esm({
   }
 });
 
+// src/ui/textUnits.js
+function textUnits(text) {
+  let units = 0, joined = false, flagHalf = false;
+  for (const ch of String(text ?? "")) {
+    if (MARK.test(ch) || SILENT.test(ch)) {
+      joined = ch === "\u200D";
+      continue;
+    }
+    if (FLAG.test(ch)) {
+      if (!flagHalf) units += EMOJI_UNITS;
+      flagHalf = !flagHalf;
+      joined = false;
+      continue;
+    }
+    flagHalf = false;
+    if (EMOJI.test(ch)) {
+      if (!joined) units += EMOJI_UNITS;
+      joined = false;
+      continue;
+    }
+    joined = false;
+    units += WIDE.test(ch) ? WIDE_UNITS : 1;
+  }
+  return units;
+}
+var MARK, WIDE, EMOJI, SILENT, FLAG, WIDE_UNITS, EMOJI_UNITS, longestWordUnits;
+var init_textUnits = __esm({
+  "src/ui/textUnits.js"() {
+    MARK = /\p{M}/u;
+    WIDE = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}\u{3000}-\u{303F}\u{FF01}-\u{FF60}\u{FFE0}-\u{FFE6}]/u;
+    EMOJI = /\p{Extended_Pictographic}/u;
+    SILENT = /[\p{Join_Control}\p{Variation_Selector}\p{Emoji_Modifier}\u{E0020}-\u{E007F}]/u;
+    FLAG = /\p{Regional_Indicator}/u;
+    WIDE_UNITS = 2.1;
+    EMOJI_UNITS = 2.5;
+    longestWordUnits = (text) => Math.max(0, ...String(text ?? "").split(/\s+/).map(textUnits));
+  }
+});
+
 // src/features/profile/player-pass.css
 var init_player_pass = __esm({
   "src/features/profile/player-pass.css"() {
@@ -8959,7 +9764,7 @@ var init_player_pass = __esm({
 });
 
 // src/features/profile/PlayerPass.jsx
-import React19, { useEffect as useEffect11, useMemo as useMemo2, useRef as useRef10, useState as useState10 } from "react";
+import React19, { useEffect as useEffect13, useMemo as useMemo2, useRef as useRef11, useState as useState10 } from "react";
 function cardInk(color) {
   const luminanceOf = (hex) => {
     const channels2 = hex.slice(1).match(/.{2}/g).map((value) => parseInt(value, 16) / 255).map((value) => value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4);
@@ -8986,7 +9791,7 @@ function PlayerPass({
   const initials = usePlayerInitials(p);
   const [flipped, setFlipped] = useState10(false);
   const reducedMotion = useReducedMotion();
-  const cardRef = useRef10(null);
+  const cardRef = useRef11(null);
   const tilt = useRisoTilt(cardRef, !reducedMotion && !!p);
   const profile = state.profiles?.[p] || {};
   const name = display?.trim() || profile.display || p;
@@ -9007,9 +9812,9 @@ function PlayerPass({
   const sheet = !!season && (season.active || !!season.versus);
   const level = !!rows && rows.every((row) => row.pts === rows[0]?.pts);
   const place3 = standing && !level ? ordinal(standing.rank) : null;
-  const seasonRef = useRef10(null);
+  const seasonRef = useRef11(null);
   const [backHeight, setBackHeight] = useState10(0);
-  useEffect11(() => {
+  useEffect13(() => {
     const body = seasonRef.current, face = body?.parentElement;
     if (!body || !face || typeof window === "undefined") {
       setBackHeight(0);
@@ -9027,7 +9832,7 @@ function PlayerPass({
     return () => observer.disconnect();
   }, [sheet]);
   if (!p) return null;
-  const longest = Math.max(4, ...name.split(/\s+/).map((word) => word.length));
+  const longest = Math.max(4, Math.ceil(longestWordUnits(name)));
   const monogram = (name === (profile.display || p) ? initials : String(name || "").trim().slice(0, 2).toUpperCase()) || "FD";
   const ghost = number == null ? monogram : String(number).padStart(2, "0");
   const turn = () => {
@@ -9062,7 +9867,7 @@ function PlayerPass({
         "aria-pressed": flipped
       },
       /* @__PURE__ */ React19.createElement("span", { className: "fd-pass-shadow", "aria-hidden": "true" }),
-      /* @__PURE__ */ React19.createElement("span", { className: "fd-pass-tilt" }, /* @__PURE__ */ React19.createElement("span", { className: `fd-pass-inner${flipped ? " is-flipped" : ""}` }, /* @__PURE__ */ React19.createElement("span", { className: "fd-pass-face fd-pass-front", "aria-hidden": flipped }, /* @__PURE__ */ React19.createElement("span", { className: "fd-pass-bulbs", "aria-hidden": "true" }), /* @__PURE__ */ React19.createElement("span", { className: "fd-pass-top" }, /* @__PURE__ */ React19.createElement("span", { className: "fd-pass-mark" }, "Field Day"), /* @__PURE__ */ React19.createElement("span", null, EDITION.label)), /* @__PURE__ */ React19.createElement("span", { className: "fd-pass-art" }, /* @__PURE__ */ React19.createElement("span", { className: "fd-pass-orbit" }), /* @__PURE__ */ React19.createElement("span", { className: "fd-pass-number" }, ghost), /* @__PURE__ */ React19.createElement("span", { className: "fd-pass-number fd-pass-plate", "aria-hidden": "true" }, ghost), portrait && /* @__PURE__ */ React19.createElement("span", { className: "fd-pass-window" }, /* @__PURE__ */ React19.createElement("img", { className: "fd-pass-photo", src: portrait, alt: "", onError: () => setFailed(portrait) })), /* @__PURE__ */ React19.createElement("span", { className: `fd-pass-chip${portrait ? " with-photo" : ""}` }, /* @__PURE__ */ React19.createElement(ChipCoin, { p, size: portrait ? 74 : 112, stamp: number == null ? void 0 : String(number), mint }))), /* @__PURE__ */ React19.createElement("span", { className: "fd-pass-name" }, name), standing ? /* @__PURE__ */ React19.createElement("span", { className: "fd-pass-foot is-standing" }, /* @__PURE__ */ React19.createElement("span", { className: "fd-pass-rank" }, place3 ? /* @__PURE__ */ React19.createElement(OneSafe, { text: place3 }) : /* @__PURE__ */ React19.createElement(OneSafe, { text: EDITION.short })), /* @__PURE__ */ React19.createElement("span", { className: "fd-pass-count" }, /* @__PURE__ */ React19.createElement("strong", null, standing.pts.toLocaleString("en-US")), " chips")) : /* @__PURE__ */ React19.createElement("span", { className: "fd-pass-foot" }, /* @__PURE__ */ React19.createElement("span", null, /* @__PURE__ */ React19.createElement(OneSafe, { text: EDITION.short })), number != null && /* @__PURE__ */ React19.createElement("span", null, /* @__PURE__ */ React19.createElement(OneSafe, { text: `PLAYER / ${number}` })))), /* @__PURE__ */ React19.createElement("span", { className: `fd-pass-face fd-pass-back${sheet ? " is-season" : ""}`, "aria-hidden": !flipped }, /* @__PURE__ */ React19.createElement("span", { className: "fd-pass-bulbs", "aria-hidden": "true" }), sheet ? /* @__PURE__ */ React19.createElement(
+      /* @__PURE__ */ React19.createElement("span", { className: "fd-pass-tilt" }, /* @__PURE__ */ React19.createElement("span", { className: `fd-pass-inner${flipped ? " is-flipped" : ""}` }, /* @__PURE__ */ React19.createElement("span", { className: "fd-pass-face fd-pass-front", "aria-hidden": flipped }, /* @__PURE__ */ React19.createElement("span", { className: "fd-pass-bulbs", "aria-hidden": "true" }), /* @__PURE__ */ React19.createElement("span", { className: "fd-pass-top" }, /* @__PURE__ */ React19.createElement("span", { className: "fd-pass-mark" }, "Field Day"), /* @__PURE__ */ React19.createElement("span", null, EDITION.label)), /* @__PURE__ */ React19.createElement("span", { className: "fd-pass-art" }, /* @__PURE__ */ React19.createElement("span", { className: "fd-pass-orbit" }), /* @__PURE__ */ React19.createElement("span", { className: "fd-pass-number" }, ghost), /* @__PURE__ */ React19.createElement("span", { className: "fd-pass-number fd-pass-plate", "aria-hidden": "true" }, ghost), portrait && /* @__PURE__ */ React19.createElement("span", { className: "fd-pass-window" }, /* @__PURE__ */ React19.createElement("img", { className: "fd-pass-photo", src: portrait, alt: "", onError: () => setFailed(portrait) })), /* @__PURE__ */ React19.createElement("span", { className: `fd-pass-chip${portrait ? " with-photo" : ""}` }, /* @__PURE__ */ React19.createElement(ChipCoin, { p, size: portrait ? 74 : 112, stamp: number == null ? void 0 : String(number), mint }))), /* @__PURE__ */ React19.createElement("span", { className: "fd-pass-name" }, name), standing ? /* @__PURE__ */ React19.createElement("span", { className: "fd-pass-foot is-standing" }, /* @__PURE__ */ React19.createElement("span", { className: place3 ? "fd-pass-rank" : void 0 }, place3 ? /* @__PURE__ */ React19.createElement(OneSafe, { text: place3 }) : /* @__PURE__ */ React19.createElement(OneSafe, { text: EDITION.short })), /* @__PURE__ */ React19.createElement("span", { className: "fd-pass-count" }, /* @__PURE__ */ React19.createElement("strong", null, standing.pts.toLocaleString("en-US")), " chips")) : /* @__PURE__ */ React19.createElement("span", { className: "fd-pass-foot" }, /* @__PURE__ */ React19.createElement("span", null, /* @__PURE__ */ React19.createElement(OneSafe, { text: EDITION.short })), number != null && /* @__PURE__ */ React19.createElement("span", null, /* @__PURE__ */ React19.createElement(OneSafe, { text: `PLAYER / ${number}` })))), /* @__PURE__ */ React19.createElement("span", { className: `fd-pass-face fd-pass-back${sheet ? " is-season" : ""}`, "aria-hidden": !flipped }, /* @__PURE__ */ React19.createElement("span", { className: "fd-pass-bulbs", "aria-hidden": "true" }), sheet ? /* @__PURE__ */ React19.createElement(
         SeasonBack,
         {
           state,
@@ -9108,6 +9913,7 @@ var init_PlayerPass = __esm({
     init_OneSafe();
     init_useRisoTilt();
     init_seasonStats();
+    init_textUnits();
     init_player_pass();
     awardText = (row) => row.award === null || row.award === void 0 ? row.status === "playing" ? "Playing" : "\u2013" : row.award > 0 ? signedChips(row.award) : "0";
   }
@@ -9314,7 +10120,7 @@ function GlassArtView({ phase = null, className = "", depth = false, clear = fal
     }
   ))));
   const range = /* @__PURE__ */ React22.createElement(React22.Fragment, null, /* @__PURE__ */ React22.createElement("path", { className: "fd-glass-far", d: SCENE.far }), /* @__PURE__ */ React22.createElement("path", { className: "fd-glass-mid", d: SCENE.hump }));
-  const buttes = SCENE.buttes.map((butte2, i) => /* @__PURE__ */ React22.createElement("g", { key: i }, /* @__PURE__ */ React22.createElement("path", { className: "fd-glass-mesa", d: butte2.lit }), /* @__PURE__ */ React22.createElement("path", { className: "fd-glass-shade", d: butte2.shade })));
+  const buttes = SCENE.buttes.map((butte, i) => /* @__PURE__ */ React22.createElement("g", { key: i }, /* @__PURE__ */ React22.createElement("path", { className: "fd-glass-mesa", d: butte.lit }), /* @__PURE__ */ React22.createElement("path", { className: "fd-glass-shade", d: butte.shade })));
   const below = depth ? 80 : 0;
   const floor2 = /* @__PURE__ */ React22.createElement(React22.Fragment, null, /* @__PURE__ */ React22.createElement("rect", { className: "fd-glass-ground", y: horizon, width, height: SCENE.floor - horizon + below }), /* @__PURE__ */ React22.createElement("rect", { className: "fd-glass-rim", y: horizon, width, height: 6 }), /* @__PURE__ */ React22.createElement("g", { className: "fd-glass-cactus" }, SCENE.cacti.filter((c2) => standsClear(c2, left, zone)).map((c2, i) => /* @__PURE__ */ React22.createElement("path", { key: i, d: c2.d, transform: `translate(${c2.x} ${c2.y}) scale(${c2.scale})` }))));
   const clipDef = /* @__PURE__ */ React22.createElement("defs", null, /* @__PURE__ */ React22.createElement("clipPath", { id: clip }, /* @__PURE__ */ React22.createElement("rect", { y: top, width, height: horizon - top })));
@@ -9788,7 +10594,7 @@ var init_intro = __esm({
 });
 
 // src/features/intro/GameIntro.jsx
-import React24, { useEffect as useEffect13, useRef as useRef11, useState as useState12 } from "react";
+import React24, { useEffect as useEffect15, useRef as useRef12, useState as useState12 } from "react";
 function useIntroElapsed(anchor, { reduced = false, now: now2 = serverNow } = {}) {
   const [elapsed] = useState12(() => reduced ? INTRO_MS : Number(anchor) > 0 ? introElapsed(anchor, now2()) : 0);
   return elapsed;
@@ -9805,8 +10611,8 @@ function GameIntro({
 }) {
   const scene = introScene(ev);
   const elapsed = useIntroElapsed(anchor, { reduced, now: now2 });
-  const rung = useRef11(false);
-  useEffect13(() => {
+  const rung = useRef12(false);
+  useEffect15(() => {
     if (!sound || rung.current || !(Number(anchor) > 0)) return;
     rung.current = true;
     if (!freshFrameNow()) return;
@@ -9860,7 +10666,7 @@ var init_GameIntro = __esm({
 });
 
 // src/lib/motionKit.js
-import { useLayoutEffect as useLayoutEffect6, useRef as useRef13, useState as useState14 } from "react";
+import { useLayoutEffect as useLayoutEffect6, useRef as useRef14, useState as useState14 } from "react";
 function useFreshHold(value, key = null, ms = MOTION.story, options) {
   const change = useFreshChange(value, key, options);
   const [held2, setHeld] = useState14(0);
@@ -9873,20 +10679,20 @@ function useFreshHold(value, key = null, ms = MOTION.story, options) {
   return change.animate ? change.changeId : held2;
 }
 function childOffsets(container, attr = "data-flip") {
-  const map2 = /* @__PURE__ */ new Map();
-  if (!container || typeof container.getBoundingClientRect !== "function") return map2;
+  const map = /* @__PURE__ */ new Map();
+  if (!container || typeof container.getBoundingClientRect !== "function") return map;
   const box2 = container.getBoundingClientRect();
   const scale = container.offsetWidth ? box2.width / container.offsetWidth || 1 : 1;
   for (const el of container.querySelectorAll(`[${attr}]`)) {
     const r = el.getBoundingClientRect();
-    map2.set(el.getAttribute(attr), {
+    map.set(el.getAttribute(attr), {
       left: (r.left - box2.left) / scale,
       top: (r.top - box2.top) / scale,
       width: r.width / scale,
       height: r.height / scale
     });
   }
-  return map2;
+  return map;
 }
 function flipMoves(before, after, { threshold = 0.5 } = {}) {
   const moves = [], entering = [];
@@ -9911,7 +10717,7 @@ function useFlip(ref, {
   enter = true,
   onPlay = null
 } = {}) {
-  const last = useRef13(null);
+  const last = useRef14(null);
   useLayoutEffect6(() => {
     const container = ref.current;
     const before = last.current;
@@ -9982,7 +10788,7 @@ var init_poker_motion = __esm({
 });
 
 // src/features/poker/PokerMotion.jsx
-import React28, { useEffect as useEffect16, useLayoutEffect as useLayoutEffect7, useRef as useRef15, useState as useState16 } from "react";
+import React28, { useEffect as useEffect18, useLayoutEffect as useLayoutEffect7, useRef as useRef16, useState as useState16 } from "react";
 var init_PokerMotion = __esm({
   "src/features/poker/PokerMotion.jsx"() {
     init_core();
@@ -10025,7 +10831,7 @@ var init_poker_chips = __esm({
 });
 
 // src/features/poker/PokerChips.jsx
-import React29, { useLayoutEffect as useLayoutEffect8, useRef as useRef16 } from "react";
+import React29, { useLayoutEffect as useLayoutEffect8, useRef as useRef17 } from "react";
 var init_PokerChips = __esm({
   "src/features/poker/PokerChips.jsx"() {
     init_BetStacks();
@@ -10100,176 +10906,6 @@ function PageHeading({ title, children, aside }) {
 }
 var init_layout = __esm({
   "src/ui/layout.jsx"() {
-  }
-});
-
-// src/ui/useGlassTilt.js
-import { useEffect as useEffect20 } from "react";
-function leanToward(clientX, clientY, rect, { dragging = false } = {}) {
-  if (!rect?.width || !rect?.height) return { x: 0, y: 0 };
-  const reach = dragging ? 1 : GLASS_TILT.press;
-  return {
-    x: clampUnit2((clientX - rect.left - rect.width / 2) / (rect.width / 2)) * reach,
-    y: clampUnit2((clientY - rect.top - rect.height / 2) / (rect.height / 2)) * reach
-  };
-}
-function springStep(pos, vel, target, dt, { stiffness = GLASS_TILT.stiffness, damping = GLASS_TILT.damping } = {}) {
-  const step = Math.min(Math.max(dt, 0), 1 / 30);
-  const next = vel + (-(pos - target) * stiffness - vel * damping) * step;
-  return { pos: pos + next * step, vel: next };
-}
-function paneTransform({ x, y, z }, { base = "", max = GLASS_TILT.maxDeg, sink = GLASS_TILT.sinkPx } = {}) {
-  return `${base ? `${base} ` : ""}perspective(${GLASS_TILT.perspective}px) rotateX(${(-y * max).toFixed(3)}deg) rotateY(${(x * max).toFixed(3)}deg) translateZ(${(-z * sink).toFixed(2)}px)`;
-}
-function supports3d() {
-  if (typeof CSS === "undefined" || typeof CSS.supports !== "function") return true;
-  return CSS.supports("transform-style", "preserve-3d");
-}
-function useGlassTilt(ref, { enabled = true, max = GLASS_TILT.maxDeg, sink = GLASS_TILT.sinkPx, glare = true } = {}) {
-  useEffect20(() => {
-    const el = ref?.current;
-    if (!enabled || !el || typeof window === "undefined" || typeof document === "undefined") return void 0;
-    const lean3d = supports3d();
-    const s = { x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, tx: 0, ty: 0, tz: 0, raf: 0, last: 0, pointer: null, base: "", active: false };
-    let glareEl = null, band = null;
-    if (glare && window.getComputedStyle(el).position !== "static") {
-      glareEl = document.createElement("span");
-      glareEl.className = "fd-tilt-glare";
-      glareEl.setAttribute("aria-hidden", "true");
-      band = document.createElement("span");
-      glareEl.appendChild(band);
-      el.appendChild(glareEl);
-    }
-    el.setAttribute("data-glass-tilt", "rest");
-    let layers = [];
-    const write = () => {
-      if (lean3d) el.style.transform = paneTransform(s, { base: s.base, max, sink });
-      const [far, , , near] = GLASS_TILT.depthPx;
-      layers.forEach((layer) => {
-        const k = GLASS_TILT.depthPx[layer.depth] ?? (layer.depth > 0 ? near : far);
-        layer.el.style.translate = `${(s.x * k).toFixed(2)}px ${(s.y * k * 0.6).toFixed(2)}px`;
-      });
-      if (band) {
-        band.style.translate = `${(-s.x * GLASS_TILT.glareTravel * 100 / 0.28).toFixed(2)}% 0`;
-        glareEl.style.opacity = (0.5 + 0.5 * Math.min(1, Math.hypot(s.x, s.y) * 1.6 + s.z * 0.3)).toFixed(3);
-      }
-    };
-    const rest = () => {
-      s.active = false;
-      el.setAttribute("data-glass-tilt", "rest");
-      el.style.removeProperty("transform");
-      layers.forEach((layer) => layer.el.style.removeProperty("translate"));
-      if (band) {
-        band.style.removeProperty("translate");
-        glareEl.style.removeProperty("opacity");
-      }
-    };
-    const frame2 = (now2) => {
-      const dt = s.last ? (now2 - s.last) / 1e3 : 1 / 60;
-      s.last = now2;
-      const x = springStep(s.x, s.vx, s.tx, dt), y = springStep(s.y, s.vy, s.ty, dt), z = springStep(s.z, s.vz, s.tz, dt);
-      s.x = x.pos;
-      s.vx = x.vel;
-      s.y = y.pos;
-      s.vy = y.vel;
-      s.z = z.pos;
-      s.vz = z.vel;
-      const settled = springSettled(s.x, s.vx, s.tx) && springSettled(s.y, s.vy, s.ty) && springSettled(s.z, s.vz, s.tz);
-      if (settled && !s.pointer && !s.tx && !s.ty && !s.tz) {
-        s.raf = 0;
-        s.last = 0;
-        s.x = s.y = s.z = 0;
-        rest();
-        return;
-      }
-      write();
-      s.raf = requestAnimationFrame(frame2);
-    };
-    const start = () => {
-      if (!s.active) {
-        const own = window.getComputedStyle(el).transform;
-        s.base = own && own !== "none" ? own : "";
-        layers = [...el.querySelectorAll("[data-glass-depth]")].map((node) => ({ el: node, depth: Number(node.getAttribute("data-glass-depth")) || 0 }));
-        s.active = true;
-        el.setAttribute("data-glass-tilt", "on");
-      }
-      if (!s.raf) {
-        s.last = 0;
-        s.raf = requestAnimationFrame(frame2);
-      }
-    };
-    const aim = (target, z) => {
-      s.tx = target.x;
-      s.ty = target.y;
-      s.tz = z;
-      start();
-    };
-    const release = () => {
-      s.pointer = null;
-      s.tx = 0;
-      s.ty = 0;
-      s.tz = 0;
-      if (s.active) start();
-    };
-    const onDown = (event) => {
-      if (prefersReducedMotion() || event.pointerType === "mouse" && event.button !== 0) return;
-      const rect = el.getBoundingClientRect();
-      s.pointer = { id: event.pointerId, x0: event.clientX, y0: event.clientY, rect, dragging: false };
-      aim(leanToward(event.clientX, event.clientY, rect), 1);
-    };
-    const onMove = (event) => {
-      const p = s.pointer;
-      if (!p || event.pointerId !== p.id) return;
-      if (!p.dragging && Math.hypot(event.clientX - p.x0, event.clientY - p.y0) >= GLASS_TILT.dragPx) p.dragging = true;
-      aim(leanToward(event.clientX, event.clientY, p.rect, { dragging: p.dragging }), 1);
-    };
-    const onUp = (event) => {
-      if (s.pointer && event.pointerId === s.pointer.id) release();
-    };
-    const onLeave = (event) => {
-      if (s.pointer && event.pointerId === s.pointer.id && event.pointerType === "mouse") release();
-    };
-    el.addEventListener("pointerdown", onDown, { passive: true });
-    el.addEventListener("pointermove", onMove, { passive: true });
-    el.addEventListener("pointerup", onUp, { passive: true });
-    el.addEventListener("pointercancel", release, { passive: true });
-    el.addEventListener("pointerleave", onLeave, { passive: true });
-    return () => {
-      el.removeEventListener("pointerdown", onDown);
-      el.removeEventListener("pointermove", onMove);
-      el.removeEventListener("pointerup", onUp);
-      el.removeEventListener("pointercancel", release);
-      el.removeEventListener("pointerleave", onLeave);
-      if (s.raf) cancelAnimationFrame(s.raf);
-      rest();
-      el.removeAttribute("data-glass-tilt");
-      glareEl?.remove();
-    };
-  }, [ref, enabled, max, sink, glare]);
-}
-var GLASS_TILT, clampUnit2, springSettled;
-var init_useGlassTilt = __esm({
-  "src/ui/useGlassTilt.js"() {
-    init_motion();
-    GLASS_TILT = Object.freeze({
-      maxDeg: 3,
-      press: 0.45,
-      // a still press leans this much of the way
-      dragPx: 6,
-      // movement before a press becomes a drag
-      sinkPx: 5,
-      perspective: 1100,
-      stiffness: 240,
-      // the spring back: one small overshoot, then level
-      damping: 24,
-      /* the painting's layers slide by depth per unit lean, far to near, so
-         the near floor moves most and the sky least */
-      depthPx: Object.freeze([-1.5, 0, 2.5, 4.5]),
-      /* the band slides this share of its pane per unit lean */
-      glareTravel: 0.22
-    });
-    clampUnit2 = (value) => Number.isFinite(value) ? Math.max(-1, Math.min(1, value)) : 0;
-    springSettled = (pos, vel, target) => Math.abs(pos - target) < 2e-3 && Math.abs(vel) < 0.01;
   }
 });
 
@@ -10360,7 +10996,7 @@ var init_comebacks2 = __esm({
 });
 
 // src/features/comebacks/Comebacks.jsx
-import React38, { useEffect as useEffect21, useId as useId5, useRef as useRef21, useState as useState22 } from "react";
+import React38, { useEffect as useEffect22, useId as useId5, useRef as useRef22, useState as useState22 } from "react";
 import { createPortal as createPortal3 } from "react-dom";
 var TAUGHT_KEYS, TAUGHT_KEY;
 var init_Comebacks = __esm({
@@ -10691,11 +11327,11 @@ function tossSchedule(n, seed = "") {
   const next = rng2(hash32(`${seed}|toss`));
   return Array.from({ length: Math.max(0, n) }, (_, i) => ({ delay: Math.round(i * 90 + next() * 30), flight: Math.round(560 + next() * 140) }));
 }
-function sweepHit(x, sweep2) {
-  if (!sweep2) return 0;
-  const span = (Number(sweep2.x1) || 0) - (Number(sweep2.x0) || 0);
-  const k = span ? Math.max(0, Math.min(1, (x - sweep2.x0) / span)) : 0;
-  return (Number(sweep2.at) || 0) + k * (Number(sweep2.ms) || 0);
+function sweepHit(x, sweep) {
+  if (!sweep) return 0;
+  const span = (Number(sweep.x1) || 0) - (Number(sweep.x0) || 0);
+  const k = span ? Math.max(0, Math.min(1, (x - sweep.x0) / span)) : 0;
+  return (Number(sweep.at) || 0) + k * (Number(sweep.ms) || 0);
 }
 function chipPhysicsMode({ tv: tv2 = false, enabled = true, want = true, supported = false, loaded = false, failed: failed2 = null } = {}) {
   if (!want || !supported || failed2 || !tv2 && !enabled) return { load: false, on: false };
@@ -29384,8 +30020,8 @@ function parseUniform(activeInfo, addr, container) {
       addUniform(container, subscript === void 0 ? new SingleUniform(id, activeInfo, addr) : new PureArrayUniform(id, activeInfo, addr));
       break;
     } else {
-      const map2 = container.map;
-      let next = map2[id];
+      const map = container.map;
+      let next = map[id];
       if (next === void 0) {
         next = new StructuredUniform(id);
         addUniform(container, next);
@@ -30456,12 +31092,12 @@ function WebGLProperties() {
     return properties.has(object);
   }
   function get(object) {
-    let map2 = properties.get(object);
-    if (map2 === void 0) {
-      map2 = {};
-      properties.set(object, map2);
+    let map = properties.get(object);
+    if (map === void 0) {
+      map = {};
+      properties.set(object, map);
     }
-    return map2;
+    return map;
   }
   function remove(object) {
     properties.delete(object);
@@ -33635,11 +34271,11 @@ function WebGLUtils(gl, extensions) {
   return { convert };
 }
 function WebGLMaterials(renderer, properties) {
-  function refreshTransformUniform(map2, uniform) {
-    if (map2.matrixAutoUpdate === true) {
-      map2.updateMatrix();
+  function refreshTransformUniform(map, uniform) {
+    if (map.matrixAutoUpdate === true) {
+      map.updateMatrix();
     }
-    uniform.value.copy(map2.matrix);
+    uniform.value.copy(map.matrix);
   }
   function refreshFogUniforms(uniforms, fog) {
     fog.color.getRGB(uniforms.fogColor.value, getUnlitUniformColorSpace(renderer));
@@ -45485,7 +46121,7 @@ var init_cannon_es = __esm({
 });
 
 // src/features/chips3d/chipPaint.jsx
-import React39, { useEffect as useEffect22, useRef as useRef22 } from "react";
+import React39, { useEffect as useEffect23, useRef as useRef23 } from "react";
 async function paintFace(svg, identity, size = 512) {
   const canvas = document.createElement("canvas");
   canvas.width = canvas.height = size;
@@ -45596,9 +46232,9 @@ function paintSide(identity) {
 }
 function FaceSource({ p, onPaint, size = 512 }) {
   const identity = usePlayerIdentity(p);
-  const ref = useRef22(null);
+  const ref = useRef23(null);
   const sig = `${identity.color}|${identity.skin}|${identity.photo}|${identity.isLight}`;
-  useEffect22(() => {
+  useEffect23(() => {
     let live2 = true;
     const svg = ref.current?.querySelector("svg");
     Promise.resolve(svg ? paintFace(svg, identity, size) : null).then((face) => {
@@ -45637,7 +46273,7 @@ var ChipPhysics_exports = {};
 __export(ChipPhysics_exports, {
   default: () => ChipPhysics
 });
-import React40, { useEffect as useEffect23, useLayoutEffect as useLayoutEffect10, useMemo as useMemo5, useRef as useRef23, useState as useState23 } from "react";
+import React40, { useEffect as useEffect24, useLayoutEffect as useLayoutEffect10, useMemo as useMemo5, useRef as useRef24, useState as useState23 } from "react";
 function measure(layer, spots, selector, keepoutSelector, root = null) {
   const box2 = layer.getBoundingClientRect();
   const W2 = layer.offsetWidth, H2 = layer.offsetHeight;
@@ -45682,14 +46318,14 @@ function ChipPhysics({
   className = ""
 }) {
   const tv2 = quality === "tv";
-  const layerRef = useRef23(null);
-  const canvasRef = useRef23(null);
-  const engineRef = useRef23(null);
+  const layerRef = useRef24(null);
+  const canvasRef = useRef24(null);
+  const engineRef = useRef24(null);
   const [labels, setLabels] = useState23([]);
-  const failRef = useRef23(onFallback);
+  const failRef = useRef24(onFallback);
   failRef.current = onFallback;
-  const live2 = useRef23({});
-  const ran = useRef23(null);
+  const live2 = useRef24({});
+  const ran = useRef24(null);
   const diameter = chip2 || (tv2 ? 52 : 22);
   live2.current = {
     spots,
@@ -45767,7 +46403,7 @@ function ChipPhysics({
       engineRef.current = null;
     };
   }, []);
-  useEffect23(() => {
+  useEffect24(() => {
     engineRef.current?.renderer.setPixelRatio(ratio);
     engineRef.current?.kick();
   }, [ratio]);
@@ -45780,7 +46416,7 @@ function ChipPhysics({
     const animate = !reducedMotion && (fresh === void 0 ? freshFrameNow() : !!fresh);
     run2(animate);
   }, [runKey]);
-  const onPaint = useRef23(null);
+  const onPaint = useRef24(null);
   onPaint.current = (player, paint) => engineRef.current?.paint(player, paint);
   const players = useMemo5(
     () => [...new Set((spots || []).flatMap((spot) => (spot.stacks || []).map((s) => s.player)))].sort(),
@@ -45868,8 +46504,8 @@ var init_ChipPhysics = __esm({
         this.scene.add(key);
         const light = new DirectionalLight(16777215, 0);
         light.castShadow = true;
-        const map2 = quality === "tv" ? 2048 : 1024;
-        light.shadow.mapSize.set(map2, map2);
+        const map = quality === "tv" ? 2048 : 1024;
+        light.shadow.mapSize.set(map, map);
         light.shadow.bias = -4e-4;
         light.shadow.normalBias = 0.02;
         light.shadow.radius = 5;
@@ -46184,8 +46820,9 @@ var init_ChipPhysics = __esm({
         chip2.drop = { t0: performance.now() + delay, spin: (next() - 0.5) * 6 };
         return chip2;
       }
-      /* the top chip of a stack lifts off */
-      lift(st, pay = false) {
+      /* the top chip of a stack lifts off; a change that is not a moment (a
+         load, a catch-up, a correction, reduced motion) just takes it, as drop does */
+      lift(st, pay = false, animate = true) {
         const list = pay ? st.pay : st.chips;
         if (!list.length) return;
         let top = 0;
@@ -46193,7 +46830,8 @@ var init_ChipPhysics = __esm({
           if (this.yOf(chip3) > this.yOf(list[top])) top = i;
         });
         const [chip2] = list.splice(top, 1);
-        this.fade(chip2);
+        if (animate) this.fade(chip2);
+        else this.remove(chip2);
       }
       yOf(chip2) {
         return chip2.body ? chip2.body.position.y : chip2.pos.y;
@@ -46523,7 +47161,7 @@ var init_ChipPhysics = __esm({
                 plan.forEach((step) => this.toss(st, step.delay, step.flight, !!onLand));
                 if (fresh) this.inAt.set(id, nowClock + plan[0].delay + plan[0].flight);
               } else for (let j = have; j < want; j++) this.place(st);
-            } else for (let j = want; j < have; j++) this.lift(st);
+            } else for (let j = want; j < have; j++) this.lift(st, false, animate);
           }
           let out = null;
           if (settled && !this.settled.has(id)) {
@@ -46606,7 +47244,7 @@ var init_ChipPhysics = __esm({
 });
 
 // src/features/chips3d/ChipPhysicsLayer.jsx
-import React41, { Component, useEffect as useEffect24, useState as useState24 } from "react";
+import React41, { Component, useEffect as useEffect25, useState as useState24 } from "react";
 function chipWebgl() {
   if (support !== null) return support;
   if (typeof window === "undefined" || typeof document === "undefined") return false;
@@ -46645,14 +47283,14 @@ function useChipPhysics({ tv: tv2 = false, want = true } = {}) {
   const [, bump] = useState24(0);
   const enabled = useChipPhysicsEnabled();
   const mode2 = chipPhysicsMode({ tv: tv2, enabled, want, supported: chipWebgl(), loaded: !!Layer, failed });
-  useEffect24(() => {
+  useEffect25(() => {
     const fn = () => bump((n) => n + 1);
     listeners4.add(fn);
     return () => {
       listeners4.delete(fn);
     };
   }, []);
-  useEffect24(() => {
+  useEffect25(() => {
     if (mode2.load) loadChipPhysics();
   }, [mode2.load]);
   return mode2.on;
@@ -46702,14 +47340,14 @@ var init_teams = __esm({
 });
 
 // src/features/teams/RenameText.jsx
-import React42, { useEffect as useEffect25, useLayoutEffect as useLayoutEffect11, useState as useState25 } from "react";
+import React42, { useEffect as useEffect26, useLayoutEffect as useLayoutEffect11, useState as useState25 } from "react";
 function RenameText({ name, as: Tag2 = "span", className = "", style, children }) {
   const change = useFreshChange(name);
   const [flash, setFlash] = useState25(0);
   useLayoutEffect11(() => {
     if (change.animate) setFlash(change.changeId);
   }, [change.changeId]);
-  useEffect25(() => {
+  useEffect26(() => {
     if (!flash) return void 0;
     const timer = setTimeout(() => setFlash(0), RELETTER_MS + 200);
     return () => clearTimeout(timer);
@@ -46734,33 +47372,33 @@ var init_RenameText = __esm({
 });
 
 // src/features/wagers/useChipActions.js
-import { useEffect as useEffect26, useRef as useRef24, useState as useState26 } from "react";
+import { useEffect as useEffect27, useRef as useRef25, useState as useState26 } from "react";
 import React43 from "react";
 function useChipActions({ state, me, tapStake, mineTotal, mineChips, chipSize, denoms, capped = false, mineRef, anchorRef }) {
   const [pendingAction, setPendingAction] = useState26(null);
   const [actionError, setActionError] = useState26(null);
   const [checking, setChecking] = useState26(null);
-  const pendingRef = useRef24(false);
-  const pendingKindRef = useRef24(null), queueRef = useRef24([]);
-  const heldRef = useRef24(false);
+  const pendingRef = useRef25(false);
+  const pendingKindRef = useRef25(null), queueRef = useRef25([]);
+  const heldRef = useRef25(false);
   const [queued, setQueued] = useState26(0);
-  const flightRef = useRef24(null);
+  const flightRef = useRef25(null);
   const myColor = usePlayerIdentity(me).color;
-  const live2 = useRef24({ state, mineTotal });
+  const live2 = useRef25({ state, mineTotal });
   live2.current = { state, mineTotal };
   const landed = (kind, before, total) => kind === "place" ? total > before : total < before;
-  const shownTotal = useRef24(mineTotal);
-  useEffect26(() => {
+  const shownTotal = useRef25(mineTotal);
+  useEffect27(() => {
     if (shownTotal.current === mineTotal) return;
     shownTotal.current = mineTotal;
     setActionError(null);
   }, [mineTotal]);
-  const alive = useRef24(true);
-  useEffect26(() => () => {
+  const alive = useRef25(true);
+  useEffect27(() => () => {
     alive.current = false;
     flightRef.current?.cancel();
   }, []);
-  useEffect26(() => {
+  useEffect27(() => {
     if (!checking || checking.settled || state === checking.state) return;
     if (!landed(checking.kind, checking.before, mineTotal)) {
       setActionError(checking.kind === "place" ? "Not placed" : "Not removed");
@@ -46943,145 +47581,170 @@ var init_useChipActions = __esm({
   }
 });
 
-// src/features/gags/cast/gloveArt.js
-var CUFF_DOWN, CUFF_UP, CUFF_SIDE, PALM_DOWN, PALM_UP, FIST, FIST_SHADE, HANG_SHADE, GLOVE_POSES, GLOVE_POSE_NAMES, GLOVE_BOX, SHOE_ART;
-var init_gloveArt = __esm({
-  "src/features/gags/cast/gloveArt.js"() {
-    CUFF_DOWN = ["blob", "M-26,-3 C-26,-10 26,-10 26,-3 L21,17 C14,21 -14,21 -21,17 Z"];
-    CUFF_UP = ["blob", "M-26,3 C-26,10 26,10 26,3 L21,-17 C14,-21 -14,-21 -21,-17 Z"];
-    CUFF_SIDE = ["blob", "M-3,-26 C-10,-26 -10,26 -3,26 L17,21 C21,14 21,-14 17,-21 Z"];
-    PALM_DOWN = ["blob", "M-21,12 L21,12 C27,25 27,44 20,55 L-20,55 C-27,44 -27,25 -21,12 Z"];
-    PALM_UP = ["blob", "M-21,-12 L21,-12 C27,-25 27,-44 20,-55 L-20,-55 C-27,-44 -27,-25 -21,-12 Z"];
-    FIST = ["blob", "M12,-21 C22,-29 48,-30 57,-20 C64,-11 64,11 57,20 C48,29 22,28 12,21 Z"];
-    FIST_SHADE = "M14,12 C24,20 46,21 58,14 C55,24 47,28 36,28 C25,28 18,25 13,20 Z";
-    HANG_SHADE = "M-21,16 C-26,28 -26,44 -20,54 L-12,54 C-17,44 -18,28 -14,16 Z";
-    GLOVE_POSES = Object.freeze({
-      /* hanging at the side, fingers loose, thumb forward: the default */
-      rest: {
-        shadeAt: 1,
-        groups: [
-          [["cap", "M18,24 Q31,30 32,45", 16]],
-          [PALM_DOWN],
-          [["cap", "M-13,46 Q-14,63 -11,75", 16], ["cap", "M0,49 Q0,67 3,79", 16], ["cap", "M13,46 Q15,62 18,72", 15]],
-          [CUFF_DOWN]
-        ],
-        shade: [HANG_SHADE]
-      },
-      /* the gunslinger's hand: hovering low, fingers spread and curled, ready */
-      ready: {
-        shadeAt: 1,
-        groups: [
-          [["cap", "M18,22 Q36,22 41,37", 16]],
-          [PALM_DOWN],
-          [["cap", "M-13,46 Q-22,60 -19,75", 16], ["cap", "M0,49 Q0,66 8,78", 16], ["cap", "M13,45 Q25,54 29,68", 15]],
-          [CUFF_DOWN]
-        ],
-        shade: [HANG_SHADE]
-      },
-      /* palm to the room, fingers up and spread: a grab at the air, surprise */
-      open: {
-        shadeAt: 1,
-        groups: [
-          [["cap", "M-19,-26 Q-33,-30 -40,-47", 16]],
-          [PALM_UP],
-          [["cap", "M-13,-48 L-20,-80", 16], ["cap", "M0,-52 L0,-87", 16], ["cap", "M13,-48 L20,-79", 15]],
-          [CUFF_UP]
-        ],
-        shade: ["M21,-16 C26,-28 26,-44 20,-54 L12,-54 C17,-44 18,-28 14,-16 Z"]
-      },
-      /* a fist from the side, knuckles to the right */
-      fist: {
-        groups: [
-          [FIST],
-          [["cap", "M46,-14 L57,-14", 15], ["cap", "M48,0 L59,0", 15], ["cap", "M46,14 L56,14", 14]],
-          [["cap", "M25,-19 Q40,-27 50,-17", 14]],
-          [CUFF_SIDE]
-        ],
-        shade: [FIST_SHADE]
-      },
-      /* holding a grip: a fist closed under a handle, the first finger round a trigger */
-      grip: {
-        groups: [
-          [FIST],
-          [["cap", "M48,1 L59,1", 15], ["cap", "M46,15 L56,15", 14], ["cap", "M52,-14 Q63,-15 65,-6", 13]],
-          [["cap", "M24,-20 Q38,-28 49,-20", 14]],
-          [CUFF_SIDE]
-        ],
-        shade: [FIST_SHADE],
-        held: { x: 45, y: -27 }
-      },
-      /* the first finger out: pointing, or a gun hung on it to spin */
-      point: {
-        groups: [
-          [FIST],
-          [["cap", "M48,1 L59,1", 15], ["cap", "M46,15 L56,15", 14]],
-          [["cap", "M50,-13 L88,-13", 15]],
-          [["cap", "M24,-20 Q36,-26 45,-19", 14]],
-          [CUFF_SIDE]
-        ],
-        shade: [FIST_SHADE],
-        held: { x: 80, y: -13 }
-      },
-      /* laid flat, palm down, fingers to the right: resting on something */
-      flat: {
-        shadeAt: 1,
-        groups: [
-          [["cap", "M28,10 Q42,20 54,16", 13]],
-          [["blob", "M12,-16 C26,-22 46,-21 58,-13 L60,10 C46,15 26,16 12,15 Z"]],
-          [["cap", "M54,-6 L86,-4", 15], ["cap", "M55,5 L89,7", 15]],
-          [CUFF_SIDE]
-        ],
-        shade: ["M12,8 C28,12 46,11 60,6 L60,10 C46,15 26,16 12,15 Z"]
-      },
-      /* thumb up */
-      thumb: {
-        groups: [
-          [FIST],
-          [["cap", "M46,-11 L57,-11", 15], ["cap", "M48,3 L59,3", 15], ["cap", "M46,16 L56,16", 14]],
-          [["cap", "M30,-18 Q30,-34 33,-50", 16]],
-          [CUFF_SIDE]
-        ],
-        shade: [FIST_SHADE]
+// src/features/gags/neon/neonArt.js
+var NEON_TONES, TUBE, CHIP_ART, HAND_POSES, HAND_POSE_NAMES, HAND_CUFF, HAND_CUFF_EDGE, HAND_SLEEVE, HAND_SLEEVE_EDGES, HAND_BOX, HOUSE_LOOKS, STAGE, LINE_SIZES, panAt;
+var init_neonArt = __esm({
+  "src/features/gags/neon/neonArt.js"() {
+    NEON_TONES = Object.freeze({
+      magenta: "var(--neon-magenta)",
+      amber: "var(--neon-amber)",
+      cyan: "var(--neon-cyan)",
+      bone: "var(--neon-bone)",
+      clay: "var(--neon-clay)",
+      ember: "var(--neon-ember)",
+      player: "var(--neon-player, var(--neon-bone))"
+    });
+    TUBE = Object.freeze({ w: 7, thin: 4.5, fine: 3 });
+    CHIP_ART = Object.freeze({ r: 50, body: 48, rim: 45, inner: 37.5, photo: 33, spots: 8, spot: [39.5, 43] });
+    HAND_POSES = Object.freeze({
+      point: Object.freeze({
+        d: `M-4 -40C14 -44 30 -50 48 -52C68 -54 92 -56 108 -52C121 -49 121 -35 108 -33L98 -32L216 -31C233 -31 233 -9 216 -9L118 -9
+      C144 -9 150 13 126 15C148 16 150 37 124 38C141 41 139 59 116 59C84 61 40 58 -4 44Z`,
+        lines: Object.freeze(["M40 -40C62 -42 84 -40 100 -35", "M118 -9C108 -4 108 8 124 14", "M124 16C112 20 112 32 124 37"]),
+        at: Object.freeze({ x: 226, y: -20 })
+      }),
+      cock: Object.freeze({
+        d: `M-4 -40C20 -46 60 -50 96 -50C124 -54 158 -56 170 -40C180 -26 172 -8 156 -6C150 -5 146 -6 144 -4C162 0 164 18 142 20
+      C162 22 162 38 140 40C158 42 154 58 130 58C96 62 44 58 -4 44Z`,
+        lines: Object.freeze([
+          "M30 -28C70 -24 110 -18 146 -10",
+          "M158 -30C158 -38 146 -40 142 -33C138 -26 150 -20 156 -26",
+          "M142 20C130 24 130 36 140 40"
+        ]),
+        at: Object.freeze({ x: 170, y: -28 })
+      }),
+      flat: Object.freeze({
+        d: `M-4 -40C30 -46 70 -46 104 -44L220 -38C240 -37 240 -12 220 -12L136 -10C160 -8 176 0 176 8C176 16 162 18 146 16L104 12
+      C80 22 50 46 24 50C12 52 2 50 -4 44Z`,
+        lines: Object.freeze(["M116 -26L214 -25", "M104 12C120 10 132 -4 136 -10"]),
+        at: Object.freeze({ x: 200, y: -8 })
+      }),
+      pinch: Object.freeze({
+        d: `M-4 -40C14 -44 30 -50 48 -52C68 -54 92 -56 108 -52C121 -49 121 -35 108 -33L98 -32L200 -31C214 -31 220 -24 218 -16
+      C216 -10 210 -8 204 -10L196 -12L132 -12C150 -8 168 -6 196 -6C212 -6 214 10 198 10L130 12C148 14 150 34 126 36
+      C142 39 140 57 116 57C84 60 40 57 -4 44Z`,
+        lines: Object.freeze(["M40 -40C62 -42 84 -40 100 -35", "M128 -12C116 -10 114 6 130 12"]),
+        at: Object.freeze({ x: 212, y: -6 })
+      }),
+      grip: Object.freeze({
+        d: `M-4 -40C20 -46 60 -50 100 -48C130 -46 150 -40 156 -28C162 -16 150 -6 138 -6C160 -4 162 14 142 16C162 18 162 36 140 38
+      C158 40 156 58 132 58C100 62 46 58 -4 44Z`,
+        lines: Object.freeze(["M40 -36C70 -40 104 -40 130 -30", "M138 -6C126 -2 126 10 140 15", "M140 17C128 21 128 33 140 37"]),
+        at: Object.freeze({ x: 120, y: 8 })
+      })
+    });
+    HAND_POSE_NAMES = Object.freeze(Object.keys(HAND_POSES));
+    HAND_CUFF = "M-60 -46L-6 -44C2 -44 2 46 -6 46L-60 46Z";
+    HAND_CUFF_EDGE = "M-6 -44C2 -44 2 46 -6 46";
+    HAND_SLEEVE = "M-1400 -42L-58 -42L-58 42L-1400 42Z";
+    HAND_SLEEVE_EDGES = "M-1400 -42L-60 -42M-1400 42L-60 42M-60 -46L-60 46";
+    HAND_BOX = Object.freeze([-1400, -70, 1650, 140]);
+    HOUSE_LOOKS = Object.freeze(["neon", "glove"]);
+    STAGE = Object.freeze({ floor: 930, chip: 240, mid: 960 });
+    LINE_SIZES = Object.freeze([240, 220, 200, 184, 168, 152, 140]);
+    panAt = (x) => {
+      const at = Number.isFinite(Number(x)) ? Number(x) : 960;
+      return Math.round(Math.max(-1, Math.min(1, (at - 960) / 960 * 0.9)) * 100) / 100 || 0;
+    };
+  }
+});
+
+// src/features/gags/neon/neon.css
+var init_neon = __esm({
+  "src/features/gags/neon/neon.css"() {
+  }
+});
+
+// src/features/gags/neon/Neon.jsx
+import React44, { createContext as createContext3, useContext as useContext3, useId as useId6 } from "react";
+function Neon({ box: box2, scale = 1, tubes = [], fills = [], className = "", style, children }) {
+  const [x, y, w, h] = box2;
+  const widest = Math.max(TUBE.fine, ...tubes.map((tube) => tube.w || TUBE.w));
+  const groups = groupsOf(tubes);
+  const svg = (cls, body) => /* @__PURE__ */ React44.createElement("svg", { className: cls, viewBox: `${x} ${y} ${w} ${h}`, width: w * scale, height: h * scale, "aria-hidden": "true", focusable: "false" }, body);
+  const lit = (k, extra) => groups.map(([g, list]) => /* @__PURE__ */ React44.createElement("g", { key: g, className: `ng ng-${g}` }, list.map((tube, i) => /* @__PURE__ */ React44.createElement("path", { key: i, ...strokeOf(tube, k, extra?.(tube) || { stroke: toneOf(tube.tone) }) }))));
+  return /* @__PURE__ */ React44.createElement(
+    "span",
+    {
+      className: `neon${className ? ` ${className}` : ""}`,
+      style: { left: x * scale, top: y * scale, width: w * scale, height: h * scale, "--neon-px": `${Math.round(widest * scale * 10) / 10}px`, ...style }
+    },
+    svg("neon-halo", lit(2.6)),
+    svg("neon-glow", lit(1.55)),
+    svg("neon-body", /* @__PURE__ */ React44.createElement(React44.Fragment, null, fills.map((fill, i) => /* @__PURE__ */ React44.createElement("path", { key: `f${i}`, d: fill.d, className: "neon-fill", style: fill.fill ? { fill: fill.fill } : void 0 })), tubes.some((tube) => tube.glass) && /* @__PURE__ */ React44.createElement("g", { className: "neon-glass" }, tubes.filter((tube) => tube.glass).map((tube, i) => /* @__PURE__ */ React44.createElement("path", { key: i, ...strokeOf(tube, 1, { stroke: toneOf(tube.tone) }) }))), lit(1), groups.map(([g, list]) => /* @__PURE__ */ React44.createElement("g", { key: `c${g}`, className: `ng ng-${g} neon-core` }, list.map((tube, i) => /* @__PURE__ */ React44.createElement("path", { key: i, ...strokeOf(tube, 0.36, { stroke: `color-mix(in srgb, ${toneOf(tube.tone)} 28%, #fff)` }) })))))),
+    children
+  );
+}
+function HandArt({ pose = "point", look = "neon", scale = 1, weight = 1 }) {
+  const uid = useId6().replace(/:/g, "");
+  const art = HAND_POSES[pose] || HAND_POSES.point;
+  if (look === "glove") {
+    const [x, y, w, h] = HAND_BOX;
+    return /* @__PURE__ */ React44.createElement("span", { className: "hh-art is-glove", style: { left: x * scale, top: y * scale, width: w * scale, height: h * scale } }, /* @__PURE__ */ React44.createElement("svg", { viewBox: `${x} ${y} ${w} ${h}`, width: w * scale, height: h * scale, "aria-hidden": "true", focusable: "false" }, /* @__PURE__ */ React44.createElement("defs", null, /* @__PURE__ */ React44.createElement("linearGradient", { id: `hhs-${uid}`, x1: "0", y1: "0", x2: "0", y2: "1" }, /* @__PURE__ */ React44.createElement("stop", { offset: "0", stopColor: "#3a4055" }), /* @__PURE__ */ React44.createElement("stop", { offset: ".22", stopColor: "#151925" }), /* @__PURE__ */ React44.createElement("stop", { offset: ".6", stopColor: "#080a10" }), /* @__PURE__ */ React44.createElement("stop", { offset: "1", stopColor: "#040508" }))), /* @__PURE__ */ React44.createElement("path", { d: HAND_SLEEVE, fill: "#0a0c13" }), /* @__PURE__ */ React44.createElement("path", { d: "M-1400 -41L-58 -41", stroke: "var(--neon-amber)", strokeOpacity: ".55", strokeWidth: "2" }), /* @__PURE__ */ React44.createElement("path", { d: HAND_CUFF, fill: "var(--bone)" }), /* @__PURE__ */ React44.createElement("circle", { cx: "-32", cy: "2", r: "7", fill: "var(--neon-amber)" }), /* @__PURE__ */ React44.createElement("circle", { cx: "-34", cy: "0", r: "2.6", fill: "#fff6d8" }), /* @__PURE__ */ React44.createElement("path", { d: art.d, fill: `url(#hhs-${uid})`, stroke: "#ffd9a0", strokeOpacity: ".4", strokeWidth: "1.5" }), art.lines.map((d, i) => /* @__PURE__ */ React44.createElement("path", { key: i, d, fill: "none", stroke: "#2f3549", strokeWidth: "2.5", strokeLinecap: "round" })), /* @__PURE__ */ React44.createElement("path", { d: "M4 -38C26 -45 56 -51 100 -50", fill: "none", stroke: "#ffe2b0", strokeWidth: "2.6", strokeLinecap: "round", opacity: ".9" })));
+  }
+  return /* @__PURE__ */ React44.createElement(Neon, { box: HAND_BOX, scale, className: "hh-art", tubes: HAND_TUBES(pose, weight), fills: HAND_FILLS(pose) });
+}
+var CastPhotos, toneOf, groupsOf, strokeOf, HAND_TUBES, HAND_FILLS;
+var init_Neon = __esm({
+  "src/features/gags/neon/Neon.jsx"() {
+    init_chipInk();
+    init_PlayerIdentityContext();
+    init_neonArt();
+    init_neon();
+    CastPhotos = createContext3(null);
+    toneOf = (tone) => NEON_TONES[tone] || tone || NEON_TONES.bone;
+    groupsOf = (tubes) => {
+      const out = /* @__PURE__ */ new Map();
+      for (const tube of tubes) {
+        const g = tube.g || "main";
+        if (!out.has(g)) out.set(g, []);
+        out.get(g).push(tube);
       }
+      return [...out];
+    };
+    strokeOf = (tube, k, extra = {}) => ({
+      d: tube.d,
+      fill: "none",
+      strokeWidth: (tube.w || TUBE.w) * k,
+      strokeLinecap: "round",
+      strokeLinejoin: "round",
+      ...extra
     });
-    GLOVE_POSE_NAMES = Object.freeze(Object.keys(GLOVE_POSES));
-    GLOVE_BOX = Object.freeze({ x: -62, y: -112, w: 176, h: 212 });
-    SHOE_ART = Object.freeze({
-      upper: "M-24,-6 C-26,-20 -17,-28 -4,-27 C5,-26 10,-20 12,-16 C25,-18 34,-12 34,-4 L34,-2 L-24,-2 Z",
-      sole: ["M-22,-3 L32,-3", 10],
-      shine: "M-13,-21 C-9,-24 -3,-24 1,-21",
-      box: { x: -38, y: -42, w: 86, h: 54 }
-    });
+    HAND_TUBES = (pose, k = 1) => {
+      const art = HAND_POSES[pose] || HAND_POSES.point;
+      return [
+        { d: art.d, tone: "bone", w: TUBE.w * 0.66 * k },
+        ...art.lines.map((d) => ({ d, tone: "bone", w: TUBE.w * 0.42 * k })),
+        { d: HAND_CUFF_EDGE, tone: "cyan", w: TUBE.w * 0.6 * k, g: "cuff" },
+        { d: HAND_SLEEVE_EDGES, tone: "cyan", w: TUBE.w * 0.46 * k, g: "cuff" }
+      ];
+    };
+    HAND_FILLS = (pose) => [{ d: HAND_SLEEVE }, { d: HAND_CUFF }, { d: (HAND_POSES[pose] || HAND_POSES.point).d }];
   }
 });
 
 // src/features/wagers/DealerGlove.jsx
-import React44 from "react";
+import React45 from "react";
 function DealerGlove({ pose = "flat", size = 64, flip = false, className = "" }) {
-  const art = GLOVE_POSES[pose] || GLOVE_POSES.flat;
-  const { x, y, w, h } = GLOVE_BOX;
-  const scale = size / w;
-  const shadeAfter = art.shadeAt ?? 0;
-  return /* @__PURE__ */ React44.createElement(
-    "svg",
+  const scale = size / HAND_W;
+  const weight = Math.max(1, Math.min(2.4, 2 / (4.62 * scale)));
+  return /* @__PURE__ */ React45.createElement(
+    "span",
     {
-      className: `fd-glove${flip ? " is-flip" : ""}${className ? ` ${className}` : ""}`,
-      viewBox: `${x} ${y} ${w} ${h}`,
-      width: size,
-      height: Math.round(h * scale),
+      className: `fd-glove neon-scope${flip ? " is-flip" : ""}${className ? ` ${className}` : ""}`,
       "aria-hidden": "true",
-      focusable: "false"
+      style: { width: size, height: Math.round(HAND_H * scale) }
     },
-    art.groups.map((parts, g) => /* @__PURE__ */ React44.createElement("g", { key: g }, inked(parts, 1, `i${g}:`), painted(parts, `p${g}:`), g === shadeAfter && (art.shade || []).map((d, i) => /* @__PURE__ */ React44.createElement("path", { key: `s${i}`, d, className: "fd-glove-shade" }))))
+    /* @__PURE__ */ React45.createElement("span", { className: "fd-glove-wrist", style: { left: WRIST_X * scale, top: HAND_H / 2 * scale } }, /* @__PURE__ */ React45.createElement(HandArt, { pose, scale, weight }))
   );
 }
-var LINE, inked, painted;
+var HAND_W, HAND_H, WRIST_X;
 var init_DealerGlove = __esm({
   "src/features/wagers/DealerGlove.jsx"() {
-    init_gloveArt();
-    LINE = 7;
-    inked = (parts, k, key) => parts.map(([kind, d, w], i) => kind === "cap" ? /* @__PURE__ */ React44.createElement("path", { key: `${key}${i}`, d, className: "fd-glove-ink", fill: "none", strokeWidth: w + LINE * k * 2 }) : /* @__PURE__ */ React44.createElement("path", { key: `${key}${i}`, d, className: "fd-glove-ink", strokeWidth: LINE * k * 2 }));
-    painted = (parts, key) => parts.map(([kind, d, w], i) => kind === "cap" ? /* @__PURE__ */ React44.createElement("path", { key: `${key}${i}`, d, className: "fd-glove-paint is-cap", fill: "none", strokeWidth: w }) : /* @__PURE__ */ React44.createElement("path", { key: `${key}${i}`, d, className: "fd-glove-paint" }));
+    init_Neon();
+    HAND_W = 300;
+    HAND_H = 140;
+    WRIST_X = 60;
   }
 });
 
@@ -47092,23 +47755,23 @@ var init_table = __esm({
 });
 
 // src/features/wagers/BetTable.jsx
-import React45, { useEffect as useEffect27, useRef as useRef25, useState as useState27, useSyncExternalStore as useSyncExternalStore4 } from "react";
+import React46, { useEffect as useEffect28, useRef as useRef26, useState as useState27, useSyncExternalStore as useSyncExternalStore4 } from "react";
 function BetWin({ state, line, side, inline = false }) {
   if (!line?.text) return null;
   const movers = line.players || [];
   const whole = movers.length >= side.length;
   const shown = whole ? [] : movers.slice(0, WIN_FACES);
   const extra = whole ? 0 : movers.length - shown.length;
-  return /* @__PURE__ */ React45.createElement(
+  return /* @__PURE__ */ React46.createElement(
     "span",
     {
       className: `fd-wagers-win${inline ? " is-inline" : ""}${line.kind === "rank" ? " is-rank" : " is-chips"}`,
       role: "img",
       "aria-label": line.text
     },
-    /* @__PURE__ */ React45.createElement("small", null, "Win"),
-    shown.length > 0 && /* @__PURE__ */ React45.createElement("span", { className: "fd-wagers-win-faces" }, shown.map((player) => /* @__PURE__ */ React45.createElement(Avatar, { key: player, state, p: player, size: 20 })), extra > 0 && /* @__PURE__ */ React45.createElement("span", { className: "fd-wagers-win-more" }, "+", extra)),
-    line.kind === "rank" ? /* @__PURE__ */ React45.createElement("b", { className: "fd-wagers-win-rank" }, /* @__PURE__ */ React45.createElement(Icon, { name: "up", size: 14 }), line.tied ? "Tie " : "", ordinal2(line.rank)) : /* @__PURE__ */ React45.createElement("b", { className: "fd-wagers-win-chips" }, "+", fmtChips(line.award))
+    /* @__PURE__ */ React46.createElement("small", null, "Win"),
+    shown.length > 0 && /* @__PURE__ */ React46.createElement("span", { className: "fd-wagers-win-faces" }, shown.map((player) => /* @__PURE__ */ React46.createElement(Avatar, { key: player, state, p: player, size: 20 })), extra > 0 && /* @__PURE__ */ React46.createElement("span", { className: "fd-wagers-win-more" }, "+", extra)),
+    line.kind === "rank" ? /* @__PURE__ */ React46.createElement("b", { className: "fd-wagers-win-rank" }, /* @__PURE__ */ React46.createElement(Icon, { name: "up", size: 14 }), line.tied ? "Tie " : "", ordinal2(line.rank)) : /* @__PURE__ */ React46.createElement("b", { className: "fd-wagers-win-chips" }, "+", fmtChips(line.award))
   );
 }
 function Spot({
@@ -47136,7 +47799,7 @@ function Spot({
   winLine = null,
   winSlot = false
 }) {
-  const mineRef = useRef25(null), anchorRef = useRef25(null);
+  const mineRef = useRef26(null), anchorRef = useRef26(null);
   const latest = (w) => w.chips?.at(-1)?.ts || w.updatedAt || w.ts || 0;
   const mine = (bets || []).map((x) => x.w).filter((w) => w.player === me).sort((a2, b2) => latest(a2) - latest(b2));
   const mineChips = mine.flatMap((w) => w.chips?.length ? w.chips.map((chip2) => chip2.stake) : [w.stake]);
@@ -47158,7 +47821,7 @@ function Spot({
     const last = mine.at(-1);
     return last ? act("remove", () => onRetract(last.id)) : void 0;
   };
-  useEffect27(() => {
+  useEffect28(() => {
     if (!canPick) return void 0;
     const key = String(spot.key);
     drops.set(key, (stake) => {
@@ -47176,7 +47839,7 @@ function Spot({
   const moved = useFreshChange(spot.pct, `${table.contestId}:${spot.key}`);
   const [lit, setLit] = useState27(false);
   const [listOpen, setListOpen] = useState27(false);
-  useEffect27(() => {
+  useEffect28(() => {
     if (!moved.animate) return void 0;
     setLit(true);
     const timer = setTimeout(() => setLit(false), 2400);
@@ -47202,7 +47865,7 @@ function Spot({
   const pctLabel = `${spot.pct}%`;
   const faceSize = shape === "match" ? spot.players.length > 2 ? 26 : 34 : shape === "row" ? 26 : 30;
   const showNames = shape === "match" && spot.players.length <= 2 && !named;
-  return /* @__PURE__ */ React45.createElement(
+  return /* @__PURE__ */ React46.createElement(
     "div",
     {
       className: cls,
@@ -47212,8 +47875,8 @@ function Spot({
       "aria-label": `${name}: ${pctLabel} of the pool`,
       style: { "--fill": fill }
     },
-    /* @__PURE__ */ React45.createElement("span", { className: "fd-spot-fill", "aria-hidden": "true" }),
-    canPick && /* @__PURE__ */ React45.createElement(
+    /* @__PURE__ */ React46.createElement("span", { className: "fd-spot-fill", "aria-hidden": "true" }),
+    canPick && /* @__PURE__ */ React46.createElement(
       "button",
       {
         type: "button",
@@ -47224,7 +47887,7 @@ function Spot({
         "aria-description": capLabel ? capLabel : preview ? `Brings back ${fmtChips(preview)} if ${name} wins` : void 0
       }
     ),
-    /* @__PURE__ */ React45.createElement("div", { className: "fd-spot-ink" }, /* @__PURE__ */ React45.createElement("div", { className: "fd-spot-who" }, roleLabel && /* @__PURE__ */ React45.createElement("span", { className: "fd-spot-role", "aria-hidden": "true" }, roleLabel), /* @__PURE__ */ React45.createElement("span", { className: `fd-spot-faces${spot.players.length > 3 ? " is-many" : ""}`, style: { "--n": spot.players.length } }, spot.players.map((player) => /* @__PURE__ */ React45.createElement(
+    /* @__PURE__ */ React46.createElement("div", { className: "fd-spot-ink" }, /* @__PURE__ */ React46.createElement("div", { className: "fd-spot-who" }, roleLabel && /* @__PURE__ */ React46.createElement("span", { className: "fd-spot-role", "aria-hidden": "true" }, roleLabel), /* @__PURE__ */ React46.createElement("span", { className: `fd-spot-faces${spot.players.length > 3 ? " is-many" : ""}`, style: { "--n": spot.players.length } }, spot.players.map((player) => /* @__PURE__ */ React46.createElement(
       "button",
       {
         key: player,
@@ -47234,8 +47897,8 @@ function Spot({
         onClick: () => onPlayer?.(player),
         "aria-label": `View ${disp(state, player)}'s player card`
       },
-      /* @__PURE__ */ React45.createElement(Avatar, { state, p: player, size: spot.players.length > 3 ? 24 : faceSize })
-    ))), named || spot.players.length > 2 ? /* @__PURE__ */ React45.createElement(RenameText, { name, className: "fd-spot-name" }) : showNames ? /* @__PURE__ */ React45.createElement("span", { className: "fd-spot-name" }, spot.players.map((p) => stackName(state, p)).join(" & ")) : /* @__PURE__ */ React45.createElement("span", { className: "fd-spot-name" }, name)), winSlot && !settled && /* @__PURE__ */ React45.createElement("div", { className: "fd-spot-win" }, /* @__PURE__ */ React45.createElement(BetWin, { state, line: winLine, side: spot.players, inline: shape === "row" })), /* @__PURE__ */ React45.createElement("div", { className: "fd-spot-pct", "aria-hidden": "true" }, /* @__PURE__ */ React45.createElement(ScoreReel, { value: spot.pct, tone: spot.long ? "chip" : null, slim: shape !== "match", label: pctLabel }), /* @__PURE__ */ React45.createElement("span", { className: "fd-spot-pct-sign" }, "%")), settled ? yours ? /* @__PURE__ */ React45.createElement("span", { className: `fd-spot-back ${settled === "won" ? "is-you" : "is-lost"}` }, settled === "won" ? backLine(spot.mine, spot.back) : `\u2212${fmtChips(spot.mine)}`) : /* @__PURE__ */ React45.createElement("span", { className: "fd-spot-back is-blank", "aria-hidden": "true" }) : unavailableReason && marketOpen && !yours ? /* @__PURE__ */ React45.createElement("span", { className: "fd-spot-lock", role: "img", "aria-label": unavailableReason }, /* @__PURE__ */ React45.createElement(Icon, { name: "lock", size: 16 })) : yours ? /* @__PURE__ */ React45.createElement("span", { className: "fd-spot-back is-you", "aria-label": `Your ${fmtChips(spot.mine)} brings back ${fmtChips(spot.back)}` }, backLine(spot.mine, spot.back)) : preview > 0 ? /* @__PURE__ */ React45.createElement("span", { className: `fd-spot-back${over ? " is-over" : ""}`, "aria-hidden": "true" }, backLine(previewStake, preview)) : capLabel ? /* @__PURE__ */ React45.createElement("span", { className: "fd-spot-back is-cap" }, capLabel) : /* @__PURE__ */ React45.createElement("span", { className: "fd-spot-back is-blank", "aria-hidden": "true" }), /* @__PURE__ */ React45.createElement("div", { className: "fd-spot-chips" }, yours && (marketOpen ? /* @__PURE__ */ React45.createElement(
+      /* @__PURE__ */ React46.createElement(Avatar, { state, p: player, size: spot.players.length > 3 ? 24 : faceSize })
+    ))), named || spot.players.length > 2 ? /* @__PURE__ */ React46.createElement(RenameText, { name, className: "fd-spot-name", style: { "--name-units": longestWordUnits(name) } }) : showNames ? /* @__PURE__ */ React46.createElement(SpotName, { text: spot.players.map((p) => stackName(state, p)).join(" & ") }) : /* @__PURE__ */ React46.createElement(SpotName, { text: name })), winSlot && !settled && /* @__PURE__ */ React46.createElement("div", { className: "fd-spot-win" }, /* @__PURE__ */ React46.createElement(BetWin, { state, line: winLine, side: spot.players, inline: shape === "row" })), /* @__PURE__ */ React46.createElement("div", { className: "fd-spot-pct", "aria-hidden": "true" }, /* @__PURE__ */ React46.createElement(ScoreReel, { value: spot.pct, tone: spot.long ? "chip" : null, slim: shape !== "match", label: pctLabel }), /* @__PURE__ */ React46.createElement("span", { className: "fd-spot-pct-sign" }, "%")), settled ? yours ? /* @__PURE__ */ React46.createElement("span", { className: `fd-spot-back ${settled === "won" ? "is-you" : "is-lost"}` }, settled === "won" ? backLine(spot.mine, spot.back) : `\u2212${fmtChips(spot.mine)}`) : /* @__PURE__ */ React46.createElement("span", { className: "fd-spot-back is-blank", "aria-hidden": "true" }) : unavailableReason && marketOpen && !yours ? /* @__PURE__ */ React46.createElement("span", { className: "fd-spot-lock", role: "img", "aria-label": unavailableReason }, /* @__PURE__ */ React46.createElement(Icon, { name: "lock", size: 16 })) : yours ? /* @__PURE__ */ React46.createElement("span", { className: "fd-spot-back is-you", "aria-label": `Your ${fmtChips(spot.mine)} brings back ${fmtChips(spot.back)}` }, backLine(spot.mine, spot.back)) : preview > 0 ? /* @__PURE__ */ React46.createElement("span", { className: `fd-spot-back${over ? " is-over" : ""}`, "aria-hidden": "true" }, backLine(previewStake, preview)) : capLabel ? /* @__PURE__ */ React46.createElement("span", { className: "fd-spot-back is-cap" }, capLabel) : /* @__PURE__ */ React46.createElement("span", { className: "fd-spot-back is-blank", "aria-hidden": "true" }), /* @__PURE__ */ React46.createElement("div", { className: "fd-spot-chips" }, yours && (marketOpen ? /* @__PURE__ */ React46.createElement(
       "button",
       {
         type: "button",
@@ -47246,8 +47909,8 @@ function Spot({
         "aria-label": `Retract your last chip on ${name}`,
         "aria-description": mineChips.length ? `Remove ${fmtChips(mineChips.at(-1))} chips; ${fmtChips(spot.mine)} total on this pick` : void 0
       },
-      /* @__PURE__ */ React45.createElement(ChipStack, { p: me, stake: spot.mine, size: SPOT_CHIP[shape], tag: false, tower: true, mine: true })
-    ) : /* @__PURE__ */ React45.createElement("span", { ref: mineRef, className: "fd-spot-mine", role: "img", "aria-label": `${fmtChips(spot.mine)} of your chips on ${name}` }, /* @__PURE__ */ React45.createElement(ChipStack, { p: me, stake: spot.mine, size: SPOT_CHIP[shape], tag: false, tower: true, mine: true }))), pile && pile.shown.map((item) => /* @__PURE__ */ React45.createElement(
+      /* @__PURE__ */ React46.createElement(ChipStack, { p: me, stake: spot.mine, size: SPOT_CHIP[shape], tag: false, tower: true, mine: true })
+    ) : /* @__PURE__ */ React46.createElement("span", { ref: mineRef, className: "fd-spot-mine", role: "img", "aria-label": `${fmtChips(spot.mine)} of your chips on ${name}` }, /* @__PURE__ */ React46.createElement(ChipStack, { p: me, stake: spot.mine, size: SPOT_CHIP[shape], tag: false, tower: true, mine: true }))), pile && pile.shown.map((item) => /* @__PURE__ */ React46.createElement(
       "button",
       {
         key: item.player,
@@ -47257,7 +47920,7 @@ function Spot({
         onClick: () => onPlayer?.(item.player),
         "aria-label": `${disp(state, item.player)}: ${fmtChips(item.stake)} on ${name}`
       },
-      /* @__PURE__ */ React45.createElement(
+      /* @__PURE__ */ React46.createElement(
         ChipStack,
         {
           p: item.player,
@@ -47269,7 +47932,7 @@ function Spot({
           settle: settled === "won" ? "won" : null
         }
       )
-    )), pile?.rest && /* @__PURE__ */ React45.createElement(
+    )), pile?.rest && /* @__PURE__ */ React46.createElement(
       "button",
       {
         type: "button",
@@ -47278,12 +47941,12 @@ function Spot({
         "aria-label": `All ${spot.stacks.length} backing ${name}`,
         "aria-description": `${pile.rest.count} more: ${fmtChips(pile.rest.total)} chips`
       },
-      /* @__PURE__ */ React45.createElement(ChipStack, { chip: groupChip(pile.rest.count), count: stackChipCount(pile.rest.total), size: SPOT_CHIP[shape], tag: false, tower: true })
-    )), settled === "won" && /* @__PURE__ */ React45.createElement("span", { className: "fd-spot-won", "aria-label": "Won" }, "WON"), settled === "won" && spot.long && /* @__PURE__ */ React45.createElement("span", { className: "fd-spot-paid" }, "Paid ", priceText(spot.price))),
-    over && /* @__PURE__ */ React45.createElement("span", { className: "fd-spot-drop", "aria-hidden": "true" }, backLine(spot.mine + previewStake, preview)),
-    checking && /* @__PURE__ */ React45.createElement("span", { className: "fd-spot-note", role: "status" }, "Checking\u2026"),
-    actionError && !checking && /* @__PURE__ */ React45.createElement("span", { className: "fd-spot-note is-error", role: "alert" }, actionError),
-    listOpen && /* @__PURE__ */ React45.createElement(Sheet, { title: name, onClose: () => setListOpen(false), className: "fd-spot-backers-sheet" }, /* @__PURE__ */ React45.createElement("ol", { className: "fd-spot-backers" }, spot.stacks.map((item) => /* @__PURE__ */ React45.createElement("li", { key: item.player }, /* @__PURE__ */ React45.createElement(
+      /* @__PURE__ */ React46.createElement(ChipStack, { chip: groupChip(pile.rest.count), count: stackChipCount(pile.rest.total), size: SPOT_CHIP[shape], tag: false, tower: true })
+    )), settled === "won" && /* @__PURE__ */ React46.createElement("span", { className: "fd-spot-won", "aria-label": "Won" }, "WON"), settled === "won" && spot.long && /* @__PURE__ */ React46.createElement("span", { className: "fd-spot-paid" }, "Paid ", priceText(spot.price))),
+    over && /* @__PURE__ */ React46.createElement("span", { className: "fd-spot-drop", "aria-hidden": "true" }, backLine(spot.mine + previewStake, preview)),
+    checking && /* @__PURE__ */ React46.createElement("span", { className: "fd-spot-note", role: "status" }, "Checking\u2026"),
+    actionError && !checking && /* @__PURE__ */ React46.createElement("span", { className: "fd-spot-note is-error", role: "alert" }, actionError),
+    listOpen && /* @__PURE__ */ React46.createElement(Sheet, { title: name, onClose: () => setListOpen(false), className: "fd-spot-backers-sheet" }, /* @__PURE__ */ React46.createElement("ol", { className: "fd-spot-backers" }, spot.stacks.map((item) => /* @__PURE__ */ React46.createElement("li", { key: item.player }, /* @__PURE__ */ React46.createElement(
       "button",
       {
         type: "button",
@@ -47291,18 +47954,18 @@ function Spot({
         onClick: () => onPlayer?.(item.player),
         "aria-label": `View ${disp(state, item.player)}'s player card (${fmtChips(item.stake)} chips)`
       },
-      /* @__PURE__ */ React45.createElement(Avatar, { state, p: item.player, size: 32 }),
-      /* @__PURE__ */ React45.createElement("span", null, item.player === me ? "You" : disp(state, item.player)),
-      /* @__PURE__ */ React45.createElement("b", null, fmtChips(item.stake))
+      /* @__PURE__ */ React46.createElement(Avatar, { state, p: item.player, size: 32 }),
+      /* @__PURE__ */ React46.createElement("span", null, item.player === me ? "You" : disp(state, item.player)),
+      /* @__PURE__ */ React46.createElement("b", null, fmtChips(item.stake))
     )))))
   );
 }
 function BetTable({ table, spots, contestLabel, phase, marketOpen, children, dealer = null, settled = false }) {
   const shape = table.shape;
-  const feltRef = useRef25(null);
+  const feltRef = useRef26(null);
   const physics = useChipPhysics({ tv: false, want: table.staked > 0 || !!settled });
   const reduced = useReducedMotion();
-  return /* @__PURE__ */ React45.createElement("section", { className: `fd-table is-${shape}${marketOpen ? " is-open" : " is-locked"}`, "aria-label": contestLabel || "Bets" }, /* @__PURE__ */ React45.createElement("header", { className: "fd-table-head" }, contestLabel ? /* @__PURE__ */ React45.createElement("h2", { className: "fd-table-label" }, /* @__PURE__ */ React45.createElement(OneSafe, { text: contestLabel })) : /* @__PURE__ */ React45.createElement("span", null), /* @__PURE__ */ React45.createElement("span", { className: "fd-table-pool" }, /* @__PURE__ */ React45.createElement("small", null, "Pool"), /* @__PURE__ */ React45.createElement(ScoreReel, { value: table.total, tone: "chip", slim: true, label: fmtChips(table.total) }))), /* @__PURE__ */ React45.createElement("div", { ref: feltRef, className: `fd-table-felt${physics ? " has-chips3d" : ""}`, style: { "--cols": shape === "grid" ? 3 : spots } }, children, physics && /* @__PURE__ */ React45.createElement(
+  return /* @__PURE__ */ React46.createElement("section", { className: `fd-table is-${shape}${marketOpen ? " is-open" : " is-locked"}`, "aria-label": contestLabel || "Bets" }, /* @__PURE__ */ React46.createElement("header", { className: "fd-table-head" }, contestLabel ? /* @__PURE__ */ React46.createElement("h2", { className: "fd-table-label" }, /* @__PURE__ */ React46.createElement(OneSafe, { text: contestLabel })) : /* @__PURE__ */ React46.createElement("span", null), /* @__PURE__ */ React46.createElement("span", { className: "fd-table-pool" }, /* @__PURE__ */ React46.createElement("small", null, "Pool"), /* @__PURE__ */ React46.createElement(ScoreReel, { value: table.total, tone: "chip", slim: true, label: fmtChips(table.total) }))), /* @__PURE__ */ React46.createElement("div", { ref: feltRef, className: `fd-table-felt${physics ? " has-chips3d" : ""}`, style: { "--cols": shape === "grid" ? 3 : spots } }, children, physics && /* @__PURE__ */ React46.createElement(
     ChipPhysicsLayer,
     {
       quality: "phone",
@@ -47316,22 +47979,22 @@ function BetTable({ table, spots, contestLabel, phase, marketOpen, children, dea
       reducedMotion: reduced,
       clock: serverNow
     }
-  ), dealer), !marketOpen && phase && /* @__PURE__ */ React45.createElement("p", { className: "fd-table-state" }, phase));
+  ), dealer), !marketOpen && phase && /* @__PURE__ */ React46.createElement("p", { className: "fd-table-state" }, phase));
 }
 function LockSweep({ lockKey, locked }) {
   const change = useFreshChange(locked ? lockKey : null, "lock");
   const [play, setPlay] = useState27(null);
-  useEffect27(() => {
-    if (!locked || !change.animate) return void 0;
+  useEffect28(() => {
+    if (!locked || !change.fresh) return void 0;
     setPlay(change.changeId);
     playSound("S8", { bus: "you" });
     const timer = setTimeout(() => setPlay(null), 1900);
     return () => clearTimeout(timer);
   }, [change.changeId]);
   if (!play) return null;
-  return /* @__PURE__ */ React45.createElement("div", { className: "fd-table-sweep", key: play, "aria-hidden": "true" }, /* @__PURE__ */ React45.createElement("span", { className: "fd-table-sweep-glove" }, /* @__PURE__ */ React45.createElement(DealerGlove, { pose: "flat", size: 64 })), /* @__PURE__ */ React45.createElement("span", { className: "fd-table-sweep-words" }, "No more bets"));
+  return /* @__PURE__ */ React46.createElement("div", { className: "fd-table-sweep", key: play, "aria-hidden": "true" }, /* @__PURE__ */ React46.createElement("span", { className: "fd-table-sweep-glove" }, /* @__PURE__ */ React46.createElement(DealerGlove, { pose: "flat", size: 64 })), /* @__PURE__ */ React46.createElement("span", { className: "fd-table-sweep-words" }, "No more bets"));
 }
-var drag, listeners5, emit2, subscribe3, dragNow, useTableDrag, drops, endedAt, tableDragJustEnded, tableDrag, WIN_FACES, SPOT_STACKS, SPOT_CHIP;
+var drag, listeners5, emit2, subscribe3, dragNow, useTableDrag, drops, endedAt, tableDragJustEnded, tableDrag, WIN_FACES, SpotName, SPOT_STACKS, SPOT_CHIP;
 var init_BetTable = __esm({
   "src/features/wagers/BetTable.jsx"() {
     init_core();
@@ -47351,6 +48014,7 @@ var init_BetTable = __esm({
     init_tableModel();
     init_useChipActions();
     init_DealerGlove();
+    init_textUnits();
     init_table();
     drag = null;
     listeners5 = /* @__PURE__ */ new Set();
@@ -47389,6 +48053,7 @@ var init_BetTable = __esm({
       }
     };
     WIN_FACES = 2;
+    SpotName = ({ text }) => /* @__PURE__ */ React46.createElement("span", { className: "fd-spot-name", style: { "--name-units": longestWordUnits(text) } }, text);
     SPOT_STACKS = { match: 4, row: 2, grid: 2 };
     SPOT_CHIP = { match: 30, row: 22, grid: 20 };
   }
@@ -47458,16 +48123,16 @@ var init_install2 = __esm({
 });
 
 // src/features/check-in/InstallHint.jsx
-import React48, { useEffect as useEffect30, useState as useState30 } from "react";
+import React49, { useEffect as useEffect31, useState as useState30 } from "react";
 function InstallSteps() {
-  return /* @__PURE__ */ React48.createElement("ol", { className: "fd-install-steps", "aria-label": "Add to Home Screen: tap Share, then Add to Home Screen" }, /* @__PURE__ */ React48.createElement("li", { className: "fd-install-key", "aria-hidden": "true" }, /* @__PURE__ */ React48.createElement(ShareGlyph, null), /* @__PURE__ */ React48.createElement("span", null, "Share")), /* @__PURE__ */ React48.createElement("li", { className: "fd-install-then", "aria-hidden": "true" }, /* @__PURE__ */ React48.createElement(Icon, { name: "then", size: 18 })), /* @__PURE__ */ React48.createElement("li", { className: "fd-install-row", "aria-hidden": "true" }, /* @__PURE__ */ React48.createElement("span", null, "Add to Home Screen"), /* @__PURE__ */ React48.createElement(AddGlyph, null)));
+  return /* @__PURE__ */ React49.createElement("ol", { className: "fd-install-steps", "aria-label": "Add to Home Screen: tap Share, then Add to Home Screen" }, /* @__PURE__ */ React49.createElement("li", { className: "fd-install-key", "aria-hidden": "true" }, /* @__PURE__ */ React49.createElement(ShareGlyph, null), /* @__PURE__ */ React49.createElement("span", null, "Share")), /* @__PURE__ */ React49.createElement("li", { className: "fd-install-then", "aria-hidden": "true" }, /* @__PURE__ */ React49.createElement(Icon, { name: "then", size: 18 })), /* @__PURE__ */ React49.createElement("li", { className: "fd-install-row", "aria-hidden": "true" }, /* @__PURE__ */ React49.createElement("span", null, "Add to Home Screen"), /* @__PURE__ */ React49.createElement(AddGlyph, null)));
 }
 function InstallHint() {
   const [, bump] = useState30(0);
-  useEffect30(() => onInstallReady(() => bump((x) => x + 1)), []);
-  if (installEvt) return /* @__PURE__ */ React48.createElement(Btn, { onClick: () => installEvt.prompt(), style: { alignSelf: "flex-start" } }, "Add to Home Screen");
-  if (isIOS2()) return /* @__PURE__ */ React48.createElement(InstallSteps, null);
-  return /* @__PURE__ */ React48.createElement("ol", { className: "fd-install-steps", "aria-label": "In your browser menu, choose Add to Home Screen" }, /* @__PURE__ */ React48.createElement("li", { className: "fd-install-key", "aria-hidden": "true" }, /* @__PURE__ */ React48.createElement(Icon, { name: "more", size: 22 }), /* @__PURE__ */ React48.createElement("span", null, "Menu")), /* @__PURE__ */ React48.createElement("li", { className: "fd-install-then", "aria-hidden": "true" }, /* @__PURE__ */ React48.createElement(Icon, { name: "then", size: 18 })), /* @__PURE__ */ React48.createElement("li", { className: "fd-install-row", "aria-hidden": "true" }, /* @__PURE__ */ React48.createElement("span", null, "Add to Home Screen"), /* @__PURE__ */ React48.createElement(AddGlyph, null)));
+  useEffect31(() => onInstallReady(() => bump((x) => x + 1)), []);
+  if (installEvt) return /* @__PURE__ */ React49.createElement(Btn, { onClick: () => installEvt.prompt(), style: { alignSelf: "flex-start" } }, "Add to Home Screen");
+  if (isIOS2()) return /* @__PURE__ */ React49.createElement(InstallSteps, null);
+  return /* @__PURE__ */ React49.createElement("ol", { className: "fd-install-steps", "aria-label": "In your browser menu, choose Add to Home Screen" }, /* @__PURE__ */ React49.createElement("li", { className: "fd-install-key", "aria-hidden": "true" }, /* @__PURE__ */ React49.createElement(Icon, { name: "more", size: 22 }), /* @__PURE__ */ React49.createElement("span", null, "Menu")), /* @__PURE__ */ React49.createElement("li", { className: "fd-install-then", "aria-hidden": "true" }, /* @__PURE__ */ React49.createElement(Icon, { name: "then", size: 18 })), /* @__PURE__ */ React49.createElement("li", { className: "fd-install-row", "aria-hidden": "true" }, /* @__PURE__ */ React49.createElement("span", null, "Add to Home Screen"), /* @__PURE__ */ React49.createElement(AddGlyph, null)));
 }
 var ShareGlyph, AddGlyph;
 var init_InstallHint = __esm({
@@ -47476,7 +48141,7 @@ var init_InstallHint = __esm({
     init_Icon();
     init_install();
     init_install2();
-    ShareGlyph = () => /* @__PURE__ */ React48.createElement(
+    ShareGlyph = () => /* @__PURE__ */ React49.createElement(
       "svg",
       {
         className: "fd-install-glyph",
@@ -47491,10 +48156,10 @@ var init_InstallHint = __esm({
         strokeLinecap: "round",
         strokeLinejoin: "round"
       },
-      /* @__PURE__ */ React48.createElement("path", { d: "M8.5 9.5H7a1.5 1.5 0 0 0-1.5 1.5v8A1.5 1.5 0 0 0 7 20.5h10a1.5 1.5 0 0 0 1.5-1.5v-8A1.5 1.5 0 0 0 17 9.5h-1.5" }),
-      /* @__PURE__ */ React48.createElement("path", { d: "M12 14V3.5M8.5 7 12 3.5 15.5 7" })
+      /* @__PURE__ */ React49.createElement("path", { d: "M8.5 9.5H7a1.5 1.5 0 0 0-1.5 1.5v8A1.5 1.5 0 0 0 7 20.5h10a1.5 1.5 0 0 0 1.5-1.5v-8A1.5 1.5 0 0 0 17 9.5h-1.5" }),
+      /* @__PURE__ */ React49.createElement("path", { d: "M12 14V3.5M8.5 7 12 3.5 15.5 7" })
     );
-    AddGlyph = () => /* @__PURE__ */ React48.createElement(
+    AddGlyph = () => /* @__PURE__ */ React49.createElement(
       "svg",
       {
         className: "fd-install-glyph",
@@ -47509,8 +48174,8 @@ var init_InstallHint = __esm({
         strokeLinecap: "round",
         strokeLinejoin: "round"
       },
-      /* @__PURE__ */ React48.createElement("rect", { x: "4", y: "4", width: "16", height: "16", rx: "4" }),
-      /* @__PURE__ */ React48.createElement("path", { d: "M12 8.5v7M8.5 12h7" })
+      /* @__PURE__ */ React49.createElement("rect", { x: "4", y: "4", width: "16", height: "16", rx: "4" }),
+      /* @__PURE__ */ React49.createElement("path", { d: "M12 8.5v7M8.5 12h7" })
     );
   }
 });
@@ -47542,10 +48207,11 @@ var init_showdown = __esm({
 });
 
 // src/features/tv/tvModel.js
-var RESULT_PODIUM_BEATS_MS, RESULT_PODIUM_STEP_MS, RESULT_STANDINGS_AT_MS, RESULT_SORT_DELAY_MS, PODIUM_STAGE, BACKERS_RAIL, TICKER_ROLES, FACT_ROLES, TICKER_FACT_TAGS, CUE_WINDOW_MS;
+var RESULT_PODIUM_BEATS_MS, RESULT_PODIUM_STEP_MS, RESULT_STANDINGS_AT_MS, RESULT_SORT_DELAY_MS, PODIUM_STAGE, BACKERS_RAIL, TICKER_ROLES, FACT_ROLES, TICKER_FACT_TAGS, TICKER_HALF_PX, TICKER_SOLO_PX, TICKER_TEXT, CUE_WINDOW_MS;
 var init_tvModel = __esm({
   "src/features/tv/tvModel.js"() {
     init_discLetters();
+    init_textUnits();
     init_core();
     init_desertModel();
     init_phase();
@@ -47585,12 +48251,15 @@ var init_tvModel = __esm({
     TICKER_ROLES = Object.freeze(["info", "chip", "won", "loss"]);
     FACT_ROLES = Object.freeze({ streak: "info", first: "chip", wins: "info", bet: "won" });
     TICKER_FACT_TAGS = Object.freeze({ first: "Milestone" });
+    TICKER_HALF_PX = 830;
+    TICKER_SOLO_PX = TICKER_HALF_PX * 2 + 72;
+    TICKER_TEXT = Object.freeze({ size: 34, min: 24, margin: 0.94 });
     CUE_WINDOW_MS = 3 * 60 * 1e3;
   }
 });
 
 // src/features/tv/tvMotion.js
-import { useEffect as useEffect31, useRef as useRef28, useState as useState31 } from "react";
+import { useEffect as useEffect32, useRef as useRef29, useState as useState31 } from "react";
 var ADVANCE_TIMING, CROWN_TIMING, inOut;
 var init_tvMotion = __esm({
   "src/features/tv/tvMotion.js"() {
@@ -47683,9 +48352,23 @@ var init_gags = __esm({
     init_core();
     GAG_SHAPES = Object.freeze(["versus", "win", "loss"]);
     GAG_BITS = Object.freeze({
-      versus: Object.freeze(["quickdraw", "springglove", "butte", "dominoes", "tugofwar", "slowmowalk"]),
-      win: Object.freeze(["explosionwalk", "toohype", "sunset", "statue", "pyramid", "teamphoto", "victorylap"]),
-      loss: Object.freeze(["anvil", "roadrunner", "dontlookback", "quicksand", "dynamite", "vulture"])
+      versus: Object.freeze(["standoff", "flipper", "rockslide", "dominoes", "tugofwar", "slowmowalk"]),
+      win: Object.freeze([
+        "headphones",
+        "needledrop",
+        "disco",
+        "jukebox",
+        "lowrider",
+        "piano",
+        "sunset",
+        "statue",
+        "victoryspin",
+        "fireworks",
+        "pyramid",
+        "teamphoto",
+        "victorylap"
+      ]),
+      loss: Object.freeze(["anvil", "roadrunner", "quicksand", "dynamite", "vulture", "rake", "needlescratch"])
     });
     GAG_TEAM_BITS = Object.freeze(["dominoes", "tugofwar", "slowmowalk", "pyramid", "teamphoto", "victorylap"]);
     GAG_TEST_AMOUNT = 1e3;
@@ -47716,11 +48399,1422 @@ var init_camera = __esm({
   }
 });
 
+// src/features/gags/bits/catalog/common.js
+var MOMENT_MS, IDLE_MS, TEAM_MAX, ONE, SIDE, ROOM, hops;
+var init_common = __esm({
+  "src/features/gags/bits/catalog/common.js"() {
+    init_camera();
+    MOMENT_MS = Object.freeze({ min: 3e3, max: 5500 });
+    IDLE_MS = Object.freeze({ min: 6e3, max: 1e4 });
+    TEAM_MAX = 7;
+    ONE = (role) => ({ role, max: 1 });
+    SIDE = (role) => ({ role, min: 1, max: TEAM_MAX });
+    ROOM = (n) => ({ a: { role: "room", max: n } });
+    hops = (at, n, gap, pan = 0, sound = "bitHop") => Array.from({ length: n }, (_, i) => ({ at: at + i * gap, sound, pan, opts: { step: i } }));
+  }
+});
+
+// src/features/gags/bits/catalog/upset.js
+var SO, standoff, FP, flipper, RK, rockslide, UPSET;
+var init_upset = __esm({
+  "src/features/gags/bits/catalog/upset.js"() {
+    init_common();
+    SO = {
+      tumble: 100,
+      lean: 1150,
+      bob: 1350,
+      reach: 1450,
+      set: 1900,
+      flick: 2150,
+      ping: 2330,
+      hit: 2620,
+      crash: 3e3,
+      settle: 3250,
+      rest: 4250
+    };
+    standoff = {
+      id: "standoff",
+      name: "Standoff",
+      shape: "versus",
+      style: "punchline",
+      ms: 5e3,
+      beats: SO,
+      still: 4500,
+      summary: "bitRicochet",
+      song: { beat: "hit" },
+      letter: { at: SO.crash + 200, over: "a", place: "top-left" },
+      camera: { zoom: 1.5, x: "mid", fit: true, moves: [
+        /* lean in through the standoff */
+        { at: 300, ms: 1100, zoom: 1.6 },
+        /* over to the long shot as the hand comes in behind it */
+        { at: SO.reach, ms: 450, zoom: 1.72, x: "a" },
+        /* out with the flick */
+        { at: SO.flick, ms: 160, zoom: 1.48, x: "mid", ease: CAMERA_EASE.whip },
+        /* the hit, on the stack */
+        { at: SO.hit, ms: 90, zoom: 1.7, x: "stack", ease: CAMERA_EASE.snap },
+        /* settle on the pile */
+        { at: SO.crash + 120, ms: 700, zoom: 1.62, x: "pile" }
+      ], shakes: [{ at: SO.ping }, { at: SO.hit, big: true }, { at: SO.crash }], washes: [SO.hit] },
+      cast: { a: ONE("winner"), b: ONE("beaten") },
+      cues: [
+        { at: 0, sound: "bitWind", pan: 0, opts: { ms: SO.flick } },
+        { at: SO.tumble + 380, sound: "bitHop", pan: 0.5, opts: { step: 0, small: true } },
+        { at: SO.tumble + 820, sound: "bitHop", pan: 0.15, opts: { step: 1, small: true } },
+        { at: SO.tumble + 1260, sound: "bitHop", pan: -0.25, opts: { step: 2, small: true } },
+        { at: SO.reach, sound: "bitStreak", pan: -0.6, opts: { from: -0.9, to: -0.4 } },
+        { at: SO.set, sound: "neonBuzz", pan: -0.4, opts: { ms: 250 } },
+        { at: SO.flick, sound: "neonFlick", pan: -0.35 },
+        { at: SO.flick + 20, sound: "bitStreak", pan: -0.1, opts: { from: -0.4, to: 0.2 } },
+        { at: SO.ping, sound: "bitRicochet", pan: 0.15 },
+        { at: SO.hit, sound: "bitClatter", pan: 0.4, opts: { ms: 360, dir: -1 } },
+        { at: SO.crash, sound: "bitThud", pan: 0.25 },
+        { at: SO.crash + 60, sound: "bitChipDrop", pan: 0.55, opts: { step: 0 } },
+        { at: SO.crash + 180, sound: "bitChipDrop", pan: -0.05, opts: { step: 1 } },
+        { at: SO.settle, sound: "bitSpinDown", pan: 0.2 }
+      ]
+    };
+    FP = {
+      drop: 250,
+      land: 520,
+      roll: 700,
+      reach: 750,
+      bob: 1050,
+      press: 1400,
+      fire: 1460,
+      smash: 1760,
+      ding: 1910,
+      ding2: 2100,
+      aland: 2200,
+      bland: 2370,
+      stars: 2450,
+      release: 2550
+    };
+    flipper = {
+      id: "flipper",
+      name: "Flipper",
+      shape: "versus",
+      style: "punchline",
+      ms: 4400,
+      beats: FP,
+      still: 3e3,
+      summary: "bitFlipper",
+      song: { beat: "smash" },
+      letter: { at: FP.smash + 260, over: "a", place: "top-left" },
+      camera: { zoom: 1.3, x: "mid", fit: true, moves: [
+        /* in on the flipper as the hand comes down over the button */
+        { at: FP.roll, ms: 620, zoom: 1.6, x: "flip" },
+        /* out with the shot */
+        { at: FP.fire, ms: 220, zoom: 1.32, x: "mid", ease: CAMERA_EASE.whip },
+        /* the smash, on B */
+        { at: FP.smash, ms: 90, zoom: 1.56, x: "b", ease: CAMERA_EASE.snap },
+        /* back for the bumpers and the table lit */
+        { at: FP.smash + 260, ms: 700, zoom: 1.36, x: "end" }
+      ], shakes: [{ at: FP.fire }, { at: FP.smash, big: true }, { at: FP.ding }, { at: FP.ding2 }], washes: [FP.smash] },
+      cast: { a: ONE("winner"), b: ONE("beaten") },
+      cues: [
+        { at: FP.drop + 40, sound: "bitFall", pan: -0.5 },
+        { at: FP.land, sound: "bitBounce", pan: -0.55 },
+        { at: FP.land + 200, sound: "bitRoll", pan: -0.5, opts: { ms: FP.fire - FP.land - 200 } },
+        { at: FP.reach, sound: "bitStreak", pan: -0.8, opts: { from: -0.9, to: -0.7 } },
+        { at: FP.press, sound: "bitClick", pan: -0.8 },
+        { at: FP.fire, sound: "bitFlipper", pan: -0.55 },
+        { at: FP.fire + 20, sound: "bitZip", pan: -0.2 },
+        { at: FP.smash, sound: "bitPow", pan: 0.25 },
+        { at: FP.ding, sound: "bitBumper", pan: 0.6 },
+        { at: FP.ding2, sound: "bitBumper", pan: 0.45, opts: { step: 1 } },
+        { at: FP.aland, sound: "bitHop", pan: 0.1, opts: { step: 0 } },
+        { at: FP.bland, sound: "bitThud", pan: 0.55 },
+        { at: FP.stars, sound: "bitStars", pan: 0.55, opts: { ms: 1200 } }
+      ]
+    };
+    RK = {
+      look: 350,
+      bob: 550,
+      nudge: 1150,
+      bump: 1300,
+      creep: 1320,
+      teeter: 1920,
+      notice: 2020,
+      sweat: 2180,
+      tip: 2500,
+      land: 2730,
+      settle: 2800,
+      peek: 3150,
+      shrug: 3750
+    };
+    rockslide = {
+      id: "rockslide",
+      name: "Rockslide",
+      shape: "versus",
+      style: "punchline",
+      ms: 4400,
+      beats: RK,
+      still: 3700,
+      summary: "bitRumble",
+      song: { beat: "land" },
+      letter: { at: RK.land + 220, over: "a", place: "top-right" },
+      camera: { zoom: 1.4, x: "mid", fit: true, moves: [
+        /* up top for the nudge */
+        { at: RK.look + 300, ms: 700, zoom: 1.52, x: "top" },
+        /* over to the edge and B under it while it teeters */
+        { at: RK.teeter - 200, ms: 600, zoom: 1.5, x: "drop" },
+        /* the landing */
+        { at: RK.land, ms: 90, zoom: 1.56, x: "hit", ease: CAMERA_EASE.snap },
+        /* back for the pancake and the long shot looking down */
+        { at: RK.land + 320, ms: 800, zoom: 1.44, x: "after" }
+      ], shakes: [{ at: RK.bump }, { at: RK.land, big: true }, { at: RK.settle + 90 }], washes: [RK.land] },
+      cast: { a: ONE("winner"), b: ONE("beaten") },
+      cues: [
+        { at: RK.bob, sound: "bitHop", pan: 0.05, opts: { step: 0, small: true } },
+        { at: RK.bob + 240, sound: "bitHop", pan: 0.05, opts: { step: 1, small: true } },
+        { at: RK.nudge, sound: "bitHop", pan: -0.5, opts: { step: 2 } },
+        { at: RK.bump, sound: "bitPoke", pan: -0.25 },
+        { at: RK.creep + 40, sound: "bitRumble", pan: -0.15, opts: { ms: RK.teeter - RK.creep } },
+        { at: RK.teeter, sound: "bitCreak", pan: -0.08, opts: { ms: 420 } },
+        { at: RK.notice, sound: "neonBuzz", pan: 0.05, opts: { ms: 180, up: true } },
+        { at: RK.tip, sound: "bitFall", pan: 0 },
+        { at: RK.land, sound: "bitSlam", pan: 0.05 },
+        { at: RK.land + 30, sound: "bitCrumble", pan: 0.05 },
+        { at: RK.settle + 90, sound: "bitThud", pan: 0.05, opts: { small: true } },
+        { at: RK.shrug, sound: "bitHop", pan: -0.5, opts: { step: 0, small: true } }
+      ]
+    };
+    UPSET = [standoff, flipper, rockslide];
+  }
+});
+
+// src/features/gags/bits/catalog/music.js
+var HP, headphones, ND, needledrop, DC, disco, JB, jukebox, LR, lowrider, PN, piano2, MUSIC;
+var init_music = __esm({
+  "src/features/gags/bits/catalog/music.js"() {
+    init_common();
+    HP = { reach: 400, hover: 1300, click: 1550, leave: 1720, notes: 1900, groove: 2300 };
+    headphones = {
+      id: "headphones",
+      name: "Headphones",
+      shape: "win",
+      style: "music",
+      ms: 4800,
+      beats: HP,
+      still: 3500,
+      summary: "bitClick",
+      song: { beat: "click", hold: "hover" },
+      letter: { at: HP.notes + 100, over: "a", place: "top-left" },
+      camera: { zoom: 1.5, x: 960, moves: [
+        /* a touch in as the headphones come down (the whole hand in the shot) */
+        { at: HP.reach, ms: HP.hover - HP.reach, zoom: 1.56, x: 960 },
+        /* the click: in on the chip, the hand on its way out */
+        { at: HP.click, ms: 80, zoom: 1.86, x: 960, ease: CAMERA_EASE.snap },
+        /* ease back a little for the groove */
+        { at: HP.click + 300, ms: 900, zoom: 1.76, x: 980 }
+      ], shakes: [{ at: HP.click }] },
+      cast: { a: ONE("winner") },
+      cues: [
+        { at: HP.reach, sound: "bitStreak", pan: 0, opts: { from: 0, to: 0 } },
+        { at: HP.hover, sound: "neonBuzz", pan: 0, opts: { ms: 240 } },
+        { at: HP.click, sound: "bitClick", pan: 0 },
+        { at: HP.click + 40, sound: "neonBuzz", pan: 0, opts: { ms: 160, up: true } },
+        { at: HP.click + 60, sound: "bitGroove", pan: 0, opts: { ms: 2600 }, unless: "song" }
+      ]
+    };
+    ND = {
+      hop: 150,
+      land: 700,
+      flop: 760,
+      flat: 1120,
+      reach: 1e3,
+      grab: 1450,
+      swing: 1480,
+      lower: 1930,
+      hover: 2250,
+      drop: 2450,
+      notes: 2650,
+      groove: 2930
+    };
+    needledrop = {
+      id: "needledrop",
+      name: "Needle drop",
+      shape: "win",
+      style: "music",
+      ms: 4900,
+      beats: ND,
+      still: 3550,
+      summary: "bitNeedle",
+      song: { beat: "drop", hold: "hover" },
+      letter: { at: ND.drop + 350, over: "a", place: "top-left" },
+      camera: { zoom: 1.45, x: 900, moves: [
+        /* in on the turntable as the chip goes flat */
+        { at: ND.flop, ms: 700, zoom: 1.6, x: 960 },
+        /* closer while the needle comes down */
+        { at: ND.lower, ms: ND.hover - ND.lower, zoom: 1.82, x: 980 },
+        /* the drop */
+        { at: ND.drop, ms: 80, zoom: 2.16, x: 965, ease: CAMERA_EASE.snap },
+        /* ease back for the groove */
+        { at: ND.drop + 300, ms: 900, zoom: 2, x: 985 }
+      ], shakes: [{ at: ND.drop }] },
+      cast: { a: ONE("winner") },
+      cues: [
+        { at: ND.hop + 80, sound: "bitHop", pan: -0.4, opts: { step: 0 } },
+        { at: ND.land, sound: "bitClink", pan: -0.05 },
+        { at: ND.flop + 120, sound: "bitSpinDown", pan: -0.05 },
+        { at: ND.reach, sound: "bitStreak", pan: 0.5, opts: { from: 0.9, to: 0.3 } },
+        { at: ND.grab, sound: "bitClick", pan: 0.15, opts: { small: true } },
+        { at: ND.swing, sound: "bitFwip", pan: 0.1 },
+        { at: ND.hover - 200, sound: "neonBuzz", pan: 0.05, opts: { ms: 240 } },
+        { at: ND.drop, sound: "bitNeedle", pan: 0.05 },
+        { at: ND.drop + 40, sound: "neonBuzz", pan: 0, opts: { ms: 160, up: true } },
+        { at: ND.drop + 60, sound: "bitGroove", pan: 0, opts: { ms: 2300 }, unless: "song" }
+      ]
+    };
+    DC = { look: 250, reach: 450, grip: 950, strain: 1100, ready: 1450, throw: 1650, land: 1950, groove: 2030 };
+    disco = {
+      id: "disco",
+      name: "Disco switch",
+      shape: "win",
+      style: "music",
+      ms: 4700,
+      beats: DC,
+      still: 3600,
+      summary: "bitSwitch",
+      song: { beat: "throw", hold: "ready" },
+      letter: { at: DC.land + 300, over: "a", place: "top-right" },
+      camera: { zoom: 1.6, x: 1060, moves: [
+        /* over to the switch as the hand takes it */
+        { at: DC.reach, ms: DC.grip - DC.reach, zoom: 1.72, x: 1130 },
+        /* the throw: a kick in on the switch */
+        { at: DC.throw, ms: 80, zoom: 1.82, x: 1150, ease: CAMERA_EASE.snap },
+        /* out and over to the floor for the ball and the spin */
+        { at: DC.throw + 140, ms: 420, zoom: 1.58, x: 1030, ease: CAMERA_EASE.whip }
+      ], shakes: [{ at: DC.throw }, { at: DC.land }] },
+      cast: { a: ONE("winner") },
+      cues: [
+        { at: DC.reach, sound: "bitStreak", pan: 0.6, opts: { from: 0.9, to: 0.4 } },
+        { at: DC.grip, sound: "bitClick", pan: 0.4, opts: { small: true } },
+        { at: DC.strain, sound: "bitStrain", pan: 0.4, opts: { ms: 350 } },
+        { at: DC.ready - 150, sound: "neonBuzz", pan: 0.4, opts: { ms: 240 } },
+        { at: DC.throw, sound: "bitSwitch", pan: 0.4 },
+        { at: DC.throw + 40, sound: "bitZip", pan: 0, opts: { small: true } },
+        { at: DC.land, sound: "bitClink", pan: -0.1 },
+        { at: DC.land + 20, sound: "bitDisco", pan: -0.1, opts: { ms: 1800 } },
+        { at: DC.throw + 60, sound: "bitGroove", pan: 0, opts: { ms: 2700 }, unless: "song" }
+      ]
+    };
+    JB = { hop: 150, check: 1050, sputter: 1150, cough: 1300, wind: 1650, hold: 1950, kick: 2150, groove: 2400 };
+    jukebox = {
+      id: "jukebox",
+      name: "Jukebox",
+      shape: "win",
+      style: "music",
+      ms: 4800,
+      beats: JB,
+      still: 3560,
+      summary: "bitSputter",
+      song: { beat: "kick", hold: "hold" },
+      letter: { at: JB.kick + 350, over: "a", place: "top-left" },
+      camera: { zoom: 1.45, x: 860, moves: [
+        /* over to the jukebox for the hip-check */
+        { at: JB.hop + 500, ms: 600, zoom: 1.52, x: 950 },
+        /* a touch in while it sputters */
+        { at: JB.sputter, ms: JB.hold - JB.sputter, zoom: 1.58, x: 950 },
+        /* the kick */
+        { at: JB.kick, ms: 80, zoom: 1.7, x: 950, ease: CAMERA_EASE.snap },
+        /* back for the groove */
+        { at: JB.kick + 300, ms: 900, zoom: 1.58, x: 960 }
+      ], shakes: [{ at: JB.check }, { at: JB.kick, big: true }] },
+      cast: { a: ONE("winner") },
+      cues: [
+        ...hops(JB.hop + 260, 3, 300, -0.45),
+        { at: JB.check, sound: "bitBonk", pan: 0 },
+        { at: JB.sputter, sound: "bitSputter", pan: 0.15, opts: { ms: JB.hold - JB.sputter + 100 } },
+        { at: JB.cough, sound: "bitCough", pan: 0.15 },
+        { at: JB.cough + 520, sound: "bitFlop", pan: 0, opts: { small: true } },
+        { at: JB.wind, sound: "bitScoot", pan: -0.2 },
+        { at: JB.kick, sound: "bitThud", pan: 0 },
+        { at: JB.kick + 30, sound: "neonBuzz", pan: 0.15, opts: { ms: 220, up: true } },
+        { at: JB.kick + 60, sound: "bitGroove", pan: 0, opts: { ms: 2300 }, unless: "song" },
+        { at: JB.kick + 200, sound: "bitBubble", pan: 0.3 }
+      ]
+    };
+    LR = { stop: 1250, idle: 1400, rev: 1600, ready: 1850, bass: 2050 };
+    lowrider = {
+      id: "lowrider",
+      name: "Lowrider",
+      shape: "win",
+      style: "music",
+      ms: 5200,
+      beats: LR,
+      still: 3690,
+      summary: "bitBass",
+      song: { beat: "bass", hold: "ready" },
+      letter: { at: LR.bass + 400, over: "a", place: "top-left" },
+      camera: { zoom: 1.38, x: 960, moves: [
+        /* in on the driver while it idles */
+        { at: LR.stop, ms: LR.ready - LR.stop, zoom: 1.6, x: 960 },
+        /* the bass: out to hold the whole car's hop */
+        { at: LR.bass, ms: 90, zoom: 1.42, x: 990, ease: CAMERA_EASE.snap }
+      ], shakes: [{ at: LR.bass, big: true }, { at: LR.bass + 1440 + 250 }] },
+      cast: { a: ONE("winner") },
+      cues: [
+        { at: 0, sound: "bitRoll", pan: -0.6, opts: { ms: LR.stop } },
+        { at: LR.stop, sound: "bitSkid", pan: 0, opts: { small: true } },
+        { at: LR.idle, sound: "bitEngine", pan: -0.1, opts: { ms: LR.bass - LR.idle } },
+        { at: LR.rev, sound: "bitRev", pan: -0.2 },
+        { at: LR.bass, sound: "bitBass", pan: 0 },
+        { at: LR.bass + 20, sound: "bitHydraulic", pan: 0.3, opts: { step: 0 } },
+        { at: LR.bass + 60, sound: "bitGroove", pan: 0, opts: { ms: 2900 }, unless: "song" },
+        { at: LR.bass + 480, sound: "bitHydraulic", pan: -0.3, opts: { step: 1 } },
+        { at: LR.bass + 960, sound: "bitHydraulic", pan: 0.3, opts: { step: 2 } },
+        { at: LR.bass + 1440, sound: "bitHydraulic", pan: 0, opts: { step: 3 } },
+        { at: LR.bass + 1690, sound: "bitBounce", pan: 0 }
+      ]
+    };
+    PN = { hop: 200, crouch: 650, jump: 850, apex: 1300, hang: 1500, land: 1700, notes: 1900 };
+    piano2 = {
+      id: "piano",
+      name: "Saloon piano",
+      shape: "win",
+      style: "music",
+      ms: 4800,
+      beats: PN,
+      still: 3180,
+      summary: "bitChord",
+      song: { beat: "land", hold: "hang" },
+      letter: { at: PN.land + 400, over: "a", place: "top-left" },
+      camera: { zoom: 1.36, x: 900, moves: [
+        /* up with the leap */
+        { at: PN.jump, ms: PN.apex - PN.jump, zoom: 1.34, x: 900 },
+        /* the landing: in on the keys */
+        { at: PN.land, ms: 90, zoom: 1.52, x: 960, ease: CAMERA_EASE.snap },
+        /* along the keyboard with it */
+        { at: PN.land + 300, ms: 1500, zoom: 1.46, x: 1060 }
+      ], shakes: [{ at: PN.land, big: true }] },
+      cast: { a: ONE("winner") },
+      cues: [
+        { at: PN.hop + 150, sound: "bitHop", pan: -0.5, opts: { step: 0 } },
+        { at: PN.jump, sound: "bitBoing", pan: -0.3 },
+        { at: PN.apex - 100, sound: "neonBuzz", pan: -0.2, opts: { ms: 260 } },
+        { at: PN.land, sound: "bitChord", pan: -0.15, opts: { step: 0 } },
+        { at: PN.land + 60, sound: "bitGroove", pan: 0, opts: { ms: 2900 }, unless: "song" },
+        ...[1, 2, 3, 4, 5].map((i) => ({ at: PN.land + i * 480, sound: "bitPlink", pan: [0, 0.15, 0.3, 0.15, 0][i - 1], opts: { step: i } }))
+      ]
+    };
+    MUSIC = [headphones, needledrop, disco, jukebox, lowrider, piano2];
+  }
+});
+
+// src/features/gags/bits/catalog/show.js
+var SN, sunset, ST, statue, VS, victoryspin, FW, fireworks, SHOW;
+var init_show2 = __esm({
+  "src/features/gags/bits/catalog/show.js"() {
+    init_common();
+    SN = { roll: 200, stop: 1450, settle: 1750, hop: 2150, press: 2390, bands: 2420, full: 2850, rays: 2930, sway: 3500 };
+    sunset = {
+      id: "sunset",
+      name: "Sunset",
+      shape: "win",
+      style: "punchline",
+      ms: 4800,
+      beats: SN,
+      still: 3800,
+      summary: "bitSpotlight",
+      song: { beat: "full" },
+      letter: { at: SN.full + 220, over: "a", place: "top" },
+      camera: { zoom: 1.6, x: 560, moves: [
+        /* riding along with the roll */
+        { at: SN.roll, ms: 1300, zoom: 1.62, x: 1e3, ease: "cubic-bezier(.3,.25,.3,1)" },
+        /* back for the western's last shot while it settles on the mark */
+        { at: SN.settle + 100, ms: 900, zoom: 1.32, x: 1e3 },
+        /* the sun comes on */
+        { at: SN.full, ms: 90, zoom: 1.38, x: 1e3, ease: CAMERA_EASE.snap },
+        { at: SN.full + 160, ms: 1500, zoom: 1.24, x: 1e3 }
+      ], shakes: [{ at: SN.full, big: true }] },
+      cast: { a: ONE("winner") },
+      cues: [
+        { at: SN.roll, sound: "bitRoll", pan: -0.6, opts: { ms: SN.stop - SN.roll } },
+        { at: SN.stop, sound: "bitRoll", pan: 0.1, opts: { ms: 300, small: true } },
+        { at: SN.settle, sound: "bitSpinDown", pan: 0.05, opts: { small: true } },
+        { at: SN.hop, sound: "bitHop", pan: 0.05, opts: { step: 0 } },
+        { at: SN.press, sound: "bitSwitch", pan: 0.05 },
+        { at: SN.bands, sound: "neonBuzz", pan: 0.05, opts: { ms: SN.full - SN.bands, up: true } },
+        { at: SN.full, sound: "bitSpotlight", pan: 0.05 },
+        { at: SN.rays, sound: "bitTwinkle", pan: -0.5 },
+        { at: SN.rays + 280, sound: "bitTwinkle", pan: 0.05, opts: { step: 1 } },
+        { at: SN.rays + 560, sound: "bitTwinkle", pan: 0.5, opts: { step: 2 } }
+      ]
+    };
+    ST = { seam: 450, down: 600, rise1: 1e3, rise2: 1350, rise3: 1700, look: 1950, spot: 2700, sparkle: 2820 };
+    statue = {
+      id: "statue",
+      name: "Statue",
+      shape: "win",
+      style: "punchline",
+      ms: 4500,
+      beats: ST,
+      still: 3600,
+      summary: "bitSpotlight",
+      song: { beat: "spot" },
+      letter: { at: ST.spot + 200, over: "a", place: "top-left" },
+      camera: { zoom: 1.8, x: 1040, moves: [
+        /* back as it goes up, to keep it and the rig in the shot */
+        { at: ST.rise1 - 60, ms: 900, zoom: 1.48, x: 1060 },
+        /* the light finds it */
+        { at: ST.spot, ms: 90, zoom: 1.58, x: 1080, ease: CAMERA_EASE.snap },
+        { at: ST.spot + 160, ms: 1300, zoom: 1.4, x: 1e3 }
+      ], shakes: [{ at: ST.rise1 }, { at: ST.rise2 }, { at: ST.rise3 }, { at: ST.spot, big: true }] },
+      cast: { a: ONE("winner") },
+      cues: [
+        { at: ST.seam, sound: "neonBuzz", pan: 0.15, opts: { ms: 300, up: true } },
+        { at: ST.rise1, sound: "bitHydraulic", pan: 0.15, opts: { step: 0 } },
+        { at: ST.rise2, sound: "bitHydraulic", pan: 0.15, opts: { step: 1 } },
+        { at: ST.rise3, sound: "bitHydraulic", pan: 0.15, opts: { step: 2 } },
+        { at: ST.look, sound: "bitSqueakSoft", pan: 0.1 },
+        { at: ST.spot, sound: "bitSpotlight", pan: 0.3 },
+        { at: ST.sparkle, sound: "bitTwinkle", pan: -0.1 },
+        { at: ST.sparkle + 380, sound: "bitTwinkle", pan: 0.4, opts: { step: 1 } }
+      ]
+    };
+    VS = { wind: 300, go: 700, sparks: 1250, blur: 1800, full: 2300, stop: 3500, land: 3800, proud: 3950 };
+    victoryspin = {
+      id: "victoryspin",
+      name: "Victory spin",
+      shape: "win",
+      style: "punchline",
+      ms: 4700,
+      beats: VS,
+      still: 3300,
+      summary: "bitSparks",
+      song: { beat: "full" },
+      letter: { at: VS.full + 200, over: "a", place: "top-left" },
+      camera: { zoom: 1.8, x: 960, moves: [
+        /* pushing in as it winds up to speed */
+        { at: VS.go, ms: VS.full - VS.go, zoom: 2, x: 960, ease: "cubic-bezier(.5,0,.9,.6)" },
+        /* full speed */
+        { at: VS.full, ms: 90, zoom: 2.14, x: 960, ease: CAMERA_EASE.snap },
+        /* back out for the stop */
+        { at: VS.stop, ms: 500, zoom: 1.86, x: 960 }
+      ], shakes: [{ at: VS.full, big: true }, { at: VS.land }] },
+      cast: { a: ONE("winner") },
+      cues: [
+        { at: VS.wind, sound: "bitRatchet", pan: 0 },
+        { at: VS.go, sound: "bitTwirl", pan: 0 },
+        { at: VS.go + 200, sound: "bitRoll", pan: 0, opts: { ms: VS.full - VS.go - 200 } },
+        { at: VS.sparks, sound: "bitSparks", pan: 0, opts: { ms: VS.stop - VS.sparks } },
+        { at: VS.full, sound: "bitShing", pan: 0 },
+        { at: VS.stop, sound: "bitSkid", pan: 0 },
+        { at: VS.land, sound: "bitThud", pan: 0, opts: { small: true } },
+        { at: VS.proud, sound: "bitGleam", pan: 0 }
+      ]
+    };
+    FW = {
+      launch: 300,
+      look: 350,
+      dud: 820,
+      droop: 1e3,
+      launch1: 1450,
+      bang1: 2e3,
+      launch2: 2150,
+      bang2: 2550,
+      launch3: 2450,
+      bang3: 2850,
+      launch4: 2800,
+      bang4: 3250
+    };
+    fireworks = {
+      id: "fireworks",
+      name: "Fireworks",
+      shape: "win",
+      style: "punchline",
+      ms: 4800,
+      beats: FW,
+      still: 3700,
+      summary: "bitBang",
+      song: { beat: "bang1" },
+      letter: { at: FW.bang1 + 250, over: "a", place: "top-left" },
+      camera: { zoom: 1.6, x: 980, moves: [
+        /* up with the first rocket */
+        { at: FW.look, ms: 550, zoom: 1.5, x: 1e3 },
+        /* back for the sky as the second goes up */
+        { at: FW.launch1, ms: 500, zoom: 1.42, x: 1080 },
+        /* the bang */
+        { at: FW.bang1, ms: 90, zoom: 1.5, x: 1080, ease: CAMERA_EASE.snap },
+        { at: FW.bang1 + 160, ms: 1100, zoom: 1.4, x: 1100 }
+      ], shakes: [{ at: FW.bang1, big: true }, { at: FW.bang2 }, { at: FW.bang3 }, { at: FW.bang4, big: true }] },
+      cast: { a: ONE("winner") },
+      cues: [
+        { at: FW.launch, sound: "bitFirework", pan: 0.25, opts: { ms: FW.dud - FW.launch, small: true } },
+        { at: FW.dud, sound: "bitPuff", pan: 0.2 },
+        { at: FW.dud + 480, sound: "bitTink", pan: 0.25 },
+        { at: FW.droop, sound: "bitDroop", pan: -0.15 },
+        { at: FW.launch1, sound: "bitFirework", pan: 0.3, opts: { ms: FW.bang1 - FW.launch1 } },
+        { at: FW.bang1, sound: "bitBang", pan: 0.3 },
+        { at: FW.bang1 + 300, sound: "bitCrackle", pan: 0.3, opts: { ms: 700 } },
+        { at: FW.launch2, sound: "bitLaunch", pan: 0.5, opts: { small: true } },
+        { at: FW.bang2, sound: "bitBang", pan: 0.6, opts: { step: 1 } },
+        { at: FW.bang3, sound: "bitBang", pan: 0.05, opts: { step: 2 } },
+        { at: FW.launch4, sound: "bitLaunch", pan: 0.4, opts: { small: true } },
+        { at: FW.bang4, sound: "bitBoomChain", pan: 0.5 },
+        { at: FW.bang4 + 300, sound: "bitCrackle", pan: 0.55, opts: { ms: 1e3 } }
+      ]
+    };
+    SHOW = [sunset, statue, victoryspin, fireworks];
+  }
+});
+
+// src/features/gags/bits/catalog/loss.js
+var AN, anvil, RR, roadrunner, QS, quicksand, DY, dynamite, VU, vulture, RK2, rake, NS, needlescratch, LOSS;
+var init_loss = __esm({
+  "src/features/gags/bits/catalog/loss.js"() {
+    init_common();
+    init_neonArt();
+    AN = {
+      hop: 250,
+      shadow: 600,
+      notice: 1500,
+      sweat: 1620,
+      drop: 1900,
+      hit: 2020,
+      stars: 2100,
+      lift: 3e3,
+      thud: 3280,
+      pop: 3500,
+      look: 3900,
+      keel: 4400,
+      flat: 4650
+    };
+    anvil = {
+      id: "anvil",
+      name: "Anvil",
+      shape: "loss",
+      style: "songless",
+      ms: 5400,
+      beats: AN,
+      still: 2900,
+      summary: "bitClang",
+      song: null,
+      letter: { at: AN.hit + 130, over: "a", place: "top-right" },
+      camera: { zoom: 1.8, x: 960, moves: [
+        /* ease in while the ring grows */
+        { at: AN.shadow, ms: AN.notice - AN.shadow, zoom: 1.92, x: 960 },
+        /* the clang */
+        { at: AN.hit, ms: 70, zoom: 2.04, x: 960, ease: CAMERA_EASE.snap },
+        /* back out for the pancake and its stars */
+        { at: AN.stars + 120, ms: 520, zoom: 1.84, x: 1e3 },
+        /* in on it, looking at the room */
+        { at: AN.look - 200, ms: 500, zoom: 2.2, x: 960 },
+        /* out as it keels over */
+        { at: AN.keel, ms: 400, zoom: 1.86, x: 960 }
+      ], shakes: [{ at: AN.hit, big: true }, { at: AN.thud }, { at: AN.flat }] },
+      cast: { a: ONE("loser") },
+      cues: [
+        { at: AN.hop + 220, sound: "bitHop", pan: 0, opts: { step: 0 } },
+        { at: AN.shadow, sound: "bitWhistle", pan: 0, opts: { ms: AN.drop - AN.shadow } },
+        { at: AN.notice, sound: "neonBuzz", pan: 0, opts: { ms: 180, up: true } },
+        { at: AN.hit, sound: "bitClang", pan: 0 },
+        { at: AN.stars, sound: "bitStars", pan: 0, opts: { ms: AN.lift - AN.stars } },
+        { at: AN.lift, sound: "bitHop", pan: 0.3, opts: { step: 1 } },
+        { at: AN.thud, sound: "bitThud", pan: 0.45 },
+        { at: AN.pop, sound: "bitBoing", pan: 0 },
+        { at: AN.keel, sound: "bitCreak", pan: 0, opts: { ms: 240, small: true } },
+        { at: AN.flat, sound: "bitSpinDown", pan: 0 }
+      ]
+    };
+    RR = {
+      arrive: 300,
+      skid: 560,
+      stop: 1e3,
+      lean: 1300,
+      beep: 1600,
+      beep2: 1790,
+      windup: 2250,
+      leave: 2550,
+      spin: 2600,
+      far: 3350,
+      topple: 3750,
+      flat: 4e3,
+      land: 4600
+    };
+    roadrunner = {
+      id: "roadrunner",
+      name: "Roadrunner",
+      shape: "loss",
+      style: "songless",
+      ms: 5e3,
+      beats: RR,
+      still: 4700,
+      summary: "bitBeep",
+      song: null,
+      letter: { at: RR.spin + 200, over: "a", place: "top-right" },
+      camera: { zoom: 1.8, x: 1010, moves: [
+        /* in on the beeps */
+        { at: RR.lean, ms: 300, zoom: 2, x: 1060 },
+        /* whipped out as it goes */
+        { at: RR.leave, ms: 160, zoom: 1.74, x: 920, ease: CAMERA_EASE.whip },
+        /* in on the chip as it keels over */
+        { at: RR.topple - 150, ms: 500, zoom: 1.96, x: 880 }
+      ], shakes: [{ at: RR.stop }, { at: RR.flat }] },
+      cast: { a: ONE("loser") },
+      cues: [
+        { at: RR.arrive, sound: "bitStreak", pan: 0.6, opts: { from: 1, to: 0.25 } },
+        { at: RR.skid, sound: "bitSkid", pan: panAt(1250), opts: { ms: RR.stop - RR.skid } },
+        { at: RR.beep, sound: "bitBeep", pan: panAt(1e3) },
+        { at: RR.windup, sound: "bitRev", pan: panAt(1200), opts: { ms: RR.leave - RR.windup } },
+        { at: RR.leave, sound: "bitZip", pan: 0 },
+        { at: RR.spin, sound: "bitTwirl", pan: panAt(860) },
+        { at: RR.far, sound: "bitBeepFar", pan: -0.9 },
+        { at: RR.topple, sound: "bitCreak", pan: panAt(860), opts: { ms: 240, small: true } },
+        { at: RR.flat, sound: "bitSpinDown", pan: panAt(860) },
+        { at: RR.land - 120, sound: "bitFluff", pan: panAt(880) }
+      ]
+    };
+    QS = {
+      settle: 450,
+      notice: 900,
+      struggle: 1250,
+      h1: 1900,
+      h2: 2300,
+      h3: 2700,
+      rim: 3100,
+      lastHop: 3450,
+      gone: 3800,
+      bubble: 4150,
+      pop: 4550
+    };
+    quicksand = {
+      id: "quicksand",
+      name: "Quicksand",
+      shape: "loss",
+      style: "songless",
+      ms: 5e3,
+      beats: QS,
+      still: 2950,
+      summary: "bitSink",
+      song: null,
+      letter: { at: QS.h2 - 100, over: "a", place: "top-left" },
+      camera: { zoom: 1.8, x: 960, moves: [
+        /* in as the struggle starts */
+        { at: QS.struggle, ms: 1400, zoom: 1.98, x: 980 },
+        /* in on the rim */
+        { at: QS.rim - 100, ms: 300, zoom: 2.25, x: 990, ease: CAMERA_EASE.snap },
+        /* back a little for the bubble */
+        { at: QS.gone + 200, ms: 600, zoom: 2.05, x: 990 }
+      ], shakes: [] },
+      cast: { a: ONE("loser") },
+      cues: [
+        { at: QS.settle, sound: "bitSink", pan: 0, opts: { ms: 600 } },
+        { at: QS.notice, sound: "neonBuzz", pan: 0, opts: { ms: 180, up: true } },
+        { at: QS.struggle, sound: "bitFlail", pan: 0, opts: { ms: 620 } },
+        { at: QS.h1, sound: "bitHop", pan: 0, opts: { step: 0 } },
+        { at: QS.h1 + 300, sound: "bitSink", pan: 0, opts: { ms: 350 } },
+        { at: QS.h2, sound: "bitHop", pan: 0, opts: { step: 1 } },
+        { at: QS.h2 + 280, sound: "bitSink", pan: 0, opts: { ms: 350 } },
+        { at: QS.h3, sound: "bitHop", pan: 0, opts: { step: 2 } },
+        { at: QS.h3 + 260, sound: "bitSink", pan: 0, opts: { ms: 350 } },
+        { at: QS.rim, sound: "bitStrain", pan: 0, opts: { ms: 300 } },
+        { at: QS.lastHop, sound: "bitHop", pan: 0, opts: { step: 3, small: true } },
+        { at: QS.gone, sound: "bitSink", pan: 0, opts: { ms: 700, deep: true } },
+        { at: QS.bubble, sound: "bitBubble", pan: panAt(1e3) },
+        { at: QS.pop, sound: "bitPop", pan: panAt(1e3) }
+      ]
+    };
+    DY = { glance: 1250, away: 1600, notice: 2e3, sweat: 2150, boom: 2400, cough: 3350, topple: 3950, flat: 4250 };
+    dynamite = {
+      id: "dynamite",
+      name: "Dynamite",
+      shape: "loss",
+      style: "songless",
+      ms: 5500,
+      beats: DY,
+      still: 3450,
+      summary: "bitBlast",
+      song: null,
+      letter: { at: DY.boom + 300, over: "a", place: "top-left" },
+      camera: { zoom: 1.8, x: 1e3, moves: [
+        /* a slow push while the fuse burns */
+        { at: 200, ms: 1600, zoom: 1.9, x: 1010 },
+        /* in on the double take */
+        { at: DY.notice, ms: 140, zoom: 2.1, x: 930, ease: CAMERA_EASE.snap },
+        /* out with the blast */
+        { at: DY.boom, ms: 70, zoom: 1.72, x: 980, ease: CAMERA_EASE.whip },
+        /* in on what is left */
+        { at: DY.boom + 500, ms: 700, zoom: 1.98, x: 840 },
+        /* out a touch as it goes over */
+        { at: DY.topple, ms: 400, zoom: 1.86, x: 840 }
+      ], shakes: [{ at: DY.boom, big: true }, { at: DY.flat }], washes: [DY.boom] },
+      cast: { a: ONE("loser") },
+      cues: [
+        { at: 200, sound: "bitFuse", pan: panAt(1180), opts: { ms: DY.boom - 200 } },
+        { at: DY.notice, sound: "neonBuzz", pan: panAt(860), opts: { ms: 180, up: true } },
+        { at: DY.sweat, sound: "bitDrip", pan: panAt(860), opts: { small: true } },
+        { at: DY.boom, sound: "bitBlast", pan: panAt(1130) },
+        { at: DY.cough, sound: "bitCough", pan: panAt(810) },
+        { at: DY.topple, sound: "bitCreak", pan: panAt(810), opts: { ms: 280, small: true } },
+        { at: DY.flat, sound: "bitFlop", pan: panAt(810) }
+      ]
+    };
+    VU = {
+      glide: 200,
+      land: 1100,
+      perch: 1300,
+      look: 1550,
+      tilt: 1700,
+      scoot: 2e3,
+      hop1: 2300,
+      look2: 2750,
+      scoot2: 2950,
+      hop2: 3250,
+      napkin: 3650,
+      cutlery: 4e3,
+      shing: 4150
+    };
+    vulture = {
+      id: "vulture",
+      name: "Vulture",
+      shape: "loss",
+      style: "songless",
+      ms: 5400,
+      beats: VU,
+      still: 4350,
+      summary: "bitShing",
+      song: null,
+      letter: { at: VU.napkin - 100, over: "a", place: "top-right" },
+      camera: { zoom: 1.7, x: 1060, moves: [
+        /* along with the chip as it scoots */
+        { at: VU.scoot, ms: 600, zoom: 1.74, x: 960 },
+        { at: VU.scoot2, ms: 600, zoom: 1.8, x: 780 },
+        /* in for the knife and fork */
+        { at: VU.napkin, ms: 700, zoom: 2, x: 690 }
+      ], shakes: [] },
+      cast: { a: ONE("loser") },
+      cues: [
+        { at: VU.glide, sound: "bitWind", pan: 0.5, opts: { ms: 900 } },
+        { at: VU.land - 160, sound: "bitFlap", pan: panAt(1240) },
+        { at: VU.land, sound: "bitFlap", pan: panAt(1240), opts: { small: true } },
+        { at: VU.perch, sound: "bitCreak", pan: panAt(1300), opts: { ms: 300, small: true } },
+        { at: VU.scoot, sound: "bitScoot", pan: panAt(860), opts: { step: 0 } },
+        { at: VU.scoot + 110, sound: "bitScoot", pan: panAt(800), opts: { step: 1 } },
+        { at: VU.scoot + 220, sound: "bitScoot", pan: panAt(740), opts: { step: 2 } },
+        { at: VU.hop1, sound: "bitFlap", pan: panAt(1100), opts: { small: true } },
+        { at: VU.hop1 + 380, sound: "bitHop", pan: panAt(990), opts: { step: 0, small: true } },
+        { at: VU.scoot2, sound: "bitScoot", pan: panAt(680), opts: { step: 0 } },
+        { at: VU.scoot2 + 110, sound: "bitScoot", pan: panAt(620), opts: { step: 1 } },
+        { at: VU.scoot2 + 220, sound: "bitScoot", pan: panAt(560), opts: { step: 2 } },
+        { at: VU.hop2, sound: "bitFlap", pan: panAt(900), opts: { small: true } },
+        { at: VU.hop2 + 380, sound: "bitHop", pan: panAt(810), opts: { step: 1, small: true } },
+        { at: VU.napkin, sound: "bitFwip", pan: panAt(780) },
+        { at: VU.shing, sound: "bitShing", pan: panAt(720) },
+        { at: VU.cutlery + 250, sound: "bitDrip", pan: panAt(560), opts: { small: true } }
+      ]
+    };
+    RK2 = {
+      reach: 300,
+      set: 800,
+      push: 1300,
+      slide: 1850,
+      edge: 2150,
+      cling: 2200,
+      shove: 2950,
+      fall: 3e3,
+      gone: 3350,
+      far: 3700,
+      tap1: 3950,
+      tap2: 4250
+    };
+    rake = {
+      id: "rake",
+      name: "The rake",
+      shape: "loss",
+      style: "songless",
+      ms: 5e3,
+      beats: RK2,
+      still: 2700,
+      summary: "bitRake",
+      song: null,
+      letter: { at: RK2.edge - 150, over: "a", place: "top-right" },
+      camera: { zoom: 1.75, x: 1e3, moves: [
+        /* in as it digs in */
+        { at: RK2.push, ms: 600, zoom: 1.86, x: 1060 },
+        /* on the edge */
+        { at: RK2.edge - 60, ms: 200, zoom: 2.06, x: 1200, ease: CAMERA_EASE.snap },
+        /* back as it goes over */
+        { at: RK2.fall, ms: 400, zoom: 1.82, x: 1120 },
+        /* the felt, and the rake on it */
+        { at: RK2.far, ms: 600, zoom: 1.75, x: 1020 }
+      ], shakes: [] },
+      cast: { a: ONE("loser") },
+      cues: [
+        { at: RK2.reach, sound: "bitStreak", pan: -0.6, opts: { from: -0.95, to: -0.45 } },
+        { at: RK2.set - 20, sound: "bitPap", pan: panAt(880) },
+        { at: RK2.push, sound: "bitRake", pan: panAt(940), opts: { ms: 550 } },
+        { at: RK2.push + 100, sound: "bitStrain", pan: panAt(1040), opts: { ms: 450 } },
+        { at: RK2.slide, sound: "bitRake", pan: panAt(1160), opts: { ms: 300, small: true } },
+        { at: RK2.edge, sound: "neonBuzz", pan: panAt(1290), opts: { ms: 180, up: true } },
+        { at: RK2.cling, sound: "bitCreak", pan: panAt(1290), opts: { ms: 700, small: true } },
+        { at: RK2.shove - 100, sound: "bitPoke", pan: panAt(1180) },
+        { at: RK2.fall, sound: "bitFallAway", pan: panAt(1330), opts: { ms: 600 } },
+        { at: RK2.far, sound: "bitFarThud", pan: panAt(1340) },
+        { at: RK2.tap1 + 100, sound: "bitPap", pan: panAt(1100) },
+        { at: RK2.tap2 + 100, sound: "bitPap", pan: panAt(1100), opts: { small: true } }
+      ]
+    };
+    NS = { spin: 1500, wobble: 1950, scratch: 2400, drop: 2560, weed: 2900, gone: 3300, chirp: 3700 };
+    needlescratch = {
+      id: "needlescratch",
+      name: "Needle scratch",
+      shape: "loss",
+      style: "songless",
+      ms: 5200,
+      beats: NS,
+      still: 3400,
+      summary: "bitScratch",
+      song: null,
+      needs: "song",
+      cut: "scratch",
+      letter: { at: NS.scratch + 200, over: "a", place: "top-left" },
+      camera: { zoom: 1.8, x: 1010, moves: [
+        /* a slow push while it grooves */
+        { at: 200, ms: 1600, zoom: 1.88, x: 1e3 },
+        /* the cut-in: in on the chip going down and the needle skidding */
+        { at: NS.scratch, ms: 80, zoom: 2.04, x: 1060, ease: CAMERA_EASE.snap },
+        /* back out for the silence */
+        { at: NS.weed, ms: 900, zoom: 1.8, x: 950 }
+      ], shakes: [{ at: NS.scratch }] },
+      cast: { a: ONE("loser") },
+      cues: [
+        { at: NS.spin, sound: "bitTwirl", pan: panAt(760) },
+        { at: NS.wobble, sound: "bitCreak", pan: panAt(760), opts: { ms: 300, small: true } },
+        { at: NS.scratch, sound: "bitScratch", pan: panAt(1230) },
+        { at: NS.scratch + 40, sound: "bitFlop", pan: panAt(760) },
+        { at: NS.drop + 340, sound: "bitPap", pan: panAt(1230), opts: { small: true } },
+        { at: NS.weed, sound: "bitWind", pan: -0.3, opts: { ms: 2200 } },
+        { at: NS.chirp, sound: "bitTink", pan: 0.7, opts: { small: true } },
+        { at: NS.chirp + 160, sound: "bitTink", pan: 0.7, opts: { small: true } }
+      ]
+    };
+    LOSS = [anvil, roadrunner, quicksand, dynamite, vulture, rake, needlescratch];
+  }
+});
+
+// src/features/gags/bits/catalog/team.js
+var DM, dominoes, TW, tugofwar, SW, slowmowalk, PY, pyramid, TP, teamphoto, VL, victorylap, TEAM;
+var init_team = __esm({
+  "src/features/gags/bits/catalog/team.js"() {
+    init_common();
+    DM = { smug: 150, hop: 800, tap: 1450, chain: 1480, last: 2300, drop: 3640, flat: 3860, bounce: 4250 };
+    dominoes = {
+      id: "dominoes",
+      name: "Dominoes",
+      shape: "versus",
+      style: "punchline",
+      ms: 5200,
+      beats: DM,
+      still: 4700,
+      summary: "bitClatter",
+      song: { beat: "flat" },
+      team: true,
+      letter: { at: DM.flat + 120, over: "a", place: "top-right" },
+      /* fitted: the whole line and the underdogs; every zoom below scales
+         with the fit, so a 7 v 6 and a 2 v 1 get the same shots */
+      camera: { zoom: 1.5, x: "mid", fit: true, moves: [
+        /* in on the tapper and the first domino */
+        { at: DM.hop + 200, ms: 500, zoom: 2.1, x: "tap" },
+        /* along the line with the chain, the last and the tapper in the shot */
+        { at: DM.chain + 60, ms: DM.last - DM.chain + 100, zoom: 1.95, x: "watch" },
+        /* closer while it teeters */
+        { at: DM.last + 300, ms: DM.drop - DM.last - 300, zoom: 2.15, x: "watch" },
+        /* the slap on the last, then out for the underdogs' bounce */
+        { at: DM.flat, ms: 70, zoom: 2.45, x: "last", ease: CAMERA_EASE.snap },
+        { at: DM.flat + 260, ms: 520, zoom: 1.7, x: "mid" }
+      ], shakes: [{ at: DM.tap }, { at: DM.flat, big: true }] },
+      cast: { a: SIDE("winner"), b: SIDE("beaten") },
+      cues: [
+        { at: DM.smug, sound: "bitClatter", pan: -0.3, opts: { ms: 280, dir: 1 } },
+        { at: DM.hop, sound: "bitHop", pan: 0.25, opts: { step: 0 } },
+        { at: DM.hop + 300, sound: "bitHop", pan: 0.15, opts: { step: 1 } },
+        { at: DM.tap, sound: "bitPoke", pan: 0.05 },
+        { at: DM.chain, sound: "bitClatter", pan: -0.2, opts: { ms: DM.last - DM.chain, dir: -1 } },
+        { at: DM.last + 60, sound: "bitCreak", pan: -0.5, opts: { ms: DM.drop - DM.last } },
+        { at: DM.flat, sound: "bitFlop", pan: -0.5 },
+        { at: DM.flat + 30, sound: "bitThud", pan: -0.5 },
+        { at: DM.bounce, sound: "bitBoing", pan: 0.4, opts: { small: true } }
+      ]
+    };
+    TW = { lean: 200, strain: 600, gain: 1300, smug: 2050, dig: 2400, yank: 2800, heap: 3250, stars: 3450, bounce: 3950 };
+    tugofwar = {
+      id: "tugofwar",
+      name: "Tug of war",
+      shape: "versus",
+      style: "punchline",
+      ms: 5e3,
+      beats: TW,
+      still: 4400,
+      summary: "bitYank",
+      song: { beat: "heap" },
+      team: true,
+      letter: { at: TW.heap + 150, over: "a", place: "top-left" },
+      camera: { zoom: 1.5, x: "mid", fit: true, moves: [
+        /* in on the knot through the strain, following it their way */
+        { at: TW.strain, ms: TW.gain - TW.strain, zoom: 1.68, x: "line" },
+        { at: TW.gain, ms: 700, zoom: 1.74, x: "pull" },
+        /* onto the underdogs as they dig in */
+        { at: TW.dig - 80, ms: 260, zoom: 1.95, x: "a", ease: CAMERA_EASE.snap },
+        /* out for the yank */
+        { at: TW.yank, ms: 140, zoom: 1.5, x: "mid", ease: CAMERA_EASE.whip },
+        /* the heap lands */
+        { at: TW.heap - 40, ms: 90, zoom: 1.85, x: "heap", ease: CAMERA_EASE.snap },
+        { at: TW.heap + 300, ms: 700, zoom: 1.66, x: "end" }
+      ], shakes: [{ at: TW.yank }, { at: TW.heap, big: true }] },
+      cast: { a: SIDE("winner"), b: SIDE("beaten") },
+      cues: [
+        { at: TW.lean, sound: "bitCreak", pan: 0, opts: { ms: 500, small: true } },
+        { at: TW.strain, sound: "bitStrain", pan: 0, opts: { ms: TW.gain - TW.strain } },
+        { at: TW.gain, sound: "bitScoot", pan: -0.3, opts: { step: 0 } },
+        { at: TW.gain + 400, sound: "bitScoot", pan: -0.25, opts: { step: 1 } },
+        { at: TW.smug, sound: "bitSqueak", pan: 0.4 },
+        { at: TW.dig, sound: "bitHuff", pan: -0.4 },
+        { at: TW.yank, sound: "bitYank", pan: -0.3 },
+        { at: TW.yank + 40, sound: "bitStreak", pan: 0.1, opts: { from: 0.5, to: -0.2 } },
+        { at: TW.heap, sound: "bitThud", pan: -0.15 },
+        { at: TW.heap + 20, sound: "bitClatter", pan: -0.15, opts: { ms: 240 } },
+        { at: TW.stars, sound: "bitStars", pan: -0.15, opts: { ms: 900 } },
+        { at: TW.bounce, sound: "bitBoing", pan: -0.4, opts: { small: true } }
+      ]
+    };
+    SW = { first: 600, fuse: 2100, stop: 2800, boom: 2950 };
+    slowmowalk = {
+      id: "slowmowalk",
+      name: "Slow-mo walk",
+      shape: "versus",
+      style: "punchline",
+      ms: 4700,
+      beats: SW,
+      still: 3720,
+      summary: "bitBoom",
+      song: { beat: "boom" },
+      team: true,
+      letter: { at: SW.boom + 60, over: "a", place: "top-left" },
+      camera: { zoom: 1.35, x: "mid", fit: true, moves: [
+        /* the slow walk leans in */
+        { at: 0, ms: SW.stop, zoom: 1.46 },
+        /* the last one goes: a punch in on the faces that do not turn */
+        { at: SW.boom, ms: 80, zoom: 1.62, ease: CAMERA_EASE.snap },
+        { at: SW.boom + 500, ms: 700, zoom: 1.5 }
+      ], shakes: [{ at: SW.first }, { at: SW.boom, big: true }], washes: [SW.boom] },
+      cast: { a: SIDE("winner"), b: SIDE("beaten") },
+      cues: [
+        ...[1, 2, 3, 4].map((k) => ({ at: SW.stop - 2760 + k * 690, sound: "bitStep", pan: 0, opts: { step: k } })),
+        { at: SW.first, sound: "bitBoom", pan: -0.5, opts: { slow: true } },
+        { at: SW.first, sound: "bitBoomChain", pan: 0, opts: { ms: 1400 } },
+        { at: SW.fuse, sound: "bitFuse", pan: 0, opts: { ms: SW.boom - SW.fuse } },
+        { at: SW.boom, sound: "bitBoom", pan: 0 }
+      ]
+    };
+    PY = { gather: 350, top: 2700 };
+    pyramid = {
+      id: "pyramid",
+      name: "Pyramid",
+      shape: "win",
+      style: "punchline",
+      ms: 4800,
+      beats: PY,
+      still: 4300,
+      summary: "bitBoing",
+      song: { beat: "top" },
+      team: true,
+      letter: { at: PY.top + 160, over: "a", place: "top-left" },
+      camera: { zoom: 1.45, x: "mid", fit: true, moves: [
+        /* in as it goes up */
+        { at: PY.gather + 600, ms: PY.top - PY.gather - 700, zoom: 1.66 },
+        /* the top lands */
+        { at: PY.top, ms: 80, zoom: 1.8, ease: CAMERA_EASE.snap },
+        { at: PY.top + 300, ms: 900, zoom: 1.7 }
+      ], shakes: [{ at: PY.top, big: true }] },
+      cast: { a: SIDE("winner") },
+      cues: [
+        { at: PY.gather + 470, sound: "bitHop", pan: 0, opts: { step: 0, small: true } },
+        { at: PY.top - 470, sound: "bitHop", pan: -0.3, opts: { step: 1 } },
+        { at: PY.top, sound: "bitPlant", pan: 0 },
+        { at: PY.top + 20, sound: "bitTwinkle", pan: 0.2 },
+        { at: PY.top + 160, sound: "bitCreak", pan: 0, opts: { ms: 1200, small: true } }
+      ],
+      /* six and seven stand three rows high: the middle row lands a climb before the top */
+      pairs: [6, 7].map((n) => ({ sides: { a: n }, cues: [
+        { at: PY.top - 540, sound: "bitHop", pan: 0.25, opts: { step: 2 } },
+        { at: PY.top - 520, sound: "bitStrain", pan: 0, opts: { ms: 300 } }
+      ] }))
+    };
+    TP = { line: 150, timer: 1e3, pose: 1250, flash: 3100, tip: 4e3, crash: 4620 };
+    teamphoto = {
+      id: "teamphoto",
+      name: "Team photo",
+      shape: "win",
+      style: "punchline",
+      ms: 5300,
+      beats: TP,
+      still: 3950,
+      summary: "bitShutter",
+      song: { beat: "flash" },
+      team: true,
+      letter: { at: TP.flash + 150, over: "a", place: "top-left" },
+      camera: { zoom: 1.45, x: "mid", fit: true, moves: [
+        /* in through the count, the team and the lamp in the shot */
+        { at: TP.timer, ms: TP.flash - TP.timer - 100, zoom: 1.56 },
+        /* the flash: in on the team, as the picture */
+        { at: TP.flash, ms: 60, zoom: 1.78, x: "team", ease: CAMERA_EASE.snap },
+        /* back out as the tripod goes */
+        { at: TP.tip - 300, ms: 600, zoom: 1.45, x: "mid" }
+      ], shakes: [{ at: TP.flash, big: true }, { at: TP.crash }], washes: [TP.flash] },
+      cast: { a: SIDE("winner") },
+      cues: [
+        ...[0, 1, 2].map((k) => ({ at: TP.line + 200 + k * 140, sound: "bitHop", pan: -0.2, opts: { step: k, small: true } })),
+        { at: TP.timer, sound: "bitTimer", pan: 0.5, opts: { ms: TP.flash - TP.timer } },
+        ...[0, 1, 2, 3].map((k) => ({ at: TP.pose + k * 340, sound: "bitSqueak", pan: -0.3 + k * 0.1, opts: { step: k } })),
+        { at: TP.flash, sound: "bitShutter", pan: 0.45 },
+        { at: TP.flash + 660, sound: "bitThud", pan: 0, opts: { small: true } },
+        { at: TP.tip, sound: "bitCreak", pan: 0.6, opts: { ms: TP.crash - TP.tip } },
+        { at: TP.crash, sound: "bitThud", pan: 0.7 },
+        { at: TP.crash + 40, sound: "bitClatter", pan: 0.7, opts: { ms: 200 } }
+      ]
+    };
+    VL = { cross: 2800 };
+    victorylap = {
+      id: "victorylap",
+      name: "Victory lap",
+      shape: "win",
+      style: "punchline",
+      ms: 5300,
+      beats: VL,
+      still: 4700,
+      summary: "bitFlagFlap",
+      song: { beat: "cross" },
+      team: true,
+      letter: { at: VL.cross + 150, over: "a", place: "top-left" },
+      camera: { zoom: 1.2, x: "mid", fit: true, moves: [
+        /* down the near straight, in on the line */
+        { at: 1900, ms: 850, zoom: 1.42, x: "line" },
+        /* the crossing */
+        { at: VL.cross, ms: 70, zoom: 1.55, x: "line", ease: CAMERA_EASE.snap },
+        /* along with them as they pull up */
+        { at: VL.cross + 200, ms: 1500, zoom: 1.36, x: "row" }
+      ], shakes: [{ at: VL.cross, big: true }], washes: [VL.cross] },
+      cast: { a: SIDE("winner") },
+      cues: [
+        { at: 0, sound: "bitRoll", pan: 0.5, opts: { ms: VL.cross } },
+        { at: 0, sound: "bitFlagFlap", pan: -0.3, opts: { ms: VL.cross + 1600 } },
+        { at: VL.cross, sound: "bitShutter", pan: -0.2 },
+        { at: VL.cross + 30, sound: "bitTwinkle", pan: -0.2 },
+        { at: VL.cross + 60, sound: "bitRoll", pan: 0.2, opts: { ms: 1700 } },
+        { at: VL.cross + 1600, sound: "bitSkid", pan: 0.4 }
+      ]
+    };
+    TEAM = [dominoes, tugofwar, slowmowalk, pyramid, teamphoto, victorylap];
+  }
+});
+
+// src/features/gags/bits/catalog/idle.js
+var NP, nap, EP, edgepush, SG, saguaro, CS, coinspin, PL, polish, LT, losttourist, IDLE;
+var init_idle = __esm({
+  "src/features/gags/bits/catalog/idle.js"() {
+    init_neonArt();
+    init_common();
+    NP = { nod1: 300, nod2: 1250, keel: 2050, flat: 2330, zees: 2800, moth: 3100, land: 4700, twitch: 5500, land2: 7100 };
+    nap = {
+      id: "nap",
+      name: "Nap",
+      shape: "idle",
+      style: "songless",
+      ms: 9e3,
+      beats: NP,
+      still: 8300,
+      summary: "bitSnore",
+      song: null,
+      letter: null,
+      camera: { zoom: 1.9, x: 950, moves: [
+        /* a touch out as it keels over */
+        { at: NP.keel - 100, ms: 600, zoom: 1.84, x: 960 },
+        /* in, slowly, as the moth comes to the light */
+        { at: NP.moth, ms: NP.land - NP.moth, zoom: 2.16, x: 960 },
+        /* the twitch: a small kick back */
+        { at: NP.twitch, ms: 260, zoom: 2.04, ease: CAMERA_EASE.snap },
+        /* settle in close as it sleeps on */
+        { at: NP.land2 - 200, ms: 1900, zoom: 2.38, x: 965 }
+      ], shakes: [{ at: NP.flat }] },
+      cast: ROOM(1),
+      cues: [
+        { at: NP.nod1 + 650, sound: "bitSqueakSoft", pan: 0 },
+        { at: NP.nod2 + 560, sound: "bitSqueakSoft", pan: 0 },
+        { at: NP.keel, sound: "bitCreak", pan: 0, opts: { ms: 260, small: true } },
+        { at: NP.flat, sound: "bitFlop", pan: 0 },
+        { at: NP.flat + 700, sound: "bitSnore", pan: 0, opts: { small: true } },
+        { at: NP.moth, sound: "bitFlutter", pan: panAt(1500), opts: { ms: NP.land - NP.moth } },
+        { at: NP.land - 100, sound: "bitSnore", pan: 0 },
+        { at: NP.twitch, sound: "bitHop", pan: 0, opts: { step: 2 } },
+        { at: NP.twitch + 40, sound: "bitFlutter", pan: 0, opts: { ms: NP.land2 - NP.twitch } },
+        { at: NP.land2 + 300, sound: "bitSnore", pan: 0, opts: { small: true } }
+      ]
+    };
+    EP = {
+      stampA: 400,
+      stampB: 850,
+      set: 1250,
+      charge: 1550,
+      clash: 1750,
+      push1: 2300,
+      sweat1: 2550,
+      push2: 3400,
+      sweat2: 3700,
+      sweat3: 4300,
+      push3: 4700,
+      sweat4: 5100,
+      turn: 6e3,
+      drip: 6700
+    };
+    edgepush = {
+      id: "edgepush",
+      name: "Edge push",
+      shape: "idle",
+      style: "songless",
+      ms: 8200,
+      beats: EP,
+      still: 7300,
+      summary: "bitStrain",
+      song: null,
+      letter: null,
+      camera: { zoom: 1.8, x: "mid", fit: true, moves: [
+        /* in as they lock up */
+        { at: EP.clash, ms: 140, zoom: 1.96, ease: CAMERA_EASE.snap },
+        /* riding the lock as it slides */
+        { at: EP.push1, ms: 800, x: 1e3 },
+        { at: EP.push2 + 300, ms: 700, x: 920 },
+        { at: EP.push3, ms: 700, x: 960 },
+        /* the turn: in on both of them, looking at us */
+        { at: EP.turn, ms: 200, zoom: 2.2, ease: CAMERA_EASE.snap }
+      ], shakes: [{ at: EP.stampA + 260 }, { at: EP.stampB + 260 }, { at: EP.clash }] },
+      cast: ROOM(2),
+      cues: [
+        { at: EP.stampA + 260, sound: "bitThud", pan: panAt(650) },
+        { at: EP.stampB + 260, sound: "bitThud", pan: panAt(1270) },
+        { at: EP.charge, sound: "bitScoot", pan: panAt(800) },
+        { at: EP.charge + 30, sound: "bitScoot", pan: panAt(1120) },
+        { at: EP.clash, sound: "bitClink", pan: 0 },
+        { at: EP.clash + 150, sound: "bitStrain", pan: 0, opts: { ms: 1600 } },
+        { at: EP.push1, sound: "bitSkid", pan: panAt(1180) },
+        { at: EP.sweat1, sound: "bitDrip", pan: panAt(700), opts: { small: true } },
+        { at: EP.push2, sound: "bitStrain", pan: 0, opts: { ms: 1400 } },
+        { at: EP.push2 + 300, sound: "bitSkid", pan: panAt(760) },
+        { at: EP.sweat2, sound: "bitDrip", pan: panAt(1220), opts: { small: true } },
+        { at: EP.push3, sound: "bitStrain", pan: 0, opts: { ms: 1100 } },
+        { at: EP.turn, sound: "bitSqueakSoft", pan: 0 },
+        { at: EP.drip, sound: "bitDrip", pan: 0 }
+      ]
+    };
+    SG = {
+      look: 300,
+      hop1: 900,
+      hop2: 1500,
+      prick1: 1780,
+      shake: 2250,
+      scoot: 2900,
+      lean: 3380,
+      think: 3800,
+      prick2: 4650,
+      backup: 5300,
+      wind: 6050,
+      run: 6350,
+      takeoff: 6700,
+      land: 7100,
+      close: 7850,
+      look2: 8500
+    };
+    saguaro = {
+      id: "saguaro",
+      name: "Saguaro",
+      shape: "idle",
+      style: "songless",
+      ms: 9800,
+      beats: SG,
+      still: 9200,
+      summary: "bitPrick",
+      song: null,
+      letter: null,
+      camera: { zoom: 1.74, x: 860, moves: [
+        /* in on it leaning there, thinking */
+        { at: SG.lean - 200, ms: 700, zoom: 1.95, x: 850 },
+        /* out with the second prick */
+        { at: SG.prick2, ms: 160, zoom: 1.74, x: 830, ease: CAMERA_EASE.snap },
+        /* wide for the run-up */
+        { at: SG.backup, ms: 700, zoom: 1.66, x: 840 },
+        /* up with the leap, over to the arm and the blossom */
+        { at: SG.takeoff, ms: 520, zoom: 1.8, x: 1010 },
+        /* in, a touch, for the look */
+        { at: SG.look2 - 100, ms: 600, zoom: 1.88, x: 1010 }
+      ], shakes: [{ at: SG.prick1 }, { at: SG.land }] },
+      cast: ROOM(1),
+      cues: [
+        { at: SG.look, sound: "neonBuzz", pan: panAt(1120), opts: { ms: 300, small: true } },
+        { at: SG.hop1, sound: "bitHop", pan: panAt(620), opts: { step: 0 } },
+        { at: SG.hop2, sound: "bitHop", pan: panAt(640), opts: { step: 1 } },
+        { at: SG.prick1, sound: "bitPrick", pan: panAt(900) },
+        { at: SG.shake, sound: "bitShake", pan: panAt(650) },
+        { at: SG.scoot, sound: "bitScoot", pan: panAt(700) },
+        { at: SG.lean, sound: "bitCreak", pan: panAt(780), opts: { ms: 300, small: true } },
+        { at: SG.prick2, sound: "bitPrick", pan: panAt(900), opts: { big: true } },
+        { at: SG.backup, sound: "bitScoot", pan: panAt(560) },
+        { at: SG.backup + 240, sound: "bitScoot", pan: panAt(500) },
+        { at: SG.wind, sound: "bitRev", pan: panAt(460), opts: { ms: 300 } },
+        { at: SG.run, sound: "bitSneaker", pan: panAt(480), opts: { step: 0 } },
+        { at: SG.run + 140, sound: "bitSneaker", pan: panAt(560), opts: { step: 1 } },
+        { at: SG.run + 260, sound: "bitSneaker", pan: panAt(660), opts: { step: 0 } },
+        { at: SG.takeoff, sound: "bitLaunch", pan: panAt(720) },
+        { at: SG.land, sound: "bitThud", pan: panAt(940) },
+        { at: SG.close, sound: "neonBuzz", pan: panAt(1120), opts: { ms: 340 } }
+      ]
+    };
+    CS = { eye: 300, wind: 1150, spin: 1450, wobbleA: 3100, fallA: 4350, smug: 4700, slowB: 5550, bow: 6700, topple: 7400 };
+    coinspin = {
+      id: "coinspin",
+      name: "Coin spin",
+      shape: "idle",
+      style: "songless",
+      ms: 9e3,
+      beats: CS,
+      still: 8400,
+      summary: "bitSpinDown",
+      song: null,
+      letter: null,
+      camera: { zoom: 1.9, x: "mid", fit: true, moves: [
+        /* in a touch for the wind-up */
+        { at: CS.wind - 200, ms: 500, zoom: 2.02 },
+        /* over to the first as it dies */
+        { at: CS.wobbleA, ms: 900, zoom: 2.1, x: 880 },
+        /* to the other, spinning on */
+        { at: CS.fallA + 300, ms: 900, zoom: 2.1, x: 1060 },
+        /* in on it, stopped, before the bow */
+        { at: CS.slowB + 400, ms: 700, zoom: 2.25, x: 1090 },
+        /* back out on the two of them, flat */
+        { at: CS.topple + 200, ms: 700, zoom: 2, x: 960 }
+      ], shakes: [{ at: CS.fallA + 240 }, { at: CS.topple + 300 }] },
+      cast: ROOM(2),
+      cues: [
+        { at: CS.wind, sound: "bitRatchet", pan: 0 },
+        { at: CS.spin, sound: "bitRoll", pan: panAt(760), opts: { ms: CS.fallA - CS.spin } },
+        { at: CS.spin + 20, sound: "bitRoll", pan: panAt(1160), opts: { ms: CS.slowB - CS.spin + 600 } },
+        { at: CS.fallA - 300, sound: "bitTwirl", pan: panAt(760) },
+        { at: CS.fallA + 240, sound: "bitSpinDown", pan: panAt(760) },
+        { at: CS.smug + 160, sound: "bitHop", pan: panAt(1120), opts: { step: 0 } },
+        { at: CS.smug + 480, sound: "bitHop", pan: panAt(1100), opts: { step: 1 } },
+        { at: CS.slowB, sound: "bitTwirl", pan: panAt(1090) },
+        { at: CS.bow, sound: "bitCreak", pan: panAt(1090), opts: { ms: 300, small: true } },
+        { at: CS.topple + 300, sound: "bitSpinDown", pan: panAt(1090) }
+      ]
+    };
+    PL = { reach: 400, rub: 1300, lift: 4100, gleam: 4500, glint: 4650, sparkle: 4950, hop: 5500, back: 6150, flick: 6450, leave: 6800 };
+    polish = {
+      id: "polish",
+      name: "Polish",
+      shape: "idle",
+      style: "songless",
+      ms: 8400,
+      beats: PL,
+      still: 7800,
+      summary: "bitGleam",
+      song: null,
+      letter: null,
+      camera: { zoom: 1.8, x: 930, moves: [
+        /* closer while it buffs */
+        { at: PL.rub, ms: PL.lift - PL.rub, zoom: 1.96, x: 960 },
+        /* in on the chip as the cloth lifts */
+        { at: PL.lift, ms: 500, zoom: 2.14, x: 1e3 },
+        /* out a touch for the hand's return */
+        { at: PL.back - 200, ms: 500, zoom: 1.98, x: 980 },
+        /* settle on the gleaming chip */
+        { at: PL.leave + 200, ms: 900, zoom: 2.1, x: 1e3 }
+      ] },
+      cast: ROOM(1),
+      cues: [
+        { at: PL.reach, sound: "bitStreak", pan: panAt(400), opts: { from: -0.9, to: -0.1 } },
+        { at: PL.rub, sound: "bitSweep", pan: panAt(990), opts: { step: 0 } },
+        { at: PL.rub + 700, sound: "bitSweep", pan: panAt(990), opts: { step: 1 } },
+        { at: PL.rub + 1400, sound: "bitSweep", pan: panAt(990), opts: { step: 2 } },
+        { at: PL.rub + 2100, sound: "bitSweep", pan: panAt(990), opts: { step: 0 } },
+        { at: PL.lift + 60, sound: "bitRoll", pan: panAt(1e3), opts: { ms: 700 } },
+        { at: PL.gleam, sound: "bitGleam", pan: panAt(1e3) },
+        { at: PL.glint, sound: "bitShing", pan: panAt(1e3) },
+        { at: PL.sparkle, sound: "bitTwinkle", pan: panAt(1080) },
+        { at: PL.hop, sound: "bitHop", pan: panAt(1e3), opts: { step: 1 } },
+        { at: PL.back, sound: "bitStreak", pan: panAt(700), opts: { from: -0.7, to: -0.2 } },
+        { at: PL.flick, sound: "bitFwip", pan: panAt(1e3) },
+        { at: PL.leave, sound: "bitStreak", pan: panAt(600), opts: { from: -0.2, to: -0.9 } }
+      ]
+    };
+    LT = {
+      wander: 0,
+      look: 1450,
+      go1: 2100,
+      flip1: 3150,
+      back: 3350,
+      go2: 3700,
+      flip2: 4800,
+      puzzle: 5100,
+      hand: 6200,
+      point: 6750,
+      go3: 7250,
+      flip3: 8450
+    };
+    losttourist = {
+      id: "losttourist",
+      name: "Lost tourist",
+      shape: "idle",
+      style: "songless",
+      ms: 9600,
+      beats: LT,
+      still: 6950,
+      summary: "neonBuzz",
+      song: null,
+      letter: null,
+      camera: { zoom: 1.74, x: 960, moves: [
+        /* after it, off to the right */
+        { at: LT.go1, ms: 900, x: 1080 },
+        /* back with it */
+        { at: LT.go2 + 100, ms: 900, x: 930 },
+        /* in on it, lost */
+        { at: LT.puzzle - 100, ms: 700, zoom: 1.95, x: 900 },
+        /* out as it rolls away, then over to the sign for its last word */
+        { at: LT.go3, ms: 800, zoom: 1.8, x: 860 },
+        { at: LT.flip3 - 600, ms: 700, zoom: 1.95, x: 1e3 }
+      ] },
+      cast: ROOM(1),
+      cues: [
+        { at: LT.wander, sound: "bitRoll", pan: panAt(400), opts: { ms: 1300 } },
+        { at: LT.look, sound: "neonBuzz", pan: panAt(1060), opts: { ms: 260, small: true } },
+        { at: LT.go1, sound: "bitRoll", pan: panAt(1060), opts: { ms: 900 } },
+        { at: LT.flip1, sound: "bitClick", pan: panAt(1060) },
+        { at: LT.flip1 + 20, sound: "neonBuzz", pan: panAt(1060), opts: { ms: 240, up: true } },
+        { at: LT.go2, sound: "bitRoll", pan: panAt(1e3), opts: { ms: 950 } },
+        { at: LT.flip2, sound: "bitClick", pan: panAt(1060) },
+        { at: LT.flip2 + 20, sound: "neonBuzz", pan: panAt(1060), opts: { ms: 240, up: true } },
+        { at: LT.puzzle + 150, sound: "neonBuzz", pan: panAt(760), opts: { ms: 320, small: true } },
+        { at: LT.hand, sound: "bitStreak", pan: panAt(1300), opts: { from: 0.9, to: 0.2 } },
+        { at: LT.point + 160, sound: "bitPoke", pan: panAt(740) },
+        { at: LT.go3, sound: "bitRoll", pan: panAt(500), opts: { ms: 1e3 } },
+        { at: LT.flip3, sound: "bitClick", pan: panAt(1060) },
+        { at: LT.flip3 + 20, sound: "neonBuzz", pan: panAt(1060), opts: { ms: 240, up: true } }
+      ]
+    };
+    IDLE = [nap, edgepush, saguaro, coinspin, polish, losttourist];
+  }
+});
+
 // src/features/gags/bits/registry.js
-var BIT_SHAPES, SHAPES, BIT_STYLES, STYLES, MOMENT_MS, LETTER_LAND_MS, LETTER_PLACES, READ_MS, spanOf, freezeAll, freeze, QD, QD_PAIR_LAG, quickdraw, AN, anvil, RR, roadrunner, EW, EW_PAIR_LAG, explosionwalk, DL, dontlookback, QS, quicksand, ACTION_BITS, IDLE_MS, ROOM, NP, nap, AW, armwrestle, SG, saguaro, PU, pushups, SW, sweep, MP, map, IDLE, SPG, SPG_PAIR_LAG, springglove, TH, toohype, DY, dynamite, SLAPSTICK, BT, BT_PAIR_LAG, butte, SS, sunset, ST, statue, VU, vulture, DESERT2, TEAM_MIN, TEAM_MAX, TEAM, DM, dominoes, TW, tugofwar, SM, slowmowalk, PY, pyramid, TP, teamphoto, VL, victorylap, TEAM_BITS, BITS, BY_ID;
+var BIT_SHAPES, SHAPES, BIT_STYLES, STYLES, LETTER_LAND_MS, LETTER_PLACES, READ_MS, spanOf, freezeAll, freeze, BITS, BY_ID;
 var init_registry = __esm({
   "src/features/gags/bits/registry.js"() {
-    init_camera();
+    init_upset();
+    init_music();
+    init_show2();
+    init_loss();
+    init_team();
+    init_idle();
+    init_common();
     BIT_SHAPES = Object.freeze({
       versus: Object.freeze({ name: "Versus", triggers: Object.freeze(["An upset"]) }),
       win: Object.freeze({ name: "Win", triggers: Object.freeze(["3 straight wins", "A new leader"]) }),
@@ -47728,1004 +49822,15 @@ var init_registry = __esm({
       idle: Object.freeze({ name: "Idle", triggers: Object.freeze(["Between games"]) })
     });
     SHAPES = Object.freeze(Object.keys(BIT_SHAPES));
-    BIT_STYLES = Object.freeze({ action: "Action movie", slapstick: "Cartoon slapstick", desert: "Deadpan desert" });
+    BIT_STYLES = Object.freeze({ music: "Song on the action", punchline: "Song on the punchline", songless: "No song" });
     STYLES = Object.freeze(Object.keys(BIT_STYLES));
-    MOMENT_MS = Object.freeze({ min: 3e3, max: 5500 });
-    LETTER_LAND_MS = 480;
+    LETTER_LAND_MS = 700;
     LETTER_PLACES = Object.freeze(["top-left", "top-right", "top"]);
     READ_MS = 1800;
     spanOf = (bit) => bit.letter ? Math.max(bit.ms, Math.round(bit.letter.at + LETTER_LAND_MS + READ_MS)) : bit.ms;
     freezeAll = (value) => Array.isArray(value) ? Object.freeze(value.map(freezeAll)) : value && typeof value === "object" ? Object.freeze(Object.fromEntries(Object.entries(value).map(([k, v]) => [k, freezeAll(v)]))) : value;
     freeze = (bit) => freezeAll({ ...bit, fits: bit.fits || BIT_SHAPES[bit.shape].triggers, span: spanOf(bit) });
-    QD = {
-      tumble: 40,
-      twitch: 1360,
-      draw: 1580,
-      bang: 1660,
-      kick: 1700,
-      whip: 2040,
-      fall: 2700,
-      land: 3040,
-      blow: 3380,
-      spin: 3700,
-      fumble: 4080,
-      bonk: 4210,
-      drop: 4470,
-      look: 4600
-    };
-    QD_PAIR_LAG = 240;
-    quickdraw = {
-      id: "quickdraw",
-      name: "Quick draw",
-      shape: "versus",
-      style: "action",
-      ms: 5400,
-      beats: QD,
-      still: 5020,
-      summary: "bitCrack",
-      letter: { at: QD.land + 200, over: "a", place: "top-left" },
-      camera: { zoom: 1.5, x: "mid", fit: true, moves: [
-        /* lean in through the standoff */
-        { at: 300, ms: 1250, zoom: 1.6 },
-        /* punch in on the shot, and stay for its kick */
-        { at: QD.bang, ms: 90, zoom: 1.95, x: "a", ease: CAMERA_EASE.snap },
-        /* whip to B, who just stands there */
-        { at: QD.whip, ms: 170, zoom: 1.95, x: "b", ease: CAMERA_EASE.whip },
-        /* back out for the rest of it */
-        { at: QD.land + 60, ms: 480, zoom: 1.5, x: "mid" }
-      ], shakes: [{ at: QD.bang, big: true }, { at: QD.land }], washes: [QD.bang] },
-      cast: { a: { role: "winner", max: 4 }, b: { role: "beaten", max: 4 } },
-      cues: [
-        { at: 0, sound: "bitWind", pan: 0, opts: { ms: QD.twitch + 200 } },
-        { at: QD.tumble + 367, sound: "bitHop", pan: 0.3, opts: { step: 0 } },
-        { at: QD.tumble + 733, sound: "bitHop", pan: -0.28, opts: { step: 1 } },
-        { at: QD.draw, sound: "bitDraw", pan: -0.3 },
-        { at: QD.bang, sound: "bitCrack", pan: -0.25 },
-        { at: QD.kick, sound: "bitSkid", pan: -0.4 },
-        { at: QD.whip, sound: "bitStreak", pan: 0, opts: { from: -0.4, to: 0.4 } },
-        { at: QD.land, sound: "bitThud", pan: 0.3 },
-        { at: QD.blow, sound: "bitPuff", pan: -0.42 },
-        { at: QD.spin, sound: "bitTwirl", pan: -0.38 },
-        { at: QD.bonk, sound: "bitBonk", pan: -0.38 },
-        { at: QD.drop, sound: "bitClink", pan: -0.3 }
-      ],
-      /* a pair of winners: the second shot a beat after the first, its own
-         white frame, kick and fumble */
-      pairLag: QD_PAIR_LAG,
-      pairs: [{ sides: { a: 2 }, washes: [QD.bang + QD_PAIR_LAG], shakes: [{ at: QD.bang + QD_PAIR_LAG, big: true }], cues: [
-        { at: QD.bang + QD_PAIR_LAG, sound: "bitCrack", pan: -0.45 },
-        { at: QD.kick + QD_PAIR_LAG, sound: "bitSkid", pan: -0.6 },
-        { at: QD.bonk + QD_PAIR_LAG, sound: "bitBonk", pan: -0.55 },
-        { at: QD.drop + QD_PAIR_LAG, sound: "bitClink", pan: -0.5 }
-      ] }]
-    };
-    AN = {
-      admire: 200,
-      shadow: 420,
-      notice: 1640,
-      sweat: 1750,
-      drop: 1900,
-      hit: 2020,
-      rebound: 2080,
-      stars: 2130,
-      thud: 2350,
-      peel: 2780,
-      pop: 3100,
-      look: 3560,
-      limp: 4580
-    };
-    anvil = {
-      id: "anvil",
-      name: "Anvil",
-      shape: "loss",
-      style: "slapstick",
-      ms: 5450,
-      beats: AN,
-      still: 2720,
-      summary: "bitClang",
-      letter: { at: AN.stars + 60, over: "a", place: "top-right" },
-      /* world x: the chip stands at 820, its stack at 1180 (anvil.jsx) */
-      camera: { zoom: 1.8, x: 900, moves: [
-        /* ease in while the shadow grows */
-        { at: AN.shadow, ms: 1220, zoom: 1.92, x: 860 },
-        /* the clang */
-        { at: AN.hit, ms: 70, zoom: 2, x: 830, ease: CAMERA_EASE.snap },
-        /* back out for the pancake and its stars */
-        { at: AN.stars + 120, ms: 520, zoom: 1.8, x: 860 },
-        /* in on it, looking at the room */
-        { at: AN.look, ms: 520, zoom: 2.3, x: 815 },
-        /* out as it limps off */
-        { at: AN.limp, ms: 700, zoom: 1.8, x: 760 }
-      ], shakes: [{ at: AN.hit, big: true }, { at: AN.thud }] },
-      cast: { a: { role: "loser", max: 1 } },
-      cues: [
-        { at: AN.shadow, sound: "bitWhistle", pan: 0, opts: { ms: AN.notice - AN.shadow - 160 } },
-        { at: AN.hit, sound: "bitClang", pan: -0.1 },
-        { at: AN.thud, sound: "bitThud", pan: -0.4 },
-        { at: AN.stars, sound: "bitStars", pan: -0.1, opts: { ms: AN.peel - AN.stars - 80 } },
-        { at: AN.peel, sound: "bitPeel", pan: -0.1 },
-        { at: AN.pop, sound: "bitBoing", pan: -0.1 },
-        /* each limp lands at the end of its 240 ms hop (anvil.css an-limp-bob) */
-        ...[0, 1, 2].map((i) => ({ at: AN.limp + 240 * (i + 1), sound: "bitHop", pan: Math.round((-0.12 - i * 0.14) * 100) / 100, opts: { step: i } }))
-      ]
-    };
-    RR = { arrive: 1e3, skid: 1110, stop: 1410, beep: 1760, turn: 1800, leave: 2160, clear: 2900, notice: 3420, windup: 3640, zip: 4140 };
-    roadrunner = {
-      id: "roadrunner",
-      name: "Roadrunner",
-      shape: "loss",
-      style: "desert",
-      ms: 5e3,
-      beats: RR,
-      still: 3390,
-      summary: "bitBeep",
-      letter: { at: RR.clear, over: "a", place: "top-left" },
-      /* world x: the chip stands at 880, the bird stops at 1330 (roadrunner.jsx) */
-      camera: { zoom: 1.8, x: 1080, moves: [
-        /* the chip alone: the faintest drift in */
-        { at: 0, ms: RR.arrive - 80, zoom: 1.86, x: 1060 },
-        /* lean in on what is left */
-        { at: RR.clear - 120, ms: 720, zoom: 2.3, x: 910 },
-        /* a flinch after it as it goes, then the empty floor */
-        { at: RR.zip, ms: 240, zoom: 2.1, x: 740, ease: CAMERA_EASE.whip }
-      ], shakes: [{ at: RR.stop }] },
-      cast: { a: { role: "loser", max: 1 } },
-      cues: [
-        { at: 0, sound: "bitWind", pan: 0, opts: { ms: 4800 } },
-        { at: RR.arrive, sound: "bitStreak", pan: 0, opts: { from: 0.95, to: 0.5 } },
-        { at: RR.skid, sound: "bitSkid", pan: 0.45, opts: { ms: RR.stop - RR.skid } },
-        { at: RR.beep, sound: "bitBeep", pan: 0.34 },
-        { at: RR.leave, sound: "bitStreak", pan: 0, opts: { from: 0.35, to: -0.95 } },
-        { at: RR.notice, sound: "bitBoing", pan: 0, opts: { small: true } },
-        { at: RR.windup, sound: "bitRev", pan: 0.08, opts: { ms: RR.zip - RR.windup } },
-        { at: RR.zip, sound: "bitZip", pan: -0.2 }
-      ]
-    };
-    EW = { boom: 1200, ember: 1420, land: 2600, stop: 3e3, lower: 3260, look: 3440, up: 4040, glint: 4170 };
-    EW_PAIR_LAG = 160;
-    explosionwalk = {
-      id: "explosionwalk",
-      name: "Explosion walk",
-      shape: "win",
-      style: "action",
-      ms: 4800,
-      beats: EW,
-      still: 3800,
-      summary: "bitBoom",
-      letter: { at: EW.stop + 20, over: "a", place: "top-left" },
-      /* world x: the walkers centre on 960 and come toward us (explosionwalk.jsx) */
-      camera: { zoom: 1.45, x: "walk", moves: [
-        /* the slow motion leans in */
-        { at: EW.boom + 80, ms: EW.land - EW.boom - 80, zoom: 1.62 },
-        /* it arrives */
-        { at: EW.land, ms: EW.stop - EW.land + 120, zoom: 1.86, x: "lead" },
-        /* in on the look over the glasses */
-        { at: EW.lower - 40, ms: 460, zoom: 2.45, x: "lead" }
-      ], shakes: [{ at: EW.boom, big: true }, { at: EW.land }], washes: [EW.boom] },
-      cast: { a: { role: "winner", max: 4 } },
-      cues: [
-        { at: 400, sound: "bitStep", pan: -0.06, opts: { step: 0 } },
-        { at: 800, sound: "bitStep", pan: 0.06, opts: { step: 1 } },
-        { at: EW.boom, sound: "bitBoom", pan: 0.04, opts: { slow: true } },
-        { at: EW.land, sound: "bitSlam", pan: 0.3 },
-        { at: EW.land + 10, sound: "bitStep", pan: 0.06, opts: { step: 1 } },
-        { at: EW.stop, sound: "bitStep", pan: -0.06, opts: { step: 2 } },
-        { at: EW.lower + 30, sound: "bitShades", pan: 0.04 },
-        { at: EW.up, sound: "bitShades", pan: 0.04, opts: { up: true } },
-        { at: EW.glint, sound: "bitGlint", pan: 0.1 }
-      ],
-      /* a pair both look over their glasses, the second a beat after the first */
-      pairLag: EW_PAIR_LAG,
-      pairs: [{ sides: { a: 2 }, cues: [
-        { at: EW.lower + 30 + EW_PAIR_LAG, sound: "bitShades", pan: 0.2 },
-        { at: EW.up + EW_PAIR_LAG, sound: "bitShades", pan: 0.2, opts: { up: true } },
-        { at: EW.glint + EW_PAIR_LAG, sound: "bitGlint", pan: 0.25 }
-      ] }]
-    };
-    DL = { fuse: 340, top: 1340, boom: 1780, rain: 2280, bonk: 2760, hat: 3420 };
-    dontlookback = {
-      id: "dontlookback",
-      name: "Don't look back",
-      shape: "loss",
-      style: "action",
-      ms: 4600,
-      beats: DL,
-      still: 4040,
-      summary: "bitBoom",
-      letter: { at: DL.hat + 60, over: "a", place: "top-left" },
-      /* world x: the chip stands at 860, its stack behind it at 1050 (dontlookback.jsx) */
-      camera: { zoom: 1.8, x: 940, moves: [
-        /* lean in on the fuse */
-        { at: DL.fuse, ms: DL.top - DL.fuse, zoom: 1.9, x: 960 },
-        /* in on the face that does not move, while its chips come down */
-        { at: DL.boom + 420, ms: 1500, zoom: 2.12, x: 880 }
-      ], shakes: [{ at: DL.boom, big: true }, { at: DL.bonk }], washes: [DL.boom] },
-      cast: { a: { role: "loser", max: 1 } },
-      cues: [
-        { at: DL.fuse, sound: "bitFuse", pan: 0.22, opts: { ms: DL.top - DL.fuse } },
-        { at: DL.boom, sound: "bitBoom", pan: 0.2 },
-        /* the chips landing (dontlookback.jsx RAIN), the bonk, the hat */
-        ...[[0, -0.42], [150, 0.34], [250, -0.2], [380, 0.46], [560, -0.5], [700, 0.28]].map(([dt, pan], i) => ({ at: DL.rain + dt, sound: "bitChipDrop", pan, opts: { step: i } })),
-        { at: DL.bonk, sound: "bitBonk", pan: -0.08 },
-        { at: DL.hat, sound: "bitSpinDown", pan: -0.06 }
-      ]
-    };
-    QS = { sink: 520, notice: 1300, flail: 1700, reach: 2380, slip: 2860, under: 3160, thumb: 3330, gone: 3480, bubble: 4230 };
-    quicksand = {
-      id: "quicksand",
-      name: "Quicksand",
-      shape: "loss",
-      style: "action",
-      ms: 4800,
-      beats: QS,
-      still: 3780,
-      summary: "bitSink",
-      letter: { at: QS.under + 40, over: "a", place: "top-left" },
-      /* world x: the chip sinks at 860, the saguaro stands at 1340 (quicksand.jsx) */
-      camera: { zoom: 1.8, x: 1060, moves: [
-        /* it looks down: so do we */
-        { at: QS.notice, ms: 520, zoom: 1.9, x: 1010 },
-        /* the reach, and the gap */
-        { at: QS.reach - 60, ms: 360, zoom: 2.15, x: 1090 },
-        /* the last glove */
-        { at: QS.under - 80, ms: 700, zoom: 2.4, x: "glove" }
-      ], shakes: [] },
-      cast: { a: { role: "loser", max: 1 } },
-      cues: [
-        { at: 0, sound: "bitWind", pan: 0, opts: { ms: 1700 } },
-        { at: QS.sink, sound: "bitSink", pan: -0.1, opts: { ms: QS.notice - QS.sink } },
-        { at: QS.flail, sound: "bitFlail", pan: -0.1, opts: { ms: QS.reach - QS.flail } },
-        { at: QS.flail + 80, sound: "bitSink", pan: -0.1, opts: { ms: QS.under - QS.flail } },
-        { at: QS.reach, sound: "bitStrain", pan: 0.18, opts: { ms: QS.slip - QS.reach } },
-        { at: QS.under, sound: "bitSink", pan: -0.08, opts: { ms: 320, deep: true } },
-        { at: QS.thumb, sound: "bitSqueak", pan: 0.04 },
-        { at: QS.gone, sound: "bitSink", pan: 0.04, opts: { ms: QS.bubble - QS.gone - 80 } },
-        { at: QS.bubble, sound: "bitBubble", pan: 0.04 }
-      ]
-    };
-    ACTION_BITS = [explosionwalk, dontlookback, quicksand];
-    IDLE_MS = Object.freeze({ min: 6e3, max: 1e4 });
-    ROOM = (role) => ({ a: { role: "room", max: role } });
-    NP = {
-      mark1: 300,
-      enter: 1200,
-      circle: 2200,
-      mark2: 2300,
-      land: 3300,
-      twitch: 3900,
-      lift: 4300,
-      flee: 4960,
-      swat: 5e3,
-      perch: 6150,
-      sigh: 6500,
-      mark3: 6700
-    };
-    nap = {
-      id: "nap",
-      name: "Nap",
-      shape: "idle",
-      style: "desert",
-      ms: 8e3,
-      beats: NP,
-      still: 7e3,
-      summary: "bitSnore",
-      letter: null,
-      camera: { zoom: 2.06, x: 960, moves: [
-        /* the faintest drift in while it sleeps and the moth comes round */
-        { at: 0, ms: NP.land, zoom: 2.3, x: 962 },
-        /* a nudge in on the swat */
-        { at: NP.swat, ms: 70, zoom: 2.42, x: 966, ease: CAMERA_EASE.snap },
-        /* settle for the ending */
-        { at: NP.swat + 600, ms: 1400, zoom: 2.3, x: 964 }
-      ], shakes: [{ at: NP.swat }] },
-      cast: ROOM(1),
-      cues: [
-        { at: NP.mark1, sound: "bitSnore", pan: 0, opts: { small: true } },
-        { at: NP.enter, sound: "bitFlutter", pan: -0.3, opts: { ms: NP.land - NP.enter } },
-        { at: NP.mark2, sound: "bitSnore", pan: 0, opts: { small: true } },
-        { at: NP.flee, sound: "bitFlutter", pan: 0.05, opts: { ms: NP.perch - NP.flee } },
-        { at: NP.swat, sound: "bitSwat", pan: 0.05 },
-        { at: NP.sigh, sound: "bitSnore", pan: 0 }
-      ]
-    };
-    AW = { sweatA: 700, tiltA: 1e3, backA: 2200, tiltB: 3e3, backB: 4e3, sweatB: 4300, center: 4700, look: 5700, drip: 7600 };
-    armwrestle = {
-      id: "armwrestle",
-      name: "Arm wrestle",
-      shape: "idle",
-      style: "action",
-      ms: 9e3,
-      beats: AW,
-      still: 6900,
-      summary: "bitCreak",
-      letter: null,
-      camera: { zoom: 1.62, x: 960, moves: [
-        /* lean in through the struggle; then the camera holds still for the look */
-        { at: 300, ms: AW.center - 300, zoom: 1.84, x: 960 }
-      ] },
-      cast: ROOM(2),
-      cues: [
-        { at: AW.sweatA, sound: "bitDrip", pan: -0.3, opts: { small: true } },
-        { at: AW.tiltA, sound: "bitCreak", pan: -0.1, opts: { ms: 900 } },
-        { at: AW.backA, sound: "bitCreak", pan: 0, opts: { ms: 500, small: true } },
-        { at: AW.tiltB, sound: "bitCreak", pan: 0.1, opts: { ms: 800 } },
-        { at: AW.backB, sound: "bitCreak", pan: 0, opts: { ms: 500, small: true } },
-        { at: AW.sweatB, sound: "bitDrip", pan: 0.3, opts: { small: true } },
-        { at: AW.look - 300, sound: "bitWind", pan: 0, opts: { ms: 3500 } },
-        { at: AW.drip, sound: "bitDrip", pan: -0.25 }
-      ]
-    };
-    SG = {
-      look: 200,
-      reach1: 700,
-      prick1: 1e3,
-      reach2: 1900,
-      prick2: 2200,
-      exit: 2900,
-      enter: 3500,
-      set: 4200,
-      climb: 4500,
-      reach: 4800,
-      giveup: 5800,
-      lean: 6300,
-      prick3: 6700,
-      jump: 6760,
-      top: 7300,
-      face: 7950
-    };
-    saguaro = {
-      id: "saguaro",
-      name: "Saguaro",
-      shape: "idle",
-      style: "desert",
-      ms: 9400,
-      beats: SG,
-      still: 8500,
-      summary: "bitPrick",
-      letter: null,
-      /* world x: the chip at 730, the ladder at 990, the cactus at 1160 (saguaro.jsx) */
-      camera: { zoom: 1.66, x: 975, moves: [
-        /* in on the stepladder */
-        { at: SG.set - 200, ms: 900, zoom: 1.75, x: 1010 },
-        /* out with the leap, the whole of the saguaro */
-        { at: SG.jump, ms: 620, zoom: 1.18, x: 1080, ease: CAMERA_EASE.snap }
-      ], shakes: [{ at: SG.top }] },
-      cast: ROOM(1),
-      cues: [
-        { at: SG.prick1, sound: "bitPrick", pan: 0.05 },
-        { at: SG.prick1 + 120, sound: "bitShake", pan: -0.1 },
-        { at: SG.prick2, sound: "bitPrick", pan: 0.05 },
-        { at: SG.prick2 + 120, sound: "bitShake", pan: -0.12 },
-        { at: SG.set, sound: "bitLadder", pan: 0 },
-        { at: SG.climb + 200, sound: "bitHop", pan: 0, opts: { step: 0 } },
-        { at: SG.prick3, sound: "bitPrick", pan: 0.1, opts: { big: true } },
-        { at: SG.jump, sound: "bitBoing", pan: 0.1 },
-        { at: SG.jump + 160, sound: "bitLadder", pan: -0.05, opts: { small: true } },
-        { at: SG.top, sound: "bitHop", pan: 0.15, opts: { step: 1 } }
-      ]
-    };
-    PU = {
-      down1: 500,
-      up1: 850,
-      down2: 1350,
-      up2: 1800,
-      down3: 2550,
-      up3: 3050,
-      sweat: 3300,
-      down4: 4150,
-      strain: 4750,
-      collapse: 5150,
-      flat: 5300,
-      thumb: 6100
-    };
-    pushups = {
-      id: "pushups",
-      name: "Push-ups",
-      shape: "idle",
-      style: "slapstick",
-      ms: 7400,
-      beats: PU,
-      still: 6600,
-      summary: "bitFlop",
-      letter: null,
-      /* world x: the chip at 960, its gloves 168 either side (pushups.jsx) */
-      camera: { zoom: 1.9, x: 960, moves: [
-        /* closer as it gets hard */
-        { at: PU.down3, ms: PU.down4 - PU.down3, zoom: 2.1, x: 960 },
-        /* toward the glove, the chip still in the shot */
-        { at: PU.thumb - 200, ms: 800, zoom: 2.16, x: 1010 }
-      ], shakes: [{ at: PU.flat }] },
-      cast: ROOM(1),
-      cues: [
-        { at: PU.up1, sound: "bitHuff", pan: 0, opts: { step: 0 } },
-        { at: PU.up2, sound: "bitHuff", pan: 0, opts: { step: 1 } },
-        { at: PU.up3, sound: "bitHuff", pan: 0, opts: { step: 2 } },
-        { at: PU.sweat, sound: "bitDrip", pan: 0.12, opts: { small: true } },
-        { at: PU.strain, sound: "bitHuff", pan: 0, opts: { step: 3 } },
-        { at: PU.flat, sound: "bitFlop", pan: 0 },
-        { at: PU.thumb, sound: "bitSqueakSoft", pan: 0.12 }
-      ]
-    };
-    SW = {
-      stroke1: 200,
-      stroke2: 900,
-      stroke3: 1600,
-      stroke4: 2300,
-      pat: 2950,
-      admire: 3350,
-      weed: 3900,
-      gust: 4e3,
-      stare: 5e3,
-      again: 6450,
-      again2: 7150
-    };
-    sweep = {
-      id: "sweep",
-      name: "Sweep",
-      shape: "idle",
-      style: "desert",
-      ms: 8e3,
-      beats: SW,
-      still: 5800,
-      summary: "bitSweep",
-      letter: null,
-      camera: { zoom: 1.78, x: 1e3, moves: [
-        /* in on the pile as it gets tidy */
-        { at: SW.stroke2, ms: SW.admire - SW.stroke2, zoom: 1.94, x: 1010 },
-        /* hold on the stare, a touch closer */
-        { at: SW.stare, ms: 1200, zoom: 2.04, x: 980 }
-      ] },
-      cast: ROOM(1),
-      cues: [
-        ...[SW.stroke1, SW.stroke2, SW.stroke3, SW.stroke4].map((at, i) => ({ at, sound: "bitSweep", pan: 0.1, opts: { step: i } })),
-        { at: SW.pat, sound: "bitHop", pan: 0.2, opts: { step: 0 } },
-        { at: SW.pat + 180, sound: "bitHop", pan: 0.2, opts: { step: 1 } },
-        { at: SW.gust - 250, sound: "bitGust", pan: 0, opts: { ms: 1300 } },
-        { at: SW.weed + 420, sound: "bitHop", pan: 0.3, opts: { step: 0 } },
-        { at: SW.weed + 820, sound: "bitHop", pan: -0.1, opts: { step: 1 } },
-        { at: SW.again, sound: "bitSweep", pan: 0.1, opts: { step: 4 } },
-        { at: SW.again2, sound: "bitSweep", pan: 0.1, opts: { step: 5 } }
-      ]
-    };
-    MP = {
-      unfold1: 300,
-      unfold2: 650,
-      unfold3: 1e3,
-      study: 1400,
-      turn1: 2e3,
-      turn2: 3e3,
-      runner: 3550,
-      crumple: 4400,
-      toss: 5e3,
-      rock: 5420,
-      bonk: 5940,
-      drop: 6300
-    };
-    map = {
-      id: "map",
-      name: "Map",
-      shape: "idle",
-      style: "desert",
-      ms: 8e3,
-      beats: MP,
-      still: 6060,
-      summary: "bitPaper",
-      letter: null,
-      camera: { zoom: 1.8, x: 980, moves: [
-        /* in on the map */
-        { at: MP.unfold1, ms: 1300, zoom: 1.92, x: 960 },
-        /* out a little for the throw and the rock */
-        { at: MP.toss - 200, ms: 500, zoom: 1.7, x: 1060 }
-      ], shakes: [{ at: MP.bonk }] },
-      cast: ROOM(1),
-      cues: [
-        { at: MP.unfold1, sound: "bitPaper", pan: 0, opts: { ms: 900 } },
-        { at: MP.turn1, sound: "bitPaper", pan: 0, opts: { ms: 350, small: true } },
-        { at: MP.turn2, sound: "bitPaper", pan: 0, opts: { ms: 350, small: true } },
-        { at: MP.runner, sound: "bitStreak", pan: 0, opts: { from: 0.8, to: -0.8 } },
-        { at: MP.runner + 260, sound: "bitBeepFar", pan: -0.7 },
-        { at: MP.crumple, sound: "bitCrumple", pan: 0 },
-        { at: MP.rock, sound: "bitPap", pan: 0.5 },
-        { at: MP.bonk, sound: "bitBonk", pan: 0 },
-        { at: MP.drop, sound: "bitPap", pan: 0.05, opts: { small: true } }
-      ]
-    };
-    IDLE = [nap, armwrestle, saguaro, pushups, sweep, map];
-    SPG = {
-      hop: 0,
-      turn: 800,
-      raise: 1320,
-      press: 1540,
-      fire: 1570,
-      hit: 1650,
-      fly: 1710,
-      twinkle: 2450,
-      retract: 3e3,
-      home: 3130,
-      boop: 3240,
-      look: 3760,
-      thumb: 4080
-    };
-    SPG_PAIR_LAG = 240;
-    springglove = {
-      id: "springglove",
-      name: "Spring glove",
-      shape: "versus",
-      style: "slapstick",
-      ms: 4850,
-      beats: SPG,
-      still: 4420,
-      summary: "bitPow",
-      letter: { at: SPG.look + 120, over: "a", place: "top-left" },
-      camera: { zoom: 1.5, x: "mid", fit: true, moves: [
-        /* lean in on the bounce and the standoff */
-        { at: 200, ms: 1200, zoom: 1.56 },
-        /* after the punch, drift to the empty spot and the sky over it */
-        { at: SPG.fly + 160, ms: 620, zoom: 1.45, x: "sky" },
-        /* whip back with the spring to A */
-        { at: SPG.retract - 30, ms: 200, zoom: 1.95, x: "a", ease: CAMERA_EASE.whip },
-        /* in on A for the thumbs up */
-        { at: SPG.look, ms: 1e3, zoom: 2.06 }
-      ], shakes: [{ at: SPG.hit, big: true }, { at: SPG.home }] },
-      cast: { a: { role: "winner", max: 4 }, b: { role: "beaten", max: 4 } },
-      cues: [
-        ...[0, 1, 2].map((i) => ({ at: SPG.hop + 260 * i + 218, sound: "bitHop", pan: 0.42, opts: { step: i } })),
-        { at: SPG.press, sound: "bitClick", pan: -0.22 },
-        { at: SPG.fire, sound: "bitSproing", pan: 0.05 },
-        { at: SPG.hit, sound: "bitPow", pan: 0.38 },
-        { at: SPG.fly, sound: "bitStreak", pan: 0.45, opts: { from: 0.4, to: 0.95 } },
-        { at: SPG.twinkle, sound: "bitTwinkle", pan: 0.62 },
-        { at: SPG.retract, sound: "bitZip", pan: 0.25 },
-        { at: SPG.boop, sound: "bitBonk", pan: -0.36 },
-        { at: SPG.boop + 60, sound: "bitBoing", pan: -0.36, opts: { small: true } }
-      ],
-      /* a pair of winners is a pincer, one launcher at each end: the whole
-         stage held wide on the middle. Against a pair, the second glove
-         punches the second favorite a beat after the first (against one,
-         both land at once) */
-      pairLag: SPG_PAIR_LAG,
-      pairs: [
-        { sides: { a: 2 }, camera: { zoom: 1.5, x: "mid", fit: true, moves: [
-          { at: 200, ms: 1200, zoom: 1.56 },
-          { at: SPG.hit, ms: 70, zoom: 1.62, ease: CAMERA_EASE.snap },
-          /* back out for the boops and both thumbs, at either end */
-          { at: SPG.fly + 160, ms: 620, zoom: 1.5 }
-        ], shakes: [{ at: SPG.hit, big: true }, { at: SPG.home }] } },
-        { sides: { a: 2, b: 2 }, shakes: [{ at: SPG.hit + SPG_PAIR_LAG, big: true }], cues: [
-          { at: SPG.fire + SPG_PAIR_LAG, sound: "bitSproing", pan: 0.4 },
-          { at: SPG.hit + SPG_PAIR_LAG, sound: "bitPow", pan: 0.3 },
-          { at: SPG.fly + SPG_PAIR_LAG, sound: "bitStreak", pan: 0.2, opts: { from: 0.3, to: -0.5 } },
-          { at: SPG.boop + SPG_PAIR_LAG, sound: "bitBonk", pan: 0.7 }
-        ] }
-      ]
-    };
-    TH = { hop1: 0, hop2: 270, hop3: 630, wind: 1110, launch: 1330, fall: 2200, crash: 2400, pop: 2940, turn: 3280, walk: 3400, arrive: 4e3 };
-    toohype = {
-      id: "toohype",
-      name: "Too hype",
-      shape: "win",
-      style: "slapstick",
-      ms: 4500,
-      beats: TH,
-      still: 4100,
-      summary: "bitPlant",
-      letter: { at: TH.pop, over: "a", place: "top-left" },
-      camera: { zoom: 1.8, x: "mid", fit: true, moves: [
-        /* lean in with the bounces */
-        { at: 200, ms: 1e3, zoom: 1.86 },
-        /* the shoes, alone: creep in on them */
-        { at: TH.launch + 260, ms: 640, zoom: 1.98, x: "beat" },
-        /* back out for the shoes' walk */
-        { at: TH.crash + 260, ms: 700, zoom: 1.84, x: "mid" }
-      ], shakes: [{ at: TH.crash, big: true }] },
-      cast: { a: { role: "winner", max: 2 } },
-      cues: [
-        { at: TH.hop1 + 70, sound: "bitBounce", pan: -0.12, opts: { step: 0 } },
-        { at: TH.hop2 + 60, sound: "bitBounce", pan: -0.12, opts: { step: 1 } },
-        { at: TH.hop3 + 60, sound: "bitBounce", pan: -0.12, opts: { step: 2 } },
-        { at: TH.launch, sound: "bitLaunch", pan: -0.12 },
-        { at: TH.fall - 60, sound: "bitFall", pan: 0.24, opts: { ms: 260 } },
-        { at: TH.crash, sound: "bitPlant", pan: 0.24 },
-        { at: TH.crash + 60, sound: "bitBoing", pan: 0.24 },
-        { at: TH.pop, sound: "bitPop", pan: 0.4 },
-        { at: TH.turn, sound: "bitSneaker", pan: -0.12, opts: { step: 1 } },
-        ...[0, 1, 2, 3, 4, 5].map((j) => ({ at: TH.walk + 100 * (j + 1), sound: "bitSneaker", pan: Math.round((-0.1 + j * 0.04) * 100) / 100, opts: { step: j } }))
-      ]
-    };
-    DY = {
-      strike: 300,
-      light: 650,
-      lit: 680,
-      out: 900,
-      admire: 1100,
-      realize: 1800,
-      look: 2050,
-      boom: 2850,
-      clear: 3500,
-      cough: 3780,
-      drop: 4080,
-      land: 4260
-    };
-    dynamite = {
-      id: "dynamite",
-      name: "Dynamite",
-      shape: "loss",
-      style: "slapstick",
-      ms: 4800,
-      beats: DY,
-      still: 4400,
-      summary: "bitBlast",
-      letter: { at: DY.clear, over: "a", place: "top-right" },
-      /* world x: the chip stands at 820, the table at 1080 (dynamite.jsx) */
-      camera: { zoom: 1.8, x: "mid", moves: [
-        /* in a little as it leans in to admire it */
-        { at: DY.admire, ms: 800, zoom: 1.92, x: 930 },
-        /* in on its face as it turns to the room */
-        { at: DY.look, ms: 520, zoom: 2.25, x: "chip" },
-        /* the blast throws the shot back */
-        { at: DY.boom, ms: 90, zoom: 1.72, x: "mid", ease: CAMERA_EASE.snap },
-        /* and it creeps back in on what is left */
-        { at: DY.clear - 200, ms: 1100, zoom: 1.95, x: 880 }
-      ], shakes: [{ at: DY.boom, big: true }], washes: [DY.boom] },
-      cast: { a: { role: "loser", max: 1 } },
-      cues: [
-        { at: DY.strike, sound: "bitMatch", pan: 0 },
-        { at: DY.lit, sound: "bitFuseHiss", pan: 0.2, opts: { ms: DY.boom - DY.lit } },
-        { at: DY.boom, sound: "bitBlast", pan: 0.1 },
-        { at: DY.cough, sound: "bitCough", pan: -0.12 },
-        { at: DY.land, sound: "bitGloveFlop", pan: -0.3 }
-      ]
-    };
-    SLAPSTICK = [springglove, toohype, dynamite];
-    BT = {
-      look: 140,
-      walk: 420,
-      raise: 980,
-      poke: 1160,
-      crack: 1780,
-      crumble: 2040,
-      down: 2490,
-      face: 2890,
-      drop: 3570,
-      peek: 3700,
-      puff: 4520,
-      dust: 4720
-    };
-    BT_PAIR_LAG = 160;
-    butte = {
-      id: "butte",
-      name: "Butte",
-      shape: "versus",
-      style: "desert",
-      ms: 5300,
-      beats: BT,
-      still: 3320,
-      summary: "bitCrumble",
-      letter: { at: BT.crumble + 260, over: "a", place: "top-left" },
-      /* world x: the cliff's edge at 960, the pillar a gap past it (butte.jsx) */
-      camera: { zoom: 1.38, x: "mid", fit: true, moves: [
-        /* in on the finger */
-        { at: BT.raise - 140, ms: 420, zoom: 1.84, x: "poke" },
-        /* out as the crack runs up */
-        { at: BT.crack, ms: 220, zoom: 1.38, x: "mid", ease: CAMERA_EASE.snap },
-        /* creep in on B, standing on nothing */
-        { at: BT.down - 220, ms: 1e3, zoom: 1.46, x: "b" },
-        /* over to A for the dust-off */
-        { at: BT.drop + 380, ms: 620, zoom: 1.5, x: "a" }
-      ], shakes: [{ at: BT.crumble }] },
-      cast: { a: { role: "winner", max: 4 }, b: { role: "beaten", max: 4 } },
-      cues: [
-        { at: 0, sound: "bitWind", pan: 0, opts: { ms: 1500 } },
-        ...[0, 1, 2].map((i) => ({ at: BT.walk + 140 * (i + 1) - 10, sound: "bitHop", pan: Math.round((-0.3 + i * 0.05) * 100) / 100, opts: { step: i } })),
-        { at: BT.poke + 70, sound: "bitPoke", pan: 0.12 },
-        { at: BT.crack, sound: "bitCrackle", pan: 0.2, opts: { ms: 200 } },
-        { at: BT.crumble, sound: "bitCrumble", pan: 0.25 },
-        { at: BT.drop + 50, sound: "bitFallAway", pan: 0.25, opts: { ms: BT.puff - BT.drop - 400 } },
-        { at: BT.puff, sound: "bitFarThud", pan: 0.25 },
-        { at: BT.dust, sound: "bitPat", pan: -0.12, opts: { step: 0 } },
-        { at: BT.dust + 170, sound: "bitPat", pan: -0.12, opts: { step: 1 } }
-      ],
-      /* a pair of winners pokes the stem from both lips, the second a beat
-         after the first, and dusts off on the far side */
-      pairLag: BT_PAIR_LAG,
-      pairs: [{ sides: { a: 2 }, cues: [
-        { at: BT.poke + 70 + BT_PAIR_LAG, sound: "bitPoke", pan: 0.3 },
-        { at: BT.dust + BT_PAIR_LAG, sound: "bitPat", pan: 0.4, opts: { step: 0 } },
-        { at: BT.dust + 170 + BT_PAIR_LAG, sound: "bitPat", pan: 0.4, opts: { step: 1 } }
-      ] }]
-    };
-    SS = { sink: 200, set: 1480, lower: 1660, settle: 2760, glint: 2980, weed: 3140, yank: 3860 };
-    sunset = {
-      id: "sunset",
-      name: "Sunset",
-      shape: "win",
-      style: "desert",
-      ms: 5e3,
-      beats: SS,
-      still: 3090,
-      summary: "bitGleam",
-      letter: { at: SS.set + 60, over: "a", place: "top-left" },
-      /* world x: the butte under the winner at 960 (sunset.jsx) */
-      camera: { zoom: 1.5, x: "chip", moves: [
-        /* a slow push in through the sunset and the shades coming down */
-        { at: 0, ms: SS.settle, zoom: 1.66, x: "chip" }
-      ] },
-      cast: { a: { role: "winner", max: 4 } },
-      cues: [
-        { at: 0, sound: "bitWind", pan: 0, opts: { ms: 1700 } },
-        ...[0, 1, 2, 3, 4, 5].map((i) => ({ at: SS.sink + 80 + i * 150, sound: "bitRelamp", pan: 0, opts: { step: i } })),
-        { at: SS.lower, sound: "bitRatchet", pan: 0, opts: { ms: SS.settle - SS.lower } },
-        { at: SS.glint, sound: "bitGleam", pan: -0.05 },
-        { at: SS.weed, sound: "bitWind", pan: -0.2, opts: { ms: 800 } },
-        { at: SS.weed + 250, sound: "bitHop", pan: -0.3, opts: { step: 0 } },
-        { at: SS.weed + 500, sound: "bitHop", pan: 0.25, opts: { step: 1 } },
-        { at: SS.yank, sound: "bitYank", pan: 0 }
-      ]
-    };
-    ST = { crouch: 260, pose: 480, sheen: 900, rise: 1440, thump: 2040, wren: 2420, land: 2800, peck: 3060, fluff: 3380, droop: 3700 };
-    statue = {
-      id: "statue",
-      name: "Statue",
-      shape: "win",
-      style: "desert",
-      ms: 5200,
-      beats: ST,
-      still: 4720,
-      summary: "bitTink",
-      letter: { at: ST.thump + 80, over: "a", place: "top-left" },
-      /* world x: the winner at 900 (statue.jsx) */
-      camera: { zoom: 1.76, x: "chip", fit: true, moves: [
-        /* back out as the plinth lifts it */
-        { at: ST.rise, ms: 620, zoom: 1.42, x: "chip" },
-        /* in on the bird and the finger */
-        { at: ST.wren + 200, ms: 1400, zoom: 1.6, x: "top" }
-      ], shakes: [{ at: ST.thump }] },
-      cast: { a: { role: "winner", max: 4 } },
-      cues: [
-        { at: ST.pose, sound: "bitStreak", pan: 0, opts: { from: -0.1, to: 0.1 } },
-        { at: ST.sheen, sound: "bitSheen", pan: 0 },
-        { at: ST.rise, sound: "bitGrind", pan: 0, opts: { ms: ST.thump - ST.rise } },
-        { at: ST.thump, sound: "bitThud", pan: 0 },
-        { at: ST.wren, sound: "bitFlap", pan: -0.4, opts: { small: true, step: 0 } },
-        { at: ST.wren + 150, sound: "bitFlap", pan: -0.25, opts: { small: true, step: 1 } },
-        { at: ST.land - 100, sound: "bitFlap", pan: -0.1, opts: { small: true, step: 2 } },
-        { at: ST.peck, sound: "bitTink", pan: -0.02 },
-        { at: ST.fluff, sound: "bitFluff", pan: -0.02 },
-        { at: ST.droop, sound: "bitDroop", pan: 0.1, opts: { ms: 900 } }
-      ]
-    };
-    VU = {
-      glide: 420,
-      land: 1080,
-      fold: 1260,
-      stare: 1560,
-      scoot: 2180,
-      follow: 2420,
-      scoot2: 2700,
-      follow2: 2840,
-      napkin: 3160,
-      cutlery: 3520,
-      look: 3960
-    };
-    vulture = {
-      id: "vulture",
-      name: "Vulture",
-      shape: "loss",
-      style: "desert",
-      ms: 5300,
-      beats: VU,
-      still: 4700,
-      summary: "bitShing",
-      letter: { at: VU.land + 160, over: "a", place: "top-left" },
-      /* world x: the chip at 820, the vulture lands at 1170 (vulture.jsx) */
-      camera: { zoom: 1.8, x: 1e3, moves: [
-        /* in a little on the two of them */
-        { at: VU.stare - 200, ms: 600, zoom: 1.9, x: 975 },
-        /* after them as they scoot */
-        { at: VU.scoot, ms: 820, zoom: 1.9, x: 900 },
-        /* in on the chip, the knife and fork at its shoulder */
-        { at: VU.look - 120, ms: 560, zoom: 2.2, x: 840 }
-      ], shakes: [{ at: VU.land }] },
-      cast: { a: { role: "loser", max: 1 } },
-      cues: [
-        { at: 0, sound: "bitWind", pan: 0, opts: { ms: 1200 } },
-        ...[0, 1, 2].map((i) => ({ at: VU.glide + 120 + i * 180, sound: "bitFlap", pan: 0.5 - i * 0.08, opts: { step: i } })),
-        { at: VU.land, sound: "bitThud", pan: 0.3 },
-        { at: VU.fold, sound: "bitFlap", pan: 0.3, opts: { step: 3 } },
-        { at: VU.scoot, sound: "bitScoot", pan: -0.15, opts: { step: 0 } },
-        { at: VU.follow, sound: "bitScoot", pan: 0.2, opts: { step: 1 } },
-        { at: VU.scoot2, sound: "bitScoot", pan: -0.22, opts: { step: 2 } },
-        { at: VU.follow2, sound: "bitScoot", pan: 0.12, opts: { step: 3 } },
-        { at: VU.napkin, sound: "bitFwip", pan: 0.12 },
-        { at: VU.cutlery, sound: "bitShing", pan: 0.08 }
-      ]
-    };
-    DESERT2 = [butte, sunset, statue, vulture];
-    TEAM_MIN = 3;
-    TEAM_MAX = 7;
-    TEAM = (role) => ({ role, min: TEAM_MIN, max: TEAM_MAX });
-    DM = { walk: 300, stop: 1150, raise: 1350, tap: 1600, chain: 1640, last: 2440, wobble: 2480, drop: 3820, flat: 4e3, nod: 4440 };
-    dominoes = {
-      id: "dominoes",
-      name: "Dominoes",
-      shape: "versus",
-      style: "slapstick",
-      ms: 5200,
-      beats: DM,
-      still: 4820,
-      summary: "bitClatter",
-      letter: { at: DM.flat + 100, over: "a", place: "top-left" },
-      /* fitted: the whole line and the watchers; every zoom below scales
-         with that fit, so a 7 v 6 and a 3 v 3 get the same shots */
-      camera: { zoom: 1.5, x: "mid", fit: true, moves: [
-        /* in on the tapper and the first favorite for the tap */
-        { at: DM.raise - 250, ms: 450, zoom: 2.4, x: "tap" },
-        /* along the line with the chain, ending on the last */
-        { at: DM.chain + 40, ms: DM.last - DM.chain + 120, zoom: 2.2, x: "last", ease: CAMERA_EASE.move },
-        /* closer while it teeters */
-        { at: DM.wobble + 260, ms: 1e3, zoom: 2.6, x: "last" },
-        /* out for the underdogs' nod */
-        { at: DM.flat + 60, ms: 380, zoom: 1.5, x: "mid" }
-      ], shakes: [{ at: DM.flat }] },
-      cast: { a: TEAM("winner"), b: TEAM("beaten") },
-      cues: [
-        ...[0, 1, 2].map((i) => ({ at: DM.walk + 280 * i + 200, sound: "bitHop", pan: Math.round((0.4 - i * 0.06) * 100) / 100, opts: { step: i } })),
-        { at: DM.tap, sound: "bitPoke", pan: 0.2 },
-        { at: DM.chain, sound: "bitClatter", pan: 0, opts: { ms: DM.last - DM.chain, dir: -1 } },
-        { at: DM.wobble, sound: "bitCreak", pan: -0.45, opts: { ms: DM.drop - DM.wobble } },
-        { at: DM.flat, sound: "bitThud", pan: -0.45 }
-      ]
-    };
-    TW = { lean: 200, strain: 800, set: 1800, yank: 2100, fly: 2140, land: 2640, ouch: 3240, hop: 4150, sting: 4650 };
-    tugofwar = {
-      id: "tugofwar",
-      name: "Tug of war",
-      shape: "versus",
-      style: "slapstick",
-      ms: 5300,
-      beats: TW,
-      still: 4900,
-      summary: "bitPrick",
-      letter: { at: TW.land + 160, over: "a", place: "top-left" },
-      camera: { zoom: 1.5, x: "mid", fit: true, moves: [
-        /* onto the underdogs as they wind up */
-        { at: TW.set, ms: 280, zoom: 1.75, x: "a" },
-        /* out for the yank */
-        { at: TW.yank, ms: 110, zoom: 1.5, x: "mid", ease: CAMERA_EASE.snap },
-        /* whip to the patch, landing with them */
-        { at: TW.fly + 150, ms: 350, zoom: 2.5, x: "patch", ease: CAMERA_EASE.whip },
-        /* in on the chorus */
-        { at: TW.ouch - 300, ms: 900, zoom: 2.75 }
-      ], shakes: [{ at: TW.land, big: true }, { at: TW.sting }] },
-      cast: { a: TEAM("winner"), b: TEAM("beaten") },
-      cues: [
-        { at: TW.lean, sound: "bitCreak", pan: 0.1, opts: { ms: 700, small: true } },
-        { at: TW.strain, sound: "bitStrain", pan: -0.35, opts: { ms: TW.set - TW.strain } },
-        { at: TW.yank, sound: "bitYank", pan: -0.35 },
-        { at: TW.yank + 20, sound: "bitZip", pan: 0.3 },
-        { at: TW.fly, sound: "bitStreak", pan: 0.2, opts: { from: 0.5, to: 0 } },
-        { at: TW.land, sound: "bitThud", pan: 0 },
-        /* the chorus runs 640 ms, left to right, whatever the side's size */
-        ...[0, 1, 2, 3].map((k) => ({ at: TW.ouch + Math.round(k * 640 / 3), sound: "bitPrick", pan: Math.round((-0.24 + k * 0.16) * 100) / 100 })),
-        { at: TW.hop, sound: "bitBoing", pan: 0, opts: { small: true } },
-        { at: TW.sting, sound: "bitPrick", pan: 0, opts: { big: true } }
-      ]
-    };
-    SM = { boom: 700, last: 1900, stop: 2900, late: 3500, glint: 4150 };
-    slowmowalk = {
-      id: "slowmowalk",
-      name: "Slow-mo walk",
-      shape: "versus",
-      style: "action",
-      ms: 5e3,
-      beats: SM,
-      still: 4300,
-      summary: "bitBoom",
-      letter: { at: SM.late + 60, over: "a", place: "top-left" },
-      camera: { zoom: 1.4, x: "mid", fit: true, moves: [
-        /* the slow walk leans in */
-        { at: 0, ms: SM.stop, zoom: 1.47 },
-        /* the last one goes: a punch in on the faces that do not turn */
-        { at: SM.late, ms: 80, zoom: 1.58, ease: CAMERA_EASE.snap },
-        { at: SM.late + 520, ms: 560, zoom: 1.47 }
-      ], shakes: [{ at: SM.boom, big: true }, { at: SM.late, big: true }], washes: [SM.boom, SM.late] },
-      cast: { a: TEAM("winner"), b: TEAM("beaten") },
-      cues: [
-        ...[1, 2, 3, 4].map((k) => ({ at: Math.round(SM.stop * k / 4), sound: "bitStep", pan: 0, opts: { step: k } })),
-        { at: SM.boom, sound: "bitBoom", pan: -0.3, opts: { slow: true } },
-        { at: SM.boom, sound: "bitBoomChain", pan: 0, opts: { ms: SM.last - SM.boom } },
-        { at: SM.last + 300, sound: "bitFuse", pan: 0, opts: { ms: SM.late - SM.last - 300 } },
-        { at: SM.late, sound: "bitBoom", pan: 0, opts: { slow: true } },
-        { at: SM.glint, sound: "bitGlint", pan: 0 }
-      ]
-    };
-    PY = { build: 100, hop0: 760, hop1: 1140, hop2: 1520, top: 1900, wobble: 2200, hold: 3500, thumb: 3900 };
-    pyramid = {
-      id: "pyramid",
-      name: "Pyramid",
-      shape: "win",
-      style: "slapstick",
-      ms: 5e3,
-      beats: PY,
-      still: 4500,
-      summary: "bitBoing",
-      letter: { at: PY.top + 100, over: "a", place: "top-left" },
-      /* the chips are sized (pyramid.jsx PY_STAGE) so the tallest pyramid's
-         top stays under the lettering at the wobble's zoom */
-      camera: { zoom: 1.3, x: "mid", fit: true, moves: [
-        { at: PY.wobble, ms: 900, zoom: 1.45, x: "top" }
-      ], shakes: [{ at: PY.top }] },
-      cast: { a: TEAM("winner") },
-      cues: [
-        { at: PY.build + 300, sound: "bitStrain", pan: 0, opts: { ms: 320 } },
-        { at: PY.hop0, sound: "bitHop", pan: -0.2, opts: { step: 0 } },
-        { at: PY.hop1, sound: "bitHop", pan: 0.2, opts: { step: 1 } },
-        { at: PY.hop2, sound: "bitHop", pan: -0.1, opts: { step: 2 } },
-        { at: PY.top, sound: "bitHop", pan: 0, opts: { step: 3 } },
-        { at: PY.wobble, sound: "bitCreak", pan: 0, opts: { ms: PY.hold - PY.wobble } },
-        { at: PY.thumb, sound: "bitSqueak", pan: 0.2 }
-      ]
-    };
-    TP = { press: 500, timer: 560, run: 640, home: 1180, pose: 1320, flash: 3060, tip: 3660, crash: 4460 };
-    teamphoto = {
-      id: "teamphoto",
-      name: "Team photo",
-      shape: "win",
-      style: "desert",
-      ms: 5300,
-      beats: TP,
-      still: 4920,
-      summary: "bitShutter",
-      letter: { at: TP.flash + 120, over: "a", place: "top-left" },
-      camera: { zoom: 1.4, x: "mid", fit: true, moves: [
-        /* in on the team and the lamp through the count */
-        { at: TP.timer, ms: TP.flash - TP.timer, zoom: 1.6, x: "shot" },
-        /* back out as the tripod goes */
-        { at: TP.tip - 250, ms: 600, zoom: 1.4, x: "mid" }
-      ], shakes: [{ at: TP.crash }], washes: [TP.flash] },
-      cast: { a: TEAM("winner") },
-      cues: [
-        { at: TP.press, sound: "bitClick", pan: 0.6 },
-        { at: TP.timer, sound: "bitTimer", pan: 0.55, opts: { ms: TP.flash - TP.timer } },
-        ...[0, 1, 2].map((i) => ({ at: TP.run + 180 * i + 80, sound: "bitSneaker", pan: Math.round((0.6 - i * 0.08) * 100) / 100, opts: { step: i } })),
-        { at: TP.pose, sound: "bitSqueak", pan: 0 },
-        { at: TP.flash, sound: "bitShutter", pan: 0.55 },
-        { at: TP.tip, sound: "bitCreak", pan: 0.6, opts: { ms: TP.crash - TP.tip } },
-        { at: TP.crash, sound: "bitThud", pan: 0.7 },
-        { at: TP.crash + 40, sound: "bitClink", pan: 0.7 }
-      ]
-    };
-    VL = { bend: 1100, arrive: 2800, plant: 2950, droop: 3600, look: 4050 };
-    victorylap = {
-      id: "victorylap",
-      name: "Victory lap",
-      shape: "win",
-      style: "action",
-      ms: 4800,
-      beats: VL,
-      still: 4400,
-      summary: "bitFlagFlap",
-      letter: { at: VL.plant + 120, over: "a", place: "top-left" },
-      camera: { zoom: 1.4, x: "mid", fit: true, moves: [
-        /* down the straight, the shot leans in */
-        { at: VL.bend, ms: VL.arrive - VL.bend, zoom: 1.5 },
-        /* the pole goes in */
-        { at: VL.plant, ms: 80, zoom: 1.58, ease: CAMERA_EASE.snap },
-        { at: VL.plant + 200, ms: 400, zoom: 1.5 },
-        /* in on the lead and its flag as the wind drops */
-        { at: VL.droop - 100, ms: 900, zoom: 1.72, x: "flag" }
-      ], shakes: [{ at: VL.plant }] },
-      cast: { a: TEAM("winner") },
-      cues: [
-        { at: 0, sound: "bitFlagFlap", pan: 0, opts: { ms: VL.droop } },
-        ...[3, 4, 5].map((k) => ({ at: Math.round(VL.arrive * k / 5), sound: "bitStep", pan: 0, opts: { step: k } })),
-        { at: VL.plant, sound: "bitPlant", pan: 0.1 },
-        { at: VL.droop, sound: "bitFlagSag", pan: 0.1 },
-        { at: VL.look, sound: "bitSqueakSoft", pan: 0 }
-      ]
-    };
-    TEAM_BITS = [dominoes, tugofwar, slowmowalk, pyramid, teamphoto, victorylap];
-    BITS = Object.freeze([quickdraw, anvil, roadrunner, ...ACTION_BITS, ...IDLE, ...SLAPSTICK, ...DESERT2, ...TEAM_BITS].map(freeze));
+    BITS = Object.freeze([...UPSET, ...MUSIC, ...SHOW, ...LOSS, ...TEAM, ...IDLE].map(freeze));
     BY_ID = new Map(BITS.map((bit) => [bit.id, bit]));
   }
 });
@@ -48770,17 +49875,12 @@ var init_walkoutTeam = __esm({
   }
 });
 
-// src/features/moments/walkout.js
-import { useEffect as useEffect32, useRef as useRef29, useState as useState32 } from "react";
+// src/features/moments/walkoutModel.js
 var WALKOUT_TIMING;
-var init_walkout = __esm({
-  "src/features/moments/walkout.js"() {
+var init_walkoutModel = __esm({
+  "src/features/moments/walkoutModel.js"() {
     init_audio();
-    init_motion();
-    init_serverClock();
-    init_tvMotion();
     init_tvModel();
-    init_walkoutTeam();
     init_walkoutTeam();
     WALKOUT_TIMING = Object.freeze({
       flood: 0,
@@ -48803,6 +49903,15 @@ var init_walkout = __esm({
   }
 });
 
+// shared/bitMusic.js
+var SONG_STYLES, CALIBRATION_IDLE;
+var init_bitMusic = __esm({
+  "shared/bitMusic.js"() {
+    SONG_STYLES = Object.freeze(["music", "punchline", "songless"]);
+    CALIBRATION_IDLE = Object.freeze({ step: "idle", clicks: [], speaker: [], round: 0, heard: null, latency: null, error: null });
+  }
+});
+
 // src/features/gags/gagModel.js
 var GAG_TRIGGERS, TRIGGER_SHAPE, STREAK_MIN, UPSET_FACT, RESULT_GAG_AT_MS, RESULT_GAG_END_MS, fmt8, streakFact, lossFact, TEST_FACT;
 var init_gagModel = __esm({
@@ -48814,7 +49923,9 @@ var init_gagModel = __esm({
     init_playerIdentity();
     init_seasonStats();
     init_weekendFacts();
-    init_walkout();
+    init_walkoutModel();
+    init_audio();
+    init_bitMusic();
     init_tvModel();
     GAG_TRIGGERS = Object.freeze(["upset", "streak", "leader", "bigloss", "last"]);
     TRIGGER_SHAPE = Object.freeze({ upset: "versus", streak: "win", leader: "win", bigloss: "loss", last: "loss" });
@@ -48829,8 +49940,22 @@ var init_gagModel = __esm({
   }
 });
 
+// src/features/moments/walkout.js
+import { useEffect as useEffect33, useRef as useRef30, useState as useState32 } from "react";
+var init_walkout = __esm({
+  "src/features/moments/walkout.js"() {
+    init_motion();
+    init_serverClock();
+    init_tvMotion();
+    init_walkoutModel();
+    init_walkoutTeam();
+    init_walkoutTeam();
+    init_walkoutModel();
+  }
+});
+
 // src/features/tv/faceOff.js
-import { useEffect as useEffect33, useRef as useRef30, useState as useState33 } from "react";
+import { useEffect as useEffect34, useRef as useRef31, useState as useState33 } from "react";
 var FACEOFF_TIMING;
 var init_faceOff = __esm({
   "src/features/tv/faceOff.js"() {
@@ -48913,6 +50038,7 @@ var init_trophy = __esm({
     init_core();
     init_teamNames();
     init_programModel();
+    init_textUnits();
     SESSION_LABEL = Object.fromEntries(SESSIONS.map((session) => [session.id, session.label]));
     ENGRAVE = Object.freeze({ lead: 900, stagger: 700, sweep: 1100, cut: 520, settle: 600 });
     CUP_TV = Object.freeze({
@@ -48950,7 +50076,7 @@ var init_trophy2 = __esm({
 });
 
 // src/features/weekend/Trophy.jsx
-import React56, { useEffect as useEffect37, useId as useId6, useLayoutEffect as useLayoutEffect13, useState as useState41 } from "react";
+import React57, { useEffect as useEffect38, useId as useId7, useLayoutEffect as useLayoutEffect13, useState as useState41 } from "react";
 var BOWL_BOX, ENGRAVE_MS;
 var init_Trophy = __esm({
   "src/features/weekend/Trophy.jsx"() {
@@ -48960,6 +50086,7 @@ var init_Trophy = __esm({
     init_GameMark();
     init_motion();
     init_programModel();
+    init_textUnits();
     init_trophy();
     init_trophy2();
     BOWL_BOX = Object.freeze({ w: 600, h: 330 });
@@ -49047,6 +50174,7 @@ var init_prepareMoment = __esm({
 // shared/guestSetup.js
 var init_guestSetup = __esm({
   "shared/guestSetup.js"() {
+    init_freeText();
   }
 });
 
@@ -49057,14 +50185,14 @@ var init_travel = __esm({
 });
 
 // src/features/travel/Travel.jsx
-import React62, { useState as useState47 } from "react";
+import React63, { useRef as useRef42, useState as useState47 } from "react";
 function TravelMap() {
   const arc = (c2) => {
     const mx = (c2.x + TRAVEL_DEST.x) / 2;
     const lift = 9 + Math.abs(c2.x - TRAVEL_DEST.x) * 0.3;
     return `M${c2.x} ${c2.y} Q${mx} ${Math.min(c2.y, TRAVEL_DEST.y) - lift} ${TRAVEL_DEST.x} ${TRAVEL_DEST.y}`;
   };
-  return /* @__PURE__ */ React62.createElement(
+  return /* @__PURE__ */ React63.createElement(
     "svg",
     {
       viewBox: "-5 -3 110 104",
@@ -49074,8 +50202,8 @@ function TravelMap() {
       "aria-hidden": "true",
       style: { display: "block", overflow: "hidden", maxWidth: "100%", maxHeight: "100%" }
     },
-    /* @__PURE__ */ React62.createElement("g", { style: { animation: "si-fade .8s ease-out both" } }, US_DOTS.map(([x, y], i) => /* @__PURE__ */ React62.createElement("circle", { key: i, cx: x, cy: y, r: "0.62", fill: "var(--muted)", opacity: "0.45" }))),
-    TRAVEL_CITIES.map((c2, i) => /* @__PURE__ */ React62.createElement(
+    /* @__PURE__ */ React63.createElement("g", { style: { animation: "si-fade .8s ease-out both" } }, US_DOTS.map(([x, y], i) => /* @__PURE__ */ React63.createElement("circle", { key: i, cx: x, cy: y, r: "0.62", fill: "var(--muted)", opacity: "0.45" }))),
+    TRAVEL_CITIES.map((c2, i) => /* @__PURE__ */ React63.createElement(
       "path",
       {
         key: "r" + c2.n,
@@ -49089,7 +50217,7 @@ function TravelMap() {
         style: { "--len": 140, animation: `si-route 1.1s ease-out ${0.3 + i * 0.18}s both` }
       }
     )),
-    TRAVEL_CITIES.map((c2, i) => /* @__PURE__ */ React62.createElement(
+    TRAVEL_CITIES.map((c2, i) => /* @__PURE__ */ React63.createElement(
       "circle",
       {
         className: "fd-travel-motion",
@@ -49100,10 +50228,10 @@ function TravelMap() {
         strokeWidth: "0.5",
         opacity: "0"
       },
-      /* @__PURE__ */ React62.createElement("set", { attributeName: "opacity", to: "1", begin: `${1.2 + i * 0.18}s` }),
-      /* @__PURE__ */ React62.createElement("animateMotion", { dur: "3.6s", begin: `${1.2 + i * 0.18}s`, repeatCount: "indefinite", path: arc(c2) })
+      /* @__PURE__ */ React63.createElement("set", { attributeName: "opacity", to: "1", begin: `${1.2 + i * 0.18}s` }),
+      /* @__PURE__ */ React63.createElement("animateMotion", { dur: "3.6s", begin: `${1.2 + i * 0.18}s`, repeatCount: "indefinite", path: arc(c2) })
     )),
-    TRAVEL_CITIES.map((c2, i) => /* @__PURE__ */ React62.createElement("g", { key: c2.n, style: { animation: `si-in .4s ease-out ${i * 0.18}s both` } }, /* @__PURE__ */ React62.createElement("circle", { cx: c2.x, cy: c2.y, r: "1.9", fill: "var(--paper)", stroke: "var(--bone)", strokeWidth: "0.9" }), /* @__PURE__ */ React62.createElement(
+    TRAVEL_CITIES.map((c2, i) => /* @__PURE__ */ React63.createElement("g", { key: c2.n, style: { animation: `si-in .4s ease-out ${i * 0.18}s both` } }, /* @__PURE__ */ React63.createElement("circle", { cx: c2.x, cy: c2.y, r: "1.9", fill: "var(--paper)", stroke: "var(--bone)", strokeWidth: "0.9" }), /* @__PURE__ */ React63.createElement(
       "text",
       {
         x: c2.x + c2.dx,
@@ -49117,7 +50245,7 @@ function TravelMap() {
       },
       c2.n.toUpperCase()
     ))),
-    /* @__PURE__ */ React62.createElement(
+    /* @__PURE__ */ React63.createElement(
       "circle",
       {
         cx: TRAVEL_DEST.x,
@@ -49129,8 +50257,8 @@ function TravelMap() {
         style: { animation: "si-land 2.2s ease-in-out infinite" }
       }
     ),
-    /* @__PURE__ */ React62.createElement("circle", { cx: TRAVEL_DEST.x, cy: TRAVEL_DEST.y, r: "2.8", fill: "var(--sun)", stroke: "var(--ink0)", strokeWidth: "0.8" }),
-    /* @__PURE__ */ React62.createElement(
+    /* @__PURE__ */ React63.createElement("circle", { cx: TRAVEL_DEST.x, cy: TRAVEL_DEST.y, r: "2.8", fill: "var(--sun)", stroke: "var(--ink0)", strokeWidth: "0.8" }),
+    /* @__PURE__ */ React63.createElement(
       "text",
       {
         x: TRAVEL_DEST.x,
@@ -49147,7 +50275,7 @@ function TravelMap() {
   );
 }
 function HouseArt() {
-  return /* @__PURE__ */ React62.createElement("div", { style: { position: "relative", aspectRatio: "16 / 9", background: "var(--paper2)", overflow: "hidden" } }, /* @__PURE__ */ React62.createElement(
+  return /* @__PURE__ */ React63.createElement("div", { style: { position: "relative", aspectRatio: "16 / 9", background: "var(--paper2)", overflow: "hidden" } }, /* @__PURE__ */ React63.createElement(
     "img",
     {
       src: "/airbnb-compound-field-day.webp",
@@ -49167,12 +50295,12 @@ function HouseArt() {
   ));
 }
 function InfoCell({ lb, v, first }) {
-  return /* @__PURE__ */ React62.createElement("div", { style: {
+  return /* @__PURE__ */ React63.createElement("div", { style: {
     flex: 1,
     minWidth: 0,
     padding: "11px 14px",
     borderLeft: first ? "none" : "1px solid var(--line)"
-  } }, /* @__PURE__ */ React62.createElement("div", { style: { ...label, marginBottom: 4 } }, lb), /* @__PURE__ */ React62.createElement("div", { style: {
+  } }, /* @__PURE__ */ React63.createElement("div", { style: { ...label, marginBottom: 4 } }, lb), /* @__PURE__ */ React63.createElement("div", { style: {
     fontFamily: SANS,
     fontWeight: 700,
     fontSize: 14,
@@ -49187,20 +50315,20 @@ function VenueCard({ lg, compact = false }) {
     inL && ["Lands", inL.note || legTime(inL.time) && `Fri ${legTime(inL.time)}`],
     outL && ["Leaves", outL.note || legTime(outL.time) && `Sun ${legTime(outL.time)}`]
   ].filter((x) => x && x[1]);
-  return /* @__PURE__ */ React62.createElement("div", null, /* @__PURE__ */ React62.createElement("div", { style: CARD }, !compact && /* @__PURE__ */ React62.createElement(HouseArt, null), /* @__PURE__ */ React62.createElement("div", { style: { padding: "12px 14px", borderTop: compact ? void 0 : "1px solid var(--line)" } }, /* @__PURE__ */ React62.createElement("div", { style: { ...label, marginBottom: 5 } }, "The house"), lg.venue && /* @__PURE__ */ React62.createElement("div", { style: {
+  return /* @__PURE__ */ React63.createElement("div", null, /* @__PURE__ */ React63.createElement("div", { style: CARD }, !compact && /* @__PURE__ */ React63.createElement(HouseArt, null), /* @__PURE__ */ React63.createElement("div", { style: { padding: "12px 14px", borderTop: compact ? void 0 : "1px solid var(--line)" } }, /* @__PURE__ */ React63.createElement("div", { style: { ...label, marginBottom: 5 } }, "The house"), lg.venue && /* @__PURE__ */ React63.createElement("div", { style: {
     fontFamily: SANS,
     fontWeight: 600,
     fontSize: 15.5,
     lineHeight: 1.45,
     userSelect: "text",
     color: "var(--ink)"
-  } }, lg.venue), lg.venueNote && /* @__PURE__ */ React62.createElement("div", { style: {
+  } }, lg.venue), lg.venueNote && /* @__PURE__ */ React63.createElement("div", { style: {
     fontFamily: SANS,
     fontSize: 13,
     color: "var(--muted2)",
     marginTop: 5,
     lineHeight: 1.5
-  } }, lg.venueNote), mapUrl && /* @__PURE__ */ React62.createElement(
+  } }, lg.venueNote), mapUrl && /* @__PURE__ */ React63.createElement(
     "a",
     {
       href: mapUrl,
@@ -49220,8 +50348,8 @@ function VenueCard({ lg, compact = false }) {
       }
     },
     "Open in Maps",
-    /* @__PURE__ */ React62.createElement(Icon, { name: "open", size: 16 })
-  )), (lg.checkIn || lg.checkOut) && /* @__PURE__ */ React62.createElement("div", { style: { display: "flex", borderTop: "1px solid var(--line)" } }, /* @__PURE__ */ React62.createElement(InfoCell, { lb: "Check in", v: lg.checkIn || "TBD", first: true }), /* @__PURE__ */ React62.createElement(InfoCell, { lb: "Checkout", v: lg.checkOut || "TBD" }))), (lg.airport || hostLegs.length > 0) && /* @__PURE__ */ React62.createElement("div", { style: CARD }, lg.airport && /* @__PURE__ */ React62.createElement("div", { style: { display: "flex", alignItems: "center", gap: 14, padding: "12px 14px" } }, /* @__PURE__ */ React62.createElement("span", { style: { display: "flex", flexShrink: 0, color: "var(--accent2)" } }, /* @__PURE__ */ React62.createElement(Icon, { name: "plane", size: 20, lit: true })), /* @__PURE__ */ React62.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React62.createElement("div", { style: { ...label, marginBottom: 3 } }, "Fly into"), /* @__PURE__ */ React62.createElement("div", { style: { fontFamily: SANS, fontSize: 13, color: "var(--muted2)" } }, lg.airportName)), /* @__PURE__ */ React62.createElement("div", { style: {
+    /* @__PURE__ */ React63.createElement(Icon, { name: "open", size: 16 })
+  )), (lg.checkIn || lg.checkOut) && /* @__PURE__ */ React63.createElement("div", { style: { display: "flex", borderTop: "1px solid var(--line)" } }, /* @__PURE__ */ React63.createElement(InfoCell, { lb: "Check in", v: lg.checkIn || "TBD", first: true }), /* @__PURE__ */ React63.createElement(InfoCell, { lb: "Checkout", v: lg.checkOut || "TBD" }))), (lg.airport || hostLegs.length > 0) && /* @__PURE__ */ React63.createElement("div", { style: CARD }, lg.airport && /* @__PURE__ */ React63.createElement("div", { style: { display: "flex", alignItems: "center", gap: 14, padding: "12px 14px" } }, /* @__PURE__ */ React63.createElement("span", { style: { display: "flex", flexShrink: 0, color: "var(--accent2)" } }, /* @__PURE__ */ React63.createElement(Icon, { name: "plane", size: 20, lit: true })), /* @__PURE__ */ React63.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React63.createElement("div", { style: { ...label, marginBottom: 3 } }, "Fly into"), /* @__PURE__ */ React63.createElement("div", { style: { fontFamily: SANS, fontSize: 13, color: "var(--muted2)" } }, lg.airportName)), /* @__PURE__ */ React63.createElement("div", { style: {
     fontFamily: DISPLAY,
     fontWeight: 700,
     fontSize: 30,
@@ -49230,11 +50358,12 @@ function VenueCard({ lg, compact = false }) {
     lineHeight: 1
   } }, lg.airport)), hostLegs.length > 0 && /* the flight codes matter to nobody but Brandon; the times are how
      people work out who they are sharing a ride with */
-  /* @__PURE__ */ React62.createElement("div", { style: { borderTop: lg.airport ? "1px solid var(--line)" : "none" } }, /* @__PURE__ */ React62.createElement("div", { style: { ...label, padding: "10px 14px 0" } }, "My flights"), /* @__PURE__ */ React62.createElement("div", { style: { display: "flex" } }, hostLegs.map(([lb, v], i) => /* @__PURE__ */ React62.createElement(InfoCell, { key: lb, lb, v, first: i === 0 }))))));
+  /* @__PURE__ */ React63.createElement("div", { style: { borderTop: lg.airport ? "1px solid var(--line)" : "none" } }, /* @__PURE__ */ React63.createElement("div", { style: { ...label, padding: "10px 14px 0" } }, "My flights"), /* @__PURE__ */ React63.createElement("div", { style: { display: "flex" } }, hostLegs.map(([lb, v], i) => /* @__PURE__ */ React63.createElement(InfoCell, { key: lb, lb, v, first: i === 0 }))))));
 }
 function FlightEntry({ leg: raw, dir, setLeg }) {
   const leg = raw || {};
   const set = (patch) => setLeg({ ...leg, ...patch });
+  const numField = useRef42(null);
   const box2 = {
     background: "var(--paper)",
     border: "1.5px solid var(--line)",
@@ -49257,28 +50386,40 @@ function FlightEntry({ leg: raw, dir, setLeg }) {
     color: "var(--ink)"
   };
   const cap = { ...label, marginTop: 5, color: "var(--muted)" };
-  return /* @__PURE__ */ React62.createElement("div", { className: "fd-flight-entry-wrap" }, /* @__PURE__ */ React62.createElement("div", { className: "fd-flight-entry" }, /* @__PURE__ */ React62.createElement("div", { style: { minWidth: 0 } }, /* @__PURE__ */ React62.createElement("div", { style: box2 }, /* @__PURE__ */ React62.createElement(
+  return /* @__PURE__ */ React63.createElement("div", { className: "fd-flight-entry-wrap" }, /* @__PURE__ */ React63.createElement("div", { className: "fd-flight-entry" }, /* @__PURE__ */ React63.createElement("div", { style: { minWidth: 0 } }, /* @__PURE__ */ React63.createElement("div", { style: box2 }, /* @__PURE__ */ React63.createElement(
     "input",
     {
       value: leg.air || "",
       list: "fd-airlines",
       placeholder: "UA",
       autoCapitalize: "characters",
+      autoComplete: "off",
+      autoCorrect: "off",
+      spellCheck: false,
+      enterKeyHint: "next",
       "aria-label": "Airline",
+      onKeyDown: (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          numField.current?.focus();
+        }
+      },
       onChange: (e) => set({ air: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 3) }),
       style: { ...bare, fontFamily: SANS, fontWeight: 700, fontSize: 16, letterSpacing: "0.1em" }
     }
-  )), /* @__PURE__ */ React62.createElement("div", { style: cap }, "Airline")), /* @__PURE__ */ React62.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React62.createElement("div", { style: box2 }, /* @__PURE__ */ React62.createElement(
+  )), /* @__PURE__ */ React63.createElement("div", { style: cap }, "Airline")), /* @__PURE__ */ React63.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React63.createElement("div", { style: box2 }, /* @__PURE__ */ React63.createElement(
     "input",
     {
+      ref: numField,
       value: leg.num || "",
       inputMode: "numeric",
+      autoComplete: "off",
       placeholder: "1885",
       "aria-label": "Flight number",
       onChange: (e) => set({ num: e.target.value.replace(/\D/g, "").slice(0, 4) }),
       style: { ...bare, fontFamily: SANS, fontWeight: 700, fontSize: 16 }
     }
-  )), /* @__PURE__ */ React62.createElement("div", { style: cap }, "Flight no.")), /* @__PURE__ */ React62.createElement("div", { className: "fd-flight-time", style: { minWidth: 0 } }, /* @__PURE__ */ React62.createElement("div", { style: box2 }, /* @__PURE__ */ React62.createElement(
+  )), /* @__PURE__ */ React63.createElement("div", { style: cap }, "Flight no.")), /* @__PURE__ */ React63.createElement("div", { className: "fd-flight-time", style: { minWidth: 0 } }, /* @__PURE__ */ React63.createElement("div", { style: box2 }, /* @__PURE__ */ React63.createElement(
     "input",
     {
       type: "time",
@@ -49293,19 +50434,19 @@ function FlightEntry({ leg: raw, dir, setLeg }) {
         color: leg.time ? "var(--ink)" : "var(--muted)"
       }
     }
-  )), /* @__PURE__ */ React62.createElement("div", { style: cap }, dir === "out" ? "Takes off" : "Lands"))));
+  )), /* @__PURE__ */ React63.createElement("div", { style: cap }, dir === "out" ? "Takes off" : "Lands"))));
 }
 function FlightPass({ leg: raw, dir, small, edit, setLeg, person = null, codeless = false }) {
-  if (edit) return /* @__PURE__ */ React62.createElement(FlightEntry, { leg: raw, dir, setLeg });
+  if (edit) return /* @__PURE__ */ React63.createElement(FlightEntry, { leg: raw, dir, setLeg });
   const leg = cleanLeg(raw);
   if (!leg) return null;
-  if (leg.note) return /* @__PURE__ */ React62.createElement("div", { className: "fd-flight-pass is-note" }, person, /* @__PURE__ */ React62.createElement("span", { className: "fd-flight-pass-note" }, leg.note));
+  if (leg.note) return /* @__PURE__ */ React63.createElement("div", { className: "fd-flight-pass is-note" }, person, /* @__PURE__ */ React63.createElement("span", { className: "fd-flight-pass-note" }, leg.note));
   const t = legTime(leg.time);
-  return /* @__PURE__ */ React62.createElement("div", { className: `fd-flight-pass${small ? " is-small" : ""}` }, /* @__PURE__ */ React62.createElement("span", { className: "fd-flight-pass-who" }, person || /* @__PURE__ */ React62.createElement(Icon, { name: "plane", size: small ? 16 : 18, lit: true })), !codeless && /* @__PURE__ */ React62.createElement("span", { className: "fd-flight-pass-code" }, leg.air && /* @__PURE__ */ React62.createElement("small", null, leg.air), leg.num && /* @__PURE__ */ React62.createElement("b", null, leg.num)), /* @__PURE__ */ React62.createElement("span", { className: "fd-flight-pass-when" }, t && /* @__PURE__ */ React62.createElement("b", null, t), /* @__PURE__ */ React62.createElement("small", null, dir === "out" ? "Leaves Sun" : "Lands Fri")));
+  return /* @__PURE__ */ React63.createElement("div", { className: `fd-flight-pass${small ? " is-small" : ""}` }, /* @__PURE__ */ React63.createElement("span", { className: "fd-flight-pass-who" }, person || /* @__PURE__ */ React63.createElement(Icon, { name: "plane", size: small ? 16 : 18, lit: true })), !codeless && /* @__PURE__ */ React63.createElement("span", { className: "fd-flight-pass-code" }, leg.air && /* @__PURE__ */ React63.createElement("small", null, leg.air), leg.num && /* @__PURE__ */ React63.createElement("b", null, leg.num)), /* @__PURE__ */ React63.createElement("span", { className: "fd-flight-pass-when" }, t && /* @__PURE__ */ React63.createElement("b", null, t), /* @__PURE__ */ React63.createElement("small", null, dir === "out" ? "Leaves Sun" : "Lands Fri")));
 }
 function LegField({ lb, dir, leg, setLeg }) {
   const filled = leg && (leg.air || leg.num || leg.time);
-  return /* @__PURE__ */ React62.createElement("div", { style: { marginBottom: 12 } }, /* @__PURE__ */ React62.createElement("div", { style: { display: "flex", alignItems: "baseline", gap: 8, marginBottom: 6 } }, /* @__PURE__ */ React62.createElement("span", { style: label }, lb), filled && /* @__PURE__ */ React62.createElement("button", { onClick: () => setLeg(null), style: {
+  return /* @__PURE__ */ React63.createElement("div", { style: { marginBottom: 12 } }, /* @__PURE__ */ React63.createElement("div", { style: { display: "flex", alignItems: "baseline", gap: 8, marginBottom: 6 } }, /* @__PURE__ */ React63.createElement("span", { style: label }, lb), filled && /* @__PURE__ */ React63.createElement("button", { onClick: () => setLeg(null), style: {
     marginLeft: "auto",
     background: "none",
     border: "none",
@@ -49319,13 +50460,13 @@ function LegField({ lb, dir, leg, setLeg }) {
     letterSpacing: "0.1em",
     textTransform: "uppercase",
     color: "var(--muted)"
-  } }, "Clear")), /* @__PURE__ */ React62.createElement(FlightPass, { leg, dir, edit: true, setLeg }));
+  } }, "Clear")), /* @__PURE__ */ React63.createElement(FlightPass, { leg, dir, edit: true, setLeg }));
 }
 function TravelLists() {
-  return /* @__PURE__ */ React62.createElement("datalist", { id: "fd-airlines" }, AIRLINES.map((a2) => /* @__PURE__ */ React62.createElement("option", { key: a2, value: a2 })));
+  return /* @__PURE__ */ React63.createElement("datalist", { id: "fd-airlines" }, AIRLINES.map((a2) => /* @__PURE__ */ React63.createElement("option", { key: a2, value: a2 })));
 }
 function SizeRow({ lb, value, onPick, allowClear }) {
-  return /* @__PURE__ */ React62.createElement("div", { style: { marginBottom: 12 } }, /* @__PURE__ */ React62.createElement("div", { style: { ...label, marginBottom: 6 } }, lb), /* @__PURE__ */ React62.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 5 } }, SIZES.map((sz) => /* @__PURE__ */ React62.createElement(
+  return /* @__PURE__ */ React63.createElement("div", { style: { marginBottom: 12 } }, /* @__PURE__ */ React63.createElement("div", { style: { ...label, marginBottom: 6 } }, lb), /* @__PURE__ */ React63.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 5 } }, SIZES.map((sz) => /* @__PURE__ */ React63.createElement(
     "button",
     {
       key: sz,
@@ -49341,8 +50482,8 @@ function SizeRow({ lb, value, onPick, allowClear }) {
         borderRadius: 10,
         cursor: "pointer",
         background: value === sz ? `var(--selection-fill, ${GOLD_GRAD})` : "var(--paper2)",
-        color: value === sz ? "var(--ink0)" : "var(--ink)",
-        border: value === sz ? "1.5px solid var(--ink0)" : "1.5px solid var(--line)"
+        color: value === sz ? "var(--selection-ink, var(--ink0))" : "var(--ink)",
+        border: value === sz ? "1.5px solid var(--selection-line, var(--ink0))" : "1.5px solid var(--line)"
       }
     },
     sz
@@ -49358,16 +50499,16 @@ function TravelFields({ booked, setBooked, flightIn, setFlightIn, flightOut, set
     borderRadius: 10,
     cursor: "pointer",
     background: on ? `var(--selection-fill, ${GOLD_GRAD})` : "var(--paper2)",
-    color: on ? "var(--ink0)" : "var(--ink)",
-    border: on ? "1.5px solid var(--ink0)" : "1.5px solid var(--line)"
+    color: on ? "var(--selection-ink, var(--ink0))" : "var(--ink)",
+    border: on ? "1.5px solid var(--selection-line, var(--ink0))" : "1.5px solid var(--line)"
   });
-  return /* @__PURE__ */ React62.createElement("div", null, /* @__PURE__ */ React62.createElement(TravelLists, null), /* @__PURE__ */ React62.createElement("div", { style: {
+  return /* @__PURE__ */ React63.createElement("div", null, /* @__PURE__ */ React63.createElement(TravelLists, null), /* @__PURE__ */ React63.createElement("div", { style: {
     fontFamily: SANS,
     fontWeight: 600,
     fontSize: 15,
     color: "var(--ink)",
     marginBottom: 8
-  } }, "Booked your flights?"), /* @__PURE__ */ React62.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 14 } }, /* @__PURE__ */ React62.createElement("button", { onClick: () => setBooked(true), "aria-pressed": booked === true, style: opt(booked === true) }, "Yes"), /* @__PURE__ */ React62.createElement(
+  } }, "Booked your flights?"), /* @__PURE__ */ React63.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 14 } }, /* @__PURE__ */ React63.createElement("button", { onClick: () => setBooked(true), "aria-pressed": booked === true, style: opt(booked === true) }, "Yes"), /* @__PURE__ */ React63.createElement(
     "button",
     {
       onClick: () => {
@@ -49379,7 +50520,7 @@ function TravelFields({ booked, setBooked, flightIn, setFlightIn, flightOut, set
       style: opt(booked === false)
     },
     "Not yet"
-  )), booked === true && /* @__PURE__ */ React62.createElement(React62.Fragment, null, /* @__PURE__ */ React62.createElement(LegField, { lb: "Landing Friday", dir: "in", leg: flightIn, setLeg: setFlightIn }), /* @__PURE__ */ React62.createElement(LegField, { lb: "Leaving Sunday", dir: "out", leg: flightOut, setLeg: setFlightOut })), booked === false && /* @__PURE__ */ React62.createElement("div", { style: {
+  )), booked === true && /* @__PURE__ */ React63.createElement(React63.Fragment, null, /* @__PURE__ */ React63.createElement(LegField, { lb: "Landing Friday", dir: "in", leg: flightIn, setLeg: setFlightIn }), /* @__PURE__ */ React63.createElement(LegField, { lb: "Leaving Sunday", dir: "out", leg: flightOut, setLeg: setFlightOut })), booked === false && /* @__PURE__ */ React63.createElement("div", { style: {
     fontFamily: SANS,
     fontSize: 13.5,
     color: "var(--muted2)",
@@ -49485,19 +50626,19 @@ var init_Travel = __esm({
 });
 
 // src/ui/Coin.jsx
-import React65 from "react";
+import React66 from "react";
 function Coin({ p = null, color = null, unlit = false, className = "", children }) {
   const identity = usePlayerIdentity(p);
   const tone = unlit ? null : color || identity.color;
-  return /* @__PURE__ */ React65.createElement(
+  return /* @__PURE__ */ React66.createElement(
     "span",
     {
       className: `fd-coin3d${unlit ? " is-unlit" : ""}${className ? ` ${className}` : ""}`,
       "aria-hidden": "true",
       style: tone ? { "--coin-color": tone } : void 0
     },
-    Array.from({ length: COIN_EDGE_LAYERS2 }, (_, i) => /* @__PURE__ */ React65.createElement("span", { key: i, className: "fd-coin3d-edge", style: { "--z": i + 1 } })),
-    /* @__PURE__ */ React65.createElement("span", { className: "fd-coin3d-face" }, children)
+    Array.from({ length: COIN_EDGE_LAYERS2 }, (_, i) => /* @__PURE__ */ React66.createElement("span", { key: i, className: "fd-coin3d-edge", style: { "--z": i + 1 } })),
+    /* @__PURE__ */ React66.createElement("span", { className: "fd-coin3d-face" }, children)
   );
 }
 var COIN_EDGE_LAYERS2;
@@ -49515,7 +50656,7 @@ var init_wagers = __esm({
 });
 
 // src/features/wagers/Wagers.jsx
-import React66, { useEffect as useEffect42, useLayoutEffect as useLayoutEffect14, useMemo as useMemo10, useRef as useRef42, useState as useState50 } from "react";
+import React67, { useEffect as useEffect43, useLayoutEffect as useLayoutEffect14, useMemo as useMemo10, useRef as useRef44, useState as useState50 } from "react";
 import { createPortal as createPortal4 } from "react-dom";
 function wagerPickLabel(state, w, events) {
   const ev = events.find((e) => e.id === w.eventId);
@@ -49549,20 +50690,20 @@ function mergeWagerLines(list) {
 }
 function SettleStrip({ me, settling }) {
   const { view, label: label2 } = settling;
-  return /* @__PURE__ */ React66.createElement(
+  return /* @__PURE__ */ React67.createElement(
     "section",
     {
       className: "fd-wagers-settle",
       role: "status",
       "aria-label": `${label2} settled: ${fmt9(view.paid)} paid, ${fmt9(view.lost)} lost`
     },
-    /* @__PURE__ */ React66.createElement("h2", null, label2),
-    /* @__PURE__ */ React66.createElement("div", { className: "fd-wagers-settle-row", "aria-hidden": "true" }, view.winners.length > 0 && /* @__PURE__ */ React66.createElement("div", { className: "fd-wagers-settle-zone is-won" }, /* @__PURE__ */ React66.createElement("strong", null, "+", fmt9(view.paid)), /* @__PURE__ */ React66.createElement(BetStacks, { stacks: view.winners, size: 24, delay: 900, mine: me })), view.losers.length > 0 && /* @__PURE__ */ React66.createElement("div", { className: "fd-wagers-settle-zone is-lost" }, /* @__PURE__ */ React66.createElement("strong", null, "\u2212", fmt9(view.lost)), /* @__PURE__ */ React66.createElement(BetStacks, { stacks: view.losers, size: 24, delay: 450, mine: me })))
+    /* @__PURE__ */ React67.createElement("h2", null, label2),
+    /* @__PURE__ */ React67.createElement("div", { className: "fd-wagers-settle-row", "aria-hidden": "true" }, view.winners.length > 0 && /* @__PURE__ */ React67.createElement("div", { className: "fd-wagers-settle-zone is-won" }, /* @__PURE__ */ React67.createElement("strong", null, "+", fmt9(view.paid)), /* @__PURE__ */ React67.createElement(BetStacks, { stacks: view.winners, size: 24, delay: 900, mine: me })), view.losers.length > 0 && /* @__PURE__ */ React67.createElement("div", { className: "fd-wagers-settle-zone is-lost" }, /* @__PURE__ */ React67.createElement("strong", null, "\u2212", fmt9(view.lost)), /* @__PURE__ */ React67.createElement(BetStacks, { stacks: view.losers, size: 24, delay: 450, mine: me })))
   );
 }
 function RackChip({ value, disabled, selected, onClick }) {
   const target = useFlightTarget(`bets:rack:${value}`);
-  const press = useRef42(null);
+  const press = useRef44(null);
   const handlers = disabled ? {} : {
     onPointerDown: (event) => {
       if (event.pointerType === "mouse" && event.button !== 0) return;
@@ -49599,7 +50740,7 @@ function RackChip({ value, disabled, selected, onClick }) {
       }
     }
   };
-  return /* @__PURE__ */ React66.createElement(
+  return /* @__PURE__ */ React67.createElement(
     "button",
     {
       type: "button",
@@ -49613,11 +50754,11 @@ function RackChip({ value, disabled, selected, onClick }) {
       "aria-label": `Bet ${value} a tap`,
       className: selected ? "is-selected" : disabled ? "is-unlit" : ""
     },
-    /* @__PURE__ */ React66.createElement(Coin, { color: `var(--chip-${value}-edge)`, unlit: disabled }, disabled ? /* @__PURE__ */ React66.createElement(UnlitChip, { value }) : /* @__PURE__ */ React66.createElement(DenomChip, { size: RACK_COIN2, value }))
+    /* @__PURE__ */ React67.createElement(Coin, { color: `var(--chip-${value}-edge)`, unlit: disabled }, disabled ? /* @__PURE__ */ React67.createElement(UnlitChip, { value }) : /* @__PURE__ */ React67.createElement(DenomChip, { size: RACK_COIN2, value }))
   );
 }
 function DenomChip({ size = RACK_COIN2, value }) {
-  return /* @__PURE__ */ React66.createElement(
+  return /* @__PURE__ */ React67.createElement(
     ChipFace,
     {
       size,
@@ -49632,11 +50773,11 @@ function DenomChip({ size = RACK_COIN2, value }) {
   );
 }
 function PayLamp({ mult }) {
-  return /* @__PURE__ */ React66.createElement("span", { className: "fd-wagers-pays" }, /* @__PURE__ */ React66.createElement("i", { className: "fd-insert", "aria-hidden": "true" }), mult === 1 ? "Winner pays 1:1" : "Winner pays 2:1");
+  return /* @__PURE__ */ React67.createElement("span", { className: "fd-wagers-pays" }, /* @__PURE__ */ React67.createElement("i", { className: "fd-insert", "aria-hidden": "true" }), mult === 1 ? "Winner pays 1:1" : "Winner pays 2:1");
 }
 function UnlitChip({ value }) {
   const ticks = Array.from({ length: 8 }, (_, i) => i * 45);
-  return /* @__PURE__ */ React66.createElement("svg", { className: "fd-wagers-unlit", viewBox: "0 0 46 46", width: RACK_COIN2, height: RACK_COIN2, "aria-hidden": "true", focusable: "false" }, /* @__PURE__ */ React66.createElement("circle", { cx: "23", cy: "23", r: "21.5", className: "fd-wagers-unlit-body" }), ticks.map((angle) => /* @__PURE__ */ React66.createElement(
+  return /* @__PURE__ */ React67.createElement("svg", { className: "fd-wagers-unlit", viewBox: "0 0 46 46", width: RACK_COIN2, height: RACK_COIN2, "aria-hidden": "true", focusable: "false" }, /* @__PURE__ */ React67.createElement("circle", { cx: "23", cy: "23", r: "21.5", className: "fd-wagers-unlit-body" }), ticks.map((angle) => /* @__PURE__ */ React67.createElement(
     "rect",
     {
       key: angle,
@@ -49648,13 +50789,13 @@ function UnlitChip({ value }) {
       className: "fd-wagers-unlit-tick",
       transform: `rotate(${angle} 23 23)`
     }
-  )), /* @__PURE__ */ React66.createElement("circle", { cx: "23", cy: "23", r: "12.5", className: "fd-wagers-unlit-face" }), /* @__PURE__ */ React66.createElement("text", { x: "23", y: "23", className: "fd-wagers-unlit-value", textAnchor: "middle", dominantBaseline: "central" }, value));
+  )), /* @__PURE__ */ React67.createElement("circle", { cx: "23", cy: "23", r: "12.5", className: "fd-wagers-unlit-face" }), /* @__PURE__ */ React67.createElement("text", { x: "23", y: "23", className: "fd-wagers-unlit-value", textAnchor: "middle", dominantBaseline: "central" }, value));
 }
 function HeldBoard({ state, me, held: held2, view, onSkip }) {
   useStageHold(`bets:held:${held2.id}`, true);
-  const boardRef = useRef42(null);
+  const boardRef = useRef44(null);
   const paid = (view.sides.find((side) => side.won)?.stacks || []).filter((item) => item.player === me).reduce((sum, item) => sum + item.paid, 0);
-  useEffect42(() => {
+  useEffect43(() => {
     if (!me || paid <= 0) return void 0;
     const timer = setTimeout(() => {
       const svg = boardRef.current?.querySelector(".fd-spot.is-won .fd-spot-mine .fd-stack > svg");
@@ -49662,7 +50803,7 @@ function HeldBoard({ state, me, held: held2, view, onSkip }) {
       const from = faceRect(svg.getBoundingClientRect());
       const count = Math.max(1, Math.min(5, Math.round(paid / PT)));
       for (let i = 0; i < count; i++) fly(from, "tab:home", {
-        node: /* @__PURE__ */ React66.createElement(BankChip, { p: me, size: Math.round(from.width), val: PT }),
+        node: /* @__PURE__ */ React67.createElement(BankChip, { p: me, size: Math.round(from.width), val: PT }),
         delay: i * 70,
         arc: 60,
         duration: 560,
@@ -49680,7 +50821,7 @@ function HeldBoard({ state, me, held: held2, view, onSkip }) {
     const drawn = typeof spot.key === "number" ? state.draws?.[ev.id]?.teams?.[spot.key] : null;
     return spot.players.length === 1 ? disp(state, spot.players[0]) : teamLabel(state, drawn || { players: spot.players });
   };
-  return /* @__PURE__ */ React66.createElement("section", { ref: boardRef, className: "fd-wagers-event fd-wagers-held", onClick: onSkip, "aria-label": `${label2} settled` }, /* @__PURE__ */ React66.createElement(
+  return /* @__PURE__ */ React67.createElement("section", { ref: boardRef, className: "fd-wagers-event fd-wagers-held", onClick: onSkip, "aria-label": `${label2} settled` }, /* @__PURE__ */ React67.createElement(
     BetTable,
     {
       table,
@@ -49689,9 +50830,9 @@ function HeldBoard({ state, me, held: held2, view, onSkip }) {
       marketOpen: false,
       settled: true,
       phase: null,
-      dealer: /* @__PURE__ */ React66.createElement(RakeSweep, null)
+      dealer: /* @__PURE__ */ React67.createElement(RakeSweep, null)
     },
-    table.spots.map((spot) => /* @__PURE__ */ React66.createElement(
+    table.spots.map((spot) => /* @__PURE__ */ React67.createElement(
       Spot,
       {
         key: String(spot.key),
@@ -49716,10 +50857,10 @@ function HeldBoard({ state, me, held: held2, view, onSkip }) {
   ));
 }
 function RakeSweep() {
-  return /* @__PURE__ */ React66.createElement("div", { className: "fd-table-rake", "aria-hidden": "true" }, /* @__PURE__ */ React66.createElement("span", { className: "fd-table-rake-glove" }, /* @__PURE__ */ React66.createElement(DealerGlove, { pose: "flat", size: 60, flip: true })));
+  return /* @__PURE__ */ React67.createElement("div", { className: "fd-table-rake", "aria-hidden": "true" }, /* @__PURE__ */ React67.createElement("span", { className: "fd-table-rake-glove" }, /* @__PURE__ */ React67.createElement(DealerGlove, { pose: "flat", size: 60, flip: true })));
 }
 function RoomReadout({ cap, room, capBinds, capped }) {
-  return capBinds ? /* @__PURE__ */ React66.createElement("span", { className: "fd-wagers-meter-room is-max", "aria-hidden": "true" }, /* @__PURE__ */ React66.createElement("strong", null, "Max ", fmt9(cap))) : /* @__PURE__ */ React66.createElement("span", { className: `fd-wagers-meter-room${capped ? " is-capped" : ""}`, "aria-hidden": "true" }, /* @__PURE__ */ React66.createElement("strong", null, /* @__PURE__ */ React66.createElement(ScoreReel, { value: room, tone: "chip", label: fmt9(room) })), /* @__PURE__ */ React66.createElement("small", null, "to bet"));
+  return capBinds ? /* @__PURE__ */ React67.createElement("span", { className: "fd-wagers-meter-room is-max", "aria-hidden": "true" }, /* @__PURE__ */ React67.createElement("strong", null, "Max ", fmt9(cap))) : /* @__PURE__ */ React67.createElement("span", { className: `fd-wagers-meter-room${capped ? " is-capped" : ""}`, "aria-hidden": "true" }, /* @__PURE__ */ React67.createElement("strong", null, /* @__PURE__ */ React67.createElement(ScoreReel, { value: room, tone: "chip", label: fmt9(room) })), /* @__PURE__ */ React67.createElement("small", null, "to bet"));
 }
 function StackMeter({ pts, cap, bets, duels, room }) {
   const exposure = bets + duels;
@@ -49729,7 +50870,7 @@ function StackMeter({ pts, cap, bets, duels, room }) {
   const betsIn = Math.min(bets, cap), duelsIn = Math.min(duels, Math.max(0, cap - betsIn));
   const over = Math.max(0, exposure - cap);
   const capped = room < PT && pts - exposure >= PT;
-  return /* @__PURE__ */ React66.createElement(
+  return /* @__PURE__ */ React67.createElement(
     "div",
     {
       className: `fd-wagers-meter${capped ? " is-capped" : ""}${over ? " is-over" : ""}`,
@@ -49740,14 +50881,14 @@ function StackMeter({ pts, cap, bets, duels, room }) {
       "aria-valuenow": exposure,
       "aria-valuetext": `${fmt9(exposure)} at risk, ${fmt9(cap)} maximum, ${fmt9(pts)} in your stack${duels ? `, ${fmt9(duels)} reserved for duels` : ""}`
     },
-    /* @__PURE__ */ React66.createElement("div", { className: "fd-wagers-meter-bar", "aria-hidden": "true" }, betsIn > 0 && /* @__PURE__ */ React66.createElement("span", { className: "is-bets", style: { left: 0, width: pct(betsIn) } }), duelsIn > 0 && /* @__PURE__ */ React66.createElement("span", { className: "is-duels", style: { left: pct(betsIn), width: pct(duelsIn) } }), over > 0 && /* @__PURE__ */ React66.createElement("span", { className: "is-over", style: { left: pct(cap), width: pct(over) } }), /* @__PURE__ */ React66.createElement("i", { className: "fd-wagers-meter-notch", style: { left: pct(cap) } }))
+    /* @__PURE__ */ React67.createElement("div", { className: "fd-wagers-meter-bar", "aria-hidden": "true" }, betsIn > 0 && /* @__PURE__ */ React67.createElement("span", { className: "is-bets", style: { left: 0, width: pct(betsIn) } }), duelsIn > 0 && /* @__PURE__ */ React67.createElement("span", { className: "is-duels", style: { left: pct(betsIn), width: pct(duelsIn) } }), over > 0 && /* @__PURE__ */ React67.createElement("span", { className: "is-over", style: { left: pct(cap), width: pct(over) } }), /* @__PURE__ */ React67.createElement("i", { className: "fd-wagers-meter-notch", style: { left: pct(cap) } }))
   );
 }
 function BetRecord({ group, me, onLastCard }) {
   const won = group ? group.lines.filter((x) => x.r.status === "won").length : 0;
   const lost = group ? group.lines.filter((x) => x.r.status === "lost").length : 0;
   const net = group?.net || 0;
-  return /* @__PURE__ */ React66.createElement("section", { className: "fd-wagers-record fd-glass-field fd-field-chip", "aria-label": "Your bets" }, me && /* @__PURE__ */ React66.createElement(React66.Fragment, null, /* @__PURE__ */ React66.createElement("h2", null, "Your bets"), group ? /* @__PURE__ */ React66.createElement("div", { className: "fd-wagers-record-row" }, /* @__PURE__ */ React66.createElement("strong", { className: `fd-wagers-record-net${net > 0 ? " is-up" : net < 0 ? " is-down" : ""}` }, net > 0 ? "+" : net < 0 ? "\u2212" : "", /* @__PURE__ */ React66.createElement(ScoreReel, { value: Math.abs(net), label: fmt9(Math.abs(net)) })), /* @__PURE__ */ React66.createElement("span", { className: "fd-wagers-record-tally" }, /* @__PURE__ */ React66.createElement("span", { className: "is-won" }, /* @__PURE__ */ React66.createElement("i", { className: "fd-insert", "aria-hidden": "true" }), /* @__PURE__ */ React66.createElement("b", null, won), /* @__PURE__ */ React66.createElement("small", null, "Won")), /* @__PURE__ */ React66.createElement("span", { className: "is-lost" }, /* @__PURE__ */ React66.createElement("i", { className: "fd-insert is-done", "aria-hidden": "true" }), /* @__PURE__ */ React66.createElement("b", null, lost), /* @__PURE__ */ React66.createElement("small", null, "Lost")))) : /* @__PURE__ */ React66.createElement("p", { className: "fd-wagers-record-none" }, "No bets")), onLastCard && /* @__PURE__ */ React66.createElement("button", { type: "button", className: "fd-wagers-record-card", onClick: onLastCard }, me ? "Your last card" : "The champion's card", /* @__PURE__ */ React66.createElement(Icon, { name: "open", size: 18 })));
+  return /* @__PURE__ */ React67.createElement("section", { className: "fd-wagers-record fd-glass-field fd-field-chip", "aria-label": "Your bets" }, me && /* @__PURE__ */ React67.createElement(React67.Fragment, null, /* @__PURE__ */ React67.createElement("h2", null, "Your bets"), group ? /* @__PURE__ */ React67.createElement("div", { className: "fd-wagers-record-row" }, /* @__PURE__ */ React67.createElement("strong", { className: `fd-wagers-record-net${net > 0 ? " is-up" : net < 0 ? " is-down" : ""}` }, net > 0 ? "+" : net < 0 ? "\u2212" : "", /* @__PURE__ */ React67.createElement(ScoreReel, { value: Math.abs(net), label: fmt9(Math.abs(net)) })), /* @__PURE__ */ React67.createElement("span", { className: "fd-wagers-record-tally" }, /* @__PURE__ */ React67.createElement("span", { className: "is-won" }, /* @__PURE__ */ React67.createElement("i", { className: "fd-insert", "aria-hidden": "true" }), /* @__PURE__ */ React67.createElement("b", null, won), /* @__PURE__ */ React67.createElement("small", null, "Won")), /* @__PURE__ */ React67.createElement("span", { className: "is-lost" }, /* @__PURE__ */ React67.createElement("i", { className: "fd-insert is-done", "aria-hidden": "true" }), /* @__PURE__ */ React67.createElement("b", null, lost), /* @__PURE__ */ React67.createElement("small", null, "Lost")))) : /* @__PURE__ */ React67.createElement("p", { className: "fd-wagers-record-none" }, "No bets")), onLastCard && /* @__PURE__ */ React67.createElement("button", { type: "button", className: "fd-wagers-record-card", onClick: onLastCard }, me ? "Your last card" : "The champion's card", /* @__PURE__ */ React67.createElement(Icon, { name: "open", size: 18 })));
 }
 function WagerLine({ x, state, events, gm, manage = false, onVoid, onPlayer }) {
   const { w, r } = x;
@@ -49755,10 +50896,10 @@ function WagerLine({ x, state, events, gm, manage = false, onVoid, onPlayer }) {
   const price = w.pool ? wagerPrice(state, w) : null;
   const win = w.pool ? poolNet(w.stake, price) : wagerMult(w) * w.stake;
   const [confirming, setConfirming] = useState50(false), [voiding, setVoiding] = useState50(false);
-  const voidBusy = useRef42(false);
+  const voidBusy = useRef44(false);
   const ids = w.ids || [w.id];
   const voidable = gm && manage && r.status === "pending" && !!onVoid;
-  return /* @__PURE__ */ React66.createElement("article", { className: `fd-wagers-line is-${r.status}` }, /* @__PURE__ */ React66.createElement(
+  return /* @__PURE__ */ React67.createElement("article", { className: `fd-wagers-line is-${r.status}` }, /* @__PURE__ */ React67.createElement(
     "button",
     {
       type: "button",
@@ -49767,8 +50908,8 @@ function WagerLine({ x, state, events, gm, manage = false, onVoid, onPlayer }) {
       onClick: () => onPlayer?.(w.player),
       "aria-label": `View ${disp(state, w.player)}'s player card`
     },
-    /* @__PURE__ */ React66.createElement(Avatar, { state, p: w.player, size: 32 })
-  ), /* @__PURE__ */ React66.createElement("div", { className: "fd-wagers-line-copy" }, /* @__PURE__ */ React66.createElement("span", { className: "fd-wagers-line-bettor" }, /* @__PURE__ */ React66.createElement(
+    /* @__PURE__ */ React67.createElement(Avatar, { state, p: w.player, size: 32 })
+  ), /* @__PURE__ */ React67.createElement("div", { className: "fd-wagers-line-copy" }, /* @__PURE__ */ React67.createElement("span", { className: "fd-wagers-line-bettor" }, /* @__PURE__ */ React67.createElement(
     "button",
     {
       type: "button",
@@ -49776,7 +50917,7 @@ function WagerLine({ x, state, events, gm, manage = false, onVoid, onPlayer }) {
       onClick: () => onPlayer?.(w.player)
     },
     disp(state, w.player)
-  ), " ", /* @__PURE__ */ React66.createElement("span", null, fmt9(w.stake), " chips")), /* @__PURE__ */ React66.createElement("strong", null, label2.pick), /* @__PURE__ */ React66.createElement("span", { className: "fd-wagers-line-context" }, label2.ctx)), /* @__PURE__ */ React66.createElement("div", { className: "fd-wagers-line-result" }, r.status === "pending" && /* @__PURE__ */ React66.createElement(React66.Fragment, null, /* @__PURE__ */ React66.createElement("small", null, "To win"), /* @__PURE__ */ React66.createElement("strong", null, "+", fmt9(win))), r.status === "won" && /* @__PURE__ */ React66.createElement(React66.Fragment, null, /* @__PURE__ */ React66.createElement("small", null, "Won"), /* @__PURE__ */ React66.createElement("strong", null, "+", fmt9(r.delta))), r.status === "lost" && /* @__PURE__ */ React66.createElement(React66.Fragment, null, /* @__PURE__ */ React66.createElement("small", null, "Lost"), /* @__PURE__ */ React66.createElement("strong", null, fmt9(r.delta))), r.status === "void" && /* @__PURE__ */ React66.createElement("small", { className: "is-void" }, "Void"), voidable && !confirming && /* @__PURE__ */ React66.createElement(
+  ), " ", /* @__PURE__ */ React67.createElement("span", null, fmt9(w.stake), " chips")), /* @__PURE__ */ React67.createElement("strong", null, label2.pick), /* @__PURE__ */ React67.createElement("span", { className: "fd-wagers-line-context" }, label2.ctx)), /* @__PURE__ */ React67.createElement("div", { className: "fd-wagers-line-result" }, r.status === "pending" && /* @__PURE__ */ React67.createElement(React67.Fragment, null, /* @__PURE__ */ React67.createElement("small", null, "To win"), /* @__PURE__ */ React67.createElement("strong", null, "+", fmt9(win))), r.status === "won" && /* @__PURE__ */ React67.createElement(React67.Fragment, null, /* @__PURE__ */ React67.createElement("small", null, "Won"), /* @__PURE__ */ React67.createElement("strong", null, "+", fmt9(r.delta))), r.status === "lost" && /* @__PURE__ */ React67.createElement(React67.Fragment, null, /* @__PURE__ */ React67.createElement("small", null, "Lost"), /* @__PURE__ */ React67.createElement("strong", null, fmt9(r.delta))), r.status === "void" && /* @__PURE__ */ React67.createElement("small", { className: "is-void" }, "Void"), voidable && !confirming && /* @__PURE__ */ React67.createElement(
     "button",
     {
       type: "button",
@@ -49784,7 +50925,7 @@ function WagerLine({ x, state, events, gm, manage = false, onVoid, onPlayer }) {
       onClick: () => setConfirming(true)
     },
     "Void"
-  )), voidable && confirming && /* @__PURE__ */ React66.createElement("div", { className: "fd-wagers-void-confirm", role: "group", "aria-label": "Confirm void" }, /* @__PURE__ */ React66.createElement("span", null, disp(state, w.player), ", ", ids.length, " bet", ids.length === 1 ? "" : "s", ", ", fmt9(w.stake), " chips back"), /* @__PURE__ */ React66.createElement("button", { type: "button", className: "is-commit", disabled: voiding, onClick: async () => {
+  )), voidable && confirming && /* @__PURE__ */ React67.createElement("div", { className: "fd-wagers-void-confirm", role: "group", "aria-label": "Confirm void" }, /* @__PURE__ */ React67.createElement("span", null, disp(state, w.player), ", ", ids.length, " bet", ids.length === 1 ? "" : "s", ", ", fmt9(w.stake), " chips back"), /* @__PURE__ */ React67.createElement("button", { type: "button", className: "is-commit", disabled: voiding, onClick: async () => {
     if (voidBusy.current) return void 0;
     voidBusy.current = true;
     setVoiding(true);
@@ -49796,7 +50937,7 @@ function WagerLine({ x, state, events, gm, manage = false, onVoid, onPlayer }) {
       voidBusy.current = false;
       setVoiding(false);
     }
-  } }, voiding ? "Voiding\u2026" : `Void ${ids.length === 1 ? "bet" : `${ids.length} bets`}`), /* @__PURE__ */ React66.createElement("button", { type: "button", disabled: voiding, onClick: () => setConfirming(false) }, "Keep")));
+  } }, voiding ? "Voiding\u2026" : `Void ${ids.length === 1 ? "bet" : `${ids.length} bets`}`), /* @__PURE__ */ React67.createElement("button", { type: "button", disabled: voiding, onClick: () => setConfirming(false) }, "Keep")));
 }
 function contestPick(contest, side, event) {
   const common2 = {
@@ -49862,13 +51003,13 @@ function Wagers({
   const frozen = !!state.frozen;
   const [settledOpen, setSettledOpen] = useState50(() => (openSettled || frozen) && me ? `st:${me}` : null);
   const [settledShown, setSettledShown] = useState50(!!openSettled || frozen);
-  useEffect42(() => {
+  useEffect43(() => {
     if (!frozen) return;
     setSettledShown(true);
     if (me) setSettledOpen((current) => current || `st:${me}`);
   }, [frozen]);
-  const settledRef = useRef42(null);
-  useEffect42(() => {
+  const settledRef = useRef44(null);
+  useEffect43(() => {
     if (!openSettled) return;
     setSettledShown(true);
     if (me) setSettledOpen(`st:${me}`);
@@ -49902,7 +51043,7 @@ function Wagers({
   const myExp = wagerRisk + duelAntes;
   const room = me ? Math.max(0, Math.min(myCap - myExp, myPts - myExp)) : 0;
   const capBinds = !!me && room < PT && myPts - myExp >= PT;
-  useEffect42(() => {
+  useEffect43(() => {
     if (denom > PT && room >= PT && denom > room)
       setDenom([...RACK_DENOMS].reverse().find((value) => value <= room) || PT);
   }, [room, denom]);
@@ -49978,7 +51119,7 @@ function Wagers({
   const boardKey = ev ? `${ev.id}:${contest?.id || ""}` : "";
   const boardChange = useFreshChange(boardKey);
   const frame2 = useMotionFrame();
-  const watched = useRef42(null);
+  const watched = useRef44(null);
   const [settling, setSettling] = useState50(null);
   const [held2, setHeld] = useState50(null);
   const [dealing, setDealing] = useState50(0);
@@ -50008,20 +51149,20 @@ function Wagers({
     setHeld(null);
     setDealing((value) => value + 1);
   };
-  useEffect42(() => {
+  useEffect43(() => {
     if (!held2) return void 0;
     const timer = setTimeout(endHold, MOTION.settleHold);
     return () => clearTimeout(timer);
   }, [held2?.id]);
-  useEffect42(() => {
+  useEffect43(() => {
     if (held2 && (!heldView || frame2.correction)) setHeld(null);
   }, [held2?.id, !!heldView, frame2.seq]);
-  useEffect42(() => {
+  useEffect43(() => {
     if (!dealing) return void 0;
     const timer = setTimeout(() => setDealing(0), MOTION.story + 200);
     return () => clearTimeout(timer);
   }, [dealing]);
-  useEffect42(() => {
+  useEffect43(() => {
     if (!settling) return void 0;
     const timer = setTimeout(() => setSettling(null), SETTLE_SHOW_MS);
     return () => clearTimeout(timer);
@@ -50033,20 +51174,20 @@ function Wagers({
   const liveDot = marketOpen && !holding;
   const rackShown = !!(me && ev && marketOpen);
   const rackLive = rackShown && !holding;
-  const rackRef = useRef42(null);
+  const rackRef = useRef44(null);
   useGlassTilt(rackRef, { enabled: rackLive, max: 2 });
   const rackCapped = room < PT && myPts - myExp >= PT;
   const openEvent2 = onEvent && headEv ? () => onEvent(headEv) : null;
-  return /* @__PURE__ */ React66.createElement(
+  return /* @__PURE__ */ React67.createElement(
     "div",
     {
       className: `fd-wagers${rackShown ? " has-rack" : ""}`,
       style: { "--fd-wagers-numerals": DISPLAY, "--fd-wagers-body": SANS }
     },
-    headEv ? /* @__PURE__ */ React66.createElement("header", { className: `fd-wagers-event-heading fd-lamp${liveDot ? " is-live" : ""}` }, /* @__PURE__ */ React66.createElement("div", { className: "fd-wagers-scene fd-glass-scene" }, /* @__PURE__ */ React66.createElement(GlassArt, { clear: true }), /* @__PURE__ */ React66.createElement("h1", { className: "fd-show fd-glass-letter" }, openEvent2 ? /* @__PURE__ */ React66.createElement("button", { type: "button", className: "fd-wagers-scene-button", onClick: openEvent2, "aria-label": `${headEv.name}: ${contextLabel}` }, /* @__PURE__ */ React66.createElement(EventName, { name: headEv.name })) : /* @__PURE__ */ React66.createElement(EventName, { name: headEv.name })), /* @__PURE__ */ React66.createElement("span", { className: "fd-wagers-scene-side" }, openEvent2 && /* @__PURE__ */ React66.createElement("span", { className: "fd-wagers-scene-open", "aria-hidden": "true" }, /* @__PURE__ */ React66.createElement(Icon, { name: "open", size: 18 })), GameMark2 && /* @__PURE__ */ React66.createElement("span", { className: "fd-wagers-event-mark" }, /* @__PURE__ */ React66.createElement(GameMark2, { id: headEv.game, variant: headEv.variant, size: 34 })))), !rackShown && /* @__PURE__ */ React66.createElement("div", { className: "fd-wagers-event-meta" }, /* @__PURE__ */ React66.createElement("span", { className: `fd-wagers-status${liveDot ? " is-open" : ""}` }, /* @__PURE__ */ React66.createElement("i", { className: liveDot ? "fd-insert fd-beat-dot" : "fd-insert is-done", "aria-hidden": "true" }), holding ? "Settled" : status))) : /* @__PURE__ */ React66.createElement(PageHeading, { title: "Bets" }),
-    settling && /* @__PURE__ */ React66.createElement(SettleStrip, { key: settling.id, me, settling }),
-    holding && /* @__PURE__ */ React66.createElement(HeldBoard, { key: held2.id, state, me, held: held2, view: heldView, onSkip: endHold }),
-    frozen && !ev && !holding && /* @__PURE__ */ React66.createElement(
+    headEv ? /* @__PURE__ */ React67.createElement("header", { className: `fd-wagers-event-heading fd-lamp${liveDot ? " is-live" : ""}` }, /* @__PURE__ */ React67.createElement("div", { className: "fd-wagers-scene fd-glass-scene" }, /* @__PURE__ */ React67.createElement(GlassArt, { clear: true }), /* @__PURE__ */ React67.createElement("h1", { className: "fd-show fd-glass-letter" }, openEvent2 ? /* @__PURE__ */ React67.createElement("button", { type: "button", className: "fd-wagers-scene-button", onClick: openEvent2, "aria-label": `${headEv.name}: ${contextLabel}` }, /* @__PURE__ */ React67.createElement(EventName, { name: headEv.name })) : /* @__PURE__ */ React67.createElement(EventName, { name: headEv.name })), /* @__PURE__ */ React67.createElement("span", { className: "fd-wagers-scene-side" }, openEvent2 && /* @__PURE__ */ React67.createElement("span", { className: "fd-wagers-scene-open", "aria-hidden": "true" }, /* @__PURE__ */ React67.createElement(Icon, { name: "open", size: 18 })), GameMark2 && /* @__PURE__ */ React67.createElement("span", { className: "fd-wagers-event-mark" }, /* @__PURE__ */ React67.createElement(GameMark2, { id: headEv.game, variant: headEv.variant, size: 34 })))), !rackShown && /* @__PURE__ */ React67.createElement("div", { className: "fd-wagers-event-meta" }, /* @__PURE__ */ React67.createElement("span", { className: `fd-wagers-status${liveDot ? " is-open" : ""}` }, /* @__PURE__ */ React67.createElement("i", { className: liveDot ? "fd-insert fd-beat-dot" : "fd-insert is-done", "aria-hidden": "true" }), holding ? "Settled" : status))) : /* @__PURE__ */ React67.createElement(PageHeading, { title: "Bets" }),
+    settling && /* @__PURE__ */ React67.createElement(SettleStrip, { key: settling.id, me, settling }),
+    holding && /* @__PURE__ */ React67.createElement(HeldBoard, { key: held2.id, state, me, held: held2, view: heldView, onSkip: endHold }),
+    frozen && !ev && !holding && /* @__PURE__ */ React67.createElement(
       BetRecord,
       {
         group: me ? settledByPlayer.find((group) => group.player === me) : null,
@@ -50054,8 +51195,8 @@ function Wagers({
         onLastCard
       }
     ),
-    !frozen && !ev && !holding && /* @__PURE__ */ React66.createElement("section", { className: `fd-wagers-waiting fd-glass-field fd-field-info${finaleClosed ? " is-finished" : ""}` }, /* @__PURE__ */ React66.createElement("div", { className: "fd-wagers-waiting-copy" }, /* @__PURE__ */ React66.createElement("h2", null, finaleClosed ? "Betting is closed for the finale" : state.live ? "Between events" : "Betting opens with the first event"), !finaleClosed && /* @__PURE__ */ React66.createElement(ActionButton, { variant: "secondary", onClick: onEvents }, "Browse the events"))),
-    ev && !holding && /* @__PURE__ */ React66.createElement("section", { className: "fd-wagers-event" }, contest && !terms?.pool && !terms?.odds && /* @__PURE__ */ React66.createElement("div", { className: "fd-wagers-contest-heading" }, /* @__PURE__ */ React66.createElement(PayLamp, { mult: contestMult(contest) })), contest && table && picks.length > 0 ? /* @__PURE__ */ React66.createElement("div", { className: `fd-wagers-play${dealing ? " is-dealing" : ""}` }, /* @__PURE__ */ React66.createElement(
+    !frozen && !ev && !holding && /* @__PURE__ */ React67.createElement("section", { className: `fd-wagers-waiting fd-glass-field fd-field-info${finaleClosed ? " is-finished" : ""}` }, /* @__PURE__ */ React67.createElement("div", { className: "fd-wagers-waiting-copy" }, /* @__PURE__ */ React67.createElement("h2", null, finaleClosed ? "Betting is closed for the finale" : state.live ? "Between events" : "Betting opens with the first event"), !finaleClosed && /* @__PURE__ */ React67.createElement(ActionButton, { variant: "secondary", onClick: onEvents }, "Browse the events"))),
+    ev && !holding && /* @__PURE__ */ React67.createElement("section", { className: "fd-wagers-event" }, contest && !terms?.pool && !terms?.odds && /* @__PURE__ */ React67.createElement("div", { className: "fd-wagers-contest-heading" }, /* @__PURE__ */ React67.createElement(PayLamp, { mult: contestMult(contest) })), contest && table && picks.length > 0 ? /* @__PURE__ */ React67.createElement("div", { className: `fd-wagers-play${dealing ? " is-dealing" : ""}` }, /* @__PURE__ */ React67.createElement(
       BetTable,
       {
         table,
@@ -50063,9 +51204,9 @@ function Wagers({
         contestLabel: contest.kind !== "ffa" ? contest.label : null,
         marketOpen,
         phase: marketOpen ? null : status,
-        dealer: /* @__PURE__ */ React66.createElement(LockSweep, { lockKey: contest.id, locked: contest.phase !== "betting-open" })
+        dealer: /* @__PURE__ */ React67.createElement(LockSweep, { lockKey: contest.id, locked: contest.phase !== "betting-open" })
       },
-      picks.map((pick) => /* @__PURE__ */ React66.createElement(
+      picks.map((pick) => /* @__PURE__ */ React67.createElement(
         Spot,
         {
           ...pick,
@@ -50077,8 +51218,8 @@ function Wagers({
           contestLabel: contest.label
         }
       ))
-    )) : /* @__PURE__ */ React66.createElement("p", { className: "fd-wagers-contest-waiting" }, state.results?.[ev.id] ? "Result posted." : "Waiting for the next contest."), me && marketOpen && myPts - myExp < PT && /* @__PURE__ */ React66.createElement("p", { className: "fd-wagers-limit", role: "status" }, "No chips available."), peek && /* @__PURE__ */ React66.createElement(BracketPeek, { state, ev, me, onOpen: onEvent, card: true })),
-    pendingLines.length > 0 && /* @__PURE__ */ React66.createElement("details", { className: "fd-wagers-history", open: !contest || void 0 }, /* @__PURE__ */ React66.createElement("summary", null, "Open bets ", /* @__PURE__ */ React66.createElement("span", null, pendingLines.length), /* @__PURE__ */ React66.createElement(Icon, { name: "plus", size: 20, className: "fd-wagers-summary-icon" })), gm && onVoid && /* @__PURE__ */ React66.createElement(
+    )) : /* @__PURE__ */ React67.createElement("p", { className: "fd-wagers-contest-waiting" }, state.results?.[ev.id] ? "Result posted." : "Waiting for the next contest."), me && marketOpen && myPts - myExp < PT && /* @__PURE__ */ React67.createElement("p", { className: "fd-wagers-limit", role: "status" }, "No chips available."), peek && /* @__PURE__ */ React67.createElement(BracketPeek, { state, ev, me, onOpen: onEvent, card: true })),
+    pendingLines.length > 0 && /* @__PURE__ */ React67.createElement("details", { className: "fd-wagers-history", open: !contest || void 0 }, /* @__PURE__ */ React67.createElement("summary", null, "Open bets ", /* @__PURE__ */ React67.createElement("span", null, pendingLines.length), /* @__PURE__ */ React67.createElement(Icon, { name: "plus", size: 20, className: "fd-wagers-summary-icon" })), gm && onVoid && /* @__PURE__ */ React67.createElement(
       "button",
       {
         type: "button",
@@ -50087,8 +51228,8 @@ function Wagers({
         onClick: () => setManage((value) => !value)
       },
       manage ? "Done" : "Manage"
-    ), /* @__PURE__ */ React66.createElement("div", { className: "fd-wagers-ledger" }, pendingLines.map((x) => /* @__PURE__ */ React66.createElement(WagerLine, { key: x.w.id, x, state, events, gm, manage, onVoid, onPlayer })))),
-    settledLines.length > 0 && /* @__PURE__ */ React66.createElement(
+    ), /* @__PURE__ */ React67.createElement("div", { className: "fd-wagers-ledger" }, pendingLines.map((x) => /* @__PURE__ */ React67.createElement(WagerLine, { key: x.w.id, x, state, events, gm, manage, onVoid, onPlayer })))),
+    settledLines.length > 0 && /* @__PURE__ */ React67.createElement(
       "details",
       {
         className: "fd-wagers-history",
@@ -50096,10 +51237,10 @@ function Wagers({
         open: settledShown,
         onToggle: (event) => setSettledShown(event.currentTarget.open)
       },
-      /* @__PURE__ */ React66.createElement("summary", null, "Settled ", /* @__PURE__ */ React66.createElement("span", null, settledLines.length), /* @__PURE__ */ React66.createElement(Icon, { name: "plus", size: 20, className: "fd-wagers-summary-icon" })),
-      /* @__PURE__ */ React66.createElement("div", { className: "fd-wagers-settled-list" }, settledByPlayer.map((group) => {
+      /* @__PURE__ */ React67.createElement("summary", null, "Settled ", /* @__PURE__ */ React67.createElement("span", null, settledLines.length), /* @__PURE__ */ React67.createElement(Icon, { name: "plus", size: 20, className: "fd-wagers-summary-icon" })),
+      /* @__PURE__ */ React67.createElement("div", { className: "fd-wagers-settled-list" }, settledByPlayer.map((group) => {
         const key = `st:${group.player}`, open = settledOpen === key;
-        return /* @__PURE__ */ React66.createElement("div", { className: `fd-wagers-settled${open ? " is-open" : ""}`, key: group.player }, /* @__PURE__ */ React66.createElement("div", { className: "fd-wagers-settled-row" }, /* @__PURE__ */ React66.createElement(
+        return /* @__PURE__ */ React67.createElement("div", { className: `fd-wagers-settled${open ? " is-open" : ""}`, key: group.player }, /* @__PURE__ */ React67.createElement("div", { className: "fd-wagers-settled-row" }, /* @__PURE__ */ React67.createElement(
           "button",
           {
             type: "button",
@@ -50108,9 +51249,9 @@ function Wagers({
             onClick: () => onPlayer?.(group.player),
             "aria-label": `View ${disp(state, group.player)}'s player card`
           },
-          /* @__PURE__ */ React66.createElement(Avatar, { state, p: group.player, size: 32 }),
-          /* @__PURE__ */ React66.createElement("strong", null, disp(state, group.player))
-        ), /* @__PURE__ */ React66.createElement(
+          /* @__PURE__ */ React67.createElement(Avatar, { state, p: group.player, size: 32 }),
+          /* @__PURE__ */ React67.createElement("strong", null, disp(state, group.player))
+        ), /* @__PURE__ */ React67.createElement(
           "button",
           {
             type: "button",
@@ -50119,13 +51260,13 @@ function Wagers({
             "aria-label": `${open ? "Hide" : "View"} settled bets by ${disp(state, group.player)}`,
             onClick: () => setSettledOpen((current) => current === key ? null : key)
           },
-          /* @__PURE__ */ React66.createElement("small", null, group.lines.length, " bet", group.lines.length === 1 ? "" : "s"),
-          /* @__PURE__ */ React66.createElement("span", { className: `fd-wagers-net${group.net > 0 ? " is-up" : group.net < 0 ? " is-down" : ""}` }, group.net > 0 ? "+" : "", fmt9(group.net)),
-          /* @__PURE__ */ React66.createElement("span", { className: "fd-wagers-settled-arrow" }, /* @__PURE__ */ React66.createElement(Icon, { name: open ? "minus" : "plus", size: 20 }))
-        )), open && /* @__PURE__ */ React66.createElement("div", { className: "fd-wagers-settled-detail" }, group.lines.map((x) => /* @__PURE__ */ React66.createElement(WagerLine, { key: x.w.id, x, state, events, gm, onVoid, onPlayer }))));
+          /* @__PURE__ */ React67.createElement("small", null, group.lines.length, " bet", group.lines.length === 1 ? "" : "s"),
+          /* @__PURE__ */ React67.createElement("span", { className: `fd-wagers-net${group.net > 0 ? " is-up" : group.net < 0 ? " is-down" : ""}` }, group.net > 0 ? "+" : "", fmt9(group.net)),
+          /* @__PURE__ */ React67.createElement("span", { className: "fd-wagers-settled-arrow" }, /* @__PURE__ */ React67.createElement(Icon, { name: open ? "minus" : "plus", size: 20 }))
+        )), open && /* @__PURE__ */ React67.createElement("div", { className: "fd-wagers-settled-detail" }, group.lines.map((x) => /* @__PURE__ */ React67.createElement(WagerLine, { key: x.w.id, x, state, events, gm, onVoid, onPlayer }))));
       }))
     ),
-    rackShown && /* @__PURE__ */ React66.createElement(
+    rackShown && /* @__PURE__ */ React67.createElement(
       "section",
       {
         ref: rackRef,
@@ -50133,10 +51274,10 @@ function Wagers({
         "aria-label": "Choose your betting chip",
         inert: holding ? "" : void 0
       },
-      /* @__PURE__ */ React66.createElement("span", { className: "fd-sr", role: "status" }, holding ? "Settled" : status),
-      /* @__PURE__ */ React66.createElement("div", { className: "fd-wagers-rack-row" }, /* @__PURE__ */ React66.createElement(RoomReadout, { cap: myCap, room, capBinds, capped: rackCapped }), /* @__PURE__ */ React66.createElement("div", { className: "fd-wagers-denoms", role: "group", "aria-label": "Chip value per tap" }, RACK_DENOMS.map((value) => {
+      /* @__PURE__ */ React67.createElement("span", { className: "fd-sr", role: "status" }, holding ? "Settled" : status),
+      /* @__PURE__ */ React67.createElement("div", { className: "fd-wagers-rack-row" }, /* @__PURE__ */ React67.createElement(RoomReadout, { cap: myCap, room, capBinds, capped: rackCapped }), /* @__PURE__ */ React67.createElement("div", { className: "fd-wagers-denoms", role: "group", "aria-label": "Chip value per tap" }, RACK_DENOMS.map((value) => {
         const affordable = value <= room;
-        return /* @__PURE__ */ React66.createElement(
+        return /* @__PURE__ */ React67.createElement(
           RackChip,
           {
             key: value,
@@ -50150,15 +51291,15 @@ function Wagers({
           }
         );
       }))),
-      /* @__PURE__ */ React66.createElement(StackMeter, { pts: myPts, cap: myCap, bets: wagerRisk, duels: duelAntes, room })
+      /* @__PURE__ */ React67.createElement(StackMeter, { pts: myPts, cap: myCap, bets: wagerRisk, duels: duelAntes, room })
     ),
-    /* @__PURE__ */ React66.createElement(DragChip, { me })
+    /* @__PURE__ */ React67.createElement(DragChip, { me })
   );
 }
 function DragChip({ me }) {
   const drag2 = useTableDrag();
   if (!drag2 || typeof document === "undefined") return null;
-  return createPortal4(/* @__PURE__ */ React66.createElement("span", { className: "fd-table-dragchip", style: { left: drag2.x, top: drag2.y }, "aria-hidden": "true" }, /* @__PURE__ */ React66.createElement(BankChip, { p: me, size: RACK_COIN2 + 6, val: drag2.stake })), document.body);
+  return createPortal4(/* @__PURE__ */ React67.createElement("span", { className: "fd-table-dragchip", style: { left: drag2.x, top: drag2.y }, "aria-hidden": "true" }, /* @__PURE__ */ React67.createElement(BankChip, { p: me, size: RACK_COIN2 + 6, val: drag2.stake })), document.body);
 }
 var PHONE_CHIP, FELT_STACK_H, fmt9, RACK_DENOMS, SETTLE_SHOW_MS, DRAG_START_PX, RACK_COIN2, HOME_FLIGHT_AT;
 var init_Wagers = __esm({
@@ -50202,7 +51343,7 @@ var init_Wagers = __esm({
 });
 
 // src/PhotoCropper.jsx
-import React67, { useCallback as useCallback3, useEffect as useEffect43, useRef as useRef43, useState as useState51 } from "react";
+import React68, { useCallback as useCallback3, useEffect as useEffect44, useRef as useRef45, useState as useState51 } from "react";
 function clamp2(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
@@ -50225,18 +51366,18 @@ function PhotoCropper({
   outputSize = 384,
   quality = 0.84
 }) {
-  const dialogRef = useRef43(null);
-  const cancelRef = useRef43(null);
-  const stageRef = useRef43(null);
-  const imageRef = useRef43(null);
-  const dragRef = useRef43(null);
+  const dialogRef = useRef45(null);
+  const cancelRef = useRef45(null);
+  const stageRef = useRef45(null);
+  const imageRef = useRef45(null);
+  const dragRef = useRef45(null);
   const [image, setImage] = useState51(null);
   const [stageSize, setStageSize] = useState51(0);
   const [view, setView] = useState51({ zoom: 1, x: 0, y: 0 });
   const [status, setStatus] = useState51("loading");
   const [error2, setError] = useState51("");
   const diameter = Math.max(0, stageSize - 32);
-  useEffect43(() => {
+  useEffect44(() => {
     const node = stageRef.current;
     if (!node) return void 0;
     const measure2 = () => setStageSize(node.getBoundingClientRect().width);
@@ -50249,7 +51390,7 @@ function PhotoCropper({
       window.removeEventListener("resize", measure2);
     };
   }, []);
-  useEffect43(() => {
+  useEffect44(() => {
     let disposed = false;
     setStatus("loading");
     setError("");
@@ -50285,10 +51426,10 @@ function PhotoCropper({
       nextImage.onerror = null;
     };
   }, [src]);
-  useEffect43(() => {
+  useEffect44(() => {
     setView((current) => fit(current, image, diameter));
   }, [image, diameter]);
-  useEffect43(() => {
+  useEffect44(() => {
     const previousFocus = document.activeElement;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -50409,7 +51550,7 @@ function PhotoCropper({
   const coverScale = image && diameter ? Math.max(diameter / image.width, diameter / image.height) : 0;
   const renderedWidth = image ? image.width * coverScale * view.zoom : 0;
   const renderedHeight = image ? image.height * coverScale * view.zoom : 0;
-  return /* @__PURE__ */ React67.createElement("div", { className: "fd-crop-overlay", role: "presentation" }, /* @__PURE__ */ React67.createElement("style", null, `
+  return /* @__PURE__ */ React68.createElement("div", { className: "fd-crop-overlay", role: "presentation" }, /* @__PURE__ */ React68.createElement("style", null, `
         .fd-crop-overlay {
           position: fixed;
           inset: 0;
@@ -50596,7 +51737,7 @@ function PhotoCropper({
         @media (prefers-reduced-motion: reduce) {
           .fd-crop-overlay, .fd-crop-dialog { animation: none; }
         }
-      `), /* @__PURE__ */ React67.createElement(
+      `), /* @__PURE__ */ React68.createElement(
     "section",
     {
       ref: dialogRef,
@@ -50606,7 +51747,7 @@ function PhotoCropper({
       "aria-labelledby": "fd-crop-title",
       onKeyDown: onDialogKeyDown
     },
-    /* @__PURE__ */ React67.createElement("header", { className: "fd-crop-header" }, /* @__PURE__ */ React67.createElement("div", null, /* @__PURE__ */ React67.createElement("h2", { id: "fd-crop-title", className: "fd-crop-title" }, "Frame your photo")), /* @__PURE__ */ React67.createElement(
+    /* @__PURE__ */ React68.createElement("header", { className: "fd-crop-header" }, /* @__PURE__ */ React68.createElement("div", null, /* @__PURE__ */ React68.createElement("h2", { id: "fd-crop-title", className: "fd-crop-title" }, "Frame your photo")), /* @__PURE__ */ React68.createElement(
       "button",
       {
         ref: cancelRef,
@@ -50615,9 +51756,9 @@ function PhotoCropper({
         "aria-label": "Cancel photo crop",
         onClick: onCancel
       },
-      /* @__PURE__ */ React67.createElement(Icon, { name: "close", size: 20 })
+      /* @__PURE__ */ React68.createElement(Icon, { name: "close", size: 20 })
     )),
-    /* @__PURE__ */ React67.createElement(
+    /* @__PURE__ */ React68.createElement(
       "div",
       {
         ref: stageRef,
@@ -50631,7 +51772,7 @@ function PhotoCropper({
         onPointerUp: endPointer,
         onPointerCancel: endPointer
       },
-      /* @__PURE__ */ React67.createElement("div", { className: "fd-crop-window" }, status === "ready" && /* @__PURE__ */ React67.createElement(
+      /* @__PURE__ */ React68.createElement("div", { className: "fd-crop-window" }, status === "ready" && /* @__PURE__ */ React68.createElement(
         "img",
         {
           className: "fd-crop-image",
@@ -50647,9 +51788,9 @@ function PhotoCropper({
           }
         }
       )),
-      status !== "ready" && /* @__PURE__ */ React67.createElement("div", { className: "fd-crop-loading", role: "status" }, status === "loading" ? "Opening photo\u2026" : "Photo unavailable")
+      status !== "ready" && /* @__PURE__ */ React68.createElement("div", { className: "fd-crop-loading", role: "status" }, status === "loading" ? "Opening photo\u2026" : "Photo unavailable")
     ),
-    /* @__PURE__ */ React67.createElement("div", { className: "fd-crop-controls" }, /* @__PURE__ */ React67.createElement("div", { className: "fd-crop-zoom-row" }, /* @__PURE__ */ React67.createElement(
+    /* @__PURE__ */ React68.createElement("div", { className: "fd-crop-controls" }, /* @__PURE__ */ React68.createElement("div", { className: "fd-crop-zoom-row" }, /* @__PURE__ */ React68.createElement(
       "button",
       {
         type: "button",
@@ -50658,8 +51799,8 @@ function PhotoCropper({
         disabled: status !== "ready" || view.zoom <= MIN_ZOOM,
         onClick: () => updateZoom(view.zoom - ZOOM_STEP)
       },
-      /* @__PURE__ */ React67.createElement("span", { "aria-hidden": "true" }, "\u2212")
-    ), /* @__PURE__ */ React67.createElement(
+      /* @__PURE__ */ React68.createElement("span", { "aria-hidden": "true" }, "\u2212")
+    ), /* @__PURE__ */ React68.createElement(
       "input",
       {
         className: "fd-crop-range",
@@ -50672,7 +51813,7 @@ function PhotoCropper({
         "aria-label": `Photo zoom, ${Math.round(view.zoom * 100)} percent`,
         onChange: (event) => updateZoom(event.target.value)
       }
-    ), /* @__PURE__ */ React67.createElement(
+    ), /* @__PURE__ */ React68.createElement(
       "button",
       {
         type: "button",
@@ -50681,8 +51822,8 @@ function PhotoCropper({
         disabled: status !== "ready" || view.zoom >= MAX_ZOOM,
         onClick: () => updateZoom(view.zoom + ZOOM_STEP)
       },
-      /* @__PURE__ */ React67.createElement("span", { "aria-hidden": "true" }, "+")
-    )), error2 && /* @__PURE__ */ React67.createElement("p", { className: "fd-crop-error", role: "alert" }, error2), /* @__PURE__ */ React67.createElement("div", { className: "fd-crop-actions" }, /* @__PURE__ */ React67.createElement(
+      /* @__PURE__ */ React68.createElement("span", { "aria-hidden": "true" }, "+")
+    )), error2 && /* @__PURE__ */ React68.createElement("p", { className: "fd-crop-error", role: "alert" }, error2), /* @__PURE__ */ React68.createElement("div", { className: "fd-crop-actions" }, /* @__PURE__ */ React68.createElement(
       "button",
       {
         type: "button",
@@ -50690,7 +51831,7 @@ function PhotoCropper({
         onClick: onCancel
       },
       "Cancel"
-    ), /* @__PURE__ */ React67.createElement(
+    ), /* @__PURE__ */ React68.createElement(
       "button",
       {
         type: "button",
@@ -50713,7 +51854,7 @@ var init_PhotoCropper = __esm({
 });
 
 // src/features/profile/ProfileEditor.jsx
-import React68, { useEffect as useEffect44, useId as useId7, useRef as useRef44, useState as useState52 } from "react";
+import React69, { useEffect as useEffect45, useId as useId8, useRef as useRef46, useState as useState52 } from "react";
 function ProfileEditor({
   state,
   me,
@@ -50730,8 +51871,8 @@ function ProfileEditor({
   numLocked = false
 }) {
   const identity = usePlayerIdentity(me);
-  const fileRef = useRef44(null);
-  const numberErrorId = useId7();
+  const fileRef = useRef46(null);
+  const numberErrorId = useId8();
   const [cropSource, setCropSource] = useState52(null);
   const prof = state.profiles?.[me];
   const current = photo || (prof?.photoV ? `/api/photo/${encodeURIComponent(me)}?v=${prof.photoV}` : null);
@@ -50744,14 +51885,14 @@ function ProfileEditor({
     reader.readAsDataURL(f);
     e.target.value = "";
   };
-  return /* @__PURE__ */ React68.createElement("div", { className: "fd-profile-editor" }, me && /* @__PURE__ */ React68.createElement(PlayerPass, { state, p: me, display, num, photo, compact: true, mint: true, viewer: me }), /* @__PURE__ */ React68.createElement("div", { className: "fd-profile-controls" }, /* @__PURE__ */ React68.createElement(
+  return /* @__PURE__ */ React69.createElement("div", { className: "fd-profile-editor" }, me && /* @__PURE__ */ React69.createElement(PlayerPass, { state, p: me, display, num, photo, compact: true, mint: true, viewer: me }), /* @__PURE__ */ React69.createElement("div", { className: "fd-profile-controls" }, /* @__PURE__ */ React69.createElement(
     "div",
     {
       "aria-hidden": "true",
       className: "fd-profile-color-rail",
       style: { background: me ? identity.color : "var(--accent)" }
     }
-  ), /* @__PURE__ */ React68.createElement("div", { className: "fd-profile-fields" }, /* @__PURE__ */ React68.createElement("div", { className: "fd-profile-photo-row" }, /* @__PURE__ */ React68.createElement(
+  ), /* @__PURE__ */ React69.createElement("div", { className: "fd-profile-fields" }, /* @__PURE__ */ React69.createElement("div", { className: "fd-profile-photo-row" }, /* @__PURE__ */ React69.createElement(
     "button",
     {
       type: "button",
@@ -50759,10 +51900,10 @@ function ProfileEditor({
       className: "fd-profile-photo-button",
       "aria-label": current ? "Change your photo" : "Add your photo"
     },
-    /* @__PURE__ */ React68.createElement(Icon, { name: "camera", size: 18 }),
-    /* @__PURE__ */ React68.createElement("span", null, current ? "Change photo" : "Add a photo"),
-    /* @__PURE__ */ React68.createElement("span", { "aria-hidden": "true", className: "fd-profile-photo-action" }, /* @__PURE__ */ React68.createElement(Icon, { name: current ? "open" : "plus", size: "1em" }))
-  ), /* @__PURE__ */ React68.createElement("input", { ref: fileRef, type: "file", accept: "image/*", onChange: onFile, style: { display: "none" } }), cropSource && /* @__PURE__ */ React68.createElement(
+    /* @__PURE__ */ React69.createElement(Icon, { name: "camera", size: 18 }),
+    /* @__PURE__ */ React69.createElement("span", null, current ? "Change photo" : "Add a photo"),
+    /* @__PURE__ */ React69.createElement("span", { "aria-hidden": "true", className: "fd-profile-photo-action" }, /* @__PURE__ */ React69.createElement(Icon, { name: current ? "open" : "plus", size: "1em" }))
+  ), /* @__PURE__ */ React69.createElement("input", { ref: fileRef, type: "file", accept: "image/*", onChange: onFile, style: { display: "none" } }), cropSource && /* @__PURE__ */ React69.createElement(
     PhotoCropper,
     {
       src: cropSource,
@@ -50772,20 +51913,29 @@ function ProfileEditor({
         setCropSource(null);
       }
     }
-  )), /* @__PURE__ */ React68.createElement("div", { className: "fd-profile-name-row" }, /* @__PURE__ */ React68.createElement("label", { className: "fd-profile-field" }, /* @__PURE__ */ React68.createElement("span", null, "Display name"), /* @__PURE__ */ React68.createElement(
+  )), /* @__PURE__ */ React69.createElement("div", { className: "fd-profile-name-row" }, /* @__PURE__ */ React69.createElement("label", { className: "fd-profile-field" }, /* @__PURE__ */ React69.createElement("span", null, "Display name"), /* @__PURE__ */ React69.createElement(
     "input",
     {
       value: display,
       onChange: (e) => setDisplay(e.target.value),
       maxLength: 16,
       "aria-label": "Display name",
-      autoComplete: "nickname"
+      autoComplete: "nickname",
+      autoCapitalize: "words",
+      autoCorrect: "off",
+      spellCheck: false,
+      enterKeyHint: "done",
+      onKeyDown: (e) => {
+        if (e.key === "Enter") e.currentTarget.blur();
+      }
     }
-  )), /* @__PURE__ */ React68.createElement("label", { className: "fd-profile-field fd-profile-number-field" }, /* @__PURE__ */ React68.createElement("span", null, "No."), /* @__PURE__ */ React68.createElement(
+  )), /* @__PURE__ */ React69.createElement("label", { className: "fd-profile-field fd-profile-number-field" }, /* @__PURE__ */ React69.createElement("span", null, "No."), /* @__PURE__ */ React69.createElement(
     "input",
     {
+      className: "fd-field-large",
       value: num,
       inputMode: "numeric",
+      autoComplete: "off",
       placeholder: "00",
       "aria-label": "Player number",
       disabled: numLocked,
@@ -50793,7 +51943,7 @@ function ProfileEditor({
       "aria-describedby": takenBy ? numberErrorId : void 0,
       onChange: (e) => setNum(e.target.value.replace(/\D/g, "").slice(0, 2))
     }
-  ))), takenBy && /* @__PURE__ */ React68.createElement("div", { id: numberErrorId, className: "fd-profile-number-error", role: "status" }, disp(state, takenBy[0]), " already has ", Number(num), ".")), onChip && me && /* @__PURE__ */ React68.createElement(ChipPicker, { state, me, onChip, num, embedded: true })), showSize && /* @__PURE__ */ React68.createElement("div", { style: { marginTop: 18 } }, /* @__PURE__ */ React68.createElement(SizeRow, { lb: "T-shirt size", value: size, onPick: setSize, allowClear: true })));
+  ))), takenBy && /* @__PURE__ */ React69.createElement("div", { id: numberErrorId, className: "fd-profile-number-error", role: "status" }, disp(state, takenBy[0]), " already has ", Number(num), ".")), onChip && me && /* @__PURE__ */ React69.createElement(ChipPicker, { state, me, onChip, num, embedded: true })), showSize && /* @__PURE__ */ React69.createElement("div", { style: { marginTop: 18 } }, /* @__PURE__ */ React69.createElement(SizeRow, { lb: "T-shirt size", value: size, onPick: setSize, allowClear: true })));
 }
 function ChipPicker({ state, me, onChip, num, embedded = false }) {
   const mine = state.profiles?.[me] || {};
@@ -50804,7 +51954,7 @@ function ChipPicker({ state, me, onChip, num, embedded = false }) {
   const { skin: savedSkin } = usePlayerIdentity(me);
   const [draftSkin, setDraftSkin] = useState52(null);
   const skin = lateClaim ? draftSkin || mine.skin || CHIP_SKINS[0] : savedSkin;
-  const patterns = /* @__PURE__ */ React68.createElement(
+  const patterns = /* @__PURE__ */ React69.createElement(
     PatternPicker,
     {
       me,
@@ -50814,26 +51964,26 @@ function ChipPicker({ state, me, onChip, num, embedded = false }) {
       onPick: (sk) => lateClaim ? setDraftSkin(sk) : onChip(void 0, sk)
     }
   );
-  const wasLate = useRef44(lateClaim);
+  const wasLate = useRef46(lateClaim);
   const [justClaimed, setJustClaimed] = useState52(false);
-  useEffect44(() => {
+  useEffect45(() => {
     if (wasLate.current && locked) setJustClaimed(true);
     wasLate.current = lateClaim;
   }, [lateClaim, locked]);
-  if (locked) return /* @__PURE__ */ React68.createElement("div", { className: "fd-profile-chip-locked" }, /* @__PURE__ */ React68.createElement(ChipCoin, { key: justClaimed ? "minted" : "locked", p: me, size: 48, fallback: stamp, mintOnMount: justClaimed }), /* @__PURE__ */ React68.createElement("div", null, /* @__PURE__ */ React68.createElement("strong", null, CHIP_SKIN_META[skin] || "Classic", " pattern"), /* @__PURE__ */ React68.createElement("p", null, "Locked")));
-  return /* @__PURE__ */ React68.createElement("div", { className: "fd-chip-picker", style: {
+  if (locked) return /* @__PURE__ */ React69.createElement("div", { className: "fd-profile-chip-locked" }, /* @__PURE__ */ React69.createElement(ChipCoin, { key: justClaimed ? "minted" : "locked", p: me, size: 48, fallback: stamp, mintOnMount: justClaimed }), /* @__PURE__ */ React69.createElement("div", null, /* @__PURE__ */ React69.createElement("strong", null, CHIP_SKIN_META[skin] || "Classic", " pattern"), /* @__PURE__ */ React69.createElement("p", null, "Locked")));
+  return /* @__PURE__ */ React69.createElement("div", { className: "fd-chip-picker", style: {
     background: "var(--paper)",
     border: embedded ? "none" : "1px solid var(--line)",
     borderTop: embedded ? "1px solid var(--line)" : void 0,
     borderRadius: embedded ? 0 : 14,
     padding: embedded ? "14px 12px 13px" : 12
-  } }, !embedded && /* @__PURE__ */ React68.createElement("div", { style: { display: "flex", alignItems: "center", gap: 14, marginBottom: 15 } }, /* @__PURE__ */ React68.createElement("div", { style: { position: "relative", width: 80, height: 80, flexShrink: 0, display: "grid", placeItems: "center" } }, /* @__PURE__ */ React68.createElement("span", { "aria-hidden": "true", style: {
+  } }, !embedded && /* @__PURE__ */ React69.createElement("div", { style: { display: "flex", alignItems: "center", gap: 14, marginBottom: 15 } }, /* @__PURE__ */ React69.createElement("div", { style: { position: "relative", width: 80, height: 80, flexShrink: 0, display: "grid", placeItems: "center" } }, /* @__PURE__ */ React69.createElement("span", { "aria-hidden": "true", style: {
     position: "absolute",
     inset: 4,
     borderRadius: "50%",
     background: "var(--sun-tint)",
     border: "1px solid var(--line)"
-  } }), /* @__PURE__ */ React68.createElement("div", { style: { position: "relative" } }, /* @__PURE__ */ React68.createElement(ChipFace, { p: me, size: 70, fallback: stamp }))), /* @__PURE__ */ React68.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React68.createElement("div", { style: {
+  } }), /* @__PURE__ */ React69.createElement("div", { style: { position: "relative" } }, /* @__PURE__ */ React69.createElement(ChipFace, { p: me, size: 70, fallback: stamp }))), /* @__PURE__ */ React69.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React69.createElement("div", { style: {
     fontFamily: SANS,
     fontWeight: 700,
     fontSize: 12,
@@ -50841,24 +51991,24 @@ function ChipPicker({ state, me, onChip, num, embedded = false }) {
     textTransform: "uppercase",
     color: "var(--accent2)",
     marginBottom: 4
-  } }, "Chip design"), /* @__PURE__ */ React68.createElement("div", { style: {
+  } }, "Chip design"), /* @__PURE__ */ React69.createElement("div", { style: {
     fontFamily: DISPLAY,
     fontWeight: 700,
     fontSize: 26,
     lineHeight: 1,
     textTransform: "uppercase",
     color: "var(--ink)"
-  } }, "Your chip"), mine.color && /* @__PURE__ */ React68.createElement("div", { style: { fontFamily: SANS, fontSize: 12.5, color: "var(--muted2)", lineHeight: 1.45, marginTop: 5 } }, CHIP_SKIN_META[skin] || "Classic", " pattern"))), lateClaim && patterns, lateClaim && /* @__PURE__ */ React68.createElement("p", { className: "fd-chip-late-note" }, "Claiming a color locks your chip for the weekend."), /* @__PURE__ */ React68.createElement("div", { style: {
+  } }, "Your chip"), mine.color && /* @__PURE__ */ React69.createElement("div", { style: { fontFamily: SANS, fontSize: 12.5, color: "var(--muted2)", lineHeight: 1.45, marginTop: 5 } }, CHIP_SKIN_META[skin] || "Classic", " pattern"))), lateClaim && patterns, lateClaim && /* @__PURE__ */ React69.createElement("p", { className: "fd-chip-late-note" }, "Claiming a color locks your chip for the weekend."), /* @__PURE__ */ React69.createElement("div", { style: {
     display: "flex",
     alignItems: "baseline",
     justifyContent: "space-between",
     gap: 10,
     marginBottom: 8
-  } }, /* @__PURE__ */ React68.createElement("div", { style: { ...label } }, "Color"), !mine.color && /* @__PURE__ */ React68.createElement("div", { style: { fontFamily: SANS, fontSize: 12, color: "var(--muted)" } }, "First come, first served")), /* @__PURE__ */ React68.createElement("div", { className: "fd-chip-colors" }, CHIP_COLORS.map((c2) => {
+  } }, /* @__PURE__ */ React69.createElement("div", { style: { ...label } }, "Color"), !mine.color && /* @__PURE__ */ React69.createElement("div", { style: { fontFamily: SANS, fontSize: 12, color: "var(--muted)" } }, "First come, first served")), /* @__PURE__ */ React69.createElement("div", { className: "fd-chip-colors" }, CHIP_COLORS.map((c2) => {
     const by = owner(c2.hex);
     const isMine = by === me;
     const taken = by && !isMine;
-    return /* @__PURE__ */ React68.createElement(
+    return /* @__PURE__ */ React69.createElement(
       "button",
       {
         type: "button",
@@ -50883,7 +52033,7 @@ function ChipPicker({ state, me, onChip, num, embedded = false }) {
           opacity: taken ? 0.42 : locked && !isMine ? 0.55 : 1
         }
       },
-      /* @__PURE__ */ React68.createElement("span", { style: {
+      /* @__PURE__ */ React69.createElement("span", { style: {
         position: "relative",
         display: "grid",
         placeItems: "center",
@@ -50893,12 +52043,12 @@ function ChipPicker({ state, me, onChip, num, embedded = false }) {
         borderRadius: "50%",
         background: c2.hex,
         border: "1.5px solid var(--bone-line)"
-      } }, taken && /* @__PURE__ */ React68.createElement("span", { style: {
+      } }, taken && /* @__PURE__ */ React69.createElement("span", { style: {
         fontFamily: SANS,
         fontWeight: 800,
         fontSize: 12,
         color: chipInkIsDark(c2.hex) ? "var(--ink0)" : "var(--bone)"
-      } }, initialsOf(state.profiles, by)), isMine && /* @__PURE__ */ React68.createElement(
+      } }, initialsOf(state.profiles, by)), isMine && /* @__PURE__ */ React69.createElement(
         "svg",
         {
           width: "14",
@@ -50911,19 +52061,19 @@ function ChipPicker({ state, me, onChip, num, embedded = false }) {
           strokeLinejoin: "round",
           "aria-hidden": "true"
         },
-        /* @__PURE__ */ React68.createElement("path", { d: "m3.2 8.3 3 3 6.6-6.6" })
+        /* @__PURE__ */ React69.createElement("path", { d: "m3.2 8.3 3 3 6.6-6.6" })
       ))
     );
   })), !lateClaim && patterns);
 }
 function PatternPicker({ me, skin, locked, stamp, onPick }) {
-  return /* @__PURE__ */ React68.createElement(React68.Fragment, null, /* @__PURE__ */ React68.createElement("div", { style: {
+  return /* @__PURE__ */ React69.createElement(React69.Fragment, null, /* @__PURE__ */ React69.createElement("div", { style: {
     display: "flex",
     alignItems: "baseline",
     justifyContent: "space-between",
     gap: 10,
     marginBottom: 8
-  } }, /* @__PURE__ */ React68.createElement("div", { style: { ...label } }, "Pattern")), /* @__PURE__ */ React68.createElement("div", { className: "fd-chip-patterns" }, CHIP_SKINS.map((sk) => /* @__PURE__ */ React68.createElement(
+  } }, /* @__PURE__ */ React69.createElement("div", { style: { ...label } }, "Pattern")), /* @__PURE__ */ React69.createElement("div", { className: "fd-chip-patterns" }, CHIP_SKINS.map((sk) => /* @__PURE__ */ React69.createElement(
     "button",
     {
       type: "button",
@@ -50948,8 +52098,8 @@ function PatternPicker({ me, skin, locked, stamp, onPick }) {
         opacity: locked && skin !== sk ? 0.55 : 1
       }
     },
-    /* @__PURE__ */ React68.createElement(ChipFace, { p: me, size: 42, skin: sk, fallback: stamp }),
-    /* @__PURE__ */ React68.createElement("span", { style: {
+    /* @__PURE__ */ React69.createElement(ChipFace, { p: me, size: 42, skin: sk, fallback: stamp }),
+    /* @__PURE__ */ React69.createElement("span", { style: {
       fontFamily: SANS,
       fontWeight: 700,
       fontSize: 12,
@@ -51034,6 +52184,42 @@ var init_awards = __esm({
   }
 });
 
+// src/lib/mapsKey.js
+var init_mapsKey = __esm({
+  "src/lib/mapsKey.js"() {
+  }
+});
+
+// src/features/geo/mapModel.js
+var MAP_RENDERERS, ADAPTER_MEMBERS, CARD_CORNERS, REVEAL;
+var init_mapModel = __esm({
+  "src/features/geo/mapModel.js"() {
+    MAP_RENDERERS = Object.freeze(["google", "gl", "leaflet"]);
+    ADAPTER_MEMBERS = Object.freeze([
+      "kind",
+      "size",
+      "camera",
+      "move",
+      "onClick",
+      "setPin",
+      "inView",
+      "addMarker",
+      "setLines",
+      "types",
+      "setType",
+      "remove"
+    ]);
+    CARD_CORNERS = Object.freeze(["tl", "tr"]);
+    REVEAL = Object.freeze({ first: 300, drop: 110, toLines: 250, lines: 1100, camera: 1300, answerAfter: 1e3, land: 620 });
+  }
+});
+
+// src/features/geo/maps/googleState.js
+var init_googleState = __esm({
+  "src/features/geo/maps/googleState.js"() {
+  }
+});
+
 // src/features/geo/geo.css
 var init_geo2 = __esm({
   "src/features/geo/geo.css"() {
@@ -51041,15 +52227,24 @@ var init_geo2 = __esm({
 });
 
 // src/features/geo/GeoMap.jsx
-import React85, { useEffect as useEffect61, useRef as useRef60, useState as useState67 } from "react";
+import React86, { useEffect as useEffect62, useRef as useRef62, useState as useState67 } from "react";
+import { createPortal as createPortal5 } from "react-dom";
+var ZOOM, PAD, START_PAD;
 var init_GeoMap = __esm({
   "src/features/geo/GeoMap.jsx"() {
+    init_mapsKey();
+    init_PlayerIdentity();
+    init_mapModel();
+    init_googleState();
     init_geo2();
+    ZOOM = Object.freeze({ place: 15, revealMax: 14, single: 12, guessesMax: 10 });
+    PAD = Object.freeze({ top: 24, bottom: 24, left: 24, right: 24 });
+    START_PAD = Object.freeze({ top: 40, bottom: 40, left: 40, right: 40 });
   }
 });
 
 // src/features/geo/Wheel.jsx
-import React86, { useEffect as useEffect62, useLayoutEffect as useLayoutEffect18, useRef as useRef61, useState as useState68 } from "react";
+import React87, { useEffect as useEffect63, useLayoutEffect as useLayoutEffect18, useRef as useRef63, useState as useState68 } from "react";
 var ROWS, CENTER2;
 var init_Wheel = __esm({
   "src/features/geo/Wheel.jsx"() {
@@ -51071,7 +52266,7 @@ var init_geoModel = __esm({
 });
 
 // src/features/geo/WhenPicker.jsx
-import React87, { useEffect as useEffect63, useMemo as useMemo16 } from "react";
+import React88, { useEffect as useEffect64, useMemo as useMemo16 } from "react";
 var MONTHS, MONTH_ITEMS, YEAR_ITEMS, HOUR_ITEMS;
 var init_WhenPicker = __esm({
   "src/features/geo/WhenPicker.jsx"() {
@@ -51085,7 +52280,7 @@ var init_WhenPicker = __esm({
 });
 
 // src/features/geo/PlaceSearch.jsx
-import React88, { useEffect as useEffect64, useRef as useRef62, useState as useState69 } from "react";
+import React89, { useEffect as useEffect65, useRef as useRef64, useState as useState69 } from "react";
 var init_PlaceSearch = __esm({
   "src/features/geo/PlaceSearch.jsx"() {
     init_haptics();
@@ -51136,6 +52331,31 @@ var init_youtube = __esm({
   }
 });
 
+// src/features/karaoke/lyrics.css
+var init_lyrics = __esm({
+  "src/features/karaoke/lyrics.css"() {
+  }
+});
+
+// src/features/karaoke/KaraokeWay.jsx
+import React95 from "react";
+var KARAOKE_WAY_WORDS;
+var init_KaraokeWay = __esm({
+  "src/features/karaoke/KaraokeWay.jsx"() {
+    init_lyrics();
+    KARAOKE_WAY_WORDS = Object.freeze({ lyrics: "Lyrics", video: "Video lyrics" });
+  }
+});
+
+// src/features/karaoke/Lyrics.jsx
+import React97, { useEffect as useEffect72, useRef as useRef71, useState as useState76 } from "react";
+var init_Lyrics = __esm({
+  "src/features/karaoke/Lyrics.jsx"() {
+    init_karaokeLyrics();
+    init_lyrics();
+  }
+});
+
 // src/features/speaker/speakerModel.js
 var init_speakerModel = __esm({
   "src/features/speaker/speakerModel.js"() {
@@ -51165,6 +52385,7 @@ var init_deskModel = __esm({
   "src/features/karaoke/deskModel.js"() {
     init_core();
     init_karaoke();
+    init_karaokeLyrics();
     KARAOKE_PROBLEMS = Object.freeze({
       removed: "Video gone",
       private: "Private video",
@@ -51201,7 +52422,7 @@ var init_tvSheetModel = __esm({
 });
 
 // src/features/speaker/speakerStatus.js
-import { useEffect as useEffect73, useSyncExternalStore as useSyncExternalStore8 } from "react";
+import { useEffect as useEffect75, useSyncExternalStore as useSyncExternalStore8 } from "react";
 var init_speakerStatus = __esm({
   "src/features/speaker/speakerStatus.js"() {
     init_client();
@@ -51241,13 +52462,13 @@ var Onboarding_exports = {};
 __export(Onboarding_exports, {
   Onboarding: () => Onboarding
 });
-import React102, { useEffect as useEffect75, useRef as useRef73, useState as useState79 } from "react";
+import React105, { useEffect as useEffect77, useRef as useRef76, useState as useState80 } from "react";
 function InvitationArt({ count }) {
-  return /* @__PURE__ */ React102.createElement("div", { className: "fd-invitation-art", "aria-label": `Field Day. ${EDITION.name}, ${EDITION.year}.` }, /* @__PURE__ */ React102.createElement(LampChase, { tone: "live" }), /* @__PURE__ */ React102.createElement("div", { className: "fd-invitation-scene fd-glass-scene" }, /* @__PURE__ */ React102.createElement(GlassArt, { clear: true }), /* @__PURE__ */ React102.createElement("div", { className: "fd-invitation-wordmark", "aria-hidden": "true" }, /* @__PURE__ */ React102.createElement("span", null, "Field"), /* @__PURE__ */ React102.createElement("span", null, "Day"))), /* @__PURE__ */ React102.createElement("div", { className: "fd-invitation-seal", "aria-hidden": "true" }, /* @__PURE__ */ React102.createElement("svg", { viewBox: "0 0 100 100" }, /* @__PURE__ */ React102.createElement("path", { d: "M50 1 59 10 72 6 77 19 91 23 90 37 100 50 90 60 94 74 80 79 76 93 62 91 50 100 40 90 26 94 21 80 7 76 9 62 0 50 10 40 6 26 20 21 24 7 38 9Z", fill: "currentColor" })), /* @__PURE__ */ React102.createElement("span", null, /* @__PURE__ */ React102.createElement("strong", null, count), /* @__PURE__ */ React102.createElement("small", null, "Players"))), /* @__PURE__ */ React102.createElement("div", { className: "fd-invitation-edition" }, /* @__PURE__ */ React102.createElement("span", null, "Scottsdale, AZ"), /* @__PURE__ */ React102.createElement("span", null, /* @__PURE__ */ React102.createElement(OneSafe, { text: EDITION.short }), /* @__PURE__ */ React102.createElement("br", null), EDITION.year)));
+  return /* @__PURE__ */ React105.createElement("div", { className: "fd-invitation-art", "aria-label": `Field Day. ${EDITION.name}, ${EDITION.year}.` }, /* @__PURE__ */ React105.createElement(LampChase, { tone: "live" }), /* @__PURE__ */ React105.createElement("div", { className: "fd-invitation-scene fd-glass-scene" }, /* @__PURE__ */ React105.createElement(GlassArt, { clear: true }), /* @__PURE__ */ React105.createElement("div", { className: "fd-invitation-wordmark", "aria-hidden": "true" }, /* @__PURE__ */ React105.createElement("span", null, "Field"), /* @__PURE__ */ React105.createElement("span", null, "Day"))), /* @__PURE__ */ React105.createElement("div", { className: "fd-invitation-seal", "aria-hidden": "true" }, /* @__PURE__ */ React105.createElement("svg", { viewBox: "0 0 100 100" }, /* @__PURE__ */ React105.createElement("path", { d: "M50 1 59 10 72 6 77 19 91 23 90 37 100 50 90 60 94 74 80 79 76 93 62 91 50 100 40 90 26 94 21 80 7 76 9 62 0 50 10 40 6 26 20 21 24 7 38 9Z", fill: "currentColor" })), /* @__PURE__ */ React105.createElement("span", null, /* @__PURE__ */ React105.createElement("strong", null, count), /* @__PURE__ */ React105.createElement("small", null, "Players"))), /* @__PURE__ */ React105.createElement("div", { className: "fd-invitation-edition" }, /* @__PURE__ */ React105.createElement("span", null, "Scottsdale, AZ"), /* @__PURE__ */ React105.createElement("span", null, /* @__PURE__ */ React105.createElement(OneSafe, { text: EDITION.short }), /* @__PURE__ */ React105.createElement("br", null), EDITION.year)));
 }
 function RatingForm({ ratings, setRatings }) {
   const rated = SPORTS.filter((s) => ratings[s.id] !== void 0).length;
-  return /* @__PURE__ */ React102.createElement("div", null, /* @__PURE__ */ React102.createElement("div", { className: "fd-rating-status" }, /* @__PURE__ */ React102.createElement("span", { role: "status" }, rated, " of ", SPORTS.length, " rated"), rated < SPORTS.length && /* @__PURE__ */ React102.createElement(
+  return /* @__PURE__ */ React105.createElement("div", null, /* @__PURE__ */ React105.createElement("div", { className: "fd-rating-status" }, /* @__PURE__ */ React105.createElement("span", { role: "status" }, rated, " of ", SPORTS.length, " rated"), rated < SPORTS.length && /* @__PURE__ */ React105.createElement(
     "button",
     {
       type: "button",
@@ -51255,7 +52476,7 @@ function RatingForm({ ratings, setRatings }) {
       onClick: () => setRatings((current) => Object.fromEntries(SPORTS.map((s) => [s.id, current[s.id] ?? 2])))
     },
     "Set remaining to Average"
-  )), [["sport", "Sports"], ["drink", "Drinking games"]].map(([group, title]) => /* @__PURE__ */ React102.createElement("div", { className: "fd-rating-group", key: group }, /* @__PURE__ */ React102.createElement("h3", { className: "fd-eyebrow" }, title), /* @__PURE__ */ React102.createElement("div", { className: "fd-rating-labels", "aria-hidden": "true" }, /* @__PURE__ */ React102.createElement("span", null), /* @__PURE__ */ React102.createElement("div", null, ["Never", "Rough", "Avg", "Solid", "Elite"].map((text) => /* @__PURE__ */ React102.createElement("span", { key: text }, text)))), SPORTS.filter((s) => s.group === group).map((s) => /* @__PURE__ */ React102.createElement("div", { className: "fd-rating-row", key: s.id }, /* @__PURE__ */ React102.createElement("div", null, /* @__PURE__ */ React102.createElement("strong", null, s.label), /* @__PURE__ */ React102.createElement("small", null, RATINGS.find((r) => r.v === ratings[s.id])?.label || "Not rated")), /* @__PURE__ */ React102.createElement("div", { className: "fd-rating-options", role: "group", "aria-label": s.label }, RATINGS.map((r, i) => /* @__PURE__ */ React102.createElement(
+  )), [["sport", "Sports"], ["drink", "Drinking games"]].map(([group, title]) => /* @__PURE__ */ React105.createElement("div", { className: "fd-rating-group", key: group }, /* @__PURE__ */ React105.createElement("h3", { className: "fd-eyebrow" }, title), /* @__PURE__ */ React105.createElement("div", { className: "fd-rating-labels", "aria-hidden": "true" }, /* @__PURE__ */ React105.createElement("span", null), /* @__PURE__ */ React105.createElement("div", null, ["Never", "Rough", "Avg", "Solid", "Elite"].map((text) => /* @__PURE__ */ React105.createElement("span", { key: text }, text)))), SPORTS.filter((s) => s.group === group).map((s) => /* @__PURE__ */ React105.createElement("div", { className: "fd-rating-row", key: s.id }, /* @__PURE__ */ React105.createElement("div", null, /* @__PURE__ */ React105.createElement("strong", null, s.label), /* @__PURE__ */ React105.createElement("small", null, RATINGS.find((r) => r.v === ratings[s.id])?.label || "Not rated")), /* @__PURE__ */ React105.createElement("div", { className: "fd-rating-options", role: "group", "aria-label": s.label }, RATINGS.map((r, i) => /* @__PURE__ */ React105.createElement(
     "button",
     {
       type: "button",
@@ -51269,21 +52490,21 @@ function RatingForm({ ratings, setRatings }) {
   ))))))));
 }
 function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, back, done, onTv, onChip }) {
-  const [selected, setSelected] = useState79(me || null);
-  const [ratings, setRatings] = useState79({});
-  const [display, setDisplay] = useState79("");
-  const [photo, setPhoto] = useState79(null);
-  const [num, setNum] = useState79("");
-  const [size, setSize] = useState79(null);
-  const [flightsBooked, setFlightsBooked] = useState79(null);
-  const [flightIn, setFlightIn] = useState79(null);
-  const [flightOut, setFlightOut] = useState79(null);
-  const [busy, setBusy] = useState79(false);
-  const [error2, setError] = useState79("");
-  const submit = useRef73(createCheckInSubmission());
-  const heading = useRef73(null);
-  const hydratedPlayer = useRef73(null);
-  useEffect75(() => {
+  const [selected, setSelected] = useState80(me || null);
+  const [ratings, setRatings] = useState80({});
+  const [display, setDisplay] = useState80("");
+  const [photo, setPhoto] = useState80(null);
+  const [num, setNum] = useState80("");
+  const [size, setSize] = useState80(null);
+  const [flightsBooked, setFlightsBooked] = useState80(null);
+  const [flightIn, setFlightIn] = useState80(null);
+  const [flightOut, setFlightOut] = useState80(null);
+  const [busy, setBusy] = useState80(false);
+  const [error2, setError] = useState80("");
+  const submit = useRef76(createCheckInSubmission());
+  const heading = useRef76(null);
+  const hydratedPlayer = useRef76(null);
+  useEffect77(() => {
     if (!me || hydratedPlayer.current === me) return;
     hydratedPlayer.current = me;
     const profile = state.profiles?.[me];
@@ -51296,7 +52517,7 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, bac
     setPhoto(null);
     setRatings({ ...state.seeds?.[me] });
   }, [me, state.profiles, state.seeds]);
-  useEffect75(() => {
+  useEffect77(() => {
     setError("");
     heading.current?.focus({ preventScroll: true });
     window.scrollTo({ top: 0, behavior: "instant" });
@@ -51338,12 +52559,12 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, bac
     if (step === 5) return saveAndGo(() => submitSeeds(ratings), done);
     next();
   };
-  return /* @__PURE__ */ React102.createElement("main", { className: "fd-arrival", "aria-busy": busy }, /* @__PURE__ */ React102.createElement("header", { className: "fd-arrival-header" }, /* @__PURE__ */ React102.createElement("span", { className: "fd-arrival-mark" }, "Field Day ", /* @__PURE__ */ React102.createElement("span", null, EDITION.label)), /* @__PURE__ */ React102.createElement("span", { className: "fd-arrival-progress" }, step < 0 ? "WELCOME" : /* @__PURE__ */ React102.createElement(OneSafe, { all: true, text: `${String(step + 1).padStart(2, "0")} / 06` })), step >= 0 && /* @__PURE__ */ React102.createElement("div", { className: "fd-arrival-progress-track", "aria-label": `Check-in step ${step + 1} of 6: ${STAGES[step]}` }, STAGES.map((stage, i) => /* @__PURE__ */ React102.createElement("span", { key: stage, className: i <= step ? "is-complete" : "" })))), /* @__PURE__ */ React102.createElement("div", { className: `fd-arrival-layout${step <= 0 ? " is-invitation" : ""}` }, /* @__PURE__ */ React102.createElement("aside", { className: "fd-arrival-aside" }, step <= 0 ? /* @__PURE__ */ React102.createElement(InvitationArt, { count: rosterOf(state).length }) : /* @__PURE__ */ React102.createElement("div", { className: "fd-arrival-chapter", "aria-hidden": "true" }, /* @__PURE__ */ React102.createElement("strong", null, String(step + 1).padStart(2, "0")), /* @__PURE__ */ React102.createElement("span", { className: "fd-chapter-name" }, STAGES[step]), /* @__PURE__ */ React102.createElement("span", { className: "fd-chapter-date" }, EDITION.long))), /* @__PURE__ */ React102.createElement("section", { className: "fd-arrival-main", key: step }, /* @__PURE__ */ React102.createElement("div", { className: "fd-arrival-heading" }, /* @__PURE__ */ React102.createElement("h1", { ref: heading, tabIndex: -1 }, title), intro && /* @__PURE__ */ React102.createElement("p", null, intro)), /* @__PURE__ */ React102.createElement("fieldset", { className: "fd-arrival-fields", disabled: busy }, step === -1 && /* @__PURE__ */ React102.createElement("div", { className: "fd-install" }, /* @__PURE__ */ React102.createElement(InstallHint, null)), step === 0 && /* @__PURE__ */ React102.createElement("div", { className: "fd-guest-list", role: "group", "aria-label": "Who are you?" }, rosterOf(state).map((p, i) => /* @__PURE__ */ React102.createElement("button", { type: "button", key: p, onClick: () => setSelected(p), "aria-pressed": selected === p }, /* @__PURE__ */ React102.createElement("span", { className: "fd-guest-index" }, /* @__PURE__ */ React102.createElement(OneSafe, { all: true, text: String(i + 1).padStart(2, "0") })), /* @__PURE__ */ React102.createElement("span", { className: "fd-guest-name" }, p)))), step === 1 && /* @__PURE__ */ React102.createElement(React102.Fragment, null, /* @__PURE__ */ React102.createElement("div", { className: "fd-starting-stack" }, /* @__PURE__ */ React102.createElement("strong", null, /* @__PURE__ */ React102.createElement(ScoreReel, { value: 1e3, tone: "chip", label: "1,000 chips" }), /* @__PURE__ */ React102.createElement("span", null, "Chips")), /* @__PURE__ */ React102.createElement("span", { className: "fd-starting-stack-sub" }, "Everyone\u2019s starting stack")), /* @__PURE__ */ React102.createElement("div", { className: "fd-weekend-rules" }, [
+  return /* @__PURE__ */ React105.createElement("main", { className: "fd-arrival", "aria-busy": busy }, /* @__PURE__ */ React105.createElement("header", { className: "fd-arrival-header" }, /* @__PURE__ */ React105.createElement("span", { className: "fd-arrival-mark" }, "Field Day ", /* @__PURE__ */ React105.createElement("span", null, EDITION.label)), /* @__PURE__ */ React105.createElement("span", { className: "fd-arrival-progress" }, step < 0 ? "WELCOME" : /* @__PURE__ */ React105.createElement(OneSafe, { all: true, text: `${String(step + 1).padStart(2, "0")} / 06` })), step >= 0 && /* @__PURE__ */ React105.createElement("div", { className: "fd-arrival-progress-track", "aria-label": `Check-in step ${step + 1} of 6: ${STAGES[step]}` }, STAGES.map((stage, i) => /* @__PURE__ */ React105.createElement("span", { key: stage, className: i <= step ? "is-complete" : "" })))), /* @__PURE__ */ React105.createElement("div", { className: `fd-arrival-layout${step <= 0 ? " is-invitation" : ""}` }, /* @__PURE__ */ React105.createElement("aside", { className: "fd-arrival-aside" }, step <= 0 ? /* @__PURE__ */ React105.createElement(InvitationArt, { count: rosterOf(state).length }) : /* @__PURE__ */ React105.createElement("div", { className: "fd-arrival-chapter", "aria-hidden": "true" }, /* @__PURE__ */ React105.createElement("strong", null, String(step + 1).padStart(2, "0")), /* @__PURE__ */ React105.createElement("span", { className: "fd-chapter-name" }, STAGES[step]), /* @__PURE__ */ React105.createElement("span", { className: "fd-chapter-date" }, EDITION.long))), /* @__PURE__ */ React105.createElement("section", { className: "fd-arrival-main", key: step }, /* @__PURE__ */ React105.createElement("div", { className: "fd-arrival-heading" }, /* @__PURE__ */ React105.createElement("h1", { ref: heading, tabIndex: -1 }, title), intro && /* @__PURE__ */ React105.createElement("p", null, intro)), /* @__PURE__ */ React105.createElement("fieldset", { className: "fd-arrival-fields", disabled: busy }, step === -1 && /* @__PURE__ */ React105.createElement("div", { className: "fd-install" }, /* @__PURE__ */ React105.createElement(InstallHint, null)), step === 0 && /* @__PURE__ */ React105.createElement("div", { className: "fd-guest-list", role: "group", "aria-label": "Who are you?" }, rosterOf(state).map((p, i) => /* @__PURE__ */ React105.createElement("button", { type: "button", key: p, onClick: () => setSelected(p), "aria-pressed": selected === p }, /* @__PURE__ */ React105.createElement("span", { className: "fd-guest-index" }, /* @__PURE__ */ React105.createElement(OneSafe, { all: true, text: String(i + 1).padStart(2, "0") })), /* @__PURE__ */ React105.createElement("span", { className: "fd-guest-name" }, p)))), step === 1 && /* @__PURE__ */ React105.createElement(React105.Fragment, null, /* @__PURE__ */ React105.createElement("div", { className: "fd-starting-stack" }, /* @__PURE__ */ React105.createElement("strong", null, /* @__PURE__ */ React105.createElement(ScoreReel, { value: 1e3, tone: "chip", label: "1,000 chips" }), /* @__PURE__ */ React105.createElement("span", null, "Chips")), /* @__PURE__ */ React105.createElement("span", { className: "fd-starting-stack-sub" }, "Everyone\u2019s starting stack")), /* @__PURE__ */ React105.createElement("div", { className: "fd-weekend-rules" }, [
     ["01", "Collect chips", "Win events and bets. Whatever you have Saturday night is your poker stack."],
     ["02", "Betting", "Bet on each contest before it starts. Only half your chips can be at risk at one time."],
     ["03", "Duels", "Challenge anyone to Quick Draw for an ante you name. Fastest tap wins both antes."],
     ["04", "The trophy", `The winner of the poker finale is the Field Day champion and takes home the ${EDITION.name} ${EDITION.year} trophy.`]
-  ].map(([n, name, body]) => /* @__PURE__ */ React102.createElement("div", { key: n }, /* @__PURE__ */ React102.createElement("span", null, n), /* @__PURE__ */ React102.createElement("div", null, /* @__PURE__ */ React102.createElement("h2", null, name), /* @__PURE__ */ React102.createElement("p", null, body)))))), step === 2 && /* @__PURE__ */ React102.createElement("div", { className: "fd-arrival-map" }, /* @__PURE__ */ React102.createElement(TravelMap, null), /* @__PURE__ */ React102.createElement("div", { className: "fd-destination-note" }, /* @__PURE__ */ React102.createElement("strong", null, "Scottsdale, Arizona"), /* @__PURE__ */ React102.createElement("span", null, EDITION.long))), step === 3 && /* @__PURE__ */ React102.createElement(React102.Fragment, null, /* @__PURE__ */ React102.createElement(VenueCard, { lg: state.logistics || {} }), /* @__PURE__ */ React102.createElement("div", { className: "fd-details-panel" }, /* @__PURE__ */ React102.createElement("h2", null, "Information I need"), /* @__PURE__ */ React102.createElement(TravelFields, { booked: flightsBooked, setBooked: setFlightsBooked, flightIn, setFlightIn, flightOut, setFlightOut }), /* @__PURE__ */ React102.createElement(SizeRow, { lb: "T-shirt size", value: size, onPick: setSize }))), step === 4 && /* @__PURE__ */ React102.createElement(
+  ].map(([n, name, body]) => /* @__PURE__ */ React105.createElement("div", { key: n }, /* @__PURE__ */ React105.createElement("span", null, n), /* @__PURE__ */ React105.createElement("div", null, /* @__PURE__ */ React105.createElement("h2", null, name), /* @__PURE__ */ React105.createElement("p", null, body)))))), step === 2 && /* @__PURE__ */ React105.createElement("div", { className: "fd-arrival-map" }, /* @__PURE__ */ React105.createElement(TravelMap, null), /* @__PURE__ */ React105.createElement("div", { className: "fd-destination-note" }, /* @__PURE__ */ React105.createElement("strong", null, "Scottsdale, Arizona"), /* @__PURE__ */ React105.createElement("span", null, EDITION.long))), step === 3 && /* @__PURE__ */ React105.createElement(React105.Fragment, null, /* @__PURE__ */ React105.createElement(VenueCard, { lg: state.logistics || {} }), /* @__PURE__ */ React105.createElement("div", { className: "fd-details-panel" }, /* @__PURE__ */ React105.createElement("h2", null, "Information I need"), /* @__PURE__ */ React105.createElement(TravelFields, { booked: flightsBooked, setBooked: setFlightsBooked, flightIn, setFlightIn, flightOut, setFlightOut }), /* @__PURE__ */ React105.createElement(SizeRow, { lb: "T-shirt size", value: size, onPick: setSize }))), step === 4 && /* @__PURE__ */ React105.createElement(
     ProfileEditor,
     {
       state,
@@ -51357,7 +52578,7 @@ function Onboarding({ step, me, state, pick, saveProfile, submitSeeds, next, bac
       showSize: false,
       onChip: saveChip
     }
-  ), step === 5 && /* @__PURE__ */ React102.createElement(RatingForm, { ratings, setRatings })), /* @__PURE__ */ React102.createElement("footer", { className: "fd-arrival-actions" }, error2 && /* @__PURE__ */ React102.createElement("p", { className: "fd-save-error", role: "alert" }, error2), /* @__PURE__ */ React102.createElement("button", { type: "button", className: "fd-continue", disabled: busy || !canContinue, onClick: go }, /* @__PURE__ */ React102.createElement("span", null, busy ? "Saving\u2026" : continueLabel), /* @__PURE__ */ React102.createElement(Icon, { name: "then", size: "1.1em" })), /* @__PURE__ */ React102.createElement("div", { className: "fd-arrival-links" }, step > 0 && /* @__PURE__ */ React102.createElement("button", { type: "button", className: "fd-text-button", disabled: busy, onClick: back }, /* @__PURE__ */ React102.createElement(Icon, { name: "back", size: "1em" }), "Back"), step === 0 && onTv && /* @__PURE__ */ React102.createElement("button", { type: "button", className: "fd-text-button", onClick: onTv, disabled: busy }, "TV mode"), step === 4 && !state.profiles?.[me]?.color && /* @__PURE__ */ React102.createElement("span", null, "Choose a chip color to continue."))))));
+  ), step === 5 && /* @__PURE__ */ React105.createElement(RatingForm, { ratings, setRatings })), /* @__PURE__ */ React105.createElement("footer", { className: "fd-arrival-actions" }, error2 && /* @__PURE__ */ React105.createElement("p", { className: "fd-save-error", role: "alert" }, error2), /* @__PURE__ */ React105.createElement("button", { type: "button", className: "fd-continue", disabled: busy || !canContinue, onClick: go }, /* @__PURE__ */ React105.createElement("span", null, busy ? "Saving\u2026" : continueLabel), /* @__PURE__ */ React105.createElement(Icon, { name: "then", size: "1.1em" })), /* @__PURE__ */ React105.createElement("div", { className: "fd-arrival-links" }, step > 0 && /* @__PURE__ */ React105.createElement("button", { type: "button", className: "fd-text-button", disabled: busy, onClick: back }, /* @__PURE__ */ React105.createElement(Icon, { name: "back", size: "1em" }), "Back"), step === 0 && onTv && /* @__PURE__ */ React105.createElement("button", { type: "button", className: "fd-text-button", onClick: onTv, disabled: busy }, "TV mode"), step === 4 && !state.profiles?.[me]?.color && /* @__PURE__ */ React105.createElement("span", null, "Choose a chip color to continue."))))));
 }
 var STAGES;
 var init_Onboarding = __esm({
@@ -51683,7 +52904,7 @@ var stopwatch = (x, y, r = 10) => /* @__PURE__ */ React6.createElement("g", null
 var chip = (x, y, r = 5) => /* @__PURE__ */ React6.createElement("g", null, /* @__PURE__ */ React6.createElement("circle", { cx: x, cy: y, r, ...F }), /* @__PURE__ */ React6.createElement("circle", { className: "fd-rp-glass-line", cx: x, cy: y, r: r * 0.5 }));
 var tallestCrowned = /* @__PURE__ */ React6.createElement("g", null, floor(), /* @__PURE__ */ React6.createElement("g", null, stack(16, 34, 4, 11)), /* @__PURE__ */ React6.createElement(Lit, null, stack(32, 34, 6, 11)), /* @__PURE__ */ React6.createElement("g", null, stack(48, 34, 3, 11)), crown(32, 10, 0.9));
 var checkUp = /* @__PURE__ */ React6.createElement("g", null, halfCourt, rimTop, ball(32, 26, 2.2), /* @__PURE__ */ React6.createElement("circle", { cx: "23", cy: "31", r: "2.6", ...F }), /* @__PURE__ */ React6.createElement("circle", { cx: "41", cy: "31", r: "2.6", ...F }), trail("M25.5 29Q32 21 38.5 29"), head(38.5, 29, 50));
-var scoreArc = (inside2, outside) => /* @__PURE__ */ React6.createElement("g", null, /* @__PURE__ */ React6.createElement(Faint, null, /* @__PURE__ */ React6.createElement("path", { d: "M4 3.5H60" }), /* @__PURE__ */ React6.createElement("path", { d: "M9 3.5V7A23 23 0 0 0 55 7V3.5" })), rimTop, /* @__PURE__ */ React6.createElement(Num, { x: 32, y: 24.5, size: 12 }, inside2), /* @__PURE__ */ React6.createElement(Num, { x: 32, y: 39.5, size: 11 }, outside));
+var scoreArc = (inside2, outside) => /* @__PURE__ */ React6.createElement("g", null, /* @__PURE__ */ React6.createElement(Faint, null, /* @__PURE__ */ React6.createElement("path", { d: "M4 3.5H60" }), /* @__PURE__ */ React6.createElement("path", { d: "M9 3.5V7A23 23 0 0 0 55 7V3.5" })), rimTop, /* @__PURE__ */ React6.createElement(Num, { x: 32, y: 24.5, size: 12 }, inside2), /* @__PURE__ */ React6.createElement(Num, { x: 32, y: 38.4, size: 10 }, outside));
 var RULE_PICTURES = {
   /* ── Long Putt ── */
   "putting.1": /* @__PURE__ */ React6.createElement("g", null, floor(), /* @__PURE__ */ React6.createElement("path", { d: "M10 8 17.6 32.6" }), /* @__PURE__ */ React6.createElement("path", { d: "M14 33.2H21.6", strokeWidth: "2.6" }), ball(26, 32), ball(31.5, 32), ball(37, 32), /* @__PURE__ */ React6.createElement("path", { d: "M54 34V12" }), /* @__PURE__ */ React6.createElement("path", { d: "M54 12l7 2.6-7 2.6z", ...F }), /* @__PURE__ */ React6.createElement("ellipse", { cx: "54", cy: "34", rx: "3.4", ry: "1.1" })),
@@ -51792,8 +53013,9 @@ var RULE_PICTURES = {
   "betting.1": /* @__PURE__ */ React6.createElement("g", null, /* @__PURE__ */ React6.createElement(Faint, null, /* @__PURE__ */ React6.createElement("rect", { x: "8", y: "3.5", width: "48", height: "9", rx: "2" }), /* @__PURE__ */ React6.createElement("rect", { x: "8", y: "27.5", width: "48", height: "9", rx: "2" })), /* @__PURE__ */ React6.createElement(Lit, null, /* @__PURE__ */ React6.createElement("rect", { x: "8", y: "15.5", width: "48", height: "9", rx: "2" })), /* @__PURE__ */ React6.createElement(Lit, null, chip(49, 20, 3))),
   /* the pool: both sides' chips under one brace, all of it to the winners */
   "betting.2": /* @__PURE__ */ React6.createElement("g", null, floor(), /* @__PURE__ */ React6.createElement(Faint, null, stack(14, 34, 3, 11)), /* @__PURE__ */ React6.createElement(Faint, null, stack(30, 34, 5, 11)), /* @__PURE__ */ React6.createElement("path", { d: "M7 12V9.5q0-2 2-2h26q2 0 2 2V12M22 7.5V4" }), trail("M38 20H44"), head(44.4, 20, 0), /* @__PURE__ */ React6.createElement(Lit, null, stack(53, 34, 8, 11)), crown(53, 6, 0.6)),
-  /* the smaller side pays more: a tall stack at 1.5×, a short one lit at 4× */
-  "betting.3": /* @__PURE__ */ React6.createElement("g", null, floor(), /* @__PURE__ */ React6.createElement(Faint, null, stack(16, 34, 7, 12)), /* @__PURE__ */ React6.createElement(Faint, null, /* @__PURE__ */ React6.createElement(Num, { x: 16, y: 6, size: 10 }, "1.5\xD7")), /* @__PURE__ */ React6.createElement(Lit, null, stack(48, 34, 2, 12)), /* @__PURE__ */ React6.createElement(Lit, null, /* @__PURE__ */ React6.createElement(Num, { x: 48, y: 20, size: 12 }, "4\xD7"))),
+  /* the smaller side pays more: a tall stack at 1.5×, a short one lit at 4×
+     (six chips, so the tall stack's label stands inside the field) */
+  "betting.3": /* @__PURE__ */ React6.createElement("g", null, floor(), /* @__PURE__ */ React6.createElement(Faint, null, stack(16, 34, 6, 12)), /* @__PURE__ */ React6.createElement(Faint, null, /* @__PURE__ */ React6.createElement(Num, { x: 16, y: 10, size: 10 }, "1.5\xD7")), /* @__PURE__ */ React6.createElement(Lit, null, stack(48, 34, 2, 12)), /* @__PURE__ */ React6.createElement(Lit, null, /* @__PURE__ */ React6.createElement(Num, { x: 48, y: 20, size: 12 }, "4\xD7"))),
   "betting.4": /* @__PURE__ */ React6.createElement("g", null, /* @__PURE__ */ React6.createElement("rect", { x: "5", y: "15", width: "54", height: "10", rx: "5" }), /* @__PURE__ */ React6.createElement(Lit, null, /* @__PURE__ */ React6.createElement("rect", { x: "5", y: "15", width: "27", height: "10", rx: "5", ...F })), /* @__PURE__ */ React6.createElement("path", { d: "M32 9v22", strokeWidth: "2" })),
   "duels.1": /* @__PURE__ */ React6.createElement("g", null, /* @__PURE__ */ React6.createElement("rect", { x: "7", y: "4", width: "21", height: "31", rx: "3" }), /* @__PURE__ */ React6.createElement("circle", { cx: "17.5", cy: "15", r: "5", ...F }), /* @__PURE__ */ React6.createElement(Faint, null, /* @__PURE__ */ React6.createElement("path", { d: "M12 25h11M12 29h7" })), trail("M31 19.5H40"), head(40.4, 19.5, 0), bust(51, 13, 3)),
   "duels.2": /* @__PURE__ */ React6.createElement("g", null, floor(), /* @__PURE__ */ React6.createElement(Lit, null, stack(14, 34, 3, 14), stack(50, 34, 3, 14)), /* @__PURE__ */ React6.createElement("path", { d: "M27 21h10M27 26h10" })),
@@ -51927,7 +53149,7 @@ init_CompetitionBracket();
 init_directorPill();
 init_haptics();
 init_motion();
-import React12, { useEffect as useEffect5, useRef as useRef5, useState as useState6 } from "react";
+import React12, { useEffect as useEffect7, useRef as useRef6, useState as useState6 } from "react";
 
 // src/features/results/PlacePicker.jsx
 init_PlayerIdentity();
@@ -52155,7 +53377,7 @@ function CurrentContest({ state, ev, contest, me, gm, onPlayer, onBets, onLock, 
   const [order, setOrder] = useState6([]);
   const [pending, setPending] = useState6(false), [error2, setError] = useState6("");
   const [picking, setPicking] = useState6(null);
-  const busy = useRef5(false), retry = useRef5(null);
+  const busy = useRef6(false), retry = useRef6(null);
   const open = contest.phase === "betting-open", locked = contest.phase === "betting-locked";
   const running2 = contest.phase === "in-progress" || contest.phase === "awaiting-result";
   const isFfa = contest.kind === "ffa", isBracket = contest.kind === "match";
@@ -52214,7 +53436,7 @@ function CurrentContest({ state, ev, contest, me, gm, onPlayer, onBets, onLock, 
   const heading = isBracket ? contestName(state, ev, contest) : contest.label && contest.label !== ev.name ? contest.label : null;
   const playing = !!me && !!contest.players?.includes(me);
   const yourBet = me ? (state.wagers || []).filter((wager) => wager.player === me && wagerMatchesContest(wager, contest) && resolveWager(state, wager, allEventsOf(state)).status === "pending").reduce((sum, wager) => sum + (wager.stake || 0), 0) : 0;
-  return /* @__PURE__ */ React12.createElement("section", { className: "fd-contest", "aria-label": "Current contest", "aria-busy": pending }, /* @__PURE__ */ React12.createElement("div", { className: "fd-contest-toolbar" }, /* @__PURE__ */ React12.createElement("div", null, heading && /* @__PURE__ */ React12.createElement("strong", null, heading), /* @__PURE__ */ React12.createElement("span", null, (open || running2) && /* @__PURE__ */ React12.createElement("i", { className: "fd-beat-dot", "aria-hidden": "true" }), open ? "Betting open" : locked ? "Betting locked" : running2 ? "In progress" : "Next contest"), !gm && (playing || yourBet > 0) && /* @__PURE__ */ React12.createElement("span", { className: "fd-contest-you" }, playing && /* @__PURE__ */ React12.createElement("span", null, "You\u2019re playing"), yourBet > 0 && /* @__PURE__ */ React12.createElement("b", { "aria-label": `Your bet ${yourBet.toLocaleString("en-US")}` }, /* @__PURE__ */ React12.createElement("i", { className: "fd-contest-chip", "aria-hidden": "true" }), yourBet.toLocaleString("en-US")))), gm && (open || locked) && /* @__PURE__ */ React12.createElement(
+  return /* @__PURE__ */ React12.createElement("section", { className: "fd-contest", "aria-label": "Current contest", "aria-busy": pending }, /* @__PURE__ */ React12.createElement("div", { className: "fd-contest-toolbar" }, /* @__PURE__ */ React12.createElement("div", null, heading && /* @__PURE__ */ React12.createElement("strong", null, heading), /* @__PURE__ */ React12.createElement("span", null, (open || running2) && /* @__PURE__ */ React12.createElement("i", { className: "fd-insert fd-beat-dot", "aria-hidden": "true" }), open ? "Betting open" : locked ? "Betting locked" : running2 ? "In progress" : "Next contest"), !gm && (playing || yourBet > 0) && /* @__PURE__ */ React12.createElement("span", { className: "fd-contest-you" }, playing && /* @__PURE__ */ React12.createElement("span", null, "You\u2019re playing"), yourBet > 0 && /* @__PURE__ */ React12.createElement("b", { "aria-label": `Your bet ${yourBet.toLocaleString("en-US")}` }, /* @__PURE__ */ React12.createElement("i", { className: "fd-contest-chip", "aria-hidden": "true" }), yourBet.toLocaleString("en-US")))), gm && (open || locked) && /* @__PURE__ */ React12.createElement(
     "button",
     {
       type: "button",
@@ -52446,9 +53668,9 @@ function winnerPicker({
   )));
 }
 function useContestOperations() {
-  const operationBusy = useRef5(false), [blocked, onBusy] = useState6(false);
+  const operationBusy = useRef6(false), [blocked, onBusy] = useState6(false);
   const [recent, setRecent] = useState6(null);
-  useEffect5(() => {
+  useEffect7(() => {
     if (!recent) return;
     const timer = setTimeout(() => setRecent(null), Math.max(0, recent.at + UNDO_WINDOW_MS - Date.now()));
     return () => clearTimeout(timer);
@@ -52482,7 +53704,7 @@ function ContestPanel(props) {
 }
 function useCorrection({ state, ev, onUndo, operationBusy, onBusy }, after) {
   const [pending, setPending] = useState6(false), [error2, setError] = useState6("");
-  const busy = useRef5(false);
+  const busy = useRef6(false);
   const run2 = async (contestId = null) => {
     if (busy.current || operationBusy.current) return;
     const undo = contestId ? contestCorrectionAvailability(state, ev, contestId) : lastWinnerUndo(state, ev);
@@ -52579,6 +53801,7 @@ function ContestCorrection(props) {
       "button",
       {
         type: "button",
+        className: "fd-contest-commit",
         disabled: correction.pending || blocked || !option.enabled,
         onClick: () => correction.run(option.contestId)
       },
@@ -52742,7 +53965,7 @@ init_PlayerIdentity();
 init_PlayerIdentityContext();
 init_serverClock();
 init_drawReveal();
-import React25, { useEffect as useEffect14, useRef as useRef12, useState as useState13 } from "react";
+import React25, { useEffect as useEffect16, useRef as useRef13, useState as useState13 } from "react";
 
 // src/features/moments/TeamSort.jsx
 init_core();
@@ -52750,7 +53973,7 @@ init_PlayerIdentity();
 init_PlayerIdentityContext();
 init_PlayerPass();
 init_serverClock();
-import React20, { useEffect as useEffect12, useState as useState11 } from "react";
+import React20, { useEffect as useEffect14, useState as useState11 } from "react";
 var TEAM_SORT_MS = 4200;
 function teamOf(reveal, groups, me) {
   if (!me || !Array.isArray(groups)) return null;
@@ -52771,7 +53994,7 @@ function TeamSort({ state, team, at }) {
   const identity = usePlayerIdentity(team?.players?.[0]);
   const ink = cardInk(identity.color);
   const [show, setShow] = useState11(() => serverNow() >= at && serverNow() < at + TEAM_SORT_MS);
-  useEffect12(() => {
+  useEffect14(() => {
     const now2 = serverNow();
     const timers = [];
     if (now2 < at) timers.push(setTimeout(() => setShow(true), at - now2));
@@ -53007,7 +54230,7 @@ function EventAnnouncement({
 }
 function useReducedMotion2(override) {
   const [reduced, setReduced] = useState13(() => typeof window === "undefined" || !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches);
-  useEffect14(() => {
+  useEffect16(() => {
     const media = window.matchMedia?.("(prefers-reduced-motion: reduce)");
     if (!media) return;
     const update = () => setReduced(media.matches);
@@ -53038,8 +54261,8 @@ function DrawAnnouncement({
   const [shown, setShown] = useState13(joined);
   const [run2, setRun] = useState13(0);
   const animate = !reducedMotion && !(run2 === 0 && (initialComplete || joined >= total));
-  const playback = useRef12(null);
-  useEffect14(() => {
+  const playback = useRef13(null);
+  useEffect16(() => {
     const next = startDrawPlayback({
       total,
       reducedMotion: !animate,
@@ -53053,7 +54276,7 @@ function DrawAnnouncement({
   const [liveAtOpen] = useState13(() => !!currentFrame().fresh);
   const team = synced && startAt !== null ? teamOf(reveal, groups, me) : null;
   const teamAt = team && liveAtOpen && !reducedMotion && team.index >= joined && run2 === 0 ? startAt + drawStepDelay(team.index, total) : null;
-  useEffect14(() => {
+  useEffect16(() => {
     if (startAt === null || mineIndex < 0 || !reducedMotion && mineIndex < joined) return;
     if (!currentFrame().fresh) return;
     playSound(team ? "teamUp" : "S4", { at: reducedMotion ? startAt : startAt + drawStepDelay(mineIndex, total), key: `card:${reveal.id}` });
@@ -53149,7 +54372,7 @@ init_sound();
 init_motionKit();
 init_draftModel();
 init_OneSafe();
-import React27, { useEffect as useEffect15, useRef as useRef14, useState as useState15 } from "react";
+import React27, { useEffect as useEffect17, useRef as useRef15, useState as useState15 } from "react";
 init_Icon();
 
 // src/ui/NowRow.jsx
@@ -53210,9 +54433,9 @@ function DraftSheet({
   const [captains, setCaptains] = useState15([]), [method, setMethod] = useState15("pick");
   const [pending, setPending] = useState15(""), [error2, setError] = useState15("");
   const [confirmCancel, setConfirmCancel] = useState15(false);
-  const saving = useRef14(false), board = useRef14(null), focusAfterPick = useRef14(false);
+  const saving = useRef15(false), board = useRef15(null), focusAfterPick = useRef15(false);
   const turn = draft ? draftTurn(draft) : null;
-  const poolBox = useRef14(null), queueBox = useRef14(null);
+  const poolBox = useRef15(null), queueBox = useRef15(null);
   const [arriving, setArriving] = useState15(null), [landed, setLanded] = useState15(null);
   const pickChange = useFreshChange(draft?.picks?.length ?? null, draft?.id || null);
   const landing = pickChange.animate ? landedPick(draft, pickChange) : null;
@@ -53242,7 +54465,7 @@ function DraftSheet({
       setLanded(landing.player);
     });
   } });
-  useEffect15(() => {
+  useEffect17(() => {
     if (!landed) return void 0;
     const t = setTimeout(() => setLanded(null), MOTION.story);
     return () => clearTimeout(t);
@@ -53272,7 +54495,7 @@ function DraftSheet({
       setPending("");
     }
   };
-  useEffect15(() => {
+  useEffect17(() => {
     if (!pending && focusAfterPick.current) {
       board.current?.focus({ preventScroll: true });
       focusAfterPick.current = false;
@@ -53318,7 +54541,7 @@ function DraftSheet({
     }
   ));
   if (!draft && (!pool || !gm)) return shell(/* @__PURE__ */ React27.createElement("p", null, "Draft closed."));
-  if (!draft) return shell(/* @__PURE__ */ React27.createElement("div", { className: "fd-draft" }, /* @__PURE__ */ React27.createElement("div", { className: "fd-draft-section-title" }, /* @__PURE__ */ React27.createElement("h2", null, "Choose ", n, " captains"), /* @__PURE__ */ React27.createElement("span", null, n, " teams of ", size)), /* @__PURE__ */ React27.createElement("div", { className: "fd-draft-methods", "aria-label": "Choose captains" }, [["pick", "Choose"], ["seed", "Balanced"], ["random", "Random"]].map(([id, text]) => /* @__PURE__ */ React27.createElement(
+  if (!draft) return shell(/* @__PURE__ */ React27.createElement("div", { className: "fd-draft" }, /* @__PURE__ */ React27.createElement("div", { className: "fd-draft-section-title" }, /* @__PURE__ */ React27.createElement("h2", null, "Choose ", n, " captains"), /* @__PURE__ */ React27.createElement("span", null, shapeLabel(fit2) || `${n} teams of ${size}`)), /* @__PURE__ */ React27.createElement("div", { className: "fd-draft-methods", "aria-label": "Choose captains" }, [["pick", "Choose"], ["seed", "Balanced"], ["random", "Random"]].map(([id, text]) => /* @__PURE__ */ React27.createElement(
     "button",
     {
       type: "button",
@@ -53487,7 +54710,9 @@ function DraftSheet({
 function ConfirmedTeams({ state, draw, me, size, onPlayer }) {
   const order = draw.teams.map((team, index) => ({ team, index })).sort((a2, b2) => Number(b2.team.players.includes(me)) - Number(a2.team.players.includes(me)));
   const role = (draw.roles || []).find((item) => item.player === me);
-  return /* @__PURE__ */ React27.createElement("div", { className: "fd-draft" }, /* @__PURE__ */ React27.createElement("div", { className: "fd-draft-section-title" }, /* @__PURE__ */ React27.createElement("h2", null, "Teams confirmed"), /* @__PURE__ */ React27.createElement("span", null, draw.teams.length, " teams of ", size)), role && /* @__PURE__ */ React27.createElement("p", { className: "fd-draft-note fd-draft-role" }, /* @__PURE__ */ React27.createElement("small", null, "Your role"), /* @__PURE__ */ React27.createElement("strong", null, overflowRoleMeta(role.role).label)), /* @__PURE__ */ React27.createElement("div", { className: "fd-draft-teams", style: { "--draft-columns": Math.min(draw.teams.length, 3) } }, order.map(({ team, index }) => {
+  const sizes = draw.teams.map((team) => team.players.length);
+  const shape = shapeLabel({ teams: sizes.length, size: sizes[0] || size, split: sizes });
+  return /* @__PURE__ */ React27.createElement("div", { className: "fd-draft" }, /* @__PURE__ */ React27.createElement("div", { className: "fd-draft-section-title" }, /* @__PURE__ */ React27.createElement("h2", null, "Teams confirmed"), /* @__PURE__ */ React27.createElement("span", null, shape)), role && /* @__PURE__ */ React27.createElement("p", { className: "fd-draft-note fd-draft-role" }, /* @__PURE__ */ React27.createElement("small", null, "Your role"), /* @__PURE__ */ React27.createElement("strong", null, overflowRoleMeta(role.role).label)), /* @__PURE__ */ React27.createElement("div", { className: "fd-draft-teams", style: { "--draft-columns": Math.min(draw.teams.length, 3) } }, order.map(({ team, index }) => {
     const captain = team.captain || team.players[0];
     const yours = team.players.includes(me);
     return /* @__PURE__ */ React27.createElement(
@@ -53522,7 +54747,7 @@ init_haptics();
 init_PokerChips();
 init_PokerMotion();
 init_pokerMotion();
-import React30, { useEffect as useEffect17, useRef as useRef17, useState as useState17 } from "react";
+import React30, { useEffect as useEffect19, useRef as useRef18, useState as useState17 } from "react";
 import { createPortal as createPortal2 } from "react-dom";
 
 // src/features/poker/tableView.js
@@ -53539,12 +54764,12 @@ var DIGITS2 = [..."0123456789"];
 init_drawReveal();
 
 // src/features/home/HomeDuels.jsx
-import React32, { useRef as useRef19, useState as useState20 } from "react";
+import React32, { useRef as useRef20, useState as useState20 } from "react";
 
 // src/features/duels/DuelCard.jsx
 init_PlayerIdentity();
 init_BetStacks();
-import React31, { useRef as useRef18, useState as useState18 } from "react";
+import React31, { useRef as useRef19, useState as useState18 } from "react";
 
 // src/features/duels/duelView.js
 init_core();
@@ -53631,8 +54856,8 @@ function DuelCard({ state, duel, me, gm, now: now2, onPlay, onAccept, onDecline,
   const [pendingAction, setPendingAction] = useState18(null);
   const [error2, setError] = useState18("");
   const [acknowledged, setAcknowledged] = useState18(null);
-  const pending = useRef18(null);
-  const finished = useRef18(false);
+  const pending = useRef19(null);
+  const finished = useRef19(false);
   const view = duelView(state, duel, me, now2);
   const { other, name } = view;
   const busy = !!pendingAction;
@@ -53747,7 +54972,7 @@ function DuelCard({ state, duel, me, gm, now: now2, onPlay, onAccept, onDecline,
 // src/features/duels/useDuelClock.js
 init_core();
 init_serverClock2();
-import { useEffect as useEffect18, useState as useState19 } from "react";
+import { useEffect as useEffect20, useState as useState19 } from "react";
 
 // src/App.jsx
 init_GameMark();
@@ -53779,14 +55004,14 @@ init_PlayerIdentity();
 init_PlayerIdentityContext();
 init_PlayerPass();
 init_layout();
-import React50, { useLayoutEffect as useLayoutEffect12, useMemo as useMemo7, useRef as useRef33, useState as useState36 } from "react";
+import React51, { useLayoutEffect as useLayoutEffect12, useMemo as useMemo7, useRef as useRef34, useState as useState36 } from "react";
 
 // src/features/standings/Standings.jsx
 init_core();
 init_PlayerIdentity();
 init_PlayerIdentityContext();
 init_motion();
-import React37, { useCallback as useCallback2, useEffect as useEffect19, useLayoutEffect as useLayoutEffect9, useMemo as useMemo4, useRef as useRef20, useState as useState21 } from "react";
+import React37, { useCallback as useCallback2, useEffect as useEffect21, useLayoutEffect as useLayoutEffect9, useMemo as useMemo4, useRef as useRef21, useState as useState21 } from "react";
 
 // src/features/standings/boardModel.js
 var NOTCH_STEPS = Object.freeze([100, 500, 1e3, 5e3]);
@@ -53888,7 +55113,7 @@ init_serverClock();
 init_PlayerIdentity();
 init_Icon();
 init_RenameText();
-import React46, { useEffect as useEffect28, useRef as useRef26, useState as useState28 } from "react";
+import React47, { useEffect as useEffect29, useRef as useRef27, useState as useState28 } from "react";
 
 // src/features/teams/teamNameModel.js
 init_core();
@@ -53936,7 +55161,7 @@ function NameEditor({ state, naming, round, onRound, onSend, onDone }) {
   const [writing, setWriting] = useState28(false);
   const [draft, setDraft] = useState28("");
   const [error2, setError] = useState28("");
-  const busy = useRef26(false);
+  const busy = useRef27(false);
   const current = naming.name;
   const send = async (name) => {
     if (busy.current) return;
@@ -53972,9 +55197,9 @@ function NameEditor({ state, naming, round, onRound, onSend, onDone }) {
     tapTick();
     send(name);
   };
-  return /* @__PURE__ */ React46.createElement("div", { className: "fd-teamname-edit", "aria-busy": pending !== null }, /* @__PURE__ */ React46.createElement("div", { className: "fd-teamname-chips", role: "group", "aria-label": "Team names" }, [...current && !naming.suggestions.includes(current) ? [current] : [], ...naming.suggestions].map((name) => {
+  return /* @__PURE__ */ React47.createElement("div", { className: "fd-teamname-edit", "aria-busy": pending !== null }, /* @__PURE__ */ React47.createElement("div", { className: "fd-teamname-chips", role: "group", "aria-label": "Team names" }, [...current && !naming.suggestions.includes(current) ? [current] : [], ...naming.suggestions].map((name) => {
     const on = pending !== null ? pending === name : current === name;
-    return /* @__PURE__ */ React46.createElement(
+    return /* @__PURE__ */ React47.createElement(
       "button",
       {
         type: "button",
@@ -53984,10 +55209,10 @@ function NameEditor({ state, naming, round, onRound, onSend, onDone }) {
         disabled: pending !== null,
         onClick: () => pick(name)
       },
-      name === current ? /* @__PURE__ */ React46.createElement(RenameText, { name }) : name,
-      name === current && pending === null && /* @__PURE__ */ React46.createElement(NamedBy, { state, named: naming.named, size: 22 })
+      name === current ? /* @__PURE__ */ React47.createElement(RenameText, { name }) : name,
+      name === current && pending === null && /* @__PURE__ */ React47.createElement(NamedBy, { state, named: naming.named, size: 22 })
     );
-  }), /* @__PURE__ */ React46.createElement(
+  }), /* @__PURE__ */ React47.createElement(
     "button",
     {
       type: "button",
@@ -53999,8 +55224,8 @@ function NameEditor({ state, naming, round, onRound, onSend, onDone }) {
         onRound(round + 1);
       }
     },
-    /* @__PURE__ */ React46.createElement(Icon, { name: "shuffle", size: 20 })
-  ), !writing && /* @__PURE__ */ React46.createElement(React46.Fragment, null, /* @__PURE__ */ React46.createElement(
+    /* @__PURE__ */ React47.createElement(Icon, { name: "shuffle", size: 20 })
+  ), !writing && /* @__PURE__ */ React47.createElement(React47.Fragment, null, /* @__PURE__ */ React47.createElement(
     "button",
     {
       type: "button",
@@ -54012,9 +55237,9 @@ function NameEditor({ state, naming, round, onRound, onSend, onDone }) {
         setError("");
       }
     },
-    /* @__PURE__ */ React46.createElement(Icon, { name: "pencil", size: 18 }),
+    /* @__PURE__ */ React47.createElement(Icon, { name: "pencil", size: 18 }),
     "Write your own"
-  ), naming.pair && current && /* @__PURE__ */ React46.createElement(
+  ), naming.pair && current && /* @__PURE__ */ React47.createElement(
     "button",
     {
       type: "button",
@@ -54023,10 +55248,10 @@ function NameEditor({ state, naming, round, onRound, onSend, onDone }) {
       onClick: () => send(null)
     },
     "Use our names"
-  ))), writing && /* @__PURE__ */ React46.createElement("form", { className: "fd-teamname-write", onSubmit: (event) => {
+  ))), writing && /* @__PURE__ */ React47.createElement("form", { className: "fd-teamname-write", onSubmit: (event) => {
     event.preventDefault();
     send(draft);
-  } }, /* @__PURE__ */ React46.createElement(
+  } }, /* @__PURE__ */ React47.createElement(
     "input",
     {
       type: "text",
@@ -54036,6 +55261,7 @@ function NameEditor({ state, naming, round, onRound, onSend, onDone }) {
       enterKeyHint: "done",
       autoComplete: "off",
       autoCapitalize: "words",
+      autoCorrect: "off",
       spellCheck: false,
       "aria-label": "Team name",
       placeholder: naming.label,
@@ -54045,11 +55271,11 @@ function NameEditor({ state, naming, round, onRound, onSend, onDone }) {
         setError("");
       }
     }
-  ), /* @__PURE__ */ React46.createElement("button", { type: "submit", className: "fd-teamname-save", disabled: pending !== null || !draft.trim() }, pending !== null ? "Saving\u2026" : "Save")), error2 && /* @__PURE__ */ React46.createElement("p", { className: "fd-teamname-error", role: "alert" }, error2));
+  ), /* @__PURE__ */ React47.createElement("button", { type: "submit", className: "fd-teamname-save", disabled: pending !== null || !draft.trim() }, pending !== null ? "Saving\u2026" : "Save")), error2 && /* @__PURE__ */ React47.createElement("p", { className: "fd-teamname-error", role: "alert" }, error2));
 }
 function NamedBy({ state, named, size = 28 }) {
   if (!named?.by) return null;
-  return /* @__PURE__ */ React46.createElement("span", { className: "fd-teamname-by", role: "img", "aria-label": `Named by ${disp(state, named.by)}` }, /* @__PURE__ */ React46.createElement(Avatar, { state, p: named.by, size }));
+  return /* @__PURE__ */ React47.createElement("span", { className: "fd-teamname-by", role: "img", "aria-label": `Named by ${disp(state, named.by)}` }, /* @__PURE__ */ React47.createElement(Avatar, { state, p: named.by, size }));
 }
 function TeamNameCard({ state, naming: given, ev, me, gm = false, index = null, onSend = sendName, className = "" }) {
   const [round, setRound] = useState28(0);
@@ -54060,13 +55286,13 @@ function TeamNameCard({ state, naming: given, ev, me, gm = false, index = null, 
   const chosen = !!naming.named;
   const expanded = open ?? (!naming.pair && !chosen && !gm);
   const lamp = chosen || gm ? "" : " fd-lamp is-info is-pending";
-  return /* @__PURE__ */ React46.createElement(
+  return /* @__PURE__ */ React47.createElement(
     "section",
     {
       className: `fd-teamname fd-glass-field fd-field-info${lamp}${gm ? " is-desk" : ""} ${className}`.trim(),
       "aria-label": gm ? `${naming.label} name` : "Name your team"
     },
-    /* @__PURE__ */ React46.createElement("div", { className: "fd-teamname-head" }, expanded && !gm ? /* @__PURE__ */ React46.createElement("h2", { className: "fd-teamname-ask" }, "Name your team") : /* @__PURE__ */ React46.createElement("div", { className: "fd-teamname-current" }, !gm && !naming.name ? /* @__PURE__ */ React46.createElement("h2", { className: "fd-teamname-ask" }, "Name your team") : /* @__PURE__ */ React46.createElement(RenameText, { name: naming.label, as: "h2", className: "fd-show fd-teamname-name" }), naming.name && /* @__PURE__ */ React46.createElement(NamedBy, { state, named: naming.named })), /* @__PURE__ */ React46.createElement(
+    /* @__PURE__ */ React47.createElement("div", { className: "fd-teamname-head" }, expanded && !gm ? /* @__PURE__ */ React47.createElement("h2", { className: "fd-teamname-ask" }, "Name your team") : /* @__PURE__ */ React47.createElement("div", { className: "fd-teamname-current" }, !gm && !naming.name ? /* @__PURE__ */ React47.createElement("h2", { className: "fd-teamname-ask" }, "Name your team") : /* @__PURE__ */ React47.createElement(RenameText, { name: naming.label, as: "h2", className: "fd-show fd-teamname-name" }), naming.name && /* @__PURE__ */ React47.createElement(NamedBy, { state, named: naming.named })), /* @__PURE__ */ React47.createElement(
       "button",
       {
         type: "button",
@@ -54075,9 +55301,9 @@ function TeamNameCard({ state, naming: given, ev, me, gm = false, index = null, 
         "aria-label": expanded ? "Close" : "Rename",
         onClick: () => setOpen(!expanded)
       },
-      /* @__PURE__ */ React46.createElement(Icon, { name: expanded ? "collapse" : "pencil", size: 20 })
+      /* @__PURE__ */ React47.createElement(Icon, { name: expanded ? "collapse" : "pencil", size: 20 })
     )),
-    expanded && /* @__PURE__ */ React46.createElement(
+    expanded && /* @__PURE__ */ React47.createElement(
       NameEditor,
       {
         state,
@@ -54095,7 +55321,7 @@ function TeamNameCard({ state, naming: given, ev, me, gm = false, index = null, 
 function TeamNameDesk({ state, ev, onSend }) {
   const teams = state?.draws?.[ev?.id]?.teams || [];
   if (!teams.some((team) => (team.players?.length || 0) >= 2)) return null;
-  return /* @__PURE__ */ React46.createElement("div", { className: "fd-teamname-desk", role: "group", "aria-label": "Team names" }, /* @__PURE__ */ React46.createElement("h3", null, "Team names"), teams.map((team, index) => (team.players?.length || 0) >= 2 && /* @__PURE__ */ React46.createElement(TeamNameCard, { key: `${state.draws[ev.id].id}:${index}`, state, ev, index, gm: true, onSend })));
+  return /* @__PURE__ */ React47.createElement("div", { className: "fd-teamname-desk", role: "group", "aria-label": "Team names" }, /* @__PURE__ */ React47.createElement("h3", null, "Team names"), teams.map((team, index) => (team.players?.length || 0) >= 2 && /* @__PURE__ */ React47.createElement(TeamNameCard, { key: `${state.draws[ev.id].id}:${index}`, state, ev, index, gm: true, onSend })));
 }
 
 // src/features/home/GuestHome.jsx
@@ -54104,7 +55330,7 @@ init_motion();
 // src/features/alerts/Alerts.jsx
 init_client();
 init_install();
-import React47, { useEffect as useEffect29, useRef as useRef27, useState as useState29, useSyncExternalStore as useSyncExternalStore5 } from "react";
+import React48, { useEffect as useEffect30, useRef as useRef28, useState as useState29, useSyncExternalStore as useSyncExternalStore5 } from "react";
 
 // src/features/alerts/pocketAlerts.js
 init_client();
@@ -54127,7 +55353,7 @@ init_serverClock();
 init_sound();
 init_faceOff();
 init_tvMotion();
-import { useEffect as useEffect34, useMemo as useMemo6, useRef as useRef31, useState as useState34 } from "react";
+import { useEffect as useEffect35, useMemo as useMemo6, useRef as useRef32, useState as useState34 } from "react";
 var UP_TIMING = Object.freeze({
   flood: 0,
   floodMs: 700,
@@ -54147,6 +55373,7 @@ var UP_TIMING = Object.freeze({
 
 // src/features/music/winSongModel.js
 init_audio();
+var LABEL_STEPS = [1, 2, 5, 10, 15, 20, 30, 60, 120, 240, 480, 720].map((minutes) => minutes * 6e4);
 
 // src/features/home/GuestHome.jsx
 init_audio();
@@ -54162,7 +55389,7 @@ init_haptics();
 init_serverClock();
 init_arrivalsModel();
 init_arrivals();
-import React49, { useEffect as useEffect35, useRef as useRef32, useState as useState35 } from "react";
+import React50, { useEffect as useEffect36, useRef as useRef33, useState as useState35 } from "react";
 
 // src/features/home/GuestHome.jsx
 init_writeErrors();
@@ -54181,30 +55408,36 @@ init_haptics();
 // src/features/profile/VibrationToggle.jsx
 init_haptics();
 init_player_pass();
-import React51, { useState as useState37 } from "react";
+import React52, { useState as useState37 } from "react";
 
 // src/features/profile/SoundToggle.jsx
 init_sound();
 init_haptics();
 init_player_pass();
-import React52, { useState as useState38 } from "react";
+import React53, { useState as useState38 } from "react";
 
 // src/features/profile/ChipPhysicsToggle.jsx
 init_haptics();
 init_chipPhysicsFlag();
 init_player_pass();
-import React53 from "react";
+import React54 from "react";
 
 // src/App.jsx
 init_sound();
 
 // src/lib/lazyPart.js
-import React54, { lazy, useState as useState39 } from "react";
+import React55, { lazy, useState as useState39 } from "react";
+
+// src/App.jsx
+init_arrivalsModel();
+
+// src/ui/exitGhost.js
+init_motion();
 
 // src/features/home/phoneSound.js
 init_core();
 init_sound();
-import { useEffect as useEffect36, useRef as useRef34 } from "react";
+import { useEffect as useEffect37, useRef as useRef35 } from "react";
 
 // src/App.jsx
 init_drawReveal();
@@ -54217,7 +55450,7 @@ init_core();
 init_PlayerIdentity();
 init_layout();
 init_PayoutLadder();
-import React55, { useRef as useRef35, useState as useState40 } from "react";
+import React56, { useRef as useRef36, useState as useState40 } from "react";
 init_Icon();
 init_OneSafe();
 
@@ -54232,7 +55465,7 @@ init_controls();
 init_InstallHint();
 init_install();
 init_Trophy();
-import React64, { useRef as useRef41, useState as useState49 } from "react";
+import React65, { useRef as useRef43, useState as useState49 } from "react";
 
 // src/features/results/Keepsake.jsx
 init_core();
@@ -54243,7 +55476,7 @@ init_playerIdentity();
 init_PlayerPass();
 init_CompetitionBracket();
 init_Trophy();
-import React59, { useEffect as useEffect40, useMemo as useMemo9, useRef as useRef38, useState as useState44 } from "react";
+import React60, { useEffect as useEffect41, useMemo as useMemo9, useRef as useRef39, useState as useState44 } from "react";
 
 // src/features/results/LastCard.jsx
 init_PlayerIdentity();
@@ -54254,7 +55487,7 @@ init_motion();
 init_useRisoTilt();
 init_serverClock();
 init_lastCard();
-import React58, { useEffect as useEffect39, useMemo as useMemo8, useRef as useRef37, useState as useState43 } from "react";
+import React59, { useEffect as useEffect40, useMemo as useMemo8, useRef as useRef38, useState as useState43 } from "react";
 
 // src/features/results/cardImage.js
 init_lastCard();
@@ -54269,7 +55502,7 @@ init_crownTiming();
 init_sound();
 
 // src/features/results/SavePoster.jsx
-import React57, { useEffect as useEffect38, useRef as useRef36, useState as useState42 } from "react";
+import React58, { useEffect as useEffect39, useRef as useRef37, useState as useState42 } from "react";
 init_classPhoto();
 
 // src/features/results/posterImage.js
@@ -54290,6 +55523,7 @@ init_lastCard();
 init_core();
 init_prompts();
 init_lastCard();
+init_textUnits();
 var SESSION_NAMES = Object.freeze({
   fri: "Friday",
   sam: "Saturday morning",
@@ -54306,7 +55540,7 @@ init_GlassArt();
 init_client();
 init_photoModel();
 init_prepareMoment();
-import React61, { useRef as useRef40, useState as useState46 } from "react";
+import React62, { useRef as useRef41, useState as useState46 } from "react";
 
 // src/features/photos/PhotoGrid.jsx
 init_core();
@@ -54314,7 +55548,7 @@ init_PlayerIdentity();
 init_controls();
 init_client();
 init_photoModel();
-import React60, { useEffect as useEffect41, useRef as useRef39, useState as useState45 } from "react";
+import React61, { useEffect as useEffect42, useRef as useRef40, useState as useState45 } from "react";
 init_Icon();
 
 // src/features/photos/PhotoDesk.jsx
@@ -54332,7 +55566,7 @@ init_OneSafe();
 init_PayoutLadder();
 init_PlayerIdentity();
 init_Travel();
-import React63, { useState as useState48 } from "react";
+import React64, { useState as useState48 } from "react";
 init_programModel();
 var HOST = ROSTER.includes("Brandon") ? "Brandon" : null;
 
@@ -54344,25 +55578,24 @@ init_PlayerIdentityContext();
 init_PlayerIdentity();
 init_Travel();
 init_ProfileEditor();
-import React103, { useState as useState80, useEffect as useEffect76, useLayoutEffect as useLayoutEffect21, useRef as useRef74, useMemo as useMemo18, useCallback as useCallback6, useId as useId10, lazy as lazy2, Suspense as Suspense2 } from "react";
+import React106, { useState as useState81, useEffect as useEffect78, useLayoutEffect as useLayoutEffect21, useRef as useRef77, useMemo as useMemo18, useCallback as useCallback6, useId as useId11, lazy as lazy2, Suspense as Suspense2 } from "react";
 
 // src/features/profile/PlayerSheet.jsx
 init_core();
 init_controls();
-import React70, { useEffect as useEffect45, useMemo as useMemo11, useRef as useRef45, useState as useState53 } from "react";
+import React71, { useEffect as useEffect46, useMemo as useMemo11, useRef as useRef47, useState as useState53 } from "react";
 
 // src/features/duels/DuelSend.jsx
 init_PlayerIdentity();
-init_BetStacks();
 init_Wagers();
 init_Coin();
 init_controls();
 init_haptics();
-import React69 from "react";
+import React70 from "react";
 var fmt10 = (n) => (n ?? 0).toLocaleString("en-US");
 var COIN = 44;
 function UnlitCoin({ value }) {
-  return /* @__PURE__ */ React69.createElement("svg", { className: "fd-duel-unlit", viewBox: "0 0 46 46", width: COIN, height: COIN, "aria-hidden": "true", focusable: "false" }, /* @__PURE__ */ React69.createElement("circle", { cx: "23", cy: "23", r: "21.5", className: "fd-duel-unlit-body" }), Array.from({ length: 8 }, (_, i) => /* @__PURE__ */ React69.createElement(
+  return /* @__PURE__ */ React70.createElement("svg", { className: "fd-duel-unlit", viewBox: "0 0 46 46", width: COIN, height: COIN, "aria-hidden": "true", focusable: "false" }, /* @__PURE__ */ React70.createElement("circle", { cx: "23", cy: "23", r: "21.5", className: "fd-duel-unlit-body" }), Array.from({ length: 8 }, (_, i) => /* @__PURE__ */ React70.createElement(
     "rect",
     {
       key: i,
@@ -54374,13 +55607,13 @@ function UnlitCoin({ value }) {
       className: "fd-duel-unlit-tick",
       transform: `rotate(${i * 45} 23 23)`
     }
-  )), /* @__PURE__ */ React69.createElement("circle", { cx: "23", cy: "23", r: "12.5", className: "fd-duel-unlit-face" }), /* @__PURE__ */ React69.createElement("text", { x: "23", y: "23", className: "fd-duel-unlit-value", textAnchor: "middle", dominantBaseline: "central" }, value));
+  )), /* @__PURE__ */ React70.createElement("circle", { cx: "23", cy: "23", r: "12.5", className: "fd-duel-unlit-face" }), /* @__PURE__ */ React70.createElement("text", { x: "23", y: "23", className: "fd-duel-unlit-value", textAnchor: "middle", dominantBaseline: "central" }, value));
 }
 function DuelSend({ me, p, own, name, ante, anteMax, onAnte, pending, error: error2, rematch, onSend }) {
   const capBinds = anteMax < RACK_DENOMS[RACK_DENOMS.length - 1];
-  return /* @__PURE__ */ React69.createElement("div", { className: "fd-duel-send fd-glass-field fd-field-chip" }, /* @__PURE__ */ React69.createElement("div", { className: "fd-duel-send-face", "aria-hidden": "true" }, /* @__PURE__ */ React69.createElement(ChipFace, { p: me, size: 48, flat: true }), /* @__PURE__ */ React69.createElement("span", { className: "fd-show fd-duel-send-vs" }, "vs"), own ? /* @__PURE__ */ React69.createElement(ChipFace, { size: 48, empty: true }) : /* @__PURE__ */ React69.createElement(ChipFace, { p, size: 48, flat: true })), /* @__PURE__ */ React69.createElement("div", { className: "fd-duel-rack", role: "group", "aria-label": "Ante, each" }, RACK_DENOMS.map((value) => {
+  return /* @__PURE__ */ React70.createElement("div", { className: "fd-duel-send fd-glass-field fd-field-chip" }, /* @__PURE__ */ React70.createElement("div", { className: "fd-duel-send-face", "aria-hidden": "true" }, /* @__PURE__ */ React70.createElement(ChipFace, { p: me, size: 48, flat: true }), /* @__PURE__ */ React70.createElement("span", { className: "fd-show fd-duel-send-vs" }, "vs"), own ? /* @__PURE__ */ React70.createElement(ChipFace, { size: 48, empty: true }) : /* @__PURE__ */ React70.createElement(ChipFace, { p, size: 48, flat: true })), /* @__PURE__ */ React70.createElement("div", { className: "fd-duel-rack", role: "group", "aria-label": "Ante, each" }, RACK_DENOMS.map((value) => {
     const off = value > anteMax || pending;
-    return /* @__PURE__ */ React69.createElement(
+    return /* @__PURE__ */ React70.createElement(
       "button",
       {
         type: "button",
@@ -54394,9 +55627,9 @@ function DuelSend({ me, p, own, name, ante, anteMax, onAnte, pending, error: err
           onAnte(value);
         }
       },
-      /* @__PURE__ */ React69.createElement(Coin, { color: HOUSE_CHIP.color, unlit: value > anteMax }, value > anteMax ? /* @__PURE__ */ React69.createElement(UnlitCoin, { value }) : /* @__PURE__ */ React69.createElement(ChipFace, { size: COIN, stamp: value, valueRing: true, color: HOUSE_CHIP.color, isLight: HOUSE_CHIP.isLight, skin: HOUSE_CHIP.skin }))
+      /* @__PURE__ */ React70.createElement(Coin, { color: `var(--chip-${value}-edge)`, unlit: value > anteMax }, value > anteMax ? /* @__PURE__ */ React70.createElement(UnlitCoin, { value }) : /* @__PURE__ */ React70.createElement(DenomChip, { size: COIN, value }))
     );
-  })), capBinds && /* @__PURE__ */ React69.createElement("span", { className: "fd-duel-max" }, "Max ", fmt10(anteMax)), error2 && /* @__PURE__ */ React69.createElement("p", { className: "fd-duel-error", role: "alert" }, error2), /* @__PURE__ */ React69.createElement(
+  })), capBinds && /* @__PURE__ */ React70.createElement("span", { className: "fd-duel-max" }, "Max ", fmt10(anteMax)), error2 && /* @__PURE__ */ React70.createElement("p", { className: "fd-duel-error", role: "alert" }, error2), /* @__PURE__ */ React70.createElement(
     ActionButton,
     {
       type: "button",
@@ -54445,7 +55678,7 @@ function PlayerSheet({
   const [picking, setPicking] = useState53(!!openDuel);
   const [pending, setPending] = useState53(false);
   const [error2, setError] = useState53("");
-  const sending = useRef45(false);
+  const sending = useRef47(false);
   const now2 = serverNow();
   const row = standings.find((item) => item.player === p);
   const duels = state.duels || [];
@@ -54466,7 +55699,7 @@ function PlayerSheet({
   const unavailable = dailyLimit ? "Daily limit of 3 challenges reached." : anteMax < PT ? "Not enough chips for an ante." : "";
   const rematch = !!last && last.outcome !== "void" && ante === last.stake;
   const [turned, setTurned] = useState53(false);
-  const duelRef = useRef45(null);
+  const duelRef = useRef47(null);
   const reducedMotion = useReducedMotion();
   const canRematch = useMemo11(
     () => !!onDuel && rematchAvailable(state, me, p, { events, now: now2 }),
@@ -54479,10 +55712,10 @@ function PlayerSheet({
     section?.scrollIntoView?.({ block: "center", behavior: reducedMotion ? "auto" : "smooth" });
     section?.querySelector?.("[data-duel-send]")?.focus?.({ preventScroll: true });
   };
-  useEffect45(() => {
+  useEffect46(() => {
     setAnte((currentAnte) => currentAnte <= anteMax ? currentAnte : ANTES.filter((value) => value <= anteMax).at(-1) || PT);
   }, [anteMax]);
-  useEffect45(() => {
+  useEffect46(() => {
     setAnte(last && last.stake <= anteMax ? last.stake : PT);
     setError("");
     setPicking(!!openDuel);
@@ -54504,7 +55737,7 @@ function PlayerSheet({
       setPending(false);
     }
   };
-  return /* @__PURE__ */ React70.createElement(Sheet, { title: disp(state, p), onClose, onBack, busy: pending, show: true }, /* @__PURE__ */ React70.createElement("div", { className: "fd-player-sheet" }, /* @__PURE__ */ React70.createElement(
+  return /* @__PURE__ */ React71.createElement(Sheet, { title: disp(state, p), onClose, onBack, busy: pending, show: true }, /* @__PURE__ */ React71.createElement("div", { className: "fd-player-sheet" }, /* @__PURE__ */ React71.createElement(
     PlayerPass,
     {
       key: p,
@@ -54517,7 +55750,7 @@ function PlayerSheet({
       standings,
       onFlip: setTurned
     }
-  ), turned && canRematch && /* @__PURE__ */ React70.createElement(
+  ), turned && canRematch && /* @__PURE__ */ React71.createElement(
     ActionButton,
     {
       type: "button",
@@ -54525,7 +55758,7 @@ function PlayerSheet({
       onClick: openRematch
     },
     "Rematch"
-  ), own && onEdit && /* @__PURE__ */ React70.createElement(
+  ), own && onEdit && /* @__PURE__ */ React71.createElement(
     ActionButton,
     {
       type: "button",
@@ -54534,7 +55767,7 @@ function PlayerSheet({
       style: { width: "100%" }
     },
     "Edit your profile"
-  ), canDuel && (current || !away) && /* @__PURE__ */ React70.createElement("section", { ref: duelRef, className: "fd-player-duel", "aria-label": "Quick Draw challenge" }, current ? /* @__PURE__ */ React70.createElement(
+  ), canDuel && (current || !away) && /* @__PURE__ */ React71.createElement("section", { ref: duelRef, className: "fd-player-duel", "aria-label": "Quick Draw challenge" }, current ? /* @__PURE__ */ React71.createElement(
     DuelCard,
     {
       bare: true,
@@ -54547,7 +55780,7 @@ function PlayerSheet({
       onDecline,
       onWithdraw
     }
-  ) : unavailable ? /* @__PURE__ */ React70.createElement("p", { className: "fd-player-unavailable", role: "status" }, unavailable) : picking ? /* @__PURE__ */ React70.createElement(
+  ) : unavailable ? /* @__PURE__ */ React71.createElement("p", { className: "fd-player-unavailable", role: "status" }, unavailable) : picking ? /* @__PURE__ */ React71.createElement(
     DuelSend,
     {
       me,
@@ -54562,7 +55795,7 @@ function PlayerSheet({
       rematch,
       onSend: challenge
     }
-  ) : /* @__PURE__ */ React70.createElement(ActionButton, { type: "button", variant: "secondary", onClick: () => setPicking(true), style: { width: "100%" } }, own ? "Duel anyone" : `Duel ${disp(state, p)}`)), !!me && history.length > 0 && /* @__PURE__ */ React70.createElement("section", { className: "fd-player-duel-results", "aria-label": "Quick Draw results" }, /* @__PURE__ */ React70.createElement("h2", null, own ? "Your duels" : `You vs ${disp(state, p)}`), record && /* @__PURE__ */ React70.createElement("p", { className: "fd-player-duel-score" }, /* @__PURE__ */ React70.createElement("strong", null, record.won, "-", record.lost), /* @__PURE__ */ React70.createElement("span", null, signedChips2(record.net))), /* @__PURE__ */ React70.createElement("ul", null, history.map((line) => /* @__PURE__ */ React70.createElement("li", { key: line.id, className: `is-${line.outcome}` }, /* @__PURE__ */ React70.createElement("span", null, own ? `vs ${line.name}` : `${fmt11(line.stake)} each`, line.times && /* @__PURE__ */ React70.createElement("small", null, line.times)), /* @__PURE__ */ React70.createElement("strong", null, OUTCOME[line.outcome], line.delta !== 0 && ` ${signedChips2(line.delta)}`)))))));
+  ) : /* @__PURE__ */ React71.createElement(ActionButton, { type: "button", variant: "secondary", onClick: () => setPicking(true), style: { width: "100%" } }, own ? "Duel anyone" : `Duel ${disp(state, p)}`)), !!me && history.length > 0 && /* @__PURE__ */ React71.createElement("section", { className: "fd-player-duel-results", "aria-label": "Quick Draw results" }, /* @__PURE__ */ React71.createElement("h2", null, own ? "Your duels" : `You vs ${disp(state, p)}`), record && /* @__PURE__ */ React71.createElement("p", { className: "fd-player-duel-score" }, /* @__PURE__ */ React71.createElement("strong", null, record.won, "-", record.lost), /* @__PURE__ */ React71.createElement("span", null, signedChips2(record.net))), /* @__PURE__ */ React71.createElement("ul", null, history.map((line) => /* @__PURE__ */ React71.createElement("li", { key: line.id, className: `is-${line.outcome}` }, /* @__PURE__ */ React71.createElement("span", null, own ? `vs ${line.name}` : `${fmt11(line.stake)} each`, line.times && /* @__PURE__ */ React71.createElement("small", null, line.times)), /* @__PURE__ */ React71.createElement("strong", null, OUTCOME[line.outcome], line.delta !== 0 && ` ${signedChips2(line.delta)}`)))))));
 }
 
 // src/App.jsx
@@ -54581,13 +55814,13 @@ init_BetStacks();
 init_motion();
 init_sound();
 init_resultMoment();
-import React72, { useEffect as useEffect47, useLayoutEffect as useLayoutEffect15, useRef as useRef47 } from "react";
+import React73, { useEffect as useEffect48, useLayoutEffect as useLayoutEffect15, useRef as useRef49 } from "react";
 
 // src/features/results/ChipShower.jsx
 init_PlayerIdentity();
 init_motion();
 init_sound();
-import React71, { useEffect as useEffect46, useMemo as useMemo12, useRef as useRef46, useState as useState54 } from "react";
+import React72, { useEffect as useEffect47, useMemo as useMemo12, useRef as useRef48, useState as useState54 } from "react";
 var SHOWER_CHIPS = 16;
 var RAIN = Object.freeze({ min: 4, max: SHOWER_CHIPS, first: 420, gap: 110, fall: 620, bounce: 280, hold: 650, sweep: 520 });
 
@@ -54602,7 +55835,7 @@ init_sound();
 init_haptics();
 init_walkout();
 init_walkoutTeam();
-import React73, { Suspense, useEffect as useEffect50, useMemo as useMemo14, useRef as useRef50 } from "react";
+import React74, { Suspense, useEffect as useEffect51, useMemo as useMemo14, useRef as useRef52 } from "react";
 init_OneSafe();
 init_ScoreReel();
 init_phase();
@@ -54611,20 +55844,20 @@ init_phase();
 init_motion();
 init_serverClock();
 init_gagModel();
-import { useEffect as useEffect48, useMemo as useMemo13, useRef as useRef48, useState as useState55 } from "react";
+import { useEffect as useEffect49, useMemo as useMemo13, useRef as useRef50, useState as useState55 } from "react";
 
 // src/features/karaoke/singerUp.js
 init_motion();
 init_serverClock();
 init_sound();
 init_karaoke();
-import { useEffect as useEffect49, useRef as useRef49, useState as useState56 } from "react";
+import { useEffect as useEffect50, useRef as useRef51, useState as useState56 } from "react";
 init_tvMotion();
 var SINGER_UP_MS = Math.min(UP_TIMING.total, KARAOKE_UP_MS);
 
 // src/features/moments/PhoneMoments.jsx
 init_karaoke();
-var BitBoundary = class extends React73.Component {
+var BitBoundary = class extends React74.Component {
   constructor(props) {
     super(props);
     this.state = { failed: false };
@@ -54651,12 +55884,12 @@ init_Icon();
 init_PlayerIdentityContext();
 init_desertModel();
 init_walkoutTeam();
-import React74, { useEffect as useEffect51, useMemo as useMemo15, useState as useState57 } from "react";
+import React75, { useEffect as useEffect52, useMemo as useMemo15, useState as useState57 } from "react";
 
 // src/features/results/useCrownMoment.js
 init_motion();
 init_lastCard();
-import { useCallback as useCallback4, useEffect as useEffect52, useState as useState58 } from "react";
+import { useCallback as useCallback4, useEffect as useEffect53, useState as useState58 } from "react";
 
 // src/App.jsx
 init_install();
@@ -54674,7 +55907,7 @@ init_controls();
 init_GlassArt();
 init_ScoreReel();
 init_BetStacks();
-import React75, { useCallback as useCallback5, useEffect as useEffect53, useLayoutEffect as useLayoutEffect16, useRef as useRef51, useState as useState59 } from "react";
+import React76, { useCallback as useCallback5, useEffect as useEffect54, useLayoutEffect as useLayoutEffect16, useRef as useRef53, useState as useState59 } from "react";
 init_showdown();
 init_serverClock();
 init_haptics();
@@ -54682,7 +55915,7 @@ init_sound();
 var FOUL = Object.freeze({ ms: null, foul: true });
 var SOLO_WAIT = Object.freeze({ min: 1500, span: 2500 });
 var SOLO_LAMPS = Object.freeze([250, 600, 950]);
-var WIDE = Object.freeze({ width: "min(100%, 320px)" });
+var WIDE2 = Object.freeze({ width: "min(100%, 320px)" });
 var READY = Object.freeze({
   width: "min(100%, 320px)",
   minHeight: 64,
@@ -54696,20 +55929,20 @@ var READY = Object.freeze({
 // src/features/duels/DuelDesk.jsx
 init_core();
 init_controls();
-import React76, { useRef as useRef52, useState as useState60 } from "react";
+import React77, { useRef as useRef54, useState as useState60 } from "react";
 
 // src/features/director/DirectorPill.jsx
 init_core();
 init_PlayerIdentity();
 init_directorPill();
 init_haptics();
-import React78, { useEffect as useEffect55, useRef as useRef54, useState as useState61 } from "react";
+import React79, { useEffect as useEffect56, useRef as useRef56, useState as useState61 } from "react";
 
 // src/features/director/RunOfShow.jsx
 init_Icon();
 init_serverClock();
 init_haptics();
-import React77, { useEffect as useEffect54, useRef as useRef53 } from "react";
+import React78, { useEffect as useEffect55, useRef as useRef55 } from "react";
 
 // src/features/director/runOfShow.js
 init_core();
@@ -54733,7 +55966,7 @@ init_core();
 init_client();
 init_serverClock();
 init_haptics();
-import React79, { useEffect as useEffect56, useState as useState62, useSyncExternalStore as useSyncExternalStore6 } from "react";
+import React80, { useEffect as useEffect57, useState as useState62, useSyncExternalStore as useSyncExternalStore6 } from "react";
 
 // src/features/director/walkout.js
 init_audio();
@@ -54746,24 +55979,25 @@ var MISS_SHOWN_MS = 10 * 60 * 1e3;
 // src/features/director/TvHealth.jsx
 init_tvHealth();
 init_Icon();
-import React80, { useEffect as useEffect57, useState as useState63 } from "react";
+import React81, { useEffect as useEffect58, useState as useState63 } from "react";
 
 // src/features/roster/RosterSheet.jsx
 init_core();
 init_controls();
 init_PlayerIdentity();
 init_haptics();
-import React81, { useRef as useRef55, useState as useState64 } from "react";
+init_menu();
+import React82, { useRef as useRef57, useState as useState64 } from "react";
 init_writeErrors();
 
 // src/features/arrivals/useArriveLink.js
 init_arrivalsModel();
-import { useEffect as useEffect58, useRef as useRef56 } from "react";
+import { useEffect as useEffect59, useRef as useRef58 } from "react";
 var atLoad = typeof window !== "undefined" ? window.location.href : "";
 var LINK_CODE = arriveCodeFrom(atLoad);
 
 // src/features/director/CommissionerDock.jsx
-import React82, { useLayoutEffect as useLayoutEffect17, useRef as useRef57 } from "react";
+import React83, { useLayoutEffect as useLayoutEffect17, useRef as useRef59 } from "react";
 
 // src/features/director/CrewCheck.jsx
 init_core();
@@ -54773,7 +56007,7 @@ init_Icon();
 init_haptics();
 init_motion();
 init_writeErrors();
-import React83, { useEffect as useEffect59, useRef as useRef58, useState as useState65 } from "react";
+import React84, { useEffect as useEffect60, useRef as useRef60, useState as useState65 } from "react";
 
 // src/features/director/crewCheck.js
 init_core();
@@ -54789,7 +56023,7 @@ init_awardsModel();
 init_awards();
 init_Icon();
 init_writeErrors();
-import React84, { useEffect as useEffect60, useRef as useRef59, useState as useState66 } from "react";
+import React85, { useEffect as useEffect61, useRef as useRef61, useState as useState66 } from "react";
 
 // src/features/geo/GeoPlay.jsx
 init_client();
@@ -54804,7 +56038,7 @@ init_PlaceSearch();
 init_geoModel();
 init_geo2();
 init_Icon();
-import React89, { useEffect as useEffect65, useRef as useRef63, useState as useState70 } from "react";
+import React90, { useEffect as useEffect66, useRef as useRef65, useState as useState70 } from "react";
 init_ScoreReel();
 
 // src/features/trivia/TriviaPlay.jsx
@@ -54818,7 +56052,7 @@ init_trivia();
 init_PlayerIdentity();
 init_Wheel();
 init_Icon();
-import React91, { useEffect as useEffect67, useRef as useRef65, useState as useState72 } from "react";
+import React92, { useEffect as useEffect68, useRef as useRef67, useState as useState72 } from "react";
 init_OneSafe();
 init_triviaModel();
 init_geo2();
@@ -54836,7 +56070,7 @@ init_triviaBoard();
 init_PlayerIdentity();
 init_Wheel();
 init_Icon();
-import React90, { useEffect as useEffect66, useLayoutEffect as useLayoutEffect19, useRef as useRef64, useState as useState71 } from "react";
+import React91, { useEffect as useEffect67, useLayoutEffect as useLayoutEffect19, useRef as useRef66, useState as useState71 } from "react";
 init_ScoreReel();
 init_writeErrors();
 init_triviaModel();
@@ -54853,22 +56087,25 @@ init_sound();
 init_writeErrors();
 init_core();
 init_karaoke();
+init_karaokeLyrics();
+init_serverClock();
 init_PlayerIdentity();
-import React96, { useEffect as useEffect72, useRef as useRef70, useState as useState77 } from "react";
+import React99, { useEffect as useEffect74, useRef as useRef73, useState as useState78 } from "react";
 init_Icon();
 init_Menu();
 
 // src/features/karaoke/KaraokeSongPicker.jsx
 init_client();
 init_sound();
+init_motion();
 init_youtube();
 init_writeErrors();
 init_audio();
-import React94, { useEffect as useEffect70, useRef as useRef68, useState as useState75 } from "react";
+import React96, { useEffect as useEffect71, useRef as useRef70, useState as useState75 } from "react";
 
 // src/features/music/WinSongPicker.jsx
 init_client();
-import React93, { useEffect as useEffect69, useRef as useRef67, useState as useState74 } from "react";
+import React94, { useEffect as useEffect70, useRef as useRef69, useState as useState74 } from "react";
 
 // src/features/music/previewPlayer.js
 init_client();
@@ -54879,7 +56116,7 @@ var KNOWN_MS = 8 * 60 * 1e3;
 // src/features/music/SnippetPreview.jsx
 init_client();
 init_sound();
-import React92, { useEffect as useEffect68, useRef as useRef66, useState as useState73 } from "react";
+import React93, { useEffect as useEffect69, useRef as useRef68, useState as useState73 } from "react";
 init_youtube();
 
 // src/features/music/WinSongPicker.jsx
@@ -54888,13 +56125,20 @@ init_Icon();
 // src/features/karaoke/songPick.js
 init_karaoke();
 
+// src/features/karaoke/KaraokeSongPicker.jsx
+init_KaraokeWay();
+
+// src/features/karaoke/KaraokePlay.jsx
+init_KaraokeWay();
+init_Lyrics();
+
 // src/features/karaoke/KaraokeClock.jsx
 init_serverClock();
-import React95, { useEffect as useEffect71, useRef as useRef69, useState as useState76 } from "react";
+import React98, { useEffect as useEffect73, useRef as useRef72, useState as useState77 } from "react";
 
 // src/features/karaoke/KaraokeHome.jsx
 init_Icon();
-import React97 from "react";
+import React100 from "react";
 init_OneSafe();
 
 // src/App.jsx
@@ -54904,12 +56148,12 @@ init_trivia();
 init_core();
 init_guestSetup();
 init_Travel();
-import React98, { useId as useId8 } from "react";
+import React101, { useId as useId9 } from "react";
 init_Icon();
 
 // src/features/profile/TripDetails.jsx
 init_guestSetup();
-import React99, { useId as useId9 } from "react";
+import React102, { useId as useId10 } from "react";
 
 // src/App.jsx
 init_guestSetup();
@@ -54920,16 +56164,16 @@ init_client();
 init_writeErrors();
 
 // src/ui/Shell.jsx
-import React100 from "react";
+import React103 from "react";
 init_backglass();
 function Shell({ children, tv: tv2, arrival, environment = "production" }) {
-  return /* @__PURE__ */ React100.createElement("div", { className: `fd-shell${tv2 ? " fd-night" : ""}` }, /* @__PURE__ */ React100.createElement("div", { className: `fd-shell-inner${tv2 ? " is-tv" : arrival ? " is-arrival" : ""}` }, environment !== "production" && /* @__PURE__ */ React100.createElement("div", { className: "fd-environment", "aria-label": `${environment} environment` }, environment, " \xB7 Field Day"), children));
+  return /* @__PURE__ */ React103.createElement("div", { className: `fd-shell${tv2 ? " fd-night" : ""}` }, /* @__PURE__ */ React103.createElement("div", { className: `fd-shell-inner${tv2 ? " is-tv" : arrival ? " is-arrival" : ""}` }, environment !== "production" && /* @__PURE__ */ React103.createElement("div", { className: "fd-environment", "aria-label": `${environment} environment` }, environment, " \xB7 Field Day"), children));
 }
 
 // src/ui/usePhaseTheme.js
 init_phase();
 init_motion2();
-import { useLayoutEffect as useLayoutEffect20, useMemo as useMemo17, useRef as useRef71 } from "react";
+import { useLayoutEffect as useLayoutEffect20, useMemo as useMemo17, useRef as useRef74 } from "react";
 var STAGING = (() => {
   try {
     return import.meta.env?.MODE === "staging";
@@ -54955,7 +56199,7 @@ init_controls();
 init_writeErrors();
 init_motion();
 init_haptics();
-import React101, { useEffect as useEffect74, useRef as useRef72, useState as useState78 } from "react";
+import React104, { useEffect as useEffect76, useRef as useRef75, useState as useState79 } from "react";
 var fmt12 = (n) => (Number(n) || 0).toLocaleString("en-US");
 var POST = { width: "100%", fontSize: 16, padding: "14px" };
 var HALF = { flex: 1 };
@@ -55003,28 +56247,28 @@ function ResultEntry({ ev, state, onClose, save }) {
   const crew = table[2] > 0 ? (draw?.roles || []).map((role) => role.player).filter(Boolean) : [];
   const fieldOf = (placedSlots) => [.../* @__PURE__ */ new Set([...presentPlayers(state), ...placedSlots.flat()])];
   const sidesFor = (placedSlots) => teams ? teams.length : fieldOf(placedSlots).length;
-  const [pick, setPick] = useState78(() => {
+  const [pick, setPick] = useState79(() => {
     const start = initialSlots(state, ev, table);
     return { slots: start, target: twoTeams ? null : nextTarget(start, editable, sidesFor(start)) };
   });
   const { slots, target } = pick;
   const fieldPlayers = fieldOf(slots);
   const sidesInPlay = sidesFor(slots);
-  const [byPlayer, setByPlayer] = useState78(false);
-  const [confirmCorrection, setConfirmCorrection] = useState78(false);
-  const [correctionReason, setCorrectionReason] = useState78("");
-  const [pending, setPending] = useState78(false), [error2, setError] = useState78("");
-  const [emptyCheck, setEmptyCheck] = useState78(null);
-  const saving = useRef72(false);
+  const [byPlayer, setByPlayer] = useState79(false);
+  const [confirmCorrection, setConfirmCorrection] = useState79(false);
+  const [correctionReason, setCorrectionReason] = useState79("");
+  const [pending, setPending] = useState79(false), [error2, setError] = useState79("");
+  const [emptyCheck, setEmptyCheck] = useState79(null);
+  const saving = useRef75(false);
   const rules = { sequenced, fixedFirst: winnerKnown };
   const emptyPaid = twoTeams ? [] : emptyPaidPlaces(slots, editable, sidesInPlay);
   const firstIsTeam = sequenced && !!teams && target === 0;
   const mode2 = teams && (!byPlayer || firstIsTeam || twoTeams) ? "teams" : "players";
   const unchanged = !!existing && JSON.stringify(existing.slots || []) === JSON.stringify(slots);
   const reduced = useReducedMotion();
-  const root = useRef72(null), flight = useRef72(null);
-  const [arriving, setArriving] = useState78(null);
-  useEffect74(() => {
+  const root = useRef75(null), flight = useRef75(null);
+  const [arriving, setArriving] = useState79(null);
+  useEffect76(() => {
     const next = flight.current;
     if (!next) return;
     flight.current = null;
@@ -55105,7 +56349,7 @@ function ResultEntry({ ev, state, onClose, save }) {
     const tieable = !fixed && tieAllowed(place3, rules) && unitsLeft;
     const lit = !fixed && target === place3;
     const count = units.length + (lit && players.length && tieable ? 1 : 0);
-    return /* @__PURE__ */ React101.createElement(
+    return /* @__PURE__ */ React104.createElement(
       Socket,
       {
         key: place3,
@@ -55124,7 +56368,7 @@ function ResultEntry({ ev, state, onClose, save }) {
       },
       units.map((unit) => {
         const label2 = unit.team !== null ? teamLabel(state, teams[unit.team]) : disp(state, unit.players[0]);
-        return /* @__PURE__ */ React101.createElement(
+        return /* @__PURE__ */ React104.createElement(
           SeatUnit,
           {
             key: unit.key,
@@ -55143,7 +56387,7 @@ function ResultEntry({ ev, state, onClose, save }) {
       })
     );
   });
-  if (crew.length) sockets.push(/* @__PURE__ */ React101.createElement(CrewStep, { key: "crew", state, players: crew, amount: table[2] }));
+  if (crew.length) sockets.push(/* @__PURE__ */ React104.createElement(CrewStep, { key: "crew", state, players: crew, amount: table[2] }));
   const placeOf = (players) => {
     const whole = unitPlace(slots, players);
     return whole >= 0 ? whole : -1;
@@ -55153,9 +56397,9 @@ function ResultEntry({ ev, state, onClose, save }) {
   let field = null;
   if (mode2 === "teams") {
     const shown = teams.map((team, index) => ({ team, index })).filter(({ team }) => !team.players.some((p) => fixedFirst.includes(p)));
-    field = /* @__PURE__ */ React101.createElement("div", { className: `fd-pp-field is-teams${twoTeams ? " is-two" : ""}`, role: "group", "aria-label": "Teams" }, shown.map(({ team, index }, i) => {
+    field = /* @__PURE__ */ React104.createElement("div", { className: `fd-pp-field is-teams${twoTeams ? " is-two" : ""}`, role: "group", "aria-label": "Teams" }, shown.map(({ team, index }, i) => {
       const key = `team:${index}`;
-      return /* @__PURE__ */ React101.createElement(
+      return /* @__PURE__ */ React104.createElement(
         TeamTile,
         {
           key,
@@ -55173,9 +56417,9 @@ function ResultEntry({ ev, state, onClose, save }) {
       );
     }));
   } else {
-    field = /* @__PURE__ */ React101.createElement("div", { className: "fd-pp-field", role: "group", "aria-label": "Players" }, fieldPlayers.filter((p) => !fixedFirst.includes(p)).map((p) => {
+    field = /* @__PURE__ */ React104.createElement("div", { className: "fd-pp-field", role: "group", "aria-label": "Players" }, fieldPlayers.filter((p) => !fixedFirst.includes(p)).map((p) => {
       const key = `player:${p}`;
-      return /* @__PURE__ */ React101.createElement(
+      return /* @__PURE__ */ React104.createElement(
         FieldTile,
         {
           key,
@@ -55193,16 +56437,7 @@ function ResultEntry({ ev, state, onClose, save }) {
     }));
   }
   const picking = twoTeams || editable.length > 0;
-  return /* @__PURE__ */ React101.createElement(Sheet, { title: ev.name, show: true, onClose, busy: pending }, /* @__PURE__ */ React101.createElement("div", { className: "fd-pp", ref: root }, /* @__PURE__ */ React101.createElement(Podium, { columns: sockets.length, still: twoTeams || !editable.length }, sockets), picking && /* @__PURE__ */ React101.createElement("fieldset", { className: "fd-pp-fieldset", disabled: pending }, teams && !twoTeams && /* @__PURE__ */ React101.createElement(
-    FieldModes,
-    {
-      mode: mode2,
-      teamsOnly: firstIsTeam,
-      disabled: pending,
-      onTeams: () => setByPlayer(false),
-      onPlayers: () => setByPlayer(true)
-    }
-  ), field), error2 && /* @__PURE__ */ React101.createElement("p", { role: "alert", className: "fd-pp-error" }, error2), emptyCheck && emptyPaid.length > 0 && /* @__PURE__ */ React101.createElement("div", { role: "alert", className: "fd-pp-check" }, emptyPaid.map((i) => /* @__PURE__ */ React101.createElement("p", { key: i }, PLACE_NAMES[i], " place pays ", fmt12(table[i]), ". Nobody selected.")), /* @__PURE__ */ React101.createElement("div", { className: "fd-pp-actions" }, /* @__PURE__ */ React101.createElement(ActionButton, { variant: "commit", style: HALF, disabled: pending, onClick: () => post(emptyCheck, true) }, "Leave empty"), /* @__PURE__ */ React101.createElement(
+  const foot = /* @__PURE__ */ React104.createElement(React104.Fragment, null, error2 && /* @__PURE__ */ React104.createElement("p", { role: "alert", className: "fd-pp-error" }, error2), emptyCheck && emptyPaid.length > 0 && /* @__PURE__ */ React104.createElement("div", { role: "alert", className: "fd-pp-check" }, emptyPaid.map((i) => /* @__PURE__ */ React104.createElement("p", { key: i }, PLACE_NAMES[i], " place pays ", fmt12(table[i]), ". Nobody selected.")), /* @__PURE__ */ React104.createElement("div", { className: "fd-pp-actions" }, /* @__PURE__ */ React104.createElement(ActionButton, { variant: "commit", style: HALF, disabled: pending, onClick: () => post(emptyCheck, true) }, "Leave empty"), /* @__PURE__ */ React104.createElement(
     ActionButton,
     {
       variant: "tertiary",
@@ -55214,7 +56449,7 @@ function ResultEntry({ ev, state, onClose, save }) {
       }
     },
     "Choose"
-  ))), !existing ? /* @__PURE__ */ React101.createElement(ActionButton, { style: POST, disabled: slots[0].length === 0 || pending, onClick: () => post() }, "Post official result") : !confirmCorrection ? /* @__PURE__ */ React101.createElement(
+  ))), !existing ? /* @__PURE__ */ React104.createElement(ActionButton, { style: POST, disabled: slots[0].length === 0 || pending, onClick: () => post() }, "Post official result") : !confirmCorrection ? /* @__PURE__ */ React104.createElement(
     ActionButton,
     {
       style: POST,
@@ -55222,7 +56457,7 @@ function ResultEntry({ ev, state, onClose, save }) {
       onClick: () => setConfirmCorrection(true)
     },
     unchanged ? "Official result" : "Review result correction"
-  ) : /* @__PURE__ */ React101.createElement("div", { className: "fd-pp-check is-correction" }, /* @__PURE__ */ React101.createElement("label", { className: "fd-pp-reason" }, /* @__PURE__ */ React101.createElement("span", null, "Reason for the correction"), /* @__PURE__ */ React101.createElement(
+  ) : /* @__PURE__ */ React104.createElement("div", { className: "fd-pp-check is-correction" }, /* @__PURE__ */ React104.createElement("label", { className: "fd-pp-reason" }, /* @__PURE__ */ React104.createElement("span", null, "Reason for the correction"), /* @__PURE__ */ React104.createElement(
     "input",
     {
       value: correctionReason,
@@ -55231,7 +56466,7 @@ function ResultEntry({ ev, state, onClose, save }) {
       maxLength: 100,
       "aria-label": "Reason for the correction"
     }
-  )), /* @__PURE__ */ React101.createElement("div", { className: "fd-pp-actions" }, /* @__PURE__ */ React101.createElement(
+  )), /* @__PURE__ */ React104.createElement("div", { className: "fd-pp-actions" }, /* @__PURE__ */ React104.createElement(
     ActionButton,
     {
       variant: "commit",
@@ -55240,7 +56475,7 @@ function ResultEntry({ ev, state, onClose, save }) {
       onClick: () => post({ confirmOverwrite: true, correctionReason })
     },
     "Replace official result"
-  ), /* @__PURE__ */ React101.createElement(
+  ), /* @__PURE__ */ React104.createElement(
     ActionButton,
     {
       variant: "tertiary",
@@ -55252,7 +56487,17 @@ function ResultEntry({ ev, state, onClose, save }) {
       }
     },
     "Keep current"
-  )))));
+  ))));
+  return /* @__PURE__ */ React104.createElement(Sheet, { title: ev.name, show: true, onClose, busy: pending, footer: foot }, /* @__PURE__ */ React104.createElement("div", { className: "fd-pp", ref: root }, /* @__PURE__ */ React104.createElement(Podium, { columns: sockets.length, still: twoTeams || !editable.length }, sockets), picking && /* @__PURE__ */ React104.createElement("fieldset", { className: "fd-pp-fieldset", disabled: pending }, teams && !twoTeams && /* @__PURE__ */ React104.createElement(
+    FieldModes,
+    {
+      mode: mode2,
+      teamsOnly: firstIsTeam,
+      disabled: pending,
+      onTeams: () => setByPlayer(false),
+      onPlayers: () => setByPlayer(true)
+    }
+  ), field)));
 }
 
 // src/App.jsx
@@ -55267,7 +56512,7 @@ var centeredGridCell = (i, count, columns = 3, gap = 6) => {
   return { gridColumn: "1 / -1", width: `calc(${100 / columns}% - ${gap / 2}px)`, justifySelf: "center" };
 };
 function PlayerChip({ name, selected, disabled, onClick, small, style }) {
-  return /* @__PURE__ */ React103.createElement("button", { onClick, disabled, "aria-pressed": selected, style: {
+  return /* @__PURE__ */ React106.createElement("button", { onClick, disabled, "aria-pressed": selected, style: {
     fontFamily: SANS,
     fontWeight: 600,
     fontSize: small ? 13 : 14,
@@ -55279,7 +56524,7 @@ function PlayerChip({ name, selected, disabled, onClick, small, style }) {
     color: selected ? "var(--ink0)" : disabled ? "var(--disabled)" : "var(--ink)",
     border: selected ? "1.5px solid var(--ink0)" : "1.5px solid var(--line)",
     opacity: disabled && !selected ? 0.4 : 1,
-    transition: "all .12s",
+    transition: "transform .12s, color .12s, border-color .12s, opacity .12s",
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
@@ -55288,7 +56533,7 @@ function PlayerChip({ name, selected, disabled, onClick, small, style }) {
 }
 function EventIntro({ state, ev, handoff, onClose, onBets }) {
   const reduced = prefersReducedMotion2();
-  return /* @__PURE__ */ React103.createElement(
+  return /* @__PURE__ */ React106.createElement(
     EventAnnouncement,
     {
       state,
@@ -55305,8 +56550,8 @@ function EventIntro({ state, ev, handoff, onClose, onBets }) {
 }
 function ChipCounter({ start, onDone }) {
   const denominations = POKER_CONFIG.denominations;
-  const countId = useId10(), saving = useRef74(false);
-  const [counts, setCounts] = useState80(() => {
+  const countId = useId11(), saving = useRef77(false);
+  const [counts, setCounts] = useState81(() => {
     let left = start || 0;
     return Object.fromEntries(denominations.map((value) => {
       const n = Math.floor(left / value);
@@ -55314,12 +56559,12 @@ function ChipCounter({ start, onDone }) {
       return [value, n];
     }));
   });
-  const [pending, setPending] = useState80(false), [error2, setError] = useState80("");
+  const [pending, setPending] = useState81(false), [error2, setError] = useState81("");
   const total = denominations.reduce((sum, value) => sum + Number(counts[value] || 0) * value, 0);
   const set = (value, count) => {
     if (!saving.current) setCounts((current) => ({ ...current, [value]: count }));
   };
-  return /* @__PURE__ */ React103.createElement("div", { className: "fd-chip-counter" }, denominations.map((value) => /* @__PURE__ */ React103.createElement("div", { className: "fd-chip-count-row", key: value }, /* @__PURE__ */ React103.createElement("label", { htmlFor: countId + value }, fmt13(value), " chips"), /* @__PURE__ */ React103.createElement(
+  return /* @__PURE__ */ React106.createElement("div", { className: "fd-chip-counter" }, denominations.map((value) => /* @__PURE__ */ React106.createElement("div", { className: "fd-chip-count-row", key: value }, /* @__PURE__ */ React106.createElement("label", { htmlFor: countId + value }, fmt13(value), " chips"), /* @__PURE__ */ React106.createElement(
     "button",
     {
       type: "button",
@@ -55327,8 +56572,8 @@ function ChipCounter({ start, onDone }) {
       "aria-label": "Remove one " + value + " chip",
       onClick: () => set(value, Math.max(0, Number(counts[value] || 0) - 1))
     },
-    /* @__PURE__ */ React103.createElement(Icon, { name: "minus", size: 16 })
-  ), /* @__PURE__ */ React103.createElement(
+    /* @__PURE__ */ React106.createElement(Icon, { name: "minus", size: 16 })
+  ), /* @__PURE__ */ React106.createElement(
     "input",
     {
       id: countId + value,
@@ -55341,7 +56586,7 @@ function ChipCounter({ start, onDone }) {
         if (/^\d*$/.test(event.target.value)) set(value, event.target.value);
       }
     }
-  ), /* @__PURE__ */ React103.createElement("button", { type: "button", disabled: pending, "aria-label": "Add one " + value + " chip", onClick: () => set(value, Number(counts[value] || 0) + 1) }, /* @__PURE__ */ React103.createElement(Icon, { name: "plus", size: 16 })))), /* @__PURE__ */ React103.createElement("div", { className: "fd-chip-count-total" }, /* @__PURE__ */ React103.createElement("span", null, "Total"), /* @__PURE__ */ React103.createElement("strong", null, fmt13(total))), error2 && /* @__PURE__ */ React103.createElement("p", { role: "alert" }, error2), /* @__PURE__ */ React103.createElement(ActionButton, { className: "fd-chip-count-save", disabled: pending || total <= 0, onClick: async () => {
+  ), /* @__PURE__ */ React106.createElement("button", { type: "button", disabled: pending, "aria-label": "Add one " + value + " chip", onClick: () => set(value, Number(counts[value] || 0) + 1) }, /* @__PURE__ */ React106.createElement(Icon, { name: "plus", size: 16 })))), /* @__PURE__ */ React106.createElement("div", { className: "fd-chip-count-total" }, /* @__PURE__ */ React106.createElement("span", null, "Total"), /* @__PURE__ */ React106.createElement("strong", null, fmt13(total))), error2 && /* @__PURE__ */ React106.createElement("p", { role: "alert" }, error2), /* @__PURE__ */ React106.createElement(ActionButton, { className: "fd-chip-count-save", disabled: pending || total <= 0, onClick: async () => {
     if (saving.current || total <= 0) return;
     saving.current = true;
     setPending(true);
@@ -55359,9 +56604,9 @@ function ChipCounter({ start, onDone }) {
 }
 function PokerResultSheet({ state, onClose, onCount, onBust, onUnbust, onPost }) {
   const pk = state.poker;
-  const [fixing, setFixing] = useState80(null);
-  const [pending, setPending] = useState80(false), [error2, setError] = useState80("");
-  const saving = useRef74(false);
+  const [fixing, setFixing] = useState81(null);
+  const [pending, setPending] = useState81(false), [error2, setError] = useState81("");
+  const saving = useRef77(false);
   const act = async (callback) => {
     if (saving.current) return { ok: false, error: "Saving\u2026" };
     saving.current = true;
@@ -55387,10 +56632,10 @@ function PokerResultSheet({ state, onClose, onCount, onBust, onUnbust, onPost })
   const counted = alive.filter((p) => pk.counts?.[p] !== void 0);
   const sum = counted.reduce((s, p) => s + pk.counts[p], 0);
   const allIn = counted.length === alive.length;
-  return /* @__PURE__ */ React103.createElement(Sheet, { title: "The table", onClose, busy: pending }, seats.map((p) => {
+  return /* @__PURE__ */ React106.createElement(Sheet, { title: "The table", onClose, busy: pending }, seats.map((p) => {
     const out = outSet.has(p);
     const c2 = pk.counts?.[p];
-    return /* @__PURE__ */ React103.createElement("div", { key: p }, /* @__PURE__ */ React103.createElement("div", { className: "fd-poker-count-row" + (out ? " is-out" : "") }, /* @__PURE__ */ React103.createElement(
+    return /* @__PURE__ */ React106.createElement("div", { key: p }, /* @__PURE__ */ React106.createElement("div", { className: "fd-poker-count-row" + (out ? " is-out" : "") }, /* @__PURE__ */ React106.createElement(
       "button",
       {
         className: "fd-poker-count-player",
@@ -55401,10 +56646,10 @@ function PokerResultSheet({ state, onClose, onCount, onBust, onUnbust, onPost })
           if (!saving.current) setFixing((f) => f === p ? null : p);
         }
       },
-      /* @__PURE__ */ React103.createElement(Avatar, { state, p, size: 28 }),
-      /* @__PURE__ */ React103.createElement("span", null, disp(state, p)),
-      out ? /* @__PURE__ */ React103.createElement(Tag, null, "Out") : c2 !== void 0 ? /* @__PURE__ */ React103.createElement("strong", null, fmt13(c2)) : /* @__PURE__ */ React103.createElement("small", null, "counting")
-    ), /* @__PURE__ */ React103.createElement(
+      /* @__PURE__ */ React106.createElement(Avatar, { state, p, size: 28 }),
+      /* @__PURE__ */ React106.createElement("span", null, disp(state, p)),
+      out ? /* @__PURE__ */ React106.createElement(Tag, null, "Out") : c2 !== void 0 ? /* @__PURE__ */ React106.createElement("strong", null, fmt13(c2)) : /* @__PURE__ */ React106.createElement("small", null, "counting")
+    ), /* @__PURE__ */ React106.createElement(
       "button",
       {
         className: "fd-poker-count-action",
@@ -55417,27 +56662,27 @@ function PokerResultSheet({ state, onClose, onCount, onBust, onUnbust, onPost })
         })
       },
       out ? "Back in" : "Bust"
-    )), fixing === p && !out && /* @__PURE__ */ React103.createElement("div", { className: "fd-night", style: {
+    )), fixing === p && !out && /* @__PURE__ */ React106.createElement("div", { className: "fd-night", style: {
       padding: "10px 0",
       borderBottom: "1px solid var(--line)",
       background: "var(--night)",
       margin: "0 -16px",
       paddingLeft: 16,
       paddingRight: 16
-    } }, /* @__PURE__ */ React103.createElement(ChipCounter, { start: c2, onDone: (total) => act(async () => {
+    } }, /* @__PURE__ */ React106.createElement(ChipCounter, { start: c2, onDone: (total) => act(async () => {
       const result = await onCount(p, total);
       if (result?.ok) setFixing(null);
       return result;
     }) })));
-  }), /* @__PURE__ */ React103.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, padding: "12px 0 4px" } }, /* @__PURE__ */ React103.createElement("span", { style: { ...label, flex: 1 } }, "Counted"), /* @__PURE__ */ React103.createElement("span", { style: {
+  }), /* @__PURE__ */ React106.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, padding: "12px 0 4px" } }, /* @__PURE__ */ React106.createElement("span", { style: { ...label, flex: 1 } }, "Counted"), /* @__PURE__ */ React106.createElement("span", { style: {
     fontFamily: DISPLAY,
     fontWeight: 700,
     fontSize: 22,
     color: allIn && sum === pk.total ? "var(--green)" : "var(--ink)"
-  } }, fmt13(sum)), /* @__PURE__ */ React103.createElement("span", { style: { fontFamily: SANS, fontSize: 12.5, color: "var(--muted)" } }, "of ", fmt13(pk.total))), allIn && sum !== pk.total && /* @__PURE__ */ React103.createElement("div", { style: { fontFamily: SANS, fontSize: 12.5, color: "var(--clay-text)", marginBottom: 10 } }, sum > pk.total ? `${fmt13(sum - pk.total)} over` : `${fmt13(pk.total - sum)} short`, "."), error2 && /* @__PURE__ */ React103.createElement("p", { role: "alert", style: { color: "var(--clay-text)", fontSize: 13 } }, error2), /* @__PURE__ */ React103.createElement(Btn, { disabled: !allIn || pending, onClick: () => act(onPost), style: { width: "100%", marginTop: 8 } }, allIn ? "Post the counts" : `Waiting on ${alive.length - counted.length}`));
+  } }, fmt13(sum)), /* @__PURE__ */ React106.createElement("span", { style: { fontFamily: SANS, fontSize: 12.5, color: "var(--muted)" } }, "of ", fmt13(pk.total))), allIn && sum !== pk.total && /* @__PURE__ */ React106.createElement("div", { style: { fontFamily: SANS, fontSize: 12.5, color: "var(--clay-text)", marginBottom: 10 } }, sum > pk.total ? `${fmt13(sum - pk.total)} over` : `${fmt13(pk.total - sum)} short`, "."), error2 && /* @__PURE__ */ React106.createElement("p", { role: "alert", style: { color: "var(--clay-text)", fontSize: 13 } }, error2), /* @__PURE__ */ React106.createElement(Btn, { disabled: !allIn || pending, onClick: () => act(onPost), style: { width: "100%", marginTop: 8 } }, allIn ? "Post the counts" : `Waiting on ${alive.length - counted.length}`));
 }
 function PlayerLinks({ state, players, onPlayer, size = 26 }) {
-  return /* @__PURE__ */ React103.createElement("div", { className: "fd-player-links" }, players.map((p) => /* @__PURE__ */ React103.createElement(
+  return /* @__PURE__ */ React106.createElement("div", { className: "fd-player-links" }, players.map((p) => /* @__PURE__ */ React106.createElement(
     "button",
     {
       type: "button",
@@ -55446,16 +56691,16 @@ function PlayerLinks({ state, players, onPlayer, size = 26 }) {
       onClick: () => onPlayer(p),
       "aria-label": `View ${disp(state, p)}'s player card`
     },
-    /* @__PURE__ */ React103.createElement(Avatar, { state, p, size }),
-    /* @__PURE__ */ React103.createElement("span", null, disp(state, p))
+    /* @__PURE__ */ React106.createElement(Avatar, { state, p, size }),
+    /* @__PURE__ */ React106.createElement("span", null, disp(state, p))
   )));
 }
 function EventCrewCard({ state, roles, compact = false, onPlayer }) {
   const assignments = (roles || []).filter((item) => item?.player);
   if (!assignments.length) return null;
   if (compact) {
-    if (onPlayer) return /* @__PURE__ */ React103.createElement("div", { className: "fd-event-crew-compact" }, /* @__PURE__ */ React103.createElement("span", { style: label }, "Event crew"), assignments.map((item) => /* @__PURE__ */ React103.createElement("button", { type: "button", key: item.player, onClick: () => onPlayer(item.player), "aria-label": `View ${disp(state, item.player)}'s player card` }, /* @__PURE__ */ React103.createElement(Avatar, { state, p: item.player, size: 24 }), /* @__PURE__ */ React103.createElement("span", null, disp(state, item.player)), /* @__PURE__ */ React103.createElement("small", null, overflowRoleMeta(item.role).short))));
-    return /* @__PURE__ */ React103.createElement("div", { style: {
+    if (onPlayer) return /* @__PURE__ */ React106.createElement("div", { className: "fd-event-crew-compact" }, /* @__PURE__ */ React106.createElement("span", { style: label }, "Event crew"), assignments.map((item) => /* @__PURE__ */ React106.createElement("button", { type: "button", key: item.player, onClick: () => onPlayer(item.player), "aria-label": `View ${disp(state, item.player)}'s player card` }, /* @__PURE__ */ React106.createElement(Avatar, { state, p: item.player, size: 24 }), /* @__PURE__ */ React106.createElement("span", null, disp(state, item.player)), /* @__PURE__ */ React106.createElement("small", null, overflowRoleMeta(item.role).short))));
+    return /* @__PURE__ */ React106.createElement("div", { style: {
       display: "flex",
       alignItems: "center",
       gap: 8,
@@ -55463,7 +56708,7 @@ function EventCrewCard({ state, roles, compact = false, onPlayer }) {
       marginTop: 9,
       paddingTop: 8,
       borderTop: "1px solid var(--line)"
-    } }, /* @__PURE__ */ React103.createElement("span", { style: { ...label, color: "var(--muted2)", flexShrink: 0 } }, "Event crew"), /* @__PURE__ */ React103.createElement(AvatarStack, { state, players: assignments.map((item) => item.player), size: 20, max: 3 }), /* @__PURE__ */ React103.createElement("span", { style: {
+    } }, /* @__PURE__ */ React106.createElement("span", { style: { ...label, color: "var(--muted2)", flexShrink: 0 } }, "Event crew"), /* @__PURE__ */ React106.createElement(AvatarStack, { state, players: assignments.map((item) => item.player), size: 20, max: 3 }), /* @__PURE__ */ React106.createElement("span", { style: {
       fontFamily: SANS,
       fontWeight: 600,
       fontSize: 12,
@@ -55473,7 +56718,7 @@ function EventCrewCard({ state, roles, compact = false, onPlayer }) {
       textOverflow: "ellipsis",
       whiteSpace: "nowrap",
       flex: 1
-    } }, assignments.map((item) => disp(state, item.player)).join(", ")), /* @__PURE__ */ React103.createElement("span", { style: {
+    } }, assignments.map((item) => disp(state, item.player)).join(", ")), /* @__PURE__ */ React106.createElement("span", { style: {
       fontFamily: SANS,
       fontWeight: 700,
       fontSize: 12,
@@ -55481,15 +56726,15 @@ function EventCrewCard({ state, roles, compact = false, onPlayer }) {
       flexShrink: 0
     } }, assignments.map((item) => overflowRoleMeta(item.role).short).join(" + ")));
   }
-  return /* @__PURE__ */ React103.createElement("div", { style: {
+  return /* @__PURE__ */ React106.createElement("div", { style: {
     margin: "10px 0 4px",
     padding: "11px 12px",
     borderRadius: 14,
     background: "var(--paper2)",
     border: "1px solid var(--bone-line)"
-  } }, /* @__PURE__ */ React103.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 8 } }, /* @__PURE__ */ React103.createElement("span", { style: { ...label, color: "var(--muted2)", flex: 1 } }, "Event crew")), assignments.map((item, index) => {
+  } }, /* @__PURE__ */ React106.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 8 } }, /* @__PURE__ */ React106.createElement("span", { style: { ...label, color: "var(--muted2)", flex: 1 } }, "Event crew")), assignments.map((item, index) => {
     const meta = overflowRoleMeta(item.role);
-    if (onPlayer) return /* @__PURE__ */ React103.createElement(
+    if (onPlayer) return /* @__PURE__ */ React106.createElement(
       "button",
       {
         type: "button",
@@ -55498,18 +56743,18 @@ function EventCrewCard({ state, roles, compact = false, onPlayer }) {
         onClick: () => onPlayer(item.player),
         "aria-label": `View ${disp(state, item.player)}'s player card`
       },
-      /* @__PURE__ */ React103.createElement(Avatar, { state, p: item.player, size: 30 }),
-      /* @__PURE__ */ React103.createElement("span", null, /* @__PURE__ */ React103.createElement("strong", null, disp(state, item.player))),
-      /* @__PURE__ */ React103.createElement("small", null, meta.label)
+      /* @__PURE__ */ React106.createElement(Avatar, { state, p: item.player, size: 30 }),
+      /* @__PURE__ */ React106.createElement("span", null, /* @__PURE__ */ React106.createElement("strong", null, disp(state, item.player))),
+      /* @__PURE__ */ React106.createElement("small", null, meta.label)
     );
-    return /* @__PURE__ */ React103.createElement("div", { key: `${item.player}-${index}`, style: {
+    return /* @__PURE__ */ React106.createElement("div", { key: `${item.player}-${index}`, style: {
       display: "flex",
       alignItems: "center",
       gap: 9,
       padding: index ? "8px 0 0" : "0",
       marginTop: index ? 8 : 0,
       borderTop: index ? "1px solid var(--line)" : "none"
-    } }, /* @__PURE__ */ React103.createElement(Avatar, { state, p: item.player, size: 30 }), /* @__PURE__ */ React103.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React103.createElement("div", { style: {
+    } }, /* @__PURE__ */ React106.createElement(Avatar, { state, p: item.player, size: 30 }), /* @__PURE__ */ React106.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React106.createElement("div", { style: {
       fontFamily: SANS,
       fontWeight: 700,
       fontSize: 13,
@@ -55517,7 +56762,7 @@ function EventCrewCard({ state, roles, compact = false, onPlayer }) {
       overflow: "hidden",
       textOverflow: "ellipsis",
       whiteSpace: "nowrap"
-    } }, disp(state, item.player))), /* @__PURE__ */ React103.createElement("span", { style: {
+    } }, disp(state, item.player))), /* @__PURE__ */ React106.createElement("span", { style: {
       fontFamily: SANS,
       fontWeight: 700,
       fontSize: 12,
@@ -55537,14 +56782,14 @@ function StageGrid({ state, ev, gm, onThrough, onFinal, onPlayer, size = "md" })
     md: { av: 24, f: 13.5, tf: 13, pad: "7px 10px", gap: 8, col: "1fr 1fr" },
     lg: { av: 36, f: 19, tf: 17, pad: "11px 14px", gap: 14, col: `repeat(${Math.min(st.groups.length + (finalists ? 1 : 0), 4)}, 1fr)` }
   }[size];
-  const GroupCard = ({ title, entrants, through, gIdx, isFinal, wide }) => /* @__PURE__ */ React103.createElement("div", { style: {
+  const GroupCard = ({ title, entrants, through, gIdx, isFinal, wide }) => /* @__PURE__ */ React106.createElement("div", { style: {
     background: "var(--paper2)",
     border: "1px solid " + (isFinal ? "var(--ghost-line)" : "var(--line)"),
     borderRadius: 14,
     overflow: "hidden",
     boxShadow: "var(--shadow-1)",
     ...wide ? { gridColumn: "1 / -1" } : {}
-  } }, /* @__PURE__ */ React103.createElement("div", { style: {
+  } }, /* @__PURE__ */ React106.createElement("div", { style: {
     ...label,
     fontSize: size === "lg" ? 13 : 12,
     padding: size === "lg" ? "9px 14px 5px" : "7px 10px 3px",
@@ -55555,12 +56800,12 @@ function StageGrid({ state, ev, gm, onThrough, onFinal, onPlayer, size = "md" })
     const decided3 = isFinal ? st.finalWinner !== null && st.finalWinner !== void 0 : (through || []).length >= st.advance;
     const dimmed = decided3 && !isThrough;
     const clickable = gm && (isFinal ? onFinal : onThrough);
-    if (!gm && onPlayer) return /* @__PURE__ */ React103.createElement("div", { key: String(key), style: {
+    if (!gm && onPlayer) return /* @__PURE__ */ React106.createElement("div", { key: String(key), style: {
       padding: dims.pad,
       borderTop: "1px solid var(--line)",
       background: isThrough ? "var(--accent-tint)" : "transparent"
-    } }, /* @__PURE__ */ React103.createElement(PlayerLinks, { state, players: v.players, onPlayer, size: dims.av }), isThrough && /* @__PURE__ */ React103.createElement("small", { style: { color: "var(--accent2)" } }, isFinal ? "Winner" : "Advanced"));
-    return /* @__PURE__ */ React103.createElement(
+    } }, /* @__PURE__ */ React106.createElement(PlayerLinks, { state, players: v.players, onPlayer, size: dims.av }), isThrough && /* @__PURE__ */ React106.createElement("small", { style: { color: "var(--accent2)" } }, isFinal ? "Winner" : "Advanced"));
+    return /* @__PURE__ */ React106.createElement(
       "button",
       {
         key: String(key),
@@ -55580,8 +56825,8 @@ function StageGrid({ state, ev, gm, onThrough, onFinal, onPlayer, size = "md" })
           opacity: dimmed ? 0.38 : 1
         }
       },
-      /* @__PURE__ */ React103.createElement(AvatarStack, { state, players: v.players, size: dims.av, max: 3 }),
-      /* @__PURE__ */ React103.createElement("span", { style: {
+      /* @__PURE__ */ React106.createElement(AvatarStack, { state, players: v.players, size: dims.av, max: 3 }),
+      /* @__PURE__ */ React106.createElement("span", { style: {
         fontFamily: SANS,
         fontWeight: 700,
         fontSize: dims.f,
@@ -55591,10 +56836,10 @@ function StageGrid({ state, ev, gm, onThrough, onFinal, onPlayer, size = "md" })
         whiteSpace: "nowrap",
         color: isThrough ? "var(--accent2)" : "var(--ink)"
       } }, v.name),
-      isThrough && /* @__PURE__ */ React103.createElement("span", { style: { fontFamily: SANS, fontWeight: 700, fontSize: dims.tf, color: "var(--accent2)" } }, /* @__PURE__ */ React103.createElement(Icon, { name: isFinal ? "trophy" : "check", size: "1em" }))
+      isThrough && /* @__PURE__ */ React106.createElement("span", { style: { fontFamily: SANS, fontWeight: 700, fontSize: dims.tf, color: "var(--accent2)" } }, /* @__PURE__ */ React106.createElement(Icon, { name: isFinal ? "trophy" : "check", size: "1em" }))
     );
   }));
-  return /* @__PURE__ */ React103.createElement("div", { style: { display: "grid", gridTemplateColumns: dims.col, gap: dims.gap, alignItems: "start" } }, st.groups.map((g, i) => /* @__PURE__ */ React103.createElement(
+  return /* @__PURE__ */ React106.createElement("div", { style: { display: "grid", gridTemplateColumns: dims.col, gap: dims.gap, alignItems: "start" } }, st.groups.map((g, i) => /* @__PURE__ */ React106.createElement(
     GroupCard,
     {
       key: i,
@@ -55603,7 +56848,7 @@ function StageGrid({ state, ev, gm, onThrough, onFinal, onPlayer, size = "md" })
       through: g.through,
       gIdx: i
     }
-  )), finalists && /* @__PURE__ */ React103.createElement(
+  )), finalists && /* @__PURE__ */ React106.createElement(
     GroupCard,
     {
       title: "The Final",
@@ -55648,7 +56893,7 @@ function EventSheet({
   onTakeBack
 }) {
   const res = state.results[ev.id];
-  const [confirmTakeBack, setConfirmTakeBack] = useState80(false);
+  const [confirmTakeBack, setConfirmTakeBack] = useState81(false);
   const contestOps = useContestOperations();
   const draw = state.draws[ev.id];
   const draftLive = state.drafts?.[ev.id];
@@ -55656,20 +56901,20 @@ function EventSheet({
   const st = state.stages[ev.id];
   const table = AWARDS[ev.value] ? awardTable(ev) : void 0;
   const shelvedNow = !!state.shelved[ev.id];
-  const [confirmRedraw, setConfirmRedraw] = useState80(false);
-  const [confirmRemove, setConfirmRemove] = useState80(false);
-  const [confirmClear, setConfirmClear] = useState80(false);
-  const [clearReason, setClearReason] = useState80("");
-  const [confirmScrap, setConfirmScrap] = useState80(false);
-  const [confirmShelve, setConfirmShelve] = useState80(false);
+  const [confirmRedraw, setConfirmRedraw] = useState81(false);
+  const [confirmRemove, setConfirmRemove] = useState81(false);
+  const [confirmClear, setConfirmClear] = useState81(false);
+  const [clearReason, setClearReason] = useState81("");
+  const [confirmScrap, setConfirmScrap] = useState81(false);
+  const [confirmShelve, setConfirmShelve] = useState81(false);
   const openBets = (state.wagers || []).filter((w) => w.eventId === ev.id && resolveWager(state, w, allEventsOf(state)).status === "pending");
-  const [editOpen, setEditOpen] = useState80(false);
-  const [howTo, setHowTo] = useState80(false);
-  const [more, setMore] = useState80(false);
-  const [eName, setEName] = useState80("");
-  const [eDesc, setEDesc] = useState80("");
-  const [eValue, setEValue] = useState80(AWARD_VALUES[0]);
-  const [eSession, setESession] = useState80(null);
+  const [editOpen, setEditOpen] = useState81(false);
+  const [howTo, setHowTo] = useState81(false);
+  const [more, setMore] = useState81(false);
+  const [eName, setEName] = useState81("");
+  const [eDesc, setEDesc] = useState81("");
+  const [eValue, setEValue] = useState81(AWARD_VALUES[0]);
+  const [eSession, setESession] = useState81(null);
   const openEdit = () => {
     setEName(ev.name);
     setEDesc(ev.desc || "");
@@ -55677,16 +56922,16 @@ function EventSheet({
     setESession(SESSIONS.find((s) => s.id === ev.session) ? ev.session : null);
     setEditOpen(true);
   };
-  const [suggested] = useState80(() => ev.teamCfg && !state.draws?.[ev.id] ? suggestParticipants(state, ev) : null);
-  const [outs, setOuts] = useState80(() => (suggested?.roles || []).map((item) => item.player));
-  const [outRoles, setOutRoles] = useState80(() => Object.fromEntries((suggested?.roles || []).map((item) => [item.player, item.role])));
-  const [swapOut, setSwapOut] = useState80(""), [swapIn, setSwapIn] = useState80("");
-  const [showOuts, setShowOuts] = useState80(false);
-  const [stageCfgOpen, setStageCfgOpen] = useState80(!!ev.stageCfg);
-  const [nGroups, setNGroups] = useState80(null);
-  const [advance, setAdvance] = useState80(ev.stageCfg?.advance || 1);
-  const [setupPending, setSetupPending] = useState80(false);
-  const [contestPending, setContestPending] = useState80(false);
+  const [suggested] = useState81(() => ev.teamCfg && !state.draws?.[ev.id] ? suggestParticipants(state, ev) : null);
+  const [outs, setOuts] = useState81(() => (suggested?.roles || []).map((item) => item.player));
+  const [outRoles, setOutRoles] = useState81(() => Object.fromEntries((suggested?.roles || []).map((item) => [item.player, item.role])));
+  const [swapOut, setSwapOut] = useState81(""), [swapIn, setSwapIn] = useState81("");
+  const [showOuts, setShowOuts] = useState81(false);
+  const [stageCfgOpen, setStageCfgOpen] = useState81(!!ev.stageCfg);
+  const [nGroups, setNGroups] = useState81(null);
+  const [advance, setAdvance] = useState81(ev.stageCfg?.advance || 1);
+  const [setupPending, setSetupPending] = useState81(false);
+  const [contestPending, setContestPending] = useState81(false);
   const waitForContest = async (callback) => {
     setContestPending(true);
     try {
@@ -55695,8 +56940,8 @@ function EventSheet({
       setContestPending(false);
     }
   };
-  const [setupError, setSetupError] = useState80("");
-  const setupBusy = useRef74(false);
+  const [setupError, setSetupError] = useState81("");
+  const setupBusy = useRef77(false);
   const saveSetup = async (callback) => {
     if (setupBusy.current) return;
     setupBusy.current = true;
@@ -55751,8 +56996,8 @@ function EventSheet({
     onResult: () => waitForContest(enterResult),
     onPlayNext: onPlayNext ? (payload) => waitForContest(() => onPlayNext(payload)) : void 0
   };
-  const who = /* @__PURE__ */ React103.createElement(React103.Fragment, null, draftLive && !draw && /* @__PURE__ */ React103.createElement("div", { className: "fd-es-block" }, /* @__PURE__ */ React103.createElement(DraftEntry, { state, ev, me, onOpen: () => openDraft() })), draw && !br && !st && !contestShowsSides && /* @__PURE__ */ React103.createElement(EventTeams, { state, ev, draw, me, onPlayer }), br && !contestActive && /* @__PURE__ */ React103.createElement("div", { className: "fd-es-block" }, /* @__PURE__ */ React103.createElement(CompetitionBracket, { state, ev, me, onPlayer })), st && /* @__PURE__ */ React103.createElement("div", { className: "fd-es-block" }, /* @__PURE__ */ React103.createElement(StageGrid, { state, ev, gm: false, onPlayer })), !draw && !draftLive && !st && !ev.teamCfg && !isPoker && stage === "before" && /* @__PURE__ */ React103.createElement(EventField, { state, ev, me, onPlayer }), roles && /* @__PURE__ */ React103.createElement(EventCrew, { state, roles, me, onPlayer }));
-  return /* @__PURE__ */ React103.createElement(
+  const who = /* @__PURE__ */ React106.createElement(React106.Fragment, null, draftLive && !draw && /* @__PURE__ */ React106.createElement("div", { className: "fd-es-block" }, /* @__PURE__ */ React106.createElement(DraftEntry, { state, ev, me, onOpen: () => openDraft() })), draw && !br && !st && !contestShowsSides && /* @__PURE__ */ React106.createElement(EventTeams, { state, ev, draw, me, onPlayer }), br && !contestActive && /* @__PURE__ */ React106.createElement("div", { className: "fd-es-block" }, /* @__PURE__ */ React106.createElement(CompetitionBracket, { state, ev, me, onPlayer })), st && /* @__PURE__ */ React106.createElement("div", { className: "fd-es-block" }, /* @__PURE__ */ React106.createElement(StageGrid, { state, ev, gm: false, onPlayer })), !draw && !draftLive && !st && !ev.teamCfg && !isPoker && stage === "before" && /* @__PURE__ */ React106.createElement(EventField, { state, ev, me, onPlayer }), roles && /* @__PURE__ */ React106.createElement(EventCrew, { state, roles, me, onPlayer }));
+  return /* @__PURE__ */ React106.createElement(
     Sheet,
     {
       title: ev.name,
@@ -55761,20 +57006,20 @@ function EventSheet({
       onBack,
       wide: !!br,
       busy: setupPending || contestPending,
-      headerActions: /* @__PURE__ */ React103.createElement(React103.Fragment, null, (draw || st) && onReplay && /* @__PURE__ */ React103.createElement("button", { type: "button", disabled: setupPending || contestPending, onClick: onReplay }, "Replay draw"), hasGameRules(ev) && stage !== "before" && /* @__PURE__ */ React103.createElement("button", { type: "button", disabled: setupPending || contestPending, onClick: () => setHowTo(true) }, "Rules"))
+      headerActions: /* @__PURE__ */ React106.createElement(React106.Fragment, null, (draw || st) && onReplay && /* @__PURE__ */ React106.createElement("button", { type: "button", disabled: setupPending || contestPending, onClick: onReplay }, "Replay draw"), hasGameRules(ev) && stage !== "before" && /* @__PURE__ */ React106.createElement("button", { type: "button", disabled: setupPending || contestPending, onClick: () => setHowTo(true) }, "Rules"))
     },
-    howTo && /* @__PURE__ */ React103.createElement(HowToSheet, { gameId: ev.game, variant: ev.variant, ev, onClose: () => setHowTo(false) }),
-    /* @__PURE__ */ React103.createElement(ContestPanel, { ...contestProps, part: "contest" }),
-    /* @__PURE__ */ React103.createElement(TeamNameCard, { state, ev, me }),
-    stage === "before" && /* @__PURE__ */ React103.createElement(React103.Fragment, null, who, /* @__PURE__ */ React103.createElement(GameSteps, { game: ev, size: "card", className: "fd-es-steps" }), !GAMES[ev.game] && ev.desc && /* @__PURE__ */ React103.createElement("p", { className: "fd-es-gm-note" }, ev.desc), table && /* @__PURE__ */ React103.createElement(EventPays, { ev, crew: crewAward })),
-    stage === "live" && /* @__PURE__ */ React103.createElement(React103.Fragment, null, path?.mine && /* @__PURE__ */ React103.createElement("p", { className: "fd-es-path" }, path.text), who, /* @__PURE__ */ React103.createElement(EventRiding, { state, ev })),
-    stage === "after" && /* @__PURE__ */ React103.createElement(React103.Fragment, null, /* @__PURE__ */ React103.createElement(EventResult, { state, ev, me, onPlayer }), br && /* @__PURE__ */ React103.createElement("details", { className: "fd-event-info" }, /* @__PURE__ */ React103.createElement("summary", null, /* @__PURE__ */ React103.createElement("span", null, "Bracket")), /* @__PURE__ */ React103.createElement(CompetitionBracket, { state, ev, me, onPlayer })), st && /* @__PURE__ */ React103.createElement("details", { className: "fd-event-info" }, /* @__PURE__ */ React103.createElement("summary", null, /* @__PURE__ */ React103.createElement("span", null, st.kind === "heats" ? "Heats" : "Pools")), /* @__PURE__ */ React103.createElement(StageGrid, { state, ev, gm: false, onPlayer }))),
-    !contestActive && onBets && stage !== "after" && /* @__PURE__ */ React103.createElement(ActionButton, { variant: "secondary", onClick: onBets, style: { width: "100%", marginBottom: 12 } }, "View bets"),
-    gm && /* @__PURE__ */ React103.createElement("section", { className: "fd-es-gm", "aria-labelledby": `fd-es-gm-${ev.id}` }, /* @__PURE__ */ React103.createElement("h2", { id: `fd-es-gm-${ev.id}` }, "Commissioner"), /* @__PURE__ */ React103.createElement(ContestPanel, { ...contestProps, part: "commissioner" }), /* @__PURE__ */ React103.createElement(TeamNameDesk, { state, ev }), !state.frozen && /* @__PURE__ */ React103.createElement(React103.Fragment, null, ev.teamCfg && !draw && !draftLive && !res && (() => {
+    howTo && /* @__PURE__ */ React106.createElement(HowToSheet, { gameId: ev.game, variant: ev.variant, ev, onClose: () => setHowTo(false) }),
+    /* @__PURE__ */ React106.createElement(ContestPanel, { ...contestProps, part: "contest" }),
+    /* @__PURE__ */ React106.createElement(TeamNameCard, { state, ev, me }),
+    stage === "before" && /* @__PURE__ */ React106.createElement(React106.Fragment, null, who, /* @__PURE__ */ React106.createElement(GameSteps, { game: ev, size: "card", className: "fd-es-steps" }), !GAMES[ev.game] && ev.desc && /* @__PURE__ */ React106.createElement("p", { className: "fd-es-gm-note" }, ev.desc), table && /* @__PURE__ */ React106.createElement(EventPays, { ev, crew: crewAward })),
+    stage === "live" && /* @__PURE__ */ React106.createElement(React106.Fragment, null, path?.mine && /* @__PURE__ */ React106.createElement("p", { className: "fd-es-path" }, path.text), who, /* @__PURE__ */ React106.createElement(EventRiding, { state, ev })),
+    stage === "after" && /* @__PURE__ */ React106.createElement(React106.Fragment, null, /* @__PURE__ */ React106.createElement(EventResult, { state, ev, me, onPlayer }), br && /* @__PURE__ */ React106.createElement("details", { className: "fd-event-info" }, /* @__PURE__ */ React106.createElement("summary", null, /* @__PURE__ */ React106.createElement("span", null, "Bracket")), /* @__PURE__ */ React106.createElement(CompetitionBracket, { state, ev, me, onPlayer })), st && /* @__PURE__ */ React106.createElement("details", { className: "fd-event-info" }, /* @__PURE__ */ React106.createElement("summary", null, /* @__PURE__ */ React106.createElement("span", null, st.kind === "heats" ? "Heats" : "Pools")), /* @__PURE__ */ React106.createElement(StageGrid, { state, ev, gm: false, onPlayer }))),
+    !contestActive && onBets && stage !== "after" && /* @__PURE__ */ React106.createElement(ActionButton, { variant: "secondary", onClick: onBets, style: { width: "100%", marginBottom: 12 } }, "View bets"),
+    gm && /* @__PURE__ */ React106.createElement("section", { className: "fd-es-gm", "aria-labelledby": `fd-es-gm-${ev.id}` }, /* @__PURE__ */ React106.createElement("h2", { id: `fd-es-gm-${ev.id}` }, "Commissioner"), /* @__PURE__ */ React106.createElement(ContestPanel, { ...contestProps, part: "commissioner" }), /* @__PURE__ */ React106.createElement(TeamNameDesk, { state, ev }), !state.frozen && /* @__PURE__ */ React106.createElement(React106.Fragment, null, ev.teamCfg && !draw && !draftLive && !res && (() => {
       const shape = teamFit(ev, present.length) || ev.teamCfg;
       const fit2 = shape.teams * shape.size;
       const diff = inPlayers.length - fit2;
-      return /* @__PURE__ */ React103.createElement(React103.Fragment, null, /* @__PURE__ */ React103.createElement("div", { className: "fd-es-gm-fit" }, /* @__PURE__ */ React103.createElement("span", null, shapeLabel(shape)), /* @__PURE__ */ React103.createElement(
+      return /* @__PURE__ */ React106.createElement(React106.Fragment, null, /* @__PURE__ */ React106.createElement("div", { className: "fd-es-gm-fit" }, /* @__PURE__ */ React106.createElement("span", null, shapeLabel(shape)), /* @__PURE__ */ React106.createElement(
         "button",
         {
           type: "button",
@@ -55786,8 +57031,8 @@ function EventSheet({
         inPlayers.length,
         shape.size === 1 ? "" : ` / ${fit2}`,
         " ",
-        /* @__PURE__ */ React103.createElement(Icon, { name: showOuts ? "collapse" : "expand", size: "1em" })
-      )), showOuts && /* @__PURE__ */ React103.createElement(React103.Fragment, null, /* @__PURE__ */ React103.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 5, marginBottom: 10 } }, present.map((p, i) => /* @__PURE__ */ React103.createElement(
+        /* @__PURE__ */ React106.createElement(Icon, { name: showOuts ? "collapse" : "expand", size: "1em" })
+      )), showOuts && /* @__PURE__ */ React106.createElement(React106.Fragment, null, /* @__PURE__ */ React106.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 5, marginBottom: 10 } }, present.map((p, i) => /* @__PURE__ */ React106.createElement(
         PlayerChip,
         {
           key: p,
@@ -55797,51 +57042,52 @@ function EventSheet({
           onClick: () => setOuts((o) => o.includes(p) ? o.filter((x) => x !== p) : [...o, p]),
           style: centeredGridCell(i, present.length, 3, 5)
         }
-      ))), overflowAssignments.length > 0 && /* @__PURE__ */ React103.createElement("div", { style: {
+      ))), overflowAssignments.length > 0 && /* @__PURE__ */ React106.createElement("div", { style: {
         background: "var(--paper2)",
         border: "1px solid var(--bone-line)",
         borderRadius: 14,
         padding: "11px 12px",
         marginBottom: 10
-      } }, /* @__PURE__ */ React103.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 3 } }, /* @__PURE__ */ React103.createElement("span", { style: { ...label, flex: 1 } }, "Crew"), table?.[2] > 0 && /* @__PURE__ */ React103.createElement("b", { style: { color: "var(--sun)", fontFamily: DISPLAY, fontWeight: 800, fontSize: 16 } }, "+", fmt13(table[2]))), overflowAssignments.map(({ player }, index) => {
+      } }, /* @__PURE__ */ React106.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 3 } }, /* @__PURE__ */ React106.createElement("span", { style: { ...label, flex: 1 } }, "Crew"), table?.[2] > 0 && /* @__PURE__ */ React106.createElement("b", { style: { color: "var(--sun)", fontFamily: DISPLAY, fontWeight: 800, fontSize: 16 } }, "+", fmt13(table[2]))), overflowAssignments.map(({ player }, index) => {
         const role = outRoles[player] || "sit-out";
-        return /* @__PURE__ */ React103.createElement("div", { key: player, style: {
+        return /* @__PURE__ */ React106.createElement("div", { key: player, style: {
           display: "flex",
           alignItems: "center",
           gap: 9,
           padding: index ? "9px 0 0" : "0",
           marginTop: index ? 9 : 0,
           borderTop: index ? "1px solid var(--line)" : "none"
-        } }, /* @__PURE__ */ React103.createElement(Avatar, { state, p: player, size: 32 }), /* @__PURE__ */ React103.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React103.createElement("div", { style: {
+        } }, /* @__PURE__ */ React106.createElement(Avatar, { state, p: player, size: 32 }), /* @__PURE__ */ React106.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React106.createElement("div", { style: {
           fontFamily: SANS,
           fontWeight: 700,
-          fontSize: 12.5,
+          fontSize: 14,
+          lineHeight: 1.25,
           color: "var(--ink)",
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-          whiteSpace: "nowrap"
-        } }, disp(state, player))), /* @__PURE__ */ React103.createElement(
+          overflowWrap: "anywhere"
+        } }, disp(state, player))), /* @__PURE__ */ React106.createElement(
           "select",
           {
             "aria-label": `${disp(state, player)} event crew role`,
             value: role,
             onChange: (event) => setOutRoles((current) => ({ ...current, [player]: event.target.value })),
             style: {
-              width: 142,
-              maxWidth: "42%",
-              padding: "8px 8px",
+              flex: "0 1 auto",
+              minWidth: 0,
+              maxWidth: "58%",
+              minHeight: 44,
+              padding: "8px 10px",
               borderRadius: 9,
               background: "var(--paper)",
               color: "var(--ink)",
               border: "1px solid var(--line)",
               fontFamily: SANS,
               fontWeight: 700,
-              fontSize: 12
+              fontSize: 16
             }
           },
-          OVERFLOW_ROLES.map((value) => /* @__PURE__ */ React103.createElement("option", { key: value, value }, overflowRoleMeta(value).label))
+          OVERFLOW_ROLES.map((value) => /* @__PURE__ */ React106.createElement("option", { key: value, value }, overflowRoleMeta(value).label))
         ));
-      }))), !participantFit.ok && /* @__PURE__ */ React103.createElement("p", { className: "fd-es-gm-note", role: "alert", style: { color: "var(--clay-text)" } }, participantFit.error), /* @__PURE__ */ React103.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 10 } }, /* @__PURE__ */ React103.createElement(
+      }))), !participantFit.ok && /* @__PURE__ */ React106.createElement("p", { className: "fd-es-gm-note", role: "alert", style: { color: "var(--clay-text)" } }, participantFit.error), /* @__PURE__ */ React106.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 10 } }, /* @__PURE__ */ React106.createElement(
         Btn,
         {
           disabled: !participantFit.ok || setupPending,
@@ -55849,7 +57095,7 @@ function EventSheet({
           style: { flex: 1, whiteSpace: "nowrap", padding: "12px 8px" }
         },
         setupPending ? "Drawing\u2026" : announceNext ? "Announce and draw" : "Run the draw"
-      ), ev.kind === "team" && /* @__PURE__ */ React103.createElement(
+      ), ev.kind === "team" && /* @__PURE__ */ React106.createElement(
         Btn,
         {
           kind: "dark",
@@ -55859,10 +57105,10 @@ function EventSheet({
         },
         "Captains draft"
       )));
-    })(), ev.teamCfg && draw && !res && setupAllowed && (confirmRedraw ? /* @__PURE__ */ React103.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 10 } }, /* @__PURE__ */ React103.createElement(Btn, { kind: "danger", onClick: () => {
+    })(), ev.teamCfg && draw && !res && setupAllowed && (confirmRedraw ? /* @__PURE__ */ React106.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 10 } }, /* @__PURE__ */ React106.createElement(Btn, { kind: "flame", onClick: () => {
       onClearDraw();
       setConfirmRedraw(false);
-    }, style: { flex: 1 } }, "Scrap the draw"), /* @__PURE__ */ React103.createElement(Btn, { kind: "ghost", onClick: () => setConfirmRedraw(false), style: { flex: 1 } }, "Keep it")) : /* @__PURE__ */ React103.createElement(Btn, { kind: "ghost", onClick: () => setConfirmRedraw(true), style: { width: "100%", marginBottom: 10 } }, "Redraw")), (draw || st?.entrantType === "solo") && !res && onSwap && (() => {
+    }, style: { flex: 1 } }, "Scrap the draw"), /* @__PURE__ */ React106.createElement(Btn, { kind: "ghost", onClick: () => setConfirmRedraw(false), style: { flex: 1 } }, "Keep it")) : /* @__PURE__ */ React106.createElement(Btn, { kind: "ghost", onClick: () => setConfirmRedraw(true), style: { width: "100%", marginBottom: 10 } }, "Redraw")), (draw || st?.entrantType === "solo") && !res && onSwap && (() => {
       const drawn = draw ? draw.teams.flatMap((team) => team.players) : st.groups.flatMap((group) => group.entrants);
       const bench = present.filter((player) => !drawn.includes(player));
       if (!bench.length) return null;
@@ -55877,9 +57123,9 @@ function EventSheet({
         border: "1px solid var(--line)",
         fontFamily: SANS,
         fontWeight: 700,
-        fontSize: 12.5
+        fontSize: 16
       };
-      return /* @__PURE__ */ React103.createElement("details", { className: "fd-event-info" }, /* @__PURE__ */ React103.createElement("summary", null, /* @__PURE__ */ React103.createElement("span", null, "Swap in a player")), /* @__PURE__ */ React103.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 8 } }, /* @__PURE__ */ React103.createElement(
+      return /* @__PURE__ */ React106.createElement("details", { className: "fd-event-info" }, /* @__PURE__ */ React106.createElement("summary", null, /* @__PURE__ */ React106.createElement("span", null, "Swap in a player")), /* @__PURE__ */ React106.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 8 } }, /* @__PURE__ */ React106.createElement(
         "select",
         {
           "aria-label": "Player leaving",
@@ -55888,9 +57134,9 @@ function EventSheet({
           onChange: (event) => setSwapOut(event.target.value),
           style: selectStyle
         },
-        /* @__PURE__ */ React103.createElement("option", { value: "" }, "Leaving"),
-        drawn.map((player) => /* @__PURE__ */ React103.createElement("option", { key: player, value: player }, disp(state, player)))
-      ), /* @__PURE__ */ React103.createElement(
+        /* @__PURE__ */ React106.createElement("option", { value: "" }, "Leaving"),
+        drawn.map((player) => /* @__PURE__ */ React106.createElement("option", { key: player, value: player }, disp(state, player)))
+      ), /* @__PURE__ */ React106.createElement(
         "select",
         {
           "aria-label": "Player coming in",
@@ -55899,9 +57145,9 @@ function EventSheet({
           onChange: (event) => setSwapIn(event.target.value),
           style: selectStyle
         },
-        /* @__PURE__ */ React103.createElement("option", { value: "" }, "Coming in"),
-        bench.map((player) => /* @__PURE__ */ React103.createElement("option", { key: player, value: player }, disp(state, player)))
-      ), /* @__PURE__ */ React103.createElement(
+        /* @__PURE__ */ React106.createElement("option", { value: "" }, "Coming in"),
+        bench.map((player) => /* @__PURE__ */ React106.createElement("option", { key: player, value: player }, disp(state, player)))
+      ), /* @__PURE__ */ React106.createElement(
         ActionButton,
         {
           compact: true,
@@ -55916,14 +57162,14 @@ function EventSheet({
           })
         },
         "Swap in"
-      )), /* @__PURE__ */ React103.createElement("p", null, "Voids bets on the player leaving."));
-    })(), (canHeats || canPools) && !st && setupAllowed && (!stageCfgOpen ? /* @__PURE__ */ React103.createElement(Btn, { kind: "dark", onClick: () => setStageCfgOpen(true), style: { width: "100%", marginBottom: 10 } }, canHeats ? "Run heats" : "Set up pools") : /* @__PURE__ */ React103.createElement("div", { style: {
+      )), /* @__PURE__ */ React106.createElement("p", null, "Voids bets on the player leaving."));
+    })(), (canHeats || canPools) && !st && setupAllowed && (!stageCfgOpen ? /* @__PURE__ */ React106.createElement(Btn, { kind: "dark", onClick: () => setStageCfgOpen(true), style: { width: "100%", marginBottom: 10 } }, canHeats ? "Run heats" : "Set up pools") : /* @__PURE__ */ React106.createElement("div", { style: {
       background: "var(--paper2)",
       border: "1px solid var(--line)",
       borderRadius: 14,
       padding: "12px 13px",
       marginBottom: 10
-    } }, canHeats && /* @__PURE__ */ React103.createElement(React103.Fragment, null, /* @__PURE__ */ React103.createElement("div", { style: { display: "flex", alignItems: "center", marginBottom: 8 } }, /* @__PURE__ */ React103.createElement("div", { style: { ...label, flex: 1 } }, "Heats"), /* @__PURE__ */ React103.createElement("button", { onClick: () => setShowOuts((v) => !v), style: {
+    } }, canHeats && /* @__PURE__ */ React106.createElement(React106.Fragment, null, /* @__PURE__ */ React106.createElement("div", { style: { display: "flex", alignItems: "center", marginBottom: 8 } }, /* @__PURE__ */ React106.createElement("div", { style: { ...label, flex: 1 } }, "Heats"), /* @__PURE__ */ React106.createElement("button", { onClick: () => setShowOuts((v) => !v), style: {
       cursor: "pointer",
       fontFamily: SANS,
       fontWeight: 700,
@@ -55933,7 +57179,7 @@ function EventSheet({
       background: "var(--paper)",
       border: "1px solid var(--line)",
       color: "var(--ink)"
-    } }, inPlayers.length, " playing ", /* @__PURE__ */ React103.createElement(Icon, { name: showOuts ? "collapse" : "expand", size: "1em" }))), showOuts && /* @__PURE__ */ React103.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 5, marginBottom: 10 } }, present.map((p, i) => /* @__PURE__ */ React103.createElement(
+    } }, inPlayers.length, " playing ", /* @__PURE__ */ React106.createElement(Icon, { name: showOuts ? "collapse" : "expand", size: "1em" }))), showOuts && /* @__PURE__ */ React106.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 5, marginBottom: 10 } }, present.map((p, i) => /* @__PURE__ */ React106.createElement(
       PlayerChip,
       {
         key: p,
@@ -55943,7 +57189,7 @@ function EventSheet({
         onClick: () => setOuts((o) => o.includes(p) ? o.filter((x) => x !== p) : [...o, p]),
         style: centeredGridCell(i, present.length, 3, 5)
       }
-    ))), !heatsFit && /* @__PURE__ */ React103.createElement("p", { role: "alert", style: { ...pStyle, color: "var(--clay-text)", fontSize: 13 } }, "Heats need at least 2 players each")), /* @__PURE__ */ React103.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 8 } }, /* @__PURE__ */ React103.createElement("span", { style: { ...label } }, canHeats ? "Heats" : "Pools"), [2, 3, 4].filter((n) => n <= stageEntrantCount).map((n) => /* @__PURE__ */ React103.createElement("button", { key: n, onClick: () => setNGroups(n), style: {
+    ))), !heatsFit && /* @__PURE__ */ React106.createElement("p", { role: "alert", style: { ...pStyle, color: "var(--clay-text)", fontSize: 13 } }, "Heats need at least 2 players each")), /* @__PURE__ */ React106.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 8 } }, /* @__PURE__ */ React106.createElement("span", { style: { ...label } }, canHeats ? "Heats" : "Pools"), [2, 3, 4].filter((n) => n <= stageEntrantCount).map((n) => /* @__PURE__ */ React106.createElement("button", { key: n, onClick: () => setNGroups(n), style: {
       width: 44,
       height: 44,
       borderRadius: 10,
@@ -55954,7 +57200,7 @@ function EventSheet({
       background: groupsChoice === n ? GOLD_GRAD : "var(--paper)",
       color: groupsChoice === n ? "var(--ink0)" : "var(--ink)",
       border: groupsChoice === n ? "1.5px solid var(--ink0)" : "1.5px solid var(--line)"
-    } }, n)), /* @__PURE__ */ React103.createElement("span", { style: { flex: 1 } }), /* @__PURE__ */ React103.createElement("span", { style: { ...label } }, "Through"), [1, 2].map((n) => /* @__PURE__ */ React103.createElement("button", { key: n, onClick: () => setAdvance(n), style: {
+    } }, n)), /* @__PURE__ */ React106.createElement("span", { style: { flex: 1 } }), /* @__PURE__ */ React106.createElement("span", { style: { ...label } }, "Through"), [1, 2].map((n) => /* @__PURE__ */ React106.createElement("button", { key: n, onClick: () => setAdvance(n), style: {
       width: 44,
       height: 44,
       borderRadius: 10,
@@ -55965,7 +57211,7 @@ function EventSheet({
       background: advance === n ? GOLD_GRAD : "var(--paper)",
       color: advance === n ? "var(--ink0)" : "var(--ink)",
       border: advance === n ? "1.5px solid var(--ink0)" : "1.5px solid var(--line)"
-    } }, n))), /* @__PURE__ */ React103.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React103.createElement(
+    } }, n))), /* @__PURE__ */ React106.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React106.createElement(
       ActionButton,
       {
         disabled: setupPending || canHeats && !heatsFit,
@@ -55983,17 +57229,17 @@ function EventSheet({
         style: { flex: 1 }
       },
       setupPending ? "Drawing\u2026" : announceNext ? "Announce and draw" : canHeats ? "Draw heats" : "Draw pools"
-    ), /* @__PURE__ */ React103.createElement(ActionButton, { variant: "tertiary", onClick: () => setStageCfgOpen(false) }, "Cancel")))), setupError && /* @__PURE__ */ React103.createElement("p", { className: "fd-contest-error", role: "alert" }, setupError), st && !res && setupAllowed && (confirmScrap ? /* @__PURE__ */ React103.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 10 } }, /* @__PURE__ */ React103.createElement(ActionButton, { variant: "commit", onClick: () => {
+    ), /* @__PURE__ */ React106.createElement(ActionButton, { variant: "tertiary", onClick: () => setStageCfgOpen(false) }, "Cancel")))), setupError && /* @__PURE__ */ React106.createElement("p", { className: "fd-contest-error", role: "alert" }, setupError), st && !res && setupAllowed && (confirmScrap ? /* @__PURE__ */ React106.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 10 } }, /* @__PURE__ */ React106.createElement(ActionButton, { variant: "commit", onClick: () => {
       onClearStages();
       setConfirmScrap(false);
-    }, style: { flex: 1 } }, "Scrap ", st.kind === "heats" ? "heats" : "pools"), /* @__PURE__ */ React103.createElement(ActionButton, { variant: "tertiary", onClick: () => setConfirmScrap(false), style: { flex: 1 } }, "Keep")) : /* @__PURE__ */ React103.createElement(ActionButton, { variant: "destructive", onClick: () => setConfirmScrap(true), style: { width: "100%", marginBottom: 10 } }, "Scrap ", st.kind === "heats" ? "heats" : "pools")), /* @__PURE__ */ React103.createElement("div", { style: { display: "flex", gap: 8, marginTop: 6, flexWrap: "wrap" } }, res && !isPoker && /* @__PURE__ */ React103.createElement(
+    }, style: { flex: 1 } }, "Scrap ", st.kind === "heats" ? "heats" : "pools"), /* @__PURE__ */ React106.createElement(ActionButton, { variant: "tertiary", onClick: () => setConfirmScrap(false), style: { flex: 1 } }, "Keep")) : /* @__PURE__ */ React106.createElement(ActionButton, { variant: "destructive", onClick: () => setConfirmScrap(true), style: { width: "100%", marginBottom: 10 } }, "Scrap ", st.kind === "heats" ? "heats" : "pools")), /* @__PURE__ */ React106.createElement("div", { style: { display: "flex", gap: 8, marginTop: 6, flexWrap: "wrap" } }, res && !isPoker && /* @__PURE__ */ React106.createElement(
       ActionButton,
       {
         onClick: enterResult,
         style: { flex: 1, whiteSpace: "nowrap", padding: "12px 8px" }
       },
       "Edit result"
-    ), !res && lifecycle.nextAction?.type === "open-betting" && /* @__PURE__ */ React103.createElement(
+    ), !res && lifecycle.nextAction?.type === "open-betting" && /* @__PURE__ */ React106.createElement(
       ActionButton,
       {
         variant: "secondary",
@@ -56001,7 +57247,7 @@ function EventSheet({
         style: { flex: 1, whiteSpace: "nowrap", padding: "12px 8px" }
       },
       "Open betting"
-    ), !res && !contestActive && lifecycle.nextAction?.type === "lock-betting" && /* @__PURE__ */ React103.createElement(
+    ), !res && !contestActive && lifecycle.nextAction?.type === "lock-betting" && /* @__PURE__ */ React106.createElement(
       ActionButton,
       {
         variant: "secondary",
@@ -56009,20 +57255,20 @@ function EventSheet({
         style: { flex: 1, whiteSpace: "nowrap", padding: "12px 8px" }
       },
       "Lock and start"
-    ), !res && !contestActive && lifecycle.nextAction?.type === "start-event" && /* @__PURE__ */ React103.createElement(
+    ), !res && !contestActive && lifecycle.nextAction?.type === "start-event" && /* @__PURE__ */ React106.createElement(
       ActionButton,
       {
         onClick: onStart,
         style: { flex: 1, whiteSpace: "nowrap", padding: "12px 8px" }
       },
       "Start event"
-    ), res && !confirmClear && /* @__PURE__ */ React103.createElement(ActionButton, { variant: "destructive", onClick: () => setConfirmClear(true), style: { flex: 1 } }, "Clear")), !res && !contestActive && lifecycle.blockers?.length > 0 && /* @__PURE__ */ React103.createElement("div", { style: { ...pStyle, marginTop: 8, color: "var(--muted)", fontSize: 13 } }, lifecycle.blockers[0]), res && confirmClear && /* @__PURE__ */ React103.createElement("div", { style: {
+    ), res && !confirmClear && /* @__PURE__ */ React106.createElement(ActionButton, { variant: "destructive", onClick: () => setConfirmClear(true), style: { flex: 1 } }, "Clear")), !res && !contestActive && lifecycle.blockers?.length > 0 && /* @__PURE__ */ React106.createElement("div", { style: { ...pStyle, marginTop: 8, color: "var(--muted)", fontSize: 13 } }, lifecycle.blockers[0]), res && confirmClear && /* @__PURE__ */ React106.createElement("div", { style: {
       marginTop: 10,
       padding: "12px 13px",
       background: "var(--paper2)",
       border: "1px solid var(--line)",
       borderRadius: 14
-    } }, /* @__PURE__ */ React103.createElement("div", { style: { ...label, marginBottom: 6 } }, "Reason for clearing"), /* @__PURE__ */ React103.createElement(
+    } }, /* @__PURE__ */ React106.createElement("div", { style: { ...label, marginBottom: 6 } }, "Reason for clearing"), /* @__PURE__ */ React106.createElement(
       "input",
       {
         value: clearReason,
@@ -56043,7 +57289,7 @@ function EventSheet({
           outline: "none"
         }
       }
-    ), /* @__PURE__ */ React103.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React103.createElement(
+    ), /* @__PURE__ */ React106.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React106.createElement(
       ActionButton,
       {
         variant: "commit",
@@ -56052,7 +57298,7 @@ function EventSheet({
         style: { flex: 1 }
       },
       "Clear official result"
-    ), /* @__PURE__ */ React103.createElement(
+    ), /* @__PURE__ */ React106.createElement(
       ActionButton,
       {
         variant: "tertiary",
@@ -56063,13 +57309,13 @@ function EventSheet({
         style: { flex: 1 }
       },
       "Keep it"
-    ))), editOpen ? /* @__PURE__ */ React103.createElement("div", { style: {
+    ))), editOpen ? /* @__PURE__ */ React106.createElement("div", { style: {
       background: "var(--paper2)",
       border: "1px solid var(--line)",
       borderRadius: 14,
       padding: "12px 13px",
       marginTop: 8
-    } }, /* @__PURE__ */ React103.createElement("div", { style: { ...label, marginBottom: 6 } }, "Name"), /* @__PURE__ */ React103.createElement(
+    } }, /* @__PURE__ */ React106.createElement("div", { style: { ...label, marginBottom: 6 } }, "Name"), /* @__PURE__ */ React106.createElement(
       "input",
       {
         value: eName,
@@ -56090,7 +57336,7 @@ function EventSheet({
           outline: "none"
         }
       }
-    ), /* @__PURE__ */ React103.createElement("div", { style: { ...label, marginBottom: 6 } }, "How to play"), /* @__PURE__ */ React103.createElement(
+    ), /* @__PURE__ */ React106.createElement("div", { style: { ...label, marginBottom: 6 } }, "How to play"), /* @__PURE__ */ React106.createElement(
       "textarea",
       {
         value: eDesc,
@@ -56113,7 +57359,7 @@ function EventSheet({
           resize: "vertical"
         }
       }
-    ), /* @__PURE__ */ React103.createElement("div", { style: { ...label, marginBottom: 6 } }, "Worth"), /* @__PURE__ */ React103.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 12 } }, AWARD_VALUES.map((v) => /* @__PURE__ */ React103.createElement("button", { key: v, disabled: !!res, onClick: () => setEValue(v), style: {
+    ), /* @__PURE__ */ React106.createElement("div", { style: { ...label, marginBottom: 6 } }, "Worth"), /* @__PURE__ */ React106.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 12 } }, AWARD_VALUES.map((v) => /* @__PURE__ */ React106.createElement("button", { key: v, disabled: !!res, onClick: () => setEValue(v), style: {
       flex: 1,
       height: 44,
       borderRadius: 10,
@@ -56124,7 +57370,7 @@ function EventSheet({
       background: eValue === v ? GOLD_GRAD : "var(--paper)",
       color: eValue === v ? "var(--ink0)" : "var(--ink)",
       border: eValue === v ? "1.5px solid var(--ink0)" : "1.5px solid var(--line)"
-    } }, v))), /* @__PURE__ */ React103.createElement("div", { style: { ...label, marginBottom: 6 } }, "Session"), /* @__PURE__ */ React103.createElement("div", { style: { display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 } }, [...SESSIONS.map((s) => [s.id, s.label]), [null, "Anytime"]].map(([id, lb]) => /* @__PURE__ */ React103.createElement("button", { key: String(id), onClick: () => setESession(id), style: {
+    } }, v))), /* @__PURE__ */ React106.createElement("div", { style: { ...label, marginBottom: 6 } }, "Session"), /* @__PURE__ */ React106.createElement("div", { style: { display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 } }, [...SESSIONS.map((s) => [s.id, s.label]), [null, "Anytime"]].map(([id, lb]) => /* @__PURE__ */ React106.createElement("button", { key: String(id), onClick: () => setESession(id), style: {
       fontFamily: SANS,
       fontWeight: 600,
       fontSize: 12.5,
@@ -56134,7 +57380,7 @@ function EventSheet({
       background: eSession === id ? GOLD_GRAD : "var(--paper)",
       color: eSession === id ? "var(--ink0)" : "var(--ink)",
       border: eSession === id ? "1.5px solid var(--ink0)" : "1.5px solid var(--line)"
-    } }, lb))), /* @__PURE__ */ React103.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React103.createElement(
+    } }, lb))), /* @__PURE__ */ React106.createElement("div", { style: { display: "flex", gap: 8 } }, /* @__PURE__ */ React106.createElement(
       Btn,
       {
         disabled: !eName.trim(),
@@ -56145,9 +57391,9 @@ function EventSheet({
         style: { flex: 1 }
       },
       "Save"
-    ), /* @__PURE__ */ React103.createElement(Btn, { kind: "ghost", onClick: () => setEditOpen(false) }, "Cancel"))) : takeBackOpen && confirmTakeBack ? (
+    ), /* @__PURE__ */ React106.createElement(Btn, { kind: "ghost", onClick: () => setEditOpen(false) }, "Cancel"))) : takeBackOpen && confirmTakeBack ? (
       /* the take-back's confirm opens where its row was */
-      /* @__PURE__ */ React103.createElement("div", { className: "fd-es-gm-confirm", role: "group", "aria-label": `Take back ${ev.name}` }, /* @__PURE__ */ React103.createElement("p", null, refundText(state, announcementTakeBack(state, ev).refunds) || "No open bets."), /* @__PURE__ */ React103.createElement("div", null, /* @__PURE__ */ React103.createElement(
+      /* @__PURE__ */ React106.createElement("div", { className: "fd-es-gm-confirm", role: "group", "aria-label": `Take back ${ev.name}` }, /* @__PURE__ */ React106.createElement("p", null, refundText(state, announcementTakeBack(state, ev).refunds) || "No open bets."), /* @__PURE__ */ React106.createElement("div", null, /* @__PURE__ */ React106.createElement(
         ActionButton,
         {
           variant: "commit",
@@ -56160,10 +57406,10 @@ function EventSheet({
           })
         },
         setupPending ? "Taking back\u2026" : "Take it back"
-      ), /* @__PURE__ */ React103.createElement(ActionButton, { variant: "tertiary", disabled: setupPending, onClick: () => setConfirmTakeBack(false) }, "Keep it")))
+      ), /* @__PURE__ */ React106.createElement(ActionButton, { variant: "tertiary", disabled: setupPending, onClick: () => setConfirmTakeBack(false) }, "Keep it")))
     ) : !more ? (
       /* the quiet edge of the section: the rare and destructive left, More right */
-      /* @__PURE__ */ React103.createElement("div", { className: "fd-es-gm-edge" }, takeBackOpen && /* @__PURE__ */ React103.createElement(
+      /* @__PURE__ */ React106.createElement("div", { className: "fd-es-gm-edge" }, takeBackOpen && /* @__PURE__ */ React106.createElement(
         "button",
         {
           type: "button",
@@ -56171,13 +57417,13 @@ function EventSheet({
           "aria-label": "Take back the announcement",
           onClick: () => setConfirmTakeBack(true)
         },
-        /* @__PURE__ */ React103.createElement(Icon, { name: "undo", size: 16 }),
+        /* @__PURE__ */ React106.createElement(Icon, { name: "undo", size: 16 }),
         "Take back"
-      ), /* @__PURE__ */ React103.createElement("button", { type: "button", className: "fd-es-gm-edge-act", onClick: () => setMore(true) }, "More ", /* @__PURE__ */ React103.createElement(Icon, { name: "expand", size: "1em" })))
-    ) : /* @__PURE__ */ React103.createElement("div", { style: { display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" } }, /* @__PURE__ */ React103.createElement(Btn, { kind: "ghost", onClick: openEdit, style: { flex: 1 } }, "Edit details"), !res && !confirmShelve && /* @__PURE__ */ React103.createElement(Btn, { kind: "ghost", onClick: () => shelvedNow || !openBets.length ? onShelve(!shelvedNow) : setConfirmShelve(true), style: { flex: 1 } }, shelvedNow ? "Restore" : "Shelve"), !res && confirmShelve && /* @__PURE__ */ React103.createElement(React103.Fragment, null, /* @__PURE__ */ React103.createElement(Btn, { kind: "danger", onClick: () => {
+      ), /* @__PURE__ */ React106.createElement("button", { type: "button", className: "fd-es-gm-edge-act", onClick: () => setMore(true) }, "More ", /* @__PURE__ */ React106.createElement(Icon, { name: "expand", size: "1em" })))
+    ) : /* @__PURE__ */ React106.createElement("div", { style: { display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" } }, /* @__PURE__ */ React106.createElement(Btn, { kind: "ghost", onClick: openEdit, style: { flex: 1 } }, "Edit details"), !res && !confirmShelve && /* @__PURE__ */ React106.createElement(Btn, { kind: "ghost", onClick: () => shelvedNow || !openBets.length ? onShelve(!shelvedNow) : setConfirmShelve(true), style: { flex: 1 } }, shelvedNow ? "Restore" : "Shelve"), !res && confirmShelve && /* @__PURE__ */ React106.createElement(React106.Fragment, null, /* @__PURE__ */ React106.createElement(Btn, { kind: "danger", onClick: () => {
       setConfirmShelve(false);
       onShelve(true, true);
-    }, style: { flex: 1 } }, "Shelve. Returns ", openBets.length, " bet", openBets.length === 1 ? "" : "s", ", ", fmt13(openBets.reduce((sum, w) => sum + w.stake, 0)), " chips"), /* @__PURE__ */ React103.createElement(Btn, { kind: "ghost", onClick: () => setConfirmShelve(false) }, "Keep")), ev.custom && !confirmRemove && /* @__PURE__ */ React103.createElement(Btn, { kind: "danger", onClick: () => setConfirmRemove(true) }, "Remove"), ev.custom && confirmRemove && /* @__PURE__ */ React103.createElement(Btn, { kind: "danger", onClick: onRemove }, "Confirm remove"), takeBackOpen && /* @__PURE__ */ React103.createElement(
+    }, style: { flex: 1 } }, "Shelve. Returns ", openBets.length, " bet", openBets.length === 1 ? "" : "s", ", ", fmt13(openBets.reduce((sum, w) => sum + w.stake, 0)), " chips"), /* @__PURE__ */ React106.createElement(Btn, { kind: "ghost", onClick: () => setConfirmShelve(false) }, "Keep")), ev.custom && !confirmRemove && /* @__PURE__ */ React106.createElement(Btn, { kind: "danger", onClick: () => setConfirmRemove(true) }, "Remove"), ev.custom && confirmRemove && /* @__PURE__ */ React106.createElement(Btn, { kind: "danger", onClick: onRemove }, "Confirm remove"), takeBackOpen && /* @__PURE__ */ React106.createElement(
       "button",
       {
         type: "button",
@@ -56185,13 +57431,13 @@ function EventSheet({
         "aria-label": "Take back the announcement",
         onClick: () => setConfirmTakeBack(true)
       },
-      /* @__PURE__ */ React103.createElement(Icon, { name: "undo", size: 16 }),
+      /* @__PURE__ */ React106.createElement(Icon, { name: "undo", size: 16 }),
       "Take back"
     ))))
   );
 }
 function BracketSheet({ ev, state, me, gm, onClose, onBack, onPlayer, onLock, onWinner, onUndo, onPlayNext, onBets, onPostResult }) {
-  const [pending, setPending] = useState80(false);
+  const [pending, setPending] = useState81(false);
   const waitFor = async (callback) => {
     setPending(true);
     try {
@@ -56204,7 +57450,7 @@ function BracketSheet({ ev, state, me, gm, onClose, onBack, onPlayer, onLock, on
   if (!br || !draw) return null;
   const contest = resolveCurrentContest(state, ev);
   const active = contest && ["betting-open", "betting-locked", "in-progress", "awaiting-result"].includes(contest.phase);
-  return /* @__PURE__ */ React103.createElement(Sheet, { title: ev.name, subtitle: "Bracket", show: true, onClose, onBack, busy: pending, wide: true }, /* @__PURE__ */ React103.createElement(
+  return /* @__PURE__ */ React106.createElement(Sheet, { title: ev.name, subtitle: "Bracket", show: true, onClose, onBack, busy: pending, wide: true }, /* @__PURE__ */ React106.createElement(
     ContestPanel,
     {
       state,
@@ -56219,13 +57465,13 @@ function BracketSheet({ ev, state, me, gm, onClose, onBack, onPlayer, onLock, on
       onResult: () => waitFor(onPostResult),
       onPlayNext: onPlayNext ? (payload) => waitFor(() => onPlayNext(payload)) : void 0
     }
-  ), !active && /* @__PURE__ */ React103.createElement(CompetitionBracket, { state, ev, me, onPlayer }), /* @__PURE__ */ React103.createElement(EventCrewCard, { state, roles: draw.roles, compact: true, onPlayer }));
+  ), !active && /* @__PURE__ */ React106.createElement(CompetitionBracket, { state, ev, me, onPlayer }), /* @__PURE__ */ React106.createElement(EventCrewCard, { state, roles: draw.roles, compact: true, onPlayer }));
 }
 function ResultSheet(props) {
-  return /* @__PURE__ */ React103.createElement(ResultEntry, { ...props });
+  return /* @__PURE__ */ React106.createElement(ResultEntry, { ...props });
 }
 function Reveal({ state, reveal, me, onClose, onBets, onPlayer }) {
-  return /* @__PURE__ */ React103.createElement(DrawAnnouncement, { state, reveal, me, synced: true, onClose, onBets, onPlayer });
+  return /* @__PURE__ */ React106.createElement(DrawAnnouncement, { state, reveal, me, synced: true, onClose, onBets, onPlayer });
 }
 
 // <stdin>

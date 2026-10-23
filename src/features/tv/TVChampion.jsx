@@ -10,6 +10,7 @@ import { DesertBand } from "./DesertBand.jsx";
 import { fmt, sideNameFit } from "./tvModel.js";
 import { CROWN_TIMING as C, crownOutAt, useTimeline } from "./tvMotion.js";
 import { Takeover } from "./TVTakeover.jsx";
+import { TowerName } from "./TowerName.jsx";
 
 /* The champion, full frame, in their own identity color the way their
    player card wears it, read from the couch in one glance: who (their chip
@@ -240,13 +241,13 @@ function TowerChips({ chips, color, id }) {
   );
 }
 
-/* a tower's name fits its column: one line, else two at the space,
-   lettered as written (measured at the caps' width, the widest it runs) */
-function TowerName({ name, width }) {
-  const fit = sideNameFit(String(name), width / 1.08, { max:26, min:24, caps:true });
-  return <span className="tv-crown-name" style={{ fontSize:fit.size }}>
-    {fit.lines.length > 1 ? <>{fit.lines[0]}<br />{fit.lines[1]}</> : name}</span>;
-}
+/* a tower's name fits its column on one line, as the horizon's do
+   (TowerName.jsx: 26px down to 24, then narrowed to the column), so every
+   final stack under it stands on one baseline. Never wider than the label
+   (tvScenes.css .tv-crown-label, the tower's 120px and 10px either side). */
+const CROWN_LABEL_W = 140;
+const CrownTowerName = ({ name, width }) => <TowerName name={String(name)} width={Math.min(width, CROWN_LABEL_W)} max={26} min={24}
+  className="tv-crown-name" textClassName="tv-crown-name-text" />;
 
 function CrownTower({ state, tower, count }) {
   const identity = usePlayerIdentity(tower.player);
@@ -267,7 +268,7 @@ function CrownTower({ state, tower, count }) {
         </span>
       </div>
       <div className="tv-crown-label">
-        <TowerName name={disp(state, tower.player)} width={(HALL.right - HALL.left) / count - 8} />
+        <CrownTowerName name={disp(state, tower.player)} width={(HALL.right - HALL.left) / count - 8} />
         <span className="tv-crown-pts">{fmt(tower.pts)}</span>
       </div>
       {!tower.champ && <div className="fd-show tv-crown-place" style={{ top:tower.top - HALL.face - 74 }}>{ordinal(tower.index + 1)}</div>}

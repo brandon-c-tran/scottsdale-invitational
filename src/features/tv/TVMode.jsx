@@ -43,6 +43,7 @@ import { constellationStars, isNightSky } from "./desertModel.js";
 import { weekendPhase } from "../../ui/phase.js";
 import { TowersBoard, useTowersMode, towersFailure } from "./TowersBoard.jsx";
 import { towerChips, towerChipPx, towerCountSize, towerLeaders, towerLayout, towerStackPx, standingsTowerRows, resultTowerRows } from "./towersModel.js";
+import { TOWER_SQUEEZE, TowerName, towerNameFit as fitTowerName } from "./TowerName.jsx";
 import { useServerNow } from "./serverClock.js";
 import { serverNow } from "../../lib/serverClock.js";
 import { weekendFacts } from "../results/weekendFacts.js";
@@ -282,18 +283,10 @@ const towerBase = height => height - 106;
    neighbours never touch however long a name runs or how many play; this
    is the full roster's, the default when no slot is given */
 export const TOWER_LABEL_W = Math.floor(towerLayout({ width:1920, edge:EDGE, count:ROSTER.length }).labelW);
-/* the name fits the slot on one line: as large as it goes (30px down to
-   24), and a name still wider at 24 is narrowed to the slot (measured in
-   the browser, `squeeze` is the estimate), so every tower's count stands on
-   one baseline; never two lines. Past TOWER_SQUEEZE it ends in an ellipsis. */
-export const TOWER_SQUEEZE = 0.72;
-export const towerNameFit = (name, width = TOWER_LABEL_W) => {
-  /* lettered as written; measured as capitals, the widest it could run */
-  const text = String(name || "");
-  const size = Math.max(24, Math.min(30, Math.floor(width / Math.max(1, text.length * 0.5))));
-  const est = text.length * 0.5 * size;
-  return { size, lines:[text], squeeze:est > width ? Math.max(TOWER_SQUEEZE, width / est) : 1 };
-};
+/* the name fits the slot on one line (TowerName.jsx, shared with the
+   crown's hall): 30px down to 24, then narrowed to the slot */
+export { TOWER_SQUEEZE };
+export const towerNameFit = (name, width = TOWER_LABEL_W) => fitTowerName(name, width);
 export const towerNameSize = name => towerNameFit(name).size;
 /* A tower's label at rest is its name and one plain numeral; position is
    the rank. On a result's step (`change`) the move shows once: a mover's
@@ -319,29 +312,6 @@ const towerLabel = (state, { change = false } = {}) => (row, { labelW = TOWER_LA
       : fmt(row.pts)}</span>
   </>;
 };
-function TowerName({ name, width = TOWER_LABEL_W }) {
-  const fit = towerNameFit(name, width);
-  const ref = useRef(null);
-  const [squeeze, setSqueeze] = useState(fit.squeeze);
-  const [clip, setClip] = useState(false);
-  useLayoutEffect(() => {
-    let live = true;
-    const measure = () => {
-      const w = ref.current?.scrollWidth || 0;
-      if (!live || !w) return;
-      setSqueeze(Math.max(TOWER_SQUEEZE, Math.min(1, width / w)));
-      setClip(width / w < TOWER_SQUEEZE);
-    };
-    measure();
-    document.fonts?.ready?.then(measure);
-    return () => { live = false; };
-  }, [name, fit.size, width]);
-  const style = squeeze < 1 ? { transform:`scaleX(${squeeze.toFixed(3)})` } : {};
-  /* past the narrowest it goes, the name ends in an ellipsis inside the slot */
-  if (clip) Object.assign(style, { maxWidth:Math.floor(width / TOWER_SQUEEZE), overflow:"hidden", textOverflow:"ellipsis" });
-  return <b className="tv-tower-name" style={{ fontSize:fit.size }}>
-    <span ref={ref} className="tv-tower-name-text" style={style}>{name}</span></b>;
-}
 const towerMoved = row => !!((row.award || 0) + (row.bets || 0));
 const towerClass = winners => row => `${towerMoved(row) ? "is-moved" : "is-still"}${winners.has(row.player) ? " is-win" : ""}`;
 /* the sky above the towers: a sign, or a result's headline in the empty

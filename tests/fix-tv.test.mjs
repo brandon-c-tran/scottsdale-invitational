@@ -987,6 +987,16 @@ test("ticker: won bets belong to the last result and leave once anything else ta
   }
 });
 
+test("a name that takes two lines breaks after its \"&\", else where the two lines come out most even", () => {
+  const lines = name => tvm.sideNameFit(name, 155, { max:30, min:28, caps:true }).lines;
+  assert.deepEqual(lines("Smarty Pints and Friends"), ["Smarty Pints", "and Friends"], "never a long first line over a stub");
+  assert.deepEqual(lines("Kitchen Nightmares Crew"), ["Kitchen", "Nightmares Crew"]);
+  assert.deepEqual(lines("Les Quizerables Reunited"), ["Les Quizerables", "Reunited"]);
+  assert.deepEqual(lines("Henry Nguyen & Squilliam"), ["Henry Nguyen &", "Squilliam"], "a pair breaks after its &");
+  assert.deepEqual(lines("Periwinkle Stars"), ["Periwinkle", "Stars"]);
+  assert.deepEqual(lines("Unstoppableones"), ["Unstoppableones"], "one word stays whole");
+});
+
 test("ticker: a newer fact about the same people overtakes the older one; the live pool is never a second total", () => {
   const streak = (id, n, at) => ({ id, kind:"streak", tag:"Streak", at, players:["Khoa"], text:`Khoa's ${n} straight win` });
   const facts = [{ id:"a", kind:"first", tag:"First", at:1, players:["Evan"], text:"First to 2,000: Evan" },

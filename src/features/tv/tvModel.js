@@ -859,16 +859,28 @@ export function contestLamp(contest) {
 }
 
 /* A side's name at TV scale: one line as large as fits, else two lines
-   broken after the team's "&" (or at its last space), never a stray wrap.
-   The factor is Big Shoulders' bold uppercase advance per character. */
+   broken after the team's "&", or at the space that leaves the two lines
+   most even ("Smarty Pints / and Friends", never "Smarty Pints and /
+   Friends", whose long first line runs out of a narrow slot and wraps a
+   third time), never a stray wrap. The factor is Big Shoulders' bold
+   uppercase advance per character. */
 const ADVANCE = 0.47;
+const evenBreak = text => {
+  let best = -1, longest = Infinity;
+  for (let i = text.indexOf(" "); i > 0; i = text.indexOf(" ", i + 1)) {
+    const len = Math.max(i, text.length - i - 1);
+    /* on a tie the later break, so the first line carries more */
+    if (len <= longest) { longest = len; best = i; }
+  }
+  return best;
+};
 /* caps: a name set in capitals runs wider (about .56em a letter) */
 export function sideNameFit(name, width, { max = 56, min = 40, caps = false } = {}) {
   const text = String(name || "");
   const advance = caps ? 0.56 : ADVANCE;
   const one = Math.floor(width / Math.max(1, text.length * advance));
   if (one >= min) return { size:Math.min(max, one), lines:[text] };
-  const cut = text.includes(" & ") ? text.indexOf(" & ") + 2 : text.lastIndexOf(" ");
+  const cut = text.includes(" & ") ? text.indexOf(" & ") + 2 : evenBreak(text);
   if (cut <= 0) return { size:Math.max(24, Math.min(max, one)), lines:[text] };
   const lines = [text.slice(0, cut).trim(), text.slice(cut).trim()];
   const two = Math.floor(width / Math.max(1, Math.max(...lines.map(line => line.length)) * advance));

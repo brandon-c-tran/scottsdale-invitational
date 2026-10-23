@@ -49,7 +49,9 @@
     color-mix(in srgb, var(--ink0) 40%, transparent)); }
 .fd-cup-edition { position:relative; z-index:1; max-width:100%; font:800 max(12px, 4cqi)/1.1 var(--fd-show); letter-spacing:.04em;
   text-transform:uppercase; text-shadow:var(--cup-cut-lip); white-space:nowrap; opacity:.82; }
-.fd-cup-champ { position:relative; z-index:1; max-width:100%; font:900 max(12px, 6.4cqi)/1.08 var(--fd-show); text-align:center;
+/* the champion's longest word fits the plate (about 40cqi of it at .47em a letter): a long one letters smaller */
+.fd-cup-champ { position:relative; z-index:1; max-width:100%; text-align:center;
+  font:900 max(12px, min(6.4cqi, calc(80cqi / var(--name-units, 1))))/1.08 var(--fd-show);
   text-shadow:var(--cup-cut-lip); overflow-wrap:normal; text-wrap:balance; }
 /* a small cup (the phone's crown) has room for the champion alone */
 @container (max-width: 250px) { .fd-cup-cartouche.is-posted .fd-cup-edition { display:none; } }

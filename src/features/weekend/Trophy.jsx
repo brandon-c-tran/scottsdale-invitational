@@ -5,6 +5,7 @@ import { EventName } from "../../ui/OneSafe.jsx";
 import { GameMark } from "../../ui/GameMark.jsx";
 import { useFreshChange } from "../../lib/motion.js";
 import { programCover } from "./programModel.js";
+import { longestWordUnits } from "../../ui/textUnits.js";
 import {
   CUP_TV, ENGRAVE, PLATE_FACES, cupCols, cupEngravings, cupTvLayout, engraveTotal, fitChampionName, fitPlateName, plateNameWidth,
   trophyCup, trophyPlates,
@@ -290,7 +291,8 @@ function Cartouche({ cup, tv, engraveAt, finale }) {
     role={champs.length ? "img" : undefined} aria-label={champs.length ? `Champion: ${name}` : undefined}>
     {cutAt !== null && <Cut />}
     <span className="fd-cup-edition" aria-hidden="true">{EDITION.label}</span>
-    {champs.length > 0 && <span className="fd-cup-champ" aria-hidden="true" style={fit ? { fontSize:fit.size } : undefined}>
+    {champs.length > 0 && <span className="fd-cup-champ" aria-hidden="true"
+      style={fit ? { fontSize:fit.size } : { "--name-units":Math.max(1, longestWordUnits(name)) }}>
       {fit ? <Lines lines={fit.lines} /> : name}</span>}
   </div>;
 }

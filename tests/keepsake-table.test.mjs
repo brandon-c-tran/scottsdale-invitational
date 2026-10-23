@@ -11,7 +11,8 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { EMPTY_STATE, ROSTER, START, allEventsOf, computeStandings, pokerClock } from "../shared/core.js";
 import { applyAction } from "../worker/actions.js";
 import { chipHistory } from "../src/features/results/lastCard.js";
-import { KEPT_SECTION, keepsakeModel, keepsakeOpen, keptAwards, keptPlates, leadPath } from "../src/features/results/keepsake.js";
+import { KEPT_CARD_NAME_W, KEPT_CHAMP_NAME_W, KEPT_SECTION, keepsakeModel, keepsakeOpen, keptAwards, keptNameSize, keptPlates,
+  leadPath } from "../src/features/results/keepsake.js";
 import { TICK_SLOP_MS, blindsSize, createWakeLock, mmss, nextTickDelay, tableViewAvailable, tableViewKeepsOpen,
   tableViewModel, tableViewSeat, wakeLockSupported } from "../src/features/poker/tableView.js";
 
@@ -55,6 +56,18 @@ const render = (state, element) => {
 };
 
 /* ─────────── D7 ─────────── */
+
+test("a kept name wraps at its spaces and its longest word fits its card", () => {
+  assert.equal(keptNameSize("Ben", KEPT_CARD_NAME_W, 19), 19, "a short name keeps the card's size");
+  for (const name of ["Allan Montgomery", "Eyob Tesfamariam", "Christopher Tran", "Nguyen Dang Khoa"]) {
+    const size = keptNameSize(name, KEPT_CARD_NAME_W, 19);
+    const longest = Math.max(...name.split(" ").map(word => word.length));
+    assert.ok(size >= 12 && size < 19 === longest > 9 && longest * 0.47 * size <= KEPT_CARD_NAME_W, `${name} at ${size}px`);
+  }
+  assert.equal(keptNameSize("TheRealSlimShady", KEPT_CARD_NAME_W, 19), 12, "a sixteen-letter handle letters at the phone's floor");
+  const champ = keptNameSize("TheRealSlimShady", KEPT_CHAMP_NAME_W, 38, 24);
+  assert.ok(champ < 38 && 16 * 0.47 * champ <= KEPT_CHAMP_NAME_W, "the champion's one long word letters smaller on the cover");
+});
 
 test("the edition section exists only once the board is frozen", () => {
   assert.equal(keepsakeOpen(LIVE), false);

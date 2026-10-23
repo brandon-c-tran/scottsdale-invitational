@@ -1543,6 +1543,9 @@ export const PHONE_SCENARIOS = Object.freeze([
   /* a guest still in Safari: the Add to Home Screen card on Home, the steps
      opened on Weekend; and the profile sheet with its card on show */
   { id:"install-card", build:() => fresh("event:putt:open"), install:true, tabs:["home"], sheets:["install-open", "profile"] },
+  /* the profile's Jersey and Trip sections before the weekend, where Home's
+     setup rows lead (Confirm your jersey, flights, Venmo and drinks) */
+  { id:"profile-sections", build:() => fresh("locker"), tabs:[], sheets:["profile-jersey", "profile-trip"], sheetSizes:["375"] },
   /* the profile's Karaoke section (docs/KARAOKE.md): no song yet (Home's
      list names it), a song searched and picked with its three videos, and
      the song saved with its video */

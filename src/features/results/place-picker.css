@@ -139,8 +139,9 @@ div.fd-pp-step { cursor:default; }
 .fd-pp-modes button[aria-pressed="true"] { background:var(--info-tint); color:var(--lamp-info); box-shadow:0 0 0 1px color-mix(in srgb, var(--lamp-info) 55%, transparent); }
 .fd-pp-modes button:disabled { opacity:.35; cursor:default; }
 
-/* ── after the field ── */
+/* ── the sheet's foot: the failure, the empty-place check, the commit ── */
 .fd-pp-error { margin:0; color:var(--clay-text); font:600 13px/1.4 var(--fd-body); }
+.fd-sheet-footer > .fd-pp-check { flex:1 0 100%; }
 .fd-pp-check { display:grid; gap:10px; padding:12px 13px; border-radius:14px; border:1px solid var(--danger-line);
   background:color-mix(in srgb, var(--clay) 7%, var(--paper2)); }
 .fd-pp-check.is-correction { border-color:var(--line); background:var(--paper2); }

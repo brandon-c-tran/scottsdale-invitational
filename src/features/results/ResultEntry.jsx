@@ -213,8 +213,45 @@ export function ResultEntry({ ev, state, onClose, save }) {
   }
   const picking = twoTeams || editable.length > 0;
 
+  /* the commit rides the sheet's foot, in thumb reach however far the field
+     runs (thirteen faces and the podium pass a 667px phone's fold): the
+     failure, the empty-place check, then Post or the correction */
+  const foot = <>
+    {error && <p role="alert" className="fd-pp-error">{error}</p>}
+    {emptyCheck && emptyPaid.length > 0 && <div role="alert" className="fd-pp-check">
+      {emptyPaid.map(i => <p key={i}>{PLACE_NAMES[i]} place pays {fmt(table[i])}. Nobody selected.</p>)}
+      <div className="fd-pp-actions">
+        <ActionButton variant="commit" style={HALF} disabled={pending} onClick={() => post(emptyCheck, true)}>Leave empty</ActionButton>
+        <ActionButton variant="tertiary" style={HALF} disabled={pending}
+          onClick={() => { setPick(prev => ({ ...prev, target:emptyPaid[0] })); setEmptyCheck(null); }}>Choose</ActionButton>
+      </div>
+    </div>}
+    {!existing ? (
+      <ActionButton style={POST} disabled={slots[0].length === 0 || pending} onClick={() => post()}>
+        Post official result</ActionButton>
+    ) : !confirmCorrection ? (
+      <ActionButton style={POST} disabled={slots[0].length === 0 || unchanged || pending}
+        onClick={() => setConfirmCorrection(true)}>
+        {unchanged ? "Official result" : "Review result correction"}</ActionButton>
+    ) : (
+      <div className="fd-pp-check is-correction">
+        <label className="fd-pp-reason">
+          <span>Reason for the correction</span>
+          <input value={correctionReason} disabled={pending} onChange={event => setCorrectionReason(event.target.value)}
+            maxLength={100} aria-label="Reason for the correction" />
+        </label>
+        <div className="fd-pp-actions">
+          <ActionButton variant="commit" style={HALF} disabled={!correctionReason.trim() || pending}
+            onClick={() => post({ confirmOverwrite:true, correctionReason })}>Replace official result</ActionButton>
+          <ActionButton variant="tertiary" style={HALF} disabled={pending}
+            onClick={() => { setConfirmCorrection(false); setCorrectionReason(""); }}>Keep current</ActionButton>
+        </div>
+      </div>
+    )}
+  </>;
+
   return (
-    <Sheet title={ev.name} show onClose={onClose} busy={pending}>
+    <Sheet title={ev.name} show onClose={onClose} busy={pending} footer={foot}>
       <div className="fd-pp" ref={root}>
         <Podium columns={sockets.length} still={twoTeams || !editable.length}>{sockets}</Podium>
         {picking && <fieldset className="fd-pp-fieldset" disabled={pending}>
@@ -222,37 +259,6 @@ export function ResultEntry({ ev, state, onClose, save }) {
             onTeams={() => setByPlayer(false)} onPlayers={() => setByPlayer(true)} />}
           {field}
         </fieldset>}
-        {error && <p role="alert" className="fd-pp-error">{error}</p>}
-        {emptyCheck && emptyPaid.length > 0 && <div role="alert" className="fd-pp-check">
-          {emptyPaid.map(i => <p key={i}>{PLACE_NAMES[i]} place pays {fmt(table[i])}. Nobody selected.</p>)}
-          <div className="fd-pp-actions">
-            <ActionButton variant="commit" style={HALF} disabled={pending} onClick={() => post(emptyCheck, true)}>Leave empty</ActionButton>
-            <ActionButton variant="tertiary" style={HALF} disabled={pending}
-              onClick={() => { setPick(prev => ({ ...prev, target:emptyPaid[0] })); setEmptyCheck(null); }}>Choose</ActionButton>
-          </div>
-        </div>}
-        {!existing ? (
-          <ActionButton style={POST} disabled={slots[0].length === 0 || pending} onClick={() => post()}>
-            Post official result</ActionButton>
-        ) : !confirmCorrection ? (
-          <ActionButton style={POST} disabled={slots[0].length === 0 || unchanged || pending}
-            onClick={() => setConfirmCorrection(true)}>
-            {unchanged ? "Official result" : "Review result correction"}</ActionButton>
-        ) : (
-          <div className="fd-pp-check is-correction">
-            <label className="fd-pp-reason">
-              <span>Reason for the correction</span>
-              <input value={correctionReason} disabled={pending} onChange={event => setCorrectionReason(event.target.value)}
-                maxLength={100} aria-label="Reason for the correction" />
-            </label>
-            <div className="fd-pp-actions">
-              <ActionButton variant="commit" style={HALF} disabled={!correctionReason.trim() || pending}
-                onClick={() => post({ confirmOverwrite:true, correctionReason })}>Replace official result</ActionButton>
-              <ActionButton variant="tertiary" style={HALF} disabled={pending}
-                onClick={() => { setConfirmCorrection(false); setCorrectionReason(""); }}>Keep current</ActionButton>
-            </div>
-          </div>
-        )}
       </div>
     </Sheet>
   );

@@ -1974,7 +1974,7 @@ function TournamentApp({ tournament, onUpdateReload }) {
           }} />
       )}
       {gmView && modal?.type === "skipEvent" && (
-        <Sheet title={`Skip ${modal.ev.name}`} onClose={() => setModal(null)} onBack={modalBack}
+        <Sheet title={`Skip ${modal.ev.name}`} show onClose={() => setModal(null)} onBack={modalBack}
           footer={<>
             <Btn kind="flame" onClick={async () => { const result = await shelveEvent(modal.ev.id, true, true);
               if (result.ok) { setModal(null); const bets = result.extra?.bets || 0;
@@ -1991,7 +1991,7 @@ function TournamentApp({ tournament, onUpdateReload }) {
       {gmView && modal?.type === "takeBack" && (() => {
         const available = announcementTakeBack(state, modal.ev);
         const returned = refundText(state, available.refunds);
-        return <Sheet title={`Take back ${modal.ev.name}`} onClose={() => setModal(null)} onBack={modalBack}
+        return <Sheet title={`Take back ${modal.ev.name}`} show onClose={() => setModal(null)} onBack={modalBack}
           footer={<>
             <Btn kind="flame" disabled={!available.enabled} onClick={async () => {
               const result = await takeBackAnnouncement(modal.ev);
@@ -3374,7 +3374,7 @@ function AdjustSheet({ state, player, onClose, save, onRemove }) {
   const field = { background:"var(--paper2)", border:"1px solid var(--line)", borderRadius:14,
     padding:"12px 13px", color:"var(--ink)", fontFamily:SANS, fontSize:14, outline:"none" };
   return (
-    <Sheet title={`Ruling for ${disp(state, player)}`} onClose={onClose} busy={pending}>
+    <Sheet title={`Ruling for ${disp(state, player)}`} show onClose={onClose} busy={pending}>
       <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:12, marginBottom:12 }}>
         <Btn kind="dark" disabled={pending} onClick={() => setDelta(d => (Number(d) || 0) - step)} style={{ fontSize:19, width:54 }}
           aria-label={`Minus ${step}`}><Icon name="minus" size={18} /></Btn>

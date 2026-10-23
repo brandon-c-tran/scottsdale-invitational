@@ -114,6 +114,9 @@
 .tv-ticker-text { min-width:0; font:600 34px/1.35 var(--fd-body); color:var(--bone); white-space:nowrap;
   overflow:hidden; text-overflow:ellipsis; }
 .tv-ticker-text.has-ladder { display:inline-flex; align-items:center; gap:24px; overflow:visible; }
+/* a fact too long for one line at 24px takes two (tvModel.js tickerTextFit) */
+.tv-ticker-text.is-two { white-space:normal; line-height:1.12; }
+.tv-ticker-text.is-two .tv-ticker-amount { font-size:30px; }
 .tv-ticker-amount { font:800 40px/1 var(--fd-display); letter-spacing:.01em; font-variant-numeric:tabular-nums; color:var(--sun); }
 .tv-ticker-amount.is-won { color:var(--green); }
 .tv-ticker-amount.is-loss { color:var(--clay-text); }

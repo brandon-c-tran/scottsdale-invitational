@@ -797,13 +797,36 @@ export function pokerTickerItems(state, now) {
    long one has it alone, centered. The width is an estimate in canvas
    pixels at the ticker's sizes (34px body, 40px numerals, 26px label). */
 export const TICKER_HALF_PX = 830;
-export function tickerFactWidth(item) {
+/* a fact alone has the whole plate: both halves and the gutter between */
+export const TICKER_SOLO_PX = TICKER_HALF_PX * 2 + 72;
+/* a fact's words (its strings, at the body's 34px) and everything else on
+   its line: the label, the faces, the numerals */
+export function tickerFactParts(item) {
   const tag = String(item?.tag || "").length * 17 + 46;
   const n = (item?.players || []).length;
   const faces = n ? 44 + (n - 1) * (n > 2 ? Math.round(44 * (1 - DISC_OVERLAP)) : 52) + 20 : 0;
-  const text = (item?.parts || [item?.text || ""]).reduce((w, part) => w + (typeof part === "string"
-    ? textUnits(part) * 16.5 : String(part.amount).length * 20), 0);
-  return Math.ceil(tag + faces + text);
+  let words = 0, rest = 0;
+  for (const part of item?.parts || [item?.text || ""]) {
+    if (typeof part === "string") words += textUnits(part) * 16.5;
+    else rest += String(part.amount).length * 20;
+  }
+  return { fixed:tag + faces + rest, words };
+}
+export function tickerFactWidth(item) {
+  const { fixed, words } = tickerFactParts(item);
+  return Math.ceil(fixed + words);
+}
+/* A fact fits its plate by construction: its words at the body's 34px
+   where they fit, else smaller down to the TV's 24px floor, else two lines
+   at 24 (a long ruling's reason, three tied pairs of long names), never cut
+   short. `room` is the fact's width on the plate (a half, or all of it). */
+export const TICKER_TEXT = Object.freeze({ size:34, min:24, margin:0.94 });
+export function tickerTextFit(item, room = TICKER_SOLO_PX) {
+  const { fixed, words } = tickerFactParts(item);
+  if (fixed + words <= room || words <= 0) return { size:TICKER_TEXT.size, lines:1 };
+  /* shrunk with a margin: the estimate runs a few percent short on a line of capitals */
+  const size = Math.floor(TICKER_TEXT.size * (room * TICKER_TEXT.margin - fixed) / words);
+  return size >= TICKER_TEXT.min ? { size, lines:1 } : { size:TICKER_TEXT.min, lines:2 };
 }
 /* the arrivals corner (tv-arrivals.css --tv-corner-room) narrows the plate by this */
 export const TICKER_CORNER_PX = 236;

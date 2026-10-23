@@ -22,7 +22,7 @@ import {
   tvCanvasFit, tvSceneView, ambientIndex, TV_AMBIENT_MS, TV_AMBIENT_TURN_MS, TV_TROPHY_HOLD_MS, TV_TICKER_PAGE_MS, TV_RESULT_MOMENT_MS,
   tvLiveEvent, nextUpEvent, nextOpenMatch, latestResultOf, resultPresentation, resultMomentPhase, resultMomentFor,
   advanceMoment, advanceHoldUntil, correctionMoment, dockCard, decidedWinner,
-  tvConnection, tickerItems, tickerSpread, TICKER_HALF_PX, TICKER_CORNER_PX, tvBusy, podiumGroups, championView, contestLamp, stageChrome, boardLevel,
+  tvConnection, tickerItems, tickerSpread, tickerTextFit, TICKER_HALF_PX, TICKER_CORNER_PX, TICKER_TEXT, tvBusy, podiumGroups, championView, contestLamp, stageChrome, boardLevel,
   backersRail,
 } from "./tvModel.js";
 import { IntroOverlay, TVDrawReveal } from "./TVCeremony.jsx";
@@ -193,13 +193,16 @@ function Masthead({ event = null, lamp = null, connection, lastUpdateAt, final, 
 
 /* one fact on the ticker's glass: its label, the people in it as photo
    chips, then the fact, an amount set as a numeral in its role's ink */
-function TickerItem({ it, className = "" }) {
+function TickerItem({ it, room, className = "" }) {
   const parts = it.parts || [it.text];
+  /* the words fit the fact's room: smaller, down to 24, then two lines */
+  const fit = tickerTextFit(it, room);
   return (
     <div className={`tv-ticker-item${className ? ` ${className}` : ""}`}>
       <span className="tv-ticker-tag">{it.tag}</span>
       {(it.players || []).length > 0 && <Faces players={it.players} size={44} overlap={it.players.length > 2} />}
-      <span className={`tv-ticker-text${parts.some(part => part?.ladder) ? " has-ladder" : ""}`}>{parts.map((part, i) => typeof part === "string" ? <React.Fragment key={i}>{part}</React.Fragment>
+      <span className={`tv-ticker-text${parts.some(part => part?.ladder) ? " has-ladder" : ""}${fit.lines > 1 ? " is-two" : ""}`}
+        style={fit.size !== TICKER_TEXT.size ? { fontSize:fit.size } : undefined}>{parts.map((part, i) => typeof part === "string" ? <React.Fragment key={i}>{part}</React.Fragment>
         : part.ladder ? <PayoutLadder key={i} pays={part.ladder} size="ticker" className="tv-ticker-ladder" />
         : <b key={i} className={`tv-ticker-amount is-${part.role || "chip"}`}>{part.amount}</b>)}</span>
     </div>
@@ -207,10 +210,12 @@ function TickerItem({ it, className = "" }) {
 }
 /* one page of the plate: two short facts side by side, or one alone,
    centered across it */
-function TickerPage({ items, className = "" }) {
+function TickerPage({ items, half = TICKER_HALF_PX, className = "" }) {
+  /* a pair's fact has its half, a fact alone the whole plate */
+  const room = items.length > 1 ? half : half * 2 + 72;
   return (
     <div className={`tv-ticker-page${items.length > 1 ? " is-pair" : " is-solo"}${className ? ` ${className}` : ""}`}>
-      {items.map((it, i) => <TickerItem key={i} it={it} />)}
+      {items.map((it, i) => <TickerItem key={i} it={it} room={room} />)}
     </div>
   );
 }
@@ -230,8 +235,8 @@ function Ticker({ items, reducedMotion, now, quiet = false, narrow = false }) {
     <div className={`tv-ticker${reducedMotion ? " is-cut" : ""}`} aria-label={`Ticker, ${page.index + 1} of ${page.pages}`}>
       <div className="tv-ticker-glass" aria-hidden="true" data-fit-region="ticker" />
       {prev && prev.index !== page.index && prev.items.length > 0 && <TickerPage key={`out-${prev.index}`} items={prev.items}
-        className="is-leaving" />}
-      {page.items.length > 0 && <TickerPage key={`in-${page.index}`} items={page.items}
+        half={half} className="is-leaving" />}
+      {page.items.length > 0 && <TickerPage key={`in-${page.index}`} items={page.items} half={half}
         className={page.pages > 1 && !quiet ? "is-entering" : ""} />}
     </div>
   );

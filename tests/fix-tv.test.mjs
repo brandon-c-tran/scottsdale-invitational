@@ -953,6 +953,17 @@ test("ticker: two short facts share a page, a long one is alone; the first fact 
   assert.equal(tvm.tickerSpread([short(1), short(2), long], 0).items.length, 2);
   assert.equal(tvm.tickerSpread([short(1), short(2), long], tvm.TV_TICKER_PAGE_MS).items[0], long);
   assert.equal(tvm.tickerSpread([], 0).items.length, 0);
+  /* a fact fits its room by construction: 34px, smaller down to 24, then two lines */
+  assert.deepEqual(tvm.tickerTextFit(short(1), tvm.TICKER_HALF_PX), { size:34, lines:1 });
+  const ruling = { tag:"Ruling", players:["Henry"], parts:["TheRealSlimShady ", { amount:"-400", role:"loss" },
+    ", Dropped the trophy on the driveway during the Saturday night victory lap parade"] };
+  const fit = tvm.tickerTextFit(ruling, tvm.TICKER_SOLO_PX);
+  const { fixed, words } = tvm.tickerFactParts(ruling);
+  assert.ok(fit.lines === 1 && fit.size >= 24 && fit.size < 34, `an 80-character reason letters at ${fit.size}px`);
+  assert.ok(fixed + words * fit.size / 34 <= tvm.TICKER_SOLO_PX, "and fits the plate");
+  const result = { tag:"Result", players:["Allan", "Henry", "Jeremy", "Khoa"], parts:["Long Putt Sudden Death Final: "
+    + "Allan Montgomery & TheRealSlimShady, Jeremy O'Neil-Wu & Nguyen Dang Khoa, Eyob Tesfamariam & Sahil Venkatesh"] };
+  assert.deepEqual(tvm.tickerTextFit(result, tvm.TICKER_SOLO_PX), { size:24, lines:2 }, "three tied pairs take two lines");
   const state = structuredClone(EMPTY_STATE);
   const items = tickerItems({ state, events:allEventsOf(state), standings:computeStandings(state), allTied:true, now:0,
     facts:[{ id:"f", kind:"first", tag:"First", at:1, players:["Evan"], text:"First to 2,000: Evan" }] });

@@ -282,7 +282,9 @@ export function LockSweep({ lockKey, locked }) {
   const change = useFreshChange(locked ? lockKey : null, "lock");
   const [play, setPlay] = useState(null);
   useEffect(() => {
-    if (!locked || !change.animate) return undefined;
+    /* fresh, not animate: under reduced motion the words still stand (the
+       glove is hidden and nothing moves, table.css) */
+    if (!locked || !change.fresh) return undefined;
     setPlay(change.changeId);
     playSound("S8", { bus:"you" });
     const timer = setTimeout(() => setPlay(null), 1900);

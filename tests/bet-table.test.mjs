@@ -290,3 +290,13 @@ test("a take-back shows from the tap: your stack breathes until the write answer
     "pending at rest (reduced motion keeps the 60%), breathing otherwise");
   assert.match(readFileSync(new URL("../src/features/wagers/wagers.css", import.meta.url), "utf8"), /@keyframes fd-chip-pending /);
 });
+
+test("No more bets: once per fresh lock, and under reduced motion the words still stand", async () => {
+  const { readFileSync } = await import("node:fs");
+  const table = readFileSync(new URL("../src/features/wagers/BetTable.jsx", import.meta.url), "utf8");
+  assert.match(table, /if \(!locked \|\| !change\.fresh\) return undefined;\s*setPlay\(change\.changeId\);/,
+    "a fresh lock mounts the words even when nothing may move");
+  const css = readFileSync(new URL("../src/features/wagers/table.css", import.meta.url), "utf8");
+  assert.match(css, /@media \(prefers-reduced-motion: reduce\) \{[^}]*\.fd-table-sweep-glove \{ display:none; \}/, "the glove never moves");
+  assert.doesNotMatch(css.match(/\.fd-table-sweep-words \{[^}]*\}/)[0], /opacity:0/, "the words rest visible");
+});

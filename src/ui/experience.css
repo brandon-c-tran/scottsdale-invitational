@@ -45,7 +45,11 @@
   --ink:#f4ecd8; --ink0:#0a0910; --muted:#b2abc2; --muted2:#d9d2e3; --disabled:#968fa6;
   --line:rgba(244,236,216,.14); --ink-tint:rgba(244,236,216,.05);
   --accent:#2bb8d0; --accent2:#5fdcf0; --sun:#ffa630;
-  --signal-text:var(--sun); --selection-fill:var(--sun);
+  --signal-text:var(--sun);
+  /* a chosen answer (a size, Yes / Not yet) is selection, the info lamp's
+     job, as the profile's tabs and switches are: amber stays the action */
+  --selection-fill:color-mix(in srgb, var(--lamp-info) 12%, var(--paper2)); --selection-ink:var(--lamp-info);
+  --selection-line:color-mix(in srgb, var(--lamp-info) 55%, transparent);
   /* the three system lamps and the filament */
   --lamp-live:#ff3fa4; --lamp-live-text:#ff74bf; --lamp-info:var(--accent2); --lamp-chip:var(--sun);
   --you:#ffe04a;

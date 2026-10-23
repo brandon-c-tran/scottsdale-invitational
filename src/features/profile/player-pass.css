@@ -195,8 +195,9 @@
 .fd-trip-choice { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
 .fd-trip-choice button { min-height:48px; border-radius:10px; border:1px solid var(--line); background:var(--paper2);
   color:var(--ink); font:700 15px/1 var(--fd-body); cursor:pointer; box-shadow:var(--glass-edge); }
-/* matches the flights question above it (travel.css) */
-.fd-trip-choice button[aria-pressed=true] { background:var(--sun); color:var(--ink0); border-color:var(--sun); }
+/* matches the flights question above it (Travel.jsx): a chosen answer is
+   selection, lit in the info lamp, so Save stays the one amber action */
+.fd-trip-choice button[aria-pressed=true] { background:var(--selection-fill); color:var(--selection-ink); border-color:var(--selection-line); }
 .fd-chip-picker { container-type:inline-size; }
 .fd-chip-colors { display:grid; grid-template-columns:repeat(auto-fit,minmax(44px,1fr));
   gap:6px; margin-bottom:18px; }

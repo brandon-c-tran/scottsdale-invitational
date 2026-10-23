@@ -15,7 +15,7 @@
 .fd-contest-entrant-pick>span { flex:1; overflow-wrap:anywhere; }
 .fd-contest-entrant-pick small { color:var(--sun); font-size:12px; font-weight:600; }
 .fd-contest-entrant-pick:disabled { opacity:1; cursor:default; }
-.fd-contest-entrant-pick:not(:disabled):hover { background:var(--sun-tint); }
+@media (hover:hover) and (pointer:fine) { .fd-contest-entrant-pick:not(:disabled):hover { background:var(--sun-tint); } }
 .fd-contest-entrant.is-you { box-shadow:inset 3px 0 0 var(--accent2); }
 .fd-contest-entrant.is-winner,.fd-contest-entrant-pick[aria-checked=true] { background:var(--accent-tint); }
 .fd-contest-entrant.is-winner .fd-contest-entrant-pick { color:var(--accent2); }

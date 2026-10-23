@@ -44,7 +44,7 @@
   padding:0 9px 0 4px; border:0; background:none; color:var(--ink); font:600 12.5px/1.2 var(--fd-body); text-align:left; }
 .fd-bracket-pick:disabled { opacity:1; cursor:default; }
 .fd-bracket-pick:not(:disabled) { cursor:pointer; }
-.fd-bracket-pick:not(:disabled):hover { background:var(--sun-tint); }
+@media (hover:hover) and (pointer:fine) { .fd-bracket-pick:not(:disabled):hover { background:var(--sun-tint); } }
 .fd-bracket-pick-hint { flex-shrink:0; padding:3px 7px; border-radius:99px; background:var(--sun); color:var(--ink0);
   font-size:12px; font-weight:700; }
 .fd-bracket-players { display:flex; align-items:center; flex-shrink:0; padding-left:2px; }
@@ -79,7 +79,7 @@
 /* the glance: one target around a compact bracket */
 .fd-bracket-peek { display:grid; gap:8px; width:100%; min-width:0; padding:12px 14px 14px; border:0; border-top:1px solid var(--line);
   background:transparent; color:inherit; text-align:left; cursor:pointer; font:inherit; }
-.fd-bracket-peek:hover { background:var(--ink-tint); }
+@media (hover:hover) and (pointer:fine) { .fd-bracket-peek:hover { background:var(--ink-tint); } }
 .fd-bracket-peek:focus-visible { outline:2px solid var(--lamp-info); outline-offset:-2px; }
 .fd-bracket-peek-head { display:flex; align-items:center; justify-content:space-between; gap:8px; min-height:20px; }
 .fd-bracket-peek-head>span:first-child { color:var(--muted2); font:600 13px/1.2 var(--fd-body); letter-spacing:.08em; text-transform:uppercase; font-family:var(--fd-display); font-weight:800; letter-spacing:.06em; }

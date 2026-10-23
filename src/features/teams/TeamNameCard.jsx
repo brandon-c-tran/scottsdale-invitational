@@ -58,7 +58,7 @@ function NameEditor({ state, naming, round, onRound, onSend, onDone }) {
     </div>
     {writing && <form className="fd-teamname-write" onSubmit={event => { event.preventDefault(); send(draft); }}>
       <input type="text" value={draft} maxLength={TEAM_NAME_MAX} autoFocus enterKeyHint="done" autoComplete="off"
-        autoCapitalize="words" spellCheck={false} aria-label="Team name" placeholder={naming.label}
+        autoCapitalize="words" autoCorrect="off" spellCheck={false} aria-label="Team name" placeholder={naming.label}
         disabled={pending !== null} onChange={event => { setDraft(event.target.value.replace(/[\r\n]+/g, " ")); setError(""); }} />
       <button type="submit" className="fd-teamname-save" disabled={pending !== null || !draft.trim()}>
         {pending !== null ? "Saving…" : "Save"}</button>

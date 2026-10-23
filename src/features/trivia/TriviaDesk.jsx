@@ -110,6 +110,8 @@ function SongSlot({ value, onChange, letter, right, onRight }) {
     <input value={value.artist} maxLength={TRIVIA_OPTION_MAX} placeholder="Artist" aria-label={`Song ${letter} artist`}
       onChange={event => onChange({ ...value, artist:event.target.value, isrc:undefined })} />
     <input className="fd-trivia-song-search" value={query} placeholder="Search songs" aria-label={`Search for song ${letter}`}
+      autoComplete="off" autoCorrect="off" spellCheck={false} enterKeyHint="search"
+      onKeyDown={event => { if (event.key === "Enter") event.currentTarget.blur(); }}
       onChange={event => search(event.target.value)} />
     {!!results.length && <ul className="fd-trivia-song-results">{results.map(track => <li key={track.trackId}>
       <button type="button" onClick={() => {

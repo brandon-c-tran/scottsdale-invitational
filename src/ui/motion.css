@@ -66,11 +66,15 @@
    (src/ui/sheetMotion.js) falls and fades after the real sheet unmounts. A
    sheet that replaces another in the same commit only fades its content.
    Entrances fill backwards only, so a finished sheet carries no transform
-   (a transform would re-anchor position:fixed content inside it). */
+   (a transform would re-anchor position:fixed content inside it).
+   A sheet dragged away by its header (src/ui/useSheetDrag.js) falls from
+   where the finger left it (--fd-sheet-drag), its scrim from the dark it
+   had thinned to (--fd-sheet-dim), and a flick falls at the finger's
+   speed (.is-flung, --fd-fling-ms). */
 @keyframes fd-scrim-in { from { opacity:0; } to { opacity:1; } }
-@keyframes fd-scrim-out { from { opacity:1; } to { opacity:0; } }
+@keyframes fd-scrim-out { from { opacity:var(--fd-sheet-dim, 1); } to { opacity:0; } }
 @keyframes fd-sheet-rise { from { transform:translateY(var(--fd-sheet-from, 100%)); } to { transform:none; } }
-@keyframes fd-sheet-fall { from { transform:none; } to { transform:translateY(var(--fd-sheet-from, 100%)); } }
+@keyframes fd-sheet-fall { from { transform:translateY(var(--fd-sheet-drag, 0px)); } to { transform:translateY(var(--fd-sheet-from, 100%)); } }
 @keyframes fd-sheet-swap { from { opacity:.4; } to { opacity:1; } }
 .fd-sheet-overlay::before { animation:fd-scrim-in var(--motion-sheet-in) var(--ease-out) backwards; }
 .fd-sheet-overlay .si-sheet { animation:fd-sheet-rise var(--motion-sheet-in) var(--ease-out) backwards; }
@@ -79,6 +83,8 @@
 .fd-sheet-overlay.is-leaving { pointer-events:none; }
 .fd-sheet-overlay.is-leaving::before { animation:fd-scrim-out var(--motion-sheet-out) var(--ease-exit) both; }
 .fd-sheet-overlay.is-leaving .si-sheet { animation:fd-sheet-fall var(--motion-sheet-out) var(--ease-exit) both; }
+.fd-sheet-overlay.is-leaving.is-flung .si-sheet { animation:fd-sheet-fall var(--fd-fling-ms, var(--motion-sheet-out)) linear both; }
+.fd-sheet-overlay .si-sheet.is-dragging { will-change:transform; }
 @media(min-width:700px) {
   .fd-sheet-overlay { --fd-sheet-from:24px; }
   .fd-sheet-overlay .si-sheet { animation:fd-sheet-rise var(--motion-sheet-in) var(--ease-out) backwards,

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import { Icon } from "../../ui/Icon.jsx";
 import { rosterOf, SIZES, AIRLINES, arrivalsOpen, hasArrived, cleanLeg, legText, legTime } from "../../../shared/core.js";
 import { landedAt } from "../arrivals/arrivalsModel.js";
@@ -198,6 +198,7 @@ function VenueCard({ lg, compact = false }) {
 function FlightEntry({ leg: raw, dir, setLeg }) {
   const leg = raw || {};
   const set = patch => setLeg({ ...leg, ...patch });
+  const numField = useRef(null);
   const box = { background:"var(--paper)", border:"1.5px solid var(--line)", borderRadius:10,
     height:48, display:"flex", alignItems:"center", padding:"0 8px", boxSizing:"border-box" };
   const bare = { background:"none", border:"none", padding:0, minWidth:0,
@@ -208,7 +209,8 @@ function FlightEntry({ leg: raw, dir, setLeg }) {
       <div style={{ minWidth:0 }}>
         <div style={box}>
           <input value={leg.air || ""} list="fd-airlines" placeholder="UA" autoCapitalize="characters"
-            aria-label="Airline"
+            autoComplete="off" autoCorrect="off" spellCheck={false} enterKeyHint="next" aria-label="Airline"
+            onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); numField.current?.focus(); } }}
             onChange={e => set({ air: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 3) })}
             style={{ ...bare, fontFamily:SANS, fontWeight:700, fontSize:16, letterSpacing:"0.1em" }} />
         </div>
@@ -216,7 +218,7 @@ function FlightEntry({ leg: raw, dir, setLeg }) {
       </div>
       <div style={{ flex:1, minWidth:0 }}>
         <div style={box}>
-          <input value={leg.num || ""} inputMode="numeric" placeholder="1885" aria-label="Flight number"
+          <input ref={numField} value={leg.num || ""} inputMode="numeric" autoComplete="off" placeholder="1885" aria-label="Flight number"
             onChange={e => set({ num: e.target.value.replace(/\D/g, "").slice(0, 4) })}
             style={{ ...bare, fontFamily:SANS, fontWeight:700, fontSize:16 }} />
         </div>

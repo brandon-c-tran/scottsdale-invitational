@@ -190,6 +190,27 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   a TV whose context is suspended shows "Click for sound", and the
   commissioner's TV sheet copies the Chrome kiosk shortcut that keeps TV
   sound across reloads. `/dev/sound-preview.html?selftest` renders every recipe.
+- **The installed iPhone app** (Oct 23, `src/ui/useSheetDrag.js` on the pure
+  `sheetDragModel.js`; `scripts/launch-screens.mjs`): every Sheet goes the
+  way an iOS sheet goes. A touch drag on its header (never the body) moves
+  it one to one down and a little up against a rubber band, the scrim thins,
+  and on release the finger's momentum is projected (0.998): past half its
+  height it goes through the same onClose as the X, its fall (sheetMotion's
+  copy) starting where the finger left it at the finger's speed; short of
+  that it springs home, critically damped, and can be caught mid-spring. It
+  refuses exactly when the sheet does (busy gives and comes home, a declined
+  onClose comes home), phones only (from 700px a sheet is a dialog), touch
+  only; reduced motion follows the finger and lands at once. The app opens
+  on a dark launch screen (`apple-touch-startup-image`: twelve portrait
+  screens, SE to 17 Pro Max and Air, the glass ground with the mark at
+  104pt, staging its own set), drawn by `node scripts/icons.mjs
+  --launch-only` and stamped into index.html by vite.config.js; iOS keeps
+  the image it found at Add to Home Screen, so it reaches new installs only
+  (a reinstall is a new storage container and the device claims again).
+  A long press on a control selects nothing and opens no callout (a saved
+  card shown to press and hold keeps its callout), :hover lives only under
+  `(hover:hover) and (pointer:fine)`, and every sticky foot in a sheet
+  clears the home indicator (`tests/ios-native.test.mjs`).
 - **Results on your phone** (`src/features/results/`): a fresh broadcast that
   moves YOUR chips docks one receipt above the tab bar (`ChipReceipt`, from
   the pure `resultMoment` diff of `chipSnapshot`s: place and award, each bet

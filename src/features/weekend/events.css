@@ -39,7 +39,7 @@
 /* a bracket game's own way in: under the name, where the row's part sits */
 .fd-events-bracket { flex-shrink:0; min-height:44px; margin:0 0 10px 62px; padding:0 14px; border:1px solid var(--line); border-radius:99px;
   background:transparent; color:var(--lamp-info); font:600 13px/1 var(--fd-body); cursor:pointer; }
-.fd-events-bracket:hover { background:var(--info-tint); }
+@media (hover:hover) and (pointer:fine) { .fd-events-bracket:hover { background:var(--info-tint); } }
 /* a finished session folds to one row: its name and its winners */
 .fd-events-session.is-folded { margin-bottom:10px; }
 .fd-events-session-fold { margin:0; font:inherit; }

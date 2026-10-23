@@ -48,13 +48,13 @@ function JerseySection({ state, me, display, backName, setBackName, num, setNum,
         <label className="fd-profile-field">
           <span>Name on back</span>
           <input value={backName} placeholder={fallback} maxLength={JERSEY_NAME_MAX + 4} disabled={locked}
-            autoCapitalize="characters" autoComplete="off" spellCheck={false} aria-label="Name on back"
+            autoCapitalize="characters" autoComplete="off" autoCorrect="off" spellCheck={false} aria-label="Name on back"
             aria-invalid={clean === undefined} aria-describedby={problem ? errorId : undefined}
-            onChange={e => setBackName(e.target.value)} />
+            enterKeyHint="done" onKeyDown={e => { if (e.key === "Enter") e.currentTarget.blur(); }} onChange={e => setBackName(e.target.value)} />
         </label>
         <label className="fd-profile-field fd-profile-number-field">
           <span>No.</span>
-          <input value={num} inputMode="numeric" placeholder="00" aria-label="Jersey number" disabled={locked}
+          <input className="fd-field-large" value={num} inputMode="numeric" autoComplete="off" placeholder="00" aria-label="Jersey number" disabled={locked}
             aria-invalid={!!takenBy} aria-describedby={problem ? errorId : undefined}
             onChange={e => setNum(e.target.value.replace(/\D/g, "").slice(0, 2))} />
         </label>

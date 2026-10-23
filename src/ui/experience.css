@@ -257,7 +257,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
 .fd-event-payouts small { font:700 12px/1.2 var(--fd-display); text-transform:uppercase; letter-spacing:.06em; color:var(--muted2); }
 .fd-player-link { display:inline-flex; align-items:center; gap:6px; min-height:44px; min-width:44px; padding:4px 6px;
   border:0; border-radius:6px; background:transparent; color:var(--ink); font:inherit; cursor:pointer; text-align:left; }
-.fd-player-link:hover { background:var(--ink-tint); }
+@media (hover:hover) and (pointer:fine) { .fd-player-link:hover { background:var(--ink-tint); } }
 .fd-player-links { display:flex; flex-wrap:wrap; min-width:0; gap:2px; }
 .fd-player-links .fd-player-link { max-width:100%; padding:2px; font-size:13px; }
 .fd-player-links .fd-player-link span { min-width:0; overflow-wrap:anywhere; }
@@ -291,6 +291,15 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
 .fd-sheet-header-actions button { min-height:44px; padding:6px 8px; border:0; background:none; color:var(--lamp-info); font:600 13px/1.2 var(--fd-body); white-space:nowrap; cursor:pointer; }
 .fd-sheet-header-actions button:disabled { opacity:.5; cursor:default; }
 .fd-sheet-header-actions button:focus-visible { outline:2px solid var(--lamp-info); outline-offset:2px; }
+/* the header is the sheet's grip (ui/useSheetDrag.js): a drag that starts
+   there moves the sheet instead of scrolling the body under it (and a
+   press held on the title first selects nothing), and the sheet's paper
+   runs on past its foot, so a sheet lifted against its rest never shows
+   the page beneath. Phones only: from 700px a sheet is a dialog. */
+@media(max-width:699.98px) {
+  .fd-sheet-header { touch-action:none; -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; }
+  .fd-sheet-overlay .si-sheet { box-shadow:0 96px 0 var(--paper), var(--glass-edge), var(--shadow-3); }
+}
 .fd-sheet-body { padding:16px 16px calc(18px + env(safe-area-inset-bottom)); }
 .fd-sheet-body > :first-child { margin-top:0; }
 .fd-sheet-body > :last-child { margin-bottom:0; }
@@ -312,7 +321,10 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
 .fd-profile-sections button { flex:1; min-height:44px; padding:8px; border:0; border-radius:6px; background:transparent; color:var(--muted2); font-size:13px; font-weight:600; cursor:pointer; }
 .fd-profile-sections button[aria-pressed=true] { background:var(--info-tint); color:var(--lamp-info); box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--lamp-info) 55%, transparent); }
 .fd-profile-sections button:disabled { cursor:default; opacity:.5; }
-.fd-profile-save { position:sticky; bottom:-18px; z-index:4; background:var(--paper); padding:12px 0; margin-top:16px; border-top:1px solid var(--line); }
+/* the profile's Save holds the sheet's foot as a Sheet footer does: flush
+   with the bottom edge, its button clear of the home indicator */
+.fd-sheet-body:has(> .fd-profile-save:last-child) { padding-bottom:0; }
+.fd-profile-save { position:sticky; bottom:0; z-index:4; background:var(--paper); padding:12px 0 calc(12px + env(safe-area-inset-bottom)); margin-top:16px; border-top:1px solid var(--line); }
 .fd-profile-discard { margin-bottom:12px; }
 .fd-profile-discard p { margin:0 0 8px; color:var(--ink); font-size:14px; }
 .fd-profile-discard div { display:flex; gap:8px; }

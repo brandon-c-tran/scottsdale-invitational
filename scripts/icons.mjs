@@ -3,12 +3,14 @@
    FDMark). Pure geometry rasterised by sharp, no browser. Lettering uses the
    bundled Big Shoulders cuts (static 900 instances of public/fonts, OFL), so
    the card renders the same on every machine. Use --icons-only to leave the
-   existing share card untouched. */
-import { writeFileSync } from "fs";
+   existing share card untouched, --launch-only to write only the iPhone
+   launch screens. */
+import { mkdirSync, writeFileSync } from "fs";
 import { fileURLToPath } from "url";
 import sharp from "sharp";
 import { markBody, MARK_INKS, MARK_INKS_STAGING } from "../src/ui/fdMark.js";
 import { EDITION } from "../shared/core.js";
+import { LAUNCH_GROUND, LAUNCH_MARK_PT, LAUNCH_SCREENS, launchPath, launchPixels } from "./launch-screens.mjs";
 
 const GROUND = "#090b14", BONE = "#f4ecd8", AMBER = "#ffa630", LILAC = "#b2abc2";
 const SHOW_FONT = fileURLToPath(new URL("./fonts/BigShouldersDisplay-Black.ttf", import.meta.url));
@@ -116,6 +118,33 @@ const share = async () => {
     .toBuffer();
 };
 
+/* An iPhone launch screen (scripts/launch-screens.mjs): the glass ground and
+   the mark centred, the same size in points on every phone. The flat ground
+   quantises to a small palette PNG. */
+const launch = (screen, { inks = MARK_INKS, label = "" } = {}) => {
+  const { width, height } = launchPixels(screen);
+  const markPx = LAUNCH_MARK_PT * screen.dpr;
+  return `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">
+    <rect width="${width}" height="${height}" fill="${LAUNCH_GROUND}"/>
+    <svg x="${(width - markPx) / 2}" y="${(height - markPx) / 2}" width="${markPx}" height="${markPx}" viewBox="0 0 64 64">
+      ${markBody({ level:"full", inks, label, uid:"l" })}
+    </svg>
+  </svg>`;
+};
+const writeLaunchScreens = async () => {
+  mkdirSync("public/launch", { recursive:true });
+  for (const screen of LAUNCH_SCREENS) for (const staging of [false, true]) {
+    const file = `public${launchPath(screen, staging)}`;
+    const svg = launch(screen, staging ? { inks:MARK_INKS_STAGING, label:"STG" } : {});
+    await sharp(Buffer.from(svg)).png({ palette:true, colours:256, dither:0.6, compressionLevel:9, effort:10 }).toFile(file);
+    console.log("wrote", file);
+  }
+};
+if (process.argv.includes("--launch-only")) {
+  await writeLaunchScreens();
+  process.exit(0);
+}
+
 if (!process.argv.includes("--icons-only")) {
   writeFileSync("public/share.png", await share());
   console.log("wrote public/share.png");
@@ -136,3 +165,4 @@ writeFileSync("public/favicon.svg", favicon(MARK_INKS));
 console.log("wrote public/favicon.svg");
 writeFileSync("public/favicon-staging.svg", favicon(MARK_INKS_STAGING, "STG"));
 console.log("wrote public/favicon-staging.svg");
+await writeLaunchScreens();

@@ -104,7 +104,7 @@
 /* a bracket game gets its own way in from the program */
 .fd-weekend-event-bracket { flex-shrink:0; min-height:44px; padding:0 14px; border:1px solid var(--line); border-radius:99px;
   background:transparent; color:var(--lamp-info); font:600 13px/1 var(--fd-body); cursor:pointer; }
-.fd-weekend-event-bracket:hover { background:var(--info-tint); }
+@media (hover:hover) and (pointer:fine) { .fd-weekend-event-bracket:hover { background:var(--info-tint); } }
 
 
 /* Oct 4: the cover says what it is (Now, Next, First event) over the name */

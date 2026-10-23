@@ -34,7 +34,7 @@ const compiled = buildSync({
   stdin:{ contents:`
     export { AwardsBallot, AwardsResults, AwardsHome } from "./src/features/awards/AwardsHome.jsx";
     export { AwardsDesk, deskBallot, draftPayload, draftProblem } from "./src/features/awards/AwardsDesk.jsx";
-    export { AwardsReveal } from "./src/features/awards/TVAwards.jsx";
+    export { AwardsReveal, awardNameSize } from "./src/features/awards/TVAwards.jsx";
     export { TVMode } from "./src/features/tv/TVMode.jsx";
     export { PlayerIdentityProvider } from "./src/features/identity/PlayerIdentityContext.js";`,
   resolveDir:root, loader:"jsx" },
@@ -476,6 +476,15 @@ test("the TV reveal and the commissioner's desk render the real components", () 
     tieFrame.profiles);
   assert.match(results.html, /<strong>Awards<\/strong><small>2 of 3<\/small>/, "the awards lead, the count follows");
   assert.match(results.html, /View Evan&#x27;s player card/);
+});
+
+test("the TV's nominee names are sized as written, so a middling name keeps its neighbours' size", () => {
+  /* thirteen nominees: a 129px column, names up to 32px */
+  const size = name => ui.awardNameSize(name, 32, 129);
+  assert.equal(size("Brandon"), 32);
+  assert.ok(size("Squilliam") >= 30, `Squilliam at ${size("Squilliam")}px`);
+  assert.equal(size("Henry Nguyen"), 24, "the longest still keeps the canvas floor");
+  assert.ok(ui.awardNameSize("Squilliam", 60, 360) === 60, "a small field letters every name at its full size");
 });
 
 test("the commissioner's editor validates before it sends", () => {

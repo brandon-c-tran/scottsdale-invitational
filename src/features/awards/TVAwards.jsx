@@ -28,10 +28,12 @@ function VoteSlips({ count, total, width, crowded, lit }) {
   </span>;
 }
 
-/* the whole name on one line (capitals run about .56em), down to 24px; a
-   name longer still wraps at its space rather than be cut */
-const nameSize = (name, max, width) =>
-  Math.max(24, Math.min(max, Math.floor(width / (Math.max(4, String(name || "").length) * 0.56))));
+/* the whole name on one line, down to 24px; a name longer still wraps at
+   its space rather than be cut. Names are lettered as written (Big Shoulders
+   800 runs about .47em a letter), not in capitals: sized as capitals, a
+   middling name like the winner's came out smaller than its neighbours */
+export const awardNameSize = (name, max, width) =>
+  Math.max(24, Math.min(max, Math.floor(width / (Math.max(4, String(name || "").length) * 0.47))));
 
 function Nominee({ state, player, index, landed, total, layout, width, stamped, winner, tie, settled, crowded }) {
   const identity = usePlayerIdentity(player);
@@ -47,7 +49,7 @@ function Nominee({ state, player, index, landed, total, layout, width, stamped, 
           lit={winner && stamped} />}
       </div>
       <span className="tv-award-face"><ChipFace p={player} size={layout.face} flat /></span>
-      <div className="tv-display tv-award-name" style={{ fontSize:nameSize(name, layout.name, width) }}>{name}</div>
+      <div className="tv-display tv-award-name" style={{ fontSize:awardNameSize(name, layout.name, width) }}>{name}</div>
       <div className="tv-award-votes">{landed > 0 ? `${landed} vote${landed === 1 ? "" : "s"}` : ""}</div>
     </div>
   );

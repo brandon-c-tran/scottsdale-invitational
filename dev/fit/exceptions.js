@@ -13,6 +13,8 @@ export const FIT_EXCEPTIONS = Object.freeze([
     reason:"a pin on the phone's full-bleed map is map content: panned to the screen's edge it runs off it with the map, as on any map" },
   { view:"sheet-profile$", rule:"overlap", sel:"fd-profile-save",
     reason:"the profile's Save rides the sheet's foot (sticky) so it is always in reach; the fields under the card scroll up past it" },
+  { view:"sheet-poker-setup$", rule:"overlap", sel:"fd-sheet-footer",
+    reason:"Deal and start rides the Starting stacks sheet's foot (sticky) so it is always in reach; thirteen seats of chips scroll up past it" },
   { view:"^tv-(felt|bracket)", rule:"clip", sel:"^g > g > svg > text$", text:"^[A-Z]{1,2}$",
     reason:"a crowded felt's (or a bracket board's bet stacks') smallest chips (32px) letter a face's initials at the TV's 24px floor: the font's line box overhangs the chip's own picture, the capitals (.72em) stand inside it" },
   { view:"^tv-showdown-draw$", rule:"overlap", sel:"tv-showdown",

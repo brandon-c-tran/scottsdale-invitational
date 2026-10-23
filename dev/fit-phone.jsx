@@ -437,6 +437,25 @@ async function openSheet(kind) {
   if (kind === "pill-more") {
     return tap(() => document.querySelector("[data-pill-more]"));
   }
+  /* the finale's stacks: All stacks from the table card, the commissioner's
+     Starting stacks from the pill, and a seated player's Table view */
+  if (kind === "poker-stacks") {
+    const ok = await tap(() => [...document.querySelectorAll("#fd-poker-table button")].find(b => visible(b)
+      && b.textContent.trim() === "All stacks"));
+    await sleep(600);
+    return ok && !!document.querySelector("[role=dialog] .fd-poker-stacks");
+  }
+  if (kind === "poker-setup") {
+    const ok = await tap(() => document.querySelector(".fd-director-pill"));
+    for (let i = 0; i < 40 && !document.querySelector(".fd-stack-row"); i++) await sleep(150);
+    await sleep(300);
+    return ok && !!document.querySelector(".fd-stack-row");
+  }
+  if (kind === "table-view") {
+    const ok = await tap(() => document.querySelector(".fd-table-view-entry button"));
+    await sleep(700);
+    return ok && !!document.querySelector(".fd-table-view");
+  }
   if (kind === "draft") {
     return tap(() => [...document.querySelectorAll("#fd-main button, main button")].find(b => visible(b)
       && /your pick|open draft|draft/i.test(`${b.getAttribute("aria-label") || ""} ${b.textContent}`)));

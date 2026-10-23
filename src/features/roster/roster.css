@@ -45,6 +45,12 @@
 .fd-roster-door-link { min-height:44px; padding:0 6px; border:0; background:none; color:var(--lamp-info);
   font:600 14px/1 var(--fd-body); cursor:pointer; }
 .fd-roster-door-link:disabled { opacity:.5; cursor:default; }
+/* check-in's switch (menu.css .fd-menu-switch), a 44px target round it */
+.fd-roster-door-switch { display:inline-grid; place-items:center; min-width:52px; min-height:44px; padding:0 4px; border:0; border-radius:10px;
+  background:none; cursor:pointer; -webkit-tap-highlight-color:transparent; }
+.fd-roster-door-switch:disabled { cursor:default; }
+.fd-roster-door-switch[aria-busy="true"] { opacity:.6; }
+.fd-roster-door-switch:focus-visible { outline:2px solid var(--lamp-info); outline-offset:2px; }
 .fd-roster-door .fd-roster-error { flex-basis:100%; text-align:right; }
 
 /* on the way: the face unlit in a dashed seat, as on the board, and Mark

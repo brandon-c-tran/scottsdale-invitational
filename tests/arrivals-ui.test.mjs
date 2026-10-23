@@ -498,7 +498,9 @@ test("Who is coming: Here, Away, Not coming as before; Mark here under anyone st
   assert.equal(count(html, />Mark here</g), 4);
   assert.equal(count(html, />On the way</g), 4);
   assert.match(html, /aria-label="Mark [^"]+ here"/);
-  assert.match(html, />Close</);
+  /* check-in is the Settings switch, never a "Close" under the sheet's own X */
+  assert.match(html, /<button[^>]*role="switch"[^>]*aria-checked="true"[^>]*aria-label="Check-in"/);
+  assert.doesNotMatch(html, />Close</);
   assert.match(html, />New code</);
   assert.match(html, /aria-label="Check-in open, 9 of 13 in"/);
   assert.equal(ui.rosterStateOf(open, ROSTER[12]), "here");
@@ -506,7 +508,7 @@ test("Who is coming: Here, Away, Not coming as before; Mark here under anyone st
   const shut = fresh();
   const closed = render(ui.RosterSheet, { state:shut, onAway:noop, onOut:noop, onArrived:noop, onDoor:noop, onClose:noop }, shut);
   assert.doesNotMatch(closed, /On the way|Mark here|New code/);
-  assert.match(closed, />Open</);
+  assert.match(closed, /<button[^>]*role="switch"[^>]*aria-checked="false"[^>]*aria-label="Check-in"/);
   assert.match(closed, /aria-label="Check-in closed"/);
 });
 

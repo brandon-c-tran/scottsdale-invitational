@@ -29,6 +29,7 @@ import {
   INSTRUMENTAL_MATCH_MS, backingQuery, chooseBacking, chooseInstrumentals, findBackingVideos, instrumentalProblem,
 } from "../worker/karaokeVideos.js";
 import { LYRICS_USER_AGENT, chooseLyrics, findLyrics, lyricsFresh, lyricsKey } from "../worker/lyrics.js";
+import { PREVIEW_TTL_MS, previewCache } from "../worker/previews.js";
 import { publicState } from "../worker/publicState.js";
 import { Tournament } from "../worker/tournament.js";
 import { nudgeText, nudged, karaokeDeskRows } from "../src/features/karaoke/deskModel.js";
@@ -158,6 +159,11 @@ test("an upload's kind from its title: words on it are karaoke, the backing alon
   assert.equal(karaokeVideoKind({ title:"Song (Official Video)" }), "other");
   assert.equal(karaokeVideoKind({ title:"Singalong Forever (Instrumental)" }, "Singalong Forever"), "instrumental");
   assert.equal(karaokeVideoKind({ title:"Singalong Forever (Instrumental)" }), "karaoke");
+  /* a release suffix on the song's name ("- Remastered 2011", "(Live)") is not
+     part of the name the title carries */
+  assert.equal(karaokeVideoKind({ title:"Lyrics Of Love (Instrumental)" }, "Lyrics Of Love - Remastered 2011"), "instrumental");
+  assert.equal(karaokeVideoKind({ title:"Lyrics Of Love (Karaoke)" }, "Lyrics Of Love - Remastered 2011"), "karaoke");
+  assert.equal(karaokeVideoKind({ title:"Singalong Forever - Instrumental" }, "Singalong Forever (Live)"), "instrumental");
 });
 
 test("the way: our lyrics only over an instrumental with synced lyrics; a song's uploads arranged for it", () => {
@@ -519,6 +525,23 @@ test("a song's lookup: LRCLIB beside one instrumental search; the lyrics' word a
   assert.equal(searches, 2);
 });
 
+test("YouTube's limit used up: a lookup kept before Oct 15 still answers inside its 30 days", async () => {
+  const { tournament, memory } = await room();
+  const old = { videos:[{ id:"oldkaraoke1", title:"Journey - Don't Stop Believin' (Karaoke Version)", channel:"Stingray Karaoke",
+    seconds:245 }], at:Date.now() - 5 * 24 * 60 * 60 * 1000 };
+  memory.entries.set(`private:karaoke:${TRACK_ID}`, old);
+  let searches = 0;
+  tournament.youtubeFetch = async () => {
+    searches += 1;
+    return new Response(JSON.stringify({ error:{ errors:[{ reason:"quotaExceeded" }] } }), { status:403 });
+  };
+  const answer = await get(tournament, lookup);
+  assert.equal(answer.status, 200);
+  assert.deepEqual(await answer.json(), { ok:true, videos:old.videos, lyrics:false });
+  assert.equal(searches, 1, "the new lookup was tried");
+  assert.deepEqual(memory.entries.get(`private:karaoke:${TRACK_ID}`), old, "and the kept one stays as it was");
+});
+
 test("LRCLIB down: the lookup still answers but is not kept, and the song's lyrics are asked again", async () => {
   const { tournament, memory } = await room();
   tournament.lyricsFetch = async () => new Response("", { status:503 });
@@ -529,6 +552,28 @@ test("LRCLIB down: the lookup still answers but is not kept, and the song's lyri
   assert.equal(answer.lyrics, false);
   assert.equal(memory.entries.has(`private:karaoke:${TRACK_ID}`), false);
   assert.equal(memory.entries.has(lyricsKey(TRACK_ID)), false);
+});
+
+test("LRCLIB down: asking again for the same song minutes later spends no search; past a few minutes it looks again", async () => {
+  const { tournament, memory } = await room();
+  let clock = Date.now();
+  tournament.karaokeUnkept = previewCache(() => clock);
+  let lyricAsks = 0, searches = 0;
+  tournament.lyricsFetch = async () => { lyricAsks += 1; return new Response("", { status:503 }); };
+  tournament.youtubeFetch = async url => {
+    if (String(url).includes("/search?")) { searches += 1; return reply({ items:[{ id:{ videoId:"stingray001" } }] }); }
+    return reply({ items:[item("stingray001", "Journey - Don't Stop Believin' (Karaoke Version)")] });
+  };
+  const first = await (await get(tournament, lookup)).json();
+  const spent = searches;
+  assert.ok(spent >= 1);
+  for (let ask = 0; ask < 3; ask += 1) assert.deepEqual(await (await get(tournament, lookup)).json(), first);
+  assert.equal(searches, spent, "the same song again: no search");
+  assert.equal(memory.entries.has(`private:karaoke:${TRACK_ID}`), false, "still never kept");
+  clock += PREVIEW_TTL_MS + 1000;
+  await get(tournament, lookup);
+  assert.ok(searches > spent, "a few minutes on, it looks again");
+  assert.equal(lyricAsks, 2, "and asks LRCLIB again");
 });
 
 test("a song saved: its lyrics' word is the kept answer's, read before the write", async () => {

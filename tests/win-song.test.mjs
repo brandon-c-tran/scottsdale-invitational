@@ -231,6 +231,52 @@ test("the alarm stops the speaker at the clip's end, only while that song still 
   assert.ok(!other.some(call => call.path.startsWith("PUT /me/player/pause")));
 });
 
+test("a frame that cannot be built, or a song lane task that throws, is logged and what follows still runs", async () => {
+  const world = await room();
+  const logged = [];
+  const original = console.error;
+  console.error = line => logged.push(JSON.parse(line));
+  try {
+    const build = world.tournament.stateFrame.bind(world.tournament);
+    world.tournament.stateFrame = () => { throw new Error("a projection's bug"); };
+    world.tournament.broadcastState("anything");
+    world.tournament.broadcastState("anything");
+    assert.deepEqual(logged.map(item => item.event), ["frame-failed"], "logged, once in a burst");
+    assert.match(logged[0].error, /a projection's bug/);
+    world.tournament.stateFrame = build;
+    const [ws] = world.memory.sockets;
+    const before = ws.frames.length;
+    world.tournament.broadcastState("anything");
+    assert.equal(ws.frames.length, before + 1, "frames flow again");
+    let after = false;
+    world.tournament.songQueue(async () => { throw new Error("the speaker refused"); });
+    await world.tournament.songQueue(async () => { after = true; });
+    assert.ok(logged.some(item => item.event === "song-lane-failed" && /refused/.test(item.error)));
+    assert.equal(after, true, "the lane goes on");
+  } finally { console.error = original; }
+});
+
+test("a planner that throws never takes the alarm with it: the clip still ends and the alarm is set again", async () => {
+  const world = await room();
+  await withSpotify(() => json(204, null), async () => { await recordFirstWinner(world); await world.settle(); });
+  const walkout = walkoutOf(world.tournament.state);
+  world.tournament.nextAutoBeat = () => { throw new Error("a planner's bug on this board"); };
+  /* a write still arms the alarm for the clip's fade */
+  world.memory.alarms.length = 0;
+  await world.tournament.scheduleAlarm();
+  assert.deepEqual(world.memory.alarms, [walkout.until - 3000]);
+  /* and the alarm itself still runs to the clip's end */
+  world.tournament.state.showControl.audio.walkout = { ...walkout, startedAt:walkout.startedAt - 60000, until:Date.now() - 1 };
+  const playing = path => path === "GET /me/player"
+    ? json(200, { is_playing:true, progress_ms:70000, device:{ id:"speaker-1" },
+      item:{ id:walkout.trackId, uri:`spotify:track:${walkout.trackId}`, name:"x", artists:[{ name:"y" }], duration_ms:200000,
+        external_urls:{ spotify:"https://open.spotify.com/track/x" }, album:{ images:[] } } })
+    : json(204, null);
+  const calls = await withSpotify(playing, () => world.tournament.alarm());
+  assert.ok(calls.some(call => call.path.startsWith("PUT /me/player/pause")), "the clip ends");
+  assert.equal(walkoutOf(world.tournament.state), null);
+});
+
 test("a win song fades in from silence to the room's level, and fades out before its clip ends", async () => {
   const world = await room();
   const song = { current:null };

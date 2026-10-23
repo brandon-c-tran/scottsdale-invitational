@@ -32,6 +32,7 @@ import {
   MAX_SNAPSHOT_BYTES,
   buildSnapshot,
   isPortableStorageKey,
+  listKeptStorage,
   nextRestoreVersion,
   snapshotSha256,
   validateSnapshot,
@@ -84,6 +85,9 @@ const tokenEncoder = new TextEncoder();
 const STATE_WARN_BYTES = 1.5 * 1024 * 1024;
 const STATE_WARN_EVERY_MS = 60 * 1000;
 const MAX_DEVICE_ID_LENGTH = 200;
+/* a socket message past this is dropped unread (a custom Trivia round, the
+   largest action, is under 10 KB) */
+const MAX_SOCKET_MESSAGE = 512 * 1024;
 const APPLIED_ACTION_LIMIT = 24;
 const validDeviceId = value => typeof value === "string" && value.length > 0
   && value.length <= MAX_DEVICE_ID_LENGTH ? value : null;
@@ -548,9 +552,10 @@ export class Tournament {
     if (!this.capabilities.karaoke) return new Response("Not found", { status:404 });
     if (req.method !== "GET") return spotifyJson({ ok:false, error:"Method not allowed" }, 405);
     const key = this.env.YOUTUBE_API_KEY, fetchImpl = this.youtubeFetch || fetch;
+    const logFailure = (event, error) => console.error(JSON.stringify({ event, reason:error?.reason || error?.detail || null,
+      error:String(error?.message || error).slice(0, 200) }));
     const failed = (event, error) => {
-      console.error(JSON.stringify({ event, reason:error?.reason || error?.detail || null,
-        error:String(error?.message || error).slice(0, 200) }));
+      logFailure(event, error);
       const answer = youtubeFailure(error);
       return spotifyJson({ ok:false, error:answer.error, code:answer.code }, answer.status);
     };
@@ -594,17 +599,26 @@ export class Tournament {
         return spotifyJson({ ok:false, error:"Pick a song first" }, 400);
       const storeKey = `${KARAOKE_KEY_PREFIX}${trackId}`;
       let saved = await this.ctx.storage.get(storeKey);
-      if (!this.karaokeLookupKept(saved)) {
+      /* a lookup LRCLIB could not answer is not kept, but one from the last
+         few minutes answers again instead of spending another search */
+      const recent = this.karaokeLookupKept(saved) ? null : this.karaokeUnkept?.get(trackId);
+      if (recent) saved = recent;
+      else if (!this.karaokeLookupKept(saved)) {
         if (!this.spotifyRateLimit(`karaoke:${authorized.key}`, SNIPPET_LIMIT))
           return spotifyJson({ ok:false, error:"Too many lookups; wait a minute", retryAfter:60 }, 429);
         try {
           saved = await this.karaokeLookup({ trackId, name, artists:[artist], durationMs });
         } catch (error) {
-          /* an answer past its 30 days goes, even when the refresh fails */
-          if (saved && Date.now() - Number(saved.at) > YOUTUBE_KEEP_MS) {
-            try { await this.ctx.storage.delete(storeKey); } catch {}
+          /* a lookup kept before instrumentals were looked for still answers
+             inside its 30 days when the new one cannot be had (YouTube's
+             daily limit); an answer past its 30 days goes */
+          if (!karaokeLookupFresh(saved)) {
+            if (saved && Date.now() - Number(saved.at) > YOUTUBE_KEEP_MS) {
+              try { await this.ctx.storage.delete(storeKey); } catch {}
+            }
+            return failed("karaoke-lookup-failed", error);
           }
-          return failed("karaoke-lookup-failed", error);
+          logFailure("karaoke-lookup-failed", error);
         }
       }
       const lyrics = saved.lyrics === true;
@@ -915,11 +929,11 @@ export class Tournament {
      for whichever comes first. */
   async scheduleAlarm() {
     const times = [];
-    const beat = this.nextAutoBeat();
+    const beat = this.planned("autopilot", () => this.nextAutoBeat());
     if (beat) times.push(Math.max(beat.at, this.autoRetryAt || 0));
     if (this.simActive()) {
       const now = Date.now();
-      const move = simDue(this.state, now, this.simSpent)[0] || simNext(this.state, now, this.simSpent);
+      const move = this.planned("sim", () => simDue(this.state, now, this.simSpent)[0] || simNext(this.state, now, this.simSpent));
       if (move) times.push(Math.max(move.at, this.autoRetryAt || 0));
     }
     const walkout = walkoutOf(this.state);
@@ -936,6 +950,17 @@ export class Tournament {
   nextAutoBeat() {
     const beat = autoBeat(this.state, { showControl:this.capabilities.showControl });
     return beat && beat.key !== this.autoRefused ? beat : null;
+  }
+
+  /* The planners (the autopilot's beat, the simulated room's moves) are
+     pure over the board. One that throws on some board never takes the
+     alarm with it: walkouts still end, and the next write asks again. */
+  planned(kind, plan) {
+    try { return plan(); }
+    catch (error) {
+      console.error(JSON.stringify({ event:`${kind}-plan-failed`, error:String(error?.message || error).slice(0, 200) }));
+      return null;
+    }
   }
 
   /* QA's simulated room plays while its switch is on and QA is available */
@@ -967,9 +992,9 @@ export class Tournament {
     for (let i = 0; i < SIM_WRITES_PER_ALARM; i += 1) {
       const now = Date.now();
       if ((this.autoRetryAt || 0) > now) return;
-      const beat = this.nextAutoBeat();
+      const beat = this.planned("autopilot", () => this.nextAutoBeat());
       const due = beat && beat.at <= now + 25 ? beat : null;
-      const move = this.simActive() ? simDue(this.state, now, this.simSpent)[0] || null : null;
+      const move = this.simActive() ? this.planned("sim", () => simDue(this.state, now, this.simSpent)[0] || null) : null;
       const sim = !!move && (!due || move.at <= due.at);
       const write = sim ? move : due;
       if (!write) return;
@@ -1019,7 +1044,13 @@ export class Tournament {
      song is over (ending a win song's clip on the speaker), then re-arm for
      whatever is still waiting */
   async alarm() {
-    await this.runAutopilot();
+    /* whatever a due write's follow-ups throw, the walkout still ends and
+       the alarm is set again (a failed run retries in 5 s) */
+    try { await this.runAutopilot(); }
+    catch (error) {
+      console.error(JSON.stringify({ event:"autopilot-run-failed", error:String(error?.message || error).slice(0, 300) }));
+      this.autoRetryAt = Date.now() + 5000;
+    }
     const walkout = walkoutOf(this.state);
     if (walkout && Date.now() >= (walkout.auto ? walkout.until - WIN_FADE_OUT_MS : walkout.until)) {
       if (walkout.auto) await this.songQueue(() => this.stopWinSong(walkout, WIN_FADE_OUT_MS));
@@ -1032,7 +1063,11 @@ export class Tournament {
   /* One lane for everything a win song does on the speaker (start and fade
      in, fade out and stop), so a fade never runs over the next song. */
   songQueue(task) {
-    const work = this.songGate = (this.songGate || Promise.resolve()).then(task).catch(() => null);
+    /* a task that throws (Tap on the beat's speaker refusing, say) is logged and the lane goes on */
+    const work = this.songGate = (this.songGate || Promise.resolve()).then(task).catch(error => {
+      console.error(JSON.stringify({ event:"song-lane-failed", error:String(error?.message || error).slice(0, 300) }));
+      return null;
+    });
     try { this.ctx.waitUntil?.(work); } catch {}
     return work;
   }
@@ -1108,10 +1143,13 @@ export class Tournament {
     return stored >= WIN_LEVEL_FLOOR ? stored : WIN_LEVEL_DEFAULT;
   }
 
-  /* A song on a bit's beat (`sync`: { bit, latency, at }) comes in at the
-     room's level with no fade, its request sent at `at` (the speaker made
-     ready before then), and its walkout carries the bit and when the room
-     hears it. */
+  /* A song on a bit's beat (`sync`: { bit, latency, at, pending }) comes in
+     at the room's level with no fade, its request sent at `at` (the speaker
+     made ready before then), and its walkout carries the bit and when the
+     room hears it. Taken back or dropped for a later win while the speaker
+     got ready (pendingSong is no longer this one), it does not play; its
+     moment gone otherwise (a later write ended it), it plays off the beat,
+     as scheduleWinSong does when the moment went before the lane. */
   async startWinSong(song, sync = null) {
     const speaker = await this.spotifySpeaker("");
     let before = null;
@@ -1125,7 +1163,11 @@ export class Tournament {
       try { await this.spotifyVolume(level, device.id || speaker); } catch {}
     }
     if (sync && Number(sync.at) > Date.now()) await this.wait(Math.min(SONG_PLAN_MAX_WAIT_MS, Number(sync.at) - Date.now()));
-    if (sync && !this.songStillOwed(sync)) return;
+    if (sync?.pending && this.pendingSong !== sync.pending) return;
+    if (sync && !this.songStillOwed(sync)) {
+      if (songCueOf(this.state)?.gag === sync.bit) await this.setSongCue(null, "songCueOff");
+      sync = null;
+    }
     const sentAt = Date.now();
     try {
       await this.spotifyPlayOnSpeaker(speaker, { uris:[song.track.uri], position_ms:song.track.startMs || 0 });
@@ -1166,11 +1208,16 @@ export class Tournament {
     }
     const takeBack = !song && WIN_SONG_STOP_ACTIONS.has(type);
     /* the moment this write carries (its bit and window), and a loss's
-       bit that cuts a song still playing (needle scratch) */
-    const moment = this.momentOf(after);
-    if (!takeBack) this.queueSongCut(moment);
+       bit that cuts a song still playing (needle scratch). Read only when
+       a song may meet it or a win song plays: it replays the weekend's
+       moments, a few ms on a late board, after every write. */
+    const cutting = !takeBack && !!walkoutLive(this.state, Date.now())?.auto;
+    const moment = song || cutting ? this.momentOf(after) : null;
+    if (cutting) this.queueSongCut(moment);
     if (!song && !takeBack) return null;
-    if (takeBack) this.pendingSong = null;
+    /* a take-back, or a later win, drops a song waiting for its beat at
+       once, even one whose speaker is already getting ready */
+    if (takeBack || (this.pendingSong && this.pendingSong.key !== song.key)) this.pendingSong = null;
     return this.songQueue(async () => {
       if (await this.ctx.storage.get(SPOTIFY_AUTO_KEY) === false) return;
       const session = await this.ctx.storage.get(SPOTIFY_SESSION_KEY);
@@ -1183,6 +1230,8 @@ export class Tournament {
       }
       if (this.lastWinSong === song.key) return;
       this.lastWinSong = song.key;
+      /* a later win drops an earlier song still waiting for its beat */
+      this.pendingSong = null;
       if (!connected) {
         await this.setSongMiss(song, { code:session?.reauthorize ? "reauthorize" : "not_connected" });
         return;
@@ -1244,15 +1293,18 @@ export class Tournament {
       if (this.pendingSong !== pending) return;
       await this.songQueue(async () => {
         if (this.pendingSong !== pending) return;
-        this.pendingSong = null;
-        if (plan.mode !== "beat") { await this.playWinSong(song); return; }
-        /* the moment gone (taken back, moved): no beat to land on */
-        if (!this.songStillOwed({ bit:moment.id })) {
-          if (songCueOf(this.state)?.gag === moment.id) await this.setSongCue(null, "songCueOff");
-          await this.playWinSong(song);
-          return;
-        }
-        await this.playWinSong(song, { bit:moment.id, latency, at:plan.requestAt });
+        /* still pending while the speaker gets ready, so a take-back or a
+           later win in that time drops it (startWinSong) */
+        try {
+          if (plan.mode !== "beat") { await this.playWinSong(song); return; }
+          /* the moment gone (a later write ended it): no beat to land on */
+          if (!this.songStillOwed({ bit:moment.id })) {
+            if (songCueOf(this.state)?.gag === moment.id) await this.setSongCue(null, "songCueOff");
+            await this.playWinSong(song);
+            return;
+          }
+          await this.playWinSong(song, { bit:moment.id, latency, at:plan.requestAt, pending });
+        } finally { if (this.pendingSong === pending) this.pendingSong = null; }
       });
     })().catch(error => console.error(JSON.stringify({ event:"win-song-schedule-failed",
       error:String(error?.message || error).slice(0, 200) })));
@@ -1579,6 +1631,9 @@ export class Tournament {
       if (!track) return spotifyJson({ ok:false, error:"Save a win song first" }, 409);
       const at = Date.now() + CALIBRATE_LEAD_MS;
       const run = this.songQueue(async () => {
+        /* a win song queued on the lane before this round plays first, and
+           this round never plays over it (or pauses it) */
+        if (walkoutLive(this.state, Date.now()) || this.pendingSong) return;
         const speaker = await this.spotifySpeaker("");
         const wait = at - Date.now();
         if (wait > 0) await this.wait(wait);
@@ -1720,7 +1775,7 @@ export class Tournament {
   }
 
   async createSnapshot() {
-    const entries = this.withInMemoryDefaults(await this.ctx.storage.list());
+    const entries = this.withInMemoryDefaults(await listKeptStorage(this.ctx.storage));
     return buildSnapshot(entries, {
       environment: this.environment,
       applicationVersion: this.env.APP_VERSION || "unknown",
@@ -1729,7 +1784,7 @@ export class Tournament {
   }
 
   async restoreValidatedSnapshot(snapshot, checked) {
-    const current = await this.ctx.storage.list();
+    const current = await listKeptStorage(this.ctx.storage);
     const backupSource = this.withInMemoryDefaults(new Map(current));
     const backup = buildSnapshot(backupSource, {
       environment: this.environment,
@@ -2063,10 +2118,32 @@ export class Tournament {
   }
 
   sendState(ws, extra = {}) {
-    try { ws.send(this.stateFrame(ws, this.serializer(), extra)); } catch {}
+    this.sendFrame(ws, this.serializer(), extra);
+  }
+
+  /* One socket's state frame. A frame that cannot be built (a projection
+     that throws) is logged, at most once in 10 s, rather than lost with a
+     closed socket's send error: every screen would freeze on it. */
+  sendFrame(ws, serialize, extra = {}, shared = null) {
+    let frame;
+    try { frame = this.stateFrame(ws, serialize, extra, shared); }
+    catch (error) {
+      const now = Date.now();
+      if (!(now - (this.frameFailedAt || 0) < 10000)) {
+        this.frameFailedAt = now;
+        console.error(JSON.stringify({ event:"frame-failed", action:extra?.lastAction || null,
+          error:String(error?.stack || error?.message || error).slice(0, 500) }));
+      }
+      return false;
+    }
+    try { ws.send(frame); return true; } catch { return false; }
   }
 
   async webSocketMessage(ws, raw) {
+    /* the largest action a screen sends is a few KB; a message the size the
+       platform allows (32 MiB) would be parsed on the one thread every
+       screen waits on */
+    if ((typeof raw === "string" ? raw.length : Number(raw?.byteLength) || 0) > MAX_SOCKET_MESSAGE) return;
     let msg;
     try { msg = JSON.parse(raw); } catch { return; }
     if (!msg || typeof msg !== "object" || Array.isArray(msg)) return;
@@ -2185,7 +2262,7 @@ export class Tournament {
         const serialize = this.serializer();
         for (const socket of this.ctx.getWebSockets?.() || []) {
           if (this.socketMeta(socket).deviceId !== deviceId) continue;
-          try { socket.send(this.stateFrame(socket, serialize)); } catch {}
+          this.sendFrame(socket, serialize);
         }
       }
       /* A returning guest in a new browser or reinstalled app already has
@@ -2265,7 +2342,7 @@ export class Tournament {
        socket. Each frame carries the applied id. */
     const serialize = this.serializer();
     const shared = { environment:this.environment, capabilities:this.capabilities };
-    try { ws.send(this.stateFrame(ws, serialize, { lastAction:type }, shared)); } catch {}
+    this.sendFrame(ws, serialize, { lastAction:type }, shared);
     const extra = { ...(result.extra || {}), ...(persisted || {}) };
     reply({ ...result, ...(Object.keys(extra).length ? { extra } : {}), version: this.version });
     this.broadcastState(type, { serialize, shared, skip:ws });
@@ -2371,6 +2448,9 @@ export class Tournament {
     const { videos } = await findBackingVideos(song, this.env.YOUTUBE_API_KEY, this.youtubeFetch || fetch, { lyrics });
     const saved = { videos, lyrics:await lyrics, at:Date.now(), v:KARAOKE_LOOKUP_V };
     if (!lyricsFailed) await this.ctx.storage.put(`${KARAOKE_KEY_PREFIX}${song.trackId}`, saved);
+    /* not kept, but held in memory a few minutes (the route's next ask for
+       this song spends no search); a song's plan never reads it */
+    else (this.karaokeUnkept ||= previewCache()).set(song.trackId, saved);
     return saved;
   }
   /* What the room would play for a saved song: { lines, upgrade } (an
@@ -2624,7 +2704,7 @@ export class Tournament {
   } = {}) {
     for (const ws of this.ctx.getWebSockets?.() || []) {
       if (ws === skip) continue;
-      try { ws.send(this.stateFrame(ws, serialize, { lastAction }, shared)); } catch {}
+      this.sendFrame(ws, serialize, { lastAction }, shared);
     }
   }
 

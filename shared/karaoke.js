@@ -123,7 +123,7 @@ export function cleanKaraokeVideo(input) {
 const KIND_KARAOKE = /\b(?:karaoke|lyrics?|sing[ -]?along)\b/i;
 const KIND_INSTRUMENTAL = /\b(?:instrumental|backing[ -]?track|no vocals?|without vocals?|minus[ -]?one|vocals? removed|accompaniment)\b/i;
 export function karaokeVideoKind(video, name = "") {
-  const own = String(name || "").split(/s+-s+|s*[([]/)[0].trim().toLowerCase();
+  const own = String(name || "").split(/\s+-\s+|\s*[([]/)[0].trim().toLowerCase();
   const title = own.length >= 3 ? String(video?.title || "").toLowerCase().split(own).join(" ") : String(video?.title || "");
   if (KIND_KARAOKE.test(title)) return "karaoke";
   return KIND_INSTRUMENTAL.test(title) ? "instrumental" : "other";

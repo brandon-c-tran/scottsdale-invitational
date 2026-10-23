@@ -28,6 +28,27 @@ function isPortableStorageKey(key) {
     && !INTERNAL_BACKUP_PREFIXES.some(prefix => key.startsWith(prefix));
 }
 
+/* The prefixes a snapshot never keeps, by the bytes keys sort by. Reading
+   storage for a snapshot or a backup skips them by range: a full list()
+   would load the photo desk (up to 150 MB), the Where and When and Trivia
+   photos, every private cache and the last backup into memory at once. */
+const UNKEPT_PREFIXES = Object.freeze([...INTERNAL_BACKUP_PREFIXES, "moment:", "private:"].sort());
+const prefixEnd = prefix => `${prefix.slice(0, -1)}${String.fromCharCode(prefix.charCodeAt(prefix.length - 1) + 1)}`;
+const KEPT_RANGES = Object.freeze(UNKEPT_PREFIXES.reduce((ranges, prefix) => {
+  ranges[ranges.length - 1].end = prefix;
+  ranges.push({ start:prefixEnd(prefix) });
+  return ranges;
+}, [{}]).map(range => Object.freeze(range)));
+
+/* Every stored key a snapshot might keep, with its value (a superset of
+   the portable keys: buildSnapshot still filters). */
+async function listKeptStorage(storage) {
+  const out = new Map();
+  for (const range of KEPT_RANGES)
+    for (const [key, value] of await storage.list({ ...range })) out.set(key, value);
+  return out;
+}
+
 function storageEntryList(entries) {
   if (entries instanceof Map) return [...entries.entries()];
   if (Array.isArray(entries)) {
@@ -207,7 +228,9 @@ export {
   INTERNAL_BACKUP_PREFIX,
   INTERNAL_RESET_BACKUP_PREFIX,
   MAX_SNAPSHOT_BYTES,
+  KEPT_RANGES,
   isPortableStorageKey,
+  listKeptStorage,
   portableEntries,
   buildSnapshot,
   validateSnapshot,

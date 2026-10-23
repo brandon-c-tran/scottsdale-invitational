@@ -14,7 +14,9 @@ import { EMPTY_STATE, ROSTER, RESET_PROGRESS_CONFIRMATION, allEventsOf, computeS
 import { applyAction } from "./support/confirmed-start.mjs";
 import { Tournament } from "../worker/tournament.js";
 import { publicState } from "../worker/publicState.js";
-import { isPortableStorageKey, validateSnapshot, INTERNAL_RESET_BACKUP_PREFIX } from "../worker/snapshot.js";
+import {
+  INTERNAL_BACKUP_PREFIX, INTERNAL_RESET_BACKUP_PREFIX, KEPT_RANGES, isPortableStorageKey, validateSnapshot,
+} from "../worker/snapshot.js";
 import {
   MOMENT_INDEX_KEY, MOMENT_LIMITS, admitMoment, clampTakenAt, cleanMomentIndex, jpegInfo, momentFullKey,
   momentThumbKey, publicMoments, stripJpegMetadata,
@@ -328,6 +330,53 @@ test("photos stay out of snapshots and backups, and survive a restore and a rese
   const bytes = await desk.call(`/api/admin/moments/${id}`, { gm:true });
   assert.equal(bytes.status, 200);
   assert.equal(bytes.headers.get("Cache-Control"), "no-store");
+});
+
+/* storage.list() as the Durable Object answers it: keys in byte order, a
+   start inclusive, an end exclusive */
+const rangedList = entries => async ({ prefix = "", start, end } = {}) => new Map([...entries]
+  .filter(([key]) => key.startsWith(prefix) && (start === undefined || key >= start) && (end === undefined || key < end))
+  .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)).map(([key, value]) => [key, structuredClone(value)]));
+
+test("the ranges a snapshot reads are every key but the photos, private keys and backups", () => {
+  const unkept = [INTERNAL_BACKUP_PREFIX, INTERNAL_RESET_BACKUP_PREFIX, "moment:", "private:"];
+  /* the range math holds only while no skipped prefix starts another */
+  for (const prefix of unkept)
+    assert.ok(!unkept.some(other => other !== prefix && other.startsWith(prefix)), `${prefix} nests another`);
+  const keys = ["a", "claims", "gmToken", "m1", "m1:other", "m1:pre-reset", `${INTERNAL_RESET_BACKUP_PREFIX}1:manifest`,
+    "m1:pre-reset;", `${INTERNAL_BACKUP_PREFIX}2:entry:0`, "m1:pre-restore;x", "moment", "moment:index", "moment:geo:g1",
+    "moment;", "momentary", "photo:Evan", "private", "private:spotify:session", "private;", "privates", "request:x",
+    "state", "version", "wagerOps", "zzz"];
+  const inRanges = key => KEPT_RANGES.some(({ start, end }) => (start === undefined || key >= start) && (end === undefined || key < end));
+  for (const key of keys)
+    assert.equal(inRanges(key), !unkept.some(prefix => key.startsWith(prefix)), key);
+  for (const key of keys.filter(isPortableStorageKey)) assert.ok(inRanges(key), `${key} is read`);
+});
+
+test("a snapshot or a reset's backup never reads the photos, private keys or older backups it leaves out", async () => {
+  const desk = await deskWith();
+  await desk.upload("alex");
+  desk.memory.entries.set("moment:geo:g1abcdef", new Uint8Array(64));
+  desk.memory.entries.set("private:karaoke:abc", { videos:[] });
+  desk.memory.entries.set(`${INTERNAL_BACKUP_PREFIX}1:manifest`, { entries:[] });
+  const read = [];
+  const list = rangedList(desk.memory.entries);
+  desk.tournament.ctx.storage.list = async options => {
+    const out = await list(options);
+    read.push(...out.keys());
+    return out;
+  };
+  const skipped = key => key.startsWith("moment:") || key.startsWith("private:") || key.startsWith(INTERNAL_BACKUP_PREFIX);
+  const snapshot = await desk.tournament.createSnapshot();
+  assert.deepEqual(read.filter(skipped), [], "nothing it leaves out is read");
+  /* (a fresh object's state and version come from memory) */
+  const kept = new Set([...desk.memory.entries.keys()].filter(isPortableStorageKey).concat("state", "version", "claims"));
+  assert.deepEqual(snapshot.entries.map(entry => entry.key), [...kept].sort((a, b) => a.localeCompare(b)),
+    "every key it keeps is there");
+  read.length = 0;
+  const reset = await desk.say("gm", "resetTournament", { confirm:RESET_PROGRESS_CONFIRMATION }, { asGm:true });
+  assert.equal(reset.ok, true, reset.error);
+  assert.deepEqual(read.filter(skipped), [], "the reset's backup reads none of them either");
 });
 
 /* ── the pure model ── */

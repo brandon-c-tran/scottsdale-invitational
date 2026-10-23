@@ -261,6 +261,19 @@ test("a socket stays bound to the device that said hello", async () => {
   assert.equal(revived.state.profiles[ALEX].display, "Alex Two");
 });
 
+test("a socket message past 512 KB is dropped unread; a normal one still lands", async () => {
+  const { tournament, sockets } = await weekendScene();
+  const version = tournament.version;
+  const frames = sockets.alex.frames.length;
+  const huge = JSON.stringify({ actionId:"huge", type:"saveProfile", deviceId:devices.alex,
+    payload:{ player:ALEX, display:"Alex Big", pad:"x".repeat(600 * 1024) } });
+  await tournament.webSocketMessage(sockets.alex, huge);
+  assert.equal(sockets.alex.frames.length, frames, "no ack, no frame");
+  assert.equal(tournament.version, version, "nothing written");
+  const fine = await say(tournament, sockets.alex, devices.alex, { type:"saveProfile", payload:{ player:ALEX, display:"Alex Fine" } });
+  assert.equal(ackFor(sockets.alex, fine).ok, true);
+});
+
 test("a returning guest in a cleared browser claims straight to Home", async () => {
   const { memory, tournament } = await weekendScene();
   /* cleared localStorage: a brand new device id and no check-in marker */

@@ -201,7 +201,6 @@ export function SpeakerSheet({ state, onClose, onBack, notify }) {
               <strong>{status.account?.displayName || "Spotify"}</strong>
               {status.premium === false && <small className="is-warn">Needs Spotify Premium</small>}
             </span>
-            <ActionButton variant="destructive" compact disabled={!!busy} onClick={disconnect}>Disconnect</ActionButton>
           </div>
           <div className="fd-speaker-pick">
             <span className="fd-speaker-pick-glyph" aria-hidden="true"><Icon name="sound" size={20} /></span>
@@ -266,6 +265,11 @@ export function SpeakerSheet({ state, onClose, onBack, notify }) {
           </div>}
           <p className="fd-speaker-credit">Results and artwork from Spotify</p>
         </section>
+
+        {/* rare and destructive, so last (the One Menu Rule); its confirm names it */}
+        <MenuGroup>
+          <MenuRow name="Disconnect Spotify" tone="destructive" chevron={false} disabled={!!busy} onClick={disconnect} />
+        </MenuGroup>
       </>}
 
       {error && <div role="alert" className="fd-speaker-error">{error}</div>}

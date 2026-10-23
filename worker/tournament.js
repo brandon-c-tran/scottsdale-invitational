@@ -595,7 +595,11 @@ export class Tournament {
         return spotifyJson({ ok:false, error:"Pick a song first" }, 400);
       const storeKey = `${KARAOKE_KEY_PREFIX}${trackId}`;
       let saved = await this.ctx.storage.get(storeKey);
-      if (!this.karaokeLookupKept(saved)) {
+      /* a lookup LRCLIB could not answer is not kept, but one from the last
+         few minutes answers again instead of spending another search */
+      const recent = this.karaokeLookupKept(saved) ? null : this.karaokeUnkept?.get(trackId);
+      if (recent) saved = recent;
+      else if (!this.karaokeLookupKept(saved)) {
         if (!this.spotifyRateLimit(`karaoke:${authorized.key}`, SNIPPET_LIMIT))
           return spotifyJson({ ok:false, error:"Too many lookups; wait a minute", retryAfter:60 }, 429);
         try {
@@ -2377,6 +2381,9 @@ export class Tournament {
     const { videos } = await findBackingVideos(song, this.env.YOUTUBE_API_KEY, this.youtubeFetch || fetch, { lyrics });
     const saved = { videos, lyrics:await lyrics, at:Date.now(), v:KARAOKE_LOOKUP_V };
     if (!lyricsFailed) await this.ctx.storage.put(`${KARAOKE_KEY_PREFIX}${song.trackId}`, saved);
+    /* not kept, but held in memory a few minutes (the route's next ask for
+       this song spends no search); a song's plan never reads it */
+    else (this.karaokeUnkept ||= previewCache()).set(song.trackId, saved);
     return saved;
   }
   /* What the room would play for a saved song: { lines, upgrade } (an

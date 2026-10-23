@@ -29,6 +29,7 @@ import {
   INSTRUMENTAL_MATCH_MS, backingQuery, chooseBacking, chooseInstrumentals, findBackingVideos, instrumentalProblem,
 } from "../worker/karaokeVideos.js";
 import { LYRICS_USER_AGENT, chooseLyrics, findLyrics, lyricsFresh, lyricsKey } from "../worker/lyrics.js";
+import { PREVIEW_TTL_MS, previewCache } from "../worker/previews.js";
 import { publicState } from "../worker/publicState.js";
 import { Tournament } from "../worker/tournament.js";
 import { nudgeText, nudged, karaokeDeskRows } from "../src/features/karaoke/deskModel.js";
@@ -551,6 +552,28 @@ test("LRCLIB down: the lookup still answers but is not kept, and the song's lyri
   assert.equal(answer.lyrics, false);
   assert.equal(memory.entries.has(`private:karaoke:${TRACK_ID}`), false);
   assert.equal(memory.entries.has(lyricsKey(TRACK_ID)), false);
+});
+
+test("LRCLIB down: asking again for the same song minutes later spends no search; past a few minutes it looks again", async () => {
+  const { tournament, memory } = await room();
+  let clock = Date.now();
+  tournament.karaokeUnkept = previewCache(() => clock);
+  let lyricAsks = 0, searches = 0;
+  tournament.lyricsFetch = async () => { lyricAsks += 1; return new Response("", { status:503 }); };
+  tournament.youtubeFetch = async url => {
+    if (String(url).includes("/search?")) { searches += 1; return reply({ items:[{ id:{ videoId:"stingray001" } }] }); }
+    return reply({ items:[item("stingray001", "Journey - Don't Stop Believin' (Karaoke Version)")] });
+  };
+  const first = await (await get(tournament, lookup)).json();
+  const spent = searches;
+  assert.ok(spent >= 1);
+  for (let ask = 0; ask < 3; ask += 1) assert.deepEqual(await (await get(tournament, lookup)).json(), first);
+  assert.equal(searches, spent, "the same song again: no search");
+  assert.equal(memory.entries.has(`private:karaoke:${TRACK_ID}`), false, "still never kept");
+  clock += PREVIEW_TTL_MS + 1000;
+  await get(tournament, lookup);
+  assert.ok(searches > spent, "a few minutes on, it looks again");
+  assert.equal(lyricAsks, 2, "and asks LRCLIB again");
 });
 
 test("a song saved: its lyrics' word is the kept answer's, read before the write", async () => {

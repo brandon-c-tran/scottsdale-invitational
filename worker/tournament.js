@@ -1205,9 +1205,12 @@ export class Tournament {
     }
     const takeBack = !song && WIN_SONG_STOP_ACTIONS.has(type);
     /* the moment this write carries (its bit and window), and a loss's
-       bit that cuts a song still playing (needle scratch) */
-    const moment = this.momentOf(after);
-    if (!takeBack) this.queueSongCut(moment);
+       bit that cuts a song still playing (needle scratch). Read only when
+       a song may meet it or a win song plays: it replays the weekend's
+       moments, a few ms on a late board, after every write. */
+    const cutting = !takeBack && !!walkoutLive(this.state, Date.now())?.auto;
+    const moment = song || cutting ? this.momentOf(after) : null;
+    if (cutting) this.queueSongCut(moment);
     if (!song && !takeBack) return null;
     /* a take-back, or a later win, drops a song waiting for its beat at
        once, even one whose speaker is already getting ready */

@@ -337,6 +337,25 @@ test("the Worker: a take-back while the song waits for its beat drops it and cle
   assert.equal(walkoutOf(world.tournament.state), null);
 });
 
+test("the Worker: a write with no win and no win song playing never reads the moment", async () => {
+  const world = await room();
+  let reads = 0;
+  world.tournament.momentOf = () => { reads += 1; return null; };
+  await withSpotify(() => json(204, null), async () => {
+    await world.say("announceEvent", { evId:"8ball" });
+    const first = world.current();
+    await world.say("lockAndStart", { evId:"8ball", contestId:first.id, contestRevision:first.revision });
+    assert.equal(reads, 0, "announcing and locking read no moment");
+    await world.say("recordContestWinner", { evId:"8ball", contestId:first.id, contestRevision:first.revision,
+      winner:first.sides[0].key });
+    await world.settle();
+    assert.equal(reads, 1, "a win reads its moment");
+    const next = world.current();
+    await world.say("lockAndStart", { evId:"8ball", contestId:next.id, contestRevision:next.revision });
+    assert.equal(reads, 2, "with its song playing, the next write reads one (a loss's bit may cut it)");
+  });
+});
+
 /* the song waits twice: off the lane until a little before its beat, then
    on the lane while the speaker gets ready; `during` runs in the second */
 async function beatSong(world, during) {

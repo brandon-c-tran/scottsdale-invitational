@@ -376,6 +376,38 @@ async function openSheet(kind) {
     return tap(() => [...document.querySelectorAll("[role=dialog] .fd-menu-row")].find(b => visible(b)
       && b.querySelector(".fd-menu-name")?.textContent.trim() === name));
   }
+  /* the rest of the commissioner's sheets, each from its menu row (the
+     desks, the devices, the confirms the Now section opens) */
+  const GM_ROWS = { "desk-geo":"Where and When", "desk-awards":"Awards", "desk-trivia":"Trivia", "gm-devices":"Commissioner devices",
+    "gm-logistics":"Trip details", "gm-reset":"Reset game progress", "gm-crown":"Crown the champion", "gm-takeback":/^Take back /,
+    "gm-unfreeze":"Unfreeze board", "gm-locker":"Back to the locker room" };
+  if (GM_ROWS[kind]) {
+    const opened = await tap(() => [...document.querySelectorAll("header button[aria-label='Commissioner']")].find(visible));
+    if (!opened) return false;
+    await sleep(600);
+    const want = GM_ROWS[kind];
+    const ok = await tap(() => [...document.querySelectorAll("[role=dialog] .fd-menu-row")].find(b => {
+      const text = b.querySelector(".fd-menu-name")?.textContent.trim() || "";
+      return visible(b) && (want instanceof RegExp ? want.test(text) : text === want);
+    }));
+    await sleep(900);
+    return ok && document.querySelectorAll("[role=dialog]").length > 0;
+  }
+  /* the pill's own sheet: whatever its beat opens (Enter result, Deal,
+     Post the counts, Crown); `pill-placed` also seats the field's first
+     three in 1st, 2nd and 3rd */
+  if (kind === "pill" || kind === "pill-placed") {
+    const ok = await tap(() => document.querySelector(".fd-director-pill"));
+    await sleep(900);
+    if (!ok || !document.querySelector("[role=dialog]")) return false;
+    if (kind === "pill") return true;
+    for (let i = 0; i < 3; i++) {
+      await tap(() => [...document.querySelectorAll("[role=dialog] .fd-pp-field button")].find(b => visible(b) && !b.disabled
+        && !b.closest("[data-placed]") && b.getAttribute("aria-pressed") !== "true"));
+      await sleep(450);
+    }
+    return true;
+  }
   /* Scan the TV: the scanner over a stand-in camera (a canvas stream of a
      room, the TV's code on it for "scan-success"), or a camera the phone
      refused ("scan-denied") */

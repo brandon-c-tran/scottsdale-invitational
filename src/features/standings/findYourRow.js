@@ -7,6 +7,9 @@ import { prefersReducedMotion } from "../../lib/motion.js";
    screen, then flashes it once. Returns a promise of whether it found it. */
 const ROW = ".fd-home .fd-standings-list > li.is-you";
 const FLASH_MS = 1600;
+/* one flash at a time: a second tap restarts it, and the first tap's timer
+   must not cut the second short */
+let flashTimer = 0;
 
 /* where the row sits in the list's flow, in page coordinates: under the row
    before it, or at the list's top when it leads */
@@ -31,10 +34,11 @@ export function findYourRow({ frames = 30 } = {}) {
       const height = row.getBoundingClientRect().height;
       const top = Math.max(0, naturalTop(row) - (window.innerHeight - height) / 2);
       window.scrollTo({ top, behavior:reduced ? "auto" : "smooth" });
+      clearTimeout(flashTimer);
       row.removeAttribute("data-flash");
       void row.offsetWidth;
       row.setAttribute("data-flash", "");
-      setTimeout(() => row.removeAttribute("data-flash"), FLASH_MS);
+      flashTimer = setTimeout(() => row.removeAttribute("data-flash"), FLASH_MS);
       resolve(true);
     };
     look();

@@ -319,3 +319,9 @@ test("a team of three or more is named, never a roll call", async () => {
   assert.equal(vsNames(state, ROSTER.slice(0, 2), "bball5"), `${ROSTER[0]} & ${ROSTER[1]}`, "a pair still reads by name");
   assert.equal(vsNames(state, ROSTER.slice(0, 7), "nope"), "7 players");
 });
+
+test("your row's flash: a second tap restarts it and the first tap's timer never cuts it short", () => {
+  const find = readFileSync(new URL("../src/features/standings/findYourRow.js", import.meta.url), "utf8");
+  assert.match(find, /clearTimeout\(flashTimer\);\s*row\.removeAttribute\("data-flash"\);/);
+  assert.match(find, /flashTimer = setTimeout\(\(\) => row\.removeAttribute\("data-flash"\), FLASH_MS\);/);
+});

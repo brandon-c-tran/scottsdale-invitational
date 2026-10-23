@@ -139,8 +139,12 @@
 .fd-wagers-team-players .fd-wagers-pair-name { display:block; width:auto; max-width:none; overflow:visible; text-overflow:clip; white-space:nowrap;
   font:900 22px/1.15 var(--fd-show); letter-spacing:.01em; text-align:center;
   font-size:clamp(15px, calc((100cqi - 4px) / (var(--fd-name-ch, 6) * .45)), 22px); }
-.fd-wagers-team-players.is-pair > button:not(:disabled):hover .fd-wagers-pair-name { text-decoration:underline; text-underline-offset:3px; text-decoration-thickness:1px; }
-.fd-wagers-player:not(:disabled):hover .fd-wagers-player-name { text-decoration:underline; text-underline-offset:3px; text-decoration-thickness:1px; }
+/* hover only where a pointer hovers: a phone keeps :hover on whatever was
+   last tapped, so these would stick after the tap */
+@media (hover:hover) and (pointer:fine) {
+  .fd-wagers-team-players.is-pair > button:not(:disabled):hover .fd-wagers-pair-name { text-decoration:underline; text-underline-offset:3px; text-decoration-thickness:1px; }
+  .fd-wagers-player:not(:disabled):hover .fd-wagers-player-name { text-decoration:underline; text-underline-offset:3px; text-decoration-thickness:1px; }
+}
 .fd-wagers-player:disabled, .fd-wagers-team-players > button:disabled { cursor:default; }
 /* a one-line board: the name and its win line share the player's row */
 .fd-wagers-player-text { display:flex; flex-direction:column; gap:2px; min-width:0; }
@@ -155,7 +159,7 @@
 .fd-wagers-team-players > button { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; min-width:0; min-height:44px; padding:0;
   border:0; background:none; border-radius:8px; color:var(--ink); cursor:pointer; }
 .fd-wagers-team-players > button > span { display:block; width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font:600 12px/1.35 var(--fd-body); text-align:center; }
-.fd-wagers-team-players > button:not(:disabled):hover { background:var(--ink-tint); }
+@media (hover:hover) and (pointer:fine) { .fd-wagers-team-players > button:not(:disabled):hover { background:var(--ink-tint); } }
 .fd-wagers-win-slot { height:24px; min-width:0; }
 /* the win line, drawn (BetWin): "Win", the climbers' faces when they are
    not the whole side, an up arrow and the place, or the chips; every part
@@ -200,7 +204,7 @@
 /* a stack: the chips standing on the cloth, the amount under them */
 .fd-wagers-stack { display:flex; flex-direction:column; align-items:center; justify-content:flex-end; gap:4px; min-width:44px; min-height:44px;
   padding:0 0 2px; border:0; border-radius:8px; background:transparent; color:var(--ink); cursor:pointer; -webkit-tap-highlight-color:transparent; }
-.fd-wagers-stack:not(:disabled):hover { background:var(--ink-tint); }
+@media (hover:hover) and (pointer:fine) { .fd-wagers-stack:not(:disabled):hover { background:var(--ink-tint); } }
 .fd-wagers-stack:disabled { cursor:default; }
 .fd-wagers-stack:focus-visible { outline:2px solid var(--lamp-info); outline-offset:-2px; }
 .fd-wagers-stack .fd-stacks-value { font-size:12px; color:var(--sun); }
@@ -224,7 +228,7 @@
   font-variant-numeric:tabular-nums; white-space:nowrap; }
 .fd-wagers-well.is-lit .fd-wagers-well-ring { border-style:solid; border-color:var(--sun); color:var(--sun); background:var(--sun-tint); }
 .fd-wagers-well.is-lit .fd-wagers-well-value { color:var(--sun); }
-.fd-wagers-well:not(:disabled):hover .fd-wagers-well-ring { border-color:var(--sun); }
+@media (hover:hover) and (pointer:fine) { .fd-wagers-well:not(:disabled):hover .fd-wagers-well-ring { border-color:var(--sun); } }
 .fd-wagers-well:not(:disabled):active .fd-wagers-well-ring, .fd-wagers-open:not(:disabled):active .fd-wagers-well-ring,
 .fd-wagers-pick.is-pending-place .fd-wagers-well-ring { border-style:solid; border-color:var(--sun); background:var(--sun); color:var(--ink0); transform:scale(.94); }
 .fd-wagers-pick.is-pending-place .fd-wagers-well-ring { animation:fd-chip-pending .7s ease-in-out infinite alternate; }
@@ -267,7 +271,7 @@
 .fd-wagers-backer { display:grid; grid-template-columns:32px minmax(0,1fr) auto; align-items:center; column-gap:8px; width:100%;
   min-height:44px; padding:4px; border:0; border-radius:8px; background:none; color:var(--ink); text-align:left; cursor:pointer; }
 .fd-wagers-backer:disabled { cursor:default; }
-.fd-wagers-backer:not(:disabled):hover { background:var(--ink-tint); }
+@media (hover:hover) and (pointer:fine) { .fd-wagers-backer:not(:disabled):hover { background:var(--ink-tint); } }
 .fd-wagers-backer-name { min-width:0; font:600 14px/1.25 var(--fd-body); color:var(--muted2); overflow-wrap:anywhere; }
 .fd-wagers-backer-amount { font:800 15px/1.15 var(--fd-display); letter-spacing:.02em; color:var(--sun); font-variant-numeric:tabular-nums; text-align:right; }
 /* your own row: lit in your filament; a tap takes your last chip back */
@@ -299,7 +303,7 @@
 .fd-wagers-row-stacks { display:flex; align-items:center; gap:4px; min-width:0; }
 .fd-wagers-pot-you, .fd-wagers-row-backers { display:inline-flex; align-items:flex-end; gap:4px; min-width:44px; height:52px; padding:0 4px 4px;
   border:0; border-radius:8px; background:none; color:var(--ink); line-height:0; cursor:pointer; -webkit-tap-highlight-color:transparent; }
-.fd-wagers-pot-you:not(:disabled):hover, .fd-wagers-row-backers:hover { background:var(--ink-tint); }
+@media (hover:hover) and (pointer:fine) { .fd-wagers-pot-you:not(:disabled):hover, .fd-wagers-row-backers:hover { background:var(--ink-tint); } }
 .fd-wagers-pot-you:disabled { cursor:default; }
 .fd-wagers-pot-you > span:last-child { font:800 15px/1 var(--fd-display); color:var(--you); font-variant-numeric:tabular-nums; padding-bottom:2px; }
 .fd-wagers-pot-you:focus-visible, .fd-wagers-row-backers:focus-visible { outline:2px solid var(--lamp-info); outline-offset:-2px; }
@@ -379,7 +383,7 @@
 .fd-wagers-line-copy { flex:1; min-width:0; }
 .fd-wagers-line-bettor { display:flex; align-items:center; flex-wrap:wrap; gap:0 8px; color:var(--muted2); font-size:14px; line-height:1.45; margin-bottom:2px; }
 .fd-wagers-line-bettor > button { display:inline-block; min-width:44px; min-height:44px; border:0; padding:0 4px 0 0; background:none; color:var(--ink); font-weight:600; cursor:pointer; text-align:left; }
-.fd-wagers-line-bettor > button:not(:disabled):hover { text-decoration:underline; }
+@media (hover:hover) and (pointer:fine) { .fd-wagers-line-bettor > button:not(:disabled):hover { text-decoration:underline; } }
 .fd-wagers-line-bettor > span { color:var(--sun); font:800 15px/1 var(--fd-display); white-space:nowrap; }
 .fd-wagers-line-copy > strong { display:block; font-size:15px; line-height:1.35; overflow-wrap:anywhere; }
 .fd-wagers-line-context { display:block; color:var(--muted2); font-size:14px; line-height:1.5; margin-top:4px; overflow-wrap:anywhere; }

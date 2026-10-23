@@ -257,7 +257,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
 .fd-event-payouts small { font:700 12px/1.2 var(--fd-display); text-transform:uppercase; letter-spacing:.06em; color:var(--muted2); }
 .fd-player-link { display:inline-flex; align-items:center; gap:6px; min-height:44px; min-width:44px; padding:4px 6px;
   border:0; border-radius:6px; background:transparent; color:var(--ink); font:inherit; cursor:pointer; text-align:left; }
-.fd-player-link:hover { background:var(--ink-tint); }
+@media (hover:hover) and (pointer:fine) { .fd-player-link:hover { background:var(--ink-tint); } }
 .fd-player-links { display:flex; flex-wrap:wrap; min-width:0; gap:2px; }
 .fd-player-links .fd-player-link { max-width:100%; padding:2px; font-size:13px; }
 .fd-player-links .fd-player-link span { min-width:0; overflow-wrap:anywhere; }

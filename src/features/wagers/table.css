@@ -49,8 +49,10 @@
 .fd-spot-face { display:inline-flex; margin:0; padding:2px; border:0; border-radius:99px; background:none; cursor:pointer; }
 .fd-spot-face:disabled { cursor:default; }
 .fd-spot-face:focus-visible { outline:2px solid var(--lamp-info); outline-offset:1px; }
-.fd-spot-name { display:block; max-width:100%; color:var(--ink); font:900 19px/1.05 var(--fd-show);
-  letter-spacing:.01em; text-transform:uppercase; overflow-wrap:anywhere; text-wrap:balance; }
+/* a name is lettered as written (DESIGN: The Names Are Lettered Rule, as on
+   the TV's table); its line box holds the descenders a second line meets */
+.fd-spot-name { display:block; max-width:100%; color:var(--ink); font:900 19px/1.15 var(--fd-show);
+  letter-spacing:.01em; overflow-wrap:anywhere; text-wrap:balance; }
 .fd-spot.is-row .fd-spot-name { font-size:14px; }
 
 /* X8: the side's win line, one row on every spot of a board once any side has one */

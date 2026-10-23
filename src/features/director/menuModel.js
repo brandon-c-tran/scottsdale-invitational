@@ -17,8 +17,10 @@ const section = (id, title, icon, items, extra = {}) => ({ id, title, icon, item
 /* f: what the App knows. Missing flags read as off. */
 export function moreMenu(f = {}) {
   return [
+    /* every row carries its glyph, so the labels stand in one column (the
+       section's head is your face) */
     section("you", "You", "person", [
-      { id:"profile", name:"Your profile" },
+      { id:"profile", name:"Your profile", icon:"person" },
     ]),
     section("weekend", "Weekend", "weekend", [
       { id:"trip", name:"Trip details", icon:"house" },

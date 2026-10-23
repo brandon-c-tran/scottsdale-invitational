@@ -1405,6 +1405,14 @@ export const PHONE_SCENARIOS = Object.freeze([
   { id:"gm-draft", build:() => fresh("session:fri"), viewer:"gm", tabs:[], sheets:["pill-draft"], sheetSizes:["375"] },
   /* mid-weekend: the commissioner's standings (its Adjust per row) and a ruling */
   { id:"gm-rulings", build:() => fresh("session:fri"), viewer:"gm", tabs:[], sheets:["gm-standings", "gm-adjust"] },
+  /* the dock's other states: the room's TV muted (its line in the pill), and
+     the autopilot paused (the pause lamp on the verb, Resume in the tray) */
+  { id:"gm-dock-muted", build:() => fresh("event:putt:open"), viewer:"gm", tvs:[{ ageMs:1000, sound:"blocked" }], tabs:["home"] },
+  { id:"gm-dock-held", build:() => {
+    const state = fresh("event:putt:open");
+    act(state, "setAutopilot", { hold:true });
+    return state;
+  }, viewer:"gm", tabs:["home"], sheets:["pill-more"], sheetSizes:["375"] },
   { id:"gm-qa", build:() => fresh("event:putt:open"), viewer:"gm", qa:true, tabs:["home", "bets"], sheets:["qa", "pill-more"] },
   /* the console before the weekend (Jump to opens on the first event) */
   { id:"gm-qa-locker", build:() => fresh("locker"), viewer:"gm", qa:true, tabs:[], sheets:["qa"] },

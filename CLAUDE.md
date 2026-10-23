@@ -1164,8 +1164,16 @@ font, and its records seeds moved with the pool. 1445 tests, the 700-view
 fit audit and the local e2e (142 of 142) pass. STAGING as
 `41ff42f5-e8ae-45e3-8c46-908ab72eff1a` (build `8505197`); roll staging back
 to the Oct 15 queue with `npx wrangler rollback
-c8f793b0-5e81-4d49-9d7f-612ac2b9dc05 --env staging`. Production's active
-deployment is still v6 as `a50fd1a2-ffad-46ad-9d42-3eb5f2e3479d`.
+c8f793b0-5e81-4d49-9d7f-612ac2b9dc05 --env staging`.
+**v7** (tag `v7`, commit `6ef5835` on `night/oct22`, local `master`
+fast-forwarded to it; `APP_VERSION` "v7"): the Oct 15 queue and the Oct 22-23
+polish pass, on PRODUCTION as `12ec2813-5f98-4481-8410-e3a432825fec` (Oct 23,
+at Brandon's call, no snapshot at his word). Smoke passed: the production
+launch screens and title, the phone booting to check-in and TV mode on the
+13-player board, no console errors. Roll production back to v6 with `npx
+wrangler rollback a50fd1a2-ffad-46ad-9d42-3eb5f2e3479d`; staging still runs
+the same code as `41ff42f5-e8ae-45e3-8c46-908ab72eff1a` (its `APP_VERSION`
+reads v6 until its next deploy).
 
 **September 5 correction (history for the visuals).** Brandon rejected the light
 redesign and the rewritten voice. It made the app harder to use and broke

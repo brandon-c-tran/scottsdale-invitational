@@ -26,8 +26,11 @@
   color:var(--night-text); font:700 13px/1 var(--fd-body); white-space:nowrap; cursor:pointer;
   transition:background var(--motion-fast, 160ms) var(--ease-out, ease-out), color var(--motion-fast, 160ms) var(--ease-out, ease-out); }
 .fd-roster-switch button:disabled { cursor:default; }
-.fd-roster-switch button[aria-checked=true] { color:var(--ink0); }
-.fd-roster-row.is-here .fd-roster-switch button[aria-checked=true] { background:var(--lamp-info); }
+/* Here, chosen, in the info lamp's tint as every segmented control on the
+   commissioner's sheets draws its choice (thirteen solid cyan blocks were
+   the loudest thing on the sheet, louder than the one row that differs) */
+.fd-roster-row.is-here .fd-roster-switch button[aria-checked=true] { background:var(--info-tint); color:var(--lamp-info);
+  box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--lamp-info) 55%, transparent); }
 /* Away and Not coming light nothing (amber is chips): the chosen segment
    is plain glass, and the row's lamp, unlit or struck, says which */
 .fd-roster-row.is-away .fd-roster-switch button[aria-checked=true],

@@ -10,7 +10,9 @@
 .fd-jersey-cloth { fill:var(--paper2); stroke:var(--ghost-line); stroke-width:1.5; stroke-linejoin:round; }
 .fd-jersey-collar { fill:none; stroke:var(--muted); stroke-width:3; stroke-linecap:round; }
 .fd-jersey-tag { fill:var(--bone); }
-.fd-jersey-tag-text { fill:var(--ink0); font:800 10px/1 var(--fd-display); }
+/* the size on the collar tag reads at the phone's 12px floor (13.5 units
+   on the 220px drawing) */
+.fd-jersey-tag-text { fill:var(--ink0); font:800 13.5px/1 var(--fd-display); }
 .fd-jersey-name { fill:var(--ink); font:800 25px/1 var(--fd-display); letter-spacing:.1em; }
 .fd-jersey-num { fill:var(--ink); font:800 108px/1 var(--fd-display); }
 .fd-jersey-name.is-empty, .fd-jersey-num.is-empty { fill:var(--muted); opacity:.5; }

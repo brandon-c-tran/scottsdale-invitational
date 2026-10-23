@@ -31,6 +31,8 @@
   box-shadow:inset 0 3px 10px color-mix(in srgb, var(--ink0) 80%, transparent), 0 0 0 1px var(--line), var(--glass-edge); overflow:hidden; }
 .fd-table-view-blinds-num { font-family:var(--fd-display); font-weight:800; font-size:inherit; line-height:.92; color:var(--bone);
   font-variant-numeric:tabular-nums; letter-spacing:0; white-space:nowrap; }
+/* the roll's window holds the slash's descent, as the TV's does */
+.fd-table-view-blinds-fit .fd-roll { padding-block:.16em; }
 
 .fd-table-view-clock { display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-top:16px; }
 .fd-table-view-clock b { font:800 68px/1 var(--fd-display); color:var(--lamp-live-text); font-variant-numeric:tabular-nums;

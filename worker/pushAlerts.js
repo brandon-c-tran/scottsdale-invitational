@@ -42,7 +42,7 @@ function sideName(state, contest, side) {
 function playingAlert(state, { event, contest }, player) {
   const own = contest.sides.find(side => side.players.includes(player));
   const others = contest.sides.filter(side => side !== own);
-  const where = contest.label && contest.label !== event.name ? `${event.name} · ${contest.label}` : event.name;
+  const where = contest.label && contest.label !== event.name ? `${event.name}, ${contest.label}` : event.name;
   const versus = others.length === 1 ? ` vs ${sideName(state, contest, others[0])}` : "";
   return {
     player, reason:"playing", key:`playing:${player}:${contest.id}`,
@@ -77,7 +77,7 @@ function pickAlerts(prev, next) {
     const name = events.find(ev => ev.id === evId)?.name || "Draft";
     return {
       player:turn.captain, reason:"pick", key:`pick:${turn.captain}:${turn.draftId}:${turn.pickIndex}`,
-      message:{ title:"Your pick", body:`${name} draft · Round ${turn.round}`, tag:`pick:${turn.draftId}`,
+      message:{ title:"Your pick", body:`${name} draft, round ${turn.round}`, tag:`pick:${turn.draftId}`,
         topic:"pick", url:`/?alert=pick&ev=${encodeURIComponent(evId)}` },
     };
   });
@@ -90,7 +90,7 @@ function duelAlerts(prev, next) {
     .map(duel => ({
       player:duel.to, reason:"duel", key:`duel:${duel.to}:${duel.id}`,
       message:{ title:`${disp(next, duel.from)} challenged you`,
-        body:`${DUEL_GAMES[duel.game]?.name || "Duel"} · ${Number(duel.stake || 0).toLocaleString("en-US")} chips`,
+        body:`${DUEL_GAMES[duel.game]?.name || "Duel"} for ${Number(duel.stake || 0).toLocaleString("en-US")} chips`,
         tag:`duel:${duel.id}`, topic:"duel", url:"/?alert=duel" },
     }));
 }

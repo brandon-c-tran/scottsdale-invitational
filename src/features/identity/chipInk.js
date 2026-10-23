@@ -35,9 +35,27 @@ export function contrastRatio(a, b) {
   if (x === null || y === null) return null;
   return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
 }
+/* Every disc, chip face and bar asks the two answers below on every render,
+   and each is pure in the color and the two inks: worked out once per
+   color, keyed by value (a palette change keys new entries), bounded. */
+const MEMO_MAX = 512;
+const inkMemo = new Map(), plateMemo = new Map();
+function remembered(table, key, make) {
+  if (table.has(key)) return table.get(key);
+  if (table.size >= MEMO_MAX) table.clear();
+  const value = make();
+  table.set(key, value);
+  return value;
+}
+const memoKey = (...parts) => parts.join("\u0001");
+
 /* true when the dark ink reads better than bone on `color` (a 6-digit hex);
    false for anything else, which keeps bone */
 export function chipInkIsDark(color, inks = chipInks()) {
+  if (typeof color !== "string") return darkInkReads(color, inks);
+  return remembered(inkMemo, memoKey(color, inks.dark, inks.bone), () => darkInkReads(color, inks));
+}
+function darkInkReads(color, inks) {
   const dark = contrastRatio(color, inks.dark), bone = contrastRatio(color, inks.bone);
   return dark !== null && bone !== null && dark > bone;
 }
@@ -48,6 +66,11 @@ export function chipInkIsDark(color, inks = chipInks()) {
    lighter under the dark ink) until it does; the hue stays the player's. */
 const toHex = c => "#" + c.map(v => Math.round(Math.max(0, Math.min(1, v)) * 255).toString(16).padStart(2, "0")).join("");
 export function letterPlate(color, inks = chipInks(), min = 4.5) {
+  if (typeof color !== "string") return plateFor(color, inks, min);
+  /* one shared answer per color, frozen so no caller can change it for the next */
+  return remembered(plateMemo, memoKey(color, inks.dark, inks.bone, min), () => Object.freeze(plateFor(color, inks, min)));
+}
+function plateFor(color, inks, min) {
   const c = channels(color);
   if (!c) return { fill:color, ink:inks.bone, dark:false };
   const dark = chipInkIsDark(color, inks);

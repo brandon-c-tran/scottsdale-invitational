@@ -9,7 +9,7 @@ import {
   usePlayerIdentity,
 } from "../src/features/identity/PlayerIdentityContext.js";
 
-import { chipInkIsDark } from "../src/features/identity/chipInk.js";
+import { CHIP_INKS, chipInkIsDark, contrastRatio, letterPlate } from "../src/features/identity/chipInk.js";
 const player = ROSTER[0];
 const lightColor = CHIP_COLORS.find(color => chipInkIsDark(color.hex));
 const darkColor = CHIP_COLORS.find(color => !chipInkIsDark(color.hex));
@@ -88,4 +88,24 @@ test("the provider reads current profiles and supports the initial empty state",
 test("identity consumers require an explicit application or preview provider", () => {
   assert.throws(() => renderToStaticMarkup(createElement(IdentityProbe)),
     /inside PlayerIdentityProvider/);
+});
+
+test("a color's ink and letter plate are worked out once, keyed by the color and the inks", () => {
+  for (const hex of [...CHIP_COLORS.map(color => color.hex), CHIP_GRAY]) {
+    const plate = letterPlate(hex);
+    assert.equal(letterPlate(hex), plate, "every disc of one color shares the answer");
+    assert.ok(Object.isFrozen(plate), "no caller can change it for the next");
+    assert.equal(plate.dark, chipInkIsDark(hex));
+    assert.ok(contrastRatio(plate.fill, plate.ink) >= 4.5, `${hex} letters at 4.5:1`);
+    assert.equal(letterPlate(hex, { ...CHIP_INKS }), plate, "keyed by the inks' values, not the object");
+  }
+  /* other inks are another answer */
+  const flipped = { dark:CHIP_INKS.bone, bone:CHIP_INKS.dark };
+  const hex = CHIP_COLORS[0].hex;
+  assert.equal(chipInkIsDark(hex, flipped), !chipInkIsDark(hex));
+  assert.notEqual(letterPlate(hex, flipped), letterPlate(hex));
+  assert.equal(letterPlate(hex, flipped).dark, !letterPlate(hex).dark);
+  /* anything not a hex string is never remembered and keeps bone */
+  assert.deepEqual(letterPlate(null), { fill:null, ink:CHIP_INKS.bone, dark:false });
+  assert.equal(chipInkIsDark(undefined), false);
 });

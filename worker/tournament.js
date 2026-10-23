@@ -1135,10 +1135,13 @@ export class Tournament {
     return stored >= WIN_LEVEL_FLOOR ? stored : WIN_LEVEL_DEFAULT;
   }
 
-  /* A song on a bit's beat (`sync`: { bit, latency, at }) comes in at the
-     room's level with no fade, its request sent at `at` (the speaker made
-     ready before then), and its walkout carries the bit and when the room
-     hears it. */
+  /* A song on a bit's beat (`sync`: { bit, latency, at, pending }) comes in
+     at the room's level with no fade, its request sent at `at` (the speaker
+     made ready before then), and its walkout carries the bit and when the
+     room hears it. Taken back or dropped for a later win while the speaker
+     got ready (pendingSong is no longer this one), it does not play; its
+     moment gone otherwise (a later write ended it), it plays off the beat,
+     as scheduleWinSong does when the moment went before the lane. */
   async startWinSong(song, sync = null) {
     const speaker = await this.spotifySpeaker("");
     let before = null;
@@ -1152,7 +1155,11 @@ export class Tournament {
       try { await this.spotifyVolume(level, device.id || speaker); } catch {}
     }
     if (sync && Number(sync.at) > Date.now()) await this.wait(Math.min(SONG_PLAN_MAX_WAIT_MS, Number(sync.at) - Date.now()));
-    if (sync && !this.songStillOwed(sync)) return;
+    if (sync?.pending && this.pendingSong !== sync.pending) return;
+    if (sync && !this.songStillOwed(sync)) {
+      if (songCueOf(this.state)?.gag === sync.bit) await this.setSongCue(null, "songCueOff");
+      sync = null;
+    }
     const sentAt = Date.now();
     try {
       await this.spotifyPlayOnSpeaker(speaker, { uris:[song.track.uri], position_ms:song.track.startMs || 0 });
@@ -1197,7 +1204,9 @@ export class Tournament {
     const moment = this.momentOf(after);
     if (!takeBack) this.queueSongCut(moment);
     if (!song && !takeBack) return null;
-    if (takeBack) this.pendingSong = null;
+    /* a take-back, or a later win, drops a song waiting for its beat at
+       once, even one whose speaker is already getting ready */
+    if (takeBack || (this.pendingSong && this.pendingSong.key !== song.key)) this.pendingSong = null;
     return this.songQueue(async () => {
       if (await this.ctx.storage.get(SPOTIFY_AUTO_KEY) === false) return;
       const session = await this.ctx.storage.get(SPOTIFY_SESSION_KEY);
@@ -1273,15 +1282,18 @@ export class Tournament {
       if (this.pendingSong !== pending) return;
       await this.songQueue(async () => {
         if (this.pendingSong !== pending) return;
-        this.pendingSong = null;
-        if (plan.mode !== "beat") { await this.playWinSong(song); return; }
-        /* the moment gone (taken back, moved): no beat to land on */
-        if (!this.songStillOwed({ bit:moment.id })) {
-          if (songCueOf(this.state)?.gag === moment.id) await this.setSongCue(null, "songCueOff");
-          await this.playWinSong(song);
-          return;
-        }
-        await this.playWinSong(song, { bit:moment.id, latency, at:plan.requestAt });
+        /* still pending while the speaker gets ready, so a take-back or a
+           later win in that time drops it (startWinSong) */
+        try {
+          if (plan.mode !== "beat") { await this.playWinSong(song); return; }
+          /* the moment gone (a later write ended it): no beat to land on */
+          if (!this.songStillOwed({ bit:moment.id })) {
+            if (songCueOf(this.state)?.gag === moment.id) await this.setSongCue(null, "songCueOff");
+            await this.playWinSong(song);
+            return;
+          }
+          await this.playWinSong(song, { bit:moment.id, latency, at:plan.requestAt, pending });
+        } finally { if (this.pendingSong === pending) this.pendingSong = null; }
       });
     })().catch(error => console.error(JSON.stringify({ event:"win-song-schedule-failed",
       error:String(error?.message || error).slice(0, 200) })));

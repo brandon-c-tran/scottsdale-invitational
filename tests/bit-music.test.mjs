@@ -337,6 +337,62 @@ test("the Worker: a take-back while the song waits for its beat drops it and cle
   assert.equal(walkoutOf(world.tournament.state), null);
 });
 
+/* the song waits twice: off the lane until a little before its beat, then
+   on the lane while the speaker gets ready; `during` runs in the second */
+async function beatSong(world, during) {
+  const moment = fakeMoment(world, "standoff", [...ROSTER]);
+  let sleeps = 0;
+  world.tournament.sleep = async ms => { world.waits.push(ms); if (++sleeps === 2) await during(moment); };
+  return withSpotify(() => json(204, null), async () => {
+    const original = world.tournament.queueWinSong.bind(world.tournament);
+    let wins = 0;
+    world.tournament.queueWinSong = (before, after, type) => {
+      /* the first win carries the moment; any later one carries none */
+      if (type === "recordContestWinner" && ++wins === 1) moment.set(Date.now() + 5000);
+      return original(before, after, type);
+    };
+    await world.win();
+    await world.settle();
+  });
+}
+
+test("the Worker: a moment ended by a later write while the speaker gets ready still plays the song, off the beat", async () => {
+  const world = await room({ latency:600 });
+  const calls = await beatSong(world, async moment => moment.clear());
+  assert.equal(calls.filter(call => call.path.startsWith("PUT /me/player/play")).length, 1, "the win's song plays");
+  const walkout = walkoutOf(world.tournament.state);
+  assert.ok(walkout && !walkout.bit, "a plain walkout: no beat to land on");
+  assert.equal(songCueOf(world.tournament.state), null, "the cue is gone");
+  assert.equal(world.tournament.pendingSong, null);
+});
+
+test("the Worker: a take-back while the speaker gets ready drops the song", async () => {
+  const world = await room({ latency:600 });
+  const calls = await beatSong(world, async moment => {
+    moment.clear();
+    const undo = contestUndoAvailability(world.tournament.state, allEventsOf(world.tournament.state).find(item => item.id === "8ball"));
+    await world.say("undoLastContest", { evId:"8ball", contestId:undo.contestId, contestRevision:undo.contestRevision });
+  });
+  assert.equal(calls.filter(call => call.path.startsWith("PUT /me/player/play")).length, 0, "never played");
+  assert.equal(songCueOf(world.tournament.state), null, "the cue is gone");
+  assert.equal(walkoutOf(world.tournament.state), null);
+});
+
+test("the Worker: a later win while the speaker gets ready plays instead of the earlier song", async () => {
+  const world = await room({ latency:600 });
+  let second;
+  const calls = await beatSong(world, async moment => {
+    moment.clear();
+    second = world.current();
+    await world.say("lockAndStart", { evId:"8ball", contestId:second.id, contestRevision:second.revision });
+    await world.say("recordContestWinner", { evId:"8ball", contestId:second.id, contestRevision:second.revision,
+      winner:second.sides[0].key });
+  });
+  const plays = calls.filter(call => call.path.startsWith("PUT /me/player/play"));
+  assert.equal(plays.length, 1, "one song, the later win's");
+  assert.ok(second.sides[0].players.includes(walkoutOf(world.tournament.state).player));
+});
+
 test("the Worker: a later win drops an earlier song still waiting for its beat", async () => {
   const world = await room({ latency:600 });
   const moment = fakeMoment(world, "standoff", [...ROSTER]);

@@ -8,7 +8,7 @@
 .fd-roster-row { display:grid; grid-template-columns:minmax(0, 1fr) auto; align-items:center; column-gap:10px; row-gap:6px;
   min-height:56px; padding:6px 0; border-bottom:1px solid var(--line); }
 .fd-roster-row:last-child { border-bottom:0; }
-.fd-roster-who { display:flex; align-items:center; gap:10px; min-width:0; }
+.fd-roster-who { display:flex; align-items:center; gap:8px; min-width:0; }
 .fd-roster-face { display:inline-flex; border-radius:50%; transition:filter var(--motion-base, 220ms) var(--ease-out, ease-out), opacity var(--motion-base, 220ms) var(--ease-out, ease-out); }
 /* a long name takes a second line, never an ellipsis */
 .fd-roster-name { min-width:0; overflow-wrap:anywhere; font:700 16px/1.15 var(--fd-body); color:var(--bone); }
@@ -20,7 +20,9 @@
 /* the switch: three segments in one 10px frame; the chosen one lit by its job */
 .fd-roster-switch { display:inline-grid; grid-template-columns:repeat(3, auto); padding:3px; gap:2px;
   border:1px solid var(--bone-line); border-radius:10px; background:var(--ink0); }
-.fd-roster-switch button { min-width:52px; min-height:44px; padding:0 9px; border:0; border-radius:8px; background:transparent;
+/* tight enough that a 375px phone keeps a seven-letter name on one line
+   ("Brandon" broke "Brando / n" beside 52px segments) */
+.fd-roster-switch button { min-width:46px; min-height:44px; padding:0 8px; border:0; border-radius:8px; background:transparent;
   color:var(--night-text); font:700 13px/1 var(--fd-body); white-space:nowrap; cursor:pointer;
   transition:background var(--motion-fast, 160ms) var(--ease-out, ease-out), color var(--motion-fast, 160ms) var(--ease-out, ease-out); }
 .fd-roster-switch button:disabled { cursor:default; }
@@ -57,7 +59,7 @@
    here under the name */
 .fd-roster-row.is-road .fd-roster-face { filter:grayscale(1); opacity:.62; outline:1.5px dashed var(--ghost-line); outline-offset:2px; }
 .fd-roster-row.is-road .fd-roster-name { color:var(--muted2); }
-.fd-roster-arrive { grid-column:1 / -1; display:flex; align-items:center; justify-content:space-between; gap:10px; padding-left:66px; }
+.fd-roster-arrive { grid-column:1 / -1; display:flex; align-items:center; justify-content:space-between; gap:10px; padding-left:64px; }
 .fd-roster-arrive-word { font:700 13px/1.2 var(--fd-display); letter-spacing:.06em; text-transform:uppercase; color:var(--lamp-info); }
 
 @media (max-width:360px) {

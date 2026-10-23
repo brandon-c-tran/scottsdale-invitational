@@ -17,7 +17,7 @@
    for the room (the TV ticker); `own` is the line on that player's own
    receipt. */
 
-import { ROSTER, START, allEventsOf, disp, teamLabel, rosterOf } from "../../../shared/core.js";
+import { ROSTER, START, allEventsOf, disp, teamLabel, rosterOf, poolBook } from "../../../shared/core.js";
 import { chipChanges, wagerSettlement } from "./lastCard.js";
 import { wagerPickName } from "./resultMoment.js";
 import { eventRow } from "../profile/seasonStats.js";
@@ -120,8 +120,10 @@ function winFacts(state, events) {
 export function chipWrites(state, events) {
   const writes = new Map();
   const kindOrder = { award:0, bet:1, duel:2, ruling:3 };
+  /* every player's bets settle against one pricing of the pools */
+  const book = poolBook(state);
   for (const player of rosterOf(state)) {
-    for (const change of chipChanges(state, player, events)) {
+    for (const change of chipChanges(state, player, events, book)) {
       const anchor = anchorOf(state, change);
       const result = anchor.startsWith("result:") ? state.results?.[change.eventId] : null;
       /* a corrected result keeps the moment it was first posted */

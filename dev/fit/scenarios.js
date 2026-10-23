@@ -1563,10 +1563,19 @@ export const PHONE_SCENARIOS = Object.freeze([
   { id:"arrive-row", build:() => withArrivals(fresh("event:putt:open"), 9), tabs:["home"] },
   { id:"arrive-here-9", build:() => withArrivals(fresh("event:putt:open"), 9, { guest:"here" }), tabs:["home"] },
   { id:"arrive-here-13", build:() => withArrivals(fresh("locker"), 13, { guest:"here" }), tabs:["home"] },
-  /* the commissioner: Who is coming with the door shut and open, the
-     travel board's arrivals, and the crew check with four on the way */
+  /* the commissioner: Who is coming with the door shut and open (at both
+     widths: the head carries the check-in switch), every state at once
+     (one away, one not coming), the travel board's arrivals, and the crew
+     check with four on the way */
   { id:"gm-roster", build:() => fresh("locker"), viewer:"gm", tabs:[], sheets:["roster"] },
-  { id:"gm-roster-door", build:() => withArrivals(fresh("locker"), 9), viewer:"gm", tabs:[], sheets:["roster", "travel-sheet"] },
+  { id:"gm-roster-door", build:() => withArrivals(fresh("locker"), 9), viewer:"gm", tabs:[], sheets:["roster", "travel-sheet"],
+    sheetSizes:["375"] },
+  { id:"gm-roster-away", build:() => {
+    const state = fresh("locker");
+    act(state, "setAway", { player:"Ben", away:true });
+    act(state, "setOut", { player:"Allan", out:true });
+    return state;
+  }, viewer:"gm", tabs:[], sheets:["roster"] },
   { id:"gm-crew-road", build:crewRoad, viewer:"gm", tabs:[], sheets:["crew-check"] },
   /* Ready check, from the commissioner's menu: everything still to do (no
      photos, no TV, Spotify not set up, alerts off, the autopilot paused),

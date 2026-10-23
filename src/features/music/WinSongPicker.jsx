@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { spotifySearch } from "../../lib/client.js";
 import { ensurePreview, stopPreview, togglePreview, usePreview } from "./previewPlayer.js";
 import { SnippetPreview } from "./SnippetPreview.jsx";
-import { NUDGE_MS, SEARCH_DEBOUNCE_MS, clampStart, clipWindow, maxStart, searchQuery, songClock } from "./winSongModel.js";
+import { NUDGE_MS, SEARCH_DEBOUNCE_MS, clampStart, clipWindow, maxStart, searchQuery, songClock, startMarks } from "./winSongModel.js";
 import "./winSong.css";
 import { Icon } from "../../ui/Icon.jsx";
 
@@ -81,8 +81,8 @@ export function SongSearch({ onPick, onCancel, search, clips = true, credit = SE
         {clips ? <PlayArt track={track} size={52} /> : <StillArt track={track} size={52} />}
         <button type="button" className="fd-song-use" onClick={() => onPick(track)}
           aria-label={`Use ${track.name} by ${artistsOf(track)}`}>
-          <span className="fd-song-text"><strong>{track.name}{track.explicit && <i className="fd-song-e">E</i>}</strong>
-            <small>{artistsOf(track)}</small></span>
+          <span className="fd-song-text"><strong data-fit="ellipsis">{track.name}{track.explicit && <i className="fd-song-e">E</i>}</strong>
+            <small data-fit="ellipsis">{artistsOf(track)}</small></span>
           <span className="fd-song-use-pill" aria-hidden="true">Use</span>
         </button>
       </li>)}
@@ -125,15 +125,15 @@ function StartWindow({ value, onChange, snippets }) {
     const step = event.key === "ArrowRight" ? 1000 : event.key === "ArrowLeft" ? -1000 : 0;
     if (step) { event.preventDefault(); set(from + step); }
   };
-  const minutes = Array.from({ length:Math.floor(duration / 60000) + 1 }, (_, i) => i * 60000);
-  const ticks = Array.from({ length:Math.floor(duration / 5000) + 1 }, (_, i) => i * 5000);
+  /* a long song letters fewer minutes, so its labels never run together */
+  const { labels:minutes, ticks } = startMarks(duration);
   return <div className="fd-song-start">
     <div className="fd-song-start-head"><span>Start point</span><strong>{songClock(from)}</strong></div>
     <div ref={strip} className="fd-song-strip" role="slider" tabIndex={0} aria-label="Win song start point"
       aria-valuemin={0} aria-valuemax={maxStart(value)} aria-valuenow={from} aria-valuetext={text}
       onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up} onKeyDown={key}>
-      {ticks.map(ms => <i key={ms} className={ms % 60000 === 0 ? "is-minute" : undefined}
-        style={{ left:`${ms / duration * 100}%` }} />)}
+      {ticks.map(tick => <i key={tick.ms} className={tick.major ? "is-minute" : undefined}
+        style={{ left:`${tick.ms / duration * 100}%` }} />)}
       <span className="fd-song-window" style={{ left:`${from / duration * 100}%`, width:`${(to - from) / duration * 100}%` }} />
     </div>
     <div className="fd-song-minutes" aria-hidden="true">
@@ -168,8 +168,8 @@ export function WinSongPicker({ value, onChange, enabled = true, search = spotif
       : <>
         <div className="fd-song-pick">
           <PlayArt track={value} size={84} />
-          <span className="fd-song-text"><strong>{value.name}</strong>
-            <small>{artistsOf(value)}</small>
+          <span className="fd-song-text"><strong data-fit="ellipsis">{value.name}</strong>
+            <small data-fit="ellipsis">{artistsOf(value)}</small>
             {value.url && <a href={value.url} target="_blank" rel="noreferrer">Open in Spotify</a>}</span>
           <button type="button" className="fd-song-change" onClick={() => { stopPreview(); setChanging(true); }}>Change</button>
         </div>

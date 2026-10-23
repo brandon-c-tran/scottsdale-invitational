@@ -3628,10 +3628,10 @@ function SpotifyTrackCard({ track, action, actionLabel = "Choose", compact = fal
             borderRadius:8, flexShrink:0, background:"var(--ink-tint)", display:"grid",
             placeItems:"center", fontFamily:DISPLAY, fontWeight:700, color:"var(--muted)" }}>FD</div>}
       <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontFamily:SANS, fontWeight:700, fontSize:compact ? 12.5 : 14,
+        <div data-fit="ellipsis" style={{ fontFamily:SANS, fontWeight:700, fontSize:compact ? 12.5 : 14,
           color:"var(--ink)", whiteSpace:"nowrap", overflow:"hidden",
           textOverflow:"ellipsis" }}>{track.name}</div>
-        <div style={{ fontFamily:SANS, fontSize:12, color:"var(--muted)",
+        <div data-fit="ellipsis" style={{ fontFamily:SANS, fontSize:12, color:"var(--muted)",
           whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
           {(track.artists || []).join(", ")} · {audioClock(track.durationMs)}</div>
         <a href={track.url} target="_blank" rel="noreferrer"

@@ -548,9 +548,10 @@ export class Tournament {
     if (!this.capabilities.karaoke) return new Response("Not found", { status:404 });
     if (req.method !== "GET") return spotifyJson({ ok:false, error:"Method not allowed" }, 405);
     const key = this.env.YOUTUBE_API_KEY, fetchImpl = this.youtubeFetch || fetch;
+    const logFailure = (event, error) => console.error(JSON.stringify({ event, reason:error?.reason || error?.detail || null,
+      error:String(error?.message || error).slice(0, 200) }));
     const failed = (event, error) => {
-      console.error(JSON.stringify({ event, reason:error?.reason || error?.detail || null,
-        error:String(error?.message || error).slice(0, 200) }));
+      logFailure(event, error);
       const answer = youtubeFailure(error);
       return spotifyJson({ ok:false, error:answer.error, code:answer.code }, answer.status);
     };
@@ -600,11 +601,16 @@ export class Tournament {
         try {
           saved = await this.karaokeLookup({ trackId, name, artists:[artist], durationMs });
         } catch (error) {
-          /* an answer past its 30 days goes, even when the refresh fails */
-          if (saved && Date.now() - Number(saved.at) > YOUTUBE_KEEP_MS) {
-            try { await this.ctx.storage.delete(storeKey); } catch {}
+          /* a lookup kept before instrumentals were looked for still answers
+             inside its 30 days when the new one cannot be had (YouTube's
+             daily limit); an answer past its 30 days goes */
+          if (!karaokeLookupFresh(saved)) {
+            if (saved && Date.now() - Number(saved.at) > YOUTUBE_KEEP_MS) {
+              try { await this.ctx.storage.delete(storeKey); } catch {}
+            }
+            return failed("karaoke-lookup-failed", error);
           }
-          return failed("karaoke-lookup-failed", error);
+          logFailure("karaoke-lookup-failed", error);
         }
       }
       const lyrics = saved.lyrics === true;

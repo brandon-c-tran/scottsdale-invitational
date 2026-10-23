@@ -524,6 +524,23 @@ test("a song's lookup: LRCLIB beside one instrumental search; the lyrics' word a
   assert.equal(searches, 2);
 });
 
+test("YouTube's limit used up: a lookup kept before Oct 15 still answers inside its 30 days", async () => {
+  const { tournament, memory } = await room();
+  const old = { videos:[{ id:"oldkaraoke1", title:"Journey - Don't Stop Believin' (Karaoke Version)", channel:"Stingray Karaoke",
+    seconds:245 }], at:Date.now() - 5 * 24 * 60 * 60 * 1000 };
+  memory.entries.set(`private:karaoke:${TRACK_ID}`, old);
+  let searches = 0;
+  tournament.youtubeFetch = async () => {
+    searches += 1;
+    return new Response(JSON.stringify({ error:{ errors:[{ reason:"quotaExceeded" }] } }), { status:403 });
+  };
+  const answer = await get(tournament, lookup);
+  assert.equal(answer.status, 200);
+  assert.deepEqual(await answer.json(), { ok:true, videos:old.videos, lyrics:false });
+  assert.equal(searches, 1, "the new lookup was tried");
+  assert.deepEqual(memory.entries.get(`private:karaoke:${TRACK_ID}`), old, "and the kept one stays as it was");
+});
+
 test("LRCLIB down: the lookup still answers but is not kept, and the song's lyrics are asked again", async () => {
   const { tournament, memory } = await room();
   tournament.lyricsFetch = async () => new Response("", { status:503 });

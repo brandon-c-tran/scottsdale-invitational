@@ -32,6 +32,7 @@ import {
   MAX_SNAPSHOT_BYTES,
   buildSnapshot,
   isPortableStorageKey,
+  listKeptStorage,
   nextRestoreVersion,
   snapshotSha256,
   validateSnapshot,
@@ -1764,7 +1765,7 @@ export class Tournament {
   }
 
   async createSnapshot() {
-    const entries = this.withInMemoryDefaults(await this.ctx.storage.list());
+    const entries = this.withInMemoryDefaults(await listKeptStorage(this.ctx.storage));
     return buildSnapshot(entries, {
       environment: this.environment,
       applicationVersion: this.env.APP_VERSION || "unknown",
@@ -1773,7 +1774,7 @@ export class Tournament {
   }
 
   async restoreValidatedSnapshot(snapshot, checked) {
-    const current = await this.ctx.storage.list();
+    const current = await listKeptStorage(this.ctx.storage);
     const backupSource = this.withInMemoryDefaults(new Map(current));
     const backup = buildSnapshot(backupSource, {
       environment: this.environment,

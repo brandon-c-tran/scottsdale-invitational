@@ -17,6 +17,7 @@ import {
 import "../geo/geo.css";
 import "./trivia.css";
 import { writeError } from "../../lib/writeErrors.js";
+import { voteFlight } from "../karaoke/voteFlight.js";
 import { isBoardGame } from "../../../shared/triviaBoard.js";
 import { BoardHome, BoardPlaySheet } from "./BoardPlay.jsx";
 
@@ -149,19 +150,28 @@ function Room({ view }) {
   </ul>;
 }
 
-/* The question as you play it: tap an answer, Lock in makes it final. */
+/* The question as you play it: tap an answer, Lock in makes it final.
+   A tapped answer lights at once; one pick is in the air at a time and the
+   newest tap wins (voteFlight, as Karaoke's tiers), so a quick change of
+   mind never flickers back on the older pick's echo. */
 function Play({ state, view, onPick }) {
   const { question, mine } = view;
   const number = question.format === "number";
-  const [pending, setPending] = useState(null);
+  const echoed = Number.isInteger(mine?.choice) ? mine.choice : null;
+  const [snap, setSnap] = useState({ pending:null, error:"", sending:false });
+  const flight = useRef(null);
+  if (!flight.current) flight.current = voteFlight({
+    send:choice => onPick({ questionId:question.id, choice }),
+    update:setSnap, errorOf:result => writeError(result), initial:echoed,
+  });
+  useEffect(() => { flight.current.echo(echoed); }, [echoed]);
+  const pending = snap.pending;
   const [error, setError] = useState("");
   const [locking, setLocking] = useState(false);
   const [draft, setDraft] = useState(mine?.value ?? null);
   const timer = useRef(0);
   const locked = !!mine?.locked;
   const over = view.timeUp;
-  /* the server's answer replaces the local one as it lands */
-  useEffect(() => { setPending(null); }, [mine?.choice, mine?.at]);
   useEffect(() => () => clearTimeout(timer.current), []);
   const send = async payload => {
     const result = await onPick({ questionId:question.id, ...payload });
@@ -175,8 +185,10 @@ function Play({ state, view, onPick }) {
     if (locked || over) return;
     unlockSound(); tapTick();
     playSound("S18", { bus:"you" });
-    setPending(i);
-    send({ choice:i }).then(result => { if (result?.ok !== true) setPending(null); });
+    setError("");
+    flight.current.tap(i).then(result => {
+      if (result && result.ok !== true && !result.uncertain) playSound("S26", { bus:"you" });
+    });
   };
   const turn = value => {
     setDraft(value);
@@ -210,7 +222,7 @@ function Play({ state, view, onPick }) {
     </main>
     <footer className="fd-trivia-foot">
       <Room view={view} />
-      {error && <p className="fd-trivia-error" role="alert">{error}</p>}
+      {(error || snap.error) && <p className="fd-trivia-error" role="alert">{error || snap.error}</p>}
       {locked ? <div className="fd-trivia-primary is-done" key="done"><Icon name="lock" size={18} />Locked in
         {number && <b>{numberLabel(mine.value, question.unit)}</b>}</div>
         : over ? <div className="fd-trivia-primary is-over">Time's up</div>

@@ -393,6 +393,22 @@ test("a deal past the chip case: the setup sheet marks the seat made up by hand 
   assert.deepEqual(state.poker.deal.short, { Evan:8750 });
 });
 
+/* the TV's deal lamps the short seat and letters the table's total by hand
+   on the felt; a board the case covers shows none of it */
+test("a deal past the chip case on the TV: the short seat's lamp and the felt's total by hand", () => {
+  const state = pastTheCase();
+  act(state, "pokerSetup", {});
+  const tv = renderTv(state);
+  assert.match(textOfHtml(tv), /8,750 by hand/);
+  assert.equal((tv.match(/tv-seat-hand/g) || []).length, 1);
+  const evan = tv.slice(tv.indexOf('data-seat="Evan"'));
+  assert.ok(evan.indexOf("tv-seat-hand") > 0 && evan.indexOf("tv-seat-hand") < evan.indexOf("data-seat=", 10), "on Evan's seat");
+  const plain = structuredClone(EMPTY_STATE);
+  plain.live = true;
+  act(plain, "pokerSetup", {});
+  assert.doesNotMatch(renderTv(plain), /by hand|tv-seat-hand/);
+});
+
 test("the TV table's geometry: every shape fits its felt at the TV's floor, and its moments keep the server's time", () => {
   /* a matchup, a row of 3 to 6, a grid of 7+, full width and beside a bracket */
   for (const width of [1792, 1004]) {

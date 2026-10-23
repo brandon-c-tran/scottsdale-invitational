@@ -29,7 +29,9 @@ const compiled = await build({
     export { sideBracketDims, roundHead, roundHeadFit } from "./src/features/tv/TVBracket.jsx";
     export { payoutSteps, ladderChips } from "./src/ui/PayoutLadder.jsx";
     export { trophyPlateFit } from "./src/features/weekend/Trophy.jsx";
-    export { faceOffNameSize } from "./src/features/tv/TVFaceOff.jsx";`, resolveDir:root, loader:"jsx" },
+    export { faceOffNameSize } from "./src/features/tv/TVFaceOff.jsx";
+    export { pairFirstNames } from "./src/features/tv/TVBracket.jsx";
+    export { TRIVIA_NAME_W, triviaNameFit } from "./src/features/tv/TVTrivia.jsx";`, resolveDir:root, loader:"jsx" },
   bundle:true, platform:"node", format:"cjs", external:["react", "react-dom", "qrcode-generator", "three"], loader:{ ".css":"empty" },
   write:false, logLevel:"silent",
 });
@@ -204,6 +206,18 @@ test("names are measured in the room they take: wide scripts and emoji count wid
   const pair = `Ch${ch(0xED)}nh ${ch(0x1F37A)} & ${ch(0x84CB, 0x5BB6, 0x8C6A)}`;
   assert.ok(textUnits(pair) * 0.5 * ui.faceOffNameSize(pair) <= 740);
   assert.ok(ui.faceOffNameSize(pair) < ui.faceOffNameSize("Chinh & Chiang"));
+});
+
+/* the worst case's names on the trivia rows and the bracket's cells */
+test("a trivia row letters a long name smaller, a bracket's tight pair its first names", () => {
+  assert.deepEqual(ui.triviaNameFit("Adi", ui.TRIVIA_NAME_W.reveal), { size:40, two:false });
+  for (const name of ["Eyob Tesfamariam", "MAXIMILIAN WOLFE", "Allan Montgomery"]) {
+    const fit = ui.triviaNameFit(name, ui.TRIVIA_NAME_W.reveal);
+    assert.ok(!fit.two && fit.size >= 24 && textUnits(name) * 0.47 * fit.size <= ui.TRIVIA_NAME_W.reveal, `${name} at ${fit.size}px`);
+  }
+  const state = { profiles:{ Allan:{ display:"Allan Montgomery" }, Henry:{ display:"TheRealSlimShady" } } };
+  assert.equal(ui.pairFirstNames(state, { players:["Allan", "Henry"] }), "Allan & TheRealSlimShady");
+  assert.equal(ui.pairFirstNames(state, { name:"Bad News Beers", players:["Allan", "Henry"] }), null, "a named team keeps its name");
 });
 
 test("names fit their slots: towers, bracket rows and round heads", () => {

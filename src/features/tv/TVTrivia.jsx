@@ -10,6 +10,7 @@ import { useTriviaClock } from "./roomSound.js";
 import { teamRows } from "../moments/walkoutTeam.js";
 import { isBoardGame } from "../../../shared/triviaBoard.js";
 import { TVBoard } from "./TVBoard.jsx";
+import { textUnits } from "../../ui/textUnits.js";
 import "./tv-trivia.css";
 
 /* the question's size by its length, so three lines always fit the stage */
@@ -100,13 +101,28 @@ function NumberStage({ view }) {
   </div>;
 }
 
+/* A name in a row: one line as large as it fits its box (40px down to the
+   TV's 24px floor), else two lines at 24, never cut short. The boxes: a
+   reveal's row beside what the question added, a closest number's row
+   beside the guess, the scores' rows; a podium step's (40 and 64 as the
+   step's own size). */
+export const TRIVIA_NAME_W = Object.freeze({ reveal:186, near:230, board:450, step:380, first:440 });
+export function triviaNameFit(name, width, max = 40) {
+  const one = Math.floor(width / Math.max(1, textUnits(name) * 0.47));
+  return one >= 24 ? { size:Math.min(max, one), two:false } : { size:24, two:true };
+}
+function RowName({ name, width, className = "fd-show tv-trivia-row-name", max = 40 }) {
+  const fit = triviaNameFit(name, width, max);
+  return <span className={`${className}${fit.two ? " is-two" : ""}`} style={fit.size !== max ? { fontSize:fit.size } : undefined}>{name}</span>;
+}
+
 /* a row of the board: rank, chip, name, total, and on a reveal what this
    question added */
-function Row({ state, row, view, size = 52, i = 0 }) {
+function Row({ state, row, view, size = 52, i = 0, nameW = TRIVIA_NAME_W.reveal }) {
   return <li className={`tv-trivia-row${row.rank === 1 ? " is-first" : ""}`} style={{ "--row":i }}>
     <span className="tv-display tv-trivia-row-rank">{row.rank}</span>
     <ChipFace p={row.player} size={size} />
-    <span className="fd-show tv-trivia-row-name">{disp(state, row.player)}</span>
+    <RowName name={disp(state, row.player)} width={nameW} />
     {view.revealed && row.last > 0 && <span className="tv-display tv-trivia-row-plus">+{fmtNumber(row.last)}</span>}
     <span className="tv-display tv-trivia-row-total">{fmtNumber(row.total)}<small className="tv-unit">pts</small></span>
   </li>;
@@ -120,7 +136,7 @@ function RevealSide({ state, view }) {
     return <ol className="tv-trivia-near">
       {rows.map((lane, i) => <li key={lane.player} className={lane.score.points ? "is-scored" : ""} style={{ "--row":i }}>
         <ChipFace p={lane.player} size={52} />
-        <span className="fd-show tv-trivia-row-name">{disp(state, lane.player)}</span>
+        <RowName name={disp(state, lane.player)} width={TRIVIA_NAME_W.near} />
         <span className="tv-display tv-trivia-near-guess">{numberLabel(lane.pick.value)}</span>
         <span className="tv-display tv-trivia-row-plus">{lane.score.points ? `+${fmtNumber(lane.score.points)}` : "0"}</span>
       </li>)}
@@ -141,7 +157,8 @@ function Board({ state, view }) {
       <div className="tv-trivia-podium">
         {order.map(row => <div key={row.player} className={`tv-trivia-step is-${step(row)}`}>
           <ChipFace p={row.player} size={row === rows[0] ? 168 : 124} />
-          <span className="fd-show tv-trivia-step-name">{disp(state, row.player)}</span>
+          <RowName name={disp(state, row.player)} className="fd-show tv-trivia-step-name"
+            width={row === rows[0] ? TRIVIA_NAME_W.first : TRIVIA_NAME_W.step} max={row === rows[0] ? 64 : 40} />
           <span className="tv-display tv-trivia-step-total">{fmtNumber(row.total)}<small className="tv-unit">pts</small></span>
           <span className="tv-display tv-trivia-step-place"><OneSafe text={ordinal(row.rank)} /></span>
         </div>)}
@@ -158,7 +175,8 @@ function Board({ state, view }) {
         <span className="tv-label"><OneSafe text={`After question ${view.n} of ${view.total}`} /></span></div>
       <div className="tv-trivia-board-cols">
         {[rows.slice(0, half), rows.slice(half)].map((list, c) => <ol key={c} className="tv-trivia-rows is-board">
-          {list.map((row, i) => <Row key={row.player} state={state} row={row} view={{ ...view, revealed:false }} size={60} i={c * half + i} />)}
+          {list.map((row, i) => <Row key={row.player} state={state} row={row} view={{ ...view, revealed:false }} size={60} i={c * half + i}
+            nameW={TRIVIA_NAME_W.board} />)}
         </ol>)}
       </div>
     </div>

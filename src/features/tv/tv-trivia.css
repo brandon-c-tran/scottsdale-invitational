@@ -115,7 +115,9 @@
 .tv-trivia-row.is-first { border-color:var(--bone); }
 .tv-trivia-row-rank { flex-shrink:0; width:40px; font-size:40px; line-height:1.1; text-align:center; color:var(--muted2); font-variant-numeric:tabular-nums; }
 .tv-trivia-row.is-first .tv-trivia-row-rank { color:var(--bone); }
-.tv-trivia-row-name { flex:1; min-width:0; font-size:40px; line-height:1.15; color:var(--bone); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.tv-trivia-row-name { flex:1; min-width:0; font-size:40px; line-height:1.25; color:var(--bone); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+/* a name too wide for its row at 24px takes two lines (TVTrivia.jsx triviaNameFit) */
+.tv-trivia-row-name.is-two, .tv-trivia-step-name.is-two { white-space:normal; line-height:1.1; }
 .tv-trivia-row-plus { flex-shrink:0; font-size:32px; line-height:1.1; color:var(--bone); font-variant-numeric:tabular-nums;
   animation:tv-trivia-fly .7s cubic-bezier(.2,.8,.2,1) calc(1.2s + var(--row) * 60ms) both; }
 .tv-trivia-row-total { flex-shrink:0; min-width:120px; text-align:right; font-size:44px; line-height:1.1; color:var(--bone); font-variant-numeric:tabular-nums; }

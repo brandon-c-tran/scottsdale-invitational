@@ -149,7 +149,7 @@
 
 /* ── the finale: a bust card, blinds up ── */
 .tv-bust { background:var(--night-deep); display:flex; align-items:center; justify-content:center;
-  animation:tv-take-in 300ms ease-out calc(var(--tl) + 0ms) both, tv-take-out 500ms ease-in calc(var(--tl) + 4300ms) both; }
+  animation:tv-take-in 300ms ease-out calc(var(--tl) + 0ms) both, tv-take-out 500ms ease-in calc(var(--tl) + 4300ms) forwards; }
 .tv-bust-card { position:relative; display:flex; align-items:center; gap:64px; padding:64px 96px; border-radius:18px;
   background:var(--paper); border:4px solid var(--line); box-shadow:var(--shadow-3);
   animation:tv-bust-land 520ms var(--ease-land) calc(var(--tl) + 1000ms) both; }
@@ -166,7 +166,7 @@
 .tv-bust-stack { font:700 40px/1 var(--fd-display); color:var(--sun); font-variant-numeric:tabular-nums; }
 
 .tv-blinds-up { background:var(--night-deep); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:28px;
-  animation:tv-take-in 300ms ease-out calc(var(--tl) + 0ms) both, tv-take-out 400ms ease-in calc(var(--tl) + 2600ms) both; }
+  animation:tv-take-in 300ms ease-out calc(var(--tl) + 0ms) both, tv-take-out 400ms ease-in calc(var(--tl) + 2600ms) forwards; }
 /* the new level stands centred; the old one sits off its left edge as it goes */
 .tv-blinds-level { position:relative; display:flex; align-items:baseline; justify-content:center; color:var(--bone);
   font-variant-numeric:tabular-nums; }

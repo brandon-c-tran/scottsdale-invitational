@@ -595,7 +595,7 @@ function ResultSequence({ state, model, phase, towers = null, anchor = null, now
           const rank = phase.sorted ? row.rankAfter : row.rankBefore;
           return (
             <div key={row.player} className={`tv-move-row${phase.sorted && leaderSet.has(row.player) ? " is-lead" : ""}${row.busted ? " is-out" : ""}${row.away ? " is-away" : ""}`}
-              style={{ top:index * step, height:step - 4 }}>
+              style={{ transform:`translateY(${index * step}px)`, height:step - 4 }}>
               <span className="tv-rank">{rank}</span>
               <ChipFace p={row.player} size={44} />
               <span className="tv-name">{disp(state, row.player)}</span>

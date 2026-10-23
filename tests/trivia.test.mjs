@@ -544,3 +544,25 @@ test("the phone and the TV: the game opens for every player, your pick lit, the 
   act(legacy, "triviaRestart", { evId:"trivia" });
   assert.equal(legacy.trivia, null);
 });
+
+test("a quick change of mind never flickers back: the newest pick stays lit through the older pick's echo", async () => {
+  const { voteFlight } = await import("../src/features/karaoke/voteFlight.js");
+  const sent = [], answer = [];
+  let lit = null;
+  const flight = voteFlight({ send:choice => new Promise(resolve => { sent.push(choice); answer.push(resolve); }),
+    update:() => { lit = flight.lit(); }, initial:null });
+  flight.tap(0);
+  flight.tap(2);
+  assert.deepEqual(sent, [0], "one pick in the air at a time");
+  flight.echo(0);
+  assert.equal(flight.lit(), 2, "the older pick's frame does not relight it");
+  answer[0]({ ok:true });
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.deepEqual(sent, [0, 2], "the newest tap goes next");
+  flight.echo(2);
+  assert.equal(lit, 2);
+  /* the play screen runs its answers through it */
+  const play = readFileSync(new URL("../src/features/trivia/TriviaPlay.jsx", import.meta.url), "utf8");
+  assert.match(play, /flight\.current\.tap\(i\)/);
+  assert.match(play, /send:choice => onPick\(\{ questionId:question\.id, choice \}\)/, "the same triviaPick write, one at a time");
+});

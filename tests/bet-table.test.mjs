@@ -280,3 +280,24 @@ test("drag: released off the table or cancelled, nothing is placed", () => {
   });
   assert.deepEqual(picks, [], "no spot of that key: no write");
 });
+
+test("a take-back shows from the tap: your stack breathes until the write answers", async () => {
+  const { readFileSync } = await import("node:fs");
+  const table = readFileSync(new URL("../src/features/wagers/BetTable.jsx", import.meta.url), "utf8");
+  assert.match(table, /busyKind \? `is-pending-\$\{busyKind\}` : ""/, "the spot carries the pending kind");
+  const css = readFileSync(new URL("../src/features/wagers/table.css", import.meta.url), "utf8");
+  assert.match(css, /\.fd-spot\.is-pending-remove \.fd-spot-mine \{ opacity:\.6; animation:fd-chip-pending /,
+    "pending at rest (reduced motion keeps the 60%), breathing otherwise");
+  assert.match(readFileSync(new URL("../src/features/wagers/wagers.css", import.meta.url), "utf8"), /@keyframes fd-chip-pending /);
+});
+
+test("No more bets: once per fresh lock, and under reduced motion the words still stand", async () => {
+  const { readFileSync } = await import("node:fs");
+  const table = readFileSync(new URL("../src/features/wagers/BetTable.jsx", import.meta.url), "utf8");
+  assert.match(table, /if \(!locked \|\| !change\.fresh\) return undefined;\s*setPlay\(change\.changeId\);/,
+    "a fresh lock mounts the words even when nothing may move");
+  const css = readFileSync(new URL("../src/features/wagers/table.css", import.meta.url), "utf8");
+  const reduced = css.indexOf("@media (prefers-reduced-motion: reduce)");
+  assert.ok(reduced >= 0 && css.indexOf(".fd-table-sweep-glove { display:none; }", reduced) > reduced, "the glove never moves");
+  assert.doesNotMatch(css.match(/\.fd-table-sweep-words \{[^}]*\}/)[0], /opacity:0/, "the words rest visible");
+});

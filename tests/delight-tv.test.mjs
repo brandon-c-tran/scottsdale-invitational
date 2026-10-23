@@ -212,6 +212,17 @@ test("fallback: no WebGL, a failure, a slow TV, or the stacks board all stay fla
   assert.equal(recovering(16), false, "a good frame resets the run");
   const crawl = frameMonitor();
   assert.equal([crawl(400), crawl(400), crawl(400)].at(-1), true, "a second of slow frames trips a very slow TV");
+  /* one hitch is not a slow TV: the fallback would last the whole session */
+  assert.equal(frameMonitor()(1500), false, "one long stall alone never trips");
+  const hidden = frameMonitor();
+  assert.equal([hidden(6000), hidden(70), hidden(60), hidden(16)].some(Boolean), false,
+    "a page hidden mid-tween, then a couple of slow frames as it catches up");
+  const crawling = frameMonitor();
+  assert.equal([crawling(1200), crawling(1200), crawling(1200)].at(-1), true, "a TV at one frame a second still trips");
+  /* the towers move only for a moment, as they sound only for one: a load,
+     a reconnect's catch-up or a correction lands */
+  const scene = readFileSync(new URL("../src/features/tv/ChipTowers.jsx", import.meta.url), "utf8");
+  assert.match(scene, /const moment = sound === "scene" \|\| freshFrameNow\(\);\s*if \(tr\.mode !== "animate" \|\| !moment\) \{ snapTo/);
 });
 
 test("the result step rises from the board before the event to the board after", () => {

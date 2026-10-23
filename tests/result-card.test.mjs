@@ -173,6 +173,37 @@ test("moments that land together join one card that keeps where the chips starte
   assert.equal(ui.flightChips(-200), 0);
 });
 
+test("the receipt follows the finger, goes on a swipe or a flick toward its edge, and leaves moving", () => {
+  /* the bottom card goes down, the top card goes up */
+  assert.equal(ui.receiptRelease({ dy:3, vy:0, dock:"bottom" }), "tap", "a press that never moved is a tap");
+  assert.equal(ui.receiptRelease({ dy:44, vy:0.02, dock:"bottom" }), "away");
+  assert.equal(ui.receiptRelease({ dy:18, vy:0.6, dock:"bottom" }), "away", "a short flick is enough");
+  assert.equal(ui.receiptRelease({ dy:18, vy:0.05, dock:"bottom" }), "back", "a short slow drag springs back");
+  assert.equal(ui.receiptRelease({ dy:-60, vy:-0.9, dock:"bottom" }), "back", "never away against its edge");
+  assert.equal(ui.receiptRelease({ dy:-44, vy:0, dock:"top" }), "away");
+  assert.equal(ui.receiptRelease({ dy:-18, vy:-0.6, dock:"top" }), "away");
+  assert.equal(ui.receiptRelease({ dy:60, vy:0.9, dock:"top" }), "back");
+  /* toward its edge 1:1; the other way a rubber band that never stops hard */
+  assert.equal(ui.receiptDragOffset(30, "bottom", 200), 30);
+  assert.equal(ui.receiptDragOffset(-30, "top", 200), -30);
+  const pulls = [20, 60, 120, 240].map(px => ui.receiptDragOffset(-px, "bottom", 200));
+  assert.ok(pulls.every(v => v < 0), "the card still moves the wrong way");
+  assert.ok(pulls.every((v, i) => i === 0 || v < pulls[i - 1]), "further pulls still move it");
+  assert.ok(pulls.every((v, i) => Math.abs(v) < [20, 60, 120, 240][i] * 0.6), "and give less than the finger");
+  assert.ok(ui.receiptDragOffset(30, "top", 200) > 0 && ui.receiptDragOffset(30, "top", 200) < 30);
+  /* the release speed: the last stretch of travel, nothing once the finger held still */
+  const samples = [{ t:0, y:100 }, { t:16, y:104 }, { t:32, y:112 }, { t:48, y:124 }, { t:64, y:140 }];
+  assert.ok(Math.abs(ui.receiptVelocity(samples, 70) - 40 / 64) < 1e-9);
+  assert.equal(ui.receiptVelocity(samples, 64 + ui.RECEIPT_VELOCITY_MS + 1), 0, "held still before lifting");
+  assert.equal(ui.receiptVelocity([{ t:0, y:0 }]), 0);
+  /* every way it goes away animates out through leave(); held, it has no transition */
+  const src = readFileSync(new URL("../src/features/results/ChipReceipt.jsx", import.meta.url), "utf8");
+  assert.match(src, /setTimeout\(\(\) => leaveRef\.current\(\), hold\)/, "the hold timer leaves, it does not vanish");
+  assert.match(src, /aria-label="Dismiss" onClick=\{\(\) => leave\(\)\}/);
+  assert.match(src, /el\.style\.transition = "none"/, "a held card tracks the finger with no lag");
+  assert.doesNotMatch(src.slice(src.indexOf("const up = ")), /onDismiss\?\.\(\)/, "a swipe never drops the card mid-air");
+});
+
 test("the shower is your own chips, seeded, and the same pieces on every render", () => {
   const a = ui.showerPieces(3), b = ui.showerPieces(3);
   assert.deepEqual(a, b);
@@ -355,6 +386,8 @@ test("App: results no longer rain confetti on every phone; receipts, own-chip sh
   const app = readFileSync(new URL("../src/App.jsx", import.meta.url), "utf8");
   assert.doesNotMatch(app, /summarizeUpdate\(/, "the result toast is replaced by the receipt");
   assert.match(app, /if \(tv && resultsSeenRef\.current/, "the room-wide burst is the TV's alone");
+  assert.match(app, /if \(tv && resultsSeenRef\.current && currentFrame\(\)\.fresh && freshResults\(/,
+    "and only for a fresh frame: a TV's reconnect catch-up bursts nothing");
   assert.equal((app.match(/<Confetti /g) || []).length, 1, "only the TV renders confetti");
   assert.match(app, /<ChipReceipt /);
   assert.match(app, /<ChipShower burst=\{shower\} p=\{me\} amount=\{moment \? moment\.to - moment\.from : 0\} \/>/,

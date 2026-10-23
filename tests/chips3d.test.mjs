@@ -179,3 +179,10 @@ test("the layer: a canvas that never takes a tap, chips only on fresh frames, th
   assert.match(table, /useChipPhysics\(\{ tv:true/);
   assert.match(table, /!physics && spot\.stacks\.length > 0 && <FitStacks/, "the DOM stacks are the fallback");
 });
+
+test("a stack that shrinks outside a moment just loses its chips; only a fresh one lifts them off", () => {
+  const physics = readFileSync(new URL("../src/features/chips3d/ChipPhysics.jsx", import.meta.url), "utf8");
+  assert.match(physics, /lift\(st, pay = false, animate = true\) \{[\s\S]*?if \(animate\) this\.fade\(chip\); else this\.remove\(chip\);/);
+  assert.match(physics, /for \(let j = want; j < have; j\+\+\) this\.lift\(st, false, animate\);/,
+    "a catch-up, a correction or reduced motion never plays the lift");
+});

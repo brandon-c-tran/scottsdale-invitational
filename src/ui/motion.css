@@ -51,6 +51,9 @@
   animation:fd-delta-rise var(--motion-delta) var(--ease-out) both; }
 .fd-motion-delta.is-up { color:var(--green); }
 .fd-motion-delta.is-down { color:var(--live2); }
+/* reduced motion: the change still says itself, standing still for its
+   moment (the hook unmounts it after MOTION.delta), never rising */
+@media (prefers-reduced-motion: reduce) { .fd-motion-delta { opacity:1; } }
 
 /* ── flight layer ── */
 .fd-flight-layer { position:fixed; inset:0; z-index:600; pointer-events:none; overflow:hidden; contain:strict; }

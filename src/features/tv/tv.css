@@ -295,8 +295,10 @@
 /* an event's name as written, never capitals: "1v1" must not read "IVI" */
 .tv-result-rows-event { font:700 32px/1 var(--fd-body); color:var(--muted2); white-space:nowrap; }
 .tv-move-list { position:relative; flex:1; }
-.tv-move-row { position:absolute; left:0; right:0; height:56px; display:flex; align-items:center; gap:18px; padding:0 22px;
-  border-radius:10px; background:var(--tv-glass); border:1px solid var(--line); transition:top .9s cubic-bezier(.3,.8,.3,1); }
+/* each row stands at the top and is moved to its place by transform, so a
+   re-sort slides on the compositor (this list is the slow TV's fallback) */
+.tv-move-row { position:absolute; left:0; right:0; top:0; height:56px; display:flex; align-items:center; gap:18px; padding:0 22px;
+  border-radius:10px; background:var(--tv-glass); border:1px solid var(--line); transition:transform .9s cubic-bezier(.3,.8,.3,1); }
 .tv-move-row .tv-rank { font:800 32px/1 var(--fd-display); width:40px; text-align:center; color:var(--muted); }
 .tv-move-row .tv-name { flex:1; min-width:0; font:800 32px/1.15 var(--fd-display); color:var(--bone);
   overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }

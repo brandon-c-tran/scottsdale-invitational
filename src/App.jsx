@@ -24,6 +24,8 @@ import { SoundToggle } from "./features/profile/SoundToggle.jsx";
 import { ChipPhysicsToggle } from "./features/profile/ChipPhysicsToggle.jsx";
 import { useSoundSystem, tvKioskCommand } from "./lib/sound.js";
 import { lazyPart } from "./lib/lazyPart.js";
+import { arrivalOffer } from "./features/arrivals/arrivalsModel.js";
+import { exitGhost } from "./ui/exitGhost.js";
 import { usePhoneSounds } from "./features/home/phoneSound.js";
 import { filterRevealCandidates, introRemainingMs, DRAW_INTRO_MS, DRAW_INTRO_REDUCED_MS } from "./features/weekend/drawReveal.js";
 import { Board, postedLine } from "./features/standings/Standings.jsx";
@@ -238,7 +240,7 @@ function PlayerChip({ name, selected, disabled, onClick, small, style }) {
       background: selected ? GOLD_GRAD : "var(--paper)",
       color: selected ? "var(--ink0)" : disabled ? "var(--disabled)" : "var(--ink)",
       border: selected ? "1.5px solid var(--ink0)" : "1.5px solid var(--line)",
-      opacity: disabled && !selected ? 0.4 : 1, transition:"all .12s",
+      opacity: disabled && !selected ? 0.4 : 1, transition:"transform .12s, color .12s, border-color .12s, opacity .12s",
       overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", ...style }}>{name}</button>
   );
 }
@@ -342,6 +344,10 @@ function TournamentApp({ tournament, onUpdateReload }) {
   useEffect(() => { setHapticSurface(tv ? "tv" : "phone"); }, [tv]);
   /* the server counts this device as a TV while it shows TV mode */
   useEffect(() => { setTvView(tv); }, [tv]);
+  /* Scan the TV opens at once: the scanner's chunk lands while Home offers
+     it, instead of after the tap with nothing on screen */
+  const scanOffered = !tv && !!me && !!arrivalOffer(state, me, serverNow());
+  useEffect(() => { if (scanOffered) ArriveScanner.preload().catch(() => {}); }, [scanOffered]);
   /* Sheets stack: setModal replaces the stack (open fresh, or null closes
      all), pushModal opens a sheet INSIDE the current one so back returns to
      it. The X and the scrim always close the whole stack. */
@@ -367,6 +373,9 @@ function TournamentApp({ tournament, onUpdateReload }) {
   const [moment, setMoment] = useState(null);
   const [shower, setShower] = useState(0);
   const [toast, setToast] = useState(null);
+  /* a toast that leaves sinks away instead of vanishing (made once: a ref) */
+  const toastExit = useRef(null);
+  if (!toastExit.current) toastExit.current = exitGhost();
   const [seenReveals, setSeenReveals] = useState(() => {
     try { return JSON.parse(localGet("si-seen-v5") || "[]"); } catch { return []; }
   });
@@ -621,7 +630,7 @@ function TournamentApp({ tournament, onUpdateReload }) {
   useEffect(() => {
     if (!ready) return;
     const markers = resultMarkers(state);
-    if (tv && resultsSeenRef.current && freshResults(resultsSeenRef.current, state).length) setBurst(b => b + 1);
+    if (tv && resultsSeenRef.current && currentFrame().fresh && freshResults(resultsSeenRef.current, state).length) setBurst(b => b + 1);
     resultsSeenRef.current = markers;
     const next = me ? guestLedger(state, me, events, standings) : null;
     const prev = ledgerRef.current;
@@ -1465,7 +1474,7 @@ function TournamentApp({ tournament, onUpdateReload }) {
     if (run.tab) return setTab(run.tab);
     if (run.open === "pokerClock") {
       setModal(null); setTab("board");
-      setTimeout(() => document.getElementById("fd-poker-table")?.scrollIntoView({ block:"start", behavior:"smooth" }), 80);
+      setTimeout(() => document.getElementById("fd-poker-table")?.scrollIntoView({ block:"start", behavior:prefersReducedMotion() ? "auto" : "smooth" }), 80);
       return;
     }
     if (run.open === "resultEntry") return ev && openResultEntry(ev);
@@ -2049,7 +2058,7 @@ function TournamentApp({ tournament, onUpdateReload }) {
       {/* a Your pick nudge stands down while the draft itself is open, and on
           Home, whose headline already says it; it shows on any other tab */}
       {toast && !(toast.draftTurn && (modal?.type === "draft" || (tab === "board" && !modal))) && (
-        <div role="status" aria-live="polite" className={`fd-toast${toast.tone === "gold" ? " is-gold" : ""}${toast.action ? " has-action" : ""}${tab === "bets" && me && wagerEv && wagerMarketOpen && !modal ? " is-over-rack" : ""}`}>
+        <div ref={toastExit.current} role="status" aria-live="polite" className={`fd-toast${toast.tone === "gold" ? " is-gold" : ""}${toast.action ? " has-action" : ""}${tab === "bets" && me && wagerEv && wagerMarketOpen && !modal ? " is-over-rack" : ""}`}>
           {toast.chip ? (
             <span className="fd-toast-mark">
               <BankChip p={toast.chip} size={26} />

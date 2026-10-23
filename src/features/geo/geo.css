@@ -178,7 +178,7 @@
 .fd-wheel-item.is-live { color:var(--ink); }
 .fd-wheel.is-hour .fd-wheel-item, .fd-wheel.is-year .fd-wheel-item { font-size:24px; }
 
-.fd-geo-game-foot { display:grid; gap:10px; padding:10px 14px calc(env(safe-area-inset-bottom) + 12px); border-top:1px solid var(--line);
+.fd-geo-game-foot { position:relative; display:grid; gap:10px; padding:10px 14px calc(env(safe-area-inset-bottom) + 12px); border-top:1px solid var(--line);
   background:var(--chrome); }
 .fd-geo-steps { display:grid; grid-template-columns:repeat(3, 1fr); gap:4px; padding:4px; border:1px solid var(--line); border-radius:10px; background:var(--bg); }
 .fd-geo-steps button { min-height:44px; display:flex; align-items:center; justify-content:center; gap:5px; border:0; border-radius:8px;
@@ -188,14 +188,20 @@
 .fd-geo-steps button.is-done i { color:var(--lamp-info); font-style:normal; font-weight:800; }
 .fd-geo-primary { min-height:56px; display:flex; align-items:center; justify-content:center; gap:8px; border:0; border-radius:14px;
   background:var(--action-fill); color:var(--action-ink); font:700 17px/1 var(--fd-body); cursor:pointer; box-shadow:var(--chip-bloom);
-  transition:transform .12s ease, background .2s ease; }
-.fd-geo-primary:active:not(:disabled) { transform:scale(.97); }
+  transition:transform .12s ease, background .2s ease, opacity .15s ease; }
+.fd-geo-primary:active:not(:disabled):not([aria-busy=true]) { transform:scale(.97); }
+/* Lock in, sent and not yet answered: pending, never a dead grey button */
+.fd-geo-primary[aria-busy=true] { opacity:.6; cursor:progress; }
 .fd-geo-primary:disabled { background:var(--paper2); color:var(--muted2); cursor:default; box-shadow:var(--glass-edge); }
 .fd-geo-primary.is-done { background:var(--info-tint); color:var(--lamp-info); box-shadow:inset 0 0 0 1px var(--lamp-info);
   animation:fd-geo-stamp .4s cubic-bezier(.2,.9,.3,1.4) both; }
 .fd-geo-primary.is-done i { font-style:normal; font-weight:800; }
 @keyframes fd-geo-stamp { from { transform:scale(1.08); } }
-.fd-geo-note { margin:-2px 0 0; text-align:center; color:var(--muted2); font:500 13px/1.4 var(--fd-body); }
+/* Saving… comes and goes with every autosave, so it floats just above the
+   foot and never moves the map or the wheels mid-turn */
+.fd-geo-note { position:absolute; left:50%; bottom:calc(100% + 8px); z-index:2; transform:translateX(-50%); margin:0;
+  white-space:nowrap; pointer-events:none; padding:5px 12px; border-radius:99px;
+  background:color-mix(in srgb, var(--ink0) 82%, transparent); color:var(--bone); font:600 13px/1.2 var(--fd-body); }
 .fd-geo-error { margin:0; color:var(--clay-text); font:600 13px/1.4 var(--fd-body); }
 
 /* the reveal: the map up top, your result rising under it */

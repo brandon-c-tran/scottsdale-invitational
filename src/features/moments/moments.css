@@ -9,7 +9,7 @@
   padding:calc(env(safe-area-inset-top) + 56px) 20px calc(env(safe-area-inset-bottom) + 28px);
   background:var(--bg); color:var(--moment-ink, var(--ink)); cursor:pointer; -webkit-tap-highlight-color:transparent;
   animation:fd-moment-in 200ms ease-out calc(var(--tl, 0ms) + 0ms) both,
-    fd-moment-out 400ms ease-in calc(var(--tl, 0ms) + var(--moment-hold, 7000ms) - 400ms) both; }
+    fd-moment-out 400ms ease-in calc(var(--tl, 0ms) + var(--moment-hold, 7000ms) - 400ms) forwards; }
 @keyframes fd-moment-in { from { opacity:0; } to { opacity:1; } }
 @keyframes fd-moment-out { from { opacity:1; } to { opacity:0; visibility:hidden; } }
 .fd-moment-flood { position:absolute; inset:0; overflow:hidden; pointer-events:none; }
@@ -66,7 +66,7 @@
   margin:0 auto; display:flex; align-items:center; border:1px solid var(--lamp-live, var(--line)); border-radius:14px; background:var(--paper2);
   color:var(--ink); box-shadow:var(--shadow-3);
   animation:fd-banner-in 320ms var(--ease-land) calc(var(--tl, 0ms) + 0ms) both,
-    fd-banner-out 300ms ease-in calc(var(--tl, 0ms) + var(--moment-hold, 5000ms) - 300ms) both; }
+    fd-banner-out 300ms ease-in calc(var(--tl, 0ms) + var(--moment-hold, 5000ms) - 300ms) forwards; }
 @keyframes fd-banner-in { from { opacity:0; transform:translateY(-24px); } to { opacity:1; transform:none; } }
 @keyframes fd-banner-out { from { opacity:1; } to { opacity:0; visibility:hidden; } }
 .fd-moment-banner-main { flex:1; min-width:0; min-height:56px; display:flex; align-items:center; gap:10px; padding:6px 4px 6px 10px;

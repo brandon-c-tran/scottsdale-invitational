@@ -374,14 +374,15 @@ class ChipEngine {
     chip.drop = { t0:performance.now() + delay, spin:(next() - 0.5) * 6 };
     return chip;
   }
-  /* the top chip of a stack lifts off */
-  lift(st, pay = false) {
+  /* the top chip of a stack lifts off; a change that is not a moment (a
+     load, a catch-up, a correction, reduced motion) just takes it, as drop does */
+  lift(st, pay = false, animate = true) {
     const list = pay ? st.pay : st.chips;
     if (!list.length) return;
     let top = 0;
     list.forEach((chip, i) => { if (this.yOf(chip) > this.yOf(list[top])) top = i; });
     const [chip] = list.splice(top, 1);
-    this.fade(chip);
+    if (animate) this.fade(chip); else this.remove(chip);
   }
   yOf(chip) { return chip.body ? chip.body.position.y : chip.pos.y; }
   fade(chip, ms = FADE_MS) {
@@ -655,7 +656,7 @@ class ChipEngine {
             plan.forEach(step => this.toss(st, step.delay, step.flight, !!onLand));
             if (fresh) this.inAt.set(id, nowClock + plan[0].delay + plan[0].flight);
           } else for (let j = have; j < want; j++) this.place(st);
-        } else for (let j = want; j < have; j++) this.lift(st);
+        } else for (let j = want; j < have; j++) this.lift(st, false, animate);
       }
       let out = null;
       if (settled && !this.settled.has(id)) {

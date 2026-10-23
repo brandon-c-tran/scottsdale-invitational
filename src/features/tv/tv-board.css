@@ -72,7 +72,7 @@
 /* the instant they arm: the panel's edge flashes lit, then holds */
 .tv-board-panel.is-live::after { content:""; position:absolute; inset:0; border-radius:inherit; pointer-events:none;
   box-shadow:inset 0 0 0 6px var(--lamp-live), inset 0 0 60px color-mix(in srgb, var(--lamp-live) 35%, transparent);
-  animation:tv-board-flash .7s var(--ease-out) both; }
+  opacity:.35; animation:tv-board-flash .7s var(--ease-out) both; }
 @keyframes tv-board-flash { from { opacity:1; } to { opacity:.35; } }
 @keyframes tv-board-arm { from { transform:scale(1.025); } }
 

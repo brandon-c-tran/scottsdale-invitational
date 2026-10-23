@@ -251,6 +251,8 @@ test("scanner: a blocked camera reads as blocked, anything else as no camera; js
   assert.match(scanner, /playsInline/, "inline on iPhone");
   const app = fs.readFileSync(new URL("../src/App.jsx", import.meta.url), "utf8");
   assert.match(app, /lazyPart\(\(\) => import\("\.\/features\/arrivals\/Scanner\.jsx"\), "ArriveScanner"\)/);
+  /* the chunk lands while Home offers the scan, so the first tap opens the scanner at once */
+  assert.match(app, /const scanOffered = !tv && !!me && !!arrivalOffer\(state, me, serverNow\(\)\);\s*useEffect\(\(\) => \{ if \(scanOffered\) ArriveScanner\.preload\(\)/);
   for (const file of fs.readdirSync(new URL("../src/", import.meta.url), { recursive:true })) {
     if (!/\.(jsx?|mjs)$/.test(file) || file.replace(/\\/g, "/") === "features/arrivals/Scanner.jsx") continue;
     assert.doesNotMatch(fs.readFileSync(new URL(`../src/${file}`, import.meta.url), "utf8"), /["']jsqr["']/, file);

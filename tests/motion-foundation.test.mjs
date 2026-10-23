@@ -223,6 +223,31 @@ test("counts step only through values that can exist, and land exactly", () => {
   assert.equal(motion.signedChips(0), "0");
 });
 
+test("a count renders only when its stepped number moves, and once as it ends", () => {
+  const play = (run, opts = {}) => {
+    const shown = [];
+    let renders = 0;
+    for (let now = run.start; ; now += 1000 / 60) {
+      const frame = motion.countFrame(run, now, opts);
+      if (frame.render) { renders++; run.shown = frame.shown; shown.push(frame.shown); }
+      if (frame.done) break;
+    }
+    return { shown, renders };
+  };
+  const up = play({ from:1800, to:2200, start:0, shown:1800 });
+  assert.deepEqual([...new Set(up.shown)], [1900, 2000, 2100, 2200], "every step shows, in order");
+  assert.equal(up.shown.at(-1), 2200, "it lands");
+  assert.ok(up.renders <= 5, `five renders at most for four steps, not one a frame (${up.renders})`);
+  /* a delay holds the first number without rendering */
+  const held = play({ from:1000, to:900, start:0, shown:1000 }, { delay:600 });
+  assert.deepEqual([...new Set(held.shown)], [900]);
+  assert.ok(held.renders <= 2);
+  /* a count already past its end renders once, on its value */
+  assert.deepEqual(motion.countFrame({ from:0, to:500, start:0, shown:0 }, 5000), { done:true, shown:500, render:true });
+  assert.match(read("src/lib/motion.js"), /if \(frame\.render\) \{ current\.shown = frame\.shown; rerender/);
+  assert.match(read("src/lib/motion.js"), /if \(frame\.render\) \{ run\.shown = frame\.shown; rerender/);
+});
+
 test("a value change is fresh only from a new, recent, fresh frame for the same subject", () => {
   const frame = { seq:5, fresh:true, at:1000 };
   const committed = { value:1000, key:"A", frameSeq:4, changeId:2, from:900, to:1000 };
@@ -410,4 +435,43 @@ test("the tick is wired into the user's own taps and never the Quick Draw reacti
   assert.match(quickDraw, /if \(key === "accept" \|\| key === "rematch"\) tapTick\(\);/);
   for (const path of ["src/App.jsx", "src/features/home/guestUpdates.js"])
     assert.doesNotMatch(src(path), /tapTick/, `${path}: never on remote events`);
+});
+
+test("a smooth scroll is an animation: reduced motion jumps instead", async () => {
+  const { readdirSync, statSync } = await import("node:fs");
+  const { join, relative } = await import("node:path");
+  const root = new URL("../", import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, "$1");
+  const files = [];
+  (function walk(dir) {
+    for (const name of readdirSync(dir)) {
+      const path = join(dir, name);
+      if (statSync(path).isDirectory()) walk(path);
+      else if (/\.(jsx?|mjs)$/.test(name)) files.push(path);
+    }
+  })(join(root, "src"));
+  const bad = [];
+  for (const file of files) readFileSync(file, "utf8").split(/\r?\n/).forEach((line, i) => {
+    if (/behavior\s*:\s*["']smooth["']/.test(line)) bad.push(`${relative(root, file)}:${i + 1}`);
+  });
+  assert.deepEqual(bad, [], "write behavior:reduced ? \"auto\" : \"smooth\"");
+});
+
+test("reduced motion stills the pseudo-elements too", () => {
+  const shell = read("src/ui/shell.css");
+  assert.match(shell, /@media \(prefers-reduced-motion: reduce\) \{[^}]*\*, \*::before, \*::after \{ animation:none !important; transition:none !important; \}/,
+    "* alone never reaches ::before or ::after: the Betting open fill kept breathing and every sheet's scrim kept fading");
+  /* each pseudo-element that animates rests on its end state */
+  assert.match(read("src/features/tv/tv-board.css"), /\.tv-board-panel\.is-live::after \{[^}]*opacity:\.35; animation:tv-board-flash/);
+});
+
+test("a toast that leaves sinks away: a copy that cannot be read or tapped fades where it stood", () => {
+  const ghost = read("src/ui/exitGhost.js");
+  assert.match(ghost, /if \(el\) \{ node = el; return; \}/, "the element is kept from its attach");
+  assert.match(ghost, /if \(!gone\?\.isConnected \|\| typeof document === "undefined" \|\| prefersReducedMotion\(\)\) return;/,
+    "reduced motion: it simply goes");
+  assert.match(ghost, /setAttribute\("inert", ""\)/);
+  assert.match(ghost, /setTimeout\(remove, ms \* 3\)/, "the copy never outlives its exit");
+  const app = read("src/App.jsx");
+  assert.match(app, /const toastExit = useRef\(null\);\s*if \(!toastExit\.current\) toastExit\.current = exitGhost\(\);/, "made once");
+  assert.match(app, /<div ref=\{toastExit\.current\} role="status" aria-live="polite" className=\{`fd-toast/);
 });

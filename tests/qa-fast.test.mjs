@@ -198,12 +198,14 @@ test("sessions, the finale stages and the crown", () => {
 });
 
 test("crowned from empty is one fast write, and a seed repeats the weekend", () => {
-  const started = performance.now();
+  /* CPU time, not the wall clock: a loaded machine stretches the clock, never the work */
+  const started = process.cpuUsage();
   const first = reach("crowned", empty(), { seed:1234 });
-  const elapsed = performance.now() - started;
-  console.log(`# crowned from empty: ${elapsed.toFixed(0)} ms, ${first.extra.writes} reducer writes, `
+  const { user, system } = process.cpuUsage(started);
+  const elapsed = (user + system) / 1000;
+  console.log(`# crowned from empty: ${elapsed.toFixed(0)} ms of CPU, ${first.extra.writes} reducer writes, `
     + `${first.extra.bets} bets, ${first.extra.duels} duels, ${first.extra.contests} contests`);
-  assert.ok(elapsed < 3000, `crowned took ${elapsed} ms`);
+  assert.ok(elapsed < 3000, `crowned took ${elapsed} ms of CPU`);
   const second = reach("crowned", empty(), { seed:1234 });
   const shape = state => ({
     standings:computeStandings(state).map(row => [row.player, row.pts]),

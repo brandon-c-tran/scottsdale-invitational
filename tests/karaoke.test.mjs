@@ -957,10 +957,12 @@ test("QA's Finish event plays a karaoke game from wherever it stands", () => {
 
 test("QA crowned from empty plays karaoke on the way and stays fast", () => {
   const state = structuredClone(EMPTY_STATE);
-  const started = performance.now();
+  /* CPU time, not the wall clock: a loaded machine stretches the clock, never the work */
+  const started = process.cpuUsage();
   act(state, "qaAdvance", { target:"crowned", seed:7 });
-  const elapsed = performance.now() - started;
-  assert.ok(elapsed < 3000, `crowned took ${elapsed} ms`);
+  const { user, system } = process.cpuUsage(started);
+  const elapsed = (user + system) / 1000;
+  assert.ok(elapsed < 3000, `crowned took ${elapsed} ms of CPU`);
   assert.ok(state.frozen);
   assert.equal(state.karaoke.phase, "done");
   assert.deepEqual(state.results.karaoke.slots, karaokeResultSlots(state.karaoke.ranking));

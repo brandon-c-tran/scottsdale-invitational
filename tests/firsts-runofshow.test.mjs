@@ -226,9 +226,11 @@ test("a whole weekend through the real reducers: one fact per write, terse, stab
   assert.ok(facts.some(fact => fact.kind === "first"));
   /* the same history says the same thing, and is quick enough to run per broadcast */
   const again = structuredClone(state);
-  const started = performance.now();
+  /* CPU time, not the wall clock: a loaded machine stretches the clock, never the work */
+  const started = process.cpuUsage();
   assert.deepEqual(ui.weekendFacts(again, allEventsOf(again)), facts);
-  assert.ok(performance.now() - started < 250);
+  const { user, system } = process.cpuUsage(started);
+  assert.ok((user + system) / 1000 < 250);
 });
 
 test("the receipt carries one line when the fresh fact is yours, and never someone else's", () => {

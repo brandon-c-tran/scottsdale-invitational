@@ -45,6 +45,14 @@ import { GAG_SHAPES, gagShapeOf, gagTestCast, isTeamGag } from "../shared/gags.j
 import {
   JERSEY_NAME_MAX, NEEDS_MAX, cleanBackName, cleanNeeds, cleanVenmo, jerseyConfirmed, jerseyName,
 } from "../shared/guestSetup.js";
+import { cleanFreeText } from "../shared/freeText.js";
+
+/* free text's caps: what each field's input allows and its surfaces letter */
+const DISPLAY_NAME_MAX = 16;
+const EVENT_NAME_MAX = 28;
+const EVENT_DESC_MAX = 300;
+const RULING_REASON_MAX = 80;
+const CORRECTION_REASON_MAX = 100;
 
 const ok = extra => ({ ok: true, extra });
 const err = (error, extra) => ({ ok: false, error, extra });
@@ -141,7 +149,7 @@ const eventOp = (state, evId) => {
   state.eventOps[evId] = state.eventOps[evId] || {};
   return state.eventOps[evId];
 };
-const cleanCorrectionReason = value => String(value || "").trim().slice(0, 100);
+const cleanCorrectionReason = value => cleanFreeText(String(value || ""), CORRECTION_REASON_MAX);
 const slotsEqual = (left, right) => JSON.stringify(left || []) === JSON.stringify(right || []);
 const appendCorrection = (state, evId, entry) => {
   const op = eventOp(state, evId);
@@ -546,7 +554,11 @@ export const ACTIONS = {
     if (player !== ctx.player && !ctx.isGm) return err("Not your profile");
     if (typeof display !== "string" || !display.trim()) return err("Add your name");
     const saved = state.profiles[player] || {};
-    const prof = { ...saved, display: display.trim().slice(0, 16) };
+    /* the saved name sent back unchanged keeps as it is; a new one loses
+       control and invisible marks and keeps its first 16 */
+    const name = display === saved.display ? display : cleanFreeText(display, DISPLAY_NAME_MAX);
+    if (!name) return err("Add your name");
+    const prof = { ...saved, display:name };
     /* once jerseys are ordered, what is printed on them stays put */
     if (state.jerseysLocked && !ctx.isGm) {
       const name = backName === undefined ? undefined : cleanBackName(backName);
@@ -1943,7 +1955,8 @@ export const ACTIONS = {
   },
   addEvent(state, { ev }, ctx) {
     const g = gmOnly(ctx); if (g) return g;
-    if (!ev?.name?.trim()) return err("Name the event");
+    const name = cleanFreeText(String(ev?.name ?? ""), EVENT_NAME_MAX);
+    if (!name) return err("Name the event");
     if (typeof ev.id !== "string" || !ev.id) return err("That event has no id. Add it again");
     if (allEventsOf(state).find(e => e.id === ev.id)) return err("An event already has that id. Rename it");
     if (!AWARDS[ev.value]) return err("Pick a value from the payout ladder");
@@ -1965,8 +1978,8 @@ export const ACTIONS = {
     const session = SESSIONS.find(item => item.id === ev.session)?.id;
     const game = typeof ev.game === "string" && /^[a-z0-9-]{1,24}$/i.test(ev.game) ? ev.game : null;
     state.customEvents.push({
-      id:ev.id, custom:true, name:String(ev.name).trim().slice(0, 28), value:ev.value,
-      desc:String(ev.desc || "").trim().slice(0, 300), kind:ev.kind,
+      id:ev.id, custom:true, name, value:ev.value,
+      desc:cleanFreeText(String(ev.desc || ""), EVENT_DESC_MAX, { lines:true }), kind:ev.kind,
       ...(session ? { session } : {}), ...(game ? { game } : {}), ...(teamCfg ? { teamCfg } : {}),
     });
     return ok();
@@ -1995,11 +2008,11 @@ export const ACTIONS = {
     if (!current) return err("No such event");
     const clean = {};
     if (patch?.name !== undefined) {
-      const n = String(patch.name).trim();
+      const n = cleanFreeText(String(patch.name), EVENT_NAME_MAX);
       if (!n) return err("Name the event");
-      clean.name = n.slice(0, 28);
+      clean.name = n;
     }
-    if (patch?.desc !== undefined) clean.desc = String(patch.desc).trim().slice(0, 300);
+    if (patch?.desc !== undefined) clean.desc = cleanFreeText(String(patch.desc), EVENT_DESC_MAX, { lines:true });
     if (patch?.value !== undefined) {
       const v = Number(patch.value);
       if (!AWARDS[v]) return err("Pick a value from the payout ladder");
@@ -2646,7 +2659,7 @@ export const ACTIONS = {
     if (pokerLive(state)) return err("The finale is live, correct it after the count");
     const now = Date.now();
     const ruling = { id:`a${now}-${crypto.randomUUID()}`, player, delta,
-      reason:String(reason || "").slice(0, 80), ts:now, by:actorOf(ctx),
+      reason:cleanFreeText(String(reason || ""), RULING_REASON_MAX), ts:now, by:actorOf(ctx),
       ...(stacks ? { pokerRevision:Number(stacks.revision || 1) } : {}) };
     state.adjustments.unshift(ruling);
     const voided = enforceExposure(state, now);
@@ -2942,7 +2955,8 @@ export const ACTIONS = {
       const v = patch?.[k];
       if (v === undefined) continue;
       if (typeof v !== "string") return err("Enter it as text and save again");
-      clean[k] = v.trim().slice(0, max);
+      /* the arrival notes keep their line breaks */
+      clean[k] = cleanFreeText(v, max, { lines:k === "venueNote" });
     }
     for (const k of ["hostIn", "hostOut"]) {
       if (patch?.[k] === undefined) continue;

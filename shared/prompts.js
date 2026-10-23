@@ -21,6 +21,7 @@
    revealed it. */
 
 import { ROSTER, isActivePlayer, allEventsOf, eventInPlay, pokerLive, rosterOf } from "./core.js";
+import { cleanFreeText } from "./freeText.js";
 
 const PROMPT_KINDS = Object.freeze(["awards"]);
 const PROMPT_TITLE_MAX = 40;
@@ -46,11 +47,8 @@ function promptsOf(state) {
 
 const newId = prefix => `${prefix}${crypto.randomUUID().replaceAll("-", "").slice(0, 10)}`;
 
-function cleanTitle(value) {
-  if (typeof value !== "string") return "";
-  // eslint-disable-next-line no-control-regex
-  return value.replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim().slice(0, PROMPT_TITLE_MAX).trim();
-}
+/* an award's title: control and invisible marks out, capped at a character */
+const cleanTitle = value => cleanFreeText(value, PROMPT_TITLE_MAX);
 
 /* The commissioner's draft, validated the same way on every write. Nominees
    are null (everyone, fixed to the roster at publish) or an explicit list of

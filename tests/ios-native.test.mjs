@@ -14,23 +14,38 @@ function cssFiles(dir) {
   });
 }
 
-/* each style rule's selector, with the preludes of the blocks it sits inside */
+/* each style rule: its selector, its declarations, and the preludes of the
+   blocks it sits inside */
 function rules(css) {
   const text = css.replace(/\/\*[\s\S]*?\*\//g, "");
   const out = [], open = [];
   let prelude = "";
   for (const ch of text) {
+    const rule = open.at(-1)?.rule;
     if (ch === "{") {
       const head = prelude.trim();
-      if (!head.startsWith("@")) out.push({ selector:head, within:[...open] });
-      open.push(head); prelude = ""; continue;
+      const entry = { head, rule:head.startsWith("@") ? null : { selector:head, body:"", within:open.map(o => o.head) } };
+      if (entry.rule) out.push(entry.rule);
+      open.push(entry); prelude = ""; continue;
     }
     if (ch === "}") { open.pop(); prelude = ""; continue; }
+    if (rule) rule.body += ch;
     if (ch === ";") { prelude = ""; continue; }
     prelude += ch;
   }
   return out;
 }
+
+test("a long press on a control selects nothing; a card shown to press and hold keeps its callout", () => {
+  const shell = readFileSync("src/ui/shell.css", "utf8");
+  assert.match(shell, /:where\(button, \[role=button\], summary\) \{ -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; \}/);
+  assert.match(shell, /:where\(button, \[role=button\], a, label, summary, input, select, textarea\) \{ touch-action:manipulation; \}/);
+  assert.match(readFileSync("src/features/results/results.css", "utf8"),
+    /\.fd-crown-preview img \{[^}]*-webkit-touch-callout:default; user-select:auto; -webkit-user-select:auto; \}/);
+  /* never on a label or a field's wrapper: Safari can keep the field inside from taking the caret */
+  for (const file of cssFiles("src")) for (const rule of rules(readFileSync(file, "utf8")))
+    assert.ok(!/(^|[\s,>])label\b|fd-[\w-]*field\b/.test(rule.selector) || !/user-select:\s*none/.test(rule.body), `${file}: ${rule.selector}`);
+});
 
 test("hover styles live only where a pointer hovers (a tap leaves :hover stuck on iPhone)", () => {
   const stuck = [];

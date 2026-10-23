@@ -75,7 +75,7 @@
   line-height:1.04; letter-spacing:.01em; text-transform:none; text-shadow:0 3px 0 var(--pass-deep);
   overflow-wrap:normal; word-break:normal; white-space:normal; }
 .fd-pass-foot { border-top:1.5px solid var(--pass-rule); margin-top:10px; padding-top:9px; }
-.fd-pass-back { transform:rotateY(180deg); }
+.fd-pass-back { transform:rotateY(180deg); container-type:inline-size; }
 .fd-pass-back-title { position:relative; display:grid; gap:8px; margin:auto 0; }
 .fd-pass-back-title>span { font:900 clamp(40px,12vw,58px)/1.04 var(--fd-show); text-shadow:0 3px 0 var(--pass-deep); overflow-wrap:anywhere; }
 .fd-pass-back-title>b { font:800 20px/1 var(--fd-display); letter-spacing:.08em; text-transform:uppercase; }
@@ -89,7 +89,9 @@
 .fd-pass-back.is-season { justify-content:flex-start; }
 .fd-pass-season { position:relative; display:flex; flex-direction:column; flex:none; gap:10px; }
 .fd-pass-season-head { display:flex; align-items:flex-end; justify-content:space-between; gap:10px; margin-top:2px; }
-.fd-pass-season-title { min-width:0; font:900 36px/1.04 var(--fd-show); text-shadow:0 2px 0 var(--pass-deep); overflow-wrap:anywhere; }
+/* sized to its longest word beside the number's ghost (about 64px), as the front's name is: it wraps at a space, never inside a word */
+.fd-pass-season-title { min-width:0; font:900 36px/1.04 var(--fd-show); text-shadow:0 2px 0 var(--pass-deep); overflow-wrap:normal;
+  font-size:min(36px, calc((100cqw - 64px) / (var(--pass-name-chars, 8) * .5))); }
 .fd-pass-season-ghost { flex-shrink:0; font:900 44px/.8 var(--fd-display); color:transparent; -webkit-text-stroke:1.5px var(--pass-ink); opacity:.6; }
 .fd-pass-table { display:block; }
 .fd-pass-table-head,.fd-pass-table-row { display:grid; grid-template-columns:minmax(0,1fr) 46px 54px;
@@ -119,7 +121,7 @@
   font:600 12px/1.3 var(--fd-body); }
 .fd-pass-line>span { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .fd-pass-line>strong { flex-shrink:0; max-width:60%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
-  font:800 15px/1 var(--fd-display); }
+  font:800 15px/1.2 var(--fd-display); }
 .fd-pass-walkout { border-top:1px solid var(--pass-rule); padding-top:8px; }
 .fd-pass-walkout>strong { font:600 12px/1.3 var(--fd-body); }
 @media(prefers-reduced-motion:no-preference) {

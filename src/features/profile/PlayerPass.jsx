@@ -8,6 +8,7 @@ import { ScoreReel } from "../../ui/ScoreReel.jsx";
 import { OneSafe } from "../../ui/OneSafe.jsx";
 import { useRisoTilt } from "./useRisoTilt.js";
 import { recordText, seasonStats } from "./seasonStats.js";
+import { longestWordUnits } from "../../ui/textUnits.js";
 import "./player-pass.css";
 
 // Small card labels need more contrast than the chip's large center stamp.
@@ -76,7 +77,7 @@ export function PlayerPass({ state, p, display, num, photo, compact = false, min
   }, [sheet]);
   if (!p) return null;
   /* The name shrinks to fit its longest word instead of breaking mid-word. */
-  const longest = Math.max(4, ...name.split(/\s+/).map(word => word.length));
+  const longest = Math.max(4, Math.ceil(longestWordUnits(name)));
   /* the roster's own initials, unless a new name is being typed */
   const monogram = (name === (profile.display || p) ? initials : String(name || "").trim().slice(0, 2).toUpperCase()) || "FD";
   const ghost = number == null ? monogram : String(number).padStart(2, "0");

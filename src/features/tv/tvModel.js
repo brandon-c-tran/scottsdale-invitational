@@ -817,8 +817,21 @@ export function pokerTickerItems(state, now) {
 export const TICKER_HALF_PX = 830;
 /* a fact alone has the whole plate: both halves and the gutter between */
 export const TICKER_SOLO_PX = TICKER_HALF_PX * 2 + 72;
+/* what an event pays, drawn on the ticker (PayoutLadder size "ticker", only
+   its paid places): each a 48px medallion, 8px, its amount at 34px (a digit
+   about 19px, a comma 9), 22px between places */
+const TICKER_LADDER = Object.freeze({ medal:48, gap:8, between:22, digit:19, comma:9 });
+export function tickerLadderWidth(pays) {
+  const steps = (Array.isArray(pays) ? pays : []).map(Number).filter(value => value > 0);
+  if (!steps.length) return 0;
+  return steps.reduce((sum, value) => {
+    const text = value.toLocaleString("en-US");
+    const commas = (text.match(/,/g) || []).length;
+    return sum + TICKER_LADDER.medal + TICKER_LADDER.gap + (text.length - commas) * TICKER_LADDER.digit + commas * TICKER_LADDER.comma;
+  }, 0) + (steps.length - 1) * TICKER_LADDER.between;
+}
 /* a fact's words (its strings, at the body's 34px) and everything else on
-   its line: the label, the faces, the numerals */
+   its line: the label, the faces, the numerals, a ladder */
 export function tickerFactParts(item) {
   const tag = String(item?.tag || "").length * 17 + 46;
   const n = (item?.players || []).length;
@@ -826,6 +839,7 @@ export function tickerFactParts(item) {
   let words = 0, rest = 0;
   for (const part of item?.parts || [item?.text || ""]) {
     if (typeof part === "string") words += textUnits(part) * 16.5;
+    else if (part?.ladder) rest += tickerLadderWidth(part.ladder);
     else rest += String(part.amount).length * 20;
   }
   return { fixed:tag + faces + rest, words };

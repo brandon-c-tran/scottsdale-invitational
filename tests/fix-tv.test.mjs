@@ -951,6 +951,20 @@ test("result step: every tower keeps its name; a tower that did not move shows n
   assert.ok(mode.includes("tv-result-headline") && mode.includes("\"fd-show tv-result-headline-name\""), "the headline in solid lettering");
 });
 
+test("ticker: a payout ladder counts as drawn, so a narrowed plate never pairs a fact it cuts", () => {
+  /* the medallions and amounts the ladder draws, never "undefined" at 20px a letter */
+  assert.equal(tvm.tickerLadderWidth([600, 300, 200]), 3 * (48 + 8 + 3 * 19) + 2 * 22);
+  assert.equal(tvm.tickerLadderWidth([1200, 0, 0]), 48 + 8 + 4 * 19 + 9, "a place that pays nothing draws nothing");
+  assert.equal(tvm.tickerLadderWidth([]), 0);
+  /* the arrivals corner's ticker (tv-arrive-corner): Biggest bet beside Next and its ladder cut the 200 */
+  const bet = { tag:"Biggest bet", players:["Allan", "Khoa"], parts:["Allan backs Khoa ", { amount:"500", role:"chip" }] };
+  const next = { tag:"Next", players:[], parts:["Beer Die Doubles", { ladder:[600, 300, 200] }] };
+  const narrow = tvm.TICKER_HALF_PX - tvm.TICKER_CORNER_PX / 2;
+  assert.ok(tvm.tickerFactWidth(next) > narrow, "Next with its ladder is wider than a narrowed half");
+  assert.deepEqual(tvm.tickerPages([bet, next], narrow).map(page => page.length), [1, 1]);
+  assert.deepEqual(tvm.tickerPages([bet, next]).map(page => page.length), [2], "the full plate still pairs them");
+});
+
 test("ticker: two short facts share a page, a long one is alone; the first fact never repeats its tag", () => {
   const short = n => ({ tag:"Leader", players:["Evan"], parts:["Evan ", { amount:"1,400", role:"chip" }], text:`Evan 1,400 ${n}` });
   const long = { tag:"Crew", players:["Evan", "Adi", "Khoa"], parts:["Evan, Referee · Adi, Scorekeeper · Khoa, Timekeeper · Ben, Line judge"], text:"" };

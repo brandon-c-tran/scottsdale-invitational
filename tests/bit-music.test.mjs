@@ -337,6 +337,36 @@ test("the Worker: a take-back while the song waits for its beat drops it and cle
   assert.equal(walkoutOf(world.tournament.state), null);
 });
 
+test("the Worker: a later win drops an earlier song still waiting for its beat", async () => {
+  const world = await room({ latency:600 });
+  const moment = fakeMoment(world, "standoff", [...ROSTER]);
+  let release, second;
+  const gate = new Promise(resolve => { release = resolve; });
+  world.tournament.sleep = async ms => { world.waits.push(ms); if (ms > 1000) await gate; };
+  const calls = await withSpotify(() => json(204, null), async () => {
+    const original = world.tournament.queueWinSong.bind(world.tournament);
+    let wins = 0;
+    world.tournament.queueWinSong = (before, after, type) => {
+      /* the first win carries a moment and waits for its beat; the second carries none and plays at once */
+      if (type === "recordContestWinner") { if (++wins === 1) moment.set(Date.now() + 5000); else moment.clear(); }
+      return original(before, after, type);
+    };
+    await world.win();
+    await new Promise(resolve => setTimeout(resolve, 0));
+    second = world.current();
+    await world.say("lockAndStart", { evId:"8ball", contestId:second.id, contestRevision:second.revision });
+    await world.say("recordContestWinner", { evId:"8ball", contestId:second.id, contestRevision:second.revision,
+      winner:second.sides[0].key });
+    release();
+    await world.settle();
+  });
+  const plays = calls.filter(call => call.path.startsWith("PUT /me/player/play"));
+  assert.equal(plays.length, 1, "only the later win plays");
+  const walkout = walkoutOf(world.tournament.state);
+  assert.ok(second.sides[0].players.includes(walkout.player), "the speaker is left on the later winner's song");
+  assert.equal(world.tournament.pendingSong, null);
+});
+
 test("the Worker: the latency is saved from the Speaker sheet, read back in the status, and Tap on the beat plays a saved song", async () => {
   const world = await room();
   const call = (path, body) => world.tournament.handleSpotify(new Request(`https://x.test/api/spotify/${path}`, {

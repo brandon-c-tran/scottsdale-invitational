@@ -1210,6 +1210,8 @@ export class Tournament {
       }
       if (this.lastWinSong === song.key) return;
       this.lastWinSong = song.key;
+      /* a later win drops an earlier song still waiting for its beat */
+      this.pendingSong = null;
       if (!connected) {
         await this.setSongMiss(song, { code:session?.reauthorize ? "reauthorize" : "not_connected" });
         return;

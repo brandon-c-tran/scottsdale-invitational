@@ -36,8 +36,9 @@ const duelSettledAt = duel => Math.max(Number(duel.ts) || 0,
   ...Object.values(duel.runs || {}).map(run => Number(run?.ts) || 0));
 
 /* Every chip change for one player, oldest first:
-   { at, delta, kind, eventId?, session? , ... } */
-export function chipChanges(state, player, events = allEventsOf(state)) {
+   { at, delta, kind, eventId?, session? , ... }
+   `book` (core poolBook) prices the pools once when a caller reads every player */
+export function chipChanges(state, player, events = allEventsOf(state), book = null) {
   const changes = [];
   const eventOf = id => events.find(event => event.id === id);
   for (const [evId, result] of Object.entries(state.results || {})) {
@@ -50,7 +51,7 @@ export function chipChanges(state, player, events = allEventsOf(state)) {
   }
   for (const wager of state.wagers || []) {
     if (wager?.player !== player) continue;
-    const resolved = resolveWager(state, wager, events);
+    const resolved = resolveWager(state, wager, events, book);
     if (resolved.status !== "won" && resolved.status !== "lost") continue;
     changes.push({ at:wagerSettledAt(state, wager), delta:resolved.delta, kind:"bet", eventId:wager.eventId,
       status:resolved.status, wager });

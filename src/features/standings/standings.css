@@ -77,7 +77,8 @@ button.fd-now-card { cursor:pointer; }
   width:100%; min-height:46px; padding:5px 4px; border:0; border-radius:0; background:transparent;
   color:var(--ink); text-align:left; cursor:pointer; }
 .fd-leaderboard.is-level .fd-standings-row { grid-template-columns:0 32px minmax(0,1fr) auto; column-gap:12px; }
-.fd-leaderboard.is-level .fd-standings-column-head { grid-template-columns:0 minmax(0,1fr) auto; }
+/* the folded column keeps the rows' gap, so "Player" stands over the faces */
+.fd-leaderboard.is-level .fd-standings-column-head { grid-template-columns:0 minmax(0,1fr) auto; column-gap:12px; }
 .fd-standings-row:active { transform:none; }
 .fd-standing-position { position:relative; display:block; height:24px; overflow:hidden; text-align:center; color:var(--muted2);
   font:800 22px/24px var(--fd-display); font-variant-numeric:tabular-nums; white-space:nowrap; }

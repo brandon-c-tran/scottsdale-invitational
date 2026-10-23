@@ -301,6 +301,16 @@ test("initials are unique across the roster and never a lookalike of another's a
   /* the saved display name is what is lettered, and every screen agrees */
   assert.equal(initialsOf({ Evan:{ display:"Evan" } }, "Evan"), "EV");
   assert.equal(initialsOf({}, "Somebody"), "SO", "an unknown player still gets letters");
+  /* letters of any script: a name in Han letters its first character (as
+     wide as two capitals), a one-letter name that letter, a Vietnamese name
+     its own D-stroke; never a blank chip or a doubled letter */
+  const ch = (...codes) => String.fromCodePoint(...codes);
+  const worst = initialsTable({ Chiang:{ display:ch(0x84CB, 0x5BB6, 0x8C6A) }, Ben:{ display:"B" },
+    Khoa:{ display:`Nguy${ch(0x1EC5)}n ${ch(0x110)}${ch(0x103)}ng Khoa` }, Henry:{ display:"TheRealSlimShady" } });
+  assert.equal(worst.Chiang, ch(0x84CB));
+  assert.equal(worst.Ben, "B");
+  assert.equal(worst.Khoa, `N${ch(0x110)}`);
+  assert.equal(worst.Henry, "TH");
 });
 
 test("an avatar's initials sit centered and upright whatever styles its button carries", () => {

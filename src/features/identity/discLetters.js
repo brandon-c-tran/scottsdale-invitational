@@ -14,9 +14,10 @@ export const DISC_OVERLAP_MIN = 32;
    the next disc stops short of the letters in the middle */
 export const DISC_OVERLAP = 0.2;
 
+/* a character at a time (a name's initial may be a CJK character, or one letter) */
 const letters = initials => {
-  const two = String(initials || "").slice(0, 2);
-  return { two, one:two.slice(0, 1) };
+  const chars = [...String(initials || "")];
+  return { two:chars.slice(0, 2).join(""), one:chars[0] || "" };
 };
 
 /* An Avatar is all plate (the player's color, stepped to hold 4.5:1): two
@@ -25,7 +26,7 @@ const letters = initials => {
 export function avatarLetters(size, floor = 12, initials = "") {
   const { two, one } = letters(initials);
   const px = Math.max(floor, Math.round(size * 0.42));
-  if (two.length > 1 && size >= px * 1.5) return { text:two, px };
+  if (two && size >= px * 1.5) return { text:two, px };
   return { text:one, px:floor };
 }
 
@@ -41,7 +42,7 @@ export function chipLetters(size, floor = 12, initials = "") {
   if (!two) return { text:"", units:0, r:CHIP_PLATE.standard };
   /* the floor in the chip's units */
   const f = floor * 32 / Math.max(1, size);
-  if (two.length > 1 && size >= floor * 2.2) return { text:two, units:Math.max(INITIALS_UNITS, f), r:CHIP_PLATE.standard };
+  if (size >= floor * 2.2) return { text:two, units:Math.max(INITIALS_UNITS, f), r:CHIP_PLATE.standard };
   if (two.length > 1 && f <= 19) return { text:two, units:f, r:CHIP_PLATE.wide };
   if (f <= 26) return { text:one, units:f, r:CHIP_PLATE.wide };
   return { text:one, units:f, r:CHIP_PLATE.full };

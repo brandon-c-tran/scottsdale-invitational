@@ -15,11 +15,15 @@ export function PlayerIdentityProvider({ profiles, children }) {
    across the roster and never a lookalike of someone else's at chip size:
    the first two letters, else the first and last, else the first and the
    next letter that sets them apart (Evan EV, Eyob EB; Chinh CH, Chiang CG).
+   Letters of any script count (Dang's D-stroke, a name in Han); a name of
+   one letter letters that one, and a CJK or Hangul name its first
+   character, which stands as wide as two capitals.
    Computed once per profiles object, in roster order, so every screen agrees. */
 const LOOKALIKE = { Y:"V", D:"O", Q:"O" };
 const shapeOf = pair => pair.replace(/[YDQ]/g, ch => LOOKALIKE[ch]);
 const nameOf = (profiles, player) => String(profiles?.[player]?.display || player || "").trim().toUpperCase();
-const lettersOf = name => name.replace(/[^A-Z0-9]/g, "");
+const lettersOf = name => [...name.normalize("NFC").replace(/[^\p{L}\p{N}]/gu, "")];
+const WIDE_INITIAL = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/u;
 const tables = new WeakMap();
 export function initialsTable(profiles) {
   const key = profiles && typeof profiles === "object" ? profiles : null;
@@ -28,13 +32,14 @@ export function initialsTable(profiles) {
   const taken = new Set(), table = {};
   for (const player of players) {
     const name = nameOf(key, player), letters = lettersOf(name);
-    if (!letters) { table[player] = ""; continue; }
+    if (!letters.length) { table[player] = ""; continue; }
     const first = letters[0];
+    if (letters.length === 1 || WIDE_INITIAL.test(first)) { taken.add(shapeOf(first)); table[player] = first; continue; }
     /* a name of two words letters as its initials ("j vo" is JV) */
-    const words = name.split(/\s+/).map(lettersOf).filter(Boolean);
-    const options = [...(words.length > 1 ? [words[0][0] + words[1][0]] : []), letters.slice(0, 2),
-      first + letters[letters.length - 1], ...[...letters.slice(2)].map(ch => first + ch)];
-    const pick = options.find(pair => pair.length === 2 && !taken.has(shapeOf(pair))) || letters.slice(0, 2);
+    const words = name.split(/\s+/).map(lettersOf).filter(word => word.length);
+    const options = [...(words.length > 1 ? [words[0][0] + words[1][0]] : []), letters.slice(0, 2).join(""),
+      first + letters[letters.length - 1], ...letters.slice(2).map(ch => first + ch)];
+    const pick = options.find(pair => [...pair].length === 2 && !taken.has(shapeOf(pair))) || letters.slice(0, 2).join("");
     taken.add(shapeOf(pick));
     table[player] = pick;
   }

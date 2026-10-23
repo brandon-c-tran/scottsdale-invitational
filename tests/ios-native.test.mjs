@@ -41,6 +41,8 @@ function rules(css) {
 
 test("a long press on a control selects nothing; a card shown to press and hold keeps its callout", () => {
   const shell = readFileSync("src/ui/shell.css", "utf8");
+  /* every press answers at once: a button or a disclosure row sinks while held */
+  assert.ok(shell.includes("button:active:not(:disabled), summary:active { transform: scale(0.97); }"));
   assert.match(shell, /:where\(button, \[role=button\], summary\) \{ -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; \}/);
   assert.match(shell, /:where\(button, \[role=button\], a, label, summary, input, select, textarea\) \{ touch-action:manipulation; \}/);
   assert.match(readFileSync("src/features/results/results.css", "utf8"),

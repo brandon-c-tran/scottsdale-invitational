@@ -18,7 +18,7 @@ body { margin:0; background:var(--bg); -webkit-font-smoothing:antialiased; text-
 @supports (-webkit-touch-callout:none) {
   input:not([type=range]):not([type=checkbox]):not([type=radio]), select, textarea { font-size:max(16px, 1em) !important; }
 }
-button:active:not(:disabled) { transform: scale(0.97); }
+button:active:not(:disabled), summary:active { transform: scale(0.97); }
 button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible {
   outline:2px solid var(--lamp-info); outline-offset:3px;
 }

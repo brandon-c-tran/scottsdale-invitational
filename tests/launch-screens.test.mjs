@@ -60,4 +60,8 @@ test("the launch ground is the app's ground", () => {
   const manifest = JSON.parse(readFileSync("public/manifest.webmanifest", "utf8"));
   assert.equal(LAUNCH_GROUND, manifest.background_color);
   assert.match(readFileSync("src/ui/experience.css", "utf8"), new RegExp(`--bg:${LAUNCH_GROUND};`));
+  /* and the page's first frame, before its stylesheet arrives, is that ground too */
+  const html = readFileSync("index.html", "utf8");
+  assert.ok(html.includes(`<style>html{background:${LAUNCH_GROUND}}</style>`));
+  assert.ok(html.includes('<meta name="color-scheme" content="dark" />'));
 });

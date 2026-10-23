@@ -1620,6 +1620,9 @@ export class Tournament {
       if (!track) return spotifyJson({ ok:false, error:"Save a win song first" }, 409);
       const at = Date.now() + CALIBRATE_LEAD_MS;
       const run = this.songQueue(async () => {
+        /* a win song queued on the lane before this round plays first, and
+           this round never plays over it (or pauses it) */
+        if (walkoutLive(this.state, Date.now()) || this.pendingSong) return;
         const speaker = await this.spotifySpeaker("");
         const wait = at - Date.now();
         if (wait > 0) await this.wait(wait);

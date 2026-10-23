@@ -451,3 +451,28 @@ test("the Worker: the latency is saved from the Speaker sheet, read back in the 
     startedAt:Date.now(), until:Date.now() + 30000, auto:true } } };
   assert.equal((await call("calibrate", {})).status, 409, "never over a win song");
 });
+
+test("the Worker: Tap on the beat never plays over a win song queued just before it", async () => {
+  const world = await room();
+  const call = path => world.tournament.handleSpotify(new Request(`https://x.test/api/spotify/${path}`, {
+    method:"POST", headers:{ Authorization:"Bearer gm", "Content-Type":"application/json" }, body:"{}" }),
+  new URL(`https://x.test/api/spotify/${path}`));
+  world.tournament.gmAuthorized = async () => true;
+  let release, answer;
+  const gate = new Promise(resolve => { release = resolve; });
+  const calls = await withSpotify(() => json(204, null), async () => {
+    /* a win song on the lane, its walkout not stamped yet when the round is asked for */
+    world.tournament.songQueue(async () => {
+      await gate;
+      await world.tournament.setWalkout({ player:ROSTER[1], trackId:SONGS[ROSTER[1]].trackId, startedAt:Date.now(),
+        until:Date.now() + 30000, auto:true }, "walkoutStart");
+    });
+    answer = await call("calibrate");
+    release();
+    await world.settle();
+  });
+  assert.equal(answer.status, 200, "nothing on the record said a song was coming");
+  assert.equal(calls.filter(item => item.path.startsWith("PUT /me/player/play")).length, 0, "the round never plays");
+  assert.equal(calls.filter(item => item.path.startsWith("PUT /me/player/pause")).length, 0, "and never pauses the win song");
+  assert.equal(walkoutOf(world.tournament.state)?.player, ROSTER[1]);
+});

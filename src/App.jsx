@@ -238,7 +238,7 @@ function PlayerChip({ name, selected, disabled, onClick, small, style }) {
       background: selected ? GOLD_GRAD : "var(--paper)",
       color: selected ? "var(--ink0)" : disabled ? "var(--disabled)" : "var(--ink)",
       border: selected ? "1.5px solid var(--ink0)" : "1.5px solid var(--line)",
-      opacity: disabled && !selected ? 0.4 : 1, transition:"all .12s",
+      opacity: disabled && !selected ? 0.4 : 1, transition:"transform .12s, color .12s, border-color .12s, opacity .12s",
       overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", ...style }}>{name}</button>
   );
 }

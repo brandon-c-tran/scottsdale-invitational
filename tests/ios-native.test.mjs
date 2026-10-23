@@ -82,6 +82,16 @@ test("names, handles and codes are typed as written: no autocorrect, no spellche
   }
 });
 
+test("fields are never under 16px on an iPhone, and one lettered larger keeps its size", () => {
+  const shell = readFileSync("src/ui/shell.css", "utf8");
+  assert.ok(shell.includes("input:not([type=range]):not([type=checkbox]):not([type=radio]):not(.fd-field-large), select, textarea { font-size:max(16px, 1em) !important; }"));
+  for (const [file, label] of [["src/features/profile/ProfileEditor.jsx", "Player number"], ["src/features/jersey/Jersey.jsx", "Jersey number"],
+    ["src/App.jsx", "Ruling chips"], ["src/App.jsx", "Commissioner passcode"]])
+    assert.match(inputs(file)[label], /className="fd-field-large"/, `${file} ${label}`);
+  /* and only a field set at 16px or more takes the class */
+  assert.match(readFileSync("src/features/profile/player-pass.css", "utf8"), /\.fd-profile-number-field input \{[^}]*font:800 28px/);
+});
+
 test("a full-screen pane that scrolls keeps its scroll: the page under it never moves", () => {
   const loose = [];
   for (const file of cssFiles("src")) for (const rule of rules(readFileSync(file, "utf8"))) {

@@ -3375,7 +3375,7 @@ function AdjustSheet({ state, player, onClose, save, onRemove }) {
       <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:12, marginBottom:12 }}>
         <Btn kind="dark" disabled={pending} onClick={() => setDelta(d => (Number(d) || 0) - step)} style={{ fontSize:19, width:54 }}
           aria-label={`Minus ${step}`}><Icon name="minus" size={18} /></Btn>
-        <input value={delta > 0 ? `+${delta}` : String(delta)} inputMode="numeric" disabled={pending}
+        <input className="fd-field-large" value={delta > 0 ? `+${delta}` : String(delta)} inputMode="numeric" disabled={pending}
           aria-label="Ruling chips" onChange={e => {
             const v = e.target.value.replace(/[^\d-]/g, "");
             setDelta(v === "" || v === "-" ? 0 : Math.trunc(Number(v)) || 0);
@@ -3420,7 +3420,7 @@ function PinSheet({ onClose, onBack, unlock }) {
   const [pin, setPin] = useState("");
   return (
     <Sheet title="Commissioner" onClose={onClose} onBack={onBack}>
-      <input value={pin} onChange={e => setPin(e.target.value.replace(/\D/g,"").slice(0,4))}
+      <input className="fd-field-large" value={pin} onChange={e => setPin(e.target.value.replace(/\D/g,"").slice(0,4))}
         aria-label="Commissioner passcode"
         inputMode="numeric" autoComplete="off" placeholder="Passcode" autoFocus
         onKeyDown={e => e.key === "Enter" && unlock(pin)}

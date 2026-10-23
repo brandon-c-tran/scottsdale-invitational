@@ -14,9 +14,11 @@ html { touch-action:manipulation; -webkit-text-size-adjust:100%; text-size-adjus
    wrapper: Safari can keep a field inside one from taking the caret. */
 :where(button, [role=button], summary) { -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; }
 body { margin:0; background:var(--bg); -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility; }
-/* iPhone zooms the page into any field set under 16px when it takes focus */
+/* iPhone zooms the page into any field set under 16px when it takes focus.
+   A field lettered larger on purpose (fd-field-large: a jersey number, the
+   passcode, a ruling) keeps its size; this would set it back to 16px. */
 @supports (-webkit-touch-callout:none) {
-  input:not([type=range]):not([type=checkbox]):not([type=radio]), select, textarea { font-size:max(16px, 1em) !important; }
+  input:not([type=range]):not([type=checkbox]):not([type=radio]):not(.fd-field-large), select, textarea { font-size:max(16px, 1em) !important; }
 }
 button:active:not(:disabled), summary:active { transform: scale(0.97); }
 button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible {

@@ -64,7 +64,7 @@ function ProfileEditor({ state, me, display, setDisplay, photo, setPhoto, num, s
             </label>
             <label className="fd-profile-field fd-profile-number-field">
               <span>No.</span>
-              <input value={num} inputMode="numeric" autoComplete="off" placeholder="00" aria-label="Player number" disabled={numLocked}
+              <input className="fd-field-large" value={num} inputMode="numeric" autoComplete="off" placeholder="00" aria-label="Player number" disabled={numLocked}
                 aria-invalid={!!takenBy} aria-describedby={takenBy ? numberErrorId : undefined}
                 onChange={e => setNum(e.target.value.replace(/\D/g, "").slice(0, 2))}
               />

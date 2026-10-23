@@ -54,7 +54,7 @@ function JerseySection({ state, me, display, backName, setBackName, num, setNum,
         </label>
         <label className="fd-profile-field fd-profile-number-field">
           <span>No.</span>
-          <input value={num} inputMode="numeric" autoComplete="off" placeholder="00" aria-label="Jersey number" disabled={locked}
+          <input className="fd-field-large" value={num} inputMode="numeric" autoComplete="off" placeholder="00" aria-label="Jersey number" disabled={locked}
             aria-invalid={!!takenBy} aria-describedby={problem ? errorId : undefined}
             onChange={e => setNum(e.target.value.replace(/\D/g, "").slice(0, 2))} />
         </label>

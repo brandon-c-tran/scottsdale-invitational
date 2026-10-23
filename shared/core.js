@@ -384,13 +384,14 @@ function poolSeed(state, contest, rows = computeStandings(state)) {
   return Object.fromEntries(sides.map((side, i) =>
     [sideId(side.key), Math.round(POOL_SEED * sides.length * weight[i] / sum * 100) / 100]));
 }
-/* one contest's pool: the seed, every live pool ticket, each side's price */
-function poolOf(state, eventId, contestId) {
+/* one contest's pool: the seed, every live pool ticket, each side's price.
+   `wagers` narrows the tickets read (poolBook hands each pool its own). */
+function poolOf(state, eventId, contestId, wagers = state.wagers || []) {
   const seed = state.eventOps?.[eventId]?.pools?.[contestId]?.seed || {};
   const sides = {};
   const side = key => (sides[key] ||= { seed:Number(seed[key]) || 0, stake:0, bettors:0 });
   Object.keys(seed).forEach(side);
-  for (const w of state.wagers || []) {
+  for (const w of wagers) {
     if (!w.pool || w.contestId !== contestId || w.eventId !== eventId || w.status === "void") continue;
     const key = sideId(wagerSide(state, w));
     if (key === null) continue;
@@ -402,13 +403,19 @@ function poolOf(state, eventId, contestId) {
   return { contestId, eventId, total, sides,
     price:key => sides[sideId(key)]?.price ?? poolPrice(total, 0) };
 }
-/* every pool on the board at once, so standings price each pool one time */
+/* every pool on the board at once, so standings price each pool one time:
+   one pass sorts the tickets by contest (in board order), then each pool
+   reads only its own, the same tickets in the same order as poolOf */
 function poolBook(state) {
-  const book = new Map();
+  const byContest = new Map();
   for (const w of state.wagers || []) {
-    if (!w.pool || !w.contestId || book.has(w.contestId)) continue;
-    book.set(w.contestId, poolOf(state, w.eventId, w.contestId));
+    if (!w.pool || !w.contestId) continue;
+    const group = byContest.get(w.contestId);
+    if (group) group.wagers.push(w);
+    else byContest.set(w.contestId, { eventId:w.eventId, wagers:[w] });
   }
+  const book = new Map();
+  for (const [contestId, { eventId, wagers }] of byContest) book.set(contestId, poolOf(state, eventId, contestId, wagers));
   return book;
 }
 function winDelta(state, w, book) {

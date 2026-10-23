@@ -263,6 +263,24 @@ test("the standings carry every pool ticket's derived settlement, the same with 
   assert.equal(pts(s).Eyob, 1300);
 });
 
+test("the book prices a Saturday night's pools in one pass, each the same pool poolOf reads", () => {
+  const s = structuredClone(EMPTY_STATE);
+  act(s, "qaAdvance", { target:"event:beerio:open", seed:7 }, { ...gm(), qa:true, progressReset:true, environment:"local" });
+  const events = allEventsOf(s);
+  const pooled = s.wagers.filter(w => w.pool && w.contestId);
+  assert.ok(pooled.length > 100 && s.wagers.some(w => w.status === "void" || w.pool), "a weekend of tickets");
+  const book = poolBook(s);
+  assert.deepEqual([...book.keys()], [...new Set(pooled.map(w => w.contestId))], "one pool a contest, in board order");
+  for (const [contestId, pool] of book) {
+    const first = pooled.find(w => w.contestId === contestId);
+    const alone = poolOf(s, first.eventId, contestId);
+    assert.equal(pool.total, alone.total, contestId);
+    assert.deepEqual(pool.sides, alone.sides, contestId);
+    for (const key of Object.keys(alone.sides)) assert.equal(pool.price(key), alone.price(key), `${contestId} ${key}`);
+  }
+  for (const w of s.wagers) assert.deepEqual(resolveWager(s, w, events, book), resolveWager(s, w, events), w.id);
+});
+
 /* ── the ticket ── */
 
 test("a ticket on a pooled contest carries pool:1 and no fixed payout; one on a contest opened before pools keeps its mult", () => {

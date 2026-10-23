@@ -1,5 +1,5 @@
 import React from "react";
-import { disp, pokerClock, pokerSeatChips, raceOffText } from "../../../shared/core.js";
+import { disp, pokerClock, pokerSeatChips, pokerSeatShort, pokerTableDeal, raceOffText } from "../../../shared/core.js";
 import { DenomStacks } from "../poker/PokerChips.jsx";
 import { LevelChip, RollNumber, SeatChip, useBustTip, useLevelRoll } from "../poker/PokerMotion.jsx";
 import { ScoreReel } from "../../ui/ScoreReel.jsx";
@@ -44,6 +44,8 @@ const seatNameSize = name => Math.max(24, Math.min(30, Math.floor((SEAT.w - 64 -
 function Seat({ state, row, at, index, dealing, tipping }) {
   const out = row.busted;
   const name = disp(state, row.player);
+  /* a seat the case could not cover carries the by-hand lamp while it is dealt */
+  const hand = dealing && pokerSeatShort(state.poker, row.player) > 0;
   return (
     <div className={`tv-seat${out ? " is-out" : ""}${dealing ? " is-dealing" : ""}`} data-seat={row.player}
       style={{ left:at.x, top:at.y, width:SEAT.w, height:dealing ? SEAT.deal : SEAT.live }}>
@@ -51,7 +53,7 @@ function Seat({ state, row, at, index, dealing, tipping }) {
       <div className="tv-seat-copy">
         <span className="tv-seat-name" style={{ fontSize:seatNameSize(name) }}>{name}</span>
         {out ? <span className="tv-seat-out">Out <b>{placeName(row.finish)}</b></span>
-          : <span className="tv-seat-stack">{fmt(row.starting)}</span>}
+          : <span className="tv-seat-stack">{fmt(row.starting)}{hand && <i className="fd-insert is-pending tv-seat-hand" aria-hidden="true" />}</span>}
         {/* the deal builds each stack chip by chip; the counts are the dealer's, on the phone */}
         {dealing && <DenomStacks chips={pokerSeatChips(state.poker, row.player)} size={18} counts={false} className="tv-seat-denoms" build buildDelay={index * SEAT_STAGGER} />}
       </div>
@@ -133,9 +135,13 @@ export function TVPoker({ state, standings, now }) {
   if (!pk) return null;
   if (pk.startedAt) return <TVPokerLive state={state} standings={standings} now={now} />;
   const first = pokerClock(pk, now);
+  /* what the case could not deal, made up by hand at the lamped seats */
+  const hand = Object.values(pokerTableDeal(pk).short || {}).reduce((sum, n) => sum + (Number(n) || 0), 0);
   /* the masthead names the game: the felt carries only the numbers */
   const center = <>
     <div className="tv-table-total"><ScoreReel value={pk.total} tone="chip" /><span className="tv-label">in play</span></div>
+    {hand > 0 && <div className="tv-table-hand"><i className="fd-insert is-pending" aria-hidden="true" />
+      <span className="tv-table-hand-n">{fmt(hand)}</span><span className="tv-label">by hand</span></div>}
     <div className="tv-table-first"><span className="tv-label">Blinds</span> {fmt(first.sb)} / {fmt(first.bb)}</div>
   </>;
   return <Table state={state} standings={standings} center={center} caption="Starting stacks" dealing />;

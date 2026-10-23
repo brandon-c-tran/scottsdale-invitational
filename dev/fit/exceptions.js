@@ -26,6 +26,8 @@ export const FIT_EXCEPTIONS = Object.freeze([
     reason:"the Jersey section's Confirm jersey rides the sheet's foot (sticky) so it is always in reach; on a short phone the size row scrolls up past it" },
   { view:"sheet-profile-trip$", rule:"overlap", sel:"fd-trip-venmo",
     reason:"the Venmo field's @ is the field's own prefix, drawn in its left padding ahead of the typed handle; the whole field is one target" },
+  { view:"sheet-poker-setup$", rule:"overlap", sel:"fd-sheet-footer",
+    reason:"Deal and start rides the Starting stacks sheet's foot (sticky) so it is always in reach; thirteen seats of chips scroll up past it" },
   { view:"^tv-showdown-draw$", rule:"overlap", sel:"tv-showdown",
     reason:"Quick Draw's flash is the whole glass lit opaque magenta with DRAW on it for its beat; the faced-off chips under it step out (visibility) for that beat and the frame shows only the flash" },
 ]);

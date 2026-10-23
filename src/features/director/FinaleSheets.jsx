@@ -1,8 +1,8 @@
 import React, { useRef, useState } from "react";
-import { disp, pokerInventory, pokerSeatChips, pokerSetupPreview, computeStandings } from "../../../shared/core.js";
+import { disp, pokerTableDeal, pokerSetupPreview, computeStandings } from "../../../shared/core.js";
 import { ActionButton, Sheet } from "../../ui/controls.jsx";
 import { Avatar } from "../identity/PlayerIdentity.jsx";
-import { DenomStacks, ChipTray, GrantMark } from "../poker/PokerChips.jsx";
+import { DenomStacks, ChipTray, GrantMark, HandMark } from "../poker/PokerChips.jsx";
 import { namesOf } from "./directorPill.js";
 import "./director.css";
 import { writeError } from "../../lib/writeErrors.js";
@@ -31,19 +31,23 @@ function useCommit() {
 }
 
 /* What the table will be dealt, before anything is written: each seat's
-   stack and chips, who is topped up to the minimum, who is away, the tray,
-   and the open duels the deal voids. Only Deal and start writes. */
+   stack and chips (and what the case cannot cover, made up by hand), who is
+   topped up to the minimum, who is away, the tray with any chips the bank
+   lends, and the open duels the deal voids. Only Deal and start writes. */
 export function PokerSetupSheet({ state, onClose, onBack, onDeal }) {
   const commit = useCommit();
   const dealt = state.poker && !state.results?.[state.poker.id] ? state.poker : null;
+  const table = dealt ? pokerTableDeal(dealt) : null;
   const preview = dealt ? {
     rows:Object.entries(dealt.startingStacks || {}).map(([player, stack]) => ({ player, stack, grant:0,
-      denominations:pokerSeatChips(dealt, player) })),
+      denominations:table.seats[player] || [], short:Number(table.short?.[player]) || 0 })),
     away:Object.keys(dealt.unseated || {}),
     total:dealt.total,
-    inventory:pokerInventory(dealt),
+    inventory:table.inventory,
+    lent:table.lent,
     voidDuels:0,
   } : pokerSetupPreview(state);
+  const lent = preview.lent || [];
   const board = Object.fromEntries(computeStandings(state).map(row => [row.player, row.pts]));
   const away = (preview.away || []).map(item => typeof item === "string" ? { player:item, pts:board[item] } : item)
     .filter(item => item?.player);
@@ -62,7 +66,8 @@ export function PokerSetupSheet({ state, onClose, onBack, onDeal }) {
     {preview.rows.map(row => <div className={`fd-stack-row${row.grant > 0 ? " is-grant" : ""}`} key={row.player}>
       <Avatar state={state} p={row.player} size={30} />
       <span><b>{disp(state, row.player)}</b>
-        <DenomStacks chips={row.denominations} size={30} /></span>
+        <DenomStacks chips={row.denominations} size={30} />
+        <HandMark amount={row.short} pending /></span>
       <span className="fd-stack-total"><strong>{fmt(row.stack)}</strong><GrantMark grant={row.grant} /></span>
     </div>)}
     {away.map(({ player, pts }) => <div className="fd-stack-row is-away" key={player}>
@@ -73,6 +78,10 @@ export function PokerSetupSheet({ state, onClose, onBack, onDeal }) {
     <div className="fd-stack-tray">
       <span>The tray</span>
       <ChipTray inventory={preview.inventory || []} />
+      {lent.length > 0 && <>
+        <span>From the bank</span>
+        <DenomStacks chips={lent} size={22} />
+      </>}
     </div>
     <div className="fd-stack-summary">
       {grants.length > 0 && <div><span>Minimum stack</span><strong className="fd-stack-grants">

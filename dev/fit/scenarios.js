@@ -513,6 +513,20 @@ function decidedTable(base, evId, { pick = "first" } = {}) {
   act(state, "recordContestWinner", { evId, contestId:live.id, contestRevision:live.revision, winner });
   return state;
 }
+/* A board past the whole chip case (Oct 23): QA's table cancelled, a
+   ruling of 16,000 to Squilliam (92,700 in play against the case's
+   88,250), dealt again. The case deals every chip, the bank lends its
+   reserve, and the biggest stack, his, is 4,450 short, made up by hand.
+   `deal: false` stops at the commissioner's preview; `start` deals the
+   cards. */
+function pastTheCase({ deal = true, start = false } = {}) {
+  const state = fresh("poker:set");
+  act(state, "pokerCancel");
+  act(state, "adjust", { player:"Richard", delta:16000, reason:"Ruling" });
+  if (deal) act(state, "pokerSetup");
+  if (deal && start) act(state, "pokerStart");
+  return state;
+}
 /* a bracket of nine seeded on a moved board: the byes sit at the bottom */
 function byeBracket() {
   const state = fresh("event:putt:done");
@@ -1250,6 +1264,8 @@ export const TV_SCENARIOS = Object.freeze([
   { id:"tv-bracket10-mid", build:() => bracketOf(10, { steps:4 }) },
   { id:"tv-draft", build:draft },
   { id:"tv-poker-set", build:() => fresh("poker:set") },
+  /* the deal past the chip case: the short seat's lamp, the felt's total by hand */
+  { id:"tv-poker-short", build:() => pastTheCase() },
   { id:"tv-poker-live", build:() => fresh("poker:live") },
   { id:"tv-poker-counted", build:() => fresh("poker:counted") },
   { id:"tv-result-ffa-0", build:() => posted("event:putt:open", "putt"), at:{ result:200 } },
@@ -1498,6 +1514,12 @@ export const PHONE_SCENARIOS = Object.freeze([
   { id:"result-done", build:() => fresh("event:bball1:done"), sheets:["event-1v1", "sky"] },
   { id:"draft", build:draft, sheets:["draft"] },
   { id:"poker-live", build:() => fresh("poker:live") },
+  /* past the chip case: the guest's own seat short (his table card, All
+     stacks, his Table view once cards are live) and the commissioner's
+     Starting stacks from the pill, with the bank's chips in the tray */
+  { id:"poker-short", build:() => pastTheCase(), tabs:["home"], sheets:["poker-stacks"] },
+  { id:"poker-short-live", build:() => pastTheCase({ start:true }), tabs:[], sheets:["table-view"] },
+  { id:"gm-poker-short", build:() => pastTheCase({ deal:false }), viewer:"gm", tabs:[], sheets:["poker-setup"] },
   /* the last card at both phone widths (sheetSizes: its sheets at 375 too) */
   { id:"crowned", build:() => fresh("crowned"), sheets:["lastcard", "card"], sheetSizes:["375"] },
   /* Weekend, the program, mid-weekend: posted plates, a run of photos, and

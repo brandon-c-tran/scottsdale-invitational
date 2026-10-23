@@ -447,6 +447,14 @@
 .tv-table-first { display:flex; align-items:baseline; gap:16px; font:800 56px/1.15 var(--fd-display); color:var(--bone);
   font-variant-numeric:tabular-nums; }
 .tv-table-first .tv-label { color:var(--muted2); }
+/* past the whole chip case: the chips made up by hand, on the amber lamp
+   the short seats carry */
+.tv-table-hand { display:flex; align-items:center; gap:16px; font:800 56px/1.15 var(--fd-display);
+  font-variant-numeric:tabular-nums; }
+.tv-table-hand .fd-insert { --lamp:var(--sun); width:26px; height:26px; }
+.tv-table-hand-n { color:var(--sun); }
+.tv-table-hand .tv-label { color:var(--muted2); }
+.tv-seat-hand { --lamp:var(--sun); width:22px; height:22px; margin-left:14px; vertical-align:middle; }
 .tv-table-caption { position:absolute; left:960px; top:600px; transform:translateX(-50%); color:var(--muted2); }
 /* a seat on the rail: photo chip, name, the stack it was dealt */
 /* one fixed box per seat (SEAT in TVPoker), so the ring never overlaps */

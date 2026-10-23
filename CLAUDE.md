@@ -1549,7 +1549,17 @@ first use is the awards ballot (D6). Its plan is in `docs/REFOUNDATION.md`.
    1000s, then an exchange pass trading leftover small chips onto stacks of
    2,000 and up; `pokerSetup` stores it (`poker.deal`, read through
    `pokerSeatChips`/`pokerInventory`; a table without one derives it) and
-   refuses a board the case cannot cover. The chips are drawn as the set:
+   never refuses a legal board (Oct 23): past the case less the reserve
+   (81,950) the bank lends its reserve one chip at a time, 1000s first,
+   then 500s, 100s, 25s, 5s (`deal.lent`), and past the whole case (88,250)
+   every chip is dealt, smaller stacks first, and `deal.short` names what
+   each seat still needs, made up by hand (the biggest stacks, summing to
+   the board past the case; `pokerSeatShort`). Boards the case less the
+   reserve covers deal the same bytes as before. The commissioner's
+   Starting stacks marks "+N by hand" on an amber lamp and the bank's chips
+   under the tray, All stacks every short seat, a player's own card and
+   Table view only their own, and the TV's deal lamps the seat and letters
+   the total by hand on the felt. The chips are drawn as the set:
    a white body (`--chip-body`), the value's edge spots (`--chip-<v>-edge`,
    aliased `--poker-<v>`), a gold numeral (`--chip-ink-gold`). Blinds are ten 12-minute levels,
    10/20 to 1000/2000; the 5s race off after level 2 and the 25s after

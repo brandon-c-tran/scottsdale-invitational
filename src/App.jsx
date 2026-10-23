@@ -34,7 +34,7 @@ import { Schedule } from "./features/weekend/Schedule.jsx";
 import { Guide } from "./features/weekend/Guide.jsx";
 import { programCover } from "./features/weekend/programModel.js";
 import { Wagers, wagerPickLabel, RACK_DENOMS, mergeWagerLines } from "./features/wagers/Wagers.jsx";
-import { DenomStacks, ChipTray } from "./features/poker/PokerChips.jsx";
+import { DenomStacks, ChipTray, HandMark } from "./features/poker/PokerChips.jsx";
 import React, { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback, useId, lazy, Suspense } from "react";
 import { PlayerIdentityProvider } from "./features/identity/PlayerIdentityContext.js";
 import { Avatar, AvatarStack, BankChip, BetChipCluster } from "./features/identity/PlayerIdentity.jsx";
@@ -59,7 +59,7 @@ import { CHECK_IN_MARKER, returningAfterClaim, returningFromHello } from "./feat
 import {
   ROSTER, rosterOf, AWARDS, AWARD_VALUES, awardTable, SPORTS, RATINGS, SESSIONS, SLOT_META, OUTRIGHT_MULT, wagerMult, SIZES, GAMES,
   DUEL_STAKE, DUEL_GAMES, CHIP_COLORS, CHIP_SKINS, PT, maxRisk, CHIP_MIN, POKER_CONFIG,
-  pokerLive, pokerClock, pokerSeatChips, pokerInventory, resultAwards, awardPlan, stacksPosted,
+  pokerLive, pokerClock, pokerSeatChips, pokerSeatShort, pokerInventory, resultAwards, awardPlan, stacksPosted,
   allEventsOf, disp, shuffle, snakeTeam, teamLabel, stageFinalists, stageEntrantView,
   resolveWager, poolBook, wagerBoardEvent, resolveDuel, computeStandings, atRisk, ROUND_NAMES, resolveSlot, bracketChampion, EDITION,
   cleanLeg, legTime, eventCapacity, validateEventParticipants,
@@ -2258,6 +2258,8 @@ export function PokerCard({ state, standings, me, gm, onBuyin, onStart, onCancel
 
   if (!pk.startedAt) {
     const d = myRow && !unseated ? pokerSeatChips(pk, me) : null;
+    /* your own seat's part the case could not deal, made up by hand */
+    const hand = d ? pokerSeatShort(pk, me) : 0;
     return (
       <div id="fd-poker-table" className="fd-night" style={card}>
         <div style={{ display:"flex", alignItems:"center", gap:12, padding:"12px 14px" }}>
@@ -2276,7 +2278,8 @@ export function PokerCard({ state, standings, me, gm, onBuyin, onStart, onCancel
           <button onClick={onBuyin} style={{ ...seatButton, background:"transparent", color:BONE,
             border:"1.5px solid var(--ghost-line)" }}>All stacks</button>
         </div>
-        {myRow && d?.length > 0 && <div style={{ padding:"0 14px 12px 60px" }}><DenomStacks chips={d} size={26} build /></div>}
+        {myRow && (d?.length > 0 || hand > 0) && <div style={{ padding:"0 14px 12px 60px" }}><DenomStacks chips={d} size={26} build />
+          <HandMark amount={hand} pending /></div>}
         {notSeated}
         {gm && (confirmCancel ? (
           <div style={{ padding:"0 14px 12px" }}>
@@ -2453,6 +2456,7 @@ function PokerBuyinSheet({ state, standings, gm, onClose, onStart }) {
             <span style={{ fontFamily:SANS, fontWeight:600, fontSize:14, color:"var(--ink)",
               overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{disp(state, r.player)}</span>
             <DenomStacks chips={pokerSeatChips(pk, r.player)} size={30} />
+            <HandMark amount={pokerSeatShort(pk, r.player)} pending={!pk.startedAt} />
           </span>
           <span style={{ fontFamily:DISPLAY, fontWeight:700, fontSize:19, color:"var(--ink)", minWidth:52,
             textAlign:"right" }}>{fmt(r.pts)}</span>

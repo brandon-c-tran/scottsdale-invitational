@@ -5,6 +5,7 @@ import { execSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
+import { launchLinks } from "./scripts/launch-screens.mjs";
 
 /* Link previews need ABSOLUTE urls: og:url especially is meaningless as a
    path, so the live domain is the default rather than something you have to
@@ -69,6 +70,8 @@ const appShell = mode => {
     APP_ICON_192: staging ? "/icon-staging-192.png" : "/icon-192.png",
     APP_APPLE_TOUCH_ICON: staging ? "/apple-touch-icon-staging.png" : "/apple-touch-icon.png",
     APP_TITLE: staging ? "Field Day Staging · Scottsdale 2026" : "Field Day · Scottsdale 2026",
+    /* the iPhone launch screens (scripts/launch-screens.mjs), staging's own mark on staging */
+    APP_LAUNCH_SCREENS: launchLinks(staging),
   };
   return {
     name: "fd-app-shell",

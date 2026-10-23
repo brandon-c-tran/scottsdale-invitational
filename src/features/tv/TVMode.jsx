@@ -1072,8 +1072,11 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied: allT
     mastEvent = onDeckEv;
     mastLamp = { label:"Betting open", state:"pending" };
   }
+  /* the result on screen: its moment, or a directed winner scene */
+  const showingResult = resultModel?.eventId
+    || (directed && showScene?.active?.kind === "winner" ? showScene.active.eventId : null) || null;
   const tickerAll = tickerItems({ state, events, standings, allTied, liveCrew, latest, liveEv, liveContest,
-    onDeckEv, openWon:mergeWagerLines(allW.filter(x => x.r.status === "won")), nextEv, now, facts, draft:!!draftLive, showing:resultModel?.eventId || null,
+    onDeckEv, openWon:mergeWagerLines(allW.filter(x => x.r.status === "won")), nextEv, now, facts, draft:!!draftLive, showing:showingResult,
     /* events already lettered on screen: the draft's in the masthead, the
        gap card's next event or the board's ribbon; the ticker never repeats them */
     lettered:[draftLive?.ev?.id, scene === "next" || ribbonOn ? nextEv?.id : null, !liveEv && !draftLive ? onDeckEv?.id : null].filter(Boolean) });
@@ -1083,8 +1086,11 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied: allT
   const showHorizon = (liveShown || horizonShown) && connection.mode !== "loading";
   /* a live question holds the ticker still */
   const quietTicker = (geoOnTv && state.geo?.phase === "guess") || (triviaOnTv && state.trivia?.phase === "question") || karaokeOnTv;
-  /* while a podium holds the room, its winners' backers take the ticker's place */
+  /* while a podium holds the room, its winners' backers take the ticker's
+     place; with no backers the plate stays empty, so nothing under the
+     podium names a place before it lands */
   const railOn = !!rail && !!backersRail(rail.model.winnerStacks);
+  const tickerShown = rail ? [] : items;
 
   const dockNode = dock?.kind === "correction" ? <CorrectionCard correction={dock.correction} />
     : dock?.kind === "lead" ? <LeadChange state={state} leader={dock.lead.leader} previous={dock.lead.previous} /> : null;
@@ -1108,7 +1114,7 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied: allT
         {cornerShown && <TVArriveCorner board={arrivals} url={arriveLink} />}
         {showTicker && (railOn ? <BackersRail state={state} model={rail.model} anchor={rail.anchor} now={now}
           key={`rail:${rail.model.eventId}:${rail.model.revision}:${rail.anchor}`} />
-          : <Ticker items={items} reducedMotion={reducedMotion} now={now} quiet={quietTicker} narrow={cornerShown} />)}
+          : <Ticker items={tickerShown} reducedMotion={reducedMotion} now={now} quiet={quietTicker} narrow={cornerShown} />)}
         {sceneIntroEv && <IntroOverlay key={sceneIntroEv.id} state={state} ev={sceneIntroEv} reducedMotion={reducedMotion}
           sceneAt={showScene?.active?.startedAt} now={introClock}
           handoff={!!(state.draws?.[sceneIntroEv.id] || state.stages?.[sceneIntroEv.id])} />}

@@ -715,10 +715,12 @@ export function tickerItems({ state, events, standings, allTied, liveCrew, lates
     [`${name(backing.player)} backs ${backing.side.name} `, amount(fmt(backing.stake))]));
   if (liveCrew?.length) items.push(fact("Crew", "info", liveCrew.map(item => item.player).slice(0, 4),
     [liveCrew.map(item => `${name(item.player)} (${overflowRoleMeta(item.role).label})`).join(", ")]));
-  if (latest) {
+  /* the result on screen already names its winner, every tower's change and
+     the board's new order: the ticker says none of them again */
+  const onScreen = !!latest && latest.ev.id === showing;
+  if (latest && !onScreen) {
     const groups = podiumGroups(state, latest.ev.id, latest.res.slots[0]);
-    /* the result on screen already names its winner */
-    if (latest.ev.id !== showing) items.push(fact("Result", "info", latest.res.slots[0].slice(0, 4),
+    items.push(fact("Result", "info", latest.res.slots[0].slice(0, 4),
       [`${latest.ev.name}: ${groups.length > 3 ? `${groups.length} tied` : groups.map(group => group.name).join(", ")}`]));
     const swing = biggestSwing(state, events, latest.ev.id);
     if (swing) items.push(fact("Biggest swing", signedRole(swing.change), [swing.player],
@@ -727,7 +729,7 @@ export function tickerItems({ state, events, standings, allTied, liveCrew, lates
   [...(facts || [])].reverse().slice(0, TICKER_FACTS).forEach(item => items.push(fact(TICKER_FACT_TAGS[item.kind] || item.tag,
     FACT_ROLES[item.kind] || "info", (item.players || []).slice(0, 4), [item.text])));
   /* a sole leader only: a shared top (or the level opening board) has none */
-  if (!allTied && soleLeader(standings)) items.push(fact("Leader", "chip", [standings[0].player],
+  if (!allTied && !onScreen && soleLeader(standings)) items.push(fact("Leader", "chip", [standings[0].player],
     [`${name(standings[0].player)} `, amount(fmt(standings[0].pts))]));
   if (onDeckEv && !state.shelved?.[onDeckEv.id]) {
     const riding = (state.wagers || []).filter(w => w.eventId === onDeckEv.id

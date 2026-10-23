@@ -217,6 +217,14 @@ function renderTv(state, { now = Date.now(), showControl = true, connection = { 
 }
 const count = (html, needle) => html.split(needle).length - 1;
 
+test("a podium with no backers holds the room alone: no ticker fact names a place before it lands", () => {
+  const state = puttPosted();
+  const html = renderTv(state, { now:state.showControl.active.startedAt + 1500 });
+  assert.match(html, /tv-podium-stage/);
+  assert.match(html, /class="tv-ticker is-empty"/);
+  assert.doesNotMatch(html, /tv-ticker-tag/);
+});
+
 test("directed standings and the ambient board show all thirteen players", () => {
   const state = puttPosted();
   act(state, "advanceShowScene", { id:state.showControl.active.id });
@@ -972,6 +980,11 @@ test("ticker: won bets belong to the last result and leave once anything else ta
   assert.ok(!tickerItems({ ...base, liveEv:events.find(ev => ev.id === "pong") }).some(item => item.tag === "Bet won"),
     "not once a contest is in play");
   assert.ok(!tickerItems({ ...base, showing:"putt" }).some(item => item.tag === "Result"), "the result on screen is not repeated");
+  /* the result on screen already shows every tower's change and the new order */
+  assert.ok(tickerItems(base).some(item => item.tag === "Biggest swing"), "between moments the swing is news");
+  for (const gone of ["Biggest swing", "Leader"]) {
+    assert.ok(!tickerItems({ ...base, showing:"putt" }).some(item => item.tag === gone), `${gone} not under its own result`);
+  }
 });
 
 test("ticker: live poker carries only the table's news, never a busted player as a leader or an old bet", () => {

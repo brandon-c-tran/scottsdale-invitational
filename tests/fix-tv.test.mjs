@@ -987,7 +987,7 @@ test("ticker: won bets belong to the last result and leave once anything else ta
   }
 });
 
-test("ticker: a newer fact about the same people overtakes the older one", () => {
+test("ticker: a newer fact about the same people overtakes the older one; the live pool is never a second total", () => {
   const streak = (id, n, at) => ({ id, kind:"streak", tag:"Streak", at, players:["Khoa"], text:`Khoa's ${n} straight win` });
   const facts = [{ id:"a", kind:"first", tag:"First", at:1, players:["Evan"], text:"First to 2,000: Evan" },
     { id:"w", kind:"wins", tag:"Milestone", at:1.5, players:["Khoa"], text:"Khoa's second win" },
@@ -998,6 +998,12 @@ test("ticker: a newer fact about the same people overtakes the older one", () =>
   const events = allEventsOf(state);
   const texts = tickerItems({ state, events, standings:computeStandings(state), allTied:true, now:0, facts }).map(item => item.text);
   assert.ok(texts.includes("Khoa's fifth straight win") && !texts.includes("Khoa's fourth straight win"));
+  /* the live contest's chips are its board's pool: no "Bets" line beside it */
+  const putt = events.find(ev => ev.id === "putt");
+  state.wagers = [{ id:"w1", player:"Adi", eventId:"putt", stake:300, kind:"outright", pick:"Evan" }];
+  const onDeck = { state, events, standings:computeStandings(state), allTied:true, now:0, onDeckEv:putt };
+  assert.ok(tickerItems(onDeck).some(item => item.tag === "Bets"), "chips riding on an event not in play are news");
+  assert.ok(!tickerItems({ ...onDeck, liveEv:putt }).some(item => item.tag === "Bets"), "the live event's pool is on its board");
 });
 
 test("ticker: live poker carries only the table's news, never a busted player as a leader or an old bet", () => {

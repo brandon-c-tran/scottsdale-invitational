@@ -746,7 +746,8 @@ export function tickerItems({ state, events, standings, allTied, liveCrew, lates
   /* a sole leader only: a shared top (or the level opening board) has none */
   if (!allTied && !onScreen && soleLeader(standings)) items.push(fact("Leader", "chip", [standings[0].player],
     [`${name(standings[0].player)} `, amount(fmt(standings[0].pts))]));
-  if (onDeckEv && !state.shelved?.[onDeckEv.id]) {
+  /* chips in play elsewhere: the live event's own pool is on its board */
+  if (onDeckEv && !state.shelved?.[onDeckEv.id] && onDeckEv.id !== liveEv?.id) {
     const riding = (state.wagers || []).filter(w => w.eventId === onDeckEv.id
       && resolveWager(state, w, events).status === "pending");
     const chipsIn = riding.reduce((n, w) => n + w.stake, 0);

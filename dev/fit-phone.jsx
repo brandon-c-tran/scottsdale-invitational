@@ -325,7 +325,17 @@ async function openSheet(kind) {
     box.scrollIntoView({ block:"center" });
     return true;
   }
-  /* a player card: the first one on the page, or `cardOf`'s (a player id) */
+  /* a player card: the first one on the page, or `cardOf`'s (a player id);
+     "card-turn" turns it over to its season sheet (the card's own "Turn
+     over" button) */
+  if (kind === "card-turn") {
+    if (!await openSheet("card")) return false;
+    await sleep(700);
+    const ok = await tap(() => [...document.querySelectorAll("[role=dialog] button[aria-pressed]")]
+      .find(b => visible(b) && /Turn over/.test(b.getAttribute("aria-label") || "")));
+    await sleep(900);
+    return ok && !!document.querySelector(".fd-pass-inner.is-flipped");
+  }
   if (kind === "card" || kind === "card-back") {
     const label = scenario.cardOf ? `View ${state.profiles?.[scenario.cardOf]?.display || scenario.cardOf}'s player card` : null;
     const ok = await tap(() => [...document.querySelectorAll("button[aria-label*='player card' i], button[aria-label*='card' i]")]

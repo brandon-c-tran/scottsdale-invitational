@@ -13,8 +13,10 @@ export const FIT_EXCEPTIONS = Object.freeze([
     reason:"a pin on the phone's full-bleed map is map content: panned to the screen's edge it runs off it with the map, as on any map" },
   { view:"sheet-profile$", rule:"overlap", sel:"fd-profile-save",
     reason:"the profile's Save rides the sheet's foot (sticky) so it is always in reach; the fields under the card scroll up past it" },
-  { view:"^tv-(felt|bracket)", rule:"clip", sel:"^g > g > svg > text$", text:"^[A-Z]{1,2}$",
-    reason:"a crowded felt's (or a bracket board's bet stacks') smallest chips (32px) letter a face's initials at the TV's 24px floor: the font's line box overhangs the chip's own picture, the capitals (.72em) stand inside it" },
+  { view:"sheet-profile-song$", rule:"overlap", sel:"fd-song-remove",
+    reason:"the same sticky Save over the Win song section's last control: scrolled to its end, Remove song stands 16px clear above the Save (measured)" },
+  { view:"^tv-(felt|bracket|worst-ticker-deck|worst-bracket-pairs)", rule:"clip", sel:"^g > g > svg > text$", text:"^([A-Z]{1,2}|[一-鿿가-힣]{1})$",
+    reason:"a crowded felt's (or a bracket board's bet stacks') smallest chips (32px) letter a face's initials at the TV's 24px floor: the font's line box overhangs the chip's own picture, the capitals (.72em) stand inside it, as does a CJK name's one character (.88em)" },
   { view:"^tv-showdown-draw$", rule:"overlap", sel:"tv-showdown",
     reason:"Quick Draw's flash is the whole glass lit opaque magenta with DRAW on it for its beat; the faced-off chips under it step out (visibility) for that beat and the frame shows only the flash" },
 ]);

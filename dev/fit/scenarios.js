@@ -1068,7 +1068,10 @@ function worst(state, { songs = false, teams = [], pairs = false, event = false,
   if (quiet) act(state, "setGags", { on:false });
   return state;
 }
-const WORST_TRIVIA = Object.freeze({ rounds:[WORST_TRIVIA_ROUND], stops:{ question:0, options:1, number:2, reveal:0 } });
+/* a second round of one question, so the scores stand between rounds */
+const WORST_TRIVIA = Object.freeze({ rounds:[WORST_TRIVIA_ROUND, { id:"tworstround2", source:"custom", name:"Round two",
+  questions:[{ id:"qworstshort1", format:"choice", text:"Who drove?", options:["Evan", "Khoa", "Adi", "Ben"], answer:0 }] }],
+  stops:{ question:0, options:1, number:2, reveal:0, board:2, "number-reveal":2, final:3 } });
 /* Saturday night's board: three not coming, one away, a tie at every
    place from 18,500 to -2,400, a Quick Draw between two long names, the
    renamed event, and a ruling at its 80 characters (the newest) */
@@ -1126,6 +1129,14 @@ const WORST_TV_VIEWS = [
     wait:1500, ...WORST },
   { id:"tv-worst-trivia-reveal", build:() => worst(triviaStage("reveal", WORST_TRIVIA), { quiet:true }), at:{ trivia:4000 },
     wait:3000, ...WORST },
+  /* the closest number's reveal (each guess beside its name), the scores
+     between rounds, and the final podium */
+  { id:"tv-worst-trivia-number", build:() => worst(triviaStage("number-reveal", WORST_TRIVIA), { quiet:true }), at:{ trivia:4000 },
+    wait:3000, ...WORST },
+  { id:"tv-worst-trivia-board", build:() => worst(triviaStage("board", WORST_TRIVIA), { quiet:true }), at:{ trivia:3000 },
+    wait:2500, ...WORST },
+  { id:"tv-worst-trivia-final", build:() => worst(triviaStage("final", WORST_TRIVIA), { quiet:true }), at:{ trivia:3000 },
+    wait:3000, ...WORST },
   { id:"tv-worst-awards", build:() => awards(WORST_BALLOT, worst(fresh("crowned"))), at:{ award:6000 }, ...WORST },
   { id:"tv-worst-geo-reveal", build:() => worst(geo("reveal", WORST_GEO_ROUNDS)), at:{ geoReveal:9000 }, wait:4500, ...WORST },
   { id:"tv-worst-karaoke-lyrics", build:worstKaraokeLyrics, at:{ karaoke:0 }, wait:1200, ...WORST },
@@ -1142,7 +1153,7 @@ const WORST_PHONE_VIEWS = [
   { id:"worst-bets", build:() => worst(ffaTote("one"), { event:true }), tabs:["bets"], ...WORST },
   /* the handle's card (no photo), front and back, after two named team games */
   { id:"worst-card", build:() => worst(fresh("event:volley:done"), { teams:["bball5", "volley"] }), cardOf:"Henry", tabs:[],
-    sheets:["card", "card-back"], sheetSizes:["375"], ...WORST },
+    sheets:["card", "card-turn"], sheetSizes:["375"], ...WORST },
   /* the profile's Win song (a 24-minute classical title) and Karaoke song */
   { id:"worst-profile", build:() => worstKaraokeSong(worst(fresh("locker"), { songs:true }), FIT_GUEST), catalog:true, karaoke:true,
     tabs:[], sheets:["profile-song", "profile-karaoke"], sheetSizes:["375"], ...WORST },

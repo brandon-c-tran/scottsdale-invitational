@@ -925,11 +925,11 @@ export class Tournament {
      for whichever comes first. */
   async scheduleAlarm() {
     const times = [];
-    const beat = this.nextAutoBeat();
+    const beat = this.planned("autopilot", () => this.nextAutoBeat());
     if (beat) times.push(Math.max(beat.at, this.autoRetryAt || 0));
     if (this.simActive()) {
       const now = Date.now();
-      const move = simDue(this.state, now, this.simSpent)[0] || simNext(this.state, now, this.simSpent);
+      const move = this.planned("sim", () => simDue(this.state, now, this.simSpent)[0] || simNext(this.state, now, this.simSpent));
       if (move) times.push(Math.max(move.at, this.autoRetryAt || 0));
     }
     const walkout = walkoutOf(this.state);
@@ -946,6 +946,17 @@ export class Tournament {
   nextAutoBeat() {
     const beat = autoBeat(this.state, { showControl:this.capabilities.showControl });
     return beat && beat.key !== this.autoRefused ? beat : null;
+  }
+
+  /* The planners (the autopilot's beat, the simulated room's moves) are
+     pure over the board. One that throws on some board never takes the
+     alarm with it: walkouts still end, and the next write asks again. */
+  planned(kind, plan) {
+    try { return plan(); }
+    catch (error) {
+      console.error(JSON.stringify({ event:`${kind}-plan-failed`, error:String(error?.message || error).slice(0, 200) }));
+      return null;
+    }
   }
 
   /* QA's simulated room plays while its switch is on and QA is available */
@@ -977,9 +988,9 @@ export class Tournament {
     for (let i = 0; i < SIM_WRITES_PER_ALARM; i += 1) {
       const now = Date.now();
       if ((this.autoRetryAt || 0) > now) return;
-      const beat = this.nextAutoBeat();
+      const beat = this.planned("autopilot", () => this.nextAutoBeat());
       const due = beat && beat.at <= now + 25 ? beat : null;
-      const move = this.simActive() ? simDue(this.state, now, this.simSpent)[0] || null : null;
+      const move = this.simActive() ? this.planned("sim", () => simDue(this.state, now, this.simSpent)[0] || null) : null;
       const sim = !!move && (!due || move.at <= due.at);
       const write = sim ? move : due;
       if (!write) return;
@@ -1029,7 +1040,13 @@ export class Tournament {
      song is over (ending a win song's clip on the speaker), then re-arm for
      whatever is still waiting */
   async alarm() {
-    await this.runAutopilot();
+    /* whatever a due write's follow-ups throw, the walkout still ends and
+       the alarm is set again (a failed run retries in 5 s) */
+    try { await this.runAutopilot(); }
+    catch (error) {
+      console.error(JSON.stringify({ event:"autopilot-run-failed", error:String(error?.message || error).slice(0, 300) }));
+      this.autoRetryAt = Date.now() + 5000;
+    }
     const walkout = walkoutOf(this.state);
     if (walkout && Date.now() >= (walkout.auto ? walkout.until - WIN_FADE_OUT_MS : walkout.until)) {
       if (walkout.auto) await this.songQueue(() => this.stopWinSong(walkout, WIN_FADE_OUT_MS));

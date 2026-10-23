@@ -292,11 +292,12 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
 .fd-sheet-header-actions button:disabled { opacity:.5; cursor:default; }
 .fd-sheet-header-actions button:focus-visible { outline:2px solid var(--lamp-info); outline-offset:2px; }
 /* the header is the sheet's grip (ui/useSheetDrag.js): a drag that starts
-   there moves the sheet instead of scrolling the body under it, and the
-   sheet's paper runs on past its foot, so a sheet lifted against its rest
-   never shows the page beneath. Phones only: from 700px a sheet is a dialog. */
+   there moves the sheet instead of scrolling the body under it (and a
+   press held on the title first selects nothing), and the sheet's paper
+   runs on past its foot, so a sheet lifted against its rest never shows
+   the page beneath. Phones only: from 700px a sheet is a dialog. */
 @media(max-width:699.98px) {
-  .fd-sheet-header { touch-action:none; }
+  .fd-sheet-header { touch-action:none; -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; }
   .fd-sheet-overlay .si-sheet { box-shadow:0 96px 0 var(--paper), var(--glass-edge), var(--shadow-3); }
 }
 .fd-sheet-body { padding:16px 16px calc(18px + env(safe-area-inset-bottom)); }

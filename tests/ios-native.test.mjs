@@ -154,7 +154,7 @@ test("every sheet's header is its grip, phones only, and a dragged sheet falls f
   assert.match(controls, /useSheetDrag\(\{ overlay, panel:dialog, grip, busy, onClose \}\)/);
   assert.match(controls, /<div ref=\{grip\} className="fd-sheet-header">/);
   const experience = readFileSync("src/ui/experience.css", "utf8");
-  assert.match(experience, /@media\(max-width:699\.98px\) \{\s*\.fd-sheet-header \{ touch-action:none; \}/);
+  assert.match(experience, /@media\(max-width:699\.98px\) \{\s*\.fd-sheet-header \{ touch-action:none; -webkit-user-select:none; user-select:none;/);
   const motion = readFileSync("src/ui/motion.css", "utf8");
   assert.match(motion, /@keyframes fd-sheet-fall \{ from \{ transform:translateY\(var\(--fd-sheet-drag, 0px\)\); \}/);
   assert.match(motion, /@keyframes fd-scrim-out \{ from \{ opacity:var\(--fd-sheet-dim, 1\); \}/);

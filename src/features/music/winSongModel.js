@@ -42,3 +42,23 @@ export function searchQuery(text) {
   const query = String(text || "").trim().replace(/\s+/g, " ");
   return query.length >= SEARCH_MIN ? query.slice(0, 80) : null;
 }
+
+/* The start point's timeline: a tick every 5 s and a lettered minute, as
+   for any pop song, until the song runs long; then the labels step out (2,
+   5, 10 or more minutes) so at most START_LABELS stand under the strip,
+   never running into each other, and the ticks step out to stay a texture
+   (at most START_TICKS), every label on a tall tick. */
+export const START_LABELS = 7;
+export const START_TICKS = 90;
+const LABEL_STEPS = [1, 2, 5, 10, 15, 20, 30, 60, 120, 240, 480, 720].map(minutes => minutes * 60000);
+const TICK_STEPS = [5000, 10000, 15000, 30000, 60000, 120000, 300000, 600000, 1200000, 3600000];
+export function startMarks(durationMs) {
+  const duration = Math.max(1000, Number(durationMs) || 0);
+  const count = step => Math.floor(duration / step) + 1;
+  const label = LABEL_STEPS.find(step => count(step) <= START_LABELS) || LABEL_STEPS[LABEL_STEPS.length - 1];
+  const tick = TICK_STEPS.find(step => count(step) <= START_TICKS && label % step === 0) || label;
+  return {
+    labels:Array.from({ length:count(label) }, (_, i) => i * label),
+    ticks:Array.from({ length:count(tick) }, (_, i) => ({ ms:i * tick, major:(i * tick) % label === 0 })),
+  };
+}

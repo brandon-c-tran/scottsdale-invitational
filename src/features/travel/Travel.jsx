@@ -373,7 +373,7 @@ const LOGI_FIELDS = [
   { k:"venue", label:"House address", ph:"10848 North Aberdeen Road, Scottsdale, AZ",
     autoComplete:"street-address" },
   { k:"venueNote", label:"Arrival notes", ph:"Door code, parking",
-    multiline:true, optional:true },
+    multiline:true },
   { k:"checkIn", label:"Check-in", ph:"Fri Oct 30, 4:00 PM" },
   { k:"checkOut", label:"Checkout", ph:"Sun Nov 1, 10:00 AM" },
 ];
@@ -407,8 +407,7 @@ function LogisticsEditor({ state, onSave }) {
           return (
             <label key={f.k} style={{ display:"block", marginBottom:14 }}>
               <span style={{ ...label, display:"block", marginBottom:6 }}>
-                {f.label}{f.optional && <span style={{ fontWeight:600, textTransform:"none",
-                  letterSpacing:0 }}> · optional</span>}
+                {f.label}
               </span>
               {f.multiline ? <textarea {...inputProps} /> : <input {...inputProps} />}
             </label>

@@ -3366,7 +3366,7 @@ function AdjustSheet({ state, player, onClose, save, onRemove }) {
   /* a ruling on a finale count names that count; a recount supersedes it */
   const countRes = Object.values(state.results || {}).find(res => res?.stacks) || null;
   const countLabel = a => a.pokerRevision === undefined ? ""
-    : ` · Count ${a.pokerRevision}${postCountRulingApplies(a, countRes) ? "" : ", not applied"}`;
+    : ` (count ${a.pokerRevision}${postCountRulingApplies(a, countRes) ? "" : ", not applied"})`;
   const legal = Number.isInteger(delta) && delta !== 0 && delta % step === 0;
   const field = { background:"var(--paper2)", border:"1px solid var(--line)", borderRadius:14,
     padding:"12px 13px", color:"var(--ink)", fontFamily:SANS, fontSize:14, outline:"none" };
@@ -3465,7 +3465,7 @@ function GmDevicesSheet({ state, onClose, onBack, notify, onSignedOut }) {
             <div style={{ flex:1, minWidth:0 }}>
               <div style={{ fontFamily:SANS, fontWeight:700, fontSize:13.5, color:"var(--ink)" }}>
                 {device.legacy ? "Older shared unlock" : device.player ? disp(state, device.player) : "Unknown phone"}
-                {device.current ? " · this device" : ""}</div>
+                {device.current ? " (this device)" : ""}</div>
               {!device.legacy && device.createdAt > 0 && <div style={{ fontFamily:SANS, fontSize:12, color:"var(--muted2)" }}>
                 Unlocked {new Date(device.createdAt).toLocaleString("en-US", { weekday:"short", hour:"numeric", minute:"2-digit" })}</div>}
             </div>

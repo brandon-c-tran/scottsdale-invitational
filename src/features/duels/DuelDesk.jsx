@@ -43,7 +43,7 @@ export function DuelDesk({ state, onVoid, onVoidAll }) {
     style={{ margin:"16px 0", padding:12, border:"1px solid var(--line)", borderRadius:14, background:"var(--paper)" }}>
     <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:10, flexWrap:"wrap" }}>
       <h2 style={{ margin:0, font:"700 18px/1.1 var(--fd-display)", textTransform:"uppercase", color:"var(--ink)" }}>
-        Open duels · {open.length}</h2>
+        {open.length} open {open.length === 1 ? "duel" : "duels"}</h2>
       {!confirmAll && <button type="button" disabled={!!pending || !onVoidAll} onClick={() => setConfirmAll(true)}
         style={{ minHeight:44, padding:"8px 11px", borderRadius:6, border:"1px solid var(--line)", background:"var(--paper)",
           color:"var(--clay-text)", font:"600 12px/1.2 var(--fd-body)", cursor:"pointer" }}>Void all open duels</button>}

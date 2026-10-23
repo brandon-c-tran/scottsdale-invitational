@@ -255,12 +255,12 @@ function ballotStatusLine(ballot) {
   if (!ballot) return "No ballot";
   const n = ballot.questions?.length || 0;
   const awards = `${n} award${n === 1 ? "" : "s"}`;
-  if (ballot.status === "draft") return `Draft · ${awards}`;
-  if (ballot.status === "open") return `Voting · ${ballot.voted ?? 0} of ${ballot.of ?? ROSTER.length} voted`;
+  if (ballot.status === "draft") return awards;
+  if (ballot.status === "open") return `${ballot.voted ?? 0} of ${ballot.of ?? ROSTER.length} voted`;
   const shown = revealedCount(ballot);
   if (ballot.reveal?.done) return "Revealed";
-  if (shown) return `On TV · ${shown} of ${n}`;
-  return `Voting closed · ${ballot.voted ?? ballot.tally?.turnout ?? 0} voted`;
+  if (shown) return `${shown} of ${n} on TV`;
+  return "Voting closed";
 }
 
 export {

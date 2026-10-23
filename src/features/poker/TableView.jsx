@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { serverNow } from "../../lib/serverClock.js";
 import { tapTick } from "../../lib/haptics.js";
-import { DenomStacks } from "./PokerChips.jsx";
+import { DenomStacks, HandMark } from "./PokerChips.jsx";
 import { LevelChip, PokerSeatChips, RollNumber, useLevelRoll } from "./PokerMotion.jsx";
 import { levelAnchor } from "./pokerMotion.js";
 import { blindsSize, createWakeLock, nextTickDelay, tableViewAvailable, tableViewKeepsOpen, tableViewModel } from "./tableView.js";
@@ -131,6 +131,7 @@ export function TableView({ state, me, onClose, now: fixedNow = null, width = nu
         <div className="fd-table-view-stack"><span className="fd-table-view-label">Starting stack</span>
           <b><ScoreReel value={model.stack} tone="chip" label={model.stackText} /></b></div>
         <DenomStacks chips={model.denoms} size={30} className="fd-table-view-denoms" />
+        <HandMark amount={model.hand} />
       </>}
       <div className="fd-table-view-in">
         <PokerSeatChips state={state} pk={pk} size={24} />

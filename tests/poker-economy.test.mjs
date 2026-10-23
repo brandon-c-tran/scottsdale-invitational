@@ -9,6 +9,7 @@ import {
 import { hydrateStoredState } from "../worker/state.js";
 import { applyAction } from "./support/confirmed-start.mjs";
 import { pokerTickerItems } from "../src/features/tv/tvModel.js";
+import { tableViewModel } from "../src/features/poker/tableView.js";
 
 /* Oct 14 economy (Brandon's calls after the economy simulation): awards
    x1.5 with the start at 1,000, and a finale dealt from his own chip case
@@ -272,8 +273,11 @@ test("a board past the whole case sets up anyway: every chip dealt, the biggest 
   assert.deepEqual(computeStandings(state).map(row => [row.player, row.pts]), standings);
   act(state, "pokerSetup");
   assert.deepEqual(state.poker.deal, dealt, "pure and deterministic");
-  /* the table plays, counts post, the crown happens */
+  /* the table plays, counts post, the crown happens; the short seat's own
+     Table view carries its part by hand, no one else's does */
   act(state, "pokerStart");
+  assert.equal(tableViewModel(state, top, Date.now()).hand, 8850);
+  assert.equal(tableViewModel(state, rest[0], Date.now()).hand, 0);
   for (const player of ROSTER) act(state, "pokerCount", { player, count:state.poker.startingStacks[player] });
   act(state, "pokerResult", { noScene:true });
   assert.equal(computeStandings(state).find(row => row.player === top).pts, 25000, "the count is the standing, verbatim");

@@ -5,6 +5,13 @@
   font:700 12px/1.15 var(--fd-body); text-align:center; font-variant-numeric:tabular-nums; }
 .fd-poker-grant { display:inline-flex; align-items:center; gap:1px; padding:2px 6px; border-radius:99px;
   background:var(--clay-tint); color:var(--live2); font:700 12px/1.15 var(--fd-body); font-variant-numeric:tabular-nums; white-space:nowrap; }
+/* a seat the case could not cover: its lamp and amount amber (chips), the
+   words in bone */
+.fd-poker-hand { display:inline-flex; align-items:center; gap:6px; color:var(--ink); font:600 12px/1.3 var(--fd-body);
+  white-space:nowrap; }
+.fd-poker-hand .fd-insert { --lamp:var(--sun); }
+.fd-poker-hand .fd-poker-hand-n { color:var(--sun); font-weight:700; font-variant-numeric:tabular-nums; }
+.fd-poker-stacks + .fd-poker-hand { margin-top:6px; }
 .fd-poker-tray { display:flex; flex-wrap:wrap; align-items:flex-end; gap:14px 18px; }
 .fd-poker-tray-denom { display:flex; flex-direction:column; align-items:center; gap:4px; }
 .fd-poker-tray-tubes { display:flex; align-items:flex-end; gap:2px; }

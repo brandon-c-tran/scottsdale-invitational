@@ -88,3 +88,10 @@ export function ChipTray({ inventory, size = 22, className = "" }) {
 /* a minimum-stack top-up: the grant itself, marked */
 export const GrantMark = ({ grant }) => grant > 0
   ? <span className="fd-poker-grant" aria-label={`Minimum stack, ${fmt(grant)} added`}>▲{fmt(grant)}</span> : null;
+
+/* the part of a seat's stack the case could not deal (pokerSeatShort),
+   made up by hand: the amount on an amber lamp, flashing until the cards
+   are live */
+export const HandMark = ({ amount, pending = false }) => amount > 0
+  ? <span className="fd-poker-hand"><i className={`fd-insert${pending ? " is-pending" : ""}`} aria-hidden="true" />
+      <span className="fd-poker-hand-n">+{fmt(amount)}</span> by hand</span> : null;

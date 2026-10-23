@@ -44,6 +44,7 @@
 .fd-table-view-stack b { display:block; margin-top:6px; font:800 52px/1 var(--fd-display); color:var(--sun); font-variant-numeric:tabular-nums; }
 .fd-table-view-denoms { gap:12px; }
 .fd-table-view-denoms .fd-poker-count { font-size:13px; }
+.fd-table-view-seat .fd-poker-hand { margin-top:-4px; font-size:14px; }
 .fd-table-view-out { margin:0; font:900 46px/1.05 var(--fd-show); color:var(--clay-text); }
 .fd-table-view-in { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
 .fd-table-view-in span { font:600 14px/1.2 var(--fd-body); color:var(--night-text); }

@@ -367,6 +367,32 @@ test("poker starting stacks are drawn chips on the setup sheet and the TV, never
   }
 });
 
+/* Oct 23: a board past the whole chip case still deals. The commissioner's
+   sheet marks each short seat "+N by hand" on an amber lamp and shows the
+   bank's chips in the tray. */
+function pastTheCase() {
+  const state = structuredClone(EMPTY_STATE);
+  state.live = true;
+  act(state, "adjust", { player:"Evan", delta:24000, reason:"Test" });
+  ROSTER.filter(player => player !== "Evan").forEach(player => act(state, "adjust", { player, delta:5000, reason:"Test" }));
+  return state;
+}
+const textOfHtml = html => html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ");
+test("a deal past the chip case: the setup sheet marks the seat made up by hand and the bank's chips", () => {
+  const state = pastTheCase();
+  const sheetOf = () => renderToStaticMarkup(React.createElement(PlayerIdentityProvider, { profiles:state.profiles },
+    React.createElement(PokerSetupSheet, { state, onClose:() => {}, onDeal:() => ({ ok:true }) })));
+  for (const sheet of [sheetOf(), (act(state, "pokerSetup", {}), sheetOf())]) {
+    assert.doesNotMatch(sheet, /role="alert"/, "nothing blocks Deal and start");
+    assert.equal((sheet.match(/class="fd-poker-hand"/g) || []).length, 1, "one seat is short: the biggest");
+    assert.match(textOfHtml(sheet), /\+8,750 by hand/);
+    assert.match(sheet, /class="fd-insert is-pending"/);
+    assert.match(textOfHtml(sheet), /From the bank/);
+    assert.match(sheet, /data-denom="1000" data-count="3"/);
+  }
+  assert.deepEqual(state.poker.deal.short, { Evan:8750 });
+});
+
 test("the TV table's geometry: every shape fits its felt at the TV's floor, and its moments keep the server's time", () => {
   /* a matchup, a row of 3 to 6, a grid of 7+, full width and beside a bracket */
   for (const width of [1792, 1004]) {

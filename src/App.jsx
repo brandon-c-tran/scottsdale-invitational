@@ -2880,16 +2880,19 @@ function EventSheet({ ev, state, me, gm, onLock, onWinner, onUndo, onClose, onBa
                             borderTop:index ? "1px solid var(--line)" : "none" }}>
                             <Avatar state={state} p={player} size={32} />
                             <div style={{ flex:1, minWidth:0 }}>
-                              <div style={{ fontFamily:SANS, fontWeight:700, fontSize:12.5, color:"var(--ink)",
-                                overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                              {/* a person's name wraps, never an ellipsis */}
+                              <div style={{ fontFamily:SANS, fontWeight:700, fontSize:14, lineHeight:1.25, color:"var(--ink)",
+                                overflowWrap:"anywhere" }}>
                                 {disp(state, player)}
                               </div>
                             </div>
+                            {/* 16px, as an iPhone draws it anyway (shell.css), so the
+                                role it shows is the role it fits */}
                             <select aria-label={`${disp(state, player)} event crew role`} value={role}
                               onChange={event => setOutRoles(current => ({ ...current, [player]:event.target.value }))}
-                              style={{ width:142, maxWidth:"42%", padding:"8px 8px", borderRadius:9,
+                              style={{ flex:"0 1 auto", minWidth:0, maxWidth:"58%", minHeight:44, padding:"8px 10px", borderRadius:9,
                                 background:"var(--paper)", color:"var(--ink)", border:"1px solid var(--line)",
-                                fontFamily:SANS, fontWeight:700, fontSize:12 }}>
+                                fontFamily:SANS, fontWeight:700, fontSize:16 }}>
                               {OVERFLOW_ROLES.map(value => (
                                 <option key={value} value={value}>{overflowRoleMeta(value).label}</option>
                               ))}
@@ -2935,7 +2938,7 @@ function EventSheet({ ev, state, me, gm, onLock, onWinner, onUndo, onClose, onBa
             const bench = present.filter(player => !drawn.includes(player));
             if (!bench.length) return null;
             const selectStyle = { flex:1, minWidth:120, minHeight:44, padding:"8px", borderRadius:9, background:"var(--paper)",
-              color:"var(--ink)", border:"1px solid var(--line)", fontFamily:SANS, fontWeight:700, fontSize:12.5 };
+              color:"var(--ink)", border:"1px solid var(--line)", fontFamily:SANS, fontWeight:700, fontSize:16 };
             return (
               <details className="fd-event-info">
                 <summary><span>Swap in a player</span></summary>

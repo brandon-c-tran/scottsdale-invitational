@@ -631,6 +631,21 @@ export const TICKER_ROLES = Object.freeze(["info", "chip", "won", "loss"]);
 /* D4: the weekend's newest facts ride beside the latest result */
 export const FACT_ROLES = Object.freeze({ streak:"info", first:"chip", wins:"info", bet:"won" });
 export const TICKER_FACTS = 2;
+/* the weekend's newest facts for the ticker, newest first: a fact a newer
+   one about the same people has overtaken ("Khoa's fourth straight win", or
+   "Khoa's second win", once his fifth straight is in) is not said beside it */
+export function newestFacts(facts = [], count = TICKER_FACTS) {
+  const seen = new Set();
+  const out = [];
+  for (const item of [...(facts || [])].reverse()) {
+    const key = [...(item.players || [])].sort().join("+");
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(item);
+    if (out.length >= count) break;
+  }
+  return out;
+}
 /* a fact's label never repeats its first word: "First to 3,000" is a milestone */
 export const TICKER_FACT_TAGS = Object.freeze({ first:"Milestone" });
 /* an amount inside a fact, colored by its role */
@@ -726,7 +741,7 @@ export function tickerItems({ state, events, standings, allTied, liveCrew, lates
     if (swing) items.push(fact("Biggest swing", signedRole(swing.change), [swing.player],
       [`${name(swing.player)} `, amount(signed(swing.change), signedRole(swing.change)), ` in ${swing.eventName}`]));
   }
-  [...(facts || [])].reverse().slice(0, TICKER_FACTS).forEach(item => items.push(fact(TICKER_FACT_TAGS[item.kind] || item.tag,
+  newestFacts(facts).forEach(item => items.push(fact(TICKER_FACT_TAGS[item.kind] || item.tag,
     FACT_ROLES[item.kind] || "info", (item.players || []).slice(0, 4), [item.text])));
   /* a sole leader only: a shared top (or the level opening board) has none */
   if (!allTied && !onScreen && soleLeader(standings)) items.push(fact("Leader", "chip", [standings[0].player],

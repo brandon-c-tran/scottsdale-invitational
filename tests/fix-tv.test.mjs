@@ -987,6 +987,19 @@ test("ticker: won bets belong to the last result and leave once anything else ta
   }
 });
 
+test("ticker: a newer fact about the same people overtakes the older one", () => {
+  const streak = (id, n, at) => ({ id, kind:"streak", tag:"Streak", at, players:["Khoa"], text:`Khoa's ${n} straight win` });
+  const facts = [{ id:"a", kind:"first", tag:"First", at:1, players:["Evan"], text:"First to 2,000: Evan" },
+    { id:"w", kind:"wins", tag:"Milestone", at:1.5, players:["Khoa"], text:"Khoa's second win" },
+    streak("b", "fourth", 2), streak("c", "fifth", 3)];
+  assert.deepEqual(tvm.newestFacts(facts).map(item => item.id), ["c", "a"],
+    "Khoa's fifth, then the next fact about someone else, never his fourth or his older second win");
+  const state = structuredClone(EMPTY_STATE);
+  const events = allEventsOf(state);
+  const texts = tickerItems({ state, events, standings:computeStandings(state), allTied:true, now:0, facts }).map(item => item.text);
+  assert.ok(texts.includes("Khoa's fifth straight win") && !texts.includes("Khoa's fourth straight win"));
+});
+
 test("ticker: live poker carries only the table's news, never a busted player as a leader or an old bet", () => {
   const state = structuredClone(EMPTY_STATE);
   const r = rawAct(state, "qaAdvance", { target:"poker:live", seed:7, confirm:RESET_PROGRESS_CONFIRMATION, confirmPokerLive:true },

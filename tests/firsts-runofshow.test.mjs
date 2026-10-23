@@ -197,11 +197,15 @@ test("team wins name the team; the ticker shows the newest facts beside the late
   assert.equal(factItems[0].players.length, 4);
   /* every fact's role is one the ticker draws */
   for (const role of Object.values(ui.FACT_ROLES)) assert.ok(ui.TICKER_ROLES.includes(role), role);
-  /* at most two, newest first */
-  const many = [1, 2, 3].map(n => ({ id:`f${n}`, kind:"wins", tag:"Milestone", at:n, players:[evan], text:`fact ${n}` }));
+  /* at most two, newest first, each about different people */
+  const many = [1, 2, 3].map(n => ({ id:`f${n}`, kind:"wins", tag:"Milestone", at:n, players:[ROSTER[n]], text:`fact ${n}` }));
   const shown = ui.tickerItems({ state, events, standings:computeStandings(state), allTied:false, facts:many, now:0 })
     .filter(item => item.tag === "Milestone").map(item => item.text);
   assert.deepEqual(shown, ["fact 3", "fact 2"]);
+  /* a newer fact about the same people overtakes the older one */
+  const same = [1, 2, 3].map(n => ({ id:`s${n}`, kind:"wins", tag:"Milestone", at:n, players:[evan], text:`fact ${n}` }));
+  assert.deepEqual(ui.tickerItems({ state, events, standings:computeStandings(state), allTied:false, facts:same, now:0 })
+    .filter(item => item.tag === "Milestone").map(item => item.text), ["fact 3"]);
   /* without facts the ticker is unchanged */
   const bare = ui.tickerItems({ state, events, standings:computeStandings(state), allTied:false, latest:null, now:0 });
   assert.ok(!bare.some(item => Object.values(ui.FACT_TAGS).includes(item.tag)));

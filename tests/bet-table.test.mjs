@@ -297,6 +297,7 @@ test("No more bets: once per fresh lock, and under reduced motion the words stil
   assert.match(table, /if \(!locked \|\| !change\.fresh\) return undefined;\s*setPlay\(change\.changeId\);/,
     "a fresh lock mounts the words even when nothing may move");
   const css = readFileSync(new URL("../src/features/wagers/table.css", import.meta.url), "utf8");
-  assert.match(css, /@media \(prefers-reduced-motion: reduce\) \{[^}]*\.fd-table-sweep-glove \{ display:none; \}/, "the glove never moves");
+  const reduced = css.indexOf("@media (prefers-reduced-motion: reduce)");
+  assert.ok(reduced >= 0 && css.indexOf(".fd-table-sweep-glove { display:none; }", reduced) > reduced, "the glove never moves");
   assert.doesNotMatch(css.match(/\.fd-table-sweep-words \{[^}]*\}/)[0], /opacity:0/, "the words rest visible");
 });

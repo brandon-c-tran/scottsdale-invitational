@@ -89,7 +89,8 @@ export function useSheetDrag({ overlay, panel, grip, busy, onClose }) {
         p.y = event.clientY;
         p.base = rawOffset(s.offset, { locked:live.current.busy });
         p.height = sheet.getBoundingClientRect().height || 1;
-        sheet.getAnimations?.().forEach(animation => animation.finish?.());
+        /* a finger beat the rise: land it (an endless one cannot finish; leave it) */
+        sheet.getAnimations?.().forEach(animation => { try { animation.finish(); } catch { /* endless */ } });
         try { handle.setPointerCapture(event.pointerId); } catch { /* the drag still follows */ }
         sheet.classList.add("is-dragging");
         thin();

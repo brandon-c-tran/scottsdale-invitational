@@ -167,10 +167,11 @@ function RackChip({ value, disabled, selected, onClick }) {
   </button>;
 }
 
-/* The rack's chips are the house's, not a person's: every denomination is
-   the chip lamp's amber, its value stamped in the middle. A placed chip
-   leaves the rack as the bettor's own chip (BankChip), the one their stack
-   is built from. */
+/* The rack's chips are the house's, not a person's: each denomination is
+   its chip from the case (the white body, the value's color round the edge,
+   the numeral in gold foil). The duel's ante rack draws the same chip. A
+   placed chip leaves the rack as the bettor's own chip (BankChip), the one
+   their stack is built from. */
 
 const RACK_COIN = 44;
 function DenomChip({ size = RACK_COIN, value }) {
@@ -698,4 +699,4 @@ function DragChip({ me }) {
     <BankChip p={me} size={RACK_COIN + 6} val={drag.stake} /></span>, document.body);
 }
 
-export { Wagers, wagerPickLabel, mergeWagerLines, RACK_DENOMS };
+export { Wagers, wagerPickLabel, mergeWagerLines, RACK_DENOMS, DenomChip };

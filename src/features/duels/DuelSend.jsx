@@ -1,7 +1,6 @@
 import React from "react";
 import { ChipFace } from "../identity/PlayerIdentity.jsx";
-import { HOUSE_CHIP } from "../wagers/BetStacks.jsx";
-import { RACK_DENOMS } from "../wagers/Wagers.jsx";
+import { DenomChip, RACK_DENOMS } from "../wagers/Wagers.jsx";
 import { Coin } from "../../ui/Coin.jsx";
 import { ActionButton } from "../../ui/controls.jsx";
 import { tapTick } from "../../lib/haptics.js";
@@ -23,8 +22,9 @@ function UnlitCoin({ value }) {
 }
 
 /* The challenge from a player card: you and them face to face, the Bets
-   rack's chips as the ante (each denomination a house coin; past your cap
-   or theirs it is unlit), the cap said once when it binds, then Send. */
+   rack's chips as the ante (each denomination the same chip from the case;
+   past your cap or theirs it is unlit), the cap said once when it binds,
+   then Send. */
 export function DuelSend({ me, p, own, name, ante, anteMax, onAnte, pending, error, rematch, onSend }) {
   const capBinds = anteMax < RACK_DENOMS[RACK_DENOMS.length - 1];
   return <div className="fd-duel-send fd-glass-field fd-field-chip">
@@ -39,9 +39,8 @@ export function DuelSend({ me, p, own, name, ante, anteMax, onAnte, pending, err
         return <button type="button" key={value} disabled={off} aria-pressed={ante === value}
           aria-label={`Ante ${fmt(value)} chips each`} className={ante === value && !off ? "is-selected" : ""}
           onClick={() => { tapTick(); onAnte(value); }}>
-          <Coin color={HOUSE_CHIP.color} unlit={value > anteMax}>
-            {value > anteMax ? <UnlitCoin value={value} />
-              : <ChipFace size={COIN} stamp={value} valueRing color={HOUSE_CHIP.color} isLight={HOUSE_CHIP.isLight} skin={HOUSE_CHIP.skin} />}
+          <Coin color={`var(--chip-${value}-edge)`} unlit={value > anteMax}>
+            {value > anteMax ? <UnlitCoin value={value} /> : <DenomChip size={COIN} value={value} />}
           </Coin>
         </button>;
       })}

@@ -103,7 +103,10 @@ export function useSheetDrag({ overlay, panel, grip, busy, onClose }) {
       if (!p || event.pointerId !== p.id) return;
       s.pointer = null;
       if (!p.dragging) return;
-      s.swallow = true;
+      /* only the click this lift makes: one that comes later without a
+         pointer (VoiceOver, a keyboard) is a real tap */
+      const lifted = s.swallow = Symbol("lift");
+      setTimeout(() => { if (s.swallow === lifted) s.swallow = false; }, 400);
       sheet.classList.remove("is-dragging");
       const velocity = cancelled ? 0 : releaseVelocity(p.samples, event.timeStamp);
       const plan = cancelled ? { dismiss:false } : releasePlan({ offset:s.offset, velocity, height:p.height, locked:live.current.busy });

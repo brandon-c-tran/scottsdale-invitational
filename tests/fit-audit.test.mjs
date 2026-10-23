@@ -12,6 +12,7 @@ import { build } from "esbuild";
 
 import { ROSTER, computeStandings, rosterOf } from "../shared/core.js";
 import { WORST_KARAOKE, WORST_NAMES, WORST_RULING, WORST_SONGS, WORST_TEAM_NAMES } from "../dev/fit/worstFixtures.js";
+import { longestWordUnits, textUnits } from "../src/ui/textUnits.js";
 import { CLIP_TOL, MIN_TEXT, clipFindings, boundsFindings, overlapFindings, overlayFindings, smallFindings, foldFindings, findingsFor,
   failing, summarize } from "../dev/fit/rules.js";
 import { TV_SCENARIOS, PHONE_SCENARIOS, FIT_NAMES, FIT_PHOTOS, buildScenario, aged } from "../dev/fit/scenarios.js";
@@ -27,7 +28,8 @@ const compiled = await build({
     export { towerNameFit, matchTitle, BIG_BRACKET } from "./src/features/tv/TVMode.jsx";
     export { sideBracketDims, roundHead, roundHeadFit } from "./src/features/tv/TVBracket.jsx";
     export { payoutSteps, ladderChips } from "./src/ui/PayoutLadder.jsx";
-    export { trophyPlateFit } from "./src/features/weekend/Trophy.jsx";`, resolveDir:root, loader:"jsx" },
+    export { trophyPlateFit } from "./src/features/weekend/Trophy.jsx";
+    export { faceOffNameSize } from "./src/features/tv/TVFaceOff.jsx";`, resolveDir:root, loader:"jsx" },
   bundle:true, platform:"node", format:"cjs", external:["react", "react-dom", "qrcode-generator", "three"], loader:{ ".css":"empty" },
   write:false, logLevel:"silent",
 });
@@ -187,6 +189,21 @@ test("the poker ring: thirteen fixed seats never touch, the sides, or the ticker
         `${dealing ? "dealing" : "live"}: seats ${i} and ${i + j + 1} apart`));
     });
   }
+});
+
+/* every name estimate counts a name in Latin letters' widths: a CJK
+   character or an emoji takes about two, a stacked accent none */
+test("names are measured in the room they take: wide scripts and emoji count wide", () => {
+  const ch = (...codes) => String.fromCodePoint(...codes);
+  assert.equal(textUnits("Henry Nguyen"), "Henry Nguyen".length, "Latin names measure as they always have");
+  assert.equal(textUnits(`Nguye${ch(0x302, 0x303)}n`), 6, "a stacked accent adds nothing");
+  assert.ok(textUnits(ch(0x84CB, 0x5BB6, 0x8C6A)) >= 6, "three CJK characters take six letters' room");
+  assert.equal(textUnits(ch(0x1F469, 0x1F3FD, 0x200D, 0x1F4BB)), textUnits(ch(0x1F37A)), "a joined emoji is one emoji");
+  assert.equal(longestWordUnits("Allan Montgomery"), 10);
+  /* the face-off sized for the room the name takes (its first worst case ran into VS) */
+  const pair = `Ch${ch(0xED)}nh ${ch(0x1F37A)} & ${ch(0x84CB, 0x5BB6, 0x8C6A)}`;
+  assert.ok(textUnits(pair) * 0.5 * ui.faceOffNameSize(pair) <= 740);
+  assert.ok(ui.faceOffNameSize(pair) < ui.faceOffNameSize("Chinh & Chiang"));
 });
 
 test("names fit their slots: towers, bracket rows and round heads", () => {

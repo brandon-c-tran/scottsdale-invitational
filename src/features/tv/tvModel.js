@@ -3,6 +3,7 @@
    on the same screen. Nothing here writes state. */
 
 import { DISC_OVERLAP } from "../identity/discLetters.js";
+import { textUnits } from "../../ui/textUnits.js";
 import {
   awardTable, ROSTER, rosterOf, EDITION, ROUND_NAMES, SESSIONS, bracketOrder, bracketChampion, resultAwards,
   computeStandings, resolveWager, resolveDuel, resolveCurrentContest, resolveSlot, eventInPlay, contestMult, contestUpset,
@@ -801,7 +802,7 @@ export function tickerFactWidth(item) {
   const n = (item?.players || []).length;
   const faces = n ? 44 + (n - 1) * (n > 2 ? Math.round(44 * (1 - DISC_OVERLAP)) : 52) + 20 : 0;
   const text = (item?.parts || [item?.text || ""]).reduce((w, part) => w + (typeof part === "string"
-    ? String(part).length * 16.5 : String(part.amount).length * 20), 0);
+    ? textUnits(part) * 16.5 : String(part.amount).length * 20), 0);
   return Math.ceil(tag + faces + text);
 }
 /* the arrivals corner (tv-arrivals.css --tv-corner-room) narrows the plate by this */
@@ -848,12 +849,12 @@ const ADVANCE = 0.47;
 export function sideNameFit(name, width, { max = 56, min = 40, caps = false } = {}) {
   const text = String(name || "");
   const advance = caps ? 0.56 : ADVANCE;
-  const one = Math.floor(width / Math.max(1, text.length * advance));
+  const one = Math.floor(width / Math.max(1, textUnits(text) * advance));
   if (one >= min) return { size:Math.min(max, one), lines:[text] };
   const cut = text.includes(" & ") ? text.indexOf(" & ") + 2 : text.lastIndexOf(" ");
   if (cut <= 0) return { size:Math.max(24, Math.min(max, one)), lines:[text] };
   const lines = [text.slice(0, cut).trim(), text.slice(cut).trim()];
-  const two = Math.floor(width / Math.max(1, Math.max(...lines.map(line => line.length)) * advance));
+  const two = Math.floor(width / Math.max(1, Math.max(...lines.map(textUnits)) * advance));
   return { size:Math.max(24, Math.min(max, two)), lines };
 }
 
@@ -864,7 +865,7 @@ export function sideNameFit(name, width, { max = 56, min = 40, caps = false } = 
    lettered as written (show weight, about .47em a letter). `players` is
    the most a side has (a pair's faces overlap by a fifth, DISC_OVERLAP). */
 export function fieldNameFit(names = [], spot = 236, players = 1, { max = 40, min = 24, pad = 32, gap = 12 } = {}) {
-  const longest = Math.max(4, ...names.map(name => String(name || "").length));
+  const longest = Math.max(4, ...names.map(name => textUnits(name || "")));
   const n = Math.max(1, players);
   const fit = face => {
     const facesW = face + (n - 1) * face * (1 - DISC_OVERLAP);

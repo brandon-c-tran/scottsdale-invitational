@@ -29,6 +29,7 @@ import { allEventsOf, resolveDuel, resolveWager, rosterOf } from "../../../share
 import { eventMeetings } from "../profile/seasonStats.js";
 import { entrySides, gagWrites, upsetPick, winStreaks } from "../gags/gagModel.js";
 import { TV_AMBIENT_TURN_MS, biggestSwing } from "./tvModel.js";
+import { textUnits } from "../../ui/textUnits.js";
 
 export const MIN_MEETINGS = 2;
 export const H2H_MAX = 3;
@@ -350,11 +351,11 @@ export const RECORD_ADVANCE = 0.5;
 const sizeFor = (width, longest, max) => Math.max(24, Math.min(max, Math.floor(width / (Math.max(3, longest) * RECORD_ADVANCE))));
 export function recordNameFit(name, width, { max = 96, comfort = 48 } = {}) {
   const text = String(name || "");
-  const one = sizeFor(width, text.length, max);
+  const one = sizeFor(width, textUnits(text), max);
   const cut = text.lastIndexOf(" ");
   if (one >= comfort || cut <= 0) return { size:one, lines:[text] };
   const lines = [text.slice(0, cut), text.slice(cut + 1)];
-  const two = sizeFor(width, Math.max(...lines.map(line => line.length)), max);
+  const two = sizeFor(width, Math.max(...lines.map(textUnits)), max);
   return two > one ? { size:two, lines } : { size:one, lines:[text] };
 }
 export const recordNameSize = (name, width, opts) => recordNameFit(name, width, opts).size;
@@ -362,7 +363,7 @@ export const recordNameSize = (name, width, opts) => recordNameFit(name, width, 
 export const recordNameLines = (name, width, size) => {
   const text = String(name || "");
   const cut = text.lastIndexOf(" ");
-  return text.length * RECORD_ADVANCE * size <= width || cut <= 0 ? [text] : [text.slice(0, cut), text.slice(cut + 1)];
+  return textUnits(text) * RECORD_ADVANCE * size <= width || cut <= 0 ? [text] : [text.slice(0, cut), text.slice(cut + 1)];
 };
 
 /* The people on a card: one chip large, a few smaller, each with its name

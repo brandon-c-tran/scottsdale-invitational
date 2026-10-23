@@ -1,6 +1,7 @@
 import { SESSIONS, computeStandings, disp, teamLabel } from "../../../shared/core.js";
 import { firstName } from "../../../shared/teamNames.js";
 import { programCover } from "./programModel.js";
+import { textUnits } from "../../ui/textUnits.js";
 
 /* The weekend's cup (Oct 3), kept the way the Stanley Cup keeps its
    winners: the champion goes on the cup itself, and every event's winners
@@ -153,12 +154,12 @@ const ADVANCE = 0.47;
 function fitLines(name, width, { max, min, two, floor }) {
   const text = String(name || "");
   const size = len => Math.floor(width / Math.max(1, len * ADVANCE));
-  const one = size(text.length);
+  const one = size(textUnits(text));
   if (one >= min) return { size:Math.min(max, one), lines:[text] };
   const cut = text.includes(" & ") ? text.indexOf(" & ") + 2 : text.lastIndexOf(" ");
   if (cut <= 0) return { size:Math.max(floor, Math.min(two, one)), lines:[text] };
   const lines = [text.slice(0, cut).trim(), text.slice(cut).trim()];
-  return { size:Math.max(floor, Math.min(two, size(Math.max(...lines.map(line => line.length))))), lines };
+  return { size:Math.max(floor, Math.min(two, size(Math.max(...lines.map(textUnits))))), lines };
 }
 /* a winner's line on a TV plate: 28 to 32 in one line, else 24 to 28 in two */
 export const fitPlateName = (name, width) => fitLines(name, width, CUP_TV.plate.name);

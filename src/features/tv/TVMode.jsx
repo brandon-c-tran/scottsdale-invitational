@@ -12,6 +12,7 @@ import { GameMark } from "../../ui/GameMark.jsx";
 import { FDMark } from "../../ui/Brand.jsx";
 import { ScoreReel } from "../../ui/ScoreReel.jsx";
 import { EventName } from "../../ui/OneSafe.jsx";
+import { textUnits } from "../../ui/textUnits.js";
 import { PayoutLadder } from "../../ui/PayoutLadder.jsx";
 import { mergeWagerLines } from "../wagers/Wagers.jsx";
 import { TVTable, TVSettledTable, matchLabel } from "./TVTable.jsx";
@@ -290,8 +291,8 @@ export const TOWER_SQUEEZE = 0.72;
 export const towerNameFit = (name, width = TOWER_LABEL_W) => {
   /* lettered as written; measured as capitals, the widest it could run */
   const text = String(name || "");
-  const size = Math.max(24, Math.min(30, Math.floor(width / Math.max(1, text.length * 0.5))));
-  const est = text.length * 0.5 * size;
+  const size = Math.max(24, Math.min(30, Math.floor(width / Math.max(1, textUnits(text) * 0.5))));
+  const est = textUnits(text) * 0.5 * size;
   return { size, lines:[text], squeeze:est > width ? Math.max(TOWER_SQUEEZE, width / est) : 1 };
 };
 export const towerNameSize = name => towerNameFit(name).size;

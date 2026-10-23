@@ -4,6 +4,7 @@ import { DenomStacks } from "../poker/PokerChips.jsx";
 import { LevelChip, RollNumber, SeatChip, useBustTip, useLevelRoll } from "../poker/PokerMotion.jsx";
 import { ScoreReel } from "../../ui/ScoreReel.jsx";
 import { OneSafe } from "../../ui/OneSafe.jsx";
+import { textUnits } from "../../ui/textUnits.js";
 import { fmt, mmss, placeName, pokerTableRows, pokerSeats } from "./tvModel.js";
 
 /* The finale on the TV: a broadcast table. An oval felt with every seated
@@ -39,7 +40,7 @@ export function seatPoint(i, n, table = TABLE) {
 }
 
 /* a seat's name fits the seat: one line, as large as 30px goes */
-const seatNameSize = name => Math.max(24, Math.min(30, Math.floor((SEAT.w - 64 - 14 - 30) / Math.max(1, String(name).length * 0.56))));
+const seatNameSize = name => Math.max(24, Math.min(30, Math.floor((SEAT.w - 64 - 14 - 30) / Math.max(1, textUnits(name) * 0.56))));
 function Seat({ state, row, at, index, dealing, tipping }) {
   const out = row.busted;
   const name = disp(state, row.player);

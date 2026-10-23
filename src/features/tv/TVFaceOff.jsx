@@ -8,12 +8,13 @@ import { EventName } from "../../ui/OneSafe.jsx";
 import { contestTerms } from "../comebacks/comebacks.js";
 import { tableView } from "../wagers/tableModel.js";
 import { TVPct } from "./TVTable.jsx";
+import { textUnits } from "../../ui/textUnits.js";
 import { PoolExplainer, UnderdogExplainer } from "../comebacks/Comebacks.jsx";
 
 /* a display size that keeps a side's name on one line in its half, so both
    halves stand at the same height: Big Shoulders 900 runs about 0.5em a letter */
 export const faceOffNameSize = text =>
-  Math.max(48, Math.min(120, Math.floor(740 / (Math.max(4, String(text || "").length) * 0.5))));
+  Math.max(48, Math.min(120, Math.floor(740 / (Math.max(4, textUnits(text || "")) * 0.5))));
 
 /* H10, the first underdog this TV shows: under its "Winner pays 2:1", the
    rule drawn (two stacks, the gap measured, 1:1 and 2:1), stamped in just

@@ -24,6 +24,7 @@ import { ScoreReel } from "../../ui/ScoreReel.jsx";
 import { stackName } from "../wagers/betStacks.js";
 import { ARRIVAL_DROP_MS, droppingSeats, lobbySeats } from "../arrivals/arrivalsModel.js";
 import { qrModules } from "../arrivals/arriveQr.js";
+import { textUnits } from "../../ui/textUnits.js";
 import "./tv-arrivals.css";
 
 /* the code, crisp at any size: bone plate, ink modules, a quiet zone of
@@ -59,7 +60,7 @@ export const LOBBY_CHIP = 98;
 export const LOBBY_NAME_W = 164;
 /* a seat's name: one line, as large as its plate allows (30px down to the
    24px floor), and a name still wider at 24 narrowed to the plate, never cut */
-export const arriveNameSize = name => Math.max(24, Math.min(30, Math.floor(LOBBY_NAME_W / Math.max(1, String(name || "").length * 0.5))));
+export const arriveNameSize = name => Math.max(24, Math.min(30, Math.floor(LOBBY_NAME_W / Math.max(1, textUnits(name || "") * 0.5))));
 function SeatName({ name }) {
   const ref = useRef(null);
   const [squeeze, setSqueeze] = useState(1);

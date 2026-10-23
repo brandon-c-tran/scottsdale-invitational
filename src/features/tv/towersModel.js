@@ -204,12 +204,17 @@ export function towerLabelBoxes(layout) {
 /* A running count of slow frames. Idle frames never reach it: the scene
    renders on demand and only times frames while something moves. A TV so
    slow that one moment never reaches 30 frames trips on time instead: a
-   second of nothing but slow frames. */
+   second of nothing but slow frames. One stall counts as at most
+   TOWER_SLOW_STALL_MS of that second: a page hidden mid-tween, or one long
+   task, is a single gap between two frames, and the fallback lasts the
+   whole session, so one hitch must never decide it. */
 export const TOWER_SLOW_RUN_MS = 1000;
-export function frameMonitor({ limit = TOWER_SLOW_FRAME_MS, frames = TOWER_SLOW_FRAMES, runMs = TOWER_SLOW_RUN_MS } = {}) {
+export const TOWER_SLOW_STALL_MS = 400;
+export function frameMonitor({ limit = TOWER_SLOW_FRAME_MS, frames = TOWER_SLOW_FRAMES, runMs = TOWER_SLOW_RUN_MS,
+  stallMs = TOWER_SLOW_STALL_MS } = {}) {
   let run = 0, spent = 0;
   return dt => {
-    if (dt > limit) { run += 1; spent += dt; } else { run = 0; spent = 0; }
+    if (dt > limit) { run += 1; spent += Math.min(dt, stallMs); } else { run = 0; spent = 0; }
     return run >= frames || spent >= runMs;
   };
 }

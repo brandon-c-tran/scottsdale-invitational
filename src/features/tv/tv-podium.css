@@ -88,7 +88,8 @@
 /* the award's reel: windows cut to the line the figure had */
 .tv-step-amount .fd-reel { font-size:.8em; align-self:center; }
 .tv-step-sign { align-self:center; margin-right:-4px; }
-.tv-step-amount small { font:700 28px/1 var(--fd-display); letter-spacing:.06em; text-transform:uppercase; color:var(--muted2); }
+/* "each" stands on the reel's middle with the sign, never on its windows' top edge */
+.tv-step-amount small { align-self:center; font:700 28px/1 var(--fd-display); letter-spacing:.06em; text-transform:uppercase; color:var(--muted2); }
 @keyframes tv-step-stamp { 0% { opacity:0; transform:scale(1.6); } 60% { opacity:1; transform:scale(.96); } 100% { opacity:1; transform:none; } }
 
 /* one pass of light across every face once 1st has landed */

@@ -20,6 +20,11 @@ import { recordCards } from "../../src/features/tv/recordsModel.js";
 import { boardDeskStage, boardPlayed, boardStage } from "./boardFixtures.js";
 import { karaokeStage } from "./karaokeFixtures.js";
 import { karaokePhoneStage } from "./karaokePhoneFixtures.js";
+import {
+  WORST_BALLOT, WORST_GEO_ROUNDS, WORST_KARAOKE, WORST_LYRICS, WORST_PHOTOS, WORST_SONGS, WORST_TRIVIA_ROUND, worstBase,
+  worstEventName, worstKaraokeSong, worstNames, worstRuling, worstSongs, worstSpread, worstTeamNames,
+} from "./worstFixtures.js";
+import { projectKaraoke } from "../../shared/karaoke.js";
 
 /* display names the audit stresses: a long one, a lowercase pair, a
    surname. Applied after the fill, so qaAdvance never sees them as touched */
@@ -48,13 +53,14 @@ const qa = (state, target, seed = 7) => act(state, "qaAdvance", { target, seed, 
   confirmPokerLive:true });
 
 /* names and photos on top of the reducers' fill. `photos`: who has one
-   (a scenario's own list, else FIT_PHOTOS) */
-export function dress(state, now = Date.now(), { photos = FIT_PHOTOS } = {}) {
+   (a scenario's own list, else FIT_PHOTOS); `names`: the display names
+   laid on (null keeps the ones the build wrote through saveProfile) */
+export function dress(state, now = Date.now(), { photos = FIT_PHOTOS, names = FIT_NAMES } = {}) {
   /* the Durable Object stamps every write; the reducers alone do not */
   if (!Number(state.updatedAt)) state.updatedAt = now;
   for (const player of ROSTER) {
     const profile = state.profiles[player] || (state.profiles[player] = {});
-    if (FIT_NAMES[player]) profile.display = FIT_NAMES[player];
+    if (names?.[player]) profile.display = names[player];
     if (photos.includes(player)) profile.photoV = 1;
     else delete profile.photoV;
   }
@@ -262,15 +268,16 @@ export const GEO_ROUNDS = Object.freeze([
   { id:"gfitround3", photo:{ id:"gfitphoto3", w:1600, h:900 }, lat:36.1147, lng:-115.1728, place:"Las Vegas",
     when:"2023-03-18T02" },
 ]);
-function geo(stage) {
+/* `set`: the photos the commissioner authored (the worst views' own) */
+function geo(stage, set = GEO_ROUNDS) {
   const state = fresh("event:die:done");
-  GEO_ROUNDS.forEach(round => act(state, "geoSaveRound", structuredClone(round)));
+  set.forEach(round => act(state, "geoSaveRound", structuredClone(round)));
   act(state, "announceEvent", { evId:"where" });
   const contest = resolveCurrentContest(state, eventOf(state, "where"));
   act(state, "lockAndStart", { evId:"where", contestId:contest.id, contestRevision:contest.revision });
   act(state, "geoStart", { evId:"where" });
   const players = ROSTER.filter(p => p !== FIT_GM);
-  const rounds = stage === "final" ? GEO_ROUNDS : GEO_ROUNDS.slice(0, 1);
+  const rounds = stage === "final" ? set : set.slice(0, 1);
   rounds.forEach((round, r) => {
     players.forEach((player, i) => {
       if (stage === "guess" && i % 3 === 2) return;
@@ -303,13 +310,14 @@ export const TRIVIA_FIT_ROUNDS = Object.freeze([
   ] },
 ]);
 const TRIVIA_STOPS = { question:0, number:1, reveal:0, "number-reveal":1, board:1, long:2, picture:3, tune:4, final:4 };
-export function triviaStage(stage = "question") {
+/* `rounds` and `stops`: another set list and where its stages stop (the worst views') */
+export function triviaStage(stage = "question", { rounds = TRIVIA_FIT_ROUNDS, stops = TRIVIA_STOPS } = {}) {
   const state = fresh("event:trivia:open");
-  TRIVIA_FIT_ROUNDS.forEach(round => act(state, "triviaSaveRound", { round:structuredClone(round) }));
+  rounds.forEach(round => act(state, "triviaSaveRound", { round:structuredClone(round) }));
   const contest = resolveCurrentContest(state, eventOf(state, "trivia"));
   act(state, "lockAndStart", { evId:"trivia", contestId:contest.id, contestRevision:contest.revision });
   act(state, "triviaStart", { evId:"trivia" });
-  const stop = TRIVIA_STOPS[stage] ?? 0;
+  const stop = stops[stage] ?? 0;
   /* everyone answers alone: most of the room right, the rest spread over
      the other answers, each lock a beat after the last (so speed differs) */
   const answer = (q, last) => {
@@ -344,17 +352,20 @@ export function triviaStage(stage = "question") {
 }
 
 /* the awards reveal, its first award turning on a crowned board */
-function awards() {
-  const state = fresh("crowned");
-  const ballot = { id:"bfitawards", kind:"awards", questions:[
-    { id:"qfraud", title:"Fraud of the weekend", nominees:null, allowSelf:false },
-    { id:"qclutch", title:"Most clutch", nominees:["Evan", "Richard", "Jeremy"], allowSelf:false },
-  ] };
-  act(state, "promptPublish", { ballot });
+const FIT_BALLOT = Object.freeze({ id:"bfitawards", kind:"awards", questions:[
+  { id:"qfraud", title:"Fraud of the weekend", nominees:null, allowSelf:false },
+  { id:"qclutch", title:"Most clutch", nominees:["Evan", "Richard", "Jeremy"], allowSelf:false },
+] });
+/* `ballot`: another ballot of two awards, the second's nominees the first
+   ballot's three (the worst view's titles) */
+function awards(ballot = FIT_BALLOT, state = fresh("crowned")) {
+  const [first, second] = ballot.questions;
+  const three = ["Evan", "Richard", "Jeremy"];
+  act(state, "promptPublish", { ballot:structuredClone(ballot) });
   ROSTER.forEach((player, i) => {
-    act(state, "promptRespond", { id:ballot.id, questionId:"qfraud", choice:player === "Richard" ? "Evan" : "Richard" },
+    act(state, "promptRespond", { id:ballot.id, questionId:first.id, choice:player === "Richard" ? "Evan" : "Richard" },
       playerCtx(player));
-    act(state, "promptRespond", { id:ballot.id, questionId:"qclutch", choice:["Evan", "Richard", "Jeremy"].find(p => p !== player
+    act(state, "promptRespond", { id:ballot.id, questionId:second.id, choice:three.find(p => p !== player
       && (i % 2 ? p !== "Evan" : true)) }, playerCtx(player));
   });
   act(state, "promptClose", { id:ballot.id });
@@ -524,12 +535,15 @@ function withSong(state, player) {
 }
 /* a win song on the speaker (the Worker writes this record), started just
    after the win it plays for */
-function walkoutRecord(state, player, { cover = false } = {}) {
+function walkoutRecord(state, player, { cover = false, track = null } = {}) {
   const at = Date.now() + 400;
-  state.profiles[player] = { ...state.profiles[player], walkoutTrack:{ trackId:"3n3Ppam7vgaVa1iaRUc9Lp", uri:"spotify:track:3n3Ppam7vgaVa1iaRUc9Lp",
-    name:"Mr. Brightside", artists:["The Killers"], imageUrl:cover ? FIT_COVER : null, durationMs:222000 } };
+  /* `track`: the song saved (the worst views' own), else Mr. Brightside */
+  const song = track ? { ...track, artists:[...track.artists], imageUrl:cover ? FIT_COVER : null }
+    : { trackId:"3n3Ppam7vgaVa1iaRUc9Lp", uri:"spotify:track:3n3Ppam7vgaVa1iaRUc9Lp", name:"Mr. Brightside", artists:["The Killers"],
+      imageUrl:cover ? FIT_COVER : null, durationMs:222000 };
+  state.profiles[player] = { ...state.profiles[player], walkoutTrack:song };
   state.showControl = { ...(state.showControl || {}), audio:{ ...(state.showControl?.audio || {}),
-    walkout:{ player, trackId:"3n3Ppam7vgaVa1iaRUc9Lp", startedAt:at, until:at + 30000, auto:true } } };
+    walkout:{ player, trackId:song.trackId, startedAt:at, until:at + 30000, auto:true } } };
   return state;
 }
 
@@ -1039,6 +1053,128 @@ const SOLO_GAG_VIEWS = [
   ...["roadrunner", "quicksand", "dynamite", "vulture", "rake", "needlescratch"].map(bit => ({ id:`tv-gag-${bit}`,
     build:() => fresh("event:pong:done"), moment:{ kind:"gag", t:"letter", gag:{ bit, players:["Henry"], fact:"13th" } } })),
 ];
+
+/* ── the worst case (dev/fit/worstFixtures.js) ──
+   What a guest or the commissioner can actually write, at the limits the
+   server keeps, on every surface that letters it: display names, team
+   names, win and karaoke songs, a ruling's reason, a renamed event, the
+   commissioner's Trivia, Where and When and awards at their longest, and a
+   board at 18,500 and below zero with a tie at every place. The views are
+   `tv-worst-*` and `worst-*` (npm run audit:fit -- --grep worst-).
+   `names:null` keeps the names the reducers wrote; WORST_PHOTOS leaves the
+   CJK name, the handle, the stacked marks, the one letter and the
+   apostrophe on their initials. */
+const WORST = Object.freeze({ names:null, photos:WORST_PHOTOS });
+/* `quiet`: the TV's Gags switch off (the commissioner's setGags), so the
+   surface under test is on screen, not a moment the QA jump's writes owe */
+function worst(state, { songs = false, teams = [], pairs = false, event = false, ruling = false, quiet = false } = {}) {
+  worstNames(state);
+  if (songs) worstSongs(state);
+  teams.forEach(evId => worstTeamNames(state, evId, { pairs }));
+  if (event) worstEventName(state);
+  if (ruling) worstRuling(state);
+  if (quiet) act(state, "setGags", { on:false });
+  return state;
+}
+/* a second round of one question, so the scores stand between rounds */
+const WORST_TRIVIA = Object.freeze({ rounds:[WORST_TRIVIA_ROUND, { id:"tworstround2", source:"custom", name:"Round two",
+  questions:[{ id:"qworstshort1", format:"choice", text:"Who drove?", options:["Evan", "Khoa", "Adi", "Ben"], answer:0 }] }],
+  stops:{ question:0, options:1, number:2, reveal:0, board:2, "number-reveal":2, final:3 } });
+/* Saturday night's board: three not coming, one away, a tie at every
+   place from 18,500 to -2,400, a Quick Draw between two long names, the
+   renamed event, and a ruling at its 80 characters (the newest) */
+function worstBoard() {
+  const state = worstEventName(worstNames(worstBase("event:pong:done")));
+  worstSpread(state);
+  quickDraws(state, [["Allan", "Richard", 231, 286]]);
+  return worstRuling(state);
+}
+/* the lyric stage: the third singer's long title over an instrumental, the
+   160-character line being sung */
+function worstKaraokeLyrics() {
+  const state = worstNames(karaokeStage("lyrics", { project:false }));
+  const game = state.karaoke;
+  const singer = game.order[game.index];
+  const song = game.songs[singer];
+  game.songs[singer] = { ...song, name:WORST_KARAOKE.name, artists:[...WORST_KARAOKE.artists] };
+  game.lyrics = { [song.trackId]:structuredClone(WORST_LYRICS) };
+  state.karaoke = projectKaraoke(state, null);
+  return state;
+}
+/* the viewer singing it, on their phone */
+function worstPhoneLyrics() {
+  const state = worstNames(karaokePhoneStage("singing-lyrics"));
+  const game = state.karaoke;
+  const trackId = game.songs[game.order[game.index]].trackId;
+  game.lyrics = { ...game.lyrics, [trackId]:structuredClone(WORST_LYRICS) };
+  return state;
+}
+/* the weekend kept: every team named at its longest, the renamed event
+   (and on the phone, the first award revealed) */
+const worstCrowned = () => worst(fresh("crowned"), { teams:["die", "bball5", "pickleball", "volley"], pairs:true, event:true });
+const worstKeepsake = () => awards(WORST_BALLOT, worstCrowned());
+const WORST_TV_VIEWS = [
+  { id:"tv-worst-board", build:worstBoard, at:{ turn:0 }, ...WORST },
+  { id:"tv-worst-ticker-ruling", build:worstBoard, at:{ turn:0, tickerTag:"Ruling" }, ...WORST },
+  /* a pairs bracket's on-deck match: two pairs of long names */
+  { id:"tv-worst-ticker-deck", build:() => worst(fresh("event:pickleball:mid")), at:{ tickerTag:"On deck" }, ...WORST },
+  { id:"tv-worst-bracket-pairs", build:() => worst(fresh("event:pickleball:mid")), ...WORST },
+  { id:"tv-worst-table-13", build:() => worst(ffaTote("one"), { event:true }), ...WORST },
+  { id:"tv-worst-nowplaying", build:() => walkoutRecord(worst(fresh("event:putt:open")), FIT_GUEST, { track:WORST_SONGS.Richard }),
+    at:{ walkout:12000 }, ...WORST },
+  { id:"tv-worst-walkout", build:() => walkoutRecord(worst(fresh("event:putt:done")), FIT_GUEST, { track:WORST_SONGS.Richard }),
+    moment:{ kind:"walkout", t:3000, record:true }, ...WORST },
+  { id:"tv-worst-draw-split", build:() => worst(fresh("event:bball5:open"), { teams:["bball5"] }), draw:{ ev:"bball5" }, ...WORST },
+  { id:"tv-worst-draw-semis", build:() => worst(fresh("event:volley:open"), { teams:["volley"] }), draw:{ ev:"volley" }, ...WORST },
+  { id:"tv-worst-faceoff", build:() => worst(fresh("event:die:open")), moment:{ kind:"faceoff", t:5000 }, ...WORST },
+  { id:"tv-worst-podium-team", build:() => postedOn(worst(fresh("event:bball5:open"), { teams:["bball5"], quiet:true }), "bball5"),
+    at:{ result:3600 }, ...WORST },
+  { id:"tv-worst-podium-tie", build:() => worst(postedTie("putt"), { event:true, quiet:true }), at:{ result:3600 }, ...WORST },
+  { id:"tv-worst-intro", build:() => worst(fresh("locker"), { event:true }), ceremony:{ intro:"putt" }, ...WORST },
+  { id:"tv-worst-trivia-words", build:() => worst(triviaStage("question", WORST_TRIVIA), { quiet:true }), at:{ trivia:6000 }, wait:1500,
+    ...WORST },
+  { id:"tv-worst-trivia-options", build:() => worst(triviaStage("options", WORST_TRIVIA), { quiet:true }), at:{ trivia:6000 },
+    wait:1500, ...WORST },
+  { id:"tv-worst-trivia-reveal", build:() => worst(triviaStage("reveal", WORST_TRIVIA), { quiet:true }), at:{ trivia:4000 },
+    wait:3000, ...WORST },
+  /* the closest number's reveal (each guess beside its name), the scores
+     between rounds, and the final podium */
+  { id:"tv-worst-trivia-number", build:() => worst(triviaStage("number-reveal", WORST_TRIVIA), { quiet:true }), at:{ trivia:4000 },
+    wait:3000, ...WORST },
+  { id:"tv-worst-trivia-board", build:() => worst(triviaStage("board", WORST_TRIVIA), { quiet:true }), at:{ trivia:3000 },
+    wait:2500, ...WORST },
+  { id:"tv-worst-trivia-final", build:() => worst(triviaStage("final", WORST_TRIVIA), { quiet:true }), at:{ trivia:3000 },
+    wait:3000, ...WORST },
+  { id:"tv-worst-awards", build:() => awards(WORST_BALLOT, worst(fresh("crowned"))), at:{ award:6000 }, ...WORST },
+  { id:"tv-worst-geo-reveal", build:() => worst(geo("reveal", WORST_GEO_ROUNDS)), at:{ geoReveal:9000 }, wait:4500, ...WORST },
+  { id:"tv-worst-karaoke-lyrics", build:worstKaraokeLyrics, at:{ karaoke:0 }, wait:1200, ...WORST },
+  /* the champion (seed 7 crowns Henry: the 16-letter handle, no photo) */
+  { id:"tv-worst-crown-name", build:() => worst(fresh("crowned")), moment:{ kind:"crown", t:16800 }, ...WORST },
+  { id:"tv-worst-trophy", build:worstCrowned, at:{ crown:"trophy" }, ...WORST },
+];
+/* the phone (the viewer is FIT_GUEST: MAXIMILIAN WOLFE), at both widths */
+const WORST_PHONE_VIEWS = [
+  /* Home: the renamed free-for-all with the viewer's long win song, the
+     board from 18,500 to -2,400 tied at every place */
+  { id:"worst-home", build:() => worstSpread(worst(fresh("event:putt:open"), { songs:true, event:true })), tabs:["home"], ...WORST },
+  /* every bettor on one spot of the renamed free-for-all */
+  { id:"worst-bets", build:() => worst(ffaTote("one"), { event:true }), tabs:["bets"], ...WORST },
+  /* the handle's card (no photo), front and back, after two named team games */
+  { id:"worst-card", build:() => worst(fresh("event:volley:done"), { teams:["bball5", "volley"] }), cardOf:"Henry", tabs:[],
+    sheets:["card", "card-turn"], sheetSizes:["375"], ...WORST },
+  /* the profile's Win song (a 24-minute classical title) and Karaoke song */
+  { id:"worst-profile", build:() => worstKaraokeSong(worst(fresh("locker"), { songs:true }), FIT_GUEST), catalog:true, karaoke:true,
+    tabs:[], sheets:["profile-song", "profile-karaoke"], sheetSizes:["375"], ...WORST },
+  /* the viewer's pair takes Beer Die and the viewer's long classical title
+     plays (seed 7 pairs MAXIMILIAN WOLFE with Nguyễn Đăng Khoa) */
+  { id:"worst-walkout", build:() => walkoutRecord(worst(bracketWonBy("die", FIT_GUEST)), FIT_GUEST, { track:WORST_SONGS.Richard }),
+    settle:false, tabs:[], sheets:["walkout"], sheetSizes:["375"], ...WORST },
+  { id:"worst-trivia", build:() => worst(triviaStage("question", WORST_TRIVIA)), settle:false, tabs:["home"], ...WORST },
+  { id:"worst-trivia-options", build:() => worst(triviaStage("options", WORST_TRIVIA)), settle:false, tabs:["home"], ...WORST },
+  { id:"worst-trivia-reveal", build:() => worst(triviaStage("reveal", WORST_TRIVIA)), tabs:["home"], ...WORST },
+  { id:"worst-keepsake", build:worstKeepsake, tabs:["weekend"], ...WORST },
+  { id:"worst-karaoke-lyrics", build:worstPhoneLyrics, settle:false, freeze:true, karaoke:true, tabs:["home"], ...WORST },
+];
 export const TV_SCENARIOS = Object.freeze([
   /* Quick Draw's showdown in a gap: the lamps lighting, the draw's flash,
      the result (reels, WON, the antes taken), a foul; and with an event
@@ -1321,6 +1457,7 @@ export const TV_SCENARIOS = Object.freeze([
   { id:"tv-sound-bracket", build:() => fresh("event:pickleball:mid"), sound:"blocked" },
   { id:"tv-sound-nowplaying", build:() => walkoutRecord(fresh("event:putt:open"), "Richard"), at:{ walkout:12000 }, sound:"blocked" },
   { id:"tv-sound-lobby", build:() => withArrivals(fresh("locker"), 4), at:{ clock:ARRIVE_CLOCK, turn:0 }, sound:"blocked" },
+  ...WORST_TV_VIEWS,
 ]);
 
 /* ── the phone ──
@@ -1597,6 +1734,7 @@ export const PHONE_SCENARIOS = Object.freeze([
   /* the desk while a song is sung with our lyrics: the singer marked, their nudge (the commissioner away, so the game's own sheet stays shut) */
   { id:"gm-karaoke-desk-live", build:karaokeDeskLive, viewer:"gm", karaoke:true, settle:false, freeze:true, tabs:[],
     sheets:["karaoke-desk"], sheetSizes:["375"] },
+  ...WORST_PHONE_VIEWS,
 ]);
 export const PHONE_SIZES = Object.freeze([{ w:390, h:844, id:"390" }, { w:375, h:667, id:"375" }]);
 

@@ -449,7 +449,7 @@ test("a 13-way field is a 3-wide grid on the phone: each spot its share, name, s
   assert.doesNotMatch(spectator, /is-long/, "a wide field names no long shot");
   /* three a row leaves room for a row spot's content: the name, two stacks
      and a "+N" pile that lists every backer; an unbacked spot stands none */
-  assert.match(spotOf(spectator, "Khoa"), /<span class="fd-spot-name">Khoa<\/span>/);
+  assert.match(spotOf(spectator, "Khoa"), /<span class="fd-spot-name" style="--name-units:4">Khoa<\/span>/, "sized by its longest word");
   assert.equal((spotOf(spectator, "Khoa").match(/class="fd-spot-stack"/g) || []).length, 1, "the biggest stack, then the pile");
   assert.match(spotOf(spectator, "Khoa"), /aria-label="All 4 backing Khoa"/);
   assert.doesNotMatch(spotOf(spectator, "Evan"), /fd-spot-stack/, "an unbacked spot stands nobody");
@@ -528,7 +528,7 @@ test("a spot letters its competitors, the pool heads the felt, a self-bet takes 
   const spectator = phoneBoard(state, bystanders[8], "8ball").html;
   /* an unnamed pair's two competitors are lettered under their faces */
   for (const side of contest.sides)
-    assert.match(spectator, new RegExp(`<span class="fd-spot-name">${side.players.join(" &amp; ")}</span>`));
+    assert.match(spectator, new RegExp(`<span class="fd-spot-name" style="[^"]*">${side.players.join(" &amp; ")}</span>`));
   /* the felt's head: the pool, seed included (200 + 3,500 staked) */
   assert.match(spectator, /<span class="fd-table-pool"><small>Pool<\/small><span class="fd-reel is-chip is-slim" role="img" aria-label="3,700">/);
   assert.doesNotMatch(spectator, /Winner pays/, "a pool says no fixed payout");

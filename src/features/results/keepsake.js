@@ -8,8 +8,19 @@
 import { EDITION, SESSIONS, START, allEventsOf, computeStandings, disp, teamLabel } from "../../../shared/core.js";
 import { awardResults } from "../../../shared/prompts.js";
 import { chipHistory, lastCardModel } from "./lastCard.js";
+import { longestWordUnits } from "../../ui/textUnits.js";
 
 export const KEPT_SECTION = "kept";
+
+/* A name wraps at its spaces, never inside a word: its longest word sets
+   its size, from `max` down to `min`, in the width its box always has (Big
+   Shoulders 900 runs about .47em a letter). The narrowest last card's
+   words (a 104px card less its padding) and the cover's name beside the
+   champion's chip on a 375px phone. */
+export const KEPT_CARD_NAME_W = 84;
+export const KEPT_CHAMP_NAME_W = 230;
+export const keptNameSize = (name, width, max, min = 12) =>
+  Math.max(min, Math.min(max, Math.floor(width / Math.max(1, longestWordUnits(name) * 0.47))));
 /* the section exists only once the board is frozen */
 export const keepsakeOpen = state => !!state?.frozen;
 

@@ -10,8 +10,10 @@ import {
   GEO_CAPTION_MAX, GEO_GRACE_MS, GEO_MAX_ROUNDS, GEO_PLACE_MAX, GEO_ROUND_MS, cleanPoint, cleanWhen,
   geoCurrentId, geoLastRound, geoPhotoId, geoPlayers, geoResultSlots, geoRoundId, geoStandings,
 } from "../shared/geo.js";
+import { cleanFreeText } from "../shared/freeText.js";
 
-const clip = (value, max) => typeof value === "string" ? value.replace(/\s+/g, " ").trim().slice(0, max) : "";
+/* a place or a caption: control and invisible marks out, capped at a character */
+const clip = (value, max) => cleanFreeText(value, max);
 
 export const GEO_ACTION_TYPES = Object.freeze([
   "geoSaveRound", "geoDeleteRound", "geoMoveRound", "geoStart", "geoGuess", "geoReveal", "geoNext", "geoFinish",

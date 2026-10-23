@@ -178,7 +178,7 @@ export { songTitle };
    `own`: a row of the card itself (outside the assignment's grid) */
 export function WinLine({ text = null, song = null, onWinSong, own = false }) {
   const chip = song?.song ? <span className="fd-home-song-chip" role="img" aria-label={`Win song: ${songTitle(song.song)}`}>
-    <Icon name="song" size={14} /><span>{songTitle(song.song)}</span></span>
+    <Icon name="song" size={14} /><span data-fit="ellipsis">{songTitle(song.song)}</span></span>
     : song?.pick && onWinSong ? <button type="button" className="fd-home-song-chip is-pick" onClick={onWinSong}>
       <Icon name="song" size={14} /><span>Pick a win song</span></button> : null;
   if (!text && !chip) return null;

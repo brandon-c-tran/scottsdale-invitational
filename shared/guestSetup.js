@@ -7,6 +7,8 @@
    without anything having to clear it. Once the commissioner marks jerseys
    ordered (`state.jerseysLocked`), guests can no longer change those three. */
 
+import { cleanFreeText } from "./freeText.js";
+
 const JERSEY_NAME_MAX = 12;
 const NEEDS_MAX = 120;
 
@@ -45,10 +47,11 @@ function cleanVenmo(value) {
   return /^[A-Za-z0-9_-]{2,30}$/.test(text) ? text : undefined;
 }
 
+/* food or drink needs: control and invisible marks out, refused past NEEDS_MAX */
 function cleanNeeds(value) {
   if (value === null) return null;
   if (typeof value !== "string") return undefined;
-  const text = squeeze(value);
+  const text = cleanFreeText(value);
   if (!text) return null;
   return text.length > NEEDS_MAX ? undefined : text;
 }

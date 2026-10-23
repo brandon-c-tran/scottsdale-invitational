@@ -10,7 +10,9 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { build } from "esbuild";
 
-import { ROSTER } from "../shared/core.js";
+import { ROSTER, computeStandings, rosterOf } from "../shared/core.js";
+import { WORST_KARAOKE, WORST_NAMES, WORST_RULING, WORST_SONGS, WORST_TEAM_NAMES } from "../dev/fit/worstFixtures.js";
+import { longestWordUnits, textUnits } from "../src/ui/textUnits.js";
 import { CLIP_TOL, MIN_TEXT, clipFindings, boundsFindings, overlapFindings, overlayFindings, smallFindings, foldFindings, findingsFor,
   failing, summarize } from "../dev/fit/rules.js";
 import { TV_SCENARIOS, PHONE_SCENARIOS, FIT_NAMES, FIT_PHOTOS, buildScenario, aged } from "../dev/fit/scenarios.js";
@@ -26,7 +28,10 @@ const compiled = await build({
     export { towerNameFit, matchTitle, BIG_BRACKET } from "./src/features/tv/TVMode.jsx";
     export { sideBracketDims, roundHead, roundHeadFit } from "./src/features/tv/TVBracket.jsx";
     export { payoutSteps, ladderChips } from "./src/ui/PayoutLadder.jsx";
-    export { trophyPlateFit } from "./src/features/weekend/Trophy.jsx";`, resolveDir:root, loader:"jsx" },
+    export { trophyPlateFit } from "./src/features/weekend/Trophy.jsx";
+    export { faceOffNameSize } from "./src/features/tv/TVFaceOff.jsx";
+    export { pairFirstNames } from "./src/features/tv/TVBracket.jsx";
+    export { TRIVIA_NAME_W, triviaNameFit } from "./src/features/tv/TVTrivia.jsx";`, resolveDir:root, loader:"jsx" },
   bundle:true, platform:"node", format:"cjs", external:["react", "react-dom", "qrcode-generator", "three"], loader:{ ".css":"empty" },
   write:false, logLevel:"silent",
 });
@@ -114,6 +119,28 @@ test("scenarios: real data shapes from the real reducers", () => {
   assert.deepEqual(aged({ a:stamp, b:[stamp, 3], c:{ d:stamp } }, 1000), { a:stamp - 1000, b:[stamp - 1000, 3], c:{ d:stamp - 1000 } });
 });
 
+/* the worst case (dev/fit/worstFixtures.js): a build error would otherwise
+   only surface inside Chrome, and a value the server trims would not be the
+   worst case the view claims */
+test("worst case: every worst view builds through the real reducers, its text kept whole", () => {
+  const worst = [...TV_SCENARIOS, ...PHONE_SCENARIOS].filter(spec => spec.id.includes("worst-"));
+  assert.ok(worst.length >= 25, "the worst views are in the audit");
+  assert.ok(worst.every(spec => spec.id.startsWith("tv-worst-") || spec.id.startsWith("worst-")), "greppable as worst-");
+  for (const spec of worst) {
+    const { state } = buildScenario(TV_SCENARIOS.includes(spec) ? TV_SCENARIOS : PHONE_SCENARIOS, spec.id);
+    for (const player of rosterOf(state)) assert.equal(state.profiles[player].display, WORST_NAMES[player], `${spec.id}: ${player}'s name`);
+  }
+  const board = buildScenario(TV_SCENARIOS, "tv-worst-board").state;
+  assert.equal(rosterOf(board).length, 10, "three not coming");
+  assert.ok(computeStandings(board).some(row => row.pts < 0), "a stack below zero");
+  assert.equal(board.adjustments[0].reason, WORST_RULING.reason, "the ruling's 80 characters, kept");
+  const names = buildScenario(TV_SCENARIOS, "tv-worst-draw-semis").state.draws.volley.teams.map(team => team.name);
+  assert.deepEqual(names, WORST_TEAM_NAMES.slice(0, 4), "team names at 24, kept as written");
+  const profile = buildScenario(PHONE_SCENARIOS, "worst-profile").state.profiles.Richard;
+  assert.equal(profile.walkoutTrack.name, WORST_SONGS.Richard.name);
+  assert.equal(profile.karaokeTrack.video.title, WORST_KARAOKE.video.title);
+});
+
 test("the audit's transport stands in for every export of the real one", () => {
   const names = file => [...readFileSync(new URL(file, import.meta.url), "utf8")
     .matchAll(/export\s+(?:async\s+)?(?:function|const|let)\s+(\w+)|export\s*\{([^}]+)\}/g)]
@@ -164,6 +191,33 @@ test("the poker ring: thirteen fixed seats never touch, the sides, or the ticker
         `${dealing ? "dealing" : "live"}: seats ${i} and ${i + j + 1} apart`));
     });
   }
+});
+
+/* every name estimate counts a name in Latin letters' widths: a CJK
+   character or an emoji takes about two, a stacked accent none */
+test("names are measured in the room they take: wide scripts and emoji count wide", () => {
+  const ch = (...codes) => String.fromCodePoint(...codes);
+  assert.equal(textUnits("Henry Nguyen"), "Henry Nguyen".length, "Latin names measure as they always have");
+  assert.equal(textUnits(`Nguye${ch(0x302, 0x303)}n`), 6, "a stacked accent adds nothing");
+  assert.ok(textUnits(ch(0x84CB, 0x5BB6, 0x8C6A)) >= 6, "three CJK characters take six letters' room");
+  assert.equal(textUnits(ch(0x1F469, 0x1F3FD, 0x200D, 0x1F4BB)), textUnits(ch(0x1F37A)), "a joined emoji is one emoji");
+  assert.equal(longestWordUnits("Allan Montgomery"), 10);
+  /* the face-off sized for the room the name takes (its first worst case ran into VS) */
+  const pair = `Ch${ch(0xED)}nh ${ch(0x1F37A)} & ${ch(0x84CB, 0x5BB6, 0x8C6A)}`;
+  assert.ok(textUnits(pair) * 0.5 * ui.faceOffNameSize(pair) <= 740);
+  assert.ok(ui.faceOffNameSize(pair) < ui.faceOffNameSize("Chinh & Chiang"));
+});
+
+/* the worst case's names on the trivia rows and the bracket's cells */
+test("a trivia row letters a long name smaller, a bracket's tight pair its first names", () => {
+  assert.deepEqual(ui.triviaNameFit("Adi", ui.TRIVIA_NAME_W.reveal), { size:40, two:false });
+  for (const name of ["Eyob Tesfamariam", "MAXIMILIAN WOLFE", "Allan Montgomery"]) {
+    const fit = ui.triviaNameFit(name, ui.TRIVIA_NAME_W.reveal);
+    assert.ok(!fit.two && fit.size >= 24 && textUnits(name) * 0.47 * fit.size <= ui.TRIVIA_NAME_W.reveal, `${name} at ${fit.size}px`);
+  }
+  const state = { profiles:{ Allan:{ display:"Allan Montgomery" }, Henry:{ display:"TheRealSlimShady" } } };
+  assert.equal(ui.pairFirstNames(state, { players:["Allan", "Henry"] }), "Allan & TheRealSlimShady");
+  assert.equal(ui.pairFirstNames(state, { name:"Bad News Beers", players:["Allan", "Henry"] }), null, "a named team keeps its name");
 });
 
 test("names fit their slots: towers, bracket rows and round heads", () => {

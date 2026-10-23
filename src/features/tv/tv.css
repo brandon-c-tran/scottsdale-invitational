@@ -114,6 +114,9 @@
 .tv-ticker-text { min-width:0; font:600 34px/1.35 var(--fd-body); color:var(--bone); white-space:nowrap;
   overflow:hidden; text-overflow:ellipsis; }
 .tv-ticker-text.has-ladder { display:inline-flex; align-items:center; gap:24px; overflow:visible; }
+/* a fact too long for one line at 24px takes two (tvModel.js tickerTextFit) */
+.tv-ticker-text.is-two { white-space:normal; line-height:1.12; }
+.tv-ticker-text.is-two .tv-ticker-amount { font-size:30px; }
 .tv-ticker-amount { font:800 40px/1 var(--fd-display); letter-spacing:.01em; font-variant-numeric:tabular-nums; color:var(--sun); }
 .tv-ticker-amount.is-won { color:var(--green); }
 .tv-ticker-amount.is-loss { color:var(--clay-text); }
@@ -253,6 +256,9 @@
 .tv-live-side .tv-bracket.is-mirrored .tv-bracket-name { font-size:24px; }
 /* a pair too long for one line at the panel size takes two, never an ellipsis */
 .tv-bracket-name.is-two { white-space:normal; overflow:visible; line-height:.98; }
+/* its two lines, each whole on its own, narrowed to the cell when 24px is too wide (TVBracket.jsx SqueezeLines) */
+.tv-bracket-lines { display:block; min-width:0; }
+.tv-bracket-line-text { display:block; width:max-content; white-space:nowrap; line-height:1.1; transform-origin:0 50%; }
 
 .tv-stage-groups { display:flex; gap:20px; flex-shrink:0; }
 .tv-live-side .tv-stage-groups { flex-direction:column; gap:14px; }

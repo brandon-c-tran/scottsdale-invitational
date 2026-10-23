@@ -26,6 +26,7 @@ import {
 import { BOARD_FORMAT, TRIVIA_GAME_FORMATS, isBoardGame, triviaFormatOf } from "../shared/triviaBoard.js";
 import { TRIVIA_BANK, bankCategory } from "./triviaBank.js";
 import { BOARD_ACTION_TYPES, boardActions } from "./triviaBoard.js";
+import { cleanFreeText } from "../shared/freeText.js";
 
 export const TRIVIA_ACTION_TYPES = Object.freeze([
   "triviaSaveRound", "triviaDeleteRound", "triviaMoveRound", "triviaStart", "triviaPick", "triviaReveal", "triviaBoard",
@@ -39,7 +40,8 @@ const FINAL_FORMATS = Object.freeze(["choice", "picture"]);
 const OPS_KEPT = 8;
 /* an autopilot beat may land this early on the alarm's clock */
 const AUTO_EARLY_MS = 250;
-const clip = (value, max) => typeof value === "string" ? value.replace(/\s+/g, " ").trim().slice(0, max) : "";
+/* a round's name, the Final's category: control and invisible marks out, capped at a character */
+const clip = (value, max) => cleanFreeText(value, max);
 
 /* deal four options in a fresh order, the answer following its option */
 function deal(question, random = Math.random) {

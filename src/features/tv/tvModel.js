@@ -3,6 +3,7 @@
    on the same screen. Nothing here writes state. */
 
 import { DISC_OVERLAP } from "../identity/discLetters.js";
+import { textUnits } from "../../ui/textUnits.js";
 import {
   awardTable, ROSTER, rosterOf, EDITION, ROUND_NAMES, SESSIONS, bracketOrder, bracketChampion, resultAwards,
   computeStandings, resolveWager, resolveDuel, resolveCurrentContest, resolveSlot, eventInPlay, contestMult, contestUpset,
@@ -796,13 +797,36 @@ export function pokerTickerItems(state, now) {
    long one has it alone, centered. The width is an estimate in canvas
    pixels at the ticker's sizes (34px body, 40px numerals, 26px label). */
 export const TICKER_HALF_PX = 830;
-export function tickerFactWidth(item) {
+/* a fact alone has the whole plate: both halves and the gutter between */
+export const TICKER_SOLO_PX = TICKER_HALF_PX * 2 + 72;
+/* a fact's words (its strings, at the body's 34px) and everything else on
+   its line: the label, the faces, the numerals */
+export function tickerFactParts(item) {
   const tag = String(item?.tag || "").length * 17 + 46;
   const n = (item?.players || []).length;
   const faces = n ? 44 + (n - 1) * (n > 2 ? Math.round(44 * (1 - DISC_OVERLAP)) : 52) + 20 : 0;
-  const text = (item?.parts || [item?.text || ""]).reduce((w, part) => w + (typeof part === "string"
-    ? String(part).length * 16.5 : String(part.amount).length * 20), 0);
-  return Math.ceil(tag + faces + text);
+  let words = 0, rest = 0;
+  for (const part of item?.parts || [item?.text || ""]) {
+    if (typeof part === "string") words += textUnits(part) * 16.5;
+    else rest += String(part.amount).length * 20;
+  }
+  return { fixed:tag + faces + rest, words };
+}
+export function tickerFactWidth(item) {
+  const { fixed, words } = tickerFactParts(item);
+  return Math.ceil(fixed + words);
+}
+/* A fact fits its plate by construction: its words at the body's 34px
+   where they fit, else smaller down to the TV's 24px floor, else two lines
+   at 24 (a long ruling's reason, three tied pairs of long names), never cut
+   short. `room` is the fact's width on the plate (a half, or all of it). */
+export const TICKER_TEXT = Object.freeze({ size:34, min:24, margin:0.94 });
+export function tickerTextFit(item, room = TICKER_SOLO_PX) {
+  const { fixed, words } = tickerFactParts(item);
+  if (fixed + words <= room || words <= 0) return { size:TICKER_TEXT.size, lines:1 };
+  /* shrunk with a margin: the estimate runs a few percent short on a line of capitals */
+  const size = Math.floor(TICKER_TEXT.size * (room * TICKER_TEXT.margin - fixed) / words);
+  return size >= TICKER_TEXT.min ? { size, lines:1 } : { size:TICKER_TEXT.min, lines:2 };
 }
 /* the arrivals corner (tv-arrivals.css --tv-corner-room) narrows the plate by this */
 export const TICKER_CORNER_PX = 236;
@@ -848,12 +872,12 @@ const ADVANCE = 0.47;
 export function sideNameFit(name, width, { max = 56, min = 40, caps = false } = {}) {
   const text = String(name || "");
   const advance = caps ? 0.56 : ADVANCE;
-  const one = Math.floor(width / Math.max(1, text.length * advance));
+  const one = Math.floor(width / Math.max(1, textUnits(text) * advance));
   if (one >= min) return { size:Math.min(max, one), lines:[text] };
   const cut = text.includes(" & ") ? text.indexOf(" & ") + 2 : text.lastIndexOf(" ");
   if (cut <= 0) return { size:Math.max(24, Math.min(max, one)), lines:[text] };
   const lines = [text.slice(0, cut).trim(), text.slice(cut).trim()];
-  const two = Math.floor(width / Math.max(1, Math.max(...lines.map(line => line.length)) * advance));
+  const two = Math.floor(width / Math.max(1, Math.max(...lines.map(textUnits)) * advance));
   return { size:Math.max(24, Math.min(max, two)), lines };
 }
 
@@ -864,7 +888,7 @@ export function sideNameFit(name, width, { max = 56, min = 40, caps = false } = 
    lettered as written (show weight, about .47em a letter). `players` is
    the most a side has (a pair's faces overlap by a fifth, DISC_OVERLAP). */
 export function fieldNameFit(names = [], spot = 236, players = 1, { max = 40, min = 24, pad = 32, gap = 12 } = {}) {
-  const longest = Math.max(4, ...names.map(name => String(name || "").length));
+  const longest = Math.max(4, ...names.map(name => textUnits(name || "")));
   const n = Math.max(1, players);
   const fit = face => {
     const facesW = face + (n - 1) * face * (1 - DISC_OVERLAP);

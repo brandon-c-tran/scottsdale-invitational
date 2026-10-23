@@ -10,7 +10,7 @@ import { TrophyCup } from "../weekend/Trophy.jsx";
 import { LastCardFace } from "./LastCard.jsx";
 import { chartModel } from "./lastCard.js";
 import { cardFileName, renderLastCardImage, shareCardImage, shareCardImages } from "./cardImage.js";
-import { keepsakeModel } from "./keepsake.js";
+import { KEPT_CARD_NAME_W, KEPT_CHAMP_NAME_W, keepsakeModel, keptNameSize } from "./keepsake.js";
 import { OneSafe } from "../../ui/OneSafe.jsx";
 import { GlassArt } from "../../ui/GlassArt.jsx";
 import "./keepsake.css";
@@ -48,7 +48,7 @@ function MiniCard({ model, onOpen }) {
     style={{ "--card-color":identity.color, "--card-ink":cardInk(identity.color) }}
     aria-label={`${model.name}, ${model.place}, ${fmt(model.pts)} chips. Last card`}>
     <span className="fd-kept-card-top" aria-hidden="true"><b>{model.place}</b></span>
-    <strong aria-hidden="true">{model.name}</strong>
+    <strong aria-hidden="true" style={{ fontSize:keptNameSize(model.name, KEPT_CARD_NAME_W, 19) }}>{model.name}</strong>
     <svg viewBox={`0 0 ${chart.width} ${chart.height}`} aria-hidden="true" preserveAspectRatio="none">
       <line x1="2" x2={chart.width - 4} y1={chart.baseY} y2={chart.baseY} stroke="currentColor" strokeOpacity=".35" strokeDasharray="2 3" />
       <path d={chart.d} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
@@ -224,7 +224,8 @@ export function Keepsake({ state, events, standings, me, gm = false, onPlayer, o
       <span className="fd-kept-champ-chips">{champs.map(champ => <PlayerChip key={champ.player} state={state} p={champ.player}
         size={champs.length > 1 ? 48 : 64} onPlayer={onPlayer} />)}</span>
       <span className="fd-kept-champ-name"><small>{champs.length > 1 ? "Tied for the championship" : "Champion"}</small>
-        <b className="fd-glass-letter">{names(champs)}</b><strong>{fmt(champs[0].pts)}</strong></span>
+        <b className="fd-glass-letter" style={{ fontSize:keptNameSize(names(champs), KEPT_CHAMP_NAME_W, 38, 24) }}>{names(champs)}</b>
+        <strong>{fmt(champs[0].pts)}</strong></span>
     </header>}
 
     <section className="fd-kept-section" aria-labelledby="fd-kept-cards">

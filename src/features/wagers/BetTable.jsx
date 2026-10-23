@@ -30,6 +30,7 @@ import { groupStacks, stackChipCount, stackName } from "./betStacks.js";
 import { backLine, fillLevel, fmtChips, nextBack } from "./tableModel.js";
 import { useChipActions } from "./useChipActions.js";
 import { DealerGlove } from "./DealerGlove.jsx";
+import { longestWordUnits } from "../../ui/textUnits.js";
 import "./table.css";
 
 /* ── the drag: one rack chip in the air at a time (module store) ── */
@@ -67,6 +68,9 @@ export const tableDrag = {
    an up arrow and the place ("4th", "Tie 4th"), or the chips it posts
    ("+400"). The sentence is the accessible name. */
 const WIN_FACES = 2;
+/* a side's name, sized in CSS by its longest word (table.css .fd-spot-name) */
+const SpotName = ({ text }) => <span className="fd-spot-name" style={{ "--name-units":longestWordUnits(text) }}>{text}</span>;
+
 export function BetWin({ state, line, side, inline = false }) {
   if (!line?.text) return null;
   const movers = line.players || [];
@@ -162,9 +166,9 @@ export function Spot({ spot, table, state, me, contestLabel, name, named = false
             </button>)}
           </span>
           {(named || spot.players.length > 2
-            ? <RenameText name={name} className="fd-spot-name" />
-            : showNames ? <span className="fd-spot-name">{spot.players.map(p => stackName(state, p)).join(" & ")}</span>
-              : <span className="fd-spot-name">{name}</span>)}
+            ? <RenameText name={name} className="fd-spot-name" style={{ "--name-units":longestWordUnits(name) }} />
+            : showNames ? <SpotName text={spot.players.map(p => stackName(state, p)).join(" & ")} />
+              : <SpotName text={name} />)}
         </div>
         {/* X8: what this side's win does to the standings; every spot of
             a board keeps the row once any side has a line, so they stay level */}

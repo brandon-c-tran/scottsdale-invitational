@@ -12,6 +12,7 @@
 
 import { disp, teamLabel } from "../../../shared/core.js";
 import { drawRevealGroups } from "../weekend/drawReveal.js";
+import { textUnits } from "../../ui/textUnits.js";
 
 export const DRAW_TV = Object.freeze({
   left:64, width:1792,       // the safe sides
@@ -37,7 +38,7 @@ export function textLines(text, size, width, ch = CH) {
   /* a greedy wrap at spaces: a word wider than the line never fits */
   let lines = 1, run = 0;
   for (const word of words) {
-    const w = word.length * ch * size, space = ch * size * 0.6;
+    const w = textUnits(word) * ch * size, space = ch * size * 0.6;
     if (w > width) return 0;
     if (run && run + space + w > width) { lines++; run = w; } else run = run ? run + space + w : w;
   }

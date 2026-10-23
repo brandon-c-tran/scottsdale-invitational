@@ -1,5 +1,5 @@
-import React, { useLayoutEffect, useRef, useState } from "react";
-import { ROUND_NAMES, resolveSlot, teamLabel } from "../../../shared/core.js";
+import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { ROUND_NAMES, disp, resolveSlot, teamLabel } from "../../../shared/core.js";
 import { ChipFace } from "../identity/PlayerIdentity.jsx";
 import { bracketLayout, mirroredLayout } from "../weekend/CompetitionBracket.jsx";
 import { EASE } from "../../lib/motion.js";
@@ -7,6 +7,7 @@ import { ADVANCE_TIMING as T, bracketGeometry, railPoints, railPath, tokenKeyfra
 import { sideNameFit } from "./tvModel.js";
 import { Icon } from "../../ui/Icon.jsx";
 import { RenameText } from "../teams/RenameText.jsx";
+import { textUnits } from "../../ui/textUnits.js";
 
 /* ── the bracket, drawn, at TV scale ──
    The same layout the phones draw (bracketLayout), rounds as columns and
@@ -252,7 +253,8 @@ export function TVBracket({ state, ev, hot = null, size = "strip", motion = null
                   {bye && <i className="fd-insert tv-bracket-bye" role="img" aria-label="Bye" />}
                   {dims.faces > 0 && team && <span className="tv-bracket-faces">
                     {team.players.slice(0, 3).map(p => <ChipFace key={p} p={p} size={dims.faces} />)}</span>}
-                  <BracketName text={team ? teamLabel(state, team) : "TBD"} dims={side ? dims : null} />
+                  <BracketName text={team ? teamLabel(state, team) : "TBD"} short={team ? pairFirstNames(state, team) : null}
+                    dims={side ? dims : null} />
                 </>;
                 return (
                   <div key={index} className={`tv-bracket-team${won ? " is-won" : ""}${lost ? " is-lost" : ""}${team ? "" : " is-empty"}${loseMoment ? " is-lose-moment" : ""}${arrive ? " is-arriving" : ""}`}
@@ -283,17 +285,54 @@ export function TVBracket({ state, ev, hot = null, size = "strip", motion = null
   );
 }
 
+/* an unnamed pair by its first names ("Allan & Henry"), the bracket's
+   fallback when its full names cannot stand in the cell */
+export function pairFirstNames(state, team) {
+  if (!team || team.name || (team.players?.length || 0) !== 2) return null;
+  return team.players.map(p => String(disp(state, p)).trim().split(/\s+/)[0]).join(" & ");
+}
+/* a line of a name narrows (measured, as the towers' names do) down to this
+   share of its width before the pair falls back to its first names */
+export const BRACKET_SQUEEZE = 0.66;
 /* A pair's name: one line where it fits; beside the live board, two lines
-   broken at the "&" before it would shrink or be cut. */
-function BracketName({ text, dims = null }) {
+   broken at the "&" before it would shrink or be cut, each line on its own
+   and narrowed to the cell where 24px is still too wide (two full names of
+   sixteen); a pair that does not fit even so letters its first names. */
+function BracketName({ text, short = null, dims = null }) {
+  const [tight, setTight] = useState(false);
+  useEffect(() => { setTight(false); }, [text]);
   if (!dims) return <RenameText name={text} className="tv-bracket-name" />;
+  const label = tight && short ? short : text;
   const fit = dims.twoLines === false
-    ? { size:Math.max(24, Math.min(dims.nameMax, Math.floor(dims.nameW / Math.max(1, String(text).length * 0.52)))), lines:[text] }
-    : sideNameFit(text, dims.nameW, { max:dims.nameMax, min:Math.min(dims.nameMax, 28), caps:true });
+    ? { size:Math.max(24, Math.min(dims.nameMax, Math.floor(dims.nameW / Math.max(1, textUnits(label) * 0.52)))), lines:[label] }
+    : sideNameFit(label, dims.nameW, { max:dims.nameMax, min:Math.min(dims.nameMax, 28), caps:true });
+  if (fit.lines.length < 2) return <RenameText name={label} className="tv-bracket-name" style={{ fontSize:fit.size }}>{label}</RenameText>;
   return (
-    <RenameText name={text} className={`tv-bracket-name${fit.lines.length > 1 ? " is-two" : ""}`} style={{ fontSize:fit.size }}>
-      {fit.lines.length > 1 ? <>{fit.lines[0]}<br />{fit.lines[1]}</> : text}</RenameText>
+    <RenameText name={label} className="tv-bracket-name is-two" style={{ fontSize:fit.size }}>
+      <SqueezeLines lines={fit.lines} onTight={short && !tight ? () => setTight(true) : null} /></RenameText>
   );
+}
+/* each line kept whole and narrowed to the box it stands in, never wrapped */
+function SqueezeLines({ lines, onTight }) {
+  const ref = useRef(null);
+  const [scales, setScales] = useState(() => lines.map(() => 1));
+  const key = lines.join("|");
+  useLayoutEffect(() => {
+    let live = true;
+    const measure = () => {
+      const box = ref.current;
+      if (!live || !box) return;
+      const room = box.clientWidth;
+      const need = [...box.children].map(line => line.scrollWidth > room && room > 0 ? room / line.scrollWidth : 1);
+      setScales(need.map(k => Math.max(BRACKET_SQUEEZE, k)));
+      if (need.some(k => k < BRACKET_SQUEEZE)) onTight?.();
+    };
+    measure();
+    document.fonts?.ready?.then(measure);
+    return () => { live = false; };
+  }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
+  return <span ref={ref} className="tv-bracket-lines">{lines.map((line, i) => <span key={i} className="tv-bracket-line-text"
+    style={scales[i] < 1 ? { transform:`scaleX(${scales[i].toFixed(3)})` } : undefined}>{line}</span>)}</span>;
 }
 
 /* The gold outline around the match being played. At rest it sits on its

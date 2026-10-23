@@ -40,6 +40,7 @@
    hand a board game to its own module, and triviaLive answers for both. */
 
 import { boardAutoBeat, boardBeat, isBoardGame, projectBoard } from "./triviaBoard.js";
+import { cleanFreeText } from "./freeText.js";
 
 export const TRIVIA_FORMATS = Object.freeze(["choice", "number", "tune", "picture"]);
 export const TRIVIA_FORMAT_NAMES = Object.freeze({ choice:"Multiple choice", number:"Closest number", tune:"Name that tune",
@@ -85,7 +86,8 @@ export const triviaRoundId = value => typeof value === "string" && ROUND_ID.test
 export const triviaQuestionId = value => typeof value === "string" && QUESTION_ID.test(value);
 export const triviaPhotoId = value => typeof value === "string" && PHOTO_ID.test(value);
 
-const clip = (value, max) => typeof value === "string" ? value.replace(/\s+/g, " ").trim().slice(0, max) : "";
+/* the commissioner's words: control and invisible marks out, capped at a character */
+const clip = (value, max) => cleanFreeText(value, max);
 export const digitsFor = n => Math.max(1, String(Math.abs(Math.trunc(Number(n) || 0))).length);
 /* the wheels never give the answer's size away: four at least */
 export const defaultDigits = n => Math.min(TRIVIA_DIGITS_MAX, Math.max(4, digitsFor(n)));

@@ -10,7 +10,8 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 import { WIN_SONG_CLIP_MS } from "../shared/audio.js";
 import { WIN_SONG_CLIP_MS as WORKER_CLIP } from "../worker/winSong.js";
-import { clampStart, clipWindow, maxStart, searchQuery, songClock, yourSongLine } from "../src/features/music/winSongModel.js";
+import { START_LABELS, START_TICKS, clampStart, clipWindow, maxStart, searchQuery, songClock, startMarks, yourSongLine }
+  from "../src/features/music/winSongModel.js";
 import { nowPlayingModel } from "../src/features/tv/nowPlaying.js";
 
 test("Home names your song in your own 1v1 or free-for-all, and offers the picker when you have none", () => {
@@ -51,6 +52,18 @@ test("the window the room hears is 30 seconds from the start point, never past t
   assert.equal(clampStart(track, -4000), 0);
   assert.equal(clampStart(track, 250000), 199000);
   assert.equal(clampStart(track, 12400), 12000, "whole seconds");
+});
+
+test("the start point's timeline: a minute a label for a pop song, a long one's labels spaced so they never touch", () => {
+  const pop = startMarks(222000);
+  assert.deepEqual(pop.labels, [0, 60000, 120000, 180000], "every minute");
+  assert.equal(pop.ticks[1].ms, 5000, "a tick every 5 s");
+  for (const seconds of [157, 222, 360, 420, 480, 911, 1460, 43200]) {
+    const marks = startMarks(seconds * 1000);
+    assert.ok(marks.labels.length <= START_LABELS && marks.ticks.length <= START_TICKS, `${seconds} s: ${marks.labels.length} labels`);
+    assert.ok(marks.labels.every(ms => marks.ticks.some(tick => tick.ms === ms && tick.major)), `${seconds} s: each label on a tall tick`);
+  }
+  assert.deepEqual(startMarks(1460000).labels.map(ms => ms / 60000), [0, 5, 10, 15, 20], "a 24-minute symphony: every 5 minutes");
 });
 
 test("the clip is found by ISRC, else by title and artist, and only from Deezer's CDN", async () => {
@@ -194,7 +207,7 @@ test("a chosen song: its cover plays the clip, the room's 30 seconds sit on a ti
   const changes = [];
   const { html, buttons } = render(React.createElement(WinSongPicker, { value:track, onChange:value => changes.push(value) }));
   assert.match(html, /Anthem/);
-  assert.match(html, /<small>Band, Guest<\/small>/);
+  assert.match(html, /<small data-fit="ellipsis">Band, Guest<\/small>/, "Spotify's words may end in an ellipsis");
   assert.match(html, />1:05</);
   assert.match(html, /Plays 1:05 to 1:35/);
   assert.match(html, /role="slider"[^>]*aria-valuetext="Plays 1:05 to 1:35"/);

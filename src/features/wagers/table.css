@@ -18,7 +18,7 @@
 .fd-table.is-row .fd-table-felt { grid-template-columns:repeat(var(--cols, 3), minmax(0, 1fr)); gap:6px; }
 
 /* ── a spot ── */
-.fd-spot { --fill:0; position:relative; isolation:isolate; overflow:hidden; border-radius:12px; min-width:0;
+.fd-spot { --fill:0; position:relative; isolation:isolate; overflow:hidden; border-radius:12px; min-width:0; container-type:inline-size;
   background:color-mix(in srgb, var(--bg) 55%, var(--paper2)); box-shadow:inset 0 0 0 1.5px color-mix(in srgb, var(--bone) 16%, transparent);
   transition:box-shadow var(--motion-fast, 160ms) var(--ease-out), transform var(--motion-fast, 160ms) var(--ease-out); }
 .fd-spot.is-match { min-height:252px; }
@@ -49,9 +49,13 @@
 .fd-spot-face { display:inline-flex; margin:0; padding:2px; border:0; border-radius:99px; background:none; cursor:pointer; }
 .fd-spot-face:disabled { cursor:default; }
 .fd-spot-face:focus-visible { outline:2px solid var(--lamp-info); outline-offset:1px; }
+/* a side's name wraps at its spaces: its longest word (--name-units, set
+   by BetTable) sets the size to the spot's width, capitals at about .56em,
+   never under the phone's 12px floor */
 .fd-spot-name { display:block; max-width:100%; color:var(--ink); font:900 19px/1.05 var(--fd-show);
+  font-size:max(12px, min(19px, calc((100cqw - 12px) / (var(--name-units, 1) * .56))));
   letter-spacing:.01em; text-transform:uppercase; overflow-wrap:anywhere; text-wrap:balance; }
-.fd-spot.is-row .fd-spot-name { font-size:14px; }
+.fd-spot.is-row .fd-spot-name { font-size:max(12px, min(14px, calc((100cqw - 12px) / (var(--name-units, 1) * .56)))); }
 
 /* X8: the side's win line, one row on every spot of a board once any side has one */
 .fd-spot-win { display:flex; justify-content:center; min-width:0; max-width:100%; min-height:24px; overflow:hidden; }
@@ -216,7 +220,7 @@
 .fd-table.is-grid .fd-table-felt { grid-template-columns:repeat(3, minmax(0, 1fr)); gap:6px; }
 .fd-spot.is-grid { min-height:150px; border-radius:10px; }
 .fd-spot.is-grid .fd-spot-ink { gap:4px; padding:8px 4px 8px; }
-.fd-spot.is-grid .fd-spot-name { font-size:14px; }
+.fd-spot.is-grid .fd-spot-name { font-size:max(12px, min(14px, calc((100cqw - 12px) / (var(--name-units, 1) * .56)))); }
 .fd-spot.is-grid .fd-spot-pct { font-size:30px; margin-top:0; }
 .fd-spot.is-grid .fd-spot-back { font-size:13px; }
 .fd-spot.is-grid .fd-spot-chips { min-height:40px; gap:2px; margin-top:auto; }

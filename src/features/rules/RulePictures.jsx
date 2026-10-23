@@ -563,11 +563,12 @@ export const RULE_PICTURES = {
     <Lit>{stack(53, 34, 8, 11)}</Lit>
     {crown(53, 6, 0.6)}
   </g>,
-  /* the smaller side pays more: a tall stack at 1.5×, a short one lit at 4× */
+  /* the smaller side pays more: a tall stack at 1.5×, a short one lit at 4×
+     (six chips, so the tall stack's label stands inside the field) */
   "betting.3":<g>
     {floor()}
-    <Faint>{stack(16, 34, 7, 12)}</Faint>
-    <Faint><Num x={16} y={6} size={10}>1.5×</Num></Faint>
+    <Faint>{stack(16, 34, 6, 12)}</Faint>
+    <Faint><Num x={16} y={10} size={10}>1.5×</Num></Faint>
     <Lit>{stack(48, 34, 2, 12)}</Lit>
     <Lit><Num x={48} y={20} size={12}>4×</Num></Lit>
   </g>,

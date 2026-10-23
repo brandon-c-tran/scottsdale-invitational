@@ -1976,7 +1976,7 @@ function TournamentApp({ tournament, onUpdateReload }) {
       {gmView && modal?.type === "skipEvent" && (
         <Sheet title={`Skip ${modal.ev.name}`} onClose={() => setModal(null)} onBack={modalBack}
           footer={<>
-            <Btn onClick={async () => { const result = await shelveEvent(modal.ev.id, true, true);
+            <Btn kind="flame" onClick={async () => { const result = await shelveEvent(modal.ev.id, true, true);
               if (result.ok) { setModal(null); const bets = result.extra?.bets || 0;
                 notify(bets ? `${modal.ev.name} shelved. ${bets} bet${bets === 1 ? "" : "s"} returned` : `${modal.ev.name} shelved`); } }}>Skip {modal.ev.name}</Btn>
             <Btn kind="ghost" onClick={() => setModal(null)}>Keep it</Btn>
@@ -1993,7 +1993,7 @@ function TournamentApp({ tournament, onUpdateReload }) {
         const returned = refundText(state, available.refunds);
         return <Sheet title={`Take back ${modal.ev.name}`} onClose={() => setModal(null)} onBack={modalBack}
           footer={<>
-            <Btn disabled={!available.enabled} onClick={async () => {
+            <Btn kind="flame" disabled={!available.enabled} onClick={async () => {
               const result = await takeBackAnnouncement(modal.ev);
               if (result.ok) setModal(null); }}>Take back</Btn>
             <Btn kind="ghost" onClick={() => setModal(null)}>Keep it</Btn>
@@ -2923,7 +2923,7 @@ function EventSheet({ ev, state, me, gm, onLock, onWinner, onUndo, onClose, onBa
           {ev.teamCfg && draw && !res && setupAllowed && (
             confirmRedraw
               ? <div style={{ display:"flex", gap:8, marginBottom:10 }}>
-                  <Btn kind="danger" onClick={() => { onClearDraw(); setConfirmRedraw(false); }} style={{ flex:1 }}>Scrap the draw</Btn>
+                  <Btn kind="flame" onClick={() => { onClearDraw(); setConfirmRedraw(false); }} style={{ flex:1 }}>Scrap the draw</Btn>
                   <Btn kind="ghost" onClick={() => setConfirmRedraw(false)} style={{ flex:1 }}>Keep it</Btn>
                 </div>
               : <Btn kind="ghost" onClick={() => setConfirmRedraw(true)} style={{ width:"100%", marginBottom:10 }}>Redraw</Btn>

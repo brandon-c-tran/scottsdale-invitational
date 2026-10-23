@@ -471,6 +471,11 @@ export function karaokeAutoBeat(state) {
   return null;
 }
 
+/* what a karaoke move throws away, asked before it is sent: the pill's
+   tray and the game sheet's commissioner tray (karaokeModel.js) say the same */
+export const KARAOKE_RESTART_CONFIRM = "Karaoke starts over. Every lock-in and vote is lost.";
+export const karaokeSkipConfirm = name => `${name} is skipped. Their song scores nothing.`;
+
 /* ── the director pill (shared/show.js lifecycleBeat chains it after
    triviaBeat) ── While a game runs, one "karaoke-step" beat: the write the
    game owes next, its write and payload karaokeAutoBeat's own (the same
@@ -495,7 +500,7 @@ export function karaokeBeat(state, ev, { karaoke = false, now = Date.now() } = {
   const step = (label, subject, note, tray = []) => ({ type:"karaoke-step", label, subject, ...(note ? { note } : {}),
     write:auto.type, payload:auto.payload, tray });
   const restart = { label:"Restart", kind:"skip", write:"karaokeRestart", payload:{ gameId, confirm:true },
-    confirm:"Karaoke starts over. Every lock-in and vote is lost." };
+    confirm:KARAOKE_RESTART_CONFIRM };
   if (game.phase === "pick") {
     const more = (Number(game.moreTime) || 0) < KARAOKE_MORE_TIME_MAX
       ? [{ label:"More time", write:"karaokeMoreTime", payload:{ gameId } }] : [];
@@ -519,7 +524,7 @@ export function karaokeBeat(state, ev, { karaoke = false, now = Date.now() } = {
       if (nextVideo) tray.push(nextVideo);
     }
     tray.push({ label:`Skip ${name}`, kind:"skip", write:"karaokeSkip", payload:ref,
-      confirm:`${name} is skipped. Their song scores nothing.` });
+      confirm:karaokeSkipConfirm(name) });
     /* a restart throws away every vote: offered only until someone has sung */
     if (!game.order.some(player => game.turns?.[player]?.closedAt && !game.turns[player].skipped)) tray.push(restart);
     const subject = `Singer ${index + 1} of ${game.order.length}`;

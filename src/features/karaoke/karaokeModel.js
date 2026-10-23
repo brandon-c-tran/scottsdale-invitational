@@ -11,7 +11,7 @@ import {
   KARAOKE_LEGENDARY_MS, KARAOKE_MORE_TIME_MAX, KARAOKE_TIERS, KARAOKE_UP_MS, hasKaraokeSong, karaokeAutoBeat,
   karaokeGame, karaokeInstants, karaokeLinesFor, karaokeLive, karaokeNextSinger, karaokeRevealAt, karaokeScoreText, karaokeSinger,
   karaokeSongWay, karaokeStage, karaokeTierOf, karaokeTrackOf, karaokeTurn, karaokeTurnWay, karaokeVoteOpen, karaokeVoters,
-  karaokeVotesOn,
+  karaokeVotesOn, KARAOKE_RESTART_CONFIRM, karaokeSkipConfirm,
 } from "../../../shared/karaoke.js";
 
 export const ordinal = n => {
@@ -269,7 +269,8 @@ export function karaokeTray(state, view, now) {
   const beat = karaokeAutoBeat(state);
   if (beat && BEAT_LABEL[beat.type] && !(beat.type === "karaokeFinish" && !(game.ranking || []).some(row => row.count > 0)))
     items.push({ id:"beat", label:BEAT_LABEL[beat.type], type:beat.type, payload:beat.payload });
-  const restart = { id:"restart", label:"Restart", type:"karaokeRestart", payload:{ gameId:game.id, confirm:true }, edge:true };
+  const restart = { id:"restart", label:"Restart", type:"karaokeRestart", payload:{ gameId:game.id, confirm:true }, edge:true,
+    confirm:KARAOKE_RESTART_CONFIRM };
   if (view.phase === "pick") {
     if ((Number(game.moreTime) || 0) < KARAOKE_MORE_TIME_MAX)
       items.push({ id:"more", label:"More time", type:"karaokeMoreTime", payload:{ gameId:game.id } });
@@ -288,7 +289,8 @@ export function karaokeTray(state, view, now) {
     if (!turn.cut) items.push({ id:"end", label:"End song", type:"karaokeEndSong", payload:at });
     if (nextVideo) items.push(nextVideo);
   }
-  items.push({ id:"skip", label:`Skip ${disp(state, view.singer)}`, type:"karaokeSkip", payload:at, edge:true });
+  items.push({ id:"skip", label:`Skip ${disp(state, view.singer)}`, type:"karaokeSkip", payload:at, edge:true,
+    confirm:karaokeSkipConfirm(disp(state, view.singer)) });
   /* a restart throws away every vote: offered only until someone has sung */
   if (!view.order.some(player => game.turns?.[player]?.closedAt && !game.turns[player].skipped)) items.push(restart);
   return items;

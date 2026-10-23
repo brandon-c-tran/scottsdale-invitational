@@ -14,7 +14,8 @@ import { fileURLToPath } from "node:url";
 
 import { ROSTER } from "../shared/core.js";
 import {
-  KARAOKE_LEGENDARY_MS, KARAOKE_TIERS, KARAOKE_UP_MS, karaokeAutoBeat, karaokeRevealAt, karaokeSchedule, projectKaraoke,
+  KARAOKE_LEGENDARY_MS, KARAOKE_RESTART_CONFIRM, KARAOKE_TIERS, KARAOKE_UP_MS, karaokeAutoBeat, karaokeRevealAt, karaokeSchedule,
+  karaokeSkipConfirm, projectKaraoke,
 } from "../shared/karaoke.js";
 import { publicState } from "../worker/publicState.js";
 import { alertsFor } from "../worker/pushAlerts.js";
@@ -481,6 +482,11 @@ test("the commissioner's tray: the pill's beat and its moves, the same writes, h
   assert.deepEqual(tray(stage("pick")).at(-1).payload, { gameId:stage("pick").karaoke.id, confirm:true });
   assert.deepEqual(tray(stage("up")).map(item => item.label), ["Start song", "Later", "Next video", `Skip ${ME}`]);
   assert.deepEqual(tray(stage("closing")).map(item => item.label), ["Close vote", "Skip Henry"]);
+  /* Restart and Skip throw something away: the sheet's tray asks first, in the pill's words */
+  assert.equal(tray(stage("pick")).at(-1).confirm, KARAOKE_RESTART_CONFIRM);
+  assert.equal(items.at(-1).confirm, karaokeSkipConfirm("Henry"));
+  assert.ok(items.slice(0, -1).every(item => !item.confirm), "the beat and the plain moves never ask");
+  assert.match(read("src/features/karaoke/KaraokePlay.jsx"), /item\.confirm && typeof window !== "undefined" && !window\.confirm\(item\.confirm\)/);
   const g = phone(vote, "Brandon", { gm:true });
   assert.match(wrap(g, React.createElement(KaraokeSheet, { state:g, me:"Brandon", gm:true, now:NOW })), /aria-label="Commissioner"/);
   const guest = phone(vote, ME);

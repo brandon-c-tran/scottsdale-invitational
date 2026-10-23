@@ -266,6 +266,8 @@ function Tray({ items, onAct, onDone }) {
   const [error, setError] = useState("");
   const run = async item => {
     tapTick();
+    /* a move that throws something away asks first, in the pill's words */
+    if (item.confirm && typeof window !== "undefined" && !window.confirm(item.confirm)) return undefined;
     setError("");
     const result = await onAct(item.type, item.payload);
     if (result?.ok === true) { playSound("S25", { bus:"gm" }); onDone(); }

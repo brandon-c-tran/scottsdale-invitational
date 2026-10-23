@@ -223,6 +223,31 @@ test("counts step only through values that can exist, and land exactly", () => {
   assert.equal(motion.signedChips(0), "0");
 });
 
+test("a count renders only when its stepped number moves, and once as it ends", () => {
+  const play = (run, opts = {}) => {
+    const shown = [];
+    let renders = 0;
+    for (let now = run.start; ; now += 1000 / 60) {
+      const frame = motion.countFrame(run, now, opts);
+      if (frame.render) { renders++; run.shown = frame.shown; shown.push(frame.shown); }
+      if (frame.done) break;
+    }
+    return { shown, renders };
+  };
+  const up = play({ from:1800, to:2200, start:0, shown:1800 });
+  assert.deepEqual([...new Set(up.shown)], [1900, 2000, 2100, 2200], "every step shows, in order");
+  assert.equal(up.shown.at(-1), 2200, "it lands");
+  assert.ok(up.renders <= 5, `five renders at most for four steps, not one a frame (${up.renders})`);
+  /* a delay holds the first number without rendering */
+  const held = play({ from:1000, to:900, start:0, shown:1000 }, { delay:600 });
+  assert.deepEqual([...new Set(held.shown)], [900]);
+  assert.ok(held.renders <= 2);
+  /* a count already past its end renders once, on its value */
+  assert.deepEqual(motion.countFrame({ from:0, to:500, start:0, shown:0 }, 5000), { done:true, shown:500, render:true });
+  assert.match(read("src/lib/motion.js"), /if \(frame\.render\) \{ current\.shown = frame\.shown; rerender/);
+  assert.match(read("src/lib/motion.js"), /if \(frame\.render\) \{ run\.shown = frame\.shown; rerender/);
+});
+
 test("a value change is fresh only from a new, recent, fresh frame for the same subject", () => {
   const frame = { seq:5, fresh:true, at:1000 };
   const committed = { value:1000, key:"A", frameSeq:4, changeId:2, from:900, to:1000 };

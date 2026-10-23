@@ -30,6 +30,7 @@
      useCountUp(value, { key, step })  { value, delta, changeId, counting }
      useCountBetween(from, to, opts)   a count that mounts with its change
      countValueAt(from, to, p, step)   the stepped number at progress p
+     countFrame(run, now, opts)        one frame of a count: render only on a step
      signedChips(n)                    "+400" / "−500"
      fly(from, to, options)            Promise<boolean>: a clone flies between rects
      registerFlightTarget(name, el), useFlightTarget(name), flightTarget(name)
@@ -177,6 +178,16 @@ export function useFreshChange(value, key = null, { equals = Object.is } = {}) {
   return { ...step, animate:step.fresh && !reduced };
 }
 
+/* One frame of a running count ({ from, to, start, shown }): whether it
+   has finished, the stepped number it shows, and whether that is worth a
+   render: only when the number moved or the count just ended, so a count
+   of 400 renders five times, not once a frame. Pure. */
+export function countFrame(run, now, { duration = MOTION.count, delay = 0, step = PT } = {}) {
+  const done = now - run.start >= duration + delay;
+  const shown = done ? run.to : countValueAt(run.from, run.to, (now - run.start - delay) / duration, step);
+  return { done, shown, render:done || shown !== run.shown };
+}
+
 /* A number that counts to its new value in PT steps when (and only when) the
    change is fresh. `delta` is { amount, id } for MOTION.delta after a fresh
    change so the caller can float "+400" off the number:
@@ -203,13 +214,14 @@ export function useCountUp(value, { key = null, step = PT, duration = MOTION.cou
     setDelta({ amount:change.to - change.from, id:change.changeId });
     const from = painted.current;
     if (!change.animate || from === value || typeof requestAnimationFrame !== "function") return undefined;
-    anim.current = { from, to:value, start:clock() };
+    anim.current = { from, to:value, start:clock(), shown:from };
     let raf = 0;
     const loop = () => {
       const current = anim.current;
       if (!current || current.to !== value) return;
-      if (clock() - current.start >= duration + delay) anim.current = null;
-      rerender(n => n + 1);
+      const frame = countFrame(current, clock(), { duration, delay, step });
+      if (frame.done) anim.current = null;
+      if (frame.render) { current.shown = frame.shown; rerender(n => n + 1); }
       if (anim.current) raf = requestAnimationFrame(loop);
     };
     rerender(n => n + 1);
@@ -242,7 +254,7 @@ export function useCountBetween(from, to, { play = true, step = PT, duration = M
   const [, rerender] = useState(0);
   if (!animate) anim.current = null;
   else if (!anim.current || anim.current.to !== to)
-    anim.current = { from:painted.current, to, start:clock() + delay, done:false };
+    anim.current = { from:painted.current, to, start:clock() + delay, done:false, shown:painted.current };
   const run = anim.current;
   const display = run ? countValueAt(run.from, run.to, (clock() - run.start) / duration, step) : to;
   useLayoutEffect(() => { painted.current = display; });
@@ -251,8 +263,9 @@ export function useCountBetween(from, to, { play = true, step = PT, duration = M
     let raf = 0;
     const loop = () => {
       if (anim.current !== run) return;
-      if (clock() - run.start >= duration) run.done = true;
-      rerender(n => n + 1);
+      const frame = countFrame(run, clock(), { duration, step });
+      if (frame.done) run.done = true;
+      if (frame.render) { run.shown = frame.shown; rerender(n => n + 1); }
       if (!run.done) raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);

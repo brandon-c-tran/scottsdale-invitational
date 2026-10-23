@@ -2,6 +2,11 @@
    24 / 28 / 30 and the show clamp, corners 6 / 8 / 10 / 14 / 99, every color
    and shadow a token. */
 .fd-wagers { padding:0 16px 30px; color:var(--ink); font-family:var(--fd-body,var(--fd-wagers-body)); min-width:0; }
+/* with the seat docked, the page ends where the seat docks: at the foot of
+   the scroll it still sits on the tab bar (or the commissioner's dock), its
+   flat lower edge never lifted off it by the page's own clearance (the
+   main's 18px and this padding) */
+.fd-wagers.has-rack { padding-bottom:0; margin-bottom:-18px; }
 :where(.fd-wagers) button { font-family:inherit; touch-action:manipulation; }
 .fd-wagers .fd-page-heading { padding:18px 0; }
 .fd-wagers .fd-page-heading h1 { margin:0; font:800 30px/1.1 var(--fd-display); letter-spacing:.01em; }

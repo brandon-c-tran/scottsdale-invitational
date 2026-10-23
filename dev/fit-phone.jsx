@@ -38,9 +38,10 @@ try {
   sessionStorage.setItem("fd-tab", TABS[params.get("tab")] || "board");
 } catch {}
 
-/* `catalog` (the Win song picker) and `push` (pocket alerts): the Ready check's views */
+/* `catalog` (the Win song picker, on for everyone as in production) and
+   `push` (pocket alerts): the Ready check's views and the profile's Win song */
 const capabilities = { qa:qaOn, progressReset:qaOn, restore:false, snapshotExport:false, showControl:gm && !!scenario.show,
-  audioDirector:gm && !!scenario.audio, audioCatalog:gm && !!scenario.catalog, audioPlayback:false, push:gm && !!scenario.push,
+  audioDirector:gm && !!scenario.audio, audioCatalog:!!scenario.catalog, audioPlayback:false, push:gm && !!scenario.push,
   /* `karaoke`: the karaoke capability (the song picker in anyone's
      profile, its Home row before the game) */
   karaoke:!!scenario.karaoke };
@@ -307,6 +308,16 @@ async function openSheet(kind) {
     document.activeElement?.blur?.();
     return document.querySelectorAll(".fd-ksong-video").length === 3;
   }
+  /* the profile's Win song section with the saved song (the picker, the
+     Win song capability on) */
+  if (kind === "profile-song") {
+    if (!await tap(() => [...document.querySelectorAll("header button[aria-label='Your profile']")].find(visible))) return false;
+    await sleep(600);
+    if (!await tap(() => [...document.querySelectorAll(".fd-profile-sections button")]
+      .find(b => visible(b) && b.textContent.trim() === "Win song"))) return false;
+    await sleep(400);
+    return !!document.querySelector(".fd-song-pick");
+  }
   if (kind === "install-open") {
     const box = document.querySelector(".fd-weekend-install");
     if (!box) return false;
@@ -314,9 +325,11 @@ async function openSheet(kind) {
     box.scrollIntoView({ block:"center" });
     return true;
   }
+  /* a player card: the first one on the page, or `cardOf`'s (a player id) */
   if (kind === "card" || kind === "card-back") {
+    const label = scenario.cardOf ? `View ${state.profiles?.[scenario.cardOf]?.display || scenario.cardOf}'s player card` : null;
     const ok = await tap(() => [...document.querySelectorAll("button[aria-label*='player card' i], button[aria-label*='card' i]")]
-      .find(b => visible(b) && !b.closest("[role=dialog]")));
+      .find(b => visible(b) && !b.closest("[role=dialog]") && (!label || (b.getAttribute("aria-label") || "").startsWith(label))));
     if (ok && kind === "card-back") {
       await sleep(700);
       await tap(() => [...document.querySelectorAll("[role=dialog] button")].find(b => visible(b)

@@ -118,8 +118,9 @@ function pickNow(state) {
   }
   /* `clock`: the room's clock at this instant (an ISO time; arrivals read Friday's flights against it) */
   const base = at.clock ? Date.parse(at.clock) : Date.now();
+  /* `tickerTag`: mid-page (no page leaving), stepped on by the harness to the page that carries it */
   if (at.turn !== undefined) return Math.ceil(base / ROTATION) * ROTATION + at.turn * TV_AMBIENT_TURN_MS
-    + (at.tick || 0) * TV_TICKER_PAGE_MS + 300;
+    + (at.tick || 0) * TV_TICKER_PAGE_MS + (at.tickerTag ? TV_TICKER_PAGE_MS / 2 : 300);
   if (at.clock) return Math.floor(base / TV_TICKER_PAGE_MS) * TV_TICKER_PAGE_MS + TV_TICKER_PAGE_MS / 2;
   if (at.result !== undefined) return latestPostedAt(state) + at.result;
   if (at.crown === "class") return (crownAnchor(state) || Date.now()) + CROWN_TIMING.total + 1000;
@@ -266,7 +267,7 @@ let mountedAt = 0;
 function Harness() {
   if (!mountedAt && typeof performance !== "undefined") mountedAt = performance.now();
   const [state, setState] = useState(() => crownBeat ? crownStates(scenario.state).before : scenario.state);
-  const [now] = useState(() => crownBeat || moment ? undefined : pickNow(scenario.state));
+  const [now, setNow] = useState(() => crownBeat || moment ? undefined : pickNow(scenario.state));
   useEffect(() => {
     let timer;
     if (crownBeat) {
@@ -281,7 +282,22 @@ function Harness() {
       }, 400);
     } else {
       /* a scene whose rows enter on their own timers (the map's reveal) waits for them */
-      timer = setTimeout(() => {
+      timer = setTimeout(async () => {
+        /* `tickerTag`: a page at a time until the ticker letters that fact
+           (the room's clock moved a page on), or says it never did */
+        if (at.tickerTag) {
+          const lettered = () => [...document.querySelectorAll(".tv-ticker-page:not(.is-leaving) .tv-ticker-tag")]
+            .some(tag => tag.textContent.trim().toLowerCase() === at.tickerTag.toLowerCase() && tag.getBoundingClientRect().height > 0);
+          let stepped = false;
+          for (let i = 0; i < 24 && !lettered(); i++) {
+            setNow(value => value + TV_TICKER_PAGE_MS);
+            stepped = true;
+            await new Promise(resolve => setTimeout(resolve, 250));
+          }
+          if (!lettered()) setTimeout(() => { throw new Error(`fit: the ticker never lettered ${at.tickerTag}`); });
+          /* the page's own entrance done */
+          else if (stepped) await new Promise(resolve => setTimeout(resolve, 900));
+        }
         /* `pause`: every animation is wound back to the chosen instant (the
            page took a moment to load around it) and held there */
         if (scenario.pause) {

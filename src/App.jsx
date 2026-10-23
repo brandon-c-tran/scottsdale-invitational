@@ -25,6 +25,7 @@ import { ChipPhysicsToggle } from "./features/profile/ChipPhysicsToggle.jsx";
 import { useSoundSystem, tvKioskCommand } from "./lib/sound.js";
 import { lazyPart } from "./lib/lazyPart.js";
 import { arrivalOffer } from "./features/arrivals/arrivalsModel.js";
+import { exitGhost } from "./ui/exitGhost.js";
 import { usePhoneSounds } from "./features/home/phoneSound.js";
 import { filterRevealCandidates, introRemainingMs, DRAW_INTRO_MS, DRAW_INTRO_REDUCED_MS } from "./features/weekend/drawReveal.js";
 import { Board, postedLine } from "./features/standings/Standings.jsx";
@@ -372,6 +373,9 @@ function TournamentApp({ tournament, onUpdateReload }) {
   const [moment, setMoment] = useState(null);
   const [shower, setShower] = useState(0);
   const [toast, setToast] = useState(null);
+  /* a toast that leaves sinks away instead of vanishing (made once: a ref) */
+  const toastExit = useRef(null);
+  if (!toastExit.current) toastExit.current = exitGhost();
   const [seenReveals, setSeenReveals] = useState(() => {
     try { return JSON.parse(localGet("si-seen-v5") || "[]"); } catch { return []; }
   });
@@ -2052,7 +2056,7 @@ function TournamentApp({ tournament, onUpdateReload }) {
       {/* a Your pick nudge stands down while the draft itself is open, and on
           Home, whose headline already says it; it shows on any other tab */}
       {toast && !(toast.draftTurn && (modal?.type === "draft" || (tab === "board" && !modal))) && (
-        <div role="status" aria-live="polite" className={`fd-toast${toast.tone === "gold" ? " is-gold" : ""}${toast.action ? " has-action" : ""}${tab === "bets" && me && wagerEv && wagerMarketOpen && !modal ? " is-over-rack" : ""}`}>
+        <div ref={toastExit.current} role="status" aria-live="polite" className={`fd-toast${toast.tone === "gold" ? " is-gold" : ""}${toast.action ? " has-action" : ""}${tab === "bets" && me && wagerEv && wagerMarketOpen && !modal ? " is-over-rack" : ""}`}>
           {toast.chip ? (
             <span className="fd-toast-mark">
               <BankChip p={toast.chip} size={26} />

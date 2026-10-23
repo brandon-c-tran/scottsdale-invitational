@@ -463,3 +463,15 @@ test("reduced motion stills the pseudo-elements too", () => {
   /* each pseudo-element that animates rests on its end state */
   assert.match(read("src/features/tv/tv-board.css"), /\.tv-board-panel\.is-live::after \{[^}]*opacity:\.35; animation:tv-board-flash/);
 });
+
+test("a toast that leaves sinks away: a copy that cannot be read or tapped fades where it stood", () => {
+  const ghost = read("src/ui/exitGhost.js");
+  assert.match(ghost, /if \(el\) \{ node = el; return; \}/, "the element is kept from its attach");
+  assert.match(ghost, /if \(!gone\?\.isConnected \|\| typeof document === "undefined" \|\| prefersReducedMotion\(\)\) return;/,
+    "reduced motion: it simply goes");
+  assert.match(ghost, /setAttribute\("inert", ""\)/);
+  assert.match(ghost, /setTimeout\(remove, ms \* 3\)/, "the copy never outlives its exit");
+  const app = read("src/App.jsx");
+  assert.match(app, /const toastExit = useRef\(null\);\s*if \(!toastExit\.current\) toastExit\.current = exitGhost\(\);/, "made once");
+  assert.match(app, /<div ref=\{toastExit\.current\} role="status" aria-live="polite" className=\{`fd-toast/);
+});

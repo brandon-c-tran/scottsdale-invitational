@@ -26,7 +26,7 @@ const compiled = await build({
   stdin:{ contents:`export { championNameFit, medalLayout } from "./src/features/tv/TVChampion.jsx";
     export { tableRing, seatPoint, SEAT } from "./src/features/tv/TVPoker.jsx";
     export { towerNameFit, matchTitle, BIG_BRACKET } from "./src/features/tv/TVMode.jsx";
-    export { sideBracketDims, roundHead, roundHeadFit } from "./src/features/tv/TVBracket.jsx";
+    export { sideBracketDims, roundHead, roundHeadFit, upNowTabPlace, syncRoundHeads } from "./src/features/tv/TVBracket.jsx";
     export { payoutSteps, ladderChips } from "./src/ui/PayoutLadder.jsx";
     export { trophyPlateFit } from "./src/features/weekend/Trophy.jsx";
     export { faceOffNameSize } from "./src/features/tv/TVFaceOff.jsx";
@@ -240,6 +240,26 @@ test("names fit their slots: towers, bracket rows and round heads", () => {
   assert.equal(ui.BIG_BRACKET, 7);
   assert.equal(ui.trophyPlateFit(440, "FIELD DAY", 30, 24).font, 27, "the champion's trophy letters its plate");
   assert.equal(ui.trophyPlateFit(200, "FIELD DAY", 24, 24).font, 0, "a small cup on the TV leaves it blank, never under 24px");
+});
+
+test("the up-now tab never stands on another card, and a round reads the same on both halves", () => {
+  /* one column of three matches 60px tall, 12px apart, on a 300px stage; the tab needs 44px */
+  const tops = [41, 113, 185];
+  const geo = { cardH:60, height:300, top:(r, m) => tops[m], col:() => 0 };
+  const rounds = [[{}, {}, {}]];
+  assert.deepEqual(ui.upNowTabPlace([0, 0], rounds, geo), { below:false, col:-1, off:false },
+    "a tab rising a few px into the heads row stands under the head's letters, the head untouched");
+  assert.deepEqual(ui.upNowTabPlace([0, 1], rounds, geo), { below:false, col:-1, off:true },
+    "a card above and a card below: no clear glass, the outline alone");
+  const roomy = { ...geo, height:400 };
+  assert.deepEqual(ui.upNowTabPlace([0, 2], rounds, roomy), { below:true, col:-1, off:false }, "the card above is covered: under it");
+  const high = { ...geo, top:(r, m) => [4, 113, 185][m] };
+  assert.deepEqual(ui.upNowTabPlace([0, 0], rounds, high), { below:false, col:0, off:false },
+    "into the head's letters with no room under: the head letters the room left of it");
+  const heads = ui.syncRoundHeads([{ r:0, text:"R1", size:24 }, { r:1, text:"Quarterfinals", size:26 },
+    { r:1, text:"Quarterfinals", size:26 }, { r:0, text:"Round 1", size:28 }]);
+  assert.deepEqual(heads.map(head => head.text), ["R1", "Quarterfinals", "Quarterfinals", "R1"]);
+  assert.deepEqual(heads.map(head => head.size), [24, 26, 26, 24]);
 });
 
 test("the payout ladder: places that pay, chips scaled to the tallest", () => {

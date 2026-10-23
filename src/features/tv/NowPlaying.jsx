@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { disp } from "../../../shared/core.js";
 import { Avatar } from "../identity/PlayerIdentity.jsx";
+import { DISC_OVERLAP } from "../identity/discLetters.js";
 import { serverNow } from "../../lib/serverClock.js";
 import { nowPlayingModel } from "./nowPlaying.js";
 
@@ -44,12 +45,15 @@ export function NowPlaying({ state, events, now = serverNow }) {
 }
 
 /* the strip's widest (tv.css .tv-now) and its fixed parts, for the team's name */
-const STRIP_W = 640, STRIP_PAD = 8 + 30, STRIP_GAP = 16, STACK_OVERLAP = 12;
+const STRIP_W = 640, STRIP_PAD = 8 + 30, STRIP_GAP = 16;
 export const nowStackChip = count => count > 4 ? 34 : 40;
+/* each chip tucks a fifth under the next (DISC_OVERLAP), clear of the
+   initials in its middle */
+export const nowStackOverlap = chip => Math.round(chip * DISC_OVERLAP);
 /* the team's name in Big Shoulders at 24 to 26px, sized to what the stack leaves */
 export function nowTeamNameSize(name, count) {
   const chip = nowStackChip(count);
-  const stack = chip + Math.max(0, count - 1) * (chip - STACK_OVERLAP);
+  const stack = chip + Math.max(0, count - 1) * (chip - nowStackOverlap(chip));
   const room = STRIP_W - STRIP_PAD - STRIP_GAP - stack;
   return Math.max(24, Math.min(26, Math.floor(room / (Math.max(4, String(name || "").length) * 0.46))));
 }
@@ -60,7 +64,7 @@ function TeamNowPlaying({ state, model, length, elapsed }) {
   const chip = nowStackChip(team.players.length);
   return <div className="tv-now is-team" key={model.key} role="status"
     aria-label={`${team.name}${model.track ? `, ${model.track.name}` : ""}`}>
-    <span className="tv-faces is-overlap tv-now-stack" style={{ "--overlap":`-${STACK_OVERLAP}px` }} aria-hidden="true">
+    <span className="tv-faces is-overlap tv-now-stack" style={{ "--overlap":`-${nowStackOverlap(chip)}px` }} aria-hidden="true">
       {team.players.map((p, i) => <span key={p} style={{ "--i":i }}><Avatar state={state} p={p} size={chip} lettered={false} /></span>)}
     </span>
     <div className="tv-now-text" aria-hidden="true">

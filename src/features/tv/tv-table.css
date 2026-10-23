@@ -46,20 +46,27 @@
   background:linear-gradient(to top, color-mix(in srgb, var(--sun) 40%, transparent), color-mix(in srgb, var(--sun) 13%, transparent)); }
 .tvt-ink { position:relative; z-index:1; box-sizing:border-box; height:100%; min-height:0; }
 
-/* the room's %: printed on the felt, rolling on its reel (no window plates) */
-.tvt-pct { display:inline-flex; align-items:baseline; gap:.02em; color:var(--bone); font:900 1em/1 var(--fd-display);
-  font-variant-numeric:tabular-nums; white-space:nowrap; flex:none; }
+/* the room's %: printed on the felt, rolling on its reel (no window plates).
+   An ink keyline round the figure, so the fill's lit meniscus passes behind
+   it instead of striking it through (a filter: a text-shadow would be cut
+   square by each reel window) */
+.tvt-pct { --tvt-key:drop-shadow(0 0 2px var(--ink0)) drop-shadow(0 0 2px var(--ink0))
+    drop-shadow(0 0 12px color-mix(in srgb, var(--ink0) 70%, transparent));
+  display:inline-flex; align-items:baseline; gap:.02em; color:var(--bone); font:900 1em/1 var(--fd-display);
+  font-variant-numeric:tabular-nums; white-space:nowrap; flex:none; filter:var(--tvt-key); }
 .tvt-pct .fd-reel { --reel-pad:0; gap:.01em; color:inherit; font:inherit; }
 .tvt-pct .fd-reel-cell { background:none; box-shadow:none; }
 .tvt-pct .fd-reel-cell::after { display:none; }
 .tvt-pct-sign { font-size:.46em; font-weight:800; opacity:.8; }
 /* the glow is a filter on the whole figure: a text-shadow would be cut square by each reel window */
-.tvt-pct.is-long { color:var(--sun); filter:drop-shadow(0 0 16px color-mix(in srgb, var(--sun) 45%, transparent)); }
+.tvt-pct.is-long { color:var(--sun); filter:var(--tvt-key) drop-shadow(0 0 16px color-mix(in srgb, var(--sun) 45%, transparent)); }
 /* the first long shot a TV shows breathes for a few seconds (teach.js) */
 .tvt-pct.is-teach { animation:tvt-breathe 1.6s ease-in-out infinite; }
-@keyframes tvt-breathe { 50% { filter:drop-shadow(0 0 30px color-mix(in srgb, var(--sun) 85%, transparent)) brightness(1.18); } }
+@keyframes tvt-breathe { 50% { filter:var(--tvt-key) drop-shadow(0 0 30px color-mix(in srgb, var(--sun) 85%, transparent)) brightness(1.18); } }
 
-.tvt-name { min-width:0; max-width:100%; color:var(--bone); line-height:1.08; }
+/* a side's name keeps the same keyline where the fill rises past it */
+.tvt-name { min-width:0; max-width:100%; color:var(--bone); line-height:1.08;
+  text-shadow:0 0 2px var(--ink0), 0 0 2px var(--ink0), 0 0 12px color-mix(in srgb, var(--ink0) 70%, transparent); }
 .tvt-name > span { display:block; font-family:var(--fd-display); font-weight:800; letter-spacing:.01em; white-space:nowrap; }
 .tvt-name.is-cell { font-family:var(--fd-display); font-weight:800; line-height:1.15; white-space:nowrap; }
 .tvt-winline { min-height:34px; }

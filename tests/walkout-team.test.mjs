@@ -23,7 +23,7 @@ const { TV_SCENARIOS, buildScenario } = await import("../dev/fit/scenarios.js");
 const compiled = await build({
   stdin:{ contents:`
     export { TVWalkout, walkoutTeamLayout, walkoutTeamName, walkoutLabelSize } from "./src/features/tv/TVWalkout.jsx";
-    export { NowPlaying, nowTeamNameSize } from "./src/features/tv/NowPlaying.jsx";
+    export { NowPlaying, nowTeamNameSize, nowStackChip, nowStackOverlap } from "./src/features/tv/NowPlaying.jsx";
     export { PhoneWalkout } from "./src/features/moments/PhoneMoments.jsx";
     export { walkoutView } from "./src/features/moments/walkout.js";
     export { SkyStrip, skyModel, skyArc } from "./src/features/moments/SkyStrip.jsx";
@@ -183,6 +183,9 @@ test("the Now playing strip leads with the team, then the song", () => {
   assert.equal((html.match(/<span style="--i:/g) || []).length, 7, "the chip stack");
   assert.ok(html.indexOf(inHtml(name)) >= 0 && html.indexOf(inHtml(name)) < html.indexOf("Mr. Brightside"));
   assert.ok(ui.nowTeamNameSize("Henry Nguyen & Squilliam", 2) >= 24 && ui.nowTeamNameSize("The Sidewinders", 7) <= 28);
+  /* each chip tucks a fifth under the next, clear of the initials in its middle */
+  for (const count of [2, 7]) assert.equal(ui.nowStackOverlap(ui.nowStackChip(count)), Math.round(ui.nowStackChip(count) / 5));
+  assert.match(html, new RegExp(`--overlap:-${ui.nowStackOverlap(ui.nowStackChip(7))}px`));
   const solo = buildScenario(TV_SCENARIOS, "tv-nowplaying").state;
   assert.equal(nowPlayingModel(solo, allEventsOf(solo), solo.showControl.audio.walkout.startedAt + 12000).team, null);
 });

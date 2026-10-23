@@ -279,6 +279,10 @@ test("a fresh crown plays the produced crown: every tower in final order, dark f
   assert.match(html, /tv-crown is-playing/);
   assert.equal((html.match(/class="tv-crown-tower/g) || []).length, standings.length, "all thirteen towers, as they stood");
   assert.match(html, /tv-crown-tower is-champ/);
+  /* every tower's name on one line, so every final stack stands on one baseline */
+  const names = [...html.matchAll(/class="tv-crown-name"[^>]*><span class="tv-crown-name-text"[^>]*>([^<]*)<\/span><\/b>/g)];
+  assert.equal(names.length, standings.length);
+  assert.doesNotMatch(html, /class="tv-crown-name"[^>]*><span[^>]*>[^<]*<br/, "never broken across two lines");
   assert.ok(html.includes(`class="tv-crown-letter" aria-hidden="true" style="animation-delay:calc(var(--tl) + ${CROWN_TIMING.name}ms)"`),
     "the name lands on the crown's own beat");
   /* Backglass (Oct 2): the produced crown's order, on CROWN_TIMING */

@@ -76,6 +76,34 @@ const MIRROR_FROM_ROUNDS = 4;
 const OUTLINE = 6;
 /* the up-now tab (tvScenes.css): 38px over the outline, about 140 wide */
 const UPNOW_TAB_H = 44, UPNOW_TAB_W = 140;
+/* the round heads' lettering ends this far above the stage (28px capitals in
+   the 34px heads row): a tab that rises less than this into the row stands
+   under the head's letters, not on them */
+const UPNOW_HEAD_CLEAR = 6;
+/* The up-now tab stands over its match. Where that would cover the card
+   above it in the column, or rise into the round's head letters, it hangs
+   under the match instead where nothing is there; failing that, the head
+   letters the room left of it (`col`), and a tab with no clear glass at all
+   is left off (`off`: the outline marks the match, the board above names
+   it). `geo` is bracketGeometry's: top(r, m), col(r, m), cardH, height. */
+export function upNowTabPlace([hr, hm], rounds, geo) {
+  const { cardH, height } = geo;
+  const top = geo.top(hr, hm), col = geo.col(hr, hm);
+  const others = rounds.flatMap((round, r) => round.map((_, m) => [r, m]))
+    .filter(([r, m]) => (r !== hr || m !== hm) && geo.col(r, m) === col);
+  const coversAbove = others.some(([r, m]) => geo.top(r, m) < top && geo.top(r, m) + cardH > top - UPNOW_TAB_H);
+  const intoHead = top - UPNOW_TAB_H < -UPNOW_HEAD_CLEAR;
+  if (!coversAbove && !intoHead) return { below:false, col:-1, off:false };
+  const reach = top + cardH + OUTLINE + UPNOW_TAB_H;
+  const crowded = reach > height || others.some(([r, m]) => geo.top(r, m) > top && geo.top(r, m) < reach + 4);
+  if (!crowded) return { below:true, col:-1, off:false };
+  return coversAbove ? { below:false, col:-1, off:true } : { below:false, col, off:false };
+}
+/* A round lettered on both halves of a mirrored bracket reads the same on
+   both: the shorter form either half needs, at the smaller size. Heads are
+   { r, text, size } a column. */
+export const syncRoundHeads = heads => heads.map(head => heads.filter(other => other.r === head.r)
+  .reduce((a, b) => (b.text.length < a.text.length || (b.text.length === a.text.length && (b.size ?? 0) < (a.size ?? 0)) ? b : a), head));
 const keyOf = (r, m) => `${r}-${m}`;
 const sameMatch = (a, b) => !!a && !!b && a[0] === b[0] && a[1] === b[1];
 
@@ -138,25 +166,14 @@ export function TVBracket({ state, ev, hot = null, size = "strip", motion = null
      the measured stage (unmeasured, as in a server render, it keeps the
      short words a mirrored bracket always fits) */
   const colPx = side ? dims.colW : stageW ? (stageW - (C - 1) * dims.colGap) / C : 0;
-  /* the up-now tab stands over its match; on a column's top match it would
-     rise into the round's head, so it hangs under the match instead where
-     nothing is there, else the head letters the room left of it */
-  let tabBelow = false, tabCol = -1;
-  if (hot && dims.tab) {
-    const [hr, hm] = hot, top = geo.top(hr, hm), col = geo.col(hr, hm);
-    if (top - UPNOW_TAB_H < 0) {
-      const reach = top + cardH + OUTLINE + UPNOW_TAB_H;
-      const crowded = reach > height || rounds.some((round, r) => round.some((_, m) => (r !== hr || m !== hm)
-        && geo.col(r, m) === col && geo.top(r, m) > top && geo.top(r, m) < reach + 4));
-      if (crowded) tabCol = col; else tabBelow = true;
-    }
-  }
-  const heads = Array.from({ length:C }, (_, c) => {
+  const { below:tabBelow, col:tabCol, off:tabOff } = hot && dims.tab ? upNowTabPlace(hot, rounds, geo)
+    : { below:false, col:-1, off:false };
+  const heads = syncRoundHeads(Array.from({ length:C }, (_, c) => {
     const r = c < R ? c : C - 1 - c;
     const name = names[r] || `Round ${r + 1}`;
-    if (colPx) return roundHeadFit(name, c === tabCol ? colPx - UPNOW_TAB_W - 8 : colPx);
-    return { text:mirror ? SHORT_ROUNDS[name] || name : name, size:null };
-  });
+    if (colPx) return { r, ...roundHeadFit(name, c === tabCol ? colPx - UPNOW_TAB_W - 8 : colPx) };
+    return { r, text:mirror ? SHORT_ROUNDS[name] || name : name, size:null };
+  }));
 
   /* what this step moves, by match */
   const moving = new Map(), arriving = new Map();
@@ -204,7 +221,7 @@ export function TVBracket({ state, ev, hot = null, size = "strip", motion = null
     const taken = Array.from({ length:C }, () => []);
     rounds.forEach((round, r) => round.forEach((_, m) => {
       const isHot = !!hot && hot[0] === r && hot[1] === m;
-      const top = geo.top(r, m) - OUTLINE - (isHot && !tabBelow ? UPNOW_TAB_H : 0);
+      const top = geo.top(r, m) - OUTLINE - (isHot && !tabBelow && !tabOff ? UPNOW_TAB_H : 0);
       const bottom = geo.top(r, m) + cardH + OUTLINE + (isHot && tabBelow ? UPNOW_TAB_H : 0);
       taken[geo.col(r, m)].push([top, bottom]);
     }));
@@ -271,7 +288,7 @@ export function TVBracket({ state, ev, hot = null, size = "strip", motion = null
           );
         }))}
         {byeKey}
-        {hot && <UpNowOutline key="up" at={hot} tabBelow={tabBelow} from={outlineMoves ? hotFrom : null} geo={geo} dims={dims} colLeft={colLeft}
+        {hot && <UpNowOutline key="up" at={hot} tabBelow={tabBelow} tabOff={tabOff} from={outlineMoves ? hotFrom : null} geo={geo} dims={dims} colLeft={colLeft}
           colW={colW} playing={playing} elapsed={timeline.elapsed} width={width} motionId={motion?.id} />}
         {outlineMoves && !hot && hotFrom && <UpNowOutline key="gone" at={hotFrom} leaving geo={geo} dims={dims} colLeft={colLeft}
           colW={colW} playing elapsed={timeline.elapsed} width={width} motionId={motion?.id} />}
@@ -338,7 +355,7 @@ function SqueezeLines({ lines, onTight }) {
 /* The gold outline around the match being played. At rest it sits on its
    match by the same percentages as the cards; when it moves, it slides
    there from the match just decided. */
-function UpNowOutline({ at, from = null, leaving = false, tabBelow = false, geo, dims, colLeft, colW, playing, elapsed, width, motionId }) {
+function UpNowOutline({ at, from = null, leaving = false, tabBelow = false, tabOff = false, geo, dims, colLeft, colW, playing, elapsed, width, motionId }) {
   const el = useRef(null);
   const [r, m] = at;
   useLayoutEffect(() => {
@@ -360,7 +377,7 @@ function UpNowOutline({ at, from = null, leaving = false, tabBelow = false, geo,
     <div ref={el} className={`tv-bracket-upnow${leaving ? " is-leaving" : ""}${tabBelow ? " is-tab-below" : ""}`} aria-hidden="true"
       style={{ left:colLeft(geo.col(r, m), -OUTLINE), width:`calc(${colW} + ${OUTLINE * 2}px)`, top:geo.top(r, m) - OUTLINE,
         height:geo.cardH + OUTLINE * 2 }}>
-      {dims.tab && <span className="tv-bracket-upnow-tab"><i className="fd-beat-dot tv-beat" />Up now</span>}
+      {dims.tab && !tabOff && <span className="tv-bracket-upnow-tab"><i className="fd-beat-dot tv-beat" />Up now</span>}
     </div>
   );
 }

@@ -632,6 +632,21 @@ export const TICKER_ROLES = Object.freeze(["info", "chip", "won", "loss"]);
 /* D4: the weekend's newest facts ride beside the latest result */
 export const FACT_ROLES = Object.freeze({ streak:"info", first:"chip", wins:"info", bet:"won" });
 export const TICKER_FACTS = 2;
+/* the weekend's newest facts for the ticker, newest first: a fact a newer
+   one about the same people has overtaken ("Khoa's fourth straight win", or
+   "Khoa's second win", once his fifth straight is in) is not said beside it */
+export function newestFacts(facts = [], count = TICKER_FACTS) {
+  const seen = new Set();
+  const out = [];
+  for (const item of [...(facts || [])].reverse()) {
+    const key = [...(item.players || [])].sort().join("+");
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(item);
+    if (out.length >= count) break;
+  }
+  return out;
+}
 /* a fact's label never repeats its first word: "First to 3,000" is a milestone */
 export const TICKER_FACT_TAGS = Object.freeze({ first:"Milestone" });
 /* an amount inside a fact, colored by its role */
@@ -716,21 +731,24 @@ export function tickerItems({ state, events, standings, allTied, liveCrew, lates
     [`${name(backing.player)} backs ${backing.side.name} `, amount(fmt(backing.stake))]));
   if (liveCrew?.length) items.push(fact("Crew", "info", liveCrew.map(item => item.player).slice(0, 4),
     [liveCrew.map(item => `${name(item.player)} (${overflowRoleMeta(item.role).label})`).join(", ")]));
-  if (latest) {
+  /* the result on screen already names its winner, every tower's change and
+     the board's new order: the ticker says none of them again */
+  const onScreen = !!latest && latest.ev.id === showing;
+  if (latest && !onScreen) {
     const groups = podiumGroups(state, latest.ev.id, latest.res.slots[0]);
-    /* the result on screen already names its winner */
-    if (latest.ev.id !== showing) items.push(fact("Result", "info", latest.res.slots[0].slice(0, 4),
+    items.push(fact("Result", "info", latest.res.slots[0].slice(0, 4),
       [`${latest.ev.name}: ${groups.length > 3 ? `${groups.length} tied` : groups.map(group => group.name).join(", ")}`]));
     const swing = biggestSwing(state, events, latest.ev.id);
     if (swing) items.push(fact("Biggest swing", signedRole(swing.change), [swing.player],
       [`${name(swing.player)} `, amount(signed(swing.change), signedRole(swing.change)), ` in ${swing.eventName}`]));
   }
-  [...(facts || [])].reverse().slice(0, TICKER_FACTS).forEach(item => items.push(fact(TICKER_FACT_TAGS[item.kind] || item.tag,
+  newestFacts(facts).forEach(item => items.push(fact(TICKER_FACT_TAGS[item.kind] || item.tag,
     FACT_ROLES[item.kind] || "info", (item.players || []).slice(0, 4), [item.text])));
   /* a sole leader only: a shared top (or the level opening board) has none */
-  if (!allTied && soleLeader(standings)) items.push(fact("Leader", "chip", [standings[0].player],
+  if (!allTied && !onScreen && soleLeader(standings)) items.push(fact("Leader", "chip", [standings[0].player],
     [`${name(standings[0].player)} `, amount(fmt(standings[0].pts))]));
-  if (onDeckEv && !state.shelved?.[onDeckEv.id]) {
+  /* chips in play elsewhere: the live event's own pool is on its board */
+  if (onDeckEv && !state.shelved?.[onDeckEv.id] && onDeckEv.id !== liveEv?.id) {
     const riding = (state.wagers || []).filter(w => w.eventId === onDeckEv.id
       && resolveWager(state, w, events).status === "pending");
     const chipsIn = riding.reduce((n, w) => n + w.stake, 0);
@@ -865,16 +883,28 @@ export function contestLamp(contest) {
 }
 
 /* A side's name at TV scale: one line as large as fits, else two lines
-   broken after the team's "&" (or at its last space), never a stray wrap.
-   The factor is Big Shoulders' bold uppercase advance per character. */
+   broken after the team's "&", or at the space that leaves the two lines
+   most even ("Smarty Pints / and Friends", never "Smarty Pints and /
+   Friends", whose long first line runs out of a narrow slot and wraps a
+   third time), never a stray wrap. The factor is Big Shoulders' bold
+   uppercase advance per character. */
 const ADVANCE = 0.47;
+const evenBreak = text => {
+  let best = -1, longest = Infinity;
+  for (let i = text.indexOf(" "); i > 0; i = text.indexOf(" ", i + 1)) {
+    const len = Math.max(i, text.length - i - 1);
+    /* on a tie the later break, so the first line carries more */
+    if (len <= longest) { longest = len; best = i; }
+  }
+  return best;
+};
 /* caps: a name set in capitals runs wider (about .56em a letter) */
 export function sideNameFit(name, width, { max = 56, min = 40, caps = false } = {}) {
   const text = String(name || "");
   const advance = caps ? 0.56 : ADVANCE;
   const one = Math.floor(width / Math.max(1, textUnits(text) * advance));
   if (one >= min) return { size:Math.min(max, one), lines:[text] };
-  const cut = text.includes(" & ") ? text.indexOf(" & ") + 2 : text.lastIndexOf(" ");
+  const cut = text.includes(" & ") ? text.indexOf(" & ") + 2 : evenBreak(text);
   if (cut <= 0) return { size:Math.max(24, Math.min(max, one)), lines:[text] };
   const lines = [text.slice(0, cut).trim(), text.slice(cut).trim()];
   const two = Math.floor(width / Math.max(1, Math.max(...lines.map(textUnits)) * advance));

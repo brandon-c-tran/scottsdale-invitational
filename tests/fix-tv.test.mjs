@@ -217,6 +217,14 @@ function renderTv(state, { now = Date.now(), showControl = true, connection = { 
 }
 const count = (html, needle) => html.split(needle).length - 1;
 
+test("a podium with no backers holds the room alone: no ticker fact names a place before it lands", () => {
+  const state = puttPosted();
+  const html = renderTv(state, { now:state.showControl.active.startedAt + 1500 });
+  assert.match(html, /tv-podium-stage/);
+  assert.match(html, /class="tv-ticker is-empty"/);
+  assert.doesNotMatch(html, /tv-ticker-tag/);
+});
+
 test("directed standings and the ambient board show all thirteen players", () => {
   const state = puttPosted();
   act(state, "advanceShowScene", { id:state.showControl.active.id });
@@ -983,6 +991,40 @@ test("ticker: won bets belong to the last result and leave once anything else ta
   assert.ok(!tickerItems({ ...base, liveEv:events.find(ev => ev.id === "pong") }).some(item => item.tag === "Bet won"),
     "not once a contest is in play");
   assert.ok(!tickerItems({ ...base, showing:"putt" }).some(item => item.tag === "Result"), "the result on screen is not repeated");
+  /* the result on screen already shows every tower's change and the new order */
+  assert.ok(tickerItems(base).some(item => item.tag === "Biggest swing"), "between moments the swing is news");
+  for (const gone of ["Biggest swing", "Leader"]) {
+    assert.ok(!tickerItems({ ...base, showing:"putt" }).some(item => item.tag === gone), `${gone} not under its own result`);
+  }
+});
+
+test("a name that takes two lines breaks after its \"&\", else where the two lines come out most even", () => {
+  const lines = name => tvm.sideNameFit(name, 155, { max:30, min:28, caps:true }).lines;
+  assert.deepEqual(lines("Smarty Pints and Friends"), ["Smarty Pints", "and Friends"], "never a long first line over a stub");
+  assert.deepEqual(lines("Kitchen Nightmares Crew"), ["Kitchen", "Nightmares Crew"]);
+  assert.deepEqual(lines("Les Quizerables Reunited"), ["Les Quizerables", "Reunited"]);
+  assert.deepEqual(lines("Henry Nguyen & Squilliam"), ["Henry Nguyen &", "Squilliam"], "a pair breaks after its &");
+  assert.deepEqual(lines("Periwinkle Stars"), ["Periwinkle", "Stars"]);
+  assert.deepEqual(lines("Unstoppableones"), ["Unstoppableones"], "one word stays whole");
+});
+
+test("ticker: a newer fact about the same people overtakes the older one; the live pool is never a second total", () => {
+  const streak = (id, n, at) => ({ id, kind:"streak", tag:"Streak", at, players:["Khoa"], text:`Khoa's ${n} straight win` });
+  const facts = [{ id:"a", kind:"first", tag:"First", at:1, players:["Evan"], text:"First to 2,000: Evan" },
+    { id:"w", kind:"wins", tag:"Milestone", at:1.5, players:["Khoa"], text:"Khoa's second win" },
+    streak("b", "fourth", 2), streak("c", "fifth", 3)];
+  assert.deepEqual(tvm.newestFacts(facts).map(item => item.id), ["c", "a"],
+    "Khoa's fifth, then the next fact about someone else, never his fourth or his older second win");
+  const state = structuredClone(EMPTY_STATE);
+  const events = allEventsOf(state);
+  const texts = tickerItems({ state, events, standings:computeStandings(state), allTied:true, now:0, facts }).map(item => item.text);
+  assert.ok(texts.includes("Khoa's fifth straight win") && !texts.includes("Khoa's fourth straight win"));
+  /* the live contest's chips are its board's pool: no "Bets" line beside it */
+  const putt = events.find(ev => ev.id === "putt");
+  state.wagers = [{ id:"w1", player:"Adi", eventId:"putt", stake:300, kind:"outright", pick:"Evan" }];
+  const onDeck = { state, events, standings:computeStandings(state), allTied:true, now:0, onDeckEv:putt };
+  assert.ok(tickerItems(onDeck).some(item => item.tag === "Bets"), "chips riding on an event not in play are news");
+  assert.ok(!tickerItems({ ...onDeck, liveEv:putt }).some(item => item.tag === "Bets"), "the live event's pool is on its board");
 });
 
 test("ticker: live poker carries only the table's news, never a busted player as a leader or an old bet", () => {

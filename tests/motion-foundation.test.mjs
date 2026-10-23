@@ -455,3 +455,11 @@ test("a smooth scroll is an animation: reduced motion jumps instead", async () =
   });
   assert.deepEqual(bad, [], "write behavior:reduced ? \"auto\" : \"smooth\"");
 });
+
+test("reduced motion stills the pseudo-elements too", () => {
+  const shell = read("src/ui/shell.css");
+  assert.match(shell, /@media \(prefers-reduced-motion: reduce\) \{[^}]*\*, \*::before, \*::after \{ animation:none !important; transition:none !important; \}/,
+    "* alone never reaches ::before or ::after: the Betting open fill kept breathing and every sheet's scrim kept fading");
+  /* each pseudo-element that animates rests on its end state */
+  assert.match(read("src/features/tv/tv-board.css"), /\.tv-board-panel\.is-live::after \{[^}]*opacity:\.35; animation:tv-board-flash/);
+});

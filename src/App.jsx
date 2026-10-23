@@ -59,7 +59,7 @@ import {
   DUEL_STAKE, DUEL_GAMES, CHIP_COLORS, CHIP_SKINS, PT, maxRisk, CHIP_MIN, POKER_CONFIG,
   pokerLive, pokerClock, pokerSeatChips, pokerInventory, resultAwards, awardPlan, stacksPosted,
   allEventsOf, disp, shuffle, snakeTeam, teamLabel, stageFinalists, stageEntrantView,
-  resolveWager, wagerBoardEvent, resolveDuel, computeStandings, atRisk, ROUND_NAMES, resolveSlot, bracketChampion, EDITION,
+  resolveWager, poolBook, wagerBoardEvent, resolveDuel, computeStandings, atRisk, ROUND_NAMES, resolveSlot, bracketChampion, EDITION,
   cleanLeg, legTime, eventCapacity, validateEventParticipants,
   coalescePendingReveals, defaultQaParticipants, qaBracketMatchWager, OVERFLOW_ROLES, overflowRoleMeta,
   resolveEventLifecycle, resolveWeekendOperation, resolveCurrentContest, contestBetEligibility, wagerMatchesContest, draftTurn,
@@ -423,8 +423,10 @@ function TournamentApp({ tournament, onUpdateReload }) {
   const wagerMarketOpen = !!wagerEv && resolveCurrentContest(state, wagerEv)?.phase === "betting-open";
   const qaStatus = useMemo(() => {
     const scored = events.filter(ev => !ev.finale && !state.shelved?.[ev.id]);
+    /* every frame on every phone (production has QA on): price the pools once */
+    const book = poolBook(state);
     const pendingWagers = (state.wagers || []).filter(w =>
-      resolveWager(state, w, events).status === "pending").length;
+      resolveWager(state, w, events, book).status === "pending").length;
     const openDuels = (state.duels || []).filter(duel => duelOpen(duel)).length;
     return {
       environment,

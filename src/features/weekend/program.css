@@ -78,6 +78,9 @@
   background:color-mix(in srgb, var(--ink0) 60%, transparent); box-shadow:var(--glass-edge); }
 .fd-program-payout-head { display:flex; flex-direction:column; gap:10px; min-width:0; }
 .fd-program-payout-head h3 { margin:0; font:800 20px/1.15 var(--fd-display); letter-spacing:.03em; text-transform:uppercase; }
+/* an event that pays on its own is named as written in the show face, as
+   on Events (a session is a label) */
+.fd-program-payout-head h3.fd-show { font:900 22px/1.15 var(--fd-show); letter-spacing:.01em; text-transform:none; }
 .fd-program-payout-marks { display:flex; flex-wrap:wrap; gap:6px; }
 .fd-program-awards { list-style:none; margin:0; padding:0; }
 .fd-program-awards li { display:flex; flex-direction:column; gap:8px; padding:14px 0; border-top:1px solid var(--line); }

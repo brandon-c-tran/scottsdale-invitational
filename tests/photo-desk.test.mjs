@@ -340,6 +340,9 @@ const rangedList = entries => async ({ prefix = "", start, end } = {}) => new Ma
 
 test("the ranges a snapshot reads are every key but the photos, private keys and backups", () => {
   const unkept = [INTERNAL_BACKUP_PREFIX, INTERNAL_RESET_BACKUP_PREFIX, "moment:", "private:"];
+  /* the range math holds only while no skipped prefix starts another */
+  for (const prefix of unkept)
+    assert.ok(!unkept.some(other => other !== prefix && other.startsWith(prefix)), `${prefix} nests another`);
   const keys = ["a", "claims", "gmToken", "m1", "m1:other", "m1:pre-reset", `${INTERNAL_RESET_BACKUP_PREFIX}1:manifest`,
     "m1:pre-reset;", `${INTERNAL_BACKUP_PREFIX}2:entry:0`, "m1:pre-restore;x", "moment", "moment:index", "moment:geo:g1",
     "moment;", "momentary", "photo:Evan", "private", "private:spotify:session", "private;", "privates", "request:x",

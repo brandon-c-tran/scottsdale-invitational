@@ -158,6 +158,11 @@ test("an upload's kind from its title: words on it are karaoke, the backing alon
   assert.equal(karaokeVideoKind({ title:"Song (Official Video)" }), "other");
   assert.equal(karaokeVideoKind({ title:"Singalong Forever (Instrumental)" }, "Singalong Forever"), "instrumental");
   assert.equal(karaokeVideoKind({ title:"Singalong Forever (Instrumental)" }), "karaoke");
+  /* a release suffix on the song's name ("- Remastered 2011", "(Live)") is not
+     part of the name the title carries */
+  assert.equal(karaokeVideoKind({ title:"Lyrics Of Love (Instrumental)" }, "Lyrics Of Love - Remastered 2011"), "instrumental");
+  assert.equal(karaokeVideoKind({ title:"Lyrics Of Love (Karaoke)" }, "Lyrics Of Love - Remastered 2011"), "karaoke");
+  assert.equal(karaokeVideoKind({ title:"Singalong Forever - Instrumental" }, "Singalong Forever (Live)"), "instrumental");
 });
 
 test("the way: our lyrics only over an instrumental with synced lyrics; a song's uploads arranged for it", () => {

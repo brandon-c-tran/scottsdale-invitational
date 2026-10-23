@@ -99,7 +99,8 @@
 .fd-house-times dd { margin:0; font:700 15px/1.35 var(--fd-body); color:var(--ink); }
 .fd-house-airport { display:flex; align-items:baseline; gap:10px; margin-bottom:12px; }
 .fd-house-airport .fd-icon { align-self:center; color:var(--muted2); }
-.fd-house-airport b { font:800 34px/1.1 var(--fd-display); letter-spacing:.06em; color:var(--sun); }
+/* travel reads in bone: amber is the chips lamp (DESIGN: The Fixed Jobs Rule) */
+.fd-house-airport b { font:800 34px/1.1 var(--fd-display); letter-spacing:.06em; color:var(--ink); }
 .fd-house-airport span { font:600 14px/1.3 var(--fd-body); color:var(--muted2); }
 .fd-house-flights { flex:none; }
 /* the flights board: arrivals, then departures, each under its plane and
@@ -118,7 +119,7 @@
 .fd-house-leg-who b { font:600 15px/1.3 var(--fd-body); color:var(--ink); overflow-wrap:anywhere; }
 .fd-house-leg-who small { font:700 13px/1.2 var(--fd-body); letter-spacing:.08em; color:var(--muted2); }
 .fd-house-leg.is-you .fd-house-leg-who b { color:var(--you); }
-.fd-house-leg-time { flex-shrink:0; font:800 24px/1.15 var(--fd-display); color:var(--sun); font-variant-numeric:tabular-nums; white-space:nowrap; }
+.fd-house-leg-time { flex-shrink:0; font:800 24px/1.15 var(--fd-display); color:var(--ink); font-variant-numeric:tabular-nums; white-space:nowrap; }
 
 @media (max-width:359px) {
   .fd-program-cover { padding:12px; }

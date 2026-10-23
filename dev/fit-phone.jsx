@@ -408,6 +408,28 @@ async function openSheet(kind) {
     }
     return true;
   }
+  /* the commissioner's standings (Home's Standings link) and a ruling
+     opened from its first row's Adjust */
+  if (kind === "gm-standings" || kind === "gm-adjust") {
+    const ok = await tap(() => [...document.querySelectorAll("main a, main button")].find(b => visible(b)
+      && /^Standings/.test(b.textContent.trim())));
+    await sleep(800);
+    if (!ok || !document.querySelector("[role=dialog]")) return false;
+    if (kind === "gm-standings") return true;
+    const adjusted = await tap(() => [...document.querySelectorAll("[role=dialog] .fd-standing-adjust")].find(visible));
+    await sleep(700);
+    return adjusted && document.querySelectorAll("[role=dialog]").length > 0;
+  }
+  /* a captains draft from the pill: Before the draw confirmed as it stands,
+     then the captains' setup it opens */
+  if (kind === "pill-draft") {
+    const ok = await tap(() => document.querySelector(".fd-director-pill"));
+    await sleep(700);
+    if (!ok || !document.querySelector(".fd-crew-check")) return false;
+    await tap(() => document.querySelector(".fd-crew-confirm:not(:disabled)"));
+    await sleep(900);
+    return !document.querySelector(".fd-crew-check") && !!document.querySelector("[role=dialog]");
+  }
   /* Scan the TV: the scanner over a stand-in camera (a canvas stream of a
      room, the TV's code on it for "scan-success"), or a camera the phone
      refused ("scan-denied") */

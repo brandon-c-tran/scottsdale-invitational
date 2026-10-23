@@ -1400,6 +1400,11 @@ export const PHONE_SCENARIOS = Object.freeze([
   { id:"gm-desks-full", build:() => readyBoard("all"), viewer:"gm", tabs:[], sheets:["desk-geo", "desk-awards", "desk-trivia"] },
   { id:"gm-confirm", build:() => fresh("event:putt:open"), viewer:"gm", qa:true, tabs:[], sheets:["gm-takeback", "gm-reset"] },
   { id:"gm-frozen", build:() => fresh("crowned"), viewer:"gm", tabs:[], sheets:["gm-unfreeze"] },
+  /* Saturday's first game, 5v5: the pill's Captains draft through Before
+     the draw to the captains' setup, at both widths */
+  { id:"gm-draft", build:() => fresh("session:fri"), viewer:"gm", tabs:[], sheets:["pill-draft"], sheetSizes:["375"] },
+  /* mid-weekend: the commissioner's standings (its Adjust per row) and a ruling */
+  { id:"gm-rulings", build:() => fresh("session:fri"), viewer:"gm", tabs:[], sheets:["gm-standings", "gm-adjust"] },
   { id:"gm-qa", build:() => fresh("event:putt:open"), viewer:"gm", qa:true, tabs:["home", "bets"], sheets:["qa", "pill-more"] },
   /* the console before the weekend (Jump to opens on the first event) */
   { id:"gm-qa-locker", build:() => fresh("locker"), viewer:"gm", qa:true, tabs:[], sheets:["qa"] },

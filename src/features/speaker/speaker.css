@@ -61,8 +61,10 @@
 .fd-speaker-results { margin-top:10px; }
 .fd-speaker-credit { margin:10px 2px 0; font:500 12px/1.4 var(--fd-body); color:var(--muted); }
 
-.fd-speaker-error { margin-top:14px; padding:10px 12px; border:1px solid var(--danger-line); border-radius:10px; background:var(--clay-tint);
-  color:var(--clay-text); font:600 13px/1.4 var(--fd-body); }
+/* a failed play, pick or search: the sheet's footer (the Sheet's own
+   failure line, held at its foot), so it is read from whichever row was
+   tapped, never at the end of a long sheet */
+.fd-speaker-error { margin:0; }
 /* a song list: the menu list's glass, without its clip, so a long title's
    own ellipsis is the only truncation */
 .fd-speaker-list { border:1px solid var(--line); border-radius:14px; background:var(--paper2); box-shadow:var(--glass-edge); }

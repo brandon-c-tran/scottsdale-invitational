@@ -168,7 +168,8 @@ export function SpeakerSheet({ state, onClose, onBack, notify }) {
   const playing = player?.playback?.playing === true;
 
   return (
-    <Sheet title="Speaker" onClose={onClose} onBack={onBack} className="fd-speaker-sheet">
+    <Sheet title="Speaker" onClose={onClose} onBack={onBack} className="fd-speaker-sheet"
+      footer={error ? <p role="alert" className="fd-speaker-error">{error}</p> : null}>
       {stage === "checking" && <div className="fd-speaker-wait" aria-busy="true">Checking Spotify</div>}
 
       {(stage === "setup" || stage === "connect") && (
@@ -271,8 +272,6 @@ export function SpeakerSheet({ state, onClose, onBack, notify }) {
           <MenuRow name="Disconnect Spotify" tone="destructive" chevron={false} disabled={!!busy} onClick={disconnect} />
         </MenuGroup>
       </>}
-
-      {error && <div role="alert" className="fd-speaker-error">{error}</div>}
     </Sheet>
   );
 }

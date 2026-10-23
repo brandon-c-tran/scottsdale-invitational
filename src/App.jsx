@@ -3610,11 +3610,6 @@ function ProfileSheet({ state, me, onClose, onBack, initialSection = "card", sav
   );
 }
 
-const audioClock = milliseconds => {
-  const total = Math.max(0, Math.floor((Number(milliseconds) || 0) / 1000));
-  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
-};
-
 function SpotifyTrackCard({ track, action, actionLabel = "Choose", compact = false }) {
   if (!track) return null;
   return (
@@ -3633,7 +3628,7 @@ function SpotifyTrackCard({ track, action, actionLabel = "Choose", compact = fal
           textOverflow:"ellipsis" }}>{track.name}</div>
         <div style={{ fontFamily:SANS, fontSize:12, color:"var(--muted)",
           whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
-          {(track.artists || []).join(", ")} · {audioClock(track.durationMs)}</div>
+          {(track.artists || []).join(", ")}</div>
         <a href={track.url} target="_blank" rel="noreferrer"
           style={{ fontFamily:SANS, fontWeight:700, fontSize:12, color:"var(--accent2)",
             textDecoration:"none" }}>Open in Spotify</a>

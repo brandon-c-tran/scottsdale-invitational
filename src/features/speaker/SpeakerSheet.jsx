@@ -256,7 +256,7 @@ export function SpeakerSheet({ state, onClose, onBack, notify }) {
           <Head icon="search">Search</Head>
           <form className="fd-speaker-search" onSubmit={runSearch}>
             <input value={query} onChange={event => setQuery(event.target.value)} maxLength={80} enterKeyHint="search"
-              placeholder="Song or artist" aria-label="Search Spotify" />
+              autoComplete="off" autoCorrect="off" spellCheck={false} placeholder="Song or artist" aria-label="Search Spotify" />
             <ActionButton type="submit" variant="secondary" disabled={query.trim().length < 2} pending={busy === "search"}>
               Search</ActionButton>
           </form>

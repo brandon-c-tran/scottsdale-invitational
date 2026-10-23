@@ -47,6 +47,36 @@ test("a long press on a control selects nothing; a card shown to press and hold 
     assert.ok(!/(^|[\s,>])label\b|fd-[\w-]*field\b/.test(rule.selector) || !/user-select:\s*none/.test(rule.body), `${file}: ${rule.selector}`);
 });
 
+/* each <input .../> in a file, by its aria-label */
+const inputs = file => Object.fromEntries([...readFileSync(file, "utf8").matchAll(/<input\b[\s\S]*?\/>/g)]
+  .map(([tag]) => [/aria-label=(?:"([^"]+)"|\{`([^`]+)`\}|\{(\w+)\})/.exec(tag)?.slice(1).find(Boolean), tag]));
+
+test("names, handles and codes are typed as written: no autocorrect, no spellcheck", () => {
+  const fields = [
+    ["src/features/profile/ProfileEditor.jsx", "Display name"],
+    ["src/features/jersey/Jersey.jsx", "Name on back"],
+    ["src/features/profile/TripDetails.jsx", "Venmo username"],
+    ["src/features/teams/TeamNameCard.jsx", "Team name"],
+    ["src/features/travel/Travel.jsx", "Airline"],
+    ["src/features/geo/PlaceSearch.jsx", "placeholder"],
+    ["src/features/music/WinSongPicker.jsx", "Search Spotify"],
+    ["src/features/karaoke/KaraokeSongPicker.jsx", "Paste a YouTube link"],
+  ];
+  for (const [file, label] of fields) {
+    const tag = inputs(file)[label];
+    assert.ok(tag, `${file}: no input labelled ${label}`);
+    assert.match(tag, /autoCorrect="off"/, `${file} ${label}`);
+    assert.match(tag, /spellCheck=\{false\}/, `${file} ${label}`);
+  }
+  /* a return key that says Done puts the keyboard away (no form to submit) */
+  for (const [file, label] of [["src/features/profile/ProfileEditor.jsx", "Display name"], ["src/features/jersey/Jersey.jsx", "Name on back"],
+    ["src/features/profile/TripDetails.jsx", "Venmo username"], ["src/features/profile/TripDetails.jsx", "Food or drink needs"]]) {
+    const tag = inputs(file)[label];
+    assert.match(tag, /enterKeyHint="done"/, `${file} ${label}`);
+    assert.match(tag, /e\.key === "Enter"\) e\.currentTarget\.blur\(\)/, `${file} ${label}`);
+  }
+});
+
 test("hover styles live only where a pointer hovers (a tap leaves :hover stuck on iPhone)", () => {
   const stuck = [];
   for (const file of cssFiles("src")) for (const rule of rules(readFileSync(file, "utf8"))) {

@@ -45,7 +45,7 @@ export function PlaceSearch({ onPick, className = "", placeholder = "Search a pl
     document.activeElement?.blur?.();
   };
   return <div className={`fd-geo-place${className ? ` ${className}` : ""}`}>
-    <input type="search" value={query} placeholder={placeholder} aria-label={placeholder} autoComplete="off" enterKeyHint="search"
+    <input type="search" value={query} placeholder={placeholder} aria-label={placeholder} autoComplete="off" autoCorrect="off" spellCheck={false} enterKeyHint="search"
       onChange={event => { setQuery(event.target.value); setOpen(true); }} onFocus={() => setOpen(true)}
       onKeyDown={event => { if (event.key === "Enter" && results[0]) { event.preventDefault(); pick(results[0]); } }} />
     {open && results.length > 0 && <ul role="listbox">

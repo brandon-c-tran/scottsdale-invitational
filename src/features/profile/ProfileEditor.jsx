@@ -59,11 +59,12 @@ function ProfileEditor({ state, me, display, setDisplay, photo, setPhoto, num, s
             <label className="fd-profile-field">
               <span>Display name</span>
               <input value={display} onChange={e => setDisplay(e.target.value)} maxLength={16}
-                aria-label="Display name" autoComplete="nickname" />
+                aria-label="Display name" autoComplete="nickname" autoCapitalize="words" autoCorrect="off" spellCheck={false}
+                enterKeyHint="done" onKeyDown={e => { if (e.key === "Enter") e.currentTarget.blur(); }} />
             </label>
             <label className="fd-profile-field fd-profile-number-field">
               <span>No.</span>
-              <input value={num} inputMode="numeric" placeholder="00" aria-label="Player number" disabled={numLocked}
+              <input value={num} inputMode="numeric" autoComplete="off" placeholder="00" aria-label="Player number" disabled={numLocked}
                 aria-invalid={!!takenBy} aria-describedby={takenBy ? numberErrorId : undefined}
                 onChange={e => setNum(e.target.value.replace(/\D/g, "").slice(0, 2))}
               />

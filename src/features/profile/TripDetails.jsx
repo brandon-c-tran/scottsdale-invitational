@@ -14,8 +14,8 @@ function TripDetails({ venmo, setVenmo, drinking, setDrinking, needs, setNeeds }
         <span className="fd-trip-venmo">
           <i aria-hidden="true">@</i>
           <input value={venmo} onChange={e => setVenmo(e.target.value)} placeholder="username" maxLength={31}
-            autoCapitalize="none" autoComplete="off" spellCheck={false} aria-label="Venmo username"
-            aria-invalid={badVenmo} aria-describedby={badVenmo ? errorId : undefined} />
+            autoCapitalize="none" autoComplete="off" autoCorrect="off" spellCheck={false} aria-label="Venmo username"
+            aria-invalid={badVenmo} aria-describedby={badVenmo ? errorId : undefined} enterKeyHint="done" onKeyDown={e => { if (e.key === "Enter") e.currentTarget.blur(); }} />
         </span>
       </label>
       {badVenmo && <div id={errorId} className="fd-profile-number-error" role="status">
@@ -28,7 +28,7 @@ function TripDetails({ venmo, setVenmo, drinking, setDrinking, needs, setNeeds }
       <label className="fd-profile-field">
         <span>Food or drink needs</span>
         <input value={needs} onChange={e => setNeeds(e.target.value)} maxLength={NEEDS_MAX}
-          placeholder="Allergies, gluten-free" aria-label="Food or drink needs" />
+          placeholder="Allergies, gluten-free" aria-label="Food or drink needs" enterKeyHint="done" onKeyDown={e => { if (e.key === "Enter") e.currentTarget.blur(); }} />
       </label>
     </div>
   );

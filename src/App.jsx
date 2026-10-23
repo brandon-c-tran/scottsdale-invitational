@@ -3422,7 +3422,7 @@ function PinSheet({ onClose, onBack, unlock }) {
     <Sheet title="Commissioner" onClose={onClose} onBack={onBack}>
       <input value={pin} onChange={e => setPin(e.target.value.replace(/\D/g,"").slice(0,4))}
         aria-label="Commissioner passcode"
-        inputMode="numeric" placeholder="Passcode" autoFocus
+        inputMode="numeric" autoComplete="off" placeholder="Passcode" autoFocus
         onKeyDown={e => e.key === "Enter" && unlock(pin)}
         style={{ width:"100%", background:"var(--paper2)", border:"1px solid var(--line)", borderRadius:14,
           padding:"13px 12px", color:"var(--ink)", fontFamily:DISPLAY, fontSize:24,

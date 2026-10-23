@@ -24,6 +24,7 @@ import { SoundToggle } from "./features/profile/SoundToggle.jsx";
 import { ChipPhysicsToggle } from "./features/profile/ChipPhysicsToggle.jsx";
 import { useSoundSystem, tvKioskCommand } from "./lib/sound.js";
 import { lazyPart } from "./lib/lazyPart.js";
+import { arrivalOffer } from "./features/arrivals/arrivalsModel.js";
 import { usePhoneSounds } from "./features/home/phoneSound.js";
 import { filterRevealCandidates, introRemainingMs, DRAW_INTRO_MS, DRAW_INTRO_REDUCED_MS } from "./features/weekend/drawReveal.js";
 import { Board, postedLine } from "./features/standings/Standings.jsx";
@@ -342,6 +343,10 @@ function TournamentApp({ tournament, onUpdateReload }) {
   useEffect(() => { setHapticSurface(tv ? "tv" : "phone"); }, [tv]);
   /* the server counts this device as a TV while it shows TV mode */
   useEffect(() => { setTvView(tv); }, [tv]);
+  /* Scan the TV opens at once: the scanner's chunk lands while Home offers
+     it, instead of after the tap with nothing on screen */
+  const scanOffered = !tv && !!me && !!arrivalOffer(state, me, serverNow());
+  useEffect(() => { if (scanOffered) ArriveScanner.preload().catch(() => {}); }, [scanOffered]);
   /* Sheets stack: setModal replaces the stack (open fresh, or null closes
      all), pushModal opens a sheet INSIDE the current one so back returns to
      it. The X and the scrim always close the whole stack. */

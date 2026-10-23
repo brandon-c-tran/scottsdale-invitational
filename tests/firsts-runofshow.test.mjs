@@ -40,7 +40,7 @@ const ui = await load("firsts-runofshow.cjs", `
   export { tickerItems, TICKER_ROLES, FACT_ROLES } from "./src/features/tv/tvModel.js";
   export * from "./src/features/director/runOfShow.js";
   export { directorPill, namesOf } from "./src/features/director/directorPill.js";
-  export { DirectorPill } from "./src/features/director/DirectorPill.jsx";
+  export { DirectorPill, PillTray } from "./src/features/director/DirectorPill.jsx";
   export { RunOfShowPanel, useHold, HOLD_MS } from "./src/features/director/RunOfShow.jsx";
   export { PlayerIdentityProvider } from "./src/features/identity/PlayerIdentityContext.js";
 `);
@@ -432,6 +432,23 @@ test("run of show: a replay the TV owes shows while another winner is still on s
   assert.equal(model.beats[1].label, "Replay winner");
   /* with Show Control off there is no ceremony to owe */
   assert.equal(ui.runOfShow(state, eventsNow, null, { showControl:false }).replay, null);
+});
+
+test("the more tray draws a chevron only on a row that opens a sheet, as a menu row; a write acts in place", () => {
+  const state = structuredClone(EMPTY_STATE);
+  const director = resolveDirector(state, events, { showControl:false });
+  const model = { ...ui.directorPill(state, events, director, {}), extras:[
+    { kind:"alt", label:"Random draw", run:{ open:"crewCheck", evId:"die", then:{ write:"announceAndDraw" } } },
+    { kind:"alt", label:"Resume autopilot", run:{ write:"setAutopilot", payload:{ hold:false } } },
+    { kind:"skip", label:"Skip", run:{ open:"skipEvent", evId:"putt" } },
+  ] };
+  const tray = inProvider(React.createElement(ui.PillTray, { model, state, events, director, onPick:() => {} }));
+  const rows = [...tray.matchAll(/<button[^>]*fd-pill-tray-row[^>]*>([^]*?)<\/button>/g)].map(match => match[1]);
+  assert.equal(rows.length, 3);
+  const glyphs = row => (row.match(/<svg/g) || []).length;
+  assert.equal(glyphs(rows[0]), 1, "Random draw opens Before the draw: its chevron");
+  assert.equal(glyphs(rows[1]), 0, "Resume autopilot is a write: no chevron");
+  assert.equal(glyphs(rows[2]), 1, "Skip keeps its own glyph, leading");
 });
 
 test("the pill keeps one primary action; a 44px more button holds the run of show and the edge cases", () => {

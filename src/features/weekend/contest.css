@@ -2,9 +2,12 @@
 .fd-contest-toolbar { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:8px 0 12px; }
 .fd-contest-toolbar>div { display:grid; gap:3px; min-width:0; }
 .fd-contest-toolbar strong { color:var(--ink); font:800 18px/1.2 var(--fd-display); letter-spacing:.04em; text-transform:uppercase; }
-/* the status reads in bone; its dot is the live lamp */
+/* the status reads in bone beside its lamp: the live lamp is the lensed
+   insert every live status wears (Events, Bets, Home), its bloom breathing
+   on the room's beat; a status with no lamp stays lilac */
 .fd-contest-toolbar span { color:var(--muted2); font-size:13px; }
-.fd-contest-toolbar span .fd-beat-dot { width:7px; height:7px; margin-right:6px; vertical-align:1px; color:var(--lamp-live); }
+.fd-contest-toolbar span:has(> .fd-insert) { color:var(--ink); }
+.fd-contest-toolbar span > .fd-insert { margin-right:8px; vertical-align:-1px; }
 .fd-contest-primary { display:flex; justify-content:center; align-items:center; gap:8px; min-height:44px; padding:9px 12px; border:0; border-radius:6px; background:var(--action-fill); color:var(--action-ink); font:600 12px/1.3 var(--fd-body); cursor:pointer; }
 .fd-contest-primary:disabled { opacity:.45; cursor:default; }
 .fd-contest-toolbar .fd-contest-primary { flex-shrink:0; max-width:60%; }

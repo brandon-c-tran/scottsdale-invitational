@@ -99,8 +99,11 @@ button.fd-you-strip:active { transform:scale(.99); }
    hairline, never a card inside the card; yours carries a filament edge. */
 .fd-home-sides { --window:color-mix(in srgb, var(--ink0) 72%, var(--bg)); display:grid; gap:0; overflow:hidden; border-radius:10px; background:var(--window);
   box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--ink0) 55%, transparent), inset 0 2px 6px color-mix(in srgb, var(--ink0) 50%, transparent), 0 1px 0 var(--ink-tint); }
+/* 4px above and below: a side's pot over its share stands taller than its
+   people's 44px row, and must not touch the window's edge (or be cut by
+   its rounded corner) */
 .fd-home-sides .fd-home-side { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; column-gap:8px;
-  min-width:0; padding:0 12px; }
+  min-width:0; padding:4px 12px; }
 .fd-home-sides .fd-home-side + .fd-home-side { border-top:1px solid var(--line); }
 .fd-home-sides .fd-home-side.is-mine { box-shadow:inset 3px 0 0 var(--you); }
 .fd-home-sides .fd-home-player-links { gap:0 14px; min-width:0; }
@@ -275,6 +278,9 @@ button.fd-home-song-chip > .fd-icon { color:var(--lamp-info); }
 .fd-now-row.is-you .fd-now-row-text strong { color:var(--you); }
 /* before the weekend: what you still owe, a flashing lamp until it is done */
 .fd-home-setup { margin:0 0 12px; overflow:hidden; }
+/* under the contest (while Scan the TV is the top of Home) it stands off
+   the card like every other card that follows it (alerts, install, awards) */
+.fd-home-focus + .fd-home-setup { margin-top:12px; }
 .fd-home-setup h2 { display:flex; align-items:baseline; justify-content:space-between; gap:8px; margin:0; padding:12px 12px 8px; color:var(--ink); font:800 20px/1.1 var(--fd-display); letter-spacing:.03em; text-transform:uppercase; }
 .fd-home-setup h2 span { color:var(--lamp-info); font:600 14px/1 var(--fd-body); letter-spacing:0; text-transform:none; }
 .fd-home-setup>button { display:flex; align-items:center; gap:8px; width:100%; min-height:48px; padding:0 12px; border:0; border-top:1px solid var(--line); background:none; color:var(--ink); font:600 15px/1.3 var(--fd-body); text-align:left; cursor:pointer; }

@@ -49,12 +49,14 @@
 .fd-spot-face { display:inline-flex; margin:0; padding:2px; border:0; border-radius:99px; background:none; cursor:pointer; }
 .fd-spot-face:disabled { cursor:default; }
 .fd-spot-face:focus-visible { outline:2px solid var(--lamp-info); outline-offset:1px; }
-/* a side's name wraps at its spaces: its longest word (--name-units, set
-   by BetTable) sets the size to the spot's width, capitals at about .56em,
-   never under the phone's 12px floor */
-.fd-spot-name { display:block; max-width:100%; color:var(--ink); font:900 19px/1.05 var(--fd-show);
+/* a side's name is lettered as written (DESIGN: The Names Are Lettered Rule,
+   as on the TV's table) and wraps at its spaces: its longest word
+   (--name-units, set by BetTable) sets the size to the spot's width, capitals
+   at about .56em, never under the phone's 12px floor; its line box holds the
+   descenders a second line meets */
+.fd-spot-name { display:block; max-width:100%; color:var(--ink); font:900 19px/1.15 var(--fd-show);
   font-size:max(12px, min(19px, calc((100cqw - 12px) / (var(--name-units, 1) * .56))));
-  letter-spacing:.01em; text-transform:uppercase; overflow-wrap:anywhere; text-wrap:balance; }
+  letter-spacing:.01em; overflow-wrap:anywhere; text-wrap:balance; }
 .fd-spot.is-row .fd-spot-name { font-size:max(12px, min(14px, calc((100cqw - 12px) / (var(--name-units, 1) * .56)))); }
 
 /* X8: the side's win line, one row on every spot of a board once any side has one */
@@ -72,10 +74,12 @@
 /* the % reads as printed on the felt: the reel rolls, but without window plates */
 .fd-spot-pct .fd-reel-cell { background:none; box-shadow:none; }
 .fd-spot-pct .fd-reel-cell::after { display:none; }
-.fd-spot.is-long .fd-spot-pct { color:var(--sun); text-shadow:0 0 16px color-mix(in srgb, var(--sun) 45%, transparent); }
+/* the glow is a filter on the whole figure (as on the TV's table): a
+   text-shadow would be cut square by each reel window */
+.fd-spot.is-long .fd-spot-pct { color:var(--sun); filter:drop-shadow(0 0 16px color-mix(in srgb, var(--sun) 45%, transparent)); }
 /* a % that just moved stays lit until it has been seen */
-.fd-spot.is-moved .fd-spot-pct { color:var(--sun); text-shadow:0 0 18px color-mix(in srgb, var(--sun) 55%, transparent);
-  transition:color 1.2s var(--ease-out) .6s, text-shadow 1.2s var(--ease-out) .6s; }
+.fd-spot.is-moved .fd-spot-pct { color:var(--sun); filter:drop-shadow(0 0 18px color-mix(in srgb, var(--sun) 55%, transparent));
+  transition:color 1.2s var(--ease-out) .6s, filter 1.2s var(--ease-out) .6s; }
 
 /* what a chip brings back: yours in the filament, the next one quieter */
 .fd-spot-back { display:block; min-height:18px; color:var(--muted2); font:800 15px/1.2 var(--fd-display); letter-spacing:.02em;
@@ -221,6 +225,9 @@
    chip brings back, the stacks), so 13 is five rows with the seat docked
    under them */
 .fd-table.is-grid .fd-table-felt { grid-template-columns:repeat(3, minmax(0, 1fr)); gap:6px; }
+/* a last spot alone on its row (7, 10, 13 sides) stands in the middle
+   column, never left alone at the edge with two empty seats beside it */
+.fd-table.is-grid .fd-spot:nth-child(3n+1 of .fd-spot):nth-last-child(1 of .fd-spot) { grid-column:2; }
 .fd-spot.is-grid { min-height:150px; border-radius:10px; }
 .fd-spot.is-grid .fd-spot-ink { gap:4px; padding:8px 4px 8px; }
 .fd-spot.is-grid .fd-spot-name { font-size:max(12px, min(14px, calc((100cqw - 12px) / (var(--name-units, 1) * .56)))); }

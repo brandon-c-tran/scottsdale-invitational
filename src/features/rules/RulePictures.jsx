@@ -105,10 +105,12 @@ const checkUp = <g>
   <circle cx="23" cy="31" r="2.6" {...F} /><circle cx="41" cy="31" r="2.6" {...F} />
   {trail("M25.5 29Q32 21 38.5 29")}{head(38.5, 29, 50)}
 </g>;
+/* the outside numeral stands clear of the field's foot (a card tile is
+   cut at y 40) and of the arc above it */
 const scoreArc = (inside, outside) => <g>
   <Faint><path d="M4 3.5H60" /><path d="M9 3.5V7A23 23 0 0 0 55 7V3.5" /></Faint>{rimTop}
   <Num x={32} y={24.5} size={12}>{inside}</Num>
-  <Num x={32} y={39.5} size={11}>{outside}</Num>
+  <Num x={32} y={38.4} size={10}>{outside}</Num>
 </g>;
 
 export const RULE_PICTURES = {
@@ -563,11 +565,12 @@ export const RULE_PICTURES = {
     <Lit>{stack(53, 34, 8, 11)}</Lit>
     {crown(53, 6, 0.6)}
   </g>,
-  /* the smaller side pays more: a tall stack at 1.5×, a short one lit at 4× */
+  /* the smaller side pays more: a tall stack at 1.5×, a short one lit at 4×
+     (six chips, so the tall stack's label stands inside the field) */
   "betting.3":<g>
     {floor()}
-    <Faint>{stack(16, 34, 7, 12)}</Faint>
-    <Faint><Num x={16} y={6} size={10}>1.5×</Num></Faint>
+    <Faint>{stack(16, 34, 6, 12)}</Faint>
+    <Faint><Num x={16} y={10} size={10}>1.5×</Num></Faint>
     <Lit>{stack(48, 34, 2, 12)}</Lit>
     <Lit><Num x={48} y={20} size={12}>4×</Num></Lit>
   </g>,

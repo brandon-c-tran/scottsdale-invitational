@@ -108,8 +108,10 @@ export function PlayerPass({ state, p, display, num, photo, compact = false, min
               </span>
             </span>
             <span className="fd-pass-name">{name}</span>
+            {/* no rank on a level board: the dates keep the foot's label size,
+                so they never wrap beside the chips */}
             {standing ? <span className="fd-pass-foot is-standing">
-                <span className="fd-pass-rank">{place ? <OneSafe text={place} /> : <OneSafe text={EDITION.short} />}</span>
+                <span className={place ? "fd-pass-rank" : undefined}>{place ? <OneSafe text={place} /> : <OneSafe text={EDITION.short} />}</span>
                 <span className="fd-pass-count"><strong>{standing.pts.toLocaleString("en-US")}</strong> chips</span></span>
               : <span className="fd-pass-foot"><span><OneSafe text={EDITION.short} /></span>{number != null && <span><OneSafe text={`PLAYER / ${number}`} /></span>}</span>}
           </span>

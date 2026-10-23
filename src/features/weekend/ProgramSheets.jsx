@@ -112,7 +112,7 @@ export function PayoutsSheet({ events, GameMark, onClose }) {
   return <Sheet title="Payouts" onClose={onClose} className="fd-program-sheet">
     <ol className="fd-program-payouts">{rows.map(row => <li key={row.id}>
       <div className="fd-program-payout-head">
-        <h3>{row.own ? <EventName name={row.events[0].name} /> : row.session}</h3>
+        <h3 className={row.own ? "fd-show" : undefined}>{row.own ? <EventName name={row.events[0].name} /> : row.session}</h3>
         <span className="fd-program-payout-marks" aria-label={row.events.map(ev => ev.name).join(", ")}>
           {GameMark && row.events.map(ev => <GameMark key={ev.id} id={ev.game} variant={ev.variant} size={28} />)}</span>
       </div>

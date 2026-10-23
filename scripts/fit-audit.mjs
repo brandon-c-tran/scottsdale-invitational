@@ -242,14 +242,19 @@ let cropCount = 0;
 const CROP_LIMIT = 600;
 
 async function load(url, { timeout = 20000 } = {}) {
-  pageErrors.length = 0;
-  await cdp("Page.navigate", { url });
-  const start = Date.now();
-  while (Date.now() - start < timeout) {
-    await sleep(200);
-    try { if (await evaluate("window.__FIT_READY__ === true")) break; } catch {}
+  /* a cold run's first page can lose its font requests (the server is
+     still warming), and an errored face never loads on that page: one
+     fresh navigation before the view is reported on a fallback */
+  for (let attempt = 0; attempt < 2; attempt++) {
+    pageErrors.length = 0;
+    await cdp("Page.navigate", { url });
+    const start = Date.now();
+    while (Date.now() - start < timeout) {
+      await sleep(200);
+      try { if (await evaluate("window.__FIT_READY__ === true")) break; } catch {}
+    }
+    if (await fontsReady()) break;
   }
-  await fontsReady();
   await sleep(250);
 }
 /* Nothing is measured or shot on a fallback face. document.fonts.ready
@@ -260,20 +265,25 @@ async function load(url, { timeout = 20000 } = {}) {
    after three tries is a page error on the view, never a silent pass. */
 const SHOW_FACES = ["700 40px 'Big Shoulders Display'", "800 40px 'Big Shoulders Display'", "900 40px 'Big Shoulders Display'",
   "900 40px 'Big Shoulders Inline Display'"];
+/* check() alone also passes a face that failed to load or that no
+   stylesheet has registered yet (it only asks whether anything is still
+   pending), and a cold run's first view was shot on the system sans that
+   way; so a face counts only when load() handed it back loaded */
 const FONTS_READY = `(async () => {
   const faces = ${JSON.stringify(SHOW_FACES)};
-  await Promise.all(faces.map(face => document.fonts.load(face, "FIELD DAY 0123").catch(() => [])));
+  const found = await Promise.all(faces.map(face => document.fonts.load(face, "FIELD DAY 0123").catch(() => [])));
   await document.fonts.ready;
-  return faces.filter(face => !document.fonts.check(face, "FIELD DAY 0123"));
+  return faces.filter((face, i) => !found[i].some(f => f.status === "loaded") || !document.fonts.check(face, "FIELD DAY 0123"));
 })()`;
 async function fontsReady() {
   let missing = [];
   for (let i = 0; i < 3; i++) {
     try { missing = await evaluate(FONTS_READY); } catch (error) { missing = [error.message]; }
-    if (!missing.length) return;
+    if (!missing.length) return true;
     await sleep(300);
   }
   pageErrors.push(`font not loaded: ${missing.join(", ")}`);
+  return false;
 }
 async function shot(file, clip = null) {
   await fontsReady();

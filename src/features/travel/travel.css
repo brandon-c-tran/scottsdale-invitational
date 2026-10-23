@@ -6,7 +6,8 @@
 }
 
 /* a saved flight as a row: a window cut in the glass, who on the left, the
-   code, then the time in sun and which way. Its own class family: .fd-flight-pass
+   code, then the time in bone (amber is the chips lamp) and which way. Its
+   own class family: .fd-flight-pass
    is the player card's (an aspect-ratio 4/5 card), and sharing it once
    stretched every leg on the House sheet into a card-sized box. */
 .fd-flight-pass { display:flex; align-items:center; gap:12px; min-height:56px; padding:8px 14px; border-radius:10px;
@@ -18,7 +19,7 @@
 .fd-flight-pass-code b { font:800 24px/1.15 var(--fd-display); font-variant-numeric:tabular-nums; }
 .fd-flight-pass-when { display:flex; flex-direction:column; align-items:flex-end; gap:2px; margin-left:auto; padding-left:12px;
   border-left:1px dashed var(--line); text-align:right; }
-.fd-flight-pass-when b { font:800 22px/1.15 var(--fd-display); color:var(--sun); font-variant-numeric:tabular-nums; white-space:nowrap; }
+.fd-flight-pass-when b { font:800 22px/1.15 var(--fd-display); color:var(--ink); font-variant-numeric:tabular-nums; white-space:nowrap; }
 .fd-flight-pass-when small { font:700 12px/1.2 var(--fd-display); letter-spacing:.1em; text-transform:uppercase; color:var(--muted2); white-space:nowrap; }
 .fd-flight-pass.is-note { gap:10px; }
 .fd-flight-pass-note { font:600 14px/1.45 var(--fd-body); }

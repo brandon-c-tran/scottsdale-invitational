@@ -295,8 +295,8 @@ function SizeRow({ lb, value, onPick, allowClear }) {
             aria-label={`${lb}: ${sz}`} aria-pressed={value === sz}
             style={{ fontFamily:SANS, fontWeight:700, fontSize:13, height:48, padding:0, borderRadius:10,
               cursor:"pointer", background: value === sz ? `var(--selection-fill, ${GOLD_GRAD})` : "var(--paper2)",
-              color: value === sz ? "var(--ink0)" : "var(--ink)",
-              border: value === sz ? "1.5px solid var(--ink0)" : "1.5px solid var(--line)" }}>{sz}</button>
+              color: value === sz ? "var(--selection-ink, var(--ink0))" : "var(--ink)",
+              border: value === sz ? "1.5px solid var(--selection-line, var(--ink0))" : "1.5px solid var(--line)" }}>{sz}</button>
         ))}
       </div>
     </div>
@@ -310,8 +310,8 @@ function SizeRow({ lb, value, onPick, allowClear }) {
 function TravelFields({ booked, setBooked, flightIn, setFlightIn, flightOut, setFlightOut }) {
   const opt = on => ({ fontFamily:SANS, fontWeight:700, fontSize:14, height:48, padding:0,
     borderRadius:10, cursor:"pointer",
-    background: on ? `var(--selection-fill, ${GOLD_GRAD})` : "var(--paper2)", color: on ? "var(--ink0)" : "var(--ink)",
-    border: on ? "1.5px solid var(--ink0)" : "1.5px solid var(--line)" });
+    background: on ? `var(--selection-fill, ${GOLD_GRAD})` : "var(--paper2)", color: on ? "var(--selection-ink, var(--ink0))" : "var(--ink)",
+    border: on ? "1.5px solid var(--selection-line, var(--ink0))" : "1.5px solid var(--line)" });
   return (
     <div>
       <TravelLists />

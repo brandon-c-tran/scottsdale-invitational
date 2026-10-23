@@ -303,6 +303,16 @@ async function openSheet(kind) {
   if (kind === "lastcard" || kind === "auto") return !!document.querySelector(".fd-sheet, [role=dialog]");
   /* your profile from the header, and Weekend's Add to Home Screen opened */
   if (kind === "profile") return tap(() => [...document.querySelectorAll("header button[aria-label='Your profile']")].find(visible));
+  /* the profile's Jersey and Trip sections (where Home's setup rows lead) */
+  const section = { "profile-jersey":"Jersey", "profile-trip":"Trip" }[kind];
+  if (section) {
+    if (!await tap(() => [...document.querySelectorAll("header button[aria-label='Your profile']")].find(visible))) return false;
+    await sleep(600);
+    if (!await tap(() => [...document.querySelectorAll(".fd-profile-sections button")]
+      .find(b => visible(b) && b.textContent.trim() === section))) return false;
+    await sleep(400);
+    return true;
+  }
   /* the profile's Karaoke section; `-found`: a song searched and picked, its
      videos the scenario's stand-ins (never Spotify or YouTube) */
   if (kind === "profile-karaoke" || kind === "profile-karaoke-found") {

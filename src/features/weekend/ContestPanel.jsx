@@ -82,7 +82,7 @@ function CurrentContest({ state, ev, contest, me, gm, onPlayer, onBets, onLock, 
   return <section className="fd-contest" aria-label="Current contest" aria-busy={pending}>
     <div className="fd-contest-toolbar">
       <div>{heading && <strong>{heading}</strong>}
-        <span>{(open || running) && <i className="fd-beat-dot" aria-hidden="true" />}{open ? "Betting open" : locked ? "Betting locked" : running ? "In progress" : "Next contest"}</span>
+        <span>{(open || running) && <i className="fd-insert fd-beat-dot" aria-hidden="true" />}{open ? "Betting open" : locked ? "Betting locked" : running ? "In progress" : "Next contest"}</span>
         {!gm && (playing || yourBet > 0) && <span className="fd-contest-you">{playing && <span>You’re playing</span>}
           {yourBet > 0 && <b aria-label={`Your bet ${yourBet.toLocaleString("en-US")}`}><i className="fd-contest-chip" aria-hidden="true" />{yourBet.toLocaleString("en-US")}</b>}</span>}</div>
       {gm && (open || locked) && <button type="button" className="fd-contest-primary" disabled={pending || blocked || !onLock}

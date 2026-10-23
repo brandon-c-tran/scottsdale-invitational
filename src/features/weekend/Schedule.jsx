@@ -9,7 +9,9 @@ import { EventName } from "../../ui/OneSafe.jsx";
 import "./weekend.css";
 import "./events.css";
 
-const LAMP_CLASS = { live:"fd-beat-dot", pending:"is-pending", done:"is-done", void:"is-void" };
+/* live is the magenta lamp; the next event waits in the info lamp (cyan,
+   flashing), as the TV's Up next does, so next never reads as live */
+const LAMP_CLASS = { live:"fd-beat-dot", pending:"is-pending is-info", done:"is-done", void:"is-void" };
 const PLACE = ["1", "2", "3"];
 
 /* your place in a posted event: a medallion, 1st lit amber; crew a hollow ring */

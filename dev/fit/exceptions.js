@@ -22,6 +22,10 @@ export const FIT_EXCEPTIONS = Object.freeze([
   { view:"-(gm-poker-deal-sheet-pill|gm-result-sheet-pill(-placed)?|gm-speaker-error-sheet-speaker)$", rule:"overlap",
     sel:"fd-sheet-footer|fd-pp-tile",
     reason:"a sheet's footer (the Sheet's own, sticky, its shadow cast up) holds its commit or its failure in thumb reach: Deal and start over thirteen stacks, Post official result over a 375px phone's field, Speaker's failure line; the body scrolls up past it and clears it at the end" },
+  { view:"sheet-profile-jersey$", rule:"overlap", sel:"fd-jersey-size",
+    reason:"the Jersey section's Confirm jersey rides the sheet's foot (sticky) so it is always in reach; on a short phone the size row scrolls up past it" },
+  { view:"sheet-profile-trip$", rule:"overlap", sel:"fd-trip-venmo",
+    reason:"the Venmo field's @ is the field's own prefix, drawn in its left padding ahead of the typed handle; the whole field is one target" },
   { view:"^tv-showdown-draw$", rule:"overlap", sel:"tv-showdown",
     reason:"Quick Draw's flash is the whole glass lit opaque magenta with DRAW on it for its beat; the faced-off chips under it step out (visibility) for that beat and the frame shows only the flash" },
 ]);

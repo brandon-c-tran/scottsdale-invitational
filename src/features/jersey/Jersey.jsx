@@ -16,8 +16,9 @@ function JerseyBack({ name, num, size }) {
       <path className="fd-jersey-cloth" d="M88 12 Q120 24 152 12 L198 28 L234 76 L204 100 L188 86 L188 242
         Q120 248 52 242 L52 86 L36 100 L6 76 L42 28 Z" />
       <path className="fd-jersey-collar" d="M88 12 Q120 24 152 12" />
-      <rect className="fd-jersey-tag" x="109" y="22" width="22" height="14" rx="2" />
-      <text className="fd-jersey-tag-text" x="120" y="32.5" textAnchor="middle">{size || "?"}</text>
+      {/* the tag holds "XXL" at the 12px floor, clear of the collar */}
+      <rect className="fd-jersey-tag" x="103" y="21" width="34" height="19" rx="3" />
+      <text className="fd-jersey-tag-text" x="120" y="35.4" textAnchor="middle">{size || "?"}</text>
       <text className={`fd-jersey-name${name ? "" : " is-empty"}`} x="120" y="70" textAnchor="middle"
         {...(long ? { textLength:136, lengthAdjust:"spacingAndGlyphs" } : {})}>{name || "NAME"}</text>
       <text className={`fd-jersey-num${num === "" || num == null ? " is-empty" : ""}`} x="120" y="182"

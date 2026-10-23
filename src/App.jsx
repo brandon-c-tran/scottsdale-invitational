@@ -619,7 +619,7 @@ function TournamentApp({ tournament, onUpdateReload }) {
   useEffect(() => {
     if (!ready) return;
     const markers = resultMarkers(state);
-    if (tv && resultsSeenRef.current && freshResults(resultsSeenRef.current, state).length) setBurst(b => b + 1);
+    if (tv && resultsSeenRef.current && currentFrame().fresh && freshResults(resultsSeenRef.current, state).length) setBurst(b => b + 1);
     resultsSeenRef.current = markers;
     const next = me ? guestLedger(state, me, events, standings) : null;
     const prev = ledgerRef.current;

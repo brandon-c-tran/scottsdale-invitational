@@ -386,6 +386,8 @@ test("App: results no longer rain confetti on every phone; receipts, own-chip sh
   const app = readFileSync(new URL("../src/App.jsx", import.meta.url), "utf8");
   assert.doesNotMatch(app, /summarizeUpdate\(/, "the result toast is replaced by the receipt");
   assert.match(app, /if \(tv && resultsSeenRef\.current/, "the room-wide burst is the TV's alone");
+  assert.match(app, /if \(tv && resultsSeenRef\.current && currentFrame\(\)\.fresh && freshResults\(/,
+    "and only for a fresh frame: a TV's reconnect catch-up bursts nothing");
   assert.equal((app.match(/<Confetti /g) || []).length, 1, "only the TV renders confetti");
   assert.match(app, /<ChipReceipt /);
   assert.match(app, /<ChipShower burst=\{shower\} p=\{me\} amount=\{moment \? moment\.to - moment\.from : 0\} \/>/,

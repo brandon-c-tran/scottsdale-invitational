@@ -82,6 +82,15 @@ test("names, handles and codes are typed as written: no autocorrect, no spellche
   }
 });
 
+test("a full-screen pane that scrolls keeps its scroll: the page under it never moves", () => {
+  const loose = [];
+  for (const file of cssFiles("src")) for (const rule of rules(readFileSync(file, "utf8"))) {
+    if (!/overflow-y:\s*auto/.test(rule.body) || !/inset:\s*0/.test(rule.body)) continue;
+    if (!/overscroll-behavior/.test(rule.body)) loose.push(`${file}: ${rule.selector}`);
+  }
+  assert.deepEqual(loose, []);
+});
+
 test("hover styles live only where a pointer hovers (a tap leaves :hover stuck on iPhone)", () => {
   const stuck = [];
   for (const file of cssFiles("src")) for (const rule of rules(readFileSync(file, "utf8"))) {

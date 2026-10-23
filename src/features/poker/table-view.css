@@ -4,7 +4,7 @@
    black reel window, the clock runs on drums in the live magenta, the level
    chip sits in an amber ring that runs out with the level, and the dealt
    stack is an amber reel. Tokens only. */
-.fd-table-view { position:fixed; inset:0; z-index:380; display:flex; flex-direction:column; overflow-y:auto;
+.fd-table-view { position:fixed; inset:0; z-index:380; display:flex; flex-direction:column; overflow-y:auto; overscroll-behavior:contain;
   background:var(--night-deep); color:var(--bone); font-family:var(--fd-body);
   padding:calc(env(safe-area-inset-top, 0px) + 10px) 20px calc(env(safe-area-inset-bottom, 0px) + 18px);
   animation:fd-table-view-in var(--motion-stamp, 320ms) var(--ease-out, ease-out) both; }

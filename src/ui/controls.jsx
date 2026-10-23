@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from "react";
 import { BONE, DISPLAY, SANS } from "./theme.js";
 import { useSheetPresence } from "./sheetMotion.js";
+import { useSheetDrag } from "./useSheetDrag.js";
 import { Icon } from "./Icon.jsx";
 import { EventName, OneSafe } from "./OneSafe.jsx";
 import { MenuRow, MenuGroup } from "./Menu.jsx";
@@ -106,7 +107,10 @@ function Sheet({ title, subtitle, headerActions, footer = null, onClose, onBack,
   heading = true }) {
   const dialog = useRef(null);
   const overlay = useRef(null);
+  const grip = useRef(null);
   useSheetPresence(overlay, dialog);
+  /* drag the header down to put it away, refused while busy (useSheetDrag.js) */
+  useSheetDrag({ overlay, panel:dialog, grip, busy, onClose });
   const dock = useContext(SheetDock);
   const current = useRef({ busy, onClose });
   current.current = { busy, onClose };
@@ -147,7 +151,7 @@ function Sheet({ title, subtitle, headerActions, footer = null, onClose, onBack,
       <div ref={dialog} tabIndex={-1} onClick={e=>e.stopPropagation()} className={`si-sheet${wide ? " is-wide" : ""} ${className}`} role="dialog" aria-modal="true"
         aria-label={title} aria-busy={busy || undefined}>
         {/* Shared sheet header stays in the surrounding surface palette. */}
-        <div className="fd-sheet-header">
+        <div ref={grip} className="fd-sheet-header">
           {onBack && <IconButton label="Back" onClick={onBack} size={44} disabled={busy}
             style={{ marginLeft:-6, border:0 }}><span style={{ display:"flex", transform:"scaleX(-1)" }}><Icon name="next" size={20} /></span></IconButton>}
           {heading ? <div className={`fd-sheet-heading${show ? " is-show" : ""}`}><div>{typeof title === "string" ? <EventName name={title} /> : title}</div>

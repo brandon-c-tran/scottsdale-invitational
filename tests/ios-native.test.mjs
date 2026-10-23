@@ -2,6 +2,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { SHEET_DRAG, dragOffset, homeSettled, project, rawOffset, releasePlan, releaseVelocity, rubberband, scrimShare, springFor,
+  unband } from "../src/ui/sheetDragModel.js";
+import { springStep } from "../src/ui/useGlassTilt.js";
 
 /* Every guest is on an iPhone, in the installed app. These keep the platform
    layer native: what a tap leaves behind, what a long press does, and how a
@@ -85,4 +88,79 @@ test("hover styles live only where a pointer hovers (a tap leaves :hover stuck o
     stuck.push(`${file}: ${rule.selector}`);
   }
   assert.deepEqual(stuck, []);
+});
+
+/* ── a sheet put away by its header (ui/useSheetDrag.js, ui/sheetDragModel.js) ── */
+test("down the sheet follows the finger; up, and while it cannot close, it gives and resists", () => {
+  assert.equal(dragOffset(120), 120);
+  assert.equal(dragOffset(0), 0);
+  const up = [10, 40, 120, 400, 4000].map(raw => -dragOffset(-raw));
+  up.reduce((prev, y) => { assert.ok(y > prev && y < SHEET_DRAG.upLimit); return y; }, 0);
+  const locked = [10, 60, 300, 3000].map(raw => dragOffset(raw, { locked:true }));
+  locked.reduce((prev, y) => { assert.ok(y > prev && y < SHEET_DRAG.lockedLimit); return y; }, 0);
+  /* caught mid-spring, it is picked up where it stands */
+  for (const offset of [-30, -5, 0, 20, 300]) assert.ok(Math.abs(dragOffset(rawOffset(offset)) - offset) < 1e-6, offset);
+  for (const offset of [5, 30, 50]) assert.ok(Math.abs(dragOffset(rawOffset(offset, { locked:true }), { locked:true }) - offset) < 1e-6);
+  assert.ok(Math.abs(rubberband(unband(20, 48), 48) - 20) < 1e-9);
+});
+
+test("a release goes past half its height, by distance or by momentum, and comes home otherwise", () => {
+  const height = 700;
+  /* a slow drag: distance decides */
+  assert.equal(releasePlan({ offset:200, velocity:0, height }).dismiss, false);
+  assert.equal(releasePlan({ offset:360, velocity:0, height }).dismiss, true);
+  /* a flick: momentum carries it (projected as a scroll view coasts) */
+  assert.ok(Math.abs(project(1) - 499) < 1e-6);
+  assert.equal(releasePlan({ offset:60, velocity:1.2, height }).dismiss, true);
+  /* past half but thrown back up: it stays */
+  assert.equal(releasePlan({ offset:420, velocity:-1, height }).dismiss, false);
+  /* a twitch on a header button never puts the sheet away, however fast */
+  assert.equal(releasePlan({ offset:SHEET_DRAG.minFling - 1, velocity:5, height }).dismiss, false);
+  /* a sheet that cannot close never goes */
+  assert.equal(releasePlan({ offset:600, velocity:4, height, locked:true }).dismiss, false);
+  /* a flick falls at the finger's speed, inside the fall's bounds; a slow release takes the sheet's own fall */
+  const flick = releasePlan({ offset:100, velocity:2, height });
+  assert.equal(flick.fallMs, 300);
+  assert.equal(releasePlan({ offset:300, velocity:4, height }).fallMs, 140);
+  assert.equal(releasePlan({ offset:500, velocity:2.5, height }).fallMs, SHEET_DRAG.fallMin);
+  assert.equal(releasePlan({ offset:400, velocity:.1, height }).fallMs, null);
+});
+
+test("the release speed reads the drag's last moment, and a finger that stopped releases at rest", () => {
+  const samples = [{ t:0, y:0 }, { t:100, y:10 }, { t:150, y:40 }, { t:200, y:100 }];
+  assert.equal(releaseVelocity(samples, 205), (100 - 10) / 100);
+  assert.equal(releaseVelocity(samples, 200 + SHEET_DRAG.still + 1), 0);
+  assert.equal(releaseVelocity([{ t:0, y:0 }], 1), 0);
+  assert.equal(releaseVelocity([], 1), 0);
+});
+
+test("the scrim thins as the sheet goes down, and the spring home lands without a bounce", () => {
+  assert.equal(scrimShare(0, 600), 1);
+  assert.equal(scrimShare(300, 600), .5);
+  assert.equal(scrimShare(-20, 600), 1);
+  assert.equal(scrimShare(900, 600), 0);
+  /* critically damped from a release mid-drag: home in about half a second, never far past it */
+  const spring = springFor();
+  for (const [start, velocity] of [[240, 0], [120, 900], [-30, 0]]) {
+    let pos = start, vel = velocity, t = 0, lowest = Math.min(0, start);
+    while (!homeSettled(pos, vel) && t < 3) { ({ pos, vel } = springStep(pos, vel, 0, 1 / 60, spring)); t += 1 / 60; lowest = Math.min(lowest, pos); }
+    assert.ok(t < .9, `${start} settles in ${t.toFixed(2)}s`);
+    if (start > 0) assert.ok(lowest > -2, `${start} overshoots to ${lowest}`);
+  }
+});
+
+test("every sheet's header is its grip, phones only, and a dragged sheet falls from where the finger left it", () => {
+  const controls = readFileSync("src/ui/controls.jsx", "utf8");
+  assert.match(controls, /useSheetDrag\(\{ overlay, panel:dialog, grip, busy, onClose \}\)/);
+  assert.match(controls, /<div ref=\{grip\} className="fd-sheet-header">/);
+  const experience = readFileSync("src/ui/experience.css", "utf8");
+  assert.match(experience, /@media\(max-width:699\.98px\) \{\s*\.fd-sheet-header \{ touch-action:none; \}/);
+  const motion = readFileSync("src/ui/motion.css", "utf8");
+  assert.match(motion, /@keyframes fd-sheet-fall \{ from \{ transform:translateY\(var\(--fd-sheet-drag, 0px\)\); \}/);
+  assert.match(motion, /@keyframes fd-scrim-out \{ from \{ opacity:var\(--fd-sheet-dim, 1\); \}/);
+  assert.match(motion, /\.fd-sheet-overlay\.is-leaving\.is-flung \.si-sheet \{ animation:fd-sheet-fall var\(--fd-fling-ms/);
+  /* the drag stands down where a sheet is a dialog, and for a mouse */
+  const hook = readFileSync("src/ui/useSheetDrag.js", "utf8");
+  assert.match(hook, /const DIALOG = "\(min-width: 700px\)";/);
+  assert.match(hook, /event\.pointerType === "mouse"/);
 });

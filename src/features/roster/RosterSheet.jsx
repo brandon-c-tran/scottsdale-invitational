@@ -98,8 +98,10 @@ export function RosterSheet({ state, onAway, onOut, onArrived, onDoor, onNewCode
         const error = errors[player] || errors[`mark:${player}`];
         return <li key={player} className={`fd-roster-row is-${now}${road ? " is-road" : ""}${pending === player ? " is-pending" : ""}`}>
           <span className="fd-roster-who">
-            <i className={`fd-insert${now === "out" ? " is-void" : road ? " is-pending" : ""}${pending === player ? " is-pending" : ""}`}
-              style={{ "--lamp-on":now === "away" ? "var(--sun)" : "var(--lamp-info)" }} aria-hidden="true" />
+            {/* the info lamp: lit here, unlit away (out of the draws, still
+                on the weekend), struck for not coming */}
+            <i className={`fd-insert${now === "out" ? " is-void" : now === "away" ? " is-done" : road ? " is-pending" : ""}${pending === player ? " is-pending" : ""}`}
+              style={{ "--lamp-on":"var(--lamp-info)" }} aria-hidden="true" />
             <span className="fd-roster-face"><Avatar state={state} p={player} size={36} /></span>
             <span className="fd-roster-name">{disp(state, player)}</span>
           </span>

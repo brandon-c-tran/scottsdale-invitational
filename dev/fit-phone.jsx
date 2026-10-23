@@ -420,8 +420,13 @@ async function openSheet(kind) {
     await sleep(350);
     return document.querySelectorAll(".fd-crew-seat.is-out").length === 2;
   }
-  /* the pill's first winner target: the write lands and WON stamps */
+  /* the pill's first winner target: the write lands and WON stamps. The
+     take-back window holds for the shot (its 10 s timer never fires here;
+     a slow run used to shoot the next beat with the Undo already gone) */
   if (kind === "pill-win") {
+    const { UNDO_WINDOW_MS } = await import("../src/features/director/DirectorPill.jsx");
+    const later = window.setTimeout;
+    window.setTimeout = (fn, ms, ...rest) => ms > UNDO_WINDOW_MS - 2000 && ms <= UNDO_WINDOW_MS ? 0 : later(fn, ms, ...rest);
     const ok = await tap(() => document.querySelector(".fd-director-pick"));
     await sleep(700);
     return ok && !!document.querySelector(".fd-director-recent");

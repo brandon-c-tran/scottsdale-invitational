@@ -113,8 +113,10 @@ test("Settings: every switch in one list, each the same write as its own home", 
   assert.equal(row(settingsMenu({ autopilotHeld:true }), "autopilot").pressed, false);
   assert.equal(row(all, "gags").pressed, true);
   assert.equal(row(settingsMenu({ gags:false }), "gags").pressed, false);
-  assert.equal(row(all, "door").value, "Open");
-  assert.equal(row(settingsMenu({}), "door").value, "Closed");
+  /* a switch says on or off itself: no value restating it */
+  assert.equal(row(all, "door").pressed, true);
+  assert.equal(row(settingsMenu({}), "door").pressed, false);
+  for (const item of all.flatMap(section => section.items)) assert.equal(item.value, undefined, `${item.id}: the switch alone`);
   assert.equal(row(settingsMenu({ audioDirector:true, autoWinSongs:null }), "autoWinSongs").disabled, true, "unknown until Spotify answers");
   /* capabilities off: their switches are gone */
   assert.deepEqual(ids(settingsMenu({})), ["autopilot", "gags", "door", "jerseys"]);

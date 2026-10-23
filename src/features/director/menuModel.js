@@ -108,7 +108,8 @@ export function settingsMenu(f = {}) {
         pressed:f.autoWinSongs === true, disabled:typeof f.autoWinSongs !== "boolean" },
     ]),
     section("people", "People", "people", [
-      { id:"door", name:"Check-in", value:f.doorOpen ? "Open" : "Closed", pressed:!!f.doorOpen },
+      /* the switch is the state: no "Open" beside it */
+      { id:"door", name:"Check-in", pressed:!!f.doorOpen },
       { id:"jerseys", name:"Jerseys ordered", pressed:!!f.jerseysLocked },
     ]),
     section("setup", "Setup", "lock", [

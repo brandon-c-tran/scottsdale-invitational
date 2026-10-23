@@ -121,7 +121,7 @@
   animation:tv-crown-in var(--c-night-ms) ease-in-out calc(var(--tl) + var(--c-night)) both; }
 .tv-crown-final { position:absolute; left:0; right:0; top:54px; text-align:center; font-size:144px; line-height:1.05; color:var(--bone);
   animation:tv-crown-in 600ms ease-out calc(var(--tl) + var(--c-title)) both,
-    tv-crown-out 500ms ease-in calc(var(--tl) + var(--c-rise)) both; }
+    tv-crown-out 500ms ease-in calc(var(--tl) + var(--c-rise)) forwards; }
 .tv-crown-hall { position:absolute; inset:0; animation:tv-crown-out 600ms ease-in calc(var(--tl) + var(--c-flood) + 300ms) both; }
 .tv-crown-floor { position:absolute; left:80px; right:80px; top:860px; height:4px; border-radius:99px; background:var(--bone-line); }
 .tv-crown-tower { position:absolute; top:0; bottom:0; width:120px; margin-left:-60px; color:var(--bone); }
@@ -153,7 +153,7 @@
   color:var(--bone); animation:tv-crown-stamp 340ms var(--ease-land) calc(var(--tl) + var(--reveal)) both; }
 /* the champion's tower rises and cascades */
 .tv-crown-tower.is-champ .tv-crown-stack { animation:tv-tower-stand 520ms var(--ease-land) calc(var(--tl) + var(--stand)) both,
-  tv-tower-rise var(--c-rise-ms) cubic-bezier(.65,0,.35,1) calc(var(--tl) + var(--c-rise)) both; }
+  tv-tower-rise var(--c-rise-ms) cubic-bezier(.65,0,.35,1) calc(var(--tl) + var(--c-rise)) forwards; }
 @keyframes tv-tower-rise { from { transform:none; } to { transform:translateY(-150px) scale(1.18); } }
 .tv-crown-fall { position:absolute; left:14px; top:96px; width:92px; height:12px; border-radius:46px / 6px; background:var(--tc);
   opacity:0; animation:tv-tower-fall 900ms cubic-bezier(.4,0,.9,.6) forwards;
@@ -254,9 +254,9 @@
 .tv-faceoff-sides { position:relative; width:100%; display:grid; grid-template-columns:minmax(0, 1fr) auto minmax(0, 1fr); align-items:center; gap:40px; }
 .tv-faceoff-side { min-width:0; display:flex; flex-direction:column; align-items:center; gap:20px; text-align:center; }
 .tv-faceoff-side.is-left { animation:tv-faceoff-left 420ms cubic-bezier(.2,.9,.3,1) calc(var(--tl) + 900ms) both,
-  tv-faceoff-squash 300ms ease-out calc(var(--tl) + 1320ms) both; }
+  tv-faceoff-squash 300ms ease-out calc(var(--tl) + 1320ms) forwards; }
 .tv-faceoff-side.is-right { animation:tv-faceoff-right 420ms cubic-bezier(.2,.9,.3,1) calc(var(--tl) + 1250ms) both,
-  tv-faceoff-squash 300ms ease-out calc(var(--tl) + 1670ms) both; }
+  tv-faceoff-squash 300ms ease-out calc(var(--tl) + 1670ms) forwards; }
 @keyframes tv-faceoff-left { from { opacity:0; transform:translateX(-1100px) skewX(14deg); } to { opacity:1; transform:none; } }
 @keyframes tv-faceoff-right { from { opacity:0; transform:translateX(1100px) skewX(-14deg); } to { opacity:1; transform:none; } }
 /* the landing: a squash and a settle */

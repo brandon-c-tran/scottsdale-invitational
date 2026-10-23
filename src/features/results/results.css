@@ -102,7 +102,7 @@
    stamps (a champion's phone holds unlit until the champion rises) */
 .fd-crown-you { position:absolute; left:20px; right:20px; top:30%; display:grid; justify-items:center; gap:8px; text-align:center;
   animation:fd-crown-you-in 700ms var(--ease-land) calc(var(--tl, 0ms) + 1600ms) both,
-    fd-crown-you-leave 600ms var(--ease-exit) calc(var(--tl, 0ms) + 13000ms) both; }
+    fd-crown-you-leave 600ms var(--ease-exit) calc(var(--tl, 0ms) + 13000ms) forwards; }
 @keyframes fd-crown-you-in { from { opacity:0; transform:translateY(40vh); } to { opacity:1; transform:none; } }
 @keyframes fd-crown-you-leave { from { opacity:1; transform:none; } to { opacity:0; transform:translateY(30vh); } }
 .fd-crown-you-chip { display:block; border-radius:50%; }

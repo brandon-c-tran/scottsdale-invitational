@@ -309,6 +309,12 @@ test("the game ends on the phone when its result posts: no sheet, no Home row", 
   assert.equal(sheet(phone()), "", "the game's sheet does not reopen on the done frame");
 });
 
+test("the phone's foot: Saving… never moves the map or the wheels", async () => {
+  const { readFileSync } = await import("node:fs");
+  const css = readFileSync(new URL("../src/features/geo/geo.css", import.meta.url), "utf8");
+  assert.match(css, /\.fd-geo-note \{ position:absolute;/, "the note floats over the game, it takes no row from it");
+});
+
 test("Lock and start without photos leaves the game's Start beat on the pill", () => {
   const state = announced({ rounds:[] });
   lockAndStart(state);

@@ -85,6 +85,9 @@ const tokenEncoder = new TextEncoder();
 const STATE_WARN_BYTES = 1.5 * 1024 * 1024;
 const STATE_WARN_EVERY_MS = 60 * 1000;
 const MAX_DEVICE_ID_LENGTH = 200;
+/* a socket message past this is dropped unread (a custom Trivia round, the
+   largest action, is under 10 KB) */
+const MAX_SOCKET_MESSAGE = 512 * 1024;
 const APPLIED_ACTION_LIMIT = 24;
 const validDeviceId = value => typeof value === "string" && value.length > 0
   && value.length <= MAX_DEVICE_ID_LENGTH ? value : null;
@@ -2137,6 +2140,10 @@ export class Tournament {
   }
 
   async webSocketMessage(ws, raw) {
+    /* the largest action a screen sends is a few KB; a message the size the
+       platform allows (32 MiB) would be parsed on the one thread every
+       screen waits on */
+    if ((typeof raw === "string" ? raw.length : Number(raw?.byteLength) || 0) > MAX_SOCKET_MESSAGE) return;
     let msg;
     try { msg = JSON.parse(raw); } catch { return; }
     if (!msg || typeof msg !== "object" || Array.isArray(msg)) return;

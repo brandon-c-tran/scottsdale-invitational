@@ -70,6 +70,10 @@
 .fd-competition-bracket.is-compact .fd-bracket-outcome { font-size:12px; }
 /* a compact row holds two lines of 12px at 1.15, the floor for a clipped box */
 .fd-competition-bracket.is-compact .fd-bracket-name { line-height:1.15; padding-bottom:0; }
+/* a compact row is filled by its two lines, so an inset frame would cut
+   through the name: you are the filament ring round your own faces */
+.fd-competition-bracket.is-compact .fd-bracket-team.is-you { outline:0; border-radius:0; }
+.fd-competition-bracket.is-compact .fd-bracket-team.is-you .fd-bracket-faces { border-radius:99px; box-shadow:0 0 0 1.5px var(--you); }
 .fd-competition-bracket.is-compact .fd-bracket-faces { gap:1px; }
 
 @media (prefers-reduced-motion:no-preference) {

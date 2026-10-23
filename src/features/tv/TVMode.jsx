@@ -291,8 +291,10 @@ export const TOWER_LABEL_W = Math.floor(towerLayout({ width:1920, edge:EDGE, cou
 /* the name fits the slot on one line: as large as it goes (30px down to
    24), and a name still wider at 24 is narrowed to the slot (measured in
    the browser, `squeeze` is the estimate), so every tower's count stands on
-   one baseline; never two lines. Past TOWER_SQUEEZE it ends in an ellipsis. */
-export const TOWER_SQUEEZE = 0.72;
+   one baseline; never two lines. Past TOWER_SQUEEZE it ends in an ellipsis:
+   .66 holds the longest name a profile keeps (16) at thirteen towers, its
+   accents drawn in the fallback face (a Vietnamese name ran 4px past .72). */
+export const TOWER_SQUEEZE = 0.66;
 export const towerNameFit = (name, width = TOWER_LABEL_W) => {
   /* lettered as written; measured as capitals, the widest it could run */
   const text = String(name || "");

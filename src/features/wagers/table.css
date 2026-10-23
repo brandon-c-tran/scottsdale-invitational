@@ -218,6 +218,9 @@
    chip brings back, the stacks), so 13 is five rows with the seat docked
    under them */
 .fd-table.is-grid .fd-table-felt { grid-template-columns:repeat(3, minmax(0, 1fr)); gap:6px; }
+/* a last spot alone on its row (7, 10, 13 sides) stands in the middle
+   column, never left alone at the edge with two empty seats beside it */
+.fd-table.is-grid .fd-spot:nth-child(3n+1 of .fd-spot):nth-last-child(1 of .fd-spot) { grid-column:2; }
 .fd-spot.is-grid { min-height:150px; border-radius:10px; }
 .fd-spot.is-grid .fd-spot-ink { gap:4px; padding:8px 4px 8px; }
 .fd-spot.is-grid .fd-spot-name { font-size:14px; }

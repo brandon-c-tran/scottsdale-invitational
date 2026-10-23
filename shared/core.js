@@ -2173,8 +2173,11 @@ function resolveEventLifecycle(state, ev) {
       /* the board must be still before stacks are dealt; name what moves */
       const blockers = [];
       const events = allEventsOf(state);
+      /* one pool book for the scan: every render asks this until the
+         table is dealt, and an unpriced pool ticket re-reads every wager */
+      const book = poolBook(state);
       const pendingWagers = (state.wagers || []).filter(w =>
-        resolveWager(state, w, events).status === "pending").length;
+        resolveWager(state, w, events, book).status === "pending").length;
       if (pendingWagers)
         blockers.push(`Settle ${pendingWagers} open bet${pendingWagers === 1 ? "" : "s"} first`);
       /* unplayed duels never block the finale (pokerSetup voids them), and a

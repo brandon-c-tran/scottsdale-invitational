@@ -3,15 +3,18 @@ import { Icon } from "../../ui/Icon.jsx";
 import { BankChip } from "../identity/PlayerIdentity.jsx";
 import { ScoreReel } from "../../ui/ScoreReel.jsx";
 import { ChipStack } from "../wagers/BetStacks.jsx";
-import { MOTION, fly, useCountBetween, useReducedMotion } from "../../lib/motion.js";
+import { EASE, MOTION, fly, prefersReducedMotion, useCountBetween, useReducedMotion } from "../../lib/motion.js";
 import { playSound } from "../../lib/sound.js";
-import { RECEIPT_HOLD_MS, flightChips, ordinal, rankMove, receiptDockStyle, signedAmount } from "./resultMoment.js";
+import { RECEIPT_HOLD_MS, flightChips, ordinal, rankMove, receiptDockStyle, receiptDragOffset, receiptRelease,
+  receiptVelocity, signedAmount } from "./resultMoment.js";
 import { rainPlan } from "./ChipShower.jsx";
 import "./results.css";
 
 const fmt = n => Math.round(Number(n) || 0).toLocaleString("en-US");
 /* each line lands this long after the one before it */
 export const LINE_STAGGER = 140;
+/* leaving, the card travels this much further toward its edge as it fades */
+const LEAVE_PX = 48;
 const Arrow = () => <Icon name="open" size="1em" />;
 
 /* X2: a docked card on YOUR phone when a fresh result moves YOUR chips.
@@ -88,13 +91,40 @@ export function ChipReceipt({ moment, onDismiss, onStandings, onSettled, dock = 
     el.style.bottom = place?.bottom || "";
   }, [dock, moment?.id, version]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  /* it leaves after it has been read; a new line restarts the clock */
+  /* leaving: the card carries on toward its own edge and fades
+     (MOTION.sheetOut), then it is gone. A flick keeps its speed (ease
+     out); a card at rest falls away (ease exit). Reduced motion: gone at
+     once. Inline styles only, so a re-render never fights them. */
+  const leaving = useRef(0);
+  const dismissRef = useRef(onDismiss);
+  dismissRef.current = onDismiss;
+  const leave = (fromDy = 0) => {
+    if (leaving.current) return;
+    drag.current = null;
+    const el = rootRef.current;
+    if (!el || prefersReducedMotion()) { dismissRef.current?.(); return; }
+    const sign = dock === "top" ? -1 : 1, ease = fromDy ? EASE.out : EASE.exit;
+    Object.assign(el.style, { transition:`transform ${MOTION.sheetOut}ms ${ease}, opacity ${MOTION.sheetOut}ms ${ease}`,
+      transform:`translateY(${(sign * (Math.abs(fromDy) + LEAVE_PX)).toFixed(1)}px)`, opacity:"0", pointerEvents:"none" });
+    leaving.current = setTimeout(() => { leaving.current = 0; dismissRef.current?.(); }, MOTION.sheetOut);
+  };
+  const leaveRef = useRef(leave);
+  leaveRef.current = leave;
+
+  /* it leaves after it has been read; a new line restarts the clock and
+     calls back a card that had started to leave */
   const hold = RECEIPT_HOLD_MS + countDelay;
   useEffect(() => {
     if (!moment) return undefined;
-    const timer = setTimeout(() => onDismiss?.(), hold);
+    if (leaving.current) {
+      clearTimeout(leaving.current);
+      leaving.current = 0;
+      for (const prop of ["transition", "transform", "opacity", "pointer-events"]) rootRef.current?.style.removeProperty(prop);
+    }
+    const timer = setTimeout(() => leaveRef.current(), hold);
     return () => clearTimeout(timer);
   }, [moment?.id, version]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => () => clearTimeout(leaving.current), []);
 
   if (!moment || moment.kind !== "receipt") return null;
   const move = rankMove(moment.rankFrom, moment.rankTo);
@@ -102,36 +132,50 @@ export function ChipReceipt({ moment, onDismiss, onStandings, onSettled, dock = 
   const summary = `${moment.title}. ${lines.map(line => `${line.label} ${signedAmount(line.delta)}`).join(", ")}. ${
     fmt(moment.to)} chips, ${ordinal(moment.rankTo)}${moment.fact ? `. ${moment.fact}` : ""}`;
 
-  /* a swipe down or a tap on the card (not its buttons) puts it away */
+  /* a swipe toward its edge, a flick that way, or a tap on the card (not
+     its buttons) puts it away. Held, the card follows the finger 1:1 (no
+     transition), gives less the other way, and springs back if let go
+     short. */
   const down = event => {
-    if (event.target.closest?.("button")) return;
-    drag.current = { y:event.clientY, dy:0 };
+    if (leaving.current || event.target.closest?.("button")) return;
+    const el = rootRef.current;
+    drag.current = { y:event.clientY, dy:0, h:el?.offsetHeight || 200, samples:[{ t:event.timeStamp, y:event.clientY }] };
+    if (el) el.style.transition = "none";
+    try { event.currentTarget.setPointerCapture?.(event.pointerId); } catch {}
   };
   const move_ = event => {
-    if (!drag.current) return;
-    drag.current.dy = event.clientY - drag.current.y;
-    const dy = dock === "top" ? Math.min(0, drag.current.dy) : Math.max(0, drag.current.dy);
-    if (rootRef.current) rootRef.current.style.transform = dy ? `translateY(${dy}px)` : "";
+    const d = drag.current;
+    if (!d) return;
+    d.dy = event.clientY - d.y;
+    d.samples.push({ t:event.timeStamp, y:event.clientY });
+    if (d.samples.length > 12) d.samples.shift();
+    const dy = receiptDragOffset(d.dy, dock, d.h);
+    if (rootRef.current) rootRef.current.style.transform = Math.abs(dy) >= 0.5 ? `translateY(${dy.toFixed(1)}px)` : "";
   };
-  const up = () => {
-    const current = drag.current;
+  const settleBack = () => {
+    rootRef.current?.style.removeProperty("transition");
+    rootRef.current?.style.removeProperty("transform");
+  };
+  const up = event => {
+    const d = drag.current;
     drag.current = null;
-    if (!current) return;
-    const away = dock === "top" ? current.dy < -40 : current.dy > 40;
-    if (away || Math.abs(current.dy) < 6) { onDismiss?.(); return; }
-    if (rootRef.current) rootRef.current.style.transform = "";
+    if (!d) return;
+    const verdict = receiptRelease({ dy:d.dy, vy:receiptVelocity(d.samples, event?.timeStamp), dock });
+    if (verdict === "back") { settleBack(); return; }
+    leave(verdict === "away" ? receiptDragOffset(d.dy, dock, d.h) : 0);
   };
+  const cancel = () => { if (!drag.current) return; drag.current = null; settleBack(); };
 
   return <section ref={rootRef} className={`fd-receipt is-${dock}${animate ? " is-live" : ""}`}
     role="status" aria-live="polite" aria-label={summary}
-    onPointerDown={down} onPointerMove={move_} onPointerUp={up} onPointerCancel={() => { drag.current = null; up(); }}>
+    onPointerDown={down} onPointerMove={move_} onPointerUp={up} onPointerCancel={cancel}>
     <div className="fd-receipt-timer" aria-hidden="true">
       <i key={version} style={{ animationDuration:`${hold}ms` }} />
     </div>
     <header className="fd-receipt-top">
       <span className="fd-receipt-mark"><BankChip p={moment.chip || moment.me} size={34} /></span>
       <span className="fd-receipt-title"><b>{moment.title}</b>{moment.subtitle && <small>{moment.subtitle}</small>}</span>
-      <button type="button" className="fd-receipt-x" aria-label="Dismiss" onClick={() => onDismiss?.()}><Icon name="close" size={18} /></button>
+      <button type="button" className="fd-receipt-x" aria-label="Dismiss" onClick={() => leave()}><Icon name="close" size={18} /></button>
     </header>
     <ol className="fd-receipt-lines">
       {lines.map((line, index) => <li key={line.id} className={`fd-receipt-line ${line.delta >= 0 ? "is-up" : "is-down"}`}

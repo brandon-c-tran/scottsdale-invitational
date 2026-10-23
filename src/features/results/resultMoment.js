@@ -308,6 +308,42 @@ export function receiptDockStyle({ dock, headerBottom = null, rackTop = null, vi
 
 /* the receipt holds this long after its lines land, then leaves */
 export const RECEIPT_HOLD_MS = 6500;
+
+/* The swipe that puts the receipt away, decided as the finger lifts. A
+   press that never moved is a tap (also away). Otherwise it goes when it
+   has travelled RECEIPT_SWIPE_PX toward its own edge (down for the bottom
+   card, up for the top one) or was flicked that way at RECEIPT_FLICK px/ms
+   or faster, however short the flick; anything else springs back. */
+export const RECEIPT_TAP_PX = 6;
+export const RECEIPT_SWIPE_PX = 40;
+export const RECEIPT_FLICK = 0.11;
+export function receiptRelease({ dy = 0, vy = 0, dock = "bottom" } = {}) {
+  if (Math.abs(Number(dy) || 0) < RECEIPT_TAP_PX) return "tap";
+  const sign = dock === "top" ? -1 : 1;
+  const along = (Number(dy) || 0) * sign, speed = (Number(vy) || 0) * sign;
+  return along >= RECEIPT_SWIPE_PX || (along > 0 && speed >= RECEIPT_FLICK) ? "away" : "back";
+}
+/* Where the card sits under a finger that has moved dy: toward its own
+   edge it follows 1:1; the other way it gives less the further it goes (a
+   rubber band against a card `size` px tall), never a hard stop. */
+export function receiptDragOffset(dy, dock = "bottom", size = 200) {
+  const d = Number(dy) || 0, sign = dock === "top" ? -1 : 1;
+  if (d * sign >= 0) return d;
+  const over = Math.abs(d), c = 0.55, span = Math.max(1, Number(size) || 200);
+  return -sign * (over * span * c) / (span + c * over);
+}
+/* The finger's speed in px/ms over its last RECEIPT_VELOCITY_MS of
+   travel, 0 once it has held still that long before lifting. */
+export const RECEIPT_VELOCITY_MS = 100;
+export function receiptVelocity(samples = [], releasedAt = null) {
+  const list = samples.filter(s => Number.isFinite(s?.t) && Number.isFinite(s?.y));
+  if (list.length < 2) return 0;
+  const last = list[list.length - 1];
+  if (Number.isFinite(releasedAt) && releasedAt - last.t > RECEIPT_VELOCITY_MS) return 0;
+  const recent = list.filter(s => last.t - s.t <= RECEIPT_VELOCITY_MS);
+  const first = recent.length > 1 ? recent[0] : list[list.length - 2];
+  return last.t > first.t ? (last.y - first.y) / (last.t - first.t) : 0;
+}
 /* chips a won line sends into the total: one per 100 won, at most three */
 export const flightChips = delta => Math.max(0, Math.min(3, Math.floor((Number(delta) || 0) / PT)));
 export { START };

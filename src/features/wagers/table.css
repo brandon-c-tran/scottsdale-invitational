@@ -68,10 +68,12 @@
 /* the % reads as printed on the felt: the reel rolls, but without window plates */
 .fd-spot-pct .fd-reel-cell { background:none; box-shadow:none; }
 .fd-spot-pct .fd-reel-cell::after { display:none; }
-.fd-spot.is-long .fd-spot-pct { color:var(--sun); text-shadow:0 0 16px color-mix(in srgb, var(--sun) 45%, transparent); }
+/* the glow is a filter on the whole figure (as on the TV's table): a
+   text-shadow would be cut square by each reel window */
+.fd-spot.is-long .fd-spot-pct { color:var(--sun); filter:drop-shadow(0 0 16px color-mix(in srgb, var(--sun) 45%, transparent)); }
 /* a % that just moved stays lit until it has been seen */
-.fd-spot.is-moved .fd-spot-pct { color:var(--sun); text-shadow:0 0 18px color-mix(in srgb, var(--sun) 55%, transparent);
-  transition:color 1.2s var(--ease-out) .6s, text-shadow 1.2s var(--ease-out) .6s; }
+.fd-spot.is-moved .fd-spot-pct { color:var(--sun); filter:drop-shadow(0 0 18px color-mix(in srgb, var(--sun) 55%, transparent));
+  transition:color 1.2s var(--ease-out) .6s, filter 1.2s var(--ease-out) .6s; }
 
 /* what a chip brings back: yours in the filament, the next one quieter */
 .fd-spot-back { display:block; min-height:18px; color:var(--muted2); font:800 15px/1.2 var(--fd-display); letter-spacing:.02em;

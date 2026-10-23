@@ -1140,6 +1140,32 @@ audit and the local e2e (143 of 143) pass. STAGING only, as
 `c8f793b0-5e81-4d49-9d7f-612ac2b9dc05`, awaiting Brandon's review; roll
 staging back to v6 with `npx wrangler rollback
 8ac269e0-67b1-4210-a53f-7bf12dce7e84 --env staging`.
+**Oct 22-23 polish pass** (branch `night/oct22` on `pool/betting`, one
+`--no-ff` merge per area from `oct22/*`; not on production, not pushed):
+the server (the alarm always re-arms, a planner that throws is logged and
+skipped; karaoke lookups hold an unanswered LRCLIB in memory ten minutes;
+a win song on the beat never drops or overlaps; snapshots and backups read
+only the key ranges they keep; socket messages past 512 KB dropped; a frame
+that fails to build is logged), the installed iPhone app (above), motion
+(nine entrances an exit listed after them had hidden now play,
+`tests/stacked-fill.test.mjs`; one hitch no longer flattens the towers),
+speed (`poolBook` sorts tickets in one pass, pools priced once per frame,
+color ink once per color), the TV (the ticker steps aside under a result's
+podium; the pool fill behind its %; a payout ladder counts as drawn in
+`tickerFactParts`), the guest phone (selection in cyan, spot names as
+written, the rack flush on the tab bar), the commissioner (result entry's
+commit in the sheet footer, check-in a switch, destructive confirms in
+clay), worst-case data (`shared/freeText.js` cleans every free-text write,
+never on load; `src/ui/textUnits.js` counts CJK and emoji wide; 48 `worst-`
+views), copy (karaoke's tray asks before Restart and Skip) and the finale
+(invariant 8: the case never refuses). Test speed guards measure CPU time;
+the fit harness waits for a lazy sheet (`until`), never passes a fallback
+font, and its records seeds moved with the pool. 1445 tests, the 700-view
+fit audit and the local e2e (142 of 142) pass. STAGING as
+`41ff42f5-e8ae-45e3-8c46-908ab72eff1a` (build `8505197`); roll staging back
+to the Oct 15 queue with `npx wrangler rollback
+c8f793b0-5e81-4d49-9d7f-612ac2b9dc05 --env staging`. Production's active
+deployment is still v6 as `a50fd1a2-ffad-46ad-9d42-3eb5f2e3479d`.
 
 **September 5 correction (history for the visuals).** Brandon rejected the light
 redesign and the rewritten voice. It made the app harder to use and broke

@@ -22,24 +22,33 @@
 .fd-contest-entrant-players { display:flex; align-items:center; padding-right:4px; }
 .fd-contest-entrant-players button { display:grid; place-items:center; padding:0; width:44px; min-height:44px; border:0; border-radius:6px; background:none; cursor:pointer; }
 .fd-contest-entrant-players button:disabled { cursor:default; }
-.fd-contest-primary:focus-visible,.fd-contest-secondary:focus-visible,.fd-contest-entrant-pick:focus-visible,.fd-contest-entrant-players button:focus-visible { outline:2px solid var(--sun); outline-offset:-3px; }
+.fd-contest-primary:focus-visible,.fd-contest-secondary:focus-visible,.fd-contest-entrant-pick:focus-visible,.fd-contest-entrant-players button:focus-visible { outline:2px solid var(--lamp-info); outline-offset:-3px; }
 .fd-contest-qualifier-actions { display:flex; justify-content:space-between; gap:8px; padding:8px; border-top:1px solid var(--line); }
-.fd-contest-secondary { min-height:44px; padding:8px; border:0; background:none; color:var(--muted2); font-size:12px; text-decoration:underline; cursor:pointer; }
+/* the commissioner's quiet in-place actions (Play next, Start over, Change
+   winner, Retry, Fix): the one link treatment, cyan text, no underline */
+.fd-contest-secondary { min-height:44px; padding:8px 4px; border:0; background:none; color:var(--lamp-info); font:600 13px/1.25 var(--fd-body);
+  text-align:left; cursor:pointer; }
+.fd-contest-secondary:disabled { opacity:.45; cursor:default; }
 .fd-contest-failure { display:flex; align-items:center; gap:10px; justify-content:space-between; }
 .fd-contest-error { font-size:13px; line-height:1.5; color:var(--clay-text); margin:8px 0; }
 .fd-contest-saving { margin:8px 0; color:var(--muted2); font-size:12px; }
 .fd-contest-correction { display:flex; flex-wrap:wrap; align-items:center; gap:0 18px; margin:0 0 12px; }
 .fd-contest-correction > p, .fd-contest-correction > .fd-contest-confirm { flex-basis:100%; }
-.fd-contest-correction button { min-height:44px; padding:8px 0; border:0; background:none; color:var(--muted2); font-size:12px; text-decoration:underline; cursor:pointer; }
+.fd-contest-correction button { min-height:44px; padding:8px 0; border:0; background:none; color:var(--lamp-info); font:600 13px/1.25 var(--fd-body);
+  text-align:left; cursor:pointer; }
 .fd-contest-correction button:disabled { opacity:.5; cursor:default; }
+/* the confirm's commit (Reopen): the irreversible button, clay, never the
+   same quiet text as Keep it beside it */
+.fd-contest-correction .fd-contest-commit { padding:8px 14px; border:1.5px solid var(--ink0); border-radius:8px; background:var(--clay); color:var(--bone);
+  box-shadow:var(--glass-edge); }
 .fd-contest-correction p { margin:0; color:var(--muted); font-size:12px; line-height:1.4; }
 .fd-event-context { margin-bottom:14px; }
 .fd-event-context summary { min-height:44px; padding:12px 0; cursor:pointer; font:600 18px/1.1 var(--fd-display); color:var(--ink); }
 .fd-contest-confirm { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
-.fd-contest-confirm p { flex-basis:100%; color:var(--ink); font-size:12px; }
+.fd-contest-confirm p { flex-basis:100%; color:var(--ink); font-size:13px; line-height:1.4; }
 .fd-contest-reorder { display:flex; flex-wrap:wrap; gap:4px 12px; margin:8px 0 0; }
 .fd-contest-reorder p { flex-basis:100%; margin:0; color:var(--muted); font-size:12px; line-height:1.4; }
-.fd-contest-confirm button:focus-visible { outline:2px solid var(--sun); outline-offset:-3px; }
+.fd-contest-confirm button:focus-visible { outline:2px solid var(--lamp-info); outline-offset:2px; }
 /* your place in the contest, first: playing, and your bet in amber (chips) */
 .fd-contest-toolbar .fd-contest-you { display:flex; align-items:center; gap:14px; color:var(--ink); font:600 14px/1.35 var(--fd-body); }
 .fd-contest-toolbar .fd-contest-you>span { color:var(--ink); font-size:14px; }

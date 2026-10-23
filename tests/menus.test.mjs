@@ -39,6 +39,8 @@ test("the More menu: You, Weekend, Commissioner, by icon, no sentences", () => {
   assert.deepEqual(moreMenu({ gm:true }).map(section => section.id), ["you", "weekend"]);
   assert.equal(moreMenu({ gm:true, guestLens:true }).at(-1).items[0].name, "Back to commissioner", "the guest view's way back");
   for (const section of guest) assert.ok(section.icon && section.title.split(" ").length <= 2, section.id);
+  /* every row has its glyph, so the names share one edge */
+  for (const item of guest.flatMap(section => section.items)) assert.ok(item.icon, `${item.id} has a glyph`);
 });
 
 test("the commissioner's menu: Now, The show, Games, People, Setup, Exit alone at the foot", () => {
@@ -58,6 +60,7 @@ test("the commissioner's menu: Now, The show, Games, People, Setup, Exit alone a
   assert.equal(flat.at(-1).id, "exit");
   assert.equal(menu.at(-1).title, null, "Exit stands alone");
   assert.deepEqual(flat.filter(item => item.tone === "destructive").map(item => item.id), ["takeBack:putt", "unfreeze", "reset"]);
+  for (const item of flat) assert.ok(item.icon, `${item.id} has a glyph: every name on one edge`);
   assert.equal(flat.filter(item => item.id === "reset").length, 1, "one reset entry");
   /* plain names: the TV and the speaker, by what they are */
   const row = id => flat.find(item => item.id === id);
@@ -110,8 +113,10 @@ test("Settings: every switch in one list, each the same write as its own home", 
   assert.equal(row(settingsMenu({ autopilotHeld:true }), "autopilot").pressed, false);
   assert.equal(row(all, "gags").pressed, true);
   assert.equal(row(settingsMenu({ gags:false }), "gags").pressed, false);
-  assert.equal(row(all, "door").value, "Open");
-  assert.equal(row(settingsMenu({}), "door").value, "Closed");
+  /* a switch says on or off itself: no value restating it */
+  assert.equal(row(all, "door").pressed, true);
+  assert.equal(row(settingsMenu({}), "door").pressed, false);
+  for (const item of all.flatMap(section => section.items)) assert.equal(item.value, undefined, `${item.id}: the switch alone`);
   assert.equal(row(settingsMenu({ audioDirector:true, autoWinSongs:null }), "autoWinSongs").disabled, true, "unknown until Spotify answers");
   /* capabilities off: their switches are gone */
   assert.deepEqual(ids(settingsMenu({})), ["autopilot", "gags", "door", "jerseys"]);

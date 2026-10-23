@@ -19,6 +19,9 @@ export const FIT_EXCEPTIONS = Object.freeze([
     reason:"the same sticky Save over the Win song section's last control: with the page at its full height, where the Save rests in its own place as at the end of a scroll, Remove song stands 16px above it" },
   { view:"^tv-(felt|bracket|worst-ticker-deck|worst-bracket-pairs)", rule:"clip", sel:"^g > g > svg > text$", text:"^([A-Z]{1,2}|[一-鿿가-힣]{1})$",
     reason:"a crowded felt's (or a bracket board's bet stacks') smallest chips (32px) letter a face's initials at the TV's 24px floor: the font's line box overhangs the chip's own picture, the capitals (.72em) stand inside it, as does a CJK name's one character (.88em)" },
+  { view:"-(gm-poker-deal-sheet-pill|gm-result-sheet-pill(-placed)?|gm-speaker-error-sheet-speaker)$", rule:"overlap",
+    sel:"fd-sheet-footer|fd-pp-tile",
+    reason:"a sheet's footer (the Sheet's own, sticky, its shadow cast up) holds its commit or its failure in thumb reach: Deal and start over thirteen stacks, Post official result over a 375px phone's field, Speaker's failure line; the body scrolls up past it and clears it at the end" },
   { view:"^tv-showdown-draw$", rule:"overlap", sel:"tv-showdown",
     reason:"Quick Draw's flash is the whole glass lit opaque magenta with DRAW on it for its beat; the faced-off chips under it step out (visibility) for that beat and the frame shows only the flash" },
 ]);

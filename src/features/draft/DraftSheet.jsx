@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { disp, draftTurn, shuffle, snakeTeam, overflowRoleMeta, playerStrength, teamFit } from "../../../shared/core.js";
+import { disp, draftTurn, shuffle, snakeTeam, overflowRoleMeta, playerStrength, shapeLabel, teamFit } from "../../../shared/core.js";
 import { Sheet, ActionButton } from "../../ui/controls.jsx";
 import { Avatar, BankChip } from "../identity/PlayerIdentity.jsx";
 import { resolvePlayerIdentity } from "../identity/playerIdentity.js";
@@ -145,7 +145,9 @@ export function DraftSheet({ ev, state, gm, me, standings = [], pool, roles = []
   if (!draft && (!pool || !gm)) return shell(<p>Draft closed.</p>);
 
   if (!draft) return shell(<div className="fd-draft">
-    <div className="fd-draft-section-title"><h2>Choose {n} captains</h2><span>{n} teams of {size}</span></div>
+    {/* the shape as the crew check says it ("7 v 6" when the room splits
+        unevenly, never "2 teams of 7") */}
+    <div className="fd-draft-section-title"><h2>Choose {n} captains</h2><span>{shapeLabel(fit) || `${n} teams of ${size}`}</span></div>
     <div className="fd-draft-methods" aria-label="Choose captains">
       {[["pick","Choose"],["seed","Balanced"],["random","Random"]].map(([id,text]) =>
         <button type="button" key={id} aria-pressed={method === id} disabled={!!pending}
@@ -293,8 +295,11 @@ function ConfirmedTeams({ state, draw, me, size, onPlayer }) {
   const order = draw.teams.map((team, index) => ({ team, index }))
     .sort((a, b) => Number(b.team.players.includes(me)) - Number(a.team.players.includes(me)));
   const role = (draw.roles || []).find(item => item.player === me);
+  /* the teams as drawn: "7 v 6" when they differ */
+  const sizes = draw.teams.map(team => team.players.length);
+  const shape = shapeLabel({ teams:sizes.length, size:sizes[0] || size, split:sizes });
   return <div className="fd-draft">
-    <div className="fd-draft-section-title"><h2>Teams confirmed</h2><span>{draw.teams.length} teams of {size}</span></div>
+    <div className="fd-draft-section-title"><h2>Teams confirmed</h2><span>{shape}</span></div>
     {role && <p className="fd-draft-note fd-draft-role"><small>Your role</small><strong>{overflowRoleMeta(role.role).label}</strong></p>}
     <div className="fd-draft-teams" style={{ "--draft-columns":Math.min(draw.teams.length, 3) }}>
       {order.map(({ team, index }) => {

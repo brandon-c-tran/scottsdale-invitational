@@ -100,11 +100,15 @@ test("the ballot runs draft, open, closed, revealed, one award at a time", () =>
   const saved = act(state, "promptSave", structuredClone(BALLOT));
   assert.equal(saved.extra.id, "bawards1");
   assert.equal(state.prompts.ballots[0].status, "draft");
+  /* the menu's value: one fact a state, never two joined by a dot */
+  const status = () => ballotStatusLine(state.prompts.ballots[0]);
+  assert.equal(status(), `${BALLOT.questions.length} awards`);
   /* a retried save lands once */
   assert.equal(act(state, "promptSave", structuredClone(BALLOT)).extra.unchanged, true);
   assert.equal(state.prompts.ballots.length, 1);
   act(state, "promptPublish", { id:"bawards1" });
   assert.equal(state.prompts.ballots[0].status, "open");
+  assert.equal(status(), `0 of ${ROSTER.length} voted`);
   assert.equal(act(state, "promptPublish", { id:"bawards1" }).extra.unchanged, true);
   refuse(state, "promptSave", { ...structuredClone(BALLOT), questions:[{ title:"Changed" }] }, gm(), /can't be edited/);
 
@@ -123,10 +127,12 @@ test("the ballot runs draft, open, closed, revealed, one award at a time", () =>
   assert.equal(state.prompts.ballots[0].status, "open");
   assert.equal(Object.keys(state.prompts.responses.bawards1).length, ROSTER.length);
   act(state, "promptClose", { id:"bawards1" });
+  assert.equal(status(), "Voting closed");
 
   refuse(state, "promptReveal", { id:"bawards1", step:2 }, gm(), /in order/);
   act(state, "promptReveal", { id:"bawards1", step:1 });
   assert.equal(revealedCount(state.prompts.ballots[0]), 1);
+  assert.equal(status(), `1 of ${BALLOT.questions.length} on TV`);
   /* the first award discards every per-voter answer */
   assert.equal(state.prompts.responses.bawards1, undefined);
   assert.equal(act(state, "promptReveal", { id:"bawards1", step:1 }).extra.unchanged, true);
@@ -138,7 +144,7 @@ test("the ballot runs draft, open, closed, revealed, one award at a time", () =>
   assert.equal(state.prompts.ballots[0].reveal.done, true);
   assert.equal(act(state, "promptRevealEnd", { id:"bawards1" }).extra.unchanged, true);
   refuse(state, "promptReveal", { id:"bawards1", step:3 }, gm(), /over/);
-  assert.equal(ballotStatusLine(state.prompts.ballots[0]), "Revealed");
+  assert.equal(status(), "Revealed");
   act(state, "promptDiscard", { id:"bawards1" });
   assert.equal(state.prompts.ballots.length, 0);
 });

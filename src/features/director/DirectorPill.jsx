@@ -39,14 +39,16 @@ export function PillMore({ open, onToggle, actions = false, count = 0, disabled 
   </button>;
 }
 
-function PillTray({ model, state, events, director, showControl, karaoke = false, pending, onPick }) {
+export function PillTray({ model, state, events, director, showControl, karaoke = false, pending, onPick }) {
   const alts = model.extras.filter(extra => extra.kind !== "skip");
   const edges = model.extras.filter(extra => extra.kind === "skip");
+  /* the chevron only where the row opens a sheet (Random draw, Open
+     event), as a menu row: a write (Resume autopilot, More time) acts in place */
   const row = (extra, edge) => <button type="button" key={extra.label} disabled={pending}
     className={`fd-pill-tray-row${edge ? " is-edge" : ""}`} onClick={() => onPick(extra.run)}>
     {edge && <Icon name="skip" size={16} />}
     <span>{extra.label}</span>
-    {!edge && <Icon name="next" size={16} />}
+    {!edge && !extra.run?.write && <Icon name="next" size={16} />}
   </button>;
   return <section className="fd-pill-tray" aria-label="More">
     <RunOfShowPanel state={state} events={events} director={director} showControl={showControl} karaoke={karaoke} embedded />

@@ -248,12 +248,13 @@ function awardResults(state) {
     }));
 }
 
-/* the commissioner's one-line status for a ballot */
+/* the commissioner's status for a ballot (the menu row's value): one fact,
+   never two joined by a dot. A draft is its awards; an open ballot, its
+   turnout; then its reveal */
 function ballotStatusLine(ballot) {
   if (!ballot) return "No ballot";
   const n = ballot.questions?.length || 0;
-  const awards = `${n} award${n === 1 ? "" : "s"}`;
-  if (ballot.status === "draft") return awards;
+  if (ballot.status === "draft") return `${n} award${n === 1 ? "" : "s"}`;
   if (ballot.status === "open") return `${ballot.voted ?? 0} of ${ballot.of ?? ROSTER.length} voted`;
   const shown = revealedCount(ballot);
   if (ballot.reveal?.done) return "Revealed";

@@ -1530,6 +1530,35 @@ export const PHONE_SCENARIOS = Object.freeze([
     tabs:[], sheets:["speaker"] },
   { id:"gm-speaker-setup", build:() => fresh("locker"), viewer:"gm", audio:true, spotify:FIT_SPOTIFY.setup,
     tabs:[], sheets:["speaker"] },
+  /* connected, but the player read fails: the error held in view at the sheet's foot */
+  { id:"gm-speaker-error", build:() => withSongs(fresh("event:putt:open")), viewer:"gm", audio:true,
+    spotify:{ status:FIT_SPOTIFY.connected.status, player:{ ok:false, error:"Could not read Spotify" } }, tabs:[], sheets:["speaker"] },
+  /* the commissioner's other sheets, each opened the way he opens it: an
+     individual game's result from the pill (the podium empty, then 1st to
+     3rd seated, at both widths), the finale's deal and crown from the
+     pill, the desks empty and authored, his devices, and the confirms
+     the menu's Now and Setup rows open */
+  { id:"gm-result", build:() => fresh("event:putt:mid"), viewer:"gm", tabs:[], sheets:["pill", "pill-placed"], sheetSizes:["375"] },
+  { id:"gm-poker-deal", build:() => fresh("session:san"), viewer:"gm", tabs:[], sheets:["pill"] },
+  /* the counts posted (QA's poker:counted posts them): the pill's Crown */
+  { id:"gm-crown", build:() => fresh("poker:counted"), viewer:"gm", tabs:[], sheets:["pill"] },
+  { id:"gm-desks", build:() => fresh("locker"), viewer:"gm", tabs:[], sheets:["desk-geo", "desk-awards", "desk-trivia", "gm-devices"] },
+  { id:"gm-desks-full", build:() => readyBoard("all"), viewer:"gm", tabs:[], sheets:["desk-geo", "desk-awards", "desk-trivia"] },
+  { id:"gm-confirm", build:() => fresh("event:putt:open"), viewer:"gm", qa:true, tabs:[], sheets:["gm-takeback", "gm-reset"] },
+  { id:"gm-frozen", build:() => fresh("crowned"), viewer:"gm", tabs:[], sheets:["gm-unfreeze"] },
+  /* Saturday's first game, 5v5: the pill's Captains draft through Before
+     the draw to the captains' setup, at both widths */
+  { id:"gm-draft", build:() => fresh("session:fri"), viewer:"gm", tabs:[], sheets:["pill-draft"], sheetSizes:["375"] },
+  /* mid-weekend: the commissioner's standings (its Adjust per row) and a ruling */
+  { id:"gm-rulings", build:() => fresh("session:fri"), viewer:"gm", tabs:[], sheets:["gm-standings", "gm-adjust"] },
+  /* the dock's other states: the room's TV muted (its line in the pill), and
+     the autopilot paused (the pause lamp on the verb, Resume in the tray) */
+  { id:"gm-dock-muted", build:() => fresh("event:putt:open"), viewer:"gm", tvs:[{ ageMs:1000, sound:"blocked" }], tabs:["home"] },
+  { id:"gm-dock-held", build:() => {
+    const state = fresh("event:putt:open");
+    act(state, "setAutopilot", { hold:true });
+    return state;
+  }, viewer:"gm", tabs:["home"], sheets:["pill-more"], sheetSizes:["375"] },
   { id:"gm-qa", build:() => fresh("event:putt:open"), viewer:"gm", qa:true, tabs:["home", "bets"], sheets:["qa", "pill-more"] },
   /* the console before the weekend (Jump to opens on the first event) */
   { id:"gm-qa-locker", build:() => fresh("locker"), viewer:"gm", qa:true, tabs:[], sheets:["qa"] },
@@ -1711,10 +1740,19 @@ export const PHONE_SCENARIOS = Object.freeze([
   { id:"arrive-row", build:() => withArrivals(fresh("event:putt:open"), 9), tabs:["home"] },
   { id:"arrive-here-9", build:() => withArrivals(fresh("event:putt:open"), 9, { guest:"here" }), tabs:["home"] },
   { id:"arrive-here-13", build:() => withArrivals(fresh("locker"), 13, { guest:"here" }), tabs:["home"] },
-  /* the commissioner: Who is coming with the door shut and open, the
-     travel board's arrivals, and the crew check with four on the way */
+  /* the commissioner: Who is coming with the door shut and open (at both
+     widths: the head carries the check-in switch), every state at once
+     (one away, one not coming), the travel board's arrivals, and the crew
+     check with four on the way */
   { id:"gm-roster", build:() => fresh("locker"), viewer:"gm", tabs:[], sheets:["roster"] },
-  { id:"gm-roster-door", build:() => withArrivals(fresh("locker"), 9), viewer:"gm", tabs:[], sheets:["roster", "travel-sheet"] },
+  { id:"gm-roster-door", build:() => withArrivals(fresh("locker"), 9), viewer:"gm", tabs:[], sheets:["roster", "travel-sheet"],
+    sheetSizes:["375"] },
+  { id:"gm-roster-away", build:() => {
+    const state = fresh("locker");
+    act(state, "setAway", { player:"Ben", away:true });
+    act(state, "setOut", { player:"Allan", out:true });
+    return state;
+  }, viewer:"gm", tabs:[], sheets:["roster"] },
   { id:"gm-crew-road", build:crewRoad, viewer:"gm", tabs:[], sheets:["crew-check"] },
   /* Ready check, from the commissioner's menu: everything still to do (no
      photos, no TV, Spotify not set up, alerts off, the autopilot paused),

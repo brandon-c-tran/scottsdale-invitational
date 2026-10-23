@@ -18,7 +18,8 @@ const section = (id, title, icon, items, extra = {}) => ({ id, title, icon, item
 export function moreMenu(f = {}) {
   return [
     section("you", "You", "person", [
-      { id:"profile", name:"Your profile" },
+      /* every row carries a glyph, so every name stands on one edge */
+      { id:"profile", name:"Your profile", icon:"person" },
     ]),
     section("weekend", "Weekend", "weekend", [
       { id:"trip", name:"Trip details", icon:"house" },
@@ -62,7 +63,7 @@ export function commissionerMenu(f = {}) {
       f.onDeck && { id:"lockStart", name:"Lock and start", value:f.onDeck, icon:"lock", chevron:false },
       ...(f.takeBacks || []).map(ev => ({ id:`takeBack:${ev.id}`, name:`Take back ${ev.name}`, icon:"undo", tone:"destructive" })),
       f.lockerRoom && { id:"lockerRoom", name:"Back to the locker room", icon:"back" },
-      f.frozen && { id:"unfreeze", name:"Unfreeze board", tone:"destructive" },
+      f.frozen && { id:"unfreeze", name:"Unfreeze board", icon:"undo", tone:"destructive" },
       !f.live && ready,
     ]),
     section("room", "The show", "tv", [
@@ -84,7 +85,7 @@ export function commissionerMenu(f = {}) {
       { id:"gmDevices", name:"Commissioner devices", icon:"person" },
       f.snapshotExport && { id:"snapshot", name:"Export snapshot", icon:"down", chevron:false },
       f.qaAllowed && { id:"qa", name:"QA", icon:"flask", value:f.qaOn ? "Strip on" : null },
-      f.progressReset && { id:"reset", name:"Reset game progress", tone:"destructive" },
+      f.progressReset && { id:"reset", name:"Reset game progress", icon:"undo", tone:"destructive" },
     ]),
     section("exit", null, null, [
       { id:"exit", name:"Exit commissioner", icon:"exit", chevron:false },
@@ -107,7 +108,8 @@ export function settingsMenu(f = {}) {
         pressed:f.autoWinSongs === true, disabled:typeof f.autoWinSongs !== "boolean" },
     ]),
     section("people", "People", "people", [
-      { id:"door", name:"Check-in", value:f.doorOpen ? "Open" : "Closed", pressed:!!f.doorOpen },
+      /* the switch is the state: no "Open" beside it */
+      { id:"door", name:"Check-in", pressed:!!f.doorOpen },
       { id:"jerseys", name:"Jerseys ordered", pressed:!!f.jerseysLocked },
     ]),
     section("setup", "Setup", "lock", [

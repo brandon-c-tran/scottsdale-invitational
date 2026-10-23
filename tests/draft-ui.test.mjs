@@ -300,3 +300,23 @@ test("the Home draft entry identifies the current turn and vanishes after confir
   await controls(state, ev).click("Confirm teams");
   assert.equal(controls(state, ev, {}, [], DraftEntry).html, "");
 });
+
+test("the setup and the confirmed teams name the room's shape: 7 v 6 on the full court, never 2 teams of 7", () => {
+  const state = structuredClone(EMPTY_STATE);
+  const ev = allEventsOf(state).find(event => event.id === "bball5");
+  /* thirteen in, nobody on crew: the everyone-plays split */
+  const setup = controls(state, ev, { pool:[...ROSTER], roles:[] });
+  assert.match(setup.html, /Choose 2 captains[^]*7 v 6/);
+  assert.doesNotMatch(setup.html, /2 teams of 7/);
+  /* confirmed: the teams as drawn */
+  state.draws[ev.id] = { id:"d-full", sourceDraftId:"draft-full",
+    teams:[{ players:ROSTER.slice(0, 7) }, { players:ROSTER.slice(7) }] };
+  const confirmed = controls(state, ev, { gm:false, me:ROSTER[0] });
+  assert.match(confirmed.html, /Teams confirmed[^]*7 v 6/);
+  /* an even draw still reads in teams */
+  const even = withLegacyEvents(structuredClone(EMPTY_STATE), ["flip"]);
+  const flip = allEventsOf(even).find(event => event.id === "flip");
+  even.draws[flip.id] = { id:"d-flip", sourceDraftId:"draft-flip",
+    teams:[{ players:ROSTER.slice(0, 6) }, { players:ROSTER.slice(6, 12) }] };
+  assert.match(controls(even, flip, { gm:false, me:ROSTER[0] }).html, /Teams confirmed[^]*2 teams of 6/);
+});

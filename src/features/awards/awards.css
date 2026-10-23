@@ -135,9 +135,12 @@
 .fd-awards-toggle { display:flex; gap:6px; }
 .fd-awards-toggle button { min-height:44px; flex:1; border:1px solid var(--line); border-radius:10px; background:transparent;
   color:var(--muted); font:700 14px/1 var(--fd-body); cursor:pointer; }
-.fd-awards-toggle button[aria-pressed="true"] { border-color:var(--sun); background:var(--sun-tint); color:var(--ink); }
+/* chosen: the info lamp, as every segmented control (awards are honors,
+   never chips, so nothing on the desk is amber) */
+.fd-awards-toggle button[aria-pressed="true"] { border-color:color-mix(in srgb, var(--lamp-info) 55%, transparent); background:var(--info-tint);
+  color:var(--lamp-info); }
 .fd-awards-check { min-height:44px; display:flex; align-items:center; gap:10px; font:600 14px/1.2 var(--fd-body); color:var(--ink); }
-.fd-awards-check input { width:22px; height:22px; accent-color:var(--sun); }
+.fd-awards-check input { width:22px; height:22px; accent-color:var(--lamp-info); }
 .fd-awards-picks { display:grid; grid-template-columns:repeat(auto-fill, minmax(62px, 1fr)); gap:6px; }
 .fd-awards-desk-list { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; }
 .fd-awards-desk-list li { display:flex; align-items:center; justify-content:space-between; gap:10px; min-height:44px;

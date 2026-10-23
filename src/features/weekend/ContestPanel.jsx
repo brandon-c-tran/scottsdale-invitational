@@ -365,7 +365,7 @@ function ContestCorrection(props) {
         {confirming === option.contestId ? <div className="fd-contest-confirm">
           <p>Reopens {name}{view?.matchup ? `: ${view.matchup}` : ""}.{view?.winner ? ` ${view.winner} loses the win.` : ""}
             {moved ? ` ${moved}` : ""}</p>
-          <button type="button" disabled={correction.pending || blocked || !option.enabled}
+          <button type="button" className="fd-contest-commit" disabled={correction.pending || blocked || !option.enabled}
             onClick={() => correction.run(option.contestId)}>{correction.pending ? "Undoing…" : `Reopen ${name}`}</button>
           <button type="button" disabled={correction.pending} onClick={() => setConfirming(null)}>Keep it</button>
         </div> : <button type="button" disabled={correction.pending || blocked || !option.enabled}

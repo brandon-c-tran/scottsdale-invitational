@@ -3,6 +3,7 @@ import { ROSTER, arrivalsOpen, disp, hasArrived, isAway, isOut, rosterOf } from 
 import { ActionButton, Sheet } from "../../ui/controls.jsx";
 import { Avatar } from "../identity/PlayerIdentity.jsx";
 import { tapTick } from "../../lib/haptics.js";
+import "../../ui/menu.css";
 import "./roster.css";
 import { writeError } from "../../lib/writeErrors.js";
 
@@ -16,7 +17,7 @@ import { writeError } from "../../lib/writeErrors.js";
    their lamp flashing, their face unlit in a dashed seat, and Mark here
    under their name (for someone without a phone: the commissioner needs no
    code). Checking in is otherwise the guest's own scan of the TV. Check-in
-   itself is one small control at the top (Open, Close, and New code, which
+   itself is one small control at the top (its switch, and New code, which
    gives the TV a fresh code and retires the old one). */
 const STATES = [
   { id:"here", label:"Here" },
@@ -85,9 +86,11 @@ export function RosterSheet({ state, onAway, onOut, onArrived, onDoor, onNewCode
           <span>Check-in</span>{door && <strong>{count.here}/{count.total}</strong>}</span>
         {door && onNewCode && <button type="button" className="fd-roster-door-link" disabled={!!pending}
           onClick={() => run("code", onNewCode)}>New code</button>}
-        <ActionButton variant="secondary" compact className="fd-roster-door-go" pending={pending === "door"}
-          disabled={!!pending && pending !== "door"} onClick={() => run("door", () => onDoor(!door))}>
-          {door ? "Close" : "Open"}</ActionButton>
+        {/* the same switch as Settings' Check-in: a word here ("Close")
+            read as closing the sheet under its own X */}
+        <button type="button" role="switch" aria-checked={door} aria-label="Check-in" className="fd-roster-door-switch"
+          aria-busy={pending === "door" || undefined} disabled={!!pending} onClick={() => run("door", () => onDoor(!door))}>
+          <span className={`fd-menu-switch${door ? " is-on" : ""}`} aria-hidden="true" /></button>
         {(errors.door || errors.code) && <p className="fd-roster-error" role="alert">{errors.door || errors.code}</p>}
       </div>}
     </div>
@@ -98,8 +101,10 @@ export function RosterSheet({ state, onAway, onOut, onArrived, onDoor, onNewCode
         const error = errors[player] || errors[`mark:${player}`];
         return <li key={player} className={`fd-roster-row is-${now}${road ? " is-road" : ""}${pending === player ? " is-pending" : ""}`}>
           <span className="fd-roster-who">
-            <i className={`fd-insert${now === "out" ? " is-void" : road ? " is-pending" : ""}${pending === player ? " is-pending" : ""}`}
-              style={{ "--lamp-on":now === "away" ? "var(--sun)" : "var(--lamp-info)" }} aria-hidden="true" />
+            {/* the info lamp: lit here, unlit away (out of the draws, still
+                on the weekend), struck for not coming */}
+            <i className={`fd-insert${now === "out" ? " is-void" : now === "away" ? " is-done" : road ? " is-pending" : ""}${pending === player ? " is-pending" : ""}`}
+              style={{ "--lamp-on":"var(--lamp-info)" }} aria-hidden="true" />
             <span className="fd-roster-face"><Avatar state={state} p={player} size={36} /></span>
             <span className="fd-roster-name">{disp(state, player)}</span>
           </span>

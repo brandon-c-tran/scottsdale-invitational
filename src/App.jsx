@@ -1985,9 +1985,9 @@ function TournamentApp({ tournament, onUpdateReload }) {
           }} />
       )}
       {gmView && modal?.type === "skipEvent" && (
-        <Sheet title={`Skip ${modal.ev.name}`} onClose={() => setModal(null)} onBack={modalBack}
+        <Sheet title={`Skip ${modal.ev.name}`} show onClose={() => setModal(null)} onBack={modalBack}
           footer={<>
-            <Btn onClick={async () => { const result = await shelveEvent(modal.ev.id, true, true);
+            <Btn kind="flame" onClick={async () => { const result = await shelveEvent(modal.ev.id, true, true);
               if (result.ok) { setModal(null); const bets = result.extra?.bets || 0;
                 notify(bets ? `${modal.ev.name} shelved. ${bets} bet${bets === 1 ? "" : "s"} returned` : `${modal.ev.name} shelved`); } }}>Skip {modal.ev.name}</Btn>
             <Btn kind="ghost" onClick={() => setModal(null)}>Keep it</Btn>
@@ -2002,9 +2002,9 @@ function TournamentApp({ tournament, onUpdateReload }) {
       {gmView && modal?.type === "takeBack" && (() => {
         const available = announcementTakeBack(state, modal.ev);
         const returned = refundText(state, available.refunds);
-        return <Sheet title={`Take back ${modal.ev.name}`} onClose={() => setModal(null)} onBack={modalBack}
+        return <Sheet title={`Take back ${modal.ev.name}`} show onClose={() => setModal(null)} onBack={modalBack}
           footer={<>
-            <Btn disabled={!available.enabled} onClick={async () => {
+            <Btn kind="flame" disabled={!available.enabled} onClick={async () => {
               const result = await takeBackAnnouncement(modal.ev);
               if (result.ok) setModal(null); }}>Take back</Btn>
             <Btn kind="ghost" onClick={() => setModal(null)}>Keep it</Btn>
@@ -2891,16 +2891,19 @@ function EventSheet({ ev, state, me, gm, onLock, onWinner, onUndo, onClose, onBa
                             borderTop:index ? "1px solid var(--line)" : "none" }}>
                             <Avatar state={state} p={player} size={32} />
                             <div style={{ flex:1, minWidth:0 }}>
-                              <div style={{ fontFamily:SANS, fontWeight:700, fontSize:12.5, color:"var(--ink)",
-                                overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                              {/* a person's name wraps, never an ellipsis */}
+                              <div style={{ fontFamily:SANS, fontWeight:700, fontSize:14, lineHeight:1.25, color:"var(--ink)",
+                                overflowWrap:"anywhere" }}>
                                 {disp(state, player)}
                               </div>
                             </div>
+                            {/* 16px, as an iPhone draws it anyway (shell.css), so the
+                                role it shows is the role it fits */}
                             <select aria-label={`${disp(state, player)} event crew role`} value={role}
                               onChange={event => setOutRoles(current => ({ ...current, [player]:event.target.value }))}
-                              style={{ width:142, maxWidth:"42%", padding:"8px 8px", borderRadius:9,
+                              style={{ flex:"0 1 auto", minWidth:0, maxWidth:"58%", minHeight:44, padding:"8px 10px", borderRadius:9,
                                 background:"var(--paper)", color:"var(--ink)", border:"1px solid var(--line)",
-                                fontFamily:SANS, fontWeight:700, fontSize:12 }}>
+                                fontFamily:SANS, fontWeight:700, fontSize:16 }}>
                               {OVERFLOW_ROLES.map(value => (
                                 <option key={value} value={value}>{overflowRoleMeta(value).label}</option>
                               ))}
@@ -2934,7 +2937,7 @@ function EventSheet({ ev, state, me, gm, onLock, onWinner, onUndo, onClose, onBa
           {ev.teamCfg && draw && !res && setupAllowed && (
             confirmRedraw
               ? <div style={{ display:"flex", gap:8, marginBottom:10 }}>
-                  <Btn kind="danger" onClick={() => { onClearDraw(); setConfirmRedraw(false); }} style={{ flex:1 }}>Scrap the draw</Btn>
+                  <Btn kind="flame" onClick={() => { onClearDraw(); setConfirmRedraw(false); }} style={{ flex:1 }}>Scrap the draw</Btn>
                   <Btn kind="ghost" onClick={() => setConfirmRedraw(false)} style={{ flex:1 }}>Keep it</Btn>
                 </div>
               : <Btn kind="ghost" onClick={() => setConfirmRedraw(true)} style={{ width:"100%", marginBottom:10 }}>Redraw</Btn>
@@ -2946,7 +2949,7 @@ function EventSheet({ ev, state, me, gm, onLock, onWinner, onUndo, onClose, onBa
             const bench = present.filter(player => !drawn.includes(player));
             if (!bench.length) return null;
             const selectStyle = { flex:1, minWidth:120, minHeight:44, padding:"8px", borderRadius:9, background:"var(--paper)",
-              color:"var(--ink)", border:"1px solid var(--line)", fontFamily:SANS, fontWeight:700, fontSize:12.5 };
+              color:"var(--ink)", border:"1px solid var(--line)", fontFamily:SANS, fontWeight:700, fontSize:16 };
             return (
               <details className="fd-event-info">
                 <summary><span>Swap in a player</span></summary>
@@ -3382,7 +3385,7 @@ function AdjustSheet({ state, player, onClose, save, onRemove }) {
   const field = { background:"var(--paper2)", border:"1px solid var(--line)", borderRadius:14,
     padding:"12px 13px", color:"var(--ink)", fontFamily:SANS, fontSize:14, outline:"none" };
   return (
-    <Sheet title={`Ruling for ${disp(state, player)}`} onClose={onClose} busy={pending}>
+    <Sheet title={`Ruling for ${disp(state, player)}`} show onClose={onClose} busy={pending}>
       <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:12, marginBottom:12 }}>
         <Btn kind="dark" disabled={pending} onClick={() => setDelta(d => (Number(d) || 0) - step)} style={{ fontSize:19, width:54 }}
           aria-label={`Minus ${step}`}><Icon name="minus" size={18} /></Btn>

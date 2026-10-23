@@ -319,6 +319,14 @@ test("the phone's foot: Lock in goes pending on the tap, and Saving… never mov
   assert.match(css, /\.fd-geo-primary\[aria-busy=true\] \{ opacity:\.6;/, "pending reads as the house's 60%, not a dead grey");
 });
 
+test("the pin drops where you tap; a dragged pin stays where you let it go", async () => {
+  const { readFileSync } = await import("node:fs");
+  const map = readFileSync(new URL("../src/features/geo/GeoMap.jsx", import.meta.url), "utf8");
+  assert.match(map, /const drop = !dragged\.current;\s*dragged\.current = false;\s*a\.setPin\(pin, \{ node:pinNode\("guess", \{ drop \}\)/);
+  assert.match(map, /onDrag:point => \{\s*dragged\.current = true;/, "a drag marks the next pin as placed, not dropped");
+  assert.match(map, /if \(modeRef\.current !== "pick"\) return;\s*dragged\.current = false;/, "a tap always drops");
+});
+
 test("Lock and start without photos leaves the game's Start beat on the pill", () => {
   const state = announced({ rounds:[] });
   lockAndStart(state);

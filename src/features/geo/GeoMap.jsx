@@ -103,6 +103,8 @@ export function GeoMap({ mode = "pick", pin = null, onPick, answer = null, guess
   modeRef.current = mode;
   const sinceRef = useRef(since);
   sinceRef.current = since;
+  /* the pin was just dragged where it is: it stands there, it does not drop again */
+  const dragged = useRef(false);
   const [renderer, setRenderer] = useState(rendererNow);
   const [ready, setReady] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -132,6 +134,7 @@ export function GeoMap({ mode = "pick", pin = null, onPick, answer = null, guess
         api.current = made;
         made.onClick(point => {
           if (modeRef.current !== "pick") return;
+          dragged.current = false;
           tapRef.current?.();
           pickRef.current?.(point);
         });
@@ -156,7 +159,10 @@ export function GeoMap({ mode = "pick", pin = null, onPick, answer = null, guess
     const a = api.current;
     if (!ready || mode !== "pick" || !a) return;
     if (!pin) { a.setPin(null); return; }
-    a.setPin(pin, { node:pinNode("guess", { drop:true }), draggable:interactive, onDrag:point => {
+    const drop = !dragged.current;
+    dragged.current = false;
+    a.setPin(pin, { node:pinNode("guess", { drop }), draggable:interactive, onDrag:point => {
+      dragged.current = true;
       tapRef.current?.();
       pickRef.current?.(point);
     } });

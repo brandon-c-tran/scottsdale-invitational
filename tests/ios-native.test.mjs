@@ -91,6 +91,17 @@ test("a full-screen pane that scrolls keeps its scroll: the page under it never 
   assert.deepEqual(loose, []);
 });
 
+test("what holds a sheet's foot stands clear of the home indicator", () => {
+  const all = cssFiles("src").flatMap(file => rules(readFileSync(file, "utf8")).map(rule => ({ ...rule, file })));
+  for (const selector of [".fd-sheet-footer", ".fd-profile-save", ".fd-draw-footer", ".si-sheet .fd-standings-list>.is-you"]) {
+    const rule = all.find(r => r.selector === selector && /position:\s*sticky/.test(r.body));
+    assert.ok(rule, selector);
+    assert.match(rule.body, /safe-area-inset-bottom/, `${rule.file}: ${selector}`);
+  }
+  /* the profile's Save is flush with the foot, so the body leaves no padding under it */
+  assert.ok(all.some(r => r.selector === ".fd-sheet-body:has(> .fd-profile-save:last-child)" && /padding-bottom:\s*0/.test(r.body)));
+});
+
 test("hover styles live only where a pointer hovers (a tap leaves :hover stuck on iPhone)", () => {
   const stuck = [];
   for (const file of cssFiles("src")) for (const rule of rules(readFileSync(file, "utf8"))) {

@@ -116,6 +116,9 @@
 /* a pending place: the spot breathes amber until the write answers */
 .fd-spot.is-pending-place .fd-spot-fill { animation:fd-spot-breathe 900ms ease-in-out infinite; }
 @keyframes fd-spot-breathe { 50% { filter:brightness(1.35); } }
+/* a pending take-back: your stack breathes until the write answers, then
+   its last chip flies home (held at the pending 60% under reduced motion) */
+.fd-spot.is-pending-remove .fd-spot-mine { opacity:.6; animation:fd-chip-pending .7s ease-in-out infinite alternate; }
 
 /* settled: the winner's fill floods, WON stamps; a loser's chips are raked */
 .fd-spot.is-won { box-shadow:inset 0 0 0 2px var(--green), 0 0 26px -8px var(--green); }

@@ -146,10 +146,14 @@ test("configured poker distribution is exact and legal for 12, 13, and 14 seats"
   assert.equal(odd.seats.a.reduce((sum, chip) => sum + chip.v * chip.n, 0), 625);
   assert.deepEqual(odd.seats.b, [{ v:25, n:3 }]);
   assert.equal(pokerDeal({ a:612 }).ok, false);
-  /* no chip set can cover a table this deep: a clear refusal, not a silent short deal */
+  /* no chip set can cover a table this deep, and it still deals: the whole
+     case, with what each seat is short named on the deal, never silently */
   const deep = pokerDistribution(Array.from({ length:13 }, (_, index) => ({ player:`P${index}`, pts:20000 })));
-  assert.equal(deep.ok, false);
-  assert.match(deep.errors[0], /chip case/);
+  assert.equal(deep.ok, true);
+  const caseTotal = POKER_CONFIG.denominations.reduce((sum, v) => sum + v * POKER_CONFIG.chipSet[v], 0);
+  assert.equal(Object.values(deep.deal.short).reduce((sum, n) => sum + n, 0), 13 * 20000 - caseTotal);
+  for (const row of deep.rows)
+    assert.equal(row.denominations.reduce((sum, chip) => sum + chip.v * chip.n, 0) + (row.short || 0), row.stack);
 });
 
 test("deterministic rehearsal completes every event, locks the dealt board, and reverses poker exactly", () => {

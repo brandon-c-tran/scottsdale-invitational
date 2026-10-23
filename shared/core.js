@@ -1013,27 +1013,29 @@ function pokerClockAnchor(poker, now) {
   const levels = poker.levels || POKER_LEVELS;
   return { idx:clk.idx, levelStartedAt:now - (levels[clk.idx].mins * 60000 - clk.msLeft) };
 }
-/* The table's deal from the case (Oct 14). Pure in the seats' stacks (ties
-   by player id), so every screen derives the same chips; pokerSetup stores
-   it. Every seat's odd tail first (a stack in 5s takes its tail in 5s and
-   25s), then the same working layer for every seat, smallest chip first
-   (5s, 25s, 100s, 500s; a short stack gets as much as it holds, each step
-   closing on a round value), the bulk in 1000s (falling back to smaller
-   chips only if the 1000s run out), then an exchange pass: the small chips
-   still in the case replace a bigger chip on the biggest stacks, round the
-   table, so the set is used evenly whatever the board comes to. The bank
-   reserve is never dealt. { ok, seats:{ player:[{ v, n }] }, inventory,
-   left:{ v:n } }; ok is false when the case cannot cover the stacks. */
-function pokerDeal(stacks, { set = POKER_CONFIG.chipSet, reserve = POKER_CONFIG.reserve } = {}) {
+/* the seats a deal is asked for, as [player, stack]: { player:stack },
+   [{ player, stack }], or bare stacks (seat-1, seat-2, ...) */
+const dealEntries = stacks => Array.isArray(stacks)
+  ? stacks.map((item, index) => typeof item === "number" ? [`seat-${index + 1}`, item] : [item?.player, item?.stack])
+  : Object.entries(stacks || {});
+/* One deal from the case with `reserve` held back in the bank (Oct 14).
+   Pure in the seats' stacks (ties by player id), so every screen derives
+   the same chips. Every seat's odd tail first (a stack in 5s takes its tail
+   in 5s and 25s), then the same working layer for every seat, smallest
+   chip first (5s, 25s, 100s, 500s; a short stack gets as much as it holds,
+   each step closing on a round value), the bulk in 1000s (falling back to
+   smaller chips only if the 1000s run out), then an exchange pass: the
+   small chips still in the case replace a bigger chip on the biggest
+   stacks, round the table, so the set is used evenly whatever the board
+   comes to. { ok, seats:{ player:[{ v, n }] }, inventory, left:{ v:n } };
+   ok is false when what the case puts out cannot cover the stacks. */
+function caseDeal(stacks, set, reserve) {
   const denoms = POKER_CONFIG.denominations;
   const small = [...denoms].sort((a, b) => a - b);
   const up = d => small[small.indexOf(d) + 1] || d;
   const left = Object.fromEntries(denoms.map(d =>
     [d, Math.max(0, (Number(set?.[d]) || 0) - (Number(reserve?.[d]) || 0))]));
-  const entries = Array.isArray(stacks)
-    ? stacks.map((item, index) => typeof item === "number" ? [`seat-${index + 1}`, item] : [item?.player, item?.stack])
-    : Object.entries(stacks || {});
-  const seats = entries.map(([player, stack]) => ({ player:String(player), stack:Number(stack), rest:Number(stack), chips:{} }))
+  const seats = dealEntries(stacks).map(([player, stack]) => ({ player:String(player), stack:Number(stack), rest:Number(stack), chips:{} }))
     .sort((a, b) => a.stack - b.stack || (a.player < b.player ? -1 : a.player > b.player ? 1 : 0));
   const result = ok => ({
     ok,
@@ -1081,14 +1083,65 @@ function pokerDeal(stacks, { set = POKER_CONFIG.chipSet, reserve = POKER_CONFIG.
   }
   return result(seats.every(seat => seat.rest === 0) && denoms.every(d => left[d] >= 0));
 }
+/* the chips a deal takes past the case less the reserve: the bank's, lent */
+const lentChips = (inventory, set, reserve) => inventory
+  .map(({ v, n }) => ({ v, n:n - Math.max(0, (Number(set?.[v]) || 0) - (Number(reserve?.[v]) || 0)) }))
+  .filter(item => item.n > 0);
+/* The table's deal, which pokerSetup stores. A legal board is never
+   refused. The bank keeps its reserve whenever the rest of the case covers
+   the stacks, so every board that dealt before deals exactly as it did.
+   When it cannot (Oct 23), the bank lends its reserve one chip at a time,
+   its 1000s first, then the 500s, 100s, 25s and 5s, and the first deal that
+   covers the stacks is the table's: the 5s, 25s and 100s that make change
+   and pay the race-offs stay in the bank unless nothing else covers
+   (`lent`, the reserve's chips in the deal). When the whole case cannot
+   cover the board, it deals everything the case holds, smaller stacks
+   first, and `short` is what each seat still needs, made up by hand: the
+   biggest stacks, together exactly what the board holds past the case.
+   { ok, seats, inventory, left, lent?, short? }; ok is false only for a
+   stack the chips cannot make (below 0 or off the 5s), which deals nothing. */
+function pokerDeal(stacks, { set = POKER_CONFIG.chipSet, reserve = POKER_CONFIG.reserve } = {}) {
+  const deal = caseDeal(stacks, set, reserve);
+  if (deal.ok || !Object.keys(deal.seats).length) return deal;
+  const denoms = POKER_CONFIG.denominations;
+  const entries = dealEntries(stacks);
+  const total = entries.reduce((sum, [, stack]) => sum + Number(stack), 0);
+  const count = (from, d) => Math.max(0, Number(from?.[d]) || 0);
+  const held = Object.fromEntries(denoms.map(d => [d, Math.min(count(set, d), count(reserve, d))]));
+  let room = denoms.reduce((sum, d) => sum + d * (count(set, d) - held[d]), 0);
+  const withLent = dealt => {
+    const lent = lentChips(dealt.inventory, set, reserve);
+    return lent.length ? { ...dealt, lent } : dealt;
+  };
+  for (const d of denoms) {
+    while (held[d] > 0) {
+      held[d] -= 1;
+      room += d;
+      /* a case worth less than the board cannot cover it: lend on */
+      if (room < total) continue;
+      const covered = caseDeal(stacks, set, held);
+      if (covered.ok) return withLent(covered);
+    }
+  }
+  const whole = caseDeal(stacks, set, held);
+  const stackOf = Object.fromEntries(entries.map(([player, stack]) => [String(player), Number(stack)]));
+  const short = Object.fromEntries(Object.entries(whole.seats)
+    .map(([player, chips]) => [player, stackOf[player] - chips.reduce((sum, chip) => sum + chip.v * chip.n, 0)])
+    .filter(([, need]) => need > 0));
+  return { ...withLent(whole), ok:true, short };
+}
 /* a table's deal: the one pokerSetup stored, else the same deal derived
-   from its starting stacks (a table set before the deal was stored) */
+   from its starting stacks (a table set before the deal was stored). The
+   bank's lent chips and the seats' shorts ride along when there are any. */
 function pokerTableDeal(poker) {
-  if (poker?.deal?.seats) return { seats:poker.deal.seats, inventory:poker.deal.inventory || [] };
-  const deal = pokerDeal(poker?.startingStacks || {});
-  return { seats:deal.seats, inventory:deal.inventory };
+  const deal = poker?.deal?.seats ? poker.deal : pokerDeal(poker?.startingStacks || {});
+  return { seats:deal.seats, inventory:deal.inventory || [],
+    ...(Array.isArray(deal.lent) && deal.lent.length ? { lent:deal.lent } : {}),
+    ...(deal.short && typeof deal.short === "object" && Object.keys(deal.short).length ? { short:deal.short } : {}) };
 }
 const pokerSeatChips = (poker, player) => pokerTableDeal(poker).seats[player] || [];
+/* what the case could not deal a seat, made up by hand at the table */
+const pokerSeatShort = (poker, player) => Math.max(0, Number(pokerTableDeal(poker).short?.[player]) || 0);
 
 /* Pure finale audit used by setup and deterministic 12/13/14-player
    rehearsals. Weekend points are already exact 100-chip units; M1 does not
@@ -1115,17 +1168,22 @@ function pokerDistribution(entries) {
       ? uncapped : Math.min(POKER_CONFIG.maxStack, uncapped);
     return { player, before:legalBefore, stack, grant:stack - legalBefore };
   });
+  /* the case never refuses a legal board: past it the bank lends, and past
+     the whole case each seat's short is made up by hand */
   const deal = errors.length ? null : pokerDeal(rows.map(row => ({ player:row.player, stack:row.stack })));
-  if (deal && !deal.ok) errors.push("The chip case can't cover these stacks. Deal them by hand");
   const seats = deal?.seats || {};
+  const lent = deal?.lent?.length ? { lent:deal.lent } : {};
+  const short = deal?.short || {};
   return {
     ok:errors.length === 0,
     errors,
-    rows:rows.map(row => ({ ...row, denominations:seats[row.player] || [] })),
+    rows:rows.map(row => ({ ...row, denominations:seats[row.player] || [],
+      ...(short[row.player] > 0 ? { short:short[row.player] } : {}) })),
     total:rows.reduce((sum, row) => sum + row.stack, 0),
     minimumCount:rows.filter(row => row.grant > 0).length,
     inventory:deal?.inventory || [],
-    deal:{ seats, inventory:deal?.inventory || [] },
+    ...lent,
+    deal:{ seats, inventory:deal?.inventory || [], ...lent, ...(deal?.short ? { short:deal.short } : {}) },
   };
 }
 /* the tray: how many of each chip the whole table is dealt, from a table
@@ -2116,8 +2174,9 @@ function pokerSetupPreview(state) {
     seats:seated.map(row => row.player),
     away:rows.filter(row => isAbsent(state, row.player)).map(row => ({ player:row.player, pts:row.pts })),
     rows:distribution.rows.map(row => ({ player:row.player, before:row.before, stack:row.stack,
-      grant:row.grant, denominations:row.denominations })),
+      grant:row.grant, denominations:row.denominations, ...(row.short > 0 ? { short:row.short } : {}) })),
     inventory:distribution.inventory,
+    ...(distribution.lent ? { lent:distribution.lent } : {}),
     voidDuels,
     total:distribution.total,
     minimumCount:distribution.minimumCount,
@@ -2284,7 +2343,7 @@ export {
   DUEL_LAPSE_MS, DUEL_DAILY_LIMIT, duelAccepted, duelLapsed, duelLapsesAt, duelPhase, duelOpen,
   DUEL_READY_MS, DUEL_FIRE_MIN_MS, DUEL_FIRE_SPAN_MS, DUEL_LATE_MS, duelReadyUntil, duelMode, duelFireAt,
   duelReserve, duelRoom, duelBetween, duelsSentToday, redactDuelsForViewer, stacksPosted, pokerLevels, pokerClock, pokerClockAnchor,
-  pokerDeal, pokerTableDeal, pokerSeatChips, pokerDistribution, pokerInventory,
+  pokerDeal, pokerTableDeal, pokerSeatChips, pokerSeatShort, pokerDistribution, pokerInventory,
   resultAwards, awardPlan, postCountRuling, postCountRulingApplies,
   computeStandings, atRisk, drawTeams, splitIntoGroups,
   enforceExposure, refundTotals, voidWagerRecords,

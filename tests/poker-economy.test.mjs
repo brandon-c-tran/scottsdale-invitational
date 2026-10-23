@@ -1,9 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import {
   AWARDS, AWARD_VALUES, AWARD_LADDER, BUILTIN_EVENTS, CHIP_MIN, CHIP_SET, CHIP_RESERVE, EMPTY_STATE, POKER_CONFIG,
   POKER_LEVELS, ROSTER, allEventsOf, awardTable, computeStandings, migrateAwardLadder, pokerClock, pokerDeal,
-  pokerDistribution, pokerInventory, pokerSeatChips, pokerTableDeal, raceOffText,
+  pokerDistribution, pokerInventory, pokerSeatChips, pokerSeatShort, pokerTableDeal, raceOffText,
 } from "../shared/core.js";
 import { hydrateStoredState } from "../worker/state.js";
 import { applyAction } from "./support/confirmed-start.mjs";
@@ -158,15 +159,140 @@ test("the exchange pass trades leftover small chips onto the biggest stacks unti
   assert.equal(count(deal.seats.a, 1000), 0, "a short stack never trades");
 });
 
-test("a board the case cannot cover is refused with the commissioner's reason", () => {
+/* ── past the case (Oct 23): the finale is never refused ──
+   The case less the bank's reserve covers every board that dealt before,
+   and those deal exactly as they did. Past it the bank lends its reserve,
+   1000s first; past the whole case every chip is dealt and the rest of
+   each seat that runs out is made up by hand (`short`). */
+const CASE = POKER_CONFIG.denominations.reduce((total, v) => total + v * CHIP_SET[v], 0);
+const DEALABLE = POKER_CONFIG.denominations.reduce((total, v) => total + v * dealable[v], 0);
+const byHand = deal => Object.values(deal.short || {}).reduce((total, n) => total + n, 0);
+const digest = value => createHash("sha256").update(JSON.stringify(value)).digest("hex").slice(0, 16);
+const NEAR = [600, 1800, 3100, 4200, 4800, 5500, 6100, 6700, 7300, 7900, 9200, 11300, 13400];
+const board = (stacks, players = ROSTER) => Object.fromEntries(stacks.map((stack, index) => [players[index], stack]));
+
+test("the case: 88,250 in play less the 1s, 81,950 with the bank's reserve held back", () => {
+  assert.equal(CASE, 88250);
+  assert.equal(DEALABLE, 81950);
+});
+
+test("every board the case less the reserve covers deals exactly as it did on Oct 14", () => {
+  /* digests of the deals the Oct 14 code made, taken before the bank could lend */
+  const before = [
+    [{ a:600, b:1500, c:2400, d:3000, e:3700, f:4100, g:5200, h:6000, i:2000, j:1800, k:900, l:7400, m:8800 }, "a2bbc2562543c259"],
+    [{ a:600, b:9000, c:14000 }, "7ff356fe77963803"],
+    [board(NEAR), "00ecf396055bd293"],
+    [board([600, 2200, 4400, 5100, 6800, 8000, 9900, 12600, 15000]), "93b1502a15746793"],
+  ];
+  for (const [stacks, was] of before) {
+    const deal = pokerDeal(stacks);
+    assert.deepEqual(Object.keys(deal), ["ok", "seats", "inventory", "left"], "nothing lent, nothing by hand");
+    assert.equal(digest(deal), was, `${Object.values(stacks).reduce((a, b) => a + b, 0)} deals as before`);
+  }
+  assert.equal(NEAR.reduce((a, b) => a + b, 0), 81900, "50 under the case less the reserve");
+  const stored = pokerDistribution(Object.entries(board(NEAR)).map(([player, pts]) => ({ player, pts }))).deal;
+  assert.deepEqual(Object.keys(stored), ["seats", "inventory"]);
+  assert.equal(digest(stored), "cae7701289429d9f", "the stored deal is the same bytes");
+});
+
+test("a board just past the case less the reserve: the bank lends its 1000s first and keeps its change", () => {
+  /* 82,500: one of the bank's three 1000s covers it */
+  const over = board([...NEAR.slice(0, 12), 14000]);
+  const deal = pokerDeal(over);
+  assert.equal(deal.ok, true);
+  assert.deepEqual(deal.lent, [{ v:1000, n:1 }]);
+  assert.equal(deal.short, undefined);
+  for (const [player, stack] of Object.entries(over)) assert.equal(sum(deal.seats[player]), stack, player);
+  assert.equal(sum(deal.inventory), 82500);
+  for (const v of [500, 100, 25, 5]) assert.ok(count(deal.inventory, v) <= dealable[v], `the bank keeps its ${v}s`);
+  /* the bank lends as few as cover, biggest first: the 500s once its 1000s
+     are out, its 100s, 25s and 5s (change and the race-offs) last */
+  const lent = top => pokerDeal(board([...NEAR.slice(0, 12), top])).lent;
+  assert.deepEqual(lent(15500), [{ v:1000, n:3 }], "84,000");
+  assert.deepEqual(lent(17500), [{ v:1000, n:3 }, { v:500, n:3 }], "86,000");
+  assert.deepEqual(lent(18500), [{ v:1000, n:3 }, { v:500, n:4 }, { v:100, n:1 }], "87,000");
+  assert.deepEqual(lent(19700), [{ v:1000, n:3 }, { v:500, n:4 }, { v:100, n:10 }, { v:25, n:10 }], "88,200: the 5s stay");
+  for (const top of [14000, 15500, 17500, 18500, 19700])
+    for (const chip of lent(top)) assert.ok(chip.n <= CHIP_RESERVE[chip.v], "never more than the reserve holds");
+
+  /* through the reducer: setup succeeds, the stored deal says what the bank
+     lent, a retry changes nothing, and cancel takes it all back */
+  const state = structuredClone(EMPTY_STATE);
+  state.live = true;
+  act(state, "adjust", { player:ROSTER[0], delta:69600, reason:"Test" });
+  const total = computeStandings(state).reduce((sum, row) => sum + row.pts, 0);
+  assert.equal(total, 82600);
+  const setup = act(state, "pokerSetup");
+  const pk = state.poker;
+  assert.deepEqual(pk.deal.lent, [{ v:1000, n:1 }]);
+  assert.equal(pk.deal.short, undefined);
+  for (const player of ROSTER) assert.equal(sum(pokerSeatChips(pk, player)), pk.startingStacks[player], player);
+  assert.deepEqual(pokerTableDeal(pk).lent, pk.deal.lent);
+  assert.deepEqual(pokerInventory(pk), setup.extra.inventory);
+  assert.equal(act(state, "pokerSetup").extra.unchanged, true);
+  act(state, "pokerCancel");
+  assert.equal(state.poker, null);
+  assert.equal(computeStandings(state).reduce((sum, row) => sum + row.pts, 0), 82600);
+});
+
+test("a board past the whole case sets up anyway: every chip dealt, the biggest stack's rest by hand", () => {
+  const state = structuredClone(EMPTY_STATE);
+  state.live = true;
+  const [top, ...rest] = ROSTER;
+  act(state, "adjust", { player:top, delta:24000, reason:"Test" });
+  rest.slice(0, 11).forEach(player => act(state, "adjust", { player, delta:5500, reason:"Test" }));
+  act(state, "adjust", { player:rest[11], delta:-700, reason:"Test" });
+  const standings = computeStandings(state).map(row => [row.player, row.pts]);
+  const pts = Object.fromEntries(standings);
+  const adjustments = structuredClone(state.adjustments);
+  const setup = act(state, "pokerSetup");
+  assert.equal(setup.extra.minimumCount, 1, "the minimum stack still tops up the short stack");
+  const pk = state.poker;
+  assert.equal(pk.total, 97100);
+  assert.equal(pk.startingStacks[rest[11]], 600);
+  /* the case deals everything it holds, its reserve with it */
+  assert.deepEqual(pk.deal.inventory, POKER_CONFIG.denominations.map(v => ({ v, n:CHIP_SET[v] })));
+  assert.deepEqual(pk.deal.lent, POKER_CONFIG.denominations.map(v => ({ v, n:CHIP_RESERVE[v] })));
+  /* and what it cannot cover is the biggest stack's, exactly the board past the case */
+  assert.deepEqual(pk.deal.short, { [top]:97100 - CASE });
+  assert.equal(byHand(pk.deal), pk.total - CASE);
+  for (const player of ROSTER)
+    assert.equal(sum(pokerSeatChips(pk, player)) + pokerSeatShort(pk, player), pk.startingStacks[player], player);
+  assert.equal(pokerSeatShort(pk, top), 8850);
+  assert.equal(pokerSeatShort(pk, rest[0]), 0);
+  assert.deepEqual(pokerTableDeal(pk).short, pk.deal.short);
+  /* the board is untouched: the stacks are the standings */
+  assert.equal(pk.startingStacks[top], pts[top]);
+  assert.equal(act(state, "pokerSetup").extra.unchanged, true, "a retry deals nothing new");
+  const dealt = structuredClone(pk.deal);
+  /* cancel reverts exactly; dealing again deals the same */
+  act(state, "pokerCancel");
+  assert.equal(state.poker, null);
+  assert.deepEqual(state.adjustments, adjustments, "the grant goes with the table");
+  assert.deepEqual(computeStandings(state).map(row => [row.player, row.pts]), standings);
+  act(state, "pokerSetup");
+  assert.deepEqual(state.poker.deal, dealt, "pure and deterministic");
+  /* the table plays, counts post, the crown happens */
+  act(state, "pokerStart");
+  for (const player of ROSTER) act(state, "pokerCount", { player, count:state.poker.startingStacks[player] });
+  act(state, "pokerResult", { noScene:true });
+  assert.equal(computeStandings(state).find(row => row.player === top).pts, 25000, "the count is the standing, verbatim");
+  act(state, "crownChampion", { champions:[top] });
+  assert.equal(state.frozen, true);
+});
+
+test("a board far past the case: every seat still sits down, the case runs out, the rest is by hand", () => {
   const deep = pokerDistribution(ROSTER.map(player => ({ player, pts:20000 })));
-  assert.equal(deep.ok, false);
-  assert.match(deep.errors[0], /chip case can't cover/);
+  assert.equal(deep.ok, true);
+  assert.equal(byHand(deep.deal), 13 * 20000 - CASE);
+  for (const row of deep.rows) assert.equal(sum(row.denominations) + (row.short || 0), row.stack, row.player);
   const state = structuredClone(EMPTY_STATE);
   state.live = true;
   for (const player of ROSTER) act(state, "adjust", { player, delta:19000, reason:"Test" });
-  assert.match(applyAction(state, "pokerSetup", {}, gm()).error, /chip case can't cover/);
-  assert.equal(state.poker, null);
+  act(state, "pokerSetup");
+  assert.equal(state.poker.total, 260000);
+  assert.equal(byHand(state.poker.deal), 260000 - CASE);
+  assert.equal(sum(state.poker.deal.inventory), CASE, "every chip in the case, the 1s aside");
 });
 
 test("setup stores the deal every screen shows; a retry changes nothing; cancel clears it", () => {
@@ -206,6 +332,8 @@ test("seeded full weekends always deal from the case less the reserve", () => {
       const seats = Object.keys(pk.startingStacks);
       assert.equal(seats.length, 13 - out - away);
       assert.ok(pk.deal, "the table stores its deal");
+      /* nothing lent and nothing by hand: the sums below hold only then */
+      assert.deepEqual(Object.keys(pk.deal), ["seats", "inventory"], `seed ${seed}: ${pk.total}`);
       for (const player of seats) assert.equal(sum(pk.deal.seats[player]), pk.startingStacks[player], `${player} exact`);
       assert.equal(sum(pk.deal.inventory), pk.total);
       for (const v of POKER_CONFIG.denominations)

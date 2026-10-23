@@ -284,7 +284,7 @@ The writes (`worker/triviaBoard.js`, registered through `worker/trivia.js`):
   "You locked in", "Pick an answer first", "Show the final scores first",
   "Nobody played", and boardSim's "Nothing to play right now" and "No board
   game is running". Player checks follow triviaPick: "Check in first",
-  "You are marked away", "Tap I'm here first", "You are not playing".
+  "You are marked away", "Scan the TV first", "You are not playing".
 
 The set list (`worker/trivia.js`, `shared/trivia.js`):
 - `triviaRoundCount` is 0 for the `source:"final"` entry (new

@@ -180,7 +180,7 @@ export function karaokeActions({ ok, err, gmOnly, run }) {
   const pickWindow = state => state.karaoke?.id && state.karaoke.phase === "pick" && karaokeLive(state) ? state.karaoke : null;
   /* a song for the order: the profile's, else a QA practice song in the game */
   const hasSong = (state, game, player) => !!karaokeTrackOf(state, player)?.video || !!game?.songs?.[player];
-  const absentError = (state, player) => err(isAway(state, player) ? "You are marked away" : "Tap I'm here first");
+  const absentError = (state, player) => err(isAway(state, player) ? "You are marked away" : "Scan the TV first");
   /* An autopilot write runs only while it is still the game's next beat,
      its time has come and the autopilot is not held; anything else (a beat
      the commissioner already took, an early alarm) is acknowledged and

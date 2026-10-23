@@ -219,6 +219,10 @@ test("fallback: no WebGL, a failure, a slow TV, or the stacks board all stay fla
     "a page hidden mid-tween, then a couple of slow frames as it catches up");
   const crawling = frameMonitor();
   assert.equal([crawling(1200), crawling(1200), crawling(1200)].at(-1), true, "a TV at one frame a second still trips");
+  /* the towers move only for a moment, as they sound only for one: a load,
+     a reconnect's catch-up or a correction lands */
+  const scene = readFileSync(new URL("../src/features/tv/ChipTowers.jsx", import.meta.url), "utf8");
+  assert.match(scene, /const moment = sound === "scene" \|\| freshFrameNow\(\);\s*if \(tr\.mode !== "animate" \|\| !moment\) \{ snapTo/);
 });
 
 test("the result step rises from the board before the event to the board after", () => {

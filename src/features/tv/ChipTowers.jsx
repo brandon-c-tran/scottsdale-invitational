@@ -383,13 +383,15 @@ export default function ChipTowers({ rows, leaders = null, width = 1920, height 
     const tr = towerTransition(prev, rows, { reducedMotion });
     if (tr.mode === "none") { kick(); return; }
     finishAll();
-    if (tr.mode !== "animate") { snapTo(s, rows); draw(); return; }
+    /* only a moment moves the towers, as only a moment sounds: the result
+       scene's own step, or a fresh frame. A load, a reconnect's catch-up or
+       a correction lands where the board now stands. */
+    const moment = sound === "scene" || freshFrameNow();
+    if (tr.mode !== "animate" || !moment) { snapTo(s, rows); draw(); return; }
     play(s, prev, rows, tr);
-    if (sound === "scene" || freshFrameNow()) {
-      const start = serverNow(), heard = towerSounds(tr, rows.length);
-      roomChipsLanded(heard.chips.map(chip => ({ at:start + chip.offset, pan:chip.pan })));
-      heard.cues.forEach(cue => cueAt(cue.id, start + cue.offset, { key:`towers:${cue.id}:${start}` }));
-    }
+    const start = serverNow(), heard = towerSounds(tr, rows.length);
+    roomChipsLanded(heard.chips.map(chip => ({ at:start + chip.offset, pan:chip.pan })));
+    heard.cues.forEach(cue => cueAt(cue.id, start + cue.offset, { key:`towers:${cue.id}:${start}` }));
     kick();
   }, [signature, reducedMotion]); // eslint-disable-line react-hooks/exhaustive-deps
 

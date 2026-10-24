@@ -802,14 +802,22 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   (`queueSongCut`); the song log (`showControl.audio.songs`, `logSong`,
   `logSongStop`) records which songs played and when they stopped, so
   every screen picks the scratch the same. Without Spotify there is no cue
-  and nothing waits: the bit plays with its own foley. **Tap on the beat**
-  (Speaker sheet, `speaker/SpeakerTiming.jsx`, the pure
-  `calibrationStep`): three taps on the phone's own click, then three on
-  the speaker (`POST /api/spotify/calibrate` plays a saved win song from a
-  request sent at its answer's `at`, never over a win song); the latency is
-  the speaker taps' median less the clicks' (the reaction cancels), saved
-  with `POST /api/spotify/latency` and read back in the status
-  (`latencyMs`).
+  and nothing waits: the bit plays with its own foley. The speaker's
+  latency is `DEFAULT_LATENCY_MS` (900). **Tap on the beat** (Oct 14, a
+  calibration of three taps on the phone's click and three on the speaker)
+  left the Speaker sheet on Oct 23 at Brandon's call (he could not tell
+  what it asked): `SpeakerTiming.jsx` is gone, `speakerLatency()` ignores
+  a reading saved before then, and the pure `calibrationStep`,
+  `/api/spotify/calibrate` and `/api/spotify/latency` stay unused. **The
+  Speaker picker** (Oct 23, `speakerRows`, `speakerNote` in
+  `speaker/speakerModel.js`): a row per speaker in a recessed well, the
+  saved one (`status.device`, the server's own) lit in the info lamp and
+  listed first even when Spotify's list leaves it out ("Offline", a
+  speaker asleep), "Playing" on the active one, "Unavailable" rows
+  disabled; a tap flashes its lamp while `POST /api/spotify/device` saves,
+  then the toast says "Win songs play on {name}". The sheet never marks a
+  speaker the server will not use (the native select it replaced fell back
+  to Spotify's active or first device on screen without saving it).
 - **Arrivals** (Oct 4, `state.arrivals`, `setArrived`, `setArrivalsOpen`):
   Friday starts with people still on the road, so games may run before all
   13 are in. Once the door opens (the first check-in, or the commissioner),

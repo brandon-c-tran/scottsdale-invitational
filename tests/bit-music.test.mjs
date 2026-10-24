@@ -262,6 +262,7 @@ const fakeMoment = (world, bit, players) => {
 };
 
 test("the Worker: a punchline bit's song goes to the speaker early by its latency and stamps the bit and when it is heard", async () => {
+  /* a reading saved by Tap on the beat before Oct 23 is not used: the default */
   const world = await room({ latency:700 });
   const moment = fakeMoment(world, "standoff", [...ROSTER]);
   const calls = await withSpotify(() => json(204, null), async () => {
@@ -282,10 +283,10 @@ test("the Worker: a punchline bit's song goes to the speaker early by its latenc
   const walkout = walkoutOf(world.tournament.state);
   assert.equal(walkout.bit, gag.id, "the walkout carries the bit");
   assert.equal(walkout.audibleAt, walkout.startedAt, "its start is when the room hears it");
-  assert.ok(Math.abs(walkout.audibleAt - (play.at + 700)) <= 5, "heard the speaker's latency after the request");
+  assert.ok(Math.abs(walkout.audibleAt - (play.at + DEFAULT_LATENCY_MS)) <= 5, "heard the speaker's latency after the request");
   assert.equal(songCueOf(world.tournament.state), null, "the walkout takes over from the cue");
   /* it waited for the beat: the request's mark is the hit minus the latency */
-  const expected = gag.start + standoff.beats.hit - 700;
+  const expected = gag.start + standoff.beats.hit - DEFAULT_LATENCY_MS;
   assert.ok(world.waits.some(ms => ms > 0), "it waited for the beat");
   /* (the test's sleeps return at once, so the last wait is measured from the start) */
   assert.ok(world.waits.some(ms => Math.abs(ms - (expected - Date.now())) < 300), "it sends on the beat's mark");

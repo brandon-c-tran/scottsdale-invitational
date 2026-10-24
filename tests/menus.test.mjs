@@ -12,7 +12,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { EMPTY_STATE, allEventsOf } from "../shared/core.js";
 import { resolveDirector } from "../shared/show.js";
 import { commissionerMenu, moreMenu, settingsMenu, settingsOff } from "../src/features/director/menuModel.js";
-import { deviceLabel, speakerStage, speakerValue } from "../src/features/speaker/speakerModel.js";
+import { deviceLabel, speakerNote, speakerRows, speakerStage, speakerValue } from "../src/features/speaker/speakerModel.js";
 import { directorPill } from "../src/features/director/directorPill.js";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
@@ -140,6 +140,29 @@ test("the Speaker row's value: the speaker, else what stands between", () => {
   assert.equal(speakerStage({ configured:true, connected:true }), "connected");
   assert.equal(deviceLabel({ name:"Den", active:true }), "Den");
   assert.equal(deviceLabel({ name:"Den", restricted:true }), "Den, unavailable");
+});
+
+test("the Speaker list marks only the speaker the server saved, and keeps it listed while it sleeps", () => {
+  const devices = [{ id:"d1", name:"Living Room Sonos", active:true }, { id:"d2", name:"Brandon's iPhone", restricted:true }];
+  const listed = speakerRows(devices, { id:"d1", name:"Living Room Sonos" });
+  assert.deepEqual(listed.map(row => row.id), ["d1", "d2"], "a saved speaker Spotify lists keeps its place");
+  /* the saved speaker asleep: still listed, first, offline; never swapped for the active one */
+  const asleep = speakerRows(devices.slice(1), { id:"d9", name:"Patio" });
+  assert.deepEqual(asleep.map(row => [row.id, row.seen]), [["d9", false], ["d2", true]]);
+  assert.equal(speakerNote(asleep[0]), "Offline");
+  assert.equal(speakerNote(asleep[1]), "Unavailable");
+  /* before Spotify's list answers, the saved speaker reads as nothing yet, not offline */
+  const waiting = speakerRows([], { id:"d9", name:"Patio" }, { known:false });
+  assert.equal(waiting[0].seen, null);
+  assert.equal(speakerNote(waiting[0]), "");
+  assert.equal(speakerNote(listed[0], { playing:true }), "Playing");
+  assert.equal(speakerNote(listed[0], { playing:false }), "");
+  assert.deepEqual(speakerRows([], null), [], "no saved speaker and none listed: an empty list");
+  /* the sheet itself: no native picker, and no timing step */
+  const sheet = readFileSync(new URL("../src/features/speaker/SpeakerSheet.jsx", import.meta.url), "utf8");
+  assert.ok(!sheet.includes("<select"), "a row per speaker, never a native picker");
+  assert.ok(!sheet.includes("SpeakerTiming"), "Tap on the beat is off the sheet");
+  assert.match(sheet, /const deviceId = status\?\.device\?\.id \|\| ""/, "songs go to the saved speaker, never a guess");
 });
 
 test("the QA row opens the console; Reset game progress has one entry, in Setup", () => {

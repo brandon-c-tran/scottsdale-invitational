@@ -1254,9 +1254,11 @@ export class Tournament {
     }
   }
 
-  /* the speaker's measured latency, or the middle of Spotify's */
+  /* the speaker's latency: the middle of Spotify's. Tap on the beat left
+     the Speaker sheet on Oct 23 (it read as unclear), so a reading saved
+     before then, which nobody can see or redo now, is not used */
   async speakerLatency() {
-    try { return latencyOf(await this.ctx.storage.get(SPOTIFY_LATENCY_KEY)); } catch { return DEFAULT_LATENCY_MS; }
+    return DEFAULT_LATENCY_MS;
   }
 
   /* the win-song cue (showControl.audio.cue): the song is on its way to a

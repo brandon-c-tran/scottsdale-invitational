@@ -115,6 +115,9 @@
 .fd-insert::after { content:""; position:absolute; left:20%; top:13%; width:36%; height:27%; border-radius:50%;
   background:color-mix(in srgb, var(--bone) 78%, transparent); transform:rotate(-24deg); pointer-events:none; }
 .fd-insert.is-pending { animation:fd-insert-flash 1.2s steps(1, end) infinite; }
+/* unlit: the lens with its lamp off (a step not reached, a speaker not chosen) */
+.fd-insert.is-off { background:var(--lens-off); box-shadow:var(--lens-rim); }
+.fd-insert.is-off::after { opacity:.38; }
 .fd-insert.is-done, .fd-insert.is-void { background:var(--lens-spent); box-shadow:var(--lens-rim); }
 .fd-insert.is-done::after, .fd-insert.is-void::after { opacity:.38; }
 .fd-insert.is-void::before { content:""; position:absolute; left:-3px; right:-3px; top:50%; height:2px; margin-top:-1px; z-index:1;

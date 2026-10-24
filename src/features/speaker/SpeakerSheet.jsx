@@ -1,9 +1,10 @@
 /* The commissioner's Speaker: the Spotify account that plays the room's
-   music, the speaker it plays on, whether win songs play themselves, its
-   timing (Tap on the beat: how late the speaker sounds, so a win song
-   lands on its bit's beat), what is playing now, every player's win song,
-   and a search to play anything.
-   Before Spotify is set up or connected the sheet is that one state. */
+   music, the speaker it plays on (a row per speaker, the saved one lit and
+   always listed, even while it sleeps), whether win songs play themselves,
+   what is playing now, every player's win song, and a search to play
+   anything. Before Spotify is set up or connected the sheet is that one
+   state. (Tap on the beat left the sheet on Oct 23: the speaker's timing
+   stays the default unless one was saved.) */
 import React, { useCallback, useEffect, useState } from "react";
 import { rosterOf, disp } from "../../../shared/core.js";
 import {
@@ -14,8 +15,7 @@ import { ActionButton, Sheet } from "../../ui/controls.jsx";
 import { Icon } from "../../ui/Icon.jsx";
 import { MenuGroup, MenuRow } from "../../ui/Menu.jsx";
 import { Avatar } from "../identity/PlayerIdentity.jsx";
-import { deviceLabel, speakerStage } from "./speakerModel.js";
-import { SpeakerTiming } from "./SpeakerTiming.jsx";
+import { speakerNote, speakerRows, speakerStage } from "./speakerModel.js";
 import { refreshSpeakerStatus, setSpeakerStatus, useSpeakerStatus } from "./speakerStatus.js";
 import "./speaker.css";
 
@@ -61,27 +61,28 @@ function Callback({ uri, notify }) {
 export function SpeakerSheet({ state, onClose, onBack, notify }) {
   const status = useSpeakerStatus(false);
   const [player, setPlayer] = useState(null);
-  const [deviceId, setDeviceId] = useState(() => status?.device?.id || "");
+  /* the speaker being saved, lit pending until the server answers */
+  const [pendingId, setPendingId] = useState("");
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
   const stage = speakerStage(status);
   const saved = rosterOf(state).map(p => ({ player:p, track:state.profiles?.[p]?.walkoutTrack })).filter(item => item.track);
+  /* the speaker every song goes to is the one the server saved, never a
+     guess from Spotify's list */
+  const deviceId = status?.device?.id || "";
 
+  /* Spotify's list of speakers; the one on screen stays while it reads */
   const refreshPlayer = useCallback(async () => {
     setBusy("refresh"); setError("");
     const result = await spotifyPlayer();
     setBusy("");
     if (!result.ok) {
-      setPlayer(null);
       setError(result.error || "Could not read Spotify");
       return;
     }
     setPlayer(result);
-    const devices = result.devices || [];
-    setDeviceId(id => devices.some(device => device.id === id)
-      ? id : (devices.find(device => device.active) || devices[0])?.id || id || "");
   }, []);
 
   useEffect(() => {
@@ -89,21 +90,22 @@ export function SpeakerSheet({ state, onClose, onBack, notify }) {
     (async () => {
       const result = await refreshSpeakerStatus();
       if (!active) return;
-      if (result.device?.id) setDeviceId(result.device.id);
       if (!result.ok) setError(result.error || "Could not read Spotify");
       else if (result.connected) refreshPlayer();
     })();
     return () => { active = false; };
   }, [refreshPlayer]);
 
-  /* the chosen speaker is saved on the server and every song is sent to it */
-  const chooseDevice = async id => {
-    setDeviceId(id);
-    if (!id) return;
-    const name = (player?.devices || []).find(device => device.id === id)?.name || "";
-    const result = await spotifyDevice({ deviceId:id, name });
-    if (!result.ok) setError(result.error || "Could not save the speaker");
-    else setSpeakerStatus(current => current ? { ...current, device:result.device } : current);
+  /* the chosen speaker is saved on the server and every song is sent to it:
+     its row flashes while it saves, then lights, and the toast says so */
+  const chooseDevice = async row => {
+    if (pendingId || !row?.id || row.restricted || row.id === deviceId) return;
+    setPendingId(row.id); setError("");
+    const result = await spotifyDevice({ deviceId:row.id, name:row.name });
+    setPendingId("");
+    if (!result.ok) return setError(result.error || "Could not save the speaker. Try again");
+    setSpeakerStatus(current => current ? { ...current, device:result.device } : current);
+    notify(`Win songs play on ${row.name}`);
   };
   const connect = async () => {
     if (busy) return;
@@ -163,9 +165,9 @@ export function SpeakerSheet({ state, onClose, onBack, notify }) {
     setTimeout(refreshPlayer, 350);
   };
 
-  const devices = player?.devices || [];
   const nowTrack = player?.playback?.track || null;
   const playing = player?.playback?.playing === true;
+  const rows = speakerRows(player?.devices || [], status?.device || null, { known:!!player });
 
   return (
     <Sheet title="Speaker" onClose={onClose} onBack={onBack} className="fd-speaker-sheet"
@@ -204,13 +206,26 @@ export function SpeakerSheet({ state, onClose, onBack, notify }) {
             </span>
           </div>
           <div className="fd-speaker-pick">
-            <span className="fd-speaker-pick-glyph" aria-hidden="true"><Icon name="sound" size={20} /></span>
-            <select value={deviceId} onChange={event => chooseDevice(event.target.value)} aria-label="Speaker">
-              {!devices.length && <option value={deviceId}>{status.device?.name || (deviceId ? "Saved speaker" : "No speakers found")}</option>}
-              {devices.map(device => <option key={device.id} value={device.id} disabled={device.restricted}>{deviceLabel(device)}</option>)}
-            </select>
-            <button type="button" className="fd-speaker-refresh" onClick={refreshPlayer} disabled={!!busy}
-              aria-busy={busy === "refresh" || undefined}>Refresh</button>
+            <div className="fd-speaker-pick-head">
+              <span className="fd-speaker-pick-glyph" aria-hidden="true"><Icon name="sound" size={20} /></span>
+              <span className="fd-speaker-pick-label">Speaker</span>
+              <button type="button" className="fd-speaker-refresh" onClick={refreshPlayer} disabled={!!busy || !!pendingId}
+                aria-busy={busy === "refresh" || undefined}>Refresh</button>
+            </div>
+            <div className="fd-speaker-devices" role="radiogroup" aria-label="Speaker">
+              {rows.map(row => {
+                const chosen = row.id === deviceId, saving = row.id === pendingId, note = speakerNote(row, { playing });
+                return <button key={row.id} type="button" role="radio" aria-checked={chosen}
+                  className={`fd-speaker-device${chosen ? " is-chosen" : ""}${saving ? " is-saving" : ""}`}
+                  disabled={row.restricted} aria-busy={saving || undefined} onClick={() => chooseDevice(row)}>
+                  <span className={`fd-insert${saving ? " is-pending" : chosen ? "" : " is-off"}`} aria-hidden="true" />
+                  <span className="fd-speaker-device-name">{row.name}</span>
+                  {note && <small>{note}</small>}
+                </button>;
+              })}
+              {!rows.length && <p className="fd-speaker-none">{player ? "No speakers found. Turn the speaker on, then Refresh"
+                : "Finding speakers"}</p>}
+            </div>
           </div>
         </div>
 
@@ -218,12 +233,6 @@ export function SpeakerSheet({ state, onClose, onBack, notify }) {
           <MenuRow name="Play win songs automatically" pressed={status.autoWinSongs !== false} disabled={busy === "auto"}
             onClick={toggleAuto} />
         </MenuGroup>
-
-        <section className="fd-menu-section" aria-label="Speaker timing">
-          <Head icon="sound">Speaker timing</Head>
-          <SpeakerTiming latencyMs={status.latencyMs ?? null} latencyDefault={status.latencyDefault || 900}
-            onSaved={ms => { setSpeakerStatus(current => current ? { ...current, latencyMs:ms } : current); notify(`Speaker timing ${ms} ms`); }} />
-        </section>
 
         {nowTrack && (
           <section className="fd-menu-section" aria-label="Now playing">

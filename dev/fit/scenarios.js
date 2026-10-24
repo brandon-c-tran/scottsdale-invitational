@@ -1555,6 +1555,10 @@ export const PHONE_SCENARIOS = Object.freeze([
   /* connected, but the player read fails: the error held in view at the sheet's foot */
   { id:"gm-speaker-error", build:() => withSongs(fresh("event:putt:open")), viewer:"gm", audio:true,
     spotify:{ status:FIT_SPOTIFY.connected.status, player:{ ok:false, error:"Could not read Spotify" } }, tabs:[], sheets:["speaker"] },
+  /* the saved speaker asleep (Spotify's list leaves it out): still listed, lit and Offline, never swapped for the active one */
+  { id:"gm-speaker-asleep", build:() => withSongs(fresh("event:putt:open")), viewer:"gm", audio:true,
+    spotify:{ status:{ ...FIT_SPOTIFY.connected.status, device:{ id:"d9", name:"Patio Speaker" } }, player:FIT_SPOTIFY.connected.player },
+    tabs:[], sheets:["speaker"] },
   /* the commissioner's other sheets, each opened the way he opens it: an
      individual game's result from the pill (the podium empty, then 1st to
      3rd seated, at both widths), the finale's deal and crown from the

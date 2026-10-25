@@ -268,8 +268,9 @@ export const GEO_ROUNDS = Object.freeze([
   { id:"gfitround3", photo:{ id:"gfitphoto3", w:1600, h:900 }, lat:36.1147, lng:-115.1728, place:"Las Vegas",
     when:"2023-03-18T02" },
 ]);
-/* `set`: the photos the commissioner authored (the worst views' own) */
-function geo(stage, set = GEO_ROUNDS) {
+/* `set`: the photos the commissioner authored (the worst views' own).
+   The guest's guess is a draft (saved, not locked in) unless `locked`. */
+function geo(stage, set = GEO_ROUNDS, { locked = false } = {}) {
   const state = fresh("event:die:done");
   set.forEach(round => act(state, "geoSaveRound", structuredClone(round)));
   act(state, "announceEvent", { evId:"where" });
@@ -282,7 +283,8 @@ function geo(stage, set = GEO_ROUNDS) {
     players.forEach((player, i) => {
       if (stage === "guess" && i % 3 === 2) return;
       act(state, "geoGuess", { roundId:round.id, lat:round.lat + (i - 6) * 0.9, lng:round.lng + (i % 5) * 1.3,
-        when:round.when.replace(/T\d\d$/, `T${String((i * 5) % 24).padStart(2, "0")}`), done:i % 2 === 0 }, playerCtx(player));
+        when:round.when.replace(/T\d\d$/, `T${String((i * 5) % 24).padStart(2, "0")}`),
+        done:i % 2 === 0 || (locked && player === FIT_GUEST) }, playerCtx(player));
     });
     if (stage === "guess") return;
     act(state, "geoReveal", { roundId:round.id });
@@ -1499,6 +1501,14 @@ export const PHONE_SCENARIOS = Object.freeze([
   /* Home's live card in your own free-for-all with a saved win song, its
      release suffix and all ("Win and Hit 'Em Up plays") */
   { id:"ffa-song", build:() => withSong(fresh("event:putt:open"), FIT_GUEST), tabs:["home"] },
+  /* and while it plays with nothing riding and no rows: the win line is the card's foot */
+  { id:"ffa-running", build:() => {
+    const state = withSong(fresh("event:die:done"), FIT_GUEST);
+    act(state, "announceEvent", { evId:"where" });
+    const contest = resolveCurrentContest(state, eventOf(state, "where"));
+    act(state, "lockAndStart", { evId:"where", contestId:contest.id, contestRevision:contest.revision });
+    return state;
+  }, tabs:["home"] },
   /* Home's chip bars on a Saturday-night board: a 15,000 leader and a player below zero */
   { id:"spread-15000", build:() => spread(fresh("event:ragecage:open"), SPREAD_15000), tabs:["home"] },
   /* a pairs bracket on Home: the long pair "Henry Nguyen & Squilliam" beside VS */
@@ -1601,12 +1611,18 @@ export const PHONE_SCENARIOS = Object.freeze([
      pill's row (Audio Director on); and one that missed, offered again */
   /* Where and When on a player's phone: a photo up (the full-screen game),
      and after its result posts, when nothing of it may stay on screen */
-  { id:"geo-guess", build:() => geo("guess"), settle:false, tabs:["home"], sheets:["game-closed"] },
+  { id:"geo-guess", build:() => geo("guess"), settle:false, tabs:["home"], sheets:["game-closed"], sheetSizes:["375"] },
   { id:"geo-posted", build:() => { const state = geo("final"); act(state, "geoFinish", { evId:"where" }); return state; }, tabs:["home"] },
+  /* Home with the game put away (geo-guess's own: the guest's guess saved,
+     not locked in, so the row still asks): locked in, the win song's line
+     over the game's row */
+  { id:"geo-song", build:() => withSong(geo("guess", GEO_ROUNDS, { locked:true }), FIT_GUEST), settle:false, tabs:[],
+    sheets:["game-closed"], sheetSizes:["375"] },
   /* Trivia on a player's phone (the guest's own pick open, a few still thinking):
      each format's question, the reveals, the scores; and the game gone once
      its result posts */
   { id:"trivia-question", build:() => triviaStage("question"), settle:false, tabs:["home"], sheets:["game-closed"] },
+  { id:"trivia-song", build:() => withSong(triviaStage("question"), FIT_GUEST), settle:false, tabs:[], sheets:["game-closed"], sheetSizes:["375"] },
   { id:"trivia-long", build:() => triviaStage("long"), settle:false, tabs:["home"] },
   { id:"trivia-picture", build:() => triviaStage("picture"), settle:false, tabs:["home"] },
   { id:"trivia-tune", build:() => triviaStage("tune"), settle:false, tabs:["home"] },

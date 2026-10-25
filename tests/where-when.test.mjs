@@ -307,6 +307,22 @@ test("the game ends on the phone when its result posts: no sheet, no Home row", 
   assert.equal(geoView(phone(), khoa, now).finished, true);
   assert.equal(home(phone()), "", "Home's row goes with the game");
   assert.equal(sheet(phone()), "", "the game's sheet does not reopen on the done frame");
+
+  /* the Now card's row: a saved draft (a pin before Lock in) still asks;
+     only Lock in reads as locked in */
+  const live = ready();
+  act(live, "geoStart", { evId:"where" });
+  const at = Number(live.geo.closesAt) - 30000;
+  const row = () => wrap(live, React.createElement(GeoHome, { state:publicState(live, { player:khoa }), me:khoa, onOpen() {},
+    now:at, inCard:true }));
+  const [first] = ROUNDS;
+  act(live, "geoGuess", { roundId:first.id, lat:first.lat, lng:first.lng }, as(khoa));
+  assert.doesNotMatch(row(), /Guess locked in/, "a draft is not locked in");
+  assert.match(row(), /30 s to guess/);
+  assert.match(row(), /is-primary/, "the draft's row still asks: Play");
+  act(live, "geoGuess", { roundId:first.id, lat:first.lat, lng:first.lng, done:true }, as(khoa));
+  assert.match(row(), /Guess locked in/);
+  assert.doesNotMatch(row(), /is-primary/);
 });
 
 test("the phone's foot: Lock in goes pending on the tap, and Saving… never moves the map or the wheels", async () => {

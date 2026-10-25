@@ -32,12 +32,13 @@
      the walkout's stinger and stamp (walkoutCues), open past the song
      D6  an award: its ballot chips (the chip density rule), then S10 and
          S14 as the winner stamps, on AWARD_TIMING from reveal.at
-     Trivia: the lean-in sting as a question goes up (openedAt), a slap as
-         each player locks in (panned to their place in the room), the stamp
-         and the points riffle on the reveal (revealedAt), a riffle as the
-         scores stand (boardAt); the last five
-         seconds tick and the clock closing knocks (useTriviaClock, on the
-         clock like the blinds)
+     Trivia (triviaSound.js): the lean-in sting as a question goes up
+         (openedAt), a slap as each player locks in (panned to their place
+         in the room), the reveal on the TV's own animation (the answer
+         stamping, the counts, the faces, the points and the settle), the
+         scores between rounds and the final podium; its clock (the bed a
+         bar at a time, the last five seconds' ticks, the knock at zero)
+         rides useTriviaRoomClock here
      the Trivia board (boardSound.js): a cell flying up, the Daily
          Double's sting, each buzz panned to its chip, the order stamping,
          right and wrong, the Final's locks; its clock cues (the arm, the
@@ -88,6 +89,7 @@ import { introScene } from "../intro/introTiming.js";
 import { boardCues, boardSnapshot } from "./boardSound.js";
 import { karaokeCues, karaokeRoomSnapshot } from "./karaokeSound.js";
 import { geoCues, geoRoomSnapshot, useGeoRoomClock } from "./geoSound.js";
+import { triviaCues, triviaSnapshot, useTriviaRoomClock } from "./triviaSound.js";
 import { gagCast, gagHoldMs } from "../gags/gagModel.js";
 import { bitCues } from "./bitSound.js";
 
@@ -185,56 +187,6 @@ export function roomSnapshot(state, events = [], { standings = null, allTied = f
     karaoke:karaokeRoomSnapshot(state),
     geo:geoRoomSnapshot(state),
   };
-}
-
-/* Trivia, reduced to what can sound */
-export function triviaSnapshot(state) {
-  const game = state?.trivia;
-  if (!game?.questions?.length || state.results?.[game.eventId]) return null;
-  const question = game.questions[game.index];
-  const time = game.times?.[question?.id] || {};
-  const picks = game.picks?.[question?.id] || {};
-  return { id:question?.id || null, phase:game.phase, openedAt:Number(time.openedAt) || 0, revealedAt:Number(time.revealedAt) || 0,
-    boardAt:Number(game.boardAt) || 0, locked:Object.keys(picks).filter(key => picks[key]?.locked).sort().join(","),
-    players:Array.isArray(game.players) ? game.players.join(",") : "" };
-}
-
-/* the cues one Trivia step owes the room */
-export function triviaCues(prev, next, { now = serverNow(), reduced = false } = {}) {
-  const t = next?.trivia, was = prev?.trivia;
-  if (!t?.id) return [];
-  const cues = [];
-  const key = `trivia:${t.id}`;
-  if (was?.id !== t.id && t.phase === "question") cues.push({ id:reduced ? "S3" : "sting", at:t.openedAt || now, key:`${key}:open` });
-  if (was?.id === t.id && t.phase === "question") {
-    const before = new Set((was.locked || "").split(",").filter(Boolean));
-    const fresh = (t.locked || "").split(",").filter(Boolean).filter(player => !before.has(player));
-    const order = (t.players || "").split(",").filter(Boolean);
-    /* each lock slaps from where that player sits in the room, left to right */
-    const panOf = player => order.length > 1 ? Math.round((-0.7 + 1.4 * Math.max(0, order.indexOf(player)) / (order.length - 1)) * 100) / 100 : 0;
-    fresh.forEach((player, i) => cues.push({ id:"S18", at:now + i * 90, pan:panOf(player),
-      key:`${key}:lock:${player}` }));
-  }
-  if (t.phase !== "question" && (was?.id !== t.id || was.phase === "question") && t.revealedAt) {
-    cues.push({ id:"stamp", at:t.revealedAt + 250, key:`${key}:reveal` });
-    if (!reduced) cues.push({ id:"S12", at:t.revealedAt + 1300, key:`${key}:points` });
-  }
-  if (t.phase === "board" && was?.phase !== "board" && t.boardAt)
-    cues.push({ id:reduced ? "S12" : "towersUp", at:t.boardAt, key:`${key}:board` });
-  return cues;
-}
-
-/* the question's clock in the room: a tick each of the last five seconds,
-   a knock as it closes. On the clock like the blinds, keyed so a second
-   ticks once; a TV joining late hears only what is still ahead. */
-export function useTriviaClock({ id = null, live = false, secondsLeft = 0, closesAt = 0 }) {
-  useEffect(() => {
-    if (!id || !live) return;
-    /* each cue is laid on the next second's edge, so it is never late */
-    if (secondsLeft >= 2 && secondsLeft <= 6)
-      cueAt("typeTick", closesAt - (secondsLeft - 1) * 1000, { key:`trivia:${id}:tick:${secondsLeft - 1}` });
-    if (secondsLeft === 1) cueAt("S8", closesAt, { key:`trivia:${id}:closed` });
-  }, [id, live, secondsLeft]); // eslint-disable-line react-hooks/exhaustive-deps
 }
 
 /* The cues one fresh step from `prev` to `next` owes the room. `now` is the
@@ -619,6 +571,8 @@ export function useRoomSound({ state, events, standings, allTied, liveEv, showSc
 
   /* Where and When's minute: the bed, the last ten seconds, the knock */
   useGeoRoomClock(snap?.geo || null);
+  /* a Trivia question's clock: the bed, the last five seconds, the knock */
+  useTriviaRoomClock(snap?.trivia || null);
 
   /* S21: the level rolls up by the clock, or by a fresh level write */
   const pk = state?.poker && state.poker.startedAt && !state.results?.[state.poker.id] ? state.poker : null;

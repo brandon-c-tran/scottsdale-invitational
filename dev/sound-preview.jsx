@@ -8,9 +8,11 @@
    No app connection, storage, or remote service. */
 import React, { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { BIT_PARTS, BOARD_PARTS, GEO_PARTS, KARAOKE_PARTS, KIT, PARTS, SOUNDS, ROOMS, makeEngine, playRecipe, setListen, setRoom, limitChips } from "../src/lib/soundKit.js";
+import { BIT_PARTS, BOARD_PARTS, GEO_PARTS, KARAOKE_PARTS, KIT, PARTS, SOUNDS, ROOMS, TRIVIA_PARTS, makeEngine, playRecipe, setListen, setRoom,
+  limitChips } from "../src/lib/soundKit.js";
 import { advanceCues, crownCues, revealPans } from "../src/features/tv/roomSound.js";
 import { geoClockCues, geoRevealCues } from "../src/features/tv/geoSound.js";
+import { triviaBoardCues, triviaClockCues, triviaRevealCues } from "../src/features/tv/triviaSound.js";
 import { DRAW_INTRO_MS, drawStepDelay } from "../src/features/weekend/drawReveal.js";
 import { ADVANCE_TIMING, CROWN_TIMING } from "../src/features/tv/tvMotion.js";
 import { MOTION } from "../src/lib/motion.js";
@@ -36,6 +38,7 @@ const GROUPS = [
   ["Bits", BIT_PARTS.map(part => part.id)],
   ["Karaoke", KARAOKE_PARTS.map(part => part.id)],
   ["Where and When", GEO_PARTS.map(part => part.id)],
+  ["Trivia", TRIVIA_PARTS.map(part => part.id)],
 ];
 
 /* the five sequences, built from the production schedules */
@@ -90,7 +93,7 @@ async function measure(label, seconds, fn, { room = "san", listen = "tv" } = {})
 async function selftest() {
   const rows = [];
   try {
-    for (const s of [...KIT, ...PARTS, ...BOARD_PARTS, ...BIT_PARTS, ...KARAOKE_PARTS, ...GEO_PARTS])
+    for (const s of [...KIT, ...PARTS, ...BOARD_PARTS, ...BIT_PARTS, ...KARAOKE_PARTS, ...GEO_PARTS, ...TRIVIA_PARTS])
       rows.push(await measure(`${s.id} ${s.name}`, Math.max(1.5, s.ms / 1000 + 1.5), (E, t) => playRecipe(E, s.id, t)));
     /* the board's loudest moment: a buzz-in pile-up, the order, a wrong, a right */
     rows.push(await measure("board: four buzzes, the order, wrong then right", 4, (E, t) => {
@@ -109,6 +112,24 @@ async function selftest() {
       geoRevealCues({ start:closesAt + 3000, count:12, pans:Array.from({ length:12 }, (_, i) => -0.7 + i * 0.127),
         revealedAt:closesAt + 3000, rows:6, last:true }).forEach(cue =>
         playRecipe(E, cue.id, t + (cue.at - from) / 1000, { pan:cue.pan || 0, ...(cue.opts || {}) }));
+    }));
+    /* Trivia on its production schedules: a 20 s question from its sting
+       (the bed, the tense bars, the ticks, the knock), its reveal with a
+       full room, the scores between rounds; a tune question (the bed in
+       after the clip); the final podium */
+    const lay = (E, t, cues, from) => cues.forEach(cue =>
+      playRecipe(E, cue.id, t + (cue.at - from) / 1000, { pan:cue.pan || 0, ...(cue.opts || {}) }));
+    const question = { phase:"question", format:"choice", startsAt:2500, closesAt:22500 };
+    rows.push(await measure("trivia: a question, its reveal, the scores", 40, (E, t) => {
+      playRecipe(E, "sting", t);
+      lay(E, t, triviaClockCues(question, 0), 0);
+      [6200, 9100, 14800].forEach((at, i) => playRecipe(E, "S18", t + at / 1000, { pan:-0.5 + i * 0.5 }));
+      lay(E, t, triviaRevealCues({ anchor:24000, reveal:{ options:4, faces:7, points:[0, 1, 2, 3, 4, 5, 6, 7] } }), 0);
+      lay(E, t, triviaBoardCues({ anchor:34000, rows:13 }), 0);
+    }));
+    rows.push(await measure("trivia: name that tune (the bed after the clip), the final podium", 30, (E, t) => {
+      lay(E, t, triviaClockCues({ ...question, format:"tune" }, 0), 0);
+      lay(E, t, triviaBoardCues({ anchor:25000, rows:13, last:true }), 0);
     }));
     for (const q of SEQS)
       rows.push(await measure(`${q.id} ${q.title}`, seqLength(q) / 1000 + 1,

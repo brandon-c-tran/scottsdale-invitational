@@ -3,7 +3,8 @@ import { dispatch } from "../../lib/client.js";
 import { serverNow } from "../../lib/serverClock.js";
 import { tapTick } from "../../lib/haptics.js";
 import { useReducedMotion } from "../../lib/motion.js";
-import { freshFrameNow, playSound, unlockSound } from "../../lib/sound.js";
+import { playSound, unlockSound } from "../../lib/sound.js";
+import { TRIVIA_COUNT, useTriviaScoreSound } from "./triviaPhoneSound.js";
 import { disp } from "../../../shared/core.js";
 import { TRIVIA_BASE, TRIVIA_EXACT, TRIVIA_NEAR, TRIVIA_SPEED } from "../../../shared/trivia.js";
 import { ChipFace } from "../identity/PlayerIdentity.jsx";
@@ -239,11 +240,10 @@ function Points({ view, fresh }) {
   const { question, myScore } = view;
   const number = question.format === "number";
   const max = number ? TRIVIA_NEAR[0] + TRIVIA_EXACT : TRIVIA_BASE + TRIVIA_SPEED;
-  const points = useCountTo(myScore?.points || 0, { delay:700, run:fresh });
-  useEffect(() => {
-    if (!fresh || !myScore?.points || !freshFrameNow()) return;
-    playSound("payout", { bus:"you", delayMs:700, opts:{ n:Math.max(4, Math.round(myScore.points / 100)) } });
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const reduced = useReducedMotion();
+  const points = useCountTo(myScore?.points || 0, { delay:TRIVIA_COUNT.delay, ms:TRIVIA_COUNT.ms, run:fresh });
+  /* your points chime as their count stops (none for a wrong answer) */
+  useTriviaScoreSound(question.id, myScore?.points || 0, { fresh, reduced });
   return <div className={`fd-trivia-points${myScore?.points ? "" : myScore?.answered ? " is-wrong" : " is-none"}`}>
     <b>{myScore?.points ? <>+{fmtNumber(Math.round(points / 10) * 10)}<span className="fd-trivia-unit">pts</span></>
       : myScore?.answered ? "0" : "No answer"}</b>

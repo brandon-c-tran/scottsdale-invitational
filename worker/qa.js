@@ -506,7 +506,7 @@ function playEvent(run, ev, stop) {
 function soloPlayer(state, ctx) {
   const player = ctx.player;
   if (!player || !isActivePlayer(player, state)) throw new QaStop("Claim your player on this phone first");
-  if (isAbsent(state, player)) throw new QaStop(isAway(state, player) ? "You are marked away" : "Check in first");
+  if (isAbsent(state, player)) throw new QaStop(isAway(state, player) ? "You are marked away" : "Scan the TV first");
   return player;
 }
 function playSolo(run, target, player) {

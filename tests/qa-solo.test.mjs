@@ -129,3 +129,32 @@ test("solo needs the commissioner's own player, and rewinds a game already playe
   assert.deepEqual(state.trivia.players, [me]);
   assert.ok(allEventsOf(state).some(ev => ev.id === "trivia"));
 });
+
+test("solo Trivia on the board format: one player picks, buzzes and plays it to a posted result", async () => {
+  const { boardAutoBeat } = await import("../shared/triviaBoard.js");
+  const state = configured();
+  act(state, "triviaSetFormat", { format:"board" });
+  assert.equal(solo(state, "trivia").ok, true);
+  assert.equal(state.trivia.format, "board");
+  assert.equal(state.trivia.solo, true);
+  assert.deepEqual(state.trivia.players, [me]);
+  const realNow = Date.now;
+  let now = realNow();
+  Date.now = () => now;
+  try {
+    for (let guard = 0; guard < 400 && !state.results?.trivia; guard++) {
+      const game = state.trivia;
+      const log = game.current ? game.log?.[game.current] : null;
+      const ready = game.phase === "clue" ? Number(log?.armAt) || 0
+        : game.phase === "answer" || game.phase === "dd-clue" ? Number(log?.turnAt) || 0 : 0;
+      now = Math.max(now, ready) + 50;
+      /* the one player's moves, as the QA room makes them (never the actor's: a commissioner with no player) */
+      if (applyAction(state, "boardSim", {}, gm(null)).ok) continue;
+      const beat = boardAutoBeat(state);
+      assert.ok(beat, `the board waits on nothing at ${game.phase}`);
+      now = Math.max(now, beat.at);
+      act(state, beat.type, beat.payload, { ...gm(null), auto:true, actionId:beat.key });
+    }
+  } finally { Date.now = realNow; }
+  assert.deepEqual(state.results?.trivia?.slots?.[0], [me]);
+});

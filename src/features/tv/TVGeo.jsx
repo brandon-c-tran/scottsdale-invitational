@@ -4,6 +4,7 @@ import { ChipFace } from "../identity/PlayerIdentity.jsx";
 import { GeoMap, preloadGeoMap } from "../geo/GeoMap.jsx";
 import { REVEAL_SETTLE } from "../geo/mapModel.js";
 import { geoPhotoSrc, geoView, milesLabel, offLabel, whenLabel } from "../geo/geoModel.js";
+import { useGeoRevealSound } from "./geoSound.js";
 import "./tv-geo.css";
 
 const fmt = n => (n ?? 0).toLocaleString("en-US");
@@ -43,11 +44,16 @@ export function TVGeo({ state, now }) {
   const revealKey = view?.revealed ? `${view.roundId}:${view.revealedAt}` : null;
   if (revealKey && joined.current.key !== revealKey)
     joined.current = { key:revealKey, since:view.revealedAt ? Math.max(0, (now ?? Date.now()) - view.revealedAt) : 0 };
+  /* the reveal's sound rides the map's own beats (geoSound.js) */
+  const onBeats = useGeoRevealSound(view);
   /* the reveal whose beats have begun, and how far in (the scores enter
      on the same clock); `map` false: the scores came in without it */
   const [started, setStarted] = useState(null);
-  const onStart = useCallback(({ since }) => setStarted(prev => prev?.key === joined.current.key ? { ...prev, map:true }
-    : { key:joined.current.key, since, map:true }), []);
+  const onStart = useCallback(({ since, failed }) => {
+    if (!failed) onBeats(since);
+    setStarted(prev => prev?.key === joined.current.key ? { ...prev, map:true }
+      : { key:joined.current.key, since, map:true });
+  }, [onBeats]);
   /* a map still not drawing a while after the reveal came in (loading
      cold, failing) no longer holds the scores; the photo holds for it */
   const startedKey = started?.key || null;

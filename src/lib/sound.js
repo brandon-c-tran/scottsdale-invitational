@@ -352,7 +352,9 @@ function seenKey(key) {
      opts     recipe options (a part's length, a crowd's size)
      open     not ducked under a win song (the walkout's stinger, the crown,
               the room's chord); Quick Draw still stops it starting
-   Returns { cancel } or null when nothing will play. Never throws. */
+   Returns { cancel } or null when nothing will play. Never throws. cancel
+   drops a cue still waiting; a cut recipe (soundKit cutSound: a music
+   bed's bar) it also fades out once it rings. */
 export function playSound(id, { bus = "you", at = null, delayMs = 0, pan = 0, key = null, lateMs = LATE_MS, opts = {},
   open = false } = {}) {
   try {
@@ -370,22 +372,27 @@ export function playSound(id, { bus = "you", at = null, delayMs = 0, pan = 0, ke
        due now is not counted late for it */
     const early = bus === "room" ? soundEarlyMs() : 0;
     const land = target - early;
+    /* a cut recipe (a music bed's bar) hands back its gate: cancel then
+       closes it even once it rings */
+    let gate = null;
     const fire = () => {
       if (soundOptedOut() || !busAllowed(bus, engine.surface) || isMuted(target) || !engine.E) return;
       const c = engine.ctx;
       const when = scheduleTime({ at:land, now:serverNow(), currentTime:c.currentTime,
         outputLatency:c.outputLatency || c.baseLatency || 0, lateMs:lateMs + early });
       if (when === null) return;
-      playRecipe(engine.E, id, when, { pan, ...opts, open });
+      const played = playRecipe(engine.E, id, when, { pan, ...opts, open });
+      if (played && typeof played.stop === "function") gate = played;
       /* rehearsal instrumentation: a page that defines the array gets a log */
       try { globalThis.__FD_SOUND_LOG__?.push?.({ id, bus, at:target, when, currentTime:c.currentTime, pan }); } catch {}
     };
+    const stop = () => { try { gate?.stop(); } catch {} gate = null; };
     const wait = land - now - LOOKAHEAD_MS;
-    if (wait <= 0) { fire(); return { cancel() {} }; }
+    if (wait <= 0) { fire(); return { cancel:stop }; }
     let timer = null;
     timer = setTimeout(() => { engine.timers.delete(timer); fire(); }, wait);
     engine.timers.add(timer);
-    return { cancel() { clearTimeout(timer); engine.timers.delete(timer); } };
+    return { cancel() { clearTimeout(timer); engine.timers.delete(timer); stop(); } };
   } catch { return null; }
 }
 /* a sound on the room's clock (server ms) */

@@ -93,5 +93,7 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [devPreviews(), react(), cloudflare(), appShell(mode), ogUrl()],
     define: { __FD_BUILD_ID__: JSON.stringify(BUILD_ID) },
+    /* two pages: Field Day (index.html) and Float (float.html, float/PROTOCOL.md) */
+    environments: { client: { build: { rollupOptions: { input: { main:path.resolve("index.html"), float:path.resolve("float.html") } } } } },
   };
 });

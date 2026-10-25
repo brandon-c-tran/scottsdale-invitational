@@ -193,6 +193,9 @@ const KARAOKE_CHECK_LIMIT = 6;
    All private: never in a snapshot, a backup or a frame. */
 const FLOAT_CUP_PREFIX = "private:float:cup:";
 const FLOAT_STATS_PREFIX = "private:float:stats:";
+const FLOAT_STATS_INDEX_KEY = "private:float:statsIndex";
+/* a cup's stats can run to hundreds of KB: the newest this many are kept */
+const FLOAT_STATS_LIMIT = 20;
 const FLOAT_FEEDBACK_KEY = "private:float:feedback";
 const FLOAT_FEEDBACK_LIMIT = 500;
 /* the room's result body: thirteen riders' rounds and stats fit well under this */
@@ -2758,7 +2761,7 @@ export class Tournament {
     const { evId, cupId, order, rounds = null, stats = null } = body || {};
     if (!body || typeof evId !== "string" || typeof cupId !== "string" || !/^[\w-]{1,64}$/.test(cupId) || !Array.isArray(order))
       return json({ ok:false, error:"That result didn't come through whole" }, 400);
-    try { await this.ctx.storage.put(`${FLOAT_STATS_PREFIX}${cupId}`, { cupId, evId, order, rounds, stats, at:Date.now() }); }
+    try { await this.keepFloatStats({ cupId, evId, order, rounds, stats, at:Date.now() }); }
     catch (error) {
       console.error(JSON.stringify({ event:"float-stats-write-failed", error:String(error?.message || error).slice(0, 200) }));
     }
@@ -2770,6 +2773,17 @@ export class Tournament {
       return json({ ok:false, error:result.error }, result.error === "That cup is over" ? 409 : 422);
     }
     return json({ ok:true, posted:result.extra?.posted !== false, ...(result.extra?.unchanged ? { unchanged:true } : {}) });
+  }
+
+  /* a cup's stats under its own key, the newest FLOAT_STATS_LIMIT kept (an
+     index of them, so pruning never reads the stats themselves) */
+  async keepFloatStats(record) {
+    const index = await this.ctx.storage.get(FLOAT_STATS_INDEX_KEY);
+    const list = [{ cupId:record.cupId, at:record.at },
+      ...(Array.isArray(index) ? index : []).filter(item => item?.cupId && item.cupId !== record.cupId)];
+    const dropped = list.slice(FLOAT_STATS_LIMIT);
+    await this.ctx.storage.put({ [`${FLOAT_STATS_PREFIX}${record.cupId}`]:record, [FLOAT_STATS_INDEX_KEY]:list.slice(0, FLOAT_STATS_LIMIT) });
+    if (dropped.length) await this.ctx.storage.delete(dropped.map(item => `${FLOAT_STATS_PREFIX}${item.cupId}`));
   }
 
   /* POST /internal/float/feedback { cupId, pid, answers }: one card a rider

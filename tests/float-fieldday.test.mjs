@@ -558,6 +558,15 @@ test("POST /internal/float/result posts the result once, keeps the stats private
   /* the private keys never reach a snapshot */
   const snapshot = await tournament.createSnapshot();
   assert.ok(!snapshot.entries.some(entry => entry.key.startsWith("private:")));
+  /* the newest twenty cups' stats are kept, never more */
+  console.error = () => {};
+  try {
+    for (let n = 0; n < 21; n++) await internal("/internal/float/result", { evId:FLOAT_EVENT, cupId:`cupold${n}`, order:[me] });
+  } finally { console.error = quiet; }
+  const kept = [...memory.entries.keys()].filter(key => key.startsWith("private:float:stats:"));
+  assert.equal(kept.length, 20);
+  assert.ok(!kept.includes(`private:float:stats:${cupId}`) && !kept.includes("private:float:stats:cupold0"), "the oldest go first");
+  assert.ok(kept.includes("private:float:stats:cupold20"));
 });
 
 test("POST /internal/float/feedback keeps one card a rider a cup; the commissioner reads them, a guest cannot", async () => {

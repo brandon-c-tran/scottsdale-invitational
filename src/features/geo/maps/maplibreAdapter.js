@@ -61,6 +61,17 @@ export function createMaplibre(maplibre, box, { interactive = true, home, onRead
     },
     types:[],
     setType() {},
+    /* idle: every tile of the view loaded and drawn, nothing moving (it
+       comes at the end of a frame, so a repaint asks for one) */
+    settled(ms = 1200) {
+      return new Promise(resolve => {
+        let timer = 0;
+        const done = () => { clearTimeout(timer); m.off?.("idle", done); resolve(); };
+        timer = setTimeout(done, ms);
+        m.once("idle", done);
+        m.triggerRepaint?.();
+      });
+    },
     remove() { pin?.remove(); m.remove(); },
   };
 }

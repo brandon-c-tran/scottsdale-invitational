@@ -2,7 +2,8 @@ import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { mapsKeyFrame } from "../../lib/mapsKey.js";
 import { ChipFace } from "../identity/PlayerIdentity.jsx";
-import { REVEAL, easeOut, mapsConfig, pickRenderer, placeReveal, revealAt, revealPlan } from "./mapModel.js";
+import { REVEAL, REVEAL_SETTLE, easeOut, mapsConfig, pickRenderer, placeReveal, revealAt, revealPlan, settleViews }
+  from "./mapModel.js";
 import { googleFailed, onGoogleFailure } from "./maps/googleState.js";
 import "./geo.css";
 
@@ -90,9 +91,16 @@ function measurePins(host) {
    guesses drop one by one, the lines draw out, the answer lands, and the
    camera opens to frame them all. `since`: how far into the reveal this
    screen is (the server clock), so a late screen joins mid-scene. `card`:
-   the answer's card, set in the top corner no pin covers. */
+   the answer's card, set in the top corner no pin covers.
+   `idle`: nothing drawn, the map kept loaded for the next reveal (the TV
+   holds one map under the photo for the whole game).
+   `settle`: before the beats, the reveal's views are drawn and their
+   tiles waited for (REVEAL_SETTLE); `onStart({ since })` says when the
+   beats begin and how far in (also at once without `settle`, and when the
+   map fails), so a screen can hold a clean frame until then. */
 export function GeoMap({ mode = "pick", pin = null, onPick, answer = null, guesses = [], className = "", label = "Map",
-  interactive = true, animate = false, onTap, focus = null, pad = null, since = 0, card = null, gestures = "greedy" }) {
+  interactive = true, animate = false, onTap, focus = null, pad = null, since = 0, card = null, gestures = "greedy",
+  settle = false, onStart }) {
   const box = useRef(null), api = useRef(null), cardRef = useRef(null);
   const markers = useRef([]), timers = useRef([]), frames = useRef([]), seq = useRef(0);
   const pickRef = useRef(onPick);
@@ -103,6 +111,10 @@ export function GeoMap({ mode = "pick", pin = null, onPick, answer = null, guess
   modeRef.current = mode;
   const sinceRef = useRef(since);
   sinceRef.current = since;
+  const startRef = useRef(onStart);
+  startRef.current = onStart;
+  /* the reveal on screen (none while idle) */
+  const revealKey = mode === "reveal" ? JSON.stringify([answer, guesses]) : "";
   /* the pin was just dragged where it is: it stands there, it does not drop again */
   const dragged = useRef(false);
   const [renderer, setRenderer] = useState(rendererNow);
@@ -179,15 +191,17 @@ export function GeoMap({ mode = "pick", pin = null, onPick, answer = null, guess
       reducedMotion() ? 0 : 1400, { fly:true });
   }, [ready, focus?.key]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  /* the reveal, on the beats of mapModel.js revealPlan */
-  const revealKey = JSON.stringify([answer, guesses]);
+  /* the reveal, on the beats of mapModel.js revealPlan; idle clears it
+     and keeps the map */
   useEffect(() => {
     const a = api.current;
-    if (!ready || mode !== "reveal" || !a) return undefined;
+    if (!ready || !a || mode === "pick") return undefined;
     stop();
     setChips([]);
     a.setLines([], 1);
     const run = ++seq.current;
+    if (mode !== "reveal") { setCorner(null); return undefined; }
+    const live = () => seq.current === run && api.current === a;
     const after = (ms, fn) => timers.current.push(setTimeout(fn, ms));
     const size = a.size();
     const pins = measurePins(box.current);
@@ -196,8 +210,13 @@ export function GeoMap({ mode = "pick", pin = null, onPick, answer = null, guess
     const kinds = [...guesses.map(() => "guess"), ...(answer ? ["answer"] : [])];
     const final = placeReveal({ points, kinds, size, pad:pad || PAD, pins, card:cardBox, inset:CARD_INSET,
       maxZoom:ZOOM.revealMax, single:ZOOM.single });
-    setCorner(final.corner);
     const segs = answer ? guesses.map(guess => ({ from:guess, to:answer, color:guess.color })) : [];
+    /* the guesses land first, framed (the card's corner kept clear); then
+       the lines run to the answer as the camera opens to hold everything;
+       then the answer lands */
+    const start = guesses.length ? placeReveal({ points:guesses, kinds:guesses.map(() => "guess"), size, pad:START_PAD, pins,
+      card:cardBox, inset:CARD_INSET, maxZoom:ZOOM.guessesMax, single:ZOOM.guessesMax,
+      corners:final.corner ? [final.corner] : undefined }).camera : null;
     /* a pin: `delay` null stands it already landed, else it drops
        (negative: joined mid-fall) */
     const add = (item, kind, delay, i = 0) => {
@@ -209,46 +228,64 @@ export function GeoMap({ mode = "pick", pin = null, onPick, answer = null, guess
     };
     const moving = animate && !reducedMotion();
     const plan = revealPlan(guesses.length);
-    const at = moving ? revealAt(plan, sinceRef.current) : { over:true };
-    if (at.over) {
-      if (final.camera) a.move(final.camera, 0);
-      guesses.forEach((guess, i) => add(guess, "player", null, i));
-      a.setLines(segs, 1);
-      if (answer) add(answer, "answer", null);
-      return undefined;
-    }
-    /* the guesses land first, framed (the card's corner kept clear); then
-       the lines run to the answer as the camera opens to hold everything;
-       then the answer lands */
-    const start = guesses.length ? placeReveal({ points:guesses, kinds:guesses.map(() => "guess"), size, pad:START_PAD, pins,
-      card:cardBox, inset:CARD_INSET, maxZoom:ZOOM.guessesMax, single:ZOOM.guessesMax,
-      corners:final.corner ? [final.corner] : undefined }).camera : null;
-    if (start || final.camera) a.move(start || final.camera, 0);
-    if (final.camera) {
-      if (at.cameraIn > 0) after(at.cameraIn, () => a.move(final.camera, REVEAL.camera));
-      else a.move(final.camera, at.cameraMs);
-    }
-    guesses.forEach((guess, i) => {
-      const delay = at.drops[i];
-      if (delay === null || delay <= 0) add(guess, "player", delay, i);
-      else after(delay, () => add(guess, "player", 0, i));
-    });
-    after(at.linesIn, () => {
-      const from = at.linesFrom, ms = (1 - from) * REVEAL.lines, began = performance.now();
-      const step = () => {
-        if (api.current !== a) return;
-        const k = ms > 0 ? Math.min(1, (performance.now() - began) / ms) : 1;
-        a.setLines(segs, easeOut(from + (1 - from) * k));
-        if (k < 1) frames.current.push(requestAnimationFrame(step));
-      };
-      step();
-    });
-    if (answer) {
-      if (at.answer === null || at.answer <= 0) add(answer, "answer", at.answer);
-      else after(at.answer, () => add(answer, "answer", 0));
-    }
-    return undefined;
-  }, [ready, revealKey]); // eslint-disable-line react-hooks/exhaustive-deps
+    /* the beats, `since` ms in */
+    const play = since => {
+      setCorner(final.corner);
+      startRef.current?.({ since });
+      const at = moving ? revealAt(plan, since) : { over:true };
+      if (at.over) {
+        if (final.camera) a.move(final.camera, 0);
+        guesses.forEach((guess, i) => add(guess, "player", null, i));
+        a.setLines(segs, 1);
+        if (answer) add(answer, "answer", null);
+        return;
+      }
+      if (start || final.camera) a.move(start || final.camera, 0);
+      if (final.camera) {
+        if (at.cameraIn > 0) after(at.cameraIn, () => a.move(final.camera, REVEAL.camera));
+        else a.move(final.camera, at.cameraMs);
+      }
+      guesses.forEach((guess, i) => {
+        const delay = at.drops[i];
+        if (delay === null || delay <= 0) add(guess, "player", delay, i);
+        else after(delay, () => add(guess, "player", 0, i));
+      });
+      after(at.linesIn, () => {
+        const from = at.linesFrom, ms = (1 - from) * REVEAL.lines, began = performance.now();
+        const step = () => {
+          if (api.current !== a) return;
+          const k = ms > 0 ? Math.min(1, (performance.now() - began) / ms) : 1;
+          a.setLines(segs, easeOut(from + (1 - from) * k));
+          if (k < 1) frames.current.push(requestAnimationFrame(step));
+        };
+        step();
+      });
+      if (answer) {
+        if (at.answer === null || at.answer <= 0) add(answer, "answer", at.answer);
+        else after(at.answer, () => add(answer, "answer", 0));
+      }
+    };
+    if (!settle) { play(sinceRef.current); return undefined; }
+    /* the settle: the final framing drawn first (its tiles fetched for the
+       camera's opening), then the frame the beats start on, each waited
+       for within the one cap; a reveal that is over draws the final alone */
+    const views = settleViews({ start, final:final.camera, size, over:!moving || revealAt(plan, sinceRef.current).over });
+    const began = performance.now();
+    (async () => {
+      for (const view of views) {
+        a.move(view.camera, 0);
+        await a.settled(Math.min(view.ms, Math.max(0, REVEAL_SETTLE.cap - (performance.now() - began))));
+        if (!live()) return;
+      }
+      play(sinceRef.current);
+    })();
+    return () => { if (seq.current === run) seq.current++; };
+  }, [ready, revealKey, mode]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /* a map that never draws still lets its screen go on */
+  useEffect(() => {
+    if (failed && mode === "reveal") startRef.current?.({ since:sinceRef.current, failed:true });
+  }, [failed, revealKey, mode]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const chooseType = next => {
     setType(next);

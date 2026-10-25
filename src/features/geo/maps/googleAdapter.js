@@ -60,10 +60,12 @@ export function createGoogle(g, box, { interactive = true, gestures = "greedy", 
   const probe = new HtmlPin(document.createElement("i"), home, "center");
   probe.setMap(map);
 
-  let pin = null, raf = 0;
+  /* `moved`: the view changed since its tiles last finished (Google says
+     tilesloaded only after a change, so an unmoved view is already in) */
+  let pin = null, raf = 0, moved = true;
   const lines = [];
   const camera = () => { const c = map.getCenter(); return { lat:c.lat(), lng:c.lng(), zoom:map.getZoom() }; };
-  const jump = cam => map.moveCamera({ center:{ lat:cam.lat, lng:cam.lng }, zoom:cam.zoom });
+  const jump = cam => { moved = true; map.moveCamera({ center:{ lat:cam.lat, lng:cam.lng }, zoom:cam.zoom }); };
   const dash = color => [{ icon:{ path:"M 0,-1 0,1", strokeOpacity:0.9, strokeColor:color, strokeWeight:3, scale:3 },
     offset:"0", repeat:"14px" }];
 
@@ -150,7 +152,16 @@ export function createGoogle(g, box, { interactive = true, gestures = "greedy", 
       });
     },
     types:["map", "satellite"],
-    setType(type) { map.setMapTypeId(type === "satellite" ? "hybrid" : "roadmap"); },
+    setType(type) { moved = true; map.setMapTypeId(type === "satellite" ? "hybrid" : "roadmap"); },
+    settled(ms = 1200) {
+      return new Promise(resolve => {
+        let timer = 0, listener = null;
+        const done = loaded => { clearTimeout(timer); listener?.remove?.(); if (loaded) moved = false; resolve(); };
+        if (!moved) { timer = setTimeout(done, 0); return; }
+        timer = setTimeout(done, ms);
+        listener = g.event.addListenerOnce(map, "tilesloaded", () => done(true));
+      });
+    },
     remove() {
       cancelAnimationFrame(raf);
       pin?.remove();

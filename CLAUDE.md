@@ -468,7 +468,14 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   on the button; the last 5 count down across the screen; at zero the
   phone says Time's up while the server's 3 s grace takes the last save. The reveal runs
   on the map: the guesses drop, lines draw to the answer, the answer
-  lands, the camera opens, and the phone's scores count up. Scoring is GeoGuessr's shape in
+  lands, the camera opens, and the phone's scores count up. The TV keeps
+  one map (GeoMap `mode:"idle"`) under the photo all game, so it is loaded
+  before the first reveal; at a reveal the photo holds while the map draws
+  the final framing, then the start one, and waits for their tiles
+  (adapter `settled`, `REVEAL_SETTLE` cap 1.2 s), then lifts as the beats
+  begin (`onStart`) and the scores enter on the same clock; a map not
+  drawing 3 s in no longer holds the scores. `node scripts/geo-reveal-timing.mjs`
+  times it in headless Chrome. Scoring is GeoGuessr's shape in
   miles: 5,000 × e^(−mi/155) for where, 5,000 × e^(−hours/2,880) for when.
   Post result (`geoFinish`) runs beginResultEntry and saveResult with the
   final order (a single 1st; ties break on where points, then the faster

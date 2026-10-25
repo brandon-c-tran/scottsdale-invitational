@@ -9,7 +9,7 @@ export function createLeaflet(L, box, { interactive = true, home, onReady }) {
   const m = L.map(box, { zoomControl:interactive, dragging:interactive, scrollWheelZoom:interactive,
     doubleClickZoom:interactive, touchZoom:interactive, keyboard:false, boxZoom:false, worldCopyJump:true,
     zoomSnap:0.25, zoomDelta:1 }).setView([home.lat, home.lng], 3);
-  L.tileLayer(RASTER, { attribution:CREDIT, maxZoom:19 }).addTo(m);
+  const layer = L.tileLayer(RASTER, { attribution:CREDIT, maxZoom:19 }).addTo(m);
   setTimeout(() => m.invalidateSize(), 250);
   /* a node's own size (as the page's CSS draws it) sets its icon's,
      anchored at its foot or its middle */
@@ -55,6 +55,17 @@ export function createLeaflet(L, box, { interactive = true, home, onReady }) {
     },
     types:[],
     setType() {},
+    /* the tile layer's load: every tile of the view in (a jump starts
+       loading at once, so a layer not loading has nothing to wait for) */
+    settled(ms = 1200) {
+      return new Promise(resolve => {
+        let timer = 0;
+        const done = () => { clearTimeout(timer); layer.off?.("load", done); resolve(); };
+        if (!layer.isLoading?.()) { timer = setTimeout(done, 0); return; }
+        timer = setTimeout(done, ms);
+        layer.once("load", done);
+      });
+    },
     remove() { pin?.remove(); m.remove(); },
   };
 }

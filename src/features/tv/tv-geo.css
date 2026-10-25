@@ -4,6 +4,10 @@
 .tv-geo-stage { position:relative; min-width:0; min-height:0; border-radius:18px; overflow:hidden;
   background:var(--night-deep); border:1px solid var(--ghost-line); }
 .tv-geo-photo { position:absolute; inset:0; width:100%; height:100%; object-fit:contain; animation:si-fade .6s ease-out both; }
+/* the photo stands over the map (loaded under it the whole game) and lifts
+   as the reveal's beats begin; it comes back at once for the next photo */
+.tv-geo-cover { position:absolute; inset:0; z-index:1; background:var(--night-deep); }
+.tv-geo-cover.is-off { opacity:0; visibility:hidden; transition:opacity .35s ease-out, visibility 0s linear .35s; }
 .tv-geo-side { min-width:0; min-height:0; display:flex; flex-direction:column; gap:20px; padding:26px 28px; border-radius:18px;
   background:var(--tv-sheen), var(--tv-glass); border:1px solid var(--line); box-shadow:var(--glass-edge); }
 .tv-geo-head { display:flex; flex-direction:column; gap:6px; }
@@ -19,7 +23,7 @@
 .tv-geo-chip.is-in { opacity:1; box-shadow:0 0 0 4px var(--bone); }
 .tv-geo-prompt { margin-top:auto; font:600 30px/1.3 var(--fd-body); color:var(--night-text); }
 
-.tv-geo-map { position:absolute; inset:0; height:auto; border:0; border-radius:0; }
+.tv-geo-map { position:absolute; inset:0; height:auto; border:0; border-radius:0; isolation:isolate; }
 /* the room reads the pins from across it (sized by their parts: the map
    positions each pin with its own transform); a guess is its player's
    photo chip on a needle */
@@ -75,4 +79,5 @@
 .tv-geo-final li.is-podium { border:2px solid var(--bone-line); }
 .tv-geo-rank { width:56px; font-size:44px; color:var(--night-text); text-align:center; }
 .tv-geo-name { flex:1; font-size:44px; color:var(--bone); text-transform:none; }
-@media (prefers-reduced-motion:reduce) { .tv-geo-photo, .tv-geo-thumb, .tv-geo-results li { animation:none; } }
+@media (prefers-reduced-motion:reduce) { .tv-geo-photo, .tv-geo-thumb, .tv-geo-results li { animation:none; }
+  .tv-geo-cover.is-off { transition:none; } }

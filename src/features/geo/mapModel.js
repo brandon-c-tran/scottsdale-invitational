@@ -34,9 +34,11 @@ export function pickRenderer({ googleKey = null, webgl = true, googleFailed = fa
      setLines(segs, k) dashed lines from each seg.from toward seg.to, k of the way (0..1); [] clears
      types             the map types it offers (["map", "satellite"], or [])
      setType(type)     one of `types`
+     settled(ms)       a Promise: the view's tiles are drawn (MapLibre's idle,
+                       Google's tilesloaded, Leaflet's tile load), or `ms` passed
      remove()          tear down */
 export const ADAPTER_MEMBERS = Object.freeze(["kind", "size", "camera", "move", "onClick", "setPin", "inView",
-  "addMarker", "setLines", "types", "setType", "remove"]);
+  "addMarker", "setLines", "types", "setType", "settled", "remove"]);
 
 /* ── Web Mercator, shared by every renderer (all three are Mercator) ── */
 const clampLat = lat => Math.max(-85.05112878, Math.min(85.05112878, lat));
@@ -171,6 +173,43 @@ export function revealAt(plan, elapsed, R = REVEAL) {
     cameraMs:Math.max(0, Math.min(R.camera, plan.lines + R.camera - e)),
   };
 }
+/* ── the settle before the beats ──
+   A screen that holds its reveal for the map (the TV, under the photo)
+   draws the final framing, then the start framing, and waits for each
+   view's tiles before the beats run, so no pin drops on a half-drawn map
+   and the camera opens onto tiles already fetched. `cap` bounds the whole
+   wait (a slow network never stalls the show), `prefetch` the final
+   framing's share of it. The beats then run from where the screen joined
+   (`since`, fixed as it first drew the reveal), never skipping ahead for
+   the wait: the TV is the room's reveal. `panel`: a map still not drawing
+   that long after the reveal came in (loading cold, failing) no longer
+   holds the TV's scores. */
+export const REVEAL_SETTLE = Object.freeze({ cap:1200, prefetch:500, panel:3000 });
+/* two cameras that draw the same view (no tiles to fetch between them) */
+export const sameCamera = (a, b) => !!a && !!b && Math.abs(a.lat - b.lat) < 1e-7 && Math.abs(a.lng - b.lng) < 1e-7
+  && Math.abs(a.zoom - b.zoom) < 1e-3;
+/* The views the settle draws, in order, each with its longest wait: the
+   final framing first (its tiles fetched for the camera's opening) unless
+   the camera barely moves (`size` given: the zoom within half a level and
+   the final middle inside the start view's middle half, so the opening
+   stays on tiles the start view loads), then the frame the beats start
+   on; a reveal that is over (joined after its end, reduced motion) draws
+   the final alone. The waits share the one cap. */
+export function cameraOpens(start, final, size = null, tileSize = 256) {
+  if (!start || !final || sameCamera(start, final)) return false;
+  if (!size) return true;
+  if (Math.abs(final.zoom - start.zoom) > 0.5) return true;
+  const p = project(final, start, size, tileSize);
+  return Math.abs(p.x - size.width / 2) > size.width / 4 || Math.abs(p.y - size.height / 2) > size.height / 4;
+}
+export function settleViews({ start = null, final = null, over = false, size = null } = {}, S = REVEAL_SETTLE) {
+  const first = over ? final : start || final;
+  const views = [];
+  if (!over && cameraOpens(start, final, size)) views.push({ camera:final, ms:Math.min(S.prefetch, S.cap) });
+  if (first) views.push({ camera:first, ms:S.cap });
+  return views;
+}
+
 /* a line `k` of the way from a guess to the answer */
 export const along = (from, to, k) => ({ lat:from.lat + (to.lat - from.lat) * k, lng:from.lng + (to.lng - from.lng) * k });
 export const easeOut = k => 1 - (1 - k) ** 3;

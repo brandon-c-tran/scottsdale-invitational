@@ -8,7 +8,7 @@
    The camera moves by our own tween (fractional zoom), so a reveal opens
    the same way on every renderer. */
 import { BACKGLASS_MAP_BACKGROUND, BACKGLASS_MAP_STYLE } from "./googleStyle.js";
-import { cameraAlong } from "../mapModel.js";
+import { cameraAlong, sameCamera } from "../mapModel.js";
 
 const easeInOut = k => k < .5 ? 4 * k * k * k : 1 - (-2 * k + 2) ** 3 / 2;
 const wrapLng = lng => ((lng + 180) % 360 + 360) % 360 - 180;
@@ -65,7 +65,10 @@ export function createGoogle(g, box, { interactive = true, gestures = "greedy", 
   let pin = null, raf = 0, moved = true;
   const lines = [];
   const camera = () => { const c = map.getCenter(); return { lat:c.lat(), lng:c.lng(), zoom:map.getZoom() }; };
-  const jump = cam => { moved = true; map.moveCamera({ center:{ lat:cam.lat, lng:cam.lng }, zoom:cam.zoom }); };
+  const jump = cam => {
+    if (!sameCamera(camera(), cam)) moved = true;
+    map.moveCamera({ center:{ lat:cam.lat, lng:cam.lng }, zoom:cam.zoom });
+  };
   const dash = color => [{ icon:{ path:"M 0,-1 0,1", strokeOpacity:0.9, strokeColor:color, strokeWeight:3, scale:3 },
     offset:"0", repeat:"14px" }];
 

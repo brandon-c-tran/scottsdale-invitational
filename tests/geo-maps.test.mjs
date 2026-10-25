@@ -299,6 +299,10 @@ test("every renderer says when its view is drawn, or gives up at the cap", async
     const still = state(gm.settled(5000));
     await tick();
     assert.equal(still(), true, "no move since: nothing to wait for (Google says nothing then)");
+    gm.move({ lat:37.8, lng:-122.5, zoom:9 }, 0);
+    const same = state(gm.settled(5000));
+    await tick();
+    assert.equal(same(), true, "a jump to the view it shows is no move");
     gm.move({ lat:40, lng:-100, zoom:6 }, 0);
     const late = state(gm.settled(20));
     await tick(40);

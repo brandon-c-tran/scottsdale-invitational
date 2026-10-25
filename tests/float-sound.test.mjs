@@ -106,7 +106,9 @@ test("the race's bed: bar 0 on the gun, bars end to end, the turn and the phrase
   /* the lounge and the vamp elsewhere */
   assert.equal(music.musicTrack(run([welcome(s), room("lobby", s)]).mem).mode, "lounge");
   assert.equal(music.musicTrack(run([welcome(s), room("lobby", s), room("grid", s + 1000)]).mem).mode, "vamp");
-  assert.equal(music.musicTrack(run([welcome(s), room("lobby", s), room("podium", s + 1000, { podium:[0, 1, 2] })]).mem), null, "the podium's fanfare has the room");
+  const podium = music.musicTrack(run([welcome(s), room("lobby", s), room("podium", s + 1000, { podium:[0, 1, 2] })]).mem);
+  assert.equal(podium.mode, "lounge");
+  assert.ok(podium.from >= s + 1000 + music.PODIUM_HOLD_MS && podium.from % music.BAR_MS === 0, "the fanfare and the pose have the room, then the lounge");
   assert.equal(music.musicTrack(run([welcome(s), room("lobby", s)]).mem, { reduced:true }), null);
 });
 
@@ -180,6 +182,9 @@ test("the runner lays the band a bar ahead: the vamp after the title, bar 0 on t
   assert.equal(r.played.filter(p => /floatRace|floatVamp|floatLounge/.test(p.id) && !p.cancelled && p.at > podiumAt - music.BAR_MS).length, 0,
     "nothing from the band under the fanfare");
   assert.equal(r.played.filter(p => p.id === "floatPodium").length, 1);
+  r.advance(6000);
+  const after = r.played.filter(p => p.id === "floatLounge" && p.at > podiumAt && !p.cancelled);
+  assert.ok(after.length && after[0].at >= podiumAt + music.PODIUM_HOLD_MS, "then the lounge comes back under the finalists");
   r.runner.stop();
 });
 

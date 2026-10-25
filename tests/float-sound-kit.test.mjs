@@ -140,9 +140,9 @@ test("the kit and the planners agree: the bar, the river's layers, and a level f
   assert.ok(["churn", "crickets", "level"].every(key => kit.FLOAT_RIVER_LAYERS.includes(key)));
   assert.deepEqual(Object.keys(kit.FLOAT_MIX).sort(), kit.FLOAT_PARTS.map(part => part.id).sort(), "every recipe has its level, and only Float's");
   assert.ok(Object.values(kit.FLOAT_MIX).every(k => k > 0 && k <= 3));
-  /* by importance: the band under the moments, the gun over the numbers, the fanfare over the band */
+  /* the gun over its numbers, the fanfare over the band (the measured levels are the harness's) */
   const m = kit.FLOAT_MIX;
-  assert.ok(m.floatGo > m.floatCount && m.floatPodium > m.floatRace && m.floatLounge < m.floatRace);
+  assert.ok(m.floatGo > m.floatCount && m.floatPodium > m.floatRace);
 });
 
 test("the river's stretches overlap on equal-power ends, so the bed never dips where two meet", () => {

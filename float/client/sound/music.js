@@ -12,7 +12,8 @@
                       is laid: the leg, the final, the phrase (a fill on its
                       eighth bar, a crash on its first), and the live tense
      cut              the lounge between rounds, after the button and the stings
-     podium           nothing: the fanfare has the room
+     podium           nothing while the fanfare and the winner's pose have the
+                      room; then the lounge again under the finalists
 
    Intensity is horizontal and vertical at once: each bar is its own recipe
    (so the arrangement switches on the bar line), and the race's tense
@@ -27,10 +28,13 @@ import { CAP_MS, legOf, roarAt } from "./cup.js";
 export const BAR_MS = 2000;
 /* a bar is chosen and laid this far ahead of its start */
 export const MUSIC_LEAD_MS = 650;
-/* the title's sting has this long before the vamp's first bar line */
+/* the title's sting has this long before the vamp's first bar line (the Cup's intro rings longer) */
 export const TITLE_HOLD_MS = 2200;
+export const INTRO_HOLD_MS = 3800;
 /* between rounds: the button and the stings first */
 export const CUT_HOLD_MS = 3200;
+/* the podium: the fanfare and the winner's pose alone, then the lounge again under the finalists */
+export const PODIUM_HOLD_MS = 6500;
 /* the lounge's turn and its sections (bars) */
 export const LOUNGE_BARS = 8, LOUNGE_SECTIONS = 4;
 
@@ -51,8 +55,12 @@ export function musicTrack(mem, { reduced = false } = {}) {
     }
     case "intro": case "grid": {
       const start = Number.isFinite(mem.phaseAt) ? mem.phaseAt : v.startAt ?? v.s ?? 0;
-      const from = start + (mem.titled === `${v.phase}:${v.round}` ? TITLE_HOLD_MS : 0);
+      const from = start + (mem.titled === `${v.phase}:${v.round}` ? (v.phase === "intro" ? INTRO_HOLD_MS : TITLE_HOLD_MS) : 0);
       return { key:`vamp:${v.phase}:${v.round}`, mode:"vamp", anchor:from, from };
+    }
+    case "podium": {
+      const start = Number.isFinite(mem.phaseAt) ? mem.phaseAt : v.startAt ?? v.s ?? 0;
+      return { key:`podium:${v.round}`, mode:"lounge", anchor:0, from:barLine(start + PODIUM_HOLD_MS) };
     }
     case "countdown": case "race": {
       const gun = mem.gun?.round === v.round ? mem.gun.at : null;

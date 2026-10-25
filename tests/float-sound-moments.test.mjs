@@ -171,8 +171,9 @@ test("the titles and the intro: each leg its own, the final its own, a catch-up 
     [["floatTitle", 0, false], ["floatTitle", 1, false], ["floatTitle", 2, false], ["floatTitle", 3, true]], "the last round is the final");
   assert.equal(cupView(room("grid", 1, { round:1, rounds:2 })).final, true);
   assert.equal(cupView(room("grid", 1, { round:0, rounds:0 })).final, false);
-  /* the vamp waits for the title's sting */
+  /* the vamp waits for the title's sting, and longer for the Cup's intro */
   assert.equal(music.musicTrack(step(intro.mem, room("grid", T0 + 5000)).mem).anchor, T0 + 5000 + music.TITLE_HOLD_MS);
+  assert.equal(music.musicTrack(intro.mem).anchor, T0 + 1000 + music.INTRO_HOLD_MS);
   /* the stale protocol name for the cut is read as the cut */
   assert.equal(cupView({ phase:"results" }).phase, "cut");
   assert.equal(cupView({ phase:"made-up" }).phase, "other");

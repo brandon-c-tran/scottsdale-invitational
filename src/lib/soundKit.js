@@ -1959,7 +1959,7 @@ export function floatParts() {
    the whole of it moves together and its room stays with it. */
 const FL_MIX = Object.freeze({
   /* the band and the river, under everything */
-  floatRace:0.53, floatVamp:0.8, floatLounge:0.52, floatRiver:0.62, floatPaddles:0.63,
+  floatRace:0.48, floatVamp:0.8, floatLounge:0.52, floatRiver:0.62, floatPaddles:0.63,
   /* the sequence's big beats */
   floatCount:0.75, floatGo:1.6, floatTitle:0.72, floatIntro:0.65, floatButton:0.75, floatPodium:0.75, floatWinner:0.62, floatImpact:0.62,
   /* the race's moments */
@@ -2298,11 +2298,13 @@ const FL_FILL = Object.freeze([[12, NOTE.D3], [13, NOTE.B4 / 4], [14, NOTE.Fs4 /
    the chord and the crash. */
 function flRaceBar(E, t, o = {}) {
   const leg = flInt(o.leg, 0, 3), tense = flInt(o.tense, 0, 5), turn = flMod(o.bar, 4), chord = FL_TURN[turn];
-  /* each leg a little more of the band than the last */
+  /* each leg a little more of the band than the last, and the last stretch swelling with its tense */
   const phrase = flMod(o.phrase ?? o.bar, 8), final = !!o.final;
-  const lv = FL_BAND * [0.86, 0.93, 1, 1.05][leg] * (final ? 1.04 : 1) * (Number(o.level) > 0 ? Number(o.level) : 1);
+  const lv = FL_BAND * [0.86, 0.93, 1, 1.05][leg] * (final ? 1.04 : 1) * (1 + tense * 0.04) * (Number(o.level) > 0 ? Number(o.level) : 1);
   const at = i => t + i * FL_STEP_S;
   const suspend = o.drop === "suspend", hit = o.drop === "land" || !!o.first;
+  /* a rehearsal's stems (opts.only: "drums", "bass", "guitar"); the room always hears the whole band */
+  const only = Array.isArray(o.only) ? o.only : null, on = part => !only || only.includes(part);
   const V = flVoices(E, { kick:{ send:0.04, bright:0.8, gain:lv }, snare:{ pan:0.06, send:0.24, bright:1, gain:lv },
     hat:{ pan:0.32, send:0.08, bright:1, gain:lv }, tom:{ pan:-0.18, send:0.22, bright:0.7, gain:lv },
     crash:{ pan:-0.3, send:0.3, bright:1, gain:lv }, bass:{ send:0.06, bright:1, gain:lv },
@@ -2311,7 +2313,7 @@ function flRaceBar(E, t, o = {}) {
     whirlL:{ pan:-0.6, send:0.8, bright:1, gain:lv }, whirlR:{ pan:0.6, send:0.8, bright:1, gain:lv } });
   const kit = FL_DRUMS[leg];
   /* the drums */
-  if (suspend) {
+  if (!on("drums")) { /* a rehearsal's other stems */ } else if (suspend) {
     FLD.tom(E, V("tom"), t, NOTE.Fs4 / 4, 0.9);
     flRiser(E, t, FLOAT_BAR_S, 0.11 * lv);
   } else {
@@ -2338,24 +2340,25 @@ function flRaceBar(E, t, o = {}) {
   }
   /* the bass */
   const line = FL_BASS[phrase === 7 && chord === "E" ? "home" : chord];
-  if (suspend) flBass(E, V("bass"), t, FN.B1, FLOAT_BAR_S * 0.95, 0.3);
+  if (!on("bass")) { /* a rehearsal's other stems */ } else if (suspend) flBass(E, V("bass"), t, FN.B1, FLOAT_BAR_S * 0.95, 0.3);
   else if (leg === 0 && tense < 2)
-    [[0, 0, 5], [6, 2, 2], [8, 4, 5], [14, 3, 2]].forEach(([s, k, len]) => flBass(E, V("bass"), at(s), fn(line[k]), len * FL_STEP_S * 0.9, s % 8 === 0 ? 0.32 : 0.24));
-  else line.forEach((name, k) => flBass(E, V("bass"), at(k * 2), fn(name), FL_STEP_S * 1.6, k % 4 === 0 ? 0.32 : 0.25));
+    [[0, 0, 5], [6, 2, 2], [8, 4, 5], [14, 3, 2]].forEach(([s, k, len]) => flBass(E, V("bass"), at(s), fn(line[k]), len * FL_STEP_S * 0.9, s % 8 === 0 ? 0.26 : 0.19));
+  else line.forEach((name, k) => flBass(E, V("bass"), at(k * 2), fn(name), FL_STEP_S * 1.6, k % 4 === 0 ? 0.26 : 0.2));
   /* the guitar */
+  if (!on("guitar")) return;
   if (suspend) {
     flTwang(E, t, FN.B3, FLOAT_BAR_S * 0.92, 0.12, { dest:V("gtr"), trem:16, vib:0.5, sus:0.8 });
     flDrip(E, t, 0.7 * lv);
   } else if (leg === 0 && turn % 2 === 1 && tense < 3) {
     /* the Put-in answers its own call with one chord, left to ring */
-    flStrum(E, t, FL_CHORD[chord], 0.7, 0.1, { dest:V("gtr"), vib:0.7, sus:0.5 });
-    flStrum(E, t + FL_SLAP_S, FL_CHORD[chord], 0.5, 0.032, { dest:V("echo"), bright:0.6 });
+    flStrum(E, t, FL_CHORD[chord], 0.7, 0.14, { dest:V("gtr"), vib:0.7, sus:0.5 });
+    flStrum(E, t + FL_SLAP_S, FL_CHORD[chord], 0.5, 0.045, { dest:V("echo"), bright:0.6 });
   } else {
     FL_RIFF[turn].forEach(([s, name, len, how]) => {
       const f = fn(name), d = len * FL_STEP_S * 0.92;
       const shape = { vib:how === "v" ? 1 : 0, dive:how === "d" ? 0.11 : 0, trem:tense >= 3 && len >= 4 ? 16 : 0 };
-      flTwang(E, at(s), f, d, 0.24, { dest:V("gtr"), ...shape });
-      flTwang(E, at(s) + FL_SLAP_S, f, d * 0.85, 0.072, { dest:V("echo"), bright:0.6, ...shape });
+      flTwang(E, at(s), f, d, 0.34, { dest:V("gtr"), ...shape });
+      flTwang(E, at(s) + FL_SLAP_S, f, d * 0.85, 0.1, { dest:V("echo"), bright:0.6, ...shape });
     });
     if (phrase === 0 || hit) flDrip(E, t, 0.6 * lv);
   }
@@ -2364,7 +2367,7 @@ function flRaceBar(E, t, o = {}) {
   if (leg === 2 && !suspend && phrase >= 4 && turn >= 2)
     FL_WHIRL[chord].forEach((name, k) => flTwang(E, at(8 + k), fn(name), 0.12, 0.055, { dest:V(k % 2 ? "whirlR" : "whirlL"), bright:0.8, sus:0.3 }));
   if (!suspend && (final || (leg === 3 && phrase >= 4)))
-    FL_LEAD[turn].forEach(([s, name, len, how = ""]) => flTwang(E, at(s), fn(name), len * FL_STEP_S * 0.95, 0.12,
+    FL_LEAD[turn].forEach(([s, name, len, how = ""]) => flTwang(E, at(s), fn(name), len * FL_STEP_S * 0.95, 0.15,
       { dest:V("lead"), trem:how.includes("t") ? 16 : 0, vib:0.8, dive:how.includes("d") ? 0.18 : 0 }));
 }
 

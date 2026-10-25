@@ -13,8 +13,6 @@ export default {
       if (!/^[a-z0-9-]{1,32}$/.test(room)) return new Response("Bad room", { status:400 });
       return env.FLOAT.get(env.FLOAT.idFromName(room)).fetch(req);
     }
-    /* Float's pages (/float/play, /float/art): float.html, which /float itself resolves to */
-    if (url.pathname.startsWith("/float/")) return env.ASSETS.fetch(new Request(new URL("/float", url), req));
     if (url.pathname === "/ws" || url.pathname.startsWith("/api/")) {
       const id = env.TOURNAMENT.idFromName("main");
       return env.TOURNAMENT.get(id).fetch(req);

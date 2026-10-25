@@ -14,6 +14,7 @@ export const FLAG = Object.freeze({
   STROKE_L:16,
   STROKE_R:32,
   BUMP:64,
+  SPLASHED:128,
 });
 
 const round = (value, places) => {

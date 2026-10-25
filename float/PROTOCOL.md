@@ -215,6 +215,32 @@ decimals; 0 is +x, counter-clockwise), flags, progress along the leg in metres
 x east, y north, metres, top-down. The 3D screen maps `(x, y, z)` to three.js
 `(x, z, -y)`. The screen builds the whole river once.
 
+## Components
+
+Field Day embeds Float inside its own app (TV mode, a phone sheet), so the
+screen and the controller are components first and pages second:
+
+- `screen/FloatScreen.jsx`: `<FloatScreen room={id} />` draws a room full
+  size in its parent (it opens its own connection). `screen/ScreenApp.jsx` is
+  the `/float` page around it (room code, QR, hosting).
+- `controller/FloatController.jsx`: `<FloatController room={id} rider={rider} onExit />`
+  is the phone's whole game for a room. `controller/ControllerApp.jsx` is the
+  `/float/play` page around it (the standalone join first).
+- `locker/LockerPicker.jsx`: `<LockerPicker look onChange groom />`.
+
+## The phone held sideways
+
+Paddling is two thumbs on a phone held sideways. Many iPhones have rotation
+lock on, so the controller must work either way: in a landscape viewport it
+lays out natively; in a portrait viewport it draws itself rotated a quarter
+turn (CSS) so it reads correctly when the phone is held sideways, with one
+tap to turn it the other way. Never ask the player to unlock rotation.
+
+## The groom
+
+`groom:true` on an entrant unlocks the crown. Field Day sets it for the one
+player named in its config (`FLOAT_GROOM` in Field Day's shared code).
+
 ## Art
 
 `client/art/index.js` (see the stub): `buildFloatie`, `buildCritter`,
@@ -243,13 +269,17 @@ Reconnects with backoff and re-sends `hello`. `status()`: `"connecting"`,
 - **Starting.** When Field Day starts the Float event (its Lock and start), the
   Tournament posts the Cup to the room, server to server:
   `POST /internal/cup` on `env.FLOAT.idFromName("fd-<evId>")`, body
-  `{ evId, cupId, mode:"fieldday", drinking:true, startAt, entrants:[rider + pid] }`.
+  `{ evId, cupId, mode:"fieldday", drinking:true, startAt, bots, entrants:[rider + pid] }`.
+  `bots` fills the field with computer riders up to that many entrants (QA's
+  Play solo sends 13 with one real entrant; the real event sends 0).
   The room reserves an entrant per player; a phone that says `pid` takes its
   entrant. Anyone not connected when a round starts is paddled by a bot (shown
   as such).
 - **Finishing.** The room posts back once, idempotent by `cupId`:
   `POST /internal/float/result` on the Tournament, body
   `{ evId, cupId, order:[pid, ...] (1st to last), rounds:[...], stats:{...} }`.
+  `order` carries real players only, in their relative order (a bot ahead of
+  them never takes a place in Field Day's result).
   The Tournament posts it as the event's result (1st, 2nd, 3rd), so payouts,
   bets and the win song follow as for any result.
 - **Feedback.** `POST /internal/float/feedback` `{ cupId, pid, answers }`.
@@ -280,8 +310,8 @@ room storage.
 | Screen | `float/client/screen/*` |
 | Controller | `float/client/controller/*`, `float/client/net.js`, `float/client/join/*`, `float/client/locker/*` |
 | Art | `float/client/art/*` |
-| Sound | `float/client/sound/*`, Float's recipes in `src/lib/soundKit.js` |
-| Field Day | everything under `src/`, `shared/`, `worker/` except `worker/index.js`'s Float routes |
+| Sound | `float/client/sound/*`, and one delimited block appended at the very end of `src/lib/soundKit.js` (Float's recipes) |
+| Field Day | everything under `src/`, `shared/`, `worker/` except `worker/index.js`'s Float routes; in `src/lib/soundKit.js` only the one `INTRO_FOLEY` entry for the new event |
 
 `float/client/main.jsx`, `FloatPages.jsx`, `float.html`, `looks.js`,
 `floaties.js` and this file change only by agreement.

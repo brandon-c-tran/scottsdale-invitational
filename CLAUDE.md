@@ -1181,7 +1181,7 @@ launch screens and title, the phone booting to check-in and TV mode on the
 13-player board, no console errors. Roll production back to v6 with `npx
 wrangler rollback a50fd1a2-ffad-46ad-9d42-3eb5f2e3479d`; staging still runs
 the same code as `41ff42f5-e8ae-45e3-8c46-908ab72eff1a` (its `APP_VERSION`
-reads v6 until its next deploy). Then the Speaker picker and the end of Tap on the beat (`69af8ae`, Oct 23, Brandon found choosing a speaker glitchy): STAGING `229ad3f0-30b2-4c00-9c72-75f40c487c20`, PRODUCTION `2aa0062d-a572-4645-b835-d1b933e94ff8`; roll production back to the first v7 with `npx wrangler rollback 12ec2813-5f98-4481-8410-e3a432825fec`.
+reads v6 until its next deploy). Then the Speaker picker and the end of Tap on the beat (`69af8ae`, Oct 23, Brandon found choosing a speaker glitchy): STAGING `229ad3f0-30b2-4c00-9c72-75f40c487c20`, PRODUCTION `2aa0062d-a572-4645-b835-d1b933e94ff8`; roll production back to the first v7 with `npx wrangler rollback 12ec2813-5f98-4481-8410-e3a432825fec`. Then Brandon's Trivia rounds in the bank (`9f89ee2`, Oct 24: 237 questions in 15 categories, the four about him from ChatGPT's memory of him, high-confidence facts only, and eleven on what he cares about): STAGING `cfac891e-1729-42e9-b774-69741c4069e9`, PRODUCTION `bbf8d71d-e975-496f-a953-b78e58918d74`; roll back to the Speaker fix with `npx wrangler rollback 2aa0062d-a572-4645-b835-d1b933e94ff8`.
 
 **September 5 correction (history for the visuals).** Brandon rejected the light
 redesign and the rewritten voice. It made the app harder to use and broke

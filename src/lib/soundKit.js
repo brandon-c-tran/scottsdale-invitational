@@ -1770,7 +1770,7 @@ export const TRIVIA_PARTS = Object.freeze([
 ].map(Object.freeze));
 
 export const SOUNDS = Object.freeze(Object.fromEntries([...KIT, ...PARTS, ...BOARD_PARTS, ...BIT_PARTS, ...KARAOKE_PARTS, ...GEO_PARTS,
-  ...TRIVIA_PARTS].map(s => [s.id, s])));
+  ...TRIVIA_PARTS, ...floatParts()].map(s => [s.id, s])));
 export const SOUND_IDS = Object.freeze(KIT.map(s => s.id));
 export const isSound = id => Object.prototype.hasOwnProperty.call(SOUNDS, id);
 
@@ -1883,3 +1883,969 @@ export function limitChips(memory, landings, { minGap = CHIP_DENSITY.minGap, cro
   }
   return { memory:mem, plan:out };
 }
+
+/* ════ FLOAT (float/PROTOCOL.md "Sound"; owned by Float's sound build) ════
+   Everything from here to the end of the file is Float's: the river race's
+   band, the river under it, the field's paddles, the race's moments and the
+   phone's own. float/client/sound cues them, the screen's on the room bus
+   and the phone's on the you bus; nothing in Field Day plays them.
+
+   floatParts() is a hoisted declaration, so SOUNDS above registers the list
+   before this block's constants exist: the list names literals only, and
+   every recipe reads the constants when it plays.
+
+   The band: desert surf at night, 120 a minute in four (the beds' bar), a
+   twangy guitar through a spring and a slapback, a picked bass, light
+   drums. Every pitched note is in D's five; the surf leans on B, D's
+   relative minor. ════ */
+
+/* the race's instruments, the river and the moments, as the kit lists them */
+export function floatParts() {
+  if (floatParts.list) return floatParts.list;
+  floatParts.list = Object.freeze([
+    /* ── the band: one bar each, cut recipes, laid on the room's clock ── */
+    /* a bar of the race (opts.leg 0..3, final, bar 0..3 of the turn, phrase 0..7, tense 0..5, fill, crash, first,
+       drop "suspend" | "land") */
+    { id:"floatRace", name:"Float: the race", where:["tv"], ms:2000, cut:true, play:(E, t, o = {}) => flRaceBar(E, t, o) },
+    /* a bar on the grid and under the Cup's intro (opts.bar 0..1) */
+    { id:"floatVamp", name:"Float: on the grid", where:["tv"], ms:2000, cut:true, play:(E, t, o = {}) => flVampBar(E, t, o) },
+    /* a bar of the lobby's lounge (opts.bar 0..7, section 0..3, cut: between rounds) */
+    { id:"floatLounge", name:"Float: the lobby", where:["tv"], ms:2000, cut:true, play:(E, t, o = {}) => flLoungeBar(E, t, o) },
+    /* ── the river and the field ── */
+    /* a stretch of river (opts.from, opts.to: its layers; ms; fade) */
+    { id:"floatRiver", name:"Float: the river", where:["tv"], ms:3000, cut:true, play:(E, t, o = {}) => flRiver(E, t, o) },
+    /* the field's paddles going in (opts.n strokes, offsets, pans, span) */
+    { id:"floatPaddles", name:"Float: the field paddling", where:["tv"], ms:400, play:(E, t, o = {}) => flPaddles(E, t, o) },
+    /* ── the screen's moments ── */
+    { id:"floatCount", name:"Float: 3, 2, 1", where:["tv"], ms:1000, play:(E, t, o = {}) => flCount(E, t, o) },
+    { id:"floatGo", name:"Float: go", where:["tv"], ms:1600, play:(E, t, o = {}) => flGo(E, t, o) },
+    { id:"floatTitle", name:"Float: a leg's title", where:["tv"], ms:2400, play:(E, t, o = {}) => flTitle(E, t, o) },
+    { id:"floatIntro", name:"Float: the Cup opens", where:["tv"], ms:3600, play:(E, t, o = {}) => flIntro(E, t, o) },
+    { id:"floatButton", name:"Float: the round ends", where:["tv"], ms:1800, play:(E, t, o = {}) => flButton(E, t, o) },
+    { id:"floatOut", name:"Float: out (a floatie lets go)", where:["tv"], ms:800, play:(E, t, o = {}) => flOut(E, t, o) },
+    { id:"floatBump", name:"Float: a bump", where:["tv"], ms:300, play:(E, t, o = {}) => flBump(E, t, o) },
+    { id:"floatScrape", name:"Float: off a rock", where:["tv"], ms:350, play:(E, t, o = {}) => flScrape(E, t, o) },
+    { id:"floatFlip", name:"Float: a flip", where:["tv"], ms:1000, play:(E, t, o = {}) => flFlip(E, t, o) },
+    { id:"floatFall", name:"Float: over the Drop", where:["tv"], ms:900, play:(E, t, o = {}) => flFall(E, t, o) },
+    { id:"floatImpact", name:"Float: the Drop lands", where:["tv"], ms:1800, play:(E, t, o = {}) => flImpact(E, t, o) },
+    { id:"floatLob", name:"Float: a balloon thrown", where:["tv"], ms:1200, play:(E, t, o = {}) => flLob(E, t, o) },
+    { id:"floatSplat", name:"Float: a balloon lands", where:["tv"], ms:600, play:(E, t, o = {}) => flSplat(E, t, o) },
+    { id:"floatBell", name:"Float: in at the bar", where:["tv"], ms:1600, play:(E, t, o = {}) => flBell(E, t, o) },
+    { id:"floatClink", name:"Float: a drink finished", where:["tv"], ms:500, play:(E, t, o = {}) => flClink(E, t, o) },
+    { id:"floatJoin", name:"Float: a rider joins", where:["tv"], ms:900, play:(E, t, o = {}) => flJoin(E, t, o) },
+    { id:"floatReady", name:"Float: a rider is ready", where:["tv"], ms:700, play:(E, t, o = {}) => flReady(E, t, o) },
+    { id:"floatPodium", name:"Float: the podium fanfare", where:["tv"], ms:4600, play:(E, t, o = {}) => flPodium(E, t, o) },
+    { id:"floatStamp", name:"Float: a place on the podium", where:["tv"], ms:900, play:(E, t, o = {}) => flStamp(E, t, o) },
+    { id:"floatWinner", name:"Float: the winner's pose", where:["tv"], ms:2200, play:(E, t, o = {}) => flWinner(E, t, o) },
+    /* ── the phone's own (the you bus) ── */
+    { id:"floatDip", name:"Float: your paddle", where:["phone"], ms:200, play:(E, t, o = {}) => flYouDip(E, t, o) },
+    { id:"floatYouFlip", name:"Float: you flipped", where:["phone"], ms:800, play:(E, t, o = {}) => flYouFlip(E, t, o) },
+    { id:"floatYouArrive", name:"Float: you're in", where:["phone"], ms:1200, play:(E, t, o = {}) => flYouArrive(E, t, o) },
+    { id:"floatYouDrink", name:"Float: your drink", where:["phone"], ms:500, play:(E, t, o = {}) => flYouDrink(E, t, o) },
+    { id:"floatYouThrough", name:"Float: you're through", where:["phone"], ms:1400, play:(E, t, o = {}) => flYouThrough(E, t, o) },
+    { id:"floatYouThrow", name:"Float: your balloon", where:["phone"], ms:500, play:(E, t, o = {}) => flYouThrow(E, t, o) },
+    { id:"floatYouSplat", name:"Float: your balloon lands", where:["phone"], ms:700, play:(E, t, o = {}) => flYouSplat(E, t, o) },
+    { id:"floatYouHit", name:"Float: you're splashed", where:["phone"], ms:500, play:(E, t, o = {}) => flYouHit(E, t, o) },
+    { id:"floatYouPodium", name:"Float: your place", where:["phone"], ms:1600, play:(E, t, o = {}) => flYouPodium(E, t, o) },
+  ].map(Object.freeze));
+  return floatParts.list;
+}
+export const FLOAT_PARTS = floatParts();
+
+/* ── the band's grid and notes ── */
+/* 120 a minute in four, sixteen steps a bar */
+export const FLOAT_BAR_S = 2;
+const FL_STEP_S = FLOAT_BAR_S / 16;
+/* the slapback: the echo a bar's guitar throws back from the other side */
+const FL_SLAP_S = 0.135;
+/* Float's notes, every one an octave of NOTE's (D's five) */
+const FN = Object.freeze({ A1:NOTE.A2 / 2, B1:NOTE.B4 / 8, D2:NOTE.D2, E2:NOTE.E4 / 4, Fs2:NOTE.Fs4 / 4, A2:NOTE.A2,
+  B2:NOTE.B4 / 4, D3:NOTE.D3, E3:NOTE.E4 / 2, Fs3:NOTE.Fs4 / 2, A3:NOTE.A3, B3:NOTE.B4 / 2, D4:NOTE.D4, E4:NOTE.E4,
+  Fs4:NOTE.Fs4, A4:NOTE.A4, B4:NOTE.B4, D5:NOTE.D5, E5:NOTE.E5, Fs5:NOTE.Fs5, A5:NOTE.A5, B5:NOTE.B5, D6:NOTE.D6,
+  E6:NOTE.E6, Fs6:NOTE.Fs6, A6:NOTE.A6, B6:NOTE.B5 * 2 });
+export const FLOAT_NOTES = FN;
+const fn = name => FN[name] || 0;
+/* the band against the moments over it (set by the offline mix: float/client/sound/README in the report) */
+const FL_BAND = 0.62;
+const flInt = (v, lo, hi) => Math.max(lo, Math.min(hi, Math.floor(Number(v) || 0)));
+const flMod = (v, n) => ((Math.floor(Number(v) || 0) % n) + n) % n;
+/* a recipe's voices, each made the first time something plays into it */
+function flVoices(E, specs) {
+  const made = {};
+  return name => made[name] || (made[name] = voice(E, specs[name] || {}));
+}
+
+/* ── shapes ── */
+/* a band of noise sweeping f0 to f1 under a quick attack and a decay: a
+   blade going in, a splash, the water landing */
+function flSweep(E, dest, t, { type = "bandpass", f0 = 2000, f1 = 600, q = 1, d = 0.2, peak = 0.3, a = 0.004 } = {}) {
+  const c = E.ctx, len = Math.max(0.01, a + d);
+  const s = c.createBufferSource(); s.buffer = E.noise; s.loop = true;
+  const fl = c.createBiquadFilter(); fl.type = type; fl.Q.value = q;
+  fl.frequency.setValueAtTime(Math.max(30, f0), t); fl.frequency.exponentialRampToValueAtTime(Math.max(30, f1), t + len);
+  const g = c.createGain(); g.gain.value = 0;
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.linearRampToValueAtTime(Math.max(0.0002, peak), t + Math.max(0.001, a));
+  g.gain.exponentialRampToValueAtTime(0.0001, t + len);
+  s.connect(fl); fl.connect(g); g.connect(dest);
+  track(E, s, fl, g); trackSource(E, s);
+  s.start(t, Math.random() * 1.5); s.stop(t + len + 0.05);
+}
+/* a drop of water: a tiny bubble's pitch flicking up */
+function flPlip(E, dest, t, { f = 1000, gain = 1 } = {}) {
+  glide(E, dest, t, f * 0.7, f * 1.7, 0.035, 0.05 * gain);
+}
+/* a bubble coming up: blub */
+function flBlub(E, dest, t, k = 1) {
+  glide(E, dest, t, 240, 640, 0.09, 0.1 * k);
+}
+/* water thrown up and coming down: the hit, the body falling back, the drops */
+function flSplash(E, dest, t, { size = 1 } = {}) {
+  const k = Math.max(0.2, size);
+  flSweep(E, dest, t, { f0:3400, f1:900, q:0.6, d:0.1 + 0.08 * k, peak:0.42 * Math.min(1.3, k), a:0.003 });
+  flSweep(E, dest, t + 0.012, { type:"lowpass", f0:5200, f1:380, q:0.7, d:0.3 + 0.35 * k, peak:0.34 * Math.min(1.3, k), a:0.012 });
+  mode(E, dest, t, 72, 0.16 + 0.1 * k, 0.42 * Math.min(1.3, k), { drop:0.7 });
+  const n = Math.round(4 + 6 * k);
+  for (let i = 0; i < n; i++)
+    flPlip(E, dest, t + 0.07 + Math.pow(i / n, 1.25) * (0.35 + 0.45 * k) + rnd(0, 0.03), { f:rnd(700, 1800), gain:rnd(0.5, 1) * Math.min(1.2, k) });
+}
+
+/* ── the band's instruments ── */
+/* The surf guitar: a bright pick (a saw and a square a hair apart) through
+   a resonant low-pass that closes as the note rings, the pick bending it up
+   into pitch. o: dest (a voice to share), vib (whammy vibrato 0..1), dive
+   (a whammy dip at the end, 0..1 of the pitch), trem (tremolo picking,
+   picks a second), from (slide in from this ratio over `slide` s), amp (the
+   amp's own vibrato channel, Hz), bright, sus, release, bend, pan, send */
+function flTwang(E, t, f, d, peak, o = {}) {
+  if (!(f > 0) || !(peak > 0)) return;
+  const c = E.ctx;
+  const dest = o.dest || voice(E, { pan:o.pan || 0, send:o.send ?? 0.9, bright:1, gain:1 });
+  const bright = o.bright ?? 1, hold = Math.max(0.04, d), rel = o.release ?? 0.16, sus = o.sus ?? 0.45;
+  const end = t + hold + rel + 0.04;
+  const lp = c.createBiquadFilter(); lp.type = "lowpass"; lp.Q.value = o.q ?? 3.2;
+  const top = Math.min(9000, f * 15 * bright), low = Math.max(180, Math.min(top * 0.8, f * 3.4 * bright));
+  lp.frequency.setValueAtTime(top, t);
+  lp.frequency.exponentialRampToValueAtTime(low, t + 0.06 + Math.min(hold, 0.3) * 0.6);
+  const g = c.createGain(); g.gain.value = 0;
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.linearRampToValueAtTime(peak, t + 0.003);
+  g.gain.exponentialRampToValueAtTime(Math.max(0.0002, peak * sus), t + Math.min(0.1, hold));
+  if (hold > 0.1) g.gain.exponentialRampToValueAtTime(Math.max(0.00015, peak * sus * 0.72), t + hold);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + hold + rel);
+  lp.connect(g);
+  track(E, lp, g);
+  if (o.amp) {
+    const ag = c.createGain(); ag.gain.value = 0.74;
+    const lfo = c.createOscillator(); lfo.type = "sine"; lfo.frequency.value = o.amp;
+    const amt = c.createGain(); amt.gain.value = 0.26;
+    lfo.connect(amt); amt.connect(ag.gain); g.connect(ag); ag.connect(dest);
+    track(E, ag, lfo, amt); trackSource(E, lfo);
+    lfo.start(t); lfo.stop(end);
+  } else g.connect(dest);
+  /* tremolo picking: each pick a sharp rise and a fall (an inverted saw on the level), into the filter */
+  let into = lp;
+  if (o.trem) {
+    const tg = c.createGain(); tg.gain.value = 0.62;
+    const lfo = c.createOscillator(); lfo.type = "sawtooth"; lfo.frequency.value = o.trem;
+    const amt = c.createGain(); amt.gain.value = -0.38;
+    lfo.connect(amt); amt.connect(tg.gain); tg.connect(lp);
+    track(E, tg, lfo, amt); trackSource(E, lfo);
+    lfo.start(t); lfo.stop(end);
+    into = tg;
+  }
+  const bend = o.bend ?? 0.014, slide = o.from ? Math.max(0.05, Math.min(hold, o.slide ?? hold * 0.6)) : 0.04;
+  const oscs = [["sawtooth", 1, 0.72], ["square", 1.0035, 0.26]].map(([type, k, level]) => {
+    const osc = c.createOscillator(); osc.type = type;
+    const fk = f * k;
+    osc.frequency.setValueAtTime(fk * (o.from ? o.from : 1 - bend), t);
+    osc.frequency.exponentialRampToValueAtTime(fk, t + slide);
+    if (o.dive) {
+      const from = t + Math.max(slide + 0.02, hold - 0.22);
+      osc.frequency.setValueAtTime(fk, from);
+      osc.frequency.exponentialRampToValueAtTime(fk * (1 - Math.min(0.75, o.dive)), t + hold + rel);
+    }
+    const lg = c.createGain(); lg.gain.value = level;
+    osc.connect(lg); lg.connect(into);
+    track(E, osc, lg); trackSource(E, osc);
+    osc.start(t); osc.stop(end);
+    return osc;
+  });
+  if (o.vib) {
+    const lfo = c.createOscillator(); lfo.type = "sine"; lfo.frequency.value = o.vibRate || 5.4;
+    const amt = c.createGain(); amt.gain.setValueAtTime(0, t);
+    amt.gain.linearRampToValueAtTime(f * 0.0075 * o.vib, t + Math.min(hold, 0.3));
+    lfo.connect(amt); oscs.forEach(osc => amt.connect(osc.frequency));
+    track(E, lfo, amt); trackSource(E, lfo);
+    lfo.start(t); lfo.stop(end);
+  }
+}
+/* a chord strummed low to high, a few ms apart */
+function flStrum(E, t, names, d, peak, o = {}) {
+  names.forEach((name, k) => flTwang(E, t + k * (o.spread ?? 0.008), fn(name), d, peak, o));
+}
+/* the rhythm guitar's muted chank on the backbeat */
+function flChank(E, dest, t, names, k = 1) {
+  names.forEach((name, i) => flTwang(E, t + i * 0.005, fn(name), 0.05, 0.07 * k, { dest, bright:0.55, sus:0.25, release:0.04, bend:0.004 }));
+  burst(E, dest, t, { f:2600, q:1.4, d:0.022, peak:0.1 * k });
+}
+/* the spring's drip: a pluck's echo running down the springs */
+function flDrip(E, t, gain = 1, pan = -0.2) {
+  const v = voice(E, { pan, send:1.4, bright:1, gain });
+  glide(E, v, t, 2900, 230, 0.05, 0.1);
+  glide(E, v, t + 0.032, 2100, 300, 0.045, 0.045);
+}
+/* a bass note: picked (a saw through a closing low-pass, the pick's click)
+   or plucked upright (a round triangle and a thump) */
+function flBass(E, dest, t, f, d, peak, { upright = false } = {}) {
+  if (!(f > 0) || !(peak > 0)) return;
+  const c = E.ctx, hold = Math.max(0.05, d), a = upright ? 0.01 : 0.003;
+  const lp = c.createBiquadFilter(); lp.type = "lowpass"; lp.Q.value = upright ? 0.9 : 1.5;
+  lp.frequency.setValueAtTime(Math.min(3600, f * (upright ? 8 : 15)), t);
+  lp.frequency.exponentialRampToValueAtTime(Math.max(110, f * (upright ? 2.4 : 3.2)), t + 0.16);
+  const g = c.createGain(); g.gain.value = 0;
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.linearRampToValueAtTime(peak, t + a);
+  g.gain.exponentialRampToValueAtTime(peak * 0.55, t + a + 0.09);
+  g.gain.setValueAtTime(peak * 0.55, t + Math.max(a + 0.09, hold - 0.03));
+  g.gain.exponentialRampToValueAtTime(0.0001, t + hold + 0.07);
+  lp.connect(g); g.connect(dest);
+  track(E, lp, g);
+  [[upright ? "triangle" : "sawtooth", upright ? 0.8 : 0.55], ["sine", upright ? 0.5 : 0.6]].forEach(([type, level]) => {
+    const osc = c.createOscillator(); osc.type = type;
+    osc.frequency.setValueAtTime(f * (upright ? 1.012 : 1.006), t);
+    osc.frequency.exponentialRampToValueAtTime(f, t + 0.03);
+    const lg = c.createGain(); lg.gain.value = level;
+    osc.connect(lg); lg.connect(lp);
+    track(E, osc, lg); trackSource(E, osc);
+    osc.start(t); osc.stop(t + hold + 0.1);
+  });
+  burst(E, dest, t, { f:upright ? 900 : 1700, q:1, d:upright ? 0.02 : 0.008, peak:peak * (upright ? 0.4 : 0.3) });
+  phantom(E, dest, t, f, Math.min(0.25, hold), peak * 0.5);
+}
+/* a lap steel: a soft triangle sliding between notes, a slow vibrato */
+function flSteel(E, dest, t, f, d, peak, from = 0) {
+  if (!(f > 0)) return;
+  const c = E.ctx, end = t + d + 0.5;
+  const lp = c.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 2600; lp.Q.value = 0.7;
+  const g = c.createGain(); g.gain.value = 0;
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.linearRampToValueAtTime(peak, t + 0.05);
+  g.gain.setValueAtTime(peak, t + Math.max(0.06, d * 0.7));
+  g.gain.exponentialRampToValueAtTime(0.0001, t + d + 0.45);
+  lp.connect(g); g.connect(dest);
+  track(E, lp, g);
+  const oscs = [["triangle", 1, 0.8], ["sine", 2, 0.22]].map(([type, k, level]) => {
+    const osc = c.createOscillator(); osc.type = type;
+    osc.frequency.setValueAtTime(f * k * (from > 0 ? from / f : 0.97), t);
+    osc.frequency.exponentialRampToValueAtTime(f * k, t + (from > 0 ? 0.16 : 0.05));
+    const lg = c.createGain(); lg.gain.value = level;
+    osc.connect(lg); lg.connect(lp);
+    track(E, osc, lg); trackSource(E, osc);
+    osc.start(t); osc.stop(end);
+    return osc;
+  });
+  const lfo = c.createOscillator(); lfo.type = "sine"; lfo.frequency.value = 5.2;
+  const amt = c.createGain(); amt.gain.setValueAtTime(0, t); amt.gain.linearRampToValueAtTime(f * 0.005, t + Math.min(d, 0.35));
+  lfo.connect(amt); oscs.forEach(osc => amt.connect(osc.frequency));
+  track(E, lfo, amt); trackSource(E, lfo);
+  lfo.start(t); lfo.stop(end);
+}
+/* an air horn: two reeds beating a hair apart and a third a fifth up,
+   through the bell's resonance, scooping up into pitch */
+function flHorn(E, t, d, gain = 1, f = NOTE.A4) {
+  const c = E.ctx, v = voice(E, { send:0.32, bright:1, gain });
+  const lp = c.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 3400; lp.Q.value = 0.8;
+  const bp = c.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 1150; bp.Q.value = 1.8;
+  const bg = c.createGain(); bg.gain.value = 0.7;
+  const g = c.createGain(); g.gain.value = 0;
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.linearRampToValueAtTime(0.2, t + 0.025);
+  g.gain.setValueAtTime(0.2, t + Math.max(0.05, d - 0.04));
+  g.gain.linearRampToValueAtTime(0.0001, t + d + 0.1);
+  lp.connect(g); bp.connect(bg); bg.connect(g); g.connect(v);
+  track(E, lp, bp, bg, g);
+  [[1, 0.5, "sawtooth"], [1.0062, 0.42, "sawtooth"], [1.4983, 0.2, "square"]].forEach(([k, level, type]) => {
+    const osc = c.createOscillator(); osc.type = type;
+    const fk = f * k;
+    osc.frequency.setValueAtTime(fk * 0.88, t);
+    osc.frequency.exponentialRampToValueAtTime(fk, t + 0.06);
+    osc.frequency.setValueAtTime(fk, t + Math.max(0.07, d - 0.05));
+    osc.frequency.exponentialRampToValueAtTime(fk * 0.97, t + d + 0.1);
+    const lg = c.createGain(); lg.gain.value = level;
+    osc.connect(lg); lg.connect(lp); lg.connect(bp);
+    track(E, osc, lg); trackSource(E, osc);
+    osc.start(t); osc.stop(t + d + 0.14);
+  });
+}
+/* the drums: each plays into a voice the bar shares */
+const FLD = Object.freeze({
+  kick(E, v, t, k = 1) { mode(E, v, t, 52, 0.26, 0.9 * k, { drop:1.25, a:0.002 }); burst(E, v, t, { type:"lowpass", f:2800, q:0.7, d:0.006, peak:0.3 * k }); },
+  snare(E, v, t, k = 1) { burst(E, v, t, { f:1850, q:0.75, d:0.11, peak:0.5 * k }); burst(E, v, t, { type:"highpass", f:4800, q:0.7, d:0.09, peak:0.24 * k });
+    mode(E, v, t, 196, 0.07, 0.3 * k, { drop:0.22 }); },
+  rim(E, v, t, k = 1) { burst(E, v, t, { f:1750, q:4.5, d:0.018, peak:0.55 * k }); mode(E, v, t, 840, 0.03, 0.22 * k); mode(E, v, t, 1480, 0.018, 0.1 * k); },
+  hat(E, v, t, k = 1, open = false) { burst(E, v, t, { type:"highpass", f:7200, q:0.7, d:open ? 0.22 : 0.028, peak:0.38 * k }); },
+  shaker(E, v, t, k = 1) { burst(E, v, t, { f:6200, q:1.2, d:0.05, peak:0.32 * k, a:0.012 }); },
+  tom(E, v, t, f = 98, k = 1) { mode(E, v, t, f, 0.3, 0.72 * k, { drop:0.5, a:0.002 }); mode(E, v, t, f * 1.6, 0.11, 0.14 * k, { drop:0.3 });
+    burst(E, v, t, { type:"lowpass", f:1500, d:0.03, peak:0.22 * k }); },
+  crash(E, v, t, k = 1, d = 1.6) { noiseBed(E, v, t, { type:"highpass", f:4200, q:0.6, d, peak:0.3 * k, a:0.002 });
+    [3110, 4290, 5470, 6830].forEach(f => mode(E, v, t, f, d * 0.35, 0.03 * k, { type:"square", a:0.001 }));
+    burst(E, v, t, { f:2600, q:0.8, d:0.05, peak:0.26 * k }); },
+  brush(E, v, t, k = 1) { burst(E, v, t, { f:2400, q:0.5, d:0.15, peak:0.26 * k, a:0.022 }); },
+});
+/* a snare roll at `rate` strokes a second, swelling from `from` to `to` */
+function flRoll(E, v, t, d, from = 0.15, to = 0.7, rate = 16) {
+  const n = Math.max(2, Math.round(d * rate));
+  for (let i = 0; i < n; i++) { const k = i / (n - 1); FLD.snare(E, v, t + i / rate + rnd(-0.003, 0.003), from + (to - from) * k * k); }
+}
+/* a noise riser across d, cut dead on the downbeat */
+function flRiser(E, t, d, peak, pan = 0) {
+  const c = E.ctx, v = voice(E, { pan, send:0.4, bright:1, gain:1 });
+  const s = c.createBufferSource(); s.buffer = E.noise; s.loop = true;
+  const bp = c.createBiquadFilter(); bp.type = "bandpass"; bp.Q.value = 1.2;
+  bp.frequency.setValueAtTime(380, t); bp.frequency.exponentialRampToValueAtTime(4200, t + d);
+  const g = c.createGain(); g.gain.value = 0;
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(Math.max(0.0002, peak), t + d * 0.96);
+  g.gain.linearRampToValueAtTime(0.0001, t + d);
+  s.connect(bp); bp.connect(g); g.connect(v);
+  track(E, s, bp, g); trackSource(E, s);
+  s.start(t, Math.random()); s.stop(t + d + 0.05);
+}
+
+/* ── the race's music ── */
+/* the turn: four bars on B, B, D and E; the riff asks on B and answers a step up */
+const FL_TURN = Object.freeze(["B", "B", "D", "E"]);
+/* the riff, a bar at a time: [step, note, sixteenths, how]; v a whammy vibrato, d a dive at the end */
+const FL_RIFF = Object.freeze([
+  [[0, "B2", 2], [3, "B2", 1], [4, "D3", 2], [6, "E3", 2], [8, "Fs3", 4, "v"], [12, "E3", 2], [14, "D3", 2]],
+  [[0, "B2", 6, "v"], [8, "A2", 2], [10, "B2", 2], [12, "D3", 4]],
+  [[0, "D3", 2], [3, "D3", 1], [4, "Fs3", 2], [6, "A3", 2], [8, "B3", 4, "v"], [12, "A3", 2], [14, "Fs3", 2]],
+  [[0, "E3", 4], [4, "Fs3", 2], [6, "A3", 2], [8, "B3", 6, "d"], [14, "A3", 1], [15, "Fs3", 1]],
+]);
+/* the final's lead, tremolo-picked an octave over the riff: t tremolo, d a dive */
+const FL_LEAD = Object.freeze([
+  [[0, "Fs4", 8, "t"], [8, "E4", 4, "t"], [12, "D4", 4]],
+  [[0, "B3", 12, "td"], [12, "A3", 2], [14, "B3", 2]],
+  [[0, "A4", 8, "t"], [8, "Fs4", 4, "t"], [12, "E4", 4]],
+  [[0, "Fs4", 8, "t"], [8, "E4", 4], [12, "D4", 2], [14, "E4", 2]],
+]);
+/* the bass in eighths, the phrase's last bar walking home to B */
+const FL_BASS = Object.freeze({
+  B:["B1", "B1", "Fs2", "B2", "B1", "B1", "Fs2", "A2"],
+  D:["D2", "D2", "A2", "D3", "D2", "D2", "A2", "B2"],
+  E:["E2", "E2", "B2", "E3", "E2", "E2", "B2", "D3"],
+  home:["E2", "E2", "B2", "E3", "D3", "B2", "A2", "Fs2"],
+});
+const FL_CHORD = Object.freeze({ B:["B2", "Fs3", "B3"], D:["D3", "A3", "D4"], E:["E3", "B3", "E4"] });
+/* Whirlpool Bend's arpeggio, spinning round the room in sixteenths */
+const FL_WHIRL = Object.freeze({ B:["B3", "D4", "Fs4", "A4", "Fs4", "D4", "B3", "A3"], D:["D4", "Fs4", "A4", "B4", "A4", "Fs4", "D4", "B3"],
+  E:["E4", "A4", "B4", "D5", "B4", "A4", "E4", "D4"] });
+/* the drums by leg, each harder than the last */
+const FL_DRUMS = Object.freeze([
+  /* the Put-in: a lazy kick, a cross-stick on two and four, a shaker */
+  Object.freeze({ kick:[0, 8], rim:[4, 12], shaker:[0, 2, 4, 6, 8, 10, 12, 14] }),
+  /* the Narrows: the backbeat comes in, hats on the eighths */
+  Object.freeze({ kick:[0, 6, 8], hat:[0, 2, 4, 6, 8, 10, 12, 14] }),
+  /* Whirlpool Bend: the floor tom rolls under it */
+  Object.freeze({ kick:[0, 6, 8, 11], hat:[0, 2, 4, 6, 8, 10, 12, 14], tom:[2, 10] }),
+  /* The Drop: sixteenths on the hat, the kick pushing */
+  Object.freeze({ kick:[0, 6, 8, 11, 14], hat16:true, tom:[2, 10] }),
+]);
+const FL_FILL = Object.freeze([[12, NOTE.D3], [13, NOTE.B4 / 4], [14, NOTE.Fs4 / 4], [15, NOTE.E4 / 4]]);
+
+/* One bar of the race. The leg sets the arrangement (the Put-in sparse,
+   each leg adding a layer), the final adds the tremolo lead, and tense
+   (1..5, the leader near the takeout or the cap running) opens the hat,
+   ghosts the snare, picks the long notes, pushes the kick and rolls the
+   snare into a riser. drop "suspend" holds the band on a tremolo and a
+   riser as the leader reaches the lip; "land" (and first, the gun) hits
+   the chord and the crash. */
+function flRaceBar(E, t, o = {}) {
+  const leg = flInt(o.leg, 0, 3), tense = flInt(o.tense, 0, 5), turn = flMod(o.bar, 4), chord = FL_TURN[turn];
+  const phrase = flMod(o.phrase ?? o.bar, 8), final = !!o.final, lv = FL_BAND * (Number(o.level) > 0 ? Number(o.level) : 1);
+  const at = i => t + i * FL_STEP_S;
+  const suspend = o.drop === "suspend", hit = o.drop === "land" || !!o.first;
+  const V = flVoices(E, { kick:{ send:0.04, bright:0.8, gain:lv }, snare:{ pan:0.06, send:0.24, bright:1, gain:lv },
+    hat:{ pan:0.32, send:0.08, bright:1, gain:lv }, tom:{ pan:-0.18, send:0.22, bright:0.7, gain:lv },
+    crash:{ pan:-0.3, send:0.3, bright:1, gain:lv }, bass:{ send:0.06, bright:1, gain:lv },
+    gtr:{ pan:-0.26, send:0.95, bright:1, gain:lv }, echo:{ pan:0.38, send:1.1, bright:0.6, gain:lv },
+    chank:{ pan:0.42, send:0.5, bright:0.9, gain:lv }, lead:{ pan:0.12, send:1, bright:1, gain:lv },
+    whirlL:{ pan:-0.6, send:0.8, bright:1, gain:lv }, whirlR:{ pan:0.6, send:0.8, bright:1, gain:lv } });
+  const kit = FL_DRUMS[leg];
+  /* the drums */
+  if (suspend) {
+    FLD.tom(E, V("tom"), t, NOTE.Fs4 / 4, 0.9);
+    flRiser(E, t, FLOAT_BAR_S, 0.11 * lv);
+  } else {
+    const train = final && tense >= 3;
+    const kicks = new Set(kit.kick);
+    if (tense >= 4 || train) [0, 4, 8, 12].forEach(s => kicks.add(s));
+    kicks.forEach(s => FLD.kick(E, V("kick"), at(s), s % 8 === 0 ? 1 : 0.78));
+    if (leg === 0 && tense < 2) kit.rim.forEach(s => FLD.rim(E, V("snare"), at(s), 0.8));
+    else {
+      const snares = train ? [[2, 0.45], [4, 1], [6, 0.45], [10, 0.45], [12, 1], [14, 0.45]] : [[4, 1], [12, 1]];
+      if (tense >= 2) snares.push([7, 0.2], [15, 0.24]);
+      if (tense >= 4) snares.push([13, 0.4], [14, 0.5], [15, 0.62]);
+      snares.forEach(([s, k]) => FLD.snare(E, V("snare"), at(s), k * 0.85));
+    }
+    if (tense >= 5) flRoll(E, V("snare"), at(8), 8 * FL_STEP_S, 0.1, 0.5);
+    if (leg === 0) kit.shaker.forEach(s => FLD.shaker(E, V("hat"), at(s), s % 4 === 2 ? 0.9 : 0.55));
+    else if (kit.hat16 || tense >= 3) for (let s = 0; s < 16; s++) FLD.hat(E, V("hat"), at(s), s % 2 ? 0.42 : 0.8);
+    else kit.hat.forEach(s => FLD.hat(E, V("hat"), at(s), s % 4 === 0 ? 0.6 : 0.85));
+    if (tense >= 1 && leg > 0) FLD.hat(E, V("hat"), at(14), 0.7, true);
+    (kit.tom || []).forEach(s => FLD.tom(E, V("tom"), at(s), NOTE.Fs4 / 4, 0.5));
+    if (o.fill) FL_FILL.forEach(([s, f]) => FLD.tom(E, V("tom"), at(s), f, leg ? 0.85 : 0.6));
+    if (o.crash || hit || (tense >= 3 && turn % 2 === 0)) FLD.crash(E, V("crash"), t, hit ? 1 : 0.7);
+    if (tense >= 4) flRiser(E, t, FLOAT_BAR_S, (tense >= 5 ? 0.09 : 0.055) * lv, 0.1);
+  }
+  /* the bass */
+  const line = FL_BASS[phrase === 7 && chord === "E" ? "home" : chord];
+  if (suspend) flBass(E, V("bass"), t, FN.B1, FLOAT_BAR_S * 0.95, 0.3);
+  else if (leg === 0 && tense < 2)
+    [[0, 0, 5], [6, 2, 2], [8, 4, 5], [14, 3, 2]].forEach(([s, k, len]) => flBass(E, V("bass"), at(s), fn(line[k]), len * FL_STEP_S * 0.9, s % 8 === 0 ? 0.32 : 0.24));
+  else line.forEach((name, k) => flBass(E, V("bass"), at(k * 2), fn(name), FL_STEP_S * 1.6, k % 4 === 0 ? 0.32 : 0.25));
+  /* the guitar */
+  if (suspend) {
+    flTwang(E, t, FN.B3, FLOAT_BAR_S * 0.92, 0.12, { dest:V("gtr"), trem:16, vib:0.5, sus:0.8 });
+    flDrip(E, t, 0.7 * lv);
+  } else if (leg === 0 && turn % 2 === 1 && tense < 3) {
+    /* the Put-in answers its own call with one chord, left to ring */
+    flStrum(E, t, FL_CHORD[chord], 0.7, 0.1, { dest:V("gtr"), vib:0.7, sus:0.5 });
+    flStrum(E, t + FL_SLAP_S, FL_CHORD[chord], 0.5, 0.032, { dest:V("echo"), bright:0.6 });
+  } else {
+    FL_RIFF[turn].forEach(([s, name, len, how]) => {
+      const f = fn(name), d = len * FL_STEP_S * 0.92;
+      const shape = { vib:how === "v" ? 1 : 0, dive:how === "d" ? 0.11 : 0, trem:tense >= 3 && len >= 4 ? 16 : 0 };
+      flTwang(E, at(s), f, d, 0.2, { dest:V("gtr"), ...shape });
+      flTwang(E, at(s) + FL_SLAP_S, f, d * 0.85, 0.06, { dest:V("echo"), bright:0.6, ...shape });
+    });
+    if (phrase === 0 || hit) flDrip(E, t, 0.6 * lv);
+  }
+  if (hit) flStrum(E, t, FL_CHORD.B, 0.9, 0.11, { dest:V("chank"), vib:0.6 });
+  if (leg >= 1 && !suspend) [4, 12].forEach(s => flChank(E, V("chank"), at(s), FL_CHORD[chord], 1));
+  if (leg === 2 && !suspend && phrase >= 4 && turn >= 2)
+    FL_WHIRL[chord].forEach((name, k) => flTwang(E, at(8 + k), fn(name), 0.12, 0.055, { dest:V(k % 2 ? "whirlR" : "whirlL"), bright:0.8, sus:0.3 }));
+  if (!suspend && (final || (leg === 3 && phrase >= 4)))
+    FL_LEAD[turn].forEach(([s, name, len, how = ""]) => flTwang(E, at(s), fn(name), len * FL_STEP_S * 0.95, 0.12,
+      { dest:V("lead"), trem:how.includes("t") ? 16 : 0, vib:0.8, dive:how.includes("d") ? 0.18 : 0 }));
+}
+
+/* On the grid: a palm-muted pedal on B (the bass in eighths, the guitar
+   chugging three, three and two), hats and a kick; the second bar lifts
+   to D and E on its last beat */
+function flVampBar(E, t, o = {}) {
+  const bar = flMod(o.bar, 2), lv = FL_BAND * 0.85;
+  const at = i => t + i * FL_STEP_S;
+  const V = flVoices(E, { kick:{ send:0.04, bright:0.8, gain:lv }, hat:{ pan:0.32, send:0.08, bright:1, gain:lv },
+    bass:{ send:0.06, bright:1, gain:lv }, gtr:{ pan:-0.24, send:0.9, bright:1, gain:lv }, echo:{ pan:0.38, send:1.1, bright:0.6, gain:lv } });
+  [0, 8].forEach(s => FLD.kick(E, V("kick"), at(s), s ? 0.6 : 0.85));
+  for (let s = 0; s < 16; s += 2) FLD.hat(E, V("hat"), at(s), s % 4 ? 0.7 : 0.4);
+  for (let k = 0; k < 8; k++) flBass(E, V("bass"), at(k * 2), FN.B1, FL_STEP_S * 1.2, k % 4 === 0 ? 0.28 : 0.2);
+  [0, 3, 6, 8, 11].forEach(s => flTwang(E, at(s), FN.B2, 0.07, 0.12, { dest:V("gtr"), bright:0.5, sus:0.3, release:0.05 }));
+  if (bar === 1) [[12, "D3", 0.2], [14, "E3", 0.24]].forEach(([s, name, d]) => {
+    flTwang(E, at(s), fn(name), d, 0.14, { dest:V("gtr"), vib:s === 14 ? 0.7 : 0 });
+    flTwang(E, at(s) + FL_SLAP_S, fn(name), d * 0.8, 0.045, { dest:V("echo"), bright:0.6 });
+  });
+  else flTwang(E, at(14), FN.B2, 0.07, 0.12, { dest:V("gtr"), bright:0.5, sus:0.3, release:0.05 });
+}
+
+/* the lobby's lounge: an eight-bar turn rocking D, A, B minor, A (E sus on
+   the seventh), a clean guitar arpeggio through the amp's vibrato, an
+   upright bass, and a lap steel singing over bars three, four, seven and
+   eight; the drums come and go by section so the loop breathes */
+const FL_LOUNGE = (() => {
+  const D = { arp:["D3", "A3", "D4", "Fs4", "A4", "Fs4", "D4", "A3"], bass:[[0, "D2", 6], [8, "A2", 4], [12, "Fs2", 2], [14, "E2", 2]] };
+  const A = { arp:["A2", "E3", "A3", "B3", "E4", "B3", "A3", "E3"], bass:[[0, "A2", 6], [8, "E2", 4], [12, "Fs2", 2], [14, "A2", 2]] };
+  const Bm = { arp:["B2", "Fs3", "B3", "D4", "Fs4", "D4", "B3", "Fs3"], bass:[[0, "B1", 6], [8, "Fs2", 4], [12, "A2", 2], [14, "B2", 2]] };
+  const Es = { arp:["E3", "A3", "B3", "E4", "A4", "E4", "B3", "A3"], bass:[[0, "E2", 6], [8, "B2", 4], [12, "A2", 2], [14, "Fs2", 2]] };
+  return Object.freeze([D, A, { ...Bm, steel:[[0, "Fs4", 6], [6, "E4", 2], [8, "D4", 6], [14, "B3", 2]] },
+    { ...A, steel:[[0, "E4", 12], [12, "B3", 4]] }, D, A, { ...Es, steel:[[0, "A4", 6], [6, "B4", 2], [8, "A4", 4], [12, "Fs4", 4]] },
+    { ...A, steel:[[0, "E4", 16]] }]);
+})();
+function flLoungeBar(E, t, o = {}) {
+  const bar = flMod(o.bar, 8), section = flMod(o.section, 4), between = !!o.cut, chord = FL_LOUNGE[bar], lv = FL_BAND * 0.72;
+  /* a lazy swing on the eighths */
+  const at = i => t + i * FL_STEP_S + (i % 4 === 2 ? 0.03 : 0);
+  const V = flVoices(E, { kick:{ send:0.06, bright:0.7, gain:lv }, snare:{ pan:0.06, send:0.3, bright:0.9, gain:lv },
+    hat:{ pan:0.3, send:0.12, bright:1, gain:lv }, bass:{ send:0.08, bright:1, gain:lv },
+    gtr:{ pan:-0.22, send:1.1, bright:1, gain:lv }, steel:{ pan:0.24, send:1.15, bright:1, gain:lv } });
+  chord.bass.forEach(([s, name, len]) => flBass(E, V("bass"), at(s), fn(name), len * FL_STEP_S, s === 0 ? 0.3 : 0.22, { upright:true }));
+  chord.arp.forEach((name, k) => flTwang(E, at(k * 2), fn(name), 0.42, k === 0 ? 0.075 : 0.06,
+    { dest:V("gtr"), bright:0.55, sus:0.5, release:0.3, amp:4.6, bend:0.006 }));
+  if (between || section === 1 || section === 2) for (let s = 0; s < 16; s += 2) FLD.shaker(E, V("hat"), at(s), s % 4 ? 0.5 : 0.3);
+  if (between || section === 2) { FLD.kick(E, V("kick"), at(0), 0.5); FLD.brush(E, V("snare"), at(8), 0.8); }
+  if (!between && (section === 1 || section === 3) && chord.steel) {
+    let prev = 0;
+    chord.steel.forEach(([s, name, len]) => { const f = fn(name); flSteel(E, V("steel"), at(s), f, len * FL_STEP_S, 0.07, prev); prev = f; });
+  }
+}
+
+/* ── the river ── */
+/* a stretch of river's layers, a riffle by default (so it reads alone):
+   flow (the moving body, low-passed at tone), babble (a riffle's gurgle),
+   hiss (spray), roar (the falls, a low thunder), swirl (the whirlpool
+   circling the room), churn (the field's paddles run together, by their
+   rate), laps (water slapping vinyl), plips (drops), crickets (the desert
+   at night), level (all of it) */
+const FL_RIVER = Object.freeze({ flow:0.6, tone:800, babble:0.5, hiss:0.15, roar:0, swirl:0, churn:0, laps:0, plips:1, crickets:0, level:1 });
+export const FLOAT_RIVER_LAYERS = Object.freeze(Object.keys(FL_RIVER));
+/* One stretch: an equal-power rise and fall at each end, so the stretches
+   laid over each other hold one level, and every layer moving from `from`
+   to `to` across the middle. Each side is its own noise, so the river is
+   wide. */
+function flRiver(E, t, o = {}) {
+  const c = E.ctx;
+  const d = Math.max(0.6, (Number(o.ms) || 3000) / 1000), F = Math.min(d / 2.5, Math.max(0.05, (Number(o.fade) || 750) / 1000));
+  const a = { ...FL_RIVER, ...(o.from || o.to || {}) }, b = { ...FL_RIVER, ...(o.to || o.from || {}) };
+  const L = voice(E, { pan:-0.62, send:0.24, bright:1, gain:1 }), R = voice(E, { pan:0.62, send:0.24, bright:1, gain:1 });
+  const RISE = [0.383, 0.707, 0.924, 1], FALL = [0.924, 0.707, 0.383];
+  const env = side => {
+    const g = c.createGain(); g.gain.value = 0;
+    g.gain.setValueAtTime(0.0001, t);
+    RISE.forEach((p, k) => g.gain.linearRampToValueAtTime(p, t + F * (k + 1) / 4));
+    g.gain.setValueAtTime(1, t + d - F);
+    FALL.forEach((p, k) => g.gain.linearRampToValueAtTime(p, t + d - F + F * (k + 1) / 4));
+    g.gain.linearRampToValueAtTime(0.0001, t + d);
+    g.connect(side); track(E, g);
+    return g;
+  };
+  const sides = [env(L), env(R)];
+  const lvl = (x, key, scale) => Math.max(0.0001, (Number(x[key]) || 0) * scale * (Number(x.level) || 0));
+  /* one noise layer each side: through its filters (each [type, f0, f1, q]), its level moving a to b over the hold */
+  const layer = (key, scale, filters, extra) => {
+    const from = lvl(a, key, scale), to = lvl(b, key, scale);
+    if (from <= 0.0001 && to <= 0.0001) return;
+    sides.forEach((dest, side) => {
+      const s = c.createBufferSource(); s.buffer = E.noise; s.loop = true;
+      if (s.playbackRate) s.playbackRate.value = side ? 0.94 : 1.06;
+      let node = s;
+      track(E, s); trackSource(E, s);
+      for (const [type, f0, f1, q] of filters) {
+        const fl = c.createBiquadFilter(); fl.type = type; fl.Q.value = q;
+        fl.frequency.setValueAtTime(f0, t); fl.frequency.setValueAtTime(f0, t + F); fl.frequency.linearRampToValueAtTime(f1, t + d - F);
+        node.connect(fl); node = fl; track(E, fl);
+      }
+      const g = c.createGain(); g.gain.value = 0;
+      g.gain.setValueAtTime(from, t); g.gain.setValueAtTime(from, t + F); g.gain.linearRampToValueAtTime(to, t + d - F);
+      node.connect(g); track(E, g);
+      if (extra) extra(g, side); else g.connect(dest);
+      s.start(t, Math.random() * 1.9); s.stop(t + d + 0.05);
+    });
+  };
+  const lfo = (param, rate, depth, phase = 0) => {
+    const osc = c.createOscillator(); osc.type = "sine"; osc.frequency.value = rate;
+    const amt = c.createGain(); amt.gain.value = depth;
+    osc.connect(amt); amt.connect(param);
+    track(E, osc, amt); trackSource(E, osc);
+    osc.start(t + phase); osc.stop(t + d + 0.05);
+  };
+  layer("flow", 0.07, [["lowpass", a.tone, b.tone, 0.5], ["highpass", 60, 60, 0.5]]);
+  /* the babble: a band of noise gurgling (its level shaken by two slow wobbles a hair apart) */
+  layer("babble", 0.06, [["bandpass", 1700, 1700, 1.3]], (g, side) => {
+    const am = c.createGain(); am.gain.value = 0.62;
+    lfo(am.gain, side ? 3.1 : 3.7, 0.22); lfo(am.gain, side ? 7.9 : 6.7, 0.16, 0.05);
+    g.connect(am); am.connect(sides[side]); track(E, am);
+  });
+  layer("hiss", 0.03, [["highpass", 4600, 4600, 0.6]]);
+  layer("roar", 0.11, [["lowpass", 560, 560, 0.6]]);
+  layer("roar", 0.08, [["bandpass", 95, 95, 0.9]]);
+  /* the whirlpool: a band circling the room, one side swelling as the other falls */
+  layer("swirl", 0.09, [["bandpass", 640, 640, 3]], (g, side) => {
+    const am = c.createGain(); am.gain.value = 0.5;
+    lfo(am.gain, 0.36, side ? -0.48 : 0.48);
+    g.connect(am); am.connect(sides[side]); track(E, am);
+  });
+  /* the field's paddles run together: a band of water thrashed a dozen times a second */
+  layer("churn", 0.05, [["bandpass", 1050, 1050, 0.9]], (g, side) => {
+    const am = c.createGain(); am.gain.value = 0.6;
+    lfo(am.gain, side ? 11.3 : 9.7, 0.34);
+    g.connect(am); am.connect(sides[side]); track(E, am);
+  });
+  /* water slapping the vinyl now and then, drops, and the crickets in the hold */
+  const mean = key => ((Number(a[key]) || 0) * (Number(a.level) || 0) + (Number(b[key]) || 0) * (Number(b.level) || 0)) / 2;
+  const holdFrom = t + F, holdLen = Math.max(0.1, d - 2 * F);
+  for (let i = 0, n = Math.round(mean("laps") * 2); i < n; i++) {
+    const v = i % 2 ? R : L, x = holdFrom + rnd(0, holdLen - 0.4);
+    swell(E, v, x, { d:0.38, f0:340, f1:760, q:1.1, peak:0.05 });
+    mode(E, v, x + 0.22, 170, 0.08, 0.05, { drop:0.3 });
+  }
+  for (let i = 0, n = Math.round(mean("plips") * holdLen * 1.6); i < n; i++)
+    flPlip(E, i % 2 ? R : L, holdFrom + rnd(0, holdLen), { f:rnd(800, 1900), gain:rnd(0.25, 0.6) });
+  const crickets = mean("crickets");
+  if (crickets > 0.01) [[L, 4650, 0.13], [R, 4920, 0.6]].forEach(([dest, f, phase]) => {
+    const osc = c.createOscillator(); osc.type = "sine"; osc.frequency.value = f;
+    const g = c.createGain(); g.gain.value = 0;
+    g.gain.setValueAtTime(0, t);
+    for (let x = holdFrom + phase; x < holdFrom + holdLen - 0.15; x += rnd(0.75, 1.1))
+      for (let p = 0; p < 3; p++) {
+        const s0 = x + p * 0.045;
+        g.gain.setValueAtTime(0, s0); g.gain.linearRampToValueAtTime(0.012 * crickets, s0 + 0.004);
+        g.gain.linearRampToValueAtTime(0.009 * crickets, s0 + 0.016); g.gain.linearRampToValueAtTime(0, s0 + 0.022);
+      }
+    osc.connect(g); g.connect(dest);
+    track(E, osc, g); trackSource(E, osc);
+    osc.start(t); osc.stop(t + d + 0.05);
+  });
+}
+
+/* ── the field ── */
+/* a paddle going in: the blade's band of noise sweeping down, the little cavity it leaves */
+function flDip(E, dest, t, { pitch = 1, gain = 1 } = {}) {
+  flSweep(E, dest, t, { f0:2200 * pitch, f1:700 * pitch, q:1.5, d:0.085, peak:0.24 * gain, a:0.005 });
+  glide(E, dest, t + 0.004, 620 * pitch, 330 * pitch, 0.07, 0.07 * gain);
+}
+/* Strokes on the screen: dips where they were (opts.offsets ms, opts.pans),
+   at most opts.grains of them (3), each a little quieter in a crowd
+   (opts.n, the strokes they stand for). A big field never sounds one dip
+   a stroke: the river's churn layer carries the rest. */
+function flPaddles(E, t, o = {}) {
+  const n = Math.max(1, Math.min(60, Math.round(Number(o.n) || 1)));
+  const offsets = Array.isArray(o.offsets) ? o.offsets : [], pans = Array.isArray(o.pans) ? o.pans : [];
+  const span = Math.max(0.02, (Number(o.span) || 60) / 1000), grains = Math.min(n, flInt(o.grains || 3, 1, 5));
+  const V = flVoices(E, { L:{ pan:-0.45, send:0.28, bright:1, gain:1 }, C:{ pan:0, send:0.28, bright:1, gain:1 },
+    R:{ pan:0.45, send:0.28, bright:1, gain:1 } });
+  const side = p => p < -0.2 ? "L" : p > 0.2 ? "R" : "C";
+  const k = 1 / Math.sqrt(Math.max(1, n / grains));
+  for (let i = 0; i < grains; i++) {
+    const dt = Number.isFinite(Number(offsets[i])) ? Math.max(0, Number(offsets[i])) / 1000 : i * span / grains + rnd(0, span / grains);
+    const pan = Number.isFinite(Number(pans[i])) ? Number(pans[i]) : rnd(-0.5, 0.5);
+    flDip(E, V(side(pan)), t + dt, { pitch:rnd(0.85, 1.2), gain:k * rnd(0.7, 1) });
+  }
+}
+
+/* ── the screen's moments ── */
+/* 3, 2, 1: a floor tom and a guitar fifth stepping up B, D, E; under the 1 the snare rolls into the gun */
+function flCount(E, t, o = {}) {
+  const n = flInt(o.n || 3, 1, 3), k = 3 - n;
+  const dr = voice(E, { send:0.32, bright:0.8, gain:1 }), g = voice(E, { pan:-0.15, send:1, bright:1, gain:1 });
+  FLD.tom(E, dr, t, [FN.Fs2, FN.A2, FN.B2][k], 1);
+  FLD.kick(E, dr, t, 0.6);
+  flTwang(E, t, [FN.B2, FN.D3, FN.E3][k], 0.55, 0.22, { dest:g, vib:0.7 });
+  flTwang(E, t + 0.01, [FN.Fs3, FN.A3, FN.B3][k], 0.55, 0.15, { dest:g, vib:0.7 });
+  flDrip(E, t + 0.005, 0.7);
+  if (o.final) FLD.tom(E, dr, t + 0.25, [FN.Fs2, FN.A2, FN.B2][k] * 0.75, 0.6);
+  if (n === 1) flRoll(E, voice(E, { pan:0.06, send:0.25, bright:1, gain:1 }), t + 0.5, 0.46, 0.1, 0.5);
+}
+/* the gun: an air horn and every paddle hitting the water at once (the final: two horns, a fourth apart) */
+function flGo(E, t, o = {}) {
+  flHorn(E, t, o.final ? 1.15 : 0.85, 1);
+  if (o.final) flHorn(E, t + 0.015, 1.15, 0.7, NOTE.D5);
+  FLD.kick(E, voice(E, { send:0.05, bright:0.8, gain:1 }), t, 1);
+  flSplash(E, voice(E, { send:0.3, bright:1, gain:0.5 }), t + 0.06, { size:0.7 });
+}
+/* A leg's title: dun, dun, dun, DAAH on the toms, the last note ringing
+   on the whammy. The Narrows throws it back off the canyon, Whirlpool Bend
+   spins an arpeggio round the room, The Drop falls off the end of it, the
+   final adds the horns and a roll (opts.summary: the last note and the crash) */
+function flTitle(E, t, o = {}) {
+  const leg = flInt(o.leg, 0, 3), final = !!o.final;
+  const g = voice(E, { pan:-0.2, send:1.05, bright:1, gain:1 }), echo = voice(E, { pan:0.4, send:1.2, bright:0.6, gain:1 });
+  const dr = voice(E, { send:0.25, bright:0.8, gain:1 }), cv = voice(E, { pan:-0.3, send:0.3, bright:1, gain:1 });
+  const lines = [["B2", "D3", "E3", "Fs3"], ["B2", "B2", "D3", "E3"], ["Fs3", "E3", "D3", "B2"], ["B2", "D3", "E3", "A3"]];
+  const notes = final ? ["B2", "D3", "E3", "B3"] : lines[leg];
+  const hit = t + (o.summary ? 0 : 0.75);
+  if (!o.summary) {
+    flDrip(E, t, 0.8);
+    if (final) flRoll(E, dr, t, 0.72, 0.08, 0.45);
+    notes.slice(0, 3).forEach((name, k) => {
+      const x = t + k * 0.25;
+      flTwang(E, x, fn(name), 0.18, 0.2, { dest:g });
+      flTwang(E, x + FL_SLAP_S, fn(name), 0.15, 0.06, { dest:echo, bright:0.6 });
+      FLD.tom(E, dr, x, [FN.Fs2, FN.A2, FN.B2][k], 0.7);
+    });
+  }
+  const last = fn(notes[3]), shape = { vib:1, trem:final ? 16 : 0, dive:leg === 3 && !final ? 0.5 : 0, sus:0.6 };
+  flTwang(E, hit, last, 1.3, 0.24, { dest:g, ...shape });
+  flTwang(E, hit + FL_SLAP_S, last, 1.05, 0.07, { dest:echo, bright:0.6, ...shape });
+  if (leg === 1 && !final) [0.27, 0.405].forEach((e, j) => flTwang(E, hit + e, last, 0.6, 0.045 / (j + 1), { dest:echo, bright:0.5 }));
+  FLD.kick(E, dr, hit, 1);
+  FLD.crash(E, cv, hit, 0.9, 2);
+  flBass(E, voice(E, { send:0.06, bright:1, gain:1 }), hit, FN.B1, 1.2, 0.34);
+  if (o.summary) return;
+  if (leg === 2 && !final)
+    FL_WHIRL.B.forEach((name, k) => flTwang(E, hit + 0.3 + k * 0.07, fn(name) * 2, 0.1, 0.05, { pan:Math.sin(k * Math.PI / 4) * 0.7, send:1, bright:0.8 }));
+  if (leg === 3 && !final) {
+    fallWhistle(E, hit + 0.15, 0.7);
+    M.drum(E, hit + 0.88, { f:NOTE.D2, dec:0.9, gain:0.9 });
+    flSplash(E, voice(E, { send:0.4, bright:1, gain:0.8 }), hit + 0.9, { size:1 });
+  }
+  if (final) { flHorn(E, hit, 1.1, 0.6, NOTE.D5); flHorn(E, hit + 0.01, 1.1, 0.48, NOTE.A4); }
+}
+/* the Cup opens: the spring's drip, a tremolo dive down the low string (the
+   surf's own opening), the chord and the crash, then the riff's first
+   notes (opts.summary: the chord and the crash) */
+function flIntro(E, t, o = {}) {
+  const g = voice(E, { pan:-0.2, send:1.1, bright:1, gain:1 }), echo = voice(E, { pan:0.4, send:1.2, bright:0.6, gain:1 });
+  const dr = voice(E, { send:0.2, bright:0.8, gain:1 }), bv = voice(E, { send:0.06, bright:1, gain:1 });
+  const hit = t + (o.summary ? 0 : 1.5);
+  if (!o.summary) {
+    flDrip(E, t, 1);
+    flTwang(E, t + 0.05, FN.B2, 1.4, 0.2, { dest:g, trem:16, from:4, slide:1.3, sus:0.85, release:0.08 });
+    flRiser(E, t + 0.2, 1.3, 0.08);
+  }
+  flStrum(E, hit, ["B2", "Fs3", "B3", "D4"], 0.9, 0.15, { dest:g, vib:0.8 });
+  flStrum(E, hit + FL_SLAP_S, ["B2", "Fs3", "B3"], 0.7, 0.045, { dest:echo, bright:0.6 });
+  FLD.crash(E, voice(E, { pan:-0.3, send:0.3, bright:1, gain:1 }), hit, 1, 2);
+  FLD.kick(E, dr, hit, 1);
+  flBass(E, bv, hit, FN.B1, 0.9, 0.34);
+  if (o.summary) return;
+  [[0.5, "B2", 0.18], [0.75, "B2", 0.18], [1.0, "D3", 0.18], [1.25, "E3", 0.7]].forEach(([dt, name, d], k) => {
+    flTwang(E, hit + dt, fn(name), d, 0.2, { dest:g, vib:k === 3 ? 1 : 0 });
+    flTwang(E, hit + dt + FL_SLAP_S, fn(name), d * 0.8, 0.06, { dest:echo, bright:0.6 });
+    FLD.tom(E, dr, hit + dt, [FN.Fs2, FN.Fs2, FN.A2, FN.B2][k], 0.6);
+  });
+}
+/* the round ends: the band stops on a chord, tremolo-picked and dived away */
+function flButton(E, t) {
+  const g = voice(E, { pan:-0.2, send:1.1, bright:1, gain:1 });
+  flStrum(E, t, ["B2", "Fs3", "B3", "D4"], 0.8, 0.15, { dest:g, trem:16, dive:0.35, sus:0.7 });
+  FLD.crash(E, voice(E, { pan:-0.3, send:0.3, bright:1, gain:1 }), t, 1, 1.8);
+  FLD.kick(E, voice(E, { send:0.05, bright:0.8, gain:1 }), t, 1);
+  flBass(E, voice(E, { send:0.06, bright:1, gain:1 }), t, FN.B1, 1.1, 0.34);
+  flDrip(E, t + 0.01, 0.8);
+}
+/* Out: a floatie letting go. The valve squeals, the air goes out as a
+   flapping reed that sinks, a hiss under it; each rider out a step lower
+   down D's five (opts.step) */
+const FL_OUT = Object.freeze([NOTE.A3, NOTE.Fs4 / 2, NOTE.E4 / 2, NOTE.D3, NOTE.B4 / 4, NOTE.A2, NOTE.Fs4 / 4, NOTE.E4 / 4]);
+function flOut(E, t, o = {}) {
+  const c = E.ctx, v = voice(E, { send:0.18, bright:1, gain:1 });
+  const f0 = FL_OUT[flInt(o.step, 0, FL_OUT.length - 1)];
+  glide(E, v, t, NOTE.E6, NOTE.B5, 0.12, 0.045, { type:"triangle", vib:31, depth:0.04 });
+  const bp = c.createBiquadFilter(); bp.type = "bandpass"; bp.Q.value = 1.3;
+  bp.frequency.setValueAtTime(1100, t + 0.05); bp.frequency.exponentialRampToValueAtTime(480, t + 0.72);
+  const flap = c.createGain(); flap.gain.value = 0.6;
+  const g = c.createGain(); g.gain.value = 0;
+  g.gain.setValueAtTime(0.0001, t + 0.05); g.gain.linearRampToValueAtTime(0.22, t + 0.09);
+  g.gain.setValueAtTime(0.22, t + 0.45); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.74);
+  const osc = c.createOscillator(); osc.type = "sawtooth";
+  osc.frequency.setValueAtTime(f0, t + 0.05); osc.frequency.exponentialRampToValueAtTime(f0 * 0.5, t + 0.74);
+  osc.connect(flap); flap.connect(bp); bp.connect(g); g.connect(v);
+  track(E, bp, flap, g, osc); trackSource(E, osc);
+  osc.start(t + 0.05); osc.stop(t + 0.78);
+  wobble(E, flap.gain, t + 0.05, 0.7, { rate:27, depth:0.4 });
+  flSweep(E, v, t + 0.06, { f0:3200, f1:1200, q:0.9, d:0.6, peak:0.05, a:0.05 });
+  mode(E, v, t + 0.7, 120, 0.06, 0.18, { drop:0.4 });
+}
+/* a bump: vinyl on vinyl, a rubber thud, a squeak and the bounce back (opts.big: a pile-up, with a boing) */
+function flBump(E, t, o = {}) {
+  const big = !!o.big, p = rnd(0.9, 1.15), v = voice(E, { send:0.16, bright:0.8, gain:big ? 1.15 : 1 });
+  mode(E, v, t, 96 * p, 0.13, 0.6, { drop:0.6, a:0.002 });
+  burst(E, v, t, { type:"lowpass", f:900, d:0.04, peak:0.3 });
+  glide(E, v, t + 0.004, 640 * p, 1010 * p, 0.09, 0.07, { type:"triangle", vib:26, depth:0.05 });
+  mode(E, v, t + 0.085, 110 * p, 0.08, 0.25, { drop:0.4 });
+  if (big) boing(E, t + 0.02, { f:NOTE.D4, d:0.45, peak:0.13 });
+}
+/* off a rock: a duller thud, the vinyl scraping, a little gravel */
+function flScrape(E, t) {
+  const c = E.ctx, v = voice(E, { send:0.15, bright:0.9, gain:1 });
+  mode(E, v, t, 130, 0.1, 0.45, { drop:0.5 });
+  const bp = c.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 1150; bp.Q.value = 2.2;
+  const g = c.createGain(); g.gain.value = 0;
+  g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.11, t + 0.012); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.26);
+  const osc = c.createOscillator(); osc.type = "sawtooth"; osc.frequency.value = 210 * rnd(0.92, 1.08);
+  osc.connect(bp); bp.connect(g); g.connect(v);
+  track(E, bp, g, osc); trackSource(E, osc);
+  osc.start(t); osc.stop(t + 0.3);
+  wobble(E, g.gain, t, 0.26, { rate:34, depth:0.05 });
+  for (let i = 0; i < 4; i++) M.tick(E, t + 0.03 + i * 0.05 + rnd(0, 0.02), { gain:0.22, pitch:rnd(1.2, 1.8) });
+}
+/* a flip: a whoop up and over, the splash, bubbles coming up (opts.summary: the splash) */
+function flFlip(E, t, o = {}) {
+  const v = voice(E, { send:0.32, bright:1, gain:1 });
+  if (o.summary) { flSplash(E, v, t, { size:1 }); return; }
+  glide(E, voice(E, { send:0.25, bright:1, gain:0.55 }), t, NOTE.D5, NOTE.D6, 0.16, 0.08, { type:"triangle" });
+  flSplash(E, v, t + 0.1, { size:1 });
+  [0.42, 0.56, 0.74].forEach((dt, i) => flBlub(E, v, t + dt, 1 - i * 0.22));
+}
+/* over the lip of the Drop: the rush of the fall and a slide whistle going down (opts.ms) */
+function flFall(E, t, o = {}) {
+  const d = Math.max(0.3, (Number(o.ms) || 800) / 1000);
+  swell(E, voice(E, { send:0.3, bright:1, gain:1 }), t, { d, f0:400, f1:2600, q:0.7, peak:0.2 });
+  fallWhistle(E, t + 0.05, d * 0.9);
+}
+/* the Drop lands: the plunge's boom, the big splash, the spray coming down (opts.small: a later rider's) */
+function flImpact(E, t, o = {}) {
+  const k = o.small ? 0.55 : 1, v = voice(E, { send:0.4, bright:1, gain:k });
+  M.drum(E, t, { f:NOTE.D2, dec:0.9 * k + 0.2, gain:0.9 * k });
+  mode(E, v, t, 44, 0.7, 0.7, { drop:1.1 });
+  flSplash(E, v, t + 0.005, { size:1.4 * k });
+  noiseBed(E, voice(E, { send:0.5, bright:0.9, gain:0.5 * k }), t + 0.05, { type:"highpass", f:3200, d:1.4 * k, peak:0.18, a:0.08 });
+}
+/* a water balloon's arc (opts.ms, the flight): a slide whistle up and over, the throw's swish */
+function flLob(E, t, o = {}) {
+  const d = Math.max(0.5, (Number(o.ms) || 1200) / 1000), up = d * 0.45;
+  const v = voice(E, { send:0.3, bright:1, gain:0.7 });
+  burst(E, v, t, { f:2400, q:1, d:0.06, peak:0.3 });
+  glide(E, v, t, NOTE.A4, NOTE.A5, up, 0.1, { vib:6, depth:0.015 });
+  glide(E, v, t + up, NOTE.A5, NOTE.E5, d - up - 0.05, 0.09, { vib:6, depth:0.015 });
+}
+/* a balloon lands: the pop, the water, the drops, the rider spun round (opts.summary: no spin) */
+function flSplat(E, t, o = {}) {
+  const v = voice(E, { send:0.3, bright:1, gain:1 });
+  burst(E, v, t, { type:"highpass", f:2600, q:0.7, d:0.012, peak:0.85 });
+  flSweep(E, v, t + 0.004, { type:"lowpass", f0:3000, f1:500, q:0.8, d:0.26, peak:0.5, a:0.004 });
+  for (let i = 0; i < 5; i++) flPlip(E, v, t + 0.08 + i * 0.05 + rnd(0, 0.03), { f:rnd(800, 1600), gain:0.8 });
+  if (!o.summary) glide(E, voice(E, { send:0.25, bright:1, gain:0.4 }), t + 0.05, NOTE.D5, NOTE.A5, 0.42, 0.06, { type:"triangle", vib:13, depth:0.08 });
+}
+/* the bar's brass hand bell: an inharmonic ring off a strike */
+function flRing(E, dest, t, f, k = 1) {
+  [[1, 0.3, 1.6], [2, 0.12, 0.9], [2.76, 0.1, 0.55], [4.07, 0.05, 0.3], [5.4, 0.03, 0.18]]
+    .forEach(([r, amp, dec]) => mode(E, dest, t, f * r * (1 + rnd(-0.0006, 0.0006)), dec, amp * k, { a:0.0015 }));
+  burst(E, dest, t, { type:"highpass", f:5200, d:0.006, peak:0.2 * k });
+}
+/* in at the takeout: the bar's bell (opts.first: rung three times and a cymbal; opts.step varies the rest) */
+function flBell(E, t, o = {}) {
+  const v = voice(E, { send:0.45, bright:1, gain:1 });
+  if (o.first) {
+    [0, 0.16, 0.32].forEach((dt, i) => flRing(E, v, t + dt, NOTE.D6, i === 2 ? 1.1 : 0.85));
+    FLD.crash(E, voice(E, { pan:-0.3, send:0.3, bright:1, gain:1 }), t + 0.32, 0.5, 1.4);
+    return;
+  }
+  flRing(E, v, t, [NOTE.A5, NOTE.B5, NOTE.Fs5, NOTE.D6][flMod(o.step, 4)], 0.75);
+}
+/* a drink finished: two glasses meeting, the ice */
+function flClink(E, t, o = {}) {
+  const v = voice(E, { send:0.32, bright:1, gain:1 });
+  const glass = (x, f, k) => {
+    [[1, 0.16, 0.42], [2.32, 0.07, 0.2], [4.25, 0.035, 0.09]].forEach(([r, amp, dec]) => mode(E, v, x, f * r, dec, amp * k, { a:0.001 }));
+    burst(E, v, x, { type:"highpass", f:6000, d:0.004, peak:0.25 * k });
+  };
+  const f = [NOTE.A6, FN.B6][flMod(o.step, 2)];
+  glass(t, f, 1); glass(t + 0.014, f === NOTE.A6 ? FN.B6 : NOTE.A6, 0.7);
+  for (let i = 0; i < 3; i++) M.tick(E, t + 0.05 + i * rnd(0.03, 0.06), { gain:0.18, pitch:rnd(1.6, 2.2) });
+}
+/* a rider joins the lobby: their floatie pumped up, the vinyl squeaking tight, a bell */
+function flJoin(E, t) {
+  const v = voice(E, { send:0.2, bright:1, gain:1 });
+  [0, 0.11, 0.22].forEach((dt, i) => flSweep(E, v, t + dt, { f0:900 + i * 300, f1:1500 + i * 400, q:1.4, d:0.08, peak:0.16, a:0.02 }));
+  glide(E, v, t + 0.32, NOTE.A5, NOTE.D6, 0.09, 0.07, { type:"triangle", vib:22, depth:0.03 });
+  M.bell(E, t + 0.4, NOTE.D6, { gain:0.14, dec:0.6, send:0.3 });
+}
+/* a rider is ready: a squeak and a bell */
+function flReady(E, t) {
+  glide(E, voice(E, { send:0.15, bright:1, gain:0.8 }), t, NOTE.E5, NOTE.B5, 0.07, 0.06, { type:"triangle" });
+  M.bell(E, t + 0.02, NOTE.A5, { gain:0.16, dec:0.7, send:0.3 });
+}
+/* The podium fanfare (the band out): a snare roll, the chord and the crash
+   at PODIUM hit, da-da-da up B, D, E, F sharp, then the big B chord
+   tremolo-picked under two horns (opts.summary: the chord and the crash) */
+function flPodium(E, t, o = {}) {
+  const g = voice(E, { pan:-0.2, send:1.05, bright:1, gain:1 }), echo = voice(E, { pan:0.4, send:1.2, bright:0.6, gain:1 });
+  const dr = voice(E, { send:0.25, bright:0.9, gain:1 }), bv = voice(E, { send:0.06, bright:1, gain:1 });
+  const cv = voice(E, { pan:-0.3, send:0.3, bright:1, gain:1 });
+  if (o.summary) {
+    flStrum(E, t, ["B2", "Fs3", "B3", "D4"], 1.4, 0.16, { dest:g, vib:1 });
+    FLD.crash(E, cv, t, 1, 2); FLD.kick(E, dr, t, 1); flBass(E, bv, t, FN.B1, 1.4, 0.34);
+    return;
+  }
+  flRoll(E, dr, t, 1.4, 0.08, 0.65, 20);
+  const hit = t + 1.45;
+  FLD.crash(E, cv, hit, 1, 2.2); FLD.kick(E, dr, hit, 1); flBass(E, bv, hit, FN.B1, 0.4, 0.34);
+  flStrum(E, hit, ["B2", "Fs3", "B3"], 0.35, 0.16, { dest:g });
+  [["D3", "A3", "D4"], ["E3", "B3", "E4"], ["Fs3", "B3", "Fs4"]].forEach((names, k) => {
+    const x = hit + 0.5 + k * 0.25;
+    flStrum(E, x, names, 0.2, 0.15, { dest:g });
+    FLD.snare(E, dr, x, 0.6); FLD.kick(E, dr, x, 0.6);
+    flBass(E, bv, x, fn(names[0]) / 2, 0.2, 0.28);
+  });
+  const big = hit + 1.25;
+  flStrum(E, big, ["B2", "Fs3", "B3", "D4", "Fs4"], 1.8, 0.15, { dest:g, trem:16, vib:1, dive:0.12, sus:0.75 });
+  flStrum(E, big + FL_SLAP_S, ["B2", "Fs3", "B3"], 1.4, 0.045, { dest:echo, bright:0.6 });
+  FLD.crash(E, cv, big, 1, 2.4); FLD.kick(E, dr, big, 1); flBass(E, bv, big, FN.B1, 1.8, 0.34); flDrip(E, big, 1);
+  flHorn(E, big, 1.0, 0.55, NOTE.D5); flHorn(E, big + 0.01, 1.0, 0.45, NOTE.A4);
+}
+/* a place on the podium lights (opts.place 3, 2, 1): a bell up the motif over the fanfare's hit */
+function flStamp(E, t, o = {}) {
+  const place = flInt(o.place || 3, 1, 3);
+  M.bell(E, t, [NOTE.D6, NOTE.A5, NOTE.Fs5][place - 1], { gain:place === 1 ? 0.42 : 0.3, dec:place === 1 ? 2 : 1.3, send:0.35 });
+  if (place === 1) M.bell(E, t + 0.004, NOTE.A6, { gain:0.16, dec:1.4, send:0.35 });
+}
+/* the winner's pose (opts.pose): air guitar shreds up the neck and dives;
+   a chug glugs and slams the cup down; a backflip spins, splashes and
+   lands a ta-da; a flex (and anything else) hits two power chords and sparkles */
+function flWinner(E, t, o = {}) {
+  const pose = String(o.pose || "");
+  const g = voice(E, { pan:-0.1, send:1.05, bright:1, gain:1 }), dr = voice(E, { send:0.25, bright:0.9, gain:1 });
+  const sparkle = x => [NOTE.D6, NOTE.Fs6, NOTE.A6, FN.B6].forEach((f, i) => M.bell(E, x + i * 0.06, f, { gain:0.12, dec:0.8, send:0.45, pan:-0.4 + i * 0.27 }));
+  if (pose === "airguitar") {
+    ["B3", "D4", "E4", "Fs4", "A4", "B4", "D5", "E5"].forEach((name, k) => flTwang(E, t + k * 0.06, fn(name), 0.07, 0.14, { dest:g, bright:1.1 }));
+    flTwang(E, t + 0.5, FN.Fs5, 1.2, 0.17, { dest:g, vib:1.2, dive:0.6, trem:16, sus:0.8 });
+    FLD.crash(E, dr, t + 0.5, 0.9, 1.8); FLD.kick(E, dr, t + 0.5, 1);
+  } else if (pose === "chug") {
+    for (let i = 0; i < 4; i++) glide(E, voice(E, { send:0.15, bright:0.8, gain:0.8 }), t + i * 0.19, 330, 190, 0.13, 0.16);
+    M.knock(E, t + 0.86, { pitch:0.8, gain:0.9 }); M.felt(E, t + 0.86, { gain:0.6 });
+    flClink(E, t + 0.9, { step:0 });
+    sparkle(t + 1.1);
+  } else if (pose === "backflip") {
+    travelWhoosh(E, t, { d:0.42, from:-0.6, to:0.6, peak:0.35, f0:400, f1:3000 });
+    flSplash(E, voice(E, { send:0.35, bright:1, gain:0.8 }), t + 0.48, { size:1 });
+    M.bell(E, t + 0.8, NOTE.D5, { gain:0.38, dec:1.2 }); M.bell(E, t + 0.95, NOTE.A5, { gain:0.42, dec:1.6 });
+    FLD.crash(E, dr, t + 0.95, 0.7, 1.6);
+  } else {
+    [[0, ["B2", "Fs3", "B3"]], [0.3, ["E3", "B3", "E4"]]].forEach(([dt, names], k) => {
+      flStrum(E, t + dt, names, k ? 0.9 : 0.2, 0.16, { dest:g, vib:k ? 1 : 0 });
+      FLD.kick(E, dr, t + dt, 1); FLD.tom(E, dr, t + dt, k ? NOTE.E4 / 4 : NOTE.B4 / 8 * 1.5, 0.8);
+    });
+    FLD.crash(E, dr, t + 0.3, 0.8, 1.6);
+    sparkle(t + 0.42);
+  }
+}
+
+/* ── the phone's own (the you bus): above the phone speaker's floor, soft ── */
+/* your paddle: a soft dip (opts.side L/R, p 0..1 the stroke's power, v 0..3 which of four) */
+function flYouDip(E, t, o = {}) {
+  const right = o.side === "R", p = Math.max(0, Math.min(1, Number(o.p ?? 0.8))), vr = flMod(o.v, 4);
+  const pitch = [1, 1.09, 0.94, 1.16][vr] * (right ? 1.07 : 0.93) * rnd(0.98, 1.02);
+  const v = voice(E, { send:0.18, bright:0.9, gain:0.45 + 0.45 * p });
+  flSweep(E, v, t, { f0:2400 * pitch, f1:900 * pitch, q:1.4, d:0.08, peak:0.2, a:0.004 });
+  glide(E, v, t + 0.004, 900 * pitch, 520 * pitch, 0.06, 0.08);
+  if (vr === 3) flPlip(E, v, t + 0.14, { f:1500 * pitch, gain:0.6 });
+}
+/* you flipped: your splash and your bubbles */
+function flYouFlip(E, t) {
+  const v = voice(E, { send:0.2, bright:1, gain:0.7 });
+  flSplash(E, v, t, { size:0.7 });
+  [0.32, 0.46].forEach((dt, i) => flBlub(E, v, t + dt, 1 - i * 0.25));
+}
+/* you're in at the takeout: the bar's bell, then D up to A */
+function flYouArrive(E, t) {
+  flRing(E, voice(E, { send:0.3, bright:1, gain:0.7 }), t, NOTE.D6, 0.8);
+  M.bell(E, t + 0.18, NOTE.D5, { gain:0.32, dec:1, send:0.2 }); M.bell(E, t + 0.3, NOTE.A5, { gain:0.36, dec:1.4, send:0.2 });
+}
+/* your drink: the glasses meet */
+function flYouDrink(E, t) { flClink(E, t, { step:1 }); }
+/* through at the cut: the motif rung up to D */
+function flYouThrough(E, t) {
+  M.clack(E, t, { gain:0.3, double:false });
+  [NOTE.D5, NOTE.Fs5, NOTE.A5].forEach((f, i) => M.bell(E, t + 0.01 + i * 0.09, f, { gain:0.32, dec:1.1, send:0.2 }));
+  M.bell(E, t + 0.3, NOTE.D6, { gain:0.2, dec:1.4, send:0.2 });
+}
+/* your balloon away: the whistle going up */
+function flYouThrow(E, t) {
+  const v = voice(E, { send:0.2, bright:1, gain:0.6 });
+  burst(E, v, t, { f:2400, q:1, d:0.05, peak:0.25 });
+  glide(E, v, t, NOTE.A4, NOTE.A5, 0.4, 0.09, { vib:6, depth:0.015 });
+}
+/* your balloon landed: the splat and a bright note */
+function flYouSplat(E, t) {
+  const v = voice(E, { send:0.2, bright:1, gain:0.7 });
+  burst(E, v, t, { type:"highpass", f:2600, q:0.7, d:0.012, peak:0.7 });
+  flSweep(E, v, t + 0.004, { type:"lowpass", f0:3000, f1:600, q:0.8, d:0.22, peak:0.4, a:0.004 });
+  M.bell(E, t + 0.12, NOTE.A5, { gain:0.3, dec:0.9, send:0.2 });
+}
+/* you got splashed: a soft splash and a blub */
+function flYouHit(E, t) {
+  const v = voice(E, { send:0.2, bright:1, gain:0.5 });
+  flSweep(E, v, t, { type:"lowpass", f0:3000, f1:600, q:0.8, d:0.24, peak:0.4, a:0.006 });
+  flBlub(E, v, t + 0.25, 0.8);
+}
+/* your place on the podium (opts.place): the motif, the whole of it for 1st */
+function flYouPodium(E, t, o = {}) {
+  const place = flInt(o.place || 3, 1, 3);
+  M.clack(E, t, { gain:0.3, double:false });
+  [NOTE.D5, NOTE.Fs5, NOTE.A5].slice(0, 4 - place).forEach((f, i) => M.bell(E, t + 0.01 + i * 0.1, f, { gain:0.34, dec:1.2, send:0.2 }));
+  if (place === 1) { M.bell(E, t + 0.32, NOTE.D6, { gain:0.26, dec:1.6, send:0.2 }); M.bell(E, t + 0.36, NOTE.A6, { gain:0.12, dec:1.2, send:0.2 }); }
+}
+/* ════ end of Float ════ */

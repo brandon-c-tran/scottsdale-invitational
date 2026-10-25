@@ -1902,53 +1902,85 @@ export function limitChips(memory, landings, { minGap = CHIP_DENSITY.minGap, cro
 /* the race's instruments, the river and the moments, as the kit lists them */
 export function floatParts() {
   if (floatParts.list) return floatParts.list;
+  /* every recipe plays through FL_MIX, its level in the mix by importance */
+  const part = (id, name, where, ms, fn, cut = false) => ({ id, name, where, ms, ...(cut ? { cut:true } : {}),
+    play:(E, t, o = {}) => flMix(E, id, () => fn(E, t, o)) });
+  const TV = ["tv"], PHONE = ["phone"];
   floatParts.list = Object.freeze([
     /* ── the band: one bar each, cut recipes, laid on the room's clock ── */
     /* a bar of the race (opts.leg 0..3, final, bar 0..3 of the turn, phrase 0..7, tense 0..5, fill, crash, first,
        drop "suspend" | "land") */
-    { id:"floatRace", name:"Float: the race", where:["tv"], ms:2000, cut:true, play:(E, t, o = {}) => flRaceBar(E, t, o) },
+    part("floatRace", "Float: the race", TV, 2000, flRaceBar, true),
     /* a bar on the grid and under the Cup's intro (opts.bar 0..1) */
-    { id:"floatVamp", name:"Float: on the grid", where:["tv"], ms:2000, cut:true, play:(E, t, o = {}) => flVampBar(E, t, o) },
+    part("floatVamp", "Float: on the grid", TV, 2000, flVampBar, true),
     /* a bar of the lobby's lounge (opts.bar 0..7, section 0..3, cut: between rounds) */
-    { id:"floatLounge", name:"Float: the lobby", where:["tv"], ms:2000, cut:true, play:(E, t, o = {}) => flLoungeBar(E, t, o) },
+    part("floatLounge", "Float: the lobby", TV, 2000, flLoungeBar, true),
     /* ── the river and the field ── */
     /* a stretch of river (opts.from, opts.to: its layers; ms; fade) */
-    { id:"floatRiver", name:"Float: the river", where:["tv"], ms:3000, cut:true, play:(E, t, o = {}) => flRiver(E, t, o) },
-    /* the field's paddles going in (opts.n strokes, offsets, pans, span) */
-    { id:"floatPaddles", name:"Float: the field paddling", where:["tv"], ms:400, play:(E, t, o = {}) => flPaddles(E, t, o) },
+    part("floatRiver", "Float: the river", TV, 3000, flRiver, true),
+    /* the field's paddles going in (opts.n strokes, grains, offsets, pans, span) */
+    part("floatPaddles", "Float: the field paddling", TV, 400, flPaddles),
     /* ── the screen's moments ── */
-    { id:"floatCount", name:"Float: 3, 2, 1", where:["tv"], ms:1000, play:(E, t, o = {}) => flCount(E, t, o) },
-    { id:"floatGo", name:"Float: go", where:["tv"], ms:1600, play:(E, t, o = {}) => flGo(E, t, o) },
-    { id:"floatTitle", name:"Float: a leg's title", where:["tv"], ms:2400, play:(E, t, o = {}) => flTitle(E, t, o) },
-    { id:"floatIntro", name:"Float: the Cup opens", where:["tv"], ms:3600, play:(E, t, o = {}) => flIntro(E, t, o) },
-    { id:"floatButton", name:"Float: the round ends", where:["tv"], ms:1800, play:(E, t, o = {}) => flButton(E, t, o) },
-    { id:"floatOut", name:"Float: out (a floatie lets go)", where:["tv"], ms:800, play:(E, t, o = {}) => flOut(E, t, o) },
-    { id:"floatBump", name:"Float: a bump", where:["tv"], ms:300, play:(E, t, o = {}) => flBump(E, t, o) },
-    { id:"floatScrape", name:"Float: off a rock", where:["tv"], ms:350, play:(E, t, o = {}) => flScrape(E, t, o) },
-    { id:"floatFlip", name:"Float: a flip", where:["tv"], ms:1000, play:(E, t, o = {}) => flFlip(E, t, o) },
-    { id:"floatFall", name:"Float: over the Drop", where:["tv"], ms:900, play:(E, t, o = {}) => flFall(E, t, o) },
-    { id:"floatImpact", name:"Float: the Drop lands", where:["tv"], ms:1800, play:(E, t, o = {}) => flImpact(E, t, o) },
-    { id:"floatLob", name:"Float: a balloon thrown", where:["tv"], ms:1200, play:(E, t, o = {}) => flLob(E, t, o) },
-    { id:"floatSplat", name:"Float: a balloon lands", where:["tv"], ms:600, play:(E, t, o = {}) => flSplat(E, t, o) },
-    { id:"floatBell", name:"Float: in at the bar", where:["tv"], ms:1600, play:(E, t, o = {}) => flBell(E, t, o) },
-    { id:"floatClink", name:"Float: a drink finished", where:["tv"], ms:500, play:(E, t, o = {}) => flClink(E, t, o) },
-    { id:"floatJoin", name:"Float: a rider joins", where:["tv"], ms:900, play:(E, t, o = {}) => flJoin(E, t, o) },
-    { id:"floatReady", name:"Float: a rider is ready", where:["tv"], ms:700, play:(E, t, o = {}) => flReady(E, t, o) },
-    { id:"floatPodium", name:"Float: the podium fanfare", where:["tv"], ms:4600, play:(E, t, o = {}) => flPodium(E, t, o) },
-    { id:"floatStamp", name:"Float: a place on the podium", where:["tv"], ms:900, play:(E, t, o = {}) => flStamp(E, t, o) },
-    { id:"floatWinner", name:"Float: the winner's pose", where:["tv"], ms:2200, play:(E, t, o = {}) => flWinner(E, t, o) },
+    part("floatCount", "Float: 3, 2, 1", TV, 1000, flCount),
+    part("floatGo", "Float: go", TV, 1600, flGo),
+    part("floatTitle", "Float: a leg's title", TV, 2400, flTitle),
+    part("floatIntro", "Float: the Cup opens", TV, 3600, flIntro),
+    part("floatButton", "Float: the round ends", TV, 1800, flButton),
+    part("floatOut", "Float: out (a floatie lets go)", TV, 800, flOut),
+    part("floatBump", "Float: a bump", TV, 300, flBump),
+    part("floatScrape", "Float: off a rock", TV, 350, flScrape),
+    part("floatFlip", "Float: a flip", TV, 1000, flFlip),
+    part("floatFall", "Float: over the Drop", TV, 900, flFall),
+    part("floatImpact", "Float: the Drop lands", TV, 1800, flImpact),
+    part("floatLob", "Float: a balloon thrown", TV, 1200, flLob),
+    part("floatSplat", "Float: a balloon lands", TV, 600, flSplat),
+    part("floatBell", "Float: in at the bar", TV, 1600, flBell),
+    part("floatClink", "Float: a drink finished", TV, 500, flClink),
+    part("floatJoin", "Float: a rider joins", TV, 900, flJoin),
+    part("floatReady", "Float: a rider is ready", TV, 700, flReady),
+    part("floatPodium", "Float: the podium fanfare", TV, 4600, flPodium),
+    part("floatStamp", "Float: a place on the podium", TV, 900, flStamp),
+    part("floatWinner", "Float: the winner's pose", TV, 2200, flWinner),
     /* ── the phone's own (the you bus) ── */
-    { id:"floatDip", name:"Float: your paddle", where:["phone"], ms:200, play:(E, t, o = {}) => flYouDip(E, t, o) },
-    { id:"floatYouFlip", name:"Float: you flipped", where:["phone"], ms:800, play:(E, t, o = {}) => flYouFlip(E, t, o) },
-    { id:"floatYouArrive", name:"Float: you're in", where:["phone"], ms:1200, play:(E, t, o = {}) => flYouArrive(E, t, o) },
-    { id:"floatYouDrink", name:"Float: your drink", where:["phone"], ms:500, play:(E, t, o = {}) => flYouDrink(E, t, o) },
-    { id:"floatYouThrough", name:"Float: you're through", where:["phone"], ms:1400, play:(E, t, o = {}) => flYouThrough(E, t, o) },
-    { id:"floatYouThrow", name:"Float: your balloon", where:["phone"], ms:500, play:(E, t, o = {}) => flYouThrow(E, t, o) },
-    { id:"floatYouSplat", name:"Float: your balloon lands", where:["phone"], ms:700, play:(E, t, o = {}) => flYouSplat(E, t, o) },
-    { id:"floatYouHit", name:"Float: you're splashed", where:["phone"], ms:500, play:(E, t, o = {}) => flYouHit(E, t, o) },
-    { id:"floatYouPodium", name:"Float: your place", where:["phone"], ms:1600, play:(E, t, o = {}) => flYouPodium(E, t, o) },
+    part("floatDip", "Float: your paddle", PHONE, 200, flYouDip),
+    part("floatYouFlip", "Float: you flipped", PHONE, 800, flYouFlip),
+    part("floatYouArrive", "Float: you're in", PHONE, 1200, flYouArrive),
+    part("floatYouDrink", "Float: your drink", PHONE, 500, flYouDrink),
+    part("floatYouThrough", "Float: you're through", PHONE, 1400, flYouThrough),
+    part("floatYouThrow", "Float: your balloon", PHONE, 500, flYouThrow),
+    part("floatYouSplat", "Float: your balloon lands", PHONE, 700, flYouSplat),
+    part("floatYouHit", "Float: you're splashed", PHONE, 500, flYouHit),
+    part("floatYouPodium", "Float: your place", PHONE, 1600, flYouPodium),
   ].map(Object.freeze));
   return floatParts.list;
+}
+/* The mix, by importance (the offline analysis set these, at the TV's and
+   the phone's master): each recipe's dry and reverb send pass one gain, so
+   the whole of it moves together and its room stays with it. */
+const FL_MIX = Object.freeze({
+  /* the band and the river, under everything */
+  floatRace:0.53, floatVamp:0.8, floatLounge:0.52, floatRiver:0.62, floatPaddles:0.63,
+  /* the sequence's big beats */
+  floatCount:0.75, floatGo:1.6, floatTitle:0.72, floatIntro:0.65, floatButton:0.75, floatPodium:0.75, floatWinner:0.62, floatImpact:0.62,
+  /* the race's moments */
+  floatFlip:0.66, floatFall:1.2, floatBump:0.8, floatScrape:0.9, floatLob:2.3, floatSplat:0.88, floatBell:1.1, floatClink:1, floatOut:1.45,
+  /* the lobby and the podium's accents */
+  floatJoin:2.2, floatReady:1.4, floatStamp:2,
+  /* the phone */
+  floatDip:1.25, floatYouFlip:1.6, floatYouArrive:1, floatYouDrink:1, floatYouThrough:1.1, floatYouThrow:2.1, floatYouSplat:0.9, floatYouHit:1.5,
+  floatYouPodium:1.3,
+});
+export const FLOAT_MIX = FL_MIX;
+function flMix(E, id, play) {
+  const k = FL_MIX[id] ?? 1;
+  if (k === 1) return play();
+  const c = E.ctx, dry = c.createGain(), wet = c.createGain();
+  dry.gain.value = k; wet.gain.value = k;
+  dry.connect(E.cutDry || (E.open && E.openDry ? E.openDry : E.dry)); wet.connect(E.cutWet || E.wet);
+  track(E, dry, wet);
+  const was = [E.cutDry, E.cutWet];
+  E.cutDry = dry; E.cutWet = wet;
+  try { return play(); } finally { E.cutDry = was[0]; E.cutWet = was[1]; }
 }
 export const FLOAT_PARTS = floatParts();
 
@@ -1965,7 +1997,7 @@ const FN = Object.freeze({ A1:NOTE.A2 / 2, B1:NOTE.B4 / 8, D2:NOTE.D2, E2:NOTE.E
   E6:NOTE.E6, Fs6:NOTE.Fs6, A6:NOTE.A6, B6:NOTE.B5 * 2 });
 export const FLOAT_NOTES = FN;
 const fn = name => FN[name] || 0;
-/* the band against the moments over it (set by the offline mix: float/client/sound/README in the report) */
+/* the band's instruments against each other (FL_MIX sets the band against the room) */
 const FL_BAND = 0.62;
 const flInt = (v, lo, hi) => Math.max(lo, Math.min(hi, Math.floor(Number(v) || 0)));
 const flMod = (v, n) => ((Math.floor(Number(v) || 0) % n) + n) % n;
@@ -2043,14 +2075,16 @@ function flTwang(E, t, f, d, peak, o = {}) {
     track(E, ag, lfo, amt); trackSource(E, lfo);
     lfo.start(t); lfo.stop(end);
   } else g.connect(dest);
-  /* tremolo picking: each pick a sharp rise and a fall (an inverted saw on the level), into the filter */
+  /* tremolo picking: each pick a quick rise and a fall (an inverted saw on the level, its edge rounded
+     to about a millisecond so a pick never clicks), into the filter */
   let into = lp;
   if (o.trem) {
     const tg = c.createGain(); tg.gain.value = 0.62;
     const lfo = c.createOscillator(); lfo.type = "sawtooth"; lfo.frequency.value = o.trem;
+    const round = c.createBiquadFilter(); round.type = "lowpass"; round.frequency.value = 160; round.Q.value = 0.5;
     const amt = c.createGain(); amt.gain.value = -0.38;
-    lfo.connect(amt); amt.connect(tg.gain); tg.connect(lp);
-    track(E, tg, lfo, amt); trackSource(E, lfo);
+    lfo.connect(round); round.connect(amt); amt.connect(tg.gain); tg.connect(lp);
+    track(E, tg, lfo, round, amt); trackSource(E, lfo);
     lfo.start(t); lfo.stop(end);
     into = tg;
   }
@@ -2179,24 +2213,25 @@ function flHorn(E, t, d, gain = 1, f = NOTE.A4) {
   });
 }
 /* the drums: each plays into a voice the bar shares */
+/* light drums: the guitar leads, the kit sits under it */
 const FLD = Object.freeze({
-  kick(E, v, t, k = 1) { mode(E, v, t, 52, 0.26, 0.9 * k, { drop:1.25, a:0.002 }); burst(E, v, t, { type:"lowpass", f:2800, q:0.7, d:0.006, peak:0.3 * k }); },
-  snare(E, v, t, k = 1) { burst(E, v, t, { f:1850, q:0.75, d:0.11, peak:0.5 * k }); burst(E, v, t, { type:"highpass", f:4800, q:0.7, d:0.09, peak:0.24 * k });
-    mode(E, v, t, 196, 0.07, 0.3 * k, { drop:0.22 }); },
-  rim(E, v, t, k = 1) { burst(E, v, t, { f:1750, q:4.5, d:0.018, peak:0.55 * k }); mode(E, v, t, 840, 0.03, 0.22 * k); mode(E, v, t, 1480, 0.018, 0.1 * k); },
-  hat(E, v, t, k = 1, open = false) { burst(E, v, t, { type:"highpass", f:7200, q:0.7, d:open ? 0.22 : 0.028, peak:0.38 * k }); },
-  shaker(E, v, t, k = 1) { burst(E, v, t, { f:6200, q:1.2, d:0.05, peak:0.32 * k, a:0.012 }); },
-  tom(E, v, t, f = 98, k = 1) { mode(E, v, t, f, 0.3, 0.72 * k, { drop:0.5, a:0.002 }); mode(E, v, t, f * 1.6, 0.11, 0.14 * k, { drop:0.3 });
-    burst(E, v, t, { type:"lowpass", f:1500, d:0.03, peak:0.22 * k }); },
-  crash(E, v, t, k = 1, d = 1.6) { noiseBed(E, v, t, { type:"highpass", f:4200, q:0.6, d, peak:0.3 * k, a:0.002 });
-    [3110, 4290, 5470, 6830].forEach(f => mode(E, v, t, f, d * 0.35, 0.03 * k, { type:"square", a:0.001 }));
-    burst(E, v, t, { f:2600, q:0.8, d:0.05, peak:0.26 * k }); },
-  brush(E, v, t, k = 1) { burst(E, v, t, { f:2400, q:0.5, d:0.15, peak:0.26 * k, a:0.022 }); },
+  kick(E, v, t, k = 1) { mode(E, v, t, 52, 0.26, 0.55 * k, { drop:1.25, a:0.002 }); burst(E, v, t, { type:"lowpass", f:2800, q:0.7, d:0.006, peak:0.2 * k }); },
+  snare(E, v, t, k = 1) { burst(E, v, t, { f:1850, q:0.75, d:0.11, peak:0.34 * k }); burst(E, v, t, { type:"highpass", f:4800, q:0.7, d:0.09, peak:0.16 * k });
+    mode(E, v, t, 196, 0.07, 0.2 * k, { drop:0.22 }); },
+  rim(E, v, t, k = 1) { burst(E, v, t, { f:1750, q:4.5, d:0.018, peak:0.38 * k }); mode(E, v, t, 840, 0.03, 0.15 * k); mode(E, v, t, 1480, 0.018, 0.07 * k); },
+  hat(E, v, t, k = 1, open = false) { burst(E, v, t, { type:"highpass", f:7200, q:0.7, d:open ? 0.22 : 0.028, peak:0.17 * k }); },
+  shaker(E, v, t, k = 1) { burst(E, v, t, { f:6200, q:1.2, d:0.05, peak:0.15 * k, a:0.012 }); },
+  tom(E, v, t, f = 98, k = 1) { mode(E, v, t, f, 0.3, 0.5 * k, { drop:0.5, a:0.002 }); mode(E, v, t, f * 1.6, 0.11, 0.1 * k, { drop:0.3 });
+    burst(E, v, t, { type:"lowpass", f:1500, d:0.03, peak:0.15 * k }); },
+  crash(E, v, t, k = 1, d = 1.6) { noiseBed(E, v, t, { type:"highpass", f:4200, q:0.6, d, peak:0.2 * k, a:0.002 });
+    [3110, 4290, 5470, 6830].forEach(f => mode(E, v, t, f, d * 0.35, 0.02 * k, { type:"square", a:0.001 }));
+    burst(E, v, t, { f:2600, q:0.8, d:0.05, peak:0.17 * k }); },
+  brush(E, v, t, k = 1) { burst(E, v, t, { f:2400, q:0.5, d:0.15, peak:0.2 * k, a:0.022 }); },
 });
 /* a snare roll at `rate` strokes a second, swelling from `from` to `to` */
 function flRoll(E, v, t, d, from = 0.15, to = 0.7, rate = 16) {
   const n = Math.max(2, Math.round(d * rate));
-  for (let i = 0; i < n; i++) { const k = i / (n - 1); FLD.snare(E, v, t + i / rate + rnd(-0.003, 0.003), from + (to - from) * k * k); }
+  for (let i = 0; i < n; i++) { const k = i / (n - 1); FLD.snare(E, v, t + i / rate + (i ? rnd(-0.003, 0.003) : 0), from + (to - from) * k * k); }
 }
 /* a noise riser across d, cut dead on the downbeat */
 function flRiser(E, t, d, peak, pan = 0) {
@@ -2263,7 +2298,9 @@ const FL_FILL = Object.freeze([[12, NOTE.D3], [13, NOTE.B4 / 4], [14, NOTE.Fs4 /
    the chord and the crash. */
 function flRaceBar(E, t, o = {}) {
   const leg = flInt(o.leg, 0, 3), tense = flInt(o.tense, 0, 5), turn = flMod(o.bar, 4), chord = FL_TURN[turn];
-  const phrase = flMod(o.phrase ?? o.bar, 8), final = !!o.final, lv = FL_BAND * (Number(o.level) > 0 ? Number(o.level) : 1);
+  /* each leg a little more of the band than the last */
+  const phrase = flMod(o.phrase ?? o.bar, 8), final = !!o.final;
+  const lv = FL_BAND * [0.86, 0.93, 1, 1.05][leg] * (final ? 1.04 : 1) * (Number(o.level) > 0 ? Number(o.level) : 1);
   const at = i => t + i * FL_STEP_S;
   const suspend = o.drop === "suspend", hit = o.drop === "land" || !!o.first;
   const V = flVoices(E, { kick:{ send:0.04, bright:0.8, gain:lv }, snare:{ pan:0.06, send:0.24, bright:1, gain:lv },
@@ -2317,8 +2354,8 @@ function flRaceBar(E, t, o = {}) {
     FL_RIFF[turn].forEach(([s, name, len, how]) => {
       const f = fn(name), d = len * FL_STEP_S * 0.92;
       const shape = { vib:how === "v" ? 1 : 0, dive:how === "d" ? 0.11 : 0, trem:tense >= 3 && len >= 4 ? 16 : 0 };
-      flTwang(E, at(s), f, d, 0.2, { dest:V("gtr"), ...shape });
-      flTwang(E, at(s) + FL_SLAP_S, f, d * 0.85, 0.06, { dest:V("echo"), bright:0.6, ...shape });
+      flTwang(E, at(s), f, d, 0.24, { dest:V("gtr"), ...shape });
+      flTwang(E, at(s) + FL_SLAP_S, f, d * 0.85, 0.072, { dest:V("echo"), bright:0.6, ...shape });
     });
     if (phrase === 0 || hit) flDrip(E, t, 0.6 * lv);
   }
@@ -2363,6 +2400,8 @@ const FL_LOUNGE = (() => {
     { ...A, steel:[[0, "E4", 12], [12, "B3", 4]] }, D, A, { ...Es, steel:[[0, "A4", 6], [6, "B4", 2], [8, "A4", 4], [12, "Fs4", 4]] },
     { ...A, steel:[[0, "E4", 16]] }]);
 })();
+/* the score, for the tests (every note a name in FLOAT_NOTES) */
+export const FLOAT_SCORE = Object.freeze({ turn:FL_TURN, riff:FL_RIFF, lead:FL_LEAD, bass:FL_BASS, chord:FL_CHORD, whirl:FL_WHIRL, lounge:FL_LOUNGE });
 function flLoungeBar(E, t, o = {}) {
   const bar = flMod(o.bar, 8), section = flMod(o.section, 4), between = !!o.cut, chord = FL_LOUNGE[bar], lv = FL_BAND * 0.72;
   /* a lazy swing on the eighths */
@@ -2388,7 +2427,7 @@ function flLoungeBar(E, t, o = {}) {
    circling the room), churn (the field's paddles run together, by their
    rate), laps (water slapping vinyl), plips (drops), crickets (the desert
    at night), level (all of it) */
-const FL_RIVER = Object.freeze({ flow:0.6, tone:800, babble:0.5, hiss:0.15, roar:0, swirl:0, churn:0, laps:0, plips:1, crickets:0, level:1 });
+const FL_RIVER = Object.freeze({ flow:0.6, tone:800, babble:0.5, hiss:0.15, roar:0, swirl:0, churn:0, laps:0, plips:1, crickets:0, level:1.5 });
 export const FLOAT_RIVER_LAYERS = Object.freeze(Object.keys(FL_RIVER));
 /* One stretch: an equal-power rise and fall at each end, so the stretches
    laid over each other hold one level, and every layer moving from `from`
@@ -2530,7 +2569,7 @@ function flCount(E, t, o = {}) {
 /* the gun: an air horn and every paddle hitting the water at once (the final: two horns, a fourth apart) */
 function flGo(E, t, o = {}) {
   flHorn(E, t, o.final ? 1.15 : 0.85, 1);
-  if (o.final) flHorn(E, t + 0.015, 1.15, 0.7, NOTE.D5);
+  if (o.final) flHorn(E, t + 0.015, 1.15, 0.5, NOTE.D5);
   FLD.kick(E, voice(E, { send:0.05, bright:0.8, gain:1 }), t, 1);
   flSplash(E, voice(E, { send:0.3, bright:1, gain:0.5 }), t + 0.06, { size:0.7 });
 }
@@ -2699,7 +2738,7 @@ function flRing(E, dest, t, f, k = 1) {
 function flBell(E, t, o = {}) {
   const v = voice(E, { send:0.45, bright:1, gain:1 });
   if (o.first) {
-    [0, 0.16, 0.32].forEach((dt, i) => flRing(E, v, t + dt, NOTE.D6, i === 2 ? 1.1 : 0.85));
+    [0, 0.16, 0.32].forEach((dt, i) => flRing(E, v, t + dt, NOTE.D6, i === 2 ? 0.85 : 0.65));
     FLD.crash(E, voice(E, { pan:-0.3, send:0.3, bright:1, gain:1 }), t + 0.32, 0.5, 1.4);
     return;
   }
@@ -2779,7 +2818,7 @@ function flWinner(E, t, o = {}) {
     flClink(E, t + 0.9, { step:0 });
     sparkle(t + 1.1);
   } else if (pose === "backflip") {
-    travelWhoosh(E, t, { d:0.42, from:-0.6, to:0.6, peak:0.35, f0:400, f1:3000 });
+    swell(E, voice(E, { send:0.25, bright:1, gain:1 }), t, { d:0.42, f0:400, f1:3000, q:0.8, peak:0.32 });
     flSplash(E, voice(E, { send:0.35, bright:1, gain:0.8 }), t + 0.48, { size:1 });
     M.bell(E, t + 0.8, NOTE.D5, { gain:0.38, dec:1.2 }); M.bell(E, t + 0.95, NOTE.A5, { gain:0.42, dec:1.6 });
     FLD.crash(E, dr, t + 0.95, 0.7, 1.6);

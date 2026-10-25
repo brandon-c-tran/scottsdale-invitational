@@ -1,7 +1,7 @@
 /* Float's sound (float/PROTOCOL.md "Sound"). Everything sounds through
    Field Day's engine (src/lib/sound.js playSound / cueAt, the only module
    that touches Web Audio), from the recipes in Float's block at the end of
-   src/lib/soundKit.js: the room bus on the screen, the you bus on the phone.
+   the engine's kit: the room bus on the screen, the you bus on the phone.
 
      useFloatScreenSound(net)              the river, the band, every moment
      useFloatControllerSound(net, { me })  your own strokes, flip, finish,

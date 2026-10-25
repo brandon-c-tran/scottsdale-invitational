@@ -144,7 +144,7 @@ export function panAcross(info, x, y, s, width = 0.6) {
   const tx = (line[hi][0] - line[lo][0]) / span, ty = (line[hi][1] - line[lo][1]) / span;
   /* the cross product is positive to the left of the flow */
   const left = tx * (Number(y) - cy) - ty * (Number(x) - cx);
-  return Math.round(Math.max(-1, Math.min(1, -left / Math.max(1, w / 2))) * width * 100) / 100;
+  return Math.round(Math.max(-1, Math.min(1, -left / Math.max(1, w / 2))) * width * 100) / 100 || 0;
 }
 
 /* ── the field ── */

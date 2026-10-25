@@ -14,10 +14,10 @@ import "./float.css";
    it stays through the room's podium and feedback card, until the rider
    closes it (the controller's onExit) or the linger after the result has
    passed. A spectator gets nothing forced. */
-export function FloatPlaySheet({ state, me, blocked = false, force = 0, now }) {
+export function FloatPlaySheet({ state, me, blocked = false, force = 0, now, initiallyOpen = false }) {
   const view = floatPhoneView(state, me);
   const key = view?.cupId || null;
-  const [openFor, setOpenFor] = useState(null);
+  const [openFor, setOpenFor] = useState(() => initiallyOpen ? key : null);
   const [dismissed, setDismissed] = useState(null);
   const forced = useRef(force);
   useEffect(() => {

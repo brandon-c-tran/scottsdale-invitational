@@ -25,6 +25,7 @@ import {
   worstEventName, worstKaraokeSong, worstNames, worstRuling, worstSongs, worstSpread, worstTeamNames,
 } from "./worstFixtures.js";
 import { projectKaraoke } from "../../shared/karaoke.js";
+import { floatSlate } from "../../shared/float.js";
 
 /* display names the audit stresses: a long one, a lowercase pair, a
    surname. Applied after the fill, so qaAdvance never sees them as touched */
@@ -76,7 +77,8 @@ export function withPhotos(state, n) {
 
 /* `seed`: QA's own seeded stream (another weekend played the same way) */
 export function fresh(target = "locker", seed = 7) {
-  const state = structuredClone(EMPTY_STATE);
+  /* the slate a server starts with: Float plays, Beerio Kart stands by */
+  const state = floatSlate(structuredClone(EMPTY_STATE));
   qa(state, target, seed);
   return state;
 }

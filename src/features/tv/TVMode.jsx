@@ -67,6 +67,9 @@ import { karaokeSongOn, karaokeTvBusy } from "./karaokeTv.js";
 import { useBoardChrome } from "./TVBoard.jsx";
 import { triviaLive } from "../../../shared/trivia.js";
 import { karaokeLive } from "../../../shared/karaoke.js";
+import { floatLive, floatOn } from "../../../shared/float.js";
+import { TVFloat } from "../float/TVFloat.jsx";
+import { useFloatPart } from "../float/floatParts.js";
 import { isBoardGame } from "../../../shared/triviaBoard.js";
 import { awardOnTv } from "../../../shared/prompts.js";
 import { TVPhotoCard } from "../photos/TVPhotoCard.jsx";
@@ -773,13 +776,20 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied: allT
      result; a song holds it alone (a takeover: nothing over the video) */
   const karaokeOnTv = karaokeLive(state) && !state.karaoke.empty;
   const karaokeSong = karaokeOnTv && karaokeSongOn(state.karaoke, now);
+  /* Float (features/float): the room's own river holds the whole canvas
+     while the Cup races and the room has it (a takeover). A directed
+     scene, an award or a posted result outranks it; a TV that cannot load
+     or draw it goes back to its own live board for the session. */
+  const floatWanted = floatOn(state) && connection.mode !== "loading" && !directed && !award && !champion && !resultModel;
+  const floatScreen = useFloatPart("screen", floatWanted);
+  const floatOnTv = floatWanted && !floatScreen.failed;
   /* Quick Draw's showdown holds the room only in a gap (nothing live,
      drawn, posting or playing a moment); otherwise its result leads the
      ticker (tickerItems) */
   const showdown = useTvShowdown(state, { now:nowOverride, gap:tvPhotoGap({ loading:connection.mode === "loading", final,
     directed, result:!!resultModel, poker:!!state.poker && !state.results?.[state.poker.id], draft:!!draftLive, live:!!liveEv,
     intro:!!(sceneIntroEv || ceremonyIntroEv), reveal:!!ceremonyReveal, faceOff:!!faceOff })
-    && !award && !walkoutMoment && !pokerMoments.takeover && !crownPlaying
+    && !award && !walkoutMoment && !pokerMoments.takeover && !crownPlaying && !floatLive(state)
     && !(state.geo?.order && !state.results?.[state.geo.eventId])
     && !triviaLive(state) && !karaokeLive(state) });
   /* the Trivia board's own lamps: the buzzers live, the Daily Double, the Final's clock */
@@ -790,7 +800,7 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied: allT
      queued */
   const gag = useGagShown(gagWindow.gag, { blocked:connection.mode === "loading" || final || !!award || !!walkoutMoment
     || !!pokerMoments.takeover || crownPlaying || !!showdown || !!faceOff || !!(sceneIntroEv || ceremonyIntroEv) || !!ceremonyReveal
-    || karaokeSong || (directed && showScene?.active?.kind !== "winner") });
+    || karaokeSong || floatOnTv || (directed && showScene?.active?.kind !== "winner") });
   useGagSound({ state, plan:gagWindow.plan, gag });
   /* a lead that changed with a decided contest docks after its gag too */
   const gagHold = useMemo(() => liveEv ? gagHoldMs(state, liveEv, events) : 0, [state, events, liveEv]);
@@ -804,9 +814,11 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied: allT
   const busy = tvBusy({ sceneView, resultMoment:resultModel, advance, intro:sceneIntroEv || ceremonyIntroEv,
     reveal:ceremonyReveal, dock }) || !!faceOff || !!award || !!walkoutMoment || !!pokerMoments.takeover || crownPlaying
     || (karaokeOnTv && karaokeTvBusy(state.karaoke)) || !!showdown || !!gag;
+  /* and Float's river until its race is done */
+  const reloadHeld = busy || floatOnTv;
   useEffect(() => {
-    if (typeof window !== "undefined") window.__FD_CEREMONY__ = busy;
-  }, [busy]);
+    if (typeof window !== "undefined") window.__FD_CEREMONY__ = reloadHeld;
+  }, [reloadHeld]);
   useEffect(() => () => { if (typeof window !== "undefined") window.__FD_CEREMONY__ = false; }, []);
 
   /* Takeovers: while one owns the room the stage's chrome (masthead,
@@ -835,6 +847,7 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied: allT
     showdown && { takeover:"showdown", chase:{ color:"var(--lamp-live)", pace:"run" } },
     !directed && !award && !champion && boardLamps,
     karaokeSong && { takeover:"karaoke" },
+    floatOnTv && { takeover:"float" },
     gag && { takeover:"gag", chase:gagLamp(state, gag) }].filter(Boolean);
   const chrome = stageChrome({ intro:!!(sceneIntroEv || ceremonyIntroEv), reveal:!!ceremonyReveal,
     champion:!!directed && showScene?.active?.kind === "champion", award:!!award, extra:momentTakeovers });
@@ -887,13 +900,13 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied: allT
   const road = arrivals.open ? new Set(arrivals.onTheWay) : null;
   const arriveLink = arriveCode && typeof window !== "undefined" ? arriveUrl(window.location.origin, arriveCode) : null;
   const lobbyOn = arrivals.stage === "lobby" && connection.mode !== "loading" && !directed && !award && !champion && !resultModel
-    && !(state.poker && !state.results?.[state.poker.id]) && !draftLive && !geoOnTv && !triviaOnTv && !karaokeOnTv;
+    && !(state.poker && !state.results?.[state.poker.id]) && !draftLive && !floatOnTv && !geoOnTv && !triviaOnTv && !karaokeOnTv;
   const cornerWanted = arrivals.stage === "corner" && !!arriveLink && !final && !directed && !award && !resultModel
     && connection.mode !== "loading";
   const cornerWidth = 1920 - CORNER_W - CORNER_GAP;
   /* the vignette plays over the gap's own board (its turn's card), never
      under anything that holds the room or a card docked in the masthead */
-  const attract = photoGap && !award && !geoOnTv && !triviaOnTv && !karaokeOnTv && !lobbyOn && !chrome.takeover && !dock
+  const attract = photoGap && !award && !geoOnTv && !triviaOnTv && !karaokeOnTv && !floatOnTv && !lobbyOn && !chrome.takeover && !dock
     ? attractAt({ ambient, now, room, early:nowOverride === undefined ? ATTRACT_EARLY_MS : 0 }) : null;
 
   const facts = useMemo(() => weekendFacts(state, events), [state, events]);
@@ -944,6 +957,11 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied: allT
     content = <ResultSequence state={state} model={resultModel} phase={resultPhase} towers={towers}
       anchor={resultMoment.anchor} now={now} />;
     if (resultPhase.phase === "podium") rail = { model:resultModel, anchor:resultMoment.anchor };
+  } else if (floatOnTv) {
+    /* the river is drawn over the whole canvas (TVFloat, below); the board under it stays still */
+    mastEvent = events.find(e => e.id === state.float.evId) || null;
+    mastLamp = { label:"Playing", state:"live" };
+    content = <div className="tv-pane" />;
   } else if (state.poker && !state.results[state.poker.id]) {
     mastEvent = events.find(e => e.id === state.poker.id) || null;
     mastLamp = state.poker.startedAt ? { label:"Playing", state:"live" } : null;
@@ -1114,6 +1132,7 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied: allT
         <main className="tv-main" style={connection.mode === "reconnecting" ? { opacity:0.72 } : undefined}>
           {content}
         </main>
+        {floatOnTv && <TVFloat state={state} Part={floatScreen.Part} />}
         {attract && <TVAttract key={attract.key} state={state} attract={attract} phase={phase} now={now} fixed={nowOverride !== undefined} />}
         {showHorizon && <Horizon state={state} standings={standings} towers={towers} road={road}
           width={cornerShown ? cornerWidth : 1920} />}

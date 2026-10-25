@@ -1,0 +1,57 @@
+/* Float in Field Day (src/features/float): the river on the TV, the rider's
+   controller over the phone, the profile's Locker and the commissioner's
+   desk. The room's own components draw themselves; this is only their
+   frame. Tokens only. */
+
+/* ── the TV: the whole canvas, under the frame's lamps, over the board ── */
+.tv-float { position:absolute; inset:0; z-index:10; overflow:hidden; background:var(--night-deep); }
+.tv-float-wait { position:absolute; inset:0; display:grid; place-items:center; }
+
+/* ── the phone: the controller over everything, the app untouched under it ── */
+.fd-float-play { position:fixed; inset:0; z-index:150; overflow:hidden; overscroll-behavior:none; touch-action:none;
+  background:var(--night-deep); color:var(--bone); }
+.fd-float-wait { position:absolute; inset:0; display:grid; place-items:center; }
+.fd-float-missing { position:absolute; inset:0; display:grid; place-content:center; justify-items:center; gap:12px;
+  padding:calc(env(safe-area-inset-top) + 24px) 24px calc(env(safe-area-inset-bottom) + 24px); text-align:center; }
+.fd-float-missing h2 { margin:6px 0 0; font:900 28px/1.1 var(--fd-display); letter-spacing:.02em; text-transform:uppercase; color:var(--bone); }
+.fd-float-missing p { margin:0; font:500 16px/1.4 var(--fd-body); color:var(--night-text); }
+.fd-float-close { min-width:140px; min-height:48px; margin-top:8px; padding:0 20px; border:1px solid var(--line); border-radius:10px;
+  background:var(--paper); color:var(--ink); font:700 16px/1 var(--fd-body); box-shadow:var(--glass-edge); cursor:pointer; }
+/* Home's row outside the Now card */
+.fd-float-home { display:flex; align-items:center; width:100%; min-height:56px; padding:10px 14px; border:1px solid var(--line);
+  border-radius:12px; background:var(--paper); color:var(--ink); text-align:left; cursor:pointer; }
+.fd-float-home span { display:grid; gap:2px; }
+.fd-float-home small { display:flex; align-items:center; gap:8px; font:800 13px/1 var(--fd-display); letter-spacing:.08em;
+  text-transform:uppercase; color:var(--lamp-live-text); }
+.fd-float-home strong { font:700 16px/1.2 var(--fd-body); }
+
+/* ── Profile > Locker ── */
+.fd-float-locker { display:grid; gap:10px; margin:4px 0 8px; }
+.fd-float-locker-wait { min-height:280px; border-radius:14px; background:var(--paper2); box-shadow:var(--glass-edge); }
+.fd-float-locker-note { margin:0; font:600 14px/1.4 var(--fd-body); color:var(--clay-text); }
+.fd-float-locker-status { min-height:18px; margin:0; font:700 13px/1.2 var(--fd-display); letter-spacing:.06em; text-transform:uppercase;
+  color:var(--muted2); }
+.fd-float-locker-status.is-saved { color:var(--night-text); }
+.fd-float-locker-status.is-error { color:var(--clay-text); }
+
+/* ── the commissioner's desk ── */
+.fd-float-desk { display:grid; gap:16px; }
+.fd-float-desk-now { display:grid; grid-template-columns:12px minmax(0, 1fr) auto; align-items:center; gap:12px;
+  min-height:56px; padding:8px 0; border-bottom:1px solid var(--line); }
+.fd-float-desk-now > .fd-insert { --lamp:var(--lamp-info); }
+.fd-float-desk-now.is-live > .fd-insert { --lamp:var(--lamp-live); }
+.fd-float-desk-now.is-partial > .fd-insert { --lamp:var(--sun); }
+.fd-float-desk-now.is-missing > .fd-insert { background:var(--lens-off); box-shadow:var(--lens-rim); }
+.fd-float-desk-text { min-width:0; overflow-wrap:anywhere; font:700 16px/1.25 var(--fd-body); color:var(--bone); }
+.fd-float-desk-stats { display:flex; flex-wrap:wrap; gap:12px 22px; }
+.fd-float-desk-stats span { display:grid; gap:4px; }
+.fd-float-desk-stats strong { font:900 36px/1 var(--fd-display); color:var(--bone); font-variant-numeric:tabular-nums; }
+.fd-float-desk-stats small { font:700 13px/1.2 var(--fd-display); letter-spacing:.06em; text-transform:uppercase; color:var(--night-text); }
+.fd-float-desk-error { margin:0; font:600 14px/1.35 var(--fd-body); color:var(--clay-text); }
+.fd-float-desk-cards { list-style:none; margin:0; padding:0; display:grid; gap:2px; }
+.fd-float-desk-card { display:grid; gap:4px; padding:10px 0; border-bottom:1px solid var(--line); }
+.fd-float-desk-card:last-child { border-bottom:0; }
+.fd-float-desk-who { overflow-wrap:anywhere; font:700 16px/1.2 var(--fd-body); color:var(--bone); }
+.fd-float-desk-answers { display:flex; flex-wrap:wrap; gap:6px 14px; }
+.fd-float-desk-answers b { font:800 13px/1.2 var(--fd-display); letter-spacing:.06em; text-transform:uppercase; color:var(--sun); }
+.fd-float-desk-better { margin:0; overflow-wrap:anywhere; font:500 15px/1.4 var(--fd-body); color:var(--ink); }

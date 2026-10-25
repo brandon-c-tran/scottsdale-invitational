@@ -2676,16 +2676,22 @@ export class Tournament {
      A failure is tried again on the alarm (FLOAT_RETRY_MS); after the last,
      or at once when the room refuses the Cup, floatCupFailed tells the
      commissioner, whose pill then offers Start Float again. */
+  /* Never awaited by a write (or by hydrateFromStorage, inside
+     blockConcurrencyWhile): it is fire and forget, kept alive by waitUntil.
+     Posts run one at a time in one lane, so a Cup restarted while its
+     predecessor is still on its way reaches the room after it, and a Cup
+     the board has moved past by its turn is never sent. */
   queueFloatCup() {
     if (!this.capabilities.float) return null;
     const cup = floatCup(this.state);
     if (!cup || cup.error || !floatLive(this.state)) return null;
     if ((this.floatSent ||= new Set()).has(cup.cupId)) return null;
     if (this.floatPosting?.cupId === cup.cupId) return this.floatPosting.work;
-    const work = this.postFloatCup(cup.cupId).catch(error => {
+    const work = (this.floatLane || Promise.resolve()).then(() => this.postFloatCup(cup.cupId)).catch(error => {
       console.error(JSON.stringify({ event:"float-cup-failed", error:String(error?.message || error).slice(0, 300) }));
       return null;
     }).finally(() => { if (this.floatPosting?.work === work) this.floatPosting = null; });
+    this.floatLane = work;
     this.floatPosting = { cupId:cup.cupId, work };
     try { this.ctx.waitUntil?.(work); } catch {}
     return work;

@@ -1501,6 +1501,14 @@ export const PHONE_SCENARIOS = Object.freeze([
   /* Home's live card in your own free-for-all with a saved win song, its
      release suffix and all ("Win and Hit 'Em Up plays") */
   { id:"ffa-song", build:() => withSong(fresh("event:putt:open"), FIT_GUEST), tabs:["home"] },
+  /* and while it plays with nothing riding and no rows: the win line is the card's foot */
+  { id:"ffa-running", build:() => {
+    const state = withSong(fresh("event:die:done"), FIT_GUEST);
+    act(state, "announceEvent", { evId:"where" });
+    const contest = resolveCurrentContest(state, eventOf(state, "where"));
+    act(state, "lockAndStart", { evId:"where", contestId:contest.id, contestRevision:contest.revision });
+    return state;
+  }, tabs:["home"] },
   /* Home's chip bars on a Saturday-night board: a 15,000 leader and a player below zero */
   { id:"spread-15000", build:() => spread(fresh("event:ragecage:open"), SPREAD_15000), tabs:["home"] },
   /* a pairs bracket on Home: the long pair "Henry Nguyen & Squilliam" beside VS */

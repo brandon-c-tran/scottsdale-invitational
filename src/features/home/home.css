@@ -266,6 +266,11 @@ button.fd-home-song-chip > .fd-icon { color:var(--lamp-info); }
 /* straight under the status line, whose own height already parts them */
 .fd-home-focus > .fd-home-focus-meta + .fd-home-now-rows { margin-top:2px; }
 .fd-home-focus > .fd-home-focus-meta + .fd-home-win-you.is-own { margin-top:2px; }
+/* no rows: the empty block is the pane's foot (the glare is the last
+   child, so the last line of text cannot take it with :last-child) */
+.fd-home-focus > .fd-home-now-rows:empty { display:block; height:12px; margin:0; padding:0; border:0; }
+.fd-home-focus > .fd-home-now-rows:empty:has(+ .fd-home-event-actions, + .fd-home-path) { display:none; }
+.fd-home .fd-home-focus > .fd-home-path:not(:has(+ .fd-home-event-actions)) { padding-bottom:10px; }
 .fd-now-row { display:flex; align-items:center; gap:12px; width:100%; min-height:48px; margin:0; padding:4px 0; border:0;
   background:none; color:var(--ink); text-align:left; font:inherit; cursor:pointer; }
 .fd-home.is-live .fd-now-row { min-height:44px; padding:6px 0; }
@@ -315,9 +320,6 @@ button.fd-home-song-chip > .fd-icon { color:var(--lamp-info); }
 .fd-home-side:has(> .fd-home-terms) { flex-wrap:wrap; row-gap:4px; }
 .fd-home-terms { flex-basis:100%; flex-wrap:wrap; row-gap:4px; overflow:visible; }
 .fd-home-team .fd-home-terms { margin-top:6px; }
-/* the pane's last row keeps the pane's own bottom padding (its last child
-   is the tilt's glare, so this reads what follows instead of :last-child) */
-.fd-home-focus > .fd-home-assignment:not(:has(+ :not(.fd-tilt-glare))) { padding-bottom:12px; }
 
 /* Round 2 (Oct 4): the first screen during the weekend holds the contest
    and the leaderboard's heading (fit audit: fold). Team blocks are a name

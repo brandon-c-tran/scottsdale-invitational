@@ -1060,6 +1060,62 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   (`karaokeSimSong`, sims only, never a profile) and votes on a human
   clock. Practice songs have no video: the TV plays a lit card for 30 s.
   Fit views `tv-karaoke-*`, `karaoke-*`, `gm-karaoke-desk`, `gm-qa-karaoke-*`.
+- **Float** (Oct 25; the contract is `float/PROTOCOL.md`, the game itself
+  lives in `float/`; Field Day's side is `shared/float.js`, `worker/float.js`
+  and `src/features/float/`): the river game in Beerio Kart's slot (`float`,
+  Saturday night, 2400, a solo free-for-all). **The slate:** Beerio Kart
+  stays a built-in, shelved by default while nothing is on it (`floatSlate`,
+  once a board: hydration applies it and marks the progress key
+  `floatSlate`; `resetTournament` and QA's `resetProgress` apply it again on
+  a board that had it; an EMPTY_STATE never has it), one Restore away (the
+  event sheet's Restore, `shelve { on:false }`), and `worker/state.js`
+  `placeFloat` puts Float in Beerio's place in a saved order. **The Cup:**
+  with the `FLOAT` binding (`capabilities.float`, listed only when bound)
+  Lock and start opens it in the same write (`floatStart`: `state.float =
+  { evId, room:"fd-<evId>", cupId, startAt (+20 s), startedAt, players }`,
+  everyone present); after any write persists the Tournament posts it to the
+  room's own Durable Object (`POST https://float.internal/internal/cup` on
+  `env.FLOAT.idFromName(room)`, `floatCupBody`: fieldday, drinking, bots 0,
+  each `floatRider`: name, chip color and skin, number, `/api/photo` path,
+  look, `drinks` false only for a guest who said no, `groom`), one post at a
+  time, never twice (`private:float:cup:<cupId>`), resumed when the object
+  wakes, tried again on the alarm (2, 5, 15, 30 s); a room that refuses (4xx)
+  or never answers writes `floatCupFailed` and the pill offers Start Float
+  again (a new cupId). **The result** comes back once, server to server
+  (`POST /internal/float/result` on the Tournament: the public router
+  forwards only `/ws`, `/api/*` and `/float/ws`, so nothing else reaches
+  it): the stats kept in `private:float:stats:<cupId>`, then `floatFinish`
+  (`ctx.internal` "float", never a socket's) posts 1st to 3rd from `order`
+  through beginResultEntry and saveResult as the server's own write
+  (`applyAutoWrite`: the winner scene, alerts and win song follow),
+  idempotent by cupId, a stale cup 409, a result entered by hand left
+  standing. `/internal/float/feedback` keeps one card a rider a cup
+  (`private:float:feedback`), read over the commissioner's socket
+  (`floatFeedback`) on Commissioner > Games > Float (`FloatDesk.jsx`: the
+  Cup now, looks picked, the cards). A take-back, a cleared result, a skip
+  and a reset end the Cup. **Looks:** `profiles[p].float` (public), written
+  by `floatLook` (`cleanFloatLook`: `cleanLook` over `FLOATIE_IDS`, the
+  crown the groom's alone, `FLOAT_GROOM` "Brandon"); Profile > Locker embeds
+  the room's `LockerPicker` and saves itself; Home's list asks "Pick your
+  floatie" before the weekend; the Ready check counts floaties. **The
+  surfaces** load the room's components only from an effect, through
+  `import.meta.glob` (`features/float/floatParts.js`), each its own chunk,
+  so no render or test loads them; a part that fails to load or draw
+  (`FloatBoundary`) is out for the session and its surface falls back. The
+  TV: while the Cup races and the room has it (`floatOn`), `TVFloat` lays
+  FloatScreen over the whole canvas (a takeover; no showdown, gag, lobby or
+  vignette over it; the reload waits); a directed scene, an award, the crown
+  and the posted result outrank it, and a TV whose river failed shows its own
+  live board. The phone: `FloatPlaySheet` opens FloatController by itself
+  once a Cup for a rider (never a spectator), keeps it through the room's
+  podium and feedback until its onExit or 120 s after the result
+  (`FLOAT_LINGER_MS`), and the Now card's row (Racing, Play) reopens it. The
+  pill: Start Float, then Enter result noting "Float posts its own result"
+  (Restart Float, confirmed, in the tray), Start Float again after a failure.
+  QA jumps and simulated rooms never open a river (Float plays there as a
+  free-for-all entered by hand); Play solo's `solo:float` posts a Cup of the
+  commissioner's player and `bots:13`. Tests `float-fieldday`, `float-ui`;
+  fit views `tv-float-*`, `float-*`, `gm-float-*`.
 
 ## Current redesign direction
 
@@ -1320,9 +1376,9 @@ shapes, 7 to 16 seed into the next power of two with byes to the top seeds.
 1v1 Basketball is a bracket of everyone present (teams of one, `teamFit`
 shrinks it for Away). The v2 slate (Sept 29): Long Putt, Beer Die Doubles,
 Where and When, Karaoke (Fri; Karaoke since Oct 12); 5v5, Pickleball Doubles, 1v1 (Sat AM); Volleyball as 4 teams of 3,
-Trivia (solo, in the app), 8-Ball, Beer Pong (Sat PM/night); Rage Cage, Beerio
-Kart; poker. Trivia is played in the app when it has a set list, and Where
-and When when it has photos (else each is entered like any result). 5v5 is everyone-plays (`participation:{type:"all"}`): the draw
+Trivia (solo, in the app), 8-Ball, Beer Pong (Sat PM/night); Rage Cage, Float
+(Beerio Kart's slot since Oct 25, Beerio standing by); poker. Trivia is played in the app when it has a set list, Where
+and When when it has photos, and Float when the room is bound (else each is entered like any result). 5v5 is everyone-plays (`participation:{type:"all"}`): the draw
 or the captains' snake splits whoever is present 7 v 6, with no crew. Tests
 that need a dropped shape (pairs pools, solo heats of three, an even
 two-team game) add it through `tests/support/legacy-events.mjs`. Past eight the TV draws the bracket from both ends toward
@@ -1795,9 +1851,10 @@ first use is the awards ballot (D6). Its plan is in `docs/REFOUNDATION.md`.
   session's end, the poker stages or Crowned in one write (crowned from empty
   runs in well under 100 ms); "Sim contest" and "Finish event" step the
   current event; checkpoints save and restore game progress. "Play solo"
-  (`solo:trivia|where`, worker/qa.js `playSolo`) announces, locks and
+  (`solo:trivia|where|float`, worker/qa.js `playSolo`) announces, locks and
   starts that in-app game for the commissioner's own claimed player alone
-  (Trivia's `players` and `solo`, Where and When's `only` with no author;
+  (Trivia's `players` and `solo`, Where and When's `only` with no author,
+  Float's Cup with the room's 13 bots, offered only with the room;
   nobody joins), rewinding first if anything is in play, and turns Sim
   players off, so one phone plays the real game on the autopilot.
 - `/dev/contest-preview.html` - local development rehearsal using actual
@@ -1965,8 +2022,12 @@ built-in. Every surface (schedule, strips, sheets, betting band, event intro,
 TV) reads those registries; anything missing falls back to the GameMark,
 then the FD chip. A built-in added after a Reorder was saved has no place in
 the stored `eventOrder` and sorts last: give it one on hydration as
-`worker/state.js` `placeKaraoke` does. The cup lays each session's plaques
-in rows of three at most (`weekend/trophy.js` `cupRows`).
+`worker/state.js` `placeKaraoke` and `placeFloat` do (Float's takes the
+place of the event it stands in for). An in-app game's mark is never
+borrowed (`GAME_MARK_IDS` leaves out Karaoke and Float). The cup lays each
+session's plaques in rows of three at most (`weekend/trophy.js` `cupRows`);
+a session of four (Saturday night with Beerio Kart restored beside Float)
+goes back to four a row across the cup.
 
 ## Backlog
 

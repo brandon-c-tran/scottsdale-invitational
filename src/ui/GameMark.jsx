@@ -88,6 +88,14 @@ const MARKS = {
     <path d="M6.8 8.2h9.6M7.4 8.2l.6 4.2M15.8 8.2l-1 6.2" />
     <circle cx="18.2" cy="4.8" r="1.8" {...BALL} />
   </>,
+  /* Float: the floatie, its hole and two stripes cut in the glass, riding a
+     wave */
+  float:<>
+    <ellipse cx="12" cy="10.4" rx="7.6" ry="4.6" {...BALL} />
+    <ellipse cx="12" cy="9.8" rx="3.1" ry="1.55" fill="var(--fd-mark-glass)" stroke="none" />
+    <path d="M6.6 8.2l1.5 2.9M17.4 8.2l-1.5 2.9" stroke="var(--fd-mark-glass)" strokeWidth="1.15" />
+    <path d="M3.4 18c1.45-1.3 2.9-1.3 4.3 0s2.9 1.3 4.3 0 2.9-1.3 4.3 0 2.9 1.3 4.3 0" />
+  </>,
   /* Beerio Kart: the wheel */
   beerio:<>
     <circle cx="12" cy="12" r="8.4" />
@@ -130,10 +138,11 @@ const CHIP = <>
   }).join("")} />
 </>;
 
-/* every game id with its own mark, for pickers ("Looks like"). Karaoke is
-   not offered: an added event that borrowed it would run the in-app game's
-   karaoke branches (shared/karaoke.js) without being the slate's Karaoke. */
-const NOT_BORROWED = Object.freeze(["karaoke"]);
+/* every game id with its own mark, for pickers ("Looks like"). Karaoke and
+   Float are not offered: an added event that borrowed one would run that
+   in-app game's branches (shared/karaoke.js, shared/float.js) without being
+   the slate's own. */
+const NOT_BORROWED = Object.freeze(["karaoke", "float"]);
 export const GAME_MARK_IDS = Object.freeze(Object.keys(MARKS).filter(id => !id.includes(":") && !NOT_BORROWED.includes(id)));
 
 function GameMark({ id, size=54, hero=false, variant }) {

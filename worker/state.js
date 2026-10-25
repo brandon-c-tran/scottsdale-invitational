@@ -1,4 +1,5 @@
 import { EMPTY_STATE, allEventsOf, cleanLeg, cleanLogistics, migrateAwardLadder } from "../shared/core.js";
+import { FLOAT_EVENT, FLOAT_STANDBY, floatSlate } from "../shared/float.js";
 
 /* The wager retry ledger lives under its own storage key. At its 2048-entry
    cap it is the largest single part of the tournament, and keeping it out of
@@ -38,6 +39,28 @@ function placeKaraoke(state) {
   order.splice(after + 1, 0, "karaoke");
 }
 
+/* Float took Beerio Kart's slot (Oct 25). A slate saved before then has no
+   place for it, and a missing id would sort after the poker finale. It
+   takes Beerio Kart's place in the order (Beerio one step later), else
+   comes after the order's last Saturday-night event, else just before the
+   finale, else last. Not while Float is skipped, never twice. */
+function placeFloat(state) {
+  const order = state.eventOrder;
+  if (!Array.isArray(order) || !order.length || order.includes(FLOAT_EVENT) || state.shelved?.[FLOAT_EVENT]) return;
+  const events = allEventsOf({ ...state, eventOrder:[] });
+  if (!events.some(ev => ev.id === FLOAT_EVENT)) return;
+  let at = order.indexOf(FLOAT_STANDBY);
+  if (at < 0) {
+    const night = new Set(events.filter(ev => ev.session === "san").map(ev => ev.id));
+    for (let k = order.length - 1; at < 0 && k >= 0; k--) if (night.has(order[k])) at = k + 1;
+  }
+  if (at < 0) {
+    const finale = new Set(events.filter(ev => ev.finale).map(ev => ev.id));
+    at = order.findIndex(id => finale.has(id));
+  }
+  order.splice(at < 0 ? order.length : at, 0, FLOAT_EVENT);
+}
+
 /* Storage hydration is deliberately pure and additive. A pre-M1 state keeps
    every persisted domain value; absent fields receive current defaults and
    the existing edition-aware logistics/flight normalizers still run. */
@@ -60,6 +83,10 @@ function hydrateStoredState(stored, storedWagerOps) {
      hydrating: its original results, advancement and wagers remain intact. */
   if (Number(state.v || 0) < EMPTY_STATE.v) state.v = EMPTY_STATE.v;
   placeKaraoke(state);
+  placeFloat(state);
+  /* Float plays, Beerio Kart stands by: once a board, while Beerio has
+     nothing on it (shared/float.js floatSlate) */
+  floatSlate(state);
 
   state.logistics = cleanLogistics(state.logistics);
   for (const profile of Object.values(state.profiles || {})) {

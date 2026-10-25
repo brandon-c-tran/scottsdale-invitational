@@ -46,6 +46,7 @@ import {
   JERSEY_NAME_MAX, NEEDS_MAX, cleanBackName, cleanNeeds, cleanVenmo, jerseyConfirmed, jerseyName,
 } from "../shared/guestSetup.js";
 import { cleanFreeText } from "../shared/freeText.js";
+import { floatSlate } from "../shared/float.js";
 
 /* free text's caps: what each field's input allows and its surfaces letter */
 const DISPLAY_NAME_MAX = 16;
@@ -2802,8 +2803,12 @@ export const ACTIONS = {
         ? Number(state[key] || 0)
         : structuredClone(state[key] ?? EMPTY_STATE[key]),
     ]));
+    const slate = !!state.floatSlate;
     Object.assign(state, structuredClone(EMPTY_STATE));
     Object.assign(state, preserved);
+    /* a board that had the slate's default (Beerio Kart standing by for
+       Float) has it again, as a fresh board would */
+    if (slate) floatSlate(state);
     return ok({ preserved:[...RESET_PROGRESS_PRESERVED_KEYS] });
   },
   /* ── QA (commissioner, QA capability) ──

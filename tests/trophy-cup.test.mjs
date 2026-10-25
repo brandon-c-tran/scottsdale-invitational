@@ -12,6 +12,7 @@ import {
   plateEngraving, plateNameWidth, trophyCup,
 } from "../src/features/weekend/trophy.js";
 import { engraveCues } from "../src/features/tv/roomSound.js";
+import { hydrateStoredState } from "../worker/state.js";
 
 const cupOf = state => trophyCup(state, allEventsOf(state));
 const plateOf = (cup, id) => cup.plates.find(plate => plate.eventId === id);
@@ -115,7 +116,8 @@ test("renamed teams are engraved by their new names, every one fitting a TV plat
 });
 
 test("the TV's cup keeps the 24px floor and stays inside the canvas", () => {
-  const cup = cupOf(structuredClone(EMPTY_STATE));
+  /* the slate a fresh server starts with: Float plays, Beerio Kart stands by */
+  const cup = cupOf(hydrateStoredState(undefined));
   const layout = cupTvLayout(cup);
   assert.ok(layout.width <= 1920 - 2 * 64, "inside the title-safe width");
   assert.equal(layout.bands.length, 4);

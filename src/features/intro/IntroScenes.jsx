@@ -565,6 +565,78 @@ function Kart() {
   />;
 }
 
+/* ── Float: down the canyon on a floatie, both paddles going, over the
+   drop's lip and down into the pool with a splash ── */
+function FloatScene() {
+  const water = mix("var(--art-turquoise)", 70, "var(--art-cobalt)");
+  const deep = mix(water, 62, K);
+  const wall = mix("var(--art-tangerine)", 55, "var(--art-umber)");
+  const rock = mix("var(--art-umber)", 78, K);
+  const tube = "var(--art-rose)";
+  const critter = mix("var(--art-cream)", 70, "var(--art-tangerine)");
+  return <Plates
+    far={<>
+      {/* the canyon's walls close on the river at the horizon */}
+      <path d="M150 450L226 362H322L364 404L418 390L478 450Z" fill={wall} stroke={K} strokeWidth="5" strokeLinejoin="round" />
+      <path d="M722 450L772 388L838 400L884 340H976L1052 450Z" fill={wall} stroke={K} strokeWidth="5" strokeLinejoin="round" />
+      <path d="M244 404H306M800 410H860" stroke={K} strokeOpacity=".35" strokeWidth="5" strokeLinecap="round" />
+    </>}
+    mid={<>
+      {/* the river: a ribbon at the horizon, wide at our feet; the drop's lip across it */}
+      <path d="M520 450H680C760 500 900 560 1100 640H100C300 560 440 500 520 450Z" fill={water} stroke={K} strokeWidth="5" strokeLinejoin="round" />
+      <path d="M214 548C420 534 780 534 986 548L1030 568C800 554 400 554 170 568Z" fill={deep} />
+      <path d="M232 548C430 535 770 535 968 548" fill="none" stroke={BONE} strokeOpacity=".55" strokeWidth="5" strokeLinecap="round" />
+      {/* the current running downstream */}
+      <g style={run("fi-current", 2400, 0, "linear")}>
+        <path d="M540 470H590M620 466H660M480 500H560M640 494H720M400 524H470M760 522H840" stroke={BONE} strokeOpacity=".32"
+          strokeWidth="5" strokeLinecap="round" />
+      </g>
+      <ellipse cx="300" cy="586" rx="52" ry="17" fill={rock} stroke={K} strokeWidth="4" />
+      <ellipse cx="900" cy="590" rx="44" ry="15" fill={rock} stroke={K} strokeWidth="4" />
+      {/* the pool under the lip rings out where the floatie lands */}
+      <ellipse cx="600" cy="572" rx="110" ry="20" fill="none" stroke={BONE} strokeWidth="5"
+        style={{ ...box, ...run("fi-ripple", 900, T.hit, "cubic-bezier(.1,.7,.3,1)") }} />
+    </>}
+    near={<>
+      <g style={run("fi-float-path", T.hit - 500, 500, "linear")}>
+        <g style={{ ...box, ...run("fi-float-body", T.hit - 500, 500, "linear") }}>
+          <g style={{ transformBox:"fill-box", transformOrigin:"50% 100%", ...run("fi-squash", 360, T.hit, "var(--ease-land)") }}>
+            <g transform="translate(-80 -96)">
+              <ellipse cx="80" cy="126" rx="80" ry="12" fill={K} opacity=".3" />
+              {/* the tube, its hole showing the water, the critter sunk in it
+                  and the tube's front rim over its lap */}
+              <ellipse cx="80" cy="106" rx="74" ry="22" fill={tube} stroke={K} strokeWidth="5" />
+              <ellipse cx="80" cy="100" rx="34" ry="10" fill={deep} stroke={K} strokeWidth="4" />
+              <path d="M58 104C56 72 64 54 80 54S104 72 102 104Z" fill={critter} stroke={K} strokeWidth="5" strokeLinejoin="round" />
+              <path d="M6 106A74 22 0 0 0 154 106L114 100A34 10 0 0 1 46 100Z" fill={tube} stroke={K} strokeWidth="5" strokeLinejoin="round" />
+              <path d="M24 112L34 125M136 112L126 125M66 126L68 112M94 126L92 112" stroke={BONE} strokeWidth="7" strokeLinecap="round" />
+              <path d="M22 104C30 98 40 95 48 94" fill="none" stroke={BONE} strokeOpacity=".5" strokeWidth="5" strokeLinecap="round" />
+              {/* the critter: big eyes, the chip medallion on its chest */}
+              <circle cx="80" cy="42" r="24" fill={critter} stroke={K} strokeWidth="5" />
+              <circle cx="62" cy="24" r="7" fill={critter} stroke={K} strokeWidth="4" />
+              <circle cx="98" cy="24" r="7" fill={critter} stroke={K} strokeWidth="4" />
+              <circle cx="71" cy="40" r="7" fill={BONE} stroke={K} strokeWidth="3" /><circle cx="73" cy="41" r="3.4" fill={K} />
+              <circle cx="89" cy="40" r="7" fill={BONE} stroke={K} strokeWidth="3" /><circle cx="91" cy="41" r="3.4" fill={K} />
+              <circle cx="80" cy="80" r="8" fill="var(--sun)" stroke={K} strokeWidth="3" />
+              {/* both paddles, one stroke a side in turn */}
+              <g style={{ transformOrigin:"62px 76px", ...run("fi-stroke", 1000, T.play, "ease-in-out") }}>
+                <path d="M62 76L24 108" stroke={K} strokeWidth="6" strokeLinecap="round" />
+                <ellipse cx="20" cy="112" rx="9" ry="14" transform="rotate(48 20 112)" fill="var(--art-cobalt)" stroke={K} strokeWidth="4" />
+              </g>
+              <g style={{ transformOrigin:"98px 76px", ...run("fi-stroke-r", 1000, T.play + 250, "ease-in-out") }}>
+                <path d="M98 76L136 108" stroke={K} strokeWidth="6" strokeLinecap="round" />
+                <ellipse cx="140" cy="112" rx="9" ry="14" transform="rotate(-48 140 112)" fill="var(--art-cobalt)" stroke={K} strokeWidth="4" />
+              </g>
+            </g>
+          </g>
+        </g>
+      </g>
+      <Spray x={600} y={566} color="var(--art-cream)" n={9} spread={120} rise={96} size={7} />
+      <Burst x={600} y={566} r={84} flat={.38} />
+    </>}
+  />;
+}
+
 /* ── Championship Poker: the deal, the stacks, two aces turn ── */
 function Card({ x, y, rot, suit, deal, flipAt }) {
   /* dealt off the deck: the card grows and turns as it slides to its seat */
@@ -634,7 +706,7 @@ function MarkScene({ gameId, variant }) {
 export const SCENES = Object.freeze({
   putting:Putting, die:Die, where:Where, karaoke:Karaoke, "basketball:5v5":FullCourt, pickleball:Pickleball,
   "basketball:1v1":OneOnOne, volleyball:Volleyball, trivia:Trivia, "8ball":EightBall, pong:Pong,
-  ragecage:RageCage, beerio:Kart, poker:Poker,
+  ragecage:RageCage, float:FloatScene, beerio:Kart, poker:Poker,
 });
 export function IntroDiorama({ scene, gameId, variant }) {
   const Scene = SCENES[scene];

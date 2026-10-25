@@ -34,6 +34,7 @@ import { triviaActive, triviaBeat, triviaConfigured, triviaCurrent, triviaGame }
 import { BOARD_FORMAT, boardAutoBeat, boardRace, isBoardGame, triviaFormatOf } from "../shared/triviaBoard.js";
 import { karaokeTurn } from "../shared/karaoke.js";
 import { roomBet, roomFavorite } from "../shared/qaSim.js";
+import { floatSlate } from "../shared/float.js";
 
 const QA_DEVICE = "qa-sim";
 const QA_REQUEST_PREFIX = `request:${QA_DEVICE}:`;
@@ -76,7 +77,10 @@ function resetProgress(state) {
     key === "onboardEpoch" ? Number(state[key] || 0) : structuredClone(state[key] ?? EMPTY_STATE[key]),
   ]));
   const sim = state.qaSim ? structuredClone(state.qaSim) : null;
+  const slate = !!state.floatSlate;
   Object.assign(state, structuredClone(EMPTY_STATE), preserved, { qaSim:sim });
+  /* as resetTournament: a board that had Beerio Kart standing by for Float has it again */
+  if (slate) floatSlate(state);
 }
 
 /* Whether reaching this target means throwing away progress first: anything

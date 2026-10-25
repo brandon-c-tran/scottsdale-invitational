@@ -28,7 +28,7 @@ export const INTRO_REDUCED_MS = 650;
    its own scene (a commissioner-added event, a game borrowed from the
    library) plays the shared one around its GameMark. */
 export const INTRO_SCENES = Object.freeze(["putting", "die", "where", "karaoke", "basketball:5v5", "pickleball",
-  "basketball:1v1", "volleyball", "trivia", "8ball", "pong", "ragecage", "beerio", "poker"]);
+  "basketball:1v1", "volleyball", "trivia", "8ball", "pong", "ragecage", "float", "beerio", "poker"]);
 export const FALLBACK_SCENE = "mark";
 export function introScene(ev) {
   const game = ev?.game || null;

@@ -373,6 +373,17 @@ export const INTRO_FOLEY = Object.freeze({
     mode(E, v, t + 0.5, NOTE.A2, 1.5, 0.08, { type:"sawtooth", drop:-0.25, a:0.2 }); mode(E, v, t + 0.5, NOTE.D3, 1.5, 0.05, { type:"square", drop:-0.25, a:0.2 });
     burst(E, voice(E, { gain:0.25 }), t + 1.3, { type:"bandpass", f:2600, q:3, d:0.32, peak:0.3 });
     M.bell(E, t + HIT, NOTE.D5, { gain:0.35, dec:0.8 }); M.bell(E, t + HIT + 0.09, NOTE.Fs5, { gain:0.35, dec:0.8 }); },
+  /* the river running, both paddles dipping in turn (left, right), the
+     rush over the lip, then the floatie smacking down into the pool */
+  float:(E, t) => { hum(E, t + 0.3, HIT - 0.3, 420, 260, 0.05);
+    [0, 0.25, 0.5, 0.75].forEach((dt, i) => {
+      burst(E, voice(E, { pan:i % 2 ? 0.3 : -0.3, send:0.25, bright:0.6, gain:0.32 }), t + PLAY + dt,
+        { type:"bandpass", f:880 + i * 40, q:1.3, d:0.12, peak:0.42, a:0.01 });
+      M.felt(E, t + PLAY + dt + 0.01, { gain:0.22, pan:i % 2 ? 0.3 : -0.3 }); });
+    whoosh(E, t + HIT - 0.3, { d:0.3, f0:500, f1:1800, peak:0.1 });
+    M.drum(E, t + HIT, { f:92, dec:0.26, gain:0.6 });
+    burst(E, voice(E, { send:0.3, bright:1, gain:0.4 }), t + HIT + 0.01, { type:"highpass", f:2200, d:0.36, peak:0.42 });
+    bloop(E, t + HIT + 0.06, NOTE.D4, 0.32); },
   poker:(E, t) => { M.tick(E, t + PLAY); M.tick(E, t + PLAY + 0.16);
     for (let i = 0; i < 17; i++) M.clack(E, t + 1.0 + i * 0.045 + (i > 4 ? 0.02 : 0), { pitch:1 - (i % 6) * 0.02, gain:0.4, double:false });
     M.tick(E, t + HIT - 0.12, { pitch:1.1 }); M.tick(E, t + HIT - 0.04, { pitch:1.15 }); },

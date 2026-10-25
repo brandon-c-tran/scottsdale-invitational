@@ -256,14 +256,22 @@ button.fd-home-song-chip > .fd-icon { color:var(--lamp-info); }
 .fd-home-now-rows:empty { display:none; }
 .fd-home-now-rows.is-bare { margin:0 0 12px; padding:0 12px; border:1px solid var(--line); border-radius:14px;
   background:color-mix(in srgb, var(--lamp-live) 6%, var(--bg)); box-shadow:var(--glass-edge); }
-.fd-home-focus > .fd-home-now-rows:last-child { padding-bottom:6px; }
 .fd-home-now-rows > * + * { border-top:1px solid var(--line); }
-.fd-home-focus > .fd-home-now-rows { margin-top:4px; border-top:1px solid var(--line); }
+/* the hairline clears whatever stands above it (the win line, the sides);
+   the last row keeps the pane's own bottom padding. The pane's last child
+   is the tilt's glare (useGlassTilt), so :last-child never matches here:
+   a row block followed by more of the card gives the padding back. */
+.fd-home-focus > .fd-home-now-rows { margin-top:10px; padding-bottom:6px; border-top:1px solid var(--line); }
+.fd-home-focus > .fd-home-now-rows:has(+ .fd-home-event-actions, + .fd-home-path) { padding-bottom:0; }
+/* straight under the status line, whose own height already parts them */
+.fd-home-focus > .fd-home-focus-meta + .fd-home-now-rows { margin-top:2px; }
+.fd-home-focus > .fd-home-focus-meta + .fd-home-win-you.is-own { margin-top:2px; }
 .fd-now-row { display:flex; align-items:center; gap:12px; width:100%; min-height:48px; margin:0; padding:4px 0; border:0;
   background:none; color:var(--ink); text-align:left; font:inherit; cursor:pointer; }
-.fd-home.is-live .fd-now-row { min-height:44px; padding:0; }
-.fd-home.is-live .fd-home-focus > .fd-home-now-rows { margin-top:2px; }
-.fd-home.is-live .fd-home-now-rows:not(:empty) + .fd-home-event-actions { padding-top:4px; }
+.fd-home.is-live .fd-now-row { min-height:44px; padding:6px 0; }
+/* the status and the bet under the rows: a hairline closes the last row */
+.fd-home-focus > .fd-home-now-rows:not(:empty) + .fd-home-event-actions { border-top:1px solid var(--line); }
+.fd-home.is-live .fd-home-now-rows:not(:empty) + .fd-home-event-actions { padding-top:8px; }
 .fd-now-row:active { transform:translateY(1px); }
 .fd-now-row:focus-visible { outline:2px solid var(--lamp-info); outline-offset:2px; border-radius:8px; }
 .fd-now-row-text { flex:1; min-width:0; display:grid; gap:3px; }
@@ -307,8 +315,9 @@ button.fd-home-song-chip > .fd-icon { color:var(--lamp-info); }
 .fd-home-side:has(> .fd-home-terms) { flex-wrap:wrap; row-gap:4px; }
 .fd-home-terms { flex-basis:100%; flex-wrap:wrap; row-gap:4px; overflow:visible; }
 .fd-home-team .fd-home-terms { margin-top:6px; }
-/* the pane's last row keeps the pane's own bottom padding */
-.fd-home-focus > .fd-home-assignment:last-child { padding-bottom:12px; }
+/* the pane's last row keeps the pane's own bottom padding (its last child
+   is the tilt's glare, so this reads what follows instead of :last-child) */
+.fd-home-focus > .fd-home-assignment:not(:has(+ :not(.fd-tilt-glare))) { padding-bottom:12px; }
 
 /* Round 2 (Oct 4): the first screen during the weekend holds the contest
    and the leaderboard's heading (fit audit: fold). Team blocks are a name

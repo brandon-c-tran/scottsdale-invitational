@@ -280,10 +280,12 @@ export function GeoHome({ state, me, onOpen, now, inCard = false }) {
   const view = geoView(state, me, now ?? serverNow());
   useTicking(!!view && view.phase === "guess" && now === undefined, 1000);
   if (!view || !view.playing || view.finished || (view.done && !view.revealed)) return null;
-  const status = view.phase === "guess" ? view.mine ? "Guess locked in" : `${view.secondsLeft} s to guess`
+  /* a saved draft (the phone keeps a pin before Lock in) still asks */
+  const locked = !!view.mine?.done;
+  const status = view.phase === "guess" ? locked ? "Guess locked in" : `${view.secondsLeft} s to guess`
     : view.mineScored ? `+${fmt(view.mineScored.total)} this photo` : "Revealed";
   /* a row of Home's Now card: the event's name is the card's own */
-  const asks = view.phase === "guess" && !view.mine;
+  const asks = view.phase === "guess" && !locked;
   if (inCard) return <NowRow className="fd-geo-now" status={status} extra={`Photo ${view.n} of ${view.total}`}
     go={asks ? "Play" : "Open"} primary={asks} onClick={onOpen} ariaLabel={`Where and When. ${status}. Open`} />;
   return <button type="button" className="fd-geo-home" onClick={onOpen}>

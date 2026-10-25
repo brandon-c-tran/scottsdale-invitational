@@ -216,9 +216,16 @@ export function triviaActions({ ok, err, gmOnly, run }) {
       if (state.results?.[evId]) return err("The result is already posted");
       if (resolveEventLifecycle(state, ev).phase !== "in-progress") return err(`Lock and start ${ev.name} first`);
       if (!triviaQuestionTotal(rounds(state))) return err("Add rounds in the Trivia desk first");
-      const players = presentPlayers(state);
+      /* QA's solo game (worker/qa.js, never a client's payload): its players
+         alone, and nobody joins it */
+      const solo = Array.isArray(ctx.qaSolo) ? [...ctx.qaSolo] : null;
+      const players = solo || presentPlayers(state);
       if (!players.length) return err("Nobody is here to play");
-      if (triviaFormatOf(state) === BOARD_FORMAT) return board.start(state, ev, players);
+      if (triviaFormatOf(state) === BOARD_FORMAT) {
+        const started = board.start(state, ev, players);
+        if (solo && started.ok) state.trivia.solo = true;
+        return started;
+      }
       const now = Date.now();
       const id = `tg${now.toString(36)}${Math.random().toString(36).slice(2, 6)}`;
       const played = [], questions = [];
@@ -233,7 +240,7 @@ export function triviaActions({ ok, err, gmOnly, run }) {
       });
       if (!questions.length) return err("Add rounds in the Trivia desk first");
       const game = { id, eventId:evId, startedAt:now, index:0, phase:"question", players:[...players],
-        rounds:played, questions, times:{}, picks:{}, ops:{} };
+        rounds:played, questions, times:{}, picks:{}, ops:{}, ...(solo ? { solo:true } : {}) };
       open(game, now);
       state.trivia = game;
       return ok({ game:id });
@@ -250,7 +257,7 @@ export function triviaActions({ ok, err, gmOnly, run }) {
       if (!player) return err("Check in first");
       if (isAbsent(state, player)) return err(isAway(state, player) ? "You are marked away" : "Scan the TV first");
       const joining = !triviaPlays(game, player);
-      if (joining && (!Array.isArray(game.players) || !isActivePlayer(player, state))) return err("You are not playing");
+      if (joining && (!Array.isArray(game.players) || game.solo || !isActivePlayer(player, state))) return err("You are not playing");
       const now = Date.now();
       const time = game.times?.[questionId] || {};
       if (now > Number(time.closesAt) + TRIVIA_GRACE_MS) return err("Time is up");

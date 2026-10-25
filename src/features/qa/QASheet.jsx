@@ -1,8 +1,9 @@
 /* The commissioner QA console, in the menu system's sections, in the order
    a rehearsal runs: where it stands, Watch it play (Sim players: the room
    plays itself on a human clock, worker/tournament.js and shared/qaSim.js),
-   Step (one-shot steps, and Play live: the slow driver on this phone, real
-   broadcasts one player at a time), Jump to (one event picker and its
+   Play solo (Trivia or Where and When started for your own player alone,
+   worker/qa.js playSolo), Step (one-shot steps, and Play live: the slow
+   driver on this phone, real broadcasts one player at a time), Jump to (one event picker and its
    Open / Mid / Done, then one picker of the milestones), Bets and duels,
    Test a moment (one shape, one bit or Random, one Play: worker qaGag),
    Checkpoints (with the dock strip's switch), Lens, then Reset last. Reset
@@ -12,7 +13,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "../../ui/Icon.jsx";
 import { rosterOf, allEventsOf, disp } from "../../../shared/core.js";
-import { qaCheckpointSummary, qaTargets } from "../../../shared/qa.js";
+import { qaCheckpointSummary, qaSoloTargets, qaTargets } from "../../../shared/qa.js";
 import { qaSimOf, simPlayers } from "../../../shared/qaSim.js";
 import { GAG_SHAPES } from "../../../shared/gags.js";
 import { karaokeLive, karaokeTurn } from "../../../shared/karaoke.js";
@@ -142,6 +143,7 @@ export function QASheet({ state, status, me, guestLens, busy, environment, dispa
   useCheckpointList(qa);
   const events = useMemo(() => allEventsOf(state), [state]);
   const targets = useMemo(() => qaTargets(state, events), [state, events]);
+  const solos = useMemo(() => qaSoloTargets(state, events), [state, events]);
   const here = useMemo(() => qaCheckpointSummary(state, events).label, [state, events]);
   const rows = useMemo(() => targets.sessions.flatMap(session => session.events), [targets]);
   const eventId = rows.some(row => row.id === pickedEvent) ? pickedEvent : defaultEvent(rows);
@@ -197,6 +199,15 @@ export function QASheet({ state, status, me, guestLens, busy, environment, dispa
           </MenuGroup>
         </div>
       </Part>
+
+      {solos.length > 0 && <Part icon="person" title="Play solo">
+        <MenuGroup>
+          {solos.map(item => <MenuRow key={item.key} name={item.label}
+            value={item.ready ? null : item.game === "where" ? "No photos" : "No questions"}
+            disabled={off || !item.ready}
+            onClick={() => qa.jump(item.key, `${item.label}: you alone`)} />)}
+        </MenuGroup>
+      </Part>}
 
       <Part icon="then" title="Step">
         <div className="fd-qa-actions">

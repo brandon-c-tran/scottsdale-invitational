@@ -10,12 +10,15 @@
      crowned                     champion crowned, board frozen
      step                        the current event's current contest, once
      finish                      the current event through its result
+     solo:trivia|where           that in-app game started for the
+                                 commissioner's own player alone
 
    Nothing here writes state. */
 import {
   EMPTY_STATE, RESET_PROGRESS_PRESERVED_KEYS, SESSIONS,
   allEventsOf, contestStackOf, resolveEventLifecycle,
 } from "./core.js";
+import { triviaConfigured } from "./trivia.js";
 
 const QA_CHECKPOINT_LIMIT = 10;
 const QA_CHECKPOINT_NAME_MAX = 40;
@@ -23,6 +26,8 @@ const QA_EVENT_PHASES = Object.freeze(["open", "mid", "done"]);
 const QA_POKER_PHASES = Object.freeze(["set", "live", "counted"]);
 const QA_EVENT_PHASE_LABELS = Object.freeze({ open:"Open", mid:"Mid", done:"Done" });
 const QA_POKER_PHASE_LABELS = Object.freeze({ set:"Table set", live:"Cards live", counted:"Counts posted" });
+/* the in-app games a solo test can start: the event's `game` and its name */
+const QA_SOLO_GAMES = Object.freeze({ trivia:"Trivia", where:"Where and When" });
 
 /* Exactly what a game-progress reset clears. A checkpoint stores these and a
    restore replaces only these: profiles, ratings, logistics, the onboarding
@@ -77,6 +82,11 @@ function parseQaTarget(state, key, events = allEventsOf(state)) {
     if (index < 0) return null;
     return { kind:"event", key, evId:slate[index].id, phase:"done", index, session:id };
   }
+  if (kind === "solo" && phase === undefined && Object.hasOwn(QA_SOLO_GAMES, id)) {
+    const index = slate.findIndex(ev => ev.game === id);
+    if (index < 0) return null;
+    return { kind:"solo", key, game:id, evId:slate[index].id, index };
+  }
   if (kind === "poker" && phase === undefined && QA_POKER_PHASES.includes(id)) {
     if (!events.some(ev => ev.finale && !state.shelved?.[ev.id])) return null;
     return { kind:"poker", key, phase:id };
@@ -124,6 +134,18 @@ function qaTargets(state, events = allEventsOf(state)) {
   };
 }
 
+/* The solo tests the sheet offers: each in-app game on the slate, whether
+   it has anything to play (a set list, photos), and where its event is. */
+function qaSoloTargets(state, events = allEventsOf(state)) {
+  const slate = qaSlate(state, events);
+  return Object.entries(QA_SOLO_GAMES).flatMap(([game, label]) => {
+    const ev = slate.find(item => item.game === game);
+    if (!ev) return [];
+    const ready = game === "trivia" ? triviaConfigured(state) : (state.geoRounds || []).length > 0;
+    return [{ key:`solo:${game}`, game, label, evId:ev.id, ready, stage:qaEventStage(state, ev) }];
+  });
+}
+
 /* Where a board is, in a few words, for a checkpoint row. */
 function qaCheckpointSummary(state, events = allEventsOf(state)) {
   const results = Object.keys(state.results || {}).length;
@@ -151,7 +173,7 @@ function qaProgressOf(state) {
 
 export {
   QA_CHECKPOINT_LIMIT, QA_CHECKPOINT_NAME_MAX, QA_EVENT_PHASES, QA_POKER_PHASES, QA_PROGRESS_KEYS,
-  QA_EVENT_PHASE_LABELS, QA_POKER_PHASE_LABELS,
-  qaSlate, qaEventStage, qaPokerStage, parseQaTarget, qaTargets, qaProgressOf, cleanCheckpointName,
+  QA_EVENT_PHASE_LABELS, QA_POKER_PHASE_LABELS, QA_SOLO_GAMES,
+  qaSlate, qaEventStage, qaPokerStage, parseQaTarget, qaTargets, qaSoloTargets, qaProgressOf, cleanCheckpointName,
   qaCheckpointSummary,
 };

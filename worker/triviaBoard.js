@@ -99,13 +99,13 @@ export function boardActions({ ok, err, gmOnly, run, roundQuestions, dealOptions
   };
   /* a player's own write: checked in and here. A present roster player not
      in the game yet joins on their first buzz, Final wager or Final answer
-     (`join`). */
+     (`join`), never into QA's solo game (`solo`). */
   const seat = (state, game, ctx, join = false) => {
     const player = ctx?.player;
     if (!player) return { error:err("Check in first") };
     if (isAbsent(state, player)) return { error:err(isAway(state, player) ? "You are marked away" : "Scan the TV first") };
     if (boardPlays(game, player)) return { player, joining:false };
-    if (!join || !Array.isArray(game.players) || !isActivePlayer(player, state)) return { error:err("You are not playing") };
+    if (!join || !Array.isArray(game.players) || game.solo || !isActivePlayer(player, state)) return { error:err("You are not playing") };
     return { player, joining:true };
   };
   /* One answer recorded (a timeout is a wrong one). Right takes the value

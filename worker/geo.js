@@ -72,7 +72,9 @@ export function geoActions({ ok, err, gmOnly, run }) {
       state.geoRounds = rounds;
       return ok();
     },
-    /* the first photo goes up, once the event is under way */
+    /* the first photo goes up, once the event is under way. QA's solo game
+       (worker/qa.js, never a client's payload) starts it for its players
+       alone, with no author. */
     geoStart(state, { evId }, ctx) {
       const g = gmOnly(ctx); if (g) return g;
       const ev = gameEvent(state, evId);
@@ -84,7 +86,8 @@ export function geoActions({ ok, err, gmOnly, run }) {
       if (!rounds.length) return err("Add photos in the Where and When desk first");
       const now = Date.now();
       state.geo = { eventId:evId, order:rounds.map(round => round.id), index:0, phase:"guess", startedAt:now,
-        closesAt:now + GEO_ROUND_MS, author:ctx.player || null, guesses:{} };
+        closesAt:now + GEO_ROUND_MS, author:ctx.qaSolo ? null : ctx.player || null, guesses:{},
+        ...(ctx.qaSolo ? { only:[...ctx.qaSolo] } : {}) };
       return ok();
     },
     /* A player's pin and time for the current photo. The phone saves the

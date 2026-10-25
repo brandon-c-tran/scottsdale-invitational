@@ -1757,7 +1757,12 @@ first use is the awards ballot (D6). Its plan is in `docs/REFOUNDATION.md`.
 - QA console (commissioner, QA mode): "Jump to" any event's Open/Mid/Done, a
   session's end, the poker stages or Crowned in one write (crowned from empty
   runs in well under 100 ms); "Sim contest" and "Finish event" step the
-  current event; checkpoints save and restore game progress.
+  current event; checkpoints save and restore game progress. "Play solo"
+  (`solo:trivia|where`, worker/qa.js `playSolo`) announces, locks and
+  starts that in-app game for the commissioner's own claimed player alone
+  (Trivia's `players` and `solo`, Where and When's `only` with no author;
+  nobody joins), rewinding first if anything is in play, and turns Sim
+  players off, so one phone plays the real game on the autopilot.
 - `/dev/contest-preview.html` - local development rehearsal using actual
   Wagers, ContestPanel, player cards, and `applyAction` against sample state in
   memory. Includes FFA, a six-team bracket, two-through heats plus final, and

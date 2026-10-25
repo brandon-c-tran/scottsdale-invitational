@@ -24,6 +24,7 @@ import {
   RESET_PROGRESS_PRESERVED_KEYS, SIZES, SPORTS,
   allEventsOf, atRisk, bracketChampion, computeStandings, contestBetEligibility, contestSideOf,
   contestStackOf, draftTurn, duelBetween, duelReserve, duelRoom, duelsSentToday, maxRisk,
+  isAbsent, isActivePlayer, isAway,
   playerStrength, pokerSetupPreview, presentPlayers, resolveCurrentContest, resolveEventLifecycle, resolveSlot,
   resolveWager, resolveWeekendOperation, stageEntrantView, stageFinalists, wagerMatchesContest,
 } from "../shared/core.js";
@@ -88,6 +89,10 @@ function qaNeedsRewind(state, target, events = allEventsOf(state)) {
   if (target.kind === "poker") return poker > { set:1, live:2, counted:3 }[target.phase];
   if (poker > 0 || state.frozen) return true;
   const slate = qaSlate(state, events);
+  /* a solo game needs its own event untouched and nothing else in play */
+  if (target.kind === "solo")
+    return slate.some(ev => ev.id === target.evId ? qaEventStage(state, ev) > 0
+      : qaEventStage(state, ev) > 0 && qaEventStage(state, ev) < 3);
   if (target.kind === "locker")
     return !!state.live || slate.some(ev => qaEventStage(state, ev) > 0);
   const index = slate.findIndex(ev => ev.id === target.evId);
@@ -109,10 +114,11 @@ function createRunner(state, baseCtx, tick = () => {}) {
   const stats = { writes:0, events:0, contests:0, bets:0, duels:0, profiles:0 };
   let seq = 0;
   const gmCtx = { ...baseCtx, isGm:true, player:null, deviceId:null, actionId:null, showControl:false };
-  const gm = (type, payload = {}) => {
+  /* `extra`: server-only context for this one write (a solo game's players) */
+  const gm = (type, payload = {}, extra = null) => {
     if (++seq > MAX_STEPS) throw new QaStop("Too many steps");
     tick();
-    const result = baseCtx.applyAction(state, type, { ...payload, startWeekend:true }, gmCtx);
+    const result = baseCtx.applyAction(state, type, { ...payload, startWeekend:true }, extra ? { ...gmCtx, ...extra } : gmCtx);
     if (!result.ok) throw new QaStop(`${type}: ${result.error}`);
     if (!result.extra?.unchanged) stats.writes += 1;
     return result;
@@ -492,6 +498,36 @@ function playEvent(run, ev, stop) {
   if (run.rng() < 0.5) playFillerDuel(run);
 }
 
+/* QA's solo test: Trivia or Where and When announced, locked and started
+   for the commissioner's own player alone (the game's `players` or
+   `only`), so one phone plays the real game and the autopilot reveals as
+   soon as that one player locks in. The simulated room goes off: it would
+   play the others. Nothing else is posted or played. */
+function soloPlayer(state, ctx) {
+  const player = ctx.player;
+  if (!player || !isActivePlayer(player, state)) throw new QaStop("Claim your player on this phone first");
+  if (isAbsent(state, player)) throw new QaStop(isAway(state, player) ? "You are marked away" : "Check in first");
+  return player;
+}
+function playSolo(run, target, player) {
+  const { state } = run;
+  const ev = run.events().find(item => item.id === target.evId);
+  const solo = { qaSolo:[player] };
+  state.qaSim = null;
+  announce(run, ev);
+  for (let guard = 0; guard < 6 && resolveEventLifecycle(state, ev).phase !== "in-progress"; guard++) {
+    const contest = resolveCurrentContest(state, ev);
+    if (contest?.phase === "scheduled") { run.gm("setOnDeck", { id:ev.id }); continue; }
+    run.gm("lockAndStart", contest ? { evId:ev.id, contestId:contest.id, contestRevision:contest.revision }
+      : { evId:ev.id }, solo);
+  }
+  /* Lock and start opens the game when it has content; say why when it did not */
+  run.gm(target.game === "where" ? "geoStart" : "triviaStart", { evId:ev.id }, solo);
+  const started = target.game === "where" ? state.geo?.eventId === ev.id && state.geo.only
+    : state.trivia?.eventId === ev.id && state.trivia.solo;
+  if (!started) throw new QaStop(`${ev.name} did not start`);
+}
+
 /* The finale, one stage at a time up to the one asked for. */
 function playPoker(run, phase) {
   const { state } = run;
@@ -580,10 +616,12 @@ function runQaAdvance(state, target, { applyAction, ctx, seed, production = fals
   const events = allEventsOf(state);
   const rewound = qaNeedsRewind(state, target, events);
   let run = null;
+  const solo = target.kind === "solo" ? soloPlayer(state, ctx) : null;
   const advance = () => {
     if (rewound) resetProgress(state);
     fillEmptyCheckIns(run, { production });
     if (target.kind === "locker") return;
+    if (solo) { playSolo(run, target, solo); return; }
     if (target.kind === "step" || target.kind === "finish") {
       const operation = resolveWeekendOperation(state, run.events());
       const ev = operation.event;

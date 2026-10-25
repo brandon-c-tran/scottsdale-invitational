@@ -9,7 +9,7 @@
      until each round is revealed.
    - `state.geo` is the game in progress: { eventId, order:[roundId], index,
      phase:"guess"|"reveal"|"done", startedAt, closesAt, revealedAt, author,
-     guesses:{ [roundId]:{ [player]:{ lat, lng, when, at } } } }. Progress,
+     only (QA's solo game: the one player it was started for), guesses:{ [roundId]:{ [player]:{ lat, lng, when, at } } } }. Progress,
      cleared by a reset.
 
    A time is the photo's local wall clock ("2019-07-04T21"), never a moment
@@ -92,10 +92,13 @@ export const geoShownIds = geo => geo?.order ? geo.order.slice(0, Math.min(geo.o
 
 export const geoLastRound = geo => !!geo?.order && geo.index >= geo.order.length - 1;
 
-/* who plays: everyone present and active, never the author */
+/* who plays: everyone present and active, never the author; a QA solo
+   game (`only`) just the players it was started for */
 export function geoPlayers(state, roster, { isActivePlayer = () => true, isAway = () => false } = {}) {
   const author = state?.geo?.author || null;
-  return roster.filter(player => isActivePlayer(player) && !isAway(state, player) && player !== author);
+  const only = Array.isArray(state?.geo?.only) ? state.geo.only : null;
+  return roster.filter(player => isActivePlayer(player) && !isAway(state, player) && player !== author
+    && (!only || only.includes(player)));
 }
 
 /* Totals over the revealed rounds, best first. A tie breaks on more points

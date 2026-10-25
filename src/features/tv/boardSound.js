@@ -124,12 +124,17 @@ export function boardClockCues(view, now, { reduced = false } = {}) {
 
 const reducedNow = () => typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
 
+/* what stands on the TV: a new value cancels the clock cues laid for the
+   last (the Final's loop is a cut recipe, so a change mid-Final fades it;
+   a pick or a lock in the Final never changes it) */
+export const boardStand = view => view && !view.finished
+  ? `${view.game.id}:${view.phase}:${view.clueId || ""}:${view.turn}:${view.race}:${view.finalAt.clueAt}:${view.finalAt.revealAt}` : null;
+
 /* TVBoard's clock cues: laid when a phase (or a turn) starts standing on
    this TV, cancelled when it moves on. The handle, not a key, keeps each
    one single (a key outlives a cancel). */
 export function useBoardRoomClock(view, now) {
-  const stand = view && !view.finished
-    ? `${view.game.id}:${view.phase}:${view.clueId || ""}:${view.turn}:${view.race}:${view.finalAt.clueAt}:${view.finalAt.revealAt}` : null;
+  const stand = boardStand(view);
   useEffect(() => {
     if (!stand) return undefined;
     const handles = boardClockCues(view, serverNow(), { reduced:reducedNow() })

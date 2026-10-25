@@ -404,6 +404,33 @@ test("the beds and the Final's loop are cut recipes: a stopped bar goes silent, 
   }
 });
 
+test("the board's Final loop fades only when the Final moves on: picks and locks keep its stand, the reveal ends it", async () => {
+  const { boardStage } = await import("../dev/fit/boardFixtures.js");
+  const { boardView } = await import("../src/features/trivia/boardModel.js");
+  const { boardClockCues, boardStand } = await import("../src/features/tv/boardSound.js");
+  const { publicState } = await import("../worker/publicState.js");
+  const NOW = 1_900_000_000_000;
+  const state = boardStage("final-clue", { now:NOW });
+  const look = () => boardView(publicState(state, {}), null, NOW);
+  const first = boardStand(look());
+  assert.ok(first && boardClockCues(look(), NOW).some(cue => cue.id === "think"), "the loop stands");
+  const real = Date.now;
+  Date.now = () => Number(state.trivia.finalAt.clueAt) + 1500;
+  try {
+    const players = state.trivia.players.filter(player => !state.trivia.finalPicks?.[player]?.locked).slice(0, 3);
+    assert.ok(players.length >= 2);
+    players.forEach((player, i) => {
+      act(state, "boardFinalPick", { choice:i % 4 }, as(player));
+      assert.equal(boardStand(look()), first, "a pick keeps the loop");
+      act(state, "boardFinalPick", { lock:true }, as(player));
+      assert.equal(boardStand(look()), first, "a lock keeps the loop");
+    });
+  } finally { Date.now = real; }
+  assert.notEqual(boardStand(boardView(publicState(boardStage("final-reveal", { now:NOW }), {}), null, NOW)), first,
+    "the reveal moves it on, and the ringing bar fades");
+  assert.match(read("src/features/tv/boardSound.js"), /const stand = boardStand\(view\);/);
+});
+
 test("the engine: cancel closes a ringing trivia bar; the bed never plays on a phone's bus", async () => {
   const sound = await import("../src/lib/sound.js");
   const made = [];

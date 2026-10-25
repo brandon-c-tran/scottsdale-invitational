@@ -422,8 +422,9 @@ function TournamentApp({ tournament, onUpdateReload }) {
   /* the pill reads the director; the TV keeps reading weekendOperation so
      director copy never leaks to the room */
   const director = useMemo(
-    () => resolveDirector(state, events, { showControl:showControlAllowed, karaoke:capabilities.karaoke === true }),
-    [state, events, showControlAllowed, capabilities.karaoke],
+    () => resolveDirector(state, events, { showControl:showControlAllowed, karaoke:capabilities.karaoke === true,
+      float:capabilities.float === true }),
+    [state, events, showControlAllowed, capabilities.karaoke, capabilities.float],
   );
   const standings = useMemo(() => computeStandings(state), [state]);
   const allTied = standings.length > 0 && standings[0].pts === standings[standings.length-1].pts && !state.frozen;

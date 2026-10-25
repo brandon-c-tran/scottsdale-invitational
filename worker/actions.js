@@ -39,6 +39,7 @@ import { PROMPT_ACTIONS, PROMPT_ACTION_TYPES } from "./prompts.js";
 import { geoActions } from "./geo.js";
 import { triviaActions } from "./trivia.js";
 import { karaokeActions } from "./karaoke.js";
+import { floatActions } from "./float.js";
 import { teamNameActions } from "./teamNames.js";
 import { defaultTeamNames } from "../shared/teamNames.js";
 import { GAG_SHAPES, gagShapeOf, gagTestCast, isTeamGag } from "../shared/gags.js";
@@ -249,6 +250,8 @@ const POKER_TABLE_ALLOWED_ACTIONS = new Set([
   /* a guest's karaoke song is a profile answer, like saveProfile; its
      lyrics' nudge is that song's configuration */
   "karaokeSong", "karaokeNudge",
+  /* a rider's Float look is a profile answer too */
+  "floatLook",
 ]);
 /* QA writes are rehearsal tools on a server that may hold real guests.
    Anything outside local and staging counts as production. Production always
@@ -349,6 +352,9 @@ const resetContestSetup = (state, evId) => {
   delete op.bettingOpenedAt;
   delete op.bettingLockedAt;
   delete op.announcedAt;
+  /* the event's Float Cup goes with its contest (a take-back, the locker
+     room, a restore); the room's result for it then reads as stale */
+  if (state.float?.evId === evId) state.float = null;
 };
 /* The announcement's server time: every screen times the intro and the
    draw reveal from it (src/features/weekend/drawReveal.js revealTimeline),
@@ -543,6 +549,8 @@ export const ACTIONS = {
   ...triviaActions({ ok, err, gmOnly, run:(type, state, payload, ctx) => ACTIONS[type](state, payload, ctx) }),
   /* Karaoke (worker/karaoke.js): a finish posts through saveResult */
   ...karaokeActions({ ok, err, gmOnly, run:(type, state, payload, ctx) => ACTIONS[type](state, payload, ctx) }),
+  /* Float (worker/float.js): the room's result posts through saveResult */
+  ...floatActions({ ok, err, gmOnly, run:(type, state, payload, ctx) => ACTIONS[type](state, payload, ctx) }),
   /* a team's name: its members until it locks, the commissioner always */
   ...teamNameActions({ ok, err }),
   /* ── identity / profile ── */
@@ -1377,6 +1385,8 @@ export const ACTIONS = {
       hadStacks:!!existing.stacks,
     };
     delete state.results[evId];
+    /* a cleared Float result is entered by hand: its Cup is over */
+    if (state.float?.evId === evId) state.float = null;
     const op = eventOp(state, evId);
     op.resultEntryAt = now;
     delete op.completedAt;
@@ -1564,6 +1574,10 @@ export const ACTIONS = {
        everything before it writes, so a refusal leaves the event as it is */
     if (ev.game === "karaoke" && ctx.karaoke && state.karaoke?.eventId !== evId)
       try { ACTIONS.karaokeStart(state, { evId }, ctx); } catch {}
+    /* Float's Cup, when the room is there (the float capability); the
+       Tournament posts it to the room after this write persists */
+    if (ev.game === "float" && ctx.float && state.float?.evId !== evId)
+      try { ACTIONS.floatStart(state, { evId }, ctx); } catch {}
     return ok();
   },
   recordContestWinner(state, payload, ctx) {
@@ -1913,6 +1927,8 @@ export const ACTIONS = {
         return err(`Returns ${returns.bets} bet${returns.bets === 1 ? "" : "s"}, ${returns.chips.toLocaleString("en-US")} chips`, returns);
       state.shelved[id] = true;
       if (state.onDeck === id) state.onDeck = null;
+      /* a skipped Float leaves the TV and the phones; its Cup is over */
+      if (state.float?.evId === id) state.float = null;
       return ok(returns);
     }
     delete state.shelved[id];

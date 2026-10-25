@@ -57,10 +57,11 @@ function cleanNeeds(value) {
 }
 
 /* Home's list, in the order a guest should do them. `songs` is whether the
-   Win song picker is on, `karaoke` whether the karaoke song picker is.
+   Win song picker is on, `karaoke` whether the karaoke song picker is,
+   `float` whether Float's room is (its Locker picks the floatie).
    Flights appear only once booked: the yes/no itself is Home's own
    question. */
-function setupTodo(state, player, { songs = false, karaoke = false } = {}) {
+function setupTodo(state, player, { songs = false, karaoke = false, float = false } = {}) {
   const profile = state?.profiles?.[player];
   if (!player || !profile) return [];
   const todo = [];
@@ -74,6 +75,7 @@ function setupTodo(state, player, { songs = false, karaoke = false } = {}) {
     todo.push({ id:"details", section:"travel", label:"Venmo and drinks" });
   if (songs && !profile.walkoutTrack) todo.push({ id:"song", section:"walkout", label:"Pick a win song" });
   if (karaoke && !profile.karaokeTrack) todo.push({ id:"karaoke", section:"karaoke", label:"Pick a karaoke song" });
+  if (float && !profile.float) todo.push({ id:"floatie", section:"locker", label:"Pick your floatie" });
   return todo;
 }
 

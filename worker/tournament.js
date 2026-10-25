@@ -71,6 +71,8 @@ import { geoPhotoId, geoShownIds } from "../shared/geo.js";
 import { triviaPhotoId } from "../shared/trivia.js";
 import { bankForDesk } from "./trivia.js";
 import { boardShown } from "./triviaBoard.js";
+import { FLOAT_INTERNAL } from "./float.js";
+import { cleanFloatFeedback, floatCup, floatCupBody, floatLive } from "../shared/float.js";
 
 /* Where and When photos ride the photo desk's prefix, so every snapshot,
    restore and reset leaves them alone exactly as it does the desk's */
@@ -185,6 +187,20 @@ const KARAOKE_LOOKUP_V = 2;
 const KARAOKE_LYRICS_RETRY_MS = 60 * 1000;
 const KARAOKE_LINK_LIMIT = 20;
 const KARAOKE_CHECK_LIMIT = 6;
+/* Float (float/PROTOCOL.md "Field Day"): a Cup the room took
+   (private:float:cup:<cupId>, so a woken object never posts it twice), the
+   race's stats the room reports with its result, and the riders' feedback.
+   All private: never in a snapshot, a backup or a frame. */
+const FLOAT_CUP_PREFIX = "private:float:cup:";
+const FLOAT_STATS_PREFIX = "private:float:stats:";
+const FLOAT_FEEDBACK_KEY = "private:float:feedback";
+const FLOAT_FEEDBACK_LIMIT = 500;
+/* the room's result body: thirteen riders' rounds and stats fit well under this */
+const FLOAT_BODY_MAX = 512 * 1024;
+const FLOAT_FEEDBACK_BODY_MAX = 16 * 1024;
+/* a Cup the room did not take is posted again after each of these, then the pill says so */
+const FLOAT_RETRY_MS = Object.freeze([2000, 5000, 15000, 30000]);
+const FLOAT_CUP_URL = "https://float.internal/internal/cup";
 /* eight characters, 40 bits; 256 is a multiple of the 32-letter alphabet, so no bias */
 function newArriveCode() {
   const bytes = crypto.getRandomValues(new Uint8Array(8));
@@ -277,6 +293,10 @@ export class Tournament {
          (a browser key restricted by referrer, docs/GOOGLE-MAPS.md), else
          the MapLibre map */
       googleMaps:configured && !!mapsKeyOf(this.env),
+      /* Float (float/PROTOCOL.md): the river's rooms, the FLOAT Durable
+         Object binding. Listed only when bound, so a Worker without Float
+         reports exactly the capabilities it always has. */
+      ...(configured && this.env.FLOAT ? { float:true } : {}),
     };
   }
 
@@ -293,6 +313,10 @@ export class Tournament {
     const arriveCode = await this.ctx.storage.get(ARRIVE_CODE_KEY);
     this.arriveCode = isArriveCode(arriveCode) ? arriveCode : null;
     await this.momentDesk.load();
+    /* a Float Cup the room may never have taken (this object was evicted
+       between the write and its post) is posted now; one it took is kept
+       in storage and left alone */
+    this.queueFloatCup();
   }
 
   /* every frame's state: the tournament projection plus the photo desk's
@@ -355,6 +379,12 @@ export class Tournament {
       this.ctx.acceptWebSocket(pair[1]);
       return new Response(null, { status: 101, webSocket: pair[0] });
     }
+
+    /* Float's room, server to server (float/PROTOCOL.md "Field Day"): the
+       public router forwards only /ws, /api/* and /float/ws (worker/index.js),
+       so nothing but the room's own Durable Object reaches these */
+    if (url.pathname === "/internal/float/result") return this.handleFloatResult(req);
+    if (url.pathname === "/internal/float/feedback") return this.handleFloatFeedback(req);
 
     /* D6 ballots: the GM token authors, a device claim answers (ahead of
        /api/admin/, whose production auth is the snapshot token) */
@@ -653,7 +683,7 @@ export class Tournament {
     const result = applyAction(nextState, type, payload, {
       isGm, player, deviceId, actionId:null, environment:this.environment,
       progressReset:this.capabilities.progressReset, showControl:this.capabilities.showControl, qa:this.capabilities.qa,
-      karaoke:this.capabilities.karaoke,
+      karaoke:this.capabilities.karaoke, float:this.capabilities.float === true,
     });
     if (!result.ok || result.extra?.unchanged) return result;
     this.carryWalkout(nextState);
@@ -664,6 +694,33 @@ export class Tournament {
       return { ok:false, error:"The server didn't save it. Tap again." };
     }
     await this.scheduleAlarm();
+    this.queueFloatCup();
+    return result;
+  }
+
+  /* A write the server makes for itself (the autopilot's, the room's
+     result), on the ordinary reducer with a commissioner context, then
+     everything a tapped write sets off after it persists: the alarm,
+     pocket alerts, the win song, karaoke's checks and a Float Cup's post.
+     Resolves the reducer's result; a failed save is { ok:false, saved:false }. */
+  async applyAutoWrite(type, payload, ctx) {
+    const before = this.state;
+    const nextState = structuredClone(this.state);
+    const result = applyAction(nextState, type, payload, { environment:this.environment, showControl:this.capabilities.showControl,
+      karaoke:this.capabilities.karaoke, float:this.capabilities.float === true, isGm:true, auto:true, player:null, ...ctx });
+    if (!result.ok || result.extra?.unchanged) return result;
+    this.carryWalkout(nextState);
+    try { await this.persistAndBroadcast(type, nextState); }
+    catch (error) {
+      console.error(JSON.stringify({ event:"auto-write-failed", action:type, error:String(error?.message || error).slice(0, 300) }));
+      return { ok:false, saved:false, error:"The server didn't save it" };
+    }
+    await this.scheduleAlarm();
+    this.queueAlerts(before, this.state, null);
+    this.queueWinSong(before, this.state, type);
+    this.queueKaraokeCheck(before, this.state);
+    this.queueKaraokeLyrics();
+    this.queueFloatCup();
     return result;
   }
 
@@ -940,6 +997,8 @@ export class Tournament {
     /* a win song starts fading out before its end */
     if (walkout) times.push(walkout.auto ? Math.max(walkout.startedAt + WIN_FADE_IN_MS, walkout.until - WIN_FADE_OUT_MS)
       : walkout.until + 250);
+    /* a Float Cup the room has not taken yet tries again */
+    if (this.floatRetryAt) times.push(this.floatRetryAt);
     if (!times.length) return;
     try { await this.ctx.storage.setAlarm?.(Math.min(...times)); } catch {}
   }
@@ -1000,9 +1059,12 @@ export class Tournament {
       if (!write) return;
       const before = this.state;
       const nextState = structuredClone(this.state);
-      const shared = { environment:this.environment, showControl:this.capabilities.showControl, karaoke:this.capabilities.karaoke };
+      const shared = { environment:this.environment, showControl:this.capabilities.showControl, karaoke:this.capabilities.karaoke,
+        float:this.capabilities.float === true };
+      /* a simulated room never opens a river: Run the night plays Float as
+         a free-for-all entered by hand */
       const result = applyAction(nextState, write.type, write.payload, sim
-        ? { ...shared, ...simContext(write), qa:this.capabilities.qa }
+        ? { ...shared, float:false, ...simContext(write), qa:this.capabilities.qa }
         : { ...shared, isGm:true, auto:true, player:null, deviceId:"autopilot", actionId:write.key });
       if (!result.ok || result.extra?.unchanged) {
         if (sim) this.simSpent.add(write.key);
@@ -1027,6 +1089,7 @@ export class Tournament {
       this.queueWinSong(before, this.state, write.type);
       this.queueKaraokeCheck(before, this.state);
       this.queueKaraokeLyrics();
+      this.queueFloatCup();
     }
   }
 
@@ -1056,6 +1119,14 @@ export class Tournament {
       if (walkout.auto) await this.songQueue(() => this.stopWinSong(walkout, WIN_FADE_OUT_MS));
       /* a newer song may have replaced this one while it faded */
       if (walkoutOf(this.state)?.startedAt === walkout.startedAt) await this.setWalkout(null, "walkoutEnded");
+    }
+    /* a Float Cup's post that is due again (never takes the alarm with it) */
+    if (this.floatRetryAt && Date.now() >= this.floatRetryAt - 25) {
+      this.floatRetryAt = 0;
+      try { await this.queueFloatCup(); }
+      catch (error) {
+        console.error(JSON.stringify({ event:"float-cup-retry-failed", error:String(error?.message || error).slice(0, 200) }));
+      }
     }
     await this.scheduleAlarm();
   }
@@ -2050,6 +2121,7 @@ export class Tournament {
       const result = applyAction(nextState, type, payload, {
         isGm:true, auto:true, player:null, deviceId:"tv", actionId:`tv:${id}`,
         environment:this.environment, showControl:this.capabilities.showControl, karaoke:this.capabilities.karaoke,
+        float:this.capabilities.float === true,
       });
       if (!result.ok || result.extra?.unchanged) return;
       await this.persistAndBroadcast(type, nextState);
@@ -2284,6 +2356,11 @@ export class Tournament {
       if (viewChanged) this.sendState(ws);
       return reply(await this.qaCheckpointCommand(type, payload, isGm));
     }
+    /* the riders' Float feedback, for the commissioner's desk */
+    if (type === "floatFeedback") {
+      if (viewChanged) this.sendState(ws);
+      return reply(await this.floatFeedbackCommand(isGm));
+    }
     const qaCheckpoint = type === "qaRestore" && isGm && this.capabilities.qa
       ? await this.qaCheckpointBody(payload?.id) : null;
     /* a karaoke song's lyrics are the server's word: LRCLIB's kept answer
@@ -2302,6 +2379,8 @@ export class Tournament {
       qa:this.capabilities.qa,
       /* Lock and start opens karaoke's pick window only with the capability */
       karaoke:this.capabilities.karaoke,
+      /* and Float's Cup only with the room's binding */
+      float:this.capabilities.float === true,
       /* a guest's check-in must carry the TV's current code */
       ...(type === "setArrived" ? { arriveCode:this.arriveCode } : {}),
       ...(qaCheckpoint ? { qaCheckpoint } : {}),
@@ -2362,6 +2441,9 @@ export class Tournament {
     } else if (type === "qaAdvance" && QA_SONG_TARGETS.has(payload?.target) && !result.extra?.rewound) {
       this.queueWinSong(before, this.state, type);
     }
+    /* a Float Cup this write opened goes to its room (QA's solo Float
+       included, which is a quiet write) */
+    this.queueFloatCup();
   }
 
   /* ── pocket alerts (worker/push.js) ──
@@ -2525,6 +2607,7 @@ export class Tournament {
     const result = applyAction(nextState, "karaokeLyrics", { gameId, songs }, {
       isGm:true, auto:true, player:null, deviceId:"autopilot", actionId:`karaoke:${gameId}:lyrics:${Date.now()}`,
       environment:this.environment, showControl:this.capabilities.showControl, karaoke:this.capabilities.karaoke,
+      float:this.capabilities.float === true,
     });
     if (!result.ok || result.extra?.unchanged) return result;
     this.carryWalkout(nextState);
@@ -2573,6 +2656,7 @@ export class Tournament {
     const result = applyAction(nextState, "karaokePreflight", { gameId, ...karaokePreflight(list, results) }, {
       isGm:true, auto:true, player:null, deviceId:"autopilot", actionId:`karaoke:${gameId}:${opened}:preflight`,
       environment:this.environment, showControl:this.capabilities.showControl, karaoke:this.capabilities.karaoke,
+      float:this.capabilities.float === true,
     });
     if (!result.ok || result.extra?.unchanged) return result;
     this.carryWalkout(nextState);
@@ -2583,6 +2667,124 @@ export class Tournament {
     }
     await this.scheduleAlarm();
     return result;
+  }
+
+  /* ── Float (shared/float.js, worker/float.js, float/PROTOCOL.md) ──
+     Lock and start writes the Cup (state.float); after any write persists,
+     a Cup the room has not taken is posted to the room's own Durable Object
+     (fd-<evId>), server to server, never holding up or failing the write.
+     A failure is tried again on the alarm (FLOAT_RETRY_MS); after the last,
+     or at once when the room refuses the Cup, floatCupFailed tells the
+     commissioner, whose pill then offers Start Float again. */
+  queueFloatCup() {
+    if (!this.capabilities.float) return null;
+    const cup = floatCup(this.state);
+    if (!cup || cup.error || !floatLive(this.state)) return null;
+    if ((this.floatSent ||= new Set()).has(cup.cupId)) return null;
+    if (this.floatPosting?.cupId === cup.cupId) return this.floatPosting.work;
+    const work = this.postFloatCup(cup.cupId).catch(error => {
+      console.error(JSON.stringify({ event:"float-cup-failed", error:String(error?.message || error).slice(0, 300) }));
+      return null;
+    }).finally(() => { if (this.floatPosting?.work === work) this.floatPosting = null; });
+    this.floatPosting = { cupId:cup.cupId, work };
+    try { this.ctx.waitUntil?.(work); } catch {}
+    return work;
+  }
+
+  async postFloatCup(cupId) {
+    const key = `${FLOAT_CUP_PREFIX}${cupId}`;
+    if ((await this.ctx.storage.get(key))?.sentAt) { this.floatSent.add(cupId); return { ok:true, kept:true }; }
+    /* the board may have moved on while storage answered */
+    const cup = floatCup(this.state);
+    if (!cup || cup.cupId !== cupId || cup.error || !floatLive(this.state)) return null;
+    let answer;
+    try {
+      const room = this.env.FLOAT.get(this.env.FLOAT.idFromName(cup.room));
+      const res = await room.fetch(FLOAT_CUP_URL, { method:"POST", headers:{ "Content-Type":"application/json" },
+        body:JSON.stringify(floatCupBody(this.state)) });
+      let reply = null;
+      try { reply = await res.json(); } catch {}
+      answer = { ok:res.ok && reply?.ok !== false, status:res.status, error:reply?.error || null };
+    } catch (error) {
+      answer = { ok:false, status:0, error:String(error?.message || error) };
+    }
+    if (answer.ok) {
+      await this.ctx.storage.put(key, { sentAt:Date.now(), evId:cup.evId, room:cup.room });
+      this.floatSent.add(cupId);
+      this.floatTries?.delete(cupId);
+      return answer;
+    }
+    console.error(JSON.stringify({ event:"float-cup-post-failed", cupId, status:answer.status,
+      error:String(answer.error || "").slice(0, 200) }));
+    const tries = ((this.floatTries ||= new Map()).get(cupId) || 0) + 1;
+    this.floatTries.set(cupId, tries);
+    /* a room that refused this Cup will refuse it again; silence is tried again */
+    const refused = answer.status >= 400 && answer.status < 500;
+    if (!refused && tries <= FLOAT_RETRY_MS.length) {
+      this.floatRetryAt = Date.now() + FLOAT_RETRY_MS[tries - 1];
+      await this.scheduleAlarm();
+      return answer;
+    }
+    await this.applyAutoWrite("floatCupFailed", { cupId, error:refused && answer.error ? answer.error : "The room did not answer" },
+      { internal:FLOAT_INTERNAL, deviceId:"float", actionId:`float:${cupId}:failed` });
+    return answer;
+  }
+
+  /* a JSON object from the room, or null */
+  async readFloatBody(req, max) {
+    if (req.method !== "POST" || Number(req.headers.get("Content-Length") || 0) > max) return null;
+    let text;
+    try { text = await req.text(); } catch { return null; }
+    if (text.length > max) return null;
+    try {
+      const parsed = JSON.parse(text);
+      return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : null;
+    } catch { return null; }
+  }
+
+  /* POST /internal/float/result { evId, cupId, order, rounds, stats }: the
+     race's stats kept (private), then the result through floatFinish as the
+     server's own write, so the winner scene, pocket alerts and the win song
+     follow it. Idempotent by cupId; a cup that is not the board's is 409. */
+  async handleFloatResult(req) {
+    const json = (body, status = 200) => Response.json(body, { status, headers:{ "Cache-Control":"no-store" } });
+    const body = await this.readFloatBody(req, FLOAT_BODY_MAX);
+    const { evId, cupId, order, rounds = null, stats = null } = body || {};
+    if (!body || typeof evId !== "string" || typeof cupId !== "string" || !/^[\w-]{1,64}$/.test(cupId) || !Array.isArray(order))
+      return json({ ok:false, error:"That result didn't come through whole" }, 400);
+    try { await this.ctx.storage.put(`${FLOAT_STATS_PREFIX}${cupId}`, { cupId, evId, order, rounds, stats, at:Date.now() }); }
+    catch (error) {
+      console.error(JSON.stringify({ event:"float-stats-write-failed", error:String(error?.message || error).slice(0, 200) }));
+    }
+    const result = await this.applyAutoWrite("floatFinish", { evId, cupId, order },
+      { internal:FLOAT_INTERNAL, deviceId:"float", actionId:`float:${cupId}:result` });
+    if (result.saved === false) return json({ ok:false, error:result.error }, 503);
+    if (!result.ok) {
+      console.error(JSON.stringify({ event:"float-result-refused", cupId, error:String(result.error || "").slice(0, 200) }));
+      return json({ ok:false, error:result.error }, result.error === "That cup is over" ? 409 : 422);
+    }
+    return json({ ok:true, posted:result.extra?.posted !== false, ...(result.extra?.unchanged ? { unchanged:true } : {}) });
+  }
+
+  /* POST /internal/float/feedback { cupId, pid, answers }: one card a rider
+     a cup (a retry replaces it), newest first, kept for the commissioner */
+  async handleFloatFeedback(req) {
+    const json = (body, status = 200) => Response.json(body, { status, headers:{ "Cache-Control":"no-store" } });
+    const entry = cleanFloatFeedback(await this.readFloatBody(req, FLOAT_FEEDBACK_BODY_MAX), Date.now());
+    if (!entry) return json({ ok:false, error:"That feedback didn't come through whole" }, 400);
+    const kept = await this.ctx.storage.get(FLOAT_FEEDBACK_KEY);
+    const list = Array.isArray(kept) ? kept : [];
+    const next = [entry, ...list.filter(item => !(item?.cupId === entry.cupId && item?.pid === entry.pid))]
+      .slice(0, FLOAT_FEEDBACK_LIMIT);
+    await this.ctx.storage.put(FLOAT_FEEDBACK_KEY, next);
+    return json({ ok:true });
+  }
+
+  /* the commissioner's read of it (a socket command; nothing broadcasts) */
+  async floatFeedbackCommand(isGm) {
+    if (!isGm) return { ok:false, error:"Commissioner only" };
+    const kept = await this.ctx.storage.get(FLOAT_FEEDBACK_KEY);
+    return { ok:true, extra:{ feedback:Array.isArray(kept) ? kept : [] } };
   }
 
   /* ── QA checkpoints (commissioner, QA capability) ──

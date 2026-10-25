@@ -8,12 +8,14 @@
      the same write) and the body the Tournament posts to the room;
    - each rider: their profile's look (profiles[p].float), chip and photo;
    - the director pill's beat while Float runs;
-   - the slate's default (Float plays, Beerio Kart stands by).
+   - the slate's default (Float plays, Beerio Kart stands by);
+   - a rider's feedback card, as the Tournament keeps it.
 
    Pure: no DOM, no Workers APIs. */
 import {
-  CHIP_COLORS, CHIP_GRAY, CHIP_SKINS, ROSTER, allEventsOf, disp, presentPlayers, resolveEventLifecycle, rosterOf,
+  ALL_PLAYERS, CHIP_COLORS, CHIP_GRAY, CHIP_SKINS, ROSTER, allEventsOf, disp, presentPlayers, resolveEventLifecycle, rosterOf,
 } from "./core.js";
+import { cleanFreeText } from "./freeText.js";
 import { cleanLook, defaultLook } from "../float/shared/looks.js";
 import { FLOATIE_IDS } from "../float/shared/floaties.js";
 
@@ -123,13 +125,16 @@ export function floatBeat(state, ev, { float = false } = {}) {
   if (!isFloatEvent(ev) || state?.results?.[ev.id] || state?.shelved?.[ev.id]) return null;
   const cup = floatCup(state)?.evId === ev.id ? state.float : null;
   if (cup && !cup.finishedAt) {
-    if (cup.error) return { type:"float-start", label:"Start Float again", subject:"Float didn't start", restart:true };
-    return { type:"float-live", label:"Enter result", subject:ev.name, note:"Float posts the result" };
+    if (cup.error) return { type:"float-start", label:"Start Float again", subject:ev.name, restart:true,
+      note:`Didn't start: ${cup.error.text}` };
+    return { type:"float-live", label:"Enter result", subject:ev.name, note:"Float posts its own result" };
   }
   if (!cup && float && resolveEventLifecycle(state, ev).phase === "in-progress")
     return { type:"float-start", label:"Start Float", subject:ev.name };
   return null;
 }
+/* the tray's Restart Float asks first: the race so far is gone */
+export const FLOAT_RESTART_CONFIRM = "Float starts over. The race so far is lost.";
 
 /* ── the slate ──
    Float stands in Beerio Kart's slot. Beerio stays a built-in, so it is
@@ -156,4 +161,23 @@ export function floatSlate(state) {
     state.shelved = { ...(state.shelved || {}), [FLOAT_STANDBY]:true };
   state.floatSlate = 1;
   return state;
+}
+
+/* ── feedback (PROTOCOL "Feedback") ──
+   A rider's end card, as POST /internal/float/feedback carries it:
+   { cupId, pid, answers:{ fun, again, better } }: how fun (1 to 5), would
+   they play it with other friends (true or false), what would make it
+   better (optional, 200 at most). Kept as { cupId, pid, fun, again,
+   better, at }; a card with no answer at all, or no cupId, is not kept. */
+export const FLOAT_FEEDBACK_TEXT_MAX = 200;
+export function cleanFloatFeedback(body, now = Date.now()) {
+  if (!body || typeof body !== "object" || Array.isArray(body)) return null;
+  const cupId = typeof body.cupId === "string" && /^[\w-]{1,64}$/.test(body.cupId) ? body.cupId : null;
+  if (!cupId) return null;
+  const answers = body.answers && typeof body.answers === "object" && !Array.isArray(body.answers) ? body.answers : {};
+  const fun = Number.isInteger(answers.fun) && answers.fun >= 1 && answers.fun <= 5 ? answers.fun : null;
+  const again = typeof answers.again === "boolean" ? answers.again : null;
+  const better = cleanFreeText(typeof answers.better === "string" ? answers.better : "", FLOAT_FEEDBACK_TEXT_MAX) || null;
+  if (fun === null && again === null && !better) return null;
+  return { cupId, pid:ALL_PLAYERS.includes(body.pid) ? body.pid : null, fun, again, better, at:now };
 }

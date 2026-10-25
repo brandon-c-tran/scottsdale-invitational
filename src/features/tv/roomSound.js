@@ -48,6 +48,12 @@
          is over (never during it), the chime as a Legendary vote rains, the
          reveal's stamps from last place up; its clock cues (the vote's
          last five seconds and its close) ride TVKaraoke
+     Where and When (geoSound.js): the slide projector as a photo goes
+         up, a pin pushed home as each player locks in (panned to their
+         seat); its clock (the guessing bed a bar at a time, the last ten
+         seconds' ticks, the knock at zero) rides useGeoRoomClock here, its
+         reveal (the pins, the lines, the answer, the scores) the map's
+         own beats in TVGeo
      stamp  a team takes a new name (features/teams): its card re-letters,
          one stamp at the name's own write time
      engrave  the cup's trophy turn after a result: the new winners are cut
@@ -81,6 +87,7 @@ import { awardCues } from "../awards/awardsModel.js";
 import { introScene } from "../intro/introTiming.js";
 import { boardCues, boardSnapshot } from "./boardSound.js";
 import { karaokeCues, karaokeRoomSnapshot } from "./karaokeSound.js";
+import { geoCues, geoRoomSnapshot, useGeoRoomClock } from "./geoSound.js";
 import { gagCast, gagHoldMs } from "../gags/gagModel.js";
 import { bitCues } from "./bitSound.js";
 
@@ -176,6 +183,7 @@ export function roomSnapshot(state, events = [], { standings = null, allTied = f
     trivia:triviaSnapshot(state),
     board:boardSnapshot(state),
     karaoke:karaokeRoomSnapshot(state),
+    geo:geoRoomSnapshot(state),
   };
 }
 
@@ -325,6 +333,7 @@ export function roomCues(prev, next, { now = serverNow(), reduced = false } = {}
   triviaCues(prev, next, { now, reduced }).forEach(cue => cues.push(cue));
   boardCues(prev, next, { now, reduced }).forEach(cue => cues.push(cue));
   karaokeCues(prev, next, { now, reduced }).forEach(cue => cues.push(cue));
+  geoCues(prev, next, { now, reduced }).forEach(cue => cues.push(cue));
 
   /* a pick lands in its seat */
   for (const [id, picks] of Object.entries(next.drafts))
@@ -607,6 +616,9 @@ export function useRoomSound({ state, events, standings, allTied, liveEv, showSc
     crowned.current = crown.id;
     playCues(crownCues(crown, { reduced:reducedNow(), count:standings?.length || 13 }));
   }, [crown?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /* Where and When's minute: the bed, the last ten seconds, the knock */
+  useGeoRoomClock(snap?.geo || null);
 
   /* S21: the level rolls up by the clock, or by a fresh level write */
   const pk = state?.poker && state.poker.startedAt && !state.results?.[state.poker.id] ? state.poker : null;

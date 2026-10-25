@@ -9,6 +9,7 @@ import { GeoMap, preloadGeoMap } from "./GeoMap.jsx";
 import { WhenPicker, formatWhen, parseWhen } from "./WhenPicker.jsx";
 import { PlaceSearch } from "./PlaceSearch.jsx";
 import { geoPhotoSrc, geoView, milesLabel, offLabel, whenLabel } from "./geoModel.js";
+import { geoLockSound, geoPinSound, useGeoScoreSound } from "./geoPhoneSound.js";
 import "./geo.css";
 import { Icon } from "../../ui/Icon.jsx";
 import { NowRow } from "../../ui/NowRow.jsx";
@@ -143,6 +144,7 @@ function GuessGame({ view, onGuess, now }) {
     setLocking(true);
     try {
       const result = await save(true);
+      geoLockSound(result);
       if (result?.ok) setStamped(n => n + 1);
       else lockedRef.current = !!mine?.done;
     } finally { lockingRef.current = false; setLocking(false); }
@@ -165,13 +167,14 @@ function GuessGame({ view, onGuess, now }) {
         onClick={() => setFill(value => !value)} aria-label={fill ? "Fit the photo" : "Fill the screen with the photo"}>
         <img src={geoPhotoSrc(view.round)} alt={`Photo ${view.n}`} /></button>}
       {step === "map" && <div className="fd-geo-game-map">
-        <GeoMap mode="pick" pin={pin} onPick={point => { setPin(point); }} onTap={tapTick} className="fd-geo-full"
+        <GeoMap mode="pick" pin={pin} onPick={point => { setPin(point); geoPinSound(); }} onTap={tapTick} className="fd-geo-full"
           focus={focus} label="Drop your pin where this was taken" />
         <button type="button" className="fd-geo-peek" onClick={() => go("photo")} aria-label="Back to the photo">
           <img src={geoPhotoSrc(view.round)} alt="" /></button>
         <PlaceSearch className="is-floating" onPick={place => {
           setFocus({ lat:place.lat, lng:place.lng, zoom:place.zoom, key:`${place.key}:${Date.now()}` });
           setPin({ lat:place.lat, lng:place.lng });
+          geoPinSound();
         }} />
       </div>}
       {step === "when" && <div className="fd-geo-game-when">
@@ -207,6 +210,8 @@ function YourReveal({ me, view }) {
   const row = view.standings.find(item => item.player === me);
   const answer = view.round;
   const miles = useCountTo(score?.miles || 0, { delay:1500, ms:1100 });
+  /* your score's chime as its reels land (only a reveal that arrived fresh) */
+  useGeoScoreSound(view.roundId, score, { reduced:useReducedMotion() });
   return <>
     <main className="fd-geo-game-body is-reveal">
       <GeoMap mode="reveal" animate answer={answer} className="fd-geo-full" label="The answer and your pin"

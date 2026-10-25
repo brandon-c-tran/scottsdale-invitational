@@ -8,8 +8,9 @@
    No app connection, storage, or remote service. */
 import React, { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { BIT_PARTS, BOARD_PARTS, KARAOKE_PARTS, KIT, PARTS, SOUNDS, ROOMS, makeEngine, playRecipe, setListen, setRoom, limitChips } from "../src/lib/soundKit.js";
+import { BIT_PARTS, BOARD_PARTS, GEO_PARTS, KARAOKE_PARTS, KIT, PARTS, SOUNDS, ROOMS, makeEngine, playRecipe, setListen, setRoom, limitChips } from "../src/lib/soundKit.js";
 import { advanceCues, crownCues, revealPans } from "../src/features/tv/roomSound.js";
+import { geoClockCues, geoRevealCues } from "../src/features/tv/geoSound.js";
 import { DRAW_INTRO_MS, drawStepDelay } from "../src/features/weekend/drawReveal.js";
 import { ADVANCE_TIMING, CROWN_TIMING } from "../src/features/tv/tvMotion.js";
 import { MOTION } from "../src/lib/motion.js";
@@ -34,6 +35,7 @@ const GROUPS = [
   ["Trivia board", BOARD_PARTS.map(part => part.id)],
   ["Bits", BIT_PARTS.map(part => part.id)],
   ["Karaoke", KARAOKE_PARTS.map(part => part.id)],
+  ["Where and When", GEO_PARTS.map(part => part.id)],
 ];
 
 /* the five sequences, built from the production schedules */
@@ -88,7 +90,7 @@ async function measure(label, seconds, fn, { room = "san", listen = "tv" } = {})
 async function selftest() {
   const rows = [];
   try {
-    for (const s of [...KIT, ...PARTS, ...BOARD_PARTS, ...BIT_PARTS, ...KARAOKE_PARTS])
+    for (const s of [...KIT, ...PARTS, ...BOARD_PARTS, ...BIT_PARTS, ...KARAOKE_PARTS, ...GEO_PARTS])
       rows.push(await measure(`${s.id} ${s.name}`, Math.max(1.5, s.ms / 1000 + 1.5), (E, t) => playRecipe(E, s.id, t)));
     /* the board's loudest moment: a buzz-in pile-up, the order, a wrong, a right */
     rows.push(await measure("board: four buzzes, the order, wrong then right", 4, (E, t) => {
@@ -96,6 +98,17 @@ async function selftest() {
       [0, 0.12, 0.24, 0.36].forEach((dt, i) => playRecipe(E, "orderStamp", t + 0.7 + dt, { place:i + 1 }));
       playRecipe(E, "boardWrong", t + 2.2);
       playRecipe(E, "boardRight", t + 3.0);
+    }));
+    /* Where and When on its production schedules: a photo's last fourteen
+       seconds (the bed, the tense bars, the ticks, the knock), then a
+       twelve-pin reveal of the last photo */
+    rows.push(await measure("geo: the minute's end, then a 12-pin reveal", 21, (E, t) => {
+      const closesAt = 60000, from = closesAt - 14000;
+      geoClockCues({ phase:"guess", startedAt:1, closesAt }, from).forEach(cue =>
+        playRecipe(E, cue.id, t + (cue.at - from) / 1000, { ...(cue.opts || {}) }));
+      geoRevealCues({ start:closesAt + 3000, count:12, pans:Array.from({ length:12 }, (_, i) => -0.7 + i * 0.127),
+        revealedAt:closesAt + 3000, rows:6, last:true }).forEach(cue =>
+        playRecipe(E, cue.id, t + (cue.at - from) / 1000, { pan:cue.pan || 0, ...(cue.opts || {}) }));
     }));
     for (const q of SEQS)
       rows.push(await measure(`${q.id} ${q.title}`, seqLength(q) / 1000 + 1,

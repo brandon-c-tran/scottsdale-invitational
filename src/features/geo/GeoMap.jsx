@@ -90,9 +90,11 @@ function measurePins(host) {
    guesses drop one by one, the lines draw out, the answer lands, and the
    camera opens to frame them all. `since`: how far into the reveal this
    screen is (the server clock), so a late screen joins mid-scene. `card`:
-   the answer's card, set in the top corner no pin covers. */
+   the answer's card, set in the top corner no pin covers. `onBeats`:
+   called as the reveal's beats start running on this screen, with how far
+   into them (ms) they start (the TV's sound lays its cues from it). */
 export function GeoMap({ mode = "pick", pin = null, onPick, answer = null, guesses = [], className = "", label = "Map",
-  interactive = true, animate = false, onTap, focus = null, pad = null, since = 0, card = null, gestures = "greedy" }) {
+  interactive = true, animate = false, onTap, focus = null, pad = null, since = 0, card = null, gestures = "greedy", onBeats = null }) {
   const box = useRef(null), api = useRef(null), cardRef = useRef(null);
   const markers = useRef([]), timers = useRef([]), frames = useRef([]), seq = useRef(0);
   const pickRef = useRef(onPick);
@@ -210,6 +212,7 @@ export function GeoMap({ mode = "pick", pin = null, onPick, answer = null, guess
     const moving = animate && !reducedMotion();
     const plan = revealPlan(guesses.length);
     const at = moving ? revealAt(plan, sinceRef.current) : { over:true };
+    onBeats?.(sinceRef.current);
     if (at.over) {
       if (final.camera) a.move(final.camera, 0);
       guesses.forEach((guess, i) => add(guess, "player", null, i));

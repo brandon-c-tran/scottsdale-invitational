@@ -148,8 +148,11 @@ function voice(E, { pan = 0, send = 0.2, bright = 1, gain = 1 } = {}) {
   const p = c.createStereoPanner(); p.pan.value = E.listen === "phone" ? 0 : clampPan(pan + (E.pan || 0));
   const s = c.createGain(); s.gain.value = send;
   /* an open recipe (a walkout's stinger, the crown) is not ducked under the
-     win song: its dry voice skips the hush gate */
-  g.connect(lp); lp.connect(p); p.connect(E.open && E.openDry ? E.openDry : E.dry); p.connect(s); s.connect(E.wet);
+     win song: its dry voice skips the hush gate. A cut recipe (a music
+     bed's bar) runs dry and wet through its own gate, which the caller can
+     close while it rings (playRecipe) */
+  g.connect(lp); lp.connect(p); p.connect(E.cutDry || (E.open && E.openDry ? E.openDry : E.dry)); p.connect(s);
+  s.connect(E.cutWet || E.wet);
   track(E, g, lp, p, s);
   return g;
 }
@@ -188,7 +191,9 @@ function burst(E, dest, t, { type = "bandpass", f = 2000, q = 1, d = 0.02, peak 
   const c = E.ctx;
   const s = c.createBufferSource(); s.buffer = E.noise;
   const fl = c.createBiquadFilter(); fl.type = type; fl.frequency.value = f; fl.Q.value = q;
-  const g = c.createGain();
+  /* silent until its envelope starts: a source started a sample before
+     its first automation event would pass that sample at full gain (a click) */
+  const g = c.createGain(); g.gain.value = 0;
   g.gain.setValueAtTime(0.0001, t);
   g.gain.linearRampToValueAtTime(peak, t + a);
   g.gain.exponentialRampToValueAtTime(0.0001, t + a + d);
@@ -202,7 +207,7 @@ function swell(E, dest, t, { d = 0.6, f0 = 500, f1 = 900, q = 0.7, peak = 0.2 } 
   const s = c.createBufferSource(); s.buffer = E.noise;
   const fl = c.createBiquadFilter(); fl.type = "bandpass"; fl.Q.value = q;
   fl.frequency.setValueAtTime(f0, t); fl.frequency.linearRampToValueAtTime(f1, t + d);
-  const g = c.createGain();
+  const g = c.createGain(); g.gain.value = 0;
   g.gain.setValueAtTime(0.0001, t);
   g.gain.linearRampToValueAtTime(peak, t + d * 0.6);
   g.gain.exponentialRampToValueAtTime(0.0001, t + d);
@@ -1531,7 +1536,159 @@ export const KARAOKE_PARTS = Object.freeze([
       for (let i = 0; i < 9; i++) M.bell(E, t + 0.32 + i * 0.11, ladderNote(13 - (i % 6)), { gain:0.14, dec:0.5, send:0.4 }); } },
 ].map(Object.freeze));
 
-export const SOUNDS = Object.freeze(Object.fromEntries([...KIT, ...PARTS, ...BOARD_PARTS, ...BIT_PARTS, ...KARAOKE_PARTS].map(s => [s.id, s])));
+/* ── Where and When (features/tv/geoSound.js cues the room's, on the
+   server clock; the phone plays its own taps and its score on the you
+   bus). Every pitched note stays in D. ── */
+const B1 = NOTE.B4 / 8, E2 = NOTE.E4 / 4, B3 = NOTE.B4 / 2, A3 = NOTE.A3;
+/* one bar of the guessing bed, in seconds: 120 a minute in four, so its
+   beats fall on the clock's whole seconds (the last ten's ticks ride beats
+   one and three) */
+export const GEO_BAR_S = 2;
+/* the bed's four-bar turn (I, vi, ii, V on D's five notes): the pulse's
+   root and eight swung eighths of plucks, the eighth a passing note into
+   the next bar */
+export const GEO_BED = Object.freeze([
+  Object.freeze({ root:NOTE.D2, notes:Object.freeze([NOTE.D4, NOTE.A4, NOTE.Fs4, NOTE.A4, NOTE.D5, NOTE.A4, NOTE.Fs4, NOTE.E4]) }),
+  Object.freeze({ root:B1, notes:Object.freeze([B3, NOTE.Fs4, NOTE.D4, NOTE.Fs4, NOTE.B4, NOTE.Fs4, NOTE.D4, NOTE.E4]) }),
+  Object.freeze({ root:E2, notes:Object.freeze([NOTE.E4, NOTE.B4, NOTE.A4, NOTE.B4, NOTE.E5, NOTE.B4, NOTE.A4, NOTE.Fs4]) }),
+  Object.freeze({ root:NOTE.A2, notes:Object.freeze([A3, NOTE.E4, NOTE.A4, NOTE.E4, NOTE.B4, NOTE.A4, NOTE.E4, NOTE.Fs4]) }),
+]);
+/* the swing: an offbeat eighth lands this far late (a 0.25 s eighth) */
+const GEO_SWING_S = 0.055;
+/* the bed's level against the cues over it: about 18 dB under a lock's peak */
+export const GEO_BED_LEVEL = 0.6;
+/* the pulse: a soft round low note, its octave carrying it on a small speaker */
+function bedPulse(E, t, f, peak) {
+  const v = voice(E, { send:0.08, bright:0.3, gain:GEO_BED_LEVEL });
+  mode(E, v, t, f, 0.42, peak, { a:0.012, drop:0.08 });
+  mode(E, v, t, f * 2, 0.24, peak * 0.32, { a:0.01, type:"triangle" });
+}
+/* a plucked note, kalimba-soft; `bright` opens its filter */
+function bedPluck(E, t, f, peak, bright, pan = 0) {
+  const v = voice(E, { send:0.14, bright, gain:GEO_BED_LEVEL, pan });
+  mode(E, v, t, f, 0.45, peak, { a:0.003, type:"triangle" });
+  mode(E, v, t, f * 2, 0.14, peak * 0.28, { a:0.002 });
+}
+/* the pad: the chord's root and fifth held soft under the bar, rising in
+   as the last bar's falls away, so the bars run on as one bed */
+function bedPad(E, t, f, peak) {
+  const v = voice(E, { send:0.2, bright:0.075, gain:GEO_BED_LEVEL });
+  [[f, peak, "triangle"], [f * 1.5, peak * 0.7, "sine"]].forEach(([freq, p, type]) => {
+    const o = E.ctx.createOscillator(); o.type = type; o.frequency.value = freq;
+    const g = E.ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.linearRampToValueAtTime(p, t + 0.3);
+    g.gain.setValueAtTime(p, t + GEO_BAR_S - 0.05);
+    g.gain.linearRampToValueAtTime(0.0001, t + GEO_BAR_S + 0.3);
+    o.connect(g); g.connect(v);
+    track(E, o, g); trackSource(E, o);
+    o.start(t); o.stop(t + GEO_BAR_S + 0.33);
+  });
+}
+/* a brush on the snare: a short high noise */
+function bedBrush(E, t, peak) {
+  burst(E, voice(E, { send:0.06, bright:1, gain:GEO_BED_LEVEL }), t, { type:"highpass", f:6500, q:0.7, d:0.03, peak });
+}
+/* one bar of the bed (opts.bar picks the chord; opts.tense 1..5 over the
+   last ten seconds opens the plucks' filter and fills the brushes in;
+   opts.last leaves the bar's end clear for the knock at zero). A bar's
+   last notes ring a little into the next, so the bars run on as one
+   groove; a cut closes the bar's own gate (cut:true). */
+function geoBedBar(E, t, o = {}) {
+  const bar = GEO_BED[Math.max(0, Math.floor(Number(o.bar) || 0)) % GEO_BED.length];
+  const tense = Math.max(0, Math.min(5, Math.floor(Number(o.tense) || 0)));
+  const beat = GEO_BAR_S / 4, eighth = beat / 2;
+  const at = i => t + i * eighth + (i % 2 ? GEO_SWING_S : 0);
+  /* the low pulse on one and three, a ghost before three; four on the floor at the end */
+  bedPulse(E, t, bar.root, 0.11);
+  bedPulse(E, at(3), bar.root, 0.045);
+  bedPulse(E, t + 2 * beat, bar.root, 0.08);
+  if (tense >= 4) { bedPulse(E, t + beat, bar.root, 0.06); if (!o.last) bedPulse(E, t + 3 * beat, bar.root, 0.06); }
+  if (!o.last) bedPad(E, t, bar.root * 2, 0.026);
+  const bright = 0.12 + tense * 0.06;
+  bar.notes.forEach((f, i) => {
+    if (!f || (o.last && i >= 6)) return;
+    bedPluck(E, at(i), f, i % 2 ? 0.045 : 0.06, bright, i % 2 ? 0.18 : -0.18);
+  });
+  /* the brushes: swung offbeats, sixteenths filling in as the clock runs down */
+  for (let i = 0; i < 8; i++) {
+    if (o.last && i >= 6) break;
+    if (i % 2) bedBrush(E, at(i), 0.035);
+    else if (i === 2 || i === 6) bedBrush(E, at(i), 0.018);
+    if (tense >= 2) bedBrush(E, t + i * eighth + eighth / 2, 0.01 + tense * 0.002);
+  }
+  /* a high answer to the plucks on four, from the third bar of the last ten */
+  if (tense >= 3 && !o.last) M.bell(E, t + 3 * beat + GEO_SWING_S, tense >= 5 ? NOTE.B5 : NOTE.A5, { gain:0.045 * GEO_BED_LEVEL, dec:0.45, send:0.2 });
+}
+export const GEO_PARTS = Object.freeze([
+  /* a photo goes up: the slide projector's advance (the carrier knocks,
+     the slide drops into the gate, the shutter), the lamp coming up, then
+     F sharp to A over the low drum (opts.summary: the knock and one bell) */
+  { id:"geoPhoto", name:"A photo goes up", ms:2000,
+    play:(E, t, o = {}) => {
+      if (o.summary) { M.knock(E, t, { pitch:0.7, gain:0.5 }); M.bell(E, t + 0.01, NOTE.A5, { gain:0.32, dec:1.6 }); return; }
+      M.knock(E, t, { pitch:0.62, gain:0.5 }); M.clack(E, t + 0.004, { pitch:0.7, gain:0.4, double:false });
+      M.slap(E, t + 0.12, { gain:0.32 }); M.felt(E, t + 0.125, { gain:0.3 });
+      hum(E, t + 0.08, 0.55, 260, 1200, 0.045);
+      M.tick(E, t + 0.32, { pitch:1.5, gain:0.42 }); M.tick(E, t + 0.37, { pitch:1.3, gain:0.3 });
+      M.bell(E, t + 0.44, NOTE.Fs5, { gain:0.34, dec:1.5 });
+      M.drum(E, t + 0.58, { f:NOTE.D2, dec:0.7, gain:0.5 });
+      M.bell(E, t + 0.58, NOTE.A5, { gain:0.32, dec:2 }); M.bell(E, t + 0.585, NOTE.D5, { gain:0.2, dec:2 }); } },
+  /* a player locks in: a pin pushed home, a step up the ladder per lock (opts.step) */
+  { id:"geoLock", name:"A guess locks in", ms:500,
+    play:(E, t, o = {}) => { M.clack(E, t, { pitch:1.12, gain:1, double:false }); M.knock(E, t + 0.006, { pitch:1.5, gain:0.45 });
+      M.bell(E, t + 0.01, ladderNote(5 + Math.min(8, Math.max(0, Number(o.step) || 0))), { gain:0.2, dec:0.5, send:0.2 }); } },
+  /* the last ten seconds: a dry clock tick each second, climbing and
+     louder as it runs down (opts.s, 10 to 1) */
+  { id:"geoTick", name:"The last ten seconds", ms:60,
+    play:(E, t, o = {}) => { const s = Math.max(1, Math.min(10, Math.round(Number(o.s) || 10)));
+      const k = (10 - s) / 9;
+      M.tick(E, t, { pitch:1.2 + 0.5 * k, gain:0.6 + 0.4 * k });
+      if (s <= 3) M.knock(E, t + 0.004, { pitch:1.7, gain:0.18 + 0.06 * (3 - s) }); } },
+  /* the bed under a photo's minute: one bar (opts.bar, opts.tense, opts.last) */
+  { id:"geoBed", name:"The guessing bed", ms:GEO_BAR_S * 1000, cut:true,
+    play:(E, t, o = {}) => geoBedBar(E, t, o) },
+  /* a guess pin lands on the map: a soft felt tap and a note a step up per pin (opts.step) */
+  { id:"geoDrop", name:"A guess pin lands", ms:400,
+    play:(E, t, o = {}) => { const step = Math.max(0, Number(o.step) || 0);
+      M.felt(E, t, { gain:0.45 }); M.clack(E, t + 0.004, { pitch:0.95 + Math.min(12, step) * 0.015, gain:0.4, double:false });
+      M.bell(E, t + 0.006, ladderNote(2 + (step % 9)), { gain:0.14, dec:0.32, send:0.18 }); } },
+  /* the lines run from every guess to the answer (opts.ms): a pen drawn
+     across the map, rising as they close in */
+  { id:"geoLines", name:"The lines run in", ms:1100,
+    play:(E, t, o = {}) => { const d = Math.max(0.3, (Number(o.ms) || 1100) / 1000);
+      whoosh(E, t, { d, f0:700, f1:3200, peak:0.11 });
+      glide(E, voice(E, { send:0.2, bright:0.6, gain:1 }), t + 0.05, NOTE.A4, NOTE.D5, d * 0.9, 0.022); } },
+  /* the answer lands: the felt, the knock and the drum under D and A */
+  { id:"geoAnswer", name:"The answer lands", ms:2200,
+    play:(E, t) => { M.felt(E, t, { gain:0.9 }); M.knock(E, t + 0.006, { pitch:0.9, gain:0.6 });
+      M.drum(E, t, { f:NOTE.D2, dec:0.7, gain:0.55 });
+      M.bell(E, t + 0.02, NOTE.D5, { gain:0.42, dec:2.2 }); M.bell(E, t + 0.05, NOTE.A5, { gain:0.24, dec:1.8 }); } },
+  /* the round's scores settle in (opts.n rows); the last photo's resolve
+     the motif up to D (opts.last) */
+  { id:"geoSettle", name:"The scores settle", ms:1600,
+    play:(E, t, o = {}) => { const n = Math.max(3, Math.min(6, Math.round(Number(o.n) || 4)));
+      riffle(E, t, n, { gap:0.06, gain:0.45, pitch:1.02 });
+      if (!o.last) { M.bell(E, t + n * 0.06, NOTE.D5, { gain:0.2, dec:0.9, send:0.25 });
+        M.bell(E, t + n * 0.06 + 0.08, NOTE.Fs5, { gain:0.2, dec:1.1, send:0.25 }); return; }
+      const end = t + n * 0.06 + 0.1;
+      [NOTE.A4, NOTE.D5, NOTE.Fs5].forEach((f, i) => M.bell(E, end + i * 0.17, f, { gain:0.36, dec:2 }));
+      M.drum(E, end + 0.55, { f:NOTE.D2, dec:1.1, gain:0.6 }); M.bowl(E, end + 0.56, NOTE.D3, { gain:0.32, dec:2.6 });
+      M.bell(E, end + 0.56, NOTE.A5, { gain:0.34, dec:2.8 }); M.bell(E, end + 0.6, NOTE.D6, { gain:0.2, dec:2.6 }); } },
+  /* your phone: your pin goes in (a tap on the map, a drag let go, a place searched) */
+  { id:"geoPin", name:"Your pin", ms:200,
+    play:(E, t) => { M.felt(E, t, { gain:0.45 }); M.clack(E, t + 0.004, { pitch:1.05, gain:0.38, double:false });
+      M.bell(E, t + 0.008, NOTE.A5, { gain:0.08, dec:0.25, send:0.1 }); } },
+  /* your phone: your score lands (opts.tier 1 to 3: one note, two, the motif) */
+  { id:"geoScore", name:"Your score", ms:1400,
+    play:(E, t, o = {}) => { const tier = Math.max(1, Math.min(3, Math.round(Number(o.tier) || 1)));
+      M.clack(E, t, { gain:0.3, double:false });
+      [NOTE.D5, NOTE.Fs5, NOTE.A5].slice(0, tier).forEach((f, i) => M.bell(E, t + 0.01 + i * 0.09, f, { gain:0.34, dec:1.1, send:0.2 }));
+      if (tier === 3) M.bell(E, t + 0.3, NOTE.D6, { gain:0.18, dec:1.4, send:0.2 }); } },
+].map(Object.freeze));
+
+export const SOUNDS = Object.freeze(Object.fromEntries([...KIT, ...PARTS, ...BOARD_PARTS, ...BIT_PARTS, ...KARAOKE_PARTS, ...GEO_PARTS]
+  .map(s => [s.id, s])));
 export const SOUND_IDS = Object.freeze(KIT.map(s => s.id));
 export const isSound = id => Object.prototype.hasOwnProperty.call(SOUNDS, id);
 
@@ -1540,22 +1697,57 @@ export const isSound = id => Object.prototype.hasOwnProperty.call(SOUNDS, id);
 export function playRecipe(E, id, t, { pan = 0, open = false, ...opts } = {}) {
   const s = SOUNDS[id];
   if (!s || !E) return false;
-  const was = E.pan, outer = E.graph, wasOpen = E.open;
+  const was = E.pan, outer = E.graph, wasOpen = E.open, wasDry = E.cutDry, wasWet = E.cutWet;
   const graph = { nodes:[], pending:0, closed:false };
   E.pan = clampPan(pan);
   E.open = !!open;
   E.graph = graph;
+  /* a cut recipe's gate: every voice in it passes here (dry and wet), so
+     closing it silences what rings without touching the engine */
+  const gate = s.cut ? cutGate(E, graph, t) : null;
   let played = false;
   try { s.play(E, t, opts); played = true; }
   finally {
     E.pan = was;
     E.open = wasOpen;
     E.graph = outer;
+    E.cutDry = wasDry; E.cutWet = wasWet;
     graph.closed = true;
     /* nothing left to end (or the recipe threw): let it go now */
     if (graph.pending === 0 || !played) releaseGraph(graph);
   }
-  return true;
+  return gate ? gate.handle : true;
+}
+/* A cut recipe's gate (a music bed's bar): its dry and wet go through two
+   gains the handle can close. stop() before the bar starts holds it
+   silent; while it rings it fades out over CUT_FADE_S. The gains are the
+   graph's own nodes, released with it once its sources end. */
+export const CUT_FADE_S = 0.2;
+export const cutSound = id => !!SOUNDS[id]?.cut;
+function cutGate(E, graph, t) {
+  const c = E.ctx;
+  const dry = c.createGain(), wet = c.createGain();
+  dry.gain.value = 1; wet.gain.value = 1;
+  dry.connect(E.dry); wet.connect(E.wet);
+  graph.nodes.push(dry, wet);
+  E.cutDry = dry; E.cutWet = wet;
+  let stopped = false;
+  const handle = {
+    stop(fade = CUT_FADE_S) {
+      if (stopped) return;
+      stopped = true;
+      const now = c.currentTime;
+      for (const node of [dry, wet]) {
+        try {
+          const g = node.gain;
+          g.cancelScheduledValues(now);
+          if (now <= t) g.setValueAtTime(0, now);
+          else { g.setValueAtTime(g.value, now); g.linearRampToValueAtTime(0, now + Math.max(0.01, fade)); }
+        } catch {}
+      }
+    },
+  };
+  return { handle };
 }
 
 /* ── the TV's chip density rule ──

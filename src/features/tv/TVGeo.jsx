@@ -3,6 +3,7 @@ import { disp } from "../../../shared/core.js";
 import { ChipFace } from "../identity/PlayerIdentity.jsx";
 import { GeoMap } from "../geo/GeoMap.jsx";
 import { geoPhotoSrc, geoView, milesLabel, offLabel, whenLabel } from "../geo/geoModel.js";
+import { useGeoRevealSound } from "./geoSound.js";
 import "./tv-geo.css";
 
 const fmt = n => (n ?? 0).toLocaleString("en-US");
@@ -37,6 +38,8 @@ export function TVGeo({ state, now }) {
   const revealKey = view?.revealed ? `${view.roundId}:${view.revealedAt}` : null;
   if (revealKey && joined.current.key !== revealKey)
     joined.current = { key:revealKey, since:view.revealedAt ? Math.max(0, (now ?? Date.now()) - view.revealedAt) : 0 };
+  /* the reveal's sound rides the map's own beats */
+  const onBeats = useGeoRevealSound(view);
   if (!view) return null;
   const head = <div className="tv-geo-head">
     <span className="tv-display tv-geo-count">Photo {view.n} of {view.total}</span>
@@ -83,7 +86,7 @@ export function TVGeo({ state, now }) {
   return <div className="tv-geo is-reveal" style={{ "--geo-since":`${since}ms` }}>
     <div className="tv-geo-stage">
       <GeoMap mode="reveal" animate interactive={false} answer={answer} className="tv-geo-map" label="The answer and every guess"
-        pad={{ top:40, bottom:40, left:48, right:48 }} since={since}
+        pad={{ top:40, bottom:40, left:48, right:48 }} since={since} onBeats={onBeats}
         guesses={view.results.filter(row => row.miles !== null).map(row => ({ lat:row.guess.lat, lng:row.guess.lng,
           player:row.player, color:colorOf(state, row.player), label:initials(state, row.player) }))}
         card={<div className="tv-geo-answer">

@@ -494,7 +494,18 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   when it opens; guesses drop as players' photo chips; `placeReveal` frames
   the pins by their real size and stands the answer's card in the top
   corner no pin covers. CARTO's free basemaps need an API key, so they are
-  not used.
+  not used. Its sound (Oct 24, `tv/geoSound.js`, the kit's `GEO_PARTS`): the
+  TV plays a slide projector as a photo goes up, a pin pushed home per
+  lock (panned to the player's seat), a synthesized bed for the minute
+  (`geoBed`, one 2 s bar a cue laid back from `closesAt`, tense over the
+  last ten, a cut recipe whose handle's cancel fades a ringing bar), ticks
+  over the last ten seconds and S8 at zero (`useGeoRoomClock` in
+  `useRoomSound`), then the reveal on the map's own beats (GeoMap's
+  `onBeats(elapsed)`: a drop per pin, the lines, the answer, the scores
+  settling, the last photo resolving), fresh frames only. The phone
+  (`geo/geoPhoneSound.js`) plays your pin, Lock in's stamp on the ack and
+  your score's chime as its reels land (silent under 1,500); its clock is
+  silent.
 - **Trivia** (Oct 3, individual since Oct 4; `shared/trivia.js`, `worker/trivia.js`,
   `worker/triviaBank.js`, `src/features/trivia/`, `features/tv/TVTrivia.jsx`):
   a solo free-for-all (`kind:"solo"`, no draw, no draft; Brandon

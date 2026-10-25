@@ -568,10 +568,27 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   question to the result: the question lit magenta while live, the clock
   ring and the room's photo chips lighting as each player locks (never
   what), the reveal with counts and faces, the scores between rounds, a
-  final podium the result scene takes over from. Room sounds
-  (`roomSound.js`): the sting as a question goes up, a slap per lock panned
-  by the player, ticks over the last five seconds and a knock at zero
-  (`useTriviaClock`), the stamp and riffle on the reveal. QA jumps play a
+  final podium the result scene takes over from. Its sound (Oct 24,
+  `tv/triviaSound.js`, the kit's `TRIVIA_PARTS`): the sting as a question
+  goes up, a slap per lock panned by the player, a bed under the clock
+  (`triviaBed`: Where and When's bed builder, `bedBar`, in its own straight
+  groove on Bm, D, A and E; a bar a cue laid back from `closesAt` so the
+  first lands on `startsAt` and the last on the knock; its last three bars
+  tense, five for a closest number; a tune's bed stays out for the clip's
+  ten seconds and comes in on the bar after; a cut recipe), ticks over the
+  last five seconds (with the ring's red) and S8 at zero
+  (`useTriviaRoomClock` in `useRoomSound`, cancelled as the question moves
+  on, so an early reveal stops the bed clean), then the reveal on the TV's
+  own CSS from the frame that shows it (`TRIVIA_TV`: the answer's stamp,
+  the counts, the faces on the right answer, the points onto the scorers'
+  rows, a settle), the scores between rounds (a chip a row, then the
+  motif) and the final podium (a stamp a step; S14 stays the posted
+  result's), fresh frames only; reduced motion keeps the clock's ticks,
+  no bed, one summary sound a moment. The phone
+  (`trivia/triviaPhoneSound.js`) keeps choose, Lock in and the refusal, and
+  chimes your points as their count stops (tiers at 700 and 900; a wrong
+  answer is silent, never chips). The board's Final loop (`think`) is a
+  cut recipe too. QA jumps play a
   configured game for real (`playTrivia` in `worker/qa.js`);
   `triviaSimAnswers` (QA capability) answers for every unlocked player.
   `/dev/trivia-preview.html` rehearses every moment on a player's phone, a

@@ -6,7 +6,6 @@ import { Icon } from "../../ui/Icon.jsx";
 import { OneSafe } from "../../ui/OneSafe.jsx";
 import { LETTERS, fmtNumber, nearestGuesses, numberLabel, ordinal, triviaPhotoSrc, triviaView } from "../trivia/triviaModel.js";
 import { useTuneClip } from "../trivia/tuneClip.js";
-import { useTriviaClock } from "./roomSound.js";
 import { teamRows } from "../moments/walkoutTeam.js";
 import { isBoardGame } from "../../../shared/triviaBoard.js";
 import { TVBoard } from "./TVBoard.jsx";
@@ -198,8 +197,6 @@ function TVRounds({ state, now }) {
   const tune = view?.question.format === "tune";
   useTuneClip({ id:view?.question.id, active:!!view && tune && view.phase === "question" && now < view.startsAt + TRIVIA_CLIP_MS,
     startsAt:view?.startsAt || 0 });
-  useTriviaClock({ id:view?.question.id, live:view?.phase === "question" && !view.leading, secondsLeft:view?.secondsLeft || 0,
-    closesAt:view?.closesAt || 0 });
   if (!view || view.finished) return null;
   if (view.phase === "board") return <Board state={state} view={view} />;
   const { question } = view;

@@ -735,8 +735,9 @@ export const BOARD_PARTS = Object.freeze([
       chord(t + 1.55);
       M.bell(E, t + 1.95, NOTE.A5, { gain:0.3, dec:1.6 }); } },
   /* one bar of the Final's thinking loop (opts.bar; opts.last resolves):
-     a wooden tick-tock under four bells on the motif */
-  { id:"think", name:"The Final's clock", ms:THINK_BAR_S * 1000,
+     a wooden tick-tock under four bells on the motif. A cut recipe, so an
+     early reveal (everyone locked in) closes a bar that still rings. */
+  { id:"think", name:"The Final's clock", ms:THINK_BAR_S * 1000, cut:true,
     play:(E, t, o = {}) => {
       const bar = Math.max(0, Math.floor(Number(o.bar) || 0));
       const beat = THINK_BAR_S / 4;
@@ -1589,36 +1590,59 @@ function bedPad(E, t, f, peak) {
 function bedBrush(E, t, peak) {
   burst(E, voice(E, { send:0.06, bright:1, gain:GEO_BED_LEVEL }), t, { type:"highpass", f:6500, q:0.7, d:0.03, peak });
 }
-/* one bar of the bed (opts.bar picks the chord; opts.tense 1..5 over the
-   last ten seconds opens the plucks' filter and fills the brushes in;
+/* The bed's builder, shared by Where and When and Trivia: one bar of a
+   style's four-bar turn (opts.bar picks the chord; opts.tense 1..5 over
+   the last bars opens the plucks' filter and fills the brushes in;
    opts.last leaves the bar's end clear for the knock at zero). A bar's
    last notes ring a little into the next, so the bars run on as one
-   groove; a cut closes the bar's own gate (cut:true). */
-function geoBedBar(E, t, o = {}) {
-  const bar = GEO_BED[Math.max(0, Math.floor(Number(o.bar) || 0)) % GEO_BED.length];
+   groove; a cut closes the bar's own gate (cut:true). A style is its turn
+   (a root and eight eighths a bar), its swing, its pulse ([eighth, peak]),
+   the pulse that fills in from tense 4, the pad's level, the pluck and its
+   peaks (on, off the beat), the brushes' peak an eighth, and the high
+   answer on four from tense 3 (its second note at tense 5). */
+function bedBar(E, t, o, style) {
+  const bar = style.turn[Math.max(0, Math.floor(Number(o.bar) || 0)) % style.turn.length];
   const tense = Math.max(0, Math.min(5, Math.floor(Number(o.tense) || 0)));
   const beat = GEO_BAR_S / 4, eighth = beat / 2;
-  const at = i => t + i * eighth + (i % 2 ? GEO_SWING_S : 0);
-  /* the low pulse on one and three, a ghost before three; four on the floor at the end */
-  bedPulse(E, t, bar.root, 0.11);
-  bedPulse(E, at(3), bar.root, 0.045);
-  bedPulse(E, t + 2 * beat, bar.root, 0.08);
-  if (tense >= 4) { bedPulse(E, t + beat, bar.root, 0.06); if (!o.last) bedPulse(E, t + 3 * beat, bar.root, 0.06); }
-  if (!o.last) bedPad(E, t, bar.root * 2, 0.026);
+  const at = i => t + i * eighth + (i % 2 ? style.swing : 0);
+  const pulses = tense >= 4 ? [...style.pulse, ...style.pulseTense] : style.pulse;
+  for (const [i, peak] of pulses) if (!(o.last && i >= 6)) bedPulse(E, at(i), bar.root, peak);
+  if (!o.last && style.pad) bedPad(E, t, bar.root * 2, style.pad);
   const bright = 0.12 + tense * 0.06;
   bar.notes.forEach((f, i) => {
     if (!f || (o.last && i >= 6)) return;
-    bedPluck(E, at(i), f, i % 2 ? 0.045 : 0.06, bright, i % 2 ? 0.18 : -0.18);
+    style.pluck(E, at(i), f, style.pluckPeaks[i % 2], bright, i % 2 ? 0.18 : -0.18);
   });
-  /* the brushes: swung offbeats, sixteenths filling in as the clock runs down */
   for (let i = 0; i < 8; i++) {
     if (o.last && i >= 6) break;
-    if (i % 2) bedBrush(E, at(i), 0.035);
-    else if (i === 2 || i === 6) bedBrush(E, at(i), 0.018);
+    if (style.brushes[i]) bedBrush(E, at(i), style.brushes[i]);
     if (tense >= 2) bedBrush(E, t + i * eighth + eighth / 2, 0.01 + tense * 0.002);
   }
-  /* a high answer to the plucks on four, from the third bar of the last ten */
-  if (tense >= 3 && !o.last) M.bell(E, t + 3 * beat + GEO_SWING_S, tense >= 5 ? NOTE.B5 : NOTE.A5, { gain:0.045 * GEO_BED_LEVEL, dec:0.45, send:0.2 });
+  if (tense >= 3 && !o.last) M.bell(E, t + 3 * beat + style.swing, style.answer[tense >= 5 ? 1 : 0],
+    { gain:0.045 * GEO_BED_LEVEL, dec:0.45, send:0.2 });
+}
+/* Where and When's groove: swung; the low pulse on one and three with a
+   ghost before three (four on the floor at the end); kalimba plucks over
+   a held pad; brushes on the swung offbeats and lightly on two and four */
+const GEO_STYLE = Object.freeze({ turn:GEO_BED, swing:GEO_SWING_S, pulse:[[0, 0.11], [3, 0.045], [4, 0.08]],
+  pulseTense:[[2, 0.06], [6, 0.06]], pad:0.026, pluck:bedPluck, pluckPeaks:[0.06, 0.045],
+  brushes:[0, 0.035, 0.018, 0.035, 0, 0.035, 0.018, 0.035], answer:[NOTE.A5, NOTE.B5] });
+const geoBedBar = (E, t, o = {}) => bedBar(E, t, o, GEO_STYLE);
+/* the last seconds' clock: a dry tick each second, climbing and louder as
+   it runs down (s from `of` to 1), a knock under the last three */
+function clockTick(E, t, s, of) {
+  const top = Math.max(2, Math.round(Number(of) || 10));
+  const left = Math.max(1, Math.min(top, Math.round(Number(s) || top)));
+  const k = (top - left) / (top - 1);
+  M.tick(E, t, { pitch:1.2 + 0.5 * k, gain:0.6 + 0.4 * k });
+  if (left <= 3) M.knock(E, t + 0.004, { pitch:1.7, gain:0.18 + 0.06 * (3 - left) });
+}
+/* your score lands on your phone (tier 1 to 3: one note, two, the motif) */
+function scoreChime(E, t, tier) {
+  const n = Math.max(1, Math.min(3, Math.round(Number(tier) || 1)));
+  M.clack(E, t, { gain:0.3, double:false });
+  [NOTE.D5, NOTE.Fs5, NOTE.A5].slice(0, n).forEach((f, i) => M.bell(E, t + 0.01 + i * 0.09, f, { gain:0.34, dec:1.1, send:0.2 }));
+  if (n === 3) M.bell(E, t + 0.3, NOTE.D6, { gain:0.18, dec:1.4, send:0.2 });
 }
 export const GEO_PARTS = Object.freeze([
   /* a photo goes up: the slide projector's advance (the carrier knocks,
@@ -1641,10 +1665,7 @@ export const GEO_PARTS = Object.freeze([
   /* the last ten seconds: a dry clock tick each second, climbing and
      louder as it runs down (opts.s, 10 to 1) */
   { id:"geoTick", name:"The last ten seconds", ms:60,
-    play:(E, t, o = {}) => { const s = Math.max(1, Math.min(10, Math.round(Number(o.s) || 10)));
-      const k = (10 - s) / 9;
-      M.tick(E, t, { pitch:1.2 + 0.5 * k, gain:0.6 + 0.4 * k });
-      if (s <= 3) M.knock(E, t + 0.004, { pitch:1.7, gain:0.18 + 0.06 * (3 - s) }); } },
+    play:(E, t, o = {}) => clockTick(E, t, o.s, 10) },
   /* the bed under a photo's minute: one bar (opts.bar, opts.tense, opts.last) */
   { id:"geoBed", name:"The guessing bed", ms:GEO_BAR_S * 1000, cut:true,
     play:(E, t, o = {}) => geoBedBar(E, t, o) },
@@ -1681,14 +1702,75 @@ export const GEO_PARTS = Object.freeze([
       M.bell(E, t + 0.008, NOTE.A5, { gain:0.08, dec:0.25, send:0.1 }); } },
   /* your phone: your score lands (opts.tier 1 to 3: one note, two, the motif) */
   { id:"geoScore", name:"Your score", ms:1400,
-    play:(E, t, o = {}) => { const tier = Math.max(1, Math.min(3, Math.round(Number(o.tier) || 1)));
-      M.clack(E, t, { gain:0.3, double:false });
-      [NOTE.D5, NOTE.Fs5, NOTE.A5].slice(0, tier).forEach((f, i) => M.bell(E, t + 0.01 + i * 0.09, f, { gain:0.34, dec:1.1, send:0.2 }));
-      if (tier === 3) M.bell(E, t + 0.3, NOTE.D6, { gain:0.18, dec:1.4, send:0.2 }); } },
+    play:(E, t, o = {}) => scoreChime(E, t, o.tier) },
 ].map(Object.freeze));
 
-export const SOUNDS = Object.freeze(Object.fromEntries([...KIT, ...PARTS, ...BOARD_PARTS, ...BIT_PARTS, ...KARAOKE_PARTS, ...GEO_PARTS]
-  .map(s => [s.id, s])));
+/* ── Trivia's rounds (features/tv/triviaSound.js cues the room's on the
+   server clock and the TV's own reveal; the phone plays your score on the
+   you bus). The same bed builder in another groove, every pitched note
+   still in D's five. ── */
+/* the question's bed: a straight four-bar turn on Bm, D, A and E (sus,
+   leaning home to Bm), the low pulse on every beat and the mallets
+   running up and down each chord */
+export const TRIVIA_BED = Object.freeze([
+  Object.freeze({ root:B1, notes:Object.freeze([B3, NOTE.D4, NOTE.Fs4, NOTE.B4, NOTE.D5, NOTE.B4, NOTE.Fs4, NOTE.D4]) }),
+  Object.freeze({ root:NOTE.D2, notes:Object.freeze([NOTE.D4, NOTE.Fs4, NOTE.A4, NOTE.D5, NOTE.Fs5, NOTE.D5, NOTE.A4, NOTE.Fs4]) }),
+  Object.freeze({ root:NOTE.A2, notes:Object.freeze([A3, NOTE.E4, NOTE.A4, NOTE.B4, NOTE.E5, NOTE.B4, NOTE.A4, NOTE.E4]) }),
+  Object.freeze({ root:E2, notes:Object.freeze([NOTE.E4, NOTE.A4, NOTE.B4, NOTE.E5, NOTE.B4, NOTE.A4, NOTE.E4, NOTE.Fs4]) }),
+]);
+/* a mallet on a wooden bar: short, round, its two-octave partial the wood */
+function bedMallet(E, t, f, peak, bright, pan = 0) {
+  const v = voice(E, { send:0.12, bright:bright + 0.08, gain:GEO_BED_LEVEL, pan });
+  mode(E, v, t, f, 0.26, peak, { a:0.002 });
+  mode(E, v, t, f * 4, 0.05, peak * 0.2, { a:0.001 });
+  mode(E, v, t, f * 2, 0.08, peak * 0.12, { a:0.001 });
+}
+const TRIVIA_STYLE = Object.freeze({ turn:TRIVIA_BED, swing:0, pulse:[[0, 0.1], [2, 0.06], [4, 0.085], [6, 0.06]],
+  pulseTense:[[3, 0.035], [7, 0.035]], pad:0.018, pluck:bedMallet, pluckPeaks:[0.07, 0.05],
+  brushes:[0, 0.03, 0, 0.03, 0, 0.03, 0, 0.03], answer:[NOTE.Fs5, NOTE.A5] });
+/* seconds from a part's start, from opts.offsets (ms), else n at a gap */
+const offsetsOf = (o, n, gap) => (Array.isArray(o.offsets) && o.offsets.length ? o.offsets : Array.from({ length:n }, (_, i) => i * gap))
+  .map(ms => Math.max(0, Number(ms) || 0) / 1000);
+export const TRIVIA_PARTS = Object.freeze([
+  /* the bed under a live question: one bar (opts.bar, opts.tense, opts.last) */
+  { id:"triviaBed", name:"The question's bed", ms:GEO_BAR_S * 1000, cut:true,
+    play:(E, t, o = {}) => bedBar(E, t, o, TRIVIA_STYLE) },
+  /* the last five seconds, climbing (opts.s, 5 to 1) */
+  { id:"triviaTick", name:"The last five seconds", ms:60,
+    play:(E, t, o = {}) => clockTick(E, t, o.s, 5) },
+  /* the right answer stamps: the slap and knock, the drum under D and A */
+  { id:"triviaAnswer", name:"The answer stamps", ms:2000,
+    play:(E, t) => { M.slap(E, t, { gain:0.7 }); M.knock(E, t + 0.01, { gain:0.5, pitch:0.9 });
+      M.drum(E, t, { f:NOTE.D2, dec:0.6, gain:0.45 });
+      M.bell(E, t + 0.02, NOTE.D5, { gain:0.38, dec:2 }); M.bell(E, t + 0.05, NOTE.A5, { gain:0.2, dec:1.6 }); } },
+  /* each answer's count rises (opts.offsets): a card flicked over, a step up each */
+  { id:"triviaTally", name:"The counts rise", ms:500,
+    play:(E, t, o = {}) => offsetsOf(o, 4, 90).forEach((s, i) => M.tick(E, t + s, { gain:0.3, pitch:1.05 + i * 0.06 })) },
+  /* the faces of everyone who had it land on the right answer (opts.n, opts.gap), up the ladder */
+  { id:"triviaFaces", name:"The faces land", ms:900,
+    play:(E, t, o = {}) => offsetsOf(o, Math.max(1, Math.min(7, Math.round(Number(o.n) || 4))), Number(o.gap) || 70)
+      .forEach((s, i) => { M.felt(E, t + s, { gain:0.16 });
+        M.bell(E, t + s + 0.004, ladderNote(3 + i), { gain:0.15, dec:0.4, send:0.2 }); }) },
+  /* the points fly onto the scorers' rows (opts.offsets), then the board settles */
+  { id:"triviaPoints", name:"The points land", ms:1400,
+    play:(E, t, o = {}) => { const at = offsetsOf(o, 3, 60);
+      at.forEach((s, i) => M.clack(E, t + s, { pitch:1.02 + Math.min(10, i) * 0.015, gain:0.45, double:i === at.length - 1 }));
+      const end = t + at[at.length - 1] + 0.14;
+      M.bell(E, end, NOTE.D5, { gain:0.2, dec:0.9, send:0.25 }); M.bell(E, end + 0.08, NOTE.Fs5, { gain:0.2, dec:1.1, send:0.25 }); } },
+  /* the scores stand between rounds: a chip as each row rises (opts.offsets),
+     then the motif rung up (opts.summary: the motif alone) */
+  { id:"triviaScores", name:"The scores stand", ms:2200,
+    play:(E, t, o = {}) => { const at = o.summary ? [] : offsetsOf(o, 13, 90);
+      at.forEach((s, i) => M.clack(E, t + s, { pitch:0.95 + Math.min(12, i) * 0.01, gain:0.38, bright:0.8, double:false }));
+      const end = t + (at.length ? at[at.length - 1] + 0.25 : 0);
+      [NOTE.A4, NOTE.D5, NOTE.Fs5].forEach((f, i) => M.bell(E, end + i * 0.13, f, { gain:0.26, dec:1.4, send:0.3 })); } },
+  /* your phone: your points land (opts.tier 1 to 3) */
+  { id:"triviaScore", name:"Your points", ms:1400,
+    play:(E, t, o = {}) => scoreChime(E, t, o.tier) },
+].map(Object.freeze));
+
+export const SOUNDS = Object.freeze(Object.fromEntries([...KIT, ...PARTS, ...BOARD_PARTS, ...BIT_PARTS, ...KARAOKE_PARTS, ...GEO_PARTS,
+  ...TRIVIA_PARTS].map(s => [s.id, s])));
 export const SOUND_IDS = Object.freeze(KIT.map(s => s.id));
 export const isSound = id => Object.prototype.hasOwnProperty.call(SOUNDS, id);
 

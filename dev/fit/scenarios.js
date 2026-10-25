@@ -641,6 +641,30 @@ export const FIT_KARAOKE = Object.freeze({
     name:"Don't Stop Believin' (Live in Houston, 1981)", imageUrl:null }] },
   karaokeVideos:{ ok:true, videos:FIT_KARAOKE_VIDEOS, lyrics:true },
 });
+/* Float (src/features/float): Float's market open on Saturday night, then
+   Lock and start on a server with the room (the float capability), so the
+   Cup opens in that write; `failed`, the room never took it */
+function floatRacing({ failed = false } = {}) {
+  const state = fresh("event:float:open");
+  const contest = resolveCurrentContest(state, eventOf(state, "float"));
+  act(state, "lockAndStart", { evId:"float", contestId:contest.id, contestRevision:contest.revision }, { ...gmCtx(), float:true });
+  if (failed) act(state, "floatCupFailed", { cupId:state.float.cupId, error:"The room did not answer" },
+    { isGm:true, internal:"float", auto:true, player:null, deviceId:"float", actionId:"fit-float-failed" });
+  return state;
+}
+/* a rider's saved look */
+function withFloatLook(state, player = FIT_GUEST) {
+  act(state, "floatLook", { player, look:{ critter:"capybara", floatie:"flamingo", hat:"cowboy", shades:"stars", pose:"airguitar" } });
+  return state;
+}
+/* the riders' feedback cards, as the room posts them (the desk reads them over the socket) */
+export const FIT_FLOAT_FEEDBACK = Object.freeze([
+  { cupId:"cupfit01", pid:"Richard", fun:5, again:true, better:"A longer river, and a second waterfall before the takeout bar", at:3 },
+  { cupId:"cupfit01", pid:"Jeremy", fun:3, again:false, better:null, at:2 },
+  { cupId:"cupfit01", pid:"Henry", fun:4, again:true, better:"More balloons", at:1 },
+  { cupId:"cupfit01", pid:null, fun:null, again:true, better:null, at:0 },
+]);
+
 /* the guest's saved karaoke song (the karaokeSong write keeps this shape) */
 function withKaraokeSong(state, player = FIT_GUEST) {
   const { startMs, ...track } = FIT_KARAOKE_TRACK;
@@ -1352,6 +1376,11 @@ export const TV_SCENARIOS = Object.freeze([
   { id:"tv-karaoke-legendary", build:() => karaokeStage("legendary"), at:{ karaoke:0 }, pause:true, wait:400 },
   { id:"tv-karaoke-reveal-mid", build:() => karaokeStage("reveal-mid"), at:{ karaoke:0 }, wait:1600 },
   { id:"tv-karaoke-reveal-podium", build:() => karaokeStage("reveal-podium"), at:{ karaoke:0 }, wait:1600 },
+  /* Float: the room's river over the whole canvas (the screen's own chunk,
+     its stub until the screen build lands), and the board back when the
+     room never took the Cup */
+  { id:"tv-float-live", build:() => floatRacing(), wait:1500 },
+  { id:"tv-float-failed", build:() => floatRacing({ failed:true }) },
   { id:"tv-walkout", build:() => fresh("event:putt:done"), moment:{ kind:"walkout", t:3000, player:"Brandon" } },
   /* a team's win walks out as the team: the moment is read from the record
      and the win it follows (walkoutView), a pair with no cover, seven with one */
@@ -1775,6 +1804,17 @@ export const PHONE_SCENARIOS = Object.freeze([
     sheets:["profile-karaoke-found"], sheetSizes:["375"] },
   { id:"karaoke-song-chosen", build:() => withKaraokeSong(withSong(fresh("locker"), FIT_GUEST)), karaoke:true, tabs:[],
     sheets:["profile-karaoke"], sheetSizes:["375"] },
+  /* Float (src/features/float): Home's "Pick your floatie" before the
+     weekend and Profile > Locker (the room's picker, its stub until the
+     controller build lands); the controller over a rider's phone while the
+     Cup races, and Home's row once it is closed; the commissioner's pill
+     and desk, and the pill when the room never took the Cup */
+  { id:"float-setup", build:() => fresh("locker"), float:true, tabs:["home"], sheets:["profile-locker"] },
+  { id:"float-locker", build:() => withFloatLook(fresh("locker")), float:true, tabs:[], sheets:["profile-locker"], sheetSizes:["375"] },
+  { id:"float-play", build:() => floatRacing(), float:true, settle:false, tabs:["home"], sheets:["float-closed"] },
+  { id:"gm-float-pill", build:() => floatRacing(), viewer:"gm", float:true, settle:false, tabs:[], sheets:["float-closed", "float-desk"],
+    floatFeedback:FIT_FLOAT_FEEDBACK },
+  { id:"gm-float-failed", build:() => floatRacing({ failed:true }), viewer:"gm", float:true, settle:false, tabs:["home"], sheets:["float-desk"] },
   /* arrivals (Oct 4): before check-in opens nothing is new; in the lobby
      the guest still on the way gets Scan the TV at the top of Home, and its
      scanner: looking (a camera frame with no code), the TV's code read and

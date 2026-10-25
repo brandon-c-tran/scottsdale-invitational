@@ -65,7 +65,8 @@ function Clock({ closesAt, now }) {
    as it changes (and once more just before the clock runs out), so
    whatever is set when time is up is the guess: a pin and no date scores
    the pin. A part never touched is not sent, so the wheels' starting date
-   never counts. Lock in marks it done; later changes still save. */
+   never counts unless Lock in takes it. Lock in marks it done; later
+   changes still save. */
 const AUTOSAVE_MS = 450;
 function GuessGame({ view, onGuess, now }) {
   const mine = view.mine;
@@ -129,7 +130,13 @@ function GuessGame({ view, onGuess, now }) {
   /* the tap dims Lock in at once (pending) until the server has it */
   const lockingRef = useRef(false);
   const lockIn = async () => {
-    if (!pin || !whenSet || lockingRef.current) return;
+    if (!pin || lockingRef.current) return;
+    /* Lock in on wheels never turned takes the date they show: a tap that
+       did nothing read as a broken button */
+    if (!whenSet) {
+      setWhenSet(true);
+      draftRef.current = { ...draftRef.current, when:formatWhen(wall) };
+    }
     tapTick();
     lockedRef.current = true;
     lockingRef.current = true;

@@ -388,3 +388,45 @@ test("the alarm runs a due beat in its own write and re-arms for the next", asyn
   assert.equal(tournament.state.geo.phase, "reveal", "the photo revealed on the alarm");
   assert.ok(alarms.length && alarms.at(-1) > Date.now(), "and it re-armed for the reveal's hold");
 });
+
+/* the TV's reveal felt late (Oct 24): the map mounted at the reveal, loaded,
+   then dropped pins on tiles still streaming in. Now one map stands under
+   the photo for the whole game, and at a reveal the photo holds (no scores
+   yet) until the map has drawn the reveal's views and its beats begin. */
+test("the TV keeps one map under the photo all game; the photo holds the reveal until the map's beats begin", async () => {
+  const { buildSync } = await import("esbuild");
+  const { fileURLToPath } = await import("node:url");
+  const { Module } = await import("node:module");
+  const React = (await import("react")).default;
+  const { renderToStaticMarkup } = await import("react-dom/server");
+  const root = fileURLToPath(new URL("../", import.meta.url));
+  const out = buildSync({ stdin:{ contents:'export { TVGeo } from "./src/features/tv/TVGeo.jsx"; export { PlayerIdentityProvider } from "./src/features/identity/PlayerIdentityContext.js";', resolveDir:root, loader:"jsx" },
+    bundle:true, platform:"node", format:"cjs", external:["react", "react-dom", "maplibre-gl", "leaflet"], loader:{ ".css":"empty" },
+    write:false, logLevel:"silent" });
+  const mod = new Module(fileURLToPath(new URL("where-when-tv.cjs", import.meta.url)));
+  mod.filename = mod.id; mod.paths = Module._nodeModulePaths(root);
+  mod._compile(out.outputFiles[0].text, mod.filename);
+  const { TVGeo, PlayerIdentityProvider } = mod.exports;
+  const tv = (s, now) => renderToStaticMarkup(React.createElement(PlayerIdentityProvider, { profiles:s.profiles || {} },
+    React.createElement(TVGeo, { state:publicState(s, {}), now })));
+  const stage = html => /<div class="tv-geo-stage">(<div class="[^"]*")/.exec(html)?.[1] || "";
+
+  const state = ready();
+  act(state, "geoStart", { evId:"where" });
+  act(state, "geoGuess", { roundId:ROUNDS[0].id, lat:ROUNDS[0].lat + .1, lng:ROUNDS[0].lng, when:ROUNDS[0].when, done:true }, as(khoa));
+  const guess = tv(state, Number(state.geo.closesAt) - 30000);
+  assert.match(stage(guess), /fd-geo-map[^"]* tv-geo-map/, "the map is there while phones guess, loading for the reveal");
+  assert.match(guess, /<div class="tv-geo-cover"><img/, "under the photo");
+  assert.match(guess, /tv-geo-clock/);
+  act(state, "geoReveal", { roundId:ROUNDS[0].id });
+  const reveal = tv(state, Number(state.geo.revealedAt) + 100);
+  assert.equal(stage(reveal), stage(guess), "the same map, in the same place: nothing remounts at the reveal");
+  assert.match(reveal, /<div class="tv-geo-cover"><img/, "the photo holds until the map's beats begin");
+  assert.doesNotMatch(reveal, /tv-geo-results/, "and the scores wait for them, so the two enter in step");
+  assert.doesNotMatch(reveal, /tv-geo-clock/);
+  const { readFileSync } = await import("node:fs");
+  const css = readFileSync(new URL("../src/features/tv/tv-geo.css", import.meta.url), "utf8");
+  assert.ok(css.includes(".tv-geo-cover { position:absolute; inset:0; z-index:1; background:var(--night-deep); }"),
+    "the cover is opaque: no map shows round a letterboxed photo");
+  assert.match(css, /\.tv-geo-map \{[^}]*isolation:isolate;/, "the map's own layers (its card, its panes) stay under the cover");
+});

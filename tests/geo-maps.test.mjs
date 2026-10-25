@@ -10,7 +10,7 @@ import { fileURLToPath } from "node:url";
 
 import {
   ADAPTER_MEMBERS, CARD_CORNERS, REVEAL, cardCovered, cardRect, fitCamera, mapsConfig, pickRenderer, pinBox, placeReveal,
-  project, revealAt, revealPlan,
+  cameraOpens, project, REVEAL_SETTLE, revealAt, revealPlan, sameCamera, settleViews,
 } from "../src/features/geo/mapModel.js";
 import { googleFailed, resetGoogleState } from "../src/features/geo/maps/googleState.js";
 
@@ -147,7 +147,9 @@ function fakeGoogle() {
   class Polyline { constructor(options) { this.options = options; made.lines.push(this); } setPath(path) { this.options.path = path; }
     setMap(map) { this.options.map = map; } }
   return { made, g:{ Map, OverlayView, Polyline, LatLng, Point:class { constructor(x, y) { this.x = x; this.y = y; } },
-    event:{ addListenerOnce:(map, type, fn) => fn(), clearInstanceListeners() {} } } };
+    /* the map is idle at once; tilesloaded waits for the test to say so */
+    event:{ addListenerOnce:(map, type, fn) => { if (type === "idle") fn(); else (map.onces ||= {})[type] = fn;
+      return { remove() { delete map.onces?.[type]; } }; }, clearInstanceListeners() {} } } };
 }
 function fakeMaplibre() {
   const made = { maps:[], markers:[] };
@@ -157,7 +159,8 @@ function fakeMaplibre() {
   }
   class Map {
     constructor(options) { this.options = options; this.cam = { center:options.center, zoom:options.zoom }; this.sources = {}; made.maps.push(this); }
-    on() {} jumpTo(to) { this.cam = to; } easeTo(to) { this.cam = to; this.eased = true; } flyTo(to) { this.cam = to; this.flew = true; }
+    on() {} once(type, fn) { (this.onces ||= {})[type] = fn; } off(type) { delete this.onces?.[type]; }
+    triggerRepaint() { this.repaints = (this.repaints || 0) + 1; } jumpTo(to) { this.cam = to; } easeTo(to) { this.cam = to; this.eased = true; } flyTo(to) { this.cam = to; this.flew = true; }
     getCenter() { return { lng:this.cam.center[0], lat:this.cam.center[1] }; } getZoom() { return this.cam.zoom; }
     getSource(id) { return this.sources[id]; } addSource(id, spec) { this.sources[id] = { data:spec.data, setData(d) { this.data = d; } }; }
     addLayer(layer) { this.layer = layer; } getBounds() { return { contains:() => true }; } remove() { this.removed = true; }
@@ -170,7 +173,10 @@ function fakeLeaflet() {
     getCenter() { return { lat:this.c[0], lng:this.c[1] }; }, getZoom() { return this.z; }, on() {}, invalidateSize() {}, remove() {},
     getBounds() { return { contains:() => true }; } };
   const added = item => ({ ...item, addTo() { return this; }, on() { return this; }, remove() { this.gone = true; } });
-  return { made, L:{ map:() => map, tileLayer:() => added({}), divIcon:options => options,
+  /* the tile layer: loading while the test says so, its load on the test's word */
+  const layer = made.layer = added({ loading:false, isLoading() { return this.loading; }, once(type, fn) { this.onLoad = fn; },
+    off() { this.onLoad = null; } });
+  return { made, L:{ map:() => map, tileLayer:() => layer, divIcon:options => options,
     marker:(at, options) => { const m = added({ at, options }); made.markers.push(m); return m; },
     polyline:(points, options) => { const l = added({ points, options }); made.lines.push(l); return l; } } };
 }
@@ -247,6 +253,102 @@ test("every renderer is the one adapter: the same members, pins as our nodes, li
     assert.deepEqual(picked, { lat:10, lng:-170 }, "a tap past the date line wraps");
     for (const adapter of Object.values(adapters)) adapter.remove();
   });
+});
+
+/* ── the settle before the reveal's beats (Oct 24): the TV draws the
+   reveal's views and waits for their tiles, never past the cap ── */
+test("every renderer says when its view is drawn, or gives up at the cap", async () => {
+  const { createGoogle } = await import("../src/features/geo/maps/googleAdapter.js");
+  const { createMaplibre } = await import("../src/features/geo/maps/maplibreAdapter.js");
+  const { createLeaflet } = await import("../src/features/geo/maps/leafletAdapter.js");
+  globalThis.queueMicrotask ||= fn => Promise.resolve().then(fn);
+  await withDom(async () => {
+    globalThis.requestAnimationFrame = () => 0;
+    globalThis.cancelAnimationFrame = () => {};
+    const state = promise => { let done = false; promise.then(() => { done = true; }); return () => done; };
+    const tick = (ms = 0) => new Promise(resolve => setTimeout(resolve, ms));
+
+    /* MapLibre: its idle (asked for with a repaint), else the cap */
+    const gl = fakeMaplibre();
+    const ml = createMaplibre(gl.lib, el(), { interactive:false, home:HOME });
+    const map = gl.made.maps[0];
+    ml.move({ lat:37.8, lng:-122.5, zoom:9 }, 0);
+    const idle = state(ml.settled(5000));
+    assert.equal(map.repaints, 1, "a repaint asks for the frame idle follows");
+    await tick();
+    assert.equal(idle(), false, "nothing drawn yet: still waiting");
+    map.onces.idle();
+    await tick();
+    assert.equal(idle(), true, "idle: the view is drawn");
+    const capped = state(ml.settled(20));
+    await tick(40);
+    assert.equal(capped(), true, "no idle within the cap: the show goes on");
+    assert.equal(map.onces.idle, undefined, "and stops listening");
+
+    /* Google: tilesloaded after a move; a view that has not moved is already in */
+    const google = fakeGoogle();
+    const gm = createGoogle(google.g, el(), { interactive:false, home:HOME });
+    const gmap = google.made.maps[0];
+    gm.move({ lat:37.8, lng:-122.5, zoom:9 }, 0);
+    const loaded = state(gm.settled(5000));
+    await tick();
+    assert.equal(loaded(), false);
+    gmap.onces.tilesloaded();
+    await tick();
+    assert.equal(loaded(), true, "tilesloaded: the view is drawn");
+    const still = state(gm.settled(5000));
+    await tick();
+    assert.equal(still(), true, "no move since: nothing to wait for (Google says nothing then)");
+    gm.move({ lat:37.8, lng:-122.5, zoom:9 }, 0);
+    const same = state(gm.settled(5000));
+    await tick();
+    assert.equal(same(), true, "a jump to the view it shows is no move");
+    gm.move({ lat:40, lng:-100, zoom:6 }, 0);
+    const late = state(gm.settled(20));
+    await tick(40);
+    assert.equal(late(), true, "tiles slower than the cap: the show goes on");
+    assert.equal(gmap.onces.tilesloaded, undefined, "and stops listening");
+
+    /* Leaflet: the tile layer's load, at once when it is not loading */
+    const leaflet = fakeLeaflet();
+    const lf = createLeaflet(leaflet.L, el(), { interactive:false, home:HOME });
+    const layer = leaflet.made.layer;
+    const quiet = state(lf.settled(5000));
+    await tick();
+    assert.equal(quiet(), true, "nothing loading: drawn");
+    layer.loading = true;
+    const tiles = state(lf.settled(5000));
+    await tick();
+    assert.equal(tiles(), false);
+    layer.onLoad();
+    await tick();
+    assert.equal(tiles(), true, "the layer's load: drawn");
+    for (const adapter of [ml, gm, lf]) adapter.remove();
+  });
+});
+
+test("the settle draws the final framing first, then the frame the beats start on, within one cap", () => {
+  const start = { lat:37.8, lng:-122.4, zoom:8 }, final = { lat:38, lng:-110, zoom:5 };
+  assert.ok(REVEAL_SETTLE.prefetch < REVEAL_SETTLE.cap && REVEAL_SETTLE.cap <= 1500, "a slow network never stalls the show");
+  assert.deepEqual(settleViews({ start, final }), [{ camera:final, ms:REVEAL_SETTLE.prefetch }, { camera:start, ms:REVEAL_SETTLE.cap }],
+    "the camera opens onto the final framing's tiles, fetched under the photo");
+  assert.deepEqual(settleViews({ start, final:{ ...start } }), [{ camera:start, ms:REVEAL_SETTLE.cap }], "one view when they are one");
+  assert.deepEqual(settleViews({ start:null, final }), [{ camera:final, ms:REVEAL_SETTLE.cap }], "no guesses: the answer's frame");
+  assert.deepEqual(settleViews({ start, final, over:true }), [{ camera:final, ms:REVEAL_SETTLE.cap }],
+    "joined after the end, or reduced motion: the end state's view alone");
+  assert.deepEqual(settleViews({}), [], "nothing to frame: the beats go at once");
+  assert.equal(sameCamera(start, { ...start, zoom:8.0001 }), true);
+  assert.equal(sameCamera(start, { ...start, lng:-122.41 }), false);
+  assert.ok(REVEAL_SETTLE.panel > REVEAL_SETTLE.cap, "a warm map always starts before the scores give up on it");
+  /* on the TV's map: a camera that barely moves opens on the start view's own tiles, so no prefetch */
+  const size = { width:1160, height:800 };
+  const near = { lat:start.lat + 0.05, lng:start.lng + 0.05, zoom:start.zoom - 0.2 };
+  assert.equal(cameraOpens(start, near, size), false);
+  assert.deepEqual(settleViews({ start, final:near, size }), [{ camera:start, ms:REVEAL_SETTLE.cap }]);
+  assert.equal(cameraOpens(start, { ...start, zoom:start.zoom - 1 }, size), true, "a level out: new tiles at the edges");
+  assert.equal(cameraOpens(start, { ...start, zoom:start.zoom + 2 }, size), true, "in close on the answer: finer tiles");
+  assert.equal(cameraOpens(start, { ...start, lng:start.lng + 3 }, size), true, "a pan past the middle half");
+  assert.equal(cameraOpens(start, final, size), true);
 });
 
 /* ── the camera and the card ── */

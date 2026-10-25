@@ -365,3 +365,15 @@ test("Brandon's setup note names the API, the referrers and the secret", () => {
     assert.ok(doc.includes(needle), needle);
   assert.doesNotMatch(doc, /—/, "no em dashes");
 });
+
+test("the map reads the key the transport noted (an unimported reader drew MapLibre forever)", async () => {
+  const source = read("src/features/geo/GeoMap.jsx");
+  assert.match(source, /mapsConfig\(mapsKeyFrame\(\)\)/);
+  assert.ok(!/getTournamentSnapshot/.test(source) || /import[^;]*getTournamentSnapshot/.test(source),
+    "every snapshot reader GeoMap calls is imported");
+  const { noteMapsKey, mapsKeyFrame } = await import("../src/lib/mapsKey.js");
+  const { mapsConfig, pickRenderer } = await import("../src/features/geo/mapModel.js");
+  noteMapsKey({ googleMaps:true }, "AIzaTestKey");
+  assert.equal(pickRenderer({ ...mapsConfig(mapsKeyFrame()), webgl:true }), "google");
+  noteMapsKey({ googleMaps:false }, null);
+});

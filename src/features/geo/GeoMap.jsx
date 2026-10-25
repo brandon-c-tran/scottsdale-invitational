@@ -39,7 +39,7 @@ const RENDERERS = {
 };
 /* the key, from the newest frame (a rehearsal without a transport has none) */
 function mapsNow() {
-  try { return mapsConfig(getTournamentSnapshot()); } catch { return { googleKey:null }; }
+  return mapsConfig(mapsKeyFrame());
 }
 function webgl() {
   try {

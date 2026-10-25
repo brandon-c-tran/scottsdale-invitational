@@ -208,6 +208,7 @@ decimals; 0 is +x, counter-clockwise), flags, progress along the leg in metres
   flow: [[s, v], ...],      // current (m/s) by distance s along the line
   elev: [[s, z], ...],      // water surface height (m); the Drop falls here
   rocks: [[x, y, r], ...],
+  islands: [[x, y, r], ...], // optional: land in the river (the split), drawn as banks
   zones: [{ k, s0, s1 }],   // "pool" | "riffle" | "narrows" | "eddy" | "whirlpool" | "split" | "drop" | "bar"
   legs: [{ id, name, s0, s1, grid, finish }]   // grid/finish: distances
 }

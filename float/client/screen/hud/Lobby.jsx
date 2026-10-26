@@ -23,15 +23,17 @@ const MAX_RIDERS = 16;
 export default function Lobby({ room, entrants, hosting, joinUrl, send }) {
   const qr = useMemo(() => (joinUrl ? qrPath(joinUrl) : null), [joinUrl]);
   const humans = entrants.filter(e => e && !e.bot).length;
-  /* how many computer riders join: the room fills the field up to humans + this */
+  const already = entrants.filter(e => e && e.bot).length;
+  /* how many computer riders the room ADDS on Start (float/PROTOCOL.md "As built") */
   const [extra, setExtra] = useState(null);
-  const bots = extra ?? Math.max(0, 6 - humans);
+  const spare = Math.max(0, MAX_RIDERS - entrants.length);
+  const bots = Math.min(spare, extra ?? Math.max(0, 6 - humans - already));
   const [drinking, setDrinking] = useState(room?.drinking !== false);
   const code = String(room?.code || "").toUpperCase();
   const shownUrl = joinUrl ? joinUrl.replace(/^https?:\/\//, "").replace(/\?room=.*$/, "") : "";
-  const roomFull = humans + bots >= MAX_RIDERS;
-  const canStart = humans >= 1;
-  const start = () => send?.({ t:"host", cmd:"start", bots:humans + bots, drinking });
+  const roomFull = bots >= spare;
+  const canStart = entrants.length + bots >= 1;
+  const start = () => send?.({ t:"host", cmd:"start", bots, drinking });
   return <div className="fs-lobby">
     <div className="fs-lobby-brand fs-show">Float</div>
     {code && <div className="fs-lobby-join fs-glass">
@@ -61,7 +63,7 @@ export default function Lobby({ room, entrants, hosting, joinUrl, send }) {
         <span className="fs-label">Bots</span>
         <button type="button" className="fs-step" aria-label="Fewer bots" disabled={bots <= 0} onClick={() => setExtra(Math.max(0, bots - 1))}>-</button>
         <span className="fs-num fs-host-value">{bots}</span>
-        <button type="button" className="fs-step" aria-label="More bots" disabled={roomFull} onClick={() => setExtra(Math.min(MAX_RIDERS - humans, bots + 1))}>+</button>
+        <button type="button" className="fs-step" aria-label="More bots" disabled={roomFull} onClick={() => setExtra(Math.min(spare, bots + 1))}>+</button>
       </div>
       <div className="fs-host-group" role="group" aria-label="Drinking">
         <span className="fs-label">Drinking</span>

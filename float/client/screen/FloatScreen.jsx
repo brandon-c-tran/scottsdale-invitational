@@ -17,29 +17,28 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createScreenStore } from "./model/screenStore.js";
 import { indexList, throughFor } from "./model/cupShape.js";
 import { useFloatScreenSound, useFloatSoundUnlockNeeded, unlockFloatSound, PODIUM_BEATS } from "../sound/index.js";
-import { Arrivals, CapClock, Countdown, CutBoard, Feedback, IntroLower, NameTags, Plate, Podium, Rail, Ribbon, TitleCard } from "./hud/Hud.jsx";
+import { Arrivals, CapClock, Countdown, CutBoard, Feedback, IntroLower, NameTags, Plate, Podium, Rail, ReplayLamp, Ribbon, TitleCard } from "./hud/Hud.jsx";
 import Lobby from "./hud/Lobby.jsx";
 import { SoundIcon } from "./hud/bits.jsx";
 import "./screen.css";
 
-/* the real connection once float/client/net.js exists; until then (and with
-   ?mock=1) the stand-in. import.meta.glob finds nothing when the file is
-   missing, so this builds either way and picks up net.js on integration. */
+/* the connection: float/client/net.js once it exists (import.meta.glob finds
+   nothing while it is missing, so this builds either way and picks it up on
+   integration), else the screen's own (screenNet.js); with ?mock=1 the real
+   room run in this tab (mockNet.js) */
 let netModules = {};
 try { netModules = import.meta.glob("../net.js"); } catch { netModules = {}; }
 
 export async function loadConnect(mock = false) {
-  if (!mock) {
-    const load = netModules["../net.js"];
-    if (load) {
-      try {
-        const mod = await load();
-        if (typeof mod?.connectFloat === "function") return mod.connectFloat;
-      } catch (error) { console.error("Float net", error); }
-    }
+  if (mock) return (await import("./mockNet.js")).connectFloat;
+  const load = netModules["../net.js"];
+  if (load) {
+    try {
+      const mod = await load();
+      if (typeof mod?.connectFloat === "function") return mod.connectFloat;
+    } catch (error) { console.error("Float net", error); }
   }
-  const mod = await import("./mockNet.js");
-  return mod.connectFloat;
+  return (await import("./screenNet.js")).connectFloat;
 }
 
 function createBus() {
@@ -191,7 +190,7 @@ export default function FloatScreen({ room = "test", hosting = false, joinUrl = 
   return <div className="fs-root" ref={rootRef} data-phase={phase} data-view={view}>
     {view === "3d" ? <canvas key="gl" className="fs-canvas" ref={canvasRef} /> : <canvas key="flat" className="fs-canvas" ref={flatRef} />}
     <div className="fs-hud">
-      {phase === "lobby" && <Lobby room={roomMsg} entrants={entrants} hosting={hosting} joinUrl={joinUrl} send={send} />}
+      {phase === "lobby" && <Lobby room={roomMsg} entrants={entrants} hosting={hosting && roomMsg?.mode !== "fieldday"} joinUrl={joinUrl} send={send} />}
       {phase === "intro" && <IntroLower geo={geo} bus={bus} />}
       {(phase === "grid" || phase === "countdown" || phase === "race") && <NameTags bus={bus} entrants={entrants} phase={phase} big={phase !== "race"} />}
       {phase === "grid" && <TitleCard room={roomMsg} geo={geo} />}
@@ -203,7 +202,9 @@ export default function FloatScreen({ room = "test", hosting = false, joinUrl = 
         <Arrivals room={roomMsg} entrants={entrants} through={through} final={final} />
       </>}
       {(phase === "countdown" || phase === "race") && <Countdown gun={st.gunRound === (roomMsg?.round | 0) ? st.gun : null} bus={bus} />}
-      {phase === "cut" && <CutBoard room={roomMsg} geo={geo} entrants={entrants} raceField={st.raceField} bus={bus} since={st.phaseStart} />}
+      {phase === "cut" && <CutBoard room={roomMsg} geo={geo} entrants={entrants} raceField={st.raceField} bus={bus} since={st.phaseStart}
+        replayEnds={store.replayWindow()?.to ?? null} />}
+      {phase === "cut" && <ReplayLamp bus={bus} entrants={entrants} />}
       {(phase === "podium" || phase === "feedback") && <Podium room={roomMsg} entrants={entrants} bus={bus} anchor={phase === "podium" ? podiumAnchor : -1e12} />}
       {phase === "feedback" && <Feedback />}
       {disconnected && <div className="fs-status"><span className="fs-lamp is-clay is-flash">Reconnecting</span></div>}

@@ -16,12 +16,18 @@ function tubeFor(points, radius) {
   return new THREE.TubeGeometry(curve, Math.max(8, points.length * 10), radius, 6, false);
 }
 
-export function buildBar(geo, field) {
+/* where the bar stands: the last leg's takeout bar (a zone "bar", on its side) */
+export function barSite(geo) {
   const legs = geo.legs;
-  const last = legs[legs.length - 1] || { finish:geo.length - 30 };
-  const s = Math.min(geo.length - 6, last.finish + 12);
+  const last = legs[legs.length - 1] || { s0:0, s1:geo.length, finish:geo.length - 30 };
+  const zone = geo.zones.find(z => z.k === "bar" && z.s0 >= (last.s0 ?? 0) && z.s1 <= (last.s1 ?? geo.length) + 1);
+  const s = zone ? Math.min(geo.length - 6, (zone.s0 + zone.s1) / 2 + 2) : Math.min(geo.length - 6, last.finish + 12);
+  return { s, side:zone?.side === -1 ? -1 : 1 };
+}
+
+export function buildBar(geo, field) {
+  const { s, side } = barSite(geo);
   const p = geo.sample(s);
-  const side = 1;
   const back = p.w / 2 + 9;
   const x = p.x + p.nx * side * back, y = p.y + p.ny * side * back;
   const ground = field ? field.heightAt(x, y) : geo.elevAt(s) + 1;

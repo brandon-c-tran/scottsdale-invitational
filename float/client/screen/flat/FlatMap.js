@@ -128,11 +128,12 @@ export function createFlatMap({ canvas, store, onFrame, onStats }) {
     const entrants = room?.entrants || [];
     staged.clear();
     const time = performance.now() / 1000;
+    const legIndex = st.phase === "lobby" ? 0 : room?.leg | 0;
     if (st.phase === "lobby") lobbyPoses(geo, leg, entrants.length, time, staged);
-    else if (st.phase === "race" || rows.size) { gridPoses(geo, leg, field, staged); for (const [i, r] of rows) staged.set(i, r); }
-    else if (st.phase === "cut") { const { cut, through } = cutOf(room, st.raceField); takeoutPoses(geo, leg, through, cut, staged); }
-    else if (st.phase === "podium" || st.phase === "feedback") takeoutPoses(geo, leg, indexList(room?.podium), [], staged);
-    else gridPoses(geo, leg, field, staged);
+    else if (st.phase === "race" || rows.size) { gridPoses(geo, legIndex, field, staged); for (const [i, r] of rows) staged.set(i, r); }
+    else if (st.phase === "cut") takeoutPoses(geo, legIndex, cutOf(room, st.raceField).order, staged);
+    else if (st.phase === "podium" || st.phase === "feedback") takeoutPoses(geo, legIndex, indexList(room?.podium), staged);
+    else gridPoses(geo, legIndex, field, staged);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.drawImage(bg, 0, 0, width, height);
     const order = raceOrder({ field, rows, results:room?.results || [], arrivals:st.arrivals });

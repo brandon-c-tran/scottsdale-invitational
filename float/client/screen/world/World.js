@@ -16,7 +16,7 @@ import { planLights } from "./lightsPlan.js";
 import { buildRiver, buildFoamDecals, buildWhirlpools } from "./river.js";
 import { buildSky, moonDirection } from "./sky.js";
 import { buildDressing } from "./dressing.js";
-import { buildBar } from "./bar.js";
+import { buildBar, barSite } from "./bar.js";
 import { createRiders } from "./riders.js";
 import { createFx } from "./fx.js";
 import { createDirector } from "../model/director.js";
@@ -131,8 +131,8 @@ export function createWorld({ canvas, store, quality = "auto", onFrame, onFail, 
     const moonDir = moonDirection(geo);
     moonLight.position.copy(moonDir).multiplyScalar(400);
     const field = terrainField(geo);
-    const lastLeg = geo.legs[geo.legs.length - 1];
-    const plan = planLights(geo, { bankZ:(x, y) => field.heightAt(x, y), barS:lastLeg ? Math.min(geo.length - 6, lastLeg.finish + 12) : null });
+    const site = barSite(geo);
+    const plan = planLights(geo, { bankZ:(x, y) => field.heightAt(x, y), barS:site.s, barSide:site.side });
     const river = buildRiver(geo, { glowAt:plan.glowAt, noise, moonDir });
     river.meshes.forEach(m => root.add(m));
     const terrain = terrainMeshes(field, { glowAt:plan.glowAt, noise });
@@ -191,6 +191,8 @@ export function createWorld({ canvas, store, quality = "auto", onFrame, onFail, 
   /* ── per frame ── */
   const poses = new Map();
   const earlier = new Map();
+  const replayRows = new Map();
+  let replaying = null;
   const staged = new Map();
   const shown = new Set();
   const sadSet = new Set();
@@ -203,6 +205,7 @@ export function createWorld({ canvas, store, quality = "auto", onFrame, onFail, 
 
   function stageFor(st, room, geo, time) {
     staged.clear(); shown.clear(); sadSet.clear();
+    replaying = null;
     const phase = st.phase;
     const leg = legOf(geo, room);
     const entrants = room?.entrants || [];
@@ -213,14 +216,15 @@ export function createWorld({ canvas, store, quality = "auto", onFrame, onFail, 
       entrants.forEach((_, i) => shown.add(i));
       return staged;
     }
+    const legIndex = room?.leg | 0;
     if (phase === "intro" || phase === "grid" || phase === "countdown") {
-      gridPoses(geo, leg, field, staged);
+      gridPoses(geo, legIndex, field, staged);
       if (rows.size) for (const [i, r] of rows) staged.set(i, { ...r, ease:4 });
       field.forEach(i => shown.add(i));
       return staged;
     }
     if (phase === "race") {
-      gridPoses(geo, leg, field, staged);
+      gridPoses(geo, legIndex, field, staged);
       /* the first second of rows eases the riders off their staged grid */
       const settling = Number.isFinite(st.phaseStart) && store.serverNow() - st.phaseStart < 1200;
       /* each rider's velocity from the rows themselves (150 ms back), for wakes */
@@ -240,9 +244,19 @@ export function createWorld({ canvas, store, quality = "auto", onFrame, onFail, 
       return staged;
     }
     if (phase === "cut") {
-      const { cut, through } = cutOf(room, st.raceField);
+      /* The Drop's instant replay: the clip's rows, slowed, on the falls cam */
+      const win = store.replayWindow();
+      const now = store.serverNow();
+      if (win && now >= win.from && now < win.to) {
+        const clipAt = win.clipFrom + (now - win.from) * win.rate;
+        const clip = store.state.replay.buffer.sample(clipAt, replayRows);
+        for (const [i, r] of clip) { staged.set(i, { ...r, ease:0 }); shown.add(i); }
+        replaying = win;
+        return staged;
+      }
+      const { cut, through, order } = cutOf(room, st.raceField);
       if (rows.size) for (const [i, r] of rows) staged.set(i, { ...r, ease:2 });
-      else takeoutPoses(geo, leg, through, cut, staged);
+      else takeoutPoses(geo, legIndex, order, staged);
       [...cut, ...through].forEach(i => shown.add(i));
       cut.forEach(i => sadSet.add(i));
       return staged;
@@ -289,7 +303,8 @@ export function createWorld({ canvas, store, quality = "auto", onFrame, onFail, 
     });
     const nextLeg = geo.legs[Math.min(geo.legs.length - 1, (room?.leg | 0) + 1)];
     const cam = B.director.update(dt, {
-      phase:st.phase, t:phaseElapsed, dur:phaseDur, leg, riders:riderList, through, round:room?.round | 0, now:time * 1000,
+      phase:replaying ? "replay" : st.phase, t:phaseElapsed, dur:phaseDur, leg, riders:riderList, through, round:room?.round | 0, now:time * 1000,
+      replay:replaying,
       nextLeg:(room?.leg | 0) + 1 < geo.legs.length ? nextLeg : null,
       podiumAt:B.bar?.anchor, aspect:width / height,
     });
@@ -328,7 +343,8 @@ export function createWorld({ canvas, store, quality = "auto", onFrame, onFail, 
         return { place:top.place, x:Math.round((projected.x * 0.5 + 0.5) * width), y:Math.round((-projected.y * 0.5 + 0.5) * height), on:projected.z < 1 };
       });
     }
-    onFrame?.({ tags:tagInfo, order, through, leg, now, drawAt, shot:cam.shot, camKey:cam.key, width, height, podium:podiumSpots });
+    onFrame?.({ tags:tagInfo, order, through, leg, now, drawAt, shot:cam.shot, camKey:cam.key, width, height, podium:podiumSpots,
+      replay:replaying ? { i:replaying.i } : null });
     /* step down when the frame budget will not hold */
     const t = performance.now();
     frameTimes.push(dt * 1000);

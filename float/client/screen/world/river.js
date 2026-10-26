@@ -103,13 +103,15 @@ void main() {
   /* the sky in the water: violet at the horizon, deep above */
   vec3 sky = mix(uSkyLow, uSkyHigh, clamp(R.y * 1.6, 0.0, 1.0));
   float md = max(dot(R, uMoonDir), 0.0);
-  float moon = pow(md, 900.0) * 14.0 + pow(md, 90.0) * 0.6 + pow(md, 10.0) * 0.05;
+  /* the moon's glitter reads far off; up close it would look like snow */
+  float near = smoothstep(14.0, 55.0, length(cameraPosition - vWorld));
+  float moon = pow(md, 900.0) * 14.0 * near + pow(md, 90.0) * 0.6 + pow(md, 10.0) * 0.05;
   float shallow = smoothstep(6.0, 0.3, vEdge);
   vec3 base = mix(uDeep, uShallow, shallow * 0.75) * (0.85 + n1.a * 0.3);
   vec3 col = mix(base, sky, fres * 0.85);
   col += uMoonColor * moon * (1.0 - min(1.0, vChurn + vSlope));
   /* the bulbs on the water: a warm wash near them and sparse sharp glints */
-  float spark = smoothstep(0.83, 0.86, n2.a) * smoothstep(0.6, 0.72, n1.a);
+  float spark = smoothstep(0.83, 0.86, n2.a) * smoothstep(0.6, 0.72, n1.a) * near;
   col += uWarm * vGlow * (0.03 + spark * 1.6 * (0.3 + fres) + fres * 0.22);
 
   /* foam: soft-edged patches stretched along the current, lace inside them */
@@ -365,7 +367,8 @@ export function buildWhirlpools(geo, { noise }) {
         float r = length(vUv);
         if (r > 1.0) discard;
         float a = atan(vUv.y, vUv.x);
-        float spiral = a + log(max(r, 0.02)) * 3.2 + uTime * 1.6;
+        /* counter-clockwise from above (a mirrored disc turns the other way) */
+        float spiral = a + log(max(r, 0.02)) * 3.2 - uTime * 1.6;
         float arms = smoothstep(0.55, 0.95, sin(spiral * 3.0) * 0.5 + 0.5);
         float n = texture(uNoise, vec2(spiral * 0.2, r * 1.3)).b;
         float foam = arms * smoothstep(1.0, 0.55, r) * smoothstep(0.08, 0.3, r) * (0.55 + 0.45 * n);
@@ -382,14 +385,23 @@ export function buildWhirlpools(geo, { noise }) {
   });
   const centres = [];
   for (const z of spans) {
-    const s = (z.s0 + z.s1) / 2;
-    const p = geo.sample(s);
-    const inside = geo.turnAt(s) >= 0 ? 1 : -1;
-    const lat = inside * p.w * 0.24;
-    const radius = Math.min(8, p.w * 0.24);
-    const x = p.x + p.nx * lat, y = p.y + p.ny * lat;
+    /* the engine's whirlpool says where it is and how big; an older course, the inside of the bend */
+    let x, y, radius, s;
+    if (Number.isFinite(z.x) && Number.isFinite(z.y)) {
+      x = z.x; y = z.y; radius = Math.min(14, Number(z.r) || 8);
+      s = geo.nearest(x, y).s;
+    } else {
+      s = (z.s0 + z.s1) / 2;
+      const p = geo.sample(s);
+      const inside = geo.turnAt(s) >= 0 ? 1 : -1;
+      const lat = inside * p.w * 0.24;
+      radius = Math.min(8, p.w * 0.24);
+      x = p.x + p.nx * lat; y = p.y + p.ny * lat;
+    }
     const disc = new THREE.Mesh(new THREE.CircleGeometry(radius, 48), material);
     disc.rotation.x = -Math.PI / 2;
+    /* the spiral turns the way the water does (counter-clockwise from above when spin is +1) */
+    if ((z.spin ?? 1) < 0) disc.scale.x = -1;
     disc.position.set(x, geo.elevAt(s) + 0.04, -y);
     disc.renderOrder = 2;
     group.add(disc);

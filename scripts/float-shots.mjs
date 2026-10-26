@@ -1,5 +1,6 @@
 /* Float's screen, phase by phase, as PNGs: the real FloatScreen on the
-   mock room (float/client/screen/mockNet.js, ?mock=1&shot=<moment>&freeze=1)
+   mock (float/client/screen/mockNet.js: the real room run in the tab,
+   ?mock=1&shot=<moment>&freeze=1)
    at 1920 x 1080 in headless Chrome, from its own Vite server (no Worker,
    no Durable Object, nothing left running after).
 
@@ -37,7 +38,7 @@ const LIVE = value("--live") ? Number(value("--live")) : null;
 const FLAT = args.includes("--flat");
 const GPU = args.includes("--gpu");
 const SHOTS = positional.length ? positional
-  : ["lobby", "intro", "grid", "countdown", "race", "narrows", "whirlpool", "drop", "arrivals", "cut", "cutnext", "podium", "feedback"];
+  : ["lobby", "intro", "grid", "countdown", "race", "narrows", "whirlpool", "split", "drop", "arrivals", "cut", "cutnext", "replay", "podium", "feedback"];
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 /* Float's pages, as the dev server routes them */
@@ -139,6 +140,10 @@ try {
     await chrome.load(`${BASE}/float.html?${query}`, { timeout:60000 });
     const ok = await chrome.until("document.body.dataset.ready === '1'", { timeout:90000, every:250 });
     if (!ok) { console.error(`${shot}: never ready`); continue; }
+    /* a click, as the room's host would make: sound unlocks and its prompt goes */
+    if (!args.includes("--no-click")) {
+      for (const type of ["mousePressed", "mouseReleased"]) await chrome.cdp("Input.dispatchMouseEvent", { type, x:960, y:540, button:"left", clickCount:1 });
+    }
     const frames0 = await chrome.evaluate("window.__floatFrames || 0");
     await chrome.until(`(window.__floatFrames || 0) >= ${frames0 + 6}`, { timeout:60000, every:150 });
     await sleep(LIVE ?? WAIT);

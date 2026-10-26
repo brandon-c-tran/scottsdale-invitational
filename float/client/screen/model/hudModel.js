@@ -11,11 +11,14 @@ export const ordinal = n => {
   return `${n}${({ 1:"st", 2:"nd", 3:"rd" })[n % 10] || "th"}`;
 };
 
+/* a result row is a place once its time is in (the room lists everyone, in order) */
+export const isPlaced = row => Number.isInteger(row?.i) && (row.time === undefined || Number.isFinite(row.time));
+
 /* the race order: placed riders by place, then those waiting at the takeout
    for their drink (by arrival), then everyone on the water by progress */
 export function raceOrder({ field = [], rows, results = [], arrivals = [] }) {
   const placed = new Map();
-  for (const row of results) if (Number.isInteger(row?.i)) placed.set(row.i, row.place ?? placed.size + 1);
+  for (const row of results) if (isPlaced(row)) placed.set(row.i, row.place ?? placed.size + 1);
   const list = field.map(i => {
     const row = rows?.get?.(i);
     const f = row?.f ?? 0;
@@ -48,13 +51,22 @@ export function cupStandings(room) {
   return [...field, ...out.slice().reverse()];
 }
 
-/* who this cut sends home: the outs that raced this round */
+/* who this cut sends home: the round's own record when the room keeps one
+   (`history`), else the outs that raced this round */
 export function cutOf(room, raceField) {
+  const last = Array.isArray(room?.history) && room.history.length ? room.history[room.history.length - 1] : null;
+  if (last && (last.round === room.round || room?.phase === "cut")) {
+    const field = indexList(last.field);
+    const cut = indexList(last.out);
+    const order = indexList(last.results);
+    const ranked = [...order.filter(i => field.includes(i)), ...field.filter(i => !order.includes(i))];
+    return { cut, through:ranked.filter(i => !cut.includes(i)), order:ranked, results:last.results || [] };
+  }
   const out = indexList(room?.out);
   const field = raceField?.length ? raceField : indexList(room?.field);
   const cut = out.filter(i => field.includes(i));
   const through = field.filter(i => !cut.includes(i));
-  return { cut, through };
+  return { cut, through, order:[...through, ...cut], results:room?.results || [] };
 }
 
 export function titleFor(room, geo) {
@@ -63,7 +75,7 @@ export function titleFor(room, geo) {
   const rounds = room?.rounds | 0;
   const field = indexList(room?.field).length;
   const through = throughFor(room);
-  const final = rounds > 0 && round >= rounds;
+  const final = (rounds > 0 && round >= rounds) || ("cut" in (room || {}) && room.cut === null && room.phase !== "lobby");
   return { round, rounds, final, leg, legName:leg?.name || "", field, through,
     label:final ? "Final" : `Round ${round}`,
     goes:final || through >= field ? (field <= 3 ? `${field} race for the podium` : `${field} riders`) : `${through} of ${field} go through` };

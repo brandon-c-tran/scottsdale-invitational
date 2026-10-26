@@ -5,9 +5,9 @@
    flags come from the newer row, and a stall holds the newest pose.
    Pure: no DOM, no three.js. */
 import { angleDelta } from "./courseGeom.js";
+import { INTERP_MS } from "../../../shared/tuning.js";
 
-/* float/shared/tuning.js INTERP_MS (replace with the import on integration) */
-export const INTERP_MS = 100;
+export { INTERP_MS };
 /* a jump this far between two rows is a reset (a new grid), not motion */
 const TELEPORT_M = 9;
 

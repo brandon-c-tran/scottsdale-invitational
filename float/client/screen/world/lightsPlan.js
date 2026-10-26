@@ -21,7 +21,7 @@ function mulberry(seed) {
   };
 }
 
-export function planLights(geo, { bankZ, barS = null } = {}) {
+export function planLights(geo, { bankZ, barS = null, barSide = 1 } = {}) {
   const rnd = mulberry(11);
   const poles = [];
   const wires = [];
@@ -55,7 +55,7 @@ export function planLights(geo, { bankZ, barS = null } = {}) {
     let prev = null;
     for (let s = s0; s <= s1 + 0.01; s += step) {
       /* nothing in front of the bar's deck */
-      if (barS !== null && side === 1 && Math.abs(s - barS) < 13) { prev = null; continue; }
+      if (barS !== null && side === barSide && Math.abs(s - barS) < 13) { prev = null; continue; }
       const top = pole(bank(s, side), POLE + (rnd() - 0.5) * 0.6);
       if (prev) hang(prev, top, 0.7 + rnd() * 0.3, 1.15, BULBS, (s | 0));
       prev = top;
@@ -81,24 +81,29 @@ export function planLights(geo, { bankZ, barS = null } = {}) {
     along(z.s0, z.s1, rnd() < 0.5 ? 1 : -1, 10);
     for (let k = 0; k < 9; k++) {
       const s = z.s0 + (z.s1 - z.s0) * rnd();
+      /* never among the riders on a grid */
+      if (legs.some(leg => s > leg.grid - 22 && s < leg.grid + 6)) continue;
       const p = geo.sample(s);
       const lat = (rnd() - 0.5) * (p.w - 6);
       lanterns.push({ x:p.x + p.nx * lat, y:p.y + p.ny * lat, s, color:rnd() < 0.25 ? "#ff8fc6" : "#ffc06a", phase:rnd() * 6.28 });
     }
   }
   /* the bar: the far bank lit along, the bar's own bank lit up to its deck, torches */
-  for (const z of geo.zoneSpans("bar")) {
-    along(z.s0, Math.min(geo.length - 3, z.s1), -1, 7);
-    if (barS !== null) along(z.s0, Math.max(z.s0, barS - 14), 1, 7);
-    for (let k = 0; k < 6; k++) {
-      const s = z.s0 + (z.s1 - z.s0) * (k + 0.5) / 6;
-      const side = k % 2 ? 1 : -1;
-      if (barS !== null && side === 1 && Math.abs(s - barS) < 13) continue;
-      torches.push({ ...bank(s, side, 4.5), phase:rnd() * 6.28 });
+  /* every takeout's gravel bar gets a lit beach; the last one the party */
+  const bars = geo.zoneSpans("bar");
+  bars.forEach((z, k) => {
+    const last = k === bars.length - 1;
+    const zs = z.side === -1 ? -1 : 1;
+    if (!last) { along(z.s0, Math.min(geo.length - 3, z.s1), zs, 8); return; }
+    along(z.s0 - 10, Math.min(geo.length - 3, z.s1), -zs, 7);
+    along(z.s0 - 10, Math.min(geo.length - 3, z.s1), zs, 7);
+    for (let t = 0; t < 4; t++) {
+      const s = z.s0 + (z.s1 - z.s0) * (t + 0.5) / 4;
+      torches.push({ ...bank(s, -zs, 4.5), phase:rnd() * 6.28 });
     }
     /* two torches flanking the bar's deck */
-    if (barS !== null) for (const ds of [-8.5, 8.5]) torches.push({ ...bank(barS + ds, 1, 7), phase:rnd() * 6.28 });
-  }
+    if (barS !== null) for (const ds of [-8.5, 8.5]) torches.push({ ...bank(barS + ds, barSide, 7), phase:rnd() * 6.28 });
+  });
   /* now and then along the way */
   for (let s = 70; s < geo.length - 40; s += 120 + rnd() * 40) {
     const near = legs.some(leg => Math.abs(s - leg.grid) < 40 || Math.abs(s - leg.finish) < 40);

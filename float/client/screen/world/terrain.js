@@ -79,6 +79,7 @@ export function terrainField(geo) {
   }
   const wallAt = s => wall[Math.max(0, Math.min(wn - 1, Math.round(s / WS)))];
 
+  const bars = geo.zones.filter(z => z.k === "bar").map(z => ({ s0:z.s0, s1:z.s1, side:z.side === -1 ? -1 : 1 }));
   const heights = new Float32Array(count);
   const kind = new Uint8Array(count); /* 0 bed, 1 wet, 2 beach, 3 green, 4 wall, 5 rim */
   const tmp = {};
@@ -95,7 +96,9 @@ export function terrainField(geo) {
     const side = bestSide[k] || 1;
     const sideVar = 1 + 0.28 * noise2(s * 0.011, side * 3.7, 8);
     const wallH = wallAt(s) * sideVar;
-    const beachW = 2 + 5 * smoothstep(14, 3, wallH) + 2.5 * (noise2(s * 0.03, side * 5.1, 9) + 0.5);
+    let beachW = 2 + 5 * smoothstep(14, 3, wallH) + 2.5 * (noise2(s * 0.03, side * 5.1, 9) + 0.5);
+    /* a takeout's gravel bar: a wide beach on its side */
+    for (const bar of bars) if (side === bar.side && s > bar.s0 - 8 && s < bar.s1 + 8) beachW += 10 * smoothstep(bar.s0 - 8, bar.s0 + 4, s) * smoothstep(bar.s1 + 8, bar.s1 - 4, s);
     const run = wallH < 7 ? wallH * 3.2 + 4 : wallH * 0.85 + 2;
     let h, kd;
     if (d < -2) { h = -1.1 - Math.min(2.6, (-d - 2) * 0.16); kd = 0; }
@@ -176,7 +179,7 @@ const KIND_TINT = [
 /* tiles of the field as meshes (each its own draw, so the off-screen ones cull) */
 export function terrainMeshes(field, { glowAt, noise }) {
   const { x0, y0, nx, ny, step, heights, kind } = field;
-  const material = new THREE.MeshLambertMaterial({ vertexColors:true });
+  const material = new THREE.MeshLambertMaterial({ vertexColors:true, flatShading:true });
   material.onBeforeCompile = shader => {
     shader.uniforms.uNoise = { value:noise };
     shader.uniforms.uWarm = { value:new THREE.Color(NIGHT.warm) };

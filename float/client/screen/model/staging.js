@@ -1,21 +1,18 @@
-/* Where riders sit when the room sends no rows (rows come only in a race):
-   bobbing in the put-in pool in the lobby, on the grid in field order
-   (pole first, rows of five), home at the takeout, on the podium. When rows
-   resume the riders ease from here into them. Pure. */
+/* Where riders sit when the room sends no rows: bobbing in the put-in pool
+   in the lobby, on the grid in field order (pole first), parked on the
+   takeout's bar, on the podium. When rows come the riders ease from here
+   into them. Pure. */
+import { gridSlots, beachSlot } from "../../../shared/course.js";
 
-export const GRID = Object.freeze({ cols:5, rowGap:4.5, colGap:4.2, back:1 });
-
-export function gridPoses(geo, leg, field = [], out = new Map()) {
-  if (!geo || !leg) return out;
-  const cols = Math.min(GRID.cols, Math.max(1, field.length));
+/* the grid: the engine's own slots (course.js gridSlots), pole first, so
+   the riders are already where the first rows will put them */
+export function gridPoses(geo, legIndex, field = [], out = new Map()) {
+  if (!geo || !field.length) return out;
+  let slots = [];
+  try { slots = gridSlots(geo.course, legIndex | 0, field.length); } catch { slots = []; }
   field.forEach((i, k) => {
-    const row = Math.floor(k / cols), col = k % cols;
-    const inRow = Math.min(cols, field.length - row * cols);
-    const s = leg.grid - GRID.back - row * GRID.rowGap;
-    const p = geo.sample(s);
-    const span = Math.min(p.w - 8, GRID.colGap * (inRow - 1) + 0.01);
-    const lat = inRow > 1 ? span / 2 - (span * col) / (inRow - 1) : 0;
-    out.set(i, { x:p.x + p.nx * lat, y:p.y + p.ny * lat, a:Math.atan2(p.ty, p.tx), f:0, ease:3 });
+    const slot = slots[k];
+    if (slot) out.set(i, { x:slot.x, y:slot.y, a:slot.a, f:0, ease:3 });
   });
   return out;
 }
@@ -23,7 +20,7 @@ export function gridPoses(geo, leg, field = [], out = new Map()) {
 /* the lobby: a loose raft of everyone who has joined, drifting in the pool */
 export function lobbyPoses(geo, leg, count, time, out = new Map()) {
   if (!geo || !leg) return out;
-  const c = geo.sample(leg.grid + 14);
+  const c = geo.sample(Math.max(8, leg.grid - 6));
   for (let i = 0; i < count; i++) {
     const r = 2.6 * Math.sqrt(i + 0.6);
     const a = i * 2.39996 + time * 0.03;
@@ -34,19 +31,16 @@ export function lobbyPoses(geo, leg, count, time, out = new Map()) {
   return out;
 }
 
-/* home at the takeout: those through in a front line, the rest behind */
-export function takeoutPoses(geo, leg, through = [], cut = [], out = new Map()) {
-  if (!geo || !leg) return out;
-  const place = (list, s0, gap) => list.forEach((i, k) => {
-    const s = s0 + Math.floor(k / 6) * gap;
-    const p = geo.sample(s);
-    const n = Math.min(6, list.length - Math.floor(k / 6) * 6);
-    const span = Math.min(p.w - 6, 4.4 * (n - 1) + 0.01);
-    const lat = n > 1 ? span / 2 - (span * (k % 6)) / (n - 1) : 0;
-    out.set(i, { x:p.x + p.nx * lat, y:p.y + p.ny * lat, a:Math.atan2(p.ty, p.tx) + Math.PI, f:0, ease:1.2 });
+/* home at the takeout: parked on the leg's gravel bar in place order (the
+   engine's beachSlot), as the race left them */
+export function takeoutPoses(geo, legIndex, order = [], out = new Map()) {
+  if (!geo) return out;
+  order.forEach((i, k) => {
+    try {
+      const slot = beachSlot(geo.course, legIndex | 0, k);
+      out.set(i, { x:slot.x, y:slot.y, a:slot.a + Math.PI, f:0, ease:1.2 });
+    } catch {}
   });
-  place(through, leg.finish + 9, 3.6);
-  place(cut, leg.finish - 4, -3.6);
   return out;
 }
 

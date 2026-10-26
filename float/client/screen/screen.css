@@ -309,3 +309,18 @@
 .fs-step:focus-visible, .fs-seg:focus-visible, .fs-start:focus-visible { outline:calc(var(--u) * 3) solid var(--cyan); outline-offset:calc(var(--u) * 4); }
 .fs-start:not(:disabled):hover { filter:brightness(1.08); }
 .fs-root[data-phase="lobby"] .fs-sound { right:auto; left:calc(var(--u) * 90); bottom:calc(var(--u) * 40); }
+
+/* ── the instant replay ── */
+.fs-replay { position:absolute; left:calc(var(--u) * 46); top:calc(var(--u) * 96); display:flex; flex-direction:column; gap:calc(var(--u) * 10);
+  animation:fs-lower 0.5s cubic-bezier(0.2, 0.9, 0.25, 1.1) both; }
+.fs-replay-lamp { font-size:calc(var(--u) * 30); padding:calc(var(--u) * 8) calc(var(--u) * 18); background:rgba(9, 11, 20, 0.7); }
+.fs-replay-dot { width:calc(var(--u) * 14); height:calc(var(--u) * 14); border-radius:50%; background:var(--cyan); box-shadow:0 0 calc(var(--u) * 12) var(--cyan);
+  animation:fs-flash 1s steps(2, start) infinite; }
+.fs-replay-who { font-size:calc(var(--u) * 64); text-shadow:0 calc(var(--u) * 6) calc(var(--u) * 24) rgba(0, 0, 0, 0.7); }
+/* letterbox bars while it plays, the broadcast's own frame */
+.fs-letterbox { position:absolute; inset:0; pointer-events:none; }
+.fs-letterbox::before, .fs-letterbox::after { content:""; position:absolute; left:0; right:0; height:calc(var(--u) * 64); background:#04050b;
+  animation:fs-bars 0.45s cubic-bezier(0.2, 0.9, 0.25, 1) both; }
+.fs-letterbox::before { top:0; transform-origin:top; }
+.fs-letterbox::after { bottom:0; transform-origin:bottom; }
+@keyframes fs-bars { from { transform:scaleY(0); } to { transform:scaleY(1); } }

@@ -10,7 +10,7 @@ import { FLAG } from "../../../shared/protocol.js";
 import { COUNT_BEATS, PODIUM_BEATS } from "../../sound/index.js";
 import { Chip, DoneIcon, DrinkIcon, FlagIcon, Num, OneSafe, Ordinal, ordinalHtml, PhoneIcon, SwimIcon } from "./bits.jsx";
 import { inkOn } from "./identity.js";
-import { cupStandings, cutOf, has, legLength, titleFor } from "../model/hudModel.js";
+import { cupStandings, cutOf, has, isPlaced, legLength, titleFor } from "../model/hudModel.js";
 import { indexList } from "../model/cupShape.js";
 
 const ROW_H = 54;
@@ -41,17 +41,20 @@ export function Plate({ room, geo }) {
 }
 
 /* ── the cap: the round ends 30 s after its first finisher ── */
+/* the round's end, once it is near: 30 s after the first finisher, or the
+   last 30 s of the hard cap */
 export function CapClock({ room, bus }) {
   const left = useFrameValue(bus, frame => {
     if (!Number.isFinite(room?.endsAt) || !frame) return null;
     const ms = room.endsAt - frame.now;
+    if (ms > 30500) return null;
     return ms > 0 ? Math.ceil(ms / 1000) : 0;
   });
   if (left === null) return null;
   return <div className={`fs-clock fs-glass${left <= 10 ? " is-low" : ""}`}>
     <span className="fs-clock-dot" />
     <span className="fs-label">Ends in</span>
-    <span className="fs-num">0:{String(left).padStart(2, "0")}</span>
+    <span className="fs-num">{Math.floor(left / 60)}:{String(left % 60).padStart(2, "0")}</span>
   </div>;
 }
 
@@ -250,8 +253,8 @@ export function Arrivals({ room, entrants, through, final }) {
   const round = room?.round | 0;
   useEffect(() => { seen.current = new Set(); setToasts([]); }, [round]);
   useEffect(() => {
-    const rows = Array.isArray(room?.results) ? room.results : [];
-    const fresh = rows.filter(row => Number.isInteger(row?.i) && !seen.current.has(row.i));
+    const rows = (Array.isArray(room?.results) ? room.results : []).filter(isPlaced);
+    const fresh = rows.filter(row => !seen.current.has(row.i));
     if (!fresh.length) return;
     fresh.forEach(row => seen.current.add(row.i));
     /* a screen that joins late does not replay old places */
@@ -274,9 +277,27 @@ export function Arrivals({ room, entrants, through, final }) {
   </div>;
 }
 
+/* ── the instant replay's lamp, while it plays ── */
+export function ReplayLamp({ bus, entrants }) {
+  const replay = useFrameValue(bus, frame => (frame?.replay ? frame.replay.i ?? -1 : null));
+  if (replay === null) return null;
+  const who = replay >= 0 ? entrants[replay] : null;
+  return <>
+    <div className="fs-letterbox" />
+    <div className="fs-replay">
+      <span className="fs-lamp is-cyan fs-replay-lamp"><span className="fs-replay-dot" />Replay</span>
+      {who && <span className="fs-replay-who fs-show">{who.name}</span>}
+    </div>
+  </>;
+}
+
 /* ── the cut: who goes home, then the next leg ── */
-export function CutBoard({ room, geo, entrants, raceField, bus, since }) {
-  const elapsed = useFrameValue(bus, frame => (frame && Number.isFinite(since) ? Math.floor((frame.now - since) / 100) * 100 : 0));
+export function CutBoard({ room, geo, entrants, raceField, bus, since, replayEnds = null }) {
+  /* with a replay, the board waits for it to end */
+  const start = Number.isFinite(replayEnds) ? replayEnds : since;
+  const elapsed = useFrameValue(bus, frame => (frame && Number.isFinite(start) ? Math.floor((frame.now - start) / 100) * 100 : 0));
+  const replaying = useFrameValue(bus, frame => !!frame?.replay);
+  if (replaying || elapsed < 0) return null;
   const { cut } = cutOf(room, raceField);
   const results = Array.isArray(room?.results) ? room.results : [];
   const placed = results.map(r => r.i).filter(i => !cut.includes(i));

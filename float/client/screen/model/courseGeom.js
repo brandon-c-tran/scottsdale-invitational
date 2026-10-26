@@ -1,9 +1,13 @@
 /* The river's geometry for the screen, from the contract's course data
    (float/PROTOCOL.md "The course data"). Pure: no DOM, no three.js, so the
-   world, the flat map, the camera director and the mock all share it.
+   world, the flat map and the camera director share it. Positions, the
+   nearest point and the water's height come from the engine's own helpers
+   (float/shared/course.js), so the banks the screen draws are the banks the
+   race bumps into.
 
    x east, y north, metres, top-down; s is distance along the centreline.
    Left is the left bank looking downstream (+90 degrees from the tangent). */
+import { frameAt, nearestS, elevAt as engineElev, flowSpeed } from "../../../shared/course.js";
 
 const lerp = (a, b, t) => a + (b - a) * t;
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
@@ -72,26 +76,18 @@ export function prepareCourse(course) {
 
   /* the centreline at s, written into `out`: x, y, w, tx, ty (unit tangent), nx, ny (unit left normal) */
   const sampleInto = (s, out = {}) => {
-    const i = indexAt(s);
-    const span = ss[i + 1] - ss[i] || 1;
-    const t = clamp((s - ss[i]) / span, 0, 1);
-    out.x = lerp(xs[i], xs[i + 1], t);
-    out.y = lerp(ys[i], ys[i + 1], t);
+    const f = frameAt(course, clamp(s, 0, length));
+    out.x = f.x; out.y = f.y; out.w = f.w; out.tx = f.tx; out.ty = f.ty; out.nx = f.nx; out.ny = f.ny;
     /* beyond the ends, carry on straight */
-    if (s < 0) { out.x += txs[0] * s; out.y += tys[0] * s; }
-    else if (s > length) { out.x += txs[n - 1] * (s - length); out.y += tys[n - 1] * (s - length); }
-    out.w = lerp(ws[i], ws[i + 1], t);
-    let tx = lerp(txs[i], txs[i + 1], t), ty = lerp(tys[i], tys[i + 1], t);
-    const len = Math.hypot(tx, ty) || 1;
-    out.tx = tx / len; out.ty = ty / len;
-    out.nx = -out.ty; out.ny = out.tx;
+    if (s < 0) { out.x += f.tx * s; out.y += f.ty * s; }
+    else if (s > length) { out.x += f.tx * (s - length); out.y += f.ty * (s - length); }
     out.s = s;
     return out;
   };
   const sample = s => sampleInto(s, {});
 
-  const elevAt = s => tableAt(course.elev, s, 0);
-  const flowAt = s => tableAt(course.flow, s, 0.5);
+  const elevAt = s => engineElev(course, s);
+  const flowAt = s => flowSpeed(course, s);
   const zonesAt = s => zones.filter(z => s >= z.s0 && s <= z.s1).map(z => z.k);
   /* zone roughness eased over `ease` metres either side, so foam fades in */
   const roughAt = (s, ease = 12) => {
@@ -142,10 +138,9 @@ export function prepareCourse(course) {
   const nearest = (x, y, hint = null, out = {}) => {
     const best = { d2:Infinity, s:0, i:0 };
     if (hint !== null && Number.isFinite(hint)) {
-      const h = indexAt(hint);
-      for (let i = Math.max(0, h - 10); i <= Math.min(n - 2, h + 10); i++) projectSeg(i, x, y, best);
-      if (best.d2 < 900) { out.s = best.s; out.d = Math.sqrt(best.d2); return out; }
-      best.d2 = Infinity;
+      const near = nearestS(course, x, y, hint);
+      out.s = near.s; out.d = Math.abs(near.d); out.lat = near.d;
+      return out;
     }
     const cx = Math.floor(x / CELL), cy = Math.floor(y / CELL);
     for (let r = 1; r <= 8; r++) {

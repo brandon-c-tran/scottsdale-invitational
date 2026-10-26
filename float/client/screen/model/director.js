@@ -108,6 +108,14 @@ export function createDirector(geo, { wallAt = () => 8, groundAt = null, falls =
         const lookP = at(Math.min(nextLeg.finish, sCam + 34 + Math.sin(u * Math.PI) * 30));
         return { eye:eyeP, look:lookP, fov:44, key:"cut:next", cut:true };
       }
+      case "replay": {
+        /* the falls on the replay's leg, from below the lip */
+        const r = input.replay;
+        const legR = legs[r?.leg ?? 0] || L;
+        const f = falls.find(item => item.lip >= (legR.grid ?? 0) - 5 && item.foot <= (legR.finish ?? geo.length) + 5) || falls[0];
+        if (f) return { ...fallsShot(f, time), fov:40, key:"replay" };
+        return { ...takeoutShot(L, riders, time), key:"replay" };
+      }
       case "podium":
       case "feedback": return { ...podiumShot(input, time, phase === "feedback"), key:phase === "feedback" ? "podium" : "podium", cut:true };
       default: return null;
@@ -292,8 +300,8 @@ export function createDirector(geo, { wallAt = () => 8, groundAt = null, falls =
     const changed = key !== mode;
     const far = Math.hypot(w.eye.x - eye.x, w.eye.y - eye.y) > 160;
     /* intro shots, the next-leg flight and the falls cam are their own takes: cut to them, and back */
-    const take = k => /^(intro:\d|cut:next|falls)/.test(k || "");
-    if (!primed || (changed && (take(key) || /^falls/.test(mode || ""))) || far) {
+    const take = k => /^(intro:\d|cut:next|falls|replay)/.test(k || "");
+    if (!primed || (changed && (take(key) || /^(falls|replay)/.test(mode || ""))) || far) {
       /* intro shots and the next-leg flight are their own takes: cut, then hold their track */
       Object.assign(eye, w.eye); Object.assign(look, w.look); fov = w.fov; primed = true;
     } else {

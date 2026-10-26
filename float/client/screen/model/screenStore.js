@@ -40,6 +40,7 @@ export function createScreenStore() {
     events:[],
     log:[],
     rtt:{},
+    replay:null,
     version:0,
   };
 
@@ -80,6 +81,8 @@ export function createScreenStore() {
         if (state.raceRound !== round) { state.arrivals = []; buffer.clear(); }
       }
       if (phase === "lobby" || phase === "intro") { state.arrivals = []; buffer.clear(); state.raceRound = -1; }
+      /* a replay belongs to the cut right after its race */
+      if (phase !== "cut") state.replay = null;
     }
     if (phase === "countdown" || phase === "race") {
       /* the countdown names its gun as startAt; a race's startAt is the gun */
@@ -112,6 +115,17 @@ export function createScreenStore() {
 
   function onDebug(msg) { if (msg?.rtt && typeof msg.rtt === "object") state.rtt = msg.rtt; }
 
+  /* The Drop's instant replay (float/PROTOCOL.md "As built": replay): the
+     clip's rows in their own buffer, played in the cut that follows */
+  function onReplay(msg) {
+    if (!msg || !Array.isArray(msg.k) || !msg.k.length || !Number.isFinite(msg.at)) return;
+    const buffer = createSnapBuffer({ keepMs:60000 });
+    for (const frame of msg.k) if (Array.isArray(frame) && Array.isArray(frame[1])) buffer.push({ s:frame[0], k:frame[1] });
+    state.replay = { leg:msg.leg | 0, at:msg.at, i:Number.isInteger(msg.i) ? msg.i : null, buffer, from:buffer.oldest(), to:buffer.newest(),
+      round:state.room?.round ?? null };
+    notify();
+  }
+
   /* the world's queue: moments now due at the draw time */
   function takeEvents(drawAt) {
     const due = [];
@@ -140,6 +154,7 @@ export function createScreenStore() {
         net.on("snap", onSnap),
         net.on("ev", onEv),
         net.on("debug", onDebug),
+        net.on("replay", onReplay),
       ];
       const offStatus = net.onStatus?.(next => { state.status = next; notify(); });
       state.status = net.status?.() || "connecting";
@@ -147,6 +162,17 @@ export function createScreenStore() {
     },
     onRoom, onSnap, onEv, takeEvents,
     subscribe(fn) { listeners.add(fn); return () => listeners.delete(fn); },
+    /* when the replay plays, on the server clock, and where in the clip:
+       it opens just into the cut, from a little before the moment, slowed */
+    replayWindow() {
+      const r = state.replay;
+      if (!r || state.phase !== "cut" || !Number.isFinite(state.phaseStart)) return null;
+      const clipFrom = Math.max(r.from, r.at - 2600), clipTo = Math.min(r.to, r.at + 1700);
+      const rate = 0.7;
+      const from = state.phaseStart + 400;
+      return { from, to:from + (clipTo - clipFrom) / rate, clipFrom, clipTo, rate, i:r.i, at:r.at, leg:r.leg };
+    },
+    onReplay,
     /* ms since this phase began, on the server clock */
     phaseElapsed:() => (Number.isFinite(state.phaseStart) ? serverNow() - state.phaseStart : 0),
   };

@@ -1,8 +1,7 @@
 /* The Cup's shape as the screen needs it (float/PROTOCOL.md "The Cup"): how
-   many race each round and how many of them go through. The engine's
-   float/shared/cup.js cutSchedule(n) is the truth; until the room says
-   `through` itself (a proposed contract field), the screen derives it from
-   this stand-in, which keeps the contract's own example (13, 9, 6, 3). */
+   many race each round and how many of them go through. The room says it
+   (`cut`, the next round's field, null in the last round); a room that does
+   not falls back to this stand-in of cup.js cutSchedule (13, 9, 6, 3). */
 
 export const PHASES = Object.freeze(["lobby", "intro", "grid", "countdown", "race", "cut", "podium", "feedback"]);
 
@@ -27,6 +26,11 @@ export const indexList = list => (Array.isArray(list) ? list.map(indexOf).filter
 /* places that go through this round: the room's own `through` when it sends
    one, else the next round's field; the final (or a field of 3 or fewer) places everyone */
 export function throughFor(room) {
+  /* the room says it: `cut` is the next round's field (null in the last round) */
+  if (room && "cut" in room) {
+    const field = indexList(room.field).length;
+    return Number.isFinite(room.cut) ? Math.min(room.cut, field || room.cut) : field;
+  }
   if (Number.isFinite(room?.through)) return room.through;
   const field = indexList(room?.field).length;
   const total = (room?.entrants || []).length;

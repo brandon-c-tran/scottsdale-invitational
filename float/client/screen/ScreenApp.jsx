@@ -2,14 +2,12 @@
    window. Without ?room= it makes a room (four consonants, so never a word),
    puts it in the URL and hosts that room's lobby: the code, the QR to
    /float/play?room=<code>, Start, the bots and the drinking switch. With
-   ?room= it is that room (a standalone code still hosts; a Field Day room
-   is run by Field Day). */
+   ?room= it is that room (a Field Day room is run by Field Day: no controls). */
 import React, { useMemo } from "react";
 import FloatScreen from "./FloatScreen.jsx";
 import { ROOM_ID } from "../../shared/protocol.js";
 
 const CONSONANTS = "bcdfghjklmnpqrstvwxz";
-const STANDALONE = /^[bcdfghjklmnpqrstvwxz]{4}$/;
 
 export function makeRoomCode(random = Math.random) {
   let code = "";
@@ -28,7 +26,8 @@ function useRoom() {
     }
     const join = new URL("/float/play", window.location.origin);
     join.searchParams.set("room", room);
-    return { room, hosting:STANDALONE.test(room), joinUrl:join.toString() };
+    /* the page hosts any party room; a Field Day room (mode "fieldday") shows no controls */
+    return { room, hosting:true, joinUrl:join.toString() };
   }, []);
 }
 

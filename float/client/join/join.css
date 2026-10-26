@@ -207,8 +207,10 @@
 .flj-actions { display: grid; gap: 10px; width: 100%; max-width: 440px; margin: 0 auto; flex: none; }
 .flj-actions.is-pinned {
   position: sticky;
-  bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
-  padding-top: 8px;
+  bottom: 0;
+  padding: 18px 0 calc(env(safe-area-inset-bottom, 0px) + 12px);
+  margin-bottom: calc(-1 * (env(safe-area-inset-bottom, 0px) + 20px));
+  background: linear-gradient(180deg, rgba(8, 19, 31, 0), var(--fl-bg) 34%);
 }
 .flj-join {
   height: 66px;
@@ -222,7 +224,7 @@
   transition: transform 120ms var(--fl-ease), opacity 160ms, box-shadow 120ms;
 }
 .flj-join:active:not(:disabled) { transform: scale(0.97); box-shadow: 0 5px 14px rgba(0, 0, 0, 0.38), inset 0 -2px 0 rgba(0, 0, 0, 0.14); }
-.flj-join:disabled { opacity: 0.35; box-shadow: none; }
+.flj-join:disabled { background: #2a3442; color: #6f7f90; box-shadow: none; }
 .flj-quiet { height: 48px; border-radius: 16px; font-size: 17px; font-weight: 800; color: var(--fl-muted); }
 .flj-quiet:active { background: var(--fl-faint); }
 
@@ -232,6 +234,25 @@
 .flj-done { min-height: 46px; padding: 0 22px; border-radius: 99px; background: var(--fl-ink); color: var(--fl-deep); font-size: 17px; font-weight: 900; }
 .flj-done:active { transform: scale(0.96); }
 .flj-sheet-body { flex: 1; }
+
+/* a phone held sideways with rotation unlocked: the rider beside Join, the
+   form in two columns, everything on one screen */
+@media (orientation: landscape) and (max-height: 520px) {
+  .flj-screen { gap: 10px; }
+  .flj-root .flj-stage .flp { --flp-size: 124px !important; }
+  .flj-ready { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); column-gap: 28px; }
+  .flj-ready > .flj-top { grid-column: 1 / -1; }
+  .flj-ready-main { justify-content: center; gap: 6px; }
+  .flj-ready > .flj-actions { align-self: center; }
+  .flj-name { font-size: 30px; }
+  .flj-edit-main { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: 12px 24px; width: 100%; max-width: 860px; margin: 0 auto; }
+  .flj-edit .flj-stage { display: none; }
+  .flj-field { max-width: none; }
+  .flj-colors { gap: 8px; }
+  .flj-actions.is-pinned { position: static; margin: 0 auto; padding: 0; background: none; max-width: 860px; }
+  .flj-code-main { padding-bottom: 0; gap: 18px; }
+  .flj-box { height: 72px; }
+}
 
 @media (prefers-reduced-motion: reduce) {
   .flj-root *, .flj-root *::before, .flj-root *::after { animation-duration: 1ms !important; }

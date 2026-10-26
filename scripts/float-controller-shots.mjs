@@ -48,7 +48,7 @@ async function main() {
      page (each group passes on its own, every time) */
   for (const size of WANT) {
     const [w, h] = SIZES[size];
-    for (const group of [shots, joinGroup]) {
+    for (const group of [beatGroup, shots, joinGroup]) {
       const page = await launchChrome({ width:w, height:h });
       page.on(m => {
         if (m.method === "Runtime.exceptionThrown") errors.push(m.params.exceptionDetails?.exception?.description || m.params.exceptionDetails?.text);
@@ -168,6 +168,8 @@ async function paddleChecks(page, size) {
       probe:window.__probe })`)));
   }
   check(strokes.map(s => s.side).join("") === "LLRR", `${size}: stroke sides ${strokes.map(s => s.side).join("")}`);
+  check(strokes.every(s => Number.isInteger(s.k) && Number.isFinite(s.d) && Math.abs(s.d) <= 250),
+    `${size}: every stroke carries its beat (${strokes.map(s => `${s.k}/${s.d}`).join(", ")})`);
   check(strokes.every(s => s.p > 0.3 && s.p <= 1), `${size}: stroke power ${strokes.map(s => s.p).join(", ")}`);
   const hands = out.filter(m => m.t === "hands").map(m => m.n);
   check(hands.includes(2), `${size}: hands 2 while both thumbs are down (${hands.join(" ")})`);
@@ -352,6 +354,154 @@ async function shots(page, size, w, h) {
 }
 async function joinGroup(page, size) {
   if (!ONLY || ONLY.has("join")) await joinChecks(page, size);
+}
+
+/* ── the beat (float/PROTOCOL.md "The beat"), looked at: the pulse, a
+   Perfect, a Too fast, Locked in and practice, each frame held still on
+   its moment. The page times itself on its own clock (the mock room's
+   server clock and gun), and these taps are touch events the page fires
+   at the very instant they aim for: headless Chrome acknowledges a CDP
+   touch only after a software paint, so one aimed at a beat while the
+   pulse animates lands anywhere in it (the paddle checks above drive the
+   real CDP touches, and check every stroke carries its beat). Runs in a
+   browser of its own, before anything stills the page's motion. ── */
+const BEAT_HELPERS = `(() => {
+  if (window.__beat) return true;
+  const B = 500, m = () => window.__floatMock;
+  const gun = () => { const c = m().cup(); return c.phase === "grid" ? c.endsAt + 3000 : c.startAt; };
+  const now = () => m().net.serverNow();
+  const into = period => (((now() - gun()) % period) + period) % period;
+  const frame = () => new Promise(resolve => requestAnimationFrame(resolve));
+  const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
+  let ids = 5000;
+  window.__beat = {
+    /* Taps [{ x, y, aim, hold }] on a beat at least 400 ms off (aim: ms
+       after it), each landing and lifting at its instant: the page fires
+       the whole run without yielding (under a second), so no paint can
+       push a touch off its mark. Then everything is held still
+       \`settle\` ms after the last. */
+    async taps(list, settle = 160) {
+      const base = gun() + Math.ceil((now() + 400 - gun()) / B) * B;
+      const moves = list.flatMap(t => [{ at:base + t.aim, t, down:true }, { at:base + t.aim + (t.hold ?? 40), t, down:false }])
+        .sort((a, b) => a.at - b.at);
+      /* the targets first: finding one lays the page out, and nothing may stand between the instant and the event */
+      const targets = new Map(list.map(t => [t, document.elementFromPoint(t.x, t.y)]));
+      const held = new Map();
+      for (const move of moves) {
+        while (now() < move.at) {}
+        if (move.down) {
+          const target = targets.get(move.t);
+          held.set(move.t, { target, touch:new Touch({ identifier:ids++, target, clientX:move.t.x, clientY:move.t.y, radiusX:8, radiusY:8, force:0.6 }) });
+        }
+        const { target, touch } = held.get(move.t);
+        if (!move.down) held.delete(move.t);
+        const others = [...held.values()].map(h => h.touch);
+        target.dispatchEvent(new TouchEvent(move.down ? "touchstart" : "touchend", { touches:others, targetTouches:others,
+          changedTouches:[touch], bubbles:true, cancelable:true }));
+      }
+      await wait(settle);
+      document.getAnimations().forEach(a => a.pause());
+      return { base, said:{ L:window.__beat.stamp("L"), R:window.__beat.stamp("R") }, groove:window.__beat.groove(), level:window.__beat.level() };
+    },
+    /* wait until \`ms\` into a \`period\` from the gun (a beat: 500), then hold every animation still */
+    async hold(ms, period = B) {
+      for (let n = 0; n < 240 && Math.abs(into(period) - ms) > 12; n++) await frame();
+      document.getAnimations().forEach(a => a.pause());
+      return { into:Math.round(into(period)), groove:window.__beat.groove(), level:window.__beat.level() };
+    },
+    go() { document.getAnimations().forEach(a => { try { a.play(); } catch {} }); return true; },
+    stamp:side => [...document.querySelectorAll(".flc-zone.is-" + side + " .flc-mark:not([data-gone]) b")].pop()?.textContent || null,
+    groove:() => document.querySelector(".flc-groove")?.textContent || "",
+    level:() => document.querySelector(".flc-race")?.dataset.level ?? null,
+    strokes:() => m().sent.filter(s => s.t === "stroke"),
+  };
+  return true;
+})()`;
+async function freshRace(page, scene) {
+  await page.evaluate(`window.__floatMock.go(${JSON.stringify(scene)})`);
+  await page.until("!!document.querySelector('.flc-race .flc-beat:not(.is-off)')", { timeout:4000 });
+  await sleep(700);
+  return geometry(page);
+}
+/* where a thumb lands on a paddle, in the viewport */
+const thumb = (g, side, y = 0.66) => at(g, side === "L" ? g.cw * 0.25 : g.cw * 0.75, g.ch * y);
+const taps = (page, list, settle) => page.evaluate(`window.__beat.taps(${JSON.stringify(list)}${settle ? `, ${settle}` : ""})`);
+async function beatShots(page, size) {
+  await page.load(`${BASE}/float/play?mock=1&at=race`);
+  if (!check(await page.until("!!window.__floatMock && !!document.querySelector('.flc-race')", { timeout:20000 }), `${size}: the race loaded`)) return;
+  await page.evaluate(BEAT_HELPERS);
+  await page.until("!!document.querySelector('.flc-hud .flp.is-drawn')", { timeout:8000 });
+  let g = await freshRace(page, "race");
+  /* the first touch wakes the sound engine (its one slow call): not one to time */
+  await taps(page, [{ ...thumb(g, "R"), aim:0 }]);
+  await page.evaluate("window.__beat.go()");
+  await sleep(900);
+  /* the pulse: just after a beat, the ring swelled and rippling, both rims lit */
+  await page.evaluate("window.__beat.hold(50)");
+  await shot(page, size, "beat-pulse");
+  await page.evaluate("window.__beat.go()");
+  /* a Perfect: a tap 10 ms after the beat (again if a pause in the page held it back) */
+  let r = null;
+  for (let n = 0; n < 3 && r?.said.L !== "Perfect"; n++) {
+    if (r) { await page.evaluate("window.__beat.go()"); await sleep(900); }
+    r = await taps(page, [{ ...thumb(g, "L"), aim:10 }]);
+  }
+  check(r.said.L === "Perfect", `${size}: a tap on the beat stamps Perfect (${r.said.L})`);
+  await shot(page, size, "beat-perfect");
+  await page.evaluate("window.__beat.go()");
+  await sleep(300);
+  let sent = await page.evaluate("window.__beat.strokes()");
+  const perfect = sent[sent.length - 1];
+  check(!!perfect && Number.isInteger(perfect.k) && Math.abs(perfect.d - 10) <= 20,
+    `${size}: its stroke tells the room the beat and when in it (${JSON.stringify(perfect)})`);
+  /* Good and Late, for the record */
+  r = await taps(page, [{ ...thumb(g, "R"), aim:-130 }]);
+  check(r.said.R === "Good", `${size}: 130 ms early is Good (${r.said.R})`);
+  await page.evaluate("window.__beat.go()");
+  await sleep(600);
+  r = await taps(page, [{ ...thumb(g, "L"), aim:200 }]);
+  check(r.said.L === "Late", `${size}: 200 ms after is Late (${r.said.L})`);
+  await page.evaluate("window.__beat.go()");
+  /* Too fast: on the beat with one paddle, again with the other 110 ms later in the same beat */
+  g = await freshRace(page, "race");
+  r = await taps(page, [{ ...thumb(g, "L"), aim:-20 }, { ...thumb(g, "R", 0.6), aim:110 }]);
+  check(r.said.L === "Perfect" && r.said.R === "Too fast", `${size}: a second stroke in the beat stamps Too fast (${r.said.L}, ${r.said.R})`);
+  await shot(page, size, "beat-toofast");
+  await page.evaluate("window.__beat.go()");
+  await sleep(400);
+  sent = await page.evaluate("window.__beat.strokes()");
+  const [one, two] = sent.slice(-2);
+  check(!!one && !!two && one.k === two.k && two.d - one.d >= 100, `${size}: both went to the room in one beat (${JSON.stringify([one, two])})`);
+  /* Locked in: the room says level 3, and a stroke on the beat keeps it */
+  g = await freshRace(page, "race-locked");
+  check(await page.evaluate("window.__beat.level()") === "3", `${size}: the room's Locked in reaches the strip`);
+  r = await taps(page, [{ ...thumb(g, "R"), aim:5 }], 120);
+  check(r.level === "3" && /Locked in/.test(r.groove) && r.said.R === "Perfect", `${size}: Locked in, named and lit (${r.groove}, ${r.said.R})`);
+  await shot(page, size, "beat-locked");
+  await page.evaluate("window.__beat.go()");
+  /* practice: the grid, a tap judged and never sent, the one line */
+  await page.evaluate(`window.__floatMock.go("grid")`);
+  await page.until("document.querySelector('.flc-root')?.dataset.screen === 'grid'", { timeout:4000 });
+  await sleep(600);
+  g = await geometry(page);
+  const before = (await page.evaluate("window.__beat.strokes()")).length;
+  r = await taps(page, [{ ...thumb(g, "L"), aim:-40 }]);
+  check(r.said.L === "Perfect", `${size}: a practice tap is judged on the beat to come (${r.said.L})`);
+  check(/Stroke on the beat/.test(await page.evaluate("document.querySelector('.flc-cue')?.textContent || ''")), `${size}: practice says "Stroke on the beat"`);
+  await shot(page, size, "beat-practice");
+  await page.evaluate("window.__beat.go()");
+  await sleep(300);
+  check((await page.evaluate("window.__beat.strokes()")).length === before, `${size}: and never sends it`);
+  /* the count in the ring, 50 ms after a half beat (the number settled, the ring lit) */
+  await page.evaluate(`window.__floatMock.go("countdown")`);
+  await page.until("!!document.querySelector('.flc-count b')", { timeout:4000 });
+  await sleep(200);
+  await page.evaluate("window.__beat.hold(550, 1000)");
+  await shot(page, size, "beat-countdown");
+  await page.evaluate("window.__beat.go()");
+}
+async function beatGroup(page, size) {
+  if (!ONLY || ONLY.has("beat")) await beatShots(page, size);
 }
 
 main().catch(error => { console.error(error); process.exit(1); });

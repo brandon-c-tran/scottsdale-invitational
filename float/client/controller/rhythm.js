@@ -15,11 +15,16 @@
      peeked at when it lands (shown at once) and committed when it turns
      out to be a stroke, so a thumb that only rests never claims a beat.
    - The streak shown: the phone's own count from the instant of a stroke,
-     until a `me` from the room that arrived `settle` after it (time for the
-     stroke to reach the room and the room's count to come back) says the
-     truth; the next stroke counts on from that. Until the room has said a
-     streak at all (an older room), the phone's own count stands. In
-     practice there is no room: the phone's own count.
+     until a `me` the room sent `settle` after it (its own stamp `s`: time
+     for the stroke to have reached the room, so a frame that was only slow
+     to arrive is never taken for one that counted it) says the truth; the
+     next stroke counts on from that. Until the room has said a streak at
+     all (an older room), the phone's own count stands. In practice there
+     is no room: the phone's own count.
+   - The room's word on the call restamps it when it puts the stroke on the
+     other side of the beat (on it or off it): the only way the same stroke
+     can be called otherwise (a stamp the room could not believe, a beat
+     already stroked), so a word about some other stroke never moves it.
    - A beat with no stroke, after a stroked beat, drops the streak a level
      (to that level's floor), once per gap, judged BEAT.MISS_GRACE_MS after
      that beat as the room does: a drink or a pause costs groove, not
@@ -30,8 +35,10 @@ import { predictedGun } from "../sound/music.js";
 import { gunAt } from "./controllerModel.js";
 
 export const MAX_LEVEL = LEVELS[LEVELS.length - 1].level;
-/* the room's count of a stroke is back this long after it, at the least */
+/* a `me` the room sent this long after a stroke has counted it (no round trip known yet) */
 export const SETTLE_MS = 220;
+/* a gun that moves this far is another race's */
+export const GUN_SLACK = BEAT_MS / 4;
 export const QUALITIES = Object.freeze(["perfect", "good", "early", "late", "fast"]);
 
 /* a touch's own time (performance clock) on the room's clock */
@@ -51,8 +58,9 @@ export function beatGun(room) {
 /* the beat is live in a race (strokes sent and counted), practice before the gun (shown, never sent) */
 export const beatMode = phase => phase === "race" ? "live" : phase === "grid" || phase === "countdown" ? "practice" : null;
 
-/* how long after a stroke the room's `me` can carry it: a round trip, a tick and a `me` */
-export const settleFor = rtt => Math.max(SETTLE_MS, Math.min(700, (Number.isFinite(rtt) && rtt > 0 ? rtt : 120) + 140));
+/* how long after a stroke a `me` the room sends has counted it: the way there, and room to spare */
+export const settleFor = rtt => Number.isFinite(rtt) && rtt > 0 ? Math.max(100, Math.min(600, Math.round(rtt / 2) + 80)) : SETTLE_MS;
+const ON_BEAT = new Set(["perfect", "good"]);
 
 /* a missed beat: one level down, to that level's floor */
 export const dropLevel = streak => levelFloor(Math.max(0, levelOf(streak) - 1));
@@ -82,6 +90,8 @@ export function createRhythm({ settle = SETTLE_MS } = {}) {
   let settleMs = settle;
   /* the beat of the last stroke, of any judgement: a further stroke in it is too fast, a gap after it drops a level */
   let lastBeat = null;
+  /* the gun the beats are counted from: a new one is a new race */
+  let gunUsed = null;
   let local = { streak:0, at:-Infinity, final:null, checked:true };
   let room = { known:false, streak:0, level:null, q:null, at:-Infinity };
   let version = 0;
@@ -111,9 +121,20 @@ export function createRhythm({ settle = SETTLE_MS } = {}) {
     },
     mode:() => mode,
     setSettle(ms) { if (Number.isFinite(ms) && ms > 0) settleMs = ms; },
+    /* Beats are numbered from a gun: one that moves by GUN_SLACK or more
+       (a new race, a resumed one) starts the count over; the grid's
+       predicted gun and the countdown's own differ by a tick and do not. */
+    track(gun) {
+      if (!Number.isFinite(gun)) return false;
+      const moved = gunUsed !== null && Math.abs(gun - gunUsed) >= GUN_SLACK;
+      if (moved) api.reset();
+      gunUsed = gun;
+      return moved;
+    },
     /* how a touch at server time t lands, without claiming the beat */
     peek(t, gun) {
       if (!Number.isFinite(gun) || !Number.isFinite(t)) return null;
+      api.track(gun);
       return judgeStroke(t, gun, { lastBeat });
     },
     /* A peeked touch became a stroke at server time `now`: judged again
@@ -135,22 +156,24 @@ export function createRhythm({ settle = SETTLE_MS } = {}) {
     judge(t, gun, options) {
       return api.commit(api.peek(t, gun), t, options);
     },
-    /* The room's `me` at server time `now`: the truth the count gives way
-       to. Returns the room's word on the last stroke when it is the first
-       `me` that has caught up with it and calls it the other way (on the
-       beat or off), else null. */
+    /* The room's `me` (sent at its own stamp `s`, else taken as sent at
+       `now`): the truth the count gives way to. Returns the room's word on
+       the last stroke when it is the first `me` sent after the room had it
+       and puts it on the other side of the beat, else null. */
     room(me, now) {
       if (!me || typeof me !== "object" || mode !== "live") return null;
       const streak = num(me.streak), level = num(me.level), q = QUALITIES.includes(me.q) ? me.q : null;
       if (streak === null && level === null && q === null) return null;
+      const sent = num(me.s) ?? now;
+      if (sent < room.at) return null;
       const before = shown(now, null);
       room = { known:room.known || streak !== null, streak:streak !== null ? Math.max(0, Math.floor(streak)) : room.streak,
         level:level !== null ? Math.max(0, Math.min(MAX_LEVEL, Math.floor(level))) : streak !== null ? null : room.level,
-        q:q ?? room.q, at:now };
+        q:q ?? room.q, at:sent };
       let word = null;
-      if (local.final && !local.checked && now >= local.at + settleMs && q !== null) {
+      if (local.final && !local.checked && sent >= local.at + settleMs && q !== null) {
         local.checked = true;
-        if (q !== local.final.q) word = q;
+        if (ON_BEAT.has(q) !== local.final.onBeat) word = q;
       }
       const after = shown(now, null);
       if (word || after.streak !== before.streak || after.level !== before.level) changed();

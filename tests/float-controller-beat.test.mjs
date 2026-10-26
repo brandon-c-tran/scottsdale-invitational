@@ -55,6 +55,20 @@ test("the call: on the beat Perfect, close Good, off it Early or Late; a peek cl
   assert.equal(r.peek(at(7), GUN).q, "perfect", "the next one is free");
 });
 
+test("beats count from their gun: a new gun starts over, the grid's predicted gun and the countdown's own do not", () => {
+  const r = createRhythm();
+  r.setMode("practice");
+  for (let k = 1; k <= 5; k++) r.judge(at(k), GUN);
+  /* the countdown's real gun, a tick after the grid's prediction: the same beats */
+  assert.equal(r.track(GUN + 30), false);
+  assert.equal(r.meter(at(5, 100), GUN + 30).streak, 5);
+  assert.equal(r.peek(at(5, 60), GUN + 30).q, "fast", "beat 5 is still taken");
+  /* another race: its beat 5 is a new one */
+  assert.equal(r.peek(at(5, 40000), GUN + 40000).q, "perfect");
+  assert.equal(r.lastBeat(), null);
+  assert.equal(r.meter(at(5, 40000), GUN + 40000).streak, 0);
+});
+
 test("too fast is the room's reading: an early stroke in beat k makes the rest of beat k too fast", () => {
   const r = createRhythm();
   assert.equal(r.judge(at(3, -190), GUN).q, "early");
@@ -137,6 +151,14 @@ test("the room's word on the call: the first `me` that has caught up and calls t
   assert.equal(r.room({ streak:0, level:0, q:"late" }, at(1, 400)), null, "said once");
   r.judge(at(2), GUN);
   assert.equal(r.room({ streak:1, level:0, q:"perfect" }, at(2, 300)), null, "the same call");
+  /* a frame the room sent before it had the stroke, only slow to arrive, is not about it */
+  r.judge(at(3, -120), GUN);
+  assert.equal(r.room({ streak:0, level:0, q:"late", s:at(3, -160) }, at(3, 400)), null);
+  assert.equal(r.meter(at(3, 400), GUN).streak, 2, "and does not move the count");
+  /* nor is a word that keeps the stroke on the same side of the beat (Good against Perfect is some other stroke) */
+  assert.equal(r.room({ streak:3, level:0, q:"perfect", s:at(3, 200) }, at(3, 420)), null);
+  r.judge(at(4, 30), GUN);
+  assert.equal(r.room({ streak:0, level:0, q:"fast", s:at(4, 300) }, at(4, 330)), "fast", "a beat the room had already seen stroked");
   /* a stroke the room will not hear (practice) waits for no word */
   const p = createRhythm({ settle:250 });
   p.setMode("live");
@@ -200,7 +222,8 @@ test("the stamps, the clock and the sound's weight", () => {
   assert.ok(POWER_OF.perfect > POWER_OF.good && POWER_OF.good > POWER_OF.early);
   assert.equal(nextBeatAt(at(3, 1), GUN), at(4));
   assert.equal(nextBeatAt(at(3), GUN), at(3));
-  assert.equal(settleFor(null), 260);
-  assert.equal(settleFor(10), SETTLE_MS);
-  assert.equal(settleFor(5000), 700);
+  assert.equal(settleFor(null), SETTLE_MS, "no round trip yet");
+  assert.equal(settleFor(120), 140, "the way there, and room to spare");
+  assert.equal(settleFor(10), 100);
+  assert.equal(settleFor(5000), 600);
 });

@@ -201,11 +201,12 @@ export default function FloatController({ room = "test", rider = null, onExit = 
   const beatOn = racing && !view.arrived && !view.swim && Number.isFinite(beatAt);
   const liveRef = useRef({});
   liveRef.current = { live, screen, gun, beatOn, beatAt };
-  /* a new grid starts practice over, the race starts the count over */
+  /* a new grid starts practice over, the race starts the count over, and so does a new gun */
   useEffect(() => {
     const mode = beatMode(racing ? screen : null);
     if (mode) rhythm.setMode(mode);
   }, [screen, round, racing, rhythm]);
+  useEffect(() => { if (Number.isFinite(beatAt)) rhythm.track(beatAt); }, [beatAt, rhythm]);
   /* the room's `me` is the truth: the count gives way to it, and its word on the last call restamps it */
   useEffect(() => {
     if (!net) return undefined;

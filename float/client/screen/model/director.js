@@ -160,30 +160,69 @@ export function createDirector(geo, { wallAt = () => 8, groundAt = null, falls =
       const r = vx * right.x + vy * right.y;
       const u = vx * up.x + vy * up.y + vz * up.z;
       const f = vx * fwd.x + vy * fwd.y + vz * fwd.z;
-      D = Math.max(D, (r >= 0 ? r / (safe.right * tanH) : -r / (safe.left * tanH)) - f);
-      D = Math.max(D, (u >= 0 ? u / (safe.top * tanV) : -u / (safe.bottom * tanV)) - f);
+      const box = p.safe || safe;
+      D = Math.max(D, (r >= 0 ? r / (box.right * tanH) : -r / (box.left * tanH)) - f);
+      D = Math.max(D, (u >= 0 ? u / (box.top * tanV) : -u / (box.bottom * tanV)) - f);
     }
     return { D:Math.min(maxD, D), fwd, right };
   }
 
-  /* frame a group: heading from the river upstream of it, so the eye sits
+  /* frame a group, and anyone else the shot would catch on the way: a rider
+     between the camera and the group is framed whole, not cut by the frame's
+     foot or the ribbon. Each pass decides from the shot before it, so the
+     same field always gives the same shot (no hunting) */
+  function frameGroup(group, opts) {
+    let shot = frameOnce(group, opts);
+    if (!opts.others) return shot;
+    const extra = [];
+    for (let pass = 0; pass < 2; pass++) {
+      const add = opts.others.filter(r => !group.includes(r) && !extra.includes(r) && inShot(shot, r, opts.aspect));
+      if (!add.length) break;
+      extra.push(...add);
+      shot = frameOnce(group, { ...opts, extra });
+    }
+    return shot;
+  }
+  function inShot(shot, r, aspect) {
+    const lx = shot.look.x - shot.eye.x, ly = shot.look.y - shot.eye.y, lz = shot.look.z - shot.eye.z;
+    const len = Math.hypot(lx, ly, lz) || 1;
+    const fx = lx / len, fy = ly / len, fz = lz / len;
+    const vx = r.x - shot.eye.x, vy = r.y - shot.eye.y, vz = geo.elevAt(r.s) + 1.6 - shot.eye.z;
+    const f = vx * fx + vy * fy + vz * fz;
+    if (f < 2) return false;
+    /* right = fwd x up(z), up = right x fwd */
+    const hx = Math.hypot(fx, fy) || 1;
+    const rx = fy / hx, ry = -fx / hx;
+    const side = vx * rx + vy * ry;
+    const ux = -fz * fx / hx, uy = -fz * fy / hx, uz = hx;
+    const upv = vx * ux + vy * uy + vz * uz;
+    const tanV = Math.tan((shot.fov * Math.PI) / 360), tanH = tanV * aspect;
+    return Math.abs(side) / (f * tanH) < 1.05 && upv / (f * tanV) > -1.2 && upv / (f * tanV) < 1;
+  }
+  /* one group: heading from the river upstream of it, so the eye sits
      over the water; distance from the multi-target framer; when the canyon
      is in the way the camera tilts up, it never comes closer */
-  function frameGroup(group, { lookAhead = 0, aspect, leader = null }) {
-    const points = group.map(r => ({ x:r.x, y:r.y, z:geo.elevAt(r.s) + 1.6 }));
+  function frameOnce(group, { lookAhead = 0, aspect, leader = null, extra = [] }) {
+    /* the group inside the HUD-safe box; riders caught on the way only clear
+       of the frame's edge and the ribbon */
+    const points = [...group.map(r => ({ x:r.x, y:r.y, z:geo.elevAt(r.s) + 1.6 })),
+      ...extra.map(r => ({ x:r.x, y:r.y, z:geo.elevAt(r.s) - 0.6, safe:LOOSE }))];
     const sMax = Math.max(...group.map(r => r.s)), sMin = Math.min(...group.map(r => r.s));
+    const sBack = Math.min(sMin, ...extra.map(r => r.s));
     if (lookAhead > 0) {
       const ahead = at(sMax + lookAhead, (leader?.lat ?? 0) * 0.6, 0);
       points.push({ x:ahead.x, y:ahead.y, z:ahead.z });
     }
-    const n = points.length;
-    const C = points.reduce((acc, p) => ({ x:acc.x + p.x / n, y:acc.y + p.y / n, z:acc.z + p.z / n }), { x:0, y:0, z:0 });
+    /* centred on the group; the caught riders only push the camera back */
+    const core = points.filter(p => !p.safe);
+    const n = core.length;
+    const C = core.reduce((acc, p) => ({ x:acc.x + p.x / n, y:acc.y + p.y / n, z:acc.z + p.z / n }), { x:0, y:0, z:0 });
     const span = sMax - sMin;
     const fovNow = lerp(FOV, 46, clamp(span / 90, 0, 1));
     let pitch = 0.3 + clamp(span / 300, 0, 0.1);
     let D = 30, yaw = 0;
     for (let it = 0; it < 3; it++) {
-      const back = at(Math.max(0, sMin - D * Math.cos(pitch) * 0.7));
+      const back = at(Math.max(0, sBack - D * Math.cos(pitch) * 0.7));
       yaw = Math.atan2(C.y - back.y, C.x - back.x);
       D = frameDistance(points, C, yaw, pitch, fovNow, aspect, SAFE, 20, 120).D;
     }
@@ -205,6 +244,8 @@ export function createDirector(geo, { wallAt = () => 8, groundAt = null, falls =
   }
 
   const SAFE = { left:0.72, right:0.42, top:0.48, bottom:0.5 };
+  /* a caught rider's tube (its lowest point) clear of the ribbon */
+  const LOOSE = { left:0.86, right:0.6, top:0.6, bottom:0.72 };
 
   /* the falls: a fixed camera below the lip, riders coming over toward it */
   function fallsShot(f, time) {
@@ -249,15 +290,15 @@ export function createDirector(geo, { wallAt = () => 8, groundAt = null, falls =
     /* one shot while it reads; spread out, the leader's group and the fight
        for the last place through take turns (7 s and 5 s) */
     const final = through >= ranked.length;
-    if (sMax - sMin <= 38 || final) return { ...frameGroup(fight, { lookAhead, aspect, leader }), key:"race" };
+    if (sMax - sMin <= 38 || final) return { ...frameGroup(fight, { lookAhead, aspect, leader, others:water }), key:"race" };
     const onCut = time % 12 >= 7;
     if (!onCut) {
       const front = fight.filter(r => r.s >= sMax - 22);
-      return { ...frameGroup(front, { lookAhead, aspect, leader }), key:"race:front" };
+      return { ...frameGroup(front, { lookAhead, aspect, leader, others:water }), key:"race:front" };
     }
     const bubble = ranked.find(r => r.rank === Math.min(through, ranked[ranked.length - 1].rank)) || ranked[ranked.length - 1];
     const group = ranked.filter(r => Math.abs(r.s - bubble.s) <= 18 && r.rank >= through - 1 && r.rank <= through + 2);
-    return { ...frameGroup(group.length ? group : [bubble], { lookAhead:6, aspect, leader:bubble }), key:"race:cut", cutGroup:group.map(r => r.i) };
+    return { ...frameGroup(group.length ? group : [bubble], { lookAhead:6, aspect, leader:bubble, others:water }), key:"race:cut", cutGroup:group.map(r => r.i) };
   }
 
   function podiumShot(input, time, wide) {

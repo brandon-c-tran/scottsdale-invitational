@@ -163,6 +163,16 @@ export function terrainField(geo) {
   }
   heights.set(smoothed);
 
+  /* the field's outer band eases to the plain's own level, so the desert
+     floor (dressing.js) meets every edge at one height: no seam, no gap */
+  for (let iy = 0; iy < ny; iy++) for (let ix = 0; ix < nx; ix++) {
+    const e = edgeU(ix, iy, nx, ny, STEP);
+    if (e <= 0) continue;
+    const k = iy * nx + ix;
+    heights[k] += (plain - heights[k]) * e;
+    rock[k] *= 1 - e;
+  }
+
   const heightAt = (x, y) => {
     const fx = (x - x0) / STEP, fy = (y - y0) / STEP;
     const ix = Math.max(0, Math.min(nx - 2, Math.floor(fx))), iy = Math.max(0, Math.min(ny - 2, Math.floor(fy)));
@@ -184,7 +194,14 @@ export function terrainField(geo) {
     const s = bestS[k];
     return { d:Math.sqrt(bestD2[k]) - geo.sample(s).w / 2, s, wall:wallAt(s) };
   };
-  return { x0, y0, nx, ny, step:STEP, heights, kind, tone, rock, heightAt, kindAt, bankInfo, wallAt };
+  return { x0, y0, nx, ny, step:STEP, heights, kind, tone, rock, heightAt, kindAt, bankInfo, wallAt, edge:plain };
+}
+
+/* 0 inside, 1 at the field's last few metres */
+const EDGE_BAND = 45;
+function edgeU(ix, iy, nx, ny, step) {
+  const e = Math.min(ix, nx - 1 - ix, iy, ny - 1 - iy) * step;
+  return e >= EDGE_BAND ? 0 : smoothstep(EDGE_BAND, 5, e);
 }
 
 const KIND_TINT = [
@@ -197,6 +214,8 @@ const KIND_TINT = [
 ];
 
 const TONES = [KIND_TINT[1], KIND_TINT[2], KIND_TINT[3], KIND_TINT[5]];
+/* the rim with its scrub, on average: the field's edge and the floor past it */
+export const FAR_TINT = KIND_TINT[5].clone().lerp(KIND_TINT[3], 0.375);
 
 /* tiles of the field as meshes (each its own draw, so the off-screen ones cull) */
 export function terrainMeshes(field, { glowAt, noise }) {
@@ -258,6 +277,8 @@ totalEmissiveRadiance += uWarm * vGlow * 0.55;`);
       color.copy(TONES[lo]).lerp(TONES[lo + 1], tn - lo);
       if (tn > 2.2) color.lerp(TONES[2], (0.25 + 0.25 * noise2(x * 0.05, y * 0.05, 4)) * (tn - 2.2) / 0.8);
       if (kind[k] === 0) color.copy(KIND_TINT[0]);
+      const eu = edgeU(gx, gy, nx, ny, step);
+      if (eu > 0) color.lerp(FAR_TINT, eu);
       col[v * 3] = color.r; col[v * 3 + 1] = color.g; col[v * 3 + 2] = color.b;
       wall[v] = rock[k];
       glow[v] = glowAt ? glowAt(x, y, z) : 0;

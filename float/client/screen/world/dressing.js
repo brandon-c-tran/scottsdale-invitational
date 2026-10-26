@@ -6,6 +6,7 @@ import * as THREE from "three";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { fbm, noise2, rng } from "./cpuNoise.js";
 import { NIGHT } from "./palette.js";
+import { FAR_TINT } from "./terrain.js";
 
 const v3 = (x, y, z) => new THREE.Vector3(x, z, -y);
 
@@ -269,14 +270,13 @@ export function buildDressing(geo, field, plan, { glowTex }) {
      so it never covers the river, at the level the field's edges fall to */
   const fx0 = field.x0, fy0 = field.y0, fx1 = field.x0 + (field.nx - 1) * field.step, fy1 = field.y0 + (field.ny - 1) * field.step;
   const outer = new THREE.Shape([[-6000, -6000], [6000, -6000], [6000, 6000], [-6000, 6000]].map(([x, y]) => new THREE.Vector2(cx + x, cy + y)));
-  outer.holes.push(new THREE.Path([[fx0 + 1, fy0 + 1], [fx0 + 1, fy1 - 1], [fx1 - 1, fy1 - 1], [fx1 - 1, fy0 + 1]].map(([x, y]) => new THREE.Vector2(x, y))));
+  outer.holes.push(new THREE.Path([[fx0 + 4, fy0 + 4], [fx0 + 4, fy1 - 4], [fx1 - 4, fy1 - 4], [fx1 - 4, fy0 + 4]].map(([x, y]) => new THREE.Vector2(x, y))));
   const floorGeo = keep(new THREE.ShapeGeometry(outer));
   /* the shape is in (x, y); lay it down as (x, plain, -y) */
   floorGeo.rotateX(-Math.PI / 2);
-  const floor = new THREE.Mesh(floorGeo, keep(new THREE.MeshLambertMaterial({ color:"#9c7650" })));
-  let edgeSum = 0, edgeN = 0;
-  for (let ix = 0; ix < field.nx; ix += 8) { edgeSum += field.heights[ix] + field.heights[(field.ny - 1) * field.nx + ix]; edgeN += 2; }
-  floor.position.y = edgeSum / Math.max(1, edgeN) - 0.6;
+  const floor = new THREE.Mesh(floorGeo, keep(new THREE.MeshLambertMaterial({ color:FAR_TINT })));
+  /* just under the field's edge, which eases to this level (terrain.js) */
+  floor.position.y = field.edge - 0.15;
   floor.renderOrder = -4;
   group.add(floor);
 

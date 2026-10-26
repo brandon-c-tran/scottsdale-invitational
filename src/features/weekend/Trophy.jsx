@@ -7,8 +7,8 @@ import { useFreshChange } from "../../lib/motion.js";
 import { programCover } from "./programModel.js";
 import { longestWordUnits } from "../../ui/textUnits.js";
 import {
-  CUP_TV, ENGRAVE, PLATE_FACES, cupCols, cupEngravings, cupTvLayout, engraveTotal, fitChampionName, fitPlateName, plateNameWidth,
-  trophyCup, trophyPlates,
+  CUP_TV, ENGRAVE, PLATE_FACES, champLines, cupCols, cupEngravings, cupTvLayout, engraveTotal, fitChampionName, fitPlateName,
+  plateNameWidth, trophyCup, trophyPlates,
 } from "./trophy.js";
 import "./trophy.css";
 
@@ -285,6 +285,8 @@ function Cartouche({ cup, tv, engraveAt, finale }) {
   const fresh = useFreshEngrave(champs.length ? name : "", "cup", champs.length > 0);
   const cutAt = engraveAt ?? (fresh ? 0 : null);
   const fit = tv && champs.length ? fitChampionName(name) : null;
+  /* the phone's plate: sized by the longest word, and by the lines a long name takes */
+  const lines = !tv && champs.length ? champLines(name) : 1;
   const cls = `fd-cup-cartouche${champs.length ? " is-posted" : ""}`
     + `${!champs.length && finale ? ` is-next${finale.live ? " is-live" : ""}` : ""}${cutAt !== null ? " is-engraving" : ""}`;
   return <div key={fresh || "rest"} className={cls} style={cutAt !== null ? { "--cut-at":`${Math.round(cutAt)}ms` } : undefined}
@@ -292,7 +294,7 @@ function Cartouche({ cup, tv, engraveAt, finale }) {
     {cutAt !== null && <Cut />}
     <span className="fd-cup-edition" aria-hidden="true">{EDITION.label}</span>
     {champs.length > 0 && <span className="fd-cup-champ" aria-hidden="true"
-      style={fit ? { fontSize:fit.size } : { "--name-units":Math.max(1, longestWordUnits(name)) }}>
+      style={fit ? { fontSize:fit.size } : { "--name-units":Math.max(1, longestWordUnits(name)), ...(lines > 1 ? { "--name-lines":lines } : {}) }}>
       {fit ? <Lines lines={fit.lines} /> : name}</span>}
   </div>;
 }

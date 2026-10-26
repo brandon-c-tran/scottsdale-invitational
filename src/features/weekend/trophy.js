@@ -178,3 +178,29 @@ export function plateNameWidth(plateW, count) {
 
 /* the champion on the cup's plate: 36 to 52 in one line, else two */
 export const fitChampionName = name => fitLines(name, CUP_TV.bowl.cartouche.width - 32, { max:52, min:36, two:34, floor:24 });
+
+/* The phone's plate letters the champion as large as its longest word
+   allows (6.4cqi at most, the word in 80cqi at .47em a letter; trophy.css)
+   and wraps at spaces: the lines that takes, at most three, so the plate
+   can hold them all (11.2cqi of it for the name, split between its lines).
+   Greedy at each size it would letter: a name that fits one line at the
+   two-line size stays one line. */
+export const CHAMP_PLATE = Object.freeze({ max:6.4, word:80, advance:0.47, line:36, height:11.2 });
+export function champLines(name) {
+  const words = String(name ?? "").trim().split(/\s+/).filter(Boolean);
+  if (words.length < 2) return 1;
+  const units = words.map(textUnits);
+  const P = CHAMP_PLATE;
+  const largest = Math.min(P.max, P.word / Math.max(1, ...units));
+  for (let lines = 1; lines < 3; lines++) {
+    const size = Math.min(largest, P.height / lines);
+    const room = P.line / (P.advance * size);
+    let used = 1, width = 0;
+    for (const u of units) {
+      if (width && width + 1 + u > room) { used += 1; width = u; }
+      else width += (width ? 1 : 0) + u;
+    }
+    if (used <= lines) return lines;
+  }
+  return 3;
+}

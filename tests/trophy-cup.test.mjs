@@ -8,8 +8,8 @@ import assert from "node:assert/strict";
 import { BUILTIN_EVENTS, EMPTY_STATE, SESSIONS, allEventsOf, computeStandings } from "../shared/core.js";
 import { fresh, longNames, act } from "../dev/fit/scenarios.js";
 import {
-  CUP_ROW, CUP_TV, ENGRAVE, cupCols, cupEngravings, cupRows, cupTvLayout, engraveTotal, fitChampionName, fitPlateName,
-  plateEngraving, plateNameWidth, trophyCup,
+  CHAMP_PLATE, CUP_ROW, CUP_TV, ENGRAVE, champLines, cupCols, cupEngravings, cupRows, cupTvLayout, engraveTotal, fitChampionName,
+  fitPlateName, plateEngraving, plateNameWidth, trophyCup,
 } from "../src/features/weekend/trophy.js";
 import { engraveCues } from "../src/features/tv/roomSound.js";
 import { hydrateStoredState } from "../worker/state.js";
@@ -141,6 +141,14 @@ test("the TV's cup keeps the 24px floor and stays inside the canvas", () => {
   assert.equal(fitChampionName("Adi").size, 52);
   const long = fitChampionName("Squilliam & Henry Nguyen");
   assert.ok(long.size >= 24 && long.lines.length === 2, "co-champions take two lines");
+});
+
+test("the phone's plate: a long champion shares the plate's height between the lines it takes", () => {
+  assert.deepEqual(["Adi", "Ben Lee", "Eyob Tesfamariam", "Allan Montgomery", "Squilliam & Henry Nguyen",
+    "Squilliam Fancyson & Allan Montgomery"].map(champLines), [1, 1, 2, 2, 2, 3]);
+  /* every line count's size keeps the name inside the plate (18.67cqi: the edition, the gap and the name) */
+  for (const lines of [1, 2, 3])
+    assert.ok(lines * 1.08 * Math.min(CHAMP_PLATE.max, CHAMP_PLATE.height / lines) <= 12.2, `${lines} line(s)`);
 });
 
 test("a band's plaques: three a row at most, evened out (phone and TV); a crowded cup goes back to four", () => {

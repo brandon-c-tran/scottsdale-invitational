@@ -28,7 +28,7 @@ function finite(object) {
 
 test("the contract's four signatures, and the additions", () => {
   for (const name of ["buildFloatie", "buildCritter", "buildRider", "riderPortrait"]) assert.equal(typeof art[name], "function", name);
-  for (const name of ["floatEnvironment", "floatLights", "disposeFloatArt", "artStats"]) assert.equal(typeof art[name], "function", name);
+  for (const name of ["floatEnvironment", "floatLights", "disposeFloatArt", "artStats", "buildMedallion", "setFloatArtQuality", "disposePortraits"]) assert.equal(typeof art[name], "function", name);
   const rider = buildRider(entrant("capybara", "classic"));
   for (const key of ["root", "critter", "floatie", "update", "dispose"]) assert.ok(key in rider, `rider.${key}`);
   for (const key of ["root", "setStroke", "setState", "setPose", "update", "dispose"]) assert.ok(key in rider.critter, `critter.${key}`);
@@ -54,6 +54,18 @@ test("every critter builds, plays every state and pose, and disposes", () => {
     assert.ok(finite(r.root), `${critter}: every matrix finite`);
     r.dispose();
   }
+});
+
+test("hero detail (close-ups, portraits, the podium): every critter and floatie builds and disposes", () => {
+  for (const critter of CRITTER_IDS) {
+    const r = buildRider({ ...entrant(critter, FLOATIE_IDS[CRITTER_IDS.indexOf(critter) % FLOATIE_IDS.length]), look: { critter, floatie: FLOATIE_IDS[CRITTER_IDS.indexOf(critter) % FLOATIE_IDS.length], hat: "party", shades: "goggles" } }, { detail: "hero" });
+    for (let i = 0; i < 30; i++) r.update(1 / 60);
+    assert.ok(finite(r.root), critter);
+    const race = buildRider(entrant(critter, "classic"));
+    assert.ok(artStats(r.root).triangles > artStats(race.root).triangles, `${critter}: hero is finer than race`);
+    race.dispose(); r.dispose();
+  }
+  for (const floatie of FLOATIE_IDS) { const f = buildFloatie({ floatie, detail: "hero", entrant: { number: 5 } }); f.update(1 / 60); f.dispose(); }
 });
 
 test("every floatie builds with a seat and its seat info, flips, and disposes", () => {

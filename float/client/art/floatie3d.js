@@ -375,8 +375,11 @@ export function buildFloatieArt({ floatie = "classic", color = "#e8b04a", badge 
     root, seat, bob, hull, seatInfo: geo.seat, id,
     /* flipped: upside down on the water (its rider swimming) */
     setState(next = {}) { if (next && "flipped" in next) st.flipped = !!next.flipped; if (next && "swim" in next) st.flipped = !!next.swim; },
+    /* the same, without an object (the rider calls these every frame) */
+    setFlipped(on) { st.flipped = !!on; },
     /* a push from the rider: lean (signed, toward -x positive), dip (0..1) */
-    kick({ lean = 0, dip = 0 } = {}) { st.lean = lean; if (dip > 0) st.dipV -= dip * 1.4; },
+    kick({ lean = 0, dip = 0 } = {}) { api.push(lean, dip); },
+    push(lean = 0, dip = 0) { st.lean = lean; if (dip > 0) st.dipV -= dip * 1.4; },
     update(dt) {
       dt = Math.min(Math.max(dt || 0, 0), 0.1);
       st.t += dt;

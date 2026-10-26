@@ -142,8 +142,8 @@ export function buildRider(entrant = {}, { detail = "race" } = {}) {
       critter.update(dt);
       const dip = rt.impulse.dip;
       rt.impulse.dip = 0;
-      floatie.kick({ lean: rt.lean, dip: dip + (critter.takeCatch() ? 0.1 : 0) });
-      floatie.setState({ flipped: rt.state.swim && !rt.pose });
+      floatie.push(rt.lean, dip + (critter.takeCatch() ? 0.1 : 0));
+      floatie.setFlipped(rt.state.swim && !rt.pose);
       floatie.update(dt);
     },
     dispose() { critter.dispose(); floatie.dispose(); },
@@ -169,6 +169,13 @@ export function buildMedallion(entrant = {}, { detail = "hero" } = {}) {
   root.add(new THREE.Mesh(chipGeometry(det === "hero" ? 64 : 36), badge.material), new THREE.Mesh(bezelGeometry(det), gold()));
   let live = true;
   return { root, ready: badge.ready, dispose() { if (!live) return; live = false; root.parent?.remove(root); releaseBadge(badge.key); } };
+}
+
+/* free the portraits' offscreen renderer (its WebGL context); finished
+   images stay cached. For the Locker when its sheet closes. */
+export async function disposePortraits() {
+  const { disposePortraits: dispose } = await import("./portrait.js");
+  dispose();
 }
 
 /* triangles and meshes drawn in a built object (the showcase and the tests) */

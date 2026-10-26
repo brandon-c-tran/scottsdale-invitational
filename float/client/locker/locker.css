@@ -267,7 +267,8 @@
 .fll-glyph-sprinkles { fill: none; stroke: #ff5a8a; stroke-width: 2; stroke-linecap: round; }
 .fll-glyph-dots { fill: #e4572e; }
 .fll-floatie.is-compact { gap: 6px; padding: 9px 10px; border-radius: 15px; }
-.fll-floatie.is-compact .fll-floatie-name { font-size: 13px; }
+/* a compact card's name wraps rather than cut: "Classic Tube" on two lines beats "Class..." */
+.fll-floatie.is-compact .fll-floatie-name { font-size: 13px; white-space: normal; line-height: 1.05; overflow-wrap: anywhere; }
 .fll-floatie.is-compact .fll-glyph { width: 22px; height: 22px; }
 .fll-floatie.is-compact .fll-floatie-twist { display: none; }
 

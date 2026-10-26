@@ -24,7 +24,8 @@ const arg = (name, fallback) => {
 const BASE = arg("url", "http://localhost:5183").replace(/\/$/, "");
 const OUT = path.resolve(arg("out", path.join(os.tmpdir(), "float-controller-shots")));
 const ONLY = arg("only", "") ? new Set(arg("only", "").split(",")) : null;
-const SIZES = { portrait:[390, 844], landscape:[844, 390] };
+/* an iPhone 14 either way; an SE (the smallest, turned) and a Pro Max held sideways on request */
+const SIZES = { portrait:[390, 844], landscape:[844, 390], se:[375, 667], max:[932, 430] };
 const WANT = arg("sizes", "portrait,landscape").split(",").filter(name => SIZES[name]);
 const SCALE = Number(arg("scale", "2")) || 2;
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -131,7 +132,8 @@ async function paddleChecks(page, size) {
   await sleep(500);
   const g = await geometry(page);
   if (!check(!!g, `${size}: the race frame is there`)) return;
-  check(size === "portrait" ? g.turn !== 0 : g.turn === 0, `${size}: turn ${g.turn}`);
+  const upright = SIZES[size][1] > SIZES[size][0];
+  check(upright ? g.turn !== 0 : g.turn === 0, `${size}: turn ${g.turn}`);
   const warmed = await warm(page, g);
   if (!warmed) console.log("     diagnostics: the warm-up tap sent nothing", JSON.stringify(await sent(page)).slice(0, 300));
   await clearSent(page);

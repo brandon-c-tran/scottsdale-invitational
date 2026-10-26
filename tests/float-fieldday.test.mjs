@@ -429,8 +429,11 @@ const socketFor = memory => {
   memory.sockets.push(ws);
   return ws;
 };
-/* the FLOAT binding: one room per name, every POST /internal/cup recorded */
-function fakeFloat(answer = () => ({ status:200, body:{ ok:true } })) {
+/* the FLOAT binding: one room per name, every POST /internal/cup recorded;
+   by default it answers as the room does (float/PROTOCOL.md "As built") */
+const roomTook = (n, body) => ({ status:200, body:{ ok:true, cupId:body.cupId, room:"fd-float", startAt:body.startAt,
+  entrants:body.entrants.length } });
+function fakeFloat(answer = roomTook) {
   const calls = [];
   return { calls, binding:{
     idFromName:name => ({ name }),
@@ -484,10 +487,12 @@ test("the Tournament: the capability, and Lock and start posts the Cup to its ro
   assert.ok(cup?.cupId);
   assert.equal(float.calls.length, 1);
   const [call] = float.calls;
-  assert.deepEqual([call.room, call.url, call.method], ["fd-float", "https://float.internal/internal/cup", "POST"]);
+  assert.deepEqual([call.room, call.url, call.method], ["fd-float", "https://float.internal/internal/cup?room=fd-float", "POST"]);
   assert.deepEqual(call.body, floatCupBody(tournament.state));
   assert.equal(call.body.entrants.length, presentPlayers(tournament.state).length);
-  assert.ok(memory.entries.get(`private:float:cup:${cup.cupId}`)?.sentAt, "kept privately");
+  const sent = memory.entries.get(`private:float:cup:${cup.cupId}`);
+  assert.ok(sent?.sentAt, "kept privately");
+  assert.deepEqual([sent.room, sent.entrants, sent.startAt], ["fd-float", call.body.entrants.length, call.body.startAt], "with the room's answer");
   /* later writes, and a woken object, never post it again */
   await tournament.queueFloatCup();
   const woken = new Tournament(memory.context, { APP_ENV:"local", FLOAT:float.binding });
@@ -499,7 +504,9 @@ test("the Tournament: the capability, and Lock and start posts the Cup to its ro
 
 test("a room that does not answer is tried again on the alarm; a room that refuses the Cup tells the commissioner", async () => {
   let down = true;
-  const flaky = fakeFloat(n => down ? { throws:"room asleep" } : { status:200, body:{ ok:true } });
+  /* back up, the room says it already holds the Cup (its answer to a repeat): taken */
+  const flaky = fakeFloat((n, body) => down ? { throws:"room asleep" }
+    : { status:200, body:{ ok:true, cupId:body.cupId, room:"fd-float", phase:"lobby", already:true } });
   const one = await objectWith({ float:flaky });
   const quiet = console.error;
   console.error = () => {};
@@ -512,7 +519,7 @@ test("a room that does not answer is tried again on the alarm; a room that refus
     one.tournament.floatRetryAt = Date.now() - 1;
     await one.tournament.alarm();
     assert.equal(flaky.calls.length, 2);
-    assert.ok(one.memory.entries.get(`private:float:cup:${one.tournament.state.float.cupId}`)?.sentAt);
+    assert.equal(one.memory.entries.get(`private:float:cup:${one.tournament.state.float.cupId}`)?.already, true);
     assert.equal(one.tournament.state.float.error, undefined);
 
     const refusing = fakeFloat(() => ({ status:409, body:{ ok:false, error:"A race is running" } }));
@@ -532,26 +539,38 @@ test("a room that does not answer is tried again on the alarm; a room that refus
   } finally { console.error = quiet; }
 });
 
-test("POST /internal/float/result posts the result once, keeps the stats privately, and answers a stale cup 409", async () => {
+test("POST /internal/float/result posts the result once, keeps the stats privately, and stops the room's retries", async () => {
   const { tournament, memory, lockStart, internal } = await objectWith();
   await lockStart();
   const { cupId } = tournament.state.float;
-  const stats = { rounds:[{ leg:0, riders:{ [evan]:{ time:71.2, flips:1 } } }] };
-  const res = await internal("/internal/float/result", { evId:FLOAT_EVENT, cupId, order:[evan, "bot:1", khoa, me],
-    rounds:[{ leg:0 }], stats });
+  /* the room's body as built (float/PROTOCOL.md "As built: the engine") */
+  const rounds = [{ round:1, leg:"canyon", field:[evan, khoa, me, "Rapid Bot"], out:["Rapid Bot"], results:[
+    { who:evan, pid:evan, bot:false, place:1, time:71.2, drinkAt:12.5, arriveAt:64.1 },
+    { who:"Rapid Bot", pid:null, bot:true, place:2, time:72.9, drinkAt:13.1, arriveAt:66.0 },
+    { who:khoa, pid:khoa, bot:false, place:3, time:74.0, drinkAt:15.2, arriveAt:68.8 },
+    { who:me, pid:me, bot:false, place:4, time:80.3, drinkAt:20.0, arriveAt:71.4 }] }];
+  const stats = { rounds:[{ round:1, leg:"canyon", riders:{ [evan]:{ strokes:212, flips:1 } }, balloons:{ [me]:{ thrown:3, landed:1 } },
+    rtt:{ [evan]:[41, 44] } }] };
+  const res = await internal("/internal/float/result", { evId:FLOAT_EVENT, cupId, order:[evan, khoa, me], rounds, stats });
   assert.equal(res.status, 200);
   assert.deepEqual(await res.json(), { ok:true, posted:true });
   assert.deepEqual(tournament.state.results.float.slots, [[evan], [khoa], [me]]);
   assert.equal(tournament.state.showControl.active?.kind, "winner", "the winner scene plays, as for any result");
   assert.deepEqual(memory.entries.get(`private:float:stats:${cupId}`).stats, stats);
+  assert.deepEqual(memory.entries.get(`private:float:stats:${cupId}`).rounds, rounds);
+  /* the room posts again until it hears a 2xx: a repeat is 200 and moves nothing */
+  const before = structuredClone(tournament.state.results);
   const again = await internal("/internal/float/result", { evId:FLOAT_EVENT, cupId, order:[me] });
   assert.equal(again.status, 200);
   assert.equal((await again.json()).unchanged, true);
+  assert.deepEqual(tournament.state.results, before);
   const quiet = console.error;
   console.error = () => {};
   try {
+    /* a result the board will never take is 200 and refused, so the room stops asking */
     const stale = await internal("/internal/float/result", { evId:FLOAT_EVENT, cupId:"cupotherone", order:[me] });
-    assert.equal(stale.status, 409);
+    assert.equal(stale.status, 200);
+    assert.deepEqual(await stale.json(), { ok:false, refused:true, error:"That cup is over" });
     const broken = await internal("/internal/float/result", { evId:FLOAT_EVENT, cupId });
     assert.equal(broken.status, 400);
   } finally { console.error = quiet; }
@@ -576,7 +595,11 @@ test("POST /internal/float/feedback keeps one card a rider a cup; the commission
     { cupId:"cup1", pid:evan, answers:{ fun:5, again:true, better:"Longer river" } },
     { cupId:"cup1", pid:khoa, answers:{ fun:4 } },
   ]) assert.equal((await internal("/internal/float/feedback", body)).status, 200);
-  assert.equal((await internal("/internal/float/feedback", { cupId:"cup1", answers:{} })).status, 400);
+  /* nothing Field Day reads: answered 200 (the room stops), not kept; no cup: 400 */
+  const empty = await internal("/internal/float/feedback", { cupId:"cup1", pid:me, answers:{ note:"x" } });
+  assert.equal(empty.status, 200);
+  assert.deepEqual(await empty.json(), { ok:true, kept:false });
+  assert.equal((await internal("/internal/float/feedback", { answers:{ fun:4 } })).status, 400);
   const kept = memory.entries.get("private:float:feedback");
   assert.deepEqual(kept.map(card => [card.pid, card.fun]), [[khoa, 4], [evan, 5]], "a retry replaces, newest first");
   const read = await asGm("floatFeedback");

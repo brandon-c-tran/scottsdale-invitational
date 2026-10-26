@@ -198,12 +198,15 @@ const FLOAT_STATS_INDEX_KEY = "private:float:statsIndex";
 const FLOAT_STATS_LIMIT = 20;
 const FLOAT_FEEDBACK_KEY = "private:float:feedback";
 const FLOAT_FEEDBACK_LIMIT = 500;
-/* the room's result body: thirteen riders' rounds and stats fit well under this */
-const FLOAT_BODY_MAX = 512 * 1024;
+/* the room's result body: thirteen riders' rounds and stats fit well under
+   this; it is the most a Durable Object keeps in one value, so no result the
+   room could keep in its own outbox is ever refused for its size */
+const FLOAT_BODY_MAX = 2 * 1024 * 1024;
 const FLOAT_FEEDBACK_BODY_MAX = 16 * 1024;
 /* a Cup the room did not take is posted again after each of these, then the pill says so */
 const FLOAT_RETRY_MS = Object.freeze([2000, 5000, 15000, 30000]);
-const FLOAT_CUP_URL = "https://float.internal/internal/cup";
+/* the room's own name rides along, so its code is the Cup's room exactly */
+const floatCupUrl = room => `https://float.internal/internal/cup?room=${encodeURIComponent(room)}`;
 /* eight characters, 40 bits; 256 is a multiple of the 32-letter alphabet, so no bias */
 function newArriveCode() {
   const bytes = crypto.getRandomValues(new Uint8Array(8));
@@ -2706,19 +2709,24 @@ export class Tournament {
     /* the board may have moved on while storage answered */
     const cup = floatCup(this.state);
     if (!cup || cup.cupId !== cupId || cup.error || !floatLive(this.state)) return null;
+    /* the room answers { ok, cupId, room, startAt, entrants }, or { ok, cupId,
+       room, phase, already:true } for a Cup it already holds */
     let answer;
     try {
       const room = this.env.FLOAT.get(this.env.FLOAT.idFromName(cup.room));
-      const res = await room.fetch(FLOAT_CUP_URL, { method:"POST", headers:{ "Content-Type":"application/json" },
+      const res = await room.fetch(floatCupUrl(cup.room), { method:"POST", headers:{ "Content-Type":"application/json" },
         body:JSON.stringify(floatCupBody(this.state)) });
       let reply = null;
       try { reply = await res.json(); } catch {}
-      answer = { ok:res.ok && reply?.ok !== false, status:res.status, error:reply?.error || null };
+      answer = { ok:res.ok && reply?.ok !== false, status:res.status, error:reply?.error || null,
+        startAt:Number(reply?.startAt) || null, entrants:Number(reply?.entrants) || null, already:reply?.already === true };
     } catch (error) {
       answer = { ok:false, status:0, error:String(error?.message || error) };
     }
     if (answer.ok) {
-      await this.ctx.storage.put(key, { sentAt:Date.now(), evId:cup.evId, room:cup.room });
+      await this.ctx.storage.put(key, { sentAt:Date.now(), evId:cup.evId, room:cup.room,
+        ...(answer.startAt ? { startAt:answer.startAt } : {}), ...(answer.entrants ? { entrants:answer.entrants } : {}),
+        ...(answer.already ? { already:true } : {}) });
       this.floatSent.add(cupId);
       this.floatTries?.delete(cupId);
       return answer;
@@ -2751,10 +2759,16 @@ export class Tournament {
     } catch { return null; }
   }
 
-  /* POST /internal/float/result { evId, cupId, order, rounds, stats }: the
-     race's stats kept (private), then the result through floatFinish as the
-     server's own write, so the winner scene, pocket alerts and the win song
-     follow it. Idempotent by cupId; a cup that is not the board's is 409. */
+  /* POST /internal/float/result { evId, cupId, order (real players, 1st to
+     last), rounds:[{ round, leg, field, out, results }], stats:{ rounds } }:
+     the race's stats kept (private), then the result through floatFinish as
+     the server's own write, so the winner scene, pocket alerts and the win
+     song follow it. Idempotent by cupId: a repeat is 200. The room posts
+     again on anything but a 2xx (1 s, 5 s, 30 s, 2 min, 10 min, then hourly
+     for a day), so a result the board will never take (a cup that is not
+     the board's, Float skipped, no rider on the roster) is answered 200 with
+     `refused`; only a write that did not save (503) is worth trying again,
+     and a body that did not come through whole is 400. */
   async handleFloatResult(req) {
     const json = (body, status = 200) => Response.json(body, { status, headers:{ "Cache-Control":"no-store" } });
     const body = await this.readFloatBody(req, FLOAT_BODY_MAX);
@@ -2770,7 +2784,7 @@ export class Tournament {
     if (result.saved === false) return json({ ok:false, error:result.error }, 503);
     if (!result.ok) {
       console.error(JSON.stringify({ event:"float-result-refused", cupId, error:String(result.error || "").slice(0, 200) }));
-      return json({ ok:false, error:result.error }, result.error === "That cup is over" ? 409 : 422);
+      return json({ ok:false, refused:true, error:result.error });
     }
     return json({ ok:true, posted:result.extra?.posted !== false, ...(result.extra?.unchanged ? { unchanged:true } : {}) });
   }
@@ -2786,12 +2800,16 @@ export class Tournament {
     if (dropped.length) await this.ctx.storage.delete(dropped.map(item => `${FLOAT_STATS_PREFIX}${item.cupId}`));
   }
 
-  /* POST /internal/float/feedback { cupId, pid, answers }: one card a rider
-     a cup (a retry replaces it), newest first, kept for the commissioner */
+  /* POST /internal/float/feedback { cupId, pid, answers:{ fun, again, better } }:
+     one card a rider a cup (a retry replaces it), newest first, kept for the
+     commissioner. A card with nothing Field Day reads is answered 200 and
+     not kept (the room would post it again on anything else). */
   async handleFloatFeedback(req) {
     const json = (body, status = 200) => Response.json(body, { status, headers:{ "Cache-Control":"no-store" } });
-    const entry = cleanFloatFeedback(await this.readFloatBody(req, FLOAT_FEEDBACK_BODY_MAX), Date.now());
-    if (!entry) return json({ ok:false, error:"That feedback didn't come through whole" }, 400);
+    const body = await this.readFloatBody(req, FLOAT_FEEDBACK_BODY_MAX);
+    if (!body || typeof body.cupId !== "string") return json({ ok:false, error:"That feedback didn't come through whole" }, 400);
+    const entry = cleanFloatFeedback(body, Date.now());
+    if (!entry) return json({ ok:true, kept:false });
     const kept = await this.ctx.storage.get(FLOAT_FEEDBACK_KEY);
     const list = Array.isArray(kept) ? kept : [];
     const next = [entry, ...list.filter(item => !(item?.cupId === entry.cupId && item?.pid === entry.pid))]

@@ -1074,23 +1074,28 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   Lock and start opens it in the same write (`floatStart`: `state.float =
   { evId, room:"fd-<evId>", cupId, startAt (+20 s), startedAt, players }`,
   everyone present); after any write persists the Tournament posts it to the
-  room's own Durable Object (`POST https://float.internal/internal/cup` on
-  `env.FLOAT.idFromName(room)`, `floatCupBody`: fieldday, drinking, bots 0,
+  room's own Durable Object (`POST https://float.internal/internal/cup?room=`
+  on `env.FLOAT.idFromName(room)`, `floatCupBody`: fieldday, drinking, bots 0,
   each `floatRider`: name, chip color and skin, number, `/api/photo` path,
   look, `drinks` false only for a guest who said no, `groom`), one post at a
   time, never twice (`private:float:cup:<cupId>`), resumed when the object
-  wakes, tried again on the alarm (2, 5, 15, 30 s); a room that refuses (4xx)
+  wakes, tried again on the alarm (2, 5, 15, 30 s); the room's answer (a
+  repeat is `already:true`) counts as taken; a room that refuses (4xx)
   or never answers writes `floatCupFailed` and the pill offers Start Float
-  again (a new cupId). **The result** comes back once, server to server
-  (`POST /internal/float/result` on the Tournament: the public router
-  forwards only `/ws`, `/api/*` and `/float/ws`, so nothing else reaches
-  it): the stats kept in `private:float:stats:<cupId>`, then `floatFinish`
-  (`ctx.internal` "float", never a socket's) posts 1st to 3rd from `order`
-  through beginResultEntry and saveResult as the server's own write
-  (`applyAutoWrite`: the winner scene, alerts and win song follow),
-  idempotent by cupId, a stale cup 409, a result entered by hand left
-  standing. `/internal/float/feedback` keeps one card a rider a cup
-  (`private:float:feedback`), read over the commissioner's socket
+  again (a new cupId). **The result** comes back from the room's outbox at
+  the end of the final, server to server (`POST /internal/float/result` on
+  the Tournament: the public router forwards only `/ws`, `/api/*` and
+  `/float/ws`, so nothing else reaches it): the stats kept in
+  `private:float:stats:<cupId>`, then `floatFinish` (`ctx.internal` "float",
+  never a socket's) posts 1st to 3rd from `order` (real players, bots left
+  out by the room) through beginResultEntry and saveResult as the server's
+  own write (`applyAutoWrite`: the winner scene, alerts and win song follow),
+  idempotent by cupId, a result entered by hand left standing. The room
+  posts again on anything but a 2xx for a day, so a repeat is 200, a result
+  the board will never take (a stale cup, Float skipped) is 200 `refused`,
+  and only a write that did not save is 503. `/internal/float/feedback`
+  keeps one card a rider a cup (`private:float:feedback`; a card with nothing
+  Field Day reads is 200 and dropped), read over the commissioner's socket
   (`floatFeedback`) on Commissioner > Games > Float (`FloatDesk.jsx`: the
   Cup now, looks picked, the cards). A take-back, a cleared result, a skip
   and a reset end the Cup. **Looks:** `profiles[p].float` (public), written

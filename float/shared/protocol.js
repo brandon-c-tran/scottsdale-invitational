@@ -8,6 +8,13 @@ export const ROLES = Object.freeze(["screen", "controller"]);
 export const PHASES = Object.freeze(["lobby", "intro", "grid", "countdown", "race", "cut", "podium", "feedback"]);
 export const MODES = Object.freeze(["party", "fieldday"]);
 export const ROOM_ID = /^[a-z0-9-]{1,32}$/;
+/* a standalone room code: four consonants (no vowels, so no words) */
+export const CODE_LETTERS = "bcdfghjklmnpqrstvwxz";
+export const CODE_LENGTH = 4;
+export const STANDALONE_CODE = /^[bcdfghjklmnpqrstvwxz]{4}$/;
+/* colours for riders without one (bots), distinct at TV distance */
+export const PALETTE = Object.freeze(["#e4572e", "#2e86ab", "#f3a712", "#29bf12", "#a23b72", "#00b3b3", "#ff7aa2",
+  "#7353ba", "#c0d461", "#ff9f1c", "#3d5a80", "#d81159", "#8fd694", "#ffd23f", "#5e6472", "#9b5de5"]);
 
 /* client to server */
 export const CLIENT = Object.freeze(["hello", "ping", "look", "ready", "stroke", "hands", "drink", "balloon", "feedback", "host"]);

@@ -85,7 +85,7 @@ export function createRace({ course = COURSE, leg = 0, field = [], seed = 1, dri
         whirlT:0, whirlFree:0,
         tL:-9, tR:-9, tBump:-9, tBumpFlag:-9, tSplash:-9, hitAt:-99,
         arrived:false, arriveAt:null, drinkAt:null, beach:-1,
-        st:{ strokes:0, flips:0, dropFlips:0, bumpsGiven:0, bumpsTaken:0, splashed:0 },
+        st:{ strokes:0, flips:0, dropFlips:0, bumpsGiven:0, bumpsTaken:0, splashed:0, ticks:0, botTicks:0 },
       };
     }),
     events:[],
@@ -351,11 +351,10 @@ function arrive(race, course, rider, before, t) {
   rider.yawQ = 0;
   rider.prog = race.len;
   race.events.push({ e:"arrive", i:rider.i, x:r3(rider.x), y:r3(rider.y) });
-  /* no drink this round (drinks:false, or the room's drinking off): it counts on arrival */
-  if (rider.drinkAt === null && !(race.drinking && rider.drinks)) {
-    rider.drinkAt = rider.arriveAt;
-    race.events.push({ e:"drink", i:rider.i });
-  }
+  /* no drink this round (drinks:false, or the room's drinking off): it
+     counts on arrival, silently: a rider's drinking answer is private, so
+     no event says who skipped it (the DRANK flag lights as for anyone) */
+  if (rider.drinkAt === null && !(race.drinking && rider.drinks)) rider.drinkAt = rider.arriveAt;
   noteFinish(race, rider);
 }
 

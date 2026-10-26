@@ -213,8 +213,8 @@ function makeBadge(entrant) {
   const skin = entrant.skin || "ticks";
   const label = labelOf(entrant);
   const material = new THREE.MeshPhysicalMaterial({
-    name: "float-badge", color: hasDom() ? 0xffffff : new THREE.Color(color), roughness: 0.32,
-    clearcoat: 1, clearcoatRoughness: 0.06, alphaTest: 0.5,
+    name: "float-badge", color: hasDom() ? 0xffffff : new THREE.Color(color), roughness: 0.4,
+    clearcoat: 0.75, clearcoatRoughness: 0.2, alphaTest: 0.5,
   });
   if (!hasDom()) return { material, texture: null, ready: Promise.resolve(false), dispose: () => material.dispose() };
   const canvas = document.createElement("canvas");

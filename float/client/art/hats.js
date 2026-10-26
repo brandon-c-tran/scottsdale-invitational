@@ -44,7 +44,7 @@ const HATS = {
     return { body: [paint(band, "#fbf7ee"), paint(stitch, "#fbf7ee")], tint: [shellG] };
   },
   visor(hero) {
-    const ring = torus({ R: 0.2, r: 0.024, radial: hero ? 10 : 6, tubular: hero ? 40 : 24, squash: 1.6 });
+    const ring = torus({ R: 0.2, r: 0.017, radial: hero ? 10 : 6, tubular: hero ? 40 : 24, squash: 1.7 });
     const shape = new THREE.Shape();
     shape.moveTo(-0.17, 0); shape.quadraticCurveTo(-0.16, -0.17, 0, -0.2); shape.quadraticCurveTo(0.16, -0.17, 0.17, 0); shape.lineTo(-0.17, 0);
     const bill = extrude(shape, { depth: 0.014, bevel: 0.008, bevelSegments: hero ? 3 : 1, curveSegments: hero ? 16 : 8 });

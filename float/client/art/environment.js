@@ -40,7 +40,7 @@ function nightSky() {
   const sky = new THREE.SphereGeometry(50, 48, 24);
   const colors = [];
   const stops = [
-    [-1.0, "#07060a", 0.6], [-0.18, "#1a1018", 0.8], [-0.02, "#5a3426", 1.6], [0.03, "#d27a45", 2.4],
+    [-1.0, "#07060a", 0.6], [-0.18, "#1a1018", 0.8], [-0.02, "#4a2c2a", 1.2], [0.03, "#b56a42", 1.45],
     [0.09, "#6d4a74", 1.5], [0.25, "#2d3264", 1.15], [0.6, "#16204a", 1.0], [1.0, "#0a1230", 0.9],
   ];
   const c = new THREE.Color(), a = new THREE.Color(), b = new THREE.Color();

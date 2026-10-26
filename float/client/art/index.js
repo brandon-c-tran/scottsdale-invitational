@@ -21,7 +21,7 @@ import * as THREE from "three";
 import { buildSpecies, BUILT_SPECIES } from "./species.js";
 import { CritterRuntime } from "./critter.js";
 import { buildFloatieArt, BUILT_FLOATIES } from "./floatie3d.js";
-import { chainGeometry, chipGeometry, chipPlace, buildDrink } from "./accessories.js";
+import { chainGeometry, chipGeometry, chipPlace, buildDrink, bezelGeometry } from "./accessories.js";
 import { buildHat, buildShades } from "./hats.js";
 import { vinyl, tint, releaseTint, glint, gold, geometry, disposeFloatArt, normalHex, cacheSizes } from "./materials.js";
 import { acquireBadge, releaseBadge } from "./badge.js";
@@ -157,6 +157,18 @@ export function buildRider(entrant = {}, { detail = "race" } = {}) {
 export async function riderPortrait(entrant = {}, { size = 256 } = {}) {
   const { portrait } = await import("./portrait.js");
   return portrait(entrant, { size });
+}
+
+/* The medallion alone (an addition): the rider's chip in its gold bezel,
+   facing -z, about 0.16 m across. { root, ready, dispose() } */
+export function buildMedallion(entrant = {}, { detail = "hero" } = {}) {
+  const det = detailOf(detail);
+  const badge = acquireBadge({ ...entrant, color: normalHex(entrant.color) });
+  const root = new THREE.Group();
+  root.name = "medallion";
+  root.add(new THREE.Mesh(chipGeometry(det === "hero" ? 64 : 36), badge.material), new THREE.Mesh(bezelGeometry(det), gold()));
+  let live = true;
+  return { root, ready: badge.ready, dispose() { if (!live) return; live = false; root.parent?.remove(root); releaseBadge(badge.key); } };
 }
 
 /* triangles and meshes drawn in a built object (the showcase and the tests) */

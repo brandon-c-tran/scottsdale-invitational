@@ -100,14 +100,19 @@ function strand({ from, to, sag = 0.9, bulbs = 16, glow }) {
   group.add(wire);
   const bulbGeo = new THREE.SphereGeometry(0.075, 10, 8);
   const bulbMat = new THREE.MeshBasicMaterial({ color: new THREE.Color("#ffc27a").multiplyScalar(2.2), toneMapped: false });
-  const haloMat = new THREE.SpriteMaterial({ map: glow, color: "#ffad5c", transparent: true, opacity: 0.55, depthWrite: false, blending: THREE.AdditiveBlending, fog: false });
+  const haloMat = new THREE.PointsMaterial({ map: glow, color: "#ffad5c", size: 0.9, sizeAttenuation: true, transparent: true, opacity: 0.55, depthWrite: false, blending: THREE.AdditiveBlending, fog: false });
+  const halos = [];
+  const inst = new THREE.InstancedMesh(bulbGeo, bulbMat, bulbs - 1);
+  const m = new THREE.Matrix4();
   for (let i = 1; i < bulbs; i++) {
     const t = i / bulbs;
     const p = a.clone().lerp(b, t); p.y -= Math.sin(Math.PI * t) * sag + 0.12;
-    const bulb = new THREE.Mesh(bulbGeo, bulbMat); bulb.position.copy(p);
-    const halo = new THREE.Sprite(haloMat); halo.position.copy(p); halo.scale.setScalar(0.9);
-    group.add(bulb, halo);
+    inst.setMatrixAt(i - 1, m.makeTranslation(p.x, p.y, p.z));
+    halos.push(p.x, p.y, p.z);
   }
+  const haloGeo = new THREE.BufferGeometry();
+  haloGeo.setAttribute('position', new THREE.Float32BufferAttribute(halos, 3));
+  group.add(inst, new THREE.Points(haloGeo, haloMat));
   return group;
 }
 

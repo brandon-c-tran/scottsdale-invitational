@@ -107,6 +107,17 @@ export function chainGeometry(template, detail = "race") {
   });
 }
 
+/* a chip on its own: the gold bezel and bail round the chip (chip space,
+   facing -z), for the HUD, the podium and the showcase */
+export function bezelGeometry(detail = "race") {
+  return geometry(`bezel:${detail}`, () => {
+    const hero = detail === "hero";
+    const bezel = xf(torus({ R: CHIP.r + 0.003, r: 0.0085, radial: hero ? 6 : 4, tubular: hero ? 48 : 22 }), { rot: [Math.PI / 2, 0, 0] });
+    const bail = xf(torus({ R: 0.016, r: 0.0065, radial: hero ? 6 : 4, tubular: hero ? 14 : 8 }), { rot: [0, 0, Math.PI / 2], at: [0, CHIP.r + 0.02, 0] });
+    return merge([paint(bezel, "#ffffff"), paint(bail, "#ffffff")]);
+  });
+}
+
 /* where the chip hangs (critter space): below the chain's front, resting on the belly */
 export function chipPlace(template) {
   const body = template.shapes.body;
@@ -126,12 +137,14 @@ export function chipPlace(template) {
 export function drinkGeometry(detail = "race") {
   return geometry(`drink:${detail}`, () => {
     const seg = detail === "hero" ? 24 : 14;
-    const can = lathe([[0, 0.066], [0.022, 0.066], [0.028, 0.062], [0.031, 0.056], [0.034, 0.05], [0.034, -0.05], [0.03, -0.058], [0.022, -0.062], [0, -0.062]], { segments: seg });
-    const top = lathe([[0, 0.067], [0.02, 0.067], [0.024, 0.069], [0.027, 0.0645]], { segments: seg });
-    const tab = xf(ball([0.009, 0.003, 0.014], { w: 8, h: 4 }), { at: [0, 0.07, 0.004] });
-    const band = lathe([[0.0405, 0.012], [0.0412, 0.008], [0.0412, -0.012], [0.0405, -0.016]], { segments: seg });
+    const k = 1.4;
+    const sc = pts => pts.map(([x, y]) => [x * k, y * k]);
+    const can = lathe(sc([[0, 0.066], [0.022, 0.066], [0.028, 0.062], [0.031, 0.056], [0.034, 0.05], [0.034, -0.05], [0.03, -0.058], [0.022, -0.062], [0, -0.062]]), { segments: seg });
+    const top = lathe(sc([[0, 0.067], [0.02, 0.067], [0.024, 0.069], [0.027, 0.0645]]), { segments: seg });
+    const tab = xf(ball([0.009 * k, 0.003 * k, 0.014 * k], { w: 8, h: 4 }), { at: [0, 0.07 * k, 0.004 * k] });
+    const band = lathe(sc([[0.0405, 0.012], [0.0412, 0.008], [0.0412, -0.012], [0.0405, -0.016]]), { segments: seg });
     const body = merge([paint(can, "#d9dde3"), paint(top, "#aeb4bd"), paint(tab, "#c3c8cf"), paint(band, "#fbf7ee")]);
-    const koozie = lathe([[0.0372, 0.034], [0.04, 0.03], [0.04, -0.05], [0.036, -0.057], [0, -0.058]], { segments: seg });
+    const koozie = lathe(sc([[0.0372, 0.034], [0.04, 0.03], [0.04, -0.05], [0.036, -0.057], [0, -0.058]]), { segments: seg });
     return { body, koozie: merge([paint(koozie, "#ffffff")]) };
   });
 }

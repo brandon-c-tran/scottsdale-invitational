@@ -132,6 +132,10 @@ export class CritterRuntime {
       };
     }
     this.mouthRest = this.info.mouth ? this.info.mouth.p.clone() : new THREE.Vector3(0, 0.53, -0.25);
+    const head = this.info.head;
+    const chinY = head ? head.at[1] - head.r[1] : 0.4;
+    /* where a held can meets the mouth: under the chin, never beyond the arm's reach */
+    this.sipAt = new THREE.Vector3(0, chinY - 0.045, Math.max(this.mouthRest.z + 0.02, -0.24));
     this.seat = DEFAULT_SEAT;
     this.t = 0;
     this.state = { swim: false, handsOff: false, sad: false, celebrate: false };
@@ -239,9 +243,9 @@ export class CritterRuntime {
       P.llx = this.seat.legRX + 0.25 * Math.sin(t * TAU * 1.2); P.rlx = this.seat.legRX - 0.25 * Math.sin(t * TAU * 1.2);
     } else {
       const wave = Math.sin(t * TAU * 1.25);
-      this.restToChest(-0.2 - 0.07 * wave, 0.86 + 0.03 * hop, -0.08, P, "l");
-      this.restToChest(0.2 - 0.07 * wave, 0.86 + 0.03 * hop, -0.08, P, "r");
-      P.lpx = -1; P.lpy = -0.6; P.lpz = 0.2; P.rpx = 1; P.rpy = -0.6; P.rpz = 0.2;
+      this.restToChest(-0.36 - 0.05 * wave, 0.6 + 0.03 * hop + 0.03 * wave, -0.07, P, "l");
+      this.restToChest(0.36 - 0.05 * wave, 0.6 + 0.03 * hop - 0.03 * wave, -0.07, P, "r");
+      P.lpx = -1; P.lpy = -0.7; P.lpz = 0.15; P.rpx = 1; P.rpy = -0.7; P.rpz = 0.15;
     }
   }
 
@@ -252,8 +256,8 @@ export class CritterRuntime {
       P.crx -= 0.03 * gulp;
     } else {
       const sx = s === "L" ? -1 : 1;
-      const m = this.mouthRest;
-      this.restToChest(m.x + sx * 0.035, m.y - 0.11 + 0.04 * sipping, m.z - 0.07 - 0.02 * sipping, P, s === "L" ? "l" : "r");
+      const m = this.sipAt;
+      this.restToChest(sx * 0.075, m.y + 0.035 * sipping, m.z - 0.015 * sipping, P, s === "L" ? "l" : "r");
       if (s === "L") { P.lpx = -1; P.lpy = -0.7; P.lpz = 0.2; } else { P.rpx = 1; P.rpy = -0.7; P.rpz = 0.2; }
       P.can = 1; P.canTilt = 0.25 + 1.05 * sipping;
     }
@@ -341,9 +345,9 @@ export class CritterRuntime {
         P.crx = -0.04 * gulp;
         P.ty = 0.4 * raise * Math.sin(tt * TAU * 2);
       } else {
-        const m = this.mouthRest;
+        const m = this.sipAt;
         if (chugging || raise < 0.05) {
-          this.restToChest(m.x + 0.03, m.y - 0.1 + 0.05 * sip, m.z - 0.07, P, "r");
+          this.restToChest(0.07, m.y + 0.05 * sip, m.z - 0.01, P, "r");
           P.canTilt = 0.4 + 1.5 * sip;
         } else {
           this.restToChest(0.2, 0.62 + 0.3 * raise, -0.12, P, "r");
@@ -584,7 +588,11 @@ export class CritterRuntime {
     /* the can rides the paw: the hand bone's place in chest space */
     _S.copy(side.hand.position).applyQuaternion(side.elbow.quaternion).add(side.elbow.position)
       .applyQuaternion(side.shoulder.quaternion).add(side.shoulder.position);
+    /* held at the paw's top inside, toward the mouth */
     can.position.copy(_S);
+    can.position.x -= side.sign * 0.03;
+    can.position.y += 0.045;
+    can.position.z -= 0.035;
     can.scale.setScalar(0.6 + 0.4 * backOut(this.drinkPop));
     can.rotation.set(P.canTilt, 0, -side.sign * 0.15, "YXZ");
   }

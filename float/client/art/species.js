@@ -156,7 +156,7 @@ function frog(k) {
   speckles(k, H, { count: 5, seed: "frog-head", color: C.spot, bind: "head", back: true, yaw: [-1.6, 1.6], pitch: [0.25, 0.9], size: [0.06, 0.09] });
   k.arms({ color: C.skin, paw: C.hand, fingers: 3, pawR: 0.05 });
   k.legs({ color: C.skin, foot: C.web, flatFoot: { r: [0.085, 0.022, 0.1] }, len: 0.16 });
-  k.socket("hat", [0, 0.745, -0.02], { s: 1.05, tilt: -0.04, frog: true });
+  k.socket("hat", [0, 0.7, 0.085], { s: 1.0, tilt: 0.16, frog: true });
   k.socket("shades", [0, e.y + 0.004, e.z - 0.03], { s: 1.04, w: 1.1, onEyes: true });
   k.socket("chain", [0, 0.3, 0], { spread: 1 });
 }

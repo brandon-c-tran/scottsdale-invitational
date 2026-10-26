@@ -6,7 +6,7 @@
    With t, the clock runs from zero to t in fixed 60 Hz steps, so a frame
    is the same frame every time. */
 import * as THREE from "three";
-import { buildRider, buildFloatie, buildCritter, artStats, floatEnvironment, BUILT_SPECIES, BUILT_FLOATIES } from "./index.js";
+import { buildRider, buildFloatie, buildCritter, buildMedallion, artStats, floatEnvironment, BUILT_SPECIES, BUILT_FLOATIES } from "./index.js";
 import { buildStage, buildPuddle } from "./stage.js";
 import { CRITTERS, HATS, SHADES, POSES } from "../../shared/looks.js";
 import { FLOATIES, STATS } from "../../shared/floaties.js";
@@ -95,7 +95,7 @@ export class Showcase {
   }
 
   clear() {
-    for (const it of this.items) { this.scene.remove(it.root); it.rider?.dispose(); it.floatie?.dispose(); it.critterOnly?.dispose(); it.puddle?.dispose(); }
+    for (const it of this.items) { this.scene.remove(it.root); it.rider?.dispose(); it.floatie?.dispose(); it.critterOnly?.dispose(); it.medallion?.dispose(); it.puddle?.dispose(); }
     this.items = [];
     for (const l of this.labels) l.el.remove();
     this.labels = [];
@@ -119,7 +119,7 @@ export class Showcase {
     const puddle = critterOnly ? null : buildPuddle(this.stage, 0.9);
     if (puddle) root.add(puddle.mesh);
     this.scene.add(root);
-    const item = { root, rider, floatie, critterOnly, puddle, face, phase: this.rand() * 6, behaviour, nextStroke: 0.6 + this.rand() * 1.6, side: "L" };
+    const item = { root, rider, floatie, critterOnly, puddle, face, phase: this.rand() * 6, behaviour, nextStroke: behaviour.fast ? 0.05 : 0.6 + this.rand() * 1.6, side: "L" };
     if (rider) {
       if (behaviour.state) rider.critter.setState(behaviour.state);
       if (behaviour.pose) rider.critter.setPose(behaviour.pose);
@@ -155,7 +155,8 @@ export class Showcase {
         photo: opts.photo ? samplePhoto() : null,
         entrant: { ...(opts.color ? { color: opts.color } : {}), ...(opts.number !== undefined ? { number: opts.number } : {}), ...(opts.skin ? { skin: opts.skin } : {}), groom: true },
       });
-      this.place({ entrant: e, at: [0, 0, 0], detail: "hero", behaviour: { strokes: !opts.pose && !opts.state, state: opts.stateObj, pose: opts.pose } });
+      const busy = opts.pose || (opts.stateObj && Object.values(opts.stateObj).some(Boolean));
+      this.place({ entrant: e, at: [0, 0, 0], detail: "hero", behaviour: { strokes: opts.paddle || !busy, fast: !!opts.paddle, state: opts.stateObj, pose: opts.pose } });
       if (opts.zoom) { cam.fov = 17; cam.position.set(0, 1.0, 4.3); cam.lookAt(0, 0.66, 0); }
       else { cam.fov = 30; cam.position.set(0, 1.12, 4.5); cam.lookAt(0, 0.56, 0); }
       this.spin.auto = !opts.still;
@@ -200,6 +201,24 @@ export class Showcase {
         item.labelY = 0.2;
       }
       cam.fov = 26; cam.position.set(0, 0.95, 5.6); cam.lookAt(0, 0.95, 0);
+      this.spin.auto = false;
+    } else if (view === "chips") {
+      /* every skin's chip, the two with photos first */
+      SAMPLE_SKINS.forEach((skin, i) => {
+        const row = Math.floor(i / 6), col = i % 6;
+        const e = { color: SAMPLE_COLORS[(i * 5) % SAMPLE_COLORS.length], skin, number: [7, 23, 4, 88, 12, 50, 3, 61, 9, 77, 15, 31][i], photo: i === 0 || i === 7 ? samplePhoto() : null, name: NAMES[i] };
+        const m = buildMedallion(e, { detail: "hero" });
+        const root = new THREE.Group();
+        root.position.set((col - 2.5) * 0.36, row ? 0.3 : 0.72, 0);
+        root.scale.setScalar(1.6);
+        m.root.rotation.y = Math.PI;
+        root.add(m.root);
+        this.scene.add(root);
+        const item = { root, medallion: m, face: 0, phase: i * 0.7, behaviour: {}, labelY: -0.17 };
+        this.items.push(item);
+        this.addLabel(item, skin);
+      });
+      cam.fov = 26; cam.position.set(0, 0.55, 3.1); cam.lookAt(0, 0.5, 0);
       this.spin.auto = false;
     } else if (view === "medallion") {
       const a = sampleEntrant(0, { photo: samplePhoto(), look: { critter: "capybara", hat: "none", shades: "none" } });
@@ -250,6 +269,7 @@ export class Showcase {
       }
       if (this.view === "detail") it.root.rotation.y = it.face + this.spin.yaw;
       else if (this.view === "race") it.root.rotation.y = 0.15 * Math.sin(t * 0.6 + it.phase);
+      else if (this.view === "chips") it.root.rotation.y = 0.5 * Math.sin(t * 0.7 + it.phase);
       else if (this.view !== "medallion" && this.view !== "faces") it.root.rotation.y = it.face + 0.55 * Math.sin(t * 0.32 + it.phase);
       it.rider?.update(dt);
       it.floatie?.update(dt);

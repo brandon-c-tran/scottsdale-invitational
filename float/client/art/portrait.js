@@ -67,12 +67,28 @@ async function render(entrant, size) {
     const ss = Math.min(2048, size * 2);
     renderer.setPixelRatio(1);
     renderer.setSize(ss, ss, false);
-    /* frame the bust: from the chip to the top of the hat */
-    const t = rt.template;
-    const head = t.info.head;
-    const top = head.at[1] + head.r[1] + (look.hat && look.hat !== "none" ? 0.17 : 0.1);
+    /* frame the bust: from the chip to the top of whatever it wears (the
+       hat, the ears, the plume), as wide as the head and its brim */
+    critter.root.updateMatrixWorld(true);
+    const box = new THREE.Box3();
+    const head = rt.b.head;
+    const v = new THREE.Vector3();
+    head.traverse(o => {
+      if (!o.isMesh || o.isSkinnedMesh) return;
+      const g = o.geometry;
+      if (!g.boundingBox) g.computeBoundingBox();
+      for (const x of [g.boundingBox.min.x, g.boundingBox.max.x]) for (const y of [g.boundingBox.min.y, g.boundingBox.max.y]) for (const z of [g.boundingBox.min.z, g.boundingBox.max.z]) box.expandByPoint(v.set(x, y, z).applyMatrix4(o.matrixWorld));
+    });
+    const hd = rt.template.info.head;
+    const body = rt.meshes.vinyl.geometry;
+    if (!body.boundingBox) body.computeBoundingBox();
+    const crown = Math.max(hd.at[1] + hd.r[1] + 0.03, body.boundingBox.max.y);
+    box.expandByPoint(v.set(hd.at[0] - hd.r[0], crown, hd.at[2]));
+    box.expandByPoint(v.set(hd.at[0] + hd.r[0], crown, hd.at[2]));
+    const top = Math.min(box.max.y + 0.03, 1.25);
     const bottom = 0.16;
-    const cy = (top + bottom) / 2 + 0.01, h = (top - bottom) * 1.06;
+    const halfW = Math.min(0.42, Math.max(Math.abs(box.min.x), Math.abs(box.max.x)) + 0.03);
+    const cy = (top + bottom) / 2 + 0.01, h = Math.max((top - bottom) * 1.05, halfW * 2);
     const dist = (h / 2) / Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
     const yaw = 0.42, pitch = 0.1;
     camera.position.set(Math.sin(yaw) * dist, cy + Math.sin(pitch) * dist, -Math.cos(yaw) * dist);

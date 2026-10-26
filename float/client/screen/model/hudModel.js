@@ -75,7 +75,8 @@ export function titleFor(room, geo) {
   const rounds = room?.rounds | 0;
   const field = indexList(room?.field).length;
   const through = throughFor(room);
-  const final = (rounds > 0 && round >= rounds) || ("cut" in (room || {}) && room.cut === null && room.phase !== "lobby");
+  const final = typeof room?.lastRound === "boolean" ? room.lastRound
+    : (rounds > 0 && round >= rounds) || ("cut" in (room || {}) && room.cut === null && room.phase !== "lobby");
   return { round, rounds, final, leg, legName:leg?.name || "", field, through,
     label:final ? "Final" : `Round ${round}`,
     goes:final || through >= field ? (field <= 3 ? `${field} race for the podium` : `${field} riders`) : `${through} of ${field} go through` };

@@ -407,12 +407,24 @@ export function createWorld({ canvas, store, quality = "auto", onFrame, onFail, 
   }
 
   renderer.setAnimationLoop(frame);
+  let paused = false;
 
   const onLost = event => { event.preventDefault(); lost = true; renderer.setAnimationLoop(null); onFail?.("lost"); };
   canvas.addEventListener("webglcontextlost", onLost);
 
   return {
     resize,
+    /* mounted but hidden: no frames at all; back, the clock skips the gap and
+       the frame budget starts fresh (a long first frame is not a slow GPU) */
+    setPaused(on) {
+      on = !!on;
+      if (on === paused || lost || !running) return;
+      paused = on;
+      if (on) { renderer.setAnimationLoop(null); return; }
+      clock.reset?.();
+      frameTimes = []; slowWindows = 0; warmUntil = performance.now() + 3000;
+      renderer.setAnimationLoop(frame);
+    },
     get tier() { return TIERS[tier].name; },
     setTier(name) { const k = TIERS.findIndex(t => t.name === name); if (k >= 0) { tier = k; applyTier(); } },
     renderer, scene, camera,

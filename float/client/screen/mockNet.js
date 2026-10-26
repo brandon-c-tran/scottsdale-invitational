@@ -73,7 +73,8 @@ const SHOTS = {
   whirlpool:{ when:o => o.phase === "race" && o.round === 2, after:26000 },
   split:{ when:o => o.phase === "race" && o.round === 2 && o.leaderS >= 975, after:1000 },
   drop:{ when:o => o.phase === "race" && o.round === 3 && o.leaderS >= 1432, after:600 },
-  dropflip:{ when:o => o.phase === "race" && o.round === 3 && o.dropFlip, after:700 },
+  /* a flip at the falls is the bots' luck: without one, the moment just past the lip */
+  dropflip:{ when:o => o.phase === "race" && o.round === 3 && (o.dropFlip || o.leaderS >= 1452), after:700 },
   arrivals:{ when:o => o.phase === "race" && o.round === 0 && o.arrivals >= 5, after:800 },
   cut:{ when:o => o.phase === "cut" && o.round === 0, after:4600 },
   cutnext:{ when:o => o.phase === "cut" && o.round === 0, after:14500 },

@@ -9,6 +9,9 @@
      joinUrl   the phones' join link, drawn as a QR in the lobby
      mock      true: the stand-in room (also ?mock=1)
      quality   "high" | "medium" | "low" | "lowest" (also ?quality=); else automatic
+     muted     true while the screen is mounted but hidden (Field Day's own
+               scene over it): no sound, the 3D paused, no HUD; the
+               connection stays, so it comes back current. Default false.
 
    three.js loads only here, behind a dynamic import, so nothing that imports
    this component pays for it until it mounts. No WebGL, a failed load, a
@@ -71,7 +74,9 @@ const param = key => {
   try { return new URLSearchParams(window.location.search).get(key); } catch { return null; }
 };
 
-export default function FloatScreen({ room = "test", hosting = false, joinUrl = null, mock, quality, onStats }) {
+const pageShown = () => { try { return document.visibilityState !== "hidden"; } catch { return true; } };
+
+export default function FloatScreen({ room = "test", hosting = false, joinUrl = null, mock, quality, onStats, muted = false }) {
   const rootRef = useRef(null);
   const canvasRef = useRef(null);
   const flatRef = useRef(null);
@@ -84,6 +89,8 @@ export default function FloatScreen({ room = "test", hosting = false, joinUrl = 
   const [view, setView] = useState(() => (param("flat") === "1" ? "flat" : "3d"));
   const useMock = mock ?? param("mock") === "1";
   const tier = quality ?? param("quality") ?? "auto";
+  const mutedRef = useRef(!!muted);
+  mutedRef.current = !!muted;
 
   /* the connection */
   useEffect(() => {
@@ -99,7 +106,10 @@ export default function FloatScreen({ room = "test", hosting = false, joinUrl = 
 
   useEffect(() => store.subscribe(() => setVersion(v => v + 1)), [store]);
 
-  useFloatScreenSound(net);
+  /* the sound runner reads this on every step: muted reads as a hidden page
+     (its beds stop within a tick, no moment cues) */
+  const soundOptions = useMemo(() => ({ visible:() => !mutedRef.current && pageShown() }), []);
+  useFloatScreenSound(net, soundOptions);
   const unlockNeeded = useFloatSoundUnlockNeeded();
 
   /* the parent's size: the stage scale for the HUD, the renderer's size */
@@ -131,6 +141,7 @@ export default function FloatScreen({ room = "test", hosting = false, joinUrl = 
         if (!drawer) { fail(); return; }
         drawRef.current = drawer;
         drawer.resize(sizeRef.current.w, sizeRef.current.h);
+        drawer.setPaused?.(mutedRef.current);
         /* for the shots script and a console: the world's own handle */
         try { window.__floatWorld = drawer; } catch {}
       }).catch(error => { console.error("Float world", error); fail(); });
@@ -140,10 +151,14 @@ export default function FloatScreen({ room = "test", hosting = false, joinUrl = 
         drawer = mod.createFlatMap({ canvas:flatRef.current, store, onFrame:frame => bus.emit(frame), onStats:stats });
         drawRef.current = drawer;
         drawer.resize(sizeRef.current.w, sizeRef.current.h);
+        drawer.setPaused?.(mutedRef.current);
       }).catch(error => console.error("Float flat map", error));
     }
     return () => { alive = false; drawer?.dispose(); if (drawRef.current === drawer) drawRef.current = null; };
   }, [view, store, bus, tier]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /* hidden under a scene: stop drawing; back: pick up where the room is */
+  useEffect(() => { drawRef.current?.setPaused?.(!!muted); }, [muted]);
 
   const st = store.state;
   const roomMsg = st.room;
@@ -151,7 +166,8 @@ export default function FloatScreen({ room = "test", hosting = false, joinUrl = 
   const phase = st.phase;
   const entrants = Array.isArray(roomMsg?.entrants) ? roomMsg.entrants : [];
   const through = throughFor(roomMsg);
-  const final = (roomMsg?.rounds | 0) > 0 && (roomMsg?.round | 0) >= (roomMsg.rounds | 0) - 1;
+  const final = typeof roomMsg?.lastRound === "boolean" ? roomMsg.lastRound
+    : (roomMsg?.rounds | 0) > 0 && (roomMsg?.round | 0) >= (roomMsg.rounds | 0) - 1;
   /* the podium's beats count from its message, as the band's do (+60 ms) */
   const podiumAnchor = Number.isFinite(st.phaseStart) ? st.phaseStart + 60 : null;
 
@@ -189,9 +205,9 @@ export default function FloatScreen({ room = "test", hosting = false, joinUrl = 
   const send = msg => { try { net?.send(msg); } catch {} };
   const disconnected = st.status === "closed" || (st.status === "connecting" && !!st.room);
 
-  return <div className="fs-root" ref={rootRef} data-phase={phase} data-view={view}>
+  return <div className="fs-root" ref={rootRef} data-phase={phase} data-view={view} data-muted={muted ? "1" : undefined}>
     {view === "3d" ? <canvas key="gl" className="fs-canvas" ref={canvasRef} /> : <canvas key="flat" className="fs-canvas" ref={flatRef} />}
-    <div className="fs-hud">
+    {!muted && <div className="fs-hud">
       {phase === "lobby" && <Lobby room={roomMsg} entrants={entrants} hosting={hosting && roomMsg?.mode !== "fieldday"} joinUrl={joinUrl} send={send} />}
       {phase === "intro" && <IntroMap geo={geo} bus={bus} />}
       {(phase === "grid" || phase === "countdown" || phase === "race") && <NameTags bus={bus} entrants={entrants} phase={phase} big={phase !== "race"} />}
@@ -211,7 +227,8 @@ export default function FloatScreen({ room = "test", hosting = false, joinUrl = 
       {(phase === "podium" || phase === "feedback") && <Podium room={roomMsg} entrants={entrants} bus={bus} anchor={phase === "podium" ? podiumAnchor : -1e12} />}
       {phase === "feedback" && <Feedback />}
       {disconnected && <div className="fs-status"><span className="fs-lamp is-clay is-flash">Reconnecting</span></div>}
-      {unlockNeeded && <button type="button" className="fs-sound" onClick={() => unlockFloatSound()}><SoundIcon />Click for sound</button>}
-    </div>
+      {/* Field Day's TV has its own Click for sound; the /float page needs this one */}
+      {unlockNeeded && hosting && <button type="button" className="fs-sound" onClick={() => unlockFloatSound()}><SoundIcon />Click for sound</button>}
+    </div>}
   </div>;
 }

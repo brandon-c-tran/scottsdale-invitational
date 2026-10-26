@@ -297,7 +297,10 @@ export function createDirector(geo, { wallAt = () => 8, groundAt = null, falls =
       const C = points.reduce((acc, p) => ({ x:acc.x + p.x / points.length, y:acc.y + p.y / points.length, z:acc.z + p.z / points.length }), { x:0, y:0, z:0 });
       const yaw = Math.atan2(-finish.ty, -finish.tx);
       const pitch = 0.32;
-      const { D, fwd } = frameDistance(points, C, yaw, pitch, 44, aspect, SAFE, 20, 120);
+      /* the riders already in, on the takeout under the camera: whole, clear of the ribbon */
+      const party = home.filter(r => Number.isFinite(r.x) && Number.isFinite(r.y))
+        .map(r => ({ x:r.x, y:r.y, z:(Number.isFinite(r.s) ? geo.elevAt(r.s) : finish.z) - 0.6, safe:LOOSE }));
+      const { D, fwd } = frameDistance([...points, ...party], C, yaw, pitch, 44, aspect, SAFE, 20, 120);
       const eyeP = { x:C.x - fwd.x * D, y:C.y - fwd.y * D, z:C.z - fwd.z * D };
       if (groundAt) eyeP.z = Math.max(eyeP.z, groundAt(eyeP.x, eyeP.y) + 4);
       return { eye:eyeP, look:C, fov:44, key:"arrival" };

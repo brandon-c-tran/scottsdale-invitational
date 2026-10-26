@@ -168,8 +168,16 @@ export function createFlatMap({ canvas, store, onFrame, onStats }) {
   raf = requestAnimationFrame(frame);
   onStats?.({ tier:"flat" });
 
+  let paused = false;
   return {
     resize,
+    setPaused(on) {
+      on = !!on;
+      if (on === paused || !running) return;
+      paused = on;
+      if (on) cancelAnimationFrame(raf);
+      else raf = requestAnimationFrame(frame);
+    },
     dispose() { running = false; cancelAnimationFrame(raf); },
     podiumBurst() {},
     pose() {},

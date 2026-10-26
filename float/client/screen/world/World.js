@@ -274,8 +274,10 @@ export function createWorld({ canvas, store, quality = "auto", onFrame, onFail, 
     /* the race order, for the director and the HUD */
     const leg = legOf(geo, room);
     const field = indexList(room?.field);
-    const order = raceOrder({ field, rows:poses, results:room?.results || [], arrivals:st.arrivals });
+    const sticky = st.phase === "race" ? B.shownOrder : null;
+    const order = raceOrder({ field, rows:poses, results:room?.results || [], arrivals:st.arrivals, prev:sticky, stick:0.6 });
     B.lastOrder = order;
+    B.shownOrder = st.phase === "race" ? order.map(o => o.i) : null;
     const through = throughFor(room);
     const phaseElapsed = Number.isFinite(st.phaseStart) ? now - st.phaseStart : 0;
     const phaseDur = Number.isFinite(room?.endsAt) && Number.isFinite(room?.startAt) && room.endsAt > room.startAt ? room.endsAt - room.startAt : null;

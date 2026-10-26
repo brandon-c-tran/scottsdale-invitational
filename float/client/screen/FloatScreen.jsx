@@ -25,23 +25,11 @@ import Lobby from "./hud/Lobby.jsx";
 import { SoundIcon } from "./hud/bits.jsx";
 import "./screen.css";
 
-/* the connection: float/client/net.js once it exists (import.meta.glob finds
-   nothing while it is missing, so this builds either way and picks it up on
-   integration), else the screen's own (screenNet.js); with ?mock=1 the real
-   room run in this tab (mockNet.js) */
-let netModules = {};
-try { netModules = import.meta.glob("../net.js"); } catch { netModules = {}; }
-
+/* the connection: float/client/net.js, the one the phones use; with
+   ?mock=1 the real room run in this tab (mockNet.js) */
 export async function loadConnect(mock = false) {
   if (mock) return (await import("./mockNet.js")).connectFloat;
-  const load = netModules["../net.js"];
-  if (load) {
-    try {
-      const mod = await load();
-      if (typeof mod?.connectFloat === "function") return mod.connectFloat;
-    } catch (error) { console.error("Float net", error); }
-  }
-  return (await import("./screenNet.js")).connectFloat;
+  return (await import("../net.js")).connectFloat;
 }
 
 function createBus() {

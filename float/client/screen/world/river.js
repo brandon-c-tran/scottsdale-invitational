@@ -105,11 +105,16 @@ void main() {
   float md = max(dot(R, uMoonDir), 0.0);
   /* the moon's glitter reads far off; up close it would look like snow */
   float near = smoothstep(14.0, 55.0, length(cameraPosition - vWorld));
-  float moon = pow(md, 900.0) * 14.0 * near + pow(md, 90.0) * 0.6 + pow(md, 10.0) * 0.05;
+  /* the moon's path: sparse glitter, never a sheet. Facing a low moon at a
+     grazing angle, a sharp glint on every facet adds up to one white band
+     and the bloom spreads it over the whole run-in, so only some facets
+     catch it, the soft glow is faint, and the sum is capped */
+  float glitter = smoothstep(0.6, 0.68, n2.a) * (1.0 - 0.5 * clamp(rough, 0.0, 1.0));
+  float moon = pow(md, 900.0) * 4.0 * near * glitter + pow(md, 90.0) * 0.22 + pow(md, 10.0) * 0.03;
   float shallow = smoothstep(6.0, 0.3, vEdge);
   vec3 base = mix(uDeep, uShallow, shallow * 0.75) * (0.85 + n1.a * 0.3);
   vec3 col = mix(base, sky, fres * 0.85);
-  col += uMoonColor * moon * (1.0 - min(1.0, vChurn + vSlope));
+  col += uMoonColor * min(moon, 1.6) * (1.0 - min(1.0, vChurn + vSlope));
   /* the bulbs on the water: a warm wash near them and sparse sharp glints */
   float spark = smoothstep(0.83, 0.86, n2.a) * smoothstep(0.6, 0.72, n1.a) * near;
   col += uWarm * vGlow * (0.03 + spark * 1.6 * (0.3 + fres) + fres * 0.22);

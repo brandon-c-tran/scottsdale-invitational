@@ -233,7 +233,9 @@ export function createDirector(geo, { wallAt = () => 8, groundAt = null, falls =
   function frameOnce(group, { lookAhead = 0, aspect, leader = null, extra = [] }) {
     /* the group inside the HUD-safe box; riders caught on the way only clear
        of the frame's edge and the ribbon */
+    /* each rider twice: the head inside the safe box, the tube's foot clear of the ribbon */
     const points = [...group.map(r => ({ x:r.x, y:r.y, z:geo.elevAt(r.s) + 1.6 })),
+      ...group.map(r => ({ x:r.x, y:r.y, z:geo.elevAt(r.s) - 0.6, safe:FOOT, foot:true })),
       ...extra.map(r => ({ x:r.x, y:r.y, z:geo.elevAt(r.s) - 0.6, safe:LOOSE }))];
     const sMax = Math.max(...group.map(r => r.s)), sMin = Math.min(...group.map(r => r.s));
     const sBack = Math.min(sMin, ...extra.map(r => r.s));
@@ -241,7 +243,7 @@ export function createDirector(geo, { wallAt = () => 8, groundAt = null, falls =
       const ahead = at(sMax + lookAhead, (leader?.lat ?? 0) * 0.6, 0);
       points.push({ x:ahead.x, y:ahead.y, z:ahead.z });
     }
-    /* centred on the group; the caught riders only push the camera back */
+    /* centred on the group; the feet and the caught riders only push the camera back */
     const core = points.filter(p => !p.safe);
     const n = core.length;
     const C = core.reduce((acc, p) => ({ x:acc.x + p.x / n, y:acc.y + p.y / n, z:acc.z + p.z / n }), { x:0, y:0, z:0 });
@@ -273,7 +275,8 @@ export function createDirector(geo, { wallAt = () => 8, groundAt = null, falls =
 
   const SAFE = { left:0.72, right:0.42, top:0.48, bottom:0.5 };
   /* a caught rider's tube (its lowest point) clear of the ribbon */
-  const LOOSE = { left:0.86, right:0.6, top:0.6, bottom:0.72 };
+  const LOOSE = { left:0.86, right:0.6, top:0.6, bottom:0.66 };
+  const FOOT = { left:0.72, right:0.42, top:1, bottom:0.66 };
 
   /* the falls: a fixed camera below the lip, riders coming over toward it */
   function fallsShot(f, time) {

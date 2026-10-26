@@ -259,7 +259,8 @@ export function createRiders({ scene, geo, fx, shadowTex, noise }) {
       /* where its name goes on screen */
       if (camera) {
         r.head.set(r.x, r.z + r.headY * scale * k - r.swimFor * 0.55 * RIDER_SCALE, -r.y).project(camera);
-        r.screen.on = r.head.z < 1 && Math.abs(r.head.x) < 1.15 && Math.abs(r.head.y) < 1.15;
+        /* a rider under the frame's foot shows no tag hanging off the bottom edge */
+        r.screen.on = r.head.z < 1 && Math.abs(r.head.x) < 1.08 && r.head.y > -0.92 && r.head.y < 1.05;
         r.screen.x = (r.head.x * 0.5 + 0.5) * width;
         r.screen.y = (-r.head.y * 0.5 + 0.5) * height;
         r.screen.z = r.head.z;

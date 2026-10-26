@@ -76,6 +76,9 @@ const SHOTS = {
   /* a flip at the falls is the bots' luck: without one, the moment just past the lip */
   dropflip:{ when:o => o.phase === "race" && o.round === 3 && (o.dropFlip || o.leaderS >= 1452), after:700 },
   arrivals:{ when:o => o.phase === "race" && o.round === 0 && o.arrivals >= 5, after:800 },
+  /* the run-ins that face the moon over rough water (the glint's worst case) */
+  whirlend:{ when:o => o.phase === "race" && o.round === 2 && o.leaderS >= 1125, after:300 },
+  home:{ when:o => o.phase === "race" && o.round === 3 && o.leaderS >= 1505, after:300 },
   cut:{ when:o => o.phase === "cut" && o.round === 0, after:4600 },
   cutnext:{ when:o => o.phase === "cut" && o.round === 0, after:14500 },
   replay:{ when:o => o.phase === "cut" && o.round === 3, after:1500 },

@@ -16,7 +16,10 @@ export const isPlaced = row => Number.isInteger(row?.i) && (row.time === undefin
 
 /* the race order: placed riders by place, then those waiting at the takeout
    for their drink (by arrival), then everyone on the water by progress */
-export function raceOrder({ field = [], rows, results = [], arrivals = [] }) {
+/* `prev` (the order shown last frame) and `stick` (metres): a rider overtakes
+   in the shown order only once clearly ahead, so a level pack does not
+   shuffle the rail every frame */
+export function raceOrder({ field = [], rows, results = [], arrivals = [], prev = null, stick = 0 }) {
   const placed = new Map();
   for (const row of results) if (isPlaced(row)) placed.set(row.i, row.place ?? placed.size + 1);
   const list = field.map(i => {
@@ -30,6 +33,22 @@ export function raceOrder({ field = [], rows, results = [], arrivals = [] }) {
     || (a.state === "placed" ? a.place - b.place : 0)
     || (a.state === "waiting" ? (a.arrived < 0 ? 99 : a.arrived) - (b.arrived < 0 ? 99 : b.arrived) : 0)
     || b.p - a.p);
+  const start = list.findIndex(r => r.state === "racing");
+  if (prev?.length && stick > 0 && start >= 0) {
+    const was = new Map(prev.map((i, k) => [i, k]));
+    const racing = list.slice(start).sort((a, b) => {
+      const pa = was.get(a.i), pb = was.get(b.i);
+      return pa != null && pb != null ? pa - pb : b.p - a.p;
+    });
+    for (let pass = 0; pass < racing.length; pass++) {
+      let moved = false;
+      for (let k = 0; k < racing.length - 1; k++) {
+        if (racing[k + 1].p > racing[k].p + stick) { const t = racing[k]; racing[k] = racing[k + 1]; racing[k + 1] = t; moved = true; }
+      }
+      if (!moved) break;
+    }
+    list.splice(start, racing.length, ...racing);
+  }
   return list.map((r, k) => ({ ...r, rank:k + 1 }));
 }
 

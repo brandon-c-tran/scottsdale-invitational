@@ -197,7 +197,8 @@ function Beach({ screen, game, now, onDrink, onThrow, onExit }) {
     if (throws && (m.lastThrowAt == null || m.lastThrowAt < throws.s)) m.lastThrowAt = throws.s;
     return m;
   }, [game.memory, throws]);
-  const beach = beachState({ room, me:null, idx, memory, now });
+  /* the room's beach `me` (out:true) carries the live order and the next balloon's time */
+  const beach = beachState({ room, me:game.me?.out ? game.me : null, idx, memory, now });
   const entrants = Array.isArray(room?.entrants) ? room.entrants : [];
   const mine = resultOf(room, idx);
   const place = screen === "outcut" ? mine?.place : finalPlace(room, idx);

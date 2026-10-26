@@ -351,6 +351,29 @@ they disagree, this wins.
   stats:{ rounds:[{ round, leg, riders, balloons, rtt }] } }`.
 - **Tuning** exports `INTERP_MS` (100) and `BAR_MS` (2000).
 
+## As built: the art (Oct 25)
+
+- **The screen must set** `scene.environment = floatEnvironment(renderer, "night")`
+  (and may add `floatLights("night")`): the vinyl's clear coat needs
+  something to reflect, or it reads as clay.
+- `buildRider(entrant, { detail:"race" | "hero" })`: race detail for the pack
+  (~8k triangles dressed, ~10 draw calls), hero for close-ups, the podium and
+  portraits. `rider.setState/setStroke/setPose` forward to the critter; the
+  floatie follows by itself (tilts with strokes, capsizes while its rider
+  swims, dips when a backflip lands). `rider.ready` resolves when the chip's
+  photo is drawn.
+- **Sizes:** a floatie's origin is the water line under its centre; ring
+  floaties are about 1.45 m across; a seated rider stands about 1 m above the
+  water.
+- **Extras:** floatie `seatInfo`, `setState({ flipped })`, `kick({ lean, dip })`;
+  critter `setSeat`, `anchors { head, chest, handL, handR }`, `onCatch(side)`
+  (a hand entering the water, for splashes), `ready`; exports `buildMedallion`,
+  `artStats`, `setFloatArtQuality("low" | "high")` (low turns off the clear
+  coat everywhere, for slow GPUs), `disposeFloatArt`, `disposePortraits`.
+- `riderPortrait` shares one offscreen renderer, caches by look, colour, skin,
+  number and photo, falls back to a flat disc without WebGL, and returns null
+  in node.
+
 ## Ownership (who edits what)
 
 | Part | Owns |

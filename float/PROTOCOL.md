@@ -313,8 +313,24 @@ they disagree, this wins.
   goes again). The last `cut` (after the final) lasts 7 s.
 - **`room` extras:** `cupId`, `swapUntil`, `resume`, `cut` (the next round's
   field size, null in the last round; `me.cut` is the same), `len` (this
-  leg's length), `final` (true in the last round), `history`, and
-  `botDriven` on each entrant.
+  leg's length), `lastRound` (true in the last round), `final` (the Cup's
+  final order, entrant indexes 1st to last, null until the final ends),
+  `startPlanned` (a Field Day Cup's start while it waits in the lobby, else
+  null), `history`, `botDriven` on each entrant, and `drank` on each out
+  entrant (their beach drink, so a phone that reloads on the beach knows).
+- **A rider's drinking answer is private.** `entrants[].drinks` goes only in
+  the copy of `room` sent to that entrant's own phone, never to screens or
+  other phones. A drink that counts on arrival (`drinks:false`, or the room's
+  `drinking` off) raises no `drink` event; the DRANK flag lights as for anyone.
+- **`me`** also carries `order` (entrant indexes by current place). A rider
+  out on the beach gets `me` during a race too: `{ i, out:true, order, of,
+  cut, ball, f }`, where `ball` is the server time their next balloon is
+  ready (null until their beach drink) and `f` has DRANK once they drank.
+- **`hands`** counts from `grid` and `countdown` on (strokes only once the
+  race is on), so thumbs are right at the gun.
+- **The result posts when the podium ends** (or when a finished Cup is left
+  for the lobby early), once, so the Tournament's winner scene never cuts off
+  the room's podium.
 - **Host `start` `bots`** is how many bots to ADD. `/internal/cup` `bots` is
   the total to FILL TO.
 - **Away riders:** a phone silent for 5 s (or closed) is paddled by a bot,
@@ -348,8 +364,13 @@ they disagree, this wins.
   `{ ok, cupId, room, phase, already:true }` for a repeat.
 - **Result body:** `{ evId, cupId, order, rounds:[{ round, leg, field, out,
   results:[{ who, pid, bot, place, time, drinkAt, arriveAt }] }],
-  stats:{ rounds:[{ round, leg, riders, balloons, rtt }] } }`.
-- **Tuning** exports `INTERP_MS` (100) and `BAR_MS` (2000).
+  stats:{ rounds:[{ round, leg, riders, balloons, rtt }], botShare } }`.
+  Each rider's round stats carry `botShare` (0 to 1: how much of that race a
+  bot paddled for them), and `stats.botShare` is the same over the Cup, by
+  player; data only.
+- **Tuning** exports `INTERP_MS` (100) and `BAR_MS` (2000). `protocol.js`
+  exports `PALETTE` (bot colours) and the room-code letters `CODE_LETTERS`,
+  `CODE_LENGTH`, `STANDALONE_CODE` (re-exported by `cup.js` and the join).
 
 ## As built: the art (Oct 25)
 

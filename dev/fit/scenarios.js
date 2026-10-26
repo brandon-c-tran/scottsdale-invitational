@@ -1397,6 +1397,8 @@ export const TV_SCENARIOS = Object.freeze([
   { id:"tv-float-roster", build:() => floatAhead(), float:true, at:{ floatRoster:{} }, wait:2500 },
   { id:"tv-float-roster-short", build:() => floatAhead({ target:"locker", out:["Jeremy", "Ben", "Evan"], long:"Allan" }),
     float:true, at:{ floatRoster:{} }, wait:2500 },
+  /* a TV that cannot draw them: each rider's photo chip (initials without a photo) */
+  { id:"tv-float-roster-chips", build:() => floatAhead(), float:true, floatArt:"fail", at:{ floatRoster:{} } },
   { id:"tv-walkout", build:() => fresh("event:putt:done"), moment:{ kind:"walkout", t:3000, player:"Brandon" } },
   /* a team's win walks out as the team: the moment is read from the record
      and the win it follows (walkoutView), a pair with no cover, seven with one */

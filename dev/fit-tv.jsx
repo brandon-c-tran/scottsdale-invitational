@@ -13,6 +13,7 @@ import { TVMode } from "../src/features/tv/TVMode.jsx";
 import { TV_AMBIENT_MS, TV_AMBIENT_TURN_MS, TV_RESULT_MOMENT_MS, TV_TICKER_PAGE_MS, ambientIndex, latestResultOf, nextUpEvent,
   tvLiveEvent } from "../src/features/tv/tvModel.js";
 import { FLOAT_ROSTER_CARD, floatRosterRiders, withFloatRoster } from "../src/features/float/floatRoster.js";
+import { failFloatArt } from "../src/features/float/floatParts.js";
 import { recordAt, recordCards, withRecordTurns } from "../src/features/tv/recordsModel.js";
 import { attractAt, attractRoom, withAttractTurns } from "../src/features/tv/attractModel.js";
 import { tvPhotoRotation, withPhotoTurns } from "../src/features/photos/photoModel.js";
@@ -41,6 +42,8 @@ import "../src/ui/shell.css";
 const params = new URLSearchParams(location.search);
 const scenario = buildScenario(TV_SCENARIOS, params.get("scenario") || "tv-locker");
 const at = scenario.at || {};
+/* `floatArt:"fail"`: a TV that cannot draw the riders (their photo chips stand in) */
+if (scenario.floatArt === "fail") failFloatArt("fit");
 /* a bit held "letter" (its name and fact landed) or at its "still" */
 const bitInstant = (bit, t) => t === "letter" ? (bit?.letter?.at || 0) + LETTER_LAND_MS + 120 : t === "still" ? bit?.still || 0 : Number(t) || 0;
 /* ?t=ms moves a moment's instant (frame timing) */

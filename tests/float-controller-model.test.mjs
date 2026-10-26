@@ -17,13 +17,14 @@ test("ordinal", () => {
     ["1st", "2nd", "3rd", "4th", "11th", "12th", "13th", "21st", "22nd", "101st", "", "1st"]);
 });
 
-test("findMe: the device in the room, then the Field Day player, then what the room said", () => {
+test("findMe: by device in the room's entrants; the welcome's index only before the first room", () => {
   const room = { entrants:[{ device:"a" }, { device:"b", pid:"Sahil" }] };
   assert.equal(findMe({ room, device:"b" }), 1);
-  assert.equal(findMe({ room, device:"z", pid:"Sahil" }), 1);
-  assert.equal(findMe({ room, device:"z", welcome:{ entrant:0 } }), 0);
-  assert.equal(findMe({ room, device:"z", welcome:{ entrant:7 } }), -1, "an index past the room is stale");
-  assert.equal(findMe({ room, device:"z" }), -1);
+  assert.equal(findMe({ room, device:"z", welcome:{ entrant:0 } }), -1, "kicked in the lobby: not someone else");
+  assert.equal(findMe({ room:null, device:"z", welcome:{ entrant:3 } }), 3);
+  assert.equal(findMe({ room:null, device:"z" }), -1);
+  /* a lobby that loses a bot shifts indexes: the device still finds us */
+  assert.equal(findMe({ room:{ entrants:[{ device:"b" }] }, device:"b", welcome:{ entrant:1 } }), 0);
 });
 
 test("screenOf: every phase, for a racer, an out rider and a phone that only watches", () => {

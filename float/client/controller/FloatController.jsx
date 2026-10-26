@@ -102,7 +102,7 @@ export default function FloatController({ room = "test", rider = null, onExit = 
     return () => opened.close();
   }, [room, connect]);
 
-  const game = useRoom(net, { pid:rider?.pid || null });
+  const game = useRoom(net);
   const gameRef = useRef(game);
   gameRef.current = game;
   const { idx } = game;

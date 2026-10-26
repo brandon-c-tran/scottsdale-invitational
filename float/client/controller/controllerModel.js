@@ -41,17 +41,14 @@ export function ordinal(n) {
   return `${v}${suffix}`;
 }
 
-/* this phone's entrant: its device in the room, its Field Day player, what
-   the room told it at welcome, its own `me` */
-export function findMe({ room, device, pid = null, welcome = null, me = null } = {}) {
-  const entrants = list(room?.entrants);
-  let i = device ? entrants.findIndex(e => e && e.device === device) : -1;
-  if (i >= 0) return i;
-  if (pid) { i = entrants.findIndex(e => e && e.pid === pid); if (i >= 0) return i; }
+/* this phone's entrant: its device in the room's entrants (PROTOCOL "As
+   built": indexes shift in the lobby, and a Field Day claim moves the
+   entrant to the newest device). Only before the first room message does
+   the welcome's index stand in. */
+export function findMe({ room, device, welcome = null } = {}) {
+  if (Array.isArray(room?.entrants)) return device ? room.entrants.findIndex(e => e && e.device === device) : -1;
   const said = num(welcome?.entrant);
-  if (Number.isInteger(said) && said >= 0 && (!entrants.length || said < entrants.length)) return said;
-  const own = num(me?.i);
-  return Number.isInteger(own) && own >= 0 ? own : -1;
+  return Number.isInteger(said) && said >= 0 ? said : -1;
 }
 
 /* the Cup is over: the final has been raced (its cut, the podium, the card) */

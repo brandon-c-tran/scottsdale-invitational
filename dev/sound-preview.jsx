@@ -104,8 +104,9 @@ async function selftest() {
       mixes.forEach((mix, k) => { playRecipe(E, "floatRiver", t + k * RIVER_STEP_MS / 1000, { ms:RIVER_SEG_MS, fade:RIVER_FADE_MS, from:last || mix, to:mix }); last = mix; }); };
     const race = (leg, final) => ({ mode:"race", anchor:0, from:0, leg, final });
     const raceMem = (leg, final) => ({ view:{ phase:"race", round:leg, rounds:4, leg, final, field:[0, 1, 2] }, pack:{ leaderFrac:0, s:0 } });
-    rows.push(await measure("float: 3 2 1, the gun, the Put-in's first bars", 14, (E, t) => {
+    rows.push(await measure("float: the count-in (3 2 1 and the sticks), the gun, the Put-in's first bars", 14, (E, t) => {
       [3, 2, 1].forEach((n, k) => playRecipe(E, "floatCount", t + k, { n }));
+      [0.5, 1.5, 2.5].forEach(x => playRecipe(E, "floatCountTick", t + x));
       playRecipe(E, "floatGo", t + 3);
       floatBars(race(0, false), 0, 8000, raceMem(0, false)).forEach(bar => playRecipe(E, bar.id, t + 3 + bar.at / 1000, bar.opts));
       floatRiver(E, t, Array.from({ length:5 }, () => ({ ...RIVER_MIX.pool, churn:0.4, crickets:0, level:1 })));
@@ -137,6 +138,16 @@ async function selftest() {
       for (let i = 0; i < 12; i++) playRecipe(E, "floatDip", t + i * 0.18, { side:i % 2 ? "R" : "L", v:i % 4 });
       playRecipe(E, "floatYouFlip", t + 2.4); playRecipe(E, "floatYouThrough", t + 3.4);
     }, { listen:"phone" }));
+    rows.push(await measure("float: your strokes on the beat (perfect, good, then late), your groove's chimes (a phone)", 8, (E, t) => {
+      for (let i = 0; i < 14; i++) playRecipe(E, "floatDip", t + i * 0.5 + (i > 9 ? 0.22 : 0), { side:i % 2 ? "R" : "L", v:i % 4,
+        q:i < 5 ? "perfect" : i < 10 ? "good" : "late" });
+      [[2.1, 1], [4.1, 2], [6.6, 3]].forEach(([s, level]) => playRecipe(E, "floatYouLevel", t + s, { level }));
+    }, { listen:"phone" }));
+    rows.push(await measure("float: a rider locks in over the final at the Drop's roar", 6, (E, t) => {
+      floatBars(race(3, true), 0, 6000, raceMem(3, true)).forEach(bar => playRecipe(E, bar.id, t + bar.at / 1000, { ...bar.opts, tense:3 }));
+      floatRiver(E, t, Array.from({ length:3 }, () => ({ ...RIVER_MIX.drop, roar:1, hiss:0.8, crickets:0, level:1 })));
+      playRecipe(E, "floatLockedIn", t + 2.5, { pan:0.3 });
+    }));
     /* the board's loudest moment: a buzz-in pile-up, the order, a wrong, a right */
     rows.push(await measure("board: four buzzes, the order, wrong then right", 4, (E, t) => {
       [0, 0.07, 0.14, 0.21].forEach((dt, i) => playRecipe(E, "buzzIn", t + dt, { step:i, pan:-0.6 + i * 0.4 }));

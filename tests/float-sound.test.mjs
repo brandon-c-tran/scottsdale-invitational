@@ -13,6 +13,7 @@ globalThis.__FD_BUILD_ID__ = "build-test";
 const screen = await import("../float/client/sound/screen.js");
 const music = await import("../float/client/sound/music.js");
 const cup = await import("../float/client/sound/cup.js");
+const beat = await import("../float/shared/beat.js");
 const T0 = 1_900_000_000_000;
 
 /* a room message */
@@ -57,6 +58,30 @@ test("the gun: a countdown names it as its end, or as the race's start; the numb
   const late = run([welcome(s), room("lobby", s), { ...room("countdown", s + 5000, { endsAt:s + 8000 }), now:s + 6200 }]);
   assert.deepEqual(late.cues.filter(cue => cue.id === "floatCount").map(cue => cue.opts.n), [2, 1]);
   assert.equal(screen.COUNT_BEATS.length, 3);
+});
+
+test("the count-in (PROTOCOL.md \"The beat\"): all six beats before the gun, 3, 2 and 1 on every other one, the sticks between, the gun on the next", () => {
+  const s = T0, gun = s + 8000;
+  const { cues } = run([welcome(s), room("lobby", s), room("grid", s + 1000, { startAt:s + 1000, endsAt:s + 5000 }),
+    room("countdown", s + 5000, { startAt:gun, endsAt:gun })]);
+  const count = cues.filter(cue => /floatCount|floatGo/.test(cue.id));
+  assert.deepEqual(count.map(cue => [cue.id, cue.at - gun, cue.opts.n ?? null]), [
+    ["floatCount", -3000, 3], ["floatCountTick", -2500, null], ["floatCount", -2000, 2], ["floatCountTick", -1500, null],
+    ["floatCount", -1000, 1], ["floatCountTick", -500, null], ["floatGo", 0, null]]);
+  assert.ok(count.every(cue => (cue.at - gun) % beat.BEAT_MS === 0), "every one on the race's beat grid");
+  assert.equal(beat.BEAT_MS * 4, music.BAR_MS);
+  assert.deepEqual([...screen.COUNT_BEATS, ...screen.COUNT_TICKS].sort((a, b) => b - a), [3000, 2500, 2000, 1500, 1000, 500]);
+  /* the final marches */
+  const f = run([welcome(s), room("lobby", s), room("countdown", s + 5000, { round:3, leg:3, startAt:gun, endsAt:gun })]);
+  assert.ok(f.cues.filter(cue => cue.id === "floatCountTick").every(cue => cue.opts.final === true));
+  /* the leg's title: its long note (0.75 s in) on the grid's second beat, the grid's start being on the race's beat grid */
+  const grid = run([welcome(s), room("lobby", s), room("grid", s + 1000, { startAt:s + 1000, endsAt:s + 5000 })]);
+  const title = grid.cues.find(cue => cue.id === "floatTitle");
+  assert.equal(title.at, s + 1000 + screen.TITLE_LEAD_MS);
+  assert.ok((title.at + 750 - gun) % beat.BEAT_MS === 0, "the long note on a beat");
+  /* a grid message that lands late plays the title as it lands */
+  const lateGrid = run([welcome(s), room("lobby", s), { ...room("grid", s + 1400, { startAt:s + 1000, endsAt:s + 5000 }), now:s + 1430 }]);
+  assert.equal(lateGrid.cues.find(cue => cue.id === "floatTitle").at, s + 1460);
 });
 
 test("a load or a reconnect is a catch-up: the first room on a connection sounds nothing, and nor does anything stale or hidden", () => {
@@ -120,7 +145,7 @@ function rig({ reduced = false, visible = true, status = "open" } = {}) {
     onStatus(fn) { statusFns.push(fn); return () => {}; }, serverNow:() => now, status:() => status };
   const played = [];
   const play = (id, at, options) => {
-    const entry = { id, at, opts:options?.opts || {}, cancelled:false, key:options?.key ?? null };
+    const entry = { id, at, laidAt:now, opts:options?.opts || {}, cancelled:false, key:options?.key ?? null };
     played.push(entry);
     return { cancel() { entry.cancelled = true; } };
   };
@@ -139,26 +164,33 @@ const course = {
 };
 export { course as FLOAT_TEST_COURSE };
 
-test("the runner lays the band a bar ahead: the vamp after the title, bar 0 on the gun during the countdown, and every bar on its line", () => {
+test("the runner lays the band a bar ahead: the vamp on the race's own beat from under the title, the count-in, bar 0 on the gun", () => {
   const r = rig();
   r.emit("welcome", { you:{ device:"tv" } });
   r.emit("room", { ...room("lobby", r.now()), course });
   r.advance(1000);
-  const grid = r.now() + 500;
+  /* the grid as the engine runs it: GRID_MS, then the countdown's COUNTDOWN_MS to the gun */
+  const grid = r.now() + 500, gun = grid + 7000;
   r.set(grid);
-  r.emit("room", room("grid", grid, { startAt:grid }));
+  r.emit("room", room("grid", grid, { startAt:grid, endsAt:grid + 4000 }));
   assert.equal(r.played.filter(p => p.id === "floatTitle").length, 1);
   r.advance(3500);
   const vamp = r.played.filter(p => p.id === "floatVamp");
-  assert.equal(vamp[0].at, grid + music.TITLE_HOLD_MS, "the title's sting has the vamp's first bar line to itself");
-  const cd = r.now(), gun = cd + 3000;
-  r.emit("room", room("countdown", cd, { startAt:cd, endsAt:gun }));
-  assert.ok(vamp.every(p => p.cancelled), "the countdown takes over from the vamp, the ringing bar fading");
+  assert.deepEqual(vamp.map(p => p.at - gun), [-6000, -4000], "the vamp's bars are the race's, from under the title's long note");
+  const cd = r.now() + 500;
+  r.set(cd);
+  r.emit("room", room("countdown", cd, { startAt:gun, endsAt:gun }));
+  assert.ok(vamp.filter(p => p.at > cd - music.BAR_MS).every(p => p.cancelled), "the count-in takes over from the vamp, on a beat");
+  assert.deepEqual(r.played.filter(p => /floatCount/.test(p.id)).map(p => p.at - gun), [-3000, -2500, -2000, -1500, -1000, -500]);
   r.advance(2500);
   const race = r.played.filter(p => p.id === "floatRace");
   assert.equal(race.length, 1, "bar 0 is laid during the countdown");
   assert.equal(race[0].at, gun);
-  assert.ok(race[0].at - (cd + 2375) >= music.MUSIC_LEAD_MS - 125 - 1, "about a lead ahead of its start");
+  assert.ok(race[0].at - race[0].laidAt >= music.MUSIC_LEAD_MS - 125 && race[0].at - race[0].laidAt <= music.MUSIC_LEAD_MS,
+    "laid about a lead ahead of its start");
+  /* one beat grid from the grid to the race: every bar line of the vamp, the count-in and the race a whole number of beats from the gun */
+  const timed = r.played.filter(p => /floatVamp|floatCount|floatGo|floatRace/.test(p.id));
+  assert.ok(timed.every(p => (p.at - gun) % beat.BEAT_MS === 0), "the beat never moves");
   r.emit("room", room("race", gun, { startAt:gun }));
   r.advance(10000);
   const bars = r.played.filter(p => p.id === "floatRace");

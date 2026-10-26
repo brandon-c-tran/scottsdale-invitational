@@ -111,7 +111,7 @@ export function buildBar(geo, field) {
     const c = Math.cos(heading), sn = Math.sin(heading);
     /* rotation.y = heading maps local (lx, lz) to world (lx cos + lz sin, -lx sin + lz cos) in three's x,z */
     const wx = local.x * c + local.z * sn, wz = -local.x * sn + local.z * c;
-    return { place:st.place, x:x + wx, y:y - wz, z:deckZ + st.h };
+    return { place:st.place, x:x + wx, y:y - wz, z:deckZ + st.h, h:st.h, depth:2.4 };
   });
   const front = tops[0];
   return {

@@ -221,8 +221,12 @@ export const FAR_TINT = KIND_TINT[5].clone().lerp(KIND_TINT[3], 0.375);
 export function terrainMeshes(field, { glowAt, noise }) {
   const { x0, y0, nx, ny, step, heights, kind, tone, rock } = field;
   const material = new THREE.MeshLambertMaterial({ vertexColors:true, flatShading:true });
+  /* the beat's pulse (World sets it): the lamplight on the banks breathes */
+  const pulse = { value:0 };
+  material.userData.pulse = pulse;
   material.onBeforeCompile = shader => {
     shader.uniforms.uNoise = { value:noise };
+    shader.uniforms.uPulse = pulse;
     shader.uniforms.uWarm = { value:new THREE.Color(NIGHT.warm) };
     shader.vertexShader = shader.vertexShader
       .replace("#include <common>", "#include <common>\nattribute float aGlow;\nattribute float aWall;\nvarying float vGlow;\nvarying float vWall;\nvarying vec3 vWorldP;")
@@ -231,6 +235,7 @@ export function terrainMeshes(field, { glowAt, noise }) {
       .replace("#include <common>", `#include <common>
 uniform sampler2D uNoise;
 uniform vec3 uWarm;
+uniform float uPulse;
 varying float vGlow;
 varying float vWall;
 varying vec3 vWorldP;
@@ -257,7 +262,7 @@ vec3 strata(float y, float n) {
   diffuseColor.rgb = mix(diffuseColor.rgb * (0.88 + 0.24 * n2), rock, vWall);
 }`)
       .replace("#include <emissivemap_fragment>", `#include <emissivemap_fragment>
-totalEmissiveRadiance += uWarm * vGlow * 0.55;`);
+totalEmissiveRadiance += uWarm * vGlow * 0.55 * (1.0 + uPulse * 0.45);`);
   };
   const TILE = 72;
   const meshes = [];

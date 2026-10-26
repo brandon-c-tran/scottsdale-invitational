@@ -1,12 +1,14 @@
 /* The water's little moments, pooled so nothing allocates in a race: spray
    and droplets (one Points draw), balloons in flight (one instanced draw),
-   the falls' mist, and the podium's confetti (one instanced draw). */
+   the falls' mist, the podium's confetti (one instanced draw), and the
+   groove's sparks (one additive Points draw). */
 import * as THREE from "three";
 import { rng } from "./cpuNoise.js";
 
 const SPRAY = 900;
 const BALLOONS = 24;
 const CONFETTI = 260;
+const SPARKS = 480;
 
 export function createFx({ scene, dotTex, geo, falls = [] }) {
   const rand = rng(41);
@@ -57,6 +59,59 @@ export function createFx({ scene, dotTex, geo, falls = [] }) {
     col[k * 3] = c.r; col[k * 3 + 1] = c.g; col[k * 3 + 2] = c.b;
     size[k] = s; life[k] = l; maxLife[k] = l; grow[k] = g; alpha[k] = 1;
   };
+  /* ── sparks: additive glints that twinkle as they rise (a rider Locked in) ── */
+  const sPos = new Float32Array(SPARKS * 3), sCol = new Float32Array(SPARKS * 3), sSize = new Float32Array(SPARKS), sAlpha = new Float32Array(SPARKS);
+  const sVel = new Float32Array(SPARKS * 3), sLife = new Float32Array(SPARKS), sMax = new Float32Array(SPARKS), sSeed = new Float32Array(SPARKS);
+  let sNext = 0;
+  const sparkGeo = new THREE.BufferGeometry();
+  sparkGeo.setAttribute("position", new THREE.BufferAttribute(sPos, 3).setUsage(THREE.DynamicDrawUsage));
+  sparkGeo.setAttribute("color", new THREE.BufferAttribute(sCol, 3).setUsage(THREE.DynamicDrawUsage));
+  sparkGeo.setAttribute("aSize", new THREE.BufferAttribute(sSize, 1).setUsage(THREE.DynamicDrawUsage));
+  sparkGeo.setAttribute("aAlpha", new THREE.BufferAttribute(sAlpha, 1).setUsage(THREE.DynamicDrawUsage));
+  const sparkMat = new THREE.ShaderMaterial({
+    uniforms:{ uMap:{ value:dotTex }, uScale:{ value:540 } },
+    vertexShader:sprayMat.vertexShader,
+    fragmentShader:/* glsl */ `
+      uniform sampler2D uMap;
+      varying vec3 vColor;
+      varying float vAlpha;
+      void main() {
+        float d = texture(uMap, gl_PointCoord).a;
+        float a = d * vAlpha;
+        if (a < 0.01) discard;
+        /* a white-hot core in the spark's colour */
+        gl_FragColor = vec4(mix(vColor, vec3(1.0), smoothstep(0.75, 1.0, d) * 0.7) * a, 1.0);
+      }`,
+    transparent:true, depthWrite:false, blending:THREE.AdditiveBlending,
+  });
+  const sparks = new THREE.Points(sparkGeo, sparkMat);
+  sparks.frustumCulled = false;
+  sparks.renderOrder = 5;
+  scene.add(sparks);
+  const spark = (x, y, z, vx, vy, vz, s, l, c) => {
+    const k = sNext; sNext = (sNext + 1) % SPARKS;
+    sPos[k * 3] = x; sPos[k * 3 + 1] = y; sPos[k * 3 + 2] = z;
+    sVel[k * 3] = vx; sVel[k * 3 + 1] = vy; sVel[k * 3 + 2] = vz;
+    sCol[k * 3] = c.r * 1.6; sCol[k * 3 + 1] = c.g * 1.6; sCol[k * 3 + 2] = c.b * 1.6;
+    sSize[k] = s; sLife[k] = l; sMax[k] = l; sSeed[k] = rand() * 6.28; sAlpha[k] = 0;
+  };
+  /* a few sparks around a rider (called a dozen times a second while it is Locked in) */
+  const sparkle = (r, c, scale = 1) => {
+    for (let n = 0; n < 2; n++) {
+      const a = rand() * Math.PI * 2, d = (0.7 + rand() * 0.6) * scale;
+      spark(r.x + Math.cos(a) * d, r.z + 0.3 + rand() * 1.2 * scale, -(r.y + Math.sin(a) * d),
+        Math.cos(a) * 0.25, 0.5 + rand() * 0.7, -Math.sin(a) * 0.25, 0.12 + rand() * 0.12, 0.55 + rand() * 0.45, c);
+    }
+  };
+  /* the moment a rider locks in: a ring of sparks thrown up and out */
+  const sparkBurst = (r, c, count = 46, scale = 1) => {
+    for (let n = 0; n < count; n++) {
+      const a = (n / count) * Math.PI * 2 + rand() * 0.3, sp = (1.6 + rand() * 2.2) * scale * 0.7;
+      spark(r.x + Math.cos(a) * 0.6 * scale, r.z + 0.6 * scale, -(r.y + Math.sin(a) * 0.6 * scale),
+        Math.cos(a) * sp, 1.6 + rand() * 2.6, -Math.sin(a) * sp, 0.14 + rand() * 0.16, 0.7 + rand() * 0.6, c);
+    }
+  };
+
   /* a rider's splash: a ring of droplets and a puff */
   const splash = (r, strength = 1, c = white) => {
     const x = r.x, y = r.z + 0.25, z = -r.y;
@@ -129,7 +184,7 @@ export function createFx({ scene, dotTex, geo, falls = [] }) {
 
   let mistOn = true;
   const update = (dt, time, { camera, riderOf, height = 1080 } = {}) => {
-    if (camera) sprayMat.uniforms.uScale.value = height / (2 * Math.tan((camera.fov * Math.PI) / 360));
+    if (camera) sprayMat.uniforms.uScale.value = sparkMat.uniforms.uScale.value = height / (2 * Math.tan((camera.fov * Math.PI) / 360));
     /* the falls breathe mist and throw droplets */
     if (mistOn) for (const f of fallSpots) {
       if (camera && camera.position.distanceToSquared(at.set(f.x, f.z, -f.y)) > 260 * 260) continue;
@@ -156,6 +211,26 @@ export function createFx({ scene, dotTex, geo, falls = [] }) {
     sprayGeo.attributes.color.needsUpdate = true;
     sprayGeo.attributes.aSize.needsUpdate = true;
     sprayGeo.attributes.aAlpha.needsUpdate = true;
+    /* sparks rise, slow and twinkle out */
+    let anySpark = false;
+    for (let k = 0; k < SPARKS; k++) {
+      if (sLife[k] <= 0) { if (sAlpha[k] !== 0) sAlpha[k] = 0; continue; }
+      anySpark = true;
+      sLife[k] -= dt;
+      const drag = Math.exp(-dt * 2.2);
+      sVel[k * 3] *= drag; sVel[k * 3 + 2] *= drag;
+      sVel[k * 3 + 1] = sVel[k * 3 + 1] * drag - 1.4 * dt;
+      sPos[k * 3] += sVel[k * 3] * dt; sPos[k * 3 + 1] += sVel[k * 3 + 1] * dt; sPos[k * 3 + 2] += sVel[k * 3 + 2] * dt;
+      const t = Math.max(0, sLife[k] / sMax[k]);
+      sAlpha[k] = Math.min(1, (1 - t) * 8) * Math.min(1, t * 2.2) * (0.55 + 0.45 * Math.sin(time * 26 + sSeed[k]));
+    }
+    sparks.visible = anySpark;
+    if (anySpark) {
+      sparkGeo.attributes.position.needsUpdate = true;
+      sparkGeo.attributes.color.needsUpdate = true;
+      sparkGeo.attributes.aSize.needsUpdate = true;
+      sparkGeo.attributes.aAlpha.needsUpdate = true;
+    }
     /* balloons arc from the bank to their target, then burst */
     let n = 0;
     for (let k = flights.length - 1; k >= 0; k--) {
@@ -199,12 +274,12 @@ export function createFx({ scene, dotTex, geo, falls = [] }) {
   };
 
   return {
-    splash, paddle, balloonSplash, throwBalloon, burst, update,
+    splash, paddle, balloonSplash, throwBalloon, burst, sparkle, sparkBurst, update,
     setMist(on) { mistOn = on; },
-    clear() { life.fill(0); flights.length = 0; pieces.length = 0; },
+    clear() { life.fill(0); sLife.fill(0); flights.length = 0; pieces.length = 0; },
     dispose() {
-      [spray, balloons, confetti].forEach(o => scene.remove(o));
-      sprayGeo.dispose(); sprayMat.dispose(); balloonGeo.dispose(); balloonMat.dispose(); balloons.dispose();
+      [spray, sparks, balloons, confetti].forEach(o => scene.remove(o));
+      sprayGeo.dispose(); sprayMat.dispose(); sparkGeo.dispose(); sparkMat.dispose(); balloonGeo.dispose(); balloonMat.dispose(); balloons.dispose();
       confGeo.dispose(); confMat.dispose(); confetti.dispose();
     },
   };

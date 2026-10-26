@@ -17,7 +17,8 @@ import { buildRiver, buildFoamDecals, buildWhirlpools } from "./river.js";
 import { buildSky, moonDirection } from "./sky.js";
 import { buildDressing } from "./dressing.js";
 import { buildBar, barSite } from "./bar.js";
-import { createRiders } from "./riders.js";
+import { createRiders, LEVEL_HEX, RIDER_SCALE } from "./riders.js";
+import { BEAT_MS, beatPhase } from "../../../shared/beat.js";
 import { createFx } from "./fx.js";
 import { createDirector } from "../model/director.js";
 import { gridPoses, lobbyPoses, takeoutPoses, podiumPoses } from "../model/staging.js";
@@ -35,6 +36,18 @@ export const TIERS = Object.freeze([
 ]);
 
 const SLOW_MS = 20.5;
+const LEVEL_COLORS = LEVEL_HEX.map(hex => (hex ? new THREE.Color(hex) : null));
+/* reduced motion: the room's lights hold still */
+const stillLights = () => { try { return window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches === true; } catch { return false; } };
+/* the beat in the room (float/PROTOCOL.md "The beat"): on the server clock
+   from the gun, through the countdown (its 3-2-1 and the gun fall on beats)
+   and the race; a quick swell on each beat, a little more on the bar's first */
+function beatPulse(phase, gun, t) {
+  if ((phase !== "countdown" && phase !== "race") || !Number.isFinite(gun) || !Number.isFinite(t)) return 0;
+  const k = Math.floor((t - gun) / BEAT_MS);
+  const accent = (((k % 4) + 4) % 4) === 0 ? 1 : 0.72;
+  return Math.exp(-beatPhase(t, gun) * 7) * accent;
+}
 /* the frame budget is judged only on settled frames: never while the world,
    a rider's art or the HUD's portraits are being built (shader compiles and
    the portraits' own renders read as a slow GPU, and a TV would step down
@@ -141,7 +154,7 @@ export function createWorld({ canvas, store, quality = "auto", onFrame, onFail, 
     if (!envSet) {
       try { scene.environment = floatEnvironment(renderer, "night"); scene.environmentIntensity = ENV_INTENSITY; envSet = true; } catch {}
     }
-    built = { geo, root, field, plan, river, terrain, foam, whirl, sky, dressing, bar, fx, riders, director,
+    built = { geo, root, field, plan, river, terrain, foam, whirl, sky, dressing, bar, fx, riders, director, grooves:[],
       buildMs:performance.now() - t0, appear:new Map(), lastPhase:null };
     applyTier();
     return built;
@@ -291,7 +304,12 @@ export function createWorld({ canvas, store, quality = "auto", onFrame, onFail, 
     const through = throughFor(room);
     const phaseElapsed = Number.isFinite(st.phaseStart) ? now - st.phaseStart : 0;
     const phaseDur = Number.isFinite(room?.endsAt) && Number.isFinite(room?.startAt) && room.endsAt > room.startAt ? room.endsAt - room.startAt : null;
-    B.riders.update(dt, time, posesNow, { show:shown, sad:sadSet, rough:0, now:time * 1000, camera, width, height });
+    /* the beat: the lights, the water's lamplight and the grooving riders breathe with it */
+    const pulse = stillLights() ? 0 : beatPulse(st.phase, st.gun, now);
+    B.riders.update(dt, time, posesNow, { show:shown, sad:sadSet, rough:0, now:time * 1000, camera, width, height, pulse });
+    B.dressing.update(time, pulse);
+    B.river.material.uniforms.uPulse.value = pulse;
+    if (B.terrain.material.userData.pulse) B.terrain.material.userData.pulse.value = pulse;
     const riderList = order.map(o => {
       const r = B.riders.get(o.i);
       return { ...o, s:r?.s, lat:r?.lat, x:r?.x, y:r?.y };
@@ -338,13 +356,20 @@ export function createWorld({ canvas, store, quality = "auto", onFrame, onFail, 
     }
     let podiumSpots = null;
     if ((st.phase === "podium" || st.phase === "feedback") && B.bar) {
-      const onTop = indexList(room?.podium);
+      /* the place and the name go on the front of each block, under its rider:
+         clear of the sign over the bar and of the poses */
+      const { fx, fy } = B.bar.anchor;
+      const u = width / 1920;
       podiumSpots = B.bar.tops.map(top => {
-        /* the place and name ride just over whoever stands there */
-        const r = B.riders.get(onTop[top.place - 1]);
-        const over = r ? r.headY * (r.scale || 1) + 0.1 : 2.15;
-        projected.set(top.x, top.z + over, -top.y).project(camera);
-        return { place:top.place, x:Math.round((projected.x * 0.5 + 0.5) * width), y:Math.round((-projected.y * 0.5 + 0.5) * height), on:projected.z < 1 };
+        const h = top.h ?? 1, out = (top.depth ?? 2.4) / 2;
+        const cx = top.x + fx * out, cy = top.y + fy * out;
+        const yTop = (-projected.set(cx, top.z, -cy).project(camera).y * 0.5 + 0.5) * height;
+        const yFoot = (-projected.set(cx, top.z - h, -cy).project(camera).y * 0.5 + 0.5) * height;
+        projected.set(cx, top.z - h * 0.5, -cy).project(camera);
+        const face = Math.abs(yFoot - yTop);
+        const need = (top.place === 1 ? 132 : 100) * u;
+        return { place:top.place, x:Math.round((projected.x * 0.5 + 0.5) * width), y:Math.round((-projected.y * 0.5 + 0.5) * height), on:projected.z < 1,
+          s:Math.round(Math.max(0.5, Math.min(1, (face * 0.94) / need)) * 100) / 100 };
       });
     }
     /* the intro's map: where each leg's name goes */
@@ -356,7 +381,7 @@ export function createWorld({ canvas, store, quality = "auto", onFrame, onFail, 
       });
     }
     onFrame?.({ tags:tagInfo, order, through, leg, now, drawAt, shot:cam.shot, camKey:cam.key, width, height, podium:podiumSpots,
-      replay:replaying ? { i:replaying.i } : null, legLabels, cutGroup:cam.cutGroup });
+      replay:replaying ? { i:replaying.i } : null, legLabels, cutGroup:cam.cutGroup, grooves:B.grooves.length ? B.grooves.splice(0) : null, pulse });
     /* step down when the frame budget will not hold */
     const t = performance.now();
     if (portraitsBusy() || B.riders.busy?.()) unsettled();
@@ -424,6 +449,13 @@ export function createWorld({ canvas, store, quality = "auto", onFrame, onFail, 
         break;
       case "arrive":
         if (r) B.fx.splash(r, 0.6);
+        break;
+      case "groove":
+        /* a level up throws sparks of its colour; Locked in gets a ring of them and the callout */
+        if (r && r.pivot.visible && LEVEL_COLORS[e.level]) {
+          B.fx.sparkBurst(r, LEVEL_COLORS[e.level], e.level === 3 ? 46 : 12, RIDER_SCALE);
+          if (e.level === 3) B.grooves.push({ i:e.i, id:`${e.i}:${e.s ?? time}` });
+        }
         break;
       default: break;
     }

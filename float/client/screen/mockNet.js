@@ -13,11 +13,19 @@
      &seed=3               another room
 
    The phones become the engine's bots once the Cup starts (they never
-   paddle), so every rider moves the way the engine's bots do. */
+   paddle), so every rider moves the way the engine's bots do.
+
+   The groove (float/PROTOCOL.md "The beat"): until the engine sends the
+   streak levels (FLAG.STREAK_1), the mock plays its bots' streaks itself,
+   by the contract's rules (a stroke a beat, on the beat by skill; levels at
+   4, 8 and 16; an off stroke resets, a missed beat drops a level), into the
+   snapshot flags and `groove` events the screen gets. */
 import { FloatRoom } from "../../worker/room.js";
 import { COURSE } from "../../shared/course.js";
 import { cleanLook, defaultLook, HAT_IDS, SHADE_IDS, POSE_IDS } from "../../shared/looks.js";
 import { FLOATIE_IDS } from "../../shared/floaties.js";
+import { FLAG } from "../../shared/protocol.js";
+import { BEAT_MS, levelOf, levelFloor } from "../../shared/beat.js";
 import { botSkills } from "../../shared/bots.js";
 
 const TICK = 1000 / 30;
@@ -38,6 +46,77 @@ export function mockRider(k) {
     pose:POSE_IDS[k % POSE_IDS.length],
   }, { groom, floatieIds:FLOATIE_IDS, seed:name });
   return { name, color:COLORS[k % COLORS.length], look, drinks:true, number:k + 1, ...(groom ? { groom:true } : {}) };
+}
+
+/* the engine sends the levels itself once it judges strokes */
+const ENGINE_GROOVE = "STREAK_1" in FLAG;
+const hash01 = (a, b, c) => {
+  let h = Math.imul(a | 0, 374761393) ^ Math.imul(b | 0, 668265263) ^ Math.imul(c | 0, 1274126177);
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  h ^= h >>> 16;
+  return (h >>> 0) / 4294967296;
+};
+
+/* the bots' streaks, played beat by beat from the snapshots the room sends */
+function grooveShim(seed, skillOf) {
+  const riders = new Map();
+  const pending = [];
+  let gun = null, round = null, phase = null, lastK = null;
+  const shim = {
+    lockedAt:null,
+    room(msg) {
+      phase = msg.phase;
+      if (msg.phase === "countdown" || msg.phase === "race") {
+        if (msg.round !== round) { round = msg.round; riders.clear(); lastK = null; pending.length = 0; }
+        if (Number.isFinite(msg.startAt)) gun = msg.startAt;
+      }
+    },
+    snap(msg) {
+      if (phase !== "race" || !Number.isFinite(gun) || !Array.isArray(msg.k)) return;
+      const kNow = Math.floor((msg.s - gun) / BEAT_MS);
+      if (kNow < 0) return;
+      for (let k = lastK === null ? 0 : lastK + 1; k <= kNow; k++) {
+        for (const row of msg.k) {
+          const i = row[0], f = row[4] | 0;
+          let r = riders.get(i);
+          if (!r) riders.set(i, r = { streak:0, level:0, stroked:false });
+          if (f & FLAG.ARRIVED) continue;
+          if ((f & FLAG.HANDS_OFF) || (f & FLAG.SWIM)) {
+            /* a beat without a stroke costs a level, once */
+            if (r.stroked) r.streak = Math.min(r.streak, levelFloor(Math.max(0, r.level - 1)));
+            r.stroked = false;
+          } else {
+            const skill = Math.max(0, Math.min(1, skillOf(i) ?? 0.6));
+            const off = hash01(seed, i * 7919 + round * 104729, k) < 0.14 - 0.12 * skill;
+            r.streak = off ? 0 : r.streak + 1;
+            r.stroked = true;
+          }
+          const level = levelOf(r.streak);
+          if (level > r.level) {
+            pending.push({ t:"ev", e:"groove", i, level, s:gun + k * BEAT_MS });
+            if (level === 3) shim.lockedAt = gun + k * BEAT_MS;
+          }
+          r.level = level;
+        }
+      }
+      lastK = kNow;
+    },
+    /* a snapshot for the screen: the levels in its flags */
+    decorate(msg) {
+      if (!Array.isArray(msg.k)) return msg;
+      return { ...msg, k:msg.k.map(row => {
+        const level = riders.get(row[0])?.level || 0;
+        return level ? [row[0], row[1], row[2], row[3], (row[4] | 0) | (level << 8), row[5]] : row;
+      }) };
+    },
+    /* the level-ups due by s (older ones, from before the screen opened, are dropped) */
+    take(s, since = -Infinity) {
+      const due = [];
+      for (let k = pending.length - 1; k >= 0; k--) if (pending[k].s <= s) { const [e] = pending.splice(k, 1); if (e.s >= since) due.unshift(e); }
+      return due;
+    },
+  };
+  return shim;
 }
 
 class FakeSocket {
@@ -79,6 +158,8 @@ const SHOTS = {
   /* a flip at the falls is the bots' luck: without one, the moment just past the lip */
   dropflip:{ when:o => o.phase === "race" && o.round === 3 && (o.dropFlip || o.leaderS >= 1452), after:700 },
   arrivals:{ when:o => o.phase === "race" && o.round === 0 && o.arrivals >= 5, after:800 },
+  /* the first rider Locked in: the callout, the sparks */
+  lockin:{ when:o => o.phase === "race" && o.lockedIn, after:300 },
   /* the run-ins that face the moon over rough water (the glint's worst case) */
   whirlend:{ when:o => o.phase === "race" && o.round === 2 && o.leaderS >= 1125, after:300 },
   home:{ when:o => o.phase === "race" && o.round === 3 && o.leaderS >= 1505, after:300 },
@@ -107,6 +188,8 @@ export function connectFloat({ room = "mock", role = "screen", hello = {}, optio
   let closed = false;
   const clock = { t:Date.UTC(2026, 9, 30, 3, 0, 0) + seed * 1000, now:() => clock.t };
   const engine = new FloatRoom(memoryCtx(), {}, { clock, timers:false });
+  const groove = ENGINE_GROOVE ? null : grooveShim(seed, i => engine.cup?.entrants?.[i]?.skill);
+  let screenSince = Infinity;
   const emit = msg => {
     const fns = listeners.get(msg.t);
     if (fns) [...fns].forEach(fn => { try { fn(msg); } catch (error) { console.error(error); } });
@@ -126,12 +209,15 @@ export function connectFloat({ room = "mock", role = "screen", hello = {}, optio
   const observed = { phase:"lobby", round:0, arrivals:0, leaderS:0, dropFlip:false, leg:0 };
   const watcher = new FakeSocket(text => {
     const msg = JSON.parse(text);
+    if (groove && msg.t === "room") groove.room(msg);
+    if (groove && msg.t === "snap") { groove.snap(msg); observed.lockedIn = groove.lockedAt !== null && observed.phase === "race"; }
     if (msg.t === "room") {
       if (msg.phase === "race" && (observed.phase !== "race" || msg.round !== observed.round)) { observed.arrivals = 0; observed.leaderS = 0; }
       observed.phase = msg.phase; observed.round = msg.round | 0; observed.leg = msg.leg | 0;
     } else if (msg.t === "ev") {
       if (msg.e === "arrive") observed.arrivals += 1;
       if (msg.e === "flip" && msg.why === "drop") observed.dropFlip = true;
+      if (msg.e === "groove" && msg.level === 3 && observed.phase === "race") observed.lockedIn = true;
     } else if (msg.t === "snap" && observed.phase === "race") {
       const leg = COURSE.legs[observed.leg];
       for (const row of msg.k || []) observed.leaderS = Math.max(observed.leaderS, leg.grid + row[5]);
@@ -209,7 +295,16 @@ export function connectFloat({ room = "mock", role = "screen", hello = {}, optio
   const open = () => {
     if (closed) return;
     setStatus("open");
-    screenWs = new FakeSocket(text => emit(JSON.parse(text)));
+    screenSince = clock.t - 1000;
+    screenWs = new FakeSocket(text => {
+      const msg = JSON.parse(text);
+      if (groove && msg.t === "snap") {
+        for (const e of groove.take(msg.s, screenSince)) emit(e);
+        emit(groove.decorate(msg));
+        return;
+      }
+      emit(msg);
+    });
     engine.attach(screenWs, url());
     say(screenWs, { t:"hello", role:"screen", device:hello.device || "mock-screen" });
     /* a frozen shot still needs a moment of rows behind it */

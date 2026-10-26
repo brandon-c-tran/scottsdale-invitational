@@ -217,7 +217,7 @@ export function botInputs(race, course, bot) {
       else {
         /* the cooler holds its line: it keeps paddling one-handed */
         if (physicsFor(rider.fl).steadyHandsOff && t >= bot.next) {
-          out.push({ t:"stroke", side:bot.side = bot.side === "L" ? "R" : "L", p:0.5 });
+          out.push({ t:"stroke", side:bot.side = bot.side === "L" ? "R" : "L", p:0.4 });
           bot.next = t + 1 / (1.2 + 0.4 * bot.skill);
         }
         return out;

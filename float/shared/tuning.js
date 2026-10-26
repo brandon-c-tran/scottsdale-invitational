@@ -196,7 +196,7 @@ export function physicsOf(floatieId) {
     steadyHandsOff:false, // cooler
   };
   if (id === "donut") p.launch = 0.2;
-  if (id === "unicorn") p.tippy = 0.85;
+  if (id === "unicorn") p.tippy = 0.9;
   /* the flamingo turns on a dime: crisp, and it goes where it points */
   if (id === "flamingo") { p.yaw *= 1.08; p.spinDamp *= 1.12; p.keel *= 1.5; }
   if (id === "shark") p.bumpOut = 1.7;

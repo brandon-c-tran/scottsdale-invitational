@@ -137,7 +137,10 @@ export class FloatRoom {
     const room = url?.searchParams?.get("room");
     if (!this.code && room && ROOM_ID.test(room)) this.code = room;
     this.sockets.set(ws, { role:null, device:null, rider:null, seen:this.now(), window:0, count:0, strokes:0 });
-    ws.addEventListener("message", event => this.onMessage(ws, event.data));
+    ws.addEventListener("message", event => {
+      /* a handler may be async (feedback awaits storage): never let it float */
+      Promise.resolve(this.onMessage(ws, event.data)).catch(error => console.error("float: message", error?.message || error));
+    });
     ws.addEventListener("close", () => this.drop(ws));
     ws.addEventListener("error", () => this.drop(ws));
   }
@@ -434,7 +437,10 @@ export class FloatRoom {
 
   startLoop() {
     if (this.loop !== null || !this.timers) return;
-    this.loop = this.clock.setInterval(() => this.tick(), TICK_MS);
+    /* half a tick: timers run late now and then, and a callback that owes
+       two ticks sends one snap; at twice the rate every tick gets its own
+       callback and the screens see a steady 20 Hz */
+    this.loop = this.clock.setInterval(() => this.tick(), TICK_MS / 2);
   }
   stopLoop() {
     if (this.loop === null) return;
@@ -483,6 +489,7 @@ export class FloatRoom {
     if (this.race.tick < owed) {
       this.raceZero = now - this.race.tick * TICK_MS;
       cup.startAt = this.raceZero;
+      cup.endsAt = this.capAt();
     }
     const at = Math.round(this.raceZero + this.race.tick * TICK_MS);
     const snapIndex = Math.floor(this.race.tick * SNAP_PER_TICK);
@@ -518,11 +525,8 @@ export class FloatRoom {
       if (event.e === "arrive" || event.e === "drink") changed = true;
       this.broadcast({ t:"ev", s:tickAt, ...event });
     }
-    if (race.firstFinish !== null) {
-      const cap = Math.round(cup.startAt + (race.firstFinish * 1000 + TIMING.CAP_MS));
-      const ends = Math.min(cup.startAt + TIMING.HARD_CAP_MS, cap);
-      if (ends !== cup.endsAt) { cup.endsAt = ends; changed = true; }
-    }
+    const ends = this.capAt();
+    if (ends !== cup.endsAt) { cup.endsAt = ends; changed = true; }
     const status = Cup.roundStatus(cup, race);
     if (status.over) return this.endRound(now);
     if (changed) this.broadcastRoom();
@@ -544,6 +548,14 @@ export class FloatRoom {
     this.schedule();
   }
 
+  /* when this race must end: CAP_MS after its first finisher, never past HARD_CAP_MS */
+  capAt() {
+    const cup = this.cup, race = this.race;
+    const hard = cup.startAt + TIMING.HARD_CAP_MS;
+    return race?.firstFinish === null || race?.firstFinish === undefined ? hard
+      : Math.min(hard, Math.round(cup.startAt + race.firstFinish * 1000 + TIMING.CAP_MS));
+  }
+
   /* The Drop's instant replay: the last REPLAY_KEEP_MS of snapshot rows
      ride along; on the leg with the falls, REPLAY_AFTER_MS after the moment
      (the first flip at the lip, else the first rider over) the clip around
@@ -559,7 +571,7 @@ export class FloatRoom {
     if (this.clip || moment === null) return;
     const momentAt = Math.round(this.raceZero + moment * 1000);
     if (at < momentAt + REPLAY_AFTER_MS) return;
-    this.clip = { t:"replay", leg:race.leg, at:momentAt, i:race.riders.find(rider => rider.st.dropFlips)?.i ?? null,
+    this.clip = { t:"replay", leg:race.leg, at:momentAt, i:race.dropFlipI ?? null,
       k:this.frames.filter(([s]) => s >= momentAt - (REPLAY_MS - REPLAY_AFTER_MS) && s <= momentAt + REPLAY_AFTER_MS) };
   }
 

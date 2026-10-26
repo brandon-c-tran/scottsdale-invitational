@@ -70,6 +70,7 @@ export function createRace({ course = COURSE, leg = 0, field = [], seed = 1, dri
     firstFinish:null,
     overAt:null,
     dropFlipAt:null,
+    dropFlipI:null,
     balloons:[],
     riders:field.map((entry, k) => {
       const slot = slots[k];
@@ -193,7 +194,7 @@ export function stepRace(race, course = COURSE) {
       const off = Math.abs(wrapAngle(rider.a - Math.atan2(lip.ty, lip.tx)));
       if (off > phys.dropAngle || Math.abs(rider.w) > phys.dropSpin) {
         flip(race, rider, "drop");
-        if (race.dropFlipAt === null) race.dropFlipAt = r3(t);
+        if (race.dropFlipAt === null) { race.dropFlipAt = r3(t); race.dropFlipI = rider.i; }
       }
     }
     if (before < race.finish && near.s >= race.finish) arrive(race, course, rider, before, t);

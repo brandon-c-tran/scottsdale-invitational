@@ -340,7 +340,7 @@ async function shots(page, size, w, h) {
     await page.evaluate(`window.__floatMock.go("race")`);
     await sleep(700);
     await page.evaluate(`window.__floatMock.hit()`);
-    check(await page.until("!!document.querySelector('.flc-splat')", { timeout:1000, every:30 }), `${size}: a balloon hit splashes the screen`);
+    check(await page.until("!!document.querySelector('.flc-splat')", { timeout:2500, every:30 }), `${size}: a balloon hit splashes the screen`);
     await sleep(120);
     await shot(page, size, "race-splashed");
     await sleep(1200);

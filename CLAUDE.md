@@ -1127,9 +1127,14 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   (Restart Float, confirmed, in the tray), Start Float again after a failure.
   QA jumps and simulated rooms never open a river (Float plays there as a
   free-for-all entered by hand); Play solo's `solo:float` posts a Cup of the
-  commissioner's player and `bots:13`. Tests `float-fieldday`, `float-ui`;
-  fit views `tv-float-*` (the riders turn `tv-float-roster*`), `float-*`,
-  `gm-float-*`.
+  commissioner's player and `bots:13` (the room fills to 13). A rider whose
+  phone is silent 5 s is paddled by the room's bot (`botDriven`) and placed
+  like anyone, so a Cup always finishes: on the local dev server with no
+  phones at all, Lock and start runs a whole Cup of 13 (13, 9, 6, 3 a round)
+  to its posted result and payouts in about nine minutes. Tests
+  `float-fieldday`, `float-ui` (the engine's own `float-engine-*` and
+  `float-sound*` run apart); fit views `tv-float-*` (the riders turn
+  `tv-float-roster*`), `float-*`, `gm-float-*`.
 
 ## Current redesign direction
 

@@ -2,13 +2,19 @@
    one shared renderer (one WebGL context however many portraits a lobby
    asks for), one at a time, cached by look and color. A transparent PNG
    data URL. Without WebGL, a flat disc in the rider's color with the
-   critter's initial. */
+   critter's initial.
+
+   A still up to RACE_MESH_PX across (the Locker's tiles and preview, the
+   TV's roster) draws the critter's race mesh under hero dressing and fur:
+   at that size the two cannot be told apart, and a phone fetches 50 KB a
+   species instead of 250. Bigger stills draw the hero mesh. */
 import * as THREE from "three";
 import { buildCritter } from "./index.js";
 import { floatEnvironment } from "./environment.js";
 import { hasDom, labelOf } from "./badge.js";
 import { normalHex } from "./materials.js";
 
+export const RACE_MESH_PX = 400;
 let stage = null;
 const cache = new Map();
 let queue = Promise.resolve();
@@ -19,12 +25,13 @@ export function portraitKey(entrant = {}, size = 256) {
     labelOf(entrant), entrant.photo || "", entrant.groom ? "g" : "", size].join("|");
 }
 
-export function portrait(entrant = {}, { size = 256 } = {}) {
+export function portrait(entrant = {}, { size = 256, meshDetail = null } = {}) {
   if (!hasDom()) return Promise.resolve(null);
   const px = Math.max(32, Math.min(1024, Math.round(size) || 256));
-  const key = portraitKey(entrant, px);
+  const mesh = meshDetail === "race" || meshDetail === "hero" ? meshDetail : px <= RACE_MESH_PX ? "race" : "hero";
+  const key = `${portraitKey(entrant, px)}|${mesh}`;
   if (cache.has(key)) return cache.get(key);
-  const job = queue.then(() => render(entrant, px)).catch(() => fallback(entrant, px));
+  const job = queue.then(() => render(entrant, px, mesh)).catch(() => fallback(entrant, px));
   queue = job.then(() => {}, () => {});
   cache.set(key, job);
   return job;
@@ -50,12 +57,12 @@ function makeStage() {
   return { renderer, scene, camera, canvas };
 }
 
-async function render(entrant, size) {
+async function render(entrant, size, mesh) {
   if (!stage) stage = makeStage();
   if (!stage) return fallback(entrant, size);
   const look = entrant.look || {};
   const critter = buildCritter({ critter: look.critter, color: entrant.color, hat: look.hat, shades: look.shades, entrant, detail: "hero",
-    seed: "portrait", groom: !!entrant.groom });
+    meshDetail: mesh, seed: "portrait", groom: !!entrant.groom });
   try {
     /* a baked critter's mesh first (it may still be loading), then the chip's photo */
     await Promise.race([critter.meshReady || Promise.resolve(true), new Promise(r => setTimeout(r, 10000))]);
@@ -82,9 +89,10 @@ async function render(entrant, size) {
       for (const x of [g.boundingBox.min.x, g.boundingBox.max.x]) for (const y of [g.boundingBox.min.y, g.boundingBox.max.y]) for (const z of [g.boundingBox.min.z, g.boundingBox.max.z]) box.expandByPoint(v.set(x, y, z).applyMatrix4(o.matrixWorld));
     });
     const hd = rt.template.info.head;
-    const body = (rt.meshes.plush || rt.meshes.vinyl).geometry;
-    if (!body.boundingBox) body.computeBoundingBox();
-    const crown = Math.max(hd.at[1] + hd.r[1] + 0.03, body.boundingBox.max.y);
+    /* the plush's own top (the sculpt's bounds if its mesh never came) */
+    const body = rt.meshes.plush?.geometry;
+    if (body && !body.boundingBox) body.computeBoundingBox();
+    const crown = Math.max(hd.at[1] + hd.r[1] + 0.03, body ? body.boundingBox.max.y : rt.template.bounds.hi[1]);
     box.expandByPoint(v.set(hd.at[0] - hd.r[0], crown, hd.at[2]));
     box.expandByPoint(v.set(hd.at[0] + hd.r[0], crown, hd.at[2]));
     const top = Math.min(box.max.y + 0.03, 1.25);

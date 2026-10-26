@@ -1,11 +1,12 @@
 /* The finishes, and the caches that let thirteen riders share them.
 
-   One glossy vinyl material carries every critter, floatie and hat: their
-   colors live in vertex colors, so a whole species is one program and a
-   handful of draw calls. A rider's own color (swim trunks, floatie trim, hat
-   band) is a separate "tint" material cached by hex and counted, so riders
-   of a color share it and the last one out disposes it. Shared materials and
-   geometries live until disposeFloatArt().
+   One glossy vinyl material carries every floatie and hat: their colors
+   live in vertex colors, so a whole kind is one program and a handful of
+   draw calls. A rider's own color (floatie trim, hat band) is a separate
+   "tint" material cached by hex and counted, so riders of a color share it
+   and the last one out disposes it; the critters' plush (plush.js) is
+   counted the same way. Shared materials and geometries live until
+   disposeFloatArt().
 
    The gloss needs an environment to reflect: floatEnvironment(renderer)
    (environment.js) is what the screen, the portrait and the showcase set as
@@ -132,9 +133,6 @@ export const lens = () => once("lens", () => new THREE.MeshPhysicalMaterial({
   name: "float-lens", vertexColors: true, metalness: 0.35, roughness: 0.1,
   clearcoat: 1, clearcoatRoughness: 0.02, specularIntensity: 1,
 }));
-
-/* the catch light in an eye: always white, never shaded */
-export const glint = () => once("glint", () => new THREE.MeshBasicMaterial({ name: "float-glint", color: 0xffffff, toneMapped: false }));
 
 export function normalHex(hex) {
   const s = String(hex || "").trim().toLowerCase();

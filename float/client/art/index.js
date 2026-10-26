@@ -1,13 +1,25 @@
-/* The art API (float/PROTOCOL.md "Art"): glossy vinyl toys. Desert critters
-   as chunky collectible figurines in pool floaties, each wearing a gold
-   chain with the rider's chip.
+/* The art API (float/PROTOCOL.md "Art"): soft plush desert critters in
+   glossy pool floaties, each wearing a gold chain with the rider's chip.
 
    Everything returns three.js objects in metres, y up, the rider facing -z
    (downstream when the screen turns it). A floatie's origin is the water
-   line under its centre. Nothing here reads the network except a rider's
-   own photo (entrant.photo, same origin) for the chip's face.
+   line under its centre. What it reads from the network: a rider's own
+   photo (entrant.photo, same origin) for the chip's face, and the critters'
+   meshes, baked offline (scripts/float-bake-critters.mjs) into
+   /float/critters/<species>.<race|hero>.bin: about 50 KB a species at race
+   detail, 250 KB at hero, each fetched once, when a critter of that species
+   and detail is first built, and shared by every rider of it.
 
-   The vinyl needs something to reflect: set
+   So a critter is built at once (its skeleton, chain, chip, hat and
+   shades) and its body arrives a moment later the first time: it pops in,
+   and `ready` waits for it (meshReady alone). A hero critter whose race
+   mesh is already in shows that until its own arrives, and a species raced
+   at race detail fetches its hero file ahead in idle time, so the podium's
+   rebuild is whole at once. preloadCritters(ids, details) loads ahead
+   (a lobby that wants no pop-in); setCritterSource(fn) hands the bytes over
+   where there is no page to fetch from (node tests).
+
+   The gloss needs something to reflect: set
      scene.environment = floatEnvironment(renderer, "night")
    on the screen (floatLights("night") is a matching light rig).
 
@@ -18,30 +30,38 @@
      riderPortrait(entrant, { size }) -> Promise<PNG data URL>
    Additions are documented where they are defined. */
 import * as THREE from "three";
-import { buildSpecies, BUILT_SPECIES } from "./species.js";
 import { CritterRuntime } from "./critter.js";
 import { buildFloatieArt, BUILT_FLOATIES } from "./floatie3d.js";
 import { chainGeometry, chipGeometry, chipPlace, buildDrink, bezelGeometry } from "./accessories.js";
 import { buildHat, buildShades } from "./hats.js";
-import { vinyl, tint, releaseTint, glint, gold, geometry, disposeFloatArt, normalHex, cacheSizes, setFloatArtQuality, floatArtQuality } from "./materials.js";
+import { tint, releaseTint, gold, geometry, disposeFloatArt as disposeShared, normalHex, cacheSizes, setFloatArtQuality, floatArtQuality } from "./materials.js";
 import { acquireBadge, releaseBadge } from "./badge.js";
 import { floatEnvironment, floatLights, disposeFloatEnvironment } from "./environment.js";
 import { triangles } from "./sculpt.js";
 import { bakedTemplate, hasBaked, bakedFile, BAKED_SPECIES } from "./critterTemplate.js";
-import { loadCritterGeometry, critterGeometryNow, setCritterSource } from "./critterAsset.js";
+import { loadCritterGeometry, critterGeometryNow, setCritterSource, disposeCritterGeometry, critterEpoch } from "./critterAsset.js";
 import { plush, releasePlush, furMaterial } from "./plush.js";
 
-export { floatEnvironment, floatLights, disposeFloatEnvironment, disposeFloatArt, BUILT_SPECIES, BUILT_FLOATIES, BAKED_SPECIES, cacheSizes, setFloatArtQuality, floatArtQuality, setCritterSource };
+/* the species built (every one of them is baked: BAKED_SPECIES is the same list) */
+const BUILT_SPECIES = BAKED_SPECIES;
+export { floatEnvironment, floatLights, disposeFloatEnvironment, BUILT_SPECIES, BUILT_FLOATIES, BAKED_SPECIES, cacheSizes, setFloatArtQuality, floatArtQuality, setCritterSource };
+
+/* everything the art made, the loaded critter meshes included: call when
+   the screen unmounts for good */
+export function disposeFloatArt() {
+  disposeShared();
+  disposeCritterGeometry();
+  ahead.clear();
+}
 
 /* a species' template, cached by detail ("race" for the screen's pack,
-   "hero" for close-ups: the showcase, portraits, the podium). A baked
-   species (a soft plush, critterMeta.js) is a skeleton and anchors whose
-   mesh loads from its file; the rest are built by the first pass's kit.
-   version 1 asks for the first pass even where a bake exists (the
-   showcase's side-by-side). */
-const templateOf = (critter, detail, version = 2) => (version !== 1 && hasBaked(critter)
-  ? geometry(`species2:${critter}:${detail}`, () => bakedTemplate(critter, detail))
-  : geometry(`species:${critter}:${detail}`, () => buildSpecies(critter, { detail })));
+   "hero" for close-ups: the showcase, portraits, the podium): its skeleton
+   and anchors (critterMeta.js); the mesh loads from its file. An unknown
+   species is a capybara. */
+const templateOf = (critter, detail) => {
+  const id = hasBaked(critter) ? critter : "capybara";
+  return geometry(`species2:${id}:${detail}`, () => bakedTemplate(id, detail));
+};
 const detailOf = d => (d === "hero" ? "hero" : "race");
 const warned = new Set();
 const warnOnce = (key, error) => { if (warned.has(key)) return; warned.add(key); console.warn("Float critter", key, error?.message || error); };
@@ -56,6 +76,29 @@ export function preloadCritters(ids = BAKED_SPECIES, details = ["race"]) {
     for (const d of details) { const f = bakedFile(id, d); jobs.push(loadCritterGeometry(f.key, id, f.detail, f.file)); }
   }
   return Promise.all(jobs).then(() => true);
+}
+
+/* the podium's meshes, fetched ahead: a species raced at race detail is
+   the one the screen asks for in hero when its rider steps up, so a few
+   seconds after its first race build its hero file loads in idle time,
+   one file at a time (a page only, never node) */
+const AHEAD_FIRST_MS = 4000, AHEAD_GAP_MS = 1200;
+const ahead = new Set();
+let aheadChain = Promise.resolve();
+function heroAhead(id) {
+  if (ahead.has(id) || typeof window === "undefined" || typeof document === "undefined") return;
+  const f = bakedFile(id, "hero");
+  ahead.add(id);
+  if (f.detail !== "hero" || critterGeometryNow(f.key)) return;
+  const at = critterEpoch();
+  const wait = ahead.size === 1 ? AHEAD_FIRST_MS : AHEAD_GAP_MS;
+  aheadChain = aheadChain.then(() => new Promise(resolve => {
+    const go = () => {
+      if (at !== critterEpoch()) { resolve(); return; }
+      loadCritterGeometry(f.key, id, f.detail, f.file).catch(() => null).then(() => resolve());
+    };
+    setTimeout(() => (typeof window.requestIdleCallback === "function" ? window.requestIdleCallback(go, { timeout: 2000 }) : go()), wait);
+  }));
 }
 const seedOf = (entrant, fallback) => String(entrant?.device || entrant?.pid || entrant?.name || entrant?.number || fallback || "rider");
 
@@ -80,34 +123,39 @@ export function buildFloatie({ floatie = "classic", color = "#e8b04a", entrant =
    medallion (false: no chain), detail, seed.
    Additions: setSeat(seatInfo), anchors { head, chest, handL, handR },
    onCatch (assign a function: called with "L"/"R" as a hand enters the
-   water, for splashes), ready (resolves when the chip's photo is drawn),
-   state, lean (this frame's stroke lean, signed). */
+   water, for splashes), ready (resolves when the chip's photo is drawn and
+   the critter's mesh is in), meshReady (the mesh alone), state, lean (this
+   frame's stroke lean, signed). meshDetail (the portraits'): the mesh's
+   own detail when it differs from the dressing's (a hero still drawn from
+   the race mesh, which a small image cannot tell apart). */
 export function buildCritter({ critter = "capybara", color = "#9aa39e", hat = "none", shades = "none", entrant = null, medallion = true,
-  detail = "race", seed = null, groom = false, version = 2 } = {}) {
+  detail = "race", seed = null, groom = false, meshDetail = null } = {}) {
   const det = detailOf(detail);
-  const template = templateOf(critter, det, version);
-  const baked = template.version === 2;
+  const template = templateOf(critter, meshDetail ? detailOf(meshDetail) : det);
   const hex = normalHex(color);
   const tints = [];
   const takeTint = () => { tints.push(hex); return tint(hex); };
   const grain = det === "hero" ? 0.22 : 0;
-  const materials = baked ? { plush: plush(hex, { grain }), fur: furMaterial(det) } : { vinyl: vinyl(), tint: takeTint(), glint: glint() };
+  const materials = { plush: plush(hex, { grain }), fur: furMaterial(det) };
   const drink = buildDrink(hex, det); tints.push(hex);
   const rt = new CritterRuntime(template, { materials, seed: seed || seedOf(entrant, critter), drink });
   rt.root.name = `critter:${template.id}`;
-  /* a baked mesh: there now if a rider of this species already loaded it,
+  /* a baked mesh: there now if a rider of this species already loaded it;
+     a hero critter whose race mesh is in (the podium, built over a rider
+     it raced) shows that at once and trades up when its own arrives;
      else it pops in when it arrives */
   let meshReady = Promise.resolve(true);
-  if (baked) {
-    const now = critterGeometryNow(template.key);
-    if (now) { rt.attach(now); rt.pop = 1; }
-    else {
-      rt.holdPlace(template.bounds);
-      meshReady = loadCritterGeometry(template.key, template.id, template.detail, template.file)
-        .then(geo => { rt.attach(geo); return true; })
-        .catch(error => { warnOnce(template.key, error); return false; });
-    }
+  const now = critterGeometryNow(template.key);
+  if (now) { rt.attach(now); rt.pop = 1; }
+  else {
+    const stand = template.detail === "hero" ? critterGeometryNow(`${template.id}:race`) : null;
+    if (stand) { rt.attach(stand, { fur: furMaterial("race") }); rt.pop = 1; }
+    else rt.holdPlace(template.bounds);
+    meshReady = loadCritterGeometry(template.key, template.id, template.detail, template.file)
+      .then(geo => { rt.attach(geo); return true; })
+      .catch(error => { warnOnce(template.key, error); return false; });
   }
+  if (det === "race" && !meshDetail) heroAhead(template.id);
   let badge = null;
   if (medallion) {
     badge = acquireBadge({ ...(entrant || {}), color: hex });
@@ -141,7 +189,7 @@ export function buildCritter({ critter = "capybara", color = "#9aa39e", hat = "n
       rt.dispose();
       for (const h of tints) releaseTint(h);
       tints.length = 0;
-      if (baked && materials.plush) { releasePlush(hex, { grain }); materials.plush = null; }
+      if (materials.plush) { releasePlush(hex, { grain }); materials.plush = null; }
       if (badge) { releaseBadge(badge.key); badge = null; }
     },
     get state() { return rt.state; },
@@ -163,12 +211,12 @@ export function buildCritter({ critter = "capybara", color = "#9aa39e", hat = "n
    Additions: setState(state), setStroke(side), setPose(pose) (the critter's;
    the floatie follows: it tilts with strokes, flips while its rider swims,
    dips when a backflip lands), ready. */
-export function buildRider(entrant = {}, { detail = "race", version = 2 } = {}) {
+export function buildRider(entrant = {}, { detail = "race" } = {}) {
   const look = entrant.look || {};
   const color = normalHex(entrant.color);
   const seed = seedOf(entrant, "rider");
   const floatie = buildFloatie({ floatie: look.floatie, color, entrant: { ...entrant, color }, detail, seed });
-  const critter = buildCritter({ critter: look.critter, color, hat: look.hat, shades: look.shades, entrant: { ...entrant, color }, detail, seed, groom: !!entrant.groom, version });
+  const critter = buildCritter({ critter: look.critter, color, hat: look.hat, shades: look.shades, entrant: { ...entrant, color }, detail, seed, groom: !!entrant.groom });
   critter.setSeat(floatie.seatInfo);
   floatie.seat.add(critter.root);
   const rt = critter.runtime;
@@ -193,10 +241,11 @@ export function buildRider(entrant = {}, { detail = "race", version = 2 } = {}) 
 /* A still of a look for the Locker, the lobby and the TV's HUD: a 3/4 bust
    in its hat and shades, wearing the chip, on a transparent background.
    Resolves to a PNG data URL (null without a DOM); cached by look, color,
-   skin, number and photo. */
-export async function riderPortrait(entrant = {}, { size = 256 } = {}) {
+   skin, number and photo. meshDetail ("race" | "hero", look development):
+   which mesh draws it (by default race up to 400 px, hero above). */
+export async function riderPortrait(entrant = {}, { size = 256, meshDetail = null } = {}) {
   const { portrait } = await import("./portrait.js");
-  return portrait(entrant, { size });
+  return portrait(entrant, { size, meshDetail });
 }
 
 /* The medallion alone (an addition): the rider's chip in its gold bezel,

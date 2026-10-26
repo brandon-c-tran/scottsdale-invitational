@@ -18,7 +18,7 @@ import { FLOATIE_IDS } from "../float/shared/floaties.js";
 import { edgeInserts, labelOf, badgeKey } from "../float/client/art/badge.js";
 import { cacheSizes } from "../float/client/art/materials.js";
 import { CRITTER_META } from "../float/client/art/critterMeta.js";
-import { decodeCritter, readHeader } from "../float/client/art/critterAsset.js";
+import { decodeCritter, readHeader, critterGeometryNow, critterCacheSize } from "../float/client/art/critterAsset.js";
 import { furMaterial } from "../float/client/art/plush.js";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
@@ -28,7 +28,6 @@ art.setCritterSource((id, detail, file) => critterFile(file));
 before(() => art.preloadCritters(art.BAKED_SPECIES, ["race", "hero"]));
 
 const entrant = (critter, floatie, extra = {}) => ({ name: "Sam", color: "#3b6e9c", number: 7, skin: "star", look: { critter, floatie, hat: "none", shades: "none", pose: "flex" }, ...extra });
-const baked = id => art.BAKED_SPECIES.includes(id);
 
 function finite(object) {
   object.updateMatrixWorld(true);
@@ -55,6 +54,58 @@ test("the contract's four signatures, and the additions", () => {
   const { setStroke, setState, update } = rider.critter;
   setStroke("L"); setState({ handsOff: true }); update(1 / 60);
   rider.dispose();
+  /* every look's critter is baked, and builds as itself; an unknown one is a capybara */
+  assert.deepEqual([...art.BUILT_SPECIES].sort(), [...CRITTER_IDS].sort());
+  assert.deepEqual([...art.BAKED_SPECIES].sort(), [...CRITTER_IDS].sort());
+  for (const id of CRITTER_IDS) { const c = buildCritter({ critter: id }); assert.equal(c.id, id); c.dispose(); }
+  const stray = buildCritter({ critter: "dragon" });
+  assert.equal(stray.id, "capybara");
+  stray.dispose();
+});
+
+/* what the screen does the moment it builds a rider: a name tag's height
+   from the rider's box, before any mesh has arrived */
+const topOf = object => { object.updateMatrixWorld(true); return new THREE.Box3().setFromObject(object).max.y; };
+
+test("before its mesh is in: a critter holds its size, pops in whole, and a hero critter trades up from the race mesh in place", async () => {
+  /* disposeFloatArt frees the loaded meshes too (the screen calls it on unmount) */
+  art.disposeFloatArt();
+  assert.equal(critterCacheSize(), 0, "no critter mesh left loaded");
+  const id = "quail";
+  const c = buildCritter({ critter: id });
+  assert.ok(!c.runtime.meshes.plush && c.runtime.placeholder, "built at once, its body still on the way");
+  const early = topOf(c.root);
+  assert.ok(Math.abs(early - CRITTER_META[id].bounds.hi[1]) < 0.03, `the placeholder is the sculpt's size (${early.toFixed(3)})`);
+  assert.equal(await c.meshReady, true);
+  for (let i = 0; i < 30; i++) c.update(1 / 60);
+  assert.ok(c.runtime.meshes.plush?.isSkinnedMesh && !c.runtime.placeholder, "the plush is in");
+  assert.equal(c.root.scale.x, 1, "popped in and settled");
+  assert.ok(Math.abs(topOf(c.root) - early) < 0.03, "the name tag's height did not move");
+  c.dispose();
+  /* the podium: a hero critter over a raced species shows the race mesh at once */
+  const race = critterGeometryNow(`${id}:race`);
+  assert.ok(race && !critterGeometryNow(`${id}:hero`));
+  const h = buildCritter({ critter: id, detail: "hero" });
+  assert.equal(h.runtime.meshes.plush.geometry, race, "the race mesh stands in");
+  assert.equal(h.runtime.meshes.fur.material, furMaterial("race"), "with the race fur");
+  h.update(1 / 60);
+  assert.equal(h.root.scale.x, 1, "no pop: it is already there");
+  assert.equal(await h.meshReady, true);
+  h.update(1 / 60);
+  const hero = h.runtime.meshes.plush.geometry;
+  assert.ok(hero === critterGeometryNow(`${id}:hero`) && hero.index.count > race.index.count * 3, "traded up to the hero mesh");
+  assert.equal(h.runtime.meshes.fur.material, furMaterial("hero"), "and the hero fur");
+  assert.equal(h.root.children.filter(o => o.isSkinnedMesh).length, 2, "one plush, one fur: the stand-in is gone");
+  assert.equal(h.root.scale.x, 1);
+  assert.ok(finite(h.root));
+  h.dispose();
+  /* a portrait's still: the race mesh under hero dressing and fur */
+  const p = buildCritter({ critter: id, detail: "hero", meshDetail: "race" });
+  assert.equal(p.runtime.meshes.plush.geometry, race);
+  assert.equal(p.runtime.meshes.fur.geometry.instanceCount, furMaterial("hero").userData.shells);
+  p.dispose();
+  /* the rest of the file wants every mesh in */
+  await art.preloadCritters(art.BAKED_SPECIES, ["race", "hero"]);
 });
 
 test("the baked files: every species' race and hero file decodes, fits its skeleton, and weighs little", async () => {
@@ -132,8 +183,7 @@ test("hero detail (close-ups, portraits, the podium): every critter and floatie 
     for (let i = 0; i < 30; i++) r.update(1 / 60);
     assert.ok(finite(r.root), critter);
     const race = buildRider(entrant(critter, "classic"));
-    if (baked(critter)) assert.ok(bodyTriangles(r.critter) > bodyTriangles(race.critter) * 3, `${critter}: hero is finer than race`);
-    else assert.ok(artStats(r.root).triangles > artStats(race.root).triangles, `${critter}: hero is finer than race`);
+    assert.ok(bodyTriangles(r.critter) > bodyTriangles(race.critter) * 3, `${critter}: hero is finer than race`);
     race.dispose(); r.dispose();
   }
   for (const floatie of FLOATIE_IDS) { const f = buildFloatie({ floatie, detail: "hero", entrant: { number: 5 } }); f.update(1 / 60); f.dispose(); }
@@ -264,7 +314,8 @@ test("budget: a race-detail rider stays modest, a dozen meshes at most", () => {
     const fur = d.critter.runtime.meshes.fur;
     const shells = fur ? (fur.geometry.index.count / 3) * fur.geometry.instanceCount : 0;
     dressed.push(ds.triangles - shells);
-    if (baked(critter)) { body.push(bodyTriangles(d.critter)); assert.ok(shells <= 26000, `${critter}: ${shells} fur triangles`); }
+    body.push(bodyTriangles(d.critter));
+    assert.ok(shells <= 26000, `${critter}: ${shells} fur triangles`);
     d.dispose();
   }
   assert.ok(Math.max(...body) <= 6600, `a plush body: ${Math.max(...body)} triangles`);

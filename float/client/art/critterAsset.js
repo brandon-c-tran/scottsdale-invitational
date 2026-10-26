@@ -34,6 +34,11 @@ export async function gunzip(bytes) {
   return new Uint8Array(await new Response(stream).arrayBuffer());
 }
 
+/* in a page, a decode lets a frame through between its passes (a hero
+   file is a few milliseconds of work on a TV's CPU, and it may arrive
+   mid-race); in node it runs straight through */
+const breath = () => (typeof document === "undefined" ? null : new Promise(r => setTimeout(r, 0)));
+
 /* planes: n values of `bytes` bytes each, stored as `bytes` planes */
 function readPlanes(src, at, n, bytes) {
   const out = bytes === 1 ? new Uint8Array(n) : bytes === 2 ? new Uint16Array(n) : new Uint32Array(n);
@@ -71,6 +76,7 @@ export async function decodeCritter(input) {
     let q = 0;
     for (let i = 0; i < V; i++) { q = (q + r.out[i]) & 0xffff; positions[i * 3 + axis] = lo + q * span; }
   }
+  await breath();
   const normals = new Float32Array(V * 3);
   {
     const u = readPlanes(body, at, V, 1); at = u.at;
@@ -91,7 +97,9 @@ export async function decodeCritter(input) {
     }
     return out;
   };
+  await breath();
   const color = quad(), mat = quad(), skinIndex = quad(), skinWeight = quad();
+  await breath();
   const codes = readPlanes(body, at, I, 2); at = codes.at;
   const index = V > 65535 ? new Uint32Array(I) : new Uint16Array(I);
   let next = 0;
@@ -156,6 +164,9 @@ async function fetchBytes(id, detail, file) {
 
 const loaded = new Map();
 const pending = new Map();
+/* bumped by disposeCritterGeometry: a load still in flight then resolves
+   for whoever waits on it but is not kept */
+let epoch = 0;
 
 /* a species' geometry now, if it has arrived */
 export const critterGeometryNow = key => loaded.get(key) || null;
@@ -165,18 +176,30 @@ export const critterGeometryNow = key => loaded.get(key) || null;
 export function loadCritterGeometry(key, id, detail, file) {
   if (loaded.has(key)) return Promise.resolve(loaded.get(key));
   if (pending.has(key)) return pending.get(key);
+  const at = epoch;
   const job = Promise.resolve()
     .then(() => fetchBytes(id, detail, file))
     .then(bytes => decodeCritter(bytes))
-    .then(data => { const geo = critterGeometry(data); loaded.set(key, geo); pending.delete(key); return geo; })
-    .catch(error => { pending.delete(key); throw error; });
+    .then(data => {
+      const geo = critterGeometry(data);
+      if (at === epoch) { loaded.set(key, geo); pending.delete(key); }
+      return geo;
+    })
+    .catch(error => { if (at === epoch) pending.delete(key); throw error; });
   pending.set(key, job);
   return job;
 }
 
-/* everything loaded so far, for disposeFloatArt */
+/* everything loaded so far, and the fur's shells made over it (for
+   disposeFloatArt) */
 export function disposeCritterGeometry() {
-  for (const geo of loaded.values()) geo.dispose();
+  for (const geo of loaded.values()) {
+    for (const [k, v] of Object.entries(geo.userData)) if (k.startsWith("shells:") && v?.isBufferGeometry) v.dispose();
+    geo.dispose();
+  }
   loaded.clear();
+  pending.clear();
+  epoch++;
 }
+export const critterEpoch = () => epoch;
 export const critterCacheSize = () => loaded.size;

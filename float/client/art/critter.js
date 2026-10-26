@@ -126,7 +126,7 @@ export function mulberry(seed) {
 
 export class CritterRuntime {
   constructor(template, { materials, seed = "critter", drink = null } = {}) {
-    const inst = instantiate(template, materials);
+    const inst = instantiate(template);
     this.template = template;
     this.root = inst.root;
     this.b = inst.bones;
@@ -187,14 +187,23 @@ export class CritterRuntime {
     };
     this.rest = {};
     for (const name of ["cheekL", "cheekR", "belly", "earL2", "earR2", "tail3"]) if (this.b[name]) this.rest[name] = this.b[name].position.clone();
-    this.pop = template.version === 2 ? 0 : 1;
+    this.pop = 0;
     this.body = null;
   }
 
   /* a baked critter's mesh, arrived: bind it (and its fur's shells) to the
-     skeleton made in the bind pose, and pop it in */
-  attach(geo) {
-    if (this.body || this.disposed || !geo) return;
+     skeleton made in the bind pose, and pop it in. Over a stand-in (a hero
+     critter showing its race mesh while the hero file loads) it trades
+     places where it stands, without a pop. fur: the shells' material when
+     it is not this critter's own (a stand-in's) */
+  attach(geo, { fur: furFor = null } = {}) {
+    if (this.disposed || !geo || this.body?.geometry === geo) return;
+    const swap = !!this.body;
+    if (swap) {
+      this.root.remove(this.body);
+      if (this.meshes.fur) this.root.remove(this.meshes.fur);
+      this.meshes.fur = null;
+    }
     const sphere = new THREE.Sphere(new THREE.Vector3(0, 0.45, 0.05), 1.6);
     const body = new THREE.SkinnedMesh(geo, this.materials.plush);
     body.name = "critter-plush";
@@ -202,7 +211,7 @@ export class CritterRuntime {
     this.root.add(body);
     body.bind(this.skeleton, IDENTITY);
     this.meshes.plush = body;
-    const furMat = this.materials.fur;
+    const furMat = furFor || this.materials.fur;
     const shells = furMat && shellGeometry(geo, furMat.userData.shells);
     if (shells) {
       const fur = new THREE.SkinnedMesh(shells, furMat);
@@ -215,7 +224,7 @@ export class CritterRuntime {
     }
     if (this.placeholder) { this.root.remove(this.placeholder); this.placeholder.geometry.dispose(); this.placeholder = null; }
     this.body = body;
-    this.pop = Math.min(this.pop, 0.001);
+    if (!swap) this.pop = Math.min(this.pop, 0.001);
   }
 
   /* an invisible box the size of the sculpt, so a bounding box taken before

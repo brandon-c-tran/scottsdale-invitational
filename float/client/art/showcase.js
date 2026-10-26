@@ -105,18 +105,18 @@ export class Showcase {
   }
 
   /* one rider (or bare floatie) placed in the scene */
-  place({ entrant, floatieOnly = null, at = [0, 0, 0], face = Math.PI, detail = "race", label = null, sub = null, behaviour = {}, version = 2 }) {
+  place({ entrant, floatieOnly = null, at = [0, 0, 0], face = Math.PI, detail = "race", label = null, sub = null, behaviour = {} }) {
     const root = new THREE.Group();
     root.position.set(...at);
     let rider = null, floatie = null, critterOnly = null;
     if (arguments[0].critterOnly) {
-      critterOnly = buildCritter({ critter: entrant.look.critter, color: entrant.color, hat: entrant.look.hat, shades: entrant.look.shades, entrant, detail, groom: true, version });
+      critterOnly = buildCritter({ critter: entrant.look.critter, color: entrant.color, hat: entrant.look.hat, shades: entrant.look.shades, entrant, detail, groom: true });
       root.add(critterOnly.root);
     } else if (floatieOnly) {
       floatie = buildFloatie({ floatie: floatieOnly, color: entrant.color, entrant, detail });
       root.add(floatie.root);
     } else {
-      rider = buildRider(entrant, { detail, version });
+      rider = buildRider(entrant, { detail });
       root.add(rider.root);
     }
     const puddle = critterOnly ? null : buildPuddle(this.stage, 0.9);
@@ -226,29 +226,6 @@ export class Showcase {
       });
       cam.fov = 20; cam.position.set(0, 1.35, 6.4); cam.lookAt(0, 0.42, 0);
       this.spin.auto = false;
-    } else if (view === "compare") {
-      /* the first pass beside the new one: the same entrant, the same light */
-      /* in the studio, the critters alone; on the river, in their floaties */
-      const list = (opts.compareList || "capybara,javelina,frog").split(",");
-      const studio = stageMood === "studio";
-      const gap = studio ? 0.56 : 0.78, step = studio ? 2.4 : 3.6;
-      list.forEach((critter, j) => {
-        const idx = Math.max(0, CRITTERS.findIndex(c => c.id === critter));
-        for (const [k, version] of [[0, 1], [1, 2]]) {
-          const e = sampleEntrant(idx, { look: { critter, hat: "none", shades: "none", floatie: "classic" } });
-          const item = this.place({ entrant: e, critterOnly: studio, at: [(j - (list.length - 1) / 2) * step + (k ? gap : -gap), 0, 0], face: Math.PI + 0.3, detail: "hero", behaviour: {}, version,
-            label: k ? "After" : "Before", sub: k ? null : CRITTERS[idx].name });
-          item.labelY = studio ? -0.06 : -0.3;
-        }
-      });
-      /* far enough back that every pair fits the frame's width */
-      const halfWidth = (list.length * step) / 2 + (studio ? 0.6 : 1.2);
-      const fov = studio ? 22 : 26, aspect = cam.aspect || 16 / 9;
-      const dist = Math.max(studio ? 11.2 : 14.6, halfWidth / (Math.tan(THREE.MathUtils.degToRad(fov / 2)) * aspect));
-      cam.fov = fov;
-      if (studio) { cam.position.set(0, 1.6 * dist / 11.2, dist); cam.lookAt(0, 0.42, 0); }
-      else { cam.position.set(0, 2.9 * dist / 14.6, dist); cam.lookAt(0, 0.45, 0); }
-      this.spin.auto = false;
     } else if (view === "chips") {
       /* every skin's chip, the two with photos first */
       SAMPLE_SKINS.forEach((skin, i) => {
@@ -317,7 +294,7 @@ export class Showcase {
       if (this.view === "detail") it.root.rotation.y = it.face + this.spin.yaw;
       else if (this.view === "race") it.root.rotation.y = 0.15 * Math.sin(t * 0.6 + it.phase);
       else if (this.view === "chips") it.root.rotation.y = 0.5 * Math.sin(t * 0.7 + it.phase);
-      else if (!["medallion", "faces", "turn", "compare", "fit"].includes(this.view)) it.root.rotation.y = it.face + 0.55 * Math.sin(t * 0.32 + it.phase);
+      else if (!["medallion", "faces", "turn", "fit"].includes(this.view)) it.root.rotation.y = it.face + 0.55 * Math.sin(t * 0.32 + it.phase);
       it.rider?.update(dt);
       it.floatie?.update(dt);
       it.critterOnly?.update(dt);

@@ -1,12 +1,12 @@
 /* Hats and shades. A hat is modelled once for a standard head (half a metre
-   wide) and set on a species' crown by its hat socket (species.js: where,
-   how big, how tilted). Shades are built per species from the eyes
+   wide) and set on a species' crown by its hat socket (measured by the
+   bake, critterMeta.js: where, how big, how tilted). Shades are built per species from the eyes
    themselves: each lens sits just in front of its eye, the bridge crosses
    the face between them and the arms run back along the head, so they fit
    every face (the frog's turrets too). Geometry is cached by species and
    detail; the rider's color is a tint mesh (a hat band, a strap, stripes). */
 import * as THREE from "three";
-import { lathe, tube, ball, blob, blobGeometry, extrude, torus, xf, paint, merge, spline2, roundBox } from "./sculpt.js";
+import { lathe, tube, ball, blob, blobGeometry, extrude, torus, xf, paint, merge, spline2 } from "./sculpt.js";
 import { vinyl, gold, lens, geometry } from "./materials.js";
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
@@ -193,19 +193,16 @@ const SHADES = {
 export const SHADE_IDS_BUILT = Object.keys(SHADES);
 
 function shadeParts(id, template, detail) {
-  return geometry(`shades:${id}:${template.version || 1}:${template.id}:${detail}`, () => {
+  return geometry(`shades:${id}:${template.id}:${detail}`, () => {
     const hero = detail === "hero";
     const eyes = template.info.eyes;
     const headAt = template.bones.find(b => b.name === "head").at;
     const sock = template.sockets.shades || {};
-    const baked = template.version === 2;
-    const head = baked ? null : template.shapes.head;
     const sorted = [...eyes].sort((a, b) => a.c.x - b.c.x);
-    const eyeY = (eyes[0].c.y + eyes[1].c.y) / 2;
     /* lenses across the front of the face at the eyes' height (side-set eyes
        too: shades are worn in front), or on the eyes themselves (turrets) */
-    const span = THREE.MathUtils.clamp(Math.abs(sorted[1].c.x - sorted[0].c.x), 0.15, baked ? 0.3 : 0.235) * (sock.w || 1);
-    const lensW = THREE.MathUtils.clamp(span * (baked ? 0.34 : 0.37), 0.05, baked ? 0.088 : 0.08);
+    const span = THREE.MathUtils.clamp(Math.abs(sorted[1].c.x - sorted[0].c.x), 0.15, 0.3) * (sock.w || 1);
+    const lensW = THREE.MathUtils.clamp(span * 0.34, 0.05, 0.088);
     const spec = SHADES[id](lensW, hero);
     const lensParts = [], frameParts = [], tintParts = [];
     const ends = [];
@@ -214,18 +211,11 @@ function shadeParts(id, template, detail) {
       if (sock.onEyes) {
         f = e.n.clone().normalize();
         c = e.c.clone().addScaledVector(f, (template.info.eyeSize?.depth || 0.03) + 0.03);
-      } else if (baked) {
-        /* a baked face: each lens right before its eye, turned to face ahead */
+      } else {
+        /* each lens right before its eye, turned to face ahead */
         f = e.n.clone().add(V(0, 0, -1.6)).normalize();
         c = e.p.clone().addScaledVector(f, 0.03);
         c.x = Math.sign(e.c.x) * Math.max(Math.abs(c.x), span / 2);
-      } else {
-        const x = Math.sign(e.c.x) * span / 2, hc = head.center, r = head.r;
-        const ux = (x - hc.x) / r[0], uy = (eyeY - hc.y) / r[1];
-        const d = V(ux, uy, -Math.sqrt(Math.max(0.1, 1 - ux * ux - uy * uy))).normalize();
-        const P = head.at(d), N = head.normal(d);
-        f = N.clone().add(V(0, 0, -1.6)).normalize();
-        c = P.addScaledVector(f, 0.034);
       }
       const up = V(0, 1, 0).addScaledVector(f, -f.y).normalize();
       const right = new THREE.Vector3().crossVectors(up, f).normalize();
@@ -248,20 +238,11 @@ function shadeParts(id, template, detail) {
     for (const E of [L, R]) {
       const s = Math.sign(E.x) || 1;
       const start = E.c.clone().add(V(s * lensW * 0.95, lensW * 0.2, 0.004));
-      let end, strapSide, strapBack;
-      if (baked) {
-        /* the bake measured where the arms meet the head and where a strap runs */
-        const A = template.anchors;
-        end = V(...A.temple[s < 0 ? 0 : 1]);
-        strapSide = V(...A.strap[s < 0 ? 0 : 1]);
-        strapBack = V(...A.strap[2]);
-      } else {
-        const dEnd = new THREE.Vector3(s * 0.97, 0.05, 0.25).normalize();
-        end = head.at(dEnd).addScaledVector(head.normal(dEnd), 0.01);
-        const dSide = new THREE.Vector3(s * 0.6, 0.05, 0.8).normalize(), dBack = new THREE.Vector3(0, 0.05, 1);
-        strapSide = head.at(dSide).addScaledVector(head.normal(dSide), 0.012);
-        strapBack = head.at(dBack).addScaledVector(head.normal(dBack), 0.012);
-      }
+      /* the bake measured where the arms meet the head and where a strap runs */
+      const A = template.anchors;
+      const end = V(...A.temple[s < 0 ? 0 : 1]);
+      const strapSide = V(...A.strap[s < 0 ? 0 : 1]);
+      const strapBack = V(...A.strap[2]);
       const midA = start.clone().lerp(end, 0.5).addScaledVector(V(s, 0, 0), 0.02);
       if (spec.strap) tintParts.push(tube([start, midA, end, strapSide, strapBack], { radius: 0.012, radial: 5, segments: hero ? 18 : 10, flat: 0.5, side: [0, 1, 0], capRings: 1 }));
       else frameParts.push(paint(tube([start, midA, end], { radius: spec.frameR * 0.9, radial: 5, segments: hero ? 10 : 5, capRings: 1 }), spec.frame));
@@ -285,4 +266,3 @@ export function buildShades(id, { template, detail = "race", takeTint }) {
   return group;
 }
 
-export { roundBox };

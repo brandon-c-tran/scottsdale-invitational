@@ -17,8 +17,8 @@
    `countdown` and `race`, startAt is the gun. */
 import { TIMING, BALLOON, MAX_RIDERS } from "./tuning.js";
 import { COURSE } from "./course.js";
-import { createRace, finishAt, riderOf, seedOf, nextRandom } from "./sim.js";
-import { botSkills, botFloatie } from "./bots.js";
+import { createRace, finishAt, riderOf, seedOf, nextRandom, applyInput, stepRace, throwBalloon } from "./sim.js";
+import { botSkills, botFloatie, createBot, botInputs, botBalloon } from "./bots.js";
 import { CRITTERS, defaultLook, cleanLook } from "./looks.js";
 import { FLOATIE_IDS } from "./floaties.js";
 
@@ -308,3 +308,40 @@ export function noteThrow(cup, i, now) {
   cup.thrown[i] = (cup.thrown[i] || 0) + 1;
 }
 export function noteLanded(cup, i) { cup.landed[i] = (cup.landed[i] || 0) + 1; }
+
+/* ---- one race tick, with the bots ---- */
+
+/* the bot paddling for entrant i this race (kept in race.bots, so a saved
+   race resumes with its bots): a bot entrant's own skill, or a steady 0.55
+   for a person whose phone is away */
+export function botOf(cup, race, i, course = COURSE) {
+  race.bots ||= {};
+  if (!race.bots[i]) {
+    const entrant = cup.entrants[i];
+    race.bots[i] = createBot({ i, skill:entrant?.bot ? entrant.skill : 0.55, seed:race.seed, leg:race.leg, course });
+  }
+  return race.bots[i];
+}
+
+/* bots paddle for everyone `driven(i)` names, eliminated riders it names
+   drink on the beach and throw, then the river moves one tick. Returns the
+   tick's events (the beach drinks first). The room and the balancing
+   script both run races through this. */
+export function raceTick(cup, race, { now, driven, course = COURSE }) {
+  for (const rider of race.riders) {
+    if (!driven(rider.i)) continue;
+    const bot = botOf(cup, race, rider.i, course);
+    for (const input of botInputs(race, course, bot)) applyInput(race, rider.i, input);
+  }
+  const beach = [];
+  for (const i of cup.out) {
+    if (!driven(i) || !cup.beach[i]) continue;
+    if (!cup.beach[i].drank) { if (beachDrink(cup, i, now)) beach.push({ e:"drink", i }); continue; }
+    if (now < cup.beach[i].next) continue;
+    const at = botBalloon(botOf(cup, race, i, course), race, race.t);
+    if (at !== null && canThrow(cup, race, i, at, now) && throwBalloon(race, i, at)) noteThrow(cup, i, now);
+  }
+  const events = stepRace(race, course);
+  for (const event of events) if (event.e === "splash" && event.j !== undefined) noteLanded(cup, event.i);
+  return [...beach, ...events];
+}

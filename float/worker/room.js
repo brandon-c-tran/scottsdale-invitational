@@ -23,8 +23,7 @@
 import { COURSE, COURSE_ID, legLength } from "../shared/course.js";
 import { ROLES, HOST_CMDS, cleanDevice, cleanRider, cleanAnswers, cleanPid, ROOM_ID } from "../shared/protocol.js";
 import { SIM_HZ, SNAP_HZ, ME_HZ, PERSIST_MS, DEBUG_MS, MAX_CATCHUP_TICKS, MAX_RIDERS, TIMING } from "../shared/tuning.js";
-import { stepRace, applyInput, throwBalloon, rows, flagsOf, progressOf, riderOf, seedOf } from "../shared/sim.js";
-import { createBot, botInputs, botBalloon } from "../shared/bots.js";
+import { applyInput, throwBalloon, rows, flagsOf, progressOf, riderOf, seedOf } from "../shared/sim.js";
 import { cleanLook } from "../shared/looks.js";
 import { FLOATIE_IDS } from "../shared/floaties.js";
 import * as Cup from "../shared/cup.js";
@@ -500,27 +499,10 @@ export class FloatRoom {
   /* one race tick: bots think, the river moves, the Cup reads the result */
   step(now) {
     const cup = this.cup, race = this.race;
-    for (const rider of race.riders) {
-      if (!this.botDriven(rider.i, now)) continue;
-      const bot = this.botFor(rider.i);
-      for (const input of botInputs(race, COURSE, bot)) applyInput(race, rider.i, input);
-    }
-    /* eliminated bots (and bot-paddled riders) throw */
-    for (const i of cup.out) {
-      if (!this.botDriven(i, now)) continue;
-      const spot = cup.beach[i];
-      if (!spot) continue;
-      if (!spot.drank) { if (Cup.beachDrink(cup, i, now)) this.broadcast({ t:"ev", e:"drink", i }); continue; }
-      if (now < spot.next) continue;
-      const bot = this.botFor(i);
-      const at = botBalloon(bot, race, race.t);
-      if (at !== null && Cup.canThrow(cup, race, i, at, now) && throwBalloon(race, i, at)) Cup.noteThrow(cup, i, now);
-    }
-    const events = stepRace(race, COURSE);
+    const events = Cup.raceTick(cup, race, { now, driven:i => this.botDriven(i, now), course:COURSE });
     const tickAt = Math.round(this.raceZero + race.tick * TICK_MS);
     let changed = false;
     for (const event of events) {
-      if (event.e === "splash" && event.j !== undefined) Cup.noteLanded(cup, event.i);
       if (event.e === "arrive" || event.e === "drink") changed = true;
       this.broadcast({ t:"ev", s:tickAt, ...event });
     }
@@ -532,16 +514,6 @@ export class FloatRoom {
     const status = Cup.roundStatus(cup, race);
     if (status.over) return this.endRound(now);
     if (changed) this.broadcastRoom();
-  }
-
-  botFor(i) {
-    const race = this.race;
-    race.bots ||= {};
-    if (!race.bots[i]) {
-      const entrant = this.cup.entrants[i];
-      race.bots[i] = createBot({ i, skill:entrant?.bot ? entrant.skill : 0.55, seed:race.seed, leg:race.leg, course:COURSE });
-    }
-    return race.bots[i];
   }
 
   endRound(now) {

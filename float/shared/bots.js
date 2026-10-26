@@ -168,6 +168,8 @@ export function createBot({ i, skill = 0.6, seed = 1, leg = 0, course }) {
   /* where it means to drink: the first calm water past the start, mostly */
   bot.drinkPlan = nextRandom(bot) < 0.85 ? 0 : 1;
   bot.drinkFor = 3 + 3 * nextRandom(bot);
+  /* at the Drop's lip the sloppy sometimes freeze and go over crooked */
+  bot.nerves = nextRandom(bot) < 0.55 * (1 - bot.skill) * (1 - bot.skill);
   if (course) racingLine(course, bot.variant);
   return bot;
 }
@@ -215,8 +217,8 @@ export function botInputs(race, course, bot) {
       else {
         /* the cooler holds its line: it keeps paddling one-handed */
         if (physicsFor(rider.fl).steadyHandsOff && t >= bot.next) {
-          out.push({ t:"stroke", side:bot.side = bot.side === "L" ? "R" : "L", p:0.7 });
-          bot.next = t + 1 / (1.6 + bot.skill);
+          out.push({ t:"stroke", side:bot.side = bot.side === "L" ? "R" : "L", p:0.5 });
+          bot.next = t + 1 / (1.2 + 0.4 * bot.skill);
         }
         return out;
       }
@@ -285,6 +287,7 @@ export function botInputs(race, course, bot) {
   for (const zone of course.zones) {
     if (zone.k !== "drop") continue;
     const to = zone.s0 - rider.s;
+    if (bot.nerves && to > -2 && to < 7) return out;
     if (to > -2 && to < 18 + 14 * bot.skill) {
       const lip = frameAt(course, zone.s0);
       const lipA = Math.atan2(lip.ty, lip.tx);
@@ -316,7 +319,8 @@ export function botInputs(race, course, bot) {
 /* an eliminated bot's balloon: every so often once allowed, at the leader
    mostly, else anyone still racing */
 export function botBalloon(bot, race, t) {
-  if (bot.throwAt === undefined || bot.throwAt === null) bot.throwAt = t + 0.6 + 3.5 * nextRandom(bot);
+  /* bots are casual throwers: a while after each balloon comes back */
+  if (bot.throwAt === undefined || bot.throwAt === null) bot.throwAt = t + 2 + 9 * nextRandom(bot);
   if (t < bot.throwAt) return null;
   bot.throwAt = null;
   const racing = race.riders.filter(rider => !rider.arrived);

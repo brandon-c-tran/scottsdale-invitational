@@ -24,7 +24,7 @@
    splashes, never flips. Pure: no DOM, no Workers APIs. */
 import { COURSE, flowAt, frameAt, legAt, gridSlots, beachSlot, rocksNear, islandsNear, nearestS } from "./course.js";
 import { FLAG, packRow, wrapAngle } from "./protocol.js";
-import { DT, RADIUS, WATER, PADDLE, CONTACT, FLIP, BALLOON, FLAG_MS, BEACH, LAUNCH_V, COOLER, physicsOf } from "./tuning.js";
+import { DT, RADIUS, WATER, PADDLE, CONTACT, FLIP, BALLOON, FLAG_MS, BEACH, LAUNCH_V, LAUNCH_S, COOLER, physicsOf } from "./tuning.js";
 
 /* ---- randomness: mulberry32, its state a uint32 kept in the race ---- */
 export function nextRandom(holder) {
@@ -78,11 +78,11 @@ export function createRace({ course = COURSE, leg = 0, field = [], seed = 1, dri
         x:slot.x, y:slot.y, vx:0, vy:0, a:slot.a, w:0,
         s:slot.s, prog:slot.s - grid,
         stam:1, heat:0, push:0, yawQ:0, lastStroke:-9,
-        hands:2, swim:0, immune:0, tip:0,
+        hands:2, swim:0, immune:0, backIn:-99,
         whirlT:0, whirlFree:0,
         tL:-9, tR:-9, tBump:-9, tBumpFlag:-9, tSplash:-9, hitAt:-99,
         arrived:false, arriveAt:null, drinkAt:null, beach:-1,
-        st:{ strokes:0, flips:0, bumpsGiven:0, bumpsTaken:0, splashed:0 },
+        st:{ strokes:0, flips:0, dropFlips:0, bumpsGiven:0, bumpsTaken:0, splashed:0 },
       };
     }),
     events:[],
@@ -154,16 +154,17 @@ function noteFinish(race, rider) {
   if (at !== null && (race.firstFinish === null || at < race.firstFinish)) race.firstFinish = at;
 }
 
-function flip(race, rider) {
+/* over you go: in the water for SWIM_MS. why: "drop" or "riffle" */
+function flip(race, rider, why) {
   rider.swim = FLIP.SWIM_MS / 1000;
   rider.push = 0;
   rider.yawQ = 0;
-  rider.tip = 0;
   rider.vx *= 0.3;
   rider.vy *= 0.3;
   rider.w = 0;
   rider.st.flips += 1;
-  race.events.push({ e:"flip", i:rider.i, x:r3(rider.x), y:r3(rider.y) });
+  if (why === "drop") rider.st.dropFlips += 1;
+  race.events.push({ e:"flip", i:rider.i, x:r3(rider.x), y:r3(rider.y), why });
 }
 
 /* one tick (1/30 s). Returns the events raised since the last tick. */
@@ -186,7 +187,7 @@ export function stepRace(race, course = COURSE) {
       if (phys.neverFlips || rider.immune > 0) continue;
       const lip = frameAt(course, zone.s0);
       const off = Math.abs(wrapAngle(rider.a - Math.atan2(lip.ty, lip.tx)));
-      if (off > phys.dropAngle || Math.abs(rider.w) > phys.dropSpin) flip(race, rider);
+      if (off > phys.dropAngle || Math.abs(rider.w) > phys.dropSpin) flip(race, rider, "drop");
     }
     if (before < race.finish && near.s >= race.finish) arrive(race, course, rider, before, t);
   }
@@ -231,10 +232,11 @@ function moveRider(race, course, rider, t) {
 
   const handsOff = rider.hands < 2;
   if (rider.swim > 0) {
-    /* in the water beside the floatie: carried by the current */
+    /* in the water, hanging on to the floatie: dragged along at a fraction
+       of the current */
     rider.swim = Math.max(0, rider.swim - DT);
-    rider.vx += (water.ux - rider.vx) * Math.min(1, 2 * DT);
-    rider.vy += (water.uy - rider.vy) * Math.min(1, 2 * DT);
+    rider.vx += (water.ux * FLIP.SWIM_DRIFT - rider.vx) * Math.min(1, 2 * DT);
+    rider.vy += (water.uy * FLIP.SWIM_DRIFT - rider.vy) * Math.min(1, 2 * DT);
     rider.w += (0.5 * water.curl - rider.w) * Math.min(1, 2 * DT);
     rider.x += rider.vx * DT;
     rider.y += rider.vy * DT;
@@ -246,23 +248,36 @@ function moveRider(race, course, rider, t) {
       rider.vx = water.ux * 0.6;
       rider.vy = water.uy * 0.6;
       rider.immune = FLIP.IMMUNE_S;
+      rider.backIn = t;
     }
     return;
   }
 
+  /* the current pushes a heavier floatie harder (it sits deeper) */
   const k = WATER.DRAG / phys.mass;
   const drag = 1 - Math.exp(-k * DT);
-  rider.vx += (water.ux - rider.vx) * drag;
-  rider.vy += (water.uy - rider.vy) * drag;
+  rider.vx += (water.ux * phys.ride - rider.vx) * drag;
+  rider.vy += (water.uy * phys.ride - rider.vy) * drag;
+
+  /* the keel: the water resists sliding sideways through it, so you travel
+     where you point (Turn: how quickly) */
+  const hx = Math.cos(rider.a), hy = Math.sin(rider.a);
+  {
+    const rx = rider.vx - water.ux, ry = rider.vy - water.uy;
+    const side = -rx * hy + ry * hx;
+    const bite = (1 - Math.exp(-phys.keel * DT)) * side;
+    rider.vx -= -hy * bite;
+    rider.vy -= hx * bite;
+  }
 
   /* the stroke envelope releases its push and its yaw */
   const release = 1 - Math.exp(-PADDLE.RELEASE * DT);
-  const hx = Math.cos(rider.a), hy = Math.sin(rider.a);
   if (rider.push > 1e-4) {
     const impulse = rider.push * release;
     rider.push -= impulse;
     let launch = 0;
-    if (phys.launch) {
+    /* the donut's launch: off the grid, and back in after a flip */
+    if (phys.launch && (t < LAUNCH_S || t - rider.backIn < LAUNCH_S)) {
       const over = Math.hypot(rider.vx - water.ux, rider.vy - water.uy);
       launch = phys.launch * clamp(2 - over / LAUNCH_V, 0, 1);
     }
@@ -289,7 +304,18 @@ function moveRider(race, course, rider, t) {
   if (riffle) {
     const power = riffle.power ?? 1;
     if (nextRandom(race) < WATER.RIFFLE_RATE * power * DT) {
-      const heavy = 80 / phys.mass;
+      /* a wave: is this rider sideways, or ploughing through too fast? */
+      if (!phys.neverFlips && rider.immune === 0) {
+        const off = Math.abs(wrapAngle(rider.a - Math.atan2(water.uy, water.ux)));
+        const sideways = Math.max(0, (off - phys.riffleAngle) / (Math.PI / 2));
+        const fast = Math.max(0, (Math.hypot(rider.vx - water.ux, rider.vy - water.uy) - phys.riffleFast) / 1.5);
+        const over = Math.max(sideways, fast);
+        if (over > 0 && nextRandom(race) < Math.min(0.9, (FLIP.CHANCE + FLIP.CHANCE_GAIN * over) * power)) {
+          flip(race, rider, "riffle");
+          return;
+        }
+      }
+      const heavy = (80 / phys.mass) * phys.rough;
       const side = nextRandom(race) < 0.5 ? -1 : 1;
       const push = WATER.RIFFLE_PUSH * power * heavy * (0.6 + 0.8 * nextRandom(race));
       rider.vx += -water.ty * side * push;
@@ -303,17 +329,6 @@ function moveRider(race, course, rider, t) {
   rider.y += rider.vy * DT;
   rider.a = wrapAngle(rider.a + rider.w * DT);
 
-  if (phys.neverFlips || rider.immune > 0) { rider.tip = 0; return; }
-  /* sideways through a riffle builds tip */
-  if (riffle) {
-    const rx = water.ux - rider.vx, ry = water.uy - rider.vy;
-    const across = Math.abs(rx * hy - ry * hx);
-    const flowA = Math.atan2(water.uy, water.ux);
-    const off = Math.abs(Math.sin(wrapAngle(rider.a - flowA)));
-    if (off > FLIP.SIDE_MIN && across > phys.riffleSlip) rider.tip += (across - phys.riffleSlip) * FLIP.TIP_GAIN * DT;
-    else rider.tip = Math.max(0, rider.tip - FLIP.TIP_DECAY * DT);
-    if (rider.tip >= 1) flip(race, rider);
-  } else rider.tip = Math.max(0, rider.tip - FLIP.TIP_DECAY * DT);
 }
 
 function arrive(race, course, rider, before, t) {

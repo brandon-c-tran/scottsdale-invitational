@@ -73,10 +73,12 @@ export const WATER = Object.freeze({
      rotation (half the flow's curl) */
   SPIN_DAMP:2.6,
   SPIN_COUPLE:1.4,
+  /* the keel: sideways slip through the water decays at this rate (1/s) */
+  KEEL:1.2,
   /* the current's speed across the river: 1 in the middle, 1 - BANK at a bank */
   BANK:0.6,
   /* riffles: random shoves while in one (per second, and their size) */
-  RIFFLE_RATE:2.2,
+  RIFFLE_RATE:2.6,
   RIFFLE_PUSH:0.55,
   RIFFLE_SPIN:1.1,
   /* the whirlpool lets go of anyone it has held this long, for RELEASE_S */
@@ -87,7 +89,7 @@ export const WATER = Object.freeze({
 /* ---- paddling ---- */
 export const PADDLE = Object.freeze({
   /* one full-power stroke's forward impulse (N s) at Speed 3 */
-  IMPULSE:80,
+  IMPULSE:76,
   /* one full-power stroke's yaw (rad/s added) at Turn 3; a left stroke yaws
      right (clockwise, negative), a right stroke yaws left */
   YAW:0.95,
@@ -132,21 +134,30 @@ export const CONTACT = Object.freeze({
 /* ---- flips ---- */
 export const FLIP = Object.freeze({
   SWIM_MS:2500,
+  /* a swimmer, hanging on, drifts at this share of the current */
+  SWIM_DRIFT:0.5,
   /* after climbing back in, no flip for this long */
   IMMUNE_S:2,
   /* The Drop: crossing the lip more than this far off the current flips you
      (degrees, by Grip 1..5), or spinning faster than SPIN_MAX */
   DROP_ANGLE:[0, 24, 32, 40, 48, 56],
   DROP_SPIN:[0, 1.6, 1.9, 2.2, 2.5, 2.8],
-  /* a riffle: water across your side faster than this (m/s, by Grip) builds
-     tip; at 1 you flip. Only when you are at least SIDE_MIN off the current */
-  RIFFLE_SLIP:[0, 1.0, 1.25, 1.5, 1.75, 2.0],
-  TIP_GAIN:5,
-  TIP_DECAY:1.5,
-  SIDE_MIN:0.5,
+  /* a riffle: each wave that hits you (WATER.RIFFLE_RATE a second) checks
+     you. Sideways past RIFFLE_ANGLE (degrees off the current, by Grip), or
+     faster than RIFFLE_FAST through the water (m/s, by Grip), it may flip
+     you: CHANCE plus CHANCE_GAIN for each whole step over (a right angle
+     past the threshold, or a further 1.5 m/s) */
+  RIFFLE_ANGLE:[0, 36, 46, 56, 66, 76],
+  RIFFLE_FAST:[0, 3.3, 3.6, 3.9, 4.2, 4.5],
+  CHANCE:0.08,
+  CHANCE_GAIN:0.5,
 });
 
-/* ---- the four stats, mapped to physics (PROTOCOL.md "Floaties") ---- */
+/* ---- the four stats, mapped to physics (PROTOCOL.md "Floaties") ----
+   Each point from the middle (3) moves a number by this fraction. Speed is
+   kept narrow: with equal paddlers it decides races fastest of the four. */
+export const STAT = Object.freeze({ SPEED:0.012, TURN:0.15, WEIGHT:0.1, RIDE:0.012, ROUGH:0.12, KEEL:0.3 });
+
 const statOf = (stat, value) => Math.max(1, Math.min(5, Number(value) || 3)) - 3;
 
 /* every number a floatie's physics needs, from its stats and twist */
@@ -160,17 +171,23 @@ export function physicsOf(floatieId) {
   const p = {
     id,
     /* Weight: who wins a bump, and how hard the current pushes you */
-    mass:80 * (1 + 0.15 * weight),
+    mass:80 * (1 + STAT.WEIGHT * weight),
+    /* ...and the current pushes it harder: it rides the current this much faster */
+    ride:1 + STAT.RIDE * weight,
     /* Speed: paddle thrust (and so top speed over the water) */
-    thrust:PADDLE.IMPULSE * (1 + 0.055 * speed),
+    thrust:PADDLE.IMPULSE * (1 + STAT.SPEED * speed),
     /* Turn: how far a one-sided stroke turns you */
-    yaw:PADDLE.YAW * (1 + 0.17 * turn),
+    yaw:PADDLE.YAW * (1 + STAT.TURN * turn),
     spinDamp:WATER.SPIN_DAMP * (1 - 0.06 * turn),
+    keel:WATER.KEEL * (1 + STAT.KEEL * turn),
     /* Grip: flip resistance in rapids and the Drop */
     grip,
+    /* rough water shoves a low-grip floatie about more */
+    rough:1 - STAT.ROUGH * (grip - 3),
     dropAngle:FLIP.DROP_ANGLE[grip] * Math.PI / 180,
     dropSpin:FLIP.DROP_SPIN[grip],
-    riffleSlip:FLIP.RIFFLE_SLIP[grip],
+    riffleAngle:FLIP.RIFFLE_ANGLE[grip] * Math.PI / 180,
+    riffleFast:FLIP.RIFFLE_FAST[grip],
     /* twists (floaties.js) */
     launch:0,          // donut: extra thrust when slow
     tippy:1,           // unicorn: flip thresholds scaled down
@@ -178,21 +195,27 @@ export function physicsOf(floatieId) {
     neverFlips:false,  // lounger
     steadyHandsOff:false, // cooler
   };
-  if (id === "donut") p.launch = 0.6;
+  if (id === "donut") p.launch = 0.2;
   if (id === "unicorn") p.tippy = 0.85;
-  if (id === "flamingo") { p.yaw *= 1.08; p.spinDamp *= 0.92; }
+  /* the flamingo turns on a dime: crisp, and it goes where it points */
+  if (id === "flamingo") { p.yaw *= 1.08; p.spinDamp *= 1.12; p.keel *= 1.5; }
   if (id === "shark") p.bumpOut = 1.7;
-  if (id === "pizza") p.tippy = 1.3;
-  if (id === "lounge") p.neverFlips = true;
+  /* the flat rafts ride rough water: waves shove them about less */
+  if (id === "pizza") { p.tippy = 1.3; p.rough *= 0.8; }
+  if (id === "lounge") { p.neverFlips = true; p.rough *= 0.6; }
   if (id === "cooler") p.steadyHandsOff = true;
   p.dropAngle *= p.tippy;
   p.dropSpin *= p.tippy;
-  p.riffleSlip *= p.tippy;
+  p.riffleAngle *= p.tippy;
+  p.riffleFast *= p.tippy;
   return p;
 }
 
-/* the donut's launch: full below LAUNCH_V over the water, gone by twice that */
-export const LAUNCH_V = 1.6;
+/* the donut's launch: extra thrust for LAUNCH_S off the grid and after
+   climbing back in from a flip, full below LAUNCH_V over the water, gone by
+   twice that */
+export const LAUNCH_V = 1.0;
+export const LAUNCH_S = 4;
 /* the cooler, hands off: its own strokes yaw this much, the water's spin this */
 export const COOLER = Object.freeze({ STROKE_YAW:0.35, WATER_SPIN:0.15, DAMP:4 });
 

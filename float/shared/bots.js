@@ -20,6 +20,7 @@
 import { frameAt, flowAt, legAt, islandSpan, rocksNear, islandsNear, courseLength, zonesAt } from "./course.js";
 import { nextRandom, seedOf, riderOf, physicsFor } from "./sim.js";
 import { RADIUS } from "./tuning.js";
+import { BEAT_MS } from "./beat.js";
 import { FLOATIE_IDS } from "./floaties.js";
 import { wrapAngle } from "./protocol.js";
 
@@ -159,10 +160,16 @@ export function botSkills(n, seed = 1) {
 
 export const botFloatie = seed => FLOATIE_IDS[Math.floor(nextRandom({ rng:seedOf(`floatie:${seed}`) }) * FLOATIE_IDS.length)];
 
-export function createBot({ i, skill = 0.6, seed = 1, leg = 0, course }) {
+/* `style` (optional) overrides the timing skill gives: { perfect, off } as
+   rates (the rest GOOD) and { extra } the share of beats it strokes twice
+   (the second too fast), or { spam } strokes a second at no particular
+   moment, as a phone mashed by thumbs; scripts/float-sim.mjs races human
+   players this way */
+export function createBot({ i, skill = 0.6, seed = 1, leg = 0, course, style = null }) {
   const bot = { i, skill:clamp(Number(skill) || 0.6, 0, 1), rng:seedOf(`bot:${seed}:${i}:${leg}`),
     variant:"left", offset:0, offsetTo:0, offsetAt:0, next:0, side:"R", hands:2,
-    drinkAt:null, drinkUntil:null, drank:false, wait:null, mistake:null, mistakeUntil:0, wrong:false };
+    drinkAt:null, drinkUntil:null, drank:false, wait:null, mistake:null, mistakeUntil:0, wrong:false,
+    plan:null, lastK:-1, style:style ? { ...style } : null };
   /* the island: a bot that still has to drink takes the calm right channel more often */
   bot.variant = nextRandom(bot) < 0.3 + 0.25 * (1 - bot.skill) ? "right" : "left";
   /* where it means to drink: the first calm water past the start, mostly */
@@ -190,7 +197,34 @@ function calmHere(course, bot, rider) {
 const hazardAhead = (course, s) => zonesAt(course, s + 14).some(zone => zone.k === "riffle" || zone.k === "drop" || zone.k === "whirlpool")
   || rocksNear(course, s + 6, 6).length > 0;
 
-/* this tick's inputs for the bot's rider: [{ t:"stroke", side, p }, ...] */
+/* The beat (float/PROTOCOL.md "The beat"): a bot strokes once a beat, on
+   it by its accuracy: PERFECT from 30% (skill 0) to 90% (skill 1) of the
+   time, the odd stroke early or late, the rest GOOD. It sends what a phone
+   sends: the beat k and its offset d. */
+export const accuracyOf = bot => ({
+  perfect:bot.style?.perfect ?? 0.3 + 0.6 * bot.skill,
+  off:bot.style?.off ?? 0.015 + 0.05 * (1 - bot.skill),
+});
+function planBeat(bot, k) {
+  const { perfect, off } = accuracyOf(bot);
+  const roll = nextRandom(bot);
+  const sign = nextRandom(bot) < 0.5 ? -1 : 1;
+  let d;
+  if (roll < off) d = sign * (175 + 65 * nextRandom(bot));
+  else if (roll < off + perfect) d = (nextRandom(bot) * 2 - 1) * 72;
+  else d = sign * (88 + 68 * nextRandom(bot));
+  return { k, d:Math.round(d) };
+}
+/* the bot's next beat, if its moment has come (a plan left behind by a
+   drink, a swim or a pause is made again for the beat ahead) */
+function beatDue(bot, nowMs) {
+  if (!bot.plan || nowMs > bot.plan.k * BEAT_MS + bot.plan.d + 300)
+    bot.plan = planBeat(bot, Math.max(bot.lastK + 1, Math.ceil((nowMs - 60) / BEAT_MS)));
+  return nowMs >= bot.plan.k * BEAT_MS + bot.plan.d ? bot.plan : null;
+}
+const stroked = (bot, plan) => { bot.lastK = plan.k; bot.plan = null; };
+
+/* this tick's inputs for the bot's rider: [{ t:"stroke", side, p, k, d }, ...] */
 export function botInputs(race, course, bot) {
   const rider = riderOf(race, bot.i);
   if (!rider) return [];
@@ -215,11 +249,8 @@ export function botInputs(race, course, bot) {
     if (bot.drinkUntil !== null) {
       if (t >= bot.drinkUntil) { bot.drinkUntil = null; bot.drank = true; setHands(2); out.push({ t:"drink" }); }
       else {
-        /* the cooler holds its line: it keeps paddling one-handed */
-        if (physicsFor(rider.fl).steadyHandsOff && t >= bot.next) {
-          out.push({ t:"stroke", side:bot.side = bot.side === "L" ? "R" : "L", p:0.4 });
-          bot.next = t + 1 / (1.2 + 0.4 * bot.skill);
-        }
+        /* a drink costs a level of groove, for every floatie (the cooler's
+           twist is that it holds its line meanwhile, not its streak) */
         return out;
       }
     } else if (rider.prog > 25 && rider.s < leg.finish - 8 && calmHere(course, bot, rider) && !hazardAhead(course, rider.s)) {
@@ -266,7 +297,18 @@ export function botInputs(race, course, bot) {
     }
   } else bot.slowSince = null;
 
-  if (t < bot.next) return out;
+  /* the moment to stroke: the next beat, or a mashing thumb's next tap */
+  const nowMs = t * 1000;
+  let plan = null;
+  if (bot.style?.spam) {
+    if (t < bot.next) return out;
+    bot.next = t + (1 / bot.style.spam) * (0.7 + 0.6 * nextRandom(bot));
+    const k = Math.round(nowMs / BEAT_MS);
+    plan = { k, d:Math.round(nowMs - k * BEAT_MS) };
+  } else {
+    plan = beatDue(bot, nowMs);
+    if (!plan) return out;
+  }
 
   /* where to point */
   const phys = physicsFor(rider.fl);
@@ -305,14 +347,15 @@ export function botInputs(race, course, bot) {
   else if (predicted < -deadband) side = "L";
   else side = bot.side === "L" ? "R" : "L";
   if (bot.mistake === "wrong") side = side === "L" ? "R" : "L";
+  /* a masher hits whichever thumb is down */
+  if (bot.style?.spam && nextRandom(bot) < 0.35) side = nextRandom(bot) < 0.5 ? "L" : "R";
   bot.side = side;
-  const p = clamp(0.72 + 0.26 * bot.skill + (nextRandom(bot) - 0.5) * 0.16, 0.3, 1);
-  out.push({ t:"stroke", side, p });
-  /* cadence: strong bots ride the 3-a-second edge, tired ones ease off */
-  let rate = 1.9 + 1.05 * bot.skill;
-  if (rider.stam < 0.3) rate = Math.min(rate, 2.2);
-  if (bot.mistake === "mash") rate = 6;
-  bot.next = t + (1 / rate) * (0.88 + 0.24 * nextRandom(bot));
+  const p = bot.style?.spam ? 1 : clamp(0.72 + 0.26 * bot.skill + (nextRandom(bot) - 0.5) * 0.16, 0.3, 1);
+  out.push({ t:"stroke", side, p, k:plan.k, d:plan.d });
+  /* zoning into a flurry: a second stroke in the same beat (too fast) */
+  if ((bot.mistake === "mash" || nextRandom(bot) < (bot.style?.extra ?? 0)) && !bot.style?.spam)
+    out.push({ t:"stroke", side:side === "L" ? "R" : "L", p, k:plan.k, d:Math.min(240, plan.d + 110) });
+  if (!bot.style?.spam) stroked(bot, plan);
   return out;
 }
 

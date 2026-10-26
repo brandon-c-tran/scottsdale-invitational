@@ -184,7 +184,8 @@ export class FloatRoom {
     if (i < 0) return;
     if (msg.t === "stroke") {
       if ((meta.strokes += 1) > STROKES_PER_S) return;
-      return this.input(i, { t:"stroke", side:msg.side, p:msg.p });
+      /* the phone stamps its touch on the beat: k and d (float/PROTOCOL.md "The beat") */
+      return this.input(i, { t:"stroke", side:msg.side, p:msg.p, k:msg.k, d:msg.d });
     }
     if (msg.t === "hands") return this.input(i, { t:"hands", n:msg.n });
     if (msg.t === "drink") return this.onDrink(i);
@@ -623,8 +624,10 @@ export class FloatRoom {
     return out;
   }
 
-  /* `me`: a racer's own place, progress, stamina and flags, and for every
-     phone the race's order (entrant indexes by current place). A rider out
+  /* `me`: a racer's own place, progress, stamina (always 1 now: the beat
+     governs cadence), flags, and the beat: streak, level and q (the last
+     stroke's judgement); and for every phone the race's order (entrant
+     indexes by current place). A rider out
      on the beach gets { i, out:true, order, of, cut, ball, f }: `ball` is
      the server time their next balloon is ready (null until they drink),
      and `f` carries DRANK once they have. */
@@ -642,7 +645,8 @@ export class FloatRoom {
       const rider = riderOf(race, i);
       if (rider) {
         this.send(ws, { t:"me", i, place:place[i], of:race.riders.length, prog:Math.round(progressOf(race, rider) * 10) / 10,
-          len:race.len, stam:Math.round(rider.stam * 100) / 100, f:flagsOf(rider, race.t), cut, order }, at);
+          len:race.len, stam:Math.round(rider.stam * 100) / 100, f:flagsOf(rider, race.t), cut, order,
+          streak:rider.streak, level:rider.level, q:rider.q }, at);
         continue;
       }
       const spot = this.cup.beach[i];

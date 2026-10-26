@@ -5,7 +5,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { FloatRoom } from "../float/worker/room.js";
 import { COURSE } from "../float/shared/course.js";
-import { PHASES, FLAG, unpackRow, PALETTE, CODE_LETTERS, CODE_LENGTH, STANDALONE_CODE } from "../float/shared/protocol.js";
+import { PHASES, FLAG, unpackRow, PALETTE, CODE_LETTERS, CODE_LENGTH, STANDALONE_CODE, levelOfFlags } from "../float/shared/protocol.js";
+import { BEAT_MS } from "../float/shared/beat.js";
 import { TIMING } from "../float/shared/tuning.js";
 import * as Cup from "../float/shared/cup.js";
 import { flagsOf } from "../float/shared/sim.js";
@@ -542,4 +543,52 @@ test("the shared palette and room-code letters live in protocol.js, re-exported 
   assert.equal(Join.STANDALONE_CODE, STANDALONE_CODE);
   assert.equal(Join.CODE_LENGTH, CODE_LENGTH);
   assert.ok(STANDALONE_CODE.test("brkt") && !STANDALONE_CODE.test("bark"));
+});
+
+test("the beat over the wire: stamped strokes climb to Locked in; too fast and stale stamps break the streak", async () => {
+  const { room, clock } = await makeRoom();
+  const tv = connect(room, { role:"screen", device:"tv" });
+  const phone = connect(room, { device:"me", rider:rider("Me") });
+  say(room, tv, { t:"host", cmd:"start", bots:2, drinking:false });
+  const live = keepAlive(room, [phone]);
+  await run(room, clock, 60000, () => room.cup.phase === "race" && room.race.t > 0.6, live);
+  const gun = tv.last("room").startAt;
+  assert.equal(gun, room.cup.startAt, "the race's gun is room.startAt");
+  /* a phone's stamp: the beat and the offset of its touch on the server clock */
+  const stamp = (offset = 0) => {
+    const k = Math.round((clock.t + offset - gun) / BEAT_MS);
+    return { k, d:Math.round(clock.t + offset - (gun + k * BEAT_MS)) };
+  };
+  const me = () => room.race.riders.find(r => r.i === 0);
+  let side = "L";
+  for (let beat = 0; beat < 20; beat += 1) {
+    const next = gun + (Math.floor((clock.t - gun) / BEAT_MS) + 1) * BEAT_MS + 10;
+    await run(room, clock, next - clock.t, () => clock.t >= next, live);
+    side = side === "L" ? "R" : "L";
+    say(room, phone, { t:"stroke", side, p:1, ...stamp(-10) });
+  }
+  await run(room, clock, 120, () => false, live);
+  assert.equal(me().level, 3);
+  assert.ok(me().streak >= 16);
+  const frame = phone.last("me");
+  assert.equal(frame.level, 3);
+  assert.equal(frame.q, "perfect");
+  assert.ok(frame.streak >= 16);
+  assert.equal(levelOfFlags(frame.f), 3);
+  const grooves = tv.all("ev").filter(ev => ev.e === "groove" && ev.i === 0).map(ev => ev.level);
+  assert.deepEqual(grooves, [1, 2, 3]);
+  assert.equal(levelOfFlags(tv.last("snap").k.map(unpackRow).find(row => row.i === 0).f), 3, "the TV sees the level");
+  /* a second stroke in the same beat: too fast */
+  say(room, phone, { t:"stroke", side:"L", p:1, ...stamp(0) });
+  await run(room, clock, 150, () => false, live);
+  assert.equal(me().q, "fast");
+  assert.equal(me().streak, 0);
+  assert.equal(phone.last("me").level, 0);
+  /* a stamp far from the room's clock is off */
+  await run(room, clock, 500, () => false, live);
+  const { k } = stamp(0);
+  say(room, phone, { t:"stroke", side:"R", p:1, k:k + 6, d:0 });
+  assert.ok(["early", "late"].includes(me().q));
+  /* bots stroke on the beat too */
+  assert.ok(room.race.riders.filter(r => r.i !== 0).every(r => r.st.perfect + r.st.good > r.st.off));
 });

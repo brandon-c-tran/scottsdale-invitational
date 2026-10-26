@@ -34,9 +34,10 @@ export function beatAt(t, gun, beatMs = BEAT_MS) {
 }
 
 /* A stroke's judgement from its beat index and offset. `lastBeat` is the
-   beat this rider last stroked on the beat (a second stroke in the same
-   beat is too fast). Returns { q, onBeat }: q is "perfect", "good",
-   "early", "late" or "fast". */
+   beat of this rider's last stroke of ANY judgement (the room's reading:
+   an early stroke in beat k makes the rest of beat k too fast), so only the
+   first stroke in a beat can be on it. Returns { q, onBeat }: q is
+   "perfect", "good", "early", "late" or "fast". */
 export function judge(k, d, { lastBeat = null } = {}) {
   if (!Number.isInteger(k) || !Number.isFinite(d)) return { q:"late", onBeat:false };
   if (lastBeat !== null && k === lastBeat) return { q:"fast", onBeat:false };

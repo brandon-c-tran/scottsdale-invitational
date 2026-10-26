@@ -44,7 +44,9 @@ const capabilities = { qa:qaOn, progressReset:qaOn, restore:false, snapshotExpor
   audioDirector:gm && !!scenario.audio, audioCatalog:!!scenario.catalog, audioPlayback:false, push:gm && !!scenario.push,
   /* `karaoke`: the karaoke capability (the song picker in anyone's
      profile, its Home row before the game) */
-  karaoke:!!scenario.karaoke };
+  karaoke:!!scenario.karaoke,
+  /* `float`: Float's room (the Locker, Home's floatie row, the desk) */
+  ...(scenario.float ? { float:true } : {}) };
 globalThis.__FIT_SPOTIFY__ = scenario.spotify || null;
 /* the Karaoke desk and its Ready check row (`karaoke`), and its stubbed video check */
 if (gm && scenario.karaoke) capabilities.karaoke = true;
@@ -58,8 +60,10 @@ let seq = 0;
 globalThis.__FIT_DISPATCH__ = (type, payload) => {
   /* checkpoints live in the Durable Object's private keys, not in state */
   if (type === "qaCheckpoints") return { ok:true, extra:{ checkpoints:[] } };
+  /* and so does Float's feedback (the scenario's own cards) */
+  if (type === "floatFeedback") return gm ? { ok:true, extra:{ feedback:scenario.floatFeedback || [] } } : { ok:false, error:"Commissioner only" };
   const result = applyAction(state, type, payload, { isGm:gm, player:me, deviceId:`fit-${me}`, actionId:`fitp-${++seq}`,
-    environment:"local", qa:qaOn, progressReset:qaOn, arriveCode:FIT_ARRIVE_CODE });
+    environment:"local", qa:qaOn, progressReset:qaOn, arriveCode:FIT_ARRIVE_CODE, float:!!scenario.float });
   if (result.ok) import("./fit/client.js").then(m => { publishFrame({ version, fresh:false }); m.setFitFrame(frame()); });
   return result;
 };
@@ -331,6 +335,32 @@ async function openSheet(kind) {
     await sleep(900);
     document.activeElement?.blur?.();
     return document.querySelectorAll(".fd-ksong-video").length === 3;
+  }
+  /* Float (src/features/float): the profile's Locker (the room's picker, its
+     own chunk); the rider's controller closed (its onExit), leaving Home's
+     row; the commissioner's desk from its menu row, past the controller a
+     playing commissioner closes first */
+  if (kind === "profile-locker") {
+    if (!await tap(() => [...document.querySelectorAll("header button[aria-label='Your profile']")].find(visible))) return false;
+    await sleep(600);
+    if (!await tap(() => [...document.querySelectorAll(".fd-profile-sections button")]
+      .find(b => visible(b) && b.textContent.trim() === "Locker"))) return false;
+    return !!(await until(() => document.querySelector(".fd-float-locker select, .fd-float-locker [data-locker]")));
+  }
+  if (kind === "float-closed" || kind === "float-desk") {
+    if (await until(() => document.querySelector(".fd-float-play"), kind === "float-closed" ? 6000 : 1500)) {
+      const closed = await tap(() => [...document.querySelectorAll(".fd-float-play button")].find(b => visible(b)
+        && /close|exit|done/i.test(`${b.getAttribute("aria-label") || ""} ${b.textContent}`)));
+      if (!closed || !(await until(() => !document.querySelector(".fd-float-play")))) return false;
+      await sleep(400);
+    }
+    if (kind === "float-closed") return !!document.querySelector(".fd-float-now, .fd-gm-dock");
+    const opened = await tap(() => [...document.querySelectorAll("header button[aria-label='Commissioner']")].find(visible));
+    if (!opened) return false;
+    await sleep(600);
+    const ok = await tap(() => [...document.querySelectorAll("[role=dialog] .fd-menu-row")].find(b => visible(b)
+      && b.querySelector(".fd-menu-name")?.textContent.trim() === "Float"));
+    return ok && !!(await until(() => document.querySelector(".fd-float-desk")));
   }
   /* the profile's Win song section with the saved song (the picker, the
      Win song capability on) */

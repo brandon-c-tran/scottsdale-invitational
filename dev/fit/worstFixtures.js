@@ -20,6 +20,7 @@
    rewritten; `worstBase` builds the one that needs players marked Not
    coming before anything is played. Pure apart from the reducers it calls. */
 import { EMPTY_STATE, RESET_PROGRESS_CONFIRMATION, ROSTER, computeStandings, rosterOf } from "../../shared/core.js";
+import { floatSlate } from "../../shared/float.js";
 import { cleanLyrics } from "../../shared/karaokeLyrics.js";
 import { applyAction } from "../../worker/actions.js";
 import { KARAOKE_FIT_LYRICS } from "./karaokeLyricsFixture.js";
@@ -181,7 +182,8 @@ export function worstSpread(state, values = WORST_SPREAD) {
 export const WORST_OUT = Object.freeze(["Evan", "Sahil", "Ben"]);
 export const WORST_AWAY = "Chinh";
 export function worstBase(target, { out = WORST_OUT, away = WORST_AWAY, seed = 7 } = {}) {
-  const state = structuredClone(EMPTY_STATE);
+  /* the slate a server starts with (scenarios.js fresh): Float plays, Beerio Kart stands by */
+  const state = floatSlate(structuredClone(EMPTY_STATE));
   out.forEach(player => run(state, "setOut", { player, out:true }));
   run(state, "qaAdvance", { target, seed, confirm:RESET_PROGRESS_CONFIRMATION, confirmPokerLive:true });
   if (away) run(state, "setAway", { player:away, away:true });

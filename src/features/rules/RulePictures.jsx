@@ -84,6 +84,14 @@ const kart = (x = 0, y = 0) => <g transform={`translate(${x} ${y})`}>
   <circle cx="16" cy="11" r="2.4" />
   <circle cx="11.5" cy="29" r="3.4" {...F} /><circle cx="27.5" cy="29" r="3.4" {...F} />
 </g>;
+/* a floatie a little from above: the ring filled, its hole cut (hollow:
+   the outline alone, for a rider who is out) */
+const floatie = (x, y, s = 1, hollow = false) => hollow
+  ? <g><ellipse cx={x} cy={y} rx={7 * s} ry={3.2 * s} /><ellipse cx={x} cy={y - 0.4 * s} rx={2.8 * s} ry={1.2 * s} /></g>
+  : <g><ellipse cx={x} cy={y} rx={7 * s} ry={3.2 * s} {...F} />
+    <g className="fd-rp-glass"><ellipse cx={x} cy={y - 0.4 * s} rx={2.8 * s} ry={1.2 * s} /></g></g>;
+/* a row of small waves along y, from x0 to x1 */
+const waves = (y, x0 = 4, x1 = 60) => <path d={`M${x0} ${y}q2-1.8 4 0${"t4 0".repeat(Math.max(0, Math.round((x1 - x0) / 4) - 1))}`} />;
 const can = (x, y, h = 14, deg = 0) => <g transform={`rotate(${deg} ${x} ${y + h / 2})`}>
   <rect x={x - 4} y={y} width="8" height={h} rx="1.6" /><path d={`M${x - 2.4} ${y - 1.4}h4.8`} />
 </g>;
@@ -429,6 +437,38 @@ export const RULE_PICTURES = {
     <Gone>{bust(8, 22, 2.2)}{bust(19, 22, 2.2)}{bust(45, 22, 2.2)}{bust(56, 22, 2.2)}</Gone>
     <Lit>{bust(32, 20, 2.6)}</Lit>
     {crown(32, 13, 0.85)}
+  </g>,
+
+  /* ── Float ── */
+  /* the phone held sideways, a thumb on each paddle */
+  "float.1":<g>
+    <rect x="10" y="8" width="44" height="24" rx="4" />
+    <Faint>{waves(25, 16, 48)}</Faint>
+    {floatie(32, 21, 0.9)}
+    <Lit><ellipse cx="13" cy="24" rx="3.6" ry="5.2" {...F} /><ellipse cx="51" cy="24" rx="3.6" ry="5.2" {...F} /></Lit>
+  </g>,
+  /* the drink finished before the takeout */
+  "float.2":<g>
+    <Faint>{waves(31)}</Faint>
+    {floatie(14, 27)}
+    <Faint><path d="M38 4v32" strokeDasharray="3 3" /></Faint>
+    <Lit><g transform="rotate(-24 51 14)">{cup(51, 8, 9, 11)}</g></Lit>
+    <path d="M45 22l-1.4 3M49 23.6l-.4 3" />
+  </g>,
+  /* each round the slowest are out */
+  "float.3":<g>
+    <Faint>{waves(29)}</Faint>
+    {floatie(10, 25)}{floatie(24, 25)}
+    <Gone>{floatie(38, 25, 1, true)}{floatie(52, 25, 1, true)}</Gone>
+    {trail("M12 14H50")}{head(50, 14, 0)}
+  </g>,
+  /* three race the final; the first across takes it */
+  "float.4":<g>
+    <Faint>{waves(31)}</Faint>
+    {floatie(14, 27)}
+    <Lit>{floatie(32, 27, 1.15)}</Lit>
+    {floatie(50, 27)}
+    {crown(32, 18, 0.9)}
   </g>,
 
   /* ── Beerio Kart ── */

@@ -121,7 +121,7 @@ function defaultEvent(rows) {
 
 export function QASheet({ state, status, me, guestLens, busy, environment, dispatch, notify, market = null,
   onSwitch, onLens, onPlayLive, onDuelMe, onDuels, pokerOn, onBustOne, onCountRest,
-  onRerun, onReplayMine, qaOn = false, onStrip, onBack, onClose }) {
+  onRerun, onReplayMine, qaOn = false, onStrip, onBack, onClose, float = false }) {
   const [confirmRerun, setConfirmRerun] = useState(false);
   const [name, setName] = useState("");
   const [momentKey, setMomentKey] = useState(MOMENTS[0]?.key || "");
@@ -143,7 +143,7 @@ export function QASheet({ state, status, me, guestLens, busy, environment, dispa
   useCheckpointList(qa);
   const events = useMemo(() => allEventsOf(state), [state]);
   const targets = useMemo(() => qaTargets(state, events), [state, events]);
-  const solos = useMemo(() => qaSoloTargets(state, events), [state, events]);
+  const solos = useMemo(() => qaSoloTargets(state, events, { float }), [state, events, float]);
   const here = useMemo(() => qaCheckpointSummary(state, events).label, [state, events]);
   const rows = useMemo(() => targets.sessions.flatMap(session => session.events), [targets]);
   const eventId = rows.some(row => row.id === pickedEvent) ? pickedEvent : defaultEvent(rows);

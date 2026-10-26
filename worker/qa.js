@@ -34,6 +34,7 @@ import { triviaActive, triviaBeat, triviaConfigured, triviaCurrent, triviaGame }
 import { BOARD_FORMAT, boardAutoBeat, boardRace, isBoardGame, triviaFormatOf } from "../shared/triviaBoard.js";
 import { karaokeTurn } from "../shared/karaoke.js";
 import { roomBet, roomFavorite } from "../shared/qaSim.js";
+import { floatSlate } from "../shared/float.js";
 
 const QA_DEVICE = "qa-sim";
 const QA_REQUEST_PREFIX = `request:${QA_DEVICE}:`;
@@ -76,7 +77,10 @@ function resetProgress(state) {
     key === "onboardEpoch" ? Number(state[key] || 0) : structuredClone(state[key] ?? EMPTY_STATE[key]),
   ]));
   const sim = state.qaSim ? structuredClone(state.qaSim) : null;
+  const slate = !!state.floatSlate;
   Object.assign(state, structuredClone(EMPTY_STATE), preserved, { qaSim:sim });
+  /* as resetTournament: a board that had Beerio Kart standing by for Float has it again */
+  if (slate) floatSlate(state);
 }
 
 /* Whether reaching this target means throwing away progress first: anything
@@ -113,7 +117,9 @@ function createRunner(state, baseCtx, tick = () => {}) {
   const events = () => allEventsOf(state);
   const stats = { writes:0, events:0, contests:0, bets:0, duels:0, profiles:0 };
   let seq = 0;
-  const gmCtx = { ...baseCtx, isGm:true, player:null, deviceId:null, actionId:null, showControl:false };
+  /* a rehearsal never opens a river: no write here carries the float
+     capability, but a solo Float's (playSolo hands it back for its own) */
+  const gmCtx = { ...baseCtx, isGm:true, player:null, deviceId:null, actionId:null, showControl:false, float:false };
   /* `extra`: server-only context for this one write (a solo game's players) */
   const gm = (type, payload = {}, extra = null) => {
     if (++seq > MAX_STEPS) throw new QaStop("Too many steps");
@@ -128,7 +134,7 @@ function createRunner(state, baseCtx, tick = () => {}) {
     if (++seq > MAX_STEPS) throw new QaStop("Too many steps");
     tick();
     const result = baseCtx.applyAction(state, type, payload, { ...baseCtx, isGm:false, player,
-      deviceId:`${QA_DEVICE}:${player}`, actionId:`qa-${seq}`, showControl:false });
+      deviceId:`${QA_DEVICE}:${player}`, actionId:`qa-${seq}`, showControl:false, float:false });
     if (result.ok && !result.extra?.unchanged) stats.writes += 1;
     return result;
   };
@@ -142,7 +148,7 @@ function createRunner(state, baseCtx, tick = () => {}) {
     return result;
   };
   return { state, events, stats, gm, as, soft, rng:() => Math.random(),
-    wait:at => tick.until?.(at), back:() => tick.back?.() };
+    wait:at => tick.until?.(at), back:() => tick.back?.(), float:!!baseCtx.float };
 }
 
 const pick = (run, list) => list[Math.floor(run.rng() * list.length)];
@@ -502,7 +508,9 @@ function playEvent(run, ev, stop) {
    for the commissioner's own player alone (the game's `players` or
    `only`), so one phone plays the real game and the autopilot reveals as
    soon as that one player locks in. The simulated room goes off: it would
-   play the others. Nothing else is posted or played. */
+   play the others. Nothing else is posted or played. Float's solo Cup is
+   the commissioner's player and the room's bots (state.float.solo: the
+   Tournament posts it with bots 13), and only with the float capability. */
 function soloPlayer(state, ctx) {
   const player = ctx.player;
   if (!player || !isActivePlayer(player, state)) throw new QaStop("Claim your player on this phone first");
@@ -512,7 +520,9 @@ function soloPlayer(state, ctx) {
 function playSolo(run, target, player) {
   const { state } = run;
   const ev = run.events().find(item => item.id === target.evId);
-  const solo = { qaSolo:[player] };
+  const float = target.game === "float";
+  if (float && !run.float) throw new QaStop("Float is unavailable");
+  const solo = { qaSolo:[player], ...(float ? { float:true } : {}) };
   state.qaSim = null;
   announce(run, ev);
   for (let guard = 0; guard < 6 && resolveEventLifecycle(state, ev).phase !== "in-progress"; guard++) {
@@ -522,9 +532,10 @@ function playSolo(run, target, player) {
       : { evId:ev.id }, solo);
   }
   /* Lock and start opens the game when it has content; say why when it did not */
-  run.gm(target.game === "where" ? "geoStart" : "triviaStart", { evId:ev.id }, solo);
+  run.gm(target.game === "where" ? "geoStart" : float ? "floatStart" : "triviaStart", { evId:ev.id }, solo);
   const started = target.game === "where" ? state.geo?.eventId === ev.id && state.geo.only
-    : state.trivia?.eventId === ev.id && state.trivia.solo;
+    : float ? state.float?.evId === ev.id && state.float.solo
+      : state.trivia?.eventId === ev.id && state.trivia.solo;
   if (!started) throw new QaStop(`${ev.name} did not start`);
 }
 

@@ -89,10 +89,10 @@ test("a second win, then three straight: one fact per result, the rarest", () =>
 });
 
 test("a loss in an event they played breaks the streak; crew duty does not", () => {
-  /* the slate's solo free-for-alls: Long Putt, Where and When, Karaoke, Trivia and Rage Cage; four of them */
+  /* the slate's solo free-for-alls: Long Putt, Where and When, Karaoke, Trivia, Rage Cage and Float; four of them */
   const state = withLeader(fresh());
   const solos = allEventsOf(state).filter(isSolo);
-  assert.deepEqual(solos.map(event => event.id), ["putt", "where", "karaoke", "trivia", "ragecage"]);
+  assert.deepEqual(solos.map(event => event.id), ["putt", "where", "karaoke", "trivia", "ragecage", "float"]);
   const four = solos.slice(0, 4);
   post(state, four[0], [evan], 1_000_000);
   post(state, four[1], [khoa], 2_000_000, [evan]);

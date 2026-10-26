@@ -10,6 +10,7 @@ import { postedFinalUndo } from "../../../shared/show.js";
 import { autoBeat, autopilotHeld } from "../../../shared/autopilot.js";
 import { geoPlayers } from "../../../shared/geo.js";
 import { triviaActive, triviaGame } from "../../../shared/trivia.js";
+import { FLOAT_RESTART_CONFIRM } from "../../../shared/float.js";
 import { contestTerms, longshotLine, payLine } from "../comebacks/comebacks.js";
 
 const fmt = n => (n ?? 0).toLocaleString("en-US");
@@ -154,6 +155,10 @@ export function directorPill(state, events, director, { me = null, now = Date.no
     /* Karaoke: each beat names its own write (shared/karaoke.js karaokeBeat) */
     case "karaoke-step": run = { write:beat.write, payload:beat.payload }; break;
     case "karaoke-start": run = { write:"karaokeStart", payload:{ evId:ev.id } }; break;
+    /* Float (shared/float.js floatBeat): the room posts its own result, so
+       the Cup's beat is the result by hand; Start Float opens (or reopens) it */
+    case "float-start": run = { write:"floatStart", payload:{ evId:ev.id, ...(beat.restart ? { restart:true } : {}) } }; break;
+    case "float-live": run = { open:"resultEntry", evId:ev.id }; break;
     case "enter-result": run = { open:"resultEntry", evId:ev.id }; break;
     case "post-result": run = { open:"result", evId:ev.id }; break;
     case "advance-bracket": run = { open:"bracket", evId:ev.id }; break;
@@ -213,6 +218,8 @@ export function directorPill(state, events, director, { me = null, now = Date.no
   }
   /* karaoke counts the room itself: who is locked in, who is up, who voted */
   if (beat.type === "karaoke-step") note(1, beat.note);
+  /* Float: that the room posts the result, or why the room never took the Cup */
+  if (beat.type === "float-live" || beat.type === "float-start") note(1, beat.note);
   if (beat.type === "setup-poker") {
     const open = (state.duels || []).filter(duel => duelOpen(duel, now)).length;
     if (open) note(1, `Voids ${open} open duel${open === 1 ? "" : "s"}`);
@@ -256,6 +263,10 @@ export function directorPill(state, events, director, { me = null, now = Date.no
   if (beat.type === "karaoke-step")
     (beat.tray || []).forEach(extra => extras.push({ label:extra.label, ...(extra.kind ? { kind:extra.kind } : {}),
       run:{ write:extra.write, payload:extra.payload, ...(extra.confirm ? { confirm:extra.confirm } : {}) } }));
+  /* a Cup the room has wedged on starts over, a new one, with a confirm */
+  if (beat.type === "float-live")
+    extras.push({ label:"Restart Float", kind:"skip", run:{ write:"floatStart", payload:{ evId:ev.id, restart:true },
+      confirm:FLOAT_RESTART_CONFIRM } });
   if (beat.type === "advance-scene")
     extras.push({ label:"Skip", kind:"skip", run:{ write:"endShowScene", payload:{ id:beat.sceneId, outcome:"skipped" } } });
   if (director.secondary?.type === "skip-event" && ev)

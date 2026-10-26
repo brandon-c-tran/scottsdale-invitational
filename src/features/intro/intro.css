@@ -205,6 +205,16 @@
 @keyframes fi-kart-body { 0% { transform:scale(.28) rotate(6deg); } 30% { transform:scale(.45) rotate(-4deg); }
   48% { transform:scale(.6) rotate(-22deg); } 66% { transform:scale(.75) rotate(-12deg); } 76.5% { transform:scale(.84) rotate(2deg); }
   100% { transform:none; } }
+/* Float: down the river, the paddles stroking in turn, over the lip into the pool */
+@keyframes fi-float-path { 0% { transform:translate(500px, 452px); } 45% { transform:translate(540px, 492px); }
+  80% { transform:translate(588px, 534px); animation-timing-function:cubic-bezier(.4,0,.75,.45); } 100% { transform:translate(600px, 566px); } }
+@keyframes fi-float-body { 0% { transform:scale(.3) rotate(-3deg); } 45% { transform:scale(.55) rotate(4deg); }
+  80% { transform:scale(.82) rotate(-8deg); } 100% { transform:none; } }
+@keyframes fi-stroke { 0% { transform:none; } 25% { transform:rotate(-26deg); } 50% { transform:none; } 75% { transform:rotate(-26deg); }
+  100% { transform:none; } }
+@keyframes fi-stroke-r { 0% { transform:none; } 25% { transform:rotate(26deg); } 50% { transform:none; } 75% { transform:rotate(26deg); }
+  100% { transform:none; } }
+@keyframes fi-current { from { opacity:.4; transform:translateY(-14px); } to { opacity:1; transform:translateY(10px); } }
 /* Championship Poker */
 @keyframes fi-deal-1 { 0% { opacity:0; transform:translate(44px, -66px) scale(.4) rotate(-50deg); } 15% { opacity:1; } 100% { opacity:1; transform:none; } }
 @keyframes fi-deal-2 { 0% { opacity:0; transform:translate(-36px, -70px) scale(.4) rotate(40deg); } 15% { opacity:1; } 100% { opacity:1; transform:none; } }

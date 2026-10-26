@@ -22,6 +22,7 @@ import { jerseyConfirmed } from "../../../shared/guestSetup.js";
 import { cleanWhen } from "../../../shared/geo.js";
 import { triviaQuestionTotal } from "../../../shared/trivia.js";
 import { hasKaraokeSong } from "../../../shared/karaoke.js";
+import { hasFloatLook } from "../../../shared/float.js";
 import { deskBallot } from "../awards/awardsModel.js";
 import { speakerValue } from "../speaker/speakerModel.js";
 import { liveTvs } from "./tvHealth.js";
@@ -59,6 +60,10 @@ function guestRows(state, capabilities) {
        the Karaoke desk shows whose video plays */
     capabilities.karaoke === true && ahead(state, allEventsOf(state), "karaoke")
       && guestRow(state, roster, "karaoke", "Karaoke songs", (profile, player) => hasKaraokeSong(state, player), "karaoke"),
+    /* only while Float is still to play with its room on; the Float desk
+       counts them too (a rider without one races their default) */
+    capabilities.float === true && ahead(state, allEventsOf(state), "float")
+      && guestRow(state, roster, "floaties", "Floaties", profile => hasFloatLook(profile), "float"),
     guestRow(state, roster, "flights", "Flights", flightsDone, "travelSheet"),
     guestRow(state, roster, "venmo", "Venmo", profile => !!profile?.venmo, "travelSheet"),
     guestRow(state, roster, "drinks", "Drinks answered", profile => typeof profile?.drinking === "boolean", "travelSheet"),

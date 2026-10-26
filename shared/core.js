@@ -188,12 +188,18 @@ const RAW_BUILTIN_EVENTS = [
   { id:"ragecage", n:12, session:"san", value:2400, name:"Rage Cage", kind:"solo", sport:"cage", game:"ragecage",
     pays:[2400, 2400, 600],
     desc:"Everyone circles the cups, two balls in play. Get stacked on and you are out. The last two go head to head." },
-  { id:"beerio", n:13, session:"san", value:2400, name:"Beerio Kart", kind:"solo", sport:"kart", game:"beerio",
+  /* Float (Oct 25, float/PROTOCOL.md): Beerio Kart's slot, played on the
+     phones and the TV. Beerio Kart stays a built-in, shelved by default
+     while it has nothing on it (shared/float.js floatSlate), one Restore
+     away if Float cannot run */
+  { id:"float", n:13, session:"san", value:2400, name:"Float", kind:"solo", game:"float",
+    desc:"Everyone paddles a floatie down the river on their phone. The field is cut every round until three race the final. Finish your drink before you leave the water." },
+  { id:"beerio", n:14, session:"san", value:2400, name:"Beerio Kart", kind:"solo", sport:"kart", game:"beerio",
     stageCfg:{ kind:"heats", nGroups:4, advance:1 },
     desc:"Heats of four, then a final. Crack a beer at the line, pull over to drink, finish it before you cross. Highest total wins." },
   /* ── The Finale · poker. No value: the result carries chip stacks that
      BECOME the standings, it never pays awards. ── */
-  { id:"poker", n:14, session:"fin", name:"Championship Poker", kind:"solo", finale:true, game:"poker",
+  { id:"poker", n:15, session:"fin", name:"Championship Poker", kind:"solo", finale:true, game:"poker",
     desc:"Whatever you have Saturday night is the stack you start the finale with. No-limit hold'em, blinds on the clock. Final chip counts are the final standings." },
 ];
 
@@ -323,6 +329,14 @@ const GAMES = {
       "Everyone else votes, Super Ass to Legendary. A vote can change until it closes.",
       "With six or more votes, your highest and lowest are dropped."],
     win:"Highest average wins. A tie goes to more Legendary votes, then Amazing, and down." } },
+  float: { name:"Float", howto:{ players:"Everyone", gear:["Your phone", "The TV", "A drink each"],
+    objective:"Win the final.",
+    steps:["Pick your critter and floatie in your profile's Locker.",
+      "Hold your phone sideways and paddle with both thumbs. One paddle alone turns you.",
+      "Each round, finish your drink before you leave the water. Arrive without it and you wait at the takeout.",
+      "Each round is one leg of the river. The slowest are cut until three race the final.",
+      "Riders who are cut throw water balloons at the riders still racing."],
+    win:"First across in the final wins. 2nd and 3rd are the final's next two." } },
   poker: { name:"Poker", howto:{ players:"Everyone, one table", gear:["Cards","Chips","The clock"],
     objective:"Finish with the biggest stack.",
     steps:["Whatever you have Saturday night is the stack you start the finale with.","No-limit hold'em. Blinds rise on the clock.","Bust and you are out.","When the last level ends, count your stack."],
@@ -542,6 +556,9 @@ const EMPTY_STATE = { v:9, awardLadder:AWARD_LADDER, live:false, results:{}, wag
   onboardEpoch:0, eventEdits:{}, eventOrder:[], eventOps:{}, showControl:{ active:null, history:[] },
   logistics:{ ...LOGISTICS }, prompts:{ ballots:[], responses:{} }, jerseysLocked:false,
   geoRounds:[], geo:null, triviaRounds:[], triviaFormat:"rounds", trivia:null, karaoke:null,
+  /* Float (shared/float.js): the Cup Lock and start opened, and the mark
+     that the slate's default (Beerio Kart standing by) is applied */
+  float:null, floatSlate:0,
   /* the TV's gags (src/features/gags): the commissioner's switch, and the
      QA console's test */
   gagsOff:false, gagTest:null,

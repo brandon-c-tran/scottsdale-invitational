@@ -145,16 +145,28 @@ export function buildCritter({ critter = "capybara", color = "#9aa39e", hat = "n
      it raced) shows that at once and trades up when its own arrives;
      else it pops in when it arrives */
   let meshReady = Promise.resolve(true);
+  /* a hero mesh's fur rides the race mesh (critter.js setShellBase) */
+  const race = bakedFile(template.id, "race");
+  const raceNow = template.detail === "hero" ? critterGeometryNow(race.key) : null;
+  let shellsReady = Promise.resolve(true);
+  if (template.detail === "hero") {
+    if (raceNow) rt.setShellBase(raceNow);
+    else {
+      shellsReady = loadCritterGeometry(race.key, template.id, race.detail, race.file)
+        .then(geo => { rt.setShellBase(geo); return true; })
+        .catch(error => { warnOnce(race.key, error); return false; });
+    }
+  }
   const now = critterGeometryNow(template.key);
   if (now) { rt.attach(now); rt.pop = 1; }
   else {
-    const stand = template.detail === "hero" ? critterGeometryNow(`${template.id}:race`) : null;
-    if (stand) { rt.attach(stand, { fur: furMaterial("race") }); rt.pop = 1; }
+    if (raceNow) { rt.attach(raceNow, { fur: furMaterial("race") }); rt.pop = 1; }
     else rt.holdPlace(template.bounds);
     meshReady = loadCritterGeometry(template.key, template.id, template.detail, template.file)
       .then(geo => { rt.attach(geo); return true; })
       .catch(error => { warnOnce(template.key, error); return false; });
   }
+  meshReady = Promise.all([meshReady, shellsReady]).then(([body]) => body);
   if (det === "race" && !meshDetail) heroAhead(template.id);
   let badge = null;
   if (medallion) {

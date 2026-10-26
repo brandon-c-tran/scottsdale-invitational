@@ -224,6 +224,8 @@ export class Sculpt {
     this.cuts = [];
     this.paints = [];
     this.byName = new Map();
+    /* the largest blend of any part so far (how far a part's influence reaches) */
+    this.maxK = 0;
   }
 
   /* a lump of the mass.
@@ -241,6 +243,7 @@ export class Sculpt {
     const p = { name, shape, f: shape.f, k, bone, color: col, fur, fuzz, rough, tint, movable, tau: tau ?? (movable ? 0.0045 : Math.max(0.006, k * 1.2)), group: group || name, index: this.parts.length };
     this.parts.push(p);
     this.byName.set(name, p);
+    this.maxK = max(this.maxK, k);
     return p;
   }
 
@@ -260,24 +263,28 @@ export class Sculpt {
     return { lo: lo.map(v => v - pad), hi: hi.map(v => v + pad) };
   }
 
-  /* the distance to the mass. far: parts further than this (by their boxes)
-     are skipped, which is exact wherever it matters (near the surface) */
+  /* the distance to the mass. A part further (by its box) than any blend in
+     the sculpt reaches (6k for the largest k, and a margin) stands in as
+     its box's distance, a lower bound: exact near the surface, and never a
+     jump in the field, which the mesh would keep as a seam. A cut is
+     skipped beyond its own blend's reach. */
   dist(x, y, z, skip = null) {
     let d = Infinity;
     const parts = this.parts;
+    const far = 6 * this.maxK + 0.06;
     for (let i = 0; i < parts.length; i++) {
       const p = parts[i];
       if (skip && skip(p)) continue;
       const lo = p.shape.lo, hi = p.shape.hi;
       const ox = max(lo[0] - x, 0, x - hi[0]), oy = max(lo[1] - y, 0, y - hi[1]), oz = max(lo[2] - z, 0, z - hi[2]);
       const boxD = sqrt(ox * ox + oy * oy + oz * oz);
-      const di = boxD > 0.12 ? boxD : p.f(x, y, z);
+      const di = boxD > far ? boxD : p.f(x, y, z);
       d = d === Infinity ? di : smin(d, di, p.k);
     }
     for (let i = 0; i < this.cuts.length; i++) {
       const c = this.cuts[i];
-      const lo = c.shape.lo, hi = c.shape.hi;
-      if (x < lo[0] - 0.05 || x > hi[0] + 0.05 || y < lo[1] - 0.05 || y > hi[1] + 0.05 || z < lo[2] - 0.05 || z > hi[2] + 0.05) continue;
+      const lo = c.shape.lo, hi = c.shape.hi, m = 6 * c.k + 0.06;
+      if (x < lo[0] - m || x > hi[0] + m || y < lo[1] - m || y > hi[1] + m || z < lo[2] - m || z > hi[2] + m) continue;
       d = smax(d, -c.f(x, y, z), c.k);
     }
     return d;

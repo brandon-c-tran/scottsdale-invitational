@@ -7,7 +7,7 @@
      node scripts/float-art-shots.mjs --out <dir>     default .impeccable/review/float-art
      node scripts/float-art-shots.mjs --list          the shot names
      node scripts/float-art-shots.mjs --gpu           this machine's GPU instead of the software renderer (fast)
-     node scripts/float-art-shots.mjs --perf [--low-power]   the pack live on the GPU (the integrated one)
+     node scripts/float-art-shots.mjs --perf [--low-power] [--scenes pack,podium]   the art live on the GPU (the integrated one)
    FLOAT_ART_PORT the server port (5186). CHROME=<path> overrides the browser.
    Prints each PNG's path and the page's own stats (draw calls, triangles). */
 import fs from "node:fs";
@@ -76,11 +76,24 @@ export const SHOTS = [
   ...["cowboy", "bucket", "visor", "captain", "party", "flowers", "crown"].map(hat => [`fit-${hat}`, { view: "fit", hat, stage: "studio", t: 0.6, freeze: 1, hud: 0 }]),
   ...["aviators", "hearts", "stars", "goggles"].map(shades => [`fit-${shades}`, { view: "fit", shades, stage: "studio", t: 0.6, freeze: 1, hud: 0, yaw: 0.2 }]),
   ["zoom-capybara", { view: "detail", critter: "capybara", floatie: "classic", hat: "none", stage: "screen", t: 1.2, freeze: 1, yaw: 0.5, hud: 0, zoom: 1 }],
+  ["zoom-javelina-s14", { view: "detail", critter: "javelina", floatie: "classic", hat: "none", stage: "screen", t: 1.2, freeze: 1, yaw: 0.4, hud: 0, zoom: 1 }],
+  ["zoom-javelina-s8", { view: "detail", critter: "javelina", floatie: "classic", hat: "none", stage: "screen", t: 1.2, freeze: 1, yaw: 0.4, hud: 0, zoom: 1, shells: "hero:8" }],
+  ["zoom-coyote-s14", { view: "detail", critter: "coyote", floatie: "classic", hat: "none", stage: "screen", t: 1.2, freeze: 1, yaw: 0.9, hud: 0, zoom: 1 }],
+  ["zoom-coyote-s8", { view: "detail", critter: "coyote", floatie: "classic", hat: "none", stage: "screen", t: 1.2, freeze: 1, yaw: 0.9, hud: 0, zoom: 1, shells: "hero:8" }],
+  ["zoom-capybara-s8", { view: "detail", critter: "capybara", floatie: "classic", hat: "none", stage: "screen", t: 1.2, freeze: 1, yaw: 0.5, hud: 0, zoom: 1, shells: "hero:8" }],
+  ["zoom-capybara-s10", { view: "detail", critter: "capybara", floatie: "classic", hat: "none", stage: "screen", t: 1.2, freeze: 1, yaw: 0.5, hud: 0, zoom: 1, shells: "hero:10" }],
+  ["zoom-capybara-bare", { view: "detail", critter: "capybara", floatie: "classic", hat: "none", stage: "screen", t: 1.2, freeze: 1, yaw: 0.5, hud: 0, zoom: 1, fur: 0 }],
+  ["zoom-capybara-dbg1", { view: "detail", critter: "capybara", floatie: "classic", hat: "none", stage: "screen", t: 1.2, freeze: 1, yaw: 0.5, hud: 0, zoom: 1, fur: 0, debug: 1 }],
+  ["zoom-capybara-dbg2", { view: "detail", critter: "capybara", floatie: "classic", hat: "none", stage: "screen", t: 1.2, freeze: 1, yaw: 0.5, hud: 0, zoom: 1, fur: 0, debug: 2 }],
+  ["zoom-capybara-dbg5", { view: "detail", critter: "capybara", floatie: "classic", hat: "none", stage: "screen", t: 1.2, freeze: 1, yaw: 0.5, hud: 0, zoom: 1, fur: 0, debug: 5 }],
+  ["zoom-capybara-dbg6", { view: "detail", critter: "capybara", floatie: "classic", hat: "none", stage: "screen", t: 1.2, freeze: 1, yaw: 0.5, hud: 0, zoom: 1, fur: 0, debug: 6 }],
   ["zoom-javelina", { view: "detail", critter: "javelina", floatie: "classic", hat: "none", stage: "screen", t: 1.2, freeze: 1, yaw: 0.4, hud: 0, zoom: 1 }],
   ["zoom-frog", { view: "detail", critter: "frog", floatie: "classic", hat: "none", stage: "screen", t: 1.2, freeze: 1, yaw: 0.4, hud: 0, zoom: 1 }],
   ["zoom-capybara-fur", { view: "detail", critter: "capybara", floatie: "classic", hat: "none", stage: "screen", t: 1.2, freeze: 1, yaw: 0.5, hud: 0, zoom: 1, debug: 4 }],
   ["zoom-capybara-color", { view: "detail", critter: "capybara", floatie: "classic", hat: "none", stage: "screen", t: 1.2, freeze: 1, yaw: 0.5, hud: 0, zoom: 1, debug: 3, fur: 0 }],
   ["lineup-screen", { view: "lineup", stage: "screen", t: 2.2, freeze: 1 }],
+  ["lineup-screen-nofur", { view: "lineup", stage: "screen", t: 2.2, freeze: 1, fur: 0 }],
+  ["pack-nofur", { view: "race", t: 2.0, freeze: 1, fur: 0 }],
   ["detail-capybara-screen", { view: "detail", critter: "capybara", floatie: "classic", hat: "none", stage: "screen", t: 1.2, freeze: 1, yaw: -0.3, hud: 0 }],
   ["detail-javelina-screen", { view: "detail", critter: "javelina", floatie: "donut", hat: "none", stage: "screen", t: 1.4, freeze: 1, yaw: -0.4, hud: 0 }],
   ["detail-frog-screen", { view: "detail", critter: "frog", floatie: "shark", hat: "none", stage: "screen", t: 1.8, freeze: 1, yaw: -0.3, hud: 0 }],
@@ -143,38 +156,40 @@ const server = await createServer({
 await server.listen();
 const BASE = `http://127.0.0.1:${server.config.server.port}`;
 
-/* --perf: the 13-rider pack live on this machine's GPU (not the software
-   renderer the shots use), sampled for a few seconds */
+/* --perf: the art live on this machine's GPU (not the software renderer
+   the shots use), each scene sampled for a few seconds with the frame rate
+   unlimited (so a number past 60 is headroom). --low-power asks Chrome for
+   the integrated GPU; the GPU line says which one answered. --scenes a,b
+   picks scenes by name. */
+export const PERF_SCENES = [
+  ["pack", "view=race"],
+  ["pack-nofur", "view=race&fur=0"],
+  ["pack-low", "view=race&quality=low"],
+  ["podium", "view=podium"],
+  ["podium-nofur", "view=podium&fur=0"],
+  ["podium-low", "view=podium&quality=low"],
+  ["lineup-hero", "view=lineup&detail=hero"],
+];
 if (args.includes("--perf")) {
-  const { spawn } = await import("node:child_process");
-  const os = await import("node:os");
-  const exe = process.env.CHROME || ["C:/Program Files/Google/Chrome/Application/chrome.exe", "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome", "/usr/bin/google-chrome"].find(p => fs.existsSync(p));
-  const udd = fs.mkdtempSync(path.join(os.tmpdir(), "float-perf-"));
-  const proc = spawn(exe, ["--headless=new", "--remote-debugging-port=0", `--user-data-dir=${udd}`, "--ignore-gpu-blocklist", "--enable-gpu",
-    "--disable-frame-rate-limit", "--no-first-run", "--window-size=1920,1080", "about:blank"], { stdio: "ignore" });
   const sleep = ms => new Promise(r => setTimeout(r, ms));
-  let port;
-  for (let i = 0; i < 200 && !port; i++) { await sleep(100); try { port = fs.readFileSync(path.join(udd, "DevToolsActivePort"), "utf8").split("\n")[0]; } catch {} }
+  const pick = value("--scenes") ? new Set(value("--scenes").split(",")) : null;
+  const extra = value("--extra") ? `&${value("--extra")}` : "";
+  const perf = await launchGpuChrome({ width: 1920, height: 1080, lowPower: args.includes("--low-power") });
   try {
-    const targets = await (await fetch(`http://127.0.0.1:${port}/json/list`)).json();
-    const ws = new WebSocket(targets.find(t => t.type === "page").webSocketDebuggerUrl);
-    await new Promise((res, rej) => { ws.onopen = res; ws.onerror = rej; });
-    let id = 0; const waits = new Map();
-    ws.onmessage = e => { const m = JSON.parse(e.data); if (m.id && waits.has(m.id)) { waits.get(m.id)(m); waits.delete(m.id); } };
-    const cdp = (method, params = {}) => new Promise(res => { const i = ++id; waits.set(i, m => res(m.result)); ws.send(JSON.stringify({ id: i, method, params })); });
-    const ev = async expression => (await cdp("Runtime.evaluate", { expression, returnByValue: true, awaitPromise: true }))?.result?.value;
-    await cdp("Emulation.setDeviceMetricsOverride", { width: 1920, height: 1080, deviceScaleFactor: 1, mobile: false });
-    await cdp("Page.navigate", { url: `${BASE}/float/art?view=race` });
-    for (let i = 0; i < 120 && (await ev("document.body && document.body.dataset.ready")) !== "1"; i++) await sleep(500);
-    await sleep(4000);
-    const gpu = await ev("(() => { const c = document.querySelector('canvas.fa-gl'); const gl = c && (c.getContext('webgl2') || c.getContext('webgl')); const x = gl && gl.getExtension('WEBGL_debug_renderer_info'); return x ? gl.getParameter(x.UNMASKED_RENDERER_WEBGL) : 'unknown'; })()");
-    const samples = [];
-    for (let i = 0; i < 6; i++) { await sleep(1000); samples.push(JSON.parse(await ev("JSON.stringify(window.__floatArt.stats())"))); }
-    const fps = samples.map(s => s.fps);
-    console.log(JSON.stringify({ gpu, fps, calls: samples.at(-1).calls, triangles: samples.at(-1).triangles, riders: samples.at(-1).riders }));
-    ws.close();
+    for (const [name, query] of PERF_SCENES) {
+      if (pick && !pick.has(name)) continue;
+      await perf.load(`${BASE}/float/art?${query}&hud=1${extra}`, { timeout: 60000 });
+      await perf.until("document.body && document.body.dataset.ready === '1'", { timeout: 90000, every: 250 });
+      await sleep(3000);
+      const gpu = await perf.evaluate("(() => { const c = document.querySelector('canvas.fa-gl'); const gl = c && (c.getContext('webgl2') || c.getContext('webgl')); const x = gl && gl.getExtension('WEBGL_debug_renderer_info'); return x ? gl.getParameter(x.UNMASKED_RENDERER_WEBGL) : 'unknown'; })()");
+      const samples = [];
+      for (let i = 0; i < 5; i++) { await sleep(1000); samples.push(await perf.evaluate("window.__floatArt.stats()")); }
+      const fps = samples.map(x => x.fps).sort((a, b) => a - b);
+      const last = samples.at(-1);
+      console.log(JSON.stringify({ scene: name + extra, gpu: String(gpu).replace(/^ANGLE \(\w+, /, "").slice(0, 40), fpsMedian: fps[2], fps, calls: last.calls, triangles: last.triangles, riders: last.riders, perRider: last.perRider, meshesPerRider: last.meshesPerRider }));
+    }
   } finally {
-    proc.kill(); await sleep(400); try { fs.rmSync(udd, { recursive: true, force: true }); } catch {}
+    await perf.close();
     await server.close();
   }
   process.exit(0);

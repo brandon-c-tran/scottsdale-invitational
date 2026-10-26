@@ -17,7 +17,7 @@ import { CRITTER_IDS, HAT_IDS, SHADE_IDS, POSE_IDS } from "../float/shared/looks
 import { FLOATIE_IDS } from "../float/shared/floaties.js";
 import { edgeInserts, labelOf, badgeKey } from "../float/client/art/badge.js";
 import { cacheSizes } from "../float/client/art/materials.js";
-import { CRITTER_META } from "../float/client/art/critterMeta.js";
+import { CRITTER_META, CRITTER_BONES } from "../float/client/art/critterMeta.js";
 import { decodeCritter, readHeader, critterGeometryNow, critterCacheSize } from "../float/client/art/critterAsset.js";
 import { furMaterial } from "../float/client/art/plush.js";
 
@@ -118,7 +118,7 @@ test("the baked files: every species' race and hero file decodes, fits its skele
       const bytes = critterFile(f.file);
       total += bytes.length;
       const head = readHeader(new Uint8Array(bytes));
-      assert.equal(head.bones, meta.bones.length, `${id} ${detail}: its skeleton`);
+      assert.equal(head.bones, CRITTER_BONES.length, `${id} ${detail}: its skeleton`);
       const d = await decodeCritter(new Uint8Array(bytes));
       const V = d.positions.length / 3;
       assert.ok(V < 65536 && V === f.vertices, `${id} ${detail}: ${V} vertices`);
@@ -126,7 +126,7 @@ test("the baked files: every species' race and hero file decodes, fits its skele
       for (let v = 0; v < V; v++) {
         const sum = d.skinWeight[v * 4] + d.skinWeight[v * 4 + 1] + d.skinWeight[v * 4 + 2] + d.skinWeight[v * 4 + 3];
         if (sum !== 255) assert.fail(`${id} ${detail}: vertex ${v} weights sum to ${sum}`);
-        for (let k = 0; k < 4; k++) if (d.skinIndex[v * 4 + k] >= meta.bones.length) assert.fail(`${id} ${detail}: vertex ${v} on bone ${d.skinIndex[v * 4 + k]}`);
+        for (let k = 0; k < 4; k++) if (d.skinIndex[v * 4 + k] >= CRITTER_BONES.length) assert.fail(`${id} ${detail}: vertex ${v} on bone ${d.skinIndex[v * 4 + k]}`);
       }
       assert.ok(d.positions.every(Number.isFinite) && d.normals.every(Number.isFinite), `${id} ${detail}: finite`);
       /* it is furry somewhere, and its eyes have their catch lights (roughness 0) */
@@ -139,10 +139,12 @@ test("the baked files: every species' race and hero file decodes, fits its skele
     /* what the hats, shades, chain and chip read */
     assert.ok(meta.sockets.hat.at.length === 3 && meta.anchors.chain.length > 8 && meta.anchors.chip.p.length === 3, `${id}: anchors`);
     assert.equal(meta.info.eyes.length, 2, `${id}: two eyes`);
-    for (const b of meta.bones) assert.ok(b.parent < meta.bones.indexOf(b), `${id}: ${b.name} after its parent`);
+    assert.equal(meta.bones.length, CRITTER_BONES.length * 3, `${id}: a place for every bone`);
   }
+  /* one skeleton layout for all: every bone after its parent */
+  CRITTER_BONES.forEach(([name, parent], i) => assert.ok(parent < i, `${name} after its parent`));
   /* the whole roster's files stay small enough to fetch on a TV's Wi-Fi */
-  assert.ok(total <= art.BAKED_SPECIES.length * 330 * 1024, `${(total / 1024).toFixed(0)} KB for ${art.BAKED_SPECIES.length} species`);
+  assert.ok(total <= 4e6, `${(total / 1e6).toFixed(2)} MB for ${art.BAKED_SPECIES.length} species, both details`);
 });
 
 test("a baked critter is one skinned plush, its fur one instanced draw, bound to a skeleton made in the bind pose", () => {
@@ -153,7 +155,10 @@ test("a baked critter is one skinned plush, its fur one instanced draw, bound to
       assert.ok(plush?.isSkinnedMesh, `${id} ${detail}: the plush`);
       assert.ok(fur?.isSkinnedMesh && fur.geometry.isInstancedBufferGeometry && fur.geometry.instanceCount === furMaterial(detail).userData.shells, `${id} ${detail}: the fur's shells`);
       assert.equal(plush.skeleton, fur.skeleton);
-      assert.equal(plush.geometry.attributes.position, fur.geometry.attributes.position, "the shells share the body's buffers");
+      /* the shells share the race mesh's buffers (a hero critter's too: a sixth of the vertices to skin per shell) */
+      assert.equal(fur.geometry.attributes.position, critterGeometryNow(`${id}:race`).attributes.position, "the shells ride the race mesh");
+      if (detail === "race") assert.equal(plush.geometry.attributes.position, fur.geometry.attributes.position);
+      else assert.ok(plush.geometry.index.count > fur.geometry.index.count, "the hero body is finer than the shells' base");
       c.update(1 / 60);
       assert.ok(finite(c.root));
       c.dispose();

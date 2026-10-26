@@ -259,6 +259,18 @@ export class Showcase {
         this.place({ entrant: e, at, face: 0, detail: "race", behaviour: { strokes: true, fast: true, race: true } });
       }
       cam.fov = 40; cam.position.set(0, 6.5, 9); cam.lookAt(0, 0, -4);
+    } else if (view === "podium") {
+      /* the screen's podium: the top three close up in hero detail, the
+         rest of the pack behind them at race detail (what a TV draws then) */
+      [[0, [0, 0.55, 0]], [1, [-1.75, 0.3, 0.35]], [2, [1.75, 0.12, 0.35]]].forEach(([i, at]) => {
+        this.place({ entrant: sampleEntrant(i), at, face: Math.PI + (at[0] ? -Math.sign(at[0]) * 0.3 : 0), detail: "hero", behaviour: {} });
+      });
+      for (let i = 3; i < 13; i++) {
+        const j = i - 3, row = j < 5 ? 0 : 1;
+        this.place({ entrant: sampleEntrant(i), at: [((row ? j - 5 : j) - 2) * 2.3 + row * 1.1, 0, -5.5 - row * 2.6], face: Math.PI, detail: "race", behaviour: {} });
+      }
+      cam.fov = 30; cam.position.set(0, 1.75, 7.2); cam.lookAt(0, 0.95, -1);
+      this.spin.auto = false;
     } else {
       /* lineup: 13 riders, two staggered rows */
       /* three rows: 5, 4, 4 */
@@ -294,7 +306,7 @@ export class Showcase {
       if (this.view === "detail") it.root.rotation.y = it.face + this.spin.yaw;
       else if (this.view === "race") it.root.rotation.y = 0.15 * Math.sin(t * 0.6 + it.phase);
       else if (this.view === "chips") it.root.rotation.y = 0.5 * Math.sin(t * 0.7 + it.phase);
-      else if (!["medallion", "faces", "turn", "fit"].includes(this.view)) it.root.rotation.y = it.face + 0.55 * Math.sin(t * 0.32 + it.phase);
+      else if (!["medallion", "faces", "turn", "fit", "podium"].includes(this.view)) it.root.rotation.y = it.face + 0.55 * Math.sin(t * 0.32 + it.phase);
       it.rider?.update(dt);
       it.floatie?.update(dt);
       it.critterOnly?.update(dt);

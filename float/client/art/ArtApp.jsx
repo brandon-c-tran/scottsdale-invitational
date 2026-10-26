@@ -11,7 +11,7 @@ const VIEWS = [
   { id: "lineup", name: "Lineup" }, { id: "detail", name: "Detail" }, { id: "floaties", name: "Floaties" },
   { id: "poses", name: "Poses" }, { id: "states", name: "States" }, { id: "medallion", name: "Medallion" },
   { id: "faces", name: "Faces" }, { id: "wardrobe", name: "Wardrobe" }, { id: "chips", name: "Chips" }, { id: "portraits", name: "Portraits" }, { id: "race", name: "Pack" },
-  { id: "turn", name: "Turn" },
+  { id: "turn", name: "Turn" }, { id: "podium", name: "Podium" },
 ];
 const STATE_KEYS = { drink: "handsOff", handsOff: "handsOff", swim: "swim", sad: "sad", out: "sad", celebrate: "celebrate" };
 
@@ -30,7 +30,8 @@ function readParams() {
     yaw: num("yaw"), still: q.get("still") === "1", detail: q.get("detail") || undefined, hud: q.get("hud") !== "0",
     zoom: q.get("zoom") === "1", one: q.get("one") === "1", paddle: state === "paddle", quiet: state === "idle",
     debug: num("debug") || 0, fur: q.get("fur") !== "0", quality: q.get("quality") || null,
-    psize: num("psize") || 384, pmesh: q.get("pmesh") || null,
+    ratio: num("ratio") || null, hide: q.get("hide") === "1", shellbase: q.get("shellbase") || null, psize: num("psize") || 384, pmesh: q.get("pmesh") || null,
+    shells: (q.get("shells") || "").split(",").map(x => x.split(":")).filter(([d, n]) => (d === "race" || d === "hero") && Number(n) > 0).map(([d, n]) => [d, Math.round(Number(n))]),
   };
 }
 
@@ -101,11 +102,14 @@ export default function ArtApp() {
     plushDebug.value = params.debug;
     if (params.quality) setFloatArtQuality(params.quality);
     if (!params.fur) { furMaterial("race").visible = false; furMaterial("hero").visible = false; }
+    /* shells=race:3,hero:8 tries other shell counts */
+    for (const [d, n] of params.shells) { const m = furMaterial(d); m.userData.shells = n; m.userData.uShells.value = n; }
   }, []);
 
   /* the scene, once */
   useEffect(() => {
     const show = new Showcase(canvasRef.current, labelsRef.current, { onStats: setStats });
+    if (params.ratio) { show.renderer.setPixelRatio(params.ratio); show.resize(); }
     showRef.current = show;
     window.__floatArt = { show, stats: () => show.stats(), seek: t => show.seek(t), freeze: f => { show.frozen = f; } };
     let raf = 0, last = performance.now();
@@ -137,6 +141,10 @@ export default function ArtApp() {
       show.frozen = params.t !== undefined;
       Promise.all(loads).then(() => {
         if (cancelled) return;
+        /* shellbase=hero: the fur over the body's own mesh (look development) */
+        /* hide=1: the stage alone, for a frame-rate baseline */
+        if (params.hide) for (const it of show.items) it.root.visible = false;
+        if (params.shellbase === "hero") for (const it of show.items) { const rt = (it.rider?.critter || it.critterOnly)?.runtime; if (rt?.meshes.plush) rt.setShellBase(rt.meshes.plush.geometry); }
         if (params.t !== undefined) { show.seek(params.t); show.frozen = params.freeze; }
         setTimeout(done, 40);
       });

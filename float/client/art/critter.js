@@ -103,6 +103,12 @@ const sp = () => ({ x: 0, v: 0 });
 const lim = (v, m) => (v > m ? m : v < -m ? -m : v);
 const CHEEKS = ["cheekL", "cheekR"];
 const POP_S = 0.34;
+/* a critter's culling sphere in its own space, whatever pose it strikes */
+const BODY_SPHERE = new THREE.Sphere(new THREE.Vector3(0, 0.45, 0.05), 1.6);
+/* a seated critter's height (m), and the height on screen (CSS px) under
+   which its fur's shells stop paying for themselves */
+const CRITTER_TALL = 1, FUR_MIN_PX = 150;
+const _buf = new THREE.Vector2();
 
 /* Catmull-Rom through keyframes [t, x, y, z] (t ascending) */
 function path(keys, t, out) {
@@ -189,6 +195,7 @@ export class CritterRuntime {
     for (const name of ["cheekL", "cheekR", "belly", "earL2", "earR2", "tail3"]) if (this.b[name]) this.rest[name] = this.b[name].position.clone();
     this.pop = 0;
     this.body = null;
+    this.shellBase = null;
   }
 
   /* a baked critter's mesh, arrived: bind it (and its fur's shells) to the
@@ -199,32 +206,57 @@ export class CritterRuntime {
   attach(geo, { fur: furFor = null } = {}) {
     if (this.disposed || !geo || this.body?.geometry === geo) return;
     const swap = !!this.body;
-    if (swap) {
-      this.root.remove(this.body);
-      if (this.meshes.fur) this.root.remove(this.meshes.fur);
-      this.meshes.fur = null;
-    }
-    const sphere = new THREE.Sphere(new THREE.Vector3(0, 0.45, 0.05), 1.6);
+    if (swap) this.root.remove(this.body);
     const body = new THREE.SkinnedMesh(geo, this.materials.plush);
     body.name = "critter-plush";
-    body.boundingSphere = sphere.clone();
+    body.boundingSphere = BODY_SPHERE.clone();
+    body.onBeforeRender = this.furWhereItPays;
     this.root.add(body);
     body.bind(this.skeleton, IDENTITY);
     this.meshes.plush = body;
-    const furMat = furFor || this.materials.fur;
-    const shells = furMat && shellGeometry(geo, furMat.userData.shells);
-    if (shells) {
-      const fur = new THREE.SkinnedMesh(shells, furMat);
-      fur.name = "critter-fur";
-      fur.boundingSphere = sphere.clone();
-      fur.renderOrder = 1;
-      this.root.add(fur);
-      fur.bind(this.skeleton, IDENTITY);
-      this.meshes.fur = fur;
-    }
-    if (this.placeholder) { this.root.remove(this.placeholder); this.placeholder.geometry.dispose(); this.placeholder = null; }
     this.body = body;
+    this.dressFur(furFor || this.materials.fur);
+    if (this.placeholder) { this.root.remove(this.placeholder); this.placeholder.geometry.dispose(); this.placeholder = null; }
     if (!swap) this.pop = Math.min(this.pop, 0.001);
+  }
+
+  /* the fur's shells: over the body's own mesh, or over a coarser one of
+     the same critter (a hero critter's shells ride its race mesh: a sixth
+     of the vertices to skin for every shell, and the fuzz hides the
+     difference). Rebuilt when either arrives. */
+  setShellBase(geo) {
+    if (this.disposed || !geo || this.shellBase === geo) return;
+    this.shellBase = geo;
+    if (this.body) this.dressFur(this.meshes.fur?.material || this.materials.fur);
+  }
+
+  /* the shells only where they pay: as the body draws, how tall the critter
+     stands on screen (CSS pixels) decides whether its fur draws from the
+     next frame on. A far rider in the pack, whose fuzz would be a pixel
+     wide, skips it; the gap between the two marks keeps it from flickering */
+  furWhereItPays = (renderer, scene, camera) => {
+    const fur = this.meshes.fur;
+    if (!fur || !camera.isPerspectiveCamera || !this.body) return;
+    const e = this.body.matrixWorld.elements, c = camera.matrixWorld.elements;
+    const dist = Math.hypot(e[12] - c[12], e[13] - c[13], e[14] - c[14]) || 1e-3;
+    renderer.getDrawingBufferSize(_buf);
+    const tall = (Math.hypot(e[4], e[5], e[6]) * CRITTER_TALL) / (dist * 2 * Math.tan(camera.fov * THREE.MathUtils.DEG2RAD * 0.5) / camera.zoom)
+      * (_buf.y / renderer.getPixelRatio());
+    if (fur.visible && tall < FUR_MIN_PX * 0.85) fur.visible = false;
+    else if (!fur.visible && tall > FUR_MIN_PX) fur.visible = true;
+  };
+
+  dressFur(furMat) {
+    if (this.meshes.fur) { this.root.remove(this.meshes.fur); this.meshes.fur = null; }
+    const shells = furMat && this.body && shellGeometry(this.shellBase || this.body.geometry, furMat.userData.shells);
+    if (!shells) return;
+    const fur = new THREE.SkinnedMesh(shells, furMat);
+    fur.name = "critter-fur";
+    fur.boundingSphere = BODY_SPHERE.clone();
+    fur.renderOrder = 1;
+    this.root.add(fur);
+    fur.bind(this.skeleton, IDENTITY);
+    this.meshes.fur = fur;
   }
 
   /* an invisible box the size of the sculpt, so a bounding box taken before

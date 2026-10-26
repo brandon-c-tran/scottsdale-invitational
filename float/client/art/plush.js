@@ -8,9 +8,12 @@
    with a warm tint stands in for light scattering through the fabric; the
    baked occlusion darkens the creases where the parts melt together.
 
-   The fur is drawn as shells: the furry part of the same mesh, drawn again
-   N times (one instanced draw), each copy pushed out along the normal and
-   thinned by strand noise toward the tips, so the silhouette goes fuzzy.
+   The fur is drawn as shells: the furry part of the critter's race mesh,
+   drawn again N times (one instanced draw), each copy pushed out along the
+   normal and thinned by strand noise toward the tips, so the silhouette
+   goes fuzzy. Fur is matte: its shells take the lights' diffuse and the
+   environment's, never a highlight, and read their strands from a small
+   tiling noise texture, so a shell costs a fraction of the body's pixel.
 
    Materials are shared: one plush material per rider color (counted), one
    fur material per detail. */
@@ -180,23 +183,65 @@ uniform float uDensity;
 uniform float uSoft;
 uniform float uRim;
 uniform float uFill;
-float furHash(vec3 p) { p = fract(p * 0.3183099 + vec3(0.71, 0.113, 0.419)); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
+uniform sampler3D uNoise;
+/* value noise from the tiling texture: the cell's smooth step here, the
+   blend between lattice values by the texture unit */
 float furNoise(vec3 x) {
   vec3 i = floor(x), f = fract(x);
   f = f * f * (3.0 - 2.0 * f);
-  return mix(mix(mix(furHash(i), furHash(i + vec3(1, 0, 0)), f.x), mix(furHash(i + vec3(0, 1, 0)), furHash(i + vec3(1, 1, 0)), f.x), f.y),
-             mix(mix(furHash(i + vec3(0, 0, 1)), furHash(i + vec3(1, 0, 1)), f.x), mix(furHash(i + vec3(0, 1, 1)), furHash(i + vec3(1, 1, 1)), f.x), f.y), f.z);
+  return texture(uNoise, (i + f + 0.5) / 48.0).r;
 }
 `;
 
+/* matte: the lights' diffuse and the environment's, no highlight */
+const FUR_LIGHTS = /* glsl */ `
+void RE_Direct_Fur( const in IncidentLight directLight, const in vec3 geometryPosition, const in vec3 geometryNormal, const in vec3 geometryViewDir, const in vec3 geometryClearcoatNormal, const in PhysicalMaterial material, inout ReflectedLight reflectedLight ) {
+  reflectedLight.directDiffuse += saturate( dot( geometryNormal, directLight.direction ) ) * directLight.color * BRDF_Lambert( material.diffuseColor );
+}
+void RE_IndirectSpecular_Fur( const in vec3 radiance, const in vec3 irradiance, const in vec3 clearcoatRadiance, const in vec3 geometryPosition, const in vec3 geometryNormal, const in vec3 geometryViewDir, const in vec3 geometryClearcoatNormal, const in PhysicalMaterial material, inout ReflectedLight reflectedLight ) {
+  reflectedLight.indirectDiffuse += material.diffuseColor * irradiance * RECIPROCAL_PI;
+}
+#undef RE_Direct
+#define RE_Direct RE_Direct_Fur
+#undef RE_IndirectSpecular
+#define RE_IndirectSpecular RE_IndirectSpecular_Fur
+`;
+const FUR_MAPS = /* glsl */ `
+#if defined( RE_IndirectDiffuse ) && defined( USE_ENVMAP ) && defined( ENVMAP_TYPE_CUBE_UV )
+  iblIrradiance += getIBLIrradiance( geometryNormal );
+#endif
+`;
+
+/* the strands' noise: a small cube of random values that tiles (its size
+   is the 48.0 in furNoise) */
+const NOISE_N = 48;
+function furNoiseTexture() {
+  return once("fur-noise", () => {
+    const data = new Uint8Array(NOISE_N ** 3);
+    let x = 0x2545f491;
+    for (let i = 0; i < data.length; i++) { x ^= x << 13; x ^= x >>> 17; x ^= x << 5; data[i] = (x >>> 0) & 255; }
+    const t = new THREE.Data3DTexture(data, NOISE_N, NOISE_N, NOISE_N);
+    t.format = THREE.RedFormat;
+    t.type = THREE.UnsignedByteType;
+    t.minFilter = t.magFilter = THREE.LinearFilter;
+    t.wrapS = t.wrapT = t.wrapR = THREE.RepeatWrapping;
+    t.generateMipmaps = false;
+    t.unpackAlignment = 1;
+    t.needsUpdate = true;
+    return t;
+  });
+}
+
 function furShader(shader, material) {
   const u = material.userData;
-  Object.assign(shader.uniforms, { uFurLength: u.uFurLength, uShells: u.uShells, uGravity: u.uGravity, uDensity: u.uDensity, uSoft: u.uSoft, uRim: PLUSH_LOOK.rim, uFill: PLUSH_LOOK.fill });
+  Object.assign(shader.uniforms, { uFurLength: u.uFurLength, uShells: u.uShells, uGravity: u.uGravity, uDensity: u.uDensity, uSoft: u.uSoft, uRim: PLUSH_LOOK.rim, uFill: PLUSH_LOOK.fill, uNoise: { value: furNoiseTexture() } });
   shader.vertexShader = shader.vertexShader
     .replace("#include <common>", `#include <common>\n${FUR_VERT_PARS}`)
     .replace("#include <begin_vertex>", `#include <begin_vertex>\n${FUR_VERT_MAIN}`);
   shader.fragmentShader = shader.fragmentShader
     .replace("#include <common>", `#include <common>\n${FUR_FRAG_PARS}`)
+    .replace("#include <lights_physical_pars_fragment>", `#include <lights_physical_pars_fragment>\n${FUR_LIGHTS}`)
+    .replace("#include <lights_fragment_maps>", FUR_MAPS)
     .replace("#include <color_fragment>", `#include <color_fragment>
       {
         /* strands: noise fixed to the surface (so a strand is a column
@@ -235,15 +280,15 @@ export function furMaterial(detail = "race") {
     const m = new THREE.MeshStandardMaterial({ name: `float-fur-${detail}`, color: 0xffffff, roughness: 0.95, metalness: 0, transparent: true, depthWrite: false });
     m.userData = {
       uFurLength: { value: FUR_MAX },
-      uShells: { value: hero ? 14 : 4 },
+      uShells: { value: hero ? 8 : 4 },
       uGravity: { value: 0.3 },
       uDensity: { value: 380 },
-      uSoft: { value: hero ? 0.1 : 0.22 },
-      shells: hero ? 14 : 4,
+      uSoft: { value: hero ? 0.12 : 0.22 },
+      shells: hero ? 8 : 4,
       fur: true,
     };
     m.onBeforeCompile = shader => furShader(shader, m);
-    m.customProgramCacheKey = () => "float-fur-1";
+    m.customProgramCacheKey = () => "float-fur-2";
     return m;
   });
 }

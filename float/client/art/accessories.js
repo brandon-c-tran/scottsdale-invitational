@@ -62,11 +62,15 @@ export function chainGeometry(template, detail = "race") {
     const chest = template.bones.find(b => b.name === "chest").at;
     const hero = detail === "hero";
     const pts = [];
-    /* the bake measured the ring round the neck: every point for a
-       close-up, every other in the pack */
+    /* the bake measured the ring round the neck: its points in the pack,
+       and the midpoints between them too for a close-up */
     const ring = template.anchors.chain;
-    const step = hero ? 1 : 2;
-    for (let i = 0; i < ring.length; i += step) { const r = ring[i]; pts.push({ p: V(r[0], r[1], r[2]), n: V(r[3], r[4], r[5]) }); }
+    for (let i = 0; i < ring.length; i++) {
+      const r = ring[i];
+      pts.push({ p: V(r[0], r[1], r[2]), n: V(r[3], r[4], r[5]) });
+      const q = ring[i + 1];
+      if (hero && q) pts.push({ p: V((r[0] + q[0]) / 2, (r[1] + q[1]) / 2, (r[2] + q[2]) / 2), n: V(r[3] + q[3], r[4] + q[4], r[5] + q[5]).normalize() });
+    }
     const N = pts.length - 1;
     const parts = [];
     const linkR = 0.021, linkr = 0.0072;

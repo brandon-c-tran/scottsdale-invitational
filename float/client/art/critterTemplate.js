@@ -4,7 +4,7 @@
    mesh comes from. The mesh itself loads separately (critterAsset.js) and
    binds to the skeleton when it arrives. */
 import * as THREE from "three";
-import { CRITTER_META } from "./critterMeta.js";
+import { CRITTER_META, CRITTER_BONES } from "./critterMeta.js";
 
 const V = a => new THREE.Vector3(a[0], a[1], a[2]);
 
@@ -34,7 +34,7 @@ export function bakedTemplate(id, detail = "race") {
   const { detail: d, file, key } = bakedFile(id, detail);
   return {
     version: 2, id, detail: d, file, key,
-    bones: meta.bones.map(b => ({ name: b.name, parent: b.parent, at: V(b.at) })),
+    bones: CRITTER_BONES.map(([name, parent], i) => ({ name, parent, at: V(meta.bones.slice(i * 3, i * 3 + 3)) })),
     info,
     sockets: { hat: { at: V(hat.at), s: hat.s, tilt: hat.tilt, halfW: hat.halfW }, shades: meta.sockets.shades },
     anchors: meta.anchors,

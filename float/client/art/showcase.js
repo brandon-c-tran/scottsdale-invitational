@@ -197,13 +197,16 @@ export class Showcase {
       });
       cam.fov = 30; cam.position.set(0, 4.4, 9.2); cam.lookAt(0, 0.55, -0.45);
     } else if (view === "faces") {
-      for (const [start, count, y] of [[0, 5, 1.62], [5, 4, 0.82], [9, 4, 0.02]]) for (let j = 0; j < count; j++) {
+      for (const [start, count, y] of [[0, 5, 1.7], [5, 4, 0.85], [9, 4, 0.0]]) for (let j = 0; j < count; j++) {
         const i = start + j;
         const e = sampleEntrant(i, { look: { critter: CRITTERS[i].id, hat: opts.look?.hat && opts.one ? opts.look.hat : "none", shades: "none" } });
-        const item = this.place({ entrant: e, critterOnly: true, at: [(j - (count - 1) / 2) * 0.86, y - 0.42, (1.62 - y) * 0.5], face: Math.PI + (opts.yaw ?? 0.35), detail: "hero", label: CRITTERS[i].name, behaviour: {} });
+        const item = this.place({ entrant: e, critterOnly: true, at: [(j - (count - 1) / 2) * 0.92, y - 0.42, (1.7 - y) * 0.45], face: Math.PI + (opts.yaw ?? 0.35), detail: "hero", label: CRITTERS[i].name, behaviour: {} });
         item.labelY = 0.2;
+        /* a row of faces looks at the camera */
+        const look = item.critterOnly.runtime.look;
+        look.next = 1e9; look.yaw = 0; look.pitch = 0.04;
       }
-      cam.fov = 26; cam.position.set(0, 0.95, 5.6); cam.lookAt(0, 0.95, 0);
+      cam.fov = 26; cam.position.set(0, 1.45, 6.6); cam.lookAt(0, 0.98, 0);
       this.spin.auto = false;
     } else if (view === "fit") {
       /* one hat (and shades) on all thirteen, two rows, three quarters on */

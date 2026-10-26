@@ -98,6 +98,8 @@ export const SHOTS = [
   ["detail-javelina-screen", { view: "detail", critter: "javelina", floatie: "donut", hat: "none", stage: "screen", t: 1.4, freeze: 1, yaw: -0.4, hud: 0 }],
   ["detail-frog-screen", { view: "detail", critter: "frog", floatie: "shark", hat: "none", stage: "screen", t: 1.8, freeze: 1, yaw: -0.3, hud: 0 }],
   ["pack", { view: "race", t: 2.0, freeze: 1 }],
+  ["podium", { view: "podium", stage: "screen", t: 1.4, freeze: 1 }],
+  ["podium-night", { view: "podium", t: 1.4, freeze: 1 }],
 ];
 
 /* headless Chrome on the real GPU (the same interface as launchChrome) */

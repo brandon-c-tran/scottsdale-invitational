@@ -89,7 +89,7 @@ export const WATER = Object.freeze({
 /* ---- paddling ---- */
 export const PADDLE = Object.freeze({
   /* one full-power stroke's forward impulse (N s) at Speed 3 */
-  IMPULSE:76,
+  IMPULSE:72,
   /* one full-power stroke's yaw (rad/s added) at Turn 3; a left stroke yaws
      right (clockwise, negative), a right stroke yaws left */
   YAW:0.95,

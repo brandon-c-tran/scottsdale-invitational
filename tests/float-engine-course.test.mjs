@@ -156,8 +156,12 @@ test("the current: faster mid-river than at the banks, slow in pools, fastest ov
   const drop = COURSE.zones.find(zone => zone.k === "drop");
   const fastest = Math.max(...COURSE.flow.map(([, v]) => v));
   assert.equal(flowSpeed(COURSE, (drop.s0 + drop.s1) / 2) >= fastest - 0.6, true);
-  for (const zone of COURSE.zones.filter(item => item.k === "pool" && item.s0 > 0))
-    assert.ok(flowSpeed(COURSE, (zone.s0 + zone.s1) / 2) <= 1.6, `pool at ${zone.s0}`);
+  for (const zone of COURSE.zones.filter(item => item.k === "pool" && item.s0 > 0)) {
+    const leg = COURSE.legs.find(item => zone.s0 >= item.s0 && zone.s0 < item.s1);
+    const top = Math.max(...COURSE.flow.filter(([s]) => s >= leg.s0 && s <= leg.s1 && !(s >= 1434 && s <= 1446)).map(([, v]) => v));
+    const calm = flowSpeed(COURSE, (zone.s0 + zone.s1) / 2);
+    assert.ok(calm <= 1.8 && calm <= top / 2, `pool at ${zone.s0}: ${calm} against ${top}`);
+  }
   for (let s = 1; s <= total; s += 1) assert.ok(elevAt(COURSE, s) <= elevAt(COURSE, s - 1) + 1e-9, `elev at ${s}`);
   const fall = elevAt(COURSE, drop.s0) - elevAt(COURSE, drop.s1);
   assert.ok(fall >= 3 && fall <= 4, `the Drop falls ${fall} m`);

@@ -206,6 +206,7 @@ export class FloatRoom {
     }
     this.send(ws, { t:"welcome", you:{ device:meta.device, role:meta.role, ...(i >= 0 ? { entrant:i } : {}) } });
     this.send(ws, this.roomMessage(true));
+    if (meta.role === "screen" && this.clip && this.cup.phase === "cut") this.send(ws, this.clip);
     if (meta.role === "controller") this.broadcastRoom(ws);
     this.schedule();
   }
@@ -423,6 +424,8 @@ export class FloatRoom {
   enterGrid() {
     this.race = Cup.raceFor(this.cup, COURSE);
     this.race.bots = {};
+    this.frames = [];
+    this.clip = null;
     this.lastSnap = -1;
     this.lastGridSnap = 0;
     this.lastMe = -1;
@@ -485,7 +488,9 @@ export class FloatRoom {
     const snapIndex = Math.floor(this.race.tick * SNAP_PER_TICK);
     if (snapIndex > this.lastSnap) {
       this.lastSnap = snapIndex;
-      this.broadcast({ t:"snap", s:at, k:rows(this.race) }, "screen");
+      const k = rows(this.race);
+      this.broadcast({ t:"snap", s:at, k }, "screen");
+      this.recordReplay(at, k);
     }
     if (this.race.tick - this.lastMe >= SIM_HZ / ME_HZ) {
       this.lastMe = this.race.tick;
@@ -530,12 +535,32 @@ export class FloatRoom {
     for (const [index, item] of cup.history.entries())
       if (index === cup.history.length - 1) item.rtt = this.rttSamples();
     for (const i of eliminated.slice().reverse()) this.broadcast({ t:"ev", e:"out", i });
+    if (this.clip) this.broadcast(this.clip, "screen");
     this.stopLoop();
     this.saveCup();
     this.persist(this.storage.put(`stats:${cup.id}`, cup.history.map(({ round, leg, stats, balloons, rtt }) => ({ round, leg, stats, balloons, rtt }))));
     this.broadcastRoom();
     if (last && cup.mode === "fieldday" && cup.evId) this.queueResult();
     this.schedule();
+  }
+
+  /* The Drop's instant replay: the last REPLAY_KEEP_MS of snapshot rows
+     ride along; on the leg with the falls, REPLAY_AFTER_MS after the moment
+     (the first flip at the lip, else the first rider over) the clip around
+     it is frozen, and screens get it as { t:"replay", leg, at, k:[[s, rows], ...] }
+     when the race ends (and on joining during the cut). Not saved: a
+     restarted room just has no replay. */
+  recordReplay(at, k) {
+    const race = this.race;
+    if (!race || !COURSE.zones.some(zone => zone.k === "drop" && zone.s0 > race.grid && zone.s0 < race.finish)) return;
+    (this.frames ||= []).push([at, k]);
+    while (this.frames.length && this.frames[0][0] < at - REPLAY_KEEP_MS) this.frames.shift();
+    const moment = race.dropFlipAt ?? race.overAt;
+    if (this.clip || moment === null) return;
+    const momentAt = Math.round(this.raceZero + moment * 1000);
+    if (at < momentAt + REPLAY_AFTER_MS) return;
+    this.clip = { t:"replay", leg:race.leg, at:momentAt, i:race.riders.find(rider => rider.st.dropFlips)?.i ?? null,
+      k:this.frames.filter(([s]) => s >= momentAt - (REPLAY_MS - REPLAY_AFTER_MS) && s <= momentAt + REPLAY_AFTER_MS) };
   }
 
   /* round trips this round, per phone: median, worst, count */
@@ -741,5 +766,9 @@ export class FloatRoom {
   }
 }
 
+/* The Drop's replay: 10 s, the moment 4 s from its end */
+const REPLAY_MS = 10000;
+const REPLAY_AFTER_MS = 4000;
+const REPLAY_KEEP_MS = 12000;
 /* snaps go out on two of every three ticks: 20 Hz from a 30 Hz race */
 const SNAP_PER_TICK = SNAP_HZ / SIM_HZ;

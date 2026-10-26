@@ -68,6 +68,8 @@ export function createRace({ course = COURSE, leg = 0, field = [], seed = 1, dri
     len:finish - grid,
     arrivals:0,
     firstFinish:null,
+    overAt:null,
+    dropFlipAt:null,
     balloons:[],
     riders:field.map((entry, k) => {
       const slot = slots[k];
@@ -183,11 +185,16 @@ export function stepRace(race, course = COURSE) {
     /* over the Drop's lip: straight, or over you go */
     for (const zone of course.zones) {
       if (zone.k !== "drop" || !(before < zone.s0 && near.s >= zone.s0) || rider.swim > 0) continue;
+      /* the moment worth a replay: the first rider over, or the first to flip there */
+      if (race.overAt === null) race.overAt = r3(t);
       const phys = physicsFor(rider.fl);
       if (phys.neverFlips || rider.immune > 0) continue;
       const lip = frameAt(course, zone.s0);
       const off = Math.abs(wrapAngle(rider.a - Math.atan2(lip.ty, lip.tx)));
-      if (off > phys.dropAngle || Math.abs(rider.w) > phys.dropSpin) flip(race, rider, "drop");
+      if (off > phys.dropAngle || Math.abs(rider.w) > phys.dropSpin) {
+        flip(race, rider, "drop");
+        if (race.dropFlipAt === null) race.dropFlipAt = r3(t);
+      }
     }
     if (before < race.finish && near.s >= race.finish) arrive(race, course, rider, before, t);
   }

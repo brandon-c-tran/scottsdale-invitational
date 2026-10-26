@@ -145,6 +145,14 @@ test("a whole bot Cup runs from start to the podium, with the contract's message
   for (const key of ["place", "of", "prog", "len", "stam", "f"]) assert.ok(key in me[0], key);
   /* the cup was saved */
   assert.equal(mem.entries.get("cup").phase, "podium");
+  /* The Drop's instant replay reached the screen when the final ended: 10 s of rows round the moment */
+  const replay = tv.last("replay");
+  assert.ok(replay, "a replay");
+  assert.equal(replay.leg, 3);
+  assert.ok(replay.k.length >= 150 && replay.k.length <= 205, `${replay.k.length} frames`);
+  assert.ok(replay.k[0][0] >= replay.at - 6100 && replay.k.at(-1)[0] <= replay.at + 4000);
+  assert.equal(replay.k[0][1].length, 3, "the final's three riders");
+  assert.equal(phone.all("replay").length, 0, "screens only");
 });
 
 /* phones that stay live: a ping every 2 s, as net.js sends */

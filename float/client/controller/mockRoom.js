@@ -427,6 +427,8 @@ export function createMockRoom({ hello = null, scene = null, timers = globalThis
       case "race-arrived": cup.field = [...all]; race(0, { prog:MOCK_LEG_M, arriveAt:38, f:FLAG.ARRIVED });
         for (const [k, i] of [2, 5, 1, 7, 3, 8, 6, 4].entries()) Object.assign(sim.racers.get(i), { prog:MOCK_LEG_M, arriveAt:30 + k,
           drinkAt:31 + k, f:FLAG.ARRIVED | FLAG.DRANK });
+        /* the first finisher started the cap: the round closes 30 s after it */
+        sim.firstFinish = 31;
         break;
       case "race-done": cup.field = [...all]; race(0, { prog:MOCK_LEG_M, arriveAt:36, drinkAt:37, f:FLAG.ARRIVED | FLAG.DRANK });
         for (const i of [2, 5]) Object.assign(sim.racers.get(i), { prog:MOCK_LEG_M, arriveAt:30 + i * 0.1, drinkAt:31 + i * 0.1,

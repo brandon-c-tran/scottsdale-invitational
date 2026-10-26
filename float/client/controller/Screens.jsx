@@ -36,13 +36,13 @@ function LegTrack({ course, leg }) {
 }
 
 /* the field as dots, the ones that go through lit, the cut line after them */
-function CutLine({ of, through, mark = null }) {
+function CutLine({ of, through }) {
   if (!(of > 0)) return null;
   const dots = Array.from({ length:of }, (_, k) => k);
   return <div className="flc-cutline" role="img" aria-label={through ? `${through} of ${of} go through` : `${of} racing`}>
     {dots.map(k => <React.Fragment key={k}>
       {through && k === through && <span className="flc-cutline-bar" />}
-      <i className={`${through && k >= through ? "is-out" : "is-in"}${mark === k + 1 ? " is-me" : ""}`} />
+      <i className={through && k >= through ? "is-out" : "is-in"} />
     </React.Fragment>)}
   </div>;
 }
@@ -127,7 +127,7 @@ function NextLeg({ screen, game, entrant, onFlip }) {
     <div className="flc-next-foot">
       <span className="flc-me-chip"><Portrait entrant={entrant} size={44} />
         {slot ? <b><small>Start</small>{ordinal(slot)}</b> : <b>{entrant.name}</b>}</span>
-      <CutLine of={shape.of} through={shape.through} mark={slot} />
+      <CutLine of={shape.of} through={shape.through} />
     </div>
   </section>;
 }
@@ -163,13 +163,13 @@ function Through({ game, entrant, me, now, onLook, onFlip }) {
   const toFinal = !done && shape.rounds > 0 && shape.round + 1 === shape.rounds - 1;
   const place = done ? finalPlace(room, idx) : mine?.place;
   const stamp = done ? ordinal(place) || "In" : toFinal ? "Final" : "Through";
-  return <section className={`flc-screen flc-cut${done ? " is-done" : ""}${done && place && place <= 3 ? ` is-p${place}` : ""}`}>
+  return <section className={`flc-screen flc-cutscreen${done ? " is-done" : ""}${done && place && place <= 3 ? ` is-p${place}` : ""}`}>
     <Top left={<span className="flc-kicker">{nextLeg ? `Next: ${nextLeg}` : ""}</span>} right={<>{onFlip && <FlipButton onFlip={onFlip} />}</>} />
     <div className="flc-cut-main">
       <div className="flc-verdict">
-        <Portrait entrant={entrant} size={64} />
+        <div className="flc-verdict-me"><Portrait entrant={entrant} size={done ? 112 : 60} />
+          {!done && mine?.place && <span className="flc-verdict-place">{ordinal(mine.place)}</span>}</div>
         <b className="flc-stamp" key={stamp}>{stamp}</b>
-        {!done && mine?.place && <span className="flc-verdict-place">{ordinal(mine.place)}</span>}
         {!done && drinksOn(room, idx) && <span className="flc-fresh"><CupIcon />Fresh drink</span>}
       </div>
       {!done && <SwapPicker look={entrant.look || me.look} room={room} now={now} onLook={onLook} />}
@@ -177,10 +177,10 @@ function Through({ game, entrant, me, now, onLook, onFlip }) {
   </section>;
 }
 
-function Balloon({ cooldown, ready, readyAt, now }) {
+function Balloon({ cooldown, ready, readyAt, now, racing }) {
   const r = 26, c = 2 * Math.PI * r;
   const left = readyAt !== null && now < readyAt ? readyAt - now : 0;
-  return <svg className={`flc-balloon${ready ? " is-ready" : ""}`} viewBox="0 0 64 64" aria-hidden="true">
+  return <svg className={`flc-balloon${ready ? " is-ready" : ""}${racing ? "" : " is-idle"}`} viewBox="0 0 64 64" aria-hidden="true">
     <circle className="flc-balloon-track" cx="32" cy="32" r={r} />
     <circle className="flc-balloon-ring" cx="32" cy="32" r={r} key={readyAt ?? "ready"}
       style={{ strokeDasharray:c, strokeDashoffset:c * cooldown, "--ring-ms":`${left}ms`, "--ring-c":c }} />
@@ -208,7 +208,9 @@ function Beach({ screen, game, now, onDrink, onThrow, onExit }) {
   };
   /* where our last balloon landed: a hit on someone, or a miss */
   const landed = memory.landed && Number.isFinite(memory.landed.s) && now - memory.landed.s < 1600 ? memory.landed : null;
-  const nextLeg = legName(game.course, Number(room?.leg) || 0);
+  /* between rounds the room still names the leg just raced: the next is one on */
+  const upcoming = (Number(room?.leg) || 0) + (room?.phase === "cut" || room?.phase === "results" ? 1 : 0);
+  const nextLeg = cupDone(room) ? "" : legName(game.course, upcoming);
   const wait = beach.readyAt !== null && now < beach.readyAt ? Math.ceil((beach.readyAt - now) / 1000) : 0;
   return <section className="flc-screen flc-beach">
     <Top left={<span className="flc-kicker is-out">Out</span>} right={<ExitButton onExit={onExit} />} />
@@ -220,7 +222,7 @@ function Beach({ screen, game, now, onDrink, onThrow, onExit }) {
       </TapButton>
     </div> : <div className="flc-beach-throw">
       <div className={`flc-beach-head${beach.ready ? " is-ready" : ""}`}>
-        <Balloon cooldown={beach.cooldown} ready={beach.ready} readyAt={beach.readyAt} now={now} />
+        <Balloon cooldown={beach.cooldown} ready={beach.ready} readyAt={beach.readyAt} now={now} racing={beach.racing} />
         <div className="flc-beach-status">
           <b>{beach.racing ? (beach.ready ? "Balloon ready" : `${wait} s`) : nextLeg ? `Next: ${nextLeg}` : "Between rounds"}</b>
           {beach.racing && !beach.ready && <span>Next balloon</span>}

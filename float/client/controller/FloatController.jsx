@@ -259,6 +259,7 @@ export default function FloatController({ room = "test", rider = null, onExit = 
         {racing
           ? <RaceScreen entrant={entrant} view={view} geomRef={geomRef} live={live} count={count} drink={drink} onDrink={onDrink}
             slot={gridSlot(game.room, idx)} resume={game.room?.resume === true}
+            endsAt={game.room?.phase === "race" ? Number(game.room?.endsAt) || null : null} now={now}
             onStroke={onStroke} onHands={onHands} onTouchEnd={onTouchEnd} onFlip={turn ? flip : null} />
           : <Screens screen={screen} {...shared} onReady={setReady} onLook={setLook} onThrow={throwAt} onFeedback={sendFeedback}
             feedbackSent={feedbackSent} onFlip={turn ? flip : null} />}

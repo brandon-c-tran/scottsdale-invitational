@@ -5,7 +5,7 @@
    drink button sits between the paddles until the room says you drank; at
    the takeout without it, the whole screen asks for it. The countdown is
    this screen with the paddles warming up and the number over them. */
-import React, { useRef } from "react";
+import React, { useEffect, useRef } from "react";
 import Portrait from "../locker/Portrait.jsx";
 import TapButton from "./TapButton.jsx";
 import Paddles from "./Paddles.jsx";
@@ -33,7 +33,24 @@ export function FlipButton({ onFlip }) {
 
 export function CutChip({ cut, big = false }) {
   if (!cut) return null;
-  return <span className={`flc-cut ${cut.through ? "is-through" : "is-out"}${big ? " is-big" : ""}`}>{cut.label}</span>;
+  return <span className={`flc-cutchip ${cut.through ? "is-through" : "is-out"}${big ? " is-big" : ""}`}>{cut.label}</span>;
+}
+
+/* the round closing: a bar that drains to the room's endsAt (the cap after
+   the first finisher, or the hard cap from the gun), shown in its last minute */
+function Closing({ endsAt, now }) {
+  const bar = useRef(null);
+  const left = Number.isFinite(endsAt) && Number.isFinite(now) ? endsAt - now : null;
+  const shown = left !== null && left > 0 && left <= 60000;
+  useEffect(() => {
+    const el = bar.current;
+    if (!shown || !el || typeof el.animate !== "function") return undefined;
+    const run = el.animate([{ transform:`scaleX(${Math.min(1, left / 60000)})` }, { transform:"scaleX(0)" }],
+      { duration:left, easing:"linear", fill:"forwards" });
+    return () => run.cancel();
+  }, [endsAt, shown]); // eslint-disable-line react-hooks/exhaustive-deps
+  if (!shown) return null;
+  return <div className="flc-closing" role="img" aria-label={`The round ends in ${Math.ceil(left / 1000)} seconds`}><i ref={bar} /></div>;
 }
 
 function Hud({ entrant, view, slot, counting, onFlip }) {
@@ -72,7 +89,7 @@ function DrinkButton({ state, onDrink }) {
 }
 
 export default function RaceScreen({ entrant, view, geomRef, live, count = null, slot = null, resume = false, drink, onDrink,
-  onStroke, onHands, onTouchEnd, onFlip }) {
+  onStroke, onHands, onTouchEnd, onFlip, endsAt = null, now = null }) {
   const rootRef = useRef(null), visualsRef = useRef(null);
   usePaddleInput(rootRef, { geomRef, visualsRef, enabled:true, onStroke, onHands, onTouchEnd });
   const counting = count !== null;
@@ -82,12 +99,13 @@ export default function RaceScreen({ entrant, view, geomRef, live, count = null,
     <Hud entrant={entrant} view={view} slot={slot} counting={counting} onFlip={onFlip} />
     <div className="flc-arena">
       <Paddles ref={visualsRef} />
-      {!view.arrived && <DrinkButton state={drink} onDrink={onDrink} />}
+      {!view.arrived && !(counting && count > 0) && <DrinkButton state={drink} onDrink={onDrink} />}
       {view.swim && !view.arrived && <div className="flc-flipped" aria-live="polite"><b>You flipped</b></div>}
     </div>
     {counting && <div className={`flc-count${resume ? " is-resume" : ""}`} aria-live="assertive">
       <b key={count}>{count || "Go"}</b></div>}
     {finishing && <div className="flc-finish" data-ui="">
+      <Closing endsAt={endsAt} now={now} />
       <h2>Finish your drink</h2>
       <CutChip cut={view.cut} big />
       <TapButton className={`flc-drink is-big is-${drink}`} onPress={onDrink} disabled={drink !== "idle"}>

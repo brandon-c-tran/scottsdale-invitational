@@ -1,0 +1,238 @@
+/* The standalone join (JoinFlow.jsx): the room code, the rider, the Locker
+   sheet. Prefixed (flj-), the controller's river palette, laid out for a
+   phone held upright, with the safe areas padded and every input at 16px
+   or more so iOS never zooms. --me is the rider's colour. */
+
+.flj-root {
+  --fl-bg: #08131f;
+  --fl-ink: #f7f0e1;
+  --fl-muted: #a4b8cb;
+  --fl-faint: rgba(247, 240, 225, 0.08);
+  --fl-line: rgba(247, 240, 225, 0.16);
+  --fl-teal: #3be3c6;
+  --fl-sun: #ffc94a;
+  --fl-sun-ink: #2a1800;
+  --fl-deep: #08131f;
+  --fl-ease: cubic-bezier(0.23, 1, 0.32, 1);
+  --fl-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --fl-font: ui-rounded, "SF Pro Rounded", "Arial Rounded MT Bold", "Nunito", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --me: #e4572e;
+  min-height: 100vh;
+  min-height: 100dvh;
+  background:
+    radial-gradient(120% 70% at 50% -10%, #17436a 0%, rgba(23, 67, 106, 0) 60%),
+    linear-gradient(180deg, #0c2236 0%, var(--fl-bg) 100%);
+  color: var(--fl-ink);
+  font-family: var(--fl-font);
+  font-synthesis: none;
+  -webkit-font-smoothing: antialiased;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
+.flj-root *, .flj-root *::before, .flj-root *::after { box-sizing: border-box; }
+:where(.flj-root) :where(h1, h2, p, fieldset, legend) { margin: 0; padding: 0; }
+:where(.flj-root) fieldset { border: 0; min-width: 0; }
+:where(.flj-root) button {
+  font: inherit;
+  color: inherit;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-appearance: none;
+  appearance: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+:where(.flj-root) button:disabled { cursor: default; }
+:where(.flj-root) svg { display: block; }
+.flj-root button:focus-visible, .flj-root input:focus-visible { outline: 2.5px solid var(--fl-ink); outline-offset: 2px; }
+
+.flj-screen {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: calc(env(safe-area-inset-top, 0px) + 12px) calc(env(safe-area-inset-right, 0px) + 20px)
+    calc(env(safe-area-inset-bottom, 0px) + 20px) calc(env(safe-area-inset-left, 0px) + 20px);
+  animation: flj-in 260ms var(--fl-ease) both;
+}
+@keyframes flj-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+.flj-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 48px; flex: none; }
+.flj-back {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--fl-faint);
+  color: var(--fl-muted);
+  transition: transform 120ms var(--fl-ease);
+}
+.flj-back:active { transform: scale(0.92); }
+.flj-back svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
+.flj-room { font-size: 15px; font-weight: 900; letter-spacing: 0.2em; color: var(--fl-muted); padding: 8px 12px; border-radius: 12px; background: var(--fl-faint); }
+.flj-title { font-size: 30px; font-weight: 900; letter-spacing: -0.02em; text-align: center; }
+
+/* ── the code: four boxes, one input over them ── */
+.flj-code-main { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 26px; padding-bottom: 18vh; }
+.flj-boxes { position: relative; display: grid; grid-template-columns: repeat(4, 64px); gap: 10px; }
+.flj-box {
+  display: grid;
+  place-items: center;
+  height: 84px;
+  border-radius: 20px;
+  background: var(--fl-faint);
+  box-shadow: inset 0 0 0 2px var(--fl-line);
+  font-size: 44px;
+  font-weight: 900;
+  color: var(--fl-ink);
+  transition: box-shadow 160ms, background-color 160ms;
+}
+.flj-box.is-on { background: rgba(247, 240, 225, 0.12); animation: flj-key 260ms var(--fl-spring); }
+@keyframes flj-key { from { transform: scale(0.86); } to { transform: scale(1); } }
+.flj-box.is-next { box-shadow: inset 0 0 0 3px var(--fl-teal); }
+.flj-code-input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: transparent;
+  caret-color: transparent;
+  font-size: 40px;
+  opacity: 0.01;
+  -webkit-user-select: text;
+  user-select: text;
+}
+.flj-code-input:focus { outline: none; }
+
+/* ── the rider: a stage, a name, a chip ── */
+.flj-ready-main, .flj-edit-main { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 12px; min-height: 0; }
+.flj-ready-main { justify-content: center; }
+.flj-stage { position: relative; display: grid; place-items: center; padding: 16px; }
+.flj-stage::before {
+  content: "";
+  position: absolute;
+  inset: -18% -34% 2%;
+  z-index: 0;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--me) 40%, transparent), transparent);
+}
+.flj-stage::after {
+  content: "";
+  position: absolute;
+  left: 20%;
+  right: 20%;
+  bottom: 2px;
+  height: 14px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.35);
+}
+.flj-stage .flp { position: relative; z-index: 1; box-shadow: 0 0 0 5px var(--me), 0 18px 40px rgba(0, 0, 0, 0.42); }
+.flj-stage.is-small { padding: 10px; border-radius: 50%; transition: transform 140ms var(--fl-ease); }
+.flj-stage.is-small:active { transform: scale(0.96); }
+.flj-name { font-size: 38px; font-weight: 900; letter-spacing: -0.025em; line-height: 1.05; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.flj-chip { display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 16px 0 10px; border-radius: 99px; background: var(--fl-faint);
+  font-size: 16px; font-weight: 800; color: var(--fl-muted); }
+.flj-chip .fll-glyph { width: 24px; height: 24px; }
+
+/* ── the form ── */
+.flj-field { display: grid; gap: 8px; width: 100%; max-width: 440px; }
+.flj-field > span, .flj-field legend, .flj-label { font-size: 13px; font-weight: 900; letter-spacing: 0.08em; text-transform: uppercase; color: var(--fl-muted); }
+.flj-field legend { margin-bottom: 8px; }
+.flj-field input {
+  width: 100%;
+  height: 56px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 16px;
+  background: rgba(0, 0, 0, 0.28);
+  box-shadow: inset 0 0 0 1.5px var(--fl-line);
+  color: var(--fl-ink);
+  font: 800 22px/1 var(--fl-font);
+  -webkit-user-select: text;
+  user-select: text;
+  transition: box-shadow 140ms;
+}
+.flj-field input:focus { outline: none; box-shadow: inset 0 0 0 2.5px var(--me); }
+.flj-colors { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; }
+.flj-swatch {
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: var(--c);
+  box-shadow: inset 0 -4px 0 rgba(0, 0, 0, 0.18);
+  transition: transform 140ms var(--fl-spring), box-shadow 140ms;
+}
+.flj-swatch:active { transform: scale(0.9); }
+.flj-swatch.is-on { box-shadow: 0 0 0 3px var(--fl-deep), 0 0 0 6px var(--c), inset 0 -4px 0 rgba(0, 0, 0, 0.18); transform: scale(1.04); }
+.flj-look {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 56px;
+  padding: 0 14px;
+  border-radius: 16px;
+  background: var(--fl-faint);
+  box-shadow: inset 0 0 0 1.5px var(--fl-line);
+  font-size: 19px;
+  font-weight: 800;
+  text-align: left;
+  transition: transform 120ms var(--fl-ease);
+}
+.flj-look:active { transform: scale(0.98); }
+.flj-look span { flex: 1; }
+.flj-look .fll-glyph { width: 28px; height: 28px; }
+.flj-look svg:last-child { width: 20px; height: 20px; fill: none; stroke: var(--fl-muted); stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
+.flj-yesno { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.flj-yesno button {
+  height: 56px;
+  border-radius: 16px;
+  background: var(--fl-faint);
+  box-shadow: inset 0 0 0 1.5px var(--fl-line);
+  font-size: 20px;
+  font-weight: 900;
+  transition: transform 120ms var(--fl-ease), background-color 140ms, color 140ms;
+}
+.flj-yesno button:active { transform: scale(0.96); }
+.flj-yesno button.is-on { background: var(--fl-teal); color: #032a24; box-shadow: none; }
+
+/* ── the actions ── */
+.flj-actions { display: grid; gap: 10px; width: 100%; max-width: 440px; margin: 0 auto; flex: none; }
+.flj-actions.is-pinned {
+  position: sticky;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
+  padding-top: 8px;
+}
+.flj-join {
+  height: 66px;
+  border-radius: 22px;
+  background: var(--fl-sun);
+  color: var(--fl-sun-ink);
+  font-size: 24px;
+  font-weight: 900;
+  letter-spacing: -0.01em;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.38), inset 0 -4px 0 rgba(0, 0, 0, 0.14), inset 0 2px 0 rgba(255, 255, 255, 0.45);
+  transition: transform 120ms var(--fl-ease), opacity 160ms, box-shadow 120ms;
+}
+.flj-join:active:not(:disabled) { transform: scale(0.97); box-shadow: 0 5px 14px rgba(0, 0, 0, 0.38), inset 0 -2px 0 rgba(0, 0, 0, 0.14); }
+.flj-join:disabled { opacity: 0.35; box-shadow: none; }
+.flj-quiet { height: 48px; border-radius: 16px; font-size: 17px; font-weight: 800; color: var(--fl-muted); }
+.flj-quiet:active { background: var(--fl-faint); }
+
+/* ── the Locker sheet ── */
+.flj-sheet { gap: 10px; }
+.flj-sheet-title { font-size: 24px; font-weight: 900; }
+.flj-done { min-height: 46px; padding: 0 22px; border-radius: 99px; background: var(--fl-ink); color: var(--fl-deep); font-size: 17px; font-weight: 900; }
+.flj-done:active { transform: scale(0.96); }
+.flj-sheet-body { flex: 1; }
+
+@media (prefers-reduced-motion: reduce) {
+  .flj-root *, .flj-root *::before, .flj-root *::after { animation-duration: 1ms !important; }
+}

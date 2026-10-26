@@ -1,5 +1,7 @@
 /* A rider's portrait (riderPortrait through portrait.js): a disc in the
-   rider's colour with the still on it, the rider's initial until it lands. */
+   rider's colour with the still on it, the rider's initial until the first
+   one lands. When the look changes, the last still stays up until the new
+   one is drawn, so a pick never flashes back to the initial. */
 import React, { useEffect, useState } from "react";
 import { cachedPortrait, portraitKey, requestPortrait } from "./portrait.js";
 import "./portrait.css";
@@ -15,11 +17,12 @@ export function usePortrait(entrant, size) {
   useEffect(() => {
     let live = true;
     const ready = cachedPortrait(entrant, px);
-    setState({ key, url:ready });
-    if (!ready) requestPortrait(entrant, px).then(url => { if (live) setState({ key, url }); });
+    if (ready) setState({ key, url:ready });
+    else requestPortrait(entrant, px).then(url => { if (live) setState({ key, url }); });
     return () => { live = false; };
   }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
-  return state.key === key ? state.url : null;
+  /* the current still, else the last one while the new one draws */
+  return state.key === key ? state.url : (cachedPortrait(entrant, px) || state.url);
 }
 
 export default function Portrait({ entrant, size = 64, className = "", label = null }) {
@@ -28,6 +31,7 @@ export default function Portrait({ entrant, size = 64, className = "", label = n
   return <span className={`flp${url ? " is-drawn" : ""}${className ? ` ${className}` : ""}`}
     style={{ "--flp-c":entrant?.color || "#9aa39e", "--flp-size":`${size}px` }}
     role={label ? "img" : undefined} aria-label={label || undefined} aria-hidden={label ? undefined : "true"}>
-    {url ? <img src={url} alt="" draggable="false" decoding="async" /> : <span className="flp-initial">{initial}</span>}
+    {url ? <img src={url} alt="" draggable="false" decoding="async" />
+      : <span className="flp-initial">{initial}</span>}
   </span>;
 }

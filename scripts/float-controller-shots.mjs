@@ -169,8 +169,10 @@ async function paddleChecks(page, size) {
 
 async function tapElement(page, selector) {
   const box = await page.evaluate(`(() => { const el = document.querySelector(${JSON.stringify(selector)});
-    if (!el) return null; const r = el.getBoundingClientRect(); return { x:r.left + r.width / 2, y:r.top + r.height / 2 }; })()`);
+    if (!el) return null; el.scrollIntoView({ block:"center", inline:"center" });
+    const r = el.getBoundingClientRect(); return { x:r.left + r.width / 2, y:r.top + r.height / 2 }; })()`);
   if (!box) return false;
+  await sleep(60);
   const p = { x:Math.round(box.x), y:Math.round(box.y), id:9, radiusX:6, radiusY:6, force:0.5 };
   await touch(page, "touchStart", [p]);
   await sleep(50);
@@ -203,6 +205,78 @@ async function beachChecks(page, size) {
   check(tapped && out.some(m => m.t === "balloon" && Number.isInteger(m.at)), `${size}: a racer's portrait throws a balloon`);
 }
 
+const shot = async (page, size, name) => {
+  const file = await page.screenshot(path.join(OUT, `${size}-${name}.png`));
+  console.log(`     ${path.basename(file)}`);
+};
+const enabled = (page, selector) => page.evaluate(`(() => { const el = document.querySelector(${JSON.stringify(selector)}); return !!el && !el.disabled; })()`);
+
+/* the standalone join: the code, a new rider, the Locker, the lobby, a returning phone */
+async function joinChecks(page, size) {
+  await page.load(`${BASE}/float/play?mock=1&join=code`);
+  await page.evaluate("localStorage.removeItem('float-rider'); localStorage.removeItem('float-beach'); localStorage.removeItem('float-feedback')");
+  await page.load(`${BASE}/float/play?mock=1&join=code`);
+  if (!check(await page.until("!!document.querySelector('.flj-code')", { timeout:20000 }), `${size}: the code entry`)) return;
+  await sleep(300);
+  await shot(page, size, "join-code");
+  await tapElement(page, ".flj-code-input");
+  await page.cdp("Input.insertText", { text:"bAr" });
+  await sleep(150);
+  check(await page.evaluate("document.querySelector('.flj-code-input').value") === "br", `${size}: a vowel is not a code letter`);
+  await page.cdp("Input.insertText", { text:"kt" });
+  check(await page.until("!!document.querySelector('.flj-edit')", { timeout:5000 }), `${size}: four letters open the rider`);
+  check(/[?&]room=brkt\b/.test(await page.evaluate("location.search")), `${size}: the code goes in the address`);
+  await sleep(300);
+  await shot(page, size, "join-new");
+  check(!(await enabled(page, ".flj-join")), `${size}: Join waits for "Drinking?"`);
+  await tapElement(page, ".flj-yesno button");
+  await sleep(150);
+  check(await enabled(page, ".flj-join"), `${size}: Join once answered`);
+  await tapElement(page, ".flj-swatch:nth-child(8)");
+  await tapElement(page, ".flj-look");
+  if (!check(await page.until("!!document.querySelector('.fll-locker')", { timeout:5000 }), `${size}: the Locker opens`)) return;
+  await sleep(700);
+  for (const tab of ["critter", "floatie", "hat", "shades", "pose"]) {
+    await tapElement(page, `.fll-tabs [data-tab="${tab}"]`);
+    await sleep(500);
+    await shot(page, size, `locker-${tab}`);
+  }
+  await tapElement(page, `.fll-tabs [data-tab="floatie"]`);
+  await sleep(300);
+  await tapElement(page, ".fll-floaties li:nth-child(5) button");
+  await sleep(120);
+  await shot(page, size, "locker-floatie-switch");
+  await tapElement(page, `.fll-tabs [data-tab="hat"]`);
+  check(!(await page.evaluate("[...document.querySelectorAll('.fll-chip')].some(b => /Crown/.test(b.textContent))")),
+    `${size}: no crown for a rider who is not the groom`);
+  await tapElement(page, ".flj-done");
+  await sleep(200);
+  await tapElement(page, ".flj-join");
+  check(await page.until("document.querySelector('.flc-root')?.dataset.screen === 'lobby'", { timeout:8000 }), `${size}: Join opens the lobby`);
+  await sleep(500);
+  await shot(page, size, "join-lobby");
+  const saved = await page.evaluate("JSON.parse(localStorage.getItem('float-rider') || 'null')");
+  check(saved?.name === "Brandon" && saved?.drinks === true && saved?.look?.floatie === "shark", `${size}: the rider is kept (${JSON.stringify(saved)})`);
+  await tapElement(page, ".flc-lobby .flc-pill");
+  if (check(await page.until("!!document.querySelector('.flc-locker-sheet .fll-locker')", { timeout:5000 }), `${size}: Change look opens the Locker`)) {
+    await sleep(600);
+    await shot(page, size, "lobby-locker");
+  }
+  /* the returning phone: one tap from the lobby */
+  await page.load(`${BASE}/float/play?mock=1`);
+  if (check(await page.until("!!document.querySelector('.flj-ready')", { timeout:20000 }), `${size}: a returning phone gets its rider`)) {
+    await sleep(500);
+    await shot(page, size, "join-returning");
+    await tapElement(page, ".flj-join");
+    check(await page.until("document.querySelector('.flc-root')?.dataset.screen === 'lobby'", { timeout:8000 }), `${size}: one tap to the lobby`);
+  }
+  /* the link drops: the pill reads the right way up, sideways too */
+  await page.evaluate(`window.__floatMock.go("race"); setTimeout(() => window.__floatMock.blip(4000), 600)`);
+  await sleep(1300);
+  await shot(page, size, "race-reconnecting");
+  await sleep(3500);
+}
+
 async function shots(page, size, w, h) {
   await page.load(`${BASE}/float/play?mock=1&at=lobby`);
   const ready = await page.until("!!window.__floatMock && !!document.querySelector('.flc-screen, .flc-race')", { timeout:20000 });
@@ -219,6 +293,7 @@ async function shots(page, size, w, h) {
   if (!ONLY || ONLY.has("race")) await paddleChecks(page, size);
   if (!ONLY || ONLY.has("race")) await drinkChecks(page, size);
   if (!ONLY || ONLY.has("beach")) await beachChecks(page, size);
+  if (!ONLY || ONLY.has("join")) await joinChecks(page, size);
   void w; void h;
 }
 

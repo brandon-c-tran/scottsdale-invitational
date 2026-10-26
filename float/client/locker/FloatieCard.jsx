@@ -1,23 +1,24 @@
 /* One floatie as a card (float/shared/floaties.js): its name, its twist,
    and its four stats as bars of five, so two cards compare at a glance.
-   Used by the Locker and the cut's swap picker. */
+   Used by the Locker and the cut's swap picker, inside a button, so it is
+   spans throughout (list roles for the stats). */
 import React from "react";
 import { STATS } from "../../shared/floaties.js";
 import "./locker.css";
 
 export function StatBars({ floatie, compact = false }) {
-  return <dl className={`fll-stats${compact ? " is-compact" : ""}`}>
-    {STATS.map(stat => <div key={stat.id} className="fll-stat">
-      <dt>{stat.name}</dt>
-      <dd aria-label={`${stat.name} ${floatie[stat.id]} of 5`}>
+  return <span className={`fll-stats${compact ? " is-compact" : ""}`} role="list">
+    {STATS.map(stat => <span key={stat.id} className="fll-stat" role="listitem" aria-label={`${stat.name} ${floatie[stat.id]} of 5`}>
+      <span className="fll-stat-name" aria-hidden="true">{stat.name}</span>
+      <span className="fll-stat-pips" aria-hidden="true">
         {[1, 2, 3, 4, 5].map(n => <i key={n} className={n <= floatie[stat.id] ? "is-on" : ""} />)}
-      </dd>
-    </div>)}
-  </dl>;
+      </span>
+    </span>)}
+  </span>;
 }
 
 export function FloatieGlyph({ id }) {
-  /* a tiny top-down ring per floatie: the art module draws the real ones */
+  /* a tiny top-down shape per floatie: the art module draws the real ones */
   const shapes = {
     classic:<circle cx="24" cy="24" r="15" />, donut:<circle cx="24" cy="24" r="15" />,
     unicorn:<path d="M24 8c9 0 16 7 16 16s-7 16-16 16S8 33 8 24 15 8 24 8zm6-4 4-3-1 6z" />,
@@ -28,7 +29,9 @@ export function FloatieGlyph({ id }) {
   };
   return <svg className={`fll-glyph is-${id}`} viewBox="0 0 48 48" aria-hidden="true" focusable="false">
     <g className="fll-glyph-ring">{shapes[id] || shapes.classic}</g>
+    {id === "donut" && <g className="fll-glyph-sprinkles"><path d="M17 15l2 1M29 13l-1 2M33 24l2 1M15 29l2-1M27 34l1 2" /></g>}
     {id !== "pizza" && id !== "lounge" && id !== "cooler" && <circle className="fll-glyph-hole" cx="24" cy="24" r="6.5" />}
+    {id === "pizza" && <g className="fll-glyph-dots"><circle cx="20" cy="27" r="2.4" /><circle cx="28" cy="31" r="2.4" /><circle cx="24" cy="19" r="2.2" /></g>}
   </svg>;
 }
 

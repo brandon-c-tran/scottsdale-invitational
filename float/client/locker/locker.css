@@ -1,0 +1,58 @@
+/* The Locker (LockerPicker.jsx) and the floatie card (FloatieCard.jsx).
+   Prefixed (fll-) and self-contained: it is embedded in Field Day's Profile
+   sheet, the standalone join and the controller, so it brings its own
+   control styles, never positions itself fixed, and keeps inputs at 16px. */
+
+.fll-root, .fll-floatie {
+  --fll-ink: #f7f0e1;
+  --fll-muted: #a4b8cb;
+  --fll-faint: rgba(247, 240, 225, 0.09);
+  --fll-line: rgba(247, 240, 225, 0.16);
+  --fll-teal: #3be3c6;
+  --fll-teal-ink: #032a24;
+  --fll-sun: #ffc94a;
+  --fll-ease: cubic-bezier(0.23, 1, 0.32, 1);
+  --fll-font: ui-rounded, "SF Pro Rounded", "Arial Rounded MT Bold", "Nunito", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+/* ── the floatie card ── */
+.fll-floatie {
+  display: grid;
+  gap: 8px;
+  width: 100%;
+  height: 100%;
+  padding: 12px;
+  border-radius: 18px;
+  background: var(--fll-faint);
+  box-shadow: inset 0 0 0 1.5px var(--fll-line);
+  color: var(--fll-ink);
+  font-family: var(--fll-font);
+  text-align: left;
+  transition: box-shadow 160ms var(--fll-ease), background-color 160ms;
+}
+.fll-floatie.is-selected {
+  background: color-mix(in srgb, var(--fll-c, var(--fll-teal)) 18%, rgba(247, 240, 225, 0.06));
+  box-shadow: inset 0 0 0 3px var(--fll-c, var(--fll-teal)), 0 8px 22px rgba(0, 0, 0, 0.3);
+}
+.fll-floatie-head { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.fll-floatie-name { font-size: 16px; font-weight: 900; letter-spacing: -0.01em; line-height: 1.1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fll-floatie-twist { font-size: 13px; font-weight: 700; line-height: 1.25; color: var(--fll-muted); }
+.fll-glyph { width: 30px; height: 30px; flex: none; }
+.fll-glyph-ring { fill: var(--fll-c, var(--fll-sun)); }
+.fll-glyph-hole { fill: #0b1a2a; }
+.fll-floatie.is-compact { gap: 6px; padding: 9px 10px; border-radius: 15px; }
+.fll-floatie.is-compact .fll-floatie-name { font-size: 13px; }
+.fll-floatie.is-compact .fll-glyph { width: 22px; height: 22px; }
+.fll-floatie.is-compact .fll-floatie-twist { display: none; }
+
+/* the four stats, five pips each */
+.fll-stats { display: grid; gap: 4px; margin: 0; }
+.fll-stat { display: grid; grid-template-columns: 4.2em 1fr; align-items: center; gap: 6px; }
+.fll-stat dt { font-size: 11px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: var(--fll-muted); }
+.fll-stat dd { display: grid; grid-template-columns: repeat(5, 1fr); gap: 3px; margin: 0; }
+.fll-stat dd i { height: 7px; border-radius: 3px; background: rgba(247, 240, 225, 0.12); }
+.fll-stat dd i.is-on { background: var(--fll-c, var(--fll-teal)); }
+.fll-stats.is-compact { gap: 3px; }
+.fll-stats.is-compact .fll-stat { grid-template-columns: 3.4em 1fr; gap: 4px; }
+.fll-stats.is-compact .fll-stat dt { font-size: 9px; }
+.fll-stats.is-compact .fll-stat dd i { height: 5px; border-radius: 2px; }

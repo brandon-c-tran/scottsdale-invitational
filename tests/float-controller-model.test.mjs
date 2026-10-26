@@ -9,6 +9,8 @@ import { BALLOON_MS, FLAG, IMMUNE_MS, beachDrank, beachState, beachTargets, coun
   roundShape, screenOf, swapEndsAt, swapView, withDrink } from "../float/client/controller/controllerModel.js";
 import { EMPTY, foldFrame } from "../float/client/controller/useRoom.js";
 import { MOCK_LEG_M, MOCK_SCENES, MOCK_TIMING, createMockRoom, mockFields } from "../float/client/controller/mockRoom.js";
+import { createRhythm, nextBeatAt } from "../float/client/controller/rhythm.js";
+import { BEAT_MS } from "../float/shared/beat.js";
 
 const entrants = n => Array.from({ length:n }, (_, i) => ({ device:`d${i}`, name:`R${i}`, color:"#ff5a4f", drinks:true }));
 
@@ -274,17 +276,23 @@ test("a whole Cup on the mock, read as the phone reads it: lobby to lobby", () =
   assert.equal(gun, p.state.room.startAt);
   assert.equal(countFor(gun, p.clock.now()), 3);
   assert.ok(p.until(() => p.view().screen === "race"));
-  /* paddle hard, alternating, three strokes a second, and drink halfway */
-  let side = "L", drank = false;
+  /* paddle on the beat, alternating, each stroke stamped as the phone stamps it, and drink halfway */
+  const raceGun = p.state.room.startAt;
+  p.clock.advance(nextBeatAt(p.clock.now(), raceGun) - p.clock.now());
+  let side = "L", drank = false, top = 0;
+  const beat = createRhythm();
   const raced = p.until(() => {
-    p.net.send({ t:"stroke", side, p:0.9 });
+    const j = beat.judge(p.clock.now(), raceGun);
+    p.net.send({ t:"stroke", side, p:0.9, k:j.k, d:j.d });
     side = side === "L" ? "R" : "L";
     const me = p.state.me;
+    top = Math.max(top, Number(me?.level) || 0);
     if (!drank && me && me.prog > MOCK_LEG_M / 2) { p.net.send({ t:"drink" }); drank = true; }
     return p.view().screen !== "race";
-  }, { step:330, max:120000 });
+  }, { step:BEAT_MS, max:120000 });
   assert.ok(raced, "the round ends");
   assert.ok(drank);
+  assert.equal(top, 3, "on the beat, Locked in");
   assert.deepEqual(p.state.memory.drinkRounds, [0]);
   const v = p.view();
   assert.equal(v.screen, "cut", "a fast paddler who drank goes through");
@@ -330,11 +338,38 @@ test("a whole Cup on the mock, read as the phone reads it: lobby to lobby", () =
   p.net.close();
 });
 
+test("the mock judges strokes on the beat as the room does, and its `me` says the streak, the level and the call", () => {
+  const p = phone();
+  p.clock.advance(300);
+  p.net.mock.go("race");
+  p.clock.advance(400);
+  const gun = p.state.room.startAt;
+  const beat = createRhythm();
+  const stroke = (side, at) => {
+    p.clock.advance(at - p.clock.now());
+    const j = beat.judge(at, gun);
+    p.net.send({ t:"stroke", side, p:0.8, k:j.k, d:j.d });
+  };
+  const k0 = Math.ceil((p.clock.now() - gun) / BEAT_MS) + 1;
+  for (let n = 0; n < 5; n++) stroke(n % 2 ? "R" : "L", gun + (k0 + n) * BEAT_MS);
+  p.clock.advance(300);
+  assert.deepEqual([p.state.me.streak, p.state.me.level, p.state.me.q], [5, 1, "perfect"]);
+  /* early, then right on time in the same beat: too fast, and the streak starts over */
+  stroke("L", gun + (k0 + 5) * BEAT_MS - 200);
+  stroke("R", gun + (k0 + 5) * BEAT_MS);
+  p.clock.advance(300);
+  assert.deepEqual([p.state.me.streak, p.state.me.q], [0, "fast"]);
+  p.net.mock.go("race-locked");
+  p.clock.advance(400);
+  assert.deepEqual([p.state.me.streak, p.state.me.level], [18, 3], "the Locked in scene");
+  p.net.close();
+});
+
 test("the mock holds every scene, and the phone lands on the screen each one is for", () => {
   const p = phone();
   p.clock.advance(300);
   const expect = { lobby:"lobby", "lobby-ready":"lobby", "lobby-fieldday":"lobby", intro:"intro", grid:"grid", countdown:"countdown",
-    race:"race", "race-tired":"race", "race-drank":"race", "race-flipped":"race", "race-arrived":"race", "race-done":"race",
+    race:"race", "race-locked":"race", "race-drank":"race", "race-flipped":"race", "race-arrived":"race", "race-done":"race",
     "race-final":"race", cut:"cut", "cut-final":"cut", "cut-last":"cut", outcut:"outcut", "beach-drink":"beach", beach:"beach",
     "beach-between":"beach", podium:"podium", "podium-win":"podium", "podium-out":"podium", feedback:"feedback", watch:"watch" };
   assert.deepEqual(Object.keys(expect).sort(), [...MOCK_SCENES].sort());

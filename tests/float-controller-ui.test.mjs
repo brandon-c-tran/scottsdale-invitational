@@ -124,6 +124,36 @@ test("the race strip: place of the field, through or out by how many, the drink,
   assert.doesNotMatch(race({ place:2, of:3, f:0, cut:null }), /Through|Out by/, "the final has no cut");
 });
 
+test("the beat on the race screen: practice says one line, the groove fills toward its level, Locked in lights", async () => {
+  const { createRhythm } = await import("../float/client/controller/rhythm.js");
+  const gun = 100000;
+  /* the grid: practice, the start, the one line, no drink yet */
+  const grid = race(null, { live:false, practice:true, drink:"locked", slot:4, beat:{ rhythm:createRhythm(), gun, serverNow:() => gun - 5000 } });
+  assert.match(grid, /Stroke on the beat/);
+  assert.match(grid, /start/);
+  assert.match(grid, /class="flc-beat"/, "the pulse");
+  assert.doesNotMatch(grid, /Finished my drink/);
+  assert.equal((grid.match(/flc-rim/g) || []).length, 2, "a rim on each paddle");
+  const counting = race(null, { live:false, practice:true, count:1, drink:"locked", slot:4, beat:{ rhythm:createRhythm(), gun, serverNow:() => gun - 900 } });
+  assert.match(counting, />1</);
+  assert.match(counting, /Stroke on the beat/);
+  assert.doesNotMatch(race(null, { live:false, practice:true, count:0, drink:"locked", slot:4 }), /Stroke on the beat/, "the line goes at the gun");
+  /* the race: no line; the groove from the phone's own count, then Locked in */
+  const rhythm = createRhythm();
+  for (let k = 1; k <= 6; k++) rhythm.judge(gun + k * 500, gun);
+  const six = race({ place:3, of:13, prog:80, len:160, f:0, cut:9 }, { beat:{ rhythm, gun, serverNow:() => gun + 3100 } });
+  assert.doesNotMatch(six, /Stroke on the beat/);
+  assert.match(six, /Streak 6, Rhythm/);
+  assert.match(six, /data-level="1"/);
+  assert.match(six, /scaleX\(1\).*scaleX\(0\.5\).*scaleX\(0\)/s, "Rhythm full, Groove half way");
+  for (let k = 7; k <= 16; k++) rhythm.judge(gun + k * 500, gun);
+  const locked = race({ place:1, of:13, prog:120, len:160, f:0, cut:9 }, { beat:{ rhythm, gun, serverNow:() => gun + 8100 } });
+  assert.match(locked, />Locked in</);
+  assert.match(locked, /data-level="3"/);
+  assert.match(locked, /flc-race[^"]*is-top/);
+  assert.doesNotMatch(race({ place:3, of:13, f:0, cut:9 }), /Stroke on the beat|Locked in/, "no beat yet: no line, no level");
+});
+
 test("the Locker: tabs, tiles, cards and chips; the crown only for the groom", () => {
   const look = { critter:"otter", floatie:"shark", hat:"crown", shades:"hearts", pose:"chug" };
   const critters = renderToStaticMarkup(h(parts.LockerPicker, { look, onChange:noop }));

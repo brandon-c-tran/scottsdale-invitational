@@ -44,15 +44,17 @@ export function strokePower(travel, ms, k = STROKE) {
   return round2(Math.min(1, Math.max(k.TAP_P, p)));
 }
 
-export function createStrokes({ onStroke = () => {}, k = STROKE } = {}) {
+export function createStrokes({ onStroke = () => {}, onPull = () => {}, k = STROKE } = {}) {
   const touches = new Map();
   const lastAt = { L:-Infinity, R:-Infinity };
 
+  /* a stroke carries when its thumb landed (t0) and when its pull began
+     (from): the beat judges one of those, not the moment the pull ended */
   const fire = (touch, kind, at, p) => {
     if (at - lastAt[touch.side] < k.FLOOR_MS) return null;
     lastAt[touch.side] = at;
     touch.strokes++;
-    const stroke = { id:touch.id, side:touch.side, p, kind, at };
+    const stroke = { id:touch.id, side:touch.side, p, kind, at, t0:touch.t0, from:touch.pullT };
     onStroke(stroke);
     return stroke;
   };
@@ -73,6 +75,7 @@ export function createStrokes({ onStroke = () => {}, k = STROKE } = {}) {
         touch.pulling = true;
         touch.pullT = Math.max(touch.lastT, t - k.FRAME_MS);
         touch.bottom = y; touch.bottomT = t;
+        onPull({ id:touch.id, side:touch.side, at:touch.pullT, t0:touch.t0, first:touch.strokes === 0 });
       }
     } else if (y > touch.bottom) { touch.bottom = y; touch.bottomT = t; }
     else if (touch.bottom - y >= k.REVERSE_PX) fired = endPull(touch, "reverse", t, y);

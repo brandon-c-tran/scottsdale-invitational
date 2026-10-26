@@ -1,16 +1,24 @@
-/* The race on the phone (float/PROTOCOL.md "The phone held sideways"): two
-   paddles filling the screen, and a strip you can read in a glance while
-   you watch the TV: you (your rider, your colour), your place, how far
-   along the leg, your stamina, through or out against the cut line. The
-   drink button sits between the paddles until the room says you drank; at
-   the takeout without it, the whole screen asks for it. The countdown is
-   this screen with the paddles warming up and the number over them. */
-import React, { useEffect, useRef, useState } from "react";
+/* The race on the phone (float/PROTOCOL.md "The phone held sideways", "The
+   beat"): two paddles filling the screen, and a strip you can read in a
+   glance while you watch the TV: you (your rider, your colour), your place,
+   how far along the leg, your groove (the streak of strokes on the beat,
+   filling toward the next level), through or out against the cut line.
+
+   The beat pulses between the paddles and on their rims, on the room's
+   clock; each stroke's call is stamped over the thumb (Paddles). Before the
+   gun (the grid and the countdown) the same screen is practice: the pulse
+   runs, taps are judged and shown but never sent, and the 3-2-1 lands in
+   the ring on the beat. The drink button sits between the paddles until the
+   room says you drank; at the takeout without it, the whole screen asks for
+   it. */
+import React, { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import Portrait from "../locker/Portrait.jsx";
 import TapButton from "./TapButton.jsx";
 import Paddles from "./Paddles.jsx";
 import { usePaddleInput } from "./usePaddleInput.js";
 import { ordinal } from "./controllerModel.js";
+import { meterOf, meterSteps } from "./rhythm.js";
+import { BEAT_MS, beatPhase } from "../../shared/beat.js";
 
 export function CupIcon({ done = false }) {
   return <svg className="flc-cup" viewBox="0 0 32 32" aria-hidden="true" focusable="false">
@@ -52,13 +60,66 @@ function useRise(flag, ms) {
   return at;
 }
 
-/* a balloon landed on you: water on the glass */
-const DROPS = [[14, 22, 38, 0], [31, 58, 26, 40], [52, 18, 46, 20], [70, 46, 30, 70], [86, 26, 22, 30], [44, 72, 34, 90],
-  [8, 64, 24, 60], [62, 80, 20, 110], [92, 70, 28, 50], [24, 40, 18, 120]];
-function Splat() {
-  return <div className="flc-splat" aria-hidden="true">
-    {DROPS.map(([x, y, s, d], k) => <i key={k} style={{ "--x":`${x}%`, "--y":`${y}%`, "--s":`${s}px`, "--d":`${d}ms` }} />)}
-  </div>;
+const reducedMotion = () => { try { return !!globalThis.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches; } catch { return false; } };
+
+/* The beat, drawn: the ring between the paddles swells and sends a ripple,
+   and both rims light, on every beat of the room's clock. One animation per
+   part, a beat long and looping, put on the beat from beatPhase and put
+   back every two seconds (and on coming back to the page), so the
+   compositor runs it and a busy frame never moves it. Reduced motion keeps
+   the beat as light alone. */
+const PULSE = Object.freeze({
+  core:[{ transform:"scale(1.14)", opacity:1, easing:"cubic-bezier(0.2, 0.7, 0.3, 1)" },
+    { transform:"scale(1)", opacity:0.5, offset:0.42 }, { transform:"scale(1)", opacity:0.5 }],
+  coreStill:[{ opacity:1, easing:"ease-out" }, { opacity:0.45, offset:0.42 }, { opacity:0.45 }],
+  wave:[{ transform:"scale(1)", opacity:0.7, easing:"cubic-bezier(0.2, 0.7, 0.3, 1)" },
+    { transform:"scale(1.8)", opacity:0, offset:0.72 }, { transform:"scale(1.8)", opacity:0 }],
+  rim:[{ opacity:1, easing:"cubic-bezier(0.3, 0.6, 0.4, 1)" }, { opacity:0.12, offset:0.5 }, { opacity:0.12 }],
+});
+/* a frame is on the glass about this long after it is drawn */
+const FRAME_LEAD_MS = 16;
+const ALIGN_MS = 2000;
+
+function useBeatPulse(rootRef, { gun, serverNow, on }) {
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!on || !root || !Number.isFinite(gun) || typeof serverNow !== "function") return undefined;
+    const still = reducedMotion();
+    const parts = [[root.querySelector(".flc-beat-core"), still ? PULSE.coreStill : PULSE.core],
+      [still ? null : root.querySelector(".flc-beat-wave"), PULSE.wave],
+      ...[...root.querySelectorAll(".flc-rim")].map(el => [el, PULSE.rim])]
+      .filter(([el]) => el && typeof el.animate === "function");
+    const runs = parts.map(([el, frames]) => el.animate(frames, { duration:BEAT_MS, iterations:Infinity }));
+    const align = () => {
+      const at = beatPhase(serverNow() + FRAME_LEAD_MS, gun) * BEAT_MS;
+      for (const run of runs) { try { run.currentTime = at; } catch {} }
+    };
+    align();
+    const id = setInterval(align, ALIGN_MS);
+    const back = () => { if (document.visibilityState === "visible") align(); };
+    document.addEventListener("visibilitychange", back);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener("visibilitychange", back);
+      for (const run of runs) { try { run.cancel(); } catch {} }
+    };
+  }, [rootRef, gun, serverNow, on]);
+}
+
+/* the groove the phone shows: its own call at once, the room's once it has caught up */
+function useGroove(beat) {
+  const rhythm = beat?.rhythm || null;
+  const noop = useRef(() => () => {}).current;
+  useSyncExternalStore(rhythm ? rhythm.subscribe : noop, rhythm ? rhythm.version : () => 0, () => 0);
+  const [, retick] = useState(0);
+  const now = beat?.serverNow?.() ?? Date.now();
+  const due = rhythm ? rhythm.dueAt(now, beat.gun) : null;
+  useEffect(() => {
+    if (due === null) return undefined;
+    const id = setTimeout(() => retick(n => n + 1), Math.max(0, due - now) + 4);
+    return () => clearTimeout(id);
+  }, [due]); // eslint-disable-line react-hooks/exhaustive-deps
+  return rhythm ? rhythm.meter(now, beat.gun) : meterOf(0);
 }
 
 /* the round closing: a bar that drains to the room's endsAt (the cap after
@@ -78,9 +139,24 @@ function Closing({ endsAt, now }) {
   return <div className="flc-closing" role="img" aria-label={`The round ends in ${Math.ceil(left / 1000)} seconds`}><i ref={bar} /></div>;
 }
 
-function Hud({ entrant, view, slot, counting, onFlip }) {
-  const low = view.stamina < 0.3;
-  const place = view.place || (counting ? slot : null);
+/* the streak toward the next level, in three steps, and the level's name
+   (which pops in when a level is reached, not when one is lost) */
+function Groove({ meter }) {
+  const steps = meterSteps(meter.streak);
+  const seen = useRef({ level:meter.level, up:false });
+  if (seen.current.level !== meter.level) seen.current = { level:meter.level, up:meter.level > seen.current.level };
+  return <div className={`flc-groove is-l${meter.level}`} role="img"
+    aria-label={`Streak ${meter.streak}${meter.name ? `, ${meter.name}` : ""}`}>
+    <div className="flc-groove-bar">
+      {steps.map(step => <i key={step.level} className={`is-s${step.level}${step.fill >= 1 ? " is-full" : ""}`}>
+        <b style={{ transform:`scaleX(${step.fill})` }} /></i>)}
+    </div>
+    <span className={`flc-groove-name${seen.current.up ? " is-up" : ""}`} key={meter.level}>{meter.name}</span>
+  </div>;
+}
+
+function Hud({ entrant, view, slot, before, meter, onFlip }) {
+  const place = view.place || (before ? slot : null);
   return <header className="flc-hud">
     <div className="flc-hud-me">
       <Portrait entrant={entrant} size={44} />
@@ -88,13 +164,10 @@ function Hud({ entrant, view, slot, counting, onFlip }) {
         <b>{ordinal(place)}</b>{view.place && view.of ? <span>of {view.of}</span> : <span>start</span>}
       </div> : <div className="flc-place is-blank" />}
     </div>
-    <div className="flc-hud-mid" aria-hidden="true">
-      <div className="flc-track"><i className="flc-track-fill" style={{ transform:`scaleX(${view.progress})` }} />
+    <div className="flc-hud-mid">
+      <div className="flc-track" aria-hidden="true"><i className="flc-track-fill" style={{ transform:`scaleX(${view.progress})` }} />
         <i className="flc-track-dot" style={{ left:`${view.progress * 100}%` }} /><i className="flc-track-flag" /></div>
-      <div className={`flc-stamina${low ? " is-low" : ""}`}>
-        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M9.5 1 3 9h4.5L6.5 15 13 7H8.5z" /></svg>
-        <div className="flc-stamina-bar"><i style={{ transform:`scaleX(${view.stamina})` }} /></div>
-      </div>
+      <Groove meter={meter} />
     </div>
     <div className="flc-hud-end">
       <CutChip cut={view.cut} />
@@ -113,25 +186,46 @@ function DrinkButton({ state, onDrink }) {
   </TapButton>;
 }
 
+/* a balloon landed on you: water on the glass */
+const DROPS = [[14, 22, 38, 0], [31, 58, 26, 40], [52, 18, 46, 20], [70, 46, 30, 70], [86, 26, 22, 30], [44, 72, 34, 90],
+  [8, 64, 24, 60], [62, 80, 20, 110], [92, 70, 28, 50], [24, 40, 18, 120]];
+function Splat() {
+  return <div className="flc-splat" aria-hidden="true">
+    {DROPS.map(([x, y, s, d], k) => <i key={k} style={{ "--x":`${x}%`, "--y":`${y}%`, "--s":`${s}px`, "--d":`${d}ms` }} />)}
+  </div>;
+}
+
+/* beat: { rhythm, gun, serverNow } (null: no beat yet); practice: before
+   the gun, nothing sent; judgeAt and onLand: the controller's call at a
+   touch (usePaddleInput) */
 export default function RaceScreen({ entrant, view, geomRef, live, count = null, slot = null, resume = false, drink, onDrink,
-  onStroke, onHands, onTouchEnd, onFlip, endsAt = null, now = null }) {
-  const rootRef = useRef(null), visualsRef = useRef(null);
-  usePaddleInput(rootRef, { geomRef, visualsRef, enabled:true, onStroke, onHands, onTouchEnd });
+  onStroke, onHands, onTouchEnd, onFlip, endsAt = null, now = null, practice = false, beat = null, visualsRef = null,
+  judgeAt = null, onLand = null }) {
+  const rootRef = useRef(null), ownVisuals = useRef(null);
+  const visuals = visualsRef || ownVisuals;
+  usePaddleInput(rootRef, { geomRef, visualsRef:visuals, enabled:true, onStroke, onHands, onTouchEnd, judgeAt, onLand });
   const counting = count !== null;
   const finishing = view.arrived && (drink === "idle" || drink === "sent");
   const finished = view.arrived && !finishing;
   const splat = useRise(view.splashed, 1100);
   const bumped = useRise(view.bump, 320);
-  return <section ref={rootRef} className={`flc-race${view.swim ? " is-swim" : ""}${live ? " is-live" : ""}${counting ? " is-count" : ""}${bumped ? " is-bumped" : ""}`}>
-    <Hud entrant={entrant} view={view} slot={slot} counting={counting} onFlip={onFlip} />
+  const meter = useGroove(beat);
+  const pulsing = !!beat && Number.isFinite(beat.gun) && !view.arrived;
+  useBeatPulse(rootRef, { gun:beat?.gun, serverNow:beat?.serverNow, on:pulsing });
+  const before = practice || counting;
+  const cls = ["flc-race", view.swim && "is-swim", live && "is-live", counting && "is-count", practice && "is-practice",
+    bumped && "is-bumped", meter.top && "is-top"].filter(Boolean).join(" ");
+  return <section ref={rootRef} className={cls} data-level={meter.level}>
+    <Hud entrant={entrant} view={view} slot={slot} before={before} meter={meter} onFlip={onFlip} />
     <div className="flc-arena">
-      <Paddles ref={visualsRef} />
-      {!view.arrived && !(counting && count > 0) && <DrinkButton state={drink} onDrink={onDrink} />}
+      <Paddles ref={visuals} />
+      <div className={`flc-beat${pulsing ? "" : " is-off"}`} aria-hidden="true"><i className="flc-beat-wave" /><i className="flc-beat-core" /></div>
+      {counting && <div className={`flc-count${resume ? " is-resume" : ""}`} aria-live="assertive"><b key={count}>{count || "Go"}</b></div>}
+      {practice && count !== 0 && <p className="flc-cue">Stroke on the beat</p>}
+      {!view.arrived && (!before || count === 0) && <DrinkButton state={drink} onDrink={onDrink} />}
       {view.swim && !view.arrived && <div className="flc-flipped" aria-live="polite"><b>You flipped</b></div>}
     </div>
     {splat && <Splat key={splat} />}
-    {counting && <div className={`flc-count${resume ? " is-resume" : ""}`} aria-live="assertive">
-      <b key={count}>{count || "Go"}</b></div>}
     {finishing && <div className="flc-finish" data-ui="">
       <Closing endsAt={endsAt} now={now} />
       <h2>Finish your drink</h2>

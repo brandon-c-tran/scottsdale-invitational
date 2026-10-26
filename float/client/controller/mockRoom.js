@@ -10,16 +10,21 @@
    It speaks what the room (float/worker/room.js) sends: the contract's
    fields plus cupId, swapUntil, cut, len, resume, final, history and each
    entrant's botDriven; live place-ordered results during a race; no `me`
-   for a rider on the beach; the Cup's phase lengths. Its river is a toy
-   (strokes add speed, one side six times running flips you): the engine
-   owns the real rules. `window.__floatMock` (with expose) carries what the
+   for a rider on the beach; the Cup's phase lengths. Strokes are judged on
+   the beat as the room judges them (sim.js judgeBeat: the phone's k and d,
+   lastBeat of any judgement, a missed beat a level), and `me` carries the
+   streak, level and q. Its river is a toy (strokes add speed by judgement
+   and level, one side six times running flips you): the engine owns the
+   real rules. `window.__floatMock` (with expose) carries what the
    controller sent and go(scene) for the headless check. */
 import { CRITTER_IDS, POSE_IDS } from "../../shared/looks.js";
 import { FLOATIE_IDS } from "../../shared/floaties.js";
 import { FLAG } from "../../shared/protocol.js";
+import { BEAT_MS, LEVEL_GAIN, QUALITY_GAIN, judge, levelFloor, levelOf } from "../../shared/beat.js";
+import { BEAT } from "../../shared/tuning.js";
 
 export const MOCK_SCENES = Object.freeze(["lobby", "lobby-ready", "lobby-fieldday", "intro", "grid", "countdown",
-  "race", "race-tired", "race-drank", "race-flipped", "race-arrived", "race-done", "race-final",
+  "race", "race-locked", "race-drank", "race-flipped", "race-arrived", "race-done", "race-final",
   "cut", "cut-final", "cut-last", "outcut", "beach-drink", "beach", "beach-between",
   "podium", "podium-win", "podium-out", "feedback", "watch"]);
 
@@ -28,11 +33,31 @@ export const MOCK_TIMING = Object.freeze({ INTRO_MS:8000, GRID_MS:4000, COUNTDOW
   CUT_LAST_MS:7000, PODIUM_MS:15000, FEEDBACK_MS:45000, CAP_MS:30000, HARD_CAP_MS:180000,
   BALLOON_MS:12000, FLIGHT_MS:1200, IMMUNE_MS:6000, SWIM_MS:2500 });
 export const MOCK_LEG_M = 160;
-/* the cadence bucket and stamina (the engine's tuning.js PADDLE): strokes
-   drain out at 3 a second; past 1.6 in the bucket a stroke weakens and
-   costs stamina, past 4.5 it is ignored; stamina comes back after a rest */
-const PADDLE = Object.freeze({ SUSTAIN:3, FREE:1.6, CAP:4.5, COST:0.0012, RUSH_COST:0.05, RECOVER:0.16, REST_S:0.6, FRESH:0.5,
-  TIRED:0.45, RUSH_FLOOR:0.2, GAIN:0.67, TOP:5.4 });
+/* the toy stroke: speed by power, judgement and level, a top speed the
+   level raises, and the engine's flood (tuning.js FLOOD: every stroke fills
+   it, 3 a second drain out, past 2.5 a stroke pushes nothing) */
+const PADDLE = Object.freeze({ GAIN:1, TOP:5.4, SUSTAIN:3, FLOOD:2.5 });
+
+/* the room's judgement of a stroke (sim.js judgeBeat), on a race clock of ms since the gun */
+export function mockJudge(r, msg, raceMs) {
+  const kNow = Math.round(raceMs / BEAT_MS);
+  let k = Number.isInteger(msg?.k) ? msg.k : null, d = Number.isFinite(msg?.d) ? Math.round(msg.d) : null;
+  if (k === null || d === null) { k = kNow; d = Math.round(raceMs - kNow * BEAT_MS); }
+  if (Math.abs(k - kNow) > BEAT.STALE || Math.abs(d) > BEAT_MS / 2)
+    return { k:kNow, d, q:k * BEAT_MS + d < raceMs ? "late" : "early", onBeat:false };
+  return { k, d, ...judge(k, d, { lastBeat:r.lastBeat }) };
+}
+/* beats up to `upTo` not yet looked at: one with no stroke after one with a stroke drops a level (sim.js settleMisses) */
+export function mockMisses(r, upTo) {
+  while (r.missK < upTo) {
+    r.missK += 1;
+    const k = r.missK;
+    if (k < 1 || r.beats.includes(k) || !r.beats.includes(k - 1)) continue;
+    r.level = Math.max(0, r.level - 1);
+    r.streak = levelFloor(r.level);
+  }
+  if (r.beats.length > 6) r.beats = r.beats.slice(-6);
+}
 const T = MOCK_TIMING;
 const LEGS = [["putin", "Put-in"], ["narrows", "The Narrows"], ["bend", "Whirlpool Bend"], ["drop", "The Drop"]]
   .map(([id, name], i) => ({ id, name, s0:i * MOCK_LEG_M, s1:(i + 1) * MOCK_LEG_M, grid:i * MOCK_LEG_M, finish:(i + 1) * MOCK_LEG_M }));
@@ -128,7 +153,8 @@ export function createMockRoom({ hello = null, scene = null, timers = globalThis
   /* ── the race ── */
   const raceT = () => sim ? Math.max(0, (now() - cup.startAt) / 1000) : 0;
   function startSim() {
-    sim = { racers:new Map(cup.field.map((i, slot) => [i, { i, prog:-slot * 1.2, v:0, stam:1, f:0, arriveAt:null, drinkAt:null,
+    sim = { racers:new Map(cup.field.map((i, slot) => [i, { i, prog:-slot * 1.2, v:0, f:0, arriveAt:null, drinkAt:null,
+      streak:0, level:0, q:null, lastBeat:null, beats:[], missK:-1, heat:0,
       swimUntil:0, hands:2, strokes:[], last:{ L:-1e9, R:-1e9 }, splashAt:-1e9, hitAt:-1e9,
       pace:2.7 + rand() * 0.95, drinkAtProg:rand() < 0.55 ? MOCK_LEG_M * (0.25 + rand() * 0.5) : null,
       drinkDelay:1.5 + rand() * 4.5 }])), firstFinish:null, at:now() };
@@ -171,8 +197,8 @@ export function createMockRoom({ hello = null, scene = null, timers = globalThis
       if (swimming) r.f |= FLAG.SWIM;
       if (r.i === ME) {
         r.v *= Math.exp(-0.5 * dt);
-        r.heat = Math.max(0, (r.heat || 0) - PADDLE.SUSTAIN * dt);
-        if (t - Math.max(r.last.L, r.last.R) > PADDLE.REST_S * 1000) r.stam = Math.min(1, r.stam + PADDLE.RECOVER * dt);
+        r.heat = Math.max(0, r.heat - PADDLE.SUSTAIN * dt);
+        mockMisses(r, Math.floor((t - cup.startAt - BEAT.MISS_GRACE_MS) / BEAT_MS));
         r.prog += ((swimming ? 0.8 : r.v) + 0.6) * dt;
       } else {
         r.prog += Math.max(0, r.pace + Math.sin(t / 900 + r.i) * 0.35 + (swimming ? -1.5 : 0)) * dt;
@@ -191,7 +217,7 @@ export function createMockRoom({ hello = null, scene = null, timers = globalThis
     const order = placeRiders();
     const mine = cup.entrants[ME]?.device === device ? sim.racers.get(ME) : null;
     if (mine) deliver({ t:"me", i:ME, place:order.indexOf(mine) + 1, of:order.length, prog:Math.round(Math.max(0, mine.prog) * 10) / 10,
-      len:MOCK_LEG_M, stam:Math.round(mine.stam * 100) / 100, f:mine.f, cut:cutOf() });
+      len:MOCK_LEG_M, stam:1, f:mine.f, cut:cutOf(), streak:mine.streak, level:mine.level, q:mine.q });
     if (sim.firstFinish !== null) {
       const ends = Math.min(cup.startAt + T.HARD_CAP_MS, Math.round(cup.startAt + sim.firstFinish * 1000 + T.CAP_MS));
       if (ends !== cup.endsAt) { cup.endsAt = ends; changed = true; }
@@ -333,18 +359,28 @@ export function createMockRoom({ hello = null, scene = null, timers = globalThis
         const side = msg.side === "R" ? "R" : msg.side === "L" ? "L" : null;
         const p = Math.max(0, Math.min(1, Number(msg.p) || 0));
         if (!side || !(p > 0.02)) return;
-        if ((r.heat || 0) + 1 > PADDLE.CAP) return;
-        r.heat = (r.heat || 0) + 1;
-        const rush = Math.max(0, r.heat - PADDLE.FREE);
-        const tired = r.stam >= PADDLE.FRESH ? 1 : PADDLE.TIRED + (1 - PADDLE.TIRED) * r.stam / PADDLE.FRESH;
+        /* the beat: judged as the room judges it; on it builds the streak, off it breaks it */
+        const verdict = mockJudge(r, msg, t - cup.startAt);
+        mockMisses(r, verdict.k - 1);
+        r.q = verdict.q;
+        r.lastBeat = r.lastBeat === null ? verdict.k : Math.max(r.lastBeat, verdict.k);
+        if (!r.beats.includes(verdict.k)) r.beats = [...r.beats.filter(k => k >= verdict.k - 4), verdict.k];
+        if (verdict.onBeat) {
+          r.streak += 1;
+          const level = levelOf(r.streak);
+          if (level > r.level) event("groove", ME, { level });
+          r.level = level;
+        } else { r.streak = 0; r.level = 0; }
+        const flooded = r.heat + 1 > PADDLE.FLOOD;
+        r.heat = Math.min(PADDLE.FLOOD + 1, r.heat + 1);
         /* one side twice running pushes less straight ahead (it turns you) */
         const lastSide = r.strokes[r.strokes.length - 1];
         const eff = lastSide && lastSide.side === side && t - lastSide.at < 900 ? 0.5 : 1;
         r.strokes.push({ side, at:t });
         if (r.strokes.length > 8) r.strokes.shift();
         r.last[side] = t;
-        r.v = Math.min(PADDLE.TOP, r.v + p * Math.max(PADDLE.RUSH_FLOOR, 1 - rush * 0.45) * tired * eff * PADDLE.GAIN);
-        r.stam = Math.max(0, r.stam - PADDLE.COST * p - PADDLE.RUSH_COST * rush);
+        const gain = LEVEL_GAIN[r.level] || 1;
+        if (!flooded) r.v = Math.min(PADDLE.TOP * gain, r.v + p * (QUALITY_GAIN[verdict.q] ?? 0.4) * gain * eff * PADDLE.GAIN);
         /* one side, six times running, spins you over */
         const recent = r.strokes.filter(s => t - s.at < 1600);
         if (recent.length >= 6 && recent.every(s => s.side === side)) {
@@ -408,7 +444,7 @@ export function createMockRoom({ hello = null, scene = null, timers = globalThis
       startSim();
       cup.field.forEach((i, k) => Object.assign(sim.racers.get(i), { prog:MOCK_LEG_M * (0.66 - k * 0.04), pace:0 }));
       const r = sim.racers.get(ME);
-      if (r) Object.assign(r, { prog:MOCK_LEG_M * 0.56, stam:0.72, pace:0 }, mine);
+      if (r) Object.assign(r, { prog:MOCK_LEG_M * 0.56, pace:0 }, mine);
       raceTimer = timers.setInterval(stepSim, 100);
     };
     const between = (phaseName, ms) => { cup.phase = phaseName; cup.startAt = now() - 2000; cup.endsAt = cup.startAt + ms; };
@@ -422,7 +458,7 @@ export function createMockRoom({ hello = null, scene = null, timers = globalThis
       case "countdown": raced([[2, 5, 1, ME]]); cup.round = 1; cup.results = [];
         cup.phase = "countdown"; cup.startAt = cup.endsAt = now() + 2600; break;
       case "race": cup.field = [...all]; race(0); break;
-      case "race-tired": cup.field = [...all]; race(0, { prog:MOCK_LEG_M * 0.31, stam:0.22 }); break;
+      case "race-locked": cup.field = [...all]; race(0, { prog:MOCK_LEG_M * 0.62, streak:18, level:3, q:"perfect" }); break;
       case "race-drank": cup.field = [...all]; race(0, { drinkAt:12.5, f:FLAG.DRANK }); break;
       case "race-flipped": cup.field = [...all]; race(0, { prog:MOCK_LEG_M * 0.5, swimUntil:now() + 3600000 }); break;
       case "race-arrived": cup.field = [...all]; race(0, { prog:MOCK_LEG_M, arriveAt:38, f:FLAG.ARRIVED });

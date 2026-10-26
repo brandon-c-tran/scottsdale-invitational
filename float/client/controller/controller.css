@@ -26,6 +26,10 @@
   --fl-gold: #ffd25a;
   --fl-silver: #d9e2ea;
   --fl-bronze: #e3a26b;
+  /* the groove's levels, as the TV draws them: cyan, amber, magenta for Locked in */
+  --fl-cyan: #5fdcf0;
+  --fl-amber: #ffa630;
+  --fl-magenta: #ff3fa4;
   --fl-ease: cubic-bezier(0.23, 1, 0.32, 1);
   --fl-font: ui-rounded, "SF Pro Rounded", "Arial Rounded MT Bold", "Nunito", system-ui, -apple-system, "Segoe UI", sans-serif;
   --me: #ff5a4f;
@@ -146,11 +150,29 @@
   border-radius: 2px;
   background: repeating-linear-gradient(180deg, var(--fl-ink) 0 4px, #111 4px 8px);
 }
-.flc-stamina { display: flex; align-items: center; gap: 6px; color: var(--fl-sun); }
-.flc-stamina svg { width: 15px; height: 15px; fill: currentColor; flex: none; }
-.flc-stamina-bar { flex: 1; height: 6px; border-radius: 99px; background: var(--fl-faint); overflow: hidden; max-width: 260px; }
-.flc-stamina-bar i { display: block; height: 100%; background: currentColor; border-radius: inherit; transform-origin: 0 50%; transition: transform 160ms linear; }
-.flc-stamina.is-low { color: var(--fl-coral); animation: flc-low 900ms ease-in-out infinite alternate; }
+/* the groove: three steps toward Rhythm, Groove and Locked in, the level's
+   name beside them; Locked in is one lit magenta bar */
+.flc-groove { display: flex; align-items: center; gap: 10px; min-width: 0; height: 18px; }
+.flc-groove-bar { flex: 1; max-width: 300px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; }
+.flc-groove-bar i { position: relative; height: 8px; border-radius: 99px; background: var(--fl-faint); overflow: hidden; }
+.flc-groove-bar b {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  transform-origin: 0 50%;
+  transition: transform 140ms var(--fl-ease), background-color 200ms;
+}
+.flc-groove-bar .is-s1 b { background: var(--fl-cyan); }
+.flc-groove-bar .is-s2 b { background: var(--fl-amber); }
+.flc-groove-bar .is-s3 b { background: var(--fl-magenta); }
+.flc-groove-name { min-width: 5.4em; font-size: 17px; font-weight: 900; line-height: 1; letter-spacing: -0.01em; white-space: nowrap; }
+.flc-groove-name.is-up { animation: flc-level 420ms cubic-bezier(0.34, 1.56, 0.64, 1); }
+.flc-groove.is-l1 .flc-groove-name { color: var(--fl-cyan); }
+.flc-groove.is-l2 .flc-groove-name { color: var(--fl-amber); }
+.flc-groove.is-l3 .flc-groove-name { color: #fff; text-shadow: 0 0 8px var(--fl-magenta), 0 0 20px var(--fl-magenta); }
+.flc-groove.is-l3 .flc-groove-bar b { background: var(--fl-magenta); }
+.flc-groove.is-l3 .flc-groove-bar i { box-shadow: 0 0 12px color-mix(in srgb, var(--fl-magenta) 75%, transparent); }
+@keyframes flc-level { from { transform: scale(1.5); opacity: 0; } to { transform: none; opacity: 1; } }
 @keyframes flc-low { from { opacity: 1; } to { opacity: 0.55; } }
 .flc-hud-end { display: flex; align-items: center; gap: 10px; flex: none; }
 /* through or out against the cut line */
@@ -298,9 +320,92 @@
 .flc-burst i:nth-child(4) { transform: translate(24px, -52px) scale(0.75); }
 .flc-burst i:nth-child(5) { transform: translate(46px, -32px); }
 .flc-burst i:nth-child(6) { transform: translate(8px, -36px) scale(0.6); }
-/* a rushed stroke (the cadence bucket is full): foam, not a splash */
-.flc-ripple.is-rushed { border-color: rgba(255, 170, 150, 0.7); border-style: dashed; }
-.flc-burst.is-rushed i { background: rgba(255, 190, 170, 0.85); width: 7px; height: 7px; margin: -3.5px; }
+/* a stroke off the beat: foam, not a splash */
+.flc-ripple.is-off { border-color: rgba(255, 170, 150, 0.7); border-style: dashed; }
+.flc-burst.is-off i { background: rgba(255, 190, 170, 0.85); width: 7px; height: 7px; margin: -3.5px; }
+
+/* the beat (RaceScreen's pulse), in the groove's colour: bone, then cyan,
+   amber and magenta by level */
+.flc-race { --beat: var(--fl-ink); }
+.flc-race[data-level="1"] { --beat: var(--fl-cyan); }
+.flc-race[data-level="2"] { --beat: var(--fl-amber); }
+.flc-race[data-level="3"] { --beat: var(--fl-magenta); }
+/* each paddle's rim lights on every beat */
+.flc-rim {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow: inset 0 0 0 3px color-mix(in srgb, var(--beat) 85%, transparent), inset 0 0 30px color-mix(in srgb, var(--beat) 34%, transparent);
+  opacity: 0.12;
+  will-change: opacity;
+}
+/* Locked in: both paddles glow between the beats too */
+.flc-race.is-top .flc-zone::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--fl-magenta) 50%, transparent), inset 0 0 44px color-mix(in srgb, var(--fl-magenta) 30%, transparent);
+}
+/* the ring between the paddles: it swells and sends a ripple on every beat */
+.flc-race { --beat-d: clamp(96px, 37cqh, 148px); }
+.flc-beat {
+  position: absolute;
+  left: 50%;
+  top: 44%;
+  z-index: 1;
+  width: var(--beat-d);
+  height: var(--beat-d);
+  margin: calc(var(--beat-d) / -2) 0 0 calc(var(--beat-d) / -2);
+  pointer-events: none;
+}
+.flc-beat.is-off { display: none; }
+.flc-beat-core, .flc-beat-wave { position: absolute; inset: 0; border-radius: 50%; transition: border-color 300ms; }
+.flc-beat-core {
+  border: 4px solid var(--beat);
+  background: radial-gradient(circle, color-mix(in srgb, var(--beat) 26%, transparent) 0%, color-mix(in srgb, var(--beat) 7%, transparent) 60%, transparent 71%);
+  box-shadow: 0 0 22px color-mix(in srgb, var(--beat) 42%, transparent), inset 0 0 16px color-mix(in srgb, var(--beat) 26%, transparent);
+  opacity: 0.5;
+  will-change: transform, opacity;
+}
+.flc-beat-wave { border: 3px solid var(--beat); opacity: 0; will-change: transform, opacity; }
+/* the beat's call over the thumb (Paddles judge): gold and biggest on it, white close, red off it */
+.flc-stamps { position: absolute; inset: 0; pointer-events: none; }
+.flc-mark { position: absolute; left: 0; top: 0; width: 0; height: 0; display: flex; align-items: center; justify-content: center; }
+.flc-mark b {
+  display: block;
+  white-space: nowrap;
+  font-size: 25px;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  color: #ff7a6b;
+  text-shadow: 0 2px 0 rgba(0, 0, 0, 0.4), 0 0 14px rgba(0, 0, 0, 0.5);
+  will-change: transform, opacity;
+}
+.flc-mark.is-gold b { font-size: 40px; color: var(--fl-gold); text-shadow: 0 2px 0 rgba(70, 36, 0, 0.55), 0 0 20px color-mix(in srgb, var(--fl-gold) 60%, transparent); }
+.flc-mark.is-white b { font-size: 31px; color: #fff; text-shadow: 0 2px 0 rgba(0, 0, 0, 0.4), 0 0 14px rgba(255, 255, 255, 0.3); }
+/* the one line of instruction, under the ring before the gun */
+.flc-cue {
+  position: absolute;
+  left: 50%;
+  top: calc(44% + var(--beat-d) / 2 + 12px);
+  z-index: 2;
+  margin: 0;
+  padding: 7px 15px 8px;
+  border-radius: 99px;
+  background: rgba(6, 16, 28, 0.7);
+  color: var(--fl-ink);
+  font-size: 18px;
+  font-weight: 900;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  pointer-events: none;
+  transform: translateX(-50%);
+}
 
 /* ── the drink ── */
 .flc-drink {
@@ -411,19 +516,29 @@
 .flc-drink.is-big span { max-width: none; }
 .flc-in b { font-size: clamp(72px, 34cqh, 150px); line-height: 0.9; font-weight: 900; letter-spacing: -0.04em; font-variant-numeric: tabular-nums; }
 
-/* ── the countdown ── */
-.flc-count { position: absolute; inset: 0; z-index: 4; display: grid; place-items: center; pointer-events: none; }
+/* ── the countdown: in the ring, each number on its beat; the paddles stay lit for practice ── */
+.flc-count {
+  position: absolute;
+  left: 50%;
+  top: 44%;
+  z-index: 4;
+  width: 0;
+  height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
 .flc-count b {
-  font-size: min(64cqh, 40cqw);
+  font-size: calc(var(--beat-d) * 0.64);
   line-height: 1;
   font-weight: 900;
   letter-spacing: -0.04em;
   color: var(--fl-ink);
-  text-shadow: 0 0 40px color-mix(in srgb, var(--me) 60%, transparent), 0 10px 0 rgba(0, 0, 0, 0.25);
-  animation: flc-count 700ms var(--fl-ease) both;
+  text-shadow: 0 0 30px color-mix(in srgb, var(--me) 60%, transparent), 0 6px 0 rgba(0, 0, 0, 0.25);
+  animation: flc-count 420ms var(--fl-ease) both;
 }
-@keyframes flc-count { from { transform: scale(1.5); opacity: 0; } 40% { opacity: 1; } to { transform: scale(1); opacity: 1; } }
-.flc-race.is-count .flc-zones { opacity: 0.6; }
+@keyframes flc-count { from { transform: scale(1.35); opacity: 0; } 40% { opacity: 1; } to { transform: scale(1); opacity: 1; } }
 
 /* ── the connection ── */
 .flc-link {

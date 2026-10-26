@@ -1,29 +1,14 @@
 /* The phone's paddles, pure (float/client/controller): strokes from
-   touches, the outbound stroke gate, the thumbs on the paddles with their
-   lift grace, and the sideways frame's geometry. */
+   touches (with when each landed and began, for the beat), the outbound
+   stroke gate, the thumbs on the paddles with their lift grace, and the
+   sideways frame's geometry. */
 import test from "node:test";
 import assert from "node:assert/strict";
 import { STROKE, createStrokeGate, createStrokes, strokePower } from "../float/client/controller/strokes.js";
 import { HANDS_GRACE_MS, createHands } from "../float/client/controller/hands.js";
 import { frameBox, frameTurn, insetEdges, insetVars, saveTurn, savedTurn, toContent, toViewport }
   from "../float/client/controller/turn.js";
-import { stampOf } from "../float/client/controller/usePaddleInput.js";
-import { RUSH_SLOPE, createCadence } from "../float/client/controller/cadence.js";
-import { PADDLE } from "../float/shared/tuning.js";
-
-test("cadence: a steady rhythm lands whole, rushing weakens strokes, a flood is ignored, a rest recovers", () => {
-  const steady = createCadence();
-  const lands = Array.from({ length:12 }, (_, k) => steady.stroke(k * 333));
-  assert.ok(lands.every(v => v === 1), `three a second lands whole: ${lands}`);
-  const rush = createCadence();
-  const fast = Array.from({ length:8 }, (_, k) => rush.stroke(k * 60));
-  assert.equal(fast[0], 1);
-  assert.ok(fast[2] < 1 && fast[2] >= PADDLE.RUSH_FLOOR, `the third quick stroke is rushed: ${fast[2]}`);
-  assert.ok(fast.includes(0), "past the cap the river ignores it");
-  assert.ok(fast.every(v => v === 0 || v >= PADDLE.RUSH_FLOOR));
-  assert.equal(rush.stroke(60 * 8 + 3000), 1, "after a rest the bucket has drained");
-  assert.equal(RUSH_SLOPE, 0.45);
-});
+import { PULL_GRACE, feltOf, stampOf } from "../float/client/controller/usePaddleInput.js";
 
 /* a thumb moving through points [y, t] (x fixed), lifting at the end unless hold */
 function drive(strokes, id, side, points, { x = 100, hold = false } = {}) {
@@ -214,6 +199,35 @@ test("an event's own time stamp times the pull; a stale or epoch one falls back 
   assert.equal(stampOf({ timeStamp:1700000000000 }, 1000), 1000);
   assert.equal(stampOf({}, 1000), 1000);
   assert.equal(stampOf({ timeStamp:1200 }, 1000), 1000, "never ahead of the clock");
+});
+
+test("the beat's moments: a stroke carries when its thumb landed and when its pull began, and each pull's start is told", () => {
+  const pulls = [];
+  const strokes = createStrokes({ onPull:pull => pulls.push(pull) });
+  /* lands at 1000, rests, then pulls: the stroke says both moments, the pull's start is told as it begins */
+  const [rested] = drive(strokes, 1, "L", [[100, 1000], [100, 1200], [100, 1400], [130, 1440], [170, 1480], [210, 1520]]);
+  assert.equal(rested.t0, 1000, "landed");
+  assert.equal(rested.from, 1424, "the pull began a frame before it was seen moving");
+  assert.deepEqual(pulls.map(p => [p.id, p.side, p.at, p.t0, p.first]), [[1, "L", 1424, 1000, true]]);
+  /* a tap: landed and began together */
+  const [tap] = drive(strokes, 2, "R", [[100, 3000], [101, 3060]]);
+  assert.equal(tap.kind, "tap");
+  assert.equal(tap.t0, 3000);
+  /* a thumb that scrubs without lifting: the second pull is not the landing's */
+  pulls.length = 0;
+  const scrub = drive(strokes, 3, "L", [[100, 5000], [140, 5040], [180, 5080], [165, 5100], [150, 5120], [190, 5160], [230, 5200]]);
+  assert.equal(scrub.length, 2);
+  assert.deepEqual(pulls.map(p => p.first), [true, false]);
+  assert.ok(scrub[1].from > scrub[0].from && scrub[1].t0 === 5000, JSON.stringify(scrub));
+});
+
+test("the beat's splash: a stroke's power as the river counts it (by its judgement), never a dribble", () => {
+  assert.equal(PULL_GRACE, 300, "a pull this soon after its landing is the landing's stroke");
+  assert.equal(feltOf(1, { q:"perfect" }), 1);
+  assert.equal(feltOf(1, { q:"good" }), 0.8);
+  assert.equal(feltOf(1, { q:"fast" }), 0.4);
+  assert.equal(feltOf(0.3, { q:"early" }), 0.12);
+  assert.equal(feltOf(0.6, null), 0.6, "no beat yet: the pull as it was");
 });
 
 test("turn: sideways screens in a portrait viewport turn a quarter; the rest never do", () => {

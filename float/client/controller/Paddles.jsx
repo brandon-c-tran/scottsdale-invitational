@@ -2,20 +2,34 @@
    colour. Drawing only: the input (usePaddleInput) drives these through the
    handle, straight on the DOM, so a thumb never waits for React.
 
-     down(side, point)       a thumb lands: the water lights under it
-     drag(side, point, pull) the blade follows the pull down, 1:1
-     stroke(side, p)         a stroke: the blade pulls through, the water
-                             rushes past and splashes, harder with p
-     up(side)                the thumb comes off: the blade swings back
-     next(side, urge)        the other paddle glints: alternate to go straight
+     down(side, point)        a thumb lands: the water lights under it
+     drag(side, point, pull)  the blade follows the pull down, 1:1
+     judge(side, point, q)    the beat's call, stamped over the thumb
+                              (Perfect gold and biggest, Good white, Early,
+                              Late and Too fast red and smaller); returns
+                              the stamp
+     restamp(stamp, q)        the call moved (a stroke that fired first took
+                              the beat): the same stamp, the new word
+     restampLast(q)           the room's word on the last call, while it shows
+     dropStamp(stamp)         the touch only rested: its call fades
+     stroke(side, p, off)     a stroke: the blade pulls through, the water
+                              rushes past and splashes, harder with p; off
+                              the beat it is foam
+     up(side)                 the thumb comes off: the blade swings back
+     next(side, urge)         the other paddle glints: alternate to go straight
 
+   Each paddle has a rim the beat lights (RaceScreen's pulse animates it).
    Everything that moves is a transform or an opacity, and nothing moves on
    its own: the water is still until you paddle, so a phone spends its
    frames on your thumbs. */
 import React, { forwardRef, memo, useImperativeHandle, useRef } from "react";
+import { stampOfQ } from "./rhythm.js";
 
 const SIDES = ["L", "R"];
 const LINE_PX = 48;
+/* the stamp sits this far over the thumb (content px), clear of it, inside the paddle */
+const STAMP_LIFT = 84, STAMP_HALF_W = 74, STAMP_HALF_H = 40;
+const STAMP_MS = 760;
 const reducedMotion = () => { try { return !!globalThis.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches; } catch { return false; } };
 const translateYOf = el => {
   try {
@@ -25,6 +39,36 @@ const translateYOf = el => {
     const n = v ? v[2].split(",").map(Number) : [];
     return (v?.[1] ? n[13] : n[5]) || 0;
   } catch { return 0; }
+};
+
+/* a stamp's word and weight */
+const paint = (el, q) => {
+  const look = stampOfQ(q);
+  el.className = `flc-mark is-${look.tone} is-${q}`;
+  el.firstChild.textContent = look.text;
+};
+/* the word pops in over the thumb, floats up a little and goes */
+const pop = (el, { again = false } = {}) => {
+  const word = el.firstChild;
+  if (!word || typeof word.animate !== "function") { el.remove(); return; }
+  word.getAnimations?.().forEach(a => a.cancel());
+  const still = reducedMotion();
+  const out = "cubic-bezier(0.2, 0.8, 0.3, 1)";
+  const frames = still
+    ? [{ opacity:0 }, { opacity:1, offset:0.08 }, { opacity:1, offset:0.75 }, { opacity:0 }]
+    : [{ transform:`translateY(6px) scale(${again ? 0.85 : 0.55})`, opacity:again ? 1 : 0, easing:out },
+      { transform:"translateY(0) scale(1.12)", opacity:1, offset:0.14, easing:"ease-out" },
+      { transform:"translateY(-4px) scale(1)", opacity:1, offset:0.28, easing:"linear" },
+      { transform:"translateY(-16px) scale(1)", opacity:1, offset:0.72, easing:"ease-in" },
+      { transform:"translateY(-26px) scale(0.96)", opacity:0 }];
+  const life = word.animate(frames, { duration:STAMP_MS, fill:"forwards" });
+  life.onfinish = () => el.remove();
+};
+const fade = (el, ms = 140) => {
+  if (!el?.isConnected || el.dataset.gone) return;
+  el.dataset.gone = "1";
+  if (typeof el.animate !== "function") { el.remove(); return; }
+  el.animate([{ opacity:1 }, { opacity:0 }], { duration:ms, fill:"forwards" }).onfinish = () => el.remove();
 };
 
 function PaddleArt({ side }) {
@@ -51,12 +95,15 @@ const Zone = forwardRef(function Zone({ side }, ref) {
       <div className="flc-paddle-pull"><div className="flc-paddle-tilt"><PaddleArt side={side} /><i className="flc-glint" /></div></div>
     </div>
     <div className="flc-splashes" aria-hidden="true" />
+    <i className="flc-rim" aria-hidden="true" />
+    <div className="flc-stamps" aria-hidden="true" />
   </div>;
 });
 
 function Paddles(_props, handle) {
   const zones = { L:useRef(null), R:useRef(null) };
   const nextTimer = useRef(null);
+  const lastStamp = useRef(null);
   const part = (side, selector) => zones[side].current?.querySelector(selector) || null;
 
   useImperativeHandle(handle, () => {
@@ -71,13 +118,13 @@ function Paddles(_props, handle) {
       const o = offsetIn(side);
       return { x:point.x - o.x, y:point.y - o.y, w:o.w, h:o.h };
     };
-    const splash = (side, p, at, rushed = false) => {
+    const splash = (side, p, at, off = false) => {
       const layer = part(side, ".flc-splashes");
       if (!layer || typeof layer.animate !== "function") return;
       const ring = document.createElement("span");
-      ring.className = `flc-ripple${rushed ? " is-rushed" : ""}`;
+      ring.className = `flc-ripple${off ? " is-off" : ""}`;
       const burst = document.createElement("span");
-      burst.className = `flc-burst${rushed ? " is-rushed" : ""}`;
+      burst.className = `flc-burst${off ? " is-off" : ""}`;
       for (let k = 0; k < 6; k++) burst.appendChild(document.createElement("i"));
       layer.append(ring, burst);
       const still = reducedMotion();
@@ -101,6 +148,11 @@ function Paddles(_props, handle) {
       lines.animate([{ transform:`translateY(${from}px)` }, { transform:`translateY(${to}px)` }],
         { duration:520 + 220 * p, easing:"cubic-bezier(0.16, 1, 0.3, 1)" });
     };
+    const restamp = (stamp, q) => {
+      if (!stamp?.isConnected || stamp.dataset.gone || !stamp.firstChild) return;
+      paint(stamp, q);
+      pop(stamp, { again:true });
+    };
     return {
       down(side, point) {
         const zone = zones[side].current, glow = part(side, ".flc-touch");
@@ -119,7 +171,29 @@ function Paddles(_props, handle) {
           blade.style.transform = `translateY(${Math.max(0, Math.min(h * 0.24, pull))}px)`;
         }
       },
-      stroke(side, p, rushed = false) {
+      judge(side, point, q) {
+        const zone = zones[side].current, layer = part(side, ".flc-stamps");
+        if (!zone || !layer) return null;
+        const w = zone.clientWidth, h = zone.clientHeight;
+        const at = point ? local(side, point) : { x:w / 2, y:h * 0.62 };
+        /* the newest call is the one to read */
+        for (const old of [...layer.children]) fade(old, 120);
+        const stamp = document.createElement("span");
+        stamp.appendChild(document.createElement("b"));
+        paint(stamp, q);
+        const x = Math.max(STAMP_HALF_W, Math.min(w - STAMP_HALF_W, at.x));
+        const over = at.y - STAMP_LIFT;
+        const y = Math.max(STAMP_HALF_H, Math.min(h - STAMP_HALF_H, over >= STAMP_HALF_H ? over : at.y + STAMP_LIFT));
+        stamp.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px)`;
+        layer.appendChild(stamp);
+        pop(stamp);
+        lastStamp.current = stamp;
+        return stamp;
+      },
+      restamp,
+      restampLast(q) { restamp(lastStamp.current, q); },
+      dropStamp(stamp) { fade(stamp); },
+      stroke(side, p, off = false) {
         const zone = zones[side].current, blade = part(side, ".flc-paddle-pull"), paddle = part(side, ".flc-paddle");
         if (!zone || !blade || !paddle) return;
         const o = offsetIn(side);
@@ -127,7 +201,7 @@ function Paddles(_props, handle) {
         const h = blade.offsetHeight, out = Math.sin(14 * Math.PI / 180) * 0.62 * h;
         const tip = { x:paddle.offsetLeft + blade.offsetLeft + blade.offsetWidth / 2 + (side === "L" ? -out : out),
           y:paddle.offsetTop + blade.offsetTop + h * 0.92 };
-        splash(side, p, { x:tip.x, y:Math.min(o.h - 20, tip.y + o.h * (0.04 + 0.08 * p)) }, rushed);
+        splash(side, p, { x:tip.x, y:Math.min(o.h - 20, tip.y + o.h * (0.04 + 0.08 * p)) }, off);
         rush(side, p);
         zone.classList.remove("is-surge");
         void zone.offsetWidth;

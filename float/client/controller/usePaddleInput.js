@@ -1,4 +1,5 @@
-/* Touches into strokes and hands (float/PROTOCOL.md: stroke, hands).
+/* Touches into strokes, hands and the beat (float/PROTOCOL.md: stroke,
+   hands, "The beat").
 
    Native listeners, not React's: React listens to touches passively, and
    only a listener that may cancel can stop iOS scrolling, zooming,
@@ -7,23 +8,34 @@
    right half right, and a thumb keeps its side wherever it slides. Anything
    marked data-ui (a button, an overlay) keeps its own touches.
 
-   Each stroke, inside the handler that saw it: onStroke (the controller
-   sends it, then plays its sound), the blade, then the haptic: tapTick on
-   iPhone when the handler is a touch's start or end (the only places iOS
-   lets the tick sound; a stroke found mid-move or by a stall ticks when its
-   thumb lifts), and Android's vibration. Hands (hands.js) rise at once and
-   drop after the grace, and are always checked against the touches the
-   browser says are down, so a lost touchend cannot strand them. The page
-   going away (hidden, blurred, closed) drops everything at once. */
+   The beat: a stroke is judged at the moment the thumb lands (judgeAt, the
+   controller's peek on the room's clock), and the call is stamped near the
+   thumb at once with a haptic tick (iOS ticks only in a touch's start or
+   end, and a landing is a start). A pull that begins later than PULL_GRACE
+   after its thumb landed (a resting thumb that swipes, or a thumb scrubbing
+   down again) is judged when it begins; its tick waits for the thumb to
+   lift. A thumb that only rests is shown and then faded: it is never sent.
+   When the pull ends the stroke fires: onStroke commits the call (the
+   controller sends it with the pull's power) and returns the final word,
+   which restamps the thumb if a stroke that fired first took the beat.
+
+   Hands (hands.js) rise at once and drop after the grace, and are always
+   checked against the touches the browser says are down, so a lost
+   touchend cannot strand them. The page going away (hidden, blurred,
+   closed) drops everything at once. */
 import { useEffect, useRef } from "react";
 import { haptic, tapTick } from "../../../src/lib/haptics.js";
-import { createCadence } from "./cadence.js";
+import { QUALITY_GAIN } from "../../shared/beat.js";
 import { createHands } from "./hands.js";
-import { createStrokes } from "./strokes.js";
+import { STROKE, createStrokes } from "./strokes.js";
 import { toContent } from "./turn.js";
 
 const KEYS = { ArrowLeft:"L", KeyA:"L", ArrowRight:"R", KeyD:"R" };
 const clock = () => (globalThis.performance?.now?.() ?? Date.now());
+/* a pull that begins this soon after its thumb landed is the landing's stroke */
+export const PULL_GRACE = 300;
+const HAPTIC_OF = { perfect:"settle", good:"place" };
+
 /* when the finger moved, not when the handler ran: a busy frame delivers
    touches late, and a pull's speed must not read the delay. An old
    browser's epoch timeStamp falls back to the clock. */
@@ -32,18 +44,26 @@ export const stampOf = (event, now = clock()) => {
   return Number.isFinite(ts) && ts > 0 && Math.abs(now - ts) < 1000 ? Math.min(ts, now) : now;
 };
 
-export function usePaddleInput(rootRef, { geomRef, visualsRef, enabled = true, onStroke, onHands, onTouchEnd }) {
+/* the splash a stroke makes: its power as the river will count it */
+export const feltOf = (p, final) => {
+  const gain = final ? (QUALITY_GAIN[final.q] ?? 0.4) : 1;
+  return Math.round(Math.max(0.12, p * gain) * 100) / 100;
+};
+
+export function usePaddleInput(rootRef, { geomRef, visualsRef, enabled = true, onStroke, onHands, onTouchEnd, judgeAt, onLand }) {
   const opts = useRef({});
-  opts.current = { enabled, onStroke, onHands, onTouchEnd };
+  opts.current = { enabled, onStroke, onHands, onTouchEnd, judgeAt, onLand };
 
   useEffect(() => {
     const root = rootRef.current;
     if (!root) return undefined;
-    const strokes = createStrokes();
     const hands = createHands();
-    const cadence = createCadence();
     const tracked = new Set();
     const owesTick = new Set();
+    /* the call each touch's current pull carries: { j, stamp, at } */
+    const calls = new Map();
+    const restTimers = new Map();
+    const lastPoint = new Map();
     const run = { side:null, n:0 };
     let stallTimer = null, handsTimer = null, mouse = null;
     const visuals = () => visualsRef.current;
@@ -54,6 +74,37 @@ export function usePaddleInput(rootRef, { geomRef, visualsRef, enabled = true, o
       return toContent(t.clientX - rect.left, t.clientY - rect.top, g, g.turn || 0);
     };
     const sideAt = p => p.x < (geomRef.current?.cw || 0) / 2 ? "L" : "R";
+
+    /* the beat's call at a moment (performance clock): stamped, felt and heard */
+    const call = (id, side, at, gesture) => {
+      const j = opts.current.judgeAt?.(at) || null;
+      if (!j) return null;
+      const stamp = visuals()?.judge(side, lastPoint.get(id), j.q) || null;
+      if (gesture) tapTick(); else owesTick.add(id);
+      haptic(HAPTIC_OF[j.q] || "retract");
+      opts.current.onLand?.(side, j);
+      calls.set(id, { j, stamp, at });
+      return j;
+    };
+    /* a thumb that lands and stays still is resting, not stroking: its stamp fades */
+    const restLater = id => {
+      clearTimeout(restTimers.get(id));
+      restTimers.set(id, setTimeout(() => {
+        restTimers.delete(id);
+        const held = calls.get(id);
+        if (held && strokes.sideOf(id) && !strokes.pullOf(id)) { visuals()?.dropStamp(held.stamp); held.stamp = null; held.rest = true; }
+      }, STROKE.TAP_MS + 30));
+    };
+
+    const strokes = createStrokes({
+      onPull:pull => {
+        clearTimeout(restTimers.get(pull.id));
+        const held = calls.get(pull.id);
+        /* the landing's own pull keeps the landing's call */
+        if (pull.first && held && !held.rest && pull.at - pull.t0 <= PULL_GRACE) return;
+        call(pull.id, pull.side, pull.at, false);
+      },
+    });
 
     /* hands: a rise reports now, a drop when its grace runs out */
     const reportHands = () => {
@@ -68,6 +119,7 @@ export function usePaddleInput(rootRef, { geomRef, visualsRef, enabled = true, o
     const land = (id, p, at) => {
       const side = strokes.down(id, sideAt(p), p.x, p.y, at);
       tracked.add(id);
+      lastPoint.set(id, p);
       hands.down(id, side, at);
       visuals()?.down(side, p);
       return side;
@@ -75,6 +127,13 @@ export function usePaddleInput(rootRef, { geomRef, visualsRef, enabled = true, o
     const lift = (id, side) => {
       tracked.delete(id);
       owesTick.delete(id);
+      lastPoint.delete(id);
+      /* a call that never became a stroke (a press that lifted late, a sideways slide): nothing was sent, so it goes */
+      const held = calls.get(id);
+      if (held?.stamp) visuals()?.dropStamp(held.stamp);
+      calls.delete(id);
+      clearTimeout(restTimers.get(id));
+      restTimers.delete(id);
       hands.up(id, clock());
       if (side && !strokes.sides().has(side)) visuals()?.up(side);
     };
@@ -90,16 +149,19 @@ export function usePaddleInput(rootRef, { geomRef, visualsRef, enabled = true, o
       }
     };
 
-    /* felt: the pull's power as the river will count it (cadence.js), for
-       the splash and the dip; the room is sent the pull's own power */
+    /* a stroke fired: the controller commits its call and sends it; the
+       splash is its power as counted, the stamp corrected if the call moved
+       (a stroke that fired first took the beat, or the stroke was held back) */
     const handle = (stroke, gesture) => {
       if (!stroke) return;
-      const lands = cadence.stroke(stroke.at);
-      const felt = Math.round(stroke.p * Math.max(0.15, lands) * 100) / 100;
-      opts.current.onStroke?.({ ...stroke, felt, rushed:lands < 0.75 });
-      visuals()?.stroke(stroke.side, felt, lands < 0.75);
-      if (gesture) tapTick(); else owesTick.add(stroke.id);
-      haptic(stroke.p >= 0.8 ? "settle" : stroke.kind === "tap" ? "retract" : "place");
+      const held = calls.get(stroke.id);
+      calls.delete(stroke.id);
+      const final = opts.current.onStroke?.({ ...stroke, j:held?.j || null }) || null;
+      const felt = feltOf(stroke.p, final);
+      if (held?.stamp && final && final.q !== held.j.q) visuals()?.restamp(held.stamp, final.q);
+      visuals()?.stroke(stroke.side, felt, !!final && !final.onBeat);
+      /* without a beat (no gun yet) the stroke itself ticks, as before */
+      if (!held) { if (gesture) tapTick(); else owesTick.add(stroke.id); haptic(stroke.p >= 0.8 ? "settle" : "place"); }
       run.n = run.side === stroke.side ? run.n + 1 : 1;
       run.side = stroke.side;
       visuals()?.next(stroke.side === "L" ? "R" : "L", run.n >= 3);
@@ -121,7 +183,8 @@ export function usePaddleInput(rootRef, { geomRef, visualsRef, enabled = true, o
       let mine = false;
       for (const t of event.changedTouches) {
         if (t.target?.closest?.("[data-ui]")) continue;
-        land(t.identifier, point(t), at);
+        const side = land(t.identifier, point(t), at);
+        if (call(t.identifier, side, at, true)) restLater(t.identifier);
         mine = true;
       }
       if (!mine) return;
@@ -136,6 +199,7 @@ export function usePaddleInput(rootRef, { geomRef, visualsRef, enabled = true, o
         if (!side) continue;
         mine = true;
         const p = point(t);
+        lastPoint.set(t.identifier, p);
         const stroke = strokes.move(t.identifier, p.x, p.y, at);
         if (stroke) handle(stroke, false);
         visuals()?.drag(side, p, strokes.pullOf(t.identifier));
@@ -152,9 +216,10 @@ export function usePaddleInput(rootRef, { geomRef, visualsRef, enabled = true, o
         if (!side) continue;
         mine = true;
         const p = point(t);
+        lastPoint.set(t.identifier, p);
         const stroke = strokes.up(t.identifier, p.x, p.y, at);
         if (stroke) handle(stroke, true);
-        else if (owesTick.has(t.identifier)) tapTick();
+        if (owesTick.has(t.identifier)) tapTick();
         lift(t.identifier, side);
       }
       reconcile(event.touches);
@@ -181,13 +246,16 @@ export function usePaddleInput(rootRef, { geomRef, visualsRef, enabled = true, o
       if (event.pointerType !== "mouse" || event.button !== 0 || !opts.current.enabled || mouse !== null) return;
       if (event.target?.closest?.("[data-ui]")) return;
       mouse = event.pointerId;
-      land("mouse", point(event), stampOf(event));
+      const at = stampOf(event);
+      const side = land("mouse", point(event), at);
+      if (call("mouse", side, at, true)) restLater("mouse");
       try { root.setPointerCapture?.(event.pointerId); } catch {}
       reportHands();
     };
     const onPointerMove = event => {
       if (event.pointerId !== mouse) return;
       const p = point(event), side = strokes.sideOf("mouse");
+      lastPoint.set("mouse", p);
       const stroke = strokes.move("mouse", p.x, p.y, stampOf(event));
       if (stroke) handle(stroke, false);
       visuals()?.drag(side, p, strokes.pullOf("mouse"));
@@ -204,20 +272,27 @@ export function usePaddleInput(rootRef, { geomRef, visualsRef, enabled = true, o
       reportHands();
       schedule();
     };
-    /* and keys: A or the left arrow, D or the right */
+    /* and keys: A or the left arrow, D or the right (judged as they are pressed) */
     const onKey = event => {
       const side = KEYS[event.code];
       if (!side || event.repeat || !opts.current.enabled || event.target?.closest?.("input, textarea, select")) return;
       event.preventDefault();
-      handle({ id:"key", side, p:0.7, kind:"key", at:clock() }, true);
+      const at = stampOf(event);
+      const cw = geomRef.current?.cw || 0, ch = geomRef.current?.ch || 0;
+      lastPoint.set("key", { x:side === "L" ? cw * 0.25 : cw * 0.75, y:ch * 0.55 });
+      call("key", side, at, true);
+      handle({ id:"key", side, p:0.7, kind:"key", at, t0:at, from:at }, true);
     };
     /* the page went away mid-touch: nothing is held any more, at once */
     const reset = () => {
       strokes.clear();
       hands.clear();
-      cadence.clear();
       tracked.clear();
       owesTick.clear();
+      calls.clear();
+      lastPoint.clear();
+      for (const timer of restTimers.values()) clearTimeout(timer);
+      restTimers.clear();
       mouse = null;
       clearTimeout(stallTimer);
       visuals()?.clear();
@@ -241,6 +316,7 @@ export function usePaddleInput(rootRef, { geomRef, visualsRef, enabled = true, o
     return () => {
       clearTimeout(stallTimer);
       clearTimeout(handsTimer);
+      for (const timer of restTimers.values()) clearTimeout(timer);
       root.removeEventListener("touchstart", onStart, active);
       root.removeEventListener("touchmove", onMove, active);
       root.removeEventListener("touchend", onEnd, active);

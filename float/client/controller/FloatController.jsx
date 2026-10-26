@@ -47,10 +47,10 @@ function useGameSurface() {
     const wake = createWakeLock();
     lock.current = wake;
     wake.start();
-    const html = document.documentElement, body = document.body;
-    const saved = [html.style.overflow, body.style.overflow, html.style.overscrollBehavior, body.style.overscrollBehavior];
-    html.style.overflow = body.style.overflow = "hidden";
-    html.style.overscrollBehavior = body.style.overscrollBehavior = "none";
+    /* a class, not inline styles: a host that locks the page itself (Field
+       Day's sheet) unlocks in its own order, and nothing is left stuck */
+    const html = document.documentElement;
+    html.classList.add("flc-locked");
     const stop = event => { if (event.cancelable) event.preventDefault(); };
     const opts = { passive:false };
     document.addEventListener("gesturestart", stop, opts);
@@ -58,7 +58,7 @@ function useGameSurface() {
     document.addEventListener("dblclick", stop, opts);
     return () => {
       wake.release();
-      [html.style.overflow, body.style.overflow, html.style.overscrollBehavior, body.style.overscrollBehavior] = saved;
+      html.classList.remove("flc-locked");
       document.removeEventListener("gesturestart", stop, opts);
       document.removeEventListener("gesturechange", stop, opts);
       document.removeEventListener("dblclick", stop, opts);
@@ -163,7 +163,7 @@ export default function FloatController({ room = "test", rider = null, onExit = 
     const state = liveRef.current;
     const going = state.live || (state.screen === "countdown" && Number.isFinite(state.gun) && net?.serverNow() >= state.gun);
     if (going && gate.allow(stroke.at)) net?.send({ t:"stroke", side:stroke.side, p:stroke.p });
-    taps.stroke(stroke.side, stroke.p);
+    taps.stroke(stroke.side, stroke.felt ?? stroke.p);
   }, [net, taps, gate]);
   const onHands = useCallback(n => {
     intents.current.hands = n;

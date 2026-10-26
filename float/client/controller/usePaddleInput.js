@@ -17,6 +17,7 @@
    going away (hidden, blurred, closed) drops everything at once. */
 import { useEffect, useRef } from "react";
 import { haptic, tapTick } from "../../../src/lib/haptics.js";
+import { createCadence } from "./cadence.js";
 import { createHands } from "./hands.js";
 import { createStrokes } from "./strokes.js";
 import { toContent } from "./turn.js";
@@ -40,6 +41,7 @@ export function usePaddleInput(rootRef, { geomRef, visualsRef, enabled = true, o
     if (!root) return undefined;
     const strokes = createStrokes();
     const hands = createHands();
+    const cadence = createCadence();
     const tracked = new Set();
     const owesTick = new Set();
     const run = { side:null, n:0 };
@@ -88,10 +90,14 @@ export function usePaddleInput(rootRef, { geomRef, visualsRef, enabled = true, o
       }
     };
 
+    /* felt: the pull's power as the river will count it (cadence.js), for
+       the splash and the dip; the room is sent the pull's own power */
     const handle = (stroke, gesture) => {
       if (!stroke) return;
-      opts.current.onStroke?.(stroke);
-      visuals()?.stroke(stroke.side, stroke.p);
+      const lands = cadence.stroke(stroke.at);
+      const felt = Math.round(stroke.p * Math.max(0.15, lands) * 100) / 100;
+      opts.current.onStroke?.({ ...stroke, felt, rushed:lands < 0.75 });
+      visuals()?.stroke(stroke.side, felt, lands < 0.75);
       if (gesture) tapTick(); else owesTick.add(stroke.id);
       haptic(stroke.p >= 0.8 ? "settle" : stroke.kind === "tap" ? "retract" : "place");
       run.n = run.side === stroke.side ? run.n + 1 : 1;
@@ -209,6 +215,7 @@ export function usePaddleInput(rootRef, { geomRef, visualsRef, enabled = true, o
     const reset = () => {
       strokes.clear();
       hands.clear();
+      cadence.clear();
       tracked.clear();
       owesTick.clear();
       mouse = null;

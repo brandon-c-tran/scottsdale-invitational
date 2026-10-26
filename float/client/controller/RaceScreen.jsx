@@ -5,7 +5,7 @@
    drink button sits between the paddles until the room says you drank; at
    the takeout without it, the whole screen asks for it. The countdown is
    this screen with the paddles warming up and the number over them. */
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Portrait from "../locker/Portrait.jsx";
 import TapButton from "./TapButton.jsx";
 import Paddles from "./Paddles.jsx";
@@ -34,6 +34,31 @@ export function FlipButton({ onFlip }) {
 export function CutChip({ cut, big = false }) {
   if (!cut) return null;
   return <span className={`flc-cutchip ${cut.through ? "is-through" : "is-out"}${big ? " is-big" : ""}`}>{cut.label}</span>;
+}
+
+/* a flag from the room rising (false to true): a key for `ms`, then null */
+function useRise(flag, ms) {
+  const [at, setAt] = useState(null);
+  const was = useRef(false);
+  useEffect(() => {
+    if (flag && !was.current) setAt(Date.now());
+    was.current = !!flag;
+  }, [flag]);
+  useEffect(() => {
+    if (at === null) return undefined;
+    const id = setTimeout(() => setAt(null), ms);
+    return () => clearTimeout(id);
+  }, [at, ms]);
+  return at;
+}
+
+/* a balloon landed on you: water on the glass */
+const DROPS = [[14, 22, 38, 0], [31, 58, 26, 40], [52, 18, 46, 20], [70, 46, 30, 70], [86, 26, 22, 30], [44, 72, 34, 90],
+  [8, 64, 24, 60], [62, 80, 20, 110], [92, 70, 28, 50], [24, 40, 18, 120]];
+function Splat() {
+  return <div className="flc-splat" aria-hidden="true">
+    {DROPS.map(([x, y, s, d], k) => <i key={k} style={{ "--x":`${x}%`, "--y":`${y}%`, "--s":`${s}px`, "--d":`${d}ms` }} />)}
+  </div>;
 }
 
 /* the round closing: a bar that drains to the room's endsAt (the cap after
@@ -95,13 +120,16 @@ export default function RaceScreen({ entrant, view, geomRef, live, count = null,
   const counting = count !== null;
   const finishing = view.arrived && (drink === "idle" || drink === "sent");
   const finished = view.arrived && !finishing;
-  return <section ref={rootRef} className={`flc-race${view.swim ? " is-swim" : ""}${live ? " is-live" : ""}${counting ? " is-count" : ""}`}>
+  const splat = useRise(view.splashed, 1100);
+  const bumped = useRise(view.bump, 320);
+  return <section ref={rootRef} className={`flc-race${view.swim ? " is-swim" : ""}${live ? " is-live" : ""}${counting ? " is-count" : ""}${bumped ? " is-bumped" : ""}`}>
     <Hud entrant={entrant} view={view} slot={slot} counting={counting} onFlip={onFlip} />
     <div className="flc-arena">
       <Paddles ref={visualsRef} />
       {!view.arrived && !(counting && count > 0) && <DrinkButton state={drink} onDrink={onDrink} />}
       {view.swim && !view.arrived && <div className="flc-flipped" aria-live="polite"><b>You flipped</b></div>}
     </div>
+    {splat && <Splat key={splat} />}
     {counting && <div className={`flc-count${resume ? " is-resume" : ""}`} aria-live="assertive">
       <b key={count}>{count || "Go"}</b></div>}
     {finishing && <div className="flc-finish" data-ui="">

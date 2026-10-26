@@ -298,6 +298,9 @@
 .flc-burst i:nth-child(4) { transform: translate(24px, -52px) scale(0.75); }
 .flc-burst i:nth-child(5) { transform: translate(46px, -32px); }
 .flc-burst i:nth-child(6) { transform: translate(8px, -36px) scale(0.6); }
+/* a rushed stroke (the cadence bucket is full): foam, not a splash */
+.flc-ripple.is-rushed { border-color: rgba(255, 170, 150, 0.7); border-style: dashed; }
+.flc-burst.is-rushed i { background: rgba(255, 190, 170, 0.85); width: 7px; height: 7px; margin: -3.5px; }
 
 /* ── the drink ── */
 .flc-drink {
@@ -444,6 +447,41 @@
 }
 .flc-link i { width: 8px; height: 8px; border-radius: 50%; background: currentColor; animation: flc-low 700ms ease-in-out infinite alternate; }
 
+
+/* the page under the controller holds still (FloatController's useGameSurface
+   adds the class): no scroll, no rubber band, no pull to refresh */
+html.flc-locked, html.flc-locked body { overflow: hidden; overscroll-behavior: none; }
+
+/* a balloon landed on you: water on the glass, sliding off */
+.flc-splat { position: absolute; inset: 0; z-index: 5; pointer-events: none; overflow: hidden; }
+.flc-splat::before { content: ""; position: absolute; inset: 0; background: rgba(180, 230, 255, 0.16); animation: flc-wash 600ms var(--fl-ease) both; }
+.flc-splat i {
+  position: absolute;
+  left: var(--x);
+  top: var(--y);
+  width: var(--s);
+  height: calc(var(--s) * 1.12);
+  margin: calc(var(--s) * -0.5);
+  border-radius: 50% 50% 46% 54%;
+  background: radial-gradient(circle at 34% 30%, rgba(255, 255, 255, 0.95), rgba(190, 235, 255, 0.55) 38%, rgba(110, 195, 240, 0.22) 70%);
+  box-shadow: inset 0 -2px 4px rgba(0, 60, 90, 0.3), 0 2px 6px rgba(0, 0, 0, 0.18);
+  animation: flc-drop 1050ms var(--fl-ease) var(--d) both;
+}
+@keyframes flc-wash { from { opacity: 1; } to { opacity: 0; } }
+@keyframes flc-drop {
+  0% { transform: scale(0.2); opacity: 0; }
+  12% { transform: scale(1.08); opacity: 1; }
+  70% { transform: translateY(8px) scale(1); opacity: 0.9; }
+  100% { transform: translateY(30px) scale(0.9); opacity: 0; }
+}
+/* a bump: the river shoves the paddles */
+.flc-race.is-bumped .flc-arena { animation: flc-shake 300ms var(--fl-ease); }
+@keyframes flc-shake {
+  0%, 100% { transform: none; }
+  20% { transform: translateX(-8px) rotate(-0.6deg); }
+  45% { transform: translateX(6px) rotate(0.5deg); }
+  70% { transform: translateX(-3px); }
+}
 
 /* the round closing on "Finish your drink": drains to the room's endsAt */
 .flc-closing {

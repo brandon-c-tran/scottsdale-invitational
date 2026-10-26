@@ -188,11 +188,12 @@ async function paddleChecks(page, size) {
   /* a thumb that crosses the middle keeps its side */
   await clearSent(page);
   await touch(page, "touchStart", [point(g, t6, g.cw * 0.45, y0)]);
-  for (let k = 1; k <= 6; k++) { await touch(page, "touchMove", [point(g, t6, g.cw * 0.45 + k * 18, y0 + k * 14)]); await sleep(16); }
+  for (let k = 1; k <= 3; k++) await touch(page, "touchMove", [point(g, t6, g.cw * 0.45 + k * 36, y0 + k * 28)]);
   await touch(page, "touchEnd", [point(g, t6, g.cw * 0.45 + 108, y0 + 84)]);
   await sleep(150);
   out = await sent(page);
-  check(out.filter(m => m.t === "stroke").map(m => m.side).join("") === "L", `${size}: a thumb across the middle keeps its side`);
+  const across = out.filter(m => m.t === "stroke").map(m => m.side).join("");
+  check(across === "L", `${size}: a thumb across the middle keeps its side (${across})`);
 }
 
 async function tapElement(page, selector) {
@@ -331,6 +332,16 @@ async function shots(page, size, w, h) {
     await sleep(scene.startsWith("race") || scene === "countdown" ? 700 : 600);
     const file = await page.screenshot(path.join(OUT, `${size}-${scene}.png`));
     console.log(`     ${path.basename(file)}`);
+  }
+  if (!ONLY || ONLY.has("race")) {
+    /* a balloon lands on the rider: water on the glass */
+    await page.evaluate(`window.__floatMock.go("race")`);
+    await sleep(700);
+    await page.evaluate(`window.__floatMock.hit()`);
+    check(await page.until("!!document.querySelector('.flc-splat')", { timeout:1000, every:30 }), `${size}: a balloon hit splashes the screen`);
+    await sleep(120);
+    await shot(page, size, "race-splashed");
+    await sleep(1200);
   }
   if (!ONLY || ONLY.has("race")) await paddleChecks(page, size);
   if (!ONLY || ONLY.has("race")) await drinkChecks(page, size);

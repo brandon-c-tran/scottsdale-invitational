@@ -71,13 +71,13 @@ function Paddles(_props, handle) {
       const o = offsetIn(side);
       return { x:point.x - o.x, y:point.y - o.y, w:o.w, h:o.h };
     };
-    const splash = (side, p, at) => {
+    const splash = (side, p, at, rushed = false) => {
       const layer = part(side, ".flc-splashes");
       if (!layer || typeof layer.animate !== "function") return;
       const ring = document.createElement("span");
-      ring.className = "flc-ripple";
+      ring.className = `flc-ripple${rushed ? " is-rushed" : ""}`;
       const burst = document.createElement("span");
-      burst.className = "flc-burst";
+      burst.className = `flc-burst${rushed ? " is-rushed" : ""}`;
       for (let k = 0; k < 6; k++) burst.appendChild(document.createElement("i"));
       layer.append(ring, burst);
       const still = reducedMotion();
@@ -119,7 +119,7 @@ function Paddles(_props, handle) {
           blade.style.transform = `translateY(${Math.max(0, Math.min(h * 0.24, pull))}px)`;
         }
       },
-      stroke(side, p) {
+      stroke(side, p, rushed = false) {
         const zone = zones[side].current, blade = part(side, ".flc-paddle-pull"), paddle = part(side, ".flc-paddle");
         if (!zone || !blade || !paddle) return;
         const o = offsetIn(side);
@@ -127,7 +127,7 @@ function Paddles(_props, handle) {
         const h = blade.offsetHeight, out = Math.sin(14 * Math.PI / 180) * 0.62 * h;
         const tip = { x:paddle.offsetLeft + blade.offsetLeft + blade.offsetWidth / 2 + (side === "L" ? -out : out),
           y:paddle.offsetTop + blade.offsetTop + h * 0.92 };
-        splash(side, p, { x:tip.x, y:Math.min(o.h - 20, tip.y + o.h * (0.04 + 0.08 * p)) });
+        splash(side, p, { x:tip.x, y:Math.min(o.h - 20, tip.y + o.h * (0.04 + 0.08 * p)) }, rushed);
         rush(side, p);
         zone.classList.remove("is-surge");
         void zone.offsetWidth;

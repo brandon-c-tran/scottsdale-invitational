@@ -8,6 +8,22 @@ import { HANDS_GRACE_MS, createHands } from "../float/client/controller/hands.js
 import { frameBox, frameTurn, insetEdges, insetVars, saveTurn, savedTurn, toContent, toViewport }
   from "../float/client/controller/turn.js";
 import { stampOf } from "../float/client/controller/usePaddleInput.js";
+import { RUSH_SLOPE, createCadence } from "../float/client/controller/cadence.js";
+import { PADDLE } from "../float/shared/tuning.js";
+
+test("cadence: a steady rhythm lands whole, rushing weakens strokes, a flood is ignored, a rest recovers", () => {
+  const steady = createCadence();
+  const lands = Array.from({ length:12 }, (_, k) => steady.stroke(k * 333));
+  assert.ok(lands.every(v => v === 1), `three a second lands whole: ${lands}`);
+  const rush = createCadence();
+  const fast = Array.from({ length:8 }, (_, k) => rush.stroke(k * 60));
+  assert.equal(fast[0], 1);
+  assert.ok(fast[2] < 1 && fast[2] >= PADDLE.RUSH_FLOOR, `the third quick stroke is rushed: ${fast[2]}`);
+  assert.ok(fast.includes(0), "past the cap the river ignores it");
+  assert.ok(fast.every(v => v === 0 || v >= PADDLE.RUSH_FLOOR));
+  assert.equal(rush.stroke(60 * 8 + 3000), 1, "after a rest the bucket has drained");
+  assert.equal(RUSH_SLOPE, 0.45);
+});
 
 /* a thumb moving through points [y, t] (x fixed), lifting at the end unless hold */
 function drive(strokes, id, side, points, { x = 100, hold = false } = {}) {

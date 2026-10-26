@@ -160,6 +160,7 @@ export function createMockRoom({ hello = null, scene = null, timers = globalThis
       if (t - r.last.L < 250) r.f |= FLAG.STROKE_L;
       if (t - r.last.R < 250) r.f |= FLAG.STROKE_R;
       if (t - r.splashAt < 600) r.f |= FLAG.SPLASHED;
+      if (t - (r.bumpAt ?? -1e9) < 250) r.f |= FLAG.BUMP;
       if (r.hands < 2) r.f |= FLAG.HANDS_OFF;
       if (r.drinkAt !== null) r.f |= FLAG.DRANK;
       if (r.arriveAt !== null) {
@@ -503,6 +504,9 @@ export function createMockRoom({ hello = null, scene = null, timers = globalThis
     onStatus(fn) { statusFns.add(fn); return () => statusFns.delete(fn); },
     mock:{ sent, scenes:MOCK_SCENES, go:name => go(name), cup:() => cup, feedback:() => feedback, serial:++mockSerial,
       status:() => status, closed:() => closed,
+      /* a balloon from the beach, or a bump, on this rider now */
+      hit() { const r = sim?.racers.get(ME); if (!r) return; r.splashAt = r.hitAt = now(); event("splash", 4, { j:ME }); },
+      bump() { const r = sim?.racers.get(ME); if (!r) return; r.bumpAt = now(); event("bump", ME, { j:cup.field[1] }); },
       /* let the held scene run on as a live Cup */
       run() { sceneName = null; if (cup.phase === "race" && !raceTimer) raceTimer = timers.setInterval(stepSim, 100); },
       /* drop the connection for a moment, as a sleeping phone would */

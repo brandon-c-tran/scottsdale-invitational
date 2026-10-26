@@ -2,18 +2,20 @@
    Cup", "Server to client"). Pure: the controller and the tests read the
    same answers.
 
-   Where the contract leaves a shape open, this reads it tolerantly and
-   names the reading here:
-   - the swap window: `room.swapEndsAt` when the room sends it, else 15 s
-     from the cut's `startAt`, else 5 s before its `endsAt`
-   - an out rider's drink: DRANK on a `me` (if the room keeps sending `me`
-     to the beach), their own `drink` event, a `drinkAt` on their last result
-   - the balloon clock: `me.ball` (server ms when the next balloon is ready)
-     when sent, else 12 s from the rider's last `balloon` event
-   - the racers' order on the beach: `me.order` when sent, else the round's
-     `field` (the grid, last round's order)
-   - final places: `standings` (indexes or { i, place }), else the podium,
-     else reverse elimination order */
+   The room (float/worker/room.js) sends more than the contract's table
+   names; this reads those fields first and falls back to the contract:
+   - the swap window: `room.swapUntil`, else `swapEndsAt`, else 15 s from
+     the cut's `startAt`
+   - how many go through: `room.cut`, else the `me` frame's `cut`
+   - final places: `room.final` (indexes in order), else `standings`
+     (indexes or { i, place }), else the podium, else reverse elimination
+   - an out rider's drink: a `drinkAt` on their result in the round that put
+     them out (`results`, or `history` once the next round has begun), their
+     own `drink` event, or a beach drink this phone remembers (beachDrank)
+   - the balloon clock: `me.ball` when sent, else 12 s from the rider's last
+     `balloon` event
+   - the racers' order on the beach: `me.order` when sent, else the live
+     `results` (place order) during a race, else the round's `field` */
 import { FLAG } from "../../shared/protocol.js";
 
 export { FLAG };
@@ -28,7 +30,8 @@ export const SIDEWAYS = Object.freeze(new Set(["intro", "grid", "countdown", "ra
 export const has = (flags, bit) => (Number(flags) & bit) === bit;
 const num = value => value === null || value === undefined || value === "" ? null : Number.isFinite(Number(value)) ? Number(value) : null;
 const indexOf = value => Number.isInteger(value) ? value : value && typeof value === "object" && Number.isInteger(Number(value.i)) ? Number(value.i) : null;
-export const indexes = list => (Array.isArray(list) ? list : []).map(indexOf).filter(i => i !== null);
+export const indexes = items => (Array.isArray(items) ? items : []).map(indexOf).filter(i => i !== null);
+const list = value => Array.isArray(value) ? value : [];
 
 export function ordinal(n) {
   const v = Math.abs(Math.trunc(Number(n)));
@@ -41,15 +44,18 @@ export function ordinal(n) {
 /* this phone's entrant: its device in the room, its Field Day player, what
    the room told it at welcome, its own `me` */
 export function findMe({ room, device, pid = null, welcome = null, me = null } = {}) {
-  const entrants = Array.isArray(room?.entrants) ? room.entrants : [];
+  const entrants = list(room?.entrants);
   let i = device ? entrants.findIndex(e => e && e.device === device) : -1;
   if (i >= 0) return i;
   if (pid) { i = entrants.findIndex(e => e && e.pid === pid); if (i >= 0) return i; }
   const said = num(welcome?.entrant);
-  if (Number.isInteger(said) && said >= 0) return said;
+  if (Number.isInteger(said) && said >= 0 && (!entrants.length || said < entrants.length)) return said;
   const own = num(me?.i);
   return Number.isInteger(own) && own >= 0 ? own : -1;
 }
+
+/* the Cup is over: the final has been raced (its cut, the podium, the card) */
+export const cupDone = room => indexes(room?.final).length > 0 || indexes(room?.podium).length > 0;
 
 /* the screen for this phone, and whether it is drawn sideways */
 export function screenOf({ room, idx }) {
@@ -66,7 +72,7 @@ export function screenOf({ room, idx }) {
       return out ? side("beach") : racing ? side(phase) : side("watch");
     case "cut": case "results":
       if (out) return side(outThisRound(room, idx) ? "outcut" : "beach");
-      return idx >= 0 ? side("cut") : side("watch");
+      return racing ? side("cut") : side("watch");
     case "podium": return side("podium");
     case "feedback": return side("feedback");
     default: return side("watch");
@@ -76,23 +82,29 @@ export function screenOf({ room, idx }) {
 /* cut out by the round just raced (its results hold them) */
 export function outThisRound(room, idx) {
   if (!indexes(room?.out).includes(idx)) return false;
-  return (Array.isArray(room?.results) ? room.results : []).some(r => indexOf(r) === idx);
+  return list(room?.results).some(r => indexOf(r) === idx);
 }
 
 export function resultOf(room, idx) {
-  return (Array.isArray(room?.results) ? room.results : []).find(r => indexOf(r) === idx) || null;
+  return list(room?.results).find(r => indexOf(r) === idx) || null;
+}
+
+/* the round a rider went out in, from the room's history */
+export function outRoundOf(room, idx) {
+  for (const item of list(room?.history)) if (indexes(item?.out).includes(idx)) return num(item.round);
+  return null;
 }
 
 /* through or out right now, against the cut line; null when nobody goes out */
-export function cutStatus(me) {
-  const place = num(me?.place), of = num(me?.of), cut = num(me?.cut);
+export function cutStatus(me, roomCut = null) {
+  const place = num(me?.place), of = num(me?.of), cut = num(me?.cut) ?? num(roomCut);
   if (!(place >= 1) || !(cut >= 1) || !(of >= 1) || cut >= of) return null;
   if (place <= cut) return { through:true, by:cut - place + 1, label:"Through" };
   return { through:false, by:place - cut, label:`Out by ${place - cut}` };
 }
 
 /* the race HUD from `me` */
-export function raceView(me) {
+export function raceView(me, roomCut = null) {
   const f = Number(me?.f) | 0;
   const len = num(me?.len), prog = num(me?.prog);
   return {
@@ -102,14 +114,14 @@ export function raceView(me) {
     stamina:num(me?.stam) === null ? 1 : Math.max(0, Math.min(1, num(me.stam))),
     swim:has(f, FLAG.SWIM), arrived:has(f, FLAG.ARRIVED), drank:has(f, FLAG.DRANK),
     handsOff:has(f, FLAG.HANDS_OFF), bump:has(f, FLAG.BUMP), splashed:has(f, FLAG.SPLASHED),
-    cut:cutStatus(me),
+    cut:cutStatus(me, roomCut),
   };
 }
 
 /* does this rider owe a drink this round (the room's and the rider's switch) */
 export function drinksOn(room, idx) {
   if (room?.drinking === false) return false;
-  const entrant = Array.isArray(room?.entrants) ? room.entrants[idx] : null;
+  const entrant = list(room?.entrants)[idx];
   return entrant?.drinks !== false;
 }
 
@@ -133,29 +145,49 @@ export function countFor(gun, now) {
   return left > 0 ? Math.min(3, Math.ceil(left / 1000)) : 0;
 }
 
-/* when the cut's floatie swap closes */
+/* The drink button: null (nothing owed), "locked" (before the gun: the room
+   takes a drink only once the race is on), "idle", "sent" (waiting for the
+   room), "done". */
+export function drinkState({ owes, drank, sent, live }) {
+  if (!owes) return null;
+  if (drank) return "done";
+  if (!live) return "locked";
+  return sent ? "sent" : "idle";
+}
+
+/* when the cut's floatie swap closes, or null when there is none */
 export function swapEndsAt(room) {
-  if (!room) return null;
+  if (!room || (room.phase !== "cut" && room.phase !== "results")) return null;
+  if ("swapUntil" in room) return num(room.swapUntil);
   const said = num(room.swapEndsAt);
   if (said !== null) return said;
+  if (cupDone(room)) return null;
   const s = num(room.s), startAt = num(room.startAt), endsAt = num(room.endsAt);
   if (startAt !== null && (s === null || startAt <= s + 1000)) return startAt + SWAP_MS;
   if (endsAt !== null) return endsAt - 5000;
   return s !== null ? s + SWAP_MS : null;
 }
 
+/* what the swap picker reads: open while the window is, the time left */
+export function swapView(room, now) {
+  const ends = swapEndsAt(room);
+  const left = ends === null || !Number.isFinite(now) ? 0 : Math.max(0, ends - now);
+  return { open:left > 0, left, ends };
+}
+
 export function legName(course, leg) {
-  const legs = Array.isArray(course?.legs) ? course.legs : [];
+  const legs = list(course?.legs);
   return legs[leg]?.name || legs.find(l => Number(l?.i) === leg)?.name || "";
 }
 
-/* how many race this round and how many go through */
+/* how many race this round, how many go through, and whether it is the final */
 export function roundShape(room) {
   const field = indexes(room?.field);
-  const of = field.length || (Array.isArray(room?.entrants) ? room.entrants.length : 0);
+  const of = field.length || list(room?.entrants).length;
   const round = num(room?.round) ?? 0, rounds = num(room?.rounds) ?? 0;
   const final = rounds > 0 && round >= rounds - 1;
-  return { round, rounds, of, final };
+  const cut = num(room?.cut);
+  return { round, rounds, of, final, through:final || cut === null || cut >= of ? null : cut };
 }
 
 /* the grid slot this rider starts from (the field's order) */
@@ -164,16 +196,16 @@ export function gridSlot(room, idx) {
   return at >= 0 ? at + 1 : null;
 }
 
-/* This rider's place in the Cup once it is over. */
+/* This rider's place in the Cup once it is over (or so far). */
 export function finalPlace(room, idx) {
   if (!room || idx < 0) return null;
-  const standings = Array.isArray(room.standings) ? room.standings : null;
-  if (standings) {
-    for (let k = 0; k < standings.length; k++) {
-      const entry = standings[k];
-      if (entry === idx) return k + 1;
-      if (entry && typeof entry === "object" && indexOf(entry) === idx) return num(entry.place) ?? k + 1;
-    }
+  const final = indexes(room.final);
+  if (final.includes(idx)) return final.indexOf(idx) + 1;
+  const standings = list(room.standings);
+  for (let k = 0; k < standings.length; k++) {
+    const entry = standings[k];
+    if (entry === idx) return k + 1;
+    if (entry && typeof entry === "object" && indexOf(entry) === idx) return num(entry.place) ?? k + 1;
   }
   const podium = indexes(room.podium);
   if (podium.includes(idx)) return podium.indexOf(idx) + 1;
@@ -183,31 +215,52 @@ export function finalPlace(room, idx) {
   return null;
 }
 
-/* An out rider has finished the drink of the round that put them out: DRANK
-   on their last `me`, a drinkAt on that round's result, or a drink (theirs,
-   seen or sent) in that round or since. memory: { drinkRounds, outRound }. */
-export function beachDrank({ room, me = null, idx, memory = {} }) {
+/* An out rider has finished the drink of the round that put them out: a
+   drinkAt on that round's result (this round's results, or the history once
+   the next round began), a drink in that round or since (DRANK on their
+   `me`, their own `drink` event, or one sent: drinkRounds), or one this
+   phone remembers across a reload (beachDrank).
+   memory: { drinkRounds, outRound, beachDrank }. */
+export function beachDrank({ room, idx, memory = {} }) {
   if (!drinksOn(room, idx)) return true;
-  if (has(me?.f, FLAG.DRANK)) return true;
-  if (num(resultOf(room, idx)?.drinkAt) !== null) return true;
-  const outRound = num(memory.outRound) ?? num(room?.round) ?? 0;
+  if (memory.beachDrank) return true;
+  if (num(resultOf(room, idx)?.drinkAt) !== null && outThisRound(room, idx)) return true;
+  const outRound = outRoundOf(room, idx) ?? num(memory.outRound) ?? num(room?.round) ?? 0;
+  const past = list(room?.history).find(item => num(item?.round) === outRound);
+  if (past && num(list(past.results).find(r => indexOf(r) === idx)?.drinkAt) !== null) return true;
   return (memory.drinkRounds || []).some(r => r >= outRound);
 }
 
+/* The racers an out rider can throw at, in race order: `me.order` when the
+   room sends it, else the live results (place order) during a race, else
+   the field. A racer in at the takeout cannot be hit. */
+export function beachTargets({ room, me = null, idx, memory = {}, now }) {
+  const out = indexes(room?.out);
+  const field = indexes(room?.field);
+  const racing = room?.phase === "race";
+  const live = racing ? indexes(room?.results).filter(i => field.includes(i)) : [];
+  const order = indexes(me?.order).length ? indexes(me.order)
+    : live.length ? [...live, ...field.filter(i => !live.includes(i))] : field;
+  const round = num(room?.round) ?? 0;
+  const placed = new Set(racing ? list(room?.results).filter(r => num(r?.time) !== null).map(indexOf) : []);
+  return order.filter(i => i !== idx && !out.includes(i)).map(i => {
+    const hit = num(memory.splashes?.[i]);
+    const arrived = placed.has(i) || (racing && memory.arrived?.[i] === round);
+    const immuneLeft = !arrived && hit !== null && Number.isFinite(now) ? Math.max(0, IMMUNE_MS - (now - hit)) : 0;
+    return { i, arrived, immune:immuneLeft > 0, immuneLeft };
+  });
+}
+
 /* The beach, for a rider who is out: owes a drink, or throws balloons.
-   memory: { drinkRounds, outRound, lastThrowAt, splashes:{ [j]: s } } from
-   the controller's events; now: server ms. */
+   memory: { drinkRounds, outRound, lastThrowAt, splashes:{ [j]: s },
+   arrived:{ [i]: round }, beachDrank } from the controller's events;
+   now: server ms. */
 export function beachState({ room, me = null, idx, memory = {}, now }) {
-  const drank = beachDrank({ room, me, idx, memory });
+  const drank = beachDrank({ room, idx, memory });
   const readyAt = num(me?.ball) ?? (Number.isFinite(memory.lastThrowAt) ? memory.lastThrowAt + BALLOON_MS : null);
   const racing = room?.phase === "race";
   const ready = drank && racing && (readyAt === null || now >= readyAt);
-  const order = indexes(me?.order).length ? indexes(me.order) : indexes(room?.field);
-  const out = indexes(room?.out);
-  const targets = order.filter(i => i !== idx && !out.includes(i)).map(i => {
-    const hit = num(memory.splashes?.[i]);
-    return { i, immune:hit !== null && now - hit < IMMUNE_MS };
-  });
+  const targets = beachTargets({ room, me, idx, memory, now });
   return { needsDrink:!drank, ready, readyAt, racing, targets,
     cooldown:readyAt !== null && now < readyAt ? Math.max(0, Math.min(1, (readyAt - now) / BALLOON_MS)) : 0 };
 }
@@ -220,14 +273,20 @@ export const withDrink = (memory, round) => {
 };
 
 /* The memory the beach and the drink button read, folded from an `ev`
-   during `round`: this rider's drinks and throws, and every splash (a racer
-   hit is safe for IMMUNE_MS). */
+   during `round`: this rider's drinks and throws, who has arrived, and
+   every splash (a racer hit is safe for IMMUNE_MS). */
 export function foldEvent(memory, ev, idx, round) {
   if (!ev || ev.t !== "ev") return memory;
   const s = num(ev.s), i = num(ev.i), j = num(ev.j);
+  const r = num(round) ?? 0;
   if (ev.e === "drink" && i === idx) return withDrink(memory, round);
-  if (ev.e === "balloon" && i === idx) return { ...memory, lastThrowAt:s };
-  if (ev.e === "splash" && j !== null) return { ...memory, splashes:{ ...(memory.splashes || {}), [j]:s } };
-  if (ev.e === "out" && i === idx && memory.outRound == null) return { ...memory, outRound:num(round) ?? 0 };
+  if (ev.e === "balloon" && i === idx) return { ...memory, lastThrowAt:s, thrown:{ j, s } };
+  if (ev.e === "splash") {
+    const next = j !== null ? { ...memory, splashes:{ ...(memory.splashes || {}), [j]:s } } : { ...memory };
+    if (i === idx) next.landed = { j, s };
+    return next;
+  }
+  if (ev.e === "arrive" && i !== null) return { ...memory, arrived:{ ...(memory.arrived || {}), [i]:r } };
+  if (ev.e === "out" && i === idx && memory.outRound == null) return { ...memory, outRound:r };
   return memory;
 }

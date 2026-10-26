@@ -3,24 +3,26 @@
    in content space (x right, y down, CSS px, t in ms) and gets one
    onStroke({ id, side, p, kind, at }) per stroke.
 
-   A stroke is a pull: a thumb moving down its zone. It fires when the pull
-   ends, so its power reads the whole pull:
+   A stroke is a pull: a thumb moving down its half, the way a paddle pulls
+   water back. It fires when the pull ends, so its power reads the whole pull:
      lift     the thumb comes off (most strokes)
      reverse  the thumb rises REVERSE_PX from the pull's lowest point, so a
               thumb that scrubs down and up without lifting strokes each pull
-     stall    the thumb stops going down for STALL_MS (pulled and held); it
-              must then rise or lift before it can pull again, so a pull that
-              pauses halfway is still one stroke
+     stall    the thumb stops going down for STALL_MS (pulled and held)
+   After any of them the next pull starts from where the thumb is, so a
+   resting thumb that jitters never blocks the swipe that follows it.
    Power is the pull's speed and length together; a tap (barely moving, and
-   quick) is a light stroke. A pull longer than MAX_PULL_MS is a drift, not a
-   stroke, and one side never fires twice within FLOOR_MS. */
+   quick) is a light stroke. A pull slower than MIN_SPEED or longer than
+   MAX_PULL_MS is a drift (a resting thumb or palm shifting), not a stroke,
+   and one side never fires twice within FLOOR_MS. */
 
 export const STROKE = Object.freeze({
   MIN_PX:14,          // the travel that makes a pull a stroke
   START_PX:2,         // moving down this far from the top starts a pull
   REVERSE_PX:10,      // rising this far from the lowest point ends a pull
   STALL_MS:150,       // not going down for this long ends a pull
-  MAX_PULL_MS:900,    // a pull slower than this is a drift
+  MAX_PULL_MS:900,    // a pull longer than this is a drift
+  MIN_SPEED:0.08,     // px per ms: a pull slower than this is a drift
   TAP_PX:16,          // a touch that wanders less than this ...
   TAP_MS:320,         // ... and lifts within this is a tap
   TAP_P:0.3,          // a tap is a light stroke, and no stroke is lighter
@@ -54,20 +56,18 @@ export function createStrokes({ onStroke = () => {}, k = STROKE } = {}) {
     onStroke(stroke);
     return stroke;
   };
-  /* the pull in hand, if it is a stroke */
-  const endPull = (touch, kind, at) => {
-    const travel = touch.bottom - touch.top, ms = touch.bottomT - touch.pullT;
+  /* the pull in hand, if it is a stroke; the next pull starts from `y` */
+  const endPull = (touch, kind, at, y) => {
+    const travel = touch.bottom - touch.top, ms = Math.max(k.FRAME_MS, touch.bottomT - touch.pullT);
     touch.pulling = false;
-    if (travel < k.MIN_PX || ms > k.MAX_PULL_MS) return null;
+    touch.top = y; touch.topT = at;
+    if (travel < k.MIN_PX || ms > k.MAX_PULL_MS || travel / ms < k.MIN_SPEED) return null;
     return fire(touch, kind, at, strokePower(travel, ms, k));
   };
   const track = (touch, x, y, t) => {
     touch.wander = Math.max(touch.wander, Math.hypot(x - touch.x0, y - touch.y0));
     let fired = null;
-    if (touch.recover) {
-      if (y > touch.bottom) { touch.bottom = y; touch.bottomT = t; }
-      else if (touch.bottom - y >= k.REVERSE_PX) { touch.recover = false; touch.top = y; touch.topT = t; }
-    } else if (!touch.pulling) {
+    if (!touch.pulling) {
       if (y <= touch.top) { touch.top = y; touch.topT = t; }
       else if (y - touch.top > k.START_PX) {
         touch.pulling = true;
@@ -75,10 +75,7 @@ export function createStrokes({ onStroke = () => {}, k = STROKE } = {}) {
         touch.bottom = y; touch.bottomT = t;
       }
     } else if (y > touch.bottom) { touch.bottom = y; touch.bottomT = t; }
-    else if (touch.bottom - y >= k.REVERSE_PX) {
-      fired = endPull(touch, "reverse", t);
-      touch.top = y; touch.topT = t;
-    }
+    else if (touch.bottom - y >= k.REVERSE_PX) fired = endPull(touch, "reverse", t, y);
     touch.lastY = y; touch.lastT = t;
     return fired;
   };
@@ -86,7 +83,7 @@ export function createStrokes({ onStroke = () => {}, k = STROKE } = {}) {
   return {
     down(id, side, x, y, t) {
       const touch = { id, side:side === "R" ? "R" : "L", x0:x, y0:y, t0:t, wander:0, top:y, topT:t, bottom:y, bottomT:t,
-        pullT:t, pulling:false, recover:false, lastY:y, lastT:t, strokes:0 };
+        pullT:t, pulling:false, lastY:y, lastT:t, strokes:0 };
       touches.set(id, touch);
       return touch.side;
     },
@@ -99,7 +96,7 @@ export function createStrokes({ onStroke = () => {}, k = STROKE } = {}) {
       const touch = touches.get(id);
       if (!touch) return null;
       let fired = track(touch, x, y, t);
-      if (!fired && touch.pulling) fired = endPull(touch, "lift", t);
+      if (!fired && touch.pulling) fired = endPull(touch, "lift", t, y);
       if (!fired && !touch.strokes && touch.wander < k.TAP_PX && t - touch.t0 <= k.TAP_MS) fired = fire(touch, "tap", t, k.TAP_P);
       touches.delete(id);
       return fired;
@@ -111,8 +108,7 @@ export function createStrokes({ onStroke = () => {}, k = STROKE } = {}) {
       const fired = [];
       for (const touch of touches.values()) {
         if (!touch.pulling || t - touch.bottomT < k.STALL_MS) continue;
-        const stroke = endPull(touch, "stall", t);
-        touch.recover = true;
+        const stroke = endPull(touch, "stall", t, touch.lastY);
         if (stroke) fired.push(stroke);
       }
       return fired;
@@ -124,9 +120,29 @@ export function createStrokes({ onStroke = () => {}, k = STROKE } = {}) {
       return at;
     },
     sideOf:id => touches.get(id)?.side ?? null,
+    /* how far the touch is pulling below where its pull began (the blade follows it 1:1) */
+    pullOf:id => {
+      const touch = touches.get(id);
+      return touch?.pulling ? Math.max(0, touch.lastY - touch.top) : 0;
+    },
     /* the sides with a thumb down now */
     sides() { return new Set([...touches.values()].map(touch => touch.side)); },
-    hands() { return this.sides().size; },
     clear() { touches.clear(); },
+  };
+}
+
+/* The room drops a phone's strokes past 10 a second, and the river's
+   cadence bucket ignores them well before that, so the phone sends at most
+   `max` in any `windowMs`. Pure: allow(t) says whether a stroke at t goes. */
+export function createStrokeGate({ max = 8, windowMs = 1000 } = {}) {
+  const sent = [];
+  return {
+    allow(t) {
+      while (sent.length && t - sent[0] >= windowMs) sent.shift();
+      if (sent.length >= max) return false;
+      sent.push(t);
+      return true;
+    },
+    clear() { sent.length = 0; },
   };
 }

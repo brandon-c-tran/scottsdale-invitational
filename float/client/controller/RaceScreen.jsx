@@ -31,13 +31,19 @@ export function FlipButton({ onFlip }) {
   return <TapButton className="flc-flip" onPress={onFlip} aria-label="Turn the screen around"><FlipIcon /></TapButton>;
 }
 
-function Hud({ entrant, view, onFlip }) {
+export function CutChip({ cut, big = false }) {
+  if (!cut) return null;
+  return <span className={`flc-cut ${cut.through ? "is-through" : "is-out"}${big ? " is-big" : ""}`}>{cut.label}</span>;
+}
+
+function Hud({ entrant, view, slot, counting, onFlip }) {
   const low = view.stamina < 0.3;
+  const place = view.place || (counting ? slot : null);
   return <header className="flc-hud">
     <div className="flc-hud-me">
-      <Portrait entrant={entrant} size={46} />
-      {view.place ? <div className="flc-place" aria-label={`${ordinal(view.place)} of ${view.of}`}>
-        <b>{ordinal(view.place)}</b><span>of {view.of}</span>
+      <Portrait entrant={entrant} size={44} />
+      {place ? <div className="flc-place" aria-label={view.place ? `${ordinal(place)} of ${view.of}` : `Start ${ordinal(place)}`}>
+        <b>{ordinal(place)}</b>{view.place && view.of ? <span>of {view.of}</span> : <span>start</span>}
       </div> : <div className="flc-place is-blank" />}
     </div>
     <div className="flc-hud-mid" aria-hidden="true">
@@ -49,44 +55,48 @@ function Hud({ entrant, view, onFlip }) {
       </div>
     </div>
     <div className="flc-hud-end">
-      {view.cut && <span className={`flc-cut ${view.cut.through ? "is-through" : "is-out"}`}>{view.cut.label}</span>}
+      <CutChip cut={view.cut} />
       {onFlip && <FlipButton onFlip={onFlip} />}
     </div>
   </header>;
 }
 
-/* drink: "idle" (owed), "sent" (waiting for the room), "done", or null (nothing owed) */
+/* drink: "locked" (before the gun), "idle" (owed), "sent" (waiting for the
+   room), "done", or null (nothing owed) */
 function DrinkButton({ state, onDrink }) {
   if (!state) return null;
-  if (state === "done") return <div className="flc-drunk" aria-label="Drink done"><CupIcon done /></div>;
-  return <TapButton className={`flc-drink${state === "sent" ? " is-sent" : ""}`} onPress={onDrink} disabled={state === "sent"}>
+  if (state === "done") return <div className="flc-drunk" role="img" aria-label="Drink done"><CupIcon done /></div>;
+  return <TapButton className={`flc-drink is-${state}`} onPress={onDrink} disabled={state !== "idle"}>
     <CupIcon done={state === "sent"} /><span>Finished my drink</span>
   </TapButton>;
 }
 
-export default function RaceScreen({ entrant, view, geomRef, live, count = null, drink, onDrink, onStroke, onHands, onTouchEnd, onFlip }) {
+export default function RaceScreen({ entrant, view, geomRef, live, count = null, slot = null, resume = false, drink, onDrink,
+  onStroke, onHands, onTouchEnd, onFlip }) {
   const rootRef = useRef(null), visualsRef = useRef(null);
   usePaddleInput(rootRef, { geomRef, visualsRef, enabled:true, onStroke, onHands, onTouchEnd });
-  const finishing = view.arrived && drink && drink !== "done";
+  const counting = count !== null;
+  const finishing = view.arrived && (drink === "idle" || drink === "sent");
   const finished = view.arrived && !finishing;
-  return <section ref={rootRef} className={`flc-race${view.swim ? " is-swim" : ""}${live ? " is-live" : ""}${count !== null ? " is-count" : ""}`}>
-    <Hud entrant={entrant} view={view} onFlip={onFlip} />
+  return <section ref={rootRef} className={`flc-race${view.swim ? " is-swim" : ""}${live ? " is-live" : ""}${counting ? " is-count" : ""}`}>
+    <Hud entrant={entrant} view={view} slot={slot} counting={counting} onFlip={onFlip} />
     <div className="flc-arena">
       <Paddles ref={visualsRef} />
       {!view.arrived && <DrinkButton state={drink} onDrink={onDrink} />}
       {view.swim && !view.arrived && <div className="flc-flipped" aria-live="polite"><b>You flipped</b></div>}
     </div>
-    {count !== null && <div className="flc-count" aria-live="assertive"><b key={count}>{count || "Go"}</b></div>}
+    {counting && <div className={`flc-count${resume ? " is-resume" : ""}`} aria-live="assertive">
+      <b key={count}>{count || "Go"}</b></div>}
     {finishing && <div className="flc-finish" data-ui="">
       <h2>Finish your drink</h2>
-      {view.cut && <span className={`flc-cut ${view.cut.through ? "is-through" : "is-out"}`}>{view.cut.label}</span>}
-      <TapButton className={`flc-drink is-big${drink === "sent" ? " is-sent" : ""}`} onPress={onDrink} disabled={drink === "sent"}>
+      <CutChip cut={view.cut} big />
+      <TapButton className={`flc-drink is-big is-${drink}`} onPress={onDrink} disabled={drink !== "idle"}>
         <CupIcon done={drink === "sent"} /><span>Finished my drink</span>
       </TapButton>
     </div>}
     {finished && <div className="flc-in" data-ui="">
       <b>{view.place ? ordinal(view.place) : "In"}</b>
-      {view.cut && <span className={`flc-cut ${view.cut.through ? "is-through" : "is-out"}`}>{view.cut.label}</span>}
+      <CutChip cut={view.cut} big />
     </div>}
   </section>;
 }

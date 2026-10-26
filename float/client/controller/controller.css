@@ -49,11 +49,12 @@
   touch-action: none;
   overscroll-behavior: none;
 }
+/* the resets carry no weight (:where), so every component class wins over them */
 .flc-root *, .flc-root *::before, .flc-root *::after { box-sizing: border-box; }
-.flc-root h1, .flc-root h2, .flc-root p, .flc-root ol, .flc-root ul, .flc-root dl, .flc-root dd, .flc-root fieldset { margin: 0; padding: 0; }
-.flc-root ol, .flc-root ul { list-style: none; }
-.flc-root fieldset { border: 0; min-width: 0; }
-.flc-root button {
+:where(.flc-root) :where(h1, h2, h3, p, ol, ul, dl, dd, fieldset, legend) { margin: 0; padding: 0; }
+:where(.flc-root) :where(ol, ul) { list-style: none; }
+:where(.flc-root) fieldset { border: 0; min-width: 0; }
+:where(.flc-root) button {
   font: inherit;
   color: inherit;
   margin: 0;
@@ -68,9 +69,9 @@
   user-select: none;
   -webkit-touch-callout: none;
 }
-.flc-root button:disabled { cursor: default; }
-.flc-root svg { display: block; }
-.flc-root textarea, .flc-root input {
+:where(.flc-root) button:disabled { cursor: default; }
+:where(.flc-root) svg { display: block; }
+:where(.flc-root) :where(textarea, input) {
   font: 600 16px/1.35 var(--fl-font);
   -webkit-user-select: text;
   user-select: text;
@@ -166,6 +167,7 @@
 }
 .flc-cut.is-through { background: var(--fl-teal); color: var(--fl-teal-ink); }
 .flc-cut.is-out { background: var(--fl-coral); color: var(--fl-coral-ink); }
+.flc-cut.is-big { height: 50px; padding: 0 22px; font-size: 24px; }
 .flc-flip, .flc-exit {
   display: grid;
   place-items: center;
@@ -205,16 +207,19 @@
 .flc-zone.is-down { box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--me) 55%, transparent), inset 0 18px 30px rgba(255, 255, 255, 0.05); }
 .flc-zone.is-surge::after { animation: flc-surge 420ms var(--fl-ease); }
 @keyframes flc-surge { 0% { opacity: 0.95; } 100% { opacity: 0; } }
-.flc-flow {
+/* the water: still until a stroke pushes it past (Paddles.jsx rush), one wave every 48px */
+.flc-water { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.flc-lines {
   position: absolute;
-  inset: -48px 0 0;
-  background:
-    repeating-linear-gradient(180deg, transparent 0 44px, rgba(255, 255, 255, 0.045) 44px 46px, transparent 46px 48px);
-  animation: flc-flow 1.8s linear infinite;
-  pointer-events: none;
+  left: 0;
+  right: 0;
+  top: -150px;
+  bottom: -10px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='48' viewBox='0 0 120 48'%3E%3Cpath d='M0 24 C 15 18 30 18 45 24 S 75 30 90 24 S 115 19 120 22' fill='none' stroke='white' stroke-opacity='0.07' stroke-width='2.5' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-size: 120px 48px;
+  will-change: transform;
 }
-.flc-race.is-live .flc-flow { animation-duration: 1.1s; }
-@keyframes flc-flow { from { transform: translateY(0); } to { transform: translateY(48px); } }
+.flc-zone.is-R .flc-lines { background-position: 60px 0; }
 .flc-touch {
   position: absolute;
   left: 0;
@@ -238,28 +243,32 @@
 }
 .flc-zone.is-L .flc-paddle { padding-right: 16%; }
 .flc-zone.is-R .flc-paddle { padding-left: 16%; }
-.flc-paddle-pull { height: 100%; aspect-ratio: 80 / 300; transition: transform 300ms cubic-bezier(0.34, 1.4, 0.64, 1); }
+.flc-paddle-pull { position: relative; height: 100%; aspect-ratio: 80 / 320; transition: transform 300ms cubic-bezier(0.34, 1.4, 0.64, 1); will-change: transform; }
 .flc-paddle-pull.is-held { transition: none; }
-.flc-paddle-tilt { width: 100%; height: 100%; transform-origin: 50% 30%; }
+.flc-paddle-tilt { position: relative; width: 100%; height: 100%; transform-origin: 50% 30%; }
 .flc-zone.is-L .flc-paddle-tilt { transform: rotate(14deg); }
 .flc-zone.is-R .flc-paddle-tilt { transform: rotate(-14deg); }
-.flc-paddle-art { width: 100%; height: 100%; overflow: visible; filter: drop-shadow(0 12px 14px rgba(0, 0, 0, 0.35)); }
+.flc-paddle-art { width: 100%; height: 100%; overflow: visible; }
 .flc-paddle-wood { fill: var(--fl-wood); }
 .flc-paddle-shine { fill: rgba(255, 255, 255, 0.38); }
 .flc-paddle-blade { fill: var(--me); stroke: color-mix(in srgb, var(--me) 70%, #000); stroke-width: 2; }
 .flc-paddle-gloss { fill: none; stroke: rgba(255, 255, 255, 0.5); stroke-width: 6; stroke-linecap: round; }
 .flc-paddle-collar { fill: var(--fl-wood-dark); }
-.flc-zone.is-next .flc-paddle-art { animation: flc-glint 700ms var(--fl-ease); }
-.flc-zone.is-next.is-urge .flc-paddle-art { animation: flc-urge 700ms var(--fl-ease) 2; }
-@keyframes flc-glint {
-  0% { filter: drop-shadow(0 12px 14px rgba(0, 0, 0, 0.35)) brightness(1); }
-  30% { filter: drop-shadow(0 0 16px color-mix(in srgb, var(--me) 70%, #fff)) brightness(1.18); }
-  100% { filter: drop-shadow(0 12px 14px rgba(0, 0, 0, 0.35)) brightness(1); }
+/* the other paddle's turn: a light over its blade */
+.flc-glint {
+  position: absolute;
+  left: -30%;
+  right: -30%;
+  top: 52%;
+  height: 46%;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--me) 55%, #fff 45%), transparent);
+  opacity: 0;
+  pointer-events: none;
 }
-@keyframes flc-urge {
-  0%, 100% { filter: drop-shadow(0 12px 14px rgba(0, 0, 0, 0.35)) brightness(1); transform: translateY(0); }
-  40% { filter: drop-shadow(0 0 22px color-mix(in srgb, var(--me) 80%, #fff)) brightness(1.3); transform: translateY(-6px); }
-}
+.flc-zone.is-next .flc-glint { animation: flc-glint 700ms var(--fl-ease); }
+.flc-zone.is-next.is-urge .flc-glint { animation: flc-glint 700ms var(--fl-ease) 2; }
+@keyframes flc-glint { 0% { opacity: 0; } 30% { opacity: 0.55; } 100% { opacity: 0; } }
 .flc-splashes { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
 .flc-ripple {
   position: absolute;
@@ -315,6 +324,8 @@
 .flc-drink span { max-width: 9.5em; }
 .flc-drink[data-pressed] { transform: scale(0.95); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4), inset 0 -2px 0 rgba(0, 0, 0, 0.14); }
 .flc-drink.is-sent { background: var(--fl-teal); color: var(--fl-teal-ink); }
+.flc-drink.is-locked { background: rgba(255, 201, 74, 0.22); color: color-mix(in srgb, var(--fl-sun) 70%, var(--fl-ink)); box-shadow: inset 0 0 0 1.5px rgba(255, 201, 74, 0.35); }
+.flc-drink:disabled { cursor: default; }
 .flc-cup { width: 30px; height: 30px; flex: none; }
 .flc-cup-body { fill: rgba(255, 255, 255, 0.55); stroke: currentColor; stroke-width: 2.2; stroke-linejoin: round; }
 .flc-cup-fill { fill: currentColor; opacity: 0.85; }
@@ -410,18 +421,23 @@
 .flc-link {
   position: absolute;
   left: 50%;
-  top: calc(env(safe-area-inset-top, 0px) + 8px);
+  top: calc(var(--sa-top) + 8px);
   z-index: 10;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   transform: translateX(-50%);
-  padding: 7px 14px;
+  padding: 7px 14px 7px 10px;
   border-radius: 99px;
   background: var(--fl-sun);
   color: var(--fl-sun-ink);
   font-size: 14px;
   font-weight: 900;
+  white-space: nowrap;
   pointer-events: none;
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
 }
+.flc-link i { width: 8px; height: 8px; border-radius: 50%; background: currentColor; animation: flc-low 700ms ease-in-out infinite alternate; }
 
 /* ── the other screens ── */
 .flc-screen {
@@ -701,6 +717,5 @@
 
 @media (prefers-reduced-motion: reduce) {
   .flc-root *, .flc-root *::before, .flc-root *::after { animation-duration: 1ms !important; animation-iteration-count: 1 !important; }
-  .flc-flow { animation: none !important; }
   .flc-paddle-pull { transition: none; }
 }

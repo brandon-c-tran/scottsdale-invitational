@@ -1,13 +1,15 @@
 /* A button that answers its own touch. Inside the game a thumb can rest on a
    paddle while another finger taps, and iOS may skip the click that second
    tap would make, so this fires on the touchend of a touch that started on
-   it and ended on it (12 px of slack), and on click for a mouse or a
-   keyboard. The press shows on touchstart. onPress runs inside the touch
-   handler, so a tapTick or a sound unlock in it counts as the user's tap.
-   data-ui keeps the paddles' input off it. */
+   it, ended on it (12 px of slack) and did not travel (a swipe that began
+   on it is a paddle stroke gone astray, not a press), and on click for a
+   mouse or a keyboard. The press shows on touchstart. onPress runs inside
+   the touch handler, so a tapTick or a sound unlock in it counts as the
+   user's tap. data-ui keeps the paddles' input off it. */
 import React, { forwardRef, useRef } from "react";
 
 const SLACK = 12;
+const TRAVEL = 24;
 const find = (list, id) => { for (const t of list) if (t.identifier === id) return t; return null; };
 const inside = (el, t) => {
   const r = el.getBoundingClientRect();
@@ -26,24 +28,29 @@ const TapButton = forwardRef(function TapButton({ onPress, disabled = false, cla
   const onTouchStart = event => {
     if (disabled || touch.current) return;
     const t = event.changedTouches[0];
-    touch.current = t.identifier;
+    touch.current = { id:t.identifier, x:t.clientX, y:t.clientY, gone:false };
     pressed(true);
   };
   const onTouchMove = event => {
-    const t = find(event.changedTouches, touch.current);
-    if (t && own.current) pressed(inside(own.current, t));
+    const held = touch.current;
+    const t = held && find(event.changedTouches, held.id);
+    if (!t || !own.current) return;
+    if (Math.hypot(t.clientX - held.x, t.clientY - held.y) > TRAVEL) held.gone = true;
+    pressed(!held.gone && inside(own.current, t));
   };
   const onTouchEnd = event => {
-    const t = find(event.changedTouches, touch.current);
+    const held = touch.current;
+    const t = held && find(event.changedTouches, held.id);
     if (!t) return;
     touch.current = null;
     pressed(false);
     lastTouch.current = Date.now();
     if (event.cancelable) event.preventDefault();
-    if (!disabled && own.current && inside(own.current, t)) onPress?.(event);
+    const travelled = held.gone || Math.hypot(t.clientX - held.x, t.clientY - held.y) > TRAVEL;
+    if (!disabled && !travelled && own.current && inside(own.current, t)) onPress?.(event);
   };
   const onTouchCancel = event => {
-    if (!find(event.changedTouches, touch.current)) return;
+    if (!touch.current || !find(event.changedTouches, touch.current.id)) return;
     touch.current = null;
     pressed(false);
   };

@@ -3,18 +3,16 @@
    with the floatie swap; or out), the beach (finish your drink, then the
    balloons), the podium and the feedback card. The race and its countdown
    are RaceScreen. */
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useMemo, useState } from "react";
 import Portrait from "../locker/Portrait.jsx";
-import FloatieCard from "../locker/FloatieCard.jsx";
+import FloatieCard, { FloatieGlyph } from "../locker/FloatieCard.jsx";
 import LockerPicker from "../locker/LockerPicker.jsx";
 import { FLOATIES, floatieOf } from "../../shared/floaties.js";
-import { CRITTERS } from "../../shared/looks.js";
 import TapButton from "./TapButton.jsx";
 import { CupIcon, FlipButton } from "./RaceScreen.jsx";
-import { BALLOON_MS, beachState, drinksOn, finalPlace, gridSlot, indexes, legName, ordinal, resultOf, roundShape,
-  swapEndsAt } from "./controllerModel.js";
-
-const critterName = id => CRITTERS.find(c => c.id === id)?.name || "";
+import { beachState, cupDone, drinksOn, finalPlace, gridSlot, indexes, legName, ordinal, resultOf, roundShape,
+  swapView } from "./controllerModel.js";
+import { tapTick } from "../../../src/lib/haptics.js";
 
 function Top({ left = null, right = null }) {
   return <div className="flc-top">{left}<span className="flc-top-gap" />{right}</div>;
@@ -32,8 +30,29 @@ function LegTrack({ course, leg }) {
   const legs = Array.isArray(course?.legs) && course.legs.length ? course.legs : null;
   if (!legs) return null;
   return <ol className="flc-legs" aria-label="Legs">
-    {legs.map((l, k) => <li key={l.id || k} className={k < leg ? "is-done" : k === leg ? "is-now" : ""}><i /><span>{l.name}</span></li>)}
+    {legs.map((l, k) => <li key={l.id || k} className={k < leg ? "is-done" : k === leg ? "is-now" : ""}
+      aria-current={k === leg ? "step" : undefined}><i /><span>{l.name}</span></li>)}
   </ol>;
+}
+
+/* the field as dots, the ones that go through lit, the cut line after them */
+function CutLine({ of, through, mark = null }) {
+  if (!(of > 0)) return null;
+  const dots = Array.from({ length:of }, (_, k) => k);
+  return <div className="flc-cutline" role="img" aria-label={through ? `${through} of ${of} go through` : `${of} racing`}>
+    {dots.map(k => <React.Fragment key={k}>
+      {through && k === through && <span className="flc-cutline-bar" />}
+      <i className={`${through && k >= through ? "is-out" : "is-in"}${mark === k + 1 ? " is-me" : ""}`} />
+    </React.Fragment>)}
+  </div>;
+}
+
+/* two thumbs pulling down in turn: how to paddle, without a word */
+export function PaddleDemo() {
+  return <div className="flc-demo" aria-hidden="true">
+    <span className="flc-demo-side is-L"><i className="flc-demo-thumb" /><i className="flc-demo-trail" /></span>
+    <span className="flc-demo-side is-R"><i className="flc-demo-thumb" /><i className="flc-demo-trail" /></span>
+  </div>;
 }
 
 function Connecting() {
@@ -43,43 +62,48 @@ function Connecting() {
   </section>;
 }
 
+function ReadyButton({ ready, onReady }) {
+  return <TapButton className={`flc-ready${ready ? " is-on" : ""}`} onPress={() => onReady(!ready)} aria-pressed={ready}>
+    <span className="flc-ready-box" aria-hidden="true">{ready && <svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>}</span>
+    Ready
+  </TapButton>;
+}
+
 function Lobby({ game, entrant, me, groom, onReady, onLook, onExit }) {
   const [locker, setLocker] = useState(false);
   const room = game.room, idx = game.idx;
   const entrants = Array.isArray(room?.entrants) ? room.entrants : [];
   const ready = !!entrants[idx]?.ready;
   const readyCount = entrants.filter(e => e?.ready).length;
-  const look = me.look;
+  const party = room?.mode !== "fieldday" && idx >= 0;
+  const look = entrant.look || me.look;
+  const floatie = floatieOf(look.floatie);
   if (locker) {
     return <section className="flc-screen flc-locker-sheet">
       <Top left={<h2 className="flc-sheet-title">Look</h2>}
-        right={<TapButton className="flc-pill is-primary" onPress={() => setLocker(false)}>Done</TapButton>} />
+        right={<TapButton className="flc-pill is-primary" onPress={() => { tapTick(); setLocker(false); }}>Done</TapButton>} />
       <div className="flc-sheet-body"><LockerPicker look={look} onChange={onLook} groom={groom} color={entrant.color}
-        photo={entrant.photo} number={entrant.number} skin={entrant.skin} /></div>
+        name={entrant.name} photo={entrant.photo} number={entrant.number} skin={entrant.skin} /></div>
     </section>;
   }
   return <section className="flc-screen flc-lobby">
-    <Top left={<ExitButton onExit={onExit} />} right={room?.code ? <span className="flc-code">{String(room.code).toUpperCase()}</span> : null} />
+    <Top left={<ExitButton onExit={onExit} />} right={room?.code ? <span className="flc-code" aria-label="Room code">
+      {String(room.code).toUpperCase()}</span> : null} />
     <div className="flc-lobby-main">
-      <div className="flc-stage">
-        <Portrait entrant={entrant} size={168} />
-      </div>
+      <div className="flc-stage"><Portrait entrant={entrant} size={176} /></div>
       <div className="flc-lobby-side">
         <h1 className="flc-name">{entrant.name}</h1>
-        <p className="flc-sub">{critterName(look.critter)} · {floatieOf(look.floatie).name}</p>
+        <span className="flc-floatie-chip"><FloatieGlyph id={floatie.id} />{floatie.name}</span>
         <div className="flc-lobby-actions">
-          <TapButton className="flc-pill" onPress={() => setLocker(true)}>Change look</TapButton>
-          <TapButton className={`flc-ready${ready ? " is-on" : ""}`} onPress={() => onReady(!ready)} aria-pressed={ready}>
-            <span className="flc-ready-box" aria-hidden="true">{ready && <svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>}</span>
-            Ready
-          </TapButton>
+          <TapButton className="flc-pill" onPress={() => { tapTick(); setLocker(true); }}>Change look</TapButton>
+          {party && <ReadyButton ready={ready} onReady={onReady} />}
         </div>
       </div>
     </div>
     {entrants.length > 1 && <div className="flc-roster">
-      <span className="flc-roster-count">{readyCount} of {entrants.length} ready</span>
-      <ul>{entrants.map((e, k) => <li key={e.device || k} className={`${e.ready ? "is-ready" : ""}${k === idx ? " is-me" : ""}`}>
-        <Portrait entrant={e} size={34} /></li>)}</ul>
+      {party && <span className="flc-roster-count">{readyCount} of {entrants.length} ready</span>}
+      <ul>{entrants.map((e, k) => <li key={e.device || k} className={`${e.ready && party ? "is-ready" : ""}${k === idx ? " is-me" : ""}${e.connected === false ? " is-away" : ""}`}>
+        <Portrait entrant={e} size={36} label={e.name} /></li>)}</ul>
     </div>}
   </section>;
 }
@@ -87,121 +111,131 @@ function Lobby({ game, entrant, me, groom, onReady, onLook, onExit }) {
 function NextLeg({ screen, game, entrant, onFlip }) {
   const room = game.room, idx = game.idx;
   const shape = roundShape(room);
-  const name = legName(game.course, Number(room?.leg) || 0);
+  const leg = Number(room?.leg) || 0;
+  const name = legName(game.course, leg);
   const slot = screen === "grid" ? gridSlot(room, idx) : null;
-  const through = shape.final ? null : nextFieldSize(room);
   return <section className="flc-screen flc-next">
-    <Top left={<span className="flc-kicker">{shape.final ? "Final" : `Round ${shape.round + 1} of ${shape.rounds || 4}`}</span>}
-      right={<>{onFlip && <FlipButton onFlip={onFlip} />}</>} />
+    <Top left={<span className="flc-kicker">{shape.final ? "Final" : `Round ${shape.round + 1}${shape.rounds ? ` of ${shape.rounds}` : ""}`}</span>}
+      right={<>{drinksOn(room, idx) && <span className="flc-fresh"><CupIcon />Fresh drink</span>}{onFlip && <FlipButton onFlip={onFlip} />}</>} />
     <div className="flc-next-main">
-      <h1 className="flc-leg">{name || "Next leg"}</h1>
-      <LegTrack course={game.course} leg={Number(room?.leg) || 0} />
+      <div className="flc-next-text">
+        <h1 className="flc-leg" key={name}>{name || "Next leg"}</h1>
+        <LegTrack course={game.course} leg={leg} />
+      </div>
+      <PaddleDemo />
     </div>
     <div className="flc-next-foot">
-      <span className="flc-me-chip"><Portrait entrant={entrant} size={40} />{slot ? <b>Start {ordinal(slot)}</b> : <b>{entrant.name}</b>}</span>
-      <span className="flc-facts">{shape.of} racing{through ? ` · ${through} go through` : ""}</span>
-      {drinksOn(room, idx) && <span className="flc-fresh"><CupIcon />Fresh drink</span>}
+      <span className="flc-me-chip"><Portrait entrant={entrant} size={44} />
+        {slot ? <b><small>Start</small>{ordinal(slot)}</b> : <b>{entrant.name}</b>}</span>
+      <CutLine of={shape.of} through={shape.through} mark={slot} />
     </div>
   </section>;
 }
 
-/* how many go through this round, when the room says (a proposed `room.cut`, like `me.cut`) */
-function nextFieldSize(room) {
-  const cut = Number(room?.cut);
-  return cut > 0 ? cut : null;
-}
-
-function SwapPicker({ look, endsAt, now, onLook }) {
-  const left = endsAt ? Math.max(0, endsAt - now) : 0;
-  const open = left > 0;
-  return <div className={`flc-swap${open ? "" : " is-closed"}`}>
+function SwapPicker({ look, room, now, onLook }) {
+  const swap = swapView(room, now);
+  const pick = id => {
+    if (!swap.open || look.floatie === id) return;
+    tapTick();
+    onLook({ ...look, floatie:id });
+  };
+  return <div className={`flc-swap${swap.open ? "" : " is-closed"}`}>
     <div className="flc-swap-head">
       <span>Floatie</span>
-      {open && <i className="flc-swap-time" style={{ "--left":Math.min(1, left / 15000) }} aria-label={`${Math.ceil(left / 1000)} seconds`} />}
+      {swap.open && <i className="flc-swap-time" style={{ "--left":Math.min(1, swap.left / 15000) }} role="img"
+        aria-label={`${Math.ceil(swap.left / 1000)} seconds`} />}
     </div>
     <div className="flc-swap-grid">
-      {FLOATIES.map(f => <TapButton key={f.id} className="flc-swap-card" disabled={!open} aria-pressed={look.floatie === f.id}
-        onPress={() => { if (look.floatie !== f.id) onLook({ ...look, floatie:f.id }); }}>
+      {FLOATIES.map(f => <TapButton key={f.id} className="flc-swap-card" disabled={!swap.open && look.floatie !== f.id}
+        aria-pressed={look.floatie === f.id} onPress={() => pick(f.id)}>
         <FloatieCard floatie={f} selected={look.floatie === f.id} compact />
       </TapButton>)}
     </div>
   </div>;
 }
 
-function Through({ game, me, now, onLook, onFlip }) {
+function Through({ game, entrant, me, now, onLook, onFlip }) {
   const room = game.room, idx = game.idx;
   const mine = resultOf(room, idx);
   const shape = roundShape(room);
-  const nextLeg = legName(game.course, (Number(room?.leg) || 0) + 1);
-  const toFinal = shape.rounds > 0 && shape.round + 1 === shape.rounds - 1;
-  const noCuts = !indexes(room?.out).length && indexes(room?.field).length <= 3;
-  return <section className="flc-screen flc-cut">
+  const done = cupDone(room);
+  const nextLeg = done ? "" : legName(game.course, (Number(room?.leg) || 0) + 1);
+  const toFinal = !done && shape.rounds > 0 && shape.round + 1 === shape.rounds - 1;
+  const place = done ? finalPlace(room, idx) : mine?.place;
+  const stamp = done ? ordinal(place) || "In" : toFinal ? "Final" : "Through";
+  return <section className={`flc-screen flc-cut${done ? " is-done" : ""}${done && place && place <= 3 ? ` is-p${place}` : ""}`}>
     <Top left={<span className="flc-kicker">{nextLeg ? `Next: ${nextLeg}` : ""}</span>} right={<>{onFlip && <FlipButton onFlip={onFlip} />}</>} />
     <div className="flc-cut-main">
-      <div className="flc-verdict is-through">
-        <b className="flc-stamp">{noCuts ? (mine?.place ? ordinal(mine.place) : "Done") : toFinal ? "Final" : "Through"}</b>
-        {!noCuts && mine?.place && <span>{ordinal(mine.place)}</span>}
-        {drinksOn(room, idx) && <span className="flc-fresh"><CupIcon />Fresh drink</span>}
+      <div className="flc-verdict">
+        <Portrait entrant={entrant} size={64} />
+        <b className="flc-stamp" key={stamp}>{stamp}</b>
+        {!done && mine?.place && <span className="flc-verdict-place">{ordinal(mine.place)}</span>}
+        {!done && drinksOn(room, idx) && <span className="flc-fresh"><CupIcon />Fresh drink</span>}
       </div>
-      <SwapPicker look={me.look} endsAt={swapEndsAt(room)} now={now} onLook={onLook} />
+      {!done && <SwapPicker look={entrant.look || me.look} room={room} now={now} onLook={onLook} />}
     </div>
   </section>;
 }
 
-function Balloon({ cooldown, ready }) {
+function Balloon({ cooldown, ready, readyAt, now }) {
   const r = 26, c = 2 * Math.PI * r;
+  const left = readyAt !== null && now < readyAt ? readyAt - now : 0;
   return <svg className={`flc-balloon${ready ? " is-ready" : ""}`} viewBox="0 0 64 64" aria-hidden="true">
     <circle className="flc-balloon-track" cx="32" cy="32" r={r} />
-    <circle className="flc-balloon-ring" cx="32" cy="32" r={r} style={{ strokeDasharray:c, strokeDashoffset:c * cooldown }} />
+    <circle className="flc-balloon-ring" cx="32" cy="32" r={r} key={readyAt ?? "ready"}
+      style={{ strokeDasharray:c, strokeDashoffset:c * cooldown, "--ring-ms":`${left}ms`, "--ring-c":c }} />
     <path className="flc-balloon-body" d="M32 15c7 0 12 6 12 13 0 8-6 14-12 14s-12-6-12-14c0-7 5-13 12-13z" />
     <path className="flc-balloon-knot" d="M29 42h6l-3 4z" />
   </svg>;
 }
 
-function Beach({ screen, game, entrant, now, drink, onDrink, onThrow, onExit }) {
+function Beach({ screen, game, now, onDrink, onThrow, onExit }) {
   const room = game.room, idx = game.idx;
-  const [sentAt, setSentAt] = useState(null);
-  const [thrown, setThrown] = useState(null);
+  const [throws, setThrows] = useState(null);
   const memory = useMemo(() => {
     const m = { ...game.memory };
-    if (sentAt !== null && (m.lastThrowAt == null || m.lastThrowAt < sentAt)) m.lastThrowAt = sentAt;
+    if (throws && (m.lastThrowAt == null || m.lastThrowAt < throws.s)) m.lastThrowAt = throws.s;
     return m;
-  }, [game.memory, sentAt]);
-  const beach = beachState({ room, me:game.me, idx, memory:drink === "sent" ? { ...memory, drinkRounds:[...(memory.drinkRounds || []), Number(room?.round) || 0] } : memory, now });
+  }, [game.memory, throws]);
+  const beach = beachState({ room, me:null, idx, memory, now });
   const entrants = Array.isArray(room?.entrants) ? room.entrants : [];
   const mine = resultOf(room, idx);
-  const place = finalPlace(room, idx);
+  const place = screen === "outcut" ? mine?.place : finalPlace(room, idx);
   const throwAt = i => {
     if (!beach.ready) return;
-    setSentAt(now);
-    setThrown({ i, at:Date.now() });
+    setThrows({ i, s:now, at:Date.now() });
     onThrow(i);
   };
+  /* where our last balloon landed: a hit on someone, or a miss */
+  const landed = memory.landed && Number.isFinite(memory.landed.s) && now - memory.landed.s < 1600 ? memory.landed : null;
   const nextLeg = legName(game.course, Number(room?.leg) || 0);
+  const wait = beach.readyAt !== null && now < beach.readyAt ? Math.ceil((beach.readyAt - now) / 1000) : 0;
   return <section className="flc-screen flc-beach">
-    <Top left={<span className="flc-kicker">{screen === "outcut" ? "Out" : "Beach"}</span>}
-      right={<ExitButton onExit={onExit} />} />
+    <Top left={<span className="flc-kicker is-out">Out</span>} right={<ExitButton onExit={onExit} />} />
     {beach.needsDrink ? <div className="flc-beach-drink">
-      <span className="flc-out-place">{screen === "outcut" && mine?.place ? ordinal(mine.place) : place ? ordinal(place) : ""}</span>
+      {place ? <span className="flc-out-place">{ordinal(place)}</span> : null}
       <h2>Finish your drink</h2>
-      <TapButton className={`flc-drink is-big${drink === "sent" ? " is-sent" : ""}`} onPress={onDrink} disabled={drink === "sent"}>
-        <CupIcon done={drink === "sent"} /><span>Finished my drink</span>
+      <TapButton className="flc-drink is-big is-idle" onPress={onDrink}>
+        <CupIcon /><span>Finished my drink</span>
       </TapButton>
     </div> : <div className="flc-beach-throw">
-      <div className="flc-beach-head">
-        <Balloon cooldown={beach.cooldown} ready={beach.ready} />
-        <div>
-          <b>{beach.racing ? (beach.ready ? "Balloon ready" : `${Math.ceil(Math.max(0, beach.readyAt - now) / 1000)} s`) : nextLeg ? `Next: ${nextLeg}` : "Between rounds"}</b>
-          <span>One every {BALLOON_MS / 1000} s</span>
+      <div className={`flc-beach-head${beach.ready ? " is-ready" : ""}`}>
+        <Balloon cooldown={beach.cooldown} ready={beach.ready} readyAt={beach.readyAt} now={now} />
+        <div className="flc-beach-status">
+          <b>{beach.racing ? (beach.ready ? "Balloon ready" : `${wait} s`) : nextLeg ? `Next: ${nextLeg}` : "Between rounds"}</b>
+          {beach.racing && !beach.ready && <span>Next balloon</span>}
         </div>
+        {landed && <span className={`flc-landed${landed.j !== null ? " is-hit" : ""}`} key={landed.s}>{landed.j !== null ? "Hit" : "Miss"}</span>}
       </div>
       <ul className="flc-targets">
         {beach.targets.map(t => {
           const e = entrants[t.i] || {};
+          const flying = throws?.i === t.i && Date.now() - throws.at < 1400;
           return <li key={t.i}>
-            <TapButton className={`flc-target${t.immune ? " is-immune" : ""}${thrown?.i === t.i && Date.now() - thrown.at < 1400 ? " is-hit" : ""}`}
-              disabled={!beach.ready || t.immune} onPress={() => throwAt(t.i)} aria-label={`Throw at ${e.name || "racer"}`}>
-              <Portrait entrant={e} size={56} /><span>{e.name}</span>
+            <TapButton className={`flc-target${t.immune ? " is-immune" : ""}${t.arrived ? " is-in" : ""}${flying ? " is-flying" : ""}`}
+              disabled={!beach.ready || t.immune || t.arrived} onPress={() => throwAt(t.i)} aria-label={`Throw at ${e.name || "racer"}`}>
+              <Portrait entrant={e} size={60} /><span>{e.name}</span>
+              {t.arrived && <small>In</small>}
             </TapButton>
           </li>;
         })}
@@ -219,32 +253,31 @@ function Podium({ game, entrant, onExit }) {
   return <section className={`flc-screen flc-podium${top ? ` is-top is-p${place}` : ""}`}>
     <Top left={<span className="flc-kicker">Cup</span>} right={<ExitButton onExit={onExit} />} />
     <div className="flc-podium-main">
-      <div className="flc-stage is-podium"><Portrait entrant={entrant} size={150} /></div>
+      <div className="flc-stage is-podium"><Portrait entrant={entrant} size={156} /></div>
       <div className="flc-podium-place">
         <b>{place ? ordinal(place) : ""}</b>
         {place && <span>of {entrants.length}</span>}
       </div>
     </div>
     {podium.length > 0 && <ol className="flc-podium-row">
-      {podium.map((i, k) => <li key={i} className={i === idx ? "is-me" : ""}><Portrait entrant={entrants[i] || {}} size={44} />
+      {podium.map((i, k) => <li key={i} className={`is-p${k + 1}${i === idx ? " is-me" : ""}`}>
+        <Portrait entrant={entrants[i] || {}} size={k === 0 ? 56 : 46} label={entrants[i]?.name} />
         <span>{ordinal(k + 1)}</span></li>)}
     </ol>}
   </section>;
 }
 
-function Feedback({ onFeedback, onExit }) {
+function Feedback({ onFeedback, onExit, feedbackSent }) {
   const [fun, setFun] = useState(0);
   const [again, setAgain] = useState(null);
   const [better, setBetter] = useState("");
-  const [sent, setSent] = useState(false);
-  if (sent) return <section className="flc-screen flc-feedback is-sent">
+  if (feedbackSent) return <section className="flc-screen flc-feedback is-sent">
     <Top right={<ExitButton onExit={onExit} />} />
     <h2 className="flc-thanks">Thanks</h2>
   </section>;
   const send = () => {
     if (!fun || again === null) return;
     onFeedback({ fun, again, better:better.trim().slice(0, 200) });
-    setSent(true);
   };
   return <section className="flc-screen flc-feedback">
     <Top right={<ExitButton onExit={onExit} />} />
@@ -252,12 +285,12 @@ function Feedback({ onFeedback, onExit }) {
       <fieldset>
         <legend>How fun was that?</legend>
         <div className="flc-scale">{[1, 2, 3, 4, 5].map(n => <button key={n} type="button" className={fun === n ? "is-on" : ""}
-          aria-pressed={fun === n} onClick={() => setFun(n)}>{n}</button>)}</div>
+          aria-pressed={fun === n} onClick={() => { tapTick(); setFun(n); }}>{n}</button>)}</div>
       </fieldset>
       <fieldset>
         <legend>Would you play this with other friends?</legend>
         <div className="flc-yesno">{[["Yes", true], ["No", false]].map(([label, value]) => <button key={label} type="button"
-          className={again === value ? "is-on" : ""} aria-pressed={again === value} onClick={() => setAgain(value)}>{label}</button>)}</div>
+          className={again === value ? "is-on" : ""} aria-pressed={again === value} onClick={() => { tapTick(); setAgain(value); }}>{label}</button>)}</div>
       </fieldset>
       <label className="flc-better">
         <span>What would make it better?</span>

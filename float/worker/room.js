@@ -74,6 +74,7 @@ export class FloatRoom {
     this.lastDriven = "";
     this.rtt = {};
     this.code = "";
+    this.kickedDevices = new Set();
     const load = () => this.load();
     this.ready = ctx?.blockConcurrencyWhile ? Promise.resolve(ctx.blockConcurrencyWhile(load)) : load();
   }
@@ -200,6 +201,7 @@ export class FloatRoom {
     let i = -1;
     if (meta.role === "controller") {
       meta.rider = msg.rider ? cleanRider(msg.rider, { seed:meta.device }) : null;
+      this.kickedDevices.delete(meta.device);
       i = this.claim(meta);
     }
     this.send(ws, { t:"welcome", you:{ device:meta.device, role:meta.role, ...(i >= 0 ? { entrant:i } : {}) } });
@@ -331,7 +333,11 @@ export class FloatRoom {
       if (i < 0 || fieldDayLive && cup.entrants[i].pid) return;
       /* in the lobby the entrant goes; mid-Cup indexes are fixed, so a bot
          paddles for it instead */
-      if (cup.phase === "lobby") cup.entrants.splice(i, 1);
+      if (cup.phase === "lobby") {
+        cup.entrants.splice(i, 1);
+        /* it stays out of later lobbies until that phone says hello again */
+        this.kickedDevices.add(device);
+      }
       else cup.entrants[i].kicked = true;
       this.saveCup();
       this.broadcastRoom();
@@ -355,7 +361,8 @@ export class FloatRoom {
     /* phones that watched the last Cup join the next one */
     if (this.cup.mode === "party")
       for (const meta of this.sockets.values())
-        if (meta.role === "controller" && meta.rider && this.entrantIndex(meta.device) < 0 && this.cup.entrants.length < MAX_RIDERS)
+        if (meta.role === "controller" && meta.rider && this.entrantIndex(meta.device) < 0 && !this.kickedDevices.has(meta.device)
+          && this.cup.entrants.length < MAX_RIDERS)
           this.cup.entrants.push(Cup.makeEntrant(this.cup, meta.rider, { device:meta.device }));
     this.persist(this.storage.delete("race"));
     this.saveCup();

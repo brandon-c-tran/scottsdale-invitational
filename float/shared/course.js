@@ -419,6 +419,18 @@ export function flowAt(course, x, y, { hint, whirl = 1 } = {}) {
       }
     }
   }
+  /* the water parts around a rock too: just upstream of one it carries you
+     to the nearer side, so nothing stays pinned on it */
+  for (const rock of g.rocks) {
+    if (rock.s < s - rock.r) continue;
+    if (rock.s > s + rock.r + 2.5) break;
+    const off = d - rock.d;
+    const gap = Math.abs(off) - rock.r;
+    if (gap > 1.6) continue;
+    const push = Math.max(v, 1) * 0.5 * (1 - smooth(gap / 1.6)) * (off >= 0 ? 1 : -1);
+    ux += f.nx * push;
+    uy += f.ny * push;
+  }
   for (const pool of g.whirlpools) {
     const rx = x - pool.x, ry = y - pool.y;
     const rho = Math.hypot(rx, ry);

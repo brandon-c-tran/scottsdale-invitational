@@ -163,8 +163,19 @@ function karaokePlan(state, ev, karaoke = false) {
   return out;
 }
 
+/* Float while its Cup runs (shared/float.js floatBeat): the room posts the
+   result, so the one beat left is the result by hand; a Cup the room never
+   took is started again first. Null otherwise: the ordinary result entry. */
+function floatPlan(state, ev) {
+  if (ev?.game !== "float" || state.results?.[ev.id]) return null;
+  const cup = state.float?.evId === ev.id && !state.float.finishedAt ? state.float : null;
+  if (!cup) return null;
+  return [...(cup.error ? [beat("float-start", "Start Float again", ev.name)] : []), beat("float-live", "Enter result", ev.name)];
+}
+
 const decideBeats = (state, ev, contest, karaoke = false) => contest.kind === "ffa"
-  ? geoPlan(state, ev) || triviaPlan(state, ev) || karaokePlan(state, ev, karaoke) || [beat("enter-result", "Enter result", ev.name)]
+  ? geoPlan(state, ev) || triviaPlan(state, ev) || karaokePlan(state, ev, karaoke) || floatPlan(state, ev)
+    || [beat("enter-result", "Enter result", ev.name)]
   : [beat("record-contest-winner", "Record winner", contest.name)];
 
 /* After a result posts: the winner scene's standings step, when the TV

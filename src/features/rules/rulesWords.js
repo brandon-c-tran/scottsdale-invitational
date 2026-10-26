@@ -11,7 +11,8 @@
 
    STATUS: reviewed by Brandon on /dev/rules-review.html (Oct 3, 2026); his one
    edit (safety.camera) is applied. The comebacks set (comebacks.*, v3.1) is
-   awaiting Brandon's review, and so is the karaoke set (karaoke.*, Oct 12). */
+   awaiting Brandon's review, and so are the karaoke set (karaoke.*, Oct 12)
+   and the float set (float.*, Oct 25). */
 export const RULES_WORDS = Object.freeze({
   /* Long Putt (putting) */
   "putting.1": "Three putts",
@@ -114,6 +115,15 @@ export const RULES_WORDS = Object.freeze({
   "ragecage.second": "Final loser: 2nd",
   "ragecage.third": "Third-to-last out: 3rd",
   "ragecage.center": "Loser drinks the center",
+
+  /* Float (float, Oct 25): awaiting Brandon's review */
+  "float.1": "Paddle with both thumbs",
+  "float.2": "Drink before the takeout",
+  "float.3": "Slowest riders are cut",
+  "float.4": "Win the final",
+  "float.drinking": "Drinking costs a paddle",
+  "float.swap": "Swap floaties between rounds",
+  "float.balloons": "Out? Throw water balloons",
 
   /* Beerio Kart (beerio) */
   "beerio.1": "Open at the line",

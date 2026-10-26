@@ -14,7 +14,7 @@ import { RigBuilder } from "./rig.js";
 import { blob, blobGeometry, patchGeometry, tube, ball, xf, dirYawPitch, smooth, tangents } from "./sculpt.js";
 
 export const SEG = {
-  race: { head: [20, 14], body: [16, 10], limb: [7, 7], ball: [10, 7], small: [7, 5], tiny: [5, 3], patch: [2, 12], eye: [11, 8], cap: 1, line: [5, 7] },
+  race: { head: [20, 14], body: [16, 10], limb: [6, 6], ball: [9, 6], small: [6, 4], tiny: [5, 3], patch: [2, 10], eye: [10, 7], cap: 1, line: [4, 6] },
   hero: { head: [40, 28], body: [32, 22], limb: [12, 16], ball: [18, 12], small: [12, 9], tiny: [8, 6], patch: [5, 24], eye: [20, 14], cap: 3, line: [7, 12] },
 };
 
@@ -201,6 +201,7 @@ export class Kit {
       eyes.push({ p, n, c, fr });
     }
     this.info.eyes = eyes;
+    this.info.eyeSize = { w, h, depth };
     return eyes;
   }
 
@@ -349,7 +350,9 @@ export class Kit {
         const dirUp = V(Math.sin(tilt[2]) * side, Math.cos(tilt[2]), Math.sin(tilt[0])).normalize();
         const tipP = base.clone().addScaledVector(dirUp, len);
         const mid = base.clone().addScaledVector(dirUp, len * 0.5);
-        const shapeR = t => (kind === "long" ? size[0] * Math.sin(Math.PI * (0.18 + 0.82 * t)) ** 0.7 * (1 - t * 0.25) : size[0] * (1 - t) ** 0.85 + 0.004);
+        const shapeR = kind === "long"
+          ? t => size[0] * (0.62 + 0.38 * Math.sin(Math.PI * (0.08 + 0.92 * t))) * (1 - 0.9 * t ** 3) + 0.005
+          : t => size[0] * (1 - t ** 1.5) * (0.72 + 0.28 * Math.sin(Math.PI * t)) + 0.004;
         const [lr] = this.seg.limb;
         const colorFn = tip ? (p) => new THREE.Color(p.clone().sub(base).dot(dirUp) > len * 0.78 ? tip : color) : color;
         this.add(tube([base, mid, tipP], { radius: shapeR, radial: lr, segments: this.detail === "hero" ? 12 : 7, flat: 0.38, side: [0, 0, 1], caps: [true, true], capRings: this.seg.cap }), { color: colorFn, bind: bone });

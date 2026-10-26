@@ -37,7 +37,7 @@ const BODY = ["px", "py", "pz", "prx", "pry", "prz", "hy", "hrx", "hry", "hrz", 
   "llx", "lly", "rlx", "rly", "tx", "ty", "t2y", "elx", "elz", "erx", "erz", "cr"];
 const ROOT = ["px", "py", "pz", "prx", "pry", "prz"];
 const BODY_REST = BODY.filter(k => !ROOT.includes(k));
-const HANDS = ["lhx", "lhy", "lhz", "rhx", "rhy", "rhz", "lpx", "lpy", "lpz", "rpx", "rpy", "rpz", "can", "canTilt"];
+const HANDS = ["lhx", "lhy", "lhz", "rhx", "rhy", "rhz", "lpx", "lpy", "lpz", "rpx", "rpy", "rpz", "can", "canTilt", "bulge"];
 const HAND_POS = ["lhx", "lhy", "lhz", "rhx", "rhy", "rhz"];
 const newPose = () => { const p = {}; for (const k of [...BODY, ...HANDS, "thx", "thy", "thz"]) p[k] = 0; return p; };
 const blendKeys = (P, Q, keys, w) => {
@@ -72,7 +72,7 @@ const BODY_SPRINGS = {
   elx: [12, 0.3], elz: [12, 0.3], erx: [12, 0.3], erz: [12, 0.3], cry: [12, 0.6], crx: [12, 0.6],
   llx: [16, 0.6], rlx: [16, 0.6],
 };
-const HAND_SPRINGS = { lhx: [30, 0.92], lhy: [30, 0.92], lhz: [30, 0.92], rhx: [30, 0.92], rhy: [30, 0.92], rhz: [30, 0.92], canTilt: [14, 0.6] };
+const HAND_SPRINGS = { lhx: [30, 0.92], lhy: [30, 0.92], lhz: [30, 0.92], rhx: [30, 0.92], rhy: [30, 0.92], rhz: [30, 0.92], canTilt: [14, 0.6], bulge: [22, 0.35] };
 
 /* per side: the channel names and bones, made once */
 const SIDE_KEYS = {
@@ -209,7 +209,7 @@ export class CritterRuntime {
       this.seatToChest(-rest[0], rest[1] + sway, rest[2], P, "l");
       this.seatToChest(rest[0], rest[1] - sway, rest[2], P, "r");
       P.lpx = -1; P.lpy = -0.25; P.lpz = 0.55; P.rpx = 1; P.rpy = -0.25; P.rpz = 0.55;
-      P.can = 0; P.canTilt = 0;
+      P.can = 0; P.canTilt = 0; P.bulge = 1;
     }
   }
 
@@ -293,10 +293,10 @@ export class CritterRuntime {
     const t = this.t, seat = this.seat;
     const hop = Math.sin(Math.PI * clamp01(w)), e = ease(w);
     if (pass === 0) {
-      P.px = 0; P.py = (seat.water - 0.34) * e + 0.42 * hop + 0.025 * Math.sin(t * TAU * 1.7) * e; P.pz = 0.95 * e;
-      P.prx = -1.05 * e; P.prz = 0.9 * hop * (this.state.swim ? 1 : -1); P.pry = 0.08 * Math.sin(t * TAU * 0.85) * e;
+      P.px = 0.86 * e; P.py = (seat.water - 0.2) * e + 0.42 * hop + 0.028 * Math.sin(t * TAU * 1.7) * e; P.pz = 0.22 * e;
+      P.prx = -0.82 * e; P.prz = -0.9 * hop * (this.state.swim ? 1 : -1); P.pry = (0.55 + 0.08 * Math.sin(t * TAU * 0.85)) * e;
       P.hrx = 0; P.hrz = 0.08 * Math.sin(t * TAU * 0.85); P.hry = 0;
-      P.hdx = 0.95; P.hdy = 0.1 * Math.sin(t * 1.3); P.hdz = 0;
+      P.hdx = 0.78; P.hdy = 0.1 * Math.sin(t * 1.3); P.hdz = 0;
       const kick = Math.sin(t * TAU * 2.6) * 0.45;
       P.llx = -0.2 + kick; P.rlx = -0.2 - kick; P.lly = 0; P.rly = 0;
       P.ty = 0.3 * Math.sin(t * TAU * 1.3); P.elz = 0.35; P.erz = -0.35;
@@ -320,10 +320,11 @@ export class CritterRuntime {
         P.hy = 0.02 * pulse; P.sq = 1.02 + 0.07 * pulse; P.br = 1.04 + 0.08 * pulse; P.hrx = -0.04; P.hrz = 0.07 * sway;
         P.hdx = 0.2 + 0.05 * pulse; P.hdy = -0.25 * sway; P.hdz = 0.06 * sway; P.cr = 0.15 * pulse;
       } else {
-        const lift = 0.04 * pulse;
-        this.restToChest(-0.3 * up - 0.02, 0.38 + 0.25 * up + lift, -0.06, P, "l");
-        this.restToChest(0.3 * up + 0.02, 0.38 + 0.25 * up + lift, -0.06, P, "r");
-        P.lpx = -1; P.lpy = -1.2; P.lpz = 0.1; P.rpx = 1; P.rpy = -1.2; P.rpz = 0.1;
+        const lift = 0.025 * pulse;
+        this.restToChest(-0.2 - 0.08 * up, 0.3 + 0.15 * up + lift, -0.05, P, "l");
+        this.restToChest(0.2 + 0.08 * up, 0.3 + 0.15 * up + lift, -0.05, P, "r");
+        P.lpx = -1; P.lpy = -0.12; P.lpz = 0.25; P.rpx = 1; P.rpy = -0.12; P.rpz = 0.25;
+        P.bulge = 1 + 0.16 * pulse * up;
       }
       if (pulse > 0.4) out.eyes = "happy";
       return out;
@@ -536,9 +537,11 @@ export class CritterRuntime {
       _P.set(P[side.px], P[side.py], P[side.pz]);
       if (_P.lengthSq() < 1e-6) _P.copy(side.bind.pole); else _P.normalize();
       const stretch = solveArm(side.S, _T, _P, side.bind, _q1, _q2);
+      const bulge = P.bulge > 0.5 ? P.bulge : 1;
       side.shoulder.quaternion.copy(_q1);
+      side.shoulder.scale.setScalar(bulge);
       side.elbow.quaternion.copy(_q2);
-      side.elbow.position.copy(side.restElbow).multiplyScalar(stretch);
+      side.elbow.position.copy(side.restElbow).multiplyScalar(stretch / bulge);
       side.hand.position.copy(side.restHand).multiplyScalar(stretch);
     }
   }

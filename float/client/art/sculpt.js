@@ -235,9 +235,13 @@ export function tube(points, { radius = 0.05, radial = 8, segments = 12, caps = 
   return orient(indexed(pos, nor, idx));
 }
 
-/* a lathe around y from [radius, y] points, with normals from the profile */
+/* a lathe around y from [radius, y] points, with normals from the profile.
+   three's lathe faces outward only for a profile that climbs (bottom to top),
+   so a profile given top down is turned round first */
 export function lathe(profile, { segments = 24, phi = [0, Math.PI * 2] } = {}) {
-  const geo = new THREE.LatheGeometry(profile.map(([x, y]) => new THREE.Vector2(Math.max(0, x), y)), segments, phi[0], phi[1]);
+  const first = profile[0], last = profile[profile.length - 1];
+  const pts = first[1] > last[1] || (first[1] === last[1] && first[0] > last[0]) ? [...profile].reverse() : profile;
+  const geo = new THREE.LatheGeometry(pts.map(([x, y]) => new THREE.Vector2(Math.max(0, x), y)), segments, phi[0], phi[1]);
   geo.deleteAttribute("uv");
   return geo;
 }

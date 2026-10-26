@@ -6,7 +6,7 @@
    With t, the clock runs from zero to t in fixed 60 Hz steps, so a frame
    is the same frame every time. */
 import * as THREE from "three";
-import { buildRider, buildFloatie, artStats, floatEnvironment, BUILT_SPECIES, BUILT_FLOATIES } from "./index.js";
+import { buildRider, buildFloatie, buildCritter, artStats, floatEnvironment, BUILT_SPECIES, BUILT_FLOATIES } from "./index.js";
 import { buildStage, buildPuddle } from "./stage.js";
 import { CRITTERS, HATS, SHADES, POSES } from "../../shared/looks.js";
 import { FLOATIES, STATS } from "../../shared/floaties.js";
@@ -57,7 +57,7 @@ export class Showcase {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance", preserveDrawingBuffer: true });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     this.renderer.toneMapping = THREE.NeutralToneMapping;
-    this.renderer.toneMappingExposure = 1.0;
+    this.renderer.toneMappingExposure = 1.08;
     this.scene = new THREE.Scene();
     this.camera = new THREE.PerspectiveCamera(32, 16 / 9, 0.1, 600);
     this.items = [];
@@ -89,12 +89,13 @@ export class Showcase {
     this.scene.fog = this.stage.fog;
     this.scene.background = this.stage.background;
     this.scene.environment = floatEnvironment(this.renderer, mood === "studio" ? "studio" : "night");
+    if (this.stage.water) { this.stage.water.material.envMap = this.scene.environment; this.stage.water.material.envMapIntensity = 0.5; this.stage.water.material.needsUpdate = true; }
     this.scene.environmentIntensity = mood === "studio" ? 0.85 : 1.0;
-    for (const it of this.items) if (it.puddle) { it.root.remove(it.puddle.mesh); it.puddle.dispose(); it.puddle = buildPuddle(this.stage, it.radius || 0.9); it.root.add(it.puddle.mesh); }
+    for (const it of this.items) if (it.puddle) { it.root.remove(it.puddle.mesh); it.puddle.dispose(); it.puddle = buildPuddle(this.stage, 0.9); it.root.add(it.puddle.mesh); }
   }
 
   clear() {
-    for (const it of this.items) { this.scene.remove(it.root); it.rider?.dispose(); it.floatie?.dispose(); it.puddle?.dispose(); }
+    for (const it of this.items) { this.scene.remove(it.root); it.rider?.dispose(); it.floatie?.dispose(); it.critterOnly?.dispose(); it.puddle?.dispose(); }
     this.items = [];
     for (const l of this.labels) l.el.remove();
     this.labels = [];
@@ -104,18 +105,21 @@ export class Showcase {
   place({ entrant, floatieOnly = null, at = [0, 0, 0], face = Math.PI, detail = "race", label = null, sub = null, behaviour = {} }) {
     const root = new THREE.Group();
     root.position.set(...at);
-    let rider = null, floatie = null;
-    if (floatieOnly) {
+    let rider = null, floatie = null, critterOnly = null;
+    if (arguments[0].critterOnly) {
+      critterOnly = buildCritter({ critter: entrant.look.critter, color: entrant.color, hat: entrant.look.hat, shades: entrant.look.shades, entrant, detail, groom: true });
+      root.add(critterOnly.root);
+    } else if (floatieOnly) {
       floatie = buildFloatie({ floatie: floatieOnly, color: entrant.color, entrant, detail });
       root.add(floatie.root);
     } else {
       rider = buildRider(entrant, { detail });
       root.add(rider.root);
     }
-    const puddle = buildPuddle(this.stage, 0.9);
-    root.add(puddle.mesh);
+    const puddle = critterOnly ? null : buildPuddle(this.stage, 0.9);
+    if (puddle) root.add(puddle.mesh);
     this.scene.add(root);
-    const item = { root, rider, floatie, puddle, face, phase: this.rand() * 6, behaviour, nextStroke: 0.6 + this.rand() * 1.6, side: "L" };
+    const item = { root, rider, floatie, critterOnly, puddle, face, phase: this.rand() * 6, behaviour, nextStroke: 0.6 + this.rand() * 1.6, side: "L" };
     if (rider) {
       if (behaviour.state) rider.critter.setState(behaviour.state);
       if (behaviour.pose) rider.critter.setPose(behaviour.pose);
@@ -152,7 +156,8 @@ export class Showcase {
         entrant: { ...(opts.color ? { color: opts.color } : {}), ...(opts.number !== undefined ? { number: opts.number } : {}), ...(opts.skin ? { skin: opts.skin } : {}), groom: true },
       });
       this.place({ entrant: e, at: [0, 0, 0], detail: "hero", behaviour: { strokes: !opts.pose && !opts.state, state: opts.stateObj, pose: opts.pose } });
-      cam.fov = 30; cam.position.set(0, 1.12, 4.5); cam.lookAt(0, 0.56, 0);
+      if (opts.zoom) { cam.fov = 17; cam.position.set(0, 1.0, 4.3); cam.lookAt(0, 0.66, 0); }
+      else { cam.fov = 30; cam.position.set(0, 1.12, 4.5); cam.lookAt(0, 0.56, 0); }
       this.spin.auto = !opts.still;
       this.spin.yaw = opts.yaw ?? 0;
     } else if (view === "floaties") {
@@ -160,7 +165,7 @@ export class Showcase {
         const row = i < 4 ? 0 : 1, col = i % 4;
         const e = sampleEntrant(i);
         const st = STATS.map(s => `${s.name[0]}${f[s.id]}`).join(" ");
-        this.place({ entrant: e, floatieOnly: f.id, at: [(col - 1.5) * 2.5, 0, row ? 1.2 : -1.6], detail: "hero", label: f.name, sub: `${f.twist} · ${st}` });
+        this.place({ entrant: e, floatieOnly: f.id, at: [(col - 1.5) * 2.5, 0, row ? 1.2 : -1.6], detail: "hero", label: f.name, sub: f.twist });
       });
       cam.fov = 30; cam.position.set(0, 5.6, 9.6); cam.lookAt(0, 0.2, -0.3);
     } else if (view === "poses" || view === "states") {
@@ -171,10 +176,31 @@ export class Showcase {
       const n = list.length;
       list.forEach((b, i) => {
         const critter = opts.look?.critter || CRITTERS[(i * 3 + 1) % CRITTERS.length].id;
-        const e = sampleEntrant(i * 2 + 1, { look: { critter, hat: "none", shades: "none" } });
+        const e = sampleEntrant(i * 2 + 1, { look: { critter, hat: "none", shades: "none", floatie: "classic" } });
         this.place({ entrant: e, at: [(i - (n - 1) / 2) * 2.15, 0, 0], detail: "hero", label: b.label, behaviour: { pose: b.pose, state: b.state, strokes: b.strokes, fast: b.fast } });
       });
-      cam.fov = 30; cam.position.set(0, 2.6, n > 4 ? 10.6 : 8.6); cam.lookAt(0, 0.62, 0);
+      cam.fov = 30; cam.position.set(0, 2.9, n > 4 ? 13.6 : 9.8); cam.lookAt(0, 0.62, 0);
+    } else if (view === "wardrobe") {
+      /* every hat (and every shade) on a different critter, two rows of four */
+      const hats = ["cowboy", "bucket", "visor", "captain", "party", "flowers", "crown", "none"];
+      const shades = ["aviators", "none", "hearts", "none", "stars", "goggles", "none", "aviators"];
+      const critters = opts.one ? Array(8).fill(opts.look.critter) : ["coyote", "capybara", "frog", "otter", "jackrabbit", "quail", "bighorn", "gila"];
+      hats.forEach((hat, i) => {
+        const row = i < 4 ? 0 : 1, col = i % 4;
+        const e = sampleEntrant(i * 3 + 2, { look: { critter: critters[i], hat, shades: shades[i], floatie: "classic" }, entrant: { groom: true } });
+        const label = `${HATS.find(h => h.id === hat)?.name || hat}${shades[i] !== "none" ? ` + ${SHADES.find(s => s.id === shades[i])?.name}` : ""}`;
+        this.place({ entrant: e, at: [(col - 1.5) * 2.3, 0, row ? 0.9 : -1.7], detail: "hero", label, behaviour: {} });
+      });
+      cam.fov = 30; cam.position.set(0, 4.4, 9.2); cam.lookAt(0, 0.55, -0.45);
+    } else if (view === "faces") {
+      for (const [start, count, y] of [[0, 5, 1.62], [5, 4, 0.82], [9, 4, 0.02]]) for (let j = 0; j < count; j++) {
+        const i = start + j;
+        const e = sampleEntrant(i, { look: { critter: CRITTERS[i].id, hat: opts.look?.hat && opts.one ? opts.look.hat : "none", shades: "none" } });
+        const item = this.place({ entrant: e, critterOnly: true, at: [(j - (count - 1) / 2) * 0.86, y - 0.42, (1.62 - y) * 0.5], face: Math.PI + (opts.yaw ?? 0.35), detail: "hero", label: CRITTERS[i].name, behaviour: {} });
+        item.labelY = 0.2;
+      }
+      cam.fov = 26; cam.position.set(0, 0.95, 5.6); cam.lookAt(0, 0.95, 0);
+      this.spin.auto = false;
     } else if (view === "medallion") {
       const a = sampleEntrant(0, { photo: samplePhoto(), look: { critter: "capybara", hat: "none", shades: "none" } });
       const b = sampleEntrant(3, { look: { critter: "frog", hat: "none", shades: "none" } });
@@ -192,13 +218,13 @@ export class Showcase {
       cam.fov = 40; cam.position.set(0, 6.5, 9); cam.lookAt(0, 0, -4);
     } else {
       /* lineup: 13 riders, two staggered rows */
-      for (let i = 0; i < 13; i++) {
-        const back = i < 7;
-        const x = back ? (i - 3) * 2.45 : (i - 7 - 2.5) * 2.45;
+      /* three rows: 5, 4, 4 */
+      for (const [start, count, z] of [[0, 5, -3.7], [5, 4, -0.9], [9, 4, 1.9]]) for (let j = 0; j < count; j++) {
+        const i = start + j;
         const e = sampleEntrant(i, { photo: i === 0 ? samplePhoto() : null });
-        this.place({ entrant: e, at: [x, 0, back ? -1.9 : 1.0], detail: opts.detail || "race", label: CRITTERS[i].name, behaviour: { strokes: true } });
+        this.place({ entrant: e, at: [(j - (count - 1) / 2) * 2.55, 0, z], detail: opts.detail || "race", label: CRITTERS[i].name, behaviour: { strokes: true } });
       }
-      cam.fov = 30; cam.position.set(0, 3.9, 16.8); cam.lookAt(0, 0.62, -0.5);
+      cam.fov = 30; cam.position.set(0, 7.6, 13.6); cam.lookAt(0, 0.4, -0.9);
     }
     cam.updateProjectionMatrix();
     this.t = 0;
@@ -224,9 +250,10 @@ export class Showcase {
       }
       if (this.view === "detail") it.root.rotation.y = it.face + this.spin.yaw;
       else if (this.view === "race") it.root.rotation.y = 0.15 * Math.sin(t * 0.6 + it.phase);
-      else if (this.view !== "medallion") it.root.rotation.y = it.face + 0.55 * Math.sin(t * 0.32 + it.phase);
+      else if (this.view !== "medallion" && this.view !== "faces") it.root.rotation.y = it.face + 0.55 * Math.sin(t * 0.32 + it.phase);
       it.rider?.update(dt);
       it.floatie?.update(dt);
+      it.critterOnly?.update(dt);
       it.puddle?.update(dt);
     }
     if (this.view === "detail" && this.spin.auto && !this.spin.drag) this.spin.yaw += dt * 0.32;
@@ -260,7 +287,7 @@ export class Showcase {
     const v = new THREE.Vector3();
     for (const l of this.labels) {
       l.item.root.getWorldPosition(v);
-      v.y += l.y;
+      v.y += l.item.labelY ?? l.y;
       v.project(this.camera);
       l.el.style.transform = `translate(${((v.x + 1) / 2) * w}px, ${((1 - v.y) / 2) * h}px) translate(-50%, 0)`;
     }

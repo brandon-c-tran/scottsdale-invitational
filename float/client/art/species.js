@@ -5,45 +5,10 @@
    stubby legs. A species reads from its silhouette first (ears, horns,
    crest, shell, plume), then its colors. */
 import * as THREE from "three";
-import { Kit, mix, V } from "./anatomy.js";
-import { blob, blobGeometry, patchGeometry, tube, ball, xf, dirYawPitch, lathe, smooth } from "./sculpt.js";
-
-/* a deterministic scatter, so every screen draws the same spots */
-function rng(seed) {
-  let a = 0;
-  for (const ch of String(seed)) a = (Math.imul(a ^ ch.charCodeAt(0), 2654435761) >>> 0);
-  return () => { a |= 0; a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
-}
-
-/* the head-bone position for an eye pair and mouth on a shape */
-const eyePoint = (shape, yaw, pitch) => shape.at(dirYawPitch(yaw, pitch));
-const atDir = (shape, d) => shape.at(new THREE.Vector3(...d).normalize());
-
-/* a ring of spikes/bristles following a shape's normal (manes, frills, crowns) */
-function spikes(k, shape, dirs, { len = 0.05, r = 0.016, color, bind = "head", lean = null, flat = 1 }) {
-  const [lr] = k.seg.limb;
-  for (const [d, l = len, rr = r] of dirs) {
-    const dv = new THREE.Vector3(...d).normalize();
-    const p = shape.at(dv), n = shape.normal(dv);
-    const out = n.clone();
-    if (lean) out.add(new THREE.Vector3(...lean)).normalize();
-    k.add(tube([p.clone().addScaledVector(n, -0.01), p.clone().addScaledVector(out, l * 0.55), p.clone().addScaledVector(out, l)],
-      { radius: t => rr * (1 - t) ** 0.9 + 0.0015, radial: Math.max(5, lr - 2), segments: k.detail === "hero" ? 5 : 3, capRings: 1, flat, side: [1, 0, 0] }), { color, bind });
-  }
-}
-
-/* speckles: small patches scattered over a region of a shape */
-function speckles(k, shape, { count = 10, seed = "s", color, bind, yaw = [-Math.PI, Math.PI], pitch = [-0.4, 0.6], size = [0.05, 0.08], back = false }) {
-  const rand = rng(seed);
-  for (let i = 0; i < count; i++) {
-    let y = yaw[0] + rand() * (yaw[1] - yaw[0]);
-    if (back) y = Math.PI + (rand() - 0.5) * (yaw[1] - yaw[0]);
-    const p = pitch[0] + rand() * (pitch[1] - pitch[0]);
-    const s = size[0] + rand() * (size[1] - size[0]);
-    const hero = k.detail === "hero";
-    k.add(patchGeometry(shape, { dir: dirYawPitch(y, p).toArray(), ax: s, ay: s * (0.7 + rand() * 0.5), lift: 0.0035, spin: rand() * 3, rings: hero ? 3 : 1, segs: hero ? 16 : 9 }), { color, bind });
-  }
-}
+import { Kit, mix } from "./anatomy.js";
+import { blob, blobGeometry, patchGeometry, tube, ball, xf, dirYawPitch, lathe } from "./sculpt.js";
+import { V, rng, eyePoint, atDir, spikes, speckles } from "./features.js";
+import { jackrabbit, tortoise, gila, hornedlizard, bighorn, quail, armadillo, coyote, otter } from "./roster.js";
 
 /* ── capybara: the boxy, unbothered one ── */
 function capybara(k) {
@@ -126,7 +91,7 @@ function javelina(k) {
 
 /* ── roadrunner: the crested, speckled, fast one ── */
 function roadrunner(k) {
-  const C = { body: "#ad7f4f", dark: "#5c4231", speck: "#3f2c21", belly: "#f3e7cc", crest: "#3a2f2a", crestTip: "#6f86b8", beak: "#3f3e48", blue: "#3d95ea", orange: "#ff7f3c", leg: "#9a9ea8", blush: "#f2a28f", tail: "#4d3a2c", tip: "#fbf6ea" };
+  const C = { body: "#ad7f4f", dark: "#5c4231", speck: "#3f2c21", belly: "#f3e7cc", crest: "#3a2f2a", crestTip: "#6f86b8", beak: "#6d6a74", blue: "#3d95ea", orange: "#ff7f3c", leg: "#9a9ea8", blush: "#f2a28f", tail: "#4d3a2c", tip: "#fbf6ea" };
   k.skeleton({ head: [0, 0.43, -0.02], arm: { a: 0.115, b: 0.115, dir: [0.5, -0.86, 0.02] } });
   const B = k.body({ r: [0.19, 0.205, 0.19], n: 2.0, color: C.body, belly: C.belly, bellyPatch: { dir: [0, -0.1, -1], ax: 0.58, ay: 0.72 } });
   k.trunks();
@@ -136,16 +101,14 @@ function roadrunner(k) {
   const e = eyePoint(H, 0.5, 0.15);
   const jaw = [0, 0.548, -0.2];
   k.faceBones({ eyes: [0, e.y, e.z], mouth: jaw, jaw, ears: null, crest: [0, 0.79, -0.02] });
-  /* cream cheeks under the eyes */
-  for (const s of [-1, 1]) k.patch(H, { dir: dirYawPitch(s * 0.42, -0.25).toArray(), ax: 0.26, ay: 0.2, lift: 0.0035 }, { color: C.belly });
   /* the bare skin behind the eye: blue, then orange */
   for (const s of [-1, 1]) {
     k.patch(H, { dir: dirYawPitch(s * 0.98, 0.17).toArray(), ax: 0.14, ay: 0.085, lift: 0.004 }, { color: C.blue });
     k.patch(H, { dir: dirYawPitch(s * 1.24, 0.15).toArray(), ax: 0.1, ay: 0.07, lift: 0.0042 }, { color: C.orange });
   }
   /* the long beak: upper on the head, lower on the jaw */
-  k.add(tube([[0, 0.585, -0.19], [0, 0.578, -0.33], [0, 0.56, -0.47]], { radius: t => 0.046 * (1 - t) ** 0.85 + 0.005, radial: 10, segments: 10, flat: 0.72, side: [1, 0, 0] }), { color: C.beak, bind: "head" });
-  k.add(tube([[0, 0.55, -0.19], [0, 0.545, -0.31], [0, 0.548, -0.42]], { radius: t => 0.03 * (1 - t) ** 0.9 + 0.004, radial: 8, segments: 8, flat: 0.6, side: [1, 0, 0] }), { color: mix(C.beak, "#000000", 0.25), bind: "jaw" });
+  k.add(tube([[0, 0.585, -0.19], [0, 0.578, -0.31], [0, 0.558, -0.42]], { radius: t => 0.052 * (1 - t) ** 0.8 + 0.006, radial: 10, segments: 10, flat: 0.72, side: [1, 0, 0] }), { color: C.beak, bind: "head" });
+  k.add(tube([[0, 0.55, -0.19], [0, 0.545, -0.29], [0, 0.546, -0.38]], { radius: t => 0.034 * (1 - t) ** 0.9 + 0.005, radial: 8, segments: 8, flat: 0.6, side: [1, 0, 0] }), { color: mix(C.beak, "#000000", 0.3), bind: "jaw" });
   k.eyes(H, { yaw: 0.5, pitch: 0.15, w: 0.05, h: 0.058, depth: 0.031, lid: C.body });
   for (const s of [-1, 1]) k.patch(H, { dir: dirYawPitch(s * 0.66, -0.08).toArray(), ax: 0.1, ay: 0.07, lift: 0.0045 }, { color: C.blush });
   /* the crest: dark feathers swept back, blue at the tips */
@@ -194,11 +157,11 @@ function frog(k) {
   k.arms({ color: C.skin, paw: C.hand, fingers: 3, pawR: 0.05 });
   k.legs({ color: C.skin, foot: C.web, flatFoot: { r: [0.085, 0.022, 0.1] }, len: 0.16 });
   k.socket("hat", [0, 0.745, -0.02], { s: 1.05, tilt: -0.04, frog: true });
-  k.socket("shades", [0, e.y + 0.004, e.z - 0.03], { s: 1.04, w: 1.1, high: true });
+  k.socket("shades", [0, e.y + 0.004, e.z - 0.03], { s: 1.04, w: 1.1, onEyes: true });
   k.socket("chain", [0, 0.3, 0], { spread: 1 });
 }
 
-export const SPECIES = { capybara, javelina, roadrunner, frog };
+export const SPECIES = { capybara, javelina, roadrunner, jackrabbit, tortoise, gila, hornedlizard, bighorn, quail, armadillo, coyote, otter, frog };
 export const BUILT_SPECIES = Object.keys(SPECIES);
 
 /* a species' template (cached by the caller) */

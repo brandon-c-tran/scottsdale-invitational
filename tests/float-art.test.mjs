@@ -63,7 +63,7 @@ test("every floatie builds with a seat and its seat info, flips, and disposes", 
     assert.ok(Array.isArray(f.seatInfo.rest) && Number.isFinite(f.seatInfo.out), `${floatie}: seat info`);
     f.setState({ flipped: true });
     for (let i = 0; i < 60; i++) f.update(1 / 60);
-    assert.ok(Math.abs(f.hull.rotation.z - Math.PI) < 0.3, `${floatie}: upside down`);
+    assert.ok(Math.abs(Math.abs(f.hull.rotation.z) - Math.PI) < 0.3, `${floatie}: upside down`);
     f.setState({ flipped: false });
     for (let i = 0; i < 90; i++) f.update(1 / 60);
     assert.ok(Math.abs(f.hull.rotation.z) < 0.2, `${floatie}: upright again`);
@@ -120,27 +120,32 @@ test("swimming flips the rider's floatie and climbing back rights it", () => {
   const r = buildRider(entrant("roadrunner", "shark"));
   r.critter.setState({ swim: true });
   for (let i = 0; i < 90; i++) r.update(1 / 60);
-  assert.ok(Math.abs(r.floatie.hull.rotation.z - Math.PI) < 0.3);
+  assert.ok(Math.abs(Math.abs(r.floatie.hull.rotation.z) - Math.PI) < 0.3);
   const bone = r.critter.runtime.b.root;
-  assert.ok(bone.position.y < -0.2 && bone.position.z > 0.5, "the critter is in the water behind its floatie");
+  assert.ok(bone.position.y < -0.15 && bone.position.x > 0.6, "the critter is in the water beside its floatie");
   r.critter.setState({ swim: false });
   for (let i = 0; i < 120; i++) r.update(1 / 60);
   assert.ok(Math.abs(r.floatie.hull.rotation.z) < 0.2 && Math.abs(bone.position.y) < 0.05);
   r.dispose();
 });
 
-test("budget: a race-detail rider stays modest, a few meshes each", () => {
-  const counts = [];
+test("budget: a race-detail rider stays modest, a dozen meshes at most", () => {
+  const bare = [], dressed = [];
   for (const critter of CRITTER_IDS) for (const floatie of FLOATIE_IDS) {
     const r = buildRider(entrant(critter, floatie));
     const s = artStats(r.root);
-    counts.push(s.triangles);
-    assert.ok(s.meshes <= 12, `${critter} on ${floatie}: ${s.meshes} meshes`);
+    bare.push(s.triangles);
     r.dispose();
+    const d = buildRider({ ...entrant(critter, floatie), look: { critter, floatie, hat: "cowboy", shades: "aviators" } });
+    const ds = artStats(d.root);
+    dressed.push(ds.triangles);
+    assert.ok(ds.meshes <= 12, `${critter} on ${floatie}: ${ds.meshes} meshes`);
+    d.dispose();
   }
-  const max = Math.max(...counts), avg = counts.reduce((a, b) => a + b, 0) / counts.length;
-  assert.ok(max <= 9500, `max ${max} triangles`);
-  assert.ok(avg <= 8000, `average ${Math.round(avg)} triangles`);
+  const avg = a => a.reduce((x, y) => x + y, 0) / a.length;
+  assert.ok(Math.max(...bare) <= 8600, `bare max ${Math.max(...bare)} triangles`);
+  assert.ok(avg(bare) <= 7000, `bare average ${Math.round(avg(bare))} triangles`);
+  assert.ok(Math.max(...dressed) <= 10000, `dressed max ${Math.max(...dressed)} triangles`);
 });
 
 test("counted resources (tints, badges) go back to zero", () => {

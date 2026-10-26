@@ -69,7 +69,7 @@ function nightSky() {
   /* the string lights' glow: a few broad warm pools low on the horizon
      (many small bright bulbs reflect as a dotted seam on every toy) */
   const pool = new THREE.SphereGeometry(7, 16, 10);
-  const warm = new THREE.MeshBasicMaterial({ color: new THREE.Color("#ffad5e").multiplyScalar(2.2) });
+  const warm = new THREE.MeshBasicMaterial({ color: new THREE.Color("#ffad5e").multiplyScalar(1.5) });
   for (let i = 0; i < 7; i++) {
     const az = (i / 7) * Math.PI * 2 + 0.35;
     const m = new THREE.Mesh(pool, warm);
@@ -91,10 +91,10 @@ export function floatLights(mood = "night") {
     const rim = new THREE.DirectionalLight("#ffffff", 2.2); rim.position.set(1.5, 4, 5);
     group.add(key, fill, rim, new THREE.HemisphereLight("#f4f1ea", "#6f6a62", 0.7));
   } else {
-    const moon = new THREE.DirectionalLight("#bcd0ff", 2.2); moon.position.set(-5, 7, 5);
-    const lamp = new THREE.DirectionalLight("#ffb46e", 1.5); lamp.position.set(5, 2.2, -4);
-    const front = new THREE.DirectionalLight("#ffd9b0", 0.7); front.position.set(-1, 3, -6);
-    group.add(moon, lamp, front, new THREE.HemisphereLight("#3e4c86", "#2a1a22", 0.85));
+    const moon = new THREE.DirectionalLight("#c4d4ff", 3.2); moon.position.set(-5, 7, 5);
+    const lamp = new THREE.DirectionalLight("#ffbf80", 2.4); lamp.position.set(5, 3, -4);
+    const front = new THREE.DirectionalLight("#ffe2c4", 1.3); front.position.set(-2, 4, -6);
+    group.add(moon, lamp, front, new THREE.HemisphereLight("#5868a8", "#2a1a22", 1.25));
   }
   return group;
 }

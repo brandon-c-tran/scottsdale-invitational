@@ -65,7 +65,7 @@ export function chainGeometry(template, detail = "race") {
     const hero = detail === "hero";
     const pts = [];
     const span = 2.1;
-    const N = hero ? 26 : 13;
+    const N = hero ? 26 : 11;
     for (let i = 0; i <= N; i++) {
       const phi = -span + (i / N) * 2 * span;
       const k = ((1 + Math.cos(phi)) / 2) ** 1.4;
@@ -75,7 +75,7 @@ export function chainGeometry(template, detail = "race") {
     }
     const parts = [];
     const linkR = 0.021, linkr = 0.0072;
-    const lr = hero ? 6 : 4, lt = hero ? 12 : 6;
+    const lr = hero ? 6 : 3, lt = hero ? 12 : 6;
     for (let i = 0; i < pts.length; i++) {
       const a = pts[Math.max(0, i - 1)].p, b = pts[Math.min(pts.length - 1, i + 1)].p;
       const t = b.clone().sub(a).normalize();
@@ -96,7 +96,7 @@ export function chainGeometry(template, detail = "race") {
     const bail = torus({ R: 0.016, r: 0.0065, radial: lr, tubular: lt + 2 });
     xf(bail, { rot: [0, 0, Math.PI / 2], at: [front.p.x, front.p.y - 0.012, front.p.z - 0.004] });
     parts.push(paint(bail, "#ffffff"));
-    const bezel = torus({ R: CHIP.r + 0.003, r: 0.0085, radial: lr, tubular: hero ? 48 : 22 });
+    const bezel = torus({ R: CHIP.r + 0.003, r: 0.0085, radial: lr, tubular: hero ? 48 : 18 });
     const bm = new THREE.Matrix4().makeRotationX(Math.PI / 2);
     bm.premultiply(new THREE.Matrix4().makeRotationFromQuaternion(chipAt.q)).setPosition(chipAt.p);
     bezel.applyMatrix4(bm);

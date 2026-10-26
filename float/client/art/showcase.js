@@ -90,7 +90,10 @@ export class Showcase {
     this.scene.background = this.stage.background;
     this.scene.environment = floatEnvironment(this.renderer, mood === "studio" ? "studio" : "night");
     if (this.stage.water) { this.stage.water.material.envMap = this.scene.environment; this.stage.water.material.envMapIntensity = 0.5; this.stage.water.material.needsUpdate = true; }
-    this.scene.environmentIntensity = mood === "studio" ? 0.85 : 1.0;
+    this.scene.environmentIntensity = mood === "studio" ? 0.85 : mood === "screen" ? 1.6 : 1.0;
+    /* the TV renders with ACES at 1.12; the showcase's own stages with Neutral */
+    this.renderer.toneMapping = mood === "screen" ? THREE.ACESFilmicToneMapping : THREE.NeutralToneMapping;
+    this.renderer.toneMappingExposure = mood === "screen" ? 1.12 : 1.08;
     for (const it of this.items) if (it.puddle) { it.root.remove(it.puddle.mesh); it.puddle.dispose(); it.puddle = buildPuddle(this.stage, 0.9); it.root.add(it.puddle.mesh); }
   }
 
@@ -145,7 +148,7 @@ export class Showcase {
     this.view = view;
     this.opts = opts;
     this.spin = { yaw: 0, auto: !opts.still, drag: null };
-    const stageMood = opts.stage === "studio" ? "studio" : "night";
+    const stageMood = opts.stage === "studio" || opts.stage === "screen" ? opts.stage : "night";
     this.setStage(stageMood);
     const cam = this.camera;
     const look = opts.look || {};
@@ -194,13 +197,37 @@ export class Showcase {
       });
       cam.fov = 30; cam.position.set(0, 4.4, 9.2); cam.lookAt(0, 0.55, -0.45);
     } else if (view === "faces") {
-      for (const [start, count, y] of [[0, 5, 1.62], [5, 4, 0.82], [9, 4, 0.02]]) for (let j = 0; j < count; j++) {
+      for (const [start, count, y] of [[0, 5, 1.7], [5, 4, 0.85], [9, 4, 0.0]]) for (let j = 0; j < count; j++) {
         const i = start + j;
         const e = sampleEntrant(i, { look: { critter: CRITTERS[i].id, hat: opts.look?.hat && opts.one ? opts.look.hat : "none", shades: "none" } });
-        const item = this.place({ entrant: e, critterOnly: true, at: [(j - (count - 1) / 2) * 0.86, y - 0.42, (1.62 - y) * 0.5], face: Math.PI + (opts.yaw ?? 0.35), detail: "hero", label: CRITTERS[i].name, behaviour: {} });
+        const item = this.place({ entrant: e, critterOnly: true, at: [(j - (count - 1) / 2) * 0.92, y - 0.42, (1.7 - y) * 0.45], face: Math.PI + (opts.yaw ?? 0.35), detail: "hero", label: CRITTERS[i].name, behaviour: {} });
         item.labelY = 0.2;
+        /* a row of faces looks at the camera */
+        const look = item.critterOnly.runtime.look;
+        look.next = 1e9; look.yaw = 0; look.pitch = 0.04;
       }
-      cam.fov = 26; cam.position.set(0, 0.95, 5.6); cam.lookAt(0, 0.95, 0);
+      cam.fov = 26; cam.position.set(0, 1.45, 6.6); cam.lookAt(0, 0.98, 0);
+      this.spin.auto = false;
+    } else if (view === "fit") {
+      /* one hat (and shades) on all thirteen, two rows, three quarters on */
+      CRITTERS.forEach((c, i) => {
+        const row = i < 7 ? 0 : 1, col = row ? i - 7 : i, count = row ? 6 : 7;
+        const e = sampleEntrant(i, { look: { critter: c.id, hat: opts.hat || "none", shades: opts.shades || "none" }, entrant: { groom: true } });
+        const item = this.place({ entrant: e, critterOnly: true, at: [(col - (count - 1) / 2) * 1.0, row ? 0 : 1.15, row ? 0.6 : 0], face: Math.PI + (opts.yaw ?? 0.45), detail: "hero", label: c.name, behaviour: {} });
+        item.labelY = -0.08;
+      });
+      cam.fov = 26; cam.position.set(0, 1.9, 9.6); cam.lookAt(0, 0.95, 0);
+      this.spin.auto = false;
+    } else if (view === "turn") {
+      /* one critter from four sides (sculpting): front, three quarters, side, back */
+      const critter = look.critter || "capybara";
+      const idx = Math.max(0, CRITTERS.findIndex(c => c.id === critter));
+      [0, 0.75, Math.PI / 2, Math.PI].forEach((yaw, j) => {
+        const e = sampleEntrant(idx, { look: { critter, hat: opts.hat || "none", shades: opts.shades || "none" }, entrant: { groom: true } });
+        const item = this.place({ entrant: e, critterOnly: true, at: [(j - 1.5) * 1.02, 0, 0], face: Math.PI + yaw, detail: opts.detail || "hero", behaviour: {} });
+        item.labelY = -0.1;
+      });
+      cam.fov = 20; cam.position.set(0, 1.35, 6.4); cam.lookAt(0, 0.42, 0);
       this.spin.auto = false;
     } else if (view === "chips") {
       /* every skin's chip, the two with photos first */
@@ -235,6 +262,18 @@ export class Showcase {
         this.place({ entrant: e, at, face: 0, detail: "race", behaviour: { strokes: true, fast: true, race: true } });
       }
       cam.fov = 40; cam.position.set(0, 6.5, 9); cam.lookAt(0, 0, -4);
+    } else if (view === "podium") {
+      /* the screen's podium: the top three close up in hero detail, the
+         rest of the pack behind them at race detail (what a TV draws then) */
+      [[0, [0, 0.55, 0]], [1, [-1.75, 0.3, 0.35]], [2, [1.75, 0.12, 0.35]]].forEach(([i, at]) => {
+        this.place({ entrant: sampleEntrant(i), at, face: Math.PI + (at[0] ? -Math.sign(at[0]) * 0.3 : 0), detail: "hero", behaviour: {} });
+      });
+      for (let i = 3; i < 13; i++) {
+        const j = i - 3, row = j < 5 ? 0 : 1;
+        this.place({ entrant: sampleEntrant(i), at: [((row ? j - 5 : j) - 2) * 2.3 + row * 1.1, 0, -5.5 - row * 2.6], face: Math.PI, detail: "race", behaviour: {} });
+      }
+      cam.fov = 30; cam.position.set(0, 1.75, 7.2); cam.lookAt(0, 0.95, -1);
+      this.spin.auto = false;
     } else {
       /* lineup: 13 riders, two staggered rows */
       /* three rows: 5, 4, 4 */
@@ -270,7 +309,7 @@ export class Showcase {
       if (this.view === "detail") it.root.rotation.y = it.face + this.spin.yaw;
       else if (this.view === "race") it.root.rotation.y = 0.15 * Math.sin(t * 0.6 + it.phase);
       else if (this.view === "chips") it.root.rotation.y = 0.5 * Math.sin(t * 0.7 + it.phase);
-      else if (this.view !== "medallion" && this.view !== "faces") it.root.rotation.y = it.face + 0.55 * Math.sin(t * 0.32 + it.phase);
+      else if (!["medallion", "faces", "turn", "fit", "podium"].includes(this.view)) it.root.rotation.y = it.face + 0.55 * Math.sin(t * 0.32 + it.phase);
       it.rider?.update(dt);
       it.floatie?.update(dt);
       it.critterOnly?.update(dt);

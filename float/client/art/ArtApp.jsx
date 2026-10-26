@@ -4,12 +4,14 @@
    URL for scripts/float-art-shots.mjs (see showcase.js). */
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Showcase, sampleEntrant, samplePhoto, SAMPLE_COLORS, SAMPLE_SKINS, CRITTERS, HATS, SHADES, POSES, FLOATIES } from "./showcase.js";
-import { riderPortrait } from "./index.js";
+import { riderPortrait, setFloatArtQuality } from "./index.js";
+import { plushDebug, furMaterial } from "./plush.js";
 
 const VIEWS = [
   { id: "lineup", name: "Lineup" }, { id: "detail", name: "Detail" }, { id: "floaties", name: "Floaties" },
   { id: "poses", name: "Poses" }, { id: "states", name: "States" }, { id: "medallion", name: "Medallion" },
   { id: "faces", name: "Faces" }, { id: "wardrobe", name: "Wardrobe" }, { id: "chips", name: "Chips" }, { id: "portraits", name: "Portraits" }, { id: "race", name: "Pack" },
+  { id: "turn", name: "Turn" }, { id: "podium", name: "Podium" },
 ];
 const STATE_KEYS = { drink: "handsOff", handsOff: "handsOff", swim: "swim", sad: "sad", out: "sad", celebrate: "celebrate" };
 
@@ -27,6 +29,9 @@ function readParams() {
     color: q.get("color") ? `#${q.get("color").replace(/^#/, "")}` : undefined, number: num("number"), skin: q.get("skin") || undefined,
     yaw: num("yaw"), still: q.get("still") === "1", detail: q.get("detail") || undefined, hud: q.get("hud") !== "0",
     zoom: q.get("zoom") === "1", one: q.get("one") === "1", paddle: state === "paddle", quiet: state === "idle",
+    debug: num("debug") || 0, fur: q.get("fur") !== "0", quality: q.get("quality") || null,
+    ratio: num("ratio") || null, hide: q.get("hide") === "1", shellbase: q.get("shellbase") || null, psize: num("psize") || 384, pmesh: q.get("pmesh") || null,
+    shells: (q.get("shells") || "").split(",").map(x => x.split(":")).filter(([d, n]) => (d === "race" || d === "hero") && Number(n) > 0).map(([d, n]) => [d, Math.round(Number(n))]),
   };
 }
 
@@ -92,9 +97,19 @@ export default function ArtApp() {
   const [stats, setStats] = useState(null);
   const [portraits, setPortraits] = useState([]);
 
+  /* the attribute views and the fur switch (look development) */
+  useEffect(() => {
+    plushDebug.value = params.debug;
+    if (params.quality) setFloatArtQuality(params.quality);
+    if (!params.fur) { furMaterial("race").visible = false; furMaterial("hero").visible = false; }
+    /* shells=race:3,hero:8 tries other shell counts */
+    for (const [d, n] of params.shells) { const m = furMaterial(d); m.userData.shells = n; m.userData.uShells.value = n; }
+  }, []);
+
   /* the scene, once */
   useEffect(() => {
     const show = new Showcase(canvasRef.current, labelsRef.current, { onStats: setStats });
+    if (params.ratio) { show.renderer.setPixelRatio(params.ratio); show.resize(); }
     showRef.current = show;
     window.__floatArt = { show, stats: () => show.stats(), seek: t => show.seek(t), freeze: f => { show.frozen = f; } };
     let raf = 0, last = performance.now();
@@ -115,13 +130,24 @@ export default function ArtApp() {
     if (view === "portraits") {
       show.clear();
       const list = CRITTERS.map((c, i) => sampleEntrant(i, { photo: i % 4 === 0 ? samplePhoto() : null }));
-      Promise.all(list.map(e => riderPortrait(e, { size: 384 }).then(src => ({ e, src }))))
+      Promise.all(list.map(e => riderPortrait(e, { size: params.psize, meshDetail: params.pmesh }).then(src => ({ e, src }))))
         .then(rows => { if (!cancelled) { setPortraits(rows); setTimeout(done, 80); } });
     } else {
       show.setView(view, { stage, look, pose, stateObj: state, photo, color, skin, number: params.number, yaw: params.yaw, zoom: params.zoom, one: params.one, paddle: params.paddle, quiet: params.quiet,
+        hat: params.look.hat, shades: params.look.shades,
         still: params.still || params.freeze, detail: params.detail });
-      if (params.t !== undefined) { show.seek(params.t); show.frozen = params.freeze; }
-      setTimeout(done, 40);
+      /* the baked critters load their meshes: run the clock once they are in */
+      const loads = show.items.map(it => (it.rider?.critter || it.critterOnly)?.meshReady).filter(Boolean);
+      show.frozen = params.t !== undefined;
+      Promise.all(loads).then(() => {
+        if (cancelled) return;
+        /* shellbase=hero: the fur over the body's own mesh (look development) */
+        /* hide=1: the stage alone, for a frame-rate baseline */
+        if (params.hide) for (const it of show.items) it.root.visible = false;
+        if (params.shellbase === "hero") for (const it of show.items) { const rt = (it.rider?.critter || it.critterOnly)?.runtime; if (rt?.meshes.plush) rt.setShellBase(rt.meshes.plush.geometry); }
+        if (params.t !== undefined) { show.seek(params.t); show.frozen = params.freeze; }
+        setTimeout(done, 40);
+      });
     }
     return () => { cancelled = true; };
   }, [view, stage, look, pose, state, photo, color, skin]);

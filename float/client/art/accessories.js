@@ -59,20 +59,19 @@ export function chipGeometry(segments = 40) {
    on the chest; a bezel and a bail. In chest-bone space. */
 export function chainGeometry(template, detail = "race") {
   return geometry(`chain:${template.id}:${detail}`, () => {
-    const body = template.shapes.body;
     const chest = template.bones.find(b => b.name === "chest").at;
-    const lf = template.sockets.chain?.front ?? 0.55, lb = template.sockets.chain?.back ?? 1.05;
     const hero = detail === "hero";
     const pts = [];
-    const span = 2.1;
-    const N = hero ? 26 : 11;
-    for (let i = 0; i <= N; i++) {
-      const phi = -span + (i / N) * 2 * span;
-      const k = ((1 + Math.cos(phi)) / 2) ** 1.4;
-      const lam = lb + (lf - lb) * k;
-      const d = V(Math.sin(phi) * Math.cos(lam), Math.sin(lam), -Math.cos(phi) * Math.cos(lam)).normalize();
-      pts.push({ p: body.at(d).addScaledVector(body.normal(d), 0.013), n: body.normal(d), phi });
+    /* the bake measured the ring round the neck: its points in the pack,
+       and the midpoints between them too for a close-up */
+    const ring = template.anchors.chain;
+    for (let i = 0; i < ring.length; i++) {
+      const r = ring[i];
+      pts.push({ p: V(r[0], r[1], r[2]), n: V(r[3], r[4], r[5]) });
+      const q = ring[i + 1];
+      if (hero && q) pts.push({ p: V((r[0] + q[0]) / 2, (r[1] + q[1]) / 2, (r[2] + q[2]) / 2), n: V(r[3] + q[3], r[4] + q[4], r[5] + q[5]).normalize() });
     }
+    const N = pts.length - 1;
     const parts = [];
     const linkR = 0.021, linkr = 0.0072;
     const lr = hero ? 6 : 3, lt = hero ? 12 : 6;
@@ -120,17 +119,9 @@ export function bezelGeometry(detail = "race") {
 
 /* where the chip hangs (critter space): below the chain's front, resting on the belly */
 export function chipPlace(template) {
-  const body = template.shapes.body;
-  const lf = template.sockets.chain?.front ?? 0.55;
-  const top = body.at(V(0, Math.sin(lf), -Math.cos(lf)).normalize());
-  const dir = V(0, Math.sin(lf - 0.5), -Math.cos(lf - 0.5)).normalize();
-  const n = body.normal(dir);
-  const p = V(0, top.y - CHIP.r - 0.022, 0);
-  const onBody = body.at(dir);
-  p.z = onBody.z - 0.018;
-  const facing = n.clone().add(V(0, 0.15, 0)).normalize();
-  const q = new THREE.Quaternion().setFromUnitVectors(V(0, 0, -1), facing);
-  return { p, q };
+  const { p, n } = template.anchors.chip;
+  const facing = V(n[0], n[1], n[2]).add(V(0, 0.15, 0)).normalize();
+  return { p: V(p[0], p[1], p[2]), q: new THREE.Quaternion().setFromUnitVectors(V(0, 0, -1), facing) };
 }
 
 /* the drink: a can in a koozie in the rider's color (the koozie is the tint mesh) */

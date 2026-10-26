@@ -1,85 +1,19 @@
-/* The rig: a critter is one skinned mesh per finish (vinyl, the rider's
-   tint, the eye glints) over one skeleton, so a whole critter is three draw
-   calls however many parts it has, and arms bend like rubber hoses.
-
-   RigBuilder collects painted parts with their bone weights at build time
-   (bind pose: bones at rest positions, no rest rotation, so a point in
-   critter space minus a bone's rest position is that point in the bone's
-   space). instantiate() turns a template into bones and meshes for one
-   critter. Expression variants (happy eyes, lids, mouths) are parts bound
-   to leaf bones that sit at scale 0 until shown.
+/* The rig: a critter's skeleton, made from its template in the bind pose
+   (bones at rest positions, no rest rotation, so a point in critter space
+   minus a bone's rest position is that point in the bone's space). The
+   baked plush mesh and its fur bind to it when they arrive (critter.js
+   attach). Expression variants (happy eyes, lids, mouths) are features
+   bound to leaf bones that sit at scale 0 until shown.
 
    solveArm() is the two-bone IK every arm pose goes through, allocation
    free. */
 import * as THREE from "three";
-import { paint, merge } from "./sculpt.js";
 
-export class RigBuilder {
-  constructor() {
-    this.bones = [];
-    this.index = new Map();
-    this.parts = { vinyl: [], tint: [], glint: [] };
-  }
+export const IDENTITY = new THREE.Matrix4();
 
-  bone(name, parent, at) {
-    if (this.index.has(name)) throw new Error(`rig: bone ${name} twice`);
-    const i = this.bones.length;
-    this.bones.push({ name, parent: parent == null ? -1 : this.idx(parent), at: new THREE.Vector3(...at) });
-    this.index.set(name, i);
-    return i;
-  }
-
-  idx(name) {
-    const i = this.index.get(name);
-    if (i === undefined) throw new Error(`rig: no bone ${name}`);
-    return i;
-  }
-
-  has(name) { return this.index.has(name); }
-
-  /* a bone's rest position (critter space) */
-  at(name) { return this.bones[this.idx(name)].at; }
-
-  /* add a part. color: a hex or a per-vertex fn (sculpt.paint); bind: a bone
-     name, or fn(p) -> [[bone, weight], ...] (up to four) */
-  add(geo, { layer = "vinyl", color = "#ffffff", bind = "root" } = {}) {
-    if (!geo) return null;
-    paint(geo, color);
-    const n = geo.attributes.position.count;
-    const si = new Uint16Array(n * 4), sw = new Float32Array(n * 4);
-    if (typeof bind === "string") {
-      const b = this.idx(bind);
-      for (let i = 0; i < n; i++) { si[i * 4] = b; sw[i * 4] = 1; }
-    } else {
-      const p = new THREE.Vector3();
-      for (let i = 0; i < n; i++) {
-        p.fromBufferAttribute(geo.attributes.position, i);
-        const list = bind(p).filter(([, w]) => w > 1e-4).sort((a, b) => b[1] - a[1]).slice(0, 4);
-        const total = list.reduce((s, [, w]) => s + w, 0) || 1;
-        list.forEach(([name, w], k) => { si[i * 4 + k] = this.idx(name); sw[i * 4 + k] = w / total; });
-        if (!list.length) sw[i * 4] = 1;
-      }
-    }
-    geo.setAttribute("skinIndex", new THREE.Uint16BufferAttribute(si, 4));
-    geo.setAttribute("skinWeight", new THREE.Float32BufferAttribute(sw, 4));
-    this.parts[layer].push(geo);
-    return geo;
-  }
-
-  build() {
-    const geos = {};
-    for (const [layer, list] of Object.entries(this.parts)) geos[layer] = list.length ? merge(list) : null;
-    return {
-      bones: this.bones.map(b => ({ name: b.name, parent: b.parent, at: b.at.clone() })),
-      geos,
-    };
-  }
-}
-
-const IDENTITY = new THREE.Matrix4();
-
-/* one critter's bones and meshes from a template */
-export function instantiate(template, materials) {
+/* one critter's bones from a template, in the bind pose (its meshes bind
+   to them when the geometry arrives) */
+export function instantiate(template) {
   const root = new THREE.Group();
   const bones = template.bones.map(b => { const bone = new THREE.Bone(); bone.name = b.name; return bone; });
   template.bones.forEach((b, i) => {
@@ -94,16 +28,6 @@ export function instantiate(template, materials) {
   root.updateMatrixWorld(true);
   const skeleton = new THREE.Skeleton(bones);
   const meshes = {};
-  const sphere = new THREE.Sphere(new THREE.Vector3(0, 0.45, 0.2), 2.1);
-  for (const [layer, geo] of Object.entries(template.geos)) {
-    if (!geo || !materials[layer]) continue;
-    const mesh = new THREE.SkinnedMesh(geo, materials[layer]);
-    mesh.name = `critter-${layer}`;
-    mesh.boundingSphere = sphere.clone();
-    root.add(mesh);
-    mesh.bind(skeleton, IDENTITY);
-    meshes[layer] = mesh;
-  }
   const byName = {};
   bones.forEach(b => { byName[b.name] = b; });
   return { root, bones: byName, list: bones, skeleton, meshes };

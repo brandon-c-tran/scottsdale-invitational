@@ -117,6 +117,7 @@ function strand({ from, to, sag = 0.9, bulbs = 16, glow }) {
 }
 
 export function buildStage(mood = "night") {
+  const screen = mood === "screen";
   const group = new THREE.Group();
   group.name = `stage:${mood}`;
   const disposables = [];
@@ -177,8 +178,12 @@ export function buildStage(mood = "night") {
   for (const [from, to, sag] of [[[-15, 3.6, -9], [-4.5, 3.9, -10], 0.75], [[-4.6, 3.9, -10], [5.5, 3.7, -10], 0.8], [[5.4, 3.7, -10], [16, 3.4, -8], 0.7]]) {
     group.add(strand({ from, to, sag, bulbs: 14, glow }));
   }
-  const lights = floatLights("night");
-  group.add(lights);
+  /* "screen": the TV's own rig (float/client/screen World.js): a cool moon,
+     an indigo sky over a warm ground (the art's night sky lights the rest) */
+  if (screen) {
+    const moon = new THREE.DirectionalLight("#c2c8f0", 1.25); moon.position.set(-3, 8, 4);
+    group.add(moon, new THREE.HemisphereLight("#46528f", "#3a1c10", 0.8));
+  } else group.add(floatLights("night"));
   for (const [x, z] of [[-7, -6], [1, -7], [8, -6]]) {
     const lamp = new THREE.PointLight("#ffb066", 6, 20, 1.6);
     lamp.position.set(x, 3.2, z);

@@ -10,9 +10,16 @@
    hose style). Springs on the head, the squash and the body give overshoot
    and settle; ears, crest and tail follow through.
 
+   A baked (plush) critter is floppier still: its ears, cheeks, belly and
+   tail hang on damped springs driven by how its head actually moves in the
+   world (the bob of the water, a stroke's lean, a bump the screen gives the
+   rider), so it jiggles and flops like a soft toy. Its mesh arrives after
+   the skeleton (critterAsset.js) and pops in.
+
    Nothing in update() allocates. */
 import * as THREE from "three";
-import { instantiate, solveArm } from "./rig.js";
+import { instantiate, solveArm, IDENTITY } from "./rig.js";
+import { shellGeometry } from "./critterTemplate.js";
 
 const TAU = Math.PI * 2;
 const clamp01 = x => (x < 0 ? 0 : x > 1 ? 1 : x);
@@ -85,6 +92,23 @@ const SIDE_KEYS = {
 const _q1 = new THREE.Quaternion(), _q2 = new THREE.Quaternion();
 const _S = new THREE.Vector3(), _T = new THREE.Vector3(), _P = new THREE.Vector3(), _w = new THREE.Vector3();
 const _m = new THREE.Matrix4(), _mi = new THREE.Matrix4();
+const _jp = new THREE.Vector3(), _jq = new THREE.Quaternion(), _js = new THREE.Vector3(), _ja = new THREE.Vector3();
+
+/* one damped spring, stepped in place (x toward target) */
+function spring(s, target, w, z, h) {
+  s.v += (w * w * (target - s.x) - 2 * z * w * s.v) * h;
+  s.x += s.v * h;
+}
+const sp = () => ({ x: 0, v: 0 });
+const lim = (v, m) => (v > m ? m : v < -m ? -m : v);
+const CHEEKS = ["cheekL", "cheekR"];
+const POP_S = 0.34;
+/* a critter's culling sphere in its own space, whatever pose it strikes */
+const BODY_SPHERE = new THREE.Sphere(new THREE.Vector3(0, 0.45, 0.05), 1.6);
+/* a seated critter's height (m), and the height on screen (CSS px) under
+   which its fur's shells stop paying for themselves */
+const CRITTER_TALL = 1, FUR_MIN_PX = 150;
+const _buf = new THREE.Vector2();
 
 /* Catmull-Rom through keyframes [t, x, y, z] (t ascending) */
 function path(keys, t, out) {
@@ -108,7 +132,7 @@ export function mulberry(seed) {
 
 export class CritterRuntime {
   constructor(template, { materials, seed = "critter", drink = null } = {}) {
-    const inst = instantiate(template, materials);
+    const inst = instantiate(template);
     this.template = template;
     this.root = inst.root;
     this.b = inst.bones;
@@ -160,6 +184,93 @@ export class CritterRuntime {
     this.drink = drink;
     if (drink) { this.b.chest.add(drink); drink.visible = false; }
     this.anchors = { head: this.b.head, chest: this.b.chest, handL: this.b.handL, handR: this.b.handR };
+    /* the plush's floppy parts: springs and the bones' rest places */
+    this.materials = materials;
+    this.jig = {
+      init: false, prev: new THREE.Vector3(), vel: new THREE.Vector3(), acc: new THREE.Vector3(), local: new THREE.Vector3(),
+      earLx: sp(), earLz: sp(), earRx: sp(), earRz: sp(), tipLx: sp(), tipLz: sp(), tipRx: sp(), tipRz: sp(),
+      cheek: sp(), cheekS: sp(), belly: sp(), bellyS: sp(), tailY: sp(), tailX: sp(), tipY: sp(), tipX: sp(), prevSq: 1, prevYaw: 0,
+    };
+    this.rest = {};
+    for (const name of ["cheekL", "cheekR", "belly", "earL2", "earR2", "tail3"]) if (this.b[name]) this.rest[name] = this.b[name].position.clone();
+    this.pop = 0;
+    this.body = null;
+    this.shellBase = null;
+  }
+
+  /* a baked critter's mesh, arrived: bind it (and its fur's shells) to the
+     skeleton made in the bind pose, and pop it in. Over a stand-in (a hero
+     critter showing its race mesh while the hero file loads) it trades
+     places where it stands, without a pop. fur: the shells' material when
+     it is not this critter's own (a stand-in's) */
+  attach(geo, { fur: furFor = null } = {}) {
+    if (this.disposed || !geo || this.body?.geometry === geo) return;
+    const swap = !!this.body;
+    if (swap) this.root.remove(this.body);
+    const body = new THREE.SkinnedMesh(geo, this.materials.plush);
+    body.name = "critter-plush";
+    body.boundingSphere = BODY_SPHERE.clone();
+    body.onBeforeRender = this.furWhereItPays;
+    this.root.add(body);
+    body.bind(this.skeleton, IDENTITY);
+    this.meshes.plush = body;
+    this.body = body;
+    this.dressFur(furFor || this.materials.fur);
+    if (this.placeholder) { this.root.remove(this.placeholder); this.placeholder.geometry.dispose(); this.placeholder = null; }
+    if (!swap) this.pop = Math.min(this.pop, 0.001);
+  }
+
+  /* the fur's shells: over the body's own mesh, or over a coarser one of
+     the same critter (a hero critter's shells ride its race mesh: a sixth
+     of the vertices to skin for every shell, and the fuzz hides the
+     difference). Rebuilt when either arrives. */
+  setShellBase(geo) {
+    if (this.disposed || !geo || this.shellBase === geo) return;
+    this.shellBase = geo;
+    if (this.body) this.dressFur(this.meshes.fur?.material || this.materials.fur);
+  }
+
+  /* the shells only where they pay: as the body draws, how tall the critter
+     stands on screen (CSS pixels) decides whether its fur draws from the
+     next frame on. A far rider in the pack, whose fuzz would be a pixel
+     wide, skips it; the gap between the two marks keeps it from flickering */
+  furWhereItPays = (renderer, scene, camera) => {
+    const fur = this.meshes.fur;
+    if (!fur || !camera.isPerspectiveCamera || !this.body) return;
+    const e = this.body.matrixWorld.elements, c = camera.matrixWorld.elements;
+    const dist = Math.hypot(e[12] - c[12], e[13] - c[13], e[14] - c[14]) || 1e-3;
+    renderer.getDrawingBufferSize(_buf);
+    const tall = (Math.hypot(e[4], e[5], e[6]) * CRITTER_TALL) / (dist * 2 * Math.tan(camera.fov * THREE.MathUtils.DEG2RAD * 0.5) / camera.zoom)
+      * (_buf.y / renderer.getPixelRatio());
+    if (fur.visible && tall < FUR_MIN_PX * 0.85) fur.visible = false;
+    else if (!fur.visible && tall > FUR_MIN_PX) fur.visible = true;
+  };
+
+  dressFur(furMat) {
+    if (this.meshes.fur) { this.root.remove(this.meshes.fur); this.meshes.fur = null; }
+    const shells = furMat && this.body && shellGeometry(this.shellBase || this.body.geometry, furMat.userData.shells);
+    if (!shells) return;
+    const fur = new THREE.SkinnedMesh(shells, furMat);
+    fur.name = "critter-fur";
+    fur.boundingSphere = BODY_SPHERE.clone();
+    fur.renderOrder = 1;
+    this.root.add(fur);
+    fur.bind(this.skeleton, IDENTITY);
+    this.meshes.fur = fur;
+  }
+
+  /* an invisible box the size of the sculpt, so a bounding box taken before
+     the mesh arrives (a name tag's height) is right */
+  holdPlace(bounds) {
+    if (this.body || !bounds) return;
+    const g = new THREE.BufferGeometry();
+    g.setAttribute("position", new THREE.Float32BufferAttribute([...bounds.lo, ...bounds.hi], 3));
+    g.setDrawRange(0, 0);
+    const m = new THREE.Mesh(g);
+    m.visible = false;
+    m.name = "critter-placeholder";
+    this.placeholder = m;
+    this.root.add(m);
   }
 
   setSeat(seat) { this.seat = { ...DEFAULT_SEAT, ...(seat || {}) }; }
@@ -358,8 +469,8 @@ export class CritterRuntime {
         P.hdx = 0.2 + 0.05 * pulse; P.hdy = -0.25 * sway; P.hdz = 0.06 * sway; P.cr = 0.15 * pulse;
       } else {
         const lift = 0.025 * pulse;
-        this.restToChest(-0.2 - 0.08 * up, 0.3 + 0.15 * up + lift, -0.05, P, "l");
-        this.restToChest(0.2 + 0.08 * up, 0.3 + 0.15 * up + lift, -0.05, P, "r");
+        this.restToChest(-0.24 - 0.12 * up, 0.3 + 0.16 * up + lift, -0.08, P, "l");
+        this.restToChest(0.24 + 0.12 * up, 0.3 + 0.16 * up + lift, -0.08, P, "r");
         P.lpx = -1; P.lpy = -0.12; P.lpz = 0.25; P.rpx = 1; P.rpy = -0.12; P.rpz = 0.25;
         P.bulge = 1 + 0.16 * pulse * up;
       }
@@ -497,6 +608,7 @@ export class CritterRuntime {
     if (poseW > 0 && this.poseShown) { copyKeys(P, Q, BODY); poseExpr = this.victory(Q, 0, this.poseShown, this.poseT); blendKeys(P, Q, BODY, poseW); }
     this.bodySprings.step(P, dt);
     this.applyBody(P);
+    this.secondary(P, dt);
 
     /* pass 1: the hands, through the body as it now stands */
     this.base(P, 1);
@@ -578,6 +690,68 @@ export class CritterRuntime {
     _mi.copy(_m).invert();
   }
 
+  /* the floppy parts (a baked plush only): ears, cheeks, belly and tail on
+     damped springs, driven by the head's acceleration in the world (the
+     water's bob, a stroke's lean, a bump, a hop) in the head's own frame */
+  secondary(P, dt) {
+    if (this.pop < 1) {
+      this.pop = Math.min(1, this.pop + dt / POP_S);
+      this.root.scale.setScalar(this.pop >= 1 ? 1 : 0.02 + 0.98 * backOut(this.pop));
+    }
+    const b = this.b, j = this.jig, rest = this.rest;
+    if (!b.cheekL || dt <= 0) return;
+    b.head.updateWorldMatrix(true, false);
+    b.head.matrixWorld.decompose(_jp, _jq, _js);
+    const scale = Math.abs(_js.y) > 1e-6 ? Math.abs(_js.y) : 1;
+    if (!j.init) { j.prev.copy(_jp); j.vel.set(0, 0, 0); j.acc.set(0, 0, 0); j.init = true; }
+    _ja.subVectors(_jp, j.prev).divideScalar(dt * scale);
+    j.prev.copy(_jp);
+    if (_ja.lengthSq() > 100) { j.vel.copy(_ja); return; }
+    _w.subVectors(_ja, j.vel).divideScalar(dt);
+    j.vel.copy(_ja);
+    j.acc.lerp(_w, Math.min(1, dt * 16));
+    const al = j.local.copy(j.acc);
+    if (al.lengthSq() > 900) al.setLength(30);
+    al.applyQuaternion(_jq.invert());
+    const ax = al.x, ay = al.y, az = al.z;
+    const sqV = (P.sq - j.prevSq) / dt, yawV = (P.hdy - j.prevYaw) / dt;
+    j.prevSq = P.sq; j.prevYaw = P.hdy;
+    const n = Math.min(4, Math.max(1, Math.ceil(dt * 60))), h = dt / n;
+    for (let i = 0; i < n; i++) {
+      /* ears lag the head: back when it surges forward, out when it bobs up */
+      spring(j.earLx, lim(-az * 0.024 - ay * 0.008, 0.7), 10.5, 0.2, h);
+      spring(j.earRx, lim(-az * 0.024 - ay * 0.008, 0.7), 10.5, 0.2, h);
+      spring(j.earLz, lim(ax * 0.026 + ay * 0.016 - yawV * 0.05, 0.7), 10.5, 0.2, h);
+      spring(j.earRz, lim(ax * 0.026 - ay * 0.016 - yawV * 0.05, 0.7), 10.5, 0.2, h);
+      /* the tips lag the ears */
+      spring(j.tipLx, lim(-j.earLx.v * 0.07, 0.6), 8, 0.16, h); spring(j.tipRx, lim(-j.earRx.v * 0.07, 0.6), 8, 0.16, h);
+      spring(j.tipLz, lim(-j.earLz.v * 0.07, 0.6), 8, 0.16, h); spring(j.tipRz, lim(-j.earRz.v * 0.07, 0.6), 8, 0.16, h);
+      /* cheeks and belly sag as the body rises, bounce as it lands */
+      spring(j.cheek, lim(-ay * 0.0016, 0.012), 15, 0.16, h);
+      spring(j.belly, lim(-ay * 0.002 - sqV * 0.004, 0.016), 11, 0.18, h);
+      /* the tail swings against a turn and a sideways shove */
+      spring(j.tailY, lim(-ax * 0.04 - yawV * 0.25, 0.7), 7, 0.2, h);
+      spring(j.tipY, lim(-j.tailY.v * 0.08, 0.6), 6, 0.16, h);
+      spring(j.tailX, lim(ay * 0.02 + az * 0.015, 0.5), 7, 0.22, h);
+    }
+    b.earL.rotation.x += j.earLx.x; b.earL.rotation.z += j.earLz.x;
+    b.earR.rotation.x += j.earRx.x; b.earR.rotation.z += j.earRz.x;
+    b.earL2.rotation.set(j.tipLx.x + j.earLx.x * 0.6, 0, j.tipLz.x + j.earLz.x * 0.6);
+    b.earR2.rotation.set(j.tipRx.x + j.earRx.x * 0.6, 0, j.tipRz.x + j.earRz.x * 0.6);
+    const c = j.cheek.x;
+    for (let i = 0; i < 2; i++) {
+      const name = CHEEKS[i], bone = b[name];
+      bone.position.copy(rest[name]); bone.position.y += c;
+      bone.scale.set(1 - c * 3, 1 + c * 6, 1 - c * 3);
+    }
+    const bl = j.belly.x;
+    b.belly.position.copy(rest.belly); b.belly.position.y += bl;
+    b.belly.scale.set(1 - bl * 2.5, 1 + bl * 5, 1 + bl * 1.5);
+    b.tail.rotation.x += j.tailX.x; b.tail.rotation.y += j.tailY.x;
+    b.tail2.rotation.y += j.tailY.x * 0.6 + j.tipY.x;
+    b.tail3.rotation.set(j.tailX.x * 0.5, j.tipY.x * 1.4, 0);
+  }
+
   applyArms(P) {
     for (let i = 0; i < 2; i++) {
       const side = this.side[SIDES[i]];
@@ -647,7 +821,10 @@ export class CritterRuntime {
   }
 
   dispose() {
+    this.disposed = true;
     this.root.parent?.remove(this.root);
     this.skeleton.dispose();
+    if (this.placeholder) { this.placeholder.geometry.dispose(); this.placeholder = null; }
+    if (this.crestMarker) { this.crestMarker.geometry.dispose(); this.crestMarker = null; }
   }
 }

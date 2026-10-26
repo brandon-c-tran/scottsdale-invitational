@@ -303,6 +303,54 @@ balloons thrown and landed, drink time (arrive to drink), strokes, swaps, and
 round-trip samples per phone. They ride the result to Field Day and stay in
 room storage.
 
+## As built: the engine (Oct 25)
+
+What the engine does beyond or differently from the sections above. Where
+they disagree, this wins.
+
+- **Phases** in `protocol.js` are the eight above. `room.startAt` is the gun
+  in `countdown` and `race` (a resumed countdown's `startAt` is when the race
+  goes again). The last `cut` (after the final) lasts 7 s.
+- **`room` extras:** `cupId`, `swapUntil`, `resume`, `cut` (the next round's
+  field size, null in the last round; `me.cut` is the same), `len` (this
+  leg's length), `final` (true in the last round), `history`, and
+  `botDriven` on each entrant.
+- **Host `start` `bots`** is how many bots to ADD. `/internal/cup` `bots` is
+  the total to FILL TO.
+- **Away riders:** a phone silent for 5 s (or closed) is paddled by a bot,
+  who also drinks and throws for them; control returns on its next message.
+  `botDriven` marks it.
+- **`TIMING.HARD_CAP_MS` (180 s)** ends any round, so a phone that never taps
+  "Finished my drink" cannot hold the room.
+- **`snap.s`** is the tick's time (exact interpolation), not the send time.
+- **`ev` extras:** `flip` has `why` (`"drop"` or `"riffle"`); `bump` has no
+  `j` when the hit was a rock or bank; a missed balloon splashes with no `j`;
+  a beach `drink` is sent too.
+- **`replay`** (screens only): `{t:"replay", s, leg, at, i, k:[[s, rows], ...]}`,
+  10 s around the first flip at The Drop's lip (else the first rider over),
+  sent when that race ends and to screens joining during the `cut`.
+- **Course:** zones carry extra fields (riffle `power`; eddy `side`, `back`;
+  whirlpool `x`, `y`, `r`, `core`, `spin`, `rot`, `pull`, `still`; split
+  `fast`, `calm`; bar `side`). `course.js` exports helpers for screens:
+  `frameAt`, `nearestS`, `flowAt`, `isInside`, `islandSpan`, `gridSlots`,
+  `beachSlot`, `barOf`, `legAt`, `legLength`, `elevAt`, `flowSpeed`, `zonesAt`,
+  and `COURSE` itself.
+- **Entrant indexes** are frozen from `intro` to the end of a Cup, but can
+  shift in the lobby (a kick, bots leaving). Phones find themselves by
+  `device` in `room.entrants`; `welcome.you.entrant` is only the index at hello.
+- **Joining mid-Cup** watches and joins the next lobby. A `pid` claim moves the
+  entrant to the newest device. Host commands are refused while a Field Day
+  Cup is reserved or running; after it, a party rerun in the `fd-` room is
+  allowed and its result is not posted.
+- **Feedback** answers: up to 8 flat keys; the controller sends
+  `{ fun:1..5, again:true|false, better:"..." }`.
+- **`/internal/cup` reply:** `{ ok, cupId, room, startAt, entrants }`, or
+  `{ ok, cupId, room, phase, already:true }` for a repeat.
+- **Result body:** `{ evId, cupId, order, rounds:[{ round, leg, field, out,
+  results:[{ who, pid, bot, place, time, drinkAt, arriveAt }] }],
+  stats:{ rounds:[{ round, leg, riders, balloons, rtt }] } }`.
+- **Tuning** exports `INTERP_MS` (100) and `BAR_MS` (2000).
+
 ## Ownership (who edits what)
 
 | Part | Owns |

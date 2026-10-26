@@ -5,12 +5,20 @@
    /dev/fit-phone.html?scenario=<id>&tab=<home|events|bets|weekend>[&sheet=]
    at a phone's viewport and measures it. A tap that dispatches runs the
    real reducer here and re-projects, so a sheet opened by a tap is real. */
+import React from "react";
 import { applyAction } from "../worker/actions.js";
 import { publicState } from "../worker/publicState.js";
 import { bankForDesk } from "../worker/trivia.js";
 import { publishFrame } from "../src/lib/frameGate.js";
+import { provideFloatPart } from "../src/features/float/floatParts.js";
 import { FIT_ARRIVE_CODE, FIT_GM, FIT_GUEST, PHONE_SCENARIOS, buildScenario } from "./fit/scenarios.js";
 import qrcode from "qrcode-generator";
+
+/* the rider's controller with no room behind it (the audit has no server):
+   the room's own controller waits on "Joining", so a view that closes it
+   hands in a stand-in whose Leave is the controller's onExit */
+const FitController = ({ onExit }) => React.createElement("div", { className:"fit-float-controller" },
+  React.createElement("button", { type:"button", "aria-label":"Leave", onClick:onExit }, "Leave"));
 
 const params = new URLSearchParams(location.search);
 const scenario = buildScenario(PHONE_SCENARIOS, params.get("scenario") || "locker");
@@ -345,12 +353,13 @@ async function openSheet(kind) {
     await sleep(600);
     if (!await tap(() => [...document.querySelectorAll(".fd-profile-sections button")]
       .find(b => visible(b) && b.textContent.trim() === "Locker"))) return false;
-    return !!(await until(() => document.querySelector(".fd-float-locker select, .fd-float-locker [data-locker]")));
+    return !!(await until(() => document.querySelector(".fd-float-locker .fll-root, .fd-float-locker select, .fd-float-locker [data-locker]")));
   }
   if (kind === "float-closed" || kind === "float-desk") {
+    provideFloatPart("controller", FitController);
     if (await until(() => document.querySelector(".fd-float-play"), kind === "float-closed" ? 6000 : 1500)) {
       const closed = await tap(() => [...document.querySelectorAll(".fd-float-play button")].find(b => visible(b)
-        && /close|exit|done/i.test(`${b.getAttribute("aria-label") || ""} ${b.textContent}`)));
+        && /close|exit|done|leave/i.test(`${b.getAttribute("aria-label") || ""} ${b.textContent}`)));
       if (!closed || !(await until(() => !document.querySelector(".fd-float-play")))) return false;
       await sleep(400);
     }

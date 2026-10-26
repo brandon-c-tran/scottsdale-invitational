@@ -66,12 +66,19 @@ const {
   FloatLocker, FloatDesk, GameMark, GAME_MARK_IDS, ProfileSheet,
 } = ui.exports;
 
-/* stand-ins for the room's own components, with their real props */
+/* stand-ins for the room's own components, with their real props (the
+   controller's last props kept, so a test can pick a look as the room would) */
 const ScreenStub = ({ room }) => React.createElement("div", { "data-stub":"screen", "data-room":room });
-const ControllerStub = ({ room, rider, onExit }) => React.createElement("div", { "data-stub":"controller", "data-room":room,
-  "data-rider":rider?.name, "data-pid":rider?.pid, "data-exit":typeof onExit });
-const LockerStub = ({ look, groom }) => React.createElement("div", { "data-stub":"locker", "data-critter":look?.critter,
-  "data-hat":look?.hat, "data-groom":String(!!groom) });
+let controllerProps = null;
+const ControllerStub = props => {
+  controllerProps = props;
+  const { room, rider, onExit, onLook } = props;
+  return React.createElement("div", { "data-stub":"controller", "data-room":room,
+    "data-rider":rider?.name, "data-pid":rider?.pid, "data-exit":typeof onExit, "data-look":typeof onLook });
+};
+const LockerStub = ({ look, groom, color, name, photo, number, skin }) => React.createElement("div", { "data-stub":"locker",
+  "data-critter":look?.critter, "data-hat":look?.hat, "data-groom":String(!!groom), "data-color":color, "data-name":name,
+  "data-photo":photo || "none", "data-number":number, "data-skin":skin });
 
 let serial = 0;
 const gm = (extra = {}) => ({ isGm:true, player:me, deviceId:"gm", actionId:`u${++serial}`, environment:"local", ...extra });
@@ -249,6 +256,29 @@ test("a rider's controller: their room and rider, opened once a Cup; a spectator
   assert.equal(renderToStaticMarkup(wrap(skipped, React.createElement(FloatPlaySheet, { state:skipped, me:evan, initiallyOpen:true }))), "");
 });
 
+test("a look picked in the room is saved to the rider's profile the Locker's way: the last pick, once, after a pause", async () => {
+  provideFloatPart("controller", ControllerStub);
+  const state = racing();
+  const saved = [];
+  const draw = props => renderToStaticMarkup(wrap(state, React.createElement(FloatPlaySheet, { state, me:evan, initiallyOpen:true,
+    now:Date.now(), ...props })));
+  assert.match(draw({}), /data-look="undefined"/, "no saver: the controller keeps its looks to itself");
+  assert.match(draw({ onLook:look => { saved.push(look); return { ok:true }; } }), /data-look="function"/);
+  /* three picks in the lobby, as the controller hands them over */
+  controllerProps.onLook({ critter:"javelina", floatie:"donut", hat:"none", shades:"none", pose:"flex" });
+  controllerProps.onLook({ critter:"javelina", floatie:"unicorn", hat:"none", shades:"none", pose:"flex" });
+  controllerProps.onLook({ critter:"javelina", floatie:"unicorn", hat:"crown", shades:"none", pose:"flex" });
+  assert.deepEqual(saved, [], "nothing while the picks keep coming");
+  await new Promise(resolve => setTimeout(resolve, LOOK_SAVE_AFTER_MS + 150));
+  assert.equal(saved.length, 1, "one save");
+  assert.deepEqual([saved[0].critter, saved[0].floatie], ["javelina", "unicorn"], "the last pick");
+  assert.equal(saved[0].hat, "none", "made legal as the Locker makes it: the crown is the groom's alone");
+  /* the App hands both surfaces the one save */
+  const app = read("src/App.jsx");
+  assert.match(app, /const saveFloatLook = look => act\("floatLook", \{ look \}, null, \{ retry:true, quiet:true \}\);/);
+  assert.match(app, /onFloatLook=\{saveFloatLook\}/);
+});
+
 test("the controller stays through the room's podium and feedback, then its linger runs out", () => {
   provideFloatPart("controller", ControllerStub);
   const state = racing();
@@ -290,6 +320,10 @@ test("Profile > Locker: the room's picker with the saved look, the crown offered
     onSave:async () => ({ ok:true }) })));
   const evans = locker(evan);
   assert.match(evans, /data-stub="locker" data-critter="otter" data-hat="cowboy" data-groom="false"/);
+  /* the preview in the rider's own identity: chip colour (gray until claimed) and skin, name, number, photo */
+  assert.match(evans, /data-color="#6b6558" data-name="Evan" data-photo="none" data-number="2" data-skin="ticks"/);
+  state.profiles[khoa] = { display:"Third", color:"#C05B33", skin:"saw", num:23, photoV:4 };
+  assert.match(locker(khoa), new RegExp(`data-color="#c05b33" data-name="Third" data-photo="/api/photo/${khoa}\\?v=4" data-number="23" data-skin="saw"`));
   assert.match(evans, /class="fd-float-locker-status is-saved"[^>]*>Saved</);
   assert.match(locker(FLOAT_GROOM), /data-groom="true"/);
   /* the profile's tab, with Float on; Use-less: the section has no Save */
@@ -448,7 +482,7 @@ test("Float's parts load from an effect through import.meta.glob, one chunk each
   assert.deepEqual(importers, [], "only the gate names float/client, and only through import.meta.glob");
   const app = read("src/App.jsx");
   assert.match(app, /lazyPart\(\(\) => import\("\.\/features\/float\/FloatDesk\.jsx"\), "FloatDesk"\)/);
-  assert.match(app, /<FloatPlaySheet state=\{state\} me=\{me\} blocked=\{!!modal\} force=\{floatForce\} \/>/);
+  assert.match(app, /<FloatPlaySheet state=\{state\} me=\{me\} blocked=\{!!modal\} force=\{floatForce\} onLook=\{saveFloatLook\} \/>/);
   assert.match(app, /<FloatHome state=\{state\} me=\{me\} inCard onOpen=\{\(\) => setFloatForce\(n => n \+ 1\)\} \/>/);
   assert.match(app, /case "float": return sheet\("floatDesk"\);/);
   const css = read("src/features/float/float.css");

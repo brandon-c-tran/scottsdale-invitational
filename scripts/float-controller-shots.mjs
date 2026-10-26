@@ -40,21 +40,27 @@ async function main() {
   try { await fetch(`${BASE}/float/play`); }
   catch { console.error(`No dev server at ${BASE} (npm run dev -- --port 5183)`); process.exit(2); }
   fs.mkdirSync(OUT, { recursive:true });
-  const page = await launchChrome({ width:390, height:844 });
   const errors = [];
-  page.on(m => {
-    if (m.method === "Runtime.exceptionThrown") errors.push(m.params.exceptionDetails?.exception?.description || m.params.exceptionDetails?.text);
-    if (m.method === "Log.entryAdded" && m.params.entry.level === "error") errors.push(m.params.entry.text);
-  });
-  try {
-    for (const size of WANT) {
-      const [w, h] = SIZES[size];
-      await page.cdp("Emulation.setTouchEmulationEnabled", { enabled:true, maxTouchPoints:5 });
-      await page.resize(w, h, { mobile:true, scale:SCALE });
-      await shots(page, size, w, h);
+  /* a browser of its own for each size and each group of checks: headless
+     Chrome's emulated touch screen, once it has run long touch sequences and
+     a page has typed and reloaded, can stop delivering touches to the next
+     page (each group passes on its own, every time) */
+  for (const size of WANT) {
+    const [w, h] = SIZES[size];
+    for (const group of [shots, joinGroup]) {
+      const page = await launchChrome({ width:w, height:h });
+      page.on(m => {
+        if (m.method === "Runtime.exceptionThrown") errors.push(m.params.exceptionDetails?.exception?.description || m.params.exceptionDetails?.text);
+        if (m.method === "Log.entryAdded" && m.params.entry.level === "error") errors.push(m.params.entry.text);
+      });
+      try {
+        await page.cdp("Emulation.setTouchEmulationEnabled", { enabled:true, maxTouchPoints:5 });
+        await page.resize(w, h, { mobile:true, scale:SCALE });
+        await group(page, size, w, h);
+      } finally {
+        await page.close();
+      }
     }
-  } finally {
-    await page.close();
   }
   check(!errors.length, `no page errors${errors.length ? `: ${errors.slice(0, 3).join(" | ")}` : ""}`);
   console.log(`\nshots in ${OUT}`);
@@ -77,6 +83,11 @@ const at = (g, cx, cy) => {
 };
 const point = (g, id, cx, cy) => ({ ...at(g, cx, cy), id, radiusX:8, radiusY:8, force:0.6 });
 const touch = (page, type, points) => page.cdp("Input.dispatchTouchEvent", { type, touchPoints:points });
+/* every touch in a run gets an id of its own: Chrome's emulated touch
+   screen can keep an id from an earlier page as pressed, and a start with
+   that id then arrives as a move */
+let touchIds = 100;
+const fresh = () => touchIds++;
 
 /* one thumb pulls down `px` (content space) in four moves, lifting at the
    end unless hold. Headless Chrome acknowledges a touch only after it
@@ -106,9 +117,11 @@ async function quiet(page) {
 async function warm(page, g) {
   await quiet(page);
   await page.until("!!document.querySelector('.flc-hud .flp.is-drawn')", { timeout:8000 });
-  await touch(page, "touchStart", [point(g, 8, g.cw * 0.25, g.ch * 0.6)]);
-  await touch(page, "touchEnd", [point(g, 8, g.cw * 0.25, g.ch * 0.6)]);
+  const id = fresh();
+  await touch(page, "touchStart", [point(g, id, g.cw * 0.25, g.ch * 0.6)]);
+  await touch(page, "touchEnd", [point(g, id, g.cw * 0.25, g.ch * 0.6)]);
   await sleep(1200);
+  return (await sent(page)).filter(m => m.t === "stroke" || m.t === "hands").length;
 }
 const sent = page => page.evaluate("JSON.stringify(window.__floatMock?.sent || [])").then(JSON.parse);
 const clearSent = page => page.evaluate("window.__floatMock && (window.__floatMock.sent.length = 0)");
@@ -119,49 +132,64 @@ async function paddleChecks(page, size) {
   const g = await geometry(page);
   if (!check(!!g, `${size}: the race frame is there`)) return;
   check(size === "portrait" ? g.turn !== 0 : g.turn === 0, `${size}: turn ${g.turn}`);
-  await warm(page, g);
+  const warmed = await warm(page, g);
+  if (!warmed) console.log("     diagnostics: the warm-up tap sent nothing", JSON.stringify(await sent(page)).slice(0, 300));
   await clearSent(page);
+  await page.evaluate(`(() => { window.__probe = { calls:0, starts:0, ends:0 };
+    const net = window.__floatMock.net, send = net.send.bind(net);
+    net.send = msg => { window.__probe.calls++; window.__probe.last = msg.t; return send(msg); };
+    const race = document.querySelector(".flc-race");
+    race.addEventListener("touchstart", () => window.__probe.starts++);
+    race.addEventListener("touchend", () => window.__probe.ends++); })()`);
   const lx = g.cw * 0.22, rx = g.cw * 0.78, y0 = g.ch * 0.38;
+  const [t1, t2, t3, t4, t5, t6] = Array.from({ length:6 }, fresh);
   /* both thumbs land, then alternate pulls with the other thumb resting */
-  await touch(page, "touchStart", [point(g, 1, lx, y0)]);
-  await touch(page, "touchStart", [point(g, 2, rx, y0)]);
+  await touch(page, "touchStart", [point(g, t1, lx, y0)]);
+  await touch(page, "touchStart", [point(g, t2, rx, y0)]);
   await sleep(150);
-  await pull(page, g, 1, lx, y0, 90, { start:false });
+  await pull(page, g, t1, lx, y0, 90, { start:false });
   await sleep(120);
-  await pull(page, g, 3, lx, y0, 80, { hold:true });
-  await touch(page, "touchMove", [point(g, 3, lx, y0 + 70)]);
-  await pull(page, g, 2, rx, y0, 90, { start:false });
+  await pull(page, g, t3, lx, y0, 80, { hold:true });
+  await touch(page, "touchMove", [point(g, t3, lx, y0 + 70)]);
+  await pull(page, g, t2, rx, y0, 90, { start:false });
   await sleep(120);
-  await pull(page, g, 4, rx, y0, 85);
+  await pull(page, g, t4, rx, y0, 85);
   await sleep(200);
   let out = await sent(page);
   const strokes = out.filter(m => m.t === "stroke");
-  check(strokes.length >= 4, `${size}: ${strokes.length} strokes sent`);
+  if (!check(strokes.length >= 4, `${size}: ${strokes.length} strokes sent`)) {
+    console.log("     diagnostics:", JSON.stringify(await page.evaluate(`({ link:document.querySelector(".flc-link")?.textContent || null,
+      screen:document.querySelector(".flc-root")?.dataset.screen, phase:window.__floatMock?.cup()?.phase,
+      under:document.elementFromPoint(${at(g, lx, y0).x}, ${at(g, lx, y0).y})?.className?.toString(),
+      sent:window.__floatMock?.sent.length, roots:document.querySelectorAll(".flc-root").length,
+      mocks:(window.__floatMocks || []).map(m => ({ serial:m.serial, status:m.status(), closed:m.closed(), sent:m.sent.length })),
+      probe:window.__probe })`)));
+  }
   check(strokes.map(s => s.side).join("") === "LLRR", `${size}: stroke sides ${strokes.map(s => s.side).join("")}`);
   check(strokes.every(s => s.p > 0.3 && s.p <= 1), `${size}: stroke power ${strokes.map(s => s.p).join(", ")}`);
   const hands = out.filter(m => m.t === "hands").map(m => m.n);
   check(hands.includes(2), `${size}: hands 2 while both thumbs are down (${hands.join(" ")})`);
   check(!hands.slice(hands.indexOf(2) + 1).includes(1), `${size}: no hands 1 between strokes (${hands.join(" ")})`);
-  /* the left thumb (id 3) lifts and stays up: one hand after the grace, then none */
-  await touch(page, "touchEnd", [point(g, 3, lx, y0 + 80)]);
+  /* the left thumb (t3) lifts and stays up: one hand after the grace, then none */
+  await touch(page, "touchEnd", [point(g, t3, lx, y0 + 80)]);
   await sleep(1300);
   out = await sent(page);
   const later = out.filter(m => m.t === "hands").map(m => m.n);
   check(later[later.length - 1] === 0, `${size}: hands 0 after both lift (${later.join(" ")})`);
   /* a tap is a light stroke */
   await clearSent(page);
-  await touch(page, "touchStart", [point(g, 5, lx, y0)]);
+  await touch(page, "touchStart", [point(g, t5, lx, y0)]);
   await sleep(60);
-  await touch(page, "touchEnd", [point(g, 5, lx, y0)]);
+  await touch(page, "touchEnd", [point(g, t5, lx, y0)]);
   await sleep(150);
   out = await sent(page);
   const tap = out.filter(m => m.t === "stroke");
   check(tap.length === 1 && tap[0].side === "L" && tap[0].p > 0 && tap[0].p <= 0.35, `${size}: a tap strokes lightly (${JSON.stringify(tap)})`);
   /* a thumb that crosses the middle keeps its side */
   await clearSent(page);
-  await touch(page, "touchStart", [point(g, 6, g.cw * 0.45, y0)]);
-  for (let k = 1; k <= 6; k++) { await touch(page, "touchMove", [point(g, 6, g.cw * 0.45 + k * 18, y0 + k * 14)]); await sleep(16); }
-  await touch(page, "touchEnd", [point(g, 6, g.cw * 0.45 + 108, y0 + 84)]);
+  await touch(page, "touchStart", [point(g, t6, g.cw * 0.45, y0)]);
+  for (let k = 1; k <= 6; k++) { await touch(page, "touchMove", [point(g, t6, g.cw * 0.45 + k * 18, y0 + k * 14)]); await sleep(16); }
+  await touch(page, "touchEnd", [point(g, t6, g.cw * 0.45 + 108, y0 + 84)]);
   await sleep(150);
   out = await sent(page);
   check(out.filter(m => m.t === "stroke").map(m => m.side).join("") === "L", `${size}: a thumb across the middle keeps its side`);
@@ -173,7 +201,7 @@ async function tapElement(page, selector) {
     const r = el.getBoundingClientRect(); return { x:r.left + r.width / 2, y:r.top + r.height / 2 }; })()`);
   if (!box) return false;
   await sleep(60);
-  const p = { x:Math.round(box.x), y:Math.round(box.y), id:9, radiusX:6, radiusY:6, force:0.5 };
+  const p = { x:Math.round(box.x), y:Math.round(box.y), id:fresh(), radiusX:6, radiusY:6, force:0.5 };
   await touch(page, "touchStart", [p]);
   await sleep(50);
   await touch(page, "touchEnd", [p]);
@@ -186,10 +214,11 @@ async function drinkChecks(page, size) {
   await clearSent(page);
   /* a thumb rests on the left paddle while the other hand taps the drink */
   const g = await geometry(page);
-  await touch(page, "touchStart", [point(g, 1, g.cw * 0.2, g.ch * 0.5)]);
+  const rest = fresh();
+  await touch(page, "touchStart", [point(g, rest, g.cw * 0.2, g.ch * 0.5)]);
   const tapped = await tapElement(page, ".flc-drink");
   await sleep(300);
-  await touch(page, "touchEnd", [point(g, 1, g.cw * 0.2, g.ch * 0.5)]);
+  await touch(page, "touchEnd", [point(g, rest, g.cw * 0.2, g.ch * 0.5)]);
   const out = await sent(page);
   check(tapped && out.some(m => m.t === "drink"), `${size}: the drink button sends drink with a thumb on a paddle`);
   check(!out.some(m => m.t === "stroke"), `${size}: tapping the drink is not a stroke`);
@@ -255,6 +284,19 @@ async function joinChecks(page, size) {
   check(await page.until("document.querySelector('.flc-root')?.dataset.screen === 'lobby'", { timeout:8000 }), `${size}: Join opens the lobby`);
   await sleep(500);
   await shot(page, size, "join-lobby");
+  /* typed a code and joined: the paddles still answer in the same page */
+  await page.evaluate(`window.__floatMock.go("race")`);
+  await sleep(800);
+  const g = await geometry(page);
+  if (g) {
+    await clearSent(page);
+    const id = fresh();
+    await pull(page, g, id, g.cw * 0.25, g.ch * 0.35, 90);
+    await sleep(300);
+    check((await sent(page)).some(m => m.t === "stroke"), `${size}: after typing and joining, a pull strokes`);
+    await page.evaluate(`window.__floatMock.go("lobby")`);
+    await sleep(500);
+  }
   const saved = await page.evaluate("JSON.parse(localStorage.getItem('float-rider') || 'null')");
   check(saved?.name === "Brandon" && saved?.drinks === true && saved?.look?.floatie === "shark", `${size}: the rider is kept (${JSON.stringify(saved)})`);
   await tapElement(page, ".flc-lobby .flc-pill");
@@ -293,8 +335,10 @@ async function shots(page, size, w, h) {
   if (!ONLY || ONLY.has("race")) await paddleChecks(page, size);
   if (!ONLY || ONLY.has("race")) await drinkChecks(page, size);
   if (!ONLY || ONLY.has("beach")) await beachChecks(page, size);
-  if (!ONLY || ONLY.has("join")) await joinChecks(page, size);
   void w; void h;
+}
+async function joinGroup(page, size) {
+  if (!ONLY || ONLY.has("join")) await joinChecks(page, size);
 }
 
 main().catch(error => { console.error(error); process.exit(1); });

@@ -499,7 +499,8 @@ export function createMockRoom({ hello = null, scene = null, timers = globalThis
     rtt:() => lag * 2,
     status:() => status,
     onStatus(fn) { statusFns.add(fn); return () => statusFns.delete(fn); },
-    mock:{ sent, scenes:MOCK_SCENES, go:name => go(name), cup:() => cup, feedback:() => feedback,
+    mock:{ sent, scenes:MOCK_SCENES, go:name => go(name), cup:() => cup, feedback:() => feedback, serial:++mockSerial,
+      status:() => status, closed:() => closed,
       /* let the held scene run on as a live Cup */
       run() { sceneName = null; if (cup.phase === "race" && !raceTimer) raceTimer = timers.setInterval(stepSim, 100); },
       /* drop the connection for a moment, as a sleeping phone would */
@@ -507,6 +508,11 @@ export function createMockRoom({ hello = null, scene = null, timers = globalThis
   };
   /* the controller sends hello on open, as connectFloat does */
   statusFns.add(next => { if (next === "open") receive({ t:"hello", role:"controller", device, rider:rider() }); });
-  if (expose && typeof window !== "undefined") window.__floatMock = net.mock;
+  net.mock.net = net;
+  if (expose && typeof window !== "undefined") {
+    window.__floatMock = net.mock;
+    window.__floatMocks = [...(window.__floatMocks || []), net.mock];
+  }
   return net;
 }
+let mockSerial = 0;

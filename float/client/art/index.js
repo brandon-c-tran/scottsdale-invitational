@@ -23,12 +23,12 @@ import { CritterRuntime } from "./critter.js";
 import { buildFloatieArt, BUILT_FLOATIES } from "./floatie3d.js";
 import { chainGeometry, chipGeometry, chipPlace, buildDrink, bezelGeometry } from "./accessories.js";
 import { buildHat, buildShades } from "./hats.js";
-import { vinyl, tint, releaseTint, glint, gold, geometry, disposeFloatArt, normalHex, cacheSizes } from "./materials.js";
+import { vinyl, tint, releaseTint, glint, gold, geometry, disposeFloatArt, normalHex, cacheSizes, setFloatArtQuality, floatArtQuality } from "./materials.js";
 import { acquireBadge, releaseBadge } from "./badge.js";
 import { floatEnvironment, floatLights, disposeFloatEnvironment } from "./environment.js";
 import { triangles } from "./sculpt.js";
 
-export { floatEnvironment, floatLights, disposeFloatEnvironment, disposeFloatArt, BUILT_SPECIES, BUILT_FLOATIES, cacheSizes };
+export { floatEnvironment, floatLights, disposeFloatEnvironment, disposeFloatArt, BUILT_SPECIES, BUILT_FLOATIES, cacheSizes, setFloatArtQuality, floatArtQuality };
 
 /* a species' template, cached by detail ("race" for the screen's pack,
    "hero" for close-ups: the showcase, portraits, the podium) */

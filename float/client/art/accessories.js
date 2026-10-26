@@ -2,7 +2,7 @@
    (hats.js) the hats and shades. Geometry is cached by species and detail;
    the chip's face is the rider's badge texture. */
 import * as THREE from "three";
-import { torus, tube, ball, lathe, xf, paint, merge, indexed } from "./sculpt.js";
+import { torus, ball, lathe, xf, paint, merge, indexed } from "./sculpt.js";
 import { gold, vinyl, tint, geometry } from "./materials.js";
 import { BADGE_UV } from "./badge.js";
 

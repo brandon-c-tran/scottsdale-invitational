@@ -4,9 +4,8 @@
    quail's plume, the armadillo's armor, the coyote's ears and brush, the
    otter's whisker pads. */
 import * as THREE from "three";
-import { mix } from "./anatomy.js";
 import { roundBox } from "./sculpt.js";
-import { V, rng, eyePoint, atDir, onShape, spikes, speckles, band, spiralHorn, shell, whiskerPads, ball, xf, tube, blob, blobGeometry, patchGeometry, dirYawPitch } from "./features.js";
+import { V, eyePoint, atDir, onShape, spikes, speckles, band, spiralHorn, shell, whiskerPads, ball, xf, tube, blob, blobGeometry, dirYawPitch } from "./features.js";
 
 /* ── jackrabbit: the ears ── */
 export function jackrabbit(k) {

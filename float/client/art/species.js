@@ -6,8 +6,8 @@
    crest, shell, plume), then its colors. */
 import * as THREE from "three";
 import { Kit, mix } from "./anatomy.js";
-import { blob, blobGeometry, patchGeometry, tube, ball, xf, dirYawPitch, lathe } from "./sculpt.js";
-import { V, rng, eyePoint, atDir, spikes, speckles } from "./features.js";
+import { blob, blobGeometry, tube, ball, xf, dirYawPitch, lathe } from "./sculpt.js";
+import { eyePoint, atDir, spikes, speckles } from "./features.js";
 import { jackrabbit, tortoise, gila, hornedlizard, bighorn, quail, armadillo, coyote, otter } from "./roster.js";
 
 /* ── capybara: the boxy, unbothered one ── */

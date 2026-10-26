@@ -26,6 +26,7 @@ const q = o => new URLSearchParams(Object.entries(o).filter(([, v]) => v !== und
 export const SHOTS = [
   ["lineup-night", { view: "lineup", t: 2.2, freeze: 1 }],
   ["lineup-studio", { view: "lineup", stage: "studio", t: 2.2, freeze: 1 }],
+  ["detail-ui", { view: "detail", critter: "coyote", floatie: "donut", hat: "cowboy", shades: "aviators", t: 1.4, freeze: 1, yaw: 0.4, photo: 1 }],
   ["detail-capybara", { view: "detail", critter: "capybara", floatie: "classic", hat: "none", t: 1.2, freeze: 1, yaw: 0.35, hud: 0 }],
   ["detail-javelina", { view: "detail", critter: "javelina", floatie: "donut", hat: "none", t: 1.4, freeze: 1, yaw: -0.4, hud: 0 }],
   ["detail-roadrunner", { view: "detail", critter: "roadrunner", floatie: "flamingo", hat: "none", t: 1.6, freeze: 1, yaw: 0.5, hud: 0 }],
@@ -55,6 +56,7 @@ export const SHOTS = [
   ["anim-swim", { view: "detail", critter: "frog", floatie: "donut", hat: "none", state: "swim", t: 2.2, freeze: 1, yaw: 0.2, hud: 0 }],
   ["anim-sad", { view: "detail", critter: "jackrabbit", floatie: "classic", hat: "none", state: "sad", t: 1.8, freeze: 1, yaw: 0.4, hud: 0 }],
   ["anim-celebrate", { view: "detail", critter: "quail", floatie: "classic", hat: "none", state: "celebrate", t: 1.3, freeze: 1, yaw: 0.3, hud: 0 }],
+  ["anim-wave", { view: "detail", critter: "jackrabbit", floatie: "classic", hat: "none", state: "idle", t: 11.45, freeze: 1, yaw: 0.3, hud: 0 }],
   ["pose-flex", { view: "detail", critter: "bighorn", floatie: "classic", hat: "none", pose: "flex", t: 0.75, freeze: 1, yaw: 0.3, hud: 0 }],
   ["pose-chug", { view: "detail", critter: "capybara", floatie: "classic", hat: "none", pose: "chug", t: 1.2, freeze: 1, yaw: 0.45, hud: 0 }],
   ["pose-airguitar", { view: "detail", critter: "javelina", floatie: "classic", hat: "none", pose: "airguitar", t: 0.95, freeze: 1, yaw: 0.3, hud: 0 }],
@@ -85,6 +87,44 @@ const server = await createServer({
 });
 await server.listen();
 const BASE = `http://127.0.0.1:${server.config.server.port}`;
+
+/* --perf: the 13-rider pack live on this machine's GPU (not the software
+   renderer the shots use), sampled for a few seconds */
+if (args.includes("--perf")) {
+  const { spawn } = await import("node:child_process");
+  const os = await import("node:os");
+  const exe = process.env.CHROME || ["C:/Program Files/Google/Chrome/Application/chrome.exe", "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome", "/usr/bin/google-chrome"].find(p => fs.existsSync(p));
+  const udd = fs.mkdtempSync(path.join(os.tmpdir(), "float-perf-"));
+  const proc = spawn(exe, ["--headless=new", "--remote-debugging-port=0", `--user-data-dir=${udd}`, "--ignore-gpu-blocklist", "--enable-gpu",
+    "--disable-frame-rate-limit", "--no-first-run", "--window-size=1920,1080", "about:blank"], { stdio: "ignore" });
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  let port;
+  for (let i = 0; i < 200 && !port; i++) { await sleep(100); try { port = fs.readFileSync(path.join(udd, "DevToolsActivePort"), "utf8").split("\n")[0]; } catch {} }
+  try {
+    const targets = await (await fetch(`http://127.0.0.1:${port}/json/list`)).json();
+    const ws = new WebSocket(targets.find(t => t.type === "page").webSocketDebuggerUrl);
+    await new Promise((res, rej) => { ws.onopen = res; ws.onerror = rej; });
+    let id = 0; const waits = new Map();
+    ws.onmessage = e => { const m = JSON.parse(e.data); if (m.id && waits.has(m.id)) { waits.get(m.id)(m); waits.delete(m.id); } };
+    const cdp = (method, params = {}) => new Promise(res => { const i = ++id; waits.set(i, m => res(m.result)); ws.send(JSON.stringify({ id: i, method, params })); });
+    const ev = async expression => (await cdp("Runtime.evaluate", { expression, returnByValue: true, awaitPromise: true }))?.result?.value;
+    await cdp("Emulation.setDeviceMetricsOverride", { width: 1920, height: 1080, deviceScaleFactor: 1, mobile: false });
+    await cdp("Page.navigate", { url: `${BASE}/float/art?view=race` });
+    for (let i = 0; i < 120 && (await ev("document.body && document.body.dataset.ready")) !== "1"; i++) await sleep(500);
+    await sleep(4000);
+    const gpu = await ev("(() => { const c = document.querySelector('canvas.fa-gl'); const gl = c && (c.getContext('webgl2') || c.getContext('webgl')); const x = gl && gl.getExtension('WEBGL_debug_renderer_info'); return x ? gl.getParameter(x.UNMASKED_RENDERER_WEBGL) : 'unknown'; })()");
+    const samples = [];
+    for (let i = 0; i < 6; i++) { await sleep(1000); samples.push(JSON.parse(await ev("JSON.stringify(window.__floatArt.stats())"))); }
+    const fps = samples.map(s => s.fps);
+    console.log(JSON.stringify({ gpu, fps, calls: samples.at(-1).calls, triangles: samples.at(-1).triangles, riders: samples.at(-1).riders }));
+    ws.close();
+  } finally {
+    proc.kill(); await sleep(400); try { fs.rmSync(udd, { recursive: true, force: true }); } catch {}
+    await server.close();
+  }
+  process.exit(0);
+}
+
 const chrome = await launchChrome({ width: 1920, height: 1080 });
 const errors = [];
 chrome.on(m => {

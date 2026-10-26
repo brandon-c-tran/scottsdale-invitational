@@ -19,7 +19,7 @@ const geometries = new Map();
 /* a shared material (or anything disposable), made once */
 export function once(key, make) {
   let value = shared.get(key);
-  if (!value) { value = make(); shared.set(key, value); }
+  if (!value) { value = make(); shared.set(key, value); if (quality === "low") applyQuality(value); }
   return value;
 }
 
@@ -34,7 +34,11 @@ export function geometry(key, make) {
    drops one and disposes it with the last */
 export function acquire(key, make) {
   let entry = counted.get(key);
-  if (!entry) { entry = { value: make(), refs: 0 }; counted.set(key, entry); }
+  if (!entry) {
+    entry = { value: make(), refs: 0 };
+    counted.set(key, entry);
+    if (quality === "low") applyQuality(entry.value?.isMaterial ? entry.value : entry.value?.material);
+  }
   entry.refs++;
   return entry.value;
 }
@@ -64,6 +68,26 @@ export function disposeFloatArt() {
 }
 
 export const cacheSizes = () => ({ shared: shared.size, counted: counted.size, geometries: geometries.size });
+
+/* "high" (default): clear coats on every toy. "low": no clear coat (a
+   cheaper shader for a slow integrated GPU; the toys keep their color and
+   a softer shine). Applies to everything built, before and after. */
+let quality = "high";
+const COATS = new WeakMap();
+function applyQuality(material) {
+  if (!material?.isMeshPhysicalMaterial) return;
+  if (!COATS.has(material)) COATS.set(material, material.clearcoat);
+  const coat = quality === "low" ? 0 : COATS.get(material);
+  if (material.clearcoat !== coat) { material.clearcoat = coat; material.needsUpdate = true; }
+}
+export function setFloatArtQuality(level = "high") {
+  quality = level === "low" ? "low" : "high";
+  for (const value of shared.values()) applyQuality(value);
+  for (const entry of counted.values()) applyQuality(entry.value?.isMaterial ? entry.value : entry.value?.material);
+  return quality;
+}
+export const floatArtQuality = () => quality;
+export const qualityOf = material => { applyQuality(material); return material; };
 
 /* ── the finishes ── */
 

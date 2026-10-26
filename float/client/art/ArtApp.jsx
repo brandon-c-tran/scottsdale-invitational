@@ -26,7 +26,7 @@ function readParams() {
     t: num("t"), freeze: q.get("freeze") === "1", photo: q.get("photo") === "1",
     color: q.get("color") ? `#${q.get("color").replace(/^#/, "")}` : undefined, number: num("number"), skin: q.get("skin") || undefined,
     yaw: num("yaw"), still: q.get("still") === "1", detail: q.get("detail") || undefined, hud: q.get("hud") !== "0",
-    zoom: q.get("zoom") === "1", one: q.get("one") === "1", paddle: state === "paddle",
+    zoom: q.get("zoom") === "1", one: q.get("one") === "1", paddle: state === "paddle", quiet: state === "idle",
   };
 }
 
@@ -118,7 +118,7 @@ export default function ArtApp() {
       Promise.all(list.map(e => riderPortrait(e, { size: 384 }).then(src => ({ e, src }))))
         .then(rows => { if (!cancelled) { setPortraits(rows); setTimeout(done, 80); } });
     } else {
-      show.setView(view, { stage, look, pose, stateObj: state, photo, color, skin, number: params.number, yaw: params.yaw, zoom: params.zoom, one: params.one, paddle: params.paddle,
+      show.setView(view, { stage, look, pose, stateObj: state, photo, color, skin, number: params.number, yaw: params.yaw, zoom: params.zoom, one: params.one, paddle: params.paddle, quiet: params.quiet,
         still: params.still || params.freeze, detail: params.detail });
       if (params.t !== undefined) { show.seek(params.t); show.frozen = params.freeze; }
       setTimeout(done, 40);

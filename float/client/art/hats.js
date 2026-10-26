@@ -16,8 +16,8 @@ const TAU = Math.PI * 2;
 const HATS = {
   cowboy(hero) {
     const straw = "#e2b768", shade = "#c9974c";
-    const crown = blob({ r: [0.142, 0.12, 0.165], n: 2.7, at: [0, 0.075, 0.005], warp: p => {
-      if (p.y > 0) { p.y -= 0.045 * Math.exp(-((p.x / 0.05) ** 2)) * (p.y / 0.12); p.x *= 1 - 0.18 * Math.max(0, -p.z / 0.165) * (p.y / 0.12); }
+    const crown = blob({ r: [0.138, 0.13, 0.16], n: 2.8, at: [0, 0.085, 0.005], warp: p => {
+      if (p.y > 0) { p.y -= 0.022 * Math.exp(-((p.x / 0.045) ** 2)) * (p.y / 0.13); p.x *= 1 - 0.16 * Math.max(0, -p.z / 0.16) * (p.y / 0.13); }
       if (p.y < -0.05) p.y = -0.05 + (p.y + 0.05) * 0.3;
     } });
     const body = [paint(blobGeometry(crown, { w: hero ? 36 : 16, h: hero ? 20 : 10 }), straw)];

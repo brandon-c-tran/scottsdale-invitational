@@ -23,6 +23,7 @@ const backOut = x => { const t = clamp01(x), s = 1.9; return 1 + (s + 1) * (t - 
 export const STROKE_S = 0.48;
 const STROKE_REPEAT_S = 0.28;
 const STATE_RAMP_S = 0.42;
+const FIDGET_S = 1.9;
 const SIDES = ["L", "R"];
 const HIDE = 1e-4;
 
@@ -146,6 +147,8 @@ export class CritterRuntime {
     this.blinkAt = 1 + this.rand() * 2.5; this.blinkT = -1;
     this.twitch = { at: 2 + this.rand() * 4, t: -1, side: 1 };
     this.wag = { at: 1.5 + this.rand() * 3, t: -1 };
+    /* left alone, a critter fidgets: a wave, a stretch and a yawn, a scratch of the head */
+    this.fidget = { at: 5 + this.rand() * 7, t: -1, kind: "wave", side: "R", quiet: 0 };
     this.expr = { eyes: "open", mouth: "smile", lids: !!this.info.chill, popEyes: 1, popMouth: 1 };
     this.P = newPose(); this.Q = newPose(); this.R = newPose();
     this.bodySprings = new Springs(BODY_SPRINGS);
@@ -260,6 +263,36 @@ export class CritterRuntime {
       this.restToChest(sx * 0.075, m.y + 0.035 * sipping, m.z - 0.015 * sipping, P, s === "L" ? "l" : "r");
       if (s === "L") { P.lpx = -1; P.lpy = -0.7; P.lpz = 0.2; } else { P.rpx = 1; P.rpy = -0.7; P.rpz = 0.2; }
       P.can = 1; P.canTilt = 0.25 + 1.05 * sipping;
+    }
+  }
+
+  /* a fidget, blended in and out over its own short life */
+  fidgetLayer(P, pass) {
+    const fg = this.fidget;
+    if (fg.t < 0) return;
+    const t = fg.t, w = ease(t / 0.3) * (1 - ease((t - (FIDGET_S - 0.35)) / 0.35));
+    if (w <= 0) return;
+    const sx = fg.side === "L" ? -1 : 1;
+    if (fg.kind === "wave") {
+      if (pass === 0) { P.hdz += sx * 0.12 * w; P.hdy -= sx * 0.15 * w; P.hrz -= sx * 0.05 * w; }
+      else {
+        const K = SIDE_KEYS[fg.side], c = this.chestAt;
+        const x = sx * (0.33 + 0.05 * Math.sin(t * TAU * 2.6)), y = 0.64, z = -0.1;
+        P[K.hx] += (x - c.x - P[K.hx]) * w; P[K.hy] += (y - c.y - P[K.hy]) * w; P[K.hz] += (z - c.z - P[K.hz]) * w;
+      }
+    } else if (fg.kind === "stretch") {
+      const up = Math.sin(Math.PI * clamp01(t / FIDGET_S));
+      if (pass === 0) { P.sq += 0.07 * up * w; P.hdx += 0.22 * up * w; P.hrx -= 0.08 * up * w; }
+      else {
+        const c = this.chestAt;
+        P.lhx += (-0.3 - c.x - P.lhx) * w; P.lhy += (0.66 - c.y - P.lhy) * w; P.lhz += (0.02 - c.z - P.lhz) * w;
+        P.rhx += (0.3 - c.x - P.rhx) * w; P.rhy += (0.66 - c.y - P.rhy) * w; P.rhz += (0.02 - c.z - P.rhz) * w;
+      }
+    } else if (pass === 0) { P.hdz -= sx * 0.14 * w; P.hdx -= 0.06 * w; }
+    else {
+      const K = SIDE_KEYS[fg.side], c = this.chestAt, hd = this.info.head;
+      const x = sx * (hd ? hd.r[0] * 0.75 : 0.18), y = (hd ? hd.at[1] + hd.r[1] * 0.45 : 0.72) + 0.015 * Math.sin(t * TAU * 5), z = 0.02;
+      P[K.hx] += (x - c.x - P[K.hx]) * w; P[K.hy] += (y - c.y - P[K.hy]) * w; P[K.hz] += (z - c.z - P[K.hz]) * w;
     }
   }
 
@@ -458,6 +491,7 @@ export class CritterRuntime {
     if (w.sad > 0) { copyKeys(P, Q, BODY); this.sad(Q, 0); blendKeys(P, Q, BODY, ease(w.sad)); }
     if (w.celebrate > 0) { copyKeys(P, Q, BODY); this.celebrate(Q, 0); blendKeys(P, Q, BODY, ease(w.celebrate)); }
     if (w.handsOff > 0) { copyKeys(P, Q, BODY); this.drinkLayer(Q, 0, this.drinkSide, sipping, gulp); blendKeys(P, Q, BODY, ease(w.handsOff)); }
+    this.fidgetLayer(P, 0);
     this.stroke(P, 0, "L"); this.stroke(P, 0, "R");
     if (swimOn) { copyKeys(P, Q, BODY); this.swim(Q, 0, w.swim); blendKeys(P, Q, ROOT, 1); blendKeys(P, Q, BODY_REST, ease(w.swim)); }
     if (poseW > 0 && this.poseShown) { copyKeys(P, Q, BODY); poseExpr = this.victory(Q, 0, this.poseShown, this.poseT); blendKeys(P, Q, BODY, poseW); }
@@ -469,6 +503,7 @@ export class CritterRuntime {
     if (w.sad > 0) { copyKeys(P, Q, HANDS); this.sad(Q, 1); blendKeys(P, Q, HANDS, ease(w.sad)); }
     if (w.celebrate > 0) { copyKeys(P, Q, HANDS); this.celebrate(Q, 1); blendKeys(P, Q, HANDS, ease(w.celebrate)); }
     if (w.handsOff > 0) { copyKeys(P, Q, HANDS); this.drinkLayer(Q, 1, this.drinkSide, sipping, gulp); blendKeys(P, Q, HANDS, ease(w.handsOff)); }
+    this.fidgetLayer(P, 1);
     this.stroke(P, 1, "L"); this.stroke(P, 1, "R");
     if (swimOn) { copyKeys(P, Q, HANDS); this.swim(Q, 1, w.swim); blendKeys(P, Q, HANDS, ease(w.swim)); }
     if (poseW > 0 && this.poseShown) { copyKeys(P, Q, HANDS); this.victory(Q, 1, this.poseShown, this.poseT); blendKeys(P, Q, HANDS, poseW); }
@@ -493,6 +528,15 @@ export class CritterRuntime {
     tw.at -= dt;
     if (tw.at <= 0 && tw.t < 0) { tw.t = 0; tw.side = this.rand() < 0.5 ? -1 : 1; tw.at = 3 + this.rand() * 6; }
     if (tw.t >= 0) { tw.t += dt; if (tw.t > 0.3) tw.t = -1; }
+    const fg = this.fidget;
+    const busy = this.side.L.stroke.on || this.side.R.stroke.on || this.pose || this.state.swim || this.state.handsOff || this.state.sad || this.state.celebrate;
+    if (busy) { fg.quiet = 0; if (fg.t >= 0 && fg.t < FIDGET_S - 0.3) fg.t = Math.max(fg.t, FIDGET_S - 0.3); }
+    else fg.quiet += dt;
+    if (fg.t >= 0) { fg.t += dt; if (fg.t > FIDGET_S) { fg.t = -1; fg.at = 6 + this.rand() * 9; } }
+    else if (fg.quiet > 2.5) {
+      fg.at -= dt;
+      if (fg.at <= 0) { fg.t = 0; const r = this.rand(); fg.kind = r < 0.45 ? "wave" : r < 0.75 ? "stretch" : "scratch"; fg.side = this.rand() < 0.5 ? "L" : "R"; }
+    }
     const wag = this.wag;
     wag.at -= dt;
     if (wag.at <= 0 && wag.t < 0) { wag.t = 0; wag.at = 3 + this.rand() * 5; }
@@ -557,6 +601,11 @@ export class CritterRuntime {
     if (state.celebrate) { eyes = "happy"; mouth = "open"; lids = false; }
     if (state.swim) { mouth = "open"; lids = false; }
     if (poseExpr && w.pose > 0.3) { eyes = poseExpr.eyes; mouth = poseExpr.mouth; lids = false; }
+    const fg = this.fidget;
+    if (fg.t > 0.5 && fg.t < FIDGET_S - 0.4 && !poseExpr) {
+      if (fg.kind === "stretch") { eyes = "happy"; mouth = "open"; }
+      else if (fg.kind === "wave") { mouth = "open"; }
+    }
     const ex = this.expr;
     if (eyes !== ex.eyes) { ex.eyes = eyes; ex.popEyes = 0; }
     if (mouth !== ex.mouth) { ex.mouth = mouth; ex.popMouth = 0; }

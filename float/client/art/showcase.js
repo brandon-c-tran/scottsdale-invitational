@@ -156,7 +156,7 @@ export class Showcase {
         entrant: { ...(opts.color ? { color: opts.color } : {}), ...(opts.number !== undefined ? { number: opts.number } : {}), ...(opts.skin ? { skin: opts.skin } : {}), groom: true },
       });
       const busy = opts.pose || (opts.stateObj && Object.values(opts.stateObj).some(Boolean));
-      this.place({ entrant: e, at: [0, 0, 0], detail: "hero", behaviour: { strokes: opts.paddle || !busy, fast: !!opts.paddle, state: opts.stateObj, pose: opts.pose } });
+      this.place({ entrant: e, at: [0, 0, 0], detail: "hero", behaviour: { strokes: (opts.paddle || !busy) && !opts.quiet, fast: !!opts.paddle, state: opts.stateObj, pose: opts.pose } });
       if (opts.zoom) { cam.fov = 17; cam.position.set(0, 1.0, 4.3); cam.lookAt(0, 0.66, 0); }
       else { cam.fov = 30; cam.position.set(0, 1.12, 4.5); cam.lookAt(0, 0.56, 0); }
       this.spin.auto = !opts.still;

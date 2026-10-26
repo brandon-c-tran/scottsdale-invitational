@@ -166,6 +166,20 @@ test("the chip: number, else initial; every skin's edge inserts; keys by what it
   assert.notEqual(badgeKey({ color: "#c05b33", number: 1 }), badgeKey({ color: "#c05b33", number: 1, photo: "/p.jpg" }));
 });
 
+test("quality: low drops the clear coats on everything built, high puts them back", () => {
+  const r = buildRider(entrant("otter", "lounge"));
+  const mats = new Set();
+  r.root.traverse(o => { if (o.isMesh && o.material.isMeshPhysicalMaterial) mats.add(o.material); });
+  assert.ok([...mats].some(m => m.clearcoat > 0));
+  art.setFloatArtQuality("low");
+  assert.ok([...mats].every(m => m.clearcoat === 0), "every coat off");
+  const late = buildRider(entrant("frog", "cooler"));
+  late.root.traverse(o => { if (o.isMesh && o.material.isMeshPhysicalMaterial) assert.equal(o.material.clearcoat, 0, "built while low: no coat"); });
+  art.setFloatArtQuality("high");
+  assert.ok([...mats].some(m => m.clearcoat > 0), "coats back");
+  r.dispose(); late.dispose();
+});
+
 test("portraits need a DOM: none in node", async () => {
   assert.equal(await riderPortrait(entrant("frog", "classic")), null);
 });

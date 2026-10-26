@@ -4,7 +4,9 @@
 
      1. time trials, one rider alone on each leg: strong to sloppy bots, and a
         drifter who never paddles (a strong paddler should take 60 to 80 s,
-        a drifter about twice that)
+        a drifter about twice that); then human players by how they paddle
+        (float/PROTOCOL.md "The beat"): on the beat, GOOD only, the beat with
+        extra taps, tapping at random, mashing, drifting
      2. Cups of equal-skill bots: per leg, winning and median times, flips
         (the Drop and riffles), bumps, when riders drink, balloons
      3. win rates per floatie with equal-skill bots (no floatie may dominate)
@@ -37,9 +39,9 @@ const pct = v => Number.isFinite(v) ? `${(v * 100).toFixed(1)}%` : "-";
 const pad = (v, n) => String(v).padStart(n);
 
 /* ---- 1. time trials ---- */
-function trial(leg, skill, seed, { drinking, floatie = "classic" }) {
+function trial(leg, skill, seed, { drinking, floatie = "classic", style = null }) {
   const race = createRace({ course:COURSE, leg, seed, drinking, field:[{ i:0, floatie, drinks:true }] });
-  const bot = skill === null ? null : createBot({ i:0, skill, seed, leg, course:COURSE });
+  const bot = skill === null ? null : createBot({ i:0, skill, seed, leg, course:COURSE, style });
   while (race.t < 400 && finishAt(race.riders[0]) === null) {
     if (bot) for (const input of botInputs(race, COURSE, bot)) applyInput(race, 0, input);
     stepRace(race, COURSE);
@@ -66,6 +68,26 @@ if (ONLY.has(1)) {
     const drift = mean([0, 1, 2].map(k => trial(leg, null, SEED + k, { drinking:false }).arrive));
     console.log(`   ${COURSE.legs[leg].name.padEnd(16)} ${pad(legLength(COURSE, leg), 4)}  ${cells.map(c => c.padStart(11)).join(" ")}  ${pad(f1(drift), 7)}  ${pad(f2(drift / strong), 6)}`);
   }
+  /* human players: the same steering, timed as people time strokes */
+  const players = [
+    ["on the beat", { perfect:0.88, off:0.02 }],
+    ["decent", { perfect:0.5, off:0.1 }],
+    ["GOOD only", { perfect:0, off:0 }],
+    ["beat + 30% extra taps", { perfect:0.7, off:0.05, extra:0.3 }],
+    ["random taps 3/s", { spam:3 }],
+    ["mashing 4/s", { spam:4 }],
+    ["mashing 6/s", { spam:6 }],
+    ["drifter", null],
+  ];
+  console.log("\n1b. Players alone, by how they paddle: arrival (s) on each leg, and x the player on the beat");
+  console.log(`   ${"".padEnd(22)} ${COURSE.legs.map(leg => leg.name.padStart(15)).join("")}`);
+  let beat = null;
+  for (const [name, style] of players) {
+    const times = COURSE.legs.map((_, leg) => mean(Array.from({ length:TRIALS }, (__, k) =>
+      trial(leg, style ? 1 : null, SEED + k, { drinking:false, style }).arrive)));
+    beat ||= times;
+    console.log(`   ${name.padEnd(22)} ${times.map((v, leg) => `${f1(v)} (${f2(v / beat[leg])})`.padStart(15)).join("")}`);
+  }
 }
 
 /* ---- a whole Cup of bots, headless ---- */
@@ -82,13 +104,15 @@ function runCup(seed, { n = 13, skill = null, drinking = true } = {}) {
     race.bots = {};
     cup.phase = "race";
     const thrown = { n:0 };
+    const levels = [0, 0, 0, 0];
     for (;;) {
       now += DT * 1000;
       const events = raceTick(cup, race, { now, driven:() => true, course:COURSE });
       for (const event of events) if (event.e === "balloon") thrown.n += 1;
+      for (const rider of race.riders) if (!rider.arrived) levels[rider.level] += 1;
       if (roundStatus(cup, race).over) break;
     }
-    legs.push({ leg:race.leg, race, thrown:thrown.n, landed:race.riders.reduce((sum, rider) => sum + rider.st.splashed, 0) });
+    legs.push({ leg:race.leg, race, levels, thrown:thrown.n, landed:race.riders.reduce((sum, rider) => sum + rider.st.splashed, 0) });
     const { last } = finishRound(cup, race, now);
     if (last) break;
     advance(cup, now); // cut -> grid
@@ -97,13 +121,15 @@ function runCup(seed, { n = 13, skill = null, drinking = true } = {}) {
 }
 
 if (ONLY.has(2) || ONLY.has(3)) {
-  const perLeg = Array.from({ length:LEGS }, () => ({ win:[], med:[], flips:0, drop:0, riders:0, bumps:0, drinkAt:[], wait:[], thrown:0, landed:0 }));
+  const perLeg = Array.from({ length:LEGS }, () => ({ win:[], med:[], flips:0, drop:0, riders:0, bumps:0, drinkAt:[], wait:[], thrown:0, landed:0,
+    levels:[0, 0, 0, 0] }));
   const byFloatie = Object.fromEntries(FLOATIE_IDS.map(id => [id, { entries:0, wins:0, podium:0, places:[] }]));
   const t0 = Date.now();
   for (let k = 0; k < CUPS; k += 1) {
     const { cup, legs } = runCup(SEED * 1000 + k, { skill:SKILL });
-    for (const { leg, race, thrown, landed } of legs) {
+    for (const { leg, race, thrown, landed, levels } of legs) {
       const stat = perLeg[leg];
+      levels.forEach((ticks, level) => { stat.levels[level] += ticks; });
       const times = race.riders.map(finishAt).filter(v => v !== null).sort((a, b) => a - b);
       stat.win.push(times[0]);
       stat.med.push(median(times));
@@ -133,6 +159,11 @@ if (ONLY.has(2) || ONLY.has(3)) {
     perLeg.forEach((stat, leg) => {
       const races = stat.win.length;
       console.log(`   ${COURSE.legs[leg].name.padEnd(16)} ${pad(f1(mean(stat.win)), 6)}  ${pad(f1(mean(stat.med)), 6)}  ${pad(f2(stat.flips / stat.riders), 11)}  ${pad(f2(stat.drop / stat.riders), 11)}  ${pad(f2(stat.bumps / stat.riders), 11)}  ${pad(`${f1(median(stat.drinkAt))} s (${pct(stat.drinkAt.length / stat.riders)})`, 17)}  ${pad(`+${f1(mean(stat.wait))} s (${pct(stat.wait.length / stat.riders)})`, 16)}  ${pad(`${f1(stat.thrown / races)}/${f1(stat.landed / races)}`, 10)}`);
+    });
+    console.log("   time on the water at each level (none / Rhythm / Groove / Locked in)");
+    perLeg.forEach((stat, leg) => {
+      const all = stat.levels.reduce((a, b) => a + b, 0) || 1;
+      console.log(`   ${COURSE.legs[leg].name.padEnd(16)} ${stat.levels.map(v => pct(v / all).padStart(7)).join(" ")}`);
     });
   }
   if (ONLY.has(3)) {

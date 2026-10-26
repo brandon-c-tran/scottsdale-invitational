@@ -7,7 +7,8 @@ import { cutSchedule, createCup, makeEntrant, addBots, startCup, advance, raceFo
   standingsOf, canSwap, noteSwap, beachDrink, canThrow, noteThrow, resumeCountdown, toLobby, raceTick, cutOf, LEG_COUNT } from "../float/shared/cup.js";
 import { finishAt, stepRace, throwBalloon } from "../float/shared/sim.js";
 import { cleanRider } from "../float/shared/protocol.js";
-import { TIMING, BALLOON, DT } from "../float/shared/tuning.js";
+import { TIMING, BALLOON, DT, BEAT_MS as TUNING_BEAT_MS } from "../float/shared/tuning.js";
+import { BEAT_MS } from "../float/shared/beat.js";
 import { COURSE } from "../float/shared/course.js";
 
 test("cutSchedule: one round a leg, monotonic, never below 3, the final always 3; 13 is 13, 9, 6, 3", () => {
@@ -274,4 +275,24 @@ test("addBots fills with named computer riders; raceTick runs a round with bots 
   finishRound(cup, race, now);
   assert.equal(cup.field.length, 9);
   void stepRace;
+});
+
+/* The music's band lands the grid's start on a beat only because the grid and
+   the countdown together are whole beats (the sound builder's note); the
+   3-2-1 and the gun fall on beats, and a resumed race counts in whole beats too */
+test("the grid, the countdown and a resume's countdown are whole beats", () => {
+  assert.equal(TUNING_BEAT_MS, BEAT_MS, "one beat for tuning.js and beat.js");
+  assert.equal(BEAT_MS, 500);
+  assert.equal((TIMING.GRID_MS + TIMING.COUNTDOWN_MS) % BEAT_MS, 0, "grid plus countdown");
+  assert.equal(TIMING.COUNTDOWN_MS % BEAT_MS, 0, "the countdown");
+  assert.equal(TIMING.RESUME_MS % BEAT_MS, 0, "a resumed race's countdown");
+  /* and the Cup lays them out that way: the gun is a whole number of beats after the grid begins */
+  const cup = createCup({ id:"beats", seed:3 });
+  cup.entrants.push(makeEntrant(cup, cleanRider({ name:"A" }), { device:"a" }));
+  startCup(cup, 1000);
+  advance(cup, cup.endsAt);
+  const gridStart = cup.startAt;
+  advance(cup, cup.endsAt);
+  assert.equal(cup.phase, "countdown");
+  assert.equal((cup.startAt - gridStart) % BEAT_MS, 0);
 });

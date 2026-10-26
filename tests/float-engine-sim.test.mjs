@@ -5,9 +5,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { COURSE, frameAt, nearestS, legAt } from "../float/shared/course.js";
-import { createRace, applyInput, stepRace, throwBalloon, rows, finishAt, riderOf, flagsOf, tiredness } from "../float/shared/sim.js";
-import { FLAG, unpackRow, wrapAngle } from "../float/shared/protocol.js";
-import { DT, RADIUS, FLIP, BALLOON, PADDLE, physicsOf } from "../float/shared/tuning.js";
+import { createRace, applyInput, stepRace, throwBalloon, rows, finishAt, riderOf, flagsOf, judgeBeat } from "../float/shared/sim.js";
+import { FLAG, unpackRow, wrapAngle, levelOfFlags } from "../float/shared/protocol.js";
+import { DT, RADIUS, FLIP, BALLOON, FLOOD, BEAT, physicsOf } from "../float/shared/tuning.js";
+import { BEAT_MS, QUALITY_GAIN, LEVEL_GAIN, levelFloor } from "../float/shared/beat.js";
 import { FLOATIE_IDS } from "../float/shared/floaties.js";
 
 /* a straight channel along +x, `width` wide, the current `flow` m/s */
@@ -34,12 +35,23 @@ const paddler = (rate, side = n => (n % 2 ? "R" : "L"), p = 1, i = 0) => {
     next += 1 / rate;
   };
 };
+/* a paddler on the beat: one stroke a beat at offset d (ms), stamped as a
+   phone stamps it */
+const beatPaddler = ({ side = n => (n % 2 ? "R" : "L"), p = 1, i = 0, d = 0, from = 1 } = {}) => {
+  let k = from, n = 0;
+  return race => {
+    if (race.t * 1000 + 1e-6 < k * BEAT_MS + d) return;
+    applyInput(race, i, { t:"stroke", side:side(n), p, k, d });
+    n += 1;
+    k += 1;
+  };
+};
 
 test("alternating strokes go straight, and paddling beats drifting", () => {
   const still = channel();
   const race = solo(still);
   const start = { ...race.riders[0] };
-  run(race, still, 20, paddler(2.6));
+  run(race, still, 20, beatPaddler());
   const rider = race.riders[0];
   assert.ok(Math.abs(wrapAngle(rider.a - start.a)) < 0.35, `heading drifted ${rider.a}`);
   assert.ok(rider.x - start.x > 35, `went ${rider.x - start.x} m`);
@@ -51,7 +63,7 @@ test("alternating strokes go straight, and paddling beats drifting", () => {
     field:[{ i:0, floatie:"classic" }, { i:1, floatie:"classic" }] });
   two.riders[1].y = two.riders[0].y;
   two.riders[1].x = two.riders[0].x - 6;
-  run(two, river, 25, paddler(2.6));
+  run(two, river, 25, beatPaddler());
   const [paddling, drifting] = two.riders;
   assert.ok(paddling.x - drifting.x > 40, `ahead by ${(paddling.x - drifting.x).toFixed(1)} m`);
   assert.ok(drifting.x - (two.riders[1].x - 0) <= 0 || drifting.vx > 1.5, "the drifter rides the current");
@@ -73,7 +85,7 @@ test("a left stroke yaws right, a right stroke yaws left; Turn sets how far", ()
   /* one side only spins you round */
   const race = solo(still);
   let turned = 0, last = race.riders[0].a;
-  const lefts = paddler(2.5, () => "L");
+  const lefts = beatPaddler({ side:() => "L" });
   run(race, still, 6, r => {
     lefts(r);
     turned += wrapAngle(r.riders[0].a - last);
@@ -82,28 +94,149 @@ test("a left stroke yaws right, a right stroke yaws left; Turn sets how far", ()
   assert.ok(turned < -2, `keeps turning clockwise: ${turned}`);
 });
 
-test("stamina: a steady 3 a second keeps you fresh, mashing weakens strokes and drains you, rest refills", () => {
+/* strokes on beats k = from.. with offsets d(k), the race stepped to each; returns the events */
+function beatRun(race, course, { from = 1, to, d = () => 0, skip = () => false, i = 0 }) {
+  const events = [];
+  for (let k = from; k <= to; k += 1) {
+    if (skip(k)) continue;
+    const offset = d(k);
+    while (race.t * 1000 + 1e-6 < k * BEAT_MS + offset) events.push(...stepRace(race, course));
+    applyInput(race, i, { t:"stroke", side:k % 2 ? "L" : "R", p:1, k, d:offset });
+  }
+  events.push(...stepRace(race, course));
+  return events;
+}
+
+test("the beat: on-beat strokes build the streak through Rhythm, Groove and Locked in; the flags carry the level", () => {
   const still = channel({ length:900 });
-  const steady = solo(still);
-  run(steady, still, 60, paddler(2.9));
-  assert.ok(steady.riders[0].stam > 0.75, `steady leaves ${steady.riders[0].stam}`);
-  assert.equal(tiredness(steady.riders[0].stam), 1);
+  const race = solo(still);
+  const rider = race.riders[0];
+  const events = beatRun(race, still, { to:16, d:k => (k % 4 ? 20 : -130) });
+  assert.equal(rider.streak, 16);
+  assert.equal(rider.level, 3);
+  assert.equal(rider.q, "good", "the last stroke was 130 ms early: good");
+  assert.deepEqual(events.filter(ev => ev.e === "groove").map(ev => [ev.i, ev.level]), [[0, 1], [0, 2], [0, 3]]);
+  const f = flagsOf(rider, race.t);
+  assert.equal(levelOfFlags(f), 3);
+  assert.ok(f & FLAG.STREAK_1 && f & FLAG.STREAK_2);
+  assert.equal(rows(race)[0][4] >> 8 & 3, 3, "the snapshot row too");
+  assert.equal(rider.st.perfect + rider.st.good, 16);
+  assert.equal(rider.st.maxStreak, 16);
+});
+
+test("the beat: an early, late, too fast or unbelievable stroke resets the streak", () => {
+  const still = channel({ length:900 });
+  for (const [label, stroke] of [
+    ["early", { k:9, d:-200 }], ["late", { k:9, d:210 }],
+    ["fast", { k:8, d:40 }],            /* a second stroke in beat 8 */
+    ["stale", { k:30, d:0 }],           /* far from the room's clock */
+    ["impossible", { k:9, d:400 }],     /* past half a beat */
+  ]) {
+    const race = solo(still);
+    const rider = race.riders[0];
+    beatRun(race, still, { to:8 });
+    assert.equal(rider.level, 2, label);
+    while (race.t * 1000 < 9 * BEAT_MS - 260) stepRace(race, still);
+    applyInput(race, 0, { t:"stroke", side:"L", p:1, ...stroke });
+    assert.equal(rider.streak, 0, label);
+    assert.equal(rider.level, 0, label);
+    assert.ok(["early", "late", "fast"].includes(rider.q), `${label}: ${rider.q}`);
+  }
+  /* judged on the room's terms */
+  const race = solo(still);
+  for (let k = 0; k < 9; k += 1) stepRace(race, still);
+  assert.equal(judgeBeat(race, race.riders[0], { k:1, d:0 }).q, "perfect");
+  assert.equal(judgeBeat(race, race.riders[0], { k:1 + BEAT.STALE + 1, d:0 }).onBeat, false, "more than 2 beats ahead");
+  /* a stroke without a stamp is judged when it lands: exactly on beat 2 */
+  while (race.t * 1000 + 1e-6 < 2 * BEAT_MS) stepRace(race, still);
+  applyInput(race, 0, { t:"stroke", side:"R", p:1 });
+  assert.equal(race.riders[0].q, "perfect");
+});
+
+test("the beat: a beat with no stroke drops one level to its floor, and a pause costs one level, not everything", () => {
+  const still = channel({ length:900 });
+  const race = solo(still);
+  const rider = race.riders[0];
+  beatRun(race, still, { to:18 });
+  assert.equal(rider.level, 3);
+  /* a drink: beats 19 to 28 unstroked */
+  beatRun(race, still, { from:19, to:29, skip:k => k < 29 });
+  assert.equal(rider.level, 2, "one level down");
+  assert.equal(rider.streak, levelFloor(2) + 1, "from the floor, plus the stroke that came back");
+  /* Groove at 9: one missed beat drops it to Rhythm's floor */
+  beatRun(race, still, { from:30, to:36, skip:k => k === 33 });
+  assert.equal(rider.level, 1);
+  assert.equal(rider.streak, levelFloor(1) + 3);
+  /* at level 0 a miss clears what there is */
+  const slow = solo(still);
+  beatRun(slow, still, { to:3 });
+  beatRun(slow, still, { from:4, to:6, skip:k => k === 4 });
+  assert.equal(slow.riders[0].streak, 2);
+});
+
+test("thrust: PERFECT, GOOD and OFF push 1, 0.8 and 0.4; the level adds up to a quarter", () => {
+  const still = channel({ length:900 });
+  const pushOf = (d, { streak = 0 } = {}) => {
+    const race = solo(still);
+    const rider = race.riders[0];
+    rider.streak = streak;
+    rider.level = streak >= 16 ? 3 : streak >= 8 ? 2 : streak >= 4 ? 1 : 0;
+    while (race.t * 1000 + 1e-6 < BEAT_MS + d) stepRace(race, still);
+    const before = rider.push;
+    applyInput(race, 0, { t:"stroke", side:"L", p:1, k:1, d });
+    return rider.push - before;
+  };
+  const perfect = pushOf(0), good = pushOf(120), off = pushOf(-210);
+  assert.ok(Math.abs(good / perfect - QUALITY_GAIN.good) < 1e-9);
+  assert.ok(Math.abs(off / perfect - QUALITY_GAIN.early) < 1e-9);
+  assert.ok(Math.abs(pushOf(0, { streak:20 }) / perfect - LEVEL_GAIN[3]) < 1e-9, "Locked in");
+  assert.ok(Math.abs(pushOf(0, { streak:5 }) / perfect - LEVEL_GAIN[1]) < 1e-9, "Rhythm");
+  /* steering is the same on the beat or off it */
+  const yawOf = d => {
+    const race = solo(still);
+    while (race.t * 1000 + 1e-6 < BEAT_MS + d) stepRace(race, still);
+    applyInput(race, 0, { t:"stroke", side:"R", p:1, k:1, d });
+    return race.riders[0].yawQ;
+  };
+  assert.equal(yawOf(0), yawOf(-210));
+});
+
+test("the flood cap: one stroke a beat never reaches it; mashing fills it and pushes nothing", () => {
+  const still = channel({ length:900 });
+  /* every on-beat stroke adds to the push */
+  const beat = solo(still);
+  let added = 0;
+  for (let k = 1; k <= 40; k += 1) {
+    while (beat.t * 1000 + 1e-6 < k * BEAT_MS) stepRace(beat, still);
+    const before = beat.riders[0].push;
+    applyInput(beat, 0, { t:"stroke", side:k % 2 ? "L" : "R", p:1, k, d:0 });
+    if (beat.riders[0].push > before) added += 1;
+  }
+  assert.equal(added, 40, "never capped");
+  assert.ok(beat.riders[0].heat <= FLOOD.CAP);
+  /* six taps a second: within a second or two nothing more pushes */
   const mash = solo(still);
-  run(mash, still, 12, paddler(8));
-  assert.ok(mash.riders[0].stam < 0.5, `mashing leaves ${mash.riders[0].stam}`);
-  const fresh = solo(still);
-  run(fresh, still, 12, paddler(2.9));
-  assert.ok(mash.riders[0].x - mash.riders[0].x * 0 < fresh.riders[0].x * 1.12, "mashing is barely faster, if at all");
-  /* past the bucket's cap, strokes are refused outright */
-  const flood = solo(still);
-  let taken = 0;
-  for (let k = 0; k < 20; k += 1) if (applyInput(flood, 0, { t:"stroke", side:"L", p:1 })) taken += 1;
-  assert.ok(taken <= Math.ceil(PADDLE.CAP), `took ${taken}`);
-  /* resting brings it back */
-  const tired = mash.riders[0].stam;
-  run(mash, still, 4);
-  assert.ok(mash.riders[0].stam > tired + 0.4, "rest refills");
-  assert.ok(tiredness(0) < tiredness(0.3) && tiredness(0.3) < 1);
+  let late = 0;
+  for (let n = 0; n < 60; n += 1) {
+    const at = n / 6;
+    while (mash.t + 1e-9 < at) stepRace(mash, still);
+    const before = mash.riders[0].push;
+    applyInput(mash, 0, { t:"stroke", side:n % 2 ? "L" : "R", p:1 });
+    if (n >= 18 && mash.riders[0].push > before) late += 1;
+  }
+  assert.equal(late, 0, "a flood pushes nothing");
+  assert.equal(mash.riders[0].level, 0, "and never finds the groove");
+  /* over the water: the beat beats the masher, who is no better than a drifter */
+  const river = channel({ flow:1.5, length:900 });
+  const trio = createRace({ course:river, leg:0, seed:4, drinking:false,
+    field:[{ i:0, floatie:"classic" }, { i:1, floatie:"classic" }, { i:2, floatie:"classic" }] });
+  /* the beat paddler mid-river (alternate strokes hold a heading half a stroke to one side) */
+  trio.riders.forEach((rider, k) => { rider.y = [0, -8, 8][k]; rider.x = 60; });
+  const onBeat = beatPaddler({ i:0 }), masher = paddler(6, n => (n % 2 ? "L" : "R"), 1, 1);
+  run(trio, river, 30, r => { onBeat(r); masher(r); });
+  const [b, m, dr] = trio.riders;
+  assert.ok(b.x - m.x > 25, `the beat is well ahead: ${(b.x - m.x).toFixed(1)} m`);
+  assert.ok(Math.abs(m.x - dr.x) < 0.2 * (b.x - dr.x), `the masher stays near the drifter: ${m.x.toFixed(1)} vs ${dr.x.toFixed(1)}`);
 });
 
 test("bumps: they push apart, momentum survives, and the shark hits harder", () => {
@@ -327,4 +460,21 @@ test("the whirlpool lets go: a drifter dropped in its core is out within a few t
     if (Math.hypot(rider.x - pool.x, rider.y - pool.y) > pool.r + 2) out = race.t;
   }
   assert.ok(out !== null && out < 20, `out after ${out} s`);
+});
+
+test("a rock by the bank is no trap: the water takes a drifter round its open side", () => {
+  const drop = COURSE.zones.find(zone => zone.k === "drop");
+  const legIndex = COURSE.legs.findIndex(leg => leg.s0 <= drop.s0 && leg.s1 >= drop.s1);
+  const tight = COURSE.rocks.map(([x, y, r]) => ({ r, ...nearestS(COURSE, x, y) }))
+    .filter(rock => Math.abs(rock.s - drop.s0) < 6 && rock.w / 2 - Math.abs(rock.d) - rock.r < 1.6);
+  assert.ok(tight.length >= 2, "the lip rocks sit close to both banks");
+  for (const rock of tight) {
+    const race = createRace({ course:COURSE, leg:legIndex, seed:2, drinking:false, field:[{ i:0, floatie:"classic" }] });
+    const rider = race.riders[0];
+    const f = frameAt(COURSE, rock.s - 2.4);
+    const d = Math.sign(rock.d) * (f.w / 2 - RADIUS - 0.05);
+    Object.assign(rider, { x:f.x + f.nx * d, y:f.y + f.ny * d, s:rock.s - 2.4, vx:0, vy:0, a:Math.atan2(f.ty, f.tx), w:0 });
+    run(race, COURSE, 12);
+    assert.ok(rider.s > drop.s1, `carried round the rock by the ${rock.d > 0 ? "left" : "right"} bank and over: s ${rider.s.toFixed(1)}`);
+  }
 });

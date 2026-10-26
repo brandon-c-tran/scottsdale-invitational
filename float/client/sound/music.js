@@ -5,12 +5,18 @@
      lobby, feedback  the lounge: eight bars rocking D, A, B minor, A, on the
                       server's own bar grid (every screen in a room in step),
                       its sections coming and going over 32 bars
-     intro, grid      the vamp: a palm-muted pedal on B, from the bar line
-                      after the title's sting
+     intro, grid      the vamp: the pulse over a palm-muted pedal on B, from
+                      the bar line after the title's sting; on the grid its
+                      bars already sit on the race's grid (the gun is the
+                      grid's end plus the count-in), so the beat never moves
      countdown, race  the race: bar 0 on the gun (laid during the countdown so
                       it lands on time), each bar's arrangement chosen as it
                       is laid: the leg, the final, the phrase (a fill on its
                       eighth bar, a crash on its first), and the live tense
+
+   The beat (PROTOCOL.md "The beat"): every bar of the race and the vamp
+   sounds the pulse on every quarter (BEAT_MS from the gun), in every leg
+   and at every tense, so a paddler can stroke by ear.
      cut              the lounge between rounds, after the button and the stings
      podium           nothing while the fanfare and the winner's pose have the
                       room; then the lounge again under the finalists
@@ -22,14 +28,17 @@
    rider is in, and builds again as the cap runs out. At The Drop the bar
    the leader reaches the lip on suspends (the band holds on a tremolo and a
    riser) and the bar after the first landing hits. */
-import { CAP_MS, legOf, roarAt } from "./cup.js";
+import { BAR_MS } from "../../shared/tuning.js";
+import { BEAT_MS } from "../../shared/beat.js";
+import { CAP_MS, COUNTDOWN_MS, legOf, roarAt } from "./cup.js";
 
-/* one bar, 120 a minute in four (soundKit FLOAT_BAR_S) */
-export const BAR_MS = 2000;
+/* one bar, 120 a minute in four (soundKit FLOAT_BAR_S), its pulse every BEAT_MS */
+export { BAR_MS, BEAT_MS };
 /* a bar is chosen and laid this far ahead of its start */
 export const MUSIC_LEAD_MS = 650;
-/* the title's sting has this long before the vamp's first bar line (the Cup's intro rings longer) */
-export const TITLE_HOLD_MS = 2200;
+/* the vamp comes in on the bar line under the title's long note (the
+   grid's second beat); after the Cup's intro, once its sting has rung */
+export const TITLE_HOLD_MS = 900;
 export const INTRO_HOLD_MS = 3800;
 /* between rounds: the button and the stings first */
 export const CUT_HOLD_MS = 3200;
@@ -40,6 +49,8 @@ export const LOUNGE_BARS = 8, LOUNGE_SECTIONS = 4;
 
 /* the next bar line of a grid anchored at `anchor`, at or after `at` */
 export const barLine = (at, anchor = 0) => anchor + Math.ceil((at - anchor) / BAR_MS) * BAR_MS;
+/* the gun a grid is counting toward: its end, then the count-in (null outside the grid) */
+export const predictedGun = view => view?.phase === "grid" && Number.isFinite(view.endsAt) ? view.endsAt + COUNTDOWN_MS : null;
 
 /* The bed for where the Cup is (null: none). key changes when the bed
    must start over; anchor is its bar 0; from is the first instant a bar
@@ -56,7 +67,9 @@ export function musicTrack(mem, { reduced = false } = {}) {
     case "intro": case "grid": {
       const start = Number.isFinite(mem.phaseAt) ? mem.phaseAt : v.startAt ?? v.s ?? 0;
       const from = start + (mem.titled === `${v.phase}:${v.round}` ? (v.phase === "intro" ? INTRO_HOLD_MS : TITLE_HOLD_MS) : 0);
-      return { key:`vamp:${v.phase}:${v.round}`, mode:"vamp", anchor:from, from };
+      /* on the grid the vamp's bars are the race's (bars back from the gun to come); the Cup's
+         intro, before any gun, keeps the server's own bar grid */
+      return { key:`vamp:${v.phase}:${v.round}`, mode:"vamp", anchor:predictedGun(v) ?? 0, from };
     }
     case "podium": {
       const start = Number.isFinite(mem.phaseAt) ? mem.phaseAt : v.startAt ?? v.s ?? 0;
@@ -71,10 +84,11 @@ export function musicTrack(mem, { reduced = false } = {}) {
   }
 }
 
-/* the first bar a track lays from `now` (the next bar line still ahead) */
+/* the first bar a track lays from `now` (the next bar line still ahead; a
+   vamp counting toward a gun has its bars before it, at negative indexes) */
 export function firstBar(track, now, lead = 60) {
   const from = Math.max(Number.isFinite(track.from) ? track.from : -Infinity, now + lead);
-  return Math.max(0, Math.ceil((from - track.anchor) / BAR_MS));
+  return Math.ceil((from - track.anchor) / BAR_MS);
 }
 export const barAt = (track, index) => track.anchor + index * BAR_MS;
 
@@ -85,7 +99,8 @@ export const barAt = (track, index) => track.anchor + index * BAR_MS;
 export function raceTense(mem, at) {
   const firstIn = mem.firstIn?.round === mem.view?.round ? mem.firstIn.at : null;
   if (Number.isFinite(firstIn)) {
-    const capEnd = Number.isFinite(mem.view?.endsAt) && mem.view.endsAt > firstIn ? mem.view.endsAt : firstIn + CAP_MS;
+    /* the room moves endsAt from the hard cap to the cap once the first finishes: the earlier wins */
+    const capEnd = Math.min(firstIn + CAP_MS, Number.isFinite(mem.view?.endsAt) && mem.view.endsAt > firstIn ? mem.view.endsAt : Infinity);
     const left = capEnd - at;
     return left <= 6000 ? 5 : left <= 14000 ? 4 : 3;
   }
@@ -122,7 +137,7 @@ export function barCue(track, index, mem = null) {
     return { id:"floatLounge", at, opts:{ bar:((n % LOUNGE_BARS) + LOUNGE_BARS) % LOUNGE_BARS,
       section:((Math.floor(n / LOUNGE_BARS) % LOUNGE_SECTIONS) + LOUNGE_SECTIONS) % LOUNGE_SECTIONS, cut:!!track.cut } };
   }
-  if (track.mode === "vamp") return { id:"floatVamp", at, opts:{ bar:index % 2 } };
+  if (track.mode === "vamp") return { id:"floatVamp", at, opts:{ bar:((index % 2) + 2) % 2 } };
   const tense = mem ? raceTense(mem, at) : 0;
   const drop = mem ? dropState(mem, at) : null;
   /* the first bar after the first rider is in hits the crash */
@@ -135,9 +150,16 @@ export function barCue(track, index, mem = null) {
 /* every bar of a track starting in [from, to) */
 export function barsBetween(track, from, to, mem = null) {
   const out = [];
-  for (let i = Math.max(0, Math.ceil((from - track.anchor) / BAR_MS)); barAt(track, i) < to; i++) out.push(barCue(track, i, mem));
+  const start = Math.max(Number.isFinite(track.from) ? track.from : -Infinity, from);
+  for (let i = Math.ceil((start - track.anchor) / BAR_MS); barAt(track, i) < to; i++) out.push(barCue(track, i, mem));
   return out;
 }
+/* the beats of a race (or a grid counting toward one) from `from` to `to`: the instants the pulse sounds */
+export const beatsBetween = (gun, from, to) => {
+  const out = [];
+  for (let k = Math.ceil((from - gun) / BEAT_MS); gun + k * BEAT_MS < to; k++) out.push(gun + k * BEAT_MS);
+  return out;
+};
 
 /* the roar a waterfall throws ahead of the pack, for the river (0..1) */
 export const roarFor = (mem, s) => roarAt(mem?.course, s);

@@ -14,6 +14,8 @@
 import { WATER, GRID, BEACH } from "./tuning.js";
 
 export const COURSE_ID = "salt";
+/* a gap a floatie fits through (its width and a little) */
+const PASSABLE = 2.2;
 const STEP = 4;
 
 /* an island as circles every 4 m along s, widest in the middle: [s, d, r] */
@@ -420,14 +422,19 @@ export function flowAt(course, x, y, { hint, whirl = 1 } = {}) {
     }
   }
   /* the water parts around a rock too: just upstream of one it carries you
-     to the nearer side, so nothing stays pinned on it */
+     to the nearer side, so nothing stays pinned on it. A side too narrow
+     for a floatie (a rock by the bank) is a dead end, so the water takes
+     you round the open side instead. */
   for (const rock of g.rocks) {
     if (rock.s < s - rock.r) continue;
     if (rock.s > s + rock.r + 2.5) break;
     const off = d - rock.d;
     const gap = Math.abs(off) - rock.r;
     if (gap > 1.6) continue;
-    const push = Math.max(v, 1) * 0.5 * (1 - smooth(gap / 1.6)) * (off >= 0 ? 1 : -1);
+    let side = off >= 0 ? 1 : -1;
+    if (side > 0 && half - (rock.d + rock.r) < PASSABLE) side = -1;
+    else if (side < 0 && rock.d - rock.r + half < PASSABLE) side = 1;
+    const push = Math.max(v, 1) * 0.5 * (1 - smooth(gap / 1.6)) * side;
     ux += f.nx * push;
     uy += f.ny * push;
   }

@@ -10,6 +10,12 @@ export const INTERP_MS = 100;
 /* the music's bar: in `countdown`, room.startAt is the gun, and the gun
    lands on a bar line of the screen's music */
 export const BAR_MS = 2000;
+/* the beat strokes are judged on (float/shared/beat.js): 120 bpm */
+export const BEAT_MS = BAR_MS / 4;
+/* the room's beat: a stroke stamped more than STALE beats from the room's
+   own clock is off; a beat is judged missed MISS_GRACE_MS after it (a late
+   stroke and the network have had their time) */
+export const BEAT = Object.freeze({ STALE:2, MISS_GRACE_MS:700 });
 
 /* the simulation: a fixed 30 Hz step */
 export const SIM_HZ = 30;
@@ -89,33 +95,26 @@ export const WATER = Object.freeze({
 /* ---- paddling ---- */
 export const PADDLE = Object.freeze({
   /* one full-power stroke's forward impulse (N s) at Speed 3 */
-  IMPULSE:72,
+  IMPULSE:90,
   /* one full-power stroke's yaw (rad/s added) at Turn 3; a left stroke yaws
      right (clockwise, negative), a right stroke yaws left */
   YAW:0.95,
   /* a stroke's push is released over time (1/s): smooth on the screen, and a
      fifth of a second of network delay never shows */
   RELEASE:7,
-  /* cadence as a leaky bucket: strokes drain out at SUSTAIN per second; above
-     FREE in the bucket a stroke weakens and costs extra stamina; above CAP it
-     is ignored (a stuck or flooding phone) */
+  /* the phone's old cadence feedback (float/client/controller/cadence.js)
+     reads these until it judges the beat; the room no longer does: the beat
+     governs cadence now, and FLOOD (below) only stops a flood */
   SUSTAIN:3,
   FREE:1.6,
   CAP:4.5,
-  /* stamina 0..1: a steady stroke costs COST (a whole leg at 3 a second
-     leaves you fresh), a rushed one RUSH_COST more per unit of bucket over
-     FREE; it comes back at RECOVER per second once you have not stroked for
-     REST_S (a drink in calm water refills it) */
-  COST:0.0012,
-  RUSH_COST:0.05,
-  RECOVER:0.16,
-  REST_S:0.6,
-  /* power is full down to FRESH stamina, then falls to TIRED at 0 */
-  FRESH:0.5,
-  TIRED:0.45,
-  /* the weakest a rushed stroke gets */
   RUSH_FLOOR:0.2,
 });
+
+/* the flood cap, a leaky bucket: strokes drain out at SUSTAIN a second, and
+   past CAP a stroke is still judged (so it breaks a streak) but pushes
+   nothing. One stroke a beat (2 a second) never reaches it */
+export const FLOOD = Object.freeze({ SUSTAIN:3, CAP:2.5 });
 
 /* ---- contact ---- */
 export const CONTACT = Object.freeze({
@@ -156,7 +155,7 @@ export const FLIP = Object.freeze({
 /* ---- the four stats, mapped to physics (PROTOCOL.md "Floaties") ----
    Each point from the middle (3) moves a number by this fraction. Speed is
    kept narrow: with equal paddlers it decides races fastest of the four. */
-export const STAT = Object.freeze({ SPEED:0.012, TURN:0.15, WEIGHT:0.1, RIDE:0.012, ROUGH:0.12, KEEL:0.3 });
+export const STAT = Object.freeze({ SPEED:0.012, TURN:0.15, WEIGHT:0.1, RIDE:0.012, ROUGH:0.12, KEEL:0.2 });
 
 const statOf = (stat, value) => Math.max(1, Math.min(5, Number(value) || 3)) - 3;
 
@@ -195,14 +194,14 @@ export function physicsOf(floatieId) {
     neverFlips:false,  // lounger
     steadyHandsOff:false, // cooler
   };
-  if (id === "donut") p.launch = 0.2;
+  if (id === "donut") p.launch = 0.1;
   if (id === "unicorn") p.tippy = 0.9;
   /* the flamingo turns on a dime: crisp, and it goes where it points */
   if (id === "flamingo") { p.yaw *= 1.08; p.spinDamp *= 1.12; p.keel *= 1.5; }
   if (id === "shark") p.bumpOut = 1.7;
   /* the flat rafts ride rough water: waves shove them about less */
   if (id === "pizza") { p.tippy = 1.3; p.rough *= 0.8; }
-  if (id === "lounge") { p.neverFlips = true; p.rough *= 0.6; }
+  if (id === "lounge") { p.neverFlips = true; p.rough *= 0.4; p.keel *= 1.4; }
   if (id === "cooler") p.steadyHandsOff = true;
   p.dropAngle *= p.tippy;
   p.dropSpin *= p.tippy;

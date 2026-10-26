@@ -8,16 +8,15 @@
    the countdown message (a countdown names the gun as its end, or the
    race's start), and remembers it for the round. */
 import { FLAG } from "../../shared/protocol.js";
+import { INTERP_MS, TIMING } from "../../shared/tuning.js";
 
-/* the screen draws the race this far behind serverNow (shared/tuning.js
-   INTERP_MS), so a moment in the world sounds this much after its stamp */
-export const INTERP_MS = 100;
-/* a restarted room resumes with a 3 s countdown; the numbers are its last three seconds */
-export const COUNTDOWN_MS = 3000;
-/* a round's cap: 30 s after its first finisher */
-export const CAP_MS = 30000;
+/* the screen draws the race INTERP_MS behind serverNow, so a moment in the
+   world sounds that much after its stamp; a countdown is COUNTDOWN_MS (the
+   count-in's six beats); a round's cap is CAP_MS after its first finisher */
+export const COUNTDOWN_MS = TIMING.COUNTDOWN_MS;
+export const CAP_MS = TIMING.CAP_MS;
 
-export { FLAG };
+export { FLAG, INTERP_MS };
 
 /* the Cup's phases (PROTOCOL.md), and the stale names in shared/protocol.js mapped onto them */
 const PHASE = Object.freeze({ lobby:"lobby", intro:"intro", grid:"grid", countdown:"countdown", race:"race", cut:"cut",

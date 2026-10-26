@@ -4,8 +4,10 @@
    clock as it is cued:
 
      state   a fresh room message's step: a leg's title as the grid comes
-             up, the Cup's intro, 3, 2, 1 and the gun (the numbers on the
-             countdown's last three seconds), the button as the round ends,
+             up (its long note on the grid's second beat), the Cup's intro,
+             the count-in and the gun (PROTOCOL.md "The beat": 3, 2 and 1 on
+             every other beat of the countdown's six, the drummer's sticks
+             on the beats between), the button as the round ends,
              each rider out (a floatie letting go, a step lower each, spaced
              after the button), the podium's fanfare, its places and the
              winner's pose; in the lobby a pump as a rider joins and a bell
@@ -14,7 +16,8 @@
              bumps (through a density rule: a pile-up is one bigger bump),
              flips, balloons and their splashes, a bell as each rider is in
              at the bar (rung three times for the first), a clink as a
-             drink is finished; and from fresh snapshots, the field's
+             drink is finished, a sting under the band as a rider's streak
+             reaches Locked in (`groove` level 3); and from fresh snapshots, the field's
              paddles (each stroke while the field is small, a few dips a
              beat over the river's churn when it is big) and The Drop (the
              rush over the lip, the landing).
@@ -49,8 +52,15 @@ export const OUT_AFTER_MS = 650, OUT_GAP_MS = 380;
    middle stab (2nd), the big chord (1st), then the winner's pose. The
    screen reveals each place on these. */
 export const PODIUM_BEATS = Object.freeze({ third:1450, second:2200, first:2700, pose:3400 });
-/* the countdown's numbers, ms before the gun */
+/* the count-in, ms before the gun: the numbers (3, 2, 1) on every other
+   beat of the countdown's six, the sticks on the beats between */
 export const COUNT_BEATS = Object.freeze([3000, 2000, 1000]);
+export const COUNT_TICKS = Object.freeze([2500, 1500, 500]);
+/* a leg's title is cued this far into the grid, so its long note lands on
+   the grid's second beat (the grid starts on the race's beat grid) */
+export const TITLE_LEAD_MS = 250;
+/* Locked in: one sting each this long at most (the bots lock in too) */
+export const LOCKED_GAP_MS = 1500;
 /* density: bumps, flips, clinks and later landings */
 export const BUMP = Object.freeze({ gap:110, crowd:3, window:400 });
 export const FLIP_GAP_MS = 250, CLINK_GAP_MS = 90, IMPACT_GAP_MS = 600, FALL_GAP_MS = 700;
@@ -61,7 +71,7 @@ export function initialScreen({ open = true } = {}) {
   return { open, closedAt:0, live:false, view:null, course:null, gun:null, phaseAt:null, titled:null, cutAt:null,
     buttonAt:null, outs:null, firstIn:null, arrivals:null, peakTense:null, landed:null, pack:null,
     drops:null, paddle:{ last:-Infinity, rate:0, at:0 }, bump:{ last:-Infinity, recent:[], crowdUntil:-Infinity },
-    lastFlip:-Infinity, lastClink:-Infinity, lobby:null };
+    lastFlip:-Infinity, lastClink:-Infinity, lastLocked:-Infinity, lobby:null };
 }
 
 /* the connection's status: the first room after it opens is a catch-up */
@@ -75,7 +85,11 @@ export function screenStatus(mem, status, now = 0) {
 export const connected = (mem, now) => !!mem && (mem.open || now - (mem.closedAt || 0) < CLOSED_GRACE_MS);
 
 const keyOf = (mem, ...parts) => ["float", mem.view?.code || "room", ...parts].join(":");
-const phaseStart = (v, s) => Number.isFinite(v.startAt) && Number.isFinite(s) && Math.abs(v.startAt - s) < 10000 ? v.startAt : s;
+/* when a phase began: its startAt (in a countdown startAt is the gun, so the countdown began a count-in before it) */
+const phaseStart = (v, s) => {
+  if (v.phase === "countdown") return Number.isFinite(v.startAt) && v.startAt > s ? v.startAt - COUNTDOWN_MS : s;
+  return Number.isFinite(v.startAt) && Number.isFinite(s) && Math.abs(v.startAt - s) < 10000 ? v.startAt : s;
+};
 
 /* One message through the screen's sound. Returns the memory to keep and
    the cues it owes, { id, at (Float's server ms), pan, opts, key, open }. */
@@ -143,19 +157,24 @@ function phaseCues(m, prev, v, s, now, reduced) {
       cues.push({ id:"floatIntro", at:s + 60, opts:reduced ? { summary:true } : {}, key:keyOf(m, "intro", s) });
       m.titled = `intro:${round}`;
       break;
-    case "grid":
-      cues.push({ id:"floatTitle", at:s + 60, opts:{ leg:Math.min(3, v.leg), final:v.final, ...(reduced ? { summary:true } : {}) },
-        key:keyOf(m, "title", round, s) });
+    case "grid": {
+      /* the long note on the grid's second beat (a message that lands late plays it as it lands) */
+      const start = Number.isFinite(m.phaseAt) ? m.phaseAt : s;
+      cues.push({ id:"floatTitle", at:Math.max(start + TITLE_LEAD_MS, s + 60), opts:{ leg:Math.min(3, v.leg), final:v.final,
+        ...(reduced ? { summary:true } : {}) }, key:keyOf(m, "title", round, s) });
       m.titled = `grid:${round}`;
       break;
+    }
     case "countdown": {
       const gun = m.gun?.round === round ? m.gun.at : null;
       if (!Number.isFinite(gun)) break;
-      const start = Number.isFinite(m.phaseAt) ? m.phaseAt : s;
-      if (!reduced) COUNT_BEATS.forEach((ms, k) => {
-        const at = gun - ms;
-        if (at >= start - 120 && at > now - 250) cues.push({ id:"floatCount", at, opts:{ n:3 - k, final:v.final }, key:keyOf(m, "count", round, 3 - k) });
-      });
+      /* the count-in is the six beats before the gun; what has already gone by stays quiet */
+      const ahead = at => at >= gun - COUNTDOWN_MS && at > now - 250;
+      if (!reduced) {
+        COUNT_BEATS.forEach((ms, k) => { if (ahead(gun - ms)) cues.push({ id:"floatCount", at:gun - ms, opts:{ n:3 - k, final:v.final }, key:keyOf(m, "count", round, 3 - k) }); });
+        COUNT_TICKS.forEach((ms, k) => { if (ahead(gun - ms)) cues.push({ id:"floatCountTick", at:gun - ms, opts:{ final:v.final }, key:keyOf(m, "tick", round, k) }); });
+        cues.sort((a, b) => a.at - b.at);
+      }
       cues.push({ id:"floatGo", at:gun, opts:{ final:v.final }, key:keyOf(m, "go", round) });
       break;
     }
@@ -220,6 +239,13 @@ function evStep(mem, msg, { now, visible, reduced }) {
       cues.push({ id:"floatBell", at, pan:pan(i), opts:n === 0 ? { first:true } : { step:n }, key:keyOf(m, "in", round, i) });
       break;
     }
+    case "groove":
+      /* a rider's streak reaches Locked in: the band's sting under it (the lower levels are the TV's to draw) */
+      if (Number(msg.level) >= 3 && at - m.lastLocked >= LOCKED_GAP_MS) {
+        m.lastLocked = at;
+        cues.push({ id:"floatLockedIn", at, pan:pan(i), key:keyOf(m, "locked", round, i, s) });
+      }
+      break;
     case "drink": {
       const rider = m.view?.entrants?.[i];
       if (m.view?.drinking === false || rider?.drinks === false || at - m.lastClink < CLINK_GAP_MS) break;

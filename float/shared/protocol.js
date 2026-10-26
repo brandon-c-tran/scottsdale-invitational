@@ -21,7 +21,7 @@ export const CLIENT = Object.freeze(["hello", "ping", "look", "ready", "stroke",
 /* server to client */
 export const SERVER = Object.freeze(["welcome", "pong", "room", "snap", "me", "ev", "debug"]);
 /* an `ev`'s `e` */
-export const EVENTS = Object.freeze(["flip", "bump", "arrive", "drink", "out", "balloon", "splash"]);
+export const EVENTS = Object.freeze(["flip", "bump", "arrive", "drink", "out", "balloon", "splash", "groove"]);
 /* a screen's `host` command */
 export const HOST_CMDS = Object.freeze(["start", "lobby", "kick"]);
 
@@ -35,7 +35,11 @@ export const FLAG = Object.freeze({
   STROKE_R:32,
   BUMP:64,
   SPLASHED:128,
+  /* the streak's level (float/PROTOCOL.md "The beat"): level = (f >> 8) & 3 */
+  STREAK_1:256,
+  STREAK_2:512,
 });
+export const levelOfFlags = f => ((f | 0) >> 8) & 3;
 export const hasFlag = (f, flag) => ((f | 0) & flag) === flag;
 
 const round = (value, places) => {

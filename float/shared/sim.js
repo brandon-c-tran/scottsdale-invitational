@@ -24,7 +24,8 @@
    splashes, never flips. Pure: no DOM, no Workers APIs. */
 import { COURSE, flowAt, frameAt, legAt, gridSlots, beachSlot, rocksNear, islandsNear, nearestS } from "./course.js";
 import { FLAG, packRow, wrapAngle } from "./protocol.js";
-import { DT, RADIUS, WATER, PADDLE, CONTACT, FLIP, BALLOON, FLAG_MS, BEACH, LAUNCH_V, LAUNCH_S, COOLER, physicsOf } from "./tuning.js";
+import { DT, RADIUS, WATER, PADDLE, FLOOD, CONTACT, FLIP, BALLOON, FLAG_MS, BEACH, LAUNCH_V, LAUNCH_S, COOLER, BEAT, physicsOf } from "./tuning.js";
+import { BEAT_MS, judge, levelOf, levelFloor, QUALITY_GAIN, LEVEL_GAIN } from "./beat.js";
 
 /* ---- randomness: mulberry32, its state a uint32 kept in the race ---- */
 export function nextRandom(holder) {
@@ -81,11 +82,16 @@ export function createRace({ course = COURSE, leg = 0, field = [], seed = 1, dri
         x:slot.x, y:slot.y, vx:0, vy:0, a:slot.a, w:0,
         s:slot.s, prog:slot.s - grid,
         stam:1, heat:0, push:0, yawQ:0, lastStroke:-9,
+        /* the beat: the streak of on-beat strokes, its level, the last
+           judgement, the beat of the last stroke, the beats stroked lately
+           and the last beat checked for a miss */
+        streak:0, level:0, q:null, lastBeat:null, beats:[], missK:-1,
         hands:2, swim:0, immune:0, backIn:-99,
         whirlT:0, whirlFree:0,
         tL:-9, tR:-9, tBump:-9, tBumpFlag:-9, tSplash:-9, hitAt:-99,
         arrived:false, arriveAt:null, drinkAt:null, beach:-1,
-        st:{ strokes:0, flips:0, dropFlips:0, bumpsGiven:0, bumpsTaken:0, splashed:0, ticks:0, botTicks:0 },
+        st:{ strokes:0, perfect:0, good:0, off:0, maxStreak:0, flips:0, dropFlips:0, bumpsGiven:0, bumpsTaken:0, splashed:0,
+          ticks:0, botTicks:0 },
       };
     }),
     events:[],
@@ -120,23 +126,77 @@ export function applyInput(race, i, input) {
   const side = input.side === "L" ? "L" : input.side === "R" ? "R" : null;
   const p = clamp(Number(input.p), 0, 1);
   if (!side || !(p > 0.02)) return false;
-  /* the cadence bucket: a phone flooding strokes gets nothing past CAP */
-  if (rider.heat + 1 > PADDLE.CAP) return false;
-  rider.heat += 1;
-  const phys = physicsFor(rider.fl);
-  const rush = Math.max(0, rider.heat - PADDLE.FREE);
-  const rushed = Math.max(PADDLE.RUSH_FLOOR, 1 - rush * 0.45);
-  const tired = tiredness(rider.stam);
-  const power = p * rushed * tired;
-  rider.stam = Math.max(0, rider.stam - PADDLE.COST * p - PADDLE.RUSH_COST * rush);
-  rider.push += phys.thrust * power;
-  const steady = phys.steadyHandsOff && rider.hands < 2 ? COOLER.STROKE_YAW : 1;
-  /* a left stroke yaws right (clockwise), a right stroke left */
-  rider.yawQ += (side === "L" ? -1 : 1) * phys.yaw * power * steady;
+  /* the beat: every stroke is judged, and on-beat strokes in a row build the
+     streak; anything off (early, late, a second stroke in a beat) breaks it */
+  const verdict = judgeBeat(race, rider, input);
+  settleMisses(rider, verdict.k - 1);
+  rider.q = verdict.q;
+  rider.lastBeat = rider.lastBeat === null ? verdict.k : Math.max(rider.lastBeat, verdict.k);
+  if (!rider.beats.includes(verdict.k)) rider.beats = [...rider.beats.filter(k => k >= verdict.k - 4), verdict.k];
+  rider.st.strokes += 1;
+  if (verdict.onBeat) {
+    rider.streak += 1;
+    rider.st[verdict.q] += 1;
+    rider.st.maxStreak = Math.max(rider.st.maxStreak, rider.streak);
+    const level = levelOf(rider.streak);
+    if (level > rider.level) race.events.push({ e:"groove", i, level });
+    rider.level = level;
+  } else {
+    rider.streak = 0;
+    rider.level = 0;
+    rider.st.off += 1;
+  }
   rider.lastStroke = race.t;
   if (side === "L") rider.tL = race.t; else rider.tR = race.t;
-  rider.st.strokes += 1;
+  /* the flood cap: every stroke fills it (judged or not), and past CAP a
+     stroke pushes nothing; one a beat never fills it, a flood keeps it full */
+  const flooded = rider.heat + 1 > FLOOD.CAP;
+  rider.heat = Math.min(FLOOD.CAP + 1, rider.heat + 1);
+  if (flooded) return true;
+  const phys = physicsFor(rider.fl);
+  /* thrust by the judgement and by the level (top speed rises with it) */
+  rider.push += phys.thrust * p * QUALITY_GAIN[verdict.q] * LEVEL_GAIN[rider.level];
+  const steady = phys.steadyHandsOff && rider.hands < 2 ? COOLER.STROKE_YAW : 1;
+  /* a left stroke yaws right (clockwise), a right stroke left; steering is
+     the same on the beat or off it */
+  rider.yawQ += (side === "L" ? -1 : 1) * phys.yaw * p * steady;
   return true;
+}
+
+/* A stroke's judgement on the race's beat (float/PROTOCOL.md "The beat").
+   The phone stamps its touch on the server clock and sends the beat k and
+   offset d; a stroke without them (an old phone) is judged by when it
+   arrives. A stamp the room cannot believe (k more than BEAT.STALE beats
+   from its own clock, or d past half a beat) is off. The race's gun is race
+   time 0, so beat k is at k * BEAT_MS. */
+export function judgeBeat(race, rider, input) {
+  const nowMs = race.t * 1000;
+  const kNow = Math.round(nowMs / BEAT_MS);
+  let k = Number.isInteger(input?.k) ? input.k : null;
+  let d = Number.isFinite(input?.d) ? Math.round(input.d) : null;
+  if (k === null || d === null) { k = kNow; d = Math.round(nowMs - kNow * BEAT_MS); }
+  if (Math.abs(k - kNow) > BEAT.STALE || Math.abs(d) > BEAT_MS / 2)
+    return { k:kNow, d, q:k * BEAT_MS + d < nowMs ? "late" : "early", onBeat:false };
+  return { k, d, ...judge(k, d, { lastBeat:rider.lastBeat }) };
+}
+
+/* a beat nobody stroked, after one they did: the streak drops one level, to
+   that level's floor (a drink or a pause costs groove, not everything) */
+function checkMisses(rider, t) {
+  settleMisses(rider, Math.floor((t * 1000 - BEAT.MISS_GRACE_MS) / BEAT_MS));
+}
+/* every beat up to `upTo` not yet looked at: a miss drops a level. A
+   stroke settles the beats before its own first, so a miss always lands
+   before the stroke that followed it, never on top of it. */
+function settleMisses(rider, upTo) {
+  while (rider.missK < upTo) {
+    rider.missK += 1;
+    const k = rider.missK;
+    if (k < 1 || rider.beats.includes(k) || !rider.beats.includes(k - 1)) continue;
+    rider.level = Math.max(0, rider.level - 1);
+    rider.streak = levelFloor(rider.level);
+  }
+  if (rider.beats.length > 6) rider.beats = rider.beats.slice(-6);
 }
 
 /* an eliminated rider's balloon at racer `at`; the caller checks who may throw */
@@ -147,10 +207,6 @@ export function throwBalloon(race, from, at) {
   race.events.push({ e:"balloon", i:from, j:at });
   return true;
 }
-
-/* a stroke's power by stamina: full down to FRESH, then down to TIRED at 0 */
-export const tiredness = stam => stam >= PADDLE.FRESH ? 1
-  : PADDLE.TIRED + (1 - PADDLE.TIRED) * Math.max(0, stam) / PADDLE.FRESH;
 
 function noteFinish(race, rider) {
   const at = finishAt(rider);
@@ -206,9 +262,9 @@ export function stepRace(race, course = COURSE) {
 
 function moveRider(race, course, rider, t) {
   const phys = physicsFor(rider.fl);
-  /* the cadence bucket drains; stamina comes back once you rest */
-  rider.heat = Math.max(0, rider.heat - PADDLE.SUSTAIN * DT);
-  if (t - rider.lastStroke > PADDLE.REST_S) rider.stam = Math.min(1, rider.stam + PADDLE.RECOVER * DT);
+  /* the flood bucket drains; a beat gone by unstroked costs a level */
+  rider.heat = Math.max(0, rider.heat - FLOOD.SUSTAIN * DT);
+  if (!rider.arrived) checkMisses(rider, t);
   if (rider.immune > 0) rider.immune = Math.max(0, rider.immune - DT);
 
   if (rider.arrived) {
@@ -524,6 +580,8 @@ export function flagsOf(rider, t) {
   if (t - rider.tR < FLAG_MS.STROKE / 1000) f |= FLAG.STROKE_R;
   if (t - (rider.tBumpFlag ?? -9) < FLAG_MS.BUMP / 1000) f |= FLAG.BUMP;
   if (t - rider.tSplash < FLAG_MS.SPLASH / 1000) f |= FLAG.SPLASHED;
+  /* the streak's level in two bits: level = (f >> 8) & 3 */
+  f |= (rider.level & 3) << 8;
   return f;
 }
 

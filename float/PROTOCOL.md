@@ -371,6 +371,32 @@ they disagree, this wins.
 - **Tuning** exports `INTERP_MS` (100) and `BAR_MS` (2000). `protocol.js`
   exports `PALETTE` (bot colours) and the room-code letters `CODE_LETTERS`,
   `CODE_LENGTH`, `STANDALONE_CODE` (re-exported by `cup.js` and the join).
+- **The beat, as the room runs it** (Oct 26; "The beat" below is the rule):
+  - **Too fast:** "only the first stroke in a beat can be on it" means the
+    beat of the rider's last stroke of ANY judgement: a stroke judged OFF
+    in beat k makes every later stroke in beat k `fast` too. The phone's
+    own instant judgement should track `lastBeat` the same way.
+  - **Unbelievable stamps:** a `k` more than 2 beats from the room's clock,
+    or a `d` past half a beat, is OFF (`early` or `late` by which side of now
+    it claims). A stroke without `k`/`d` is judged when it lands.
+  - **Misses:** a missed beat is settled when the rider's next stroke comes
+    (before that stroke counts), or 700 ms after the beat if none does. A
+    pause of any length costs one level.
+  - **The flood cap** (`tuning.js FLOOD`: 3 a second, 2.5 deep) fills with
+    every stroke, judged or not. One stroke a beat never reaches it, nor
+    the odd extra tap; a steady 4 a second or more keeps it full and those
+    strokes push nothing. So a masher crosses at a drifter's pace.
+  - **Thrust:** `QUALITY_GAIN[q] * LEVEL_GAIN[level]` on top of the floatie's
+    stats. Steering (a stroke's yaw) is the same on the beat or off it.
+  - **No fatigue:** `me.stam` stays 1 (the beat governs cadence).
+  - **Stats:** each rider's round stats carry `perfect`, `good`, `off`
+    and `maxStreak`.
+  - **Bots** stroke once a beat, PERFECT from 30% (skill 0) to 90% (skill 1)
+    of beats, OFF 1.5% to 6.5%, the rest GOOD, and now and then a flurry (a
+    second stroke in a beat). They pause to drink, which costs them a level,
+    whatever their floatie.
+  - **Exports:** `sim.js judgeBeat`, `tuning.js BEAT_MS`, `BEAT` and
+    `FLOOD`, and `protocol.js levelOfFlags`.
 
 ## As built: the art (Oct 25)
 

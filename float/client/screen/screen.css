@@ -285,6 +285,10 @@
 .fs-lobby-code { font-size:calc(var(--u) * 178); letter-spacing:0.08em; line-height:0.95; color:var(--bone); }
 .fs-lobby-qr { width:calc(var(--u) * 360); height:calc(var(--u) * 360); margin-top:calc(var(--u) * 8); border-radius:calc(var(--u) * 14);
   box-shadow:0 calc(var(--u) * 10) calc(var(--u) * 30) rgba(0, 0, 0, 0.45); }
+.fs-lobby-starts { position:absolute; left:calc(var(--u) * 90); top:calc(var(--u) * 250); width:calc(var(--u) * 560); padding:calc(var(--u) * 26) calc(var(--u) * 34) calc(var(--u) * 30);
+  display:flex; flex-direction:column; align-items:center; gap:calc(var(--u) * 4); }
+.fs-lobby-starts .fs-label { font-size:calc(var(--u) * 28); color:var(--lilac2); }
+.fs-lobby-clock { font-size:calc(var(--u) * 178); line-height:0.95; color:var(--amber); font-variant-numeric:tabular-nums; }
 .fs-lobby-url { font-family:var(--show); font-weight:700; font-size:calc(var(--u) * 30); color:var(--cyan); letter-spacing:0.02em; margin-top:calc(var(--u) * 6); }
 .fs-lobby-riders { position:absolute; left:calc(var(--u) * 720); right:calc(var(--u) * 70); top:calc(var(--u) * 64); }
 .fs-lobby-head { display:flex; align-items:baseline; gap:calc(var(--u) * 16); margin-bottom:calc(var(--u) * 18); }
@@ -294,6 +298,8 @@
 .fs-lobby-card { display:flex; flex-direction:column; align-items:center; gap:calc(var(--u) * 10); padding:calc(var(--u) * 18) calc(var(--u) * 10) calc(var(--u) * 16);
   animation:fs-card 0.5s cubic-bezier(0.2, 0.9, 0.25, 1.2) both; }
 .fs-lobby-card .fs-name { font-family:var(--show); font-weight:900; font-size:calc(var(--u) * 34); max-width:100%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.fs-lobby-card.is-away > * { opacity:0.45; }
+.fs-lobby-card.is-away .fs-lamp { visibility:hidden; }
 .fs-lobby-card.is-ready { box-shadow:inset 0 0 0 calc(var(--u) * 2) rgba(95, 220, 240, 0.55), 0 calc(var(--u) * 14) calc(var(--u) * 40) rgba(2, 3, 12, 0.5); }
 .fs-lamp.is-unlit { background:transparent; color:var(--lilac); box-shadow:inset 0 0 0 calc(var(--u) * 2) rgba(178, 171, 194, 0.35); }
 .fs-host { position:absolute; right:calc(var(--u) * 70); bottom:calc(var(--u) * 60); display:flex; align-items:center; gap:calc(var(--u) * 34);

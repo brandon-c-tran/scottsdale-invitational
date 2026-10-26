@@ -63,6 +63,8 @@ const memoryCtx = () => {
 /* the moments a shot can open on: when the observer has seen it, and how long after */
 const SHOTS = {
   lobby:{ lobby:true },
+  /* a Field Day Cup reserved by the Tournament, waiting for its start */
+  fdlobby:{ lobby:true, fieldday:true },
   intro:{ when:o => o.phase === "intro", after:2400 },
   dive:{ when:o => o.phase === "intro", after:5600 },
   grid:{ when:o => o.phase === "grid" && o.round === 0, after:2200 },
@@ -181,6 +183,11 @@ export function connectFloat({ room = "mock", role = "screen", hello = {}, optio
   const ready = Promise.resolve(engine.ready).then(() => {
     engine.attach(watcher, url());
     say(watcher, { t:"hello", role:"screen", device:"mock-watcher" });
+    /* a Field Day Cup: the Tournament reserves it with its players, and it starts on its own */
+    if (plan?.fieldday) return engine.fetch(new Request(`https://float.mock/internal/cup?room=${code}`, { method:"POST",
+      body:JSON.stringify({ evId:"float", cupId:"mock-cup", mode:"fieldday", drinking:true, startAt:clock.t + 47000, bots:0,
+        entrants:Array.from({ length:phones }, (_, k) => ({ ...mockRider(k), pid:`p${k + 1}` })) }) }))
+      .then(() => step(clock.t + 500));
     /* the lobby fills */
     for (let k = 0; k < phones; k++) join(k);
     step(clock.t + 1500);

@@ -5,13 +5,12 @@
    ?room= it is that room (a Field Day room is run by Field Day: no controls). */
 import React, { useMemo } from "react";
 import FloatScreen from "./FloatScreen.jsx";
-import { ROOM_ID } from "../../shared/protocol.js";
+import { CODE_LETTERS, CODE_LENGTH, ROOM_ID } from "../../shared/protocol.js";
 
-const CONSONANTS = "bcdfghjklmnpqrstvwxz";
-
+/* the join's own letters (float/shared/protocol.js), so a phone can always type it */
 export function makeRoomCode(random = Math.random) {
   let code = "";
-  for (let k = 0; k < 4; k++) code += CONSONANTS[Math.floor(random() * CONSONANTS.length) % CONSONANTS.length];
+  for (let k = 0; k < CODE_LENGTH; k++) code += CODE_LETTERS[Math.floor(random() * CODE_LETTERS.length) % CODE_LETTERS.length];
   return code;
 }
 

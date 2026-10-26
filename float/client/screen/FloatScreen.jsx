@@ -196,7 +196,8 @@ export default function FloatScreen({ room = "test", hosting = false, joinUrl = 
   return <div className="fs-root" ref={rootRef} data-phase={phase} data-view={view} data-muted={muted ? "1" : undefined}>
     {view === "3d" ? <canvas key="gl" className="fs-canvas" ref={canvasRef} /> : <canvas key="flat" className="fs-canvas" ref={flatRef} />}
     {!muted && <div className="fs-hud">
-      {phase === "lobby" && <Lobby room={roomMsg} entrants={entrants} hosting={hosting && roomMsg?.mode !== "fieldday"} joinUrl={joinUrl} send={send} />}
+      {phase === "lobby" && <Lobby room={roomMsg} entrants={entrants} hosting={hosting && roomMsg?.mode !== "fieldday"} joinUrl={joinUrl} send={send}
+        serverNow={store.serverNow} />}
       {phase === "intro" && <IntroMap geo={geo} bus={bus} />}
       {(phase === "grid" || phase === "countdown" || phase === "race") && <NameTags bus={bus} entrants={entrants} phase={phase} big={phase !== "race"} />}
       {phase === "grid" && <TitleCard room={roomMsg} geo={geo} />}

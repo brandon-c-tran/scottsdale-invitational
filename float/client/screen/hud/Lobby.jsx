@@ -2,9 +2,9 @@
    joined (ready lit), and, when this screen hosts, Start, the bots that
    fill the field, and the drinking switch. Mouse and keyboard both work:
    every control is a real button in the tab order. */
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import qrcode from "qrcode-generator";
-import { Chip } from "./bits.jsx";
+import { Chip, Num } from "./bits.jsx";
 
 function qrPath(text) {
   try {
@@ -20,7 +20,22 @@ function qrPath(text) {
 
 const MAX_RIDERS = 16;
 
-export default function Lobby({ room, entrants, hosting, joinUrl, send }) {
+/* a Field Day Cup waiting in the lobby: when it goes (room.startPlanned, on the server clock) */
+function StartsIn({ at, serverNow }) {
+  const [, tick] = useState(0);
+  useEffect(() => {
+    const timer = setInterval(() => tick(n => n + 1), 250);
+    return () => clearInterval(timer);
+  }, []);
+  const left = Math.max(0, Math.ceil((at - (serverNow?.() ?? Date.now())) / 1000));
+  const text = `${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}`;
+  return <div className="fs-lobby-starts fs-glass">
+    <span className="fs-label">Starts in</span>
+    <span className="fs-lobby-clock fs-show"><Num n={text} /></span>
+  </div>;
+}
+
+export default function Lobby({ room, entrants, hosting, joinUrl, send, serverNow }) {
   const qr = useMemo(() => (joinUrl ? qrPath(joinUrl) : null), [joinUrl]);
   const humans = entrants.filter(e => e && !e.bot).length;
   const already = entrants.filter(e => e && e.bot).length;
@@ -36,6 +51,7 @@ export default function Lobby({ room, entrants, hosting, joinUrl, send }) {
   const start = () => send?.({ t:"host", cmd:"start", bots, drinking });
   return <div className="fs-lobby">
     <div className="fs-lobby-brand fs-show">Float</div>
+    {Number.isFinite(room?.startPlanned) && <StartsIn at={room.startPlanned} serverNow={serverNow} />}
     {code && room?.mode !== "fieldday" && <div className="fs-lobby-join fs-glass">
       <span className="fs-label">Room</span>
       <span className="fs-lobby-code fs-show">{code}</span>
@@ -51,7 +67,9 @@ export default function Lobby({ room, entrants, hosting, joinUrl, send }) {
         <span className="fs-num">{humans}</span>
       </div>
       <div className="fs-lobby-grid">
-        {entrants.map((e, i) => e && <div key={e.device || i} className={`fs-lobby-card fs-glass${e.ready ? " is-ready" : ""}`}>
+        {/* a reserved rider whose phone is not here yet stays unlit */}
+        {entrants.map((e, i) => e && <div key={e.device || e.pid || i}
+          className={`fs-lobby-card fs-glass${e.ready ? " is-ready" : ""}${!e.bot && e.connected === false ? " is-away" : ""}`}>
           <Chip entrant={e} size={84} />
           <span className="fs-name">{e.name}</span>
           <span className={`fs-lamp ${e.ready ? "is-cyan" : "is-unlit"}`}>{e.ready ? "Ready" : e.bot ? "Bot" : "Joined"}</span>

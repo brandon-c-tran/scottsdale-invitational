@@ -219,7 +219,7 @@ const birdFoot = color => (c, d, S) => {
 /* ── roadrunner: the crest, the long tail, the long beak, speckles ── */
 function roadrunner() {
   const s = new Sculpt("roadrunner");
-  const C = { body: "#a97d50", top: "#8a6440", speck: "#4f3826", belly: "#f3e7cc", crest: "#3a2f2a", crestTip: "#5f82c8", beak: "#6d6a74", jaw: "#56535c", blue: "#4a9cf0", orange: "#ff8a3c", leg: "#9a9ea8", blush: "#f2a28f", tail: "#4d3a2c", tip: "#fbf6ea" };
+  const C = { body: "#9c7650", top: "#6f5034", speck: "#4f3826", streak: "#f1e4c6", belly: "#f3e7cc", crest: "#2c2420", crestTip: "#4f78c8", beak: "#3d3a43", jaw: "#34313a", blue: "#4a9cf0", orange: "#ff8a3c", leg: "#9a9ea8", blush: "#f2a28f", tail: "#45342a", tip: "#fbf6ea" };
   const G = grower(1.08, [0, 0.36, -0.03]);
   const H = G.p([0, 0.59, -0.02]);
   const tailPts = [[0, 0.13, 0.15], [0, 0.27, 0.3], [0, 0.48, 0.4], [0, 0.66, 0.43]];
@@ -232,20 +232,24 @@ function roadrunner() {
     const x = S === "L" ? -1 : 1;
     s.part(`cheek${S}`, ellipsoid(G.p([x * 0.15, 0.53, -0.07]), G.r([0.075, 0.068, 0.08])), { k: 0.02, bone: `cheek${S}`, color: body, group: "core" });
   }
-  /* the upper beak, long and a little hooked, melted onto the face */
-  const bst = seat(s, H, [0, -0.08, -1]);
+  /* the upper beak: long, dark, curving down to its point (so a camera in
+     front still sees its length), melted onto the face */
+  const bst = seat(s, H, [0, -0.1, -1]);
   const b0 = outFrom(bst, -0.03);
-  s.part("beak", union([roundCone(b0, add(b0, norm([0, -0.06, -1]), 0.17), 0.05, 0.026), roundCone(add(b0, norm([0, -0.06, -1]), 0.17), add(b0, norm([0, -0.2, -1]), 0.25), 0.026, 0.008)], 0.01),
-    { k: 0.012, bone: "head", color: C.beak, fur: 0, fuzz: 0.15, rough: 0.5, group: "beak" });
-  /* the crest: dark feathers swept back off the crown, blue at the tips */
+  const bMid = add(b0, norm([0, -0.2, -1]), 0.17);
+  s.part("beak", union([roundCone(b0, bMid, 0.056, 0.03), roundCone(bMid, add(bMid, norm([0, -0.5, -1]), 0.1), 0.03, 0.008)], 0.012),
+    { k: 0.012, bone: "head", color: C.beak, fur: 0, fuzz: 0.15, rough: 0.45, group: "beak" });
+  /* the crest: five slim dark feathers fanned back off the crown, blue at
+     the tips, each its own (a hard join between them, a soft one at the head) */
   const crestBase = seat(s, H, [0, 1, 0.15]);
-  const tipShare = (p, x, y, z) => smooth(0.55, 0.85, Math.hypot(x - p[0], y - p[1], z - p[2]) / 0.2);
-  [[-0.07, 0.15, 1.15], [0.07, 0.15, 1.15], [-0.035, 0.2, 1.25], [0.035, 0.2, 1.25], [0, 0.21, 1.05]].forEach(([x, l, lean], i) => {
-    const a = add(outFrom(crestBase, -0.02), [x, 0, -0.03 + i * 0.012]);
-    const tip = add(a, norm([x * 2.2, 1, lean]), l);
-    const mid = add(add(a, norm([x * 2.2, 1, lean]), l * 0.5), [0, 0.02, -0.015]);
+  const tipShare = (p, x, y, z) => smooth(0.5, 0.85, Math.hypot(x - p[0], y - p[1], z - p[2]) / 0.22);
+  [[0, 0.24, 1.15], [-0.05, 0.2, 1.3], [0.05, 0.2, 1.3], [-0.085, 0.16, 1.5], [0.085, 0.16, 1.5]].forEach(([x, l, lean], i) => {
+    const a = add(outFrom(crestBase, -0.018), [x * 0.6, 0, -0.02 + i * 0.008]);
+    const dir = norm([x * 4.2, 1, lean]);
+    const mid = add(add(a, dir, l * 0.5), [0, 0.018, -0.012]);
+    const tip = add(a, dir, l);
     const col = (xx, yy, zz) => lerp3(rgb(C.crest), rgb(C.crestTip), tipShare(a, xx, yy, zz));
-    s.part(`crest${i}`, union([roundCone(a, mid, 0.026, 0.02), roundCone(mid, tip, 0.02, 0.008)], 0.006), { k: 0.01, bone: "crest", color: col, fur: 0.8, group: "crest" });
+    s.part(`crest${i}`, union([roundCone(a, mid, 0.019, 0.016), roundCone(mid, tip, 0.016, 0.005)], 0.005), { k: i ? 0.003 : 0.008, bone: "crest", color: col, fur: 0.6, group: "crest" });
   });
   arms(s, rig, { color: body, pawColor: C.top, r0: 0.056, r1: 0.05,
     pawShape: (c, dir, S) => { const fr = frameAlong(dir, [0, 0, -1]); return ellipsoidB(add(c, dir, 0.03), [0.03, 0.075, 0.05], fr); } });
@@ -255,13 +259,17 @@ function roadrunner() {
   s.part("tail", chain(tailPts, [0.038, 0.052, 0.05, 0.034], 0.012), { k: 0.014, bone: alongPath(tailPts, [["tail", 0], ["tail2", 0.4], ["tail3", 0.8]], 0.3),
     color: (x, y, z) => { const t = tailAlong(x, y, z).t; return t > 0.86 ? rgb(C.tip) : t > 0.8 ? rgb(C.speck) : rgb(C.tail); }, movable: true, group: "tail", fur: 1.2 });
   trunks(s);
-  /* speckles on the back, the head and the wings */
-  const speck = rgb(C.speck);
+  /* streaks down the back, the head and the wings: pale dashes, longer
+     than they are wide, each with a dark edge above */
+  const streak = rgb(C.streak), speck = rgb(C.speck);
   s.paint((p, n, own, m, group) => {
     if (group("core") + group("arm") < 0.4 || n[2] < -0.55 && p[1] < 0.5) return;
-    const [d] = cells3(p[0] * 26, p[1] * 26, p[2] * 26, 11);
-    const t = (1 - smooth(0.16, 0.24, d)) * smooth(-0.2, 0.3, p[2] + n[1] * 0.3);
-    if (t > 0) m.color = lerp3(m.color, speck, t * 0.85);
+    const back = smooth(-0.25, 0.25, p[2] + n[1] * 0.3);
+    if (back <= 0) return;
+    const [d] = cells3(p[0] * 17, p[1] * 7, p[2] * 17, 11);
+    const [e] = cells3(p[0] * 17, (p[1] - 0.03) * 7, p[2] * 17, 11);
+    m.color = lerp3(m.color, speck, (1 - smooth(0.16, 0.24, e)) * back * 0.6);
+    m.color = lerp3(m.color, streak, (1 - smooth(0.15, 0.22, d)) * back * 0.92);
   });
   /* the bare skin behind the eye: blue, then orange */
   for (const x of [-1, 1]) {
@@ -275,14 +283,14 @@ function roadrunner() {
     face(f) {
       f.eyes({ center: H, yaw: 0.56, pitch: 0.16, w: G.s(0.034), h: G.s(0.04), depth: G.s(0.019) });
       /* the lower beak on the jaw */
-      f.spike([outFrom(bst, -0.035).map((v, i) => v + [0, -0.03, 0][i]), add(outFrom(bst, -0.035), [0, -0.05, -0.12]), add(outFrom(bst, -0.035), [0, -0.058, -0.2])],
-        { r0: 0.032, r1: 0.007, color: C.jaw, bone: "jaw" });
+      f.spike([outFrom(bst, -0.035).map((v, i) => v + [0, -0.034, 0][i]), add(outFrom(bst, -0.035), [0, -0.078, -0.12]), add(outFrom(bst, -0.035), [0, -0.105, -0.19])],
+        { r0: 0.034, r1: 0.008, color: C.jaw, bone: "jaw" });
       f.anchors.mouth = { p: add(outFrom(bst, 0), [0, -0.04, -0.06]).map(v => +v.toFixed(5)) };
     },
     hat: { from: H, skip: ["crest0", "crest1", "crest2", "crest3", "crest4"], tilt: -0.05 },
     chain: { front: 0.34, back: 0.43 },
     fur: { length: 0.0085 },
-    info: {},
+    info: { crestOverHat: true },
     keepJaw: true,
   };
 }
@@ -349,7 +357,7 @@ function jackrabbit() {
 /* ── tortoise: the domed shell ── */
 function tortoise() {
   const s = new Sculpt("tortoise");
-  const C = { skin: "#a8a65f", spot: "#87853f", belly: "#ead791", plate: "#d79b50", plateLo: "#c08038", seam: "#6c4724", rim: "#e6b46a", blush: "#eba07e", beak: "#73703a" };
+  const C = { skin: "#9db45e", spot: "#7d9443", belly: "#eedd9a", plastron: "#f3e4a2", plastronSeam: "#c7aa62", plate: "#d79b50", plateLo: "#c08038", seam: "#6c4724", rim: "#e6b46a", blush: "#eba07e", beak: "#73703a" };
   const G = grower(1.06, [0, 0.36, -0.06]);
   const H = G.p([0, 0.585, -0.08]);
   const rig = skeleton({ head: [0, 0.42, -0.05], eyes: G.p([0, 0.64, -0.24]), mouth: G.p([0, 0.52, -0.3]), cheeks: G.p([0.14, 0.53, -0.14]) });
@@ -361,7 +369,7 @@ function tortoise() {
   }
   /* the shell: a dome over the back and sides, its front cut back to free
      the arms, a rounded rim, hexagonal plates */
-  const dome = trim(ellipsoid([0, 0.235, 0.05], [0.275, 0.26, 0.255]), [[0, 0, -1, 0.02], [0, -1, 0, -0.02]], 0.05);
+  const dome = trim(ellipsoid([0, 0.245, 0.06], [0.305, 0.285, 0.27]), [[0, 0, -1, 0.02], [0, -1, 0, -0.02]], 0.05);
   const cellsAt = (x, y, z) => cells3(x * 7, y * 7, (z - 0.05) * 7, 3);
   s.part("shell", dome, { k: 0.008, bone: "chest", fur: 0, fuzz: 0.25, rough: 0.6, group: "shell",
     color: (x, y, z) => {
@@ -370,7 +378,7 @@ function tortoise() {
       const c = lerp3(rgb(C.rim), rgb(C.plateLo), smooth(0.1, 0.55, a));
       return lerp3(c, rgb(C.seam), seam);
     } });
-  s.part("rim", trim(ellipsoid([0, 0.13, 0.05], [0.29, 0.07, 0.27]), [[0, 0, -1, 0.0]], 0.03), { k: 0.012, bone: "chest", color: C.rim, fur: 0, fuzz: 0.25, rough: 0.6, group: "shell" });
+  s.part("rim", trim(ellipsoid([0, 0.13, 0.06], [0.32, 0.072, 0.285]), [[0, 0, -1, 0.0]], 0.03), { k: 0.012, bone: "chest", color: C.rim, fur: 0, fuzz: 0.25, rough: 0.6, group: "shell" });
   arms(s, rig, { color: C.skin, pawColor: C.skin, r0: 0.062, r1: 0.054 });
   legs(s, rig, { color: C.skin, footColor: C.skin, r: 0.064, foot: [0.068, 0.058, 0.074] });
   s.part("tail", roundCone([0, 0.07, 0.2], [0, 0.05, 0.28], 0.032, 0.012), { k: 0.01, bone: "tail", color: C.skin, movable: true, group: "tail" });
@@ -385,6 +393,16 @@ function tortoise() {
   });
   patchOn(s, H, [0, -0.7, -0.7], G.r([0.12, 0.08, 0.1]), C.belly, { edge: 0.6 });
   for (const x of [-1, 1]) patchOn(s, H, [x * 0.72, -0.12, -0.68], G.r([0.05, 0.035, 0.05]), C.blush, { edge: 0.85, strength: 0.7 });
+  /* the plastron: a pale plate down the front, cut into scutes */
+  const plastron = rgb(C.plastron), pseam = rgb(C.plastronSeam);
+  s.paint((p, n, own, m, group) => {
+    if (group("core") < 0.5 || m.tint > 0.5) return;
+    const front = smooth(-0.45, -0.75, n[2]) * smooth(0.07, 0.11, p[1]) * (1 - smooth(0.36, 0.41, p[1])) * (1 - smooth(0.12, 0.16, Math.abs(p[0])));
+    if (front <= 0) return;
+    const line = Math.max(1 - smooth(0.004, 0.009, Math.abs(p[0])), 1 - smooth(0.004, 0.009, Math.abs(p[1] - 0.2)), 1 - smooth(0.004, 0.009, Math.abs(p[1] - 0.29)));
+    m.color = lerp3(lerp3(m.color, plastron, front), pseam, front * line * 0.85);
+    m.fur *= 1 - 0.6 * front;
+  });
   /* tortoises are smooth: short velvet */
   s.paint((p, n, own, m) => { m.fur *= 0.45; });
   return {
@@ -434,9 +452,10 @@ function gila() {
       t = smooth(0.35, 0.65, 0.5 + 0.5 * Math.sin(u * 42)) * tail;
     } else {
       const wob = 0.9 * (noise3(p[0] * 7, p[1] * 7, p[2] * 7, 4) - 0.5);
-      const band = 0.5 + 0.5 * Math.sin(p[1] * 26 + 0.6 + wob);
-      const back = smooth(-0.15, 0.2, p[2] + 0.25 * n[1]);
-      t = smooth(0.38, 0.5, band) * back;
+      const band = 0.5 + 0.5 * Math.sin(p[1] * 30 + 1.4 + wob);
+      /* the bands wrap the body; only a narrow strip down the belly stays coral */
+      const wrap = 1 - smooth(0.1, 0.05, Math.abs(p[0])) * smooth(-0.6, -0.85, n[2]);
+      t = smooth(0.42, 0.54, band) * wrap * smooth(0.04, 0.09, p[1]);
       if (p[1] > 0.5) {
         const [d] = cells3(p[0] * 15, p[1] * 15, p[2] * 15, 8);
         const cap = smooth(0.52, 0.62, p[1] + 0.06 * n[1]) * smooth(-0.25, 0.05, p[2] + 0.25);
@@ -526,7 +545,7 @@ function hornedlizard() {
 /* ── bighorn: the curled horns ── */
 function bighorn() {
   const s = new Sculpt("bighorn");
-  const C = { fur: "#a97e55", top: "#8f6846", muzzle: "#f5eee3", horn: "#dcb47a", ridge: "#b98f58", nose: "#3a2a23", inner: "#e9b9a3", hoof: "#2f2723", blush: "#f0a08a" };
+  const C = { fur: "#93725a", top: "#775b48", muzzle: "#f5eee3", horn: "#ead9b1", ridge: "#a8865b", nose: "#3a2a23", inner: "#e9b9a3", hoof: "#2f2723", blush: "#f0a08a" };
   const G = grower(1.08, [0, 0.36, -0.03]);
   const H = G.p([0, 0.59, -0.025]);
   const rig = skeleton({ eyes: G.p([0, 0.64, -0.19]), mouth: G.p([0, 0.5, -0.3]), ears: G.p([0.2, 0.64, 0.04]), ear2: G.p([0.27, 0.62, 0.05]), cheeks: G.p([0.15, 0.53, -0.08]), tail: [0, 0.16, 0.19] });
@@ -547,7 +566,7 @@ function bighorn() {
     const pts = curl(base, { out: [x, 0, 0], turns: 0.9, grow: G.s(0.158) });
     const radii = pts.map((_, i) => G.s(0.076 + (0.026 - 0.076) * (i / (pts.length - 1)) ** 0.9));
     const along = alongShare(pts);
-    s.part(`horn${x}`, chain(pts, radii, 0.006), { k: 0.008, bone: "head", fur: 0, fuzz: 0.12, rough: 0.62, group: "horn",
+    s.part(`horn${x}`, chain(pts, radii, 0.006), { k: 0.008, bone: "head", fur: 0, fuzz: 0.05, rough: 0.42, group: "horn",
       color: (xx, yy, zz) => { const a = along(xx, yy, zz).at; return lerp3(rgb(C.horn), rgb(C.ridge), smooth(0.3, 0.7, 0.5 + 0.5 * Math.sin(a * 95))); } });
     curls.push(`horn${x}`);
   }
@@ -582,7 +601,7 @@ function bighorn() {
 /* ── quail: the teardrop topknot plume ── */
 function quail() {
   const s = new Sculpt("quail");
-  const C = { body: "#8892ab", wing: "#727d96", belly: "#f1e4c4", scale: "#c9b48c", face: "#262226", white: "#fbf7ee", crown: "#b9673c", plume: "#211d23", beak: "#2f2c33", flank: "#a05d38", leg: "#a2917f", blush: "#f4a49a" };
+  const C = { body: "#8892ab", wing: "#727d96", belly: "#f1e4c4", scale: "#c9b48c", face: "#262226", white: "#fbf7ee", crown: "#b9673c", plume: "#211d23", beak: "#57545f", flank: "#a05d38", leg: "#a2917f", blush: "#f4a49a" };
   const G = grower(1.08, [0, 0.36, -0.02]);
   const H = G.p([0, 0.6, -0.02]);
   const rig = skeleton({ eyes: G.p([0, 0.65, -0.17]), mouth: G.p([0, 0.56, -0.26]), jaw: G.p([0, 0.555, -0.2]), crest: G.p([0, 0.8, -0.06]), cheeks: G.p([0.14, 0.54, -0.07]),
@@ -596,7 +615,7 @@ function quail() {
   /* the little dark beak */
   const bst = seat(s, H, [0, -0.15, -1]);
   const b0 = outFrom(bst, -0.02);
-  s.part("beak", roundCone(b0, add(b0, norm([0, -0.35, -1]), 0.075), 0.034, 0.012), { k: 0.01, bone: "head", color: C.beak, fur: 0, fuzz: 0.15, rough: 0.5, group: "beak" });
+  s.part("beak", roundCone(b0, add(b0, norm([0, -0.5, -1]), 0.088), 0.04, 0.012), { k: 0.01, bone: "head", color: C.beak, fur: 0, fuzz: 0.15, rough: 0.42, group: "beak" });
   /* the plume: a stalk curling forward off the crown, a teardrop at its end */
   const pst = seat(s, H, [0, 1, 0.12]);
   const p0 = outFrom(pst, -0.02);
@@ -637,13 +656,13 @@ function quail() {
     sculpt: s, rig, head: H,
     face(f) {
       f.eyes({ center: H, yaw: 0.55, pitch: 0.2, w: G.s(0.034), h: G.s(0.039), depth: G.s(0.019) });
-      f.spike([add(b0, [0, -0.025, 0.01]), add(b0, [0, -0.034, -0.03]), add(b0, [0, -0.04, -0.055])], { r0: 0.02, r1: 0.006, color: C.beak, bone: "jaw" });
+      f.spike([add(b0, [0, -0.03, 0.01]), add(b0, [0, -0.044, -0.03]), add(b0, [0, -0.055, -0.055])], { r0: 0.022, r1: 0.006, color: C.beak, bone: "jaw" });
       f.anchors.mouth = { p: add(b0, [0, -0.03, -0.04]).map(v => +v.toFixed(5)) };
     },
     hat: { from: H, skip: ["plume"], tilt: -0.04 },
     chain: { front: 0.345, back: 0.43 },
     fur: { length: 0.0085 },
-    info: {},
+    info: { crestOverHat: true },
     keepJaw: true,
   };
 }
@@ -651,7 +670,7 @@ function quail() {
 /* ── armadillo: the soft banded armour ── */
 function armadillo() {
   const s = new Sculpt("armadillo");
-  const C = { skin: "#c9a28d", band: "#b09a88", bandLo: "#9b8574", seam: "#6e5a4f", inner: "#f2b6a9", nose: "#5d403a", belly: "#f2d0bd", blush: "#f39a8a" };
+  const C = { skin: "#d4a995", band: "#a39181", bandLo: "#8c7a69", seam: "#5c4a40", inner: "#f2b6a9", nose: "#5d403a", belly: "#f2d0bd", blush: "#f39a8a" };
   const G = grower(1.06, [0, 0.36, -0.03]);
   const H = G.p([0, 0.585, -0.03]);
   const rig = skeleton({ eyes: G.p([0, 0.63, -0.19]), mouth: G.p([0, 0.5, -0.3]), ears: G.p([0.13, 0.76, 0.05]), ear2: G.p([0.16, 0.85, 0.06]), cheeks: G.p([0.14, 0.53, -0.08]), tail: [0, 0.07, 0.18], tail2: [0.0, 0.05, 0.3], tail3: [0.05, 0.05, 0.42] });
@@ -669,9 +688,10 @@ function armadillo() {
   /* the long tapered snout, a nose at its tip */
   s.part("snout", roundCone(G.p([0, 0.565, -0.12]), G.p([0, 0.525, -0.37]), G.s(0.092), G.s(0.042)), { k: 0.024, bone: "head", color: C.skin, group: "snout" });
   /* the head shield */
-  s.part("shield", ellipsoid(G.p([0, 0.735, -0.05]), G.r([0.12, 0.055, 0.15]), [0.25, 0, 0]), { k: 0.012, bone: "head", color: C.band, fur: 0, fuzz: 0.35, rough: 0.7, group: "armour" });
+  s.part("shield", ellipsoid(G.p([0, 0.74, -0.045]), G.r([0.15, 0.062, 0.17]), [0.22, 0, 0]), { k: 0.01, bone: "head", fur: 0, fuzz: 0.35, rough: 0.66, group: "armour",
+    color: (x, y, z) => lerp3(rgb(C.band), rgb(C.seam), smooth(0.6, 0.95, Math.cos((z + 0.05) * 58))) });
   /* the shell: a dome over the back in soft transverse bands */
-  const dome = trim(ellipsoid([0, 0.24, 0.055], [0.255, 0.25, 0.235]), [[0, 0, -1, 0.0], [0, -1, 0, -0.06]], 0.05);
+  const dome = trim(ellipsoid([0, 0.245, 0.06], [0.29, 0.27, 0.255]), [[0, 0, -1, 0.0], [0, -1, 0, -0.06]], 0.05);
   const bandsAt = (x, y, z) => Math.atan2(y - 0.1, z - 0.05);
   const banded = { lo: dome.lo, hi: dome.hi, f: (x, y, z) => dome.f(x, y, z) + 0.006 * (1 - Math.cos(bandsAt(x, y, z) * 22)) };
   s.part("shell", banded, { k: 0.008, bone: "chest", fur: 0.05, fuzz: 0.45, rough: 0.7, group: "armour",
@@ -684,6 +704,18 @@ function armadillo() {
     color: (x, y, z) => lerp3(rgb(C.band), rgb(C.seam), smooth(0.5, 0.9, Math.cos(tailAlong(x, y, z).at * 75))) });
   trunks(s, { waist: 0.12 });
   for (const x of [-1, 1]) patchOn(s, H, [x * 0.55, 0.82, 0.25], G.r([0.028, 0.06, 0.03]), C.inner, { edge: 0.5, fur: 0.2, only: (p, n, own, g) => g("ear") * smooth(0.1, 0.5, -n[2]) });
+  /* the shoulders' armour: banded plates over the tops of the arms */
+  const armBand = rgb(C.band), armSeam = rgb(C.seam);
+  s.paint((p, n, own, m, group) => {
+    const arm = group("arm");
+    if (arm < 0.3) return;
+    const top = smooth(0.19, 0.25, p[1]) * arm;
+    if (top <= 0) return;
+    const seam = smooth(0.55, 0.92, Math.cos(Math.hypot(p[0], p[2]) * 75));
+    m.color = lerp3(m.color, lerp3(armBand, armSeam, seam), top);
+    m.fur *= 1 - 0.85 * top;
+    m.fuzz = m.fuzz * (1 - 0.4 * top);
+  });
   for (const x of [-1, 1]) patchOn(s, H, [x * 0.72, -0.1, -0.7], G.r([0.05, 0.035, 0.05]), C.blush, { edge: 0.85, strength: 0.7 });
   /* soft skin: short velvet */
   s.paint((p, n, own, m) => { m.fur *= 0.45; });

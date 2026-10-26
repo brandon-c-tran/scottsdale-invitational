@@ -234,6 +234,26 @@ test("a baked critter's hat sits on its crown and its shades before its eyes", (
   }
 });
 
+test("a plume or crest under a hat comes out through its top; an open hat lets it be; a party hat folds it away", () => {
+  for (const id of ["quail", "roadrunner"]) {
+    const bare = buildCritter({ critter: id });
+    const y0 = bare.runtime.b.crest.position.y;
+    const cowboy = buildCritter({ critter: id, hat: "cowboy" });
+    assert.ok(cowboy.runtime.b.crest.position.y > y0 + 0.05, `${id}: the crest rides up through the hat`);
+    cowboy.root.updateMatrixWorld(true);
+    const hatTop = new THREE.Box3().setFromObject(cowboy.root.getObjectByName("hat:cowboy")).max.y;
+    assert.ok(topOf(cowboy.root) > hatTop + 0.1, `${id}: the box reaches over the hat to the plume's top (a name tag clears it)`);
+    const visor = buildCritter({ critter: id, hat: "visor" });
+    assert.equal(visor.runtime.b.crest.position.y, y0, `${id}: an open hat leaves it`);
+    const party = buildCritter({ critter: id, hat: "party" });
+    assert.ok(party.runtime.b.crest.scale.x < 0.01, `${id}: a party hat folds it away`);
+    for (const c of [bare, cowboy, visor, party]) { for (let i = 0; i < 20; i++) c.update(1 / 60); assert.ok(finite(c.root)); c.dispose(); }
+  }
+  const frog = buildCritter({ critter: "frog", hat: "cowboy" });
+  assert.equal(frog.runtime.crestLift, undefined, "only a plume or a crest rides up");
+  frog.dispose();
+});
+
 test("the crown is the groom's: anyone else's crown is no hat", () => {
   const plain = buildCritter({ critter: "frog", hat: "crown" });
   const groom = buildCritter({ critter: "frog", hat: "crown", groom: true });

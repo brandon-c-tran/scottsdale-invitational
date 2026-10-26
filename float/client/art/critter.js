@@ -825,5 +825,6 @@ export class CritterRuntime {
     this.root.parent?.remove(this.root);
     this.skeleton.dispose();
     if (this.placeholder) { this.placeholder.geometry.dispose(); this.placeholder = null; }
+    if (this.crestMarker) { this.crestMarker.geometry.dispose(); this.crestMarker = null; }
   }
 }

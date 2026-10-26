@@ -63,6 +63,32 @@ const templateOf = (critter, detail) => {
   return geometry(`species2:${id}:${detail}`, () => bakedTemplate(id, detail));
 };
 const detailOf = d => (d === "hero" ? "hero" : "race");
+/* a plume or a crest worn under a hat comes out through its top. A hat
+   open on top (the visor, the flowers, the crown) lets it be; a party
+   hat's point is no place for one, so it folds away under it. An invisible
+   marker on the crest keeps a bounding box (a name tag's height, a
+   portrait's frame) over the plume's top. */
+const OPEN_HATS = new Set(["visor", "flowers", "crown"]);
+function crestOverHat(rt, hatObj, id) {
+  const crest = rt.b.crest;
+  if (!crest || OPEN_HATS.has(id)) return;
+  if (id === "party") { crest.scale.setScalar(0.001); return; }
+  rt.root.updateMatrixWorld(true);
+  const top = new THREE.Box3().setFromObject(hatObj).max.y;
+  const at = new THREE.Vector3().setFromMatrixPosition(crest.matrixWorld).y;
+  const lift = top - at - 0.035;
+  if (!(lift > 0)) return;
+  crest.position.y += lift;
+  rt.crestLift = lift;
+  const g = new THREE.BufferGeometry();
+  g.setAttribute("position", new THREE.Float32BufferAttribute([-0.05, 0, -0.05, 0.05, 0.2, 0.05], 3));
+  g.setDrawRange(0, 0);
+  const marker = new THREE.Mesh(g);
+  marker.visible = false;
+  marker.name = "crest-top";
+  crest.add(marker);
+  rt.crestMarker = marker;
+}
 const warned = new Set();
 const warnOnce = (key, error) => { if (warned.has(key)) return; warned.add(key); console.warn("Float critter", key, error?.message || error); };
 
@@ -184,7 +210,7 @@ export function buildCritter({ critter = "capybara", color = "#9aa39e", hat = "n
   const headAt = template.bones.find(b => b.name === "head").at;
   const crowned = groom || !!entrant?.groom;
   const hatObj = buildHat(hat === "crown" && !crowned ? "none" : hat, { template, color: hex, detail: det, headAt, takeTint });
-  if (hatObj) rt.b.head.add(hatObj);
+  if (hatObj) { rt.b.head.add(hatObj); if (template.info.crestOverHat) crestOverHat(rt, hatObj, hat); }
   const shadesObj = buildShades(shades, { template, color: hex, detail: det, headAt, takeTint });
   if (shadesObj) rt.b.head.add(shadesObj);
   let caught = null, userCatch = null;

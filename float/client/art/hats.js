@@ -193,18 +193,19 @@ const SHADES = {
 export const SHADE_IDS_BUILT = Object.keys(SHADES);
 
 function shadeParts(id, template, detail) {
-  return geometry(`shades:${id}:${template.id}:${detail}`, () => {
+  return geometry(`shades:${id}:${template.version || 1}:${template.id}:${detail}`, () => {
     const hero = detail === "hero";
     const eyes = template.info.eyes;
     const headAt = template.bones.find(b => b.name === "head").at;
     const sock = template.sockets.shades || {};
-    const head = template.shapes.head;
+    const baked = template.version === 2;
+    const head = baked ? null : template.shapes.head;
     const sorted = [...eyes].sort((a, b) => a.c.x - b.c.x);
     const eyeY = (eyes[0].c.y + eyes[1].c.y) / 2;
     /* lenses across the front of the face at the eyes' height (side-set eyes
        too: shades are worn in front), or on the eyes themselves (turrets) */
-    const span = THREE.MathUtils.clamp(Math.abs(sorted[1].c.x - sorted[0].c.x), 0.15, 0.235) * (sock.w || 1);
-    const lensW = THREE.MathUtils.clamp(span * 0.37, 0.05, 0.08);
+    const span = THREE.MathUtils.clamp(Math.abs(sorted[1].c.x - sorted[0].c.x), 0.15, baked ? 0.3 : 0.235) * (sock.w || 1);
+    const lensW = THREE.MathUtils.clamp(span * (baked ? 0.34 : 0.37), 0.05, baked ? 0.088 : 0.08);
     const spec = SHADES[id](lensW, hero);
     const lensParts = [], frameParts = [], tintParts = [];
     const ends = [];
@@ -213,6 +214,11 @@ function shadeParts(id, template, detail) {
       if (sock.onEyes) {
         f = e.n.clone().normalize();
         c = e.c.clone().addScaledVector(f, (template.info.eyeSize?.depth || 0.03) + 0.03);
+      } else if (baked) {
+        /* a baked face: each lens right before its eye, turned to face ahead */
+        f = e.n.clone().add(V(0, 0, -1.6)).normalize();
+        c = e.p.clone().addScaledVector(f, 0.03);
+        c.x = Math.sign(e.c.x) * Math.max(Math.abs(c.x), span / 2);
       } else {
         const x = Math.sign(e.c.x) * span / 2, hc = head.center, r = head.r;
         const ux = (x - hc.x) / r[0], uy = (eyeY - hc.y) / r[1];
@@ -242,11 +248,22 @@ function shadeParts(id, template, detail) {
     for (const E of [L, R]) {
       const s = Math.sign(E.x) || 1;
       const start = E.c.clone().add(V(s * lensW * 0.95, lensW * 0.2, 0.004));
-      const dEnd = new THREE.Vector3(s * 0.97, 0.05, 0.25).normalize();
-      const end = head.at(dEnd).addScaledVector(head.normal(dEnd), 0.01);
+      let end, strapSide, strapBack;
+      if (baked) {
+        /* the bake measured where the arms meet the head and where a strap runs */
+        const A = template.anchors;
+        end = V(...A.temple[s < 0 ? 0 : 1]);
+        strapSide = V(...A.strap[s < 0 ? 0 : 1]);
+        strapBack = V(...A.strap[2]);
+      } else {
+        const dEnd = new THREE.Vector3(s * 0.97, 0.05, 0.25).normalize();
+        end = head.at(dEnd).addScaledVector(head.normal(dEnd), 0.01);
+        const dSide = new THREE.Vector3(s * 0.6, 0.05, 0.8).normalize(), dBack = new THREE.Vector3(0, 0.05, 1);
+        strapSide = head.at(dSide).addScaledVector(head.normal(dSide), 0.012);
+        strapBack = head.at(dBack).addScaledVector(head.normal(dBack), 0.012);
+      }
       const midA = start.clone().lerp(end, 0.5).addScaledVector(V(s, 0, 0), 0.02);
-      if (spec.strap) tintParts.push(tube([start, midA, end, head.at(new THREE.Vector3(s * 0.6, 0.05, 0.8).normalize()).addScaledVector(head.normal(new THREE.Vector3(s * 0.6, 0.05, 0.8).normalize()), 0.012),
-        head.at(new THREE.Vector3(0, 0.05, 1)).addScaledVector(head.normal(new THREE.Vector3(0, 0.05, 1)), 0.012)], { radius: 0.012, radial: 5, segments: hero ? 18 : 10, flat: 0.5, side: [0, 1, 0], capRings: 1 }));
+      if (spec.strap) tintParts.push(tube([start, midA, end, strapSide, strapBack], { radius: 0.012, radial: 5, segments: hero ? 18 : 10, flat: 0.5, side: [0, 1, 0], capRings: 1 }));
       else frameParts.push(paint(tube([start, midA, end], { radius: spec.frameR * 0.9, radial: 5, segments: hero ? 10 : 5, capRings: 1 }), spec.frame));
     }
     const shift = g => { g.translate(-headAt.x, -headAt.y, -headAt.z); return g; };

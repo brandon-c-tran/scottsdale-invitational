@@ -69,16 +69,25 @@ export function disposeFloatArt() {
 
 export const cacheSizes = () => ({ shared: shared.size, counted: counted.size, geometries: geometries.size });
 
-/* "high" (default): clear coats on every toy. "low": no clear coat (a
-   cheaper shader for a slow integrated GPU; the toys keep their color and
-   a softer shine). Applies to everything built, before and after. */
+/* "high" (default): clear coats on the floaties and toys, sheen on the
+   plush, fur on the critters. "low" (a slow integrated GPU): no clear coat,
+   no sheen, no fur shells; the toys keep their color and a softer shine.
+   Applies to everything built, before and after. */
 let quality = "high";
 const COATS = new WeakMap();
+const SHEENS = new WeakMap();
 function applyQuality(material) {
-  if (!material?.isMeshPhysicalMaterial) return;
+  if (!material) return;
+  if (material.userData?.fur) { material.visible = quality !== "low"; return; }
+  if (!material.isMeshPhysicalMaterial) return;
   if (!COATS.has(material)) COATS.set(material, material.clearcoat);
   const coat = quality === "low" ? 0 : COATS.get(material);
   if (material.clearcoat !== coat) { material.clearcoat = coat; material.needsUpdate = true; }
+  if (material.userData?.plush) {
+    if (!SHEENS.has(material)) SHEENS.set(material, material.sheen);
+    const sheen = quality === "low" ? 0 : SHEENS.get(material);
+    if (material.sheen !== sheen) { material.sheen = sheen; material.needsUpdate = true; }
+  }
 }
 export function setFloatArtQuality(level = "high") {
   quality = level === "low" ? "low" : "high";

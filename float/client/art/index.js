@@ -27,13 +27,36 @@ import { vinyl, tint, releaseTint, glint, gold, geometry, disposeFloatArt, norma
 import { acquireBadge, releaseBadge } from "./badge.js";
 import { floatEnvironment, floatLights, disposeFloatEnvironment } from "./environment.js";
 import { triangles } from "./sculpt.js";
+import { bakedTemplate, hasBaked, bakedFile, BAKED_SPECIES } from "./critterTemplate.js";
+import { loadCritterGeometry, critterGeometryNow, setCritterSource } from "./critterAsset.js";
+import { plush, releasePlush, furMaterial } from "./plush.js";
 
-export { floatEnvironment, floatLights, disposeFloatEnvironment, disposeFloatArt, BUILT_SPECIES, BUILT_FLOATIES, cacheSizes, setFloatArtQuality, floatArtQuality };
+export { floatEnvironment, floatLights, disposeFloatEnvironment, disposeFloatArt, BUILT_SPECIES, BUILT_FLOATIES, BAKED_SPECIES, cacheSizes, setFloatArtQuality, floatArtQuality, setCritterSource };
 
 /* a species' template, cached by detail ("race" for the screen's pack,
-   "hero" for close-ups: the showcase, portraits, the podium) */
-const templateOf = (critter, detail) => geometry(`species:${critter}:${detail}`, () => buildSpecies(critter, { detail }));
+   "hero" for close-ups: the showcase, portraits, the podium). A baked
+   species (a soft plush, critterMeta.js) is a skeleton and anchors whose
+   mesh loads from its file; the rest are built by the first pass's kit.
+   version 1 asks for the first pass even where a bake exists (the
+   showcase's side-by-side). */
+const templateOf = (critter, detail, version = 2) => (version !== 1 && hasBaked(critter)
+  ? geometry(`species2:${critter}:${detail}`, () => bakedTemplate(critter, detail))
+  : geometry(`species:${critter}:${detail}`, () => buildSpecies(critter, { detail })));
 const detailOf = d => (d === "hero" ? "hero" : "race");
+const warned = new Set();
+const warnOnce = (key, error) => { if (warned.has(key)) return; warned.add(key); console.warn("Float critter", key, error?.message || error); };
+
+/* load baked critters ahead (all of them by default): resolves when their
+   meshes are in, so critters built after it are complete at once (tests,
+   a lobby that wants no pop-in) */
+export function preloadCritters(ids = BAKED_SPECIES, details = ["race"]) {
+  const jobs = [];
+  for (const id of ids) {
+    if (!hasBaked(id)) continue;
+    for (const d of details) { const f = bakedFile(id, d); jobs.push(loadCritterGeometry(f.key, id, f.detail, f.file)); }
+  }
+  return Promise.all(jobs).then(() => true);
+}
 const seedOf = (entrant, fallback) => String(entrant?.device || entrant?.pid || entrant?.name || entrant?.number || fallback || "rider");
 
 /* A floatie: { root, seat, update(dt), dispose() }. `seat` is where a
@@ -60,16 +83,31 @@ export function buildFloatie({ floatie = "classic", color = "#e8b04a", entrant =
    water, for splashes), ready (resolves when the chip's photo is drawn),
    state, lean (this frame's stroke lean, signed). */
 export function buildCritter({ critter = "capybara", color = "#9aa39e", hat = "none", shades = "none", entrant = null, medallion = true,
-  detail = "race", seed = null, groom = false } = {}) {
+  detail = "race", seed = null, groom = false, version = 2 } = {}) {
   const det = detailOf(detail);
-  const template = templateOf(critter, det);
+  const template = templateOf(critter, det, version);
+  const baked = template.version === 2;
   const hex = normalHex(color);
   const tints = [];
   const takeTint = () => { tints.push(hex); return tint(hex); };
-  const trunks = takeTint();
+  const grain = det === "hero" ? 0.22 : 0;
+  const materials = baked ? { plush: plush(hex, { grain }), fur: furMaterial(det) } : { vinyl: vinyl(), tint: takeTint(), glint: glint() };
   const drink = buildDrink(hex, det); tints.push(hex);
-  const rt = new CritterRuntime(template, { materials: { vinyl: vinyl(), tint: trunks, glint: glint() }, seed: seed || seedOf(entrant, critter), drink });
+  const rt = new CritterRuntime(template, { materials, seed: seed || seedOf(entrant, critter), drink });
   rt.root.name = `critter:${template.id}`;
+  /* a baked mesh: there now if a rider of this species already loaded it,
+     else it pops in when it arrives */
+  let meshReady = Promise.resolve(true);
+  if (baked) {
+    const now = critterGeometryNow(template.key);
+    if (now) { rt.attach(now); rt.pop = 1; }
+    else {
+      rt.holdPlace(template.bounds);
+      meshReady = loadCritterGeometry(template.key, template.id, template.detail, template.file)
+        .then(geo => { rt.attach(geo); return true; })
+        .catch(error => { warnOnce(template.key, error); return false; });
+    }
+  }
   let badge = null;
   if (medallion) {
     badge = acquireBadge({ ...(entrant || {}), color: hex });
@@ -103,6 +141,7 @@ export function buildCritter({ critter = "capybara", color = "#9aa39e", hat = "n
       rt.dispose();
       for (const h of tints) releaseTint(h);
       tints.length = 0;
+      if (baked && materials.plush) { releasePlush(hex, { grain }); materials.plush = null; }
       if (badge) { releaseBadge(badge.key); badge = null; }
     },
     get state() { return rt.state; },
@@ -112,7 +151,8 @@ export function buildCritter({ critter = "capybara", color = "#9aa39e", hat = "n
     set onCatch(fn) { userCatch = typeof fn === "function" ? fn : null; },
     takeCatch() { const c = caught; caught = null; return c; },
     anchors: rt.anchors,
-    ready: badge ? badge.ready : Promise.resolve(false),
+    ready: Promise.all([badge ? badge.ready : Promise.resolve(false), meshReady]).then(([drawn]) => drawn),
+    meshReady,
     runtime: rt,
   };
 }
@@ -123,12 +163,12 @@ export function buildCritter({ critter = "capybara", color = "#9aa39e", hat = "n
    Additions: setState(state), setStroke(side), setPose(pose) (the critter's;
    the floatie follows: it tilts with strokes, flips while its rider swims,
    dips when a backflip lands), ready. */
-export function buildRider(entrant = {}, { detail = "race" } = {}) {
+export function buildRider(entrant = {}, { detail = "race", version = 2 } = {}) {
   const look = entrant.look || {};
   const color = normalHex(entrant.color);
   const seed = seedOf(entrant, "rider");
   const floatie = buildFloatie({ floatie: look.floatie, color, entrant: { ...entrant, color }, detail, seed });
-  const critter = buildCritter({ critter: look.critter, color, hat: look.hat, shades: look.shades, entrant: { ...entrant, color }, detail, seed, groom: !!entrant.groom });
+  const critter = buildCritter({ critter: look.critter, color, hat: look.hat, shades: look.shades, entrant: { ...entrant, color }, detail, seed, groom: !!entrant.groom, version });
   critter.setSeat(floatie.seatInfo);
   floatie.seat.add(critter.root);
   const rt = critter.runtime;
@@ -185,8 +225,10 @@ export function artStats(object) {
   object.traverse(o => {
     if (!o.isMesh) return;
     for (let p = o; p; p = p.parent) if (p.visible === false) return;
+    if (o.material?.visible === false) return;
     meshes++;
-    tris += triangles(o.geometry);
+    /* the fur's shells are one draw of every shell */
+    tris += triangles(o.geometry) * (o.geometry.isInstancedBufferGeometry ? o.geometry.instanceCount : 1);
   });
   return { triangles: Math.round(tris), meshes };
 }

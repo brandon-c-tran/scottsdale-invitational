@@ -4,12 +4,14 @@
    URL for scripts/float-art-shots.mjs (see showcase.js). */
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Showcase, sampleEntrant, samplePhoto, SAMPLE_COLORS, SAMPLE_SKINS, CRITTERS, HATS, SHADES, POSES, FLOATIES } from "./showcase.js";
-import { riderPortrait } from "./index.js";
+import { riderPortrait, setFloatArtQuality } from "./index.js";
+import { plushDebug, furMaterial } from "./plush.js";
 
 const VIEWS = [
   { id: "lineup", name: "Lineup" }, { id: "detail", name: "Detail" }, { id: "floaties", name: "Floaties" },
   { id: "poses", name: "Poses" }, { id: "states", name: "States" }, { id: "medallion", name: "Medallion" },
   { id: "faces", name: "Faces" }, { id: "wardrobe", name: "Wardrobe" }, { id: "chips", name: "Chips" }, { id: "portraits", name: "Portraits" }, { id: "race", name: "Pack" },
+  { id: "turn", name: "Turn" }, { id: "compare", name: "Before" },
 ];
 const STATE_KEYS = { drink: "handsOff", handsOff: "handsOff", swim: "swim", sad: "sad", out: "sad", celebrate: "celebrate" };
 
@@ -27,6 +29,7 @@ function readParams() {
     color: q.get("color") ? `#${q.get("color").replace(/^#/, "")}` : undefined, number: num("number"), skin: q.get("skin") || undefined,
     yaw: num("yaw"), still: q.get("still") === "1", detail: q.get("detail") || undefined, hud: q.get("hud") !== "0",
     zoom: q.get("zoom") === "1", one: q.get("one") === "1", paddle: state === "paddle", quiet: state === "idle",
+    debug: num("debug") || 0, fur: q.get("fur") !== "0", quality: q.get("quality") || null, compareList: q.get("list") || undefined,
   };
 }
 
@@ -92,6 +95,13 @@ export default function ArtApp() {
   const [stats, setStats] = useState(null);
   const [portraits, setPortraits] = useState([]);
 
+  /* the attribute views and the fur switch (look development) */
+  useEffect(() => {
+    plushDebug.value = params.debug;
+    if (params.quality) setFloatArtQuality(params.quality);
+    if (!params.fur) { furMaterial("race").visible = false; furMaterial("hero").visible = false; }
+  }, []);
+
   /* the scene, once */
   useEffect(() => {
     const show = new Showcase(canvasRef.current, labelsRef.current, { onStats: setStats });
@@ -119,9 +129,16 @@ export default function ArtApp() {
         .then(rows => { if (!cancelled) { setPortraits(rows); setTimeout(done, 80); } });
     } else {
       show.setView(view, { stage, look, pose, stateObj: state, photo, color, skin, number: params.number, yaw: params.yaw, zoom: params.zoom, one: params.one, paddle: params.paddle, quiet: params.quiet,
-        still: params.still || params.freeze, detail: params.detail });
-      if (params.t !== undefined) { show.seek(params.t); show.frozen = params.freeze; }
-      setTimeout(done, 40);
+        hat: params.look.hat, shades: params.look.shades,
+        still: params.still || params.freeze, detail: params.detail, compareList: params.compareList });
+      /* the baked critters load their meshes: run the clock once they are in */
+      const loads = show.items.map(it => (it.rider?.critter || it.critterOnly)?.meshReady).filter(Boolean);
+      show.frozen = params.t !== undefined;
+      Promise.all(loads).then(() => {
+        if (cancelled) return;
+        if (params.t !== undefined) { show.seek(params.t); show.frozen = params.freeze; }
+        setTimeout(done, 40);
+      });
     }
     return () => { cancelled = true; };
   }, [view, stage, look, pose, state, photo, color, skin]);

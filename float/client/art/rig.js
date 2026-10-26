@@ -76,9 +76,11 @@ export class RigBuilder {
   }
 }
 
-const IDENTITY = new THREE.Matrix4();
+export const IDENTITY = new THREE.Matrix4();
 
-/* one critter's bones and meshes from a template */
+/* one critter's bones and meshes from a template (a baked template has no
+   geometry yet: its skeleton is made now, in the bind pose, and the meshes
+   bind to it when the geometry arrives) */
 export function instantiate(template, materials) {
   const root = new THREE.Group();
   const bones = template.bones.map(b => { const bone = new THREE.Bone(); bone.name = b.name; return bone; });
@@ -95,7 +97,7 @@ export function instantiate(template, materials) {
   const skeleton = new THREE.Skeleton(bones);
   const meshes = {};
   const sphere = new THREE.Sphere(new THREE.Vector3(0, 0.45, 0.2), 2.1);
-  for (const [layer, geo] of Object.entries(template.geos)) {
+  for (const [layer, geo] of Object.entries(template.geos || {})) {
     if (!geo || !materials[layer]) continue;
     const mesh = new THREE.SkinnedMesh(geo, materials[layer]);
     mesh.name = `critter-${layer}`;

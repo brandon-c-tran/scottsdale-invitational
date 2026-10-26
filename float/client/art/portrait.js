@@ -57,6 +57,8 @@ async function render(entrant, size) {
   const critter = buildCritter({ critter: look.critter, color: entrant.color, hat: look.hat, shades: look.shades, entrant, detail: "hero",
     seed: "portrait", groom: !!entrant.groom });
   try {
+    /* a baked critter's mesh first (it may still be loading), then the chip's photo */
+    await Promise.race([critter.meshReady || Promise.resolve(true), new Promise(r => setTimeout(r, 10000))]);
     await Promise.race([critter.ready, new Promise(r => setTimeout(r, 1500))]);
     const rt = critter.runtime;
     rt.look.next = 1e9; rt.look.yaw = -0.18; rt.look.pitch = 0.06;
@@ -80,7 +82,7 @@ async function render(entrant, size) {
       for (const x of [g.boundingBox.min.x, g.boundingBox.max.x]) for (const y of [g.boundingBox.min.y, g.boundingBox.max.y]) for (const z of [g.boundingBox.min.z, g.boundingBox.max.z]) box.expandByPoint(v.set(x, y, z).applyMatrix4(o.matrixWorld));
     });
     const hd = rt.template.info.head;
-    const body = rt.meshes.vinyl.geometry;
+    const body = (rt.meshes.plush || rt.meshes.vinyl).geometry;
     if (!body.boundingBox) body.computeBoundingBox();
     const crown = Math.max(hd.at[1] + hd.r[1] + 0.03, body.boundingBox.max.y);
     box.expandByPoint(v.set(hd.at[0] - hd.r[0], crown, hd.at[2]));

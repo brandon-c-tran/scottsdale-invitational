@@ -90,7 +90,10 @@ export class Showcase {
     this.scene.background = this.stage.background;
     this.scene.environment = floatEnvironment(this.renderer, mood === "studio" ? "studio" : "night");
     if (this.stage.water) { this.stage.water.material.envMap = this.scene.environment; this.stage.water.material.envMapIntensity = 0.5; this.stage.water.material.needsUpdate = true; }
-    this.scene.environmentIntensity = mood === "studio" ? 0.85 : 1.0;
+    this.scene.environmentIntensity = mood === "studio" ? 0.85 : mood === "screen" ? 1.6 : 1.0;
+    /* the TV renders with ACES at 1.12; the showcase's own stages with Neutral */
+    this.renderer.toneMapping = mood === "screen" ? THREE.ACESFilmicToneMapping : THREE.NeutralToneMapping;
+    this.renderer.toneMappingExposure = mood === "screen" ? 1.12 : 1.08;
     for (const it of this.items) if (it.puddle) { it.root.remove(it.puddle.mesh); it.puddle.dispose(); it.puddle = buildPuddle(this.stage, 0.9); it.root.add(it.puddle.mesh); }
   }
 
@@ -102,18 +105,18 @@ export class Showcase {
   }
 
   /* one rider (or bare floatie) placed in the scene */
-  place({ entrant, floatieOnly = null, at = [0, 0, 0], face = Math.PI, detail = "race", label = null, sub = null, behaviour = {} }) {
+  place({ entrant, floatieOnly = null, at = [0, 0, 0], face = Math.PI, detail = "race", label = null, sub = null, behaviour = {}, version = 2 }) {
     const root = new THREE.Group();
     root.position.set(...at);
     let rider = null, floatie = null, critterOnly = null;
     if (arguments[0].critterOnly) {
-      critterOnly = buildCritter({ critter: entrant.look.critter, color: entrant.color, hat: entrant.look.hat, shades: entrant.look.shades, entrant, detail, groom: true });
+      critterOnly = buildCritter({ critter: entrant.look.critter, color: entrant.color, hat: entrant.look.hat, shades: entrant.look.shades, entrant, detail, groom: true, version });
       root.add(critterOnly.root);
     } else if (floatieOnly) {
       floatie = buildFloatie({ floatie: floatieOnly, color: entrant.color, entrant, detail });
       root.add(floatie.root);
     } else {
-      rider = buildRider(entrant, { detail });
+      rider = buildRider(entrant, { detail, version });
       root.add(rider.root);
     }
     const puddle = critterOnly ? null : buildPuddle(this.stage, 0.9);
@@ -145,7 +148,7 @@ export class Showcase {
     this.view = view;
     this.opts = opts;
     this.spin = { yaw: 0, auto: !opts.still, drag: null };
-    const stageMood = opts.stage === "studio" ? "studio" : "night";
+    const stageMood = opts.stage === "studio" || opts.stage === "screen" ? opts.stage : "night";
     this.setStage(stageMood);
     const cam = this.camera;
     const look = opts.look || {};
@@ -201,6 +204,35 @@ export class Showcase {
         item.labelY = 0.2;
       }
       cam.fov = 26; cam.position.set(0, 0.95, 5.6); cam.lookAt(0, 0.95, 0);
+      this.spin.auto = false;
+    } else if (view === "turn") {
+      /* one critter from four sides (sculpting): front, three quarters, side, back */
+      const critter = look.critter || "capybara";
+      const idx = Math.max(0, CRITTERS.findIndex(c => c.id === critter));
+      [0, 0.75, Math.PI / 2, Math.PI].forEach((yaw, j) => {
+        const e = sampleEntrant(idx, { look: { critter, hat: opts.hat || "none", shades: opts.shades || "none" }, entrant: { groom: true } });
+        const item = this.place({ entrant: e, critterOnly: true, at: [(j - 1.5) * 1.02, 0, 0], face: Math.PI + yaw, detail: opts.detail || "hero", behaviour: {} });
+        item.labelY = -0.1;
+      });
+      cam.fov = 20; cam.position.set(0, 1.35, 6.4); cam.lookAt(0, 0.42, 0);
+      this.spin.auto = false;
+    } else if (view === "compare") {
+      /* the first pass beside the new one: the same entrant, the same light */
+      /* in the studio, the critters alone; on the river, in their floaties */
+      const list = (opts.compareList || "capybara,javelina,frog").split(",");
+      const studio = stageMood === "studio";
+      const gap = studio ? 0.56 : 0.78, step = studio ? 2.4 : 3.6;
+      list.forEach((critter, j) => {
+        const idx = Math.max(0, CRITTERS.findIndex(c => c.id === critter));
+        for (const [k, version] of [[0, 1], [1, 2]]) {
+          const e = sampleEntrant(idx, { look: { critter, hat: "none", shades: "none", floatie: "classic" } });
+          const item = this.place({ entrant: e, critterOnly: studio, at: [(j - (list.length - 1) / 2) * step + (k ? gap : -gap), 0, 0], face: Math.PI + 0.3, detail: "hero", behaviour: {}, version,
+            label: k ? "After" : "Before", sub: k ? null : CRITTERS[idx].name });
+          item.labelY = studio ? -0.06 : -0.3;
+        }
+      });
+      if (studio) { cam.fov = 22; cam.position.set(0, 1.6, 11.2); cam.lookAt(0, 0.42, 0); }
+      else { cam.fov = 26; cam.position.set(0, 2.9, 14.6); cam.lookAt(0, 0.45, 0); }
       this.spin.auto = false;
     } else if (view === "chips") {
       /* every skin's chip, the two with photos first */
@@ -270,7 +302,7 @@ export class Showcase {
       if (this.view === "detail") it.root.rotation.y = it.face + this.spin.yaw;
       else if (this.view === "race") it.root.rotation.y = 0.15 * Math.sin(t * 0.6 + it.phase);
       else if (this.view === "chips") it.root.rotation.y = 0.5 * Math.sin(t * 0.7 + it.phase);
-      else if (this.view !== "medallion" && this.view !== "faces") it.root.rotation.y = it.face + 0.55 * Math.sin(t * 0.32 + it.phase);
+      else if (!["medallion", "faces", "turn", "compare"].includes(this.view)) it.root.rotation.y = it.face + 0.55 * Math.sin(t * 0.32 + it.phase);
       it.rider?.update(dt);
       it.floatie?.update(dt);
       it.critterOnly?.update(dt);

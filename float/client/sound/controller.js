@@ -1,13 +1,20 @@
 /* The phone's own sound (float/PROTOCOL.md "Sound"), on the you bus:
    only what is yours, soft, and never a loss.
 
-     taps     your paddle (a soft dip, one of four, never the same twice
-              running, lower on the left), your drink, your balloon: the
-              controller calls floatStrokeSound, floatDrinkSound and
+     taps     your paddle (one of four dips, never the same twice running,
+              lower on the left), judged on the beat (PROTOCOL.md "The
+              beat"): perfect and good go in crisp, perfect brighter;
+              early, late and too fast slap flat and muffled (worse, never a
+              loss). Your drink, your balloon. The controller calls
+              floatStrokeSound(side, power, q), floatDrinkSound and
               floatThrowSound in its own touch handlers, so they land with
               the thumb. Without them, the server's echo stands in: the
-              stroke bits rising on your `me`, your own `drink` and
-              `balloon` events (a tap this recent keeps the echo quiet).
+              stroke bits rising on your `me` (judged by its `q`), your own
+              `drink` and `balloon` events (a tap this recent keeps the
+              echo quiet).
+     groove   your streak's level going up (your `me`'s level, or your
+              `groove` event): a small rising chime for Rhythm and Groove,
+              the whole motif for Locked in. Falling back is silent.
      moments  your flip (your `flip` event, or SWIM rising on your `me`),
               you in at the bar (your `arrive`, or ARRIVED rising), your
               balloon landing on someone (a `splash` you threw), a balloon
@@ -31,6 +38,11 @@ export const TAP_ECHO_MS = 2500;
 /* your paddle: one dip each STROKE_GAP_MS at most */
 export const STROKE_GAP_MS = 45;
 export const FLIP_HOLD_MS = 1500;
+/* a level's chime once, whichever of the `me` and the `groove` event says so first */
+export const LEVEL_HOLD_MS = 3000;
+/* the judgements a stroke can carry (beat.js) */
+export const STROKE_QUALITIES = Object.freeze(["perfect", "good", "early", "late", "fast"]);
+const qualityOf = q => STROKE_QUALITIES.includes(q) ? q : null;
 
 /* the controller's taps (wall clock), shared by the tap functions and the runner */
 const taps = { stroke:-Infinity, drink:-Infinity, throw:-Infinity, lastDip:-Infinity, variant:-1 };
@@ -38,7 +50,7 @@ export const lastTaps = () => ({ ...taps });
 
 export function initialController({ me = null, open = true } = {}) {
   return { open, live:false, me:indexOf(me), view:null, raced:null, flags:null, flagsAt:0, lastFlip:-Infinity, arrived:null,
-    through:null, placed:null, variant:-1 };
+    through:null, placed:null, variant:-1, level:null, chimed:null };
 }
 export function controllerStatus(mem, status) {
   const open = status === "open";
@@ -69,15 +81,20 @@ export function controllerStep(mem, msg, ctx = {}) {
       if (Number.isInteger(Number(msg.i)) && !Number.isInteger(ctx.me)) m.me = Number(msg.i);
       const f = Number(msg.f) | 0, was = m.flags;
       const fresh = m.live && visible && was !== null && Number.isFinite(s) && now - s <= ME_FRESH_MS && s - m.flagsAt <= ME_GAP_MS && s > m.flagsAt;
+      const level = Number.isInteger(Number(msg.level)) ? Math.max(0, Math.min(3, Number(msg.level))) : null;
       if (fresh) {
-        /* the echo of a stroke, when the controller does not report its taps */
+        /* the echo of a stroke, when the controller does not report its taps (judged by the me's q) */
+        const q = qualityOf(msg.q);
         if (wall - tapped.stroke > TAP_ECHO_MS) for (const [bit, side] of [[FLAG.STROKE_L, "L"], [FLAG.STROKE_R, "R"]])
-          if (has(f, bit) && !has(was, bit)) { m.variant = nextVariant(m.variant); cues.push({ id:"floatDip", opts:{ side, p:0.7, v:m.variant } }); }
+          if (has(f, bit) && !has(was, bit)) { m.variant = nextVariant(m.variant); cues.push({ id:"floatDip", opts:{ side, p:0.7, v:m.variant, ...(q ? { q } : {}) } }); }
         if (has(f, FLAG.SWIM) && !has(was, FLAG.SWIM) && now - m.lastFlip > FLIP_HOLD_MS) { m.lastFlip = now; cues.push({ id:"floatYouFlip" }); }
         const round = m.view?.round ?? 0;
         if (has(f, FLAG.ARRIVED) && !has(was, FLAG.ARRIVED) && m.arrived !== round) { m.arrived = round; cues.push({ id:"floatYouArrive" }); }
+        /* your groove goes up a level: its chime (down: silent) */
+        if (level !== null && Number.isInteger(m.level) && level > m.level) levelUp(m, level, now, cues);
       }
       if (Number.isFinite(s)) { m.flags = f; m.flagsAt = s; }
+      if (level !== null) m.level = level;
       return { mem:m, cues };
     }
     case "room": {
@@ -105,6 +122,11 @@ export function controllerStep(mem, msg, ctx = {}) {
       const round = m.view?.round ?? 0;
       if (msg.e === "splash" && j === me) { cues.push({ id:"floatYouHit" }); return { mem:m, cues }; }
       if (i !== me) return { mem:m, cues };
+      if (msg.e === "groove") {
+        const level = Math.max(0, Math.min(3, Math.floor(Number(msg.level) || 0)));
+        if (level > 0) { levelUp(m, level, now, cues); m.level = Math.max(m.level ?? 0, level); }
+        return { mem:m, cues };
+      }
       if (msg.e === "flip" && now - m.lastFlip > FLIP_HOLD_MS) { m.lastFlip = now; cues.push({ id:"floatYouFlip" }); }
       else if (msg.e === "arrive" && m.arrived !== round) { m.arrived = round; cues.push({ id:"floatYouArrive" }); }
       else if (msg.e === "drink" && wall - tapped.drink > TAP_ECHO_MS && m.view?.drinking !== false) cues.push({ id:"floatYouDrink" });
@@ -116,10 +138,19 @@ export function controllerStep(mem, msg, ctx = {}) {
   }
 }
 
+/* a level's chime, once (the me and the groove event both say it) */
+function levelUp(m, level, now, cues) {
+  if (m.chimed && m.chimed.level === level && now - m.chimed.at < LEVEL_HOLD_MS) return;
+  m.chimed = { level, at:now };
+  cues.push({ id:"floatYouLevel", opts:{ level } });
+}
+
 /* ── the taps: call these inside the controller's own touch handlers ── */
 const clamp01 = v => Math.max(0, Math.min(1, Number.isFinite(Number(v)) ? Number(v) : 0.8));
-/* your paddle going in (side "L" or "R", power 0..1) */
-export function floatStrokeSound(side = "L", power = 0.8) {
+/* your paddle going in (side "L" or "R", power 0..1, q the stroke's
+   judgement on the beat: "perfect", "good", "early", "late", "fast"; none
+   for the plain dip) */
+export function floatStrokeSound(side = "L", power = 0.8, q = null) {
   try {
     unlockSound();
     const t = Date.now();
@@ -127,7 +158,8 @@ export function floatStrokeSound(side = "L", power = 0.8) {
     if (t - taps.lastDip < STROKE_GAP_MS) return null;
     taps.lastDip = t;
     taps.variant = nextVariant(taps.variant);
-    return playSound("floatDip", { bus:"you", opts:{ side:side === "R" ? "R" : "L", p:clamp01(power), v:taps.variant } });
+    const judged = qualityOf(q);
+    return playSound("floatDip", { bus:"you", opts:{ side:side === "R" ? "R" : "L", p:clamp01(power), v:taps.variant, ...(judged ? { q:judged } : {}) } });
   } catch { return null; }
 }
 /* "Finished my drink" */

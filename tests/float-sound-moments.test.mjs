@@ -171,9 +171,16 @@ test("the titles and the intro: each leg its own, the final its own, a catch-up 
     [["floatTitle", 0, false], ["floatTitle", 1, false], ["floatTitle", 2, false], ["floatTitle", 3, true]], "the last round is the final");
   assert.equal(cupView(room("grid", 1, { round:1, rounds:2 })).final, true);
   assert.equal(cupView(room("grid", 1, { round:0, rounds:0 })).final, false);
-  /* the vamp waits for the title's sting, and longer for the Cup's intro */
-  assert.equal(music.musicTrack(step(intro.mem, room("grid", T0 + 5000)).mem).anchor, T0 + 5000 + music.TITLE_HOLD_MS);
-  assert.equal(music.musicTrack(intro.mem).anchor, T0 + 1000 + music.INTRO_HOLD_MS);
+  /* on the grid the vamp's bars count back from the gun to come (the grid's end, then the count-in),
+     from under the title's long note; after the Cup's intro, once its sting has rung, on the server's own grid */
+  const vamp = music.musicTrack(step(intro.mem, room("grid", T0 + 5000, { startAt:T0 + 5000, endsAt:T0 + 9000 })).mem);
+  assert.deepEqual([vamp.anchor, vamp.from], [T0 + 9000 + 3000, T0 + 5000 + music.TITLE_HOLD_MS]);
+  assert.equal(music.firstBar(vamp, T0 + 5100), -3, "three bars before the gun: under the title's long note");
+  assert.equal(music.barAt(vamp, -3), T0 + 6000);
+  assert.equal(music.predictedGun(cupView(room("grid", T0, { endsAt:T0 + 4000 }))), T0 + 7000);
+  assert.equal(music.predictedGun(cupView(room("lobby", T0, { endsAt:T0 + 4000 }))), null);
+  const afterIntro = music.musicTrack(intro.mem);
+  assert.deepEqual([afterIntro.anchor, afterIntro.from], [0, T0 + 1000 + music.INTRO_HOLD_MS]);
   /* the stale protocol name for the cut is read as the cut */
   assert.equal(cupView({ phase:"results" }).phase, "cut");
   assert.equal(cupView({ phase:"made-up" }).phase, "other");
@@ -432,6 +439,89 @@ test("the phone's taps through the real engine: on the you bus, one dip each 45 
     sound.setSoundSurface("tv");
     assert.equal(phone.floatDrinkSound(), null, "never on the TV");
   } finally { Date.now = realNow; delete globalThis.__FD_SOUND_LOG__; sound.__resetSoundEngine(); }
+});
+
+test("the TV hears a rider lock in: the sting under the band at level 3, from where they are; the lower levels are the screen's to draw", () => {
+  let mem = racing();
+  const s = T0 + 20000;
+  mem = step(mem, snap(s - 50, [[2, 40, -6, 0, 0, 30]])).mem;
+  mem = step(mem, snap(s, [[2, 41, -6, 0, 0, 31]])).mem;
+  const locked = step(mem, { t:"ev", s, e:"groove", i:2, level:3 });
+  assert.deepEqual(locked.cues.map(cue => [cue.id, cue.at]), [["floatLockedIn", s + INTERP_MS]]);
+  assert.ok(locked.cues[0].pan > 0, "from where that rider is");
+  for (const level of [1, 2]) assert.deepEqual(step(mem, { t:"ev", s, e:"groove", i:2, level }).cues, [], `level ${level}`);
+  /* the bots lock in too: one sting each LOCKED_GAP_MS at most */
+  assert.deepEqual(step(locked.mem, { t:"ev", s:s + 400, e:"groove", i:3, level:3 }).cues, []);
+  assert.equal(step(locked.mem, { t:"ev", s:s + screen.LOCKED_GAP_MS, e:"groove", i:3, level:3 }).cues.length, 1);
+  /* stale or a catch-up: nothing */
+  assert.deepEqual(step(mem, { t:"ev", s, e:"groove", i:2, level:3 }, { now:s + screen.EV_FRESH_MS + 1 }).cues, []);
+  assert.deepEqual(screen.screenStep(screen.initialScreen(), { t:"ev", s, e:"groove", i:2, level:3 }, { now:s + 10 }).cues, []);
+});
+
+test("your judged paddle: the tap carries its judgement (crisp on the beat, a muffled slap off it), the old call still dips plain", async () => {
+  const sound = await import("../src/lib/sound.js");
+  class Ctx {
+    constructor() { this.state = "suspended"; this.currentTime = 10; this.sampleRate = 8000; this.outputLatency = 0; this.destination = {}; }
+    node() { const p = () => ({ value:1, setValueAtTime() {}, linearRampToValueAtTime() {}, exponentialRampToValueAtTime() {}, cancelScheduledValues() {}, setTargetAtTime() {} });
+      return { gain:p(), frequency:p(), Q:p(), pan:p(), threshold:p(), knee:p(), ratio:p(), attack:p(), release:p(), connect(x) { return x; }, disconnect() {}, start() {}, stop() {} }; }
+    createGain() { return this.node(); } createBiquadFilter() { return this.node(); } createDynamicsCompressor() { return this.node(); } createConvolver() { return this.node(); }
+    createStereoPanner() { return this.node(); } createOscillator() { return this.node(); } createBufferSource() { return this.node(); }
+    createBuffer(c, l) { return { length:l, numberOfChannels:c, getChannelData:() => new Float32Array(l) }; }
+    resume() { this.state = "running"; this.onstatechange?.(); return Promise.resolve(); } close() { this.state = "closed"; }
+  }
+  sound.__resetSoundEngine({ factory:Ctx });
+  sound.setSoundSurface("phone");
+  const log = globalThis.__FD_SOUND_LOG__ = [];
+  const realNow = Date.now;
+  let clock = 2_000_000;
+  Date.now = () => clock;
+  try {
+    for (const q of ["perfect", "good", "early", "late", "fast", "bogus", undefined]) {
+      clock += 200;
+      assert.ok(q === undefined ? phone.floatStrokeSound("R", 0.9) : phone.floatStrokeSound("L", 0.8, q), `a stroke judged ${q}`);
+    }
+    const dips = log.filter(entry => entry.id === "floatDip");
+    assert.equal(dips.length, 7);
+    assert.deepEqual(phone.STROKE_QUALITIES, ["perfect", "good", "early", "late", "fast"]);
+  } finally { Date.now = realNow; delete globalThis.__FD_SOUND_LOG__; sound.__resetSoundEngine(); }
+  /* the opts it carries: the judgement when there is one, none otherwise (the log keeps ids; the opts ride the cue) */
+  const opts = [];
+  const net = { on:() => () => {}, serverNow:() => 0, status:() => "open" };
+  void net;
+  const plain = phone.controllerStep(phoneAt(), { t:"me", s:T0 + 1000, i:me, f:0 }, { now:T0 + 1040, wall:1e9 }).mem;
+  const echo = pstep(plain, { t:"me", s:T0 + 1100, i:me, f:FLAG.STROKE_L, q:"perfect" });
+  opts.push(echo.cues[0].opts);
+  const off = pstep(plain, { t:"me", s:T0 + 1100, i:me, f:FLAG.STROKE_R, q:"fast" });
+  opts.push(off.cues[0].opts);
+  const none = pstep(plain, { t:"me", s:T0 + 1100, i:me, f:FLAG.STROKE_R, q:"nonsense" });
+  opts.push(none.cues[0].opts);
+  assert.deepEqual(opts.map(o => [o.side, o.q ?? null]), [["L", "perfect"], ["R", "fast"], ["R", null]], "the echo dips judged by the me's q");
+});
+
+test("your groove: a chime as your level goes up (once, whether the me or the groove event says it), Locked in the biggest; down is silent", () => {
+  let m = pstep(phoneAt(), { t:"me", s:T0 + 1000, i:me, f:0, level:0 }).mem;
+  const up = (mem, level, s) => pstep(mem, { t:"me", s, i:me, f:0, level });
+  let r = up(m, 1, T0 + 1100);
+  assert.deepEqual(r.cues, [{ id:"floatYouLevel", opts:{ level:1 } }]);
+  r = up(r.mem, 1, T0 + 1200);
+  assert.deepEqual(r.cues, [], "still Rhythm is not news");
+  r = up(r.mem, 2, T0 + 1300);
+  assert.deepEqual(r.cues.map(cue => cue.opts.level), [2]);
+  /* the groove event for the same level stays quiet; for a new one it chimes, and the me then does not */
+  assert.deepEqual(pstep(r.mem, { t:"ev", s:T0 + 1320, e:"groove", i:me, level:2 }).cues, []);
+  const ev3 = pstep(r.mem, { t:"ev", s:T0 + 1400, e:"groove", i:me, level:3 });
+  assert.deepEqual(ev3.cues, [{ id:"floatYouLevel", opts:{ level:3 } }]);
+  assert.deepEqual(up(ev3.mem, 3, T0 + 1500).cues, []);
+  /* falling back: silent; climbing again: the chime again (a me after a gap only records, like any catch-up) */
+  r = up(ev3.mem, 1, T0 + 1600);
+  assert.deepEqual(r.cues, []);
+  assert.deepEqual(up(r.mem, 2, T0 + 1700).cues.map(cue => cue.opts.level), [2]);
+  assert.deepEqual(up(r.mem, 2, T0 + 9000).cues, [], "after a gap");
+  /* someone else's groove: nothing on your phone; a catch-up: nothing */
+  assert.deepEqual(pstep(m, { t:"ev", s:T0 + 1400, e:"groove", i:2, level:3 }).cues, []);
+  m = phone.controllerStep(phoneAt(), { t:"me", s:T0 + 1000, i:me, f:0, level:3 }, { now:T0 + 1040, wall:1e9 }).mem;
+  assert.deepEqual(m.level, 3);
+  assert.deepEqual(phone.controllerStep(phone.initialController({ me }), { t:"me", s:T0, i:me, f:0, level:3 }, { now:T0 + 10 }).cues, []);
 });
 
 test("the gun read from a countdown: the first instant well ahead of its message; a round keeps it", () => {

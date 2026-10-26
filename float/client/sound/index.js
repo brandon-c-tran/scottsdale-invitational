@@ -7,18 +7,25 @@
      useFloatControllerSound(net, { me })  your own strokes, flip, finish,
                                            drink, "through", balloons;
                                            returns the taps below
-     floatStrokeSound(side, power),        the controller's own taps: call
+     floatStrokeSound(side, power, q),     the controller's own taps: call
      floatDrinkSound(), floatThrowSound()  them inside its touch handlers
+                                           (q: the stroke's judgement on the
+                                           beat, beat.js: crisp on it, a
+                                           muffled slap off it)
      unlockFloatSound()                    inside a tap, so iOS lets sound start
      useFloatSoundUnlockNeeded()           the screen still needs a click
-     PODIUM_BEATS, COUNT_BEATS             the moments' beats, so the
-                                           screen's reveal lands on them
+     PODIUM_BEATS, COUNT_BEATS,            the moments' beats, so the
+     COUNT_TICKS                           screen's reveal lands on them
+     predictedGun(room)                    on the grid, the gun it counts
+                                           toward (the vamp's beats are the
+                                           race's from the grid on)
 
    screen.js and controller.js say what plays when; music.js and river.js
    are the beds; cup.js reads the room. */
 import { unlockSound, useSoundUnlockNeeded } from "../../../src/lib/sound.js";
 
-export { useFloatScreenSound, createFloatScreenSound, screenStep, PODIUM_BEATS, COUNT_BEATS } from "./screen.js";
+export { useFloatScreenSound, createFloatScreenSound, screenStep, PODIUM_BEATS, COUNT_BEATS, COUNT_TICKS } from "./screen.js";
+export { predictedGun } from "./music.js";
 export { useFloatControllerSound, createFloatControllerSound, controllerStep, floatStrokeSound, floatDrinkSound,
   floatThrowSound, FLOAT_TAPS } from "./controller.js";
 

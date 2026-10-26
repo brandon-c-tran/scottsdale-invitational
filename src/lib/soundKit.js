@@ -1933,6 +1933,8 @@ export function floatParts() {
     part("floatPaddles", "Float: the field paddling", TV, 400, flPaddles),
     /* ── the screen's moments ── */
     part("floatCount", "Float: 3, 2, 1", TV, 1000, flCount),
+    /* the count-in's beats between the numbers (opts.final) */
+    part("floatCountTick", "Float: the count-in's sticks", TV, 300, flCountTick),
     part("floatGo", "Float: go", TV, 1600, flGo),
     part("floatTitle", "Float: a leg's title", TV, 2400, flTitle),
     part("floatIntro", "Float: the Cup opens", TV, 3600, flIntro),
@@ -1952,6 +1954,8 @@ export function floatParts() {
     part("floatPodium", "Float: the podium fanfare", TV, 4600, flPodium),
     part("floatStamp", "Float: a place on the podium", TV, 900, flStamp),
     part("floatWinner", "Float: the winner's pose", TV, 2200, flWinner),
+    /* a rider's streak reaches Locked in */
+    part("floatLockedIn", "Float: locked in", TV, 1100, flLockedIn),
     /* ── the phone's own (the you bus) ── */
     part("floatDip", "Float: your paddle", PHONE, 200, flYouDip),
     part("floatYouFlip", "Float: you flipped", PHONE, 800, flYouFlip),
@@ -1962,6 +1966,8 @@ export function floatParts() {
     part("floatYouSplat", "Float: your balloon lands", PHONE, 700, flYouSplat),
     part("floatYouHit", "Float: you're splashed", PHONE, 500, flYouHit),
     part("floatYouPodium", "Float: your place", PHONE, 1600, flYouPodium),
+    /* your streak's level up (opts.level 1 Rhythm, 2 Groove, 3 Locked in) */
+    part("floatYouLevel", "Float: your groove", PHONE, 1200, flYouLevel),
   ].map(Object.freeze));
   return floatParts.list;
 }
@@ -1972,14 +1978,15 @@ const FL_MIX = Object.freeze({
   /* the band and the river, under everything */
   floatRace:0.48, floatVamp:0.8, floatLounge:0.52, floatRiver:0.62, floatPaddles:0.63,
   /* the sequence's big beats */
-  floatCount:0.75, floatGo:1.6, floatTitle:0.72, floatIntro:0.65, floatButton:0.75, floatPodium:0.75, floatWinner:0.62, floatImpact:0.62,
+  floatCount:0.75, floatCountTick:1.05, floatGo:1.6, floatTitle:0.72, floatIntro:0.65, floatButton:0.75, floatPodium:0.75, floatWinner:0.62,
+  floatImpact:0.62, floatLockedIn:1.4,
   /* the race's moments */
   floatFlip:0.66, floatFall:1.2, floatBump:0.8, floatScrape:0.9, floatLob:2.3, floatSplat:0.88, floatBell:1.1, floatClink:1, floatOut:1.45,
   /* the lobby and the podium's accents */
   floatJoin:2.2, floatReady:1.4, floatStamp:2,
   /* the phone */
   floatDip:1.25, floatYouFlip:1.6, floatYouArrive:1, floatYouDrink:1, floatYouThrough:1.1, floatYouThrow:2.1, floatYouSplat:0.9, floatYouHit:1.5,
-  floatYouPodium:1.3,
+  floatYouPodium:1.3, floatYouLevel:1.2,
 });
 export const FLOAT_MIX = FL_MIX;
 function flMix(E, id, play) {
@@ -2239,6 +2246,26 @@ const FLD = Object.freeze({
     burst(E, v, t, { f:2600, q:0.8, d:0.05, peak:0.17 * k }); },
   brush(E, v, t, k = 1) { burst(E, v, t, { f:2400, q:0.5, d:0.15, peak:0.2 * k, a:0.022 }); },
 });
+/* ── the beat (PROTOCOL.md "The beat"): paddling is judged against the
+   band's quarter notes, 500 ms apart from the gun, so every bar of the race
+   and the grid sounds the pulse on every quarter: in every leg, at every
+   tense, on the Drop's lip. The pulse is the kick and a deep wooden knock,
+   the bar's first beat higher (tick, tock, tock, tock), and nothing low ever
+   lands between the beats. ── */
+export const FLOAT_PULSE_STEPS = Object.freeze([0, 4, 8, 12]);
+/* a hollow log struck: its round body, the wood's overtones, the stick */
+function flKnock(E, v, t, f, k = 1) {
+  mode(E, v, t, f, 0.11, 0.42 * k, { drop:0.06, a:0.0015 });
+  mode(E, v, t, f * 2.43, 0.05, 0.16 * k, { a:0.001 });
+  mode(E, v, t, f * 4.9, 0.02, 0.06 * k, { a:0.001 });
+  burst(E, v, t, { f:2300, q:1.4, d:0.008, peak:0.26 * k });
+}
+/* one beat of the pulse (beat 0 the bar's first) */
+function flPulse(E, kickVoice, knockVoice, t, beat, k = 1) {
+  const down = beat === 0;
+  FLD.kick(E, kickVoice, t, (down ? 1.25 : 1.05) * k);
+  flKnock(E, knockVoice, t, down ? FN.B3 : FN.Fs3, (down ? 1 : 0.8) * k);
+}
 /* a snare roll at `rate` strokes a second, swelling from `from` to `to` */
 function flRoll(E, v, t, d, from = 0.15, to = 0.7, rate = 16) {
   const n = Math.max(2, Math.round(d * rate));
@@ -2287,18 +2314,19 @@ const FL_CHORD = Object.freeze({ B:["B2", "Fs3", "B3"], D:["D3", "A3", "D4"], E:
 /* Whirlpool Bend's arpeggio, spinning round the room in sixteenths */
 const FL_WHIRL = Object.freeze({ B:["B3", "D4", "Fs4", "A4", "Fs4", "D4", "B3", "A3"], D:["D4", "Fs4", "A4", "B4", "A4", "Fs4", "D4", "B3"],
   E:["E4", "A4", "B4", "D5", "B4", "A4", "E4", "D4"] });
-/* the drums by leg, each harder than the last */
+/* the drums by leg over the pulse (which carries every kick), each harder than the last */
 const FL_DRUMS = Object.freeze([
-  /* the Put-in: a lazy kick, a cross-stick on two and four, a shaker */
-  Object.freeze({ kick:[0, 8], rim:[4, 12], shaker:[0, 2, 4, 6, 8, 10, 12, 14] }),
+  /* the Put-in, where the field learns the beat: the pulse loudest, a cross-stick on two and four, a shaker */
+  Object.freeze({ pulse:1.2, rim:[4, 12], shaker:[0, 2, 4, 6, 8, 10, 12, 14] }),
   /* the Narrows: the backbeat comes in, hats on the eighths */
-  Object.freeze({ kick:[0, 6, 8], hat:[0, 2, 4, 6, 8, 10, 12, 14] }),
-  /* Whirlpool Bend: the floor tom rolls under it */
-  Object.freeze({ kick:[0, 6, 8, 11], hat:[0, 2, 4, 6, 8, 10, 12, 14], tom:[2, 10] }),
-  /* The Drop: sixteenths on the hat, the kick pushing */
-  Object.freeze({ kick:[0, 6, 8, 11, 14], hat16:true, tom:[2, 10] }),
+  Object.freeze({ pulse:1.05, hat:[0, 2, 4, 6, 8, 10, 12, 14] }),
+  /* Whirlpool Bend: a floor tom answering on the offbeats, up high in the kit's sound */
+  Object.freeze({ pulse:1, hat:[0, 2, 4, 6, 8, 10, 12, 14], tom:[2, 10] }),
+  /* The Drop: sixteenths on the hat */
+  Object.freeze({ pulse:1, hat16:true, tom:[2, 10] }),
 ]);
-const FL_FILL = Object.freeze([[12, NOTE.D3], [13, NOTE.B4 / 4], [14, NOTE.Fs4 / 4], [15, NOTE.E4 / 4]]);
+/* the phrase's fill: high toms down into the next downbeat (nothing low between the beats) */
+const FL_FILL = Object.freeze([[12, NOTE.D4], [13, NOTE.B4 / 2], [14, NOTE.Fs4 / 2], [15, NOTE.E4 / 2]]);
 
 /* One bar of the race. The leg sets the arrangement (the Put-in sparse,
    each leg adding a layer), the final adds the tremolo lead, and tense
@@ -2314,27 +2342,27 @@ function flRaceBar(E, t, o = {}) {
   const lv = FL_BAND * [0.86, 0.93, 1, 1.05][leg] * (final ? 1.04 : 1) * (1 + tense * 0.04) * (Number(o.level) > 0 ? Number(o.level) : 1);
   const at = i => t + i * FL_STEP_S;
   const suspend = o.drop === "suspend", hit = o.drop === "land" || !!o.first;
-  /* a rehearsal's stems (opts.only: "drums", "bass", "guitar"); the room always hears the whole band */
+  /* a rehearsal's stems (opts.only: "pulse", "drums", "bass", "guitar"); the room always hears the whole band */
   const only = Array.isArray(o.only) ? o.only : null, on = part => !only || only.includes(part);
-  const V = flVoices(E, { kick:{ send:0.04, bright:0.8, gain:lv }, snare:{ pan:0.06, send:0.24, bright:1, gain:lv },
+  const V = flVoices(E, { kick:{ send:0.04, bright:0.8, gain:lv }, knock:{ send:0.14, bright:1, gain:lv }, snare:{ pan:0.06, send:0.24, bright:1, gain:lv },
     hat:{ pan:0.32, send:0.08, bright:1, gain:lv }, tom:{ pan:-0.18, send:0.22, bright:0.7, gain:lv },
     crash:{ pan:-0.3, send:0.3, bright:1, gain:lv }, bass:{ send:0.06, bright:1, gain:lv },
     gtr:{ pan:-0.26, send:0.95, bright:1, gain:lv }, echo:{ pan:0.38, send:1.1, bright:0.6, gain:lv },
     chank:{ pan:0.42, send:0.5, bright:0.9, gain:lv }, lead:{ pan:0.12, send:1, bright:1, gain:lv },
     whirlL:{ pan:-0.6, send:0.8, bright:1, gain:lv }, whirlR:{ pan:0.6, send:0.8, bright:1, gain:lv } });
   const kit = FL_DRUMS[leg];
+  /* the pulse: every quarter, whatever else the bar does (the Drop's lip holds on it alone) */
+  if (on("pulse")) FLOAT_PULSE_STEPS.forEach((s, beat) => flPulse(E, V("kick"), V("knock"), at(s), beat, kit.pulse * (suspend ? 0.85 : 1)));
   /* the drums */
   if (!on("drums")) { /* a rehearsal's other stems */ } else if (suspend) {
     FLD.tom(E, V("tom"), t, NOTE.Fs4 / 4, 0.9);
     flRiser(E, t, FLOAT_BAR_S, 0.11 * lv);
   } else {
     const train = final && tense >= 3;
-    const kicks = new Set(kit.kick);
-    if (tense >= 4 || train) [0, 4, 8, 12].forEach(s => kicks.add(s));
-    kicks.forEach(s => FLD.kick(E, V("kick"), at(s), s % 8 === 0 ? 1 : 0.78));
     if (leg === 0 && tense < 2) kit.rim.forEach(s => FLD.rim(E, V("snare"), at(s), 0.8));
     else {
-      const snares = train ? [[2, 0.45], [4, 1], [6, 0.45], [10, 0.45], [12, 1], [14, 0.45]] : [[4, 1], [12, 1]];
+      /* the final's train beat: a light snare on every offbeat between the pulse's kicks */
+      const snares = train ? [[2, 0.3], [4, 1], [6, 0.3], [10, 0.3], [12, 1], [14, 0.3]] : [[4, 1], [12, 1]];
       if (tense >= 2) snares.push([7, 0.2], [15, 0.24]);
       if (tense >= 4) snares.push([13, 0.4], [14, 0.5], [15, 0.62]);
       snares.forEach(([s, k]) => FLD.snare(E, V("snare"), at(s), k * 0.85));
@@ -2344,17 +2372,18 @@ function flRaceBar(E, t, o = {}) {
     else if (kit.hat16 || tense >= 3) for (let s = 0; s < 16; s++) FLD.hat(E, V("hat"), at(s), s % 2 ? 0.42 : 0.8);
     else kit.hat.forEach(s => FLD.hat(E, V("hat"), at(s), s % 4 === 0 ? 0.6 : 0.85));
     if (tense >= 1 && leg > 0) FLD.hat(E, V("hat"), at(14), 0.7, true);
-    (kit.tom || []).forEach(s => FLD.tom(E, V("tom"), at(s), NOTE.Fs4 / 4, 0.5));
-    if (o.fill) FL_FILL.forEach(([s, f]) => FLD.tom(E, V("tom"), at(s), f, leg ? 0.85 : 0.6));
+    (kit.tom || []).forEach(s => FLD.tom(E, V("tom"), at(s), NOTE.A3, 0.38));
+    if (o.fill) FL_FILL.forEach(([s, f]) => FLD.tom(E, V("tom"), at(s), f, leg ? 0.7 : 0.5));
     if (o.crash || hit || (tense >= 3 && turn % 2 === 0)) FLD.crash(E, V("crash"), t, hit ? 1 : 0.7);
     if (tense >= 4) flRiser(E, t, FLOAT_BAR_S, (tense >= 5 ? 0.09 : 0.055) * lv, 0.1);
   }
   /* the bass */
   const line = FL_BASS[phrase === 7 && chord === "E" ? "home" : chord];
   if (!on("bass")) { /* a rehearsal's other stems */ } else if (suspend) flBass(E, V("bass"), t, FN.B1, FLOAT_BAR_S * 0.95, 0.3);
+  /* the Put-in walks on the quarters with the pulse; later legs drive eighths, the beats leaning */
   else if (leg === 0 && tense < 2)
-    [[0, 0, 5], [6, 2, 2], [8, 4, 5], [14, 3, 2]].forEach(([s, k, len]) => flBass(E, V("bass"), at(s), fn(line[k]), len * FL_STEP_S * 0.9, s % 8 === 0 ? 0.26 : 0.19));
-  else line.forEach((name, k) => flBass(E, V("bass"), at(k * 2), fn(name), FL_STEP_S * 1.6, k % 4 === 0 ? 0.26 : 0.2));
+    [[0, 0], [4, 2], [8, 4], [12, 3]].forEach(([s, k]) => flBass(E, V("bass"), at(s), fn(line[k]), 3.5 * FL_STEP_S, s === 0 ? 0.26 : 0.21));
+  else line.forEach((name, k) => flBass(E, V("bass"), at(k * 2), fn(name), FL_STEP_S * 1.6, k === 0 ? 0.27 : k % 2 ? 0.17 : 0.23));
   /* the guitar */
   if (!on("guitar")) return;
   if (suspend) {
@@ -2382,23 +2411,24 @@ function flRaceBar(E, t, o = {}) {
       { dest:V("lead"), trem:how.includes("t") ? 16 : 0, vib:0.8, dive:how.includes("d") ? 0.18 : 0 }));
 }
 
-/* On the grid: a palm-muted pedal on B (the bass in eighths, the guitar
-   chugging three, three and two), hats and a kick; the second bar lifts
-   to D and E on its last beat */
+/* On the grid, the field's practice: the pulse on every quarter (as the
+   race will have it), a palm-muted pedal on B under it (the bass on the
+   beats, the guitar chugging three, three and two, quietly), hats on the
+   eighths; the second bar lifts to D and E on its last beat */
 function flVampBar(E, t, o = {}) {
   const bar = flMod(o.bar, 2), lv = FL_BAND * 0.85;
   const at = i => t + i * FL_STEP_S;
-  const V = flVoices(E, { kick:{ send:0.04, bright:0.8, gain:lv }, hat:{ pan:0.32, send:0.08, bright:1, gain:lv },
+  const V = flVoices(E, { kick:{ send:0.04, bright:0.8, gain:lv }, knock:{ send:0.14, bright:1, gain:lv }, hat:{ pan:0.32, send:0.08, bright:1, gain:lv },
     bass:{ send:0.06, bright:1, gain:lv }, gtr:{ pan:-0.24, send:0.9, bright:1, gain:lv }, echo:{ pan:0.38, send:1.1, bright:0.6, gain:lv } });
-  [0, 8].forEach(s => FLD.kick(E, V("kick"), at(s), s ? 0.6 : 0.85));
+  FLOAT_PULSE_STEPS.forEach((s, beat) => flPulse(E, V("kick"), V("knock"), at(s), beat, 1.1));
   for (let s = 0; s < 16; s += 2) FLD.hat(E, V("hat"), at(s), s % 4 ? 0.7 : 0.4);
-  for (let k = 0; k < 8; k++) flBass(E, V("bass"), at(k * 2), FN.B1, FL_STEP_S * 1.2, k % 4 === 0 ? 0.28 : 0.2);
-  [0, 3, 6, 8, 11].forEach(s => flTwang(E, at(s), FN.B2, 0.07, 0.12, { dest:V("gtr"), bright:0.5, sus:0.3, release:0.05 }));
+  FLOAT_PULSE_STEPS.forEach((s, k) => flBass(E, V("bass"), at(s), FN.B1, FL_STEP_S * 2.4, k === 0 ? 0.26 : 0.2));
+  [0, 3, 6, 8, 11].forEach(s => flTwang(E, at(s), FN.B2, 0.07, 0.085, { dest:V("gtr"), bright:0.5, sus:0.3, release:0.05 }));
   if (bar === 1) [[12, "D3", 0.2], [14, "E3", 0.24]].forEach(([s, name, d]) => {
-    flTwang(E, at(s), fn(name), d, 0.14, { dest:V("gtr"), vib:s === 14 ? 0.7 : 0 });
-    flTwang(E, at(s) + FL_SLAP_S, fn(name), d * 0.8, 0.045, { dest:V("echo"), bright:0.6 });
+    flTwang(E, at(s), fn(name), d, 0.12, { dest:V("gtr"), vib:s === 14 ? 0.7 : 0 });
+    flTwang(E, at(s) + FL_SLAP_S, fn(name), d * 0.8, 0.04, { dest:V("echo"), bright:0.6 });
   });
-  else flTwang(E, at(14), FN.B2, 0.07, 0.12, { dest:V("gtr"), bright:0.5, sus:0.3, release:0.05 });
+  else flTwang(E, at(14), FN.B2, 0.07, 0.085, { dest:V("gtr"), bright:0.5, sus:0.3, release:0.05 });
 }
 
 /* the lobby's lounge: an eight-bar turn rocking D, A, B minor, A (E sus on
@@ -2568,17 +2598,30 @@ function flPaddles(E, t, o = {}) {
 }
 
 /* ── the screen's moments ── */
-/* 3, 2, 1: a floor tom and a guitar fifth stepping up B, D, E; under the 1 the snare rolls into the gun */
+/* The count-in, on the race's beats (the six before the gun): 3, 2 and 1
+   on every other beat, a floor tom and a guitar fifth stepping up B, D, E
+   over the pulse's kick and knock (the 2 is a bar's first beat, so its
+   knock is the high one); under the 1 the snare rolls into the gun */
 function flCount(E, t, o = {}) {
   const n = flInt(o.n || 3, 1, 3), k = 3 - n;
   const dr = voice(E, { send:0.32, bright:0.8, gain:1 }), g = voice(E, { pan:-0.15, send:1, bright:1, gain:1 });
   FLD.tom(E, dr, t, [FN.Fs2, FN.A2, FN.B2][k], 1);
-  FLD.kick(E, dr, t, 0.6);
-  flTwang(E, t, [FN.B2, FN.D3, FN.E3][k], 0.55, 0.22, { dest:g, vib:0.7 });
-  flTwang(E, t + 0.01, [FN.Fs3, FN.A3, FN.B3][k], 0.55, 0.15, { dest:g, vib:0.7 });
+  flPulse(E, dr, voice(E, { send:0.14, bright:1, gain:1 }), t, n === 2 ? 0 : 1, 0.75);
+  flTwang(E, t, [FN.B2, FN.D3, FN.E3][k], 0.4, 0.22, { dest:g, vib:0.7 });
+  flTwang(E, t + 0.01, [FN.Fs3, FN.A3, FN.B3][k], 0.4, 0.15, { dest:g, vib:0.7 });
   flDrip(E, t + 0.005, 0.7);
-  if (o.final) FLD.tom(E, dr, t + 0.25, [FN.Fs2, FN.A2, FN.B2][k] * 0.75, 0.6);
   if (n === 1) flRoll(E, voice(E, { pan:0.06, send:0.25, bright:1, gain:1 }), t + 0.5, 0.46, 0.1, 0.5);
+}
+/* the beats between the numbers: the drummer's sticks clicked together and
+   the pulse's knock, so the tempo is in the room before the gun (the final:
+   a high tom with them, marching) */
+function flCountTick(E, t, o = {}) {
+  const v = voice(E, { pan:0.1, send:0.2, bright:1, gain:1 });
+  burst(E, v, t, { f:2900, q:3.2, d:0.012, peak:0.42 });
+  mode(E, v, t, 1980, 0.025, 0.12); mode(E, v, t + 0.002, 3150, 0.015, 0.06);
+  flKnock(E, voice(E, { send:0.14, bright:1, gain:1 }), t, FN.Fs3, 0.7);
+  FLD.hat(E, v, t, 0.6);
+  if (o.final) FLD.tom(E, voice(E, { pan:-0.15, send:0.22, bright:0.8, gain:1 }), t, NOTE.D4, 0.55);
 }
 /* the gun: an air horn and every paddle hitting the water at once (the final: two horns, a fourth apart) */
 function flGo(E, t, o = {}) {
@@ -2847,14 +2890,50 @@ function flWinner(E, t, o = {}) {
 }
 
 /* ── the phone's own (the you bus): above the phone speaker's floor, soft ── */
-/* your paddle: a soft dip (opts.side L/R, p 0..1 the stroke's power, v 0..3 which of four) */
+/* Your paddle (opts.side L/R, p 0..1 the stroke's power, v 0..3 which of
+   four, q its judgement on the beat). On the beat ("perfect", "good") the
+   blade goes in clean: a crisp dip, brighter for perfect with a glint on
+   it. Off it ("early", "late", "fast") the blade slaps flat: dull, muffled,
+   short; worse, never a loss. No q: the plain dip. */
+const FL_OFF_BEAT = Object.freeze(["early", "late", "fast"]);
 function flYouDip(E, t, o = {}) {
   const right = o.side === "R", p = Math.max(0, Math.min(1, Number(o.p ?? 0.8))), vr = flMod(o.v, 4);
   const pitch = [1, 1.09, 0.94, 1.16][vr] * (right ? 1.07 : 0.93) * rnd(0.98, 1.02);
-  const v = voice(E, { send:0.18, bright:0.9, gain:0.45 + 0.45 * p });
-  flSweep(E, v, t, { f0:2400 * pitch, f1:900 * pitch, q:1.4, d:0.08, peak:0.2, a:0.004 });
-  glide(E, v, t + 0.004, 900 * pitch, 520 * pitch, 0.06, 0.08);
-  if (vr === 3) flPlip(E, v, t + 0.14, { f:1500 * pitch, gain:0.6 });
+  if (FL_OFF_BEAT.includes(o.q)) {
+    const v = voice(E, { send:0.06, bright:0.3, gain:0.4 + 0.3 * p });
+    burst(E, v, t, { type:"lowpass", f:950, q:0.7, d:0.05, peak:0.34 });
+    mode(E, v, t, 430 * pitch, 0.045, 0.1, { drop:0.12 });
+    return;
+  }
+  const perfect = o.q === "perfect", good = o.q === "good";
+  const bright = perfect ? 1.18 : good ? 1.06 : 1;
+  const v = voice(E, { send:0.18, bright:0.9 * bright, gain:(0.45 + 0.45 * p) * (perfect ? 1.2 : good ? 1.08 : 1) });
+  flSweep(E, v, t, { f0:2400 * pitch * bright, f1:900 * pitch, q:1.4, d:0.08, peak:0.2, a:0.003 });
+  glide(E, v, t + 0.004, 900 * pitch * bright, 520 * pitch, 0.06, 0.08);
+  if (perfect) M.bell(E, t + 0.012, right ? NOTE.A6 : NOTE.Fs6, { gain:0.1, dec:0.22, send:0.15 });
+  else if (vr === 3) flPlip(E, v, t + 0.14, { f:1500 * pitch, gain:0.6 });
+}
+/* your streak's level goes up (opts.level): Rhythm and Groove a small
+   rising chime, Locked in the motif rung all the way up with a shimmer */
+function flYouLevel(E, t, o = {}) {
+  const level = flInt(o.level || 1, 1, 3);
+  M.clack(E, t, { gain:0.24, double:false });
+  if (level < 3) {
+    (level === 1 ? [NOTE.D5, NOTE.Fs5] : [NOTE.D5, NOTE.Fs5, NOTE.A5])
+      .forEach((f, i) => M.bell(E, t + 0.01 + i * 0.07, f, { gain:0.24, dec:0.7, send:0.2 }));
+    return;
+  }
+  [NOTE.D5, NOTE.Fs5, NOTE.A5, NOTE.D6].forEach((f, i) => M.bell(E, t + 0.01 + i * 0.075, f, { gain:0.3, dec:1.1, send:0.22 }));
+  [NOTE.A6, NOTE.Fs6, FN.B6].forEach((f, i) => M.bell(E, t + 0.34 + i * 0.05, f, { gain:0.1, dec:0.5, send:0.3 }));
+}
+/* On the TV, a rider locks in: under the band, a quick twang up the riff's
+   notes into a ringing high B with a shimmer over it (opts.pan to them) */
+function flLockedIn(E, t) {
+  const g = voice(E, { send:1, bright:1, gain:1 });
+  ["Fs3", "A3", "B3", "D4"].forEach((name, i) => flTwang(E, t + i * 0.055, fn(name), 0.07, 0.11, { dest:g, bright:1.1, sus:0.3, release:0.05 }));
+  flTwang(E, t + 0.22, FN.B4, 0.5, 0.12, { dest:g, vib:1, trem:16, sus:0.6 });
+  [NOTE.D6, NOTE.Fs6, NOTE.A6].forEach((f, i) => M.bell(E, t + 0.24 + i * 0.045, f, { gain:0.09, dec:0.6, send:0.4 }));
+  swell(E, voice(E, { send:0.3, bright:1, gain:1 }), t, { d:0.3, f0:3000, f1:7000, q:0.9, peak:0.05 });
 }
 /* you flipped: your splash and your bubbles */
 function flYouFlip(E, t) {

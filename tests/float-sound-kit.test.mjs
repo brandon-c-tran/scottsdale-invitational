@@ -52,7 +52,7 @@ const OPTS = [{},
 
 test("every Float recipe: registered, playable on its opts, every node released once its last source ends", () => {
   const ids = kit.FLOAT_PARTS.map(part => part.id);
-  assert.equal(ids.length, 34);
+  assert.equal(ids.length, 37);
   assert.ok(ids.every(id => id.startsWith("float")), "Float's ids are its own");
   assert.equal(new Set(ids).size, ids.length);
   for (const listen of ["tv", "phone"]) {
@@ -77,6 +77,65 @@ test("every Float recipe: registered, playable on its opts, every node released 
   }
   /* where each one may sound */
   for (const part of kit.FLOAT_PARTS) assert.deepEqual(part.where, part.id === "floatDip" || part.id.startsWith("floatYou") ? ["phone"] : ["tv"], part.id);
+});
+
+/* the kick's strike (the pulse's): its mode starts at 52 Hz times 2.25 and drops */
+const KICK_STRIKE = 52 * (1 + 1.25);
+const struckAt = (ctx, from, f) => ctx.nodes.slice(from).filter(n => n.kind === "osc")
+  .flatMap(n => n.frequency.events.filter(([kind, v]) => kind === "set" && Math.abs(v - f) < 1e-6).map(([, , t]) => Math.round((t - 10) * 1000)));
+
+test("the beat: the pulse's kick and knock on every quarter of every bar (every leg, tense, final, the Drop's lip), and no kick between", () => {
+  assert.deepEqual(kit.FLOAT_PULSE_STEPS, [0, 4, 8, 12], "a bar's four beats, 500 ms apart at 120 a minute");
+  const ctx = fakeContext();
+  const E = kit.makeEngine(ctx, { listen:"tv" });
+  const beats = [0, 500, 1000, 1500];
+  const B3 = kit.FLOAT_NOTES.B3, Fs3 = kit.FLOAT_NOTES.Fs3;
+  for (const leg of [0, 1, 2, 3]) for (const tense of [0, 1, 2, 3, 4, 5]) for (const final of [false, true])
+    for (const extra of [{}, { drop:"suspend" }, { drop:"land" }, { fill:true, crash:true }, { first:true }]) {
+      const from = ctx.nodes.length;
+      kit.playRecipe(E, "floatRace", 10, { leg, tense, final, bar:tense % 4, phrase:7, ...extra });
+      const label = `leg ${leg} tense ${tense}${final ? " final" : ""} ${JSON.stringify(extra)}`;
+      assert.deepEqual([...new Set(struckAt(ctx, from, KICK_STRIKE))].sort((a, b) => a - b), beats, `${label}: a kick on every beat and only there`);
+      /* the knock: the bar's first beat on B, the rest on F sharp (its body drops 6% into pitch) */
+      assert.deepEqual(struckAt(ctx, from, B3 * 1.06), [0], `${label}: the downbeat's knock`);
+      assert.deepEqual(struckAt(ctx, from, Fs3 * 1.06).sort((a, b) => a - b), [500, 1000, 1500], `${label}: the other beats' knock`);
+      ctx.nodes.filter(n => n.kind === "osc" || n.kind === "src").forEach(n => n.onended?.());
+    }
+  /* the vamp on the grid: the same pulse, so the practice is the race's beat */
+  const from = ctx.nodes.length;
+  kit.playRecipe(E, "floatVamp", 10, { bar:1 });
+  assert.deepEqual([...new Set(struckAt(ctx, from, KICK_STRIKE))].sort((a, b) => a - b), beats);
+  /* the count-in: the numbers carry the pulse, the sticks a knock, both on their beat; nothing low between */
+  for (const [id, opts] of [["floatCount", { n:3 }], ["floatCount", { n:2 }], ["floatCount", { n:1, final:true }], ["floatCountTick", {}], ["floatCountTick", { final:true }]]) {
+    const at = ctx.nodes.length;
+    kit.playRecipe(E, id, 10, opts);
+    assert.ok([B3, Fs3].some(f => struckAt(ctx, at, f * 1.06).includes(0)), `${id} ${JSON.stringify(opts)}: a knock on its beat`);
+    const low = ctx.nodes.slice(at).filter(n => n.kind === "osc").flatMap(n => n.frequency.events
+      .filter(([kind, v]) => kind === "set" && v < 260).map(([, , t]) => Math.round((t - 10) * 1000)));
+    assert.ok(low.every(ms => ms <= 30 || ms >= 500), `${id} ${JSON.stringify(opts)}: nothing low between the beats, a strum's spread aside (${low})`);
+    assert.ok(id === "floatCountTick" ? struckAt(ctx, at, KICK_STRIKE).length === 0 : struckAt(ctx, at, KICK_STRIKE).every(ms => ms === 0), `${id}: its kick on the beat`);
+  }
+  ctx.nodes.filter(n => n.kind === "osc" || n.kind === "src").forEach(n => n.onended?.());
+});
+
+test("your judged paddle: crisp on the beat (perfect brighter, with a glint), a muffled slap off it, and the plain dip without a judgement", () => {
+  const ctx = fakeContext();
+  const E = kit.makeEngine(ctx, { listen:"phone" });
+  const play = opts => { const from = ctx.nodes.length; kit.playRecipe(E, "floatDip", 10, opts); return ctx.nodes.slice(from); };
+  const plunk = nodes => nodes.filter(n => n.kind === "osc" && n.frequency.events.some(([kind, v]) => kind === "set" && v > 700 && v < 1300));
+  const glint = nodes => nodes.filter(n => n.kind === "osc" && n.frequency.events.some(([kind, v]) => kind === "set" && v > 1400));
+  const lowpass = nodes => nodes.filter(n => n.kind === "filter" && n.type === "lowpass" && n.frequency.value < 1000);
+  for (const q of ["perfect", "good"]) assert.ok(plunk(play({ q, side:"L", v:0 })).length >= 1, `${q}: the blade's clean plunk`);
+  assert.ok(glint(play({ q:"perfect", side:"R", v:0 })).length >= 1, "perfect: the glint over it");
+  assert.equal(glint(play({ q:"good", side:"R", v:0 })).length, 0);
+  for (const q of ["early", "late", "fast"]) {
+    const nodes = play({ q, side:"L", v:1 });
+    assert.equal(plunk(nodes).length, 0, `${q}: no clean plunk`);
+    assert.ok(lowpass(nodes).length >= 1, `${q}: muffled`);
+    assert.ok(nodes.filter(n => n.kind === "osc").every(n => !n.frequency.events.some(([kind, v]) => kind === "exp" && v < 380)), `${q}: no falling tone, never a loss`);
+  }
+  assert.ok(plunk(play({ side:"L", v:2 })).length >= 1, "no judgement: the plain dip");
+  ctx.nodes.filter(n => n.kind === "osc" || n.kind === "src").forEach(n => n.onended?.());
 });
 
 test("the beds are cut recipes: a stopped bar goes silent, one not yet started never sounds, and the mix sits inside the gate", () => {
@@ -180,7 +239,8 @@ test("Float's sound reaches Web Audio only through the engine; the room bus only
     assert.doesNotMatch(text, /AudioContext|webkitAudioContext|new Audio\(|createOscillator|createGain|createBufferSource|audioSession/, `${name}: no Web Audio`);
     assert.doesNotMatch(text, /soundKit\.js|__resetSoundEngine|__soundEngine/, `${name}: not the kit or the engine's test hooks`);
     for (const [, from] of text.matchAll(/from "([^"]+)"/g))
-      assert.ok(from.startsWith("./") || ["react", "../../shared/protocol.js", "../../../src/lib/sound.js", "../../../src/lib/serverClock.js"].includes(from), `${name} imports ${from}`);
+      assert.ok(from.startsWith("./") || ["react", "../../shared/protocol.js", "../../shared/tuning.js", "../../shared/beat.js", "../../../src/lib/sound.js",
+        "../../../src/lib/serverClock.js"].includes(from), `${name} imports ${from}`);
     if (name !== "screen.js") assert.doesNotMatch(text, /cueAt\(|bus:\s*"room"/, `${name}: the room bus is the screen's`);
     if (name !== "controller.js") assert.doesNotMatch(text, /bus:\s*"(you|gm)"/, `${name}: the you bus is the phone's`);
   }

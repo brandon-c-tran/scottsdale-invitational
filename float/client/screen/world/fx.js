@@ -138,8 +138,8 @@ export function createFx({ scene, dotTex, geo, falls = [] }) {
         f.acc -= 1;
         const lat = (rand() - 0.5) * f.w * 0.9;
         const x = f.x + f.nx * lat, y = f.y + f.ny * lat;
-        if (rand() < 0.35) emit(x, f.z + 0.3, -y, f.tx * 1.5 + (rand() - 0.5) * 1.2, 1.2 + rand() * 2, -f.ty * 1.5 + (rand() - 0.5) * 1.2,
-          1.6 + rand() * 2.4, 1.4 + rand() * 1.2, white, 2.2);
+        if (rand() < 0.22) emit(x, f.z + 0.3, -y, f.tx * 1.5 + (rand() - 0.5) * 1.2, 1 + rand() * 1.6, -f.ty * 1.5 + (rand() - 0.5) * 1.2,
+          1.2 + rand() * 1.4, 1.1 + rand() * 0.8, white, 1.2);
         else emit(x, f.z + 0.2, -y, f.tx * 2 + (rand() - 0.5) * 2, 2.5 + rand() * 4, -f.ty * 2 + (rand() - 0.5) * 2, 0.16 + rand() * 0.2, 0.9 + rand() * 0.5);
       }
     }
@@ -150,7 +150,7 @@ export function createFx({ scene, dotTex, geo, falls = [] }) {
       pos[k * 3] += vel[k * 3] * dt; pos[k * 3 + 1] += vel[k * 3 + 1] * dt; pos[k * 3 + 2] += vel[k * 3 + 2] * dt;
       size[k] += grow[k] * dt;
       const t = life[k] / maxLife[k];
-      alpha[k] = grow[k] > 0 ? Math.min(1, t * 1.6) * 0.35 : Math.min(1, t * 2.5) * 0.9;
+      alpha[k] = grow[k] > 0 ? Math.min(1, t * 1.6) * 0.16 : Math.min(1, t * 2.5) * 0.9;
     }
     sprayGeo.attributes.position.needsUpdate = true;
     sprayGeo.attributes.color.needsUpdate = true;

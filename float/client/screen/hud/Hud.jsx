@@ -8,7 +8,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { FLAG } from "../../../shared/protocol.js";
 import { COUNT_BEATS, PODIUM_BEATS } from "../../sound/index.js";
-import { Chip, DoneIcon, DrinkIcon, FlagIcon, Num, OneSafe, Ordinal, ordinalHtml, PhoneIcon, SwimIcon } from "./bits.jsx";
+import { BotMark, Chip, DoneIcon, DrinkIcon, FlagIcon, Num, OneSafe, Ordinal, ordinalHtml, PhoneIcon, SwimIcon } from "./bits.jsx";
 import { inkOn } from "./identity.js";
 import { cupStandings, cutOf, has, isPlaced, legLength, titleFor } from "../model/hudModel.js";
 import { indexList } from "../model/cupShape.js";
@@ -90,6 +90,7 @@ export function Rail({ room, bus, entrants }) {
           <span className="fs-place fs-num"><Num n={o.state === "placed" ? o.place : k + 1} /></span>
           <Chip entrant={e} size={40} />
           <span className="fs-name">{e?.name || "Rider"}</span>
+          {e?.botDriven && !e?.bot && <BotMark />}
           <StateIcons o={o} drinking={room?.drinking !== false} />
         </div>;
       })}
@@ -203,7 +204,7 @@ export function NameTags({ bus, entrants, phase, big = false }) {
       style={{ "--c":e.color || "#999", "--ink":inkOn(e.color) }}
       ref={node => { if (node) nodes.current.set(i, node); else nodes.current.delete(i); }}>
       <div className="fs-tag-state" />
-      <span className="fs-tag-name"><span className="fs-tag-place" />{e.name}</span>
+      <span className="fs-tag-name"><span className="fs-tag-place" />{e.name}{e.botDriven && !e.bot && <BotMark />}</span>
     </div>)}
   </div>;
 }
@@ -219,15 +220,27 @@ export function TitleCard({ room, geo }) {
   </div>;
 }
 
-/* ── the intro: each leg's name as its shot plays ── */
-export function IntroLower({ geo, bus }) {
-  const shot = useFrameValue(bus, frame => (frame?.camKey?.startsWith("intro:") && !frame.camKey.endsWith("grid") ? frame.shot ?? null : null));
-  const leg = shot === null ? null : geo?.legs?.[shot];
-  if (!leg) return null;
-  return <div className="fs-lower" key={shot}>
-    <span className="fs-label"><OneSafe>{`Leg ${shot + 1}`}</OneSafe></span>
-    <span className="fs-show">{leg.name}</span>
+/* ── the intro: the river from above, each leg named where it runs ── */
+export function IntroMap({ geo, bus }) {
+  const labels = useFrameValue(bus, frame => frame?.legLabels || null, (a, b) => JSON.stringify(a) === JSON.stringify(b));
+  if (!labels || !geo) return null;
+  return <div className="fs-map">
+    {labels.map(l => {
+      const leg = geo.legs[l.k];
+      if (!leg || !l.on) return null;
+      return <div key={l.k} className="fs-map-leg" style={{ left:l.x, top:l.y, animationDelay:`${200 + l.k * 280}ms` }}>
+        <span className="fs-map-num fs-num"><Num n={l.k + 1} /></span>
+        <span className="fs-map-name fs-show">{leg.name}</span>
+      </div>;
+    })}
   </div>;
+}
+
+/* ── the cut line's fight, when the camera turns to it ── */
+export function CutLamp({ bus }) {
+  const on = useFrameValue(bus, frame => frame?.camKey === "race:cut");
+  if (!on) return null;
+  return <div className="fs-cutlamp"><span className="fs-lamp is-magenta">Cut line</span></div>;
 }
 
 /* ── 3 2 1 on the countdown's beats, GO on the gun ── */
@@ -259,7 +272,7 @@ export function Arrivals({ room, entrants, through, final }) {
     fresh.forEach(row => seen.current.add(row.i));
     /* a screen that joins late does not replay old places */
     if (fresh.length > 3) return;
-    setToasts(list => [...list, ...fresh.map(row => ({ i:row.i, place:row.place, id:`${round}:${row.i}` }))].slice(-3));
+    setToasts(list => [...list, ...fresh.map(row => ({ i:row.i, place:row.place, id:`${round}:${row.i}` }))].slice(-2));
   }, [room?.results, round]);
   useEffect(() => {
     if (!toasts.length) return undefined;
@@ -324,7 +337,7 @@ export function CutBoard({ room, geo, entrants, raceField, bus, since, replayEnd
           return <div key={i} className={`fs-card fs-glass${isOut ? " is-out" : ""}${stamped ? " is-stamped" : ""}`} style={{ animationDelay:`${k * 45}ms` }}>
             <span className="fs-num"><Num n={k + 1} /></span>
             <Chip entrant={entrants[i]} size={96} out={stamped} />
-            <span className="fs-name">{entrants[i]?.name}</span>
+            <span className={`fs-name${String(entrants[i]?.name || "").length > 10 ? " is-long" : ""}`}>{entrants[i]?.name}</span>
             {stamped && <span className="fs-stamp">Out</span>}
           </div>;
         })}

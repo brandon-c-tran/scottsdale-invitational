@@ -36,7 +36,7 @@ export default function Lobby({ room, entrants, hosting, joinUrl, send }) {
   const start = () => send?.({ t:"host", cmd:"start", bots, drinking });
   return <div className="fs-lobby">
     <div className="fs-lobby-brand fs-show">Float</div>
-    {code && <div className="fs-lobby-join fs-glass">
+    {code && room?.mode !== "fieldday" && <div className="fs-lobby-join fs-glass">
       <span className="fs-label">Room</span>
       <span className="fs-lobby-code fs-show">{code}</span>
       {qr && <svg className="fs-lobby-qr" viewBox={`-2 -2 ${qr.size + 4} ${qr.size + 4}`} role="img" aria-label={`Join ${code}`}>

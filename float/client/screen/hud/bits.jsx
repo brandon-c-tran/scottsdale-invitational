@@ -37,6 +37,15 @@ export function Num({ n }) {
   return text.split(/(1)/).filter(Boolean).map((part, k) => part === "1" ? <span key={k} className="fs-one">1</span> : <React.Fragment key={k}>{part}</React.Fragment>);
 }
 
+/* a phone that went quiet: the room's bot paddles for it until it speaks again */
+export function BotMark() {
+  return <span className="fs-bot" aria-label="Bot">
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path fill="currentColor" d="M11 2h2v3h4a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3h4V2Zm-2 8.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Zm6 0a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3ZM2 10h1v5H2v-5Zm19 0h1v5h-1v-5Z" />
+    </svg>
+  </span>;
+}
+
 export function DrinkIcon(props) {
   return <svg className="fs-icon" viewBox="0 0 24 24" aria-hidden="true" {...props}>
     <path fill="currentColor" d="M7 3h10l-1 3v13a2 2 0 0 1-2 2h-4a2 2 0 0 1-2-2V6L7 3Zm2.4 6v8.5h5.2V9H9.4Z" />

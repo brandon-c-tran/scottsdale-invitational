@@ -53,7 +53,7 @@ function wakeMaterial(noise) {
         float n = texture(uNoise, vec2(vUv.x * 0.7 + uTime * 0.5 + vWake.y, y * 0.3)).a;
         float a = (arms + trail) * smoothstep(0.18, 0.62, n) * vWake.x * smoothstep(0.0, 0.1, x);
         if (a < 0.02) discard;
-        gl_FragColor = vec4(uFoam, min(1.0, a) * 0.5);
+        gl_FragColor = vec4(uFoam, min(1.0, a) * 0.4);
         #include <tonemapping_fragment>
         #include <colorspace_fragment>
         #include <fog_fragment>

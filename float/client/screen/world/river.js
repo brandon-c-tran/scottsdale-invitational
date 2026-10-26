@@ -121,8 +121,8 @@ void main() {
   float lace = flowTex(vUv, vFlow, 1.0 / 2.2, 0.4, vec2(0.3, 0.9)).b;
   float bank = smoothstep(0.85, 0.15, vEdge + (field - 0.5) * 1.4) * smoothstep(-0.95, -0.35, vEdge);
   /* white water: a few streaks in a riffle, a quarter of the surface at most */
-  float wt = 0.8 - rough * 0.1;
-  float white = smoothstep(wt, wt + 0.03, field) * min(1.0, rough * 1.6);
+  float wt = 0.78 - rough * 0.08;
+  float white = smoothstep(wt, wt + 0.07, f1) * min(1.0, rough * 1.5);
   /* the falls: sheets of white streaming down over darker water */
   float fall = smoothstep(0.2, 0.65, vSlope);
   float sA = texture(uNoise, vec2(vUv.x * 0.45, vWorld.y * 0.09 + uTime * 0.9)).a;
@@ -131,7 +131,7 @@ void main() {
   float falls = fall * (0.35 + 0.65 * sheet);
   /* churn at the foot: white there, thinning to streaks downstream */
   float ct = 0.86 - vChurn * 0.46;
-  float churn = smoothstep(ct, ct + 0.05, field) * step(0.02, vChurn);
+  float churn = smoothstep(ct, ct + 0.08, f1) * step(0.02, vChurn);
   float foam = clamp(bank * 0.85 + white + falls + churn, 0.0, 1.0);
   float lines = smoothstep(0.8, 0.93, flowTex(vUv * vec2(1.0, 0.12), vFlow, 1.0 / 5.0, 0.25, vec2(0.7, 0.1)).a)
     * clamp(vFlow * 0.25, 0.0, 0.5) * (1.0 - foam);

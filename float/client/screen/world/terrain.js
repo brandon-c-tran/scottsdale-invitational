@@ -80,8 +80,18 @@ export function terrainField(geo) {
   const wallAt = s => wall[Math.max(0, Math.min(wn - 1, Math.round(s / WS)))];
 
   const bars = geo.zones.filter(z => z.k === "bar").map(z => ({ s0:z.s0, s1:z.s1, side:z.side === -1 ? -1 : 1 }));
+  /* the desert away from the river: one gentle plain, so the canyon's rims
+     fall away to it instead of stepping where the field runs out */
+  let elevSum = 0;
+  for (let k = 0; k <= 20; k++) elevSum += geo.elevAt(geo.length * k / 20);
+  const plain = elevSum / 21 + 10;
+  const farLevel = (x, y) => plain + fbm(x * 0.004, y * 0.004, 3, 31) * 9;
   const heights = new Float32Array(count);
   const kind = new Uint8Array(count); /* 0 bed, 1 wet, 2 beach, 3 green, 4 wall, 5 rim */
+  /* continuous, so colours blend instead of stepping along the grid:
+     tone 0 wet, 1 sand, 2 scrub, 3 rim; rock 0..1 how much bare cliff shows */
+  const tone = new Float32Array(count);
+  const rock = new Float32Array(count);
   const tmp = {};
   const islands = geo.islands;
   for (let iy = 0; iy < ny; iy++) for (let ix = 0; ix < nx; ix++) {
@@ -100,10 +110,13 @@ export function terrainField(geo) {
     /* a takeout's gravel bar: a wide beach on its side */
     for (const bar of bars) if (side === bar.side && s > bar.s0 - 8 && s < bar.s1 + 8) beachW += 10 * smoothstep(bar.s0 - 8, bar.s0 + 4, s) * smoothstep(bar.s1 + 8, bar.s1 - 4, s);
     const run = wallH < 7 ? wallH * 3.2 + 4 : wallH * 0.85 + 2;
-    let h, kd;
+    let h, kd, tn = 0, rk = 0;
     if (d < -2) { h = -1.1 - Math.min(2.6, (-d - 2) * 0.16); kd = 0; }
-    else if (d < 1.2) { h = -1.1 + ((d + 2) / 3.2) * 1.45; kd = d < 0.2 ? 1 : 2; }
-    else if (d < 1.2 + beachW) { h = 0.35 + (d - 1.2) * 0.07 + noise2(px * 0.2, py * 0.2, 2) * 0.06; kd = d < 1.2 + beachW * 0.55 ? 2 : 3; }
+    else if (d < 1.2) { h = -1.1 + ((d + 2) / 3.2) * 1.45; kd = d < 0.2 ? 1 : 2; tn = smoothstep(-0.4, 1.1, d); }
+    else if (d < 1.2 + beachW) {
+      h = 0.35 + (d - 1.2) * 0.07 + noise2(px * 0.2, py * 0.2, 2) * 0.06; kd = d < 1.2 + beachW * 0.55 ? 2 : 3;
+      tn = 1 + smoothstep(beachW * 0.35, beachW * 0.95, d - 1.2 + noise2(px * 0.08, py * 0.08, 12) * 2.5);
+    }
     else {
       const x = d - 1.2 - beachW;
       const top = 0.35 + beachW * 0.07;
@@ -114,16 +127,23 @@ export function terrainField(geo) {
       h = top + wallH * (talus + cliff) + rough * smoothstep(0.1, 0.5, t);
       if (x > run) h += (x - run) * 0.03 + fbm(px * 0.012, py * 0.012, 3, 6) * 4 * smoothstep(run, run + 40, x);
       kd = t < 0.3 ? 3 : t < 0.97 ? 4 : 5;
+      tn = 2 + smoothstep(0.9, 1.2, x / run);
+      rk = smoothstep(0.16, 0.5, t) * (1 - 0.5 * smoothstep(run, run + 35, x));
     }
     let z = zw + h;
+    /* far out, the plain */
+    if (far) { z = farLevel(px, py); kd = 5; tn = 3; rk = 0; }
+    else if (d > 70) { const u = smoothstep(70, MARGIN - 10, dist); z += (farLevel(px, py) - z) * u; rk *= 1 - u; }
     for (const [ix2, iy2, r] of islands) {
       const di = Math.hypot(px - ix2, py - iy2) - r;
       if (di > 3) continue;
       const ih = di < 0 ? 0.55 + Math.min(1.8, -di * 0.22) + noise2(px * 0.3, py * 0.3, 7) * 0.25 : 0.55 - di * 0.55;
-      if (zw + ih > z) { z = zw + ih; kd = di < -1.5 ? 3 : 2; }
+      if (zw + ih > z) { z = zw + ih; kd = di < -1.5 ? 3 : 2; tn = 1 + smoothstep(-0.5, -3.5, di); rk = 0; }
     }
     heights[k] = z;
     kind[k] = kd;
+    tone[k] = tn;
+    rock[k] = rk;
   }
 
   /* one soft pass over the land (not the bed or the shore), so cliff edges
@@ -164,7 +184,7 @@ export function terrainField(geo) {
     const s = bestS[k];
     return { d:Math.sqrt(bestD2[k]) - geo.sample(s).w / 2, s, wall:wallAt(s) };
   };
-  return { x0, y0, nx, ny, step:STEP, heights, kind, heightAt, kindAt, bankInfo, wallAt };
+  return { x0, y0, nx, ny, step:STEP, heights, kind, tone, rock, heightAt, kindAt, bankInfo, wallAt };
 }
 
 const KIND_TINT = [
@@ -176,9 +196,11 @@ const KIND_TINT = [
   new THREE.Color("#9c7650"), /* rim */
 ];
 
+const TONES = [KIND_TINT[1], KIND_TINT[2], KIND_TINT[3], KIND_TINT[5]];
+
 /* tiles of the field as meshes (each its own draw, so the off-screen ones cull) */
 export function terrainMeshes(field, { glowAt, noise }) {
-  const { x0, y0, nx, ny, step, heights, kind } = field;
+  const { x0, y0, nx, ny, step, heights, kind, tone, rock } = field;
   const material = new THREE.MeshLambertMaterial({ vertexColors:true, flatShading:true });
   material.onBeforeCompile = shader => {
     shader.uniforms.uNoise = { value:noise };
@@ -230,11 +252,14 @@ totalEmissiveRadiance += uWarm * vGlow * 0.55;`);
       const x = x0 + gx * step, y = y0 + gy * step, z = heights[k];
       pos[v * 3] = x; pos[v * 3 + 1] = z; pos[v * 3 + 2] = -y;
       lowest = Math.min(lowest, z);
-      const kd = kind[k];
-      color.copy(KIND_TINT[kd]);
-      if (kd === 5) color.lerp(KIND_TINT[3], 0.25 + 0.25 * noise2(x * 0.05, y * 0.05, 4));
+      /* wet, sand, scrub, rim, blended by the continuous tone */
+      const tn = Math.max(0, Math.min(3, tone[k]));
+      const lo = Math.min(2, Math.floor(tn));
+      color.copy(TONES[lo]).lerp(TONES[lo + 1], tn - lo);
+      if (tn > 2.2) color.lerp(TONES[2], (0.25 + 0.25 * noise2(x * 0.05, y * 0.05, 4)) * (tn - 2.2) / 0.8);
+      if (kind[k] === 0) color.copy(KIND_TINT[0]);
       col[v * 3] = color.r; col[v * 3 + 1] = color.g; col[v * 3 + 2] = color.b;
-      wall[v] = kd === 4 ? 1 : kd === 5 ? 0.55 : 0;
+      wall[v] = rock[k];
       glow[v] = glowAt ? glowAt(x, y, z) : 0;
     }
     const index = [];

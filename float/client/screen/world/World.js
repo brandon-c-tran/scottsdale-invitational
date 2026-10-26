@@ -33,6 +33,7 @@ export const TIERS = Object.freeze([
 ]);
 
 const SLOW_MS = 20.5;
+const FOG_DENSITY = 0.0024;
 
 function makeEnvironment(renderer, moonDir) {
   /* a little night room for the toys' gloss: the sky, the moon, warm bulbs low round the horizon */
@@ -85,7 +86,7 @@ export function createWorld({ canvas, store, quality = "auto", onFrame, onFail, 
   const auto = forced < 0;
 
   const scene = new THREE.Scene();
-  scene.fog = new THREE.FogExp2(NIGHT.fog, 0.0024);
+  scene.fog = new THREE.FogExp2(NIGHT.fog, FOG_DENSITY);
   const camera = new THREE.PerspectiveCamera(42, 16 / 9, 0.3, 9000);
   camera.position.set(0, 40, 40);
 
@@ -293,6 +294,7 @@ export function createWorld({ canvas, store, quality = "auto", onFrame, onFail, 
     const leg = legOf(geo, room);
     const field = indexList(room?.field);
     const order = raceOrder({ field, rows:poses, results:room?.results || [], arrivals:st.arrivals });
+    B.lastOrder = order;
     const through = throughFor(room);
     const phaseElapsed = Number.isFinite(st.phaseStart) ? now - st.phaseStart : 0;
     const phaseDur = Number.isFinite(room?.endsAt) && Number.isFinite(room?.startAt) && room.endsAt > room.startAt ? room.endsAt - room.startAt : null;
@@ -309,6 +311,9 @@ export function createWorld({ canvas, store, quality = "auto", onFrame, onFail, 
       podiumAt:B.bar?.anchor, aspect:width / height,
     });
     camera.position.set(cam.eye.x, cam.eye.z, -cam.eye.y);
+    /* the fog thins as the camera climbs: the overview sees the whole river */
+    const above = cam.eye.z - geo.elevAt(geo.length / 2);
+    scene.fog.density = FOG_DENSITY * Math.min(1, Math.max(0.05, 70 / Math.max(70, above)));
     camera.lookAt(cam.look.x, cam.look.z, -cam.look.y);
     if (Math.abs(camera.fov - cam.fov) > 0.01) { camera.fov = cam.fov; camera.updateProjectionMatrix(); }
     camera.updateMatrixWorld();
@@ -343,8 +348,16 @@ export function createWorld({ canvas, store, quality = "auto", onFrame, onFail, 
         return { place:top.place, x:Math.round((projected.x * 0.5 + 0.5) * width), y:Math.round((-projected.y * 0.5 + 0.5) * height), on:projected.z < 1 };
       });
     }
+    /* the intro's map: where each leg's name goes */
+    let legLabels = null;
+    if (st.phase === "intro" && cam.key === "intro:map") {
+      legLabels = B.director.legMarks().map(m => {
+        projected.set(m.x, m.z, -m.y).project(camera);
+        return { k:m.k, x:Math.round((projected.x * 0.5 + 0.5) * width), y:Math.round((-projected.y * 0.5 + 0.5) * height), on:projected.z < 1 };
+      });
+    }
     onFrame?.({ tags:tagInfo, order, through, leg, now, drawAt, shot:cam.shot, camKey:cam.key, width, height, podium:podiumSpots,
-      replay:replaying ? { i:replaying.i } : null });
+      replay:replaying ? { i:replaying.i } : null, legLabels, cutGroup:cam.cutGroup });
     /* step down when the frame budget will not hold */
     const t = performance.now();
     frameTimes.push(dt * 1000);
@@ -387,9 +400,10 @@ export function createWorld({ canvas, store, quality = "auto", onFrame, onFail, 
         break;
       }
       case "flip":
-        if (r) {
-          const inDrop = B.geo.zonesAt(r.s ?? 0).includes("drop");
-          if (inDrop || (r.rank ?? 99) <= 3) B.director.punch({ i:e.i, kind:"flip", now:time * 1000 });
+        /* the Drop is the falls cam's; a riffle flip near the front gets a punch-in */
+        if (r && e.why !== "drop" && !B.geo.zonesAt(r.s ?? 0).includes("drop")) {
+          const rank = B.lastOrder?.find(o => o.i === e.i)?.rank ?? 99;
+          if (rank <= 3) B.director.punch({ i:e.i, kind:"flip", now:time * 1000 });
         }
         break;
       case "bump":

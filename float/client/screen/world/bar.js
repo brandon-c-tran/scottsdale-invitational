@@ -94,10 +94,10 @@ export function buildBar(geo, field) {
   /* the sign faces the river: local +x */
   sign.rotation.y = Math.PI / 2;
   sign.scale.setScalar(1.25);
-  sign.position.set(-1.6, 5.5, 0);
+  sign.position.set(-1.6, 6.6, 0);
   group.add(sign);
   const light = new THREE.PointLight("#ff4fae", 26, 26, 1.6);
-  light.position.set(1.5, 5.2, 0);
+  light.position.set(1.5, 6.2, 0);
   group.add(light);
   const deckLight = new THREE.PointLight("#ffb468", 14, 18, 1.8);
   deckLight.position.set(2.5, 3.2, 0);

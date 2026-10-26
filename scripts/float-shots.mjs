@@ -13,6 +13,9 @@
        --gpu              a real GPU (ANGLE D3D11) instead of SwiftShader, for frame rates
        --live <ms>        let the clock run that long after the jump (no freeze), e.g. for fps
        --low-power        ask WebGL for the low-power (integrated) GPU, with --gpu
+       --real <base>      a real room on a running dev server: Start with bots, a shot every --every ms
+                          (--room test, --bots 12, --every 8000, --for 420000), into <out>/real
+       --eval <file>      run that expression in the page after each shot and print it
        --luid <hi,lo>     with --gpu: that adapter (HKLM\SOFTWARE\Microsoft\DirectX\{...}\AdapterLuid; "0,70294")
 
    Prints each PNG's path with the renderer's draw calls, triangles and fps.
@@ -28,7 +31,7 @@ import { launchChrome, CHROME_PATH } from "./headless-chrome.mjs";
 
 const ROOT = fileURLToPath(new URL("../", import.meta.url));
 const args = process.argv.slice(2);
-const flags = new Set(["--out", "--quality", "--wait", "--live", "--luid"]);
+const flags = new Set(["--out", "--quality", "--wait", "--live", "--luid", "--real", "--room", "--every", "--for", "--bots", "--eval"]);
 const value = name => { const i = args.indexOf(name); return i >= 0 ? args[i + 1] : null; };
 const positional = args.filter((arg, i) => !arg.startsWith("--") && !flags.has(args[i - 1]));
 const OUT = path.resolve(ROOT, value("--out") || ".impeccable/review/float");
@@ -131,6 +134,37 @@ chrome.on(m => {
 });
 
 const results = [];
+/* --real <base>: a real room on a running dev server (npm run dev -- --port 5182):
+   open /float?room=<--room>, add bots, Start, and take a shot every --every ms for --for ms */
+const REAL = value("--real");
+if (REAL) {
+  const roomId = value("--room") || "test";
+  const every = Number(value("--every") || 8000), total = Number(value("--for") || 420000);
+  const bots = Number(value("--bots") || 12);
+  try {
+    await chrome.load(`${REAL.replace(/\/$/, "")}/float?room=${roomId}&quality=${QUALITY}`, { timeout:60000 });
+    if (!await chrome.until("document.body.dataset.ready === '1'", { timeout:90000, every:250 })) throw new Error("the screen never drew");
+    for (const type of ["mousePressed", "mouseReleased"]) await chrome.cdp("Input.dispatchMouseEvent", { type, x:960, y:540, button:"left", clickCount:1 });
+    await chrome.evaluate(`(async () => {
+      const plus = document.querySelector('[aria-label="More bots"]'), minus = document.querySelector('[aria-label="Fewer bots"]');
+      for (let k = 0; k < 20 && minus && !minus.disabled; k++) { minus.click(); await new Promise(r => setTimeout(r, 30)); }
+      for (let k = 0; k < ${bots} && plus && !plus.disabled; k++) { plus.click(); await new Promise(r => setTimeout(r, 30)); }
+      await new Promise(r => setTimeout(r, 100));
+      document.querySelector(".fs-start")?.click();
+    })()`);
+    const end = Date.now() + total;
+    for (let n = 0; Date.now() < end; n++) {
+      await sleep(every);
+      const phase = await chrome.evaluate("document.querySelector('.fs-root')?.dataset.phase || 'none'");
+      const file = await chrome.screenshot(path.join(OUT, "real", `${String(n).padStart(3, "0")}-${phase}.png`));
+      const stats = await chrome.evaluate("window.__floatStats || null");
+      console.log(`${path.relative(ROOT, file)}  ${stats ? `calls ${stats.calls} tris ${stats.triangles} fps ${stats.fps} tier ${stats.tier}` : ""}`);
+      if (phase === "feedback" && n > 3) break;
+    }
+  } finally { await chrome.close(); await server.close(); }
+  if (errors.length) { console.error([...new Set(errors)].map(e => `  ${e}`).join("\n")); process.exitCode = 1; }
+  process.exit();
+}
 try {
   for (const shot of SHOTS) {
     const query = new URLSearchParams({ mock:"1", room:"bcdf", shot, quality:QUALITY });
@@ -149,6 +183,7 @@ try {
     await sleep(LIVE ?? WAIT);
     const file = await chrome.screenshot(path.join(OUT, `${shot}${FLAT ? "-flat" : ""}${QUALITY !== "high" ? `-${QUALITY}` : ""}.png`));
     const stats = await chrome.evaluate("window.__floatStats || null");
+    if (value("--eval")) console.log(`${shot} eval:`, await chrome.evaluate(fs.readFileSync(path.resolve(value("--eval")), "utf8")));
     results.push({ shot, file, stats });
     console.log(`${path.relative(ROOT, file)}  ${stats ? `calls ${stats.calls} tris ${stats.triangles} fps ${stats.fps} tier ${stats.tier}${stats.gpu ? ` (${stats.gpu.slice(0, 60)})` : ""}` : ""}`);
   }

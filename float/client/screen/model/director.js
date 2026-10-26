@@ -5,11 +5,12 @@
    the river cuts instead of whipping.
 
      lobby      a slow orbit over the put-in
-     intro      a shot per leg down the whole river, then down onto the grid
+     intro      the whole river from above with the legs named, then a dive onto the grid
      grid       behind the grid, low, pushing in
      countdown  closer and lower
      race       the pack from the leader back to the cut line's fight, looking
-                downstream with look-ahead, rising as it spreads
+                downstream with look-ahead, rising as it spreads; spread out,
+                the leader's group and the fight for the last place take turns
      arrival    once someone is in: the takeout from downstream, facing the
                 riders coming home
      cut        the takeout, then a flight down the next leg to its grid
@@ -21,16 +22,6 @@ const ease = t => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
 const smooth = t => t * t * (3 - 2 * t);
 
 export const FOV = 42;
-
-/* the most telling stretch of a leg, for its intro shot */
-function legFeature(geo, leg) {
-  const order = ["drop", "whirlpool", "split", "narrows", "riffle", "pool", "bar"];
-  for (const kind of order) {
-    const z = geo.zones.find(item => item.k === kind && item.s1 > leg.grid && item.s0 < leg.finish);
-    if (z) return { kind, s:clamp((Math.max(z.s0, leg.grid) + Math.min(z.s1, leg.finish)) / 2, leg.grid, leg.finish) };
-  }
-  return { kind:"river", s:(leg.grid + leg.finish) / 2 };
-}
 
 export function createDirector(geo, { wallAt = () => 8, groundAt = null, falls = [] } = {}) {
   const eye = { x:0, y:0, z:30 }, look = { x:0, y:0, z:0 };
@@ -52,15 +43,6 @@ export function createDirector(geo, { wallAt = () => 8, groundAt = null, falls =
     return { x:c.x, y:c.y, z:geo.elevAt(s - back) + Math.min(floor, up + 18) };
   };
 
-  function introShots(legs, round) {
-    const shots = [];
-    legs.forEach((leg, k) => {
-      const f = legFeature(geo, leg);
-      shots.push({ leg:k, kind:f.kind, s:f.s });
-    });
-    return { shots, grid:legs[Math.min(legs.length - 1, round)] };
-  }
-
   /* where the camera wants to be this frame */
   function want(input) {
     const { phase, t = 0, dur = null, leg, riders = [], through = 0, round = 0, nextLeg = null } = input;
@@ -75,21 +57,18 @@ export function createDirector(geo, { wallAt = () => 8, groundAt = null, falls =
         return { eye:{ x:c.x + Math.cos(a) * radius, y:c.y + Math.sin(a) * radius, z:c.z + 13 }, look:{ x:c.x, y:c.y, z:c.z + 1 }, fov:44, key:"lobby" };
       }
       case "intro": {
-        const total = Math.max(6000, dur || 15000);
-        const { shots, grid } = introShots(legs, round);
-        const swoop = Math.min(3200, total * 0.24);
-        const each = (total - swoop) / Math.max(1, shots.length);
-        if (t < total - swoop) {
-          const k = Math.min(shots.length - 1, Math.floor(t / each));
-          const u = (t - k * each) / each;
-          const shot = shots[k];
-          return { ...featureShot(shot, u), key:`intro:${k}`, cut:true, shot:k };
-        }
+        /* the whole river from above, the legs named on it, then a dive onto the grid */
+        const total = Math.max(5000, dur || 8000);
+        const g = legs[Math.min(legs.length - 1, round)] || L;
+        const map = overviewShot(time, input.aspect || 16 / 9);
+        const swoop = Math.min(3200, total * 0.4);
+        if (t < total - swoop) return { ...map, key:"intro:map", cut:true, shot:"map" };
         const u = smooth(clamp((t - (total - swoop)) / swoop, 0, 1));
-        const g = grid || L;
-        const from = { eye:behind(g.grid, 70, 42), look:at(g.grid + 30) };
         const to = gridShot(g, 0);
-        return { eye:mix3(from.eye, to.eye, u), look:mix3(from.look, to.look, u), fov:lerp(48, FOV, u), key:"intro:grid", cut:true, shot:shots.length };
+        /* the dive arcs: it stays high, then drops onto the grid */
+        const eyeP = mix3(map.eye, to.eye, u);
+        eyeP.z += Math.sin(u * Math.PI) * 30 * (1 - u);
+        return { eye:eyeP, look:mix3(map.look, to.look, Math.min(1, u * 1.3)), fov:lerp(map.fov, FOV, u), key:"intro:dive", shot:"dive" };
       }
       case "grid": return { ...gridShot(L, time), key:"grid" };
       case "countdown": {
@@ -124,23 +103,30 @@ export function createDirector(geo, { wallAt = () => 8, groundAt = null, falls =
 
   function mix3(a, b, u) { return { x:lerp(a.x, b.x, u), y:lerp(a.y, b.y, u), z:lerp(a.z, b.z, u) }; }
 
-  function featureShot(shot, u) {
-    const s = shot.s;
-    switch (shot.kind) {
-      case "drop": {
-        /* below the falls, looking back up at them, then rising to show the bar */
-        const e = at(s + 34 - u * 10, 6, 6 + u * 10);
-        return { eye:e, look:at(s - 4 + u * 30, 0, 4 - u * 2), fov:46 };
-      }
-      case "whirlpool": {
-        const c = at(s);
-        const a = -1.2 + u * 0.9;
-        return { eye:{ x:c.x + Math.cos(a) * 46, y:c.y + Math.sin(a) * 46, z:c.z + 34 }, look:{ x:c.x, y:c.y, z:c.z }, fov:46 };
-      }
-      case "narrows": return { eye:behind(s - 20 + u * 40, 22, 9), look:at(s + u * 40 + 14, 0, 2), fov:48 };
-      case "split": return { eye:behind(s - 30 + u * 30, 30, 30), look:at(s + u * 20), fov:46 };
-      default: return { eye:behind(s - 30 + u * 46, 40, 26), look:at(s + 10 + u * 46), fov:46 };
+  /* the whole course in one frame, from the south and high, drifting in */
+  let overview = null;
+  function overviewShot(time, aspect) {
+    if (!overview || overview.aspect !== aspect) {
+      const b = geo.bounds;
+      const zMid = geo.elevAt(geo.length / 2);
+      const corners = [[b.minX, b.minY], [b.maxX, b.minY], [b.minX, b.maxY], [b.maxX, b.maxY]].map(([x, y]) => ({ x, y, z:zMid }));
+      const C = { x:(b.minX + b.maxX) / 2, y:(b.minY + b.maxY) / 2, z:zMid };
+      const yaw = Math.PI / 2, pitch = 0.95, fovDeg = 40;
+      const { D, fwd } = frameDistance(corners, C, yaw, pitch, fovDeg, aspect, { left:0.86, right:0.86, top:0.78, bottom:0.78 }, 60, 2600);
+      overview = { aspect, C, fwd, D, fov:fovDeg };
     }
+    const o = overview;
+    const k = 1 - Math.min(0.08, time * 0.012);
+    const drift = Math.sin(time * 0.3) * o.D * 0.01;
+    return { eye:{ x:o.C.x - o.fwd.x * o.D * k + drift, y:o.C.y - o.fwd.y * o.D * k, z:o.C.z - o.fwd.z * o.D * k }, look:{ ...o.C }, fov:o.fov };
+  }
+  /* where a leg's name sits on the overview: its middle, a little above the water */
+  function legMarks() {
+    return geo.legs.map((leg, k) => {
+      const s = (leg.grid + leg.finish) / 2;
+      const p = geo.sample(s);
+      return { k, x:p.x, y:p.y, z:geo.elevAt(s) + 6 };
+    });
   }
 
   function gridShot(L, time) {
@@ -180,21 +166,42 @@ export function createDirector(geo, { wallAt = () => 8, groundAt = null, falls =
     return { D:Math.min(maxD, D), fwd, right };
   }
 
-  /* raise the eye until nothing of the canyon stands between it and C */
-  function clearView(eyeP, C) {
-    if (!groundAt) return eyeP;
-    for (let k = 0; k < 8; k++) {
-      let blocked = false;
-      for (let j = 1; j <= 7; j++) {
-        const t = j / 8;
-        const x = eyeP.x + (C.x - eyeP.x) * t, y = eyeP.y + (C.y - eyeP.y) * t, z = eyeP.z + (C.z - eyeP.z) * t;
-        if (groundAt(x, y) > z - 1.2) { blocked = true; break; }
-      }
-      const floor = groundAt(eyeP.x, eyeP.y) + 3;
-      if (!blocked && eyeP.z >= floor) return eyeP;
-      eyeP = { x:eyeP.x + (C.x - eyeP.x) * 0.12, y:eyeP.y + (C.y - eyeP.y) * 0.12, z:Math.max(eyeP.z + 4, floor) };
+  /* frame a group: heading from the river upstream of it, so the eye sits
+     over the water; distance from the multi-target framer; when the canyon
+     is in the way the camera tilts up, it never comes closer */
+  function frameGroup(group, { lookAhead = 0, aspect, leader = null }) {
+    const points = group.map(r => ({ x:r.x, y:r.y, z:geo.elevAt(r.s) + 1.6 }));
+    const sMax = Math.max(...group.map(r => r.s)), sMin = Math.min(...group.map(r => r.s));
+    if (lookAhead > 0) {
+      const ahead = at(sMax + lookAhead, (leader?.lat ?? 0) * 0.6, 0);
+      points.push({ x:ahead.x, y:ahead.y, z:ahead.z });
     }
-    return eyeP;
+    const n = points.length;
+    const C = points.reduce((acc, p) => ({ x:acc.x + p.x / n, y:acc.y + p.y / n, z:acc.z + p.z / n }), { x:0, y:0, z:0 });
+    const span = sMax - sMin;
+    const fovNow = lerp(FOV, 46, clamp(span / 90, 0, 1));
+    let pitch = 0.3 + clamp(span / 300, 0, 0.1);
+    let D = 30, yaw = 0;
+    for (let it = 0; it < 3; it++) {
+      const back = at(Math.max(0, sMin - D * Math.cos(pitch) * 0.7));
+      yaw = Math.atan2(C.y - back.y, C.x - back.x);
+      D = frameDistance(points, C, yaw, pitch, fovNow, aspect, SAFE, 20, 120).D;
+    }
+    const eyeAt = pt => ({ x:C.x - Math.cos(pt) * Math.cos(yaw) * D, y:C.y - Math.cos(pt) * Math.sin(yaw) * D, z:C.z + Math.sin(pt) * D });
+    let eyeP = eyeAt(pitch);
+    if (groundAt) {
+      for (let k = 0; k < 7 && blocked(eyeP, C); k++) { pitch = Math.min(1.25, pitch + 0.1); eyeP = eyeAt(pitch); }
+      eyeP.z = Math.max(eyeP.z, groundAt(eyeP.x, eyeP.y) + 4, C.z + 6);
+    }
+    return { eye:eyeP, look:C, fov:fovNow };
+  }
+  function blocked(eyeP, C) {
+    for (let j = 1; j <= 8; j++) {
+      const t = j / 9;
+      const x = eyeP.x + (C.x - eyeP.x) * t, y = eyeP.y + (C.y - eyeP.y) * t, z = eyeP.z + (C.z - eyeP.z) * t;
+      if (groundAt(x, y) > z - 1.5) return true;
+    }
+    return groundAt(eyeP.x, eyeP.y) > eyeP.z - 3;
   }
 
   const SAFE = { left:0.72, right:0.42, top:0.48, bottom:0.5 };
@@ -209,7 +216,7 @@ export function createDirector(geo, { wallAt = () => 8, groundAt = null, falls =
 
   function raceShot(input, L, time) {
     const { riders = [], through = 0, aspect = 16 / 9 } = input;
-    const water = riders.filter(r => r.state === "racing" && Number.isFinite(r.s));
+    const water = riders.filter(r => r.state === "racing" && Number.isFinite(r.s) && Number.isFinite(r.x));
     const home = riders.filter(r => r.state !== "racing");
     const ranked = water.slice().sort((a, b) => a.rank - b.rank);
     /* someone is in: the takeout, facing the riders coming home */
@@ -222,7 +229,8 @@ export function createDirector(geo, { wallAt = () => 8, groundAt = null, falls =
       const yaw = Math.atan2(-finish.ty, -finish.tx);
       const pitch = 0.32;
       const { D, fwd } = frameDistance(points, C, yaw, pitch, 44, aspect, SAFE, 20, 120);
-      const eyeP = clearView({ x:C.x - fwd.x * D, y:C.y - fwd.y * D, z:C.z - fwd.z * D }, C);
+      const eyeP = { x:C.x - fwd.x * D, y:C.y - fwd.y * D, z:C.z - fwd.z * D };
+      if (groundAt) eyeP.z = Math.max(eyeP.z, groundAt(eyeP.x, eyeP.y) + 4);
       return { eye:eyeP, look:C, fov:44, key:"arrival" };
     }
     if (!water.length) return { ...takeoutShot(L, riders, time), key:"arrival" };
@@ -233,31 +241,23 @@ export function createDirector(geo, { wallAt = () => 8, groundAt = null, falls =
       const near = ranked.some(r => r.rank <= through + 1 && r.s > f.lip - 26 && r.s < f.foot + 6);
       if (near && leader.s < f.foot + 22) return fallsShot(f, time);
     }
-    /* the pack: leader back to the first rider outside the cut */
+    /* the leader back to the first rider outside the cut */
     const cutRank = Math.max(1, Math.min(through + 1, ranked[ranked.length - 1].rank));
-    let fight = ranked.filter(r => r.rank <= cutRank);
-    /* never stretch past what reads: the leader and the fight first */
-    const sMax = Math.max(...fight.map(r => r.s));
-    fight = fight.filter(r => r.s >= sMax - 110);
-    const sMin = Math.min(...fight.map(r => r.s));
-    const span = sMax - sMin;
-    const points = fight.map(r => ({ x:r.x, y:r.y, z:geo.elevAt(r.s) + 1.6 }));
-    /* the leader's look-ahead: the river just past them */
-    const ahead = at(sMax + 10 + Math.min(14, span * 0.2), leader.lat || 0, 0);
-    points.push({ x:ahead.x, y:ahead.y, z:ahead.z });
-    const wsum = points.length + 1;
-    const C = points.reduce((acc, p) => ({ x:acc.x + p.x / wsum, y:acc.y + p.y / wsum, z:acc.z + p.z / wsum }),
-      { x:leader.x / wsum, y:leader.y / wsum, z:(geo.elevAt(leader.s) + 1) / wsum });
-    /* heading: from the river upstream of the pack toward its centre, so the eye stays over the water */
-    const back = at(sMin - 24);
-    const yaw = Math.atan2(C.y - back.y, C.x - back.x);
-    const pitch = 0.3 + clamp(span / 160, 0, 0.18);
-    const fovNow = lerp(FOV, 46, clamp(span / 110, 0, 1));
-    const { D, fwd, right } = frameDistance(points, C, yaw, pitch, fovNow, aspect, SAFE, 18, 130);
-    let eyeP = { x:C.x - fwd.x * D, y:C.y - fwd.y * D, z:C.z - fwd.z * D };
-    void right;
-    eyeP = clearView(eyeP, C);
-    return { eye:eyeP, look:C, fov:fovNow, key:"race" };
+    const fight = ranked.filter(r => r.rank <= cutRank);
+    const sMax = Math.max(...fight.map(r => r.s)), sMin = Math.min(...fight.map(r => r.s));
+    const lookAhead = 10;
+    /* one shot while it reads; spread out, the leader's group and the fight
+       for the last place through take turns (7 s and 5 s) */
+    const final = through >= ranked.length;
+    if (sMax - sMin <= 38 || final) return { ...frameGroup(fight, { lookAhead, aspect, leader }), key:"race" };
+    const onCut = time % 12 >= 7;
+    if (!onCut) {
+      const front = fight.filter(r => r.s >= sMax - 22);
+      return { ...frameGroup(front, { lookAhead, aspect, leader }), key:"race:front" };
+    }
+    const bubble = ranked.find(r => r.rank === Math.min(through, ranked[ranked.length - 1].rank)) || ranked[ranked.length - 1];
+    const group = ranked.filter(r => Math.abs(r.s - bubble.s) <= 18 && r.rank >= through - 1 && r.rank <= through + 2);
+    return { ...frameGroup(group.length ? group : [bubble], { lookAhead:6, aspect, leader:bubble }), key:"race:cut", cutGroup:group.map(r => r.i) };
   }
 
   function podiumShot(input, time, wide) {
@@ -300,12 +300,13 @@ export function createDirector(geo, { wallAt = () => 8, groundAt = null, falls =
     const changed = key !== mode;
     const far = Math.hypot(w.eye.x - eye.x, w.eye.y - eye.y) > 160;
     /* intro shots, the next-leg flight and the falls cam are their own takes: cut to them, and back */
-    const take = k => /^(intro:\d|cut:next|falls|replay)/.test(k || "");
-    if (!primed || (changed && (take(key) || /^(falls|replay)/.test(mode || ""))) || far) {
+    const take = k => /^(intro:map|cut:next|falls|replay)/.test(k || "");
+    const swap = (key === "race:cut" && mode === "race:front") || (key === "race:front" && mode === "race:cut");
+    if (!primed || (changed && (take(key) || swap || /^(falls|replay)/.test(mode || ""))) || far) {
       /* intro shots and the next-leg flight are their own takes: cut, then hold their track */
       Object.assign(eye, w.eye); Object.assign(look, w.look); fov = w.fov; primed = true;
     } else {
-      const fast = /^(intro|cut:next|podium)/.test(key);
+      const fast = /^(intro|cut:next|podium)/.test(key) && key !== "intro:dive";
       const rateEye = fast ? 9 : key === "arrival" ? 1.4 : /^moment/.test(key) ? 3.2 : 1.9;
       const rateLook = fast ? 9 : key === "arrival" ? 1.8 : /^moment/.test(key) ? 4.5 : 2.6;
       const ke = 1 - Math.exp(-dt * rateEye), kl = 1 - Math.exp(-dt * rateLook);
@@ -314,11 +315,11 @@ export function createDirector(geo, { wallAt = () => 8, groundAt = null, falls =
       fov += (w.fov - fov) * kl;
     }
     mode = key;
-    return { eye, look, fov, key, shot:w.shot };
+    return { eye, look, fov, key, shot:w.shot, cutGroup:w.cutGroup || null };
   }
 
   return {
-    update, punch,
+    update, punch, legMarks,
     cut() { primed = false; },
     get mode() { return mode; },
   };

@@ -17,7 +17,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createScreenStore } from "./model/screenStore.js";
 import { indexList, throughFor } from "./model/cupShape.js";
 import { useFloatScreenSound, useFloatSoundUnlockNeeded, unlockFloatSound, PODIUM_BEATS } from "../sound/index.js";
-import { Arrivals, CapClock, Countdown, CutBoard, Feedback, IntroLower, NameTags, Plate, Podium, Rail, ReplayLamp, Ribbon, TitleCard } from "./hud/Hud.jsx";
+import { Arrivals, CapClock, Countdown, CutBoard, CutLamp, Feedback, IntroMap, NameTags, Plate, Podium, Rail, ReplayLamp, Ribbon, TitleCard } from "./hud/Hud.jsx";
 import Lobby from "./hud/Lobby.jsx";
 import { SoundIcon } from "./hud/bits.jsx";
 import "./screen.css";
@@ -131,6 +131,8 @@ export default function FloatScreen({ room = "test", hosting = false, joinUrl = 
         if (!drawer) { fail(); return; }
         drawRef.current = drawer;
         drawer.resize(sizeRef.current.w, sizeRef.current.h);
+        /* for the shots script and a console: the world's own handle */
+        try { window.__floatWorld = drawer; } catch {}
       }).catch(error => { console.error("Float world", error); fail(); });
     } else {
       import("./flat/FlatMap.js").then(mod => {
@@ -191,12 +193,13 @@ export default function FloatScreen({ room = "test", hosting = false, joinUrl = 
     {view === "3d" ? <canvas key="gl" className="fs-canvas" ref={canvasRef} /> : <canvas key="flat" className="fs-canvas" ref={flatRef} />}
     <div className="fs-hud">
       {phase === "lobby" && <Lobby room={roomMsg} entrants={entrants} hosting={hosting && roomMsg?.mode !== "fieldday"} joinUrl={joinUrl} send={send} />}
-      {phase === "intro" && <IntroLower geo={geo} bus={bus} />}
+      {phase === "intro" && <IntroMap geo={geo} bus={bus} />}
       {(phase === "grid" || phase === "countdown" || phase === "race") && <NameTags bus={bus} entrants={entrants} phase={phase} big={phase !== "race"} />}
       {phase === "grid" && <TitleCard room={roomMsg} geo={geo} />}
       {phase === "race" && <>
         <Plate room={roomMsg} geo={geo} />
         <CapClock room={roomMsg} bus={bus} />
+        <CutLamp bus={bus} />
         <Rail room={roomMsg} bus={bus} entrants={entrants} />
         <Ribbon room={roomMsg} geo={geo} bus={bus} entrants={entrants} />
         <Arrivals room={roomMsg} entrants={entrants} through={through} final={final} />

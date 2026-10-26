@@ -63,7 +63,8 @@ const memoryCtx = () => {
 /* the moments a shot can open on: when the observer has seen it, and how long after */
 const SHOTS = {
   lobby:{ lobby:true },
-  intro:{ when:o => o.phase === "intro", after:3600 },
+  intro:{ when:o => o.phase === "intro", after:2400 },
+  dive:{ when:o => o.phase === "intro", after:5600 },
   grid:{ when:o => o.phase === "grid" && o.round === 0, after:2200 },
   countdown:{ when:o => o.phase === "countdown" && o.round === 0, after:1300 },
   go:{ when:o => o.phase === "race" && o.round === 0, after:500 },

@@ -265,9 +265,18 @@ export function buildDressing(geo, field, plan, { glowTex }) {
   group.add(mesas);
 
   /* the desert past the canyon, under the fog */
-  const floor = new THREE.Mesh(keep(new THREE.CircleGeometry(5200, 32)), keep(new THREE.MeshLambertMaterial({ color:"#5c3a26" })));
-  floor.rotation.x = -Math.PI / 2;
-  floor.position.set(cx, Math.min(...[0, 0.25, 0.5, 0.75, 1].map(t => geo.elevAt(geo.length * t))) - 2, -cy);
+  /* the plain past the canyon's field: a sheet with the field cut out of it,
+     so it never covers the river, at the level the field's edges fall to */
+  const fx0 = field.x0, fy0 = field.y0, fx1 = field.x0 + (field.nx - 1) * field.step, fy1 = field.y0 + (field.ny - 1) * field.step;
+  const outer = new THREE.Shape([[-6000, -6000], [6000, -6000], [6000, 6000], [-6000, 6000]].map(([x, y]) => new THREE.Vector2(cx + x, cy + y)));
+  outer.holes.push(new THREE.Path([[fx0 + 1, fy0 + 1], [fx0 + 1, fy1 - 1], [fx1 - 1, fy1 - 1], [fx1 - 1, fy0 + 1]].map(([x, y]) => new THREE.Vector2(x, y))));
+  const floorGeo = keep(new THREE.ShapeGeometry(outer));
+  /* the shape is in (x, y); lay it down as (x, plain, -y) */
+  floorGeo.rotateX(-Math.PI / 2);
+  const floor = new THREE.Mesh(floorGeo, keep(new THREE.MeshLambertMaterial({ color:"#9c7650" })));
+  let edgeSum = 0, edgeN = 0;
+  for (let ix = 0; ix < field.nx; ix += 8) { edgeSum += field.heights[ix] + field.heights[(field.ny - 1) * field.nx + ix]; edgeN += 2; }
+  floor.position.y = edgeSum / Math.max(1, edgeN) - 0.6;
   floor.renderOrder = -4;
   group.add(floor);
 

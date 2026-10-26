@@ -32,7 +32,7 @@ function legFeature(geo, leg) {
   return { kind:"river", s:(leg.grid + leg.finish) / 2 };
 }
 
-export function createDirector(geo, { wallAt = () => 8 } = {}) {
+export function createDirector(geo, { wallAt = () => 8, groundAt = null, falls = [] } = {}) {
   const eye = { x:0, y:0, z:30 }, look = { x:0, y:0, z:0 };
   let fov = FOV;
   let primed = false;
@@ -151,38 +151,105 @@ export function createDirector(geo, { wallAt = () => 8 } = {}) {
     return { eye:e, look:lookAt, fov:wide ? 44 : 42 };
   }
 
+  /* multi-target framing: given a heading and pitch, how far back the eye
+     must sit (from centre C) so every target lands inside the safe box, in
+     NDC fractions of the half-frame (the HUD owns the edges) */
+  function frameDistance(points, C, yaw, pitch, fovDeg, aspect, safe, minD = 16, maxD = 150) {
+    const cp = Math.cos(pitch), sp = Math.sin(pitch);
+    const fwd = { x:cp * Math.cos(yaw), y:cp * Math.sin(yaw), z:-sp };
+    const right = { x:Math.sin(yaw), y:-Math.cos(yaw), z:0 };
+    const up = { x:sp * Math.cos(yaw), y:sp * Math.sin(yaw), z:cp };
+    const tanV = Math.tan((fovDeg * Math.PI) / 360), tanH = tanV * aspect;
+    let D = minD;
+    for (const p of points) {
+      const vx = p.x - C.x, vy = p.y - C.y, vz = (p.z ?? C.z) - C.z;
+      const r = vx * right.x + vy * right.y;
+      const u = vx * up.x + vy * up.y + vz * up.z;
+      const f = vx * fwd.x + vy * fwd.y + vz * fwd.z;
+      D = Math.max(D, (r >= 0 ? r / (safe.right * tanH) : -r / (safe.left * tanH)) - f);
+      D = Math.max(D, (u >= 0 ? u / (safe.top * tanV) : -u / (safe.bottom * tanV)) - f);
+    }
+    return { D:Math.min(maxD, D), fwd, right };
+  }
+
+  /* raise the eye until nothing of the canyon stands between it and C */
+  function clearView(eyeP, C) {
+    if (!groundAt) return eyeP;
+    for (let k = 0; k < 8; k++) {
+      let blocked = false;
+      for (let j = 1; j <= 7; j++) {
+        const t = j / 8;
+        const x = eyeP.x + (C.x - eyeP.x) * t, y = eyeP.y + (C.y - eyeP.y) * t, z = eyeP.z + (C.z - eyeP.z) * t;
+        if (groundAt(x, y) > z - 1.2) { blocked = true; break; }
+      }
+      const floor = groundAt(eyeP.x, eyeP.y) + 3;
+      if (!blocked && eyeP.z >= floor) return eyeP;
+      eyeP = { x:eyeP.x + (C.x - eyeP.x) * 0.12, y:eyeP.y + (C.y - eyeP.y) * 0.12, z:Math.max(eyeP.z + 4, floor) };
+    }
+    return eyeP;
+  }
+
+  const SAFE = { left:0.72, right:0.42, top:0.48, bottom:0.5 };
+
+  /* the falls: a fixed camera below the lip, riders coming over toward it */
+  function fallsShot(f, time) {
+    const foot = at(f.foot + 24, Math.sin(time * 0.3) * 1.5 + 4, 0);
+    const lip = at(f.lip, 0, 0);
+    const eyeP = { x:foot.x, y:foot.y, z:geo.elevAt(f.foot) + 5.5 };
+    return { eye:eyeP, look:{ x:lip.x, y:lip.y, z:geo.elevAt(f.lip) + 0.5 }, fov:44, key:"falls" };
+  }
+
   function raceShot(input, L, time) {
-    const { riders = [], through = 0 } = input;
+    const { riders = [], through = 0, aspect = 16 / 9 } = input;
     const water = riders.filter(r => r.state === "racing" && Number.isFinite(r.s));
     const home = riders.filter(r => r.state !== "racing");
+    const ranked = water.slice().sort((a, b) => a.rank - b.rank);
     /* someone is in: the takeout, facing the riders coming home */
     if (home.length && water.length) {
-      const closest = water.reduce((best, r) => (r.s > best.s ? r : best), water[0]);
-      const chasing = water.filter(r => r.rank <= through + 1);
-      const tail = Math.min(...(chasing.length ? chasing : [closest]).map(r => r.s));
-      const reach = clamp(L.finish - tail, 10, 90);
-      const e = at(L.finish + 14 + reach * 0.15, Math.sin(time * 0.2) * 3, 7 + reach * 0.32);
-      const lookP = at(L.finish - reach * 0.55, 0, 0);
-      return { eye:e, look:lookP, fov:44, key:"arrival" };
+      const chasing = ranked.filter(r => r.rank <= through + 1);
+      const fight = chasing.length ? chasing : ranked.slice(0, 1);
+      const finish = at(L.finish);
+      const points = [{ x:finish.x, y:finish.y, z:finish.z }, ...fight.map(r => ({ x:r.x, y:r.y, z:geo.elevAt(r.s) + 1.5 }))];
+      const C = points.reduce((acc, p) => ({ x:acc.x + p.x / points.length, y:acc.y + p.y / points.length, z:acc.z + p.z / points.length }), { x:0, y:0, z:0 });
+      const yaw = Math.atan2(-finish.ty, -finish.tx);
+      const pitch = 0.32;
+      const { D, fwd } = frameDistance(points, C, yaw, pitch, 44, aspect, SAFE, 20, 120);
+      const eyeP = clearView({ x:C.x - fwd.x * D, y:C.y - fwd.y * D, z:C.z - fwd.z * D }, C);
+      return { eye:eyeP, look:C, fov:44, key:"arrival" };
     }
     if (!water.length) return { ...takeoutShot(L, riders, time), key:"arrival" };
+    /* the falls, while the fight goes over them */
+    const leader = ranked[0];
+    for (const f of falls) {
+      if (f.lip < L.grid || f.foot > L.finish + 5) continue;
+      const near = ranked.some(r => r.rank <= through + 1 && r.s > f.lip - 26 && r.s < f.foot + 6);
+      if (near && leader.s < f.foot + 22) return fallsShot(f, time);
+    }
     /* the pack: leader back to the first rider outside the cut */
-    const ranked = water.slice().sort((a, b) => a.rank - b.rank);
-    const front = ranked[0];
     const cutRank = Math.max(1, Math.min(through + 1, ranked[ranked.length - 1].rank));
-    const inFight = ranked.filter(r => r.rank <= cutRank);
-    const sMax = Math.max(...inFight.map(r => r.s));
-    let sMin = Math.min(...inFight.map(r => r.s));
+    let fight = ranked.filter(r => r.rank <= cutRank);
     /* never stretch past what reads: the leader and the fight first */
-    if (sMax - sMin > 120) sMin = sMax - 120;
+    const sMax = Math.max(...fight.map(r => r.s));
+    fight = fight.filter(r => r.s >= sMax - 110);
+    const sMin = Math.min(...fight.map(r => r.s));
     const span = sMax - sMin;
-    const lat = inFight.reduce((sum, r) => sum + (r.lat || 0), 0) / inFight.length;
-    const sFocus = sMin + span * 0.62 + 7;
-    const dist = clamp(span * 0.6 + 20, 22, 90);
-    const up = dist * 0.33 + 2.5;
-    void front;
-    /* look a little past the pack: the river ahead and the horizon stay in frame */
-    return { eye:behind(sFocus, dist * 0.9, up, lat * 0.4), look:at(sFocus + 6 + dist * 0.06, lat * 0.5, 0), fov:lerp(FOV, 46, clamp(span / 110, 0, 1)), key:"race" };
+    const points = fight.map(r => ({ x:r.x, y:r.y, z:geo.elevAt(r.s) + 1.6 }));
+    /* the leader's look-ahead: the river just past them */
+    const ahead = at(sMax + 10 + Math.min(14, span * 0.2), leader.lat || 0, 0);
+    points.push({ x:ahead.x, y:ahead.y, z:ahead.z });
+    const wsum = points.length + 1;
+    const C = points.reduce((acc, p) => ({ x:acc.x + p.x / wsum, y:acc.y + p.y / wsum, z:acc.z + p.z / wsum }),
+      { x:leader.x / wsum, y:leader.y / wsum, z:(geo.elevAt(leader.s) + 1) / wsum });
+    /* heading: from the river upstream of the pack toward its centre, so the eye stays over the water */
+    const back = at(sMin - 24);
+    const yaw = Math.atan2(C.y - back.y, C.x - back.x);
+    const pitch = 0.3 + clamp(span / 160, 0, 0.18);
+    const fovNow = lerp(FOV, 46, clamp(span / 110, 0, 1));
+    const { D, fwd, right } = frameDistance(points, C, yaw, pitch, fovNow, aspect, SAFE, 18, 130);
+    let eyeP = { x:C.x - fwd.x * D, y:C.y - fwd.y * D, z:C.z - fwd.z * D };
+    void right;
+    eyeP = clearView(eyeP, C);
+    return { eye:eyeP, look:C, fov:fovNow, key:"race" };
   }
 
   function podiumShot(input, time, wide) {
@@ -224,7 +291,9 @@ export function createDirector(geo, { wallAt = () => 8 } = {}) {
     const key = w.key;
     const changed = key !== mode;
     const far = Math.hypot(w.eye.x - eye.x, w.eye.y - eye.y) > 160;
-    if (!primed || (changed && (w.cut && /^(intro|cut:next)/.test(key) ? !/^intro:grid/.test(key) : false)) || far) {
+    /* intro shots, the next-leg flight and the falls cam are their own takes: cut to them, and back */
+    const take = k => /^(intro:\d|cut:next|falls)/.test(k || "");
+    if (!primed || (changed && (take(key) || /^falls/.test(mode || ""))) || far) {
       /* intro shots and the next-leg flight are their own takes: cut, then hold their track */
       Object.assign(eye, w.eye); Object.assign(look, w.look); fov = w.fov; primed = true;
     } else {

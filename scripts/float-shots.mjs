@@ -11,6 +11,8 @@
        --wait <ms>        extra settle time before each capture (default 600)
        --gpu              a real GPU (ANGLE D3D11) instead of SwiftShader, for frame rates
        --live <ms>        let the clock run that long after the jump (no freeze), e.g. for fps
+       --low-power        ask WebGL for the low-power (integrated) GPU, with --gpu
+       --luid <hi,lo>     with --gpu: that adapter (HKLM\SOFTWARE\Microsoft\DirectX\{...}\AdapterLuid; "0,70294")
 
    Prints each PNG's path with the renderer's draw calls, triangles and fps.
    FLOAT_SHOTS_PORT overrides the port (5183); CHROME the browser. */
@@ -25,7 +27,7 @@ import { launchChrome, CHROME_PATH } from "./headless-chrome.mjs";
 
 const ROOT = fileURLToPath(new URL("../", import.meta.url));
 const args = process.argv.slice(2);
-const flags = new Set(["--out", "--quality", "--wait", "--live"]);
+const flags = new Set(["--out", "--quality", "--wait", "--live", "--luid"]);
 const value = name => { const i = args.indexOf(name); return i >= 0 ? args[i + 1] : null; };
 const positional = args.filter((arg, i) => !arg.startsWith("--") && !flags.has(args[i - 1]));
 const OUT = path.resolve(ROOT, value("--out") || ".impeccable/review/float");
@@ -67,7 +69,8 @@ const BASE = `http://127.0.0.1:${server.config.server.port}`;
 async function launchGpu({ width, height }) {
   const udd = fs.mkdtempSync(path.join(os.tmpdir(), "float-gpu-"));
   const chrome = spawn(CHROME_PATH, ["--headless=new", "--remote-debugging-port=0", `--user-data-dir=${udd}`, "--hide-scrollbars", "--mute-audio",
-    "--use-angle=d3d11", "--enable-gpu", "--ignore-gpu-blocklist", "--enable-gpu-rasterization", "--disable-frame-rate-limit=false",
+    "--use-angle=d3d11", "--enable-gpu", "--ignore-gpu-blocklist", "--enable-gpu-rasterization",
+    ...(value("--luid") ? [`--use-adapter-luid=${value("--luid")}`] : []),
     "--no-first-run", "--no-default-browser-check", "--force-color-profile=srgb", `--window-size=${width},${height}`, "about:blank"], { stdio:"ignore" });
   let port;
   for (let i = 0; i < 200 && !port; i++) { await sleep(100); try { port = fs.readFileSync(path.join(udd, "DevToolsActivePort"), "utf8").split("\n")[0]; } catch {} }
@@ -132,6 +135,7 @@ try {
     const query = new URLSearchParams({ mock:"1", room:"bcdf", shot, quality:QUALITY });
     if (LIVE === null) query.set("freeze", "1");
     if (FLAT) query.set("flat", "1");
+    if (args.includes("--low-power")) query.set("power", "low");
     await chrome.load(`${BASE}/float.html?${query}`, { timeout:60000 });
     const ok = await chrome.until("document.body.dataset.ready === '1'", { timeout:90000, every:250 });
     if (!ok) { console.error(`${shot}: never ready`); continue; }

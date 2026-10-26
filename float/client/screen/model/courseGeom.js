@@ -25,7 +25,7 @@ export function tableAt(table, s, fallback = 0) {
 }
 
 /* how rough the water is for a zone kind: 0 glassy .. 1 white */
-export const ZONE_ROUGH = Object.freeze({ pool:0, eddy:0.15, bar:0, split:0.3, whirlpool:0.45, narrows:0.35, riffle:0.75, drop:1 });
+export const ZONE_ROUGH = Object.freeze({ pool:0, eddy:0.12, bar:0, split:0.25, whirlpool:0.35, narrows:0.22, riffle:0.75, drop:1 });
 
 export function prepareCourse(course) {
   const line = Array.isArray(course?.line) ? course.line.filter(p => Array.isArray(p) && p.length >= 2) : [];

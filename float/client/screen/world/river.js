@@ -113,16 +113,23 @@ void main() {
   col += uWarm * vGlow * (0.03 + spark * 1.6 * (0.3 + fres) + fres * 0.22);
 
   /* foam: soft-edged patches stretched along the current, lace inside them */
-  float f1 = flowTex(vUv * vec2(1.0, 0.42), vFlow, 1.0 / 4.2, 0.33, vec2(0.5, 0.2)).a;
-  float f2 = flowTex(vUv * vec2(1.0, 0.6) + vec2(7.3, 2.1), vFlow * 1.15, 1.0 / 1.8, 0.45, vec2(0.11, 0.53)).a;
-  float field = f1 * 0.62 + f2 * 0.38;
+  float f1 = flowTex(vUv * vec2(1.0, 0.3), vFlow, 1.0 / 4.2, 0.33, vec2(0.5, 0.2)).a;
+  float f2 = flowTex(vUv * vec2(1.0, 0.45) + vec2(7.3, 2.1), vFlow * 1.15, 1.0 / 2.6, 0.45, vec2(0.11, 0.53)).a;
+  float field = f1 * 0.7 + f2 * 0.3;
   float lace = flowTex(vUv, vFlow, 1.0 / 2.2, 0.4, vec2(0.3, 0.9)).b;
   float bank = smoothstep(0.85, 0.15, vEdge + (field - 0.5) * 1.4) * smoothstep(-0.95, -0.35, vEdge);
-  float white = smoothstep(0.64 - rough * 0.2, 0.69 - rough * 0.18, field) * min(1.0, rough * 1.4);
+  /* white water: a few streaks in a riffle, a quarter of the surface at most */
+  float wt = 0.8 - rough * 0.1;
+  float white = smoothstep(wt, wt + 0.03, field) * min(1.0, rough * 1.6);
+  /* the falls: sheets of white streaming down over darker water */
   float fall = smoothstep(0.2, 0.65, vSlope);
-  float streak = texture(uNoise, vec2(vUv.x * 0.33, vUv.y * 0.05 - uTime * 1.1)).a;
-  float falls = fall * (0.7 + 0.3 * smoothstep(0.4, 0.7, streak));
-  float churn = vChurn * smoothstep(0.42, 0.55, field + vChurn * 0.25);
+  float sA = texture(uNoise, vec2(vUv.x * 0.45, vWorld.y * 0.09 + uTime * 0.9)).a;
+  float sB = texture(uNoise, vec2(vUv.x * 1.05 + 0.37, vWorld.y * 0.21 + uTime * 1.7)).a;
+  float sheet = smoothstep(0.38, 0.7, sA * 0.6 + sB * 0.4);
+  float falls = fall * (0.35 + 0.65 * sheet);
+  /* churn at the foot: white there, thinning to streaks downstream */
+  float ct = 0.86 - vChurn * 0.46;
+  float churn = smoothstep(ct, ct + 0.05, field) * step(0.02, vChurn);
   float foam = clamp(bank * 0.85 + white + falls + churn, 0.0, 1.0);
   float lines = smoothstep(0.8, 0.93, flowTex(vUv * vec2(1.0, 0.12), vFlow, 1.0 / 5.0, 0.25, vec2(0.7, 0.1)).a)
     * clamp(vFlow * 0.25, 0.0, 0.5) * (1.0 - foam);
@@ -266,9 +273,9 @@ void main() {
   float ring = smoothstep(ringR + 0.24, ringR + 0.04, r) * smoothstep(ringR - 0.12, ringR + 0.02, r);
   float wake = 0.0;
   if (vDecal.z > 0.01 && p.x > 0.0) {
-    float spread = ringR * (0.85 + p.x * 0.2);
+    float spread = ringR * (0.8 + p.x * 0.28);
     float edge = abs(abs(p.y) - spread);
-    wake = smoothstep(0.2, 0.0, edge) * smoothstep(vDecal.y * 1.5, 0.0, p.x) * 0.7;
+    wake = smoothstep(0.14, 0.0, edge) * pow(smoothstep(vDecal.y * 1.5, 0.0, p.x), 2.0) * 0.55;
     /* the stirred water straight behind the rock */
     wake += smoothstep(ringR, 0.0, abs(p.y)) * smoothstep(ringR * 3.0, ringR * 0.8, p.x) * smoothstep(0.0, ringR * 0.8, p.x) * 0.45;
   }
@@ -310,7 +317,7 @@ export function buildFoamDecals(geo, { noise }) {
     /* the decal's +x runs downstream: in three, (tx, 0, -ty) */
     const ang = Math.atan2(it.ty, it.tx);
     q.setFromAxisAngle(up, ang);
-    const half = it.wake ? it.r * 4.2 : it.r * 1.7;
+    const half = it.wake ? it.r * 2.8 : it.r * 1.7;
     const across = it.r * 1.7;
     sc.set(half * 2, 1, across * 2);
     at.set(it.x + (it.wake ? it.tx * half * 0.55 : 0), it.z, -(it.y + (it.wake ? it.ty * half * 0.55 : 0)));

@@ -30,7 +30,7 @@ export const NIGHT = Object.freeze({
   horizon:"#2e2466",
   glow:"#7a2c74",
   fog:"#141838",
-  waterDeep:"#04121c",
+  waterDeep:"#041628",
   waterShallow:"#0d4652",
   waterSkyLow:"#2a2470",
   waterSkyHigh:"#0b1238",

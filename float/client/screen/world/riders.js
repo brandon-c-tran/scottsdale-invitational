@@ -17,7 +17,52 @@ const has = (f, bit) => (f & bit) !== 0;
 
 const lookKey = e => JSON.stringify([e?.name, e?.color, e?.look, e?.photo, e?.number, e?.skin, !!e?.groom]);
 
-export function createRiders({ scene, geo, fx, shadowTex }) {
+/* a rider's wake: a V of foam opening behind it, longer the faster it goes */
+function wakeMaterial(noise) {
+  return new THREE.ShaderMaterial({
+    uniforms:THREE.UniformsUtils.merge([THREE.UniformsLib.fog, { uNoise:{ value:noise }, uTime:{ value:0 }, uFoam:{ value:new THREE.Color("#dfe9f2") } }]),
+    vertexShader:/* glsl */ `
+      attribute vec2 aWake;
+      varying vec2 vUv;
+      varying vec2 vWake;
+      #include <common>
+      #include <fog_pars_vertex>
+      void main() {
+        vUv = uv;
+        vWake = aWake;
+        vec4 mvPosition = viewMatrix * modelMatrix * instanceMatrix * vec4(position, 1.0);
+        gl_Position = projectionMatrix * mvPosition;
+        #include <fog_vertex>
+      }`,
+    fragmentShader:/* glsl */ `
+      uniform sampler2D uNoise;
+      uniform float uTime;
+      uniform vec3 uFoam;
+      varying vec2 vUv;
+      varying vec2 vWake;
+      #include <common>
+      #include <fog_pars_fragment>
+      void main() {
+        /* x: 0 at the rider, 1 at the wake's end; y: -1..1 across */
+        float x = 1.0 - vUv.x;
+        float y = vUv.y * 2.0 - 1.0;
+        float spread = 0.22 + x * 0.78;
+        float fade = (1.0 - x) * (1.0 - x);
+        float arms = smoothstep(0.09, 0.0, abs(abs(y) - spread)) * fade;
+        float trail = smoothstep(0.22 * spread, 0.0, abs(y)) * fade * 0.4;
+        float n = texture(uNoise, vec2(vUv.x * 0.7 + uTime * 0.5 + vWake.y, y * 0.3)).a;
+        float a = (arms + trail) * smoothstep(0.18, 0.62, n) * vWake.x * smoothstep(0.0, 0.1, x);
+        if (a < 0.02) discard;
+        gl_FragColor = vec4(uFoam, min(1.0, a) * 0.5);
+        #include <tonemapping_fragment>
+        #include <colorspace_fragment>
+        #include <fog_fragment>
+      }`,
+    transparent:true, depthWrite:false, fog:true, polygonOffset:true, polygonOffsetFactor:-3, polygonOffsetUnits:-3,
+  });
+}
+
+export function createRiders({ scene, geo, fx, shadowTex, noise }) {
   const riders = new Map();
   const group = new THREE.Group();
   group.name = "riders";
@@ -30,7 +75,14 @@ export function createRiders({ scene, geo, fx, shadowTex }) {
   shadows.renderOrder = 2;
   shadows.frustumCulled = false;
   scene.add(shadows);
+  const wakeGeo = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2);
+  const wakeAttr = new THREE.InstancedBufferAttribute(new Float32Array(MAX * 2), 2);
+  wakeGeo.setAttribute("aWake", wakeAttr);
+  const wakeMat = noise ? wakeMaterial(noise) : null;
+  const wakes = wakeMat ? new THREE.InstancedMesh(wakeGeo, wakeMat, MAX) : null;
+  if (wakes) { wakes.count = 0; wakes.frustumCulled = false; wakes.renderOrder = 2; scene.add(wakes); }
   const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), at = new THREE.Vector3();
+  const yAxis = new THREE.Vector3(0, 1, 0);
   const tmpNear = {};
 
   function make(i, entrant) {
@@ -48,7 +100,7 @@ export function createRiders({ scene, geo, fx, shadowTex }) {
     group.add(pivot);
     return {
       i, key:lookKey(entrant), entrant, art, pivot, bob, swimmer,
-      x:0, y:0, a:0, s:null, z:0, has:false, blend:null,
+      x:0, y:0, a:0, s:null, z:0, has:false, blend:null, vx:0, vy:0, speed:0,
       phase:i * 1.37, flags:0, lastStrokeL:-1e9, lastStrokeR:-1e9,
       state:{ swim:false, handsOff:false, sad:false, celebrate:false }, celebrateUntil:0,
       squash:0, spin:0, flip:0, drift:new THREE.Vector3(), critterHome:null,
@@ -111,6 +163,7 @@ export function createRiders({ scene, geo, fx, shadowTex }) {
       const visible = !!pose && (!show || show.has(i));
       r.pivot.visible = visible;
       if (!visible) { r.screen.on = false; continue; }
+      const px = r.x, py = r.y;
       /* blend from a staged pose into the rows when they arrive */
       if (!r.has) { r.x = pose.x; r.y = pose.y; r.a = pose.a; r.has = true; }
       else if (pose.snap) { r.x = pose.x; r.y = pose.y; r.a = pose.a; }
@@ -120,6 +173,15 @@ export function createRiders({ scene, geo, fx, shadowTex }) {
         r.x += (pose.x - r.x) * k;
         r.y += (pose.y - r.y) * k;
         r.a += angleDelta(r.a, pose.a) * k;
+      }
+      /* how fast it moves, for its wake */
+      if (Number.isFinite(pose.vx)) { r.vx = pose.vx; r.vy = pose.vy; r.speed = Math.hypot(r.vx, r.vy); }
+      else if (dt > 0) {
+        const k = 1 - Math.exp(-dt * 5);
+        const jump = Math.hypot(r.x - px, r.y - py);
+        const vx = jump > 6 ? 0 : (r.x - px) / dt, vy = jump > 6 ? 0 : (r.y - py) / dt;
+        r.vx += (vx - r.vx) * k; r.vy += (vy - r.vy) * k;
+        r.speed = Math.hypot(r.vx, r.vy);
       }
       const near = geo.nearest(r.x, r.y, r.s, tmpNear);
       r.s = near.s;
@@ -184,6 +246,22 @@ export function createRiders({ scene, geo, fx, shadowTex }) {
       } else { r.bob.position.x = 0; r.bob.position.z = 0; }
       try { r.art?.update?.(dt); } catch {}
 
+      /* its wake: relative to the water, so a rider carried by the current leaves little */
+      if (wakes && shadowCount < MAX && !land) {
+        const flow = geo.flowAt(r.s ?? 0);
+        const tx = Math.cos(r.a), ty = Math.sin(r.a);
+        const rel = Math.max(0, r.speed - flow * 0.55);
+        const strength = Math.min(1, rel / 2.2) * (swim ? 0.3 : 1);
+        const dir = r.speed > 0.3 ? Math.atan2(r.vy, r.vx) : r.a;
+        const len = (1.6 + Math.min(2.4, rel) * 1.05) * RIDER_SCALE;
+        const width = (1.9 + Math.min(2.4, rel) * 0.3) * RIDER_SCALE;
+        const cx = r.x - Math.cos(dir) * (len / 2 - 0.6), cy = r.y - Math.sin(dir) * (len / 2 - 0.6);
+        q.setFromAxisAngle(yAxis, dir);
+        m4.compose(at.set(cx, r.z + 0.04, -cy), q, sc.set(len, 1, width));
+        wakes.setMatrixAt(shadowCount, m4);
+        wakeAttr.setXY(shadowCount, strength, (i * 0.37) % 1);
+        void tx; void ty;
+      }
       /* its shadow on the water */
       if (shadowCount < MAX) {
         const size = 2.2 * RIDER_SCALE;
@@ -201,6 +279,12 @@ export function createRiders({ scene, geo, fx, shadowTex }) {
     }
     shadows.count = shadowCount;
     shadows.instanceMatrix.needsUpdate = true;
+    if (wakes) {
+      wakes.count = shadowCount;
+      wakes.instanceMatrix.needsUpdate = true;
+      wakeAttr.needsUpdate = true;
+      wakeMat.uniforms.uTime.value = time;
+    }
   }
 
   /* the podium's poses */
@@ -217,6 +301,7 @@ export function createRiders({ scene, geo, fx, shadowTex }) {
       riders.clear();
       scene.remove(group); scene.remove(shadows);
       shadowGeo.dispose(); shadowMat.dispose(); shadows.dispose();
+      if (wakes) { scene.remove(wakes); wakeGeo.dispose(); wakeMat.dispose(); wakes.dispose(); }
     },
   };
 }

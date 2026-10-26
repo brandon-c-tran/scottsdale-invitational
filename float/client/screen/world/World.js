@@ -65,7 +65,10 @@ function makeEnvironment(renderer, moonDir) {
 export function createWorld({ canvas, store, quality = "auto", onFrame, onFail, onStats }) {
   let renderer;
   try {
-    renderer = new THREE.WebGLRenderer({ canvas, antialias:true, powerPreference:"high-performance", stencil:false, preserveDrawingBuffer:false });
+    /* ?power=low asks for the integrated GPU on a two-GPU machine (a laptop's worst case) */
+    let power = "high-performance";
+    try { if (new URLSearchParams(window.location.search).get("power") === "low") power = "low-power"; } catch {}
+    renderer = new THREE.WebGLRenderer({ canvas, antialias:true, powerPreference:power, stencil:false, preserveDrawingBuffer:false });
   } catch (error) {
     onFail?.("webgl");
     return null;
@@ -146,8 +149,8 @@ export function createWorld({ canvas, store, quality = "auto", onFrame, onFail, 
     root.add(bar.group);
     scene.add(root);
     const fx = createFx({ scene, dotTex:glowTex, geo, falls:river.falls });
-    const riders = createRiders({ scene, geo, fx, shadowTex });
-    const director = createDirector(geo, { wallAt:s => field.wallAt(s) });
+    const riders = createRiders({ scene, geo, fx, shadowTex, noise });
+    const director = createDirector(geo, { wallAt:s => field.wallAt(s), groundAt:(x, y) => field.heightAt(x, y), falls:river.falls });
     if (!envTarget) {
       try { envTarget = makeEnvironment(renderer, moonDir); scene.environment = envTarget.texture; scene.environmentIntensity = 0.75; } catch {}
     }
@@ -187,6 +190,7 @@ export function createWorld({ canvas, store, quality = "auto", onFrame, onFail, 
 
   /* ── per frame ── */
   const poses = new Map();
+  const earlier = new Map();
   const staged = new Map();
   const shown = new Set();
   const sadSet = new Set();
@@ -219,7 +223,13 @@ export function createWorld({ canvas, store, quality = "auto", onFrame, onFail, 
       gridPoses(geo, leg, field, staged);
       /* the first second of rows eases the riders off their staged grid */
       const settling = Number.isFinite(st.phaseStart) && store.serverNow() - st.phaseStart < 1200;
-      for (const [i, r] of rows) staged.set(i, { ...r, ease:r.stale > 400 ? 2 : settling ? 6 : 0 });
+      /* each rider's velocity from the rows themselves (150 ms back), for wakes */
+      const before = store.sample(store.drawTime() - 150, earlier);
+      for (const [i, r] of rows) {
+        const b = before.get(i);
+        const vx = b && !r.stale ? (r.x - b.x) / 0.15 : 0, vy = b && !r.stale ? (r.y - b.y) / 0.15 : 0;
+        staged.set(i, { ...r, vx, vy, ease:r.stale > 400 ? 2 : settling ? 6 : 0 });
+      }
       field.forEach(i => shown.add(i));
       /* the beach's balloon throwers, standing on the bank for their throw */
       for (const [i, ap] of built.appear) {
@@ -281,7 +291,7 @@ export function createWorld({ canvas, store, quality = "auto", onFrame, onFail, 
     const cam = B.director.update(dt, {
       phase:st.phase, t:phaseElapsed, dur:phaseDur, leg, riders:riderList, through, round:room?.round | 0, now:time * 1000,
       nextLeg:(room?.leg | 0) + 1 < geo.legs.length ? nextLeg : null,
-      podiumAt:B.bar?.anchor,
+      podiumAt:B.bar?.anchor, aspect:width / height,
     });
     camera.position.set(cam.eye.x, cam.eye.z, -cam.eye.y);
     camera.lookAt(cam.look.x, cam.look.z, -cam.look.y);

@@ -26,19 +26,20 @@ function saguaroGeometry() {
   const add = (geo, x, y, z, rx = 0, rz = 0) => {
     geo.rotateX(rx); geo.rotateZ(rz); geo.translate(x, y, z); parts.push(geo);
   };
-  const trunk = new THREE.CylinderGeometry(0.34, 0.4, 5.2, 9, 1);
+  /* low enough in polygons for a few hundred, round enough at a distance */
+  const trunk = new THREE.CylinderGeometry(0.34, 0.4, 5.2, 7, 1, true);
   add(trunk, 0, 2.6, 0);
-  add(new THREE.SphereGeometry(0.34, 9, 6, 0, Math.PI * 2, 0, Math.PI / 2), 0, 5.2, 0);
+  add(new THREE.SphereGeometry(0.34, 7, 3, 0, Math.PI * 2, 0, Math.PI / 2), 0, 5.2, 0);
   /* left arm: out, then up */
-  add(new THREE.CylinderGeometry(0.22, 0.24, 1.0, 8, 1), -0.55, 2.4, 0, 0, Math.PI / 2);
-  add(new THREE.CylinderGeometry(0.22, 0.22, 1.7, 8, 1), -1.0, 3.2, 0);
-  add(new THREE.SphereGeometry(0.22, 8, 5, 0, Math.PI * 2, 0, Math.PI / 2), -1.0, 4.05, 0);
-  add(new THREE.SphereGeometry(0.235, 8, 6), -1.0, 2.4, 0);
+  add(new THREE.CylinderGeometry(0.22, 0.24, 1.0, 6, 1, true), -0.55, 2.4, 0, 0, Math.PI / 2);
+  add(new THREE.CylinderGeometry(0.22, 0.22, 1.7, 6, 1, true), -1.0, 3.2, 0);
+  add(new THREE.SphereGeometry(0.22, 6, 3, 0, Math.PI * 2, 0, Math.PI / 2), -1.0, 4.05, 0);
+  add(new THREE.SphereGeometry(0.235, 6, 4), -1.0, 2.4, 0);
   /* right arm, higher */
-  add(new THREE.CylinderGeometry(0.2, 0.22, 0.8, 8, 1), 0.5, 3.3, 0, 0, Math.PI / 2);
-  add(new THREE.CylinderGeometry(0.2, 0.2, 1.2, 8, 1), 0.85, 3.9, 0);
-  add(new THREE.SphereGeometry(0.2, 8, 5, 0, Math.PI * 2, 0, Math.PI / 2), 0.85, 4.5, 0);
-  add(new THREE.SphereGeometry(0.215, 8, 6), 0.85, 3.3, 0);
+  add(new THREE.CylinderGeometry(0.2, 0.22, 0.8, 6, 1, true), 0.5, 3.3, 0, 0, Math.PI / 2);
+  add(new THREE.CylinderGeometry(0.2, 0.2, 1.2, 6, 1, true), 0.85, 3.9, 0);
+  add(new THREE.SphereGeometry(0.2, 6, 3, 0, Math.PI * 2, 0, Math.PI / 2), 0.85, 4.5, 0);
+  add(new THREE.SphereGeometry(0.215, 6, 4), 0.85, 3.3, 0);
   const merged = mergeGeometries(parts.map(g => g.index ? g.toNonIndexed() : g), false);
   parts.forEach(g => g.dispose());
   merged.computeVertexNormals();
@@ -69,7 +70,8 @@ export function buildDressing(geo, field, plan, { glowTex }) {
   const up = new THREE.Vector3(0, 1, 0);
 
   /* rocks in the river, boulders on the banks */
-  const rockMat = keep(new THREE.MeshLambertMaterial({ color:NIGHT.rock }));
+  /* instance colours multiply the material's: keep it white */
+  const rockMat = keep(new THREE.MeshLambertMaterial({ color:"#ffffff" }));
   const rockGeo = keep(rockGeometry(3));
   const boulders = [];
   for (let k = 0; k < 520 && boulders.length < 170; k++) {
@@ -100,9 +102,9 @@ export function buildDressing(geo, field, plan, { glowTex }) {
 
   /* saguaros and scrub on the beaches and the rims */
   const cactusGeo = keep(saguaroGeometry());
-  const cactusMat = keep(new THREE.MeshLambertMaterial({ color:NIGHT.cactus }));
+  const cactusMat = keep(new THREE.MeshLambertMaterial({ color:"#ffffff" }));
   const scrubGeo = keep(scrubGeometry());
-  const scrubMat = keep(new THREE.MeshLambertMaterial({ color:NIGHT.scrub }));
+  const scrubMat = keep(new THREE.MeshLambertMaterial({ color:"#ffffff" }));
   const cacti = [], scrub = [];
   const { bounds } = geo;
   for (let k = 0; k < 9000 && (cacti.length < 260 || scrub.length < 700); k++) {
@@ -166,7 +168,7 @@ export function buildDressing(geo, field, plan, { glowTex }) {
   const wires = new THREE.LineSegments(wireGeo, keep(new THREE.LineBasicMaterial({ color:"#20160f", transparent:true, opacity:0.75 })));
   group.add(wires);
 
-  const bulbGeo = keep(new THREE.SphereGeometry(0.11, 8, 6));
+  const bulbGeo = keep(new THREE.IcosahedronGeometry(0.12, 0));
   const bulbMat = keep(new THREE.MeshBasicMaterial({ toneMapped:false }));
   const bulbs = new THREE.InstancedMesh(bulbGeo, bulbMat, Math.max(1, plan.bulbs.length));
   const haloPos = new Float32Array(plan.bulbs.length * 3), haloCol = new Float32Array(plan.bulbs.length * 3);
@@ -194,7 +196,7 @@ export function buildDressing(geo, field, plan, { glowTex }) {
   group.add(halos);
 
   /* floating lanterns and the bar's torches: small warm lamps that flicker */
-  const lampGeo = keep(new THREE.SphereGeometry(0.28, 10, 8));
+  const lampGeo = keep(new THREE.IcosahedronGeometry(0.3, 1));
   const lampMat = keep(new THREE.MeshBasicMaterial({ toneMapped:false }));
   const lamps = [...plan.lanterns.map(l => ({ ...l, z:geo.elevAt(l.s) + 0.25, kind:"lantern" })),
     ...plan.torches.map(t => ({ ...t, z:t.z + 1.7, kind:"torch", color:"#ff9a3c" }))];

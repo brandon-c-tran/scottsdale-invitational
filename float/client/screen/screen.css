@@ -189,7 +189,7 @@
   text-shadow:0 0 calc(var(--u) * 80) rgba(255, 166, 48, 0.8), 0 calc(var(--u) * 10) calc(var(--u) * 40) rgba(0, 0, 0, 0.6);
   animation:fs-go 1.1s cubic-bezier(0.2, 0.9, 0.25, 1.2) both; }
 @keyframes fs-punch { 0% { opacity:0; transform:scale(1.9); } 22% { opacity:1; transform:scale(0.94); } 34% { transform:scale(1); }
-  78% { opacity:1; transform:scale(1); } 100% { opacity:0; transform:scale(0.86); } }
+  100% { opacity:1; transform:scale(0.97); } }
 @keyframes fs-go { 0% { opacity:0; transform:scale(0.4); } 25% { opacity:1; transform:scale(1.12); } 40% { transform:scale(1); }
   75% { opacity:1; } 100% { opacity:0; transform:scale(1.5); } }
 
@@ -250,7 +250,7 @@
 /* ── check your phone ── */
 .fs-phone { position:absolute; left:50%; top:50%; transform:translate(-50%, -50%); padding:calc(var(--u) * 46) calc(var(--u) * 80) calc(var(--u) * 52);
   display:flex; flex-direction:column; align-items:center; gap:calc(var(--u) * 18); animation:fs-rise 0.7s cubic-bezier(0.2, 0.9, 0.25, 1.15) both; }
-.fs-phone .fs-show { font-size:calc(var(--u) * 130); }
+.fs-phone .fs-show { font-size:calc(var(--u) * 120); white-space:nowrap; }
 .fs-phone svg { width:calc(var(--u) * 120); height:calc(var(--u) * 120); color:var(--cyan); }
 @keyframes fs-rise { from { opacity:0; transform:translate(-50%, -42%); } to { opacity:1; transform:translate(-50%, -50%); } }
 .fs-dim { position:absolute; inset:0; background:rgba(9, 11, 20, 0.5); animation:fs-dim 0.8s ease both; }

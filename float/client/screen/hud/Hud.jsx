@@ -8,9 +8,9 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { FLAG } from "../../../shared/protocol.js";
 import { COUNT_BEATS, PODIUM_BEATS } from "../../sound/index.js";
-import { Chip, DoneIcon, DrinkIcon, FlagIcon, OneSafe, PhoneIcon, SwimIcon } from "./bits.jsx";
+import { Chip, DoneIcon, DrinkIcon, FlagIcon, Num, OneSafe, Ordinal, ordinalHtml, PhoneIcon, SwimIcon } from "./bits.jsx";
 import { inkOn } from "./identity.js";
-import { cupStandings, cutOf, has, legLength, ordinal, titleFor } from "../model/hudModel.js";
+import { cupStandings, cutOf, has, legLength, titleFor } from "../model/hudModel.js";
 import { indexList } from "../model/cupShape.js";
 
 const ROW_H = 54;
@@ -84,7 +84,7 @@ export function Rail({ room, bus, entrants }) {
         const e = entrants[o.i];
         return <div key={o.i} className={`fs-row${o.state === "placed" ? " is-placed" : ""}${showCut && k >= through ? " is-below" : ""}`}
           style={{ transform:`translateY(calc(var(--u) * ${top(k)}))` }}>
-          <span className="fs-place fs-num">{o.state === "placed" ? o.place : k + 1}</span>
+          <span className="fs-place fs-num"><Num n={o.state === "placed" ? o.place : k + 1} /></span>
           <Chip entrant={e} size={40} />
           <span className="fs-name">{e?.name || "Rider"}</span>
           <StateIcons o={o} drinking={room?.drinking !== false} />
@@ -189,8 +189,8 @@ export function NameTags({ bus, entrants, phase, big = false }) {
       }
       const place = node.querySelector(".fs-tag-place");
       if (place) {
-        const text = t.state === "placed" ? ordinal(frame.order?.find(o => o.i === t.i)?.place || t.rank) : "";
-        if (place.textContent !== text) place.textContent = text;
+        const n = t.state === "placed" ? (frame.order?.find(o => o.i === t.i)?.place || t.rank) : 0;
+        if (place.dataset.n !== String(n)) { place.dataset.n = String(n); place.innerHTML = n ? ordinalHtml(n) : ""; }
       }
     }
     for (const [i, node] of nodes.current) if (!seen.has(i)) node.style.opacity = "0";
@@ -266,7 +266,7 @@ export function Arrivals({ room, entrants, through, final }) {
   if (!toasts.length) return null;
   return <div className="fs-toasts">
     {toasts.map(t => <div key={t.id} className="fs-toast fs-glass">
-      <span className="fs-num">{ordinal(t.place)}</span>
+      <span className="fs-num"><Ordinal n={t.place} /></span>
       <Chip entrant={entrants[t.i]} size={52} />
       <span className="fs-show">{entrants[t.i]?.name}</span>
       {!final && t.place <= through && <span className="fs-lamp is-cyan">Through</span>}
@@ -301,7 +301,7 @@ export function CutBoard({ room, geo, entrants, raceField, bus, since }) {
           const at = 1700 + stampOrder.indexOf(i) * 420;
           const stamped = isOut && elapsed >= at;
           return <div key={i} className={`fs-card fs-glass${isOut ? " is-out" : ""}${stamped ? " is-stamped" : ""}`} style={{ animationDelay:`${k * 45}ms` }}>
-            <span className="fs-num">{k + 1}</span>
+            <span className="fs-num"><Num n={k + 1} /></span>
             <Chip entrant={entrants[i]} size={96} out={stamped} />
             <span className="fs-name">{entrants[i]?.name}</span>
             {stamped && <span className="fs-stamp">Out</span>}
@@ -331,13 +331,13 @@ export function Podium({ room, entrants, bus, anchor, elapsedAt }) {
       if (i === undefined || elapsed < beat[spot.place] || !spot.on) return null;
       const e = entrants[i];
       return <div key={spot.place} className={`fs-pod is-${spot.place}`} style={{ left:spot.x, top:spot.y, "--c":e?.color || "#999", "--ink":inkOn(e?.color) }}>
-        <span className="fs-num">{ordinal(spot.place)}</span>
+        <span className="fs-num"><Ordinal n={spot.place} /></span>
         <span className="fs-show">{e?.name}</span>
       </div>;
     })}
     {elapsed > 6500 && standings.length > 0 && <div className="fs-final fs-glass">
       {standings.slice(0, 10).map((i, k) => <div key={i} className="fs-final-row">
-        <span className="fs-num">{ordinal(k + 4)}</span>
+        <span className="fs-num"><Ordinal n={k + 4} /></span>
         <Chip entrant={entrants[i]} size={34} />
         <span className="fs-name">{entrants[i]?.name}</span>
       </div>)}

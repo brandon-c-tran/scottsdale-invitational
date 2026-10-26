@@ -123,6 +123,23 @@ export function terrainField(geo) {
     kind[k] = kd;
   }
 
+  /* one soft pass over the land (not the bed or the shore), so cliff edges
+     follow the canyon, not the grid's staircase */
+  const smoothed = heights.slice();
+  for (let iy = 1; iy < ny - 1; iy++) for (let ix = 1; ix < nx - 1; ix++) {
+    const k = iy * nx + ix;
+    if (kind[k] < 3) continue;
+    let sum = 0, w = 0;
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      const j = k + dy * nx + dx;
+      if (kind[j] < 2) continue;
+      const wt = dx === 0 && dy === 0 ? 2 : 1;
+      sum += heights[j] * wt; w += wt;
+    }
+    smoothed[k] = sum / w;
+  }
+  heights.set(smoothed);
+
   const heightAt = (x, y) => {
     const fx = (x - x0) / STEP, fy = (y - y0) / STEP;
     const ix = Math.max(0, Math.min(nx - 2, Math.floor(fx))), iy = Math.max(0, Math.min(ny - 2, Math.floor(fy)));

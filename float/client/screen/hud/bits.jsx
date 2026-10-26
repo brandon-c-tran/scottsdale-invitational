@@ -19,6 +19,24 @@ export function OneSafe({ children }) {
   return parts.map((part, k) => part === "1" ? <span key={k} className="fs-one">1</span> : <React.Fragment key={k}>{part}</React.Fragment>);
 }
 
+/* a place as words, every 1 flagged ("1st", "11th" never read as I or ll) */
+export const ordinalText = n => {
+  const k = n % 100;
+  const suffix = k >= 11 && k <= 13 ? "th" : ({ 1:"st", 2:"nd", 3:"rd" })[n % 10] || "th";
+  return `${n}${suffix}`;
+};
+export function Ordinal({ n }) {
+  const text = ordinalText(n);
+  return text.split(/(1)/).filter(Boolean).map((part, k) => part === "1" ? <span key={k} className="fs-one">1</span> : <React.Fragment key={k}>{part}</React.Fragment>);
+}
+export const ordinalHtml = n => ordinalText(n).replace(/1/g, '<span class="fs-one">1</span>');
+/* a bare number with every 1 flagged, for numbers beside names ("11 Henry") */
+export function Num({ n }) {
+  const text = String(n);
+  if (!text.includes("1") || text === "1") return text;
+  return text.split(/(1)/).filter(Boolean).map((part, k) => part === "1" ? <span key={k} className="fs-one">1</span> : <React.Fragment key={k}>{part}</React.Fragment>);
+}
+
 export function DrinkIcon(props) {
   return <svg className="fs-icon" viewBox="0 0 24 24" aria-hidden="true" {...props}>
     <path fill="currentColor" d="M7 3h10l-1 3v13a2 2 0 0 1-2 2h-4a2 2 0 0 1-2-2V6L7 3Zm2.4 6v8.5h5.2V9H9.4Z" />

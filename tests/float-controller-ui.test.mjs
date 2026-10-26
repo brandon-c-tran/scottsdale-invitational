@@ -117,7 +117,10 @@ test("the race strip: place of the field, through or out by how many, the drink,
   const counting = race(null, { live:false, count:2, drink:"locked", slot:4 });
   assert.match(counting, />2</);
   assert.match(counting, /start/);
-  assert.match(counting, /disabled=""/, "the drink waits for the gun");
+  assert.doesNotMatch(counting, /Finished my drink/, "the count has the screen to itself");
+  const go = race(null, { live:false, count:0, drink:"locked", slot:4 });
+  assert.match(go, />Go</);
+  assert.match(go, /disabled=""[^>]*>.*Finished my drink/s, "at Go the drink shows, waiting for the race");
   assert.doesNotMatch(race({ place:2, of:3, f:0, cut:null }), /Through|Out by/, "the final has no cut");
 });
 

@@ -395,6 +395,59 @@ they disagree, this wins.
   number and photo, falls back to a flat disc without WebGL, and returns null
   in node.
 
+## The beat (Oct 26): paddling is a rhythm skill
+
+Brandon's first playtest: spamming strokes lost and nothing said why. The
+fix: **stroke on the beat.** The race music is 120 bpm; every stroke is
+judged against the beat, and strokes on the beat in a row build a streak
+that makes you faster. Spamming is visibly bad; finding the groove is how
+you win. Where this section disagrees with anything above, it wins.
+
+- **The grid.** `BEAT_MS` = 500 (`BAR_MS` / 4, in `tuning.js`). In a race,
+  beat k is at `gun + k * BEAT_MS` on the server clock, where `gun` is
+  `room.startAt` in `race` (the countdown's 3-2-1 and the gun fall on beats,
+  so everyone feels the tempo before it starts).
+- **The judgement** (`judgeStroke(t, gun)` in `float/shared/beat.js`, pure,
+  used by the phone for instant feedback and by the room for the truth):
+  the nearest beat k and the offset d = t - beat(k), in ms.
+  `PERFECT` |d| <= 80, `GOOD` |d| <= 160, else `OFF` (`early` when d < 0,
+  `late` when d > 0). Only the FIRST stroke in a beat (either side) can be on
+  the beat; any further stroke in that beat is `OFF` with reason `fast`.
+- **The message.** `{t:"stroke", side, p, k, d}`: the phone stamps its
+  touch-down on the server clock (`net.serverNow()` at the touch event's
+  time) and sends the beat index and offset. The room recomputes the
+  judgement from `k` and `d` with the same function; a `k` more than 2 beats
+  from the room's own clock counts as `OFF`.
+- **The streak** (the room's, authoritative): consecutive on-beat strokes
+  (PERFECT or GOOD). Levels: 0 below 4, 1 "Rhythm" at 4, 2 "Groove" at 8,
+  3 "Locked in" at 16. An `OFF` stroke resets it to 0. A beat with no stroke
+  (after a stroked beat) drops it one level (to that level's floor), so a
+  drink or a pause costs groove, not everything.
+- **The physics.** Thrust per stroke times PERFECT 1.0, GOOD 0.8, OFF 0.4.
+  Top speed and thrust times the level: 1.00, 1.08, 1.16, 1.25. The old
+  cadence fatigue goes: the beat now governs cadence. Floatie stats apply on
+  top as before.
+- **The wire.** Snapshot flags gain the level in two bits: `STREAK_1` = 256,
+  `STREAK_2` = 512 (level = (f >> 8) & 3). `me` gains `streak` (count),
+  `level`, and `q` (the last stroke's judgement: `"perfect"`, `"good"`,
+  `"early"`, `"late"`, `"fast"`). New `ev` `{e:"groove", i, level}` when a
+  rider's level goes UP (the TV calls out level 3).
+- **Bots** stroke every beat with accuracy by skill (PERFECT rate ~30% to
+  90%), the odd OFF, so the field shows every level.
+- **The phone.** A beat pulse between the paddles (and the paddles' rims)
+  on the server clock; each stroke stamps its judgement near the thumb
+  (Perfect, Good, Early, Late, Too fast) with a haptic tick; the streak as a
+  meter with its level name, "Locked in" lit at 3. During `grid` and
+  `countdown` the pulse runs and taps are judged locally as practice (not
+  sent).
+- **The TV.** Each rider's wake and glow by level (none, cyan, amber,
+  magenta "Locked in" with sparkle); the name tag carries the level; a short
+  callout "<name>: Locked in" on `ev groove` level 3; the rail shows each
+  rider's level.
+- **The sound.** The race music keeps an unmistakable pulse on every beat
+  (all legs, all intensities) so you can paddle by ear; the phone's own
+  stroke sound differs for on-beat and off-beat; a TV sting for "Locked in".
+
 ## Ownership (who edits what)
 
 | Part | Owns |

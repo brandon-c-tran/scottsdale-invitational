@@ -282,8 +282,15 @@ export function buildDressing(geo, field, plan, { glowTex }) {
 
   return {
     group,
-    update(time) {
+    /* pulse: 0..1, the beat's envelope (World); the bulbs and lanterns swell on it */
+    update(time, pulse = 0) {
       void time;
+      bulbMat.color.setScalar(1 + 0.55 * pulse);
+      haloMat.opacity = 0.55 * (1 + 0.75 * pulse);
+      haloMat.size = 2.6 * (1 + 0.24 * pulse);
+      lampMat.color.setScalar(1 + 0.45 * pulse);
+      lampHaloMat.opacity = 0.5 * (1 + 0.65 * pulse);
+      lampHaloMat.size = 5.5 * (1 + 0.2 * pulse);
     },
     setDetail(level) {
       scrubMesh.visible = level >= 2;

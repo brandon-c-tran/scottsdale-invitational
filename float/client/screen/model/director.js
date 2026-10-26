@@ -248,13 +248,13 @@ export function createDirector(geo, { wallAt = () => 8, groundAt = null, falls =
     const n = core.length;
     const C = core.reduce((acc, p) => ({ x:acc.x + p.x / n, y:acc.y + p.y / n, z:acc.z + p.z / n }), { x:0, y:0, z:0 });
     const span = sMax - sMin;
-    const fovNow = lerp(FOV, 46, clamp(span / 90, 0, 1));
+    const fovNow = lerp(38, 42, clamp(span / 60, 0, 1));
     let pitch = 0.3 + clamp(span / 300, 0, 0.1);
     let D = 30, yaw = 0;
     for (let it = 0; it < 3; it++) {
       const back = at(Math.max(0, sBack - D * Math.cos(pitch) * 0.7));
       yaw = Math.atan2(C.y - back.y, C.x - back.x);
-      D = frameDistance(points, C, yaw, pitch, fovNow, aspect, SAFE, 20, 120).D;
+      D = frameDistance(points, C, yaw, pitch, fovNow, aspect, SAFE, 16, 120).D;
     }
     const eyeAt = pt => ({ x:C.x - Math.cos(pt) * Math.cos(yaw) * D, y:C.y - Math.cos(pt) * Math.sin(yaw) * D, z:C.z + Math.sin(pt) * D });
     let eyeP = eyeAt(pitch);
@@ -324,14 +324,14 @@ export function createDirector(geo, { wallAt = () => 8, groundAt = null, falls =
     /* one shot while it reads; spread out, the leader's group and the fight
        for the last place through take turns (7 s and 5 s) */
     const final = through >= ranked.length;
-    if (sMax - sMin <= 38 || final) return { ...frameGroup(fight, { lookAhead, aspect, leader, others:water }), key:"race" };
+    if (sMax - sMin <= 24 || final) return { ...frameGroup(fight, { lookAhead, aspect, leader, others:water }), key:"race" };
     const onCut = time % 12 >= 7;
     if (!onCut) {
-      const front = fight.filter(r => r.s >= sMax - 22);
+      const front = fight.filter(r => r.s >= sMax - 14);
       return { ...frameGroup(front, { lookAhead, aspect, leader, others:water }), key:"race:front" };
     }
     const bubble = ranked.find(r => r.rank === Math.min(through, ranked[ranked.length - 1].rank)) || ranked[ranked.length - 1];
-    const group = ranked.filter(r => Math.abs(r.s - bubble.s) <= 18 && r.rank >= through - 1 && r.rank <= through + 2);
+    const group = ranked.filter(r => Math.abs(r.s - bubble.s) <= 12 && r.rank >= through - 1 && r.rank <= through + 2);
     return { ...frameGroup(group.length ? group : [bubble], { lookAhead:6, aspect, leader:bubble, others:water }), key:"race:cut", cutGroup:group.map(r => r.i) };
   }
 

@@ -5,16 +5,24 @@
    flags drive the critter: strokes, swimming (the art capsizes the floatie
    and paddles its critter beside it), hands off for a drink; the screen adds
    a bump's squash and a balloon's spin. A hand entering the water splashes
-   (the critter's onCatch). */
+   (the critter's onCatch). The groove (float/PROTOCOL.md "The beat"): a
+   rider's streak level, (f >> 8) & 3, tints its wake and lights a glow on
+   the water under it (cyan, amber, then magenta with sparks for Locked in),
+   breathing with the beat. */
 import * as THREE from "three";
 import { buildRider } from "../../art/index.js";
 import { FLAG } from "../../../shared/protocol.js";
 import { angleDelta } from "../model/courseGeom.js";
 
 /* the art is life size (a ring about 1.45 m across, a seated rider about
-   1 m over the water); a little larger reads from the couch, and a ring of
-   about 1.8 m still matches the engine's 0.8 m bump radius */
-export const RIDER_SCALE = 1.25;
+   1 m over the water); larger reads as a character from the couch (a ring
+   of about 2 m: bumping riders touch, as they should) */
+export const RIDER_SCALE = 1.4;
+/* the groove's lamps: Rhythm, Groove, Locked in */
+export const LEVEL_HEX = Object.freeze([null, "#5fdcf0", "#ffa630", "#ff3fa4"]);
+const LEVEL_COLORS = LEVEL_HEX.map(hex => (hex ? new THREE.Color(hex) : null));
+const GLOW_GAIN = [0, 0.5, 0.62, 0.9];
+export const levelOfFlags = f => ((f | 0) >> 8) & 3;
 /* where a name tag points: a little over a seated critter's head */
 const HEAD = 1.3;
 const STROKE_REPEAT_MS = 340;
@@ -28,6 +36,8 @@ function wakeMaterial(noise) {
     uniforms:THREE.UniformsUtils.merge([THREE.UniformsLib.fog, { uNoise:{ value:noise }, uTime:{ value:0 }, uFoam:{ value:new THREE.Color("#dfe9f2") } }]),
     vertexShader:/* glsl */ `
       attribute vec2 aWake;
+      attribute vec4 aTint;
+      varying vec4 vTint;
       varying vec2 vUv;
       varying vec2 vWake;
       #include <common>
@@ -35,6 +45,7 @@ function wakeMaterial(noise) {
       void main() {
         vUv = uv;
         vWake = aWake;
+        vTint = aTint;
         vec4 mvPosition = viewMatrix * modelMatrix * instanceMatrix * vec4(position, 1.0);
         gl_Position = projectionMatrix * mvPosition;
         #include <fog_vertex>
@@ -45,6 +56,7 @@ function wakeMaterial(noise) {
       uniform vec3 uFoam;
       varying vec2 vUv;
       varying vec2 vWake;
+      varying vec4 vTint;
       #include <common>
       #include <fog_pars_fragment>
       void main() {
@@ -58,7 +70,8 @@ function wakeMaterial(noise) {
         float n = texture(uNoise, vec2(vUv.x * 0.7 + uTime * 0.5 + vWake.y, y * 0.3)).a;
         float a = (arms + trail) * smoothstep(0.18, 0.62, n) * vWake.x * smoothstep(0.0, 0.1, x);
         if (a < 0.02) discard;
-        gl_FragColor = vec4(uFoam, min(1.0, a) * 0.4);
+        /* in the groove the wake takes the level's colour, a little brighter */
+        gl_FragColor = vec4(mix(uFoam, vTint.rgb, vTint.a), min(1.0, a * (1.0 + vTint.a * 0.6)) * (0.4 + 0.22 * vTint.a));
         #include <tonemapping_fragment>
         #include <colorspace_fragment>
         #include <fog_fragment>
@@ -84,9 +97,20 @@ export function createRiders({ scene, geo, fx, shadowTex, noise }) {
   const wakeGeo = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2);
   const wakeAttr = new THREE.InstancedBufferAttribute(new Float32Array(MAX * 2), 2);
   wakeGeo.setAttribute("aWake", wakeAttr);
+  const tintAttr = new THREE.InstancedBufferAttribute(new Float32Array(MAX * 4), 4);
+  wakeGeo.setAttribute("aTint", tintAttr);
   const wakeMat = noise ? wakeMaterial(noise) : null;
   const wakes = wakeMat ? new THREE.InstancedMesh(wakeGeo, wakeMat, MAX) : null;
   if (wakes) { wakes.count = 0; wakes.frustumCulled = false; wakes.renderOrder = 2; scene.add(wakes); }
+  /* the groove's glow: a pool of the level's light on the water under the rider */
+  const glowMat = new THREE.MeshBasicMaterial({ map:shadowTex, transparent:true, depthWrite:false, blending:THREE.AdditiveBlending, toneMapped:false });
+  const glows = new THREE.InstancedMesh(shadowGeo, glowMat, MAX);
+  glows.count = 0;
+  glows.renderOrder = 3;
+  glows.frustumCulled = false;
+  glows.setColorAt(0, new THREE.Color(0, 0, 0));
+  scene.add(glows);
+  const glowColor = new THREE.Color();
   const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), at = new THREE.Vector3();
   const yAxis = new THREE.Vector3(0, 1, 0);
   const tmpNear = {};
@@ -107,16 +131,19 @@ export function createRiders({ scene, geo, fx, shadowTex, noise }) {
     if (art?.root) bob.add(art.root);
     pivot.visible = false;
     group.add(pivot);
-    /* the name tag points just over the top of this rider (a hat included) */
-    let headY = HEAD * RIDER_SCALE;
-    try {
-      if (art?.root) {
+    /* the name tag points just over the top of this rider (a hat included);
+       measured again once the baked body lands */
+    const measure = () => {
+      try {
+        if (!art?.root) return null;
         const box = new THREE.Box3().setFromObject(art.root);
-        if (Number.isFinite(box.max.y) && box.max.y > 0.3) headY = box.max.y * RIDER_SCALE + 0.35;
-      }
-    } catch {}
+        return Number.isFinite(box.max.y) && box.max.y > 0.3 ? box.max.y * RIDER_SCALE + 0.35 : null;
+      } catch { return null; }
+    };
+    const headY = Math.max(HEAD * RIDER_SCALE, measure() ?? 0);
     const r = {
       headY, detail,
+      level:0, glowAmt:0, glowGain:0, glowColor:new THREE.Color(), sparkAt:0,
       i, key:lookKey(entrant, detail), entrant, art, pivot, bob,
       x:0, y:0, a:0, s:null, z:0, has:false, blend:null, vx:0, vy:0, speed:0,
       phase:i * 1.37, flags:0, lastStrokeL:-1e9, lastStrokeR:-1e9,
@@ -126,6 +153,8 @@ export function createRiders({ scene, geo, fx, shadowTex, noise }) {
     };
     /* a paddle's splash lands as the hand goes in, not when the phone taps */
     if (art?.critter) art.critter.onCatch = side => { if (r.pivot.visible && !has(r.flags, FLAG.SWIM)) fx?.paddle(r, side === "L" ? -1 : 1); };
+    if (art?.ready && typeof art.ready.then === "function")
+      art.ready.then(() => { const y = measure(); if (y) r.headY = Math.max(HEAD * RIDER_SCALE, y); }, () => {});
     return r;
   }
 
@@ -167,8 +196,9 @@ export function createRiders({ scene, geo, fx, shadowTex, noise }) {
   }
 
   /* where each rider is: `poses` Map i -> { x, y, a, f } (course coords), `show` the indexes drawn */
-  function update(dt, time, poses, { show, sad = new Set(), rough = 0, now = 0, camera, width, height, scale = 1 } = {}) {
-    let shadowCount = 0;
+  function update(dt, time, poses, { show, sad = new Set(), rough = 0, now = 0, camera, width, height, scale = 1, pulse = 0 } = {}) {
+    let shadowCount = 0, glowCount = 0;
+    const fade = 1 - Math.exp(-dt * 5);
     for (const [i, r] of riders) {
       const pose = poses.get(i);
       const visible = !!pose && (!show || show.has(i));
@@ -245,7 +275,19 @@ export function createRiders({ scene, geo, fx, shadowTex, noise }) {
       r.bob.scale.set(RIDER_SCALE * k * (1 + sq * 0.5), RIDER_SCALE * k * (1 - sq), RIDER_SCALE * k * (1 + sq * 0.5));
       try { r.art?.update?.(dt); } catch {}
 
+      /* the groove: the level's colour fades in (and out) under the rider */
+      const level = land ? 0 : levelOfFlags(f);
+      r.level = level;
+      if (level > 0) {
+        const k = r.glowAmt < 0.02 ? 1 : fade;
+        r.glowColor.lerp(LEVEL_COLORS[level], k);
+        r.glowGain += (GLOW_GAIN[level] - r.glowGain) * k;
+      }
+      r.glowAmt += ((level > 0 ? 1 : 0) - r.glowAmt) * fade;
+      if (r.glowAmt < 0.01 && level === 0) r.glowAmt = 0;
       /* its wake: relative to the water, so a rider carried by the current leaves little */
+      if (wakes && shadowCount < MAX) tintAttr.setXYZW(shadowCount, r.glowColor.r, r.glowColor.g, r.glowColor.b, r.glowAmt);
+      if (wakes && shadowCount < MAX && land) wakeAttr.setXY(shadowCount, 0, 0);
       if (wakes && shadowCount < MAX && !land) {
         const flow = geo.flowAt(r.s ?? 0);
         const tx = Math.cos(r.a), ty = Math.sin(r.a);
@@ -267,6 +309,18 @@ export function createRiders({ scene, geo, fx, shadowTex, noise }) {
         m4.compose(at.set(r.x, r.z + 0.03, -r.y), q.identity(), sc.set(size, 1, size));
         shadows.setMatrixAt(shadowCount++, m4);
       }
+      /* its glow, breathing with the beat; Locked in throws sparks */
+      if (r.glowAmt > 0.01 && glowCount < MAX) {
+        const gain = r.glowGain * r.glowAmt * (0.82 + 0.3 * pulse);
+        const size = (3.1 + 0.5 * pulse * r.glowAmt) * RIDER_SCALE * (swim ? 0.7 : 1);
+        m4.compose(at.set(r.x, r.z + 0.05, -r.y), q.identity(), sc.set(size, 1, size));
+        glows.setMatrixAt(glowCount, m4);
+        glows.setColorAt(glowCount++, glowColor.copy(r.glowColor).multiplyScalar(gain));
+      }
+      if (r.level === 3 && !land && fx?.sparkle && time - r.sparkAt > 0.07) {
+        r.sparkAt = time;
+        fx.sparkle(r, LEVEL_COLORS[3], RIDER_SCALE);
+      }
       /* where its name goes on screen */
       if (camera) {
         r.head.set(r.x, r.z + r.headY * scale * k - r.swimFor * 0.55 * RIDER_SCALE, -r.y).project(camera);
@@ -279,10 +333,14 @@ export function createRiders({ scene, geo, fx, shadowTex, noise }) {
     }
     shadows.count = shadowCount;
     shadows.instanceMatrix.needsUpdate = true;
+    glows.count = glowCount;
+    glows.instanceMatrix.needsUpdate = true;
+    if (glows.instanceColor) glows.instanceColor.needsUpdate = true;
     if (wakes) {
       wakes.count = shadowCount;
       wakes.instanceMatrix.needsUpdate = true;
       wakeAttr.needsUpdate = true;
+      tintAttr.needsUpdate = true;
       wakeMat.uniforms.uTime.value = time;
     }
   }
@@ -305,6 +363,7 @@ export function createRiders({ scene, geo, fx, shadowTex, noise }) {
       riders.clear();
       scene.remove(group); scene.remove(shadows);
       shadowGeo.dispose(); shadowMat.dispose(); shadows.dispose();
+      scene.remove(glows); glowMat.dispose(); glows.dispose();
       if (wakes) { scene.remove(wakes); wakeGeo.dispose(); wakeMat.dispose(); wakes.dispose(); }
     },
   };

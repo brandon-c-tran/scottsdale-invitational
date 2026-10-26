@@ -66,6 +66,7 @@ uniform vec3 uMoonDir;
 uniform vec3 uMoonColor;
 uniform vec3 uFoam;
 uniform vec3 uWarm;
+uniform float uPulse;
 varying vec2 vUv;
 varying float vFlow;
 varying float vRough;
@@ -117,7 +118,7 @@ void main() {
   col += uMoonColor * min(moon, 1.6) * (1.0 - min(1.0, vChurn + vSlope));
   /* the bulbs on the water: a warm wash near them and sparse sharp glints */
   float spark = smoothstep(0.83, 0.86, n2.a) * smoothstep(0.6, 0.72, n1.a) * near;
-  col += uWarm * vGlow * (0.03 + spark * 1.6 * (0.3 + fres) + fres * 0.22);
+  col += uWarm * vGlow * (0.03 + spark * 1.6 * (0.3 + fres) + fres * 0.22) * (1.0 + uPulse * 0.55);
 
   /* foam: soft-edged patches stretched along the current, lace inside them */
   float f1 = flowTex(vUv * vec2(1.0, 0.3), vFlow, 1.0 / 4.2, 0.33, vec2(0.5, 0.2)).a;
@@ -162,6 +163,7 @@ export function waterMaterial(noise, moonDir) {
       uMoonColor:{ value:new THREE.Color(NIGHT.moon) },
       uFoam:{ value:new THREE.Color(NIGHT.foam) },
       uWarm:{ value:new THREE.Color(NIGHT.warm) },
+      uPulse:{ value:0 },
     }]),
     vertexShader:waterVertex,
     fragmentShader:waterFragment,

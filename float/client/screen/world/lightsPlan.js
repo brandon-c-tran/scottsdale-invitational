@@ -91,9 +91,13 @@ export function planLights(geo, { bankZ, barS = null } = {}) {
     along(z.s0, Math.min(geo.length - 3, z.s1), -1, 7);
     if (barS !== null) along(z.s0, Math.max(z.s0, barS - 14), 1, 7);
     for (let k = 0; k < 6; k++) {
-      const at = bank(z.s0 + (z.s1 - z.s0) * (k + 0.5) / 6, k % 2 ? 1 : -1, 4.5);
-      torches.push({ ...at, phase:rnd() * 6.28 });
+      const s = z.s0 + (z.s1 - z.s0) * (k + 0.5) / 6;
+      const side = k % 2 ? 1 : -1;
+      if (barS !== null && side === 1 && Math.abs(s - barS) < 13) continue;
+      torches.push({ ...bank(s, side, 4.5), phase:rnd() * 6.28 });
     }
+    /* two torches flanking the bar's deck */
+    if (barS !== null) for (const ds of [-8.5, 8.5]) torches.push({ ...bank(barS + ds, 1, 7), phase:rnd() * 6.28 });
   }
   /* now and then along the way */
   for (let s = 70; s < geo.length - 40; s += 120 + rnd() * 40) {

@@ -324,7 +324,7 @@ export function createWorld({ canvas, store, quality = "auto", onFrame, onFail, 
     let podiumSpots = null;
     if ((st.phase === "podium" || st.phase === "feedback") && B.bar) {
       podiumSpots = B.bar.tops.map(top => {
-        projected.set(top.x, top.z + 2.5, -top.y).project(camera);
+        projected.set(top.x, top.z + 2.15, -top.y).project(camera);
         return { place:top.place, x:Math.round((projected.x * 0.5 + 0.5) * width), y:Math.round((-projected.y * 0.5 + 0.5) * height), on:projected.z < 1 };
       });
     }

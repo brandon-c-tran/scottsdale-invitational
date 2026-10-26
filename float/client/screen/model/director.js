@@ -256,12 +256,12 @@ export function createDirector(geo, { wallAt = () => 8, groundAt = null, falls =
     const p = input.podiumAt;
     if (!p) return { eye:at(geo.length - 30, 0, 10), look:at(geo.length - 6), fov:FOV };
     const drift = Math.sin(time * 0.22) * 0.12;
-    const back = wide ? 17 : 13 - Math.min(2.5, time * 0.18);
+    const back = wide ? 19 : 16.5 - Math.min(2.5, time * 0.18);
     const fx = p.fx, fy = p.fy;
     const side = { x:-fy, y:fx };
     return {
-      eye:{ x:p.x + fx * back + side.x * Math.sin(drift) * back, y:p.y + fy * back + side.y * Math.sin(drift) * back, z:p.z + (wide ? 5.4 : 3.6) },
-      look:{ x:p.x, y:p.y, z:p.z + 2.2 },
+      eye:{ x:p.x + fx * back + side.x * Math.sin(drift) * back, y:p.y + fy * back + side.y * Math.sin(drift) * back, z:p.z + (wide ? 5.6 : 4.4) },
+      look:{ x:p.x, y:p.y, z:p.z + 2.6 },
       fov:wide ? 46 : 40,
     };
   }

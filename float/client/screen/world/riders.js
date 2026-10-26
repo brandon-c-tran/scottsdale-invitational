@@ -98,7 +98,16 @@ export function createRiders({ scene, geo, fx, shadowTex, noise }) {
     if (art?.root) bob.add(art.root);
     pivot.visible = false;
     group.add(pivot);
+    /* the name tag points just over the top of this rider (a hat included) */
+    let headY = HEAD * RIDER_SCALE;
+    try {
+      if (art?.root) {
+        const box = new THREE.Box3().setFromObject(art.root);
+        if (Number.isFinite(box.max.y) && box.max.y > 0.3) headY = box.max.y * RIDER_SCALE + 0.35;
+      }
+    } catch {}
     return {
+      headY,
       i, key:lookKey(entrant), entrant, art, pivot, bob, swimmer,
       x:0, y:0, a:0, s:null, z:0, has:false, blend:null, vx:0, vy:0, speed:0,
       phase:i * 1.37, flags:0, lastStrokeL:-1e9, lastStrokeR:-1e9,
@@ -270,7 +279,7 @@ export function createRiders({ scene, geo, fx, shadowTex, noise }) {
       }
       /* where its name goes on screen */
       if (camera) {
-        r.head.set(r.x, r.z + HEAD * RIDER_SCALE * scale, -r.y).project(camera);
+        r.head.set(r.x, r.z + r.headY * scale + (swim ? -0.6 : 0), -r.y).project(camera);
         r.screen.on = r.head.z < 1 && Math.abs(r.head.x) < 1.15 && Math.abs(r.head.y) < 1.15;
         r.screen.x = (r.head.x * 0.5 + 0.5) * width;
         r.screen.y = (-r.head.y * 0.5 + 0.5) * height;

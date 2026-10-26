@@ -239,7 +239,12 @@ totalEmissiveRadiance += uWarm * vGlow * 0.55;`);
       const a = j * w + i, b = a + 1, c = a + w, d = c + 1;
       /* skip the riverbed tiles nobody sees, deep under the water */
       if (kind[(ty + j) * nx + tx + i] === 0 && kind[(ty + j) * nx + tx + i + 1] === 0 && kind[(ty + j + 1) * nx + tx + i] === 0 && kind[(ty + j + 1) * nx + tx + i + 1] === 0) continue;
-      index.push(a, b, c, b, d, c);
+      /* split each cell along the diagonal that follows the slope, so
+         strata and cliff edges run smooth instead of zigzagging */
+      const ha = heights[(ty + j) * nx + tx + i], hb = heights[(ty + j) * nx + tx + i + 1];
+      const hc = heights[(ty + j + 1) * nx + tx + i], hd = heights[(ty + j + 1) * nx + tx + i + 1];
+      if (Math.abs(ha - hd) < Math.abs(hb - hc)) index.push(a, b, d, a, d, c);
+      else index.push(a, b, c, b, d, c);
     }
     if (!index.length) continue;
     const geometry = new THREE.BufferGeometry();

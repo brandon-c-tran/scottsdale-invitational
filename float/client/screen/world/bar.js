@@ -63,7 +63,7 @@ export function buildBar(geo, field) {
   ];
   steps.forEach(st => box(2.4, st.h, 2.4, st.mat, 3.2, st.h / 2, st.z));
   /* the neon sign over the shack, facing the water */
-  const neonBase = new THREE.Color("#ff3fa4").multiplyScalar(3.2);
+  const neonBase = new THREE.Color("#ff3fa4").multiplyScalar(2.1);
   const neonMat = keep(new THREE.MeshBasicMaterial({ color:neonBase.clone(), toneMapped:false }));
   const frameMat = keep(new THREE.MeshBasicMaterial({ color:new THREE.Color("#5fdcf0").multiplyScalar(2.6), toneMapped:false }));
   const parts = [];

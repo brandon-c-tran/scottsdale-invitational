@@ -279,7 +279,7 @@ void main() {
     /* the stirred water straight behind the rock */
     wake += smoothstep(ringR, 0.0, abs(p.y)) * smoothstep(ringR * 3.0, ringR * 0.8, p.x) * smoothstep(0.0, ringR * 0.8, p.x) * 0.45;
   }
-  float a = clamp((ring + wake) * smoothstep(0.32, 0.62, n), 0.0, 1.0);
+  float a = clamp((ring + wake) * smoothstep(0.05, 0.45, n), 0.0, 1.0);
   if (a < 0.02) discard;
   gl_FragColor = vec4(uFoam, a * 0.9);
   #include <tonemapping_fragment>

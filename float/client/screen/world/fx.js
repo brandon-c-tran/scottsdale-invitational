@@ -73,7 +73,7 @@ export function createFx({ scene, dotTex, geo, falls = [] }) {
     /* the paddle's side: left of the heading is (-sin, cos) */
     const lx = -sin * side * -1.1, ly = cos * side * -1.1;
     for (let k = 0; k < 4; k++) {
-      emit(r.x + lx * 1.3, r.z + 0.2, -(r.y + ly * 1.3), -cos * 1.2 + (rand() - 0.5), 1.4 + rand() * 1.3, sin * 1.2 + (rand() - 0.5),
+      emit(r.x + lx, r.z + 0.2, -(r.y + ly), -cos * 1.2 + (rand() - 0.5), 1.4 + rand() * 1.3, sin * 1.2 + (rand() - 0.5),
         0.12 + rand() * 0.1, 0.45 + rand() * 0.25);
     }
   };

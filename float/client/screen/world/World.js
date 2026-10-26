@@ -24,6 +24,7 @@ import { gridPoses, lobbyPoses, takeoutPoses, podiumPoses } from "../model/stagi
 import { raceOrder, legOf, cutOf } from "../model/hudModel.js";
 import { indexList, throughFor } from "../model/cupShape.js";
 import { FLAG } from "../../../shared/protocol.js";
+import { floatEnvironment, disposeFloatEnvironment, setFloatArtQuality, disposeFloatArt } from "../../art/index.js";
 
 export const TIERS = Object.freeze([
   { name:"high", ratio:1.5, post:true, msaa:4, detail:2 },
@@ -34,34 +35,10 @@ export const TIERS = Object.freeze([
 
 const SLOW_MS = 20.5;
 const FOG_DENSITY = 0.0024;
-
-function makeEnvironment(renderer, moonDir) {
-  /* a little night room for the toys' gloss: the sky, the moon, warm bulbs low round the horizon */
-  const env = new THREE.Scene();
-  const sphere = new THREE.Mesh(new THREE.SphereGeometry(10, 32, 16), new THREE.ShaderMaterial({
-    side:THREE.BackSide,
-    uniforms:{ uMoon:{ value:moonDir } },
-    vertexShader:"varying vec3 vD; void main(){ vD = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }",
-    fragmentShader:`uniform vec3 uMoon; varying vec3 vD;
-      void main(){
-        float h = vD.y;
-        vec3 c = mix(vec3(0.22, 0.09, 0.32), vec3(0.08, 0.1, 0.32), smoothstep(-0.1, 0.4, h));
-        c = mix(c, vec3(0.02, 0.03, 0.1), smoothstep(0.4, 1.0, h));
-        c = mix(c, vec3(0.16, 0.08, 0.05), smoothstep(0.0, -0.4, h));
-        c += vec3(1.0, 0.92, 0.75) * pow(max(dot(vD, uMoon), 0.0), 220.0) * 30.0;
-        float band = smoothstep(0.12, 0.0, abs(h - 0.03));
-        float bulbs = smoothstep(0.6, 0.98, sin(atan(vD.z, vD.x) * 26.0)) * band;
-        c += vec3(1.0, 0.62, 0.3) * bulbs * 2.2;
-        gl_FragColor = vec4(c, 1.0);
-      }`,
-  }));
-  env.add(sphere);
-  const pmrem = new THREE.PMREMGenerator(renderer);
-  const target = pmrem.fromScene(env, 0.02);
-  pmrem.dispose();
-  sphere.geometry.dispose(); sphere.material.dispose();
-  return target;
-}
+/* how much of the art's night sky the vinyl reflects (and is lit by): only
+   the physical materials read it (the riders, the podium, the balloons), so
+   it lifts the toys off the darker canyon without touching the land */
+const ENV_INTENSITY = 1.6;
 
 export function createWorld({ canvas, store, quality = "auto", onFrame, onFail, onStats }) {
   let renderer;
@@ -101,7 +78,7 @@ export function createWorld({ canvas, store, quality = "auto", onFrame, onFail, 
   let built = null;
   let width = 1920, height = 1080;
   let composer = null, bloom = null;
-  let envTarget = null;
+  let envSet = false;
   const clock = new THREE.Timer();
   clock.connect(document);
   let running = true;
@@ -152,8 +129,8 @@ export function createWorld({ canvas, store, quality = "auto", onFrame, onFail, 
     const fx = createFx({ scene, dotTex:glowTex, geo, falls:river.falls });
     const riders = createRiders({ scene, geo, fx, shadowTex, noise });
     const director = createDirector(geo, { wallAt:s => field.wallAt(s), groundAt:(x, y) => field.heightAt(x, y), falls:river.falls });
-    if (!envTarget) {
-      try { envTarget = makeEnvironment(renderer, moonDir); scene.environment = envTarget.texture; scene.environmentIntensity = 0.75; } catch {}
+    if (!envSet) {
+      try { scene.environment = floatEnvironment(renderer, "night"); scene.environmentIntensity = ENV_INTENSITY; envSet = true; } catch {}
     }
     built = { geo, root, field, plan, river, terrain, foam, whirl, sky, dressing, bar, fx, riders, director,
       buildMs:performance.now() - t0, appear:new Map(), lastPhase:null };
@@ -178,6 +155,8 @@ export function createWorld({ canvas, store, quality = "auto", onFrame, onFail, 
       composer.addPass(new OutputPass());
     }
     built?.dressing.setDetail(t.detail);
+    /* the vinyl's clear coat is the art's most expensive pass: off on the slow tiers */
+    setFloatArtQuality(t.name === "low" || t.name === "lowest" ? "low" : "high");
     onStats?.({ tier:t.name });
   }
 
@@ -286,7 +265,9 @@ export function createWorld({ canvas, store, quality = "auto", onFrame, onFail, 
     const now = store.serverNow();
     const drawAt = now - 100;
     /* entrants and their art */
-    B.riders.sync(room?.entrants || []);
+    /* the top three step up to the podium in hero detail */
+    const hero = st.phase === "podium" || st.phase === "feedback" ? new Set(indexList(room?.podium).slice(0, 3)) : null;
+    B.riders.sync(room?.entrants || [], { hero });
     const posesNow = stageFor(st, room, geo, time);
     /* moments due at the draw time */
     for (const e of store.takeEvents(drawAt)) handleEvent(e, B, time, room);
@@ -343,8 +324,12 @@ export function createWorld({ canvas, store, quality = "auto", onFrame, onFail, 
     }
     let podiumSpots = null;
     if ((st.phase === "podium" || st.phase === "feedback") && B.bar) {
+      const onTop = indexList(room?.podium);
       podiumSpots = B.bar.tops.map(top => {
-        projected.set(top.x, top.z + 2.15, -top.y).project(camera);
+        /* the place and name ride just over whoever stands there */
+        const r = B.riders.get(onTop[top.place - 1]);
+        const over = r ? r.headY * (r.scale || 1) + 0.1 : 2.15;
+        projected.set(top.x, top.z + over, -top.y).project(camera);
         return { place:top.place, x:Math.round((projected.x * 0.5 + 0.5) * width), y:Math.round((-projected.y * 0.5 + 0.5) * height), on:projected.z < 1 };
       });
     }
@@ -443,7 +428,8 @@ export function createWorld({ canvas, store, quality = "auto", onFrame, onFail, 
       canvas.removeEventListener("webglcontextlost", onLost);
       disposeBuilt();
       composer?.renderTarget1?.dispose(); composer?.renderTarget2?.dispose();
-      envTarget?.dispose();
+      if (envSet) { scene.environment = null; disposeFloatEnvironment(renderer); envSet = false; }
+      disposeFloatArt();
       noise.dispose(); glowTex.dispose(); shadowTex.dispose();
       clock.dispose?.();
       renderer.dispose();

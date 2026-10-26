@@ -45,12 +45,14 @@ export function takeoutPoses(geo, legIndex, order = [], out = new Map()) {
 }
 
 /* the podium's three on their steps; everyone else floating below, watching */
+export const PODIUM_SCALE = 1.3;
 export function podiumPoses(geo, bar, podium = [], others = [], out = new Map()) {
   if (!bar) return out;
   const face = Math.atan2(bar.anchor.fy, bar.anchor.fx);
   podium.slice(0, 3).forEach((i, k) => {
     const top = bar.tops.find(t => t.place === k + 1);
-    if (top) out.set(i, { x:top.x, y:top.y, z:top.z, a:face, f:0, snap:true });
+    /* a little larger on the steps: the close-up is theirs */
+    if (top) out.set(i, { x:top.x, y:top.y, z:top.z, a:face, f:0, snap:true, scale:PODIUM_SCALE });
   });
   const ax = bar.anchor.x + bar.anchor.fx * 11, ay = bar.anchor.y + bar.anchor.fy * 11;
   others.forEach((i, k) => {

@@ -248,7 +248,7 @@ export function buildDressing(geo, field, plan, { glowTex }) {
     if (ng !== g) g.dispose();
     const pos = ng.attributes.position;
     const col = new Float32Array(pos.count * 3);
-    const base = new THREE.Color(NIGHT.mesa), rim = new THREE.Color("#3c3f78");
+    const base = new THREE.Color(NIGHT.mesa), rim = new THREE.Color("#2b2e5e");
     for (let j = 0; j < pos.count; j++) {
       const t = THREE.MathUtils.clamp((pos.getY(j) + 20) / (height * 1.35), 0, 1);
       color.copy(base).lerp(rim, Math.pow(t, 3));

@@ -99,8 +99,10 @@ export function buildBar(geo, field) {
   const light = new THREE.PointLight("#ff4fae", 26, 26, 1.6);
   light.position.set(1.5, 6.2, 0);
   group.add(light);
-  const deckLight = new THREE.PointLight("#ffb468", 14, 18, 1.8);
-  deckLight.position.set(2.5, 3.2, 0);
+  /* the deck's lamp hangs out over the water, in front of the steps, so it
+     lights the winners' faces instead of burning a spot on the first */
+  const deckLight = new THREE.PointLight("#ffb468", 22, 24, 1.6);
+  deckLight.position.set(8.5, 5.2, 0);
   group.add(deckLight);
 
   /* world positions of the podium tops, and the way they face */

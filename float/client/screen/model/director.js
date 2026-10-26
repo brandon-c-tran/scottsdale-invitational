@@ -6,8 +6,8 @@
 
      lobby      a slow orbit over the put-in
      intro      the whole river from above with the legs named, then a dive onto the grid
-     grid       behind the grid, low, pushing in
-     countdown  closer and lower
+     grid       the lineup, front-on: every rider's face, a slow push
+     countdown  a cut behind the grid, closer and lower, for the start
      race       the pack from the leader back to the cut line's fight, looking
                 downstream with look-ahead, rising as it spreads; spread out,
                 the leader's group and the fight for the last place take turns
@@ -64,16 +64,19 @@ export function createDirector(geo, { wallAt = () => 8, groundAt = null, falls =
         const swoop = Math.min(3200, total * 0.4);
         if (t < total - swoop) return { ...map, key:"intro:map", cut:true, shot:"map" };
         const u = smooth(clamp((t - (total - swoop)) / swoop, 0, 1));
-        const to = gridShot(g, 0);
+        const to = lineupShot(g, riders, 0, input.aspect || 16 / 9);
         /* the dive arcs: it stays high, then drops onto the grid */
         const eyeP = mix3(map.eye, to.eye, u);
         eyeP.z += Math.sin(u * Math.PI) * 30 * (1 - u);
         return { eye:eyeP, look:mix3(map.look, to.look, Math.min(1, u * 1.3)), fov:lerp(map.fov, FOV, u), key:"intro:dive", shot:"dive" };
       }
-      case "grid": return { ...gridShot(L, time), key:"grid" };
+      case "grid": return { ...lineupShot(L, riders, time, input.aspect || 16 / 9), key:"grid" };
       case "countdown": {
+        /* behind the last row, so the whole grid is in and nobody is cut by the frame's foot */
+        const sBack = riders.reduce((m, r) => (Number.isFinite(r.s) ? Math.min(m, r.s) : m), L.grid);
+        const depth = clamp(L.grid - sBack, 0, 20);
         const g = gridShot(L, 3 + time);
-        const close = { eye:behind(L.grid, 15, 5.5), look:at(L.grid + 12, 0, 0.5) };
+        const close = { eye:behind(L.grid, depth + 14, 6.5), look:at(L.grid + 12, 0, 0.5) };
         const u = smooth(clamp(time / 2.6, 0, 1));
         return { eye:mix3(g.eye, close.eye, u), look:mix3(g.look, close.look, u), fov:lerp(FOV, 40, u), key:"countdown" };
       }
@@ -127,6 +130,31 @@ export function createDirector(geo, { wallAt = () => 8, groundAt = null, falls =
       const p = geo.sample(s);
       return { k, x:p.x, y:p.y, z:geo.elevAt(s) + 6 };
     });
+  }
+
+  /* the lineup: from downstream, low, looking up the river into the riders'
+     faces, every rider in (the title card owns the top left) */
+  const LINEUP = { left:0.5, right:0.8, top:0.42, bottom:0.62 };
+  function lineupShot(L, riders, time, aspect) {
+    const pts = riders.filter(r => Number.isFinite(r.x) && Number.isFinite(r.y))
+      .map(r => ({ x:r.x, y:r.y, z:geo.elevAt(Number.isFinite(r.s) ? r.s : L.grid) + 0.9 }));
+    if (!pts.length) return gridShot(L, time);
+    const n = pts.length;
+    const C = pts.reduce((acc, p) => ({ x:acc.x + p.x / n, y:acc.y + p.y / n, z:acc.z + p.z / n }), { x:0, y:0, z:0 });
+    const g = at(L.grid);
+    const yaw = Math.atan2(-g.ty, -g.tx);
+    let pitch = 0.3;
+    const fovDeg = 38;
+    const { D } = frameDistance(pts, C, yaw, pitch, fovDeg, aspect, LINEUP, 9, 70);
+    const push = 1 - Math.min(0.1, time * 0.025);
+    const eyeAt = pt => ({ x:C.x - Math.cos(pt) * Math.cos(yaw) * D * push, y:C.y - Math.cos(pt) * Math.sin(yaw) * D * push, z:C.z + Math.sin(pt) * D * push });
+    let eyeP = eyeAt(pitch);
+    if (groundAt) {
+      for (let k = 0; k < 6 && blocked(eyeP, C); k++) { pitch = Math.min(1.1, pitch + 0.1); eyeP = eyeAt(pitch); }
+      eyeP.z = Math.max(eyeP.z, groundAt(eyeP.x, eyeP.y) + 2.5);
+    }
+    /* aim a little over them: the riders sit low in the frame, the lights and the desert above */
+    return { eye:eyeP, look:{ x:C.x, y:C.y, z:C.z + 0.2 + D * 0.07 }, fov:fovDeg };
   }
 
   function gridShot(L, time) {
@@ -305,13 +333,13 @@ export function createDirector(geo, { wallAt = () => 8, groundAt = null, falls =
     const p = input.podiumAt;
     if (!p) return { eye:at(geo.length - 30, 0, 10), look:at(geo.length - 6), fov:FOV };
     const drift = Math.sin(time * 0.22) * 0.12;
-    const back = wide ? 19 : 16.5 - Math.min(2.5, time * 0.18);
+    const back = wide ? 16.5 : 13.5 - Math.min(2, time * 0.15);
     const fx = p.fx, fy = p.fy;
     const side = { x:-fy, y:fx };
     return {
       eye:{ x:p.x + fx * back + side.x * Math.sin(drift) * back, y:p.y + fy * back + side.y * Math.sin(drift) * back, z:p.z + (wide ? 5.6 : 4.4) },
-      look:{ x:p.x, y:p.y, z:p.z + 2.6 },
-      fov:wide ? 46 : 40,
+      look:{ x:p.x, y:p.y, z:p.z + 2.3 },
+      fov:wide ? 44 : 40,
     };
   }
 
@@ -342,7 +370,9 @@ export function createDirector(geo, { wallAt = () => 8, groundAt = null, falls =
     const far = Math.hypot(w.eye.x - eye.x, w.eye.y - eye.y) > 160;
     /* intro shots, the next-leg flight and the falls cam are their own takes: cut to them, and back */
     const take = k => /^(intro:map|cut:next|falls|replay)/.test(k || "");
-    const swap = (key === "race:cut" && mode === "race:front") || (key === "race:front" && mode === "race:cut");
+    const swap = (key === "race:cut" && mode === "race:front") || (key === "race:front" && mode === "race:cut")
+      /* the lineup faces the riders, the start sits behind them: cut, never swing through the pack */
+      || (key === "grid" && mode !== "intro:dive") || (key === "countdown" && mode === "grid");
     if (!primed || (changed && (take(key) || swap || /^(falls|replay)/.test(mode || ""))) || far) {
       /* intro shots and the next-leg flight are their own takes: cut, then hold their track */
       Object.assign(eye, w.eye); Object.assign(look, w.look); fov = w.fov; primed = true;

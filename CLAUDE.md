@@ -1122,7 +1122,11 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   keeps it through the room's podium and feedback until its onExit or 120 s
   after the result (`FLOAT_LINGER_MS`), and the Now card's row (Racing,
   Play) reopens it. The Locker saves the last change 500 ms after it, and at
-  once when the section or sheet closes (`lookSaver.js`). The
+  once when the section or sheet closes (`lookSaver.js`); a look picked in
+  the room (the controller's `onLook`: the lobby, a floatie between rounds)
+  is saved the same way through the same write (App `saveFloatLook`), and
+  the Locker's picker previews the rider in their own chip colour and skin,
+  name, number and photo (`floatRider`). The
   pill: Start Float, then Enter result noting "Float posts its own result"
   (Restart Float, confirmed, in the tray), Start Float again after a failure.
   QA jumps and simulated rooms never open a river (Float plays there as a

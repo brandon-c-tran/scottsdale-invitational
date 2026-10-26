@@ -4,14 +4,13 @@
 
    A standalone room code is four of the screen's consonants (no vowels, so
    no words): the screen makes it, its QR carries /float/play?room=<code>. */
-import { cleanColor, cleanName, ROOM_ID } from "../../shared/protocol.js";
+import { cleanColor, cleanName, ROOM_ID, CODE_LETTERS, CODE_LENGTH, STANDALONE_CODE } from "../../shared/protocol.js";
 import { cleanLook, defaultLook } from "../../shared/looks.js";
 import { FLOATIE_IDS } from "../../shared/floaties.js";
 
 export const RIDER_KEY = "float-rider";
-export const CODE_LETTERS = "bcdfghjklmnpqrstvwxz";
-export const CODE_LENGTH = 4;
-export const STANDALONE_CODE = /^[bcdfghjklmnpqrstvwxz]{4}$/;
+/* the room-code letters live in protocol.js; re-exported for the join */
+export { CODE_LETTERS, CODE_LENGTH, STANDALONE_CODE };
 
 /* colours that stay apart at TV distance and off the river's blue (the
    room gives bots the rest of its palette) */

@@ -21,11 +21,12 @@ import { createRace, finishAt, riderOf, seedOf, nextRandom, applyInput, stepRace
 import { botSkills, botFloatie, createBot, botInputs, botBalloon } from "./bots.js";
 import { CRITTERS, defaultLook, cleanLook } from "./looks.js";
 import { FLOATIE_IDS } from "./floaties.js";
+import { PALETTE } from "./protocol.js";
 
 export const LEG_COUNT = COURSE.legs.length;
 /* colours for riders without one, distinct at TV distance */
-export const PALETTE = Object.freeze(["#e4572e", "#2e86ab", "#f3a712", "#29bf12", "#a23b72", "#00b3b3", "#ff7aa2",
-  "#7353ba", "#c0d461", "#ff9f1c", "#3d5a80", "#d81159", "#8fd694", "#ffd23f", "#5e6472", "#9b5de5"]);
+/* colours for riders without one (protocol.js owns the list) */
+export { PALETTE };
 
 /* the field for every round: one entry per leg, monotonic, never below 3,
    the final 3 once there are 3 or more; the cuts as even as they can be,
@@ -180,7 +181,7 @@ export function finishRound(cup, race, now) {
     const arrivedAt = rider.arriveAt, drankAt = rider.drinkAt;
     stats[rider.i] = { time:finishAt(rider), arriveAt:arrivedAt, drinkAt:drankAt,
       drinkWait:arrivedAt !== null && drankAt !== null ? Math.max(0, Math.round((drankAt - arrivedAt) * 1000) / 1000) : null,
-      ...rider.st, swaps:cup.swaps[rider.i] || 0 };
+      ...rider.st, swaps:cup.swaps[rider.i] || 0, botShare:botShareOf(rider.st) };
   }
   /* balloons this round, by thrower */
   const balloons = {};
@@ -202,6 +203,9 @@ export function finishRound(cup, race, now) {
   cup.swapUntil = last ? null : now + TIMING.SWAP_MS;
   return { survivors, eliminated, last };
 }
+
+/* the share of a race (0 to 1) a bot paddled for a rider */
+export const botShareOf = st => st?.ticks ? Math.round(Math.min(1, (st.botTicks || 0) / st.ticks) * 100) / 100 : 0;
 
 /* the Cup so far: [{ i, place, out }] (out: the round they went out in, or null) */
 export function standingsOf(cup) {
@@ -329,6 +333,11 @@ export function botOf(cup, race, i, course = COURSE) {
    script both run races through this. */
 export function raceTick(cup, race, { now, driven, course = COURSE }) {
   for (const rider of race.riders) {
+    /* how much of the race a bot paddled for this rider (stats only) */
+    if (!rider.arrived) {
+      rider.st.ticks = (rider.st.ticks || 0) + 1;
+      if (driven(rider.i)) rider.st.botTicks = (rider.st.botTicks || 0) + 1;
+    }
     if (!driven(rider.i)) continue;
     const bot = botOf(cup, race, rider.i, course);
     for (const input of botInputs(race, course, bot)) applyInput(race, rider.i, input);

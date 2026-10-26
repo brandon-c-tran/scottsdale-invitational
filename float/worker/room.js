@@ -21,7 +21,7 @@
    clock; tick(), alarm(), wake(), attach(ws, url) and onMessage(ws, text)
    are public so a test can drive a whole Cup in accelerated time. */
 import { COURSE, COURSE_ID, legLength } from "../shared/course.js";
-import { ROLES, HOST_CMDS, cleanDevice, cleanRider, cleanAnswers, cleanPid, ROOM_ID } from "../shared/protocol.js";
+import { ROLES, HOST_CMDS, FLAG, cleanDevice, cleanRider, cleanAnswers, cleanPid, ROOM_ID } from "../shared/protocol.js";
 import { SIM_HZ, SNAP_HZ, ME_HZ, PERSIST_MS, DEBUG_MS, MAX_CATCHUP_TICKS, MAX_RIDERS, TIMING } from "../shared/tuning.js";
 import { applyInput, throwBalloon, rows, flagsOf, progressOf, riderOf, seedOf } from "../shared/sim.js";
 import { cleanLook } from "../shared/looks.js";
@@ -208,7 +208,7 @@ export class FloatRoom {
       i = this.claim(meta);
     }
     this.send(ws, { t:"welcome", you:{ device:meta.device, role:meta.role, ...(i >= 0 ? { entrant:i } : {}) } });
-    this.send(ws, this.roomMessage(true));
+    this.send(ws, this.roomMessage(true, meta.role === "controller" ? meta.device : null));
     if (meta.role === "screen" && this.clip && this.cup.phase === "cut") this.send(ws, this.clip);
     if (meta.role === "controller") this.broadcastRoom(ws);
     this.schedule();
@@ -277,13 +277,19 @@ export class FloatRoom {
 
   /* ---------------------------------------------------------------- the room message */
 
-  roomMessage(withCourse = false) {
+  /* The room as a socket sees it. A rider's drinking answer is private (in
+     Field Day only they and the commissioner see it): `drinks` goes only to
+     the entrant whose device this is (`forDevice`), never to screens or
+     other phones. Out riders carry `drank` (their beach drink). */
+  roomMessage(withCourse = false, forDevice = null) {
     const cup = this.cup;
     const now = this.now();
     const entrants = cup.entrants.map((entrant, i) => {
       const item = { device:entrant.device, name:entrant.name, color:entrant.color, look:entrant.look, bot:entrant.bot === true,
-        connected:entrant.bot ? true : this.live(entrant.device, now), ready:entrant.ready === true, drinks:entrant.drinks !== false,
+        connected:entrant.bot ? true : this.live(entrant.device, now), ready:entrant.ready === true,
         botDriven:this.botDriven(i, now) };
+      if (forDevice && entrant.device === forDevice) item.drinks = entrant.drinks !== false;
+      if (cup.beach[i] && cup.out.includes(i)) item.drank = cup.beach[i].drank === true;
       for (const key of ["pid", "photo", "number", "skin", "groom"]) if (entrant[key] !== undefined) item[key] = entrant[key];
       return item;
     });
@@ -292,17 +298,34 @@ export class FloatRoom {
       t:"room", phase:cup.phase, mode:cup.mode, code:cup.code || this.code, cupId:cup.id, drinking:cup.drinking,
       round:cup.round, rounds:cup.rounds, leg:Cup.legOf(cup), field:cup.field, out:cup.out,
       startAt:cup.startAt, endsAt:cup.endsAt, swapUntil:cup.swapUntil ?? null, resume:cup.resume === true,
+      /* a Field Day Cup's start, while it waits in the lobby */
+      startPlanned:cup.phase === "lobby" && cup.startPlanned ? cup.startPlanned : null,
       cut:Cup.cutOf(cup), len:legLength(COURSE, Cup.legOf(cup)),
+      /* this is the final round (`final`, below, is the Cup's final order once known) */
+      lastRound:cup.phase !== "lobby" && Cup.isLastRound(cup),
       entrants,
       ...(withCourse ? { course:COURSE } : { courseId:COURSE_ID }),
       results:live ? Cup.resultsOf(this.race) : cup.results, standings:cup.standings, podium:cup.podium,
       final:cup.final, history:cup.history.map(({ round, leg, field, results, out }) => ({ round, leg, field, results, out })),
     };
   }
+  /* one text for screens and phones without an entrant; each rider's phone
+     its own copy, with only its own drinking answer */
   broadcastRoom(except = null) {
     if (!this.cup) return;
-    const text = JSON.stringify({ ...this.roomMessage(false), s:this.now() });
-    this.each(null, ws => { if (ws !== except) try { ws.send(text); } catch { /* closing */ } });
+    const s = this.now();
+    const base = this.roomMessage(false);
+    const text = JSON.stringify({ ...base, s });
+    this.each(null, (ws, meta) => {
+      if (ws === except) return;
+      const k = meta.role === "controller" ? this.entrantIndex(meta.device) : -1;
+      let out = text;
+      if (k >= 0) {
+        const own = { ...base.entrants[k], drinks:this.cup.entrants[k].drinks !== false };
+        out = JSON.stringify({ ...base, entrants:base.entrants.map((item, j) => j === k ? own : item), s });
+      }
+      try { ws.send(out); } catch { /* closing */ }
+    });
   }
 
   /* ---------------------------------------------------------------- the Cup */
@@ -359,6 +382,7 @@ export class FloatRoom {
   }
 
   toLobby() {
+    this.postResultOnce();
     this.stopLoop();
     this.race = null;
     Cup.toLobby(this.cup, this.now(), { keepBots:this.cup.mode === "fieldday" && !this.cup.done });
@@ -418,6 +442,7 @@ export class FloatRoom {
     if (cup.phase === "feedback") { this.toLobby(); return; }
     const phase = Cup.advance(cup, now);
     if (phase === "grid") this.enterGrid();
+    if (phase === "feedback") this.postResultOnce();
     this.saveCup();
     this.broadcastRoom();
     this.flushOutbox();
@@ -544,8 +569,19 @@ export class FloatRoom {
     this.saveCup();
     this.persist(this.storage.put(`stats:${cup.id}`, cup.history.map(({ round, leg, stats, balloons, rtt }) => ({ round, leg, stats, balloons, rtt }))));
     this.broadcastRoom();
-    if (last && cup.mode === "fieldday" && cup.evId) this.queueResult();
+    void last;
     this.schedule();
+  }
+
+  /* A Field Day Cup's result goes to the Tournament once its podium has
+     played: the Tournament's winner scene takes the TV when the result
+     posts. Leaving a finished Cup early (back to the lobby) posts it too. */
+  postResultOnce() {
+    const cup = this.cup;
+    if (!cup?.done || cup.mode !== "fieldday" || !cup.evId || cup.resultQueued) return;
+    cup.resultQueued = true;
+    this.queueResult();
+    this.saveCup();
   }
 
   /* when this race must end: CAP_MS after its first finisher, never past HARD_CAP_MS */
@@ -587,29 +623,43 @@ export class FloatRoom {
     return out;
   }
 
+  /* `me`: a racer's own place, progress, stamina and flags, and for every
+     phone the race's order (entrant indexes by current place). A rider out
+     on the beach gets { i, out:true, order, of, cut, ball, f }: `ball` is
+     the server time their next balloon is ready (null until they drink),
+     and `f` carries DRANK once they have. */
   sendMe(at) {
     const race = this.race;
     if (!race) return;
-    const order = Cup.placeRiders(race.riders);
+    const order = Cup.placeRiders(race.riders).map(rider => rider.i);
     const place = {};
-    order.forEach((rider, k) => { place[rider.i] = k + 1; });
+    order.forEach((i, k) => { place[i] = k + 1; });
     const cut = Cup.cutOf(this.cup);
     for (const [ws, meta] of this.sockets) {
       if (meta.role !== "controller") continue;
       const i = this.entrantIndex(meta.device);
-      const rider = i >= 0 ? riderOf(race, i) : null;
-      if (!rider) continue;
-      this.send(ws, { t:"me", i, place:place[i], of:race.riders.length, prog:Math.round(progressOf(race, rider) * 10) / 10,
-        len:race.len, stam:Math.round(rider.stam * 100) / 100, f:flagsOf(rider, race.t), cut }, at);
+      if (i < 0) continue;
+      const rider = riderOf(race, i);
+      if (rider) {
+        this.send(ws, { t:"me", i, place:place[i], of:race.riders.length, prog:Math.round(progressOf(race, rider) * 10) / 10,
+          len:race.len, stam:Math.round(rider.stam * 100) / 100, f:flagsOf(rider, race.t), cut, order }, at);
+        continue;
+      }
+      const spot = this.cup.beach[i];
+      if (!spot || !this.cup.out.includes(i)) continue;
+      this.send(ws, { t:"me", i, out:true, order, of:race.riders.length, cut, ball:spot.drank ? spot.next : null,
+        f:spot.drank ? FLAG.DRANK : 0 }, at);
     }
   }
 
   /* ---------------------------------------------------------------- phone messages */
 
   input(i, input) {
-    if (this.cup.phase !== "race" || !this.race) return;
-    if (this.cup.entrants[i]?.kicked) return;
-    applyInput(this.race, i, input);
+    if (!this.race || this.cup.entrants[i]?.kicked) return;
+    const phase = this.cup.phase;
+    /* thumbs count from the grid on, so a phone held through the countdown
+       is right at the gun; strokes only once the race is on */
+    if (phase === "race" || (input.t === "hands" && (phase === "grid" || phase === "countdown"))) applyInput(this.race, i, input);
   }
 
   onDrink(i) {
@@ -726,10 +776,19 @@ export class FloatRoom {
       results:item.results.map(result => ({ who:name(result.i), pid:cup.entrants[result.i]?.pid ?? null, bot:cup.entrants[result.i]?.bot === true,
         place:result.place, time:result.time, drinkAt:result.drinkAt, arriveAt:result.arriveAt })),
     }));
+    /* how much of their races a bot paddled for each rider (0 to 1), over the Cup */
+    const paddled = {};
+    for (const item of cup.history)
+      for (const [i, value] of Object.entries(item.stats)) {
+        const who = (paddled[name(Number(i))] ||= { ticks:0, botTicks:0 });
+        who.ticks += value.ticks || 0;
+        who.botTicks += value.botTicks || 0;
+      }
     const stats = { rounds:cup.history.map(item => ({ round:item.round, leg:COURSE.legs[item.leg]?.id,
       riders:Object.fromEntries(Object.entries(item.stats).map(([i, value]) => [name(Number(i)), value])),
       balloons:Object.fromEntries(Object.entries(item.balloons || {}).map(([i, value]) => [name(Number(i)), value])),
-      rtt:item.rtt || {} })) };
+      rtt:item.rtt || {} })),
+      botShare:Object.fromEntries(Object.entries(paddled).map(([who, value]) => [who, Cup.botShareOf(value)])) };
     this.queue(`result:${cup.id}`, "/internal/float/result", { evId:cup.evId, cupId:cup.id, order, rounds, stats });
   }
 

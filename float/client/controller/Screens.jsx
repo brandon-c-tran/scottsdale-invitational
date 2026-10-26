@@ -55,8 +55,10 @@ export function PaddleDemo() {
   </div>;
 }
 
-function Connecting() {
+/* a phone that can't reach the room can always leave (Field Day's sheet sits over the app) */
+function Connecting({ onExit }) {
   return <section className="flc-screen flc-connecting">
+    <Top right={<ExitButton onExit={onExit} />} />
     <div className="flc-ripples" aria-hidden="true"><i /><i /><i /></div>
     <p>Joining</p>
   </section>;
@@ -197,7 +199,8 @@ function Beach({ screen, game, now, onDrink, onThrow, onExit }) {
     if (throws && (m.lastThrowAt == null || m.lastThrowAt < throws.s)) m.lastThrowAt = throws.s;
     return m;
   }, [game.memory, throws]);
-  const beach = beachState({ room, me:null, idx, memory, now });
+  /* the room's beach `me` (out:true) carries the live order and the next balloon's time */
+  const beach = beachState({ room, me:game.me?.out ? game.me : null, idx, memory, now });
   const entrants = Array.isArray(room?.entrants) ? room.entrants : [];
   const mine = resultOf(room, idx);
   const place = screen === "outcut" ? mine?.place : finalPlace(room, idx);
@@ -315,7 +318,7 @@ function Watch({ game, onExit }) {
 
 export default function Screens(props) {
   const { screen } = props;
-  if (screen === "connecting") return <Connecting />;
+  if (screen === "connecting") return <Connecting onExit={props.onExit} />;
   if (screen === "lobby") return <Lobby {...props} />;
   if (screen === "intro" || screen === "grid") return <NextLeg {...props} />;
   if (screen === "cut") return <Through {...props} />;

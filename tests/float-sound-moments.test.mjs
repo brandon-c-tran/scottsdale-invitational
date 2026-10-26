@@ -418,6 +418,10 @@ test("the phone's taps through the real engine: on the you bus, one dip each 45 
   sound.__resetSoundEngine({ factory:Ctx });
   sound.setSoundSurface("phone");
   const log = globalThis.__FD_SOUND_LOG__ = [];
+  /* the clock held still: the first stroke also wakes the engine, and on a busy
+     machine that alone could carry the second past the 45 ms */
+  const realNow = Date.now;
+  Date.now = () => 1_000_000;
   try {
     assert.ok(phone.floatStrokeSound("L", 0.9), "the first stroke unlocks and dips");
     assert.equal(made.length, 1);
@@ -427,7 +431,7 @@ test("the phone's taps through the real engine: on the you bus, one dip each 45 
     assert.ok(phone.lastTaps().stroke > 0 && phone.lastTaps().drink > 0);
     sound.setSoundSurface("tv");
     assert.equal(phone.floatDrinkSound(), null, "never on the TV");
-  } finally { delete globalThis.__FD_SOUND_LOG__; sound.__resetSoundEngine(); }
+  } finally { Date.now = realNow; delete globalThis.__FD_SOUND_LOG__; sound.__resetSoundEngine(); }
 });
 
 test("the gun read from a countdown: the first instant well ahead of its message; a round keeps it", () => {

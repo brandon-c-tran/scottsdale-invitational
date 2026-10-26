@@ -6,7 +6,7 @@
    written straight to the DOM from the frame bus; React re-renders only
    when the room or the order changes. */
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { FLAG } from "../../../shared/protocol.js";
+import { FLAG, levelOfFlags } from "../../../shared/protocol.js";
 import { COUNT_BEATS, PODIUM_BEATS } from "../../sound/index.js";
 import { BotMark, Chip, DoneIcon, DrinkIcon, FlagIcon, Num, OneSafe, Ordinal, ordinalHtml, PhoneIcon, SwimIcon } from "./bits.jsx";
 import { inkOn } from "./identity.js";
@@ -28,7 +28,7 @@ export function useFrameValue(bus, select, equal = (a, b) => a === b) {
 }
 
 /* a rider's groove level (float/PROTOCOL.md "The beat"): two bits of the flags */
-export const levelOf = f => ((f | 0) >> 8) & 3;
+export const levelOf = levelOfFlags;
 const LEVEL_NAMES = ["", "Rhythm", "Groove", "Locked in"];
 
 const orderKey = frame => (frame?.order || []).map(o => `${o.i}:${o.state}:${o.place ?? ""}:${has(o.f, FLAG.HANDS_OFF) ? 1 : 0}${has(o.f, FLAG.SWIM) ? 1 : 0}${has(o.f, FLAG.DRANK) ? 1 : 0}${levelOf(o.f)}`).join(",");

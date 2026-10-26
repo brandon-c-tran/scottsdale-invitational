@@ -217,6 +217,7 @@ export function connectFloat({ room = "mock", role = "screen", hello = {}, optio
     } else if (msg.t === "ev") {
       if (msg.e === "arrive") observed.arrivals += 1;
       if (msg.e === "flip" && msg.why === "drop") observed.dropFlip = true;
+      if (msg.e === "groove" && msg.level === 3 && observed.phase === "race") observed.lockedIn = true;
     } else if (msg.t === "snap" && observed.phase === "race") {
       const leg = COURSE.legs[observed.leg];
       for (const row of msg.k || []) observed.leaderS = Math.max(observed.leaderS, leg.grid + row[5]);

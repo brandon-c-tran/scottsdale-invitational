@@ -11,7 +11,7 @@
    breathing with the beat. */
 import * as THREE from "three";
 import { buildRider } from "../../art/index.js";
-import { FLAG } from "../../../shared/protocol.js";
+import { FLAG, levelOfFlags } from "../../../shared/protocol.js";
 import { angleDelta } from "../model/courseGeom.js";
 
 /* the art is life size (a ring about 1.45 m across, a seated rider about
@@ -22,7 +22,7 @@ export const RIDER_SCALE = 1.4;
 export const LEVEL_HEX = Object.freeze([null, "#5fdcf0", "#ffa630", "#ff3fa4"]);
 const LEVEL_COLORS = LEVEL_HEX.map(hex => (hex ? new THREE.Color(hex) : null));
 const GLOW_GAIN = [0, 0.5, 0.62, 0.9];
-export const levelOfFlags = f => ((f | 0) >> 8) & 3;
+
 /* where a name tag points: a little over a seated critter's head */
 const HEAD = 1.3;
 const STROKE_REPEAT_MS = 340;
@@ -136,8 +136,17 @@ export function createRiders({ scene, geo, fx, shadowTex, noise }) {
     const measure = () => {
       try {
         if (!art?.root) return null;
-        const box = new THREE.Box3().setFromObject(art.root);
-        return Number.isFinite(box.max.y) && box.max.y > 0.3 ? box.max.y * RIDER_SCALE + 0.35 : null;
+        /* in the art's own frame (wherever the rider is on the river), shown meshes only */
+        art.root.updateWorldMatrix(true, true);
+        const inv = new THREE.Matrix4().copy(art.root.matrixWorld).invert();
+        const rel = new THREE.Matrix4(), box = new THREE.Box3(), part = new THREE.Box3();
+        art.root.traverse(o => {
+          if (!o.isMesh || !o.geometry) return;
+          for (let p = o; p && p !== art.root.parent; p = p.parent) if (p.visible === false) return;
+          if (!o.geometry.boundingBox) o.geometry.computeBoundingBox();
+          box.union(part.copy(o.geometry.boundingBox).applyMatrix4(rel.multiplyMatrices(inv, o.matrixWorld)));
+        });
+        return Number.isFinite(box.max.y) && box.max.y > 0.3 && box.max.y < 4 ? box.max.y * RIDER_SCALE + 0.35 : null;
       } catch { return null; }
     };
     const headY = Math.max(HEAD * RIDER_SCALE, measure() ?? 0);

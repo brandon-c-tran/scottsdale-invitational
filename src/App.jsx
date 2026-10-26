@@ -989,6 +989,9 @@ function TournamentApp({ tournament, onUpdateReload }) {
     if (options?.quiet && !r.ok) return r;
     return actionFeedback(r, notify, okMsg);
   };
+  /* a rider's Float look, from the Locker or from the room's own picker
+     (the controller's onLook): the same write, its failure shown where it was made */
+  const saveFloatLook = look => act("floatLook", { look }, null, { retry:true, quiet:true });
 
   const saveProfile = async (p, prof) => {
     const result = await savePlayerProfile({ player:p, profile:prof,
@@ -1785,7 +1788,7 @@ function TournamentApp({ tournament, onUpdateReload }) {
       {me && <TriviaPlaySheet state={state} me={me} blocked={!!modal} force={triviaForce} />}
       {me && <KaraokeSheet state={state} me={me} blocked={!!modal} force={karaokeForce} gm={gmView}
         karaoke={capabilities.karaoke === true} />}
-      {me && <FloatPlaySheet state={state} me={me} blocked={!!modal} force={floatForce} />}
+      {me && <FloatPlaySheet state={state} me={me} blocked={!!modal} force={floatForce} onLook={saveFloatLook} />}
       {modal?.type === "profile" && <ProfileSheet state={state} me={me} onClose={() => setModal(null)} onBack={modalBack} onChip={pickChip}
         initialSection={modal.section}
         spotifyCatalogEnabled={audioCatalogAllowed}
@@ -1793,7 +1796,7 @@ function TournamentApp({ tournament, onUpdateReload }) {
         karaoke={capabilities.karaoke === true}
         onKaraoke={track => act("karaokeSong", { track }, null, { retry:true, quiet:true })}
         float={capabilities.float === true}
-        onFloatLook={look => act("floatLook", { look }, null, { retry:true, quiet:true })}
+        onFloatLook={saveFloatLook}
         save={async prof => {
           const saved = await saveProfile(me, prof);
           if (saved.ok) { setModal(null); notify(prof.confirmJersey ? "Jersey confirmed" : "Profile saved"); }

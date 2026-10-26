@@ -657,6 +657,17 @@ function withFloatLook(state, player = FIT_GUEST) {
   act(state, "floatLook", { player, look:{ critter:"capybara", floatie:"flamingo", hat:"cowboy", shades:"stars", pose:"airguitar" } });
   return state;
 }
+/* Float still ahead, a few riders' looks saved and the rest the room's own
+   default: Saturday afternoon's end, or before the weekend with `out`
+   riders Not coming and `long` lettered a long name */
+function floatAhead({ target = "session:sap", out = [], long = null } = {}) {
+  const state = fresh(target);
+  withFloatLook(state, FIT_GUEST);
+  act(state, "floatLook", { player:"Henry", look:{ critter:"javelina", floatie:"donut", hat:"bucket", shades:"aviators", pose:"flex" } });
+  act(state, "floatLook", { player:"Khoa", look:{ critter:"roadrunner", floatie:"unicorn", hat:"none", shades:"hearts", pose:"chug" } });
+  out.forEach(player => act(state, "setOut", { player, out:true }));
+  return long ? renamed(state, long, RECORDS_LONG_NAME) : state;
+}
 /* the riders' feedback cards, as the room posts them (the desk reads them over the socket) */
 export const FIT_FLOAT_FEEDBACK = Object.freeze([
   { cupId:"cupfit01", pid:"Richard", fun:5, again:true, better:"A longer river, and a second waterfall before the takeout bar", at:3 },
@@ -1381,6 +1392,11 @@ export const TV_SCENARIOS = Object.freeze([
      room never took the Cup */
   { id:"tv-float-live", build:() => floatRacing(), wait:1500 },
   { id:"tv-float-failed", build:() => floatRacing({ failed:true }) },
+  /* the riders turn while Float is ahead: every rider coming as the room's
+     art draws them (its stub until the art build lands), names under them */
+  { id:"tv-float-roster", build:() => floatAhead(), float:true, at:{ floatRoster:{} }, wait:2500 },
+  { id:"tv-float-roster-short", build:() => floatAhead({ target:"locker", out:["Jeremy", "Ben", "Evan"], long:"Allan" }),
+    float:true, at:{ floatRoster:{} }, wait:2500 },
   { id:"tv-walkout", build:() => fresh("event:putt:done"), moment:{ kind:"walkout", t:3000, player:"Brandon" } },
   /* a team's win walks out as the team: the moment is read from the record
      and the win it follows (walkoutView), a pair with no cover, seven with one */

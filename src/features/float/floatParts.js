@@ -1,9 +1,10 @@
 /* The gate in front of Float's own components (float/client): the TV's
-   river (FloatScreen), the phone's controller (FloatController) and the
-   profile's locker (LockerPicker). Everything here is small and in the main
-   bundle; each part is its own chunk, fetched only when a TV, a rider's
-   phone or an open Locker asks for it, and only from an effect, never
-   during a render (a server render or a test never loads it).
+   river (FloatScreen), the phone's controller (FloatController), the
+   profile's locker (LockerPicker) and the room's art for the TV's riders
+   turn. Everything here is small and in the main bundle; each part is its
+   own chunk, fetched only when a TV, a rider's phone or an open Locker asks
+   for it, and only from an effect, never during a render (a server render
+   or a test never loads it).
 
    The loaders are Vite's import.meta.glob, so each part is a lazy chunk in
    the build while a plain bundler (esbuild in the tests) never follows
@@ -68,5 +69,50 @@ export function provideFloatPart(name, Component) {
   if (!LOADERS[name] || typeof Component !== "function") return;
   loaded[name] = Component;
   delete failed[name];
+  notify();
+}
+
+/* The room's art (float/client/art), a module rather than a component: the
+   TV's riders turn draws each rider's still with its riderPortrait. Its own
+   chunk, loaded the same way, from an effect, and out for the session once
+   it fails. */
+const ART = () => import.meta.glob("../../../float/client/art/index.js")["../../../float/client/art/index.js"]();
+const art = { mod:null, pending:null, failed:null };
+export function loadFloatArt() {
+  if (art.mod) return Promise.resolve(art.mod);
+  if (art.failed) return Promise.resolve(null);
+  if (art.pending) return art.pending;
+  art.pending = Promise.resolve().then(ART).then(mod => {
+    if (typeof mod?.riderPortrait !== "function") throw new Error("art has no riderPortrait");
+    art.mod = mod;
+    return mod;
+  }).catch(error => {
+    art.failed = String(error?.message || error || "load").slice(0, 120);
+    return null;
+  }).finally(() => { art.pending = null; notify(); });
+  return art.pending;
+}
+export function useFloatArt(want = true) {
+  const [, bump] = useState(0);
+  useEffect(() => {
+    if (!want) return undefined;
+    const fn = () => bump(n => n + 1);
+    listeners.add(fn);
+    loadFloatArt();
+    return () => { listeners.delete(fn); };
+  }, [want]);
+  return { art:art.mod, failed:art.failed };
+}
+/* a rehearsal's own art (a stand-in riderPortrait), or a failure to rehearse */
+export function provideFloatArt(mod) {
+  if (typeof mod?.riderPortrait !== "function") return;
+  art.mod = mod;
+  art.failed = null;
+  notify();
+}
+export function failFloatArt(reason = "render") {
+  if (art.failed) return;
+  art.mod = null;
+  art.failed = reason;
   notify();
 }

@@ -1105,17 +1105,26 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   TV: while the Cup races and the room has it (`floatOn`), `TVFloat` lays
   FloatScreen over the whole canvas (a takeover; no showdown, gag, lobby or
   vignette over it; the reload waits); a directed scene, an award, the crown
-  and the posted result outrank it, and a TV whose river failed shows its own
-  live board. The phone: `FloatPlaySheet` opens FloatController by itself
-  once a Cup for a rider (never a spectator), keeps it through the room's
-  podium and feedback until its onExit or 120 s after the result
-  (`FLOAT_LINGER_MS`), and the Now card's row (Racing, Play) reopens it. The
+  and the posted result outrank it (the river unmounts under them: the
+  screen takes no mute), and a TV whose river failed shows its own live
+  board. While Float is ahead and the room is bound, the gap's rotation has
+  a riders turn after Next (`floatRoster.js`, `TVFloatRoster.jsx`): every
+  rider coming as the room's art draws them (`riderPortrait`, one still at a
+  time, kept by look for the session, 40 at most), each name under its
+  rider, the photo chip until a still is in or when the art fails. The
+  phone: `FloatPlaySheet` (z 140, where Trivia's game sits) opens
+  FloatController by itself once a Cup for a rider (never a spectator),
+  keeps it through the room's podium and feedback until its onExit or 120 s
+  after the result (`FLOAT_LINGER_MS`), and the Now card's row (Racing,
+  Play) reopens it. The Locker saves the last change 500 ms after it, and at
+  once when the section or sheet closes (`lookSaver.js`). The
   pill: Start Float, then Enter result noting "Float posts its own result"
   (Restart Float, confirmed, in the tray), Start Float again after a failure.
   QA jumps and simulated rooms never open a river (Float plays there as a
   free-for-all entered by hand); Play solo's `solo:float` posts a Cup of the
   commissioner's player and `bots:13`. Tests `float-fieldday`, `float-ui`;
-  fit views `tv-float-*`, `float-*`, `gm-float-*`.
+  fit views `tv-float-*` (the riders turn `tv-float-roster*`), `float-*`,
+  `gm-float-*`.
 
 ## Current redesign direction
 

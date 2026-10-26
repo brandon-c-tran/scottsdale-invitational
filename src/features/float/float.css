@@ -6,9 +6,33 @@
 /* ── the TV: the whole canvas, under the frame's lamps, over the board ── */
 .tv-float { position:absolute; inset:0; z-index:10; overflow:hidden; background:var(--night-deep); }
 .tv-float-wait { position:absolute; inset:0; display:grid; place-items:center; }
+/* the riders turn (TVFloatRoster.jsx): one glass panel standing on the
+   painting's floor like the records, the game as its label, the riders in
+   rows, each name under its rider; canvas px, 24px and up; every delay is
+   "this long after the turn began" (--tl) */
+.tv-pane.tv-float-roster-pane { align-items:center; justify-content:flex-end; padding-bottom:80px; }
+.tv-float-roster { position:relative; max-width:100%; box-sizing:border-box; display:grid; justify-items:center; row-gap:24px;
+  padding:36px 64px 44px; animation:tv-float-roster-in 560ms var(--ease-out) var(--tl, 0ms) both; }
+.tv-float-roster-label { display:flex; align-items:center; gap:16px; margin:0; font:700 32px/1.15 var(--fd-display);
+  letter-spacing:.16em; text-transform:uppercase; color:var(--muted2); white-space:nowrap; }
+.tv-float-roster-rows { display:grid; row-gap:20px; }
+.tv-float-roster-row { display:flex; justify-content:center; gap:28px; }
+.tv-float-rider { width:var(--col); flex:none; margin:0; display:grid; justify-items:center; align-content:start; gap:8px;
+  animation:tv-float-rider-in 420ms var(--ease-land) calc(var(--tl, 0ms) + 220ms + var(--i, 0) * 55ms) both; }
+.tv-float-rider-art { width:var(--col); height:var(--col); display:grid; place-items:center; }
+.tv-float-rider-art img { display:block; width:100%; height:100%; object-fit:contain; animation:tv-float-still-in 320ms var(--ease-out) both; }
+.tv-float-rider-name { width:var(--col); display:block; text-align:center; line-height:1.15; color:var(--bone); white-space:nowrap; }
+@keyframes tv-float-roster-in { from { opacity:0; transform:translateY(22px) scale(.985); } to { opacity:1; transform:none; } }
+@keyframes tv-float-rider-in { from { opacity:0; transform:translateY(18px) scale(.9); } to { opacity:1; transform:none; } }
+@keyframes tv-float-still-in { from { opacity:0; } to { opacity:1; } }
+@media (prefers-reduced-motion: reduce) {
+  .tv-float-roster, .tv-float-rider, .tv-float-rider-art img { animation:none; }
+}
 
-/* ── the phone: the controller over everything, the app untouched under it ── */
-.fd-float-play { position:fixed; inset:0; z-index:150; overflow:hidden; overscroll-behavior:none; touch-action:none;
+/* ── the phone: the controller over the app and its sheets, where Trivia's
+   game sits (140), so a result's receipt and toast (150) dock above it and
+   a moment (415) takes the screen for its span; the app untouched under it ── */
+.fd-float-play { position:fixed; inset:0; z-index:140; overflow:hidden; overscroll-behavior:none; touch-action:none;
   background:var(--night-deep); color:var(--bone); }
 .fd-float-wait { position:absolute; inset:0; display:grid; place-items:center; }
 .fd-float-missing { position:absolute; inset:0; display:grid; place-content:center; justify-items:center; gap:12px;

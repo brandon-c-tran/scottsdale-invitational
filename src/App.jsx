@@ -1514,7 +1514,7 @@ function TournamentApp({ tournament, onUpdateReload }) {
           ceremony={tvCeremonyHold ? null : { intro:shownIntro, handoff:introHasQueuedReveal, reveal,
             onIntroDone:() => setIntro(null), onRevealDone:closeReveal }}
           onSoundStatus={reportTvSound} arriveCode={tournament.arriveCode} onVideoStatus={reportTvVideo}
-          onExit={() => setTv(false)} /></Suspense>
+          float={capabilities.float === true} onExit={() => setTv(false)} /></Suspense>
         <Confetti burst={burst} />
       </Shell>
     );

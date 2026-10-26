@@ -70,6 +70,8 @@ import { karaokeLive } from "../../../shared/karaoke.js";
 import { floatLive, floatOn } from "../../../shared/float.js";
 import { TVFloat } from "../float/TVFloat.jsx";
 import { useFloatPart } from "../float/floatParts.js";
+import { FLOAT_ROSTER_CARD, floatRosterRiders, withFloatRoster } from "../float/floatRoster.js";
+import { TVFloatRoster, useRiderPortraits } from "../float/TVFloatRoster.jsx";
 import { isBoardGame } from "../../../shared/triviaBoard.js";
 import { awardOnTv } from "../../../shared/prompts.js";
 import { TVPhotoCard } from "../photos/TVPhotoCard.jsx";
@@ -654,7 +656,7 @@ function NextUpCard({ ev }) {
 /* ═════════════ the TV ═════════════ */
 function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied: allTiedInput, champion, coChamps, showControlEnabled,
   rankDeltas = {}, connection: connectionInput = {}, onExit, ceremony = null, now: nowOverride,
-  onSoundStatus = null, arriveCode = null, onVideoStatus = null }) {
+  onSoundStatus = null, arriveCode = null, onVideoStatus = null, float = false }) {
   /* a level board has no leader and no ranks, whatever the caller says */
   const allTied = !!allTiedInput || (!state.frozen && boardLevel(standings));
   const tickNow = useServerNow(nowOverride === undefined ? 1000 : 0);
@@ -857,6 +859,11 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied: allT
   const photoGap = tvPhotoGap({ loading:connection.mode === "loading", final, directed, result:!!resultModel,
     poker:!!state.poker && !state.results?.[state.poker.id], draft:!!draftLive, live:!!liveEv,
     intro:!!(sceneIntroEv || ceremonyIntroEv), reveal:!!ceremonyReveal, faceOff:!!faceOff });
+  /* Float's riders (features/float/floatRoster.js): a turn of the gap while
+     Float is ahead and the room is bound, their stills drawn ahead of it */
+  const floatRoster = useMemo(() => photoGap ? floatRosterRiders(state, events, { float }) : null, [photoGap, state, events, float]);
+  useRiderPortraits(floatRoster, !!floatRoster);
+  const rosterTurn = !!floatRoster;
   /* F: the gap's few cards, each held: the board, what is next, the latest
      result and the trophy (the join code before everyone has checked in) */
   const ambientCards = useMemo(() => {
@@ -866,8 +873,8 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied: allT
     if (nextEv) s.push("next");
     if (latest) s.push("latest");
     if (state.live) s.push("trophy");
-    return s;
-  }, [final, joinNeeded, qrUrl, nextEv, latest, state.live]);
+    return withFloatRoster(s, rosterTurn);
+  }, [final, joinNeeded, qrUrl, nextEv, latest, state.live, rosterTurn]);
   /* Rivalries and records (Oct 10): the weekend's own records take turns in
      the same gap, one card a turn, the next records turn the next card
      (recordsModel.js); only cards with data behind them */
@@ -1061,6 +1068,9 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied: allT
     </div>;
   } else if (scene === "photos" && photos.length) {
     content = <TVPhotoCard state={state} list={photos} now={now} />;
+  } else if (scene === FLOAT_ROSTER_CARD && floatRoster) {
+    const turnAt = Math.floor(now / TV_AMBIENT_TURN_MS) * TV_AMBIENT_TURN_MS;
+    content = <TVFloatRoster key={turnAt} state={state} riders={floatRoster} turnAt={turnAt} now={now} />;
   } else if (record) {
     const turnAt = Math.floor(now / TV_AMBIENT_TURN_MS) * TV_AMBIENT_TURN_MS;
     content = <TVRecord key={`${record.id}@${turnAt}`} state={state} card={record} turnAt={turnAt} now={now} />;

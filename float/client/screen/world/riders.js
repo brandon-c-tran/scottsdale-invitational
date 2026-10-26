@@ -69,6 +69,7 @@ function wakeMaterial(noise) {
 
 export function createRiders({ scene, geo, fx, shadowTex, noise }) {
   const riders = new Map();
+  let meshesPending = 0, meshLandedAt = -Infinity;
   const group = new THREE.Group();
   group.name = "riders";
   scene.add(group);
@@ -93,6 +94,12 @@ export function createRiders({ scene, geo, fx, shadowTex, noise }) {
   function make(i, entrant, detail = "race") {
     let art = null;
     try { art = buildRider(entrant, { detail }); } catch (error) { console.error("Float rider", error); }
+    /* the baked mesh lands after the build, and its shaders compile on the
+       next draw: busy() keeps the frame budget out of that */
+    if (art?.ready && typeof art.ready.then === "function") {
+      meshesPending += 1;
+      art.ready.then(() => {}, () => {}).finally(() => { meshesPending -= 1; meshLandedAt = performance.now(); });
+    }
     const pivot = new THREE.Group();
     const bob = new THREE.Group();
     pivot.add(bob);
@@ -291,6 +298,8 @@ export function createRiders({ scene, geo, fx, shadowTex, noise }) {
   return {
     riders, sync, update, pose, group,
     get(i) { return riders.get(i); },
+    /* a rider's mesh is still on its way, or landed a moment ago (its first draw compiles) */
+    busy() { return meshesPending > 0 || performance.now() - meshLandedAt < 1500; },
     dispose() {
       for (const r of riders.values()) dispose(r);
       riders.clear();

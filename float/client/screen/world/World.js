@@ -359,7 +359,7 @@ export function createWorld({ canvas, store, quality = "auto", onFrame, onFail, 
       replay:replaying ? { i:replaying.i } : null, legLabels, cutGroup:cam.cutGroup });
     /* step down when the frame budget will not hold */
     const t = performance.now();
-    if (portraitsBusy()) unsettled();
+    if (portraitsBusy() || B.riders.busy?.()) unsettled();
     statTimes.push(dt * 1000);
     if (statTimes.length > 90) statTimes.shift();
     frameTimes.push(dt * 1000);

@@ -85,8 +85,9 @@ export function createScreenStore() {
       if (phase !== "cut") state.replay = null;
     }
     if (phase === "countdown" || phase === "race") {
-      /* the countdown names its gun as startAt; a race's startAt is the gun */
-      if (Number.isFinite(msg.startAt) && (state.gunRound !== round || phase === "race")) { state.gun = msg.startAt; state.gunRound = round; }
+      /* the countdown names its gun as startAt; a race's startAt is the gun; a
+         race resumed after the room restarted counts down again to a new one */
+      if (Number.isFinite(msg.startAt)) { state.gun = msg.startAt; state.gunRound = round; }
     }
     if (phase === "grid" || phase === "countdown" || phase === "race") {
       state.raceField = indexList(msg.field);

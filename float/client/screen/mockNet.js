@@ -69,7 +69,8 @@ const SHOTS = {
   dive:{ when:o => o.phase === "intro", after:5600 },
   grid:{ when:o => o.phase === "grid" && o.round === 0, after:2200 },
   countdown:{ when:o => o.phase === "countdown" && o.round === 0, after:1300 },
-  go:{ when:o => o.phase === "race" && o.round === 0, after:500 },
+  /* a frozen shot adds 1.2 s of rows: this lands just after the gun, while Go is up */
+  go:{ when:o => o.phase === "countdown" && o.round === 0, after:2100 },
   race:{ when:o => o.phase === "race" && o.round === 0, after:38000 },
   narrows:{ when:o => o.phase === "race" && o.round === 1, after:40000 },
   whirlpool:{ when:o => o.phase === "race" && o.round === 2, after:26000 },

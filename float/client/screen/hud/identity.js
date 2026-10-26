@@ -5,16 +5,21 @@ import { useEffect, useState } from "react";
 import { riderPortrait } from "../../art/index.js";
 
 const cache = new Map();
+/* portraits being drawn right now (their renders share the GPU with the river) */
+let inflight = 0;
+export const portraitsBusy = () => inflight > 0;
 const keyOf = e => JSON.stringify([e?.name, e?.color, e?.look, e?.photo, e?.number, e?.skin, !!e?.groom]);
 
 export function portraitFor(entrant, size = 160) {
   if (!entrant) return Promise.resolve(null);
   const key = `${size}:${keyOf(entrant)}`;
   if (!cache.has(key)) {
+    inflight++;
     const job = Promise.resolve()
       .then(() => riderPortrait(entrant, { size }))
       .then(url => { cache.set(key, url || null); return url || null; })
-      .catch(() => { cache.set(key, null); return null; });
+      .catch(() => { cache.set(key, null); return null; })
+      .finally(() => { inflight = Math.max(0, inflight - 1); });
     cache.set(key, job);
   }
   const value = cache.get(key);

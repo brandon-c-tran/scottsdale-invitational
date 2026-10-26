@@ -131,6 +131,7 @@ export function createRiders({ scene, geo, fx, shadowTex, noise }) {
      when it steps up to the podium (hero detail for the close-ups) */
   function sync(entrants = [], { hero = null } = {}) {
     const seen = new Set();
+    let builtNow = 0;
     entrants.forEach((e, i) => {
       if (!e) return;
       seen.add(i);
@@ -139,6 +140,7 @@ export function createRiders({ scene, geo, fx, shadowTex, noise }) {
       const old = riders.get(i);
       if (old && old.key === key) { old.entrant = e; return; }
       const next = make(i, e, detail);
+      builtNow++;
       if (old) {
         Object.assign(next, { x:old.x, y:old.y, a:old.a, s:old.s, z:old.z, has:old.has, flags:old.flags, celebrateUntil:old.celebrateUntil });
         if (old.poseId) { next.poseId = old.poseId; try { next.art?.critter?.setPose?.(old.poseId); } catch {} }
@@ -147,6 +149,8 @@ export function createRiders({ scene, geo, fx, shadowTex, noise }) {
       riders.set(i, next);
     });
     for (const [i, r] of riders) if (!seen.has(i)) { dispose(r); riders.delete(i); }
+    /* how many riders were (re)built: their first frames compile shaders */
+    return builtNow;
   }
 
   function setArtState(r, patch) {

@@ -25,6 +25,7 @@ import { raceOrder, legOf, cutOf } from "../model/hudModel.js";
 import { indexList, throughFor } from "../model/cupShape.js";
 import { FLAG } from "../../../shared/protocol.js";
 import { floatEnvironment, disposeFloatEnvironment, setFloatArtQuality, disposeFloatArt } from "../../art/index.js";
+import { portraitsBusy } from "../hud/identity.js";
 
 export const TIERS = Object.freeze([
   { name:"high", ratio:1.5, post:true, msaa:4, detail:2 },
@@ -34,6 +35,14 @@ export const TIERS = Object.freeze([
 ]);
 
 const SLOW_MS = 20.5;
+/* the frame budget is judged only on settled frames: never while the world,
+   a rider's art or the HUD's portraits are being built (shader compiles and
+   the portraits' own renders read as a slow GPU, and a TV would step down
+   for good at the start), and by the median, so a compile hitch is not a
+   slow window */
+const WARM_MS = 6000;
+const SETTLE_MS = 2500;
+const median = list => { const sorted = list.slice().sort((a, b) => a - b); return sorted[sorted.length >> 1]; };
 const FOG_DENSITY = 0.0024;
 /* how much of the art's night sky the vinyl reflects (and is lit by): only
    the physical materials read it (the riders, the podium, the balloons), so
@@ -177,7 +186,8 @@ export function createWorld({ canvas, store, quality = "auto", onFrame, onFail, 
   const shown = new Set();
   const sadSet = new Set();
   let frameTimes = [];
-  let warmUntil = performance.now() + 3500;
+  const statTimes = [];
+  let warmUntil = performance.now() + WARM_MS;
   let slowWindows = 0;
   let lastStats = 0;
   const tagInfo = [];
@@ -267,7 +277,7 @@ export function createWorld({ canvas, store, quality = "auto", onFrame, onFail, 
     /* entrants and their art */
     /* the top three step up to the podium in hero detail */
     const hero = st.phase === "podium" || st.phase === "feedback" ? new Set(indexList(room?.podium).slice(0, 3)) : null;
-    B.riders.sync(room?.entrants || [], { hero });
+    if (B.riders.sync(room?.entrants || [], { hero }) > 0) unsettled();
     const posesNow = stageFor(st, room, geo, time);
     /* moments due at the draw time */
     for (const e of store.takeEvents(drawAt)) handleEvent(e, B, time, room);
@@ -287,8 +297,10 @@ export function createWorld({ canvas, store, quality = "auto", onFrame, onFail, 
       return { ...o, s:r?.s, lat:r?.lat, x:r?.x, y:r?.y };
     });
     const nextLeg = geo.legs[Math.min(geo.legs.length - 1, (room?.leg | 0) + 1)];
+    /* a race resumed after the room restarted counts down where the riders are, not at the grid */
+    const dirPhase = replaying ? "replay" : st.phase === "countdown" && room?.resume === true ? "race" : st.phase;
     const cam = B.director.update(dt, {
-      phase:replaying ? "replay" : st.phase, t:phaseElapsed, dur:phaseDur, leg, riders:riderList, through, round:room?.round | 0, now:time * 1000,
+      phase:dirPhase, t:phaseElapsed, dur:phaseDur, leg, riders:riderList, through, round:room?.round | 0, now:time * 1000,
       replay:replaying,
       nextLeg:(room?.leg | 0) + 1 < geo.legs.length ? nextLeg : null,
       podiumAt:B.bar?.anchor, aspect:width / height,
@@ -347,24 +359,33 @@ export function createWorld({ canvas, store, quality = "auto", onFrame, onFail, 
       replay:replaying ? { i:replaying.i } : null, legLabels, cutGroup:cam.cutGroup });
     /* step down when the frame budget will not hold */
     const t = performance.now();
+    if (portraitsBusy()) unsettled();
+    statTimes.push(dt * 1000);
+    if (statTimes.length > 90) statTimes.shift();
     frameTimes.push(dt * 1000);
     if (frameTimes.length > 90) frameTimes.shift();
     if (auto && t > warmUntil && frameTimes.length >= 90 && document.visibilityState === "visible") {
-      const avg = frameTimes.reduce((a, b) => a + b, 0) / frameTimes.length;
-      if (avg > SLOW_MS) {
+      const typical = median(frameTimes);
+      if (typical > SLOW_MS) {
         slowWindows++;
         frameTimes = [];
         if (slowWindows >= 2 && tier < TIERS.length - 1) { tier++; slowWindows = 0; warmUntil = t + 3000; applyTier(); }
-        else if (slowWindows >= 3 && tier === TIERS.length - 1 && avg > 55) onFail?.("slow");
+        else if (slowWindows >= 3 && tier === TIERS.length - 1 && typical > 55) onFail?.("slow");
       } else if (frameTimes.length >= 90) slowWindows = Math.max(0, slowWindows - 1);
     }
     if (t - lastStats > 1000) {
       lastStats = t;
-      const avg = frameTimes.length ? frameTimes.reduce((a, b) => a + b, 0) / frameTimes.length : 16.7;
+      const avg = statTimes.length ? statTimes.reduce((a, b) => a + b, 0) / statTimes.length : 16.7;
       onStats?.({ tier:TIERS[tier].name, fps:Math.round(1000 / Math.max(1, avg)), calls:renderer.info.render.calls,
         triangles:renderer.info.render.triangles, gpu, buildMs:Math.round(B.buildMs), textures:renderer.info.memory.textures,
         geometries:renderer.info.memory.geometries });
     }
+  }
+
+  /* something is being built: the next frames do not count toward the budget */
+  function unsettled() {
+    warmUntil = Math.max(warmUntil, performance.now() + SETTLE_MS);
+    frameTimes = [];
   }
 
   function handleEvent(e, B, time, room) {
@@ -443,6 +464,8 @@ export function createWorld({ canvas, store, quality = "auto", onFrame, onFail, 
       disposeBuilt();
       composer?.renderTarget1?.dispose(); composer?.renderTarget2?.dispose();
       if (envSet) { scene.environment = null; disposeFloatEnvironment(renderer); envSet = false; }
+      /* the art's quality is global: the Locker's and the TV roster's portraits keep their clear coat */
+      setFloatArtQuality("high");
       disposeFloatArt();
       noise.dispose(); glowTex.dispose(); shadowTex.dispose();
       clock.dispose?.();

@@ -64,6 +64,13 @@ for (const id of ids) {
   const pre = new Features(sculpt, "race");
   sp.face(pre);
   const clearings = pre.clearings;
+  /* the face's bones where the face is: blinks squash the eyes about their
+     own centre, mouths pop about the mouth (a beak keeps its jaw at the hinge) */
+  const boneAt = (name, at) => { const b = rig.bones.find(x => x.name === name); if (b && at) b.at = at.map(v => +(+v).toFixed(5)); };
+  const eyesAt = pre.anchors.eyes;
+  if (eyesAt) { const mid = [0, 1, 2].map(j => (eyesAt[0].c[j] + eyesAt[1].c[j]) / 2); for (const n of ["eyes", "happy", "lids"]) boneAt(n, mid); }
+  const mouthAt = pre.anchors.mouth?.p;
+  if (mouthAt) { for (const n of ["mSmile", "mOpen", "mFrown"]) boneAt(n, mouthAt); if (!sp.keepJaw) boneAt("jaw", mouthAt); }
   sculpt.paint((p, n, own, m) => {
     for (const c of clearings) {
       const d = Math.hypot(p[0] - c.p[0], p[1] - c.p[1], p[2] - c.p[2]);
@@ -171,10 +178,19 @@ function anchorsOf(sp, feats, boneNames) {
   const hat = sp.hat || {};
   const top = cast(hat.from || H, [0, 1, hat.back || 0], skipNames(hat.skip));
   /* a hat sits down over the crown, not on its very top */
-  top[1] -= hat.sink || 0;
-  const band = top[1] - 0.06;
+  /* down over the crown, but its brim (about 6 cm under the hat's origin)
+     stays clear of the eyes; never above the crown itself */
+  const eyesAt = feats.anchors.eyes || [];
+  const eyeTop = eyesAt.length ? Math.max(...eyesAt.map(e => e.c[1])) + (feats.anchors.eyeSize?.h ?? 0.04) : -Infinity;
+  let hatY = top[1] - (hat.sink ?? 0.045);
+  if (!hat.overEyes) hatY = Math.max(hatY, eyeTop + 0.07);
+  top[1] = Math.min(top[1], hatY);
+  const band = top[1] - 0.055;
   const wide = cast([H[0], band, top[2]], [1, 0, 0], skipNames(hat.skip));
   const halfW = Math.abs(wide[0]);
+  /* sized to the head where it sits (the hats are modelled for a head
+     0.36 m across at the band) */
+  const hatS = hat.s ?? Math.min(1.16, Math.max(0.86, halfW / 0.18));
   /* the chain: round the neck where the head melts into the body, front low */
   const ch = sp.chain || {};
   const ring = [];
@@ -193,8 +209,10 @@ function anchorsOf(sp, feats, boneNames) {
   const cn = sculpt.normal(onChest[0], onChest[1], onChest[2]);
   const chip = { p: r5a([0, chipY, onChest[2] - 0.0125]), n: r5a(cn) };
   /* shades: lenses before the eyes, arms back along the head */
-  const temple = [-1, 1].map(s => { const p = cast(H, [s * 0.97, 0.05, 0.25], movable); const n = sculpt.normal(...p); return r5a(p.map((v, j) => v + n[j] * 0.01)); });
-  const strap = [[-0.6, 0.05, 0.8], [0.6, 0.05, 0.8], [0, 0.05, 1]].map(d => { const p = cast(H, d, movable); const n = sculpt.normal(...p); return r5a(p.map((v, j) => v + n[j] * 0.012)); });
+  /* (the head itself: not its horns, ears, crest or plume) */
+  const headOnly = part => part.movable || ["horn", "ear", "crest", "mane", "plume", "turret", "beak"].includes(part.group);
+  const temple = [-1, 1].map(s => { const p = cast(H, [s * 0.97, 0.05, 0.25], headOnly); const n = sculpt.normal(...p); return r5a(p.map((v, j) => v + n[j] * 0.01)); });
+  const strap = [[-0.6, 0.05, 0.8], [0.6, 0.05, 0.8], [0, 0.05, 1]].map(d => { const p = cast(H, d, headOnly); const n = sculpt.normal(...p); return r5a(p.map((v, j) => v + n[j] * 0.012)); });
   const bones = rig.bones.map(b => ({ name: b.name, parent: b.parent ? boneNames.indexOf(b.parent) : -1, at: r5a(b.at) }));
   const info = {
     hipY: rig.info.hipY,
@@ -205,7 +223,7 @@ function anchorsOf(sp, feats, boneNames) {
   };
   return {
     id: sp.sculpt.id, bones, info,
-    sockets: { hat: { at: r5a(top), s: r5(hat.s ?? 1), tilt: r5(hat.tilt ?? -0.04), halfW: r5(halfW) }, shades: { onEyes: !!sp.shadesOnEyes, w: sp.shadesW ?? 1 } },
+    sockets: { hat: { at: r5a(top), s: r5(hatS), tilt: r5(hat.tilt ?? -0.04), halfW: r5(halfW) }, shades: { onEyes: !!sp.shadesOnEyes, w: sp.shadesW ?? 1 } },
     anchors: { chain: ring, chip, temple, strap },
     fur: sp.fur || { length: 0.01, density: 1 },
     bounds: sculpt.bounds(0),

@@ -8,7 +8,7 @@ import * as THREE from "three";
 import { ball, tube, patchGeometry, xf } from "../sculpt.js";
 
 export const FEATURE_SEG = {
-  race: { eye: [14, 9], glint: [7, 4], line: [5, 6], patch: [3, 14], cap: 1, small: [10, 6], lid: [12, 4] },
+  race: { eye: [12, 8], glint: [6, 3], line: [4, 5], patch: [3, 12], cap: 1, small: [9, 6], lid: [10, 4] },
   hero: { eye: [28, 16], glint: [12, 6], line: [8, 14], patch: [5, 26], cap: 3, small: [18, 10], lid: [24, 8] },
 };
 

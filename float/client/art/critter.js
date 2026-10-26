@@ -428,8 +428,8 @@ export class CritterRuntime {
         P.hdx = 0.2 + 0.05 * pulse; P.hdy = -0.25 * sway; P.hdz = 0.06 * sway; P.cr = 0.15 * pulse;
       } else {
         const lift = 0.025 * pulse;
-        this.restToChest(-0.2 - 0.08 * up, 0.3 + 0.15 * up + lift, -0.05, P, "l");
-        this.restToChest(0.2 + 0.08 * up, 0.3 + 0.15 * up + lift, -0.05, P, "r");
+        this.restToChest(-0.24 - 0.12 * up, 0.3 + 0.16 * up + lift, -0.08, P, "l");
+        this.restToChest(0.24 + 0.12 * up, 0.3 + 0.16 * up + lift, -0.08, P, "r");
         P.lpx = -1; P.lpy = -0.12; P.lpz = 0.25; P.rpx = 1; P.rpy = -0.12; P.rpz = 0.25;
         P.bulge = 1 + 0.16 * pulse * up;
       }

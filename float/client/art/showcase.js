@@ -205,6 +205,16 @@ export class Showcase {
       }
       cam.fov = 26; cam.position.set(0, 0.95, 5.6); cam.lookAt(0, 0.95, 0);
       this.spin.auto = false;
+    } else if (view === "fit") {
+      /* one hat (and shades) on all thirteen, two rows, three quarters on */
+      CRITTERS.forEach((c, i) => {
+        const row = i < 7 ? 0 : 1, col = row ? i - 7 : i, count = row ? 6 : 7;
+        const e = sampleEntrant(i, { look: { critter: c.id, hat: opts.hat || "none", shades: opts.shades || "none" }, entrant: { groom: true } });
+        const item = this.place({ entrant: e, critterOnly: true, at: [(col - (count - 1) / 2) * 1.0, row ? 0 : 1.15, row ? 0.6 : 0], face: Math.PI + (opts.yaw ?? 0.45), detail: "hero", label: c.name, behaviour: {} });
+        item.labelY = -0.08;
+      });
+      cam.fov = 26; cam.position.set(0, 1.9, 9.6); cam.lookAt(0, 0.95, 0);
+      this.spin.auto = false;
     } else if (view === "turn") {
       /* one critter from four sides (sculpting): front, three quarters, side, back */
       const critter = look.critter || "capybara";
@@ -231,8 +241,13 @@ export class Showcase {
           item.labelY = studio ? -0.06 : -0.3;
         }
       });
-      if (studio) { cam.fov = 22; cam.position.set(0, 1.6, 11.2); cam.lookAt(0, 0.42, 0); }
-      else { cam.fov = 26; cam.position.set(0, 2.9, 14.6); cam.lookAt(0, 0.45, 0); }
+      /* far enough back that every pair fits the frame's width */
+      const halfWidth = (list.length * step) / 2 + (studio ? 0.6 : 1.2);
+      const fov = studio ? 22 : 26, aspect = cam.aspect || 16 / 9;
+      const dist = Math.max(studio ? 11.2 : 14.6, halfWidth / (Math.tan(THREE.MathUtils.degToRad(fov / 2)) * aspect));
+      cam.fov = fov;
+      if (studio) { cam.position.set(0, 1.6 * dist / 11.2, dist); cam.lookAt(0, 0.42, 0); }
+      else { cam.position.set(0, 2.9 * dist / 14.6, dist); cam.lookAt(0, 0.45, 0); }
       this.spin.auto = false;
     } else if (view === "chips") {
       /* every skin's chip, the two with photos first */
@@ -302,7 +317,7 @@ export class Showcase {
       if (this.view === "detail") it.root.rotation.y = it.face + this.spin.yaw;
       else if (this.view === "race") it.root.rotation.y = 0.15 * Math.sin(t * 0.6 + it.phase);
       else if (this.view === "chips") it.root.rotation.y = 0.5 * Math.sin(t * 0.7 + it.phase);
-      else if (!["medallion", "faces", "turn", "compare"].includes(this.view)) it.root.rotation.y = it.face + 0.55 * Math.sin(t * 0.32 + it.phase);
+      else if (!["medallion", "faces", "turn", "compare", "fit"].includes(this.view)) it.root.rotation.y = it.face + 0.55 * Math.sin(t * 0.32 + it.phase);
       it.rider?.update(dt);
       it.floatie?.update(dt);
       it.critterOnly?.update(dt);

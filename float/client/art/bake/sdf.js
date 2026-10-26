@@ -467,3 +467,30 @@ export function alongPath(points, stops, width = 0.22) {
     return flat(t, 0, 0);
   };
 }
+
+/* an ellipsoid on any frame: ux, uy, uz the world directions of its own
+   axes (orthonormal) */
+export function ellipsoidB(c, r, [ux, uy, uz]) {
+  const [cx, cy, cz] = c, [rx, ry, rz] = r;
+  const R = Math.max(rx, ry, rz);
+  return {
+    lo: [cx - R, cy - R, cz - R], hi: [cx + R, cy + R, cz + R],
+    f(x, y, z) {
+      const dx = x - cx, dy = y - cy, dz = z - cz;
+      return ellipsoidD(dx * ux[0] + dy * ux[1] + dz * ux[2], dx * uy[0] + dy * uy[1] + dz * uy[2], dx * uz[0] + dy * uz[1] + dz * uz[2], rx, ry, rz);
+    },
+  };
+}
+
+/* the frame of something pointing along dir with its flat side facing
+   front: [ux, uy, uz], uy along dir */
+export function frameAlong(dir, front = [0, 0, -1]) {
+  const n = v => { const l = Math.hypot(v[0], v[1], v[2]) || 1; return [v[0] / l, v[1] / l, v[2] / l]; };
+  const uy = n(dir);
+  const d = front[0] * uy[0] + front[1] * uy[1] + front[2] * uy[2];
+  let uz = [front[0] - uy[0] * d, front[1] - uy[1] * d, front[2] - uy[2] * d];
+  if (Math.hypot(uz[0], uz[1], uz[2]) < 1e-6) uz = [1, 0, 0];
+  uz = n(uz);
+  const ux = [uy[1] * uz[2] - uy[2] * uz[1], uy[2] * uz[0] - uy[0] * uz[2], uy[0] * uz[1] - uy[1] * uz[0]];
+  return [ux, uy, uz];
+}

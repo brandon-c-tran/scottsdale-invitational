@@ -7,7 +7,7 @@
 
    Critter space: metres, y up, facing -z, the seat at the origin. The
    critter's LEFT arm is at -x ("L" strokes paddle on the -x side). */
-import { ellipsoid, roundCone, smooth, alongBones, rgb, lerp3, clamp } from "./sdf.js";
+import { ellipsoid, ellipsoidB, frameAlong, roundCone, union, smooth, alongBones, rgb, lerp3, clamp } from "./sdf.js";
 
 export const V3 = (x, y, z) => [x, y, z];
 const norm = v => { const l = Math.hypot(v[0], v[1], v[2]) || 1; return [v[0] / l, v[1] / l, v[2] / l]; };
@@ -180,4 +180,63 @@ export function patchOn(s, from, dir, r, color, opts = {}) {
   const c = outFrom(st, -(opts.sink ?? 0.004));
   patch(s, c, r, color, opts);
   return st;
+}
+
+/* a long soft ear (or a feather lobe): three ellipsoids melted along its
+   axis from the base, broad in the middle, flat front to back */
+export function longEar(base, dir, len, { width = 0.06, thick = 0.022, front = [0, 0, -1], k = 0.02, taper = 0.68, root = 0.85 } = {}) {
+  const fr = frameAlong(dir, front);
+  const uy = fr[1];
+  const at = t => [base[0] + uy[0] * len * t, base[1] + uy[1] * len * t, base[2] + uy[2] * len * t];
+  return union([
+    ellipsoidB(at(0.24), [width * root, len * 0.27, thick], fr),
+    ellipsoidB(at(0.53), [width, len * 0.31, thick * 0.92], fr),
+    ellipsoidB(at(0.8), [width * taper, len * 0.22, thick * 0.82], fr),
+  ], k);
+}
+
+/* bones along an ear's axis: the base bone, then the tip's, by height along it */
+export function earBones(S, base, dir, len) {
+  const uy = norm(dir);
+  return (x, y, z) => {
+    const t = clamp(((x - base[0]) * uy[0] + (y - base[1]) * uy[1] + (z - base[2]) * uy[2]) / len, 0, 1);
+    const w = smooth(0.3, 0.7, t);
+    return [[`ear${S}`, 1 - w], [`ear${S}2`, w]];
+  };
+}
+
+/* points of a horn curling from its base: up and back, down, then forward
+   under the ear (the curl's plane turned three quarters to the front) */
+export function curl(base, { out, up = [0, 1, 0], back = [0, 0, 1], turns = 0.85, grow = 0.13, n = 18 }) {
+  const side = norm([back[0] * 0.55 + out[0] * 0.84, back[1] * 0.55 + out[1] * 0.84, back[2] * 0.55 + out[2] * 0.84]);
+  const pts = [];
+  for (let i = 0; i <= n; i++) {
+    const t = i / n, a = t * turns * Math.PI * 2;
+    const rr = grow * (1 - 0.45 * t);
+    const c = [base[0] - up[0] * grow * 0.92, base[1] - up[1] * grow * 0.92, base[2] - up[2] * grow * 0.92];
+    pts.push([0, 1, 2].map(j => c[j] + up[j] * Math.cos(a) * rr + side[j] * Math.sin(a) * rr + out[j] * t * 0.03));
+  }
+  return pts;
+}
+
+/* the share along a polyline nearest a point (ridges on horns, bands on tails) */
+export function alongShare(points) {
+  const segs = [];
+  let total = 0;
+  for (let i = 0; i < points.length - 1; i++) {
+    const a = points[i], b = points[i + 1];
+    const l = Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]);
+    segs.push({ a, b, l, at: total });
+    total += l;
+  }
+  return (x, y, z) => {
+    let best = Infinity, t = 0;
+    for (const s of segs) {
+      const bx = s.b[0] - s.a[0], by = s.b[1] - s.a[1], bz = s.b[2] - s.a[2];
+      const u = clamp(((x - s.a[0]) * bx + (y - s.a[1]) * by + (z - s.a[2]) * bz) / (s.l * s.l), 0, 1);
+      const d = (x - s.a[0] - bx * u) ** 2 + (y - s.a[1] - by * u) ** 2 + (z - s.a[2] - bz * u) ** 2;
+      if (d < best) { best = d; t = s.at + u * s.l; }
+    }
+    return { t: t / total, len: total, at: t };
+  };
 }

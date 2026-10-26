@@ -8,8 +8,11 @@
    No app connection, storage, or remote service. */
 import React, { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { BIT_PARTS, BOARD_PARTS, GEO_PARTS, KARAOKE_PARTS, KIT, PARTS, SOUNDS, ROOMS, TRIVIA_PARTS, makeEngine, playRecipe, setListen, setRoom,
+import { BIT_PARTS, BOARD_PARTS, FLOAT_PARTS, GEO_PARTS, KARAOKE_PARTS, KIT, PARTS, SOUNDS, ROOMS, TRIVIA_PARTS, makeEngine, playRecipe, setListen, setRoom,
   limitChips } from "../src/lib/soundKit.js";
+import { barsBetween as floatBars } from "../float/client/sound/music.js";
+import { RIVER_FADE_MS, RIVER_MIX, RIVER_SEG_MS, RIVER_STEP_MS } from "../float/client/sound/river.js";
+import { PODIUM_BEATS } from "../float/client/sound/screen.js";
 import { advanceCues, crownCues, revealPans } from "../src/features/tv/roomSound.js";
 import { geoClockCues, geoRevealCues } from "../src/features/tv/geoSound.js";
 import { triviaBoardCues, triviaClockCues, triviaRevealCues } from "../src/features/tv/triviaSound.js";
@@ -39,6 +42,7 @@ const GROUPS = [
   ["Karaoke", KARAOKE_PARTS.map(part => part.id)],
   ["Where and When", GEO_PARTS.map(part => part.id)],
   ["Trivia", TRIVIA_PARTS.map(part => part.id)],
+  ["Float", FLOAT_PARTS.map(part => part.id)],
 ];
 
 /* the five sequences, built from the production schedules */
@@ -93,8 +97,46 @@ async function measure(label, seconds, fn, { room = "san", listen = "tv" } = {})
 async function selftest() {
   const rows = [];
   try {
-    for (const s of [...KIT, ...PARTS, ...BOARD_PARTS, ...BIT_PARTS, ...KARAOKE_PARTS, ...GEO_PARTS, ...TRIVIA_PARTS])
+    for (const s of [...KIT, ...PARTS, ...BOARD_PARTS, ...BIT_PARTS, ...KARAOKE_PARTS, ...GEO_PARTS, ...TRIVIA_PARTS, ...FLOAT_PARTS])
       rows.push(await measure(`${s.id} ${s.name}`, Math.max(1.5, s.ms / 1000 + 1.5), (E, t) => playRecipe(E, s.id, t)));
+    /* Float on its own planners (float/client/sound): the river under the band, the moments over it */
+    const floatRiver = (E, t, mixes) => { let last = null;
+      mixes.forEach((mix, k) => { playRecipe(E, "floatRiver", t + k * RIVER_STEP_MS / 1000, { ms:RIVER_SEG_MS, fade:RIVER_FADE_MS, from:last || mix, to:mix }); last = mix; }); };
+    const race = (leg, final) => ({ mode:"race", anchor:0, from:0, leg, final });
+    const raceMem = (leg, final) => ({ view:{ phase:"race", round:leg, rounds:4, leg, final, field:[0, 1, 2] }, pack:{ leaderFrac:0, s:0 } });
+    rows.push(await measure("float: 3 2 1, the gun, the Put-in's first bars", 14, (E, t) => {
+      [3, 2, 1].forEach((n, k) => playRecipe(E, "floatCount", t + k, { n }));
+      playRecipe(E, "floatGo", t + 3);
+      floatBars(race(0, false), 0, 8000, raceMem(0, false)).forEach(bar => playRecipe(E, bar.id, t + 3 + bar.at / 1000, bar.opts));
+      floatRiver(E, t, Array.from({ length:5 }, () => ({ ...RIVER_MIX.pool, churn:0.4, crickets:0, level:1 })));
+      for (let x = 3.1; x < 11; x += 0.11) playRecipe(E, "floatPaddles", t + x, { n:4, grains:1, pan:0 });
+    }));
+    rows.push(await measure("float: the final at the Drop (tense to 5, the lip, the landing, the bells)", 20, (E, t) => {
+      floatBars(race(3, true), 0, 16000, raceMem(3, true)).forEach((bar, i) => playRecipe(E, bar.id, t + bar.at / 1000,
+        { ...bar.opts, tense:[0, 0, 1, 2, 3, 4, 5, 5][i], drop:i === 3 ? "suspend" : i === 4 ? "land" : undefined }));
+      floatRiver(E, t, Array.from({ length:8 }, (_, k) => ({ ...RIVER_MIX.drop, roar:Math.min(1, k / 3), hiss:0.7, churn:0.2, crickets:0, level:1 })));
+      [[7.2, "floatFall"], [8.0, "floatImpact"], [8.9, "floatImpact", { small:true }], [11.3, "floatFlip"], [13, "floatBell", { first:true }],
+        [13.6, "floatClink"], [14.2, "floatSplat"], [15.1, "floatBell", { step:1 }]].forEach(([s, id, o]) => playRecipe(E, id, t + s, o || {}));
+    }));
+    rows.push(await measure("float: the round ends: the button, four out, the lounge", 12, (E, t) => {
+      playRecipe(E, "floatButton", t);
+      [0, 1, 2, 3].forEach(k => playRecipe(E, "floatOut", t + 0.65 + k * 0.38, { step:k, pan:-0.6 + k * 0.4 }));
+      floatBars({ mode:"lounge", anchor:0, from:0, cut:true }, 4000, 12000).forEach(bar => playRecipe(E, bar.id, t + (bar.at - 4000) / 1000 + 3.2, bar.opts));
+    }));
+    rows.push(await measure("float: the podium, its places and the winner's air guitar", 9, (E, t) => {
+      playRecipe(E, "floatPodium", t, { open:true });
+      [[3, PODIUM_BEATS.third], [2, PODIUM_BEATS.second], [1, PODIUM_BEATS.first]].forEach(([place, ms]) => playRecipe(E, "floatStamp", t + ms / 1000, { place }));
+      playRecipe(E, "floatWinner", t + PODIUM_BEATS.pose / 1000, { pose:"airguitar" });
+    }));
+    rows.push(await measure("float: the lobby at night (the lounge, the pool, the crickets, riders joining)", 18, (E, t) => {
+      floatBars({ mode:"lounge", anchor:0, from:0 }, 16000, 32000).forEach(bar => playRecipe(E, bar.id, t + (bar.at - 16000) / 1000, bar.opts));
+      floatRiver(E, t, Array.from({ length:7 }, () => ({ ...RIVER_MIX.pool, crickets:1, level:0.8 })));
+      [2.1, 5.5, 5.7, 11].forEach(s => playRecipe(E, "floatJoin", t + s)); playRecipe(E, "floatReady", t + 8);
+    }));
+    rows.push(await measure("float: your paddle, your flip, through (a phone)", 5, (E, t) => {
+      for (let i = 0; i < 12; i++) playRecipe(E, "floatDip", t + i * 0.18, { side:i % 2 ? "R" : "L", v:i % 4 });
+      playRecipe(E, "floatYouFlip", t + 2.4); playRecipe(E, "floatYouThrough", t + 3.4);
+    }, { listen:"phone" }));
     /* the board's loudest moment: a buzz-in pile-up, the order, a wrong, a right */
     rows.push(await measure("board: four buzzes, the order, wrong then right", 4, (E, t) => {
       [0, 0.07, 0.14, 0.21].forEach((dt, i) => playRecipe(E, "buzzIn", t + dt, { step:i, pan:-0.6 + i * 0.4 }));

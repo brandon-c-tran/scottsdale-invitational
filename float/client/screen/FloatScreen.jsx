@@ -64,6 +64,16 @@ const param = key => {
 
 const pageShown = () => { try { return document.visibilityState !== "hidden"; } catch { return true; } };
 
+/* ?debug=1: a small corner readout (the screen's fps and tier, each phone's ping) */
+function DebugReadout({ perf, rtt = {}, entrants = [] }) {
+  const rows = entrants.map(e => ({ name:e.name, bot:e.bot, ms:rtt?.[e.device] })).filter(r => !r.bot);
+  return <div style={{ position:"absolute", left:12, bottom:12, padding:"8px 12px", borderRadius:10, background:"rgba(0,0,0,.72)",
+    color:"#fff", font:"600 18px/1.35 ui-monospace, monospace", zIndex:50, pointerEvents:"none" }}>
+    <div>TV {perf?.fps ?? "?"} fps · {perf?.tier ?? "?"} · {perf?.calls ?? "?"} draws</div>
+    {rows.map(r => <div key={r.name}>{r.name}: {Number.isFinite(r.ms) ? `${Math.round(r.ms)} ms` : "no ping yet"}</div>)}
+  </div>;
+}
+
 export default function FloatScreen({ room = "test", hosting = false, joinUrl = null, mock, quality, onStats, muted = false }) {
   const rootRef = useRef(null);
   const canvasRef = useRef(null);
@@ -78,6 +88,9 @@ export default function FloatScreen({ room = "test", hosting = false, joinUrl = 
   const useMock = mock ?? param("mock") === "1";
   const tier = quality ?? param("quality") ?? "auto";
   const mutedRef = useRef(!!muted);
+  /* ?debug=1: the screen's frame rate and every phone's round trip, to tell a slow TV from a slow phone */
+  const debug = useMemo(() => param("debug") === "1", []);
+  const [perf, setPerf] = useState(null);
   mutedRef.current = !!muted;
 
   /* the connection */
@@ -120,7 +133,7 @@ export default function FloatScreen({ room = "test", hosting = false, joinUrl = 
   useEffect(() => {
     let alive = true, drawer = null;
     const fail = () => { if (alive) setView("flat"); };
-    const stats = s => { try { window.__floatStats = { ...(window.__floatStats || {}), ...s }; } catch {} onStats?.(s); };
+    const stats = s => { try { window.__floatStats = { ...(window.__floatStats || {}), ...s }; } catch {} onStats?.(s); if (debug) setPerf(p => ({ ...(p || {}), ...s })); };
     if (view === "3d") {
       if (!webglAvailable()) { setView("flat"); return undefined; }
       import("./world/World.js").then(mod => {
@@ -218,6 +231,7 @@ export default function FloatScreen({ room = "test", hosting = false, joinUrl = 
       {phase === "cut" && <ReplayLamp bus={bus} entrants={entrants} />}
       {(phase === "podium" || phase === "feedback") && <Podium room={roomMsg} entrants={entrants} bus={bus} anchor={phase === "podium" ? podiumAnchor : -1e12} />}
       {phase === "feedback" && <Feedback />}
+      {debug && <DebugReadout perf={perf} rtt={st.rtt} entrants={entrants} />}
       {disconnected && <div className="fs-status"><span className="fs-lamp is-clay is-flash">Reconnecting</span></div>}
       {/* Field Day's TV has its own Click for sound; the /float page needs this one */}
       {unlockNeeded && hosting && <button type="button" className="fs-sound" onClick={() => unlockFloatSound()}><SoundIcon />Click for sound</button>}

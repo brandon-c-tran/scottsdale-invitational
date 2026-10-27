@@ -23,7 +23,8 @@ export const DT = 1 / SIM_HZ;
 /* what the room sends while a race runs */
 export const SNAP_HZ = 20;
 export const ME_HZ = 10;
-export const PERSIST_MS = 1000;
+/* the race checkpoint (written without holding the room's messages) */
+export const PERSIST_MS = 2000;
 export const DEBUG_MS = 2000;
 /* the most ticks one timer callback may catch up before the race clock slips */
 export const MAX_CATCHUP_TICKS = 10;
@@ -99,9 +100,9 @@ export const PADDLE = Object.freeze({
   /* one full-power stroke's yaw (rad/s added) at Turn 3; a left stroke yaws
      right (clockwise, negative), a right stroke yaws left */
   YAW:0.95,
-  /* a stroke's push is released over time (1/s): smooth on the screen, and a
-     fifth of a second of network delay never shows */
-  RELEASE:7,
+  /* a stroke's push is released over time (1/s): 14 lands most of it in a
+     tenth of a second (7 felt like a slow surge, Brandon's second playtest) */
+  RELEASE:14,
   /* the phone's old cadence feedback (float/client/controller/cadence.js)
      reads these until it judges the beat; the room no longer does: the beat
      governs cadence now, and FLOOD (below) only stops a flood */

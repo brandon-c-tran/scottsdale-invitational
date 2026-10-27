@@ -77,7 +77,6 @@ function StateIcons({ o, drinking = true }) {
   if (o.state === "waiting") return <span className="fs-lamp is-amber is-flash"><DrinkIcon />Drink</span>;
   return <span className="fs-state">
     {has(f, FLAG.SWIM) && <span className="fs-ico-swim"><SwimIcon /></span>}
-    {has(f, FLAG.HANDS_OFF) && drinking && <span className="fs-ico-drink"><DrinkIcon /></span>}
     {has(f, FLAG.DRANK) && drinking && !has(f, FLAG.HANDS_OFF) && <span className="fs-ico-done"><DoneIcon /></span>}
   </span>;
 }
@@ -102,7 +101,6 @@ export function Rail({ room, bus, entrants }) {
           <Chip entrant={e} size={40} />
           <span className="fs-name">{e?.name || "Rider"}</span>
           {e?.botDriven && !e?.bot && <BotMark />}
-          {o.state === "racing" && <LevelMark level={levelOf(o.f)} />}
           <StateIcons o={o} drinking={room?.drinking !== false} />
         </div>;
       })}
@@ -231,12 +229,12 @@ export function NameTags({ bus, entrants, phase, big = false }) {
       if (!spot) spots.current.set(t.i, spot = { w:0, h:0, lift:0, cur:0, shown:false });
       /* what the tag says: the lamp over it, its place, its groove */
       const lamp = node.querySelector(".fs-tag-state");
-      const want = t.state === "waiting" ? "drink" : t.state === "placed" ? `place:${t.place ?? ""}` : has(t.f, FLAG.HANDS_OFF) ? "sip" : has(t.f, FLAG.SWIM) ? "swim" : "";
+      /* no "Drinking" lamp: thumbs off the paddles is too unreliable a sign (Brandon's second playtest) */
+      const want = t.state === "waiting" ? "drink" : t.state === "placed" ? `place:${t.place ?? ""}` : has(t.f, FLAG.SWIM) ? "swim" : "";
       if (lamp && lamp.dataset.state !== want) {
         lamp.dataset.state = want;
         lamp.className = `fs-tag-state${want ? "" : " is-empty"}`;
         lamp.innerHTML = want === "drink" ? `<span class="fs-lamp is-amber is-flash">Finish your drink</span>`
-          : want === "sip" ? `<span class="fs-lamp is-amber">Drinking</span>`
           : want === "swim" ? `<span class="fs-lamp is-cyan">Swimming</span>` : "";
         spot.w = 0;
       }
@@ -245,7 +243,8 @@ export function NameTags({ bus, entrants, phase, big = false }) {
         const n = t.state === "placed" ? (frame.order?.find(o => o.i === t.i)?.place || t.rank) : 0;
         if (place.dataset.n !== String(n)) { place.dataset.n = String(n); place.innerHTML = n ? ordinalHtml(n) : ""; spot.w = 0; }
       }
-      const level = t.state === "racing" ? levelOf(t.f) : 0;
+      /* no level marks on the tags (Brandon's second playtest): the wake carries the groove */
+      const level = 0;
       const mark = node.querySelector(".fs-tag-mark");
       if (mark && mark.dataset.level !== String(level)) {
         mark.dataset.level = String(level);

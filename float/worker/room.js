@@ -75,6 +75,7 @@ export class FloatRoom {
     this.rtt = {};
     this.code = "";
     this.kickedDevices = new Set();
+    this.alarmAt = null;
     const load = () => this.load();
     this.ready = ctx?.blockConcurrencyWhile ? Promise.resolve(ctx.blockConcurrencyWhile(load)) : load();
   }
@@ -109,10 +110,15 @@ export class FloatRoom {
     this.schedule();
   }
 
-  saveCup() { this.persist(this.storage.put("cup", this.cup)); }
+  /* A Durable Object holds every outgoing message until a write it made is
+     on disk (the output gate). The race's checkpoints and a cup saved while
+     racing are only for recovery, so they never hold the snapshots: those
+     writes go unconfirmed (a crash loses at most the last checkpoint). */
+  racing() { return ["grid", "countdown", "race"].includes(this.cup?.phase); }
+  saveCup() { this.persist(this.storage.put("cup", this.cup, this.racing() ? { allowUnconfirmed:true } : undefined)); }
   saveRace() {
     this.lastSave = this.now();
-    if (this.race) this.persist(this.storage.put("race", this.race));
+    if (this.race) this.persist(this.storage.put("race", this.race, { allowUnconfirmed:true }));
   }
   saveOutbox() { this.persist(this.storage.put("outbox", this.outbox)); }
   /* storage writes are not awaited on the hot path; the output gate holds
@@ -415,14 +421,26 @@ export class FloatRoom {
       if (this.timer !== null) this.clock.clearTimeout(this.timer);
       this.timer = next === null ? null : this.clock.setTimeout(() => { this.timer = null; this.wake(); }, Math.max(0, next - now));
     }
-    /* the watchdog: a running race checks in every few seconds */
+    /* the watchdog: a running race checks in every few seconds. Rewritten only
+       when it moves by more than a second or is about to fire (each write
+       would hold the snapshots), and never holding them while racing */
     let alarm = next;
     if (looping) alarm = Math.min(alarm ?? Infinity, now + 5000);
-    if (alarm !== null && Number.isFinite(alarm)) this.persist(this.storage.setAlarm?.(Math.max(now + 50, alarm)));
-    else this.persist(this.storage.deleteAlarm?.());
+    const quiet = looping ? { allowUnconfirmed:true } : undefined;
+    if (alarm !== null && Number.isFinite(alarm)) {
+      const at = Math.max(now + 50, alarm);
+      const set = this.alarmAt;
+      const stale = set == null || Math.abs(at - set) > 1000 || set - now < 1500;
+      if (stale) { this.alarmAt = at; this.persist(this.storage.setAlarm?.(at, quiet)); }
+    } else if (this.alarmAt != null) {
+      this.alarmAt = null;
+      this.persist(this.storage.deleteAlarm?.(quiet));
+    }
   }
 
   async alarm() {
+    /* the alarm that woke us is spent: the next schedule writes a fresh one */
+    this.alarmAt = null;
     await this.ready;
     this.wake();
     await this.flushOutbox();

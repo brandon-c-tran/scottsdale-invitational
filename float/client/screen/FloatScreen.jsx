@@ -20,7 +20,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createScreenStore } from "./model/screenStore.js";
 import { indexList, throughFor } from "./model/cupShape.js";
 import { useFloatScreenSound, useFloatSoundUnlockNeeded, unlockFloatSound, PODIUM_BEATS } from "../sound/index.js";
-import { Arrivals, CapClock, Countdown, CutBoard, CutLamp, Feedback, GrooveCallouts, IntroMap, NameTags, Plate, Podium, Rail, ReplayLamp, Ribbon, TitleCard } from "./hud/Hud.jsx";
+import { Arrivals, CapClock, Countdown, CutBoard, CutLamp, Feedback, IntroMap, NameTags, Plate, Podium, Rail, ReplayLamp, Ribbon, TitleCard } from "./hud/Hud.jsx";
 import Lobby from "./hud/Lobby.jsx";
 import { SoundIcon } from "./hud/bits.jsx";
 import "./screen.css";
@@ -210,7 +210,6 @@ export default function FloatScreen({ room = "test", hosting = false, joinUrl = 
         {/* one column over the race: places as they land, and who just locked in */}
         <div className="fs-toasts">
           <Arrivals room={roomMsg} entrants={entrants} through={through} final={final} />
-          <GrooveCallouts bus={bus} entrants={entrants} />
         </div>
       </>}
       {(phase === "countdown" || phase === "race") && <Countdown gun={st.gunRound === (roomMsg?.round | 0) ? st.gun : null} bus={bus} />}

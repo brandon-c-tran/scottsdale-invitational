@@ -1,0 +1,189 @@
+{
+  "v": 1,
+  "voice": "coral",
+  "rate": 1.28,
+  "model": "gpt-4o-mini-tts",
+  "aiGenerated": true,
+  "clips": [
+    {
+      "id": "ready",
+      "file": "ready.mp3",
+      "onset": 44,
+      "dur": 329,
+      "f0": 256.4,
+      "text": "Ready?",
+      "voice": "coral"
+    },
+    {
+      "id": "hey",
+      "file": "hey.mp3",
+      "onset": 63,
+      "dur": 295,
+      "f0": 393.8,
+      "text": "Hey!",
+      "voice": "coral"
+    },
+    {
+      "id": "ba",
+      "file": "ba.mp3",
+      "onset": 24,
+      "dur": 227,
+      "f0": 214.1,
+      "text": "Bah!",
+      "voice": "coral"
+    },
+    {
+      "id": "spin",
+      "file": "spin.mp3",
+      "onset": 37,
+      "dur": 486,
+      "f0": 0,
+      "text": "Spin!",
+      "voice": "coral"
+    },
+    {
+      "id": "one",
+      "file": "one.mp3",
+      "onset": 70,
+      "dur": 364,
+      "f0": 404.6,
+      "text": "One!",
+      "voice": "coral"
+    },
+    {
+      "id": "two",
+      "file": "two.mp3",
+      "onset": 26,
+      "dur": 298,
+      "f0": 86.5,
+      "text": "Two!",
+      "voice": "coral"
+    },
+    {
+      "id": "three",
+      "file": "three.mp3",
+      "onset": 139,
+      "dur": 413,
+      "f0": 373.7,
+      "text": "Three!",
+      "voice": "coral"
+    },
+    {
+      "id": "four",
+      "file": "four.mp3",
+      "onset": 131,
+      "dur": 372,
+      "f0": 296,
+      "text": "Four!",
+      "voice": "coral"
+    },
+    {
+      "id": "drink",
+      "file": "drink.mp3",
+      "onset": 76,
+      "dur": 464,
+      "f0": 237.1,
+      "text": "Drink!",
+      "voice": "coral"
+    },
+    {
+      "id": "herewego",
+      "file": "herewego.mp3",
+      "onset": 54,
+      "dur": 586,
+      "f0": 166.4,
+      "text": "Here we go!",
+      "voice": "coral"
+    },
+    {
+      "id": "title-paddle",
+      "file": "title-paddle.mp3",
+      "onset": 76,
+      "dur": 807,
+      "f0": 304.1,
+      "text": "Paddle Party!",
+      "voice": "coral"
+    },
+    {
+      "id": "title-rock",
+      "file": "title-rock.mp3",
+      "onset": 83,
+      "dur": 760,
+      "f0": 312.8,
+      "text": "Rock Hop!",
+      "voice": "coral"
+    },
+    {
+      "id": "title-spin",
+      "file": "title-spin.mp3",
+      "onset": 36,
+      "dur": 825,
+      "f0": 0,
+      "text": "Spin Cycle!",
+      "voice": "coral"
+    },
+    {
+      "id": "title-drop",
+      "file": "title-drop.mp3",
+      "onset": 82,
+      "dur": 657,
+      "f0": 329.1,
+      "text": "The Drop!",
+      "voice": "coral"
+    },
+    {
+      "id": "crowd-hey-1",
+      "file": "crowd-hey-1.mp3",
+      "onset": 57,
+      "dur": 302,
+      "f0": 153.1,
+      "text": "Hey!",
+      "voice": "ash"
+    },
+    {
+      "id": "crowd-hey-2",
+      "file": "crowd-hey-2.mp3",
+      "onset": 60,
+      "dur": 318,
+      "f0": 234.6,
+      "text": "Hey!",
+      "voice": "nova"
+    },
+    {
+      "id": "crowd-hey-3",
+      "file": "crowd-hey-3.mp3",
+      "onset": 95,
+      "dur": 444,
+      "f0": 135.3,
+      "text": "Hey!",
+      "voice": "echo"
+    },
+    {
+      "id": "crowd-hey-4",
+      "file": "crowd-hey-4.mp3",
+      "onset": 59,
+      "dur": 349,
+      "f0": 0,
+      "text": "Hey!",
+      "voice": "shimmer"
+    },
+    {
+      "id": "crowd-hey-5",
+      "file": "crowd-hey-5.mp3",
+      "onset": 46,
+      "dur": 318,
+      "f0": 137.4,
+      "text": "Hey!",
+      "voice": "onyx"
+    },
+    {
+      "id": "crowd-hey-6",
+      "file": "crowd-hey-6.mp3",
+      "onset": 65,
+      "dur": 490,
+      "f0": 0,
+      "text": "Hey!",
+      "voice": "sage"
+    }
+  ]
+}

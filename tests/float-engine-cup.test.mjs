@@ -5,8 +5,8 @@
    "Rounds, elimination, positions", "Judging", "The drink break"). */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { CUP_TIMING, ROUNDS, SONG_PHASE_MS, addBots, advance, createCup, cutOf, cutSchedule, makeEntrant, meOf, migrate,
-  resultsOf, scoresOf, standingsOf, startCup, tick, toLobby } from "../float/shared/cup.js";
+import { CUP_TIMING, LAST_CALL_PHASE_MS, ROUNDS, SONG_PHASE_MS, addBots, advance, createCup, cutOf, cutSchedule, makeEntrant, meOf,
+  migrate, resultsOf, scoresOf, standingsOf, startCup, tick, toLobby } from "../float/shared/cup.js";
 import { FREEZE_BEATS, GROOVE, applyDone, applyHit, botDoneAfter, closeSong, createSong, deadlineOf, drinkTimes, rankSong,
   riderStats, stepSong } from "../float/shared/groove.js";
 import { MISS_AFTER_MS, SONG_LEAD_MS, SONG_MS, SONG_TAIL_MS, chartOf, cueTime, practiceCues, scoredCues } from "../float/shared/chart.js";
@@ -66,7 +66,8 @@ test("a whole Cup of 13: four songs in order, the lowest percents out 13, 9, 6, 
   assert.equal(cup.phase, "intro");
   const { events, phases } = play(cup, clock, { until:() => cup.phase === "podium" });
   assert.equal(cup.phase, "podium");
-  assert.deepEqual(phases, ["song", "cut", "song", "cut", "song", "cut", "song", "cut", "podium"]);
+  assert.deepEqual(phases, ["song", "cut", "lastcall", "song", "cut", "lastcall", "song", "cut", "lastcall", "song", "cut", "podium"],
+    "a Last Call after every cut but the last");
   assert.deepEqual(cup.history.map(item => item.song), ["paddle", "rock", "spin", "drop"]);
   assert.deepEqual(cup.history.map(item => item.field.length), [13, 9, 6, 3]);
   for (const item of cup.history) {
@@ -100,7 +101,9 @@ test("a whole Cup of 13: four songs in order, the lowest percents out 13, 9, 6, 
       + item.stats[i].late + item.stats[i].misses, scoredCues(chart).length);
   }
   const judged = events.filter(event => event.e === "hit");
-  const total = cup.history.reduce((sum, item) => sum + item.field.length * chartOf(item.song).cues.length, 0);
+  const total = cup.history.reduce((sum, item) => sum + item.field.length * chartOf(item.song).cues.length
+    + (item.lastCall ? item.lastCall.players.length * chartOf("lastcall").cues.length : 0), 0);
+  assert.deepEqual(cup.history.map(item => item.lastCall?.players.length ?? null), [13, 13, 13, null], "everyone in the Cup at each Last Call");
   assert.equal(judged.length, total);
   /* sharper bots go further */
   const skill = i => cup.entrants[i].skill;
@@ -124,7 +127,7 @@ test("1 to 3 riders play every song without a cut; the last song's order is the 
   }
 });
 
-test("the phase clock: intro 8 s, the song's card 3 s before beat 0, the song, cut 20 s (7 s after the final), podium 15 s, feedback 45 s", () => {
+test("the phase clock: intro 8 s, the song's card 3 s before beat 0, cut 12 s, Last Call 3 s + 16 s + 1.5 s, then the next song; the last cut 7 s, podium 15 s, feedback 45 s", () => {
   const cup = cupOf(4);
   assert.equal(cup.endsAt - cup.startAt, CUP_TIMING.INTRO_MS);
   assert.equal(cup.songId, "paddle", "the first song is known in the intro");
@@ -138,7 +141,16 @@ test("the phase clock: intro 8 s, the song's card 3 s before beat 0, the song, c
   assert.equal(cup.song.songAt, cup.songAt);
   advance(cup, cup.endsAt);
   assert.equal(cup.phase, "cut");
-  assert.equal(cup.endsAt - cup.startAt, CUP_TIMING.CUT_MS);
+  assert.equal(cup.endsAt - cup.startAt, CUP_TIMING.CUT_BEFORE_LAST_CALL_MS, "a cut with Last Call after it is 12 s");
+  assert.equal(CUP_TIMING.CUT_BEFORE_LAST_CALL_MS, 12000);
+  const cutEnds = cup.endsAt;
+  advance(cup, cutEnds);
+  assert.equal(cup.phase, "lastcall");
+  assert.equal(cup.round, 0, "Last Call belongs to the round it follows");
+  assert.equal(cup.startAt, cutEnds);
+  assert.equal(cup.bar.songAt, cup.startAt + CUP_TIMING.LAST_CALL_LEAD_MS);
+  assert.equal(cup.endsAt, cup.bar.songAt + chartOf("lastcall").ms + SONG_TAIL_MS);
+  assert.equal(LAST_CALL_PHASE_MS, 3000 + 16000 + 1500);
   /* a phase that ends late (a room that slept) starts the next from now */
   const late = cup.endsAt + 9000;
   advance(cup, late);
@@ -149,12 +161,17 @@ test("the phase clock: intro 8 s, the song's card 3 s before beat 0, the song, c
   for (const round of [1, 2, 3]) {
     advance(cup, cup.endsAt);
     assert.equal(cup.phase, "cut", `round ${round}`);
-    if (round < 3) advance(cup, cup.endsAt);
+    if (round < 3) {
+      advance(cup, cup.endsAt);
+      assert.equal(cup.phase, "lastcall");
+      advance(cup, cup.endsAt);
+      assert.equal(cup.phase, "song");
+    }
   }
   assert.equal(cup.endsAt - cup.startAt, CUP_TIMING.CUT_LAST_MS);
   assert.equal(cutOf(cup), null, "no cut after the final");
   advance(cup, cup.endsAt);
-  assert.equal(cup.phase, "podium");
+  assert.equal(cup.phase, "podium", "and no Last Call after the final");
   assert.equal(cup.endsAt - cup.startAt, CUP_TIMING.PODIUM_MS);
   advance(cup, cup.endsAt);
   assert.equal(cup.phase, "feedback");
@@ -162,7 +179,21 @@ test("the phase clock: intro 8 s, the song's card 3 s before beat 0, the song, c
   advance(cup, cup.endsAt);
   assert.equal(cup.phase, "lobby");
   assert.equal(cup.endsAt, null);
-  for (const phase of ["lobby", "intro", "song", "cut", "podium", "feedback"]) assert.ok(PHASES.includes(phase));
+  for (const phase of ["lobby", "intro", "song", "cut", "lastcall", "podium", "feedback"]) assert.ok(PHASES.includes(phase));
+});
+
+test("with the room's drinking off there is no Last Call: each cut is 20 s and the next song follows it", () => {
+  const cup = cupOf(5, { drinking:false });
+  const clock = into(cup);
+  const { phases } = play(cup, clock, { until:() => cup.phase === "podium" });
+  assert.deepEqual(phases, ["song", "cut", "song", "cut", "song", "cut", "song", "cut", "podium"]);
+  assert.ok(cup.history.every(item => !("lastCall" in item)));
+  const dry = cupOf(5, { drinking:false });
+  advance(dry, dry.endsAt);
+  advance(dry, dry.endsAt);
+  assert.equal(dry.phase, "cut");
+  assert.equal(dry.endsAt - dry.startAt, CUP_TIMING.CUT_MS);
+  assert.equal(CUP_TIMING.CUT_MS, 20000);
 });
 
 test("ties: the round percent, then the Cup total, then perfects, then the field's order", () => {

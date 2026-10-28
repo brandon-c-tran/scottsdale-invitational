@@ -305,12 +305,12 @@
 .hd-rest-name { font-size:30px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 
 /* ── check your phone ── */
-.hd-phone { position:absolute; left:50%; top:50%; transform:translate(-50%, -50%); display:flex; flex-direction:column; align-items:center; gap:18px;
-  padding:46px 80px 52px; border-radius:40px; background:var(--bone); box-shadow:0 0 0 7px var(--ink), 0 14px 0 0 var(--ink);
-  animation:hd-phone 0.6s cubic-bezier(0.2, 1.4, 0.4, 1) both; }
-.hd-phone svg { width:130px; height:130px; }
-.hd-phone span { font-size:96px; font-weight:700; white-space:nowrap; }
-@keyframes hd-phone { from { opacity:0; transform:translate(-50%, -40%); } to { opacity:1; transform:translate(-50%, -50%); } }
+.hd-phone { position:absolute; left:50%; top:56px; transform:translateX(-50%); display:flex; align-items:center; gap:22px;
+  padding:22px 46px 26px 34px; border-radius:36px; background:var(--bone); box-shadow:0 0 0 7px var(--ink), 0 12px 0 0 var(--ink);
+  animation:hd-phone 0.6s cubic-bezier(0.2, 1.4, 0.4, 1) both; z-index:3; }
+.hd-phone svg { width:92px; height:92px; }
+.hd-phone span { font-size:72px; font-weight:700; white-space:nowrap; }
+@keyframes hd-phone { from { opacity:0; transform:translate(-50%, -40px); } to { opacity:1; transform:translateX(-50%); } }
 
 /* ── the lobby ── */
 .lb { position:absolute; inset:0; }

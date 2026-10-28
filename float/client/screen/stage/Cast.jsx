@@ -221,7 +221,10 @@ export default function Cast({ store, driver, entrants, phase, room, version }) 
         else if (where === "podium" && spot.place === 1 && Number.isFinite(p.podiumAt)) {
           /* the winner jumps on every other beat */
           const since = now - p.podiumAt;
-          if (since > 2700) act = cheerAt(p.podiumAt + Math.floor((since - 2700) / (BEAT * PODIUM_JUMP_BEATS)) * BEAT * PODIUM_JUMP_BEATS + 2700, now);
+          if (since > 2700 || phase === "feedback") {
+            const from = phase === "feedback" ? p.podiumAt : p.podiumAt + 2700;
+            act = cheerAt(from + Math.floor((now - from) / (BEAT * PODIUM_JUMP_BEATS)) * BEAT * PODIUM_JUMP_BEATS, now);
+          }
         }
         let pose = act?.pose || "idle";
         if (!act) {

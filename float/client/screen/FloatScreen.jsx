@@ -188,7 +188,8 @@ export default function FloatScreen({ room = "test", hosting = false, joinUrl = 
       {!muted && <>
         <Scene id={scene} />
         {(phase === "song" || phase === "cut" || phase === "intro" || phase === "lobby") && <Pieces scene={scene} store={store} driver={driver} phase={phase} />}
-        {(phase === "podium" || phase === "feedback") && <PodiumBlocks store={store} driver={driver} room={roomMsg} entrants={entrants} beats={PODIUM_BEATS} />}
+        {(phase === "podium" || phase === "feedback") && <PodiumBlocks store={store} driver={driver} room={roomMsg} entrants={entrants} beats={PODIUM_BEATS}
+          revealed={phase === "feedback"} />}
         {water && phase !== "lobby" && <Host store={store} driver={driver} phase={phase} />}
         {phase === "lastcall" && <Bar store={store} driver={driver} />}
         <Cast store={store} driver={driver} entrants={entrants} phase={phase} room={roomMsg} version={version} />

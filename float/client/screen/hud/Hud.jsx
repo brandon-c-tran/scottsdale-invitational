@@ -168,11 +168,12 @@ export function CutBoard({ store, driver, room, entrants }) {
 
 /* ── the podium ── */
 export const PODIUM_REVEAL = Object.freeze({ third:1450, second:2200, first:2700, pose:3400 });
-export function PodiumBlocks({ store, driver, room, entrants, beats = PODIUM_REVEAL }) {
+export function PodiumBlocks({ store, driver, room, entrants, beats = PODIUM_REVEAL, revealed = false }) {
   const st = store.state;
   const podium = indexList(room?.podium);
   const start = Number.isFinite(room?.startAt) ? room.startAt : st.phaseStart;
-  const elapsed = useDriven(driver, now => Math.floor((now - start) / 100) * 100, [start]);
+  /* the feedback after it: everything revealed, standing */
+  const elapsed = useDriven(driver, now => (revealed ? Infinity : Math.floor((now - start) / 100) * 100), [start, revealed]);
   const at = { 3:beats.third, 2:beats.second, 1:beats.first };
   const colors = podium.map(i => entrants[i]?.color).filter(Boolean);
   const m = useGrooveArt();

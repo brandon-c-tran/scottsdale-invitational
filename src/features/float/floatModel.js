@@ -27,7 +27,7 @@ export function floatDeskStatus(state) {
   if (!cup) return { lamp:"missing", text:"Not started" };
   if (cup.error) return { lamp:"partial", text:`Didn't start: ${cup.error.text}`, cup };
   if (cup.finishedAt || state.results?.[cup.evId]) return { lamp:"ready", text:"Finished", cup };
-  return { lamp:"live", text:`Racing, ${cup.players.length} rider${cup.players.length === 1 ? "" : "s"}${cup.solo ? " and the bots" : ""}`, cup };
+  return { lamp:"live", text:`Playing, ${cup.players.length} rider${cup.players.length === 1 ? "" : "s"}${cup.solo ? " and the bots" : ""}`, cup };
 }
 
 /* how many of everyone coming have picked their look */

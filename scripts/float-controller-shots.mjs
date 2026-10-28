@@ -214,6 +214,13 @@ async function padChecks(page, size) {
   await sleep(200);
   check((await sent(page)).filter(m => m.t === "cheer").length === 2, `${size}: and another after half a second`);
   await shot(page, size, "crowd-cheer");
+  /* out at the podium: Cheer for the three */
+  await go(page, "podium-out");
+  await clearSent(page);
+  const podiumCheer = await tapElementNow(page, ".flc-cheer", 1);
+  await sleep(250);
+  check(podiumCheer && (await sent(page)).some(m => m.t === "cheer"), `${size}: out at the podium, Cheer sends cheer`);
+  await shot(page, size, "podium-cheer");
   /* the link drops: the pill */
   await go(page, "play");
   await page.evaluate("window.__floatMock.blip(3000)");

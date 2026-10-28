@@ -121,25 +121,32 @@ function Crowd({ game, entrant, serverNow, cheer, onCheer, onExit }) {
   </section>;
 }
 
-function Podium({ game, entrant, onExit }) {
+/* the podium: your final place; a rider out cheers the three from the crowd (the room takes it in the podium too) */
+function Podium({ game, entrant, cheer = null, onCheer, onExit }) {
   const room = game.room, idx = game.idx;
   const place = finalPlace(room, idx);
   const podium = indexes(room?.podium);
   const entrants = Array.isArray(room?.entrants) ? room.entrants : [];
   const top = place && place <= 3;
-  return <section className={`flc-screen flc-podium${top ? ` is-top is-p${place}` : ""}`}>
+  const crowd = idx >= 0 && indexes(room?.out).includes(idx) && typeof onCheer === "function";
+  const moveRef = useRef(null);
+  useMove(moveRef, cheer);
+  const pose = usePose(crowd ? cheer : null, top ? "cheer" : "idle");
+  return <section className={`flc-screen flc-podium${top ? ` is-top is-p${place}` : ""}${crowd ? " has-cheer" : ""}`}>
     <Scenery scene="podium" />
     <Top right={<ExitButton onExit={onExit} />} />
     <div className="flc-podium-place">
       <b>{place ? ordinal(place) : ""}</b>
       {place && <span>of {entrants.length}</span>}
     </div>
-    <div className="flc-stage"><div className="flc-idle-me"><Critter entrant={entrant} pose={top ? "cheer" : "idle"} size={260} /></div></div>
+    <div className="flc-stage"><div className="flc-idle-me"><div className="flc-me-move" ref={moveRef}>
+      <Critter entrant={entrant} pose={pose} size={260} /></div></div></div>
     {podium.length > 0 && <ol className="flc-podium-row">
       {podium.map((i, k) => <li key={i} className={`is-p${k + 1}${i === idx ? " is-me" : ""}`}>
         <Portrait entrant={entrants[i] || {}} size={k === 0 ? 60 : 50} label={entrants[i]?.name} />
         <span>{ordinal(k + 1)}</span></li>)}
     </ol>}
+    {crowd && <TapButton className="flc-cheer" onPress={onCheer}>Cheer</TapButton>}
   </section>;
 }
 

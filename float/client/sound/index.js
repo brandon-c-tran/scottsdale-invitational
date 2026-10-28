@@ -17,9 +17,13 @@
                                            a tap that matched no cue)
      unlockFloatSound()                    inside a tap, so iOS lets sound start
      useFloatSoundUnlockNeeded()           the TV still needs a click
-     PODIUM_BEATS, CUT_BEATS, TITLE_BEATS  the moments' beats (ms from the
-                                           phase's start, or from songAt),
-                                           so the screen reveals on them
+     PODIUM_BEATS, CUT_BEATS, TITLE_BEATS  the moments' beats, so the screen
+     LAST_CALL_BEATS                       reveals on them: CUT_BEATS and
+                                           PODIUM_BEATS ms from the phase's
+                                           startAt, TITLE_BEATS ms from songAt,
+                                           LAST_CALL_BEATS beats from the bar's
+                                           songAt (bell, call, a grab's reveal
+                                           two beats on, who drinks)
 
    groove.js plans a song from its chart; grooveScreen.js and
    groovePhone.js run the TV and the phone; voices.js names the host's
@@ -31,7 +35,7 @@ import { unlockSound, useSoundUnlockNeeded } from "../../../src/lib/sound.js";
 export { useFloatScreenSound, createGrooveScreenSound as createFloatScreenSound, screenStep, grooveView, loadGrooveVoice } from "./grooveScreen.js";
 export { useFloatControllerSound, createGroovePhoneSound as createFloatControllerSound, phoneStep as controllerStep,
   floatTapSound, floatDoneSound, floatCheerSound, floatStrokeSound, floatDrinkSound, floatThrowSound, GROOVE_TAPS as FLOAT_TAPS } from "./groovePhone.js";
-export { PODIUM_BEATS, CUT_BEATS, TITLE_BEATS, GROOVE_PRE_MS, chartFor, songEvents, songSlots } from "./groove.js";
+export { PODIUM_BEATS, CUT_BEATS, TITLE_BEATS, LAST_CALL_BEATS, GROOVE_PRE_MS, chartFor, songEvents, songSlots } from "./groove.js";
 
 /* the race's count-in and gun (parked), for the screens not yet on the Groove */
 export const COUNT_BEATS = Object.freeze([3000, 2000, 1000]);

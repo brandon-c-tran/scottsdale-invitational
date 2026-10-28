@@ -114,7 +114,7 @@ export function Host({ pose = "idle", size = 72 }) {
 }
 
 /* the judgement, big: the signed offset over the word (GROOVE.md "The popup"), the art's own lettering */
-export const POPUP_SIZE = 64;
+export const POPUP_SIZE = 76;
 export function Popup({ q, d, size = POPUP_SIZE, className = "" }) {
   return <span className={`flc-popup${className ? ` ${className}` : ""}`} role="status">
     <ArtPopup q={q} d={d} size={size} life />

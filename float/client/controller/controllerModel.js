@@ -9,7 +9,8 @@
    for the cut. Where the room's frame leaves something out, the frozen
    chart module fills it in: no `chart` is chartOf(song), no `songAt` is
    startAt + SONG_LEAD_MS. */
-import { SONGS, SONG_LEAD_MS, callsBetween, chartOf, clockAt, drinkSection, songForRound } from "../../shared/chart.js";
+import { LAST_CALL, LAST_CALL_ID, SONGS, SONG_LEAD_MS, beatOf, callsBetween, chartOf, clockAt, drinkSection, qualityOf, songForRound }
+  from "../../shared/chart.js";
 
 const num = value => value === null || value === undefined || value === "" ? null : Number.isFinite(Number(value)) ? Number(value) : null;
 export const indexOf = value => Number.isInteger(value) ? value : value && typeof value === "object" && Number.isInteger(Number(value.i)) ? Number(value.i) : null;
@@ -43,7 +44,8 @@ export function songAtOf(room) {
   const said = num(room?.songAt);
   if (said !== null) return said;
   const start = num(room?.startAt);
-  return room?.phase === "song" && start !== null ? start + SONG_LEAD_MS : null;
+  /* a song and Last Call both go up their lead (3 s) before beat 0 */
+  return (room?.phase === "song" || room?.phase === "lastcall") && start !== null ? start + SONG_LEAD_MS : null;
 }
 /* the song a taken set, a Done and a popup belong to */
 export function songKeyOf(room) {
@@ -57,7 +59,7 @@ export function chartFor(room, kept = null) {
   if (kept && Array.isArray(kept.cues) && (!id || kept.id === id)) return kept;
   return id ? chartOf(id) : null;
 }
-export const songName = id => SONGS.find(song => song.id === id)?.name || "";
+export const songName = id => id === LAST_CALL_ID ? "Last Call" : SONGS.find(song => song.id === id)?.name || "";
 /* the room's one calibration offset, ms */
 export const offsetOf = room => num(room?.offset) ?? 0;
 
@@ -75,6 +77,53 @@ export function songView(chart, songAt, now) {
   const half = clock.section === "play" ? (drink && clock.beat >= drink.to ? "B" : "A") : null;
   return { moment:clock.section, half, beat:clock.beat, bar:clock.bar, inBar:clock.inBar, lead:0 };
 }
+
+/* ---- Last Call (GROOVE.md "Last Call") ---- */
+
+/* The glass on the bar at `beat`: the grab it is sliding toward (from a
+   beat before its first slide until a beat after the grab), and how far
+   along: each slide pushes it a step, the grab beat brings it to you.
+   { c, x (0 to 1), arrived } or null between grabs. */
+export function glassAt(chart, beat) {
+  if (!chart || !Number.isFinite(beat)) return null;
+  for (const cue of chart.cues || []) {
+    const slides = Array.isArray(cue.slides) ? cue.slides : [];
+    const from = (slides[0] ?? cue.beat) - 1;
+    if (beat < from || beat >= cue.beat + 1) continue;
+    const pushed = slides.filter(at => at <= beat).length;
+    const arrived = beat >= cue.beat;
+    return { c:cue.id, x:arrived ? 1 : pushed / (slides.length + 1), arrived };
+  }
+  return null;
+}
+
+/* Last Call on this phone: where it is (songView's moments), the glass,
+   your three grabs (the room's word on each: its quality and d, a miss
+   null), your total so far (the room's `me.lastCall.ms`), and once the last
+   grab's deadline has passed whether you drink (room.lastCall.worst).
+   { moment, glass, grabs:[{ c, q, d } | null], total, drinks } */
+export function lastCallView({ room, me = null, idx, chart, songAt, now, judged = {} }) {
+  const view = songView(chart, songAt, now);
+  const beat = Number.isFinite(songAt) && Number.isFinite(now) ? beatOf(songAt, now, chart?.beatMs) : null;
+  const grabs = (chart?.cues || []).map(cue => {
+    const own = judged[cue.id];
+    if (own?.q) return { c:cue.id, q:own.q, d:own.q === "miss" ? null : own.d ?? null };
+    const said = me?.lastCall?.grabs;
+    if (said && Object.prototype.hasOwnProperty.call(said, cue.id)) {
+      const d = num(said[cue.id]);
+      return d === null ? { c:cue.id, q:"miss", d:null } : { c:cue.id, q:qualityOf(d), d };
+    }
+    return null;
+  });
+  const roomTotal = num(me?.lastCall?.ms) ?? num(list(room?.lastCall?.totals).find(item => indexOf(item) === idx)?.ms);
+  const ownTotal = grabs.some(Boolean) ? grabs.reduce((sum, grab) => sum + (grab ? (grab.d === null ? LAST_CALL.MISS_MS : Math.abs(grab.d)) : 0), 0) : null;
+  const worst = Array.isArray(room?.lastCall?.worst) ? indexes(room.lastCall.worst) : null;
+  return { moment:view.moment, beat, glass:glassAt(chart, beat), grabs, total:roomTotal ?? ownTotal,
+    drinks:worst === null ? null : worst.includes(idx) };
+}
+
+/* a total as the phone letters it: seconds to two decimals */
+export const secondsText = ms => Number.isFinite(ms) ? (Math.max(0, ms) / 1000).toFixed(2) : "";
 
 /* the song a round plays, by name: the room's, else the frozen order */
 export function roundSong(room) {
@@ -167,6 +216,8 @@ export function screenOf({ room, idx, memory = {} }) {
       if (!member) return "watch";
       if (inSong(room, idx, memory)) return "cut";
       return out ? "crowd" : "watch";
+    /* Last Call: everyone in the Cup at the bar, the riders out too */
+    case "lastcall": return member ? "lastcall" : "watch";
     case "podium": return member ? "podium" : "watch";
     case "feedback": return member ? "feedback" : "watch";
     default: return "watch";
@@ -177,7 +228,7 @@ export function screenOf({ room, idx, memory = {} }) {
    drink break and the cut are 30 s and more without a touch, past iPhone's
    auto-lock. The feedback card is typed on, and needs none. A phone still
    joining (no phase yet) is awake. */
-export const WAKE_PHASES = Object.freeze(["lobby", "intro", "song", "cut", "podium"]);
+export const WAKE_PHASES = Object.freeze(["lobby", "intro", "song", "cut", "lastcall", "podium"]);
 export const wakeFor = phase => !phase || WAKE_PHASES.includes(phase);
 
 /* how many play this round, how many go through, whether it is the final */

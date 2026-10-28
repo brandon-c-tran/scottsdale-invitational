@@ -143,8 +143,8 @@ test("the cut: your percent and place, Through or Out, and after the final the C
 });
 
 test("the wake lock: held from joining to the podium, let go for the card", () => {
-  assert.deepEqual([...WAKE_PHASES], ["lobby", "intro", "song", "cut", "podium"]);
-  for (const phase of [null, undefined, "lobby", "intro", "song", "cut", "podium"]) assert.equal(wakeFor(phase), true, String(phase));
+  assert.deepEqual([...WAKE_PHASES], ["lobby", "intro", "song", "cut", "lastcall", "podium"]);
+  for (const phase of [null, undefined, "lobby", "intro", "song", "cut", "lastcall", "podium"]) assert.equal(wakeFor(phase), true, String(phase));
   assert.equal(wakeFor("feedback"), false);
 });
 
@@ -273,4 +273,49 @@ test("a phone that never taps Done: play B's cues are the room's misses until it
   timers.flush();
   assert.equal(state.memory.judged[after.id]?.q, "perfect");
   net.close();
+});
+
+/* ---- Last Call (GROOVE.md "Last Call") ---- */
+
+test("Last Call: the glass steps toward you on each slide and reaches you on the grab", async () => {
+  const { LAST_CALL } = await import("../float/shared/chart.js");
+  const { glassAt } = await import("../float/client/controller/controllerModel.js");
+  const bar = chartOf("lastcall");
+  assert.equal(glassAt(bar, 2), null, "the call, nothing on the bar yet");
+  assert.deepEqual(glassAt(bar, 3.5), { c:0, x:0, arrived:false }, "a beat before the first slide it waits at the far end");
+  assert.deepEqual(glassAt(bar, 4), { c:0, x:0.25, arrived:false });
+  assert.deepEqual(glassAt(bar, 6.2), { c:0, x:0.75, arrived:false });
+  assert.deepEqual(glassAt(bar, 7), { c:0, x:1, arrived:true });
+  assert.equal(glassAt(bar, 8.1), null);
+  /* the quick one: four half-beat slides */
+  assert.deepEqual(glassAt(bar, 21.5), { c:2, x:0.8, arrived:false });
+  assert.equal(LAST_CALL.GRABS.length, bar.cues.length);
+});
+
+test("Last Call on the phone: a grab up to a second off counts; your total; whether you drink", async () => {
+  const { lastCallView, secondsText, screenOf: screen } = await import("../float/client/controller/controllerModel.js");
+  const bar = chartOf("lastcall");
+  const songAt = 9_000_000;
+  /* the pad takes the one-second window: 730 ms late is a grab, Late */
+  const pad = createPad();
+  pad.song("bar");
+  const late = padTap(pad, cueTime(songAt, 7) + 730, { chart:bar, songAt, offset:0 });
+  assert.equal(late.open, true);
+  assert.deepEqual([late.found.c, late.found.q, late.found.popup.num, late.found.popup.word], [0, "late", "+0.73", "Late"]);
+  assert.equal(padTap(pad, cueTime(songAt, 15) - 1100, { chart:bar, songAt }).found, null, "past a second: no grab");
+  /* the view: your grabs as the room judged them, the total, then the verdict */
+  const room = { phase:"lastcall", song:"lastcall", songAt, field:[0, 1], out:[2], lastCall:{ totals:[{ i:0, ms:730, grabs:{ 0:730 } }], worst:null } };
+  const during = lastCallView({ room, me:{ lastCall:{ ms:730, grabs:{ 0:730 } } }, idx:0, chart:bar, songAt, now:cueTime(songAt, 9) });
+  assert.deepEqual(during.grabs, [{ c:0, q:"late", d:730 }, null, null]);
+  assert.equal(during.total, 730);
+  assert.equal(secondsText(during.total), "0.73");
+  assert.equal(during.drinks, null);
+  const told = lastCallView({ room:{ ...room, lastCall:{ totals:[], worst:[0, 2] } }, me:{ lastCall:{ ms:2760, grabs:{ 0:730, 1:null, 2:30 } } },
+    idx:0, chart:bar, songAt, now:cueTime(songAt, 29) });
+  assert.deepEqual(told.grabs.map(grab => grab.q), ["late", "miss", "perfect"]);
+  assert.equal(told.drinks, true);
+  assert.equal(lastCallView({ room:{ ...room, lastCall:{ totals:[], worst:[2] } }, idx:0, chart:bar, songAt, now:cueTime(songAt, 29) }).drinks, false);
+  /* everyone in the Cup is at the bar, the riders out too */
+  assert.equal(screen({ room:{ ...room, entrants:[{}, {}, {}] }, idx:2 }), "lastcall");
+  assert.equal(screen({ room:{ ...room, entrants:[{}, {}, {}] }, idx:-1 }), "watch");
 });

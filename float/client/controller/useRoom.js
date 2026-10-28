@@ -25,7 +25,7 @@ export function foldFrame(state, msg, { device = null } = {}) {
       const was = state.room;
       const fresh = (was?.cupId && msg.cupId && was.cupId !== msg.cupId) || (msg.phase === "lobby" && was?.phase && was.phase !== "lobby");
       const chart = chartFor(msg, state.chart);
-      const songKey = msg.phase === "song" || msg.phase === "cut" ? songKeyOf(msg) ?? state.songKey : null;
+      const songKey = msg.phase === "song" || msg.phase === "cut" || msg.phase === "lastcall" ? songKeyOf(msg) ?? state.songKey : null;
       /* the last song's `me` is not this one's */
       const newSong = fresh || msg.phase === "intro" || msg.phase === "lobby" || (songKey && songKey !== state.songKey)
         || (was && Number(was.round) !== Number(msg.round));

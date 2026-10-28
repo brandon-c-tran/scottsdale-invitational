@@ -175,6 +175,8 @@ test("the mock: every held moment opens on its phase, this phone where the shots
     "play-late":["song", "song"], "play-miss":["song", "song"], drink:["song", "song"], "drink-done":["song", "song"],
     "drink-dry":["song", "song"], "drink-late":["song", "song"], outro:["song", "song"], after:["song", "song"], rock:["song", "song"],
     spin:["song", "song"], drop:["song", "song"], cut:["cut", "cut"], "cut-out":["cut", "cut"], "cut-final":["cut", "cut"],
+    lastcall:["lastcall", "lastcall"], "lastcall-grab":["lastcall", "lastcall"], "lastcall-drink":["lastcall", "lastcall"],
+    "lastcall-safe":["lastcall", "lastcall"],
     crowd:["song", "crowd"], podium:["podium", "podium"], "podium-win":["podium", "podium"], "podium-out":["podium", "podium"],
     feedback:["feedback", "feedback"], watch:["song", "watch"],
   };

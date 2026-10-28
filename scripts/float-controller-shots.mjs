@@ -43,7 +43,8 @@ const MOMENTS = [
   ["lobby"], ["lobby-ready"], ["lobby-fieldday"], ["intro"], ["card"], ["count"],
   ["practice", { tap:true, word:"Nice!" }], ["hey"], ["play", { tap:true, word:"Perfect" }], ["play-late", { tap:true, word:"Late" }],
   ["play-miss", { word:"Miss" }], ["drink"], ["drink-done"], ["drink-dry"], ["drink-late"], ["outro"], ["after"],
-  ["rock"], ["spin"], ["drop"], ["cut"], ["cut-out"], ["cut-final"], ["crowd"], ["podium"], ["podium-win"], ["podium-out"],
+  ["rock"], ["spin"], ["drop"], ["cut"], ["cut-out"], ["cut-final"], ["lastcall"], ["lastcall-grab", { tap:true, word:"Late" }],
+  ["lastcall-drink"], ["lastcall-safe"], ["crowd"], ["podium"], ["podium-win"], ["podium-out"],
   ["feedback"], ["watch"],
 ];
 

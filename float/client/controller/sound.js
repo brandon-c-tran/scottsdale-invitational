@@ -2,7 +2,8 @@
    plays your own tap at once, Done, Through and Out; never music). The
    sound builder's module (float/client/sound) is read through its namespace,
    so a name it does not export yet is a quiet no-op rather than a broken
-   import: floatTapSound(q) (q null for a tap that matched no cue),
+   import: floatTapSound(q, kind) (q null for a tap that matched no cue,
+   kind the cue's),
    floatDoneSound(), floatCheerSound(), unlockFloatSound(), and the hook
    useFloatControllerSound(net, { me }) for what the room's frames sound. */
 import * as floatSound from "../sound/index.js";
@@ -13,7 +14,7 @@ const call = (name, ...args) => {
   try { return fn(...args); } catch { return undefined; }
 };
 
-export const tapSound = q => call("floatTapSound", q ?? null);
+export const tapSound = (q, kind = null) => call("floatTapSound", q ?? null, kind ?? null);
 export const doneSound = () => call("floatDoneSound");
 export const cheerSound = () => call("floatCheerSound");
 export const unlockSound = () => call("unlockFloatSound");

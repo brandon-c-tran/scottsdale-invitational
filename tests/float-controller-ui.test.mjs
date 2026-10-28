@@ -45,6 +45,7 @@ test("the controller, the Locker, the join and the page import cleanly in node a
 const parts = await bundle(`
   export { default as Screens } from "./float/client/controller/Screens.jsx";
   export { default as SongScreen } from "./float/client/controller/SongScreen.jsx";
+  export { default as LastCall } from "./float/client/controller/LastCall.jsx";
   export { default as LockerPicker } from "./float/client/locker/LockerPicker.jsx";
   export { default as JoinFlow } from "./float/client/join/JoinFlow.jsx";
 `, "screens");
@@ -152,6 +153,26 @@ test("the drink break on the pad: Drink! and a big Done, then Done; Break for a 
   assert.match(late, /flc-drink is-late/);
   assert.match(late, />Drink!</);
   assert.doesNotMatch(song(drink.to + 1.5, { done:true }), /flc-done/);
+});
+
+test("Last Call on the pad: the card, the glass on its way, your grabs and total, then You drink or Safe", () => {
+  const bar = chartOf("lastcall");
+  const songAt = 4_000_000;
+  const room = { phase:"lastcall", song:"lastcall", songAt, field:[0, 1], out:[2], entrants:people.slice(0, 3), lastCall:{ totals:[], worst:null } };
+  const at = (beat, extra = {}) => renderToStaticMarkup(h(parts.LastCall, { serverNow:() => cueTime(songAt, beat), room, me:null, idx:0, chart:bar,
+    songAt, entrant:{ ...me }, judged:{}, onTap:noop, ...extra }));
+  assert.match(at(-1), /flc-card-title[^>]*>Last Call</);
+  const sliding = at(5.5);
+  assert.match(sliding, /flc-glass/);
+  assert.match(sliding, /--x:0\.5/);
+  assert.doesNotMatch(sliding, /You drink|Safe/);
+  const graded = at(9, { me:{ lastCall:{ ms:730, grabs:{ 0:730 } } } });
+  assert.match(graded, /class="is-salmon"/);
+  assert.match(graded, />0\.73</);
+  const drinks = at(29, { room:{ ...room, lastCall:{ totals:[], worst:[0] } }, me:{ lastCall:{ ms:2100, grabs:{ 0:730, 1:null, 2:370 } } } });
+  assert.match(drinks, />You drink</);
+  assert.match(drinks, />2\.10</);
+  assert.match(at(29, { room:{ ...room, lastCall:{ totals:[], worst:[1] } } }), />Safe</);
 });
 
 test("the Locker: the critters as portraits in the rider's colour; Winnie for the groom alone; no hats, shades or floaties", () => {

@@ -29,6 +29,7 @@ import { FLOATIE_IDS } from "../../shared/floaties.js";
 import { createWakeLock } from "../../../src/lib/wakeLock.js";
 import { tapTick } from "../../../src/lib/haptics.js";
 import SongScreen from "./SongScreen.jsx";
+import LastCall from "./LastCall.jsx";
 import Screens from "./Screens.jsx";
 import { useRoom } from "./useRoom.js";
 import { drinkGate, drinksOn, offsetOf, roundShape, roundSong, screenOf, songAtOf, songView, wakeFor } from "./controllerModel.js";
@@ -196,7 +197,7 @@ export default function FloatController({ room = "test", rider = null, onExit = 
       /* while Done is owed the critter keeps chugging and the panel has the screen */
       const s = live.current;
       const owed = drinkGate({ view:songView(s.chart, s.songAt, net.serverNow()), chart:s.chart, owes:s.owes, done:s.done }).owed;
-      if (msg.t === "ev" && msg.q === "miss" && !owed && (!fresh || up.c < msg.c) && s.screen === "song") {
+      if (msg.t === "ev" && msg.q === "miss" && !owed && (!fresh || up.c < msg.c) && (s.screen === "song" || s.screen === "lastcall")) {
         show({ c:msg.c, q:"miss", d:null });
         seq.current += 1;
         setAct({ key:seq.current, kind:"miss", q:"miss", at:perfNow() });
@@ -209,7 +210,7 @@ export default function FloatController({ room = "test", rider = null, onExit = 
 
   const onTap = useCallback(eventAt => {
     const s = live.current;
-    if (!net || s.screen !== "song") return;
+    if (!net || (s.screen !== "song" && s.screen !== "lastcall")) return;
     /* both clocks first: the sound's first unlock can take a while */
     const perf = perfNow(), server = net.serverNow();
     unlockSound();
@@ -224,7 +225,7 @@ export default function FloatController({ room = "test", rider = null, onExit = 
       seq.current += 1;
       setAct({ key:seq.current, kind:found.cue.kind, q:found.q, at:perfNow() });
     }
-    tapSound(found ? found.q : null);
+    tapSound(found ? found.q : null, found?.cue?.kind ?? null);
     tapTick();
   }, [net, pad, show, wake]);
 
@@ -287,6 +288,9 @@ export default function FloatController({ room = "test", rider = null, onExit = 
     {screen === "song"
       ? <SongScreen serverNow={serverNow} chart={chart} songAt={songAt} entrant={entrant} shape={shape} name={song.name}
         popup={popup} act={act} owes={owes} done={done} onTap={onTap} onDone={onDone} />
+      : screen === "lastcall"
+      ? <LastCall serverNow={serverNow} room={game.room} me={game.me} idx={idx} chart={chart} songAt={songAt} entrant={entrant}
+        judged={game.memory.song === songKey ? game.memory.judged || {} : {}} popup={popup} act={act} onTap={onTap} />
       : <Screens screen={screen} game={game} entrant={entrant} me={me} groom={groom} serverNow={serverNow} onReady={setReady}
         onLook={setLook} onFeedback={sendFeedback} feedbackSent={feedbackSent} cheer={cheer} onCheer={onCheer} onExit={onExit} />}
     {game.status !== "open" && <div className="flc-link" role="status">

@@ -3167,11 +3167,11 @@ const GK = Object.freeze({
   clap(E, v, t, k = 1) {
     [0, 0.0105, 0.0205].forEach((dt, i) => burst(E, v, t + dt, { f:1150 + i * 60, q:1.2, d:0.01, peak:(0.5 - i * 0.06) * k }));
     burst(E, v, t + 0.029, { f:1200, q:0.9, d:0.13, peak:0.4 * k, a:0.002 });
-    burst(E, v, t + 0.029, { type:"highpass", f:3200, q:0.7, d:0.07, peak:0.12 * k });
+    burst(E, v, t + 0.029, { type:"highpass", f:3200, q:0.7, d:0.06, peak:0.08 * k });
   },
   hat(E, v, t, k = 1, open = false) {
-    burst(E, v, t, { type:"highpass", f:7600, q:0.7, d:open ? 0.26 : 0.03, peak:0.2 * k });
-    burst(E, v, t, { f:10800, q:1.6, d:open ? 0.2 : 0.018, peak:0.07 * k });
+    burst(E, v, t, { type:"highpass", f:7600, q:0.7, d:open ? 0.24 : 0.03, peak:(open ? 0.15 : 0.2) * k });
+    burst(E, v, t, { f:10800, q:1.6, d:open ? 0.18 : 0.018, peak:0.05 * k });
   },
   shaker(E, v, t, k = 1) { burst(E, v, t, { f:6800, q:1.3, d:0.055, peak:0.16 * k, a:0.014 }); },
   tamb(E, v, t, k = 1) {
@@ -3417,7 +3417,7 @@ function gSaws(E, dest, t, midis, d, peak, { a = 0.05 } = {}) {
 function gWhistle(E, dest, t, f0, f1, d, peak) {
   if (!(f0 > 0) || !(f1 > 0) || !(peak > 0)) return;
   const c = E.ctx, len = Math.max(0.05, d);
-  [["sine", 1, peak], ["triangle", 2, peak * 0.12]].forEach(([type, k, p]) => {
+  [["sine", 1, peak], ["triangle", 2, peak * 0.07]].forEach(([type, k, p]) => {
     const o = c.createOscillator(); o.type = type;
     o.frequency.setValueAtTime(f0 * k, t); o.frequency.exponentialRampToValueAtTime(f1 * k, t + len * 0.85);
     const g = c.createGain(); g.gain.value = 0;
@@ -3427,7 +3427,25 @@ function gWhistle(E, dest, t, f0, f1, d, peak) {
     o.start(t); o.stop(t + len + 0.03);
     if (k === 1) wobble(E, o.frequency, t, len, { rate:7, depth:f1 * 0.02 });
   });
-  burst(E, dest, t, { type:"highpass", f:3000, q:0.7, d:0.012, peak:peak * 0.6 });
+  burst(E, dest, t, { type:"highpass", f:3000, q:0.7, d:0.012, peak:peak * 0.35 });
+}
+/* a spring's boing on its note: struck at once (its twang on the beat),
+   bouncing down onto the note from above, the wobble dying away */
+function gBoing(E, dest, t, f, peak, { d = 0.42 } = {}) {
+  if (!(f > 0) || !(peak > 0)) return;
+  const c = E.ctx;
+  const o = c.createOscillator(); o.type = "triangle";
+  o.frequency.setValueAtTime(f * 1.45, t); o.frequency.exponentialRampToValueAtTime(f, t + 0.05);
+  const g = c.createGain(); g.gain.value = 0;
+  g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(peak, t + 0.003);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+  o.connect(g); g.connect(dest); track(E, o, g); trackSource(E, o);
+  o.start(t); o.stop(t + d + 0.03);
+  const lfo = c.createOscillator(); lfo.type = "sine"; lfo.frequency.value = 15;
+  const depth = c.createGain(); depth.gain.setValueAtTime(f * 0.12, t); depth.gain.exponentialRampToValueAtTime(0.5, t + d);
+  lfo.connect(depth); depth.connect(o.frequency); track(E, lfo, depth); trackSource(E, lfo);
+  lfo.start(t); lfo.stop(t + d + 0.03);
+  burst(E, dest, t, { f:Math.min(6000, f * 4), q:2, d:0.012, peak:peak * 0.6 });
 }
 /* a party horn: a buzzing reed blown up into its note, unrolling */
 function gHorn(E, dest, t, f, d, peak) {
@@ -3721,7 +3739,7 @@ function gMelody(c, level) {
   }
   const tag = S.tag?.[c.k % 8];
   if (tag) for (const [s, m] of tag) {
-    gLead(E, V("lead"), c.at(s), gHz(m), G16 * 0.8, 0.06, { vib:0, saw:0.1 });
+    gLead(E, V("lead"), c.at(s), gHz(m), G16 * 0.8, 0.055, { vib:0, saw:0, bright:0.7 });
     if (level >= 2) gGlock(E, V("glock"), c.at(s), gHz(m + 12), 0.06, { dec:0.6 });
   }
 }
@@ -3754,14 +3772,14 @@ function gPlayBar(c, level) {
 /* the band steps back for the host: the comp, the lead and the brass dip
    under each spoken call (a run of calls is one dip) */
 function gDuck(c) {
-  const calls = c.calls.filter(([, kind]) => kind === "hey" || kind === "hop").map(([s]) => c.at(s));
+  const calls = c.calls.filter(([, kind]) => kind === "hey" || kind === "hop" || kind === "spin").map(([s]) => c.at(s));
   if (!calls.length) return;
   const spans = [];
   for (const at of calls) {
     const last = spans[spans.length - 1];
     if (last && at - 0.02 <= last[1] + 0.12) last[1] = at + 0.22; else spans.push([at, at + 0.22]);
   }
-  for (const name of ["comp", "lead", "brass"]) {
+  for (const name of ["comp", "keys", "lead", "brass"]) {
     const g = c.V(name).gain, lv = g.value;
     for (const [from, to] of spans) {
       g.setValueAtTime(lv, from - 0.02); g.linearRampToValueAtTime(lv * 0.5, from);
@@ -3907,7 +3925,7 @@ function gTalk(E, dest, at, line, { f = 330 } = {}) {
    note for that call. Its beat lands at t + GROOVE_PRE_S. */
 function grooveVoice(E, t0, o = {}) {
   const line = typeof o.line === "string" && G_LINES[o.line] ? o.line : "ready";
-  const at = t0 + GROOVE_PRE_S, v = voice(E, { send:0.16, bright:1, gain:1 });
+  const at = t0 + GROOVE_PRE_S, v = voice(E, { send:o.line === "ba" ? 0.08 : 0.16, bright:1, gain:1 });
   const gain = gNum(o.gain, 0.05, 2, 1);
   let rate = gNum(o.rate, 0.5, 2, 1), note = null;
   if (line === "ba") {
@@ -3987,7 +4005,7 @@ function grooveAnswer(E, t0, o = {}) {
   }
   if (kind === "hop") {
     const f = gHz(grooveBaNote(o.song, o.k, o.n, o.of) + 12);
-    boing(E, at, { f, d:0.42, peak:0.22 });
+    gBoing(E, voice(E, { pan:0.15, send:0.22, bright:0.9, gain:1 }), at, f, 0.24);
     M.felt(E, at, { gain:0.35 });
     return;
   }
@@ -3995,10 +4013,10 @@ function grooveAnswer(E, t0, o = {}) {
     /* a quiet swish leading in, the "fwip" on the beat, the air spinning away */
     travelWhoosh(E, at - 0.1, { d:0.13, from:-0.75, to:0.1, peak:0.09, f0:700, f1:2800 });
     const v = voice(E, { pan:0.3, send:0.22, bright:1, gain:1 });
-    burst(E, v, at, { f:2300, q:0.9, d:0.05, peak:0.6 });
+    burst(E, v, at, { f:2300, q:0.9, d:0.05, peak:0.75 });
     burst(E, v, at, { type:"highpass", f:4200, q:0.7, d:0.07, peak:0.26 });
     glide(E, v, at + 0.002, 700, 2100, 0.08, 0.08, { type:"triangle" });
-    travelWhoosh(E, at + 0.01, { d:0.24, from:0.1, to:0.85, peak:0.2, f0:3200, f1:800 });
+    travelWhoosh(E, at + 0.01, { d:0.24, from:0.1, to:0.85, peak:0.26, f0:2800, f1:700 });
     return;
   }
   flImpact(E, at);

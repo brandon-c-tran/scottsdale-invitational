@@ -37,8 +37,9 @@ export const ROOM_FRESH_MS = 1500;
 export const EV_FRESH_MS = 700;
 /* the beds stop once the connection has been down this long */
 export const CLOSED_GRACE_MS = 3000;
-/* the loop comes back this long into the cut (after the stings) and the podium (after the fanfare) */
-export const CUT_LOOP_MS = 6000, PODIUM_LOOP_MS = 8000;
+/* the loop comes back this long into the cut (after the stings), the
+   podium (after the fanfare) and the Cup's opening (after its fanfare) */
+export const CUT_LOOP_MS = 6000, PODIUM_LOOP_MS = 8000, INTRO_LOOP_MS = 4000;
 /* misses: one flub each `gap` at most, `grains` inside a `window`, the rest of the window one bigger flub */
 export const FLUB = Object.freeze({ gap:40, window:220, grains:3 });
 export const DONE_GAP_MS = 90, CHEER_GAP_MS = 260;
@@ -110,14 +111,15 @@ function roomStep(mem, msg, { now, visible }) {
   const moved = !prev || prev.phase !== v.phase || prev.round !== v.round || (v.phase === "song" && prev.songAt !== v.songAt);
   if (moved) m.phaseAt = phaseStart(v, s);
   /* who was out before this song: the cut's new outs are the rest */
-  if (v.phase === "song" && moved) { m.outsBefore = [...v.out]; m.done = new Set(); m.gone = null; }
+  if (v.phase === "song" && moved) { m.outsBefore = [...v.out]; m.done = new Set(); m.gone = null; m.cutAt = null; }
   if (v.phase === "song") {
     /* the room's own word on who has tapped Done */
     const done = new Set(m.done || []);
     for (const row of v.scores || []) if (row && row.done && Number.isInteger(Number(row.i))) done.add(Number(row.i));
     m.done = done;
   }
-  if (v.phase === "cut" && moved) { m.cutAt = m.phaseAt; m.gone = new Map(); }
+  /* the cut's own start (its outs may have come a moment before, as `ev out`: they stay stung once) */
+  if (v.phase === "cut" && moved) { m.cutAt = m.phaseAt; if (!m.gone) m.gone = new Map(); }
   const cues = [];
   /* the lobby: who joined and who is ready (recorded always, sounded fresh) */
   if (v.phase === "lobby") {
@@ -243,6 +245,8 @@ export function grooveTrack(mem) {
       if (!Number.isFinite(v.songAt) || !v.chart) return null;
       return { key:`song:${v.round}:${v.chart.id}:${v.songAt}`, kind:"song", songAt:v.songAt, chart:v.chart };
     case "lobby": case "feedback": return { key:"lobby", kind:"lobby", from:-Infinity, cut:false };
+    /* the Cup opening: its fanfare alone, then the loop (light) up to the first round card */
+    case "intro": return { key:`intro:${start}`, kind:"lobby", from:barLine(start + INTRO_LOOP_MS), cut:true };
     case "cut": return { key:`cut:${v.round}:${start}`, kind:"lobby", from:barLine(start + CUT_LOOP_MS), cut:true };
     case "podium": return { key:`podium:${start}`, kind:"lobby", from:barLine(start + PODIUM_LOOP_MS), cut:false };
     default: return null;

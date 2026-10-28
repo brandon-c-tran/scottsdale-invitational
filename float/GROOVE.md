@@ -349,6 +349,21 @@ the scenes and the props: the page Brandon reviews the art on.
 agreement (the integrator). A builder who needs a change there says so in its
 report and codes against the contract as written meanwhile.
 
+## Special critters (Oct 27)
+
+Winnie, Brandon's own cavapoo, is a 14th critter only the groom can pick
+(`looks.js` `SPECIAL_CRITTERS`, `crittersFor({ groom })`; `cleanLook` gives
+him to nobody else; never a default, never a bot). Drawn like the 13: the
+round deadpan body in his apricot curls (his one soft tint), floppy ears,
+dot eyes, a black button nose, and his light-blue bandanna (from Brandon's
+own pixel Winnie). References: the photo and pixel art on brandonctran.com,
+kept outside the repo. No school, team or brand marks on him.
+
+For the product this is the proof of concept of a paid feature: your own
+pet as a playable critter, picked only by its owner. Characters from other
+companies' games stay out: their studios own them, and selling or shipping
+a copy isn't parody.
+
 ## Floaties
 
 In a rhythm game the floatie is a look, not a stat: the eight floaties stay

@@ -367,7 +367,7 @@ export const GRADES = Object.freeze([
 export const gradeOf = pct => (GRADES.find(grade => (Number(pct) || 0) >= grade.min) || GRADES[GRADES.length - 1]).id;
 export const gradeWord = id => GRADES.find(grade => grade.id === id)?.word || "";
 
-const KIND_WORDS = Object.freeze({ paddle:"paddles", hey:"Heys", hop:"hops", spin:"spins", drop:"the drop" });
+const KIND_WORDS = Object.freeze({ paddle:"paddles", hey:"Heys", hop:"hops", spin:"spins", drop:"the drop", echo:"copies" });
 const capital = text => text.charAt(0).toUpperCase() + text.slice(1);
 const median = xs => {
   if (!xs.length) return null;

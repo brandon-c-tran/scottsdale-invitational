@@ -35,9 +35,16 @@
      time half a beat before the first play bar (FREEZE_BEATS), which fixes
      it, so every scored cue is judged on one offset; a practice with fewer
      than CALIBRATION.MIN samples keeps the last song's offset (`base`, 0
-     at a Cup's first song). */
-import { MISS_AFTER_MS, POINTS, SONG_LEAD_MS, beatOf, calibrate, chartOf, cueTime, drinkSection, judgeHit, scoreOf,
-  songForRound } from "./chart.js";
+     at a Cup's first song).
+
+   Last Call (GROOVE.md "Last Call") runs on the same machinery: a "bar" is
+   a song's state for chartOf("lastcall") (createBar) with everyone in the
+   Cup in its field, frozen from the start (it never calibrates: the last
+   song's offset judges it), its window the chart's (LAST_CALL.WINDOW), so a
+   grab's miss comes at cueTime + offset + window + 250; bots grab by
+   botGrab; lastCallOf is the totals and who drinks. */
+import { LAST_CALL, LAST_CALL_ID, MISS_AFTER_MS, POINTS, SONG_LEAD_MS, WINDOW, beatOf, calibrate, chartOf, cueTime,
+  drinkSection, judgeHit, lastCallTotal, lastCallWorst, scoreOf, songForRound } from "./chart.js";
 
 export const GROOVE = Object.freeze({
   /* a phone silent this long is played by a stand-in */
@@ -65,6 +72,17 @@ export const FREEZE_BEATS = 0.5;
    within about 30 ms, a skill 0 one about 90 ms off with the odd miss. */
 export const BOT = Object.freeze({ SPREAD:Object.freeze([85, 15]), LEAN:Object.freeze([35, 4]),
   MISS:Object.freeze([0.05, 0.004]), MAX_DEV:280 });
+/* How bots grab at Last Call, by skill as BOT: a sharp bot within about
+   60 ms, a sloppy one 250 ms and more off, and now and then very late (LATE
+   the share of grabs, LATE_MS how late). They always grab, inside the
+   window. */
+export const BAR_BOT = Object.freeze({ SPREAD:Object.freeze([340, 40]), LEAN:Object.freeze([80, 8]),
+  LATE:Object.freeze([0.18, 0.01]), LATE_MS:Object.freeze([500, 950]), MAX_DEV:LAST_CALL.WINDOW - 20 });
+
+/* a cue is the room's miss this long after its time and the offset: the
+   chart's window and a late tap's trip (MISS_AFTER_MS for a song, 1250 at
+   Last Call) */
+export const missAfterOf = chart => (chart?.window || WINDOW.MAX) + (MISS_AFTER_MS - WINDOW.MAX);
 
 const clamp01 = value => Math.max(0, Math.min(1, Number.isFinite(Number(value)) ? Number(value) : 0.6));
 const along = (pair, skill) => pair[0] + (pair[1] - pair[0]) * skill;
@@ -116,6 +134,19 @@ export function botDraw(seed, round, i, c, skill) {
   return { hit:true, dev:Math.round(Math.max(-BOT.MAX_DEV, Math.min(BOT.MAX_DEV, dev))) };
 }
 
+/* A bot's (or a stand-in's) grab at Last Call: { hit:true, dev } (ms from
+   the room's beat, inside the window). */
+export function botGrab(seed, round, i, c, skill) {
+  const s = clamp01(skill);
+  const u = k => rand01(seed, round, i, c, 0x1a57, k);
+  let dev;
+  if (u(1) < along(BAR_BOT.LATE, s)) dev = BAR_BOT.LATE_MS[0] + (BAR_BOT.LATE_MS[1] - BAR_BOT.LATE_MS[0]) * u(2);
+  else dev = (rand01(seed, i, 0x1a58) * 2 - 1) * along(BAR_BOT.LEAN, s) + along(BAR_BOT.SPREAD, s) * normal(u(3), u(4));
+  return { hit:true, dev:Math.round(Math.max(-BAR_BOT.MAX_DEV, Math.min(BAR_BOT.MAX_DEV, dev))) };
+}
+/* the chart's bot: Last Call's grab, else a song's tap */
+const drawFor = chart => chart?.id === LAST_CALL_ID ? botGrab : botDraw;
+
 /* when a bot (a stand-in, a rider who skips the drink) taps Done: ms into the break */
 export const botDoneAfter = (seed, round, i) => GROOVE.DONE_FROM_MS + Math.round(GROOVE.DONE_SPAN_MS * rand01(seed, round, i, 0xd0e));
 
@@ -145,7 +176,7 @@ export function createSong({ cup, round = cup.round, songAt, field = cup.field, 
 const chartFor = song => chartOf(song.id);
 const timeOf = (song, chart, cue) => cueTime(song.songAt, cue.beat, chart.beatMs);
 /* when the room calls cue `cue` missed */
-export const deadlineOf = (song, cue, chart = chartFor(song)) => timeOf(song, chart, cue) + song.offset + MISS_AFTER_MS;
+export const deadlineOf = (song, cue, chart = chartFor(song)) => timeOf(song, chart, cue) + song.offset + missAfterOf(chart);
 /* the drink break's server times */
 export function drinkTimes(song, chart = chartFor(song)) {
   const section = drinkSection(chart);
@@ -179,7 +210,7 @@ export function applyHit(cup, song, i, { c, r } = {}, now) {
   const raw = Number(r);
   if (!cue || r === null || r === "" || !Number.isFinite(raw) || judged[cue.id]) return null;
   const t = timeOf(song, chart, cue);
-  if (now >= t + song.offset + MISS_AFTER_MS) return null;
+  if (now >= t + song.offset + missAfterOf(chart)) return null;
   if (t + raw > now + GROOVE.FUTURE_MS) return null;
   if (lockedOut(song, i, cue, chart)) return null;
   const hit = judgeHit(chart, cue.id, raw, song.offset);
@@ -192,7 +223,7 @@ export function applyHit(cup, song, i, { c, r } = {}, now) {
 /* Done: rider i finished their drink. Counts from a beat before the break,
    once. Returns { e:"done", i, at } or null. */
 export function applyDone(cup, song, i, now) {
-  if (!song?.judged?.[i] || (song.done[i] !== undefined && song.done[i] !== null)) return null;
+  if (!song?.judged?.[i] || (song.done[i] !== undefined && song.done[i] !== null) || !drinkSection(chartFor(song))) return null;
   if (now < drinkTimes(song).from - GROOVE.DONE_EARLY_MS) return null;
   song.done[i] = now;
   return { e:"done", i, at:now };
@@ -231,14 +262,17 @@ function settleRider(cup, song, chart, i, now, driven, events) {
   song.cursor[i] = k;
   const bot = cup.entrants?.[i]?.bot === true;
   const skill = skillOf(cup, i);
+  const drawOf = drawFor(chart);
+  const early = chart.window || WINDOW.MAX;
+  const missAfter = missAfterOf(chart);
   for (let j = k; j < cues.length; j += 1) {
     const cue = cues[j];
     const t = timeOf(song, chart, cue);
-    if (t + song.offset - BOT.MAX_DEV > now) break;
+    if (t + song.offset - early > now) break;
     if (judged[cue.id]) continue;
-    const deadline = t + song.offset + MISS_AFTER_MS;
+    const deadline = t + song.offset + missAfter;
     if (!lockedOut(song, i, cue, chart)) {
-      const draw = botDraw(cup.seed, song.round, i, cue.id, skill);
+      const draw = drawOf(cup.seed, song.round, i, cue.id, skill);
       const at = t + song.offset + (draw.dev ?? 0);
       if (draw.hit && at <= now && at < deadline && driven(i, at)) {
         const hit = judgeHit(chart, cue.id, song.offset + draw.dev, song.offset);
@@ -263,8 +297,8 @@ export function stepSong(cup, song, now, { driven = () => false } = {}) {
   const chart = chartFor(song);
   const events = [];
   const offset = calibrateStep(song, chart, now);
-  const drink = drinkTimes(song, chart);
-  if (now >= drink.from) for (const i of song.field) {
+  const drink = drinkSection(chart) ? drinkTimes(song, chart) : null;
+  if (drink && now >= drink.from) for (const i of song.field) {
     if (song.done[i] !== undefined && song.done[i] !== null) continue;
     const at = drink.from + botDoneAfter(cup.seed, song.round, i);
     if (now < at) continue;
@@ -358,10 +392,44 @@ export function riderStats(cup, song, i) {
   const chart = chartFor(song);
   const score = scoreOf(chart, qualitiesOf(song, i));
   const counts = tally(song, i, chart);
-  const drink = drinkTimes(song, chart);
+  const drink = drinkSection(chart) ? drinkTimes(song, chart) : null;
   const done = song.done[i];
   return { pct:score.pct, pts:score.pts, perfects:counts.perfect, nice:counts.nice, ok:counts.ok, early:counts.early,
     late:counts.late, misses:counts.miss, hits:counts.phone,
     botShare:counts.judged ? Math.round((counts.bot / counts.judged) * 100) / 100 : 0,
-    doneMs:done === undefined || done === null ? null : Math.max(0, Math.round(done - drink.from)) };
+    doneMs:!drink || done === undefined || done === null ? null : Math.max(0, Math.round(done - drink.from)) };
+}
+
+/* ---------------------------------------------------------------- Last Call */
+
+/* Last Call's state, a song's shape: everyone in the Cup at the bar
+   (`players`: the field, then the riders out), judged on the last song's
+   offset and frozen from the start (it never calibrates) */
+export function createBar({ cup, round = cup.round, songAt, players, offset = cup.offset || 0 }) {
+  const bar = { v:1, round, id:LAST_CALL_ID, songAt, field:players.slice(), base:offset, offset, frozen:true, samples:[],
+    calBeat:null, judged:{}, last:{}, cursor:{}, done:{} };
+  for (const i of bar.field) { bar.judged[i] = {}; bar.cursor[i] = 0; }
+  return bar;
+}
+
+/* Last Call so far: { totals:[{ i, ms, grabs:{ [c]: d or null } }], worst }.
+   A total is the sum of |d| over the grabs judged so far (a missed grab
+   LAST_CALL.MISS_MS), so it grows as they land; once the last grab's miss
+   deadline has passed it is lastCallTotal (a grab never judged a miss too)
+   and `worst` is who drinks (lastCallWorst: the worst total, all tied on
+   it); before that `worst` is null. */
+export function lastCallOf(bar, now = Infinity) {
+  const chart = chartOf(LAST_CALL_ID);
+  const over = now >= deadlineOf(bar, chart.cues[chart.cues.length - 1], chart);
+  const totals = bar.field.map(i => {
+    const grabs = {}, judged = [];
+    for (const cue of chart.cues) {
+      const item = bar.judged[i]?.[cue.id];
+      if (!item) continue;
+      grabs[cue.id] = item[0] === "miss" ? null : item[1];
+      judged.push(cue);
+    }
+    return { i, ms:lastCallTotal(grabs, over ? chart : { cues:judged }), grabs };
+  });
+  return { totals, worst:over ? lastCallWorst(totals) : null };
 }

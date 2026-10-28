@@ -408,11 +408,30 @@ a copy isn't parody.
 In a rhythm game the floatie is a look, not a stat: the eight floaties stay
 as tube designs in the Locker; their stats are not used.
 
-## Last Call (after song 1 is fun; Brandon asked for Cake Wait by name)
+## Last Call (Brandon asked for a good version of Cake Wait)
 
-Between rounds, during the cut: the bartender slides a drink down the bar on a
-rhythm; every rider grabs on the beat with one tap; the TV shows every offset
-big, Cake Wait style; the worst grab drinks. Reuses everything above.
+Between songs, after each cut but the last: phase `lastcall` (a 3 s lead,
+then 16 s). The bar scene; everyone in the Cup at the bar (the field and the
+riders out). The bartender slides a drink down the bar three times
+(`chartOf("lastcall")`: grabs on beats 7, 15 and 22, each after its
+`slides`: three slides; two and a beat of nothing; four quick ones) and
+everyone taps once a grab (`hit {c, r}`, judged on the room's offset with a
+one-second window, `LAST_CALL.WINDOW`). After each grab the TV shows every
+rider's offset big, Cake Wait style ("+0.01 Nice!", "+0.73 Late"); at the end
+the totals and who drinks: the worst total (`lastCallTotal`: the sum of |d|,
+a missed grab a full second), every rider tied on it. Never scored in the
+Cup. Everyone plays; a rider who doesn't drink drinks water (nobody is
+singled out).
+
+- `room`: phase `lastcall` with `song:"lastcall"`, `songAt`, `chart`,
+  `offset`, and `lastCall: { totals:[{ i, ms, grabs:{ [c]: d or null } }],
+  worst:[i] }`, totals growing as grabs are judged, `worst` once the last
+  grab's miss deadline has passed (`songAt + 22 beats + offset + window +
+  250`).
+- `ev hit` per grab as in a song; `me` adds the rider's own `lastCall: { ms,
+  grabs }`.
+- Bots grab by skill (a good bot within about 60 ms, a weak one 250 ms or
+  more, sometimes very late). The cut before a Last Call shortens to 12 s.
 
 ## Wednesday night target (in cut order: the last line goes first)
 

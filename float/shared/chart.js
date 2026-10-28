@@ -70,9 +70,11 @@ export const CUE_KINDS = Object.freeze({
   spin:Object.freeze({ lead:1, mode:"spin", word:"Spin" }),
   /* the call is a countdown: three notes, at -3, -2 and -1 */
   drop:Object.freeze({ lead:3, mode:"drop", word:"Drop" }),
+  /* Last Call's: the call is the first of its slides (cue.slides) */
+  grab:Object.freeze({ lead:null, mode:"lastcall", word:"Grab" }),
 });
 /* what the riders do in a bar (chart.modes): a cue kind's mode, or the section's */
-export const MODES = Object.freeze(["intro", "paddle", "rock", "spin", "drop", "drink", "outro"]);
+export const MODES = Object.freeze(["intro", "paddle", "rock", "spin", "drop", "drink", "outro", "lastcall"]);
 
 export const SONGS = Object.freeze([
   Object.freeze({ id:"paddle", name:"Paddle Party", scene:"open" }),
@@ -165,15 +167,16 @@ function modesOf(cues, sections) {
 }
 
 const CHARTS = new Map();
-/* a song's whole chart, as the room sends it: plain JSON */
+/* a song's whole chart, as the room sends it: plain JSON (Last Call's too) */
 export function chartOf(songId) {
+  if (songId === LAST_CALL_ID) return lastCallChart();
   const song = SONGS.find(item => item.id === songId);
   if (!song) return null;
   if (!CHARTS.has(songId)) {
     const sections = sectionsOf();
     const cues = cuesOf(PLANS[songId], sections);
     CHARTS.set(songId, Object.freeze({
-      v:1, id:song.id, name:song.name, scene:song.scene,
+      v:1, id:song.id, name:song.name, scene:song.scene, window:WINDOW.MAX,
       bpm:BPM, beatMs:BEAT_MS, bars:SONG_BARS, beats:SONG_BEATS, ms:SONG_MS,
       sections:Object.freeze(sections.map(Object.freeze)), modes:Object.freeze(modesOf(cues, sections)), cues:Object.freeze(cues),
     }));
@@ -233,11 +236,12 @@ export function qualityOf(d) {
 export function matchTap(chart, songAt, t, { offset = 0, taken = null } = {}) {
   if (!chart || !Number.isFinite(songAt) || !Number.isFinite(t)) return null;
   const local = t - offset - songAt;
+  const max = chart.window || WINDOW.MAX;
   let best = null;
   for (const cue of chart.cues) {
     const d = local - cue.beat * chart.beatMs;
-    if (d < -WINDOW.MAX) break;
-    if (d > WINDOW.MAX || taken?.has(cue.id)) continue;
+    if (d < -max) break;
+    if (d > max || taken?.has(cue.id)) continue;
     if (!best || Math.abs(d) < Math.abs(best.d)) best = { cue, d };
   }
   return best ? { cue:best.cue, d:Math.round(best.d), r:Math.round(best.d + offset) } : null;
@@ -250,7 +254,7 @@ export function judgeHit(chart, c, r, offset = 0) {
   const cue = Number.isInteger(c) ? chart?.cues?.[c] : null;
   if (!cue || !Number.isFinite(r)) return null;
   const d = Math.round(r - offset);
-  if (Math.abs(d) > WINDOW.MAX + WINDOW.SLACK) return null;
+  if (Math.abs(d) > (chart.window || WINDOW.MAX) + WINDOW.SLACK) return null;
   const q = qualityOf(d);
   return { c, q, d, pts:cue.scored ? POINTS[q] : 0, scored:cue.scored };
 }
@@ -296,4 +300,68 @@ export function formatOffset(d) {
 /* what the popup letters: { num, word, tone } (a miss has no number) */
 export function popupOf(q, d) {
   return { num:q === "miss" ? null : formatOffset(d), word:WORDS[q] || "", tone:TONES[q] || "white" };
+}
+
+/* ---- Last Call (GROOVE.md "Last Call") ----
+
+   Between songs (after each cut but the last) the bartender slides a drink
+   down the bar three times and everyone grabs once a time. 8 bars at the
+   same 120 bpm: the call (bar 0), three grabs each with a bar to read it
+   (bars 1 to 6), who drinks (bar 7). Each grab is a cue of kind "grab" whose
+   `slides` are the beats the glass slides on (its call is the first). The
+   window is wide (LAST_CALL.WINDOW): a grab up to a second off still counts,
+   so a "+0.73 Late" shows; a grab never made counts as MISS_MS. The worst
+   total (the sum of the three |d|) drinks; a tie, all of them. Never scored
+   in the Cup. */
+export const LAST_CALL_ID = "lastcall";
+export const LAST_CALL = Object.freeze({
+  BARS:8, WINDOW:1000, MISS_MS:1000,
+  GRABS:Object.freeze([
+    /* three slides, grab on the fourth beat */
+    Object.freeze({ slides:Object.freeze([4, 5, 6]), beat:7 }),
+    /* two slides, a beat of nothing, grab */
+    Object.freeze({ slides:Object.freeze([12, 13]), beat:15 }),
+    /* four quick slides, grab */
+    Object.freeze({ slides:Object.freeze([20, 20.5, 21, 21.5]), beat:22 }),
+  ]),
+});
+let lastCall = null;
+function lastCallChart() {
+  if (lastCall) return lastCall;
+  const bars = LAST_CALL.BARS;
+  const sections = [
+    { kind:"intro", bar:0, bars:1, from:0, to:4 },
+    { kind:"play", bar:1, bars:bars - 2, from:4, to:(bars - 1) * BEATS_PER_BAR },
+    { kind:"outro", bar:bars - 1, bars:1, from:(bars - 1) * BEATS_PER_BAR, to:bars * BEATS_PER_BAR },
+  ];
+  const cues = LAST_CALL.GRABS.map((grab, id) => Object.freeze({
+    id, beat:grab.beat, kind:"grab", call:grab.slides[0], scored:false, slides:grab.slides,
+  }));
+  const modes = new Array(bars).fill("lastcall");
+  modes[0] = "intro";
+  modes[bars - 1] = "outro";
+  lastCall = Object.freeze({
+    v:1, id:LAST_CALL_ID, name:"Last Call", scene:"bar", window:LAST_CALL.WINDOW,
+    bpm:BPM, beatMs:BEAT_MS, bars, beats:bars * BEATS_PER_BAR, ms:bars * BAR_MS,
+    sections:Object.freeze(sections.map(Object.freeze)), modes:Object.freeze(modes), cues:Object.freeze(cues),
+  });
+  return lastCall;
+}
+
+/* a rider's Last Call total: the sum of |d| over the grabs ({ [cueId]: d },
+   a grab missing or a miss counting MISS_MS) */
+export function lastCallTotal(grabs = {}, chart = lastCallChart()) {
+  let ms = 0;
+  for (const cue of chart.cues) {
+    const d = grabs[cue.id];
+    ms += Number.isFinite(d) ? Math.abs(d) : LAST_CALL.MISS_MS;
+  }
+  return ms;
+}
+
+/* who drinks: the worst total, every rider tied on it ([{ i, ms }] -> [i]) */
+export function lastCallWorst(totals = []) {
+  if (!totals.length) return [];
+  const worst = Math.max(...totals.map(item => item.ms));
+  return totals.filter(item => item.ms === worst).map(item => item.i);
 }

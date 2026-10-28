@@ -10,9 +10,9 @@ import test, { before } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { join } from "node:path";
+import { join, posix } from "node:path";
 import * as THREE from "three";
-import * as art from "../float/client/art/index.js";
+import * as art from "../float/client/art/index3d.js";
 import { CRITTER_IDS, HAT_IDS, SHADE_IDS, POSE_IDS } from "../float/shared/looks.js";
 import { FLOATIE_IDS } from "../float/shared/floaties.js";
 import { edgeInserts, labelOf, badgeKey } from "../float/client/art/badge.js";
@@ -399,7 +399,11 @@ test("the art stands alone: nothing under float/client/art imports Field Day's a
   walk("float/client/art");
   for (const path of files) {
     const code = readFileSync(join(root, path), "utf8");
-    assert.doesNotMatch(code, /from\s*["'](\.\.\/){3,}(src|shared|worker)\//, `${path} reaches outside Float`);
+    /* every relative import resolves inside float/ (Float's own shared/ is fine; Field Day's src/, shared/, worker/ are not) */
+    for (const [, spec] of code.matchAll(/(?:from|import\()\s*["'](\.{1,2}\/[^"']+)["']/g)) {
+      const target = posix.normalize(posix.join(posix.dirname(path), spec));
+      assert.ok(target.startsWith("float/"), `${path} reaches outside Float (${spec})`);
+    }
     assert.doesNotMatch(code, /—/, `${path}: no em dashes`);
   }
   /* the runtime never loads the bake (it is node only, and big) */

@@ -6,7 +6,7 @@
    With t, the clock runs from zero to t in fixed 60 Hz steps, so a frame
    is the same frame every time. */
 import * as THREE from "three";
-import { buildRider, buildFloatie, buildCritter, buildMedallion, artStats, floatEnvironment, BUILT_SPECIES, BUILT_FLOATIES } from "./index.js";
+import { buildRider, buildFloatie, buildCritter, buildMedallion, artStats, floatEnvironment, BUILT_SPECIES, BUILT_FLOATIES } from "./index3d.js";
 import { buildStage, buildPuddle } from "./stage.js";
 import { CRITTERS, HATS, SHADES, POSES } from "../../shared/looks.js";
 import { FLOATIES, STATS } from "../../shared/floaties.js";

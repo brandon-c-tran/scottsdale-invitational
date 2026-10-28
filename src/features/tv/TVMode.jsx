@@ -1157,11 +1157,12 @@ function TVMode({ standings, state, events, onDeckEv: onDeckInput, allTied: allT
           handoff={!!ceremony?.handoff} reducedMotion={reducedMotion} onDone={ceremony?.onIntroDone || null} now={introClock} />}
         {ceremonyReveal && <TVDrawReveal key={ceremonyReveal.id} state={state} events={events} reveal={ceremonyReveal}
           reducedMotion={reducedMotion} onDone={ceremony?.onRevealDone || null} />}
-        <TVWalkout state={state} moment={walkoutMoment} events={events} />
+        {/* while Float has the canvas nothing of Field Day's draws over it */}
+        {!floatOnTv && <TVWalkout state={state} moment={walkoutMoment} events={events} />}
         <TVPokerMoments state={state} moments={pokerMoments} />
         {showdown && <TVShowdown key={showdown.duel.id} state={state} active={showdown} now={nowOverride} />}
         {gag && <TVGag key={gag.id} state={state} gag={gag} phase={phase} />}
-        <FrameLamps color={chrome.chase?.color || null} pace={chrome.chase?.pace || "rest"} />
+        {!floatOnTv && <FrameLamps color={chrome.chase?.color || null} pace={chrome.chase?.pace || "rest"} />}
       </div>
       <SoundEarlyControl idle={!pointerActive} />
       <button type="button" className={`tv-exit${pointerActive ? "" : " is-idle"}`} onClick={onExit}

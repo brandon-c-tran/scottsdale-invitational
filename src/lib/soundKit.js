@@ -3742,7 +3742,7 @@ function gDrums(c, kit, { fill = false } = {}) {
   gHits(kit.snare).forEach(([i, k]) => GK.snare(E, V("snare"), c.at(i), k));
   gHits(kit.rim).forEach(([i, k]) => FLD.rim(E, V("snare"), c.at(i), k));
   /* the bar's hats, tambourine and shaker each one line (a source a bar, its hits envelopes on it) */
-  gNoiseLine(E, V("hat"), gHits(kit.hat).map(([i, k]) => [c.at(i), 0.2 * k, 0.03]), { type:"highpass", f:7600 });
+  gNoiseLine(E, V("hat"), gHits(kit.hat).map(([i, k]) => [c.at(i), 0.17 * k * (i % 4 ? 0.85 : 1.1), 0.03]), { type:"highpass", f:7600 });
   gNoiseLine(E, V("hat"), gHits(kit.open).map(([i, k]) => [c.at(i), 0.15 * k, 0.24]), { type:"highpass", f:7200 });
   gHits(kit.cow).forEach(([i, k]) => GK.cowbell(E, V("perc"), c.at(i), k * 0.7));
   gNoiseLine(E, V("perc"), gHits(kit.tamb).map(([i, k]) => [c.at(i), 0.17 * k * 0.7, 0.07]), { type:"bandpass", f:8200, q:1.6, a:0.002 });
@@ -4023,7 +4023,8 @@ function gTalk(E, dest, at, line, { f = 330 } = {}) {
    note for that call. Its beat lands at t + GROOVE_PRE_S. */
 function grooveVoice(E, t0, o = {}) {
   const line = typeof o.line === "string" && G_LINES[o.line] ? o.line : "ready";
-  const at = t0 + GROOVE_PRE_S, v = voice(E, { send:o.line === "ba" ? 0.08 : 0.16, bright:1, gain:1 });
+  /* a sung "ba" a little left, so the boings answering it on the right are their own */
+  const at = t0 + GROOVE_PRE_S, v = voice(E, { pan:o.line === "ba" ? -0.2 : 0, send:o.line === "ba" ? 0.08 : 0.16, bright:1, gain:1 });
   const gain = gNum(o.gain, 0.05, 2, 1);
   let rate = gNum(o.rate, 0.5, 2, 1), note = null;
   if (line === "ba") {
@@ -4104,7 +4105,7 @@ function grooveAnswer(E, t0, o = {}) {
   }
   if (kind === "hop") {
     const f = gHz(grooveBaNote(o.song, o.k, o.n, o.of) + 12);
-    gBoing(E, voice(E, { pan:0.15, send:0.22, bright:0.9, gain:1 }), at, f, 0.24);
+    gBoing(E, voice(E, { pan:0.4, send:0.22, bright:0.9, gain:1 }), at, f, 0.24);
     M.felt(E, at, { gain:0.35 });
     return;
   }

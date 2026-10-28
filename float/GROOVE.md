@@ -342,6 +342,26 @@ kept in `float/look/groove`):
   slap on Early or Late), Done, Through and Out.
 - Generated songs (ElevenLabs, if Brandon adds `ELEVENLABS_API_KEY`) arrive
   as clips aligned to the same bars; swapping a song's bed is data.
+- As built (groove/sound b38b315): Paddle Party in F, Rock Hop in A, Spin
+  Cycle in E minor (disco), The Drop in D, all on the bar grid. The host is
+  `gpt-4o-mini-tts` voice coral, trimmed, pitched up, normalized; 29 clips in
+  `public/float/groove/voice/` with a manifest (`aiGenerated: true`;
+  alternates fable, sage, verse kept in the review renders). **The voices
+  are AI-generated: a release's credits say so.** `src/lib/sound.js` adds the
+  clip path (`registerClips`, `preloadClips`, `clipReady`, `clipIds`) and
+  `playSound(..., { ahead })` (default 0): the TV lays each bar's band,
+  calls and answers on the audio clock about 2 s ahead in one go, so a
+  stalled main thread can't drop or smear a bar; a bar laid more than about
+  1.8 s late is dropped (a silent beat means a stall); a TV joining mid-song
+  hears from its next bar line. A clip that fails to load plays its
+  synthesized stand-in. `float/client/sound/index.js` exports the beats the
+  picture lands on: `TITLE_BEATS` (ms from `songAt`), `CUT_BEATS` and
+  `PODIUM_BEATS` (ms from the phase's `startAt`), `LAST_CALL_BEATS` (beats
+  from the bar's `songAt`: bell -4, call -2, each grab's reveal +2, who
+  drinks 28, "Drink!" 29); the verdict shows at max(`worst`'s arrival, beat
+  28). Renders and the timing check: `node scripts/float-sound-render.mjs`;
+  the voice: `node scripts/float-voice.mjs`; the dev page
+  `/dev/groove-sound.html`.
 
 ## The screen (TV) and the phone
 

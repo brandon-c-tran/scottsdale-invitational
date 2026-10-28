@@ -85,7 +85,8 @@
   font-size: 30px;
   font-weight: 900;
   /* room for the descenders of "Capybara" and "Coyote" under the ellipsis clip */
-  line-height: 1.15;
+  line-height: 1.3;
+  padding-bottom: 0.08em;
   letter-spacing: -0.025em;
   overflow: hidden;
   text-overflow: ellipsis;

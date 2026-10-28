@@ -124,6 +124,28 @@ export function cheerAt(at, now) {
   return { pose:"cheer", dx:0, dy:-46 * arc, rot:0, sx:1 - 0.04 * arc, sy:1 + 0.07 * arc };
 }
 
+/* Out of the Cup, to the bank: a small hop in place (about the critter's
+   own height), then a waddle back across the water to the sand, shrinking
+   with the distance. from/to: { x, y, scale }; t 0 to 1 over the move;
+   `height` the critter's drawn height (stage px). Returns { x, y, scale,
+   lift (up, negative), sx, sy }. */
+export const HOP_SHARE = 0.26;
+export function hopToBank(from, to, t, { height = 160 } = {}) {
+  const u = Math.max(0, Math.min(1, Number(t) || 0));
+  if (u < HOP_SHARE) {
+    const k = u / HOP_SHARE;
+    const arc = Math.sin(Math.PI * k);
+    return { x:from.x, y:from.y, scale:from.scale, lift:-0.9 * height * arc, sx:1 - 0.05 * arc, sy:1 + 0.08 * arc };
+  }
+  const k = (u - HOP_SHARE) / (1 - HOP_SHARE);
+  const e = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
+  /* four little waddle bounces on the way */
+  const waddle = Math.abs(Math.sin(Math.PI * 4 * k)) * (1 - k * 0.5);
+  const scale = from.scale + (to.scale - from.scale) * e;
+  return { x:from.x + (to.x - from.x) * e, y:from.y + (to.y - from.y) * e, scale,
+    lift:-0.12 * height * (scale / from.scale) * waddle, sx:1 + 0.04 * waddle, sy:1 - 0.04 * waddle };
+}
+
 /* The popup over a rider: the latest judgement for POPUP_MS from its
    stamp, one at a time (a newer hit replaces it). { scale, opacity, dy }
    or null when nothing shows. */

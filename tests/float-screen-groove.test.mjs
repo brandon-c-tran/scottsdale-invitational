@@ -15,10 +15,12 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { POPUP_MS, SONG_LEAD_MS, chartOf, popupOf } from "../float/shared/chart.js";
 import { BEAT_MS } from "../float/shared/beat.js";
 import {
-  BOX, CROWD, MIN_GAP, PODIUM, POPUP_BOX, STAGE_W, crowdLayout, driftOf, fieldOrder, flotillaLayout, podiumLayout, popupSize, popupSlots,
+  BOX, CROWD, MIN_GAP, NAME_H, PODIUM, POPUP_BOX, STAGE_W, crowdLayout, driftOf, fieldOrder, flotillaLayout, nameSlots, nameWidth, podiumLayout,
+  popupSize, popupSlots,
   riderWidth, rowCounts, rowOrder, rowsFor, rowSlots, spreadRow,
 } from "../float/client/screen/model/flotilla.js";
-import { ACTIONS, PLEASED_MS, actionAt, bobAt, cheerAt, chugAt, follow, popupAt } from "../float/client/screen/model/motion.js";
+import { ACTIONS, PLEASED_MS, actionAt, bobAt, cheerAt, chugAt, follow, hopToBank, popupAt } from "../float/client/screen/model/motion.js";
+import { PIECES, fallsAt, pieceAt, pieceRects, scenePieces } from "../float/client/screen/model/pieces.js";
 import { bannerAt, chartFor, chuggingAt, hostAt, hostCalls, roundLabel, sceneFor, sceneMode, signAt, songStart } from "../float/client/screen/model/song.js";
 import { cutField, cutOuts, cutRanking, cutRankingOf, cutTimeline, pctText } from "../float/client/screen/model/cut.js";
 import { createScreenStore } from "../float/client/screen/model/store.js";
@@ -139,6 +141,70 @@ test("popup slots: a whole field's popups (all at once on a cue) never cover eac
   assert.ok(popupSize(0.42) < popupSize(0.6) && popupSize(0.6) <= popupSize(0.9), "the back rows' a little smaller");
 });
 
+test("names: on top, each under its own tube, never over another name; popups keep off them", () => {
+  const overlap = (a, b) => Math.max(0, Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0)) * Math.max(0, Math.min(a.y1, b.y1) - Math.max(a.y0, b.y0));
+  const names = ["Horned Lizard", "Gila Monster", "Roadrunner", "Brandon", "Jackrabbit", "Armadillo", "Bighorn", "Coyote", "Tortoise", "Javelina",
+    "Capybara", "Quail", "Otter", "Frog", "Winnie", "Evan"];
+  for (const n of [3, 6, 9, 13, 16]) {
+    const order = range(n);
+    const spots = flotillaLayout(order, new Map(order.map(i => [i, 70 + (i * 13) % 30])));
+    const spotsOf = Object.entries(spots).map(([i, sp]) => ({ i:Number(i), x:sp.x, y:sp.y + 52 * sp.scale * 1.45, w:nameWidth(names[i]), h:NAME_H, scale:sp.scale }));
+    const faces = Object.entries(spots).map(([i, sp]) => ({ i:Number(i), x:sp.x, y:sp.y, scale:sp.scale, top:sp.y - 240 * sp.scale * 1.45 }));
+    const nameRects = spotsOf.map(m => ({ i:m.i, x0:m.x - m.w / 2, x1:m.x + m.w / 2, y0:m.y - m.h / 2, y1:m.y + m.h / 2 }));
+    const slots = popupSlots(faces, { names:nameRects });
+    const popups = Object.values(slots).map(sl => ({ x0:sl.x - 94 * sl.size, x1:sl.x + 94 * sl.size, y0:sl.y - 100 * sl.size, y1:sl.y }));
+    const nudges = nameSlots(spotsOf, { faces, popups });
+    const placed = spotsOf.map(m => {
+      const d = nudges[m.i];
+      assert.ok(Math.abs(d.dx) <= m.w * 0.6 && Math.abs(d.dy) <= NAME_H * 1.5, `${n}: name ${m.i} stays under its own tube`);
+      return { i:m.i, x0:m.x + d.dx - m.w / 2, x1:m.x + d.dx + m.w / 2, y0:m.y + d.dy - m.h / 2, y1:m.y + d.dy + m.h / 2 };
+    });
+    for (const a of placed) for (const b of placed) if (b.i > a.i) assert.equal(overlap(a, b), 0, `${n}: names ${a.i} and ${b.i} apart`);
+    const covered = placed.filter(a => popups.some(p => overlap(a, p) > 0.25 * (a.x1 - a.x0) * (a.y1 - a.y0))).length;
+    assert.ok(covered <= Math.ceil(n / 8), `${n}: names clear of the popups (${covered} grazed)`);
+  }
+});
+
+test("the scene's accent stands by the far bank, past every rider and popup; the swirl lies under everyone", () => {
+  const overlap = (a, b) => Math.max(0, Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0)) * Math.max(0, Math.min(a.y1, b.y1) - Math.max(a.y0, b.y0));
+  const prop = (w, h, anchor) => ({ src:"x.webp", w, h, anchor });
+  const manifest = { scenes:{ open:{ accent:"accent-open" }, rocks:{ accent:"accent-rocks" }, whirlpool:{ accent:"accent-whirl" }, falls:{ accent:"accent-falls" } },
+    props:{ "accent-open":prop(380, 319, [190, 281]), "accent-rocks":prop(300, 291, [150, 256]), "accent-whirl":prop(480, 283, [240, 142]),
+      "accent-falls":prop(520, 334, [260, 333]), rock:prop(280, 172, [140, 148]), "falls-lip":prop(560, 393, [71, 6]) } };
+  const propOf = (id, m) => (m.props[id] ? { id, ...m.props[id] } : null);
+  for (const scene of ["open", "rocks", "falls"]) {
+    const rects = pieceRects(scenePieces(scene, manifest, propOf), { fallsIn:1 });
+    assert.equal(rects.length, 1, `${scene}: one accent to keep clear of`);
+    const [accent] = rects;
+    assert.ok(accent.x0 > 1650 && accent.y1 < 470, `${scene}: by the far bank at the right`);
+    for (const n of [3, 6, 9, 13, 16]) {
+      const order = range(n);
+      const spots = flotillaLayout(order, new Map(order.map(i => [i, 60 + (i * 17) % 40])));
+      for (const sp of Object.values(spots)) {
+        const half = 250 * sp.scale * 1.45 / 2;
+        const body = { x0:sp.x - half, x1:sp.x + half, y0:sp.y - 280 * sp.scale * 1.45, y1:sp.y };
+        assert.equal(overlap(body, accent), 0, `${scene}, ${n}: no rider behind the accent`);
+      }
+      const faces = Object.entries(spots).map(([i, sp]) => ({ i:Number(i), x:sp.x, y:sp.y, scale:sp.scale, top:sp.y - 240 * sp.scale * 1.45 }));
+      const slots = popupSlots(faces, { avoid:rects });
+      for (const sl of Object.values(slots)) {
+        const pop = { x0:sl.x - 94 * sl.size, x1:sl.x + 94 * sl.size, y0:sl.y - 100 * sl.size, y1:sl.y };
+        assert.ok(overlap(pop, accent) < 0.05 * 188 * 100, `${scene}, ${n}: popups clear of the accent`);
+      }
+    }
+    assert.ok(Object.values(crowdLayout(range(10))).every(c => c.x + 70 < accent.x0), `${scene}: the crowd stands left of it`);
+  }
+  const swirl = scenePieces("whirlpool", manifest, propOf);
+  assert.ok(swirl.every(p => p.under), "the swirl lies under everyone");
+  assert.deepEqual(pieceRects(swirl), [], "and nothing keeps clear of it");
+  assert.deepEqual(pieceRects(scenePieces("falls", manifest, propOf), { fallsIn:0 }), [], "The Drop's rainbow only once the falls are up");
+  const drop = chartOf("drop");
+  assert.equal(fallsAt(drop, 100), 0);
+  assert.ok(fallsAt(drop, drop.modes.indexOf("drop") * 4 + 2) > 0);
+  const hoop = PIECES.open[0];
+  assert.ok(Math.abs(pieceAt(hoop, 0, { beat:0.5 }).y - hoop.y) <= 4, "the hoop bobs a little");
+});
+
 /* ── the moves and the popup ── */
 
 test("the popup: the latest judgement for POPUP_MS from its stamp, fading at its end; nothing before or after", () => {
@@ -165,6 +231,16 @@ test("a hit's move by its cue: stroke, hey, a hop that leaves the water, a spin 
   assert.equal(actionAt({ at, q:"perfect", kind:"paddle" }, at + PLEASED_MS + 1), null);
   assert.equal(actionAt({ at, q:"ok", kind:"paddle" }, at + ACTIONS.paddle.ms + 1), null, "an OK is not pleased");
   assert.ok(Math.abs(actionAt({ at, q:"late", kind:"paddle" }, at + 160).rot) > Math.abs(actionAt({ at, q:"perfect", kind:"paddle" }, at + 160).rot), "off the beat stumbles");
+  /* out: a small hop in place (about the critter's height), then a waddle to the sand */
+  const from = { x:900, y:925, scale:0.6 }, to = { x:1200, y:428, scale:0.34 };
+  const hop = [0.05, 0.13, 0.2].map(t => hopToBank(from, to, t, { height:200 }));
+  assert.ok(hop.every(h => h.x === from.x && h.y === from.y), "the hop is in place");
+  assert.ok(Math.min(...hop.map(h => h.lift)) >= -200 && Math.min(...hop.map(h => h.lift)) < -120, "about the critter's height, no higher");
+  const slide = [0.4, 0.6, 0.8].map(t => hopToBank(from, to, t, { height:200 }));
+  assert.ok(slide.every(h => h.lift >= -30), "then low to the water");
+  assert.ok(slide[0].y > slide[1].y && slide[1].y > slide[2].y, "back toward the bank");
+  const end = hopToBank(from, to, 1, { height:200 });
+  assert.deepEqual([Math.round(end.x), Math.round(end.y), end.scale], [to.x, to.y, to.scale]);
   assert.equal(chugAt(3.1).pose, "chug");
   assert.equal(cheerAt(1000, 1200).pose, "cheer");
   assert.equal(cheerAt(1000, 5000), null);
@@ -180,7 +256,11 @@ test("the song's words: the round card through the lead, Practice, Go! at each p
   const chart = chartOf("paddle");
   assert.deepEqual([bannerAt(chart, -5).kind, bannerAt(chart, -5).text, bannerAt(chart, -5).sub], ["card", "Round 1", "Paddle Party"]);
   assert.equal(bannerAt(chart, 2, { round:3, rounds:4 }).text, "Final");
-  assert.equal(bannerAt(chart, 5), null, "the count-in: the music's");
+  /* the count-in on the sound's beats: 1 2 3 4 over the intro's last bar, and again as the beat comes back after the drink */
+  assert.deepEqual([4, 5.5, 6, 7.9].map(b => bannerAt(chart, b).text), ["1", "2", "3", "4"]);
+  assert.equal(bannerAt(chart, 4.2).kind, "count");
+  assert.notEqual(bannerAt(chart, 4.2).key, bannerAt(chart, 5.2).key, "each number pops on its own beat");
+  assert.deepEqual([84, 85, 86, 87].map(b => bannerAt(chart, b + 0.1).text), ["1", "2", "3", "4"]);
   assert.equal(bannerAt(chart, 12).kind, "practice");
   assert.equal(bannerAt(chart, 24.2).text, "Go!");
   assert.equal(bannerAt(chart, 88.5).text, "Go!", "the beat back after the drink");
@@ -275,9 +355,20 @@ test("Last Call: the glass waits at the bartender, steps down the bar on each sl
   assert.equal(bartenderPose(chart, one.slides[1] + 0.1), "slide");
   assert.equal(bartenderPose(chart, 2), "idle");
   assert.equal(bartenderPose(chart, 30, { revealed:true }), "cheer");
-  const seats = barLayout(range(13));
-  assert.equal(Object.keys(seats).length, 13);
-  assert.ok(Object.values(seats).every(s => s.x > 0 && s.x < STAGE_W && s.y > COUNTER.y), "everyone in front of the counter");
+  for (const n of [2, 9, 13, 16]) {
+    const seats = barLayout(range(n));
+    assert.equal(Object.keys(seats).length, n);
+    assert.ok(Object.values(seats).every(s => s.x - 125 * s.scale * 1.45 > 0 && s.x + 125 * s.scale * 1.45 < STAGE_W && s.y > COUNTER.y),
+      `${n}: everyone along the front of the counter, on the stage`);
+    assert.equal(new Set(Object.values(seats).map(s => s.y)).size, 1, `${n}: one line-up`);
+    /* each readout right over its own critter, alternating two heights where they would touch */
+    const faces = Object.entries(seats).map(([i, s]) => ({ i:Number(i), x:s.x, y:s.y, scale:s.scale, top:s.y - 240 * s.scale * 1.45 }));
+    const slots = popupSlots(faces, { box:{ w:188 * 1.15, h:100 * 1.15 }, stagger:true });
+    for (const f of faces) assert.ok(Math.abs(slots[f.i].x - f.x) < 1 || f.x < 130 || f.x > STAGE_W - 130, `${n}: readout ${f.i} over its rider`);
+    const rects = faces.map(f => { const sl = slots[f.i], w = 188 * 1.15 * sl.size, h = 100 * 1.15 * sl.size; return { i:f.i, x0:sl.x - w / 2, x1:sl.x + w / 2, y0:sl.y - h, y1:sl.y }; });
+    const overlap = (a, b) => Math.max(0, Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0)) * Math.max(0, Math.min(a.y1, b.y1) - Math.max(a.y0, b.y0));
+    for (const a of rects) for (const b of rects) if (b.i > a.i) assert.equal(overlap(a, b), 0, `${n}: readouts ${a.i} and ${b.i} apart`);
+  }
   assert.ok(BARTENDER.x < COUNTER.from);
   assert.deepEqual(barPlayersOf({ field:[2, 5], out:[1, 7] }), [2, 5, 7, 1], "the field, then the riders out, the last out first");
   assert.equal(drinkersOf({ totals:[], worst:null }), null);

@@ -62,25 +62,20 @@ export function bartenderPose(chart, beat, { revealed = false } = {}) {
   return "idle";
 }
 
-/* everyone at the bar, in front of the counter: two rows (one up to 6),
-   the front row the larger: { [i]: { x, y, scale, row } } */
+/* everyone at the bar: one line-up along the front of the counter, so each
+   rider's readout stands right over them (the slots alternate two heights
+   when they are close) and every name sits under its own tube:
+   { [i]: { x, y, scale, row } } */
+export const BAR_LINE = Object.freeze({ y:940, lo:130, hi:1790, maxSpacing:300 });
 export function barLayout(players = []) {
   const list = players.filter(i => Number.isInteger(i));
   const out = {};
-  if (!list.length) return out;
-  const rows = list.length <= 6 ? [list] : [list.slice(Math.ceil(list.length / 2)), list.slice(0, Math.ceil(list.length / 2))];
-  const shapes = rows.length === 1 ? [{ y:900, scale:0.62 }] : [{ y:716, scale:0.46 }, { y:968, scale:0.55 }];
-  const lo = 150, hi = STAGE_W - 150;
-  rows.forEach((members, r) => {
-    const shape = shapes[r];
-    const k = members.length;
-    const front = rows[rows.length - 1].length;
-    const spacing = Math.min(300, (hi - lo) / Math.max(1, Math.max(k, front)));
-    /* the back row sits in the front row's gaps */
-    const shift = rows.length > 1 && r === 0 && (front - k) % 2 === 0 ? spacing / 2 : 0;
-    const start = (lo + hi) / 2 - (spacing * (k - 1)) / 2 + shift;
-    members.forEach((i, j) => { out[i] = { x:start + j * spacing, y:shape.y, scale:shape.scale, row:r }; });
-  });
+  const n = list.length;
+  if (!n) return out;
+  const spacing = n > 1 ? Math.min(BAR_LINE.maxSpacing, (BAR_LINE.hi - BAR_LINE.lo) / (n - 1)) : 0;
+  const scale = Math.max(0.3, Math.min(0.62, (spacing || BAR_LINE.maxSpacing) / 360));
+  const start = (BAR_LINE.lo + BAR_LINE.hi) / 2 - (spacing * (n - 1)) / 2;
+  list.forEach((i, k) => { out[i] = { x:start + k * spacing, y:BAR_LINE.y, scale, row:0 }; });
   return out;
 }
 

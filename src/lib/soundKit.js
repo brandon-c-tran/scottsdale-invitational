@@ -1994,6 +1994,12 @@ export function floatParts() {
     part("floatSet", "Float: a rider is ready", TV, 700, grooveSet),
     /* any decoded clip from its start (opts.clip, gain, rate) */
     part("floatClip", "Float: a clip", TV, 4000, grooveClip),
+    /* Last Call: a bar of the bar (opts.bar, slides, grabs, drinks), a slide (opts.k, n, of, quick), the catch, a reveal (opts.k), who drinks */
+    part("floatBar", "Float: Last Call, a bar", TV, 2200, grooveBarRoom, true),
+    part("floatSlide", "Float: Last Call, the glass slides", TV, 400, grooveSlide),
+    part("floatGrab", "Float: Last Call, the grab", TV, 600, grooveGrab),
+    part("floatReveal", "Float: Last Call, the offsets go up", TV, 900, grooveReveal),
+    part("floatDrinks", "Float: Last Call, who drinks", TV, 2600, grooveDrinks),
     /* the phone's own */
     part("floatYouTap", "Float: your tap", PHONE, 200, grooveYouTap),
     part("floatYouDone", "Float: your drink done", PHONE, 900, grooveYouDone),
@@ -2001,6 +2007,7 @@ export function floatParts() {
     part("floatYouSafe", "Float: you're through", PHONE, 1200, grooveYouSafe),
     part("floatYouOut", "Float: you're out", PHONE, 700, grooveYouOut),
     part("floatYouPlace", "Float: your place", PHONE, 1600, grooveYouPlace),
+    part("floatYouGulp", "Float: you drink (Last Call)", PHONE, 800, grooveYouGulp),
   ].map(Object.freeze));
   return floatParts.list;
 }
@@ -2023,7 +2030,8 @@ const FL_MIX = Object.freeze({
   /* the Groove: the band under the host and the answers (the render's stems set these) */
   floatGroove:0.6, floatLobby:0.6, floatVoice:2.2, floatWhirl:1.2, floatAnswer:1.15, floatFlub:0.75,
   floatSting:0.8, floatOpen:0.8, floatRoll:0.8, floatGone:1.1, floatFanfare:0.8, floatCheer:1, floatDone:1, floatHello:1.4, floatSet:1.4, floatClip:1,
-  floatYouTap:1.3, floatYouDone:1, floatYouCheer:1.1, floatYouSafe:1, floatYouOut:1, floatYouPlace:1.1,
+  floatBar:0.6, floatSlide:1.6, floatGrab:1.1, floatReveal:1, floatDrinks:0.85,
+  floatYouTap:1.3, floatYouDone:1, floatYouCheer:1.1, floatYouSafe:1, floatYouOut:1, floatYouPlace:1.1, floatYouGulp:1.1,
 });
 export const FLOAT_MIX = FL_MIX;
 function flMix(E, id, play) {
@@ -3916,10 +3924,13 @@ function gCutBar(c) {
 /* the host's lines (the clip ids under public/float/groove/voice) and the
    syllables a stand-in chirps until a clip decodes */
 const G_LINES = Object.freeze({ ready:2, hey:1, ba:1, spin:1, one:1, two:1, three:1, four:1, drink:1, herewego:3, go:1,
-  "title-paddle":4, "title-rock":2, "title-spin":3, "title-drop":2, float:1 });
+  "title-paddle":4, "title-rock":2, "title-spin":3, "title-drop":2, lastcall:2, float:1 });
 export const GROOVE_LINES = Object.freeze(Object.keys(G_LINES));
-/* the crowd's takes of "Hey!", layered a few at a time */
+/* the crowd's takes, layered a few at a time: "Hey!" on the beat, "Ooh!"
+   as Last Call names who drinks, "Aww!" as the cut's first rider is out */
 export const GROOVE_CROWD = Object.freeze(["crowd-hey-1", "crowd-hey-2", "crowd-hey-3", "crowd-hey-4", "crowd-hey-5", "crowd-hey-6"]);
+export const GROOVE_OOH = Object.freeze(["crowd-ooh-1", "crowd-ooh-2", "crowd-ooh-3", "crowd-ooh-4"]);
+export const GROOVE_AWW = Object.freeze(["crowd-aww-1", "crowd-aww-2", "crowd-aww-3", "crowd-aww-4"]);
 /* A stand-in for a line not decoded: one chirp a syllable, a square wave
    through two vowel formants, rising on a question ("Ready?"), each on its
    eighth so the call still lands on its beat */
@@ -3971,14 +3982,15 @@ function grooveWhirl(E, t0, o = {}) {
 }
 
 /* ── the band's answers: on every cue's beat, for everyone ── */
-/* the crowd's "Hey!": a few takes at once, rates and places spread (seed
-   picks which); false with no takes decoded */
-function gCrowd(E, at, seed = 0, { n = 4, gain = 1, after = Infinity } = {}) {
-  const takes = GROOVE_CROWD.filter(id => clipOf(E, id));
+/* the crowd (the "Hey!" by default, or `list`'s takes): a few takes at
+   once, each its own, rates and places spread (seed picks which); false
+   with no takes decoded */
+function gCrowd(E, at, seed = 0, { n = 4, gain = 1, after = Infinity, list = GROOVE_CROWD } = {}) {
+  const takes = list.filter(id => clipOf(E, id));
   if (!takes.length) return false;
   const count = Math.min(n, takes.length), start = gInt(seed, 0, 1e6, 0);
   for (let i = 0; i < count; i++) {
-    const id = takes[(start + i * 2) % takes.length];
+    const id = takes[(start + i) % takes.length];
     const v = voice(E, { pan:[-0.42, 0.38, -0.12, 0.18][i % 4], send:0.32, bright:1, gain:1 });
     playClip(E, v, at + [0, 0.004, -0.003, 0.006][i % 4], id, { gain:gain * (i ? 0.75 : 1) * 1.9 / Math.sqrt(count), rate:[1, 1.07, 0.94, 1.12][i % 4], after });
   }
@@ -4086,10 +4098,12 @@ function grooveRoll(E, t0, o = {}) {
    "bwomp", each rider out a step lower */
 function grooveGone(E, t0, o = {}) {
   const t = t0 + GROOVE_PRE_S, step = gInt(o.step, 0, 12, 0), k = Math.pow(2, -step * 2 / 12);
-  const v = voice(E, { send:0.2, bright:0.9, gain:1 });
-  gWhistle(E, v, t, 980 * k, 330 * k, 0.32, 0.08);
-  gBrass(E, voice(E, { send:0.2, bright:0.7, gain:1 }), t + 0.3, [gMidi("D3") - step * 2, gMidi("A3") - step * 2], 0.32, 0.13, { fall:true, bright:0.6 });
+  const v = voice(E, { send:0.2, bright:0.9, gain:1 }), up = 1 + step * 0.12;
+  gWhistle(E, v, t, 980 * k, 330 * k, 0.32, 0.08 * up);
+  gBrass(E, voice(E, { send:0.2, bright:0.7, gain:1 }), t + 0.3, [gMidi("D3") - step * 2, gMidi("A3") - step * 2], 0.32, 0.13 * up, { fall:true, bright:0.6 });
   M.felt(E, t + 0.3, { gain:0.5 });
+  /* the room's "Aww!" for the cut's first out */
+  if (step === 0) gCrowd(E, t + 0.32, 1, { n:3, gain:0.55, list:GROOVE_AWW });
 }
 /* The podium fanfare (floatFanfare): a roll, then each place on its beat
    (GROOVE_PODIUM_MS: 3rd, 2nd, 1st), the big chord and the crowd */
@@ -4106,8 +4120,9 @@ function grooveFanfare(E, t0) {
   });
   const x = t + P.first / 1000;
   GK.kick(E, V("kick"), x, 1); GK.crash(E, V("hat"), x, 1, 2.8);
-  gBrass(E, V("brass"), x, S.tonic.comp, 1.6, 0.18, { fall:true });
-  gSaws(E, V("pad"), x, S.tonic.tones, 2, 0.1, { a:0.01 });
+  gBrass(E, V("brass"), x, S.tonic.comp, 1.8, 0.22);
+  gBrass(E, V("brass"), x, S.tonic.comp.map(m => m - 12), 1.8, 0.12);
+  gSaws(E, V("pad"), x, [...S.tonic.tones, S.tonic.tones[0] - 12], 2.2, 0.12, { a:0.01 });
   gSlap(E, V("bass"), x, gHz(S.tonic.bass), 1.6, 0.34);
   S.tonic.tones.forEach((m, i) => gGlock(E, V("glock"), x + i * 0.07, gHz(m + 12), 0.11, { dec:1.8 }));
   const crowd = t + P.cheer / 1000;
@@ -4142,6 +4157,76 @@ function grooveClip(E, t, o = {}) {
   const clip = clipOf(E, id);
   if (clip && playClip(E, v, t + (clip.beat - clip.start), id, { gain:gNum(o.gain, 0.05, 2, 1), rate:gNum(o.rate, 0.25, 4, 1), pre:Infinity })) return;
   M.tick(E, t, { gain:0.2 });
+}
+
+/* ── Last Call (float/GROOVE.md "Last Call"): the bar, between songs ──
+   A minor and sly: a walking upright, brushes and a ride, the keys on the
+   offbeats; the bartender's glass sliding toward the room, the catch on
+   each grab, a reveal as the offsets go up, and who drinks. */
+const G_BAR = Object.freeze([gChord("A1", "G3 C4 E4", "A3 C4 E4 G4"), gChord("A1", "G3 C4 E4", "A3 C4 E4 G4"),
+  gChord("D2", "F3 A3 C4", "D4 F4 A4 C5"), gChord("E2", "G#3 D4 E4", "E4 G#4 B4 D5"), gChord("A1", "G3 C4 E4", "A3 C4 E4 G4"),
+  gChord("F2", "A3 Eb4 F4", "F3 A3 C4 Eb4"), gChord("E2", "G#3 D4 E4", "E4 G#4 B4 D5"), gChord("A1", "G3 C#4 E4", "A3 C#4 E4 G4")]);
+/* a bar of Last Call (floatBar, a cut recipe): opts.bar 0..7, slides and
+   grabs ([beats in the bar]: the keys leave them room), drinks (the last
+   bar: the band holds for who drinks). Its downbeat is t + GROOVE_PRE_S. */
+function grooveBarRoom(E, t0, o = {}) {
+  const t = t0 + GROOVE_PRE_S, bar = gInt(o.bar, 0, 7, 0), chord = G_BAR[bar], next = G_BAR[(bar + 1) % 8];
+  const V = gVoices(E, FL_BAND * 0.85), at = i => t + i * G16;
+  const busy = new Set([...(Array.isArray(o.slides) ? o.slides : []), ...(Array.isArray(o.grabs) ? o.grabs : [])].map(b => Math.round(gNum(b, 0, 3.75, 0) * 4)));
+  if (o.drinks) {
+    /* who drinks owns the bar: the bass and the ride hold under it */
+    flBass(E, V("bass"), at(0), gHz(chord.bass + 12), FLOAT_BAR_S * 0.9, 0.24, { upright:true });
+    [0, 4, 8, 12].forEach(s => GK.ride(E, V("hat"), at(s), 0.5));
+    return;
+  }
+  const root = chord.bass < 36 ? chord.bass + 12 : chord.bass, to = next.bass < 36 ? next.bass + 12 : next.bass;
+  const third = root + ((chord.tones[1] - chord.tones[0] + 120) % 12);
+  [root, third, root + 7, to - 1 === root + 7 ? to + 2 : to - 1].forEach((m, i) => flBass(E, V("bass"), at(i * 4), gHz(m), G16 * 3.6, i ? 0.24 : 0.28, { upright:true }));
+  GK.kick(E, V("kick"), at(0), 0.55);
+  [4, 12].forEach(s => FLD.brush(E, V("snare"), at(s), 0.9));
+  [0, 4, 6, 8, 12, 14].forEach(s => GK.ride(E, V("hat"), at(s), s % 4 ? 0.45 : 0.7));
+  [6, 14].forEach(s => { if (!busy.has(s)) gKeys(E, V("keys"), at(s), chord.comp, G16 * 1.6, 0.07, { trem:0.4 }); });
+  /* the bar's own little tune on the vibes in its first bar */
+  if (bar === 0) gNotes("E5 D5 C5 A4").forEach((m, i) => gVibes(E, V("vibes"), at(i * 2 + 8), gHz(m), G16 * 1.8, 0.07));
+}
+/* the bartender slides the glass one step (floatSlide, opts.n of opts.of,
+   opts.quick): its push on the counter, the friction rising as it nears,
+   the ice ringing a step higher each */
+function grooveSlide(E, t0, o = {}) {
+  const at = t0 + GROOVE_PRE_S, of = gInt(o.of, 1, 8, 1), n = gInt(o.n, 0, of - 1, 0), k = of > 1 ? n / (of - 1) : 1;
+  const v = voice(E, { pan:-0.55 + 0.5 * k, send:0.2, bright:1, gain:1 });
+  const d = o.quick ? 0.1 : 0.2;
+  M.knock(E, at, { pitch:1.5 + 0.25 * k, gain:0.42 });
+  flSweep(E, v, at + 0.004, { f0:1800 + 600 * k, f1:3200 + 800 * k, q:1.6, d, peak:0.36, a:0.006 });
+  gGlock(E, v, at + 0.012, gHz(gMidi("A5") + [0, 3, 5, 7, 10, 12][Math.min(5, n)]), 0.045, { dec:0.35 });
+}
+/* the catch, on the grab's beat for everyone (floatGrab): a hand on the
+   counter, the glass, the band's stab */
+function grooveGrab(E, t0, o = {}) {
+  const at = t0 + GROOVE_PRE_S, v = voice(E, { send:0.22, bright:1, gain:1 });
+  burst(E, v, at, { type:"highpass", f:4000, q:0.7, d:0.006, peak:0.45 });
+  M.slap(E, at, { gain:0.7 });
+  gClink(E, v, at + 0.002);
+  gBrass(E, voice(E, { send:0.2, bright:0.9, gain:1 }), at, gNotes("C4 E4 A4"), 0.14, 0.1);
+}
+/* the offsets go up (floatReveal, opts.k): a bright two notes, up a step each grab */
+function grooveReveal(E, t0, o = {}) {
+  const at = t0 + GROOVE_PRE_S, k = gInt(o.k, 0, 5, 0), v = voice(E, { send:0.3, bright:1, gain:1 });
+  [gMidi("E6") + k * 2, gMidi("A6") + k * 2].forEach((m, i) => gGlock(E, v, at + i * 0.09, gHz(m), 0.08, { dec:0.8 }));
+  GK.ride(E, voice(E, { pan:0.3, send:0.2, bright:1, gain:1 }), at, 0.6);
+}
+/* who drinks (floatDrinks): a roll leading in, then dun, dun, DUN on the
+   brass, the crash and the crowd's "Ooh!" */
+function grooveDrinks(E, t0) {
+  const at = t0 + GROOVE_PRE_S, V = gVoices(E, FL_BAND);
+  [0, 0.035, 0.07, 0.105].forEach((dt, i) => GK.snare(E, V("snare"), t0 + dt, 0.25 + i * 0.1));
+  [[0, "A2 E3"], [0.25, "C3 G3"], [0.5, "Eb3 A3"]].forEach(([dt, notes], i) => {
+    gBrass(E, V("brass"), at + dt, gNotes(notes), i === 2 ? 1.1 : 0.18, i === 2 ? 0.17 : 0.155, { fall:i === 2, bright:0.8 });
+    GK.kick(E, V("kick"), at + dt, i === 2 ? 1 : 0.7);
+  });
+  GK.crash(E, V("hat"), at + 0.5, 1, 2.4);
+  gSlap(E, V("bass"), at + 0.5, gHz(gMidi("Eb2")), 1, 0.3);
+  if (!gCrowd(E, at + 0.55, 0, { n:4, gain:0.75, list:GROOVE_OOH })) gCrowdStandIn(E, at + 0.55);
 }
 
 /* ── the lobby's loop (floatLobby, a cut recipe: opts.bar 0..7, cut: between songs) ──
@@ -4186,6 +4271,7 @@ function grooveYouTap(E, t, o = {}) {
   else if (kind === "hey") GK.clap(E, v, t, 0.5);
   else if (kind === "hop") glide(E, v, t, 700, 1200, 0.08, 0.06, { type:"triangle", vib:18, depth:0.06 });
   else if (kind === "spin") burst(E, v, t, { type:"highpass", f:3500, q:0.7, d:0.06, peak:0.15, a:0.01 });
+  else if (kind === "grab") mode(E, v, t + 0.004, NOTE.A6, 0.12, 0.05, { a:0.001 });
   if (q === "perfect") M.bell(E, t + 0.008, NOTE.A6, { gain:0.12, dec:0.25, send:0.15 });
 }
 /* Done in the drink break (floatYouDone): glasses, then two notes up */
@@ -4207,6 +4293,13 @@ function grooveYouOut(E, t) {
   const v = voice(E, { send:0.14, bright:0.9, gain:0.8 });
   gWhistle(E, v, t, 1100, 420, 0.36, 0.08);
   glide(E, v, t + 0.34, 560, 470, 0.2, 0.06, { type:"triangle" });
+}
+/* Last Call names you to drink (floatYouGulp): two gulps and a deadpan "bonk" */
+function grooveYouGulp(E, t) {
+  const v = voice(E, { send:0.12, bright:0.9, gain:0.9 });
+  [0, 0.2].forEach(dt => glide(E, v, t + dt, 640, 380, 0.12, 0.09, { type:"triangle" }));
+  M.knock(E, t + 0.46, { pitch:1.2, gain:0.5 });
+  gGlock(E, v, t + 0.48, NOTE.A5, 0.06, { dec:0.5 });
 }
 /* your place on the podium (floatYouPlace, opts.place 1 to 3) */
 function grooveYouPlace(E, t, o = {}) {

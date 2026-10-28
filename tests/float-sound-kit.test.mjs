@@ -52,7 +52,7 @@ const OPTS = [{},
 
 test("every Float recipe: registered, playable on its opts, every node released once its last source ends", () => {
   const ids = kit.FLOAT_PARTS.map(part => part.id);
-  assert.equal(ids.length, 59, "the race's 37 and the Groove's 22");
+  assert.equal(ids.length, 65, "the race's 37 and the Groove's 28");
   assert.ok(ids.every(id => id.startsWith("float")), "Float's ids are its own");
   assert.equal(new Set(ids).size, ids.length);
   for (const listen of ["tv", "phone"]) {
@@ -139,7 +139,7 @@ test("your judged paddle: crisp on the beat (perfect brighter, with a glint), a 
 });
 
 test("the beds are cut recipes: a stopped bar goes silent, one not yet started never sounds, and the mix sits inside the gate", () => {
-  const beds = ["floatRace", "floatVamp", "floatLounge", "floatRiver", "floatGroove", "floatLobby"];
+  const beds = ["floatRace", "floatVamp", "floatLounge", "floatRiver", "floatGroove", "floatLobby", "floatBar"];
   for (const id of kit.FLOAT_PARTS.map(part => part.id)) assert.equal(kit.cutSound(id), beds.includes(id), id);
   for (const id of beds) {
     const ctx = fakeContext();

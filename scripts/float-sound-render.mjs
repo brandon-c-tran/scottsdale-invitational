@@ -28,12 +28,12 @@ const value = name => { const i = args.indexOf(name); return i >= 0 ? args[i + 1
 const OUT = path.resolve(ROOT, value("--out") || ".impeccable/review/float-sound");
 const STEMS = args.includes("--stems");
 const asked = args.filter((a, i) => !a.startsWith("--") && args[i - 1] !== "--out");
-const SONGS = ["paddle", "rock", "spin", "drop"];
+const SONGS = ["paddle", "rock", "spin", "drop", "lastcall"];
 const jobs = asked.length ? asked : [...SONGS, "moments"];
 
 const ENTRY = `
 import { makeEngine, playRecipe, clipMarks, GROOVE_PRE_S } from "./src/lib/soundKit.js";
-import { songEvents, songSlots, eventAt, TITLE_BEATS, GROOVE_PRE_MS, PODIUM_BEATS, CUT_BEATS } from "./float/client/sound/groove.js";
+import { songEvents, songSlots, eventAt, TITLE_BEATS, GROOVE_PRE_MS, PODIUM_BEATS, CUT_BEATS, LAST_CALL_BEATS } from "./float/client/sound/groove.js";
 import { chartOf, SONG_MS } from "./float/shared/chart.js";
 const SR = 44100;
 async function engine(ctx, listen = "tv") {
@@ -79,13 +79,18 @@ async function laid(ctx, slots, lead = 0.6) {
 }
 /* a song as the TV plays it: the round card, then its bars from songAt (stem: one part alone) */
 window.__song = async (song, stem = null) => {
-  const lead = 3.5, seconds = lead + SONG_MS / 1000 + 3;
+  const lead = 3.5, seconds = lead + chartOf(song).ms / 1000 + 3;
   const ctx = new OfflineAudioContext(2, Math.ceil(SR * seconds), SR);
   const E = await engine(ctx);
   const songAt = lead * 1000, keep = id => !stem || STEM[stem](id);
   const slots = songSlots(chartOf(song)).map((events, bar) => ({ at:(songAt + bar * 2000 - GROOVE_PRE_MS) / 1000,
     lay:() => events.forEach(ev => { if (keep(ev.id)) playRecipe(E, ev.id, eventAt(songAt, ev.beat) / 1000, ev.opts); }) }));
   if (!stem) slots.unshift({ at:0.1, lay:() => {
+    if (song === "lastcall") {
+      playRecipe(E, "floatBell", (songAt + LAST_CALL_BEATS.bell * 500) / 1000, { first:true });
+      playRecipe(E, "floatVoice", (songAt + LAST_CALL_BEATS.call * 500 - GROOVE_PRE_MS) / 1000, { line:"lastcall" });
+      return;
+    }
     playRecipe(E, "floatSting", (songAt + TITLE_BEATS.sting - GROOVE_PRE_MS) / 1000, { song });
     playRecipe(E, "floatVoice", (songAt + TITLE_BEATS.title - GROOVE_PRE_MS) / 1000, { line:"title-" + song });
   } });

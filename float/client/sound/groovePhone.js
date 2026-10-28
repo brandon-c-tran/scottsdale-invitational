@@ -24,7 +24,7 @@
 import { useEffect, useRef } from "react";
 import { installSoundUnlock, playSound, unlockSound } from "../../../src/lib/sound.js";
 import { serverNow } from "../../../src/lib/serverClock.js";
-import { CUT_BEATS, PODIUM_BEATS } from "./groove.js";
+import { BEAT_MS, CUT_BEATS, LAST_CALL_BEATS, PODIUM_BEATS } from "./groove.js";
 
 export const PHONE_FRESH_MS = 1500;
 export const PHONE_EV_FRESH_MS = 1000;
@@ -34,7 +34,7 @@ export const TAP_GAP_MS = 35;
 export const TAP_ECHO_MS = 2500;
 export const CHEER_GAP_MS = 250;
 export const TAP_QUALITIES = Object.freeze(["perfect", "nice", "ok", "early", "late"]);
-export const TAP_KINDS = Object.freeze(["paddle", "hey", "hop", "spin", "drop"]);
+export const TAP_KINDS = Object.freeze(["paddle", "hey", "hop", "spin", "drop", "grab"]);
 
 /* the controller's taps (wall clock), shared by the tap functions and the runner */
 const taps = { tap:-Infinity, done:-Infinity, cheer:-Infinity };
@@ -80,8 +80,11 @@ const idx = v => typeof v === "number" && Number.isInteger(v) ? v : v && typeof 
 const list = v => (Array.isArray(v) ? v : []).map(idx).filter(i => i !== null);
 function phoneView(msg) {
   if (!msg || typeof msg !== "object") return null;
+  const bar = msg.lastCall && typeof msg.lastCall === "object" ? msg.lastCall : null;
   return { phase:String(msg.phase || ""), s:num(msg.s), round:Math.max(0, Math.floor(num(msg.round) ?? 0)), songAt:num(msg.songAt),
-    startAt:num(msg.startAt), field:list(msg.field), out:list(msg.out), podium:list(msg.podium) };
+    startAt:num(msg.startAt), field:list(msg.field), out:list(msg.out), podium:list(msg.podium),
+    bar:bar ? { players:(Array.isArray(bar.totals) ? bar.totals : []).map(row => idx(row)).filter(i => i !== null),
+      worst:Array.isArray(bar.worst) ? list(bar.worst) : null } : null };
 }
 export function initialPhone({ me = null, open = true } = {}) {
   return { open, live:false, me:idx(me), view:null, phaseAt:null, played:null, sang:null, outsBefore:null, field:null };
@@ -122,6 +125,13 @@ export function phoneStep(mem, msg, ctx = {}) {
       if (moved) m.phaseAt = Number.isFinite(v.startAt) && Math.abs(v.startAt - s) < 10000 ? v.startAt : s;
       if (v.phase === "song" && moved) { m.outsBefore = [...v.out]; m.field = [...v.field]; }
       const me = m.me;
+      /* Last Call: who drinks, as the room names them, on the bar's reveal beat */
+      if (fresh && v.phase === "lastcall" && v.bar?.worst && Number.isInteger(me) && v.bar.players.includes(me)
+        && m.played !== `bar:${v.songAt}` && prev && !(prev.phase === "lastcall" && prev.bar?.worst)) {
+        m.played = `bar:${v.songAt}`;
+        const at = Number.isFinite(v.songAt) ? v.songAt + LAST_CALL_BEATS.drinks * BEAT_MS + 120 : null;
+        cues.push({ id:v.bar.worst.includes(me) ? "floatYouGulp" : "floatYouSafe", at:at !== null && at > now ? at : null });
+      }
       if (!fresh || !moved || !prev || !Number.isInteger(me)) return { mem:m, cues };
       if (v.phase === "cut" && prev.phase === "song" && (m.field || prev.field).includes(me) && m.played !== `cut:${v.round}`) {
         const before = new Set(m.outsBefore || prev.out), outs = v.out.filter(i => !before.has(i));

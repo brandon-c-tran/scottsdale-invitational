@@ -29,8 +29,8 @@ import { useEffect } from "react";
 import { cueAt, installSoundUnlock, preloadClips, primeSound, registerClips, setSoundRoom, setSoundSurface, soundSurface }
   from "../../../src/lib/sound.js";
 import { serverNow } from "../../../src/lib/serverClock.js";
-import { BAR_MS, CUT_BEATS, GROOVE_LATE_MS, GROOVE_LEAD_MS, GROOVE_PRE_MS, PODIUM_BEATS, TITLE_BEATS, barLine, chartFor,
-  drinkBeats, eventAt, lobbyBar, songSlots } from "./groove.js";
+import { BAR_MS, BEAT_MS, CUT_BEATS, GROOVE_LATE_MS, GROOVE_LEAD_MS, GROOVE_PRE_MS, LAST_CALL_BEATS, PODIUM_BEATS, TITLE_BEATS, barLine,
+  chartFor, drinkBeats, eventAt, lobbyBar, songSlots } from "./groove.js";
 import { VOICE } from "./voices.js";
 
 export const ROOM_FRESH_MS = 1500;
@@ -44,7 +44,7 @@ export const CUT_LOOP_MS = 6000, PODIUM_LOOP_MS = 8000, INTRO_LOOP_MS = 4000;
 export const FLUB = Object.freeze({ gap:40, window:220, grains:3 });
 export const DONE_GAP_MS = 90, CHEER_GAP_MS = 260;
 /* the Cup's phases */
-export const PHASES = Object.freeze(["lobby", "intro", "song", "cut", "podium", "feedback"]);
+export const PHASES = Object.freeze(["lobby", "intro", "song", "cut", "lastcall", "podium", "feedback"]);
 
 const num = v => { const n = Number(v); return v !== null && v !== undefined && v !== "" && Number.isFinite(n) ? n : null; };
 const idx = v => typeof v === "number" && Number.isInteger(v) ? v : v && typeof v === "object" && Number.isInteger(Number(v.i)) ? Number(v.i) : null;
@@ -58,7 +58,7 @@ export function grooveView(msg) {
   return {
     phase, s:num(msg.s), code:String(msg.code ?? ""), round:Math.max(0, Math.floor(num(msg.round) ?? 0)), rounds:Math.max(0, Math.floor(num(msg.rounds) ?? 0)),
     song:typeof msg.song === "string" ? msg.song : null, songAt:num(msg.songAt), startAt:num(msg.startAt), endsAt:num(msg.endsAt),
-    chart:phase === "song" ? chartFor(msg) : null, field:list(msg.field), out:list(msg.out), podium:list(msg.podium),
+    chart:phase === "song" || phase === "lastcall" ? chartFor(msg) : null, field:list(msg.field), out:list(msg.out), podium:list(msg.podium),
     drinking:msg.drinking !== false,
     entrants:entrants.map((e, i) => ({ i, device:String(e?.device ?? `#${i}`), ready:!!e?.ready, bot:!!e?.bot, drinks:e?.drinks !== false })),
     scores:Array.isArray(msg.scores) ? msg.scores : null,
@@ -162,6 +162,15 @@ function phaseCues(m, prev, v, s) {
     }
     case "podium":
       return [{ id:"floatFanfare", at:notBefore(start + PODIUM_BEATS.roll, s) - GROOVE_PRE_MS, key:keyOf(m, "fanfare", start) }];
+    case "lastcall": {
+      /* the bar: the bartender's bell rung, then "Last call!" (the band comes in on songAt) */
+      if (!Number.isFinite(v.songAt)) return [];
+      const bell = v.songAt + LAST_CALL_BEATS.bell * BEAT_MS, call = v.songAt + LAST_CALL_BEATS.call * BEAT_MS;
+      const cues = [];
+      if (bell >= s - 100) cues.push({ id:"floatBell", at:bell, opts:{ first:true }, key:keyOf(m, "bell", v.songAt) });
+      if (call - GROOVE_PRE_MS >= s - 100) cues.push({ id:"floatVoice", at:call - GROOVE_PRE_MS, opts:{ line:"lastcall" }, key:keyOf(m, "lastcall", v.songAt) });
+      return cues;
+    }
     default: return [];
   }
 }
@@ -196,7 +205,7 @@ function evStep(mem, msg, { now, visible }) {
   const m = { ...mem };
   switch (msg.e) {
     case "hit": {
-      if (msg.q !== "miss" || v.phase !== "song") return { mem:m, cues:[] };
+      if (msg.q !== "miss" || (v.phase !== "song" && v.phase !== "lastcall")) return { mem:m, cues:[] };
       /* a rider still chugging after the break is not flubbing */
       const chart = v.chart, cue = chart?.cues?.[Number(msg.c)], drink = drinkBeats(chart);
       const rider = v.entrants[i];
@@ -241,7 +250,7 @@ export function grooveTrack(mem) {
   if (!v) return null;
   const start = mem.phaseAt ?? v.s ?? 0;
   switch (v.phase) {
-    case "song":
+    case "song": case "lastcall":
       if (!Number.isFinite(v.songAt) || !v.chart) return null;
       return { key:`song:${v.round}:${v.chart.id}:${v.songAt}`, kind:"song", songAt:v.songAt, chart:v.chart };
     case "lobby": case "feedback": return { key:"lobby", kind:"lobby", from:-Infinity, cut:false };

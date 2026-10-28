@@ -22,7 +22,7 @@
    whoosh's swell lead into the beat). The music is the game, so it plays
    under reduced motion too. */
 import { BEAT_MS } from "../../shared/beat.js";
-import { BAR_MS, BEATS_PER_BAR, SONG_LEAD_MS, SONG_MS, chartOf, drinkSection, sectionsOf } from "../../shared/chart.js";
+import { BAR_MS, BEATS_PER_BAR, LAST_CALL_ID, SONG_LEAD_MS, SONG_MS, chartOf, drinkSection, sectionsOf } from "../../shared/chart.js";
 
 export { BEAT_MS, BAR_MS };
 /* soundKit GROOVE_PRE_S, in ms */
@@ -79,9 +79,11 @@ function placed(chart) {
 }
 
 /* A song's whole sound as events on its beats: [{ beat, id, opts, kind }]
-   in order (kind: bar, call, answer, count, line). */
+   in order (kind: bar, call, answer, count, line). Last Call's chart is
+   its own (lastCallEvents). */
 export function songEvents(chart) {
   if (!chart?.cues || !chart?.id) return [];
+  if (chart.id === LAST_CALL_ID) return lastCallEvents(chart);
   const song = chart.id, cues = placed(chart), events = [];
   const add = (beat, id, opts, kind) => events.push({ beat:round3(beat), id, opts, kind });
   /* the host's calls: one note a cue, a fixed lead before it */
@@ -154,6 +156,36 @@ function spinSays(cues, p, sections) {
   if (prev.bar === p.bar) return false;
   const shape = bar => spins.filter(q => q.bar === bar).map(q => q.b).join(",");
   return shape(p.bar) !== shape(prev.bar) && p.n === 0;
+}
+
+/* ── Last Call (GROOVE.md "Last Call") ──
+   Between songs at the bar: the bartender's bell and "Last call!" in the
+   phase's lead (moments: the screen sounds them from a fresh room), then
+   eight bars of the bar's own groove from songAt; each grab's slides (the
+   glass sliding toward you, a step brighter each), the catch on its beat
+   for everyone, a reveal two beats later as the offsets go up, and who
+   drinks on the last bar's downbeat (the crowd's "Ooh!", the host's
+   "Drink!" a beat after). Beats from the bar's songAt. */
+export const LAST_CALL_BEATS = Object.freeze({ bell:-4, call:-2, reveal:2, drinks:28, drink:29 });
+export function lastCallEvents(chart) {
+  if (!chart?.cues) return [];
+  const events = [], add = (beat, id, opts, kind) => events.push({ beat:round3(beat), id, opts, kind });
+  const grabs = chart.cues;
+  for (let bar = 0; bar < (chart.bars || 0); bar++) {
+    const plan = barPlan(chart, bar) || { sec:"play", part:0, k:bar, len:chart.bars, next:null };
+    const inThis = beat => barOf(beat) === bar;
+    add(bar * B, "floatBar", { bar, ...plan, slides:grabs.flatMap(g => g.slides || []).filter(inThis).map(inBar),
+      grabs:grabs.map(g => g.beat).filter(inThis).map(inBar), drinks:LAST_CALL_BEATS.drinks >= bar * B && LAST_CALL_BEATS.drinks < bar * B + B }, "bar");
+  }
+  grabs.forEach((g, k) => {
+    (g.slides || []).forEach((beat, n, all) => add(beat, "floatSlide", { k, n, of:all.length, quick:all.length > 3 }, "call"));
+    add(g.beat, "floatGrab", { k }, "answer");
+    add(g.beat + LAST_CALL_BEATS.reveal, "floatReveal", { k }, "line");
+  });
+  add(LAST_CALL_BEATS.drinks, "floatDrinks", {}, "line");
+  add(LAST_CALL_BEATS.drink, "floatVoice", { line:"drink" }, "line");
+  const order = { bar:0, answer:1, call:2, count:3, line:4 };
+  return events.sort((a, b) => a.beat - b.beat || order[a.kind] - order[b.kind]);
 }
 
 /* the events grouped by the bar they are laid with (each event's own bar) */

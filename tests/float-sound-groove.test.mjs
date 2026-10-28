@@ -138,6 +138,47 @@ test("The Drop: the music cuts for the countdown, three, two, one on its beats, 
   for (const mode of ["paddle", "rock", "spin"]) assert.ok(modes.has(mode), mode);
 });
 
+test("Last Call: the bar's groove, the glass sliding on each grab's slides, the catch on the grab, a reveal two beats on, who drinks", () => {
+  const chart = chartOf("lastcall"), events = groove.songEvents(chart);
+  assert.equal(events.filter(e => e.id === "floatBar").length, chart.bars);
+  assert.deepEqual(events.filter(e => e.id === "floatSlide").map(e => e.beat), chart.cues.flatMap(c => c.slides), "every slide on its beat");
+  assert.deepEqual(events.filter(e => e.id === "floatGrab").map(e => e.beat), chart.cues.map(c => c.beat), "the catch on every grab");
+  assert.deepEqual(events.filter(e => e.id === "floatReveal").map(e => e.beat), chart.cues.map(c => c.beat + groove.LAST_CALL_BEATS.reveal));
+  assert.deepEqual(events.filter(e => e.id === "floatDrinks").map(e => e.beat), [groove.LAST_CALL_BEATS.drinks]);
+  assert.equal(groove.LAST_CALL_BEATS.drinks, (chart.bars - 1) * 4, "who drinks on the last bar's downbeat");
+  assert.ok(chart.cues.every(c => c.beat + groove.LAST_CALL_BEATS.reveal < groove.LAST_CALL_BEATS.drinks), "every reveal before who drinks");
+  const quick = events.filter(e => e.id === "floatSlide" && e.opts.quick).map(e => e.beat);
+  assert.deepEqual(quick, chart.cues.find(c => c.slides.length > 3).slides, "four quick slides are quick");
+  const last = events.filter(e => e.id === "floatBar").at(-1);
+  assert.equal(last.opts.drinks, true);
+  /* on the TV: the bell and "Last call!" in the lead, then the bars from songAt */
+  const r = rig();
+  r.emit("welcome", {});
+  r.emit("room", room("cut", r.now(), { startAt:r.now() }));
+  const start = r.now() + 100, songAt = start + 3000;
+  r.set(start);
+  r.emit("room", room("lastcall", start, { song:"lastcall", startAt:start, songAt, endsAt:songAt + 17500 }));
+  assert.deepEqual(r.played.filter(p => p.id === "floatBell").map(p => p.at), [songAt + groove.LAST_CALL_BEATS.bell * BEAT_MS]);
+  assert.deepEqual(r.played.filter(p => p.opts.line === "lastcall").map(p => p.at), [songAt + groove.LAST_CALL_BEATS.call * BEAT_MS - PRE]);
+  r.advance(3000 + 2000);
+  const bars = r.played.filter(p => p.id === "floatBar");
+  assert.deepEqual(bars.map(p => p.at), [songAt - PRE, songAt + BAR_MS - PRE, songAt + 2 * BAR_MS - PRE].slice(0, bars.length));
+  assert.ok(bars.length >= 2);
+  r.runner.stop();
+});
+
+test("the phone at Last Call: You drink or Safe, as the room names who drinks, on the bar's reveal", () => {
+  const s = T0, songAt = s + 3000;
+  const bar = worst => ({ t:"room", phase:"lastcall", s:s + 13_000, round:0, songAt, startAt:s, field:[0, 1, 2], out:[3],
+    lastCall:{ totals:[{ i:0, ms:300 }, { i:1, ms:900 }, { i:2, ms:200 }, { i:3, ms:500 }], worst } });
+  const run = (me, worst) => phoneRun([{ t:"welcome", s }, { t:"room", phase:"cut", s, out:[3] }, bar(null), { ...bar(worst), s:s + 15_000, now:s + 15_000 }], { me });
+  const at = songAt + groove.LAST_CALL_BEATS.drinks * BEAT_MS + 120;
+  assert.deepEqual(run(1, [1]).cues, [{ id:"floatYouGulp", at }]);
+  assert.deepEqual(run(2, [1]).cues, [{ id:"floatYouSafe", at }]);
+  assert.deepEqual(run(3, [1, 3]).cues.map(c => c.id), ["floatYouGulp"], "out of the Cup, still at the bar");
+  assert.deepEqual(run(7, [1]).cues, [], "not at the bar");
+});
+
 test("the slots: every event laid with its own bar, at songAt + beat * BEAT_MS - the lead, on whole milliseconds", () => {
   for (const id of SONG_IDS) {
     const chart = chartOf(id), slots = groove.songSlots(chart);
@@ -467,7 +508,7 @@ function recorder() {
 
 test("every song's every bar plays, the beat at t + the lead, nothing before its time, released when it ends", () => {
   const ctx = recorder(), E = kit.makeEngine(ctx, { listen:"tv" }), base = ctx.nodes.length;
-  for (const id of SONG_IDS) for (const ev of groove.songEvents(chartOf(id))) {
+  for (const id of [...SONG_IDS, "lastcall"]) for (const ev of groove.songEvents(chartOf(id))) {
     ctx.nodes.length = base;
     assert.ok(kit.playRecipe(E, ev.id, 10, ev.opts), `${id} ${ev.id} at ${ev.beat}`);
     const sources = ctx.nodes.filter(n => n.kind === "osc" || n.kind === "src");

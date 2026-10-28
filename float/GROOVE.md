@@ -349,6 +349,45 @@ the scenes and the props: the page Brandon reviews the art on.
 agreement (the integrator). A builder who needs a change there says so in its
 report and codes against the contract as written meanwhile.
 
+## As built: the engine (Oct 27, groove/engine 26c6ffc)
+
+- `float/shared/groove.js` is the pure song (judging, misses, bot and
+  stand-in taps, Done, calibration, scores, ranking); `cup.js` the Cup
+  (phases, the cut, standings, `meOf`); `Cup.tick(cup, now, { driven })` the
+  one driver for the room, the bench and the tests. Every random draw is a
+  hash of seed, round, rider and cue (nothing to save). `FloatRoom`'s
+  constructor is unchanged; a mock must call `tick()` in `song` too (any
+  rate; 100 ms is the room's). `options.ids` makes a Cup repeatable (stable
+  screenshots).
+- `room`: `song` in intro, song and cut; `songAt` in song and cut (null in
+  intro); `chartId` whenever there is a song; `chart` in full once per socket
+  per song (the first room after hello, and when the song changes, the intro
+  included); `offset`; `scores` at every phase change, every 4 s in a song
+  and when the offset moves; `results` (the live ranking in a song, the final
+  one in the cut). Gone: `swapUntil`, `resume`, `len`, `leg`,
+  `course`/`courseId`, `entrants[].drank`, `snap`, `replay`.
+- `me` adds `round`, `lastRound`, `live`, `n`, and `through`/`out` in the
+  cut (`out:true` for riders already out); sent after misses too.
+  `me.done` means "no Done owed": true from the start for a rider who
+  doesn't drink.
+- **Privacy:** a rider who skips the drink in a drinking room shows as done
+  on the screens at a bot's moment (4 to 14 s in, with `ev done`), so the TV
+  never says who skips; scoring is the same (the break has no cues). With
+  drinking off everyone is done from the start and no events are sent.
+- Calibration recomputes half a beat into each practice beat; the last
+  (beat 23.5) fixes the song's offset. Limits: `hit` 16 a second a socket;
+  `cheer` one per 300 ms a rider, only from riders out, in song, cut and
+  podium. A phone can't take over a bot's entrant by its public device id.
+- Bridge body: `rounds[].leg` is `song`; `results[]` `{who, pid, bot, place,
+  pct, pts, perfects, misses, cup, out}`; `stats.rounds[]` adds `offset`,
+  `samples` and per rider `{pct, pts, perfects, nice, ok, early, late,
+  misses, hits, botShare, doneMs}`. `evId`, `cupId`, `order` unchanged; the
+  Tournament stores the rest unread.
+- `node scripts/float-sim.mjs` (13 bots; `--phones 4 --lag 120 --late 1
+  --dry 1 --fieldday` adds protocol phones; `--cups 50` the skill spread).
+  Sharp bots score about 97 to 100%, sloppy ones 73 to 85%. Timing: intro 8
+  s, cut 20 s, last cut 7 s (`CUP_TIMING`).
+
 ## Special critters (Oct 27)
 
 Winnie, Brandon's own cavapoo, is a 14th critter only the groom can pick

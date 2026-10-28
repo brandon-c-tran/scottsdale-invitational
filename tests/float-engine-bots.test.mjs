@@ -1,14 +1,17 @@
 /* Float's computer riders in the Groove (float/shared/groove.js botDraw,
-   botSkills, botDoneAfter; float/GROOVE.md "What the room sends"): a sharp
-   bot within about 30 ms, a sloppy one about 90 ms with the odd miss, every
-   draw a function of what it is for (so a resumed room and a mock draw the
-   same taps), centred on the room's offset whatever the TV's delay, Done
-   4 to 14 s into the break, and a field ordered by skill. */
+   botGrab, botSkills, botDoneAfter; float/GROOVE.md "What the room sends",
+   "Last Call"): a sharp bot within about 30 ms, a sloppy one about 90 ms
+   with the odd miss, every draw a function of what it is for (so a resumed
+   room and a mock draw the same taps), centred on the room's offset whatever
+   the TV's delay, Done 4 to 14 s into the break, a field ordered by skill;
+   at Last Call a sharp bot grabs within about 60 ms, a sloppy one 250 ms or
+   more off and now and then very late. */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { BOT, GROOVE, botDoneAfter, botDraw, botSkills, createSong, rand01, seedOf, stepSong } from "../float/shared/groove.js";
+import { BAR_BOT, BOT, GROOVE, botDoneAfter, botDraw, botGrab, botSkills, createBar, createSong, rand01, seedOf, stepSong }
+  from "../float/shared/groove.js";
 import { createCup, makeEntrant, startCup, addBots } from "../float/shared/cup.js";
-import { chartOf, cueTime, qualityOf, scoredCues, SONG_MS } from "../float/shared/chart.js";
+import { LAST_CALL, chartOf, cueTime, qualityOf, scoredCues, SONG_MS } from "../float/shared/chart.js";
 import { cleanRider } from "../float/shared/protocol.js";
 import { CRITTER_IDS } from "../float/shared/looks.js";
 
@@ -131,3 +134,37 @@ test("addBots: critter names, the palette, any tube, never the groom's own critt
   assert.ok(bots.some(entrant => /^Bot \d+$/.test(entrant.name)), "past the critters, Bot N");
   assert.equal(new Set(cup.entrants.map(entrant => entrant.color)).size, cup.entrants.length, "distinct colours");
 });
+
+test("Last Call: a sharp bot grabs within about 60 ms, a sloppy one 250 ms or more off and sometimes very late, always inside the window", () => {
+  const grabs = skill => Array.from({ length:3000 }, (_, k) => botGrab(13, k % 4, k % 13, k, skill));
+  const off = list => list.map(draw => Math.abs(draw.dev));
+  const sharp = grabs(1), sloppy = grabs(0), stand = grabs(GROOVE.STAND_IN_SKILL);
+  assert.ok(sharp.every(draw => draw.hit) && sloppy.every(draw => draw.hit), "bots always grab");
+  assert.ok(median(off(sharp)) <= 40, `sharp median ${median(off(sharp))}`);
+  assert.ok(off(sharp).filter(d => d <= 60).length / sharp.length > 0.75, "mostly within 60 ms");
+  assert.ok(median(off(sloppy)) >= 250, `sloppy median ${median(off(sloppy))}`);
+  const veryLate = list => list.filter(draw => draw.dev >= BAR_BOT.LATE_MS[0]).length / list.length;
+  assert.ok(veryLate(sloppy) > 0.12 && veryLate(sloppy) < 0.3, `sloppy very late ${veryLate(sloppy)}`);
+  assert.ok(veryLate(sharp) < 0.03, `sharp very late ${veryLate(sharp)}`);
+  assert.ok(median(off(stand)) > median(off(sharp)) && median(off(stand)) < median(off(sloppy)), "a stand-in between");
+  for (const draw of [...sharp, ...sloppy]) assert.ok(Number.isInteger(draw.dev) && Math.abs(draw.dev) < LAST_CALL.WINDOW);
+  assert.deepEqual(botGrab(3, 1, 2, 0, 0.4), botGrab(3, 1, 2, 0, 0.4), "a function of what it is for");
+  assert.notDeepEqual(botGrab(3, 1, 2, 0, 0.4), botDraw(3, 1, 2, 0, 0.4), "its own draw, not a song's tap");
+});
+
+test("Last Call with bots alone: every grab judged on the room's offset, the totals in the bar's order", () => {
+  const cup = createCup({ id:"bar-bots", seed:6 });
+  addBots(cup, 9, 6);
+  startCup(cup, 0);
+  const bar = createBar({ cup, round:1, songAt:5000, players:cup.field, offset:160 });
+  const chart = chartOf("lastcall");
+  const events = [];
+  for (let t = 2000; t <= 5000 + chart.ms + 1500; t += 100) events.push(...stepSong(cup, bar, t, { driven:() => true }).events);
+  assert.equal(events.length, 9 * 3);
+  for (const event of events) {
+    const at = cueTime(bar.songAt, chart.cues[event.c].beat) + 160 + event.d;
+    assert.equal(event.at, at, "grabbed at the room's beat plus the bot's offset");
+  }
+  assert.deepEqual(bar.samples, [], "never calibrating");
+});
+

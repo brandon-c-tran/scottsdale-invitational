@@ -1,9 +1,9 @@
 /* Float's bench (float/GROOVE.md): a whole Groove Cup through the real room
    (float/worker/room.js FloatRoom, the Cup, the songs, the bots) on a fake
    clock, over fake sockets, ticked every 100 ms as the Durable Object ticks
-   itself. It prints the timeline (every phase, the calibration, the drink
-   break) and each round's ranking and cut, then the final order and, for a
-   Field Day Cup, the body the room posts to the Tournament.
+   itself. It prints the timeline (every phase, the calibration, Last Call
+   and who drinks) and each round's ranking and cut, then the final order
+   and, for a Field Day Cup, the body the room posts to the Tournament.
 
      node scripts/float-sim.mjs [--seed 3] [--bots 13] [--phones 0] [--lag 120]
        [--late 0] [--dry 0] [--drinking 1] [--fieldday] [--cups 1] [--quiet]
@@ -11,7 +11,8 @@
    --bots      computer riders (the field, with --phones on top)
    --phones    pretend phones: each taps every cue through the real protocol
                (matchTap on its own estimate of the server clock, hit {c, r}),
-               a little early or late, and taps Done in the break
+               a little early or late, taps Done in the break, and grabs at
+               Last Call (sloppier: a grab is harder than a beat)
    --lag       the TV's sound delay (ms) the pretend phones answer to: the
                room's calibration should find it in practice
    --late      of the phones, how many never tap Done (their play B is misses)
@@ -73,7 +74,8 @@ const say = (room, ws, message) => room.onMessage(ws, JSON.stringify(message));
 
 /* a pretend phone: it taps every cue it hears, `lean` ms late (plus the TV's
    lag it answers to) with a spread, stamps the tap on the server clock and
-   sends hit { c, r }; in the break it taps Done after a few seconds */
+   sends hit { c, r }; in the break it taps Done after a few seconds; at Last
+   Call it grabs the same way, with three times the spread */
 function phone(room, clock, k, { pid = null, drinks = true, late = false } = {}) {
   const device = `phone-${k}`;
   const state = { songAt:null, chart:null, offset:0, taken:new Set(), song:null, done:false, i:-1, plan:[] };
@@ -82,14 +84,15 @@ function phone(room, clock, k, { pid = null, drinks = true, late = false } = {})
     if (msg.t !== "room") return;
     if (msg.chart) state.chart = msg.chart;
     state.offset = msg.offset;
-    if (msg.phase === "song" && msg.songAt !== state.songAt) {
+    if ((msg.phase === "song" || msg.phase === "lastcall") && msg.songAt !== state.songAt) {
       state.songAt = msg.songAt;
       state.taken = new Set();
-      state.done = false;
-      /* this phone's taps for the whole song, planned once */
+      state.done = msg.phase === "lastcall";
+      /* this phone's taps for the whole song (or Last Call), planned once */
+      const grabs = msg.phase === "lastcall" ? 3 : 1;
       state.plan = (state.chart?.cues || []).map(cue => {
         const lean = 25 * (rand01(SEED, k, 77) * 2 - 1);
-        const spread = 30 + 40 * rand01(SEED, k, 78);
+        const spread = (30 + 40 * rand01(SEED, k, 78)) * grabs;
         const u = rand01(SEED, k, cue.id, msg.round, 1), v = rand01(SEED, k, cue.id, msg.round, 2);
         const jitter = Math.sqrt(-2 * Math.log(1 - u)) * Math.cos(2 * Math.PI * v) * spread;
         return { at:cueTime(msg.songAt, cue.beat) + LAG + lean + jitter, sent:false };
@@ -104,14 +107,14 @@ function phone(room, clock, k, { pid = null, drinks = true, late = false } = {})
     ws, device, state,
     step(now) {
       if (now - pingAt >= 2000) { pingAt = now; say(room, ws, { t:"ping", c:now, rtt:80 }); }
-      if (state.phase !== "song" || !state.chart) return;
+      if ((state.phase !== "song" && state.phase !== "lastcall") || !state.chart) return;
       const drinkFrom = cueTime(state.songAt, 56), drinkTo = cueTime(state.songAt, 88);
       if (!state.done && drinks && !late && now >= drinkFrom + 3000 + 6000 * rand01(SEED, k, 90)) { state.done = true; say(room, ws, { t:"drink" }); }
       if (!state.done && !drinks && now >= drinkFrom) state.done = true;
       for (const tap of state.plan) {
         if (tap.sent || tap.at > now) continue;
         tap.sent = true;
-        if (now >= drinkTo - 50 && !state.done && drinks) continue;
+        if (state.phase === "song" && now >= drinkTo - 50 && !state.done && drinks) continue;
         /* the phone judges its tap where it lands, as controller/rhythm.js does */
         const match = matchTap(state.chart, state.songAt, tap.at, { offset:state.offset, taken:state.taken });
         if (!match) continue;
@@ -156,16 +159,24 @@ export async function runCup({ seed = SEED, bots = BOTS, phones = PHONES, fieldd
   }
   const pretend = pids.map((pid, k) => phone(room, clock, k, { pid:fieldday ? pid : null, drinks:drinksOf(k), late:k < late }));
   if (!fieldday) say(room, screen, { t:"host", cmd:"start", bots, drinking });
-  /* the timeline: every phase, the offset's moves, the drink break */
-  let phase = null, offset = null, round = -1;
+  /* the timeline: every phase, the offset's moves, Last Call and who drinks */
+  let phase = null, offset = null, round = -1, drinks = null;
+  const nameOf = i => room.cup?.entrants[i]?.name ?? i;
   const rounds = [];
   const watch = msg => {
     if (msg.t !== "room") return;
     if (msg.phase !== phase || msg.round !== round) {
       phase = msg.phase; round = msg.round;
       const extra = phase === "song" ? `${SONGS.find(song => song.id === msg.song)?.name}, beat 0 at ${fmt(msg.songAt - t0)}, field ${msg.field.length}, offset ${msg.offset}`
-        : phase === "cut" ? `${msg.out.length} out so far` : "";
+        : phase === "cut" ? `${msg.out.length} out so far, ${((msg.endsAt - msg.startAt) / 1000).toFixed(0)} s`
+        : phase === "lastcall" ? `Last Call, beat 0 at ${fmt(msg.songAt - t0)}, ${msg.lastCall.totals.length} at the bar, offset ${msg.offset}` : "";
       log(`${fmt(clock.t - t0)}  ${phase.padEnd(8)} round ${msg.round + 1}  ${extra}`);
+      drinks = null;
+    }
+    if (msg.phase === "lastcall" && msg.lastCall?.worst && drinks === null) {
+      drinks = msg.lastCall.worst;
+      const ms = i => msg.lastCall.totals.find(row => row.i === i).ms;
+      log(`${fmt(clock.t - t0)}    who drinks: ${drinks.map(i => `${nameOf(i)} (${(ms(i) / 1000).toFixed(2)} s)`).join(", ")}`);
     }
     if (msg.offset !== offset) {
       if (offset !== null && phase === "song") log(`${fmt(clock.t - t0)}    offset ${offset} -> ${msg.offset} ms`);
@@ -202,11 +213,18 @@ export async function runCup({ seed = SEED, bots = BOTS, phones = PHONES, fieldd
         const stats = item.stats[row.i];
         log(`   ${pad(row.place, 5)}  ${String(name(row.i)).padEnd(16)} ${pad(entrant.bot ? entrant.skill.toFixed(2) : "phone", 5)}  ${pad(row.pct.toFixed(1), 5)}  ${pad(row.perfects, 8)}  ${pad(row.misses, 6)}  ${pad(stats.botShare.toFixed(2), 12)}  ${pad(stats.doneMs === null ? "-" : `${(stats.doneMs / 1000).toFixed(1)} s`, 7)}  ${row.out ? "out" : ""}`);
       }
+      if (item.lastCall) {
+        const sorted = item.lastCall.totals.slice().sort((a, b) => a.ms - b.ms);
+        const grabsOf = row => [0, 1, 2].map(c => row.grabs[c] === null || row.grabs[c] === undefined ? "miss" : `${row.grabs[c] > 0 ? "+" : ""}${row.grabs[c]}`).join(" ");
+        log(`   Last Call: ${item.lastCall.players.length} at the bar; who drinks: ${item.lastCall.worst.map(name).join(", ")}`);
+        for (const row of sorted) log(`      ${String(name(row.i)).padEnd(16)} ${pad((row.ms / 1000).toFixed(2), 5)} s   ${grabsOf(row)}${item.lastCall.worst.includes(row.i) ? "   drinks" : ""}`);
+      }
     }
     log(`\nFinal: ${cup.final.map((i, k) => `${k + 1}. ${name(i)}`).join("  ")}`);
     const posted = fd.calls.find(call => call.url.endsWith("/internal/float/result"));
     if (posted) log("\nPosted to the Tournament:", JSON.stringify({ ...posted.body, rounds:`${posted.body.rounds.length} rounds`,
-      stats:{ rounds:posted.body.stats.rounds.map(item => ({ round:item.round, song:item.song, offset:item.offset, samples:item.samples })),
+      stats:{ rounds:posted.body.stats.rounds.map(item => ({ round:item.round, song:item.song, offset:item.offset, samples:item.samples,
+        lastCall:item.lastCall?.worst ?? null })),
         botShare:posted.body.stats.botShare } }));
     const evs = screen.sent.filter(msg => msg.t === "ev");
     log(`\nThe screen heard ${screen.sent.filter(msg => msg.t === "room").length} room messages and ${evs.length} events (${evs.filter(e => e.e === "hit").length} hits and misses, ${evs.filter(e => e.e === "done").length} done, ${evs.filter(e => e.e === "out").length} out).`);

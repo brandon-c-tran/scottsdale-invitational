@@ -363,6 +363,21 @@ test("misses: a quiet flub panned to the rider, three at most at once, none for 
   h.runner.stop();
 });
 
+test("the lobby's loop: a bar of the server's own grid, its bar of eight and its section of four (so every screen is on the same bar)", () => {
+  const a = rig();
+  a.emit("welcome", {});
+  a.emit("room", room("lobby", a.now()));
+  a.advance(20_000);
+  const loop = a.played.filter(p => p.id === "floatLobby");
+  assert.ok(loop.length >= 9);
+  for (const p of loop) {
+    const n = Math.round((p.at + PRE) / BAR_MS);
+    assert.equal((p.at + PRE) % BAR_MS, 0, "on the grid");
+    assert.deepEqual([p.opts.bar, p.opts.section], [n % 8, Math.floor(n / 8) % 4]);
+  }
+  a.runner.stop();
+});
+
 test("the Cup's moments: the intro opens, the podium's fanfare on its beats, the lobby's joins and readies, a catch-up silent", () => {
   const r = rig();
   r.emit("welcome", {});

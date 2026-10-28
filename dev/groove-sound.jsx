@@ -84,6 +84,13 @@ function App() {
             <button style={btn} onClick={() => { clear(); setSong(null); phase("intro"); }}>The Cup opens</button>
             <button style={btn} onClick={() => { clear(); setSong(null); room.emit("room", { ...base, phase:"song", song:"paddle", songAt:Date.now() + 999999, startAt:Date.now() + 999000 }); phase("cut", { out:[11, 12, 7] }); }}>The cut (3 out)</button>
             <button style={btn} onClick={() => { clear(); setSong(null); phase("podium", { podium:[4, 0, 9] }); }}>Podium</button>
+            <button style={btn} onClick={() => {
+              clear(); setSong(null);
+              const startAt = Date.now() + 100, songAt = startAt + 3000;
+              room.emit("room", { ...base, phase:"lastcall", song:"lastcall", startAt, songAt, endsAt:songAt + 17500, lastCall:{ totals:field.map(i => ({ i, ms:0, grabs:{} })), worst:null } });
+              later(songAt + 25 * 500 - Date.now(), () => room.emit("room", { ...base, phase:"lastcall", song:"lastcall", startAt, songAt, endsAt:songAt + 17500,
+                lastCall:{ totals:field.map(i => ({ i, ms:i * 37 })), worst:[12] } }));
+            }}>Last Call</button>
           </div>
           <div style={row}>
             <span style={{ color:"#9aa4b2" }}>Phone taps (switches this page to a phone):</span>

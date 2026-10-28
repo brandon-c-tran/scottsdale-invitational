@@ -27,14 +27,14 @@ export function cutTimeline(out = 0, ms = 20000, sound = SOUND_CUT) {
   const k = Math.max(0.45, Math.min(1, room / rest));
   const boardOut = stampsEnd + B.HOLD * k;
   const hop = boardOut + 400 * k;
-  const hopsEnd = hop + Math.max(0, n - 1) * B.HOP_GAP * k + B.HOP_MS * Math.min(1, k * 1.2);
+  const hopsEnd = hop + Math.max(0, n - 1) * B.HOP_GAP * k + B.HOP_MS * k;
   const reform = n ? hopsEnd + B.REFORM * k : boardOut + 400 * k;
   return {
     reveal:beats.reveal,
     stampAt,
     boardOut,
     hopAt:j => hop + j * B.HOP_GAP * k,
-    hopMs:B.HOP_MS * Math.min(1, k * 1.2),
+    hopMs:B.HOP_MS * k,
     reform,
     next:reform + B.NEXT * k,
   };

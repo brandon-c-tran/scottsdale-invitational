@@ -187,24 +187,17 @@ html.flc-locked, html.flc-locked body { overflow: hidden; overscroll-behavior: n
 @keyframes flc-word-in { from { transform: translateY(10px) scale(0.5); opacity: 0; } }
 
 /* the stage: your popup over your critter, floating on the water */
-.flc-stage { position: absolute !important; left: 0; right: 0; bottom: calc(var(--sa-bottom) + 27%); display: flex; flex-direction: column; align-items: center; pointer-events: none; }
-.flc-stage .flc-critter { width: min(var(--size), 27vh); height: min(var(--size), 27vh); }
-.flc-popup-slot { height: min(168px, 20vh); width: 100%; display: grid; place-items: end center; padding-bottom: 4px; }
+.flc-stage { position: absolute !important; left: 0; right: 0; bottom: calc(var(--sa-bottom) + 24%); display: flex; flex-direction: column; align-items: center; pointer-events: none; }
+.flc-stage .flc-critter { width: min(var(--size), 36vh); height: min(var(--size), 36vh); }
+.flc-stage .flc-critter > .fg-rider { width: 100% !important; height: 100% !important; }
+.flc-popup-slot { height: min(150px, 18vh); width: 100%; display: grid; place-items: end center; padding-bottom: 0; }
 
-/* the judgement: the signed offset over the word, chunky, outlined */
-.flc-popup { display: grid; justify-items: center; gap: 2px; font-family: var(--pixel); text-align: center; animation: flc-pop-in 170ms var(--spring) both, flc-pop-out 150ms ease-in 670ms forwards; }
-.flc-popup-num { font-size: 46px; line-height: 1; font-weight: 700; color: var(--salmon); text-shadow: var(--outline); letter-spacing: 0.02em; }
-.flc-popup-word { font-size: 68px; line-height: 1.02; font-weight: 700; color: var(--paper); text-shadow: var(--outline); letter-spacing: 0.01em; }
-.flc-popup.is-yellow .flc-popup-word { color: var(--yellow); }
-.flc-popup.is-salmon .flc-popup-word { color: var(--salmon); }
-.flc-popup.is-grey .flc-popup-word { color: var(--grey); }
-.flc-popup.is-gold .flc-popup-word { color: var(--paper); background: var(--gold); padding: 4px 18px 8px; border-radius: 10px; box-shadow: inset 0 0 0 4px var(--ink), 0 6px 0 rgba(43, 34, 51, 0.22); text-shadow: var(--outline-thin); }
-.flc-popup.is-art { font-family: inherit; }
-@keyframes flc-pop-in { 0% { transform: translateY(16px) scale(0.45); opacity: 0; } 60% { transform: translateY(-4px) scale(1.1); opacity: 1; } 100% { transform: none; } }
-@keyframes flc-pop-out { to { transform: translateY(-14px); opacity: 0; } }
+/* the judgement: the art's Popup (Float Pixel, the tones, its own pop and fade), big */
+.flc-popup { display: grid; justify-items: center; pointer-events: none; }
+.flc-popup .fg-popup { transform-origin: 50% 90%; }
 
 /* the drink break: Drink! and a big Done */
-.flc-song.is-owed .flc-stage { bottom: max(calc(var(--sa-bottom) + 27%), calc(var(--sa-bottom) + 176px)); }
+.flc-song.is-owed .flc-stage { bottom: max(calc(var(--sa-bottom) + 24%), calc(var(--sa-bottom) + 160px)); }
 .flc-drink { position: absolute !important; left: calc(var(--sa-left) + 16px); right: calc(var(--sa-right) + 16px); top: calc(var(--sa-top) + 64px); bottom: calc(var(--sa-bottom) + 18px); display: flex; flex-direction: column; align-items: center; justify-content: space-between; z-index: 3; pointer-events: none; }
 .flc-drink-title { font-size: clamp(56px, 18vw, 92px); line-height: 1; font-weight: 900; color: var(--yellow); text-shadow: var(--outline); animation: flc-drink-in 520ms var(--spring) both, flc-sway 1s ease-in-out 520ms infinite alternate; }
 @keyframes flc-drink-in { from { transform: scale(0.4) rotate(-8deg); opacity: 0; } }
@@ -281,7 +274,7 @@ html.flc-locked, html.flc-locked body { overflow: hidden; overscroll-behavior: n
 .flc-place { font-size: 21px; font-weight: 900; color: var(--ink); background: rgba(255, 253, 248, 0.8); padding: 5px 14px; border-radius: 999px; }
 
 /* ── the crowd: out, cheering from the bank ── */
-.flc-crowd .flc-stage { bottom: max(calc(var(--sa-bottom) + 27%), calc(var(--sa-bottom) + 170px)); }
+.flc-crowd .flc-stage { bottom: max(calc(var(--sa-bottom) + 24%), calc(var(--sa-bottom) + 156px)); }
 .flc-cheer {
   position: absolute !important; left: calc(var(--sa-left) + 16px); right: calc(var(--sa-right) + 16px); bottom: calc(var(--sa-bottom) + 22px);
   margin: 0 auto; width: min(calc(100% - 32px), 380px); min-height: 120px; border-radius: 40px;

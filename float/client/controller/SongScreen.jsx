@@ -212,7 +212,7 @@ export default function SongScreen({ serverNow, chart, songAt, entrant, shape, n
     <div className="flc-stage">
       <div className="flc-popup-slot">{shown && !gate.owed && <Popup key={shown.key} q={shown.q} d={shown.d} />}</div>
       <div className="flc-me" ref={bobRef}><div className="flc-me-move" ref={moveRef}>
-        <Critter entrant={entrant} pose={pose} size={232} />
+        <Critter entrant={entrant} pose={pose} size={300} />
       </div></div>
     </div>
     {gate.owed && <DrinkPanel onDone={onDone} late={late} />}

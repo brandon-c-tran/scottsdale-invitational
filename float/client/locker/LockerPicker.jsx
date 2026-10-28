@@ -43,7 +43,7 @@ function Hero({ entrant, pop }) {
   return <div className="fll-hero">
     <div className="fll-stage" aria-hidden="true"><i className="fll-spot" /><i className="fll-ripple" key={pop} /></div>
     <div className="fll-hero-art" ref={art} role="img" aria-label={name}>
-      <Critter entrant={entrant} pose={happy ? "nice" : "idle"} size={136} />
+      <Critter entrant={entrant} pose={happy ? "nice" : "idle"} size={150} />
     </div>
     <div className="fll-hero-text">
       <b className="fll-hero-name" key={entrant.look.critter}>{name}</b>

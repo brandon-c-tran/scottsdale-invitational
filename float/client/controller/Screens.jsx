@@ -50,7 +50,7 @@ function Lobby({ game, entrant, me, groom, onReady, onLook, onExit }) {
     <Top left={<ExitButton onExit={onExit} />} right={room?.code ? <span className="flc-code" aria-label="Room code">
       {String(room.code).toUpperCase()}</span> : null} />
     <div className="flc-lobby-main">
-      <div className="flc-idle-me"><Critter entrant={entrant} pose={ready ? "cheer" : "idle"} size={208} /></div>
+      <div className="flc-idle-me"><Critter entrant={entrant} pose={ready ? "cheer" : "idle"} size={260} /></div>
       <h1 className="flc-name">{entrant.name}</h1>
       <div className="flc-lobby-actions">
         <TapButton className="flc-pill" onPress={() => { tapTick(); setLocker(true); }}>Change look</TapButton>
@@ -74,7 +74,7 @@ function Intro({ game, entrant, onExit }) {
     <Scenery scene={chart?.scene || "open"} />
     <Top right={<ExitButton onExit={onExit} />} />
     <RoundCard shape={roundShape(room)} name={song.name} />
-    <div className="flc-stage"><div className="flc-popup-slot" /><div className="flc-idle-me"><Critter entrant={entrant} size={232} /></div></div>
+    <div className="flc-stage"><div className="flc-popup-slot" /><div className="flc-idle-me"><Critter entrant={entrant} size={300} /></div></div>
   </section>;
 }
 
@@ -98,7 +98,7 @@ function Cut({ game, entrant, onExit }) {
         {place && of ? <span className="flc-place">{view.final ? `of ${of}` : `${ordinal(place)} of ${of}`}</span> : null}
       </div>
     </div>
-    <div className="flc-stage"><div className="flc-idle-me"><Critter entrant={entrant} pose={pose} size={200} /></div></div>
+    <div className="flc-stage"><div className="flc-idle-me"><Critter entrant={entrant} pose={pose} size={260} /></div></div>
   </section>;
 }
 
@@ -116,7 +116,7 @@ function Crowd({ game, entrant, serverNow, cheer, onCheer, onExit }) {
     <Scenery scene={chart?.scene || "open"} ground="bank" />
     <Top left={<span className="flc-kicker">{song.name}</span>} right={<><span className="flc-out-tag">Out</span><ExitButton onExit={onExit} /></>} />
     <div className="flc-stage"><div className="flc-me" ref={bobRef}><div className="flc-me-move" ref={moveRef}>
-      <Critter entrant={entrant} pose={pose} size={208} /></div></div></div>
+      <Critter entrant={entrant} pose={pose} size={260} /></div></div></div>
     <TapButton className="flc-cheer" onPress={onCheer}>Cheer</TapButton>
   </section>;
 }
@@ -134,7 +134,7 @@ function Podium({ game, entrant, onExit }) {
       <b>{place ? ordinal(place) : ""}</b>
       {place && <span>of {entrants.length}</span>}
     </div>
-    <div className="flc-stage"><div className="flc-idle-me"><Critter entrant={entrant} pose={top ? "cheer" : "idle"} size={200} /></div></div>
+    <div className="flc-stage"><div className="flc-idle-me"><Critter entrant={entrant} pose={top ? "cheer" : "idle"} size={260} /></div></div>
     {podium.length > 0 && <ol className="flc-podium-row">
       {podium.map((i, k) => <li key={i} className={`is-p${k + 1}${i === idx ? " is-me" : ""}`}>
         <Portrait entrant={entrants[i] || {}} size={k === 0 ? 60 : 50} label={entrants[i]?.name} />

@@ -34,6 +34,7 @@ import { useRoom } from "./useRoom.js";
 import { drinkGate, drinksOn, offsetOf, roundShape, roundSong, screenOf, songAtOf, songView, wakeFor } from "./controllerModel.js";
 import { createGate, createPad, restamp, serverStamp, stampOf } from "./rhythm.js";
 import { cheerSound, doneSound, tapSound, unlockSound, useControllerSound } from "./sound.js";
+import { usePreloadArt } from "./art.jsx";
 import "./controller.css";
 
 const DONE_RETRY_MS = 4000;
@@ -115,6 +116,7 @@ export default function FloatController({ room = "test", rider = null, onExit = 
   const [pendingLook, setPendingLook] = useState(null);
   const entrant = useMemo(() => ({ ...me, ...(roomEntrant || {}), look:pendingLook || roomEntrant?.look || me.look }),
     [me, roomEntrant, pendingLook]);
+  usePreloadArt(entrant);
   const cupId = game.room?.cupId || null;
   const songKey = game.songKey;
   const chart = game.chart;

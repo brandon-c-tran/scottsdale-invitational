@@ -97,6 +97,18 @@ const tapNow = (page, x, y) => page.evaluate(`(() => {
   target.dispatchEvent(new TouchEvent("touchend", { touches:[], targetTouches:[], changedTouches:[touch], bubbles:true, cancelable:true }));
   return true;
 })()`);
+/* taps on an element fired inside the page, `times` in a row at once (a gate's check) */
+const tapElementNow = (page, selector, times = 1) => page.evaluate(`(() => {
+  const el = document.querySelector(${JSON.stringify(selector)});
+  if (!el) return false;
+  const r = el.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2;
+  for (let k = 0; k < ${times}; k++) {
+    const touch = new Touch({ identifier:${touchIds++} * 10 + k, target:el, clientX:x, clientY:y, radiusX:8, radiusY:8, force:0.6 });
+    el.dispatchEvent(new TouchEvent("touchstart", { touches:[touch], targetTouches:[touch], changedTouches:[touch], bubbles:true, cancelable:true }));
+    el.dispatchEvent(new TouchEvent("touchend", { touches:[], targetTouches:[], changedTouches:[touch], bubbles:true, cancelable:true }));
+  }
+  return true;
+})()`);
 async function tapElement(page, selector) {
   const box = await page.evaluate(`(() => { const el = document.querySelector(${JSON.stringify(selector)});
     if (!el) return null; el.scrollIntoView({ block:"center", inline:"center" });
@@ -190,15 +202,13 @@ async function padChecks(page, size) {
   /* the crowd: Cheer, at most twice a second */
   await go(page, "crowd");
   await clearSent(page);
-  await tapElement(page, ".flc-cheer");
-  await sleep(60);
-  await tapElement(page, ".flc-cheer");
+  await tapElementNow(page, ".flc-cheer", 2);
   await sleep(150);
   const cheers = (await sent(page)).filter(m => m.t === "cheer").length;
   check(cheers === 1, `${size}: two Cheers inside half a second send one (${cheers})`);
   await sleep(600);
   await tapElement(page, ".flc-cheer");
-  await sleep(80);
+  await sleep(200);
   check((await sent(page)).filter(m => m.t === "cheer").length === 2, `${size}: and another after half a second`);
   await shot(page, size, "crowd-cheer");
   /* the link drops: the pill */

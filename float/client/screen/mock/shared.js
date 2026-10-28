@@ -77,7 +77,7 @@ export const SHOTS = Object.freeze({
   slide:{ phase:"lastcall", round:0, beat:5.15 },
   grab:{ phase:"lastcall", round:0, beat:8.4 },
   grab3:{ phase:"lastcall", round:0, beat:23.2 },
-  drinks:{ phase:"lastcall", round:0, beat:27 },
+  drinks:{ phase:"lastcall", round:0, beat:28.6 },
   rock:{ phase:"song", round:1, beat:42.3 },
   spin:{ phase:"song", round:2, beat:34.6 },
   sign:{ phase:"song", round:"last", beat:13.5 },

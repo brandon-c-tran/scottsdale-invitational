@@ -7,11 +7,13 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { BEATS_PER_BAR, SONG_LEAD_MS, songForRound } from "../../../shared/chart.js";
 import { bannerAt, roundLabel, songName } from "../model/song.js";
 import { cutOuts, cutRankingOf, cutTimeline, pctText } from "../model/cut.js";
-import { drinkersOf } from "../model/lastcall.js";
+import { verdictAt } from "../model/lastcall.js";
 import * as floatSound from "../../sound/index.js";
 
 /* the cut's beats as the sound plays them (its drumroll's hit, a sting per rider out) */
 const soundCut = floatSound.CUT_BEATS || null;
+/* Last Call's verdict lands on the sound's who-drinks sting */
+const verdictBeat = floatSound.LAST_CALL_BEATS?.drinks;
 import { indexList } from "../model/cupShape.js";
 import { podiumSteps } from "../model/flotilla.js";
 import { propOf } from "../../art/groove/index.js";
@@ -85,7 +87,7 @@ export function LastCallBanner({ store, driver, entrants }) {
   const view = useDriven(driver, now => {
     const chart = st.chart;
     if (!chart || !Number.isFinite(st.songAt)) return null;
-    const drinkers = drinkersOf(st.lastCall);
+    const drinkers = verdictAt(st, now, { beat:verdictBeat });
     if (drinkers?.length) return `drink:${drinkers.join(",")}`;
     const beat = (now - st.songAt) / chart.beatMs;
     return beat < 4 ? "card" : null;

@@ -372,6 +372,20 @@ test("Last Call: the glass waits at the bartender, steps down the bar on each sl
   assert.ok(BARTENDER.x < COUNTER.from);
   assert.deepEqual(barPlayersOf({ field:[2, 5], out:[1, 7] }), [2, 5, 7, 1], "the field, then the riders out, the last out first");
   assert.equal(drinkersOf({ totals:[], worst:null }), null);
+  /* the verdict is seen as it is heard: at the later of the room naming who
+     drinks and the sound's who-drinks sting (LAST_CALL_BEATS.drinks) */
+  const { verdictAt, VERDICT_BEAT } = await import("../float/client/screen/model/lastcall.js");
+  const sound = await import("../float/client/sound/groove.js");
+  assert.equal(VERDICT_BEAT, sound.LAST_CALL_BEATS.drinks, "the screen's fallback is the sound's beat");
+  const songAt = 9_000_000, sting = songAt + sound.LAST_CALL_BEATS.drinks * 500;
+  const early = { chart, songAt, lastCall:{ totals:[], worst:[3] }, lastCallAt:songAt + 24.5 * 500 };
+  assert.equal(verdictAt(early, songAt + 25 * 500, { beat:sound.LAST_CALL_BEATS.drinks }), null, "the room named it at 24.5: held for the sting");
+  assert.equal(verdictAt(early, sting - 1, { beat:sound.LAST_CALL_BEATS.drinks }), null);
+  assert.deepEqual(verdictAt(early, sting, { beat:sound.LAST_CALL_BEATS.drinks }), [3], "on the sting");
+  const late = { chart, songAt, lastCall:{ totals:[], worst:[3, 5] }, lastCallAt:sting + 700 };
+  assert.equal(verdictAt(late, sting + 300), null, "a verdict that arrives after the sting waits for itself");
+  assert.deepEqual(verdictAt(late, sting + 700), [3, 5]);
+  assert.equal(verdictAt({ chart, songAt, lastCall:{ totals:[], worst:null }, lastCallAt:null }, sting + 5000), null, "nobody named, nothing shown");
   assert.deepEqual(drinkersOf({ totals:[], worst:[3] }), [3]);
   assert.equal(totalText(1234), "1.23");
 });
@@ -416,6 +430,20 @@ test("the store: the chart by id, beat 0, one judgement a cue (the first), live 
   store.onRoom({ t:"room", s:now, phase:"song", round:1, rounds:4, song:"rock", chartId:"rock", startAt:now, field:[0] });
   assert.equal(store.state.last.size, 0, "a new song starts clean");
   assert.equal(chartFor({ chartId:"spin" }).id, "spin");
+  /* Last Call: when the room first named who drinks */
+  now += 1000;
+  store.onRoom({ t:"room", s:now, phase:"lastcall", round:0, rounds:4, song:"lastcall", chartId:"lastcall", songAt:now + 3000, field:[0],
+    lastCall:{ totals:[{ i:0, ms:120, grabs:{} }], worst:null } });
+  assert.equal(store.state.lastCallAt, null);
+  now += 12_000;
+  store.onRoom({ t:"room", s:now, phase:"lastcall", round:0, rounds:4, song:"lastcall", chartId:"lastcall", songAt:now - 9000, field:[0],
+    lastCall:{ totals:[{ i:0, ms:120, grabs:{} }], worst:[0] } });
+  const namedAt = now;
+  assert.equal(store.state.lastCallAt, namedAt);
+  now += 500;
+  store.onRoom({ t:"room", s:now, phase:"lastcall", round:0, rounds:4, song:"lastcall", chartId:"lastcall", songAt:now - 9500, field:[0],
+    lastCall:{ totals:[{ i:0, ms:120, grabs:{} }], worst:[0] } });
+  assert.equal(store.state.lastCallAt, namedAt, "the first arrival stands");
 });
 
 /* ── the stand-in rooms ── */
@@ -547,8 +575,9 @@ test("rendered: Last Call's card, then who drinks; the cut before it points to L
     store:{ state:{ chart, songAt, lastCall } }, driver:fakeDriver(songAt + beat * BEAT_MS), entrants }));
   assert.match(at(-2), /Last Call/);
   assert.equal(at(10), "");
-  assert.match(at(27, { totals:[], worst:[1, 4] }), /Evan and Khoa drink/);
-  assert.match(at(27, { totals:[], worst:[2] }), /Eyob drinks/);
+  assert.equal(at(27, { totals:[], worst:[1, 4] }), "", "named by the room, not yet heard: nothing yet");
+  assert.match(at(28.2, { totals:[], worst:[1, 4] }), /Evan and Khoa drink/);
+  assert.match(at(28.2, { totals:[], worst:[2] }), /Eyob drinks/);
   const cutStart = 4_000_000;
   const room = { phase:"cut", round:0, rounds:4, drinking:true, startAt:cutStart, endsAt:cutStart + 12000, song:"paddle", field:range(9), out:[9, 10, 11, 12],
     cut:9, lastRound:false, results:range(13).map(i => ({ i, place:i + 1, pct:99 - i * 2.5, out:i >= 9 })),

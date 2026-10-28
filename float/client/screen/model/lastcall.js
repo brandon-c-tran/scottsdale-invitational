@@ -82,6 +82,24 @@ export function barLayout(players = []) {
 /* who drinks, as the room says once the last grab is in (null before) */
 export const drinkersOf = lastCall => (Array.isArray(lastCall?.worst) ? lastCall.worst : null);
 
+/* the beat the sound lands its who-drinks sting on (float/client/sound
+   LAST_CALL_BEATS.drinks, beats from the bar's songAt), when the sound
+   does not say */
+export const VERDICT_BEAT = 28;
+/* The verdict as the room shows it (the banner, the totals, the drinker's
+   chug, the bartender's cheer): who drinks, once the room has named them
+   AND the sound's sting has come, so it is seen as it is heard; null
+   before. state: { lastCall, lastCallAt (when `worst` arrived), songAt,
+   chart }. */
+export function verdictAt(state, now, { beat = VERDICT_BEAT } = {}) {
+  const drinkers = drinkersOf(state?.lastCall);
+  if (!drinkers || !Number.isFinite(now)) return null;
+  const beatMs = state?.chart?.beatMs || 500;
+  const sting = Number.isFinite(state?.songAt) ? state.songAt + (Number.isFinite(beat) ? beat : VERDICT_BEAT) * beatMs : -Infinity;
+  const arrived = Number.isFinite(state?.lastCallAt) ? state.lastCallAt : -Infinity;
+  return now >= Math.max(sting, arrived) ? drinkers : null;
+}
+
 /* a total as the TV letters it: seconds to two decimals ("1.24") */
 export const totalText = ms => (Number.isFinite(ms) ? (Math.round(ms / 10) / 100).toFixed(2) : "");
 

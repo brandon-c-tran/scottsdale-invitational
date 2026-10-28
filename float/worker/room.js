@@ -570,7 +570,8 @@ export class FloatRoom {
       const driven = cup.entrants.map((_, i) => this.driven(i, now) ? 1 : 0).join("");
       if (driven !== this.lastDriven) { this.lastDriven = driven; this.broadcastRoom(); }
     }
-    if (now - this.lastSave >= GROOVE.SAVE_MS) this.saveCup(true);
+    /* the judgements every 2 s, and the watchdog with them */
+    if (now - this.lastSave >= GROOVE.SAVE_MS) { this.saveCup(true); this.schedule(); }
     if (now - this.lastDebug >= DEBUG_MS) {
       this.lastDebug = now;
       this.broadcast({ t:"debug", rtt:{ ...this.rtt } }, "screen");

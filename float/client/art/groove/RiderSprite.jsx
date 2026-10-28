@@ -7,7 +7,7 @@
 
    <RiderSprite critter="capybara" color="#e53935" pose="idle" groom={false} size={256} /> */
 import React, { useEffect, useState } from "react";
-import { loadGrooveArt, grooveArtNow, onGrooveArt, riderSprites, riderSpritesNow, poseArt, propOf, normalColor, CROWN_SHARE } from "./index.js";
+import { loadGrooveArt, grooveArtNow, onGrooveArt, riderSprites, riderSpritesNow, poseArt, propOf, normalColor, spriteSize, CROWN_SHARE } from "./index.js";
 import "./groove.css";
 
 /* the manifest, once loaded (null until then; a failed load stays null) */
@@ -22,22 +22,23 @@ export function useGrooveArt() {
   return m;
 }
 
-/* the painted sprites of a look, once painted */
-export function useRiderSprites({ critter, color, groom }) {
+/* the painted sprites of a look, once painted (size: the painted bucket, spriteSize) */
+export function useRiderSprites({ critter, color, groom, size }) {
   const m = useGrooveArt();
-  const look = { critter, color:normalColor(color), groom:!!groom };
+  const look = { critter, color:normalColor(color), groom:!!groom, size };
   const [urls, setUrls] = useState(() => riderSpritesNow(look));
   useEffect(() => {
     let live = true;
     setUrls(riderSpritesNow(look));
     riderSprites(look).then(next => { if (live) setUrls(next); }, () => {});
     return () => { live = false; };
-  }, [m, look.critter, look.color, look.groom]);
+  }, [m, look.critter, look.color, look.groom, look.size]);
   return urls;
 }
+const dpr = () => (typeof window !== "undefined" && window.devicePixelRatio) || 1;
 
 export default function RiderSprite({ critter = "capybara", color, pose = "idle", groom = false, size = 256, className = "", style, ...rest }) {
-  const urls = useRiderSprites({ critter, color, groom });
+  const urls = useRiderSprites({ critter, color, groom, size:spriteSize(size, dpr()) });
   const box = { width:size, height:size, ...style };
   const cls = `fg-rider ${className}`.trim();
   const url = urls?.[pose] || urls?.idle;

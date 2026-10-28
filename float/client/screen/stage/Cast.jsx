@@ -13,6 +13,7 @@ import { ANCHOR, BOX, crowdLayout, fieldOrder, flotillaLayout, podiumLayout, pod
 import { propOf, spriteSize } from "../../art/groove/index.js";
 import { actionAt, bobAt, cheerAt, chugAt, follow, popupAt } from "../model/motion.js";
 import { chuggingAt } from "../model/song.js";
+import { reducedMotion } from "./driver.js";
 import { cutField, cutOuts, cutRankingOf, cutTimeline } from "../model/cut.js";
 import * as floatSound from "../../sound/index.js";
 
@@ -134,6 +135,7 @@ export default function Cast({ store, driver, entrants, phase, room, version }) 
   useEffect(() => {
     let layoutAt = -Infinity, water = {}, next = {}, bank = {}, podium = {}, slots = {};
     const st = store.state;
+    const still = reducedMotion();
     const anchorFor = i => refs.current.get(i)?.anchor || ANCHOR;
     const frame = (now, dt) => {
       const p = planRef.current;
@@ -156,10 +158,11 @@ export default function Cast({ store, driver, entrants, phase, room, version }) 
         bank = crowdLayout([...p.bank, ...p.hops.map(h => h.i)]);
         podium = podiumLayout(p.podium, podiumSteps(propOf("podium")));
         const shown = reformed ? next : water;
-        slots = inSong ? popupSlots(Object.entries(shown).map(([key, spot]) => {
+        const faceOf = ([key, spot]) => {
           const i = Number(key);
           return { i, x:spot.x, y:spot.y, scale:spot.scale, top:spot.y - headOver(anchorFor(i), spot.scale) };
-        })) : {};
+        };
+        slots = inSong ? popupSlots(Object.entries(shown).map(faceOf), { others:Object.entries(bank).map(faceOf) }) : {};
       }
       entrants.forEach((e, i) => {
         const r = refs.current.get(i);
@@ -170,7 +173,7 @@ export default function Cast({ store, driver, entrants, phase, room, version }) 
         const hop = p.hops.find(h => h.i === i);
         if (podium[i]) { spot = podium[i]; where = "podium"; }
         else if (hop && now >= hop.at) {
-          hopT = Math.min(1, (now - hop.at) / hop.ms);
+          hopT = still ? 1 : Math.min(1, (now - hop.at) / hop.ms);
           spot = bank[i]; from = water[i]; where = hopT < 1 ? "hop" : "bank";
         } else if (water[i]) {
           spot = reformed && next[i] ? next[i] : water[i];
@@ -198,7 +201,7 @@ export default function Cast({ store, driver, entrants, phase, room, version }) 
         }
         /* the intro: the flotilla floats in from upstream, front row first */
         let enter = 0;
-        if (phase === "intro") {
+        if (phase === "intro" && !still) {
           const k = p.water.indexOf(i);
           const t = (now - (st.phaseStart || now) - 300 - k * 110) / INTRO_MS;
           enter = -(1 - ease(t)) * 1600;
@@ -206,7 +209,7 @@ export default function Cast({ store, driver, entrants, phase, room, version }) 
         /* the lobby: a newcomer pops up out of the water */
         let pop = 1;
         const seen = firstSeen.current.get(i);
-        if (phase === "lobby" && Number.isFinite(seen)) {
+        if (phase === "lobby" && Number.isFinite(seen) && !still) {
           const t = (now - seen) / POP_IN_MS;
           pop = t >= 1 ? 1 : Math.max(0.01, t < 0.6 ? ease(t / 0.6) * 1.12 : 1.12 - 0.12 * ((t - 0.6) / 0.4));
         }
@@ -238,7 +241,8 @@ export default function Cast({ store, driver, entrants, phase, room, version }) 
             pose = going && now >= going.stamp ? "out" : "idle";
           }
         }
-        const bob = where === "hop" ? { dy:0, sx:1, sy:1 } : bobAt(beat, { amp:where === "bank" ? 0.6 : 1 });
+        const bob = where === "hop" || still ? { dy:0, sx:1, sy:1 } : bobAt(beat, { amp:where === "bank" ? 0.6 : 1 });
+        if (still && act) act = { ...act, dx:0, dy:0, rot:0, sx:1, sy:1 };
         const ax = anchor.water[0], ay = anchor.water[1];
         const sc = s * pop * (anchor.fill || 1);
         r.rider.style.transform = `translate3d(${(x + enter - ax * sc).toFixed(1)}px, ${(y - ay * sc).toFixed(1)}px, 0) scale(${sc.toFixed(4)})`;
@@ -291,7 +295,7 @@ export default function Cast({ store, driver, entrants, phase, room, version }) 
             const lift = Math.min(0, dy) * sc;
             m.px = follow(m.px, slot.x + enter, dt, 140);
             m.py = follow(m.py, slot.y, dt, 140);
-            popNode.style.transform = `translate3d(${m.px.toFixed(1)}px, ${(m.py + lift + showPop.dy).toFixed(1)}px, 0) scale(${slot.size.toFixed(3)})`;
+            popNode.style.transform = `translate3d(${m.px.toFixed(1)}px, ${(m.py + lift + (still ? 0 : showPop.dy)).toFixed(1)}px, 0) scale(${slot.size.toFixed(3)})`;
             popNode.style.opacity = showPop.opacity.toFixed(3);
             popNode.style.zIndex = String(z + 3000);
           } else if (popNode.style.opacity !== "0") popNode.style.opacity = "0";

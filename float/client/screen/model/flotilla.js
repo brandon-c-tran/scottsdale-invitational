@@ -298,9 +298,11 @@ const POPUP_TRIES = Object.freeze([[0, 0], [0, -0.55], [-0.34, -0.25], [0.34, -0
    least). riders: [{ i, x, top (the head's top), y (the waterline), scale }]
    (stage px; scale the row's). Returns { [i]: { x, y (the popup's
    bottom), size } }, front rows placed first. */
-export function popupSlots(riders = [], { box = POPUP_BOX, lift = 14, w = STAGE_W } = {}) {
+export function popupSlots(riders = [], { box = POPUP_BOX, lift = 14, w = STAGE_W, others = [] } = {}) {
   const list = riders.filter(r => r && Number.isFinite(r.x) && Number.isFinite(r.top));
-  const faces = list.map(r => {
+  /* `others`: faces with no popup of their own (the crowd on the bank), steered around too */
+  const crowd = others.filter(r => r && Number.isFinite(r.x) && Number.isFinite(r.top)).map(r => ({ ...r, i:`crowd:${r.i}` }));
+  const faces = [...list, ...crowd].map(r => {
     const half = riderWidth(r.scale) * 0.38;
     return { i:r.i, x0:r.x - half, x1:r.x + half, y0:r.top, y1:r.top + 0.72 * Math.max(0, (r.y ?? r.top + 100) - r.top) };
   });

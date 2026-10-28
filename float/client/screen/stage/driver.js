@@ -5,6 +5,13 @@
    (window.__floatFrames) and measures the frame rate for ?debug=1 and
    onStats. Paused (Field Day's scene over the screen): nothing runs. */
 
+/* reduced motion (Field Day's rule: end states): nothing bobs, drifts or
+   arcs; poses, popups and the glass's steps still change, since they are
+   the game */
+export function reducedMotion() {
+  try { return !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches; } catch { return false; }
+}
+
 export function createDriver({ serverNow, onFps = null } = {}) {
   const fns = new Set();
   let raf = 0;

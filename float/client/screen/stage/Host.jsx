@@ -8,6 +8,7 @@ import React, { useEffect, useRef } from "react";
 import { HostArt, HostFigure, SignProp, useHostArt } from "../art.jsx";
 import { bobAt } from "../model/motion.js";
 import { hostAt, signAt } from "../model/song.js";
+import { reducedMotion } from "./driver.js";
 
 /* the host's spot: feet on the sand at the water's edge, upper left
    (stage pixels), and its drawn height */
@@ -25,6 +26,7 @@ export default function Host({ store, driver, phase }) {
   const signArt = useRef({});
   useEffect(() => {
     const st = store.state;
+    const still = reducedMotion();
     let pose = "", text = null, signMode = null, popKey = null;
     const frame = now => {
       const chart = st.chart;
@@ -33,8 +35,8 @@ export default function Host({ store, driver, phase }) {
       const beat = inSong ? (now - songAt) / chart.beatMs : (now - (st.phaseStart || 0)) / 500;
       const h = hostAt(inSong ? chart : null, beat, { phase });
       if (root.current && h.pose !== pose) { root.current.dataset.pose = h.pose; pose = h.pose; }
-      const bob = bobAt(beat, { amp:h.pose === "call" ? 0.4 : 0.8 });
-      const lift = h.pose === "call" ? -10 * Math.max(0, 1 - (beat - (h.call?.beat ?? beat)) / 0.35) : 0;
+      const bob = still ? { dy:0, sx:1, sy:1 } : bobAt(beat, { amp:h.pose === "call" ? 0.4 : 0.8 });
+      const lift = h.pose === "call" && !still ? -10 * Math.max(0, 1 - (beat - (h.call?.beat ?? beat)) / 0.35) : 0;
       if (body.current) body.current.style.transform = `translate3d(0, ${(bob.dy + lift).toFixed(1)}px, 0) scale(${bob.sx.toFixed(4)}, ${bob.sy.toFixed(4)})`;
       /* the bubble: the call's word, popping on its beat */
       const callText = h.call?.word || null;

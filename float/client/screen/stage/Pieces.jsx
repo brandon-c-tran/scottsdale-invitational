@@ -10,6 +10,7 @@ import React, { useEffect, useMemo, useRef } from "react";
 import { propOf } from "../../art/groove/index.js";
 import { useGrooveArt } from "../../art/groove/RiderSprite.jsx";
 import { sceneMode } from "../model/song.js";
+import { reducedMotion } from "./driver.js";
 
 /* the pieces of each scene: a prop, where its anchor sits, its size; a
    drifting piece crosses the stage right to left at `drift` px a second
@@ -64,6 +65,7 @@ export default function Pieces({ scene, store, driver, phase }) {
   const nodes = useRef([]);
   useEffect(() => {
     const st = store.state;
+    const still = reducedMotion();
     return driver.add(now => {
       const chart = st.chart;
       const inSong = phase === "song" && chart && Number.isFinite(st.songAt);
@@ -75,10 +77,14 @@ export default function Pieces({ scene, store, driver, phase }) {
         const firstDrop = chart.modes.indexOf("drop");
         if (mode === "drop" || (firstDrop >= 0 && beat >= firstDrop * 4)) fallsIn = Math.min(1, Math.max(0, (beat - firstDrop * 4) / 4));
       }
+      /* reduced motion: the pieces hold where they were when the phase
+         began, nothing pulses, the falls are simply there */
+      const t = still ? (st.phaseStart || now) : now;
+      if (still) fallsIn = fallsIn > 0 ? 1 : 0;
       list.forEach((piece, k) => {
         const node = nodes.current[k];
         if (!node) return;
-        const at = pieceAt(piece, now, { beat, fallsIn });
+        const at = pieceAt(piece, t, { beat:still ? 0.5 : beat, fallsIn });
         node.style.transform = `translate3d(${(at.x - piece.ax).toFixed(1)}px, ${(at.y - piece.ay).toFixed(1)}px, 0) scale(${at.scale.toFixed(3)})`;
         const op = String(at.opacity);
         if (node.style.opacity !== op) node.style.opacity = op;

@@ -15,7 +15,8 @@ export function mockRider(k) {
   const hats = HAT_IDS.filter(id => id !== "crown");
   const look = cleanLook({
     ...defaultLook(name, FLOATIE_IDS),
-    critter:CRITTER_IDS[k % CRITTER_IDS.length],
+    /* the groom rides Winnie, the critter only he may pick */
+    critter:groom ? "winnie" : CRITTER_IDS[k % CRITTER_IDS.length],
     hat:groom ? "crown" : hats[(k * 5 + 1) % hats.length],
     shades:SHADE_IDS[(k * 3) % SHADE_IDS.length],
     pose:POSE_IDS[k % POSE_IDS.length],

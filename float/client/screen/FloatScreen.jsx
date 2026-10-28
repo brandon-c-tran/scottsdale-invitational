@@ -21,7 +21,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createScreenStore } from "./model/store.js";
 import { sceneFor, sceneMode } from "./model/song.js";
-import { createDriver } from "./stage/driver.js";
+import { createDriver, reducedMotion } from "./stage/driver.js";
 import Scene, { layerOffset } from "./stage/Scene.jsx";
 import Cast from "./stage/Cast.jsx";
 import Host from "./stage/Host.jsx";
@@ -146,7 +146,7 @@ export default function FloatScreen({ room = "test", hosting = false, joinUrl = 
     if (!stage) return undefined;
     const layers = [...stage.querySelectorAll(".sc-layer[data-depth]")].map(node => ({ node, depth:Number(node.dataset.depth) || 0 }));
     const checker = stage.querySelector(".sc-checker");
-    const speed = phase === "song" || phase === "intro" ? 1 : phase === "lobby" || phase === "cut" ? 0.45 : 0;
+    const speed = reducedMotion() ? 0 : phase === "song" || phase === "intro" ? 1 : phase === "lobby" || phase === "cut" ? 0.45 : 0;
     let travel = null, lastNow = null;
     return driver.add(now => {
       if (travel === null) travel = (now / 1000) * 64;

@@ -424,7 +424,9 @@ test("rendered: the round card and the song's shouts, the cut board with its lin
   const podium = html(React.createElement(PodiumBlocks, { store:{ state:{} }, driver:fakeDriver(5_000_000 + 5000), room:{ startAt:5_000_000, podium:[0, 4, 7] }, entrants }));
   assert.match(podium, /1st[\s\S]*Brandon/);
   assert.match(podium, /hd-confetti/);
-  assert.match(html(React.createElement(IntroTitle, { room:{ field:range(13), rounds:4 } })), /Float[\s\S]*13 riders/);
+  const intro = html(React.createElement(IntroTitle, { room:{ field:range(13), rounds:4 } }));
+  assert.match(intro, /Float/);
+  assert.doesNotMatch(intro, /·/, "no A · B line");
   assert.match(html(React.createElement(Feedback)), /Check your phone/);
   const lobby = html(React.createElement(Lobby, { room:{ code:"bcdf", mode:"party", drinking:true }, entrants, hosting:true, joinUrl:"https://x/float/play?room=bcdf", send:() => {} }));
   assert.match(lobby, /BCDF/);

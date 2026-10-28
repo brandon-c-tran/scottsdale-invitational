@@ -98,14 +98,11 @@ export function LastCallBanner({ store, driver, entrants }) {
 }
 
 /* ── the intro ── */
-export function IntroTitle({ room }) {
-  const n = indexList(room?.field).length || (room?.entrants || []).filter(Boolean).length;
+export function IntroTitle() {
   return <div className="hd-intro">
     <span className="hd-intro-word">Float</span>
-    {n > 0 && <span className="hd-intro-sub">{n} riders · {roundsText(room?.rounds)}</span>}
   </div>;
 }
-const roundsText = rounds => (rounds | 0) === 1 ? "1 song" : `${rounds | 0} songs`;
 
 /* ── the cut: the song's ranking, the line, the stamps; then the next song ── */
 export function CutBoard({ store, driver, room, entrants }) {

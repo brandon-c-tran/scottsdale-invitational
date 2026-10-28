@@ -259,20 +259,27 @@ export function paintSprite({ src, tube, shirt = null, color, w, h, boxW = w, an
   const k = w / boxW;
   const { photo, shades, hat } = layers || {};
   if (photo && anchor?.chest && chestR > 0) {
+    /* printed on the tee: the photo's middle square in a ringed circle, kept to the shirt (the arms cross it) */
     const [cx, cy] = anchor.chest, r = chestR * k;
-    g.save();
-    g.beginPath();
-    g.arc(cx * k, cy * k, r, 0, Math.PI * 2);
-    g.clip();
-    /* the photo's middle square, covering the circle */
+    const p = canvas(w, h);
+    const pg = p.getContext("2d");
+    pg.save();
+    pg.beginPath();
+    pg.arc(cx * k, cy * k, r, 0, Math.PI * 2);
+    pg.clip();
     const side = Math.min(photo.width, photo.height);
-    g.drawImage(photo, (photo.width - side) / 2, (photo.height - side) / 2, side, side, cx * k - r, cy * k - r, r * 2, r * 2);
-    g.restore();
-    g.beginPath();
-    g.arc(cx * k, cy * k, r, 0, Math.PI * 2);
-    g.lineWidth = Math.max(1, r * 0.08);
-    g.strokeStyle = "#1d1b22";
-    g.stroke();
+    pg.drawImage(photo, (photo.width - side) / 2, (photo.height - side) / 2, side, side, cx * k - r, cy * k - r, r * 2, r * 2);
+    pg.restore();
+    pg.beginPath();
+    pg.arc(cx * k, cy * k, r, 0, Math.PI * 2);
+    pg.lineWidth = Math.max(1, r * 0.1);
+    pg.strokeStyle = "#1d1b22";
+    pg.stroke();
+    if (shirt) {
+      pg.globalCompositeOperation = "destination-in";
+      pg.drawImage(shirt, 0, 0, w, h);
+    }
+    g.drawImage(p, 0, 0);
   }
   if (shades?.img && anchor?.eyes) {
     const sc = Math.max(measure.eyeSpan, measure.headW * 0.42) / shades.span;

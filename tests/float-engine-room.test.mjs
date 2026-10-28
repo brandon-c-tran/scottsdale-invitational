@@ -133,6 +133,11 @@ test("hello: welcome first, then the room; the chart rides in full once a song i
   say(room, screen, { t:"host", cmd:"start", bots:3, drinking:true });
   const intro = screen.last("room");
   assert.equal(intro.phase, "intro");
+  /* a bot's device id is public: a phone that says it takes nothing */
+  const botDevice = room.cup.entrants.find(entrant => entrant.bot).device;
+  const hijack = connect(room, { device:botDevice, rider:rider("Hijack") });
+  assert.equal(hijack.sent[0].you.entrant, undefined);
+  assert.equal(room.cup.entrants.find(entrant => entrant.device === botDevice).bot, true);
   assert.equal(intro.song, "paddle");
   assert.deepEqual(intro.chart, JSON.parse(JSON.stringify(chartOf("paddle"))));
   assert.equal(intro.songAt, null);

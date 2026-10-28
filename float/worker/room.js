@@ -248,6 +248,8 @@ export class FloatRoom {
     const pid = rider?.pid ? cleanPid(rider.pid) : null;
     let i = pid ? cup.entrants.findIndex(entrant => entrant.pid === pid) : -1;
     if (i < 0) i = this.entrantIndex(meta.device);
+    /* a bot's device id is public (room.entrants): a phone never takes a bot */
+    if (i >= 0 && cup.entrants[i].bot) return -1;
     if (i >= 0) {
       const entrant = cup.entrants[i];
       entrant.device = meta.device;

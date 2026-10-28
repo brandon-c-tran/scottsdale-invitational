@@ -107,7 +107,7 @@ export function Critter({ entrant, pose = "idle", size = 200, className = "" }) 
 export function Host({ pose = "idle", size = 72 }) {
   const manifest = useGrooveArt();
   const host = manifest ? hostSprites() : null;
-  const src = host?.poses?.[pose]?.src || host?.poses?.idle?.src || null;
+  const src = host?.poses?.[pose] || host?.poses?.idle || null;
   return <span className="flc-host" style={{ "--size":`${size}px` }}>
     {src ? <img src={src} alt="" width={size} height={size} draggable="false" /> : <StandInHost pose={pose} size={size} />}
   </span>;

@@ -17,6 +17,7 @@
      starts it over, a reconnect keeps it.
    - Practice taps go too: the room calibrates on them. */
 import { matchTap, popupOf, qualityOf } from "../../shared/chart.js";
+import { drinkGate, songView } from "./controllerModel.js";
 
 /* a touch event's own time on the performance clock, or now */
 export const EVENT_SLACK_MS = 1000;
@@ -59,6 +60,17 @@ export function createPad() {
     },
   };
   return api;
+}
+
+/* A tap on the pad at server time t, as the controller calls it in the
+   touch handler: closed while Done is owed (nothing happens at all), else
+   the cue it matched (taken at once) with the hit to send and the popup,
+   or found null (a tap with no cue near: the sound and the tick only).
+   { open, found, gate } */
+export function padTap(pad, t, { chart, songAt, offset = 0, owes = false, done = false } = {}) {
+  const gate = drinkGate({ view:songView(chart, songAt, t), chart, owes, done });
+  if (!gate.pad) return { open:false, found:null, gate };
+  return { open:true, found:pad.tap(t, { chart, songAt, offset }), gate };
 }
 
 /* the popup the phone shows: its own call at once; the room's word on the

@@ -156,7 +156,7 @@ export function useShown(item, ms = PHONE_POPUP_MS) {
 function HostBubble({ calls }) {
   const live = calls.length > 0;
   return <div className={`flc-call${live ? " is-on" : ""}`} aria-hidden={!live}>
-    <Host pose={live && calls.some(call => !call.answered) ? "call" : "idle"} size={64} />
+    <Host pose={live && calls.some(call => !call.answered) ? "call" : "idle"} size={88} />
     {live && <div className="flc-bubble" role="status">
       {calls.map(call => <b key={call.key} className={`flc-word is-${call.kind}${call.answered ? " is-answered" : ""}`}>{call.word}</b>)}
     </div>}

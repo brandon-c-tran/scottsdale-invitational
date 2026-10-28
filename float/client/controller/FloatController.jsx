@@ -32,7 +32,7 @@ import SongScreen from "./SongScreen.jsx";
 import Screens from "./Screens.jsx";
 import { useRoom } from "./useRoom.js";
 import { drinkGate, drinksOn, offsetOf, roundShape, roundSong, screenOf, songAtOf, songView, wakeFor } from "./controllerModel.js";
-import { createGate, createPad, restamp, serverStamp, stampOf } from "./rhythm.js";
+import { createGate, createPad, padTap, restamp, serverStamp, stampOf } from "./rhythm.js";
 import { cheerSound, doneSound, tapSound, unlockSound, useControllerSound } from "./sound.js";
 import { usePreloadArt } from "./art.jsx";
 import "./controller.css";
@@ -214,10 +214,9 @@ export default function FloatController({ room = "test", rider = null, onExit = 
     if (wakeFor(gameRef.current.room?.phase)) wake.current?.start();
     const perf = perfNow();
     const t = serverStamp(stampOf({ timeStamp:eventAt }, perf), { perfNow:perf, serverNow:net.serverNow() });
-    const gate = drinkGate({ view:songView(s.chart, s.songAt, t), chart:s.chart, owes:s.owes, done:s.done });
-    if (globalThis.__floatMock) globalThis.__floatLastTap = { t, songAt:s.songAt, offset:s.offset, pad:gate.pad, key:pad.key(), eventAt, perf };
-    if (!gate.pad) return;
-    const found = pad.tap(t, { chart:s.chart, songAt:s.songAt, offset:s.offset });
+    const { open, found } = padTap(pad, t, { chart:s.chart, songAt:s.songAt, offset:s.offset, owes:s.owes, done:s.done });
+    if (globalThis.__floatMock) globalThis.__floatLastTap = { t, songAt:s.songAt, offset:s.offset, open, c:found?.c ?? null, eventAt, perf };
+    if (!open) return;
     if (found) {
       net.send(found.hit);
       show({ c:found.c, q:found.q, d:found.d });

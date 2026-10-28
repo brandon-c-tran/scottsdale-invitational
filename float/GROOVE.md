@@ -617,6 +617,31 @@ spot.
 - The first chug-off of a Cup says what it is in its call: "Last one in
   against first one out. First to finish keeps the spot."
 
+## Who's ahead (Oct 28)
+
+Brandon: "the changing positions isn't super clear as the order of how good
+people are doing; we should have a better way to see who's doing better
+than others". The flotilla's small drift by score stays (it is the river),
+but the ranking is read from two things built for it:
+
+- **The rank strip** (TV, from the first play bar to the song's end): a row
+  across the top under the progress bar, every rider in the field as a
+  small portrait chip in rank order (live percent, the room's own order:
+  `room.results` in a song, moved between frames by `ev hit` with the same
+  tie order), the name and the percent under each; the leader's chip lit
+  gold with "1st"; a red cut line between the last place that goes through
+  and the first that doesn't (`cut`; none in the final, where the podium's
+  three are marked instead). Chips slide when places change, at most once a
+  beat, so a flurry of hits doesn't shuffle it unreadably. In practice the
+  strip is hidden (nobody scores) and the narration box has the top; the
+  breakdown's "Copy me" box sits below the strip.
+- **Sinking** (TV): a rider currently below the cut line rides lower in the
+  water, tube a little deflated, face worried (idle swaps to a worried
+  look, or the critter sits a third lower with a nervous bob); back above
+  the line, they pop back up. The final has no cut, so nobody sinks.
+- **The phone**: your place and the field ("4th of 13") and "Safe" or
+  "Below the cut" during play, in the corner, never covering the popup.
+
 ## Wednesday night target (in cut order: the last line goes first)
 
 1. Song 1 complete: chart, music with clear calls, TV scene, phone, popups,

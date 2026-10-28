@@ -173,16 +173,22 @@ function LastCall() {
   );
 }
 
+/* where a review page stands each accent (the screen places its own): x and y as shares of the scene, y on the water band */
+const ACCENT_AT = { "accent-open":[0.86, 0.6], "accent-rocks":[0.88, 0.56], "accent-whirl":[0.62, 0.7], "accent-falls":[0.84, 0.44] };
+
 function Scene({ id, children, width = 960 }) {
   const s = sceneOf(id);
   if (!s) return null;
   const k = width / s.w;
+  const accent = s.accent ? propOf(s.accent) : null;
+  const at = accent ? ACCENT_AT[accent.id] || [0.8, 0.6] : null;
   return (
     <div className="fa2-scene" style={{ width, height:s.h * k }}>
       {s.layers.map((layer, i) => (
         <div key={i} className={`fa2-layer ${layer.loop && layer.depth > 0 ? "fa2-scroll" : ""}`}
           style={{ backgroundImage:`url("${layer.src}")`, backgroundSize:`${width}px ${s.h * k}px`, "--dur":`${Math.round(40 / Math.max(0.05, layer.depth))}s` }} />
       ))}
+      {accent ? <img src={accent.src} alt="" title={accent.id} style={{ position:"absolute", width:accent.w * k, left:(at[0] * s.w - accent.anchor[0]) * k, top:(at[1] * s.h - accent.anchor[1]) * k }} /> : null}
       {children}
     </div>
   );

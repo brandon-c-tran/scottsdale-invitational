@@ -3218,6 +3218,7 @@
    "w": 1920,
    "h": 1080,
    "water": 0.4,
+   "accent": "accent-open",
    "layers": [
     {
      "src": "scenes/open/sky.webp",
@@ -3240,6 +3241,7 @@
    "w": 1920,
    "h": 1080,
    "water": 0.4,
+   "accent": "accent-rocks",
    "layers": [
     {
      "src": "scenes/rocks/sky.webp",
@@ -3262,6 +3264,7 @@
    "w": 1920,
    "h": 1080,
    "water": 0.4,
+   "accent": "accent-whirl",
    "layers": [
     {
      "src": "scenes/whirlpool/sky.webp",
@@ -3284,6 +3287,7 @@
    "w": 1920,
    "h": 1080,
    "water": 0.4,
+   "accent": "accent-falls",
    "layers": [
     {
      "src": "scenes/falls/sky.webp",
@@ -3494,6 +3498,46 @@
      139
     ]
    ]
+  },
+  "accent-open": {
+   "src": "props/accent-open.webp",
+   "w": 380,
+   "h": 319,
+   "anchor": [
+    190,
+    281
+   ],
+   "tint": false
+  },
+  "accent-rocks": {
+   "src": "props/accent-rocks.webp",
+   "w": 300,
+   "h": 291,
+   "anchor": [
+    150,
+    256
+   ],
+   "tint": false
+  },
+  "accent-whirl": {
+   "src": "props/accent-whirl.webp",
+   "w": 480,
+   "h": 283,
+   "anchor": [
+    240,
+    142
+   ],
+   "tint": false
+  },
+  "accent-falls": {
+   "src": "props/accent-falls.webp",
+   "w": 520,
+   "h": 334,
+   "anchor": [
+    260,
+    333
+   ],
+   "tint": false
   },
   "drink": {
    "src": "props/drink.webp",

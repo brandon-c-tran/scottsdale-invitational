@@ -139,7 +139,8 @@ export async function runCup({ seed = SEED, bots = BOTS, phones = PHONES, fieldd
   const mem = memoryCtx();
   const clock = { t:Date.UTC(2026, 9, 31, 4, 0, 0) + seed * 7919, now:() => clock.t };
   const fd = tournament();
-  const room = new FloatRoom(mem.ctx, fd.env, { clock, timers:false });
+  let serial = 0;
+  const room = new FloatRoom(mem.ctx, fd.env, { clock, timers:false, ids:prefix => `${prefix}sim${seed}x${(serial += 1)}` });
   await room.ready;
   const log = quiet ? () => {} : (...line) => console.log(...line);
   const t0 = clock.t;

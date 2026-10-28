@@ -413,6 +413,29 @@ test("the drink rule: Done before the break is nothing; Done in it tells everyon
   assert.ok(dry.all("room").every(message => answers(message).length === 1 && answers(message)[0].drinks === false), "its own phone only");
   assert.ok(yes.all("room").every(message => answers(message).every(entrant => entrant.device === "yes")));
   assert.equal(tv.last("room").scores.find(row => row.i === D).done, true);
+  /* its own phone owes no Done from the start; the screens saw it done only when a bot would be */
+  const dryMe = dry.all("me").filter(message => message.round === 0 && "pts" in message);
+  assert.ok(dryMe.length > 10 && dryMe.every(message => message.done === true));
+  assert.ok(yes.all("me").some(message => message.round === 0 && message.done === false), "a drinker owes it");
+  const dryDone = dones.find(event => event.i === D).s - cueTime(room.cup.songAt, 56);
+  assert.ok(dryDone >= GROOVE.DONE_FROM_MS && dryDone <= GROOVE.DONE_FROM_MS + GROOVE.DONE_SPAN_MS + 100, `${dryDone} ms into the break`);
+});
+
+test("options.ids makes a Cup repeatable: the same ids and clock, the same bots and the same taps", async () => {
+  const cupWith = async () => {
+    let n = 0;
+    const clock = fakeClock();
+    const room = new FloatRoom(memory().ctx, {}, { clock, timers:false, ids:prefix => `${prefix}fixed${(n += 1)}` });
+    await room.ready;
+    const tv = connect(room, { role:"screen", device:"tv" });
+    say(room, tv, { t:"host", cmd:"start", bots:6 });
+    await run(room, clock, 40000, () => room.cup.phase === "song" && clock.t > room.cup.songAt + 20000);
+    return { room, tv };
+  };
+  const a = await cupWith(), b = await cupWith();
+  assert.equal(a.room.cup.id, b.room.cup.id);
+  assert.deepEqual(a.room.cup.entrants, b.room.cup.entrants);
+  assert.deepEqual(a.tv.events("hit"), b.tv.events("hit"));
 });
 
 /* ---- Field Day ---- */

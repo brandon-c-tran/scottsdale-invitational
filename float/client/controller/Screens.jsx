@@ -106,10 +106,10 @@ function Cut({ game, entrant, serverNow, onExit }) {
   const show = cutShow({ room, me:game.me, idx, chart, judged, now, beats:cutBeats() || CUT_SHOW });
   useAt(serverNow, show.at);
   const place = view.final ? view.cupPlace ?? view.place : view.place;
-  const stamp = view.final ? ordinal(place) || "In" : view.out ? "Out" : "Through";
-  const tone = view.final ? (place && place <= 3 ? `p${place}` : "final") : view.out ? "out" : "through";
+  const stamp = view.final ? ordinal(place) || "In" : view.out ? "Out" : view.bubble ? "Chug-off!" : "Through";
+  const tone = view.final ? (place && place <= 3 ? `p${place}` : "final") : view.out ? "out" : view.bubble ? "bubble" : "through";
   const told = show.told || !show.word;
-  const pose = !told ? GRADE_POSE[show.grade] || "idle" : view.final ? (place && place <= 3 ? "cheer" : "idle") : view.out ? "out" : "nice";
+  const pose = !told ? GRADE_POSE[show.grade] || "idle" : view.final ? (place && place <= 3 ? "cheer" : "idle") : view.out ? "out" : view.bubble ? "chug" : "nice";
   const of = view.final ? (room?.entrants?.length || view.of) : view.of;
   return <section className={`flc-screen flc-cut is-${tone}${told ? " is-told" : ""}`} data-scene={chart?.scene || "open"}>
     <Scenery scene={chart?.scene || "open"} />

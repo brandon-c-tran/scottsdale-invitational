@@ -68,7 +68,7 @@ export default function LastCall({ serverNow, room, idx, chart, songAt, entrant,
     </div>}
     {(view.moment === "reveal" || view.moment === "verdict") && <div className="flc-verdict" role="status">
       {told && <b className="flc-stamp" key={view.drinks ? "drink" : "safe"}>{view.drinks ? "You drink" : "Safe"}</b>}
-      {view.offset && <span className={`flc-lc-offset${told ? " is-small" : ""}`}><Popup q={view.offset.q} d={view.offset.d} /></span>}
+      {view.offset && <span className={`flc-lc-offset${told ? " is-small" : ""}`}><Popup q={view.offset.q} d={view.offset.d} size={told ? 60 : 96} /></span>}
     </div>}
     <Bartender pose={told ? "cheer" : "idle"} />
     <div className="flc-stage is-bar"><div className="flc-idle-me"><Critter entrant={entrant} pose={pose} size={280} /></div></div>

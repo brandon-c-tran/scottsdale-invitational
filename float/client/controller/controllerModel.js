@@ -5,11 +5,11 @@
    The Cup: lobby -> intro -> [song -> cut] x rounds -> podium -> feedback.
    In a song the phone is the pad; its moments come from the clock and the
    chart (chart.js clockAt): the round card in the 3 s lead, the intro,
-   practice, play, the drink break, play again, the outro, then the wait
-   for the cut. Where the room's frame leaves something out, the frozen
+   practice, play, the breakdown (copy the host a bar later), play again,
+   the outro, then the wait for the cut. Where the room's frame leaves something out, the frozen
    chart module fills it in: no `chart` is chartOf(song), no `songAt` is
    startAt + SONG_LEAD_MS. */
-import { LAST_CALL_ID, SONGS, SONG_LEAD_MS, callsBetween, chartOf, clockAt, drinkSection, feedbackOf, gradeOf, gradeWord, lineAt,
+import { CHUGOFF, LAST_CALL_ID, SONGS, SONG_LEAD_MS, callsBetween, breakdownSection, chartOf, clockAt, feedbackOf, gradeOf, gradeWord, lineAt,
   songForRound } from "../../shared/chart.js";
 
 const num = value => value === null || value === undefined || value === "" ? null : Number.isFinite(Number(value)) ? Number(value) : null;
@@ -64,17 +64,17 @@ export const songName = id => String(id || "").startsWith(LAST_CALL_ID) ? "Last 
 export const offsetOf = room => num(room?.offset) ?? 0;
 
 /* Where the song is at server time `now`:
-   moment  "card" (the 3 s lead), "intro", "practice", "play", "drink",
+   moment  "card" (the 3 s lead), "intro", "practice", "play", "breakdown",
            "outro", "after" (the last beat is past; the cut is coming)
-   half    "A" or "B" for play (B after the drink break)
+   half    "A" or "B" for play (B after the breakdown)
    beat, bar, inBar  as clockAt */
 export function songView(chart, songAt, now) {
   if (!chart || !Number.isFinite(songAt) || !Number.isFinite(now)) return { moment:"card", half:null, beat:null, bar:null, inBar:null, lead:null };
   if (now < songAt) return { moment:"card", half:null, beat:(now - songAt) / chart.beatMs, bar:null, inBar:null, lead:songAt - now };
   const clock = clockAt(chart, songAt, now);
   if (clock.over || !clock.section) return { moment:"after", half:null, beat:clock.beat, bar:clock.bar, inBar:clock.inBar, lead:0 };
-  const drink = drinkSection(chart);
-  const half = clock.section === "play" ? (drink && clock.beat >= drink.to ? "B" : "A") : null;
+  const breakdown = breakdownSection(chart);
+  const half = clock.section === "play" ? (breakdown && clock.beat >= breakdown.to ? "B" : "A") : null;
   return { moment:clock.section, half, beat:clock.beat, bar:clock.bar, inBar:clock.inBar, lead:0 };
 }
 
@@ -131,15 +131,73 @@ export function cutShow({ room, me = null, idx, chart, judged = {}, now, beats =
   const judgedHere = chart ? feedbackOf(chart, judged) : null;
   const grade = own?.grade || result?.grade || (Number.isFinite(num(me?.pct)) ? gradeOf(num(me.pct)) : judgedHere?.grade) || null;
   const line = typeof own?.line === "string" ? own.line : judgedHere?.line || "";
-  const round = num(room?.round) ?? 0;
-  const last = list(room?.history).at(-1);
-  /* this round's outs in the order they are revealed: the bottom first */
-  const outs = last && num(last.round) === round ? indexes(last.out).slice().reverse() : [];
-  const k = outs.indexOf(idx);
-  const start = num(room?.startAt);
   const reveal = Number.isFinite(beats?.reveal) ? beats.reveal : CUT_SHOW.reveal, gap = Number.isFinite(beats?.gap) ? beats.gap : CUT_SHOW.gap;
-  const at = start === null ? null : start + reveal + (k >= 0 ? k : outs.length) * gap;
+  /* the room's show: each rider out on their own beat (server ms), Through after the last */
+  const show = room?.show && typeof room.show === "object" && Array.isArray(room.show.outs) ? room.show : null;
+  let at = null;
+  if (show) {
+    const outs = show.outs.map(o => ({ i:indexOf(o), at:num(o?.at) })).filter(o => o.i !== null && o.at !== null);
+    const mine = outs.find(o => o.i === idx);
+    at = mine ? mine.at : outs.length ? Math.max(...outs.map(o => o.at)) + gap : num(show.line) ?? num(show.grades);
+  } else {
+    const round = num(room?.round) ?? 0;
+    const last = list(room?.history).at(-1);
+    /* this round's outs in the order they are revealed: the bottom first */
+    const outs = last && num(last.round) === round ? indexes(last.out).slice().reverse() : [];
+    const k = outs.indexOf(idx);
+    const start = num(room?.startAt);
+    at = start === null ? null : start + reveal + (k >= 0 ? k : outs.length) * gap;
+  }
   return { grade, word:grade ? gradeWord(grade) : "", line, at, told:at === null || (Number.isFinite(now) && now >= at) };
+}
+
+/* ---- who's ahead (GROOVE.md "Who's ahead") ----
+
+   Your place in the song so far and the field ("4th of 13"), and "Safe"
+   or "Below the cut", from the room's `me` (place, of, cut), in play only:
+   nothing in the card, the intro or practice (nobody scores), and the
+   final has no cut, so its place stands alone. null when there is nothing
+   to show. { place, of, text, status, safe } */
+export const RANK_MOMENTS = Object.freeze(["play", "breakdown", "outro", "after"]);
+export function rankView({ me = null, view = null, shape = null } = {}) {
+  if (!RANK_MOMENTS.includes(view?.moment)) return null;
+  const place = num(me?.place);
+  if (place === null || place < 1) return null;
+  const of = num(me?.of);
+  const final = me?.lastRound === true || !!shape?.final;
+  const cut = final ? null : num(me?.cut);
+  const text = final || of === null ? ordinal(place) : `${ordinal(place)} of ${of}`;
+  /* everyone goes through: no line to be below */
+  const line = cut !== null && (of === null || cut < of);
+  const safe = line ? place <= cut : null;
+  return { place, of, text, status:line ? (safe ? "Safe" : "Below the cut") : null, safe };
+}
+
+/* ---- the chug-off (GROOVE.md "The chug-off") ----
+
+   The last rider through against the first rider out, after a song: the
+   first to finish a drink keeps the spot. room.chugoff { a, b, goAt,
+   doneAt:{ [i]: ms after goAt }, winner, by }. moment "intro" (the call,
+   the names, 3 2 1, until goAt), "go" (Done is live for the two), "told"
+   (the winner is in). sent: a Done this phone sent in this chug-off.
+   { moment, a, b, names, contender, first, done, winner, kept, goAt } */
+export const CHUGOFF_LINE = "Last one in against first one out. First to finish keeps the spot.";
+export function chugoffView({ room, idx, now, sent = false }) {
+  const c = room?.chugoff && typeof room.chugoff === "object" ? room.chugoff : {};
+  const a = indexOf(c.a), b = indexOf(c.b);
+  const entrants = list(room?.entrants);
+  const nameOf = i => (i === null ? "" : entrants[i]?.name || "");
+  const start = num(room?.startAt);
+  const goAt = num(c.goAt) ?? (start === null ? null : start + CHUGOFF.INTRO_MS);
+  const winner = indexOf(c.winner);
+  const contender = idx >= 0 && (idx === a || idx === b);
+  const doneAt = c.doneAt && typeof c.doneAt === "object" ? c.doneAt : {};
+  const done = contender && (sent || num(doneAt[idx]) !== null);
+  const moment = winner !== null ? "told" : goAt === null || !Number.isFinite(now) || now < goAt ? "intro" : "go";
+  /* the Cup's first chug-off says what it is: the room's word, else the first round's */
+  const first = typeof c.first === "boolean" ? c.first : (num(room?.round) ?? 0) === 0;
+  return { moment, a, b, names:[nameOf(a), nameOf(b)], contender, first, done, winner,
+    kept:winner === null || !contender ? null : winner === idx, goAt, by:c.by || null };
 }
 
 /* the song a round plays, by name: the room's, else the frozen order */
@@ -154,7 +212,7 @@ export function roundSong(room) {
    the answered ones marked, until the last is answered. A drop's call is a
    countdown: 3, 2, 1 on its three beats. A paddle has no call (the pulse
    is the call). [{ key, word, at, kind, c, answered }] */
-export const CALL_WORDS = Object.freeze({ hey:"Ready", hop:"Ba", spin:"Spin" });
+export const CALL_WORDS = Object.freeze({ hey:"Ready", hop:"Ba", spin:"Spin", echo:"♪" });
 export const ANSWER_HOLD = 0.25;
 const PHRASE = 1.5;
 export function pendingCalls(chart, beat) {
@@ -174,31 +232,11 @@ export function pendingCalls(chart, beat) {
   return words.sort((a, b) => a.at - b.at);
 }
 
-/* does this rider owe a drink (the room's switch and the rider's answer) */
+/* does this rider drink (the room's switch and the rider's answer) */
 export function drinksOn(room, idx) {
   if (room?.drinking === false) return false;
   const entrant = list(room?.entrants)[idx];
   return entrant?.drinks !== false;
-}
-
-/* The drink break on this phone (GROOVE.md "The drink break"): from the
-   break's first beat a drinker owes Done until they tap it, and while it is
-   owed the pad takes no taps, through the break and after it (the room
-   counts their cues as misses until Done). A Done tapped, or one the room
-   confirms, opens the pad again: it waits for the beat.
-   owes: drinksOn; done: the room's word (me.done, ev done) or a Done this
-   phone sent in this song. Returns
-     owed    Done is up (big, the only thing on the screen)
-     resting the break with nothing owed: "Done" for a drinker who tapped
-             it, "Break" for one who doesn't drink
-     pad     the pad takes taps */
-export function drinkGate({ view, chart, owes, done }) {
-  const drink = drinkSection(chart);
-  const beat = view?.beat;
-  const reached = !!drink && Number.isFinite(beat) && beat >= drink.from && view?.moment !== "card";
-  const owed = !!owes && reached && !done;
-  const inBreak = view?.moment === "drink";
-  return { owed, inBreak, resting:inBreak && !owed, drank:!!owes && !!done, pad:!owed };
 }
 
 /* ---- who this phone is in the Cup ---- */
@@ -233,7 +271,8 @@ export function screenOf({ room, idx, memory = {} }) {
       if (!member) return "watch";
       if (inSong(room, idx, memory)) return "cut";
       return out ? "crowd" : "watch";
-    /* Last Call: everyone in the Cup at the bar, the riders out too */
+    /* the chug-off and Last Call: everyone in the Cup, the riders out too */
+    case "chugoff": return member ? "chugoff" : "watch";
     case "lastcall": return member ? "lastcall" : "watch";
     case "podium": return member ? "podium" : "watch";
     case "feedback": return member ? "feedback" : "watch";
@@ -242,10 +281,10 @@ export function screenOf({ room, idx, memory = {} }) {
 }
 
 /* Screen Wake Lock (src/lib/wakeLock.js) from joining to the podium: the
-   drink break and the cut are 30 s and more without a touch, past iPhone's
-   auto-lock. The feedback card is typed on, and needs none. A phone still
+   cut, the chug-off and Last Call are 15 s and more without a touch, and a
+   Cup is long enough for iPhone's auto-lock. The feedback card is typed on, and needs none. A phone still
    joining (no phase yet) is awake. */
-export const WAKE_PHASES = Object.freeze(["lobby", "intro", "song", "cut", "lastcall", "podium"]);
+export const WAKE_PHASES = Object.freeze(["lobby", "intro", "song", "cut", "chugoff", "lastcall", "podium"]);
 export const wakeFor = phase => !phase || WAKE_PHASES.includes(phase);
 
 /* how many play this round, how many go through, whether it is the final */
@@ -285,9 +324,9 @@ export function finalPlace(room, idx) {
 }
 
 /* The cut on this phone: the song's percent and place (the room's `me`,
-   else the field's scores), and the verdict: Through, Out, or after the
-   final the Cup's place.
-   { pct, place, of, through, out, final, cupPlace } */
+   else the field's scores), and the verdict: Through, Out, on the bubble
+   (the chug-off decides), or after the final the Cup's place.
+   { pct, place, of, through, out, bubble, final, cupPlace } */
 export function cutView({ room, me = null, idx }) {
   const order = placeOrder(room?.scores);
   const at = order.findIndex(s => s.i === idx);
@@ -298,7 +337,11 @@ export function cutView({ room, me = null, idx }) {
   /* the room's `me` says through or out in the cut; else its out list */
   const out = me?.out === true ? true : me?.through === true ? false : indexes(room?.out).includes(idx);
   const final = room?.lastRound === true || cupDone(room);
-  return { pct, place, of, through:!out && !final, out:out && !final, final, cupPlace:final ? finalPlace(room, idx) : null };
+  /* on the bubble: the chug-off decides (the room's me.bubble, its show's pair, or the result row's mark) */
+  const row = list(room?.results).find(item => indexOf(item) === idx);
+  const bubble = !final && !out && me?.through !== true
+    && (me?.bubble === true || row?.bubble === true || indexes(room?.show?.bubble).includes(idx));
+  return { pct, place, of, through:!out && !final && !bubble, out:out && !final, bubble, final, cupPlace:final ? finalPlace(room, idx) : null };
 }
 
 /* a percent as the phone letters it: whole, or one decimal under 100 when it has one */

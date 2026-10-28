@@ -1,24 +1,25 @@
 /* Everyone on stage, every phase (float/GROOVE.md "The screen (TV)"): the
    flotilla in its rows on the water, x drifting by score; each rider's move
-   when their judged hit lands and the popup over them for POPUP_MS; the bob
-   on the beat; the drink break's chug; the crowd on the far bank cheering;
-   the cut's hops to the bank; the podium's three. One node per entrant,
-   rendered when the room changes; the frame driver writes every transform
-   (stage pixels, transform and opacity only). */
+   when their judged hit lands and the popup over them for POPUP_MS, in a
+   slot no other popup takes; the bob on the beat; the drink break's chug;
+   the crowd on the far bank cheering; the cut's hops to the bank; the
+   podium's three. One node per entrant (its name inside it, so a critter in
+   front covers it like the rest of the rider), rendered when the room
+   changes; the frame driver writes every transform (stage pixels,
+   transform and opacity only). */
 import React, { memo, useEffect, useMemo, useRef, useState } from "react";
 import { Critter, PopupLetters, SplashProp, anchorOf, useRiderArt } from "../art.jsx";
-import { ANCHOR, BOX, crowdLayout, fieldOrder, flotillaLayout, podiumLayout, popupSpot } from "../model/flotilla.js";
+import { ANCHOR, BOX, crowdLayout, fieldOrder, flotillaLayout, podiumLayout, popupSlots } from "../model/flotilla.js";
 import { actionAt, bobAt, cheerAt, chugAt, follow, popupAt } from "../model/motion.js";
 import { chuggingAt } from "../model/song.js";
 import { cutField, cutOuts, cutRankingOf, cutTimeline } from "../model/cut.js";
 import { indexList } from "../model/cupShape.js";
-import { inkOn } from "../hud/identity.js";
 
 const BEAT = 500;
 const INTRO_MS = 2600;
 const POP_IN_MS = 520;
-/* the name sits on the tube's front band, this far under the waterline (box units) */
-const NAME_Y = 34;
+/* the winner on the podium jumps every this many beats */
+const PODIUM_JUMP_BEATS = 2;
 const ease = t => 1 - Math.pow(1 - Math.max(0, Math.min(1, t)), 3);
 
 /* the cast's plan for a room message: who is in the water (and how they are
@@ -48,24 +49,26 @@ export function castPlan({ phase, room, state, entrants }) {
   }
   if (phase === "podium" || phase === "feedback") {
     const podium = indexList(room?.podium);
-    return { ...plan, podium, bank:[], names:false };
+    return { ...plan, podium, bank:[], names:false, podiumAt:Number.isFinite(room?.startAt) ? room.startAt : state?.phaseStart };
   }
   return plan;
 }
 
 /* one rider's nodes: the placed box (scaled), the body that moves about
-   the waterline, a splash at the paddling hand */
+   the waterline, a splash at the paddling hand, the name under the tube */
 const RiderNode = memo(function RiderNode({ entrant, i, refs }) {
-  const art = useRiderArt(entrant);
+  const art = useRiderArt(entrant, { size:BOX });
   const anchor = anchorOf(art);
   const set = key => node => { const r = refs.current.get(i) || {}; r[key] = node; r.anchor = anchor; refs.current.set(i, r); };
   useEffect(() => { const r = refs.current.get(i); if (r) r.anchor = anchor; }, [anchor, i, refs]);
   const [wx, wy] = anchor.water;
   const hand = anchor.hand || anchor.water;
+  const name = anchor.name || [wx, wy + 52];
   return <div className="fl-rider" ref={set("rider")} data-pose="idle" style={{ "--c":entrant.color || "#7fb8ff" }}>
     <div className="fl-ripple" style={{ left:wx - 228, top:wy - 8 }} />
     <div className="fl-body" ref={set("body")} style={{ transformOrigin:`${wx}px ${wy}px` }}><Critter entrant={entrant} art={art} /></div>
-    <div className="fl-splash" ref={set("splash")} style={{ left:hand[0] + 20, top:wy - 110 }}><SplashProp /></div>
+    {!art?.poses && <div className="fl-splash" ref={set("splash")} style={{ left:hand[0] + 20, top:wy - 110 }}><SplashProp /></div>}
+    <span className={`fl-tag${entrant.ready ? " is-ready" : ""}`} ref={set("tag")} style={{ left:name[0], top:name[1] }}>{entrant.name}</span>
   </div>;
 });
 
@@ -76,10 +79,12 @@ function RiderPop({ i, setters }) {
   return hit ? <span className="fl-pop-in" key={`${hit.c}:${hit.at}`}><PopupLetters q={hit.q} d={hit.d} /></span> : null;
 }
 
+/* the head's top over the waterline at a scale (stage px) */
+const headOver = (anchor, scale) => (anchor.water[1] - (anchor.top || anchor.head)[1]) * scale * (anchor.fill || 1);
+
 export default function Cast({ store, driver, entrants, phase, room, version }) {
   const refs = useRef(new Map());
   const popRefs = useRef(new Map());
-  const nameRefs = useRef(new Map());
   const popSetters = useRef(new Map());
   const motion = useRef(new Map());
   const firstSeen = useRef(new Map());
@@ -97,28 +102,39 @@ export default function Cast({ store, driver, entrants, phase, room, version }) 
   }, [entrants, store]);
 
   useEffect(() => {
-    let layoutAt = -Infinity, water = {}, next = {}, bank = {}, podium = {};
+    let layoutAt = -Infinity, water = {}, next = {}, bank = {}, podium = {}, slots = {};
+    /* each row's order, carried between layouts (riders pass only when clearly ahead) */
+    const orders = new Map();
     const st = store.state;
+    const anchorFor = i => refs.current.get(i)?.anchor || ANCHOR;
     const frame = (now, dt) => {
       const p = planRef.current;
       const songAt = st.songAt;
       const chart = st.chart;
       const inSong = phase === "song" && Number.isFinite(songAt);
       const beat = inSong ? (now - songAt) / (chart?.beatMs || BEAT) : (now - (st.phaseStart || 0)) / BEAT;
-      /* the layouts: every 120 ms (the scores move them; the motion is smoothed) */
+      const reformed = p.reform !== null && now >= p.reform;
+      /* the layouts and the popups' slots: every 120 ms (the scores move
+         them; the motion is smoothed) */
       if (now - layoutAt > 120 || now < layoutAt || dt === 0) {
         layoutAt = now;
         const lives = new Map(p.water.map(i => [i, phase === "lobby" ? null : store.liveOf(i)]));
-        water = flotillaLayout(p.water, lives, { kind:p.kind === "lobby" ? "lobby" : p.water.length <= 3 ? "final" : "song", drift:p.drift && phase !== "intro" });
+        water = flotillaLayout(p.water, lives, { kind:p.kind === "lobby" ? "lobby" : p.water.length <= 3 ? "final" : "song",
+          drift:p.drift && phase !== "intro", orders });
         next = p.nextWater ? flotillaLayout(p.nextWater, new Map(), { kind:p.kind, drift:false }) : {};
         bank = crowdLayout([...p.bank, ...p.hops.map(h => h.i)]);
         podium = podiumLayout(p.podium);
+        const shown = reformed ? next : water;
+        slots = inSong ? popupSlots(Object.entries(shown).map(([key, spot]) => {
+          const i = Number(key);
+          return { i, x:spot.x, y:spot.y, scale:spot.scale, top:spot.y - headOver(anchorFor(i), spot.scale) };
+        })) : {};
       }
       entrants.forEach((e, i) => {
         const r = refs.current.get(i);
         if (!e || !r?.rider) return;
         let m = motion.current.get(i);
-        if (!m) motion.current.set(i, m = { x:null, y:null, s:null, pose:"", z:null, shown:null, popKey:null, nameShown:null });
+        if (!m) motion.current.set(i, m = { x:null, y:null, s:null, pose:"", z:null, shown:null, popKey:null, tagOn:null, tagScale:null, px:null, py:null });
         let spot = null, where = "hidden", hopT = 0, from = null;
         const hop = p.hops.find(h => h.i === i);
         if (podium[i]) { spot = podium[i]; where = "podium"; }
@@ -126,12 +142,13 @@ export default function Cast({ store, driver, entrants, phase, room, version }) 
           hopT = Math.min(1, (now - hop.at) / hop.ms);
           spot = bank[i]; from = water[i]; where = hopT < 1 ? "hop" : "bank";
         } else if (water[i]) {
-          spot = p.reform !== null && now >= p.reform && next[i] ? next[i] : water[i];
+          spot = reformed && next[i] ? next[i] : water[i];
           where = "water";
         } else if (bank[i]) { spot = bank[i]; where = "bank"; }
         if (!spot) {
           if (m.shown !== false) { r.rider.style.opacity = "0"; m.shown = false; }
-          hideExtras(i, m);
+          const popNode = popRefs.current.get(i);
+          if (popNode && popNode.style.opacity !== "0") popNode.style.opacity = "0";
           return;
         }
         const anchor = r.anchor || ANCHOR;
@@ -152,8 +169,8 @@ export default function Cast({ store, driver, entrants, phase, room, version }) 
         let enter = 0;
         if (phase === "intro") {
           const k = p.water.indexOf(i);
-          const t = (now - (st.phaseStart || now) - 300 - (p.water.length - k) * 90) / INTRO_MS;
-          enter = -(1 - ease(t)) * 1500;
+          const t = (now - (st.phaseStart || now) - 300 - k * 110) / INTRO_MS;
+          enter = -(1 - ease(t)) * 1600;
         }
         /* the lobby: a newcomer pops up out of the water */
         let pop = 1;
@@ -166,10 +183,15 @@ export default function Cast({ store, driver, entrants, phase, room, version }) 
         const last = where === "water" && inSong ? st.last.get(i) : null;
         let act = null;
         if (where === "water" && inSong) {
+          const chugging = chuggingAt(chart, songAt, now, st.done.get(i));
           act = actionAt(last, now);
-          if (!act && chuggingAt(chart, songAt, now, st.done.get(i))) act = chugAt(beat);
-          if (act?.pose === "miss" && chuggingAt(chart, songAt, now, st.done.get(i))) act = { ...chugAt(beat), splash:act.splash };
+          if (chugging && (!act || act.pose === "miss")) act = { ...chugAt(beat), splash:act?.splash || 0 };
         } else if (where === "bank") act = cheerAt(st.cheers.get(i), now);
+        else if (where === "podium" && spot.place === 1 && Number.isFinite(p.podiumAt)) {
+          /* the winner jumps on every other beat */
+          const since = now - p.podiumAt;
+          if (since > 2700) act = cheerAt(p.podiumAt + Math.floor((since - 2700) / (BEAT * PODIUM_JUMP_BEATS)) * BEAT * PODIUM_JUMP_BEATS + 2700, now);
+        }
         let pose = act?.pose || "idle";
         if (!act) {
           if (where === "podium") pose = spot.place === 1 ? "cheer" : "nice";
@@ -193,43 +215,36 @@ export default function Cast({ store, driver, entrants, phase, room, version }) 
         const z = Math.round(where === "bank" || where === "hop" ? y - 600 : y);
         if (m.z !== z) { r.rider.style.zIndex = String(z + 1000); m.z = z; }
         if (m.shown !== true) { r.rider.style.opacity = "1"; m.shown = true; }
-        r.rider.dataset.where = where;
+        if (r.rider.dataset.where !== where) r.rider.dataset.where = where;
 
-        /* the popup over them, the latest judgement for POPUP_MS (a little
-           smaller over the rows at the back), riding up with a hop */
+        /* the name under the tube, the same size at any scale */
+        if (r.tag) {
+          const on = p.names && where === "water";
+          if (m.tagOn !== on) { r.tag.style.opacity = on ? "1" : "0"; m.tagOn = on; }
+          const k = sc > 0 ? 1 / sc : 1;
+          if (on && (m.tagScale === null || Math.abs(m.tagScale - k) > 0.002)) {
+            r.tag.style.transform = `translate(-50%, -50%) scale(${k.toFixed(4)})`;
+            m.tagScale = k;
+          }
+        }
+
+        /* the popup in its slot, the latest judgement for POPUP_MS, riding up with a hop */
         const popNode = popRefs.current.get(i);
         const showPop = last ? popupAt(last, now) : null;
-        const lift = Math.min(0, dy) * sc;
         if (popNode) {
-          if (showPop) {
+          const slot = slots[i];
+          if (showPop && slot) {
             const key = `${last.c}:${last.at}`;
             if (m.popKey !== key) { m.popKey = key; popSetters.current.get(i)?.(last); }
-            const at = popupSpot({ x:x + enter, y:y + lift, scale:s * pop }, anchor);
-            const size = Math.max(0.78, Math.min(1.05, 0.62 + 0.62 * s));
-            popNode.style.transform = `translate3d(${at.x.toFixed(1)}px, ${(at.y + showPop.dy).toFixed(1)}px, 0) scale(${size.toFixed(3)})`;
+            const lift = Math.min(0, dy) * sc;
+            m.px = follow(m.px, slot.x + enter, dt, 140);
+            m.py = follow(m.py, slot.y, dt, 140);
+            popNode.style.transform = `translate3d(${m.px.toFixed(1)}px, ${(m.py + lift + showPop.dy).toFixed(1)}px, 0) scale(${slot.size.toFixed(3)})`;
             popNode.style.opacity = showPop.opacity.toFixed(3);
             popNode.style.zIndex = String(z + 3000);
           } else if (popNode.style.opacity !== "0") popNode.style.opacity = "0";
         }
-        /* the name on the tube's front, moving with it */
-        const nameNode = nameRefs.current.get(i);
-        if (nameNode) {
-          const on = p.names && where === "water";
-          if (on) {
-            const nameY = (anchor.name ? anchor.name[1] - anchor.water[1] : NAME_Y) + dy;
-            nameNode.style.transform = `translate3d(${(x + enter + dx * sc).toFixed(1)}px, ${(y + nameY * sc).toFixed(1)}px, 0) translate(-50%, -50%)`;
-            nameNode.style.zIndex = String(z + 1500);
-          }
-          const op = on ? String(Math.min(1, pop)) : "0";
-          if (m.nameShown !== op) { nameNode.style.opacity = op; m.nameShown = op; }
-        }
       });
-    };
-    const hideExtras = i => {
-      const popNode = popRefs.current.get(i);
-      if (popNode && popNode.style.opacity !== "0") popNode.style.opacity = "0";
-      const nameNode = nameRefs.current.get(i);
-      if (nameNode && nameNode.style.opacity !== "0") nameNode.style.opacity = "0";
     };
     const off = driver.add(frame);
     driver.tick();
@@ -238,13 +253,7 @@ export default function Cast({ store, driver, entrants, phase, room, version }) 
 
   return <>
     <div className="fl-cast">
-      {entrants.map((e, i) => e && <RiderNode key={e.device || e.pid || `${i}:${e.name}`} entrant={e} i={i} refs={refs} />)}
-    </div>
-    <div className="fl-names">
-      {entrants.map((e, i) => e && <span key={i} className={`fl-name${e.ready && phase === "lobby" ? " is-ready" : ""}${e.bot ? " is-bot" : ""}`}
-        style={{ "--c":e.color || "#7fb8ff", "--ink":inkOn(e.color) }} ref={node => { if (node) nameRefs.current.set(i, node); else nameRefs.current.delete(i); }}>
-        {e.name}
-      </span>)}
+      {entrants.map((e, i) => e && <RiderNode key={`${i}:${e.device || e.pid || e.name}`} entrant={e} i={i} refs={refs} />)}
     </div>
     <div className="fl-pops">
       {entrants.map((e, i) => e && <div key={i} className="fl-pop" ref={node => { if (node) popRefs.current.set(i, node); else popRefs.current.delete(i); }}>
@@ -253,5 +262,3 @@ export default function Cast({ store, driver, entrants, phase, room, version }) 
     </div>
   </>;
 }
-
-export { BOX };

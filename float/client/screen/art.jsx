@@ -37,10 +37,10 @@ export const ART_FILL = 1.45;
 /* A rider's painted sprites and anchors once the art has them: { poses,
    anchor:{ water, head, top, face, hand }, own } (own: the poses with their
    own drawing; the rest are the idle one), or null (the placeholder draws). */
-export function useRiderArt(entrant) {
+export function useRiderArt(entrant, { size = 512 } = {}) {
   const m = useGrooveArt();
   const critter = entrant?.look?.critter || "capybara";
-  const urls = useRiderSprites({ critter, color:entrant?.color, groom:!!entrant?.groom });
+  const urls = useRiderSprites({ critter, color:entrant?.color, groom:!!entrant?.groom, size });
   return useMemo(() => {
     const c = m ? critterArt(critter, m) : null;
     if (!c?.anchor?.water) return null;
@@ -203,8 +203,8 @@ export function Critter({ entrant, art = null }) {
 }
 
 /* a rider's idle critter at a size, for the boards and lists */
-export function RiderFace({ entrant, pose = "idle", className = "" }) {
-  const art = useRiderArt(entrant);
+export function RiderFace({ entrant, pose = "idle", className = "", size = 128 }) {
+  const art = useRiderArt(entrant, { size });
   return <span className={`cr-face ${className}`} data-pose={pose}><Critter entrant={entrant} art={art} /></span>;
 }
 

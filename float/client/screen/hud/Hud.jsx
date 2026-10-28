@@ -3,7 +3,7 @@
    the intro's title, the cut's board and the next song's card, the podium's
    names, "Check your phone". Big, few, on the beat; the frame driver says
    when each one changes and React draws it. */
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { BEATS_PER_BAR, SONG_LEAD_MS, songForRound } from "../../../shared/chart.js";
 import { bannerAt, roundLabel, songName } from "../model/song.js";
 import { cutOuts, cutRankingOf, cutTimeline, pctText } from "../model/cut.js";
@@ -142,7 +142,9 @@ export function PodiumBlocks({ store, driver, room, entrants, beats = PODIUM_REV
   const start = Number.isFinite(room?.startAt) ? room.startAt : st.phaseStart;
   const elapsed = useDriven(driver, now => Math.floor((now - start) / 100) * 100, [start]);
   const at = { 3:beats.third, 2:beats.second, 1:beats.first };
+  const colors = podium.map(i => entrants[i]?.color).filter(Boolean);
   return <div className="hd-podium">
+    <Confetti colors={colors} on={elapsed >= beats.first} />
     {PODIUM.map(block => {
       const i = podium[block.place - 1];
       const e = Number.isInteger(i) ? entrants[i] : null;
@@ -153,6 +155,23 @@ export function PodiumBlocks({ store, driver, room, entrants, beats = PODIUM_REV
         {e && lit && <span className="hd-block-name">{e.name}</span>}
       </div>;
     })}
+  </div>;
+}
+
+/* confetti in the three's colours, falling once 1st is revealed */
+const CONFETTI_INKS = ["#ffc23d", "#ff6fae", "#7fd6f2", "#fffdf8"];
+export function Confetti({ colors = [], on = true }) {
+  const pieces = useMemo(() => {
+    const inks = [...colors.filter(Boolean), ...CONFETTI_INKS];
+    return Array.from({ length:54 }, (_, k) => ({
+      x:(k * 211 + 37) % 1900, delay:(k * 173) % 2400, ms:2600 + ((k * 97) % 1600), turn:((k * 61) % 2 ? 1 : -1) * (360 + (k * 41) % 400),
+      sway:((k * 29) % 120) - 60, w:12 + (k % 3) * 6, h:20 + (k % 4) * 5, color:inks[k % inks.length],
+    }));
+  }, [colors.join("|")]); // eslint-disable-line react-hooks/exhaustive-deps
+  if (!on) return null;
+  return <div className="hd-confetti" aria-hidden="true">
+    {pieces.map((p, k) => <i key={k} style={{ left:p.x, width:p.w, height:p.h, background:p.color, animationDelay:`${p.delay}ms`,
+      animationDuration:`${p.ms}ms`, "--turn":`${p.turn}deg`, "--sway":`${p.sway}px` }} />)}
   </div>;
 }
 

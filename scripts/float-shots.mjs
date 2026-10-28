@@ -182,6 +182,9 @@ try {
     }
     const frames0 = await chrome.evaluate("window.__floatFrames || 0");
     await chrome.until(`(window.__floatFrames || 0) >= ${frames0 + 6}`, { timeout:60000, every:150 });
+    /* every rider's sprites painted (the art paints each look once, in the background) */
+    await chrome.until("!document.querySelector('.cr-wait') && [...document.querySelectorAll('.fs-root img')].every(i => i.complete)",
+      { timeout:30000, every:200 });
     await sleep(LIVE ?? WAIT);
     const tag = [...EXTRA].map(([k, v]) => `${k}${v}`).join("-");
     const file = await chrome.screenshot(path.join(OUT, `${shot}${tag ? `-${tag}` : ""}${QUALITY !== "high" ? `-${QUALITY}` : ""}${WIDTH !== 1920 || HEIGHT !== 1080 ? `-${WIDTH}x${HEIGHT}` : ""}.png`));

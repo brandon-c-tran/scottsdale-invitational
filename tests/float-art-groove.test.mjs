@@ -308,8 +308,8 @@ test("RiderSprite renders without the manifest (a placeholder box) and with it (
   assert.ok(css.includes(`src="/float/groove/${manifest.critters.frog.poses.cheer.src}"`), "the pose's sprite");
   assert.match(css, /background-color:#e53935/);
   assert.ok(css.includes(`url(&quot;/float/groove/${manifest.critters.frog.poses.cheer.tube}&quot;)`), "the tube mask");
-  assert.ok(!css.includes("fg-rider-crown"), "no crown");
-  assert.match(draw({ groom:true }), /fg-rider-crown/);
+  /* the stand-in draws the critter alone; the look's extras come with the painted sprite */
+  assert.ok(!draw({ groom:true, hat:"cowboy", shades:"hearts" }).includes("looks/"), "no extras before the paint");
   /* an unknown critter draws the capybara */
   assert.ok(draw({ critter:"dragon" }).includes(manifest.critters.capybara.poses.idle.src));
 });

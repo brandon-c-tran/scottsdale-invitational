@@ -4086,7 +4086,7 @@ function gCrowd(E, at, seed = 0, { n = 4, gain = 1, after = Infinity, list = GRO
   for (let i = 0; i < count; i++) {
     const id = takes[(start + i) % takes.length];
     const v = voice(E, { pan:[-0.42, 0.38, -0.12, 0.18][i % 4], send:0.32, bright:1, gain:1 });
-    playClip(E, v, at + [0, 0.004, -0.003, 0.006][i % 4], id, { gain:gain * (i ? 0.75 : 1) * 1.9 / Math.sqrt(count), rate:[1, 1.07, 0.94, 1.12][i % 4], after });
+    playClip(E, v, at + [0, 0.003, -0.002, 0.004][i % 4], id, { gain:gain * (i ? 0.75 : 1) * 1.9 / Math.sqrt(count), rate:[1, 1.07, 0.94, 1.12][i % 4], after });
   }
   return true;
 }

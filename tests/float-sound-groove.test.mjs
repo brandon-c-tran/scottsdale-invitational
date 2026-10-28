@@ -585,6 +585,27 @@ test("every song's every bar plays, the beat at t + the lead, nothing before its
   }
 });
 
+test("Paddle Party lifts a whole step for B's last four bars and lands its finish there", () => {
+  const ctx = recorder(), E = kit.makeEngine(ctx, { listen:"tv" });
+  const leadFreqs = opts => {
+    ctx.nodes.length = 0;
+    kit.playRecipe(E, "floatGroove", 10, { song:"paddle", sec:"play", len:8, next:"play", only:["melody"], hits:[], calls:[], ...opts });
+    return ctx.nodes.filter(n => n.kind === "osc" && n.type === "square").map(n => n.frequency.events.find(e => e[0] === "set")?.[1]).filter(Boolean).sort((a, b) => a - b);
+  };
+  const a = leadFreqs({ part:0, k:4, bar:10 }), b = leadFreqs({ part:1, k:4, bar:26 }), before = leadFreqs({ part:1, k:3, bar:25 });
+  assert.ok(a.length > 0 && a.length === b.length);
+  a.forEach((f, i) => assert.ok(Math.abs(b[i] / f - Math.pow(2, 2 / 12)) < 1e-6, "every note a whole step up"));
+  assert.deepEqual(kit.GROOVE_SCORE.paddle.lift, { from:4, by:2 });
+  assert.ok(before.length > 0);
+  /* the finish: the tonic a whole step up (G, not F) */
+  ctx.nodes.length = 0;
+  kit.playRecipe(E, "floatGroove", 10, { song:"paddle", sec:"outro", k:0, len:2, finish:0, only:["bass"] });
+  const sub = ctx.nodes.filter(n => n.kind === "osc" && n.type === "sine").flatMap(n => n.frequency.events.filter(e => e[0] === "set").map(e => e[1]));
+  const hz = m => 440 * Math.pow(2, (m - 69) / 12);
+  assert.ok(sub.some(f => Math.abs(f / hz(31) - 1) < 1e-3), `the finish's root is G1: ${sub.slice(0, 4)}`);
+  assert.ok(!sub.some(f => Math.abs(f / hz(29) - 1) < 1e-3), "and not F1");
+});
+
 test("the band leaves a Hey to the room: no lead or comp note on a Hey's sixteenth, the brass's stab on it", () => {
   const ctx = recorder(), E = kit.makeEngine(ctx, { listen:"tv" });
   const at = beat => 10 + kit.GROOVE_PRE_S + beat * 0.5;

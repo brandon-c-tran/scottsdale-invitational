@@ -3512,6 +3512,8 @@ const G_SONGS = Object.freeze({
       B:{ kick:"X.....x.X.x...x.", clap:"....x.......x...", hat:"xgxgxgxgxgxgxgxg", open:"......o.......o.", cow:"..x...x...x...x.", tamb:"gxgxgxgxgxgxgxgx" },
     }),
     stabs:[14],
+    /* the last four bars of B lift a whole step (F to G) and the finish lands there */
+    lift:Object.freeze({ from:4, by:2 }),
   }),
   /* Rock Hop: A major, a chiptune bounce (I vi IV V): a round bass going
      oom-pah under organ chops on the offbeats; the host's "ba"s and the
@@ -3615,6 +3617,11 @@ export function grooveBaNote(song, bar, n = 0, of = 1) {
 }
 
 /* ── a bar of a song ── */
+/* a chord moved by `tr` semitones */
+function gShift(chord, tr) {
+  if (!tr || !chord) return chord;
+  return { bass:chord.bass + tr, comp:chord.comp.map(m => m + tr), tones:chord.tones.map(m => m + tr) };
+}
 /* a drum line's hits: [step, level, open] */
 function gHits(line) {
   const out = [];
@@ -3675,8 +3682,13 @@ function grooveBar(E, t0, o = {}) {
   c.held = new Set([...c.hits.filter(([, kind]) => kind === "hey").flatMap(([s]) => [s, s + 1]),
     ...c.calls.filter(([, kind]) => kind === "hey" || kind === "hop").flatMap(([s]) => [s, s + 1])]);
   const chords = sec === "intro" ? S.intro : S.chords;
-  c.chord = sec === "outro" ? S.tonic : chords[c.k % chords.length];
-  c.after = sec === "intro" ? (c.k === 0 ? S.intro[1] : S.chords[0]) : c.k === len - 1 ? S.chords[0] : chords[(c.k + 1) % chords.length];
+  /* a song's lift (S.lift: up `by` from play B's bar `from` to the end) */
+  const lifted = k => S.lift && ((sec === "play" && c.part === 1 && k >= S.lift.from) || sec === "outro");
+  c.tr = lifted(c.k) ? S.lift.by : 0;
+  c.tonic = gShift(S.tonic, c.tr);
+  c.chord = sec === "outro" ? c.tonic : gShift(chords[c.k % chords.length], c.tr);
+  c.after = sec === "intro" ? (c.k === 0 ? S.intro[1] : S.chords[0]) : c.k === len - 1 ? gShift(S.chords[0], c.tr)
+    : gShift(chords[(c.k + 1) % chords.length], lifted(c.k + 1) ? S.lift.by : 0);
   if (c.cut) return gCutBar(c);
   switch (sec) {
     case "intro": return gIntroBar(c);
@@ -3821,20 +3833,21 @@ function gMelody(c, level) {
     let steps = n;
     for (let x = s + 1; x < s + n; x++) if (c.held.has(x)) { steps = x - s; break; }
     const d = steps * G16 * 0.9;
-    gLead(E, V("lead"), c.at(s), gHz(m + S.lead), d, (level >= 2 ? 0.08 : 0.09) * (S === G_SONGS.drop ? 1.2 : 1), { vib:0.6, saw:S === G_SONGS.drop ? 0.35 : 0.15 });
-    if (level >= 2) gGlock(E, V("glock"), c.at(s), gHz(m + S.glock), 0.085, { dec:0.9 });
+    gLead(E, V("lead"), c.at(s), gHz(m + S.lead + c.tr), d, (level >= 2 ? 0.08 : 0.09) * (S === G_SONGS.drop ? 1.2 : 1), { vib:0.6, saw:S === G_SONGS.drop ? 0.35 : 0.15 });
+    if (level >= 2) gGlock(E, V("glock"), c.at(s), gHz(m + S.glock + c.tr), 0.085, { dec:0.9 });
   }
   const tag = S.tag?.[c.k % 8];
   if (tag) for (const [s, m] of tag) {
-    gLead(E, V("lead"), c.at(s), gHz(m), G16 * 0.8, 0.055, { vib:0, saw:0, bright:0.7 });
-    if (level >= 2) gGlock(E, V("glock"), c.at(s), gHz(m + 12), 0.06, { dec:0.6 });
+    gLead(E, V("lead"), c.at(s), gHz(m + c.tr), G16 * 0.8, 0.055, { vib:0, saw:0, bright:0.7 });
+    if (level >= 2) gGlock(E, V("glock"), c.at(s), gHz(m + 12 + c.tr), 0.06, { dec:0.6 });
   }
 }
 /* a level of the song: 0 practice (the groove thin), 1 play A, 2 play B (fuller) */
 function gPlayBar(c, level) {
   const { E, S, V } = c;
   const kit = level === 0 ? S.drums.thin : level === 1 ? S.drums.A : S.drums.B;
-  const fill = c.k === c.len - 1 && c.next !== c.sec && c.next !== null;
+  /* a fill into a new section, and into a lift */
+  const fill = (c.k === c.len - 1 && c.next !== c.sec && c.next !== null) || (!!S.lift && c.sec === "play" && c.part === 1 && c.k === S.lift.from - 1);
   gDrums(c, kit, { fill });
   if (S.drums.B === kit && c.k % (S.pads ? 2 : 4) === 0 && c.on("drums")) GK.crash(E, V("hat"), c.at(0), 0.55, 1.6);
   /* the build into the drop's countdown: the snare doubling up over a riser */
@@ -3916,7 +3929,8 @@ function gIntroBar(c) {
   if (c.k === 0) {
     if (c.on("drums")) { GK.kick(E, V("kick"), c.at(0), 1); GK.crash(E, V("hat"), c.at(0), 0.7, 1.8); [4, 12].forEach(s => GK.clap(E, V("snare"), c.at(s), 0.6));
       [8, 10, 12, 14].forEach(s => GK.hat(E, V("hat"), c.at(s), 0.5)); }
-    if (c.on("melody")) S.motif.forEach((m, i) => { gBrass(E, V("brass"), c.at(i * 2), [m, m - 12], i === 3 ? G16 * 3.5 : G16 * 1.6, 0.13, { fall:i === 3 });
+    /* the motif, its last note short of the host's "Here we go!" on the third beat */
+    if (c.on("melody")) S.motif.forEach((m, i) => { gBrass(E, V("brass"), c.at(i * 2), [m, m - 12], G16 * 1.6, 0.13, { fall:i === 3 });
       gGlock(E, V("glock"), c.at(i * 2), gHz(m + 12), 0.1); });
     if (c.on("harmony")) gBrass(E, V("brass"), c.at(0), chord.comp.map(m => m + 12), G16 * 1.5, 0.08);
     if (c.on("bass")) gBassLine(c, [[0, "R", 4, "t"], [8, "R", 2, "t"], [12, "5", 2, "t"]]);
@@ -3969,7 +3983,7 @@ function gClink(E, dest, t) {
 function gOutroBar(c) {
   const { E, S, V } = c;
   if (c.k > 0) {
-    if (c.on("melody")) gGlock(E, V("glock"), c.at(0), gHz(S.tonic.tones[0] + 12), 0.08, { dec:1.4 });
+    if (c.on("melody")) gGlock(E, V("glock"), c.at(0), gHz(c.tonic.tones[0] + 12), 0.08, { dec:1.4 });
     return;
   }
   const hit = c.finish ?? 0;
@@ -3979,7 +3993,7 @@ function gOutroBar(c) {
     gDrums(c, { kick:before(kit.kick), snare:before(kit.snare), clap:before(kit.clap), hat:before(kit.hat) });
     gBassLine(c, S.bass.full.filter(([s]) => s < hit));
   }
-  const { tonic } = S;
+  const tonic = c.tonic;
   if (c.on("drums")) { GK.kick(E, V("kick"), c.at(hit), 1); GK.crash(E, V("hat"), c.at(hit), 1, 2.6); GK.clap(E, V("snare"), c.at(hit), 0.8); }
   if (c.on("bass")) { gSlap(E, V("bass"), c.at(hit), gHz(tonic.bass), 1.8, 0.34); mode(E, V("bass"), c.at(hit), gHz(tonic.bass), 2.2, 0.22, { a:0.004 }); }
   if (c.on("harmony")) {

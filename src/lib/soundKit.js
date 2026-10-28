@@ -3408,11 +3408,22 @@ function gSaws(E, dest, t, midis, d, peak, { a = 0.05 } = {}) {
     o.start(t); o.stop(t + hold + 0.25);
   }
 }
-/* a slide whistle: up (or down) between two pitches, a little wobble */
+/* a slide whistle: up (or down) between two pitches with a little wobble,
+   blown hard at once so its start is its beat */
 function gWhistle(E, dest, t, f0, f1, d, peak) {
   if (!(f0 > 0) || !(f1 > 0) || !(peak > 0)) return;
-  glide(E, dest, t, f0, f1, Math.max(0.05, d), peak, { type:"sine", vib:7, depth:0.02 });
-  glide(E, dest, t, f0 * 2, f1 * 2, Math.max(0.05, d), peak * 0.12, { type:"triangle" });
+  const c = E.ctx, len = Math.max(0.05, d);
+  [["sine", 1, peak], ["triangle", 2, peak * 0.12]].forEach(([type, k, p]) => {
+    const o = c.createOscillator(); o.type = type;
+    o.frequency.setValueAtTime(f0 * k, t); o.frequency.exponentialRampToValueAtTime(f1 * k, t + len * 0.85);
+    const g = c.createGain(); g.gain.value = 0;
+    g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(p, t + 0.004);
+    g.gain.setValueAtTime(p, t + len * 0.7); g.gain.exponentialRampToValueAtTime(0.0001, t + len);
+    o.connect(g); g.connect(dest); track(E, o, g); trackSource(E, o);
+    o.start(t); o.stop(t + len + 0.03);
+    if (k === 1) wobble(E, o.frequency, t, len, { rate:7, depth:f1 * 0.02 });
+  });
+  burst(E, dest, t, { type:"highpass", f:3000, q:0.7, d:0.012, peak:peak * 0.6 });
 }
 /* a party horn: a buzzing reed blown up into its note, unrolling */
 function gHorn(E, dest, t, f, d, peak) {
@@ -3885,7 +3896,7 @@ function grooveWhirl(E, t0, o = {}) {
   const at = t0 + GROOVE_PRE_S, S = G_SONGS[o.song] && G_SONGS[o.song].motif ? G_SONGS[o.song] : G_SONGS.spin;
   const v = voice(E, { pan:-0.2, send:0.3, bright:1, gain:1 });
   const f = gHz(S.motif[0] + 12), d = o.quick ? 0.13 : 0.24;
-  gWhistle(E, v, at, f, f * 2, d, 0.09);
+  gWhistle(E, v, at, f, f * 2, d, 0.14);
   burst(E, v, at, { f:2600, q:1.4, d:0.01, peak:0.12 });
   if (o.say) {
     const sv = voice(E, { send:0.16, bright:1, gain:1 });
@@ -3952,10 +3963,13 @@ function grooveAnswer(E, t0, o = {}) {
     return;
   }
   if (kind === "spin") {
-    travelWhoosh(E, at - 0.12, { d:0.17, from:-0.75, to:0.75, peak:0.42, f0:700, f1:3800 });
-    const v = voice(E, { pan:0.4, send:0.22, bright:1, gain:1 });
-    burst(E, v, at, { type:"highpass", f:3200, q:0.7, d:0.03, peak:0.3 });
-    glide(E, v, at, 900, 1900, 0.07, 0.06, { type:"triangle" });
+    /* a quiet swish leading in, the "fwip" on the beat, the air spinning away */
+    travelWhoosh(E, at - 0.1, { d:0.13, from:-0.75, to:0.1, peak:0.09, f0:700, f1:2800 });
+    const v = voice(E, { pan:0.3, send:0.22, bright:1, gain:1 });
+    burst(E, v, at, { f:2300, q:0.9, d:0.05, peak:0.6 });
+    burst(E, v, at, { type:"highpass", f:4200, q:0.7, d:0.07, peak:0.26 });
+    glide(E, v, at + 0.002, 700, 2100, 0.08, 0.08, { type:"triangle" });
+    travelWhoosh(E, at + 0.01, { d:0.24, from:0.1, to:0.85, peak:0.2, f0:3200, f1:800 });
     return;
   }
   flImpact(E, at);
@@ -3979,7 +3993,7 @@ function grooveFlub(E, t, o = {}) {
 function grooveSting(E, t0, o = {}) {
   const S = G_SONGS[o.song] && G_SONGS[o.song].tonic ? G_SONGS[o.song] : G_SONGS.paddle;
   const V = gVoices(E, FL_BAND), hit = t0 + GROOVE_PRE_S;
-  [[0, 196], [0.04, 165], [0.08, 131]].forEach(([dt, f], i) => GK.tom(E, V("snare"), t0 + dt, f, 0.5 + i * 0.1));
+  [[0, 196], [0.04, 165], [0.08, 131]].forEach(([dt, f], i) => GK.tom(E, V("snare"), t0 + dt, f, 0.16 + i * 0.05));
   GK.kick(E, V("kick"), hit, 1); GK.crash(E, V("hat"), hit, 0.9, 2.2);
   gBrass(E, V("brass"), hit, S.tonic.comp, 0.9, 0.17, { fall:true });
   gSlap(E, V("bass"), hit, gHz(S.tonic.bass), 0.9, 0.32);

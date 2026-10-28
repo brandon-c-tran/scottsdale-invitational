@@ -293,14 +293,14 @@ test("the controller stays through the room's podium and feedback, then its ling
   assert.equal(at(view.finishedAt + FLOAT_LINGER_MS + 1), "");
 });
 
-test("Home's row: Racing, Play, for a rider while the room has the Cup; nothing for a spectator or a Cup that never started", () => {
+test("Home's row: Playing, Play, for a rider while the room has the Cup; nothing for a spectator or a Cup that never started", () => {
   const state = racing();
   const row = (s, player) => renderToStaticMarkup(wrap(s, React.createElement(FloatHome, { state:s, me:player, inCard:true,
     onOpen:() => {} })));
   const html = row(state, evan);
   assert.match(html, /class="fd-now-row is-live is-primary fd-float-now"/);
-  assert.match(html, /aria-label="Float\. Racing\. Play"/);
-  assert.match(html, /<span>Racing<\/span>/);
+  assert.match(html, /aria-label="Float\. Playing\. Play"/);
+  assert.match(html, /<span>Playing<\/span>/);
   const spectator = structuredClone(state);
   spectator.float.players = spectator.float.players.filter(player => player !== khoa);
   assert.equal(row(spectator, khoa), "");
@@ -423,8 +423,8 @@ test("the desk: the Cup now, the looks picked, the riders' cards; Start Float ag
   const desk = s => renderToStaticMarkup(wrap(s, React.createElement(FloatDesk, { state:s, initialFeedback:cards })));
   const html = desk(state);
   assert.match(html, /class="fd-float-desk-now is-live"/);
-  assert.match(html, new RegExp(`Racing, ${state.float.players.length} riders`));
-  assert.match(html, /<strong>1<\/strong><small>of 13 floaties<\/small>/);
+  assert.match(html, new RegExp(`Playing, ${state.float.players.length} riders`));
+  assert.match(html, /<strong>1<\/strong><small>of 13 critters picked<\/small>/);
   assert.match(html, /<strong>4<\/strong><small>fun of 5<\/small>/);
   assert.match(html, /<strong>2<\/strong><small>of 3 would play again<\/small>/);
   assert.match(html, /Evan<\/span>[\s\S]*5 of 5[\s\S]*Again: yes[\s\S]*A longer river/);

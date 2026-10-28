@@ -227,7 +227,8 @@ export function cutView({ room, me = null, idx }) {
   const pct = num(me?.pct) ?? mine?.pct ?? null;
   const place = num(me?.place) ?? (at >= 0 ? at + 1 : null);
   const of = num(me?.of) ?? (order.length || null);
-  const out = indexes(room?.out).includes(idx);
+  /* the room's `me` says through or out in the cut; else its out list */
+  const out = me?.out === true ? true : me?.through === true ? false : indexes(room?.out).includes(idx);
   const final = room?.lastRound === true || cupDone(room);
   return { pct, place, of, through:!out && !final, out:out && !final, final, cupPlace:final ? finalPlace(room, idx) : null };
 }

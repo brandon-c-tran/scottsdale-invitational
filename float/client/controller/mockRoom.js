@@ -83,7 +83,7 @@ export function createMockRoom({ hello = null, scene = null, freeze = false, tim
   const listeners = new Map(), statusFns = new Set(), sent = [];
   const device = "mock-phone";
   const clock = { t:freeze ? MOCK_EPOCH : Math.round(realNow()), now:() => clock.t };
-  let status = "connecting", closed = false, frozen = !!freeze, muted = false, follow = null, readyTimer = null;
+  let status = "connecting", closed = false, frozen = !!freeze, muted = false, follow = null, readyAt = null;
   let room = null, phoneWs = null, hostWs = null, lastPing = -Infinity, lastPerf = perf(), lastHello = null, riderPatch = null;
   let ghost = null, ghostSent = new Map(), going = Promise.resolve(), feedback = null, sceneName = null, lobbyWs = [];
 
@@ -104,7 +104,9 @@ export function createMockRoom({ hello = null, scene = null, freeze = false, tim
   /* a fresh room: the phone's socket (its frames reach the phone after `lag`, unless muted), the host's */
   async function freshRoom() {
     try { phoneWs?.close(); hostWs?.close(); } catch {}
-    room = new FloatRoom(memoryCtx(), {}, { clock, timers:false });
+    /* repeatable ids: a held moment is the same Cup every time */
+    let serial = 0;
+    room = new FloatRoom(memoryCtx(), {}, { clock, timers:false, ids:prefix => `${prefix}mock${(serial += 1)}` });
     await room.ready;
     phoneWs = new FakeSocket(text => {
       if (muted || closed) return;
@@ -183,6 +185,10 @@ export function createMockRoom({ hello = null, scene = null, freeze = false, tim
         for (const ws of lobbyWs) say(ws, { t:"ping", c:clock.t });
       }
       room.tick();
+      if (readyAt !== null && clock.t >= readyAt + READY_START_MS) {
+        readyAt = null;
+        if (room.cup?.phase === "lobby" && room.cup.entrants[meIndex()]?.ready) startCup();
+      }
     }
   }
   function runUntil(when, maxMs = 900000) {
@@ -225,7 +231,7 @@ export function createMockRoom({ hello = null, scene = null, freeze = false, tim
   async function go(name, { quiet = false } = {}) {
     if (!MOCK_SCENES.includes(name)) return false;
     sceneName = name;
-    timers.clearTimeout?.(readyTimer);
+    readyAt = null;
     if (freeze) { clock.t = MOCK_EPOCH; frozen = false; }
     riderPatch = null;
     ghost = GHOSTS.good;
@@ -300,11 +306,8 @@ export function createMockRoom({ hello = null, scene = null, freeze = false, tim
     say(phoneWs, msg.t === "hello" ? { ...msg, rider:{ ...(msg.rider || {}), ...(riderPatch || {}) } } : msg);
     if (msg.t === "ping") lastPing = clock.t;
     if (msg.t === "feedback") feedback = msg.answers || null;
-    /* a party lobby starts once this phone is ready */
-    if (msg.t === "ready" && msg.on === true && room.cup?.phase === "lobby" && room.cup.mode === "party" && !sceneName) {
-      timers.clearTimeout?.(readyTimer);
-      readyTimer = later(() => { if (!closed && room.cup?.phase === "lobby" && room.cup.entrants[meIndex()]?.ready) startCup(); }, READY_START_MS);
-    }
+    /* a live party lobby starts READY_START_MS (on the room's clock) after this phone is ready */
+    if (msg.t === "ready" && room.cup?.phase === "lobby" && room.cup.mode === "party" && !sceneName) readyAt = msg.on === true ? clock.t : null;
   }
 
   /* open shortly after creation, like a socket, with the room loaded */
@@ -333,7 +336,6 @@ export function createMockRoom({ hello = null, scene = null, freeze = false, tim
       if (closed) return;
       closed = true;
       if (follow) timers.clearInterval(follow);
-      timers.clearTimeout?.(readyTimer);
       try { phoneWs?.close(); hostWs?.close(); } catch {}
       setStatus("closed");
     },

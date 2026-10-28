@@ -116,14 +116,13 @@ export const RULES_WORDS = Object.freeze({
   "ragecage.third": "Third-to-last out: 3rd",
   "ragecage.center": "Loser drinks the center",
 
-  /* Float (float, Oct 25): awaiting Brandon's review */
-  "float.1": "Paddle with both thumbs",
-  "float.2": "Drink before the takeout",
-  "float.3": "Slowest riders are cut",
+  /* Float (float, the rhythm game, Oct 27): awaiting Brandon's review */
+  "float.1": "Answer on the beat",
+  "float.2": "Drink in the break",
+  "float.3": "Lowest scores are cut",
   "float.4": "Win the final",
-  "float.drinking": "Drinking costs a paddle",
-  "float.swap": "Swap floaties between rounds",
-  "float.balloons": "Out? Throw water balloons",
+  "float.drinking": "Not done? Taps miss",
+  "float.cheer": "Out? Cheer them on",
 
   /* Beerio Kart (beerio) */
   "beerio.1": "Open at the line",

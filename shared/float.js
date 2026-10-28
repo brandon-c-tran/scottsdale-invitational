@@ -133,8 +133,8 @@ export function floatBeat(state, ev, { float = false } = {}) {
     return { type:"float-start", label:"Start Float", subject:ev.name };
   return null;
 }
-/* the tray's Restart Float asks first: the race so far is gone */
-export const FLOAT_RESTART_CONFIRM = "Float starts over. The race so far is lost.";
+/* the tray's Restart Float asks first: the scores so far are gone */
+export const FLOAT_RESTART_CONFIRM = "Float starts over. Scores so far are lost.";
 
 /* ── the slate ──
    Float stands in Beerio Kart's slot. Beerio stays a built-in, so it is

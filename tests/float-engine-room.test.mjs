@@ -1,15 +1,18 @@
-/* Float's room (float/worker/room.js) over fake sockets and a fake clock:
-   the protocol, a whole bot Cup in accelerated time, persistence and resume,
-   and the Field Day bridge (float/PROTOCOL.md "The room", "Field Day"). */
+/* Float's room (float/worker/room.js) over fake sockets and a fake clock,
+   ticked every 100 ms as the Durable Object ticks itself: the Groove's
+   messages, a whole bot Cup, a phone's hits judged on the room's offset, the
+   calibration from people only, a restart that carries a song on by the
+   clock, stand-ins, the drink rule, Last Call, the Field Day bridge
+   (float/GROOVE.md "What the room sends", "Last Call"; float/PROTOCOL.md
+   "The room", "Field Day"). */
 import test from "node:test";
 import assert from "node:assert/strict";
 import { FloatRoom } from "../float/worker/room.js";
-import { COURSE } from "../float/shared/course.js";
-import { PHASES, FLAG, unpackRow, PALETTE, CODE_LETTERS, CODE_LENGTH, STANDALONE_CODE, levelOfFlags } from "../float/shared/protocol.js";
-import { BEAT_MS } from "../float/shared/beat.js";
-import { TIMING } from "../float/shared/tuning.js";
+import { PHASES, PALETTE, CODE_LETTERS, CODE_LENGTH, STANDALONE_CODE, EVENTS, SERVER } from "../float/shared/protocol.js";
+import { CUP_TIMING } from "../float/shared/cup.js";
+import { GROOVE } from "../float/shared/groove.js";
+import { LAST_CALL, chartOf, cueTime, lastCallWorst, matchTap, practiceCues } from "../float/shared/chart.js";
 import * as Cup from "../float/shared/cup.js";
-import { flagsOf } from "../float/shared/sim.js";
 import * as Join from "../float/client/join/joinModel.js";
 
 class FakeSocket {
@@ -20,32 +23,30 @@ class FakeSocket {
   close() { this.readyState = 3; for (const fn of this.listeners.close || []) fn({}); }
   all(t) { return this.sent.filter(message => message.t === t); }
   last(t) { return this.all(t).at(-1); }
+  events(e) { return this.all("ev").filter(message => message.e === e); }
 }
 
 const memory = () => {
   const entries = new Map();
   const storage = {
-    alarm:null,
+    alarm:null, alarms:0, quiet:[],
     async get(key) { return structuredClone(entries.get(key)); },
-    async put(key, value) { entries.set(key, structuredClone(value)); },
+    async put(key, value, options) { entries.set(key, structuredClone(value)); if (options?.allowUnconfirmed) storage.quiet.push(key); },
     async delete(key) { entries.delete(key); },
-    async setAlarm(at) { storage.alarm = at; },
+    async setAlarm(at) { storage.alarm = at; storage.alarms += 1; },
     async deleteAlarm() { storage.alarm = null; },
   };
   return { entries, storage, ctx:{ storage, blockConcurrencyWhile:fn => fn() } };
 };
-
 const fakeClock = (start = 1_700_000_000_000) => {
   const clock = { t:start, now:() => clock.t };
   return clock;
 };
-
 async function makeRoom({ mem = memory(), clock = fakeClock(), env = {} } = {}) {
   const room = new FloatRoom(mem.ctx, env, { clock, timers:false });
   await room.ready;
   return { room, mem, clock };
 }
-
 function connect(room, { role = "controller", device, rider, code = "abcd" } = {}) {
   const ws = new FakeSocket();
   room.attach(ws, new URL(`https://float.test/float/ws?room=${code}`));
@@ -53,69 +54,120 @@ function connect(room, { role = "controller", device, rider, code = "abcd" } = {
   return ws;
 }
 const say = (room, ws, message) => room.onMessage(ws, JSON.stringify(message));
-
-/* run the room's clock forward: the 30 Hz loop while it would run, the
-   phase timer otherwise */
+/* the room's clock forward, tick() every 100 ms (the Durable Object's own rate) */
 async function run(room, clock, ms, until = () => false, each = null) {
   const end = clock.t + ms;
   while (clock.t < end) {
-    clock.t += 1000 / 30;
+    clock.t += 100;
     if (each) each(clock.t);
-    const phase = room.cup?.phase;
-    if (["grid", "countdown", "race"].includes(phase)) room.tick();
-    else if ((phase === "lobby" && room.cup.startPlanned && clock.t >= room.cup.startPlanned)
-      || (phase !== "lobby" && room.cup?.endsAt !== null && clock.t >= room.cup?.endsAt)) room.wake();
+    room.tick();
     if (until()) return true;
   }
   return until();
 }
+const settle = async () => { for (let k = 0; k < 20; k += 1) await Promise.resolve(); };
+/* phones that stay live: a ping every 2 s, as net.js sends */
+const keepAlive = (room, sockets) => {
+  let next = 0;
+  return t => {
+    if (t < next) return;
+    next = t + 2000;
+    for (const ws of sockets) if (ws.readyState === 1) say(room, ws, { t:"ping", c:t, rtt:90 });
+  };
+};
+const LOOK = { critter:"otter", floatie:"classic", hat:"none", shades:"none", pose:"flex" };
+const rider = (name, extra = {}) => ({ name, color:"#336699", look:LOOK, ...extra });
 
-const rider = (name, extra = {}) => ({ name, color:"#336699", look:{ critter:"otter", floatie:"classic", hat:"none", shades:"none", pose:"flex" }, ...extra });
+/* A phone that plays: from what the room sends it (the chart, songAt, the
+   offset) it taps each cue `lag(cue, phase)` ms after the cue's time on the
+   server clock, judges the tap where it lands (matchTap, as
+   controller/rhythm.js does) and sends hit { c, r }; `taps(cue, phase)` says
+   which cues it plays (a song's, or Last Call's grabs) and `done` when it
+   taps Done in a song's break. */
+function player(room, ws, { lag = () => 0, taps = () => true, done = null } = {}) {
+  const state = { chart:null, songAt:null, offset:0, taken:new Set(), sent:new Set(), doneSent:false, phase:null };
+  let read = 0;
+  return t => {
+    for (; read < ws.sent.length; read += 1) {
+      const message = ws.sent[read];
+      if (message.t !== "room") continue;
+      if (message.chart) state.chart = message.chart;
+      state.offset = message.offset;
+      state.phase = message.phase;
+      if ((message.phase === "song" || message.phase === "lastcall") && message.songAt !== state.songAt) {
+        state.songAt = message.songAt; state.taken = new Set(); state.sent = new Set(); state.doneSent = false;
+      }
+    }
+    if ((state.phase !== "song" && state.phase !== "lastcall") || !state.chart) return;
+    if (state.phase === "song" && done !== null && !state.doneSent && t >= cueTime(state.songAt, 56) + done) {
+      state.doneSent = true;
+      say(room, ws, { t:"drink" });
+    }
+    for (const cue of state.chart.cues) {
+      if (state.sent.has(cue.id) || !taps(cue, state.phase)) continue;
+      const at = cueTime(state.songAt, cue.beat) + lag(cue, state.phase);
+      if (at > t) break;
+      state.sent.add(cue.id);
+      const match = matchTap(state.chart, state.songAt, at, { offset:state.offset, taken:state.taken });
+      if (!match || match.cue.id !== cue.id) continue;
+      state.taken.add(cue.id);
+      say(room, ws, { t:"hit", c:match.cue.id, r:match.r });
+    }
+  };
+}
+const both = (...fns) => t => fns.forEach(fn => fn(t));
 
-test("hello: welcome first, then the room with the whole course; broadcasts carry courseId", async () => {
-  const { room } = await makeRoom();
+test("hello: welcome first, then the room; the chart rides in full once a song is known, then only its id", async () => {
+  const { room, clock } = await makeRoom();
   const screen = connect(room, { role:"screen", device:"tv-1" });
   assert.equal(screen.sent[0].t, "welcome");
   assert.deepEqual(screen.sent[0].you, { device:"tv-1", role:"screen" });
   const first = screen.sent[1];
   assert.equal(first.t, "room");
-  assert.equal(first.course.id, COURSE.id);
-  assert.equal(first.phase, "lobby");
-  assert.equal(first.mode, "party");
-  assert.equal(first.code, "abcd");
+  assert.deepEqual([first.phase, first.mode, first.code, first.song, first.songAt, first.chartId], ["lobby", "party", "abcd", null, null, null]);
+  assert.equal(first.chart, undefined, "no song, no chart");
+  assert.deepEqual(first.scores, []);
   assert.ok(Number.isFinite(first.s));
   const phone = connect(room, { device:"p-1", rider:rider("Ann") });
   assert.equal(phone.sent[0].you.entrant, 0);
   const update = screen.last("room");
-  assert.equal(update.course, undefined);
-  assert.equal(update.courseId, COURSE.id);
   assert.equal(update.entrants.length, 1);
   assert.equal(update.entrants[0].name, "Ann");
   assert.equal(update.entrants[0].connected, true);
   say(room, phone, { t:"ping", c:5, rtt:120 });
   assert.deepEqual({ t:phone.last("pong").t, c:phone.last("pong").c }, { t:"pong", c:5 });
+  /* the Cup starts: the intro already knows the first song, and sends its chart once */
+  say(room, screen, { t:"host", cmd:"start", bots:3, drinking:true });
+  const intro = screen.last("room");
+  assert.equal(intro.phase, "intro");
+  /* a bot's device id is public: a phone that says it takes nothing */
+  const botDevice = room.cup.entrants.find(entrant => entrant.bot).device;
+  const hijack = connect(room, { device:botDevice, rider:rider("Hijack") });
+  assert.equal(hijack.sent[0].you.entrant, undefined);
+  assert.equal(room.cup.entrants.find(entrant => entrant.device === botDevice).bot, true);
+  assert.equal(intro.song, "paddle");
+  assert.deepEqual(intro.chart, JSON.parse(JSON.stringify(chartOf("paddle"))));
+  assert.equal(intro.songAt, null);
+  await run(room, clock, 60000, () => room.cup.phase === "song" && clock.t > room.cup.songAt + 20000, keepAlive(room, [phone]));
+  const rooms = screen.all("room").filter(message => message.song === "paddle");
+  assert.equal(rooms.filter(message => message.chart).length, 1, "the chart once per socket a song");
+  assert.ok(rooms.every(message => message.chartId === "paddle"));
+  /* a screen that joins mid-song gets it with its first room */
+  const late = connect(room, { role:"screen", device:"tv-2" });
+  assert.equal(late.sent[1].chart.id, "paddle");
+  assert.equal(late.sent[1].songAt, room.cup.songAt);
+  /* the next song's chart goes to everyone once, when it goes up */
+  await run(room, clock, 120000, () => room.cup.phase === "song" && room.cup.round === 1, keepAlive(room, [phone]));
+  for (const ws of [screen, late, phone]) {
+    const rock = ws.all("room").filter(message => message.song === "rock");
+    assert.equal(rock.filter(message => message.chart).length, 1);
+    assert.equal(rock.find(message => message.chart).chart.id, "rock");
+  }
+  assert.ok(screen.sent.every(message => Number.isFinite(message.s)), "every message carries s");
+  assert.ok(screen.sent.every(message => SERVER.includes(message.t)), "only the contract's messages");
 });
 
-test("a reconnecting phone takes back its entrant; a new phone mid-Cup only watches", async () => {
-  const { room, clock } = await makeRoom();
-  const tv = connect(room, { role:"screen", device:"tv" });
-  const a = connect(room, { device:"a", rider:rider("Ann") });
-  connect(room, { device:"b", rider:rider("Bo") });
-  a.close();
-  assert.equal(tv.last("room").entrants[0].connected, false);
-  const again = connect(room, { device:"a", rider:rider("Ann") });
-  assert.equal(again.sent[0].you.entrant, 0);
-  assert.equal(room.cup.entrants.length, 2);
-  say(room, tv, { t:"host", cmd:"start", bots:2, drinking:true });
-  assert.equal(room.cup.phase, "intro");
-  assert.equal(room.cup.entrants.length, 4);
-  const late = connect(room, { device:"c", rider:rider("Cy") });
-  assert.equal(late.sent[0].you.entrant, undefined);
-  assert.equal(room.cup.entrants.length, 4);
-  await run(room, clock, 1000);
-});
-
-test("a whole bot Cup runs from start to the podium, with the contract's messages", async () => {
+test("a whole bot Cup plays from start to the podium with the contract's messages", async () => {
   const { room, clock, mem } = await makeRoom();
   const tv = connect(room, { role:"screen", device:"tv" });
   const phone = connect(room, { device:"me", rider:rider("Me", { drinks:false }) });
@@ -123,81 +175,286 @@ test("a whole bot Cup runs from start to the podium, with the contract's message
   assert.equal(room.cup.entrants.length, 13);
   assert.deepEqual(room.cup.schedule, [13, 9, 6, 3]);
   const phases = new Set();
+
   const done = await run(room, clock, 20 * 60 * 1000, () => {
     phases.add(room.cup.phase);
     return room.cup.phase === "podium";
   });
   assert.ok(done, `reached the podium (stuck in ${room.cup.phase}, round ${room.cup.round})`);
-  for (const phase of ["intro", "grid", "countdown", "race", "cut", "podium"]) assert.ok(phases.has(phase), phase);
+  for (const phase of ["intro", "song", "cut", "lastcall", "podium"]) assert.ok(phases.has(phase), phase);
   for (const phase of phases) assert.ok(PHASES.includes(phase));
-  assert.equal(room.cup.history.length, 4);
-  assert.deepEqual(room.cup.history.map(item => item.field.length), [13, 9, 6, 3]);
+  const cuts = tv.all("room").filter(message => message.phase === "cut");
+  assert.deepEqual([...new Set(cuts.map(message => message.endsAt - message.startAt))], [CUP_TIMING.CUT_BEFORE_LAST_CALL_MS, CUP_TIMING.CUT_LAST_MS],
+    "12 s before a Last Call, 7 s after the final");
+  assert.deepEqual(room.cup.history.map(item => item.lastCall?.players.length ?? null), [13, 13, 13, null]);
+  assert.deepEqual(room.cup.history.map(item => [item.song, item.field.length]), [["paddle", 13], ["rock", 9], ["spin", 6], ["drop", 3]]);
   assert.equal(room.cup.final.length, 13);
   assert.equal(new Set(room.cup.final).size, 13);
-  assert.equal(room.cup.podium.length, 3);
   assert.deepEqual(room.cup.podium, room.cup.final.slice(0, 3));
-  /* the screen got snaps with valid rows; the phone (paddled by its bot? no: live) got `me` */
-  const snaps = tv.all("snap");
-  assert.ok(snaps.length > 100);
-  const row = unpackRow(snaps.at(-1).k[0]);
-  assert.ok(Number.isFinite(row.x) && Number.isFinite(row.y) && Number.isFinite(row.a));
-  assert.ok(tv.all("ev").some(message => message.e === "arrive"));
-  assert.ok(tv.all("ev").some(message => message.e === "out"));
+  /* the room: its fields, every 4 s in a song at least */
+  const rooms = tv.all("room");
+  const inSong = rooms.filter(message => message.phase === "song" && message.round === 0);
+  for (const key of ["phase", "mode", "code", "cupId", "drinking", "round", "rounds", "field", "out", "startAt", "endsAt", "cut",
+    "lastRound", "entrants", "song", "songAt", "chartId", "offset", "scores", "results", "standings", "podium", "final", "history"])
+    assert.ok(key in inSong[0], key);
+  const span = inSong.at(-1).s - inSong[0].s;
+  assert.ok(inSong.length >= Math.floor(span / GROOVE.SCORES_MS), `${inSong.length} rooms in ${span} ms`);
+  for (let k = 1; k < inSong.length; k += 1) assert.ok(inSong[k].s - inSong[k - 1].s <= GROOVE.SCORES_MS + 100, "never 4 s without scores");
+  const scores = inSong.at(-1).scores;
+  assert.equal(scores.length, 13);
+  assert.deepEqual(Object.keys(scores[0]).sort(), ["cup", "done", "i", "live", "n", "pct", "pts"]);
+  assert.equal(inSong[0].songAt, inSong[0].startAt + 3000);
+  assert.equal(inSong[0].endsAt, inSong[0].songAt + 64000 + 1500);
+  assert.equal(inSong[0].cut, 9);
+
+  /* the events: hits and misses with the contract's fields, Done, the cuts' outs */
+  const hits = tv.events("hit");
+  assert.ok(hits.length > 1000);
+  for (const event of hits.slice(0, 200)) {
+    assert.ok(Number.isInteger(event.i) && Number.isInteger(event.c) && typeof event.q === "string");
+    if (event.q === "miss") assert.equal("d" in event, false);
+    else assert.ok(Number.isInteger(event.d));
+    assert.equal("at" in event, false, "the room's own time stays home");
+  }
+  assert.ok(tv.events("done").length >= 13 + 9 + 6 + 3 - 4, "bots tap Done");
+  assert.deepEqual(tv.events("out").map(event => event.i).sort((a, b) => a - b), room.cup.out.slice().sort((a, b) => a - b));
+  assert.ok(tv.all("ev").every(event => EVENTS.includes(event.e)));
+  assert.equal(tv.all("snap").length, 0, "no snapshots: nothing moves by physics");
+  /* the phone (a person who never taps) heard about itself */
   const me = phone.all("me");
-  assert.ok(me.length > 10, "the phone heard about itself");
-  assert.equal(me[0].i, room.cup.entrants.findIndex(entrant => entrant.device === "me"));
-  for (const key of ["place", "of", "prog", "len", "stam", "f"]) assert.ok(key in me[0], key);
+  assert.ok(me.length > 40, "after each judgement and at phase changes");
+  for (const key of ["i", "pts", "pct", "place", "of", "cut", "done", "c", "q"]) assert.ok(key in me.find(item => item.q), key);
+  assert.equal(me.at(-1).out, true);
   /* the cup was saved */
   assert.equal(mem.entries.get("cup").phase, "podium");
-  /* The Drop's instant replay reached the screen when the final ended: 10 s of rows round the moment */
-  const replay = tv.last("replay");
-  assert.ok(replay, "a replay");
-  assert.equal(replay.leg, 3);
-  assert.ok(replay.k.length >= 150 && replay.k.length <= 205, `${replay.k.length} frames`);
-  assert.ok(replay.k[0][0] >= replay.at - 6100 && replay.k.at(-1)[0] <= replay.at + 4000);
-  assert.equal(replay.k[0][1].length, 3, "the final's three riders");
-  assert.equal(phone.all("replay").length, 0, "screens only");
+  assert.ok(mem.entries.get(`stats:${room.cup.id}`).length === 4);
 });
 
-/* phones that stay live: a ping every 2 s, as net.js sends */
-const keepAlive = (room, sockets) => {
-  let next = 0;
-  return t => {
-    if (t < next) return;
-    next = t + 2000;
-    for (const ws of sockets) if (ws.readyState === 1) say(room, ws, { t:"ping", c:t, rtt:140 });
-  };
-};
-const settle = async () => { for (let k = 0; k < 20; k += 1) await Promise.resolve(); };
+test("a phone's hit: judged on the room's offset, told to everyone, `me` to that phone; once a cue; a flood is dropped", async () => {
+  const { room, clock } = await makeRoom();
+  const tv = connect(room, { role:"screen", device:"tv" });
+  const phone = connect(room, { device:"me", rider:rider("Me") });
+  const other = connect(room, { device:"you", rider:rider("You") });
+  say(room, tv, { t:"host", cmd:"start", bots:2, drinking:false });
+  const live = keepAlive(room, [phone, other]);
+  await run(room, clock, 60000, () => room.cup.phase === "song", live);
+  room.cup.song.offset = room.cup.song.base = 120;
+  const chart = chartOf(room.cup.songId);
+  const cue = chart.cues.find(item => item.scored);
+  const at = cueTime(room.cup.songAt, cue.beat) + 120 + 20;
+  await run(room, clock, at - clock.t - 50, () => false, live);
+  const i = room.cup.entrants.findIndex(entrant => entrant.device === "me");
+  clock.t = at + 60;
+  say(room, phone, { t:"hit", c:cue.id, r:140 });
+  const event = tv.events("hit").find(item => item.i === i && item.c === cue.id);
+  assert.deepEqual(event, { t:"ev", e:"hit", i, c:cue.id, q:"perfect", d:20, s:clock.t });
+  assert.ok(other.events("hit").some(item => item.i === i && item.c === cue.id), "the other phones hear it too");
+  const mine = phone.last("me");
+  assert.deepEqual([mine.i, mine.c, mine.q, mine.d], [i, cue.id, "perfect", 20]);
+  assert.ok(mine.pts >= 100 && mine.place >= 1 && mine.of === 4);
+  /* a second hit on the cue changes nothing */
+  const count = tv.events("hit").length;
+  say(room, phone, { t:"hit", c:cue.id, r:120 });
+  assert.equal(tv.events("hit").filter(item => item.i === i && item.c === cue.id).length, 1);
+  assert.equal(tv.events("hit").length, count);
+  /* sixteen hits a second a socket, then the rest of that second is dropped */
+  const next = chart.cues.find(item => item.scored && item.id > cue.id);
+  const nextAt = cueTime(room.cup.songAt, next.beat) + 120;
+  clock.t = nextAt - 200;
+  for (let k = 0; k < 16; k += 1) say(room, phone, { t:"hit", c:99999, r:0 });
+  clock.t = nextAt + 10;
+  say(room, phone, { t:"hit", c:next.id, r:130 });
+  assert.equal(tv.events("hit").filter(item => item.i === i && item.c === next.id).length, 0, "dropped");
+  clock.t = nextAt + 300;
+  room.tick();
+  /* a new second: heard again (this one too late for the cue: it is out of its window) */
+  const later = chart.cues.find(item => item.scored && item.id > next.id + 1);
+  const laterAt = cueTime(room.cup.songAt, later.beat) + 120;
+  await run(room, clock, laterAt - clock.t, () => false, live);
+  clock.t = laterAt + 50;
+  say(room, phone, { t:"hit", c:later.id, r:120 - 30 });
+  assert.equal(tv.events("hit").find(item => item.i === i && item.c === later.id)?.d, -30);
+  /* junk never throws and never lands */
+  for (const junk of [{ t:"hit" }, { t:"hit", c:"x", r:1 }, { t:"hit", c:later.id + 1, r:Infinity }, { t:"stroke", side:"L" }, { t:"balloon", at:1 }])
+    say(room, phone, junk);
+  room.onMessage(phone, "not json");
+  room.onMessage(phone, "x".repeat(5000));
+  /* a watcher's hit (no entrant) is nothing */
+  const watcher = connect(room, { device:"w", rider:rider("W") });
+  say(room, watcher, { t:"hit", c:later.id + 1, r:0 });
+  assert.equal(tv.events("hit").filter(item => item.i === undefined).length, 0);
+});
 
-test("a restarted room resumes its race from the last save after a 3 s countdown", async () => {
+test("the calibration is people's own: solo QA's one phone sets the room's offset in practice, at most once a beat, fixed from the first play bar", async () => {
+  const { room, clock } = await makeRoom();
+  const tv = connect(room, { role:"screen", device:"tv" });
+  const phone = connect(room, { device:"me", rider:rider("Me") });
+  say(room, tv, { t:"host", cmd:"start", bots:12, drinking:false });
+  /* the TV's sound is 150 ms late: the phone taps to what it hears, a little either side */
+  const jitter = cue => ((cue.id * 37) % 21) - 10;
+  const play = player(room, phone, { lag:cue => 150 + jitter(cue) });
+  const live = keepAlive(room, [phone]);
+  await run(room, clock, 120000, () => room.cup.phase === "song" && clock.t > room.cup.songAt + 30000, both(live, play));
+  const song = room.cup.song;
+  assert.equal(song.frozen, true);
+  assert.ok(Math.abs(song.offset - 150) <= 6, `the offset found the TV's delay (${song.offset})`);
+  const practice = practiceCues(chartOf(song.id));
+  assert.ok(song.samples.length >= practice.length - 1, `the phone's practice taps (${song.samples.length})`);
+  assert.ok(song.samples.every(r => Math.abs(r - 150) <= 12), "and only them: bots never calibrate");
+  /* what the screens heard: the offset moving in practice, at most once a beat, never after */
+  const rooms = tv.all("room").filter(message => message.phase === "song" && message.round === 0);
+  const moves = [];
+  for (let k = 1; k < rooms.length; k += 1) if (rooms[k].offset !== rooms[k - 1].offset) moves.push(rooms[k]);
+  assert.ok(moves.length >= 2, "it settles over practice");
+  const beatOfMove = message => Math.floor((message.s - room.cup.songAt) / 500);
+  assert.equal(new Set(moves.map(beatOfMove)).size, moves.length, "at most once a beat");
+  assert.ok(moves.every(message => beatOfMove(message) < 24), "fixed from the first play bar");
+  assert.equal(rooms.at(-1).offset, song.offset);
+  /* the phone's scored taps are judged on it: centred */
+  const i = room.cup.entrants.findIndex(entrant => entrant.device === "me");
+  const mine = tv.events("hit").filter(event => event.i === i && chartOf(song.id).cues[event.c].scored);
+  assert.ok(mine.length > 10);
+  assert.ok(mine.every(event => event.q === "perfect" && Math.abs(event.d) <= 20), "scored on the room's offset");
+});
+
+test("a restarted room carries the song on by the clock: songAt in the save, the judgements to the last save, nothing restarts", async () => {
   const mem = memory();
   const clock = fakeClock();
   const first = (await makeRoom({ mem, clock })).room;
   const tv = connect(first, { role:"screen", device:"tv" });
   say(first, tv, { t:"host", cmd:"start", bots:8, drinking:true });
-  await run(first, clock, 120000, () => first.cup.phase === "race" && first.race.t > 20);
-  const savedTick = mem.entries.get("race").tick;
-  assert.ok(savedTick > 500, "the race was saved while running");
-  assert.equal(mem.entries.get("cup").phase, "race");
-  assert.ok(mem.storage.alarm > clock.t && mem.storage.alarm <= clock.t + 5000, "a watchdog alarm while racing");
-  /* the object dies; a new one loads the same storage a few seconds later */
-  clock.t += 4000;
+  await run(first, clock, 120000, () => first.cup.phase === "song" && clock.t > first.cup.songAt + 21000);
+  const { songAt, endsAt, round } = first.cup;
+  const saved = mem.entries.get("cup");
+  assert.equal(saved.phase, "song");
+  assert.equal(saved.songAt, songAt);
+  assert.ok(Object.values(saved.song.judged).some(judged => Object.keys(judged).length > 20), "the judgements are saved");
+  assert.ok(mem.storage.quiet.includes("cup"), "saves in a song never hold the room's messages");
+  assert.ok(mem.storage.alarm > clock.t && mem.storage.alarm <= clock.t + 5000, "a watchdog alarm in a song");
+  const savedCount = Object.values(saved.song.judged).reduce((sum, judged) => sum + Object.keys(judged).length, 0);
+  const liveCount = Object.values(first.cup.song.judged).reduce((sum, judged) => sum + Object.keys(judged).length, 0);
+  assert.ok(liveCount - savedCount <= 9 * 8, "at most 2 s behind");
+  /* the object dies; a new one loads the same storage three seconds later */
+  clock.t += 3000;
   const { room } = await makeRoom({ mem, clock });
-  assert.equal(room.cup.phase, "countdown");
-  assert.equal(room.cup.resume, true);
-  assert.equal(room.cup.startAt, clock.t + TIMING.RESUME_MS, "startAt is when it goes again");
-  assert.equal(room.race.tick, savedTick);
+  assert.equal(room.cup.phase, "song");
+  assert.equal(room.cup.songAt, songAt, "no countdown, no restart");
+  assert.equal(room.cup.endsAt, endsAt);
   const screen = connect(room, { role:"screen", device:"tv2" });
-  assert.equal(screen.sent[1].phase, "countdown");
-  assert.equal(screen.sent[1].resume, true);
-  await run(room, clock, 3100);
-  assert.equal(room.cup.phase, "race");
-  assert.ok(Math.abs((clock.t - room.cup.startAt) / 1000 - room.race.t) < 0.1, "the race clock carries on from the save");
-  const done = await run(room, clock, 200000, () => room.cup.phase === "cut");
-  assert.ok(done, "and the round finishes");
-  assert.equal(room.cup.history.length, 1);
+  assert.equal(screen.sent[1].phase, "song");
+  assert.equal(screen.sent[1].songAt, songAt);
+  assert.equal(screen.sent[1].chart.id, room.cup.songId);
+  /* it catches up, then plays on: every cue of every rider judged once, the cut on time */
+  const before = structuredClone(room.cup.song.judged);
+  await run(room, clock, 200000, () => room.cup.phase === "cut");
+  assert.equal(room.cup.round, round);
+  assert.ok(Math.abs(room.cup.startAt - endsAt) <= 100, "the cut came when the song was due to end");
+  const item = room.cup.history[0];
+
+  for (const i of item.field) {
+    const counts = item.stats[i];
+    assert.equal(counts.perfects + counts.nice + counts.ok + counts.early + counts.late + counts.misses,
+      chartOf(item.song).cues.filter(cue => cue.scored).length);
+  }
+  const keys = screen.events("hit").map(event => `${event.i}:${event.c}`);
+  assert.equal(new Set(keys).size, keys.length, "no cue judged twice");
+  for (const [i, judged] of Object.entries(before)) for (const c of Object.keys(judged))
+    assert.ok(!keys.includes(`${i}:${c}`), "a saved judgement is never sent again");
+
 });
+
+test("a phone gone 5 s is played by a stand-in until it speaks again; botDriven says so", async () => {
+  const { room, clock } = await makeRoom();
+  const tv = connect(room, { role:"screen", device:"tv" });
+  const phone = connect(room, { device:"a", rider:rider("Ann") });
+  say(room, tv, { t:"host", cmd:"start", bots:3, drinking:false });
+  const live = keepAlive(room, [phone]);
+  await run(room, clock, 60000, () => room.cup.phase === "song" && clock.t > room.cup.songAt + 4000, live);
+  const i = room.cup.entrants.findIndex(entrant => entrant.device === "a");
+  assert.equal(room.driven(i), false);
+  assert.equal(tv.last("room").entrants[i].botDriven, false);
+  /* quiet: within 5 s (and a second for the lamp) the room says a stand-in plays */
+  const quietAt = room.lastHeard("a");
+  await run(room, clock, 6500);
+  assert.equal(room.driven(i), true);
+  const lamp = tv.all("room").find(message => message.entrants[i]?.botDriven);
+  assert.ok(lamp && lamp.s - quietAt >= GROOVE.STALE_MS && lamp.s - quietAt <= GROOVE.STALE_MS + 1200, `the room says so (${lamp && lamp.s - quietAt} ms after it last heard the phone)`);
+  await run(room, clock, 20000);
+  const stood = tv.events("hit").filter(event => event.i === i && event.q !== "miss");
+  assert.ok(stood.length > 5, "the stand-in taps");
+  /* it speaks: control comes back at once */
+  say(room, phone, { t:"ping", c:1 });
+  assert.equal(room.driven(i), false);
+  await run(room, clock, 1200, () => false, live);
+  assert.equal(tv.last("room").entrants[i].botDriven, false);
+  /* a closed phone: a stand-in after the same 5 s, not at once */
+  phone.close();
+  assert.equal(room.driven(i), false);
+  assert.equal(tv.last("room").entrants[i].connected, false);
+  await run(room, clock, 5100);
+  assert.equal(room.driven(i), true);
+  await run(room, clock, 120000, () => room.cup.phase === "cut");
+  const share = room.cup.history[0].stats[i].botShare;
+  assert.ok(share > 0.3 && share < 1, `the stand-in's share (${share})`);
+});
+
+test("the drink rule: Done before the break is nothing; Done in it tells everyone; no Done, every cue after it a miss; who skips the drink stays private", async () => {
+  const { room, clock } = await makeRoom();
+  const tv = connect(room, { role:"screen", device:"tv" });
+  const yes = connect(room, { device:"yes", rider:rider("Yes") });
+  const never = connect(room, { device:"never", rider:rider("Never") });
+  const dry = connect(room, { device:"dry", rider:rider("Dry", { drinks:false }) });
+  say(room, tv, { t:"host", cmd:"start", bots:0, drinking:true });
+  const index = device => room.cup.entrants.findIndex(entrant => entrant.device === device);
+  const [Y, N, D] = ["yes", "never", "dry"].map(index);
+  const players = both(keepAlive(room, [yes, never, dry]),
+    player(room, yes, { done:5000 }), player(room, never), player(room, dry));
+  await run(room, clock, 60000, () => room.cup.phase === "song" && clock.t > room.cup.songAt + 20000, players);
+  say(room, yes, { t:"drink" });
+  assert.equal(tv.events("done").length, 0, "not before the break");
+  await run(room, clock, 120000, () => room.cup.phase === "cut", players);
+  const song = room.cup.history[0];
+  const after = chartOf(song.song).cues.filter(cue => cue.scored && cue.beat >= 88);
+  const dones = tv.events("done");
+  assert.ok(dones.some(event => event.i === Y));
+  assert.ok(dones.some(event => event.i === D), "the TV sees the one who skips it finish like anyone");
+  assert.ok(!dones.some(event => event.i === N));
+  assert.equal(song.stats[Y].misses, 0);
+  assert.equal(song.stats[D].misses, 0);
+  assert.equal(song.stats[N].misses, after.length, "never Done: every cue after the break");
+  assert.ok(tv.events("hit").filter(event => event.i === N && chartOf(song.song).cues[event.c].beat >= 88).every(event => event.q === "miss"));
+  /* nobody but the rider's own phone hears who drinks */
+  const answers = message => message.entrants.filter(entrant => "drinks" in entrant);
+  assert.ok(tv.all("room").every(message => answers(message).length === 0), "screens never");
+  assert.ok(dry.all("room").every(message => answers(message).length === 1 && answers(message)[0].drinks === false), "its own phone only");
+  assert.ok(yes.all("room").every(message => answers(message).every(entrant => entrant.device === "yes")));
+  assert.equal(tv.last("room").scores.find(row => row.i === D).done, true);
+  /* its own phone owes no Done from the start; the screens saw it done only when a bot would be */
+  const dryMe = dry.all("me").filter(message => message.round === 0 && "pts" in message);
+  assert.ok(dryMe.length > 10 && dryMe.every(message => message.done === true));
+  assert.ok(yes.all("me").some(message => message.round === 0 && message.done === false), "a drinker owes it");
+  const dryDone = dones.find(event => event.i === D).s - cueTime(room.cup.songAt, 56);
+  assert.ok(dryDone >= GROOVE.DONE_FROM_MS && dryDone <= GROOVE.DONE_FROM_MS + GROOVE.DONE_SPAN_MS + 100, `${dryDone} ms into the break`);
+});
+
+test("options.ids makes a Cup repeatable: the same ids and clock, the same bots and the same taps", async () => {
+  const cupWith = async () => {
+    let n = 0;
+    const clock = fakeClock();
+    const room = new FloatRoom(memory().ctx, {}, { clock, timers:false, ids:prefix => `${prefix}fixed${(n += 1)}` });
+    await room.ready;
+    const tv = connect(room, { role:"screen", device:"tv" });
+    say(room, tv, { t:"host", cmd:"start", bots:6 });
+    await run(room, clock, 40000, () => room.cup.phase === "song" && clock.t > room.cup.songAt + 20000);
+    return { room, tv };
+  };
+  const a = await cupWith(), b = await cupWith();
+  assert.equal(a.room.cup.id, b.room.cup.id);
+  assert.deepEqual(a.room.cup.entrants, b.room.cup.entrants);
+  assert.deepEqual(a.tv.events("hit"), b.tv.events("hit"));
+});
+
+/* ---- Field Day ---- */
 
 function tournament({ failFirst = 0 } = {}) {
   const calls = [];
@@ -217,7 +474,7 @@ const postCup = (room, body) => room.fetch(new Request("https://fd.internal/inte
 const fdRider = (pid, extra = {}) => ({ name:pid, color:"#aa3300", pid, number:7, photo:`/api/photo/${pid}?v=1`,
   look:{ critter:"coyote", floatie:"shark", hat:"none", shades:"none", pose:"chug" }, ...extra });
 
-test("Field Day: the Tournament reserves a Cup by player, phones take their entrants, the result goes back once", async () => {
+test("Field Day: the Tournament reserves a Cup by player, phones take their entrants, the result goes back once, real players only", async () => {
   const { env, calls } = tournament({ failFirst:1 });
   const clock = fakeClock();
   const { room } = await makeRoom({ clock, env });
@@ -226,11 +483,9 @@ test("Field Day: the Tournament reserves a Cup by player, phones take their entr
     entrants:[fdRider("Brandon", { groom:true }), fdRider("Evan"), fdRider("Eyob", { drinks:false })] });
   const reply = await response.json();
   assert.equal(response.status, 200);
-  assert.equal(reply.ok, true);
-  assert.equal(reply.entrants, 13);
+  assert.deepEqual([reply.ok, reply.entrants, reply.startAt], [true, 13, startAt]);
   assert.equal(room.cup.mode, "fieldday");
   assert.equal(room.cup.phase, "lobby");
-  assert.equal(room.cup.startPlanned, startAt);
   assert.deepEqual(room.cup.entrants.slice(0, 3).map(entrant => entrant.pid), ["Brandon", "Evan", "Eyob"]);
   assert.equal(room.cup.entrants[0].groom, true);
   assert.equal(room.cup.entrants.filter(entrant => entrant.bot).length, 10);
@@ -243,69 +498,74 @@ test("Field Day: the Tournament reserves a Cup by player, phones take their entr
   const evan = connect(room, { device:"evan-phone", rider:fdRider("Evan", { look:{ critter:"otter", floatie:"pizza" } }), code:"fd-float" });
   assert.equal(evan.sent[0].you.entrant, 1);
   assert.equal(room.cup.entrants[1].device, "evan-phone");
-  assert.equal(room.cup.entrants[1].look.floatie, "pizza", "the phone's floatie choice counts in the lobby");
+  assert.equal(room.cup.entrants[1].look.critter, "otter", "the phone's look counts in the lobby");
   assert.equal(room.cup.entrants[1].name, "Evan", "identity stays Field Day's");
   const stranger = connect(room, { device:"x", rider:rider("Xavier"), code:"fd-float" });
   assert.equal(stranger.sent[0].you.entrant, undefined);
   say(room, tv, { t:"host", cmd:"start", bots:2 });
   assert.equal(room.cup.phase, "lobby", "the Tournament starts it, not a screen");
-  const room0 = tv.last("room");
-  assert.equal(room0.entrants[0].botDriven, true, "Brandon is not here: a bot will paddle");
-  assert.equal(room0.entrants[1].botDriven, false);
-  /* the lobby counts down to the start */
-  assert.equal(room0.startPlanned, startAt);
-  /* at startAt it starts by itself; the whole Cup runs */
+  const lobby = tv.last("room");
+  assert.equal(lobby.startPlanned, startAt);
+  assert.equal(lobby.entrants[1].botDriven, false);
+  /* at startAt it starts by itself, on its moment; Evan plays, Brandon and Eyob are stood in for */
+  const evanPlays = player(room, evan, { lag:() => 30 });
   const resultCalls = () => calls.filter(call => call.url.endsWith("/internal/float/result"));
-  let sawLastRound = false;
-  const done = await run(room, clock, 25 * 60 * 1000, () => {
-    if (room.cup.phase === "race" && Cup.isLastRound(room.cup)) sawLastRound = true;
-    return room.cup.phase === "podium";
-  }, keepAlive(room, [evan]));
+  const done = await run(room, clock, 25 * 60 * 1000, () => room.cup.phase === "podium", both(keepAlive(room, [evan]), evanPlays));
   assert.ok(done, `reached the podium (in ${room.cup.phase})`);
-  assert.ok(sawLastRound);
-  const podiumRoom = tv.last("room");
-  assert.equal(podiumRoom.lastRound, true, "the last round");
-  assert.equal(podiumRoom.startPlanned, null);
-  assert.ok(Array.isArray(podiumRoom.final) && podiumRoom.final.length === 13, "final is the Cup's order");
-  /* the podium plays first: nothing posts until it ends (the Tournament's winner scene would cut it off) */
+  assert.equal(room.cup.history[0].field.length, 13);
+  assert.equal(tv.all("room").find(message => message.phase === "intro").startAt, startAt, "the planned moment");
+  /* the podium plays first: nothing posts until it ends */
   await settle();
   assert.equal(resultCalls().length, 0, "not during the podium");
   const finalPids = room.cup.final.map(i => room.cup.entrants[i].pid).filter(Boolean);
-  await run(room, clock, TIMING.PODIUM_MS + 100, () => room.cup.phase === "feedback");
-  assert.equal(room.cup.phase, "feedback");
+  await run(room, clock, CUP_TIMING.PODIUM_MS + 100, () => room.cup.phase === "feedback");
   await settle();
-  /* the first post failed; the alarm retries it a second later */
   assert.equal(resultCalls().length, 1, "posted when the podium ended");
-  assert.equal(room.outbox.find(item => item.id === "result:cup-1").done, false);
+  assert.equal(room.outbox.find(item => item.id === "result:cup-1").done, false, "the first post failed");
   clock.t += 1000;
   await room.alarm();
   await settle();
   const results = resultCalls();
+  assert.equal(results.length, 2, "retried on the alarm");
   assert.equal(results[0].id, "id:main");
   const body = results.at(-1).body;
-  assert.equal(body.cupId, "cup-1");
-  assert.equal(body.evId, "float");
+  assert.deepEqual([body.evId, body.cupId], ["float", "cup-1"]);
   assert.deepEqual(body.order.slice().sort(), ["Brandon", "Evan", "Eyob"], "real players only");
   assert.deepEqual(body.order, finalPids, "in their relative order");
   assert.equal(body.rounds.length, 4);
+  assert.deepEqual(body.rounds.map(item => item.song), ["paddle", "rock", "spin", "drop"]);
+  assert.deepEqual(Object.keys(body.rounds[0].results[0]).sort(), ["bot", "cup", "misses", "out", "pct", "perfects", "pid", "place", "pts", "who"]);
+  /* the stats: per round the offset, and each rider's percent, perfects, misses and how much a stand-in played */
   assert.equal(body.stats.rounds.length, 4);
-  /* how much of each race a bot paddled, as data: Brandon never connected, Evan did */
+  assert.ok("offset" in body.stats.rounds[0] && "samples" in body.stats.rounds[0]);
   const brandon = body.stats.rounds[0].riders.Brandon;
-  assert.equal(brandon.botShare, 1);
-  assert.ok(body.stats.rounds[0].riders.Evan.botShare < 0.05);
+  for (const key of ["pct", "perfects", "misses", "botShare"]) assert.ok(key in brandon, key);
+  assert.equal(brandon.botShare, 1, "never connected: a stand-in played it all");
+  assert.equal(body.stats.rounds[0].riders.Evan.botShare, 0);
   assert.equal(body.stats.botShare.Brandon, 1);
-  assert.ok(body.stats.botShare.Evan >= 0 && body.stats.botShare.Evan < 0.05);
-  /* the first post failed (503): it was retried, and once it landed it never posts again */
-  const outbox = room.outbox.find(item => item.id === "result:cup-1");
-  assert.equal(outbox.done, true);
-  assert.equal(results.length, 2);
+  assert.equal(body.stats.botShare.Evan, 0);
+  assert.ok(body.stats.rounds[0].samples > 0, "Evan's practice calibrated the room");
+  /* who drank at each Last Call, by name, among those not excused (Brandon and Eyob never came: stand-ins grabbed for them); none after the final */
+  for (const round of [0, 1, 2]) {
+    const lastCall = body.stats.rounds[round].lastCall;
+    assert.equal(Object.keys(lastCall.totals).length, 13, "everyone in the Cup");
+    assert.deepEqual(lastCall.excused.slice().sort(), ["Brandon", "Eyob"]);
+    assert.ok(lastCall.worst.length >= 1 && lastCall.worst.every(who => who in lastCall.totals && !lastCall.excused.includes(who)));
+    const may = Object.keys(lastCall.totals).filter(who => !lastCall.excused.includes(who));
+    const worst = Math.max(...may.map(who => lastCall.totals[who]));
+    assert.deepEqual(lastCall.worst.slice().sort(), may.filter(who => lastCall.totals[who] === worst).sort());
+  }
+  assert.equal(body.stats.rounds[3].lastCall, null);
+  assert.ok("Brandon" in body.stats.rounds[0].lastCall.totals, "a stand-in grabbed for the one never here");
+  /* once it landed it never posts again */
+  assert.equal(room.outbox.find(item => item.id === "result:cup-1").done, true);
   /* feedback goes to the Tournament too */
-  await room.onMessage(evan, JSON.stringify({ t:"feedback", answers:{ fun:5, again:true, better:"More rapids", junk:{ x:1 } } }));
+  await room.onMessage(evan, JSON.stringify({ t:"feedback", answers:{ fun:5, again:true, better:"More songs", junk:{ x:1 } } }));
   await settle();
   await room.alarm();
   await settle();
   const feedback = calls.find(call => call.url.endsWith("/internal/float/feedback"));
-  assert.deepEqual(feedback.body, { cupId:"cup-1", pid:"Evan", answers:{ fun:5, again:true, better:"More rapids" } });
+  assert.deepEqual(feedback.body, { cupId:"cup-1", pid:"Evan", answers:{ fun:5, again:true, better:"More songs" } });
   clock.t += 3600000;
   await room.alarm();
   await settle();
@@ -313,22 +573,28 @@ test("Field Day: the Tournament reserves a Cup by player, phones take their entr
   assert.equal(resultCalls().length, 2, "never again");
 });
 
-test("a finished Field Day Cup left early still posts its result, once", async () => {
+test("a finished Field Day Cup left early still posts its result, once; a party rerun in its room posts nothing", async () => {
   const { env, calls } = tournament();
   const clock = fakeClock();
   const { room } = await makeRoom({ clock, env });
   await postCup(room, { evId:"float", cupId:"cup-2", startAt:clock.t, bots:4, entrants:[fdRider("Evan")] });
   const tv = connect(room, { role:"screen", device:"tv", code:"fd-float" });
+  say(room, tv, { t:"host", cmd:"lobby" });
+  assert.equal(room.cup.phase, "lobby", "a reserved Cup stays reserved");
+  assert.ok(room.cup.startPlanned);
   await run(room, clock, 25 * 60 * 1000, () => room.cup.phase === "cut" && room.cup.done);
   assert.equal(room.cup.done, true);
   say(room, tv, { t:"host", cmd:"lobby" });
   assert.equal(room.cup.phase, "lobby", "a finished Cup may be left");
   await settle();
-  const results = calls.filter(call => call.url.endsWith("/internal/float/result"));
-  assert.equal(results.length, 1);
-  assert.deepEqual(results[0].body.order, ["Evan"]);
-  await run(room, clock, 120000);
-  assert.equal(calls.filter(call => call.url.endsWith("/internal/float/result")).length, 1);
+  const results = () => calls.filter(call => call.url.endsWith("/internal/float/result"));
+  assert.equal(results().length, 1);
+  assert.deepEqual(results()[0].body.order, ["Evan"]);
+  say(room, tv, { t:"host", cmd:"start", bots:3 });
+  assert.equal(room.cup.mode, "party");
+  await run(room, clock, 25 * 60 * 1000, () => room.cup.phase === "feedback");
+  await settle();
+  assert.equal(results().length, 1);
 });
 
 test("a failing Tournament is retried with backoff from the alarm, never blocking the room", async () => {
@@ -354,12 +620,11 @@ test("a failing Tournament is retried with backoff from the alarm, never blockin
   await room.alarm();
   assert.equal(calls.length, 4);
   assert.equal(room.outbox[0].done, true);
-  /* it survives a restart: a new object sees it as sent */
   const { room:again } = await makeRoom({ mem, clock, env });
-  assert.equal(again.outbox[0].done, true);
+  assert.equal(again.outbox[0].done, true, "it survives a restart as sent");
 });
 
-test("host commands: start with drinking off, back to the lobby, kick", async () => {
+test("host commands: start with drinking off, kick (a stand-in plays the kicked mid-Cup), back to the lobby", async () => {
   const { room, clock } = await makeRoom();
   const tv = connect(room, { role:"screen", device:"tv" });
   const a = connect(room, { device:"a", rider:rider("Ann") });
@@ -369,7 +634,7 @@ test("host commands: start with drinking off, back to the lobby, kick", async ()
   say(room, a, { t:"ready", on:true });
   assert.equal(tv.last("room").entrants[0].ready, true);
   say(room, a, { t:"look", look:{ critter:"frog", floatie:"unicorn", hat:"crown", shades:"stars", pose:"backflip" } });
-  assert.equal(room.cup.entrants[0].look.floatie, "unicorn");
+  assert.equal(room.cup.entrants[0].look.critter, "frog");
   assert.equal(room.cup.entrants[0].look.hat, "none", "the crown is the groom's");
   /* a phone cannot host */
   say(room, a, { t:"host", cmd:"start", bots:3 });
@@ -378,217 +643,206 @@ test("host commands: start with drinking off, back to the lobby, kick", async ()
   assert.equal(room.cup.phase, "intro");
   assert.equal(room.cup.drinking, false);
   assert.equal(room.cup.entrants.length, 4);
-  await run(room, clock, 200000, () => room.cup.phase === "race" && room.race.riders.some(r => r.arrived), keepAlive(room, [a]));
-  const arrived = room.race.riders.find(r => r.arrived);
-  assert.equal(arrived.drinkAt, arrived.arriveAt, "drinking off: the drink counts on arrival");
-  /* a kick mid-Cup hands the rider to a bot */
+  /* the look is the lobby's */
+  say(room, a, { t:"look", look:{ critter:"otter" } });
+  assert.equal(room.cup.entrants[0].look.critter, "frog");
+  const live = keepAlive(room, [a]);
+  await run(room, clock, 60000, () => room.cup.phase === "song" && clock.t > room.cup.songAt + 10000, live);
+  assert.ok(tv.last("room").scores.every(row => row.done), "drinking off: everyone is done from the start");
+  /* a kick mid-Cup hands the rider to a stand-in; its phone's hits are ignored */
   say(room, tv, { t:"host", cmd:"kick", device:"a" });
   assert.equal(room.cup.entrants[0].kicked, true);
-  assert.equal(room.botDriven(0), true);
+  assert.equal(room.driven(0), true);
+  const cue = chartOf(room.cup.songId).cues.find(item => cueTime(room.cup.songAt, item.beat) > clock.t + 1000);
+  clock.t = cueTime(room.cup.songAt, cue.beat) + 10;
+  say(room, a, { t:"hit", c:cue.id, r:10 });
+  assert.ok(!tv.events("hit").some(event => event.i === 0 && event.c === cue.id && event.d === 10));
   say(room, tv, { t:"host", cmd:"lobby" });
   assert.equal(room.cup.phase, "lobby");
   assert.deepEqual(room.cup.entrants.map(entrant => entrant.name), ["Ann"], "bots leave with the Cup");
+  assert.equal(room.cup.entrants[0].kicked, undefined);
   assert.equal(room.loop, null);
+  /* a phone that watched the last Cup joins the next lobby */
+  connect(room, { device:"late", rider:rider("Late") });
+
+  assert.equal(room.cup.entrants.length, 2);
 });
 
-test("phones paddle their own rider; floods are dropped; thumbs show; a silent phone is paddled by a bot", async () => {
-  const { room, clock } = await makeRoom();
-  const tv = connect(room, { role:"screen", device:"tv" });
-  const a = connect(room, { device:"a", rider:rider("Ann") });
-  say(room, tv, { t:"host", cmd:"start", bots:4, drinking:true });
-  const live = keepAlive(room, [a]);
-  await run(room, clock, 60000, () => room.cup.phase === "race" && room.race.t > 2, live);
-  const me = room.race.riders.find(r => r.i === 0);
-  const before = me.st.strokes;
-  for (let k = 0; k < 15; k += 1) say(room, a, { t:"stroke", side:k % 2 ? "R" : "L", p:1 });
-  assert.ok(me.st.strokes - before <= 10, "more than 10 strokes a second are dropped");
-  assert.ok(me.st.strokes - before >= 4);
-  say(room, a, { t:"hands", n:1 });
-  await run(room, clock, 200, () => false, live);
-  const row = tv.last("snap").k.map(unpackRow).find(item => item.i === 0);
-  assert.ok(row.f & FLAG.HANDS_OFF);
-  assert.ok(tv.last("snap").s <= clock.t, "a snap is stamped with its tick's time");
-  const mine = a.last("me");
-  assert.equal(mine.i, 0);
-  assert.equal(mine.of, 5);
-  assert.equal(mine.cut, room.cup.schedule[1], "the places that go through");
-  assert.equal(mine.cut, 4);
-  assert.ok(mine.len > 300);
-  assert.ok(tv.all("debug").length >= 1 && tv.last("debug").rtt.a === 140);
-  assert.equal(room.botDriven(0), false);
-  /* the phone goes quiet: within 5 s a bot paddles for it, and the room says so */
-  const quietFrom = me.st.strokes;
-  await run(room, clock, 8000);
-  assert.equal(room.botDriven(0), true);
-  assert.ok(me.st.strokes > quietFrom + 5, "the bot paddles");
-  assert.equal(tv.last("room").entrants[0].botDriven, true);
-  /* it speaks again: control comes back */
-  say(room, a, { t:"ping", c:1 });
-  assert.equal(room.botDriven(0), false);
-});
-
-test("between rounds: survivors swap floaties for 15 s; the out drink on the beach, then throw balloons", async () => {
+test("cheer: riders out of the Cup cheer from the bank, one in 300 ms; riders still in, and strangers, cannot", async () => {
   const { room, clock } = await makeRoom();
   const tv = connect(room, { role:"screen", device:"tv" });
   const phones = ["a", "b", "c", "d", "e"].map(device => connect(room, { device, rider:rider(device.toUpperCase()) }));
-  say(room, tv, { t:"host", cmd:"start", bots:0, drinking:true });
-  /* the phones stay quiet through the first race, so bots carry them */
-  await run(room, clock, 400000, () => room.cup.phase === "cut");
-  assert.equal(room.cup.phase, "cut");
-  const live = keepAlive(room, phones);
-  live(clock.t);
-  const survivor = room.cup.field[0];
-  const outI = room.cup.out[0];
-  const phoneOf = i => phones.find(ws => ws.sent[0].you.entrant === i);
-  say(room, phoneOf(survivor), { t:"look", look:{ floatie:"lounge", critter:"frog" } });
-  assert.equal(room.cup.entrants[survivor].look.floatie, "lounge");
-  assert.notEqual(room.cup.entrants[survivor].look.critter, "frog", "only the floatie changes mid-Cup");
-  say(room, phoneOf(outI), { t:"look", look:{ floatie:"lounge" } });
-  assert.notEqual(room.cup.entrants[outI].look.floatie, "lounge", "the out cannot swap");
-  clock.t = room.cup.swapUntil + 1;
-  say(room, phoneOf(survivor), { t:"look", look:{ floatie:"donut" } });
-  assert.equal(room.cup.entrants[survivor].look.floatie, "lounge", "the window closed");
-  /* the out rider: drink on the beach, then a balloon in the next race */
-  await run(room, clock, 60000, () => room.cup.phase === "race" && room.race.t > 1, live);
-  const outPhone = phoneOf(outI);
-  if (!room.cup.beach[outI].drank) say(room, outPhone, { t:"drink" });
-  assert.equal(room.cup.beach[outI].drank, true);
-  const target = room.race.riders[0].i;
-  say(room, outPhone, { t:"balloon", at:target });
-  assert.ok(tv.all("ev").some(ev => ev.e === "balloon" && ev.i === outI && ev.j === target));
-  const thrown = tv.all("ev").filter(ev => ev.e === "balloon").length;
-  say(room, outPhone, { t:"balloon", at:target });
-  assert.equal(tv.all("ev").filter(ev => ev.e === "balloon").length, thrown, "one every 12 s");
-  await run(room, clock, 1500, () => false, live);
-  assert.ok(tv.all("ev").some(ev => ev.e === "splash" && ev.i === outI), "it lands");
-});
-
-test("a rider's drinking answer is private: only their own phone hears it, and skipping the drink is silent", async () => {
-  const { room, clock } = await makeRoom();
-  const tv = connect(room, { role:"screen", device:"tv" });
-  const yes = connect(room, { device:"yes", rider:rider("Yes", { drinks:true }) });
-  const no = connect(room, { device:"no", rider:rider("No", { drinks:false }) });
-  say(room, yes, { t:"ready", on:true });
-  const rooms = ws => ws.all("room");
-  const noDrinks = message => message.entrants.every(entrant => !("drinks" in entrant));
-  assert.ok(rooms(tv).every(noDrinks), "screens never see it");
-  const own = (ws, i) => rooms(ws).at(-1).entrants[i];
-  assert.equal(own(yes, 0).drinks, true, "each phone sees its own");
-  assert.equal(own(no, 1).drinks, false);
-  assert.equal("drinks" in own(yes, 1), false, "and nobody else's");
-  assert.equal("drinks" in own(no, 0), false);
-  assert.equal(no.sent[1].entrants[1].drinks, false, "the hello's room message carries it too");
-  /* a stranger's phone (no entrant) sees no answers */
-  const watcher = connect(room, { device:"w" });
-  assert.ok(rooms(watcher).every(noDrinks));
-  say(room, tv, { t:"host", cmd:"start", bots:2, drinking:true });
-  /* the phones stay quiet, so bots paddle them (a bot never drinks for someone who skips the drink) */
-  const arrived = await run(room, clock, 300000, () => room.cup.phase === "race" && room.race.riders.find(r => r.i === 1)?.arrived);
-  assert.ok(arrived, "the rider who skips the drink arrived");
-  const arrival = room.race.riders.find(r => r.i === 1);
-  assert.ok(arrival.arriveAt !== null);
-  assert.equal(arrival.drinkAt, arrival.arriveAt, "the drink counts on arrival");
-  await run(room, clock, 200);
-  assert.equal(tv.all("ev").filter(ev => ev.e === "drink" && ev.i === 1).length, 0, "no drink event says who skipped it");
-  assert.ok(flagsOf(arrival, room.race.t) & FLAG.DRANK, "the flag lights as for anyone");
-  assert.ok(rooms(tv).every(noDrinks) && rooms(yes).every(message => message.entrants.every((entrant, i) => i === 0 || !("drinks" in entrant))));
-});
-
-test("thumbs count from the countdown; me carries the race order; the beach gets its order, balloon clock and drink", async () => {
-  const { room, clock } = await makeRoom();
-  const tv = connect(room, { role:"screen", device:"tv" });
-  const phones = ["a", "b", "c", "d", "e", "f"].map(device => connect(room, { device, rider:rider(device.toUpperCase()) }));
-  const live = keepAlive(room, phones);
-  say(room, tv, { t:"host", cmd:"start", bots:0, drinking:true });
-  await run(room, clock, 60000, () => room.cup.phase === "countdown", live);
-  /* a thumb lifted during the countdown shows on the grid at once */
-  say(room, phones[0], { t:"hands", n:1 });
-  say(room, phones[0], { t:"stroke", side:"L", p:1 });
-  assert.equal(room.race.riders.find(r => r.i === 0).hands, 1);
-  assert.equal(room.race.riders.find(r => r.i === 0).st.strokes, 0, "no strokes before the gun");
-  await run(room, clock, 400, () => false, live);
-  assert.ok(tv.last("snap").k.map(unpackRow).find(item => item.i === 0).f & FLAG.HANDS_OFF);
-  say(room, phones[0], { t:"hands", n:2 });
-  /* the race: me carries everyone's order by place */
-  await run(room, clock, 60000, () => room.cup.phase === "race" && room.race.t > 3, live);
-  const mine = phones[1].last("me");
-  assert.deepEqual(mine.order.slice().sort(), room.cup.field.slice().sort(), "every racer, by place");
-  assert.equal(mine.order[mine.place - 1], mine.i);
-  /* phones that do not paddle get bots once quiet: stop pinging so the round runs */
-  await run(room, clock, 400000, () => room.cup.phase === "cut");
-  const outI = room.cup.out[0];
+  say(room, tv, { t:"host", cmd:"start", bots:0, drinking:false });
+  /* nobody taps: every percent is 0 and the field's order decides who goes */
+  await run(room, clock, 200000, () => room.cup.phase === "cut", keepAlive(room, phones));
+  const [outI] = room.cup.out;
   const outPhone = phones.find(ws => ws.sent[0].you.entrant === outI);
-  const cutRoom = tv.last("room");
-  assert.equal(typeof cutRoom.entrants[outI].drank, "boolean", "out riders carry their beach drink");
-  assert.equal(cutRoom.lastRound, false);
-  for (const i of cutRoom.field) assert.equal("drank" in cutRoom.entrants[i], false, "survivors do not");
-  /* round two: the out phone hears the order, its balloon clock and its drink */
-  const live2 = keepAlive(room, phones);
-  await run(room, clock, 60000, () => room.cup.phase === "race" && room.race.t > 1, live2);
-  if (!room.cup.beach[outI].drank) say(room, outPhone, { t:"drink" });
-  await run(room, clock, 400, () => false, live2);
-  const beach = outPhone.last("me");
-  assert.equal(beach.out, true);
-  assert.equal(beach.i, outI);
-  assert.deepEqual(beach.order.slice().sort(), room.cup.field.slice().sort());
-  assert.ok(beach.f & FLAG.DRANK);
-  assert.equal(beach.ball, room.cup.beach[outI].next);
-  assert.equal(tv.last("room").entrants[outI].drank, true);
+  const inPhone = phones.find(ws => ws.sent[0].you.entrant === room.cup.field[0]);
+  say(room, outPhone, { t:"cheer" });
+  say(room, outPhone, { t:"cheer" });
+  assert.deepEqual(tv.events("cheer").map(event => event.i), [outI], "one in 300 ms");
+  clock.t += 300;
+  say(room, outPhone, { t:"cheer" });
+  assert.equal(tv.events("cheer").length, 2);
+  assert.ok(phones[0].events("cheer").length === 2, "everyone hears it");
+  say(room, inPhone, { t:"cheer" });
+  assert.equal(tv.events("cheer").length, 2, "only from the bank");
+  assert.equal(outPhone.last("me").out, true, "the out phone knows it is out");
 });
 
-test("the shared palette and room-code letters live in protocol.js, re-exported where they were", () => {
+test("the watchdog alarm in a song moves only when it must; the timers drive themselves in a live room", async () => {
+  const { room, clock, mem } = await makeRoom();
+  const tv = connect(room, { role:"screen", device:"tv" });
+  say(room, tv, { t:"host", cmd:"start", bots:5, drinking:true });
+  await run(room, clock, 60000, () => room.cup.phase === "song");
+  const before = mem.storage.alarms;
+  let late = 0;
+  await run(room, clock, 20000, () => false, t => { if (mem.storage.alarm < t - 100) late += 1; });
+  const writes = mem.storage.alarms - before;
+  assert.ok(writes <= 20000 / GROOVE.SAVE_MS + 2, `${writes} alarm writes in 20 s, not one a tick`);
+  assert.equal(late, 0, "never left in the past");
+  assert.ok(mem.storage.alarm - clock.t <= 5000);
+  assert.ok(mem.storage.quiet.length > 0, "and never holding the room's messages");
+  /* with real timers: an interval in a song, a timeout otherwise */
+  const timers = [];
+  const timed = { now:() => clock.t, setInterval:(fn, ms) => { timers.push({ kind:"interval", ms }); return timers.length; },
+    clearInterval:() => {}, setTimeout:(fn, ms) => { timers.push({ kind:"timeout", ms }); return timers.length; }, clearTimeout:() => {} };
+  const live = new FloatRoom(memory().ctx, {}, { clock:timed });
+  await live.ready;
+  const screen = new FakeSocket();
+  live.attach(screen, new URL("https://float.test/float/ws?room=abcd"));
+  say(live, screen, { t:"hello", role:"screen", device:"tv" });
+  say(live, screen, { t:"host", cmd:"start", bots:2 });
+  assert.ok(timers.some(item => item.kind === "timeout" && item.ms === CUP_TIMING.INTRO_MS), "a timeout for the intro's end");
+  assert.ok(!timers.some(item => item.kind === "interval"), "no loop in the intro");
+  clock.t += CUP_TIMING.INTRO_MS;
+  live.tick();
+  assert.ok(timers.some(item => item.kind === "interval" && item.ms === GROOVE.TICK_MS), "the light timer in a song");
+});
+
+test("a saved 3D Cup comes back as a Groove lobby; the shared palette and room-code letters live in protocol.js", async () => {
+  const mem = memory();
+  mem.entries.set("cup", { v:1, id:"c-old", mode:"party", code:"brkt", drinking:true, seed:7, phase:"race", startAt:1, endsAt:2,
+    round:2, entrants:[{ device:"a", name:"Ann", color:"#112233", look:LOOK, bot:false, ready:true }], field:[0], out:[] });
+  mem.entries.set("race", { tick:900 });
+  const { room } = await makeRoom({ mem });
+  assert.equal(room.cup.v, 2);
+  assert.equal(room.cup.phase, "lobby");
+  assert.deepEqual(room.cup.entrants.map(entrant => entrant.name), ["Ann"]);
+  await settle();
+  assert.equal(mem.entries.has("race"), false, "the river's checkpoint goes");
+  assert.equal(mem.entries.get("cup").v, 2);
   assert.equal(Cup.PALETTE, PALETTE);
   assert.equal(PALETTE.length, 16);
   assert.equal(Join.CODE_LETTERS, CODE_LETTERS);
   assert.equal(Join.STANDALONE_CODE, STANDALONE_CODE);
   assert.equal(Join.CODE_LENGTH, CODE_LENGTH);
-  assert.ok(STANDALONE_CODE.test("brkt") && !STANDALONE_CODE.test("bark"));
+
 });
 
-test("the beat over the wire: stamped strokes climb to Locked in; too fast and stale stamps break the streak", async () => {
+/* ---- Last Call ---- */
+
+test("Last Call over the wire: everyone at the bar grabs on the last song's offset with a one-second window; the totals grow, who drinks shows at the last deadline", async () => {
   const { room, clock } = await makeRoom();
   const tv = connect(room, { role:"screen", device:"tv" });
-  const phone = connect(room, { device:"me", rider:rider("Me") });
-  say(room, tv, { t:"host", cmd:"start", bots:2, drinking:false });
-  const live = keepAlive(room, [phone]);
-  await run(room, clock, 60000, () => room.cup.phase === "race" && room.race.t > 0.6, live);
-  const gun = tv.last("room").startAt;
-  assert.equal(gun, room.cup.startAt, "the race's gun is room.startAt");
-  /* a phone's stamp: the beat and the offset of its touch on the server clock */
-  const stamp = (offset = 0) => {
-    const k = Math.round((clock.t + offset - gun) / BEAT_MS);
-    return { k, d:Math.round(clock.t + offset - (gun + k * BEAT_MS)) };
-  };
-  const me = () => room.race.riders.find(r => r.i === 0);
-  let side = "L";
-  for (let beat = 0; beat < 20; beat += 1) {
-    const next = gun + (Math.floor((clock.t - gun) / BEAT_MS) + 1) * BEAT_MS + 10;
-    await run(room, clock, next - clock.t, () => clock.t >= next, live);
-    side = side === "L" ? "R" : "L";
-    say(room, phone, { t:"stroke", side, p:1, ...stamp(-10) });
+  const [a, b, c] = ["a", "b", "c"].map(device => connect(room, { device, rider:rider(device.toUpperCase()) }));
+  say(room, tv, { t:"host", cmd:"start", bots:4, drinking:true });
+  const index = device => room.cup.entrants.findIndex(entrant => entrant.device === device);
+  const [A, B, C] = ["a", "b", "c"].map(index);
+  /* A plays the song 90 ms behind the beat it hears (and grabs 0.73 s late, then sharp); B grabs only; C goes quiet at the cut */
+  const aPlays = player(room, a, { done:4000, lag:(cue, phase) => phase === "lastcall" ? (cue.id === 0 ? 90 + 730 : 90 + 15) : 90 });
+  const bGrabs = player(room, b, { taps:(cue, phase) => phase === "lastcall", lag:() => 90 - 40 });
+  let cQuiet = false;
+  const live = keepAlive(room, [a, b]);
+  const cLive = keepAlive(room, [c]);
+  const each = both(live, t => { if (!cQuiet) cLive(t); }, aPlays, bGrabs);
+  await run(room, clock, 200000, () => room.cup.phase === "cut", each);
+  assert.deepEqual(room.cup.out.slice().sort(), [B, C].sort(), "the two who never played the song are out");
+  cQuiet = true;
+  await run(room, clock, 60000, () => room.cup.phase === "lastcall", each);
+  const offset = room.cup.offset;
+  assert.ok(Math.abs(offset - 90) <= 10, `the song's calibration (${offset})`);
+  const first = tv.all("room").find(message => message.phase === "lastcall");
+  assert.deepEqual([first.song, first.chartId, first.chart?.id, first.offset], ["lastcall", "lastcall", "lastcall", offset]);
+  assert.equal(first.songAt, first.startAt + CUP_TIMING.LAST_CALL_LEAD_MS);
+  assert.equal(first.endsAt, first.songAt + 16000 + 1500);
+  assert.deepEqual(first.lastCall.totals.map(row => row.i), [...room.cup.field, ...room.cup.out.slice().reverse()], "everyone in the Cup at the bar");
+  assert.ok(first.lastCall.totals.every(row => row.ms === 0 && Object.keys(row.grabs).length === 0));
+  assert.equal(first.lastCall.worst, null);
+  await run(room, clock, 30000, () => room.cup.phase !== "lastcall", each);
+  assert.equal(room.cup.phase, "song");
+  const bars = tv.all("room").filter(message => message.phase === "lastcall");
+  assert.ok(bars.length <= 30, `${bars.length} rooms in Last Call: the totals at most twice a second`);
+  /* totals only grow */
+  for (const row of first.lastCall.totals) {
+    const seen = bars.map(message => message.lastCall.totals.find(item => item.i === row.i).ms);
+    for (let k = 1; k < seen.length; k += 1) assert.ok(seen[k] >= seen[k - 1], `rider ${row.i}'s total grows`);
   }
-  await run(room, clock, 120, () => false, live);
-  assert.equal(me().level, 3);
-  assert.ok(me().streak >= 16);
-  const frame = phone.last("me");
-  assert.equal(frame.level, 3);
-  assert.equal(frame.q, "perfect");
-  assert.ok(frame.streak >= 16);
-  assert.equal(levelOfFlags(frame.f), 3);
-  const grooves = tv.all("ev").filter(ev => ev.e === "groove" && ev.i === 0).map(ev => ev.level);
-  assert.deepEqual(grooves, [1, 2, 3]);
-  assert.equal(levelOfFlags(tv.last("snap").k.map(unpackRow).find(row => row.i === 0).f), 3, "the TV sees the level");
-  /* a second stroke in the same beat: too fast */
-  say(room, phone, { t:"stroke", side:"L", p:1, ...stamp(0) });
-  await run(room, clock, 150, () => false, live);
-  assert.equal(me().q, "fast");
-  assert.equal(me().streak, 0);
-  assert.equal(phone.last("me").level, 0);
-  /* a stamp far from the room's clock is off */
-  await run(room, clock, 500, () => false, live);
-  const { k } = stamp(0);
-  say(room, phone, { t:"stroke", side:"R", p:1, k:k + 6, d:0 });
-  assert.ok(["early", "late"].includes(me().q));
-  /* bots stroke on the beat too */
-  assert.ok(room.race.riders.filter(r => r.i !== 0).every(r => r.st.perfect + r.st.good > r.st.off));
+  /* who drinks: once the last grab's deadline has passed, and not before */
+  const deadline = cueTime(first.songAt, 22) + offset + LAST_CALL.WINDOW + 250;
+  assert.ok(bars.filter(message => message.s < deadline).every(message => message.lastCall.worst === null));
+  const told = bars.find(message => message.lastCall.worst);
+  assert.ok(told && told.s >= deadline && told.s <= deadline + 200, "at once");
+  assert.ok(!told.lastCall.worst.includes(C), "a stand-in grabbed for C: C never drinks for it");
+  assert.ok(told.lastCall.totals.some(row => row.i === C), "but keeps its seat and total");
+  assert.deepEqual(told.lastCall.worst, lastCallWorst(told.lastCall.totals.filter(row => row.i !== C)));
+  assert.deepEqual(room.cup.history[0].lastCall.excused, [C]);
+  /* A's late grab counted, a full 0.73 s; B grabbed from the bank; C was grabbed for */
+  const grabs = tv.events("hit").filter(event => event.s >= first.s && event.s <= told.s);
+  const aLate = grabs.find(event => event.i === A && event.c === 0);
+  assert.deepEqual([aLate.q, aLate.d], ["late", 730]);
+  assert.ok(grabs.filter(event => event.i === B).every(event => event.q !== "miss" && Math.abs(event.d + 40) <= 1), "an out rider's own grabs");
+  assert.equal(grabs.filter(event => event.i === C).length, 3);
+  assert.ok(grabs.filter(event => event.i === C).every(event => event.q !== "miss"), "a stand-in grabbed for the quiet phone");
+  assert.equal(grabs.length, 7 * 3, "one a grab a rider");
+  /* the phones heard their own */
+  const aMe = a.all("me").filter(message => message.lastCall).at(-1);
+  assert.equal(aMe.lastCall.ms, 730 + 15 + 15);
+  assert.deepEqual(aMe.lastCall.grabs, { 0:730, 1:15, 2:15 });
+  const bMe = b.all("me").filter(message => message.lastCall).at(-1);
+  assert.equal(bMe.out, true);
+  assert.deepEqual(bMe.lastCall.grabs, { 0:-40, 1:-40, 2:-40 });
+  /* after it: the next song, no Last Call in the room, who drank in the round's history */
+  const next = tv.last("room");
+  assert.equal(next.song, "rock");
+  assert.equal(next.lastCall, null);
+  assert.deepEqual(room.cup.history[0].lastCall.worst, told.lastCall.worst);
 });
+
+test("a restarted room carries Last Call on by the clock, and the next song after it", async () => {
+  const mem = memory();
+  const clock = fakeClock();
+  const first = (await makeRoom({ mem, clock })).room;
+  const tv = connect(first, { role:"screen", device:"tv" });
+  say(first, tv, { t:"host", cmd:"start", bots:6, drinking:true });
+  await run(first, clock, 200000, () => first.cup.phase === "lastcall" && clock.t > first.cup.bar.songAt + 8200);
+  const { songAt } = first.cup.bar;
+  const endsAt = first.cup.endsAt;
+  assert.equal(mem.entries.get("cup").phase, "lastcall");
+  assert.ok(mem.storage.quiet.includes("cup"), "saved without holding the room's messages");
+  clock.t += 2500;
+  const { room } = await makeRoom({ mem, clock });
+  assert.equal(room.cup.phase, "lastcall");
+  assert.equal(room.cup.bar.songAt, songAt);
+  const screen = connect(room, { role:"screen", device:"tv2" });
+  assert.equal(screen.sent[1].chart.id, "lastcall");
+  assert.equal(screen.sent[1].songAt, songAt);
+  await run(room, clock, 60000, () => room.cup.phase === "song");
+  assert.ok(Math.abs(room.cup.startAt - endsAt) <= 100, "the next song came when Last Call was due to end");
+  const record = room.cup.history[0].lastCall;
+  assert.equal(record.players.length, room.cup.entrants.length, "everyone in the Cup");
+  assert.ok(record.totals.every(row => Object.keys(row.grabs).length === 3), "every grab judged");
+  const keys = screen.events("hit").map(event => `${event.i}:${event.c}`);
+  assert.equal(new Set(keys).size, keys.length, "none twice");
+});
+
+test("with the room's drinking off there is no Last Call over the wire either", async () => {
+  const { room, clock } = await makeRoom();
+  const tv = connect(room, { role:"screen", device:"tv" });
+  say(room, tv, { t:"host", cmd:"start", bots:5, drinking:false });
+  await run(room, clock, 20 * 60 * 1000, () => room.cup.phase === "podium");
+  assert.ok(!tv.all("room").some(message => message.phase === "lastcall" || message.lastCall));
+  const cuts = tv.all("room").filter(message => message.phase === "cut");
+  assert.deepEqual([...new Set(cuts.map(message => message.endsAt - message.startAt))], [CUP_TIMING.CUT_MS, CUP_TIMING.CUT_LAST_MS]);
+});
+

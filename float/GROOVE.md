@@ -279,6 +279,34 @@ the 3D files stay in the folder for the parked fallback):
 `/float/art` shows every critter in every pose in a few colours, the host,
 the scenes and the props: the page Brandon reviews the art on.
 
+As built (groove/art, Oct 27; 44 images on `gpt-image-2.5-sunburst`, sources
+kept in `float/look/groove`):
+- Each critter: a 1024 portrait from its lineup cell, then one 4x2 sheet of
+  the eight poses from that portrait (one generation keeps one character).
+  The ring was generated flat magenta, keyed to grey shading plus a mask
+  thinned at highlights, so every colour keeps a white shine.
+- `anchor.water` is the ring's centre at 70% of its height, box point (256,
+  440) for every pose of every critter; nothing is drawn below the ring (the
+  lower third is underwater); every idle ring is 250 px wide in the box.
+  Poses carry their own `anchor` (the crown sits on the head in every pose).
+  The `ripple` prop goes centred at `anchor.water`, about 1.35 x the ring.
+- `host.box` is [512, 560] (anchors ground, head, face, horn: the
+  megaphone's bell; per-pose anchors). A top-level `bartender`, shaped like
+  `host`: box [512, 512], poses idle, slide, cheer, waist up, `ground` the
+  counter line, `hand` the arm's tip. `scenes.bar.counter` is the counter as
+  a share of the height; `props.podium.steps` the tops of the 1st, 2nd, 3rd
+  blocks. Props beyond the list: splash-big, podium, drink, confetti-1..4 and
+  sparkle (white, tinted at run time).
+- Scenes draw in manifest order: sky (depth 0), land (0.3, loops), water (1,
+  loops); the water is opaque below `water`.
+- `riderSprites({ critter, color, groom, size })` paints at 128, 256 or 512
+  (`spriteSize(drawn, dpr)`), so the TV's riders use a quarter of the memory;
+  `sceneOf`, `propOf`, `hostSprites`, `bartenderSprites` are synchronous and
+  null until `loadGrooveArt()` resolves. `<Popup q d size life />`: `size`
+  the number's height, `life` fades it at POPUP_MS; key each judgement.
+- The font is Pixelify Sans as "Float Pixel"
+  (`public/fonts/pixelify-sans-latin.woff2`, OFL beside it).
+
 ## Sound (the Groove)
 
 - Everything sounds through `src/lib/sound.js` (`playSound` / `cueAt`): the
@@ -349,16 +377,100 @@ the scenes and the props: the page Brandon reviews the art on.
 agreement (the integrator). A builder who needs a change there says so in its
 report and codes against the contract as written meanwhile.
 
+## As built: the engine (Oct 27, groove/engine 26c6ffc)
+
+- `float/shared/groove.js` is the pure song (judging, misses, bot and
+  stand-in taps, Done, calibration, scores, ranking); `cup.js` the Cup
+  (phases, the cut, standings, `meOf`); `Cup.tick(cup, now, { driven })` the
+  one driver for the room, the bench and the tests. Every random draw is a
+  hash of seed, round, rider and cue (nothing to save). `FloatRoom`'s
+  constructor is unchanged; a mock must call `tick()` in `song` too (any
+  rate; 100 ms is the room's). `options.ids` makes a Cup repeatable (stable
+  screenshots).
+- `room`: `song` in intro, song and cut; `songAt` in song and cut (null in
+  intro); `chartId` whenever there is a song; `chart` in full once per socket
+  per song (the first room after hello, and when the song changes, the intro
+  included); `offset`; `scores` at every phase change, every 4 s in a song
+  and when the offset moves; `results` (the live ranking in a song, the final
+  one in the cut). Gone: `swapUntil`, `resume`, `len`, `leg`,
+  `course`/`courseId`, `entrants[].drank`, `snap`, `replay`.
+- `me` adds `round`, `lastRound`, `live`, `n`, and `through`/`out` in the
+  cut (`out:true` for riders already out); sent after misses too.
+  `me.done` means "no Done owed": true from the start for a rider who
+  doesn't drink.
+- **Privacy:** a rider who skips the drink in a drinking room shows as done
+  on the screens at a bot's moment (4 to 14 s in, with `ev done`), so the TV
+  never says who skips; scoring is the same (the break has no cues). With
+  drinking off everyone is done from the start and no events are sent.
+- Calibration recomputes half a beat into each practice beat; the last
+  (beat 23.5) fixes the song's offset. Limits: `hit` 16 a second a socket;
+  `cheer` one per 300 ms a rider, only from riders out, in song, cut and
+  podium. A phone can't take over a bot's entrant by its public device id.
+- Bridge body: `rounds[].leg` is `song`; `results[]` `{who, pid, bot, place,
+  pct, pts, perfects, misses, cup, out}`; `stats.rounds[]` adds `offset`,
+  `samples` and per rider `{pct, pts, perfects, nice, ok, early, late,
+  misses, hits, botShare, doneMs}`. `evId`, `cupId`, `order` unchanged; the
+  Tournament stores the rest unread.
+- `node scripts/float-sim.mjs` (13 bots; `--phones 4 --lag 120 --late 1
+  --dry 1 --fieldday` adds protocol phones; `--cups 50` the skill spread).
+  Sharp bots score about 97 to 100%, sloppy ones 73 to 85%. Timing: intro 8
+  s, cut 20 s, last cut 7 s (`CUP_TIMING`).
+
+## Special critters (Oct 27)
+
+Winnie, Brandon's own cavapoo, is a 14th critter only the groom can pick
+(`looks.js` `SPECIAL_CRITTERS`, `crittersFor({ groom })`; `cleanLook` gives
+him to nobody else; never a default, never a bot). Drawn like the 13: the
+round deadpan body in his apricot curls (his one soft tint), floppy ears,
+dot eyes, a black button nose, and his light-blue bandanna (from Brandon's
+own pixel Winnie). References: the photo and pixel art on brandonctran.com,
+kept outside the repo. No school, team or brand marks on him.
+
+For the product this is the proof of concept of a paid feature: your own
+pet as a playable critter, picked only by its owner. Characters from other
+companies' games stay out: their studios own them, and selling or shipping
+a copy isn't parody.
+
 ## Floaties
 
 In a rhythm game the floatie is a look, not a stat: the eight floaties stay
 as tube designs in the Locker; their stats are not used.
 
-## Last Call (after song 1 is fun; Brandon asked for Cake Wait by name)
+## Last Call (Brandon asked for a good version of Cake Wait)
 
-Between rounds, during the cut: the bartender slides a drink down the bar on a
-rhythm; every rider grabs on the beat with one tap; the TV shows every offset
-big, Cake Wait style; the worst grab drinks. Reuses everything above.
+Between songs, after each cut but the last: phase `lastcall` (a 3 s lead,
+then 16 s). The bar scene; everyone in the Cup at the bar (the field and the
+riders out). The bartender slides a drink down the bar three times
+(`chartOf("lastcall")`: grabs on beats 7, 15 and 22, each after its
+`slides`: three slides; two and a beat of nothing; four quick ones) and
+everyone taps once a grab (`hit {c, r}`, judged on the room's offset with a
+one-second window, `LAST_CALL.WINDOW`). After each grab the TV shows every
+rider's offset big, Cake Wait style ("+0.01 Nice!", "+0.73 Late"); at the end
+the totals and who drinks: the worst total (`lastCallTotal`: the sum of |d|,
+a missed grab a full second), every rider tied on it. Never scored in the
+Cup. Everyone plays; a rider who doesn't drink drinks water (nobody is
+singled out).
+
+- `room`: phase `lastcall` with `song:"lastcall"`, `songAt`, `chart`,
+  `offset`, and `lastCall: { totals:[{ i, ms, grabs:{ [c]: d or null } }],
+  worst:[i] }`, totals growing as grabs are judged, `worst` once the last
+  grab's miss deadline has passed (`songAt + 22 beats + offset + window +
+  250`).
+- `ev hit` per grab as in a song; `me` adds the rider's own `lastCall: { ms,
+  grabs }`.
+- Bots grab by skill (a good bot within about 60 ms, a weak one 250 ms or
+  more, sometimes very late). The cut before a Last Call shortens to 12 s.
+- As built (groove/engine f8c3407): only with drinking on (off: no Last
+  Call, 20 s cuts); a 1.5 s tail after the chart (20.5 s in all). Totals grow
+  as grabs are judged (a judged miss 1000 ms) and equal `lastCallTotal` at
+  the last deadline; `worst` is null until then; `room.lastCall` is null
+  outside the phase; frames at most every 500 ms, at once when `worst`
+  lands. Grabs use the last song's offset and never calibrate. A person a
+  stand-in grabbed for (any grab) is excused: they keep their seat and
+  total but are never named in `worst` (`excused` in the record and the
+  bridge's `stats.rounds[].lastCall`); bots can be named (solo QA); nobody
+  eligible means `worst` is []. The chart has no practice or drink section
+  and the song code guards both.
 
 ## Wednesday night target (in cut order: the last line goes first)
 

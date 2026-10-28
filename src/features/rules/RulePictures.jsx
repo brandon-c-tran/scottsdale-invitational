@@ -440,20 +440,19 @@ export const RULE_PICTURES = {
   </g>,
 
   /* ── Float ── */
-  /* the phone held sideways, a thumb on each paddle */
+  /* the host calls through the megaphone; the thumb answers on the phone */
   "float.1":<g>
-    <rect x="10" y="8" width="44" height="24" rx="4" />
-    <Faint>{waves(25, 16, 48)}</Faint>
-    {floatie(32, 21, 0.9)}
-    <Lit><ellipse cx="13" cy="24" rx="3.6" ry="5.2" {...F} /><ellipse cx="51" cy="24" rx="3.6" ry="5.2" {...F} /></Lit>
+    <path d="M6 17h4l9-6v18l-9-6H6z" />
+    <path d="M23 14l3-2M24 20h4M23 26l3 2" />
+    <rect x="36" y="5" width="18" height="30" rx="3" />
+    <Lit><ellipse cx="45" cy="21" rx="4" ry="5.5" {...F} /></Lit>
   </g>,
-  /* the drink finished before the takeout */
+  /* the music stops: the drink, then Done */
   "float.2":<g>
     <Faint>{waves(31)}</Faint>
     {floatie(14, 27)}
-    <Faint><path d="M38 4v32" strokeDasharray="3 3" /></Faint>
-    <Lit><g transform="rotate(-24 51 14)">{cup(51, 8, 9, 11)}</g></Lit>
-    <path d="M45 22l-1.4 3M49 23.6l-.4 3" />
+    <Lit><g transform="rotate(-24 33 14)">{cup(33, 8, 9, 11)}</g></Lit>
+    <path d="M44 16l4 4 8-9" />
   </g>,
   /* each round the slowest are out */
   "float.3":<g>

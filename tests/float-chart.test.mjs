@@ -129,3 +129,22 @@ test("the clock: where the song is, by server time", () => {
   assert.equal(clockAt(chart, songAt, songAt - 1000).section, null);
   assert.equal(clockAt(chart, songAt, songAt + SONG_MS).over, true);
 });
+
+test("Last Call: three grabs at 120 bpm, a wide window, the worst total drinks", async () => {
+  const { LAST_CALL, LAST_CALL_ID, lastCallTotal, lastCallWorst } = await import("../float/shared/chart.js");
+  const chart = chartOf(LAST_CALL_ID);
+  assert.equal(chart.name, "Last Call");
+  assert.equal(chart.ms, 16_000);
+  assert.equal(chart.window, 1000);
+  assert.deepEqual(chart.cues.map(c => [c.beat, c.call, c.kind, c.scored]), [[7, 4, "grab", false], [15, 12, "grab", false], [22, 20, "grab", false]]);
+  assert.deepEqual(chart.modes, ["intro", "lastcall", "lastcall", "lastcall", "lastcall", "lastcall", "lastcall", "outro"]);
+  const songAt = 10_000;
+  const late = matchTap(chart, songAt, cueTime(songAt, 7) + 730);
+  assert.deepEqual([late.cue.id, late.d], [0, 730]);
+  assert.equal(popupOf(qualityOf(late.d), late.d).num, "+0.73");
+  assert.equal(judgeHit(chart, 0, 730, 0).q, "late");
+  assert.equal(lastCallTotal({ 0:10, 1:-20, 2:30 }), 60);
+  assert.equal(lastCallTotal({ 0:10 }), 10 + 2 * LAST_CALL.MISS_MS);
+  assert.deepEqual(lastCallWorst([{ i:0, ms:60 }, { i:3, ms:900 }, { i:5, ms:900 }]), [3, 5]);
+  assert.equal(chartOf("paddle").window, WINDOW.MAX, "songs keep the 300 ms window");
+});

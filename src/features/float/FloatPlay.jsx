@@ -84,9 +84,9 @@ function Missing({ onClose }) {
 export function FloatHome({ state, me, onOpen, inCard = false }) {
   const view = floatPhoneView(state, me);
   if (!view?.on) return null;
-  if (inCard) return <NowRow className="fd-float-now" status="Racing" go="Play" primary onClick={onOpen}
-    ariaLabel="Float. Racing. Play" />;
-  return <button type="button" className="fd-float-home" onClick={onOpen} aria-label="Float. Racing. Play">
-    <span><small><i className="fd-insert fd-beat-dot" aria-hidden="true" />Float</small><strong>Racing</strong></span>
+  if (inCard) return <NowRow className="fd-float-now" status="Playing" go="Play" primary onClick={onOpen}
+    ariaLabel="Float. Playing. Play" />;
+  return <button type="button" className="fd-float-home" onClick={onOpen} aria-label="Float. Playing. Play">
+    <span><small><i className="fd-insert fd-beat-dot" aria-hidden="true" />Float</small><strong>Playing</strong></span>
   </button>;
 }

@@ -3311,15 +3311,15 @@ function gLead(E, dest, t, f, d, peak, { vib = 0.5, saw = 0.2, bright = 1 } = {}
   if (!(f > 0) || !(peak > 0)) return;
   const c = E.ctx, hold = Math.max(0.05, d), end = t + hold + 0.08;
   const lp = c.createBiquadFilter(); lp.type = "lowpass"; lp.Q.value = 0.7;
-  lp.frequency.setValueAtTime(Math.min(7000, f * 6 * bright), t);
-  lp.frequency.exponentialRampToValueAtTime(Math.min(5200, f * 3.5 * bright), t + 0.12);
+  lp.frequency.setValueAtTime(Math.min(6000, f * 5 * bright), t);
+  lp.frequency.exponentialRampToValueAtTime(Math.min(4200, f * 2.8 * bright), t + 0.12);
   const g = c.createGain(); g.gain.value = 0;
   g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(peak, t + 0.006);
   g.gain.exponentialRampToValueAtTime(peak * 0.72, t + 0.07);
   g.gain.setValueAtTime(peak * 0.72, t + Math.max(0.07, hold - 0.02));
   g.gain.exponentialRampToValueAtTime(0.0001, t + hold + 0.06);
   lp.connect(g); g.connect(dest); track(E, lp, g);
-  const oscs = [["square", 1, 0.36], ["square", 1.0025, 0.26], ["triangle", 0.5, 0.42], ["sawtooth", 1.002, saw]].filter(([, , level]) => level > 0).map(([type, r, level]) => {
+  const oscs = [["square", 1, 0.26], ["square", 1.0025, 0.18], ["triangle", 1, 0.42], ["triangle", 0.5, 0.36], ["sawtooth", 1.002, saw]].filter(([, , level]) => level > 0).map(([type, r, level]) => {
     const o = c.createOscillator(); o.type = type; o.frequency.setValueAtTime(f * r, t);
     const lg = c.createGain(); lg.gain.value = level;
     o.connect(lg); lg.connect(lp); track(E, o, lg); trackSource(E, o);
@@ -3642,8 +3642,8 @@ function gDegree(token, chord, next) {
 function gVoices(E, lv) {
   return flVoices(E, { kick:{ send:0.05, bright:0.85, gain:lv }, snare:{ pan:0.05, send:0.2, bright:1, gain:lv },
     hat:{ pan:0.28, send:0.08, bright:1, gain:lv }, perc:{ pan:-0.32, send:0.14, bright:1, gain:lv },
-    bass:{ send:0.04, bright:1, gain:lv }, comp:{ pan:-0.22, send:0.22, bright:1, gain:lv }, lead:{ pan:0.08, send:0.3, bright:1, gain:lv },
-    glock:{ pan:0.3, send:0.38, bright:1, gain:lv }, brass:{ pan:-0.1, send:0.26, bright:1, gain:lv }, keys:{ pan:-0.18, send:0.34, bright:1, gain:lv },
+    bass:{ send:0.04, bright:1, gain:lv }, comp:{ pan:-0.22, send:0.22, bright:1, gain:lv }, lead:{ pan:0.08, send:0.38, bright:1, gain:lv },
+    glock:{ pan:0.3, send:0.38, bright:1, gain:lv }, brass:{ pan:-0.1, send:0.34, bright:1, gain:lv }, keys:{ pan:-0.18, send:0.34, bright:1, gain:lv },
     vibes:{ pan:0.24, send:0.42, bright:1, gain:lv }, pad:{ send:0.4, bright:1, gain:lv }, swirlL:{ pan:-0.65, send:0.5, bright:1, gain:lv },
     swirlR:{ pan:0.65, send:0.5, bright:1, gain:lv }, fx:{ send:0.3, bright:1, gain:lv } });
 }
@@ -3836,7 +3836,7 @@ function gPlayBar(c, level) {
   if (level >= 1) gMelody(c, level);
   /* the band's answer to a "Hey!": a stab on the chord */
   if (level >= 1 && c.on("harmony")) c.hits.filter(([, kind]) => kind === "hey")
-    .forEach(([s]) => gBrass(E, V("brass"), c.at(s), c.chord.comp, G16 * 0.8, 0.07));
+    .forEach(([s]) => gBrass(E, V("brass"), c.at(s), c.chord.comp, G16 * 0.8, 0.06));
   /* B's brass stabs (on the "and" of four, anticipating the next bar's chord) */
   if (level >= 2 && c.on("harmony")) for (const s of S.stabs || []) if (!c.held.has(s))
     gBrass(E, V("brass"), c.at(s), (s >= 14 ? c.after : c.chord).comp.map(m => m + 12), G16 * 0.9, 0.08);

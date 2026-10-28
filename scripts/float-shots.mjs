@@ -1,14 +1,15 @@
-/* Float's screen, phase by phase, as PNGs: the real FloatScreen on the
-   mock (float/client/screen/mockNet.js: the real room run in the tab,
-   ?mock=1&shot=<moment>&freeze=1)
+/* Float's screen, moment by moment, as PNGs: the real FloatScreen on the
+   mock (float/client/screen/mockNet.js: a scripted Cup in the tab,
+   ?mock=1&shot=<moment>&freeze=1; the moments are its MOCK_SHOTS)
    at 1920 x 1080 in headless Chrome, from its own Vite server (no Worker,
    no Durable Object, nothing left running after).
 
-     node scripts/float-shots.mjs                      every phase
-     node scripts/float-shots.mjs race drop            just those
+     node scripts/float-shots.mjs                      every moment
+     node scripts/float-shots.mjs practice drink       just those
        --out <dir>        default .impeccable/review/float
        --quality <tier>   high (default) | medium | low | lowest
-       --flat             the flat map (no WebGL)
+       --size <w>x<h>     the window (default 1920x1080; the stage letterboxes)
+       --query <a=b&c=d>  more of the page's query (n=9, seed=4, drinking=0)
        --wait <ms>        extra settle time before each capture (default 600)
        --gpu              a real GPU (ANGLE D3D11) instead of SwiftShader, for frame rates
        --live <ms>        let the clock run that long after the jump (no freeze), e.g. for fps
@@ -18,7 +19,7 @@
        --eval <file>      run that expression in the page after each shot and print it
        --luid <hi,lo>     with --gpu: that adapter (HKLM\SOFTWARE\Microsoft\DirectX\{...}\AdapterLuid; "0,70294")
 
-   Prints each PNG's path with the renderer's draw calls, triangles and fps.
+   Prints each PNG's path with the screen's frame rate.
    FLOAT_SHOTS_PORT overrides the port (5183); CHROME the browser. */
 import fs from "node:fs";
 import os from "node:os";
@@ -31,17 +32,19 @@ import { launchChrome, CHROME_PATH } from "./headless-chrome.mjs";
 
 const ROOT = fileURLToPath(new URL("../", import.meta.url));
 const args = process.argv.slice(2);
-const flags = new Set(["--out", "--quality", "--wait", "--live", "--luid", "--real", "--room", "--every", "--for", "--bots", "--eval"]);
+const flags = new Set(["--out", "--quality", "--wait", "--live", "--luid", "--real", "--room", "--every", "--for", "--bots", "--eval", "--size", "--query"]);
 const value = name => { const i = args.indexOf(name); return i >= 0 ? args[i + 1] : null; };
 const positional = args.filter((arg, i) => !arg.startsWith("--") && !flags.has(args[i - 1]));
 const OUT = path.resolve(ROOT, value("--out") || ".impeccable/review/float");
 const QUALITY = value("--quality") || "high";
 const WAIT = Number(value("--wait") ?? 600);
 const LIVE = value("--live") ? Number(value("--live")) : null;
-const FLAT = args.includes("--flat");
 const GPU = args.includes("--gpu");
+const [WIDTH, HEIGHT] = (value("--size") || "1920x1080").split("x").map(Number);
+const EXTRA = new URLSearchParams(value("--query") || "");
 const SHOTS = positional.length ? positional
-  : ["lobby", "intro", "grid", "countdown", "race", "narrows", "whirlpool", "split", "drop", "arrivals", "cut", "cutnext", "replay", "podium", "feedback"];
+  : ["lobby", "fdlobby", "intro", "card", "count", "practice", "go", "play", "hey", "drink", "late", "outro", "cut", "cutout", "cutnext",
+    "bar", "slide", "grab", "grab3", "drinks", "rock", "spin", "sign", "final", "drop", "finalcut", "podium", "feedback"];
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 /* Float's pages, as the dev server routes them */
@@ -124,7 +127,7 @@ async function launchGpu({ width, height }) {
   };
 }
 
-const chrome = GPU ? await launchGpu({ width:1920, height:1080 }) : await launchChrome({ width:1920, height:1080 });
+const chrome = GPU ? await launchGpu({ width:WIDTH, height:HEIGHT }) : await launchChrome({ width:WIDTH, height:HEIGHT });
 const errors = [];
 chrome.on(m => {
   if (m.method === "Runtime.exceptionThrown") errors.push(m.params.exceptionDetails.exception?.description?.split("\n").slice(0, 3).join(" | ")
@@ -158,7 +161,7 @@ if (REAL) {
       const phase = await chrome.evaluate("document.querySelector('.fs-root')?.dataset.phase || 'none'");
       const file = await chrome.screenshot(path.join(OUT, "real", `${String(n).padStart(3, "0")}-${phase}.png`));
       const stats = await chrome.evaluate("window.__floatStats || null");
-      console.log(`${path.relative(ROOT, file)}  ${stats ? `calls ${stats.calls} tris ${stats.triangles} fps ${stats.fps} tier ${stats.tier}` : ""}`);
+      console.log(`${path.relative(ROOT, file)}  ${stats ? `fps ${stats.fps} tier ${stats.tier}` : ""}`);
       if (phase === "feedback" && n > 3) break;
     }
   } finally { await chrome.close(); await server.close(); }
@@ -169,8 +172,7 @@ try {
   for (const shot of SHOTS) {
     const query = new URLSearchParams({ mock:"1", room:"bcdf", shot, quality:QUALITY });
     if (LIVE === null) query.set("freeze", "1");
-    if (FLAT) query.set("flat", "1");
-    if (args.includes("--low-power")) query.set("power", "low");
+    for (const [k, v] of EXTRA) query.set(k, v);
     await chrome.load(`${BASE}/float.html?${query}`, { timeout:60000 });
     const ok = await chrome.until("document.body.dataset.ready === '1'", { timeout:90000, every:250 });
     if (!ok) { console.error(`${shot}: never ready`); continue; }
@@ -180,12 +182,16 @@ try {
     }
     const frames0 = await chrome.evaluate("window.__floatFrames || 0");
     await chrome.until(`(window.__floatFrames || 0) >= ${frames0 + 6}`, { timeout:60000, every:150 });
+    /* every rider's sprites painted (the art paints each look once, in the background) */
+    await chrome.until("!document.querySelector('.cr-wait') && [...document.querySelectorAll('.fs-root img')].every(i => i.complete)",
+      { timeout:30000, every:200 });
     await sleep(LIVE ?? WAIT);
-    const file = await chrome.screenshot(path.join(OUT, `${shot}${FLAT ? "-flat" : ""}${QUALITY !== "high" ? `-${QUALITY}` : ""}.png`));
+    const tag = [...EXTRA].map(([k, v]) => `${k}${v}`).join("-");
+    const file = await chrome.screenshot(path.join(OUT, `${shot}${tag ? `-${tag}` : ""}${QUALITY !== "high" ? `-${QUALITY}` : ""}${WIDTH !== 1920 || HEIGHT !== 1080 ? `-${WIDTH}x${HEIGHT}` : ""}.png`));
     const stats = await chrome.evaluate("window.__floatStats || null");
     if (value("--eval")) console.log(`${shot} eval:`, await chrome.evaluate(fs.readFileSync(path.resolve(value("--eval")), "utf8")));
     results.push({ shot, file, stats });
-    console.log(`${path.relative(ROOT, file)}  ${stats ? `calls ${stats.calls} tris ${stats.triangles} fps ${stats.fps} tier ${stats.tier}${stats.gpu ? ` (${stats.gpu.slice(0, 60)})` : ""}` : ""}`);
+    console.log(`${path.relative(ROOT, file)}  ${stats ? `fps ${stats.fps} tier ${stats.tier}` : ""}`);
   }
 } finally {
   await chrome.close();

@@ -10,7 +10,7 @@ import { Critter, PopupLetters, SplashProp, anchorOf, useRiderArt } from "../art
 import { ANCHOR, BOX, crowdLayout, fieldOrder, flotillaLayout, podiumLayout, popupSpot } from "../model/flotilla.js";
 import { actionAt, bobAt, cheerAt, chugAt, follow, popupAt } from "../model/motion.js";
 import { chuggingAt } from "../model/song.js";
-import { cutOuts, cutRanking, cutTimeline } from "../model/cut.js";
+import { cutField, cutOuts, cutRankingOf, cutTimeline } from "../model/cut.js";
 import { indexList } from "../model/cupShape.js";
 import { inkOn } from "../hud/identity.js";
 
@@ -35,9 +35,9 @@ export function castPlan({ phase, room, state, entrants }) {
     return { ...plan, water:fieldOrder(field, cupOf), bank:outs.filter(i => !field.includes(i)) };
   }
   if (phase === "cut") {
-    const field = state?.songField?.length ? state.songField : indexList(room?.field);
-    const ranking = cutRanking(room?.scores, { field, out:outs });
-    const going = cutOuts(ranking, outs, field);
+    const field = cutField(room, state?.songField);
+    const ranking = cutRankingOf(room, state?.songField);
+    const going = cutOuts(ranking);
     const earlier = outs.filter(i => !field.includes(i));
     const timeline = cutTimeline(going.length, (room?.endsAt ?? 0) - (room?.startAt ?? 0));
     const start = Number.isFinite(room?.startAt) ? room.startAt : state?.phaseStart;

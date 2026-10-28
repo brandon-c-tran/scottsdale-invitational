@@ -6,7 +6,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { BEATS_PER_BAR, SONG_LEAD_MS } from "../../../shared/chart.js";
 import { bannerAt, roundLabel, songName } from "../model/song.js";
-import { cutOuts, cutRanking, cutTimeline, pctText } from "../model/cut.js";
+import { cutOuts, cutRankingOf, cutTimeline, pctText } from "../model/cut.js";
 import { indexList } from "../model/cupShape.js";
 import { PODIUM } from "../model/flotilla.js";
 import { RiderFace } from "../art.jsx";
@@ -83,9 +83,8 @@ const roundsText = rounds => (rounds | 0) === 1 ? "1 song" : `${rounds | 0} song
 /* ── the cut: the song's ranking, the line, the stamps; then the next song ── */
 export function CutBoard({ store, driver, room, entrants }) {
   const st = store.state;
-  const field = st.songField?.length ? st.songField : indexList(room?.field);
-  const ranking = cutRanking(room?.scores, { field, out:room?.out });
-  const going = cutOuts(ranking, room?.out, field);
+  const ranking = cutRankingOf(room, st.songField);
+  const going = cutOuts(ranking);
   const start = Number.isFinite(room?.startAt) ? room.startAt : st.phaseStart;
   const ms = (room?.endsAt ?? 0) - (room?.startAt ?? 0);
   const timeline = cutTimeline(going.length, ms);
@@ -113,7 +112,7 @@ export function CutBoard({ store, driver, room, entrants }) {
             const isStamped = stamped.includes(row.i);
             const cutLine = !last && through > 0 && going.length > 0 && row.place === through + 1;
             return <React.Fragment key={row.i}>
-              {cutLine && <div className="hd-cutline"><span>Cut</span></div>}
+              {cutLine && <div className="hd-cutline" />}
               <div className={`hd-row${isStamped ? " is-out" : ""}${row.place <= 3 && last ? " is-top" : ""}`} style={{ "--c":e?.color || "#999", "--ink":inkOn(e?.color), animationDelay:`${(c * perCol + k) * 55}ms` }}>
                 <span className="hd-row-place">{row.place}</span>
                 <RiderFace entrant={e} pose={isStamped ? "out" : "idle"} className="hd-row-face" />

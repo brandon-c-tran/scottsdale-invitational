@@ -40,11 +40,14 @@
      setWalkout(walkout), setQuickDrawHush(on)
      soundOptedOut(), setSoundOptOut(off), soundAvailable()
      useSoundSystem({ state, tv, phase }), useSoundUnlockNeeded()
+     registerClips(entries, { base }), preloadClips(ids, { fetch }),
+     clipReady(id), clipIds()             the clip path: decoded files that
+                                           kit recipes play (Float's Groove)
    Presentation only: nothing here reads or writes tournament state except
    the presentational walkout record it is handed. */
 
 import { useEffect, useState } from "react";
-import { makeEngine, setRoom, setListen, playRecipe, isSound, limitChips, roomKeyFor } from "./soundKit.js";
+import { makeEngine, setRoom, setListen, playRecipe, isSound, limitChips, roomKeyFor, clipMarks } from "./soundKit.js";
 /* the kit's pure pitch rules, for callers that pick a note (the crown's chord,
    the chip rain's ladder, a chip's weight) without touching the kit */
 export { chordNote, chipPitch, ladderNote, LADDER, CROWN_CHORD } from "./soundKit.js";
@@ -185,6 +188,7 @@ function context(create) {
     engine.ctx = ctx;
     engine.E = makeEngine(ctx, { room:engine.room, listen:engine.surface === "tv" ? "tv" : "phone",
       volume:MASTER_VOLUME[engine.surface === "tv" ? "tv" : "phone"] });
+    attachClips(ctx);
     ctx.onstatechange = () => { if (ctx.state === "running") engine.resuming = false; notify(); };
     applyHush(true);
     notify();
@@ -331,6 +335,95 @@ export function setQuickDrawHush(on) {
   applyHush();
 }
 
+/* ── the clip path (Float's Groove: the host's voice now, recorded songs
+   later): decoded audio files played by kit recipes ──
+   registerClips([{ id, url | file }], { base }) names them. Each is fetched
+   once (preloadClips, or on first need) and decoded with the live context
+   into the engine's store, E.clips: id -> { buffer, start, beat, end, f0 }
+   (soundKit clipMarks reads the marks from the decoded samples, so a
+   decoder's own padding never moves a beat). A kit recipe plays a decoded
+   clip on the audio clock like any synthesized voice (soundKit playClip:
+   gain, rate, pan), so a clip lands through playSound(id, { bus, at, pan,
+   key }) at a server-anchored time; one not decoded yet stays silent there
+   and the recipe plays its synthesized stand-in. Bytes fetched before the
+   context exists (a phone before its first tap) decode when it is made. */
+const clips = { known:new Map(), store:new Map(), bytes:new Map(), loading:new Map() };
+const clipUrl = (entry, base) => typeof entry?.url === "string" && entry.url ? entry.url
+  : typeof entry?.file === "string" && entry.file ? `${base}${entry.file}` : null;
+/* name clips by id and URL (a manifest's entries; `file` is resolved against
+   `base`); returns how many are new or moved */
+export function registerClips(entries, { base = "" } = {}) {
+  let n = 0;
+  for (const entry of Array.isArray(entries) ? entries : []) {
+    const id = typeof entry?.id === "string" && entry.id ? entry.id : null, url = clipUrl(entry, base);
+    if (!id || !url || clips.known.get(id)?.url === url) continue;
+    clips.known.set(id, { url });
+    clips.store.delete(id); clips.bytes.delete(id); clips.loading.delete(id);
+    n++;
+  }
+  return n;
+}
+export const clipIds = () => [...clips.known.keys()];
+export const clipReady = id => clips.store.has(id);
+/* one clip into the store: decoded with `ctx` (a copy of the bytes, since
+   decoding detaches them), its marks read from its first channel */
+function decodeClip(ctx, id, bytes) {
+  return new Promise(resolve => {
+    let settled = false;
+    const done = buffer => {
+      if (settled) return;
+      settled = true;
+      try {
+        if (!buffer || typeof buffer.getChannelData !== "function") { resolve(false); return; }
+        clips.store.set(id, { buffer, ...clipMarks(buffer.getChannelData(0), buffer.sampleRate) });
+        resolve(true);
+      } catch { resolve(false); }
+    };
+    const fail = () => { if (!settled) { settled = true; resolve(false); } };
+    try {
+      const p = ctx.decodeAudioData(bytes.slice(0), done, fail);
+      if (p && typeof p.then === "function") p.then(done, fail);
+    } catch { fail(); }
+  }).then(ok => { if (ok) notify(); return ok; });
+}
+/* the context exists: it reads the store, and what was fetched decodes now */
+function attachClips(ctx) {
+  try {
+    if (engine.E) engine.E.clips = clips.store;
+    for (const [id, bytes] of clips.bytes) if (!clips.store.has(id)) decodeClip(ctx, id, bytes);
+  } catch {}
+}
+function loadClip(id, get) {
+  if (clips.store.has(id)) return Promise.resolve(true);
+  if (clips.loading.has(id)) return clips.loading.get(id);
+  const entry = clips.known.get(id);
+  if (!entry) return Promise.resolve(false);
+  const p = Promise.resolve()
+    .then(() => clips.bytes.get(id) || Promise.resolve(get(entry.url)).then(res => {
+      if (!res || res.ok === false) throw new Error("clip fetch failed");
+      return res.arrayBuffer();
+    }))
+    .then(bytes => {
+      if (clips.known.get(id) !== entry) return false;
+      clips.bytes.set(id, bytes);
+      return engine.ctx ? decodeClip(engine.ctx, id, bytes) : false;
+    })
+    .catch(() => false)
+    .then(ok => { if (clips.loading.get(id) === p) clips.loading.delete(id); return ok; });
+  clips.loading.set(id, p);
+  return p;
+}
+/* fetch and decode clips now (all registered by default); resolves to how
+   many are decoded. `fetch` overrides the global one (tests, a harness). */
+export function preloadClips(ids = clipIds(), { fetch:fetcher = null } = {}) {
+  try {
+    const get = fetcher || (typeof globalThis.fetch === "function" ? globalThis.fetch.bind(globalThis) : null);
+    if (!get) return Promise.resolve(0);
+    return Promise.all((Array.isArray(ids) ? ids : [ids]).map(id => loadClip(String(id), get)))
+      .then(results => results.filter(Boolean).length, () => 0);
+  } catch { return Promise.resolve(0); }
+}
+
 /* ── playing ── */
 const KEY_MEMORY = 200;
 function seenKey(key) {
@@ -465,6 +558,7 @@ export function __resetSoundEngine({ factory = null } = {}) {
   hushAll();
   clearTimeout(engine.walkoutTimer);
   try { engine.ctx?.close?.(); } catch {}
+  for (const map of Object.values(clips)) map.clear();
   Object.assign(engine, { ctx:null, E:null, surface:"phone", room:"fri", walkout:null, quickDraw:false, hushed:false,
     resuming:false, unlockedOnce:false, keys:[], chips:null, timers:new Set(), walkoutTimer:null, lastYouAt:0, factory });
 }

@@ -52,7 +52,7 @@ const OPTS = [{},
 
 test("every Float recipe: registered, playable on its opts, every node released once its last source ends", () => {
   const ids = kit.FLOAT_PARTS.map(part => part.id);
-  assert.equal(ids.length, 37);
+  assert.equal(ids.length, 59, "the race's 37 and the Groove's 22");
   assert.ok(ids.every(id => id.startsWith("float")), "Float's ids are its own");
   assert.equal(new Set(ids).size, ids.length);
   for (const listen of ["tv", "phone"]) {
@@ -139,7 +139,7 @@ test("your judged paddle: crisp on the beat (perfect brighter, with a glint), a 
 });
 
 test("the beds are cut recipes: a stopped bar goes silent, one not yet started never sounds, and the mix sits inside the gate", () => {
-  const beds = ["floatRace", "floatVamp", "floatLounge", "floatRiver"];
+  const beds = ["floatRace", "floatVamp", "floatLounge", "floatRiver", "floatGroove", "floatLobby"];
   for (const id of kit.FLOAT_PARTS.map(part => part.id)) assert.equal(kit.cutSound(id), beds.includes(id), id);
   for (const id of beds) {
     const ctx = fakeContext();
@@ -239,12 +239,14 @@ test("Float's sound reaches Web Audio only through the engine; the room bus only
     assert.doesNotMatch(text, /AudioContext|webkitAudioContext|new Audio\(|createOscillator|createGain|createBufferSource|audioSession/, `${name}: no Web Audio`);
     assert.doesNotMatch(text, /soundKit\.js|__resetSoundEngine|__soundEngine/, `${name}: not the kit or the engine's test hooks`);
     for (const [, from] of text.matchAll(/from "([^"]+)"/g))
-      assert.ok(from.startsWith("./") || ["react", "../../shared/protocol.js", "../../shared/tuning.js", "../../shared/beat.js", "../../../src/lib/sound.js",
-        "../../../src/lib/serverClock.js"].includes(from), `${name} imports ${from}`);
-    if (name !== "screen.js") assert.doesNotMatch(text, /cueAt\(|bus:\s*"room"/, `${name}: the room bus is the screen's`);
-    if (name !== "controller.js") assert.doesNotMatch(text, /bus:\s*"(you|gm)"/, `${name}: the you bus is the phone's`);
+      assert.ok(from.startsWith("./") || ["react", "../../shared/protocol.js", "../../shared/tuning.js", "../../shared/beat.js", "../../shared/chart.js",
+        "../../../src/lib/sound.js", "../../../src/lib/serverClock.js"].includes(from), `${name} imports ${from}`);
+    if (!["screen.js", "grooveScreen.js"].includes(name)) assert.doesNotMatch(text, /cueAt\(|bus:\s*"room"/, `${name}: the room bus is the screen's`);
+    if (!["controller.js", "groovePhone.js"].includes(name)) assert.doesNotMatch(text, /bus:\s*"(you|gm)"/, `${name}: the you bus is the phone's`);
   }
   assert.doesNotMatch(read("float/client/sound/controller.js"), /"floatOut"|"floatButton"|"floatCount"/, "the phone never sounds an elimination or the countdown");
+  assert.doesNotMatch(read("float/client/sound/groovePhone.js"), /"float(Groove|Lobby|Voice|Whirl|Answer|Flub|Gone|Roll|Fanfare|Sting)"/,
+    "the phone never plays the band, the host or the room's moments");
   /* the block in the kit is the very last thing in the file, one block */
   const kitText = read("src/lib/soundKit.js");
   const start = kitText.indexOf("/* ════ FLOAT"), end = kitText.indexOf("/* ════ end of Float ════ */");

@@ -139,7 +139,7 @@ test("Last Call's bartender: waist up in its box, three poses in three files, st
   assert.ok(manifest.props.drink, "the drink it slides");
   groove.provideGrooveArt(manifest);
   const cast = groove.bartenderSprites();
-  assert.match(cast.poses.slide, /^/float/groove/bartender//);
+  assert.ok(cast.poses.slide.startsWith("/float/groove/bartender/"), "an absolute URL");
   assert.deepEqual(cast.anchors.slide, { ...b.anchor, ...b.poses.slide.anchor });
 });
 

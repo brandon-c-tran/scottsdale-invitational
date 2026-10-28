@@ -10,7 +10,11 @@
    id is its index in the chart (ascending by beat); kind is what the tap is
    (CUE_KINDS); call is the beat the host calls it (beat - its lead), or null
    when the pulse itself is the call (a paddle); scored is false in practice
-   (judged and shown, never scored).
+   (judged and shown, never scored). A practice cue with demo:true is the
+   host showing it (the call and the band's answer sound, the riders act it
+   out): nobody taps it, nothing matches or misses it. `lines` are the
+   practice's narration, Rhythm Heaven's text box: { beat, text } from that
+   beat until the next line or the end of practice.
 
    Every call is the answer's own rhythm, a fixed lead earlier ("answer the
    host"): Paddle Party paddles on 1 and 3 and answers "Ready" with "Hey!" two
@@ -70,8 +74,8 @@ export const CUE_KINDS = Object.freeze({
   spin:Object.freeze({ lead:1, mode:"spin", word:"Spin" }),
   /* the call is a countdown: three notes, at -3, -2 and -1 */
   drop:Object.freeze({ lead:3, mode:"drop", word:"Drop" }),
-  /* Last Call's: the call is the first of its slides (cue.slides) */
-  grab:Object.freeze({ lead:null, mode:"lastcall", word:"Grab" }),
+  /* Last Call's: the moment the countdown reaches zero (chart.countdown) */
+  zero:Object.freeze({ lead:null, mode:"lastcall", word:"Zero" }),
 });
 /* what the riders do in a bar (chart.modes): a cue kind's mode, or the section's */
 export const MODES = Object.freeze(["intro", "paddle", "rock", "spin", "drop", "drink", "outro", "lastcall"]);
@@ -89,28 +93,34 @@ export const SONG_IDS = Object.freeze(SONGS.map(song => song.id));
    Bars are the song's own (0 to 31); practice is bars 2 to 5, play 6 to 13
    and 22 to 29, the outro 30 and 31. Drink bars (14 to 21) have no taps. */
 const SLOT = { P:"paddle", H:"hey", O:"hop", S:"spin", D:"drop" };
+/* lowercase in practice: the host shows it (demo), nobody taps */
+const DEMO = { h:"hey", o:"hop", s:"spin" };
 const rep = (bar, n) => new Array(n).fill(bar);
 const PLANS = Object.freeze({
   paddle:{
-    practice:["P...P...", "P...P.H.", "P...P...", "P...P.H."],
+    practice:["P...P...", "P...P...", "P...P.h.", "P...P.H."],
+    lines:[[7, "Paddle on 1 and 3"], [11, "When I say Ready, you say Hey!"], [15, "Watch"], [20, "Your turn"]],
     playA:[...rep(["P...P...", "P...P.H."], 4).flat()],
     playB:["P...P.H.", "P...P.H.", "P...P.H.", "P...P.H.", "P...P.HH", "P...P.H.", "P...P.HH", "P...P..."],
     outro:["H.......", "........"],
   },
   rock:{
-    practice:["....O...", "....O...", "....O.O.", "....O.O."],
+    practice:["....o...", "....O...", "....o.o.", "....O.O."],
+    lines:[[7, "Hop two beats after me"], [11, "Your turn"], [15, "Two this time"], [20, "Your turn"]],
     playA:["....O...", "....O...", "....O.O.", "....O...", "....O.O.", "....O...", "....OO..", "....O.O."],
     playB:["....O.O.", "....OO..", "....O.O.", "....OOO.", "....OO..", "....O.O.", "....OOO.", "....O..."],
     outro:["....O...", "........"],
   },
   spin:{
-    practice:rep("..S...S.", 4),
+    practice:["..s...s.", "..S...S.", "..S...S.", "..S...S."],
+    lines:[[7, "Spin one beat after me"], [12, "Your turn"], [20, "On the backbeat"]],
     playA:rep("..S...S.", 8),
     playB:["..S...S.", "..S...S.", "..SS..S.", "..S...SS", "..SS..SS", "..S...S.", "..SS..SS", "..S...S."],
     outro:["..S.....", "........"],
   },
   drop:{
     practice:["P...P.H.", "....O.O.", "..S...S.", "..S...S."],
+    lines:[[7, "All three, in turn"], [11, "Hop"], [15, "Spin"]],
     playA:["P...P.H.", "P...P.HH", "....O.O.", "....OOO.", "..S...S.", "..SS..SS", "P...P.H.", "....OOO."],
     playB:["..S...S.", "....O.O.", "P...P.H.", "..SS..SS", "....OOO.", "P.P.P.P.", "..S...SS", "........"],
     outro:["D.......", "........"],
@@ -143,9 +153,11 @@ function cuesOf(plan, sections) {
   for (const block of blocks) block.bars.forEach((slots, k) => {
     [...slots].forEach((ch, s) => {
       if (ch === ".") return;
-      const kind = SLOT[ch];
+      const demo = !block.scored && Object.hasOwn(DEMO, ch);
+      const kind = demo ? DEMO[ch] : SLOT[ch];
       const beat = (block.from + k) * BEATS_PER_BAR + s / 2;
-      cues.push({ beat, kind, call:callOf(kind, beat), scored:block.scored });
+      cues.push(demo ? { beat, kind, call:callOf(kind, beat), scored:false, demo:true }
+        : { beat, kind, call:callOf(kind, beat), scored:block.scored });
     });
   });
   cues.sort((a, b) => a.beat - b.beat);
@@ -169,7 +181,7 @@ function modesOf(cues, sections) {
 const CHARTS = new Map();
 /* a song's whole chart, as the room sends it: plain JSON (Last Call's too) */
 export function chartOf(songId) {
-  if (songId === LAST_CALL_ID) return lastCallChart();
+  if (typeof songId === "string" && songId.startsWith(LAST_CALL_ID)) return lastCallChart(songId);
   const song = SONGS.find(item => item.id === songId);
   if (!song) return null;
   if (!CHARTS.has(songId)) {
@@ -179,6 +191,7 @@ export function chartOf(songId) {
       v:1, id:song.id, name:song.name, scene:song.scene, window:WINDOW.MAX,
       bpm:BPM, beatMs:BEAT_MS, bars:SONG_BARS, beats:SONG_BEATS, ms:SONG_MS,
       sections:Object.freeze(sections.map(Object.freeze)), modes:Object.freeze(modesOf(cues, sections)), cues:Object.freeze(cues),
+      lines:Object.freeze((PLANS[songId].lines || []).map(([beat, text]) => Object.freeze({ beat, text }))),
     }));
   }
   return CHARTS.get(songId);
@@ -216,7 +229,18 @@ export const callsBetween = (chart, a, b) => (chart?.cues || []).filter(cue => c
 /* the cues whose own beat falls in [a, b) */
 export const cuesBetween = (chart, a, b) => (chart?.cues || []).filter(cue => cue.beat >= a && cue.beat < b);
 export const scoredCues = chart => (chart?.cues || []).filter(cue => cue.scored);
-export const practiceCues = chart => (chart?.cues || []).filter(cue => !cue.scored);
+export const practiceCues = chart => (chart?.cues || []).filter(cue => !cue.scored && !cue.demo);
+/* the cues a rider plays (no demos): what the room judges and misses */
+export const playedCues = chart => (chart?.cues || []).filter(cue => !cue.demo);
+export const demoCues = chart => (chart?.cues || []).filter(cue => cue.demo);
+/* the narration line showing at a beat (Rhythm Heaven's text box), or null */
+export function lineAt(chart, beat) {
+  const practice = chart?.sections?.find(item => item.kind === "practice");
+  if (!practice || beat >= practice.to) return null;
+  let line = null;
+  for (const item of chart?.lines || []) if (item.beat <= beat) line = item;
+  return line;
+}
 export const drinkSection = chart => (chart?.sections || []).find(item => item.kind === "drink") || null;
 
 /* ---- judging ---- */
@@ -241,7 +265,7 @@ export function matchTap(chart, songAt, t, { offset = 0, taken = null } = {}) {
   for (const cue of chart.cues) {
     const d = local - cue.beat * chart.beatMs;
     if (d < -max) break;
-    if (d > max || taken?.has(cue.id)) continue;
+    if (d > max || cue.demo || taken?.has(cue.id)) continue;
     if (!best || Math.abs(d) < Math.abs(best.d)) best = { cue, d };
   }
   return best ? { cue:best.cue, d:Math.round(best.d), r:Math.round(best.d + offset) } : null;
@@ -252,7 +276,7 @@ export function matchTap(chart, songAt, t, { offset = 0, taken = null } = {}) {
    or too far from it to be meant for it). */
 export function judgeHit(chart, c, r, offset = 0) {
   const cue = Number.isInteger(c) ? chart?.cues?.[c] : null;
-  if (!cue || !Number.isFinite(r)) return null;
+  if (!cue || cue.demo || !Number.isFinite(r)) return null;
   const d = Math.round(r - offset);
   if (Math.abs(d) > (chart.window || WINDOW.MAX) + WINDOW.SLACK) return null;
   const q = qualityOf(d);
@@ -302,54 +326,182 @@ export function popupOf(q, d) {
   return { num:q === "miss" ? null : formatOffset(d), word:WORDS[q] || "", tone:TONES[q] || "white" };
 }
 
-/* ---- Last Call (GROOVE.md "Last Call") ----
+/* ---- after a song: grades, a line for each rider, the awards ---- */
 
-   Between songs (after each cut but the last) the bartender slides a drink
-   down the bar three times and everyone grabs once a time. 8 bars at the
-   same 120 bpm: the call (bar 0), three grabs each with a bar to read it
-   (bars 1 to 6), who drinks (bar 7). Each grab is a cue of kind "grab" whose
-   `slides` are the beats the glass slides on (its call is the first). The
-   window is wide (LAST_CALL.WINDOW): a grab up to a second off still counts,
-   so a "+0.73 Late" shows; a grab never made counts as MISS_MS. The worst
-   total (the sum of the three |d|) drinks; a tie, all of them. Never scored
-   in the Cup. */
-export const LAST_CALL_ID = "lastcall";
-export const LAST_CALL = Object.freeze({
-  BARS:8, WINDOW:1000, MISS_MS:1000,
-  GRABS:Object.freeze([
-    /* three slides, grab on the fourth beat */
-    Object.freeze({ slides:Object.freeze([4, 5, 6]), beat:7 }),
-    /* two slides, a beat of nothing, grab */
-    Object.freeze({ slides:Object.freeze([12, 13]), beat:15 }),
-    /* four quick slides, grab */
-    Object.freeze({ slides:Object.freeze([20, 20.5, 21, 21.5]), beat:22 }),
-  ]),
-});
-let lastCall = null;
-function lastCallChart() {
-  if (lastCall) return lastCall;
-  const bars = LAST_CALL.BARS;
-  const sections = [
-    { kind:"intro", bar:0, bars:1, from:0, to:4 },
-    { kind:"play", bar:1, bars:bars - 2, from:4, to:(bars - 1) * BEATS_PER_BAR },
-    { kind:"outro", bar:bars - 1, bars:1, from:(bars - 1) * BEATS_PER_BAR, to:bars * BEATS_PER_BAR },
-  ];
-  const cues = LAST_CALL.GRABS.map((grab, id) => Object.freeze({
-    id, beat:grab.beat, kind:"grab", call:grab.slides[0], scored:false, slides:grab.slides,
-  }));
-  const modes = new Array(bars).fill("lastcall");
-  modes[0] = "intro";
-  modes[bars - 1] = "outro";
-  lastCall = Object.freeze({
-    v:1, id:LAST_CALL_ID, name:"Last Call", scene:"bar", window:LAST_CALL.WINDOW,
-    bpm:BPM, beatMs:BEAT_MS, bars, beats:bars * BEATS_PER_BAR, ms:bars * BAR_MS,
-    sections:Object.freeze(sections.map(Object.freeze)), modes:Object.freeze(modes), cues:Object.freeze(cues),
-  });
-  return lastCall;
+/* Rhythm Heaven's three: Superb, OK, Try again (by the song's percent) */
+export const GRADES = Object.freeze([
+  Object.freeze({ id:"superb", min:90, word:"Superb" }),
+  Object.freeze({ id:"ok", min:65, word:"OK" }),
+  Object.freeze({ id:"tryagain", min:-Infinity, word:"Try again" }),
+]);
+export const gradeOf = pct => (GRADES.find(grade => (Number(pct) || 0) >= grade.min) || GRADES[GRADES.length - 1]).id;
+export const gradeWord = id => GRADES.find(grade => grade.id === id)?.word || "";
+
+const KIND_WORDS = Object.freeze({ paddle:"paddles", hey:"Heys", hop:"hops", spin:"spins", drop:"the drop" });
+const capital = text => text.charAt(0).toUpperCase() + text.slice(1);
+const median = xs => {
+  if (!xs.length) return null;
+  const sorted = xs.slice().sort((a, b) => a - b), mid = sorted.length >> 1;
+  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+};
+/* how a rider leaned on the beat: "early", "late" or null (median d past 40 ms) */
+export const leanOf = (ds = []) => {
+  const m = median(ds.filter(Number.isFinite));
+  return m === null ? null : m <= -40 ? "early" : m >= 40 ? "late" : null;
+};
+
+/* a rider's song in a line, the judge's verdict: from their judgements on
+   scored cues ({ [cueId]: { q, d } }; a miss has q "miss"). Returns
+   { grade, pct, best, worst, lean, line } (best and worst cue kinds). */
+export function feedbackOf(chart, hits = {}) {
+  const kinds = new Map();
+  for (const cue of scoredCues(chart)) {
+    const k = kinds.get(cue.kind) || { kind:cue.kind, n:0, pts:0, ds:[] };
+    k.n += 1;
+    const hit = hits[cue.id];
+    if (hit && hit.q !== "miss") {
+      k.pts += POINTS[hit.q] || 0;
+      if (Number.isFinite(hit.d)) k.ds.push(hit.d);
+    }
+    kinds.set(cue.kind, k);
+  }
+  const all = [...kinds.values()];
+  const total = all.reduce((sum, k) => ({ pts:sum.pts + k.pts, n:sum.n + k.n }), { pts:0, n:0 });
+  const pct = total.n ? Math.round((total.pts / (total.n * POINTS.perfect)) * 1000) / 10 : 0;
+  const lean = leanOf(all.flatMap(k => k.ds));
+  const list = all.filter(k => k.n >= 2).map(k => ({ kind:k.kind, avg:k.pts / (k.n * POINTS.perfect), lean:leanOf(k.ds) }));
+  if (!list.length) return { grade:gradeOf(pct), pct, best:null, worst:null, lean, line:"" };
+  const best = list.reduce((a, b) => b.avg > a.avg ? b : a);
+  const worst = list.reduce((a, b) => b.avg < a.avg ? b : a);
+  const parts = [];
+  if (best.avg >= 0.85) parts.push(`Great ${KIND_WORDS[best.kind]}.`);
+  if (worst !== best && worst.avg < 0.7) parts.push(`${capital(KIND_WORDS[worst.kind])} ${worst.lean ? `a little ${worst.lean}` : "were off"}.`);
+  else if (lean) parts.push(`A little ${lean}.`);
+  if (!parts.length) parts.push(pct >= 65 ? "Steady." : "Off the beat.");
+  return { grade:gradeOf(pct), pct, best:best.kind, worst:worst.kind, lean, line:parts.join(" ") };
 }
 
-/* a rider's Last Call total: the sum of |d| over the grabs ({ [cueId]: d },
-   a grab missing or a miss counting MISS_MS) */
+/* the song's awards, for the cut, from every rider's judgements
+   ([{ i, hits }]): [{ id, i, value, label }], one a rider while another
+   qualifies. Most Perfects (3+), the longest run of Perfect or Nice (5+),
+   always early, always late (median 40 ms or more), most splashes (3+
+   misses). */
+export const AWARD_LABELS = Object.freeze({
+  perfects:"Most Perfects", streak:"Longest streak", early:"Always early", late:"Always late", splashes:"Most splashes",
+});
+export function awardsOf(chart, riders = []) {
+  const cues = scoredCues(chart);
+  const stats = riders.map(({ i, hits = {} }) => {
+    let perfects = 0, misses = 0, run = 0, streak = 0;
+    const ds = [];
+    for (const cue of cues) {
+      const hit = hits[cue.id];
+      if (!hit || hit.q === "miss") { misses += 1; run = 0; continue; }
+      if (hit.q === "perfect") perfects += 1;
+      if (Number.isFinite(hit.d)) ds.push(hit.d);
+      run = hit.q === "perfect" || hit.q === "nice" ? run + 1 : 0;
+      streak = Math.max(streak, run);
+    }
+    return { i, perfects, misses, streak, lean:median(ds) };
+  });
+  const pick = (id, score, min) => {
+    const ranked = stats.filter(s => score(s) !== null && score(s) >= min).sort((a, b) => score(b) - score(a) || a.i - b.i);
+    return ranked.length ? { id, ranked } : null;
+  };
+  const candidates = [
+    pick("perfects", s => s.perfects, 3),
+    pick("streak", s => s.streak, 5),
+    pick("early", s => s.lean === null ? null : -s.lean, 40),
+    pick("late", s => s.lean, 40),
+    pick("splashes", s => s.misses, 3),
+  ].filter(Boolean);
+  const out = [], used = new Set();
+  for (const { id, ranked } of candidates) {
+    const s = ranked.find(item => !used.has(item.i));
+    if (!s) continue;
+    used.add(s.i);
+    const value = id === "perfects" ? s.perfects : id === "streak" ? s.streak : id === "splashes" ? s.misses : Math.round(Math.abs(s.lean));
+    out.push({ id, i:s.i, value, label:AWARD_LABELS[id] });
+  }
+  return out;
+}
+
+/* ---- Last Call (GROOVE.md "Last Call"): the countdown ----
+
+   Between songs (after each cut but the last) the bar closes at zero: the
+   bartender counts down from 10, a second a count, shown big and said out
+   loud; partway the count goes dark (a slapstick bit at the bar) and
+   everyone counts the rest in their head and taps once, on zero. The
+   tricks get harder each Last Call: "lights" (the lights go out at 3),
+   "slow" (the count slows from 6, then goes dark at 3 at the slower pace),
+   "ticks" (the voice stops at 6, ticks only, then dark at 3). The tap is a
+   cue of kind "zero" at the countdown's zero with a wide window
+   (LAST_CALL.WINDOW); no tap counts MISS_MS. The farthest from zero drinks
+   (every rider tied on it). Never scored in the Cup.
+
+   chart.countdown (ms from the chart's beat 0, songAt):
+     { trick, first, introMs, steps:[{ n, at, show, say, tick }], hideAt,
+       zeroAt, revealAt, verdictAt }
+   n is the number (10 to 1); `show` it is drawn, `say` the bartender says
+   it, `tick` the clock ticks it; hideAt the bit that hides the count,
+   zeroAt the true zero, revealAt every rider's offset (the window has
+   closed), verdictAt who drinks. The first Last Call's intro is longer: it
+   says what Last Call is. */
+export const LAST_CALL_ID = "lastcall";
+export const LAST_CALL_TRICKS = Object.freeze(["lights", "slow", "ticks"]);
+export const LAST_CALL = Object.freeze({
+  FROM:10, STEP_MS:1000, SLOW_MS:1400, WINDOW:3000, MISS_MS:3000,
+  INTRO_FIRST_MS:7000, INTRO_MS:3000, REVEAL_AFTER_MS:3300, VERDICT_AFTER_MS:2500, OUTRO_MS:3500,
+});
+/* the Last Call after round k (0-based): its chart id */
+export const lastCallId = k => `${LAST_CALL_ID}-${LAST_CALL_TRICKS[Math.max(0, Math.min(LAST_CALL_TRICKS.length - 1, k | 0))]}`;
+
+export function countdownOf(trick = "lights", { first = trick === "lights" } = {}) {
+  const L = LAST_CALL;
+  const introMs = first ? L.INTRO_FIRST_MS : L.INTRO_MS;
+  const steps = [];
+  let at = 0;
+  for (let n = L.FROM; n >= 1; n -= 1) {
+    const hidden = n <= 3;
+    steps.push({ n, at:introMs + at, show:!hidden, say:!hidden && !(trick === "ticks" && n <= 6), tick:trick === "ticks" && n <= 6 && !hidden });
+    /* the gap after n: "slow" stretches every count from 6 down */
+    at += trick === "slow" && n <= 6 ? L.SLOW_MS : L.STEP_MS;
+  }
+  const zeroAt = introMs + at;
+  const hideAt = steps.find(step => step.n === 3).at;
+  const revealAt = zeroAt + L.REVEAL_AFTER_MS;
+  return { trick, first, introMs, steps, hideAt, zeroAt, revealAt, verdictAt:revealAt + L.VERDICT_AFTER_MS };
+}
+
+const LAST_CALLS = new Map();
+function lastCallChart(id = LAST_CALL_ID) {
+  const trick = LAST_CALL_TRICKS.find(item => id === `${LAST_CALL_ID}-${item}`) || "lights";
+  const key = `${LAST_CALL_ID}-${trick}`;
+  if (LAST_CALLS.has(key)) return LAST_CALLS.get(key);
+  const countdown = countdownOf(trick);
+  const ms = countdown.verdictAt + LAST_CALL.OUTRO_MS;
+  const bars = Math.ceil(ms / BAR_MS);
+  const toBeat = time => time / BEAT_MS;
+  const barOf = time => Math.floor(time / BAR_MS);
+  const sections = [
+    { kind:"intro", bar:0, bars:barOf(countdown.introMs), from:0, to:toBeat(countdown.introMs) },
+    { kind:"play", bar:barOf(countdown.introMs), bars:barOf(countdown.revealAt) - barOf(countdown.introMs), from:toBeat(countdown.introMs), to:toBeat(countdown.revealAt) },
+    { kind:"outro", bar:barOf(countdown.revealAt), bars:bars - barOf(countdown.revealAt), from:toBeat(countdown.revealAt), to:bars * BEATS_PER_BAR },
+  ];
+  const modes = Array.from({ length:bars }, (_, bar) => bar * BAR_MS < countdown.introMs ? "intro"
+    : bar * BAR_MS >= countdown.revealAt ? "outro" : "lastcall");
+  const cue = Object.freeze({ id:0, beat:toBeat(countdown.zeroAt), kind:"zero", call:null, scored:false });
+  const chart = Object.freeze({
+    v:2, id:key, name:"Last Call", scene:"bar", window:LAST_CALL.WINDOW,
+    bpm:BPM, beatMs:BEAT_MS, bars, beats:bars * BEATS_PER_BAR, ms,
+    sections:Object.freeze(sections.map(Object.freeze)), modes:Object.freeze(modes), cues:Object.freeze([cue]), lines:Object.freeze([]),
+    countdown:Object.freeze({ ...countdown, steps:Object.freeze(countdown.steps.map(Object.freeze)) }),
+  });
+  LAST_CALLS.set(key, chart);
+  return chart;
+}
+
+/* a rider's Last Call: |d| from zero ({ [cueId]: d }); no tap is MISS_MS */
 export function lastCallTotal(grabs = {}, chart = lastCallChart()) {
   let ms = 0;
   for (const cue of chart.cues) {
@@ -359,7 +511,7 @@ export function lastCallTotal(grabs = {}, chart = lastCallChart()) {
   return ms;
 }
 
-/* who drinks: the worst total, every rider tied on it ([{ i, ms }] -> [i]) */
+/* who drinks: the farthest off, every rider tied on it ([{ i, ms }] -> [i]) */
 export function lastCallWorst(totals = []) {
   if (!totals.length) return [];
   const worst = Math.max(...totals.map(item => item.ms));

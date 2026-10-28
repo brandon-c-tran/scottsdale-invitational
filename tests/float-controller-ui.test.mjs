@@ -245,7 +245,7 @@ test("locker model: the critters (Winnie the groom's), a pick, the preview", () 
   assert.equal(lockerOptions("critter", { groom:true }).at(-1).id, "winnie");
   assert.equal(critterName("winnie"), "Winnie");
   assert.equal(critterName("hornedlizard"), "Horned Lizard");
-  const look = { critter:"otter", floatie:"classic", hat:"none", shades:"none", pose:"flex" };
+  const look = { critter:"otter", floatie:"classic", hat:"none", shades:"none", shirt:"none", pose:"flex" };
   assert.deepEqual(pickLook(look, "critter", "frog"), { ...look, critter:"frog" });
   assert.equal(pickLook(look, "critter", "otter"), null, "the same pick changes nothing");
   assert.equal(pickLook(look, "critter", "winnie"), null, "Winnie is the groom's");

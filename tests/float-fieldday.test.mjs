@@ -167,7 +167,7 @@ test("floatLook: a guest saves their own look, legal, public on every card; nobo
   const state = structuredClone(EMPTY_STATE);
   const look = { critter:"capybara", floatie:"donut", hat:"crown", shades:"aviators", pose:"chug" };
   const saved = act(state, "floatLook", { look }, as(evan));
-  assert.deepEqual(state.profiles[evan].float, { ...look, hat:"none" });
+  assert.deepEqual(state.profiles[evan].float, { ...look, hat:"none", shirt:"none" });
   assert.deepEqual(saved.extra.look, state.profiles[evan].float);
   assert.equal(act(state, "floatLook", { look }, as(evan)).extra.unchanged, true, "the same look again changes nothing");
   assert.equal(refuse(state, "floatLook", { player:khoa, look }, as(evan)).error, "Not your profile");

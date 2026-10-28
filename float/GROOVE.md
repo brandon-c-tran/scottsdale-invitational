@@ -456,41 +456,129 @@ a copy isn't parody.
 In a rhythm game the floatie is a look, not a stat: the eight floaties stay
 as tube designs in the Locker; their stats are not used.
 
-## Last Call (Brandon asked for a good version of Cake Wait)
+## Last Call: the countdown (Oct 28, after playtest 1)
 
-Between songs, after each cut but the last: phase `lastcall` (a 3 s lead,
-then 16 s). The bar scene; everyone in the Cup at the bar (the field and the
-riders out). The bartender slides a drink down the bar three times
-(`chartOf("lastcall")`: grabs on beats 7, 15 and 22, each after its
-`slides`: three slides; two and a beat of nothing; four quick ones) and
-everyone taps once a grab (`hit {c, r}`, judged on the room's offset with a
-one-second window, `LAST_CALL.WINDOW`). After each grab the TV shows every
-rider's offset big, Cake Wait style ("+0.01 Nice!", "+0.73 Late"); at the end
-the totals and who drinks: the worst total (`lastCallTotal`: the sum of |d|,
-a missed grab a full second), every rider tied on it. Never scored in the
-Cup. Everyone plays; a rider who doesn't drink drinks water (nobody is
-singled out).
+Brandon, playtest 1: the three grabs were "interesting", but "I don't know
+what Last Call means without a lead-in", and he wants Cake Wait's game: "it
+goes 10, 9, 8, then gets tricky and has funny slapstick cutscenes and you
+have to count down the rest in your head and try to get it on 0, and the
+timer sometimes slows down, and then counts verbally and then just ticks".
+The grabs are gone.
 
-- `room`: phase `lastcall` with `song:"lastcall"`, `songAt`, `chart`,
-  `offset`, and `lastCall: { totals:[{ i, ms, grabs:{ [c]: d or null } }],
-  worst:[i] }`, totals growing as grabs are judged, `worst` once the last
-  grab's miss deadline has passed (`songAt + 22 beats + offset + window +
-  250`).
-- `ev hit` per grab as in a song; `me` adds the rider's own `lastCall: { ms,
-  grabs }`.
-- Bots grab by skill (a good bot within about 60 ms, a weak one 250 ms or
-  more, sometimes very late). The cut before a Last Call shortens to 12 s.
-- As built (groove/engine f8c3407): only with drinking on (off: no Last
-  Call, 20 s cuts); a 1.5 s tail after the chart (20.5 s in all). Totals grow
-  as grabs are judged (a judged miss 1000 ms) and equal `lastCallTotal` at
-  the last deadline; `worst` is null until then; `room.lastCall` is null
-  outside the phase; frames at most every 500 ms, at once when `worst`
-  lands. Grabs use the last song's offset and never calibrate. A person a
-  stand-in grabbed for (any grab) is excused: they keep their seat and
-  total but are never named in `worst` (`excused` in the record and the
-  bridge's `stats.rounds[].lastCall`); bots can be named (solo QA); nobody
-  eligible means `worst` is []. The chart has no practice or drink section
-  and the song code guards both.
+Between songs, after each cut but the last, phase `lastcall` at the bar:
+everyone in the Cup (the field and the riders out). The bar closes at zero.
+The bartender counts down from 10, a second a count, the numbers big on the
+bar's clock and said out loud; partway the count goes dark (a slapstick bit)
+and everyone counts the rest in their head and taps once, on zero. The
+farthest from zero drinks (every rider tied on it). Never scored in the Cup.
+
+- The chart: `chartOf(lastCallId(k))` for the Last Call after round k:
+  `lastcall-lights`, `lastcall-slow`, `lastcall-ticks` (harder each time).
+  One cue, kind `zero`, at the countdown's zero, window 3 s
+  (`LAST_CALL.WINDOW`; no tap counts 3000 ms, `MISS_MS`). `chart.countdown`
+  (ms from `songAt`): `{ trick, first, introMs, steps:[{ n, at, show, say,
+  tick }], hideAt, zeroAt, revealAt, verdictAt }` (`countdownOf`).
+  - **lights** (the first): 10 to 4 shown and said, a second each; at 3 the
+    bartender pulls the light cord: dark; zero 10 s after 10.
+  - **slow**: 10 to 7 at a second, then every count from 6 stretches to
+    1.4 s (still shown and said, so the room hears it slow down); dark at 3
+    at the slower pace; zero 12.4 s after 10.
+  - **ticks**: 10 to 7 said; 6 to 4 shown with ticks only (the voice stops);
+    dark at 3 (foam spills over the clock).
+- **The first Last Call says what it is**: a 7 s intro (`INTRO_FIRST_MS`):
+  the title "Last Call" and one line, said by the bartender: "The bar closes
+  at zero. Tap on zero. Farthest off drinks." Later ones: a 3 s title.
+- The TV: the bar scene, the clock or chalkboard over the bar with the
+  number, the bartender saying it (mouth on each `say`), the cutscene at
+  `hideAt` (a different gag a trick: the light cord, the wind-up clock
+  slowing, the foam), every rider at the bar; nothing tells the count once
+  it is dark. At `revealAt` every rider's offset at once, big, Cake Wait
+  style ("+0.01 Nice!", "+0.73 Late", "-1.20 Early"), sorted or in place;
+  at `verdictAt` the farthest off drinks (their critter chugs, the name
+  big) and the closest gets a small "Closest" lamp.
+- The phone: never shows the count. "Tap on zero" and one big pad; the tap
+  is `hit {c:0, r}` (`matchTap` with the room's offset); then "Locked" and
+  wait; at `revealAt` your offset; at `verdictAt` "You drink" or "Safe".
+- The sound: the bartender's numbers ("ten" ... "four"), a tick, the
+  slapstick foley at `hideAt`, silence after, a bell at zero only once
+  revealed (never before `revealAt`), the verdict sting at `verdictAt`.
+- The engine: everything as built for the grabs holds (excused stand-ins,
+  the record, the bridge's `stats.rounds[].lastCall`), with the one cue.
+  Bots count in their heads: a sharp bot within about 150 ms, a sloppy one
+  800 ms or more, sometimes a second off. Only with drinking on.
+
+## After a song (Oct 28: "turn it up a notch")
+
+Brandon: "we can turn it up a notch to be more creative in what happens
+after each round". The cut becomes a show, about 15 s, in order:
+
+1. **Grades**, Rhythm Heaven's three (`gradeOf(pct)`: Superb 90+, OK 65+,
+   Try again): a stamp over every rider at once, each with its jingle; the
+   phone shows yours big with the judge's line (`feedbackOf(chart, hits)`:
+   "Great Heys. Paddles a little late.").
+2. **Awards** (`awardsOf(chart, riders)`: Most Perfects, Longest streak,
+   Always early, Always late, Most splashes; up to three, one a rider): a
+   card each with the critter, a beat apart.
+3. **The cut**, with suspense: the cut line, then the riders out revealed
+   one by one from the bottom on the drumroll's stings; each leaves with a
+   slapstick exit themed to the song: Paddle Party a pelican scoops them
+   off; Rock Hop they bonk a rock, see stars and sink in bubbles; Spin Cycle
+   the whirlpool flushes them round and down. They land on the bank as the
+   crowd.
+- The room sends what it needs: `room.results[]` adds `grade`, `room.awards`
+  (the cut's, from `awardsOf`), `me.feedback` (`{ grade, line }`), computed
+  by the engine from its judgements with the chart's helpers.
+
+## Practice, narrated (Oct 28)
+
+Brandon: "practice needs to be a bit more pronounced with some instructions
+on what exactly to do, narrated at the top like Rhythm Heaven does it."
+
+- `chart.lines` is the practice's text box: `{ beat, text }`, shown from
+  that beat (a beat before the bar it explains) until the next line or the
+  end of practice (`lineAt(chart, beat)`). Paddle Party: "Paddle on 1 and
+  3", "When I say Ready, you say Hey!", "Watch", "Your turn". Rock Hop: "Hop
+  two beats after me", "Your turn", "Two this time", "Your turn". Spin
+  Cycle: "Spin one beat after me", "Your turn", "On the backbeat". The
+  Drop: "All three, in turn", "Hop", "Spin".
+- **Demo cues**: a practice cue with `demo:true` is the host showing it:
+  the host calls it and the band plays the answer, the riders act it out
+  together on the TV (the "Watch"), nobody taps it, nothing matches, judges
+  or misses it (`matchTap` and `judgeHit` skip it; `playedCues(chart)` is
+  what the room judges and misses; `demoCues(chart)` the host's).
+- The TV draws the line in a text box at the top center (white rounded box,
+  dark text, big; Rhythm Heaven's), the phone at its top. The host says each
+  line (a voice clip per line; the sound builder's).
+
+## Looks, the Groove (Oct 28)
+
+Brandon: "can we add some character customization? hats, glasses, etc, and
+maybe some identifier as an extra option that uses the profile picture,
+maybe the profile pic on a shirt that's the color of the selected person's
+color".
+
+- `look.hat` (HATS: cowboy, bucket, visor, captain, party, flowers; crown
+  the groom's), `look.shades` (SHADES: aviators, hearts, stars, goggles),
+  `look.shirt` (SHIRTS: none, photo: a tee in the rider's colour with their
+  profile photo printed on the chest; drawn as none without a photo).
+  `cleanLook` keeps all three; Field Day's profile saves them through the
+  same `floatLook`.
+- The art draws them per pose (head, eyes and chest anchors); the module's
+  `riderSprites`, `RiderSprite` and `riderPortrait` take `hat`, `shades`,
+  `shirt`, `photo`; the Locker offers them (Field Day's profile and the
+  standalone join), with the photo tee only when there is a photo.
+
+## The screen's right side (Oct 28)
+
+Brandon: "there's weird stuff to the right of the screen on TV mode, what is
+the rainbow thing that keeps popping up". The scene accents are gone, and
+while the Cup has Field Day's TV canvas nothing of Field Day's draws over it.
+
+## Drinking (Oct 28: open)
+
+Brandon: "I don't really like the random drink in the middle. Is there
+anything that could be more dynamic or funny in the room?" Options are with
+him; the mid-song drink break stays until he picks.
 
 ## Wednesday night target (in cut order: the last line goes first)
 

@@ -42,7 +42,7 @@ const check = (ok, label) => {
 const MOMENTS = [
   ["lobby"], ["lobby-ready"], ["lobby-fieldday"], ["intro"], ["card"], ["count"],
   ["practice", { tap:true, word:"Nice!" }], ["hey"], ["play", { tap:true, word:"Perfect" }], ["play-late", { tap:true, word:"Late" }],
-  ["play-miss", { word:"Miss" }], ["drink"], ["drink-done"], ["drink-dry"], ["drink-late"], ["outro"], ["after"],
+  ["play-miss", { word:"Miss", settle:200 }], ["drink"], ["drink-done"], ["drink-dry"], ["drink-late"], ["outro"], ["after"],
   ["rock"], ["spin"], ["drop"], ["cut"], ["cut-out"], ["cut-final"], ["lastcall"], ["lastcall-grab", { tap:true, word:"Late" }],
   ["lastcall-drink"], ["lastcall-safe"], ["crowd"], ["podium"], ["podium-win"], ["podium-out"],
   ["feedback"], ["watch"],
@@ -126,7 +126,7 @@ const shot = async (page, size, name) => {
   console.log(`     ${path.basename(file)}`);
 };
 const screenIs = (page, name, timeout = 6000) => page.until(`document.querySelector('.flc-root')?.dataset.screen === ${JSON.stringify(name)}`, { timeout });
-const go = async (page, scene) => { await page.evaluate(`window.__floatMock.go(${JSON.stringify(scene)})`); await sleep(650); };
+const go = async (page, scene, settle = 650) => { await page.evaluate(`window.__floatMock.go(${JSON.stringify(scene)})`); await sleep(settle); };
 const popupText = page => page.evaluate("document.querySelector('.flc-popup')?.textContent || ''");
 
 async function open(page, scene) {
@@ -144,7 +144,7 @@ async function moments(page, size) {
   await sleep(300);
   for (const [scene, opts = {}] of MOMENTS) {
     if (!want(scene)) continue;
-    await go(page, scene);
+    await go(page, scene, opts.settle);
     if (opts.tap) {
       await clearSent(page);
       await tapNow(page, w * 0.5, h * 0.62);

@@ -7,16 +7,33 @@
    the art's own room (its counter where the scene says), a warm stand-in
    until the manifest is in. */
 import React, { useRef } from "react";
-import { propOf, sceneOf, useGrooveArt } from "../art/index.js";
+import { bartenderSprites, propOf, sceneOf, useGrooveArt } from "../art/index.js";
 import { Critter, Popup } from "./art.jsx";
 import { lastCallView, secondsText } from "./controllerModel.js";
 import { useBeatBob, useMove, usePad, usePose, useShown, useSongNow } from "./SongScreen.jsx";
 
 const TONE = Object.freeze({ perfect:"gold", nice:"yellow", ok:"white", early:"salmon", late:"salmon", miss:"grey" });
 
+/* the bartender behind the counter at the far end: a slide on each slide, a cheer once it is told */
+function Bartender({ pose }) {
+  const manifest = useGrooveArt();
+  const cast = manifest ? bartenderSprites() : null;
+  const src = cast?.poses?.[pose] || cast?.poses?.idle || null;
+  if (!src) return null;
+  return <span className="flc-bartender" aria-hidden="true"><img src={src} alt="" draggable="false" /></span>;
+}
+
+/* the bartender's pose at `beat`: sliding for half a beat from each slide */
+export function bartenderPose(chart, beat, told) {
+  if (told) return "cheer";
+  if (!Number.isFinite(beat)) return "idle";
+  const slid = (chart?.cues || []).some(cue => (cue.slides || []).some(at => beat >= at && beat < at + 0.5));
+  return slid ? "slide" : "idle";
+}
+
 function Glass({ x, arrived }) {
   const manifest = useGrooveArt();
-  const cup = manifest ? propOf("cup") : null;
+  const cup = manifest ? propOf("drink") || propOf("cup") : null;
   return <span className={`flc-glass${arrived ? " is-there" : ""}`} style={{ "--x":x }} aria-hidden="true">
     {cup?.src ? <img src={cup.src} alt="" draggable="false" />
       : <svg viewBox="0 0 40 48"><path d="M8 6h24l-3 36a4 4 0 0 1-4 4H15a4 4 0 0 1-4-4z" fill="#ffd75e" stroke="#2b2233" strokeWidth="3" />
@@ -57,6 +74,7 @@ export default function LastCall({ serverNow, room, me, idx, chart, songAt, entr
       {view.total !== null && <b className="flc-pct">{secondsText(view.total)}</b>}
     </div>}
     <div className="flc-popup-slot is-bar">{shown && <Popup key={shown.key} q={shown.q} d={shown.d} />}</div>
+    <Bartender pose={bartenderPose(chart, view.beat, told)} />
     {view.glass && <Glass x={view.glass.x} arrived={view.glass.arrived} />}
     <div className="flc-stage is-bar"><div className="flc-me" ref={bobRef}><div className="flc-me-move" ref={moveRef}>
       <Critter entrant={entrant} pose={pose} size={280} />

@@ -57,7 +57,7 @@
     linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.015));
   box-shadow: inset 0 0 0 1px var(--fll-line);
 }
-.fll-stage { position: absolute; left: 16px; top: 16px; width: 124px; height: 124px; pointer-events: none; }
+.fll-stage { position: absolute; left: 16px; top: 16px; width: 136px; height: 136px; pointer-events: none; }
 .fll-spot {
   position: absolute;
   inset: -40% -34% -10%;
@@ -77,13 +77,16 @@
 }
 @keyframes fll-ripple { 0% { transform: scale(0.5); opacity: 0.9; } 100% { transform: scale(1.35); opacity: 0; } }
 .fll-hero-art { position: relative; z-index: 1; transform-origin: 50% 100%; }
-.fll-hero-art .flp { box-shadow: 0 0 0 4px var(--fll-c), 0 16px 30px rgba(0, 0, 0, 0.42); }
+.fll-root .flc-critter { display: block; width: var(--size); height: var(--size); flex: none; }
+.fll-root .flc-critter > * { display: block; width: 100%; height: 100%; }
+.fll-hero-art .flc-critter { filter: drop-shadow(0 12px 18px rgba(0, 0, 0, 0.35)); }
 .fll-hero-text { position: relative; z-index: 1; display: grid; gap: 6px; min-width: 0; }
 .fll-hero-name {
-  font-size: 28px;
+  font-size: 30px;
   font-weight: 900;
   /* room for the descenders of "Capybara" and "Coyote" under the ellipsis clip */
-  line-height: 1.15;
+  line-height: 1.3;
+  padding-bottom: 0.08em;
   letter-spacing: -0.025em;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -182,6 +185,9 @@
   overflow: hidden;
 }
 .fll-tile.is-on .fll-tile-name { color: var(--fll-ink); }
+.fll-tile.is-groom { box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--fll-gold) 55%, transparent); }
+.fll-tile.is-groom .fll-tile-name { color: var(--fll-gold); }
+.fll-tile.is-groom.is-on { box-shadow: inset 0 0 0 2.5px var(--fll-gold); }
 .fll-check {
   position: absolute;
   right: -5px;
@@ -284,6 +290,31 @@
 .fll-stats.is-compact .fll-stat { grid-template-columns: 3.4em minmax(0, 1fr); gap: 4px; }
 .fll-stats.is-compact .fll-stat-name { font-size: 9px; }
 .fll-stats.is-compact .fll-stat-pips i { height: 5px; border-radius: 2px; }
+
+/* ── the light tone: the Groove's paper and ink (the join, the lobby) ── */
+.fll-root.fll-light {
+  --fll-ink: #2b2233;
+  --fll-muted: #5d5066;
+  --fll-faint: rgba(255, 253, 248, 0.86);
+  --fll-line: rgba(43, 34, 51, 0.22);
+  --fll-deep: #fffdf8;
+  --fll-gold: #b97d00;
+}
+.fll-light .fll-hero {
+  background: radial-gradient(90% 120% at 18% 10%, color-mix(in srgb, var(--fll-c) 30%, transparent), transparent 62%), #fffdf8;
+  box-shadow: inset 0 0 0 3px #2b2233, 0 5px 0 rgba(43, 34, 51, 0.18);
+}
+.fll-light .fll-spot { opacity: 0.55; }
+.fll-light .fll-hero-art .flc-critter { filter: drop-shadow(0 8px 10px rgba(43, 34, 51, 0.2)); }
+.fll-light .fll-tile { background: var(--fll-faint); box-shadow: inset 0 0 0 2px var(--fll-line); }
+.fll-light .fll-tile.is-on { background: color-mix(in srgb, var(--fll-c) 22%, #fffdf8); box-shadow: inset 0 0 0 3px #2b2233; }
+.fll-light .fll-tile-name { color: var(--fll-muted); }
+.fll-light .fll-tile.is-on .fll-tile-name { color: #2b2233; }
+.fll-light .fll-check { stroke: #fffdf8; background: #2b2233; box-shadow: 0 0 0 2px #fffdf8; }
+.fll-light .flp { background: radial-gradient(circle at 50% 38%, #fff 0%, transparent 72%), color-mix(in srgb, var(--flp-c) 34%, #fffdf8);
+  box-shadow: inset 0 0 0 2.5px #2b2233; }
+.fll-light .fll-tile.is-groom { box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--fll-gold) 60%, transparent); }
+.fll-light .fll-tile.is-groom.is-on { box-shadow: inset 0 0 0 3px var(--fll-gold); }
 
 @media (prefers-reduced-motion: reduce) {
   .fll-root *, .fll-root *::before, .fll-root *::after, .fll-floatie * { animation-duration: 1ms !important; animation-delay: 0ms !important; }

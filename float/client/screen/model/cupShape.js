@@ -1,9 +1,10 @@
-/* The Cup's shape as the screen needs it (float/PROTOCOL.md "The Cup"): how
-   many race each round and how many of them go through. The room says it
-   (`cut`, the next round's field, null in the last round); a room that does
-   not falls back to this stand-in of cup.js cutSchedule (13, 9, 6, 3). */
+/* The Cup's shape as the screen needs it (float/GROOVE.md "Rounds,
+   elimination, positions"): how many play each song and how many of them go
+   through. The room says it (`cut`, the next round's field, null in the
+   last round); a room that does not falls back to this stand-in of the
+   engine's schedule (13, 9, 6, 3). */
 
-export const PHASES = Object.freeze(["lobby", "intro", "grid", "countdown", "race", "cut", "podium", "feedback"]);
+export const PHASES = Object.freeze(["lobby", "intro", "song", "cut", "podium", "feedback"]);
 
 /* the field for every round: monotonic, never below 3, the final always 3 when n >= 3 */
 export function cutSchedule(n) {

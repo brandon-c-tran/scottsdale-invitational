@@ -1,97 +1,92 @@
-/* The shared screen for one room (float/PROTOCOL.md "Components"):
-   <FloatScreen room={id} /> fills its parent, opens its own connection as a
-   screen, and draws the race in 3D at serverNow() - INTERP_MS with the HUD
-   over it. Field Day embeds it on its 1920x1080 TV canvas; /float wraps it
-   (ScreenApp: the code, the QR, hosting).
+/* The shared screen for one room (float/GROOVE.md "The screen (TV) and the
+   phone"): <FloatScreen room={id} /> fills its parent, opens its own
+   connection as a screen, and draws the Cup in 2D on a fixed 1920 x 1080
+   stage, letterboxed: DOM and CSS, no WebGL. Field Day embeds it on its own
+   1920x1080 TV canvas; /float wraps it (ScreenApp: the code, the QR,
+   hosting).
 
      room      the room id
      hosting   this screen runs the lobby (Start, bots, drinking)
      joinUrl   the phones' join link, drawn as a QR in the lobby
      mock      true: the stand-in room (also ?mock=1)
-     quality   "high" | "medium" | "low" | "lowest" (also ?quality=); else automatic
+     quality   "high" | "medium" | "low" | "lowest" (also ?quality=); the
+               lower tiers drop the water's checker and the far layers' drift
+     onStats   called about once a second with { fps, tier }
      muted     true while the screen is mounted but hidden (Field Day's own
-               scene over it): no sound, the 3D paused, no HUD; the
+               scene over it): no sound, nothing drawn or moving; the
                connection stays, so it comes back current. Default false.
 
-   three.js loads only here, behind a dynamic import, so nothing that imports
-   this component pays for it until it mounts. No WebGL, a failed load, a
-   lost context or a device too slow for the lowest tier: the flat map. */
+   One requestAnimationFrame loop (stage/driver.js) writes every transform
+   from the server clock; React renders only when a room message lands. */
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { createScreenStore } from "./model/screenStore.js";
-import { indexList, throughFor } from "./model/cupShape.js";
-import { useFloatScreenSound, useFloatSoundUnlockNeeded, unlockFloatSound, PODIUM_BEATS } from "../sound/index.js";
-import { Arrivals, CapClock, Countdown, CutBoard, CutLamp, Feedback, IntroMap, NameTags, Plate, Podium, Rail, ReplayLamp, Ribbon, TitleCard } from "./hud/Hud.jsx";
+import { createScreenStore } from "./model/store.js";
+import { sceneFor, sceneMode } from "./model/song.js";
+import { createDriver, reducedMotion } from "./stage/driver.js";
+import Scene, { layerOffset } from "./stage/Scene.jsx";
+import Cast from "./stage/Cast.jsx";
+import Host from "./stage/Host.jsx";
+import Pieces from "./stage/Pieces.jsx";
 import Lobby from "./hud/Lobby.jsx";
-import { SoundIcon } from "./hud/bits.jsx";
+import { CutBoard, Feedback, IntroTitle, LastCallBanner, PodiumBlocks, PodiumList, SongBanner, SongStrip } from "./hud/Hud.jsx";
+import Bar from "./stage/Bar.jsx";
+import * as floatSound from "../sound/index.js";
 import "./screen.css";
 
 /* the connection: float/client/net.js, the one the phones use; with
-   ?mock=1 the real room run in this tab (mockNet.js) */
+   ?mock=1 the scripted room in this tab (mockNet.js) */
 export async function loadConnect(mock = false) {
   if (mock) return (await import("./mockNet.js")).connectFloat;
   return (await import("../net.js")).connectFloat;
 }
 
-function createBus() {
-  const fns = new Set();
-  const bus = {
-    last:null,
-    on(fn) { fns.add(fn); return () => fns.delete(fn); },
-    emit(frame) {
-      bus.last = frame;
-      fns.forEach(fn => fn(frame));
-      try { window.__floatFrames = (window.__floatFrames || 0) + 1; } catch {}
-    },
-  };
-  return bus;
-}
-
-let webgl = null;
-function webglAvailable() {
-  if (webgl !== null) return webgl;
-  try {
-    const canvas = document.createElement("canvas");
-    const gl = canvas.getContext("webgl2") || canvas.getContext("webgl");
-    webgl = !!gl;
-    gl?.getExtension?.("WEBGL_lose_context")?.loseContext();
-  } catch { webgl = false; }
-  return webgl;
-}
-
 const param = key => {
   try { return new URLSearchParams(window.location.search).get(key); } catch { return null; }
 };
-
 const pageShown = () => { try { return document.visibilityState !== "hidden"; } catch { return true; } };
 
-/* ?debug=1: a small corner readout (the screen's fps and tier, each phone's ping) */
-function DebugReadout({ perf, rtt = {}, entrants = [] }) {
-  const rows = entrants.map(e => ({ name:e.name, bot:e.bot, ms:rtt?.[e.device] })).filter(r => !r.bot);
-  return <div style={{ position:"absolute", left:12, bottom:12, padding:"8px 12px", borderRadius:10, background:"rgba(0,0,0,.72)",
-    color:"#fff", font:"600 18px/1.35 ui-monospace, monospace", zIndex:50, pointerEvents:"none" }}>
-    <div>TV {perf?.fps ?? "?"} fps · {perf?.tier ?? "?"} · {perf?.calls ?? "?"} draws</div>
+/* the podium's beats: the sound's own when it says them (its reveal lands on its fanfare) */
+const PODIUM_BEATS = floatSound.PODIUM_BEATS || { third:1450, second:2200, first:2700, pose:3400 };
+
+/* ?debug=1: a small corner readout (the screen's frame rate, each phone's round trip) */
+function DebugReadout({ fps, tier, rtt = {}, entrants = [] }) {
+  const rows = entrants.map(e => ({ name:e?.name, bot:e?.bot, ms:rtt?.[e?.device] })).filter(r => r.name && !r.bot);
+  return <div className="fs-debug">
+    <div>TV {fps ?? "?"} fps · {tier}</div>
     {rows.map(r => <div key={r.name}>{r.name}: {Number.isFinite(r.ms) ? `${Math.round(r.ms)} ms` : "no ping yet"}</div>)}
   </div>;
 }
 
+function SoundIcon() {
+  return <svg viewBox="0 0 24 24" aria-hidden="true">
+    <path fill="currentColor" d="M4 9h4l5-4v14l-5-4H4z" />
+    <path fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12" />
+  </svg>;
+}
+
 export default function FloatScreen({ room = "test", hosting = false, joinUrl = null, mock, quality, onStats, muted = false }) {
   const rootRef = useRef(null);
-  const canvasRef = useRef(null);
-  const flatRef = useRef(null);
-  const drawRef = useRef(null);
-  const sizeRef = useRef({ w:1920, h:1080 });
+  const stageRef = useRef(null);
   const store = useMemo(createScreenStore, []);
-  const bus = useMemo(createBus, []);
   const [net, setNet] = useState(null);
-  const [, setVersion] = useState(0);
-  const [view, setView] = useState(() => (param("flat") === "1" ? "flat" : "3d"));
+  const [version, setVersion] = useState(0);
   const useMock = mock ?? param("mock") === "1";
   const tier = quality ?? param("quality") ?? "auto";
   const mutedRef = useRef(!!muted);
+  mutedRef.current = !!muted;
   /* ?debug=1: the screen's frame rate and every phone's round trip, to tell a slow TV from a slow phone */
   const debug = useMemo(() => param("debug") === "1", []);
-  const [perf, setPerf] = useState(null);
-  mutedRef.current = !!muted;
+  const [fps, setFps] = useState(null);
+  const statsRef = useRef(onStats);
+  statsRef.current = onStats;
+  const driver = useMemo(() => createDriver({
+    serverNow:store.serverNow,
+    onFps:value => {
+      const stats = { fps:value, tier };
+      try { window.__floatStats = { ...(window.__floatStats || {}), ...stats }; } catch {}
+      statsRef.current?.(stats);
+      if (debug) setFps(value);
+    },
+  }), [store]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* the connection */
   useEffect(() => {
@@ -110,18 +105,17 @@ export default function FloatScreen({ room = "test", hosting = false, joinUrl = 
   /* the sound runner reads this on every step: muted reads as a hidden page
      (its beds stop within a tick, no moment cues) */
   const soundOptions = useMemo(() => ({ visible:() => !mutedRef.current && pageShown() }), []);
-  useFloatScreenSound(net, soundOptions);
-  const unlockNeeded = useFloatSoundUnlockNeeded();
+  floatSound.useFloatScreenSound(net, soundOptions);
+  const unlockNeeded = floatSound.useFloatSoundUnlockNeeded();
 
-  /* the parent's size: the stage scale for the HUD, the renderer's size */
+  /* the stage: 1920 x 1080, scaled to fit its parent and centred (letterboxed) */
   useEffect(() => {
-    const el = rootRef.current;
-    if (!el) return undefined;
+    const el = rootRef.current, stage = stageRef.current;
+    if (!el || !stage || typeof ResizeObserver === "undefined") return undefined;
     const apply = () => {
       const w = el.clientWidth || 1920, h = el.clientHeight || 1080;
-      sizeRef.current = { w, h };
-      el.style.setProperty("--u", `${Math.min(w / 1920, h / 1080)}px`);
-      drawRef.current?.resize(w, h);
+      const s = Math.min(w / 1920, h / 1080);
+      stage.style.transform = `translate(${((w - 1920 * s) / 2).toFixed(2)}px, ${((h - 1080 * s) / 2).toFixed(2)}px) scale(${s.toFixed(5)})`;
     };
     apply();
     const ro = new ResizeObserver(apply);
@@ -129,112 +123,91 @@ export default function FloatScreen({ room = "test", hosting = false, joinUrl = 
     return () => ro.disconnect();
   }, []);
 
-  /* the 3D world, or the flat map */
+  /* the loop runs while the screen is shown */
   useEffect(() => {
-    let alive = true, drawer = null;
-    const fail = () => { if (alive) setView("flat"); };
-    const stats = s => { try { window.__floatStats = { ...(window.__floatStats || {}), ...s }; } catch {} onStats?.(s); if (debug) setPerf(p => ({ ...(p || {}), ...s })); };
-    if (view === "3d") {
-      if (!webglAvailable()) { setView("flat"); return undefined; }
-      import("./world/World.js").then(mod => {
-        if (!alive) return;
-        drawer = mod.createWorld({ canvas:canvasRef.current, store, quality:tier, onFrame:frame => bus.emit(frame), onFail:fail, onStats:stats });
-        if (!drawer) { fail(); return; }
-        drawRef.current = drawer;
-        drawer.resize(sizeRef.current.w, sizeRef.current.h);
-        drawer.setPaused?.(mutedRef.current);
-        /* for the shots script and a console: the world's own handle */
-        try { window.__floatWorld = drawer; } catch {}
-      }).catch(error => { console.error("Float world", error); fail(); });
-    } else {
-      import("./flat/FlatMap.js").then(mod => {
-        if (!alive) return;
-        drawer = mod.createFlatMap({ canvas:flatRef.current, store, onFrame:frame => bus.emit(frame), onStats:stats });
-        drawRef.current = drawer;
-        drawer.resize(sizeRef.current.w, sizeRef.current.h);
-        drawer.setPaused?.(mutedRef.current);
-      }).catch(error => console.error("Float flat map", error));
-    }
-    return () => { alive = false; drawer?.dispose(); if (drawRef.current === drawer) drawRef.current = null; };
-  }, [view, store, bus, tier]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  /* hidden under a scene: stop drawing; back: pick up where the room is */
-  useEffect(() => { drawRef.current?.setPaused?.(!!muted); }, [muted]);
+    driver.setPaused(!!muted);
+    return () => driver.stop();
+  }, [driver, muted]);
 
   const st = store.state;
   const roomMsg = st.room;
-  const geo = st.geo;
-  const phase = st.phase;
-  const entrants = Array.isArray(roomMsg?.entrants) ? roomMsg.entrants : [];
-  const through = throughFor(roomMsg);
-  const final = typeof roomMsg?.lastRound === "boolean" ? roomMsg.lastRound
-    : (roomMsg?.rounds | 0) > 0 && (roomMsg?.round | 0) >= (roomMsg.rounds | 0) - 1;
-  /* the podium's beats count from its message, as the band's do (+60 ms) */
-  const podiumAnchor = Number.isFinite(st.phaseStart) ? st.phaseStart + 60 : null;
+  const phase = roomMsg ? st.phase : "connecting";
+  /* the entrants, the same array until a rider changes (the room rebuilds
+     the list on every message; the cast and its frame loop key on it) */
+  const entrantsKey = JSON.stringify((Array.isArray(roomMsg?.entrants) ? roomMsg.entrants : []).map(e => e && [e.device, e.pid, e.name, e.color,
+    e.look?.critter, !!e.bot, !!e.ready, !!e.groom, e.connected !== false]));
+  const entrants = useMemo(() => (Array.isArray(roomMsg?.entrants) ? roomMsg.entrants : []), [entrantsKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  const scene = sceneFor(phase, st.chart);
+  const lite = tier === "low" || tier === "lowest";
 
-  /* the podium's beats in the world: confetti per place, then the poses */
+  /* the backdrop drifts by depth, faster in a song, still on the podium */
   useEffect(() => {
-    if (phase !== "podium" || !Number.isFinite(podiumAnchor)) return undefined;
-    const podium = indexList(roomMsg?.podium);
-    const timers = [];
-    const at = (ms, fn) => {
-      const delay = podiumAnchor + ms - store.serverNow();
-      if (delay < -1500) { if (ms === PODIUM_BEATS.pose) fn(); return; }
-      timers.push(setTimeout(fn, Math.max(0, delay)));
-    };
-    at(PODIUM_BEATS.third, () => drawRef.current?.podiumBurst?.(3));
-    at(PODIUM_BEATS.second, () => drawRef.current?.podiumBurst?.(2));
-    at(PODIUM_BEATS.first, () => drawRef.current?.podiumBurst?.(1));
-    at(PODIUM_BEATS.pose, () => podium.forEach(i => drawRef.current?.pose?.(i, entrants[i]?.look?.pose || "flex")));
-    return () => timers.forEach(clearTimeout);
-  }, [phase, podiumAnchor]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  /* the shots script's handshake: fonts in, the river drawn */
-  useEffect(() => {
-    let alive = true;
-    const off = bus.on(frame => {
-      if (!alive || !frame || rootRef.current?.dataset.ready) return;
-      Promise.resolve(document.fonts?.ready).then(() => {
-        if (!alive || !rootRef.current) return;
-        rootRef.current.dataset.ready = "1";
-        try { document.body.dataset.ready = "1"; } catch {}
-      });
+    const stage = stageRef.current;
+    if (!stage) return undefined;
+    const layers = [...stage.querySelectorAll(".sc-layer[data-depth]")].map(node => ({ node, depth:Number(node.dataset.depth) || 0 }));
+    const checker = stage.querySelector(".sc-checker");
+    const speed = reducedMotion() ? 0 : phase === "song" || phase === "intro" ? 1 : phase === "lobby" || phase === "cut" ? 0.45 : 0;
+    let travel = null, lastNow = null;
+    return driver.add(now => {
+      if (travel === null) travel = (now / 1000) * 64;
+      const dt = lastNow === null ? 0 : Math.max(0, Math.min(120, now - lastNow));
+      lastNow = now;
+      travel += (dt / 1000) * 64 * speed;
+      for (const layer of layers) {
+        if (lite && layer.depth < 0.3) continue;
+        layer.node.style.transform = `translate3d(${layerOffset(travel * 1000 / 64, layer.depth).toFixed(1)}px, 0, 0)`;
+      }
+      if (checker && !lite) checker.style.transform = `rotateX(76deg) translate3d(${(-(travel * 0.7) % 240).toFixed(1)}px, 0, 0)`;
+      /* the scene's mode (rocks drifting by, the whirl, the falls) follows the bar */
+      if (phase === "song" && st.chart && Number.isFinite(st.songAt)) {
+        const { mode, section } = sceneMode(st.chart, (now - st.songAt) / st.chart.beatMs);
+        const value = `${mode || ""}:${section || ""}`;
+        if (stage.dataset.mode !== value) stage.dataset.mode = value;
+      }
     });
-    return () => { alive = false; off(); };
-  }, [bus]);
+  }, [driver, scene, phase, lite, st]);
+
+  /* the shots script's handshake: fonts in, the first room drawn */
+  useEffect(() => {
+    if (!roomMsg || rootRef.current?.dataset.ready) return;
+    let alive = true;
+    Promise.resolve(document.fonts?.ready).then(() => {
+      if (!alive || !rootRef.current) return;
+      rootRef.current.dataset.ready = "1";
+      try { document.body.dataset.ready = "1"; } catch {}
+    });
+    return () => { alive = false; };
+  }, [roomMsg]);
 
   const send = msg => { try { net?.send(msg); } catch {} };
   const disconnected = st.status === "closed" || (st.status === "connecting" && !!st.room);
+  const water = phase === "lobby" || phase === "intro" || phase === "song" || phase === "cut";
 
-  return <div className="fs-root" ref={rootRef} data-phase={phase} data-view={view} data-muted={muted ? "1" : undefined}>
-    {view === "3d" ? <canvas key="gl" className="fs-canvas" ref={canvasRef} /> : <canvas key="flat" className="fs-canvas" ref={flatRef} />}
-    {!muted && <div className="fs-hud">
-      {phase === "lobby" && <Lobby room={roomMsg} entrants={entrants} hosting={hosting && roomMsg?.mode !== "fieldday"} joinUrl={joinUrl} send={send}
-        serverNow={store.serverNow} />}
-      {phase === "intro" && <IntroMap geo={geo} bus={bus} />}
-      {(phase === "grid" || phase === "countdown" || phase === "race") && <NameTags bus={bus} entrants={entrants} phase={phase} big={phase !== "race"} />}
-      {phase === "grid" && <TitleCard room={roomMsg} geo={geo} />}
-      {phase === "race" && <>
-        <Plate room={roomMsg} geo={geo} />
-        <CapClock room={roomMsg} bus={bus} />
-        <CutLamp bus={bus} />
-        <Rail room={roomMsg} bus={bus} entrants={entrants} />
-        <Ribbon room={roomMsg} geo={geo} bus={bus} entrants={entrants} />
-        {/* one column over the race: places as they land, and who just locked in */}
-        <div className="fs-toasts">
-          <Arrivals room={roomMsg} entrants={entrants} through={through} final={final} />
+  return <div className="fs-root" ref={rootRef} data-phase={phase} data-muted={muted ? "1" : undefined} data-tier={tier}>
+    <div className="fs-stage" ref={stageRef} data-scene={scene}>
+      {!muted && <>
+        <Scene id={scene} />
+        {(phase === "song" || phase === "cut" || phase === "intro" || phase === "lobby") && <Pieces scene={scene} store={store} driver={driver} phase={phase} />}
+        {(phase === "podium" || phase === "feedback") && <PodiumBlocks store={store} driver={driver} room={roomMsg} entrants={entrants} beats={PODIUM_BEATS}
+          revealed={phase === "feedback"} />}
+        {water && phase !== "lobby" && <Host store={store} driver={driver} phase={phase} />}
+        {phase === "lastcall" && <Bar store={store} driver={driver} />}
+        <Cast store={store} driver={driver} entrants={entrants} phase={phase} room={roomMsg} version={version} scene={scene} />
+        <div className="fs-hud">
+          {phase === "lobby" && <Lobby room={roomMsg} entrants={entrants} hosting={hosting && roomMsg?.mode !== "fieldday"} joinUrl={joinUrl} send={send}
+            serverNow={store.serverNow} />}
+          {phase === "intro" && <IntroTitle room={roomMsg} />}
+          {phase === "song" && <><SongStrip store={store} driver={driver} /><SongBanner store={store} driver={driver} room={roomMsg} /></>}
+          {phase === "cut" && <CutBoard store={store} driver={driver} room={roomMsg} entrants={entrants} />}
+          {phase === "lastcall" && <LastCallBanner store={store} driver={driver} entrants={entrants} />}
+          {(phase === "podium" || phase === "feedback") && <PodiumList room={roomMsg} entrants={entrants} />}
+          {phase === "feedback" && <Feedback />}
         </div>
       </>}
-      {(phase === "countdown" || phase === "race") && <Countdown gun={st.gunRound === (roomMsg?.round | 0) ? st.gun : null} bus={bus} />}
-      {phase === "cut" && <CutBoard room={roomMsg} geo={geo} entrants={entrants} raceField={st.raceField} bus={bus} since={st.phaseStart}
-        replayEnds={store.replayWindow()?.to ?? null} />}
-      {phase === "cut" && <ReplayLamp bus={bus} entrants={entrants} />}
-      {(phase === "podium" || phase === "feedback") && <Podium room={roomMsg} entrants={entrants} bus={bus} anchor={phase === "podium" ? podiumAnchor : -1e12} />}
-      {phase === "feedback" && <Feedback />}
-      {debug && <DebugReadout perf={perf} rtt={st.rtt} entrants={entrants} />}
-      {disconnected && <div className="fs-status"><span className="fs-lamp is-clay is-flash">Reconnecting</span></div>}
-      {/* Field Day's TV has its own Click for sound; the /float page needs this one */}
-      {unlockNeeded && hosting && <button type="button" className="fs-sound" onClick={() => unlockFloatSound()}><SoundIcon />Click for sound</button>}
-    </div>}
+    </div>
+    {!muted && debug && <DebugReadout fps={fps} tier={tier} rtt={st.rtt} entrants={entrants} />}
+    {!muted && disconnected && <div className="fs-status"><span>Reconnecting</span></div>}
+    {/* Field Day's TV has its own Click for sound; the /float page needs this one */}
+    {!muted && unlockNeeded && hosting && <button type="button" className="fs-sound" onClick={() => floatSound.unlockFloatSound?.()}><SoundIcon />Click for sound</button>}
   </div>;
 }

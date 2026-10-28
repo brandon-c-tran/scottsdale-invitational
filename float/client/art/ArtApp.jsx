@@ -69,7 +69,7 @@ function useReady(looks) {
 }
 
 function Nav() {
-  const views = ["all", "flotilla", "critters", "portraits", "host", "scenes", "props", "type"];
+  const views = ["all", "flotilla", "critters", "crowns", "portraits", "host", "scenes", "props", "type"];
   return <nav>{views.map(v => <a key={v} href={`?view=${v}`} aria-current={v === VIEW ? "page" : undefined}>{v}</a>)}</nav>;
 }
 
@@ -89,6 +89,19 @@ function Critters({ ids = ALL.map(c => c.id), size = 112 }) {
               ))}
             </div>
           ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* the groom's crown on every pose: it should sit on the head in each */
+function Crowns() {
+  return (
+    <div className="fa2-sheet" style={{ background:BGS[BG] || BGS.water }}>
+      {ALL.map((c, i) => (
+        <div key={c.id} className="fa2-row">
+          {POSES.map(pose => <div key={pose} className="fa2-cell"><RiderSprite critter={c.id} color={RIDER_COLORS[i % RIDER_COLORS.length]} pose={pose} groom size={110} /></div>)}
         </div>
       ))}
     </div>
@@ -228,6 +241,7 @@ export default function ArtApp() {
     const list = [];
     for (const id of ids) for (const color of colors) list.push({ critter:id, color, groom:false });
     if (VIEW === "flotilla" || VIEW === "all") CRITTERS.forEach((c, i) => list.push({ critter:c.id, color:RIDER_COLORS[i], groom:c.id === "coyote" }));
+    if (VIEW === "crowns" || VIEW === "all") ALL.forEach((c, i) => list.push({ critter:c.id, color:RIDER_COLORS[i % RIDER_COLORS.length], groom:true }));
     return list;
   }, []);
   const m = useReady(looks);
@@ -241,6 +255,7 @@ export default function ArtApp() {
       {m && show("flotilla") ? <><h2>Flotilla</h2><Flotilla /></> : null}
       {m && show("critters") ? <><h2>Critters</h2><Critters /></> : null}
       {m && VIEW === "critter" ? <><h2>{query.get("id")}</h2><Critters ids={[query.get("id") || "capybara"]} size={200} /></> : null}
+      {m && show("crowns") ? <><h2>The groom's crown</h2><Crowns /></> : null}
       {m && show("portraits") ? <><h2>Portraits</h2><Portraits /></> : null}
       {m && show("host") ? <><h2>Host</h2><Host /></> : null}
       {m && show("scenes") ? <><h2>Scenes</h2><Scenes /></> : null}

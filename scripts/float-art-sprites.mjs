@@ -32,6 +32,11 @@ export const WATER = [256, 440];
 /* the portrait: the ring up to this wide, the critter kept inside the frame */
 export const PORTRAIT = { size:1024, ringMax:600, margin:36, bottom:984 };
 const SHEET_GRID = { cols:4, rows:2 };
+/* box px, by critter and pose: the head (where the crown sits) and the face
+   where the eye finder misses, set by eye on /float/art?view=crowns */
+const ANCHOR_FIX = {
+  otter:{ chug:{ head:[272, 203], face:[285, 252] } },
+};
 
 /* alpha: the model's transparent PNGs top out at 254; stray specks under 8 go */
 function normalizeAlpha(img) {
@@ -73,13 +78,15 @@ function findRing(img, hue) {
     const s = sat(r, g, b), v = val(r, g, b);
     if (v < 0.32) { ink[k] = 1; continue; }
     if (s < 0.08) continue;
-    if (hueDist(hueOf(r, g, b), hue) > 24) continue;
+    if (hueDist(hueOf(r, g, b), hue) > 20) continue;
     if (s >= 0.45) core[k] = 1;
     else if (v > 0.7) { core[k] = 1; light[k] = Math.min(1, (0.62 - s) / 0.5); }
   }
   /* keep the big pieces (the ring), not a pink tongue or cheek */
   const { labels, comps } = components(core, W, H);
-  const keep = new Set(comps.filter(c => c.n > 400).map(c => c.id));
+  /* the ring is the biggest piece; others count only where the ring is (an arm can split it), never above it (an open pink mouth) */
+  const main = comps.reduce((a, c) => (!a || c.n > a.n ? c : a), null);
+  const keep = new Set(comps.filter(c => c === main || (c.n > Math.max(400, main.n * 0.04) && c.cy >= main.y0 && c.y0 >= main.y0 - (main.y1 - main.y0) * 0.15)).map(c => c.id));
   let mask = new Uint8Array(W * H);
   for (let k = 0; k < W * H; k++) if (core[k] && keep.has(labels[k])) mask[k] = 1;
   mask = close(mask, W, H, 3);
@@ -129,7 +136,7 @@ function splitRing(img, ring) {
 }
 
 /* the eyes: two small round dark blobs above the ring, side by side */
-function findEyes(img, ring) {
+function findEyes(img, ring, near = null) {
   const { data:d, width:W, height:H } = img;
   const dark = new Uint8Array(W * H);
   const top = Math.max(0, ring.bbox.y0 - ring.bbox.w * 1.4);
@@ -151,12 +158,17 @@ function findEyes(img, ring) {
     const A = dots[a], B = dots[b];
     const dx = Math.abs(A.cx - B.cx), dy = Math.abs(A.cy - B.cy);
     if (dx < R * 0.12 || dx > R * 0.62 || dy > R * 0.12) continue;
+    /* a pose's eyes are near where idle's were (its nose or a paw pad is not an eye) */
+    if (near && (Math.abs((A.cx + B.cx) / 2 - near[0]) > R * 0.3 || Math.abs((A.cy + B.cy) / 2 - near[1]) > R * 0.3)) continue;
     const sizeMatch = Math.min(A.n, B.n) / Math.max(A.n, B.n);
     if (sizeMatch < 0.45) continue;
     const score = sizeMatch - dy / R;
     if (!best || score > best.score) best = { score, l:A.cx < B.cx ? A : B, r:A.cx < B.cx ? B : A };
   }
-  return best ? { x:(best.l.cx + best.r.cx) / 2, y:(best.l.cy + best.r.cy) / 2, span:best.r.cx - best.l.cx } : null;
+  if (best) return { x:(best.l.cx + best.r.cx) / 2, y:(best.l.cy + best.r.cy) / 2, span:best.r.cx - best.l.cx };
+  /* a side view shows one eye: the roundest dot nearest the ring's middle */
+  const one = dots.filter(d => !near || (Math.abs(d.cx - near[0]) < R * 0.3 && Math.abs(d.cy - near[1]) < R * 0.3)).sort((a, b) => Math.abs(a.cx - ring.bbox.cx) - Math.abs(b.cx - ring.bbox.cx))[0];
+  return one ? { x:one.cx, y:one.cy, span:R * 0.2, single:true } : null;
 }
 
 /* the top of the head above x: the first opaque pixel going down that column */
@@ -249,17 +261,23 @@ async function processCritter(id) {
     if (DEBUG) await savePng(placed.img, path.join(RAW, "debug", id, `${pose}.png`));
     /* anchors in the box */
     const toBox = (x, y) => [WATER[0] + (x - wx) * s, WATER[1] + (y - wy) * s];
-    const eyes = findEyes(cell, ring);
+    const fromBox = ([x, y]) => [wx + (x - WATER[0]) / s, wy + (y - WATER[1]) / s];
+    const eyes = findEyes(cell, ring, idleAnchor ? fromBox(idleAnchor.face) : null);
     const ringBox = { x0:toBox(ring.bbox.x0, 0)[0], x1:toBox(ring.bbox.x1, 0)[0], y0:toBox(0, ring.bbox.y0)[1] };
     const hand = [ringBox.x0 + (ringBox.x1 - ringBox.x0) * 0.72, ringBox.y0 + 4];
     let face, head;
-    if (eyes) {
+    if (eyes && idleAnchor) {
+      /* the skull keeps its distance from the eyes: idle's head-to-face offset */
+      face = toBox(eyes.x, eyes.y + eyes.span * 0.25);
+      head = [face[0] + idleAnchor.head[0] - idleAnchor.face[0], face[1] + idleAnchor.head[1] - idleAnchor.face[1]];
+    } else if (eyes) {
       face = toBox(eyes.x, eyes.y + eyes.span * 0.25);
       const top = headTop(placed.img, toBox(eyes.x, 0)[0]);
       head = [toBox(eyes.x, 0)[0], top ?? toBox(0, eyes.y - eyes.span)[1]];
     } else if (idleAnchor) {
+      /* closed or hidden eyes: the head stays where idle's was */
       face = idleAnchor.face;
-      head = [idleAnchor.head[0], headTop(placed.img, idleAnchor.head[0]) ?? idleAnchor.head[1]];
+      head = idleAnchor.head;
       report.push(`${pose} eyes not found`);
     } else {
       const top = headTop(placed.img, WATER[0]) ?? 120;
@@ -267,6 +285,9 @@ async function processCritter(id) {
       face = [WATER[0], (top + ringBox.y0) / 2];
       report.push(`${pose} eyes not found`);
     }
+    const fix = ANCHOR_FIX[id]?.[pose];
+    if (fix?.head) head = fix.head;
+    if (fix?.face) face = fix.face;
     const anchor = { water:[...WATER], head:round2(head), face:round2(face), hand:round2(hand) };
     if (pose === "idle") idleAnchor = anchor;
     poses[pose] = { src:`critters/${id}/${pose}.webp`, tube:`critters/${id}/${pose}-tube.webp`, anchor };

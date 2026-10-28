@@ -13,7 +13,7 @@ import { join } from "node:path";
 import Module from "node:module";
 import sharp from "sharp";
 import { build } from "esbuild";
-import { CRITTER_IDS, ALL_CRITTER_IDS } from "../float/shared/looks.js";
+import { ALL_CRITTER_IDS } from "../float/shared/looks.js";
 import { popupOf } from "../float/shared/chart.js";
 import * as groove from "../float/client/art/groove/index.js";
 
@@ -23,7 +23,16 @@ const DIR = join(PUB, "float/groove");
 const manifest = JSON.parse(readFileSync(join(DIR, "manifest.json"), "utf8"));
 const POSES = ["idle", "stroke", "hey", "nice", "miss", "chug", "cheer", "out"];
 const file = rel => join(DIR, rel);
-const size = async rel => { const m = await sharp(file(rel)).metadata(); return [m.width, m.height]; };
+/* a WebP's size from its header (VP8X, VP8L or VP8), no decode */
+function webpSize(buf) {
+  if (buf.toString("latin1", 0, 4) !== "RIFF" || buf.toString("latin1", 8, 12) !== "WEBP") return null;
+  const chunk = buf.toString("latin1", 12, 16);
+  if (chunk === "VP8X") return [1 + buf.readUIntLE(24, 3), 1 + buf.readUIntLE(27, 3)];
+  if (chunk === "VP8L") { const b = buf.readUInt32LE(21); return [1 + (b & 0x3fff), 1 + ((b >> 14) & 0x3fff)]; }
+  if (chunk === "VP8 ") return [buf.readUInt16LE(26) & 0x3fff, buf.readUInt16LE(28) & 0x3fff];
+  return null;
+}
+const size = async rel => webpSize(readFileSync(file(rel)));
 const isPoint = (p, w = 1e9, h = 1e9) => Array.isArray(p) && p.length === 2 && p.every(Number.isFinite) && p[0] >= 0 && p[1] >= 0 && p[0] <= w && p[1] <= h;
 
 test("the manifest's shape: v 1, the eight poses, the 512 box", () => {
@@ -34,8 +43,8 @@ test("the manifest's shape: v 1, the eight poses, the 512 box", () => {
   for (const key of ["critters", "host", "scenes", "props", "font"]) assert.ok(manifest[key], key);
 });
 
-test("every critter: anchors in the box, every pose's sprite and tube at 512, the portrait at 1024", async () => {
-  for (const id of CRITTER_IDS) {
+test("every critter (the 13 and Winnie): anchors in the box, every pose's sprite and tube at 512, the portrait at 1024", async () => {
+  for (const id of ALL_CRITTER_IDS) {
     const c = manifest.critters[id];
     assert.ok(c, `${id} is in the manifest`);
     for (const name of ["water", "head", "face", "hand"]) assert.ok(isPoint(c.anchor?.[name], 512, 512), `${id} anchor.${name}`);
@@ -75,7 +84,39 @@ test("a tube mask is white where it is the tube; a sprite is transparent around 
   for (const k of [0, info.width - 1, info.width * (info.height - 1), info.width * info.height - 1]) assert.equal(corner(k), 0, "the corners are clear");
 });
 
+const decoded = new Map();
+const raw = rel => {
+  if (!decoded.has(rel)) decoded.set(rel, sharp(file(rel)).ensureAlpha().raw().toBuffer({ resolveWithObject:true }).then(({ data, info }) => ({ data, w:info.width, h:info.height })));
+  return decoded.get(rel);
+};
+const alphaAt = (img, [x, y]) => img.data[(Math.round(y) * img.w + Math.round(x)) * 4 + 3];
+/* the share of the box that is solid (every 4th pixel is plenty) */
+const coverage = img => { let n = 0; for (let i = 3; i < img.data.length; i += 16) if (img.data[i] > 128) n++; return n * 4 / (img.w * img.h); };
+
+test("the real art: every pose has a critter and a tube; the face is on the body, never in the tube mask", async () => {
+  /* decoded together: sharp's pool works in parallel */
+  await Promise.all(ALL_CRITTER_IDS.flatMap(id => POSES.flatMap(pose => [raw(manifest.critters[id].poses[pose].src), raw(manifest.critters[id].poses[pose].tube)])));
+  for (const id of ALL_CRITTER_IDS) {
+    const c = manifest.critters[id];
+    assert.ok(!c.placeholder, `${id} is real art`);
+    const seen = new Set();
+    for (const pose of POSES) {
+      const p = c.poses[pose];
+      seen.add(p.src);
+      const src = await raw(p.src), tube = await raw(p.tube);
+      const face = (p.anchor || c.anchor).face;
+      assert.ok(coverage(src) > 0.06, `${id} ${pose}: a critter in the box`);
+      assert.ok(coverage(tube) > 0.02, `${id} ${pose}: a tube`);
+      assert.ok(alphaAt(src, face) > 200, `${id} ${pose}: the face anchor is on the critter`);
+      assert.ok(alphaAt(tube, face) < 40, `${id} ${pose}: no tube mask at the face`);
+    }
+    assert.equal(seen.size, POSES.length, `${id}: eight different sprites`);
+  }
+});
+
 test("the host: its box, anchors and the three poses' files", async () => {
+  assert.ok(!manifest.host.placeholder, "the host is real art");
+  assert.equal(new Set(["idle", "call", "cheer"].map(pose => manifest.host.poses[pose].src)).size, 3, "three different poses");
   const h = manifest.host;
   assert.ok(Array.isArray(h.box) && h.box.length === 2);
   for (const name of ["ground", "head", "face", "horn"]) assert.ok(isPoint(h.anchor?.[name], ...h.box), `host anchor.${name}`);
@@ -100,6 +141,17 @@ test("the scenes: the four songs, the lobby, the bar and the podium, layered bac
       assert.deepEqual(await size(layer.src), [1920, 1080], `${id} ${layer.src}`);
     }
   }
+  /* a looping layer tiles: its last column runs into its first like any two neighbours */
+  for (const [id, sc] of Object.entries(manifest.scenes)) for (const layer of sc.layers.filter(l => l.loop)) {
+    const img = await raw(layer.src);
+    const col = x => { const out = []; for (let y = 0; y < img.h; y += 4) { const i = (y * img.w + x) * 4; out.push(img.data[i] * img.data[i + 3] / 255, img.data[i + 1] * img.data[i + 3] / 255, img.data[i + 2] * img.data[i + 3] / 255, img.data[i + 3]); } return out; };
+    const diff = (a, b) => a.reduce((sum, v, i) => sum + Math.abs(v - b[i]), 0) / a.length;
+    const seam = diff(col(img.w - 1), col(0));
+    let inner = 0;
+    for (const x of [300, 700, 1100, 1500]) inner = Math.max(inner, diff(col(x), col(x + 1)));
+    assert.ok(seam <= Math.max(3, inner * 2.5), `${id} ${layer.src}: no seam (${seam.toFixed(2)} vs ${inner.toFixed(2)})`);
+  }
+  for (const sc of Object.values(manifest.scenes)) assert.ok(!sc.placeholder, "scenes are real art");
   /* the songs' scenes are the ones chart.js names */
   const { SONGS } = await import("../float/shared/chart.js");
   for (const song of SONGS) assert.ok(manifest.scenes[song.scene], `${song.id} -> ${song.scene}`);
@@ -111,7 +163,13 @@ test("the props: at least the contract's, each at its declared size with an anch
     assert.deepEqual(await size(p.src), [p.w, p.h], `${id} size`);
     assert.ok(isPoint(p.anchor, p.w, p.h), `${id} anchor`);
     assert.equal(typeof p.tint, "boolean", `${id} tint`);
+    assert.ok(!p.placeholder, `${id} is real art`);
   }
+  /* the podium's steps: 1st highest, all on the block tops inside the image */
+  const podium = manifest.props.podium;
+  assert.equal(podium.steps.length, 3);
+  for (const at of podium.steps) assert.ok(isPoint(at, podium.w, podium.h));
+  assert.ok(podium.steps[0][1] < podium.steps[1][1] && podium.steps[1][1] < podium.steps[2][1], "1st, then 2nd, then 3rd");
 });
 
 test("the font: Float Pixel, the woff2 and its OFL licence beside it, declared once in groove.css", () => {
@@ -153,6 +211,17 @@ test("colours: #rgb and #rrggbb pass (lowercased), anything else is the fallback
   assert.equal(groove.normalColor("#E53935"), "#e53935");
   assert.equal(groove.normalColor("#f80"), "#ff8800");
   for (const bad of [null, "", "red", "#12345", "url(x)"]) assert.equal(groove.normalColor(bad), groove.FALLBACK_COLOR);
+});
+
+test("the painted size: the smallest of 128, 256, 512 covering the drawn size in device pixels", () => {
+  assert.deepEqual([...groove.SPRITE_SIZES], [128, 256, 512]);
+  assert.equal(groove.spriteSize(100), 128);
+  assert.equal(groove.spriteSize(200), 256);
+  assert.equal(groove.spriteSize(300), 512);
+  assert.equal(groove.spriteSize(200, 2), 512);
+  assert.equal(groove.spriteSize(120, 2), 256);
+  assert.equal(groove.spriteSize(4000, 3), 512);
+  assert.equal(groove.spriteSize(undefined), 512);
 });
 
 test("no canvas in node: riderSprites hands back every pose's bare file, riderPortrait is null", async () => {

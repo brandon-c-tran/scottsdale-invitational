@@ -297,10 +297,9 @@ html.flc-locked, html.flc-locked body { overflow: hidden; overscroll-behavior: n
 .flc-roster li.is-away { opacity: 0.25; }
 .flc-roster li.is-ready::after { content: ""; position: absolute; right: -2px; bottom: -2px; width: 14px; height: 14px; border-radius: 50%; background: var(--teal); box-shadow: 0 0 0 2.5px var(--ink); }
 .flc-roster li.is-me .flp { box-shadow: 0 0 0 3px var(--ink); }
-/* the Locker is a dark sheet everywhere (Field Day's profile, the join, here) */
-.flc-locker-sheet { gap: 8px; color: #f7f0e1; background: radial-gradient(120% 70% at 50% -10%, #17436a 0%, rgba(23, 67, 106, 0) 60%), linear-gradient(180deg, #0c2236 0%, #08131f 100%); }
-.flc-sheet-title { font-size: 26px; font-weight: 900; }
-.flc-locker-sheet .flc-pill.is-primary { background: #f7f0e1; color: #0b1626; box-shadow: none; }
+/* the Locker on the Groove's paper (its light tone), as in the join */
+.flc-locker-sheet { gap: 8px; background: linear-gradient(180deg, #fdf3e4 0%, #f6e6f6 100%); }
+.flc-sheet-title { font-size: 30px; font-weight: 900; letter-spacing: -0.01em; }
 .flc-sheet-body { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; touch-action: pan-y; margin: 0 -6px; padding: 0 6px 8px; }
 
 /* ── the cut ── */

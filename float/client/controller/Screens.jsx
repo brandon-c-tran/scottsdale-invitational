@@ -39,10 +39,10 @@ function Lobby({ game, entrant, me, groom, onReady, onLook, onExit }) {
   const look = entrant.look || me.look;
   if (locker) {
     return <section className="flc-screen flc-locker-sheet">
-      <Top left={<h2 className="flc-sheet-title">Look</h2>}
+      <Top left={<h2 className="flc-sheet-title">Critter</h2>}
         right={<TapButton className="flc-pill is-primary" onPress={() => { tapTick(); setLocker(false); }}>Done</TapButton>} />
       <div className="flc-sheet-body"><LockerPicker look={look} onChange={onLook} groom={groom} color={entrant.color}
-        name={entrant.name} photo={entrant.photo} number={entrant.number} skin={entrant.skin} /></div>
+        name={entrant.name} photo={entrant.photo} number={entrant.number} skin={entrant.skin} tone="light" /></div>
     </section>;
   }
   return <section className="flc-screen flc-lobby">

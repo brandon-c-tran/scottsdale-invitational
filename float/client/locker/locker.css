@@ -290,6 +290,31 @@
 .fll-stats.is-compact .fll-stat-name { font-size: 9px; }
 .fll-stats.is-compact .fll-stat-pips i { height: 5px; border-radius: 2px; }
 
+/* ── the light tone: the Groove's paper and ink (the join, the lobby) ── */
+.fll-root.fll-light {
+  --fll-ink: #2b2233;
+  --fll-muted: #5d5066;
+  --fll-faint: rgba(255, 253, 248, 0.86);
+  --fll-line: rgba(43, 34, 51, 0.22);
+  --fll-deep: #fffdf8;
+  --fll-gold: #b97d00;
+}
+.fll-light .fll-hero {
+  background: radial-gradient(90% 120% at 18% 10%, color-mix(in srgb, var(--fll-c) 30%, transparent), transparent 62%), #fffdf8;
+  box-shadow: inset 0 0 0 3px #2b2233, 0 5px 0 rgba(43, 34, 51, 0.18);
+}
+.fll-light .fll-spot { opacity: 0.55; }
+.fll-light .fll-hero-art .flc-critter { filter: drop-shadow(0 8px 10px rgba(43, 34, 51, 0.2)); }
+.fll-light .fll-tile { background: var(--fll-faint); box-shadow: inset 0 0 0 2px var(--fll-line); }
+.fll-light .fll-tile.is-on { background: color-mix(in srgb, var(--fll-c) 22%, #fffdf8); box-shadow: inset 0 0 0 3px #2b2233; }
+.fll-light .fll-tile-name { color: var(--fll-muted); }
+.fll-light .fll-tile.is-on .fll-tile-name { color: #2b2233; }
+.fll-light .fll-check { stroke: #fffdf8; background: #2b2233; box-shadow: 0 0 0 2px #fffdf8; }
+.fll-light .flp { background: radial-gradient(circle at 50% 38%, #fff 0%, transparent 72%), color-mix(in srgb, var(--flp-c) 34%, #fffdf8);
+  box-shadow: inset 0 0 0 2.5px #2b2233; }
+.fll-light .fll-tile.is-groom { box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--fll-gold) 60%, transparent); }
+.fll-light .fll-tile.is-groom.is-on { box-shadow: inset 0 0 0 3px var(--fll-gold); }
+
 @media (prefers-reduced-motion: reduce) {
   .fll-root *, .fll-root *::before, .fll-root *::after, .fll-floatie * { animation-duration: 1ms !important; animation-delay: 0ms !important; }
   .fll-tab-ink { transition: none; }

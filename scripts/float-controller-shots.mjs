@@ -273,6 +273,14 @@ async function joinChecks(page, size) {
   await sleep(300);
   check((await sent(page)).some(m => m.t === "ready" && m.on === true), `${size}: Ready sends ready`);
   check(await screenIs(page, "intro", 6000), `${size}: and the Cup starts`);
+  /* the returning phone: its rider, one tap from the lobby */
+  await page.load(`${BASE}/float/play?mock=1`);
+  if (check(await page.until("!!document.querySelector('.flj-ready')", { timeout:25000 }), `${size}: a returning phone gets its rider`)) {
+    await sleep(1500);
+    await shot(page, size, "join-ready");
+    await tapElement(page, ".flj-join");
+    check(await screenIs(page, "lobby", 8000), `${size}: one tap to the lobby`);
+  }
 }
 
 main().catch(error => { console.error(error); process.exit(1); });

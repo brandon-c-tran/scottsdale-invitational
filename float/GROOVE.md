@@ -66,8 +66,8 @@ another game. Assets are generated, then processed with `sharp` into
   each sprite is split offline into the critter and a tube mask with its
   shading (a chroma-key or a separately generated tube), and the screen fills
   the mask with the rider's colour. Same for the phone's portrait.
-- **Backgrounds**: one per song (four river legs: Put-in, the Narrows,
-  Whirlpool Bend, the Drop), the lobby, the bar (Last Call) and the podium, in
+- **Backgrounds**: one per song (open water for Paddle Party, rocks for Rock
+  Hop, a whirlpool for Spin Cycle, the falls for The Drop), the lobby, the bar (Last Call) and the podium, in
   layers where parallax helps (sky, far mesas, the bank, the water band).
 - **The host**: a critter on the bank in a straw hat with a megaphone, poses
   `idle`, `call` (megaphone up), `cheer`.
@@ -95,12 +95,16 @@ taps on, and the beat the host calls it (the call-and-response lead, usually
 Wednesday (must): every song uses taps only; the four rounds are four
 patterns of the same mechanic:
 
-| Round | Song | Leg | Pattern |
-|---|---|---|---|
-| 1 | Paddle Party | Put-in | taps on beats 1 and 3, a "Hey!" answered on 4 every other bar |
-| 2 | Rock Hop | The Narrows | "ba-dum" (beats 1, 2) answered with a hop on 3; later off-beat "and" hops |
-| 3 | Whirlpool | Whirlpool Bend | rolling triplet-feel calls, answers that land on 2 and 4 |
-| 4 | The Drop | The Drop (final) | a remix of all three, ending on one big tap on the last beat (the waterfall) |
+| Round | Name | Pattern |
+|---|---|---|
+| 1 | Paddle Party | paddle on beats 1 and 3, a "Hey!" answered on 4 every other bar |
+| 2 | Rock Hop | the host's "ba-dum" (beats 1, 2) answered with a hop on 3; later off-beat "and" hops |
+| 3 | Spin Cycle | rolling triplet-feel calls in a whirlpool, answers that land on 2 and 4 |
+| 4 | The Drop | the final: a remix of all three, ending on one big tap on the last beat (over the waterfall) |
+
+Names say what you do (Brandon, Oct 27: no river jargon; "Put-in", "The
+Narrows" and "Whirlpool Bend" are gone everywhere a player sees them). The
+scenery still changes per round: open water, rocks, a whirlpool, the falls.
 
 Thursday (if the tap game is fun): hold and release cues.
 

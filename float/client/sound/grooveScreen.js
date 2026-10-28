@@ -83,6 +83,8 @@ const keyOf = (mem, ...parts) => ["float", mem.view?.code || "room", ...parts].j
 const phaseStart = (v, s) => Number.isFinite(v.startAt) && Number.isFinite(s) && Math.abs(v.startAt - s) < 10000 ? v.startAt : s;
 /* a cue never laid behind the message it came on */
 const notBefore = (at, s) => Math.max(at, s + 60);
+/* the final's round (its cut names nobody) */
+const lastRound = v => v.rounds > 0 && v.round >= v.rounds - 1;
 export const fieldPan = (field, i) => {
   const k = field.indexOf(i), n = field.length;
   return k < 0 || n < 2 ? 0 : Math.round((-0.6 + 1.2 * k / (n - 1)) * 100) / 100;
@@ -135,7 +137,7 @@ function roomStep(mem, msg, { now, visible }) {
   } else m.lobby = null;
   if (fresh && moved && prev) cues.push(...phaseCues(m, prev, v, s));
   /* the cut's outs as the room names them (a later message may add some) */
-  if (fresh && v.phase === "cut") cues.push(...outCues(m, v, s));
+  if (fresh && v.phase === "cut" && !lastRound(v)) cues.push(...outCues(m, v, s));
   return { mem:m, cues };
 }
 const entrantPan = (i, n) => n > 1 ? Math.round((-0.6 + 1.2 * i / (n - 1)) * 100) / 100 : 0;
@@ -156,7 +158,8 @@ function phaseCues(m, prev, v, s) {
       return cues;
     }
     case "cut": {
-      if (prev.phase !== "song") return [];
+      /* the cut after the final names nobody: the podium's own roll follows */
+      if (prev.phase !== "song" || lastRound(v)) return [];
       return [{ id:"floatRoll", at:notBefore(start + CUT_BEATS.roll, s) - GROOVE_PRE_MS, opts:{ ms:CUT_BEATS.reveal - CUT_BEATS.roll },
         key:keyOf(m, "roll", v.round, start) }];
     }
@@ -256,7 +259,7 @@ export function grooveTrack(mem) {
     case "lobby": case "feedback": return { key:"lobby", kind:"lobby", from:-Infinity, cut:false };
     /* the Cup opening: its fanfare alone, then the loop (light) up to the first round card */
     case "intro": return { key:`intro:${start}`, kind:"lobby", from:barLine(start + INTRO_LOOP_MS), cut:true };
-    case "cut": return { key:`cut:${v.round}:${start}`, kind:"lobby", from:barLine(start + CUT_LOOP_MS), cut:true };
+    case "cut": return lastRound(v) ? null : { key:`cut:${v.round}:${start}`, kind:"lobby", from:barLine(start + CUT_LOOP_MS), cut:true };
     case "podium": return { key:`podium:${start}`, kind:"lobby", from:barLine(start + PODIUM_LOOP_MS), cut:false };
     default: return null;
   }

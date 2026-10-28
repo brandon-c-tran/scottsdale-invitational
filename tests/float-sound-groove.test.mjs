@@ -308,6 +308,22 @@ test("the song ends: the bars still to come are dropped, the cut's drumroll, a s
   r.runner.stop();
 });
 
+test("the cut after the final names nobody: no drumroll and no loop, the podium's own fanfare follows; the phone waits for its place", () => {
+  const r = rig();
+  r.emit("welcome", {});
+  const songAt = r.now() + 3000;
+  r.emit("room", room("song", r.now(), { round:3, song:"drop", startAt:r.now(), songAt, endsAt:songAt + 65500 }));
+  r.advance(1000);
+  r.emit("room", room("cut", r.now(), { round:3, startAt:r.now(), out:[4, 3] }));
+  r.advance(7000);
+  assert.equal(r.played.filter(p => p.id === "floatRoll" || p.id === "floatGone" || p.id === "floatLobby").length, 0);
+  r.runner.stop();
+  const s = T0;
+  const quiet = phoneRun([{ t:"welcome", s }, { t:"room", phase:"lobby", s, out:[] }, { t:"room", phase:"song", s, round:3, rounds:4, field:[0, 1, 2], out:[3, 4] },
+    { t:"room", phase:"cut", s:s + 66_000, startAt:s + 66_000, round:3, rounds:4, field:[0, 1, 2], out:[3, 4] }]);
+  assert.deepEqual(quiet.cues, []);
+});
+
 test("misses: a quiet flub panned to the rider, three at most at once, none for a rider still chugging after the break", () => {
   const r = rig();
   const songAt = r.now() + 3000, chart = chartOf("paddle");

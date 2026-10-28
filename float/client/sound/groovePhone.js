@@ -133,7 +133,9 @@ export function phoneStep(mem, msg, ctx = {}) {
         cues.push({ id:v.bar.worst.includes(me) ? "floatYouGulp" : "floatYouSafe", at:at !== null && at > now ? at : null });
       }
       if (!fresh || !moved || !prev || !Number.isInteger(me)) return { mem:m, cues };
-      if (v.phase === "cut" && prev.phase === "song" && (m.field || prev.field).includes(me) && m.played !== `cut:${v.round}`) {
+      /* the final's cut names nobody: your place sounds on the podium instead */
+      const final = msg.rounds > 0 && v.round >= msg.rounds - 1;
+      if (v.phase === "cut" && !final && prev.phase === "song" && (m.field || prev.field).includes(me) && m.played !== `cut:${v.round}`) {
         const before = new Set(m.outsBefore || prev.out), outs = v.out.filter(i => !before.has(i));
         const k = outs.indexOf(me), reveal = m.phaseAt + CUT_BEATS.reveal;
         m.played = `cut:${v.round}`;

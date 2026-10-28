@@ -1,201 +1,251 @@
-/* The art showcase (/float/art): every critter in a floatie on a night
-   river (or in a studio), a detail view to try every hat, shade, floatie,
-   pose and state, the medallion close up, and the portraits. Scriptable by
-   URL for scripts/float-art-shots.mjs (see showcase.js). */
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Showcase, sampleEntrant, samplePhoto, SAMPLE_COLORS, SAMPLE_SKINS, CRITTERS, HATS, SHADES, POSES, FLOATIES } from "./showcase.js";
-import { riderPortrait, setFloatArtQuality } from "./index.js";
-import { plushDebug, furMaterial } from "./plush.js";
+/* /float/art: where Brandon reviews Float's Groove art (float/GROOVE.md).
+   Every critter in every pose in three colours, the portraits, the host,
+   the scenes (their layers scrolling, to check the seams), the props, the
+   pixel lettering, and a flotilla put together from all of it.
 
-const VIEWS = [
-  { id: "lineup", name: "Lineup" }, { id: "detail", name: "Detail" }, { id: "floaties", name: "Floaties" },
-  { id: "poses", name: "Poses" }, { id: "states", name: "States" }, { id: "medallion", name: "Medallion" },
-  { id: "faces", name: "Faces" }, { id: "wardrobe", name: "Wardrobe" }, { id: "chips", name: "Chips" }, { id: "portraits", name: "Portraits" }, { id: "race", name: "Pack" },
-  { id: "turn", name: "Turn" }, { id: "podium", name: "Podium" },
-];
-const STATE_KEYS = { drink: "handsOff", handsOff: "handsOff", swim: "swim", sad: "sad", out: "sad", celebrate: "celebrate" };
+   ?view=all (default) | flotilla | critters | critter&id=frog | portraits | host | scenes | props | type
+   &bg=water|dark|light   &freeze=1 (no motion, for screenshots)
+   document.body.dataset.ready is "1" once every sprite on the page is painted. */
+import React, { useEffect, useMemo, useState } from "react";
+import { CRITTERS, SPECIAL_CRITTERS } from "../../shared/looks.js";
+import { SONGS } from "../../shared/chart.js";
+import RiderSprite, { useGrooveArt } from "./groove/RiderSprite.jsx";
+import Popup from "./groove/Popup.jsx";
+import { riderSprites, riderPortrait, sceneOf, propOf, hostSprites, spriteAnchor, POSES } from "./groove/index.js";
+import "./groove/groove.css";
 
-function readParams() {
-  const q = new URLSearchParams(window.location.search);
-  const num = k => (q.has(k) ? Number(q.get(k)) : undefined);
-  const state = q.get("state");
-  return {
-    view: q.get("view") || "lineup",
-    stage: q.get("stage") || "night",
-    look: { critter: q.get("critter") || undefined, hat: q.get("hat") || undefined, shades: q.get("shades") || undefined, floatie: q.get("floatie") || undefined },
-    pose: q.get("pose") || null,
-    state: state && STATE_KEYS[state] ? { [STATE_KEYS[state]]: true } : null,
-    t: num("t"), freeze: q.get("freeze") === "1", photo: q.get("photo") === "1",
-    color: q.get("color") ? `#${q.get("color").replace(/^#/, "")}` : undefined, number: num("number"), skin: q.get("skin") || undefined,
-    yaw: num("yaw"), still: q.get("still") === "1", detail: q.get("detail") || undefined, hud: q.get("hud") !== "0",
-    zoom: q.get("zoom") === "1", one: q.get("one") === "1", paddle: state === "paddle", quiet: state === "idle",
-    debug: num("debug") || 0, fur: q.get("fur") !== "0", quality: q.get("quality") || null,
-    ratio: num("ratio") || null, hide: q.get("hide") === "1", shellbase: q.get("shellbase") || null, psize: num("psize") || 384, pmesh: q.get("pmesh") || null,
-    shells: (q.get("shells") || "").split(",").map(x => x.split(":")).filter(([d, n]) => (d === "race" || d === "hero") && Number(n) > 0).map(([d, n]) => [d, Math.round(Number(n))]),
-  };
-}
+const COLORS = [["Red", "#e53935"], ["Yellow", "#fdd835"], ["Teal", "#00897b"], ["Navy", "#1a237e"]];
+const RIDER_COLORS = ["#e53935", "#fb8c00", "#fdd835", "#43a047", "#00897b", "#1e88e5", "#5e35b1", "#d81b60", "#ec407a", "#8e24aa", "#3949ab", "#7cb342", "#1a237e", "#f4511e"];
+const ALL = [...CRITTERS, ...SPECIAL_CRITTERS];
+const query = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : new URLSearchParams();
+const VIEW = query.get("view") || "all";
+const FREEZE = query.get("freeze") === "1";
+const BG = query.get("bg") || "water";
+const BGS = { water:"#8fdbe2", dark:"#1f2430", light:"#fbf7ef" };
 
 const CSS = `
-.fa { position:fixed; inset:0; overflow:hidden;
-  font-family: ui-rounded, "SF Pro Rounded", "Nunito", "Varela Round", system-ui, sans-serif; -webkit-font-smoothing:antialiased; }
-.fa canvas.fa-gl { position:absolute; inset:0; width:100%; height:100%; display:block; touch-action:none; }
-.fa-labels { position:absolute; inset:0; pointer-events:none; }
-.fa-label { position:absolute; left:0; top:0; display:flex; flex-direction:column; align-items:center; gap:3px; white-space:nowrap; color:#f4efe4; }
-.fa-label-name { font-weight:800; font-size:15px; letter-spacing:.02em; padding:5px 12px 6px; border-radius:999px;
-  background:rgba(10,12,28,.62); border:1px solid rgba(255,255,255,.12); box-shadow:0 6px 22px rgba(0,0,0,.35); }
-.fa-label-sub { font-size:12px; font-weight:700; letter-spacing:.03em; padding:2px 9px; border-radius:999px; background:rgba(10,12,28,.45); }
-.fa-top { position:absolute; top:22px; left:50%; transform:translateX(-50%); display:flex; align-items:center; gap:6px; padding:6px;
-  border-radius:999px; background:rgba(12,14,32,.7); border:1px solid rgba(255,255,255,.1); color:#f4efe4;
-  box-shadow:0 10px 40px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.08); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); }
-.fa-mark { display:flex; align-items:baseline; gap:8px; padding:0 14px 0 12px; }
-.fa-mark b { font-weight:900; font-size:19px; letter-spacing:.01em; }
-.fa-mark span { font-size:10px; font-weight:800; letter-spacing:.22em; text-transform:uppercase; opacity:.55; }
-.fa-tab { appearance:none; border:0; background:transparent; color:inherit; font:inherit; font-weight:700; font-size:14px; padding:9px 15px;
-  border-radius:999px; cursor:pointer; opacity:.7; transition:background-color .32s cubic-bezier(.32,.72,0,1), opacity .2s ease; }
-.fa-tab[aria-pressed="true"] { background:rgba(255,255,255,.14); opacity:1; box-shadow:inset 0 1px 0 rgba(255,255,255,.12); }
-@media (hover:hover) and (pointer:fine) { .fa-tab:hover { opacity:1; } }
-.fa-stage { position:absolute; top:22px; right:22px; display:flex; gap:4px; padding:5px; border-radius:999px; background:rgba(12,14,32,.7);
-  border:1px solid rgba(255,255,255,.1); color:#f4efe4; backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); }
-.fa-panel { position:absolute; top:96px; right:22px; bottom:22px; width:318px; overflow:auto; padding:6px; border-radius:26px; color:#f4efe4;
-  background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.09); box-shadow:0 24px 60px rgba(0,0,0,.4);
-  backdrop-filter:blur(18px); -webkit-backdrop-filter:blur(18px); scrollbar-width:thin; }
-.fa-panel-in { border-radius:21px; background:rgba(10,12,28,.66); box-shadow:inset 0 1px 0 rgba(255,255,255,.07); padding:16px 16px 6px; }
-.fa-sec { margin-bottom:16px; }
-.fa-sec h3 { margin:0 0 8px; font-size:10px; font-weight:800; letter-spacing:.22em; text-transform:uppercase; opacity:.5; }
-.fa-chips { display:flex; flex-wrap:wrap; gap:6px; }
-.fa-chip { appearance:none; border:1px solid rgba(255,255,255,.12); background:rgba(255,255,255,.04); color:inherit; font:inherit; font-size:13px;
-  font-weight:700; padding:7px 11px; border-radius:999px; cursor:pointer;
-  transition:background-color .28s cubic-bezier(.32,.72,0,1), border-color .28s cubic-bezier(.32,.72,0,1), transform .16s cubic-bezier(.23,1,.32,1); }
-.fa-chip:active { transform:scale(.96); }
-.fa-chip[aria-pressed="true"] { background:#f4efe4; color:#11131f; border-color:#f4efe4; }
-.fa-swatch { width:26px; height:26px; border-radius:50%; border:2px solid rgba(255,255,255,.18); cursor:pointer; padding:0; }
-.fa-swatch[aria-pressed="true"] { border-color:#fff; box-shadow:0 0 0 3px rgba(255,255,255,.18); }
-.fa-stats { position:absolute; left:22px; bottom:22px; font-size:12px; font-weight:700; letter-spacing:.04em; padding:8px 14px; border-radius:999px; color:#f4efe4;
-  background:rgba(12,14,32,.62); border:1px solid rgba(255,255,255,.09); font-variant-numeric:tabular-nums; opacity:.85; }
-.fa-portraits { position:absolute; inset:96px 40px 40px; display:grid; grid-template-columns:repeat(auto-fill, minmax(196px, 1fr)); gap:18px; overflow:auto; align-content:start; color:#f4efe4; }
-.fa-card { border-radius:26px; padding:6px; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.09); }
-.fa-card-in { border-radius:21px; overflow:hidden; background:radial-gradient(120% 90% at 50% 25%, var(--c) 0%, rgba(10,12,28,.92) 72%);
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.08); display:flex; flex-direction:column; align-items:center; padding:14px 10px 12px; }
-.fa-card img { width:100%; aspect-ratio:1; display:block; }
-.fa-card b { font-size:15px; font-weight:800; margin-top:6px; }
-.fa-card span { font-size:11px; font-weight:700; letter-spacing:.06em; opacity:.6; margin-top:2px; }
-@media (prefers-reduced-motion: reduce) { .fa-tab, .fa-chip { transition:none; } }
+.fa2 { min-height: 100vh; background: #f6f1e7; color: #2a2430; font: 16px/1.4 system-ui, -apple-system, Segoe UI, sans-serif; padding: 24px 32px 80px; box-sizing: border-box; }
+.fa2 h1, .fa2 h2 { font-family: "Float Pixel", monospace; font-weight: 700; letter-spacing: .02em; margin: 0; }
+.fa2 h1 { font-size: 40px; }
+.fa2 h2 { font-size: 28px; margin: 40px 0 14px; }
+.fa2 nav { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 8px; }
+.fa2 nav a { font: 600 14px system-ui, sans-serif; color: #2a2430; background: #fff; border: 2px solid #2a2430; border-radius: 99px; padding: 6px 12px; text-decoration: none; }
+.fa2 nav a[aria-current="page"] { background: #2a2430; color: #fff; }
+.fa2-note { color: #6b6372; font-size: 14px; margin: 4px 0 0; }
+.fa2-sheet { border-radius: 16px; padding: 14px; display: inline-block; }
+.fa2-row { display: flex; align-items: flex-end; gap: 4px; }
+.fa2-cell { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.fa2-cell small { font: 600 12px system-ui, sans-serif; color: #6b6372; }
+.fa2-critter { margin-bottom: 18px; }
+.fa2-critter h3 { font: 700 18px system-ui, sans-serif; margin: 0 0 4px; }
+.fa2-grid { display: flex; flex-wrap: wrap; gap: 12px; }
+.fa2-scene { position: relative; width: 960px; height: 540px; overflow: hidden; border-radius: 12px; border: 3px solid #2a2430; }
+.fa2-layer { position: absolute; inset: 0; background-size: 960px 540px; background-repeat: repeat-x; }
+.fa2-scroll { animation: fa2-scroll var(--dur) linear infinite; }
+@keyframes fa2-scroll { from { background-position-x: 0; } to { background-position-x: -960px; } }
+.fa2-props { display: flex; flex-wrap: wrap; gap: 14px; }
+.fa2-prop { position: relative; background: repeating-conic-gradient(#e8e2d6 0 25%, #f6f1e7 0 50%) 0 0 / 16px 16px; border: 2px solid #2a2430; border-radius: 10px; padding: 8px; display: flex; flex-direction: column; align-items: center; }
+.fa2-prop img { display: block; max-width: 240px; max-height: 240px; }
+.fa2-dot { position: absolute; width: 10px; height: 10px; border-radius: 50%; background: #ff2d75; border: 2px solid #fff; transform: translate(-50%, -50%); }
+.fa2-type { display: flex; flex-wrap: wrap; gap: 36px; align-items: flex-end; padding: 28px; border-radius: 16px; background: #8fdbe2; }
+.fa2-bob { animation: fa2-bob 1s ease-in-out infinite; }
+@keyframes fa2-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+.fa2-frozen *, .fa2-frozen *::before, .fa2-frozen *::after { animation-play-state: paused !important; }
+.fa2-frozen .fg-popup { animation: none !important; }
 `;
 
+/* every rider's sprites painted before the page says it is ready */
+function useReady(looks) {
+  const m = useGrooveArt();
+  useEffect(() => {
+    if (!m) return;
+    let live = true;
+    Promise.all(looks.map(look => riderSprites(look).catch(() => null))).then(() => new Promise(r => setTimeout(r, 300))).then(() => {
+      if (live && typeof document !== "undefined") document.body.dataset.ready = "1";
+    });
+    return () => { live = false; };
+  }, [m]);
+  return m;
+}
+
+function Nav() {
+  const views = ["all", "flotilla", "critters", "portraits", "host", "scenes", "props", "type"];
+  return <nav>{views.map(v => <a key={v} href={`?view=${v}`} aria-current={v === VIEW ? "page" : undefined}>{v}</a>)}</nav>;
+}
+
+function Critters({ ids = ALL.map(c => c.id), size = 112 }) {
+  return (
+    <div className="fa2-sheet" style={{ background:BGS[BG] || BGS.water }}>
+      {ids.map(id => (
+        <div key={id} className="fa2-critter">
+          <h3>{ALL.find(c => c.id === id)?.name || id}</h3>
+          {COLORS.slice(0, 3).map(([name, color]) => (
+            <div key={name} className="fa2-row">
+              {POSES.map(pose => (
+                <div key={pose} className="fa2-cell">
+                  <RiderSprite critter={id} color={color} pose={pose} size={size} />
+                  {name === "Red" ? <small>{pose}</small> : null}
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function Portraits() {
+  const [urls, setUrls] = useState({});
+  useEffect(() => {
+    let live = true;
+    ALL.forEach((c, i) => riderPortrait({ color:RIDER_COLORS[i % RIDER_COLORS.length], look:{ critter:c.id }, groom:c.id === "winnie" }, { size:240 })
+      .then(url => { if (live) setUrls(u => ({ ...u, [c.id]:url })); }, () => {}));
+    return () => { live = false; };
+  }, []);
+  return (
+    <div className="fa2-grid">
+      {ALL.map(c => (
+        <div key={c.id} className="fa2-cell" style={{ background:BGS.dark, borderRadius:14, padding:8 }}>
+          {urls[c.id] ? <img src={urls[c.id]} width={240} height={240} alt={c.name} /> : <div style={{ width:240, height:240 }} />}
+          <small style={{ color:"#d8d2e0" }}>{c.name}</small>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function Host() {
+  const host = hostSprites();
+  if (!host) return null;
+  return (
+    <div className="fa2-sheet fa2-row" style={{ background:BGS.water, gap:24 }}>
+      {Object.entries(host.poses).map(([pose, url]) => (
+        <div key={pose} className="fa2-cell" style={{ position:"relative" }}>
+          <img src={url} width={300} height={300 * host.box[1] / host.box[0]} alt={pose} />
+          {Object.entries(host.anchor).map(([name, [x, y]]) => <span key={name} className="fa2-dot" title={name} style={{ left:x * 300 / host.box[0], top:y * 300 / host.box[0] }} />)}
+          <small>{pose}</small>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function Scene({ id, children, width = 960 }) {
+  const s = sceneOf(id);
+  if (!s) return null;
+  const k = width / s.w;
+  return (
+    <div className="fa2-scene" style={{ width, height:s.h * k }}>
+      {s.layers.map((layer, i) => (
+        <div key={i} className={`fa2-layer ${layer.loop && layer.depth > 0 ? "fa2-scroll" : ""}`}
+          style={{ backgroundImage:`url("${layer.src}")`, backgroundSize:`${width}px ${s.h * k}px`, "--dur":`${Math.round(40 / Math.max(0.05, layer.depth))}s` }} />
+      ))}
+      {children}
+    </div>
+  );
+}
+
+function Scenes() {
+  const ids = [...SONGS.map(song => song.scene), "lobby", "bar", "podium"];
+  return <div className="fa2-grid">{ids.map(id => <div key={id}><Scene id={id} /><small className="fa2-note">{id}{SONGS.find(s => s.scene === id) ? `: ${SONGS.find(s => s.scene === id).name}` : ""}</small></div>)}</div>;
+}
+
+function Props() {
+  const m = useGrooveArt();
+  if (!m) return null;
+  return (
+    <div className="fa2-props">
+      {Object.keys(m.props).map(id => {
+        const p = propOf(id);
+        const k = Math.min(1, 240 / Math.max(p.w, p.h));
+        return (
+          <div key={id} className="fa2-prop">
+            <div style={{ position:"relative", width:p.w * k, height:p.h * k }}>
+              <img src={p.src} width={p.w * k} height={p.h * k} alt={id} />
+              <span className="fa2-dot" style={{ left:p.anchor[0] * k, top:p.anchor[1] * k }} />
+            </div>
+            <small>{id}{p.tint ? " (tint)" : ""}</small>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+const SAMPLES = [["late", 30], ["nice", -10], ["perfect", 0], ["miss", null], ["ok", 120], ["early", -190]];
+function Type() {
+  return (
+    <div className="fa2-type">
+      {SAMPLES.map(([q, d]) => <Popup key={q} q={q} d={d} size={56} />)}
+      {SAMPLES.slice(0, 4).map(([q, d]) => <Popup key={`s${q}`} q={q} d={d} size={28} />)}
+    </div>
+  );
+}
+
+/* the river put together: the open scene, the host on the bank, 13 riders in three staggered rows, popups over a few */
+function Flotilla() {
+  const m = useGrooveArt();
+  const host = hostSprites();
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    if (FREEZE) return undefined;
+    const t = setInterval(() => setTick(n => n + 1), 500);
+    return () => clearInterval(t);
+  }, []);
+  if (!m) return null;
+  const W = 1280, k = W / 1920, size = 230 * k;
+  const riders = CRITTERS.map((c, i) => ({ ...c, color:RIDER_COLORS[i], row:i % 3, col:Math.floor(i / 3) }));
+  const rowY = [600, 760, 930];
+  const pose = (i) => (FREEZE ? ["idle", "stroke", "hey", "nice", "miss", "chug", "cheer", "idle"][i % 8] : (tick + i) % 4 === 0 ? "stroke" : "idle");
+  const pops = { 0:["late", 30], 4:["nice", -10], 7:["perfect", 0], 10:["miss", null] };
+  return (
+    <Scene id="open" width={W}>
+      {host ? (
+        <img src={host.poses[FREEZE ? "call" : tick % 4 === 0 ? "call" : "idle"]} alt="" style={{ position:"absolute", left:(150 - host.anchor.ground[0] * 0.55) * k, top:(470 - host.anchor.ground[1] * 0.55) * k, width:host.box[0] * 0.55 * k }} />
+      ) : null}
+      {riders.map((r, i) => {
+        const x = (300 + r.col * 300 + r.row * 110) * k, y = rowY[r.row] * k;
+        const water = spriteAnchor(r.id, "idle", "water", size) || [size / 2, size * 0.7];
+        const head = spriteAnchor(r.id, "idle", "head", size) || [size / 2, size * 0.2];
+        return (
+          <div key={r.id} style={{ position:"absolute", left:x - water[0], top:y - water[1], width:size, height:size, zIndex:r.row }}>
+            <div className={FREEZE ? "" : "fa2-bob"} style={{ animationDelay:`${-i * 0.13}s` }}>
+              <RiderSprite critter={r.id} color={r.color} pose={pose(i)} size={size} groom={r.id === "coyote"} />
+            </div>
+            {pops[i] ? <div style={{ position:"absolute", left:head[0], top:head[1] - 10, transform:"translate(-50%, -100%)" }}><Popup q={pops[i][0]} d={pops[i][1]} size={30} /></div> : null}
+          </div>
+        );
+      })}
+    </Scene>
+  );
+}
+
 export default function ArtApp() {
-  const params = useMemo(readParams, []);
-  const canvasRef = useRef(null), labelsRef = useRef(null), showRef = useRef(null);
-  const [view, setView] = useState(params.view);
-  const [stage, setStage] = useState(params.stage);
-  const [look, setLook] = useState(() => ({ critter: "capybara", hat: "cowboy", shades: "none", floatie: "classic",
-    ...Object.fromEntries(Object.entries(params.look).filter(([, v]) => v)) }));
-  const [pose, setPose] = useState(params.pose);
-  const [state, setState] = useState(params.state || {});
-  const [color, setColor] = useState(params.color || SAMPLE_COLORS[0]);
-  const [skin, setSkin] = useState(params.skin || "star");
-  const [photo, setPhoto] = useState(params.photo);
-  const [stats, setStats] = useState(null);
-  const [portraits, setPortraits] = useState([]);
-
-  /* the attribute views and the fur switch (look development) */
-  useEffect(() => {
-    plushDebug.value = params.debug;
-    if (params.quality) setFloatArtQuality(params.quality);
-    if (!params.fur) { furMaterial("race").visible = false; furMaterial("hero").visible = false; }
-    /* shells=race:3,hero:8 tries other shell counts */
-    for (const [d, n] of params.shells) { const m = furMaterial(d); m.userData.shells = n; m.userData.uShells.value = n; }
+  const looks = useMemo(() => {
+    const ids = VIEW === "critter" ? [query.get("id") || "capybara"] : ALL.map(c => c.id);
+    const colors = VIEW === "flotilla" ? [] : COLORS.slice(0, 3).map(([, c]) => c);
+    const list = [];
+    for (const id of ids) for (const color of colors) list.push({ critter:id, color, groom:false });
+    if (VIEW === "flotilla" || VIEW === "all") CRITTERS.forEach((c, i) => list.push({ critter:c.id, color:RIDER_COLORS[i], groom:c.id === "coyote" }));
+    return list;
   }, []);
-
-  /* the scene, once */
-  useEffect(() => {
-    const show = new Showcase(canvasRef.current, labelsRef.current, { onStats: setStats });
-    if (params.ratio) { show.renderer.setPixelRatio(params.ratio); show.resize(); }
-    showRef.current = show;
-    window.__floatArt = { show, stats: () => show.stats(), seek: t => show.seek(t), freeze: f => { show.frozen = f; } };
-    let raf = 0, last = performance.now();
-    const loop = now => { show.frame(Math.min(0.1, (now - last) / 1000)); last = now; raf = requestAnimationFrame(loop); };
-    raf = requestAnimationFrame(loop);
-    const onResize = () => show.resize();
-    window.addEventListener("resize", onResize);
-    return () => { cancelAnimationFrame(raf); window.removeEventListener("resize", onResize); show.dispose(); delete window.__floatArt; };
-  }, []);
-
-  /* the view, whenever it or the look changes */
-  useEffect(() => {
-    const show = showRef.current;
-    if (!show) return undefined;
-    document.body.dataset.ready = "0";
-    let cancelled = false;
-    const done = () => { if (cancelled) return; show.frame(0); requestAnimationFrame(() => requestAnimationFrame(() => { if (!cancelled) document.body.dataset.ready = "1"; })); };
-    if (view === "portraits") {
-      show.clear();
-      const list = CRITTERS.map((c, i) => sampleEntrant(i, { photo: i % 4 === 0 ? samplePhoto() : null }));
-      Promise.all(list.map(e => riderPortrait(e, { size: params.psize, meshDetail: params.pmesh }).then(src => ({ e, src }))))
-        .then(rows => { if (!cancelled) { setPortraits(rows); setTimeout(done, 80); } });
-    } else {
-      show.setView(view, { stage, look, pose, stateObj: state, photo, color, skin, number: params.number, yaw: params.yaw, zoom: params.zoom, one: params.one, paddle: params.paddle, quiet: params.quiet,
-        hat: params.look.hat, shades: params.look.shades,
-        still: params.still || params.freeze, detail: params.detail });
-      /* the baked critters load their meshes: run the clock once they are in */
-      const loads = show.items.map(it => (it.rider?.critter || it.critterOnly)?.meshReady).filter(Boolean);
-      show.frozen = params.t !== undefined;
-      Promise.all(loads).then(() => {
-        if (cancelled) return;
-        /* shellbase=hero: the fur over the body's own mesh (look development) */
-        /* hide=1: the stage alone, for a frame-rate baseline */
-        if (params.hide) for (const it of show.items) it.root.visible = false;
-        if (params.shellbase === "hero") for (const it of show.items) { const rt = (it.rider?.critter || it.critterOnly)?.runtime; if (rt?.meshes.plush) rt.setShellBase(rt.meshes.plush.geometry); }
-        if (params.t !== undefined) { show.seek(params.t); show.frozen = params.freeze; }
-        setTimeout(done, 40);
-      });
-    }
-    return () => { cancelled = true; };
-  }, [view, stage, look, pose, state, photo, color, skin]);
-
-  /* drag to turn the detail turntable */
-  useEffect(() => {
-    const el = canvasRef.current;
-    const down = e => { const s = showRef.current; if (!s || s.view !== "detail") return; s.spin.drag = { x: e.clientX, yaw: s.spin.yaw }; };
-    const move = e => { const s = showRef.current; if (!s?.spin.drag) return; s.spin.yaw = s.spin.drag.yaw + (e.clientX - s.spin.drag.x) * 0.01; };
-    const up = () => { const s = showRef.current; if (s) s.spin.drag = null; };
-    el.addEventListener("pointerdown", down); window.addEventListener("pointermove", move); window.addEventListener("pointerup", up);
-    return () => { el.removeEventListener("pointerdown", down); window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", up); };
-  }, []);
-
-  const stroke = side => showRef.current?.items[0]?.rider?.critter.setStroke(side);
-  const toggle = k => setState(s => ({ ...s, [k]: !s[k] }));
-  const chip = (on, label, onClick, key) => <button key={key || label} type="button" className="fa-chip" aria-pressed={!!on} onClick={onClick}>{label}</button>;
-  const hud = params.hud;
-  const bg = view === "portraits" ? "#0b0f26" : stage === "studio" ? "#ddd8cf" : "#070c24";
-
-  return <main className="fa" style={{ background: bg }}>
-    <style>{CSS}</style>
-    <canvas ref={canvasRef} className="fa-gl" style={{ visibility: view === "portraits" ? "hidden" : "visible" }} />
-    <div ref={labelsRef} className="fa-labels" style={{ display: hud && view !== "portraits" ? "block" : "none" }} />
-    {hud && <nav className="fa-top" aria-label="Views">
-      <div className="fa-mark"><b>Float</b><span>Art</span></div>
-      {VIEWS.map(v => <button key={v.id} type="button" className="fa-tab" aria-pressed={view === v.id} onClick={() => setView(v.id)}>{v.name}</button>)}
-    </nav>}
-    {hud && view !== "portraits" && <div className="fa-stage">
-      {[["night", "Night river"], ["studio", "Studio"]].map(([id, name]) => <button key={id} type="button" className="fa-tab" aria-pressed={stage === id} onClick={() => setStage(id)}>{name}</button>)}
-    </div>}
-    {hud && view === "detail" && <aside className="fa-panel"><div className="fa-panel-in">
-      <div className="fa-sec"><h3>Critter</h3><div className="fa-chips">{CRITTERS.map(c => chip(look.critter === c.id, c.name, () => setLook(l => ({ ...l, critter: c.id }))))}</div></div>
-      <div className="fa-sec"><h3>Floatie</h3><div className="fa-chips">{FLOATIES.map(f => chip(look.floatie === f.id, f.name, () => setLook(l => ({ ...l, floatie: f.id }))))}</div></div>
-      <div className="fa-sec"><h3>Hat</h3><div className="fa-chips">{HATS.map(h => chip(look.hat === h.id, h.name, () => setLook(l => ({ ...l, hat: h.id }))))}</div></div>
-      <div className="fa-sec"><h3>Shades</h3><div className="fa-chips">{SHADES.map(s => chip(look.shades === s.id, s.name, () => setLook(l => ({ ...l, shades: s.id }))))}</div></div>
-      <div className="fa-sec"><h3>Pose</h3><div className="fa-chips">{chip(!pose, "None", () => setPose(null), "none")}{POSES.map(p => chip(pose === p.id, p.name, () => setPose(p.id)))}</div></div>
-      <div className="fa-sec"><h3>Race</h3><div className="fa-chips">
-        {chip(false, "Paddle L", () => stroke("L"))}{chip(false, "Paddle R", () => stroke("R"))}
-        {chip(state.handsOff, "Drink", () => toggle("handsOff"))}{chip(state.swim, "Swim", () => toggle("swim"))}
-        {chip(state.sad, "Out", () => toggle("sad"))}{chip(state.celebrate, "Celebrate", () => toggle("celebrate"))}
-      </div></div>
-      <div className="fa-sec"><h3>Color</h3><div className="fa-chips">{SAMPLE_COLORS.map(c => <button key={c} type="button" className="fa-swatch" aria-label={c} aria-pressed={color === c} style={{ background: c }} onClick={() => setColor(c)} />)}</div></div>
-      <div className="fa-sec"><h3>Chip</h3><div className="fa-chips">{chip(photo, "Photo", () => setPhoto(true))}{chip(!photo, "Number", () => setPhoto(false))}</div>
-        <div className="fa-chips" style={{ marginTop: 8 }}>{SAMPLE_SKINS.map(s => chip(skin === s, s, () => setSkin(s)))}</div></div>
-    </div></aside>}
-    {view === "portraits" && <section className="fa-portraits">{portraits.map(({ e, src }) => <div key={e.look.critter} className="fa-card" style={{ "--c": e.color }}>
-      <div className="fa-card-in">{src && <img src={src} alt="" />}<b>{e.name}</b><span>{CRITTERS.find(c => c.id === e.look.critter)?.name}</span></div></div>)}</section>}
-    {hud && stats && view !== "portraits" && <div className="fa-stats">{stats.fps} fps · {stats.calls} draws · {Math.round(stats.triangles / 1000)}k tris · {stats.riders} riders · {stats.perRider} tris/rider</div>}
-  </main>;
+  const m = useReady(looks);
+  const show = v => VIEW === "all" || VIEW === v;
+  return (
+    <main className={`fa2 ${FREEZE ? "fa2-frozen" : ""}`}>
+      <style>{CSS}</style>
+      <h1>Float art</h1>
+      <Nav />
+      {!m ? <p className="fa2-note">Loading the art</p> : null}
+      {m && show("flotilla") ? <><h2>Flotilla</h2><Flotilla /></> : null}
+      {m && show("critters") ? <><h2>Critters</h2><Critters /></> : null}
+      {m && VIEW === "critter" ? <><h2>{query.get("id")}</h2><Critters ids={[query.get("id") || "capybara"]} size={200} /></> : null}
+      {m && show("portraits") ? <><h2>Portraits</h2><Portraits /></> : null}
+      {m && show("host") ? <><h2>Host</h2><Host /></> : null}
+      {m && show("scenes") ? <><h2>Scenes</h2><Scenes /></> : null}
+      {m && show("props") ? <><h2>Props</h2><Props /></> : null}
+      {m && show("type") ? <><h2>Type</h2><Type /></> : null}
+    </main>
+  );
 }

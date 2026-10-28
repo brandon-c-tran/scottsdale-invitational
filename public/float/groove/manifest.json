@@ -1,0 +1,1569 @@
+{
+ "v": 1,
+ "poses": [
+  "idle",
+  "stroke",
+  "hey",
+  "nice",
+  "miss",
+  "chug",
+  "cheer",
+  "out"
+ ],
+ "box": [
+  512,
+  512
+ ],
+ "critters": {
+  "capybara": {
+   "anchor": {
+    "water": [
+     256,
+     440
+    ],
+    "head": [
+     335,
+     246
+    ],
+    "face": [
+     335,
+     298
+    ],
+    "hand": [
+     311,
+     381
+    ]
+   },
+   "poses": {
+    "idle": {
+     "src": "critters/capybara/idle.webp",
+     "tube": "critters/capybara/idle-tube.webp",
+     "anchor": {
+      "water": [
+       256,
+       440
+      ],
+      "head": [
+       335,
+       246
+      ],
+      "face": [
+       335,
+       298
+      ],
+      "hand": [
+       311,
+       381
+      ]
+     }
+    },
+    "stroke": {
+     "src": "critters/capybara/stroke.webp",
+     "tube": "critters/capybara/stroke-tube.webp",
+     "anchor": {
+      "water": [
+       256,
+       440
+      ],
+      "head": [
+       280,
+       224
+      ],
+      "face": [
+       280,
+       322
+      ],
+      "hand": [
+       311,
+       376
+      ]
+     }
+    },
+    "hey": {
+     "src": "critters/capybara/hey.webp",
+     "tube": "critters/capybara/hey-tube.webp",
+     "anchor": {
+      "water": [
+       256,
+       440
+      ],
+      "head": [
+       319,
+       231
+      ],
+      "face": [
+       319,
+       278
+      ],
+      "hand": [
+       311,
+       376
+      ]
+     }
+    },
+    "nice": {
+     "src": "critters/capybara/nice.webp",
+     "tube": "critters/capybara/nice-tube.webp",
+     "anchor": {
+      "water": [
+       256,
+       440
+      ],
+      "head": [
+       335,
+       250
+      ],
+      "face": [
+       335,
+       298
+      ],
+      "hand": [
+       311,
+       378
+      ]
+     }
+    },
+    "miss": {
+     "src": "critters/capybara/miss.webp",
+     "tube": "critters/capybara/miss-tube.webp",
+     "anchor": {
+      "water": [
+       256,
+       440
+      ],
+      "head": [
+       335,
+       243
+      ],
+      "face": [
+       335,
+       298
+      ],
+      "hand": [
+       311,
+       379
+      ]
+     }
+    },
+    "chug": {
+     "src": "critters/capybara/chug.webp",
+     "tube": "critters/capybara/chug-tube.webp",
+     "anchor": {
+      "water": [
+       256,
+       440
+      ],
+      "head": [
+       335,
+       227
+      ],
+      "face": [
+       335,
+       298
+      ],
+      "hand": [
+       311,
+       377
+      ]
+     }
+    },
+    "cheer": {
+     "src": "critters/capybara/cheer.webp",
+     "tube": "critters/capybara/cheer-tube.webp",
+     "anchor": {
+      "water": [
+       256,
+       440
+      ],
+      "head": [
+       274,
+       212
+      ],
+      "face": [
+       274,
+       289
+      ],
+      "hand": [
+       311,
+       377
+      ]
+     }
+    },
+    "out": {
+     "src": "critters/capybara/out.webp",
+     "tube": "critters/capybara/out-tube.webp",
+     "anchor": {
+      "water": [
+       256,
+       440
+      ],
+      "head": [
+       333,
+       272
+      ],
+      "face": [
+       333,
+       351
+      ],
+      "hand": [
+       311,
+       378
+      ]
+     }
+    }
+   },
+   "portrait": {
+    "src": "critters/capybara/portrait.webp",
+    "tube": "critters/capybara/portrait-tube.webp",
+    "w": 1024,
+    "h": 1024,
+    "anchor": {
+     "water": [
+      512,
+      909
+     ],
+     "head": [
+      675,
+      445
+     ],
+     "face": [
+      675,
+      557
+     ],
+     "hand": [
+      644,
+      757
+     ]
+    }
+   }
+  },
+  "javelina": {
+   "anchor": {
+    "water": [
+     256,
+     352
+    ],
+    "head": [
+     248,
+     177
+    ],
+    "face": [
+     262,
+     236
+    ],
+    "hand": [
+     298,
+     335
+    ]
+   },
+   "poses": {
+    "idle": {
+     "src": "critters/javelina/idle.webp",
+     "tube": "critters/javelina/idle-tube.webp"
+    },
+    "stroke": {
+     "src": "critters/javelina/idle.webp",
+     "tube": "critters/javelina/idle-tube.webp"
+    },
+    "hey": {
+     "src": "critters/javelina/idle.webp",
+     "tube": "critters/javelina/idle-tube.webp"
+    },
+    "nice": {
+     "src": "critters/javelina/idle.webp",
+     "tube": "critters/javelina/idle-tube.webp"
+    },
+    "miss": {
+     "src": "critters/javelina/idle.webp",
+     "tube": "critters/javelina/idle-tube.webp"
+    },
+    "chug": {
+     "src": "critters/javelina/idle.webp",
+     "tube": "critters/javelina/idle-tube.webp"
+    },
+    "cheer": {
+     "src": "critters/javelina/idle.webp",
+     "tube": "critters/javelina/idle-tube.webp"
+    },
+    "out": {
+     "src": "critters/javelina/idle.webp",
+     "tube": "critters/javelina/idle-tube.webp"
+    }
+   },
+   "portrait": {
+    "src": "critters/javelina/portrait.webp",
+    "tube": "critters/javelina/portrait-tube.webp",
+    "w": 1024,
+    "h": 1024,
+    "anchor": {
+     "water": [
+      512,
+      700
+     ],
+     "head": [
+      496,
+      360
+     ],
+     "face": [
+      524,
+      475
+     ],
+     "hand": [
+      595,
+      668
+     ]
+    }
+   },
+   "placeholder": true
+  },
+  "roadrunner": {
+   "anchor": {
+    "water": [
+     256,
+     352
+    ],
+    "head": [
+     240,
+     190
+    ],
+    "face": [
+     240,
+     216
+    ],
+    "hand": [
+     296,
+     336
+    ]
+   },
+   "poses": {
+    "idle": {
+     "src": "critters/roadrunner/idle.webp",
+     "tube": "critters/roadrunner/idle-tube.webp"
+    },
+    "stroke": {
+     "src": "critters/roadrunner/idle.webp",
+     "tube": "critters/roadrunner/idle-tube.webp"
+    },
+    "hey": {
+     "src": "critters/roadrunner/idle.webp",
+     "tube": "critters/roadrunner/idle-tube.webp"
+    },
+    "nice": {
+     "src": "critters/roadrunner/idle.webp",
+     "tube": "critters/roadrunner/idle-tube.webp"
+    },
+    "miss": {
+     "src": "critters/roadrunner/idle.webp",
+     "tube": "critters/roadrunner/idle-tube.webp"
+    },
+    "chug": {
+     "src": "critters/roadrunner/idle.webp",
+     "tube": "critters/roadrunner/idle-tube.webp"
+    },
+    "cheer": {
+     "src": "critters/roadrunner/idle.webp",
+     "tube": "critters/roadrunner/idle-tube.webp"
+    },
+    "out": {
+     "src": "critters/roadrunner/idle.webp",
+     "tube": "critters/roadrunner/idle-tube.webp"
+    }
+   },
+   "portrait": {
+    "src": "critters/roadrunner/portrait.webp",
+    "tube": "critters/roadrunner/portrait-tube.webp",
+    "w": 1024,
+    "h": 1024,
+    "anchor": {
+     "water": [
+      512,
+      700
+     ],
+     "head": [
+      481,
+      384
+     ],
+     "face": [
+      481,
+      434
+     ],
+     "hand": [
+      589,
+      669
+     ]
+    }
+   },
+   "placeholder": true
+  },
+  "jackrabbit": {
+   "anchor": {
+    "water": [
+     256,
+     352
+    ],
+    "head": [
+     267,
+     181
+    ],
+    "face": [
+     267,
+     236
+    ],
+    "hand": [
+     309,
+     335
+    ]
+   },
+   "poses": {
+    "idle": {
+     "src": "critters/jackrabbit/idle.webp",
+     "tube": "critters/jackrabbit/idle-tube.webp"
+    },
+    "stroke": {
+     "src": "critters/jackrabbit/idle.webp",
+     "tube": "critters/jackrabbit/idle-tube.webp"
+    },
+    "hey": {
+     "src": "critters/jackrabbit/idle.webp",
+     "tube": "critters/jackrabbit/idle-tube.webp"
+    },
+    "nice": {
+     "src": "critters/jackrabbit/idle.webp",
+     "tube": "critters/jackrabbit/idle-tube.webp"
+    },
+    "miss": {
+     "src": "critters/jackrabbit/idle.webp",
+     "tube": "critters/jackrabbit/idle-tube.webp"
+    },
+    "chug": {
+     "src": "critters/jackrabbit/idle.webp",
+     "tube": "critters/jackrabbit/idle-tube.webp"
+    },
+    "cheer": {
+     "src": "critters/jackrabbit/idle.webp",
+     "tube": "critters/jackrabbit/idle-tube.webp"
+    },
+    "out": {
+     "src": "critters/jackrabbit/idle.webp",
+     "tube": "critters/jackrabbit/idle-tube.webp"
+    }
+   },
+   "portrait": {
+    "src": "critters/jackrabbit/portrait.webp",
+    "tube": "critters/jackrabbit/portrait-tube.webp",
+    "w": 1024,
+    "h": 1024,
+    "anchor": {
+     "water": [
+      512,
+      700
+     ],
+     "head": [
+      534,
+      368
+     ],
+     "face": [
+      534,
+      473
+     ],
+     "hand": [
+      614,
+      667
+     ]
+    }
+   },
+   "placeholder": true
+  },
+  "tortoise": {
+   "anchor": {
+    "water": [
+     256,
+     352
+    ],
+    "head": [
+     251,
+     232
+    ],
+    "face": [
+     251,
+     272
+    ],
+    "hand": [
+     310,
+     340
+    ]
+   },
+   "poses": {
+    "idle": {
+     "src": "critters/tortoise/idle.webp",
+     "tube": "critters/tortoise/idle-tube.webp"
+    },
+    "stroke": {
+     "src": "critters/tortoise/idle.webp",
+     "tube": "critters/tortoise/idle-tube.webp"
+    },
+    "hey": {
+     "src": "critters/tortoise/idle.webp",
+     "tube": "critters/tortoise/idle-tube.webp"
+    },
+    "nice": {
+     "src": "critters/tortoise/idle.webp",
+     "tube": "critters/tortoise/idle-tube.webp"
+    },
+    "miss": {
+     "src": "critters/tortoise/idle.webp",
+     "tube": "critters/tortoise/idle-tube.webp"
+    },
+    "chug": {
+     "src": "critters/tortoise/idle.webp",
+     "tube": "critters/tortoise/idle-tube.webp"
+    },
+    "cheer": {
+     "src": "critters/tortoise/idle.webp",
+     "tube": "critters/tortoise/idle-tube.webp"
+    },
+    "out": {
+     "src": "critters/tortoise/idle.webp",
+     "tube": "critters/tortoise/idle-tube.webp"
+    }
+   },
+   "portrait": {
+    "src": "critters/tortoise/portrait.webp",
+    "tube": "critters/tortoise/portrait-tube.webp",
+    "w": 1024,
+    "h": 1024,
+    "anchor": {
+     "water": [
+      512,
+      700
+     ],
+     "head": [
+      503,
+      465
+     ],
+     "face": [
+      503,
+      544
+     ],
+     "hand": [
+      618,
+      677
+     ]
+    }
+   },
+   "placeholder": true
+  },
+  "gila": {
+   "anchor": {
+    "water": [
+     256,
+     352
+    ],
+    "head": [
+     211,
+     216
+    ],
+    "face": [
+     202,
+     249
+    ],
+    "hand": [
+     284,
+     329
+    ]
+   },
+   "poses": {
+    "idle": {
+     "src": "critters/gila/idle.webp",
+     "tube": "critters/gila/idle-tube.webp"
+    },
+    "stroke": {
+     "src": "critters/gila/idle.webp",
+     "tube": "critters/gila/idle-tube.webp"
+    },
+    "hey": {
+     "src": "critters/gila/idle.webp",
+     "tube": "critters/gila/idle-tube.webp"
+    },
+    "nice": {
+     "src": "critters/gila/idle.webp",
+     "tube": "critters/gila/idle-tube.webp"
+    },
+    "miss": {
+     "src": "critters/gila/idle.webp",
+     "tube": "critters/gila/idle-tube.webp"
+    },
+    "chug": {
+     "src": "critters/gila/idle.webp",
+     "tube": "critters/gila/idle-tube.webp"
+    },
+    "cheer": {
+     "src": "critters/gila/idle.webp",
+     "tube": "critters/gila/idle-tube.webp"
+    },
+    "out": {
+     "src": "critters/gila/idle.webp",
+     "tube": "critters/gila/idle-tube.webp"
+    }
+   },
+   "portrait": {
+    "src": "critters/gila/portrait.webp",
+    "tube": "critters/gila/portrait-tube.webp",
+    "w": 1024,
+    "h": 1024,
+    "anchor": {
+     "water": [
+      512,
+      700
+     ],
+     "head": [
+      425,
+      434
+     ],
+     "face": [
+      406,
+      499
+     ],
+     "hand": [
+      567,
+      655
+     ]
+    }
+   },
+   "placeholder": true
+  },
+  "hornedlizard": {
+   "anchor": {
+    "water": [
+     256,
+     352
+    ],
+    "head": [
+     255,
+     204
+    ],
+    "face": [
+     255,
+     246
+    ],
+    "hand": [
+     301,
+     334
+    ]
+   },
+   "poses": {
+    "idle": {
+     "src": "critters/hornedlizard/idle.webp",
+     "tube": "critters/hornedlizard/idle-tube.webp"
+    },
+    "stroke": {
+     "src": "critters/hornedlizard/idle.webp",
+     "tube": "critters/hornedlizard/idle-tube.webp"
+    },
+    "hey": {
+     "src": "critters/hornedlizard/idle.webp",
+     "tube": "critters/hornedlizard/idle-tube.webp"
+    },
+    "nice": {
+     "src": "critters/hornedlizard/idle.webp",
+     "tube": "critters/hornedlizard/idle-tube.webp"
+    },
+    "miss": {
+     "src": "critters/hornedlizard/idle.webp",
+     "tube": "critters/hornedlizard/idle-tube.webp"
+    },
+    "chug": {
+     "src": "critters/hornedlizard/idle.webp",
+     "tube": "critters/hornedlizard/idle-tube.webp"
+    },
+    "cheer": {
+     "src": "critters/hornedlizard/idle.webp",
+     "tube": "critters/hornedlizard/idle-tube.webp"
+    },
+    "out": {
+     "src": "critters/hornedlizard/idle.webp",
+     "tube": "critters/hornedlizard/idle-tube.webp"
+    }
+   },
+   "portrait": {
+    "src": "critters/hornedlizard/portrait.webp",
+    "tube": "critters/hornedlizard/portrait-tube.webp",
+    "w": 1024,
+    "h": 1024,
+    "anchor": {
+     "water": [
+      512,
+      700
+     ],
+     "head": [
+      510,
+      411
+     ],
+     "face": [
+      510,
+      494
+     ],
+     "hand": [
+      599,
+      664
+     ]
+    }
+   },
+   "placeholder": true
+  },
+  "bighorn": {
+   "anchor": {
+    "water": [
+     256,
+     352
+    ],
+    "head": [
+     274,
+     171
+    ],
+    "face": [
+     274,
+     219
+    ],
+    "hand": [
+     310,
+     327
+    ]
+   },
+   "poses": {
+    "idle": {
+     "src": "critters/bighorn/idle.webp",
+     "tube": "critters/bighorn/idle-tube.webp"
+    },
+    "stroke": {
+     "src": "critters/bighorn/idle.webp",
+     "tube": "critters/bighorn/idle-tube.webp"
+    },
+    "hey": {
+     "src": "critters/bighorn/idle.webp",
+     "tube": "critters/bighorn/idle-tube.webp"
+    },
+    "nice": {
+     "src": "critters/bighorn/idle.webp",
+     "tube": "critters/bighorn/idle-tube.webp"
+    },
+    "miss": {
+     "src": "critters/bighorn/idle.webp",
+     "tube": "critters/bighorn/idle-tube.webp"
+    },
+    "chug": {
+     "src": "critters/bighorn/idle.webp",
+     "tube": "critters/bighorn/idle-tube.webp"
+    },
+    "cheer": {
+     "src": "critters/bighorn/idle.webp",
+     "tube": "critters/bighorn/idle-tube.webp"
+    },
+    "out": {
+     "src": "critters/bighorn/idle.webp",
+     "tube": "critters/bighorn/idle-tube.webp"
+    }
+   },
+   "portrait": {
+    "src": "critters/bighorn/portrait.webp",
+    "tube": "critters/bighorn/portrait-tube.webp",
+    "w": 1024,
+    "h": 1024,
+    "anchor": {
+     "water": [
+      512,
+      700
+     ],
+     "head": [
+      548,
+      348
+     ],
+     "face": [
+      548,
+      440
+     ],
+     "hand": [
+      617,
+      652
+     ]
+    }
+   },
+   "placeholder": true
+  },
+  "quail": {
+   "anchor": {
+    "water": [
+     256,
+     352
+    ],
+    "head": [
+     258,
+     169
+    ],
+    "face": [
+     258,
+     205
+    ],
+    "hand": [
+     320,
+     323
+    ]
+   },
+   "poses": {
+    "idle": {
+     "src": "critters/quail/idle.webp",
+     "tube": "critters/quail/idle-tube.webp"
+    },
+    "stroke": {
+     "src": "critters/quail/idle.webp",
+     "tube": "critters/quail/idle-tube.webp"
+    },
+    "hey": {
+     "src": "critters/quail/idle.webp",
+     "tube": "critters/quail/idle-tube.webp"
+    },
+    "nice": {
+     "src": "critters/quail/idle.webp",
+     "tube": "critters/quail/idle-tube.webp"
+    },
+    "miss": {
+     "src": "critters/quail/idle.webp",
+     "tube": "critters/quail/idle-tube.webp"
+    },
+    "chug": {
+     "src": "critters/quail/idle.webp",
+     "tube": "critters/quail/idle-tube.webp"
+    },
+    "cheer": {
+     "src": "critters/quail/idle.webp",
+     "tube": "critters/quail/idle-tube.webp"
+    },
+    "out": {
+     "src": "critters/quail/idle.webp",
+     "tube": "critters/quail/idle-tube.webp"
+    }
+   },
+   "portrait": {
+    "src": "critters/quail/portrait.webp",
+    "tube": "critters/quail/portrait-tube.webp",
+    "w": 1024,
+    "h": 1024,
+    "anchor": {
+     "water": [
+      512,
+      700
+     ],
+     "head": [
+      515,
+      344
+     ],
+     "face": [
+      515,
+      413
+     ],
+     "hand": [
+      637,
+      643
+     ]
+    }
+   },
+   "placeholder": true
+  },
+  "armadillo": {
+   "anchor": {
+    "water": [
+     256,
+     352
+    ],
+    "head": [
+     223,
+     190
+    ],
+    "face": [
+     215,
+     238
+    ],
+    "hand": [
+     288,
+     335
+    ]
+   },
+   "poses": {
+    "idle": {
+     "src": "critters/armadillo/idle.webp",
+     "tube": "critters/armadillo/idle-tube.webp"
+    },
+    "stroke": {
+     "src": "critters/armadillo/idle.webp",
+     "tube": "critters/armadillo/idle-tube.webp"
+    },
+    "hey": {
+     "src": "critters/armadillo/idle.webp",
+     "tube": "critters/armadillo/idle-tube.webp"
+    },
+    "nice": {
+     "src": "critters/armadillo/idle.webp",
+     "tube": "critters/armadillo/idle-tube.webp"
+    },
+    "miss": {
+     "src": "critters/armadillo/idle.webp",
+     "tube": "critters/armadillo/idle-tube.webp"
+    },
+    "chug": {
+     "src": "critters/armadillo/idle.webp",
+     "tube": "critters/armadillo/idle-tube.webp"
+    },
+    "cheer": {
+     "src": "critters/armadillo/idle.webp",
+     "tube": "critters/armadillo/idle-tube.webp"
+    },
+    "out": {
+     "src": "critters/armadillo/idle.webp",
+     "tube": "critters/armadillo/idle-tube.webp"
+    }
+   },
+   "portrait": {
+    "src": "critters/armadillo/portrait.webp",
+    "tube": "critters/armadillo/portrait-tube.webp",
+    "w": 1024,
+    "h": 1024,
+    "anchor": {
+     "water": [
+      512,
+      700
+     ],
+     "head": [
+      448,
+      385
+     ],
+     "face": [
+      432,
+      477
+     ],
+     "hand": [
+      574,
+      668
+     ]
+    }
+   },
+   "placeholder": true
+  },
+  "coyote": {
+   "anchor": {
+    "water": [
+     256,
+     352
+    ],
+    "head": [
+     250,
+     178
+    ],
+    "face": [
+     250,
+     232
+    ],
+    "hand": [
+     300,
+     317
+    ]
+   },
+   "poses": {
+    "idle": {
+     "src": "critters/coyote/idle.webp",
+     "tube": "critters/coyote/idle-tube.webp"
+    },
+    "stroke": {
+     "src": "critters/coyote/idle.webp",
+     "tube": "critters/coyote/idle-tube.webp"
+    },
+    "hey": {
+     "src": "critters/coyote/idle.webp",
+     "tube": "critters/coyote/idle-tube.webp"
+    },
+    "nice": {
+     "src": "critters/coyote/idle.webp",
+     "tube": "critters/coyote/idle-tube.webp"
+    },
+    "miss": {
+     "src": "critters/coyote/idle.webp",
+     "tube": "critters/coyote/idle-tube.webp"
+    },
+    "chug": {
+     "src": "critters/coyote/idle.webp",
+     "tube": "critters/coyote/idle-tube.webp"
+    },
+    "cheer": {
+     "src": "critters/coyote/idle.webp",
+     "tube": "critters/coyote/idle-tube.webp"
+    },
+    "out": {
+     "src": "critters/coyote/idle.webp",
+     "tube": "critters/coyote/idle-tube.webp"
+    }
+   },
+   "portrait": {
+    "src": "critters/coyote/portrait.webp",
+    "tube": "critters/coyote/portrait-tube.webp",
+    "w": 1024,
+    "h": 1024,
+    "anchor": {
+     "water": [
+      512,
+      700
+     ],
+     "head": [
+      501,
+      361
+     ],
+     "face": [
+      501,
+      467
+     ],
+     "hand": [
+      597,
+      632
+     ]
+    }
+   },
+   "placeholder": true
+  },
+  "otter": {
+   "anchor": {
+    "water": [
+     256,
+     352
+    ],
+    "head": [
+     252,
+     169
+    ],
+    "face": [
+     250,
+     218
+    ],
+    "hand": [
+     290,
+     310
+    ]
+   },
+   "poses": {
+    "idle": {
+     "src": "critters/otter/idle.webp",
+     "tube": "critters/otter/idle-tube.webp"
+    },
+    "stroke": {
+     "src": "critters/otter/idle.webp",
+     "tube": "critters/otter/idle-tube.webp"
+    },
+    "hey": {
+     "src": "critters/otter/idle.webp",
+     "tube": "critters/otter/idle-tube.webp"
+    },
+    "nice": {
+     "src": "critters/otter/idle.webp",
+     "tube": "critters/otter/idle-tube.webp"
+    },
+    "miss": {
+     "src": "critters/otter/idle.webp",
+     "tube": "critters/otter/idle-tube.webp"
+    },
+    "chug": {
+     "src": "critters/otter/idle.webp",
+     "tube": "critters/otter/idle-tube.webp"
+    },
+    "cheer": {
+     "src": "critters/otter/idle.webp",
+     "tube": "critters/otter/idle-tube.webp"
+    },
+    "out": {
+     "src": "critters/otter/idle.webp",
+     "tube": "critters/otter/idle-tube.webp"
+    }
+   },
+   "portrait": {
+    "src": "critters/otter/portrait.webp",
+    "tube": "critters/otter/portrait-tube.webp",
+    "w": 1024,
+    "h": 1024,
+    "anchor": {
+     "water": [
+      512,
+      700
+     ],
+     "head": [
+      504,
+      342
+     ],
+     "face": [
+      499,
+      439
+     ],
+     "hand": [
+      578,
+      618
+     ]
+    }
+   },
+   "placeholder": true
+  },
+  "frog": {
+   "anchor": {
+    "water": [
+     256,
+     352
+    ],
+    "head": [
+     254,
+     216
+    ],
+    "face": [
+     254,
+     258
+    ],
+    "hand": [
+     301,
+     322
+    ]
+   },
+   "poses": {
+    "idle": {
+     "src": "critters/frog/idle.webp",
+     "tube": "critters/frog/idle-tube.webp"
+    },
+    "stroke": {
+     "src": "critters/frog/idle.webp",
+     "tube": "critters/frog/idle-tube.webp"
+    },
+    "hey": {
+     "src": "critters/frog/idle.webp",
+     "tube": "critters/frog/idle-tube.webp"
+    },
+    "nice": {
+     "src": "critters/frog/idle.webp",
+     "tube": "critters/frog/idle-tube.webp"
+    },
+    "miss": {
+     "src": "critters/frog/idle.webp",
+     "tube": "critters/frog/idle-tube.webp"
+    },
+    "chug": {
+     "src": "critters/frog/idle.webp",
+     "tube": "critters/frog/idle-tube.webp"
+    },
+    "cheer": {
+     "src": "critters/frog/idle.webp",
+     "tube": "critters/frog/idle-tube.webp"
+    },
+    "out": {
+     "src": "critters/frog/idle.webp",
+     "tube": "critters/frog/idle-tube.webp"
+    }
+   },
+   "portrait": {
+    "src": "critters/frog/portrait.webp",
+    "tube": "critters/frog/portrait-tube.webp",
+    "w": 1024,
+    "h": 1024,
+    "anchor": {
+     "water": [
+      512,
+      700
+     ],
+     "head": [
+      509,
+      434
+     ],
+     "face": [
+      509,
+      517
+     ],
+     "hand": [
+      601,
+      641
+     ]
+    }
+   },
+   "placeholder": true
+  }
+ },
+ "host": {
+  "box": [
+   512,
+   512
+  ],
+  "anchor": {
+   "ground": [
+    256,
+    470
+   ],
+   "head": [
+    279,
+    211
+   ],
+   "face": [
+    335,
+    283
+   ],
+   "horn": [
+    508,
+    274
+   ]
+  },
+  "poses": {
+   "idle": {
+    "src": "host/idle.webp"
+   },
+   "call": {
+    "src": "host/idle.webp"
+   },
+   "cheer": {
+    "src": "host/idle.webp"
+   }
+  },
+  "placeholder": true
+ },
+ "scenes": {
+  "open": {
+   "w": 1920,
+   "h": 1080,
+   "water": 0.43,
+   "layers": [
+    {
+     "src": "scenes/open/sky.webp",
+     "depth": 0,
+     "loop": false
+    },
+    {
+     "src": "scenes/open/far.webp",
+     "depth": 0.15,
+     "loop": true
+    },
+    {
+     "src": "scenes/open/bank.webp",
+     "depth": 0.4,
+     "loop": true
+    },
+    {
+     "src": "scenes/open/water.webp",
+     "depth": 1,
+     "loop": true
+    }
+   ],
+   "placeholder": true
+  },
+  "rocks": {
+   "w": 1920,
+   "h": 1080,
+   "water": 0.43,
+   "layers": [
+    {
+     "src": "scenes/rocks/sky.webp",
+     "depth": 0,
+     "loop": false
+    },
+    {
+     "src": "scenes/rocks/far.webp",
+     "depth": 0.15,
+     "loop": true
+    },
+    {
+     "src": "scenes/rocks/bank.webp",
+     "depth": 0.4,
+     "loop": true
+    },
+    {
+     "src": "scenes/rocks/water.webp",
+     "depth": 1,
+     "loop": true
+    }
+   ],
+   "placeholder": true
+  },
+  "whirlpool": {
+   "w": 1920,
+   "h": 1080,
+   "water": 0.43,
+   "layers": [
+    {
+     "src": "scenes/whirlpool/sky.webp",
+     "depth": 0,
+     "loop": false
+    },
+    {
+     "src": "scenes/whirlpool/far.webp",
+     "depth": 0.15,
+     "loop": true
+    },
+    {
+     "src": "scenes/whirlpool/bank.webp",
+     "depth": 0.4,
+     "loop": true
+    },
+    {
+     "src": "scenes/whirlpool/water.webp",
+     "depth": 1,
+     "loop": true
+    }
+   ],
+   "placeholder": true
+  },
+  "falls": {
+   "w": 1920,
+   "h": 1080,
+   "water": 0.43,
+   "layers": [
+    {
+     "src": "scenes/falls/sky.webp",
+     "depth": 0,
+     "loop": false
+    },
+    {
+     "src": "scenes/falls/far.webp",
+     "depth": 0.15,
+     "loop": true
+    },
+    {
+     "src": "scenes/falls/bank.webp",
+     "depth": 0.4,
+     "loop": true
+    },
+    {
+     "src": "scenes/falls/water.webp",
+     "depth": 1,
+     "loop": true
+    }
+   ],
+   "placeholder": true
+  },
+  "lobby": {
+   "w": 1920,
+   "h": 1080,
+   "water": 0.5,
+   "layers": [
+    {
+     "src": "scenes/lobby/sky.webp",
+     "depth": 0,
+     "loop": false
+    },
+    {
+     "src": "scenes/lobby/far.webp",
+     "depth": 0.15,
+     "loop": true
+    },
+    {
+     "src": "scenes/lobby/bank.webp",
+     "depth": 0.4,
+     "loop": true
+    },
+    {
+     "src": "scenes/lobby/water.webp",
+     "depth": 1,
+     "loop": true
+    }
+   ],
+   "placeholder": true
+  },
+  "podium": {
+   "w": 1920,
+   "h": 1080,
+   "water": 0.62,
+   "layers": [
+    {
+     "src": "scenes/podium/sky.webp",
+     "depth": 0,
+     "loop": false
+    },
+    {
+     "src": "scenes/podium/far.webp",
+     "depth": 0.15,
+     "loop": true
+    },
+    {
+     "src": "scenes/podium/bank.webp",
+     "depth": 0.4,
+     "loop": true
+    },
+    {
+     "src": "scenes/podium/water.webp",
+     "depth": 1,
+     "loop": true
+    }
+   ],
+   "placeholder": true
+  },
+  "bar": {
+   "w": 1920,
+   "h": 1080,
+   "water": 0.43,
+   "counter": 0.43,
+   "layers": [
+    {
+     "src": "scenes/bar/room.webp",
+     "depth": 0,
+     "loop": false
+    }
+   ],
+   "placeholder": true
+  }
+ },
+ "props": {
+  "splash": {
+   "src": "props/splash.webp",
+   "w": 256,
+   "h": 192,
+   "anchor": [
+    128,
+    176
+   ],
+   "tint": false,
+   "placeholder": true
+  },
+  "ripple": {
+   "src": "props/ripple.webp",
+   "w": 256,
+   "h": 96,
+   "anchor": [
+    128,
+    48
+   ],
+   "tint": false,
+   "placeholder": true
+  },
+  "rock": {
+   "src": "props/rock.webp",
+   "w": 256,
+   "h": 200,
+   "anchor": [
+    128,
+    168
+   ],
+   "tint": false,
+   "placeholder": true
+  },
+  "whirl": {
+   "src": "props/whirl.webp",
+   "w": 384,
+   "h": 160,
+   "anchor": [
+    192,
+    80
+   ],
+   "tint": false,
+   "placeholder": true
+  },
+  "cup": {
+   "src": "props/cup.webp",
+   "w": 128,
+   "h": 160,
+   "anchor": [
+    64,
+    96
+   ],
+   "tint": false,
+   "placeholder": true
+  },
+  "crown": {
+   "src": "props/crown.webp",
+   "w": 160,
+   "h": 112,
+   "anchor": [
+    80,
+    104
+   ],
+   "tint": false,
+   "placeholder": true
+  },
+  "falls-lip": {
+   "src": "props/falls-lip.webp",
+   "w": 640,
+   "h": 720,
+   "anchor": [
+    96,
+    120
+   ],
+   "tint": false,
+   "placeholder": true
+  },
+  "sign-paddle": {
+   "src": "props/sign-paddle.webp",
+   "w": 220,
+   "h": 300,
+   "anchor": [
+    110,
+    250
+   ],
+   "tint": false,
+   "placeholder": true
+  },
+  "sign-rock": {
+   "src": "props/sign-rock.webp",
+   "w": 220,
+   "h": 300,
+   "anchor": [
+    110,
+    250
+   ],
+   "tint": false,
+   "placeholder": true
+  },
+  "sign-spin": {
+   "src": "props/sign-spin.webp",
+   "w": 220,
+   "h": 300,
+   "anchor": [
+    110,
+    250
+   ],
+   "tint": false,
+   "placeholder": true
+  },
+  "confetti-1": {
+   "src": "props/confetti-1.webp",
+   "w": 48,
+   "h": 48,
+   "anchor": [
+    24,
+    24
+   ],
+   "tint": true,
+   "placeholder": true
+  },
+  "confetti-2": {
+   "src": "props/confetti-2.webp",
+   "w": 48,
+   "h": 48,
+   "anchor": [
+    24,
+    24
+   ],
+   "tint": true,
+   "placeholder": true
+  },
+  "confetti-3": {
+   "src": "props/confetti-3.webp",
+   "w": 48,
+   "h": 48,
+   "anchor": [
+    24,
+    24
+   ],
+   "tint": true,
+   "placeholder": true
+  },
+  "confetti-4": {
+   "src": "props/confetti-4.webp",
+   "w": 48,
+   "h": 48,
+   "anchor": [
+    24,
+    24
+   ],
+   "tint": true,
+   "placeholder": true
+  }
+ },
+ "font": {
+  "family": "Float Pixel",
+  "src": "/fonts/pixelify-sans-latin.woff2"
+ }
+}

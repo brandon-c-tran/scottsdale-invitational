@@ -46,8 +46,21 @@ export const POSES = Object.freeze([
   { id:"backflip", name:"Backflip" },
 ]);
 
+/* critters only one rider may pick (float/GROOVE.md "Special critters"):
+   Winnie, Brandon's own cavapoo, is the groom's alone. Never a default and
+   never a bot. */
+export const SPECIAL_CRITTERS = Object.freeze([
+  { id:"winnie", name:"Winnie", groom:true },
+]);
+
 const ids = list => list.map(item => item.id);
 export const CRITTER_IDS = Object.freeze(ids(CRITTERS));
+export const SPECIAL_CRITTER_IDS = Object.freeze(ids(SPECIAL_CRITTERS));
+/* every critter the art draws */
+export const ALL_CRITTER_IDS = Object.freeze([...CRITTER_IDS, ...SPECIAL_CRITTER_IDS]);
+/* the critters a rider may pick: the 13, and the groom's own */
+export const crittersFor = ({ groom = false } = {}) =>
+  [...CRITTERS, ...SPECIAL_CRITTERS.filter(item => !item.groom || groom)];
 export const HAT_IDS = Object.freeze(ids(HATS));
 export const SHADE_IDS = Object.freeze(ids(SHADES));
 export const POSE_IDS = Object.freeze(ids(POSES));
@@ -61,13 +74,14 @@ export function defaultLook(seed = "", floatieIds = ["classic"]) {
   return { critter:pick(CRITTER_IDS, 1), floatie:pick(floatieIds, 2), hat:"none", shades:"none", pose:pick(POSE_IDS, 3) };
 }
 
-/* a look made legal: unknown ids fall back, the crown only for the groom */
+/* a look made legal: unknown ids fall back, the crown and Winnie only for the groom */
 export function cleanLook(look, { groom = false, floatieIds = ["classic"], seed = "" } = {}) {
   const fallback = defaultLook(seed, floatieIds);
   const one = (value, list, key) => list.includes(value) ? value : fallback[key];
   const hat = one(look?.hat, HAT_IDS, "hat");
+  const critters = groom ? ALL_CRITTER_IDS : CRITTER_IDS;
   return {
-    critter:one(look?.critter, CRITTER_IDS, "critter"),
+    critter:one(look?.critter, critters, "critter"),
     floatie:one(look?.floatie, floatieIds, "floatie"),
     hat:hat === "crown" && !groom ? "none" : hat,
     shades:one(look?.shades, SHADE_IDS, "shades"),

@@ -9,7 +9,7 @@
    at that size the two cannot be told apart, and a phone fetches 50 KB a
    species instead of 250. Bigger stills draw the hero mesh. */
 import * as THREE from "three";
-import { buildCritter } from "./index.js";
+import { buildCritter } from "./index3d.js";
 import { floatEnvironment } from "./environment.js";
 import { hasDom, labelOf } from "./badge.js";
 import { normalHex } from "./materials.js";

@@ -210,10 +210,11 @@ export default function FloatController({ room = "test", rider = null, onExit = 
   const onTap = useCallback(eventAt => {
     const s = live.current;
     if (!net || s.screen !== "song") return;
+    /* both clocks first: the sound's first unlock can take a while */
+    const perf = perfNow(), server = net.serverNow();
     unlockSound();
     if (wakeFor(gameRef.current.room?.phase)) wake.current?.start();
-    const perf = perfNow();
-    const t = serverStamp(stampOf({ timeStamp:eventAt }, perf), { perfNow:perf, serverNow:net.serverNow() });
+    const t = serverStamp(stampOf({ timeStamp:eventAt }, perf), { perfNow:perf, serverNow:server });
     const { open, found } = padTap(pad, t, { chart:s.chart, songAt:s.songAt, offset:s.offset, owes:s.owes, done:s.done });
     if (globalThis.__floatMock) globalThis.__floatLastTap = { t, songAt:s.songAt, offset:s.offset, open, c:found?.c ?? null, eventAt, perf };
     if (!open) return;

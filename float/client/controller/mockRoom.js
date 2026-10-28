@@ -104,9 +104,10 @@ export function createMockRoom({ hello = null, scene = null, freeze = false, tim
   /* a fresh room: the phone's socket (its frames reach the phone after `lag`, unless muted), the host's */
   async function freshRoom() {
     try { phoneWs?.close(); hostWs?.close(); } catch {}
-    /* repeatable ids: a held moment is the same Cup every time */
+    /* repeatable ids, a scene's own: a held moment is the same Cup every time, and never another moment's */
     let serial = 0;
-    room = new FloatRoom(memoryCtx(), {}, { clock, timers:false, ids:prefix => `${prefix}mock${(serial += 1)}` });
+    const tag = String(sceneName || "live").replace(/[^a-z0-9]/gi, "");
+    room = new FloatRoom(memoryCtx(), {}, { clock, timers:false, ids:prefix => `${prefix}${tag}${(serial += 1)}` });
     await room.ready;
     phoneWs = new FakeSocket(text => {
       if (muted || closed) return;

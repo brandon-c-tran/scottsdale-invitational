@@ -150,11 +150,13 @@ async function moments(page, size) {
       await sleep(190);
     }
     if (opts.wait) await sleep(opts.wait);
+    const said = opts.word ? await popupText(page) : "";
     await shot(page, size, scene);
-    if (opts.word) { const said = await popupText(page); check(said.includes(opts.word), `${size} ${scene}: the popup says ${opts.word} (${said})`); }
+    if (opts.word) check(said.includes(opts.word), `${size} ${scene}: the popup says ${opts.word} (${said})`);
     if (opts.tap) {
       const hits = (await sent(page)).filter(m => m.t === "hit");
-      check(hits.length === 1 && Number.isInteger(hits[0].c) && Number.isFinite(hits[0].r), `${size} ${scene}: one tap, one hit {c, r} (${JSON.stringify(hits)})`);
+      const last = hits.length === 1 ? "" : ` last tap ${await page.evaluate("JSON.stringify(window.__floatLastTap || null)")}`;
+      check(hits.length === 1 && Number.isInteger(hits[0].c) && Number.isFinite(hits[0].r), `${size} ${scene}: one tap, one hit {c, r} (${JSON.stringify(hits)})${last}`);
     }
   }
 }

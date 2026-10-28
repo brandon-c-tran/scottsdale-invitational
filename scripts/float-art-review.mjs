@@ -22,6 +22,9 @@ const PORT = Number(process.env.FLOAT_ART_PORT || 5181);
 export const SHOTS = [
   ["flotilla", "view=flotilla&freeze=1", 1400, 900],
   ["lastcall", "view=lastcall&freeze=1", 1400, 900],
+  ["looks", "view=looks&freeze=1", 1700, 2200],
+  ["look-capybara", "view=look&id=capybara&freeze=1", 1500, 2000],
+  ...["tortoise", "jackrabbit", "bighorn", "winnie", "roadrunner", "gila"].map(id => [`look-${id}`, `view=look&id=${id}&freeze=1`, 1500, 2000]),
   ["critters", "view=critters&freeze=1", 1100, 4000],
   ["critter-capybara", "view=critter&id=capybara&freeze=1", 1800, 900],
   ["crowns", "view=crowns&freeze=1", 1000, 1900],
@@ -64,7 +67,7 @@ try {
     await chrome.cdp("Emulation.setDeviceMetricsOverride", { width:w, height:h, deviceScaleFactor:1, mobile:false });
     const t0 = Date.now();
     await chrome.load(`${BASE}/float/art?${q}`, { timeout:60000 });
-    const ok = await chrome.until("document.body.dataset.ready === '1'", { timeout:90000, every:250 });
+    const ok = await chrome.until("document.body.dataset.ready === '1' && document.body.dataset.looks !== '0'", { timeout:120000, every:250 });
     if (!ok) errors.push(`${name}: never ready`);
     await new Promise(r => setTimeout(r, 600));
     const file = await chrome.screenshot(path.join(OUT, `${name}.png`));

@@ -16,6 +16,7 @@
      node scripts/float-art-sprites.mjs <id...> [--sheet <png>] [--portrait <png>] [--debug]
 */
 import fs from "node:fs";
+import { pathToFileURL } from "node:url";
 import path from "node:path";
 import { ALL_CRITTER_IDS } from "../float/shared/looks.js";
 import { OUT, RAW, POSES, BOX, sourceOf, loadRGBA, blank, components, placeInBox, saveWebp, savePng, dilate, close, hueOf, hueDist, lum, editManifest, alphaBounds } from "./float-art-lib.mjs";
@@ -34,12 +35,12 @@ export const PORTRAIT = { size:1024, ringMax:600, margin:36, bottom:984 };
 const SHEET_GRID = { cols:4, rows:2 };
 /* box px, by critter and pose: the head (where the crown sits) and the face
    where the eye finder misses, set by eye on /float/art?view=crowns */
-const ANCHOR_FIX = {
+export const ANCHOR_FIX = {
   otter:{ chug:{ head:[272, 203], face:[285, 252] } },
 };
 
 /* alpha: the model's transparent PNGs top out at 254; stray specks under 8 go */
-function normalizeAlpha(img) {
+export function normalizeAlpha(img) {
   const d = img.data;
   for (let i = 3; i < d.length; i += 4) d[i] = d[i] < 8 ? 0 : d[i] >= 246 ? 255 : Math.round(d[i] * 255 / 246);
   return img;
@@ -49,7 +50,7 @@ const sat = (r, g, b) => { const mx = Math.max(r, g, b); return mx ? (mx - Math.
 const val = (r, g, b) => Math.max(r, g, b) / 255;
 
 /* the ring's hue: the commonest hue among strongly saturated, bright pixels near 330 (magenta to hot pink) */
-function ringHue(img) {
+export function ringHue(img) {
   const hist = new Array(72).fill(0);
   const d = img.data;
   for (let i = 0; i < d.length; i += 4) {
@@ -68,7 +69,7 @@ function ringHue(img) {
    bbox, n } or null. Magenta pixels by hue; its pale highlights (same hue,
    low saturation, bright); closed over small gaps; then grown into the black
    outline around it, never into the white body. */
-function findRing(img, hue) {
+export function findRing(img, hue) {
   const { data:d, width:W, height:H } = img;
   const core = new Uint8Array(W * H), light = new Float32Array(W * H), ink = new Uint8Array(W * H);
   for (let k = 0; k < W * H; k++) {
@@ -109,7 +110,7 @@ function findRing(img, hue) {
 }
 
 /* src (the ring grey, shading kept) and the tube mask (white; alpha = ring, thinned at highlights) */
-function splitRing(img, ring) {
+export function splitRing(img, ring) {
   const { data:d, width:W, height:H } = img;
   const ls = [];
   for (let k = 0; k < W * H; k++) if (ring.mask[k] && d[k * 4 + 3] > 240 && val(d[k * 4], d[k * 4 + 1], d[k * 4 + 2]) > 0.55 && !ring.light[k]) ls.push(lum(d[k * 4], d[k * 4 + 1], d[k * 4 + 2]));
@@ -136,7 +137,7 @@ function splitRing(img, ring) {
 }
 
 /* the eyes: two small round dark blobs above the ring, side by side */
-function findEyes(img, ring, near = null) {
+export function findEyes(img, ring, near = null) {
   const { data:d, width:W, height:H } = img;
   const dark = new Uint8Array(W * H);
   const top = Math.max(0, ring.bbox.y0 - ring.bbox.w * 1.4);
@@ -172,7 +173,7 @@ function findEyes(img, ring, near = null) {
 }
 
 /* the top of the head above x: the first opaque pixel going down that column */
-function headTop(img, x, fromY = 0) {
+export function headTop(img, x, fromY = 0) {
   const { data:d, width:W, height:H } = img;
   const cx = Math.round(x);
   for (let y = fromY; y < H; y++) {
@@ -186,8 +187,18 @@ function headTop(img, x, fromY = 0) {
   return null;
 }
 
+/* the head's width: the critter's opaque span a little under the head's top, from the head's x out */
+export function headWidth(img, [hx, hy], ringW) {
+  const y = Math.round(hy + ringW * 0.22);
+  const solid = x => x >= 0 && x < img.width && img.data[(y * img.width + x) * 4 + 3] > 40;
+  let l = Math.round(hx), r = Math.round(hx);
+  while (solid(l - 1)) l--;
+  while (solid(r + 1)) r++;
+  return Math.max(Math.round(ringW * 0.4), r - l + 1);
+}
+
 /* a pose cut from the sheet's cells: the pixels of the pieces nearest that cell's centre */
-function sliceSheet(img) {
+export function sliceSheet(img) {
   const { width:W, height:H } = img;
   const solid = new Uint8Array(W * H);
   for (let k = 0; k < W * H; k++) if (img.data[k * 4 + 3] > 24) solid[k] = 1;
@@ -231,7 +242,7 @@ function sliceSheet(img) {
   });
 }
 
-const round2 = p => [Math.round(p[0]), Math.round(p[1])];
+export const round2 = p => [Math.round(p[0]), Math.round(p[1])];
 
 async function processCritter(id) {
   const sheetFile = value("--sheet") || sourceOf(`${id}-sheet`);
@@ -247,7 +258,7 @@ async function processCritter(id) {
   const dir = path.join(OUT, "critters", id);
   fs.mkdirSync(dir, { recursive:true });
   const poses = {};
-  let idleAnchor = null;
+  let idleAnchor = null, measure = null;
   const report = [];
   for (const [k, pose] of POSES.entries()) {
     const cell = cells[k], ring = rings[k];
@@ -285,11 +296,18 @@ async function processCritter(id) {
       face = [WATER[0], (top + ringBox.y0) / 2];
       report.push(`${pose} eyes not found`);
     }
+    /* the eyes (glasses sit here): found, else idle's beside this face */
+    let eyesAt = eyes ? toBox(eyes.x, eyes.y) : idleAnchor ? [face[0] + idleAnchor.eyes[0] - idleAnchor.face[0], face[1] + idleAnchor.eyes[1] - idleAnchor.face[1]] : [face[0], face[1] - 12];
     const fix = ANCHOR_FIX[id]?.[pose];
     if (fix?.head) head = fix.head;
-    if (fix?.face) face = fix.face;
-    const anchor = { water:[...WATER], head:round2(head), face:round2(face), hand:round2(hand) };
-    if (pose === "idle") idleAnchor = anchor;
+    if (fix?.face) { face = fix.face; if (idleAnchor) eyesAt = [face[0] + idleAnchor.eyes[0] - idleAnchor.face[0], face[1] + idleAnchor.eyes[1] - idleAnchor.face[1]]; }
+    const anchor = { water:[...WATER], head:round2(head), face:round2(face), hand:round2(hand), eyes:round2(eyesAt) };
+    if (pose === "idle") {
+      idleAnchor = anchor;
+      /* how big the head and the eyes are, for hats and glasses */
+      const headW = headWidth(placed.img, anchor.head, RING_W);
+      measure = { headW, eyeSpan:Math.round(eyes && !eyes.single ? eyes.span * s : headW * 0.42) };
+    }
     poses[pose] = { src:`critters/${id}/${pose}.webp`, tube:`critters/${id}/${pose}-tube.webp`, anchor };
   }
   /* the portrait: its ring as wide as fits, up to PORTRAIT.ringMax */
@@ -316,17 +334,25 @@ async function processCritter(id) {
   const pFace = pe ? pToBox(pe.x, pe.y + pe.span * 0.25) : [P.size / 2, P.size * 0.45];
   const pHeadX = pe ? pToBox(pe.x, 0)[0] : P.size / 2;
   const pHead = [pHeadX, headTop(pa.img, pHeadX) ?? P.size * 0.15];
+  const pEyes = pe ? pToBox(pe.x, pe.y) : [pFace[0], pFace[1] - 30];
+  const pHeadW = headWidth(pa.img, pHead, pr.bbox.w * fit);
+  const pMeasure = { headW:pHeadW, eyeSpan:Math.round(pe && !pe.single ? pe.span * fit : pHeadW * 0.42) };
   const entry = {
     anchor:idleAnchor,
+    measure,
     poses,
     portrait:{ src:`critters/${id}/portrait.webp`, tube:`critters/${id}/portrait-tube.webp`, w:P.size, h:P.size,
-      anchor:{ water:round2([bx, by]), head:round2(pHead), face:round2(pFace), hand:round2(pToBox(pr.bbox.x0 + pr.bbox.w * 0.72, pr.bbox.y0)) } },
+      anchor:{ water:round2([bx, by]), head:round2(pHead), face:round2(pFace), hand:round2(pToBox(pr.bbox.x0 + pr.bbox.w * 0.72, pr.bbox.y0)), eyes:round2(pEyes) },
+      measure:pMeasure },
   };
   editManifest(m => { m.critters[id] = entry; });
   console.log(`${id}: ring hue ${hue}, scale ${s.toFixed(3)}, portrait scale ${fit.toFixed(3)}${report.length ? `; ${report.join("; ")}` : ""}`);
 }
 
-for (const id of ids) {
-  if (!ALL_CRITTER_IDS.includes(id)) { console.error(`${id}: not a critter`); continue; }
-  await processCritter(id).catch(error => { console.error(`${id}: ${error.message}`); process.exitCode = 1; });
+/* run as a script (the tee cutter imports the helpers above) */
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  for (const id of ids) {
+    if (!ALL_CRITTER_IDS.includes(id)) { console.error(`${id}: not a critter`); continue; }
+    await processCritter(id).catch(error => { console.error(`${id}: ${error.message}`); process.exitCode = 1; });
+  }
 }

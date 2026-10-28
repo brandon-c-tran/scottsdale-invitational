@@ -3080,8 +3080,9 @@ function gChord(bass, comp, tones = comp) {
 /* Where a decoded clip starts, where its beat is and where it ends, in
    seconds, from its samples: the envelope (RMS over 5 ms, every 1 ms); the
    start is its first rise past 3% of the peak (-30 dB), the beat its first
-   past half the peak (a sung or shouted syllable's vowel: the moment the
-   ear puts on the beat), the end its last above 1% plus 20 ms. f0 is the
+   past 30% (-10 dB: the first syllable's vowel, past a breath or a soft
+   consonant, the moment the ear puts on the beat), the end its last above
+   1% plus 20 ms. f0 is the
    pitch at the beat (autocorrelation, 70 to 700 Hz; 0 when unpitched), so
    a sung "ba" can be played at a note. Pure: the engine, the render harness
    and the voice script all read a clip the same way. */
@@ -3101,7 +3102,7 @@ export function clipMarks(data, sampleRate = 44100) {
   if (!(peak > 1e-6)) return { start:0, beat:0, end:dur, f0:0, dur };
   const at = k => (k * hop) / sr;
   const first = level => { const i = env.findIndex(e => e >= level); return i < 0 ? 0 : i; };
-  const startI = first(peak * 0.03), beatI = first(peak * 0.5);
+  const startI = first(peak * 0.03), beatI = first(peak * 0.3);
   let endI = env.length - 1;
   while (endI > beatI && env[endI] < peak * 0.01) endI--;
   return { start:at(startI), beat:at(beatI), end:Math.min(dur, at(endI) + win / sr + 0.02), f0:pitchAt(data, sr, beatI * hop + Math.round(sr * 0.03)), dur };

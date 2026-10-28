@@ -23,6 +23,7 @@ export const SHOTS = [
   ["flotilla", "view=flotilla&freeze=1", 1400, 900],
   ["critters", "view=critters&freeze=1", 1100, 4000],
   ["critter-capybara", "view=critter&id=capybara&freeze=1", 1800, 900],
+  ["crowns", "view=crowns&freeze=1", 1000, 1900],
   ["portraits", "view=portraits&freeze=1", 1400, 1000],
   ["host", "view=host&freeze=1", 1200, 700],
   ["scenes", "view=scenes&freeze=1", 2000, 2400],

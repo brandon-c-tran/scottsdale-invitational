@@ -3,7 +3,10 @@
    the tests, so a tap is called the same thing everywhere.
 
    A song is 32 bars at 120 bpm (BEAT_MS 500, a bar 2 s, 64 s):
-     intro 2 . practice 4 . play 8 . drink 8 . play 8 . outro 2
+     intro 2 . practice 4 . play 8 . breakdown 8 . play 8 . outro 2
+   The breakdown (Oct 28, in the drink break's place) is the mid-song twist:
+   the host plays a rhythm for a bar and everyone copies it the next bar
+   ("echo" cues, a bar's lead), four times.
    Beats count from the song's beat 0 (songAt, server time) and may be
    fractional (an "and" is k + 0.5). A cue is one tap:
      { id, beat, kind, call, scored }
@@ -37,11 +40,11 @@ export const SONG_SHAPE = Object.freeze([
   Object.freeze({ kind:"intro", bars:2 }),
   Object.freeze({ kind:"practice", bars:4 }),
   Object.freeze({ kind:"play", bars:8 }),
-  Object.freeze({ kind:"drink", bars:8 }),
+  Object.freeze({ kind:"breakdown", bars:8 }),
   Object.freeze({ kind:"play", bars:8 }),
   Object.freeze({ kind:"outro", bars:2 }),
 ]);
-export const SECTION_KINDS = Object.freeze(["intro", "practice", "play", "drink", "outro"]);
+export const SECTION_KINDS = Object.freeze(["intro", "practice", "play", "breakdown", "outro"]);
 export const SONG_BARS = SONG_SHAPE.reduce((sum, section) => sum + section.bars, 0);
 export const SONG_BEATS = SONG_BARS * BEATS_PER_BAR;
 export const SONG_MS = SONG_BEATS * BEAT_MS;
@@ -74,11 +77,13 @@ export const CUE_KINDS = Object.freeze({
   spin:Object.freeze({ lead:1, mode:"spin", word:"Spin" }),
   /* the call is a countdown: three notes, at -3, -2 and -1 */
   drop:Object.freeze({ lead:3, mode:"drop", word:"Drop" }),
+  /* the breakdown's: copy the host's rhythm a bar later */
+  echo:Object.freeze({ lead:4, mode:"echo", word:"Copy" }),
   /* Last Call's: the moment the countdown reaches zero (chart.countdown) */
   zero:Object.freeze({ lead:null, mode:"lastcall", word:"Zero" }),
 });
 /* what the riders do in a bar (chart.modes): a cue kind's mode, or the section's */
-export const MODES = Object.freeze(["intro", "paddle", "rock", "spin", "drop", "drink", "outro", "lastcall"]);
+export const MODES = Object.freeze(["intro", "paddle", "rock", "spin", "drop", "echo", "outro", "lastcall"]);
 
 export const SONGS = Object.freeze([
   Object.freeze({ id:"paddle", name:"Paddle Party", scene:"open" }),
@@ -92,36 +97,40 @@ export const SONG_IDS = Object.freeze(SONGS.map(song => song.id));
    s / 2 of the bar): P paddle, H hey, O hop, S spin, D drop, "." nothing.
    Bars are the song's own (0 to 31); practice is bars 2 to 5, play 6 to 13
    and 22 to 29, the outro 30 and 31. Drink bars (14 to 21) have no taps. */
-const SLOT = { P:"paddle", H:"hey", O:"hop", S:"spin", D:"drop" };
+const SLOT = { P:"paddle", H:"hey", O:"hop", S:"spin", D:"drop", E:"echo" };
 /* lowercase in practice: the host shows it (demo), nobody taps */
 const DEMO = { h:"hey", o:"hop", s:"spin" };
 const rep = (bar, n) => new Array(n).fill(bar);
 const PLANS = Object.freeze({
   paddle:{
     practice:["P...P...", "P...P...", "P...P.h.", "P...P.H."],
-    lines:[[7, "Paddle on 1 and 3"], [11, "When I say Ready, you say Hey!"], [15, "Watch"], [20, "Your turn"]],
+    lines:[[7, "Paddle on 1 and 3"], [11, "When I say Ready, you say Hey!"], [15, "Watch"], [20, "Your turn"], [55, "Copy me", 60]],
     playA:[...rep(["P...P...", "P...P.H."], 4).flat()],
+    breakdown:["........", "E.E.E...", "........", "E..EE...", "........", "EEE.E...", "........", "E...EEE."],
     playB:["P...P.H.", "P...P.H.", "P...P.H.", "P...P.H.", "P...P.HH", "P...P.H.", "P...P.HH", "P...P..."],
     outro:["H.......", "........"],
   },
   rock:{
     practice:["....o...", "....O...", "....o.o.", "....O.O."],
-    lines:[[7, "Hop two beats after me"], [11, "Your turn"], [15, "Two this time"], [20, "Your turn"]],
+    lines:[[7, "Hop two beats after me"], [11, "Your turn"], [15, "Two this time"], [20, "Your turn"], [55, "Copy me", 60]],
     playA:["....O...", "....O...", "....O.O.", "....O...", "....O.O.", "....O...", "....OO..", "....O.O."],
+    breakdown:["........", "E...E...", "........", "E.E.E...", "........", "EE..E...", "........", "E..E.E.."],
     playB:["....O.O.", "....OO..", "....O.O.", "....OOO.", "....OO..", "....O.O.", "....OOO.", "....O..."],
     outro:["....O...", "........"],
   },
   spin:{
     practice:["..s...s.", "..S...S.", "..S...S.", "..S...S."],
-    lines:[[7, "Spin one beat after me"], [12, "Your turn"], [20, "On the backbeat"]],
+    lines:[[7, "Spin one beat after me"], [12, "Your turn"], [20, "On the backbeat"], [55, "Copy me", 60]],
     playA:rep("..S...S.", 8),
+    breakdown:["........", "..E...E.", "........", "..EE..E.", "........", "..E...EE", "........", "..EE..EE"],
     playB:["..S...S.", "..S...S.", "..SS..S.", "..S...SS", "..SS..SS", "..S...S.", "..SS..SS", "..S...S."],
     outro:["..S.....", "........"],
   },
   drop:{
     practice:["P...P.H.", "....O.O.", "..S...S.", "..S...S."],
-    lines:[[7, "All three, in turn"], [11, "Hop"], [15, "Spin"]],
+    lines:[[7, "All three, in turn"], [11, "Hop"], [15, "Spin"], [55, "Copy me", 60]],
     playA:["P...P.H.", "P...P.HH", "....O.O.", "....OOO.", "..S...S.", "..SS..SS", "P...P.H.", "....OOO."],
+    breakdown:["........", "E.E.E.E.", "........", "E.EEE...", "........", "EE.EE...", "........", "E.E.EEE."],
     playB:["..S...S.", "....O.O.", "P...P.H.", "..SS..SS", "....OOO.", "P.P.P.P.", "..S...SS", "........"],
     outro:["D.......", "........"],
   },
@@ -142,10 +151,12 @@ const callOf = (kind, beat) => CUE_KINDS[kind].lead === null ? null : beat - CUE
 function cuesOf(plan, sections) {
   const play = sections.filter(section => section.kind === "play");
   const practice = sections.find(section => section.kind === "practice");
+  const breakdown = sections.find(section => section.kind === "breakdown");
   const outro = sections.find(section => section.kind === "outro");
   const blocks = [
     { from:practice.bar, bars:plan.practice, scored:false },
     { from:play[0].bar, bars:plan.playA, scored:true },
+    { from:breakdown.bar, bars:plan.breakdown, scored:true },
     { from:play[1].bar, bars:plan.playB, scored:true },
     { from:outro.bar, bars:plan.outro, scored:true },
   ];
@@ -165,17 +176,31 @@ function cuesOf(plan, sections) {
 }
 
 /* what the riders do in each bar: the mode of its cues; a bar without cues
-   takes its section's (intro, drink, outro) or, in practice and play, the
-   next bar's, so the scene changes a bar ahead of the taps */
+   takes its section's (intro, outro) or, in practice, play and the
+   breakdown, the next bar's, so the scene changes a bar ahead of the taps
+   (the breakdown's host bars are "echo") */
 function modesOf(cues, sections) {
   const modes = new Array(SONG_BARS).fill(null);
   for (const cue of cues) modes[Math.floor(cue.beat / BEATS_PER_BAR)] ??= CUE_KINDS[cue.kind].mode;
   for (const section of sections) for (let bar = section.bar; bar < section.bar + section.bars; bar += 1) {
     if (modes[bar]) continue;
-    if (section.kind === "intro" || section.kind === "drink") modes[bar] = section.kind;
+    if (section.kind === "intro") modes[bar] = section.kind;
   }
   for (let bar = SONG_BARS - 1; bar >= 0; bar -= 1) if (!modes[bar]) modes[bar] = modes[bar + 1] || "outro";
   return modes;
+}
+
+/* the plan's narration: [beat, text, until?] -> { beat, text, until }; a line
+   ends at its own until, the next line, or the end of the section it
+   explains (the section starting within a beat of it) */
+function linesOf(list, sections) {
+  const sorted = list.slice().sort((a, b) => a[0] - b[0]);
+  return sorted.map(([beat, text, until], k) => {
+    const section = sections.find(item => beat + 1 >= item.from && beat + 1 < item.to);
+    const next = sorted[k + 1]?.[0];
+    const end = until ?? Math.min(section ? section.to : Infinity, next ?? Infinity);
+    return Object.freeze({ beat, text, until:end });
+  });
 }
 
 const CHARTS = new Map();
@@ -191,7 +216,7 @@ export function chartOf(songId) {
       v:1, id:song.id, name:song.name, scene:song.scene, window:WINDOW.MAX,
       bpm:BPM, beatMs:BEAT_MS, bars:SONG_BARS, beats:SONG_BEATS, ms:SONG_MS,
       sections:Object.freeze(sections.map(Object.freeze)), modes:Object.freeze(modesOf(cues, sections)), cues:Object.freeze(cues),
-      lines:Object.freeze((PLANS[songId].lines || []).map(([beat, text]) => Object.freeze({ beat, text }))),
+      lines:Object.freeze(linesOf(PLANS[songId].lines || [], sections)),
     }));
   }
   return CHARTS.get(songId);
@@ -235,13 +260,9 @@ export const playedCues = chart => (chart?.cues || []).filter(cue => !cue.demo);
 export const demoCues = chart => (chart?.cues || []).filter(cue => cue.demo);
 /* the narration line showing at a beat (Rhythm Heaven's text box), or null */
 export function lineAt(chart, beat) {
-  const practice = chart?.sections?.find(item => item.kind === "practice");
-  if (!practice || beat >= practice.to) return null;
-  let line = null;
-  for (const item of chart?.lines || []) if (item.beat <= beat) line = item;
-  return line;
+  return (chart?.lines || []).find(item => beat >= item.beat && beat < item.until) || null;
 }
-export const drinkSection = chart => (chart?.sections || []).find(item => item.kind === "drink") || null;
+export const breakdownSection = chart => (chart?.sections || []).find(item => item.kind === "breakdown") || null;
 
 /* ---- judging ---- */
 
@@ -325,6 +346,15 @@ export function formatOffset(d) {
 export function popupOf(q, d) {
   return { num:q === "miss" ? null : formatOffset(d), word:WORDS[q] || "", tone:TONES[q] || "white" };
 }
+
+/* ---- the chug-off (GROOVE.md "The chug-off") ----
+   After each song but the final, the last rider through and the first
+   rider out race to finish a drink in front of the room; the first to tap
+   Done keeps the spot. The phase: the call (INTRO_MS: "Chug-off!", the two
+   names, 3 2 1), up to WINDOW_MS for a Done, the winner shown (REVEAL_MS),
+   the loser's exit (EXIT_MS). Nobody Done in the window: the better score
+   keeps the spot. */
+export const CHUGOFF = Object.freeze({ INTRO_MS:4000, WINDOW_MS:30000, REVEAL_MS:3000, EXIT_MS:2500 });
 
 /* ---- after a song: grades, a line for each rider, the awards ---- */
 

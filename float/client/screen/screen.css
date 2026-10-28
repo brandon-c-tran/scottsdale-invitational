@@ -79,31 +79,9 @@
   background:repeating-conic-gradient(var(--cell) 0 25%, transparent 0 50%) 0 0 / 240px 240px; }
 .fs-root[data-tier="low"] .sc-checker-wrap, .fs-root[data-tier="lowest"] .sc-checker-wrap { display:none; }
 .sc-ripples { top:20px; height:620px; }
-.sc-rocks { top:60px; height:600px; }
 .sc-near { position:absolute; inset:0; pointer-events:none; z-index:15000; }
 .sc-near-left { position:absolute; left:-40px; bottom:-30px; width:420px; height:220px; }
 .sc-near-right { position:absolute; right:-40px; bottom:-30px; width:420px; height:220px; }
-
-/* the art's pieces in the water: the accent, rocks, the falls (stage/Pieces.jsx) */
-.sc-pieces { position:absolute; inset:0; pointer-events:none; }
-.sc-piece { position:absolute; left:0; top:0; display:block; will-change:transform; }
-
-/* the whirlpool (Spin Cycle): rings turning in the middle of the water */
-.sc-whirl { position:absolute; left:1060px; top:250px; width:0; height:0; }
-.sc-whirl i { position:absolute; left:0; top:0; border-radius:50%; border:6px solid rgba(255, 255, 255, 0.55); border-left-color:transparent;
-  border-bottom-color:transparent; transform:translate(-50%, -50%) scaleY(0.32); animation:sc-whirl 3.2s linear infinite; }
-.sc-whirl i:nth-child(1) { width:900px; height:900px; }
-.sc-whirl i:nth-child(2) { width:600px; height:600px; animation-duration:2.4s; }
-.sc-whirl i:nth-child(3) { width:300px; height:300px; animation-duration:1.6s; }
-@keyframes sc-whirl { from { transform:translate(-50%, -50%) scaleY(0.32) rotate(0deg); } to { transform:translate(-50%, -50%) scaleY(0.32) rotate(360deg); } }
-
-/* the falls (The Drop): the river's lip at the right, mist over it */
-.sc-falls { position:absolute; inset:0; opacity:0; transition:opacity 1.2s ease; }
-.fs-stage[data-mode^="drop"] .sc-falls { opacity:1; }
-.sc-falls-lip { position:absolute; right:0; top:0; bottom:0; width:220px;
-  background:linear-gradient(90deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.85) 40%, #bfeffa 41%, #7dcfe8 100%); }
-.sc-falls-mist { position:absolute; right:-60px; top:-60px; width:420px; height:700px; border-radius:50%;
-  background:radial-gradient(closest-side, rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0)); }
 
 /* the scenes' palettes */
 .fs-stage[data-scene="lobby"] { --sky-top:#bfe9df; --sky-mid:#e7f1d4; --sky-low:#fde6bd; --mesa-far:#f2c8b0; --mesa:#e5a689; }

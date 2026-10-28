@@ -20,7 +20,6 @@ import {
   riderWidth, rowCounts, rowOrder, rowsFor, rowSlots, spreadRow,
 } from "../float/client/screen/model/flotilla.js";
 import { ACTIONS, PLEASED_MS, actionAt, bobAt, cheerAt, chugAt, follow, hopToBank, popupAt } from "../float/client/screen/model/motion.js";
-import { PIECES, fallsAt, pieceAt, pieceRects, scenePieces } from "../float/client/screen/model/pieces.js";
 import { bannerAt, chartFor, chuggingAt, hostAt, hostCalls, roundLabel, sceneFor, sceneMode, signAt, songStart } from "../float/client/screen/model/song.js";
 import { cutField, cutOuts, cutRanking, cutRankingOf, cutTimeline, pctText } from "../float/client/screen/model/cut.js";
 import { createScreenStore } from "../float/client/screen/model/store.js";
@@ -163,46 +162,6 @@ test("names: on top, each under its own tube, never over another name; popups ke
     const covered = placed.filter(a => popups.some(p => overlap(a, p) > 0.25 * (a.x1 - a.x0) * (a.y1 - a.y0))).length;
     assert.ok(covered <= Math.ceil(n / 8), `${n}: names clear of the popups (${covered} grazed)`);
   }
-});
-
-test("the scene's accent stands by the far bank, past every rider and popup; the swirl lies under everyone", () => {
-  const overlap = (a, b) => Math.max(0, Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0)) * Math.max(0, Math.min(a.y1, b.y1) - Math.max(a.y0, b.y0));
-  const prop = (w, h, anchor) => ({ src:"x.webp", w, h, anchor });
-  const manifest = { scenes:{ open:{ accent:"accent-open" }, rocks:{ accent:"accent-rocks" }, whirlpool:{ accent:"accent-whirl" }, falls:{ accent:"accent-falls" } },
-    props:{ "accent-open":prop(380, 319, [190, 281]), "accent-rocks":prop(300, 291, [150, 256]), "accent-whirl":prop(480, 283, [240, 142]),
-      "accent-falls":prop(520, 334, [260, 333]), rock:prop(280, 172, [140, 148]), "falls-lip":prop(560, 393, [71, 6]) } };
-  const propOf = (id, m) => (m.props[id] ? { id, ...m.props[id] } : null);
-  for (const scene of ["open", "rocks", "falls"]) {
-    const rects = pieceRects(scenePieces(scene, manifest, propOf), { fallsIn:1 });
-    assert.equal(rects.length, 1, `${scene}: one accent to keep clear of`);
-    const [accent] = rects;
-    assert.ok(accent.x0 > 1650 && accent.y1 < 470, `${scene}: by the far bank at the right`);
-    for (const n of [3, 6, 9, 13, 16]) {
-      const order = range(n);
-      const spots = flotillaLayout(order, new Map(order.map(i => [i, 60 + (i * 17) % 40])));
-      for (const sp of Object.values(spots)) {
-        const half = 250 * sp.scale * 1.45 / 2;
-        const body = { x0:sp.x - half, x1:sp.x + half, y0:sp.y - 280 * sp.scale * 1.45, y1:sp.y };
-        assert.equal(overlap(body, accent), 0, `${scene}, ${n}: no rider behind the accent`);
-      }
-      const faces = Object.entries(spots).map(([i, sp]) => ({ i:Number(i), x:sp.x, y:sp.y, scale:sp.scale, top:sp.y - 240 * sp.scale * 1.45 }));
-      const slots = popupSlots(faces, { avoid:rects });
-      for (const sl of Object.values(slots)) {
-        const pop = { x0:sl.x - 94 * sl.size, x1:sl.x + 94 * sl.size, y0:sl.y - 100 * sl.size, y1:sl.y };
-        assert.ok(overlap(pop, accent) < 0.05 * 188 * 100, `${scene}, ${n}: popups clear of the accent`);
-      }
-    }
-    assert.ok(Object.values(crowdLayout(range(10))).every(c => c.x + 70 < accent.x0), `${scene}: the crowd stands left of it`);
-  }
-  const swirl = scenePieces("whirlpool", manifest, propOf);
-  assert.ok(swirl.every(p => p.under), "the swirl lies under everyone");
-  assert.deepEqual(pieceRects(swirl), [], "and nothing keeps clear of it");
-  assert.deepEqual(pieceRects(scenePieces("falls", manifest, propOf), { fallsIn:0 }), [], "The Drop's rainbow only once the falls are up");
-  const drop = chartOf("drop");
-  assert.equal(fallsAt(drop, 100), 0);
-  assert.ok(fallsAt(drop, drop.modes.indexOf("drop") * 4 + 2) > 0);
-  const hoop = PIECES.open[0];
-  assert.ok(Math.abs(pieceAt(hoop, 0, { beat:0.5 }).y - hoop.y) <= 4, "the hoop bobs a little");
 });
 
 /* ── the moves and the popup ── */
@@ -557,13 +516,21 @@ test("rendered: the round card and the song's shouts, the cut board with its lin
   assert.doesNotMatch(fieldday, /fs-start/);
 });
 
-test("rendered: the cast has every rider with their name, the host, the scene; a placeholder critter wears the groom's crown", () => {
+test("rendered: the cast has every rider with their name, the host, the scene; a placeholder critter wears the groom's crown", async () => {
   const store = createScreenStore();
   const cast = html(React.createElement(Cast, { store, driver:fakeDriver(0), entrants, phase:"song", room:{ phase:"song", field:range(13), out:[] }, version:1 }));
   for (const e of entrants) assert.ok(cast.includes(`>${e.name}<`), e.name);
   assert.equal((cast.match(/class="fl-rider"/g) || []).length, 13);
   assert.match(html(React.createElement(Host, { store, driver:fakeDriver(0), phase:"song" })), /fl-host/);
   assert.match(html(React.createElement(Scene, { id:"open" })), /sc-water/);
+  /* the scenes are clean (Brandon's playtest): no accents, no pieces drifting or popping in at the edges */
+  for (const id of ["open", "rocks", "whirlpool", "falls", "lobby", "podium"]) {
+    const scene = html(React.createElement(Scene, { id }));
+    assert.doesNotMatch(scene, /sc-piece|sc-whirl|sc-falls|sc-rocks|accent/, `${id}: nothing but the scene`);
+  }
+  const { readFileSync } = await import("node:fs");
+  for (const file of ["float/client/screen/FloatScreen.jsx", "float/client/screen/stage/Cast.jsx"])
+    assert.doesNotMatch(readFileSync(new URL(`../${file}`, import.meta.url), "utf8"), /Pieces|accent|scenePieces/, `${file}: no accents`);
   assert.match(html(React.createElement(PlaceholderCritter, { color:"#ff5a4e", critter:"jackrabbit", groom:true })), /cr-crown/);
 });
 

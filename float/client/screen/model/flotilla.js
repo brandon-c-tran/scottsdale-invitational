@@ -223,9 +223,8 @@ export function fieldOrder(field = [], cupOf = () => 0) {
 
 /* ── the crowd on the far bank ── */
 /* the crowd stands on the sand at the water's edge (the scene's waterline
-   is 0.4 of the height), small, right of the host and left of the scene's
-   accent by the far bank */
-export const CROWD = Object.freeze({ y:428, scale:0.34, lo:440, hi:1700 });
+   is 0.4 of the height), small, right of the host */
+export const CROWD = Object.freeze({ y:428, scale:0.34, lo:440, hi:1880 });
 
 /* the crowd's spots, left to right in elimination order, spread along the
    bank (never wider apart than a step and a half): { [i]: { x, y, scale } } */

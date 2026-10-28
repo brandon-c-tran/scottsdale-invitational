@@ -25,7 +25,6 @@ import { createDriver, reducedMotion } from "./stage/driver.js";
 import Scene, { layerOffset } from "./stage/Scene.jsx";
 import Cast from "./stage/Cast.jsx";
 import Host from "./stage/Host.jsx";
-import Pieces from "./stage/Pieces.jsx";
 import Lobby from "./hud/Lobby.jsx";
 import { CutBoard, Feedback, IntroTitle, LastCallBanner, PodiumBlocks, PodiumList, SongBanner, SongStrip } from "./hud/Hud.jsx";
 import Bar from "./stage/Bar.jsx";
@@ -187,12 +186,11 @@ export default function FloatScreen({ room = "test", hosting = false, joinUrl = 
     <div className="fs-stage" ref={stageRef} data-scene={scene}>
       {!muted && <>
         <Scene id={scene} />
-        {(phase === "song" || phase === "cut" || phase === "intro" || phase === "lobby") && <Pieces scene={scene} store={store} driver={driver} phase={phase} />}
         {(phase === "podium" || phase === "feedback") && <PodiumBlocks store={store} driver={driver} room={roomMsg} entrants={entrants} beats={PODIUM_BEATS}
           revealed={phase === "feedback"} />}
         {water && phase !== "lobby" && <Host store={store} driver={driver} phase={phase} />}
         {phase === "lastcall" && <Bar store={store} driver={driver} />}
-        <Cast store={store} driver={driver} entrants={entrants} phase={phase} room={roomMsg} version={version} scene={scene} />
+        <Cast store={store} driver={driver} entrants={entrants} phase={phase} room={roomMsg} version={version} />
         <div className="fs-hud">
           {phase === "lobby" && <Lobby room={roomMsg} entrants={entrants} hosting={hosting && roomMsg?.mode !== "fieldday"} joinUrl={joinUrl} send={send}
             serverNow={store.serverNow} />}

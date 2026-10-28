@@ -12,9 +12,8 @@ import React, { memo, useEffect, useMemo, useRef, useState } from "react";
 import { Critter, PopupLetters, SplashProp, anchorOf, useRiderArt } from "../art.jsx";
 import { ANCHOR, BOX, NAME_H, POPUP_BOX, crowdLayout, fieldOrder, flotillaLayout, nameSlots, nameWidth, podiumLayout, podiumSteps,
   popupSlots } from "../model/flotilla.js";
-import { grooveArtNow, propOf, spriteSize } from "../../art/groove/index.js";
+import { propOf, spriteSize } from "../../art/groove/index.js";
 import { actionAt, bobAt, cheerAt, chugAt, follow, hopToBank, popupAt } from "../model/motion.js";
-import { fallsAt, pieceRects, scenePieces } from "../model/pieces.js";
 import { chuggingAt } from "../model/song.js";
 import { reducedMotion } from "./driver.js";
 import { cutField, cutOuts, cutRankingOf, cutTimeline } from "../model/cut.js";
@@ -120,7 +119,7 @@ const nameUnder = (anchor, sc) => ((anchor.name ? anchor.name[1] - anchor.water[
 /* a critter's drawn height (stage px), for the hop to the bank */
 const critterHeight = (anchor, sc) => (anchor.water[1] - (anchor.top || anchor.head)[1]) * sc;
 
-export default function Cast({ store, driver, entrants, phase, room, version, scene = null }) {
+export default function Cast({ store, driver, entrants, phase, room, version }) {
   const refs = useRef(new Map());
   const popRefs = useRef(new Map());
   const nameRefs = useRef(new Map());
@@ -183,9 +182,6 @@ export default function Cast({ store, driver, entrants, phase, room, version, sc
           return { i, x:spot.x, y:spot.y, scale:spot.scale, top:spot.y - headOver(anchorFor(i), spot.scale) };
         };
         const faces = Object.entries(shown).map(faceOf);
-        /* the scene's accent by the bank (and The Drop's rainbow once it is up): popups keep off it */
-        const manifest = grooveArtNow();
-        const avoid = manifest && scene ? pieceRects(scenePieces(scene, manifest, propOf), { fallsIn:inSong ? fallsAt(chart, beat) : 0 }) : [];
         /* the names right under their tubes: the popups keep off them */
         const nameSpots = p.names ? Object.entries(shown).map(([key, spot]) => {
           const i = Number(key);
@@ -195,7 +191,7 @@ export default function Cast({ store, driver, entrants, phase, room, version, sc
         const nameRects = nameSpots.map(n => ({ i:n.i, x0:n.x - n.w / 2, x1:n.x + n.w / 2, y0:n.y - n.h / 2, y1:n.y + n.h / 2 }));
         /* Last Call's readouts letter bigger */
         const box = bar ? { w:POPUP_BOX.w * BAR_POP, h:POPUP_BOX.h * BAR_POP } : POPUP_BOX;
-        slots = inSong ? popupSlots(faces, { box, others:Object.entries(bank).map(faceOf), avoid, names:nameRects, stagger:bar }) : {};
+        slots = inSong ? popupSlots(faces, { box, others:Object.entries(bank).map(faceOf), names:nameRects, stagger:bar }) : {};
         /* then each name nudged clear of the others, the faces and the popups */
         const popups = Object.values(slots).map(slot => {
           const w = box.w * slot.size, h = box.h * slot.size;
@@ -348,7 +344,7 @@ export default function Cast({ store, driver, entrants, phase, room, version, sc
     const off = driver.add(frame);
     driver.tick();
     return off;
-  }, [driver, store, entrants, phase, scene]);
+  }, [driver, store, entrants, phase]);
 
   /* a name's width is read once it is drawn (the nudge needs it) */
   useEffect(() => { nameWidths.current = new Map(); }, [entrants]);

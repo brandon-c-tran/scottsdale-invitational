@@ -3420,7 +3420,8 @@ function gWhistle(E, dest, t, f0, f1, d, peak) {
   const c = E.ctx, len = Math.max(0.05, d);
   [["sine", 1, peak], ["triangle", 2, peak * 0.07]].forEach(([type, k, p]) => {
     const o = c.createOscillator(); o.type = type;
-    o.frequency.setValueAtTime(f0 * k, t); o.frequency.exponentialRampToValueAtTime(f1 * k, t + len * 0.85);
+    /* a moment on its first note, so it starts like a note, then the slide */
+    o.frequency.setValueAtTime(f0 * k, t); o.frequency.setValueAtTime(f0 * k, t + Math.min(0.035, len * 0.2)); o.frequency.exponentialRampToValueAtTime(f1 * k, t + len * 0.85);
     const g = c.createGain(); g.gain.value = 0;
     g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(p, t + 0.004);
     g.gain.setValueAtTime(p, t + len * 0.7); g.gain.exponentialRampToValueAtTime(0.0001, t + len);
@@ -3568,6 +3569,8 @@ const G_SONGS = Object.freeze({
     }),
     stabs:[6],
     swirl:true,
+    /* the bass breathes with the kick (four on the floor) */
+    pump:true,
   }),
   /* The Drop: D major, the anthem (vi IV V I): eighths driving the bass,
      a rock beat, saws in B; each bar takes the colour of what the riders do
@@ -3840,6 +3843,7 @@ function gPlayBar(c, level) {
     for (let s = 8; s < 16; s++) GK.snare(E, V("snare"), c.at(s), 0.25 + (s - 8) * 0.06);
   }
   gBassLine(c, level === 0 ? S.bass.thin : S.bass.full);
+  if (S.pump && c.on("bass")) gPump(c, gHits(kit.kick).map(([i]) => i));
   gComp(c, level === 0 ? S.comp.thin : S.comp.full);
   if (level >= 1) gMelody(c, level);
   /* the band's answer to a "Hey!": a stab on the chord */
@@ -3861,11 +3865,18 @@ function gPlayBar(c, level) {
   }
   gDuck(c);
 }
+/* the bass dips under each kick and swells back (a disco pump) */
+function gPump(c, steps) {
+  const g = c.V("bass").gain, lv = g.value;
+  for (const s of steps) { const t = c.at(s); g.setValueAtTime(lv * 0.45, t); g.linearRampToValueAtTime(lv, t + 0.11); }
+}
 /* the band steps back for the host: the comp, the lead and the brass dip
    under each spoken call (a run of calls is one dip) */
 function gDuck(c) {
   if (!c.on("harmony") && !c.on("melody")) return;
-  const calls = c.calls.filter(([, kind]) => kind === "hey" || kind === "hop" || kind === "spin").map(([s]) => c.at(s));
+  /* the calls, and a spin's whoosh (it answers on the backbeat, where the lead often lands) */
+  const calls = [...c.calls.filter(([, kind]) => kind === "hey" || kind === "hop" || kind === "spin"), ...c.hits.filter(([, kind]) => kind === "spin")]
+    .map(([s]) => c.at(s)).sort((a, b) => a - b);
   if (!calls.length) return;
   const spans = [];
   for (const at of calls) {

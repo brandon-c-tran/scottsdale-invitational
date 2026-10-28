@@ -91,12 +91,12 @@ html.flc-locked, html.flc-locked body { overflow: hidden; overscroll-behavior: n
   border-radius: 50%; background: var(--sun); opacity: 0.9;
   box-shadow: 0 0 0 18px color-mix(in srgb, var(--sun) 32%, transparent);
 }
-.flc-mesas { position: absolute; left: 0; right: 0; bottom: 31%; width: 100%; height: 22%; }
+.flc-mesas { position: absolute; left: 0; right: 0; bottom: 41%; width: 100%; height: 20%; }
 .flc-mesa-far { fill: var(--mesa-far); }
 .flc-mesa-near { fill: var(--mesa-near); }
-.flc-saguaro { position: absolute; left: 7%; bottom: 30%; width: 13vmin; max-width: 64px; height: auto; fill: var(--cactus); }
+.flc-saguaro { position: absolute; left: 7%; bottom: 40%; width: 13vmin; max-width: 64px; height: auto; fill: var(--cactus); }
 .flc-water, .flc-bank {
-  position: absolute; left: 0; right: 0; bottom: 0; height: 32%; overflow: hidden;
+  position: absolute; left: 0; right: 0; bottom: 0; height: 42%; overflow: hidden;
   background: var(--water-a);
   border-top: 3px solid var(--foam);
 }
@@ -156,7 +156,7 @@ html.flc-locked, html.flc-locked body { overflow: hidden; overscroll-behavior: n
 .flc-progress b { position: absolute; inset: 0; background: var(--ink); transform-origin: 0 50%; transition: transform 250ms linear; }
 
 /* the round card: the 3 s lead and the intro */
-.flc-card { position: absolute; left: 16px; right: 16px; top: calc(var(--sa-top) + 15%); display: grid; justify-items: center; gap: 10px; text-align: center; z-index: 2; }
+.flc-card { position: absolute; left: 16px; right: 16px; top: calc(var(--sa-top) + 12%); display: grid; justify-items: center; gap: 10px; text-align: center; z-index: 2; }
 .flc-card-kicker { font-size: 17px; font-weight: 900; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-2); }
 .flc-card-title {
   font-size: clamp(40px, 12.5vw, 64px); line-height: 0.98; font-weight: 900; letter-spacing: -0.01em;
@@ -171,7 +171,7 @@ html.flc-locked, html.flc-locked body { overflow: hidden; overscroll-behavior: n
 .flc-cutline-bar { width: 4px; height: 26px; margin: 0 4px; border-radius: 2px; background: var(--ink); }
 
 /* the host's call */
-.flc-call { position: absolute; left: calc(var(--sa-left) + 14px); right: calc(var(--sa-right) + 14px); top: calc(var(--sa-top) + 76px); display: flex; align-items: flex-end; gap: 6px; opacity: 0; transform: translateY(-6px); transition: opacity 140ms ease, transform 200ms var(--ease); pointer-events: none; z-index: 2; }
+.flc-call { position: absolute; left: calc(var(--sa-left) + 14px); right: calc(var(--sa-right) + 14px); top: calc(var(--sa-top) + 64px); display: flex; align-items: flex-end; gap: 6px; opacity: 0; transform: translateY(-6px); transition: opacity 140ms ease, transform 200ms var(--ease); pointer-events: none; z-index: 2; }
 .flc-call.is-on { opacity: 1; transform: none; }
 .flc-bubble {
   position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; min-height: 64px; padding: 10px 20px 12px; margin-bottom: 26px;
@@ -187,8 +187,9 @@ html.flc-locked, html.flc-locked body { overflow: hidden; overscroll-behavior: n
 @keyframes flc-word-in { from { transform: translateY(10px) scale(0.5); opacity: 0; } }
 
 /* the stage: your popup over your critter, floating on the water */
-.flc-stage { position: absolute !important; left: 0; right: 0; bottom: calc(var(--sa-bottom) + 3%); display: flex; flex-direction: column; align-items: center; pointer-events: none; }
-.flc-popup-slot { height: 168px; width: 100%; display: grid; place-items: end center; padding-bottom: 6px; }
+.flc-stage { position: absolute !important; left: 0; right: 0; bottom: calc(var(--sa-bottom) + 27%); display: flex; flex-direction: column; align-items: center; pointer-events: none; }
+.flc-stage .flc-critter { width: min(var(--size), 27vh); height: min(var(--size), 27vh); }
+.flc-popup-slot { height: min(168px, 20vh); width: 100%; display: grid; place-items: end center; padding-bottom: 4px; }
 
 /* the judgement: the signed offset over the word, chunky, outlined */
 .flc-popup { display: grid; justify-items: center; gap: 2px; font-family: var(--pixel); text-align: center; animation: flc-pop-in 170ms var(--spring) both, flc-pop-out 150ms ease-in 670ms forwards; }
@@ -203,7 +204,7 @@ html.flc-locked, html.flc-locked body { overflow: hidden; overscroll-behavior: n
 @keyframes flc-pop-out { to { transform: translateY(-14px); opacity: 0; } }
 
 /* the drink break: Drink! and a big Done */
-.flc-song.is-owed .flc-stage { bottom: calc(var(--sa-bottom) + 210px); }
+.flc-song.is-owed .flc-stage { bottom: max(calc(var(--sa-bottom) + 27%), calc(var(--sa-bottom) + 176px)); }
 .flc-drink { position: absolute !important; left: calc(var(--sa-left) + 16px); right: calc(var(--sa-right) + 16px); top: calc(var(--sa-top) + 64px); bottom: calc(var(--sa-bottom) + 18px); display: flex; flex-direction: column; align-items: center; justify-content: space-between; z-index: 3; pointer-events: none; }
 .flc-drink-title { font-size: clamp(56px, 18vw, 92px); line-height: 1; font-weight: 900; color: var(--yellow); text-shadow: var(--outline); animation: flc-drink-in 520ms var(--spring) both, flc-sway 1s ease-in-out 520ms infinite alternate; }
 @keyframes flc-drink-in { from { transform: scale(0.4) rotate(-8deg); opacity: 0; } }
@@ -222,7 +223,7 @@ html.flc-locked, html.flc-locked body { overflow: hidden; overscroll-behavior: n
 .flc-cup-body { fill: rgba(255, 255, 255, 0.7); stroke: var(--ink); stroke-width: 2.4; stroke-linejoin: round; }
 .flc-cup-fill { fill: currentColor; }
 .flc-cup-check { fill: none; stroke: var(--ink); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
-.flc-rest { position: absolute !important; left: 16px; right: 16px; top: calc(var(--sa-top) + 18%); display: grid; justify-items: center; z-index: 2; pointer-events: none; }
+.flc-rest { position: absolute !important; left: 16px; right: 16px; top: calc(var(--sa-top) + 14%); display: grid; justify-items: center; z-index: 2; pointer-events: none; }
 .flc-rest b { font-size: clamp(52px, 16vw, 80px); font-weight: 900; color: var(--paper); text-shadow: var(--outline); animation: flc-card-in 420ms var(--spring) both; }
 
 /* ── joining ── */
@@ -262,7 +263,7 @@ html.flc-locked, html.flc-locked body { overflow: hidden; overscroll-behavior: n
 .flc-sheet-body { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; touch-action: pan-y; margin: 0 -6px; padding: 0 6px 8px; }
 
 /* ── the cut ── */
-.flc-cut-main { position: absolute !important; left: 16px; right: 16px; top: calc(var(--sa-top) + 12%); display: grid; justify-items: center; gap: 14px; text-align: center; }
+.flc-cut-main { position: absolute !important; left: 16px; right: 16px; top: calc(var(--sa-top) + 9%); display: grid; justify-items: center; gap: 14px; text-align: center; }
 .flc-stamp {
   font-size: clamp(56px, 17vw, 88px); line-height: 1; font-weight: 900; letter-spacing: -0.01em; color: var(--paper);
   padding: 8px 26px 12px; border-radius: 24px; background: var(--teal); box-shadow: inset 0 0 0 5px var(--ink), 0 8px 0 var(--ink);
@@ -280,7 +281,7 @@ html.flc-locked, html.flc-locked body { overflow: hidden; overscroll-behavior: n
 .flc-place { font-size: 21px; font-weight: 900; color: var(--ink); background: rgba(255, 253, 248, 0.8); padding: 5px 14px; border-radius: 999px; }
 
 /* ── the crowd: out, cheering from the bank ── */
-.flc-crowd .flc-stage { bottom: calc(var(--sa-bottom) + 190px); }
+.flc-crowd .flc-stage { bottom: max(calc(var(--sa-bottom) + 27%), calc(var(--sa-bottom) + 170px)); }
 .flc-cheer {
   position: absolute !important; left: calc(var(--sa-left) + 16px); right: calc(var(--sa-right) + 16px); bottom: calc(var(--sa-bottom) + 22px);
   margin: 0 auto; width: min(calc(100% - 32px), 380px); min-height: 120px; border-radius: 40px;
@@ -290,13 +291,13 @@ html.flc-locked, html.flc-locked body { overflow: hidden; overscroll-behavior: n
 .flc-cheer[data-pressed] { transform: translateY(7px); box-shadow: inset 0 0 0 5px var(--ink), 0 2px 0 var(--ink); }
 
 /* ── the podium ── */
-.flc-podium-place { position: absolute !important; left: 16px; right: 16px; top: calc(var(--sa-top) + 11%); display: grid; justify-items: center; }
+.flc-podium-place { position: absolute !important; left: 16px; right: 16px; top: calc(var(--sa-top) + 9%); display: grid; justify-items: center; }
 .flc-podium-place b { font-size: clamp(88px, 28vw, 150px); line-height: 0.9; font-weight: 900; letter-spacing: -0.04em; color: var(--paper); text-shadow: var(--outline); }
 .flc-podium-place span { font-size: 21px; font-weight: 900; margin-top: 8px; background: rgba(255, 253, 248, 0.8); padding: 4px 14px; border-radius: 999px; }
 .flc-podium.is-p1 .flc-podium-place b { color: var(--gold); animation: flc-stamp-in 620ms var(--spring) both; }
 .flc-podium.is-p2 .flc-podium-place b { color: #e3e8ef; animation: flc-stamp-in 620ms var(--spring) both; }
 .flc-podium.is-p3 .flc-podium-place b { color: #eaa66f; animation: flc-stamp-in 620ms var(--spring) both; }
-.flc-podium .flc-stage { bottom: calc(var(--sa-bottom) + 118px); }
+.flc-podium .flc-stage { bottom: max(calc(var(--sa-bottom) + 24%), calc(var(--sa-bottom) + 120px)); }
 .flc-podium-row { position: absolute !important; left: 0; right: 0; bottom: calc(var(--sa-bottom) + 18px); display: flex; justify-content: center; align-items: flex-end; gap: 18px; }
 .flc-podium-row li { display: grid; justify-items: center; gap: 4px; font-size: 15px; font-weight: 900; }
 .flc-podium-row li.is-me .flp { box-shadow: 0 0 0 3.5px var(--ink); }

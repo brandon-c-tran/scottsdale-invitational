@@ -163,6 +163,8 @@ export default function FloatController({ room = "test", rider = null, onExit = 
   pad.song(songKey);
   const [popup, setPopup] = useState(null);
   const [act, setAct] = useState(null);
+  /* a new song starts with nothing on the screen */
+  useEffect(() => { setPopup(null); setAct(null); }, [songKey]);
   const popupRef = useRef(null);
   popupRef.current = popup;
   const live = useRef({});
@@ -211,6 +213,7 @@ export default function FloatController({ room = "test", rider = null, onExit = 
     const perf = perfNow();
     const t = serverStamp(stampOf({ timeStamp:eventAt }, perf), { perfNow:perf, serverNow:net.serverNow() });
     const gate = drinkGate({ view:songView(s.chart, s.songAt, t), chart:s.chart, owes:s.owes, done:s.done });
+    if (globalThis.__floatMock) globalThis.__floatLastTap = { t, songAt:s.songAt, offset:s.offset, pad:gate.pad, key:pad.key(), eventAt, perf };
     if (!gate.pad) return;
     const found = pad.tap(t, { chart:s.chart, songAt:s.songAt, offset:s.offset });
     if (found) {

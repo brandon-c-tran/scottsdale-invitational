@@ -445,11 +445,15 @@ function seenKey(key) {
      opts     recipe options (a part's length, a crowd's size)
      open     not ducked under a win song (the walkout's stinger, the crown,
               the room's chord); Quick Draw still stops it starting
+     ahead    put it on the audio clock as soon as it is this close (ms; at
+              least LOOKAHEAD_MS): a song's bar laid a bar ahead plays on the
+              audio thread's own time, so a busy page (a stalled timer) never
+              drops or drags it (the clip path's beds, Float's Groove)
    Returns { cancel } or null when nothing will play. Never throws. cancel
    drops a cue still waiting; a cut recipe (soundKit cutSound: a music
    bed's bar) it also fades out once it rings. */
 export function playSound(id, { bus = "you", at = null, delayMs = 0, pan = 0, key = null, lateMs = LATE_MS, opts = {},
-  open = false } = {}) {
+  open = false, ahead = 0 } = {}) {
   try {
     if (!isSound(id) || soundOptedOut() || !busAllowed(bus, engine.surface)) return null;
     const ctx = context(false);
@@ -480,7 +484,7 @@ export function playSound(id, { bus = "you", at = null, delayMs = 0, pan = 0, ke
       try { globalThis.__FD_SOUND_LOG__?.push?.({ id, bus, at:target, when, currentTime:c.currentTime, pan }); } catch {}
     };
     const stop = () => { try { gate?.stop(); } catch {} gate = null; };
-    const wait = land - now - LOOKAHEAD_MS;
+    const wait = land - now - Math.max(LOOKAHEAD_MS, Math.min(10_000, Number(ahead) || 0));
     if (wait <= 0) { fire(); return { cancel:stop }; }
     let timer = null;
     timer = setTimeout(() => { engine.timers.delete(timer); fire(); }, wait);

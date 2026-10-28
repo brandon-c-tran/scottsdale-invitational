@@ -269,11 +269,18 @@ export function bedSlot(track, index) {
   if (track.kind === "song") {
     const slots = songSlots(track.chart);
     if (index < 0 || index >= slots.length) return null;
-    return { start:track.songAt + index * BAR_MS - GROOVE_PRE_MS, cues:slots[index].map(ev => ({ id:ev.id, at:eventAt(track.songAt, ev.beat), opts:ev.opts })) };
+    return { start:track.songAt + index * BAR_MS - GROOVE_PRE_MS,
+      cues:slots[index].map(ev => ({ id:ev.id, at:eventAt(track.songAt, ev.beat), opts:ev.opts })) };
   }
   const at = index * BAR_MS;
   return { start:at - GROOVE_PRE_MS, cues:[{ id:"floatLobby", at:at - GROOVE_PRE_MS, opts:{ bar:lobbyBar(at), cut:!!track.cut } }] };
 }
+/* A bed's cue goes on the audio clock this far ahead of its time (sound.js
+   `ahead`), all of a bar's in one go: one mapping of the room's clock onto
+   the audio clock for the band, the calls and the answers together, and a
+   bar is built (a few ms) well before it plays, so a stalled page never
+   drops or drags it. */
+export const BED_AHEAD_MS = GROOVE_LEAD_MS + 400;
 /* the first slot a track lays from `now` (the next one not yet begun) */
 export function firstSlot(track, now) {
   if (track.kind === "song") return Math.max(0, Math.ceil((now + 40 + GROOVE_PRE_MS - track.songAt) / BAR_MS));
@@ -301,8 +308,8 @@ export function createGrooveScreenSound(net, { play = null, visible = pageVisibl
   let status = "open";
   try { status = typeof net.status === "function" ? net.status() : "open"; } catch {}
   let mem = initialScreen({ open:status !== "closed" && status !== "connecting" });
-  const bed = { key:null, track:null, next:0, handles:[] };
-  const cancelBed = () => { for (const h of bed.handles) { try { h.handle?.cancel?.(); } catch {} } bed.handles = []; };
+  const bed = { key:null, track:null, next:0, handles:[], queue:[] };
+  const cancelBed = () => { for (const h of bed.handles) { try { h.handle?.cancel?.(); } catch {} } bed.handles = []; bed.queue = []; };
   const sound = cues => { for (const c of cues) { try { cue(c.id, c.at, { pan:c.pan || 0, opts:c.opts || {}, key:c.key ?? null, ...(c.lateMs ? { lateMs:c.lateMs } : {}) }); } catch {} } };
   const lay = () => {
     try {
@@ -321,7 +328,11 @@ export function createGrooveScreenSound(net, { play = null, visible = pageVisibl
         if (!slot || slot.start >= t + GROOVE_LEAD_MS) break;
         bed.next++;
         if (slot.start < t - 40) continue;
-        for (const c of slot.cues) bed.handles.push({ at:c.at, handle:cue(c.id, c.at, { opts:c.opts || {}, lateMs:GROOVE_LATE_MS }) });
+        bed.queue.push(...slot.cues);
+      }
+      for (const c of bed.queue.splice(0)) {
+        if (c.at < t - GROOVE_LATE_MS) continue;
+        bed.handles.push({ at:c.at, handle:cue(c.id, c.at, { opts:c.opts || {}, lateMs:GROOVE_LATE_MS, ahead:BED_AHEAD_MS }) });
       }
       bed.handles = bed.handles.filter(h => h.at > t - 8000);
     } catch {}

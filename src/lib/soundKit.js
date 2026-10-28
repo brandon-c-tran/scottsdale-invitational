@@ -3350,33 +3350,7 @@ function gMarimba(E, dest, t, f, peak, { dec = 0.45 } = {}) {
   mode(E, dest, t, f * 9.2, 0.02, peak * 0.08, { a:0.001 });
   burst(E, dest, t, { f:Math.min(6000, f * 6), q:1, d:0.006, peak:peak * 0.2 });
 }
-/* the clavinet: a bright pulse through the pickup's band, short as funk wants it */
-function gClav(E, dest, t, midis, d, peak) {
-  const list = (Array.isArray(midis) ? midis : [midis]).map(Number).filter(Number.isFinite);
-  if (!list.length || !(peak > 0)) return;
-  const c = E.ctx, hold = Math.max(0.04, d), each = peak / Math.sqrt(list.length);
-  /* the pickup's quack (a gentle peak), the buzz above it rolled off */
-  const hp = c.createBiquadFilter(); hp.type = "highpass"; hp.frequency.value = 300; hp.Q.value = 0.7;
-  const bp = c.createBiquadFilter(); bp.type = "peaking"; bp.frequency.value = 1150; bp.Q.value = 1.6;
-  if (bp.gain) bp.gain.value = 4;
-  const lp = c.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 3600; lp.Q.value = 0.6;
-  hp.connect(bp); bp.connect(lp); lp.connect(dest); track(E, hp, bp, lp);
-  list.forEach((m, i) => {
-    const f = gHz(m), at = t + i * 0.004;
-    const g = c.createGain(); g.gain.value = 0;
-    g.gain.setValueAtTime(0.0001, at); g.gain.linearRampToValueAtTime(each, at + 0.002);
-    g.gain.exponentialRampToValueAtTime(each * 0.3, at + 0.07);
-    g.gain.setValueAtTime(each * 0.3, at + Math.max(0.07, hold - 0.02));
-    g.gain.exponentialRampToValueAtTime(0.0001, at + hold + 0.03);
-    g.connect(hp); track(E, g);
-    [["square", 1, 0.55], ["sawtooth", 2.001, 0.18]].forEach(([type, r, level]) => {
-      const o = c.createOscillator(); o.type = type; o.frequency.setValueAtTime(f * r, at);
-      const lg = c.createGain(); lg.gain.value = level;
-      o.connect(lg); lg.connect(g); track(E, o, lg); trackSource(E, o);
-      o.start(at); o.stop(at + hold + 0.06);
-    });
-  });
-}
+/* (the clavinet is gClavLine below: a bar of it as one voice a note) */
 /* the electric piano: a round tine, its octave fading fast, the bell of
    the tine's strike; trem rocks it side to side (the lounge) */
 function gKeys(E, dest, t, midis, d, peak, { trem = 0 } = {}) {
@@ -3706,6 +3680,53 @@ function grooveBar(E, t0, o = {}) {
     default: return gPlayBar(c, c.part ? 2 : 1);
   }
 }
+/* A bar of one noise instrument as one voice: a looping noise through its
+   filter, each hit an envelope on one gain ([[t, peak, d]], in time order),
+   a hit closing the one before as a hi-hat chokes. A bar's sixteen hats are
+   three nodes, not fifty. */
+function gNoiseLine(E, dest, hits, { type = "highpass", f = 7600, q = 0.7, a = 0.0008 } = {}) {
+  const list = hits.filter(([t, peak]) => Number.isFinite(t) && peak > 0).sort((x, y) => x[0] - y[0]);
+  if (!list.length) return;
+  const c = E.ctx;
+  const s = c.createBufferSource(); s.buffer = E.noise; s.loop = true;
+  const fl = c.createBiquadFilter(); fl.type = type; fl.frequency.value = f; fl.Q.value = q;
+  const g = c.createGain(); g.gain.value = 0;
+  let end = list[0][0];
+  list.forEach(([t, peak, d], i) => {
+    const next = list[i + 1]?.[0] ?? Infinity, len = Math.max(0.004, Math.min(d, next - t - a - 0.002));
+    g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(peak, t + a);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + a + len);
+    end = t + a + len;
+  });
+  s.connect(fl); fl.connect(g); g.connect(dest);
+  track(E, s, fl, g); trackSource(E, s);
+  s.start(list[0][0], Math.random() * 1.5); s.stop(end + 0.03);
+}
+/* A run of struck notes as one voice (a marimba, a swirl): one sine set to
+   each note in turn, its wood an octave pair over it, each note an
+   envelope ([[t, f, peak, d]], in time order) */
+function gToneLine(E, dest, notes, { wood = 3.93 } = {}) {
+  const list = notes.filter(([t, f, peak]) => Number.isFinite(t) && f > 0 && peak > 0).sort((x, y) => x[0] - y[0]);
+  if (!list.length) return;
+  const c = E.ctx;
+  const parts = [[1, 1], [wood, 0.2]].map(([r, k]) => {
+    const o = c.createOscillator(); o.type = "sine";
+    const g = c.createGain(); g.gain.value = 0;
+    o.connect(g); g.connect(dest); track(E, o, g); trackSource(E, o);
+    return { o, g, r, k };
+  });
+  let end = list[0][0];
+  list.forEach(([t, f, peak, d], i) => {
+    const next = list[i + 1]?.[0] ?? Infinity, len = Math.max(0.01, Math.min(d, next - t - 0.003));
+    for (const { o, g, r, k } of parts) {
+      o.frequency.setValueAtTime(f * r, t);
+      g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(peak * k, t + 0.002);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.002 + len * (r === 1 ? 1 : 0.25));
+    }
+    end = t + 0.002 + len;
+  });
+  for (const { o } of parts) { o.start(list[0][0]); o.stop(end + 0.03); }
+}
 /* the drums of a level's line, the hits' own kicks, and a fill into a new section */
 function gDrums(c, kit, { fill = false } = {}) {
   if (!c.on("drums")) return;
@@ -3717,11 +3738,12 @@ function gDrums(c, kit, { fill = false } = {}) {
   gHits(kit.clap).forEach(([i, k]) => GK.clap(E, V("snare"), c.at(i), k));
   gHits(kit.snare).forEach(([i, k]) => GK.snare(E, V("snare"), c.at(i), k));
   gHits(kit.rim).forEach(([i, k]) => FLD.rim(E, V("snare"), c.at(i), k));
-  gHits(kit.hat).forEach(([i, k]) => GK.hat(E, V("hat"), c.at(i), k, false));
-  gHits(kit.open).forEach(([i, k]) => GK.hat(E, V("hat"), c.at(i), k, true));
+  /* the bar's hats, tambourine and shaker each one line (a source a bar, its hits envelopes on it) */
+  gNoiseLine(E, V("hat"), gHits(kit.hat).map(([i, k]) => [c.at(i), 0.2 * k, 0.03]), { type:"highpass", f:7600 });
+  gNoiseLine(E, V("hat"), gHits(kit.open).map(([i, k]) => [c.at(i), 0.15 * k, 0.24]), { type:"highpass", f:7200 });
   gHits(kit.cow).forEach(([i, k]) => GK.cowbell(E, V("perc"), c.at(i), k * 0.7));
-  gHits(kit.tamb).forEach(([i, k]) => GK.tamb(E, V("perc"), c.at(i), k * 0.7));
-  gHits(kit.shaker).forEach(([i, k]) => GK.shaker(E, V("perc"), c.at(i), k));
+  gNoiseLine(E, V("perc"), gHits(kit.tamb).map(([i, k]) => [c.at(i), 0.17 * k * 0.7, 0.07]), { type:"bandpass", f:8200, q:1.6, a:0.002 });
+  gNoiseLine(E, V("perc"), gHits(kit.shaker).map(([i, k]) => [c.at(i), 0.16 * k, 0.055]), { type:"bandpass", f:6800, q:1.3, a:0.014 });
   if (fill) {
     /* toms down into the next section, around a "Hey!" on four */
     const free = [12, 13, 14, 15].filter(s => !c.held.has(s));
@@ -3743,12 +3765,44 @@ function gBassLine(c, steps) {
 function gComp(c, line) {
   if (!c.on("harmony")) return;
   const { E, S, V, chord } = c;
-  for (const [i, k] of gHits(line)) {
-    if (c.held.has(i)) continue;
-    if (S.comp.kind === "clav") gClav(E, V("comp"), c.at(i), chord.comp, G16 * 0.7, 0.1 * k);
-    else if (S.comp.kind === "skank") { gClav(E, V("comp"), c.at(i), chord.comp, G16 * 0.6, 0.09 * k); gKeys(E, V("keys"), c.at(i), chord.comp, G16 * 0.8, 0.07 * k); }
-    else if (S.comp.kind === "brass") gBrass(E, V("brass"), c.at(i), chord.comp.map(m => m + 12), G16 * 0.9, 0.1 * k);
-  }
+  const hits = gHits(line).filter(([i]) => !c.held.has(i));
+  if (S.comp.kind === "clav") gClavLine(E, V("comp"), hits.map(([i, k]) => [c.at(i), 0.1 * k, G16 * 0.7]), chord.comp);
+  else if (S.comp.kind === "skank") {
+    gClavLine(E, V("comp"), hits.map(([i, k]) => [c.at(i), 0.09 * k, G16 * 0.6]), chord.comp);
+    for (const [i, k] of hits) gKeys(E, V("keys"), c.at(i), chord.comp, G16 * 0.8, 0.07 * k);
+  } else if (S.comp.kind === "brass") for (const [i, k] of hits) gBrass(E, V("brass"), c.at(i), chord.comp.map(m => m + 12), G16 * 0.9, 0.1 * k);
+}
+/* A bar of clav on one chord as one voice a note: each hit an envelope on
+   the note's gain ([[t, peak, d]]), the pickup's filters shared */
+function gClavLine(E, dest, hits, midis) {
+  const list = hits.filter(([t, peak]) => Number.isFinite(t) && peak > 0).sort((x, y) => x[0] - y[0]);
+  const notes = (Array.isArray(midis) ? midis : [midis]).map(Number).filter(Number.isFinite);
+  if (!list.length || !notes.length) return;
+  const c = E.ctx, n = Math.sqrt(notes.length);
+  const hp = c.createBiquadFilter(); hp.type = "highpass"; hp.frequency.value = 300; hp.Q.value = 0.7;
+  const bp = c.createBiquadFilter(); bp.type = "peaking"; bp.frequency.value = 1150; bp.Q.value = 1.6;
+  if (bp.gain) bp.gain.value = 4;
+  const lp = c.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 3600; lp.Q.value = 0.6;
+  hp.connect(bp); bp.connect(lp); lp.connect(dest); track(E, hp, bp, lp);
+  notes.forEach((m, j) => {
+    const f = gHz(m), g = c.createGain(); g.gain.value = 0;
+    let end = list[0][0];
+    list.forEach(([t, peak, d], i) => {
+      const at = t + j * 0.004, next = (list[i + 1]?.[0] ?? Infinity) + j * 0.004;
+      const each = peak / n, hold = Math.max(0.03, Math.min(d, next - at - 0.04));
+      g.gain.setValueAtTime(0.0001, at); g.gain.linearRampToValueAtTime(each, at + 0.002);
+      g.gain.exponentialRampToValueAtTime(each * 0.3, at + Math.min(0.07, hold));
+      g.gain.exponentialRampToValueAtTime(0.0001, at + hold + 0.03);
+      end = at + hold + 0.03;
+    });
+    g.connect(hp); track(E, g);
+    [["square", 1, 0.55], ["sawtooth", 2.001, 0.18]].forEach(([type, r, level]) => {
+      const o = c.createOscillator(); o.type = type; o.frequency.setValueAtTime(f * r, list[0][0]);
+      const lg = c.createGain(); lg.gain.value = level;
+      o.connect(lg); lg.connect(g); track(E, o, lg); trackSource(E, o);
+      o.start(list[0][0] + j * 0.004); o.stop(end + 0.03);
+    });
+  });
 }
 /* the hook's bar k: the lead under it, the glockenspiel on it (B), leaving
    the room's "Hey!" and the host's voice their sixteenths */
@@ -3799,6 +3853,7 @@ function gPlayBar(c, level) {
 /* the band steps back for the host: the comp, the lead and the brass dip
    under each spoken call (a run of calls is one dip) */
 function gDuck(c) {
+  if (!c.on("harmony") && !c.on("melody")) return;
   const calls = c.calls.filter(([, kind]) => kind === "hey" || kind === "hop" || kind === "spin").map(([s]) => c.at(s));
   if (!calls.length) return;
   const spans = [];
@@ -3818,14 +3873,16 @@ function gDuck(c) {
 function gSwirl(c) {
   const { E, V, chord } = c;
   const tones = chord.tones.map(m => m + 12), run = [...tones, ...tones.slice(1, -1).reverse()];
-  for (let s = 0; s < 16; s++) gMarimba(E, V(s % 4 < 2 ? "swirlL" : "swirlR"), c.at(s), gHz(run[s % run.length]), 0.035, { dec:0.25 });
+  const notes = Array.from({ length:16 }, (_, s) => [s, [c.at(s), gHz(run[s % run.length]), 0.035, 0.25]]);
+  gToneLine(E, V("swirlL"), notes.filter(([s]) => s % 4 < 2).map(([, n]) => n));
+  gToneLine(E, V("swirlR"), notes.filter(([s]) => s % 4 >= 2).map(([, n]) => n));
 }
 /* The Drop's colours: what the riders do in the bar sounds in the band */
 function gDropColour(c, level) {
   if (!c.on("drums")) return;
   const { E, V } = c;
   if (c.mode === "paddle") [2, 6, 10, 14].forEach(s => GK.cowbell(E, V("perc"), c.at(s), 0.45));
-  else if (c.mode === "rock" && c.on("harmony")) [2, 6, 10, 14].forEach(s => gClav(E, V("comp"), c.at(s), c.chord.comp, G16 * 0.6, 0.08));
+  else if (c.mode === "rock" && c.on("harmony")) gClavLine(E, V("comp"), [2, 6, 10, 14].map(s => [c.at(s), 0.08, G16 * 0.6]), c.chord.comp);
   else if (c.mode === "spin") { [2, 6, 10, 14].forEach(s => GK.hat(E, V("hat"), c.at(s), 0.7, true)); [4, 12].forEach(s => GK.kick(E, V("kick"), c.at(s), 0.7)); }
   if (level >= 2 && c.mode === "spin" && c.on("harmony")) gSwirl(c);
 }
@@ -3854,7 +3911,7 @@ function gLoungeBar(c) {
   const { E, S, V, chord } = c;
   const last = c.k === c.len - 1;
   const at = i => c.t + i * G16 + (i % 4 === 2 ? 0.025 : 0);
-  if (c.k === 0) { const v = V("fx"); gClink(E, v, at(0)); }
+  if (c.k === 0 && c.on("drums")) gClink(E, V("fx"), at(0));
   if (c.on("harmony")) {
     const voicing = chord.tones.map(m => (m < 55 ? m + 12 : m)).slice(0, 4);
     gKeys(E, V("keys"), at(0), voicing, G16 * 5, 0.09, { trem:0.6 });
@@ -4176,7 +4233,7 @@ function grooveBarRoom(E, t0, o = {}) {
   if (o.drinks) {
     /* who drinks owns the bar: the bass and the ride hold under it */
     flBass(E, V("bass"), at(0), gHz(chord.bass + 12), FLOAT_BAR_S * 0.9, 0.24, { upright:true });
-    [0, 4, 8, 12].forEach(s => GK.ride(E, V("hat"), at(s), 0.5));
+    gNoiseLine(E, V("hat"), [0, 4, 8, 12].map(s => [at(s), 0.03, 0.3]), { type:"highpass", f:6200 });
     return;
   }
   const root = chord.bass < 36 ? chord.bass + 12 : chord.bass, to = next.bass < 36 ? next.bass + 12 : next.bass;
@@ -4184,7 +4241,7 @@ function grooveBarRoom(E, t0, o = {}) {
   [root, third, root + 7, to - 1 === root + 7 ? to + 2 : to - 1].forEach((m, i) => flBass(E, V("bass"), at(i * 4), gHz(m), G16 * 3.6, i ? 0.24 : 0.28, { upright:true }));
   GK.kick(E, V("kick"), at(0), 0.55);
   [4, 12].forEach(s => FLD.brush(E, V("snare"), at(s), 0.9));
-  [0, 4, 6, 8, 12, 14].forEach(s => GK.ride(E, V("hat"), at(s), s % 4 ? 0.45 : 0.7));
+  gNoiseLine(E, V("hat"), [0, 4, 6, 8, 12, 14].map(s => [at(s), s % 4 ? 0.028 : 0.042, 0.3]), { type:"highpass", f:6200 });
   [6, 14].forEach(s => { if (!busy.has(s)) gKeys(E, V("keys"), at(s), chord.comp, G16 * 1.6, 0.07, { trem:0.4 }); });
   /* the bar's own little tune on the vibes in its first bar */
   if (bar === 0) gNotes("E5 D5 C5 A4").forEach((m, i) => gVibes(E, V("vibes"), at(i * 2 + 8), gHz(m), G16 * 1.8, 0.07));

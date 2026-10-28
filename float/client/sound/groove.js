@@ -29,8 +29,9 @@ export { BEAT_MS, BAR_MS };
 export const GROOVE_PRE_MS = 150;
 /* a beat's cue this late is dropped rather than played off its beat */
 export const GROOVE_LATE_MS = 40;
-/* a bar's events are laid this far ahead of its downbeat */
-export const GROOVE_LEAD_MS = 900;
+/* a bar's events are laid this far ahead of its downbeat (and go on the audio
+   clock then: a stalled page never drops or drags a bar) */
+export const GROOVE_LEAD_MS = 1800;
 /* The podium, ms from its start (the room's startAt): the fanfare's roll,
    then each place on its beat and the crowd (soundKit GROOVE_PODIUM_MS
    plus the roll's lead). The screen reveals the places on these. */

@@ -223,14 +223,49 @@ test("the TV lays the song a bar ahead from songAt: the round card's sting and t
   assert.equal(title.at, songAt + groove.TITLE_BEATS.title - PRE, "the title a beat after the sting's hit");
   assert.equal(sting.opts.song, "paddle");
   r.advance(songAt + 9000 - r.now());
-  const laid = r.played.filter(p => p.lateMs === groove.GROOVE_LATE_MS);
-  /* a bar's events are laid together, as its downbeat comes within a lead */
-  const want = groove.songEvents(chartOf("paddle")).filter(e => groove.eventAt(songAt, Math.floor(e.beat / 4) * 4) < r.now() + groove.GROOVE_LEAD_MS);
+  /* a bar's events are laid together as its downbeat comes within a lead, in the one tick */
+  const laid = r.played.filter(p => p.lateMs === groove.GROOVE_LATE_MS && p.id !== "floatLobby");
+  const barStart = beat => groove.eventAt(songAt, Math.floor(beat / 4) * 4);
+  const want = groove.songEvents(chartOf("paddle")).filter(e => barStart(e.beat) < r.now() + groove.GROOVE_LEAD_MS);
   assert.deepEqual(laid.map(p => [p.id, p.at]), want.map(e => [e.id, groove.eventAt(songAt, e.beat)]), "every event of the bars so far, in order, exact");
   assert.ok(laid.every(p => p.at - p.laidAt <= groove.GROOVE_LEAD_MS + BAR_MS && p.at - p.laidAt > 0), "each laid ahead, never more than a bar and a lead");
-  assert.ok(laid.filter(p => p.id === "floatGroove").every(p => p.at - p.laidAt <= groove.GROOVE_LEAD_MS), "a bar no more than a lead");
+  assert.ok(laid.filter(p => p.id === "floatGroove").every(p => p.at - p.laidAt <= groove.GROOVE_LEAD_MS && p.at - p.laidAt >= groove.GROOVE_LEAD_MS - 200),
+    "a bar a lead ahead");
   assert.equal(laid.filter(p => p.id === "floatGroove")[0].at, songAt - PRE, "bar 0 on beat 0");
+  const byBar = new Map();
+  for (const p of laid) { const bar = Math.floor((p.at + PRE - songAt) / BAR_MS); (byBar.get(bar) || byBar.set(bar, new Set()).get(bar)).add(p.laidAt); }
+  assert.ok([...byBar.values()].every(ticks => ticks.size === 1), "a bar's band, calls and answers in one tick (one clock mapping)");
   r.runner.stop();
+});
+
+test("the engine's `ahead`: a bar laid a lead early goes on the audio clock at once, so a stalled timer never drops it", async () => {
+  mock.timers.enable({ apis:["setTimeout", "Date"], now:T0 });
+  try {
+    const sound = await import("../src/lib/sound.js");
+    const made = [];
+    class Ctx {
+      constructor() { this.state = "suspended"; this.currentTime = 10; this.sampleRate = 8000; this.outputLatency = 0; this.destination = {}; this.starts = []; made.push(this); }
+      node(kind) { const ctx = this; const param = () => ({ value:1, setValueAtTime() {}, linearRampToValueAtTime() {}, exponentialRampToValueAtTime() {}, cancelScheduledValues() {} });
+        return { kind, type:"", gain:param(), frequency:param(), Q:param(), pan:param(), threshold:param(), knee:param(), ratio:param(), attack:param(), release:param(),
+          playbackRate:param(), connect(n) { return n; }, disconnect() {}, start(t) { ctx.starts.push(t); }, stop() {} }; }
+      createGain() { return this.node("gain"); } createBiquadFilter() { return this.node("filter"); } createDynamicsCompressor() { return this.node("comp"); }
+      createConvolver() { return this.node("conv"); } createStereoPanner() { return this.node("pan"); } createOscillator() { return this.node("osc"); }
+      createBufferSource() { return this.node("src"); } createBuffer(c, l) { return { length:l, numberOfChannels:c, getChannelData:() => new Float32Array(l) }; }
+      resume() { this.state = "running"; this.onstatechange?.(); return Promise.resolve(); } close() { this.state = "closed"; }
+    }
+    sound.__resetSoundEngine({ factory:Ctx });
+    sound.setSoundSurface("tv");
+    sound.primeSound();
+    const ctx = made[0];
+    ctx.starts.length = 0;
+    assert.ok(sound.cueAt("floatGroove", Date.now() + 1500, { opts:{ song:"paddle", bar:6, sec:"play", k:0, len:8 }, ahead:screen.BED_AHEAD_MS }));
+    assert.ok(ctx.starts.length > 0, "scheduled at once, 1.5 s ahead on the audio clock");
+    assert.ok(Math.min(...ctx.starts) >= 10 + 1.5 - 0.001, `on its time: ${Math.min(...ctx.starts)}`);
+    ctx.starts.length = 0;
+    assert.ok(sound.cueAt("floatGroove", Date.now() + 1500, { opts:{ song:"paddle", bar:6, sec:"play", k:0, len:8 } }));
+    assert.equal(ctx.starts.length, 0, "without it, the cue waits on a timer as before");
+    sound.__resetSoundEngine();
+  } finally { mock.timers.reset(); }
 });
 
 test("a TV that joins mid-song hears the song from its next bar line, and no round card", () => {

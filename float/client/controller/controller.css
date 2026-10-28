@@ -385,6 +385,9 @@ html.flc-locked, html.flc-locked body { overflow: hidden; overscroll-behavior: n
   .flc-drink { top: calc(var(--sa-top) + 48px); left: 46%; justify-content: center; gap: 18px; }
   .flc-song.is-owed .flc-stage { bottom: calc(var(--sa-bottom) + 2%); }
   .flc-cut-main, .flc-podium-place, .flc-rest, .flc-watch-main { left: 46%; top: calc(var(--sa-top) + 10%); }
+  .flc-popup-slot.is-bar { left: 0; right: 0; width: auto; bottom: auto; top: calc(var(--sa-top) + 2%); height: 34vh; }
+  .flc-lastcall .flc-popup .fg-popup { --fg-size: 48px !important; }
+  .flc-verdict { top: calc(var(--sa-top) + 4%); }
   .flc-mesas { bottom: 34%; }
 }
 

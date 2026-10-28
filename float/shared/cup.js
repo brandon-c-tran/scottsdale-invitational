@@ -1,40 +1,58 @@
-/* The Cup (float/PROTOCOL.md "The Cup"): phases, rounds, cuts, places, the
-   drink rule, balloons. Pure: every function takes the cup (plain JSON, the
-   room saves it at every phase change) and the time, and changes or reads it.
-   The room and scripts/float-sim.mjs drive the same functions.
+/* The Cup (float/GROOVE.md "Rounds, elimination, positions", "What the room
+   sends"; float/PROTOCOL.md "The Cup", "Field Day"): phases, rounds, the
+   cut, standings. Pure: every function takes the cup (plain JSON: the room
+   saves it at every phase change and, in a song, every 2 s) and the time.
+   The room, scripts/float-sim.mjs and the tests drive the same functions;
+   the song itself is float/shared/groove.js.
 
-     lobby -> intro -> [ grid -> countdown -> race -> cut ] x rounds -> podium -> feedback -> lobby
+     lobby -> intro -> [ song -> cut ] x rounds -> podium -> feedback -> lobby
 
-   One leg per round, in order; the field is cut after each round until three
-   race the final (13 -> 9 -> 6 -> 3). Places in a round go by
-   max(arriveAt, drinkAt). A round ends as soon as enough have finished to
-   fill the next round, CAP_MS after its first finisher, or HARD_CAP_MS after
-   the gun; anyone still out there is placed by distance. Final places: the
-   final's order, then everyone else in reverse order of elimination.
+   One song a round (chart.js songForRound: Paddle Party, Rock Hop, Spin
+   Cycle, then The Drop). After each song but the last the lowest round
+   percents are out (13 -> 9 -> 6 -> 3), ties by the Cup total (the rider's
+   earlier percents), then perfects, then the field's order (the last
+   round's ranking). The final's percent orders the podium; 4th and down
+   are the riders cut, the last cut first, each cut in its own round's order.
+   With 1 to 3 riders nobody is cut and the last song is the result.
 
-   Times: phase times (startAt, endsAt, now) are wall-clock ms. Race times
-   (arriveAt, drinkAt, firstFinish) are race seconds from the gun. In
-   `countdown` and `race`, startAt is the gun. */
-import { TIMING, BALLOON, MAX_RIDERS } from "./tuning.js";
-import { COURSE } from "./course.js";
-import { createRace, finishAt, riderOf, seedOf, nextRandom, applyInput, stepRace, throwBalloon } from "./sim.js";
-import { botSkills, botFloatie, createBot, botInputs, botBalloon } from "./bots.js";
+   Times are server ms. In `song`, startAt is when the round card goes up,
+   songAt = startAt + SONG_LEAD_MS is beat 0 and endsAt = songAt + SONG_MS +
+   SONG_TAIL_MS. A phase that ends on time hands its endsAt to the next, so
+   the schedule never drifts; one that ends late (a room that slept) starts
+   the next from now. */
 import { CRITTERS, defaultLook, cleanLook } from "./looks.js";
 import { FLOATIE_IDS } from "./floaties.js";
-import { PALETTE } from "./protocol.js";
+import { PALETTE, PHASES } from "./protocol.js";
+import { SONG_LEAD_MS, SONG_MS, SONG_TAIL_MS, songForRound } from "./chart.js";
+import { addTenths, botSkills, closeSong, createSong, cupTotal, drinksNow, isDone, rand01, rankSong, riderScore,
+  riderStats, seedOf, songScores, stepSong } from "./groove.js";
 
-export const LEG_COUNT = COURSE.legs.length;
-/* colours for riders without one, distinct at TV distance */
 /* colours for riders without one (protocol.js owns the list) */
-export { PALETTE };
+export { PALETTE, drinksNow };
+export const ROUNDS = 4;
+export const MAX_RIDERS = 16;
+/* the Cup's clock (a song's own length is chart.js's) */
+export const CUP_TIMING = Object.freeze({
+  INTRO_MS:8000,
+  CUT_MS:20000,
+  /* after the final there is no one to cut: a short results beat */
+  CUT_LAST_MS:7000,
+  PODIUM_MS:15000,
+  FEEDBACK_MS:45000,
+  /* a Field Day cup whose startAt has passed starts this soon */
+  START_SOON_MS:1500,
+  /* a phase that ends later than this after its endsAt starts the next from now */
+  LATE_MS:1000,
+});
+export const SONG_PHASE_MS = SONG_LEAD_MS + SONG_MS + SONG_TAIL_MS;
 
-/* the field for every round: one entry per leg, monotonic, never below 3,
-   the final 3 once there are 3 or more; the cuts as even as they can be,
-   bigger first (13: 13, 9, 6, 3). 1 to 3 riders race every leg uncut. */
-export function cutSchedule(n, legs = LEG_COUNT) {
+/* the field for every round: monotonic, never below 3, the final 3 once
+   there are 3 or more; the cuts as even as they can be, bigger first (13:
+   13, 9, 6, 3). 1 to 3 riders play every round uncut. */
+export function cutSchedule(n, rounds = ROUNDS) {
   const riders = Math.max(0, Math.min(MAX_RIDERS, n | 0));
-  if (riders <= 3) return new Array(legs).fill(riders);
-  const cuts = legs - 1, total = riders - 3;
+  if (riders <= 3) return new Array(rounds).fill(riders);
+  const cuts = rounds - 1, total = riders - 3;
   const schedule = [riders];
   for (let k = 0; k < cuts; k += 1) {
     const cut = Math.floor(total / cuts) + (k < total % cuts ? 1 : 0);
@@ -47,11 +65,17 @@ export function cutSchedule(n, legs = LEG_COUNT) {
 
 export function createCup({ id = "cup", mode = "party", code = "", drinking = true, seed = 1, evId = null } = {}) {
   return {
-    v:1, id, mode, code, drinking:drinking !== false, seed:seed >>> 0, evId,
-    phase:"lobby", startAt:null, endsAt:null, swapUntil:null,
-    round:0, rounds:LEG_COUNT, schedule:[],
-    entrants:[], field:[], out:[], results:[], history:[], standings:[], podium:null, final:null,
-    beach:{}, swaps:{}, thrown:{}, landed:{}, done:false,
+    v:2, id, mode, code, drinking:drinking !== false, seed:seed >>> 0, evId,
+    phase:"lobby", startAt:null, endsAt:null, startPlanned:null,
+    round:0, rounds:ROUNDS, schedule:[],
+    entrants:[], field:[], out:[],
+    /* the song: its state while it plays (groove.js), its id and beat 0 through its cut */
+    song:null, songId:null, songAt:null,
+    /* the room's calibration, carried from song to song (0 at the first) */
+    offset:0,
+    /* each rider's earlier songs' percents, summed */
+    totals:{},
+    scores:[], results:[], history:[], standings:[], podium:null, final:null, done:false,
   };
 }
 
@@ -65,18 +89,18 @@ export function makeEntrant(cup, rider, { device = null, bot = false, skill = nu
   return entrant;
 }
 
-/* computer riders: critter names, spread skills, any floatie */
+/* computer riders: critter names, spread skills, any floatie for a tube */
 export function addBots(cup, count, seed = cup.seed) {
   const room = Math.max(0, Math.min(count | 0, MAX_RIDERS - cup.entrants.length));
   const skills = botSkills(room, seed);
   const taken = new Set(cup.entrants.map(entrant => entrant.name));
-  const holder = { rng:seedOf(`bots:${seed}:${cup.entrants.length}`) };
   const names = CRITTERS.map(item => item.name).filter(name => !taken.has(name));
   for (let k = 0; k < room; k += 1) {
-    const at = Math.floor(nextRandom(holder) * names.length);
+    const at = Math.floor(rand01(seed, 0xb07, cup.entrants.length) * names.length);
     const name = names.length ? names.splice(at, 1)[0] : `Bot ${k + 1}`;
     const key = `bot-${cup.entrants.length + 1}-${seed}`;
-    const look = cleanLook({ ...defaultLook(key, FLOATIE_IDS), floatie:botFloatie(key) }, { floatieIds:FLOATIE_IDS, seed:key });
+    const floatie = FLOATIE_IDS[Math.floor(rand01(seedOf(key), 0xf1) * FLOATIE_IDS.length)];
+    const look = cleanLook({ ...defaultLook(key, FLOATIE_IDS), floatie }, { floatieIds:FLOATIE_IDS, seed:key });
     const critter = CRITTERS.find(item => item.name === name);
     if (critter) look.critter = critter.id;
     cup.entrants.push(makeEntrant(cup, { name, color:null, look, drinks:true }, { device:key, bot:true, skill:skills[k] }));
@@ -84,128 +108,186 @@ export function addBots(cup, count, seed = cup.seed) {
   return room;
 }
 
-const setPhase = (cup, phase, now, ms) => {
+const setPhase = (cup, phase, at, ms) => {
   cup.phase = phase;
-  cup.startAt = now;
-  cup.endsAt = ms === null ? null : now + ms;
+  cup.startAt = at;
+  cup.endsAt = ms === null ? null : at + ms;
 };
+/* where the next phase starts: the last one's end when on time, else now */
+const nextStart = (cup, now) => Number.isFinite(cup.endsAt) && now - cup.endsAt < CUP_TIMING.LATE_MS ? cup.endsAt : now;
 
 /* the Cup starts: everyone in the lobby rides */
 export function startCup(cup, now) {
-  const n = cup.entrants.length;
-  cup.schedule = cutSchedule(n);
-  cup.rounds = LEG_COUNT;
+  cup.schedule = cutSchedule(cup.entrants.length);
+  cup.rounds = ROUNDS;
   cup.round = 0;
   cup.out = [];
   cup.results = [];
+  cup.scores = [];
   cup.history = [];
   cup.podium = null;
   cup.final = null;
   cup.done = false;
-  cup.beach = {};
-  cup.swaps = {};
-  cup.thrown = {};
-  cup.landed = {};
-  /* the first grid: drawn by the cup's seed */
+  cup.totals = {};
+  cup.offset = 0;
+  cup.song = null;
+  cup.songId = songForRound(0, cup.rounds);
+  cup.songAt = null;
+  delete cup.resultQueued;
+  /* the first field's order, drawn by the cup's seed (it breaks a first round's last tie) */
   const order = cup.entrants.map((_, i) => i);
-  const holder = { rng:seedOf(`grid:${cup.seed}:${cup.id}`) };
   for (let k = order.length - 1; k > 0; k -= 1) {
-    const j = Math.floor(nextRandom(holder) * (k + 1));
+    const j = Math.floor(rand01(cup.seed, seedOf(cup.id), 0x0f1e1d, k) * (k + 1));
     [order[k], order[j]] = [order[j], order[k]];
   }
   cup.field = order;
   cup.standings = standingsOf(cup);
-  setPhase(cup, "intro", now, TIMING.INTRO_MS);
+  setPhase(cup, "intro", now, CUP_TIMING.INTRO_MS);
 }
 
-/* the leg this round races */
-export const legOf = cup => Math.min(LEG_COUNT - 1, cup.round);
 export const isLastRound = cup => cup.round >= cup.rounds - 1;
 /* how many go through this round (the next round's field), or null in the last */
-export const cutOf = cup => isLastRound(cup) ? null : cup.schedule[cup.round + 1];
+export const cutOf = cup => isLastRound(cup) ? null : cup.schedule[cup.round + 1] ?? null;
 
-/* a fresh race for this round, the field on the grid in order */
-export function raceFor(cup, course = COURSE) {
-  return createRace({
-    course, leg:legOf(cup), seed:seedOf(`${cup.seed}:${cup.id}:${cup.round}`), drinking:cup.drinking,
-    field:cup.field.map(i => ({ i, floatie:cup.entrants[i].look.floatie, drinks:cup.entrants[i].drinks !== false })),
-  });
+/* the song for this round goes up at `at` */
+function enterSong(cup, at) {
+  const songAt = at + SONG_LEAD_MS;
+  cup.songId = songForRound(cup.round, cup.rounds);
+  cup.songAt = songAt;
+  cup.results = [];
+  cup.scores = [];
+  cup.song = createSong({ cup, round:cup.round, songAt, field:cup.field, base:cup.offset, startAt:at });
+  setPhase(cup, "song", at, SONG_PHASE_MS);
 }
 
-/* ---- places ---- */
-
-/* riders in place order: finished (by max(arriveAt, drinkAt)), then those at
-   the takeout who have not drunk (by arrival), then the rest by distance */
-export function placeRiders(riders) {
-  const done = riders.filter(rider => finishAt(rider) !== null)
-    .sort((a, b) => finishAt(a) - finishAt(b) || a.arriveAt - b.arriveAt || a.i - b.i);
-  const waiting = riders.filter(rider => rider.arrived && finishAt(rider) === null)
-    .sort((a, b) => a.arriveAt - b.arriveAt || a.i - b.i);
-  const racing = riders.filter(rider => !rider.arrived).sort((a, b) => b.prog - a.prog || a.i - b.i);
-  return [...done, ...waiting, ...racing];
-}
-
-/* the round's results so far: [{ i, place, time, drinkAt }] (time null until placed) */
-export const resultsOf = race => placeRiders(race.riders).map((rider, k) =>
-  ({ i:rider.i, place:k + 1, time:finishAt(rider), drinkAt:rider.drinkAt }));
-
-/* is the round over? { over, why } */
-export function roundStatus(cup, race) {
-  const target = cutOf(cup) ?? cup.field.length;
-  const placed = race.riders.filter(rider => finishAt(rider) !== null).length;
-  if (placed >= race.riders.length) return { over:true, why:"all" };
-  if (placed >= target) return { over:true, why:"enough" };
-  if (race.firstFinish !== null && race.t >= race.firstFinish + TIMING.CAP_MS / 1000) return { over:true, why:"cap" };
-  if (race.t >= TIMING.HARD_CAP_MS / 1000) return { over:true, why:"hard" };
-  return { over:false, why:null };
-}
-
-/* the round is over: places, the cut, on to `cut` */
-export function finishRound(cup, race, now) {
-  const order = placeRiders(race.riders);
-  const results = order.map((rider, k) => ({ i:rider.i, place:k + 1, time:finishAt(rider), drinkAt:rider.drinkAt,
-    arriveAt:rider.arriveAt, prog:Math.round(Math.max(0, Math.min(race.len, rider.prog)) * 10) / 10 }));
+/* the song is over: places, the cut, on to `cut` */
+function endSong(cup, at, driven) {
+  const song = cup.song;
+  const { ranking, events } = closeSong(cup, song, { driven });
   const last = isLastRound(cup);
-  const through = last ? order.length : Math.min(order.length, cutOf(cup));
-  const survivors = order.slice(0, through).map(rider => rider.i);
-  const eliminated = order.slice(through).map(rider => rider.i);
-  /* out: elimination order, the worst of a round first, so the last cut's
-     best is the last entry (4th place) */
+  const through = last ? ranking.length : Math.min(ranking.length, cutOf(cup) ?? ranking.length);
+  const survivors = ranking.slice(0, through).map(row => row.i);
+  const eliminated = ranking.slice(through).map(row => row.i);
+  /* out: elimination order, a round's worst first, so the last cut's best
+     is the last entry (4th place) */
   cup.out.push(...eliminated.slice().reverse());
-  for (const i of eliminated) {
-    const rider = riderOf(race, i);
-    cup.beach[i] = { drank:rider?.drinkAt !== null || !drinksNow(cup, i), next:now };
-  }
-  const stats = {};
-  for (const rider of race.riders) {
-    const arrivedAt = rider.arriveAt, drankAt = rider.drinkAt;
-    stats[rider.i] = { time:finishAt(rider), arriveAt:arrivedAt, drinkAt:drankAt,
-      drinkWait:arrivedAt !== null && drankAt !== null ? Math.max(0, Math.round((drankAt - arrivedAt) * 1000) / 1000) : null,
-      ...rider.st, swaps:cup.swaps[rider.i] || 0, botShare:botShareOf(rider.st) };
-  }
-  /* balloons this round, by thrower */
-  const balloons = {};
-  for (const i of new Set([...Object.keys(cup.thrown), ...Object.keys(cup.landed)]))
-    balloons[i] = { thrown:cup.thrown[i] || 0, landed:cup.landed[i] || 0 };
-  cup.thrown = {};
-  cup.landed = {};
-  cup.history.push({ round:cup.round, leg:legOf(cup), field:cup.field.slice(), results, out:eliminated, stats, balloons });
+  const results = ranking.map(row => ({ ...row, out:eliminated.includes(row.i) }));
+  cup.scores = songScores(cup, song, Infinity);
+  const stats = Object.fromEntries(song.field.map(i => [i, riderStats(cup, song, i)]));
+  for (const row of ranking) cup.totals[row.i] = addTenths(cupTotal(cup, row.i), row.pct);
+  cup.offset = song.offset;
+  cup.history.push({ round:cup.round, song:song.id, field:song.field.slice(), results, out:eliminated,
+    offset:song.offset, samples:song.samples.length, stats });
   cup.results = results;
   cup.field = survivors;
-  cup.swaps = {};
+  cup.song = null;
   if (last) {
     cup.final = [...survivors, ...cup.out.slice().reverse()];
     cup.podium = survivors.slice(0, 3);
     cup.done = true;
   }
   cup.standings = standingsOf(cup);
-  setPhase(cup, "cut", now, last ? TIMING.CUT_LAST_MS : TIMING.CUT_MS);
-  cup.swapUntil = last ? null : now + TIMING.SWAP_MS;
-  return { survivors, eliminated, last };
+  setPhase(cup, "cut", at, last ? CUP_TIMING.CUT_LAST_MS : CUP_TIMING.CUT_MS);
+  return { survivors, eliminated, last, events };
 }
 
-/* the share of a race (0 to 1) a bot paddled for a rider */
-export const botShareOf = st => st?.ticks ? Math.round(Math.min(1, (st.botTicks || 0) / st.ticks) * 100) / 100 : 0;
+/* the phase after a timed one ends; the room calls it (through tick) when
+   endsAt passes. Returns { phase, events?, eliminated?, survivors?, last? }. */
+export function advance(cup, now, { driven = () => true } = {}) {
+  const at = nextStart(cup, now);
+  switch (cup.phase) {
+    case "intro":
+      enterSong(cup, at);
+      return { phase:"song" };
+    case "song":
+      if (!cup.song) ensureSong(cup);
+      return { phase:"cut", ...endSong(cup, at, driven) };
+    case "cut":
+      if (cup.done) { setPhase(cup, "podium", at, CUP_TIMING.PODIUM_MS); return { phase:"podium" }; }
+      cup.round += 1;
+      enterSong(cup, at);
+      return { phase:"song" };
+    case "podium":
+      setPhase(cup, "feedback", at, CUP_TIMING.FEEDBACK_MS);
+      return { phase:"feedback" };
+    case "feedback":
+      toLobby(cup, now);
+      return { phase:"lobby" };
+    default:
+      return { phase:cup.phase };
+  }
+}
+
+/* Everything due by `now`: the song's taps, misses and Done, then any
+   phase whose end has come. `driven(i, t)` says whether nobody's phone
+   plays rider i at time t (a bot entrant, a kicked rider, a phone gone).
+   Returns { events (groove.js's, in time order), phases (each phase
+   entered, in order), eliminated (this tick's cut, in place order), offset
+   (whether the room's offset changed) }. */
+export function tick(cup, now, { driven = () => true } = {}) {
+  const out = { events:[], phases:[], eliminated:[], offset:false };
+  for (let guard = 0; guard < 8; guard += 1) {
+    if (cup.phase === "song") {
+      if (!cup.song) ensureSong(cup);
+      const step = stepSong(cup, cup.song, Math.min(now, cup.endsAt ?? now), { driven });
+      out.events.push(...step.events);
+      if (step.offset) out.offset = true;
+    }
+    if (cup.phase === "lobby" || !Number.isFinite(cup.endsAt) || now < cup.endsAt) break;
+    const moved = advance(cup, now, { driven });
+    out.events.push(...(moved.events || []));
+    out.eliminated.push(...(moved.eliminated || []));
+    out.phases.push(cup.phase);
+    if (cup.phase === "lobby") break;
+  }
+  return out;
+}
+
+/* a song phase without its state (an old save): a fresh one by the clock */
+export function ensureSong(cup) {
+  if (cup.song && cup.song.round === cup.round && cup.song.songAt === cup.songAt) return cup.song;
+  const songAt = Number.isFinite(cup.songAt) ? cup.songAt : (cup.startAt ?? 0) + SONG_LEAD_MS;
+  cup.songAt = songAt;
+  cup.songId = songForRound(cup.round, cup.rounds);
+  cup.song = createSong({ cup, round:cup.round, songAt, field:cup.field, base:cup.offset, startAt:songAt - SONG_LEAD_MS });
+  return cup.song;
+}
+
+/* back to the lobby: bots leave, everyone else stays, nobody is ready */
+export function toLobby(cup, now, { keepBots = false } = {}) {
+  setPhase(cup, "lobby", now, null);
+  if (!keepBots) cup.entrants = cup.entrants.filter(entrant => !entrant.bot);
+  for (const entrant of cup.entrants) { entrant.ready = false; delete entrant.kicked; }
+  cup.field = [];
+  cup.out = [];
+  cup.results = [];
+  cup.scores = [];
+  cup.round = 0;
+  cup.song = null;
+  cup.songId = null;
+  cup.songAt = null;
+  cup.standings = [];
+}
+
+/* A cup saved by another version (the parked 3D river's phases): back to
+   its lobby with its entrants. A Field Day cup that was under way starts
+   over by itself, soon. */
+export function migrate(cup, now) {
+  if (cup?.v === 2 && PHASES.includes(cup.phase)) return cup;
+  const next = createCup({ id:cup?.id || "cup", mode:cup?.mode === "fieldday" ? "fieldday" : "party", code:cup?.code || "",
+    drinking:cup?.drinking !== false, seed:Number(cup?.seed) >>> 0, evId:cup?.evId ?? null });
+  next.entrants = (Array.isArray(cup?.entrants) ? cup.entrants : []).map(entrant => {
+    const { kicked, ...rest } = entrant || {};
+    void kicked;
+    return rest;
+  });
+  const underway = cup?.phase && cup.phase !== "lobby";
+  toLobby(next, now, { keepBots:next.mode === "fieldday" && !cup?.done });
+  if (next.mode === "fieldday" && !cup?.done)
+    next.startPlanned = underway ? now + CUP_TIMING.START_SOON_MS : cup?.startPlanned ?? null;
+  if (cup?.done) { next.done = true; if (cup.resultQueued) next.resultQueued = true; }
+  return next;
+}
 
 /* the Cup so far: [{ i, place, out }] (out: the round they went out in, or null) */
 export function standingsOf(cup) {
@@ -215,142 +297,47 @@ export function standingsOf(cup) {
   return order.map((i, k) => ({ i, place:k + 1, out:outRound[i] ?? null }));
 }
 
-/* drinks this round? (drinks:false, or the room's drinking off, drink on arrival) */
-export const drinksNow = (cup, i) => cup.drinking && cup.entrants[i]?.drinks !== false;
+/* ---- what the room sends ---- */
 
-/* ---- the clock between races ---- */
+/* the room's offset now: the song's while one plays, else the last song's */
+export const offsetOf = cup => cup.phase === "song" && cup.song ? cup.song.offset : cup.offset || 0;
 
-/* the phase after a timed one ends; the room calls it when endsAt passes.
-   Returns the new phase (race is entered by the room, which owns the race). */
-export function advance(cup, now) {
-  switch (cup.phase) {
-    case "intro":
-      setPhase(cup, "grid", now, TIMING.GRID_MS);
-      cup.results = [];
-      return "grid";
-    case "grid": {
-      /* in countdown, startAt is the gun */
-      cup.phase = "countdown";
-      cup.startAt = now + TIMING.COUNTDOWN_MS;
-      cup.endsAt = cup.startAt;
-      return "countdown";
-    }
-    case "countdown":
-      cup.phase = "race";
-      /* a resumed race: startAt moves back to its own gun, so the race clock
-         (now - startAt) carries on from the save */
-      if (cup.resume) { cup.startAt -= Math.round((cup.resumeT || 0) * 1000); cup.resume = false; cup.resumeT = 0; }
-      cup.endsAt = cup.startAt + TIMING.HARD_CAP_MS;
-      return "race";
-    case "cut":
-      cup.swapUntil = null;
-      if (cup.done) { setPhase(cup, "podium", now, TIMING.PODIUM_MS); return "podium"; }
-      cup.round += 1;
-      cup.results = [];
-      setPhase(cup, "grid", now, TIMING.GRID_MS);
-      return "grid";
-    case "podium":
-      setPhase(cup, "feedback", now, TIMING.FEEDBACK_MS);
-      return "feedback";
-    case "feedback":
-      toLobby(cup, now);
-      return "lobby";
-    default:
-      return cup.phase;
+/* `scores` for the field: [{ i, pts, pct, live, n, cup, done }]: the song
+   so far, its final scores through its cut (and on to the podium), zeros
+   before the first */
+export function scoresOf(cup, now) {
+  if (cup.phase === "lobby") return [];
+  if (cup.phase === "song" && cup.song) return songScores(cup, cup.song, now);
+  if (cup.phase === "intro") return cup.field.map(i => ({ i, pts:0, pct:0, live:0, n:0, cup:cupTotal(cup, i), done:false }));
+  return cup.scores || [];
+}
+
+/* `results`: the round's ranking, live in a song, final from its cut:
+   [{ i, place, pts, pct, perfects, misses, cup, out? }] */
+export function resultsOf(cup) {
+  if (cup.phase === "song" && cup.song) return rankSong(cup, cup.song);
+  return cup.phase === "lobby" ? [] : cup.results || [];
+}
+
+/* `me`: one rider's own state for their phone. In a song: pts, pct, live,
+   place so far, of, cut, done and the last judgement (c, q, d); in its
+   cut: the round's result with through or out; a rider out earlier: out
+   with their place in the Cup so far; before and after: their place. */
+export function meOf(cup, i, now) {
+  const base = { i, round:cup.round, cut:cutOf(cup), lastRound:isLastRound(cup) };
+  if (cup.phase === "song" && cup.song?.judged?.[i]) {
+    const ranking = rankSong(cup, cup.song);
+    const row = ranking.find(item => item.i === i);
+    const score = riderScore(cup.song, i);
+    const last = cup.song.last[i];
+    return { ...base, pts:score.pts, pct:score.pct, live:score.live, n:score.n, place:row.place, of:ranking.length,
+      done:isDone(cup.song, i, now), ...(last ? { c:last.c, q:last.q, ...(last.d === undefined ? {} : { d:last.d }) } : {}) };
   }
-}
-
-/* back to the lobby: bots leave, everyone else stays, nobody is ready */
-export function toLobby(cup, now, { keepBots = false } = {}) {
-  setPhase(cup, "lobby", now, null);
-  cup.swapUntil = null;
-  if (!keepBots) cup.entrants = cup.entrants.filter(entrant => !entrant.bot);
-  for (const entrant of cup.entrants) entrant.ready = false;
-  cup.field = [];
-  cup.out = [];
-  cup.results = [];
-  cup.round = 0;
-  cup.standings = [];
-}
-
-/* a restarted room resumes its race: a short countdown (startAt is the
-   moment it goes again, as for any countdown), then on from the save */
-export function resumeCountdown(cup, now, raceT) {
-  cup.phase = "countdown";
-  cup.startAt = now + TIMING.RESUME_MS;
-  cup.endsAt = cup.startAt;
-  cup.resume = true;
-  cup.resumeT = raceT;
-}
-
-/* ---- swaps and balloons ---- */
-
-/* may entrant i change floatie now? (survivors, in the first SWAP_MS of a cut) */
-export const canSwap = (cup, i, now) => cup.phase === "cut" && cup.swapUntil !== null && now <= cup.swapUntil
-  && cup.field.includes(i);
-
-export function noteSwap(cup, i) { cup.swaps[i] = (cup.swaps[i] || 0) + 1; }
-
-/* an eliminated rider finished their drink on the beach */
-export function beachDrink(cup, i, now) {
-  const spot = cup.beach[i];
-  if (!spot || spot.drank) return false;
-  spot.drank = true;
-  spot.next = now;
-  return true;
-}
-
-/* may entrant i throw a balloon now, at racer `at`? */
-export function canThrow(cup, race, i, at, now) {
-  const spot = cup.beach[i];
-  if (cup.phase !== "race" || !race || !spot || !spot.drank || now < spot.next) return false;
-  const target = riderOf(race, at);
-  return !!target && !target.arrived;
-}
-export function noteThrow(cup, i, now) {
-  cup.beach[i].next = now + BALLOON.EVERY_MS;
-  cup.thrown[i] = (cup.thrown[i] || 0) + 1;
-}
-export function noteLanded(cup, i) { cup.landed[i] = (cup.landed[i] || 0) + 1; }
-
-/* ---- one race tick, with the bots ---- */
-
-/* the bot paddling for entrant i this race (kept in race.bots, so a saved
-   race resumes with its bots): a bot entrant's own skill, or a steady 0.55
-   for a person whose phone is away */
-export function botOf(cup, race, i, course = COURSE) {
-  race.bots ||= {};
-  if (!race.bots[i]) {
-    const entrant = cup.entrants[i];
-    race.bots[i] = createBot({ i, skill:entrant?.bot ? entrant.skill : 0.55, seed:race.seed, leg:race.leg, course });
-  }
-  return race.bots[i];
-}
-
-/* bots paddle for everyone `driven(i)` names, eliminated riders it names
-   drink on the beach and throw, then the river moves one tick. Returns the
-   tick's events (the beach drinks first). The room and the balancing
-   script both run races through this. */
-export function raceTick(cup, race, { now, driven, course = COURSE }) {
-  for (const rider of race.riders) {
-    /* how much of the race a bot paddled for this rider (stats only) */
-    if (!rider.arrived) {
-      rider.st.ticks = (rider.st.ticks || 0) + 1;
-      if (driven(rider.i)) rider.st.botTicks = (rider.st.botTicks || 0) + 1;
-    }
-    if (!driven(rider.i)) continue;
-    const bot = botOf(cup, race, rider.i, course);
-    for (const input of botInputs(race, course, bot)) applyInput(race, rider.i, input);
-  }
-  const beach = [];
-  for (const i of cup.out) {
-    if (!driven(i) || !cup.beach[i]) continue;
-    if (!cup.beach[i].drank) { if (beachDrink(cup, i, now)) beach.push({ e:"drink", i }); continue; }
-    if (now < cup.beach[i].next) continue;
-    const at = botBalloon(botOf(cup, race, i, course), race, race.t);
-    if (at !== null && canThrow(cup, race, i, at, now) && throwBalloon(race, i, at)) noteThrow(cup, i, now);
-  }
-  const events = stepRace(race, course);
-  for (const event of events) if (event.e === "splash" && event.j !== undefined) noteLanded(cup, event.i);
-  return [...beach, ...events];
+  const row = cup.phase === "cut" ? cup.results.find(item => item.i === i) : null;
+  if (row) return { ...base, pts:row.pts, pct:row.pct, live:row.pct, place:row.place, of:cup.results.length, done:true,
+    through:!row.out, out:row.out === true };
+  const standing = cup.standings.find(item => item.i === i);
+  const place = standing?.place ?? null;
+  if (cup.out.includes(i)) return { ...base, out:true, place, of:cup.standings.length };
+  return { ...base, place, of:cup.phase === "intro" ? cup.field.length : cup.standings.length };
 }

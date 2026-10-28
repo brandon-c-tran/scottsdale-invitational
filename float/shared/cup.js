@@ -253,7 +253,10 @@ export function ensureSong(cup) {
   return cup.song;
 }
 
-/* back to the lobby: bots leave, everyone else stays, nobody is ready */
+/* back to the lobby: bots leave, everyone else stays, nobody is ready. The
+   last Cup's rounds go with it (its indexes were the bots' too); a finished
+   Field Day Cup keeps `done` (it may be rerun as a party) and posts its
+   result before it gets here (the room's postResultOnce). */
 export function toLobby(cup, now, { keepBots = false } = {}) {
   setPhase(cup, "lobby", now, null);
   if (!keepBots) cup.entrants = cup.entrants.filter(entrant => !entrant.bot);
@@ -262,6 +265,10 @@ export function toLobby(cup, now, { keepBots = false } = {}) {
   cup.out = [];
   cup.results = [];
   cup.scores = [];
+  cup.history = [];
+  cup.podium = null;
+  cup.final = null;
+  cup.totals = {};
   cup.round = 0;
   cup.song = null;
   cup.songId = null;
@@ -276,11 +283,7 @@ export function migrate(cup, now) {
   if (cup?.v === 2 && PHASES.includes(cup.phase)) return cup;
   const next = createCup({ id:cup?.id || "cup", mode:cup?.mode === "fieldday" ? "fieldday" : "party", code:cup?.code || "",
     drinking:cup?.drinking !== false, seed:Number(cup?.seed) >>> 0, evId:cup?.evId ?? null });
-  next.entrants = (Array.isArray(cup?.entrants) ? cup.entrants : []).map(entrant => {
-    const { kicked, ...rest } = entrant || {};
-    void kicked;
-    return rest;
-  });
+  next.entrants = (Array.isArray(cup?.entrants) ? cup.entrants : []).filter(entrant => entrant && typeof entrant === "object");
   const underway = cup?.phase && cup.phase !== "lobby";
   toLobby(next, now, { keepBots:next.mode === "fieldday" && !cup?.done });
   if (next.mode === "fieldday" && !cup?.done)

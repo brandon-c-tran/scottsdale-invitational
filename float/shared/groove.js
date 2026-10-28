@@ -31,10 +31,11 @@
      it); with the room's drinking off everyone is done from the start.
    - Calibration (the room's, one offset for everyone): people's raw r on
      practice cues are the samples (bots' and stand-ins' never are); the
-     offset is recomputed on each beat of practice and frozen half a beat
-     before the first play bar (FREEZE_BEATS), so every scored cue is judged
-     on one offset; a practice with fewer than CALIBRATION.MIN samples keeps
-     the last song's offset (`base`, 0 at a Cup's first song). */
+     offset is recomputed half a beat into each beat of practice, the last
+     time half a beat before the first play bar (FREEZE_BEATS), which fixes
+     it, so every scored cue is judged on one offset; a practice with fewer
+     than CALIBRATION.MIN samples keeps the last song's offset (`base`, 0
+     at a Cup's first song). */
 import { MISS_AFTER_MS, POINTS, SONG_LEAD_MS, beatOf, calibrate, chartOf, cueTime, drinkSection, judgeHit, scoreOf,
   songForRound } from "./chart.js";
 
@@ -54,7 +55,8 @@ export const GROOVE = Object.freeze({
   DONE_FROM_MS:4000,
   DONE_SPAN_MS:10000,
 });
-/* the offset is fixed this many beats before the first play bar */
+/* the offset is recomputed this far into each beat of practice, and fixed
+   this many beats before the first play bar */
 export const FREEZE_BEATS = 0.5;
 
 /* How bots tap, by skill (index 0 at skill 0, index 1 at skill 1): SPREAD
@@ -196,27 +198,23 @@ export function applyDone(cup, song, i, now) {
   return { e:"done", i, at:now };
 }
 
-/* The calibration's beat: recomputed at most once a beat in practice,
-   frozen FREEZE_BEATS before the first play bar. Returns whether the
-   offset changed. */
+/* The calibration's beat: recomputed FREEZE_BEATS into each beat of
+   practice (so at most once a beat, and a tap on a beat is in by its
+   recompute), the last of them, FREEZE_BEATS before the first play bar,
+   fixing it for the song. calBeat is the last beat recomputed. Returns
+   whether the offset changed. */
 function calibrateStep(song, chart, now) {
   if (song.frozen) return false;
   const practice = chart.sections.find(section => section.kind === "practice");
   if (!practice) return false;
   const beat = beatOf(song.songAt, now, chart.beatMs);
-  if (beat >= practice.to - FREEZE_BEATS) {
-    const next = calibrate(song.samples) ?? song.base;
-    song.frozen = true;
-    song.calBeat = Math.floor(beat);
-    if (next === song.offset) return false;
-    song.offset = next;
-    return true;
-  }
-  if (beat < practice.from) return false;
-  const whole = Math.floor(beat);
-  if (song.calBeat !== null && whole <= song.calBeat) return false;
-  song.calBeat = whole;
-  const next = calibrate(song.samples);
+  const k = Math.floor(beat - FREEZE_BEATS);
+  if (k < practice.from) return false;
+  const last = beat >= practice.to - FREEZE_BEATS;
+  if (!last && song.calBeat !== null && k <= song.calBeat) return false;
+  song.calBeat = Math.min(k, practice.to - 1);
+  if (last) song.frozen = true;
+  const next = calibrate(song.samples) ?? (last ? song.base : null);
   if (next === null || next === song.offset) return false;
   song.offset = next;
   return true;
@@ -289,7 +287,9 @@ export function qualitiesOf(song, i) {
   return out;
 }
 
-/* rider i's counts: scored cues by quality, and over every cue judged who played them */
+/* rider i's counts: scored cues by quality; over every cue judged, how many
+   (judged), the phone's own taps among them (phone), and how many a bot or
+   stand-in played (bot) */
 export function tally(song, i, chart = chartFor(song)) {
   const counts = { perfect:0, nice:0, ok:0, early:0, late:0, miss:0, judged:0, phone:0, bot:0 };
   const judged = song?.judged?.[i] || {};
@@ -297,7 +297,7 @@ export function tally(song, i, chart = chartFor(song)) {
     const item = judged[cue.id];
     if (!item) continue;
     counts.judged += 1;
-    if (item[2] === "p") counts.phone += 1;
+    if (item[2] === "p" && item[0] !== "miss") counts.phone += 1;
     if (item[2] === "b" || item[2] === "s") counts.bot += 1;
     if (cue.scored) counts[item[0]] += 1;
   }

@@ -113,7 +113,7 @@ function Crowd({ game, entrant, serverNow, cheer, onCheer, onExit }) {
   useMove(moveRef, cheer);
   const pose = usePose(cheer, "idle");
   return <section className="flc-screen flc-crowd" data-scene={chart?.scene || "open"}>
-    <Scenery scene={chart?.scene || "open"} ground="bank" />
+    <Scenery scene={chart?.scene || "open"} />
     <Top left={<span className="flc-kicker">{song.name}</span>} right={<><span className="flc-out-tag">Out</span><ExitButton onExit={onExit} /></>} />
     <div className="flc-stage"><div className="flc-me" ref={bobRef}><div className="flc-me-move" ref={moveRef}>
       <Critter entrant={entrant} pose={pose} size={260} /></div></div></div>
@@ -128,7 +128,7 @@ function Podium({ game, entrant, onExit }) {
   const entrants = Array.isArray(room?.entrants) ? room.entrants : [];
   const top = place && place <= 3;
   return <section className={`flc-screen flc-podium${top ? ` is-top is-p${place}` : ""}`}>
-    <Scenery scene="podium" ground="bank" />
+    <Scenery scene="podium" />
     <Top right={<ExitButton onExit={onExit} />} />
     <div className="flc-podium-place">
       <b>{place ? ordinal(place) : ""}</b>

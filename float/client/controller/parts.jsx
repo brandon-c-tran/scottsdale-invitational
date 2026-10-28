@@ -1,11 +1,35 @@
 /* Small pieces every controller screen shares: the scenery behind the
-   critter (a pastel sky, a sun, flat mesas and a saguaro, the checkered
-   water fading into the distance; GROOVE.md "The look"), the cup, the cut
-   line, the top row and the way out. */
+   critter (the art's scene for the song, the TV's own; until the manifest
+   is in, a pastel sky, a sun, flat mesas and a saguaro over the checkered
+   water; GROOVE.md "The look"), the cup, the cut line, the top row and the
+   way out. */
 import React from "react";
+import { sceneOf, useGrooveArt } from "../art/index.js";
 import TapButton from "./TapButton.jsx";
 
+/* the phone's horizon, as a share of the screen's height: the critter floats just under it */
+export const HORIZON = 0.58;
+
+/* The art's own scene (the TV's: a drawn sky, the land strip, the checkered
+   water), the sky over the whole screen and the land and water placed so
+   the scene's waterline is the phone's horizon. */
+function ArtScenery({ art, id }) {
+  const [sky, ...strip] = art.layers;
+  return <div className={`flc-scenery is-art is-${id}`} aria-hidden="true"
+    style={{ "--water":Number(art.water) || 0.45, "--ratio":(Number(art.w) || 1920) / (Number(art.h) || 1080), "--horizon":HORIZON }}>
+    <img className="flc-sky" src={sky.src} alt="" draggable="false" decoding="async" />
+    <div className="flc-strip">
+      {strip.map(layer => <img key={layer.src} src={layer.src} alt="" draggable="false" decoding="async" />)}
+      {/* the water mirrored on below, for a scene whose waterline sits lower than the phone's horizon */}
+      <img className="flc-strip-under" src={strip[strip.length - 1].src} alt="" draggable="false" decoding="async" />
+    </div>
+  </div>;
+}
+
 export function Scenery({ scene = "open", ground = "water" }) {
+  const manifest = useGrooveArt();
+  const art = manifest && ground === "water" ? sceneOf(scene) : null;
+  if (art?.layers?.length >= 2) return <ArtScenery art={art} id={scene} />;
   return <div className={`flc-scenery is-${scene} is-${ground}`} aria-hidden="true">
     <i className="flc-sun" />
     <svg className="flc-mesas" viewBox="0 0 400 100" preserveAspectRatio="xMidYMax slice" focusable="false">

@@ -255,10 +255,24 @@ async function joinChecks(page, size) {
   await shot(page, size, "join-lobby");
   const saved = await page.evaluate("JSON.parse(localStorage.getItem('float-rider') || 'null')");
   check(saved?.look?.critter === "jackrabbit" && saved?.drinks === true, `${size}: the rider is kept (${JSON.stringify(saved)})`);
+  /* the lobby's own Locker, and a pick there goes to the room */
+  await tapElement(page, ".flc-lobby .flc-pill");
+  if (check(await page.until("!!document.querySelector('.flc-locker-sheet .fll-locker')", { timeout:5000 }), `${size}: Change look opens the Locker`)) {
+    await sleep(1200);
+    await clearSent(page);
+    await tapElement(page, ".fll-critters li:nth-child(13) button");
+    await sleep(300);
+    check((await sent(page)).some(m => m.t === "look" && m.look?.critter === "frog"), `${size}: a pick in the lobby sends the look`);
+    await shot(page, size, "lobby-locker");
+    await tapElement(page, ".flc-locker-sheet .flc-pill");
+    await sleep(400);
+  }
+  /* Ready: the live room starts the Cup a moment later */
   await clearSent(page);
   await tapElement(page, ".flc-ready");
   await sleep(300);
   check((await sent(page)).some(m => m.t === "ready" && m.on === true), `${size}: Ready sends ready`);
+  check(await screenIs(page, "intro", 6000), `${size}: and the Cup starts`);
 }
 
 main().catch(error => { console.error(error); process.exit(1); });

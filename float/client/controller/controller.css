@@ -110,6 +110,16 @@ html.flc-locked, html.flc-locked body { overflow: hidden; overscroll-behavior: n
   mask-image: linear-gradient(180deg, transparent 0%, #000 24%);
 }
 .flc-bank .flc-checker { background: repeating-conic-gradient(var(--sand-a) 0 25%, var(--sand-b) 0 50%) 0 0 / 64px 64px; }
+/* the art's scene: the sky over everything, the land and water with their waterline on the horizon */
+.flc-scenery.is-art { background: none; }
+.flc-scenery.is-art img { position: absolute; display: block; pointer-events: none; -webkit-user-drag: none; }
+.flc-sky { inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 0; }
+.flc-strip {
+  position: absolute; left: 50%; top: calc((var(--horizon) - var(--water)) * 100%); height: 100%;
+  width: max(100%, calc(100vh * var(--ratio))); aspect-ratio: auto; transform: translateX(-50%);
+}
+.flc-strip img { inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 0; }
+.flc-strip img.flc-strip-under { inset: auto; left: 0; top: 100%; transform: scaleY(-1); }
 
 /* ── the top row, the way out, small labels ── */
 .flc-top { display: flex; align-items: center; gap: 10px; min-height: 44px; flex: none; }
@@ -284,8 +294,10 @@ html.flc-locked, html.flc-locked body { overflow: hidden; overscroll-behavior: n
 .flc-roster li.is-away { opacity: 0.25; }
 .flc-roster li.is-ready::after { content: ""; position: absolute; right: -2px; bottom: -2px; width: 14px; height: 14px; border-radius: 50%; background: var(--teal); box-shadow: 0 0 0 2.5px var(--ink); }
 .flc-roster li.is-me .flp { box-shadow: 0 0 0 3px var(--ink); }
-.flc-locker-sheet { gap: 8px; background: var(--paper); }
+/* the Locker is a dark sheet everywhere (Field Day's profile, the join, here) */
+.flc-locker-sheet { gap: 8px; color: #f7f0e1; background: radial-gradient(120% 70% at 50% -10%, #17436a 0%, rgba(23, 67, 106, 0) 60%), linear-gradient(180deg, #0c2236 0%, #08131f 100%); }
 .flc-sheet-title { font-size: 26px; font-weight: 900; }
+.flc-locker-sheet .flc-pill.is-primary { background: #f7f0e1; color: #0b1626; box-shadow: none; }
 .flc-sheet-body { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; touch-action: pan-y; margin: 0 -6px; padding: 0 6px 8px; }
 
 /* ── the cut ── */
@@ -307,7 +319,8 @@ html.flc-locked, html.flc-locked body { overflow: hidden; overscroll-behavior: n
 .flc-place { font-size: 21px; font-weight: 900; color: var(--ink); background: rgba(255, 253, 248, 0.8); padding: 5px 14px; border-radius: 999px; }
 
 /* ── the crowd: out, cheering from the bank ── */
-.flc-crowd .flc-stage { bottom: max(calc(var(--sa-bottom) + 24%), calc(var(--sa-bottom) + 156px)); }
+/* out: on the bank, the tube on the shore line */
+.flc-crowd .flc-stage { bottom: calc(42% - min(260px, 36vh) * 0.1); }
 .flc-cheer {
   position: absolute !important; left: calc(var(--sa-left) + 16px); right: calc(var(--sa-right) + 16px); bottom: calc(var(--sa-bottom) + 22px);
   margin: 0 auto; width: min(calc(100% - 32px), 380px); min-height: 120px; border-radius: 40px;

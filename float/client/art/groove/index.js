@@ -8,9 +8,10 @@
 
      loadGrooveArt()                    -> Promise<manifest> (fetched once)
      grooveArtNow()                     -> the manifest once loaded, else null
-     riderSprites({ critter, color, groom })
+     riderSprites({ critter, color, groom, size? })
                                         -> Promise<{ [pose]: url }> painted sprites
-                                           (object URLs; cached per critter, colour, groom)
+                                           (object URLs; cached per critter, colour, groom, size;
+                                           size one of SPRITE_SIZES, spriteSize(drawn, dpr) picks it)
      riderSpritesNow({ ... })           -> the same, if already painted, else null
      riderPortrait(entrant, { size })   -> Promise<PNG data URL | null> (null without a DOM)
      sceneOf(id) / propOf(id) / hostSprites()
@@ -236,15 +237,43 @@ function crownFor(m, critter, pose) {
   return { url:grooveUrl(prop.src), at:p.anchor.head, anchor };
 }
 
-const MAX_PAINTED = 48;
+/* The size a sprite is painted at: the smallest of 128, 256 and 512 that
+   covers the drawn size in device pixels (a TV's small riders keep a
+   quarter of the memory; a phone's big one stays sharp). */
+export const SPRITE_SIZES = Object.freeze([128, 256, 512]);
+export function spriteSize(drawn = BOX, dpr = 1) {
+  const px = Math.max(1, Number(drawn) || BOX) * Math.max(1, Number(dpr) || 1);
+  return SPRITE_SIZES.find(size => size >= px) || BOX;
+}
+
+const MAX_PAINTED = 160;
 const painted = new Map();
 const settled = new Map();
+const warmed = new Map();
 const resolvedId = (critter, m = manifest) => (m?.critters?.[critter] ? critter : FALLBACK_CRITTER);
-const spriteKey = ({ critter, color, groom }) => `${resolvedId(critter)}|${normalColor(color)}|${groom ? 1 : 0}`;
+const paintSize = size => (SPRITE_SIZES.includes(size) ? size : BOX);
+const spriteKey = ({ critter, color, groom, size }) => `${resolvedId(critter)}|${normalColor(color)}|${groom ? 1 : 0}|${paintSize(size)}`;
+function forget(urls) {
+  for (const url of Object.values(urls)) {
+    if (!String(url).startsWith("blob:")) continue;
+    images.delete(url);
+    warmed.delete(url);
+    try { URL.revokeObjectURL(url); } catch {}
+  }
+}
 function clearPainted() {
-  for (const urls of settled.values()) for (const url of Object.values(urls)) if (String(url).startsWith("blob:")) try { URL.revokeObjectURL(url); } catch {}
+  for (const urls of settled.values()) forget(urls);
   painted.clear();
   settled.clear();
+}
+/* decoded as an <img> ahead, and held, so showing a pose never waits on a decode */
+function warm(url) {
+  if (typeof Image !== "function" || warmed.has(url)) return Promise.resolve();
+  const img = new Image();
+  img.decoding = "async";
+  img.src = url;
+  warmed.set(url, img);
+  return typeof img.decode === "function" ? img.decode().catch(() => {}) : Promise.resolve();
 }
 
 /* the painted sprites, if they are ready now (a render reads this) */
@@ -253,9 +282,13 @@ export function riderSpritesNow(look = {}) {
   return settled.get(spriteKey(look)) || null;
 }
 
-export function riderSprites({ critter = FALLBACK_CRITTER, color = FALLBACK_COLOR, groom = false } = {}) {
+/* every pose painted in the rider's colour: { [pose]: object URL }. size
+   (optional, one of SPRITE_SIZES, spriteSize() picks it) paints them
+   smaller than the 512 box; anchors scale by size / 512. */
+export function riderSprites({ critter = FALLBACK_CRITTER, color = FALLBACK_COLOR, groom = false, size = BOX } = {}) {
   return loadGrooveArt().then(m => {
-    const key = spriteKey({ critter, color, groom });
+    const key = spriteKey({ critter, color, groom, size });
+    const px = paintSize(size);
     if (painted.has(key)) return painted.get(key);
     const c = critterArt(critter, m);
     const id = resolvedId(critter, m);
@@ -275,21 +308,20 @@ export function riderSprites({ critter = FALLBACK_CRITTER, color = FALLBACK_COLO
         const p = poseArt(id, pose, m);
         const [src, tube] = await Promise.all([loadImage(p.src), loadImage(p.tube).catch(() => null)]);
         const crown = crownImg ? { img:crownImg, ...crownFor(m, id, pose) } : null;
-        const out = paintSprite({ src, tube, color, w:box[0], h:box[1], crown });
+        const out = paintSprite({ src, tube, color, w:Math.round(px * box[0] / BOX), h:Math.round(px * box[1] / BOX), boxW:box[0], crown });
         urls[pose] = await canvasUrl(out);
         /* poses that share one file (the placeholders) are painted once */
         done.set(fileKey, urls[pose]);
         /* let a frame through between poses */
         await new Promise(resolve => setTimeout(resolve, 0));
       }
-      /* decoded ahead, so a pose swap never waits */
-      await Promise.all(Object.values(urls).map(url => loadImage(url).catch(() => null)));
+      await Promise.all([...new Set(Object.values(urls))].map(warm));
       settled.set(key, urls);
       if (settled.size > MAX_PAINTED) {
         const [oldKey, oldUrls] = settled.entries().next().value;
         settled.delete(oldKey);
         painted.delete(oldKey);
-        for (const url of Object.values(oldUrls)) if (String(url).startsWith("blob:")) { images.delete(url); try { URL.revokeObjectURL(url); } catch {} }
+        forget(oldUrls);
       }
       return urls;
     })();

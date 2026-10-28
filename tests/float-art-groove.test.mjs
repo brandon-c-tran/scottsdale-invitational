@@ -213,6 +213,17 @@ test("colours: #rgb and #rrggbb pass (lowercased), anything else is the fallback
   for (const bad of [null, "", "red", "#12345", "url(x)"]) assert.equal(groove.normalColor(bad), groove.FALLBACK_COLOR);
 });
 
+test("the painted size: the smallest of 128, 256, 512 covering the drawn size in device pixels", () => {
+  assert.deepEqual([...groove.SPRITE_SIZES], [128, 256, 512]);
+  assert.equal(groove.spriteSize(100), 128);
+  assert.equal(groove.spriteSize(200), 256);
+  assert.equal(groove.spriteSize(300), 512);
+  assert.equal(groove.spriteSize(200, 2), 512);
+  assert.equal(groove.spriteSize(120, 2), 256);
+  assert.equal(groove.spriteSize(4000, 3), 512);
+  assert.equal(groove.spriteSize(undefined), 512);
+});
+
 test("no canvas in node: riderSprites hands back every pose's bare file, riderPortrait is null", async () => {
   groove.provideGrooveArt(manifest);
   const urls = await groove.riderSprites({ critter:"otter", color:"#123456" });

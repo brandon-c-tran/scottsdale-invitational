@@ -14,7 +14,8 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import TapButton from "./TapButton.jsx";
 import { Critter, Host, Popup } from "./art.jsx";
-import { drinkGate, pendingCalls, songView } from "./controllerModel.js";
+import { demoAt, drinkGate, narrationAt, pendingCalls, songView } from "./controllerModel.js";
+import { cueTime } from "../../shared/chart.js";
 import { CutLine, CupIcon, Scenery } from "./parts.jsx";
 
 const perfNow = () => globalThis.performance?.now?.() ?? Date.now();
@@ -193,6 +194,11 @@ function DrinkPanel({ onDone, late }) {
 
 /* props: serverNow (the room's clock), chart, songAt, entrant, shape (roundShape), name,
    popup ({ key, q, d, at }), act ({ key, kind, q, at }), owes, done, onTap, onDone */
+/* the practice's narration: Rhythm Heaven's text box at the top */
+function Narration({ text }) {
+  return <div className="flc-line" role="status"><b key={text}>{text}</b></div>;
+}
+
 export default function SongScreen({ serverNow, chart, songAt, entrant, shape, name, popup = null, act = null, owes = false, done = false,
   onTap, onDone, onExit = null }) {
   const rootRef = useRef(null), bobRef = useRef(null), moveRef = useRef(null);
@@ -200,16 +206,24 @@ export default function SongScreen({ serverNow, chart, songAt, entrant, shape, n
   const now = useSongNow(serverNow, songAt, chart?.beatMs);
   const view = songView(chart, songAt, now);
   const gate = drinkGate({ view, chart, owes, done });
-  const card = view.moment === "card" || view.moment === "intro";
+  /* practice is narrated from a beat before it (the intro's last beat) */
+  const line = gate.owed ? null : narrationAt(chart, view.beat);
+  const card = (view.moment === "card" || view.moment === "intro") && !line;
   const calls = card || gate.owed ? [] : pendingCalls(chart, view.beat);
+  /* the host showing a cue: "Watch", and your critter acts it out with the band's answer */
+  const demo = view.moment === "practice" ? demoAt(chart, view.beat) : null;
+  const demoAct = demo && view.beat >= demo.beat && Number.isFinite(songAt)
+    ? { key:`demo-${demo.id}`, kind:demo.kind, q:"nice", at:perfNow() - (now - cueTime(songAt, demo.beat, chart.beatMs)) } : null;
+  const moved = demoAct && (!act || demoAct.at > act.at) ? demoAct : act;
   const base = gate.owed ? "chug" : "idle";
-  const pose = usePose(act, base);
-  useMove(moveRef, act);
+  const pose = usePose(moved, base);
+  useMove(moveRef, moved);
   useBeatBob(bobRef, { songAt, serverNow, beatMs:chart?.beatMs, on:Number.isFinite(songAt) && view.moment !== "card" });
   const shown = useShown(popup);
+  const watch = !!demo && line !== "Watch" && !shown;
   const progress = Number.isFinite(view.beat) && chart ? Math.max(0, Math.min(1, view.beat / chart.beats)) : 0;
   const late = gate.owed && !gate.inBreak;
-  return <section ref={rootRef} className={`flc-screen flc-song is-${view.moment}${gate.owed ? " is-owed" : ""}`}
+  return <section ref={rootRef} className={`flc-screen flc-song is-${view.moment}${gate.owed ? " is-owed" : ""}${line ? " has-line" : ""}`}
     data-moment={view.moment} data-scene={chart?.scene || "open"}>
     <Scenery scene={chart?.scene || "open"} />
     <header className="flc-songbar">
@@ -219,10 +233,14 @@ export default function SongScreen({ serverNow, chart, songAt, entrant, shape, n
       <i className="flc-progress" aria-hidden="true"><b style={{ transform:`scaleX(${progress})` }} /></i>
     </header>
     {card && <RoundCard shape={shape} name={name} />}
-    {!card && !gate.owed && <HostBubble calls={calls} />}
+    {!card && !gate.owed && <div className="flc-head">
+      {line && <Narration text={line} />}
+      <HostBubble calls={calls} />
+    </div>}
     {gate.resting && <div className="flc-rest" role="status"><b key={gate.drank ? "done" : "break"}>{gate.drank ? "Done" : "Break"}</b></div>}
     <div className="flc-stage">
-      <div className="flc-popup-slot">{shown && !gate.owed && <Popup key={shown.key} q={shown.q} d={shown.d} />}</div>
+      <div className="flc-popup-slot">{shown && !gate.owed ? <Popup key={shown.key} q={shown.q} d={shown.d} />
+        : watch ? <b className="flc-watch-tag" key={`watch-${demo.id}`}>Watch</b> : null}</div>
       <div className="flc-me" ref={bobRef}><div className="flc-me-move" ref={moveRef}>
         <Critter entrant={entrant} pose={pose} size={300} />
       </div></div>

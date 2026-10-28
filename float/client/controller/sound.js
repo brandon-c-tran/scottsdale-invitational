@@ -19,8 +19,8 @@ export const doneSound = () => call("floatDoneSound");
 export const cheerSound = () => call("floatCheerSound");
 export const unlockSound = () => call("unlockFloatSound");
 
-/* the beat Last Call's verdict is heard on (LAST_CALL_BEATS.drinks), or null before the sound has it */
-export const verdictBeat = () => Number.isFinite(floatSound.LAST_CALL_BEATS?.drinks) ? floatSound.LAST_CALL_BEATS.drinks : null;
+/* the cut's beats as the phone's sound plays them (CUT_BEATS: Out on your turn, Through after the last), or null */
+export const cutBeats = () => floatSound.CUT_BEATS && Number.isFinite(floatSound.CUT_BEATS.reveal) ? floatSound.CUT_BEATS : null;
 
 /* the room's moments on the you bus (the sound builder's hook; its return is not read) */
 const hookName = "useFloatControllerSound";

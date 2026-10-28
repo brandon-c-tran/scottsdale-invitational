@@ -3,14 +3,15 @@
    cut (your percent and place, Through or Out), the crowd (out: cheer from
    the bank), the podium, the feedback card, and watching (not in this Cup).
    The song is SongScreen. */
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Portrait from "../locker/Portrait.jsx";
 import LockerPicker from "../locker/LockerPicker.jsx";
 import TapButton from "./TapButton.jsx";
 import { Critter } from "./art.jsx";
 import { CutLine, ExitButton, Scenery, Top } from "./parts.jsx";
 import { RoundCard, useBeatBob, useMove, usePose } from "./SongScreen.jsx";
-import { chartFor, cutView, finalPlace, indexes, ordinal, pctText, roundShape, roundSong, songAtOf } from "./controllerModel.js";
+import { CUT_SHOW, chartFor, cutShow, cutView, finalPlace, indexes, ordinal, pctText, roundShape, roundSong, songAtOf } from "./controllerModel.js";
+import { cutBeats } from "./sound.js";
 import { tapTick } from "../../../src/lib/haptics.js";
 
 function Connecting({ onExit }) {
@@ -78,25 +79,49 @@ function Intro({ game, entrant, onExit }) {
   </section>;
 }
 
-function Cut({ game, entrant, onExit }) {
+/* re-render once the room's clock reaches `at` (server ms) */
+function useAt(serverNow, at) {
+  const [, bump] = useState(0);
+  useEffect(() => {
+    if (typeof serverNow !== "function" || !Number.isFinite(at)) return undefined;
+    const wait = at - serverNow();
+    if (wait <= 0) return undefined;
+    const id = setTimeout(() => bump(n => n + 1), wait + 4);
+    return () => clearTimeout(id);
+  }, [serverNow, at]);
+}
+
+/* the cut, after a song (GROOVE.md "After a song"): your grade big with the
+   judge's line, then Through or Out when it is heard (the sound's beats:
+   on your turn in the outs, revealed from the bottom; Through after the
+   last); after the final, your place in the Cup */
+const GRADE_POSE = Object.freeze({ superb:"cheer", ok:"nice", tryagain:"miss" });
+function Cut({ game, entrant, serverNow, onExit }) {
   const room = game.room, idx = game.idx;
   const view = cutView({ room, me:game.me, idx });
   const song = roundSong(room);
   const chart = chartFor(room, game.chart);
+  const judged = game.memory?.song && game.memory.song === game.songKey ? game.memory.judged || {} : {};
+  const now = typeof serverNow === "function" ? serverNow() : Date.now();
+  const show = cutShow({ room, me:game.me, idx, chart, judged, now, beats:cutBeats() || CUT_SHOW });
+  useAt(serverNow, show.at);
   const place = view.final ? view.cupPlace ?? view.place : view.place;
   const stamp = view.final ? ordinal(place) || "In" : view.out ? "Out" : "Through";
   const tone = view.final ? (place && place <= 3 ? `p${place}` : "final") : view.out ? "out" : "through";
-  const pose = view.final ? (place && place <= 3 ? "cheer" : "idle") : view.out ? "out" : "nice";
+  const told = show.told || !show.word;
+  const pose = !told ? GRADE_POSE[show.grade] || "idle" : view.final ? (place && place <= 3 ? "cheer" : "idle") : view.out ? "out" : "nice";
   const of = view.final ? (room?.entrants?.length || view.of) : view.of;
-  return <section className={`flc-screen flc-cut is-${tone}`} data-scene={chart?.scene || "open"}>
+  return <section className={`flc-screen flc-cut is-${tone}${told ? " is-told" : ""}`} data-scene={chart?.scene || "open"}>
     <Scenery scene={chart?.scene || "open"} />
     <Top left={<span className="flc-kicker">{song.name}</span>} right={<ExitButton onExit={onExit} />} />
     <div className="flc-cut-main">
-      <b className="flc-stamp" key={stamp}>{stamp}</b>
-      <div className="flc-score">
+      {show.word && <b className={`flc-grade is-${show.grade}`} key={show.grade}>{show.word}</b>}
+      {show.line && <p className="flc-judge">{show.line}</p>}
+      {told && <b className="flc-stamp" key={stamp}>{stamp}</b>}
+      {told && <div className="flc-score">
         {view.pct !== null && <b className="flc-pct">{pctText(view.pct)}</b>}
         {place && of ? <span className="flc-place">{view.final ? `of ${of}` : `${ordinal(place)} of ${of}`}</span> : null}
-      </div>
+      </div>}
     </div>
     <div className="flc-stage"><div className="flc-idle-me"><Critter entrant={entrant} pose={pose} size={260} /></div></div>
   </section>;

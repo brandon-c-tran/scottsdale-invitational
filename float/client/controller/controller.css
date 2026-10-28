@@ -180,8 +180,25 @@ html.flc-locked, html.flc-locked body { overflow: hidden; overscroll-behavior: n
 .flc-cutline i.is-out { background: color-mix(in srgb, var(--coral) 45%, var(--paper)); }
 .flc-cutline-bar { width: 4px; height: 26px; margin: 0 4px; border-radius: 2px; background: var(--ink); }
 
+/* the top of the song: the practice's narration, then the host's call */
+.flc-head { position: absolute !important; left: calc(var(--sa-left) + 14px); right: calc(var(--sa-right) + 14px); top: calc(var(--sa-top) + 62px);
+  display: flex; flex-direction: column; gap: 10px; pointer-events: none; z-index: 2; }
+/* Rhythm Heaven's text box: white, rounded, dark text, big */
+.flc-line { display: grid; justify-items: center; }
+.flc-line b {
+  display: block; max-width: 100%; padding: 12px 20px 14px; border-radius: 22px; text-align: center;
+  font-size: clamp(21px, 6.2vw, 27px); line-height: 1.18; font-weight: 900; letter-spacing: -0.01em; color: var(--ink);
+  background: var(--paper); box-shadow: inset 0 0 0 3.5px var(--ink), 0 5px 0 rgba(43, 34, 51, 0.2);
+  animation: flc-line-in 300ms var(--spring) both;
+}
+@keyframes flc-line-in { from { transform: translateY(-8px) scale(0.92); opacity: 0; } }
+/* the host shows it: Watch */
+.flc-watch-tag {
+  font-size: clamp(40px, 12vw, 56px); font-weight: 900; letter-spacing: 0.02em; color: var(--paper); text-shadow: var(--outline);
+  padding: 0 10px 12px; animation: flc-card-in 320ms var(--spring) both;
+}
 /* the host's call */
-.flc-call { position: absolute; left: calc(var(--sa-left) + 14px); right: calc(var(--sa-right) + 14px); top: calc(var(--sa-top) + 64px); display: flex; align-items: flex-end; gap: 6px; opacity: 0; transform: translateY(-6px); transition: opacity 140ms ease, transform 200ms var(--ease); pointer-events: none; z-index: 2; }
+.flc-call { position: relative; display: flex; align-items: flex-end; gap: 6px; opacity: 0; transform: translateY(-6px); transition: opacity 140ms ease, transform 200ms var(--ease); pointer-events: none; }
 .flc-call.is-on { opacity: 1; transform: none; }
 .flc-bubble {
   position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; min-height: 64px; padding: 10px 20px 12px; margin-bottom: 26px;
@@ -317,6 +334,23 @@ html.flc-locked, html.flc-locked body { overflow: hidden; overscroll-behavior: n
 .flc-cut.is-p2 .flc-stamp { background: #d7dde6; color: var(--ink); text-shadow: none; }
 .flc-cut.is-p3 .flc-stamp { background: #e7a46f; }
 .flc-score { display: grid; justify-items: center; gap: 4px; }
+/* the grade, Rhythm Heaven's three, and the judge's line */
+.flc-grade {
+  font-family: var(--pixel); font-size: clamp(54px, 17vw, 84px); line-height: 1; font-weight: 700; letter-spacing: 0.01em;
+  color: var(--paper); text-shadow: var(--outline); padding: 0 6px 8px;
+  animation: flc-stamp-in 560ms var(--spring) both;
+}
+.flc-grade.is-superb { color: var(--gold); }
+.flc-grade.is-ok { color: var(--paper); }
+.flc-grade.is-tryagain { color: var(--grey); }
+.flc-judge {
+  max-width: 330px; padding: 10px 18px 12px; border-radius: 20px; text-align: center;
+  font-size: 20px; line-height: 1.2; font-weight: 900; color: var(--ink);
+  background: var(--paper); box-shadow: inset 0 0 0 3px var(--ink), 0 5px 0 rgba(43, 34, 51, 0.2);
+  animation: flc-line-in 320ms var(--spring) 180ms both;
+}
+.flc-cut.is-told .flc-grade { font-size: clamp(38px, 11vw, 52px); }
+.flc-cut .flc-stamp { margin-top: 4px; }
 .flc-pct { font-family: var(--pixel); font-size: 56px; line-height: 1; color: var(--paper); text-shadow: var(--outline); }
 .flc-place { font-size: 21px; font-weight: 900; color: var(--ink); background: rgba(255, 253, 248, 0.8); padding: 5px 14px; border-radius: 999px; }
 
@@ -387,7 +421,8 @@ html.flc-locked, html.flc-locked body { overflow: hidden; overscroll-behavior: n
   .flc-stage { left: 0; right: 50%; bottom: calc(var(--sa-bottom) + 2%); }
   .flc-popup-slot { position: absolute; left: 100%; bottom: 40px; width: 100%; height: auto; }
   .flc-critter { width: calc(var(--size) * 0.72); height: calc(var(--size) * 0.72); }
-  .flc-call { top: calc(var(--sa-top) + 52px); left: 50%; }
+  .flc-head { top: calc(var(--sa-top) + 48px); left: 46%; }
+  .flc-line b { font-size: 20px; padding: 8px 16px 10px; }
   .flc-drink { top: calc(var(--sa-top) + 48px); left: 46%; justify-content: center; gap: 18px; }
   .flc-song.is-owed .flc-stage { bottom: calc(var(--sa-bottom) + 2%); }
   .flc-cut-main, .flc-podium-place, .flc-rest, .flc-watch-main { left: 46%; top: calc(var(--sa-top) + 10%); }

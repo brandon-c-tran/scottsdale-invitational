@@ -9,8 +9,8 @@
    for the cut. Where the room's frame leaves something out, the frozen
    chart module fills it in: no `chart` is chartOf(song), no `songAt` is
    startAt + SONG_LEAD_MS. */
-import { LAST_CALL, LAST_CALL_ID, SONGS, SONG_LEAD_MS, beatOf, callsBetween, chartOf, clockAt, drinkSection, qualityOf, songForRound }
-  from "../../shared/chart.js";
+import { LAST_CALL_ID, SONGS, SONG_LEAD_MS, callsBetween, chartOf, clockAt, drinkSection, feedbackOf, gradeOf, gradeWord, lineAt,
+  songForRound } from "../../shared/chart.js";
 
 const num = value => value === null || value === undefined || value === "" ? null : Number.isFinite(Number(value)) ? Number(value) : null;
 export const indexOf = value => Number.isInteger(value) ? value : value && typeof value === "object" && Number.isInteger(Number(value.i)) ? Number(value.i) : null;
@@ -59,7 +59,7 @@ export function chartFor(room, kept = null) {
   if (kept && Array.isArray(kept.cues) && (!id || kept.id === id)) return kept;
   return id ? chartOf(id) : null;
 }
-export const songName = id => id === LAST_CALL_ID ? "Last Call" : SONGS.find(song => song.id === id)?.name || "";
+export const songName = id => String(id || "").startsWith(LAST_CALL_ID) ? "Last Call" : SONGS.find(song => song.id === id)?.name || "";
 /* the room's one calibration offset, ms */
 export const offsetOf = room => num(room?.offset) ?? 0;
 
@@ -78,59 +78,69 @@ export function songView(chart, songAt, now) {
   return { moment:clock.section, half, beat:clock.beat, bar:clock.bar, inBar:clock.inBar, lead:0 };
 }
 
-/* ---- Last Call (GROOVE.md "Last Call") ---- */
+/* ---- Last Call: the countdown (GROOVE.md "Last Call: the countdown") ----
 
-/* The glass on the bar at `beat`: the grab it is sliding toward (from a
-   beat before its first slide until a beat after the grab), and how far
-   along: each slide pushes it a step, the grab beat brings it to you.
-   { c, x (0 to 1), arrived } or null between grabs. */
-export function glassAt(chart, beat) {
+   The phone never shows the count: the TV is where you watch it. Its
+   moments, in ms from the bar's songAt (chart.countdown): "intro" (the
+   title; the first Last Call says what it is), "count" (Tap on zero, one
+   big pad, then Locked), "reveal" (your offset, big), "verdict" (You drink
+   or Safe, at the later of verdictAt and the room's word on who drinks). */
+export const LAST_CALL_LINE = "The bar closes at zero. Tap on zero. Farthest off drinks.";
+export function countdownView({ room, idx, chart, songAt, now, judged = {}, tap = null }) {
+  const cd = chart?.countdown || null;
+  const t = Number.isFinite(songAt) && Number.isFinite(now) ? now - songAt : null;
+  const moment = !cd || t === null ? "intro" : t < cd.introMs ? "intro" : t < cd.revealAt ? "count" : t < cd.verdictAt ? "reveal" : "verdict";
+  const cue = chart?.cues?.[0] || null;
+  /* your tap: the room's word on it, else this phone's own call */
+  const said = cue ? judged[cue.id] : null;
+  const mine = said?.q ? { q:said.q, d:said.q === "miss" ? null : num(said.d) } : tap?.q ? { q:tap.q, d:num(tap.d) } : null;
+  const shown = moment === "reveal" || moment === "verdict" ? mine || { q:"miss", d:null } : null;
+  const worst = moment === "verdict" && Array.isArray(room?.lastCall?.worst) ? indexes(room.lastCall.worst) : null;
+  return { moment, first:!!cd?.first, locked:!!mine, offset:shown, drinks:worst === null ? null : worst.includes(idx) };
+}
+
+/* ---- practice, narrated (GROOVE.md "Practice, narrated") ---- */
+
+/* the narration at beat b: the practice's text box (chart.js lineAt), its text or null */
+export const narrationAt = (chart, beat) => Number.isFinite(beat) ? lineAt(chart, beat)?.text || null : null;
+/* the host showing a cue (demo:true) at beat b: from its call until half a
+   beat past it; nobody taps it, the phone says "Watch" and acts it out */
+export function demoAt(chart, beat) {
   if (!chart || !Number.isFinite(beat)) return null;
   for (const cue of chart.cues || []) {
-    const slides = Array.isArray(cue.slides) ? cue.slides : [];
-    const from = (slides[0] ?? cue.beat) - 1;
-    if (beat < from || beat >= cue.beat + 1) continue;
-    const pushed = slides.filter(at => at <= beat).length;
-    const arrived = beat >= cue.beat;
-    return { c:cue.id, x:arrived ? 1 : pushed / (slides.length + 1), arrived };
+    if (!cue.demo) continue;
+    const from = Number.isFinite(cue.call) ? cue.call : cue.beat - 1;
+    if (beat >= from && beat < cue.beat + 0.5) return cue;
   }
   return null;
 }
 
-/* The beat Last Call's verdict is heard on (the sound's
-   LAST_CALL_BEATS.drinks, beats from the bar's songAt): the room knows who
-   drinks from the last grab's deadline (about beat 24.5), the phone tells
-   it with the room's Gulp or Safe. */
-export const VERDICT_BEAT = 28;
+/* ---- after a song (GROOVE.md "After a song") ---- */
 
-/* Last Call on this phone: where it is (songView's moments), the glass,
-   your three grabs (the room's word on each: its quality and d, a miss
-   null), your total so far (the room's `me.lastCall.ms`), and whether you
-   drink (room.lastCall.worst), told at the later of its arrival and the
-   verdict's beat. { moment, glass, grabs:[{ c, q, d } | null], total, drinks } */
-export function lastCallView({ room, me = null, idx, chart, songAt, now, judged = {}, verdictBeat = VERDICT_BEAT }) {
-  const view = songView(chart, songAt, now);
-  const beat = Number.isFinite(songAt) && Number.isFinite(now) ? beatOf(songAt, now, chart?.beatMs) : null;
-  const grabs = (chart?.cues || []).map(cue => {
-    const own = judged[cue.id];
-    if (own?.q) return { c:cue.id, q:own.q, d:own.q === "miss" ? null : own.d ?? null };
-    const said = me?.lastCall?.grabs;
-    if (said && Object.prototype.hasOwnProperty.call(said, cue.id)) {
-      const d = num(said[cue.id]);
-      return d === null ? { c:cue.id, q:"miss", d:null } : { c:cue.id, q:qualityOf(d), d };
-    }
-    return null;
-  });
-  const roomTotal = num(me?.lastCall?.ms) ?? num(list(room?.lastCall?.totals).find(item => indexOf(item) === idx)?.ms);
-  const ownTotal = grabs.some(Boolean) ? grabs.reduce((sum, grab) => sum + (grab ? (grab.d === null ? LAST_CALL.MISS_MS : Math.abs(grab.d)) : 0), 0) : null;
-  const heard = Number.isFinite(beat) && beat >= (Number.isFinite(verdictBeat) ? verdictBeat : VERDICT_BEAT);
-  const worst = heard && Array.isArray(room?.lastCall?.worst) ? indexes(room.lastCall.worst) : null;
-  return { moment:view.moment, beat, glass:glassAt(chart, beat), grabs, total:roomTotal ?? ownTotal,
-    drinks:worst === null ? null : worst.includes(idx) };
+/* the cut's beats on this phone (the sound's CUT_BEATS: Out on your turn in
+   the outs, Through after the last, ms from the cut's start) */
+export const CUT_SHOW = Object.freeze({ reveal:2500, gap:500 });
+/* Your grade and the judge's line (the room's `me.feedback`, else the
+   room's grade on your result, else judged here from the room's word on
+   your cues), and when Through or Out is told: on your turn in the outs,
+   revealed one by one from the bottom, or after the last for Through.
+   { grade, word, line, at, told } */
+export function cutShow({ room, me = null, idx, chart, judged = {}, now, beats = CUT_SHOW }) {
+  const own = me?.feedback && typeof me.feedback === "object" ? me.feedback : null;
+  const result = list(room?.results).find(item => indexOf(item) === idx) || null;
+  const judgedHere = chart ? feedbackOf(chart, judged) : null;
+  const grade = own?.grade || result?.grade || (Number.isFinite(num(me?.pct)) ? gradeOf(num(me.pct)) : judgedHere?.grade) || null;
+  const line = typeof own?.line === "string" ? own.line : judgedHere?.line || "";
+  const round = num(room?.round) ?? 0;
+  const last = list(room?.history).at(-1);
+  /* this round's outs in the order they are revealed: the bottom first */
+  const outs = last && num(last.round) === round ? indexes(last.out).slice().reverse() : [];
+  const k = outs.indexOf(idx);
+  const start = num(room?.startAt);
+  const reveal = Number.isFinite(beats?.reveal) ? beats.reveal : CUT_SHOW.reveal, gap = Number.isFinite(beats?.gap) ? beats.gap : CUT_SHOW.gap;
+  const at = start === null ? null : start + reveal + (k >= 0 ? k : outs.length) * gap;
+  return { grade, word:grade ? gradeWord(grade) : "", line, at, told:at === null || (Number.isFinite(now) && now >= at) };
 }
-
-/* a total as the phone letters it: seconds to two decimals */
-export const secondsText = ms => Number.isFinite(ms) ? (Math.max(0, ms) / 1000).toFixed(2) : "";
 
 /* the song a round plays, by name: the room's, else the frozen order */
 export function roundSong(room) {

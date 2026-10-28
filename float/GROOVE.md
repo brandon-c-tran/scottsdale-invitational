@@ -279,6 +279,34 @@ the 3D files stay in the folder for the parked fallback):
 `/float/art` shows every critter in every pose in a few colours, the host,
 the scenes and the props: the page Brandon reviews the art on.
 
+As built (groove/art, Oct 27; 44 images on `gpt-image-2.5-sunburst`, sources
+kept in `float/look/groove`):
+- Each critter: a 1024 portrait from its lineup cell, then one 4x2 sheet of
+  the eight poses from that portrait (one generation keeps one character).
+  The ring was generated flat magenta, keyed to grey shading plus a mask
+  thinned at highlights, so every colour keeps a white shine.
+- `anchor.water` is the ring's centre at 70% of its height, box point (256,
+  440) for every pose of every critter; nothing is drawn below the ring (the
+  lower third is underwater); every idle ring is 250 px wide in the box.
+  Poses carry their own `anchor` (the crown sits on the head in every pose).
+  The `ripple` prop goes centred at `anchor.water`, about 1.35 x the ring.
+- `host.box` is [512, 560] (anchors ground, head, face, horn: the
+  megaphone's bell; per-pose anchors). A top-level `bartender`, shaped like
+  `host`: box [512, 512], poses idle, slide, cheer, waist up, `ground` the
+  counter line, `hand` the arm's tip. `scenes.bar.counter` is the counter as
+  a share of the height; `props.podium.steps` the tops of the 1st, 2nd, 3rd
+  blocks. Props beyond the list: splash-big, podium, drink, confetti-1..4 and
+  sparkle (white, tinted at run time).
+- Scenes draw in manifest order: sky (depth 0), land (0.3, loops), water (1,
+  loops); the water is opaque below `water`.
+- `riderSprites({ critter, color, groom, size })` paints at 128, 256 or 512
+  (`spriteSize(drawn, dpr)`), so the TV's riders use a quarter of the memory;
+  `sceneOf`, `propOf`, `hostSprites`, `bartenderSprites` are synchronous and
+  null until `loadGrooveArt()` resolves. `<Popup q d size life />`: `size`
+  the number's height, `life` fades it at POPUP_MS; key each judgement.
+- The font is Pixelify Sans as "Float Pixel"
+  (`public/fonts/pixelify-sans-latin.woff2`, OFL beside it).
+
 ## Sound (the Groove)
 
 - Everything sounds through `src/lib/sound.js` (`playSound` / `cueAt`): the

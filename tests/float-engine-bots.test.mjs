@@ -1,15 +1,15 @@
 /* Float's computer riders in the Groove (float/shared/groove.js botDraw,
-   botCount, botSkills, botDoneAfter; float/GROOVE.md "What the room sends",
+   botCount, botSkills, botChugAfter; float/GROOVE.md "What the room sends",
    "Last Call: the countdown"): a sharp bot within about 30 ms, a sloppy one
    about 90 ms with the odd miss, every draw a function of what it is for (so
    a resumed room and a mock draw the same taps), centred on the room's
-   offset whatever the TV's delay, never on a demo cue, Done 4 to 14 s into
+   offset whatever the TV's delay, never on a demo cue, a chug-off's Done 4 to 12 s after
    the break, a field ordered by skill; at Last Call, counting down in its
    head, a sharp bot within about 150 ms, a sloppy one 800 ms or more off and
    now and then a second out. */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { BOT, COUNT_BOT, GROOVE, botCount, botDoneAfter, botDraw, botSkills, createBar, createSong, rand01, seedOf, stepSong }
+import { BOT, COUNT_BOT, GROOVE, botChugAfter, botCount, botDraw, botSkills, createBar, createSong, rand01, seedOf, stepSong }
   from "../float/shared/groove.js";
 import { createCup, makeEntrant, startCup, addBots } from "../float/shared/cup.js";
 import { LAST_CALL, chartOf, cueTime, demoCues, lastCallId, playedCues, scoredCues, SONG_MS } from "../float/shared/chart.js";
@@ -63,7 +63,7 @@ test("each bot leans its own way a little, the sloppy more", () => {
   assert.ok(Math.max(...sloppy) > 12 && Math.max(...sloppy) < BOT.LEAN[0] + 12, `sloppy leans ${Math.max(...sloppy)}`);
 });
 
-test("skills spread from 0.2 to 0.95, shuffled by seed; Done 4 to 14 s into the break", () => {
+test("skills spread from 0.2 to 0.95, shuffled by seed; a chug-off's Done 4 to 12 s after the go", () => {
   const skills = botSkills(12, 3);
   assert.equal(skills.length, 12);
   assert.ok(Math.min(...skills) === 0.2 && Math.max(...skills) === 0.95);
@@ -71,10 +71,10 @@ test("skills spread from 0.2 to 0.95, shuffled by seed; Done 4 to 14 s into the 
   assert.notDeepEqual(botSkills(12, 4), skills);
   assert.deepEqual(botSkills(1, 3), [0.6]);
   assert.deepEqual(botSkills(0, 3), []);
-  const done = Array.from({ length:300 }, (_, k) => botDoneAfter(7, k % 4, k));
-  assert.ok(done.every(ms => ms >= 4000 && ms <= 14000));
-  assert.ok(Math.max(...done) - Math.min(...done) > 8000, "spread across the window");
-  assert.equal(botDoneAfter(7, 1, 2), botDoneAfter(7, 1, 2));
+  const done = Array.from({ length:300 }, (_, k) => botChugAfter(7, k % 4, k));
+  assert.ok(done.every(ms => ms >= 4000 && ms <= 12000));
+  assert.ok(Math.max(...done) - Math.min(...done) > 6000, "spread across the 8 s");
+  assert.equal(botChugAfter(7, 1, 2), botChugAfter(7, 1, 2));
 });
 
 /* a song of bots alone, stepped the room's way (every 100 ms) */

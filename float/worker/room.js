@@ -40,7 +40,7 @@ import { ROLES, HOST_CMDS, cleanDevice, cleanRider, cleanAnswers, cleanPid, ROOM
 import { cleanLook } from "../shared/looks.js";
 import { FLOATIE_IDS } from "../shared/floaties.js";
 import { chartOf, lastCallId } from "../shared/chart.js";
-import { GROOVE, applyDone, applyHit, seedOf } from "../shared/groove.js";
+import { GROOVE, applyHit, seedOf } from "../shared/groove.js";
 import * as Cup from "../shared/cup.js";
 
 const { MAX_RIDERS, CUP_TIMING } = Cup;
@@ -55,8 +55,9 @@ const DEBUG_MS = 2000;
 const DRIVEN_MS = 1000;
 /* Last Call's totals go out as they grow, at most this often (who drinks at once) */
 const BAR_ROOM_MS = 500;
-/* the phases something is played in: the light timer runs, saves never hold a message */
-const PLAYING = new Set(["song", "lastcall"]);
+/* the phases something is played in (a song, a chug-off, Last Call): the
+   light timer runs, saves never hold a message */
+const PLAYING = new Set(["song", "chugoff", "lastcall"]);
 /* what Last Call's totals were when the room last went out: who has tapped (or missed), who drinks */
 const barKey = lastCall => lastCall
   ? `${lastCall.totals.filter(row => row.d !== null || row.ms > 0).map(row => row.i).join(",")}:${lastCall.worst ? lastCall.worst.join(",") : "-"}` : "";
@@ -362,6 +363,8 @@ export class FloatRoom {
       offset:Cup.offsetOf(cup),
       /* Last Call's totals and who drinks, in its phase (else null) */
       lastCall:Cup.lastCallSummary(cup, now),
+      /* the chug-off for the spot, in its phase (else null) */
+      chugoff:Cup.chugoffSummary(cup),
       /* the cut's show: the song's awards and the beats it lands on (else null) */
       awards:Cup.awardsSummary(cup), show:Cup.cutShowOf(cup),
       scores:Cup.scoresOf(cup, now), results:Cup.resultsOf(cup),
@@ -587,6 +590,7 @@ export class FloatRoom {
     const out = Cup.tick(cup, now, { driven:(i, t) => this.driven(i, t) });
     this.sendEvents(out.events);
     if (out.phases.length) return this.phaseChanged(out);
+    if (out.decided) return this.chugoffSettled(out.decided);
     if (!PLAYING.has(cup.phase)) return;
     if (out.offset || now - this.lastScores >= GROOVE.SCORES_MS || this.lastCallDue(now)) this.broadcastRoom();
     else if (now - this.lastDrivenAt >= DRIVEN_MS) {
@@ -610,9 +614,9 @@ export class FloatRoom {
     return summary.worst !== null || now - this.lastScores >= BAR_ROOM_MS;
   }
 
-  /* the Cup moved on: the cut's outs, who drank at Last Call, the result once
-     the podium has played, the lobby's phones; then the save, the room,
-     everyone's `me` */
+  /* the Cup moved on: the cut's outs, a chug-off settled, who drank at Last
+     Call, the result once the podium has played, the lobby's phones; then the
+     save, the room, everyone's `me` */
   phaseChanged(out) {
     const cup = this.cup;
     for (const phase of out.phases) {
@@ -623,16 +627,32 @@ export class FloatRoom {
       if (phase === "feedback") this.postResultOnce();
       if (phase === "lobby") { this.stopLoop(); this.joinWatchers(); }
     }
-    if (out.phases.includes("cut") || out.lastCall)
-      this.persist(this.storage.put(`stats:${cup.id}`, cup.history.map(({ round, song, offset, samples, stats, rtt, lastCall }) =>
-        ({ round, song, offset, samples, stats, rtt, lastCall:lastCall ?? null }))));
-    /* who went out: the round's worst first */
+    if (out.phases.includes("cut") || out.lastCall || out.chugoff) this.saveStats();
+    /* who went out: the round's worst first, then a chug-off's loser */
     for (const i of out.eliminated.slice().reverse()) this.broadcast({ t:"ev", e:"out", i });
+    if (out.decided) this.broadcast({ t:"ev", e:"out", i:out.decided.loser });
     this.saveCup(false);
     this.broadcastRoom();
     this.sendMeAll();
     this.flushOutbox();
     this.schedule();
+  }
+
+  /* A chug-off settled (a Done, or its window closed) inside its phase: the
+     loser is out; the room, everyone's `me`, the save; the phase is shorter now */
+  chugoffSettled(decided) {
+    this.broadcast({ t:"ev", e:"out", i:decided.loser });
+    this.saveCup(false);
+    this.broadcastRoom();
+    this.sendMeAll();
+    this.schedule();
+  }
+
+  /* each round's record, kept in the room's storage too */
+  saveStats() {
+    const cup = this.cup;
+    this.persist(this.storage.put(`stats:${cup.id}`, cup.history.map(({ round, song, offset, samples, stats, rtt, awards, chugoff, lastCall }) =>
+      ({ round, song, offset, samples, stats, rtt, awards:awards ?? [], chugoff:chugoff ?? null, lastCall:lastCall ?? null }))));
   }
 
   /* A Field Day Cup's result goes to the Tournament once its podium has
@@ -674,20 +694,27 @@ export class FloatRoom {
     if (event) this.sendEvents([event]);
   }
 
-  /* drink: Done, in this song's drink break */
+  /* drink: a chug-off contender's Done (from the go to the window's close);
+     the first keeps the spot */
   onDrink(i) {
     const cup = this.cup;
-    if (cup.phase !== "song" || cup.entrants[i]?.kicked) return;
+    if (cup.phase !== "chugoff" || cup.entrants[i]?.kicked) return;
+    /* what was due first (a bot's Done, the window's close) */
     this.tick();
-    if (cup.phase !== "song" || !cup.song) return;
-    const event = applyDone(cup, cup.song, i, this.now());
-    if (event) this.sendEvents([event]);
+    if (cup.phase !== "chugoff") return;
+    const done = Cup.chugDone(cup, i, this.now());
+    if (!done) return;
+    this.sendEvents(done.events);
+    if (done.decided) this.chugoffSettled(done.decided);
+    else this.broadcastRoom();
   }
 
-  /* cheer: a rider out of the Cup cheers from the bank */
+  /* cheer: a rider out of the Cup cheers from the bank; at a chug-off everyone but the two */
   onCheer(i) {
     const cup = this.cup;
-    if (!cup.out.includes(i) || !["song", "cut", "podium"].includes(cup.phase)) return;
+    /* the crowd at a chug-off: everyone but the two racing */
+    const crowd = cup.phase === "chugoff" && cup.chugoff && i !== cup.chugoff.a && i !== cup.chugoff.b;
+    if (!crowd && (!cup.out.includes(i) || !["song", "cut", "podium"].includes(cup.phase))) return;
     const now = this.now();
     if (now - (this.cheers.get(i) ?? -Infinity) < CHEER_MS) return;
     this.cheers.set(i, now);
@@ -771,8 +798,10 @@ export class FloatRoom {
      results:[{ who, pid, bot, place, pct, pts, perfects, misses, cup, grade, out }] }],
      stats:{ rounds:[{ round, song, offset, samples, riders:{ [who]:{ pct,
      pts, perfects, nice, ok, early, late, misses, hits, botShare, doneMs } },
-     awards:[{ id, who, value }], rtt, lastCall:{ trick, worst:[who],
-     excused:[who], totals:{ [who]: ms }, taps:{ [who]: d or null } } or null }],
+     awards:[{ id, who, value }], rtt, chugoff:{ a, b, winner, loser, by,
+     doneAt:{ [who]: ms after the go } } or null, lastCall:{ trick,
+     worst:[who], excused:[who], totals:{ [who]: ms }, taps:{ [who]: d or
+     null } } or null }],
      botShare:{ [who]: 0 to 1 } } } */
   queueResult() {
     const cup = this.cup;
@@ -796,6 +825,10 @@ export class FloatRoom {
       riders:Object.fromEntries(Object.entries(item.stats || {}).map(([i, value]) => [name(Number(i)), value])),
       rtt:item.rtt || {},
       awards:(item.awards || []).map(award => ({ id:award.id, who:name(award.i), value:award.value })),
+      /* the chug-off for this round's spot */
+      chugoff:item.chugoff ? { a:name(item.chugoff.a), b:name(item.chugoff.b), winner:name(item.chugoff.winner),
+        loser:name(item.chugoff.loser), by:item.chugoff.by,
+        doneAt:Object.fromEntries(Object.entries(item.chugoff.doneAt || {}).map(([i, ms]) => [name(Number(i)), ms])) } : null,
       /* who drank at the Last Call after this round */
       lastCall:item.lastCall ? { trick:item.lastCall.trick ?? null, worst:item.lastCall.worst.map(name),
         excused:(item.lastCall.excused || []).map(name),

@@ -1,6 +1,6 @@
 /* The Groove: one round's song as the room plays it (float/GROOVE.md
-   "Judging", "The drink break", "Rounds, elimination, positions", "What the
-   room sends"). Pure: no DOM, no Workers APIs and no clock of its own; every
+   "Judging", "Rounds, elimination, positions", "What the room sends",
+   "Drinking (Oct 28: Brandon's picks)"). Pure: no DOM, no Workers APIs and no clock of its own; every
    function takes `now` (server ms). The room (float/worker/room.js), the
    bench (scripts/float-sim.mjs), the tests and the screen's and phone's
    mocks run a song through these, so they agree to the hit.
@@ -8,7 +8,7 @@
    A song is plain JSON (the room saves it inside the Cup every 2 s):
      { v, round, id, songAt, field, base, offset, frozen, samples, calBeat,
        judged:{ [i]:{ [c]:[q, d, by] } }, last:{ [i]:{ c, q, d? } },
-       cursor:{ [i]:k }, done:{ [i]:t } }
+       cursor:{ [i]:k } }
    `judged` holds every judgement: q the quality ("miss" the room's call),
    d the judged offset (null for a miss), `by` who played the cue: "p" the
    rider's phone, "b" a bot entrant, "s" a stand-in for a phone gone
@@ -25,12 +25,8 @@
      is not believed.
    - Bots and stand-ins tap at cueTime + offset + dev, dev drawn from skill
      (botDraw): their d is their skill alone, whatever the TV's delay.
-   - The drink rule: a cue after the drink break is a miss for a rider who
-     had not tapped Done by its time (`lockedOut`). Bots and stand-ins tap
-     Done DONE_FROM_MS to DONE_FROM_MS + DONE_SPAN_MS into the break. A rider
-     who skips the drink is done at a bot's moment too (the break has no
-     cues, so nothing scores differently, and the TV never shows who skips
-     it); with the room's drinking off everyone is done from the start.
+   - The breakdown (bars 14 to 21, where the drink break was) is echo cues:
+     scored, tapped by bots and stand-ins, missed, like any played cue.
    - Calibration (the room's, one offset for everyone): people's raw r on
      practice cues are the samples (bots' and stand-ins' never are); the
      offset is recomputed half a beat into each beat of practice, the last
@@ -46,8 +42,8 @@
    countdown's zero and the chart's 3 s window, so no tap is a miss at
    zeroAt + offset + window + 250; bots count in their heads (botCount);
    lastCallOf is the totals and who drinks. */
-import { LAST_CALL, LAST_CALL_ID, MISS_AFTER_MS, POINTS, SONG_LEAD_MS, WINDOW, beatOf, calibrate, chartOf, cueTime,
-  drinkSection, judgeHit, lastCallId, lastCallTotal, lastCallWorst, playedCues, scoreOf, songForRound } from "./chart.js";
+import { LAST_CALL, LAST_CALL_ID, MISS_AFTER_MS, POINTS, WINDOW, beatOf, calibrate, chartOf, cueTime, judgeHit, lastCallId,
+  lastCallTotal, lastCallWorst, playedCues, scoreOf, songForRound } from "./chart.js";
 
 export const GROOVE = Object.freeze({
   /* a phone silent this long is played by a stand-in */
@@ -59,11 +55,9 @@ export const GROOVE = Object.freeze({
   TICK_MS:100,
   SCORES_MS:4000,
   SAVE_MS:2000,
-  /* Done counts from this long before the break */
-  DONE_EARLY_MS:500,
-  /* when bots, stand-ins and riders who skip the drink are done, into the break */
-  DONE_FROM_MS:4000,
-  DONE_SPAN_MS:10000,
+  /* a bot in a chug-off finishes its drink this long after the go (to + span) */
+  CHUG_FROM_MS:4000,
+  CHUG_SPAN_MS:8000,
 });
 /* the offset is recomputed this far into each beat of practice, and fixed
    this many beats before the first play bar */
@@ -152,11 +146,8 @@ export const isLastCall = chart => typeof chart?.id === "string" && chart.id.sta
 /* the chart's bot: Last Call's count, else a song's tap */
 const drawFor = chart => isLastCall(chart) ? botCount : botDraw;
 
-/* when a bot (a stand-in, a rider who skips the drink) taps Done: ms into the break */
-export const botDoneAfter = (seed, round, i) => GROOVE.DONE_FROM_MS + Math.round(GROOVE.DONE_SPAN_MS * rand01(seed, round, i, 0xd0e));
-
-/* does rider i drink this round? (drinks:false, or the room's drinking off, are done without) */
-export const drinksNow = (cup, i) => cup.drinking !== false && cup.entrants?.[i]?.drinks !== false;
+/* when a bot in a chug-off taps Done: ms after the go (4 to 12 s) */
+export const botChugAfter = (seed, round, i) => GROOVE.CHUG_FROM_MS + Math.round(GROOVE.CHUG_SPAN_MS * rand01(seed, round, i, 0xc4c));
 /* how a rider is played when no phone plays them: a bot entrant's own skill, or a stand-in's */
 export const skillOf = (cup, i) => cup.entrants?.[i]?.bot ? clamp01(cup.entrants[i].skill) : GROOVE.STAND_IN_SKILL;
 /* the sum of a rider's earlier songs' percents (one decimal) */
@@ -168,13 +159,11 @@ export const addTenths = (a, b) => Math.round(((Number(a) || 0) + (Number(b) || 
 /* a fresh song for this round: beat 0 at songAt, the field in its order
    (the last round's ranking, which breaks a last tie), the last song's
    offset to start from */
-export function createSong({ cup, round = cup.round, songAt, field = cup.field, base = 0, startAt = songAt - SONG_LEAD_MS }) {
+export function createSong({ cup, round = cup.round, songAt, field = cup.field, base = 0 }) {
   const id = songForRound(round, cup.rounds);
-  const song = { v:1, round, id, songAt, field:field.slice(), base, offset:base, frozen:false, samples:[], calBeat:null,
-    judged:{}, last:{}, cursor:{}, done:{} };
+  const song = { v:2, round, id, songAt, field:field.slice(), base, offset:base, frozen:false, samples:[], calBeat:null,
+    judged:{}, last:{}, cursor:{} };
   for (const i of song.field) { song.judged[i] = {}; song.cursor[i] = 0; }
-  /* drinking off: everyone is done before it starts */
-  if (cup.drinking === false) for (const i of song.field) song.done[i] = startAt;
   return song;
 }
 
@@ -182,20 +171,6 @@ const chartFor = song => chartOf(song.id);
 const timeOf = (song, chart, cue) => cueTime(song.songAt, cue.beat, chart.beatMs);
 /* when the room calls cue `cue` missed */
 export const deadlineOf = (song, cue, chart = chartFor(song)) => timeOf(song, chart, cue) + song.offset + missAfterOf(chart);
-/* the drink break's server times */
-export function drinkTimes(song, chart = chartFor(song)) {
-  const section = drinkSection(chart);
-  return { from:cueTime(song.songAt, section.from, chart.beatMs), to:cueTime(song.songAt, section.to, chart.beatMs),
-    fromBeat:section.from, toBeat:section.to };
-}
-/* the drink rule: a cue after the break is no hit for a rider not Done by its time */
-export function lockedOut(song, i, cue, chart = chartFor(song)) {
-  const section = drinkSection(chart);
-  if (!section || cue.beat < section.to) return false;
-  const done = song.done[i];
-  return done === undefined || done === null || done > timeOf(song, chart, cue);
-}
-export const isDone = (song, i, now = Infinity) => song?.done?.[i] !== undefined && song.done[i] !== null && song.done[i] <= now;
 
 function record(song, i, cue, q, d, by) {
   song.judged[i][cue.id] = [q, d, by];
@@ -204,9 +179,9 @@ function record(song, i, cue, q, d, by) {
 
 /* A phone's hit on cue c with raw offset r, at the room's `now`. Returns the
    event { e:"hit", i, c, q, d, at } (at: the tap's server time) or null
-   when it is ignored: no such rider or cue, judged already, past its miss,
-   stamped from the future, too far from the cue, or still drinking. A
-   practice hit before the offset is fixed is a calibration sample. */
+   when it is ignored: no such rider or cue, a demo, judged already, past
+   its miss, stamped from the future, or too far from the cue. A practice
+   hit before the offset is fixed is a calibration sample. */
 export function applyHit(cup, song, i, { c, r } = {}, now) {
   const judged = song?.judged?.[i];
   if (!judged) return null;
@@ -217,7 +192,6 @@ export function applyHit(cup, song, i, { c, r } = {}, now) {
   const t = timeOf(song, chart, cue);
   if (now >= t + song.offset + missAfterOf(chart)) return null;
   if (t + raw > now + GROOVE.FUTURE_MS) return null;
-  if (lockedOut(song, i, cue, chart)) return null;
   const hit = judgeHit(chart, cue.id, raw, song.offset);
   if (!hit) return null;
   record(song, i, cue, hit.q, hit.d, "p");
@@ -225,14 +199,6 @@ export function applyHit(cup, song, i, { c, r } = {}, now) {
   return { e:"hit", i, c:cue.id, q:hit.q, d:hit.d, at:Math.round(t + raw) };
 }
 
-/* Done: rider i finished their drink. Counts from a beat before the break,
-   once. Returns { e:"done", i, at } or null. */
-export function applyDone(cup, song, i, now) {
-  if (!song?.judged?.[i] || (song.done[i] !== undefined && song.done[i] !== null) || !drinkSection(chartFor(song))) return null;
-  if (now < drinkTimes(song).from - GROOVE.DONE_EARLY_MS) return null;
-  song.done[i] = now;
-  return { e:"done", i, at:now };
-}
 
 /* The calibration's beat: recomputed FREEZE_BEATS into each beat of
    practice (so at most once a beat, and a tap on a beat is in by its
@@ -276,15 +242,13 @@ function settleRider(cup, song, chart, i, now, driven, events) {
     if (t + song.offset - early > now) break;
     if (cue.demo || judged[cue.id]) continue;
     const deadline = t + song.offset + missAfter;
-    if (!lockedOut(song, i, cue, chart)) {
-      const draw = drawOf(cup.seed, song.round, i, cue.id, skill);
-      const at = t + song.offset + (draw.dev ?? 0);
-      if (draw.hit && at <= now && at < deadline && driven(i, at)) {
-        const hit = judgeHit(chart, cue.id, song.offset + draw.dev, song.offset);
-        record(song, i, cue, hit.q, hit.d, bot ? "b" : "s");
-        events.push({ e:"hit", i, c:cue.id, q:hit.q, d:hit.d, at:Math.round(at) });
-        continue;
-      }
+    const draw = drawOf(cup.seed, song.round, i, cue.id, skill);
+    const at = t + song.offset + (draw.dev ?? 0);
+    if (draw.hit && at <= now && at < deadline && driven(i, at)) {
+      const hit = judgeHit(chart, cue.id, song.offset + draw.dev, song.offset);
+      record(song, i, cue, hit.q, hit.d, bot ? "b" : "s");
+      events.push({ e:"hit", i, c:cue.id, q:hit.q, d:hit.d, at:Math.round(at) });
+      continue;
     }
     if (deadline <= now) {
       record(song, i, cue, "miss", null, driven(i, deadline) ? (bot ? "b" : "s") : "p");
@@ -293,27 +257,16 @@ function settleRider(cup, song, chart, i, now, driven, events) {
   }
 }
 
-/* The song up to `now`: the calibration's beat, Done for whoever does not
-   tap it, then every rider's due taps and misses. `driven(i, t)` says
-   whether nobody's phone plays rider i at time t. Returns { events (in time
-   order: { e:"hit", i, c, q, d?, at } and { e:"done", i, at }), offset
-   (whether it changed) }. */
+/* The song up to `now`: the calibration's beat, then every rider's due
+   taps and misses. `driven(i, t)` says whether nobody's phone plays rider i
+   at time t. Returns { events (in time order: { e:"hit", i, c, q, d?, at }),
+   offset (whether it changed) }. */
 export function stepSong(cup, song, now, { driven = () => false } = {}) {
   const chart = chartFor(song);
   const events = [];
   const offset = calibrateStep(song, chart, now);
-  const drink = drinkSection(chart) ? drinkTimes(song, chart) : null;
-  if (drink && now >= drink.from) for (const i of song.field) {
-    if (song.done[i] !== undefined && song.done[i] !== null) continue;
-    const at = drink.from + botDoneAfter(cup.seed, song.round, i);
-    if (now < at) continue;
-    if (!drinksNow(cup, i) || driven(i, at)) song.done[i] = at;
-    else if (driven(i, now)) song.done[i] = now;
-    else continue;
-    events.push({ e:"done", i, at:song.done[i] });
-  }
   for (const i of song.field) settleRider(cup, song, chart, i, now, driven, events);
-  events.sort((a, b) => a.at - b.at || (a.e === "done" ? -1 : 0) - (b.e === "done" ? -1 : 0) || a.i - b.i);
+  events.sort((a, b) => a.at - b.at || a.i - b.i);
   return { events, offset };
 }
 
@@ -359,12 +312,12 @@ export function riderScore(song, i, chart = chartFor(song)) {
   return { ...score, live };
 }
 
-/* the field's scores: [{ i, pts, pct, live, n, cup, done }] */
-export function songScores(cup, song, now = Infinity) {
+/* the field's scores: [{ i, pts, pct, live, n, cup }] */
+export function songScores(cup, song) {
   const chart = chartFor(song);
   return song.field.map(i => {
     const score = riderScore(song, i, chart);
-    return { i, pts:score.pts, pct:score.pct, live:score.live, n:score.n, cup:cupTotal(cup, i), done:isDone(song, i, now) };
+    return { i, pts:score.pts, pct:score.pct, live:score.live, n:score.n, cup:cupTotal(cup, i) };
   });
 }
 
@@ -398,19 +351,15 @@ export function closeSong(cup, song, { driven = () => false } = {}) {
   return { ranking:rankSong(cup, song), events };
 }
 
-/* rider i's round for the stats: the percent, every quality, how much of
-   it a bot or stand-in played (botShare, 0 to 1), how far into the break
-   they were done (doneMs, null if never) */
+/* rider i's round for the stats: the percent, every quality, their own
+   taps, how much of it a bot or stand-in played (botShare, 0 to 1) */
 export function riderStats(cup, song, i) {
   const chart = chartFor(song);
   const score = scoreOf(chart, qualitiesOf(song, i));
   const counts = tally(song, i, chart);
-  const drink = drinkSection(chart) ? drinkTimes(song, chart) : null;
-  const done = song.done[i];
   return { pct:score.pct, pts:score.pts, perfects:counts.perfect, nice:counts.nice, ok:counts.ok, early:counts.early,
     late:counts.late, misses:counts.miss, hits:counts.phone,
-    botShare:counts.judged ? Math.round((counts.bot / counts.judged) * 100) / 100 : 0,
-    doneMs:!drink || done === undefined || done === null ? null : Math.max(0, Math.round(done - drink.from)) };
+    botShare:counts.judged ? Math.round((counts.bot / counts.judged) * 100) / 100 : 0 };
 }
 
 /* ---------------------------------------------------------------- Last Call */
@@ -421,7 +370,7 @@ export function riderStats(cup, song, i) {
    round's countdown (lastCallId: lights, slow, ticks) */
 export function createBar({ cup, round = cup.round, songAt, players, offset = cup.offset || 0, id = lastCallId(round) }) {
   const bar = { v:2, round, id, songAt, field:players.slice(), base:offset, offset, frozen:true, samples:[],
-    calBeat:null, judged:{}, last:{}, cursor:{}, done:{} };
+    calBeat:null, judged:{}, last:{}, cursor:{} };
   for (const i of bar.field) { bar.judged[i] = {}; bar.cursor[i] = 0; }
   return bar;
 }

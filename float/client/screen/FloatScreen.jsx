@@ -18,7 +18,7 @@
 
    One requestAnimationFrame loop (stage/driver.js) writes every transform
    from the server clock; React renders only when a room message lands. */
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
 import { createScreenStore } from "./model/store.js";
 import { sceneFor, sceneMode } from "./model/song.js";
 import { createDriver, reducedMotion } from "./stage/driver.js";
@@ -28,13 +28,13 @@ import Host from "./stage/Host.jsx";
 import Lobby from "./hud/Lobby.jsx";
 import { CutBoard, Feedback, IntroTitle, LastCallBanner, PodiumBlocks, PodiumList, SongBanner, SongStrip } from "./hud/Hud.jsx";
 import Bar from "./stage/Bar.jsx";
-import * as floatSound from "../sound/index.js";
+import { podiumBeats } from "./soundBridge.js";
 import "./screen.css";
 
 /* the connection: float/client/net.js, the one the phones use; with
    ?mock=1 the scripted room in this tab (mockNet.js) */
 export async function loadConnect(mock = false) {
-  if (mock) return (await import("./mockNet.js")).connectFloat;
+  if (mock) return (await import("./mockNet.js")).loadMockConnect();
   return (await import("../net.js")).connectFloat;
 }
 
@@ -43,8 +43,15 @@ const param = key => {
 };
 const pageShown = () => { try { return document.visibilityState !== "hidden"; } catch { return true; } };
 
-/* the podium's beats: the sound's own when it says them (its reveal lands on its fanfare) */
-const PODIUM_BEATS = floatSound.PODIUM_BEATS || { third:1450, second:2200, first:2700, pose:3400 };
+/* the sound, lazily and behind a boundary: a sound module that fails to
+   load leaves the picture running */
+const ScreenSound = lazy(() => import("./stage/ScreenSound.jsx"));
+class Quiet extends React.Component {
+  constructor(props) { super(props); this.state = { failed:false }; }
+  static getDerivedStateFromError() { return { failed:true }; }
+  componentDidCatch(error) { console.warn("Float screen: no sound", error); }
+  render() { return this.state.failed ? null : this.props.children; }
+}
 
 /* ?debug=1: a small corner readout (the screen's frame rate, each phone's round trip) */
 function DebugReadout({ fps, tier, rtt = {}, entrants = [] }) {
@@ -55,12 +62,6 @@ function DebugReadout({ fps, tier, rtt = {}, entrants = [] }) {
   </div>;
 }
 
-function SoundIcon() {
-  return <svg viewBox="0 0 24 24" aria-hidden="true">
-    <path fill="currentColor" d="M4 9h4l5-4v14l-5-4H4z" />
-    <path fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12" />
-  </svg>;
-}
 
 export default function FloatScreen({ room = "test", hosting = false, joinUrl = null, mock, quality, onStats, muted = false }) {
   const rootRef = useRef(null);
@@ -104,8 +105,6 @@ export default function FloatScreen({ room = "test", hosting = false, joinUrl = 
   /* the sound runner reads this on every step: muted reads as a hidden page
      (its beds stop within a tick, no moment cues) */
   const soundOptions = useMemo(() => ({ visible:() => !mutedRef.current && pageShown() }), []);
-  floatSound.useFloatScreenSound(net, soundOptions);
-  const unlockNeeded = floatSound.useFloatSoundUnlockNeeded();
 
   /* the stage: 1920 x 1080, scaled to fit its parent and centred (letterboxed) */
   useEffect(() => {
@@ -186,7 +185,7 @@ export default function FloatScreen({ room = "test", hosting = false, joinUrl = 
     <div className="fs-stage" ref={stageRef} data-scene={scene}>
       {!muted && <>
         <Scene id={scene} />
-        {(phase === "podium" || phase === "feedback") && <PodiumBlocks store={store} driver={driver} room={roomMsg} entrants={entrants} beats={PODIUM_BEATS}
+        {(phase === "podium" || phase === "feedback") && <PodiumBlocks store={store} driver={driver} room={roomMsg} entrants={entrants} beats={podiumBeats()}
           revealed={phase === "feedback"} />}
         {water && phase !== "lobby" && <Host store={store} driver={driver} phase={phase} />}
         {phase === "lastcall" && <Bar store={store} driver={driver} />}
@@ -206,6 +205,6 @@ export default function FloatScreen({ room = "test", hosting = false, joinUrl = 
     {!muted && debug && <DebugReadout fps={fps} tier={tier} rtt={st.rtt} entrants={entrants} />}
     {!muted && disconnected && <div className="fs-status"><span>Reconnecting</span></div>}
     {/* Field Day's TV has its own Click for sound; the /float page needs this one */}
-    {!muted && unlockNeeded && hosting && <button type="button" className="fs-sound" onClick={() => floatSound.unlockFloatSound?.()}><SoundIcon />Click for sound</button>}
+    {net && <Quiet><Suspense fallback={null}><ScreenSound net={net} options={soundOptions} showUnlock={!muted && hosting} /></Suspense></Quiet>}
   </div>;
 }

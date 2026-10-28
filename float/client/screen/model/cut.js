@@ -1,44 +1,60 @@
-/* The cut (float/GROOVE.md "Rounds, elimination, positions"): the song's
-   ranking with each rider's percent, the cut line, the eliminated stamped
-   out from the bottom up, then hopping to the bank to become the crowd, the
-   survivors re-forming for the next song, and what comes next (the next
-   song's card, or Last Call). Pure: ms from the cut's start, squeezed to
-   fit a shorter cut. */
+/* The cut as a show (float/GROOVE.md "After a song"): a grade stamp over
+   every rider at once, up to three award cards a beat apart, then the cut
+   line and the riders out one by one from the bottom, each leaving with the
+   song's slapstick exit for the bank; with a chug-off next, the first one
+   out (the bubble) waits for it and the cut ends on "Chug-off!" and the
+   two names. Pure: the beats are the room's (`room.show`, server ms),
+   else the same shape made here from the cut's start and end. */
 import { indexList } from "./cupShape.js";
 
-/* HOP_MS: a rider's whole way to the bank (the small hop, then the waddle) */
-export const CUT_BEATS = Object.freeze({ HOLD:2600, HOP_GAP:420, HOP_MS:1400, REFORM:700, NEXT:500, NEXT_STANDS:3000 });
-/* the sound's beats for the cut (float/client/sound CUT_BEATS): the drumroll
-   from `roll`, its hit on `reveal`, one rider out each `gap` from it */
-export const SOUND_CUT = Object.freeze({ roll:500, reveal:2500, gap:500 });
+/* the show's beats when the room does not send them (cup.js CUT_SHOW) */
+export const SHOW = Object.freeze({ GRADES_MS:400, AWARDS_MS:2400, AWARD_GAP_MS:1200, OUTS_AFTER_LINE_MS:800, OUT_GAP_MS:1400, END_MS:1200 });
+/* at most three award cards */
+export const MAX_AWARDS = 3;
+/* the grades' stamp stands this long; the cards leave when the cut line comes */
+export const GRADE_HOLD_MS = 3200;
 
-/* The moments of a cut with `out` riders going home, in a phase `ms` long:
-   the cut line on the drumroll's hit and each Out on its sting (the sound's
-   beats, exactly), then the board away, the hops, the re-forming and the
-   next card, run faster in a short cut (the one before Last Call) so the
-   next card still stands three seconds. */
-export function cutTimeline(out = 0, ms = 20000, sound = SOUND_CUT) {
-  const n = Math.max(0, out | 0);
-  const B = CUT_BEATS;
-  const beats = { ...SOUND_CUT, ...(sound || {}) };
-  const stampAt = j => beats.reveal + j * beats.gap;
-  const stampsEnd = n ? stampAt(n - 1) : beats.reveal;
-  const rest = B.HOLD + (n ? 400 + (n - 1) * B.HOP_GAP + B.HOP_MS + B.REFORM : 400) + B.NEXT;
-  const room = Number.isFinite(ms) && ms > 0 ? ms - stampsEnd - B.NEXT_STANDS : rest;
-  const k = Math.max(0.3, Math.min(1, room / rest));
-  const boardOut = stampsEnd + B.HOLD * k;
-  const hop = boardOut + 400 * k;
-  const hopsEnd = hop + Math.max(0, n - 1) * B.HOP_GAP * k + B.HOP_MS * k;
-  const reform = n ? hopsEnd + B.REFORM * k : boardOut + 400 * k;
-  return {
-    reveal:beats.reveal,
-    stampAt,
-    boardOut,
-    hopAt:j => hop + j * B.HOP_GAP * k,
-    hopMs:B.HOP_MS * k,
-    reform,
-    next:reform + B.NEXT * k,
-  };
+/* The show for a cut room: { grades:{ [i]: grade }, gradesAt, awards:[{ i,
+   label, value, at }], line, outs:[{ i, at }] (from the bottom), chugoff:
+   { a, b } | null, ranking }. */
+export function cutShow(room, songField = []) {
+  const ranking = cutRankingOf(room, songField);
+  const start = Number.isFinite(room?.startAt) ? room.startAt : 0;
+  const end = Number.isFinite(room?.endsAt) ? room.endsAt : start + 15000;
+  const results = Array.isArray(room?.results) ? room.results : [];
+  const grades = {};
+  for (const row of results) if (Number.isInteger(row?.i) && row.grade) grades[row.i] = row.grade;
+  const awardsIn = (Array.isArray(room?.awards) ? room.awards : []).filter(a => Number.isInteger(a?.i)).slice(0, MAX_AWARDS);
+  const last = !!room?.lastRound || room?.cut === null;
+  /* the chug-off's two: the room's word, else the last one through and the first one out */
+  const outsAll = ranking.filter(row => row.out);
+  const through = ranking.filter(row => !row.out);
+  const show = room?.show && typeof room.show === "object" ? room.show : null;
+  const bubbleRows = ranking.filter(row => row.bubble);
+  const chugoff = room?.chugoff && Number.isInteger(room.chugoff.a) && Number.isInteger(room.chugoff.b) ? { a:room.chugoff.a, b:room.chugoff.b }
+    : Array.isArray(show?.bubble) && show.bubble.length === 2 ? { a:show.bubble[0], b:show.bubble[1] }
+      : bubbleRows.length === 2 ? { a:bubbleRows[0].i, b:bubbleRows[1].i }
+        : !show && room?.drinking !== false && !last && outsAll.length && through.length ? { a:through[through.length - 1].i, b:outsAll[0].i } : null;
+  const gradesAt = Number.isFinite(show?.grades) ? show.grades : start + SHOW.GRADES_MS;
+  const awards = awardsIn.map((award, k) => ({ i:award.i, id:award.id, label:award.label || award.id, value:award.value,
+    at:Number.isFinite(show?.awards?.[k]) ? show.awards[k] : start + SHOW.AWARDS_MS + k * SHOW.AWARD_GAP_MS }));
+  let line = null, outs = [];
+  if (show && Array.isArray(show.outs)) {
+    line = Number.isFinite(show.line) ? show.line : null;
+    outs = show.outs.filter(o => Number.isInteger(o?.i) && Number.isFinite(o.at));
+  } else {
+    const going = outsAll.map(row => row.i).filter(i => i !== chugoff?.b).reverse();
+    if (going.length || chugoff) {
+      line = start + SHOW.AWARDS_MS + awards.length * SHOW.AWARD_GAP_MS;
+      const from = line + SHOW.OUTS_AFTER_LINE_MS;
+      const gap = going.length ? Math.max(0, Math.min(SHOW.OUT_GAP_MS, (end - SHOW.END_MS - from) / going.length)) : 0;
+      outs = going.map((i, k) => ({ i, at:Math.round(from + k * gap) }));
+    }
+  }
+  const lastOut = outs.length ? outs[outs.length - 1].at : line ?? gradesAt;
+  return { grades, gradesAt, awards, line, outs, chugoff, ranking, last,
+    awardsEnd:line ?? (awards.length ? awards[awards.length - 1].at + SHOW.AWARD_GAP_MS * 2 : gradesAt + GRADE_HOLD_MS),
+    callAt:chugoff ? Math.max(lastOut + 1800, end - 3600) : null, nextAt:Math.max(lastOut + 1800, end - 3600) };
 }
 
 /* the song this cut closes, as the room records it: its history entry for
@@ -69,7 +85,7 @@ export function cutRanking(scores = [], { field = [], out = [], results = null }
   if (placed.length) {
     return placed.slice().sort((a, b) => (a.place ?? 99) - (b.place ?? 99))
       .map((row, k) => ({ i:row.i, pct:Number(row.pct) || 0, cup:Number(row.cup) || 0, place:row.place ?? k + 1,
-        out:row.out === undefined ? gone.has(row.i) : row.out === true }));
+        out:row.out === undefined ? gone.has(row.i) : row.out === true, ...(row.bubble ? { bubble:true } : {}), ...(row.grade ? { grade:row.grade } : {}) }));
   }
   const rows = (Array.isArray(scores) ? scores : []).filter(row => Number.isInteger(row?.i));
   const known = new Set(rows.map(row => row.i));

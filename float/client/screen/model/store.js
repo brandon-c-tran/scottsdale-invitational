@@ -6,7 +6,7 @@
    message lands (`version`). */
 import { POINTS, SONG_LEAD_MS } from "../../../shared/chart.js";
 import { PHASES } from "../../../shared/protocol.js";
-import { chartFor, songStart } from "./song.js";
+import { actionKind, chartFor, songStart } from "./song.js";
 import { indexList } from "./cupShape.js";
 
 export const phaseOf = name => (PHASES.includes(name) ? name : "lobby");
@@ -47,6 +47,10 @@ export function createScreenStore() {
        and when `worst` first arrived */
     lastCall:null,
     lastCallAt:null,
+    /* the chug-off (room.chugoff), the room's ranking and when it came */
+    chugoff:null,
+    results:[],
+    resultsAt:-Infinity,
     rtt:{},
     version:0,
   };
@@ -90,6 +94,8 @@ export function createScreenStore() {
       state.phaseSince = s;
       state.phaseStart = Number.isFinite(msg.startAt) ? Math.min(msg.startAt, s) : s;
       if (phase === "lobby") { resetSong(); state.chart = null; state.songKey = ""; state.songAt = null; state.outs = []; state.cheers = new Map(); }
+      /* a chug-off's Dones are its own */
+      if (phase === "chugoff") state.done = new Map();
     }
     state.round = round;
     const chart = chartFor(msg, charts);
@@ -109,6 +115,10 @@ export function createScreenStore() {
     if (Number.isFinite(msg.offset)) state.offset = msg.offset;
     takeScores(msg);
     state.lastCall = phase === "lastcall" && msg.lastCall && typeof msg.lastCall === "object" ? msg.lastCall : null;
+    state.chugoff = (phase === "chugoff" || phase === "cut") && msg.chugoff && typeof msg.chugoff === "object" ? msg.chugoff : null;
+    /* the room's live ranking in a song, and when it was made (the strip moves it by the hits since) */
+    if (phase === "song" && Array.isArray(msg.results)) { state.results = msg.results; state.resultsAt = s; }
+    else if (phase !== "song") { state.results = Array.isArray(msg.results) ? msg.results : []; state.resultsAt = s; }
     /* when the room first named who drinks (the verdict waits for the sound's sting too) */
     if (!Array.isArray(state.lastCall?.worst)) state.lastCallAt = null;
     else if (state.lastCallAt === null) state.lastCallAt = s;
@@ -131,7 +141,7 @@ export function createScreenStore() {
       if (mine.has(msg.c)) return;
       const d = Number.isFinite(msg.d) ? msg.d : null;
       mine.set(msg.c, { q:msg.q, d, at, scored:!!cue.scored });
-      state.last.set(msg.i, { c:msg.c, q:msg.q, d, at, kind:cue.kind, scored:!!cue.scored });
+      state.last.set(msg.i, { c:msg.c, q:msg.q, d, at, kind:actionKind(state.chart, cue), scored:!!cue.scored });
     } else if (msg.e === "done") {
       if (!state.done.has(msg.i)) state.done.set(msg.i, at);
     } else if (msg.e === "cheer") {

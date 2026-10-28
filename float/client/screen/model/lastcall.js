@@ -1,71 +1,72 @@
-/* Last Call on the TV (float/GROOVE.md "Last Call"): everyone in the Cup at
-   the bar, the bartender sliding a drink down the counter on each of a
-   grab's `slides`, everyone grabbing once, every rider's offset big over
-   them until the next slides begin, then the totals and who drinks. Pure:
-   everything from the chart, a beat and the room's `lastCall`. */
-import { BEATS_PER_BAR, LAST_CALL } from "../../../shared/chart.js";
-import { STAGE_W } from "./flotilla.js";
+/* Last Call on the TV, the countdown (float/GROOVE.md "Last Call: the
+   countdown"): everyone in the Cup at the bar; the bartender counts down
+   from 10, the number big on the bar's board (or the wind-up clock) and
+   said; partway the trick's gag hides the count (lights: he pulls the
+   cord, dark; slow: the clock winds down; ticks: foam spills over the
+   board) and nothing tells it after; at revealAt every rider's offset at
+   once; at verdictAt the farthest off drinks and the closest is marked.
+   Pure: everything from the chart's countdown and the room's lastCall. */
+import { LAST_CALL, formatOffset, qualityOf } from "../../../shared/chart.js";
 
-/* the counter on the stage: the glass's run along it (the bar scene's
-   counter line is 0.45 of the height) */
-export const COUNTER = Object.freeze({ y:488, from:470, to:1700 });
-/* the bartender behind the counter, left of the run */
-export const BARTENDER = Object.freeze({ x:300, y:494, h:400 });
+export const LAST_CALL_EXPLAINER = "The bar closes at zero. Tap on zero. Farthest off drinks.";
+const WORDS = ["Zero", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten"];
+export const countWord = n => WORDS[n] || String(n);
 
-/* the glass at a beat: { x, visible, k (which grab), sliding } along the
-   counter. Before a grab's first slide it waits at the bartender's hand;
-   each slide moves it a step down the bar (a quick glide on the beat); on
-   the grab it reaches the end, and is gone until the next grab's slides */
-export function glassAt(chart, beat) {
-  const grabs = chart?.cues || [];
-  const out = { x:COUNTER.from, visible:false, k:-1, sliding:0 };
-  if (!grabs.length || !Number.isFinite(beat)) return out;
-  for (let k = 0; k < grabs.length; k += 1) {
-    const cue = grabs[k];
-    const slides = cue.slides || [cue.beat - 1];
-    const prev = k ? grabs[k - 1].beat : -Infinity;
-    if (beat <= prev + 0.6) continue;
-    if (beat >= cue.beat + 0.6) continue;
-    out.visible = true;
-    out.k = k;
-    /* steps: each slide moves the glass a share of the run, the grab the rest */
-    const stops = [...slides, cue.beat];
-    let pos = 0;
-    for (let s = 0; s < stops.length; s += 1) {
-      if (beat < stops[s]) break;
-      const glide = Math.min(1, (beat - stops[s]) / 0.28);
-      const eased = 1 - Math.pow(1 - glide, 3);
-      pos = (s + eased) / stops.length;
-      if (glide < 1) out.sliding = 1 - glide;
-    }
-    if (beat >= cue.beat) out.visible = beat < cue.beat + 0.6;
-    out.x = COUNTER.from + (COUNTER.to - COUNTER.from) * Math.min(1, pos);
-    return out;
-  }
-  return out;
+/* the countdown at ms `t` from songAt: { stage, step, show, say, tick,
+   hidden, trick, first, gagK } where stage is "intro", "count", "dark"
+   (hidden, before the reveal), "reveal" or "verdict"; `show` the number on
+   the board (null when nothing is), `say` the number being said (for 0.7
+   s after its count), gagK how far into the hiding gag (0 to 1) */
+export function countdownAt(countdown, t) {
+  if (!countdown || !Number.isFinite(t)) return null;
+  const { steps = [], hideAt, revealAt, verdictAt, introMs = 0, trick = "lights", first = false } = countdown;
+  let step = null;
+  for (const s of steps) if (s.at <= t) step = s;
+  const hidden = t >= hideAt;
+  const stage = t < introMs ? "intro" : t >= verdictAt ? "verdict" : t >= revealAt ? "reveal" : hidden ? "dark" : "count";
+  const show = !hidden && step?.show ? step.n : null;
+  const say = !hidden && step?.say && t - step.at < 700 ? step.n : null;
+  const tick = !hidden && step?.tick && t - step.at < 400 ? step.n : null;
+  return { stage, step, show, say, tick, hidden, trick, first, gagK:hidden ? Math.min(1, (t - hideAt) / 1200) : 0 };
 }
 
-/* until which beat a grab's readouts stay up: the next grab's first slide,
-   or (the last grab) until the totals land */
-export function readoutUntil(chart, cueId) {
-  const grabs = chart?.cues || [];
-  const next = grabs[cueId + 1];
-  if (next) return (next.slides || [next.beat])[0];
-  return (chart?.bars || 8) * BEATS_PER_BAR;
+/* the verdict shown at the later of its moment and the room naming who drinks */
+export function verdictShown({ songAt, countdown, lastCall, lastCallAt }, now) {
+  const worst = Array.isArray(lastCall?.worst) ? lastCall.worst : null;
+  if (!worst || !countdown || !Number.isFinite(songAt) || !Number.isFinite(now)) return null;
+  const at = Math.max(songAt + countdown.verdictAt, Number.isFinite(lastCallAt) ? lastCallAt : -Infinity);
+  return now >= at ? worst : null;
 }
 
-/* the bartender's pose at a beat: a slide on each slide beat, a cheer once
-   the totals are in, else idle */
-export function bartenderPose(chart, beat, { revealed = false } = {}) {
+/* the closest: the smallest |d| among those who tapped (ties all) */
+export function closestOf(totals = []) {
+  const tapped = totals.filter(row => Number.isFinite(row?.d));
+  if (!tapped.length) return [];
+  const best = Math.min(...tapped.map(row => Math.abs(row.d)));
+  return tapped.filter(row => Math.abs(row.d) === best).map(row => row.i);
+}
+
+/* a rider's readout: { q, d } (no tap: a miss) */
+export const readoutOf = row => (Number.isFinite(row?.d) ? { q:qualityOf(row.d), d:row.d } : { q:"miss", d:null });
+export { formatOffset, LAST_CALL };
+
+/* the bartender at ms t: "slide" while pulling the cord or tapping the
+   clock (the gag), "cheer" once the verdict is in, else "idle" */
+export function bartenderPose(countdown, t, { revealed = false } = {}) {
   if (revealed) return "cheer";
-  for (const cue of chart?.cues || []) for (const slide of cue.slides || []) if (beat >= slide && beat < slide + 0.45) return "slide";
+  if (!countdown || !Number.isFinite(t)) return "idle";
+  if (t >= countdown.hideAt && t < countdown.hideAt + 1400 && countdown.trick !== "ticks") return "slide";
   return "idle";
 }
 
+/* the bartender behind the counter, at the left */
+export const BARTENDER = Object.freeze({ x:300, y:494, h:400 });
+/* the board over the bar */
+export const BOARD = Object.freeze({ x:1060, y:200, w:400, h:240 });
+
 /* everyone at the bar: one line-up along the front of the counter, so each
-   rider's readout stands right over them (the slots alternate two heights
-   when they are close) and every name sits under its own tube:
-   { [i]: { x, y, scale, row } } */
+   rider's readout stands right over them and every name sits under its own
+   tube: { [i]: { x, y, scale, row } } */
 export const BAR_LINE = Object.freeze({ y:940, lo:130, hi:1790, maxSpacing:300 });
 export function barLayout(players = []) {
   const list = players.filter(i => Number.isInteger(i));
@@ -79,30 +80,6 @@ export function barLayout(players = []) {
   return out;
 }
 
-/* who drinks, as the room says once the last grab is in (null before) */
-export const drinkersOf = lastCall => (Array.isArray(lastCall?.worst) ? lastCall.worst : null);
-
-/* the beat the sound lands its who-drinks sting on (float/client/sound
-   LAST_CALL_BEATS.drinks, beats from the bar's songAt), when the sound
-   does not say */
-export const VERDICT_BEAT = 28;
-/* The verdict as the room shows it (the banner, the totals, the drinker's
-   chug, the bartender's cheer): who drinks, once the room has named them
-   AND the sound's sting has come, so it is seen as it is heard; null
-   before. state: { lastCall, lastCallAt (when `worst` arrived), songAt,
-   chart }. */
-export function verdictAt(state, now, { beat = VERDICT_BEAT } = {}) {
-  const drinkers = drinkersOf(state?.lastCall);
-  if (!drinkers || !Number.isFinite(now)) return null;
-  const beatMs = state?.chart?.beatMs || 500;
-  const sting = Number.isFinite(state?.songAt) ? state.songAt + (Number.isFinite(beat) ? beat : VERDICT_BEAT) * beatMs : -Infinity;
-  const arrived = Number.isFinite(state?.lastCallAt) ? state.lastCallAt : -Infinity;
-  return now >= Math.max(sting, arrived) ? drinkers : null;
-}
-
-/* a total as the TV letters it: seconds to two decimals ("1.24") */
-export const totalText = ms => (Number.isFinite(ms) ? (Math.round(ms / 10) / 100).toFixed(2) : "");
-
 /* everyone at the bar: the field, then the riders out, the last out first
    (the room's own order, cup.js barPlayers) */
 export const barPlayersOf = room => {
@@ -111,4 +88,5 @@ export const barPlayersOf = room => {
   return [...field, ...out.slice().reverse()].filter(i => Number.isInteger(i));
 };
 
-export { LAST_CALL };
+/* a name list: "Evan", "Evan and Khoa", "Evan, Khoa and Ben" */
+export const namesText = names => names.length <= 1 ? names.join("") : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;

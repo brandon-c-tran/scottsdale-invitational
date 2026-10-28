@@ -22,7 +22,9 @@ import * as floatSound from "../../sound/index.js";
 
 /* the cut's beats as the sound plays them (its drumroll's hit, a sting per rider out) */
 const soundCut = floatSound.CUT_BEATS || null;
-import { barLayout, barPlayersOf, drinkersOf, readoutUntil, totalText } from "../model/lastcall.js";
+/* Last Call's verdict lands on the sound's who-drinks sting */
+const verdictBeat = floatSound.LAST_CALL_BEATS?.drinks;
+import { barLayout, barPlayersOf, readoutUntil, totalText, verdictAt } from "../model/lastcall.js";
 import { indexList } from "../model/cupShape.js";
 import { nameFill } from "../hud/identity.js";
 
@@ -161,7 +163,7 @@ export default function Cast({ store, driver, entrants, phase, room, version, sc
       const chart = st.chart;
       const bar = phase === "lastcall";
       const inSong = (phase === "song" || bar) && Number.isFinite(songAt);
-      const drinkers = bar ? drinkersOf(st.lastCall) : null;
+      const drinkers = bar ? verdictAt(st, now, { beat:verdictBeat }) : null;
       const beat = inSong ? (now - songAt) / (chart?.beatMs || BEAT) : (now - (st.phaseStart || 0)) / BEAT;
       const reformed = p.reform !== null && now >= p.reform;
       /* the layouts and the popups' slots: every 120 ms (the scores move

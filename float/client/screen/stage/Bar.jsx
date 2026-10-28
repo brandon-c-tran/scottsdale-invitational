@@ -7,7 +7,11 @@
 import React, { useEffect, useMemo, useRef } from "react";
 import { bartenderSprites, propOf } from "../../art/groove/index.js";
 import { useGrooveArt } from "../../art/groove/RiderSprite.jsx";
-import { BARTENDER, COUNTER, bartenderPose, drinkersOf, glassAt } from "../model/lastcall.js";
+import { BARTENDER, COUNTER, bartenderPose, glassAt, verdictAt } from "../model/lastcall.js";
+import * as floatSound from "../../sound/index.js";
+
+/* Last Call's verdict lands on the sound's who-drinks sting */
+const verdictBeat = floatSound.LAST_CALL_BEATS?.drinks;
 import { bobAt } from "../model/motion.js";
 
 const POSES = ["idle", "slide", "cheer"];
@@ -31,7 +35,7 @@ export default function Bar({ store, driver }) {
       const chart = st.chart;
       if (!chart || !Number.isFinite(st.songAt)) return;
       const beat = (now - st.songAt) / chart.beatMs;
-      const next = bartenderPose(chart, beat, { revealed:!!drinkersOf(st.lastCall) });
+      const next = bartenderPose(chart, beat, { revealed:!!verdictAt(st, now, { beat:verdictBeat }) });
       if (root.current && next !== pose) { root.current.dataset.pose = next; pose = next; }
       const bob = bobAt(beat, { amp:0.6 });
       if (body.current) body.current.style.transform = `translate3d(0, ${bob.dy.toFixed(1)}px, 0) scale(${bob.sx.toFixed(4)}, ${bob.sy.toFixed(4)})`;

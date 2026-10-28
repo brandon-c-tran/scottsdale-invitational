@@ -43,8 +43,10 @@ export function createScreenStore() {
     /* the crowd: when each last cheered, and the outs in order */
     cheers:new Map(),
     outs:[],
-    /* Last Call's totals and who drinks (the room's lastCall), in its phase */
+    /* Last Call's totals and who drinks (the room's lastCall), in its phase,
+       and when `worst` first arrived */
     lastCall:null,
+    lastCallAt:null,
     rtt:{},
     version:0,
   };
@@ -107,6 +109,9 @@ export function createScreenStore() {
     if (Number.isFinite(msg.offset)) state.offset = msg.offset;
     takeScores(msg);
     state.lastCall = phase === "lastcall" && msg.lastCall && typeof msg.lastCall === "object" ? msg.lastCall : null;
+    /* when the room first named who drinks (the verdict waits for the sound's sting too) */
+    if (!Array.isArray(state.lastCall?.worst)) state.lastCallAt = null;
+    else if (state.lastCallAt === null) state.lastCallAt = s;
     const outs = indexList(msg.out);
     if (outs.length || phase === "lobby" || phase === "intro") state.outs = outs;
     state.room = msg;

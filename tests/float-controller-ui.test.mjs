@@ -94,6 +94,10 @@ test("every screen renders from a room: joining, the lobby, the intro, the cut, 
   const podium = screen("podium", { phase:"podium", entrants:people, podium:[0, 3, 5], final:[0, 3, 5, 1] });
   assert.match(podium, />1st</);
   assert.match(podium, /of 13/);
+  assert.doesNotMatch(podium, />Cheer</, "on the podium: nothing to cheer from");
+  const cheering = screen("podium", { phase:"podium", entrants:people, podium:[3, 5, 1], final:[3, 5, 1, 2, 0], out:[4, 0, 2] });
+  assert.match(cheering, />Cheer</, "out: the crowd cheers the three");
+  assert.match(cheering, /flc-podium has-cheer/);
   const card = screen("feedback", { phase:"feedback", entrants:people });
   for (const line of ["How fun was that?", "Would you play this with other friends?", "What would make it better?"]) assert.ok(card.includes(line), line);
   assert.match(screen("feedback", { phase:"feedback", entrants:people }, { feedbackSent:true }), /Thanks/);

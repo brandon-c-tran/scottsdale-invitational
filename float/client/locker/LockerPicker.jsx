@@ -9,6 +9,7 @@
 
    Optional, for the preview: color, name, photo, number, skin (the rider's
    own colour and chip). Without them the rider stands in a neutral colour.
+   tone "light" draws it on the Groove's paper (the join, the lobby).
    It positions nothing fixed and brings its own styles (fll-), so it sits
    in Field Day's Profile, the join and the lobby alike. */
 import React, { useEffect, useRef, useState } from "react";
@@ -65,8 +66,10 @@ function CritterGrid({ entrant, groom, onPick }) {
   </ul>;
 }
 
+/* tone: "dark" (Field Day's profile, the default) or "light" (the Groove's
+   own pages: the standalone join, the lobby) */
 export default function LockerPicker({ look = {}, onChange = () => {}, groom = false, color = null, name = "", photo = null,
-  number = null, skin = null }) {
+  number = null, skin = null, tone = "dark" }) {
   const clean = lockerLook(look, { groom });
   const entrant = lockerEntrant({ look:clean, color, name, photo, number, skin, groom });
   const [pop, setPop] = useState(0);
@@ -78,7 +81,7 @@ export default function LockerPicker({ look = {}, onChange = () => {}, groom = f
     setPop(n => n + 1);
     onChange(next);
   };
-  return <div className="fll-root fll-locker" style={{ "--fll-c":entrant.color }}>
+  return <div className={`fll-root fll-locker${tone === "light" ? " fll-light" : ""}`} style={{ "--fll-c":entrant.color }}>
     <Hero entrant={entrant} pop={pop} />
     <CritterGrid entrant={entrant} groom={groom} onPick={onPick} />
   </div>;

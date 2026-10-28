@@ -297,10 +297,9 @@ html.flc-locked, html.flc-locked body { overflow: hidden; overscroll-behavior: n
 .flc-roster li.is-away { opacity: 0.25; }
 .flc-roster li.is-ready::after { content: ""; position: absolute; right: -2px; bottom: -2px; width: 14px; height: 14px; border-radius: 50%; background: var(--teal); box-shadow: 0 0 0 2.5px var(--ink); }
 .flc-roster li.is-me .flp { box-shadow: 0 0 0 3px var(--ink); }
-/* the Locker is a dark sheet everywhere (Field Day's profile, the join, here) */
-.flc-locker-sheet { gap: 8px; color: #f7f0e1; background: radial-gradient(120% 70% at 50% -10%, #17436a 0%, rgba(23, 67, 106, 0) 60%), linear-gradient(180deg, #0c2236 0%, #08131f 100%); }
-.flc-sheet-title { font-size: 26px; font-weight: 900; }
-.flc-locker-sheet .flc-pill.is-primary { background: #f7f0e1; color: #0b1626; box-shadow: none; }
+/* the Locker on the Groove's paper (its light tone), as in the join */
+.flc-locker-sheet { gap: 8px; background: linear-gradient(180deg, #fdf3e4 0%, #f6e6f6 100%); }
+.flc-sheet-title { font-size: 30px; font-weight: 900; letter-spacing: -0.01em; }
 .flc-sheet-body { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; touch-action: pan-y; margin: 0 -6px; padding: 0 6px 8px; }
 
 /* ── the cut ── */
@@ -343,6 +342,10 @@ html.flc-locked, html.flc-locked body { overflow: hidden; overscroll-behavior: n
 .flc-podium-row { position: absolute !important; left: 0; right: 0; bottom: calc(var(--sa-bottom) + 18px); display: flex; justify-content: center; align-items: flex-end; gap: 18px; }
 .flc-podium-row li { display: grid; justify-items: center; gap: 4px; font-size: 15px; font-weight: 900; }
 .flc-podium-row li.is-me .flp { box-shadow: 0 0 0 3.5px var(--ink); }
+/* out: the three above, the critter above them, Cheer in the thumb's reach */
+.flc-podium.has-cheer .flc-podium-row { bottom: calc(var(--sa-bottom) + 158px); }
+.flc-podium.has-cheer .flc-stage { bottom: calc(var(--sa-bottom) + 250px); }
+.flc-podium.has-cheer .flc-stage .flc-critter { width: min(var(--size), 30vh); height: min(var(--size), 30vh); }
 
 /* ── the card ── */
 .flc-feedback { background: var(--paper); overflow-y: auto; touch-action: pan-y; }
@@ -388,9 +391,16 @@ html.flc-locked, html.flc-locked body { overflow: hidden; overscroll-behavior: n
   .flc-drink { top: calc(var(--sa-top) + 48px); left: 46%; justify-content: center; gap: 18px; }
   .flc-song.is-owed .flc-stage { bottom: calc(var(--sa-bottom) + 2%); }
   .flc-cut-main, .flc-podium-place, .flc-rest, .flc-watch-main { left: 46%; top: calc(var(--sa-top) + 10%); }
-  .flc-popup-slot.is-bar { left: 0; right: 0; width: auto; bottom: auto; top: calc(var(--sa-top) + 2%); height: 34vh; }
+  /* Last Call: the bartender, the glass and you share the counter; the popup and the verdict go on the counter's front, left of you */
+  .flc-popup-slot.is-bar { left: 0; right: 34%; width: auto; bottom: auto; top: calc(var(--counter) * 100% + 10px); height: auto; place-items: start center; }
   .flc-lastcall .flc-popup .fg-popup { --fg-size: 48px !important; }
-  .flc-verdict { top: calc(var(--sa-top) + 4%); }
+  .flc-verdict { left: 0; right: 34%; top: calc(var(--counter) * 100% + 8px); gap: 6px; }
+  .flc-lastcall .flc-stamp { font-size: 40px; }
+  .flc-lastcall .flc-verdict .flc-pct { font-size: 40px; }
+  .flc-podium-place b { font-size: 96px; }
+  .flc-podium.has-cheer .flc-podium-row { left: 50%; right: 0; bottom: calc(var(--sa-bottom) + 122px); }
+  .flc-podium.has-cheer .flc-stage { bottom: calc(var(--sa-bottom) + 8px); }
+  .flc-cheer { min-height: 96px; width: min(46%, 340px); left: auto; right: calc(var(--sa-right) + 16px); }
   .flc-mesas { bottom: 34%; }
 }
 

@@ -1,0 +1,224 @@
+﻿/* The Groove's host voice (float/GROOVE.md "Sound (the Groove)": "The
+   host's voice"): every line generated once with OpenAI text-to-speech
+   (gpt-4o-mini-tts, a cheerful cartoon host), then with ffmpeg trimmed to
+   its start, pitched up for a cartoon voice, peak-normalized and saved as a
+   small MP3, with a manifest of each clip's marks read the way the engine
+   reads them (soundKit clipMarks: its beat is the first rise past half the
+   peak, which the engine lands on the beat).
+
+     node scripts/float-voice.mjs [--voices coral,verse,fable] [--pick coral]
+       [--rate 1.22] [--fresh] [--check]
+
+   OPENAI_API_KEY comes from the environment of this process only (never
+   printed or written). Raw takes and the processed sets go to --work (the
+   session's scratchpad by default, outside the repo); --pick installs one
+   voice's set into public/float/groove/voice/ (the MP3s and manifest.json)
+   and float/client/sound/voices.js; every voice's set is also written as
+   one review sheet per voice (.impeccable/review/float-sound/voices/) to
+   listen to side by side. --check transcribes each processed clip (the
+   pitch-up must still read as its words). Prompts never name another
+   game. The voice is AI-generated: a release's credits say so. */
+import fs from "node:fs";
+import path from "node:path";
+import os from "node:os";
+import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
+import { clipMarks } from "../src/lib/soundKit.js";
+
+const ROOT = fileURLToPath(new URL("../", import.meta.url));
+const args = process.argv.slice(2);
+const value = (name, d) => { const i = args.indexOf(name); return i >= 0 && args[i + 1] ? args[i + 1] : d; };
+const VOICES = value("--voices", "coral,verse,fable").split(",").map(s => s.trim()).filter(Boolean);
+const PICK = value("--pick", null);
+const RATE = Number(value("--rate", "1.28")) || 1.28;
+const WORK = path.resolve(value("--work", path.join(os.tmpdir(), "float-voice")));
+const FRESH = args.includes("--fresh"), CHECK = args.includes("--check");
+const KEY = process.env.OPENAI_API_KEY;
+
+/* the host's lines: id, the words, how to say them */
+const HOST = "You are the host of a cute, bouncy party rhythm game: a cheerful little cartoon critter on a riverbank, calling into a megaphone. "
+  + "Bright, bouncy, deadpan-cute energy, crisp and punchy, fast. Say only the words, at once, with no breath before them, "
+  + "and stop dead after the last syllable: no drawn-out vowels, no trailing sound.";
+const COUNT = `${HOST} You are counting a band in: one word, very short and clipped (a third of a second), landing hard on the beat.`;
+export const LINES = Object.freeze([
+  { id:"ready", text:"Ready?", how:`${HOST} A quick, perky "Ready?" with a little lift at the end, as a cue before everyone shouts.` },
+  { id:"hey", text:"Hey!", how:`${HOST} One short, sharp "Hey!", like a cheerleader's call.` },
+  { id:"ba", text:"Bah!", how:`${HOST} Sing one very short staccato syllable, "bah", on a single steady pitch, bright and bouncy, like one note in a tune.` },
+  { id:"spin", text:"Spin!", how:`${HOST} One quick, playful "Spin!".` },
+  { id:"one", text:"One!", how:COUNT },
+  { id:"two", text:"Two!", how:COUNT },
+  { id:"three", text:"Three!", how:COUNT },
+  { id:"four", text:"Four!", how:COUNT },
+  { id:"drink", text:"Drink!", how:`${HOST} A delighted, punchy "Drink!", the party's favorite moment.` },
+  { id:"herewego", text:"Here we go!", how:`${HOST} An excited "Here we go!", quick, as the music starts.` },
+  { id:"title-paddle", text:"Paddle Party!", how:`${HOST} Announce the round's name like a game show title card: "Paddle Party!"` },
+  { id:"title-rock", text:"Rock Hop!", how:`${HOST} Announce the round's name like a game show title card: "Rock Hop!"` },
+  { id:"title-spin", text:"Spin Cycle!", how:`${HOST} Announce the round's name like a game show title card: "Spin Cycle!"` },
+  { id:"title-drop", text:"The Drop!", how:`${HOST} Announce the final round's name like a big game show title card: "The Drop!"` },
+]);
+/* the crowd's "Hey!": several people at once, each its own voice and pitch */
+const CROWD = "One person in a happy party crowd shouting together on the beat: a single short, loud, joyful \"Hey!\". No breath before it.";
+export const CROWD_TAKES = Object.freeze([
+  { id:"crowd-hey-1", voice:"ash", rate:1.0 }, { id:"crowd-hey-2", voice:"nova", rate:1.12 }, { id:"crowd-hey-3", voice:"echo", rate:0.94 },
+  { id:"crowd-hey-4", voice:"shimmer", rate:1.18 }, { id:"crowd-hey-5", voice:"onyx", rate:0.9 }, { id:"crowd-hey-6", voice:"sage", rate:1.06 },
+]);
+
+const ffmpeg = (argv, input = null) => {
+  const r = spawnSync("ffmpeg", ["-hide_banner", "-v", "error", ...argv], { input, maxBuffer:256 * 1024 * 1024 });
+  if (r.status !== 0) throw new Error(`ffmpeg ${argv.join(" ")}: ${String(r.stderr || "").slice(0, 400)}`);
+  return r.stdout;
+};
+/* a file's samples as mono float32 at `rate` */
+function samples(file, rate) {
+  const buf = ffmpeg(["-i", file, "-f", "f32le", "-ac", "1", "-ar", String(rate), "-"]);
+  return new Float32Array(buf.buffer, buf.byteOffset, Math.floor(buf.byteLength / 4));
+}
+const peakOf = data => { let p = 0; for (let i = 0; i < data.length; i++) p = Math.max(p, Math.abs(data[i])); return p; };
+const rms = (data, from, win) => { let s = 0; for (let i = from; i < from + win && i < data.length; i++) s += data[i] * data[i]; return Math.sqrt(s / win); };
+/* the envelope's peak (RMS over 5 ms), clipMarks' reference */
+function peakEnvelope(data, sr) {
+  const win = Math.round(sr * 0.005), hop = Math.round(sr * 0.001);
+  let p = 0;
+  for (let i = 0; i + win <= data.length; i += hop) p = Math.max(p, rms(data, i, win));
+  return p;
+}
+
+async function speak({ voice, text, how, file }) {
+  if (!FRESH && fs.existsSync(file) && fs.statSync(file).size > 1000) return file;
+  if (!KEY) throw new Error("OPENAI_API_KEY is not set for this process");
+  const res = await fetch("https://api.openai.com/v1/audio/speech", {
+    method:"POST", headers:{ Authorization:`Bearer ${KEY}`, "Content-Type":"application/json" },
+    body:JSON.stringify({ model:"gpt-4o-mini-tts", voice, input:text, instructions:how, response_format:"wav" }),
+  });
+  if (!res.ok) throw new Error(`speech ${voice} "${text}": ${res.status} ${(await res.text()).slice(0, 200)}`);
+  fs.mkdirSync(path.dirname(file), { recursive:true });
+  fs.writeFileSync(file, Buffer.from(await res.arrayBuffer()));
+  return file;
+}
+
+/* trim to the take's own start (a hair of lead-in kept) and end, pitch it up
+   by `rate` (speed with it: a cartoon), peak at -1 dB, and encode */
+function processTake(raw, out, rate) {
+  const SR = 24000, data = samples(raw, SR);
+  const m = clipMarks(data, SR);
+  /* the end: the last moment past 5% of the peak (-26 dB; the tail under it is lost under the band) */
+  const env = 0.05 * peakEnvelope(data, SR);
+  let last = data.length - 1;
+  const hop = Math.round(SR * 0.002), win = Math.round(SR * 0.005);
+  for (let i = data.length - win; i > 0; i -= hop) { if (rms(data, i, win) >= env) { last = i + win; break; } }
+  const start = Math.max(0, m.start - 0.025), end = Math.min(m.dur, last / SR + 0.03);
+  const peak = peakOf(data.subarray(Math.floor(start * SR), Math.ceil(end * SR)));
+  const gain = peak > 0 ? -1 - 20 * Math.log10(peak) : 0;
+  const len = (end - start) / rate;
+  fs.mkdirSync(path.dirname(out), { recursive:true });
+  ffmpeg(["-y", "-i", raw, "-af", [`atrim=start=${start.toFixed(4)}:end=${end.toFixed(4)}`, "asetpts=PTS-STARTPTS",
+    `asetrate=${Math.round(SR * rate)}`, "aresample=44100", "afade=t=in:d=0.004", `afade=t=out:st=${Math.max(0, len - 0.025).toFixed(4)}:d=0.025`,
+    `volume=${gain.toFixed(2)}dB`].join(","), "-ac", "1", "-ar", "44100", "-c:a", "libmp3lame", "-b:a", "64k", out]);
+  const decoded = samples(out, 44100), marks = clipMarks(decoded, 44100);
+  return { onset:Math.round(marks.beat * 1000), start:Math.round(marks.start * 1000), dur:Math.round(marks.dur * 1000), f0:marks.f0 };
+}
+
+async function transcribe(file) {
+  const form = new FormData();
+  form.append("model", "whisper-1");
+  form.append("language", "en");
+  form.append("file", new Blob([fs.readFileSync(file)], { type:"audio/mpeg" }), path.basename(file));
+  const res = await fetch("https://api.openai.com/v1/audio/transcriptions", { method:"POST", headers:{ Authorization:`Bearer ${KEY}` }, body:form });
+  if (!res.ok) return `(${res.status})`;
+  return String((await res.json()).text || "").trim();
+}
+const words = s => String(s).toLowerCase().replace(/[^a-z0-9 ]/g, "").replace(/\b(1|won)\b/g, "one").replace(/\b(2|to|too)\b/g, "two")
+  .replace(/\b3\b/g, "three").replace(/\b(4|for)\b/g, "four").replace(/\b(bah|ba|baa|bar)\b/g, "bah").trim();
+
+/* TAKES takes of a line; the one kept is heard as its words (--check) and
+   the snappiest: short, its beat early (a sung "ba" must hold a pitch) */
+const TAKES = Math.max(1, Math.min(5, Number(value("--takes", "3")) || 3));
+const heardRight = (heard, text) => words(heard).includes(words(text).split(" ")[0]);
+async function bestTake({ voice, text, how, id, rate, dir, pitched = false }) {
+  const takes = [];
+  for (let n = 1; n <= TAKES; n++) {
+    const raw = await speak({ voice, text, how, file:path.join(WORK, "raw", dir, `${id}-${n}.wav`) });
+    const out = path.join(WORK, "set", dir, "takes", `${id}-${n}.mp3`);
+    const take = { n, path:out, ...processTake(raw, out, rate) };
+    if (CHECK) take.heard = await transcribe(out);
+    takes.push(take);
+  }
+  const score = t => (CHECK && !heardRight(t.heard, text) ? 1e6 : 0) + (pitched && !(t.f0 > 0) ? 1e5 : 0) + t.dur + 1.5 * t.onset;
+  const best = takes.reduce((a, b) => (score(b) < score(a) ? b : a));
+  const out = path.join(WORK, "set", dir, `${id}.mp3`);
+  fs.copyFileSync(best.path, out);
+  return { ...best, path:out, takes:takes.map(t => `${t.dur}/${t.onset}${CHECK ? ` "${t.heard}"` : ""}`).join(", ") };
+}
+/* one voice's whole set: the best take of each line, processed, with its marks */
+async function voiceSet(voice) {
+  const set = [];
+  for (const line of LINES) {
+    const best = await bestTake({ voice, text:line.text, how:line.how, id:line.id, rate:RATE, dir:voice, pitched:line.id === "ba" });
+    set.push({ id:line.id, text:line.text, file:`${line.id}.mp3`, ...best });
+  }
+  return set;
+}
+async function crowdSet() {
+  const set = [];
+  for (const take of CROWD_TAKES) {
+    const best = await bestTake({ voice:take.voice, text:"Hey!", how:CROWD, id:take.id, rate:take.rate, dir:"crowd" });
+    set.push({ id:take.id, text:"Hey!", file:`${take.id}.mp3`, voice:take.voice, ...best });
+  }
+  return set;
+}
+/* a review sheet: every clip in turn, 0.45 s apart, as one MP3 */
+function sheet(set, out) {
+  fs.mkdirSync(path.dirname(out), { recursive:true });
+  const list = path.join(WORK, `sheet-${path.basename(out, ".mp3")}.txt`);
+  const gap = path.join(WORK, "gap.mp3");
+  if (!fs.existsSync(gap)) ffmpeg(["-y", "-f", "lavfi", "-i", "anullsrc=r=44100:cl=mono", "-t", "0.45", "-c:a", "libmp3lame", "-b:a", "64k", gap]);
+  fs.writeFileSync(list, set.flatMap(c => [`file '${c.path.replaceAll("\\", "/")}'`, `file '${gap.replaceAll("\\", "/")}'`]).join("\n"));
+  ffmpeg(["-y", "-f", "concat", "-safe", "0", "-i", list, "-c:a", "libmp3lame", "-b:a", "96k", out]);
+}
+
+const report = [];
+const sets = {};
+for (const voice of VOICES) {
+  sets[voice] = await voiceSet(voice);
+  sheet(sets[voice], path.join(ROOT, ".impeccable/review/float-sound/voices", `${voice}.mp3`));
+}
+const crowd = await crowdSet();
+sheet(crowd, path.join(ROOT, ".impeccable/review/float-sound/voices", "crowd.mp3"));
+for (const [voice, set] of Object.entries(sets)) {
+  const ok = set.filter(c => !CHECK || heardRight(c.heard, c.text)).length;
+  report.push(`${voice}: ${set.map(c => `${c.id} ${c.dur}ms beat@${c.onset}${c.f0 ? ` f0 ${c.f0}` : ""}${CHECK ? ` "${c.heard}"` : ""}`).join(" | ")}  (${ok}/${set.length} heard)`);
+}
+report.push(`crowd: ${crowd.map(c => `${c.id} (${c.voice}) ${c.dur}ms beat@${c.onset}${CHECK ? ` "${c.heard}"` : ""}`).join(" | ")}`);
+console.log(report.join("\n"));
+
+if (PICK) {
+  const set = sets[PICK];
+  if (!set) throw new Error(`--pick ${PICK}: not among --voices`);
+  const dir = path.join(ROOT, "public/float/groove/voice");
+  fs.mkdirSync(dir, { recursive:true });
+  for (const f of fs.readdirSync(dir)) if (f.endsWith(".mp3")) fs.rmSync(path.join(dir, f));
+  const clips = [...set, ...crowd].map(c => {
+    fs.copyFileSync(c.path, path.join(dir, c.file));
+    return { id:c.id, file:c.file, onset:c.onset, dur:c.dur, f0:c.f0 || 0, text:c.text, voice:c.voice || PICK };
+  });
+  const manifest = { v:1, voice:PICK, rate:RATE, model:"gpt-4o-mini-tts", aiGenerated:true, clips };
+  fs.writeFileSync(path.join(dir, "manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`);
+  const js = `/* The host's voice (written by scripts/float-voice.mjs; do not edit by
+   hand): the clips under public/float/groove/voice/, as the clip path
+   registers them. Each: id (soundKit GROOVE_LINES and GROOVE_CROWD), file,
+   onset (ms: the beat point, the first rise past 30% of the peak), dur (ms),
+   f0 (Hz at the beat, 0 unpitched). The engine reads its own marks from
+   the decoded samples; these are the script's, for the tests and a look.
+   The voice is AI-generated (OpenAI text-to-speech): a release's credits
+   say so. */
+export const VOICE = Object.freeze({
+  base:"/float/groove/voice/",
+  voice:${JSON.stringify(PICK)},
+  clips:Object.freeze([
+${clips.map(c => `    Object.freeze({ id:${JSON.stringify(c.id)}, file:${JSON.stringify(c.file)}, onset:${c.onset}, dur:${c.dur}, f0:${c.f0} }),`).join("\n")}
+  ]),
+});
+`;
+  fs.writeFileSync(path.join(ROOT, "float/client/sound/voices.js"), js);
+  console.log(`installed ${PICK}: ${clips.length} clips, ${clips.reduce((s, c) => s + fs.statSync(path.join(dir, c.file)).size, 0)} bytes`);
+}

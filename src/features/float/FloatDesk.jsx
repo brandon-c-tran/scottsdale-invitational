@@ -40,13 +40,13 @@ export function FloatDesk({ state, load = readFeedback, onRestart = startAgain, 
     } finally { setPending(false); }
   };
   return <div className="fd-float-desk">
-    <section className={`fd-float-desk-now is-${status.lamp}`} aria-label="The race">
+    <section className={`fd-float-desk-now is-${status.lamp}`} aria-label="The game">
       <i className="fd-insert" aria-hidden="true" />
       <span className="fd-float-desk-text">{status.text}</span>
       {status.cup?.error && <ActionButton compact disabled={pending} pending={pending} onClick={restart}>Start Float again</ActionButton>}
     </section>
     <div className="fd-float-desk-stats">
-      <span><strong>{floatLooksPicked(state)}</strong><small>of {coming} floaties</small></span>
+      <span><strong>{floatLooksPicked(state)}</strong><small>of {coming} critters picked</small></span>
       <span><strong>{summary.count}</strong><small>{summary.count === 1 ? "card" : "cards"}</small></span>
       {summary.fun !== null && <span><strong>{summary.fun}</strong><small>fun of 5</small></span>}
       {summary.asked > 0 && <span><strong>{summary.again}</strong><small>of {summary.asked} would play again</small></span>}

@@ -63,7 +63,7 @@ function guestRows(state, capabilities) {
     /* only while Float is still to play with its room on; the Float desk
        counts them too (a rider without one races their default) */
     capabilities.float === true && ahead(state, allEventsOf(state), "float")
-      && guestRow(state, roster, "floaties", "Floaties", profile => hasFloatLook(profile), "float"),
+      && guestRow(state, roster, "floaties", "Critters", profile => hasFloatLook(profile), "float"),
     guestRow(state, roster, "flights", "Flights", flightsDone, "travelSheet"),
     guestRow(state, roster, "venmo", "Venmo", profile => !!profile?.venmo, "travelSheet"),
     guestRow(state, roster, "drinks", "Drinks answered", profile => typeof profile?.drinking === "boolean", "travelSheet"),

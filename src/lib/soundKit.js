@@ -3534,6 +3534,8 @@ const G_SONGS = Object.freeze({
       thin:[[0, "R", 2, "t"], [4, "5", 2, "t"], [8, "R", 2, "t"], [12, "5", 2, "t"]],
       full:[[0, "R", 2, "t"], [4, "5", 1, "t"], [6, "8", 1, "t"], [8, "R", 2, "t"], [12, "5", 1, "t"], [14, "^", 1, "t"]] }),
     comp:Object.freeze({ kind:"skank", thin:"..x...x...x...x.", full:"..x...x...x...x." }),
+    /* an organ held under the bounce from play A on (the room for the "ba"s stays its own) */
+    organ:true,
     drums:Object.freeze({
       thin:{ kick:"X.......X.......", rim:"....x.......x...", hat:"x.x.x.x.x.x.x.x." },
       A:{ kick:"X.......X.......", snare:"....x.......x...", hat:"x.x.x.x.x.x.x.x.", shaker:"..x...x...x...x." },
@@ -3577,22 +3579,23 @@ const G_SONGS = Object.freeze({
     chords:Object.freeze([gChord("B1", "D4 F#4 B4", "B3 D4 F#4 B4"), gChord("G1", "D4 G4 B4", "G3 B3 D4 G4"),
       gChord("A1", "C#4 E4 A4", "A3 C#4 E4 A4"), gChord("D2", "D4 F#4 A4", "D4 F#4 A4 D5"), gChord("B1", "D4 F#4 B4", "B3 D4 F#4 B4"),
       gChord("G1", "D4 G4 B4", "G3 B3 D4 G4"), gChord("A1", "D4 E4 A4", "A3 D4 E4 A4"), gChord("A1", "C#4 E4 G4", "A3 C#4 E4 G4")]),
-    hook:gLine("F#5 . A5 B5 . A5 F#5 . | D5 . E5 F#5 . E5 D5 . | E5 . F#5 A5 . F#5 E5 . | F#5 - - - . . . . "
-      + "| B5 . A5 F#5 . E5 F#5 . | G5 . F#5 E5 . D5 E5 . | A5 . G5 F#5 . E5 D5 . | E5 - - - . . . ."),
-    lead:0, glock:12,
+    /* the anthem: a leap up the chord to a held top note, falling back in eighths; the second half climbs higher */
+    hook:gLine("D5 F#5 B5 - - A5 B5 - | D6 - B5 - A5 G5 F#5 - | E5 A5 C#6 - - B5 A5 - | F#5 - - - E5 D5 E5 F#5 "
+      + "| D5 F#5 B5 - - A5 B5 D6 | E6 - D6 B5 - A5 B5 - | A5 - E5 A5 - B5 C#6 - | E6 - D6 - C#6 - A5 -"),
+    lead:-12, glock:0,
     ba:Object.freeze([gNotes("F#3 B3 D4"), gNotes("G3 B3 D4"), gNotes("A3 C#4 E4"), gNotes("A3 D4 F#4"),
       gNotes("F#3 B3 D4"), gNotes("G3 B3 D4"), gNotes("A3 D4 E4"), gNotes("G3 C#4 E4")]),
     bass:Object.freeze({ kind:"synth",
       thin:[[0, "R", 1, "t"], [2, "R", 1, "t"], [4, "R", 1, "t"], [6, "R", 1, "t"], [8, "R", 1, "t"], [10, "R", 1, "t"], [12, "R", 1, "t"], [14, "R", 1, "t"]],
-      full:[[0, "R", 1, "t"], [2, "R", 1, "t"], [4, "R", 1, "t"], [6, "8", 1, "t"], [8, "R", 1, "t"], [10, "R", 1, "t"], [12, "5", 1, "t"], [14, "^", 1, "t"]] }),
+      full:[[0, "R", 1, "t"], [2, "R", 1, "t"], [4, "8", 1, "t"], [6, "R", 1, "t"], [8, "R", 1, "t"], [10, "8", 1, "t"], [12, "5", 1, "t"], [14, "^", 1, "t"]] }),
     comp:Object.freeze({ kind:"brass", thin:"......x.......x.", full:"......x.......x." }),
     drums:Object.freeze({
       thin:{ kick:"X.......X.......", snare:"....x.......x...", hat:"x.x.x.x.x.x.x.x." },
       A:{ kick:"X.....x.X.x.....", snare:"....X.......X...", hat:"x.x.x.x.x.x.x.x." },
-      B:{ kick:"X.....x.X.x.....", snare:"....X.......X..g", hat:"xgxgxgxgxgxgxgxg", open:"..............o." },
+      B:{ kick:"X...x.x.X...x.x.", snare:"....X.......X.gx", hat:"xgxgxgxgxgxgxgxg", open:"......o.......o." },
     }),
     stabs:[],
-    pads:true,
+    pads:true, padA:0.045, build:6,
   }),
 });
 export const GROOVE_SONG_IDS = Object.freeze(Object.keys(G_SONGS));
@@ -3815,7 +3818,7 @@ function gMelody(c, level) {
     let steps = n;
     for (let x = s + 1; x < s + n; x++) if (c.held.has(x)) { steps = x - s; break; }
     const d = steps * G16 * 0.9;
-    gLead(E, V("lead"), c.at(s), gHz(m + S.lead), d, level >= 2 ? 0.08 : 0.09, { vib:0.6, saw:S === G_SONGS.drop ? 0.35 : 0.15 });
+    gLead(E, V("lead"), c.at(s), gHz(m + S.lead), d, (level >= 2 ? 0.08 : 0.09) * (S === G_SONGS.drop ? 1.2 : 1), { vib:0.6, saw:S === G_SONGS.drop ? 0.35 : 0.15 });
     if (level >= 2) gGlock(E, V("glock"), c.at(s), gHz(m + S.glock), 0.085, { dec:0.9 });
   }
   const tag = S.tag?.[c.k % 8];
@@ -3830,7 +3833,12 @@ function gPlayBar(c, level) {
   const kit = level === 0 ? S.drums.thin : level === 1 ? S.drums.A : S.drums.B;
   const fill = c.k === c.len - 1 && c.next !== c.sec && c.next !== null;
   gDrums(c, kit, { fill });
-  if (S.drums.B === kit && c.k % 4 === 0 && c.on("drums")) GK.crash(E, V("hat"), c.at(0), 0.55, 1.6);
+  if (S.drums.B === kit && c.k % (S.pads ? 2 : 4) === 0 && c.on("drums")) GK.crash(E, V("hat"), c.at(0), 0.55, 1.6);
+  /* the build into the drop's countdown: the snare doubling up over a riser */
+  if (level >= 2 && S.build === c.k && c.on("drums")) {
+    flRiser(E, c.at(0), FLOAT_BAR_S, 0.06, 0);
+    for (let s = 8; s < 16; s++) GK.snare(E, V("snare"), c.at(s), 0.25 + (s - 8) * 0.06);
+  }
   gBassLine(c, level === 0 ? S.bass.thin : S.bass.full);
   gComp(c, level === 0 ? S.comp.thin : S.comp.full);
   if (level >= 1) gMelody(c, level);
@@ -3840,7 +3848,10 @@ function gPlayBar(c, level) {
   /* B's brass stabs (on the "and" of four, anticipating the next bar's chord) */
   if (level >= 2 && c.on("harmony")) for (const s of S.stabs || []) if (!c.held.has(s))
     gBrass(E, V("brass"), c.at(s), (s >= 14 ? c.after : c.chord).comp.map(m => m + 12), G16 * 0.9, 0.08);
-  if (level >= 2 && S.pads && c.on("harmony")) gSaws(E, V("pad"), c.at(0), c.chord.tones, FLOAT_BAR_S * 0.96, 0.08);
+  if (S.pads && c.on("harmony") && (level >= 2 || (level === 1 && S.padA)))
+    gSaws(E, V("pad"), c.at(0), c.chord.tones, FLOAT_BAR_S * 0.96, level >= 2 ? 0.08 : S.padA);
+  /* Rock Hop's organ, held soft under the bar */
+  if (S.organ && level >= 1 && c.on("harmony")) gKeys(E, V("keys"), c.at(0), c.chord.comp, FLOAT_BAR_S * 0.85, 0.045, { trem:0.5 });
   if (level >= 2 && S.swirl && c.on("harmony")) gSwirl(c);
   if (S === G_SONGS.drop) gDropColour(c, level);
   if (c.on("melody") && level >= 1) {
@@ -3970,7 +3981,7 @@ function gOutroBar(c) {
    three-beat countdown (the sticks under it and the falls coming up) */
 function gCutBar(c) {
   const { E, V, chord } = c;
-  if (c.on("drums")) { GK.kick(E, V("kick"), c.at(0), 1); GK.crash(E, V("hat"), c.at(0), 0.6, 0.9); [4, 8, 12].forEach(s => GK.sticks(E, V("perc"), c.at(s), 0.7)); }
+  if (c.on("drums")) { GK.kick(E, V("kick"), c.at(0), 1); GK.crash(E, V("hat"), c.at(0), 0.6, 0.9); [4, 8, 12].forEach(s => { GK.sticks(E, V("perc"), c.at(s), 1.15); burst(E, V("perc"), c.at(s), { type:"highpass", f:5000, q:0.7, d:0.006, peak:0.3 }); }); }
   if (c.on("harmony")) gBrass(E, V("brass"), c.at(0), chord.comp.map(m => m + 12), G16 * 1.5, 0.13, { fall:true });
   if (c.on("bass")) gSlap(E, V("bass"), c.at(0), gHz(chord.bass), G16 * 2, 0.3);
   /* the falls' roar rising into the drop */

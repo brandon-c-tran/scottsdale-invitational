@@ -27,6 +27,8 @@ export const PALETTES = {
   podium:{ sky:["#d8caff", "#ffd9e8"], sun:"#fff3cc", cloud:"#fff7fd", water:["#8f9ff0", "#c7c8fa"], check:"#8392e6", water0:0.62 },
 };
 const LAND_DEPTH = 0.3;
+/* each song scene's one loud accent: the prop the screen places in it */
+export const ACCENTS = { open:"accent-open", rocks:"accent-rocks", whirlpool:"accent-whirl", falls:"accent-falls" };
 
 const rand = seed => () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
 
@@ -127,7 +129,7 @@ async function scene(id) {
   await sharp(Buffer.from(waterSvg(p, top))).webp(WEBP).toFile(path.join(dir, "water.webp"));
   for (const old of ["far.webp", "bank.webp"]) fs.rmSync(path.join(dir, old), { force:true });
   editManifest(m => {
-    m.scenes[id] = { w:W, h:H, water:p.water0, layers:[
+    m.scenes[id] = { w:W, h:H, water:p.water0, ...(ACCENTS[id] ? { accent:ACCENTS[id] } : {}), layers:[
       { src:`scenes/${id}/sky.webp`, depth:0, loop:false },
       { src:`scenes/${id}/land.webp`, depth:LAND_DEPTH, loop:true },
       { src:`scenes/${id}/water.webp`, depth:1, loop:true },

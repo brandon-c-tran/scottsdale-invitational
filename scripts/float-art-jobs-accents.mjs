@@ -1,0 +1,7 @@
+/* the song scenes' loud accents (scripts/float-art-jobs.mjs accents;
+   float/GROOVE.md "The look": one or two loud accents per scene): four
+   props on one sheet, a 2 x 2 grid, in the props' style */
+export default ({ gen }) => [{
+  name:"props-accents", size:"1536x1024", quality:"high", background:"transparent", format:"png", refs:[gen("props-water")],
+  prompt:"A sheet of four separate game props for a cute 2D rhythm party game, in the same style as the image: a thin slightly wobbly black outline of one even weight, flat soft colours with gentle shading, bright and cheerful. Arranged in a neat grid of two columns and two rows, each prop alone in its own cell, centred, well separated, nothing overlapping or touching:\n1. A big inflatable hoop with rainbow stripes (red, orange, yellow, green, blue, purple bands around the tube), standing upright in the water, its bottom dipping into a small ring of white and pale blue water ripples.\n2. A round floating buoy with red and white stripes and a little pennant flag on a short pole on top, bobbing in a small ring of white foam.\n3. A bright rainbow swirl ring lying flat on the water, seen from a low angle: a wide flat oval spiral of rainbow bands winding in toward its centre, edged with white foam.\n4. A rainbow arching through a soft cloud of white mist, the mist billowing at both feet of the arch.\nTransparent background. No text, no letters, no numbers, no labels, no grid lines.",
+}];

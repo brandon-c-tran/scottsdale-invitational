@@ -4211,7 +4211,7 @@ function grooveFanfare(E, t0) {
 /* someone out on the bank cheers (floatCheer, opts.pan): a party horn */
 function grooveCheer(E, t, o = {}) {
   const v = voice(E, { send:0.2, bright:1, gain:1 });
-  gHorn(E, v, t, [NOTE.A4, NOTE.B4, NOTE.D5][gInt(o.step, 0, 2, 0)], 0.42, 0.07);
+  gHorn(E, v, t, [NOTE.A4, NOTE.B4, NOTE.D5][gInt(o.step, 0, 2, 0)], 0.34, 0.055);
 }
 /* a rider taps Done in the drink break (floatDone): a glass set down, a bright note */
 function grooveDone(E, t, o = {}) {
@@ -4361,7 +4361,7 @@ function grooveYouDone(E, t) {
   gGlock(E, v, t + 0.12, NOTE.D6, 0.12, { dec:0.6 }); gGlock(E, v, t + 0.22, NOTE.A6, 0.12, { dec:0.9 });
 }
 /* a cheer from the bank (floatYouCheer): your party horn */
-function grooveYouCheer(E, t) { gHorn(E, voice(E, { send:0.12, bright:1, gain:1 }), t, NOTE.D5, 0.45, 0.08); }
+function grooveYouCheer(E, t) { gHorn(E, voice(E, { send:0.14, bright:0.7, gain:1 }), t, NOTE.D5, 0.34, 0.055); }
 /* through at the cut (floatYouSafe): three notes up and a sparkle */
 function grooveYouSafe(E, t) {
   const v = voice(E, { send:0.2, bright:1, gain:0.9 });

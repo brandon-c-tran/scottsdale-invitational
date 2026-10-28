@@ -23,14 +23,14 @@ const hash = text => {
 
 /* what riderPortrait reads of an entrant */
 export function portraitEntrant({ name = "", color = "#9aa39e", look = {}, photo = null, number = null, skin = null, groom = false } = {}) {
-  return { name, color, look:{ critter:look.critter, floatie:look.floatie, hat:look.hat, shades:look.shades, pose:look.pose },
+  return { name, color, look:{ critter:look.critter, floatie:look.floatie, hat:look.hat, shades:look.shades, shirt:look.shirt, pose:look.pose },
     ...(photo ? { photo } : {}), ...(number !== null && number !== undefined ? { number } : {}), ...(skin ? { skin } : {}),
     ...(groom ? { groom:true } : {}) };
 }
 
 export function portraitKey(entrant = {}, size = 128) {
   const look = entrant.look || {};
-  return [size, entrant.color || "", look.critter || "", look.floatie || "", look.hat || "", look.shades || "", look.pose || "",
+  return [size, entrant.color || "", look.critter || "", look.floatie || "", look.hat || "", look.shades || "", look.shirt || "", look.pose || "",
     entrant.photo ? hash(String(entrant.photo)) : "", entrant.number ?? "", entrant.skin || "", entrant.groom ? 1 : 0].join("|");
 }
 

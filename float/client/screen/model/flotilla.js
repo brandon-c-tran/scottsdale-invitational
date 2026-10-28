@@ -290,7 +290,7 @@ const overlap = (a, b) => Math.max(0, Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0
 /* where a popup may go, as shares of its own box: over the head, higher,
    a little to a side, higher still, further to a side */
 const POPUP_TRIES = Object.freeze([[0, 0], [0, -0.55], [-0.34, -0.25], [0.34, -0.25], [0, -1.1], [-0.42, -0.8], [0.42, -0.8],
-  [-0.5, 0.15], [0.5, 0.15], [-0.7, -0.1], [0.7, -0.1], [-0.6, 0.35], [0.6, 0.35]]);
+  [-0.5, 0.15], [0.5, 0.15], [-0.7, -0.1], [0.7, -0.1], [-0.6, 0.35], [0.6, 0.35], [0, -1.6], [-0.45, -1.4], [0.45, -1.4]]);
 /* a face's box: the middle of the critter, its head down to its tube */
 const faceBox = r => {
   const half = riderWidth(r.scale) * 0.38;
@@ -322,7 +322,9 @@ export function popupSlots(riders = [], { box = POPUP_BOX, lift = 14, w = STAGE_
     return out;
   }
   const faces = list.map(faceBox);
-  const crowd = others.filter(r => r && Number.isFinite(r.x) && Number.isFinite(r.top)).map(faceBox);
+  /* the crowd: the whole critter, head to waterline (small, and nothing behind them) */
+  const crowd = others.filter(r => r && Number.isFinite(r.x) && Number.isFinite(r.top))
+    .map(r => ({ ...faceBox(r), y1:Number.isFinite(r.y) ? r.y : r.top + 100 }));
   const placed = [];
   const out = {};
   const order = list.slice().sort((a, b) => b.scale - a.scale || a.x - b.x);
@@ -337,7 +339,7 @@ export function popupSlots(riders = [], { box = POPUP_BOX, lift = 14, w = STAGE_
       let cost = (Math.abs(fx) * 0.9 + Math.abs(fy) * 0.7) * bw * bh * 0.12;
       for (const p of placed) cost += 14 * overlap(rect, p);
       for (const f of faces) if (f.i !== r.i) cost += 0.5 * overlap(rect, f);
-      for (const f of crowd) cost += 2 * overlap(rect, f);
+      for (const f of crowd) cost += 3 * overlap(rect, f);
       for (const a of avoid) cost += 12 * overlap(rect, a);
       /* the names (a player's own, under each tube) stay readable */
       for (const n of names) if (n.i !== r.i) cost += 4 * overlap(rect, n);

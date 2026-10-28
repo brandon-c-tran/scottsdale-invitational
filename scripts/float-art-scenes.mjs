@@ -12,7 +12,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import sharp from "sharp";
-import { OUT, RAW, WEBP, loadRGBA, blank, alphaBounds, editManifest, saveWebp } from "./float-art-lib.mjs";
+import { OUT, RAW, WEBP, sourceOf, loadRGBA, blank, alphaBounds, editManifest, saveWebp } from "./float-art-lib.mjs";
 
 const W = 1920, H = 1080;
 const args = process.argv.slice(2);
@@ -83,7 +83,7 @@ function waterSvg(p, top) {
 
 /* the generated strip: its bank line, its ends blended into a tile, set on the waterline */
 async function landLayer(id, top) {
-  const img = await loadRGBA(path.join(RAW, "gen", `scene-${id}.png`));
+  const img = await loadRGBA(sourceOf(`scene-${id}`));
   const { width:IW, height:IH, data:d } = img;
   for (let i = 3; i < d.length; i += 4) d[i] = d[i] < 10 ? 0 : d[i] >= 246 ? 255 : Math.round(d[i] * 255 / 246);
   const b = alphaBounds(img, 40);
@@ -140,7 +140,7 @@ async function scene(id) {
 async function bar() {
   const dir = path.join(OUT, "scenes", "bar");
   fs.mkdirSync(dir, { recursive:true });
-  const grown = await sharp(path.join(RAW, "gen", "scene-bar.png")).resize(W, 1280, { kernel:"lanczos3" }).png().toBuffer();
+  const grown = await sharp(sourceOf("scene-bar")).resize(W, 1280, { kernel:"lanczos3" }).png().toBuffer();
   await sharp(grown).extract({ left:0, top:120, width:W, height:H }).webp(WEBP).toFile(path.join(dir, "room.webp"));
   editManifest(m => { m.scenes.bar = { w:W, h:H, water:0.45, counter:0.45, layers:[{ src:"scenes/bar/room.webp", depth:0, loop:false }] }; });
   console.log("bar: done");

@@ -16,9 +16,10 @@
    watchdog) brings a restarted room back, and a song in progress carries on
    by the clock (songAt is in the save).
 
-   Timers: a light 100 ms interval runs only in a song (bots' and stand-ins'
-   taps, misses, the calibration's beat, scores every 4 s, the save every
-   2 s); between songs a single timeout (and the alarm behind it) moves the
+   Timers: a light 100 ms interval runs only while something is played, a
+   song or Last Call (bots' and stand-ins' taps, misses, the calibration's
+   beat, scores every 4 s, Last Call's totals as they grow, the save every
+   2 s); otherwise a single timeout (and the alarm behind it) moves the
    phases on, and a lobby holds no timer at all.
 
    Driving it without timers (the tests, scripts/float-sim.mjs, the screen's
@@ -38,7 +39,7 @@
 import { ROLES, HOST_CMDS, cleanDevice, cleanRider, cleanAnswers, cleanPid, ROOM_ID } from "../shared/protocol.js";
 import { cleanLook } from "../shared/looks.js";
 import { FLOATIE_IDS } from "../shared/floaties.js";
-import { chartOf } from "../shared/chart.js";
+import { LAST_CALL_ID, chartOf } from "../shared/chart.js";
 import { GROOVE, applyDone, applyHit, seedOf } from "../shared/groove.js";
 import * as Cup from "../shared/cup.js";
 
@@ -52,6 +53,13 @@ const CHEER_MS = 300;
 const DEBUG_MS = 2000;
 /* who a stand-in plays is looked at this often in a song */
 const DRIVEN_MS = 1000;
+/* Last Call's totals go out as they grow, at most this often (who drinks at once) */
+const BAR_ROOM_MS = 500;
+/* the phases something is played in: the light timer runs, saves never hold a message */
+const PLAYING = new Set(["song", "lastcall"]);
+/* what Last Call's totals were when the room last went out */
+const barKey = lastCall => lastCall
+  ? `${lastCall.totals.reduce((sum, row) => sum + Object.keys(row.grabs).length, 0)}:${lastCall.worst ? lastCall.worst.join(",") : "-"}` : "";
 /* retries for posts to the Tournament: then hourly, for a day */
 const BACKOFF_MS = [1000, 5000, 30000, 120000, 600000];
 const RETRY_FOR_MS = 24 * 3600 * 1000;
@@ -93,6 +101,7 @@ export class FloatRoom {
     this.lastDebug = 0;
     this.lastDrivenAt = 0;
     this.lastDriven = "";
+    this.lastBarKey = "";
     this.rtt = {};
     this.code = "";
     this.kickedDevices = new Set();
@@ -127,7 +136,7 @@ export class FloatRoom {
     const cup = this.cup;
     if (!cup) return;
     this.bornAt = this.now();
-    if (cup.phase === "song") Cup.ensureSong(cup);
+    Cup.playingOf(cup);
     this.schedule();
   }
 
@@ -136,7 +145,7 @@ export class FloatRoom {
      recovery, so they never hold a hit: those writes go unconfirmed (a crash
      loses at most the last 2 s of judgements). A phase change's save is
      confirmed. */
-  saveCup(quiet = this.cup?.phase === "song") {
+  saveCup(quiet = PLAYING.has(this.cup?.phase)) {
     if (!this.cup) return;
     this.lastSave = this.now();
     this.persist(this.storage.put("cup", this.cup, quiet ? { allowUnconfirmed:true } : undefined));
@@ -289,7 +298,7 @@ export class FloatRoom {
     }
     this.send(ws, { t:"pong", c:msg.c });
     /* a screen's readout of the phones' round trips; in a song the room's timer sends it */
-    if (meta.role === "screen" && this.cup?.phase !== "song" && now - (meta.debugAt || 0) >= DEBUG_MS) {
+    if (meta.role === "screen" && !PLAYING.has(this.cup?.phase) && now - (meta.debugAt || 0) >= DEBUG_MS) {
       meta.debugAt = now;
       this.send(ws, { t:"debug", rtt:{ ...this.rtt } });
     }
@@ -335,7 +344,9 @@ export class FloatRoom {
       return item;
     });
     const lobby = cup.phase === "lobby";
-    const song = ["intro", "song", "cut"].includes(cup.phase) ? cup.songId : null;
+    const bar = cup.phase === "lastcall";
+    const song = bar ? LAST_CALL_ID : ["intro", "song", "cut"].includes(cup.phase) ? cup.songId : null;
+    const songAt = bar ? cup.bar?.songAt ?? null : song && cup.phase !== "intro" ? cup.songAt : null;
     return {
       t:"room", phase:cup.phase, mode:cup.mode, code:cup.code || this.code, cupId:cup.id, drinking:cup.drinking,
       round:cup.round, rounds:cup.rounds, field:cup.field, out:cup.out,
@@ -346,8 +357,10 @@ export class FloatRoom {
       /* this is the final round (`final`, below, is the Cup's final order once known) */
       lastRound:!lobby && Cup.isLastRound(cup),
       entrants,
-      song, songAt:song && cup.phase !== "intro" ? cup.songAt : null, chartId:song,
+      song, songAt, chartId:song,
       offset:Cup.offsetOf(cup),
+      /* Last Call's totals and who drinks, in its phase (else null) */
+      lastCall:Cup.lastCallSummary(cup, now),
       scores:Cup.scoresOf(cup, now), results:Cup.resultsOf(cup),
       standings:cup.standings, podium:cup.podium, final:cup.final,
       history:cup.history.map(({ round, song:id, field, results, out }) => ({ round, song:id, field, results, out })),
@@ -377,6 +390,7 @@ export class FloatRoom {
     const s = this.now();
     this.lastScores = s;
     const base = this.roomMessage();
+    this.lastBarKey = barKey(base.lastCall);
     let shared = null;
     this.each(null, (ws, meta) => {
       if (ws === except) return;
@@ -500,7 +514,7 @@ export class FloatRoom {
     if (!this.cup) return;
     const cup = this.cup;
     const now = this.now();
-    const playing = cup.phase === "song";
+    const playing = PLAYING.has(cup.phase);
     if (playing) this.startLoop(); else this.stopLoop();
     let next = null;
     const take = at => { if (Number.isFinite(at)) next = next === null ? at : Math.min(next, at); };
@@ -555,8 +569,9 @@ export class FloatRoom {
     this.loop = null;
   }
 
-  /* Everything due by now, in any phase: a Field Day start, the song's taps,
-     misses and Done, phase changes; in a song the room's scores every 4 s,
+  /* Everything due by now, in any phase: a Field Day start, the song's (or
+     Last Call's) taps, misses and Done, phase changes; while something is
+     played the room's scores every 4 s, Last Call's totals as they grow,
      the save every 2 s, the stand-ins' lamp and the screens' readout. */
   tick() {
     const cup = this.cup;
@@ -569,8 +584,8 @@ export class FloatRoom {
     const out = Cup.tick(cup, now, { driven:(i, t) => this.driven(i, t) });
     this.sendEvents(out.events);
     if (out.phases.length) return this.phaseChanged(out);
-    if (cup.phase !== "song") return;
-    if (out.offset || now - this.lastScores >= GROOVE.SCORES_MS) this.broadcastRoom();
+    if (!PLAYING.has(cup.phase)) return;
+    if (out.offset || now - this.lastScores >= GROOVE.SCORES_MS || this.lastCallDue(now)) this.broadcastRoom();
     else if (now - this.lastDrivenAt >= DRIVEN_MS) {
       this.lastDrivenAt = now;
       const driven = cup.entrants.map((_, i) => this.driven(i, now) ? 1 : 0).join("");
@@ -584,20 +599,30 @@ export class FloatRoom {
     }
   }
 
-  /* the Cup moved on: the cut's outs, the result once the podium has played,
-     the lobby's phones; then the save, the room, everyone's `me` */
+  /* Last Call's totals changed since the room last went out: due now if who
+     drinks is known, else at most every BAR_ROOM_MS */
+  lastCallDue(now) {
+    const summary = Cup.lastCallSummary(this.cup, now);
+    if (!summary || barKey(summary) === this.lastBarKey) return false;
+    return summary.worst !== null || now - this.lastScores >= BAR_ROOM_MS;
+  }
+
+  /* the Cup moved on: the cut's outs, who drank at Last Call, the result once
+     the podium has played, the lobby's phones; then the save, the room,
+     everyone's `me` */
   phaseChanged(out) {
     const cup = this.cup;
     for (const phase of out.phases) {
       if (phase === "cut") {
         const item = cup.history.at(-1);
         if (item) item.rtt = this.rttSamples();
-        this.persist(this.storage.put(`stats:${cup.id}`, cup.history.map(({ round, song, offset, samples, stats, rtt }) =>
-          ({ round, song, offset, samples, stats, rtt }))));
       }
       if (phase === "feedback") this.postResultOnce();
       if (phase === "lobby") { this.stopLoop(); this.joinWatchers(); }
     }
+    if (out.phases.includes("cut") || out.lastCall)
+      this.persist(this.storage.put(`stats:${cup.id}`, cup.history.map(({ round, song, offset, samples, stats, rtt, lastCall }) =>
+        ({ round, song, offset, samples, stats, rtt, lastCall:lastCall ?? null }))));
     /* who went out: the round's worst first */
     for (const i of out.eliminated.slice().reverse()) this.broadcast({ t:"ev", e:"out", i });
     this.saveCup(false);
@@ -632,15 +657,17 @@ export class FloatRoom {
 
   /* ---------------------------------------------------------------- phone messages */
 
-  /* hit { c, r }: a tap on cue c, r its raw offset (the tap's server time
-     minus the cue's), judged by the room with its own offset */
+  /* hit { c, r }: a tap on cue c (a song's, or Last Call's grab), r its raw
+     offset (the tap's server time minus the cue's), judged by the room with
+     its own offset */
   onHit(i, msg) {
     const cup = this.cup;
-    if (cup.phase !== "song" || cup.entrants[i]?.kicked) return;
+    if (!PLAYING.has(cup.phase) || cup.entrants[i]?.kicked) return;
     /* what was due first (a miss called, the offset's beat) */
     this.tick();
-    if (cup.phase !== "song" || !cup.song) return;
-    const event = applyHit(cup, cup.song, i, { c:msg.c, r:msg.r }, this.now());
+    const playing = PLAYING.has(cup.phase) ? Cup.playingOf(cup) : null;
+    if (!playing) return;
+    const event = applyHit(cup, playing, i, { c:msg.c, r:msg.r }, this.now());
     if (event) this.sendEvents([event]);
   }
 
@@ -741,7 +768,8 @@ export class FloatRoom {
      results:[{ who, pid, bot, place, pct, pts, perfects, misses, cup, out }] }],
      stats:{ rounds:[{ round, song, offset, samples, riders:{ [who]:{ pct,
      pts, perfects, nice, ok, early, late, misses, hits, botShare, doneMs } },
-     rtt }], botShare:{ [who]: 0 to 1 } } } */
+     rtt, lastCall:{ worst:[who], excused:[who], totals:{ [who]: ms } } or null }],
+     botShare:{ [who]: 0 to 1 } } } */
   queueResult() {
     const cup = this.cup;
     const order = cup.final.filter(i => cup.entrants[i]?.pid && !cup.entrants[i].bot).map(i => cup.entrants[i].pid);
@@ -761,7 +789,10 @@ export class FloatRoom {
       }
     const stats = { rounds:cup.history.map(item => ({ round:item.round, song:item.song, offset:item.offset, samples:item.samples,
       riders:Object.fromEntries(Object.entries(item.stats || {}).map(([i, value]) => [name(Number(i)), value])),
-      rtt:item.rtt || {} })),
+      rtt:item.rtt || {},
+      /* who drank at the Last Call after this round */
+      lastCall:item.lastCall ? { worst:item.lastCall.worst.map(name), excused:(item.lastCall.excused || []).map(name),
+        totals:Object.fromEntries(item.lastCall.totals.map(row => [name(row.i), row.ms])) } : null })),
       botShare:Object.fromEntries(Object.entries(played).map(([who, value]) =>
         [who, value.rounds ? Math.round((value.share / value.rounds) * 100) / 100 : 0])) };
     this.queue(`result:${cup.id}`, "/internal/float/result", { evId:cup.evId, cupId:cup.id, order, rounds, stats });

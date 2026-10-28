@@ -5,15 +5,25 @@
    hat's crown), face (between the eyes), horn (the megaphone's bell, where
    a call comes out); each pose keeps its own where they move.
 
-     node scripts/float-art-host.mjs [--sheet <png>] */
+   The bartender (Last Call) is cut the same way from its sheet (idle,
+   slide, cheer), drawn waist up: its ground is where it meets the counter,
+   and hand is the far tip of its arm (the slide's palm).
+
+     node scripts/float-art-host.mjs [--who host|bartender] [--sheet <png>] */
 import path from "node:path";
-import { OUT, RAW, loadRGBA, blank, components, placeInBox, saveWebp, alphaBounds, hueOf, editManifest } from "./float-art-lib.mjs";
+import { OUT, RAW, sourceOf, loadRGBA, blank, components, placeInBox, saveWebp, alphaBounds, hueOf, editManifest } from "./float-art-lib.mjs";
 
 const args = process.argv.slice(2);
-const sheetFile = args.includes("--sheet") ? args[args.indexOf("--sheet") + 1] : path.join(RAW, "gen", "host-sheet.png");
-export const HOST_BOX = [512, 560];
-export const GROUND = [256, 540];
-const POSES = ["idle", "call", "cheer"];
+export const CAST = {
+  host:{ poses:["idle", "call", "cheer"], box:[512, 560], ground:[256, 540], horn:true },
+  bartender:{ poses:["idle", "slide", "cheer"], box:[512, 512], ground:[256, 504], horn:false },
+};
+const WHO = args.includes("--who") ? args[args.indexOf("--who") + 1] : "host";
+if (!CAST[WHO]) throw new Error(`no such character: ${WHO}`);
+const sheetFile = args.includes("--sheet") ? args[args.indexOf("--sheet") + 1] : sourceOf(`${WHO}-sheet`);
+const HOST_BOX = CAST[WHO].box;
+const GROUND = CAST[WHO].ground;
+const POSES = CAST[WHO].poses;
 
 const img = await loadRGBA(sheetFile);
 const { width:W, height:H, data:d } = img;
@@ -75,6 +85,11 @@ function hornOf(cell, b, bodyX) {
   const far = reds.slice(0, Math.max(10, Math.round(reds.length * 0.08)));
   return [far.reduce((s, p) => s + p[0], 0) / far.length, far.reduce((s, p) => s + p[1], 0) / far.length];
 }
+/* the far tip of an arm: the opaque pixel farthest right in the body's upper two thirds */
+function reachOf(cell, b) {
+  for (let x = b.x1; x >= b.x0; x--) for (let y = b.y0; y < b.y0 + b.h * 0.8; y++) if (cell.data[(y * W + x) * 4 + 3] > 160) return [x, y];
+  return null;
+}
 /* the hat's crown: the top of the opaque pixels over the body's middle */
 function headOf(cell, x) {
   for (let y = 0; y < H; y++) if (cell.data[(y * W + Math.round(x)) * 4 + 3] > 160) return y;
@@ -92,8 +107,8 @@ for (const [k, pose] of POSES.entries()) {
   const cell = cells[k], f = feet[k];
   const placed = await placeInBox(cell, { sx:f.x, sy:f.y, s, bx:GROUND[0], by:GROUND[1], box:HOST_BOX });
   const inBox = alphaBounds(placed.img, 24);
-  if (!inBox || inBox.x0 <= 0 || inBox.y0 <= 0 || inBox.x1 >= HOST_BOX[0] - 1 || inBox.y1 >= HOST_BOX[1] - 1) console.warn(`host ${pose}: touches the box's edge`);
-  await saveWebp(placed.img, path.join(OUT, "host", `${pose}.webp`));
+  if (!inBox || inBox.x0 <= 0 || inBox.y0 <= 0 || inBox.x1 >= HOST_BOX[0] - 1 || inBox.y1 >= HOST_BOX[1] - 1) console.warn(`${WHO} ${pose}: touches the box's edge`);
+  await saveWebp(placed.img, path.join(OUT, WHO, `${pose}.webp`));
   const toBox = ([x, y]) => [Math.round(GROUND[0] + (x - f.x) * s), Math.round(GROUND[1] + (y - f.y) * s)];
   const eyes = eyesOf(cell, f.b);
   const bodyX = eyes ? eyes.x : f.x;
@@ -101,11 +116,12 @@ for (const [k, pose] of POSES.entries()) {
   const head = toBox([bodyX, headY ?? f.b.y0]);
   /* an eye behind the megaphone: the idle face's offset from the head */
   const face = eyes ? toBox([eyes.x, eyes.y + 10]) : base ? [head[0] + base.face[0] - base.head[0], head[1] + base.face[1] - base.head[1]] : toBox([f.x, f.b.y0 + f.b.h * 0.45]);
-  const horn = hornOf(cell, f.b, bodyX);
-  const anchor = { ground:[...GROUND], head, face, horn:horn ? toBox(horn) : face };
+  const anchor = { ground:[...GROUND], head, face };
+  if (CAST[WHO].horn) { const horn = hornOf(cell, f.b, bodyX); anchor.horn = horn ? toBox(horn) : face; }
+  else { const reach = reachOf(cell, f.b); anchor.hand = reach ? toBox(reach) : face; }
   if (pose === "idle") base = anchor;
-  poses[pose] = { src:`host/${pose}.webp`, anchor };
-  console.log(`host ${pose}: eyes ${eyes ? "found" : "not found"}, horn ${horn ? "found" : "not found"}`);
+  poses[pose] = { src:`${WHO}/${pose}.webp`, anchor };
+  console.log(`${WHO} ${pose}: eyes ${eyes ? "found" : "not found"}`);
 }
-editManifest(m => { m.host = { box:HOST_BOX, anchor:base, poses }; });
-console.log(`host: scale ${s.toFixed(3)}`);
+editManifest(m => { m[WHO] = { box:HOST_BOX, anchor:base, poses }; });
+console.log(`${WHO}: scale ${s.toFixed(3)}`);

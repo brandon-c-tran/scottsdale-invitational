@@ -3,7 +3,7 @@
    the scenes (their layers scrolling, to check the seams), the props, the
    pixel lettering, and a flotilla put together from all of it.
 
-   ?view=all (default) | flotilla | critters | critter&id=frog | portraits | host | scenes | props | type
+   ?view=all (default) | flotilla | lastcall | critters | crowns | critter&id=frog | portraits | host | scenes | props | type
    &bg=water|dark|light   &freeze=1 (no motion, for screenshots)
    document.body.dataset.ready is "1" once every sprite on the page is painted. */
 import React, { useEffect, useMemo, useState } from "react";
@@ -11,7 +11,7 @@ import { CRITTERS, SPECIAL_CRITTERS } from "../../shared/looks.js";
 import { SONGS } from "../../shared/chart.js";
 import RiderSprite, { useGrooveArt } from "./groove/RiderSprite.jsx";
 import Popup from "./groove/Popup.jsx";
-import { riderSprites, riderPortrait, sceneOf, propOf, hostSprites, spriteAnchor, POSES } from "./groove/index.js";
+import { riderSprites, riderPortrait, sceneOf, propOf, hostSprites, bartenderSprites, spriteAnchor, POSES } from "./groove/index.js";
 import "./groove/groove.css";
 
 const COLORS = [["Red", "#e53935"], ["Yellow", "#fdd835"], ["Teal", "#00897b"], ["Navy", "#1a237e"]];
@@ -69,7 +69,7 @@ function useReady(looks) {
 }
 
 function Nav() {
-  const views = ["all", "flotilla", "critters", "crowns", "portraits", "host", "scenes", "props", "type"];
+  const views = ["all", "flotilla", "lastcall", "critters", "crowns", "portraits", "host", "scenes", "props", "type"];
   return <nav>{views.map(v => <a key={v} href={`?view=${v}`} aria-current={v === VIEW ? "page" : undefined}>{v}</a>)}</nav>;
 }
 
@@ -128,19 +128,48 @@ function Portraits() {
   );
 }
 
-function Host() {
-  const host = hostSprites();
-  if (!host) return null;
+function Cast({ cast, bg = BGS.water }) {
+  if (!cast) return null;
   return (
-    <div className="fa2-sheet fa2-row" style={{ background:BGS.water, gap:24 }}>
-      {Object.entries(host.poses).map(([pose, url]) => (
+    <div className="fa2-sheet fa2-row" style={{ background:bg, gap:24 }}>
+      {Object.entries(cast.poses).map(([pose, url]) => (
         <div key={pose} className="fa2-cell" style={{ position:"relative" }}>
-          <img src={url} width={300} height={300 * host.box[1] / host.box[0]} alt={pose} />
-          {Object.entries(host.anchor).map(([name, [x, y]]) => <span key={name} className="fa2-dot" title={name} style={{ left:x * 300 / host.box[0], top:y * 300 / host.box[0] }} />)}
+          <img src={url} width={300} height={300 * cast.box[1] / cast.box[0]} alt={pose} />
+          {Object.entries(cast.anchors[pose]).map(([name, [x, y]]) => <span key={name} className="fa2-dot" title={name} style={{ left:x * 300 / cast.box[0], top:y * 300 / cast.box[0] }} />)}
           <small>{pose}</small>
         </div>
       ))}
     </div>
+  );
+}
+const Host = () => <><Cast cast={hostSprites()} /><h2>Bartender</h2><Cast cast={bartenderSprites()} bg="#f2c4a0" /></>;
+
+/* Last Call put together: the bar, the bartender behind the counter sliding a drink, riders in front with their grabs */
+function LastCall() {
+  const m = useGrooveArt();
+  const bar = sceneOf("bar"), cast = bartenderSprites(), drink = propOf("drink");
+  if (!m || !bar || !cast) return null;
+  const W = 1280, k = W / 1920, counter = (bar.counter || 0.45) * 1080;
+  const bw = 420 * k;
+  const riders = CRITTERS.slice(0, 6).map((c, i) => ({ ...c, color:RIDER_COLORS[i * 2] }));
+  const size = 300 * k;
+  const pops = [["nice", 10], null, ["late", 730], ["nice", -20], null, ["perfect", 0]];
+  return (
+    <Scene id="bar" width={W}>
+      <img src={cast.poses.slide} alt="" style={{ position:"absolute", width:bw, left:960 * k - cast.anchor.ground[0] * bw / cast.box[0], top:(counter + 14) * k - cast.anchors.slide.ground[1] * bw / cast.box[0] }} />
+      {drink ? <img src={drink.src} alt="" style={{ position:"absolute", width:drink.w * 0.7 * k * 1.4, left:(1180 - drink.anchor[0] * 0.98) * k, top:(counter + 30 - drink.anchor[1] * 0.98) * k }} /> : null}
+      {riders.map((r, i) => {
+        const x = (230 + i * 290) * k, y = 1010 * k;
+        const water = spriteAnchor(r.id, "idle", "water", size) || [size / 2, size * 0.86];
+        const head = spriteAnchor(r.id, "idle", "head", size) || [size / 2, size * 0.2];
+        return (
+          <div key={r.id} style={{ position:"absolute", left:x - water[0], top:y - water[1], width:size, height:size }}>
+            <RiderSprite critter={r.id} color={r.color} pose={i === 2 ? "miss" : i % 2 ? "hey" : "idle"} size={size} />
+            {pops[i] ? <div style={{ position:"absolute", left:head[0], top:head[1] - 6, transform:"translate(-50%, -100%)" }}><Popup q={pops[i][0]} d={pops[i][1]} size={34} /></div> : null}
+          </div>
+        );
+      })}
+    </Scene>
   );
 }
 
@@ -207,9 +236,12 @@ function Flotilla() {
     return () => clearInterval(t);
   }, []);
   if (!m) return null;
-  const W = 1280, k = W / 1920, size = 230 * k;
+  /* riders at the concept frame's scale: a 330 px box, the ring about 160 px wide */
+  const W = 1280, k = W / 1920, size = 330 * k;
   const riders = CRITTERS.map((c, i) => ({ ...c, color:RIDER_COLORS[i], row:i % 3, col:Math.floor(i / 3) }));
-  const rowY = [600, 760, 930];
+  const rowY = [585, 760, 950];
+  const ripple = propOf("ripple");
+  const ring = size * (250 / 512);
   const pose = (i) => (FREEZE ? ["idle", "stroke", "hey", "nice", "miss", "chug", "cheer", "idle"][i % 8] : (tick + i) % 4 === 0 ? "stroke" : "idle");
   const pops = { 0:["late", 30], 4:["nice", -10], 7:["perfect", 0], 10:["miss", null] };
   return (
@@ -218,15 +250,16 @@ function Flotilla() {
         <img src={host.poses[FREEZE ? "call" : tick % 4 === 0 ? "call" : "idle"]} alt="" style={{ position:"absolute", left:(150 - host.anchor.ground[0] * 0.55) * k, top:(470 - host.anchor.ground[1] * 0.55) * k, width:host.box[0] * 0.55 * k }} />
       ) : null}
       {riders.map((r, i) => {
-        const x = (300 + r.col * 300 + r.row * 110) * k, y = rowY[r.row] * k;
+        const x = (230 + r.col * 330 + r.row * 110) * k, y = rowY[r.row] * k;
         const water = spriteAnchor(r.id, "idle", "water", size) || [size / 2, size * 0.7];
         const head = spriteAnchor(r.id, "idle", "head", size) || [size / 2, size * 0.2];
         return (
           <div key={r.id} style={{ position:"absolute", left:x - water[0], top:y - water[1], width:size, height:size, zIndex:r.row }}>
-            <div className={FREEZE ? "" : "fa2-bob"} style={{ animationDelay:`${-i * 0.13}s` }}>
+            {ripple ? <img src={ripple.src} alt="" style={{ position:"absolute", width:ring * 1.35, left:water[0] - ring * 1.35 * ripple.anchor[0] / ripple.w, top:water[1] - ring * 1.35 * (ripple.h / ripple.w) * ripple.anchor[1] / ripple.h + ring * 0.1, opacity:0.9 }} /> : null}
+            <div className={FREEZE ? "" : "fa2-bob"} style={{ animationDelay:`${-i * 0.13}s`, position:"relative" }}>
               <RiderSprite critter={r.id} color={r.color} pose={pose(i)} size={size} groom={r.id === "coyote"} />
             </div>
-            {pops[i] ? <div style={{ position:"absolute", left:head[0], top:head[1] - 10, transform:"translate(-50%, -100%)" }}><Popup q={pops[i][0]} d={pops[i][1]} size={30} /></div> : null}
+            {pops[i] ? <div style={{ position:"absolute", left:head[0], top:head[1] - 10, transform:"translate(-50%, -100%)" }}><Popup q={pops[i][0]} d={pops[i][1]} size={34} /></div> : null}
           </div>
         );
       })}
@@ -241,6 +274,7 @@ export default function ArtApp() {
     const list = [];
     for (const id of ids) for (const color of colors) list.push({ critter:id, color, groom:false });
     if (VIEW === "flotilla" || VIEW === "all") CRITTERS.forEach((c, i) => list.push({ critter:c.id, color:RIDER_COLORS[i], groom:c.id === "coyote" }));
+    if (VIEW === "lastcall") CRITTERS.slice(0, 6).forEach((c, i) => list.push({ critter:c.id, color:RIDER_COLORS[i * 2], groom:false }));
     if (VIEW === "crowns" || VIEW === "all") ALL.forEach((c, i) => list.push({ critter:c.id, color:RIDER_COLORS[i % RIDER_COLORS.length], groom:true }));
     return list;
   }, []);
@@ -253,6 +287,7 @@ export default function ArtApp() {
       <Nav />
       {!m ? <p className="fa2-note">Loading the art</p> : null}
       {m && show("flotilla") ? <><h2>Flotilla</h2><Flotilla /></> : null}
+      {m && show("lastcall") ? <><h2>Last Call</h2><LastCall /></> : null}
       {m && show("critters") ? <><h2>Critters</h2><Critters /></> : null}
       {m && VIEW === "critter" ? <><h2>{query.get("id")}</h2><Critters ids={[query.get("id") || "capybara"]} size={200} /></> : null}
       {m && show("crowns") ? <><h2>The groom's crown</h2><Crowns /></> : null}

@@ -2,15 +2,16 @@
    ticked every 100 ms as the Durable Object ticks itself: the Groove's
    messages, a whole bot Cup, a phone's hits judged on the room's offset, the
    calibration from people only, a restart that carries a song on by the
-   clock, stand-ins, the drink rule, the Field Day bridge (float/GROOVE.md
-   "What the room sends"; float/PROTOCOL.md "The room", "Field Day"). */
+   clock, stand-ins, the drink rule, Last Call, the Field Day bridge
+   (float/GROOVE.md "What the room sends", "Last Call"; float/PROTOCOL.md
+   "The room", "Field Day"). */
 import test from "node:test";
 import assert from "node:assert/strict";
 import { FloatRoom } from "../float/worker/room.js";
 import { PHASES, PALETTE, CODE_LETTERS, CODE_LENGTH, STANDALONE_CODE, EVENTS, SERVER } from "../float/shared/protocol.js";
 import { CUP_TIMING } from "../float/shared/cup.js";
 import { GROOVE } from "../float/shared/groove.js";
-import { chartOf, cueTime, matchTap, practiceCues } from "../float/shared/chart.js";
+import { LAST_CALL, chartOf, cueTime, lastCallWorst, matchTap, practiceCues } from "../float/shared/chart.js";
 import * as Cup from "../float/shared/cup.js";
 import * as Join from "../float/client/join/joinModel.js";
 
@@ -78,10 +79,11 @@ const LOOK = { critter:"otter", floatie:"classic", hat:"none", shades:"none", po
 const rider = (name, extra = {}) => ({ name, color:"#336699", look:LOOK, ...extra });
 
 /* A phone that plays: from what the room sends it (the chart, songAt, the
-   offset) it taps each cue `lag(cue)` ms after the cue's time on the server
-   clock, judges the tap where it lands (matchTap, as controller/rhythm.js
-   does) and sends hit { c, r }; `taps(cue)` says which cues it plays and
-   `done` when it taps Done. */
+   offset) it taps each cue `lag(cue, phase)` ms after the cue's time on the
+   server clock, judges the tap where it lands (matchTap, as
+   controller/rhythm.js does) and sends hit { c, r }; `taps(cue, phase)` says
+   which cues it plays (a song's, or Last Call's grabs) and `done` when it
+   taps Done in a song's break. */
 function player(room, ws, { lag = () => 0, taps = () => true, done = null } = {}) {
   const state = { chart:null, songAt:null, offset:0, taken:new Set(), sent:new Set(), doneSent:false, phase:null };
   let read = 0;
@@ -92,13 +94,18 @@ function player(room, ws, { lag = () => 0, taps = () => true, done = null } = {}
       if (message.chart) state.chart = message.chart;
       state.offset = message.offset;
       state.phase = message.phase;
-      if (message.phase === "song" && message.songAt !== state.songAt) { state.songAt = message.songAt; state.taken = new Set(); state.sent = new Set(); state.doneSent = false; }
+      if ((message.phase === "song" || message.phase === "lastcall") && message.songAt !== state.songAt) {
+        state.songAt = message.songAt; state.taken = new Set(); state.sent = new Set(); state.doneSent = false;
+      }
     }
-    if (state.phase !== "song" || !state.chart) return;
-    if (done !== null && !state.doneSent && t >= cueTime(state.songAt, 56) + done) { state.doneSent = true; say(room, ws, { t:"drink" }); }
+    if ((state.phase !== "song" && state.phase !== "lastcall") || !state.chart) return;
+    if (state.phase === "song" && done !== null && !state.doneSent && t >= cueTime(state.songAt, 56) + done) {
+      state.doneSent = true;
+      say(room, ws, { t:"drink" });
+    }
     for (const cue of state.chart.cues) {
-      if (state.sent.has(cue.id) || !taps(cue)) continue;
-      const at = cueTime(state.songAt, cue.beat) + lag(cue);
+      if (state.sent.has(cue.id) || !taps(cue, state.phase)) continue;
+      const at = cueTime(state.songAt, cue.beat) + lag(cue, state.phase);
       if (at > t) break;
       state.sent.add(cue.id);
       const match = matchTap(state.chart, state.songAt, at, { offset:state.offset, taken:state.taken });
@@ -174,8 +181,12 @@ test("a whole bot Cup plays from start to the podium with the contract's message
     return room.cup.phase === "podium";
   });
   assert.ok(done, `reached the podium (stuck in ${room.cup.phase}, round ${room.cup.round})`);
-  for (const phase of ["intro", "song", "cut", "podium"]) assert.ok(phases.has(phase), phase);
+  for (const phase of ["intro", "song", "cut", "lastcall", "podium"]) assert.ok(phases.has(phase), phase);
   for (const phase of phases) assert.ok(PHASES.includes(phase));
+  const cuts = tv.all("room").filter(message => message.phase === "cut");
+  assert.deepEqual([...new Set(cuts.map(message => message.endsAt - message.startAt))], [CUP_TIMING.CUT_BEFORE_LAST_CALL_MS, CUP_TIMING.CUT_LAST_MS],
+    "12 s before a Last Call, 7 s after the final");
+  assert.deepEqual(room.cup.history.map(item => item.lastCall?.players.length ?? null), [13, 13, 13, null]);
   assert.deepEqual(room.cup.history.map(item => [item.song, item.field.length]), [["paddle", 13], ["rock", 9], ["spin", 6], ["drop", 3]]);
   assert.equal(room.cup.final.length, 13);
   assert.equal(new Set(room.cup.final).size, 13);
@@ -534,6 +545,18 @@ test("Field Day: the Tournament reserves a Cup by player, phones take their entr
   assert.equal(body.stats.botShare.Brandon, 1);
   assert.equal(body.stats.botShare.Evan, 0);
   assert.ok(body.stats.rounds[0].samples > 0, "Evan's practice calibrated the room");
+  /* who drank at each Last Call, by name, among those not excused (Brandon and Eyob never came: stand-ins grabbed for them); none after the final */
+  for (const round of [0, 1, 2]) {
+    const lastCall = body.stats.rounds[round].lastCall;
+    assert.equal(Object.keys(lastCall.totals).length, 13, "everyone in the Cup");
+    assert.deepEqual(lastCall.excused.slice().sort(), ["Brandon", "Eyob"]);
+    assert.ok(lastCall.worst.length >= 1 && lastCall.worst.every(who => who in lastCall.totals && !lastCall.excused.includes(who)));
+    const may = Object.keys(lastCall.totals).filter(who => !lastCall.excused.includes(who));
+    const worst = Math.max(...may.map(who => lastCall.totals[who]));
+    assert.deepEqual(lastCall.worst.slice().sort(), may.filter(who => lastCall.totals[who] === worst).sort());
+  }
+  assert.equal(body.stats.rounds[3].lastCall, null);
+  assert.ok("Brandon" in body.stats.rounds[0].lastCall.totals, "a stand-in grabbed for the one never here");
   /* once it landed it never posts again */
   assert.equal(room.outbox.find(item => item.id === "result:cup-1").done, true);
   /* feedback goes to the Tournament too */
@@ -716,3 +739,110 @@ test("a saved 3D Cup comes back as a Groove lobby; the shared palette and room-c
   assert.equal(Join.CODE_LENGTH, CODE_LENGTH);
 
 });
+
+/* ---- Last Call ---- */
+
+test("Last Call over the wire: everyone at the bar grabs on the last song's offset with a one-second window; the totals grow, who drinks shows at the last deadline", async () => {
+  const { room, clock } = await makeRoom();
+  const tv = connect(room, { role:"screen", device:"tv" });
+  const [a, b, c] = ["a", "b", "c"].map(device => connect(room, { device, rider:rider(device.toUpperCase()) }));
+  say(room, tv, { t:"host", cmd:"start", bots:4, drinking:true });
+  const index = device => room.cup.entrants.findIndex(entrant => entrant.device === device);
+  const [A, B, C] = ["a", "b", "c"].map(index);
+  /* A plays the song 90 ms behind the beat it hears (and grabs 0.73 s late, then sharp); B grabs only; C goes quiet at the cut */
+  const aPlays = player(room, a, { done:4000, lag:(cue, phase) => phase === "lastcall" ? (cue.id === 0 ? 90 + 730 : 90 + 15) : 90 });
+  const bGrabs = player(room, b, { taps:(cue, phase) => phase === "lastcall", lag:() => 90 - 40 });
+  let cQuiet = false;
+  const live = keepAlive(room, [a, b]);
+  const cLive = keepAlive(room, [c]);
+  const each = both(live, t => { if (!cQuiet) cLive(t); }, aPlays, bGrabs);
+  await run(room, clock, 200000, () => room.cup.phase === "cut", each);
+  assert.deepEqual(room.cup.out.slice().sort(), [B, C].sort(), "the two who never played the song are out");
+  cQuiet = true;
+  await run(room, clock, 60000, () => room.cup.phase === "lastcall", each);
+  const offset = room.cup.offset;
+  assert.ok(Math.abs(offset - 90) <= 10, `the song's calibration (${offset})`);
+  const first = tv.all("room").find(message => message.phase === "lastcall");
+  assert.deepEqual([first.song, first.chartId, first.chart?.id, first.offset], ["lastcall", "lastcall", "lastcall", offset]);
+  assert.equal(first.songAt, first.startAt + CUP_TIMING.LAST_CALL_LEAD_MS);
+  assert.equal(first.endsAt, first.songAt + 16000 + 1500);
+  assert.deepEqual(first.lastCall.totals.map(row => row.i), [...room.cup.field, ...room.cup.out.slice().reverse()], "everyone in the Cup at the bar");
+  assert.ok(first.lastCall.totals.every(row => row.ms === 0 && Object.keys(row.grabs).length === 0));
+  assert.equal(first.lastCall.worst, null);
+  await run(room, clock, 30000, () => room.cup.phase !== "lastcall", each);
+  assert.equal(room.cup.phase, "song");
+  const bars = tv.all("room").filter(message => message.phase === "lastcall");
+  assert.ok(bars.length <= 30, `${bars.length} rooms in Last Call: the totals at most twice a second`);
+  /* totals only grow */
+  for (const row of first.lastCall.totals) {
+    const seen = bars.map(message => message.lastCall.totals.find(item => item.i === row.i).ms);
+    for (let k = 1; k < seen.length; k += 1) assert.ok(seen[k] >= seen[k - 1], `rider ${row.i}'s total grows`);
+  }
+  /* who drinks: once the last grab's deadline has passed, and not before */
+  const deadline = cueTime(first.songAt, 22) + offset + LAST_CALL.WINDOW + 250;
+  assert.ok(bars.filter(message => message.s < deadline).every(message => message.lastCall.worst === null));
+  const told = bars.find(message => message.lastCall.worst);
+  assert.ok(told && told.s >= deadline && told.s <= deadline + 200, "at once");
+  assert.ok(!told.lastCall.worst.includes(C), "a stand-in grabbed for C: C never drinks for it");
+  assert.ok(told.lastCall.totals.some(row => row.i === C), "but keeps its seat and total");
+  assert.deepEqual(told.lastCall.worst, lastCallWorst(told.lastCall.totals.filter(row => row.i !== C)));
+  assert.deepEqual(room.cup.history[0].lastCall.excused, [C]);
+  /* A's late grab counted, a full 0.73 s; B grabbed from the bank; C was grabbed for */
+  const grabs = tv.events("hit").filter(event => event.s >= first.s && event.s <= told.s);
+  const aLate = grabs.find(event => event.i === A && event.c === 0);
+  assert.deepEqual([aLate.q, aLate.d], ["late", 730]);
+  assert.ok(grabs.filter(event => event.i === B).every(event => event.q !== "miss" && Math.abs(event.d + 40) <= 1), "an out rider's own grabs");
+  assert.equal(grabs.filter(event => event.i === C).length, 3);
+  assert.ok(grabs.filter(event => event.i === C).every(event => event.q !== "miss"), "a stand-in grabbed for the quiet phone");
+  assert.equal(grabs.length, 7 * 3, "one a grab a rider");
+  /* the phones heard their own */
+  const aMe = a.all("me").filter(message => message.lastCall).at(-1);
+  assert.equal(aMe.lastCall.ms, 730 + 15 + 15);
+  assert.deepEqual(aMe.lastCall.grabs, { 0:730, 1:15, 2:15 });
+  const bMe = b.all("me").filter(message => message.lastCall).at(-1);
+  assert.equal(bMe.out, true);
+  assert.deepEqual(bMe.lastCall.grabs, { 0:-40, 1:-40, 2:-40 });
+  /* after it: the next song, no Last Call in the room, who drank in the round's history */
+  const next = tv.last("room");
+  assert.equal(next.song, "rock");
+  assert.equal(next.lastCall, null);
+  assert.deepEqual(room.cup.history[0].lastCall.worst, told.lastCall.worst);
+});
+
+test("a restarted room carries Last Call on by the clock, and the next song after it", async () => {
+  const mem = memory();
+  const clock = fakeClock();
+  const first = (await makeRoom({ mem, clock })).room;
+  const tv = connect(first, { role:"screen", device:"tv" });
+  say(first, tv, { t:"host", cmd:"start", bots:6, drinking:true });
+  await run(first, clock, 200000, () => first.cup.phase === "lastcall" && clock.t > first.cup.bar.songAt + 8200);
+  const { songAt } = first.cup.bar;
+  const endsAt = first.cup.endsAt;
+  assert.equal(mem.entries.get("cup").phase, "lastcall");
+  assert.ok(mem.storage.quiet.includes("cup"), "saved without holding the room's messages");
+  clock.t += 2500;
+  const { room } = await makeRoom({ mem, clock });
+  assert.equal(room.cup.phase, "lastcall");
+  assert.equal(room.cup.bar.songAt, songAt);
+  const screen = connect(room, { role:"screen", device:"tv2" });
+  assert.equal(screen.sent[1].chart.id, "lastcall");
+  assert.equal(screen.sent[1].songAt, songAt);
+  await run(room, clock, 60000, () => room.cup.phase === "song");
+  assert.ok(Math.abs(room.cup.startAt - endsAt) <= 100, "the next song came when Last Call was due to end");
+  const record = room.cup.history[0].lastCall;
+  assert.equal(record.players.length, room.cup.entrants.length, "everyone in the Cup");
+  assert.ok(record.totals.every(row => Object.keys(row.grabs).length === 3), "every grab judged");
+  const keys = screen.events("hit").map(event => `${event.i}:${event.c}`);
+  assert.equal(new Set(keys).size, keys.length, "none twice");
+});
+
+test("with the room's drinking off there is no Last Call over the wire either", async () => {
+  const { room, clock } = await makeRoom();
+  const tv = connect(room, { role:"screen", device:"tv" });
+  say(room, tv, { t:"host", cmd:"start", bots:5, drinking:false });
+  await run(room, clock, 20 * 60 * 1000, () => room.cup.phase === "podium");
+  assert.ok(!tv.all("room").some(message => message.phase === "lastcall" || message.lastCall));
+  const cuts = tv.all("room").filter(message => message.phase === "cut");
+  assert.deepEqual([...new Set(cuts.map(message => message.endsAt - message.startAt))], [CUP_TIMING.CUT_MS, CUP_TIMING.CUT_LAST_MS]);
+});
+

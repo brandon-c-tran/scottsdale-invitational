@@ -27,7 +27,8 @@
      await room.ready;
    ctx is { storage:{ get, put, delete, setAlarm, deleteAlarm },
    blockConcurrencyWhile? }, env may be {} (env.TOURNAMENT for Field Day's
-   posts), clock is { now }. Sockets are anything with send(text),
+   posts), clock is { now }, and options.ids (prefix -> string, optional)
+   makes the ids a Cup is seeded by repeatable (a bench, a mock's shots). Sockets are anything with send(text),
    addEventListener("message" | "close" | "error", fn) and close():
    room.attach(ws, url) then room.onMessage(ws, text) for each frame. Call
    room.tick() as often as you like, in ANY phase (every 100 ms is the
@@ -76,6 +77,9 @@ export class FloatRoom {
     this.env = env || {};
     this.clock = options.clock || realClock;
     this.timers = options.timers !== false;
+    /* where new ids come from (a cup's id seeds its bots): random, unless a
+       bench or a mock wants the same Cup every time */
+    this.ids = typeof options.ids === "function" ? options.ids : randomId;
     this.sockets = new Map();
     this.cup = null;
     this.outbox = [];
@@ -222,7 +226,7 @@ export class FloatRoom {
   onHello(ws, meta, msg) {
     if (!ROLES.includes(msg.role)) return;
     meta.role = msg.role;
-    meta.device = cleanDevice(msg.device) || randomId("d-");
+    meta.device = cleanDevice(msg.device) || this.ids("d-");
     this.heard.set(meta.device, this.now());
     if (!this.cup) this.newCup();
     let i = -1;
@@ -244,6 +248,8 @@ export class FloatRoom {
     const pid = rider?.pid ? cleanPid(rider.pid) : null;
     let i = pid ? cup.entrants.findIndex(entrant => entrant.pid === pid) : -1;
     if (i < 0) i = this.entrantIndex(meta.device);
+    /* a bot's device id is public (room.entrants): a phone never takes a bot */
+    if (i >= 0 && cup.entrants[i].bot) return -1;
     if (i >= 0) {
       const entrant = cup.entrants[i];
       entrant.device = meta.device;
@@ -415,7 +421,7 @@ export class FloatRoom {
 
   /* ---------------------------------------------------------------- the Cup */
 
-  newCup({ mode = "party", drinking = true, id = randomId("c-"), evId = null } = {}) {
+  newCup({ mode = "party", drinking = true, id = this.ids("c-"), evId = null } = {}) {
     this.stopLoop();
     this.cup = Cup.createCup({ id, mode, code:this.code, drinking, seed:seedOf(`${id}:${this.now()}`), evId });
     this.saveCup();
@@ -429,7 +435,7 @@ export class FloatRoom {
     const fieldDayLive = cup.mode === "fieldday" && !cup.done && (cup.phase !== "lobby" || cup.startPlanned);
     if (msg.cmd === "start") {
       if (cup.phase !== "lobby" || fieldDayLive) return;
-      if (cup.mode === "fieldday") { cup.mode = "party"; cup.id = randomId("c-"); }
+      if (cup.mode === "fieldday") { cup.mode = "party"; cup.id = this.ids("c-"); }
       const bots = Math.max(0, Math.min(MAX_RIDERS, Number(msg.bots) | 0));
       if (bots) Cup.addBots(cup, bots, seedOf(`${cup.id}:${this.now()}`));
       if (!cup.entrants.length) return;
@@ -570,7 +576,8 @@ export class FloatRoom {
       const driven = cup.entrants.map((_, i) => this.driven(i, now) ? 1 : 0).join("");
       if (driven !== this.lastDriven) { this.lastDriven = driven; this.broadcastRoom(); }
     }
-    if (now - this.lastSave >= GROOVE.SAVE_MS) this.saveCup(true);
+    /* the judgements every 2 s, and the watchdog with them */
+    if (now - this.lastSave >= GROOVE.SAVE_MS) { this.saveCup(true); this.schedule(); }
     if (now - this.lastDebug >= DEBUG_MS) {
       this.lastDebug = now;
       this.broadcast({ t:"debug", rtt:{ ...this.rtt } }, "screen");

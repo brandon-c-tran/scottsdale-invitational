@@ -333,8 +333,10 @@ export function meOf(cup, i, now) {
     const row = ranking.find(item => item.i === i);
     const score = riderScore(cup.song, i);
     const last = cup.song.last[i];
+    /* done: Done tapped; for a rider who skips the drink, always (their own
+       phone only: the room's scores show them done when a bot would be) */
     return { ...base, pts:score.pts, pct:score.pct, live:score.live, n:score.n, place:row.place, of:ranking.length,
-      done:isDone(cup.song, i, now), ...(last ? { c:last.c, q:last.q, ...(last.d === undefined ? {} : { d:last.d }) } : {}) };
+      done:isDone(cup.song, i, now) || !drinksNow(cup, i), ...(last ? { c:last.c, q:last.q, ...(last.d === undefined ? {} : { d:last.d }) } : {}) };
   }
   const row = cup.phase === "cut" ? cup.results.find(item => item.i === i) : null;
   if (row) return { ...base, pts:row.pts, pct:row.pct, live:row.pct, place:row.place, of:cup.results.length, done:true,

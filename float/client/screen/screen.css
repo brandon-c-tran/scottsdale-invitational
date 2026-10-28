@@ -84,6 +84,10 @@
 .sc-near-left { position:absolute; left:-40px; bottom:-30px; width:420px; height:220px; }
 .sc-near-right { position:absolute; right:-40px; bottom:-30px; width:420px; height:220px; }
 
+/* the art's pieces in the water: the accent, rocks, the falls (stage/Pieces.jsx) */
+.sc-pieces { position:absolute; inset:0; pointer-events:none; }
+.sc-piece { position:absolute; left:0; top:0; display:block; will-change:transform; }
+
 /* the whirlpool (Spin Cycle): rings turning in the middle of the water */
 .sc-whirl { position:absolute; left:1060px; top:250px; width:0; height:0; }
 .sc-whirl i { position:absolute; left:0; top:0; border-radius:50%; border:6px solid rgba(255, 255, 255, 0.55); border-left-color:transparent;
@@ -122,6 +126,8 @@
 .fl-ripple::after { content:""; position:absolute; inset:18px 0 28px; border-radius:50%; border:6px solid rgba(255, 255, 255, 0.85);
   border-top-color:transparent; }
 .fl-rider[data-where="bank"] .fl-ripple, .fl-rider[data-where="hop"] .fl-ripple, .fl-rider[data-where="podium"] .fl-ripple { opacity:0; }
+.fl-ripple-art { position:absolute; display:block; pointer-events:none; opacity:0.95; }
+.fl-rider[data-where="bank"] .fl-ripple-art, .fl-rider[data-where="hop"] .fl-ripple-art, .fl-rider[data-where="podium"] .fl-ripple-art { opacity:0; }
 .fl-splash { position:absolute; left:340px; top:300px; width:220px; height:132px; opacity:0; pointer-events:none; }
 .fl-splash svg { width:100%; height:100%; display:block; }
 
@@ -157,22 +163,22 @@
 .fl-pop-in { position:absolute; left:0; bottom:0; display:block; transform:translateX(-50%); }
 
 /* ── the host ── */
-.fl-host { position:absolute; left:0; top:0; width:300px; height:360px; z-index:900; }
-.fl-host-body { position:absolute; inset:0; transform-origin:150px 352px; will-change:transform; }
+.fl-host { position:absolute; left:0; top:0; z-index:900; }
+.fl-host-body { position:absolute; inset:0; transform-origin:50% var(--ground-y, 100%); will-change:transform; }
 .fl-host .hs { width:100%; height:100%; display:block; overflow:visible; }
 .hs-sprites { position:absolute; inset:0; display:block; }
-.hs-sprite { position:absolute; left:50%; bottom:0; width:120%; transform:translateX(-50%); visibility:hidden; }
+.hs-sprite { position:absolute; inset:0; width:100%; height:100%; display:block; visibility:hidden; }
 .fl-host[data-pose="idle"] .hs-sprite.h-idle, .fl-host[data-pose="call"] .hs-sprite.h-call, .fl-host[data-pose="cheer"] .hs-sprite.h-cheer { visibility:visible; }
 .sg-art { width:100%; height:auto; display:block; }
 .fl-host .h-idle, .fl-host .h-call, .fl-host .h-cheer { visibility:hidden; }
 .fl-host[data-pose="idle"] .h-idle, .fl-host[data-pose="call"] .h-call, .fl-host[data-pose="cheer"] .h-cheer { visibility:visible; }
-.fl-bubble { position:absolute; left:226px; top:-6px; min-width:130px; padding:12px 22px 14px; border-radius:26px; background:var(--bone);
+.fl-bubble { position:absolute; left:calc(var(--horn-x, 226px) + 14px); top:calc(var(--horn-y, 120px) - 128px); min-width:130px; padding:12px 22px 14px; border-radius:26px; background:var(--bone);
   box-shadow:0 0 0 5px var(--ink), 0 7px 0 0 var(--ink); transform-origin:10% 100%; text-align:center; will-change:transform, opacity; }
 .fl-bubble::after { content:""; position:absolute; left:18px; bottom:-24px; width:34px; height:30px; background:var(--bone);
   clip-path:polygon(0 0, 100% 0, 10% 100%); filter:drop-shadow(-4px 0 0 var(--ink)) drop-shadow(0 4px 0 var(--ink)); }
 .fl-bubble span { font-family:var(--px); font-weight:700; font-size:44px; line-height:1; color:var(--ink); white-space:nowrap; }
 .fl-bubble[data-kind="drop"] span { font-size:64px; color:var(--magenta); }
-.fl-host-sign { position:absolute; left:304px; top:42px; width:150px; height:200px; transform-origin:50% 100%; will-change:transform, opacity; }
+.fl-host-sign { position:absolute; left:calc(100% + 6px); top:40px; width:150px; height:200px; transform-origin:50% 100%; will-change:transform, opacity; }
 .fl-host-sign svg { width:100%; height:100%; display:block; }
 
 /* ── the song's words ── */
@@ -258,6 +264,9 @@
 .hd-block.is-1 { background:linear-gradient(180deg, #ffe58a 0%, var(--gold) 100%); }
 .hd-block.is-2 { background:linear-gradient(180deg, #f4f2f8 0%, #cfd0dd 100%); }
 .hd-block.is-3 { background:linear-gradient(180deg, #f7d3b4 0%, #dea47a 100%); }
+.hd-podium-art { position:absolute; display:block; }
+.hd-block:not(.is-drawn) { background:none; box-shadow:none; padding-top:132px; }
+.hd-block:not(.is-drawn).is-3 { padding-top:118px; }
 .hd-block-place { font-size:80px; font-weight:700; line-height:1; color:var(--bone); -webkit-text-stroke:12px var(--ink); paint-order:stroke fill; text-shadow:0 8px 0 var(--ink); }
 .hd-block-name { font-size:46px; font-weight:700; padding:6px 22px 10px; border-radius:99px; background:var(--c); color:var(--ink); box-shadow:0 0 0 5px var(--ink);
   white-space:nowrap; animation:hd-drop-in 0.45s cubic-bezier(0.2, 1.5, 0.4, 1) both; }

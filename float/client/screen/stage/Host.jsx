@@ -9,8 +9,11 @@ import { HostArt, HostFigure, SignProp, useHostArt } from "../art.jsx";
 import { bobAt } from "../model/motion.js";
 import { hostAt, signAt } from "../model/song.js";
 
-/* the host's spot: feet on the bank, upper left (stage pixels) */
-export const HOST = Object.freeze({ x:196, y:478, w:300 });
+/* the host's spot: feet on the sand at the water's edge, upper left
+   (stage pixels), and its drawn height */
+export const HOST = Object.freeze({ x:196, y:436, h:330 });
+/* the drawn host's box and anchors when the art has none */
+const DRAWN_HOST = Object.freeze({ box:[400, 480], anchor:{ ground:[200, 462], horn:[336, 286] } });
 
 export default function Host({ store, driver, phase }) {
   const art = useHostArt();
@@ -70,7 +73,13 @@ export default function Host({ store, driver, phase }) {
     driver.tick();
     return off;
   }, [driver, store, phase]);
-  return <div className="fl-host" ref={root} data-pose="idle" style={{ transform:`translate(${HOST.x - HOST.w / 2}px, ${HOST.y - HOST.w * 1.2}px)` }}>
+  const box = art?.box || DRAWN_HOST.box;
+  const anchor = art?.anchor || DRAWN_HOST.anchor;
+  const k = HOST.h / box[1];
+  const horn = art?.poses ? (art.anchors?.call?.horn || anchor.horn || [box[0] * 0.9, box[1] * 0.55]) : DRAWN_HOST.anchor.horn;
+  return <div className="fl-host" ref={root} data-pose="idle"
+    style={{ width:box[0] * k, height:box[1] * k, transform:`translate(${HOST.x - anchor.ground[0] * k}px, ${HOST.y - anchor.ground[1] * k}px)`,
+      "--horn-x":`${horn[0] * k}px`, "--horn-y":`${horn[1] * k}px`, "--ground-y":`${anchor.ground[1] * k}px` }}>
     <div className="fl-host-sign" ref={sign} style={{ opacity:0 }}>
       {["paddle", "rock", "spin"].map(mode => <div key={mode} ref={node => { signArt.current[mode] = node; }} style={{ display:"none" }}><SignProp mode={mode} /></div>)}
     </div>

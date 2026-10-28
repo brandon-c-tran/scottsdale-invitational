@@ -242,18 +242,31 @@ export function crowdLayout(outs = [], { y = CROWD.y } = {}) {
 }
 
 /* ── the podium ── */
-/* the three blocks: 2nd left, 1st in the middle, 3rd right */
+/* the three blocks drawn here: 2nd left, 1st in the middle, 3rd right */
 export const PODIUM = Object.freeze([
   { place:1, x:960, top:660, w:420, h:420, scale:0.84 },
   { place:2, x:520, top:760, w:400, h:320, scale:0.74 },
   { place:3, x:1400, top:820, w:400, h:260, scale:0.74 },
 ]);
-export function podiumLayout(podium = []) {
+/* the art's podium prop on the stage: its bottom's middle, its width */
+export const PODIUM_FRAME = Object.freeze({ x:960, bottom:1066, width:1120 });
+/* the steps' tops on the stage, from the art's prop (`steps` the tops of
+   the 1st, 2nd and 3rd blocks in its own pixels), else the drawn blocks':
+   [{ place, x, y, w }] */
+export function podiumSteps(prop = null, frame = PODIUM_FRAME) {
+  if (prop?.steps?.length >= 3 && prop.w && prop.h) {
+    const k = frame.width / prop.w;
+    const [ax, ay] = prop.anchor || [prop.w / 2, prop.h];
+    return prop.steps.slice(0, 3).map(([x, y], n) => ({ place:n + 1, x:frame.x + (x - ax) * k, y:frame.bottom - (ay - y) * k, w:prop.w * k / 3 }));
+  }
+  return PODIUM.map(block => ({ place:block.place, x:block.x, y:block.top, w:block.w }));
+}
+export function podiumLayout(podium = [], steps = podiumSteps()) {
   const out = {};
-  PODIUM.forEach(block => {
-    const i = podium[block.place - 1];
-    if (Number.isInteger(i)) out[i] = { x:block.x, y:block.top + 18, scale:block.scale, place:block.place, z:4 - block.place };
-  });
+  for (const step of steps) {
+    const i = podium[step.place - 1];
+    if (Number.isInteger(i)) out[i] = { x:step.x, y:step.y + 26, scale:step.place === 1 ? 0.8 : 0.7, place:step.place, z:4 - step.place };
+  }
   return out;
 }
 

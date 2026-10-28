@@ -8,7 +8,9 @@ import { BEATS_PER_BAR, SONG_LEAD_MS, songForRound } from "../../../shared/chart
 import { bannerAt, roundLabel, songName } from "../model/song.js";
 import { cutOuts, cutRankingOf, cutTimeline, pctText } from "../model/cut.js";
 import { indexList } from "../model/cupShape.js";
-import { PODIUM } from "../model/flotilla.js";
+import { podiumSteps } from "../model/flotilla.js";
+import { propOf } from "../../art/groove/index.js";
+import { useGrooveArt } from "../../art/groove/RiderSprite.jsx";
 import { RiderFace } from "../art.jsx";
 import { ordinalText } from "./bits.jsx";
 import { inkOn } from "./identity.js";
@@ -143,15 +145,22 @@ export function PodiumBlocks({ store, driver, room, entrants, beats = PODIUM_REV
   const elapsed = useDriven(driver, now => Math.floor((now - start) / 100) * 100, [start]);
   const at = { 3:beats.third, 2:beats.second, 1:beats.first };
   const colors = podium.map(i => entrants[i]?.color).filter(Boolean);
+  const m = useGrooveArt();
+  const prop = m ? propOf("podium") : null;
+  const steps = podiumSteps(prop);
+  const frame = prop?.src ? { w:1120, h:1120 * (prop.h / prop.w), left:960 - 1120 * ((prop.anchor?.[0] ?? prop.w / 2) / prop.w),
+    top:1066 - 1120 * ((prop.anchor?.[1] ?? prop.h) / prop.w) } : null;
   return <div className="hd-podium">
     <Confetti colors={colors} on={elapsed >= beats.first} />
-    {PODIUM.map(block => {
-      const i = podium[block.place - 1];
+    {frame && <img className="hd-podium-art" src={prop.src} alt="" draggable={false} style={{ left:frame.left, top:frame.top, width:frame.w, height:frame.h }} />}
+    {steps.map(step => {
+      const i = podium[step.place - 1];
       const e = Number.isInteger(i) ? entrants[i] : null;
-      const lit = elapsed >= at[block.place];
-      return <div key={block.place} className={`hd-block is-${block.place}${lit ? " is-lit" : ""}`}
-        style={{ left:block.x - block.w / 2, top:block.top, width:block.w, height:block.h, "--c":e?.color || "#ccc", "--ink":inkOn(e?.color) }}>
-        <span className="hd-block-place">{ordinalText(block.place)}</span>
+      const lit = elapsed >= at[step.place];
+      const drawn = !frame;
+      return <div key={step.place} className={`hd-block is-${step.place}${lit ? " is-lit" : ""}${drawn ? " is-drawn" : ""}`}
+        style={{ left:step.x - step.w / 2, top:step.y, width:step.w, height:1080 - step.y, "--c":e?.color || "#ccc", "--ink":inkOn(e?.color) }}>
+        <span className="hd-block-place">{ordinalText(step.place)}</span>
         {e && lit && <span className="hd-block-name">{e.name}</span>}
       </div>;
     })}

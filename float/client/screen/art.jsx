@@ -162,9 +162,9 @@ export function PlaceholderCritter({ color = "#7fb8ff", critter = "capybara", gr
 }
 
 /* the poses that share one picture, so each distinct sprite is one <img> */
-function spriteLayers(urls) {
+function spriteLayers(urls, names = POSES) {
   const byUrl = new Map();
-  for (const pose of POSES) {
+  for (const pose of names) {
     const url = urls?.[pose] || urls?.idle;
     if (!url) continue;
     if (!byUrl.has(url)) byUrl.set(url, []);
@@ -204,6 +204,7 @@ export function Critter({ entrant, art = null }) {
 
 /* a rider's idle critter at a size, for the boards and lists */
 export function RiderFace({ entrant, pose = "idle", className = "", size = 128 }) {
+  /* (a board's face is drawn about 80 px: the smallest bucket) */
   const art = useRiderArt(entrant, { size });
   return <span className={`cr-face ${className}`} data-pose={pose}><Critter entrant={entrant} art={art} /></span>;
 }
@@ -219,7 +220,7 @@ export function useHostArt() {
 }
 export function HostArt({ host }) {
   return <span className="hs-sprites">
-    {spriteLayers(host.poses).map(([url, poses]) => <img key={url} className={`hs-sprite ${poses.map(pose => `h-${pose}`).join(" ")}`} src={url} alt="" draggable={false} />)}
+    {spriteLayers(host.poses, Object.keys(host.poses)).map(([url, poses]) => <img key={url} className={`hs-sprite ${poses.map(pose => `h-${pose}`).join(" ")}`} src={url} alt="" draggable={false} />)}
   </span>;
 }
 export function HostFigure() {

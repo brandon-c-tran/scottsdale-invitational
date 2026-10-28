@@ -9,7 +9,8 @@
    transform and opacity only). */
 import React, { memo, useEffect, useMemo, useRef, useState } from "react";
 import { Critter, PopupLetters, SplashProp, anchorOf, useRiderArt } from "../art.jsx";
-import { ANCHOR, BOX, crowdLayout, fieldOrder, flotillaLayout, podiumLayout, popupSlots } from "../model/flotilla.js";
+import { ANCHOR, BOX, crowdLayout, fieldOrder, flotillaLayout, podiumLayout, podiumSteps, popupSlots } from "../model/flotilla.js";
+import { propOf, spriteSize } from "../../art/groove/index.js";
 import { actionAt, bobAt, cheerAt, chugAt, follow, popupAt } from "../model/motion.js";
 import { chuggingAt } from "../model/song.js";
 import { cutField, cutOuts, cutRankingOf, cutTimeline } from "../model/cut.js";
@@ -56,8 +57,14 @@ export function castPlan({ phase, room, state, entrants }) {
 
 /* one rider's nodes: the placed box (scaled), the body that moves about
    the waterline, a splash at the paddling hand, the name under the tube */
+/* the size the art paints a rider at: the bucket that covers the biggest it
+   is drawn on this stage (the final's front row) */
+const dpr = () => { try { return window.devicePixelRatio || 1; } catch { return 1; } };
+const RIDER_PAINT = () => spriteSize(BOX * 0.9 * 1.45, dpr());
+
 const RiderNode = memo(function RiderNode({ entrant, i, refs }) {
-  const art = useRiderArt(entrant, { size:BOX });
+  const art = useRiderArt(entrant, { size:RIDER_PAINT() });
+  const ripple = art?.poses ? propOf("ripple") : null;
   const anchor = anchorOf(art);
   const set = key => node => { const r = refs.current.get(i) || {}; r[key] = node; r.anchor = anchor; refs.current.set(i, r); };
   useEffect(() => { const r = refs.current.get(i); if (r) r.anchor = anchor; }, [anchor, i, refs]);
@@ -65,12 +72,21 @@ const RiderNode = memo(function RiderNode({ entrant, i, refs }) {
   const hand = anchor.hand || anchor.water;
   const name = anchor.name || [wx, wy + 52];
   return <div className="fl-rider" ref={set("rider")} data-pose="idle" style={{ "--c":entrant.color || "#7fb8ff" }}>
-    <div className="fl-ripple" style={{ left:wx - 228, top:wy - 8 }} />
+    {ripple?.src
+      ? <img className="fl-ripple-art" src={ripple.src} alt="" draggable={false} style={rippleBox(ripple, wx, wy)} />
+      : <div className="fl-ripple" style={{ left:wx - 228, top:wy - 8 }} />}
     <div className="fl-body" ref={set("body")} style={{ transformOrigin:`${wx}px ${wy}px` }}><Critter entrant={entrant} art={art} /></div>
     {!art?.poses && <div className="fl-splash" ref={set("splash")} style={{ left:hand[0] + 20, top:wy - 110 }}><SplashProp /></div>}
     <span className={`fl-tag${entrant.ready ? " is-ready" : ""}`} ref={set("tag")} style={{ left:name[0], top:name[1] }}>{entrant.name}</span>
   </div>;
 });
+
+/* the art's ripple centred at the waterline, about 1.35 x the ring (250 box px) */
+function rippleBox(prop, wx, wy) {
+  const w = 250 * 1.35, h = w * ((prop.h || 104) / (prop.w || 320));
+  const ax = ((prop.anchor?.[0] ?? prop.w / 2) / (prop.w || 1)) * w, ay = ((prop.anchor?.[1] ?? prop.h / 2) / (prop.h || 1)) * h;
+  return { left:wx - ax, top:wy - ay, width:w, height:h };
+}
 
 /* the popup over a rider: re-rendered only when that rider's latest hit changes */
 function RiderPop({ i, setters }) {
@@ -89,6 +105,8 @@ export default function Cast({ store, driver, entrants, phase, room, version }) 
   const motion = useRef(new Map());
   const firstSeen = useRef(new Map());
   const mounted = useRef(false);
+  /* each row's order, kept across renders (riders pass only when clearly ahead) */
+  const orders = useRef(new Map());
   const plan = useMemo(() => castPlan({ phase, room, state:store.state, entrants }), [phase, room, entrants, version]); // eslint-disable-line react-hooks/exhaustive-deps
   const planRef = useRef(plan);
   planRef.current = plan;
@@ -103,8 +121,6 @@ export default function Cast({ store, driver, entrants, phase, room, version }) 
 
   useEffect(() => {
     let layoutAt = -Infinity, water = {}, next = {}, bank = {}, podium = {}, slots = {};
-    /* each row's order, carried between layouts (riders pass only when clearly ahead) */
-    const orders = new Map();
     const st = store.state;
     const anchorFor = i => refs.current.get(i)?.anchor || ANCHOR;
     const frame = (now, dt) => {
@@ -120,10 +136,10 @@ export default function Cast({ store, driver, entrants, phase, room, version }) 
         layoutAt = now;
         const lives = new Map(p.water.map(i => [i, phase === "lobby" ? null : store.liveOf(i)]));
         water = flotillaLayout(p.water, lives, { kind:p.kind === "lobby" ? "lobby" : p.water.length <= 3 ? "final" : "song",
-          drift:p.drift && phase !== "intro", orders });
+          drift:p.drift && phase !== "intro", orders:orders.current });
         next = p.nextWater ? flotillaLayout(p.nextWater, new Map(), { kind:p.kind, drift:false }) : {};
         bank = crowdLayout([...p.bank, ...p.hops.map(h => h.i)]);
-        podium = podiumLayout(p.podium);
+        podium = podiumLayout(p.podium, podiumSteps(propOf("podium")));
         const shown = reformed ? next : water;
         slots = inSong ? popupSlots(Object.entries(shown).map(([key, spot]) => {
           const i = Number(key);

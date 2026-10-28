@@ -25,6 +25,7 @@ import { createDriver } from "./stage/driver.js";
 import Scene, { layerOffset } from "./stage/Scene.jsx";
 import Cast from "./stage/Cast.jsx";
 import Host from "./stage/Host.jsx";
+import Pieces from "./stage/Pieces.jsx";
 import Lobby from "./hud/Lobby.jsx";
 import { CutBoard, Feedback, IntroTitle, PodiumBlocks, PodiumList, SongBanner, SongStrip } from "./hud/Hud.jsx";
 import * as floatSound from "../sound/index.js";
@@ -130,7 +131,11 @@ export default function FloatScreen({ room = "test", hosting = false, joinUrl = 
   const st = store.state;
   const roomMsg = st.room;
   const phase = roomMsg ? st.phase : "connecting";
-  const entrants = useMemo(() => (Array.isArray(roomMsg?.entrants) ? roomMsg.entrants : []), [roomMsg?.entrants]); // eslint-disable-line react-hooks/exhaustive-deps
+  /* the entrants, the same array until a rider changes (the room rebuilds
+     the list on every message; the cast and its frame loop key on it) */
+  const entrantsKey = JSON.stringify((Array.isArray(roomMsg?.entrants) ? roomMsg.entrants : []).map(e => e && [e.device, e.pid, e.name, e.color,
+    e.look?.critter, !!e.bot, !!e.ready, !!e.groom, e.connected !== false]));
+  const entrants = useMemo(() => (Array.isArray(roomMsg?.entrants) ? roomMsg.entrants : []), [entrantsKey]); // eslint-disable-line react-hooks/exhaustive-deps
   const scene = sceneFor(phase, st.chart);
   const lite = tier === "low" || tier === "lowest";
 
@@ -181,6 +186,7 @@ export default function FloatScreen({ room = "test", hosting = false, joinUrl = 
     <div className="fs-stage" ref={stageRef} data-scene={scene}>
       {!muted && <>
         <Scene id={scene} />
+        {(phase === "song" || phase === "cut" || phase === "intro" || phase === "lobby") && <Pieces scene={scene} store={store} driver={driver} phase={phase} />}
         {(phase === "podium" || phase === "feedback") && <PodiumBlocks store={store} driver={driver} room={roomMsg} entrants={entrants} beats={PODIUM_BEATS} />}
         {water && phase !== "lobby" && <Host store={store} driver={driver} phase={phase} />}
         <Cast store={store} driver={driver} entrants={entrants} phase={phase} room={roomMsg} version={version} />

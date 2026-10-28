@@ -4,8 +4,8 @@ import { cleanLook } from "./looks.js";
 import { FLOATIE_IDS } from "./floaties.js";
 
 export const ROLES = Object.freeze(["screen", "controller"]);
-/* the Cup: lobby -> intro -> [grid -> countdown -> race -> cut] x rounds -> podium -> feedback -> lobby */
-export const PHASES = Object.freeze(["lobby", "intro", "grid", "countdown", "race", "cut", "podium", "feedback"]);
+/* the Cup (float/GROOVE.md): lobby -> intro -> [song -> cut] x rounds -> podium -> feedback -> lobby */
+export const PHASES = Object.freeze(["lobby", "intro", "song", "cut", "podium", "feedback"]);
 export const MODES = Object.freeze(["party", "fieldday"]);
 export const ROOM_ID = /^[a-z0-9-]{1,32}$/;
 /* a standalone room code: four consonants (no vowels, so no words) */
@@ -16,12 +16,14 @@ export const STANDALONE_CODE = /^[bcdfghjklmnpqrstvwxz]{4}$/;
 export const PALETTE = Object.freeze(["#e4572e", "#2e86ab", "#f3a712", "#29bf12", "#a23b72", "#00b3b3", "#ff7aa2",
   "#7353ba", "#c0d461", "#ff9f1c", "#3d5a80", "#d81159", "#8fd694", "#ffd23f", "#5e6472", "#9b5de5"]);
 
-/* client to server */
-export const CLIENT = Object.freeze(["hello", "ping", "look", "ready", "stroke", "hands", "drink", "balloon", "feedback", "host"]);
+/* client to server (GROOVE.md "What the room sends"): `hit {c, r}` a tap on
+   cue c with its raw offset; `drink` is Done in the drink break; `cheer` an
+   eliminated rider cheers from the bank */
+export const CLIENT = Object.freeze(["hello", "ping", "look", "ready", "hit", "drink", "cheer", "feedback", "host"]);
 /* server to client */
-export const SERVER = Object.freeze(["welcome", "pong", "room", "snap", "me", "ev", "debug"]);
-/* an `ev`'s `e` */
-export const EVENTS = Object.freeze(["flip", "bump", "arrive", "drink", "out", "balloon", "splash", "groove"]);
+export const SERVER = Object.freeze(["welcome", "pong", "room", "me", "ev", "debug"]);
+/* an `ev`'s `e`: `hit {i, c, q, d}` (q "miss" has no d), `done {i}`, `out {i}`, `cheer {i}` */
+export const EVENTS = Object.freeze(["hit", "done", "out", "cheer"]);
 /* a screen's `host` command */
 export const HOST_CMDS = Object.freeze(["start", "lobby", "kick"]);
 

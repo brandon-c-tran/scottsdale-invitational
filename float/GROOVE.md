@@ -88,19 +88,33 @@ A song is a list of sections, each a number of bars:
 judged and shown, never scored; it teaches and calibrates) -> `play` (8 bars)
 -> `drink` (8 bars) -> `play` (8 bars) -> `outro` (2 bars). 32 bars = 64 s.
 
-A cue is `{ id, beat, call }`: the beat (from the song's start) the player
-taps on, and the beat the host calls it (the call-and-response lead, usually
-2 beats before). The host animates and sounds the call; the player answers.
+A cue is `{ id, beat, kind, call, scored }` (`float/shared/chart.js` is the
+source; `chartOf(songId)` builds the whole chart as plain JSON): `id` its
+index (ascending by beat), `beat` the beat from the song's beat 0 the player
+taps on (fractional for an "and"), `kind` (`paddle`, `hey`, `hop`, `spin`,
+`drop`), `call` the beat the host calls it (`beat - lead`; null for a paddle,
+whose call is the pulse), `scored` false in practice. The chart also carries
+`sections` (`{kind, bar, bars, from, to}`) and `modes` (one per bar: `intro`,
+`paddle`, `rock`, `spin`, `drop`, `drink`, `outro`; what the riders do, a bar
+ahead where a bar has no taps, so the scene changes before the taps).
+
+**Answer the host.** Every call is the answer's own rhythm, a fixed lead
+earlier: one call note per cue, and the player taps the same rhythm after
+it. The host animates and sounds each call; the player answers.
 
 Wednesday (must): every song uses taps only; the four rounds are four
 patterns of the same mechanic:
 
-| Round | Name | Pattern |
+| Round | Name | Pattern (chart.js `PLANS`) |
 |---|---|---|
-| 1 | Paddle Party | paddle on beats 1 and 3, a "Hey!" answered on 4 every other bar |
-| 2 | Rock Hop | the host's "ba-dum" (beats 1, 2) answered with a hop on 3; later off-beat "and" hops |
-| 3 | Spin Cycle | rolling triplet-feel calls in a whirlpool, answers that land on 2 and 4 |
-| 4 | The Drop | the final: a remix of all three, ending on one big tap on the last beat (over the waterfall) |
+| 1 | Paddle Party | paddle on 1 and 3 every bar (the pulse is the call); the host's "Ready" answered with "Hey!" two beats later, on 4; doubles ("Hey! Hey!" on 4 and its "and") in the second half |
+| 2 | Rock Hop | each bar is the host's half (beats 1, 2) then yours (3, 4): the host's "ba" notes echoed by hops two beats later; one, two or three hops, "and" hops later |
+| 3 | Spin Cycle | the host spins on 1 and 3, you echo one beat later on 2 and 4 (the backbeat); doubles on the "and" later |
+| 4 | The Drop | the final: a bar of each pattern in turn, switching faster after the drink, a bar of paddling on every beat, then the music cuts, the host counts three beats, and one tap on the drop (bar 30, over the falls) |
+
+Cue counts: Paddle Party 46 scored (10 practice), Rock Hop 30 (6), Spin Cycle
+39 (8), The Drop 46 (9). The last cue of songs 1 to 3 is in bar 30 (the
+outro's big finish).
 
 Names say what you do (Brandon, Oct 27: no river jargon; "Put-in", "The
 Narrows" and "Whirlpool Bend" are gone everywhere a player sees them). The
@@ -110,25 +124,34 @@ Thursday (if the tap game is fun): hold and release cues.
 
 ## Judging (the phone judges; the room keeps score)
 
-- The phone stamps a tap on the server clock (touch event time, as
-  `controller/rhythm.js serverStamp` does), subtracts its **calibration
-  offset**, finds the nearest cue whose window is open, and computes
-  `d = t - cueTime` in ms.
-- Windows (|d|): **Perfect <= 50**, **Nice! <= 100**, **OK <= 160**, else
-  **Early** (d < 0) / **Late** (d > 0) up to 300 (counts as a miss with its
-  sign); beyond 300 the tap matches no cue and is ignored.
-- One judgement per cue per player (the first tap in its window). A cue with
-  no tap by `cueTime + 300` is a **Miss**.
+- The phone stamps a tap on the server clock (the touch event's own time,
+  `controller/rhythm.js serverStamp`), and `matchTap(chart, songAt, t,
+  { offset, taken })` finds the nearest cue not yet judged within 300 ms,
+  judged with the room's current `offset`: `{ cue, d, r }` (`r` raw: the
+  tap's server time minus the cue's; `d = r - offset`).
+- Windows (|d|, `WINDOW`): **Perfect <= 50**, **Nice! <= 100**, **OK <=
+  160**, else **Early** (d < 0) / **Late** (d > 0) up to 300 (0 points, with
+  its sign); beyond 300 the tap matches no cue and is ignored.
+- One judgement per cue per player (the first tap matched to it). A cue with
+  no hit by `cueTime + offset + MISS_AFTER_MS` (550) is the room's **Miss**.
 - Points: Perfect 100, Nice 70, OK 40, Early/Late/Miss 0. A round's score is
-  its percent: points / (100 x cues).
-- `{t:"hit", c, d}` phone to room (cue id, calibrated offset). The room
-  re-judges with the same function (`judgeHit` in `chart.js`), ignores
-  duplicates, and broadcasts `{t:"ev", e:"hit", i, c, q, d}` to everyone;
-  misses are the room's own (`q:"miss"`, no `d`).
-- **Calibration** (phone only, silent): during each song's `practice`, taps
-  within 350 ms of a beat collect raw offsets; the median (clamped to +-250
-  ms) becomes the phone's offset for every later tap, refined each song. A
-  player tapping to a TV whose sound runs 150 ms late is judged on the beat.
+  its percent: points / (100 x scored cues) (`scoreOf`; `live` is the share
+  of the cues played so far, for the flotilla).
+- `{t:"hit", c, r}` phone to room: the cue id and the RAW offset. The room
+  judges it with its own offset (`judgeHit`), ignores a second hit on a cue,
+  and broadcasts `{t:"ev", e:"hit", i, c, q, d}`; misses are the room's own
+  (`q:"miss"`, no `d`).
+- **Calibration is the room's, one offset for everyone** (changed Oct 27 from
+  per phone: a per-player offset would judge a consistently late player
+  Perfect and remove the skill; all guests are on iPhones, so the delay that
+  matters is the TV's sound, and the room shares it). The room collects the
+  raw `r` of PEOPLE's hits on practice cues (never bots' or stand-ins');
+  `calibrate` (median of those within 350 ms, clamped to +-250, at least 4)
+  is the offset, recomputed as practice runs (sent in `room.offset` at most
+  once a beat, so practice popups settle within a bar) and fixed from the
+  first play bar for the rest of the song. A song whose practice has fewer
+  than 4 samples keeps the last song's offset (0 at first). In solo QA the
+  one person's practice is the room's.
 
 ## The popup (the spine of the design)
 
@@ -160,15 +183,171 @@ chugging critter is the signal.
 
 ## What the room sends (beyond PROTOCOL.md)
 
-- `room`: `song` (id), `songAt` (server time of the song's beat 0), `chart`
-  (the song's cues and sections, so screens and phones need no lookup),
-  `scores` (per entrant: this round's percent and points, the Cup total),
-  `cut`, `lastRound`, `out` as before.
-- `ev hit` as above; `ev done` when a rider taps Done in a drink break.
-- `me`: own `score`, `percent`, `place`, `of`, `cut`, and `q`/`d` of the last
-  judged cue.
-- No `snap` rows (nothing moves by physics); the TV animates from the clock
-  and the scores.
+- **Phases**: `lobby -> intro -> [song -> cut] x rounds -> podium ->
+  feedback -> lobby`. `song` replaces `grid`, `countdown` and `race`: its
+  `startAt` is when the round card goes up, `songAt = startAt +
+  SONG_LEAD_MS` (3 s) is beat 0, `endsAt = songAt + SONG_MS + SONG_TAIL_MS`.
+  Nothing in Field Day reads Float's phase names (its surfaces read the
+  Tournament's event lifecycle), so the rename breaks only Float's own
+  screen and controller.
+- `room` adds: `song` (id), `songAt`, `chart` (the whole `chartOf(song)`,
+  sent with `welcome` and when the song changes; otherwise `chartId`),
+  `offset` (the room's calibration, ms), `scores` (`[{ i, pts, pct, live,
+  n, cup, done }]` for the field: this song so far, `cup` the sum of the
+  rider's earlier songs' percents, `done` whether they have tapped Done in
+  this song's drink break), sent at phase changes and every 4 s in a song
+  (the TV moves riders between them from `ev hit`). `cut`, `lastRound`,
+  `out`, `standings`, `podium` as before.
+- `ev hit {i, c, q, d}` as above; `ev done {i}` when a rider taps Done.
+- `me` (each controller, after each of its hits and at phase changes): `i`,
+  `pts`, `pct`, `place` (in this song so far), `of`, `cut` (places that go
+  through, null in the final), `done`, and the last judged `c`, `q`, `d`.
+- No `snap` rows (nothing moves by physics); the TV animates from the clock,
+  `ev hit` and `scores`.
+- Client to server: `hit {c, r}`; `drink` (already in PROTOCOL.md) is Done;
+  `hello`, `ping`, `look`, `ready`, `host`, `feedback` as before; `stroke`,
+  `hands` and `balloon` are gone.
+- Bots hit every cue at its time with a raw offset drawn from their skill
+  (a good bot within about 30 ms, a weak one about 90 ms and an occasional
+  miss), and tap Done 4 to 14 s into the break. A person whose phone has been
+  gone 5 s is played by a stand-in bot (skill 0.55) until it is back, as in
+  the 3D Cup (`botShare` in the stats); stand-ins never calibrate.
+- The room saves the Cup at phase changes and its judgements every 2 s in a
+  song (`allowUnconfirmed`); a restarted room picks the song up by the clock
+  (`songAt` is in the save), so nothing restarts.
+
+## The art manifest and the 2D art module
+
+`public/float/groove/manifest.json` (served at `/float/groove/manifest.json`;
+paths inside are relative to `/float/groove/`):
+
+```
+{
+  "v": 1,
+  "poses": ["idle", "stroke", "hey", "nice", "miss", "chug", "cheer", "out"],
+  "box": [512, 512],
+  "critters": {
+    "<critter id>": {
+      "anchor": { "water": [x, y], "head": [x, y], "face": [x, y], "hand": [x, y] },
+      "poses": { "<pose>": { "src": "critters/<id>/<pose>.webp", "tube": "critters/<id>/<pose>-tube.webp" } },
+      "portrait": { "src": "...", "tube": "...", "w": 1024, "h": 1024, "anchor": { ... } }
+    }
+  },
+  "host": { "box": [w, h], "anchor": { ... }, "poses": { "idle": { "src": "..." }, "call": { ... }, "cheer": { ... } } },
+  "scenes": { "<scene>": { "w": 1920, "h": 1080, "water": 0.7, "layers": [ { "src": "...", "depth": 0.2, "loop": true } ] } },
+  "props": { "<prop>": { "src": "...", "w": 0, "h": 0, "anchor": [x, y], "tint": false } },
+  "font": { "family": "Float Pixel", "src": "/fonts/<file>.woff2" }
+}
+```
+
+- Every critter pose sprite is the same box (512 x 512), the critter sitting
+  in its tube, the waterline at the same `anchor.water` for every pose of a
+  critter, so a pose swaps without a jump. Anchors are box pixels.
+- **The tube is coloured at run time**: in `src` the tube is a neutral light
+  grey carrying its own shading; `tube` is its mask (white, alpha = tube).
+  The rider's colour fills the mask multiplied over the shading.
+- `poses`: `idle` (paws on the tube), `stroke` (a paddle splash), `hey` (one
+  arm up, mouth open, shouting), `nice` (pleased), `miss` (splashed in the
+  face, an "o" mouth), `chug` (drinking from a cup), `cheer` (both arms up),
+  `out` (sad, deflated).
+- Scenes: `open`, `rocks`, `whirlpool`, `falls` (the four songs), `lobby`,
+  `bar` (Last Call), `podium`; layered back to front, `depth` 0 (fixed sky) to
+  1 (the water's edge, scrolls fastest), `water` the waterline as a share of
+  the height. Props at least: `splash`, `ripple`, `rock`, `whirl`, `cup`,
+  `crown` (the groom's), and the host's signs `sign-paddle`, `sign-rock`,
+  `sign-spin` (The Drop holds one up a bar before each switch).
+- **Until the real sprites land**, the art builder ships the manifest within
+  the first hour with placeholder sprites cut from `float/look/lineup.png`
+  (every pose the one crop, a crude tube mask) and flat placeholder scenes,
+  so the screen and phone integrate against real paths from the start; the
+  real art replaces files, never the schema.
+
+The module (`float/client/art/groove/`, re-exported by
+`float/client/art/index.js`, which no longer imports three.js on this branch;
+the 3D files stay in the folder for the parked fallback):
+
+- `loadGrooveArt()` -> Promise of the manifest (fetched once).
+- `riderSprites({ critter, color, groom })` -> Promise of `{ [pose]: url }`
+  (object URLs of the painted sprites, every pose, cached per critter, colour
+  and groom; the groom's carry the crown at `anchor.head`).
+- `riderPortrait(entrant, { size })` -> Promise of a PNG data URL (Field
+  Day's contract: `src/features/float/floatParts.js` requires it).
+- `sceneOf(id)`, `propOf(id)`, `hostSprites()` read the manifest.
+- The pixel font is declared once in `float/client/art/groove/groove.css`
+  (`@font-face`, family "Float Pixel", OFL licence file beside the font).
+
+`/float/art` shows every critter in every pose in a few colours, the host,
+the scenes and the props: the page Brandon reviews the art on.
+
+## Sound (the Groove)
+
+- Everything sounds through `src/lib/sound.js` (`playSound` / `cueAt`): the
+  room bus on the TV, the you bus on the phone. The phone never plays music.
+- **One scoped addition to `src/lib/sound.js`, the sound builder's alone:
+  the clip path.** Decoded audio files (host voice lines now, generated songs
+  later) play through the same `playSound(id, { bus, at, pan, key })` at a
+  server-anchored time like any synthesized recipe: a way to register clips
+  by id and URL (fetched and decoded once, on first need), and kit recipes
+  that play a clip with gain and rate. Web Audio stays inside sound.js
+  (`tests/sound-engine.test.mjs`).
+- **The beds**: one synthesized song per round in Float's block of the kit
+  (`bedBar`), 120 bpm, bar by bar from `songAt` on the server clock, in the
+  style above (bouncy funk and J-pop: slap bass, brass stabs, handclaps,
+  glockenspiel, a little chiptune). Sections: the intro counts in, practice
+  is the groove thin, play is full, the drink break drops into the lounge
+  (drums out, keys and a walking bass, "Drink!" at its start, the count back
+  in its last bar), play B is fuller, the outro hits the last cue and rings
+  out. The Drop's music cuts for its countdown. A lobby loop, the cut's
+  drumroll and sting per rider out, the podium fanfare.
+- **The host's voice**: lines generated once with OpenAI text-to-speech
+  (`gpt-4o-mini-tts`, a cheerful cartoon host), trimmed and pitched up with
+  ffmpeg, committed as small MP3s under `public/float/groove/voice/`. The key
+  is Brandon's `OPENAI_API_KEY` (Windows user environment), read into the
+  child process only, never printed, never committed. For a release, the
+  credits say the voice is AI-generated (OpenAI's usage policy).
+- **The cues**: the host's call note at each cue's `call` beat (`Ready` for a
+  hey, `ba` notes for hops, a whirl for spins, the drop's countdown), the
+  answer sound on the cue's beat played by the band for everyone (a paddle
+  splash, a crowd "Hey!", a hop's boing, a spin's whoosh, the drop's big
+  splash), and a quiet flub for each judged miss, panned to the critter.
+- **The phone**: your own tap at once (crisp on Perfect and Nice, a muffled
+  slap on Early or Late), Done, Through and Out.
+- Generated songs (ElevenLabs, if Brandon adds `ELEVENLABS_API_KEY`) arrive
+  as clips aligned to the same bars; swapping a song's bed is data.
+
+## The screen (TV) and the phone
+
+- `FloatScreen` (default export, same props as before) draws on a fixed
+  1920 x 1080 canvas, letterboxed, DOM and CSS (no WebGL), 24 px minimum
+  text. A rider's action (stroke, hey, hop, spin) plays when their judged hit
+  arrives (Cake Wait: you see who is off); the idle bob is on the clock. The
+  host acts out every call on its beat. Mock mode (`?mock=1`) plays a whole
+  Cup locally with 13 bots through `chart.js`, so the screen is built and
+  reviewed without a server. `?debug=1` keeps the readout.
+- `FloatController` (default export, same props): in a song the whole screen
+  is the pad (touchstart; the event's own time through `serverStamp`;
+  `matchTap` with `room.offset`; `hit {c, r}`); your critter on the beat, the
+  host's call as a bubble on its beat (a loud room still sees it), your
+  popup big and at once, "Practice" in practice. The drink break: "Drink!" and
+  a big Done (`drink`); the pad takes no taps until Done. Cut: your percent
+  and place, Through or Out. **Screen Wake Lock** (`src/lib/wakeLock.js`) from
+  the lobby to the podium: the drink break plus the cut is 30 s and more
+  without a touch, past iPhone's auto-lock. The Locker shows 2D portraits.
+
+## Ownership (the Groove builders)
+
+| Builder | Branch (worktree) | Owns |
+|---|---|---|
+| Engine | `groove/engine` (`fd-groove-engine`) | `float/shared/*` except `chart.js`, `looks.js`, `floaties.js`; `float/worker/*`; `tests/float-engine*.test.mjs`; `scripts/float-sim.mjs` |
+| Art | `groove/art` (`fd-groove-art`) | `float/client/art/*`, `public/float/groove/**` except `voice/`, the pixel font in `public/fonts/`, `float/look/*`, `scripts/float-imagegen.mjs` and new `scripts/float-art-*.mjs`, `tests/float-art*.test.mjs` |
+| Sound | `groove/sound` (`fd-groove-sound`) | `float/client/sound/*`, Float's block at the end of `src/lib/soundKit.js`, the clip path in `src/lib/sound.js`, `public/float/groove/voice/**`, `tests/float-sound*.test.mjs` |
+| Screen | `groove/screen` (`fd-groove-screen`) | `float/client/screen/*`, `tests/float-screen*.test.mjs` |
+| Phone | `groove/phone` (`fd-groove-phone`) | `float/client/controller/*`, `float/client/net.js`, `float/client/join/*`, `float/client/locker/*`, `tests/float-controller*.test.mjs`, `tests/float-net.test.mjs` |
+| Integration | `float/groove` | `src/features/float/*` and the rest of Field Day, `float/client/main.jsx`, `FloatPages.jsx`, the html pages |
+
+`chart.js`, `protocol.js`'s message lists and this file change only by
+agreement (the integrator). A builder who needs a change there says so in its
+report and codes against the contract as written meanwhile.
 
 ## Floaties
 

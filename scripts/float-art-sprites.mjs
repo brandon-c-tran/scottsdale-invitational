@@ -73,13 +73,15 @@ function findRing(img, hue) {
     const s = sat(r, g, b), v = val(r, g, b);
     if (v < 0.32) { ink[k] = 1; continue; }
     if (s < 0.08) continue;
-    if (hueDist(hueOf(r, g, b), hue) > 24) continue;
+    if (hueDist(hueOf(r, g, b), hue) > 20) continue;
     if (s >= 0.45) core[k] = 1;
     else if (v > 0.7) { core[k] = 1; light[k] = Math.min(1, (0.62 - s) / 0.5); }
   }
   /* keep the big pieces (the ring), not a pink tongue or cheek */
   const { labels, comps } = components(core, W, H);
-  const keep = new Set(comps.filter(c => c.n > 400).map(c => c.id));
+  /* the ring is the biggest piece; others count only where the ring is (an arm can split it), never above it (an open pink mouth) */
+  const main = comps.reduce((a, c) => (!a || c.n > a.n ? c : a), null);
+  const keep = new Set(comps.filter(c => c === main || (c.n > Math.max(400, main.n * 0.04) && c.cy >= main.y0 && c.y0 >= main.y0 - (main.y1 - main.y0) * 0.15)).map(c => c.id));
   let mask = new Uint8Array(W * H);
   for (let k = 0; k < W * H; k++) if (core[k] && keep.has(labels[k])) mask[k] = 1;
   mask = close(mask, W, H, 3);
@@ -156,7 +158,10 @@ function findEyes(img, ring) {
     const score = sizeMatch - dy / R;
     if (!best || score > best.score) best = { score, l:A.cx < B.cx ? A : B, r:A.cx < B.cx ? B : A };
   }
-  return best ? { x:(best.l.cx + best.r.cx) / 2, y:(best.l.cy + best.r.cy) / 2, span:best.r.cx - best.l.cx } : null;
+  if (best) return { x:(best.l.cx + best.r.cx) / 2, y:(best.l.cy + best.r.cy) / 2, span:best.r.cx - best.l.cx };
+  /* a side view shows one eye: the roundest dot nearest the ring's middle */
+  const one = dots.sort((a, b) => Math.abs(a.cx - ring.bbox.cx) - Math.abs(b.cx - ring.bbox.cx))[0];
+  return one ? { x:one.cx, y:one.cy, span:R * 0.2, single:true } : null;
 }
 
 /* the top of the head above x: the first opaque pixel going down that column */

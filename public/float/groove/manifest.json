@@ -110,12 +110,12 @@
        440
       ],
       "head": [
-       335,
-       250
+       338,
+       252
       ],
       "face": [
-       335,
-       298
+       338,
+       293
       ],
       "hand": [
        311,
@@ -132,12 +132,12 @@
        440
       ],
       "head": [
-       335,
-       243
+       326,
+       239
       ],
       "face": [
-       335,
-       298
+       326,
+       344
       ],
       "hand": [
        311,
@@ -154,12 +154,12 @@
        440
       ],
       "head": [
-       335,
-       227
+       215,
+       232
       ],
       "face": [
-       335,
-       298
+       215,
+       288
       ],
       "hand": [
        311,
@@ -241,53 +241,197 @@
    "anchor": {
     "water": [
      256,
-     352
+     440
     ],
     "head": [
-     248,
-     177
+     267,
+     202
     ],
     "face": [
-     262,
-     236
+     267,
+     324
     ],
     "hand": [
-     298,
-     335
+     311,
+     375
     ]
    },
    "poses": {
     "idle": {
      "src": "critters/javelina/idle.webp",
-     "tube": "critters/javelina/idle-tube.webp"
+     "tube": "critters/javelina/idle-tube.webp",
+     "anchor": {
+      "water": [
+       256,
+       440
+      ],
+      "head": [
+       267,
+       202
+      ],
+      "face": [
+       267,
+       324
+      ],
+      "hand": [
+       311,
+       375
+      ]
+     }
     },
     "stroke": {
-     "src": "critters/javelina/idle.webp",
-     "tube": "critters/javelina/idle-tube.webp"
+     "src": "critters/javelina/stroke.webp",
+     "tube": "critters/javelina/stroke-tube.webp",
+     "anchor": {
+      "water": [
+       256,
+       440
+      ],
+      "head": [
+       280,
+       206
+      ],
+      "face": [
+       280,
+       339
+      ],
+      "hand": [
+       309,
+       377
+      ]
+     }
     },
     "hey": {
-     "src": "critters/javelina/idle.webp",
-     "tube": "critters/javelina/idle-tube.webp"
+     "src": "critters/javelina/hey.webp",
+     "tube": "critters/javelina/hey-tube.webp",
+     "anchor": {
+      "water": [
+       256,
+       440
+      ],
+      "head": [
+       262,
+       202
+      ],
+      "face": [
+       262,
+       316
+      ],
+      "hand": [
+       311,
+       375
+      ]
+     }
     },
     "nice": {
-     "src": "critters/javelina/idle.webp",
-     "tube": "critters/javelina/idle-tube.webp"
+     "src": "critters/javelina/nice.webp",
+     "tube": "critters/javelina/nice-tube.webp",
+     "anchor": {
+      "water": [
+       256,
+       440
+      ],
+      "head": [
+       267,
+       210
+      ],
+      "face": [
+       267,
+       324
+      ],
+      "hand": [
+       311,
+       376
+      ]
+     }
     },
     "miss": {
-     "src": "critters/javelina/idle.webp",
-     "tube": "critters/javelina/idle-tube.webp"
+     "src": "critters/javelina/miss.webp",
+     "tube": "critters/javelina/miss-tube.webp",
+     "anchor": {
+      "water": [
+       256,
+       440
+      ],
+      "head": [
+       269,
+       196
+      ],
+      "face": [
+       269,
+       342
+      ],
+      "hand": [
+       312,
+       376
+      ]
+     }
     },
     "chug": {
-     "src": "critters/javelina/idle.webp",
-     "tube": "critters/javelina/idle-tube.webp"
+     "src": "critters/javelina/chug.webp",
+     "tube": "critters/javelina/chug-tube.webp",
+     "anchor": {
+      "water": [
+       256,
+       440
+      ],
+      "head": [
+       298,
+       212
+      ],
+      "face": [
+       298,
+       297
+      ],
+      "hand": [
+       312,
+       375
+      ]
+     }
     },
     "cheer": {
-     "src": "critters/javelina/idle.webp",
-     "tube": "critters/javelina/idle-tube.webp"
+     "src": "critters/javelina/cheer.webp",
+     "tube": "critters/javelina/cheer-tube.webp",
+     "anchor": {
+      "water": [
+       256,
+       440
+      ],
+      "head": [
+       257,
+       192
+      ],
+      "face": [
+       257,
+       303
+      ],
+      "hand": [
+       312,
+       376
+      ]
+     }
     },
     "out": {
-     "src": "critters/javelina/idle.webp",
-     "tube": "critters/javelina/idle-tube.webp"
+     "src": "critters/javelina/out.webp",
+     "tube": "critters/javelina/out-tube.webp",
+     "anchor": {
+      "water": [
+       256,
+       440
+      ],
+      "head": [
+       271,
+       226
+      ],
+      "face": [
+       271,
+       356
+      ],
+      "hand": [
+       312,
+       382
+      ]
+     }
     }
    },
    "portrait": {
@@ -298,75 +442,218 @@
     "anchor": {
      "water": [
       512,
-      700
+      907
      ],
      "head": [
-      496,
-      360
+      542,
+      346
      ],
      "face": [
-      524,
-      475
+      542,
+      625
      ],
      "hand": [
-      595,
-      668
+      644,
+      746
      ]
     }
-   },
-   "placeholder": true
+   }
   },
   "roadrunner": {
    "anchor": {
     "water": [
      256,
-     352
+     440
     ],
     "head": [
-     240,
-     190
+     249,
+     210
     ],
     "face": [
-     240,
-     216
+     249,
+     272
     ],
     "hand": [
-     296,
-     336
+     311,
+     374
     ]
    },
    "poses": {
     "idle": {
      "src": "critters/roadrunner/idle.webp",
-     "tube": "critters/roadrunner/idle-tube.webp"
+     "tube": "critters/roadrunner/idle-tube.webp",
+     "anchor": {
+      "water": [
+       256,
+       440
+      ],
+      "head": [
+       249,
+       210
+      ],
+      "face": [
+       249,
+       272
+      ],
+      "hand": [
+       311,
+       374
+      ]
+     }
     },
     "stroke": {
-     "src": "critters/roadrunner/idle.webp",
-     "tube": "critters/roadrunner/idle-tube.webp"
+     "src": "critters/roadrunner/stroke.webp",
+     "tube": "critters/roadrunner/stroke-tube.webp",
+     "anchor": {
+      "water": [
+       256,
+       440
+      ],
+      "head": [
+       244,
+       205
+      ],
+      "face": [
+       244,
+       283
+      ],
+      "hand": [
+       310,
+       377
+      ]
+     }
     },
     "hey": {
-     "src": "critters/roadrunner/idle.webp",
-     "tube": "critters/roadrunner/idle-tube.webp"
+     "src": "critters/roadrunner/hey.webp",
+     "tube": "critters/roadrunner/hey-tube.webp",
+     "anchor": {
+      "water": [
+       256,
+       440
+      ],
+      "head": [
+       240,
+       209
+      ],
+      "face": [
+       240,
+       271
+      ],
+      "hand": [
+       311,
+       374
+      ]
+     }
     },
     "nice": {
-     "src": "critters/roadrunner/idle.webp",
-     "tube": "critters/roadrunner/idle-tube.webp"
+     "src": "critters/roadrunner/nice.webp",
+     "tube": "critters/roadrunner/nice-tube.webp",
+     "anchor": {
+      "water": [
+       256,
+       440
+      ],
+      "head": [
+       249,
+       172
+      ],
+      "face": [
+       249,
+       272
+      ],
+      "hand": [
+       310,
+       375
+      ]
+     }
     },
     "miss": {
-     "src": "critters/roadrunner/idle.webp",
-     "tube": "critters/roadrunner/idle-tube.webp"
+     "src": "critters/roadrunner/miss.webp",
+     "tube": "critters/roadrunner/miss-tube.webp",
+     "anchor": {
+      "water": [
+       256,
+       440
+      ],
+      "head": [
+       249,
+       176
+      ],
+      "face": [
+       249,
+       272
+      ],
+      "hand": [
+       311,
+       377
+      ]
+     }
     },
     "chug": {
-     "src": "critters/roadrunner/idle.webp",
-     "tube": "critters/roadrunner/idle-tube.webp"
+     "src": "critters/roadrunner/chug.webp",
+     "tube": "critters/roadrunner/chug-tube.webp",
+     "anchor": {
+      "water": [
+       256,
+       440
+      ],
+      "head": [
+       265,
+       193
+      ],
+      "face": [
+       265,
+       250
+      ],
+      "hand": [
+       312,
+       369
+      ]
+     }
     },
     "cheer": {
-     "src": "critters/roadrunner/idle.webp",
-     "tube": "critters/roadrunner/idle-tube.webp"
+     "src": "critters/roadrunner/cheer.webp",
+     "tube": "critters/roadrunner/cheer-tube.webp",
+     "anchor": {
+      "water": [
+       256,
+       440
+      ],
+      "head": [
+       250,
+       198
+      ],
+      "face": [
+       250,
+       259
+      ],
+      "hand": [
+       312,
+       373
+      ]
+     }
     },
     "out": {
-     "src": "critters/roadrunner/idle.webp",
-     "tube": "critters/roadrunner/idle-tube.webp"
+     "src": "critters/roadrunner/out.webp",
+     "tube": "critters/roadrunner/out-tube.webp",
+     "anchor": {
+      "water": [
+       256,
+       440
+      ],
+      "head": [
+       249,
+       143
+      ],
+      "face": [
+       249,
+       272
+      ],
+      "hand": [
+       315,
+       377
+      ]
+     }
     }
    },
    "portrait": {
@@ -376,76 +663,219 @@
     "h": 1024,
     "anchor": {
      "water": [
-      512,
-      700
+      451,
+      903
      ],
      "head": [
-      481,
-      384
+      451,
+      335
      ],
      "face": [
-      481,
-      434
+      451,
+      480
      ],
      "hand": [
-      589,
-      669
+      583,
+      734
      ]
     }
-   },
-   "placeholder": true
+   }
   },
   "jackrabbit": {
    "anchor": {
     "water": [
      256,
-     352
+     440
     ],
     "head": [
-     267,
-     181
+     257,
+     265
     ],
     "face": [
-     267,
-     236
+     257,
+     332
     ],
     "hand": [
-     309,
-     335
+     311,
+     374
     ]
    },
    "poses": {
     "idle": {
      "src": "critters/jackrabbit/idle.webp",
-     "tube": "critters/jackrabbit/idle-tube.webp"
+     "tube": "critters/jackrabbit/idle-tube.webp",
+     "anchor": {
+      "water": [
+       256,
+       440
+      ],
+      "head": [
+       257,
+       265
+      ],
+      "face": [
+       257,
+       332
+      ],
+      "hand": [
+       311,
+       374
+      ]
+     }
     },
     "stroke": {
-     "src": "critters/jackrabbit/idle.webp",
-     "tube": "critters/jackrabbit/idle-tube.webp"
+     "src": "critters/jackrabbit/stroke.webp",
+     "tube": "critters/jackrabbit/stroke-tube.webp",
+     "anchor": {
+      "water": [
+       256,
+       440
+      ],
+      "head": [
+       230,
+       115
+      ],
+      "face": [
+       230,
+       347
+      ],
+      "hand": [
+       301,
+       378
+      ]
+     }
     },
     "hey": {
-     "src": "critters/jackrabbit/idle.webp",
-     "tube": "critters/jackrabbit/idle-tube.webp"
+     "src": "critters/jackrabbit/hey.webp",
+     "tube": "critters/jackrabbit/hey-tube.webp",
+     "anchor": {
+      "water": [
+       256,
+       440
+      ],
+      "head": [
+       256,
+       258
+      ],
+      "face": [
+       256,
+       319
+      ],
+      "hand": [
+       311,
+       374
+      ]
+     }
     },
     "nice": {
-     "src": "critters/jackrabbit/idle.webp",
-     "tube": "critters/jackrabbit/idle-tube.webp"
+     "src": "critters/jackrabbit/nice.webp",
+     "tube": "critters/jackrabbit/nice-tube.webp",
+     "anchor": {
+      "water": [
+       256,
+       440
+      ],
+      "head": [
+       257,
+       262
+      ],
+      "face": [
+       257,
+       332
+      ],
+      "hand": [
+       311,
+       374
+      ]
+     }
     },
     "miss": {
-     "src": "critters/jackrabbit/idle.webp",
-     "tube": "critters/jackrabbit/idle-tube.webp"
+     "src": "critters/jackrabbit/miss.webp",
+     "tube": "critters/jackrabbit/miss-tube.webp",
+     "anchor": {
+      "water": [
+       256,
+       440
+      ],
+      "head": [
+       257,
+       263
+      ],
+      "face": [
+       257,
+       332
+      ],
+      "hand": [
+       311,
+       375
+      ]
+     }
     },
     "chug": {
-     "src": "critters/jackrabbit/idle.webp",
-     "tube": "critters/jackrabbit/idle-tube.webp"
+     "src": "critters/jackrabbit/chug.webp",
+     "tube": "critters/jackrabbit/chug-tube.webp",
+     "anchor": {
+      "water": [
+       256,
+       440
+      ],
+      "head": [
+       286,
+       129
+      ],
+      "face": [
+       286,
+       303
+      ],
+      "hand": [
+       312,
+       374
+      ]
+     }
     },
     "cheer": {
-     "src": "critters/jackrabbit/idle.webp",
-     "tube": "critters/jackrabbit/idle-tube.webp"
+     "src": "critters/jackrabbit/cheer.webp",
+     "tube": "critters/jackrabbit/cheer-tube.webp",
+     "anchor": {
+      "water": [
+       256,
+       440
+      ],
+      "head": [
+       256,
+       262
+      ],
+      "face": [
+       256,
+       318
+      ],
+      "hand": [
+       310,
+       376
+      ]
+     }
     },
     "out": {
-     "src": "critters/jackrabbit/idle.webp",
-     "tube": "critters/jackrabbit/idle-tube.webp"
+     "src": "critters/jackrabbit/out.webp",
+     "tube": "critters/jackrabbit/out-tube.webp",
+     "anchor": {
+      "water": [
+       256,
+       440
+      ],
+      "head": [
+       250,
+       251
+      ],
+      "face": [
+       250,
+       361
+      ],
+      "hand": [
+       312,
+       384
+      ]
+     }
     }
    },
    "portrait": {
@@ -456,75 +886,218 @@
     "anchor": {
      "water": [
       512,
-      700
+      906
      ],
      "head": [
-      534,
-      368
+      519,
+      462
      ],
      "face": [
-      534,
-      473
+      519,
+      621
      ],
      "hand": [
-      614,
-      667
+      640,
+      743
      ]
     }
-   },
-   "placeholder": true
+   }
   },
   "tortoise": {
    "anchor": {
     "water": [
      256,
-     352
+     440
     ],
     "head": [
-     251,
-     232
+     256,
+     252
     ],
     "face": [
-     251,
-     272
+     256,
+     346
     ],
     "hand": [
-     310,
-     340
+     311,
+     379
     ]
    },
    "poses": {
     "idle": {
      "src": "critters/tortoise/idle.webp",
-     "tube": "critters/tortoise/idle-tube.webp"
+     "tube": "critters/tortoise/idle-tube.webp",
+     "anchor": {
+      "water": [
+       256,
+       440
+      ],
+      "head": [
+       256,
+       252
+      ],
+      "face": [
+       256,
+       346
+      ],
+      "hand": [
+       311,
+       379
+      ]
+     }
     },
     "stroke": {
-     "src": "critters/tortoise/idle.webp",
-     "tube": "critters/tortoise/idle-tube.webp"
+     "src": "critters/tortoise/stroke.webp",
+     "tube": "critters/tortoise/stroke-tube.webp",
+     "anchor": {
+      "water": [
+       256,
+       440
+      ],
+      "head": [
+       267,
+       258
+      ],
+      "face": [
+       267,
+       354
+      ],
+      "hand": [
+       309,
+       376
+      ]
+     }
     },
     "hey": {
-     "src": "critters/tortoise/idle.webp",
-     "tube": "critters/tortoise/idle-tube.webp"
+     "src": "critters/tortoise/hey.webp",
+     "tube": "critters/tortoise/hey-tube.webp",
+     "anchor": {
+      "water": [
+       256,
+       440
+      ],
+      "head": [
+       256,
+       252
+      ],
+      "face": [
+       256,
+       343
+      ],
+      "hand": [
+       308,
+       378
+      ]
+     }
     },
     "nice": {
-     "src": "critters/tortoise/idle.webp",
-     "tube": "critters/tortoise/idle-tube.webp"
+     "src": "critters/tortoise/nice.webp",
+     "tube": "critters/tortoise/nice-tube.webp",
+     "anchor": {
+      "water": [
+       256,
+       440
+      ],
+      "head": [
+       256,
+       251
+      ],
+      "face": [
+       256,
+       346
+      ],
+      "hand": [
+       311,
+       379
+      ]
+     }
     },
     "miss": {
-     "src": "critters/tortoise/idle.webp",
-     "tube": "critters/tortoise/idle-tube.webp"
+     "src": "critters/tortoise/miss.webp",
+     "tube": "critters/tortoise/miss-tube.webp",
+     "anchor": {
+      "water": [
+       256,
+       440
+      ],
+      "head": [
+       266,
+       248
+      ],
+      "face": [
+       266,
+       361
+      ],
+      "hand": [
+       310,
+       381
+      ]
+     }
     },
     "chug": {
-     "src": "critters/tortoise/idle.webp",
-     "tube": "critters/tortoise/idle-tube.webp"
+     "src": "critters/tortoise/chug.webp",
+     "tube": "critters/tortoise/chug-tube.webp",
+     "anchor": {
+      "water": [
+       256,
+       440
+      ],
+      "head": [
+       288,
+       253
+      ],
+      "face": [
+       288,
+       330
+      ],
+      "hand": [
+       310,
+       379
+      ]
+     }
     },
     "cheer": {
-     "src": "critters/tortoise/idle.webp",
-     "tube": "critters/tortoise/idle-tube.webp"
+     "src": "critters/tortoise/cheer.webp",
+     "tube": "critters/tortoise/cheer-tube.webp",
+     "anchor": {
+      "water": [
+       256,
+       440
+      ],
+      "head": [
+       253,
+       248
+      ],
+      "face": [
+       253,
+       343
+      ],
+      "hand": [
+       309,
+       379
+      ]
+     }
     },
     "out": {
-     "src": "critters/tortoise/idle.webp",
-     "tube": "critters/tortoise/idle-tube.webp"
+     "src": "critters/tortoise/out.webp",
+     "tube": "critters/tortoise/out-tube.webp",
+     "anchor": {
+      "water": [
+       256,
+       440
+      ],
+      "head": [
+       256,
+       280
+      ],
+      "face": [
+       256,
+       346
+      ],
+      "hand": [
+       310,
+       369
+      ]
+     }
     }
    },
    "portrait": {
@@ -535,75 +1108,218 @@
     "anchor": {
      "water": [
       512,
-      700
+      907
      ],
      "head": [
-      503,
-      465
+      505,
+      478
      ],
      "face": [
-      503,
-      544
+      505,
+      684
      ],
      "hand": [
-      618,
-      677
+      644,
+      744
      ]
     }
-   },
-   "placeholder": true
+   }
   },
   "gila": {
    "anchor": {
     "water": [
      256,
-     352
+     440
     ],
     "head": [
-     211,
-     216
+     212,
+     275
     ],
     "face": [
-     202,
-     249
+     212,
+     338
     ],
     "hand": [
-     284,
-     329
+     311,
+     380
     ]
    },
    "poses": {
     "idle": {
      "src": "critters/gila/idle.webp",
-     "tube": "critters/gila/idle-tube.webp"
+     "tube": "critters/gila/idle-tube.webp",
+     "anchor": {
+      "water": [
+       256,
+       440
+      ],
+      "head": [
+       212,
+       275
+      ],
+      "face": [
+       212,
+       338
+      ],
+      "hand": [
+       311,
+       380
+      ]
+     }
     },
     "stroke": {
-     "src": "critters/gila/idle.webp",
-     "tube": "critters/gila/idle-tube.webp"
+     "src": "critters/gila/stroke.webp",
+     "tube": "critters/gila/stroke-tube.webp",
+     "anchor": {
+      "water": [
+       256,
+       440
+      ],
+      "head": [
+       192,
+       277
+      ],
+      "face": [
+       192,
+       351
+      ],
+      "hand": [
+       310,
+       382
+      ]
+     }
     },
     "hey": {
-     "src": "critters/gila/idle.webp",
-     "tube": "critters/gila/idle-tube.webp"
+     "src": "critters/gila/hey.webp",
+     "tube": "critters/gila/hey-tube.webp",
+     "anchor": {
+      "water": [
+       256,
+       440
+      ],
+      "head": [
+       230,
+       269
+      ],
+      "face": [
+       230,
+       328
+      ],
+      "hand": [
+       310,
+       377
+      ]
+     }
     },
     "nice": {
-     "src": "critters/gila/idle.webp",
-     "tube": "critters/gila/idle-tube.webp"
+     "src": "critters/gila/nice.webp",
+     "tube": "critters/gila/nice-tube.webp",
+     "anchor": {
+      "water": [
+       256,
+       440
+      ],
+      "head": [
+       212,
+       284
+      ],
+      "face": [
+       212,
+       338
+      ],
+      "hand": [
+       309,
+       380
+      ]
+     }
     },
     "miss": {
-     "src": "critters/gila/idle.webp",
-     "tube": "critters/gila/idle-tube.webp"
+     "src": "critters/gila/miss.webp",
+     "tube": "critters/gila/miss-tube.webp",
+     "anchor": {
+      "water": [
+       256,
+       440
+      ],
+      "head": [
+       219,
+       267
+      ],
+      "face": [
+       219,
+       340
+      ],
+      "hand": [
+       309,
+       381
+      ]
+     }
     },
     "chug": {
-     "src": "critters/gila/idle.webp",
-     "tube": "critters/gila/idle-tube.webp"
+     "src": "critters/gila/chug.webp",
+     "tube": "critters/gila/chug-tube.webp",
+     "anchor": {
+      "water": [
+       256,
+       440
+      ],
+      "head": [
+       242,
+       251
+      ],
+      "face": [
+       242,
+       300
+      ],
+      "hand": [
+       311,
+       378
+      ]
+     }
     },
     "cheer": {
-     "src": "critters/gila/idle.webp",
-     "tube": "critters/gila/idle-tube.webp"
+     "src": "critters/gila/cheer.webp",
+     "tube": "critters/gila/cheer-tube.webp",
+     "anchor": {
+      "water": [
+       256,
+       440
+      ],
+      "head": [
+       234,
+       261
+      ],
+      "face": [
+       234,
+       312
+      ],
+      "hand": [
+       309,
+       376
+      ]
+     }
     },
     "out": {
-     "src": "critters/gila/idle.webp",
-     "tube": "critters/gila/idle-tube.webp"
+     "src": "critters/gila/out.webp",
+     "tube": "critters/gila/out-tube.webp",
+     "anchor": {
+      "water": [
+       256,
+       440
+      ],
+      "head": [
+       206,
+       304
+      ],
+      "face": [
+       206,
+       384
+      ],
+      "hand": [
+       310,
+       384
+      ]
+     }
     }
    },
    "portrait": {
@@ -614,75 +1330,218 @@
     "anchor": {
      "water": [
       512,
-      700
+      914
      ],
      "head": [
-      425,
-      434
+      396,
+      538
      ],
      "face": [
-      406,
-      499
+      396,
+      678
      ],
      "hand": [
-      567,
-      655
+      644,
+      765
      ]
     }
-   },
-   "placeholder": true
+   }
   },
   "hornedlizard": {
    "anchor": {
     "water": [
      256,
-     352
+     440
     ],
     "head": [
-     255,
-     204
+     259,
+     239
     ],
     "face": [
-     255,
-     246
+     259,
+     324
     ],
     "hand": [
-     301,
-     334
+     311,
+     375
     ]
    },
    "poses": {
     "idle": {
      "src": "critters/hornedlizard/idle.webp",
-     "tube": "critters/hornedlizard/idle-tube.webp"
+     "tube": "critters/hornedlizard/idle-tube.webp",
+     "anchor": {
+      "water": [
+       256,
+       440
+      ],
+      "head": [
+       259,
+       239
+      ],
+      "face": [
+       259,
+       324
+      ],
+      "hand": [
+       311,
+       375
+      ]
+     }
     },
     "stroke": {
-     "src": "critters/hornedlizard/idle.webp",
-     "tube": "critters/hornedlizard/idle-tube.webp"
+     "src": "critters/hornedlizard/stroke.webp",
+     "tube": "critters/hornedlizard/stroke-tube.webp",
+     "anchor": {
+      "water": [
+       256,
+       440
+      ],
+      "head": [
+       233,
+       242
+      ],
+      "face": [
+       233,
+       305
+      ],
+      "hand": [
+       309,
+       377
+      ]
+     }
     },
     "hey": {
-     "src": "critters/hornedlizard/idle.webp",
-     "tube": "critters/hornedlizard/idle-tube.webp"
+     "src": "critters/hornedlizard/hey.webp",
+     "tube": "critters/hornedlizard/hey-tube.webp",
+     "anchor": {
+      "water": [
+       256,
+       440
+      ],
+      "head": [
+       259,
+       233
+      ],
+      "face": [
+       259,
+       322
+      ],
+      "hand": [
+       311,
+       376
+      ]
+     }
     },
     "nice": {
-     "src": "critters/hornedlizard/idle.webp",
-     "tube": "critters/hornedlizard/idle-tube.webp"
+     "src": "critters/hornedlizard/nice.webp",
+     "tube": "critters/hornedlizard/nice-tube.webp",
+     "anchor": {
+      "water": [
+       256,
+       440
+      ],
+      "head": [
+       259,
+       244
+      ],
+      "face": [
+       259,
+       324
+      ],
+      "hand": [
+       311,
+       376
+      ]
+     }
     },
     "miss": {
-     "src": "critters/hornedlizard/idle.webp",
-     "tube": "critters/hornedlizard/idle-tube.webp"
+     "src": "critters/hornedlizard/miss.webp",
+     "tube": "critters/hornedlizard/miss-tube.webp",
+     "anchor": {
+      "water": [
+       256,
+       440
+      ],
+      "head": [
+       259,
+       233
+      ],
+      "face": [
+       259,
+       324
+      ],
+      "hand": [
+       312,
+       375
+      ]
+     }
     },
     "chug": {
-     "src": "critters/hornedlizard/idle.webp",
-     "tube": "critters/hornedlizard/idle-tube.webp"
+     "src": "critters/hornedlizard/chug.webp",
+     "tube": "critters/hornedlizard/chug-tube.webp",
+     "anchor": {
+      "water": [
+       256,
+       440
+      ],
+      "head": [
+       255,
+       236
+      ],
+      "face": [
+       255,
+       295
+      ],
+      "hand": [
+       309,
+       378
+      ]
+     }
     },
     "cheer": {
-     "src": "critters/hornedlizard/idle.webp",
-     "tube": "critters/hornedlizard/idle-tube.webp"
+     "src": "critters/hornedlizard/cheer.webp",
+     "tube": "critters/hornedlizard/cheer-tube.webp",
+     "anchor": {
+      "water": [
+       256,
+       440
+      ],
+      "head": [
+       258,
+       235
+      ],
+      "face": [
+       258,
+       322
+      ],
+      "hand": [
+       311,
+       376
+      ]
+     }
     },
     "out": {
-     "src": "critters/hornedlizard/idle.webp",
-     "tube": "critters/hornedlizard/idle-tube.webp"
+     "src": "critters/hornedlizard/out.webp",
+     "tube": "critters/hornedlizard/out-tube.webp",
+     "anchor": {
+      "water": [
+       256,
+       440
+      ],
+      "head": [
+       253,
+       256
+      ],
+      "face": [
+       253,
+       360
+      ],
+      "hand": [
+       311,
+       376
+      ]
+     }
     }
    },
    "portrait": {
@@ -693,75 +1552,218 @@
     "anchor": {
      "water": [
       512,
-      700
+      907
      ],
      "head": [
-      510,
-      411
+      518,
+      403
      ],
      "face": [
-      510,
-      494
+      518,
+      615
      ],
      "hand": [
-      599,
-      664
+      644,
+      745
      ]
     }
-   },
-   "placeholder": true
+   }
   },
   "bighorn": {
    "anchor": {
     "water": [
      256,
-     352
+     440
     ],
     "head": [
-     274,
-     171
+     263,
+     232
     ],
     "face": [
-     274,
-     219
+     263,
+     317
     ],
     "hand": [
-     310,
-     327
+     311,
+     377
     ]
    },
    "poses": {
     "idle": {
      "src": "critters/bighorn/idle.webp",
-     "tube": "critters/bighorn/idle-tube.webp"
+     "tube": "critters/bighorn/idle-tube.webp",
+     "anchor": {
+      "water": [
+       256,
+       440
+      ],
+      "head": [
+       263,
+       232
+      ],
+      "face": [
+       263,
+       317
+      ],
+      "hand": [
+       311,
+       377
+      ]
+     }
     },
     "stroke": {
-     "src": "critters/bighorn/idle.webp",
-     "tube": "critters/bighorn/idle-tube.webp"
+     "src": "critters/bighorn/stroke.webp",
+     "tube": "critters/bighorn/stroke-tube.webp",
+     "anchor": {
+      "water": [
+       256,
+       440
+      ],
+      "head": [
+       286,
+       245
+      ],
+      "face": [
+       286,
+       327
+      ],
+      "hand": [
+       311,
+       376
+      ]
+     }
     },
     "hey": {
-     "src": "critters/bighorn/idle.webp",
-     "tube": "critters/bighorn/idle-tube.webp"
+     "src": "critters/bighorn/hey.webp",
+     "tube": "critters/bighorn/hey-tube.webp",
+     "anchor": {
+      "water": [
+       256,
+       440
+      ],
+      "head": [
+       254,
+       233
+      ],
+      "face": [
+       254,
+       303
+      ],
+      "hand": [
+       311,
+       376
+      ]
+     }
     },
     "nice": {
-     "src": "critters/bighorn/idle.webp",
-     "tube": "critters/bighorn/idle-tube.webp"
+     "src": "critters/bighorn/nice.webp",
+     "tube": "critters/bighorn/nice-tube.webp",
+     "anchor": {
+      "water": [
+       256,
+       440
+      ],
+      "head": [
+       263,
+       226
+      ],
+      "face": [
+       263,
+       317
+      ],
+      "hand": [
+       310,
+       377
+      ]
+     }
     },
     "miss": {
-     "src": "critters/bighorn/idle.webp",
-     "tube": "critters/bighorn/idle-tube.webp"
+     "src": "critters/bighorn/miss.webp",
+     "tube": "critters/bighorn/miss-tube.webp",
+     "anchor": {
+      "water": [
+       256,
+       440
+      ],
+      "head": [
+       263,
+       238
+      ],
+      "face": [
+       263,
+       317
+      ],
+      "hand": [
+       311,
+       377
+      ]
+     }
     },
     "chug": {
-     "src": "critters/bighorn/idle.webp",
-     "tube": "critters/bighorn/idle-tube.webp"
+     "src": "critters/bighorn/chug.webp",
+     "tube": "critters/bighorn/chug-tube.webp",
+     "anchor": {
+      "water": [
+       256,
+       440
+      ],
+      "head": [
+       299,
+       225
+      ],
+      "face": [
+       299,
+       297
+      ],
+      "hand": [
+       310,
+       375
+      ]
+     }
     },
     "cheer": {
-     "src": "critters/bighorn/idle.webp",
-     "tube": "critters/bighorn/idle-tube.webp"
+     "src": "critters/bighorn/cheer.webp",
+     "tube": "critters/bighorn/cheer-tube.webp",
+     "anchor": {
+      "water": [
+       256,
+       440
+      ],
+      "head": [
+       257,
+       233
+      ],
+      "face": [
+       257,
+       306
+      ],
+      "hand": [
+       310,
+       376
+      ]
+     }
     },
     "out": {
-     "src": "critters/bighorn/idle.webp",
-     "tube": "critters/bighorn/idle-tube.webp"
+     "src": "critters/bighorn/out.webp",
+     "tube": "critters/bighorn/out-tube.webp",
+     "anchor": {
+      "water": [
+       256,
+       440
+      ],
+      "head": [
+       268,
+       260
+      ],
+      "face": [
+       268,
+       360
+      ],
+      "hand": [
+       313,
+       382
+      ]
+     }
     }
    },
    "portrait": {
@@ -771,24 +1773,23 @@
     "h": 1024,
     "anchor": {
      "water": [
-      512,
-      700
+      515,
+      908
      ],
      "head": [
-      548,
-      348
+      550,
+      366
      ],
      "face": [
-      548,
-      440
+      550,
+      583
      ],
      "hand": [
-      617,
-      652
+      648,
+      744
      ]
     }
-   },
-   "placeholder": true
+   }
   },
   "quail": {
    "anchor": {
@@ -952,53 +1953,197 @@
    "anchor": {
     "water": [
      256,
-     352
+     440
     ],
     "head": [
-     250,
-     178
+     257,
+     219
     ],
     "face": [
-     250,
-     232
+     257,
+     307
     ],
     "hand": [
-     300,
-     317
+     311,
+     373
     ]
    },
    "poses": {
     "idle": {
      "src": "critters/coyote/idle.webp",
-     "tube": "critters/coyote/idle-tube.webp"
+     "tube": "critters/coyote/idle-tube.webp",
+     "anchor": {
+      "water": [
+       256,
+       440
+      ],
+      "head": [
+       257,
+       219
+      ],
+      "face": [
+       257,
+       307
+      ],
+      "hand": [
+       311,
+       373
+      ]
+     }
     },
     "stroke": {
-     "src": "critters/coyote/idle.webp",
-     "tube": "critters/coyote/idle-tube.webp"
+     "src": "critters/coyote/stroke.webp",
+     "tube": "critters/coyote/stroke-tube.webp",
+     "anchor": {
+      "water": [
+       256,
+       440
+      ],
+      "head": [
+       211,
+       226
+      ],
+      "face": [
+       211,
+       321
+      ],
+      "hand": [
+       305,
+       372
+      ]
+     }
     },
     "hey": {
-     "src": "critters/coyote/idle.webp",
-     "tube": "critters/coyote/idle-tube.webp"
+     "src": "critters/coyote/hey.webp",
+     "tube": "critters/coyote/hey-tube.webp",
+     "anchor": {
+      "water": [
+       256,
+       440
+      ],
+      "head": [
+       266,
+       218
+      ],
+      "face": [
+       266,
+       292
+      ],
+      "hand": [
+       311,
+       371
+      ]
+     }
     },
     "nice": {
-     "src": "critters/coyote/idle.webp",
-     "tube": "critters/coyote/idle-tube.webp"
+     "src": "critters/coyote/nice.webp",
+     "tube": "critters/coyote/nice-tube.webp",
+     "anchor": {
+      "water": [
+       256,
+       440
+      ],
+      "head": [
+       257,
+       218
+      ],
+      "face": [
+       257,
+       307
+      ],
+      "hand": [
+       311,
+       374
+      ]
+     }
     },
     "miss": {
-     "src": "critters/coyote/idle.webp",
-     "tube": "critters/coyote/idle-tube.webp"
+     "src": "critters/coyote/miss.webp",
+     "tube": "critters/coyote/miss-tube.webp",
+     "anchor": {
+      "water": [
+       256,
+       440
+      ],
+      "head": [
+       257,
+       180
+      ],
+      "face": [
+       257,
+       307
+      ],
+      "hand": [
+       312,
+       373
+      ]
+     }
     },
     "chug": {
-     "src": "critters/coyote/idle.webp",
-     "tube": "critters/coyote/idle-tube.webp"
+     "src": "critters/coyote/chug.webp",
+     "tube": "critters/coyote/chug-tube.webp",
+     "anchor": {
+      "water": [
+       256,
+       440
+      ],
+      "head": [
+       257,
+       150
+      ],
+      "face": [
+       257,
+       307
+      ],
+      "hand": [
+       311,
+       370
+      ]
+     }
     },
     "cheer": {
-     "src": "critters/coyote/idle.webp",
-     "tube": "critters/coyote/idle-tube.webp"
+     "src": "critters/coyote/cheer.webp",
+     "tube": "critters/coyote/cheer-tube.webp",
+     "anchor": {
+      "water": [
+       256,
+       440
+      ],
+      "head": [
+       257,
+       214
+      ],
+      "face": [
+       257,
+       288
+      ],
+      "hand": [
+       310,
+       372
+      ]
+     }
     },
     "out": {
-     "src": "critters/coyote/idle.webp",
-     "tube": "critters/coyote/idle-tube.webp"
+     "src": "critters/coyote/out.webp",
+     "tube": "critters/coyote/out-tube.webp",
+     "anchor": {
+      "water": [
+       256,
+       440
+      ],
+      "head": [
+       262,
+       218
+      ],
+      "face": [
+       262,
+       342
+      ],
+      "hand": [
+       310,
+       370
+      ]
+     }
     }
    },
    "portrait": {
@@ -1008,76 +2153,219 @@
     "h": 1024,
     "anchor": {
      "water": [
-      512,
-      700
+      457,
+      905
      ],
      "head": [
-      501,
-      361
+      452,
+      371
      ],
      "face": [
-      501,
-      467
+      452,
+      583
      ],
      "hand": [
-      597,
-      632
+      589,
+      740
      ]
     }
-   },
-   "placeholder": true
+   }
   },
   "otter": {
    "anchor": {
     "water": [
      256,
-     352
+     440
     ],
     "head": [
-     252,
-     169
+     257,
+     212
     ],
     "face": [
-     250,
-     218
+     257,
+     295
     ],
     "hand": [
-     290,
-     310
+     311,
+     373
     ]
    },
    "poses": {
     "idle": {
      "src": "critters/otter/idle.webp",
-     "tube": "critters/otter/idle-tube.webp"
+     "tube": "critters/otter/idle-tube.webp",
+     "anchor": {
+      "water": [
+       256,
+       440
+      ],
+      "head": [
+       257,
+       212
+      ],
+      "face": [
+       257,
+       295
+      ],
+      "hand": [
+       311,
+       373
+      ]
+     }
     },
     "stroke": {
-     "src": "critters/otter/idle.webp",
-     "tube": "critters/otter/idle-tube.webp"
+     "src": "critters/otter/stroke.webp",
+     "tube": "critters/otter/stroke-tube.webp",
+     "anchor": {
+      "water": [
+       256,
+       440
+      ],
+      "head": [
+       217,
+       221
+      ],
+      "face": [
+       217,
+       304
+      ],
+      "hand": [
+       307,
+       374
+      ]
+     }
     },
     "hey": {
-     "src": "critters/otter/idle.webp",
-     "tube": "critters/otter/idle-tube.webp"
+     "src": "critters/otter/hey.webp",
+     "tube": "critters/otter/hey-tube.webp",
+     "anchor": {
+      "water": [
+       256,
+       440
+      ],
+      "head": [
+       264,
+       200
+      ],
+      "face": [
+       264,
+       271
+      ],
+      "hand": [
+       309,
+       373
+      ]
+     }
     },
     "nice": {
-     "src": "critters/otter/idle.webp",
-     "tube": "critters/otter/idle-tube.webp"
+     "src": "critters/otter/nice.webp",
+     "tube": "critters/otter/nice-tube.webp",
+     "anchor": {
+      "water": [
+       256,
+       440
+      ],
+      "head": [
+       180,
+       245
+      ],
+      "face": [
+       180,
+       274
+      ],
+      "hand": [
+       309,
+       373
+      ]
+     }
     },
     "miss": {
-     "src": "critters/otter/idle.webp",
-     "tube": "critters/otter/idle-tube.webp"
+     "src": "critters/otter/miss.webp",
+     "tube": "critters/otter/miss-tube.webp",
+     "anchor": {
+      "water": [
+       256,
+       440
+      ],
+      "head": [
+       257,
+       212
+      ],
+      "face": [
+       257,
+       295
+      ],
+      "hand": [
+       310,
+       372
+      ]
+     }
     },
     "chug": {
-     "src": "critters/otter/idle.webp",
-     "tube": "critters/otter/idle-tube.webp"
+     "src": "critters/otter/chug.webp",
+     "tube": "critters/otter/chug-tube.webp",
+     "anchor": {
+      "water": [
+       256,
+       440
+      ],
+      "head": [
+       208,
+       218
+      ],
+      "face": [
+       208,
+       246
+      ],
+      "hand": [
+       310,
+       371
+      ]
+     }
     },
     "cheer": {
-     "src": "critters/otter/idle.webp",
-     "tube": "critters/otter/idle-tube.webp"
+     "src": "critters/otter/cheer.webp",
+     "tube": "critters/otter/cheer-tube.webp",
+     "anchor": {
+      "water": [
+       256,
+       440
+      ],
+      "head": [
+       257,
+       203
+      ],
+      "face": [
+       257,
+       295
+      ],
+      "hand": [
+       309,
+       372
+      ]
+     }
     },
     "out": {
-     "src": "critters/otter/idle.webp",
-     "tube": "critters/otter/idle-tube.webp"
+     "src": "critters/otter/out.webp",
+     "tube": "critters/otter/out-tube.webp",
+     "anchor": {
+      "water": [
+       256,
+       440
+      ],
+      "head": [
+       249,
+       252
+      ],
+      "face": [
+       249,
+       362
+      ],
+      "hand": [
+       312,
+       374
+      ]
+     }
     }
    },
    "portrait": {
@@ -1087,76 +2375,219 @@
     "h": 1024,
     "anchor": {
      "water": [
-      512,
-      700
+      474,
+      902
      ],
      "head": [
-      504,
-      342
+      479,
+      388
      ],
      "face": [
-      499,
-      439
+      479,
+      564
      ],
      "hand": [
-      578,
-      618
+      606,
+      729
      ]
     }
-   },
-   "placeholder": true
+   }
   },
   "frog": {
    "anchor": {
     "water": [
      256,
-     352
+     440
     ],
     "head": [
-     254,
-     216
+     257,
+     286
     ],
     "face": [
-     254,
-     258
+     257,
+     322
     ],
     "hand": [
-     301,
-     322
+     311,
+     383
     ]
    },
    "poses": {
     "idle": {
      "src": "critters/frog/idle.webp",
-     "tube": "critters/frog/idle-tube.webp"
+     "tube": "critters/frog/idle-tube.webp",
+     "anchor": {
+      "water": [
+       256,
+       440
+      ],
+      "head": [
+       257,
+       286
+      ],
+      "face": [
+       257,
+       322
+      ],
+      "hand": [
+       311,
+       383
+      ]
+     }
     },
     "stroke": {
-     "src": "critters/frog/idle.webp",
-     "tube": "critters/frog/idle-tube.webp"
+     "src": "critters/frog/stroke.webp",
+     "tube": "critters/frog/stroke-tube.webp",
+     "anchor": {
+      "water": [
+       256,
+       440
+      ],
+      "head": [
+       257,
+       298
+      ],
+      "face": [
+       257,
+       322
+      ],
+      "hand": [
+       308,
+       379
+      ]
+     }
     },
     "hey": {
-     "src": "critters/frog/idle.webp",
-     "tube": "critters/frog/idle-tube.webp"
+     "src": "critters/frog/hey.webp",
+     "tube": "critters/frog/hey-tube.webp",
+     "anchor": {
+      "water": [
+       256,
+       440
+      ],
+      "head": [
+       257,
+       290
+      ],
+      "face": [
+       257,
+       325
+      ],
+      "hand": [
+       308,
+       378
+      ]
+     }
     },
     "nice": {
-     "src": "critters/frog/idle.webp",
-     "tube": "critters/frog/idle-tube.webp"
+     "src": "critters/frog/nice.webp",
+     "tube": "critters/frog/nice-tube.webp",
+     "anchor": {
+      "water": [
+       256,
+       440
+      ],
+      "head": [
+       257,
+       294
+      ],
+      "face": [
+       257,
+       322
+      ],
+      "hand": [
+       309,
+       384
+      ]
+     }
     },
     "miss": {
-     "src": "critters/frog/idle.webp",
-     "tube": "critters/frog/idle-tube.webp"
+     "src": "critters/frog/miss.webp",
+     "tube": "critters/frog/miss-tube.webp",
+     "anchor": {
+      "water": [
+       256,
+       440
+      ],
+      "head": [
+       257,
+       287
+      ],
+      "face": [
+       257,
+       322
+      ],
+      "hand": [
+       310,
+       385
+      ]
+     }
     },
     "chug": {
-     "src": "critters/frog/idle.webp",
-     "tube": "critters/frog/idle-tube.webp"
+     "src": "critters/frog/chug.webp",
+     "tube": "critters/frog/chug-tube.webp",
+     "anchor": {
+      "water": [
+       256,
+       440
+      ],
+      "head": [
+       315,
+       276
+      ],
+      "face": [
+       315,
+       311
+      ],
+      "hand": [
+       308,
+       384
+      ]
+     }
     },
     "cheer": {
-     "src": "critters/frog/idle.webp",
-     "tube": "critters/frog/idle-tube.webp"
+     "src": "critters/frog/cheer.webp",
+     "tube": "critters/frog/cheer-tube.webp",
+     "anchor": {
+      "water": [
+       256,
+       440
+      ],
+      "head": [
+       257,
+       284
+      ],
+      "face": [
+       257,
+       317
+      ],
+      "hand": [
+       308,
+       382
+      ]
+     }
     },
     "out": {
-     "src": "critters/frog/idle.webp",
-     "tube": "critters/frog/idle-tube.webp"
+     "src": "critters/frog/out.webp",
+     "tube": "critters/frog/out-tube.webp",
+     "anchor": {
+      "water": [
+       256,
+       440
+      ],
+      "head": [
+       263,
+       309
+      ],
+      "face": [
+       263,
+       356
+      ],
+      "hand": [
+       308,
+       389
+      ]
+     }
     }
    },
    "portrait": {
@@ -1167,23 +2598,22 @@
     "anchor": {
      "water": [
       512,
-      700
+      911
      ],
      "head": [
-      509,
-      434
+      510,
+      559
      ],
      "face": [
-      509,
-      517
+      510,
+      637
      ],
      "hand": [
-      601,
-      641
+      644,
+      755
      ]
     }
-   },
-   "placeholder": true
+   }
   }
  },
  "host": {

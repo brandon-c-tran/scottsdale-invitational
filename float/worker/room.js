@@ -1,41 +1,57 @@
-/* FloatRoom: one Durable Object per Float room (float/PROTOCOL.md "The
-   room", "Field Day"). The room is the race's only authority: phones send
-   strokes, screens draw what the room sends, the room runs the Cup
-   (float/shared/cup.js) and the river (sim.js) and paddles for bots.
+/* FloatRoom: one Durable Object per Float room (float/GROOVE.md "Judging",
+   "What the room sends"; float/PROTOCOL.md "The room", "Field Day"). The
+   room is the Groove's only authority: phones send their taps stamped on
+   the server clock, the room judges them with its one calibration offset,
+   calls the misses, plays the bots and the stand-ins, runs the Cup
+   (float/shared/cup.js) and its songs (float/shared/groove.js), and screens
+   draw what it sends.
 
-   Sockets: plain ws.accept(), not hibernation. While a race runs the 30 Hz
-   setInterval blocks hibernation anyway; every client pings every 2 s and
-   each pong must carry the server's clock, so an idle lobby would wake the
-   object constantly too; and per-socket state (device, role, rider, round
+   Sockets: plain ws.accept(), not hibernation. Every client pings every 2 s
+   and each pong must carry the server's clock, so an idle lobby would wake
+   the object constantly anyway; per-socket state (device, role, rider, round
    trip) is simplest in memory. Nothing that matters lives only in memory:
-   the Cup is saved at every phase change, the race every second, and one
-   alarm (the next phase deadline, a scheduled Field Day start, a pending
-   post to the Tournament, or a race watchdog) brings a restarted room back,
-   which resumes a race from its last save after a 3 s countdown.
+   the Cup is saved at every phase change and, in a song, every 2 s without
+   holding the room's messages (allowUnconfirmed); one alarm (the next phase
+   deadline, a scheduled Field Day start, a post to retry, or a song's
+   watchdog) brings a restarted room back, and a song in progress carries on
+   by the clock (songAt is in the save).
 
-   The 30 Hz loop runs only from `grid` to the end of `race`; between races a
-   single timeout (and the alarm behind it) moves the phases on, and a lobby
-   holds no timer at all.
+   Timers: a light 100 ms interval runs only in a song (bots' and stand-ins'
+   taps, misses, the calibration's beat, scores every 4 s, the save every
+   2 s); between songs a single timeout (and the alarm behind it) moves the
+   phases on, and a lobby holds no timer at all.
 
-   Testing: new FloatRoom(ctx, env, { clock, timers:false }) takes a fake
-   clock; tick(), alarm(), wake(), attach(ws, url) and onMessage(ws, text)
-   are public so a test can drive a whole Cup in accelerated time. */
-import { COURSE, COURSE_ID, legLength } from "../shared/course.js";
-import { ROLES, HOST_CMDS, FLAG, cleanDevice, cleanRider, cleanAnswers, cleanPid, ROOM_ID } from "../shared/protocol.js";
-import { SIM_HZ, SNAP_HZ, ME_HZ, PERSIST_MS, DEBUG_MS, MAX_CATCHUP_TICKS, MAX_RIDERS, TIMING } from "../shared/tuning.js";
-import { applyInput, throwBalloon, rows, flagsOf, progressOf, riderOf, seedOf } from "../shared/sim.js";
+   Driving it without timers (the tests, scripts/float-sim.mjs, the screen's
+   and the phone's mocks):
+     const room = new FloatRoom(ctx, env, { clock, timers:false });
+     await room.ready;
+   ctx is { storage:{ get, put, delete, setAlarm, deleteAlarm },
+   blockConcurrencyWhile? }, env may be {} (env.TOURNAMENT for Field Day's
+   posts), clock is { now }, and options.ids (prefix -> string, optional)
+   makes the ids a Cup is seeded by repeatable (a bench, a mock's shots). Sockets are anything with send(text),
+   addEventListener("message" | "close" | "error", fn) and close():
+   room.attach(ws, url) then room.onMessage(ws, text) for each frame. Call
+   room.tick() as often as you like, in ANY phase (every 100 ms is the
+   room's own rate): it does whatever is due by clock.now(), phase changes
+   included. wake() is tick() plus the outbox and the timers (what the
+   alarm runs). room.cup is the Cup (plain JSON). */
+import { ROLES, HOST_CMDS, cleanDevice, cleanRider, cleanAnswers, cleanPid, ROOM_ID } from "../shared/protocol.js";
 import { cleanLook } from "../shared/looks.js";
 import { FLOATIE_IDS } from "../shared/floaties.js";
+import { chartOf } from "../shared/chart.js";
+import { GROOVE, applyDone, applyHit, seedOf } from "../shared/groove.js";
 import * as Cup from "../shared/cup.js";
 
-const TICK_MS = 1000 / SIM_HZ;
-/* a controller silent this long is away (a bot paddles for it) */
-const STALE_MS = 5000;
-/* inputs a socket may send: strokes a second, and everything a second */
-const STROKES_PER_S = 10;
+const { MAX_RIDERS, CUP_TIMING } = Cup;
+/* inputs a socket may send: hits a second, and everything a second */
+const HITS_PER_S = 16;
 const MESSAGES_PER_S = 60;
-/* what a screen sees while riders sit on the grid */
-const GRID_SNAP_MS = 200;
+/* an out rider's cheers: one in this long */
+const CHEER_MS = 300;
+/* the screens' round-trip readout */
+const DEBUG_MS = 2000;
+/* who a stand-in plays is looked at this often in a song */
+const DRIVEN_MS = 1000;
 /* retries for posts to the Tournament: then hourly, for a day */
 const BACKOFF_MS = [1000, 5000, 30000, 120000, 600000];
 const RETRY_FOR_MS = 24 * 3600 * 1000;
@@ -52,6 +68,8 @@ const randomId = prefix => {
   return `${prefix}${[...bytes].map(b => b.toString(16).padStart(2, "0")).join("")}`;
 };
 const json = (body, status = 200) => new Response(JSON.stringify(body), { status, headers:{ "Content-Type":"application/json" } });
+/* an event as it goes on the wire: { t:"ev", e, i, c?, q?, d? } (its `at` stays in the room) */
+const wire = ({ at, ...event }) => ({ t:"ev", ...event });
 
 export class FloatRoom {
   constructor(ctx, env, options = {}) {
@@ -59,23 +77,29 @@ export class FloatRoom {
     this.env = env || {};
     this.clock = options.clock || realClock;
     this.timers = options.timers !== false;
+    /* where new ids come from (a cup's id seeds its bots): random, unless a
+       bench or a mock wants the same Cup every time */
+    this.ids = typeof options.ids === "function" ? options.ids : randomId;
     this.sockets = new Map();
     this.cup = null;
-    this.race = null;
     this.outbox = [];
     this.loop = null;
     this.timer = null;
-    this.raceZero = 0;
-    this.lastSnap = -1;
-    this.lastGridSnap = 0;
-    this.lastMe = -1;
+    /* when each device last spoke (a phone gone STALE_MS is played by a stand-in) */
+    this.heard = new Map();
+    this.cheers = new Map();
+    this.lastScores = 0;
     this.lastSave = 0;
     this.lastDebug = 0;
+    this.lastDrivenAt = 0;
     this.lastDriven = "";
     this.rtt = {};
     this.code = "";
     this.kickedDevices = new Set();
     this.alarmAt = null;
+    /* a device never heard from counts as heard when the room came up, so a
+       restarted room gives every phone STALE_MS to come back */
+    this.bornAt = this.now();
     const load = () => this.load();
     this.ready = ctx?.blockConcurrencyWhile ? Promise.resolve(ctx.blockConcurrencyWhile(load)) : load();
   }
@@ -86,39 +110,36 @@ export class FloatRoom {
   /* ---------------------------------------------------------------- storage */
 
   async load() {
-    const [cup, race, outbox] = await Promise.all([this.storage.get("cup"), this.storage.get("race"), this.storage.get("outbox")]);
-    this.cup = cup || null;
-    this.race = race || null;
+    const [cup, outbox] = await Promise.all([this.storage.get("cup"), this.storage.get("outbox")]);
+    if (cup) {
+      this.cup = Cup.migrate(cup, this.now());
+      /* the parked river's checkpoint is no use to a song */
+      if (this.cup !== cup) { this.persist(this.storage.delete("race")); this.saveCup(); }
+    }
     this.outbox = Array.isArray(outbox) ? outbox : [];
     if (this.cup) this.code = this.cup.code || "";
     this.restore();
   }
 
-  /* a room that wakes up mid-Cup: a race resumes after a short countdown,
-     anything else carries on from its saved deadline */
+  /* a room that wakes up mid-Cup carries on by the clock: a song from its
+     songAt (judged to its last save), anything else from its saved deadline */
   restore() {
     const cup = this.cup;
     if (!cup) return;
-    const now = this.now();
-    if (cup.phase === "race" || (cup.phase === "countdown" && cup.resume)) {
-      if (!this.race || this.race.leg !== Cup.legOf(cup)) this.race = Cup.raceFor(cup, COURSE);
-      Cup.resumeCountdown(cup, now, this.race.t);
-      this.saveCup();
-    } else if ((cup.phase === "grid" || cup.phase === "countdown") && (!this.race || this.race.leg !== Cup.legOf(cup))) {
-      this.race = Cup.raceFor(cup, COURSE);
-    }
+    this.bornAt = this.now();
+    if (cup.phase === "song") Cup.ensureSong(cup);
     this.schedule();
   }
 
   /* A Durable Object holds every outgoing message until a write it made is
-     on disk (the output gate). The race's checkpoints and a cup saved while
-     racing are only for recovery, so they never hold the snapshots: those
-     writes go unconfirmed (a crash loses at most the last checkpoint). */
-  racing() { return ["grid", "countdown", "race"].includes(this.cup?.phase); }
-  saveCup() { this.persist(this.storage.put("cup", this.cup, this.racing() ? { allowUnconfirmed:true } : undefined)); }
-  saveRace() {
+     on disk (the output gate). In a song the room's saves are only for
+     recovery, so they never hold a hit: those writes go unconfirmed (a crash
+     loses at most the last 2 s of judgements). A phase change's save is
+     confirmed. */
+  saveCup(quiet = this.cup?.phase === "song") {
+    if (!this.cup) return;
     this.lastSave = this.now();
-    if (this.race) this.persist(this.storage.put("race", this.race, { allowUnconfirmed:true }));
+    this.persist(this.storage.put("cup", this.cup, quiet ? { allowUnconfirmed:true } : undefined));
   }
   saveOutbox() { this.persist(this.storage.put("outbox", this.outbox)); }
   /* storage writes are not awaited on the hot path; the output gate holds
@@ -142,7 +163,7 @@ export class FloatRoom {
   attach(ws, url) {
     const room = url?.searchParams?.get("room");
     if (!this.code && room && ROOM_ID.test(room)) this.code = room;
-    this.sockets.set(ws, { role:null, device:null, rider:null, seen:this.now(), window:0, count:0, strokes:0 });
+    this.sockets.set(ws, { role:null, device:null, rider:null, seen:this.now(), window:0, count:0, hits:0, chartId:null });
     ws.addEventListener("message", event => {
       /* a handler may be async (feedback awaits storage): never let it float */
       Promise.resolve(this.onMessage(ws, event.data)).catch(error => console.error("float: message", error?.message || error));
@@ -172,12 +193,13 @@ export class FloatRoom {
     if (!meta || typeof data !== "string" || data.length > 4096) return;
     const now = this.now();
     /* a flood is dropped, never queued */
-    if (now - meta.window >= 1000) { meta.window = now; meta.count = 0; meta.strokes = 0; }
+    if (now - meta.window >= 1000) { meta.window = now; meta.count = 0; meta.hits = 0; }
     if ((meta.count += 1) > MESSAGES_PER_S) return;
     let msg;
     try { msg = JSON.parse(data); } catch { return; }
     if (!msg || typeof msg !== "object") return;
     meta.seen = now;
+    if (meta.device) this.heard.set(meta.device, now);
     if (msg.t === "hello") return this.onHello(ws, meta, msg);
     if (msg.t === "ping") return this.onPing(ws, meta, msg);
     if (!meta.role || !this.cup) return;
@@ -188,14 +210,12 @@ export class FloatRoom {
     const i = this.entrantIndex(meta.device);
     if (msg.t === "feedback") return this.onFeedback(meta, i, msg);
     if (i < 0) return;
-    if (msg.t === "stroke") {
-      if ((meta.strokes += 1) > STROKES_PER_S) return;
-      /* the phone stamps its touch on the beat: k and d (float/PROTOCOL.md "The beat") */
-      return this.input(i, { t:"stroke", side:msg.side, p:msg.p, k:msg.k, d:msg.d });
+    if (msg.t === "hit") {
+      if ((meta.hits += 1) > HITS_PER_S) return;
+      return this.onHit(i, msg);
     }
-    if (msg.t === "hands") return this.input(i, { t:"hands", n:msg.n });
     if (msg.t === "drink") return this.onDrink(i);
-    if (msg.t === "balloon") return this.onBalloon(i, msg);
+    if (msg.t === "cheer") return this.onCheer(i);
     if (msg.t === "look") return this.onLook(meta, i, msg);
     if (msg.t === "ready") return this.onReady(i, msg);
   }
@@ -206,7 +226,8 @@ export class FloatRoom {
   onHello(ws, meta, msg) {
     if (!ROLES.includes(msg.role)) return;
     meta.role = msg.role;
-    meta.device = cleanDevice(msg.device) || randomId("d-");
+    meta.device = cleanDevice(msg.device) || this.ids("d-");
+    this.heard.set(meta.device, this.now());
     if (!this.cup) this.newCup();
     let i = -1;
     if (meta.role === "controller") {
@@ -215,8 +236,8 @@ export class FloatRoom {
       i = this.claim(meta);
     }
     this.send(ws, { t:"welcome", you:{ device:meta.device, role:meta.role, ...(i >= 0 ? { entrant:i } : {}) } });
-    this.send(ws, this.roomMessage(true, meta.role === "controller" ? meta.device : null));
-    if (meta.role === "screen" && this.clip && this.cup.phase === "cut") this.send(ws, this.clip);
+    this.sendRoom(ws, meta);
+    if (i >= 0 && this.cup.phase !== "lobby") this.send(ws, { t:"me", ...Cup.meOf(this.cup, i, this.now()) });
     if (meta.role === "controller") this.broadcastRoom(ws);
     this.schedule();
   }
@@ -227,10 +248,12 @@ export class FloatRoom {
     const pid = rider?.pid ? cleanPid(rider.pid) : null;
     let i = pid ? cup.entrants.findIndex(entrant => entrant.pid === pid) : -1;
     if (i < 0) i = this.entrantIndex(meta.device);
+    /* a bot's device id is public (room.entrants): a phone never takes a bot */
+    if (i >= 0 && cup.entrants[i].bot) return -1;
     if (i >= 0) {
       const entrant = cup.entrants[i];
       entrant.device = meta.device;
-      /* the phone's look counts in the lobby (its floatie choice included) */
+      /* the phone's look counts in the lobby */
       if (rider && cup.phase === "lobby") {
         entrant.look = cleanLook(rider.look, { groom:entrant.groom === true, floatieIds:FLOATIE_IDS, seed:meta.device });
         if (!entrant.pid) {
@@ -257,6 +280,7 @@ export class FloatRoom {
   }
 
   onPing(ws, meta, msg) {
+    const now = this.now();
     const rtt = Number(msg.rtt);
     if (meta.device && Number.isFinite(rtt) && rtt >= 0 && rtt < 60000) {
       this.rtt[meta.device] = Math.round(rtt);
@@ -264,82 +288,141 @@ export class FloatRoom {
       if (meta.samples?.length > 400) meta.samples.splice(0, 200);
     }
     this.send(ws, { t:"pong", c:msg.c });
+    /* a screen's readout of the phones' round trips; in a song the room's timer sends it */
+    if (meta.role === "screen" && this.cup?.phase !== "song" && now - (meta.debugAt || 0) >= DEBUG_MS) {
+      meta.debugAt = now;
+      this.send(ws, { t:"debug", rtt:{ ...this.rtt } });
+    }
   }
 
-  /* a controller is live when it has spoken lately */
+  /* a controller is live when it has spoken lately (the lamp on its name) */
   live(device, now = this.now()) {
     if (!device) return false;
     for (const meta of this.sockets.values())
-      if (meta.role === "controller" && meta.device === device && now - meta.seen < STALE_MS) return true;
+      if (meta.role === "controller" && meta.device === device && now - meta.seen < GROOVE.STALE_MS) return true;
     return false;
   }
 
-  /* who paddles for entrant i: a bot entrant, a kicked one, or anyone whose
-     phone is away right now (taken back the moment it speaks again) */
-  botDriven(i, now = this.now()) {
+  /* when a device last spoke: never, counts as when the room came up */
+  lastHeard(device) { return (device && this.heard.get(device)) ?? this.bornAt; }
+
+  /* who plays entrant i at time t: a bot entrant, a kicked one, or a stand-in
+     for a phone gone STALE_MS (taken back the moment it speaks again) */
+  driven(i, t = this.now()) {
     const entrant = this.cup?.entrants[i];
     if (!entrant) return false;
-    return entrant.bot || entrant.kicked === true || !this.live(entrant.device, now);
+    if (entrant.bot || entrant.kicked === true) return true;
+    return t - this.lastHeard(entrant.device) >= GROOVE.STALE_MS;
   }
 
   /* ---------------------------------------------------------------- the room message */
 
-  /* The room as a socket sees it. A rider's drinking answer is private (in
-     Field Day only they and the commissioner see it): `drinks` goes only to
-     the entrant whose device this is (`forDevice`), never to screens or
-     other phones. Out riders carry `drank` (their beach drink). */
-  roomMessage(withCourse = false, forDevice = null) {
+  /* The room as a socket sees it (float/GROOVE.md "What the room sends"). A
+     rider's drinking answer is private (in Field Day only they and the
+     commissioner see it): `drinks` goes only to the entrant whose device
+     this is (`forDevice`), never to screens or other phones. The chart
+     rides separately (sendRoom, broadcastRoom): in full to a socket that
+     has not had this song's, else only its id. */
+  roomMessage(forDevice = null) {
     const cup = this.cup;
     const now = this.now();
     const entrants = cup.entrants.map((entrant, i) => {
       const item = { device:entrant.device, name:entrant.name, color:entrant.color, look:entrant.look, bot:entrant.bot === true,
         connected:entrant.bot ? true : this.live(entrant.device, now), ready:entrant.ready === true,
-        botDriven:this.botDriven(i, now) };
+        botDriven:this.driven(i, now) };
       if (forDevice && entrant.device === forDevice) item.drinks = entrant.drinks !== false;
-      if (cup.beach[i] && cup.out.includes(i)) item.drank = cup.beach[i].drank === true;
       for (const key of ["pid", "photo", "number", "skin", "groom"]) if (entrant[key] !== undefined) item[key] = entrant[key];
       return item;
     });
-    const live = cup.phase === "race" && this.race;
+    const lobby = cup.phase === "lobby";
+    const song = ["intro", "song", "cut"].includes(cup.phase) ? cup.songId : null;
     return {
       t:"room", phase:cup.phase, mode:cup.mode, code:cup.code || this.code, cupId:cup.id, drinking:cup.drinking,
-      round:cup.round, rounds:cup.rounds, leg:Cup.legOf(cup), field:cup.field, out:cup.out,
-      startAt:cup.startAt, endsAt:cup.endsAt, swapUntil:cup.swapUntil ?? null, resume:cup.resume === true,
+      round:cup.round, rounds:cup.rounds, field:cup.field, out:cup.out,
+      startAt:cup.startAt, endsAt:cup.endsAt,
       /* a Field Day Cup's start, while it waits in the lobby */
-      startPlanned:cup.phase === "lobby" && cup.startPlanned ? cup.startPlanned : null,
-      cut:Cup.cutOf(cup), len:legLength(COURSE, Cup.legOf(cup)),
+      startPlanned:lobby && cup.startPlanned ? cup.startPlanned : null,
+      cut:lobby ? null : Cup.cutOf(cup),
       /* this is the final round (`final`, below, is the Cup's final order once known) */
-      lastRound:cup.phase !== "lobby" && Cup.isLastRound(cup),
+      lastRound:!lobby && Cup.isLastRound(cup),
       entrants,
-      ...(withCourse ? { course:COURSE } : { courseId:COURSE_ID }),
-      results:live ? Cup.resultsOf(this.race) : cup.results, standings:cup.standings, podium:cup.podium,
-      final:cup.final, history:cup.history.map(({ round, leg, field, results, out }) => ({ round, leg, field, results, out })),
+      song, songAt:song && cup.phase !== "intro" ? cup.songAt : null, chartId:song,
+      offset:Cup.offsetOf(cup),
+      scores:Cup.scoresOf(cup, now), results:Cup.resultsOf(cup),
+      standings:cup.standings, podium:cup.podium, final:cup.final,
+      history:cup.history.map(({ round, song:id, field, results, out }) => ({ round, song:id, field, results, out })),
     };
   }
-  /* one text for screens and phones without an entrant; each rider's phone
-     its own copy, with only its own drinking answer */
+
+  /* one socket's copy: its own drinking answer, and the chart if it has not had this song's */
+  roomFor(base, meta, k) {
+    const message = { ...base };
+    if (k >= 0) message.entrants = base.entrants.map((item, j) => j === k ? { ...item, drinks:this.cup.entrants[k].drinks !== false } : item);
+    if (base.song && meta.chartId !== base.song) {
+      message.chart = chartOf(base.song);
+      meta.chartId = base.song;
+    }
+    return message;
+  }
+
+  sendRoom(ws, meta) {
+    const k = meta.role === "controller" ? this.entrantIndex(meta.device) : -1;
+    this.send(ws, this.roomFor(this.roomMessage(), meta, k));
+  }
+
+  /* everyone's room: one text for screens and phones without an entrant that
+     have the chart; a rider's phone, or a socket owed the chart, its own */
   broadcastRoom(except = null) {
     if (!this.cup) return;
     const s = this.now();
-    const base = this.roomMessage(false);
-    const text = JSON.stringify({ ...base, s });
+    this.lastScores = s;
+    const base = this.roomMessage();
+    let shared = null;
     this.each(null, (ws, meta) => {
       if (ws === except) return;
       const k = meta.role === "controller" ? this.entrantIndex(meta.device) : -1;
-      let out = text;
-      if (k >= 0) {
-        const own = { ...base.entrants[k], drinks:this.cup.entrants[k].drinks !== false };
-        out = JSON.stringify({ ...base, entrants:base.entrants.map((item, j) => j === k ? own : item), s });
-      }
-      try { ws.send(out); } catch { /* closing */ }
+      let text;
+      if (k < 0 && (!base.song || meta.chartId === base.song)) text = shared ||= JSON.stringify({ ...base, s });
+      else text = JSON.stringify({ ...this.roomFor(base, meta, k), s });
+      try { ws.send(text); } catch { /* closing */ }
     });
+  }
+
+  /* each rider's phone its own `me` */
+  sendMe(i, now = this.now()) {
+    if (!this.cup || this.cup.phase === "lobby") return;
+    let message = null;
+    this.each("controller", (ws, meta) => {
+      if (this.entrantIndex(meta.device) !== i) return;
+      message ||= { t:"me", ...Cup.meOf(this.cup, i, now) };
+      this.send(ws, message, now);
+    });
+  }
+  sendMeAll(now = this.now()) {
+    if (!this.cup || this.cup.phase === "lobby") return;
+    const seen = new Set();
+    this.each("controller", (_, meta) => {
+      const i = this.entrantIndex(meta.device);
+      if (i >= 0 && !seen.has(i)) { seen.add(i); this.sendMe(i, now); }
+    });
+  }
+
+  /* the song's events out: every hit, miss and Done to everyone; `me` to the riders they touched */
+  sendEvents(events) {
+    if (!events?.length) return;
+    const now = this.now();
+    const touched = new Set();
+    for (const event of events) {
+      this.broadcast(wire(event));
+      if (event.i !== undefined) touched.add(event.i);
+    }
+    for (const i of touched) this.sendMe(i, now);
   }
 
   /* ---------------------------------------------------------------- the Cup */
 
-  newCup({ mode = "party", drinking = true, id = randomId("c-"), evId = null } = {}) {
+  newCup({ mode = "party", drinking = true, id = this.ids("c-"), evId = null } = {}) {
     this.stopLoop();
-    this.race = null;
     this.cup = Cup.createCup({ id, mode, code:this.code, drinking, seed:seedOf(`${id}:${this.now()}`), evId });
     this.saveCup();
     return this.cup;
@@ -352,7 +435,7 @@ export class FloatRoom {
     const fieldDayLive = cup.mode === "fieldday" && !cup.done && (cup.phase !== "lobby" || cup.startPlanned);
     if (msg.cmd === "start") {
       if (cup.phase !== "lobby" || fieldDayLive) return;
-      if (cup.mode === "fieldday") { cup.mode = "party"; cup.id = randomId("c-"); }
+      if (cup.mode === "fieldday") { cup.mode = "party"; cup.id = this.ids("c-"); }
       const bots = Math.max(0, Math.min(MAX_RIDERS, Number(msg.bots) | 0));
       if (bots) Cup.addBots(cup, bots, seedOf(`${cup.id}:${this.now()}`));
       if (!cup.entrants.length) return;
@@ -365,8 +448,8 @@ export class FloatRoom {
       const device = cleanDevice(msg.device);
       const i = this.entrantIndex(device);
       if (i < 0 || fieldDayLive && cup.entrants[i].pid) return;
-      /* in the lobby the entrant goes; mid-Cup indexes are fixed, so a bot
-         paddles for it instead */
+      /* in the lobby the entrant goes; mid-Cup indexes are fixed, so a
+         stand-in plays for it instead */
       if (cup.phase === "lobby") {
         cup.entrants.splice(i, 1);
         /* it stays out of later lobbies until that phone says hello again */
@@ -379,30 +462,37 @@ export class FloatRoom {
   }
 
   startCup() {
+    const cup = this.cup;
     const now = this.now();
-    this.race = null;
-    Cup.startCup(this.cup, now);
-    this.cup.startPlanned = null;
-    this.saveCup();
+    /* a planned start keeps its moment when the room is on time */
+    const at = cup.startPlanned && now - cup.startPlanned < CUP_TIMING.LATE_MS ? Math.min(now, cup.startPlanned) : now;
+    Cup.startCup(cup, at);
+    cup.startPlanned = null;
+    this.cheers.clear();
+    this.saveCup(false);
     this.broadcastRoom();
+    this.sendMeAll();
     this.schedule();
   }
 
   toLobby() {
     this.postResultOnce();
     this.stopLoop();
-    this.race = null;
     Cup.toLobby(this.cup, this.now(), { keepBots:this.cup.mode === "fieldday" && !this.cup.done });
-    /* phones that watched the last Cup join the next one */
-    if (this.cup.mode === "party")
-      for (const meta of this.sockets.values())
-        if (meta.role === "controller" && meta.rider && this.entrantIndex(meta.device) < 0 && !this.kickedDevices.has(meta.device)
-          && this.cup.entrants.length < MAX_RIDERS)
-          this.cup.entrants.push(Cup.makeEntrant(this.cup, meta.rider, { device:meta.device }));
-    this.persist(this.storage.delete("race"));
-    this.saveCup();
+    this.joinWatchers();
+    this.saveCup(false);
     this.broadcastRoom();
     this.schedule();
+  }
+
+  /* phones that watched the last Cup join the next one */
+  joinWatchers() {
+    const cup = this.cup;
+    if (cup.mode !== "party") return;
+    for (const meta of this.sockets.values())
+      if (meta.role === "controller" && meta.rider && this.entrantIndex(meta.device) < 0 && !this.kickedDevices.has(meta.device)
+        && cup.entrants.length < MAX_RIDERS)
+        cup.entrants.push(Cup.makeEntrant(cup, meta.rider, { device:meta.device }));
   }
 
   /* the next timed thing: a phase's end, a Field Day start, a post to retry */
@@ -410,23 +500,23 @@ export class FloatRoom {
     if (!this.cup) return;
     const cup = this.cup;
     const now = this.now();
-    const looping = ["grid", "countdown", "race"].includes(cup.phase);
-    if (looping) this.startLoop(); else this.stopLoop();
+    const playing = cup.phase === "song";
+    if (playing) this.startLoop(); else this.stopLoop();
     let next = null;
     const take = at => { if (Number.isFinite(at)) next = next === null ? at : Math.min(next, at); };
-    if (!looping && cup.phase !== "lobby") take(cup.endsAt);
+    if (cup.phase !== "lobby") take(cup.endsAt);
     if (cup.phase === "lobby" && cup.startPlanned) take(cup.startPlanned);
-    for (const item of this.outbox) if (!item.failed) take(item.nextAt);
+    for (const item of this.outbox) if (!item.done && !item.failed) take(item.nextAt);
     if (this.timers) {
       if (this.timer !== null) this.clock.clearTimeout(this.timer);
       this.timer = next === null ? null : this.clock.setTimeout(() => { this.timer = null; this.wake(); }, Math.max(0, next - now));
     }
-    /* the watchdog: a running race checks in every few seconds. Rewritten only
-       when it moves by more than a second or is about to fire (each write
-       would hold the snapshots), and never holding them while racing */
+    /* the watchdog: a song checks in every few seconds. Rewritten only when
+       it moves by more than a second or is about to fire (each write would
+       hold the room's messages), and never holding them in a song */
     let alarm = next;
-    if (looping) alarm = Math.min(alarm ?? Infinity, now + 5000);
-    const quiet = looping ? { allowUnconfirmed:true } : undefined;
+    if (playing) alarm = Math.min(alarm ?? Infinity, now + 5000);
+    const quiet = playing ? { allowUnconfirmed:true } : undefined;
     if (alarm !== null && Number.isFinite(alarm)) {
       const at = Math.max(now + 50, alarm);
       const set = this.alarmAt;
@@ -447,44 +537,17 @@ export class FloatRoom {
     this.schedule();
   }
 
-  /* move the Cup on if its time has come (the loop does this while racing) */
+  /* whatever is due, then the outbox and the timers */
   wake() {
-    const cup = this.cup;
-    if (!cup) return;
-    const now = this.now();
-    if (cup.phase === "lobby" && cup.startPlanned && now >= cup.startPlanned) {
-      this.startCup();
-      return;
-    }
-    if (["grid", "countdown", "race"].includes(cup.phase)) { if (!this.loop || !this.timers) this.tick(); return; }
-    if (cup.phase === "lobby" || cup.endsAt === null || now < cup.endsAt) { this.flushOutbox(); this.schedule(); return; }
-    if (cup.phase === "feedback") { this.toLobby(); return; }
-    const phase = Cup.advance(cup, now);
-    if (phase === "grid") this.enterGrid();
-    if (phase === "feedback") this.postResultOnce();
-    this.saveCup();
-    this.broadcastRoom();
+    if (!this.cup) return;
+    this.tick();
     this.flushOutbox();
     this.schedule();
   }
 
-  enterGrid() {
-    this.race = Cup.raceFor(this.cup, COURSE);
-    this.race.bots = {};
-    this.frames = [];
-    this.clip = null;
-    this.lastSnap = -1;
-    this.lastGridSnap = 0;
-    this.lastMe = -1;
-    this.saveRace();
-  }
-
   startLoop() {
     if (this.loop !== null || !this.timers) return;
-    /* half a tick: timers run late now and then, and a callback that owes
-       two ticks sends one snap; at twice the rate every tick gets its own
-       callback and the screens see a steady 20 Hz */
-    this.loop = this.clock.setInterval(() => this.tick(), TICK_MS / 2);
+    this.loop = this.clock.setInterval(() => this.tick(), GROOVE.TICK_MS);
   }
   stopLoop() {
     if (this.loop === null) return;
@@ -492,103 +555,55 @@ export class FloatRoom {
     this.loop = null;
   }
 
-  /* the 30 Hz loop: grid and countdown deadlines, then the race */
+  /* Everything due by now, in any phase: a Field Day start, the song's taps,
+     misses and Done, phase changes; in a song the room's scores every 4 s,
+     the save every 2 s, the stand-ins' lamp and the screens' readout. */
   tick() {
     const cup = this.cup;
     if (!cup) return;
     const now = this.now();
-    if (cup.phase === "grid" && now >= cup.endsAt) {
-      Cup.advance(cup, now);
-      this.saveCup();
-      this.broadcastRoom();
-    }
-    if (cup.phase === "countdown" && now >= cup.endsAt) {
-      Cup.advance(cup, now);
-      if (!this.race) this.enterGrid();
-      this.race.bots ||= {};
-      this.raceZero = cup.startAt;
-      this.lastSnap = Math.floor(this.race.tick * SNAP_PER_TICK);
-      this.lastMe = this.race.tick;
-      this.saveCup();
-      this.saveRace();
-      this.broadcastRoom();
-      this.schedule();
-    }
-    if (cup.phase === "grid" || cup.phase === "countdown") {
-      if (this.race && now - this.lastGridSnap >= GRID_SNAP_MS) {
-        this.lastGridSnap = now;
-        this.broadcast({ t:"snap", s:now, k:rows(this.race) }, "screen");
-      }
+    if (cup.phase === "lobby") {
+      if (cup.startPlanned && now >= cup.startPlanned) this.startCup();
       return;
     }
-    if (cup.phase !== "race" || !this.race) return;
-    const owed = Math.floor((now - this.raceZero) / TICK_MS);
-    let steps = 0;
-    while (this.race.tick < owed && steps < MAX_CATCHUP_TICKS && cup.phase === "race") {
-      this.step(now);
-      steps += 1;
-    }
-    if (cup.phase !== "race") return;
-    /* fell too far behind (a long pause): the race clock slips, nothing jumps */
-    if (this.race.tick < owed) {
-      this.raceZero = now - this.race.tick * TICK_MS;
-      cup.startAt = this.raceZero;
-      cup.endsAt = this.capAt();
-    }
-    const at = Math.round(this.raceZero + this.race.tick * TICK_MS);
-    const snapIndex = Math.floor(this.race.tick * SNAP_PER_TICK);
-    if (snapIndex > this.lastSnap) {
-      this.lastSnap = snapIndex;
-      const k = rows(this.race);
-      this.broadcast({ t:"snap", s:at, k }, "screen");
-      this.recordReplay(at, k);
-    }
-    if (this.race.tick - this.lastMe >= SIM_HZ / ME_HZ) {
-      this.lastMe = this.race.tick;
-      this.sendMe(at);
-    }
-    if (now - this.lastSave >= PERSIST_MS) {
-      this.saveRace();
-      this.schedule();
-    }
-    if (now - this.lastDebug >= DEBUG_MS) {
-      this.lastDebug = now;
-      this.broadcast({ t:"debug", s:now, rtt:{ ...this.rtt } }, "screen");
-      const driven = this.cup.entrants.map((_, i) => this.botDriven(i, now) ? 1 : 0).join("");
+    const out = Cup.tick(cup, now, { driven:(i, t) => this.driven(i, t) });
+    this.sendEvents(out.events);
+    if (out.phases.length) return this.phaseChanged(out);
+    if (cup.phase !== "song") return;
+    if (out.offset || now - this.lastScores >= GROOVE.SCORES_MS) this.broadcastRoom();
+    else if (now - this.lastDrivenAt >= DRIVEN_MS) {
+      this.lastDrivenAt = now;
+      const driven = cup.entrants.map((_, i) => this.driven(i, now) ? 1 : 0).join("");
       if (driven !== this.lastDriven) { this.lastDriven = driven; this.broadcastRoom(); }
     }
-  }
-
-  /* one race tick: bots think, the river moves, the Cup reads the result */
-  step(now) {
-    const cup = this.cup, race = this.race;
-    const events = Cup.raceTick(cup, race, { now, driven:i => this.botDriven(i, now), course:COURSE });
-    const tickAt = Math.round(this.raceZero + race.tick * TICK_MS);
-    let changed = false;
-    for (const event of events) {
-      if (event.e === "arrive" || event.e === "drink") changed = true;
-      this.broadcast({ t:"ev", s:tickAt, ...event });
+    /* the judgements every 2 s, and the watchdog with them */
+    if (now - this.lastSave >= GROOVE.SAVE_MS) { this.saveCup(true); this.schedule(); }
+    if (now - this.lastDebug >= DEBUG_MS) {
+      this.lastDebug = now;
+      this.broadcast({ t:"debug", rtt:{ ...this.rtt } }, "screen");
     }
-    const ends = this.capAt();
-    if (ends !== cup.endsAt) { cup.endsAt = ends; changed = true; }
-    const status = Cup.roundStatus(cup, race);
-    if (status.over) return this.endRound(now);
-    if (changed) this.broadcastRoom();
   }
 
-  endRound(now) {
-    const cup = this.cup, race = this.race;
-    this.sendMe(Math.round(this.raceZero + race.tick * TICK_MS));
-    const { eliminated, last } = Cup.finishRound(cup, race, now);
-    for (const [index, item] of cup.history.entries())
-      if (index === cup.history.length - 1) item.rtt = this.rttSamples();
-    for (const i of eliminated.slice().reverse()) this.broadcast({ t:"ev", e:"out", i });
-    if (this.clip) this.broadcast(this.clip, "screen");
-    this.stopLoop();
-    this.saveCup();
-    this.persist(this.storage.put(`stats:${cup.id}`, cup.history.map(({ round, leg, stats, balloons, rtt }) => ({ round, leg, stats, balloons, rtt }))));
+  /* the Cup moved on: the cut's outs, the result once the podium has played,
+     the lobby's phones; then the save, the room, everyone's `me` */
+  phaseChanged(out) {
+    const cup = this.cup;
+    for (const phase of out.phases) {
+      if (phase === "cut") {
+        const item = cup.history.at(-1);
+        if (item) item.rtt = this.rttSamples();
+        this.persist(this.storage.put(`stats:${cup.id}`, cup.history.map(({ round, song, offset, samples, stats, rtt }) =>
+          ({ round, song, offset, samples, stats, rtt }))));
+      }
+      if (phase === "feedback") this.postResultOnce();
+      if (phase === "lobby") { this.stopLoop(); this.joinWatchers(); }
+    }
+    /* who went out: the round's worst first */
+    for (const i of out.eliminated.slice().reverse()) this.broadcast({ t:"ev", e:"out", i });
+    this.saveCup(false);
     this.broadcastRoom();
-    void last;
+    this.sendMeAll();
+    this.flushOutbox();
     this.schedule();
   }
 
@@ -603,33 +618,6 @@ export class FloatRoom {
     this.saveCup();
   }
 
-  /* when this race must end: CAP_MS after its first finisher, never past HARD_CAP_MS */
-  capAt() {
-    const cup = this.cup, race = this.race;
-    const hard = cup.startAt + TIMING.HARD_CAP_MS;
-    return race?.firstFinish === null || race?.firstFinish === undefined ? hard
-      : Math.min(hard, Math.round(cup.startAt + race.firstFinish * 1000 + TIMING.CAP_MS));
-  }
-
-  /* The Drop's instant replay: the last REPLAY_KEEP_MS of snapshot rows
-     ride along; on the leg with the falls, REPLAY_AFTER_MS after the moment
-     (the first flip at the lip, else the first rider over) the clip around
-     it is frozen, and screens get it as { t:"replay", leg, at, k:[[s, rows], ...] }
-     when the race ends (and on joining during the cut). Not saved: a
-     restarted room just has no replay. */
-  recordReplay(at, k) {
-    const race = this.race;
-    if (!race || !COURSE.zones.some(zone => zone.k === "drop" && zone.s0 > race.grid && zone.s0 < race.finish)) return;
-    (this.frames ||= []).push([at, k]);
-    while (this.frames.length && this.frames[0][0] < at - REPLAY_KEEP_MS) this.frames.shift();
-    const moment = race.dropFlipAt ?? race.overAt;
-    if (this.clip || moment === null) return;
-    const momentAt = Math.round(this.raceZero + moment * 1000);
-    if (at < momentAt + REPLAY_AFTER_MS) return;
-    this.clip = { t:"replay", leg:race.leg, at:momentAt, i:race.dropFlipI ?? null,
-      k:this.frames.filter(([s]) => s >= momentAt - (REPLAY_MS - REPLAY_AFTER_MS) && s <= momentAt + REPLAY_AFTER_MS) };
-  }
-
   /* round trips this round, per phone: median, worst, count */
   rttSamples() {
     const out = {};
@@ -642,86 +630,46 @@ export class FloatRoom {
     return out;
   }
 
-  /* `me`: a racer's own place, progress, stamina (always 1 now: the beat
-     governs cadence), flags, and the beat: streak, level and q (the last
-     stroke's judgement); and for every phone the race's order (entrant
-     indexes by current place). A rider out
-     on the beach gets { i, out:true, order, of, cut, ball, f }: `ball` is
-     the server time their next balloon is ready (null until they drink),
-     and `f` carries DRANK once they have. */
-  sendMe(at) {
-    const race = this.race;
-    if (!race) return;
-    const order = Cup.placeRiders(race.riders).map(rider => rider.i);
-    const place = {};
-    order.forEach((i, k) => { place[i] = k + 1; });
-    const cut = Cup.cutOf(this.cup);
-    for (const [ws, meta] of this.sockets) {
-      if (meta.role !== "controller") continue;
-      const i = this.entrantIndex(meta.device);
-      if (i < 0) continue;
-      const rider = riderOf(race, i);
-      if (rider) {
-        this.send(ws, { t:"me", i, place:place[i], of:race.riders.length, prog:Math.round(progressOf(race, rider) * 10) / 10,
-          len:race.len, stam:Math.round(rider.stam * 100) / 100, f:flagsOf(rider, race.t), cut, order,
-          streak:rider.streak, level:rider.level, q:rider.q }, at);
-        continue;
-      }
-      const spot = this.cup.beach[i];
-      if (!spot || !this.cup.out.includes(i)) continue;
-      this.send(ws, { t:"me", i, out:true, order, of:race.riders.length, cut, ball:spot.drank ? spot.next : null,
-        f:spot.drank ? FLAG.DRANK : 0 }, at);
-    }
-  }
-
   /* ---------------------------------------------------------------- phone messages */
 
-  input(i, input) {
-    if (!this.race || this.cup.entrants[i]?.kicked) return;
-    const phase = this.cup.phase;
-    /* thumbs count from the grid on, so a phone held through the countdown
-       is right at the gun; strokes only once the race is on */
-    if (phase === "race" || (input.t === "hands" && (phase === "grid" || phase === "countdown"))) applyInput(this.race, i, input);
+  /* hit { c, r }: a tap on cue c, r its raw offset (the tap's server time
+     minus the cue's), judged by the room with its own offset */
+  onHit(i, msg) {
+    const cup = this.cup;
+    if (cup.phase !== "song" || cup.entrants[i]?.kicked) return;
+    /* what was due first (a miss called, the offset's beat) */
+    this.tick();
+    if (cup.phase !== "song" || !cup.song) return;
+    const event = applyHit(cup, cup.song, i, { c:msg.c, r:msg.r }, this.now());
+    if (event) this.sendEvents([event]);
   }
 
+  /* drink: Done, in this song's drink break */
   onDrink(i) {
     const cup = this.cup;
-    /* out: the drink on the beach earns the balloons */
-    if (cup.beach[i] && !cup.field.includes(i)) {
-      if (Cup.beachDrink(cup, i, this.now())) { this.broadcast({ t:"ev", e:"drink", i }); this.saveCup(); this.broadcastRoom(); }
-      return;
-    }
-    if (cup.phase !== "race" || !this.race) return;
-    if (applyInput(this.race, i, { t:"drink" })) {
-      const events = this.race.events.splice(0);
-      for (const event of events) this.broadcast({ t:"ev", ...event });
-      this.broadcastRoom();
-    }
+    if (cup.phase !== "song" || cup.entrants[i]?.kicked) return;
+    this.tick();
+    if (cup.phase !== "song" || !cup.song) return;
+    const event = applyDone(cup, cup.song, i, this.now());
+    if (event) this.sendEvents([event]);
   }
 
-  onBalloon(i, msg) {
-    const at = Number(msg.at);
-    if (!Number.isInteger(at)) return;
+  /* cheer: a rider out of the Cup cheers from the bank */
+  onCheer(i) {
+    const cup = this.cup;
+    if (!cup.out.includes(i) || !["song", "cut", "podium"].includes(cup.phase)) return;
     const now = this.now();
-    if (!Cup.canThrow(this.cup, this.race, i, at, now)) return;
-    if (throwBalloon(this.race, i, at)) {
-      Cup.noteThrow(this.cup, i, now);
-      for (const event of this.race.events.splice(0)) this.broadcast({ t:"ev", ...event });
-    }
+    if (now - (this.cheers.get(i) ?? -Infinity) < CHEER_MS) return;
+    this.cheers.set(i, now);
+    this.broadcast({ t:"ev", e:"cheer", i });
   }
 
+  /* the look changes in the lobby (the floatie is the tube's design now) */
   onLook(meta, i, msg) {
     const cup = this.cup;
+    if (cup.phase !== "lobby") return;
     const entrant = cup.entrants[i];
-    const now = this.now();
-    if (cup.phase === "lobby") {
-      entrant.look = cleanLook(msg.look, { groom:entrant.groom === true, floatieIds:FLOATIE_IDS, seed:meta.device });
-    } else if (Cup.canSwap(cup, i, now)) {
-      const floatie = FLOATIE_IDS.includes(msg.look?.floatie) ? msg.look.floatie : entrant.look.floatie;
-      if (floatie === entrant.look.floatie) return;
-      entrant.look = { ...entrant.look, floatie };
-      Cup.noteSwap(cup, i);
-    } else return;
+    entrant.look = cleanLook(msg.look, { groom:entrant.groom === true, floatieIds:FLOATIE_IDS, seed:meta.device });
     this.saveCup();
     this.broadcastRoom();
   }
@@ -779,38 +727,43 @@ export class FloatRoom {
     if (fill) Cup.addBots(cup, fill, seedOf(cupId));
     const now = this.now();
     const startAt = Number(body.startAt);
-    cup.startPlanned = Number.isFinite(startAt) && startAt > now + TIMING.START_SOON_MS ? startAt : now + TIMING.START_SOON_MS;
+    cup.startPlanned = Number.isFinite(startAt) && startAt > now + CUP_TIMING.START_SOON_MS ? startAt : now + CUP_TIMING.START_SOON_MS;
     /* phones already here with a player id take their entrants */
     for (const meta of this.sockets.values()) if (meta.role === "controller" && meta.rider?.pid) this.claim(meta);
-    this.saveCup();
+    this.saveCup(false);
     this.broadcastRoom();
     this.schedule();
     return json({ ok:true, cupId, room:this.code, startAt:cup.startPlanned, entrants:cup.entrants.length });
   }
 
-  /* the result, once, to the Tournament: real players only, in order */
+  /* The result, once, to the Tournament: real players only, in order.
+     { evId, cupId, order:[pid, ...], rounds:[{ round, song, field, out,
+     results:[{ who, pid, bot, place, pct, pts, perfects, misses, cup, out }] }],
+     stats:{ rounds:[{ round, song, offset, samples, riders:{ [who]:{ pct,
+     pts, perfects, nice, ok, early, late, misses, hits, botShare, doneMs } },
+     rtt }], botShare:{ [who]: 0 to 1 } } } */
   queueResult() {
     const cup = this.cup;
     const order = cup.final.filter(i => cup.entrants[i]?.pid && !cup.entrants[i].bot).map(i => cup.entrants[i].pid);
     const name = i => cup.entrants[i]?.pid || cup.entrants[i]?.name || String(i);
     const rounds = cup.history.map(item => ({
-      round:item.round, leg:COURSE.legs[item.leg]?.id, field:item.field.map(name), out:item.out.map(name),
+      round:item.round, song:item.song, field:item.field.map(name), out:item.out.map(name),
       results:item.results.map(result => ({ who:name(result.i), pid:cup.entrants[result.i]?.pid ?? null, bot:cup.entrants[result.i]?.bot === true,
-        place:result.place, time:result.time, drinkAt:result.drinkAt, arriveAt:result.arriveAt })),
+        place:result.place, pct:result.pct, pts:result.pts, perfects:result.perfects, misses:result.misses, cup:result.cup, out:result.out === true })),
     }));
-    /* how much of their races a bot paddled for each rider (0 to 1), over the Cup */
-    const paddled = {};
+    /* how much of their songs a bot or stand-in played for each rider (0 to 1), over the Cup */
+    const played = {};
     for (const item of cup.history)
-      for (const [i, value] of Object.entries(item.stats)) {
-        const who = (paddled[name(Number(i))] ||= { ticks:0, botTicks:0 });
-        who.ticks += value.ticks || 0;
-        who.botTicks += value.botTicks || 0;
+      for (const [i, value] of Object.entries(item.stats || {})) {
+        const who = (played[name(Number(i))] ||= { rounds:0, share:0 });
+        who.rounds += 1;
+        who.share += value.botShare || 0;
       }
-    const stats = { rounds:cup.history.map(item => ({ round:item.round, leg:COURSE.legs[item.leg]?.id,
-      riders:Object.fromEntries(Object.entries(item.stats).map(([i, value]) => [name(Number(i)), value])),
-      balloons:Object.fromEntries(Object.entries(item.balloons || {}).map(([i, value]) => [name(Number(i)), value])),
+    const stats = { rounds:cup.history.map(item => ({ round:item.round, song:item.song, offset:item.offset, samples:item.samples,
+      riders:Object.fromEntries(Object.entries(item.stats || {}).map(([i, value]) => [name(Number(i)), value])),
       rtt:item.rtt || {} })),
-      botShare:Object.fromEntries(Object.entries(paddled).map(([who, value]) => [who, Cup.botShareOf(value)])) };
+      botShare:Object.fromEntries(Object.entries(played).map(([who, value]) =>
+        [who, value.rounds ? Math.round((value.share / value.rounds) * 100) / 100 : 0])) };
     this.queue(`result:${cup.id}`, "/internal/float/result", { evId:cup.evId, cupId:cup.id, order, rounds, stats });
   }
 
@@ -858,10 +811,3 @@ export class FloatRoom {
     try { await this.flushing; } finally { this.flushing = null; }
   }
 }
-
-/* The Drop's replay: 10 s, the moment 4 s from its end */
-const REPLAY_MS = 10000;
-const REPLAY_AFTER_MS = 4000;
-const REPLAY_KEEP_MS = 12000;
-/* snaps go out on two of every three ticks: 20 Hz from a 30 Hz race */
-const SNAP_PER_TICK = SNAP_HZ / SIM_HZ;

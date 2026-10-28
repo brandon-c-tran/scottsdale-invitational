@@ -4315,17 +4315,29 @@ function grooveDrinks(E, t0) {
 const G_LOBBY = Object.freeze([gChord("Eb2", "G3 Bb3 D4", "Eb4 G4 Bb4 D5"), gChord("D2", "F3 A3 C4", "D4 F4 A4 C5"),
   gChord("C2", "Eb3 G3 Bb3", "C4 Eb4 G4 Bb4"), gChord("F1", "Eb3 G3 A3", "F3 A3 C4 Eb4"), gChord("Eb2", "G3 Bb3 D4", "Eb4 G4 Bb4 D5"),
   gChord("D2", "F3 A3 C4", "D4 F4 A4 C5"), gChord("G1", "F3 Bb3 D4", "G3 Bb3 D4 F4"), gChord("F1", "Eb3 A3 C4", "F3 A3 C4 Eb4")]);
+/* its four sections, eight bars each (opts.section 0..3), so a long wait
+   breathes: the groove, then the hats and a busier bass, then the vibes'
+   tune over it, then a pad and a fill into the turn */
+const G_LOBBY_TUNE = gLine("Bb5 - G5 - F5 - G5 - | A5 - F5 - D5 - F5 - | G5 - Eb5 - C5 - Eb5 - | F5 - - - . . . . "
+  + "| Bb5 - G5 - Bb5 - D6 - | C6 - A5 - F5 - A5 - | Bb5 - G5 - D5 - F5 - | Eb5 - - - F5 - - -");
 function grooveLobby(E, t0, o = {}) {
-  const t = t0 + GROOVE_PRE_S, bar = gInt(o.bar, 0, 7, 0), chord = G_LOBBY[bar], V = gVoices(E, FL_BAND * (o.cut ? 0.6 : 0.75));
+  const t = t0 + GROOVE_PRE_S, bar = gInt(o.bar, 0, 7, 0), section = gInt(o.section, 0, 3, 0), chord = G_LOBBY[bar];
+  const V = gVoices(E, FL_BAND * (o.cut ? 0.6 : 0.75));
   const at = i => t + i * G16 + (i % 4 === 2 ? 0.02 : 0);
   [[0, 0.8], [10, 0.5]].forEach(([s, k]) => GK.kick(E, V("kick"), at(s), k));
   [4, 12].forEach(s => FLD.rim(E, V("snare"), at(s), 0.6));
-  for (let s = 0; s < 16; s += 2) GK.shaker(E, V("perc"), at(s), s % 4 ? 0.7 : 0.4);
+  if (section === 3 && bar === 7) [13, 14, 15].forEach(s => FLD.rim(E, V("snare"), at(s), 0.35 + (s - 13) * 0.1));
+  gNoiseLine(E, V("perc"), Array.from({ length:8 }, (_, k) => [at(k * 2), (k % 2 ? 0.7 : 0.4) * 0.16, 0.055]), { type:"bandpass", f:6800, q:1.3, a:0.014 });
+  if (section === 1 || section === 2) gNoiseLine(E, V("hat"), [1, 3, 5, 7, 9, 11, 13, 15].map(s => [at(s), 0.06, 0.03]), { type:"highpass", f:7800 });
   gBass(E, V("bass"), at(0), gHz(chord.bass), G16 * 5, 0.26, { round:true });
   gBass(E, V("bass"), at(6), gHz(chord.bass + 7), G16 * 2, 0.18, { round:true });
   gBass(E, V("bass"), at(10), gHz(chord.bass + 12), G16 * 3, 0.2, { round:true });
+  if (section === 1) gBass(E, V("bass"), at(14), gHz(chord.bass + 10), G16 * 1.5, 0.14, { round:true });
   [2, 7, 10].forEach((s, j) => gKeys(E, V("keys"), at(s), chord.comp.map(m => m + 12), G16 * (j === 1 ? 2 : 3), 0.07, { trem:0.4 }));
-  if (bar % 4 === 0 && !o.cut) G_SONGS.paddle.motif.map(m => m + 5).forEach((m, i) => gGlock(E, V("glock"), at(i * 2), gHz(m + 12), 0.08, { dec:1 }));
+  if (o.cut) return;
+  if (bar % 4 === 0 && section !== 2) G_SONGS.paddle.motif.map(m => m + 5).forEach((m, i) => gGlock(E, V("glock"), at(i * 2), gHz(m + 12), 0.08, { dec:1 }));
+  if (section === 2) for (const [s, m, n] of G_LOBBY_TUNE[bar] || []) gVibes(E, V("vibes"), at(s), gHz(m), n * G16, 0.06);
+  if (section === 3) gKeys(E, V("pad"), at(0), chord.tones, FLOAT_BAR_S * 0.9, 0.04, { trem:0.25 });
 }
 
 /* ── the phone's own (the you bus): above the phone speaker's floor ── */

@@ -218,5 +218,7 @@ export function drinkBeats(chart) {
 /* eight bars on the server's own bar grid, so every screen in a room is on the same bar */
 export const LOBBY_BARS = 8;
 export const lobbyBar = at => ((Math.round(at / BAR_MS) % LOBBY_BARS) + LOBBY_BARS) % LOBBY_BARS;
+/* its section (four, eight bars each), on the same grid */
+export const lobbySection = at => ((Math.floor(Math.round(at / BAR_MS) / LOBBY_BARS) % 4) + 4) % 4;
 /* the next bar line of the server's grid at or after `at` */
 export const barLine = (at, anchor = 0) => anchor + Math.ceil((at - anchor) / BAR_MS) * BAR_MS;

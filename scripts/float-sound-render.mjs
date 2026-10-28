@@ -117,6 +117,13 @@ window.__moments = async () => {
   [[38.5, "floatDone"], [38.9, "floatDone"], [39.6, "floatCheer"], [40.1, "floatCheer"]].forEach(([s, id], i) => playRecipe(E, id, s, { step:i }));
   return wav(await ctx.startRendering());
 };
+/* the lobby's loop alone, its four sections (32 bars) */
+window.__lobby = async () => {
+  const ctx = new OfflineAudioContext(2, SR * 66, SR);
+  const E = await engine(ctx);
+  const slots = Array.from({ length:32 }, (_, b) => ({ at:0.5 + b * 2 - GROOVE_PRE_S, lay:() => playRecipe(E, "floatLobby", 0.5 + b * 2 - GROOVE_PRE_S, { bar:b % 8, section:Math.floor(b / 8) }) }));
+  return wav(await laid(ctx, slots));
+};
 /* the phone's own, on a phone's engine */
 window.__phone = async () => {
   const ctx = new OfflineAudioContext(2, SR * 9, SR);
@@ -166,7 +173,7 @@ try {
   await chrome.until("window.__ready === true", { timeout:20000 });
   await chrome.evaluate(`window.__clips = ${JSON.stringify(clips)}; true`);
   for (const job of jobs.filter(j => j !== "onsets")) {
-    const renders = job === "moments" ? [["moments", "window.__moments()"], ["phone", "window.__phone()"]]
+    const renders = job === "moments" ? [["moments", "window.__moments()"], ["phone", "window.__phone()"], ["lobby", "window.__lobby()"]]
       : [[job, `window.__song(${JSON.stringify(job)})`], ...(STEMS ? ["band", "calls", "answers"].map(s => [`${job}-${s}`, `window.__song(${JSON.stringify(job)}, ${JSON.stringify(s)})`]) : [])];
     for (const [name, expr] of renders) {
       const t0 = Date.now();

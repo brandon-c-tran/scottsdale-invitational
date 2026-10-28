@@ -30,7 +30,7 @@ import { cueAt, installSoundUnlock, preloadClips, primeSound, registerClips, set
   from "../../../src/lib/sound.js";
 import { serverNow } from "../../../src/lib/serverClock.js";
 import { BAR_MS, BEAT_MS, CUT_BEATS, GROOVE_LATE_MS, GROOVE_LEAD_MS, GROOVE_PRE_MS, LAST_CALL_BEATS, PODIUM_BEATS, TITLE_BEATS, barLine,
-  chartFor, drinkBeats, eventAt, lobbyBar, songSlots } from "./groove.js";
+  chartFor, drinkBeats, eventAt, lobbyBar, lobbySection, songSlots } from "./groove.js";
 import { VOICE } from "./voices.js";
 
 export const ROOM_FRESH_MS = 1500;
@@ -276,7 +276,7 @@ export function bedSlot(track, index) {
       cues:slots[index].map(ev => ({ id:ev.id, at:eventAt(track.songAt, ev.beat), opts:ev.opts })) };
   }
   const at = index * BAR_MS;
-  return { start:at - GROOVE_PRE_MS, cues:[{ id:"floatLobby", at:at - GROOVE_PRE_MS, opts:{ bar:lobbyBar(at), cut:!!track.cut } }] };
+  return { start:at - GROOVE_PRE_MS, cues:[{ id:"floatLobby", at:at - GROOVE_PRE_MS, opts:{ bar:lobbyBar(at), section:lobbySection(at), cut:!!track.cut } }] };
 }
 /* A bed's cue goes on the audio clock this far ahead of its time (sound.js
    `ahead`), all of a bar's in one go: one mapping of the room's clock onto

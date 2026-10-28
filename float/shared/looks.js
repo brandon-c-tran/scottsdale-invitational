@@ -38,6 +38,14 @@ export const SHADES = Object.freeze([
   { id:"goggles", name:"Goggles" },
 ]);
 
+/* what the critter wears (float/GROOVE.md "Looks, the Groove"): the photo
+   tee is tinted the rider's colour with their profile photo printed on the
+   chest, so it needs a photo; without one it draws as none */
+export const SHIRTS = Object.freeze([
+  { id:"none", name:"None" },
+  { id:"photo", name:"Photo tee" },
+]);
+
 /* the victory pose, played on the podium */
 export const POSES = Object.freeze([
   { id:"flex", name:"Flex" },
@@ -63,6 +71,7 @@ export const crittersFor = ({ groom = false } = {}) =>
   [...CRITTERS, ...SPECIAL_CRITTERS.filter(item => !item.groom || groom)];
 export const HAT_IDS = Object.freeze(ids(HATS));
 export const SHADE_IDS = Object.freeze(ids(SHADES));
+export const SHIRT_IDS = Object.freeze(ids(SHIRTS));
 export const POSE_IDS = Object.freeze(ids(POSES));
 
 /* the look a rider gets before they pick: seeded by any string (a device or
@@ -71,7 +80,7 @@ export function defaultLook(seed = "", floatieIds = ["classic"]) {
   let h = 2166136261;
   for (const ch of String(seed)) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); }
   const pick = (list, salt) => list[(Math.abs(h + salt * 7919) >>> 0) % list.length];
-  return { critter:pick(CRITTER_IDS, 1), floatie:pick(floatieIds, 2), hat:"none", shades:"none", pose:pick(POSE_IDS, 3) };
+  return { critter:pick(CRITTER_IDS, 1), floatie:pick(floatieIds, 2), hat:"none", shades:"none", shirt:"none", pose:pick(POSE_IDS, 3) };
 }
 
 /* a look made legal: unknown ids fall back, the crown and Winnie only for the groom */
@@ -85,6 +94,7 @@ export function cleanLook(look, { groom = false, floatieIds = ["classic"], seed 
     floatie:one(look?.floatie, floatieIds, "floatie"),
     hat:hat === "crown" && !groom ? "none" : hat,
     shades:one(look?.shades, SHADE_IDS, "shades"),
+    shirt:one(look?.shirt, SHIRT_IDS, "shirt"),
     pose:one(look?.pose, POSE_IDS, "pose"),
   };
 }

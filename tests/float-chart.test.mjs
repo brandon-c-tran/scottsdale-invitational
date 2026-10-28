@@ -4,18 +4,20 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   BAR_MS, SONG_BARS, SONG_BEATS, SONG_MS, SONGS, SONG_IDS, CUE_KINDS, MODES, WINDOW, POINTS,
-  chartOf, songForRound, sectionsOf, clockAt, callsBetween, cuesBetween, scoredCues, practiceCues, drinkSection,
+  chartOf, songForRound, sectionsOf, clockAt, callsBetween, cuesBetween, scoredCues, practiceCues, breakdownSection, CHUGOFF,
   qualityOf, matchTap, judgeHit, scoreOf, calibrate, formatOffset, popupOf, cueTime,
+  playedCues, demoCues, lineAt, gradeOf, gradeWord, feedbackOf, awardsOf, countdownOf, lastCallId,
+  LAST_CALL, LAST_CALL_ID, LAST_CALL_TRICKS, lastCallTotal, lastCallWorst,
 } from "../float/shared/chart.js";
 
-test("a song is 32 bars at 120 bpm: intro 2, practice 4, play 8, drink 8, play 8, outro 2", () => {
+test("a song is 32 bars at 120 bpm: intro 2, practice 4, play 8, breakdown 8, play 8, outro 2", () => {
   assert.equal(BAR_MS, 2000);
   assert.equal(SONG_BARS, 32);
   assert.equal(SONG_BEATS, 128);
   assert.equal(SONG_MS, 64_000);
   assert.deepEqual(sectionsOf().map(s => [s.kind, s.bar, s.bars, s.from, s.to]), [
     ["intro", 0, 2, 0, 8], ["practice", 2, 4, 8, 24], ["play", 6, 8, 24, 56],
-    ["drink", 14, 8, 56, 88], ["play", 22, 8, 88, 120], ["outro", 30, 2, 120, 128],
+    ["breakdown", 14, 8, 56, 88], ["play", 22, 8, 88, 120], ["outro", 30, 2, 120, 128],
   ]);
 });
 
@@ -36,18 +38,29 @@ for (const id of SONG_IDS) test(`${id}: cues in order, in practice, play and the
     assert.equal(cue.id, k);
     if (k) assert.ok(cue.beat - chart.cues[k - 1].beat >= 0.5, `cues at least an eighth apart (${cue.beat})`);
     const section = sections.find(s => cue.beat >= s.from && cue.beat < s.to).kind;
-    assert.ok(["practice", "play", "outro"].includes(section), `${cue.beat} in ${section}`);
+    assert.ok(["practice", "play", "breakdown", "outro"].includes(section), `${cue.beat} in ${section}`);
     assert.equal(cue.scored, section !== "practice");
+    if (cue.demo) assert.equal(section, "practice", "only practice shows a cue");
     const lead = CUE_KINDS[cue.kind].lead;
     assert.equal(cue.call, lead === null ? null : cue.beat - lead);
     if (cue.call !== null) assert.ok(cue.call >= 0, "called inside the song");
   });
   assert.ok(scoredCues(chart).length >= 25, `${id} has ${scoredCues(chart).length} scored cues`);
-  assert.ok(practiceCues(chart).length >= 6, `${id} practices ${practiceCues(chart).length}`);
-  assert.deepEqual([drinkSection(chart).from, drinkSection(chart).to], [56, 88]);
-  assert.deepEqual(cuesBetween(chart, 56, 88), [], "no taps in the drink break");
+  assert.ok(practiceCues(chart).length >= 3, `${id} practices ${practiceCues(chart).length}`);
+  assert.ok(chart.lines.length >= 3, "practice is narrated");
+  const practice = sections.find(s => s.kind === "practice");
+  const breakdown = breakdownSection(chart);
+  for (const line of chart.lines) assert.ok(((line.beat >= practice.from - 1 && line.beat < practice.to)
+    || (line.beat >= breakdown.from - 1 && line.beat < breakdown.to)) && line.until > line.beat && line.text.length <= 32, line.text);
+  for (const demo of demoCues(chart)) assert.notEqual(lineAt(chart, demo.beat)?.text, "Your turn", "a demo is never under Your turn");
+  assert.deepEqual([breakdownSection(chart).from, breakdownSection(chart).to], [56, 88]);
+  const echoes = cuesBetween(chart, 56, 88);
+  assert.ok(echoes.length >= 8 && echoes.every(c => c.kind === "echo" && c.scored && c.call === c.beat - 4), "the breakdown: copy the host a bar later");
+  assert.ok(echoes.every(c => Math.floor(c.beat / 4) % 2 === 1 && Math.floor(c.call / 4) % 2 === 0), "the host's bar, then yours");
+  assert.equal(lineAt(chart, 56).text, "Copy me");
+  assert.equal(lineAt(chart, 60), null, "the line goes once the copying starts");
   assert.equal(chart.modes[0], "intro");
-  assert.ok(chart.modes.slice(14, 22).every(mode => mode === "drink"));
+  assert.ok(chart.modes.slice(14, 22).every(mode => mode === "echo"));
   assert.equal(chart.modes[31], "outro");
   assert.deepEqual(JSON.parse(JSON.stringify(chart)), chart, "plain JSON, as the room sends it");
 });
@@ -56,9 +69,9 @@ test("the patterns: paddles on 1 and 3, Rock Hop answers two beats after the hos
   const paddle = chartOf("paddle"), rock = chartOf("rock"), spin = chartOf("spin"), drop = chartOf("drop");
   assert.deepEqual(cuesBetween(paddle, 24, 32).map(c => [c.beat % 4, c.kind]),
     [[0, "paddle"], [2, "paddle"], [0, "paddle"], [2, "paddle"], [3, "hey"]]);
-  assert.ok(rock.cues.every(c => c.kind === "hop" && c.call === c.beat - 2 && c.beat % 4 >= 2 && c.call % 4 < 2),
+  assert.ok(rock.cues.filter(c => c.kind !== "echo").every(c => c.kind === "hop" && c.call === c.beat - 2 && c.beat % 4 >= 2 && c.call % 4 < 2),
     "the host's half, then yours");
-  assert.ok(spin.cues.every(c => c.kind === "spin" && [1, 1.5, 3, 3.5].includes(c.beat % 4)));
+  assert.ok(spin.cues.filter(c => c.kind !== "echo").every(c => c.kind === "spin" && [1, 1.5, 3, 3.5].includes(c.beat % 4)));
   const last = drop.cues[drop.cues.length - 1];
   assert.deepEqual([last.kind, last.beat, last.call], ["drop", 120, 117]);
   assert.equal(drop.modes[29], "drop", "the countdown bar is the drop's");
@@ -80,9 +93,13 @@ test("a tap goes to the nearest open cue within 300 ms, judged with the room's o
   assert.deepEqual(matchTap(chart, songAt, at + 30), { cue:first, d:30, r:30 });
   assert.deepEqual(matchTap(chart, songAt, at + 230, { offset:200 }), { cue:first, d:30, r:230 });
   assert.equal(matchTap(chart, songAt, at - 400), null, "nothing near");
-  const k = chart.cues.findIndex((cue, j) => chart.cues[j + 1]?.beat === cue.beat + 1);
-  const between = cueTime(songAt, chart.cues[k].beat) + 280;
-  assert.deepEqual(matchTap(chart, songAt, between), { cue:chart.cues[k + 1], d:-220, r:-220 }, "nearer to the next");
+  const played = playedCues(chart);
+  const k = played.findIndex((cue, j) => played[j + 1]?.beat === cue.beat + 1);
+  const between = cueTime(songAt, played[k].beat) + 280;
+  assert.deepEqual(matchTap(chart, songAt, between), { cue:played[k + 1], d:-220, r:-220 }, "nearer to the next");
+  const demo = demoCues(chart)[0];
+  assert.notEqual(matchTap(chart, songAt, cueTime(songAt, demo.beat))?.cue, demo, "a demo is the host's: no tap is meant for it");
+  assert.equal(judgeHit(chart, demo.id, 0, 0), null);
   assert.equal(matchTap(chart, songAt, at + 20, { taken:new Set([first.id]) }), null, "one judgement a cue");
 });
 
@@ -125,26 +142,81 @@ test("the clock: where the song is, by server time", () => {
   const chart = chartOf("drop");
   const songAt = 50_000;
   const c = clockAt(chart, songAt, songAt + 15 * 2000 + 250);
-  assert.deepEqual([c.bar, c.inBar, c.section, c.mode, c.over], [15, 0.5, "drink", "drink", false]);
+  assert.deepEqual([c.bar, c.inBar, c.section, c.mode, c.over], [15, 0.5, "breakdown", "echo", false]);
   assert.equal(clockAt(chart, songAt, songAt - 1000).section, null);
   assert.equal(clockAt(chart, songAt, songAt + SONG_MS).over, true);
 });
 
-test("Last Call: three grabs at 120 bpm, a wide window, the worst total drinks", async () => {
-  const { LAST_CALL, LAST_CALL_ID, lastCallTotal, lastCallWorst } = await import("../float/shared/chart.js");
-  const chart = chartOf(LAST_CALL_ID);
-  assert.equal(chart.name, "Last Call");
-  assert.equal(chart.ms, 16_000);
-  assert.equal(chart.window, 1000);
-  assert.deepEqual(chart.cues.map(c => [c.beat, c.call, c.kind, c.scored]), [[7, 4, "grab", false], [15, 12, "grab", false], [22, 20, "grab", false]]);
-  assert.deepEqual(chart.modes, ["intro", "lastcall", "lastcall", "lastcall", "lastcall", "lastcall", "lastcall", "outro"]);
+test("practice is narrated: the line at each beat, Rhythm Heaven's text box, gone once play starts", () => {
+  const chart = chartOf("paddle");
+  assert.equal(lineAt(chart, 6), null);
+  assert.equal(lineAt(chart, 7).text, "Paddle on 1 and 3");
+  assert.equal(lineAt(chart, 16).text, "Watch");
+  assert.equal(lineAt(chart, 21).text, "Your turn");
+  assert.equal(lineAt(chart, 24), null, "play has no box");
+  assert.deepEqual(demoCues(chart).map(c => [c.beat, c.kind, c.call]), [[19, "hey", 17]]);
+});
+
+test("after a song: Superb, OK or Try again, a line of feedback, the awards", () => {
+  assert.deepEqual([95, 90, 89.9, 65, 64, 0].map(gradeOf), ["superb", "superb", "ok", "ok", "tryagain", "tryagain"]);
+  assert.equal(gradeWord("tryagain"), "Try again");
+  const chart = chartOf("paddle");
+  const scored = scoredCues(chart);
+  const heys = scored.filter(c => c.kind === "hey"), paddles = scored.filter(c => c.kind === "paddle");
+  const hits = {};
+  for (const c of heys) hits[c.id] = { q:"perfect", d:5 };
+  for (const c of paddles) hits[c.id] = { q:"late", d:180 };
+  const fb = feedbackOf(chart, hits);
+  assert.equal(fb.best, "hey");
+  assert.equal(fb.worst, "paddle");
+  assert.equal(fb.lean, "late");
+  assert.equal(fb.line, "Great Heys. Paddles a little late.");
+  assert.equal(fb.grade, "tryagain");
+  const all = Object.fromEntries(scored.map(c => [c.id, { q:"perfect", d:0 }]));
+  assert.equal(feedbackOf(chart, all).line, "Great paddles.");
+  const early = Object.fromEntries(scored.map(c => [c.id, { q:"nice", d:-70 }]));
+  const awards = awardsOf(chart, [{ i:0, hits:all }, { i:1, hits:early }, { i:2, hits:{} }]);
+  assert.deepEqual(awards.map(a => [a.id, a.i]), [["perfects", 0], ["streak", 1], ["splashes", 2]], "one award a rider while another qualifies");
+  assert.equal(awards[0].label, "Most Perfects");
+});
+
+test("Last Call is a countdown: shown and said, then dark; one tap on zero, a wide window, the farthest off drinks", () => {
+  assert.deepEqual(LAST_CALL_TRICKS, ["lights", "slow", "ticks"]);
+  assert.deepEqual([0, 1, 2, 7].map(lastCallId), ["lastcall-lights", "lastcall-slow", "lastcall-ticks", "lastcall-ticks"]);
+  const lights = chartOf("lastcall-lights"), slow = chartOf("lastcall-slow"), ticks = chartOf("lastcall-ticks");
+  assert.equal(chartOf(LAST_CALL_ID), lights, "the first trick is the default");
+  for (const chart of [lights, slow, ticks]) {
+    const cd = chart.countdown;
+    assert.equal(chart.name, "Last Call");
+    assert.equal(chart.scene, "bar");
+    assert.equal(chart.window, LAST_CALL.WINDOW);
+    assert.deepEqual(chart.cues.map(c => [c.kind, c.scored]), [["zero", false]]);
+    assert.equal(cueTime(0, chart.cues[0].beat), cd.zeroAt);
+    assert.deepEqual(cd.steps.map(s => s.n), [10, 9, 8, 7, 6, 5, 4, 3, 2, 1]);
+    assert.ok(cd.steps.filter(s => s.n <= 3).every(s => !s.show && !s.say && !s.tick), "dark from 3");
+    assert.equal(cd.hideAt, cd.steps[7].at);
+    assert.ok(cd.revealAt >= cd.zeroAt + LAST_CALL.WINDOW && cd.verdictAt > cd.revealAt && chart.ms > cd.verdictAt);
+    assert.deepEqual(JSON.parse(JSON.stringify(chart)), chart);
+  }
+  assert.equal(lights.countdown.introMs, LAST_CALL.INTRO_FIRST_MS, "the first says what Last Call is");
+  assert.equal(lights.countdown.zeroAt - lights.countdown.introMs, 10_000);
+  const gaps = slow.countdown.steps.map((s, k, all) => (all[k + 1]?.at ?? slow.countdown.zeroAt) - s.at);
+  assert.deepEqual(gaps, [1000, 1000, 1000, 1000, 1400, 1400, 1400, 1400, 1400, 1400], "the slow one stretches from 6");
+  assert.deepEqual(ticks.countdown.steps.filter(s => s.tick).map(s => s.n), [6, 5, 4], "voice to ticks at 6");
+  assert.ok(ticks.countdown.steps.filter(s => s.tick).every(s => s.show && !s.say));
   const songAt = 10_000;
-  const late = matchTap(chart, songAt, cueTime(songAt, 7) + 730);
+  const late = matchTap(lights, songAt, songAt + lights.countdown.zeroAt + 730);
   assert.deepEqual([late.cue.id, late.d], [0, 730]);
   assert.equal(popupOf(qualityOf(late.d), late.d).num, "+0.73");
-  assert.equal(judgeHit(chart, 0, 730, 0).q, "late");
-  assert.equal(lastCallTotal({ 0:10, 1:-20, 2:30 }), 60);
-  assert.equal(lastCallTotal({ 0:10 }), 10 + 2 * LAST_CALL.MISS_MS);
+  assert.equal(judgeHit(lights, 0, -2900, 0).q, "early");
+  assert.equal(matchTap(lights, songAt, songAt + lights.countdown.zeroAt - 3500), null, "too early to be meant for zero");
+  assert.equal(lastCallTotal({ 0:-120 }, lights), 120);
+  assert.equal(lastCallTotal({}, lights), LAST_CALL.MISS_MS);
   assert.deepEqual(lastCallWorst([{ i:0, ms:60 }, { i:3, ms:900 }, { i:5, ms:900 }]), [3, 5]);
+  assert.equal(countdownOf("slow", { first:true }).introMs, LAST_CALL.INTRO_FIRST_MS);
   assert.equal(chartOf("paddle").window, WINDOW.MAX, "songs keep the 300 ms window");
+});
+
+test("the chug-off's timing is shared", () => {
+  assert.deepEqual(CHUGOFF, { INTRO_MS:4000, WINDOW_MS:30000, REVEAL_MS:3000, EXIT_MS:2500 });
 });

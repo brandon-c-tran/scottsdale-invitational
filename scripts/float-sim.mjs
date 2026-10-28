@@ -1,9 +1,11 @@
 /* Float's bench (float/GROOVE.md): a whole Groove Cup through the real room
    (float/worker/room.js FloatRoom, the Cup, the songs, the bots) on a fake
    clock, over fake sockets, ticked every 100 ms as the Durable Object ticks
-   itself. It prints the timeline (every phase, the calibration, Last Call
-   and who drinks) and each round's ranking and cut, then the final order
-   and, for a Field Day Cup, the body the room posts to the Tournament.
+   itself. It prints the timeline (every phase, the calibration, the
+   chug-off for the spot, Last Call's countdown and who drinks) and each
+   round's ranking with its grades, awards, cut and chug-off, the phones'
+   lines, then the final order and, for a Field Day Cup, the body the room
+   posts to the Tournament.
 
      node scripts/float-sim.mjs [--seed 3] [--bots 13] [--phones 0] [--lag 120]
        [--late 0] [--dry 0] [--drinking 1] [--fieldday] [--cups 1] [--quiet]
@@ -11,12 +13,13 @@
    --bots      computer riders (the field, with --phones on top)
    --phones    pretend phones: each taps every cue through the real protocol
                (matchTap on its own estimate of the server clock, hit {c, r}),
-               a little early or late, taps Done in the break, and grabs at
-               Last Call (sloppier: a grab is harder than a beat)
+               a little early or late, chugs (Done 5 to 9 s after the go) when
+               it is in a chug-off, and counts down to zero at Last Call (in
+               its head: sloppier)
    --lag       the TV's sound delay (ms) the pretend phones answer to: the
                room's calibration should find it in practice
-   --late      of the phones, how many never tap Done (their play B is misses)
-   --dry       of the phones, how many skip the drink (done without tapping)
+   --late      of the phones, how many never tap Done in a chug-off
+   --dry       of the phones, how many say they don't drink (they still play)
    --drinking  0 turns the room's drinking off
    --fieldday  the Tournament reserves the Cup (the phones by player id) and
                the result is posted to a fake Tournament, printed at the end
@@ -25,7 +28,7 @@
    Deterministic: the same flags print the same numbers. */
 import { pathToFileURL } from "node:url";
 import { FloatRoom } from "../float/worker/room.js";
-import { cueTime, matchTap, SONGS } from "../float/shared/chart.js";
+import { chartOf, cueTime, gradeWord, matchTap, SONGS } from "../float/shared/chart.js";
 import { rand01 } from "../float/shared/groove.js";
 
 const args = process.argv.slice(2);
@@ -74,25 +77,28 @@ const say = (room, ws, message) => room.onMessage(ws, JSON.stringify(message));
 
 /* a pretend phone: it taps every cue it hears, `lean` ms late (plus the TV's
    lag it answers to) with a spread, stamps the tap on the server clock and
-   sends hit { c, r }; in the break it taps Done after a few seconds; at Last
-   Call it grabs the same way, with three times the spread */
+   sends hit { c, r }; in a chug-off it is in, it taps Done 5 to 9 s after
+   the go; at Last Call it taps once on zero, counted in its head (four times
+   the spread). It keeps the line the room gives it after each song
+   (me.feedback). */
 function phone(room, clock, k, { pid = null, drinks = true, late = false } = {}) {
   const device = `phone-${k}`;
-  const state = { songAt:null, chart:null, offset:0, taken:new Set(), song:null, done:false, i:-1, plan:[] };
+  const state = { songAt:null, chart:null, offset:0, taken:new Set(), song:null, done:false, i:-1, plan:[], lines:{} };
   const ws = new FakeSocket(msg => {
     if (msg.t === "welcome") state.i = msg.you.entrant ?? -1;
+    if (msg.t === "me" && msg.feedback) state.lines[msg.round] = msg.feedback;
     if (msg.t !== "room") return;
+    state.chugoff = msg.chugoff;
     if (msg.chart) state.chart = msg.chart;
     state.offset = msg.offset;
     if ((msg.phase === "song" || msg.phase === "lastcall") && msg.songAt !== state.songAt) {
       state.songAt = msg.songAt;
       state.taken = new Set();
-      state.done = msg.phase === "lastcall";
       /* this phone's taps for the whole song (or Last Call), planned once */
-      const grabs = msg.phase === "lastcall" ? 3 : 1;
-      state.plan = (state.chart?.cues || []).map(cue => {
+      const harder = msg.phase === "lastcall" ? 4 : 1;
+      state.plan = (state.chart?.cues || []).filter(cue => !cue.demo).map(cue => {
         const lean = 25 * (rand01(SEED, k, 77) * 2 - 1);
-        const spread = (30 + 40 * rand01(SEED, k, 78)) * grabs;
+        const spread = (30 + 40 * rand01(SEED, k, 78)) * harder;
         const u = rand01(SEED, k, cue.id, msg.round, 1), v = rand01(SEED, k, cue.id, msg.round, 2);
         const jitter = Math.sqrt(-2 * Math.log(1 - u)) * Math.cos(2 * Math.PI * v) * spread;
         return { at:cueTime(msg.songAt, cue.beat) + LAG + lean + jitter, sent:false };
@@ -107,14 +113,16 @@ function phone(room, clock, k, { pid = null, drinks = true, late = false } = {})
     ws, device, state,
     step(now) {
       if (now - pingAt >= 2000) { pingAt = now; say(room, ws, { t:"ping", c:now, rtt:80 }); }
+      const chug = state.chugoff;
+      if (state.phase === "chugoff" && chug && (chug.a === state.i || chug.b === state.i) && !late
+        && state.chugged !== chug.goAt && now >= chug.goAt + 5000 + 4000 * rand01(SEED, k, chug.goAt % 997)) {
+        state.chugged = chug.goAt;
+        say(room, ws, { t:"drink" });
+      }
       if ((state.phase !== "song" && state.phase !== "lastcall") || !state.chart) return;
-      const drinkFrom = cueTime(state.songAt, 56), drinkTo = cueTime(state.songAt, 88);
-      if (!state.done && drinks && !late && now >= drinkFrom + 3000 + 6000 * rand01(SEED, k, 90)) { state.done = true; say(room, ws, { t:"drink" }); }
-      if (!state.done && !drinks && now >= drinkFrom) state.done = true;
       for (const tap of state.plan) {
         if (tap.sent || tap.at > now) continue;
         tap.sent = true;
-        if (state.phase === "song" && now >= drinkTo - 50 && !state.done && drinks) continue;
         /* the phone judges its tap where it lands, as controller/rhythm.js does */
         const match = matchTap(state.chart, state.songAt, tap.at, { offset:state.offset, taken:state.taken });
         if (!match) continue;
@@ -159,8 +167,8 @@ export async function runCup({ seed = SEED, bots = BOTS, phones = PHONES, fieldd
   }
   const pretend = pids.map((pid, k) => phone(room, clock, k, { pid:fieldday ? pid : null, drinks:drinksOf(k), late:k < late }));
   if (!fieldday) say(room, screen, { t:"host", cmd:"start", bots, drinking });
-  /* the timeline: every phase, the offset's moves, Last Call and who drinks */
-  let phase = null, offset = null, round = -1, drinks = null;
+  /* the timeline: every phase, the offset's moves, the chug-off, Last Call and who drinks */
+  let phase = null, offset = null, round = -1, drinks = null, keeps = null;
   const nameOf = i => room.cup?.entrants[i]?.name ?? i;
   const rounds = [];
   const watch = msg => {
@@ -169,9 +177,17 @@ export async function runCup({ seed = SEED, bots = BOTS, phones = PHONES, fieldd
       phase = msg.phase; round = msg.round;
       const extra = phase === "song" ? `${SONGS.find(song => song.id === msg.song)?.name}, beat 0 at ${fmt(msg.songAt - t0)}, field ${msg.field.length}, offset ${msg.offset}`
         : phase === "cut" ? `${msg.out.length} out so far, ${((msg.endsAt - msg.startAt) / 1000).toFixed(0)} s`
-        : phase === "lastcall" ? `Last Call, beat 0 at ${fmt(msg.songAt - t0)}, ${msg.lastCall.totals.length} at the bar, offset ${msg.offset}` : "";
+        : phase === "lastcall" ? `Last Call (${chartOf(msg.song).countdown.trick}), zero at ${fmt(msg.songAt + chartOf(msg.song).countdown.zeroAt - t0)}, ${msg.lastCall.totals.length} at the bar, offset ${msg.offset}`
+        : phase === "chugoff" ? `Chug-off: ${nameOf(msg.chugoff.a)} vs ${nameOf(msg.chugoff.b)}, go at ${fmt(msg.chugoff.goAt - t0)}`
+        : "";
       log(`${fmt(clock.t - t0)}  ${phase.padEnd(8)} round ${msg.round + 1}  ${extra}`);
       drinks = null;
+      keeps = null;
+    }
+    if (msg.phase === "chugoff" && msg.chugoff?.winner !== null && msg.chugoff?.winner !== undefined && keeps === null) {
+      keeps = msg.chugoff.winner;
+      const ms = msg.chugoff.doneAt[keeps];
+      log(`${fmt(clock.t - t0)}    ${nameOf(keeps)} keeps the spot (${msg.chugoff.by}${Number.isFinite(ms) ? `, done in ${(ms / 1000).toFixed(1)} s` : ""})`);
     }
     if (msg.phase === "lastcall" && msg.lastCall?.worst && drinks === null) {
       drinks = msg.lastCall.worst;
@@ -207,23 +223,31 @@ export async function runCup({ seed = SEED, bots = BOTS, phones = PHONES, fieldd
     for (const item of cup.history) {
       const song = SONGS.find(s => s.id === item.song)?.name;
       log(`\nRound ${item.round + 1}: ${song}, ${item.field.length} riders, offset ${item.offset} ms from ${item.samples} practice taps`);
-      log("   place  rider            skill    pct   perfects  misses  bot/stand-in  done in   out");
+      log("   place  rider            skill    pct  grade      perfects  misses  bot/stand-in  out");
       for (const row of item.results) {
         const entrant = cup.entrants[row.i];
         const stats = item.stats[row.i];
-        log(`   ${pad(row.place, 5)}  ${String(name(row.i)).padEnd(16)} ${pad(entrant.bot ? entrant.skill.toFixed(2) : "phone", 5)}  ${pad(row.pct.toFixed(1), 5)}  ${pad(row.perfects, 8)}  ${pad(row.misses, 6)}  ${pad(stats.botShare.toFixed(2), 12)}  ${pad(stats.doneMs === null ? "-" : `${(stats.doneMs / 1000).toFixed(1)} s`, 7)}  ${row.out ? "out" : ""}`);
+        log(`   ${pad(row.place, 5)}  ${String(name(row.i)).padEnd(16)} ${pad(entrant.bot ? entrant.skill.toFixed(2) : "phone", 5)}  ${pad(row.pct.toFixed(1), 5)}  ${gradeWord(row.grade).padEnd(9)}  ${pad(row.perfects, 8)}  ${pad(row.misses, 6)}  ${pad(stats.botShare.toFixed(2), 12)}  ${row.out ? "out" : ""}${row.bubble ? " (chug-off)" : ""}`);
       }
+      if (item.chugoff) {
+        const c = item.chugoff;
+        const time = i => Number.isFinite(c.doneAt[i]) ? `${(c.doneAt[i] / 1000).toFixed(1)} s` : "no Done";
+        log(`   Chug-off: ${name(c.a)} (${time(c.a)}) vs ${name(c.b)} (${time(c.b)}): ${name(c.winner)} keeps the spot by ${c.by}`);
+      }
+      if (item.awards?.length) log(`   Awards: ${item.awards.map(award => `${award.label}: ${name(award.i)} (${award.value})`).join("; ")}`);
+      for (const p of pretend) if (p.state.lines[item.round]) log(`   ${String(name(p.state.i)).padEnd(16)} "${p.state.lines[item.round].line}"`);
       if (item.lastCall) {
         const sorted = item.lastCall.totals.slice().sort((a, b) => a.ms - b.ms);
-        const grabsOf = row => [0, 1, 2].map(c => row.grabs[c] === null || row.grabs[c] === undefined ? "miss" : `${row.grabs[c] > 0 ? "+" : ""}${row.grabs[c]}`).join(" ");
-        log(`   Last Call: ${item.lastCall.players.length} at the bar; who drinks: ${item.lastCall.worst.map(name).join(", ")}`);
-        for (const row of sorted) log(`      ${String(name(row.i)).padEnd(16)} ${pad((row.ms / 1000).toFixed(2), 5)} s   ${grabsOf(row)}${item.lastCall.worst.includes(row.i) ? "   drinks" : ""}`);
+        const tap = row => row.d === null ? "no tap" : `${row.d > 0 ? "+" : ""}${(row.d / 1000).toFixed(2)} s`;
+        log(`   Last Call (${item.lastCall.trick}): ${item.lastCall.players.length} at the bar; who drinks: ${item.lastCall.worst.map(name).join(", ") || "nobody"}${item.lastCall.excused.length ? `; excused: ${item.lastCall.excused.map(name).join(", ")}` : ""}`);
+        for (const row of sorted) log(`      ${String(name(row.i)).padEnd(16)} ${pad(tap(row), 8)}${item.lastCall.worst.includes(row.i) ? "   drinks" : ""}`);
       }
     }
     log(`\nFinal: ${cup.final.map((i, k) => `${k + 1}. ${name(i)}`).join("  ")}`);
     const posted = fd.calls.find(call => call.url.endsWith("/internal/float/result"));
     if (posted) log("\nPosted to the Tournament:", JSON.stringify({ ...posted.body, rounds:`${posted.body.rounds.length} rounds`,
       stats:{ rounds:posted.body.stats.rounds.map(item => ({ round:item.round, song:item.song, offset:item.offset, samples:item.samples,
+        chugoff:item.chugoff ? `${item.chugoff.winner} over ${item.chugoff.loser} by ${item.chugoff.by}` : null,
         lastCall:item.lastCall?.worst ?? null })),
         botShare:posted.body.stats.botShare } }));
     const evs = screen.sent.filter(msg => msg.t === "ev");

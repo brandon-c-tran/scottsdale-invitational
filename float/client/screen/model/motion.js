@@ -29,6 +29,8 @@ export const ACTIONS = Object.freeze({
   hop:{ pose:"cheer", ms:460 },
   spin:{ pose:"hey", ms:480 },
   drop:{ pose:"cheer", ms:1100 },
+  /* Last Call: a reach up for the glass */
+  grab:{ pose:"hey", ms:560 },
   miss:{ pose:"miss", ms:680 },
 });
 /* a good hit holds the pleased face a moment after its move */
@@ -85,6 +87,12 @@ export function actionAt(hit, now) {
     out.dy = -40 * up + 150 * fall;
     out.rot = 14 * fall;
     out.splash = t >= 0.45 && t < 0.85 ? 1 - (t - 0.45) / 0.4 : 0;
+  } else if (kind === "grab") {
+    const reach = Math.sin(Math.PI * Math.min(1, t / 0.75));
+    out.dy = -30 * reach;
+    out.sy = 1 + 0.07 * reach;
+    out.sx = 1 - 0.04 * reach;
+    out.rot = 6 * reach;
   } else if (kind === "miss") {
     const decay = 1 - t;
     out.rot = 10 * Math.sin(t * Math.PI * 5) * decay;

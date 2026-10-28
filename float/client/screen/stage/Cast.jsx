@@ -14,6 +14,7 @@ import { propOf, spriteSize } from "../../art/groove/index.js";
 import { actionAt, bobAt, cheerAt, chugAt, follow, popupAt } from "../model/motion.js";
 import { chuggingAt } from "../model/song.js";
 import { cutField, cutOuts, cutRankingOf, cutTimeline } from "../model/cut.js";
+import { barLayout, barPlayersOf, drinkersOf, readoutUntil, totalText } from "../model/lastcall.js";
 import { indexList } from "../model/cupShape.js";
 
 const BEAT = 500;
@@ -48,6 +49,7 @@ export function castPlan({ phase, room, state, entrants }) {
       hops:going.map((i, k) => ({ i, at:start + timeline.hopAt(k), ms:timeline.hopMs, stamp:start + timeline.stampAt(k) })),
       reform:start + timeline.reform, nextWater:survivors, kind:survivors.length <= 3 ? "final" : "song" };
   }
+  if (phase === "lastcall") return { ...plan, water:barPlayersOf(room), kind:"bar", drift:false };
   if (phase === "podium" || phase === "feedback") {
     const podium = indexList(room?.podium);
     return { ...plan, podium, bank:[], names:false, podiumAt:Number.isFinite(room?.startAt) ? room.startAt : state?.phaseStart };
@@ -88,11 +90,16 @@ function rippleBox(prop, wx, wy) {
   return { left:wx - ax, top:wy - ay, width:w, height:h };
 }
 
-/* the popup over a rider: re-rendered only when that rider's latest hit changes */
+/* the popup over a rider: re-rendered only when what it says changes (the
+   latest hit; in Last Call, once the grabs are in, the total and who drinks) */
 function RiderPop({ i, setters }) {
-  const [hit, setHit] = useState(null);
-  useEffect(() => { setters.current.set(i, setHit); return () => setters.current.delete(i); }, [i, setters]);
-  return hit ? <span className="fl-pop-in" key={`${hit.c}:${hit.at}`}><PopupLetters q={hit.q} d={hit.d} /></span> : null;
+  const [say, setSay] = useState(null);
+  useEffect(() => { setters.current.set(i, setSay); return () => setters.current.delete(i); }, [i, setters]);
+  if (!say) return null;
+  if (say.total !== undefined) return <span className={`fl-pop-in lc-total${say.drinks ? " is-drinks" : ""}`} key={`total:${say.drinks}`}>
+    <span className="lc-total-ms">{say.total}</span>{say.drinks && <span className="lc-total-word">Drinks</span>}
+  </span>;
+  return <span className="fl-pop-in" key={`${say.c}:${say.at}`}><PopupLetters q={say.q} d={say.d} size={say.big ? 52 : 40} /></span>;
 }
 
 /* the head's top over the waterline at a scale (stage px) */
@@ -127,7 +134,9 @@ export default function Cast({ store, driver, entrants, phase, room, version }) 
       const p = planRef.current;
       const songAt = st.songAt;
       const chart = st.chart;
-      const inSong = phase === "song" && Number.isFinite(songAt);
+      const bar = phase === "lastcall";
+      const inSong = (phase === "song" || bar) && Number.isFinite(songAt);
+      const drinkers = bar ? drinkersOf(st.lastCall) : null;
       const beat = inSong ? (now - songAt) / (chart?.beatMs || BEAT) : (now - (st.phaseStart || 0)) / BEAT;
       const reformed = p.reform !== null && now >= p.reform;
       /* the layouts and the popups' slots: every 120 ms (the scores move
@@ -135,8 +144,9 @@ export default function Cast({ store, driver, entrants, phase, room, version }) 
       if (now - layoutAt > 120 || now < layoutAt || dt === 0) {
         layoutAt = now;
         const lives = new Map(p.water.map(i => [i, phase === "lobby" ? null : store.liveOf(i)]));
-        water = flotillaLayout(p.water, lives, { kind:p.kind === "lobby" ? "lobby" : p.water.length <= 3 ? "final" : "song",
-          drift:p.drift && phase !== "intro", orders:orders.current });
+        water = p.kind === "bar" ? barLayout(p.water)
+          : flotillaLayout(p.water, lives, { kind:p.kind === "lobby" ? "lobby" : p.water.length <= 3 ? "final" : "song",
+            drift:p.drift && phase !== "intro", orders:orders.current });
         next = p.nextWater ? flotillaLayout(p.nextWater, new Map(), { kind:p.kind, drift:false }) : {};
         bank = crowdLayout([...p.bank, ...p.hops.map(h => h.i)]);
         podium = podiumLayout(p.podium, podiumSteps(propOf("podium")));
@@ -199,9 +209,9 @@ export default function Cast({ store, driver, entrants, phase, room, version }) 
         const last = where === "water" && inSong ? st.last.get(i) : null;
         let act = null;
         if (where === "water" && inSong) {
-          const chugging = chuggingAt(chart, songAt, now, st.done.get(i));
+          const chugging = bar ? !!drinkers?.includes(i) : chuggingAt(chart, songAt, now, st.done.get(i));
           act = actionAt(last, now);
-          if (chugging && (!act || act.pose === "miss")) act = { ...chugAt(beat), splash:act?.splash || 0 };
+          if (chugging && (!act || act.pose === "miss" || bar)) act = { ...chugAt(beat), splash:act?.splash || 0 };
         } else if (where === "bank") act = cheerAt(st.cheers.get(i), now);
         else if (where === "podium" && spot.place === 1 && Number.isFinite(p.podiumAt)) {
           /* the winner jumps on every other beat */
@@ -210,7 +220,8 @@ export default function Cast({ store, driver, entrants, phase, room, version }) 
         }
         let pose = act?.pose || "idle";
         if (!act) {
-          if (where === "podium") pose = spot.place === 1 ? "cheer" : "nice";
+          if (bar && drinkers) pose = "nice";
+          else if (where === "podium") pose = spot.place === 1 ? "cheer" : "nice";
           else if (phase === "lobby" && e.ready) pose = "nice";
           else if (where === "hop") pose = "out";
           else if (where === "bank" && phase === "cut" && hop) pose = "out";
@@ -244,14 +255,31 @@ export default function Cast({ store, driver, entrants, phase, room, version }) 
           }
         }
 
-        /* the popup in its slot, the latest judgement for POPUP_MS, riding up with a hop */
+        /* the popup in its slot, the latest judgement for POPUP_MS, riding up
+           with a hop; in Last Call each grab's stays up, big, until the next
+           slides, and once the grabs are in, the total (who drinks lit) */
         const popNode = popRefs.current.get(i);
-        const showPop = last ? popupAt(last, now) : null;
+        let showPop = null, say = null, key = null;
+        if (bar && drinkers && where === "water") {
+          const row = st.lastCall?.totals?.find(item => item.i === i);
+          if (row) {
+            showPop = { opacity:1, dy:0 };
+            say = { total:totalText(row.ms), drinks:drinkers.includes(i) };
+            key = `total:${say.total}:${say.drinks}`;
+          }
+        } else if (bar && last) {
+          if (now >= last.at && beat < readoutUntil(chart, last.c)) showPop = { opacity:1, dy:0 };
+          say = { ...last, big:true };
+          key = `${last.c}:${last.at}`;
+        } else if (last) {
+          showPop = popupAt(last, now);
+          say = last;
+          key = `${last.c}:${last.at}`;
+        }
         if (popNode) {
           const slot = slots[i];
           if (showPop && slot) {
-            const key = `${last.c}:${last.at}`;
-            if (m.popKey !== key) { m.popKey = key; popSetters.current.get(i)?.(last); }
+            if (m.popKey !== key) { m.popKey = key; popSetters.current.get(i)?.(say); }
             const lift = Math.min(0, dy) * sc;
             m.px = follow(m.px, slot.x + enter, dt, 140);
             m.py = follow(m.py, slot.y, dt, 140);

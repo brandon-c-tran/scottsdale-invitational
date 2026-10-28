@@ -71,7 +71,7 @@ export function connectRoom({ room = "mock", hello = {}, options = {} } = {}) {
   const watcher = new FakeSocket(text => {
     const msg = JSON.parse(text);
     if (msg.t !== "room") return;
-    const key = msg.phase === "song" || msg.phase === "cut" ? `${msg.phase}:${msg.round}` : msg.phase;
+    const key = msg.phase === "song" || msg.phase === "cut" || msg.phase === "lastcall" ? `${msg.phase}:${msg.round}` : msg.phase;
     if (!seen[key]) seen[key] = { startAt:Number.isFinite(msg.startAt) ? msg.startAt : msg.s, songAt:msg.songAt ?? null };
     else if (msg.songAt && !seen[key].songAt) seen[key].songAt = msg.songAt;
     Object.assign(watch, { phase:msg.phase, round:msg.round | 0, rounds:msg.rounds | 0, song:msg.song || null, songAt:msg.songAt ?? null,
@@ -90,17 +90,19 @@ export function connectRoom({ room = "mock", hello = {}, options = {} } = {}) {
   /* the people the mock plays: each cue tapped once at its own time, Done after the break */
   const people = new Map();
   const playPeople = () => {
-    if (watch.phase !== "song" || !watch.song || !Number.isFinite(watch.songAt)) return;
+    if ((watch.phase !== "song" && watch.phase !== "lastcall") || !watch.song || !Number.isFinite(watch.songAt)) return;
     const chart = chartOf(watch.song);
     if (!chart) return;
+    /* Last Call has no drink break: its grabs are taps like any cue */
     const drink = drinkSection(chart);
-    const drinkFrom = watch.songAt + drink.from * chart.beatMs;
+    const drinkFrom = drink ? watch.songAt + drink.from * chart.beatMs : Infinity;
     for (const person of PEOPLE) {
       const ws = phoneSockets[person.k];
       const i = engine.cup?.entrants?.findIndex(e => e.device === `mock-phone-${person.k}`) ?? -1;
-      if (!ws || i < 0 || watch.out.includes(i) || !engine.cup?.field?.includes(i)) continue;
+      /* in a song only the field plays; at the bar everyone does */
+      if (!ws || i < 0 || (watch.phase === "song" && (watch.out.includes(i) || !engine.cup?.field?.includes(i)))) continue;
       let me = people.get(person.k);
-      const songKey = `${watch.round}:${watch.songAt}`;
+      const songKey = `${watch.phase}:${watch.round}:${watch.songAt}`;
       if (!me || me.song !== songKey) people.set(person.k, me = { song:songKey, next:0, done:false });
       const doneAt = drinkFrom + person.doneAfter;
       while (me.next < chart.cues.length) {
@@ -113,7 +115,7 @@ export function connectRoom({ room = "mock", hello = {}, options = {} } = {}) {
         if (drinkingNow || hash01(seed, watch.round, person.k, cue.id, 9) < person.miss) continue;
         say(ws, { t:"hit", c:cue.id, r });
       }
-      if (!me.done && clock.t >= doneAt) { me.done = true; say(ws, { t:"drink" }); }
+      if (drink && !me.done && clock.t >= doneAt) { me.done = true; say(ws, { t:"drink" }); }
     }
   };
 

@@ -44,7 +44,7 @@ const [WIDTH, HEIGHT] = (value("--size") || "1920x1080").split("x").map(Number);
 const EXTRA = new URLSearchParams(value("--query") || "");
 const SHOTS = positional.length ? positional
   : ["lobby", "fdlobby", "intro", "card", "count", "practice", "go", "play", "hey", "drink", "late", "outro", "cut", "cutout", "cutnext",
-    "rock", "spin", "sign", "final", "drop", "finalcut", "podium", "feedback"];
+    "bar", "slide", "grab", "grab3", "drinks", "rock", "spin", "sign", "final", "drop", "finalcut", "podium", "feedback"];
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 /* Float's pages, as the dev server routes them */

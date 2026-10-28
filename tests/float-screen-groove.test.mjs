@@ -249,6 +249,37 @@ test("the cut: the room's ranking with its outs, stamped from the last place up,
   assert.equal(pctText(100), "100%");
 });
 
+/* ── Last Call ── */
+
+test("Last Call: the glass waits at the bartender, steps down the bar on each slide, reaches the end on the grab, then waits for the next", async () => {
+  const { BARTENDER, COUNTER, barLayout, barPlayersOf, bartenderPose, drinkersOf, glassAt, readoutUntil, totalText } = await import("../float/client/screen/model/lastcall.js");
+  const chart = chartOf("lastcall");
+  assert.equal(chart.scene, "bar");
+  assert.equal(sceneFor("lastcall", chart), "bar");
+  const [one, two, three] = chart.cues;
+  assert.deepEqual(glassAt(chart, 1).x, COUNTER.from, "waiting at the bartender's hand");
+  assert.ok(glassAt(chart, 1).visible);
+  const steps = [one.slides[0] + 0.5, one.slides[1] + 0.5, one.slides[2] + 0.5, one.beat + 0.3].map(b => glassAt(chart, b).x);
+  assert.ok(steps.every((x, k) => k === 0 || x > steps[k - 1]), "each slide a step down the bar");
+  assert.equal(Math.round(glassAt(chart, one.beat + 0.4).x), COUNTER.to, "the end on the grab");
+  assert.equal(glassAt(chart, one.beat + 0.8).visible, true, "back at the bartender for the next");
+  assert.equal(glassAt(chart, one.beat + 0.8).x, COUNTER.from);
+  assert.equal(glassAt(chart, three.beat + 1).visible, false, "gone after the last");
+  assert.equal(readoutUntil(chart, one.id), two.slides[0], "a grab's readouts stay up until the next slides");
+  assert.equal(readoutUntil(chart, three.id), chart.bars * 4);
+  assert.equal(bartenderPose(chart, one.slides[1] + 0.1), "slide");
+  assert.equal(bartenderPose(chart, 2), "idle");
+  assert.equal(bartenderPose(chart, 30, { revealed:true }), "cheer");
+  const seats = barLayout(range(13));
+  assert.equal(Object.keys(seats).length, 13);
+  assert.ok(Object.values(seats).every(s => s.x > 0 && s.x < STAGE_W && s.y > COUNTER.y), "everyone in front of the counter");
+  assert.ok(BARTENDER.x < COUNTER.from);
+  assert.deepEqual(barPlayersOf({ field:[2, 5], out:[1, 7] }), [2, 5, 7, 1], "the field, then the riders out, the last out first");
+  assert.equal(drinkersOf({ totals:[], worst:null }), null);
+  assert.deepEqual(drinkersOf({ totals:[], worst:[3] }), [3]);
+  assert.equal(totalText(1234), "1.23");
+});
+
 /* ── the store ── */
 
 test("the store: the chart by id, beat 0, one judgement a cue (the first), live scores between the room's, Done, cheers", () => {
@@ -311,7 +342,9 @@ test("the scripted Cup speaks the contract: phases in order, hits with a quality
   assert.deepEqual(fields, [13, 9, 6, 3]);
   const row = msgs.find(m => m.msg.t === "room" && m.msg.phase === "song" && m.msg.scores?.length).msg.scores[0];
   assert.deepEqual(Object.keys(row).sort(), ["cup", "done", "i", "live", "n", "pct", "pts"]);
-  for (const shot of MOCK_SHOTS) if (!SHOTS[shot].lobby) assert.ok(Number.isFinite(shotTime(shot, seenOf(marks), rounds)), `${shot} has a moment`);
+  /* (the scripted Cup has no Last Call; the real room's does) */
+  for (const shot of MOCK_SHOTS) if (!SHOTS[shot].lobby && SHOTS[shot].phase !== "lastcall")
+    assert.ok(Number.isFinite(shotTime(shot, seenOf(marks), rounds)), `${shot} has a moment`);
 });
 
 test("the real room in the tab: a shot runs the engine to its moment and the screen gets the room, the chart and the hits", async () => {
@@ -337,7 +370,7 @@ test("the real room in the tab: a shot runs the engine to its moment and the scr
 
 const bundle = await build({
   stdin:{ contents:`export { default as FloatScreen } from "./float/client/screen/FloatScreen.jsx";
-    export { CutBoard, SongBanner, PodiumBlocks, IntroTitle, Feedback } from "./float/client/screen/hud/Hud.jsx";
+    export { CutBoard, SongBanner, PodiumBlocks, IntroTitle, Feedback, LastCallBanner } from "./float/client/screen/hud/Hud.jsx";
     export { default as Lobby } from "./float/client/screen/hud/Lobby.jsx";
     export { default as Scene } from "./float/client/screen/stage/Scene.jsx";
     export { default as Cast } from "./float/client/screen/stage/Cast.jsx";
@@ -372,7 +405,7 @@ test("rendered: the round card and the song's shouts, the cut board with its lin
   assert.match(banner(24.3), /Go!/);
   assert.match(banner(57), /Drink!/);
   const cutStart = 2_000_000;
-  const room = { phase:"cut", round:0, rounds:4, startAt:cutStart, endsAt:cutStart + 20000, song:"paddle", field:range(9), out:[9, 10, 11, 12], cut:9, lastRound:false,
+  const room = { phase:"cut", round:0, rounds:4, drinking:false, startAt:cutStart, endsAt:cutStart + 20000, song:"paddle", field:range(9), out:[9, 10, 11, 12], cut:9, lastRound:false,
     results:range(13).map(i => ({ i, place:i + 1, pct:99 - i * 2.5, out:i >= 9 })), history:[{ round:0, song:"paddle", field:range(13), out:[12, 11, 10, 9] }] };
   const board = at => html(React.createElement(CutBoard, { store:{ state:{ songField:range(13), phaseStart:cutStart } }, driver:fakeDriver(cutStart + at), room, entrants }));
   const early = board(1000);
@@ -406,4 +439,23 @@ test("rendered: the cast has every rider with their name, the host, the scene; a
   assert.match(html(React.createElement(Host, { store, driver:fakeDriver(0), phase:"song" })), /fl-host/);
   assert.match(html(React.createElement(Scene, { id:"open" })), /sc-water/);
   assert.match(html(React.createElement(PlaceholderCritter, { color:"#ff5a4e", critter:"jackrabbit", groom:true })), /cr-crown/);
+});
+
+test("rendered: Last Call's card, then who drinks; the cut before it points to Last Call", () => {
+  const { LastCallBanner, CutBoard: Board } = ui.exports;
+  const chart = chartOf("lastcall");
+  const songAt = 3_000_000;
+  const at = (beat, lastCall = null) => html(React.createElement(LastCallBanner, {
+    store:{ state:{ chart, songAt, lastCall } }, driver:fakeDriver(songAt + beat * BEAT_MS), entrants }));
+  assert.match(at(-2), /Last Call/);
+  assert.equal(at(10), "");
+  assert.match(at(27, { totals:[], worst:[1, 4] }), /Evan and Khoa drink/);
+  assert.match(at(27, { totals:[], worst:[2] }), /Eyob drinks/);
+  const cutStart = 4_000_000;
+  const room = { phase:"cut", round:0, rounds:4, drinking:true, startAt:cutStart, endsAt:cutStart + 12000, song:"paddle", field:range(9), out:[9, 10, 11, 12],
+    cut:9, lastRound:false, results:range(13).map(i => ({ i, place:i + 1, pct:99 - i * 2.5, out:i >= 9 })),
+    history:[{ round:0, song:"paddle", field:range(13), out:[12, 11, 10, 9] }] };
+  const late = html(React.createElement(Board, { store:{ state:{ songField:range(13), phaseStart:cutStart } }, driver:fakeDriver(cutStart + 10500), room, entrants }));
+  assert.match(late, /Next[\s\S]*Last Call/);
+  assert.doesNotMatch(late, /Rock Hop/);
 });

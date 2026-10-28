@@ -1,8 +1,9 @@
 /* The cut (float/GROOVE.md "Rounds, elimination, positions"): the song's
    ranking with each rider's percent, the cut line, the eliminated stamped
    out from the bottom up, then hopping to the bank to become the crowd, the
-   survivors re-forming for the next song, and the next song's card. Pure:
-   ms from the cut's start, squeezed to fit a shorter cut. */
+   survivors re-forming for the next song, and what comes next (the next
+   song's card, or Last Call). Pure: ms from the cut's start, squeezed to
+   fit a shorter cut. */
 import { indexList } from "./cupShape.js";
 
 export const CUT_BEATS = Object.freeze({ STAMP:2600, STAMP_GAP:450, HOLD:2600, HOP_GAP:420, HOP_MS:760, REFORM:700, NEXT:500 });
@@ -17,8 +18,9 @@ export function cutTimeline(out = 0, ms = 20000) {
   const hopsEnd = hop + Math.max(0, n - 1) * B.HOP_GAP + B.HOP_MS;
   const reform = n ? hopsEnd + B.REFORM : boardOut + 400;
   const next = reform + B.NEXT;
-  const nominal = next + 4500;
-  const k = Number.isFinite(ms) && ms > 0 && ms < nominal ? Math.max(0.4, (ms - 1200) / (nominal - 4500)) : 1;
+  /* a short cut (the one before Last Call, 12 s) runs it faster, so the
+     next card still stands three seconds */
+  const k = Number.isFinite(ms) && ms > 0 ? Math.max(0.4, Math.min(1, (ms - 3000) / next)) : 1;
   return {
     stampAt:j => B.STAMP * k + j * B.STAMP_GAP * k,
     boardOut:boardOut * k,

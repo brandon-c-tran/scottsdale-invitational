@@ -7,6 +7,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { BEATS_PER_BAR, SONG_LEAD_MS, songForRound } from "../../../shared/chart.js";
 import { bannerAt, roundLabel, songName } from "../model/song.js";
 import { cutOuts, cutRankingOf, cutTimeline, pctText } from "../model/cut.js";
+import { drinkersOf } from "../model/lastcall.js";
 import { indexList } from "../model/cupShape.js";
 import { podiumSteps } from "../model/flotilla.js";
 import { propOf } from "../../art/groove/index.js";
@@ -72,6 +73,26 @@ function CupIcon() {
   return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4h12l-1.6 15.2A2 2 0 0 1 14.4 21H9.6a2 2 0 0 1-2-1.8L6 4Z" fill="#fff6d6" stroke="#1d1a24" strokeWidth="2" strokeLinejoin="round" /><path d="M7 8h10" stroke="#f0b33a" strokeWidth="3" /></svg>;
 }
 
+/* ── Last Call: its card through the lead and the first bar; who drinks once the grabs are in ── */
+export const namesText = names => names.length <= 1 ? names.join("") : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+export function LastCallBanner({ store, driver, entrants }) {
+  const st = store.state;
+  const view = useDriven(driver, now => {
+    const chart = st.chart;
+    if (!chart || !Number.isFinite(st.songAt)) return null;
+    const drinkers = drinkersOf(st.lastCall);
+    if (drinkers?.length) return `drink:${drinkers.join(",")}`;
+    const beat = (now - st.songAt) / chart.beatMs;
+    return beat < 4 ? "card" : null;
+  });
+  if (!view) return null;
+  if (view === "card") return <div className="hd-card is-bar" key="card"><span className="hd-card-name">Last Call</span></div>;
+  const names = view.slice(6).split(",").map(Number).map(i => entrants[i]?.name).filter(Boolean);
+  return <div className="hd-shout is-drinks" key={view}>
+    <span>{namesText(names)} {names.length === 1 ? "drinks" : "drink"}</span>
+  </div>;
+}
+
 /* ── the intro ── */
 export function IntroTitle({ room }) {
   const n = indexList(room?.field).length || (room?.entrants || []).filter(Boolean).length;
@@ -101,6 +122,8 @@ export function CutBoard({ store, driver, room, entrants }) {
   const songId = room?.song || st.chart?.id;
   const nextRound = (room?.round | 0) + 1;
   const nextSong = songForRound(nextRound, room?.rounds | 0);
+  /* a drinking room goes to the bar between songs (every cut but the last) */
+  const barNext = room?.drinking !== false && room?.cut !== null && room?.cut !== undefined && !room?.lastRound;
   return <>
     {!boardGone && <div className={`hd-board${cols > 1 ? " is-two" : ""}${elapsed >= timeline.boardOut - 350 && !last ? " is-leaving" : ""}`}>
       <div className="hd-board-head">
@@ -127,12 +150,15 @@ export function CutBoard({ store, driver, room, entrants }) {
         </div>)}
       </div>
     </div>}
-    {showNext && <div className="hd-next">
+    {showNext && (barNext ? <div className="hd-next">
+      <span className="hd-next-label">Next</span>
+      <span className="hd-next-name">Last Call</span>
+    </div> : <div className="hd-next">
       <span className="hd-next-label">Next</span>
       <span className="hd-next-round">{roundLabel(nextRound, room?.rounds | 0, nextRound >= (room?.rounds | 0) - 1)}</span>
       <span className="hd-next-name">{songName(nextSong)}</span>
       <span className="hd-next-sub">{through <= 3 ? `${through} for the podium` : `${through} riders`}</span>
-    </div>}
+    </div>)}
   </>;
 }
 

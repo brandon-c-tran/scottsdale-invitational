@@ -43,6 +43,8 @@ export function createScreenStore() {
     /* the crowd: when each last cheered, and the outs in order */
     cheers:new Map(),
     outs:[],
+    /* Last Call's totals and who drinks (the room's lastCall), in its phase */
+    lastCall:null,
     rtt:{},
     version:0,
   };
@@ -89,8 +91,8 @@ export function createScreenStore() {
     }
     state.round = round;
     const chart = chartFor(msg, charts);
-    if (phase === "song") {
-      const songKey = `${round}:${chart?.id || msg.song || ""}`;
+    if (phase === "song" || phase === "lastcall") {
+      const songKey = `${phase}:${round}:${chart?.id || msg.song || ""}`;
       if (songKey !== state.songKey) {
         state.songKey = songKey;
         resetSong();
@@ -104,6 +106,7 @@ export function createScreenStore() {
     } else if (chart && (phase === "cut" || !state.chart)) state.chart = chart;
     if (Number.isFinite(msg.offset)) state.offset = msg.offset;
     takeScores(msg);
+    state.lastCall = phase === "lastcall" && msg.lastCall && typeof msg.lastCall === "object" ? msg.lastCall : null;
     const outs = indexList(msg.out);
     if (outs.length || phase === "lobby" || phase === "intro") state.outs = outs;
     state.room = msg;

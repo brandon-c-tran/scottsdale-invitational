@@ -73,6 +73,7 @@ function PaintedScene({ scene }) {
 export default function Scene({ id = "open", mode = null }) {
   const art = useSceneArt(id);
   if (art) return <PaintedScene scene={art} />;
+  if (id === "bar") return <div className="sc sc-bar-drawn" data-scene="bar" />;
   return <div className="sc" data-scene={id} data-mode={mode || undefined}>
     <div className="sc-sky" />
     <div className="sc-sun" />

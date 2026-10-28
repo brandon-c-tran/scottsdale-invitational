@@ -8,6 +8,7 @@ import { BEATS_PER_BAR, CUE_KINDS, SONG_LEAD_MS, SONGS, chartOf, sectionAt } fro
 export function sceneFor(phase, chart = null) {
   if (phase === "lobby") return "lobby";
   if (phase === "podium" || phase === "feedback") return "podium";
+  if (phase === "lastcall") return "bar";
   if ((phase === "song" || phase === "cut") && chart?.scene) return chart.scene;
   return "open";
 }

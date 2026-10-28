@@ -27,7 +27,8 @@ import Cast from "./stage/Cast.jsx";
 import Host from "./stage/Host.jsx";
 import Pieces from "./stage/Pieces.jsx";
 import Lobby from "./hud/Lobby.jsx";
-import { CutBoard, Feedback, IntroTitle, PodiumBlocks, PodiumList, SongBanner, SongStrip } from "./hud/Hud.jsx";
+import { CutBoard, Feedback, IntroTitle, LastCallBanner, PodiumBlocks, PodiumList, SongBanner, SongStrip } from "./hud/Hud.jsx";
+import Bar from "./stage/Bar.jsx";
 import * as floatSound from "../sound/index.js";
 import "./screen.css";
 
@@ -189,6 +190,7 @@ export default function FloatScreen({ room = "test", hosting = false, joinUrl = 
         {(phase === "song" || phase === "cut" || phase === "intro" || phase === "lobby") && <Pieces scene={scene} store={store} driver={driver} phase={phase} />}
         {(phase === "podium" || phase === "feedback") && <PodiumBlocks store={store} driver={driver} room={roomMsg} entrants={entrants} beats={PODIUM_BEATS} />}
         {water && phase !== "lobby" && <Host store={store} driver={driver} phase={phase} />}
+        {phase === "lastcall" && <Bar store={store} driver={driver} />}
         <Cast store={store} driver={driver} entrants={entrants} phase={phase} room={roomMsg} version={version} />
         <div className="fs-hud">
           {phase === "lobby" && <Lobby room={roomMsg} entrants={entrants} hosting={hosting && roomMsg?.mode !== "fieldday"} joinUrl={joinUrl} send={send}
@@ -196,6 +198,7 @@ export default function FloatScreen({ room = "test", hosting = false, joinUrl = 
           {phase === "intro" && <IntroTitle room={roomMsg} />}
           {phase === "song" && <><SongStrip store={store} driver={driver} /><SongBanner store={store} driver={driver} room={roomMsg} /></>}
           {phase === "cut" && <CutBoard store={store} driver={driver} room={roomMsg} entrants={entrants} />}
+          {phase === "lastcall" && <LastCallBanner store={store} driver={driver} entrants={entrants} />}
           {(phase === "podium" || phase === "feedback") && <PodiumList room={roomMsg} entrants={entrants} />}
           {phase === "feedback" && <Feedback />}
         </div>

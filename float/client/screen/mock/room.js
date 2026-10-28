@@ -55,7 +55,9 @@ export function connectRoom({ room = "mock", hello = {}, options = {} } = {}) {
   let status = "connecting";
   let closed = false;
   const clock = { t:Date.UTC(2026, 9, 31, 3, 0, 0) + seed * 1000, now:() => clock.t };
-  const engine = new FloatRoom(memoryCtx(), {}, { clock, timers:false });
+  /* repeatable ids: the same Cup (its bots' draws) for the same seed */
+  let idCount = 0;
+  const engine = new FloatRoom(memoryCtx(), {}, { clock, timers:false, ids:prefix => `${prefix}mock${seed}x${idCount++}` });
   const emit = msg => {
     const fns = listeners.get(msg.t);
     if (fns) [...fns].forEach(fn => { try { fn(msg); } catch (error) { console.error(error); } });

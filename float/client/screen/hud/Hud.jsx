@@ -4,7 +4,7 @@
    names, "Check your phone". Big, few, on the beat; the frame driver says
    when each one changes and React draws it. */
 import React, { useEffect, useRef, useState } from "react";
-import { BEATS_PER_BAR, SONG_LEAD_MS } from "../../../shared/chart.js";
+import { BEATS_PER_BAR, SONG_LEAD_MS, songForRound } from "../../../shared/chart.js";
 import { bannerAt, roundLabel, songName } from "../model/song.js";
 import { cutOuts, cutRankingOf, cutTimeline, pctText } from "../model/cut.js";
 import { indexList } from "../model/cupShape.js";
@@ -98,7 +98,7 @@ export function CutBoard({ store, driver, room, entrants }) {
   const perCol = Math.ceil(ranking.length / cols);
   const songId = room?.song || st.chart?.id;
   const nextRound = (room?.round | 0) + 1;
-  const nextSong = nextRound >= (room?.rounds | 0) - 1 ? "drop" : ["paddle", "rock", "spin"][Math.min(2, nextRound)];
+  const nextSong = songForRound(nextRound, room?.rounds | 0);
   return <>
     {!boardGone && <div className={`hd-board${cols > 1 ? " is-two" : ""}${elapsed >= timeline.boardOut - 350 && !last ? " is-leaving" : ""}`}>
       <div className="hd-board-head">

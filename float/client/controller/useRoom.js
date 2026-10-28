@@ -1,15 +1,16 @@
 /* The room as this phone knows it: folded from the connection's frames
-   (welcome, room, me, ev) into one state the controller renders. The
-   phone finds itself by its device in the room's entrants (PROTOCOL "As
-   built"). The course comes in full once and is kept while the room names
-   the same one. memory is what the beach and the drink button need from
-   the stream: the rounds this rider drank in, the round they went out,
-   their last throw, who has arrived, and every splash. It starts over with
-   each Cup. */
+   (welcome, room, me, ev) into one state the controller renders. The phone
+   finds itself by its device in the room's entrants. The chart comes in
+   full with the welcome and when the song changes, and is kept while the
+   room names the same one (chartId); the frozen chart module stands in for
+   a room that sends neither. memory is what the room has said about this
+   rider in the song (its verdicts on their cues, their Done) and the round
+   they went out in; it starts over with each song, and all of it with each
+   Cup. */
 import { useEffect, useState } from "react";
-import { FLAG, findMe, foldEvent, has, indexes, withDrink } from "./controllerModel.js";
+import { chartFor, findMe, foldMine, songKeyOf } from "./controllerModel.js";
 
-export const EMPTY = Object.freeze({ status:"connecting", welcome:null, room:null, course:null, me:null, memory:{}, last:null, idx:-1 });
+export const EMPTY = Object.freeze({ status:"connecting", welcome:null, room:null, chart:null, me:null, memory:{}, idx:-1, songKey:null });
 
 const meIndex = (state, device) => findMe({ room:state.room, device, welcome:state.welcome });
 
@@ -21,25 +22,25 @@ export function foldFrame(state, msg, { device = null } = {}) {
       return { ...next, idx:meIndex(next, device) };
     }
     case "room": {
-      const course = msg.course && typeof msg.course === "object" ? msg.course
-        : state.course && (!msg.courseId || state.course.id === msg.courseId) ? state.course : null;
       const was = state.room;
-      const fresh = (was?.cupId && msg.cupId && was.cupId !== msg.cupId)
-        || (msg.phase === "lobby" && was?.phase && was.phase !== "lobby");
-      /* the last race's `me` is not this one's: a new round starts without it */
-      const newRound = fresh || msg.phase === "intro" || msg.phase === "grid" || (was && Number(was.round) !== Number(msg.round));
-      const next = { ...state, room:msg, course, me:newRound ? null : state.me };
+      const fresh = (was?.cupId && msg.cupId && was.cupId !== msg.cupId) || (msg.phase === "lobby" && was?.phase && was.phase !== "lobby");
+      const chart = chartFor(msg, state.chart);
+      const songKey = msg.phase === "song" || msg.phase === "cut" ? songKeyOf(msg) ?? state.songKey : null;
+      /* the last song's `me` is not this one's */
+      const newSong = fresh || msg.phase === "intro" || msg.phase === "lobby" || (songKey && songKey !== state.songKey)
+        || (was && Number(was.round) !== Number(msg.round));
+      const next = { ...state, room:msg, chart, songKey, me:newSong ? null : state.me };
       const idx = meIndex(next, device);
-      let memory = fresh ? {} : state.memory;
-      if (idx >= 0 && indexes(msg.out).includes(idx) && memory.outRound == null) memory = { ...memory, outRound:Number(msg.round) || 0 };
+      let memory = foldMine(fresh ? {} : state.memory, null, { idx, songKey, round:msg.round });
+      /* out at this cut: the round they went out in, for a room that sends no scores */
+      if (msg.phase === "cut" && idx >= 0 && memory.outRound == null && Array.isArray(msg.out) && msg.out.includes(idx)
+        && !(Array.isArray(was?.out) && was.out.includes(idx))) memory = { ...memory, outRound:Number(msg.round) || 0 };
       return { ...next, idx, memory };
     }
-    case "me": {
-      const memory = has(msg.f, FLAG.DRANK) ? withDrink(state.memory, state.room?.round) : state.memory;
-      return { ...state, me:msg, memory };
-    }
+    case "me":
+      return { ...state, me:msg, memory:foldMine(state.memory, msg, { idx:state.idx, songKey:state.songKey, round:state.room?.round }) };
     case "ev":
-      return { ...state, memory:foldEvent(state.memory, msg, state.idx, state.room?.round), last:msg };
+      return { ...state, memory:foldMine(state.memory, msg, { idx:state.idx, songKey:state.songKey, round:state.room?.round }) };
     default:
       return state;
   }

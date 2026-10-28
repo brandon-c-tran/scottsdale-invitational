@@ -10,16 +10,12 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import FloatController from "../controller/FloatController.jsx";
 import LockerPicker from "../locker/LockerPicker.jsx";
 import Portrait from "../locker/Portrait.jsx";
-import { FloatieGlyph } from "../locker/FloatieCard.jsx";
 import { floatDeviceId } from "../net.js";
-import { CRITTERS } from "../../shared/looks.js";
-import { floatieOf } from "../../shared/floaties.js";
-import { unlockFloatSound } from "../sound/index.js";
+import { critterName } from "../locker/lockerModel.js";
+import { unlockSound } from "../controller/sound.js";
 import { tapTick } from "../../../src/lib/haptics.js";
 import { CODE_LENGTH, JOIN_COLORS, canJoin, cleanCode, cleanDraft, loadRider, riderOf, saveRider, withRoom } from "./joinModel.js";
 import "./join.css";
-
-const critterName = id => CRITTERS.find(c => c.id === id)?.name || "";
 
 function Back({ onBack, label = "Back" }) {
   return <button type="button" className="flj-back" onClick={() => { tapTick(); onBack(); }} aria-label={label}>
@@ -51,13 +47,12 @@ function Code({ onCode }) {
 
 function Ready({ room, draft, onJoin, onEdit, onBack }) {
   const entrant = { ...draft, name:draft.name };
-  const floatie = floatieOf(draft.look.floatie);
   return <section className="flj-screen flj-ready" style={{ "--me":draft.color }}>
     <div className="flj-top"><Back onBack={onBack} label="Another room" /><span className="flj-room">{room.toUpperCase()}</span></div>
     <div className="flj-ready-main">
       <div className="flj-stage"><Portrait entrant={entrant} size={180} label={draft.name} /></div>
       <h1 className="flj-name">{draft.name}</h1>
-      <span className="flj-chip"><FloatieGlyph id={floatie.id} />{critterName(draft.look.critter)}</span>
+      <span className="flj-chip">{critterName(draft.look.critter)}</span>
     </div>
     <div className="flj-actions">
       <button type="button" className="flj-join" onClick={onJoin}>Join</button>
@@ -89,7 +84,7 @@ function Edit({ room, draft, setDraft, onJoin, onBack, onLocker }) {
       <div className="flj-field">
         <span className="flj-label">Look</span>
         <button type="button" className="flj-look" onClick={() => { tapTick(); onLocker(); }}>
-          <FloatieGlyph id={draft.look.floatie} /><span>{critterName(draft.look.critter)}</span>
+          <span>{critterName(draft.look.critter)}</span>
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7" /></svg>
         </button>
       </div>
@@ -106,12 +101,12 @@ function Edit({ room, draft, setDraft, onJoin, onBack, onLocker }) {
   </section>;
 }
 
-function LockerSheet({ draft, setDraft, onDone }) {
+function LockerSheet({ draft, setDraft, groom, onDone }) {
   return <section className="flj-screen flj-sheet" style={{ "--me":draft.color }}>
     <div className="flj-top"><h2 className="flj-sheet-title">Look</h2>
       <button type="button" className="flj-done" onClick={() => { tapTick(); onDone(); }}>Done</button></div>
     <div className="flj-sheet-body">
-      <LockerPicker look={draft.look} onChange={look => setDraft(d => ({ ...d, look }))} color={draft.color} name={draft.name} />
+      <LockerPicker look={draft.look} onChange={look => setDraft(d => ({ ...d, look }))} groom={groom} color={draft.color} name={draft.name} />
     </div>
   </section>;
 }
@@ -120,12 +115,14 @@ function LockerSheet({ draft, setDraft, onDone }) {
    the room (the mock for ?mock=1); skip: straight to the controller */
 export default function JoinFlow({ initialRoom = null, connect = undefined, skip = false, defaultRider = null }) {
   const seed = useMemo(() => floatDeviceId(), []);
-  const saved = useMemo(() => loadRider(undefined, { seed }), [seed]);
+  /* the groom (a host that says so): his crown and his Winnie */
+  const groom = !!defaultRider?.groom;
+  const saved = useMemo(() => loadRider(undefined, { seed, groom }), [seed, groom]);
   const [room, setRoom] = useState(initialRoom);
   /* a new rider answers "Drinking?" themselves, whatever a host prefilled */
-  const [draft, setDraft] = useState(() => saved || cleanDraft({ ...(defaultRider || {}), drinks:null }, { seed }));
+  const [draft, setDraft] = useState(() => saved || cleanDraft({ ...(defaultRider || {}), drinks:null }, { seed, groom }));
   const [step, setStep] = useState(() => !initialRoom ? "code" : skip ? "play" : saved ? "ready" : "edit");
-  const [rider, setRider] = useState(() => skip ? riderOf(saved || cleanDraft({ ...(defaultRider || {}), drinks:true }, { seed })) : null);
+  const [rider, setRider] = useState(() => skip ? riderOf(saved || cleanDraft({ ...(defaultRider || {}), drinks:true }, { seed, groom }), { groom }) : null);
 
   /* the room's code in the address, so a reload or a shared link lands here */
   const goRoom = code => {
@@ -141,9 +138,9 @@ export default function JoinFlow({ initialRoom = null, connect = undefined, skip
   const join = () => {
     if (!canJoin(draft)) return;
     tapTick();
-    unlockFloatSound();
+    unlockSound();
     saveRider(draft);
-    setRider(riderOf(draft));
+    setRider(riderOf(draft, { groom }));
     setStep("play");
   };
   /* a look changed in the lobby is this phone's look from now on */
@@ -162,6 +159,6 @@ export default function JoinFlow({ initialRoom = null, connect = undefined, skip
     {step === "ready" && room && <Ready room={room} draft={draft} onJoin={join} onEdit={() => setStep("edit")} onBack={toCode} />}
     {step === "edit" && room && <Edit room={room} draft={draft} setDraft={setDraft} onJoin={join} onBack={toCode}
       onLocker={() => setStep("locker")} />}
-    {step === "locker" && <LockerSheet draft={draft} setDraft={setDraft} onDone={() => setStep("edit")} />}
+    {step === "locker" && <LockerSheet draft={draft} setDraft={setDraft} groom={groom} onDone={() => setStep("edit")} />}
   </div>;
 }

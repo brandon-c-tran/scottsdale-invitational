@@ -3,15 +3,15 @@
    the scenes (their layers scrolling, to check the seams), the props, the
    pixel lettering, and a flotilla put together from all of it.
 
-   ?view=all (default) | flotilla | lastcall | critters | crowns | critter&id=frog | portraits | host | scenes | props | type
+   ?view=all (default) | flotilla | lastcall | looks | look&id=frog | critters | crowns | critter&id=frog | portraits | host | scenes | props | type
    &bg=water|dark|light   &freeze=1 (no motion, for screenshots)
    document.body.dataset.ready is "1" once every sprite on the page is painted. */
 import React, { useEffect, useMemo, useState } from "react";
-import { CRITTERS, SPECIAL_CRITTERS } from "../../shared/looks.js";
+import { CRITTERS, SPECIAL_CRITTERS, HATS, SHADES } from "../../shared/looks.js";
 import { SONGS } from "../../shared/chart.js";
 import RiderSprite, { useGrooveArt } from "./groove/RiderSprite.jsx";
 import Popup from "./groove/Popup.jsx";
-import { riderSprites, riderPortrait, sceneOf, propOf, hostSprites, bartenderSprites, spriteAnchor, POSES } from "./groove/index.js";
+import { riderSprites, riderPortrait, sceneOf, propOf, hostSprites, bartenderSprites, spriteAnchor, grooveUrl, POSES } from "./groove/index.js";
 import "./groove/groove.css";
 
 const COLORS = [["Red", "#e53935"], ["Yellow", "#fdd835"], ["Teal", "#00897b"], ["Navy", "#1a237e"]];
@@ -69,7 +69,7 @@ function useReady(looks) {
 }
 
 function Nav() {
-  const views = ["all", "flotilla", "lastcall", "critters", "crowns", "portraits", "host", "scenes", "props", "type"];
+  const views = ["all", "flotilla", "lastcall", "looks", "critters", "crowns", "portraits", "host", "scenes", "props", "type"];
   return <nav>{views.map(v => <a key={v} href={`?view=${v}`} aria-current={v === VIEW ? "page" : undefined}>{v}</a>)}</nav>;
 }
 
@@ -102,6 +102,59 @@ function Crowns() {
       {ALL.map((c, i) => (
         <div key={c.id} className="fa2-row">
           {POSES.map(pose => <div key={pose} className="fa2-cell"><RiderSprite critter={c.id} color={RIDER_COLORS[i % RIDER_COLORS.length]} pose={pose} groom size={110} /></div>)}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* the looks (float/shared/looks.js): every hat, every pair of glasses and the photo tee */
+const SAMPLE_PHOTO = typeof window !== "undefined" ? grooveUrl("looks/sample-photo.webp") : null;
+const HAT_IDS = HATS.map(h => h.id).filter(id => id !== "none");
+const SHADE_IDS = SHADES.map(s => s.id).filter(id => id !== "none");
+const lookCells = () => [
+  ...HAT_IDS.map(hat => ({ label:hat, look:{ hat, groom:hat === "crown" } })),
+  ...SHADE_IDS.map(shades => ({ label:shades, look:{ shades } })),
+  { label:"photo tee", look:{ shirt:"photo", photo:SAMPLE_PHOTO } },
+  { label:"all three", look:{ hat:"cowboy", shades:"aviators", shirt:"photo", photo:SAMPLE_PHOTO } },
+];
+/* the looks view says when every portrait is in (document.body.dataset.looks) */
+const pending = { n:0 };
+const looksBusy = delta => {
+  pending.n += delta;
+  if (typeof document !== "undefined") document.body.dataset.looks = pending.n > 0 ? "0" : "1";
+};
+function PortraitCell({ entrant, size = 120 }) {
+  const [url, setUrl] = useState(null);
+  useEffect(() => {
+    let live = true;
+    looksBusy(1);
+    riderPortrait(entrant, { size:size * 2 }).then(u => { if (live) setUrl(u); }, () => {}).finally(() => looksBusy(-1));
+    return () => { live = false; };
+  }, [JSON.stringify(entrant), size]);
+  return url ? <img src={url} width={size} height={size} alt="" /> : <div style={{ width:size, height:size }} />;
+}
+function Looks() {
+  const cells = lookCells();
+  return (
+    <div className="fa2-sheet" style={{ background:BGS[BG] || BGS.water }}>
+      <div className="fa2-row">{cells.map(c => <div key={c.label} className="fa2-cell" style={{ width:120 }}><small>{c.label}</small></div>)}</div>
+      {ALL.map((c, i) => (
+        <div key={c.id} className="fa2-row">
+          {cells.map(cell => <PortraitCell key={cell.label} entrant={{ color:RIDER_COLORS[i % RIDER_COLORS.length], look:{ critter:c.id, ...cell.look }, groom:!!cell.look.groom, photo:cell.look.photo }} />)}
+        </div>
+      ))}
+    </div>
+  );
+}
+/* one critter, every look in all eight poses */
+function LookPoses({ id }) {
+  return (
+    <div className="fa2-sheet" style={{ background:BGS[BG] || BGS.water }}>
+      {lookCells().map((cell, i) => (
+        <div key={cell.label} className="fa2-row">
+          <div className="fa2-cell" style={{ width:90 }}><small>{cell.label}</small></div>
+          {POSES.map(pose => <RiderSprite key={pose} critter={id} color={RIDER_COLORS[i % RIDER_COLORS.length]} pose={pose} size={150} {...cell.look} />)}
         </div>
       ))}
     </div>
@@ -281,6 +334,7 @@ export default function ArtApp() {
     for (const id of ids) for (const color of colors) list.push({ critter:id, color, groom:false });
     if (VIEW === "flotilla" || VIEW === "all") CRITTERS.forEach((c, i) => list.push({ critter:c.id, color:RIDER_COLORS[i], groom:c.id === "coyote" }));
     if (VIEW === "lastcall") CRITTERS.slice(0, 6).forEach((c, i) => list.push({ critter:c.id, color:RIDER_COLORS[i * 2], groom:false }));
+    if (VIEW === "look") lookCells().forEach((cell, i) => list.push({ critter:query.get("id") || "capybara", color:RIDER_COLORS[i % RIDER_COLORS.length], ...cell.look, size:256 }));
     if (VIEW === "crowns" || VIEW === "all") ALL.forEach((c, i) => list.push({ critter:c.id, color:RIDER_COLORS[i % RIDER_COLORS.length], groom:true }));
     return list;
   }, []);
@@ -294,6 +348,8 @@ export default function ArtApp() {
       {!m ? <p className="fa2-note">Loading the art</p> : null}
       {m && show("flotilla") ? <><h2>Flotilla</h2><Flotilla /></> : null}
       {m && show("lastcall") ? <><h2>Last Call</h2><LastCall /></> : null}
+      {m && show("looks") ? <><h2>Looks</h2><Looks /></> : null}
+      {m && VIEW === "look" ? <><h2>{query.get("id")}: looks in every pose</h2><LookPoses id={query.get("id") || "capybara"} /></> : null}
       {m && show("critters") ? <><h2>Critters</h2><Critters /></> : null}
       {m && VIEW === "critter" ? <><h2>{query.get("id")}</h2><Critters ids={[query.get("id") || "capybara"]} size={200} /></> : null}
       {m && show("crowns") ? <><h2>The groom's crown</h2><Crowns /></> : null}

@@ -13,7 +13,7 @@ import { join } from "node:path";
 import Module from "node:module";
 import sharp from "sharp";
 import { build } from "esbuild";
-import { ALL_CRITTER_IDS } from "../float/shared/looks.js";
+import { ALL_CRITTER_IDS, HAT_IDS, SHADE_IDS } from "../float/shared/looks.js";
 import { popupOf } from "../float/shared/chart.js";
 import * as groove from "../float/client/art/groove/index.js";
 
@@ -308,8 +308,71 @@ test("RiderSprite renders without the manifest (a placeholder box) and with it (
   assert.ok(css.includes(`src="/float/groove/${manifest.critters.frog.poses.cheer.src}"`), "the pose's sprite");
   assert.match(css, /background-color:#e53935/);
   assert.ok(css.includes(`url(&quot;/float/groove/${manifest.critters.frog.poses.cheer.tube}&quot;)`), "the tube mask");
-  assert.ok(!css.includes("fg-rider-crown"), "no crown");
-  assert.match(draw({ groom:true }), /fg-rider-crown/);
+  /* the stand-in draws the critter alone; the look's extras come with the painted sprite */
+  assert.ok(!draw({ groom:true, hat:"cowboy", shades:"hearts" }).includes("looks/"), "no extras before the paint");
   /* an unknown critter draws the capybara */
   assert.ok(draw({ critter:"dragon" }).includes(manifest.critters.capybara.poses.idle.src));
+});
+
+test("the looks: every hat (keyed to take the colour; the crown gold) and every pair of glasses, anchored", async () => {
+  for (const id of HAT_IDS.filter(id => id !== "none")) {
+    const h = manifest.hats[id];
+    assert.ok(h, `hat ${id}`);
+    assert.deepEqual(await size(h.src), [h.w, h.h], `hat ${id}`);
+    if (id !== "crown") assert.deepEqual(await size(h.mask), [h.w, h.h], `hat ${id} mask`);
+    assert.ok(isPoint(h.anchor, h.w, h.h) && h.fit > 0 && h.depth >= 0, `hat ${id} fit`);
+  }
+  for (const id of SHADE_IDS.filter(id => id !== "none")) {
+    const g = manifest.shades[id];
+    assert.ok(g, `glasses ${id}`);
+    assert.deepEqual(await size(g.src), [g.w, g.h]);
+    assert.ok(isPoint(g.anchor, g.w, g.h) && g.span > g.w * 0.25 && g.span < g.w, `glasses ${id} span`);
+  }
+  for (const id of ALL_CRITTER_IDS) {
+    const c = manifest.critters[id];
+    assert.ok(c.measure.headW > 60 && c.measure.eyeSpan > 20, `${id} measure`);
+    for (const pose of POSES) assert.ok(isPoint(c.poses[pose].anchor.eyes, 512, 512), `${id} ${pose} eyes`);
+  }
+});
+
+test("the photo tee: every critter's eight poses with a shirt mask, a chest for the photo, and a portrait frame", async () => {
+  for (const id of ALL_CRITTER_IDS) {
+    const t = manifest.critters[id].tee;
+    assert.ok(t, `${id} tee`);
+    assert.ok(t.frame.length === 3 && t.frame[0] >= 0 && t.frame[1] >= 0 && t.frame[0] + t.frame[2] <= 512 && t.frame[1] + t.frame[2] <= 512, `${id} frame`);
+    for (const pose of POSES) {
+      const p = t.poses[pose];
+      for (const rel of [p.src, p.tube, p.shirt]) assert.deepEqual(await size(rel), [512, 512], `${id} tee ${pose} ${rel}`);
+      assert.ok(isPoint(p.anchor.chest, 512, 512) && p.chestR >= 18, `${id} tee ${pose} chest`);
+      assert.deepEqual(p.anchor.water, manifest.critters[id].anchor.water, "the same waterline");
+    }
+  }
+});
+
+test("lookOf: none is nothing, the tee needs a photo, the groom's hat is the crown unless he picked one", () => {
+  groove.provideGrooveArt(manifest);
+  const plain = groove.lookOf({ color:"#E53935", look:{ critter:"frog", hat:"none", shades:"none", shirt:"photo" } });
+  assert.deepEqual(plain, { critter:"frog", color:"#e53935", groom:false, hat:null, shades:null, shirt:null, photo:null });
+  const dressed = groove.lookOf({ color:"#123", groom:true, photo:"/api/photo/7", look:{ critter:"otter", hat:"party", shades:"stars", shirt:"photo" } });
+  assert.deepEqual(dressed, { critter:"otter", color:"#112233", groom:true, hat:"party", shades:"stars", shirt:"photo", photo:"/api/photo/7" });
+  assert.equal(groove.hatOf(dressed), "party");
+  assert.equal(groove.hatOf({ ...dressed, hat:null }), "crown");
+  assert.equal(groove.hatOf({ ...dressed, hat:null, groom:false }), null);
+});
+
+test("no canvas in node: a photo tee look hands back the tee's files", async () => {
+  groove.provideGrooveArt(manifest);
+  const urls = await groove.riderSprites({ critter:"quail", color:"#123456", shirt:"photo", photo:"/api/photo/1", hat:"cowboy" });
+  for (const pose of POSES) assert.equal(urls[pose], `/float/groove/${manifest.critters.quail.tee.poses[pose].src}`);
+});
+
+test("the cutscenes' props: the pelicans (one with a grip), dizzy stars, bonk, bubbles, tumbleweed; the countdown's chalkboard and clock (with a blank face), pull cord and foam", () => {
+  for (const id of ["pelican", "pelican-carry", "dizzy", "bonk", "bubbles", "tumbleweed", "chalkboard", "clock", "pull-cord", "foam"]) assert.ok(manifest.props[id], id);
+  const { props:p } = manifest;
+  assert.ok(isPoint(p["pelican-carry"].grip, p["pelican-carry"].w, p["pelican-carry"].h));
+  assert.ok(isPoint(p["pull-cord"].handle, p["pull-cord"].w, p["pull-cord"].h));
+  for (const id of ["chalkboard", "clock"]) {
+    const [x, y, w, h] = p[id].face;
+    assert.ok(x >= 0 && y >= 0 && x + w <= p[id].w && y + h <= p[id].h && w > p[id].w * 0.4 && h > p[id].h * 0.4, `${id} face`);
+  }
 });

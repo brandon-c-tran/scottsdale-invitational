@@ -32,7 +32,15 @@
     "hand": [
      311,
      381
+    ],
+    "eyes": [
+     335,
+     287
     ]
+   },
+   "measure": {
+    "headW": 210,
+    "eyeSpan": 42
    },
    "poses": {
     "idle": {
@@ -54,6 +62,10 @@
       "hand": [
        311,
        381
+      ],
+      "eyes": [
+       335,
+       287
       ]
      }
     },
@@ -76,6 +88,10 @@
       "hand": [
        311,
        376
+      ],
+      "eyes": [
+       280,
+       293
       ]
      }
     },
@@ -98,6 +114,10 @@
       "hand": [
        311,
        376
+      ],
+      "eyes": [
+       319,
+       267
       ]
      }
     },
@@ -120,6 +140,10 @@
       "hand": [
        311,
        378
+      ],
+      "eyes": [
+       338,
+       280
       ]
      }
     },
@@ -142,6 +166,10 @@
       "hand": [
        311,
        379
+      ],
+      "eyes": [
+       326,
+       331
       ]
      }
     },
@@ -164,6 +192,10 @@
       "hand": [
        311,
        377
+      ],
+      "eyes": [
+       321,
+       234
       ]
      }
     },
@@ -186,6 +218,10 @@
       "hand": [
        311,
        377
+      ],
+      "eyes": [
+       274,
+       262
       ]
      }
     },
@@ -208,6 +244,10 @@
       "hand": [
        311,
        378
+      ],
+      "eyes": [
+       333,
+       340
       ]
      }
     }
@@ -233,7 +273,280 @@
      "hand": [
       644,
       757
+     ],
+     "eyes": [
+      675,
+      535
      ]
+    },
+    "measure": {
+     "headW": 462,
+     "eyeSpan": 89
+    }
+   },
+   "tee": {
+    "frame": [
+     6,
+     0,
+     500
+    ],
+    "poses": {
+     "idle": {
+      "src": "critters/capybara/tee/idle.webp",
+      "tube": "critters/capybara/tee/idle-tube.webp",
+      "shirt": "critters/capybara/tee/idle-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        335,
+        246
+       ],
+       "face": [
+        335,
+        298
+       ],
+       "hand": [
+        311,
+        381
+       ],
+       "eyes": [
+        335,
+        288
+       ],
+       "chest": [
+        251,
+        384
+       ]
+      },
+      "chestR": 20
+     },
+     "stroke": {
+      "src": "critters/capybara/tee/stroke.webp",
+      "tube": "critters/capybara/tee/stroke-tube.webp",
+      "shirt": "critters/capybara/tee/stroke-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        280,
+        270
+       ],
+       "face": [
+        280,
+        322
+       ],
+       "hand": [
+        311,
+        376
+       ],
+       "eyes": [
+        280,
+        293
+       ],
+       "chest": [
+        247,
+        389
+       ]
+      },
+      "chestR": 18
+     },
+     "hey": {
+      "src": "critters/capybara/tee/hey.webp",
+      "tube": "critters/capybara/tee/hey-tube.webp",
+      "shirt": "critters/capybara/tee/hey-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        319,
+        227
+       ],
+       "face": [
+        319,
+        279
+       ],
+       "hand": [
+        311,
+        376
+       ],
+       "eyes": [
+        319,
+        268
+       ],
+       "chest": [
+        251,
+        385
+       ]
+      },
+      "chestR": 21
+     },
+     "nice": {
+      "src": "critters/capybara/tee/nice.webp",
+      "tube": "critters/capybara/tee/nice-tube.webp",
+      "shirt": "critters/capybara/tee/nice-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        338,
+        241
+       ],
+       "face": [
+        338,
+        293
+       ],
+       "hand": [
+        311,
+        378
+       ],
+       "eyes": [
+        338,
+        280
+       ],
+       "chest": [
+        251,
+        389
+       ]
+      },
+      "chestR": 18
+     },
+     "miss": {
+      "src": "critters/capybara/tee/miss.webp",
+      "tube": "critters/capybara/tee/miss-tube.webp",
+      "shirt": "critters/capybara/tee/miss-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        326,
+        292
+       ],
+       "face": [
+        326,
+        344
+       ],
+       "hand": [
+        311,
+        379
+       ],
+       "eyes": [
+        326,
+        331
+       ],
+       "chest": [
+        250,
+        386
+       ]
+      },
+      "chestR": 20
+     },
+     "chug": {
+      "src": "critters/capybara/tee/chug.webp",
+      "tube": "critters/capybara/tee/chug-tube.webp",
+      "shirt": "critters/capybara/tee/chug-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        321,
+        194
+       ],
+       "face": [
+        321,
+        246
+       ],
+       "hand": [
+        311,
+        377
+       ],
+       "eyes": [
+        321,
+        234
+       ],
+       "chest": [
+        226,
+        376
+       ]
+      },
+      "chestR": 23
+     },
+     "cheer": {
+      "src": "critters/capybara/tee/cheer.webp",
+      "tube": "critters/capybara/tee/cheer-tube.webp",
+      "shirt": "critters/capybara/tee/cheer-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        274,
+        237
+       ],
+       "face": [
+        274,
+        289
+       ],
+       "hand": [
+        311,
+        377
+       ],
+       "eyes": [
+        274,
+        263
+       ],
+       "chest": [
+        251,
+        383
+       ]
+      },
+      "chestR": 23
+     },
+     "out": {
+      "src": "critters/capybara/tee/out.webp",
+      "tube": "critters/capybara/tee/out-tube.webp",
+      "shirt": "critters/capybara/tee/out-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        333,
+        299
+       ],
+       "face": [
+        333,
+        351
+       ],
+       "hand": [
+        311,
+        378
+       ],
+       "eyes": [
+        333,
+        340
+       ],
+       "chest": [
+        183,
+        368
+       ]
+      },
+      "chestR": 18
+     }
     }
    }
   },
@@ -254,7 +567,15 @@
     "hand": [
      311,
      375
+    ],
+    "eyes": [
+     267,
+     300
     ]
+   },
+   "measure": {
+    "headW": 200,
+    "eyeSpan": 95
    },
    "poses": {
     "idle": {
@@ -276,6 +597,10 @@
       "hand": [
        311,
        375
+      ],
+      "eyes": [
+       267,
+       300
       ]
      }
     },
@@ -298,6 +623,10 @@
       "hand": [
        309,
        377
+      ],
+      "eyes": [
+       280,
+       317
       ]
      }
     },
@@ -320,6 +649,10 @@
       "hand": [
        311,
        375
+      ],
+      "eyes": [
+       262,
+       291
       ]
      }
     },
@@ -342,6 +675,10 @@
       "hand": [
        311,
        376
+      ],
+      "eyes": [
+       267,
+       300
       ]
      }
     },
@@ -364,6 +701,10 @@
       "hand": [
        312,
        376
+      ],
+      "eyes": [
+       269,
+       329
       ]
      }
     },
@@ -386,6 +727,10 @@
       "hand": [
        312,
        375
+      ],
+      "eyes": [
+       298,
+       284
       ]
      }
     },
@@ -408,6 +753,10 @@
       "hand": [
        312,
        376
+      ],
+      "eyes": [
+       257,
+       279
       ]
      }
     },
@@ -430,6 +779,10 @@
       "hand": [
        312,
        382
+      ],
+      "eyes": [
+       271,
+       337
       ]
      }
     }
@@ -455,7 +808,280 @@
      "hand": [
       644,
       746
+     ],
+     "eyes": [
+      542,
+      570
      ]
+    },
+    "measure": {
+     "headW": 439,
+     "eyeSpan": 219
+    }
+   },
+   "tee": {
+    "frame": [
+     6,
+     0,
+     500
+    ],
+    "poses": {
+     "idle": {
+      "src": "critters/javelina/tee/idle.webp",
+      "tube": "critters/javelina/tee/idle-tube.webp",
+      "shirt": "critters/javelina/tee/idle-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        267,
+        202
+       ],
+       "face": [
+        267,
+        324
+       ],
+       "hand": [
+        311,
+        375
+       ],
+       "eyes": [
+        267,
+        300
+       ],
+       "chest": [
+        240,
+        388
+       ]
+      },
+      "chestR": 18
+     },
+     "stroke": {
+      "src": "critters/javelina/tee/stroke.webp",
+      "tube": "critters/javelina/tee/stroke-tube.webp",
+      "shirt": "critters/javelina/tee/stroke-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        281,
+        217
+       ],
+       "face": [
+        281,
+        339
+       ],
+       "hand": [
+        309,
+        377
+       ],
+       "eyes": [
+        281,
+        317
+       ],
+       "chest": [
+        226,
+        389
+       ]
+      },
+      "chestR": 18
+     },
+     "hey": {
+      "src": "critters/javelina/tee/hey.webp",
+      "tube": "critters/javelina/tee/hey-tube.webp",
+      "shirt": "critters/javelina/tee/hey-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        262,
+        193
+       ],
+       "face": [
+        262,
+        315
+       ],
+       "hand": [
+        311,
+        375
+       ],
+       "eyes": [
+        262,
+        291
+       ],
+       "chest": [
+        238,
+        387
+       ]
+      },
+      "chestR": 18
+     },
+     "nice": {
+      "src": "critters/javelina/tee/nice.webp",
+      "tube": "critters/javelina/tee/nice-tube.webp",
+      "shirt": "critters/javelina/tee/nice-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        250,
+        218
+       ],
+       "face": [
+        250,
+        340
+       ],
+       "hand": [
+        311,
+        376
+       ],
+       "eyes": [
+        250,
+        328
+       ],
+       "chest": [
+        242,
+        388
+       ]
+      },
+      "chestR": 18
+     },
+     "miss": {
+      "src": "critters/javelina/tee/miss.webp",
+      "tube": "critters/javelina/tee/miss-tube.webp",
+      "shirt": "critters/javelina/tee/miss-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        269,
+        219
+       ],
+       "face": [
+        269,
+        341
+       ],
+       "hand": [
+        312,
+        376
+       ],
+       "eyes": [
+        269,
+        329
+       ],
+       "chest": [
+        250,
+        389
+       ]
+      },
+      "chestR": 18
+     },
+     "chug": {
+      "src": "critters/javelina/tee/chug.webp",
+      "tube": "critters/javelina/tee/chug-tube.webp",
+      "shirt": "critters/javelina/tee/chug-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        298,
+        175
+       ],
+       "face": [
+        298,
+        297
+       ],
+       "hand": [
+        312,
+        375
+       ],
+       "eyes": [
+        298,
+        284
+       ],
+       "chest": [
+        236,
+        388
+       ]
+      },
+      "chestR": 18
+     },
+     "cheer": {
+      "src": "critters/javelina/tee/cheer.webp",
+      "tube": "critters/javelina/tee/cheer-tube.webp",
+      "shirt": "critters/javelina/tee/cheer-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        257,
+        181
+       ],
+       "face": [
+        257,
+        303
+       ],
+       "hand": [
+        312,
+        376
+       ],
+       "eyes": [
+        257,
+        278
+       ],
+       "chest": [
+        240,
+        381
+       ]
+      },
+      "chestR": 18
+     },
+     "out": {
+      "src": "critters/javelina/tee/out.webp",
+      "tube": "critters/javelina/tee/out-tube.webp",
+      "shirt": "critters/javelina/tee/out-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        271,
+        234
+       ],
+       "face": [
+        271,
+        356
+       ],
+       "hand": [
+        312,
+        382
+       ],
+       "eyes": [
+        271,
+        337
+       ],
+       "chest": [
+        183,
+        382
+       ]
+      },
+      "chestR": 18
+     }
     }
    }
   },
@@ -476,7 +1102,15 @@
     "hand": [
      311,
      374
+    ],
+    "eyes": [
+     249,
+     259
     ]
+   },
+   "measure": {
+    "headW": 185,
+    "eyeSpan": 78
    },
    "poses": {
     "idle": {
@@ -498,6 +1132,10 @@
       "hand": [
        311,
        374
+      ],
+      "eyes": [
+       249,
+       259
       ]
      }
     },
@@ -520,6 +1158,10 @@
       "hand": [
        310,
        377
+      ],
+      "eyes": [
+       244,
+       270
       ]
      }
     },
@@ -542,6 +1184,10 @@
       "hand": [
        311,
        374
+      ],
+      "eyes": [
+       240,
+       258
       ]
      }
     },
@@ -564,6 +1210,10 @@
       "hand": [
        310,
        375
+      ],
+      "eyes": [
+       249,
+       259
       ]
      }
     },
@@ -586,6 +1236,10 @@
       "hand": [
        311,
        377
+      ],
+      "eyes": [
+       249,
+       259
       ]
      }
     },
@@ -608,6 +1262,10 @@
       "hand": [
        312,
        369
+      ],
+      "eyes": [
+       265,
+       237
       ]
      }
     },
@@ -630,6 +1288,10 @@
       "hand": [
        312,
        373
+      ],
+      "eyes": [
+       250,
+       246
       ]
      }
     },
@@ -652,6 +1314,10 @@
       "hand": [
        315,
        377
+      ],
+      "eyes": [
+       249,
+       259
       ]
      }
     }
@@ -677,7 +1343,280 @@
      "hand": [
       583,
       734
+     ],
+     "eyes": [
+      451,
+      450
      ]
+    },
+    "measure": {
+     "headW": 375,
+     "eyeSpan": 158
+    }
+   },
+   "tee": {
+    "frame": [
+     6,
+     0,
+     500
+    ],
+    "poses": {
+     "idle": {
+      "src": "critters/roadrunner/tee/idle.webp",
+      "tube": "critters/roadrunner/tee/idle-tube.webp",
+      "shirt": "critters/roadrunner/tee/idle-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        249,
+        210
+       ],
+       "face": [
+        249,
+        272
+       ],
+       "hand": [
+        311,
+        374
+       ],
+       "eyes": [
+        249,
+        260
+       ],
+       "chest": [
+        248,
+        360
+       ]
+      },
+      "chestR": 29
+     },
+     "stroke": {
+      "src": "critters/roadrunner/tee/stroke.webp",
+      "tube": "critters/roadrunner/tee/stroke-tube.webp",
+      "shirt": "critters/roadrunner/tee/stroke-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        244,
+        221
+       ],
+       "face": [
+        244,
+        283
+       ],
+       "hand": [
+        310,
+        377
+       ],
+       "eyes": [
+        244,
+        271
+       ],
+       "chest": [
+        253,
+        364
+       ]
+      },
+      "chestR": 29
+     },
+     "hey": {
+      "src": "critters/roadrunner/tee/hey.webp",
+      "tube": "critters/roadrunner/tee/hey-tube.webp",
+      "shirt": "critters/roadrunner/tee/hey-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        240,
+        209
+       ],
+       "face": [
+        240,
+        271
+       ],
+       "hand": [
+        311,
+        374
+       ],
+       "eyes": [
+        240,
+        259
+       ],
+       "chest": [
+        245,
+        365
+       ]
+      },
+      "chestR": 33
+     },
+     "nice": {
+      "src": "critters/roadrunner/tee/nice.webp",
+      "tube": "critters/roadrunner/tee/nice-tube.webp",
+      "shirt": "critters/roadrunner/tee/nice-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        249,
+        210
+       ],
+       "face": [
+        249,
+        272
+       ],
+       "hand": [
+        310,
+        375
+       ],
+       "eyes": [
+        249,
+        259
+       ],
+       "chest": [
+        246,
+        360
+       ]
+      },
+      "chestR": 27
+     },
+     "miss": {
+      "src": "critters/roadrunner/tee/miss.webp",
+      "tube": "critters/roadrunner/tee/miss-tube.webp",
+      "shirt": "critters/roadrunner/tee/miss-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        249,
+        210
+       ],
+       "face": [
+        249,
+        272
+       ],
+       "hand": [
+        311,
+        377
+       ],
+       "eyes": [
+        249,
+        259
+       ],
+       "chest": [
+        246,
+        361
+       ]
+      },
+      "chestR": 27
+     },
+     "chug": {
+      "src": "critters/roadrunner/tee/chug.webp",
+      "tube": "critters/roadrunner/tee/chug-tube.webp",
+      "shirt": "critters/roadrunner/tee/chug-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        265,
+        189
+       ],
+       "face": [
+        265,
+        251
+       ],
+       "hand": [
+        312,
+        369
+       ],
+       "eyes": [
+        265,
+        238
+       ],
+       "chest": [
+        286,
+        358
+       ]
+      },
+      "chestR": 29
+     },
+     "cheer": {
+      "src": "critters/roadrunner/tee/cheer.webp",
+      "tube": "critters/roadrunner/tee/cheer-tube.webp",
+      "shirt": "critters/roadrunner/tee/cheer-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        250,
+        197
+       ],
+       "face": [
+        250,
+        259
+       ],
+       "hand": [
+        312,
+        373
+       ],
+       "eyes": [
+        250,
+        246
+       ],
+       "chest": [
+        253,
+        367
+       ]
+      },
+      "chestR": 33
+     },
+     "out": {
+      "src": "critters/roadrunner/tee/out.webp",
+      "tube": "critters/roadrunner/tee/out-tube.webp",
+      "shirt": "critters/roadrunner/tee/out-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        249,
+        210
+       ],
+       "face": [
+        249,
+        272
+       ],
+       "hand": [
+        315,
+        377
+       ],
+       "eyes": [
+        249,
+        259
+       ],
+       "chest": [
+        227,
+        358
+       ]
+      },
+      "chestR": 25
+     }
     }
    }
   },
@@ -698,7 +1637,15 @@
     "hand": [
      311,
      374
+    ],
+    "eyes": [
+     257,
+     314
     ]
+   },
+   "measure": {
+    "headW": 144,
+    "eyeSpan": 71
    },
    "poses": {
     "idle": {
@@ -720,6 +1667,10 @@
       "hand": [
        311,
        374
+      ],
+      "eyes": [
+       257,
+       314
       ]
      }
     },
@@ -742,6 +1693,10 @@
       "hand": [
        301,
        378
+      ],
+      "eyes": [
+       230,
+       330
       ]
      }
     },
@@ -764,6 +1719,10 @@
       "hand": [
        311,
        374
+      ],
+      "eyes": [
+       256,
+       302
       ]
      }
     },
@@ -786,6 +1745,10 @@
       "hand": [
        311,
        374
+      ],
+      "eyes": [
+       257,
+       314
       ]
      }
     },
@@ -808,6 +1771,10 @@
       "hand": [
        311,
        375
+      ],
+      "eyes": [
+       257,
+       314
       ]
      }
     },
@@ -830,6 +1797,10 @@
       "hand": [
        312,
        374
+      ],
+      "eyes": [
+       286,
+       290
       ]
      }
     },
@@ -852,6 +1823,10 @@
       "hand": [
        310,
        376
+      ],
+      "eyes": [
+       256,
+       301
       ]
      }
     },
@@ -874,6 +1849,10 @@
       "hand": [
        312,
        384
+      ],
+      "eyes": [
+       250,
+       344
       ]
      }
     }
@@ -899,7 +1878,280 @@
      "hand": [
       640,
       743
+     ],
+     "eyes": [
+      519,
+      578
      ]
+    },
+    "measure": {
+     "headW": 321,
+     "eyeSpan": 168
+    }
+   },
+   "tee": {
+    "frame": [
+     6,
+     0,
+     500
+    ],
+    "poses": {
+     "idle": {
+      "src": "critters/jackrabbit/tee/idle.webp",
+      "tube": "critters/jackrabbit/tee/idle-tube.webp",
+      "shirt": "critters/jackrabbit/tee/idle-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        257,
+        264
+       ],
+       "face": [
+        257,
+        331
+       ],
+       "hand": [
+        311,
+        374
+       ],
+       "eyes": [
+        257,
+        314
+       ],
+       "chest": [
+        240,
+        391
+       ]
+      },
+      "chestR": 18
+     },
+     "stroke": {
+      "src": "critters/jackrabbit/tee/stroke.webp",
+      "tube": "critters/jackrabbit/tee/stroke-tube.webp",
+      "shirt": "critters/jackrabbit/tee/stroke-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        230,
+        280
+       ],
+       "face": [
+        230,
+        347
+       ],
+       "hand": [
+        301,
+        378
+       ],
+       "eyes": [
+        230,
+        330
+       ],
+       "chest": [
+        239,
+        395
+       ]
+      },
+      "chestR": 18
+     },
+     "hey": {
+      "src": "critters/jackrabbit/tee/hey.webp",
+      "tube": "critters/jackrabbit/tee/hey-tube.webp",
+      "shirt": "critters/jackrabbit/tee/hey-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        256,
+        252
+       ],
+       "face": [
+        256,
+        319
+       ],
+       "hand": [
+        311,
+        374
+       ],
+       "eyes": [
+        256,
+        302
+       ],
+       "chest": [
+        240,
+        392
+       ]
+      },
+      "chestR": 18
+     },
+     "nice": {
+      "src": "critters/jackrabbit/tee/nice.webp",
+      "tube": "critters/jackrabbit/tee/nice-tube.webp",
+      "shirt": "critters/jackrabbit/tee/nice-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        257,
+        265
+       ],
+       "face": [
+        257,
+        332
+       ],
+       "hand": [
+        311,
+        374
+       ],
+       "eyes": [
+        257,
+        314
+       ],
+       "chest": [
+        240,
+        391
+       ]
+      },
+      "chestR": 18
+     },
+     "miss": {
+      "src": "critters/jackrabbit/tee/miss.webp",
+      "tube": "critters/jackrabbit/tee/miss-tube.webp",
+      "shirt": "critters/jackrabbit/tee/miss-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        257,
+        265
+       ],
+       "face": [
+        257,
+        332
+       ],
+       "hand": [
+        311,
+        375
+       ],
+       "eyes": [
+        257,
+        314
+       ],
+       "chest": [
+        240,
+        391
+       ]
+      },
+      "chestR": 18
+     },
+     "chug": {
+      "src": "critters/jackrabbit/tee/chug.webp",
+      "tube": "critters/jackrabbit/tee/chug-tube.webp",
+      "shirt": "critters/jackrabbit/tee/chug-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        286,
+        236
+       ],
+       "face": [
+        286,
+        303
+       ],
+       "hand": [
+        312,
+        374
+       ],
+       "eyes": [
+        286,
+        290
+       ],
+       "chest": [
+        237,
+        390
+       ]
+      },
+      "chestR": 18
+     },
+     "cheer": {
+      "src": "critters/jackrabbit/tee/cheer.webp",
+      "tube": "critters/jackrabbit/tee/cheer-tube.webp",
+      "shirt": "critters/jackrabbit/tee/cheer-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        256,
+        251
+       ],
+       "face": [
+        256,
+        318
+       ],
+       "hand": [
+        310,
+        376
+       ],
+       "eyes": [
+        256,
+        301
+       ],
+       "chest": [
+        239,
+        387
+       ]
+      },
+      "chestR": 18
+     },
+     "out": {
+      "src": "critters/jackrabbit/tee/out.webp",
+      "tube": "critters/jackrabbit/tee/out-tube.webp",
+      "shirt": "critters/jackrabbit/tee/out-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        249,
+        293
+       ],
+       "face": [
+        249,
+        360
+       ],
+       "hand": [
+        312,
+        384
+       ],
+       "eyes": [
+        249,
+        343
+       ],
+       "chest": [
+        317,
+        375
+       ]
+      },
+      "chestR": 18
+     }
     }
    }
   },
@@ -920,7 +2172,15 @@
     "hand": [
      311,
      379
+    ],
+    "eyes": [
+     256,
+     329
     ]
+   },
+   "measure": {
+    "headW": 171,
+    "eyeSpan": 69
    },
    "poses": {
     "idle": {
@@ -942,6 +2202,10 @@
       "hand": [
        311,
        379
+      ],
+      "eyes": [
+       256,
+       329
       ]
      }
     },
@@ -964,6 +2228,10 @@
       "hand": [
        309,
        376
+      ],
+      "eyes": [
+       267,
+       338
       ]
      }
     },
@@ -986,6 +2254,10 @@
       "hand": [
        308,
        378
+      ],
+      "eyes": [
+       256,
+       326
       ]
      }
     },
@@ -1008,6 +2280,10 @@
       "hand": [
        311,
        379
+      ],
+      "eyes": [
+       256,
+       329
       ]
      }
     },
@@ -1030,6 +2306,10 @@
       "hand": [
        310,
        381
+      ],
+      "eyes": [
+       266,
+       348
       ]
      }
     },
@@ -1052,6 +2332,10 @@
       "hand": [
        310,
        379
+      ],
+      "eyes": [
+       288,
+       317
       ]
      }
     },
@@ -1074,6 +2358,10 @@
       "hand": [
        309,
        379
+      ],
+      "eyes": [
+       253,
+       326
       ]
      }
     },
@@ -1096,6 +2384,10 @@
       "hand": [
        310,
        369
+      ],
+      "eyes": [
+       256,
+       329
       ]
      }
     }
@@ -1121,7 +2413,280 @@
      "hand": [
       644,
       744
+     ],
+     "eyes": [
+      505,
+      646
      ]
+    },
+    "measure": {
+     "headW": 387,
+     "eyeSpan": 150
+    }
+   },
+   "tee": {
+    "frame": [
+     6,
+     0,
+     500
+    ],
+    "poses": {
+     "idle": {
+      "src": "critters/tortoise/tee/idle.webp",
+      "tube": "critters/tortoise/tee/idle-tube.webp",
+      "shirt": "critters/tortoise/tee/idle-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        256,
+        251
+       ],
+       "face": [
+        256,
+        345
+       ],
+       "hand": [
+        311,
+        379
+       ],
+       "eyes": [
+        256,
+        328
+       ],
+       "chest": [
+        230,
+        389
+       ]
+      },
+      "chestR": 18
+     },
+     "stroke": {
+      "src": "critters/tortoise/tee/stroke.webp",
+      "tube": "critters/tortoise/tee/stroke-tube.webp",
+      "shirt": "critters/tortoise/tee/stroke-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        267,
+        261
+       ],
+       "face": [
+        267,
+        355
+       ],
+       "hand": [
+        309,
+        376
+       ],
+       "eyes": [
+        267,
+        338
+       ],
+       "chest": [
+        229,
+        389
+       ]
+      },
+      "chestR": 18
+     },
+     "hey": {
+      "src": "critters/tortoise/tee/hey.webp",
+      "tube": "critters/tortoise/tee/hey-tube.webp",
+      "shirt": "critters/tortoise/tee/hey-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        256,
+        248
+       ],
+       "face": [
+        256,
+        342
+       ],
+       "hand": [
+        308,
+        378
+       ],
+       "eyes": [
+        256,
+        326
+       ],
+       "chest": [
+        229,
+        392
+       ]
+      },
+      "chestR": 18
+     },
+     "nice": {
+      "src": "critters/tortoise/tee/nice.webp",
+      "tube": "critters/tortoise/tee/nice-tube.webp",
+      "shirt": "critters/tortoise/tee/nice-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        256,
+        252
+       ],
+       "face": [
+        256,
+        346
+       ],
+       "hand": [
+        311,
+        379
+       ],
+       "eyes": [
+        256,
+        329
+       ],
+       "chest": [
+        232,
+        391
+       ]
+      },
+      "chestR": 18
+     },
+     "miss": {
+      "src": "critters/tortoise/tee/miss.webp",
+      "tube": "critters/tortoise/tee/miss-tube.webp",
+      "shirt": "critters/tortoise/tee/miss-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        266,
+        267
+       ],
+       "face": [
+        266,
+        361
+       ],
+       "hand": [
+        310,
+        381
+       ],
+       "eyes": [
+        266,
+        348
+       ],
+       "chest": [
+        234,
+        395
+       ]
+      },
+      "chestR": 18
+     },
+     "chug": {
+      "src": "critters/tortoise/tee/chug.webp",
+      "tube": "critters/tortoise/tee/chug-tube.webp",
+      "shirt": "critters/tortoise/tee/chug-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        288,
+        236
+       ],
+       "face": [
+        288,
+        330
+       ],
+       "hand": [
+        310,
+        379
+       ],
+       "eyes": [
+        288,
+        317
+       ],
+       "chest": [
+        233,
+        393
+       ]
+      },
+      "chestR": 18
+     },
+     "cheer": {
+      "src": "critters/tortoise/tee/cheer.webp",
+      "tube": "critters/tortoise/tee/cheer-tube.webp",
+      "shirt": "critters/tortoise/tee/cheer-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        253,
+        249
+       ],
+       "face": [
+        253,
+        343
+       ],
+       "hand": [
+        309,
+        379
+       ],
+       "eyes": [
+        253,
+        326
+       ],
+       "chest": [
+        230,
+        392
+       ]
+      },
+      "chestR": 18
+     },
+     "out": {
+      "src": "critters/tortoise/tee/out.webp",
+      "tube": "critters/tortoise/tee/out-tube.webp",
+      "shirt": "critters/tortoise/tee/out-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        256,
+        252
+       ],
+       "face": [
+        256,
+        346
+       ],
+       "hand": [
+        310,
+        369
+       ],
+       "eyes": [
+        256,
+        329
+       ],
+       "chest": [
+        190,
+        384
+       ]
+      },
+      "chestR": 18
+     }
     }
    }
   },
@@ -1142,7 +2707,15 @@
     "hand": [
      311,
      380
+    ],
+    "eyes": [
+     212,
+     319
     ]
+   },
+   "measure": {
+    "headW": 215,
+    "eyeSpan": 76
    },
    "poses": {
     "idle": {
@@ -1164,6 +2737,10 @@
       "hand": [
        311,
        380
+      ],
+      "eyes": [
+       212,
+       319
       ]
      }
     },
@@ -1186,6 +2763,10 @@
       "hand": [
        310,
        382
+      ],
+      "eyes": [
+       192,
+       332
       ]
      }
     },
@@ -1208,6 +2789,10 @@
       "hand": [
        310,
        377
+      ],
+      "eyes": [
+       230,
+       308
       ]
      }
     },
@@ -1230,6 +2815,10 @@
       "hand": [
        309,
        380
+      ],
+      "eyes": [
+       212,
+       319
       ]
      }
     },
@@ -1252,6 +2841,10 @@
       "hand": [
        309,
        381
+      ],
+      "eyes": [
+       219,
+       328
       ]
      }
     },
@@ -1274,6 +2867,10 @@
       "hand": [
        311,
        378
+      ],
+      "eyes": [
+       242,
+       284
       ]
      }
     },
@@ -1296,6 +2893,10 @@
       "hand": [
        309,
        376
+      ],
+      "eyes": [
+       234,
+       294
       ]
      }
     },
@@ -1318,6 +2919,10 @@
       "hand": [
        310,
        384
+      ],
+      "eyes": [
+       206,
+       367
       ]
      }
     }
@@ -1343,7 +2948,280 @@
      "hand": [
       644,
       765
+     ],
+     "eyes": [
+      396,
+      635
      ]
+    },
+    "measure": {
+     "headW": 524,
+     "eyeSpan": 170
+    }
+   },
+   "tee": {
+    "frame": [
+     6,
+     0,
+     500
+    ],
+    "poses": {
+     "idle": {
+      "src": "critters/gila/tee/idle.webp",
+      "tube": "critters/gila/tee/idle-tube.webp",
+      "shirt": "critters/gila/tee/idle-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        212,
+        275
+       ],
+       "face": [
+        212,
+        338
+       ],
+       "hand": [
+        311,
+        380
+       ],
+       "eyes": [
+        212,
+        318
+       ],
+       "chest": [
+        309,
+        361
+       ]
+      },
+      "chestR": 18
+     },
+     "stroke": {
+      "src": "critters/gila/tee/stroke.webp",
+      "tube": "critters/gila/tee/stroke-tube.webp",
+      "shirt": "critters/gila/tee/stroke-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        192,
+        287
+       ],
+       "face": [
+        192,
+        350
+       ],
+       "hand": [
+        310,
+        382
+       ],
+       "eyes": [
+        192,
+        332
+       ],
+       "chest": [
+        304,
+        364
+       ]
+      },
+      "chestR": 21
+     },
+     "hey": {
+      "src": "critters/gila/tee/hey.webp",
+      "tube": "critters/gila/tee/hey-tube.webp",
+      "shirt": "critters/gila/tee/hey-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        229,
+        263
+       ],
+       "face": [
+        229,
+        326
+       ],
+       "hand": [
+        310,
+        377
+       ],
+       "eyes": [
+        229,
+        306
+       ],
+       "chest": [
+        315,
+        367
+       ]
+      },
+      "chestR": 18
+     },
+     "nice": {
+      "src": "critters/gila/tee/nice.webp",
+      "tube": "critters/gila/tee/nice-tube.webp",
+      "shirt": "critters/gila/tee/nice-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        212,
+        275
+       ],
+       "face": [
+        212,
+        338
+       ],
+       "hand": [
+        309,
+        380
+       ],
+       "eyes": [
+        212,
+        319
+       ],
+       "chest": [
+        316,
+        369
+       ]
+      },
+      "chestR": 18
+     },
+     "miss": {
+      "src": "critters/gila/tee/miss.webp",
+      "tube": "critters/gila/tee/miss-tube.webp",
+      "shirt": "critters/gila/tee/miss-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        219,
+        277
+       ],
+       "face": [
+        219,
+        340
+       ],
+       "hand": [
+        309,
+        381
+       ],
+       "eyes": [
+        219,
+        328
+       ],
+       "chest": [
+        316,
+        358
+       ]
+      },
+      "chestR": 18
+     },
+     "chug": {
+      "src": "critters/gila/tee/chug.webp",
+      "tube": "critters/gila/tee/chug-tube.webp",
+      "shirt": "critters/gila/tee/chug-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        242,
+        237
+       ],
+       "face": [
+        242,
+        300
+       ],
+       "hand": [
+        311,
+        378
+       ],
+       "eyes": [
+        242,
+        284
+       ],
+       "chest": [
+        319,
+        364
+       ]
+      },
+      "chestR": 19
+     },
+     "cheer": {
+      "src": "critters/gila/tee/cheer.webp",
+      "tube": "critters/gila/tee/cheer-tube.webp",
+      "shirt": "critters/gila/tee/cheer-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        234,
+        248
+       ],
+       "face": [
+        234,
+        311
+       ],
+       "hand": [
+        309,
+        376
+       ],
+       "eyes": [
+        234,
+        293
+       ],
+       "chest": [
+        283,
+        385
+       ]
+      },
+      "chestR": 21
+     },
+     "out": {
+      "src": "critters/gila/tee/out.webp",
+      "tube": "critters/gila/tee/out-tube.webp",
+      "shirt": "critters/gila/tee/out-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        206,
+        321
+       ],
+       "face": [
+        206,
+        384
+       ],
+       "hand": [
+        310,
+        384
+       ],
+       "eyes": [
+        206,
+        366
+       ],
+       "chest": [
+        315,
+        369
+       ]
+      },
+      "chestR": 18
+     }
     }
    }
   },
@@ -1364,7 +3242,15 @@
     "hand": [
      311,
      375
+    ],
+    "eyes": [
+     259,
+     300
     ]
+   },
+   "measure": {
+    "headW": 196,
+    "eyeSpan": 93
    },
    "poses": {
     "idle": {
@@ -1386,6 +3272,10 @@
       "hand": [
        311,
        375
+      ],
+      "eyes": [
+       259,
+       300
       ]
      }
     },
@@ -1408,6 +3298,10 @@
       "hand": [
        309,
        377
+      ],
+      "eyes": [
+       233,
+       293
       ]
      }
     },
@@ -1430,6 +3324,10 @@
       "hand": [
        311,
        376
+      ],
+      "eyes": [
+       259,
+       299
       ]
      }
     },
@@ -1452,6 +3350,10 @@
       "hand": [
        311,
        376
+      ],
+      "eyes": [
+       259,
+       300
       ]
      }
     },
@@ -1474,6 +3376,10 @@
       "hand": [
        312,
        375
+      ],
+      "eyes": [
+       259,
+       300
       ]
      }
     },
@@ -1496,6 +3402,10 @@
       "hand": [
        309,
        378
+      ],
+      "eyes": [
+       255,
+       278
       ]
      }
     },
@@ -1518,6 +3428,10 @@
       "hand": [
        311,
        376
+      ],
+      "eyes": [
+       258,
+       298
       ]
      }
     },
@@ -1540,6 +3454,10 @@
       "hand": [
        311,
        376
+      ],
+      "eyes": [
+       253,
+       339
       ]
      }
     }
@@ -1565,7 +3483,280 @@
      "hand": [
       644,
       745
+     ],
+     "eyes": [
+      518,
+      564
      ]
+    },
+    "measure": {
+     "headW": 352,
+     "eyeSpan": 203
+    }
+   },
+   "tee": {
+    "frame": [
+     6,
+     0,
+     500
+    ],
+    "poses": {
+     "idle": {
+      "src": "critters/hornedlizard/tee/idle.webp",
+      "tube": "critters/hornedlizard/tee/idle-tube.webp",
+      "shirt": "critters/hornedlizard/tee/idle-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        258,
+        239
+       ],
+       "face": [
+        258,
+        324
+       ],
+       "hand": [
+        311,
+        375
+       ],
+       "eyes": [
+        258,
+        300
+       ],
+       "chest": [
+        240,
+        385
+       ]
+      },
+      "chestR": 18
+     },
+     "stroke": {
+      "src": "critters/hornedlizard/tee/stroke.webp",
+      "tube": "critters/hornedlizard/tee/stroke-tube.webp",
+      "shirt": "critters/hornedlizard/tee/stroke-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        233,
+        220
+       ],
+       "face": [
+        233,
+        305
+       ],
+       "hand": [
+        309,
+        377
+       ],
+       "eyes": [
+        233,
+        293
+       ],
+       "chest": [
+        240,
+        382
+       ]
+      },
+      "chestR": 18
+     },
+     "hey": {
+      "src": "critters/hornedlizard/tee/hey.webp",
+      "tube": "critters/hornedlizard/tee/hey-tube.webp",
+      "shirt": "critters/hornedlizard/tee/hey-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        259,
+        237
+       ],
+       "face": [
+        259,
+        322
+       ],
+       "hand": [
+        311,
+        376
+       ],
+       "eyes": [
+        259,
+        298
+       ],
+       "chest": [
+        240,
+        385
+       ]
+      },
+      "chestR": 18
+     },
+     "nice": {
+      "src": "critters/hornedlizard/tee/nice.webp",
+      "tube": "critters/hornedlizard/tee/nice-tube.webp",
+      "shirt": "critters/hornedlizard/tee/nice-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        259,
+        239
+       ],
+       "face": [
+        259,
+        324
+       ],
+       "hand": [
+        311,
+        376
+       ],
+       "eyes": [
+        259,
+        300
+       ],
+       "chest": [
+        242,
+        387
+       ]
+      },
+      "chestR": 18
+     },
+     "miss": {
+      "src": "critters/hornedlizard/tee/miss.webp",
+      "tube": "critters/hornedlizard/tee/miss-tube.webp",
+      "shirt": "critters/hornedlizard/tee/miss-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        259,
+        239
+       ],
+       "face": [
+        259,
+        324
+       ],
+       "hand": [
+        312,
+        375
+       ],
+       "eyes": [
+        259,
+        300
+       ],
+       "chest": [
+        240,
+        387
+       ]
+      },
+      "chestR": 18
+     },
+     "chug": {
+      "src": "critters/hornedlizard/tee/chug.webp",
+      "tube": "critters/hornedlizard/tee/chug-tube.webp",
+      "shirt": "critters/hornedlizard/tee/chug-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        255,
+        211
+       ],
+       "face": [
+        255,
+        296
+       ],
+       "hand": [
+        309,
+        378
+       ],
+       "eyes": [
+        255,
+        279
+       ],
+       "chest": [
+        274,
+        382
+       ]
+      },
+      "chestR": 18
+     },
+     "cheer": {
+      "src": "critters/hornedlizard/tee/cheer.webp",
+      "tube": "critters/hornedlizard/tee/cheer-tube.webp",
+      "shirt": "critters/hornedlizard/tee/cheer-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        258,
+        236
+       ],
+       "face": [
+        258,
+        321
+       ],
+       "hand": [
+        311,
+        376
+       ],
+       "eyes": [
+        258,
+        297
+       ],
+       "chest": [
+        238,
+        385
+       ]
+      },
+      "chestR": 18
+     },
+     "out": {
+      "src": "critters/hornedlizard/tee/out.webp",
+      "tube": "critters/hornedlizard/tee/out-tube.webp",
+      "shirt": "critters/hornedlizard/tee/out-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        253,
+        275
+       ],
+       "face": [
+        253,
+        360
+       ],
+       "hand": [
+        311,
+        376
+       ],
+       "eyes": [
+        253,
+        339
+       ],
+       "chest": [
+        329,
+        387
+       ]
+      },
+      "chestR": 18
+     }
     }
    }
   },
@@ -1586,7 +3777,15 @@
     "hand": [
      311,
      377
+    ],
+    "eyes": [
+     263,
+     297
     ]
+   },
+   "measure": {
+    "headW": 255,
+    "eyeSpan": 80
    },
    "poses": {
     "idle": {
@@ -1608,6 +3807,10 @@
       "hand": [
        311,
        377
+      ],
+      "eyes": [
+       263,
+       297
       ]
      }
     },
@@ -1630,6 +3833,10 @@
       "hand": [
        311,
        376
+      ],
+      "eyes": [
+       286,
+       309
       ]
      }
     },
@@ -1652,6 +3859,10 @@
       "hand": [
        311,
        376
+      ],
+      "eyes": [
+       254,
+       284
       ]
      }
     },
@@ -1674,6 +3885,10 @@
       "hand": [
        310,
        377
+      ],
+      "eyes": [
+       263,
+       297
       ]
      }
     },
@@ -1696,6 +3911,10 @@
       "hand": [
        311,
        377
+      ],
+      "eyes": [
+       263,
+       297
       ]
      }
     },
@@ -1718,6 +3937,10 @@
       "hand": [
        310,
        375
+      ],
+      "eyes": [
+       299,
+       284
       ]
      }
     },
@@ -1740,6 +3963,10 @@
       "hand": [
        310,
        376
+      ],
+      "eyes": [
+       257,
+       288
       ]
      }
     },
@@ -1762,6 +3989,10 @@
       "hand": [
        313,
        382
+      ],
+      "eyes": [
+       268,
+       344
       ]
      }
     }
@@ -1787,7 +4018,280 @@
      "hand": [
       648,
       744
+     ],
+     "eyes": [
+      550,
+      540
      ]
+    },
+    "measure": {
+     "headW": 612,
+     "eyeSpan": 173
+    }
+   },
+   "tee": {
+    "frame": [
+     6,
+     0,
+     500
+    ],
+    "poses": {
+     "idle": {
+      "src": "critters/bighorn/tee/idle.webp",
+      "tube": "critters/bighorn/tee/idle-tube.webp",
+      "shirt": "critters/bighorn/tee/idle-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        263,
+        233
+       ],
+       "face": [
+        263,
+        318
+       ],
+       "hand": [
+        311,
+        377
+       ],
+       "eyes": [
+        263,
+        298
+       ],
+       "chest": [
+        245,
+        384
+       ]
+      },
+      "chestR": 18
+     },
+     "stroke": {
+      "src": "critters/bighorn/tee/stroke.webp",
+      "tube": "critters/bighorn/tee/stroke-tube.webp",
+      "shirt": "critters/bighorn/tee/stroke-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        285,
+        242
+       ],
+       "face": [
+        285,
+        327
+       ],
+       "hand": [
+        311,
+        376
+       ],
+       "eyes": [
+        285,
+        310
+       ],
+       "chest": [
+        248,
+        385
+       ]
+      },
+      "chestR": 18
+     },
+     "hey": {
+      "src": "critters/bighorn/tee/hey.webp",
+      "tube": "critters/bighorn/tee/hey-tube.webp",
+      "shirt": "critters/bighorn/tee/hey-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        254,
+        219
+       ],
+       "face": [
+        254,
+        304
+       ],
+       "hand": [
+        311,
+        376
+       ],
+       "eyes": [
+        254,
+        285
+       ],
+       "chest": [
+        250,
+        381
+       ]
+      },
+      "chestR": 21
+     },
+     "nice": {
+      "src": "critters/bighorn/tee/nice.webp",
+      "tube": "critters/bighorn/tee/nice-tube.webp",
+      "shirt": "critters/bighorn/tee/nice-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        263,
+        232
+       ],
+       "face": [
+        263,
+        317
+       ],
+       "hand": [
+        310,
+        377
+       ],
+       "eyes": [
+        263,
+        297
+       ],
+       "chest": [
+        246,
+        383
+       ]
+      },
+      "chestR": 18
+     },
+     "miss": {
+      "src": "critters/bighorn/tee/miss.webp",
+      "tube": "critters/bighorn/tee/miss-tube.webp",
+      "shirt": "critters/bighorn/tee/miss-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        263,
+        232
+       ],
+       "face": [
+        263,
+        317
+       ],
+       "hand": [
+        311,
+        377
+       ],
+       "eyes": [
+        263,
+        297
+       ],
+       "chest": [
+        245,
+        384
+       ]
+      },
+      "chestR": 18
+     },
+     "chug": {
+      "src": "critters/bighorn/tee/chug.webp",
+      "tube": "critters/bighorn/tee/chug-tube.webp",
+      "shirt": "critters/bighorn/tee/chug-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        299,
+        212
+       ],
+       "face": [
+        299,
+        297
+       ],
+       "hand": [
+        310,
+        375
+       ],
+       "eyes": [
+        299,
+        285
+       ],
+       "chest": [
+        246,
+        381
+       ]
+      },
+      "chestR": 21
+     },
+     "cheer": {
+      "src": "critters/bighorn/tee/cheer.webp",
+      "tube": "critters/bighorn/tee/cheer-tube.webp",
+      "shirt": "critters/bighorn/tee/cheer-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        257,
+        222
+       ],
+       "face": [
+        257,
+        307
+       ],
+       "hand": [
+        310,
+        376
+       ],
+       "eyes": [
+        257,
+        288
+       ],
+       "chest": [
+        245,
+        381
+       ]
+      },
+      "chestR": 21
+     },
+     "out": {
+      "src": "critters/bighorn/tee/out.webp",
+      "tube": "critters/bighorn/tee/out-tube.webp",
+      "shirt": "critters/bighorn/tee/out-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        268,
+        275
+       ],
+       "face": [
+        268,
+        360
+       ],
+       "hand": [
+        313,
+        382
+       ],
+       "eyes": [
+        268,
+        344
+       ],
+       "chest": [
+        184,
+        371
+       ]
+      },
+      "chestR": 18
+     }
     }
    }
   },
@@ -1808,7 +4312,15 @@
     "hand": [
      311,
      388
+    ],
+    "eyes": [
+     256,
+     305
     ]
+   },
+   "measure": {
+    "headW": 143,
+    "eyeSpan": 78
    },
    "poses": {
     "idle": {
@@ -1830,6 +4342,10 @@
       "hand": [
        311,
        388
+      ],
+      "eyes": [
+       256,
+       305
       ]
      }
     },
@@ -1852,6 +4368,10 @@
       "hand": [
        311,
        385
+      ],
+      "eyes": [
+       263,
+       321
       ]
      }
     },
@@ -1874,6 +4394,10 @@
       "hand": [
        310,
        382
+      ],
+      "eyes": [
+       252,
+       301
       ]
      }
     },
@@ -1896,6 +4420,10 @@
       "hand": [
        311,
        387
+      ],
+      "eyes": [
+       256,
+       305
       ]
      }
     },
@@ -1918,6 +4446,10 @@
       "hand": [
        311,
        383
+      ],
+      "eyes": [
+       256,
+       305
       ]
      }
     },
@@ -1940,6 +4472,10 @@
       "hand": [
        311,
        382
+      ],
+      "eyes": [
+       256,
+       305
       ]
      }
     },
@@ -1962,6 +4498,10 @@
       "hand": [
        310,
        383
+      ],
+      "eyes": [
+       254,
+       296
       ]
      }
     },
@@ -1984,6 +4524,10 @@
       "hand": [
        310,
        382
+      ],
+      "eyes": [
+       254,
+       358
       ]
      }
     }
@@ -2009,7 +4553,280 @@
      "hand": [
       644,
       768
+     ],
+     "eyes": [
+      519,
+      564
      ]
+    },
+    "measure": {
+     "headW": 315,
+     "eyeSpan": 173
+    }
+   },
+   "tee": {
+    "frame": [
+     6,
+     0,
+     500
+    ],
+    "poses": {
+     "idle": {
+      "src": "critters/quail/tee/idle.webp",
+      "tube": "critters/quail/tee/idle-tube.webp",
+      "shirt": "critters/quail/tee/idle-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        256,
+        255
+       ],
+       "face": [
+        256,
+        325
+       ],
+       "hand": [
+        311,
+        388
+       ],
+       "eyes": [
+        256,
+        305
+       ],
+       "chest": [
+        241,
+        382
+       ]
+      },
+      "chestR": 24
+     },
+     "stroke": {
+      "src": "critters/quail/tee/stroke.webp",
+      "tube": "critters/quail/tee/stroke-tube.webp",
+      "shirt": "critters/quail/tee/stroke-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        263,
+        270
+       ],
+       "face": [
+        263,
+        340
+       ],
+       "hand": [
+        311,
+        385
+       ],
+       "eyes": [
+        263,
+        321
+       ],
+       "chest": [
+        223,
+        386
+       ]
+      },
+      "chestR": 20
+     },
+     "hey": {
+      "src": "critters/quail/tee/hey.webp",
+      "tube": "critters/quail/tee/hey-tube.webp",
+      "shirt": "critters/quail/tee/hey-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        252,
+        250
+       ],
+       "face": [
+        252,
+        320
+       ],
+       "hand": [
+        310,
+        382
+       ],
+       "eyes": [
+        252,
+        302
+       ],
+       "chest": [
+        241,
+        384
+       ]
+      },
+      "chestR": 24
+     },
+     "nice": {
+      "src": "critters/quail/tee/nice.webp",
+      "tube": "critters/quail/tee/nice-tube.webp",
+      "shirt": "critters/quail/tee/nice-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        256,
+        255
+       ],
+       "face": [
+        256,
+        325
+       ],
+       "hand": [
+        311,
+        387
+       ],
+       "eyes": [
+        256,
+        305
+       ],
+       "chest": [
+        246,
+        382
+       ]
+      },
+      "chestR": 23
+     },
+     "miss": {
+      "src": "critters/quail/tee/miss.webp",
+      "tube": "critters/quail/tee/miss-tube.webp",
+      "shirt": "critters/quail/tee/miss-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        256,
+        255
+       ],
+       "face": [
+        256,
+        325
+       ],
+       "hand": [
+        311,
+        383
+       ],
+       "eyes": [
+        256,
+        305
+       ],
+       "chest": [
+        251,
+        385
+       ]
+      },
+      "chestR": 23
+     },
+     "chug": {
+      "src": "critters/quail/tee/chug.webp",
+      "tube": "critters/quail/tee/chug-tube.webp",
+      "shirt": "critters/quail/tee/chug-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        256,
+        255
+       ],
+       "face": [
+        256,
+        325
+       ],
+       "hand": [
+        311,
+        382
+       ],
+       "eyes": [
+        256,
+        305
+       ],
+       "chest": [
+        225,
+        382
+       ]
+      },
+      "chestR": 24
+     },
+     "cheer": {
+      "src": "critters/quail/tee/cheer.webp",
+      "tube": "critters/quail/tee/cheer-tube.webp",
+      "shirt": "critters/quail/tee/cheer-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        254,
+        245
+       ],
+       "face": [
+        254,
+        315
+       ],
+       "hand": [
+        310,
+        383
+       ],
+       "eyes": [
+        254,
+        296
+       ],
+       "chest": [
+        241,
+        381
+       ]
+      },
+      "chestR": 27
+     },
+     "out": {
+      "src": "critters/quail/tee/out.webp",
+      "tube": "critters/quail/tee/out-tube.webp",
+      "shirt": "critters/quail/tee/out-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        254,
+        306
+       ],
+       "face": [
+        254,
+        376
+       ],
+       "hand": [
+        310,
+        382
+       ],
+       "eyes": [
+        254,
+        358
+       ],
+       "chest": [
+        328,
+        382
+       ]
+      },
+      "chestR": 20
+     }
     }
    }
   },
@@ -2030,7 +4847,15 @@
     "hand": [
      311,
      382
+    ],
+    "eyes": [
+     233,
+     310
     ]
+   },
+   "measure": {
+    "headW": 175,
+    "eyeSpan": 74
    },
    "poses": {
     "idle": {
@@ -2052,6 +4877,10 @@
       "hand": [
        311,
        382
+      ],
+      "eyes": [
+       233,
+       310
       ]
      }
     },
@@ -2074,6 +4903,10 @@
       "hand": [
        307,
        382
+      ],
+      "eyes": [
+       204,
+       324
       ]
      }
     },
@@ -2096,6 +4929,10 @@
       "hand": [
        310,
        379
+      ],
+      "eyes": [
+       247,
+       296
       ]
      }
     },
@@ -2118,6 +4955,10 @@
       "hand": [
        310,
        381
+      ],
+      "eyes": [
+       233,
+       310
       ]
      }
     },
@@ -2140,6 +4981,10 @@
       "hand": [
        308,
        383
+      ],
+      "eyes": [
+       217,
+       326
       ]
      }
     },
@@ -2162,6 +5007,10 @@
       "hand": [
        310,
        376
+      ],
+      "eyes": [
+       255,
+       273
       ]
      }
     },
@@ -2184,6 +5033,10 @@
       "hand": [
        310,
        377
+      ],
+      "eyes": [
+       256,
+       293
       ]
      }
     },
@@ -2206,6 +5059,10 @@
       "hand": [
        309,
        390
+      ],
+      "eyes": [
+       215,
+       323
       ]
      }
     }
@@ -2231,7 +5088,280 @@
      "hand": [
       632,
       755
+     ],
+     "eyes": [
+      446,
+      592
      ]
+    },
+    "measure": {
+     "headW": 415,
+     "eyeSpan": 174
+    }
+   },
+   "tee": {
+    "frame": [
+     6,
+     0,
+     500
+    ],
+    "poses": {
+     "idle": {
+      "src": "critters/armadillo/tee/idle.webp",
+      "tube": "critters/armadillo/tee/idle-tube.webp",
+      "shirt": "critters/armadillo/tee/idle-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        233,
+        250
+       ],
+       "face": [
+        233,
+        322
+       ],
+       "hand": [
+        311,
+        382
+       ],
+       "eyes": [
+        233,
+        309
+       ],
+       "chest": [
+        290,
+        364
+       ]
+      },
+      "chestR": 20
+     },
+     "stroke": {
+      "src": "critters/armadillo/tee/stroke.webp",
+      "tube": "critters/armadillo/tee/stroke-tube.webp",
+      "shirt": "critters/armadillo/tee/stroke-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        204,
+        264
+       ],
+       "face": [
+        204,
+        336
+       ],
+       "hand": [
+        307,
+        382
+       ],
+       "eyes": [
+        204,
+        324
+       ],
+       "chest": [
+        275,
+        370
+       ]
+      },
+      "chestR": 18
+     },
+     "hey": {
+      "src": "critters/armadillo/tee/hey.webp",
+      "tube": "critters/armadillo/tee/hey-tube.webp",
+      "shirt": "critters/armadillo/tee/hey-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        247,
+        236
+       ],
+       "face": [
+        247,
+        308
+       ],
+       "hand": [
+        310,
+        379
+       ],
+       "eyes": [
+        247,
+        296
+       ],
+       "chest": [
+        296,
+        366
+       ]
+      },
+      "chestR": 19
+     },
+     "nice": {
+      "src": "critters/armadillo/tee/nice.webp",
+      "tube": "critters/armadillo/tee/nice-tube.webp",
+      "shirt": "critters/armadillo/tee/nice-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        233,
+        250
+       ],
+       "face": [
+        233,
+        322
+       ],
+       "hand": [
+        310,
+        381
+       ],
+       "eyes": [
+        233,
+        310
+       ],
+       "chest": [
+        292,
+        367
+       ]
+      },
+      "chestR": 19
+     },
+     "miss": {
+      "src": "critters/armadillo/tee/miss.webp",
+      "tube": "critters/armadillo/tee/miss-tube.webp",
+      "shirt": "critters/armadillo/tee/miss-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        217,
+        265
+       ],
+       "face": [
+        217,
+        337
+       ],
+       "hand": [
+        308,
+        383
+       ],
+       "eyes": [
+        217,
+        325
+       ],
+       "chest": [
+        306,
+        380
+       ]
+      },
+      "chestR": 20
+     },
+     "chug": {
+      "src": "critters/armadillo/tee/chug.webp",
+      "tube": "critters/armadillo/tee/chug-tube.webp",
+      "shirt": "critters/armadillo/tee/chug-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        254,
+        213
+       ],
+       "face": [
+        254,
+        285
+       ],
+       "hand": [
+        310,
+        376
+       ],
+       "eyes": [
+        254,
+        272
+       ],
+       "chest": [
+        284,
+        374
+       ]
+      },
+      "chestR": 23
+     },
+     "cheer": {
+      "src": "critters/armadillo/tee/cheer.webp",
+      "tube": "critters/armadillo/tee/cheer-tube.webp",
+      "shirt": "critters/armadillo/tee/cheer-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        256,
+        233
+       ],
+       "face": [
+        256,
+        305
+       ],
+       "hand": [
+        310,
+        377
+       ],
+       "eyes": [
+        256,
+        293
+       ],
+       "chest": [
+        277,
+        378
+       ]
+      },
+      "chestR": 23
+     },
+     "out": {
+      "src": "critters/armadillo/tee/out.webp",
+      "tube": "critters/armadillo/tee/out-tube.webp",
+      "shirt": "critters/armadillo/tee/out-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        215,
+        263
+       ],
+       "face": [
+        215,
+        335
+       ],
+       "hand": [
+        309,
+        390
+       ],
+       "eyes": [
+        215,
+        322
+       ],
+       "chest": [
+        273,
+        367
+       ]
+      },
+      "chestR": 20
+     }
     }
    }
   },
@@ -2252,7 +5382,15 @@
     "hand": [
      311,
      373
+    ],
+    "eyes": [
+     257,
+     288
     ]
+   },
+   "measure": {
+    "headW": 173,
+    "eyeSpan": 73
    },
    "poses": {
     "idle": {
@@ -2274,6 +5412,10 @@
       "hand": [
        311,
        373
+      ],
+      "eyes": [
+       257,
+       288
       ]
      }
     },
@@ -2296,6 +5438,10 @@
       "hand": [
        305,
        372
+      ],
+      "eyes": [
+       211,
+       304
       ]
      }
     },
@@ -2318,6 +5464,10 @@
       "hand": [
        311,
        371
+      ],
+      "eyes": [
+       266,
+       274
       ]
      }
     },
@@ -2340,6 +5490,10 @@
       "hand": [
        311,
        374
+      ],
+      "eyes": [
+       257,
+       288
       ]
      }
     },
@@ -2362,6 +5516,10 @@
       "hand": [
        312,
        373
+      ],
+      "eyes": [
+       257,
+       288
       ]
      }
     },
@@ -2384,6 +5542,10 @@
       "hand": [
        311,
        370
+      ],
+      "eyes": [
+       257,
+       288
       ]
      }
     },
@@ -2406,6 +5568,10 @@
       "hand": [
        310,
        372
+      ],
+      "eyes": [
+       257,
+       270
       ]
      }
     },
@@ -2428,6 +5594,10 @@
       "hand": [
        310,
        370
+      ],
+      "eyes": [
+       262,
+       324
       ]
      }
     }
@@ -2453,7 +5623,280 @@
      "hand": [
       589,
       740
+     ],
+     "eyes": [
+      452,
+      539
      ]
+    },
+    "measure": {
+     "headW": 403,
+     "eyeSpan": 174
+    }
+   },
+   "tee": {
+    "frame": [
+     6,
+     0,
+     500
+    ],
+    "poses": {
+     "idle": {
+      "src": "critters/coyote/tee/idle.webp",
+      "tube": "critters/coyote/tee/idle-tube.webp",
+      "shirt": "critters/coyote/tee/idle-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        257,
+        219
+       ],
+       "face": [
+        257,
+        307
+       ],
+       "hand": [
+        311,
+        373
+       ],
+       "eyes": [
+        257,
+        288
+       ],
+       "chest": [
+        252,
+        381
+       ]
+      },
+      "chestR": 21
+     },
+     "stroke": {
+      "src": "critters/coyote/tee/stroke.webp",
+      "tube": "critters/coyote/tee/stroke-tube.webp",
+      "shirt": "critters/coyote/tee/stroke-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        212,
+        233
+       ],
+       "face": [
+        212,
+        321
+       ],
+       "hand": [
+        305,
+        372
+       ],
+       "eyes": [
+        212,
+        304
+       ],
+       "chest": [
+        235,
+        384
+       ]
+      },
+      "chestR": 19
+     },
+     "hey": {
+      "src": "critters/coyote/tee/hey.webp",
+      "tube": "critters/coyote/tee/hey-tube.webp",
+      "shirt": "critters/coyote/tee/hey-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        265,
+        205
+       ],
+       "face": [
+        265,
+        293
+       ],
+       "hand": [
+        311,
+        371
+       ],
+       "eyes": [
+        265,
+        275
+       ],
+       "chest": [
+        252,
+        382
+       ]
+      },
+      "chestR": 22
+     },
+     "nice": {
+      "src": "critters/coyote/tee/nice.webp",
+      "tube": "critters/coyote/tee/nice-tube.webp",
+      "shirt": "critters/coyote/tee/nice-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        257,
+        219
+       ],
+       "face": [
+        257,
+        307
+       ],
+       "hand": [
+        311,
+        374
+       ],
+       "eyes": [
+        257,
+        288
+       ],
+       "chest": [
+        252,
+        382
+       ]
+      },
+      "chestR": 21
+     },
+     "miss": {
+      "src": "critters/coyote/tee/miss.webp",
+      "tube": "critters/coyote/tee/miss-tube.webp",
+      "shirt": "critters/coyote/tee/miss-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        257,
+        219
+       ],
+       "face": [
+        257,
+        307
+       ],
+       "hand": [
+        312,
+        373
+       ],
+       "eyes": [
+        257,
+        288
+       ],
+       "chest": [
+        253,
+        377
+       ]
+      },
+      "chestR": 24
+     },
+     "chug": {
+      "src": "critters/coyote/tee/chug.webp",
+      "tube": "critters/coyote/tee/chug-tube.webp",
+      "shirt": "critters/coyote/tee/chug-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        257,
+        219
+       ],
+       "face": [
+        257,
+        307
+       ],
+       "hand": [
+        311,
+        370
+       ],
+       "eyes": [
+        257,
+        288
+       ],
+       "chest": [
+        222,
+        369
+       ]
+      },
+      "chestR": 24
+     },
+     "cheer": {
+      "src": "critters/coyote/tee/cheer.webp",
+      "tube": "critters/coyote/tee/cheer-tube.webp",
+      "shirt": "critters/coyote/tee/cheer-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        257,
+        200
+       ],
+       "face": [
+        257,
+        288
+       ],
+       "hand": [
+        310,
+        372
+       ],
+       "eyes": [
+        257,
+        270
+       ],
+       "chest": [
+        252,
+        378
+       ]
+      },
+      "chestR": 24
+     },
+     "out": {
+      "src": "critters/coyote/tee/out.webp",
+      "tube": "critters/coyote/tee/out-tube.webp",
+      "shirt": "critters/coyote/tee/out-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        262,
+        253
+       ],
+       "face": [
+        262,
+        341
+       ],
+       "hand": [
+        310,
+        370
+       ],
+       "eyes": [
+        262,
+        324
+       ],
+       "chest": [
+        253,
+        388
+       ]
+      },
+      "chestR": 19
+     }
     }
    }
   },
@@ -2474,7 +5917,15 @@
     "hand": [
      311,
      373
+    ],
+    "eyes": [
+     257,
+     274
     ]
+   },
+   "measure": {
+    "headW": 194,
+    "eyeSpan": 83
    },
    "poses": {
     "idle": {
@@ -2496,6 +5947,10 @@
       "hand": [
        311,
        373
+      ],
+      "eyes": [
+       257,
+       274
       ]
      }
     },
@@ -2518,6 +5973,10 @@
       "hand": [
        307,
        374
+      ],
+      "eyes": [
+       217,
+       285
       ]
      }
     },
@@ -2540,6 +5999,10 @@
       "hand": [
        309,
        373
+      ],
+      "eyes": [
+       264,
+       253
       ]
      }
     },
@@ -2562,6 +6025,10 @@
       "hand": [
        309,
        373
+      ],
+      "eyes": [
+       257,
+       274
       ]
      }
     },
@@ -2584,6 +6051,10 @@
       "hand": [
        310,
        372
+      ],
+      "eyes": [
+       257,
+       274
       ]
      }
     },
@@ -2606,6 +6077,10 @@
       "hand": [
        310,
        371
+      ],
+      "eyes": [
+       285,
+       231
       ]
      }
     },
@@ -2628,6 +6103,10 @@
       "hand": [
        309,
        372
+      ],
+      "eyes": [
+       257,
+       274
       ]
      }
     },
@@ -2650,6 +6129,10 @@
       "hand": [
        312,
        374
+      ],
+      "eyes": [
+       249,
+       343
       ]
      }
     }
@@ -2675,7 +6158,280 @@
      "hand": [
       606,
       729
+     ],
+     "eyes": [
+      479,
+      519
      ]
+    },
+    "measure": {
+     "headW": 386,
+     "eyeSpan": 177
+    }
+   },
+   "tee": {
+    "frame": [
+     6,
+     0,
+     500
+    ],
+    "poses": {
+     "idle": {
+      "src": "critters/otter/tee/idle.webp",
+      "tube": "critters/otter/tee/idle-tube.webp",
+      "shirt": "critters/otter/tee/idle-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        257,
+        212
+       ],
+       "face": [
+        257,
+        295
+       ],
+       "hand": [
+        311,
+        373
+       ],
+       "eyes": [
+        257,
+        274
+       ],
+       "chest": [
+        251,
+        378
+       ]
+      },
+      "chestR": 23
+     },
+     "stroke": {
+      "src": "critters/otter/tee/stroke.webp",
+      "tube": "critters/otter/tee/stroke-tube.webp",
+      "shirt": "critters/otter/tee/stroke-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        217,
+        221
+       ],
+       "face": [
+        217,
+        304
+       ],
+       "hand": [
+        307,
+        374
+       ],
+       "eyes": [
+        217,
+        285
+       ],
+       "chest": [
+        252,
+        376
+       ]
+      },
+      "chestR": 21
+     },
+     "hey": {
+      "src": "critters/otter/tee/hey.webp",
+      "tube": "critters/otter/tee/hey-tube.webp",
+      "shirt": "critters/otter/tee/hey-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        264,
+        189
+       ],
+       "face": [
+        264,
+        272
+       ],
+       "hand": [
+        309,
+        373
+       ],
+       "eyes": [
+        264,
+        253
+       ],
+       "chest": [
+        252,
+        374
+       ]
+      },
+      "chestR": 26
+     },
+     "nice": {
+      "src": "critters/otter/tee/nice.webp",
+      "tube": "critters/otter/tee/nice-tube.webp",
+      "shirt": "critters/otter/tee/nice-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        257,
+        212
+       ],
+       "face": [
+        257,
+        295
+       ],
+       "hand": [
+        309,
+        373
+       ],
+       "eyes": [
+        257,
+        274
+       ],
+       "chest": [
+        252,
+        379
+       ]
+      },
+      "chestR": 23
+     },
+     "miss": {
+      "src": "critters/otter/tee/miss.webp",
+      "tube": "critters/otter/tee/miss-tube.webp",
+      "shirt": "critters/otter/tee/miss-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        257,
+        212
+       ],
+       "face": [
+        257,
+        295
+       ],
+       "hand": [
+        310,
+        372
+       ],
+       "eyes": [
+        257,
+        274
+       ],
+       "chest": [
+        256,
+        379
+       ]
+      },
+      "chestR": 23
+     },
+     "chug": {
+      "src": "critters/otter/tee/chug.webp",
+      "tube": "critters/otter/tee/chug-tube.webp",
+      "shirt": "critters/otter/tee/chug-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        272,
+        203
+       ],
+       "face": [
+        285,
+        252
+       ],
+       "hand": [
+        310,
+        371
+       ],
+       "eyes": [
+        285,
+        231
+       ],
+       "chest": [
+        244,
+        374
+       ]
+      },
+      "chestR": 26
+     },
+     "cheer": {
+      "src": "critters/otter/tee/cheer.webp",
+      "tube": "critters/otter/tee/cheer-tube.webp",
+      "shirt": "critters/otter/tee/cheer-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        257,
+        212
+       ],
+       "face": [
+        257,
+        295
+       ],
+       "hand": [
+        309,
+        372
+       ],
+       "eyes": [
+        257,
+        274
+       ],
+       "chest": [
+        251,
+        371
+       ]
+      },
+      "chestR": 26
+     },
+     "out": {
+      "src": "critters/otter/tee/out.webp",
+      "tube": "critters/otter/tee/out-tube.webp",
+      "shirt": "critters/otter/tee/out-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        248,
+        279
+       ],
+       "face": [
+        248,
+        362
+       ],
+       "hand": [
+        312,
+        374
+       ],
+       "eyes": [
+        248,
+        344
+       ],
+       "chest": [
+        180,
+        385
+       ]
+      },
+      "chestR": 20
+     }
     }
    }
   },
@@ -2696,7 +6452,15 @@
     "hand": [
      311,
      383
+    ],
+    "eyes": [
+     257,
+     298
     ]
+   },
+   "measure": {
+    "headW": 178,
+    "eyeSpan": 97
    },
    "poses": {
     "idle": {
@@ -2718,6 +6482,10 @@
       "hand": [
        311,
        383
+      ],
+      "eyes": [
+       257,
+       298
       ]
      }
     },
@@ -2740,6 +6508,10 @@
       "hand": [
        308,
        379
+      ],
+      "eyes": [
+       257,
+       298
       ]
      }
     },
@@ -2762,6 +6534,10 @@
       "hand": [
        308,
        378
+      ],
+      "eyes": [
+       257,
+       302
       ]
      }
     },
@@ -2784,6 +6560,10 @@
       "hand": [
        309,
        384
+      ],
+      "eyes": [
+       257,
+       298
       ]
      }
     },
@@ -2806,6 +6586,10 @@
       "hand": [
        310,
        385
+      ],
+      "eyes": [
+       257,
+       298
       ]
      }
     },
@@ -2828,6 +6612,10 @@
       "hand": [
        308,
        384
+      ],
+      "eyes": [
+       315,
+       300
       ]
      }
     },
@@ -2850,6 +6638,10 @@
       "hand": [
        308,
        382
+      ],
+      "eyes": [
+       257,
+       294
       ]
      }
     },
@@ -2872,6 +6664,10 @@
       "hand": [
        308,
        389
+      ],
+      "eyes": [
+       263,
+       334
       ]
      }
     }
@@ -2897,7 +6693,280 @@
      "hand": [
       644,
       755
+     ],
+     "eyes": [
+      510,
+      584
      ]
+    },
+    "measure": {
+     "headW": 388,
+     "eyeSpan": 209
+    }
+   },
+   "tee": {
+    "frame": [
+     6,
+     0,
+     500
+    ],
+    "poses": {
+     "idle": {
+      "src": "critters/frog/tee/idle.webp",
+      "tube": "critters/frog/tee/idle-tube.webp",
+      "shirt": "critters/frog/tee/idle-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        256,
+        287
+       ],
+       "face": [
+        256,
+        323
+       ],
+       "hand": [
+        311,
+        383
+       ],
+       "eyes": [
+        256,
+        299
+       ],
+       "chest": [
+        275,
+        392
+       ]
+      },
+      "chestR": 18
+     },
+     "stroke": {
+      "src": "critters/frog/tee/stroke.webp",
+      "tube": "critters/frog/tee/stroke-tube.webp",
+      "shirt": "critters/frog/tee/stroke-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        257,
+        286
+       ],
+       "face": [
+        257,
+        322
+       ],
+       "hand": [
+        308,
+        379
+       ],
+       "eyes": [
+        257,
+        298
+       ],
+       "chest": [
+        277,
+        398
+       ]
+      },
+      "chestR": 18
+     },
+     "hey": {
+      "src": "critters/frog/tee/hey.webp",
+      "tube": "critters/frog/tee/hey-tube.webp",
+      "shirt": "critters/frog/tee/hey-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        257,
+        289
+       ],
+       "face": [
+        257,
+        325
+       ],
+       "hand": [
+        308,
+        378
+       ],
+       "eyes": [
+        257,
+        302
+       ],
+       "chest": [
+        275,
+        395
+       ]
+      },
+      "chestR": 18
+     },
+     "nice": {
+      "src": "critters/frog/tee/nice.webp",
+      "tube": "critters/frog/tee/nice-tube.webp",
+      "shirt": "critters/frog/tee/nice-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        257,
+        286
+       ],
+       "face": [
+        257,
+        322
+       ],
+       "hand": [
+        309,
+        384
+       ],
+       "eyes": [
+        257,
+        298
+       ],
+       "chest": [
+        275,
+        395
+       ]
+      },
+      "chestR": 18
+     },
+     "miss": {
+      "src": "critters/frog/tee/miss.webp",
+      "tube": "critters/frog/tee/miss-tube.webp",
+      "shirt": "critters/frog/tee/miss-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        257,
+        286
+       ],
+       "face": [
+        257,
+        322
+       ],
+       "hand": [
+        310,
+        385
+       ],
+       "eyes": [
+        257,
+        298
+       ],
+       "chest": [
+        275,
+        390
+       ]
+      },
+      "chestR": 18
+     },
+     "chug": {
+      "src": "critters/frog/tee/chug.webp",
+      "tube": "critters/frog/tee/chug-tube.webp",
+      "shirt": "critters/frog/tee/chug-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        315,
+        275
+       ],
+       "face": [
+        315,
+        311
+       ],
+       "hand": [
+        308,
+        384
+       ],
+       "eyes": [
+        315,
+        300
+       ],
+       "chest": [
+        242,
+        390
+       ]
+      },
+      "chestR": 18
+     },
+     "cheer": {
+      "src": "critters/frog/tee/cheer.webp",
+      "tube": "critters/frog/tee/cheer-tube.webp",
+      "shirt": "critters/frog/tee/cheer-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        257,
+        281
+       ],
+       "face": [
+        257,
+        317
+       ],
+       "hand": [
+        308,
+        382
+       ],
+       "eyes": [
+        257,
+        294
+       ],
+       "chest": [
+        277,
+        388
+       ]
+      },
+      "chestR": 18
+     },
+     "out": {
+      "src": "critters/frog/tee/out.webp",
+      "tube": "critters/frog/tee/out-tube.webp",
+      "shirt": "critters/frog/tee/out-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        263,
+        321
+       ],
+       "face": [
+        263,
+        357
+       ],
+       "hand": [
+        308,
+        389
+       ],
+       "eyes": [
+        263,
+        335
+       ],
+       "chest": [
+        344,
+        379
+       ]
+      },
+      "chestR": 18
+     }
     }
    }
   },
@@ -2918,7 +6987,15 @@
     "hand": [
      311,
      375
+    ],
+    "eyes": [
+     262,
+     305
     ]
+   },
+   "measure": {
+    "headW": 172,
+    "eyeSpan": 56
    },
    "poses": {
     "idle": {
@@ -2940,6 +7017,10 @@
       "hand": [
        311,
        375
+      ],
+      "eyes": [
+       262,
+       305
       ]
      }
     },
@@ -2962,6 +7043,10 @@
       "hand": [
        308,
        361
+      ],
+      "eyes": [
+       290,
+       321
       ]
      }
     },
@@ -2984,6 +7069,10 @@
       "hand": [
        310,
        373
+      ],
+      "eyes": [
+       255,
+       294
       ]
      }
     },
@@ -3006,6 +7095,10 @@
       "hand": [
        311,
        374
+      ],
+      "eyes": [
+       262,
+       305
       ]
      }
     },
@@ -3028,6 +7121,10 @@
       "hand": [
        310,
        374
+      ],
+      "eyes": [
+       262,
+       305
       ]
      }
     },
@@ -3050,6 +7147,10 @@
       "hand": [
        311,
        375
+      ],
+      "eyes": [
+       262,
+       305
       ]
      }
     },
@@ -3072,6 +7173,10 @@
       "hand": [
        310,
        377
+      ],
+      "eyes": [
+       256,
+       296
       ]
      }
     },
@@ -3094,6 +7199,10 @@
       "hand": [
        312,
        383
+      ],
+      "eyes": [
+       267,
+       343
       ]
      }
     }
@@ -3119,7 +7228,280 @@
      "hand": [
       644,
       746
+     ],
+     "eyes": [
+      527,
+      583
      ]
+    },
+    "measure": {
+     "headW": 396,
+     "eyeSpan": 129
+    }
+   },
+   "tee": {
+    "frame": [
+     6,
+     0,
+     500
+    ],
+    "poses": {
+     "idle": {
+      "src": "critters/winnie/tee/idle.webp",
+      "tube": "critters/winnie/tee/idle-tube.webp",
+      "shirt": "critters/winnie/tee/idle-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        263,
+        215
+       ],
+       "face": [
+        263,
+        319
+       ],
+       "hand": [
+        311,
+        375
+       ],
+       "eyes": [
+        263,
+        305
+       ],
+       "chest": [
+        263,
+        394
+       ]
+      },
+      "chestR": 19
+     },
+     "stroke": {
+      "src": "critters/winnie/tee/stroke.webp",
+      "tube": "critters/winnie/tee/stroke-tube.webp",
+      "shirt": "critters/winnie/tee/stroke-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        290,
+        230
+       ],
+       "face": [
+        290,
+        334
+       ],
+       "hand": [
+        308,
+        361
+       ],
+       "eyes": [
+        290,
+        322
+       ],
+       "chest": [
+        260,
+        398
+       ]
+      },
+      "chestR": 18
+     },
+     "hey": {
+      "src": "critters/winnie/tee/hey.webp",
+      "tube": "critters/winnie/tee/hey-tube.webp",
+      "shirt": "critters/winnie/tee/hey-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        255,
+        205
+       ],
+       "face": [
+        255,
+        309
+       ],
+       "hand": [
+        310,
+        373
+       ],
+       "eyes": [
+        255,
+        294
+       ],
+       "chest": [
+        263,
+        392
+       ]
+      },
+      "chestR": 21
+     },
+     "nice": {
+      "src": "critters/winnie/tee/nice.webp",
+      "tube": "critters/winnie/tee/nice-tube.webp",
+      "shirt": "critters/winnie/tee/nice-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        262,
+        215
+       ],
+       "face": [
+        262,
+        319
+       ],
+       "hand": [
+        311,
+        374
+       ],
+       "eyes": [
+        262,
+        305
+       ],
+       "chest": [
+        259,
+        394
+       ]
+      },
+      "chestR": 20
+     },
+     "miss": {
+      "src": "critters/winnie/tee/miss.webp",
+      "tube": "critters/winnie/tee/miss-tube.webp",
+      "shirt": "critters/winnie/tee/miss-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        262,
+        215
+       ],
+       "face": [
+        262,
+        319
+       ],
+       "hand": [
+        310,
+        374
+       ],
+       "eyes": [
+        262,
+        305
+       ],
+       "chest": [
+        262,
+        394
+       ]
+      },
+      "chestR": 18
+     },
+     "chug": {
+      "src": "critters/winnie/tee/chug.webp",
+      "tube": "critters/winnie/tee/chug-tube.webp",
+      "shirt": "critters/winnie/tee/chug-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        262,
+        215
+       ],
+       "face": [
+        262,
+        319
+       ],
+       "hand": [
+        311,
+        375
+       ],
+       "eyes": [
+        262,
+        305
+       ],
+       "chest": [
+        227,
+        394
+       ]
+      },
+      "chestR": 18
+     },
+     "cheer": {
+      "src": "critters/winnie/tee/cheer.webp",
+      "tube": "critters/winnie/tee/cheer-tube.webp",
+      "shirt": "critters/winnie/tee/cheer-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        257,
+        207
+       ],
+       "face": [
+        257,
+        311
+       ],
+       "hand": [
+        310,
+        377
+       ],
+       "eyes": [
+        257,
+        296
+       ],
+       "chest": [
+        263,
+        391
+       ]
+      },
+      "chestR": 20
+     },
+     "out": {
+      "src": "critters/winnie/tee/out.webp",
+      "tube": "critters/winnie/tee/out-tube.webp",
+      "shirt": "critters/winnie/tee/out-shirt.webp",
+      "anchor": {
+       "water": [
+        256,
+        440
+       ],
+       "head": [
+        267,
+        252
+       ],
+       "face": [
+        267,
+        356
+       ],
+       "hand": [
+        312,
+        383
+       ],
+       "eyes": [
+        267,
+        343
+       ],
+       "chest": [
+        249,
+        407
+       ]
+      },
+      "chestR": 18
+     }
     }
    }
   }
@@ -3388,17 +7770,17 @@
   "rock": {
    "src": "props/rock.webp",
    "w": 280,
-   "h": 172,
+   "h": 173,
    "anchor": [
     140,
-    148
+    149
    ],
    "tint": false
   },
   "whirl": {
    "src": "props/whirl.webp",
    "w": 440,
-   "h": 194,
+   "h": 193,
    "anchor": [
     220,
     97
@@ -3408,10 +7790,10 @@
   "falls-lip": {
    "src": "props/falls-lip.webp",
    "w": 560,
-   "h": 393,
+   "h": 424,
    "anchor": [
-    71,
-    6
+    37,
+    5
    ],
    "tint": false
   },
@@ -3502,10 +7884,10 @@
   "accent-open": {
    "src": "props/accent-open.webp",
    "w": 380,
-   "h": 319,
+   "h": 320,
    "anchor": [
     190,
-    281
+    282
    ],
    "tint": false
   },
@@ -3522,20 +7904,140 @@
   "accent-whirl": {
    "src": "props/accent-whirl.webp",
    "w": 480,
-   "h": 283,
+   "h": 162,
    "anchor": [
     240,
-    142
+    81
    ],
    "tint": false
   },
   "accent-falls": {
    "src": "props/accent-falls.webp",
    "w": 520,
-   "h": 334,
+   "h": 289,
    "anchor": [
     260,
-    333
+    288
+   ],
+   "tint": false
+  },
+  "pelican": {
+   "src": "props/pelican.webp",
+   "w": 360,
+   "h": 248,
+   "anchor": [
+    180,
+    124
+   ],
+   "tint": false
+  },
+  "pelican-carry": {
+   "src": "props/pelican-carry.webp",
+   "w": 325,
+   "h": 340,
+   "anchor": [
+    163,
+    170
+   ],
+   "tint": false,
+   "grip": [
+    116,
+    336
+   ]
+  },
+  "dizzy": {
+   "src": "props/dizzy.webp",
+   "w": 220,
+   "h": 150,
+   "anchor": [
+    110,
+    75
+   ],
+   "tint": false
+  },
+  "bonk": {
+   "src": "props/bonk.webp",
+   "w": 240,
+   "h": 217,
+   "anchor": [
+    120,
+    109
+   ],
+   "tint": false
+  },
+  "bubbles": {
+   "src": "props/bubbles.webp",
+   "w": 102,
+   "h": 180,
+   "anchor": [
+    51,
+    179
+   ],
+   "tint": false
+  },
+  "tumbleweed": {
+   "src": "props/tumbleweed.webp",
+   "w": 200,
+   "h": 193,
+   "anchor": [
+    100,
+    97
+   ],
+   "tint": false
+  },
+  "chalkboard": {
+   "src": "props/chalkboard.webp",
+   "w": 560,
+   "h": 352,
+   "anchor": [
+    280,
+    176
+   ],
+   "tint": false,
+   "face": [
+    73,
+    84,
+    415,
+    192
+   ]
+  },
+  "clock": {
+   "src": "props/clock.webp",
+   "w": 340,
+   "h": 337,
+   "anchor": [
+    170,
+    169
+   ],
+   "tint": false,
+   "face": [
+    58,
+    56,
+    224,
+    221
+   ]
+  },
+  "pull-cord": {
+   "src": "props/pull-cord.webp",
+   "w": 83,
+   "h": 300,
+   "anchor": [
+    42,
+    0
+   ],
+   "tint": false,
+   "handle": [
+    42,
+    264
+   ]
+  },
+  "foam": {
+   "src": "props/foam.webp",
+   "w": 260,
+   "h": 183,
+   "anchor": [
+    130,
+    77
    ],
    "tint": false
   },
@@ -3691,6 +8193,141 @@
      ]
     }
    }
+  }
+ },
+ "hats": {
+  "cowboy": {
+   "src": "looks/hats/cowboy.webp",
+   "mask": "looks/hats/cowboy-mask.webp",
+   "w": 320,
+   "h": 201,
+   "anchor": [
+    160,
+    197
+   ],
+   "fit": 1.22,
+   "depth": 0.2,
+   "gap": 0.08
+  },
+  "bucket": {
+   "src": "looks/hats/bucket.webp",
+   "mask": "looks/hats/bucket-mask.webp",
+   "w": 320,
+   "h": 264,
+   "anchor": [
+    160,
+    195
+   ],
+   "fit": 0.98,
+   "depth": 0.2,
+   "gap": 0.08
+  },
+  "visor": {
+   "src": "looks/hats/visor.webp",
+   "mask": "looks/hats/visor-mask.webp",
+   "w": 320,
+   "h": 184,
+   "anchor": [
+    160,
+    179
+   ],
+   "fit": 0.94,
+   "depth": 0.2,
+   "gap": 0.08
+  },
+  "captain": {
+   "src": "looks/hats/captain.webp",
+   "mask": "looks/hats/captain-mask.webp",
+   "w": 320,
+   "h": 208,
+   "anchor": [
+    160,
+    204
+   ],
+   "fit": 0.96,
+   "depth": 0.18,
+   "gap": 0.08
+  },
+  "party": {
+   "src": "looks/hats/party.webp",
+   "mask": "looks/hats/party-mask.webp",
+   "w": 320,
+   "h": 430,
+   "anchor": [
+    160,
+    425
+   ],
+   "fit": 0.42,
+   "depth": 0.05,
+   "gap": 0.08
+  },
+  "flowers": {
+   "src": "looks/hats/flowers.webp",
+   "mask": "looks/hats/flowers-mask.webp",
+   "w": 320,
+   "h": 163,
+   "anchor": [
+    160,
+    158
+   ],
+   "fit": 0.98,
+   "depth": 0.1,
+   "gap": 0.08
+  },
+  "crown": {
+   "src": "props/crown.webp",
+   "mask": null,
+   "w": 200,
+   "h": 154,
+   "anchor": [
+    100,
+    152
+   ],
+   "fit": 0.6,
+   "depth": 0.05,
+   "gap": 0.08
+  }
+ },
+ "shades": {
+  "aviators": {
+   "src": "looks/shades/aviators.webp",
+   "w": 300,
+   "h": 113,
+   "anchor": [
+    150,
+    51
+   ],
+   "span": 138
+  },
+  "hearts": {
+   "src": "looks/shades/hearts.webp",
+   "w": 300,
+   "h": 111,
+   "anchor": [
+    150,
+    50
+   ],
+   "span": 134
+  },
+  "stars": {
+   "src": "looks/shades/stars.webp",
+   "w": 300,
+   "h": 130,
+   "anchor": [
+    150,
+    71
+   ],
+   "span": 140
+  },
+  "goggles": {
+   "src": "looks/shades/goggles.webp",
+   "w": 300,
+   "h": 109,
+   "anchor": [
+    150,
+    54
+   ],
+   "span": 138
   }
  }
 }

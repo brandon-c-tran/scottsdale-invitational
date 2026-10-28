@@ -5,7 +5,7 @@
    before each switch; a cheer when the song ends. The frame driver sets the
    pose and moves it; React renders it once a phase. */
 import React, { useEffect, useRef } from "react";
-import { HostFigure, SignProp } from "../art.jsx";
+import { HostArt, HostFigure, SignProp, useHostArt } from "../art.jsx";
 import { bobAt } from "../model/motion.js";
 import { hostAt, signAt } from "../model/song.js";
 
@@ -13,6 +13,7 @@ import { hostAt, signAt } from "../model/song.js";
 export const HOST = Object.freeze({ x:196, y:478, w:300 });
 
 export default function Host({ store, driver, phase }) {
+  const art = useHostArt();
   const root = useRef(null);
   const body = useRef(null);
   const bubble = useRef(null);
@@ -73,7 +74,7 @@ export default function Host({ store, driver, phase }) {
     <div className="fl-host-sign" ref={sign} style={{ opacity:0 }}>
       {["paddle", "rock", "spin"].map(mode => <div key={mode} ref={node => { signArt.current[mode] = node; }} style={{ display:"none" }}><SignProp mode={mode} /></div>)}
     </div>
-    <div className="fl-host-body" ref={body}><HostFigure /></div>
+    <div className="fl-host-body" ref={body}>{art ? <HostArt host={art} /> : <HostFigure />}</div>
     <div className="fl-bubble" ref={bubble} style={{ opacity:0 }}><span ref={word} /></div>
   </div>;
 }

@@ -9,7 +9,7 @@ import { bannerAt, roundLabel, songName } from "../model/song.js";
 import { cutOuts, cutRanking, cutTimeline, pctText } from "../model/cut.js";
 import { indexList } from "../model/cupShape.js";
 import { PODIUM } from "../model/flotilla.js";
-import { Critter } from "../art.jsx";
+import { RiderFace } from "../art.jsx";
 import { ordinalText } from "./bits.jsx";
 import { inkOn } from "./identity.js";
 
@@ -116,7 +116,7 @@ export function CutBoard({ store, driver, room, entrants }) {
               {cutLine && <div className="hd-cutline"><span>Cut</span></div>}
               <div className={`hd-row${isStamped ? " is-out" : ""}${row.place <= 3 && last ? " is-top" : ""}`} style={{ "--c":e?.color || "#999", "--ink":inkOn(e?.color), animationDelay:`${(c * perCol + k) * 55}ms` }}>
                 <span className="hd-row-place">{row.place}</span>
-                <span className="hd-row-face" data-pose={isStamped ? "out" : "idle"}><Critter entrant={e} /></span>
+                <RiderFace entrant={e} pose={isStamped ? "out" : "idle"} className="hd-row-face" />
                 <span className="hd-row-name">{e?.name || "Rider"}</span>
                 <span className="hd-row-pct">{pctText(row.pct)}</span>
                 {isStamped && <span className="hd-stamp">Out</span>}

@@ -7,7 +7,7 @@
    (stage pixels, transform and opacity only). */
 import React, { memo, useEffect, useMemo, useRef, useState } from "react";
 import { Critter, PopupLetters, SplashProp, anchorOf, useRiderArt } from "../art.jsx";
-import { BOX, crowdLayout, fieldOrder, flotillaLayout, podiumLayout, popupSpot } from "../model/flotilla.js";
+import { ANCHOR, BOX, crowdLayout, fieldOrder, flotillaLayout, podiumLayout, popupSpot } from "../model/flotilla.js";
 import { actionAt, bobAt, cheerAt, chugAt, follow, popupAt } from "../model/motion.js";
 import { chuggingAt } from "../model/song.js";
 import { cutOuts, cutRanking, cutTimeline } from "../model/cut.js";
@@ -53,14 +53,19 @@ export function castPlan({ phase, room, state, entrants }) {
   return plan;
 }
 
-/* one rider's nodes: the placed box (scaled), the body that moves, a splash */
+/* one rider's nodes: the placed box (scaled), the body that moves about
+   the waterline, a splash at the paddling hand */
 const RiderNode = memo(function RiderNode({ entrant, i, refs }) {
   const art = useRiderArt(entrant);
-  const set = key => node => { const r = refs.current.get(i) || {}; r[key] = node; r.anchor = anchorOf(art); refs.current.set(i, r); };
+  const anchor = anchorOf(art);
+  const set = key => node => { const r = refs.current.get(i) || {}; r[key] = node; r.anchor = anchor; refs.current.set(i, r); };
+  useEffect(() => { const r = refs.current.get(i); if (r) r.anchor = anchor; }, [anchor, i, refs]);
+  const [wx, wy] = anchor.water;
+  const hand = anchor.hand || anchor.water;
   return <div className="fl-rider" ref={set("rider")} data-pose="idle" style={{ "--c":entrant.color || "#7fb8ff" }}>
-    <div className="fl-ripple" />
-    <div className="fl-body" ref={set("body")}><Critter entrant={entrant} art={art} /></div>
-    <div className="fl-splash" ref={set("splash")}><SplashProp /></div>
+    <div className="fl-ripple" style={{ left:wx - 228, top:wy - 8 }} />
+    <div className="fl-body" ref={set("body")} style={{ transformOrigin:`${wx}px ${wy}px` }}><Critter entrant={entrant} art={art} /></div>
+    <div className="fl-splash" ref={set("splash")} style={{ left:hand[0] + 20, top:wy - 110 }}><SplashProp /></div>
   </div>;
 });
 
@@ -68,7 +73,7 @@ const RiderNode = memo(function RiderNode({ entrant, i, refs }) {
 function RiderPop({ i, setters }) {
   const [hit, setHit] = useState(null);
   useEffect(() => { setters.current.set(i, setHit); return () => setters.current.delete(i); }, [i, setters]);
-  return hit ? <PopupLetters key={`${hit.c}:${hit.at}`} q={hit.q} d={hit.d} /> : null;
+  return hit ? <span className="fl-pop-in" key={`${hit.c}:${hit.at}`}><PopupLetters q={hit.q} d={hit.d} /></span> : null;
 }
 
 export default function Cast({ store, driver, entrants, phase, room, version }) {
@@ -129,6 +134,7 @@ export default function Cast({ store, driver, entrants, phase, room, version }) 
           hideExtras(i, m);
           return;
         }
+        const anchor = r.anchor || ANCHOR;
         /* place: follow the target (a hop flies its own arc) */
         let x = spot.x, y = spot.y, s = spot.scale;
         if (where === "hop" && from) {
@@ -157,7 +163,6 @@ export default function Cast({ store, driver, entrants, phase, room, version }) 
           pop = t >= 1 ? 1 : Math.max(0.01, t < 0.6 ? ease(t / 0.6) * 1.12 : 1.12 - 0.12 * ((t - 0.6) / 0.4));
         }
         /* the move: a hit's action, the chug, a cheer, else the bob */
-        const anchor = r.anchor;
         const last = where === "water" && inSong ? st.last.get(i) : null;
         let act = null;
         if (where === "water" && inSong) {
@@ -178,7 +183,7 @@ export default function Cast({ store, driver, entrants, phase, room, version }) 
         }
         const bob = where === "hop" ? { dy:0, sx:1, sy:1 } : bobAt(beat, { amp:where === "bank" ? 0.6 : 1 });
         const ax = anchor.water[0], ay = anchor.water[1];
-        const sc = s * pop;
+        const sc = s * pop * (anchor.fill || 1);
         r.rider.style.transform = `translate3d(${(x + enter - ax * sc).toFixed(1)}px, ${(y - ay * sc).toFixed(1)}px, 0) scale(${sc.toFixed(4)})`;
         const dx = act?.dx || 0, dy = (act?.dy || 0) + bob.dy;
         const rot = act?.rot || 0, sx = (act?.sx ?? 1) * bob.sx, sy = (act?.sy ?? 1) * bob.sy;
@@ -194,14 +199,14 @@ export default function Cast({ store, driver, entrants, phase, room, version }) 
            smaller over the rows at the back), riding up with a hop */
         const popNode = popRefs.current.get(i);
         const showPop = last ? popupAt(last, now) : null;
-        const lift = Math.min(0, dy) * s;
+        const lift = Math.min(0, dy) * sc;
         if (popNode) {
           if (showPop) {
             const key = `${last.c}:${last.at}`;
             if (m.popKey !== key) { m.popKey = key; popSetters.current.get(i)?.(last); }
-            const at = popupSpot({ x:x + enter, y:y + lift, scale:s }, anchor);
+            const at = popupSpot({ x:x + enter, y:y + lift, scale:s * pop }, anchor);
             const size = Math.max(0.78, Math.min(1.05, 0.62 + 0.62 * s));
-            popNode.style.transform = `translate3d(${at.x.toFixed(1)}px, ${(at.y + showPop.dy).toFixed(1)}px, 0) scale(${(showPop.scale * size).toFixed(3)})`;
+            popNode.style.transform = `translate3d(${at.x.toFixed(1)}px, ${(at.y + showPop.dy).toFixed(1)}px, 0) scale(${size.toFixed(3)})`;
             popNode.style.opacity = showPop.opacity.toFixed(3);
             popNode.style.zIndex = String(z + 3000);
           } else if (popNode.style.opacity !== "0") popNode.style.opacity = "0";
@@ -211,7 +216,8 @@ export default function Cast({ store, driver, entrants, phase, room, version }) 
         if (nameNode) {
           const on = p.names && where === "water";
           if (on) {
-            nameNode.style.transform = `translate3d(${(x + enter + dx * s).toFixed(1)}px, ${(y + (NAME_Y + dy) * s * pop).toFixed(1)}px, 0) translate(-50%, -50%)`;
+            const nameY = (anchor.name ? anchor.name[1] - anchor.water[1] : NAME_Y) + dy;
+            nameNode.style.transform = `translate3d(${(x + enter + dx * sc).toFixed(1)}px, ${(y + nameY * sc).toFixed(1)}px, 0) translate(-50%, -50%)`;
             nameNode.style.zIndex = String(z + 1500);
           }
           const op = on ? String(Math.min(1, pop)) : "0";

@@ -11,7 +11,7 @@ export const STAGE_H = 1080;
 export const BOX = 512;
 /* a placeholder critter's anchors in that box: the waterline under the
    tube's middle and the top of the head (the art's own anchors win) */
-export const ANCHOR = Object.freeze({ water:[256, 404], head:[256, 112] });
+export const ANCHOR = Object.freeze({ water:[256, 404], head:[256, 112], top:[256, 112], name:[256, 486], face:[256, 236], hand:[328, 372], fill:1 });
 /* the share of the box a rider's visible width takes (the tube's span) */
 export const BODY_W = 0.74;
 
@@ -201,8 +201,8 @@ export function podiumLayout(podium = []) {
 }
 
 /* a popup's spot over a rider's head, kept on the stage */
-export function popupSpot(spot, anchor = ANCHOR, { lift = 26, half = 150 } = {}) {
-  const head = (anchor.water[1] - anchor.head[1]) * spot.scale;
+export function popupSpot(spot, anchor = ANCHOR, { lift = 18, half = 150 } = {}) {
+  const head = (anchor.water[1] - (anchor.top || anchor.head)[1]) * spot.scale * (anchor.fill || 1);
   return {
     x:Math.max(half + 16, Math.min(STAGE_W - half - 16, spot.x)),
     y:Math.max(110, spot.y - head - lift),

@@ -6,6 +6,7 @@
    frozen frame holds. Drawn here in CSS and SVG until the art module's
    painted scenes land (sceneOf in art.jsx). */
 import React from "react";
+import { useSceneArt } from "../art.jsx";
 
 /* a strip of mesas, 1920 wide, drawn twice for the loop */
 const MESAS_FAR = "M0 200 L0 150 L60 150 L80 120 L210 120 L230 150 L330 150 L360 96 L520 96 L548 150 L700 150 L720 132 L800 132 L820 150 "
@@ -57,7 +58,21 @@ function Rocks() {
   </svg>;
 }
 
+/* the art's painted scene: its layers back to front, a looping layer drawn
+   twice so it can drift by its depth */
+function PaintedScene({ scene }) {
+  return <div className="sc sc-art" data-scene={scene.id}>
+    {scene.layers.map((layer, k) => layer.loop && layer.depth > 0
+      ? <div key={k} className="sc-layer sc-art-layer" data-depth={layer.depth}>
+        <img className="sc-copy" src={layer.src} alt="" draggable={false} /><img className="sc-copy" src={layer.src} alt="" draggable={false} />
+      </div>
+      : <img key={k} className="sc-art-still" src={layer.src} alt="" draggable={false} />)}
+  </div>;
+}
+
 export default function Scene({ id = "open", mode = null }) {
+  const art = useSceneArt(id);
+  if (art) return <PaintedScene scene={art} />;
   return <div className="sc" data-scene={id} data-mode={mode || undefined}>
     <div className="sc-sky" />
     <div className="sc-sun" />

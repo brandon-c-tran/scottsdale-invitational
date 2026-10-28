@@ -1,25 +1,57 @@
 /* The art the screen draws with (float/GROOVE.md "The art manifest and the
-   2D art module"). One adapter, so the art module swaps in behind the same
-   calls: until its sprites load (or if they never do), every critter, the
-   host and the props are drawn here as SVG in the same style (a white round
-   deadpan critter, a thin black line, dot eyes; colour only on the tube).
+   2D art module"). One adapter over float/client/art/groove: the painted
+   pose sprites (the rider's colour on the tube, the groom's crown), the
+   props, the popup's lettering, the host and the scenes. What the art has
+   not drawn yet is drawn here in the same style (a white round deadpan
+   critter, a thin dark line, dot eyes, colour only on the tube): a critter
+   whose own pose is missing gets the move's prop over it (the cup to the
+   mouth, a splash in the face); the host and the scenes stay these
+   drawings until the art's own are no longer placeholders.
 
-     useRiderArt(entrant)   the rider's painted pose sprites and anchors, or null
+     useRiderArt(entrant)   { poses:{ pose:url }, anchor, own:Set } once painted, else null
      Critter                one rider: every pose stacked, the shown one picked
                             by the nearest [data-pose] (CSS), so a pose swaps
                             without a decode
+     RiderFace              a rider's idle critter, for the boards
      HostFigure             the host on the bank (idle, call, cheer)
-     SignProp               The Drop's pattern signs
-     PopupLetters           the judgement's two lines in the pixel type
-   Pure render functions: no fetches at module scope, nothing on window. */
-import React from "react";
+     SignProp, SplashProp   props
+     PopupLetters           the judgement's two lines (the art's Popup)
+     useSceneArt(id)        the scene's painted layers, or null (draw our own)
+   Render functions only: nothing fetched at module scope, nothing on window. */
+import React, { useMemo } from "react";
 import { popupOf } from "../../shared/chart.js";
 import { ANCHOR } from "./model/flotilla.js";
+import RiderSprite, { useGrooveArt, useRiderSprites } from "../art/groove/RiderSprite.jsx";
+import ArtPopup from "../art/groove/Popup.jsx";
+import { critterArt, hostSprites, propOf, sceneOf } from "../art/groove/index.js";
 
 export const POSES = Object.freeze(["idle", "stroke", "hey", "nice", "miss", "chug", "cheer", "out"]);
 
-/* the art module's sprites, once it is in: null until then (placeholders) */
-export function useRiderArt() { return null; }
+/* the top of a critter's head over its head anchor (box px): where a popup starts */
+const HEAD_ROOM = 46;
+/* the art's critters fill less of their box than the placeholder drawing
+   (a tube about half its width, against four fifths): drawn this much
+   larger, they take the same room in the rows */
+export const ART_FILL = 1.45;
+
+/* A rider's painted sprites and anchors once the art has them: { poses,
+   anchor:{ water, head, top, face, hand }, own } (own: the poses with their
+   own drawing; the rest are the idle one), or null (the placeholder draws). */
+export function useRiderArt(entrant) {
+  const m = useGrooveArt();
+  const critter = entrant?.look?.critter || "capybara";
+  const urls = useRiderSprites({ critter, color:entrant?.color, groom:!!entrant?.groom });
+  return useMemo(() => {
+    const c = m ? critterArt(critter, m) : null;
+    if (!c?.anchor?.water) return null;
+    const idle = c.poses?.idle?.src;
+    const own = new Set(Object.entries(c.poses || {}).filter(([pose, art]) => pose === "idle" || (art?.src && art.src !== idle)).map(([pose]) => pose));
+    const head = c.anchor.head || c.poses?.idle?.anchor?.head || [256, 200];
+    const anchor = { water:c.anchor.water, head, top:[head[0], head[1] - HEAD_ROOM], face:c.anchor.face || head, hand:c.anchor.hand || c.anchor.water,
+      name:[c.anchor.water[0], c.anchor.water[1] + 52], fill:ART_FILL };
+    return { poses:urls || null, anchor, own, critter, placeholder:!!c.placeholder };
+  }, [m, urls, critter]);
+}
 export const anchorOf = art => art?.anchor || ANCHOR;
 
 /* ── the placeholder critter: a 512 box, the waterline at y 404 ── */
@@ -129,18 +161,67 @@ export function PlaceholderCritter({ color = "#7fb8ff", critter = "capybara", gr
   </svg>;
 }
 
-/* one rider's critter: the art's painted poses when they are in, else the
-   placeholder (the caller sets data-pose on an ancestor) */
+/* the poses that share one picture, so each distinct sprite is one <img> */
+function spriteLayers(urls) {
+  const byUrl = new Map();
+  for (const pose of POSES) {
+    const url = urls?.[pose] || urls?.idle;
+    if (!url) continue;
+    if (!byUrl.has(url)) byUrl.set(url, []);
+    byUrl.get(url).push(pose);
+  }
+  return [...byUrl.entries()];
+}
+
+/* a prop placed in the sprite's box, its own anchor on a box point */
+function BoxProp({ id, at, width, className, fallback = null }) {
+  const prop = propOf(id);
+  if (!prop?.src || !at) return fallback;
+  const w = width, h = width * ((prop.h || 1) / (prop.w || 1));
+  const ax = (prop.anchor?.[0] ?? prop.w / 2) / (prop.w || 1), ay = (prop.anchor?.[1] ?? prop.h / 2) / (prop.h || 1);
+  return <img className={`cr-prop ${className || ""}`} src={prop.src} alt="" draggable={false}
+    style={{ left:at[0] - w * ax, top:at[1] - h * ay, width:w, height:h }} />;
+}
+
+/* one rider's critter: the art's painted poses when they are in (the
+   moves a critter has no drawing for carry their prop), the art's own
+   composition while it paints, else the placeholder drawing (the caller
+   sets data-pose on an ancestor) */
 export function Critter({ entrant, art = null }) {
   if (art?.poses) {
+    const { face, hand } = art.anchor;
     return <span className="cr-sprites">
-      {POSES.map(pose => art.poses[pose] && <img key={pose} className={`cr-sprite p-${pose}`} src={art.poses[pose]} alt="" draggable={false} decoding="async" />)}
+      {spriteLayers(art.poses).map(([url, poses]) => <img key={url} className={`cr-sprite ${poses.map(pose => `p-${pose}`).join(" ")}`} src={url} alt=""
+        draggable={false} decoding="async" />)}
+      {!art.own.has("chug") && <BoxProp id="cup" className="p-chug" at={[face[0] + 34, face[1] + 18]} width={118} />}
+      {!art.own.has("miss") && <BoxProp id="splash" className="p-miss cr-face-splash" at={[face[0] + 6, face[1] - 30]} width={190} />}
+      {!art.own.has("stroke") && <BoxProp id="splash" className="p-stroke" at={[hand[0] + 92, hand[1] + 46]} width={150} />}
     </span>;
   }
+  if (art) return <span className="cr-sprites"><RiderSprite critter={art.critter} color={entrant?.color} groom={!!entrant?.groom} pose="idle" size={512} className="cr-wait" /></span>;
   return <PlaceholderCritter color={entrant?.color} critter={entrant?.look?.critter} groom={!!entrant?.groom} />;
 }
 
+/* a rider's idle critter at a size, for the boards and lists */
+export function RiderFace({ entrant, pose = "idle", className = "" }) {
+  const art = useRiderArt(entrant);
+  return <span className={`cr-face ${className}`} data-pose={pose}><Critter entrant={entrant} art={art} /></span>;
+}
+
 /* ── the host: a critter on the bank in a straw hat with a megaphone ── */
+/* the art's host once it is drawn (not the placeholder crop), else ours */
+export function useHostArt() {
+  const m = useGrooveArt();
+  return useMemo(() => {
+    const h = m ? hostSprites(m) : null;
+    return h && !m.host?.placeholder ? h : null;
+  }, [m]);
+}
+export function HostArt({ host }) {
+  return <span className="hs-sprites">
+    {spriteLayers(host.poses).map(([url, poses]) => <img key={url} className={`hs-sprite ${poses.map(pose => `h-${pose}`).join(" ")}`} src={url} alt="" draggable={false} />)}
+  </span>;
+}
 export function HostFigure() {
   const body = { fill:"#fffdf8", stroke:LINE, strokeWidth:W, strokeLinejoin:"round", strokeLinecap:"round" };
   return <svg className="hs" viewBox="0 0 400 480" aria-hidden="true">
@@ -193,6 +274,8 @@ const SIGN_ART = {
     <path d="M100 96 m-30 0 a30 18 0 1 1 60 0" /><path d="M150 70 l14 -4 l-4 14" /></g>,
 };
 export function SignProp({ mode }) {
+  const prop = propOf(`sign-${mode}`);
+  if (prop?.src) return <img className="sg sg-art" src={prop.src} alt="" draggable={false} />;
   return <svg className="sg" viewBox="0 0 200 260" aria-hidden="true">
     <rect x="92" y="150" width="16" height="110" rx="6" fill="#c08a5c" stroke={LINE} strokeWidth="6" />
     <rect x="14" y="10" width="172" height="172" rx="22" fill="#fffdf8" stroke={LINE} strokeWidth="8" />
@@ -201,13 +284,19 @@ export function SignProp({ mode }) {
 }
 
 /* the judgement's lettering: the signed offset over the word (a miss has
-   no number), in the tone the contract gives it */
-export function PopupLetters({ q, d }) {
-  const p = popupOf(q, d);
-  return <span className={`pp is-${p.tone} q-${q}`}>
-    {p.num !== null && <span className="pp-num">{p.num}</span>}
-    <span className="pp-word">{p.word}</span>
-  </span>;
+   no number), the art's Popup (Float Pixel, the contract's tones) */
+export function PopupLetters({ q, d, size = 40 }) {
+  return <ArtPopup q={q} d={d} size={size} className="pp" />;
+}
+export { popupOf };
+
+/* the scene's painted layers, once the art's own are in (not placeholders) */
+export function useSceneArt(id) {
+  const m = useGrooveArt();
+  return useMemo(() => {
+    const scene = m ? sceneOf(id, m) : null;
+    return scene && !scene.placeholder && scene.layers?.length ? scene : null;
+  }, [m, id]);
 }
 
 /* a splash at the tube's side (a paddle, a landing, a flub) */

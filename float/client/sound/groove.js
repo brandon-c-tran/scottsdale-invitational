@@ -40,8 +40,9 @@ export const PODIUM_BEATS = Object.freeze({ roll:PODIUM_LEAD_MS, third:PODIUM_LE
 /* The cut, ms from its start: the drumroll, the reveal on its hit, then
    one rider out each `gap` (the screen and the phone reveal on these). */
 export const CUT_BEATS = Object.freeze({ roll:500, reveal:2500, gap:500 });
-/* the song's round card: its sting on the card, the host's title a beat later */
-export const TITLE_BEATS = Object.freeze({ sting:-SONG_LEAD_MS, title:-2000 });
+/* the song's round card (up SONG_LEAD_MS before beat 0): its sting's hit a
+   beat after the card goes up, the host's title a beat after that (ms from songAt) */
+export const TITLE_BEATS = Object.freeze({ card:-SONG_LEAD_MS, sting:-SONG_LEAD_MS + 500, title:-SONG_LEAD_MS + 1000 });
 
 const B = BEATS_PER_BAR;
 const round3 = x => Math.round(x * 1000) / 1000;
@@ -126,7 +127,18 @@ export function songEvents(chart) {
     countIn(drink.to).forEach(([beat, line]) => add(beat, "floatVoice", { line }, "count"));
   }
   const order = { bar:0, answer:1, call:2, count:3, line:4 };
-  return events.sort((a, b) => a.beat - b.beat || order[a.kind] - order[b.kind]);
+  events.sort((a, b) => a.beat - b.beat || order[a.kind] - order[b.kind]);
+  /* a voice is cut short of the next one (`after`, seconds past its beat):
+     the host's lines and the whistle's "Spin!", and the crowd's quick "Hey! Hey!" */
+  shortOf(events.filter(e => e.id === "floatVoice" || e.id === "floatWhirl"));
+  shortOf(events.filter(e => e.id === "floatAnswer" && e.opts.kind === "hey"));
+  return events;
+}
+function shortOf(list) {
+  list.forEach((e, i) => {
+    const next = list.slice(i + 1).find(n => n.beat > e.beat);
+    if (next) e.opts.after = round3(Math.min(1.5, ((next.beat - e.beat) * BEAT_MS) / 1000 - 0.03));
+  });
 }
 const countIn = to => ["one", "two", "three", "four"].map((line, i) => [to - 4 + i, line]);
 /* a spin's whistle is short when the next spin call is half a beat behind it */

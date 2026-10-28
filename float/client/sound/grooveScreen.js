@@ -148,9 +148,9 @@ function phaseCues(m, prev, v, s) {
       if (!Number.isFinite(v.songAt) || !v.chart) return [];
       const cues = [];
       const sting = v.songAt + TITLE_BEATS.sting, title = v.songAt + TITLE_BEATS.title;
-      /* the round card: its sting as it goes up, the host's title a beat after the sting's hit */
-      if (sting - GROOVE_PRE_MS >= s - 200) cues.push({ id:"floatSting", at:notBefore(sting, s) - GROOVE_PRE_MS, opts:{ song:v.chart.id }, key:keyOf(m, "sting", v.songAt) });
-      if (title - GROOVE_PRE_MS >= s) cues.push({ id:"floatVoice", at:title - GROOVE_PRE_MS, opts:{ line:`title-${v.chart.id}` }, key:keyOf(m, "title", v.songAt) });
+      /* the round card: its sting's hit a beat after it goes up, the host's title a beat later */
+      if (sting - GROOVE_PRE_MS >= s - 100) cues.push({ id:"floatSting", at:sting - GROOVE_PRE_MS, opts:{ song:v.chart.id }, key:keyOf(m, "sting", v.songAt) });
+      if (title - GROOVE_PRE_MS >= s - 100) cues.push({ id:"floatVoice", at:title - GROOVE_PRE_MS, opts:{ line:`title-${v.chart.id}` }, key:keyOf(m, "title", v.songAt) });
       return cues;
     }
     case "cut": {

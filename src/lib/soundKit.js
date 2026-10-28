@@ -3125,15 +3125,16 @@ function pitchAt(data, sr, from) {
 /* Play a decoded clip (E.clips) so its beat lands at `beatAt` on the
    engine's clock, its soft start leading in by up to `pre`; false when it
    is not decoded (the caller plays its stand-in). rate shifts pitch and
-   length together (a sung "ba" played at its note). */
-function playClip(E, dest, beatAt, id, { gain = 1, rate = 1, pre = GROOVE_PRE_S, max = Infinity } = {}) {
+   length together (a sung "ba" played at its note); `after` cuts it (with
+   a fade) that long past its beat, so a quick next call is never under it. */
+function playClip(E, dest, beatAt, id, { gain = 1, rate = 1, pre = GROOVE_PRE_S, after = Infinity } = {}) {
   const clip = E?.clips?.get?.(id);
   if (!clip?.buffer || typeof E.ctx?.createBufferSource !== "function" || !(gain > 0)) return false;
   const c = E.ctx, r = gNum(rate, 0.25, 4, 1);
   const lead = Math.max(0, Math.min(pre, ((clip.beat || 0) - (clip.start || 0)) / r));
   const from = Math.max(0, (clip.beat || 0) - lead * r);
   const until = Math.min(clip.buffer.duration || Infinity, clip.end || Infinity);
-  const len = Math.max(0.02, Math.min(max, (until - from) / r));
+  const len = Math.max(0.02, Math.min(lead + Math.max(0.06, Number(after) || Infinity), (until - from) / r));
   const t = beatAt - lead;
   const s = c.createBufferSource(); s.buffer = clip.buffer;
   if (s.playbackRate) s.playbackRate.value = r;
@@ -3486,9 +3487,11 @@ const G_SONGS = Object.freeze({
     chords:Object.freeze([gChord("A1", "C#4 E4 A4", "A3 C#4 E4 A4"), gChord("F#1", "C#4 F#4 A4", "F#3 A3 C#4 F#4"),
       gChord("D2", "D4 F#4 A4", "D4 F#4 A4 D5"), gChord("E2", "B3 E4 G#4", "E4 G#4 B4 E5"), gChord("A1", "C#4 E4 A4", "A3 C#4 E4 A4"),
       gChord("C#2", "C#4 E4 G#4", "C#4 E4 G#4 C#5"), gChord("D2", "D4 F#4 A4", "D4 F#4 A4 D5"), gChord("E2", "B3 D4 G#4", "E4 G#4 B4 D5")]),
-    /* the "ba" notes, low to high, inside E4 to E5: one hop sings the top, two the top pair, three all three */
-    ba:Object.freeze([gNotes("E4 A4 C#5"), gNotes("F#4 A4 C#5"), gNotes("F#4 A4 D5"), gNotes("E4 G#4 B4"),
-      gNotes("E4 A4 C#5"), gNotes("E4 G#4 C#5"), gNotes("F#4 A4 D5"), gNotes("D4 G#4 B4")]),
+    /* the "ba" notes, low to high, around the host's own pitch (G#3 to F#4; the
+       hops' boings an octave over them): one hop sings the top, two the top
+       pair, three all three */
+    ba:Object.freeze([gNotes("A3 C#4 E4"), gNotes("A3 C#4 F#4"), gNotes("A3 D4 F#4"), gNotes("G#3 B3 E4"),
+      gNotes("A3 C#4 E4"), gNotes("G#3 C#4 E4"), gNotes("A3 D4 F#4"), gNotes("G#3 B3 D4")]),
     hook:null, lead:0, glock:12,
     tag:gLine(". . . . . . E5/A5 C#6 | . . . . . . F#5/A5 C#6 | . . . . . . F#5/A5 D6 | . . . . . . B5/G#5 E5 "
       + "| . . . . . . E5/A5 C#6 | . . . . . . G#5/C#6 E6 | . . . . . . A5/D6 F#6 | . . . . . . G#5/B5 D6"),
@@ -3542,8 +3545,8 @@ const G_SONGS = Object.freeze({
     hook:gLine("F#5 . A5 B5 . A5 F#5 . | D5 . E5 F#5 . E5 D5 . | E5 . F#5 A5 . F#5 E5 . | F#5 - - - . . . . "
       + "| B5 . A5 F#5 . E5 F#5 . | G5 . F#5 E5 . D5 E5 . | A5 . G5 F#5 . E5 D5 . | E5 - - - . . . ."),
     lead:0, glock:12,
-    ba:Object.freeze([gNotes("D4 F#4 B4"), gNotes("D4 G4 B4"), gNotes("E4 A4 C#5"), gNotes("F#4 A4 D5"),
-      gNotes("D4 F#4 B4"), gNotes("D4 G4 B4"), gNotes("E4 A4 D5"), gNotes("E4 A4 C#5")]),
+    ba:Object.freeze([gNotes("F#3 B3 D4"), gNotes("G3 B3 D4"), gNotes("A3 C#4 E4"), gNotes("A3 D4 F#4"),
+      gNotes("F#3 B3 D4"), gNotes("G3 B3 D4"), gNotes("A3 D4 E4"), gNotes("G3 C#4 E4")]),
     bass:Object.freeze({ kind:"synth",
       thin:[[0, "R", 1, "t"], [2, "R", 1, "t"], [4, "R", 1, "t"], [6, "R", 1, "t"], [8, "R", 1, "t"], [10, "R", 1, "t"], [12, "R", 1, "t"], [14, "R", 1, "t"]],
       full:[[0, "R", 1, "t"], [2, "R", 1, "t"], [4, "R", 1, "t"], [6, "8", 1, "t"], [8, "R", 1, "t"], [10, "R", 1, "t"], [12, "5", 1, "t"], [14, "^", 1, "t"]] }),
@@ -3724,9 +3727,9 @@ function gPlayBar(c, level) {
   if (level >= 2 && S.swirl && c.on("harmony")) gSwirl(c);
   if (S === G_SONGS.drop) gDropColour(c, level);
   if (c.on("melody") && level >= 1) {
-    /* the marimba under the host's "ba"s, an octave down, so the tune is in the band too */
+    /* the marimba with the host's "ba"s, an octave over them, so the tune is in the band too */
     c.calls.filter(([, kind]) => kind === "hop").forEach(([s], i, all) =>
-      gMarimba(E, V("glock"), c.at(s), gHz(grooveBaNote(c.id, c.k, i, all.length) - 12), 0.08));
+      gMarimba(E, V("glock"), c.at(s), gHz(grooveBaNote(c.id, c.k, i, all.length) + 12), 0.08));
   }
 }
 /* Spin Cycle's swirl: the chord's tones in sixteenths up and down, circling left and right */
@@ -3872,7 +3875,7 @@ function grooveVoice(E, t0, o = {}) {
     const clip = clipOf(E, "ba");
     if (clip?.f0 > 0) rate = gNum(note / clip.f0, 0.55, 2.4, 1);
   }
-  if (playClip(E, v, at, line, { gain, rate })) return;
+  if (playClip(E, v, at, line, { gain, rate, after:gNum(o.after, 0.06, 4, Infinity) })) return;
   gTalk(E, v, at, line, note ? { f:note } : {});
 }
 /* The spin's call (floatWhirl): a slide whistle up over the song's fifth,
@@ -3884,20 +3887,23 @@ function grooveWhirl(E, t0, o = {}) {
   const f = gHz(S.motif[0] + 12), d = o.quick ? 0.13 : 0.24;
   gWhistle(E, v, at, f, f * 2, d, 0.09);
   burst(E, v, at, { f:2600, q:1.4, d:0.01, peak:0.12 });
-  if (o.say) { const sv = voice(E, { send:0.16, bright:1, gain:1 }); if (!playClip(E, sv, at, "spin", { gain:0.9 })) gTalk(E, sv, at, "spin"); }
+  if (o.say) {
+    const sv = voice(E, { send:0.16, bright:1, gain:1 });
+    if (!playClip(E, sv, at, "spin", { gain:0.9, after:gNum(o.after, 0.06, 4, Infinity) })) gTalk(E, sv, at, "spin");
+  }
 }
 
 /* ── the band's answers: on every cue's beat, for everyone ── */
 /* the crowd's "Hey!": a few takes at once, rates and places spread (seed
    picks which); false with no takes decoded */
-function gCrowd(E, at, seed = 0, { n = 4, gain = 1 } = {}) {
+function gCrowd(E, at, seed = 0, { n = 4, gain = 1, after = Infinity } = {}) {
   const takes = GROOVE_CROWD.filter(id => clipOf(E, id));
   if (!takes.length) return false;
   const count = Math.min(n, takes.length), start = gInt(seed, 0, 1e6, 0);
   for (let i = 0; i < count; i++) {
     const id = takes[(start + i * 2) % takes.length];
     const v = voice(E, { pan:[-0.42, 0.38, -0.12, 0.18][i % 4], send:0.2, bright:1, gain:1 });
-    playClip(E, v, at + [0, 0.004, -0.003, 0.006][i % 4], id, { gain:gain * (i ? 0.7 : 0.95) * 1.6 / Math.sqrt(count), rate:[1, 1.07, 0.94, 1.12][i % 4] });
+    playClip(E, v, at + [0, 0.004, -0.003, 0.006][i % 4], id, { gain:gain * (i ? 0.7 : 0.95) * 1.6 / Math.sqrt(count), rate:[1, 1.07, 0.94, 1.12][i % 4], after });
   }
   return true;
 }
@@ -3935,12 +3941,12 @@ function grooveAnswer(E, t0, o = {}) {
     return;
   }
   if (kind === "hey") {
-    if (!gCrowd(E, at, seed)) gCrowdStandIn(E, at);
+    if (!gCrowd(E, at, seed, { after:gNum(o.after, 0.06, 4, Infinity) })) gCrowdStandIn(E, at);
     GK.clap(E, voice(E, { pan:0.1, send:0.2, bright:1, gain:0.55 }), at, 0.8);
     return;
   }
   if (kind === "hop") {
-    const f = gHz(grooveBaNote(o.song, o.k, o.n, o.of));
+    const f = gHz(grooveBaNote(o.song, o.k, o.n, o.of) + 12);
     boing(E, at, { f, d:0.42, peak:0.22 });
     M.felt(E, at, { gain:0.35 });
     return;
@@ -3967,14 +3973,13 @@ function grooveFlub(E, t, o = {}) {
 }
 
 /* ── the moments between the songs ── */
-/* the round card (floatSting, opts.song): three toms into the song's
-   chord a beat later, the motif sparkling on the glockenspiel over it
-   (the host says the song's name on the next beat) */
+/* the round card (floatSting, opts.song): a flam of toms leading in, the
+   song's chord on the beat, the motif sparkling on the glockenspiel over
+   it (the host says the song's name on the next beat) */
 function grooveSting(E, t0, o = {}) {
-  const t = t0 + GROOVE_PRE_S, S = G_SONGS[o.song] && G_SONGS[o.song].tonic ? G_SONGS[o.song] : G_SONGS.paddle;
-  const V = gVoices(E, FL_BAND);
-  [[0, 196], [0.125, 165], [0.25, 131], [0.375, 110]].forEach(([dt, f], i) => GK.tom(E, V("snare"), t + dt, f, 0.6 + i * 0.1));
-  const hit = t + 0.5;
+  const S = G_SONGS[o.song] && G_SONGS[o.song].tonic ? G_SONGS[o.song] : G_SONGS.paddle;
+  const V = gVoices(E, FL_BAND), hit = t0 + GROOVE_PRE_S;
+  [[0, 196], [0.04, 165], [0.08, 131]].forEach(([dt, f], i) => GK.tom(E, V("snare"), t0 + dt, f, 0.5 + i * 0.1));
   GK.kick(E, V("kick"), hit, 1); GK.crash(E, V("hat"), hit, 0.9, 2.2);
   gBrass(E, V("brass"), hit, S.tonic.comp, 0.9, 0.17, { fall:true });
   gSlap(E, V("bass"), hit, gHz(S.tonic.bass), 0.9, 0.32);

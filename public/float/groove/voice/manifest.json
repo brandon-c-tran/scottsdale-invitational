@@ -8,18 +8,18 @@
     {
       "id": "ready",
       "file": "ready.mp3",
-      "onset": 44,
-      "dur": 329,
-      "f0": 256.4,
+      "onset": 53,
+      "dur": 305,
+      "f0": 203.2,
       "text": "Ready?",
       "voice": "coral"
     },
     {
       "id": "hey",
       "file": "hey.mp3",
-      "onset": 63,
-      "dur": 295,
-      "f0": 393.8,
+      "onset": 51,
+      "dur": 251,
+      "f0": 334.1,
       "text": "Hey!",
       "voice": "coral"
     },
@@ -28,7 +28,7 @@
       "file": "ba.mp3",
       "onset": 24,
       "dur": 227,
-      "f0": 214.1,
+      "f0": 206.1,
       "text": "Bah!",
       "voice": "coral"
     },
@@ -44,18 +44,18 @@
     {
       "id": "one",
       "file": "one.mp3",
-      "onset": 70,
-      "dur": 364,
-      "f0": 404.6,
+      "onset": 52,
+      "dur": 347,
+      "f0": 294,
       "text": "One!",
       "voice": "coral"
     },
     {
       "id": "two",
       "file": "two.mp3",
-      "onset": 26,
-      "dur": 298,
-      "f0": 86.5,
+      "onset": 25,
+      "dur": 251,
+      "f0": 412.1,
       "text": "Two!",
       "voice": "coral"
     },
@@ -64,16 +64,16 @@
       "file": "three.mp3",
       "onset": 139,
       "dur": 413,
-      "f0": 373.7,
+      "f0": 370.6,
       "text": "Three!",
       "voice": "coral"
     },
     {
       "id": "four",
       "file": "four.mp3",
-      "onset": 131,
-      "dur": 372,
-      "f0": 296,
+      "onset": 128,
+      "dur": 358,
+      "f0": 312.8,
       "text": "Four!",
       "voice": "coral"
     },
@@ -91,16 +91,16 @@
       "file": "herewego.mp3",
       "onset": 54,
       "dur": 586,
-      "f0": 166.4,
+      "f0": 167,
       "text": "Here we go!",
       "voice": "coral"
     },
     {
       "id": "title-paddle",
       "file": "title-paddle.mp3",
-      "onset": 76,
-      "dur": 807,
-      "f0": 304.1,
+      "onset": 64,
+      "dur": 713,
+      "f0": 393.8,
       "text": "Paddle Party!",
       "voice": "coral"
     },
@@ -125,10 +125,19 @@
     {
       "id": "title-drop",
       "file": "title-drop.mp3",
-      "onset": 82,
-      "dur": 657,
-      "f0": 329.1,
+      "onset": 137,
+      "dur": 1004,
+      "f0": 324.3,
       "text": "The Drop!",
+      "voice": "coral"
+    },
+    {
+      "id": "lastcall",
+      "file": "lastcall.mp3",
+      "onset": 83,
+      "dur": 687,
+      "f0": 267.3,
+      "text": "Last call!",
       "voice": "coral"
     },
     {
@@ -136,7 +145,7 @@
       "file": "crowd-hey-1.mp3",
       "onset": 57,
       "dur": 302,
-      "f0": 153.1,
+      "f0": 152.1,
       "text": "Hey!",
       "voice": "ash"
     },
@@ -145,25 +154,25 @@
       "file": "crowd-hey-2.mp3",
       "onset": 60,
       "dur": 318,
-      "f0": 234.6,
+      "f0": 235.8,
       "text": "Hey!",
       "voice": "nova"
     },
     {
       "id": "crowd-hey-3",
       "file": "crowd-hey-3.mp3",
-      "onset": 95,
-      "dur": 444,
-      "f0": 135.3,
+      "onset": 78,
+      "dur": 399,
+      "f0": 146.5,
       "text": "Hey!",
       "voice": "echo"
     },
     {
       "id": "crowd-hey-4",
       "file": "crowd-hey-4.mp3",
-      "onset": 59,
-      "dur": 349,
-      "f0": 0,
+      "onset": 70,
+      "dur": 315,
+      "f0": 315,
       "text": "Hey!",
       "voice": "shimmer"
     },
@@ -172,7 +181,7 @@
       "file": "crowd-hey-5.mp3",
       "onset": 46,
       "dur": 318,
-      "f0": 137.4,
+      "f0": 136.5,
       "text": "Hey!",
       "voice": "onyx"
     },
@@ -184,6 +193,78 @@
       "f0": 0,
       "text": "Hey!",
       "voice": "sage"
+    },
+    {
+      "id": "crowd-ooh-1",
+      "file": "crowd-ooh-1.mp3",
+      "onset": 33,
+      "dur": 636,
+      "f0": 140.9,
+      "text": "Ooooh!",
+      "voice": "ash"
+    },
+    {
+      "id": "crowd-ooh-2",
+      "file": "crowd-ooh-2.mp3",
+      "onset": 28,
+      "dur": 952,
+      "f0": 206.1,
+      "text": "Ooooh!",
+      "voice": "nova"
+    },
+    {
+      "id": "crowd-ooh-3",
+      "file": "crowd-ooh-3.mp3",
+      "onset": 0,
+      "dur": 632,
+      "f0": 0,
+      "text": "Ooooh!",
+      "voice": "echo"
+    },
+    {
+      "id": "crowd-ooh-4",
+      "file": "crowd-ooh-4.mp3",
+      "onset": 16,
+      "dur": 563,
+      "f0": 350,
+      "text": "Ooooh!",
+      "voice": "shimmer"
+    },
+    {
+      "id": "crowd-aww-1",
+      "file": "crowd-aww-1.mp3",
+      "onset": 42,
+      "dur": 1012,
+      "f0": 109.7,
+      "text": "Awww!",
+      "voice": "ash"
+    },
+    {
+      "id": "crowd-aww-2",
+      "file": "crowd-aww-2.mp3",
+      "onset": 30,
+      "dur": 767,
+      "f0": 154.2,
+      "text": "Awww!",
+      "voice": "nova"
+    },
+    {
+      "id": "crowd-aww-3",
+      "file": "crowd-aww-3.mp3",
+      "onset": 34,
+      "dur": 503,
+      "f0": 109.2,
+      "text": "Awww!",
+      "voice": "echo"
+    },
+    {
+      "id": "crowd-aww-4",
+      "file": "crowd-aww-4.mp3",
+      "onset": 11,
+      "dur": 539,
+      "f0": 196,
+      "text": "Awww!",
+      "voice": "shimmer"
     }
   ]
 }

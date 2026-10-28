@@ -1994,6 +1994,12 @@ export function floatParts() {
     part("floatSet", "Float: a rider is ready", TV, 700, grooveSet),
     /* any decoded clip from its start (opts.clip, gain, rate) */
     part("floatClip", "Float: a clip", TV, 4000, grooveClip),
+    /* Last Call: a bar of the bar (opts.bar, slides, grabs, drinks), a slide (opts.k, n, of, quick), the catch, a reveal (opts.k), who drinks */
+    part("floatBar", "Float: Last Call, a bar", TV, 2200, grooveBarRoom, true),
+    part("floatSlide", "Float: Last Call, the glass slides", TV, 400, grooveSlide),
+    part("floatGrab", "Float: Last Call, the grab", TV, 600, grooveGrab),
+    part("floatReveal", "Float: Last Call, the offsets go up", TV, 900, grooveReveal),
+    part("floatDrinks", "Float: Last Call, who drinks", TV, 2600, grooveDrinks),
     /* the phone's own */
     part("floatYouTap", "Float: your tap", PHONE, 200, grooveYouTap),
     part("floatYouDone", "Float: your drink done", PHONE, 900, grooveYouDone),
@@ -2001,6 +2007,7 @@ export function floatParts() {
     part("floatYouSafe", "Float: you're through", PHONE, 1200, grooveYouSafe),
     part("floatYouOut", "Float: you're out", PHONE, 700, grooveYouOut),
     part("floatYouPlace", "Float: your place", PHONE, 1600, grooveYouPlace),
+    part("floatYouGulp", "Float: you drink (Last Call)", PHONE, 800, grooveYouGulp),
   ].map(Object.freeze));
   return floatParts.list;
 }
@@ -2023,7 +2030,8 @@ const FL_MIX = Object.freeze({
   /* the Groove: the band under the host and the answers (the render's stems set these) */
   floatGroove:0.6, floatLobby:0.6, floatVoice:2.2, floatWhirl:1.2, floatAnswer:1.15, floatFlub:0.75,
   floatSting:0.8, floatOpen:0.8, floatRoll:0.8, floatGone:1.1, floatFanfare:0.8, floatCheer:1, floatDone:1, floatHello:1.4, floatSet:1.4, floatClip:1,
-  floatYouTap:1.3, floatYouDone:1, floatYouCheer:1.1, floatYouSafe:1, floatYouOut:1, floatYouPlace:1.1,
+  floatBar:0.6, floatSlide:1.6, floatGrab:1.1, floatReveal:1, floatDrinks:0.85,
+  floatYouTap:1.3, floatYouDone:1, floatYouCheer:1.1, floatYouSafe:1, floatYouOut:1, floatYouPlace:1.1, floatYouGulp:1.1,
 });
 export const FLOAT_MIX = FL_MIX;
 function flMix(E, id, play) {
@@ -3105,22 +3113,41 @@ export function clipMarks(data, sampleRate = 44100) {
   const startI = first(peak * 0.03), beatI = first(peak * 0.3);
   let endI = env.length - 1;
   while (endI > beatI && env[endI] < peak * 0.01) endI--;
-  return { start:at(startI), beat:at(beatI), end:Math.min(dur, at(endI) + win / sr + 0.02), f0:pitchAt(data, sr, beatI * hop + Math.round(sr * 0.03)), dur };
+  /* the pitch: the middle of a few short readings just after the beat (a short
+     sung vowel glides), and how far they spread (0 steady; a sung "ba" wants it small) */
+  const f0s = [0.008, 0.02, 0.032, 0.044, 0.056].map(s => pitchAt(data, sr, beatI * hop + Math.round(sr * s))).filter(f => f > 0).sort((a, b) => a - b);
+  const f0 = f0s.length ? f0s[Math.floor((f0s.length - 1) / 2)] : 0;
+  const glide = f0s.length >= 2 ? Math.round(((f0s[f0s.length - 1] - f0s[0]) / f0) * 1000) / 1000 : 1;
+  return { start:at(startI), beat:at(beatI), end:Math.min(dur, at(endI) + win / sr + 0.02), f0, glide, dur };
 }
+/* the pitch at `from` (YIN: the cumulative-mean-normalized difference, the
+   first lag under 0.15 at its dip, else its lowest if it is clearly voiced;
+   a vowel's strong formant never passes for the note an octave up) */
 function pitchAt(data, sr, from) {
-  const len = Math.round(sr * 0.04), lo = Math.floor(sr / 700), hi = Math.ceil(sr / 70);
-  if (!data || from < 0 || from + len + hi > data.length) return 0;
+  const len = Math.round(sr * 0.025), lo = Math.floor(sr / 900), hi = Math.ceil(sr / 70);
+  if (!data || from < 0 || from + len + hi + 1 > data.length) return 0;
   let energy = 0;
   for (let i = 0; i < len; i++) energy += data[from + i] * data[from + i];
   if (!(energy > 1e-6)) return 0;
-  let best = 0, bestLag = 0;
-  for (let lag = lo; lag <= hi; lag++) {
-    let s = 0;
-    for (let i = 0; i < len; i++) s += data[from + i] * data[from + i + lag];
-    if (s > best) { best = s; bestLag = lag; }
+  const dn = new Float32Array(hi + 2);
+  let sum = 0;
+  for (let lag = 1; lag <= hi + 1; lag++) {
+    let d = 0;
+    for (let i = 0; i < len; i++) { const x = data[from + i] - data[from + i + lag]; d += x * x; }
+    sum += d;
+    dn[lag] = sum > 0 ? (d * lag) / sum : 1;
   }
-  /* a voiced vowel repeats; noise and silence do not */
-  return best / energy > 0.45 && bestLag ? Math.round((sr / bestLag) * 10) / 10 : 0;
+  let pick = 0;
+  for (let lag = lo; lag <= hi; lag++) {
+    if (dn[lag] < 0.15) { while (lag + 1 <= hi && dn[lag + 1] < dn[lag]) lag++; pick = lag; break; }
+  }
+  if (!pick) {
+    let best = Infinity;
+    for (let lag = lo; lag <= hi; lag++) if (dn[lag] < best) { best = dn[lag]; pick = lag; }
+    /* a voiced vowel repeats; noise and silence do not */
+    if (best > 0.35) return 0;
+  }
+  return pick ? Math.round((sr / pick) * 10) / 10 : 0;
 }
 /* Play a decoded clip (E.clips) so its beat lands at `beatAt` on the
    engine's clock, its soft start leading in by up to `pre`; false when it
@@ -3167,11 +3194,11 @@ const GK = Object.freeze({
   clap(E, v, t, k = 1) {
     [0, 0.0105, 0.0205].forEach((dt, i) => burst(E, v, t + dt, { f:1150 + i * 60, q:1.2, d:0.01, peak:(0.5 - i * 0.06) * k }));
     burst(E, v, t + 0.029, { f:1200, q:0.9, d:0.13, peak:0.4 * k, a:0.002 });
-    burst(E, v, t + 0.029, { type:"highpass", f:3200, q:0.7, d:0.07, peak:0.12 * k });
+    burst(E, v, t + 0.029, { type:"highpass", f:3200, q:0.7, d:0.06, peak:0.08 * k });
   },
   hat(E, v, t, k = 1, open = false) {
-    burst(E, v, t, { type:"highpass", f:7600, q:0.7, d:open ? 0.26 : 0.03, peak:0.2 * k });
-    burst(E, v, t, { f:10800, q:1.6, d:open ? 0.2 : 0.018, peak:0.07 * k });
+    burst(E, v, t, { type:"highpass", f:7600, q:0.7, d:open ? 0.24 : 0.03, peak:(open ? 0.15 : 0.2) * k });
+    burst(E, v, t, { f:10800, q:1.6, d:open ? 0.18 : 0.018, peak:0.05 * k });
   },
   shaker(E, v, t, k = 1) { burst(E, v, t, { f:6800, q:1.3, d:0.055, peak:0.16 * k, a:0.014 }); },
   tamb(E, v, t, k = 1) {
@@ -3284,15 +3311,15 @@ function gLead(E, dest, t, f, d, peak, { vib = 0.5, saw = 0.2, bright = 1 } = {}
   if (!(f > 0) || !(peak > 0)) return;
   const c = E.ctx, hold = Math.max(0.05, d), end = t + hold + 0.08;
   const lp = c.createBiquadFilter(); lp.type = "lowpass"; lp.Q.value = 0.7;
-  lp.frequency.setValueAtTime(Math.min(7000, f * 6 * bright), t);
-  lp.frequency.exponentialRampToValueAtTime(Math.min(5200, f * 3.5 * bright), t + 0.12);
+  lp.frequency.setValueAtTime(Math.min(6000, f * 5 * bright), t);
+  lp.frequency.exponentialRampToValueAtTime(Math.min(4200, f * 2.8 * bright), t + 0.12);
   const g = c.createGain(); g.gain.value = 0;
   g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(peak, t + 0.006);
   g.gain.exponentialRampToValueAtTime(peak * 0.72, t + 0.07);
   g.gain.setValueAtTime(peak * 0.72, t + Math.max(0.07, hold - 0.02));
   g.gain.exponentialRampToValueAtTime(0.0001, t + hold + 0.06);
   lp.connect(g); g.connect(dest); track(E, lp, g);
-  const oscs = [["square", 1, 0.36], ["square", 1.0025, 0.26], ["triangle", 0.5, 0.42], ["sawtooth", 1.002, saw]].filter(([, , level]) => level > 0).map(([type, r, level]) => {
+  const oscs = [["square", 1, 0.26], ["square", 1.0025, 0.18], ["triangle", 1, 0.42], ["triangle", 0.5, 0.36], ["sawtooth", 1.002, saw]].filter(([, , level]) => level > 0).map(([type, r, level]) => {
     const o = c.createOscillator(); o.type = type; o.frequency.setValueAtTime(f * r, t);
     const lg = c.createGain(); lg.gain.value = level;
     o.connect(lg); lg.connect(lp); track(E, o, lg); trackSource(E, o);
@@ -3323,33 +3350,7 @@ function gMarimba(E, dest, t, f, peak, { dec = 0.45 } = {}) {
   mode(E, dest, t, f * 9.2, 0.02, peak * 0.08, { a:0.001 });
   burst(E, dest, t, { f:Math.min(6000, f * 6), q:1, d:0.006, peak:peak * 0.2 });
 }
-/* the clavinet: a bright pulse through the pickup's band, short as funk wants it */
-function gClav(E, dest, t, midis, d, peak) {
-  const list = (Array.isArray(midis) ? midis : [midis]).map(Number).filter(Number.isFinite);
-  if (!list.length || !(peak > 0)) return;
-  const c = E.ctx, hold = Math.max(0.04, d), each = peak / Math.sqrt(list.length);
-  /* the pickup's quack (a gentle peak), the buzz above it rolled off */
-  const hp = c.createBiquadFilter(); hp.type = "highpass"; hp.frequency.value = 300; hp.Q.value = 0.7;
-  const bp = c.createBiquadFilter(); bp.type = "peaking"; bp.frequency.value = 1150; bp.Q.value = 1.6;
-  if (bp.gain) bp.gain.value = 4;
-  const lp = c.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 3600; lp.Q.value = 0.6;
-  hp.connect(bp); bp.connect(lp); lp.connect(dest); track(E, hp, bp, lp);
-  list.forEach((m, i) => {
-    const f = gHz(m), at = t + i * 0.004;
-    const g = c.createGain(); g.gain.value = 0;
-    g.gain.setValueAtTime(0.0001, at); g.gain.linearRampToValueAtTime(each, at + 0.002);
-    g.gain.exponentialRampToValueAtTime(each * 0.3, at + 0.07);
-    g.gain.setValueAtTime(each * 0.3, at + Math.max(0.07, hold - 0.02));
-    g.gain.exponentialRampToValueAtTime(0.0001, at + hold + 0.03);
-    g.connect(hp); track(E, g);
-    [["square", 1, 0.55], ["sawtooth", 2.001, 0.18]].forEach(([type, r, level]) => {
-      const o = c.createOscillator(); o.type = type; o.frequency.setValueAtTime(f * r, at);
-      const lg = c.createGain(); lg.gain.value = level;
-      o.connect(lg); lg.connect(g); track(E, o, lg); trackSource(E, o);
-      o.start(at); o.stop(at + hold + 0.06);
-    });
-  });
-}
+/* (the clavinet is gClavLine below: a bar of it as one voice a note) */
 /* the electric piano: a round tine, its octave fading fast, the bell of
    the tine's strike; trem rocks it side to side (the lounge) */
 function gKeys(E, dest, t, midis, d, peak, { trem = 0 } = {}) {
@@ -3417,9 +3418,10 @@ function gSaws(E, dest, t, midis, d, peak, { a = 0.05 } = {}) {
 function gWhistle(E, dest, t, f0, f1, d, peak) {
   if (!(f0 > 0) || !(f1 > 0) || !(peak > 0)) return;
   const c = E.ctx, len = Math.max(0.05, d);
-  [["sine", 1, peak], ["triangle", 2, peak * 0.12]].forEach(([type, k, p]) => {
+  [["sine", 1, peak], ["triangle", 2, peak * 0.07]].forEach(([type, k, p]) => {
     const o = c.createOscillator(); o.type = type;
-    o.frequency.setValueAtTime(f0 * k, t); o.frequency.exponentialRampToValueAtTime(f1 * k, t + len * 0.85);
+    /* a moment on its first note, so it starts like a note, then the slide */
+    o.frequency.setValueAtTime(f0 * k, t); o.frequency.setValueAtTime(f0 * k, t + Math.min(0.035, len * 0.2)); o.frequency.exponentialRampToValueAtTime(f1 * k, t + len * 0.85);
     const g = c.createGain(); g.gain.value = 0;
     g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(p, t + 0.004);
     g.gain.setValueAtTime(p, t + len * 0.7); g.gain.exponentialRampToValueAtTime(0.0001, t + len);
@@ -3427,7 +3429,25 @@ function gWhistle(E, dest, t, f0, f1, d, peak) {
     o.start(t); o.stop(t + len + 0.03);
     if (k === 1) wobble(E, o.frequency, t, len, { rate:7, depth:f1 * 0.02 });
   });
-  burst(E, dest, t, { type:"highpass", f:3000, q:0.7, d:0.012, peak:peak * 0.6 });
+  burst(E, dest, t, { type:"highpass", f:3000, q:0.7, d:0.012, peak:peak * 0.35 });
+}
+/* a spring's boing on its note: struck at once (its twang on the beat),
+   bouncing down onto the note from above, the wobble dying away */
+function gBoing(E, dest, t, f, peak, { d = 0.42 } = {}) {
+  if (!(f > 0) || !(peak > 0)) return;
+  const c = E.ctx;
+  const o = c.createOscillator(); o.type = "triangle";
+  o.frequency.setValueAtTime(f * 1.45, t); o.frequency.exponentialRampToValueAtTime(f, t + 0.05);
+  const g = c.createGain(); g.gain.value = 0;
+  g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(peak, t + 0.003);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+  o.connect(g); g.connect(dest); track(E, o, g); trackSource(E, o);
+  o.start(t); o.stop(t + d + 0.03);
+  const lfo = c.createOscillator(); lfo.type = "sine"; lfo.frequency.value = 15;
+  const depth = c.createGain(); depth.gain.setValueAtTime(f * 0.12, t); depth.gain.exponentialRampToValueAtTime(0.5, t + d);
+  lfo.connect(depth); depth.connect(o.frequency); track(E, lfo, depth); trackSource(E, lfo);
+  lfo.start(t); lfo.stop(t + d + 0.03);
+  burst(E, dest, t, { f:Math.min(6000, f * 4), q:2, d:0.012, peak:peak * 0.6 });
 }
 /* a party horn: a buzzing reed blown up into its note, unrolling */
 function gHorn(E, dest, t, f, d, peak) {
@@ -3492,6 +3512,8 @@ const G_SONGS = Object.freeze({
       B:{ kick:"X.....x.X.x...x.", clap:"....x.......x...", hat:"xgxgxgxgxgxgxgxg", open:"......o.......o.", cow:"..x...x...x...x.", tamb:"gxgxgxgxgxgxgxgx" },
     }),
     stabs:[14],
+    /* the last four bars of B lift a whole step (F to G) and the finish lands there */
+    lift:Object.freeze({ from:4, by:2 }),
   }),
   /* Rock Hop: A major, a chiptune bounce (I vi IV V): a round bass going
      oom-pah under organ chops on the offbeats; the host's "ba"s and the
@@ -3515,6 +3537,8 @@ const G_SONGS = Object.freeze({
       thin:[[0, "R", 2, "t"], [4, "5", 2, "t"], [8, "R", 2, "t"], [12, "5", 2, "t"]],
       full:[[0, "R", 2, "t"], [4, "5", 1, "t"], [6, "8", 1, "t"], [8, "R", 2, "t"], [12, "5", 1, "t"], [14, "^", 1, "t"]] }),
     comp:Object.freeze({ kind:"skank", thin:"..x...x...x...x.", full:"..x...x...x...x." }),
+    /* an organ held under the bounce from play A on (the room for the "ba"s stays its own) */
+    organ:true,
     drums:Object.freeze({
       thin:{ kick:"X.......X.......", rim:"....x.......x...", hat:"x.x.x.x.x.x.x.x." },
       A:{ kick:"X.......X.......", snare:"....x.......x...", hat:"x.x.x.x.x.x.x.x.", shaker:"..x...x...x...x." },
@@ -3547,6 +3571,8 @@ const G_SONGS = Object.freeze({
     }),
     stabs:[6],
     swirl:true,
+    /* the bass breathes with the kick (four on the floor) */
+    pump:true,
   }),
   /* The Drop: D major, the anthem (vi IV V I): eighths driving the bass,
      a rock beat, saws in B; each bar takes the colour of what the riders do
@@ -3558,22 +3584,23 @@ const G_SONGS = Object.freeze({
     chords:Object.freeze([gChord("B1", "D4 F#4 B4", "B3 D4 F#4 B4"), gChord("G1", "D4 G4 B4", "G3 B3 D4 G4"),
       gChord("A1", "C#4 E4 A4", "A3 C#4 E4 A4"), gChord("D2", "D4 F#4 A4", "D4 F#4 A4 D5"), gChord("B1", "D4 F#4 B4", "B3 D4 F#4 B4"),
       gChord("G1", "D4 G4 B4", "G3 B3 D4 G4"), gChord("A1", "D4 E4 A4", "A3 D4 E4 A4"), gChord("A1", "C#4 E4 G4", "A3 C#4 E4 G4")]),
-    hook:gLine("F#5 . A5 B5 . A5 F#5 . | D5 . E5 F#5 . E5 D5 . | E5 . F#5 A5 . F#5 E5 . | F#5 - - - . . . . "
-      + "| B5 . A5 F#5 . E5 F#5 . | G5 . F#5 E5 . D5 E5 . | A5 . G5 F#5 . E5 D5 . | E5 - - - . . . ."),
-    lead:0, glock:12,
+    /* the anthem: a leap up the chord to a held top note, falling back in eighths; the second half climbs higher */
+    hook:gLine("D5 F#5 B5 - - A5 B5 - | D6 - B5 - A5 G5 F#5 - | E5 A5 C#6 - - B5 A5 - | F#5 - - - E5 D5 E5 F#5 "
+      + "| D5 F#5 B5 - - A5 B5 D6 | E6 - D6 B5 - A5 B5 - | A5 - E5 A5 - B5 C#6 - | E6 - D6 - C#6 - A5 -"),
+    lead:-12, glock:0,
     ba:Object.freeze([gNotes("F#3 B3 D4"), gNotes("G3 B3 D4"), gNotes("A3 C#4 E4"), gNotes("A3 D4 F#4"),
       gNotes("F#3 B3 D4"), gNotes("G3 B3 D4"), gNotes("A3 D4 E4"), gNotes("G3 C#4 E4")]),
     bass:Object.freeze({ kind:"synth",
       thin:[[0, "R", 1, "t"], [2, "R", 1, "t"], [4, "R", 1, "t"], [6, "R", 1, "t"], [8, "R", 1, "t"], [10, "R", 1, "t"], [12, "R", 1, "t"], [14, "R", 1, "t"]],
-      full:[[0, "R", 1, "t"], [2, "R", 1, "t"], [4, "R", 1, "t"], [6, "8", 1, "t"], [8, "R", 1, "t"], [10, "R", 1, "t"], [12, "5", 1, "t"], [14, "^", 1, "t"]] }),
+      full:[[0, "R", 1, "t"], [2, "R", 1, "t"], [4, "8", 1, "t"], [6, "R", 1, "t"], [8, "R", 1, "t"], [10, "8", 1, "t"], [12, "5", 1, "t"], [14, "^", 1, "t"]] }),
     comp:Object.freeze({ kind:"brass", thin:"......x.......x.", full:"......x.......x." }),
     drums:Object.freeze({
       thin:{ kick:"X.......X.......", snare:"....x.......x...", hat:"x.x.x.x.x.x.x.x." },
       A:{ kick:"X.....x.X.x.....", snare:"....X.......X...", hat:"x.x.x.x.x.x.x.x." },
-      B:{ kick:"X.....x.X.x.....", snare:"....X.......X..g", hat:"xgxgxgxgxgxgxgxg", open:"..............o." },
+      B:{ kick:"X...x.x.X...x.x.", snare:"....X.......X.gx", hat:"xgxgxgxgxgxgxgxg", open:"......o.......o." },
     }),
     stabs:[],
-    pads:true,
+    pads:true, padA:0.045, build:6,
   }),
 });
 export const GROOVE_SONG_IDS = Object.freeze(Object.keys(G_SONGS));
@@ -3590,6 +3617,11 @@ export function grooveBaNote(song, bar, n = 0, of = 1) {
 }
 
 /* ── a bar of a song ── */
+/* a chord moved by `tr` semitones */
+function gShift(chord, tr) {
+  if (!tr || !chord) return chord;
+  return { bass:chord.bass + tr, comp:chord.comp.map(m => m + tr), tones:chord.tones.map(m => m + tr) };
+}
 /* a drum line's hits: [step, level, open] */
 function gHits(line) {
   const out = [];
@@ -3623,8 +3655,8 @@ function gDegree(token, chord, next) {
 function gVoices(E, lv) {
   return flVoices(E, { kick:{ send:0.05, bright:0.85, gain:lv }, snare:{ pan:0.05, send:0.2, bright:1, gain:lv },
     hat:{ pan:0.28, send:0.08, bright:1, gain:lv }, perc:{ pan:-0.32, send:0.14, bright:1, gain:lv },
-    bass:{ send:0.04, bright:1, gain:lv }, comp:{ pan:-0.22, send:0.22, bright:1, gain:lv }, lead:{ pan:0.08, send:0.3, bright:1, gain:lv },
-    glock:{ pan:0.3, send:0.38, bright:1, gain:lv }, brass:{ pan:-0.1, send:0.26, bright:1, gain:lv }, keys:{ pan:-0.18, send:0.34, bright:1, gain:lv },
+    bass:{ send:0.04, bright:1, gain:lv }, comp:{ pan:-0.22, send:0.22, bright:1, gain:lv }, lead:{ pan:0.08, send:0.38, bright:1, gain:lv },
+    glock:{ pan:0.3, send:0.38, bright:1, gain:lv }, brass:{ pan:-0.1, send:0.34, bright:1, gain:lv }, keys:{ pan:-0.18, send:0.34, bright:1, gain:lv },
     vibes:{ pan:0.24, send:0.42, bright:1, gain:lv }, pad:{ send:0.4, bright:1, gain:lv }, swirlL:{ pan:-0.65, send:0.5, bright:1, gain:lv },
     swirlR:{ pan:0.65, send:0.5, bright:1, gain:lv }, fx:{ send:0.3, bright:1, gain:lv } });
 }
@@ -3650,8 +3682,13 @@ function grooveBar(E, t0, o = {}) {
   c.held = new Set([...c.hits.filter(([, kind]) => kind === "hey").flatMap(([s]) => [s, s + 1]),
     ...c.calls.filter(([, kind]) => kind === "hey" || kind === "hop").flatMap(([s]) => [s, s + 1])]);
   const chords = sec === "intro" ? S.intro : S.chords;
-  c.chord = sec === "outro" ? S.tonic : chords[c.k % chords.length];
-  c.after = sec === "intro" ? (c.k === 0 ? S.intro[1] : S.chords[0]) : c.k === len - 1 ? S.chords[0] : chords[(c.k + 1) % chords.length];
+  /* a song's lift (S.lift: up `by` from play B's bar `from` to the end) */
+  const lifted = k => S.lift && ((sec === "play" && c.part === 1 && k >= S.lift.from) || sec === "outro");
+  c.tr = lifted(c.k) ? S.lift.by : 0;
+  c.tonic = gShift(S.tonic, c.tr);
+  c.chord = sec === "outro" ? c.tonic : gShift(chords[c.k % chords.length], c.tr);
+  c.after = sec === "intro" ? (c.k === 0 ? S.intro[1] : S.chords[0]) : c.k === len - 1 ? gShift(S.chords[0], c.tr)
+    : gShift(chords[(c.k + 1) % chords.length], lifted(c.k + 1) ? S.lift.by : 0);
   if (c.cut) return gCutBar(c);
   switch (sec) {
     case "intro": return gIntroBar(c);
@@ -3660,6 +3697,53 @@ function grooveBar(E, t0, o = {}) {
     case "outro": return gOutroBar(c);
     default: return gPlayBar(c, c.part ? 2 : 1);
   }
+}
+/* A bar of one noise instrument as one voice: a looping noise through its
+   filter, each hit an envelope on one gain ([[t, peak, d]], in time order),
+   a hit closing the one before as a hi-hat chokes. A bar's sixteen hats are
+   three nodes, not fifty. */
+function gNoiseLine(E, dest, hits, { type = "highpass", f = 7600, q = 0.7, a = 0.0008 } = {}) {
+  const list = hits.filter(([t, peak]) => Number.isFinite(t) && peak > 0).sort((x, y) => x[0] - y[0]);
+  if (!list.length) return;
+  const c = E.ctx;
+  const s = c.createBufferSource(); s.buffer = E.noise; s.loop = true;
+  const fl = c.createBiquadFilter(); fl.type = type; fl.frequency.value = f; fl.Q.value = q;
+  const g = c.createGain(); g.gain.value = 0;
+  let end = list[0][0];
+  list.forEach(([t, peak, d], i) => {
+    const next = list[i + 1]?.[0] ?? Infinity, len = Math.max(0.004, Math.min(d, next - t - a - 0.002));
+    g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(peak, t + a);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + a + len);
+    end = t + a + len;
+  });
+  s.connect(fl); fl.connect(g); g.connect(dest);
+  track(E, s, fl, g); trackSource(E, s);
+  s.start(list[0][0], Math.random() * 1.5); s.stop(end + 0.03);
+}
+/* A run of struck notes as one voice (a marimba, a swirl): one sine set to
+   each note in turn, its wood an octave pair over it, each note an
+   envelope ([[t, f, peak, d]], in time order) */
+function gToneLine(E, dest, notes, { wood = 3.93 } = {}) {
+  const list = notes.filter(([t, f, peak]) => Number.isFinite(t) && f > 0 && peak > 0).sort((x, y) => x[0] - y[0]);
+  if (!list.length) return;
+  const c = E.ctx;
+  const parts = [[1, 1], [wood, 0.2]].map(([r, k]) => {
+    const o = c.createOscillator(); o.type = "sine";
+    const g = c.createGain(); g.gain.value = 0;
+    o.connect(g); g.connect(dest); track(E, o, g); trackSource(E, o);
+    return { o, g, r, k };
+  });
+  let end = list[0][0];
+  list.forEach(([t, f, peak, d], i) => {
+    const next = list[i + 1]?.[0] ?? Infinity, len = Math.max(0.01, Math.min(d, next - t - 0.003));
+    for (const { o, g, r, k } of parts) {
+      o.frequency.setValueAtTime(f * r, t);
+      g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(peak * k, t + 0.002);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.002 + len * (r === 1 ? 1 : 0.25));
+    }
+    end = t + 0.002 + len;
+  });
+  for (const { o } of parts) { o.start(list[0][0]); o.stop(end + 0.03); }
 }
 /* the drums of a level's line, the hits' own kicks, and a fill into a new section */
 function gDrums(c, kit, { fill = false } = {}) {
@@ -3672,11 +3756,12 @@ function gDrums(c, kit, { fill = false } = {}) {
   gHits(kit.clap).forEach(([i, k]) => GK.clap(E, V("snare"), c.at(i), k));
   gHits(kit.snare).forEach(([i, k]) => GK.snare(E, V("snare"), c.at(i), k));
   gHits(kit.rim).forEach(([i, k]) => FLD.rim(E, V("snare"), c.at(i), k));
-  gHits(kit.hat).forEach(([i, k]) => GK.hat(E, V("hat"), c.at(i), k, false));
-  gHits(kit.open).forEach(([i, k]) => GK.hat(E, V("hat"), c.at(i), k, true));
+  /* the bar's hats, tambourine and shaker each one line (a source a bar, its hits envelopes on it) */
+  gNoiseLine(E, V("hat"), gHits(kit.hat).map(([i, k]) => [c.at(i), 0.17 * k * (i % 4 ? 0.85 : 1.1), 0.03]), { type:"highpass", f:7600 });
+  gNoiseLine(E, V("hat"), gHits(kit.open).map(([i, k]) => [c.at(i), 0.15 * k, 0.24]), { type:"highpass", f:7200 });
   gHits(kit.cow).forEach(([i, k]) => GK.cowbell(E, V("perc"), c.at(i), k * 0.7));
-  gHits(kit.tamb).forEach(([i, k]) => GK.tamb(E, V("perc"), c.at(i), k * 0.7));
-  gHits(kit.shaker).forEach(([i, k]) => GK.shaker(E, V("perc"), c.at(i), k));
+  gNoiseLine(E, V("perc"), gHits(kit.tamb).map(([i, k]) => [c.at(i), 0.17 * k * 0.7, 0.07]), { type:"bandpass", f:8200, q:1.6, a:0.002 });
+  gNoiseLine(E, V("perc"), gHits(kit.shaker).map(([i, k]) => [c.at(i), 0.16 * k, 0.055]), { type:"bandpass", f:6800, q:1.3, a:0.014 });
   if (fill) {
     /* toms down into the next section, around a "Hey!" on four */
     const free = [12, 13, 14, 15].filter(s => !c.held.has(s));
@@ -3698,12 +3783,44 @@ function gBassLine(c, steps) {
 function gComp(c, line) {
   if (!c.on("harmony")) return;
   const { E, S, V, chord } = c;
-  for (const [i, k] of gHits(line)) {
-    if (c.held.has(i)) continue;
-    if (S.comp.kind === "clav") gClav(E, V("comp"), c.at(i), chord.comp, G16 * 0.7, 0.1 * k);
-    else if (S.comp.kind === "skank") { gClav(E, V("comp"), c.at(i), chord.comp, G16 * 0.6, 0.09 * k); gKeys(E, V("keys"), c.at(i), chord.comp, G16 * 0.8, 0.07 * k); }
-    else if (S.comp.kind === "brass") gBrass(E, V("brass"), c.at(i), chord.comp.map(m => m + 12), G16 * 0.9, 0.1 * k);
-  }
+  const hits = gHits(line).filter(([i]) => !c.held.has(i));
+  if (S.comp.kind === "clav") gClavLine(E, V("comp"), hits.map(([i, k]) => [c.at(i), 0.1 * k, G16 * 0.7]), chord.comp);
+  else if (S.comp.kind === "skank") {
+    gClavLine(E, V("comp"), hits.map(([i, k]) => [c.at(i), 0.09 * k, G16 * 0.6]), chord.comp);
+    for (const [i, k] of hits) gKeys(E, V("keys"), c.at(i), chord.comp, G16 * 0.8, 0.07 * k);
+  } else if (S.comp.kind === "brass") for (const [i, k] of hits) gBrass(E, V("brass"), c.at(i), chord.comp.map(m => m + 12), G16 * 0.9, 0.1 * k);
+}
+/* A bar of clav on one chord as one voice a note: each hit an envelope on
+   the note's gain ([[t, peak, d]]), the pickup's filters shared */
+function gClavLine(E, dest, hits, midis) {
+  const list = hits.filter(([t, peak]) => Number.isFinite(t) && peak > 0).sort((x, y) => x[0] - y[0]);
+  const notes = (Array.isArray(midis) ? midis : [midis]).map(Number).filter(Number.isFinite);
+  if (!list.length || !notes.length) return;
+  const c = E.ctx, n = Math.sqrt(notes.length);
+  const hp = c.createBiquadFilter(); hp.type = "highpass"; hp.frequency.value = 300; hp.Q.value = 0.7;
+  const bp = c.createBiquadFilter(); bp.type = "peaking"; bp.frequency.value = 1150; bp.Q.value = 1.6;
+  if (bp.gain) bp.gain.value = 4;
+  const lp = c.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 3600; lp.Q.value = 0.6;
+  hp.connect(bp); bp.connect(lp); lp.connect(dest); track(E, hp, bp, lp);
+  notes.forEach((m, j) => {
+    const f = gHz(m), g = c.createGain(); g.gain.value = 0;
+    let end = list[0][0];
+    list.forEach(([t, peak, d], i) => {
+      const at = t + j * 0.004, next = (list[i + 1]?.[0] ?? Infinity) + j * 0.004;
+      const each = peak / n, hold = Math.max(0.03, Math.min(d, next - at - 0.04));
+      g.gain.setValueAtTime(0.0001, at); g.gain.linearRampToValueAtTime(each, at + 0.002);
+      g.gain.exponentialRampToValueAtTime(each * 0.3, at + Math.min(0.07, hold));
+      g.gain.exponentialRampToValueAtTime(0.0001, at + hold + 0.03);
+      end = at + hold + 0.03;
+    });
+    g.connect(hp); track(E, g);
+    [["square", 1, 0.55], ["sawtooth", 2.001, 0.18]].forEach(([type, r, level]) => {
+      const o = c.createOscillator(); o.type = type; o.frequency.setValueAtTime(f * r, list[0][0]);
+      const lg = c.createGain(); lg.gain.value = level;
+      o.connect(lg); lg.connect(g); track(E, o, lg); trackSource(E, o);
+      o.start(list[0][0] + j * 0.004); o.stop(end + 0.03);
+    });
+  });
 }
 /* the hook's bar k: the lead under it, the glockenspiel on it (B), leaving
    the room's "Hey!" and the host's voice their sixteenths */
@@ -3716,32 +3833,42 @@ function gMelody(c, level) {
     let steps = n;
     for (let x = s + 1; x < s + n; x++) if (c.held.has(x)) { steps = x - s; break; }
     const d = steps * G16 * 0.9;
-    gLead(E, V("lead"), c.at(s), gHz(m + S.lead), d, level >= 2 ? 0.08 : 0.09, { vib:0.6, saw:S === G_SONGS.drop ? 0.35 : 0.15 });
-    if (level >= 2) gGlock(E, V("glock"), c.at(s), gHz(m + S.glock), 0.085, { dec:0.9 });
+    gLead(E, V("lead"), c.at(s), gHz(m + S.lead + c.tr), d, (level >= 2 ? 0.08 : 0.09) * (S === G_SONGS.drop ? 1.2 : 1), { vib:0.6, saw:S === G_SONGS.drop ? 0.35 : 0.15 });
+    if (level >= 2) gGlock(E, V("glock"), c.at(s), gHz(m + S.glock + c.tr), 0.085, { dec:0.9 });
   }
   const tag = S.tag?.[c.k % 8];
   if (tag) for (const [s, m] of tag) {
-    gLead(E, V("lead"), c.at(s), gHz(m), G16 * 0.8, 0.06, { vib:0, saw:0.1 });
-    if (level >= 2) gGlock(E, V("glock"), c.at(s), gHz(m + 12), 0.06, { dec:0.6 });
+    gLead(E, V("lead"), c.at(s), gHz(m + c.tr), G16 * 0.8, 0.055, { vib:0, saw:0, bright:0.7 });
+    if (level >= 2) gGlock(E, V("glock"), c.at(s), gHz(m + 12 + c.tr), 0.06, { dec:0.6 });
   }
 }
 /* a level of the song: 0 practice (the groove thin), 1 play A, 2 play B (fuller) */
 function gPlayBar(c, level) {
   const { E, S, V } = c;
   const kit = level === 0 ? S.drums.thin : level === 1 ? S.drums.A : S.drums.B;
-  const fill = c.k === c.len - 1 && c.next !== c.sec && c.next !== null;
+  /* a fill into a new section, and into a lift */
+  const fill = (c.k === c.len - 1 && c.next !== c.sec && c.next !== null) || (!!S.lift && c.sec === "play" && c.part === 1 && c.k === S.lift.from - 1);
   gDrums(c, kit, { fill });
-  if (S.drums.B === kit && c.k % 4 === 0 && c.on("drums")) GK.crash(E, V("hat"), c.at(0), 0.55, 1.6);
+  if (S.drums.B === kit && c.k % (S.pads ? 2 : 4) === 0 && c.on("drums")) GK.crash(E, V("hat"), c.at(0), 0.55, 1.6);
+  /* the build into the drop's countdown: the snare doubling up over a riser */
+  if (level >= 2 && S.build === c.k && c.on("drums")) {
+    flRiser(E, c.at(0), FLOAT_BAR_S, 0.06, 0);
+    for (let s = 8; s < 16; s++) GK.snare(E, V("snare"), c.at(s), 0.25 + (s - 8) * 0.06);
+  }
   gBassLine(c, level === 0 ? S.bass.thin : S.bass.full);
+  if (S.pump && c.on("bass")) gPump(c, gHits(kit.kick).map(([i]) => i));
   gComp(c, level === 0 ? S.comp.thin : S.comp.full);
   if (level >= 1) gMelody(c, level);
   /* the band's answer to a "Hey!": a stab on the chord */
   if (level >= 1 && c.on("harmony")) c.hits.filter(([, kind]) => kind === "hey")
-    .forEach(([s]) => gBrass(E, V("brass"), c.at(s), c.chord.comp, G16 * 0.8, 0.07));
+    .forEach(([s]) => gBrass(E, V("brass"), c.at(s), c.chord.comp, G16 * 0.8, 0.06));
   /* B's brass stabs (on the "and" of four, anticipating the next bar's chord) */
   if (level >= 2 && c.on("harmony")) for (const s of S.stabs || []) if (!c.held.has(s))
     gBrass(E, V("brass"), c.at(s), (s >= 14 ? c.after : c.chord).comp.map(m => m + 12), G16 * 0.9, 0.08);
-  if (level >= 2 && S.pads && c.on("harmony")) gSaws(E, V("pad"), c.at(0), c.chord.tones, FLOAT_BAR_S * 0.96, 0.08);
+  if (S.pads && c.on("harmony") && (level >= 2 || (level === 1 && S.padA)))
+    gSaws(E, V("pad"), c.at(0), c.chord.tones, FLOAT_BAR_S * 0.96, level >= 2 ? 0.08 : S.padA);
+  /* Rock Hop's organ, held soft under the bar */
+  if (S.organ && level >= 1 && c.on("harmony")) gKeys(E, V("keys"), c.at(0), c.chord.comp, FLOAT_BAR_S * 0.85, 0.045, { trem:0.5 });
   if (level >= 2 && S.swirl && c.on("harmony")) gSwirl(c);
   if (S === G_SONGS.drop) gDropColour(c, level);
   if (c.on("melody") && level >= 1) {
@@ -3751,17 +3878,25 @@ function gPlayBar(c, level) {
   }
   gDuck(c);
 }
+/* the bass dips under each kick and swells back (a disco pump) */
+function gPump(c, steps) {
+  const g = c.V("bass").gain, lv = g.value;
+  for (const s of steps) { const t = c.at(s); g.setValueAtTime(lv * 0.45, t); g.linearRampToValueAtTime(lv, t + 0.11); }
+}
 /* the band steps back for the host: the comp, the lead and the brass dip
    under each spoken call (a run of calls is one dip) */
 function gDuck(c) {
-  const calls = c.calls.filter(([, kind]) => kind === "hey" || kind === "hop").map(([s]) => c.at(s));
+  if (!c.on("harmony") && !c.on("melody")) return;
+  /* the calls, and a spin's whoosh (it answers on the backbeat, where the lead often lands) */
+  const calls = [...c.calls.filter(([, kind]) => kind === "hey" || kind === "hop" || kind === "spin"), ...c.hits.filter(([, kind]) => kind === "spin")]
+    .map(([s]) => c.at(s)).sort((a, b) => a - b);
   if (!calls.length) return;
   const spans = [];
   for (const at of calls) {
     const last = spans[spans.length - 1];
     if (last && at - 0.02 <= last[1] + 0.12) last[1] = at + 0.22; else spans.push([at, at + 0.22]);
   }
-  for (const name of ["comp", "lead", "brass"]) {
+  for (const name of ["comp", "keys", "lead", "brass"]) {
     const g = c.V(name).gain, lv = g.value;
     for (const [from, to] of spans) {
       g.setValueAtTime(lv, from - 0.02); g.linearRampToValueAtTime(lv * 0.5, from);
@@ -3773,14 +3908,16 @@ function gDuck(c) {
 function gSwirl(c) {
   const { E, V, chord } = c;
   const tones = chord.tones.map(m => m + 12), run = [...tones, ...tones.slice(1, -1).reverse()];
-  for (let s = 0; s < 16; s++) gMarimba(E, V(s % 4 < 2 ? "swirlL" : "swirlR"), c.at(s), gHz(run[s % run.length]), 0.035, { dec:0.25 });
+  const notes = Array.from({ length:16 }, (_, s) => [s, [c.at(s), gHz(run[s % run.length]), 0.035, 0.25]]);
+  gToneLine(E, V("swirlL"), notes.filter(([s]) => s % 4 < 2).map(([, n]) => n));
+  gToneLine(E, V("swirlR"), notes.filter(([s]) => s % 4 >= 2).map(([, n]) => n));
 }
 /* The Drop's colours: what the riders do in the bar sounds in the band */
 function gDropColour(c, level) {
   if (!c.on("drums")) return;
   const { E, V } = c;
   if (c.mode === "paddle") [2, 6, 10, 14].forEach(s => GK.cowbell(E, V("perc"), c.at(s), 0.45));
-  else if (c.mode === "rock" && c.on("harmony")) [2, 6, 10, 14].forEach(s => gClav(E, V("comp"), c.at(s), c.chord.comp, G16 * 0.6, 0.08));
+  else if (c.mode === "rock" && c.on("harmony")) gClavLine(E, V("comp"), [2, 6, 10, 14].map(s => [c.at(s), 0.08, G16 * 0.6]), c.chord.comp);
   else if (c.mode === "spin") { [2, 6, 10, 14].forEach(s => GK.hat(E, V("hat"), c.at(s), 0.7, true)); [4, 12].forEach(s => GK.kick(E, V("kick"), c.at(s), 0.7)); }
   if (level >= 2 && c.mode === "spin" && c.on("harmony")) gSwirl(c);
 }
@@ -3792,7 +3929,8 @@ function gIntroBar(c) {
   if (c.k === 0) {
     if (c.on("drums")) { GK.kick(E, V("kick"), c.at(0), 1); GK.crash(E, V("hat"), c.at(0), 0.7, 1.8); [4, 12].forEach(s => GK.clap(E, V("snare"), c.at(s), 0.6));
       [8, 10, 12, 14].forEach(s => GK.hat(E, V("hat"), c.at(s), 0.5)); }
-    if (c.on("melody")) S.motif.forEach((m, i) => { gBrass(E, V("brass"), c.at(i * 2), [m, m - 12], i === 3 ? G16 * 3.5 : G16 * 1.6, 0.13, { fall:i === 3 });
+    /* the motif, its last note short of the host's "Here we go!" on the third beat */
+    if (c.on("melody")) S.motif.forEach((m, i) => { gBrass(E, V("brass"), c.at(i * 2), [m, m - 12], G16 * 1.6, 0.13, { fall:i === 3 });
       gGlock(E, V("glock"), c.at(i * 2), gHz(m + 12), 0.1); });
     if (c.on("harmony")) gBrass(E, V("brass"), c.at(0), chord.comp.map(m => m + 12), G16 * 1.5, 0.08);
     if (c.on("bass")) gBassLine(c, [[0, "R", 4, "t"], [8, "R", 2, "t"], [12, "5", 2, "t"]]);
@@ -3809,7 +3947,7 @@ function gLoungeBar(c) {
   const { E, S, V, chord } = c;
   const last = c.k === c.len - 1;
   const at = i => c.t + i * G16 + (i % 4 === 2 ? 0.025 : 0);
-  if (c.k === 0) { const v = V("fx"); gClink(E, v, at(0)); }
+  if (c.k === 0 && c.on("drums")) gClink(E, V("fx"), at(0));
   if (c.on("harmony")) {
     const voicing = chord.tones.map(m => (m < 55 ? m + 12 : m)).slice(0, 4);
     gKeys(E, V("keys"), at(0), voicing, G16 * 5, 0.09, { trem:0.6 });
@@ -3845,7 +3983,7 @@ function gClink(E, dest, t) {
 function gOutroBar(c) {
   const { E, S, V } = c;
   if (c.k > 0) {
-    if (c.on("melody")) gGlock(E, V("glock"), c.at(0), gHz(S.tonic.tones[0] + 12), 0.08, { dec:1.4 });
+    if (c.on("melody")) gGlock(E, V("glock"), c.at(0), gHz(c.tonic.tones[0] + 12), 0.08, { dec:1.4 });
     return;
   }
   const hit = c.finish ?? 0;
@@ -3855,7 +3993,7 @@ function gOutroBar(c) {
     gDrums(c, { kick:before(kit.kick), snare:before(kit.snare), clap:before(kit.clap), hat:before(kit.hat) });
     gBassLine(c, S.bass.full.filter(([s]) => s < hit));
   }
-  const { tonic } = S;
+  const tonic = c.tonic;
   if (c.on("drums")) { GK.kick(E, V("kick"), c.at(hit), 1); GK.crash(E, V("hat"), c.at(hit), 1, 2.6); GK.clap(E, V("snare"), c.at(hit), 0.8); }
   if (c.on("bass")) { gSlap(E, V("bass"), c.at(hit), gHz(tonic.bass), 1.8, 0.34); mode(E, V("bass"), c.at(hit), gHz(tonic.bass), 2.2, 0.22, { a:0.004 }); }
   if (c.on("harmony")) {
@@ -3868,7 +4006,7 @@ function gOutroBar(c) {
    three-beat countdown (the sticks under it and the falls coming up) */
 function gCutBar(c) {
   const { E, V, chord } = c;
-  if (c.on("drums")) { GK.kick(E, V("kick"), c.at(0), 1); GK.crash(E, V("hat"), c.at(0), 0.6, 0.9); [4, 8, 12].forEach(s => GK.sticks(E, V("perc"), c.at(s), 0.7)); }
+  if (c.on("drums")) { GK.kick(E, V("kick"), c.at(0), 1); GK.crash(E, V("hat"), c.at(0), 0.6, 0.9); [4, 8, 12].forEach(s => { GK.sticks(E, V("perc"), c.at(s), 1.15); burst(E, V("perc"), c.at(s), { type:"highpass", f:5000, q:0.7, d:0.006, peak:0.3 }); }); }
   if (c.on("harmony")) gBrass(E, V("brass"), c.at(0), chord.comp.map(m => m + 12), G16 * 1.5, 0.13, { fall:true });
   if (c.on("bass")) gSlap(E, V("bass"), c.at(0), gHz(chord.bass), G16 * 2, 0.3);
   /* the falls' roar rising into the drop */
@@ -3879,10 +4017,13 @@ function gCutBar(c) {
 /* the host's lines (the clip ids under public/float/groove/voice) and the
    syllables a stand-in chirps until a clip decodes */
 const G_LINES = Object.freeze({ ready:2, hey:1, ba:1, spin:1, one:1, two:1, three:1, four:1, drink:1, herewego:3, go:1,
-  "title-paddle":4, "title-rock":2, "title-spin":3, "title-drop":2, float:1 });
+  "title-paddle":4, "title-rock":2, "title-spin":3, "title-drop":2, lastcall:2, float:1 });
 export const GROOVE_LINES = Object.freeze(Object.keys(G_LINES));
-/* the crowd's takes of "Hey!", layered a few at a time */
+/* the crowd's takes, layered a few at a time: "Hey!" on the beat, "Ooh!"
+   as Last Call names who drinks, "Aww!" as the cut's first rider is out */
 export const GROOVE_CROWD = Object.freeze(["crowd-hey-1", "crowd-hey-2", "crowd-hey-3", "crowd-hey-4", "crowd-hey-5", "crowd-hey-6"]);
+export const GROOVE_OOH = Object.freeze(["crowd-ooh-1", "crowd-ooh-2", "crowd-ooh-3", "crowd-ooh-4"]);
+export const GROOVE_AWW = Object.freeze(["crowd-aww-1", "crowd-aww-2", "crowd-aww-3", "crowd-aww-4"]);
 /* A stand-in for a line not decoded: one chirp a syllable, a square wave
    through two vowel formants, rising on a question ("Ready?"), each on its
    eighth so the call still lands on its beat */
@@ -3907,7 +4048,8 @@ function gTalk(E, dest, at, line, { f = 330 } = {}) {
    note for that call. Its beat lands at t + GROOVE_PRE_S. */
 function grooveVoice(E, t0, o = {}) {
   const line = typeof o.line === "string" && G_LINES[o.line] ? o.line : "ready";
-  const at = t0 + GROOVE_PRE_S, v = voice(E, { send:0.16, bright:1, gain:1 });
+  /* a sung "ba" a little left, so the boings answering it on the right are their own */
+  const at = t0 + GROOVE_PRE_S, v = voice(E, { pan:o.line === "ba" ? -0.2 : 0, send:o.line === "ba" ? 0.08 : 0.16, bright:1, gain:1 });
   const gain = gNum(o.gain, 0.05, 2, 1);
   let rate = gNum(o.rate, 0.5, 2, 1), note = null;
   if (line === "ba") {
@@ -3934,16 +4076,17 @@ function grooveWhirl(E, t0, o = {}) {
 }
 
 /* ── the band's answers: on every cue's beat, for everyone ── */
-/* the crowd's "Hey!": a few takes at once, rates and places spread (seed
-   picks which); false with no takes decoded */
-function gCrowd(E, at, seed = 0, { n = 4, gain = 1, after = Infinity } = {}) {
-  const takes = GROOVE_CROWD.filter(id => clipOf(E, id));
+/* the crowd (the "Hey!" by default, or `list`'s takes): a few takes at
+   once, each its own, rates and places spread (seed picks which); false
+   with no takes decoded */
+function gCrowd(E, at, seed = 0, { n = 4, gain = 1, after = Infinity, list = GROOVE_CROWD } = {}) {
+  const takes = list.filter(id => clipOf(E, id));
   if (!takes.length) return false;
   const count = Math.min(n, takes.length), start = gInt(seed, 0, 1e6, 0);
   for (let i = 0; i < count; i++) {
-    const id = takes[(start + i * 2) % takes.length];
+    const id = takes[(start + i) % takes.length];
     const v = voice(E, { pan:[-0.42, 0.38, -0.12, 0.18][i % 4], send:0.32, bright:1, gain:1 });
-    playClip(E, v, at + [0, 0.004, -0.003, 0.006][i % 4], id, { gain:gain * (i ? 0.75 : 1) * 1.9 / Math.sqrt(count), rate:[1, 1.07, 0.94, 1.12][i % 4], after });
+    playClip(E, v, at + [0, 0.003, -0.002, 0.004][i % 4], id, { gain:gain * (i ? 0.75 : 1) * 1.9 / Math.sqrt(count), rate:[1, 1.07, 0.94, 1.12][i % 4], after });
   }
   return true;
 }
@@ -3987,7 +4130,7 @@ function grooveAnswer(E, t0, o = {}) {
   }
   if (kind === "hop") {
     const f = gHz(grooveBaNote(o.song, o.k, o.n, o.of) + 12);
-    boing(E, at, { f, d:0.42, peak:0.22 });
+    gBoing(E, voice(E, { pan:0.4, send:0.22, bright:0.9, gain:1 }), at, f, 0.24);
     M.felt(E, at, { gain:0.35 });
     return;
   }
@@ -3995,10 +4138,10 @@ function grooveAnswer(E, t0, o = {}) {
     /* a quiet swish leading in, the "fwip" on the beat, the air spinning away */
     travelWhoosh(E, at - 0.1, { d:0.13, from:-0.75, to:0.1, peak:0.09, f0:700, f1:2800 });
     const v = voice(E, { pan:0.3, send:0.22, bright:1, gain:1 });
-    burst(E, v, at, { f:2300, q:0.9, d:0.05, peak:0.6 });
+    burst(E, v, at, { f:2300, q:0.9, d:0.05, peak:0.75 });
     burst(E, v, at, { type:"highpass", f:4200, q:0.7, d:0.07, peak:0.26 });
     glide(E, v, at + 0.002, 700, 2100, 0.08, 0.08, { type:"triangle" });
-    travelWhoosh(E, at + 0.01, { d:0.24, from:0.1, to:0.85, peak:0.2, f0:3200, f1:800 });
+    travelWhoosh(E, at + 0.01, { d:0.24, from:0.1, to:0.85, peak:0.26, f0:2800, f1:700 });
     return;
   }
   flImpact(E, at);
@@ -4049,10 +4192,12 @@ function grooveRoll(E, t0, o = {}) {
    "bwomp", each rider out a step lower */
 function grooveGone(E, t0, o = {}) {
   const t = t0 + GROOVE_PRE_S, step = gInt(o.step, 0, 12, 0), k = Math.pow(2, -step * 2 / 12);
-  const v = voice(E, { send:0.2, bright:0.9, gain:1 });
-  gWhistle(E, v, t, 980 * k, 330 * k, 0.32, 0.08);
-  gBrass(E, voice(E, { send:0.2, bright:0.7, gain:1 }), t + 0.3, [gMidi("D3") - step * 2, gMidi("A3") - step * 2], 0.32, 0.13, { fall:true, bright:0.6 });
+  const v = voice(E, { send:0.2, bright:0.9, gain:1 }), up = 1 + step * 0.12;
+  gWhistle(E, v, t, 980 * k, 330 * k, 0.32, 0.08 * up);
+  gBrass(E, voice(E, { send:0.2, bright:0.7, gain:1 }), t + 0.3, [gMidi("D3") - step * 2, gMidi("A3") - step * 2], 0.32, 0.13 * up, { fall:true, bright:0.6 });
   M.felt(E, t + 0.3, { gain:0.5 });
+  /* the room's "Aww!" for the cut's first out */
+  if (step === 0) gCrowd(E, t + 0.32, 1, { n:3, gain:0.55, list:GROOVE_AWW });
 }
 /* The podium fanfare (floatFanfare): a roll, then each place on its beat
    (GROOVE_PODIUM_MS: 3rd, 2nd, 1st), the big chord and the crowd */
@@ -4069,8 +4214,9 @@ function grooveFanfare(E, t0) {
   });
   const x = t + P.first / 1000;
   GK.kick(E, V("kick"), x, 1); GK.crash(E, V("hat"), x, 1, 2.8);
-  gBrass(E, V("brass"), x, S.tonic.comp, 1.6, 0.18, { fall:true });
-  gSaws(E, V("pad"), x, S.tonic.tones, 2, 0.1, { a:0.01 });
+  gBrass(E, V("brass"), x, S.tonic.comp, 1.8, 0.22);
+  gBrass(E, V("brass"), x, S.tonic.comp.map(m => m - 12), 1.8, 0.12);
+  gSaws(E, V("pad"), x, [...S.tonic.tones, S.tonic.tones[0] - 12], 2.2, 0.12, { a:0.01 });
   gSlap(E, V("bass"), x, gHz(S.tonic.bass), 1.6, 0.34);
   S.tonic.tones.forEach((m, i) => gGlock(E, V("glock"), x + i * 0.07, gHz(m + 12), 0.11, { dec:1.8 }));
   const crowd = t + P.cheer / 1000;
@@ -4079,7 +4225,7 @@ function grooveFanfare(E, t0) {
 /* someone out on the bank cheers (floatCheer, opts.pan): a party horn */
 function grooveCheer(E, t, o = {}) {
   const v = voice(E, { send:0.2, bright:1, gain:1 });
-  gHorn(E, v, t, [NOTE.A4, NOTE.B4, NOTE.D5][gInt(o.step, 0, 2, 0)], 0.42, 0.07);
+  gHorn(E, v, t, [NOTE.A4, NOTE.B4, NOTE.D5][gInt(o.step, 0, 2, 0)], 0.34, 0.055);
 }
 /* a rider taps Done in the drink break (floatDone): a glass set down, a bright note */
 function grooveDone(E, t, o = {}) {
@@ -4107,23 +4253,105 @@ function grooveClip(E, t, o = {}) {
   M.tick(E, t, { gain:0.2 });
 }
 
+/* ── Last Call (float/GROOVE.md "Last Call"): the bar, between songs ──
+   A minor and sly: a walking upright, brushes and a ride, the keys on the
+   offbeats; the bartender's glass sliding toward the room, the catch on
+   each grab, a reveal as the offsets go up, and who drinks. */
+const G_BAR = Object.freeze([gChord("A1", "G3 C4 E4", "A3 C4 E4 G4"), gChord("A1", "G3 C4 E4", "A3 C4 E4 G4"),
+  gChord("D2", "F3 A3 C4", "D4 F4 A4 C5"), gChord("E2", "G#3 D4 E4", "E4 G#4 B4 D5"), gChord("A1", "G3 C4 E4", "A3 C4 E4 G4"),
+  gChord("F2", "A3 Eb4 F4", "F3 A3 C4 Eb4"), gChord("E2", "G#3 D4 E4", "E4 G#4 B4 D5"), gChord("A1", "G3 C#4 E4", "A3 C#4 E4 G4")]);
+/* a bar of Last Call (floatBar, a cut recipe): opts.bar 0..7, slides and
+   grabs ([beats in the bar]: the keys leave them room), drinks (the last
+   bar: the band holds for who drinks). Its downbeat is t + GROOVE_PRE_S. */
+function grooveBarRoom(E, t0, o = {}) {
+  const t = t0 + GROOVE_PRE_S, bar = gInt(o.bar, 0, 7, 0), chord = G_BAR[bar], next = G_BAR[(bar + 1) % 8];
+  const V = gVoices(E, FL_BAND * 0.85), at = i => t + i * G16;
+  const busy = new Set([...(Array.isArray(o.slides) ? o.slides : []), ...(Array.isArray(o.grabs) ? o.grabs : [])].map(b => Math.round(gNum(b, 0, 3.75, 0) * 4)));
+  if (o.drinks) {
+    /* who drinks owns the bar: the bass and the ride hold under it */
+    flBass(E, V("bass"), at(0), gHz(chord.bass + 12), FLOAT_BAR_S * 0.9, 0.24, { upright:true });
+    gNoiseLine(E, V("hat"), [0, 4, 8, 12].map(s => [at(s), 0.03, 0.3]), { type:"highpass", f:6200 });
+    return;
+  }
+  const root = chord.bass < 36 ? chord.bass + 12 : chord.bass, to = next.bass < 36 ? next.bass + 12 : next.bass;
+  const third = root + ((chord.tones[1] - chord.tones[0] + 120) % 12);
+  [root, third, root + 7, to - 1 === root + 7 ? to + 2 : to - 1].forEach((m, i) => flBass(E, V("bass"), at(i * 4), gHz(m), G16 * 3.6, i ? 0.24 : 0.28, { upright:true }));
+  GK.kick(E, V("kick"), at(0), 0.55);
+  [4, 12].forEach(s => FLD.brush(E, V("snare"), at(s), 0.9));
+  gNoiseLine(E, V("hat"), [0, 4, 6, 8, 12, 14].map(s => [at(s), s % 4 ? 0.028 : 0.042, 0.3]), { type:"highpass", f:6200 });
+  [6, 14].forEach(s => { if (!busy.has(s)) gKeys(E, V("keys"), at(s), chord.comp, G16 * 1.6, 0.07, { trem:0.4 }); });
+  /* the bar's own little tune on the vibes in its first bar */
+  if (bar === 0) gNotes("E5 D5 C5 A4").forEach((m, i) => gVibes(E, V("vibes"), at(i * 2 + 8), gHz(m), G16 * 1.8, 0.07));
+}
+/* the bartender slides the glass one step (floatSlide, opts.n of opts.of,
+   opts.quick): its push on the counter, the friction rising as it nears,
+   the ice ringing a step higher each */
+function grooveSlide(E, t0, o = {}) {
+  const at = t0 + GROOVE_PRE_S, of = gInt(o.of, 1, 8, 1), n = gInt(o.n, 0, of - 1, 0), k = of > 1 ? n / (of - 1) : 1;
+  const v = voice(E, { pan:-0.55 + 0.5 * k, send:0.2, bright:1, gain:1 });
+  const d = o.quick ? 0.1 : 0.2;
+  M.knock(E, at, { pitch:1.5 + 0.25 * k, gain:0.42 });
+  flSweep(E, v, at + 0.004, { f0:1800 + 600 * k, f1:3200 + 800 * k, q:1.6, d, peak:0.36, a:0.006 });
+  gGlock(E, v, at + 0.012, gHz(gMidi("A5") + [0, 3, 5, 7, 10, 12][Math.min(5, n)]), 0.045, { dec:0.35 });
+}
+/* the catch, on the grab's beat for everyone (floatGrab): a hand on the
+   counter, the glass, the band's stab */
+function grooveGrab(E, t0, o = {}) {
+  const at = t0 + GROOVE_PRE_S, v = voice(E, { send:0.22, bright:1, gain:1 });
+  burst(E, v, at, { type:"highpass", f:4000, q:0.7, d:0.006, peak:0.45 });
+  M.slap(E, at, { gain:0.7 });
+  gClink(E, v, at + 0.002);
+  gBrass(E, voice(E, { send:0.2, bright:0.9, gain:1 }), at, gNotes("C4 E4 A4"), 0.14, 0.1);
+}
+/* the offsets go up (floatReveal, opts.k): a bright two notes, up a step each grab */
+function grooveReveal(E, t0, o = {}) {
+  const at = t0 + GROOVE_PRE_S, k = gInt(o.k, 0, 5, 0), v = voice(E, { send:0.3, bright:1, gain:1 });
+  [gMidi("E6") + k * 2, gMidi("A6") + k * 2].forEach((m, i) => gGlock(E, v, at + i * 0.09, gHz(m), 0.08, { dec:0.8 }));
+  GK.ride(E, voice(E, { pan:0.3, send:0.2, bright:1, gain:1 }), at, 0.6);
+}
+/* who drinks (floatDrinks): a roll leading in, then dun, dun, DUN on the
+   brass, the crash and the crowd's "Ooh!" */
+function grooveDrinks(E, t0) {
+  const at = t0 + GROOVE_PRE_S, V = gVoices(E, FL_BAND);
+  [0, 0.035, 0.07, 0.105].forEach((dt, i) => GK.snare(E, V("snare"), t0 + dt, 0.25 + i * 0.1));
+  [[0, "A2 E3"], [0.25, "C3 G3"], [0.5, "Eb3 A3"]].forEach(([dt, notes], i) => {
+    gBrass(E, V("brass"), at + dt, gNotes(notes), i === 2 ? 1.1 : 0.18, i === 2 ? 0.17 : 0.155, { fall:i === 2, bright:0.8 });
+    GK.kick(E, V("kick"), at + dt, i === 2 ? 1 : 0.7);
+  });
+  GK.crash(E, V("hat"), at + 0.5, 1, 2.4);
+  gSlap(E, V("bass"), at + 0.5, gHz(gMidi("Eb2")), 1, 0.3);
+  if (!gCrowd(E, at + 0.55, 0, { n:4, gain:0.75, list:GROOVE_OOH })) gCrowdStandIn(E, at + 0.55);
+}
+
 /* ── the lobby's loop (floatLobby, a cut recipe: opts.bar 0..7, cut: between songs) ──
    Bb major, laid back: the keys on the offbeats, a round bass, a soft kick
    and rim and a shaker, the Float motif on the glockenspiel every fourth bar */
 const G_LOBBY = Object.freeze([gChord("Eb2", "G3 Bb3 D4", "Eb4 G4 Bb4 D5"), gChord("D2", "F3 A3 C4", "D4 F4 A4 C5"),
   gChord("C2", "Eb3 G3 Bb3", "C4 Eb4 G4 Bb4"), gChord("F1", "Eb3 G3 A3", "F3 A3 C4 Eb4"), gChord("Eb2", "G3 Bb3 D4", "Eb4 G4 Bb4 D5"),
   gChord("D2", "F3 A3 C4", "D4 F4 A4 C5"), gChord("G1", "F3 Bb3 D4", "G3 Bb3 D4 F4"), gChord("F1", "Eb3 A3 C4", "F3 A3 C4 Eb4")]);
+/* its four sections, eight bars each (opts.section 0..3), so a long wait
+   breathes: the groove, then the hats and a busier bass, then the vibes'
+   tune over it, then a pad and a fill into the turn */
+const G_LOBBY_TUNE = gLine("Bb5 - G5 - F5 - G5 - | A5 - F5 - D5 - F5 - | G5 - Eb5 - C5 - Eb5 - | F5 - - - . . . . "
+  + "| Bb5 - G5 - Bb5 - D6 - | C6 - A5 - F5 - A5 - | Bb5 - G5 - D5 - F5 - | Eb5 - - - F5 - - -");
 function grooveLobby(E, t0, o = {}) {
-  const t = t0 + GROOVE_PRE_S, bar = gInt(o.bar, 0, 7, 0), chord = G_LOBBY[bar], V = gVoices(E, FL_BAND * (o.cut ? 0.6 : 0.75));
+  const t = t0 + GROOVE_PRE_S, bar = gInt(o.bar, 0, 7, 0), section = gInt(o.section, 0, 3, 0), chord = G_LOBBY[bar];
+  const V = gVoices(E, FL_BAND * (o.cut ? 0.6 : 0.75));
   const at = i => t + i * G16 + (i % 4 === 2 ? 0.02 : 0);
   [[0, 0.8], [10, 0.5]].forEach(([s, k]) => GK.kick(E, V("kick"), at(s), k));
   [4, 12].forEach(s => FLD.rim(E, V("snare"), at(s), 0.6));
-  for (let s = 0; s < 16; s += 2) GK.shaker(E, V("perc"), at(s), s % 4 ? 0.7 : 0.4);
+  if (section === 3 && bar === 7) [13, 14, 15].forEach(s => FLD.rim(E, V("snare"), at(s), 0.35 + (s - 13) * 0.1));
+  gNoiseLine(E, V("perc"), Array.from({ length:8 }, (_, k) => [at(k * 2), (k % 2 ? 0.7 : 0.4) * 0.16, 0.055]), { type:"bandpass", f:6800, q:1.3, a:0.014 });
+  if (section === 1 || section === 2) gNoiseLine(E, V("hat"), [1, 3, 5, 7, 9, 11, 13, 15].map(s => [at(s), 0.06, 0.03]), { type:"highpass", f:7800 });
   gBass(E, V("bass"), at(0), gHz(chord.bass), G16 * 5, 0.26, { round:true });
   gBass(E, V("bass"), at(6), gHz(chord.bass + 7), G16 * 2, 0.18, { round:true });
   gBass(E, V("bass"), at(10), gHz(chord.bass + 12), G16 * 3, 0.2, { round:true });
+  if (section === 1) gBass(E, V("bass"), at(14), gHz(chord.bass + 10), G16 * 1.5, 0.14, { round:true });
   [2, 7, 10].forEach((s, j) => gKeys(E, V("keys"), at(s), chord.comp.map(m => m + 12), G16 * (j === 1 ? 2 : 3), 0.07, { trem:0.4 }));
-  if (bar % 4 === 0 && !o.cut) G_SONGS.paddle.motif.map(m => m + 5).forEach((m, i) => gGlock(E, V("glock"), at(i * 2), gHz(m + 12), 0.08, { dec:1 }));
+  if (o.cut) return;
+  if (bar % 4 === 0 && section !== 2) G_SONGS.paddle.motif.map(m => m + 5).forEach((m, i) => gGlock(E, V("glock"), at(i * 2), gHz(m + 12), 0.08, { dec:1 }));
+  if (section === 2) for (const [s, m, n] of G_LOBBY_TUNE[bar] || []) gVibes(E, V("vibes"), at(s), gHz(m), n * G16, 0.06);
+  if (section === 3) gKeys(E, V("pad"), at(0), chord.tones, FLOAT_BAR_S * 0.9, 0.04, { trem:0.25 });
 }
 
 /* ── the phone's own (the you bus): above the phone speaker's floor ── */
@@ -4149,6 +4377,7 @@ function grooveYouTap(E, t, o = {}) {
   else if (kind === "hey") GK.clap(E, v, t, 0.5);
   else if (kind === "hop") glide(E, v, t, 700, 1200, 0.08, 0.06, { type:"triangle", vib:18, depth:0.06 });
   else if (kind === "spin") burst(E, v, t, { type:"highpass", f:3500, q:0.7, d:0.06, peak:0.15, a:0.01 });
+  else if (kind === "grab") mode(E, v, t + 0.004, NOTE.A6, 0.12, 0.05, { a:0.001 });
   if (q === "perfect") M.bell(E, t + 0.008, NOTE.A6, { gain:0.12, dec:0.25, send:0.15 });
 }
 /* Done in the drink break (floatYouDone): glasses, then two notes up */
@@ -4158,7 +4387,7 @@ function grooveYouDone(E, t) {
   gGlock(E, v, t + 0.12, NOTE.D6, 0.12, { dec:0.6 }); gGlock(E, v, t + 0.22, NOTE.A6, 0.12, { dec:0.9 });
 }
 /* a cheer from the bank (floatYouCheer): your party horn */
-function grooveYouCheer(E, t) { gHorn(E, voice(E, { send:0.12, bright:1, gain:1 }), t, NOTE.D5, 0.45, 0.08); }
+function grooveYouCheer(E, t) { gHorn(E, voice(E, { send:0.14, bright:0.7, gain:1 }), t, NOTE.D5, 0.34, 0.055); }
 /* through at the cut (floatYouSafe): three notes up and a sparkle */
 function grooveYouSafe(E, t) {
   const v = voice(E, { send:0.2, bright:1, gain:0.9 });
@@ -4170,6 +4399,13 @@ function grooveYouOut(E, t) {
   const v = voice(E, { send:0.14, bright:0.9, gain:0.8 });
   gWhistle(E, v, t, 1100, 420, 0.36, 0.08);
   glide(E, v, t + 0.34, 560, 470, 0.2, 0.06, { type:"triangle" });
+}
+/* Last Call names you to drink (floatYouGulp): two gulps and a deadpan "bonk" */
+function grooveYouGulp(E, t) {
+  const v = voice(E, { send:0.12, bright:0.9, gain:0.9 });
+  [0, 0.2].forEach(dt => glide(E, v, t + dt, 640, 380, 0.12, 0.09, { type:"triangle" }));
+  M.knock(E, t + 0.46, { pitch:1.2, gain:0.5 });
+  gGlock(E, v, t + 0.48, NOTE.A5, 0.06, { dec:0.5 });
 }
 /* your place on the podium (floatYouPlace, opts.place 1 to 3) */
 function grooveYouPlace(E, t, o = {}) {

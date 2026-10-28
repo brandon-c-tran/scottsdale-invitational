@@ -9,11 +9,14 @@
    <out>/<song>.mp3 (default .impeccable/review/float-sound/); --stems adds
    the band, the calls and the answers alone. "moments" renders the lobby's
    loop, the Cup opening, the cut (drumroll, three out), the podium's
-   fanfare, a run of flubs and the phone's taps. The onset check renders
-   every call and answer alone with its cue laid GROOVE_PRE_MS early and
-   reads its beat the way the engine reads a clip (soundKit clipMarks, the
-   first rise past 30% of the peak): each must land within 5 ms of the
-   beat. Exits 1 when one does not, or a render is silent or clips. */
+   fanfare, a run of flubs and the phone's taps. The timing check plays
+   every call and answer alone, its cue laid GROOVE_PRE_MS early: exactly
+   (every clip's beat, soundKit clipMarks' first rise past 30% of its peak,
+   lands on the beat to the sample; every synthesized sound has a hit that
+   starts on it), and as heard (its rendered beat against an instant attack's
+   through the same engine, within 8 ms: the reading's own window and the
+   master's look-ahead move every sound a little). Exits 1 when one fails, or
+   a render is silent or clips. */
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
@@ -28,18 +31,20 @@ const value = name => { const i = args.indexOf(name); return i >= 0 ? args[i + 1
 const OUT = path.resolve(ROOT, value("--out") || ".impeccable/review/float-sound");
 const STEMS = args.includes("--stems");
 const asked = args.filter((a, i) => !a.startsWith("--") && args[i - 1] !== "--out");
-const SONGS = ["paddle", "rock", "spin", "drop"];
+const SONGS = ["paddle", "rock", "spin", "drop", "lastcall"];
 const jobs = asked.length ? asked : [...SONGS, "moments"];
 
 const ENTRY = `
 import { makeEngine, playRecipe, clipMarks, GROOVE_PRE_S } from "./src/lib/soundKit.js";
-import { songEvents, songSlots, eventAt, TITLE_BEATS, GROOVE_PRE_MS, PODIUM_BEATS, CUT_BEATS } from "./float/client/sound/groove.js";
+import { songEvents, songSlots, eventAt, TITLE_BEATS, GROOVE_PRE_MS, PODIUM_BEATS, CUT_BEATS, LAST_CALL_BEATS } from "./float/client/sound/groove.js";
 import { chartOf, SONG_MS } from "./float/shared/chart.js";
 const SR = 44100;
 async function engine(ctx, listen = "tv") {
   const E = makeEngine(ctx, { room:"san", listen, volume:listen === "tv" ? 0.7 : 0.6 });
   E.clips = new Map();
-  if (window.__dry) E.wetOut.gain.value = 0;
+  /* the onset check reads the dry signal, and with the master's compressor flat (it still delays all alike):
+     a loud clip squashed by it would read its beat early by the reading alone */
+  if (window.__dry) { E.wetOut.gain.value = 0; E.comp.threshold.value = 0; E.comp.ratio.value = 1; }
   for (const clip of window.__clips || []) {
     const bytes = Uint8Array.from(atob(clip.base64), ch => ch.charCodeAt(0)).buffer;
     const buffer = await ctx.decodeAudioData(bytes);
@@ -79,13 +84,18 @@ async function laid(ctx, slots, lead = 0.6) {
 }
 /* a song as the TV plays it: the round card, then its bars from songAt (stem: one part alone) */
 window.__song = async (song, stem = null) => {
-  const lead = 3.5, seconds = lead + SONG_MS / 1000 + 3;
+  const lead = 3.5, seconds = lead + chartOf(song).ms / 1000 + 3;
   const ctx = new OfflineAudioContext(2, Math.ceil(SR * seconds), SR);
   const E = await engine(ctx);
   const songAt = lead * 1000, keep = id => !stem || STEM[stem](id);
   const slots = songSlots(chartOf(song)).map((events, bar) => ({ at:(songAt + bar * 2000 - GROOVE_PRE_MS) / 1000,
     lay:() => events.forEach(ev => { if (keep(ev.id)) playRecipe(E, ev.id, eventAt(songAt, ev.beat) / 1000, ev.opts); }) }));
   if (!stem) slots.unshift({ at:0.1, lay:() => {
+    if (song === "lastcall") {
+      playRecipe(E, "floatBell", (songAt + LAST_CALL_BEATS.bell * 500) / 1000, { first:true });
+      playRecipe(E, "floatVoice", (songAt + LAST_CALL_BEATS.call * 500 - GROOVE_PRE_MS) / 1000, { line:"lastcall" });
+      return;
+    }
     playRecipe(E, "floatSting", (songAt + TITLE_BEATS.sting - GROOVE_PRE_MS) / 1000, { song });
     playRecipe(E, "floatVoice", (songAt + TITLE_BEATS.title - GROOVE_PRE_MS) / 1000, { line:"title-" + song });
   } });
@@ -112,6 +122,13 @@ window.__moments = async () => {
   [[38.5, "floatDone"], [38.9, "floatDone"], [39.6, "floatCheer"], [40.1, "floatCheer"]].forEach(([s, id], i) => playRecipe(E, id, s, { step:i }));
   return wav(await ctx.startRendering());
 };
+/* the lobby's loop alone, its four sections (32 bars) */
+window.__lobby = async () => {
+  const ctx = new OfflineAudioContext(2, SR * 66, SR);
+  const E = await engine(ctx);
+  const slots = Array.from({ length:32 }, (_, b) => ({ at:0.5 + b * 2 - GROOVE_PRE_S, lay:() => playRecipe(E, "floatLobby", 0.5 + b * 2 - GROOVE_PRE_S, { bar:b % 8, section:Math.floor(b / 8) }) }));
+  return wav(await laid(ctx, slots));
+};
 /* the phone's own, on a phone's engine */
 window.__phone = async () => {
   const ctx = new OfflineAudioContext(2, SR * 9, SR);
@@ -133,6 +150,26 @@ window.__onset = async (id, opts, pre = GROOVE_PRE_S) => {
   const m = clipMarks(buffer.getChannelData(0), SR);
   let peak = 0; for (const v of buffer.getChannelData(0)) peak = Math.max(peak, Math.abs(v));
   return { beat:m.beat, start:m.start, peak };
+};
+/* The exact check: the recipe built on a context that records every source's
+   start (its time, its offset into a clip, its rate). A clip lands its beat
+   at start + (beat - offset) / rate; a synthesized sound must have a source
+   that starts on the beat (its hit), anything earlier being its lead-in. */
+window.__sched = async (id, opts, pre = GROOVE_PRE_S) => {
+  const ctx = new OfflineAudioContext(1, SR * 2, SR);
+  const E = await engine(ctx);
+  const marks = new Map([...E.clips.values()].map(c => [c.buffer, c]));
+  const starts = [];
+  for (const make of ["createBufferSource", "createOscillator"]) {
+    const orig = ctx[make].bind(ctx);
+    ctx[make] = (...a) => { const node = orig(...a); const start = node.start.bind(node);
+      node.start = (t = 0, offset = 0, ...rest) => { starts.push({ t, offset, buffer:node.buffer || null, rate:node.playbackRate?.value ?? 1 }); return start(t, offset, ...rest); };
+      return node; };
+  }
+  playRecipe(E, id, 1 - pre, opts);
+  const clipLands = starts.filter(s => s.buffer && marks.has(s.buffer)).map(s => s.t + (marks.get(s.buffer).beat - s.offset) / s.rate - 1);
+  const others = starts.filter(s => !(s.buffer && marks.has(s.buffer))).map(s => s.t - 1);
+  return { clipLands, onBeat:others.filter(x => Math.abs(x) < 0.0005).length, lead:others.length ? Math.min(...others) : 0 };
 };
 window.__ready = true;
 `;
@@ -161,7 +198,7 @@ try {
   await chrome.until("window.__ready === true", { timeout:20000 });
   await chrome.evaluate(`window.__clips = ${JSON.stringify(clips)}; true`);
   for (const job of jobs.filter(j => j !== "onsets")) {
-    const renders = job === "moments" ? [["moments", "window.__moments()"], ["phone", "window.__phone()"]]
+    const renders = job === "moments" ? [["moments", "window.__moments()"], ["phone", "window.__phone()"], ["lobby", "window.__lobby()"]]
       : [[job, `window.__song(${JSON.stringify(job)})`], ...(STEMS ? ["band", "calls", "answers"].map(s => [`${job}-${s}`, `window.__song(${JSON.stringify(job)}, ${JSON.stringify(s)})`]) : [])];
     for (const [name, expr] of renders) {
       const t0 = Date.now();
@@ -191,11 +228,17 @@ try {
   const rows = [];
   for (const [id, opts, label] of checks) {
     const r = await chrome.evaluate(`window.__onset(${JSON.stringify(id)}, ${JSON.stringify(opts)})`);
+    const x = await chrome.evaluate(`window.__sched(${JSON.stringify(id)}, ${JSON.stringify(opts)})`);
     const err = Math.round((r.beat - ref.beat) * 10000) / 10;
-    const ok = Math.abs(err) <= 5 && r.peak > 0.005;
+    /* exact: every clip lands its beat within 5 ms (a lone line on it to the sample; a crowd's takes a few ms apart on purpose),
+       and a synthesized sound has a hit starting on the beat */
+    const lands = x.clipLands.map(v => Math.round(v * 100000) / 100);
+    const exact = lands.length ? lands.every(v => Math.abs(v) <= 5) && lands.some(v => Math.abs(v) <= 0.5) : x.onBeat > 0;
+    const ok = exact && Math.abs(err) <= 8 && r.peak > 0.005;
     if (!ok) bad = true;
-    rows.push({ label, id, err, lead:Math.round((1 - r.start) * 1000), peak:Math.round(r.peak * 1000) / 1000, ok });
-    console.log(`${ok ? "ok " : "BAD"} onset ${label.padEnd(28)} ${err >= 0 ? "+" : ""}${err.toFixed(1)} ms  (soft start ${Math.round((1 - r.start) * 1000)} ms ahead, peak ${r.peak.toFixed(3)})`);
+    rows.push({ label, id, exact:lands.length ? lands : `${x.onBeat} on the beat`, heard:err, lead:Math.round(-x.lead * 1000), peak:Math.round(r.peak * 1000) / 1000, ok });
+    console.log(`${ok ? "ok " : "BAD"} ${label.padEnd(28)} exact ${lands.length ? `clip beat ${lands.map(v => (v >= 0 ? "+" : "") + v.toFixed(2)).join(" ")} ms` : `${x.onBeat} source(s) start on the beat`}`
+      + `, heard ${err >= 0 ? "+" : ""}${err.toFixed(1)} ms vs an instant attack, lead-in ${Math.round(-x.lead * 1000)} ms`);
   }
   fs.mkdirSync(OUT, { recursive:true });
   fs.writeFileSync(path.join(OUT, "onsets.json"), `${JSON.stringify({ at:new Date().toISOString(), clips:clips.length, rows }, null, 2)}\n`);

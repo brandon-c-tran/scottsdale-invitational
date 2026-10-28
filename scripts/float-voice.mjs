@@ -1,4 +1,4 @@
-﻿/* The Groove's host voice (float/GROOVE.md "Sound (the Groove)": "The
+/* The Groove's host voice (float/GROOVE.md "Sound (the Groove)": "The
    host's voice"): every line generated once with OpenAI text-to-speech
    (gpt-4o-mini-tts, a cheerful cartoon host), then with ffmpeg trimmed to
    its start, pitched up for a cartoon voice, peak-normalized and saved as a
@@ -55,13 +55,24 @@ export const LINES = Object.freeze([
   { id:"title-rock", text:"Rock Hop!", how:`${HOST} Announce the round's name like a game show title card: "Rock Hop!"` },
   { id:"title-spin", text:"Spin Cycle!", how:`${HOST} Announce the round's name like a game show title card: "Spin Cycle!"` },
   { id:"title-drop", text:"The Drop!", how:`${HOST} Announce the final round's name like a big game show title card: "The Drop!"` },
+  { id:"lastcall", text:"Last call!", how:`${HOST} A sly, delighted "Last call!", like a bartender ringing the bell before the final round of drinks.` },
 ]);
-/* the crowd's "Hey!": several people at once, each its own voice and pitch */
-const CROWD = "One person in a happy party crowd shouting together on the beat: a single short, loud, joyful \"Hey!\". No breath before it.";
+/* the crowd: several people at once, each its own voice and pitch ("Hey!" on
+   the beat, "Ooh!" as Last Call names who drinks, "Aww!" as a rider is out) */
+const CROWD_HOW = Object.freeze({
+  hey:"One person in a happy party crowd shouting together on the beat: a single short, loud, joyful \"Hey!\". No breath before it.",
+  ooh:"One person in a party crowd reacting together, teasing and delighted, as a friend has to drink: a short rising \"Ooooh!\". No breath before it.",
+  aww:"One person in a party crowd reacting together, sympathetic and playful, as a friend is knocked out of a game: a short falling \"Awww!\". No breath before it.",
+});
+const CROWD_TEXT = Object.freeze({ hey:"Hey!", ooh:"Ooooh!", aww:"Awww!" });
 export const CROWD_TAKES = Object.freeze([
   { id:"crowd-hey-1", voice:"ash", rate:1.0 }, { id:"crowd-hey-2", voice:"nova", rate:1.12 }, { id:"crowd-hey-3", voice:"echo", rate:0.94 },
   { id:"crowd-hey-4", voice:"shimmer", rate:1.18 }, { id:"crowd-hey-5", voice:"onyx", rate:0.9 }, { id:"crowd-hey-6", voice:"sage", rate:1.06 },
-]);
+  { id:"crowd-ooh-1", voice:"ash", rate:1.0 }, { id:"crowd-ooh-2", voice:"nova", rate:1.1 }, { id:"crowd-ooh-3", voice:"echo", rate:0.95 },
+  { id:"crowd-ooh-4", voice:"shimmer", rate:1.15 },
+  { id:"crowd-aww-1", voice:"ash", rate:1.0 }, { id:"crowd-aww-2", voice:"nova", rate:1.1 }, { id:"crowd-aww-3", voice:"echo", rate:0.95 },
+  { id:"crowd-aww-4", voice:"shimmer", rate:1.15 },
+].map(take => ({ ...take, line:take.id.split("-")[1] })));
 
 const ffmpeg = (argv, input = null) => {
   const r = spawnSync("ffmpeg", ["-hide_banner", "-v", "error", ...argv], { input, maxBuffer:256 * 1024 * 1024 });
@@ -115,7 +126,7 @@ function processTake(raw, out, rate) {
     `asetrate=${Math.round(SR * rate)}`, "aresample=44100", "afade=t=in:d=0.004", `afade=t=out:st=${Math.max(0, len - 0.025).toFixed(4)}:d=0.025`,
     `volume=${gain.toFixed(2)}dB`].join(","), "-ac", "1", "-ar", "44100", "-c:a", "libmp3lame", "-b:a", "64k", out]);
   const decoded = samples(out, 44100), marks = clipMarks(decoded, 44100);
-  return { onset:Math.round(marks.beat * 1000), start:Math.round(marks.start * 1000), dur:Math.round(marks.dur * 1000), f0:marks.f0 };
+  return { onset:Math.round(marks.beat * 1000), start:Math.round(marks.start * 1000), dur:Math.round(marks.dur * 1000), f0:marks.f0, glide:marks.glide };
 }
 
 async function transcribe(file) {
@@ -128,12 +139,14 @@ async function transcribe(file) {
   return String((await res.json()).text || "").trim();
 }
 const words = s => String(s).toLowerCase().replace(/[^a-z0-9 ]/g, "").replace(/\b(1|won)\b/g, "one").replace(/\b(2|to|too)\b/g, "two")
-  .replace(/\b3\b/g, "three").replace(/\b(4|for)\b/g, "four").replace(/\b(bah|ba|baa|bar)\b/g, "bah").trim();
+  .replace(/\b3\b/g, "three").replace(/\b(4|for)\b/g, "four").replace(/\b(bah|ba|baa|bar)\b/g, "bah")
+  .replace(/\bo{2,}h+\b|\buh+ ?oh+\b/g, "ooh").replace(/\ba+w+\b|\bo+w+\b/g, "aww").trim();
 
 /* TAKES takes of a line; the one kept is heard as its words (--check) and
    the snappiest: short, its beat early (a sung "ba" must hold a pitch) */
 const TAKES = Math.max(1, Math.min(5, Number(value("--takes", "3")) || 3));
-const heardRight = (heard, text) => words(heard).includes(words(text).split(" ")[0]);
+/* heard as its words: every word of the line in what whisper heard */
+const heardRight = (heard, text) => { const got = words(heard).split(/\s+/); return words(text).split(/\s+/).every(w => got.includes(w)); };
 async function bestTake({ voice, text, how, id, rate, dir, pitched = false }) {
   const takes = [];
   for (let n = 1; n <= TAKES; n++) {
@@ -143,7 +156,9 @@ async function bestTake({ voice, text, how, id, rate, dir, pitched = false }) {
     if (CHECK) take.heard = await transcribe(out);
     takes.push(take);
   }
-  const score = t => (CHECK && !heardRight(t.heard, text) ? 1e6 : 0) + (pitched && !(t.f0 > 0) ? 1e5 : 0) + t.dur + 1.5 * t.onset;
+  /* a sung "ba" must hold its pitch: its glide counts against it */
+  const score = t => (CHECK && !heardRight(t.heard, text) ? 1e6 : 0) + (pitched && !(t.f0 > 0) ? 1e5 : 0) + (pitched ? 3000 * (t.glide ?? 1) : 0)
+    + t.dur + 1.5 * t.onset;
   const best = takes.reduce((a, b) => (score(b) < score(a) ? b : a));
   const out = path.join(WORK, "set", dir, `${id}.mp3`);
   fs.copyFileSync(best.path, out);
@@ -161,8 +176,9 @@ async function voiceSet(voice) {
 async function crowdSet() {
   const set = [];
   for (const take of CROWD_TAKES) {
-    const best = await bestTake({ voice:take.voice, text:"Hey!", how:CROWD, id:take.id, rate:take.rate, dir:"crowd" });
-    set.push({ id:take.id, text:"Hey!", file:`${take.id}.mp3`, voice:take.voice, ...best });
+    const text = CROWD_TEXT[take.line];
+    const best = await bestTake({ voice:take.voice, text, how:CROWD_HOW[take.line], id:take.id, rate:take.rate, dir:"crowd" });
+    set.push({ id:take.id, text, file:`${take.id}.mp3`, voice:take.voice, ...best });
   }
   return set;
 }

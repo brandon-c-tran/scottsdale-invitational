@@ -29,21 +29,22 @@ import { useEffect } from "react";
 import { cueAt, installSoundUnlock, preloadClips, primeSound, registerClips, setSoundRoom, setSoundSurface, soundSurface }
   from "../../../src/lib/sound.js";
 import { serverNow } from "../../../src/lib/serverClock.js";
-import { BAR_MS, CUT_BEATS, GROOVE_LATE_MS, GROOVE_LEAD_MS, GROOVE_PRE_MS, PODIUM_BEATS, TITLE_BEATS, barLine, chartFor,
-  drinkBeats, eventAt, lobbyBar, songSlots } from "./groove.js";
+import { BAR_MS, BEAT_MS, CUT_BEATS, GROOVE_LATE_MS, GROOVE_LEAD_MS, GROOVE_PRE_MS, LAST_CALL_BEATS, PODIUM_BEATS, TITLE_BEATS, barLine,
+  chartFor, drinkBeats, eventAt, lobbyBar, lobbySection, songSlots } from "./groove.js";
 import { VOICE } from "./voices.js";
 
 export const ROOM_FRESH_MS = 1500;
 export const EV_FRESH_MS = 700;
 /* the beds stop once the connection has been down this long */
 export const CLOSED_GRACE_MS = 3000;
-/* the loop comes back this long into the cut (after the stings) and the podium (after the fanfare) */
-export const CUT_LOOP_MS = 6000, PODIUM_LOOP_MS = 8000;
+/* the loop comes back this long into the cut (after the stings), the
+   podium (after the fanfare) and the Cup's opening (after its fanfare) */
+export const CUT_LOOP_MS = 6000, PODIUM_LOOP_MS = 8000, INTRO_LOOP_MS = 4000;
 /* misses: one flub each `gap` at most, `grains` inside a `window`, the rest of the window one bigger flub */
 export const FLUB = Object.freeze({ gap:40, window:220, grains:3 });
 export const DONE_GAP_MS = 90, CHEER_GAP_MS = 260;
 /* the Cup's phases */
-export const PHASES = Object.freeze(["lobby", "intro", "song", "cut", "podium", "feedback"]);
+export const PHASES = Object.freeze(["lobby", "intro", "song", "cut", "lastcall", "podium", "feedback"]);
 
 const num = v => { const n = Number(v); return v !== null && v !== undefined && v !== "" && Number.isFinite(n) ? n : null; };
 const idx = v => typeof v === "number" && Number.isInteger(v) ? v : v && typeof v === "object" && Number.isInteger(Number(v.i)) ? Number(v.i) : null;
@@ -57,7 +58,7 @@ export function grooveView(msg) {
   return {
     phase, s:num(msg.s), code:String(msg.code ?? ""), round:Math.max(0, Math.floor(num(msg.round) ?? 0)), rounds:Math.max(0, Math.floor(num(msg.rounds) ?? 0)),
     song:typeof msg.song === "string" ? msg.song : null, songAt:num(msg.songAt), startAt:num(msg.startAt), endsAt:num(msg.endsAt),
-    chart:phase === "song" ? chartFor(msg) : null, field:list(msg.field), out:list(msg.out), podium:list(msg.podium),
+    chart:phase === "song" || phase === "lastcall" ? chartFor(msg) : null, field:list(msg.field), out:list(msg.out), podium:list(msg.podium),
     drinking:msg.drinking !== false,
     entrants:entrants.map((e, i) => ({ i, device:String(e?.device ?? `#${i}`), ready:!!e?.ready, bot:!!e?.bot, drinks:e?.drinks !== false })),
     scores:Array.isArray(msg.scores) ? msg.scores : null,
@@ -82,6 +83,8 @@ const keyOf = (mem, ...parts) => ["float", mem.view?.code || "room", ...parts].j
 const phaseStart = (v, s) => Number.isFinite(v.startAt) && Number.isFinite(s) && Math.abs(v.startAt - s) < 10000 ? v.startAt : s;
 /* a cue never laid behind the message it came on */
 const notBefore = (at, s) => Math.max(at, s + 60);
+/* the final's round (its cut names nobody) */
+const lastRound = v => v.rounds > 0 && v.round >= v.rounds - 1;
 export const fieldPan = (field, i) => {
   const k = field.indexOf(i), n = field.length;
   return k < 0 || n < 2 ? 0 : Math.round((-0.6 + 1.2 * k / (n - 1)) * 100) / 100;
@@ -110,14 +113,15 @@ function roomStep(mem, msg, { now, visible }) {
   const moved = !prev || prev.phase !== v.phase || prev.round !== v.round || (v.phase === "song" && prev.songAt !== v.songAt);
   if (moved) m.phaseAt = phaseStart(v, s);
   /* who was out before this song: the cut's new outs are the rest */
-  if (v.phase === "song" && moved) { m.outsBefore = [...v.out]; m.done = new Set(); m.gone = null; }
+  if (v.phase === "song" && moved) { m.outsBefore = [...v.out]; m.done = new Set(); m.gone = null; m.cutAt = null; }
   if (v.phase === "song") {
     /* the room's own word on who has tapped Done */
     const done = new Set(m.done || []);
     for (const row of v.scores || []) if (row && row.done && Number.isInteger(Number(row.i))) done.add(Number(row.i));
     m.done = done;
   }
-  if (v.phase === "cut" && moved) { m.cutAt = m.phaseAt; m.gone = new Map(); }
+  /* the cut's own start (its outs may have come a moment before, as `ev out`: they stay stung once) */
+  if (v.phase === "cut" && moved) { m.cutAt = m.phaseAt; if (!m.gone) m.gone = new Map(); }
   const cues = [];
   /* the lobby: who joined and who is ready (recorded always, sounded fresh) */
   if (v.phase === "lobby") {
@@ -133,7 +137,7 @@ function roomStep(mem, msg, { now, visible }) {
   } else m.lobby = null;
   if (fresh && moved && prev) cues.push(...phaseCues(m, prev, v, s));
   /* the cut's outs as the room names them (a later message may add some) */
-  if (fresh && v.phase === "cut") cues.push(...outCues(m, v, s));
+  if (fresh && v.phase === "cut" && !lastRound(v)) cues.push(...outCues(m, v, s));
   return { mem:m, cues };
 }
 const entrantPan = (i, n) => n > 1 ? Math.round((-0.6 + 1.2 * i / (n - 1)) * 100) / 100 : 0;
@@ -154,12 +158,22 @@ function phaseCues(m, prev, v, s) {
       return cues;
     }
     case "cut": {
-      if (prev.phase !== "song") return [];
+      /* the cut after the final names nobody: the podium's own roll follows */
+      if (prev.phase !== "song" || lastRound(v)) return [];
       return [{ id:"floatRoll", at:notBefore(start + CUT_BEATS.roll, s) - GROOVE_PRE_MS, opts:{ ms:CUT_BEATS.reveal - CUT_BEATS.roll },
         key:keyOf(m, "roll", v.round, start) }];
     }
     case "podium":
       return [{ id:"floatFanfare", at:notBefore(start + PODIUM_BEATS.roll, s) - GROOVE_PRE_MS, key:keyOf(m, "fanfare", start) }];
+    case "lastcall": {
+      /* the bar: the bartender's bell rung, then "Last call!" (the band comes in on songAt) */
+      if (!Number.isFinite(v.songAt)) return [];
+      const bell = v.songAt + LAST_CALL_BEATS.bell * BEAT_MS, call = v.songAt + LAST_CALL_BEATS.call * BEAT_MS;
+      const cues = [];
+      if (bell >= s - 100) cues.push({ id:"floatBell", at:bell, opts:{ first:true }, key:keyOf(m, "bell", v.songAt) });
+      if (call - GROOVE_PRE_MS >= s - 100) cues.push({ id:"floatVoice", at:call - GROOVE_PRE_MS, opts:{ line:"lastcall" }, key:keyOf(m, "lastcall", v.songAt) });
+      return cues;
+    }
     default: return [];
   }
 }
@@ -194,7 +208,7 @@ function evStep(mem, msg, { now, visible }) {
   const m = { ...mem };
   switch (msg.e) {
     case "hit": {
-      if (msg.q !== "miss" || v.phase !== "song") return { mem:m, cues:[] };
+      if (msg.q !== "miss" || (v.phase !== "song" && v.phase !== "lastcall")) return { mem:m, cues:[] };
       /* a rider still chugging after the break is not flubbing */
       const chart = v.chart, cue = chart?.cues?.[Number(msg.c)], drink = drinkBeats(chart);
       const rider = v.entrants[i];
@@ -239,11 +253,13 @@ export function grooveTrack(mem) {
   if (!v) return null;
   const start = mem.phaseAt ?? v.s ?? 0;
   switch (v.phase) {
-    case "song":
+    case "song": case "lastcall":
       if (!Number.isFinite(v.songAt) || !v.chart) return null;
       return { key:`song:${v.round}:${v.chart.id}:${v.songAt}`, kind:"song", songAt:v.songAt, chart:v.chart };
     case "lobby": case "feedback": return { key:"lobby", kind:"lobby", from:-Infinity, cut:false };
-    case "cut": return { key:`cut:${v.round}:${start}`, kind:"lobby", from:barLine(start + CUT_LOOP_MS), cut:true };
+    /* the Cup opening: its fanfare alone, then the loop (light) up to the first round card */
+    case "intro": return { key:`intro:${start}`, kind:"lobby", from:barLine(start + INTRO_LOOP_MS), cut:true };
+    case "cut": return lastRound(v) ? null : { key:`cut:${v.round}:${start}`, kind:"lobby", from:barLine(start + CUT_LOOP_MS), cut:true };
     case "podium": return { key:`podium:${start}`, kind:"lobby", from:barLine(start + PODIUM_LOOP_MS), cut:false };
     default: return null;
   }
@@ -256,11 +272,18 @@ export function bedSlot(track, index) {
   if (track.kind === "song") {
     const slots = songSlots(track.chart);
     if (index < 0 || index >= slots.length) return null;
-    return { start:track.songAt + index * BAR_MS - GROOVE_PRE_MS, cues:slots[index].map(ev => ({ id:ev.id, at:eventAt(track.songAt, ev.beat), opts:ev.opts })) };
+    return { start:track.songAt + index * BAR_MS - GROOVE_PRE_MS,
+      cues:slots[index].map(ev => ({ id:ev.id, at:eventAt(track.songAt, ev.beat), opts:ev.opts })) };
   }
   const at = index * BAR_MS;
-  return { start:at - GROOVE_PRE_MS, cues:[{ id:"floatLobby", at:at - GROOVE_PRE_MS, opts:{ bar:lobbyBar(at), cut:!!track.cut } }] };
+  return { start:at - GROOVE_PRE_MS, cues:[{ id:"floatLobby", at:at - GROOVE_PRE_MS, opts:{ bar:lobbyBar(at), section:lobbySection(at), cut:!!track.cut } }] };
 }
+/* A bed's cue goes on the audio clock this far ahead of its time (sound.js
+   `ahead`), all of a bar's in one go: one mapping of the room's clock onto
+   the audio clock for the band, the calls and the answers together, and a
+   bar is built (a few ms) well before it plays, so a stalled page never
+   drops or drags it. */
+export const BED_AHEAD_MS = GROOVE_LEAD_MS + 400;
 /* the first slot a track lays from `now` (the next one not yet begun) */
 export function firstSlot(track, now) {
   if (track.kind === "song") return Math.max(0, Math.ceil((now + 40 + GROOVE_PRE_MS - track.songAt) / BAR_MS));
@@ -288,8 +311,8 @@ export function createGrooveScreenSound(net, { play = null, visible = pageVisibl
   let status = "open";
   try { status = typeof net.status === "function" ? net.status() : "open"; } catch {}
   let mem = initialScreen({ open:status !== "closed" && status !== "connecting" });
-  const bed = { key:null, track:null, next:0, handles:[] };
-  const cancelBed = () => { for (const h of bed.handles) { try { h.handle?.cancel?.(); } catch {} } bed.handles = []; };
+  const bed = { key:null, track:null, next:0, handles:[], queue:[] };
+  const cancelBed = () => { for (const h of bed.handles) { try { h.handle?.cancel?.(); } catch {} } bed.handles = []; bed.queue = []; };
   const sound = cues => { for (const c of cues) { try { cue(c.id, c.at, { pan:c.pan || 0, opts:c.opts || {}, key:c.key ?? null, ...(c.lateMs ? { lateMs:c.lateMs } : {}) }); } catch {} } };
   const lay = () => {
     try {
@@ -308,7 +331,11 @@ export function createGrooveScreenSound(net, { play = null, visible = pageVisibl
         if (!slot || slot.start >= t + GROOVE_LEAD_MS) break;
         bed.next++;
         if (slot.start < t - 40) continue;
-        for (const c of slot.cues) bed.handles.push({ at:c.at, handle:cue(c.id, c.at, { opts:c.opts || {}, lateMs:GROOVE_LATE_MS }) });
+        bed.queue.push(...slot.cues);
+      }
+      for (const c of bed.queue.splice(0)) {
+        if (c.at < t - GROOVE_LATE_MS) continue;
+        bed.handles.push({ at:c.at, handle:cue(c.id, c.at, { opts:c.opts || {}, lateMs:GROOVE_LATE_MS, ahead:BED_AHEAD_MS }) });
       }
       bed.handles = bed.handles.filter(h => h.at > t - 8000);
     } catch {}

@@ -138,6 +138,47 @@ test("The Drop: the music cuts for the countdown, three, two, one on its beats, 
   for (const mode of ["paddle", "rock", "spin"]) assert.ok(modes.has(mode), mode);
 });
 
+test("Last Call: the bar's groove, the glass sliding on each grab's slides, the catch on the grab, a reveal two beats on, who drinks", () => {
+  const chart = chartOf("lastcall"), events = groove.songEvents(chart);
+  assert.equal(events.filter(e => e.id === "floatBar").length, chart.bars);
+  assert.deepEqual(events.filter(e => e.id === "floatSlide").map(e => e.beat), chart.cues.flatMap(c => c.slides), "every slide on its beat");
+  assert.deepEqual(events.filter(e => e.id === "floatGrab").map(e => e.beat), chart.cues.map(c => c.beat), "the catch on every grab");
+  assert.deepEqual(events.filter(e => e.id === "floatReveal").map(e => e.beat), chart.cues.map(c => c.beat + groove.LAST_CALL_BEATS.reveal));
+  assert.deepEqual(events.filter(e => e.id === "floatDrinks").map(e => e.beat), [groove.LAST_CALL_BEATS.drinks]);
+  assert.equal(groove.LAST_CALL_BEATS.drinks, (chart.bars - 1) * 4, "who drinks on the last bar's downbeat");
+  assert.ok(chart.cues.every(c => c.beat + groove.LAST_CALL_BEATS.reveal < groove.LAST_CALL_BEATS.drinks), "every reveal before who drinks");
+  const quick = events.filter(e => e.id === "floatSlide" && e.opts.quick).map(e => e.beat);
+  assert.deepEqual(quick, chart.cues.find(c => c.slides.length > 3).slides, "four quick slides are quick");
+  const last = events.filter(e => e.id === "floatBar").at(-1);
+  assert.equal(last.opts.drinks, true);
+  /* on the TV: the bell and "Last call!" in the lead, then the bars from songAt */
+  const r = rig();
+  r.emit("welcome", {});
+  r.emit("room", room("cut", r.now(), { startAt:r.now() }));
+  const start = r.now() + 100, songAt = start + 3000;
+  r.set(start);
+  r.emit("room", room("lastcall", start, { song:"lastcall", startAt:start, songAt, endsAt:songAt + 17500 }));
+  assert.deepEqual(r.played.filter(p => p.id === "floatBell").map(p => p.at), [songAt + groove.LAST_CALL_BEATS.bell * BEAT_MS]);
+  assert.deepEqual(r.played.filter(p => p.opts.line === "lastcall").map(p => p.at), [songAt + groove.LAST_CALL_BEATS.call * BEAT_MS - PRE]);
+  r.advance(3000 + 2000);
+  const bars = r.played.filter(p => p.id === "floatBar");
+  assert.deepEqual(bars.map(p => p.at), [songAt - PRE, songAt + BAR_MS - PRE, songAt + 2 * BAR_MS - PRE].slice(0, bars.length));
+  assert.ok(bars.length >= 2);
+  r.runner.stop();
+});
+
+test("the phone at Last Call: You drink or Safe, as the room names who drinks, on the bar's reveal", () => {
+  const s = T0, songAt = s + 3000;
+  const bar = worst => ({ t:"room", phase:"lastcall", s:s + 13_000, round:0, songAt, startAt:s, field:[0, 1, 2], out:[3],
+    lastCall:{ totals:[{ i:0, ms:300 }, { i:1, ms:900 }, { i:2, ms:200 }, { i:3, ms:500 }], worst } });
+  const run = (me, worst) => phoneRun([{ t:"welcome", s }, { t:"room", phase:"cut", s, out:[3] }, bar(null), { ...bar(worst), s:s + 15_000, now:s + 15_000 }], { me });
+  const at = songAt + groove.LAST_CALL_BEATS.drinks * BEAT_MS + 120;
+  assert.deepEqual(run(1, [1]).cues, [{ id:"floatYouGulp", at }]);
+  assert.deepEqual(run(2, [1]).cues, [{ id:"floatYouSafe", at }]);
+  assert.deepEqual(run(3, [1, 3]).cues.map(c => c.id), ["floatYouGulp"], "out of the Cup, still at the bar");
+  assert.deepEqual(run(7, [1]).cues, [], "not at the bar");
+});
+
 test("the slots: every event laid with its own bar, at songAt + beat * BEAT_MS - the lead, on whole milliseconds", () => {
   for (const id of SONG_IDS) {
     const chart = chartOf(id), slots = groove.songSlots(chart);
@@ -182,14 +223,49 @@ test("the TV lays the song a bar ahead from songAt: the round card's sting and t
   assert.equal(title.at, songAt + groove.TITLE_BEATS.title - PRE, "the title a beat after the sting's hit");
   assert.equal(sting.opts.song, "paddle");
   r.advance(songAt + 9000 - r.now());
-  const laid = r.played.filter(p => p.lateMs === groove.GROOVE_LATE_MS);
-  /* a bar's events are laid together, as its downbeat comes within a lead */
-  const want = groove.songEvents(chartOf("paddle")).filter(e => groove.eventAt(songAt, Math.floor(e.beat / 4) * 4) < r.now() + groove.GROOVE_LEAD_MS);
+  /* a bar's events are laid together as its downbeat comes within a lead, in the one tick */
+  const laid = r.played.filter(p => p.lateMs === groove.GROOVE_LATE_MS && p.id !== "floatLobby");
+  const barStart = beat => groove.eventAt(songAt, Math.floor(beat / 4) * 4);
+  const want = groove.songEvents(chartOf("paddle")).filter(e => barStart(e.beat) < r.now() + groove.GROOVE_LEAD_MS);
   assert.deepEqual(laid.map(p => [p.id, p.at]), want.map(e => [e.id, groove.eventAt(songAt, e.beat)]), "every event of the bars so far, in order, exact");
   assert.ok(laid.every(p => p.at - p.laidAt <= groove.GROOVE_LEAD_MS + BAR_MS && p.at - p.laidAt > 0), "each laid ahead, never more than a bar and a lead");
-  assert.ok(laid.filter(p => p.id === "floatGroove").every(p => p.at - p.laidAt <= groove.GROOVE_LEAD_MS), "a bar no more than a lead");
+  assert.ok(laid.filter(p => p.id === "floatGroove").every(p => p.at - p.laidAt <= groove.GROOVE_LEAD_MS && p.at - p.laidAt >= groove.GROOVE_LEAD_MS - 200),
+    "a bar a lead ahead");
   assert.equal(laid.filter(p => p.id === "floatGroove")[0].at, songAt - PRE, "bar 0 on beat 0");
+  const byBar = new Map();
+  for (const p of laid) { const bar = Math.floor((p.at + PRE - songAt) / BAR_MS); (byBar.get(bar) || byBar.set(bar, new Set()).get(bar)).add(p.laidAt); }
+  assert.ok([...byBar.values()].every(ticks => ticks.size === 1), "a bar's band, calls and answers in one tick (one clock mapping)");
   r.runner.stop();
+});
+
+test("the engine's `ahead`: a bar laid a lead early goes on the audio clock at once, so a stalled timer never drops it", async () => {
+  mock.timers.enable({ apis:["setTimeout", "Date"], now:T0 });
+  try {
+    const sound = await import("../src/lib/sound.js");
+    const made = [];
+    class Ctx {
+      constructor() { this.state = "suspended"; this.currentTime = 10; this.sampleRate = 8000; this.outputLatency = 0; this.destination = {}; this.starts = []; made.push(this); }
+      node(kind) { const ctx = this; const param = () => ({ value:1, setValueAtTime() {}, linearRampToValueAtTime() {}, exponentialRampToValueAtTime() {}, cancelScheduledValues() {} });
+        return { kind, type:"", gain:param(), frequency:param(), Q:param(), pan:param(), threshold:param(), knee:param(), ratio:param(), attack:param(), release:param(),
+          playbackRate:param(), connect(n) { return n; }, disconnect() {}, start(t) { ctx.starts.push(t); }, stop() {} }; }
+      createGain() { return this.node("gain"); } createBiquadFilter() { return this.node("filter"); } createDynamicsCompressor() { return this.node("comp"); }
+      createConvolver() { return this.node("conv"); } createStereoPanner() { return this.node("pan"); } createOscillator() { return this.node("osc"); }
+      createBufferSource() { return this.node("src"); } createBuffer(c, l) { return { length:l, numberOfChannels:c, getChannelData:() => new Float32Array(l) }; }
+      resume() { this.state = "running"; this.onstatechange?.(); return Promise.resolve(); } close() { this.state = "closed"; }
+    }
+    sound.__resetSoundEngine({ factory:Ctx });
+    sound.setSoundSurface("tv");
+    sound.primeSound();
+    const ctx = made[0];
+    ctx.starts.length = 0;
+    assert.ok(sound.cueAt("floatGroove", Date.now() + 1500, { opts:{ song:"paddle", bar:6, sec:"play", k:0, len:8 }, ahead:screen.BED_AHEAD_MS }));
+    assert.ok(ctx.starts.length > 0, "scheduled at once, 1.5 s ahead on the audio clock");
+    assert.ok(Math.min(...ctx.starts) >= 10 + 1.5 - 0.001, `on its time: ${Math.min(...ctx.starts)}`);
+    ctx.starts.length = 0;
+    assert.ok(sound.cueAt("floatGroove", Date.now() + 1500, { opts:{ song:"paddle", bar:6, sec:"play", k:0, len:8 } }));
+    assert.equal(ctx.starts.length, 0, "without it, the cue waits on a timer as before");
+    sound.__resetSoundEngine();
+  } finally { mock.timers.reset(); }
 });
 
 test("a TV that joins mid-song hears the song from its next bar line, and no round card", () => {
@@ -232,6 +308,22 @@ test("the song ends: the bars still to come are dropped, the cut's drumroll, a s
   r.runner.stop();
 });
 
+test("the cut after the final names nobody: no drumroll and no loop, the podium's own fanfare follows; the phone waits for its place", () => {
+  const r = rig();
+  r.emit("welcome", {});
+  const songAt = r.now() + 3000;
+  r.emit("room", room("song", r.now(), { round:3, song:"drop", startAt:r.now(), songAt, endsAt:songAt + 65500 }));
+  r.advance(1000);
+  r.emit("room", room("cut", r.now(), { round:3, startAt:r.now(), out:[4, 3] }));
+  r.advance(7000);
+  assert.equal(r.played.filter(p => p.id === "floatRoll" || p.id === "floatGone" || p.id === "floatLobby").length, 0);
+  r.runner.stop();
+  const s = T0;
+  const quiet = phoneRun([{ t:"welcome", s }, { t:"room", phase:"lobby", s, out:[] }, { t:"room", phase:"song", s, round:3, rounds:4, field:[0, 1, 2], out:[3, 4] },
+    { t:"room", phase:"cut", s:s + 66_000, startAt:s + 66_000, round:3, rounds:4, field:[0, 1, 2], out:[3, 4] }]);
+  assert.deepEqual(quiet.cues, []);
+});
+
 test("misses: a quiet flub panned to the rider, three at most at once, none for a rider still chugging after the break", () => {
   const r = rig();
   const songAt = r.now() + 3000, chart = chartOf("paddle");
@@ -269,6 +361,21 @@ test("misses: a quiet flub panned to the rider, three at most at once, none for 
   h.emit("ev", { e:"hit", i:1, c:3, q:"miss" });
   assert.equal(h.played.length, 0, "a hidden TV sounds nothing");
   h.runner.stop();
+});
+
+test("the lobby's loop: a bar of the server's own grid, its bar of eight and its section of four (so every screen is on the same bar)", () => {
+  const a = rig();
+  a.emit("welcome", {});
+  a.emit("room", room("lobby", a.now()));
+  a.advance(20_000);
+  const loop = a.played.filter(p => p.id === "floatLobby");
+  assert.ok(loop.length >= 9);
+  for (const p of loop) {
+    const n = Math.round((p.at + PRE) / BAR_MS);
+    assert.equal((p.at + PRE) % BAR_MS, 0, "on the grid");
+    assert.deepEqual([p.opts.bar, p.opts.section], [n % 8, Math.floor(n / 8) % 4]);
+  }
+  a.runner.stop();
 });
 
 test("the Cup's moments: the intro opens, the podium's fanfare on its beats, the lobby's joins and readies, a catch-up silent", () => {
@@ -467,7 +574,7 @@ function recorder() {
 
 test("every song's every bar plays, the beat at t + the lead, nothing before its time, released when it ends", () => {
   const ctx = recorder(), E = kit.makeEngine(ctx, { listen:"tv" }), base = ctx.nodes.length;
-  for (const id of SONG_IDS) for (const ev of groove.songEvents(chartOf(id))) {
+  for (const id of [...SONG_IDS, "lastcall"]) for (const ev of groove.songEvents(chartOf(id))) {
     ctx.nodes.length = base;
     assert.ok(kit.playRecipe(E, ev.id, 10, ev.opts), `${id} ${ev.id} at ${ev.beat}`);
     const sources = ctx.nodes.filter(n => n.kind === "osc" || n.kind === "src");
@@ -476,6 +583,27 @@ test("every song's every bar plays, the beat at t + the lead, nothing before its
     sources.forEach(n => n.onended?.());
     assert.ok(ctx.nodes.slice(base).every(n => n.disconnected === 1), `${id} ${ev.id} ${ev.beat}: released`);
   }
+});
+
+test("Paddle Party lifts a whole step for B's last four bars and lands its finish there", () => {
+  const ctx = recorder(), E = kit.makeEngine(ctx, { listen:"tv" });
+  const leadFreqs = opts => {
+    ctx.nodes.length = 0;
+    kit.playRecipe(E, "floatGroove", 10, { song:"paddle", sec:"play", len:8, next:"play", only:["melody"], hits:[], calls:[], ...opts });
+    return ctx.nodes.filter(n => n.kind === "osc" && n.type === "square").map(n => n.frequency.events.find(e => e[0] === "set")?.[1]).filter(Boolean).sort((a, b) => a - b);
+  };
+  const a = leadFreqs({ part:0, k:4, bar:10 }), b = leadFreqs({ part:1, k:4, bar:26 }), before = leadFreqs({ part:1, k:3, bar:25 });
+  assert.ok(a.length > 0 && a.length === b.length);
+  a.forEach((f, i) => assert.ok(Math.abs(b[i] / f - Math.pow(2, 2 / 12)) < 1e-6, "every note a whole step up"));
+  assert.deepEqual(kit.GROOVE_SCORE.paddle.lift, { from:4, by:2 });
+  assert.ok(before.length > 0);
+  /* the finish: the tonic a whole step up (G, not F) */
+  ctx.nodes.length = 0;
+  kit.playRecipe(E, "floatGroove", 10, { song:"paddle", sec:"outro", k:0, len:2, finish:0, only:["bass"] });
+  const sub = ctx.nodes.filter(n => n.kind === "osc" && n.type === "sine").flatMap(n => n.frequency.events.filter(e => e[0] === "set").map(e => e[1]));
+  const hz = m => 440 * Math.pow(2, (m - 69) / 12);
+  assert.ok(sub.some(f => Math.abs(f / hz(31) - 1) < 1e-3), `the finish's root is G1: ${sub.slice(0, 4)}`);
+  assert.ok(!sub.some(f => Math.abs(f / hz(29) - 1) < 1e-3), "and not F1");
 });
 
 test("the band leaves a Hey to the room: no lead or comp note on a Hey's sixteenth, the brass's stab on it", () => {

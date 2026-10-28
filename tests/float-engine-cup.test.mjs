@@ -8,8 +8,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { CUP_TIMING, LAST_CALL_PHASE_MS, ROUNDS, SONG_PHASE_MS, addBots, advance, barPlayers, createCup, cutOf, cutSchedule,
   lastCallSummary, makeEntrant, meOf, migrate, resultsOf, scoresOf, standingsOf, startCup, tick, toLobby } from "../float/shared/cup.js";
-import { FREEZE_BEATS, GROOVE, applyDone, applyHit, botDoneAfter, closeSong, createBar, createSong, deadlineOf, drinkTimes, lastCallOf,
-  missAfterOf, rankSong,
+import { FREEZE_BEATS, GROOVE, applyDone, applyHit, botDoneAfter, closeSong, createBar, createSong, deadlineOf, drinkTimes,
+  excusedAtBar, lastCallOf, missAfterOf, rankSong,
   riderStats, stepSong } from "../float/shared/groove.js";
 import { LAST_CALL, MISS_AFTER_MS, SONG_LEAD_MS, SONG_MS, SONG_TAIL_MS, chartOf, cueTime, lastCallTotal, lastCallWorst, practiceCues,
   scoredCues } from "../float/shared/chart.js";
@@ -621,11 +621,13 @@ test("Last Call in the Cup: stand-ins grab for phones gone, me carries each ride
   assert.equal(cup.round, 1);
   assert.equal(lastCallSummary(cup, clock.t), null, "only in its phase");
   const record = cup.history[0].lastCall;
-  assert.deepEqual(Object.keys(record).sort(), ["offset", "players", "round", "totals", "worst"]);
+  assert.deepEqual(Object.keys(record).sort(), ["excused", "offset", "players", "round", "totals", "worst"]);
   assert.equal(record.round, 0);
   assert.equal(record.players.length, 7);
+  assert.deepEqual(record.excused.slice().sort(), [1, 2], "a stand-in grabbed for them");
   assert.ok(record.worst.length >= 1);
-  assert.deepEqual(record.worst, lastCallWorst(record.totals));
+  assert.ok(!record.worst.includes(1) && !record.worst.includes(2), "never named to drink");
+  assert.deepEqual(record.worst, lastCallWorst(record.totals.filter(row => ![1, 2].includes(row.i))));
   /* rider 0's other two grabs were never made: a full second each */
   assert.equal(record.totals.find(row => row.i === 0).ms, 20 + 2 * LAST_CALL.MISS_MS);
   /* the stand-ins grabbed for 1 and 2 */
@@ -644,5 +646,31 @@ test("Last Call follows only cuts with a song after them: never after the final,
   const { phases } = play(cup, clock, { until:() => cup.phase === "podium" });
   assert.equal(phases.filter(phase => phase === "lastcall").length, 3);
   assert.deepEqual(cup.history.map(item => item.lastCall?.players ?? null).map(players => players && players.length), [2, 2, 2, null]);
+});
+
+test("a stand-in's grab excuses its person: they keep their seat and total, but who drinks is the worst of those who grabbed, bots included", () => {
+  /* 0 and 1 are people, 2 a bot entrant */
+  const cup = cupOf(3, { people:2 });
+  const bar = createBar({ cup, round:0, songAt:50_000, players:[0, 1, 2], offset:0 });
+  const set = (i, list) => list.forEach(([d, by], c) => { bar.judged[i][c] = d === null ? ["miss", null, by] : ["ok", d, by]; });
+  /* rider 1 is the worst by far, but one of its grabs was a stand-in's */
+  set(0, [[100, "p"], [100, "p"], [100, "p"]]);
+  set(1, [[null, "p"], [null, "s"], [null, "p"]]);
+  set(2, [[200, "b"], [150, "b"], [100, "b"]]);
+  const over = lastCallOf(bar, Infinity);
+  assert.deepEqual(excusedAtBar(bar), [1]);
+  assert.deepEqual(over.totals.map(row => [row.i, row.ms]), [[0, 300], [1, 3 * LAST_CALL.MISS_MS], [2, 450]], "the excused keep their total");
+  assert.deepEqual(over.worst, [2], "a bot entrant can be named: solo QA still has someone");
+  /* a missed grab the stand-in was in charge of excuses too; a person who missed while their phone was here does not */
+  set(2, [[10, "b"], [10, "b"], [10, "b"]]);
+  assert.deepEqual(lastCallOf(bar, Infinity).worst, [0]);
+  set(0, [[100, "s"], [100, "p"], [100, "p"]]);
+  assert.deepEqual(lastCallOf(bar, Infinity).worst, [2]);
+  /* nobody who may drink: nobody drinks */
+  set(2, [[10, "s"], [10, "b"], [10, "b"]]);
+  assert.deepEqual(excusedAtBar(bar), [0, 1, 2]);
+  assert.deepEqual(lastCallOf(bar, Infinity).worst, []);
+  /* and before the last deadline, still null */
+  assert.equal(lastCallOf(bar, 50_000).worst, null);
 });
 

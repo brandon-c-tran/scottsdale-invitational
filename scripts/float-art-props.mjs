@@ -10,6 +10,10 @@
      crown                its bottom middle (on anchor.head)
      sign-*               the stick's foot (the host's hand)
      podium               its bottom middle; `steps` are the tops of 1st, 2nd and 3rd
+     drink                its bottom middle (it stands on the bar; Last Call slides it)
+     accent-open, -rocks  the middle of the ripple at its foot (it stands in the water)
+     accent-whirl         its middle (it lies on the water at the whirlpool's centre)
+     accent-falls         its bottom middle (the mist's foot, over the falls)
    Confetti and the sparkle are drawn (white, tinted at run time).
 
      node scripts/float-art-props.mjs */
@@ -21,18 +25,27 @@ import { OUT, RAW, WEBP, sourceOf, loadRGBA, blank, components, alphaBounds, edi
 const SHEETS = {
   "props-water":["splash", "ripple", "rock", "whirl", "falls-lip", "splash-big"],
   "props-things":["cup", "crown", "sign-paddle", "sign-rock", "sign-spin", "podium"],
+  /* the song scenes' loud accents (scenes.<id>.accent), a 2 x 2 sheet */
+  "props-accents":{ names:["accent-open", "accent-rocks", "accent-whirl", "accent-falls"], cols:2, rows:2 },
 };
+const gridOf = entry => (Array.isArray(entry) ? { names:entry, cols:3, rows:2 } : entry);
+/* props generated alone: id -> its generation */
+const SINGLES = { drink:"bar-drink" };
 /* each prop's longest side in the file */
-const SIZE = { splash:256, ripple:320, rock:280, whirl:440, "falls-lip":560, "splash-big":360, cup:160, crown:200, "sign-paddle":280, "sign-rock":280, "sign-spin":280, podium:640 };
+const SIZE = { drink:180, "accent-open":380, "accent-rocks":300, "accent-whirl":480, "accent-falls":520, splash:256, ripple:320, rock:280, whirl:440, "falls-lip":560, "splash-big":360, cup:160, crown:200, "sign-paddle":280, "sign-rock":280, "sign-spin":280, podium:640 };
 
-async function cut(sheet, names) {
+async function cut(sheet, names, cols = 3, rows = 2) {
   const img = await loadRGBA(sourceOf(sheet));
+  if (names.length === 1) {
+    for (let i = 3; i < img.data.length; i += 4) img.data[i] = img.data[i] < 8 ? 0 : img.data[i] >= 246 ? 255 : Math.round(img.data[i] * 255 / 246);
+    return [img];
+  }
   const { width:W, height:H, data:d } = img;
   for (let i = 3; i < d.length; i += 4) d[i] = d[i] < 8 ? 0 : d[i] >= 246 ? 255 : Math.round(d[i] * 255 / 246);
   const solid = new Uint8Array(W * H);
   for (let k = 0; k < W * H; k++) if (d[k * 4 + 3] > 16) solid[k] = 1;
   const { labels, comps } = components(solid, W, H);
-  const cellOf = (x, y) => Math.min(1, Math.floor(y / (H / 2))) * 3 + Math.min(2, Math.floor(x / (W / 3)));
+  const cellOf = (x, y) => Math.min(rows - 1, Math.floor(y / (H / rows))) * cols + Math.min(cols - 1, Math.floor(x / (W / cols)));
   const owner = new Map();
   for (const c of comps) if (c.n >= 10) owner.set(c.id, cellOf(c.cx, c.cy));
   const cells = names.map(() => blank(W, H));
@@ -55,8 +68,9 @@ function lastOpaqueY(img, x, t = 160) {
 }
 
 const entries = {};
-for (const [sheet, names] of Object.entries(SHEETS)) {
-  const cells = await cut(sheet, names);
+for (const [sheet, entry] of [...Object.entries(SHEETS), ...Object.entries(SINGLES).map(([id, gen]) => [gen, [id]])]) {
+  const { names, cols, rows } = gridOf(entry);
+  const cells = await cut(sheet, names, cols, rows);
   for (const [k, id] of names.entries()) {
     const cell = cells[k];
     const b = alphaBounds(cell, 8);
@@ -74,6 +88,9 @@ for (const [sheet, names] of Object.entries(SHEETS)) {
     const extra = {};
     if (id === "ripple" || id === "whirl" || id === "cup") anchor = [Math.round(ow / 2), Math.round(oh / 2)];
     if (id === "rock") anchor = [Math.round(ow / 2), Math.round(oh * 0.86)];
+    /* standing in the water: the middle of the ripple ring at its foot */
+    if (id === "accent-open" || id === "accent-rocks") anchor = [Math.round(ow / 2), Math.round(oh * 0.88)];
+    if (id === "accent-whirl") anchor = [Math.round(ow / 2), Math.round(oh / 2)];
     if (id === "falls-lip") {
       /* the river's surface where it joins the water: the first row's leftmost opaque pixel */
       search: for (let y = 0; y < oh; y++) for (let x = 0; x < ow * 0.5; x++) if (out.data[(y * ow + x) * 4 + 3] > 160) { anchor = [x, y]; break search; }

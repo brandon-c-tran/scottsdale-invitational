@@ -126,6 +126,23 @@ test("the host: its box, anchors and the three poses' files", async () => {
   }
 });
 
+test("Last Call's bartender: waist up in its box, three poses in three files, standing on the counter line", async () => {
+  const b = manifest.bartender;
+  assert.ok(b, "the bartender");
+  assert.deepEqual(Object.keys(b.poses), ["idle", "slide", "cheer"]);
+  assert.equal(new Set(Object.values(b.poses).map(p => p.src)).size, 3);
+  for (const [pose, p] of Object.entries(b.poses)) {
+    assert.deepEqual(await size(p.src), b.box, `bartender ${pose}`);
+    for (const name of ["ground", "head", "face", "hand"]) assert.ok(isPoint(p.anchor[name], ...b.box), `bartender ${pose} anchor.${name}`);
+    assert.deepEqual(p.anchor.ground, b.anchor.ground, "the counter line stays put");
+  }
+  assert.ok(manifest.props.drink, "the drink it slides");
+  groove.provideGrooveArt(manifest);
+  const cast = groove.bartenderSprites();
+  assert.ok(cast.poses.slide.startsWith("/float/groove/bartender/"), "an absolute URL");
+  assert.deepEqual(cast.anchors.slide, { ...b.anchor, ...b.poses.slide.anchor });
+});
+
 test("the scenes: the four songs, the lobby, the bar and the podium, layered back to front at 1920 x 1080", async () => {
   for (const id of ["open", "rocks", "whirlpool", "falls", "lobby", "bar", "podium"]) {
     const s = manifest.scenes[id];
@@ -152,9 +169,14 @@ test("the scenes: the four songs, the lobby, the bar and the podium, layered bac
     assert.ok(seam <= Math.max(3, inner * 2.5), `${id} ${layer.src}: no seam (${seam.toFixed(2)} vs ${inner.toFixed(2)})`);
   }
   for (const sc of Object.values(manifest.scenes)) assert.ok(!sc.placeholder, "scenes are real art");
-  /* the songs' scenes are the ones chart.js names */
+  /* the songs' scenes are the ones chart.js names, each with its one loud accent, a prop */
   const { SONGS } = await import("../float/shared/chart.js");
-  for (const song of SONGS) assert.ok(manifest.scenes[song.scene], `${song.id} -> ${song.scene}`);
+  for (const song of SONGS) {
+    const sc = manifest.scenes[song.scene];
+    assert.ok(sc, `${song.id} -> ${song.scene}`);
+    assert.ok(sc.accent && manifest.props[sc.accent], `${song.scene}'s accent is a prop (${sc.accent})`);
+  }
+  assert.deepEqual(SONGS.map(song => manifest.scenes[song.scene].accent), ["accent-open", "accent-rocks", "accent-whirl", "accent-falls"]);
 });
 
 test("the props: at least the contract's, each at its declared size with an anchor inside it", async () => {

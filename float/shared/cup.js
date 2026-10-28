@@ -30,8 +30,8 @@ import { CRITTERS, defaultLook, cleanLook } from "./looks.js";
 import { FLOATIE_IDS } from "./floaties.js";
 import { PALETTE, PHASES } from "./protocol.js";
 import { LAST_CALL_ID, SONG_LEAD_MS, SONG_MS, SONG_TAIL_MS, chartOf, songForRound } from "./chart.js";
-import { addTenths, botSkills, closeSong, createBar, createSong, cupTotal, drinksNow, isDone, lastCallOf, rand01, rankSong,
-  riderScore, riderStats, seedOf, songScores, stepSong } from "./groove.js";
+import { addTenths, botSkills, closeSong, createBar, createSong, cupTotal, drinksNow, excusedAtBar, isDone, lastCallOf, rand01,
+  rankSong, riderScore, riderStats, seedOf, songScores, stepSong } from "./groove.js";
 
 /* colours for riders without one (protocol.js owns the list) */
 export { PALETTE, drinksNow };
@@ -216,13 +216,14 @@ function enterLastCall(cup, at) {
   setPhase(cup, "lastcall", at, LAST_CALL_PHASE_MS);
 }
 
-/* Last Call is over: any grab still open is a miss; the totals and who
-   drank go in this round's history. Returns { events, lastCall }. */
+/* Last Call is over: any grab still open is a miss; the totals, who drank
+   and who a stand-in grabbed for (excused) go in this round's history.
+   Returns { events, lastCall }. */
 function endLastCall(cup, driven) {
   const bar = cup.bar;
   const { events } = closeSong(cup, bar, { driven });
   const { totals, worst } = lastCallOf(bar, Infinity);
-  const lastCall = { round:bar.round, players:bar.field.slice(), offset:bar.offset, totals, worst };
+  const lastCall = { round:bar.round, players:bar.field.slice(), offset:bar.offset, totals, worst, excused:excusedAtBar(bar) };
   const item = cup.history.find(entry => entry.round === bar.round);
   if (item) item.lastCall = lastCall;
   cup.bar = null;

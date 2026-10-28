@@ -768,7 +768,7 @@ export class FloatRoom {
      results:[{ who, pid, bot, place, pct, pts, perfects, misses, cup, out }] }],
      stats:{ rounds:[{ round, song, offset, samples, riders:{ [who]:{ pct,
      pts, perfects, nice, ok, early, late, misses, hits, botShare, doneMs } },
-     rtt, lastCall:{ worst:[who], totals:{ [who]: ms } } or null }],
+     rtt, lastCall:{ worst:[who], excused:[who], totals:{ [who]: ms } } or null }],
      botShare:{ [who]: 0 to 1 } } } */
   queueResult() {
     const cup = this.cup;
@@ -791,7 +791,7 @@ export class FloatRoom {
       riders:Object.fromEntries(Object.entries(item.stats || {}).map(([i, value]) => [name(Number(i)), value])),
       rtt:item.rtt || {},
       /* who drank at the Last Call after this round */
-      lastCall:item.lastCall ? { worst:item.lastCall.worst.map(name),
+      lastCall:item.lastCall ? { worst:item.lastCall.worst.map(name), excused:(item.lastCall.excused || []).map(name),
         totals:Object.fromEntries(item.lastCall.totals.map(row => [name(row.i), row.ms])) } : null })),
       botShare:Object.fromEntries(Object.entries(played).map(([who, value]) =>
         [who, value.rounds ? Math.round((value.share / value.rounds) * 100) / 100 : 0])) };

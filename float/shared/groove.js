@@ -416,8 +416,11 @@ export function createBar({ cup, round = cup.round, songAt, players, offset = cu
    A total is the sum of |d| over the grabs judged so far (a missed grab
    LAST_CALL.MISS_MS), so it grows as they land; once the last grab's miss
    deadline has passed it is lastCallTotal (a grab never judged a miss too)
-   and `worst` is who drinks (lastCallWorst: the worst total, all tied on
-   it); before that `worst` is null. */
+   and `worst` is who drinks: the worst total, all tied on it, among those
+   who may drink (lastCallWorst over them; [] if nobody may). Before that
+   `worst` is null. A stand-in's grab excuses its person (excusedAtBar):
+   they keep their seat and their total, but never drink for grabs they
+   didn't make. Bot entrants may drink, so solo QA still names someone. */
 export function lastCallOf(bar, now = Infinity) {
   const chart = chartOf(LAST_CALL_ID);
   const over = now >= deadlineOf(bar, chart.cues[chart.cues.length - 1], chart);
@@ -431,5 +434,11 @@ export function lastCallOf(bar, now = Infinity) {
     }
     return { i, ms:lastCallTotal(grabs, over ? chart : { cues:judged }), grabs };
   });
-  return { totals, worst:over ? lastCallWorst(totals) : null };
+  if (!over) return { totals, worst:null };
+  const excused = new Set(excusedAtBar(bar));
+  return { totals, worst:lastCallWorst(totals.filter(row => !excused.has(row.i))) };
 }
+
+/* who a stand-in grabbed for (any of the three grabs, a missed one too):
+   excused from drinking */
+export const excusedAtBar = bar => bar.field.filter(i => Object.values(bar.judged[i] || {}).some(item => item[2] === "s"));

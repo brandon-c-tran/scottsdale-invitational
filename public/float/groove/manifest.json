@@ -3218,6 +3218,7 @@
    "w": 1920,
    "h": 1080,
    "water": 0.4,
+   "accent": "accent-open",
    "layers": [
     {
      "src": "scenes/open/sky.webp",
@@ -3240,6 +3241,7 @@
    "w": 1920,
    "h": 1080,
    "water": 0.4,
+   "accent": "accent-rocks",
    "layers": [
     {
      "src": "scenes/rocks/sky.webp",
@@ -3262,6 +3264,7 @@
    "w": 1920,
    "h": 1080,
    "water": 0.4,
+   "accent": "accent-whirl",
    "layers": [
     {
      "src": "scenes/whirlpool/sky.webp",
@@ -3284,6 +3287,7 @@
    "w": 1920,
    "h": 1080,
    "water": 0.4,
+   "accent": "accent-falls",
    "layers": [
     {
      "src": "scenes/falls/sky.webp",
@@ -3495,6 +3499,56 @@
     ]
    ]
   },
+  "accent-open": {
+   "src": "props/accent-open.webp",
+   "w": 380,
+   "h": 319,
+   "anchor": [
+    190,
+    281
+   ],
+   "tint": false
+  },
+  "accent-rocks": {
+   "src": "props/accent-rocks.webp",
+   "w": 300,
+   "h": 291,
+   "anchor": [
+    150,
+    256
+   ],
+   "tint": false
+  },
+  "accent-whirl": {
+   "src": "props/accent-whirl.webp",
+   "w": 480,
+   "h": 283,
+   "anchor": [
+    240,
+    142
+   ],
+   "tint": false
+  },
+  "accent-falls": {
+   "src": "props/accent-falls.webp",
+   "w": 520,
+   "h": 334,
+   "anchor": [
+    260,
+    333
+   ],
+   "tint": false
+  },
+  "drink": {
+   "src": "props/drink.webp",
+   "w": 161,
+   "h": 180,
+   "anchor": [
+    81,
+    179
+   ],
+   "tint": false
+  },
   "confetti-1": {
    "src": "props/confetti-1.webp",
    "w": 48,
@@ -3549,5 +3603,94 @@
  "font": {
   "family": "Float Pixel",
   "src": "/fonts/pixelify-sans-latin.woff2"
+ },
+ "bartender": {
+  "box": [
+   512,
+   512
+  ],
+  "anchor": {
+   "ground": [
+    256,
+    504
+   ],
+   "head": [
+    256,
+    71
+   ],
+   "face": [
+    256,
+    266
+   ],
+   "hand": [
+    438,
+    418
+   ]
+  },
+  "poses": {
+   "idle": {
+    "src": "bartender/idle.webp",
+    "anchor": {
+     "ground": [
+      256,
+      504
+     ],
+     "head": [
+      256,
+      71
+     ],
+     "face": [
+      256,
+      266
+     ],
+     "hand": [
+      438,
+      418
+     ]
+    }
+   },
+   "slide": {
+    "src": "bartender/slide.webp",
+    "anchor": {
+     "ground": [
+      256,
+      504
+     ],
+     "head": [
+      256,
+      76
+     ],
+     "face": [
+      256,
+      271
+     ],
+     "hand": [
+      443,
+      418
+     ]
+    }
+   },
+   "cheer": {
+    "src": "bartender/cheer.webp",
+    "anchor": {
+     "ground": [
+      256,
+      504
+     ],
+     "head": [
+      256,
+      70
+     ],
+     "face": [
+      256,
+      265
+     ],
+     "hand": [
+      444,
+      221
+     ]
+    }
+   }
+  }
  }
 }

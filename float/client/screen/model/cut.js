@@ -6,7 +6,8 @@
    fit a shorter cut. */
 import { indexList } from "./cupShape.js";
 
-export const CUT_BEATS = Object.freeze({ HOLD:2600, HOP_GAP:420, HOP_MS:760, REFORM:700, NEXT:500, NEXT_STANDS:3000 });
+/* HOP_MS: a rider's whole way to the bank (the small hop, then the waddle) */
+export const CUT_BEATS = Object.freeze({ HOLD:2600, HOP_GAP:420, HOP_MS:1400, REFORM:700, NEXT:500, NEXT_STANDS:3000 });
 /* the sound's beats for the cut (float/client/sound CUT_BEATS): the drumroll
    from `roll`, its hit on `reveal`, one rider out each `gap` from it */
 export const SOUND_CUT = Object.freeze({ roll:500, reveal:2500, gap:500 });
@@ -24,7 +25,7 @@ export function cutTimeline(out = 0, ms = 20000, sound = SOUND_CUT) {
   const stampsEnd = n ? stampAt(n - 1) : beats.reveal;
   const rest = B.HOLD + (n ? 400 + (n - 1) * B.HOP_GAP + B.HOP_MS + B.REFORM : 400) + B.NEXT;
   const room = Number.isFinite(ms) && ms > 0 ? ms - stampsEnd - B.NEXT_STANDS : rest;
-  const k = Math.max(0.45, Math.min(1, room / rest));
+  const k = Math.max(0.3, Math.min(1, room / rest));
   const boardOut = stampsEnd + B.HOLD * k;
   const hop = boardOut + 400 * k;
   const hopsEnd = hop + Math.max(0, n - 1) * B.HOP_GAP * k + B.HOP_MS * k;

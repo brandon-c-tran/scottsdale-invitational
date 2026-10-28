@@ -192,7 +192,7 @@ export default function FloatScreen({ room = "test", hosting = false, joinUrl = 
           revealed={phase === "feedback"} />}
         {water && phase !== "lobby" && <Host store={store} driver={driver} phase={phase} />}
         {phase === "lastcall" && <Bar store={store} driver={driver} />}
-        <Cast store={store} driver={driver} entrants={entrants} phase={phase} room={roomMsg} version={version} />
+        <Cast store={store} driver={driver} entrants={entrants} phase={phase} room={roomMsg} version={version} scene={scene} />
         <div className="fs-hud">
           {phase === "lobby" && <Lobby room={roomMsg} entrants={entrants} hosting={hosting && roomMsg?.mode !== "fieldday"} joinUrl={joinUrl} send={send}
             serverNow={store.serverNow} />}

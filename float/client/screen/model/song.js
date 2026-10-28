@@ -43,8 +43,21 @@ export function songStart(msg) {
   return null;
 }
 
+/* the count-ins, as the sound counts them ("one, two, three, four" on the
+   intro's last bar and on the drink break's last bar): { from, to } beats */
+export function countIns(chart) {
+  const out = [];
+  for (const kind of ["intro", "drink"]) {
+    const section = (chart?.sections || []).find(s => s.kind === kind);
+    if (section) out.push({ from:section.to - BEATS_PER_BAR, to:section.to });
+  }
+  return out;
+}
+
 /* The banner at a beat: { key, kind, text, sub, at } or null.
-     card      the lead and the first bar: "Round 1" over "Paddle Party"
+     card      the lead and the intro's first bar: "Round 1" over "Paddle Party"
+     count     the count-in, 1 2 3 4 on its beats (the intro's last bar,
+               and the drink break's last bar, the beat coming back)
      practice  the practice bars, a pill
      go        a beat and a half from the first play bar, and from the
                play bar after the drink
@@ -55,6 +68,12 @@ export function bannerAt(chart, beat, { round = 0, rounds = 0, lastRound = null 
   const practice = sections.find(s => s.kind === "practice");
   const plays = sections.filter(s => s.kind === "play");
   const drink = sections.find(s => s.kind === "drink");
+  for (const count of countIns(chart)) {
+    if (beat >= count.from && beat < count.to) {
+      const n = Math.floor(beat - count.from) + 1;
+      return { key:`count:${count.from}:${n}`, kind:"count", text:String(n), at:count.from + n - 1 };
+    }
+  }
   if (beat < 4) return { key:"card", kind:"card", text:roundLabel(round, rounds, lastRound), sub:chart.name, at:-SONG_LEAD_MS / chart.beatMs };
   for (const play of plays) {
     if (beat >= play.from && beat < play.from + 1.5) return { key:`go:${play.from}`, kind:"go", text:"Go!", at:play.from };

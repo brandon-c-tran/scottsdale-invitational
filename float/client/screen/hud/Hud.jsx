@@ -50,6 +50,7 @@ export function SongBanner({ store, driver, room }) {
     <span className="hd-card-name">{banner.sub}</span>
   </div>;
   if (banner.kind === "practice") return <div className="hd-practice" key={banner.key}><span>{banner.text}</span></div>;
+  if (banner.kind === "count") return <div className="hd-count" key={banner.key}><span>{banner.text}</span></div>;
   return <div className={`hd-shout is-${banner.kind}`} key={banner.key}><span>{banner.text}</span></div>;
 }
 

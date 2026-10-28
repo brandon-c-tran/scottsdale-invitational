@@ -4,9 +4,9 @@ import { cleanLook } from "./looks.js";
 import { FLOATIE_IDS } from "./floaties.js";
 
 export const ROLES = Object.freeze(["screen", "controller"]);
-/* the Cup (float/GROOVE.md): lobby -> intro -> [song -> cut -> lastcall] x rounds -> podium -> feedback -> lobby
-   (no Last Call after the final's cut) */
-export const PHASES = Object.freeze(["lobby", "intro", "song", "cut", "lastcall", "podium", "feedback"]);
+/* the Cup (float/GROOVE.md): lobby -> intro -> [song -> cut -> chugoff -> lastcall] x rounds -> podium -> feedback -> lobby
+   (no chug-off or Last Call after the final's cut; neither with drinking off) */
+export const PHASES = Object.freeze(["lobby", "intro", "song", "cut", "chugoff", "lastcall", "podium", "feedback"]);
 export const MODES = Object.freeze(["party", "fieldday"]);
 export const ROOM_ID = /^[a-z0-9-]{1,32}$/;
 /* a standalone room code: four consonants (no vowels, so no words) */

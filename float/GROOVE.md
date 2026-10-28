@@ -162,7 +162,7 @@ Late / Miss). A miss pops "Miss" in grey and the critter flubs (a splash in
 the face, a wobble). During `practice` popups show (it teaches) but nothing
 scores. The phone shows the same for its own taps, instantly and big.
 
-## The drink break
+## The drink break (replaced Oct 28: see "Drinking")
 
 8 bars in the middle of every song. The music drops into the lounge groove,
 every critter on the TV chugs, phones show "Drink!" and a big Done. When the
@@ -574,11 +574,48 @@ Brandon: "there's weird stuff to the right of the screen on TV mode, what is
 the rainbow thing that keeps popping up". The scene accents are gone, and
 while the Cup has Field Day's TV canvas nothing of Field Day's draws over it.
 
-## Drinking (Oct 28: open)
+## Drinking (Oct 28: Brandon's picks)
 
-Brandon: "I don't really like the random drink in the middle. Is there
-anything that could be more dynamic or funny in the room?" Options are with
-him; the mid-song drink break stays until he picks.
+Brandon: "I don't really like the random drink in the middle", and when
+offered alternatives: "I still want something that rewards a fast drinker /
+chugger". His picks: the **chug-off for the spot**, a **breakdown** in the
+drink break's place, and a **computer stand-in** for a phone that drops
+(as built). Last Call's farthest-off still drinks. The mid-song drink break,
+its Done and its rule (cues missed until Done) are gone.
+
+### The breakdown (bars 14 to 21)
+
+The mid-song twist, Rhythm Heaven's: the music shifts and the host plays a
+rhythm for a bar, everyone copies it the next bar, four times (the host's
+bars 14, 16, 18, 20; yours 15, 17, 19, 21). `echo` cues (lead 4: a bar),
+scored like play. Each song copies in its own sound (Paddle Party paddle
+splashes, Rock Hop the "ba" and the hop, Spin Cycle the whirl and the spin,
+The Drop a mix). The narration box says "Copy me" over the host's first
+bar. `breakdownSection(chart)` replaces `drinkSection`; `modes` are "echo".
+
+### The chug-off (phase `chugoff`, after each song but the final)
+
+The last rider through and the first rider out race to finish a drink in
+front of the room; the first to tap Done keeps the spot. Only with drinking
+on (off: the score decides, as before). In the cut the outs below the bubble
+are revealed as now, then "Chug-off!" with the two names; the TV puts their
+two critters center stage, cups up, a race bar or timer between them, the
+room's crowd chanting; the first Done stamps "Keeps the spot", the other
+gets the song's slapstick exit. `CHUGOFF` (chart.js): INTRO_MS 4000 (the
+call, the names, 3 2 1, "Chug!"), WINDOW_MS 30000 for a Done, REVEAL_MS
+3000, EXIT_MS 2500. Nobody Done in the window: the better score keeps the
+spot.
+
+- Wire: `drink` (already in the protocol) is the chugger's Done, taken only
+  from the two in `chugoff`; `room.chugoff: { a, b, goAt, doneAt:{ [i]: ms
+  after goAt }, winner, by:"chug"|"score" }`; `ev done {i}`.
+- A contender whose phone is gone can't win (the other wins on their Done or
+  at the window's end); both gone: the score decides. Bots (solo QA) chug in
+  4 to 12 s.
+- The phone: the two get "Chug-off!", "Finish your drink", one big Done
+  (after "Chug!"); everyone else gets "Chug-off: A vs B" and the Cheer.
+- The first chug-off of a Cup says what it is in its call: "Last one in
+  against first one out. First to finish keeps the spot."
 
 ## Wednesday night target (in cut order: the last line goes first)
 

@@ -432,6 +432,17 @@ singled out).
   grabs }`.
 - Bots grab by skill (a good bot within about 60 ms, a weak one 250 ms or
   more, sometimes very late). The cut before a Last Call shortens to 12 s.
+- As built (groove/engine f8c3407): only with drinking on (off: no Last
+  Call, 20 s cuts); a 1.5 s tail after the chart (20.5 s in all). Totals grow
+  as grabs are judged (a judged miss 1000 ms) and equal `lastCallTotal` at
+  the last deadline; `worst` is null until then; `room.lastCall` is null
+  outside the phase; frames at most every 500 ms, at once when `worst`
+  lands. Grabs use the last song's offset and never calibrate. A person a
+  stand-in grabbed for (any grab) is excused: they keep their seat and
+  total but are never named in `worst` (`excused` in the record and the
+  bridge's `stats.rounds[].lastCall`); bots can be named (solo QA); nobody
+  eligible means `worst` is []. The chart has no practice or drink section
+  and the song code guards both.
 
 ## Wednesday night target (in cut order: the last line goes first)
 

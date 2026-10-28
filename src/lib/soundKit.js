@@ -3105,22 +3105,41 @@ export function clipMarks(data, sampleRate = 44100) {
   const startI = first(peak * 0.03), beatI = first(peak * 0.3);
   let endI = env.length - 1;
   while (endI > beatI && env[endI] < peak * 0.01) endI--;
-  return { start:at(startI), beat:at(beatI), end:Math.min(dur, at(endI) + win / sr + 0.02), f0:pitchAt(data, sr, beatI * hop + Math.round(sr * 0.03)), dur };
+  /* the pitch: the middle of a few short readings just after the beat (a short
+     sung vowel glides), and how far they spread (0 steady; a sung "ba" wants it small) */
+  const f0s = [0.008, 0.02, 0.032, 0.044, 0.056].map(s => pitchAt(data, sr, beatI * hop + Math.round(sr * s))).filter(f => f > 0).sort((a, b) => a - b);
+  const f0 = f0s.length ? f0s[Math.floor((f0s.length - 1) / 2)] : 0;
+  const glide = f0s.length >= 2 ? Math.round(((f0s[f0s.length - 1] - f0s[0]) / f0) * 1000) / 1000 : 1;
+  return { start:at(startI), beat:at(beatI), end:Math.min(dur, at(endI) + win / sr + 0.02), f0, glide, dur };
 }
+/* the pitch at `from` (YIN: the cumulative-mean-normalized difference, the
+   first lag under 0.15 at its dip, else its lowest if it is clearly voiced;
+   a vowel's strong formant never passes for the note an octave up) */
 function pitchAt(data, sr, from) {
-  const len = Math.round(sr * 0.04), lo = Math.floor(sr / 700), hi = Math.ceil(sr / 70);
-  if (!data || from < 0 || from + len + hi > data.length) return 0;
+  const len = Math.round(sr * 0.025), lo = Math.floor(sr / 900), hi = Math.ceil(sr / 70);
+  if (!data || from < 0 || from + len + hi + 1 > data.length) return 0;
   let energy = 0;
   for (let i = 0; i < len; i++) energy += data[from + i] * data[from + i];
   if (!(energy > 1e-6)) return 0;
-  let best = 0, bestLag = 0;
-  for (let lag = lo; lag <= hi; lag++) {
-    let s = 0;
-    for (let i = 0; i < len; i++) s += data[from + i] * data[from + i + lag];
-    if (s > best) { best = s; bestLag = lag; }
+  const dn = new Float32Array(hi + 2);
+  let sum = 0;
+  for (let lag = 1; lag <= hi + 1; lag++) {
+    let d = 0;
+    for (let i = 0; i < len; i++) { const x = data[from + i] - data[from + i + lag]; d += x * x; }
+    sum += d;
+    dn[lag] = sum > 0 ? (d * lag) / sum : 1;
   }
-  /* a voiced vowel repeats; noise and silence do not */
-  return best / energy > 0.45 && bestLag ? Math.round((sr / bestLag) * 10) / 10 : 0;
+  let pick = 0;
+  for (let lag = lo; lag <= hi; lag++) {
+    if (dn[lag] < 0.15) { while (lag + 1 <= hi && dn[lag + 1] < dn[lag]) lag++; pick = lag; break; }
+  }
+  if (!pick) {
+    let best = Infinity;
+    for (let lag = lo; lag <= hi; lag++) if (dn[lag] < best) { best = dn[lag]; pick = lag; }
+    /* a voiced vowel repeats; noise and silence do not */
+    if (best > 0.35) return 0;
+  }
+  return pick ? Math.round((sr / pick) * 10) / 10 : 0;
 }
 /* Play a decoded clip (E.clips) so its beat lands at `beatAt` on the
    engine's clock, its soft start leading in by up to `pre`; false when it

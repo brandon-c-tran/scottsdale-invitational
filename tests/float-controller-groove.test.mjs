@@ -315,6 +315,16 @@ test("Last Call on the phone: a grab up to a second off counts; your total; whet
   assert.deepEqual(told.grabs.map(grab => grab.q), ["late", "miss", "perfect"]);
   assert.equal(told.drinks, true);
   assert.equal(lastCallView({ room:{ ...room, lastCall:{ totals:[], worst:[2] } }, idx:0, chart:bar, songAt, now:cueTime(songAt, 29) }).drinks, false);
+  /* told when it is heard: the room knows at the last grab's deadline (about beat 24.5), the phone says it on the verdict's beat */
+  const { VERDICT_BEAT } = await import("../float/client/controller/controllerModel.js");
+  const { LAST_CALL_BEATS } = await import("../float/client/sound/groove.js");
+  assert.equal(VERDICT_BEAT, LAST_CALL_BEATS.drinks, "the phone's default is the sound's beat");
+  const known = { ...room, lastCall:{ totals:[], worst:[0] } };
+  assert.equal(lastCallView({ room:known, idx:0, chart:bar, songAt, now:cueTime(songAt, 25) }).drinks, null, "known, not yet heard");
+  assert.equal(lastCallView({ room:known, idx:0, chart:bar, songAt, now:cueTime(songAt, VERDICT_BEAT) - 1 }).drinks, null);
+  assert.equal(lastCallView({ room:known, idx:0, chart:bar, songAt, now:cueTime(songAt, VERDICT_BEAT) }).drinks, true, "on the beat");
+  assert.equal(lastCallView({ room, idx:0, chart:bar, songAt, now:cueTime(songAt, 29) }).drinks, null, "heard, but the room has not said: nothing yet");
+  assert.equal(lastCallView({ room:known, idx:0, chart:bar, songAt, now:cueTime(songAt, 26), verdictBeat:26 }).drinks, true, "the sound's own beat wins");
   /* everyone in the Cup is at the bar, the riders out too */
   assert.equal(screen({ room:{ ...room, entrants:[{}, {}, {}] }, idx:2 }), "lastcall");
   assert.equal(screen({ room:{ ...room, entrants:[{}, {}, {}] }, idx:-1 }), "watch");

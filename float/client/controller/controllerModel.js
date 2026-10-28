@@ -97,12 +97,18 @@ export function glassAt(chart, beat) {
   return null;
 }
 
+/* The beat Last Call's verdict is heard on (the sound's
+   LAST_CALL_BEATS.drinks, beats from the bar's songAt): the room knows who
+   drinks from the last grab's deadline (about beat 24.5), the phone tells
+   it with the room's Gulp or Safe. */
+export const VERDICT_BEAT = 28;
+
 /* Last Call on this phone: where it is (songView's moments), the glass,
    your three grabs (the room's word on each: its quality and d, a miss
-   null), your total so far (the room's `me.lastCall.ms`), and once the last
-   grab's deadline has passed whether you drink (room.lastCall.worst).
-   { moment, glass, grabs:[{ c, q, d } | null], total, drinks } */
-export function lastCallView({ room, me = null, idx, chart, songAt, now, judged = {} }) {
+   null), your total so far (the room's `me.lastCall.ms`), and whether you
+   drink (room.lastCall.worst), told at the later of its arrival and the
+   verdict's beat. { moment, glass, grabs:[{ c, q, d } | null], total, drinks } */
+export function lastCallView({ room, me = null, idx, chart, songAt, now, judged = {}, verdictBeat = VERDICT_BEAT }) {
   const view = songView(chart, songAt, now);
   const beat = Number.isFinite(songAt) && Number.isFinite(now) ? beatOf(songAt, now, chart?.beatMs) : null;
   const grabs = (chart?.cues || []).map(cue => {
@@ -117,7 +123,8 @@ export function lastCallView({ room, me = null, idx, chart, songAt, now, judged 
   });
   const roomTotal = num(me?.lastCall?.ms) ?? num(list(room?.lastCall?.totals).find(item => indexOf(item) === idx)?.ms);
   const ownTotal = grabs.some(Boolean) ? grabs.reduce((sum, grab) => sum + (grab ? (grab.d === null ? LAST_CALL.MISS_MS : Math.abs(grab.d)) : 0), 0) : null;
-  const worst = Array.isArray(room?.lastCall?.worst) ? indexes(room.lastCall.worst) : null;
+  const heard = Number.isFinite(beat) && beat >= (Number.isFinite(verdictBeat) ? verdictBeat : VERDICT_BEAT);
+  const worst = heard && Array.isArray(room?.lastCall?.worst) ? indexes(room.lastCall.worst) : null;
   return { moment:view.moment, beat, glass:glassAt(chart, beat), grabs, total:roomTotal ?? ownTotal,
     drinks:worst === null ? null : worst.includes(idx) };
 }

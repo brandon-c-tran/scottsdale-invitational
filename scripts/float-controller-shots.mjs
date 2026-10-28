@@ -44,7 +44,7 @@ const MOMENTS = [
   ["practice", { tap:true, word:"Nice!" }], ["hey"], ["play", { tap:true, word:"Perfect" }], ["play-late", { tap:true, word:"Late" }],
   ["play-miss", { word:"Miss", settle:200 }], ["drink"], ["drink-done"], ["drink-dry"], ["drink-late"], ["outro"], ["after"],
   ["rock"], ["spin"], ["drop"], ["cut"], ["cut-out"], ["cut-final"], ["lastcall"], ["lastcall-grab", { tap:true, word:"Late" }],
-  ["lastcall-drink"], ["lastcall-safe"], ["crowd"], ["podium"], ["podium-win"], ["podium-out"],
+  ["lastcall-drink", { settle:1200 }], ["lastcall-safe", { settle:1200 }], ["crowd"], ["podium"], ["podium-win"], ["podium-out"],
   ["feedback"], ["watch"],
 ];
 

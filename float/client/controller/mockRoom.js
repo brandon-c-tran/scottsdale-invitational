@@ -294,8 +294,8 @@ export function createMockRoom({ hello = null, scene = null, freeze = false, tim
       case "lastcall-grab": ghost = { ...GHOSTS.practice, r:(cue, offset) => cue.kind === "grab" ? null : GHOSTS.practice.r(cue, offset) };
         toBar(0, 6.4); runTo(room.cup.bar.songAt + 7 * 500 + room.cup.bar.offset + 330); break;
       case "lastcall-drink": ghost = { ...GHOSTS.practice, r:(cue, offset) => cue.kind === "grab" ? null : GHOSTS.practice.r(cue, offset) };
-        toBar(0, 27); break;
-      case "lastcall-safe": ghost = GHOSTS.practice; toBar(0, 27); break;
+        toBar(0, 28.6); break;
+      case "lastcall-safe": ghost = GHOSTS.practice; toBar(0, 28.6); break;
       case "crowd": ghost = GHOSTS.bad; toBeat(1, 34.2); break;
       case "podium": case "podium-win": ghost = GHOSTS.practice; runUntil(cup => cup.phase === "podium");
         placeMe(name === "podium-win" ? 1 : 2); runTo(clock.t + 2000); break;

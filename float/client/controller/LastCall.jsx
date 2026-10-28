@@ -9,7 +9,8 @@
 import React, { useRef } from "react";
 import { bartenderSprites, propOf, sceneOf, useGrooveArt } from "../art/index.js";
 import { Critter, Popup } from "./art.jsx";
-import { lastCallView, secondsText } from "./controllerModel.js";
+import { VERDICT_BEAT, lastCallView, secondsText } from "./controllerModel.js";
+import { verdictBeat } from "./sound.js";
 import { useBeatBob, useMove, usePad, usePose, useShown, useSongNow } from "./SongScreen.jsx";
 
 const TONE = Object.freeze({ perfect:"gold", nice:"yellow", ok:"white", early:"salmon", late:"salmon", miss:"grey" });
@@ -46,7 +47,8 @@ export default function LastCall({ serverNow, room, me, idx, chart, songAt, entr
   const rootRef = useRef(null), bobRef = useRef(null), moveRef = useRef(null);
   usePad(rootRef, onTap);
   const now = useSongNow(serverNow, songAt, chart?.beatMs);
-  const view = lastCallView({ room, me, idx, chart, songAt, now, judged });
+  /* who drinks shows when it is heard: the sound's beat, never before the room knows */
+  const view = lastCallView({ room, me, idx, chart, songAt, now, judged, verdictBeat:verdictBeat() ?? VERDICT_BEAT });
   const manifest = useGrooveArt();
   const scene = manifest ? sceneOf("bar") : null;
   const counter = Number(scene?.counter) || 0.45;

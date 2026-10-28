@@ -8,6 +8,10 @@ import { BEATS_PER_BAR, SONG_LEAD_MS, songForRound } from "../../../shared/chart
 import { bannerAt, roundLabel, songName } from "../model/song.js";
 import { cutOuts, cutRankingOf, cutTimeline, pctText } from "../model/cut.js";
 import { drinkersOf } from "../model/lastcall.js";
+import * as floatSound from "../../sound/index.js";
+
+/* the cut's beats as the sound plays them (its drumroll's hit, a sting per rider out) */
+const soundCut = floatSound.CUT_BEATS || null;
 import { indexList } from "../model/cupShape.js";
 import { podiumSteps } from "../model/flotilla.js";
 import { propOf } from "../../art/groove/index.js";
@@ -110,7 +114,7 @@ export function CutBoard({ store, driver, room, entrants }) {
   const going = cutOuts(ranking);
   const start = Number.isFinite(room?.startAt) ? room.startAt : st.phaseStart;
   const ms = (room?.endsAt ?? 0) - (room?.startAt ?? 0);
-  const timeline = cutTimeline(going.length, ms);
+  const timeline = cutTimeline(going.length, ms, soundCut);
   const last = !!room?.lastRound || room?.cut === null;
   const elapsed = useDriven(driver, now => Math.floor((now - start) / 50) * 50, [start]);
   const stamped = going.filter((_, k) => elapsed >= timeline.stampAt(k));
@@ -137,7 +141,7 @@ export function CutBoard({ store, driver, room, entrants }) {
             const isStamped = stamped.includes(row.i);
             const cutLine = !last && through > 0 && going.length > 0 && row.place === through + 1;
             return <React.Fragment key={row.i}>
-              {cutLine && <div className="hd-cutline" />}
+              {cutLine && <div className={`hd-cutline${elapsed >= timeline.reveal ? " is-on" : ""}`} />}
               <div className={`hd-row${isStamped ? " is-out" : ""}${row.place <= 3 && last ? " is-top" : ""}`} style={{ "--c":e?.color || "#999", "--ink":inkOn(e?.color), animationDelay:`${(c * perCol + k) * 55}ms` }}>
                 <span className="hd-row-place">{row.place}</span>
                 <RiderFace entrant={e} pose={isStamped ? "out" : "idle"} className="hd-row-face" />

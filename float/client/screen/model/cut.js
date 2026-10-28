@@ -6,28 +6,37 @@
    fit a shorter cut. */
 import { indexList } from "./cupShape.js";
 
-export const CUT_BEATS = Object.freeze({ STAMP:2600, STAMP_GAP:450, HOLD:2600, HOP_GAP:420, HOP_MS:760, REFORM:700, NEXT:500 });
+export const CUT_BEATS = Object.freeze({ HOLD:2600, HOP_GAP:420, HOP_MS:760, REFORM:700, NEXT:500, NEXT_STANDS:3000 });
+/* the sound's beats for the cut (float/client/sound CUT_BEATS): the drumroll
+   from `roll`, its hit on `reveal`, one rider out each `gap` from it */
+export const SOUND_CUT = Object.freeze({ roll:500, reveal:2500, gap:500 });
 
-/* the moments of a cut with `out` riders going home, in a phase `ms` long */
-export function cutTimeline(out = 0, ms = 20000) {
+/* The moments of a cut with `out` riders going home, in a phase `ms` long:
+   the cut line on the drumroll's hit and each Out on its sting (the sound's
+   beats, exactly), then the board away, the hops, the re-forming and the
+   next card, run faster in a short cut (the one before Last Call) so the
+   next card still stands three seconds. */
+export function cutTimeline(out = 0, ms = 20000, sound = SOUND_CUT) {
   const n = Math.max(0, out | 0);
   const B = CUT_BEATS;
-  const stampsEnd = B.STAMP + Math.max(0, n - 1) * B.STAMP_GAP;
-  const boardOut = stampsEnd + B.HOLD;
-  const hop = boardOut + 400;
-  const hopsEnd = hop + Math.max(0, n - 1) * B.HOP_GAP + B.HOP_MS;
-  const reform = n ? hopsEnd + B.REFORM : boardOut + 400;
-  const next = reform + B.NEXT;
-  /* a short cut (the one before Last Call, 12 s) runs it faster, so the
-     next card still stands three seconds */
-  const k = Number.isFinite(ms) && ms > 0 ? Math.max(0.4, Math.min(1, (ms - 3000) / next)) : 1;
+  const beats = { ...SOUND_CUT, ...(sound || {}) };
+  const stampAt = j => beats.reveal + j * beats.gap;
+  const stampsEnd = n ? stampAt(n - 1) : beats.reveal;
+  const rest = B.HOLD + (n ? 400 + (n - 1) * B.HOP_GAP + B.HOP_MS + B.REFORM : 400) + B.NEXT;
+  const room = Number.isFinite(ms) && ms > 0 ? ms - stampsEnd - B.NEXT_STANDS : rest;
+  const k = Math.max(0.45, Math.min(1, room / rest));
+  const boardOut = stampsEnd + B.HOLD * k;
+  const hop = boardOut + 400 * k;
+  const hopsEnd = hop + Math.max(0, n - 1) * B.HOP_GAP * k + B.HOP_MS * Math.min(1, k * 1.2);
+  const reform = n ? hopsEnd + B.REFORM * k : boardOut + 400 * k;
   return {
-    stampAt:j => B.STAMP * k + j * B.STAMP_GAP * k,
-    boardOut:boardOut * k,
-    hopAt:j => hop * k + j * B.HOP_GAP * k,
+    reveal:beats.reveal,
+    stampAt,
+    boardOut,
+    hopAt:j => hop + j * B.HOP_GAP * k,
     hopMs:B.HOP_MS * Math.min(1, k * 1.2),
-    reform:reform * k,
-    next:next * k,
+    reform,
+    next:reform + B.NEXT * k,
   };
 }
 

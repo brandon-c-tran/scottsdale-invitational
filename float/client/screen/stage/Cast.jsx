@@ -14,8 +14,13 @@ import { propOf, spriteSize } from "../../art/groove/index.js";
 import { actionAt, bobAt, cheerAt, chugAt, follow, popupAt } from "../model/motion.js";
 import { chuggingAt } from "../model/song.js";
 import { cutField, cutOuts, cutRankingOf, cutTimeline } from "../model/cut.js";
+import * as floatSound from "../../sound/index.js";
+
+/* the cut's beats as the sound plays them (its drumroll's hit, a sting per rider out) */
+const soundCut = floatSound.CUT_BEATS || null;
 import { barLayout, barPlayersOf, drinkersOf, readoutUntil, totalText } from "../model/lastcall.js";
 import { indexList } from "../model/cupShape.js";
+import { nameFill } from "../hud/identity.js";
 
 const BEAT = 500;
 const INTRO_MS = 2600;
@@ -42,7 +47,7 @@ export function castPlan({ phase, room, state, entrants }) {
     const ranking = cutRankingOf(room, state?.songField);
     const going = cutOuts(ranking);
     const earlier = outs.filter(i => !field.includes(i));
-    const timeline = cutTimeline(going.length, (room?.endsAt ?? 0) - (room?.startAt ?? 0));
+    const timeline = cutTimeline(going.length, (room?.endsAt ?? 0) - (room?.startAt ?? 0), soundCut);
     const start = Number.isFinite(room?.startAt) ? room.startAt : state?.phaseStart;
     const survivors = fieldOrder(field.filter(i => !going.includes(i)), i => ranking.find(r => r.i === i)?.pct ?? 0);
     return { ...plan, water:fieldOrder(field, cupOf), bank:earlier, ranking,
@@ -79,7 +84,7 @@ const RiderNode = memo(function RiderNode({ entrant, i, refs }) {
       : <div className="fl-ripple" style={{ left:wx - 228, top:wy - 8 }} />}
     <div className="fl-body" ref={set("body")} style={{ transformOrigin:`${wx}px ${wy}px` }}><Critter entrant={entrant} art={art} /></div>
     {!art?.poses && <div className="fl-splash" ref={set("splash")} style={{ left:hand[0] + 20, top:wy - 110 }}><SplashProp /></div>}
-    <span className={`fl-tag${entrant.ready ? " is-ready" : ""}`} ref={set("tag")} style={{ left:name[0], top:name[1] }}>{entrant.name}</span>
+    <span className={`fl-tag${entrant.ready ? " is-ready" : ""}`} ref={set("tag")} style={{ left:name[0], top:name[1], "--name":nameFill(entrant.color) }}>{entrant.name}</span>
   </div>;
 });
 

@@ -245,6 +245,11 @@ test("the cut: the room's ranking with its outs, stamped from the last place up,
   assert.ok(t.next < 20000 - 3000, "the next song's card has time");
   const short = cutTimeline(4, 7000);
   assert.ok(short.next < 7000, "a short cut fits");
+  /* each Out on its sting: the sound's drumroll hit, then one a gap */
+  const sound = { roll:500, reveal:2500, gap:500 };
+  assert.deepEqual([0, 1, 2, 3].map(cutTimeline(4, 20000, sound).stampAt), [2500, 3000, 3500, 4000]);
+  assert.deepEqual([0, 1].map(cutTimeline(4, 12000, sound).stampAt), [2500, 3000], "the same beats in the short cut");
+  assert.ok(cutTimeline(4, 12000, sound).next <= 12000 - 3000, "the next card stands three seconds before Last Call");
   assert.equal(pctText(97.36), "97.4%");
   assert.equal(pctText(100), "100%");
 });

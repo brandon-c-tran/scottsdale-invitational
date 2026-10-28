@@ -17,6 +17,18 @@ export function inkOn(color) {
   return contrast(l, lum(INK)) >= contrast(l, lum(BONE)) ? INK : BONE;
 }
 
+/* a name lettered in its rider's colour over a dark outline: a dark colour
+   is lifted toward white until it reads (luminance at least about 0.3) */
+export function nameFill(color) {
+  const v = /^#?([0-9a-f]{6})$/i.exec(String(color || ""));
+  if (!v) return "#fffdf8";
+  const n = parseInt(v[1], 16);
+  let rgb = [n >> 16 & 255, n >> 8 & 255, n & 255];
+  const lumOf = c => lum(`#${c.map(x => Math.round(x).toString(16).padStart(2, "0")).join("")}`);
+  for (let k = 0; k < 8 && lumOf(rgb) < 0.3; k += 1) rgb = rgb.map(x => x + (255 - x) * 0.22);
+  return `#${rgb.map(x => Math.round(x).toString(16).padStart(2, "0")).join("")}`;
+}
+
 export const initials = name => String(name || "?").trim().split(/\s+/).map(w => w[0]).join("").slice(0, 2).toUpperCase() || "?";
 
 /* no portrait art on the screen: the chip shows initials */

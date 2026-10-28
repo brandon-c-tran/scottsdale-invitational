@@ -151,7 +151,7 @@
 
 /* the name under the tube: the rider's colour, a dark outline, inside the
    rider (so a critter in front covers it), counter-scaled to one size */
-.fl-tag { position:absolute; left:0; top:0; color:var(--c); font-family:var(--px); font-weight:700; font-size:27px; line-height:1;
+.fl-tag { position:absolute; left:0; top:0; color:var(--name, var(--c)); font-family:var(--px); font-weight:700; font-size:27px; line-height:1;
   white-space:nowrap; letter-spacing:0.02em; -webkit-text-stroke:7px var(--ink); paint-order:stroke fill; text-shadow:0 3px 0 var(--ink);
   transform-origin:50% 50%; transform:translate(-50%, -50%); opacity:0; pointer-events:none; }
 .fs-root[data-phase="lobby"] .fl-tag.is-ready::after { content:""; display:inline-block; width:14px; height:8px; margin-left:8px; margin-bottom:5px;
@@ -244,8 +244,9 @@
   background:rgba(255, 253, 248, 0.9); font-size:48px; font-weight:700; line-height:1; transform:translateY(-50%) rotate(-8deg);
   animation:hd-stamp 0.32s cubic-bezier(0.3, 1.6, 0.4, 1) both; }
 @keyframes hd-stamp { from { opacity:0; transform:translateY(-50%) rotate(-8deg) scale(2.2); } to { opacity:1; transform:translateY(-50%) rotate(-8deg) scale(1); } }
-.hd-cutline { position:relative; height:8px; margin:6px 0; border-radius:4px;
-  background:repeating-linear-gradient(90deg, var(--magenta) 0 26px, transparent 26px 40px); }
+.hd-cutline { position:relative; height:8px; margin:6px 0; border-radius:4px; transform:scaleX(0); transform-origin:0 50%;
+  background:repeating-linear-gradient(90deg, var(--magenta) 0 26px, transparent 26px 40px); transition:transform 0.32s cubic-bezier(0.3, 1.4, 0.5, 1); }
+.hd-cutline.is-on { transform:none; }
 .hd-cutline span { position:absolute; right:-6px; top:50%; transform:translateY(-50%); padding:4px 14px 7px; border-radius:99px; background:var(--magenta);
   color:var(--bone); font-size:28px; font-weight:700; line-height:1; box-shadow:0 0 0 4px var(--ink); }
 .hd-next { position:absolute; left:50%; top:110px; transform:translateX(-50%); display:flex; flex-direction:column; align-items:center; gap:8px;

@@ -545,13 +545,15 @@ test("Field Day: the Tournament reserves a Cup by player, phones take their entr
   assert.equal(body.stats.botShare.Brandon, 1);
   assert.equal(body.stats.botShare.Evan, 0);
   assert.ok(body.stats.rounds[0].samples > 0, "Evan's practice calibrated the room");
-  /* who drank at each Last Call, by name; none after the final */
+  /* who drank at each Last Call, by name, among those not excused (Brandon and Eyob never came: stand-ins grabbed for them); none after the final */
   for (const round of [0, 1, 2]) {
     const lastCall = body.stats.rounds[round].lastCall;
     assert.equal(Object.keys(lastCall.totals).length, 13, "everyone in the Cup");
-    assert.ok(lastCall.worst.length >= 1 && lastCall.worst.every(who => who in lastCall.totals));
-    const worst = Math.max(...Object.values(lastCall.totals));
-    assert.deepEqual(lastCall.worst.slice().sort(), Object.keys(lastCall.totals).filter(who => lastCall.totals[who] === worst).sort());
+    assert.deepEqual(lastCall.excused.slice().sort(), ["Brandon", "Eyob"]);
+    assert.ok(lastCall.worst.length >= 1 && lastCall.worst.every(who => who in lastCall.totals && !lastCall.excused.includes(who)));
+    const may = Object.keys(lastCall.totals).filter(who => !lastCall.excused.includes(who));
+    const worst = Math.max(...may.map(who => lastCall.totals[who]));
+    assert.deepEqual(lastCall.worst.slice().sort(), may.filter(who => lastCall.totals[who] === worst).sort());
   }
   assert.equal(body.stats.rounds[3].lastCall, null);
   assert.ok("Brandon" in body.stats.rounds[0].lastCall.totals, "a stand-in grabbed for the one never here");
@@ -781,7 +783,10 @@ test("Last Call over the wire: everyone at the bar grabs on the last song's offs
   assert.ok(bars.filter(message => message.s < deadline).every(message => message.lastCall.worst === null));
   const told = bars.find(message => message.lastCall.worst);
   assert.ok(told && told.s >= deadline && told.s <= deadline + 200, "at once");
-  assert.deepEqual(told.lastCall.worst, lastCallWorst(told.lastCall.totals));
+  assert.ok(!told.lastCall.worst.includes(C), "a stand-in grabbed for C: C never drinks for it");
+  assert.ok(told.lastCall.totals.some(row => row.i === C), "but keeps its seat and total");
+  assert.deepEqual(told.lastCall.worst, lastCallWorst(told.lastCall.totals.filter(row => row.i !== C)));
+  assert.deepEqual(room.cup.history[0].lastCall.excused, [C]);
   /* A's late grab counted, a full 0.73 s; B grabbed from the bank; C was grabbed for */
   const grabs = tv.events("hit").filter(event => event.s >= first.s && event.s <= told.s);
   const aLate = grabs.find(event => event.i === A && event.c === 0);

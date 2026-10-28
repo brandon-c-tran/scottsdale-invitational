@@ -94,7 +94,7 @@ export function actionAt(hit, now) {
     out.splash = t < 0.5 ? 1 - t * 2 : 0;
   }
   /* off the beat: a stumble on top of the move */
-  if (hit.q === "early" || hit.q === "late") out.rot += (hit.q === "early" ? -7 : 7) * Math.sin(Math.PI * t);
+  if (hit.q === "early" || hit.q === "late") out.rot += (hit.q === "early" ? -11 : 11) * Math.sin(Math.PI * t);
   return out;
 }
 

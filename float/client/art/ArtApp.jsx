@@ -207,9 +207,12 @@ function Flotilla() {
     return () => clearInterval(t);
   }, []);
   if (!m) return null;
-  const W = 1280, k = W / 1920, size = 230 * k;
+  /* riders at the concept frame's scale: a 330 px box, the ring about 160 px wide */
+  const W = 1280, k = W / 1920, size = 330 * k;
   const riders = CRITTERS.map((c, i) => ({ ...c, color:RIDER_COLORS[i], row:i % 3, col:Math.floor(i / 3) }));
-  const rowY = [600, 760, 930];
+  const rowY = [585, 760, 950];
+  const ripple = propOf("ripple");
+  const ring = size * (250 / 512);
   const pose = (i) => (FREEZE ? ["idle", "stroke", "hey", "nice", "miss", "chug", "cheer", "idle"][i % 8] : (tick + i) % 4 === 0 ? "stroke" : "idle");
   const pops = { 0:["late", 30], 4:["nice", -10], 7:["perfect", 0], 10:["miss", null] };
   return (
@@ -218,15 +221,16 @@ function Flotilla() {
         <img src={host.poses[FREEZE ? "call" : tick % 4 === 0 ? "call" : "idle"]} alt="" style={{ position:"absolute", left:(150 - host.anchor.ground[0] * 0.55) * k, top:(470 - host.anchor.ground[1] * 0.55) * k, width:host.box[0] * 0.55 * k }} />
       ) : null}
       {riders.map((r, i) => {
-        const x = (300 + r.col * 300 + r.row * 110) * k, y = rowY[r.row] * k;
+        const x = (230 + r.col * 330 + r.row * 110) * k, y = rowY[r.row] * k;
         const water = spriteAnchor(r.id, "idle", "water", size) || [size / 2, size * 0.7];
         const head = spriteAnchor(r.id, "idle", "head", size) || [size / 2, size * 0.2];
         return (
           <div key={r.id} style={{ position:"absolute", left:x - water[0], top:y - water[1], width:size, height:size, zIndex:r.row }}>
-            <div className={FREEZE ? "" : "fa2-bob"} style={{ animationDelay:`${-i * 0.13}s` }}>
+            {ripple ? <img src={ripple.src} alt="" style={{ position:"absolute", width:ring * 1.35, left:water[0] - ring * 1.35 * ripple.anchor[0] / ripple.w, top:water[1] - ring * 1.35 * (ripple.h / ripple.w) * ripple.anchor[1] / ripple.h + ring * 0.1, opacity:0.9 }} /> : null}
+            <div className={FREEZE ? "" : "fa2-bob"} style={{ animationDelay:`${-i * 0.13}s`, position:"relative" }}>
               <RiderSprite critter={r.id} color={r.color} pose={pose(i)} size={size} groom={r.id === "coyote"} />
             </div>
-            {pops[i] ? <div style={{ position:"absolute", left:head[0], top:head[1] - 10, transform:"translate(-50%, -100%)" }}><Popup q={pops[i][0]} d={pops[i][1]} size={30} /></div> : null}
+            {pops[i] ? <div style={{ position:"absolute", left:head[0], top:head[1] - 10, transform:"translate(-50%, -100%)" }}><Popup q={pops[i][0]} d={pops[i][1]} size={34} /></div> : null}
           </div>
         );
       })}

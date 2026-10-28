@@ -20,37 +20,49 @@ import { CutLine, CupIcon, Scenery } from "./parts.jsx";
 const perfNow = () => globalThis.performance?.now?.() ?? Date.now();
 const reducedMotion = () => { try { return !!globalThis.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches; } catch { return false; } };
 
-/* the pad: every new touch outside a button is a tap, at the touch's own time */
+/* The pad's listeners, pure over the events they get: every new touch
+   outside a button ([data-ui]) is a tap at the touch's own time (each
+   finger of a multi-finger touch its own), and the touch is the page's no
+   further (no scroll, no zoom, no click, no selection); a mouse or a pen,
+   and Space or Enter, tap too (the desk, the preview). tap(at, event). */
+export function padHandlers(tap) {
+  const outside = event => !event.target?.closest?.("[data-ui]");
+  return {
+    touchstart(event) {
+      if (!outside(event)) return;
+      if (event.cancelable) event.preventDefault();
+      const at = Number(event.timeStamp);
+      const n = Math.max(1, event.changedTouches?.length || 0);
+      for (let k = 0; k < n; k++) tap(at, event);
+    },
+    pointerdown(event) {
+      if (event.pointerType === "touch" || event.button > 0 || !outside(event)) return;
+      tap(Number(event.timeStamp), event);
+    },
+    keydown(event) {
+      if (event.repeat || (event.code !== "Space" && event.code !== "Enter") || event.target?.closest?.("input, textarea, select, button")) return;
+      event.preventDefault?.();
+      tap(Number(event.timeStamp), event);
+    },
+  };
+}
+
+/* the pad on an element: native listeners (React listens to touches passively) */
 export function usePad(rootRef, onTap) {
   const tap = useRef(onTap);
   tap.current = onTap;
   useEffect(() => {
     const root = rootRef.current;
     if (!root) return undefined;
-    const onStart = event => {
-      if (event.target?.closest?.("[data-ui]")) return;
-      if (event.cancelable) event.preventDefault();
-      const at = Number(event.timeStamp);
-      for (let k = 0; k < (event.changedTouches?.length || 1); k++) tap.current?.(at, event);
-    };
-    /* a mouse or a pen (the desk, the preview); a touch is the handler above */
-    const onPointer = event => {
-      if (event.pointerType === "touch" || event.button > 0 || event.target?.closest?.("[data-ui]")) return;
-      tap.current?.(Number(event.timeStamp), event);
-    };
-    const onKey = event => {
-      if (event.repeat || (event.code !== "Space" && event.code !== "Enter") || event.target?.closest?.("input, textarea, select, button")) return;
-      event.preventDefault();
-      tap.current?.(Number(event.timeStamp), event);
-    };
+    const on = padHandlers((at, event) => tap.current?.(at, event));
     const active = { passive:false };
-    root.addEventListener("touchstart", onStart, active);
-    root.addEventListener("pointerdown", onPointer);
-    window.addEventListener("keydown", onKey);
+    root.addEventListener("touchstart", on.touchstart, active);
+    root.addEventListener("pointerdown", on.pointerdown);
+    window.addEventListener("keydown", on.keydown);
     return () => {
-      root.removeEventListener("touchstart", onStart, active);
-      root.removeEventListener("pointerdown", onPointer);
-      window.removeEventListener("keydown", onKey);
+      root.removeEventListener("touchstart", on.touchstart, active);
+      root.removeEventListener("pointerdown", on.pointerdown);
+      window.removeEventListener("keydown", on.keydown);
     };
   }, [rootRef]);
 }

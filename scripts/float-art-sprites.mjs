@@ -18,7 +18,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { ALL_CRITTER_IDS } from "../float/shared/looks.js";
-import { OUT, RAW, POSES, BOX, loadRGBA, blank, components, placeInBox, saveWebp, savePng, dilate, close, hueOf, hueDist, lum, editManifest, alphaBounds } from "./float-art-lib.mjs";
+import { OUT, RAW, POSES, BOX, sourceOf, loadRGBA, blank, components, placeInBox, saveWebp, savePng, dilate, close, hueOf, hueDist, lum, editManifest, alphaBounds } from "./float-art-lib.mjs";
 
 const args = process.argv.slice(2);
 const value = name => { const i = args.indexOf(name); return i >= 0 ? args[i + 1] : null; };
@@ -234,8 +234,8 @@ function sliceSheet(img) {
 const round2 = p => [Math.round(p[0]), Math.round(p[1])];
 
 async function processCritter(id) {
-  const sheetFile = value("--sheet") || path.join(RAW, "gen", `${id}-sheet.png`);
-  const portraitFile = value("--portrait") || path.join(RAW, "gen", `${id}-portrait.png`);
+  const sheetFile = value("--sheet") || sourceOf(`${id}-sheet`);
+  const portraitFile = value("--portrait") || sourceOf(`${id}-portrait`);
   const sheet = normalizeAlpha(await loadRGBA(sheetFile));
   const hue = ringHue(sheet);
   if (hue === null) throw new Error(`${id}: no magenta ring in the sheet`);

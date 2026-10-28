@@ -13,6 +13,16 @@ export const ROOT = fileURLToPath(new URL("../", import.meta.url));
 export const OUT = path.join(ROOT, "public/float/groove");
 export const MANIFEST = path.join(OUT, "manifest.json");
 export const RAW = process.env.FLOAT_ART_RAW || path.resolve(ROOT, "../groove-art-raw");
+/* the committed generations (lossless WebP), for a checkout without the raw folder */
+export const SOURCES = path.join(ROOT, "float/look/groove");
+/* a generation by name: <raw>/gen/<name>.png if it is there, else the committed copy */
+export function sourceOf(name) {
+  const raw = path.join(RAW, "gen", `${name}.png`);
+  if (fs.existsSync(raw)) return raw;
+  const kept = path.join(SOURCES, `${name}.webp`);
+  if (fs.existsSync(kept)) return kept;
+  throw new Error(`no source for ${name} (${raw} or ${kept})`);
+}
 export const POSES = ["idle", "stroke", "hey", "nice", "miss", "chug", "cheer", "out"];
 export const BOX = 512;
 export const WEBP = { quality:85, alphaQuality:100, effort:5 };

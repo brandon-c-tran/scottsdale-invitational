@@ -7,10 +7,10 @@
 
      node scripts/float-art-host.mjs [--sheet <png>] */
 import path from "node:path";
-import { OUT, RAW, loadRGBA, blank, components, placeInBox, saveWebp, alphaBounds, hueOf, editManifest } from "./float-art-lib.mjs";
+import { OUT, RAW, sourceOf, loadRGBA, blank, components, placeInBox, saveWebp, alphaBounds, hueOf, editManifest } from "./float-art-lib.mjs";
 
 const args = process.argv.slice(2);
-const sheetFile = args.includes("--sheet") ? args[args.indexOf("--sheet") + 1] : path.join(RAW, "gen", "host-sheet.png");
+const sheetFile = args.includes("--sheet") ? args[args.indexOf("--sheet") + 1] : sourceOf("host-sheet");
 export const HOST_BOX = [512, 560];
 export const GROUND = [256, 540];
 const POSES = ["idle", "call", "cheer"];

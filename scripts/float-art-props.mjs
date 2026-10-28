@@ -16,7 +16,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import sharp from "sharp";
-import { OUT, RAW, WEBP, loadRGBA, blank, components, alphaBounds, editManifest } from "./float-art-lib.mjs";
+import { OUT, RAW, WEBP, sourceOf, loadRGBA, blank, components, alphaBounds, editManifest } from "./float-art-lib.mjs";
 
 const SHEETS = {
   "props-water":["splash", "ripple", "rock", "whirl", "falls-lip", "splash-big"],
@@ -26,7 +26,7 @@ const SHEETS = {
 const SIZE = { splash:256, ripple:320, rock:280, whirl:440, "falls-lip":560, "splash-big":360, cup:160, crown:200, "sign-paddle":280, "sign-rock":280, "sign-spin":280, podium:640 };
 
 async function cut(sheet, names) {
-  const img = await loadRGBA(path.join(RAW, "gen", `${sheet}.png`));
+  const img = await loadRGBA(sourceOf(sheet));
   const { width:W, height:H, data:d } = img;
   for (let i = 3; i < d.length; i += 4) d[i] = d[i] < 8 ? 0 : d[i] >= 246 ? 255 : Math.round(d[i] * 255 / 246);
   const solid = new Uint8Array(W * H);

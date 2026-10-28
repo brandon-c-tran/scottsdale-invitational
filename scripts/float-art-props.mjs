@@ -10,6 +10,7 @@
      crown                its bottom middle (on anchor.head)
      sign-*               the stick's foot (the host's hand)
      podium               its bottom middle; `steps` are the tops of 1st, 2nd and 3rd
+     drink                its bottom middle (it stands on the bar; Last Call slides it)
    Confetti and the sparkle are drawn (white, tinted at run time).
 
      node scripts/float-art-props.mjs */
@@ -22,11 +23,17 @@ const SHEETS = {
   "props-water":["splash", "ripple", "rock", "whirl", "falls-lip", "splash-big"],
   "props-things":["cup", "crown", "sign-paddle", "sign-rock", "sign-spin", "podium"],
 };
+/* props generated alone: id -> its generation */
+const SINGLES = { drink:"bar-drink" };
 /* each prop's longest side in the file */
-const SIZE = { splash:256, ripple:320, rock:280, whirl:440, "falls-lip":560, "splash-big":360, cup:160, crown:200, "sign-paddle":280, "sign-rock":280, "sign-spin":280, podium:640 };
+const SIZE = { drink:180, splash:256, ripple:320, rock:280, whirl:440, "falls-lip":560, "splash-big":360, cup:160, crown:200, "sign-paddle":280, "sign-rock":280, "sign-spin":280, podium:640 };
 
 async function cut(sheet, names) {
   const img = await loadRGBA(sourceOf(sheet));
+  if (names.length === 1) {
+    for (let i = 3; i < img.data.length; i += 4) img.data[i] = img.data[i] < 8 ? 0 : img.data[i] >= 246 ? 255 : Math.round(img.data[i] * 255 / 246);
+    return [img];
+  }
   const { width:W, height:H, data:d } = img;
   for (let i = 3; i < d.length; i += 4) d[i] = d[i] < 8 ? 0 : d[i] >= 246 ? 255 : Math.round(d[i] * 255 / 246);
   const solid = new Uint8Array(W * H);
@@ -55,7 +62,7 @@ function lastOpaqueY(img, x, t = 160) {
 }
 
 const entries = {};
-for (const [sheet, names] of Object.entries(SHEETS)) {
+for (const [sheet, names] of [...Object.entries(SHEETS), ...Object.entries(SINGLES).map(([id, gen]) => [gen, [id]])]) {
   const cells = await cut(sheet, names);
   for (const [k, id] of names.entries()) {
     const cell = cells[k];

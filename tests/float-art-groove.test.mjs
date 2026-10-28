@@ -126,6 +126,23 @@ test("the host: its box, anchors and the three poses' files", async () => {
   }
 });
 
+test("Last Call's bartender: waist up in its box, three poses in three files, standing on the counter line", async () => {
+  const b = manifest.bartender;
+  assert.ok(b, "the bartender");
+  assert.deepEqual(Object.keys(b.poses), ["idle", "slide", "cheer"]);
+  assert.equal(new Set(Object.values(b.poses).map(p => p.src)).size, 3);
+  for (const [pose, p] of Object.entries(b.poses)) {
+    assert.deepEqual(await size(p.src), b.box, `bartender ${pose}`);
+    for (const name of ["ground", "head", "face", "hand"]) assert.ok(isPoint(p.anchor[name], ...b.box), `bartender ${pose} anchor.${name}`);
+    assert.deepEqual(p.anchor.ground, b.anchor.ground, "the counter line stays put");
+  }
+  assert.ok(manifest.props.drink, "the drink it slides");
+  groove.provideGrooveArt(manifest);
+  const cast = groove.bartenderSprites();
+  assert.match(cast.poses.slide, /^/float/groove/bartender//);
+  assert.deepEqual(cast.anchors.slide, { ...b.anchor, ...b.poses.slide.anchor });
+});
+
 test("the scenes: the four songs, the lobby, the bar and the podium, layered back to front at 1920 x 1080", async () => {
   for (const id of ["open", "rocks", "whirlpool", "falls", "lobby", "bar", "podium"]) {
     const s = manifest.scenes[id];

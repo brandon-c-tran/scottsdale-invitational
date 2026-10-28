@@ -14,7 +14,7 @@
                                            size one of SPRITE_SIZES, spriteSize(drawn, dpr) picks it)
      riderSpritesNow({ ... })           -> the same, if already painted, else null
      riderPortrait(entrant, { size })   -> Promise<PNG data URL | null> (null without a DOM)
-     sceneOf(id) / propOf(id) / hostSprites()
+     sceneOf(id) / propOf(id) / hostSprites() / bartenderSprites()
                                         -> the manifest's entry with absolute URLs
                                            (null until loadGrooveArt has resolved)
      critterArt(id), poseArt(critter, pose), spriteAnchor(critter, pose, name, size)
@@ -131,14 +131,19 @@ export function propOf(id, m = manifest) {
   return p ? { id, ...p, src:grooveUrl(p.src) } : null;
 }
 
-export function hostSprites(m = manifest) {
-  const h = m?.host;
-  if (!h) return null;
-  const poses = {};
-  for (const [pose, art] of Object.entries(h.poses || {})) poses[pose] = grooveUrl(art.src);
-  for (const pose of HOST_POSES) poses[pose] ||= poses.idle || null;
-  return { box:h.box, anchor:h.anchor, poses };
+/* a standing character: { box, anchor, poses:{ [pose]: url }, anchors:{ [pose]: anchor } } */
+function castOf(entry, names) {
+  if (!entry) return null;
+  const poses = {}, anchors = {};
+  for (const [pose, art] of Object.entries(entry.poses || {})) { poses[pose] = grooveUrl(art.src); anchors[pose] = { ...entry.anchor, ...(art.anchor || {}) }; }
+  for (const pose of names) { poses[pose] ||= poses.idle || null; anchors[pose] ||= entry.anchor; }
+  return { box:entry.box, anchor:entry.anchor, poses, anchors };
 }
+/* the host on the bank: idle, call (megaphone up), cheer; anchors ground, head, face, horn */
+export const hostSprites = (m = manifest) => castOf(m?.host, HOST_POSES);
+/* Last Call's bartender, waist up behind the counter: idle, slide, cheer; anchors ground (the counter), head, face, hand */
+export const BARTENDER_POSES = Object.freeze(["idle", "slide", "cheer"]);
+export const bartenderSprites = (m = manifest) => castOf(m?.bartender, BARTENDER_POSES);
 
 /* a colour made usable: #rgb or #rrggbb, else the fallback grey */
 export function normalColor(color) {

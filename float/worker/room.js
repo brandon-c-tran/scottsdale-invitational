@@ -39,7 +39,7 @@
 import { ROLES, HOST_CMDS, cleanDevice, cleanRider, cleanAnswers, cleanPid, ROOM_ID } from "../shared/protocol.js";
 import { cleanLook } from "../shared/looks.js";
 import { FLOATIE_IDS } from "../shared/floaties.js";
-import { LAST_CALL_ID, chartOf } from "../shared/chart.js";
+import { chartOf, lastCallId } from "../shared/chart.js";
 import { GROOVE, applyDone, applyHit, seedOf } from "../shared/groove.js";
 import * as Cup from "../shared/cup.js";
 
@@ -57,9 +57,9 @@ const DRIVEN_MS = 1000;
 const BAR_ROOM_MS = 500;
 /* the phases something is played in: the light timer runs, saves never hold a message */
 const PLAYING = new Set(["song", "lastcall"]);
-/* what Last Call's totals were when the room last went out */
+/* what Last Call's totals were when the room last went out: who has tapped (or missed), who drinks */
 const barKey = lastCall => lastCall
-  ? `${lastCall.totals.reduce((sum, row) => sum + Object.keys(row.grabs).length, 0)}:${lastCall.worst ? lastCall.worst.join(",") : "-"}` : "";
+  ? `${lastCall.totals.filter(row => row.d !== null || row.ms > 0).map(row => row.i).join(",")}:${lastCall.worst ? lastCall.worst.join(",") : "-"}` : "";
 /* retries for posts to the Tournament: then hourly, for a day */
 const BACKOFF_MS = [1000, 5000, 30000, 120000, 600000];
 const RETRY_FOR_MS = 24 * 3600 * 1000;
@@ -345,7 +345,8 @@ export class FloatRoom {
     });
     const lobby = cup.phase === "lobby";
     const bar = cup.phase === "lastcall";
-    const song = bar ? LAST_CALL_ID : ["intro", "song", "cut"].includes(cup.phase) ? cup.songId : null;
+    /* in Last Call the song is its countdown's chart (lastcall-lights, -slow, -ticks) */
+    const song = bar ? cup.bar?.id ?? lastCallId(cup.round) : ["intro", "song", "cut"].includes(cup.phase) ? cup.songId : null;
     const songAt = bar ? cup.bar?.songAt ?? null : song && cup.phase !== "intro" ? cup.songAt : null;
     return {
       t:"room", phase:cup.phase, mode:cup.mode, code:cup.code || this.code, cupId:cup.id, drinking:cup.drinking,
@@ -361,6 +362,8 @@ export class FloatRoom {
       offset:Cup.offsetOf(cup),
       /* Last Call's totals and who drinks, in its phase (else null) */
       lastCall:Cup.lastCallSummary(cup, now),
+      /* the cut's show: the song's awards and the beats it lands on (else null) */
+      awards:Cup.awardsSummary(cup), show:Cup.cutShowOf(cup),
       scores:Cup.scoresOf(cup, now), results:Cup.resultsOf(cup),
       standings:cup.standings, podium:cup.podium, final:cup.final,
       history:cup.history.map(({ round, song:id, field, results, out }) => ({ round, song:id, field, results, out })),
@@ -765,10 +768,11 @@ export class FloatRoom {
 
   /* The result, once, to the Tournament: real players only, in order.
      { evId, cupId, order:[pid, ...], rounds:[{ round, song, field, out,
-     results:[{ who, pid, bot, place, pct, pts, perfects, misses, cup, out }] }],
+     results:[{ who, pid, bot, place, pct, pts, perfects, misses, cup, grade, out }] }],
      stats:{ rounds:[{ round, song, offset, samples, riders:{ [who]:{ pct,
      pts, perfects, nice, ok, early, late, misses, hits, botShare, doneMs } },
-     rtt, lastCall:{ worst:[who], excused:[who], totals:{ [who]: ms } } or null }],
+     awards:[{ id, who, value }], rtt, lastCall:{ trick, worst:[who],
+     excused:[who], totals:{ [who]: ms }, taps:{ [who]: d or null } } or null }],
      botShare:{ [who]: 0 to 1 } } } */
   queueResult() {
     const cup = this.cup;
@@ -777,7 +781,8 @@ export class FloatRoom {
     const rounds = cup.history.map(item => ({
       round:item.round, song:item.song, field:item.field.map(name), out:item.out.map(name),
       results:item.results.map(result => ({ who:name(result.i), pid:cup.entrants[result.i]?.pid ?? null, bot:cup.entrants[result.i]?.bot === true,
-        place:result.place, pct:result.pct, pts:result.pts, perfects:result.perfects, misses:result.misses, cup:result.cup, out:result.out === true })),
+        place:result.place, pct:result.pct, pts:result.pts, perfects:result.perfects, misses:result.misses, cup:result.cup,
+        grade:result.grade ?? null, out:result.out === true })),
     }));
     /* how much of their songs a bot or stand-in played for each rider (0 to 1), over the Cup */
     const played = {};
@@ -790,9 +795,12 @@ export class FloatRoom {
     const stats = { rounds:cup.history.map(item => ({ round:item.round, song:item.song, offset:item.offset, samples:item.samples,
       riders:Object.fromEntries(Object.entries(item.stats || {}).map(([i, value]) => [name(Number(i)), value])),
       rtt:item.rtt || {},
+      awards:(item.awards || []).map(award => ({ id:award.id, who:name(award.i), value:award.value })),
       /* who drank at the Last Call after this round */
-      lastCall:item.lastCall ? { worst:item.lastCall.worst.map(name), excused:(item.lastCall.excused || []).map(name),
-        totals:Object.fromEntries(item.lastCall.totals.map(row => [name(row.i), row.ms])) } : null })),
+      lastCall:item.lastCall ? { trick:item.lastCall.trick ?? null, worst:item.lastCall.worst.map(name),
+        excused:(item.lastCall.excused || []).map(name),
+        totals:Object.fromEntries(item.lastCall.totals.map(row => [name(row.i), row.ms])),
+        taps:Object.fromEntries(item.lastCall.totals.map(row => [name(row.i), row.d ?? null])) } : null })),
       botShare:Object.fromEntries(Object.entries(played).map(([who, value]) =>
         [who, value.rounds ? Math.round((value.share / value.rounds) * 100) / 100 : 0])) };
     this.queue(`result:${cup.id}`, "/internal/float/result", { evId:cup.evId, cupId:cup.id, order, rounds, stats });

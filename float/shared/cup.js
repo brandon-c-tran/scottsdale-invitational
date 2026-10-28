@@ -15,11 +15,16 @@
    are the riders cut, the last cut first, each cut in its own round's order.
    With 1 to 3 riders nobody is cut and the last song is the result.
 
-   Last Call (GROOVE.md "Last Call") follows every cut but the last, when the
-   room drinks (with drinking off there is none): everyone in the Cup at the
-   bar, the field and the riders out, three grabs, the worst total drinks.
-   Never scored in the Cup; who drank goes in that round's history. The cut
-   before it is shorter (CUT_BEFORE_LAST_CALL_MS).
+   After a song the cut is a show (GROOVE.md "After a song"): every rider's
+   grade (gradeOf), the song's awards (awardsOf), each phone's line
+   (feedbackOf), then the riders out one by one (cutShowOf: the beats).
+
+   Last Call (GROOVE.md "Last Call: the countdown") follows every cut but
+   the last, when the room drinks (with drinking off there is none):
+   everyone in the Cup at the bar, the field and the riders out, one tap on
+   the countdown's zero (chartOf(lastCallId(round)): lights, slow, ticks),
+   the farthest off drinks. Never scored in the Cup; who drank goes in that
+   round's history. The cut before it is shorter (CUT_BEFORE_LAST_CALL_MS).
 
    Times are server ms. In `song`, startAt is when the round card goes up,
    songAt = startAt + SONG_LEAD_MS is beat 0 and endsAt = songAt + SONG_MS +
@@ -29,8 +34,8 @@
 import { CRITTERS, defaultLook, cleanLook } from "./looks.js";
 import { FLOATIE_IDS } from "./floaties.js";
 import { PALETTE, PHASES } from "./protocol.js";
-import { LAST_CALL_ID, SONG_LEAD_MS, SONG_MS, SONG_TAIL_MS, chartOf, songForRound } from "./chart.js";
-import { addTenths, botSkills, closeSong, createBar, createSong, cupTotal, drinksNow, excusedAtBar, isDone, lastCallOf, rand01,
+import { SONG_LEAD_MS, SONG_MS, SONG_TAIL_MS, awardsOf, chartOf, feedbackOf, gradeOf, lastCallId, songForRound } from "./chart.js";
+import { addTenths, botSkills, closeSong, createBar, createSong, cupTotal, drinksNow, excusedAtBar, hitsOf, isDone, lastCallOf, rand01,
   rankSong, riderScore, riderStats, seedOf, songScores, stepSong } from "./groove.js";
 
 /* colours for riders without one (protocol.js owns the list) */
@@ -40,11 +45,16 @@ export const MAX_RIDERS = 16;
 /* the Cup's clock (a song's own length is chart.js's) */
 export const CUP_TIMING = Object.freeze({
   INTRO_MS:8000,
-  CUT_MS:20000,
-  /* after the final there is no one to cut: a short results beat */
+  /* the cut's show: grades, awards, the riders out one by one (CUT_SHOW) */
+  CUT_MS:15000,
+  /* after the final there is no one to cut: the grades and awards */
   CUT_LAST_MS:7000,
   /* a cut with Last Call after it */
   CUT_BEFORE_LAST_CALL_MS:12000,
+  /* the cut's beats from its start (cutShowOf): the grades' stamp, the
+     awards a card apart, the cut line after the last, then the riders out
+     from the bottom, at most OUT_GAP_MS apart and done END_MS before the end */
+  CUT_SHOW:Object.freeze({ GRADES_MS:400, AWARDS_MS:2400, AWARD_GAP_MS:1200, OUTS_AFTER_LINE_MS:800, OUT_GAP_MS:1400, END_MS:1200 }),
   /* Last Call goes up this long before its beat 0 */
   LAST_CALL_LEAD_MS:3000,
   PODIUM_MS:15000,
@@ -55,8 +65,9 @@ export const CUP_TIMING = Object.freeze({
   LATE_MS:1000,
 });
 export const SONG_PHASE_MS = SONG_LEAD_MS + SONG_MS + SONG_TAIL_MS;
-/* Last Call's phase: the lead, its 16 s, the same tail as a song's */
-export const LAST_CALL_PHASE_MS = CUP_TIMING.LAST_CALL_LEAD_MS + chartOf(LAST_CALL_ID).ms + SONG_TAIL_MS;
+/* the Last Call after round k: the lead, its chart (the countdown, the first
+   one's intro the longer), the same tail as a song's */
+export const lastCallPhaseMs = round => CUP_TIMING.LAST_CALL_LEAD_MS + chartOf(lastCallId(round)).ms + SONG_TAIL_MS;
 
 /* the field for every round: monotonic, never below 3, the final 3 once
    there are 3 or more; the cuts as even as they can be, bigger first (13:
@@ -89,6 +100,8 @@ export function createCup({ id = "cup", mode = "party", code = "", drinking = tr
     offset:0,
     /* each rider's earlier songs' percents, summed */
     totals:{},
+    /* the last song's awards and each rider's line, for its cut */
+    awards:[], feedback:{},
     scores:[], results:[], history:[], standings:[], podium:null, final:null, done:false,
   };
 }
@@ -143,6 +156,8 @@ export function startCup(cup, now) {
   cup.final = null;
   cup.done = false;
   cup.totals = {};
+  cup.awards = [];
+  cup.feedback = {};
   cup.offset = 0;
   cup.song = null;
   cup.bar = null;
@@ -190,13 +205,21 @@ function endSong(cup, at, driven) {
   /* out: elimination order, a round's worst first, so the last cut's best
      is the last entry (4th place) */
   cup.out.push(...eliminated.slice().reverse());
-  const results = ranking.map(row => ({ ...row, out:eliminated.includes(row.i) }));
+  const results = ranking.map(row => ({ ...row, grade:gradeOf(row.pct), out:eliminated.includes(row.i) }));
   cup.scores = songScores(cup, song, Infinity);
   const stats = Object.fromEntries(song.field.map(i => [i, riderStats(cup, song, i)]));
+  /* the show's: the song's awards, each rider's line */
+  const chart = chartOf(song.id);
+  const hits = song.field.map(i => ({ i, hits:hitsOf(song, i) }));
+  cup.awards = awardsOf(chart, hits);
+  cup.feedback = Object.fromEntries(hits.map(({ i, hits:own }) => {
+    const feedback = feedbackOf(chart, own);
+    return [i, { grade:feedback.grade, line:feedback.line }];
+  }));
   for (const row of ranking) cup.totals[row.i] = addTenths(cupTotal(cup, row.i), row.pct);
   cup.offset = song.offset;
   cup.history.push({ round:cup.round, song:song.id, field:song.field.slice(), results, out:eliminated,
-    offset:song.offset, samples:song.samples.length, stats });
+    offset:song.offset, samples:song.samples.length, stats, awards:cup.awards });
   cup.results = results;
   cup.field = survivors;
   cup.song = null;
@@ -210,20 +233,22 @@ function endSong(cup, at, driven) {
   return { survivors, eliminated, last, events };
 }
 
-/* Last Call goes up at `at`: everyone in the Cup, on the last song's offset */
+/* Last Call goes up at `at`: everyone in the Cup, on the last song's
+   offset, the round's countdown */
 function enterLastCall(cup, at) {
   cup.bar = createBar({ cup, round:cup.round, songAt:at + CUP_TIMING.LAST_CALL_LEAD_MS, players:barPlayers(cup), offset:cup.offset });
-  setPhase(cup, "lastcall", at, LAST_CALL_PHASE_MS);
+  setPhase(cup, "lastcall", at, lastCallPhaseMs(cup.round));
 }
 
-/* Last Call is over: any grab still open is a miss; the totals, who drank
-   and who a stand-in grabbed for (excused) go in this round's history.
-   Returns { events, lastCall }. */
+/* Last Call is over: no tap is a miss; the totals, who drank and who a
+   stand-in counted for (excused) go in this round's history. Returns
+   { events, lastCall }. */
 function endLastCall(cup, driven) {
   const bar = cup.bar;
   const { events } = closeSong(cup, bar, { driven });
   const { totals, worst } = lastCallOf(bar, Infinity);
-  const lastCall = { round:bar.round, players:bar.field.slice(), offset:bar.offset, totals, worst, excused:excusedAtBar(bar) };
+  const lastCall = { round:bar.round, id:bar.id, trick:chartOf(bar.id).countdown.trick, players:bar.field.slice(),
+    offset:bar.offset, totals, worst, excused:excusedAtBar(bar) };
   const item = cup.history.find(entry => entry.round === bar.round);
   if (item) item.lastCall = lastCall;
   cup.bar = null;
@@ -309,9 +334,9 @@ export function ensureSong(cup) {
   return cup.song;
 }
 
-/* a lastcall phase without its state: a fresh bar by the clock */
+/* a lastcall phase without its state: a fresh bar by the clock (the round's countdown) */
 export function ensureBar(cup) {
-  if (cup.bar && cup.bar.round === cup.round) return cup.bar;
+  if (cup.bar && cup.bar.round === cup.round && cup.bar.id === lastCallId(cup.round)) return cup.bar;
   cup.bar = createBar({ cup, round:cup.round, songAt:(cup.startAt ?? 0) + CUP_TIMING.LAST_CALL_LEAD_MS, players:barPlayers(cup),
     offset:cup.offset });
   return cup.bar;
@@ -333,6 +358,8 @@ export function toLobby(cup, now, { keepBots = false } = {}) {
   cup.podium = null;
   cup.final = null;
   cup.totals = {};
+  cup.awards = [];
+  cup.feedback = {};
   cup.round = 0;
   cup.song = null;
   cup.bar = null;
@@ -380,14 +407,36 @@ export function scoresOf(cup, now) {
   return cup.scores || [];
 }
 
-/* `lastCall` in Last Call: { totals:[{ i, ms, grabs }], worst } (groove.js
-   lastCallOf; worst null until the last grab's miss deadline), else null */
+/* `lastCall` in Last Call: { totals:[{ i, ms, d }], worst } (groove.js
+   lastCallOf; worst null until the zero's miss deadline), else null */
 export function lastCallSummary(cup, now) {
   return cup.phase === "lastcall" && cup.bar ? lastCallOf(cup.bar, now) : null;
 }
 
-/* `results`: the round's ranking, live in a song, final from its cut:
-   [{ i, place, pts, pct, perfects, misses, cup, out? }] */
+/* `awards` in the cut: the song's (chart.js awardsOf: [{ id, i, value, label }]), else null */
+export const awardsSummary = cup => cup.phase === "cut" ? cup.awards || [] : null;
+
+/* The cut's show (GROOVE.md "After a song") as beats every screen, phone
+   and speaker can land on (server ms; null outside the cut): { grades,
+   awards:[at, ...] (one a card, in awards' order), line (the cut line, null
+   after the final), outs:[{ i, at }] (this round's riders out, from the
+   bottom) }. The outs spread over what the cut has left, at most
+   CUT_SHOW.OUT_GAP_MS apart. */
+export function cutShowOf(cup) {
+  if (cup.phase !== "cut" || !Number.isFinite(cup.startAt) || !Number.isFinite(cup.endsAt)) return null;
+  const S = CUP_TIMING.CUT_SHOW;
+  const t0 = cup.startAt;
+  const awards = (cup.awards || []).map((_, k) => t0 + S.AWARDS_MS + k * S.AWARD_GAP_MS);
+  const out = (cup.results || []).filter(row => row.out).map(row => row.i).reverse();
+  if (!out.length) return { grades:t0 + S.GRADES_MS, awards, line:null, outs:[] };
+  const line = t0 + S.AWARDS_MS + awards.length * S.AWARD_GAP_MS;
+  const from = line + S.OUTS_AFTER_LINE_MS;
+  const gap = Math.max(0, Math.min(S.OUT_GAP_MS, (cup.endsAt - S.END_MS - from) / out.length));
+  return { grades:t0 + S.GRADES_MS, awards, line, outs:out.map((i, k) => ({ i, at:Math.round(from + k * gap) })) };
+}
+
+/* `results`: the round's ranking, live in a song, final from its cut with
+   each rider's grade: [{ i, place, pts, pct, perfects, misses, cup, grade?, out? }] */
 export function resultsOf(cup) {
   if (cup.phase === "song" && cup.song) return rankSong(cup, cup.song);
   return cup.phase === "lobby" ? [] : cup.results || [];
@@ -395,8 +444,9 @@ export function resultsOf(cup) {
 
 /* `me`: one rider's own state for their phone. In a song: pts, pct, live,
    place so far, of, cut, done and the last judgement (c, q, d); in its
-   cut: the round's result with through or out; at Last Call: their
-   lastCall { ms, grabs } and last grab (c, q, d), out if they are; a rider
+   cut: the round's result with through or out and their feedback { grade,
+   line } (feedbackOf); at Last Call: their lastCall { ms, d } and the tap's
+   judgement (c, q, d), out if they are; a rider
    out earlier: out with their place in the Cup so far; before and after:
    their place. */
 export function meOf(cup, i, now) {
@@ -416,11 +466,11 @@ export function meOf(cup, i, now) {
     const last = cup.bar.last[i];
     const standing = cup.standings.find(item => item.i === i);
     return { ...base, ...(cup.out.includes(i) ? { out:true } : {}), place:standing?.place ?? null, of:cup.standings.length,
-      lastCall:{ ms:own.ms, grabs:own.grabs }, ...(last ? { c:last.c, q:last.q, ...(last.d === undefined ? {} : { d:last.d }) } : {}) };
+      lastCall:{ ms:own.ms, d:own.d }, ...(last ? { c:last.c, q:last.q, ...(last.d === undefined ? {} : { d:last.d }) } : {}) };
   }
   const row = cup.phase === "cut" ? cup.results.find(item => item.i === i) : null;
   if (row) return { ...base, pts:row.pts, pct:row.pct, live:row.pct, place:row.place, of:cup.results.length, done:true,
-    through:!row.out, out:row.out === true };
+    through:!row.out, out:row.out === true, feedback:cup.feedback?.[i] ?? { grade:row.grade, line:"" } };
   const standing = cup.standings.find(item => item.i === i);
   const place = standing?.place ?? null;
   if (cup.out.includes(i)) return { ...base, out:true, place, of:cup.standings.length };

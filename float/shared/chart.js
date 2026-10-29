@@ -354,7 +354,7 @@ export function popupOf(q, d) {
    names, 3 2 1), up to WINDOW_MS for a Done, the winner shown (REVEAL_MS),
    the loser's exit (EXIT_MS). Nobody Done in the window: the better score
    keeps the spot. */
-export const CHUGOFF = Object.freeze({ INTRO_MS:4000, WINDOW_MS:30000, REVEAL_MS:3000, EXIT_MS:2500 });
+export const CHUGOFF = Object.freeze({ INTRO_MS:4000, INTRO_FIRST_MS:7000, WINDOW_MS:30000, REVEAL_MS:3000, EXIT_MS:2500 });
 
 /* ---- after a song: grades, a line for each rider, the awards ---- */
 

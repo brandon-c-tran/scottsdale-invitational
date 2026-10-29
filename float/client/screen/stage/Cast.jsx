@@ -74,6 +74,10 @@ export function rollCallAt({ phase, phaseStart, songAt, seat, now }) {
   return t < 0.6 ? 1.18 * ease(t / 0.6) : 1.18 - 0.18 * ((t - 0.6) / 0.4);
 }
 
+/* where each rider is drawn this frame (stage px: the waterline's middle
+   and the drawn scale), for the layers that follow them (the fireworks) */
+export const castSpots = new WeakMap();
+
 /* the cast's plan for a room message: who is in the water (and how they are
    laid out), who stands on the bank, who leaves for it and how, the podium */
 export function castPlan({ phase, room, state, entrants }) {
@@ -267,6 +271,8 @@ export default function Cast({ store, driver, entrants, phase, room, version }) 
       }
       return nameWidths.current.get(i);
     };
+    let spots = castSpots.get(store);
+    if (!spots) castSpots.set(store, spots = new Map());
     const frame = (now, dt) => {
       const p = planRef.current;
       const songAt = st.songAt;
@@ -358,6 +364,7 @@ export default function Cast({ store, driver, entrants, phase, room, version }) 
         } else if (bank[i]) { spot = bank[i]; where = "bank"; }
         const fx = fxRefs.current.get(i);
         if (!spot) {
+          spots.delete(i);
           if (m.shown !== "0") { r.rider.style.opacity = "0"; m.shown = "0"; }
           const popNode = popRefs.current.get(i);
           if (popNode && popNode.style.opacity !== "0") popNode.style.opacity = "0";
@@ -481,6 +488,7 @@ export default function Cast({ store, driver, entrants, phase, room, version }) 
         const ax = anchor.water[0], ay = anchor.water[1];
         const sc = s * pop * fill;
         r.rider.style.transform = `translate3d(${(x + enter - ax * sc).toFixed(1)}px, ${(y - ay * sc).toFixed(1)}px, 0) scale(${sc.toFixed(4)})`;
+        spots.set(i, { x:x + enter, y, sc, where });
         const dx = (act?.dx || 0) + shiver, dy = (act?.dy || 0) + bob.dy + popLift;
         /* a stroke leans the body into its side */
         const rot = (act?.rot || 0) + (pad.side ? pad.side * 3 * (pad.dy / PADDLE.DIP) : 0), sx = (act?.sx ?? 1) * bob.sx, sy = (act?.sy ?? 1) * bob.sy;

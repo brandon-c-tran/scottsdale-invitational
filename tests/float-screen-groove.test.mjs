@@ -864,3 +864,37 @@ test("the offset number's tone: a song's by offsetTone (gold, green, yellow, red
   const css = readFileSync(new URL("../float/client/screen/screen.css", import.meta.url), "utf8");
   for (const tone of ["gold", "green", "yellow", "orange", "red", "grey"]) assert.match(css, new RegExp(`data-tone="${tone}"`), `${tone} drawn`);
 });
+
+test("wave B: the blackout bars, every rocket hit a firework sized by its judgement (a miss fizzles), the sky filling after the finale; the same numbers as the sound", async () => {
+  const fw = await import("../float/client/screen/model/fireworks.js");
+  const sound = await import("../float/client/sound/groove.js");
+  assert.equal(fw.ROCKET_BURST_MS, sound.ROCKET_BURST_MS);
+  assert.deepEqual({ ...fw.BURST_SIZE }, { ...sound.BURST_SIZE });
+  const night = chartOf("fireworks"), drop = chartOf("drop");
+  assert.equal(fw.skyBeat(night), sound.skyBeat(night));
+  assert.equal(fw.skyBeat(drop), null, "only a song that ends on rockets");
+  assert.deepEqual([...fw.darkBars(drop)], [...sound.darkBars(drop)]);
+  for (const bar of drop.dark) {
+    assert.ok(fw.darkAt(drop, bar * 4 + 0.1) && fw.darkAt(drop, bar * 4 + 3.9), `Drop bar ${bar} dark`);
+    assert.ok(!fw.darkAt(drop, (bar + 1) * 4 + 0.1) || drop.dark.includes(bar + 1), "back on the next bar");
+  }
+  assert.equal(fw.darkAt(chartOf("paddle"), 50), false);
+  const songAt = 100000;
+  const rocket = night.cues.find(c => c.kind === "rocket" && c.scored);
+  const burstAt = songAt + rocket.beat * 500 + fw.ROCKET_BURST_MS;
+  const judged = new Map([[0, new Map([[rocket.id, { q:"perfect", at:songAt + rocket.beat * 500 + 30 }]])], [1, new Map([[rocket.id, { q:"late", at:burstAt + 120 }]])],
+    [2, new Map([[rocket.id, { q:"miss", at:songAt + rocket.beat * 500 + 550 }]])]]);
+  const at = now => fw.fireworksAt({ chart:night, songAt, judged, field:[0, 1, 2], now }).filter(f => !String(f.key).includes(":d"));
+  assert.equal(at(songAt + rocket.beat * 500 - 10).length, 0, "nothing before the launch");
+  const up = at(burstAt + 200);
+  const mine = up.find(f => f.i === 0), late = up.find(f => f.i === 1);
+  assert.equal(mine.at, burstAt, "a Perfect bursts a beat after its launch");
+  assert.equal(mine.size, 1, "the biggest");
+  assert.equal(late.at, burstAt + 120, "or as its hit arrives, if that is later");
+  assert.equal(late.size, fw.BURST_SIZE.late, "early and late still pop, small");
+  assert.equal(up.find(f => f.i === 2).kind, "fizzle", "a miss fizzles");
+  assert.equal(at(burstAt + fw.FIRE.BURST_MS + 200).filter(f => f.kind === "burst").length, 0, "then gone");
+  assert.equal(fw.skyAt(night, songAt, songAt + (fw.skyBeat(night) - 0.1) * 500), null);
+  const sky = fw.skyAt(night, songAt, songAt + fw.skyBeat(night) * 500 + 2000);
+  assert.ok(sky.fill === 1 && sky.bursts.length > 0, "the sky fills, a volley of the winner's bursts");
+});

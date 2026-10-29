@@ -28,6 +28,8 @@ import Host from "./stage/Host.jsx";
 import Lobby from "./hud/Lobby.jsx";
 import { ChugHud, CutShow, Feedback, IntroTitle, LastCallHud, Narration, PodiumBlocks, PodiumList, RankStrip, SongBanner, SongStrip } from "./hud/Hud.jsx";
 import Bar from "./stage/Bar.jsx";
+import Fireworks from "./stage/Fireworks.jsx";
+import { darkAt } from "./model/fireworks.js";
 import { podiumBeats } from "./soundBridge.js";
 import "./screen.css";
 
@@ -150,18 +152,21 @@ export default function FloatScreen({ room = "test", hosting = false, joinUrl = 
       if (travel === null) travel = (now / 1000) * 64;
       const dt = lastNow === null ? 0 : Math.max(0, Math.min(120, now - lastNow));
       lastNow = now;
-      travel += (dt / 1000) * 64 * speed;
+      travel += (dt / 1000) * 64 * speed * (stage.dataset.dark ? 0 : 1);
       for (const layer of layers) {
         if (lite && layer.depth < 0.3) continue;
         layer.node.style.transform = `translate3d(${layerOffset(travel * 1000 / 64, layer.depth).toFixed(1)}px, 0, 0)`;
       }
       if (checker && !lite) checker.style.transform = `rotateX(76deg) translate3d(${(-(travel * 0.7) % 240).toFixed(1)}px, 0, 0)`;
-      /* the scene's mode (rocks drifting by, the whirl, the falls) follows the bar */
+      /* the scene's mode (rocks drifting by, the whirl, the falls) follows the bar; a blackout bar darkens it */
       if (phase === "song" && st.chart && Number.isFinite(st.songAt)) {
-        const { mode, section } = sceneMode(st.chart, (now - st.songAt) / st.chart.beatMs);
+        const beat = (now - st.songAt) / st.chart.beatMs;
+        const { mode, section } = sceneMode(st.chart, beat);
         const value = `${mode || ""}:${section || ""}`;
         if (stage.dataset.mode !== value) stage.dataset.mode = value;
-      }
+        const dark = darkAt(st.chart, beat) ? "1" : "";
+        if ((stage.dataset.dark || "") !== dark) stage.dataset.dark = dark;
+      } else if (stage.dataset.dark) stage.dataset.dark = "";
     });
   }, [driver, scene, phase, lite, st]);
 
@@ -190,6 +195,7 @@ export default function FloatScreen({ room = "test", hosting = false, joinUrl = 
         {water && phase !== "lobby" && <Host store={store} driver={driver} phase={phase} />}
         {phase === "lastcall" && <Bar store={store} driver={driver} />}
         <Cast store={store} driver={driver} entrants={entrants} phase={phase} room={roomMsg} version={version} />
+        {phase === "song" && <Fireworks store={store} driver={driver} entrants={entrants} />}
         <div className="fs-hud">
           {phase === "lobby" && <Lobby room={roomMsg} entrants={entrants} hosting={hosting && roomMsg?.mode !== "fieldday"} joinUrl={joinUrl} send={send}
             serverNow={store.serverNow} />}

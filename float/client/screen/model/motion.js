@@ -29,6 +29,8 @@ export const ACTIONS = Object.freeze({
   hop:{ pose:"cheer", ms:460 },
   spin:{ pose:"hey", ms:480 },
   drop:{ pose:"cheer", ms:1100 },
+  /* Fireworks: an arm up as the rocket goes, a kick back from the launch */
+  rocket:{ pose:"hey", ms:440 },
   /* Last Call: a reach up for the glass */
   grab:{ pose:"hey", ms:560 },
   miss:{ pose:"miss", ms:680 },
@@ -87,6 +89,14 @@ export function actionAt(hit, now) {
     out.dy = -40 * up + 150 * fall;
     out.rot = 14 * fall;
     out.splash = t >= 0.45 && t < 0.85 ? 1 - (t - 0.45) / 0.4 : 0;
+  } else if (kind === "rocket") {
+    const up = Math.sin(Math.PI * Math.min(1, t / 0.6));
+    const kick = t < 0.2 ? t / 0.2 : Math.max(0, 1 - (t - 0.2) / 0.5);
+    out.dy = -20 * up + 10 * kick;
+    out.sy = 1 + 0.07 * up - 0.06 * kick;
+    out.sx = 1 - 0.04 * up + 0.05 * kick;
+    out.rot = -4 * kick;
+    out.splash = kick * 0.6;
   } else if (kind === "grab") {
     const reach = Math.sin(Math.PI * Math.min(1, t / 0.75));
     out.dy = -30 * reach;

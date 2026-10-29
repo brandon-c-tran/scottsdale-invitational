@@ -18,6 +18,16 @@ export const HOST = Object.freeze({ x:196, y:436, h:330 });
 /* the drawn host's box and anchors when the art has none */
 const DRAWN_HOST = Object.freeze({ box:[400, 480], anchor:{ ground:[200, 462], horn:[336, 286] } });
 
+/* Fireworks' call: the host lights a fuse, a rocket with a fizzing spark */
+function FuseGlyph() {
+  return <svg className="fl-fuse" viewBox="0 0 80 80" aria-hidden="true">
+    <rect x="22" y="30" width="22" height="40" rx="5" fill="#ff4fa3" stroke="#1d1a24" strokeWidth="5" />
+    <path d="M22 30 L33 14 L44 30 Z" fill="#ffc23d" stroke="#1d1a24" strokeWidth="5" strokeLinejoin="round" />
+    <path d="M44 52 q14 -2 16 -16" fill="none" stroke="#1d1a24" strokeWidth="5" strokeLinecap="round" />
+    <g className="fl-fuse-spark"><path d="M60 22 l4 10 l10 -4 l-6 9 l9 6 l-11 1 l1 11 l-7 -8 l-8 7 l2 -11 l-11 -2 l10 -5 l-5 -10 l9 5 Z" fill="#ffe14d" stroke="#1d1a24" strokeWidth="3" strokeLinejoin="round" /></g>
+  </svg>;
+}
+
 /* the host rows on the pulse (item 10): the latest paddle cue whose stroke
    is still running, as a stroke everyone sees; null when the bar has none */
 const STROKES = new WeakMap();
@@ -77,12 +87,13 @@ export default function Host({ store, driver, phase }) {
       const stretch = echo && !still ? 0.08 * into : 0;
       if (body.current) body.current.style.transform = `translate3d(0, ${(bob.dy + lift).toFixed(1)}px, 0) rotate(${lean.toFixed(2)}deg) scale(${(bob.sx - stretch * 0.5).toFixed(4)}, ${(bob.sy + stretch).toFixed(4)})`;
       /* the bubble: the call's word (a note for the breakdown's rhythm), popping on its beat */
-      const callText = h.call ? h.call.word || (echo ? "note" : null) : null;
+      const fuse = h.call?.kind === "rocket";
+      const callText = h.call ? h.call.word || (echo ? "note" : fuse ? "fuse" : null) : null;
       if (bubble.current) {
         const key = h.call ? `${h.call.cue}:${h.call.n}` : null;
         if (callText !== text || key !== popKey) {
           text = callText; popKey = key;
-          if (word.current) word.current.textContent = echo ? "" : callText || "";
+          if (word.current) word.current.textContent = echo || fuse ? "" : callText || "";
           bubble.current.dataset.kind = h.call?.kind || "";
         }
         if (callText) {
@@ -140,6 +151,6 @@ export default function Host({ store, driver, phase }) {
         <div className="fl-paddle" ref={paddle} style={{ opacity:0 }}><PaddleArt color="#3aa6a0" /></div>
       </div>
     </div>
-    <div className="fl-bubble" ref={bubble} style={{ opacity:0 }}><span ref={word} /><NoteGlyph /></div>
+    <div className="fl-bubble" ref={bubble} style={{ opacity:0 }}><span ref={word} /><NoteGlyph /><FuseGlyph /></div>
   </div>;
 }

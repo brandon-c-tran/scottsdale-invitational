@@ -83,6 +83,23 @@
 .sc-near-left { position:absolute; left:-40px; bottom:-30px; width:420px; height:220px; }
 .sc-near-right { position:absolute; right:-40px; bottom:-30px; width:420px; height:220px; }
 
+/* the night (Fireworks, the final) until the art's own scene: an indigo
+   sky with stars, the moon in the sun's place, the lake dark, the banks in
+   shadow */
+.fs-stage[data-scene="night"] { --sky-top:#0f1340; --sky-mid:#2a2a6e; --sky-low:#5b4688; --mesa-far:#3a3070; --mesa:#2b2457; --sun:#fff4cf;
+  --water-top:#3c4f9a; --water:#26357a; --water-deep:#161f52; --cell:rgba(255, 255, 255, 0.05); }
+.fs-stage[data-scene="night"] .sc-sky::after { content:""; position:absolute; inset:0; opacity:0.9;
+  background:radial-gradient(2px 2px at 8% 12%, #fff 60%, transparent 70%), radial-gradient(2px 2px at 22% 30%, #fff 60%, transparent 70%),
+    radial-gradient(3px 3px at 35% 9%, #fff8d8 60%, transparent 70%), radial-gradient(2px 2px at 47% 24%, #fff 60%, transparent 70%),
+    radial-gradient(2px 2px at 58% 6%, #fff 60%, transparent 70%), radial-gradient(3px 3px at 66% 33%, #fff8d8 60%, transparent 70%),
+    radial-gradient(2px 2px at 79% 15%, #fff 60%, transparent 70%), radial-gradient(2px 2px at 91% 27%, #fff 60%, transparent 70%),
+    radial-gradient(2px 2px at 14% 44%, #fff 60%, transparent 70%), radial-gradient(2px 2px at 41% 41%, #fff 60%, transparent 70%),
+    radial-gradient(2px 2px at 85% 46%, #fff 60%, transparent 70%), radial-gradient(3px 3px at 96% 8%, #fff 60%, transparent 70%); }
+.fs-stage[data-scene="night"] .sc-sun { width:170px; height:170px; left:1500px; top:110px; box-shadow:0 0 0 18px rgba(255, 244, 207, 0.12), 0 0 90px 30px rgba(255, 244, 207, 0.22); }
+.fs-stage[data-scene="night"] .sc-clouds { opacity:0.18; }
+.fs-stage[data-scene="night"] .sc-bank, .fs-stage[data-scene="night"] .sc-near { filter:brightness(0.42) saturate(0.7) hue-rotate(200deg); }
+.fs-stage[data-scene="night"] .sc-water::before { background:rgba(255, 244, 207, 0.25); }
+
 /* the scenes' palettes */
 .fs-stage[data-scene="lobby"] { --sky-top:#bfe9df; --sky-mid:#e7f1d4; --sky-low:#fde6bd; --mesa-far:#f2c8b0; --mesa:#e5a689; }
 .fs-stage[data-scene="rocks"] { --sky-top:#f6c39b; --sky-mid:#fbd1b0; --sky-low:#fde8c4; --mesa-far:#e9ab8e; --mesa:#d9876c;
@@ -471,6 +488,14 @@
 .fl-bubble[data-kind="echo"] { min-width:0; padding:12px 18px 10px; }
 .fl-bubble[data-kind="echo"] span { display:none; }
 .fl-bubble[data-kind="echo"] .fl-note { display:block; }
+/* Fireworks: the host lights a fuse (the bubble's rocket, its spark fizzing) */
+.fl-fuse { display:none; width:72px; height:72px; margin:0 auto; overflow:visible; }
+.fl-bubble[data-kind="rocket"] { min-width:0; padding:10px 16px 8px; }
+.fl-bubble[data-kind="rocket"] span { display:none; }
+.fl-bubble[data-kind="rocket"] .fl-fuse { display:block; }
+.fl-fuse-spark { transform-origin:64px 34px; animation:fl-fizz 0.16s steps(2, start) infinite; }
+@keyframes fl-fizz { from { transform:scale(1) rotate(0deg); } to { transform:scale(1.25) rotate(18deg); } }
+@media (prefers-reduced-motion: reduce) { .fl-fuse-spark { animation:none; } }
 
 /* ── Last Call: the board, the clock, the gags ── */
 .lc-board { position:absolute; z-index:420; will-change:transform; }
@@ -490,6 +515,30 @@
 .lc-cord-drawn { position:absolute; left:45%; width:10%; top:0; bottom:0; background:#f0d9a8; box-shadow:0 0 0 3px var(--ink); }
 .lc-say { position:absolute; padding:10px 24px 14px; border-radius:24px; background:var(--bone); box-shadow:0 0 0 5px var(--ink), 0 7px 0 0 var(--ink); white-space:nowrap; }
 .lc-say span { font-family:var(--px); font-size:52px; font-weight:700; line-height:1; color:var(--ink); }
+/* a blackout bar (item 8): everything drops to silhouettes under a dark
+   cover; the popups, the names and the fireworks stay lit; the host's calls stop */
+.fs-blackout { position:absolute; inset:0; z-index:2400; background:#0a0818; opacity:0; pointer-events:none; transition:opacity 110ms linear; }
+.fs-blackout[data-on="1"] { opacity:0.78; }
+.fs-stage[data-dark="1"] .fl-rider .cr-sprites, .fs-stage[data-dark="1"] .fl-rider .cr, .fs-stage[data-dark="1"] .fl-host-body { filter:brightness(0); }
+.fs-stage[data-dark="1"] .fl-bubble, .fs-stage[data-dark="1"] .fl-host-sign { visibility:hidden; }
+.fs-stage[data-dark="1"] .fl-names { opacity:0.7; }
+/* the fireworks: over the cover, under the popups */
+.fw-layer { position:absolute; inset:0; z-index:2450; pointer-events:none; }
+.fw { position:absolute; left:0; top:0; width:0; height:0; --fw:#ffc23d; }
+.fw-head, .fw-trail, .fw-burst { position:absolute; left:0; top:0; will-change:transform, opacity; opacity:0; }
+.fw-head { width:16px; height:16px; margin:-8px 0 0 -8px; border-radius:50%; background:radial-gradient(circle, #fffdf8 30%, var(--fw) 70%); }
+.fw-trail { width:6px; height:120px; margin-left:-3px; transform-origin:50% 0; border-radius:3px;
+  background:linear-gradient(180deg, rgba(255, 253, 248, 0.95), color-mix(in srgb, var(--fw) 70%, transparent) 40%, transparent); }
+.fw-burst { width:0; height:0; }
+.fw-core { position:absolute; left:-46px; top:-46px; width:92px; height:92px; border-radius:50%; will-change:transform, opacity;
+  background:radial-gradient(circle, #fffdf8 0 22%, color-mix(in srgb, var(--fw) 80%, #fff) 40%, transparent 70%); }
+.fw-spark { position:absolute; left:-7px; top:-22px; width:14px; height:44px; border-radius:7px; will-change:transform;
+  background:linear-gradient(180deg, #fffdf8 0 30%, var(--fw) 55%, color-mix(in srgb, var(--fw) 50%, transparent) 100%);
+  box-shadow:0 0 0 3px rgba(29, 26, 36, 0.55); }
+.fw[data-kind="fizzle"] .fw-spark { width:12px; height:12px; left:-6px; top:-6px; border-radius:50%; background:#8d8a99; box-shadow:0 0 0 3px rgba(29, 26, 36, 0.7); }
+/* after the finale the sky fills in the winner's colour */
+.fw-skyfill { position:absolute; left:0; right:0; top:0; height:640px; z-index:300; pointer-events:none; --fw:#ffc23d;
+  background:radial-gradient(ellipse 90% 80% at 50% 30%, color-mix(in srgb, var(--fw) 85%, #fff) 0%, color-mix(in srgb, var(--fw) 70%, transparent) 55%, transparent 100%); }
 .lc-counter { position:absolute; left:0; width:1920px; z-index:2500; pointer-events:none; box-shadow:0 -6px 0 rgba(29, 26, 36, 0.35); }
 .lc-counter.is-drawn { background:linear-gradient(#b8743f 0 34px, #1d1a24 34px 40px, #7a4526 40px 100%); }
 .fs-root[data-phase="lastcall"] .fl-ripple, .fs-root[data-phase="lastcall"] .fl-ripple-art { opacity:0; }

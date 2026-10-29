@@ -108,13 +108,20 @@
 .fl-rider[data-where="bank"] .fl-ripple-art, .fl-rider[data-where="hop"] .fl-ripple-art, .fl-rider[data-where="podium"] .fl-ripple-art { opacity:0; }
 .fl-splash { position:absolute; left:340px; top:300px; width:220px; height:132px; opacity:0; pointer-events:none; }
 .fl-splash svg { width:100%; height:100%; display:block; }
+/* the host's paddle (item 10): a node of no size at the grip, the art centred on it */
+.fl-paddle { position:absolute; width:0; height:0; will-change:transform, opacity; transform-origin:0 0; }
+.fl-paddle-art { position:absolute; display:block; overflow:visible; pointer-events:none; }
+.fl-paddle-art img { position:absolute; inset:0; width:100%; height:100%; display:block; }
+.fl-paddle-tint { position:absolute; inset:0; mix-blend-mode:multiply; -webkit-mask-size:100% 100%; mask-size:100% 100%; }
+.fl-psplash { position:absolute; left:0; top:0; width:170px; height:120px; transform-origin:50% 85%; will-change:transform, opacity; pointer-events:none; }
+.fl-psplash img, .fl-psplash svg { width:100%; height:100%; display:block; }
 
 /* a pose shows only its own parts (the placeholder drawing, or the art's sprites) */
-.fl-rider .p-idle, .fl-rider .p-stroke, .fl-rider .p-hey, .fl-rider .p-nice, .fl-rider .p-miss,
+.fl-rider .p-idle, .fl-rider .p-stroke, .fl-rider .p-stroke-r, .fl-rider .p-hey, .fl-rider .p-nice, .fl-rider .p-miss,
 .fl-rider .p-chug, .fl-rider .p-chug-eyes, .fl-rider .p-cheer, .fl-rider .p-out,
-.cr-face .p-idle, .cr-face .p-stroke, .cr-face .p-hey, .cr-face .p-nice, .cr-face .p-miss,
+.cr-face .p-idle, .cr-face .p-stroke, .cr-face .p-stroke-r, .cr-face .p-hey, .cr-face .p-nice, .cr-face .p-miss,
 .cr-face .p-chug, .cr-face .p-chug-eyes, .cr-face .p-cheer, .cr-face .p-out { visibility:hidden; }
-[data-pose="idle"] .p-idle, [data-pose="stroke"] .p-stroke, [data-pose="hey"] .p-hey, [data-pose="nice"] .p-nice,
+[data-pose="idle"] .p-idle, [data-pose="stroke"] .p-stroke, [data-pose="stroke-r"] .p-stroke-r, [data-pose="stroke-r"] .cr .p-stroke, [data-pose="hey"] .p-hey, [data-pose="nice"] .p-nice,
 [data-pose="miss"] .p-miss, [data-pose="chug"] .p-chug, [data-pose="chug"] .p-chug-eyes, [data-pose="cheer"] .p-cheer,
 [data-pose="out"] .p-out { visibility:visible !important; }
 .cr { overflow:visible; }
@@ -142,10 +149,20 @@
 .fl-pops { position:absolute; inset:0; pointer-events:none; }
 .fl-pop { position:absolute; left:0; top:0; width:0; height:0; opacity:0; will-change:transform, opacity; transform-origin:0 100%; }
 .fl-pop-in { position:absolute; left:0; bottom:0; display:block; transform:translateX(-50%); }
+/* the number's colour by how close (GROOVE.md v3: offsetTone in a song,
+   countTone at Last Call); the word keeps the art's tones */
+.fl-pop-in[data-tone] .fg-popup-num { color:var(--tone-num); }
+.fl-pop-in[data-tone="gold"] { --tone-num:#ffb81f; }
+.fl-pop-in[data-tone="green"] { --tone-num:#5fe07a; }
+.fl-pop-in[data-tone="yellow"] { --tone-num:#fff35c; }
+.fl-pop-in[data-tone="orange"] { --tone-num:#ff9a2e; }
+.fl-pop-in[data-tone="red"] { --tone-num:#ff4d5a; }
+.fl-pop-in[data-tone="grey"] { --tone-num:#c3c1cc; }
 
 /* ── the host ── */
 .fl-host { position:absolute; left:0; top:0; z-index:900; }
 .fl-host-body { position:absolute; inset:0; transform-origin:50% var(--ground-y, 100%); will-change:transform; }
+.fl-host-paddle { position:absolute; width:0; height:0; transform-origin:0 0; }
 .fl-host .hs { width:100%; height:100%; display:block; overflow:visible; }
 .hs-sprites { position:absolute; inset:0; display:block; }
 .hs-sprite { position:absolute; inset:0; width:100%; height:100%; display:block; visibility:hidden; }
@@ -414,12 +431,15 @@
 .fl-fx-prop { position:absolute; left:0; top:0; display:block; will-change:transform, opacity; }
 .fl-fx-prop img, .fl-fx-prop svg { width:100%; height:100%; display:block; }
 
-/* ── popups: the closest and who drinks ── */
-.fl-pop-in.is-closest, .fl-pop-in.is-drinks { display:flex; flex-direction:column; align-items:center; gap:6px; }
-.fl-pop-tag { display:block; padding:4px 16px 8px; border-radius:12px; font-family:var(--px); font-size:34px; font-weight:700; line-height:1; white-space:nowrap;
-  box-shadow:0 0 0 5px var(--ink), 0 6px 0 0 var(--ink); }
-.fl-pop-tag.is-closest { background:var(--gold); color:var(--ink); }
-.fl-pop-tag.is-drinks { background:#e8455f; color:var(--bone); }
+/* ── Last Call's verdict: the left end stamps Closest (green), the right
+   end Drinks (red) (GROOVE.md v3) ── */
+.fl-pop-in.is-closest, .fl-pop-in.is-drinks { display:flex; flex-direction:column; align-items:center; gap:10px; }
+.fl-pop-tag { display:block; padding:6px 18px 10px; border-radius:12px; font-family:var(--px); font-size:46px; font-weight:700; line-height:1; white-space:nowrap;
+  box-shadow:0 0 0 6px var(--ink), 0 8px 0 0 var(--ink); transform:rotate(-5deg); animation:fl-stamp 0.42s cubic-bezier(0.2, 1.3, 0.4, 1) both; }
+.fl-pop-tag.is-closest { background:#47d16a; color:var(--ink); }
+.fl-pop-tag.is-drinks { background:#ef3b4f; color:var(--bone); transform:rotate(5deg); }
+@keyframes fl-stamp { from { opacity:0; scale:2.2; } 60% { opacity:1; scale:0.92; } to { opacity:1; scale:1; } }
+@media (prefers-reduced-motion: reduce) { .fl-pop-tag { animation:none; } }
 
 /* ── the host's breakdown: a note in the bubble ── */
 .fl-note { display:none; width:58px; height:66px; margin:0 auto; }
@@ -445,6 +465,9 @@
 .lc-cord-drawn { position:absolute; left:45%; width:10%; top:0; bottom:0; background:#f0d9a8; box-shadow:0 0 0 3px var(--ink); }
 .lc-say { position:absolute; padding:10px 24px 14px; border-radius:24px; background:var(--bone); box-shadow:0 0 0 5px var(--ink), 0 7px 0 0 var(--ink); white-space:nowrap; }
 .lc-say span { font-family:var(--px); font-size:52px; font-weight:700; line-height:1; color:var(--ink); }
+.lc-counter { position:absolute; left:0; width:1920px; z-index:2500; pointer-events:none; box-shadow:0 -6px 0 rgba(29, 26, 36, 0.35); }
+.lc-counter.is-drawn { background:linear-gradient(#b8743f 0 34px, #1d1a24 34px 40px, #7a4526 40px 100%); }
+.fs-root[data-phase="lastcall"] .fl-ripple, .fs-root[data-phase="lastcall"] .fl-ripple-art { opacity:0; }
 .lc-dark { position:absolute; inset:0; z-index:5000; background:#07050c; pointer-events:none; }
 .fl-eyes { position:absolute; inset:0; z-index:5001; pointer-events:none; }
 .fl-eye { position:absolute; left:0; top:0; z-index:5002; width:0; height:0; will-change:transform, opacity; }

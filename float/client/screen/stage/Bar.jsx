@@ -8,9 +8,9 @@
    The art's bartender and props, placed by their anchors; the frame driver
    moves them on the server clock (transform and opacity only). */
 import React, { useEffect, useMemo, useRef } from "react";
-import { bartenderSprites, propOf } from "../../art/groove/index.js";
+import { bartenderSprites, propOf, sceneOf } from "../../art/groove/index.js";
 import { useGrooveArt } from "../../art/groove/RiderSprite.jsx";
-import { BARTENDER, BOARD, bartenderPose, countWord, countdownAt, verdictShown } from "../model/lastcall.js";
+import { BARTENDER, BOARD, COUNTER, bartenderPose, countWord, countdownAt, verdictShown } from "../model/lastcall.js";
 import { bobAt } from "../model/motion.js";
 import { reducedMotion } from "./driver.js";
 
@@ -33,6 +33,21 @@ export function boardOf(trick, m = null) {
   return { id, prop, k, left, top, w:dw, h:dh, face:{ x:left + (fx + fw / 2) * k, y:top + (fy + fh / 2) * k, w:fw * k, h:fh * k } };
 }
 
+/* The counter in front of everyone (GROOVE.md v3 "No tubes at the bar"):
+   the bar scene's own counter (the art's room, cut from its lip to its foot
+   rail) stretched across the stage from COUNTER.top down, so every rider
+   stands behind it waist up like the bartender. No new art; without the
+   scene, a drawn one. */
+export const COUNTER_CROP = Object.freeze({ x0:85, x1:1700, y0:478, y1:762 });
+export function counterStyle(src, crop = COUNTER_CROP) {
+  const h = 1080 - COUNTER.top;
+  if (!src) return { top:COUNTER.top, height:h };
+  const sx = 1920 / (crop.x1 - crop.x0), sy = h / (crop.y1 - crop.y0);
+  return { top:COUNTER.top, height:h, backgroundImage:`url(${src})`, backgroundRepeat:"no-repeat",
+    backgroundSize:`${(1920 * sx).toFixed(1)}px ${(1080 * sy).toFixed(1)}px`,
+    backgroundPosition:`${(-crop.x0 * sx).toFixed(1)}px ${(-crop.y0 * sy).toFixed(1)}px` };
+}
+
 /* the dark at ms t from songAt (lights only): 0 to MAX, gone at the reveal */
 export function darkAt(countdown, t) {
   if (!countdown || countdown.trick !== "lights" || !Number.isFinite(t) || t >= countdown.revealAt) return 0;
@@ -48,6 +63,10 @@ export default function Bar({ store, driver }) {
   const board = useMemo(() => boardOf(trick, m), [trick, m]);
   const cord = useMemo(() => (m ? propOf("pull-cord", m) : null), [m]);
   const foam = useMemo(() => (m ? propOf("foam", m) : null), [m]);
+  const room = useMemo(() => {
+    const scene = m ? sceneOf("bar", m) : null;
+    return scene && !scene.placeholder ? scene.layers?.[0]?.src || null : null;
+  }, [m]);
   const root = useRef(null);
   const body = useRef(null);
   const boardNode = useRef(null);
@@ -132,6 +151,7 @@ export default function Bar({ store, driver }) {
   const foamW = board.w * 1.12;
   const foamH = foam ? foamW * (foam.h / foam.w) : foamW * 0.6;
   return <>
+    <div className={`lc-counter${room ? "" : " is-drawn"}`} style={counterStyle(room)} aria-hidden="true" />
     {trick === "lights" && <div className="lc-cord" ref={cordNode} style={{ left:CORD.x - (cord?.anchor?.[0] ?? 42) * (CORD.h / (cord?.h || 300)), top:CORD.y,
       width:(cord?.w || 83) * (CORD.h / (cord?.h || 300)), height:CORD.h }}>
       {cord?.src ? <img src={cord.src} alt="" draggable={false} /> : <span className="lc-cord-drawn" />}

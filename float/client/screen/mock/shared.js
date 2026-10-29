@@ -69,6 +69,9 @@ export const SHOTS = Object.freeze({
   go:{ phase:"song", round:0, beat:24.25 },
   play:{ phase:"song", round:0, beat:39.3 },
   hey:{ phase:"song", round:0, beat:47.25 },
+  /* rowing (item 10): a stroke on 1 dipping one side, the next on 3 the other */
+  row:{ phase:"song", round:0, beat:40.2 },
+  row3:{ phase:"song", round:0, beat:42.2 },
   /* the breakdown: the host plays a bar ("Copy me"), everyone copies it */
   copy:{ phase:"song", round:0, beat:57.3 },
   echo:{ phase:"song", round:0, beat:61.2 },

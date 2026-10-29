@@ -25,7 +25,7 @@ import RiderSprite, { useGrooveArt, useRiderSprites } from "../art/groove/RiderS
 import ArtPopup from "../art/groove/Popup.jsx";
 import { critterArt, hostSprites, lookOf, propOf, sceneOf } from "../art/groove/index.js";
 
-export const POSES = Object.freeze(["idle", "stroke", "hey", "nice", "miss", "chug", "cheer", "out"]);
+export const POSES = Object.freeze(["idle", "stroke", "stroke-r", "hey", "nice", "miss", "chug", "cheer", "out"]);
 
 /* the top of a critter's head over its head anchor (box px): where a popup starts */
 const HEAD_ROOM = 46;
@@ -167,7 +167,8 @@ export function PlaceholderCritter({ color = "#7fb8ff", critter = "capybara", gr
 function spriteLayers(urls, names = POSES) {
   const byUrl = new Map();
   for (const pose of names) {
-    const url = urls?.[pose] || urls?.idle;
+    /* the right stroke is the left one until the art draws it */
+    const url = urls?.[pose] || (pose === "stroke-r" ? urls?.stroke : null) || urls?.idle;
     if (!url) continue;
     if (!byUrl.has(url)) byUrl.set(url, []);
     byUrl.get(url).push(pose);
@@ -197,7 +198,7 @@ export function Critter({ entrant, art = null }) {
         draggable={false} decoding="async" />)}
       {!art.own.has("chug") && <BoxProp id="cup" className="p-chug" at={[face[0] + 34, face[1] + 18]} width={118} />}
       {!art.own.has("miss") && <BoxProp id="splash" className="p-miss cr-face-splash" at={[face[0] + 6, face[1] - 30]} width={190} />}
-      {!art.own.has("stroke") && <BoxProp id="splash" className="p-stroke" at={[hand[0] + 92, hand[1] + 46]} width={150} />}
+      {!art.own.has("stroke") && <BoxProp id="splash" className="p-stroke p-stroke-r" at={[hand[0] + 92, hand[1] + 46]} width={150} />}
     </span>;
   }
   if (art) {
@@ -313,5 +314,42 @@ export function SplashProp() {
       <path d="M100 112 C70 112 52 70 64 40 C76 70 84 88 100 92 C116 88 124 70 136 40 C148 70 130 112 100 112 Z" />
       <circle cx="40" cy="58" r="10" /><circle cx="160" cy="52" r="12" /><circle cx="100" cy="24" r="9" />
     </g>
+  </svg>;
+}
+
+/* ── the host's paddle (GROOVE.md v3 item 10): the riders' paddles are in
+   their kayak sprites; the host on the bank mimes the strokes on the pulse
+   with this one, a double-bladed kayak paddle. The art's `paddle` prop
+   (`anchor` its grip) if it ever ships one, else this drawing. Drawn
+   PADDLE_LEN box px long, centred on its grip (the node's origin). ── */
+export const PADDLE_LEN = 330;
+export function PaddleArt({ color = "#7fb8ff" }) {
+  const prop = propOf("paddle");
+  if (prop?.src && prop.w && prop.h) {
+    const k = PADDLE_LEN / prop.w;
+    const [ax, ay] = prop.anchor || [prop.w / 2, prop.h / 2];
+    const box = { left:-ax * k, top:-ay * k, width:prop.w * k, height:prop.h * k };
+    const blade = prop.blade || prop.mask || (prop.tint ? prop.src : null);
+    return <span className="fl-paddle-art" style={box}>
+      <img src={prop.src} alt="" draggable={false} />
+      {blade && <i className="fl-paddle-tint" style={{ background:color, WebkitMaskImage:`url(${blade})`, maskImage:`url(${blade})` }} />}
+    </span>;
+  }
+  const dark = shade(color, -0.3), light = shade(color, 0.5);
+  const blade = side => {
+    const s = side < 0 ? 1 : -1;
+    const x = side < 0 ? 4 : 316;
+    const d = `M${x} 33 C${x + s * 6} 8 ${x + s * 44} 4 ${x + s * 80} 22 L${x + s * 80} 44 C${x + s * 44} 62 ${x + s * 6} 58 ${x} 33 Z`;
+    return <g key={side}>
+      <path d={d} fill={color} stroke={LINE} strokeWidth="6" strokeLinejoin="round" />
+      <path d={`M${x + s * 16} 30 C${x + s * 30} 18 ${x + s * 52} 16 ${x + s * 70} 24`} fill="none" stroke={light} strokeWidth="6" strokeLinecap="round" opacity="0.85" />
+      <path d={`M${x + s * 22} 46 C${x + s * 40} 52 ${x + s * 58} 50 ${x + s * 72} 42`} fill="none" stroke={dark} strokeWidth="5" strokeLinecap="round" opacity="0.6" />
+    </g>;
+  };
+  return <svg className="fl-paddle-art" viewBox="0 0 320 66" aria-hidden="true" style={{ left:-PADDLE_LEN / 2, top:-PADDLE_LEN * 33 / 320, width:PADDLE_LEN, height:PADDLE_LEN * 66 / 320 }}>
+    <rect x="72" y="27" width="176" height="12" rx="6" fill="#d8a76a" stroke={LINE} strokeWidth="5" />
+    <rect x="126" y="25" width="16" height="16" rx="4" fill={dark} stroke={LINE} strokeWidth="4" />
+    <rect x="178" y="25" width="16" height="16" rx="4" fill={dark} stroke={LINE} strokeWidth="4" />
+    {blade(-1)}{blade(1)}
   </svg>;
 }

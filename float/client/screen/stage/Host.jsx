@@ -7,8 +7,8 @@
    bar before each switch; a cheer when the song ends. The frame driver sets the
    pose and moves it; React renders it once a phase. */
 import React, { useEffect, useRef } from "react";
-import { HostArt, HostFigure, SignProp, useHostArt } from "../art.jsx";
-import { bobAt } from "../model/motion.js";
+import { HostArt, HostFigure, PaddleArt, SignProp, useHostArt } from "../art.jsx";
+import { PADDLE, bobAt, paddleAt, strokeSide } from "../model/motion.js";
 import { hostAt, signAt } from "../model/song.js";
 import { reducedMotion } from "./driver.js";
 
@@ -17,6 +17,26 @@ import { reducedMotion } from "./driver.js";
 export const HOST = Object.freeze({ x:196, y:436, h:330 });
 /* the drawn host's box and anchors when the art has none */
 const DRAWN_HOST = Object.freeze({ box:[400, 480], anchor:{ ground:[200, 462], horn:[336, 286] } });
+
+/* the host rows on the pulse (item 10): the latest paddle cue whose stroke
+   is still running, as a stroke everyone sees; null when the bar has none */
+const STROKES = new WeakMap();
+export function hostStroke(chart, beat) {
+  if (!chart?.cues || !Number.isFinite(beat)) return null;
+  let list = STROKES.get(chart);
+  if (!list) STROKES.set(chart, list = chart.cues.filter(cue => cue.kind === "paddle"));
+  let found = null;
+  for (const cue of list) { if (cue.beat > beat) break; found = cue; }
+  return found;
+}
+/* is the host rowing at this beat: a paddle cue in this bar or the next */
+export function hostRowing(chart, beat) {
+  if (!chart?.cues || !Number.isFinite(beat)) return false;
+  const bar = Math.floor(beat / 4);
+  return chart.cues.some(cue => cue.kind === "paddle" && cue.beat >= bar * 4 - 1 && cue.beat < bar * 4 + 8);
+}
+/* the paddle in the host's box: its grip (box px) and its size */
+const HOST_GRIP = Object.freeze({ x:250, y:405, scale:1.05 });
 
 /* the breakdown's call: a note */
 function NoteGlyph() {
@@ -36,6 +56,7 @@ export default function Host({ store, driver, phase }) {
   const word = useRef(null);
   const sign = useRef(null);
   const signArt = useRef({});
+  const paddle = useRef(null);
   useEffect(() => {
     const st = store.state;
     const still = reducedMotion();
@@ -71,6 +92,17 @@ export default function Host({ store, driver, phase }) {
           bubble.current.style.transform = `scale(${scale.toFixed(3)})`;
         } else if (bubble.current.style.opacity !== "0") bubble.current.style.opacity = "0";
       }
+      /* rowing on the pulse with everyone (put away for a call, the cheer, a sign) */
+      if (paddle.current) {
+        const rowing = inSong && h.pose === "idle" && !signAt(chart, beat) && hostRowing(chart, beat);
+        paddle.current.style.opacity = rowing ? "1" : "0";
+        if (rowing) {
+          const cue = hostStroke(chart, beat);
+          const pad = still || !cue ? { rot:PADDLE.REST, dx:0, dy:0 }
+            : paddleAt({ c:cue.id, kind:"paddle", q:"perfect", at:songAt + cue.beat * chart.beatMs }, now, { side:strokeSide(chart, cue.id) });
+          paddle.current.style.transform = `translate3d(${pad.dx.toFixed(1)}px, ${pad.dy.toFixed(1)}px, 0) rotate(${pad.rot.toFixed(2)}deg)`;
+        }
+      }
       /* The Drop's sign */
       const s = inSong ? signAt(chart, beat) : null;
       const mode = s?.mode || null;
@@ -102,7 +134,12 @@ export default function Host({ store, driver, phase }) {
     <div className="fl-host-sign" ref={sign} style={{ opacity:0 }}>
       {["paddle", "rock", "spin"].map(mode => <div key={mode} ref={node => { signArt.current[mode] = node; }} style={{ display:"none" }}><SignProp mode={mode} /></div>)}
     </div>
-    <div className="fl-host-body" ref={body}>{art ? <HostArt host={art} /> : <HostFigure />}</div>
+    <div className="fl-host-body" ref={body}>
+      {art ? <HostArt host={art} /> : <HostFigure />}
+      <div className="fl-host-paddle" style={{ left:HOST_GRIP.x * k, top:HOST_GRIP.y * k, transform:`scale(${(k * HOST_GRIP.scale).toFixed(4)})` }}>
+        <div className="fl-paddle" ref={paddle} style={{ opacity:0 }}><PaddleArt color="#3aa6a0" /></div>
+      </div>
+    </div>
     <div className="fl-bubble" ref={bubble} style={{ opacity:0 }}><span ref={word} /><NoteGlyph /></div>
   </div>;
 }

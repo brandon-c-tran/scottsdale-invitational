@@ -165,3 +165,57 @@ export const follow = (from, to, dt, tau = 260) => {
   if (!Number.isFinite(dt) || dt <= 0) return from;
   return to + (from - to) * Math.exp(-dt / tau);
 };
+
+/* ── the paddle (GROOVE.md v3 item 10, "Row in every song") ──
+   Every rider holds a double-bladed kayak paddle across the tube. A judged
+   paddle hit is a stroke: the paddle dips on one side with a splash,
+   alternating left and right stroke by stroke (the chart's paddle cues in
+   order, so every screen and the host's mime agree); a missed paddle cue
+   is a flub (the paddle slaps flat on the water); between strokes it rests
+   across the tube. Angles in degrees, offsets in the sprite's box px. */
+export const PADDLE = Object.freeze({ MS:440, MISS_MS:640, ANGLE:38, DIP:26, REST:-5, REACH:150 });
+
+/* which side a paddle cue strokes on: -1 left (the first), +1 right, then
+   alternating along the chart's paddle cues; memoized per chart */
+const SIDES = new WeakMap();
+export function strokeSide(chart, cueId) {
+  if (!chart?.cues) return (cueId | 0) % 2 ? 1 : -1;
+  let sides = SIDES.get(chart);
+  if (!sides) {
+    sides = new Map();
+    let n = 0;
+    for (const cue of chart.cues) if (cue.kind === "paddle") sides.set(cue.id, n++ % 2 ? 1 : -1);
+    SIDES.set(chart, sides);
+  }
+  return sides.get(cueId) ?? ((cueId | 0) % 2 ? 1 : -1);
+}
+
+/* the paddle at `now` for a rider's latest judged hit ({ at, q, kind, c }):
+   { rot, dx, dy, side, splash (0 to 1, at the dipping blade), flat (0 to 1,
+   the slap's splash under both blades) }. Any other move: at rest (it rides
+   along with the body). */
+export function paddleAt(hit, now, { side = -1 } = {}) {
+  const rest = { rot:PADDLE.REST, dx:0, dy:0, side:0, splash:0, flat:0 };
+  if (!hit || hit.kind !== "paddle" || !Number.isFinite(hit.at) || !Number.isFinite(now)) return rest;
+  const age = now - hit.at;
+  if (age < 0) return rest;
+  if (hit.q === "miss") {
+    if (age >= PADDLE.MISS_MS) return rest;
+    const t = age / PADDLE.MISS_MS;
+    /* the slap: flat down onto the water, a wobble as it bounces off */
+    const slam = t < 0.18 ? ease(t / 0.18) : 1 - ease((t - 0.18) / 0.82);
+    const wobble = 9 * Math.sin(t * Math.PI * 5) * (1 - t);
+    return { rot:PADDLE.REST * (1 - slam) + wobble, dx:0, dy:PADDLE.DIP * 1.1 * slam, side:0, splash:0, flat:t < 0.55 ? 1 - t / 0.55 : 0 };
+  }
+  if (age >= PADDLE.MS) return rest;
+  const t = age / PADDLE.MS;
+  /* in fast, out slower: the blade bites, pulls, lifts */
+  const dip = t < 0.3 ? ease(t / 0.3) : 1 - ease((t - 0.3) / 0.7);
+  /* off the beat: the stroke skews and wobbles */
+  const off = hit.q === "early" || hit.q === "late" ? 7 * Math.sin(t * Math.PI * 3) * (1 - t) : 0;
+  return { rot:PADDLE.REST + side * PADDLE.ANGLE * dip + off, dx:side * 12 * dip, dy:PADDLE.DIP * dip, side,
+    splash:t > 0.14 && t < 0.92 ? Math.sin(Math.PI * (t - 0.14) / 0.78) : 0, flat:0 };
+}
+
+/* the poses that have no hands free for the paddle: it is put away */
+export const PADDLE_AWAY = Object.freeze(new Set(["chug", "cheer", "out"]));

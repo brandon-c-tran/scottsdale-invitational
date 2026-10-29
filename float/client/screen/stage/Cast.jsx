@@ -18,7 +18,7 @@ import { ANCHOR, BOX, NAME_H, POPUP_BOX, crowdLayout, flotillaLayout, nameSlots,
   popupSlots, seatOrder } from "../model/flotilla.js";
 import { propOf, spriteSize } from "../../art/groove/index.js";
 import { useGrooveArt } from "../../art/groove/RiderSprite.jsx";
-import { actionAt, bobAt, cheerAt, chugAt, follow, popupAt } from "../model/motion.js";
+import { PADDLE, PADDLE_AWAY, actionAt, bobAt, cheerAt, chugAt, follow, paddleAt, popupAt, strokeSide } from "../model/motion.js";
 import { actionKind, demoAt, lineShownAt, lineSpot, rankStripOn, sceneFor } from "../model/song.js";
 import { narrationOf } from "../soundBridge.js";
 import { reducedMotion } from "./driver.js";
@@ -27,9 +27,10 @@ import { cutField, cutShow } from "../model/cut.js";
 import { EXIT_MS, exitAt, exitKind } from "../model/exits.js";
 import { belowCut, rankNow } from "../model/rank.js";
 import { chugLayout, chugoffAt, firstChugoff } from "../model/chugoff.js";
-import { barLayout, barPlayersOf, closestOf, countdownAt, readoutOf, verdictShown } from "../model/lastcall.js";
+import { barLayout, barPlayersOf, barRanking, closestOf, countdownAt, readoutOf, verdictShown } from "../model/lastcall.js";
 import { indexList } from "../model/cupShape.js";
 import { inkOn } from "../hud/identity.js";
+import { countNumberTone, numberTone } from "../model/tone.js";
 
 const BEAT = 500;
 /* Last Call's readouts: the popup lettered this much bigger */
@@ -112,6 +113,7 @@ const RIDER_PAINT = () => spriteSize(BOX * 0.95 * 1.45, dpr());
 const RiderNode = memo(function RiderNode({ entrant, i, refs }) {
   const art = useRiderArt(entrant, { size:RIDER_PAINT() });
   const ripple = art?.poses ? propOf("ripple") : null;
+  const splash = art?.poses ? propOf("splash") : null;
   const anchor = anchorOf(art);
   const set = key => node => { const r = refs.current.get(i) || {}; r[key] = node; r.anchor = anchor; refs.current.set(i, r); };
   useEffect(() => { const r = refs.current.get(i); if (r) r.anchor = anchor; }, [anchor, i, refs]);
@@ -121,10 +123,20 @@ const RiderNode = memo(function RiderNode({ entrant, i, refs }) {
     {ripple?.src
       ? <img className="fl-ripple-art" src={ripple.src} alt="" draggable={false} style={rippleBox(ripple, wx, wy)} />
       : <div className="fl-ripple" style={{ left:wx - 228, top:wy - 8 }} />}
-    <div className="fl-body" ref={set("body")} style={{ transformOrigin:`${wx}px ${wy}px` }}><Critter entrant={entrant} art={art} /></div>
+    <div className="fl-body" ref={set("body")} style={{ transformOrigin:`${wx}px ${wy}px` }}>
+      <Critter entrant={entrant} art={art} />
+      {/* the paddle is in the sprites (the kayak's poses); a splash at each side for its strokes */}
+      {[-1, 1].map(side => <div key={side} className="fl-psplash" ref={set(side < 0 ? "splashL" : "splashR")} style={{ opacity:0 }}>
+        {splash?.src ? <img src={splash.src} alt="" draggable={false} /> : <SplashProp />}
+      </div>)}
+    </div>
     {!art?.poses && <div className="fl-splash" ref={set("splash")} style={{ left:hand[0] + 20, top:wy - 110 }}><SplashProp /></div>}
   </div>;
 });
+
+/* the splash at a stroke's blade: its box (box px), and how far out from
+   the waterline's middle the blade dips (the kayak's side) */
+const PSPLASH = Object.freeze({ w:170, h:120, reach:150 });
 
 /* the art's ripple centred at the waterline, about 1.35 x the ring (250 box px) */
 function rippleBox(prop, wx, wy) {
@@ -180,7 +192,9 @@ function RiderPop({ i, setters }) {
   useEffect(() => { setters.current.set(i, setSay); return () => setters.current.delete(i); }, [i, setters]);
   if (!say) return null;
   if (say.grade) return <span className={`fl-pop-in fl-grade is-${say.grade}`} key={`grade:${say.grade}`}><span>{gradeWord(say.grade)}</span></span>;
-  return <span className={`fl-pop-in${say.closest ? " is-closest" : ""}${say.drinks ? " is-drinks" : ""}`} key={`${say.c}:${say.at}:${say.closest ? 1 : 0}:${say.drinks ? 1 : 0}`}>
+  const tone = say.big ? countNumberTone(say.q, say.d) : numberTone(say.q, say.d);
+  return <span className={`fl-pop-in${say.closest ? " is-closest" : ""}${say.drinks ? " is-drinks" : ""}`} data-tone={tone}
+    key={`${say.c}:${say.at}:${say.closest ? 1 : 0}:${say.drinks ? 1 : 0}`}>
     <PopupLetters q={say.q} d={say.d} size={say.big ? 40 * BAR_POP : 40} />
     {say.closest && <span className="fl-pop-tag is-closest">Closest</span>}
     {say.drinks && <span className="fl-pop-tag is-drinks">Drinks</span>}
@@ -261,6 +275,13 @@ export default function Cast({ store, driver, entrants, phase, room, version }) 
       const dark = !!cd && !revealed && darkAt(chart.countdown, now - songAt) > 0.5;
       const drinkers = bar ? verdictShown({ songAt, countdown:chart?.countdown, lastCall:st.lastCall, lastCallAt:st.lastCallAt }, now) : null;
       const closest = drinkers ? closestOf(st.lastCall?.totals || []) : [];
+      /* a rider's Last Call readout once revealed: their judged tap, else the room's total, else a miss */
+      const barReadout = i => {
+        const judged = st.judged.get(i)?.get(0) || null;
+        if (judged) return { q:judged.q, d:judged.d, at:judged.at };
+        const lcRow = st.lastCall?.totals?.find(row => row.i === i);
+        return lcRow ? { ...readoutOf(lcRow), at:songAt + chart.countdown.revealAt } : null;
+      };
       /* the chug-off */
       const chug = phase === "chugoff" && p.chug ? chugoffAt(st.chugoff || roomRef.current?.chugoff || p.chug, now, { seen:st.done, startAt:st.phaseStart, decidedAt:st.chugoffDecidedAt, first:firstChugoff(roomRef.current) }) : null;
       const exits = chug && chug.loser !== null && Number.isFinite(chug.exitAt) ? [{ i:chug.loser, at:chug.exitAt, ms:CHUGOFF.EXIT_MS }] : p.exits;
@@ -273,7 +294,9 @@ export default function Cast({ store, driver, entrants, phase, room, version }) 
       if (now - layoutAt > 120 || now < layoutAt || dt === 0) {
         layoutAt = now;
         const lives = new Map(p.water.map(i => [i, phase === "lobby" ? null : store.liveOf(i)]));
-        water = p.kind === "bar" ? barLayout(p.water)
+        /* the bar: the line-up in the Cup's order until the reveal (never
+           a hint of the count), then ranked closest (left) to farthest */
+        water = p.kind === "bar" ? barLayout(revealed ? barRanking(p.water, barReadout).map(row => row.i) : p.water)
           : p.kind === "chug" ? chugLayout(p.chug?.a, p.chug?.b)
             : flotillaLayout(p.water, lives, { kind:p.kind === "lobby" ? "lobby" : p.water.length <= 3 ? "final" : "song",
               drift:p.drift && phase !== "intro" });
@@ -370,12 +393,17 @@ export default function Cast({ store, driver, entrants, phase, room, version }) 
         }
         /* the move: a hit's action, the host's demo, the chug, a cheer, else the bob */
         const last = where === "water" && inSong ? st.last.get(i) : null;
-        let act = null, pose = null;
+        let act = null, pose = null, stroke = null;
         if (where === "water" && inSong) {
           act = actionAt(last, now);
+          stroke = last;
           /* the demo: every critter acts out the host's answer together */
           const demoHit = demo ? songAt + demo.beat * chart.beatMs : null;
-          if (demo && (!last || last.at < demoHit)) act = actionAt({ c:demo.id, q:"nice", at:demoHit, kind:actionKind(chart, demo) }, now) || act;
+          if (demo && (!last || last.at < demoHit)) {
+            const shown = { c:demo.id, q:"nice", at:demoHit, kind:actionKind(chart, demo) };
+            const move = actionAt(shown, now);
+            if (move) { act = move; stroke = shown; }
+          }
         } else if (where === "water" && chug) {
           const mine = chug.done[i];
           const doneAt = Number.isFinite(mine) && Number.isFinite(chug.goAt) ? chug.goAt + mine : null;
@@ -405,11 +433,7 @@ export default function Cast({ store, driver, entrants, phase, room, version }) 
         /* Last Call's readout: held until the reveal (or a tap's time gives
            the count away), then every rider's at once; a miss as it lands */
         let readout = null;
-        if (bar && revealed && where === "water") {
-          const judged = st.judged.get(i)?.get(0) || null;
-          const lcRow = st.lastCall?.totals?.find(row => row.i === i);
-          readout = judged ? { q:judged.q, d:judged.d, at:judged.at } : lcRow ? { ...readoutOf(lcRow), at:songAt + chart.countdown.revealAt } : null;
-        }
+        if (bar && revealed && where === "water") readout = barReadout(i);
         pose = act?.pose || pose || "idle";
         if (!act && pose === "idle") {
           if (readout) pose = readout.q === "perfect" || readout.q === "nice" || readout.q === "ok" ? "nice" : "miss";
@@ -421,6 +445,13 @@ export default function Cast({ store, driver, entrants, phase, room, version }) 
             pose = out && now >= out.at - 600 ? "out" : "idle";
           }
         }
+        /* the paddle (item 10, kayaks): a stroke dips the blade on the
+           rider's left (`stroke`) or right (`stroke-r`), alternating along
+           the chart's strokes, with a splash at that side; a miss slaps flat */
+        const paddleOn = where === "water" && !bar && !PADDLE_AWAY.has(pose);
+        const pad = paddleOn && inSong && !still ? paddleAt(stroke, now, { side:strokeSide(chart, stroke?.c) })
+          : { rot:PADDLE.REST, dx:0, dy:0, side:0, splash:0, flat:0 };
+        if (act?.kind === "paddle" && pose === "stroke") pose = pad.side > 0 ? "stroke-r" : "stroke";
         if (exitMove) {
           pose = exitMove.pose;
           act = { pose, dx:0, dy:exitMove.lift / Math.max(0.01, s * fill), rot:exitMove.rot, sx:exitMove.sx, sy:exitMove.sy };
@@ -441,9 +472,20 @@ export default function Cast({ store, driver, entrants, phase, room, version }) 
         const sc = s * pop * fill;
         r.rider.style.transform = `translate3d(${(x + enter - ax * sc).toFixed(1)}px, ${(y - ay * sc).toFixed(1)}px, 0) scale(${sc.toFixed(4)})`;
         const dx = (act?.dx || 0) + shiver, dy = (act?.dy || 0) + bob.dy + popLift;
-        const rot = act?.rot || 0, sx = (act?.sx ?? 1) * bob.sx, sy = (act?.sy ?? 1) * bob.sy;
+        /* a stroke leans the body into its side */
+        const rot = (act?.rot || 0) + (pad.side ? pad.side * 3 * (pad.dy / PADDLE.DIP) : 0), sx = (act?.sx ?? 1) * bob.sx, sy = (act?.sy ?? 1) * bob.sy;
+        /* the splash at the stroke's side (both on a slap), at the water */
+        for (const [key, side] of [["splashL", -1], ["splashR", 1]]) {
+          const node = r[key];
+          if (!node) continue;
+          const k = Math.max(side === pad.side ? pad.splash : 0, pad.flat);
+          if (k <= 0.01) { if (node.style.opacity !== "0") node.style.opacity = "0"; continue; }
+          const tx = anchor.water[0] + side * PSPLASH.reach, ty = anchor.water[1] - 6;
+          node.style.opacity = Math.min(1, k * 1.4).toFixed(3);
+          node.style.transform = `translate3d(${(tx - PSPLASH.w / 2).toFixed(1)}px, ${(ty - PSPLASH.h * 0.85).toFixed(1)}px, 0) scale(${(side * (0.55 + 0.55 * k)).toFixed(3)}, ${(0.55 + 0.55 * k).toFixed(3)})`;
+        }
         if (r.body) r.body.style.transform = `translate3d(${dx.toFixed(1)}px, ${dy.toFixed(1)}px, 0) rotate(${rot.toFixed(2)}deg) scale(${sx.toFixed(4)}, ${sy.toFixed(4)})`;
-        if (r.splash) r.splash.style.opacity = String(Math.max(0, Math.min(1, act?.splash || 0)).toFixed(2));
+        if (r.splash) r.splash.style.opacity = String(Math.max(0, Math.min(1, act?.kind === "paddle" ? 0 : act?.splash || 0)).toFixed(2));
         if (m.pose !== pose) { r.rider.dataset.pose = pose; m.pose = pose; }
         const z = Math.round(where === "bank" ? y - 600 : where === "exit" ? 1900 : y);
         if (m.z !== z) { r.rider.style.zIndex = String(z + 1000); m.z = z; }

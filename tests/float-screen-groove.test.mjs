@@ -459,7 +459,7 @@ test("the chug-off: the call, 3 2 1, Chug!, the first Done keeps the spot, the o
 /* ── Last Call ── */
 
 test("Last Call, the countdown: shown and said until the trick hides it, nothing after; every offset at the reveal; the farthest drinks", async () => {
-  const { BARTENDER, BAR_LINE, LAST_CALL_EXPLAINER, barLayout, barPlayersOf, bartenderPose, closestOf, countWord, countdownAt, readoutOf, verdictShown } =
+  const { BARTENDER, BAR_LINE, COUNTER, LAST_CALL_EXPLAINER, barLayout, barPlayersOf, barRanking, bartenderPose, closestOf, countWord, countdownAt, readoutOf, verdictShown } =
     await import("../float/client/screen/model/lastcall.js");
   const lights = chartOf("lastcall-lights").countdown;
   assert.equal(countdownAt(lights, 100).stage, "intro");
@@ -496,8 +496,20 @@ test("Last Call, the countdown: shown and said until the trick hides it, nothing
   for (const n of [2, 9, 13, 16]) {
     const seats = barLayout(range(n));
     assert.equal(Object.keys(seats).length, n);
-    assert.ok(Object.values(seats).every(s => s.x - 125 * s.scale * 1.45 > 0 && s.x + 125 * s.scale * 1.45 < STAGE_W && s.y === BAR_LINE.y), `${n}: one line-up on the stage`);
+    const ys = new Set(Object.values(seats).map(s => s.y));
+    assert.equal(ys.size, 1, `${n}: one line-up`);
+    assert.ok(Object.values(seats).every(s => s.x - 125 * s.scale * 1.45 > 0 && s.x + 125 * s.scale * 1.45 < STAGE_W), `${n}: on the stage`);
+    /* behind the counter, waist up: the ring's top (about 58 box px over the waterline) under the counter's top */
+    assert.ok(Object.values(seats).every(s => s.y - 58 * s.scale * 1.45 >= COUNTER.top && s.y < 1080), `${n}: no tubes over the counter`);
+    assert.ok(BAR_LINE.lo > 0 && BAR_LINE.hi < STAGE_W);
   }
+  /* the reveal ranks the line-up: closest left, farthest right, a tie shares a place in rider order, no tap last */
+  const reads = { 4:{ q:"late", d:820 }, 1:{ q:"nice", d:-80 }, 9:{ q:"miss", d:null }, 2:{ q:"nice", d:80 }, 6:{ q:"perfect", d:10 } };
+  const ranked = barRanking([4, 1, 9, 2, 6], i => reads[i]);
+  assert.deepEqual(ranked.map(r => r.i), [6, 1, 2, 4, 9]);
+  assert.deepEqual(ranked.map(r => r.place), [1, 2, 2, 4, 5]);
+  const line = barLayout(ranked.map(r => r.i));
+  assert.ok(line[6].x < line[1].x && line[2].x < line[4].x && line[4].x < line[9].x, "left to right, closest to farthest");
   assert.ok(BARTENDER.x < 600);
   assert.deepEqual(barPlayersOf({ field:[2, 5], out:[1, 7] }), [2, 5, 7, 1], "the field, then the riders out, the last out first");
 });

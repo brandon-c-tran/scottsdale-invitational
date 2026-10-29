@@ -642,6 +642,125 @@ but the ranking is read from two things built for it:
 - **The phone**: your place and the field ("4th of 13") and "Safe" or
   "Below the cut" during play, in the corner, never covering the popup.
 
+## v3 (Oct 28 evening: playtest 2 of the Groove)
+
+Brandon: "playtesting was fun but some issues". His notes, and what each
+becomes. Wave A (items 1 to 7) ships to staging first; wave B (8 and 9) is
+its own merge per builder so it can be dropped alone. Section lengths stay
+32 bars (the beds are bar-exact).
+
+### 1. Hats and glasses sit right (art)
+
+"the hats and glasses do not line up with almost every single character".
+A contact sheet of the plain set's math looks close, so the miss is in a live
+path: the photo tee set (`artSet` swaps to `c.tee`, with its own anchors),
+per-pose anchors on the TV versus the phone, the portrait (`c.portrait.anchor`
+with a doubled measure), or anything placing a hat outside `paintSprite`.
+Find it by rendering the REAL module (`riderSprites`, `riderPortrait`) in a
+headless page, every critter x every pose x tee on and off, then fix the
+anchors (measured per pose from the art, eyes from the dark dot pairs, head
+top from the alpha) until every cell is right. Re-rendering with the
+accessory baked in is the last resort, per hat only if a critter's anchors
+cannot be made right. Glasses are drawn at the eye span (the current ones
+read too big). `hatOf`: "none" is no hat, also for the groom (the crown only
+when `hat` is unset).
+
+**A cuter, cooler hat rack**: about ten hats and six glasses, generated in
+the same line style, chunky and readable at TV size (ideas: a frog bucket
+hat, a pom-pom beanie, a propeller cap, a tiny top hat, viking horns, a
+fishing hat with lures, a straw sun hat, a halo, a mushroom cap; glasses:
+heart, star, pixel shades, snorkel mask, 3D glasses, round specs). Every id
+already saved stays valid (`looks.js` keeps old ids; one that is retired
+maps to the nearest new one in `cleanLook`). No other company's characters
+or marks.
+
+### 2. Numbers in more colours than red (shared tone scale)
+
+"its hard to tell in last call who did best and who did worse, i think we
+may want to use more colors for numbers than just red in general". The
+offset number is coloured by how close it is, the same scale on the TV and
+the phone (`chart.js`):
+- songs, `offsetTone(absMs)`: <= 50 gold, <= 100 green, <= 160 yellow,
+  above red; a miss grey. The word keeps `TONES`.
+- Last Call, `countTone(absMs)`: <= 100 green, <= 300 yellow, <= 700
+  orange, above red.
+
+### 3. Last Call: who did best and worst
+
+The reveal is a ranking, not a scatter: at `revealAt` the riders slide into
+one row along the bar, closest to zero on the left, farthest on the right
+(ties share a place, in rider order), each with their offset big in its
+`countTone` and the word ("Nice!", "Early", "Late"). At `verdictAt` the left
+end stamps "Closest" (green) and the right end "Drinks" (red), and the
+drinker's critter chugs. The phone: your offset in its tone, your place
+("3rd closest of 9"), then "You drink" or "Safe".
+
+### 4. No tubes at the bar
+
+"its weird that in last call we are just like in floaties randomly floating
+on the ground". At the bar every rider stands behind a counter waist up, as
+the bartender does: the counter covers the tube (TV and phone). No new art.
+
+### 5. Who you are: fixed seats
+
+"its generally hard to tell who you are since there are so many players -
+the switching kinda makes it hard". The switching is the flotilla's slots
+reordering by live score (`rowOrder`) and the rows re-sorting by Cup total.
+Dropped: **every rider keeps a fixed seat**, the field in entrant order,
+front row first, left to right (`float/shared/seats.js`, pure:
+`seatsFor(field)` -> `Map(i -> { row, rows, col, cols })`, row 0 the FRONT,
+col 0 the LEFT; the screen lays out from it and the phone words it). A cut
+re-forms the rows once, between songs, keeping that order. The small drift
+by score stays (never past a neighbour). The ranking is the rank strip's
+job. Every rider in the field carries a name tag under the tube in their
+colour (24 px minimum on the TV). The phone: in the round card and intro, a
+small map of the flotilla with your seat lit in your colour and its words
+("Front row, 3rd from the left"); in a song the pad's background is tinted
+your colour.
+
+### 6. Paddle Party teaches both at once
+
+"it took me quite a bit to understand that you had to do hey concurrently
+with 1 and 3". Practice says it: lines "Paddle on 1 and 3", "Keep paddling.
+Hey! on 4", "Watch" (the host's demo bar paddles AND heys), "Both now". The
+phone in practice shows a four-beat counter (1 2 3 4) with the beats that
+have a tap lit, read from the bar's cues (every song's practice, never in
+play).
+
+### 7. Weaker bots
+
+"can we make the bots not as good, they are too good right now for me to
+playtest". Bots spread 0.1 to 0.65 (the sharpest about 85 to 90%, the
+sloppiest about 55%), `BOT.SPREAD` wider, a miss now and then; the stand-in
+0.5; Last Call bots looser too.
+
+### 8. The Drop: harder and more creative (wave B)
+
+The Drop is now round 4 (the semifinal, 5 riders) and goes harder: a bar a
+pattern with no sign in play B, syncopated "and" hops and spins, and
+**blackout bars** (`chart.dark`: bar indices where the host and band drop
+out to a bare hi-hat, the TV dims to silhouettes and the calls stop: you
+keep the pattern in your head; judged like any bar). The drop at the end
+stays.
+
+### 9. Fireworks, the new final (wave B)
+
+"one additional level past the current final to be something super
+awesome". `ROUNDS` 5, `cutSchedule(13, 5)` = 13, 10, 7, 5, 3; `songForRound`:
+the last round is `fireworks`, the one before it `drop`, the rest in order.
+The fifth song: `{ id:"fireworks", name:"Fireworks", scene:"night" }`, the
+final three at night on the lake. New cue kind `rocket` (`lead:2`, mode
+`rocket`, word "Launch"): the host lights a fuse on the call (a fizz), you
+launch on the answer, and every hit fires a firework in YOUR colour from
+your tube (a Perfect the biggest burst); a miss fizzles. The chart mixes
+every kind, with rockets, syncopation, two blackout bars where only the
+fireworks light the sky, and the outro's last cue a three-rocket finale;
+after it the sky fills in the winner's colour. Four Last Calls now:
+`LAST_CALL_TRICKS` adds `rush` (10 to 7 at a second, then each count from 6
+shortens to 0.7 s, dark at 3 at the fast pace). Art: the `night` scene and
+`firework` props (white, tinted at run time). Sound: its bed (the biggest of
+the five), the fuse and the launch, the dark bars, the voice lines.
+
 ## Wednesday night target (in cut order: the last line goes first)
 
 1. Song 1 complete: chart, music with clear calls, TV scene, phone, popups,

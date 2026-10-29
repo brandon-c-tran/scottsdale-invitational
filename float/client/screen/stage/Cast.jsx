@@ -482,7 +482,9 @@ export default function Cast({ store, driver, entrants, phase, room, version }) 
           : { rot:PADDLE.REST, dx:0, dy:0, side:0, splash:0, flat:0 };
         /* `stroke` dips on the rider's left (the screen's right: they face us), `stroke-r` on their right */
         if (act?.kind === "paddle" && pose === "stroke") pose = pad.side > 0 ? "stroke-r" : "stroke";
-        const splashSide = pad.side ? -pad.side : 0;
+        /* a critter without its own stroke-r (a tube, until its kayak) strokes on the one side its sprite shows */
+        const ownRight = !!anchor.blades?.["stroke-r"];
+        const splashSide = pad.side ? (ownRight ? -pad.side : 1) : 0;
         const blade = pad.side ? anchor.blades?.[pad.side > 0 ? "stroke-r" : "stroke"] : null;
         if (exitMove) {
           pose = exitMove.pose;

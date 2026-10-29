@@ -103,7 +103,7 @@ export function BeatCounter({ store, driver }) {
   }, [], (a, b) => a?.key === b?.key);
   if (!view) return null;
   return <div className="hd-beats" aria-hidden="true">
-    {view.beats.map(b => <div key={b.n} className={`hd-beat${b.kind ? ` is-${b.kind}` : ""}${b.demo ? " is-demo" : ""}${view.now === b.n - 1 ? " is-now" : ""}`}>
+    {view.beats.map(b => <div key={b.n} className={`hd-beat${b.kind ? ` is-${b.kind}` : ""}${b.demo ? " is-demo" : ""}${b.next ? " is-next" : ""}${view.now === b.n - 1 ? " is-now" : ""}`}>
       <span className="hd-beat-n">{b.n}</span>
       <span className="hd-beat-word">{b.kind ? countWord(st.chart, b.kind) : ""}</span>
       {b.and && <i className={`hd-beat-and is-${b.and.kind}${b.and.demo ? " is-demo" : ""}`} />}

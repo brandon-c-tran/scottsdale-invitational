@@ -898,3 +898,19 @@ test("wave B: the blackout bars, every rocket hit a firework sized by its judgem
   const sky = fw.skyAt(night, songAt, songAt + fw.skyBeat(night) * 500 + 2000);
   assert.ok(sky.fill === 1 && sky.bursts.length > 0, "the sky fills, a volley of the winner's bursts");
 });
+
+test("practice's four-beat counter: the bar's taps lit by kind, the playhead, and a beat the next bar adds previewed (Keep paddling. Hey! on 4)", async () => {
+  const { beatCounterAt, countWord } = await import("../float/client/screen/model/song.js");
+  const chart = chartOf("paddle");
+  const first = beatCounterAt(chart, 9.3);
+  assert.deepEqual(first.beats.map(b => b.kind), ["paddle", null, "paddle", null], "Paddle on 1 and 3");
+  assert.equal(first.now, 1, "the beat being played");
+  const keep = beatCounterAt(chart, 12.2);
+  assert.deepEqual(keep.beats.map(b => [b.kind, b.next]), [["paddle", false], [null, false], ["paddle", false], ["hey", true]], "the Hey on 4 previewed");
+  const watch = beatCounterAt(chart, 19.2);
+  assert.ok(watch.beats.filter(b => b.kind).every(b => b.demo), "the host's bar");
+  assert.equal(beatCounterAt(chart, 40), null, "never in play");
+  assert.equal(countWord(chart, "paddle"), "Paddle");
+  assert.equal(countWord(chartOf("rock"), "paddle"), "Row");
+  assert.equal(countWord(chart, "hey"), "Hey!");
+});

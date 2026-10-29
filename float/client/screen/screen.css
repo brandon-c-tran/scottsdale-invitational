@@ -380,6 +380,9 @@
 .hd-line .hd-beat.is-rocket span, .hd-line .hd-beat.is-drop span { color:var(--ink); }
 /* the host's demo bar: outlined in the move's colour, not filled */
 .hd-beat.is-demo { background:#fffdf8; box-shadow:0 0 0 5px var(--lit), 0 0 0 9px var(--ink); }
+/* coming next bar: outlined, dashed, with its word */
+.hd-beat.is-next { background:#fffdf8; box-shadow:0 0 0 4px var(--ink); outline:5px dashed var(--lit); outline-offset:-12px; }
+.hd-line .hd-beat.is-next span { color:rgba(29, 26, 36, 0.7); }
 /* the beat being played */
 .hd-beat.is-now { transform:translateY(-6px) scale(1.08); }
 .hd-beat.is-now::after { content:""; position:absolute; left:50%; bottom:-20px; width:18px; height:18px; margin-left:-9px; border-radius:50%; background:var(--magenta);

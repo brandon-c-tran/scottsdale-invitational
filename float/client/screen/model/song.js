@@ -226,10 +226,16 @@ export function beatCounterAt(chart, beat) {
   let cues = barOf(bar);
   if (!cues.length) { bar += 1; now = null; cues = barOf(bar); }
   if (!cues.length || bar * BEATS_PER_BAR >= practice.to) return null;
+  /* a beat this bar leaves empty that the next practice bar taps is
+     previewed (outlined, with its word): "Keep paddling. Hey! on 4" over a
+     bar of strokes shows the Hey coming */
+  const next = now !== null && (bar + 1) * BEATS_PER_BAR < practice.to ? barOf(bar + 1) : [];
+  const at = (list, b, n) => list.find(cue => Math.abs(cue.beat - (b * BEATS_PER_BAR + n)) < 0.01);
   const beats = [0, 1, 2, 3].map(n => {
-    const on = cues.find(cue => Math.abs(cue.beat - (bar * BEATS_PER_BAR + n)) < 0.01);
+    const on = at(cues, bar, n);
+    const ahead = on ? null : at(next, bar + 1, n);
     const and = cues.find(cue => cue.beat > bar * BEATS_PER_BAR + n + 0.01 && cue.beat < bar * BEATS_PER_BAR + n + 0.99);
-    return { n:n + 1, kind:on?.kind || null, demo:!!on?.demo, and:and ? { kind:and.kind, demo:!!and.demo } : null };
+    return { n:n + 1, kind:on?.kind || ahead?.kind || null, demo:!!on?.demo, next:!!ahead, and:and ? { kind:and.kind, demo:!!and.demo } : null };
   });
   return { bar, now:now === null ? null : Math.floor(now), beats };
 }

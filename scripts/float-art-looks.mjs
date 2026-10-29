@@ -26,9 +26,9 @@ export const HAT_FIT = {
   bucket:{ fit:0.98, depth:0.2 },
   visor:{ fit:0.94, depth:0.2 },
   captain:{ fit:0.96, depth:0.18 },
-  party:{ fit:0.42, depth:0.05 },
+  party:{ fit:0.55, depth:0.05 },
   flowers:{ fit:0.98, depth:0.1 },
-  crown:{ fit:0.6, depth:0.05 },
+  crown:{ fit:0.8, depth:0.05 },
 };
 /* a hat's base never comes lower than this share of the head's width over the eyes */
 export const HAT_EYE_GAP = 0.08;

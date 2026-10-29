@@ -35,3 +35,8 @@ test("the v3 rack: retired hats and glasses clean to the nearest new one; the gr
   assert.equal(cleanLook({}).hat, "none");
   assert.equal(cleanFloatLook({ hat:"visor" }, "Evan").hat, "sunhat", "Field Day's saved look keeps a retired hat as its new one");
 });
+
+test("the groom's default look wears the crown; everyone else's no hat", () => {
+  assert.equal(defaultLook("Brandon", ["classic"], { groom:true }).hat, "crown");
+  assert.equal(defaultLook("Evan").hat, "none");
+});

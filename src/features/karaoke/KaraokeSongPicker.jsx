@@ -8,19 +8,16 @@ import { songTitle } from "../../../shared/audio.js";
 import { PlayArt, SongSearch, StillArt } from "../music/WinSongPicker.jsx";
 import { clipStarting, onClipStart, stopPreview } from "../music/previewPlayer.js";
 import {
-  KARAOKE_CREDIT, LOOKUP_FAILED, NOT_A_LINK, SAVE_FAILED, candidateWay, karaokeChoice, previewProblem, sameSong, savedWay,
+  KARAOKE_CREDIT, LOOKUP_FAILED, NOT_A_LINK, SAVE_FAILED, karaokeChoice, previewProblem, sameSong,
   searchCredit, thumbOf, videoChoices, videoLength, youTubeIdFrom,
 } from "./songPick.js";
-import { KaraokeWay } from "./KaraokeWay.jsx";
 import "./songPicker.css";
 
 /* A guest's karaoke song (docs/KARAOKE.md): search Spotify as for the win
    song, pick it, and the server finds up to three karaoke uploads on
    YouTube; each thumbnail previews its video in YouTube's own player, Use
    saves the song with that video (the others ride along as alternates for
-   the TV), and a pasted YouTube link works too. Each upload says how it will play (KaraokeWay: "Lyrics", an
-   instrumental with our own words; "Video lyrics"). `way` is the frame's
-   word on the saved song (the pick window's). `muted` (the pick window):
+   the TV), and a pasted YouTube link works too. `muted` (the pick window):
    previews play with the sound off and the covers stay still, so the room
    never hears the song. `onChoose(track)` is the write; it answers the ack.
    The profile's Karaoke section and the pick window's Change share it. */
@@ -29,20 +26,19 @@ import "./songPicker.css";
    answer and "none" (a failure is asked again) */
 const looked = new Map();
 
-export function KaraokeSongPicker({ value, way = null, enabled = true, muted = false, compact = false, active = true, onChoose,
+export function KaraokeSongPicker({ value, enabled = true, muted = false, compact = false, active = true, onChoose,
   search = spotifySearch, findVideos = karaokeVideos, checkVideo = karaokeVideo }) {
   const [mode, setMode] = useState(value ? "saved" : "search");
   const [track, setTrack] = useState(null);
-  const [found, setFound] = useState({ status:"idle", videos:[], error:"", lyrics:false });
+  const [found, setFound] = useState({ status:"idle", videos:[], error:"" });
   const [pasted, setPasted] = useState(null);
   const [open, setOpen] = useState(null);
   const [saving, setSaving] = useState(null);
   const [error, setError] = useState("");
   const [recent, setRecent] = useState(null);
   const asked = useRef(0), live = useRef(true);
-  /* the song just saved stands until the frame carries it (the frame's has the server's word on its lyrics) */
+  /* the song just saved stands until the frame carries it */
   const shown = (recent && !sameSong(recent, value) ? recent : value) || recent || null;
-  const shownWay = shown === value ? savedWay(shown, way) : savedWay(shown);
 
   useEffect(() => { live.current = true; return () => { live.current = false; stopPreview(); }; }, []);
   /* the song just saved stands until a frame carries a different one */
@@ -53,7 +49,7 @@ export function KaraokeSongPicker({ value, way = null, enabled = true, muted = f
 
   /* off (or nothing to save with): the saved song only shows */
   if (!enabled || typeof onChoose !== "function") return shown ? <div className={`fd-song fd-ksong${compact ? " is-compact" : ""}`}>
-    <SavedSong song={shown} way={shownWay} muted={muted} compact={compact} open={open} setOpen={setOpen} />
+    <SavedSong song={shown} muted={muted} compact={compact} open={open} setOpen={setOpen} />
     <p className="fd-song-credit">{KARAOKE_CREDIT}</p>
   </div> : null;
 
@@ -61,7 +57,7 @@ export function KaraokeSongPicker({ value, way = null, enabled = true, muted = f
     const mine = ++asked.current;
     const kept = looked.get(song.trackId);
     if (kept) { setFound({ status:"done", ...kept }); return; }
-    setFound({ status:"finding", videos:[], error:"", lyrics:false });
+    setFound({ status:"finding", videos:[], error:"" });
     let result;
     try {
       result = await findVideos({ trackId:song.trackId, name:song.name, artist:(song.artists || [])[0] || "",
@@ -69,12 +65,12 @@ export function KaraokeSongPicker({ value, way = null, enabled = true, muted = f
     } catch (failure) { result = { ok:false, error:writeError(failure, LOOKUP_FAILED) }; }
     if (!live.current || mine !== asked.current) return;
     if (result?.ok && Array.isArray(result.videos)) {
-      const answer = { videos:result.videos, error:"", lyrics:result.lyrics === true };
+      const answer = { videos:result.videos, error:"" };
       looked.set(song.trackId, answer);
       setFound({ status:"done", ...answer });
       return;
     }
-    const answer = { videos:[], error:writeError(result, LOOKUP_FAILED), lyrics:result?.lyrics === true };
+    const answer = { videos:[], error:writeError(result, LOOKUP_FAILED) };
     if (result?.code === "none") { looked.set(song.trackId, answer); setFound({ status:"done", ...answer }); }
     else setFound({ status:"error", ...answer });
   };
@@ -90,7 +86,7 @@ export function KaraokeSongPicker({ value, way = null, enabled = true, muted = f
     if (saving || !track) return;
     stopPreview();
     setOpen(null); setSaving(video.id); setError("");
-    const song = karaokeChoice(track, video, candidates, { lyrics:found.lyrics });
+    const song = karaokeChoice(track, video, candidates);
     let result;
     try { result = await onChoose(song); }
     catch (failure) { result = { ok:false, error:writeError(failure, SAVE_FAILED) }; }
@@ -104,7 +100,7 @@ export function KaraokeSongPicker({ value, way = null, enabled = true, muted = f
     {mode === "search" && <SongSearch search={search} clips={!muted} credit={searchCredit(!muted)}
       onCancel={shown ? () => setMode("saved") : null} onPick={pick} />}
     {mode === "saved" && shown && <>
-      <SavedSong song={shown} way={shownWay} muted={muted} compact={compact} open={open} setOpen={setOpen} onChange={change} />
+      <SavedSong song={shown} muted={muted} compact={compact} open={open} setOpen={setOpen} onChange={change} />
       <p className="fd-song-credit">{KARAOKE_CREDIT}</p>
     </>}
     {mode === "videos" && track && <VideoStep track={track} found={found} candidates={candidates} muted={muted}
@@ -132,7 +128,7 @@ export function VideoStep({ track, found, candidates = videoChoices(found?.video
     </div>
     {found?.status === "error" && <button type="button" className="fd-ksong-retry" onClick={onRetry}>Try again</button>}
     {!!candidates.length && <ul className="fd-ksong-videos" aria-label="Karaoke videos">
-      {candidates.map(video => <VideoRow key={video.id} video={video} way={candidateWay(video, found?.lyrics, track.name)} muted={muted}
+      {candidates.map(video => <VideoRow key={video.id} video={video} muted={muted}
         open={open === video.id}
         onToggle={() => setOpen(current => current === video.id ? null : video.id)}
         saving={saving} onUse={() => onUse(video)} />)}
@@ -145,7 +141,7 @@ export function VideoStep({ track, found, candidates = videoChoices(found?.video
 
 /* the saved song: its cover (the clip, unless muted), its name, and the
    video the TV will play, which previews like any candidate */
-function SavedSong({ song, way = null, muted, compact, open, setOpen, onChange = null }) {
+function SavedSong({ song, muted, compact, open, setOpen, onChange = null }) {
   const size = compact ? 52 : 84;
   return <>
     <div className="fd-song-pick fd-ksong-song">
@@ -155,16 +151,15 @@ function SavedSong({ song, way = null, muted, compact, open, setOpen, onChange =
       {onChange && <button type="button" className="fd-song-change" onClick={onChange}>Change</button>}
     </div>
     {song.video && <ul className="fd-ksong-videos" aria-label="Karaoke video">
-      <VideoRow video={song.video} way={way} muted={muted} open={open === song.video.id}
+      <VideoRow video={song.video} muted={muted} open={open === song.video.id}
         onToggle={() => setOpen(current => current === song.video.id ? null : song.video.id)} />
     </ul>}
   </>;
 }
 
 /* one upload: its thumbnail starts and closes the preview (YouTube's rule:
-   a thumbnail that plays is at least 120x70), its channel, its length and
-   how it will play, Use */
-function VideoRow({ video, way = null, muted, open, onToggle, saving = null, onUse = null }) {
+   a thumbnail that plays is at least 120x70), its channel, its length, Use */
+function VideoRow({ video, muted, open, onToggle, saving = null, onUse = null }) {
   const busy = saving === video.id;
   return <li className={`fd-ksong-video${open ? " is-open" : ""}`}>
     <div className="fd-ksong-video-row">
@@ -174,7 +169,7 @@ function VideoRow({ video, way = null, muted, open, onToggle, saving = null, onU
         <span className="fd-ksong-thumb-glyph" aria-hidden="true">{open ? <CloseGlyph /> : <PlayGlyph />}</span>
       </button>
       <span className="fd-ksong-video-text"><strong data-fit="ellipsis">{video.channel || "YouTube"}</strong>
-        <small>{videoLength(video.seconds)}{way && <KaraokeWay way={way} className="fd-ksong-way" />}</small></span>
+        <small>{videoLength(video.seconds)}</small></span>
       {onUse && <button type="button" className="fd-ksong-use" onClick={onUse} disabled={!!saving} aria-busy={busy}
         aria-label={`Use the ${video.channel || "YouTube"} video`}>{busy ? "Saving" : "Use"}</button>}
     </div>

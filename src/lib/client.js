@@ -603,12 +603,10 @@ export async function triviaPhotoUrl(id) {
 }
 
 /* Karaoke songs on YouTube (worker/tournament.js handleKaraoke): a chosen
-   song's uploads and whether it has synced lyrics { videos, lyrics }, a
-   pasted link's check { video }, and the commissioner's check of every
-   saved video and how each song will play { results } (the GM token rides
-   momentHeaders). A lookup is up to two searches and two reads of up to
-   8 seconds each beside LRCLIB, so 20 seconds; the check reads LRCLIB and
-   may search for every song, so 40. A failure carries the server's line
+   song's karaoke uploads { videos }, a pasted link's check { video }, and
+   the commissioner's check of every saved video { results } (the GM token
+   rides momentHeaders). A lookup is one search and one read of up to 8
+   seconds each; the check one batched read. A failure carries the server's line
    and, for YouTube's own refusals, a `code` (none, quota, busy, key,
    embedding...). */
 const KARAOKE_LOOKUP_MS = 20000;

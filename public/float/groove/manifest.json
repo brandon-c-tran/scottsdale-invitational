@@ -8892,6 +8892,28 @@
      "loop": false
     }
    ]
+  },
+  "night": {
+   "w": 1920,
+   "h": 1080,
+   "water": 0.56,
+   "layers": [
+    {
+     "src": "scenes/night/sky.webp",
+     "depth": 0,
+     "loop": false
+    },
+    {
+     "src": "scenes/night/land.webp",
+     "depth": 0.3,
+     "loop": true
+    },
+    {
+     "src": "scenes/night/water.webp",
+     "depth": 1,
+     "loop": true
+    }
+   ]
   }
  },
  "props": {
@@ -9241,6 +9263,66 @@
   },
   "sparkle": {
    "src": "props/sparkle.webp",
+   "w": 96,
+   "h": 96,
+   "anchor": [
+    48,
+    48
+   ],
+   "tint": true
+  },
+  "firework-1": {
+   "src": "props/firework-1.webp",
+   "w": 320,
+   "h": 320,
+   "anchor": [
+    160,
+    160
+   ],
+   "tint": true
+  },
+  "firework-2": {
+   "src": "props/firework-2.webp",
+   "w": 320,
+   "h": 320,
+   "anchor": [
+    160,
+    160
+   ],
+   "tint": true
+  },
+  "firework-3": {
+   "src": "props/firework-3.webp",
+   "w": 320,
+   "h": 320,
+   "anchor": [
+    160,
+    160
+   ],
+   "tint": true
+  },
+  "firework-4": {
+   "src": "props/firework-4.webp",
+   "w": 320,
+   "h": 320,
+   "anchor": [
+    160,
+    160
+   ],
+   "tint": true
+  },
+  "rocket": {
+   "src": "props/rocket.webp",
+   "w": 96,
+   "h": 220,
+   "anchor": [
+    48,
+    6
+   ],
+   "tint": true
+  },
+  "fuse": {
+   "src": "props/fuse.webp",
    "w": 96,
    "h": 96,
    "anchor": [

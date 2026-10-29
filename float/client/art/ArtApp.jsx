@@ -306,7 +306,7 @@ function Scene({ id, children, width = 960 }) {
 }
 
 function Scenes() {
-  const ids = [...SONGS.map(song => song.scene), "lobby", "bar", "podium"];
+  const ids = [...new Set([...SONGS.map(song => song.scene), "night", "lobby", "bar", "podium"])];
   return <div className="fa2-grid">{ids.map(id => <div key={id}><Scene id={id} /><small className="fa2-note">{id}{SONGS.find(s => s.scene === id) ? `: ${SONGS.find(s => s.scene === id).name}` : ""}</small></div>)}</div>;
 }
 

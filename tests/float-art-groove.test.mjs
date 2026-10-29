@@ -395,3 +395,17 @@ test("the cutscenes' props: the pelicans (one with a grip), dizzy stars, bonk, b
     assert.ok(x >= 0 && y >= 0 && x + w <= p[id].w && y + h <= p[id].h && w > p[id].w * 0.4 && h > p[id].h * 0.4, `${id} face`);
   }
 });
+
+test("Fireworks: the night scene layered like the others, the bursts, the rocket and the fuse white to take a colour", async () => {
+  const night = manifest.scenes.night;
+  assert.ok(night && night.w === 1920 && night.h === 1080 && night.water > 0.3 && night.water < 0.8, "the night scene");
+  assert.deepEqual(night.layers.map(l => [l.depth, !!l.loop]), [[0, false], [0.3, true], [1, true]]);
+  for (const layer of night.layers) assert.deepEqual(await size(layer.src), [1920, 1080], layer.src);
+  assert.ok(groove.SCENES.includes("night"));
+  for (const id of ["firework-1", "firework-2", "firework-3", "firework-4", "rocket", "fuse"]) {
+    const p = manifest.props[id];
+    assert.ok(p && p.tint === true, `${id} tints`);
+    assert.deepEqual(await size(p.src), [p.w, p.h], id);
+    assert.ok(isPoint(p.anchor, p.w, p.h), `${id} anchor`);
+  }
+});

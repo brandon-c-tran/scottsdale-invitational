@@ -433,11 +433,14 @@ test("the chug-off: the call, three two one, Chug! on goAt, the chant until the 
   r.advance(4000);
   assert.equal(r.played.filter(p => p.id === "floatChant" && !p.cancelled && p.at + PRE > doneAt).length, 0, "no chant after");
   r.runner.stop();
-  /* the first chug-off says its rule; with the room's 4 s intro there is no room to count too, so a drumroll into Chug! */
-  const plan = groove.chugoffPlan(chartMod.CHUGOFF.INTRO_MS, { first:true });
-  assert.equal(plan.explain, groove.CHUGOFF_BEATS.explain);
-  assert.ok(plan.count.length === 0 && plan.roll !== null && plan.roll < plan.chug);
-  assert.equal(groove.chugoffPlan(8000, { first:true }).count.length, 3, "a longer first intro counts as well");
+  /* the first chug-off's rule needs a longer intro than the room's 4 s: there it counts like the rest */
+  const short = groove.chugoffPlan(chartMod.CHUGOFF.INTRO_MS, { first:true });
+  assert.equal(short.explain, null);
+  assert.equal(short.count.length, 3);
+  const long = groove.chugoffPlan(7000, { first:true }), rule = VOICE.clips.find(c => c.id === "chug-explain"), call = VOICE.clips.find(c => c.id === "chugoff");
+  assert.equal(long.explain, groove.CHUGOFF_BEATS.explain);
+  assert.ok(long.explain - Math.min(150, rule.onset) > long.call - call.onset + call.dur + 100, "the rule after the call, clear of it");
+  assert.ok(long.explain - Math.min(150, rule.onset) + rule.dur < long.count[0], "and over before three");
 });
 
 test("the cut after the final names nobody: the grades' stamp, no drumroll, exit or loop, the podium's own fanfare follows; the phone waits for its place", () => {

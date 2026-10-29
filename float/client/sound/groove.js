@@ -338,12 +338,15 @@ export function lastCallEvents(chart) {
    "Chug!" on it, the room chanting from goAt until the first Done; the
    winner's stamp as the room names them, the loser's exit REVEAL_MS later.
    The plan follows the room's own intro (goAt - startAt): the first one
-   says its rule, and counts too when the intro has room for both (else a
-   drumroll into "Chug!"). */
-export const CHUGOFF_BEATS = Object.freeze({ call:150, explain:900, count:Object.freeze([-1500, -1000, -500]), chug:0, exit:CHUGOFF.REVEAL_MS });
+   says its rule only when the intro holds it and the count (about 6 s; the
+   room's 4 s does not, so it counts like the rest), and a drumroll stands
+   in for the count when there is no room for it. */
+export const CHUGOFF_BEATS = Object.freeze({ call:150, explain:1000, count:Object.freeze([-1500, -1000, -500]), chug:0, exit:CHUGOFF.REVEAL_MS });
 export function chugoffPlan(intro = CHUGOFF.INTRO_MS, { first = false } = {}) {
   const ms = Number.isFinite(intro) && intro > 0 ? intro : CHUGOFF.INTRO_MS;
-  const call = CHUGOFF_BEATS.call, explain = first ? CHUGOFF_BEATS.explain : null;
+  const rule = clipSpan("chug-explain");
+  const fits = CHUGOFF_BEATS.explain + rule.dur - Math.min(150, rule.onset) + 150 <= ms + CHUGOFF_BEATS.count[0];
+  const call = CHUGOFF_BEATS.call, explain = first && fits ? CHUGOFF_BEATS.explain : null;
   /* the rule ends this long before the count (or "Chug!") */
   const clear = explain === null ? call + clipSpan("chugoff").dur + 100 : explain + clipSpan("chug-explain").dur + 150;
   const count = CHUGOFF_BEATS.count.map(at => ms + at);

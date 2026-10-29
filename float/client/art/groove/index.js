@@ -35,7 +35,7 @@
 import { ALL_CRITTER_IDS, retiredHat, retiredShades } from "../../../shared/looks.js";
 
 export const GROOVE_BASE = "/float/groove/";
-export const POSES = Object.freeze(["idle", "stroke", "hey", "nice", "miss", "chug", "cheer", "out"]);
+export const POSES = Object.freeze(["idle", "stroke", "stroke-r", "hey", "nice", "miss", "chug", "cheer", "out"]);
 export const BOX = 512;
 export const HOST_POSES = Object.freeze(["idle", "call", "cheer"]);
 export const SCENES = Object.freeze(["open", "rocks", "whirlpool", "falls", "night", "lobby", "bar", "podium"]);

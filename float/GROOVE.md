@@ -761,6 +761,45 @@ shortens to 0.7 s, dark at 3 at the fast pace). Art: the `night` scene and
 `firework` props (white, tinted at run time). Sound: its bed (the biggest of
 the five), the fuse and the launch, the dark bars, the voice lines.
 
+### 10. Row in every song, with a paddle you can see (wave A)
+
+Brandon, after the v3 notes: "paddle party would make a lot more sense if
+you physically saw paddles - i just now understood that we're supposed to be
+rowing, and if we're rowing - shouldn't we be rowing across all of the
+levels - lets make the rowing more obvious, it makes everything way harder
+in a fun way i think and make it visually appealing that you're rowing".
+
+- **Kayaks, not tubes** (Brandon: "rowing doesn't really make sense on a
+  tube", then picked kayaks). Every critter sits in a little sit-on-top
+  kayak in the rider's colour, holding a double-bladed paddle; the kayak
+  takes the tube's job everywhere (identity colour, the mask, the flotilla).
+  The paddle is drawn INTO the sprites (no prop). The sprites keep the
+  manifest schema: the same 512 x 512 box, the kayak in a compact
+  three-quarter view (bow toward the right and the viewer) so five still fit
+  a row on the TV, `anchor.water` the hull's waterline centre, the `tube`
+  mask now the hull plus the paddle blades (the shaft and the critter keep
+  their own colours). Poses: `idle` (paddle across the lap), `stroke` (the
+  blade dips on the rider's LEFT, a splash), `stroke-r` (NEW: the blade dips
+  on the RIGHT), `hey`, `nice`, `miss` (the paddle slaps flat, splash in the
+  face), `chug`, `cheer` (paddle raised overhead), `out` (capsized-sad,
+  paddle floating). The tee set and the portraits too. A hit `paddle` cue
+  alternates `stroke` and `stroke-r`, stroke by stroke per rider; a miss is
+  `miss`. At the bar riders stand waist up behind the counter (no kayak).
+  The phone's critter is the same art.
+- **Rowing is the base layer of every song**: in play A and play B of
+  every song, `paddle` cues on 1 and 3 of every bar, and the song's own
+  move layered on top (Rock Hop's hops, Spin Cycle's spins, The Drop's mix,
+  Fireworks' rockets). Where a song's own cue lands on 1 or 3, it replaces
+  that stroke (never two cues at one time; `matchTap` takes the nearest).
+  Paddle Party is the song where rowing is learned; the other songs' own
+  patterns may thin (fewer, cleaner) so the stack stays fun, not a wall.
+  Practice in every song starts with a bar of rowing and its lines say it
+  ("Keep rowing. Hop two beats after me"); the four-beat counter shows the
+  strokes and the move. The breakdown is still pure copying (no rowing).
+  Blackout bars keep rowing (you row in the dark).
+- The pulse is the call for rowing in every song (the band's kick on 1 and
+  3 and the stroke sound), so the host's calls stay the song's own move.
+
 ## Wednesday night target (in cut order: the last line goes first)
 
 1. Song 1 complete: chart, music with clear calls, TV scene, phone, popups,

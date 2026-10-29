@@ -503,8 +503,8 @@ test("Last Call, the countdown: shown and said until the trick hides it, nothing
     const ys = new Set(Object.values(seats).map(s => s.y));
     assert.equal(ys.size, 1, `${n}: one line-up`);
     assert.ok(Object.values(seats).every(s => s.x - 125 * s.scale * 1.45 > 0 && s.x + 125 * s.scale * 1.45 < STAGE_W), `${n}: on the stage`);
-    /* behind the counter, waist up: the ring's top (about 58 box px over the waterline) under the counter's top */
-    assert.ok(Object.values(seats).every(s => s.y - 58 * s.scale * 1.45 >= COUNTER.top && s.y < 1080), `${n}: no tubes over the counter`);
+    /* behind the counter, waist up: the ring's top (about 72 box px over the waterline, the kayak bow too) under the counter's top */
+    assert.ok(Object.values(seats).every(s => s.y - 72 * s.scale * 1.45 >= COUNTER.top && s.y < 1080), `${n}: no tubes over the counter`);
     assert.ok(BAR_LINE.lo > 0 && BAR_LINE.hi < STAGE_W);
   }
   /* the reveal ranks the line-up: closest left, farthest right, a tie shares a place in rider order, no tap last */

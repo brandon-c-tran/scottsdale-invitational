@@ -69,9 +69,10 @@ export const BOARD = Object.freeze({ x:1060, y:200, w:400, h:240 });
    up, as the bartender does behind his, so it covers every tube */
 export const COUNTER = Object.freeze({ top:850 });
 /* the art's ring reaches this far over the waterline (box px: its top
-   edge, the paws resting on it, so the paws sit on the counter), drawn
+   edge, the paws resting on it, so the paws sit on the counter; a kayak's
+   bow rides about as high), drawn
    ART_FILL (1.45) times the scale */
-export const RING_OVER = 58 * 1.45;
+export const RING_OVER = 72 * 1.45;
 
 /* everyone at the bar: one line-up behind the counter, so each rider's
    readout stands right over them and every name sits on the counter under

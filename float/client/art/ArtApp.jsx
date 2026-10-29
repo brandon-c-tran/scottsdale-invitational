@@ -22,6 +22,8 @@ const VIEW = query.get("view") || "all";
 const FREEZE = query.get("freeze") === "1";
 const BG = query.get("bg") || "water";
 const BGS = { water:"#8fdbe2", dark:"#1f2430", light:"#fbf7ef" };
+/* the poses the manifest lists (the kayaks added stroke-r), else the module's own */
+const usePoses = () => useGrooveArt()?.poses || POSES;
 
 const CSS = `
 .fa2 { min-height: 100vh; background: #f6f1e7; color: #2a2430; font: 16px/1.4 system-ui, -apple-system, Segoe UI, sans-serif; padding: 24px 32px 80px; box-sizing: border-box; }
@@ -74,6 +76,7 @@ function Nav() {
 }
 
 function Critters({ ids = ALL.map(c => c.id), size = 112 }) {
+  const poses = usePoses();
   return (
     <div className="fa2-sheet" style={{ background:BGS[BG] || BGS.water }}>
       {ids.map(id => (
@@ -81,7 +84,7 @@ function Critters({ ids = ALL.map(c => c.id), size = 112 }) {
           <h3>{ALL.find(c => c.id === id)?.name || id}</h3>
           {COLORS.slice(0, 3).map(([name, color]) => (
             <div key={name} className="fa2-row">
-              {POSES.map(pose => (
+              {poses.map(pose => (
                 <div key={pose} className="fa2-cell">
                   <RiderSprite critter={id} color={color} pose={pose} size={size} />
                   {name === "Red" ? <small>{pose}</small> : null}
@@ -97,11 +100,12 @@ function Critters({ ids = ALL.map(c => c.id), size = 112 }) {
 
 /* the groom's crown on every pose: it should sit on the head in each */
 function Crowns() {
+  const poses = usePoses();
   return (
     <div className="fa2-sheet" style={{ background:BGS[BG] || BGS.water }}>
       {ALL.map((c, i) => (
         <div key={c.id} className="fa2-row">
-          {POSES.map(pose => <div key={pose} className="fa2-cell"><RiderSprite critter={c.id} color={RIDER_COLORS[i % RIDER_COLORS.length]} pose={pose} groom size={110} /></div>)}
+          {poses.map(pose => <div key={pose} className="fa2-cell"><RiderSprite critter={c.id} color={RIDER_COLORS[i % RIDER_COLORS.length]} pose={pose} groom size={110} /></div>)}
         </div>
       ))}
     </div>
@@ -147,14 +151,15 @@ function Looks() {
     </div>
   );
 }
-/* one critter, every look in all eight poses */
+/* one critter, every look in every pose */
 function LookPoses({ id }) {
+  const poses = usePoses();
   return (
     <div className="fa2-sheet" style={{ background:BGS[BG] || BGS.water }}>
       {lookCells().map((cell, i) => (
         <div key={cell.label} className="fa2-row">
           <div className="fa2-cell" style={{ width:90 }}><small>{cell.label}</small></div>
-          {POSES.map(pose => <RiderSprite key={pose} critter={id} color={RIDER_COLORS[i % RIDER_COLORS.length]} pose={pose} size={150} {...cell.look} />)}
+          {poses.map(pose => <RiderSprite key={pose} critter={id} color={RIDER_COLORS[i % RIDER_COLORS.length]} pose={pose} size={150} {...cell.look} />)}
         </div>
       ))}
     </div>

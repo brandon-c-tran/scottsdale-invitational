@@ -13,7 +13,7 @@
    zooming); this draws. */
 import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Critter, Host, Popup } from "./art.jsx";
-import { beatCounter, demoAt, narrationAt, pendingCalls, rankView, songView } from "./controllerModel.js";
+import { beatCounter, darkAt, demoAt, narrationAt, pendingCalls, rankView, songView } from "./controllerModel.js";
 import { cueTime } from "../../shared/chart.js";
 import { CutLine, Scenery } from "./parts.jsx";
 import SeatMap from "./SeatMap.jsx";
@@ -121,6 +121,7 @@ const MOVES = Object.freeze({
   hop:[{ transform:"none" }, { transform:"translateY(-46px) scale(0.95, 1.07)", offset:0.45 }, { transform:"translateY(4px) scale(1.06, 0.94)", offset:0.8 }, { transform:"none" }],
   spin:[{ transform:"none" }, { transform:"scaleX(-1)", offset:0.5 }, { transform:"none" }],
   drop:[{ transform:"none" }, { transform:"translateY(26px) scale(1.08, 0.9)", offset:0.4 }, { transform:"none" }],
+  rocket:[{ transform:"none" }, { transform:"translateY(6px) scale(1.08, 0.9)", offset:0.2 }, { transform:"translateY(-22px) scale(0.96, 1.05)", offset:0.5 }, { transform:"none" }],
   miss:[{ transform:"none" }, { transform:"translateX(-8px) rotate(-5deg)", offset:0.25 }, { transform:"translateX(7px) rotate(4deg)", offset:0.55 }, { transform:"none" }],
   cheer:[{ transform:"none" }, { transform:"translateY(-40px) scale(0.96, 1.06)", offset:0.45 }, { transform:"none" }],
 });
@@ -134,7 +135,7 @@ export function useMove(ref, act) {
 }
 
 /* the pose a tap leaves: its action, then pleased for a Perfect or a Nice; a miss flubs */
-const ACTION_POSE = Object.freeze({ paddle:"stroke", hey:"hey", hop:"stroke", spin:"stroke", drop:"hey", miss:"miss", cheer:"cheer" });
+const ACTION_POSE = Object.freeze({ paddle:"stroke", hey:"hey", hop:"stroke", spin:"stroke", drop:"hey", rocket:"hey", miss:"miss", cheer:"cheer" });
 export function usePose(act, base = "idle", side = null) {
   const [, bump] = useState(0);
   const at = act?.at ?? -Infinity;
@@ -256,8 +257,12 @@ export default function SongScreen({ serverNow, chart, songAt, entrant, shape, n
   const shown = useShown(popup);
   const watch = !!demo && line !== "Watch" && !shown;
   const counter = beatCounter(chart, view);
+  /* a blackout bar: the scene dims, no calls (the pad still judges) */
+  const dark = darkAt(chart, view.beat);
+  /* a launch that lands: a burst in your colour over you (a Perfect the biggest) */
+  const burst = act && act.kind === "rocket" && act.q && act.q !== "miss" && perfNow() - act.at < 900 ? act : null;
   const progress = Number.isFinite(view.beat) && chart ? Math.max(0, Math.min(1, view.beat / chart.beats)) : 0;
-  return <section ref={rootRef} className={`flc-screen flc-song is-${view.moment}${line ? " has-line" : ""}`}
+  return <section ref={rootRef} className={`flc-screen flc-song is-${view.moment}${line ? " has-line" : ""}${dark ? " is-dark" : ""}`}
     data-moment={view.moment} data-scene={chart?.scene || "open"}>
     <Scenery scene={chart?.scene || "open"} />
     <i className="flc-tint" aria-hidden="true" />
@@ -276,6 +281,7 @@ export default function SongScreen({ serverNow, chart, songAt, entrant, shape, n
     <div className="flc-stage">
       <div className="flc-popup-slot">{shown ? <Popup key={shown.key} q={shown.q} d={shown.d} />
         : watch ? <b className="flc-watch-tag" key={`watch-${demo.id}`}>Watch</b> : null}</div>
+      {burst && <i className={`flc-burst is-${burst.q}`} key={`burst-${burst.key}`} aria-hidden="true" />}
       <div className="flc-me" ref={bobRef}><div className="flc-me-move" ref={moveRef}>
         <Critter entrant={entrant} pose={pose} size={300} />
       </div></div>

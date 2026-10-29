@@ -70,6 +70,9 @@ html.flc-locked, html.flc-locked body { overflow: hidden; overscroll-behavior: n
 /* ── the scenes: the sky by song (data-scene) ── */
 .flc-screen[data-scene="rocks"], .flc-scenery.is-rocks { --sky-a: #ffe3c9; --sky-b: #ffbda5; --mesa-far: #f2a98c; --mesa-near: #dc8466; --water-a: #46bfd2; --water-b: #73d3e2; }
 .flc-screen[data-scene="whirlpool"], .flc-scenery.is-whirlpool { --sky-a: #e3d8ff; --sky-b: #ffd3e7; --mesa-far: #dcb3d6; --mesa-near: #c793c4; --water-a: #6cbdf0; --water-b: #95d0f6; }
+/* Fireworks (v3 wave B): the final three at night on the lake */
+.flc-screen[data-scene="night"], .flc-scenery.is-night { --sky-a: #141a3d; --sky-b: #3b2f6b; --mesa-far: #2a2652; --mesa-near: #1f1c40; --water-a: #1d3e6e; --water-b: #2b558a; --sun: #f4efd2; }
+.flc-screen[data-scene="night"] .flc-songname, .flc-screen[data-scene="night"] .flc-card-kicker { color: var(--paper); }
 .flc-screen[data-scene="falls"], .flc-scenery.is-falls { --sky-a: #ffd9ad; --sky-b: #ff9fae; --mesa-far: #f0988a; --mesa-near: #d9776c; --water-a: #49b0e2; --water-b: #78c8ee; }
 .flc-scenery.is-lobby { --sky-a: #d6f0ff; --sky-b: #f3e1ff; --mesa-far: #d9c3ec; --mesa-near: #c4a8e0; }
 .flc-scenery.is-podium { --sky-a: #fff0b3; --sky-b: #ffd2e6; --mesa-far: #f5c6a0; --mesa-near: #eaa983; }
@@ -210,6 +213,7 @@ html.flc-locked, html.flc-locked body { overflow: hidden; overscroll-behavior: n
 }
 .flc-word { font-size: clamp(30px, 9.4vw, 44px); line-height: 1; font-weight: 900; letter-spacing: -0.01em; color: var(--ink); animation: flc-word-in 220ms var(--spring) both; }
 .flc-word.is-drop { color: var(--coral); }
+.flc-word.is-rocket { color: #e8541e; }
 .flc-word.is-answered { opacity: 0.28; transition: opacity 160ms ease; }
 @keyframes flc-word-in { from { transform: translateY(10px) scale(0.5); opacity: 0; } }
 
@@ -517,6 +521,18 @@ html.flc-locked, html.flc-locked body { overflow: hidden; overscroll-behavior: n
 .flc-count.is-now.is-on i { box-shadow: inset 0 0 0 4px var(--ink), 0 0 0 4px var(--me); }
 @keyframes flc-count-pulse { from { transform: scale(1.34); } to { transform: scale(1.18); } }
 .flc-count b { min-height: 20px; font-size: 17px; line-height: 1.1; font-weight: 900; color: var(--paper); text-shadow: var(--outline-thin); white-space: nowrap; }
+
+/* a blackout bar (chart.dark): the scene drops to silhouettes; you, your popup and the pad stay lit */
+.flc-song > .flc-scenery, .flc-song > .flc-tint { transition: filter 220ms ease; }
+.flc-song.is-dark > .flc-scenery { filter: brightness(0.32) saturate(0.4); }
+/* a launch that lands: a burst in your colour (a Perfect the biggest) */
+.flc-burst { position: absolute; left: 50%; top: 22%; width: 220px; height: 220px; margin-left: -110px; border-radius: 50%; pointer-events: none;
+  background: repeating-conic-gradient(var(--me) 0deg 8deg, transparent 8deg 30deg);
+  -webkit-mask: radial-gradient(circle, transparent 0 30%, #000 31% 70%, transparent 71%); mask: radial-gradient(circle, transparent 0 30%, #000 31% 70%, transparent 71%);
+  animation: flc-burst 700ms var(--ease) both; }
+.flc-burst.is-perfect { width: 300px; height: 300px; margin-left: -150px; }
+.flc-burst.is-early, .flc-burst.is-late { width: 150px; height: 150px; margin-left: -75px; }
+@keyframes flc-burst { from { transform: scale(0.2); opacity: 1; } 70% { opacity: 1; } to { transform: scale(1.15); opacity: 0; } }
 
 /* the popup's number in its tone (chart offsetTone / countTone): gold, green, yellow, orange, red; a miss grey */
 .flc-popup.is-num-gold .fg-popup-num { color: #f5b82e; }

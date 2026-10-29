@@ -242,12 +242,16 @@ export function roundSong(room) {
    the answered ones marked, until the last is answered. A drop's call is a
    countdown: 3, 2, 1 on its three beats. A paddle has no call (the pulse
    is the call). [{ key, word, at, kind, c, answered }] */
-export const CALL_WORDS = Object.freeze({ hey:"Ready", hop:"Ba", spin:"Spin", echo:"♪" });
+export const CALL_WORDS = Object.freeze({ hey:"Ready", hop:"Ba", spin:"Spin", echo:"♪", rocket:"Launch" });
+/* a blackout bar (chart.dark, v3 wave B): the host and the band drop out,
+   no calls show; you keep the pattern in your head and the pad still judges */
+export const darkAt = (chart, beat) => Number.isFinite(beat) && Array.isArray(chart?.dark) && chart.dark.includes(Math.floor(beat / 4));
 export const ANSWER_HOLD = 0.25;
 const PHRASE = 1.5;
 export function pendingCalls(chart, beat) {
   if (!chart || !Number.isFinite(beat)) return [];
-  const calls = callsBetween(chart, beat - 8, beat + 1e-6);
+  if (darkAt(chart, beat)) return [];
+  const calls = callsBetween(chart, beat - 8, beat + 1e-6).filter(cue => !darkAt(chart, cue.call));
   const pending = calls.filter(cue => cue.beat + ANSWER_HOLD > beat);
   if (!pending.length) return [];
   const first = Math.min(...pending.map(cue => cue.call));

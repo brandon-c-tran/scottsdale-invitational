@@ -10,7 +10,7 @@ import TapButton from "./TapButton.jsx";
 import { Critter } from "./art.jsx";
 import { CutLine, ExitButton, Scenery, Top } from "./parts.jsx";
 import { RoundCard, useBeatBob, useMove, usePose } from "./SongScreen.jsx";
-import { CUT_SHOW, chartFor, cutShow, cutView, finalPlace, indexes, ordinal, pctText, roundShape, roundSong, songAtOf } from "./controllerModel.js";
+import { CUT_SHOW, chartFor, cutShow, cutView, finalPlace, indexes, ordinal, pctText, roundShape, roundSong, seatView, songAtOf } from "./controllerModel.js";
 import { cutBeats } from "./sound.js";
 import { tapTick } from "../../../src/lib/haptics.js";
 
@@ -74,7 +74,7 @@ function Intro({ game, entrant, onExit }) {
   return <section className="flc-screen flc-song is-card" data-scene={chart?.scene || "open"}>
     <Scenery scene={chart?.scene || "open"} />
     <Top right={<ExitButton onExit={onExit} />} />
-    <RoundCard shape={roundShape(room)} name={song.name} />
+    <RoundCard shape={roundShape(room)} name={song.name} seats={seatView({ room, idx:game.idx })} entrant={entrant} />
     <div className="flc-stage"><div className="flc-popup-slot" /><div className="flc-idle-me"><Critter entrant={entrant} size={300} /></div></div>
   </section>;
 }

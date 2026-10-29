@@ -6,11 +6,12 @@
    picture holds the place: a white critter in a tube of the rider's
    colour, the host in a straw hat.
 
-   Poses (the manifest's): idle, stroke, hey, nice, miss, chug, cheer, out. */
+   Poses (the manifest's): idle, stroke (the blade dips left), stroke-r (right), hey, nice, miss, chug, cheer, out. */
 import React, { useEffect } from "react";
 import { Popup as ArtPopup, RiderSprite, hostSprites, loadGrooveArt, lookOf, riderSprites, useGrooveArt } from "../art/index.js";
+import { numberTone } from "./controllerModel.js";
 
-export const POSES = Object.freeze(["idle", "stroke", "hey", "nice", "miss", "chug", "cheer", "out"]);
+export const POSES = Object.freeze(["idle", "stroke", "stroke-r", "hey", "nice", "miss", "chug", "cheer", "out"]);
 
 /* the manifest and this rider's painted sprites, fetched ahead (the lobby), so the song never waits on them */
 export function usePreloadArt(entrant) {
@@ -27,11 +28,12 @@ const INK = "#2b2233";
 const BODY = "#fffdf8";
 
 /* the stand-in critter: a white round body in a tube of the rider's colour */
-export function StandInCritter({ color = "#e4572e", pose = "idle", size = 200 }) {
+export function StandInCritter({ color = "#e4572e", pose = "idle", size = 200, mirror = false }) {
   const happy = pose === "nice" || pose === "cheer";
   const shout = pose === "hey" || pose === "miss";
   const armsUp = pose === "cheer" ? 2 : pose === "hey" ? 1 : 0;
-  return <svg className={`flc-standin is-${pose}`} viewBox="0 0 200 200" width={size} height={size} aria-hidden="true" focusable="false">
+  return <svg className={`flc-standin is-${pose}`} viewBox="0 0 200 200" width={size} height={size} aria-hidden="true" focusable="false"
+    style={mirror ? { transform:"scaleX(-1)" } : undefined}>
     <ellipse cx="100" cy="150" rx="84" ry="30" fill={color} stroke={INK} strokeWidth="4" />
     <ellipse cx="100" cy="146" rx="50" ry="13" fill="rgba(0,0,0,0.18)" />
     {armsUp >= 1 && <path d="M138 112 q22 -18 20 -44" fill="none" stroke={INK} strokeWidth="13" strokeLinecap="round" />}
@@ -93,15 +95,22 @@ export function StandInHost({ pose = "idle", size = 72 }) {
 
 /* a rider's critter in a pose, in what they wear (lookOf: the hat, the
    glasses, the photo tee with their photo): the art's own sprite once the
-   manifest is in */
+   manifest is in. The kayak and its paddle are in the sprites (GROOVE.md
+   v3 item 10); `stroke-r` (the blade on the right) is `stroke` until the
+   art has it. */
+export const poseFor = (manifest, critter, pose) => {
+  const want = POSES.includes(pose) ? pose : "idle";
+  if (want !== "stroke-r") return want;
+  return manifest?.critters?.[critter]?.poses?.["stroke-r"] ? want : "stroke";
+};
 export function Critter({ entrant, pose = "idle", size = 200, className = "" }) {
   const manifest = useGrooveArt();
   const look = lookOf({ ...(entrant || {}), color:entrant?.color || "#e4572e" });
   const color = entrant?.color || "#e4572e";
-  const want = POSES.includes(pose) ? pose : "idle";
+  const want = manifest ? poseFor(manifest, look.critter, pose) : POSES.includes(pose) ? pose : "idle";
   return <span className={`flc-critter${manifest ? " is-art" : ""}${className ? ` ${className}` : ""}`} style={{ "--size":`${size}px` }} data-pose={want}>
     {manifest ? <RiderSprite {...look} pose={want} size={size} />
-      : <StandInCritter color={color} pose={want} size={size} />}
+      : <StandInCritter color={color} pose={want === "stroke-r" ? "stroke" : want} size={size} mirror={want === "stroke-r"} />}
   </span>;
 }
 
@@ -115,10 +124,12 @@ export function Host({ pose = "idle", size = 72 }) {
   </span>;
 }
 
-/* the judgement, big: the signed offset over the word (GROOVE.md "The popup"), the art's own lettering */
+/* the judgement, big: the signed offset over the word (GROOVE.md "The popup"), the art's own lettering;
+   the number in its tone by how close (v3: offsetTone in a song, countTone at Last Call with `count`) */
 export const POPUP_SIZE = 76;
-export function Popup({ q, d, size = POPUP_SIZE, className = "", life = true }) {
-  return <span className={`flc-popup${className ? ` ${className}` : ""}`} role="status">
+export function Popup({ q, d, size = POPUP_SIZE, className = "", life = true, count = false }) {
+  const tone = numberTone(q, d, { count });
+  return <span className={`flc-popup is-num-${tone}${className ? ` ${className}` : ""}`} data-tone={tone} role="status">
     <ArtPopup q={q} d={d} size={size} life={life} />
   </span>;
 }

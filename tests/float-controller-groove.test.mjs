@@ -8,6 +8,8 @@
    played end to end by the phone's own pieces against the real room
    (float/worker/room.js, run in the mock). */
 import test from "node:test";
+/* v3 (wave A) rides with this file in npm test */
+import "./float-controller-v3.test.mjs";
 import assert from "node:assert/strict";
 import { CALIBRATION, CHUGOFF, MISS_AFTER_MS, WINDOW, breakdownSection, chartOf, cueTime, lastCallId, popupOf } from "../float/shared/chart.js";
 import { createPad, padTap, restamp, serverStamp, stampOf } from "../float/client/controller/rhythm.js";
@@ -48,13 +50,13 @@ test("tap to hit: the nearest cue within 300 ms, judged with the room's offset, 
   /* the same offset moves every judgement: 18 ms raw is Perfect at 0.00 */
   assert.equal(pad.tap(at(14, 18), { chart:paddle, songAt:SONG_AT, offset:18 }).popup.num, "0.00");
   /* early and late past OK, up to 300 ms, with their sign */
-  const late = createPad().tap(at(16, 240), { chart:paddle, songAt:SONG_AT });
+  const late = createPad().tap(at(20, 240), { chart:paddle, songAt:SONG_AT });
   assert.deepEqual([late.q, late.popup.num, late.popup.word], ["late", "+0.24", "Late"]);
-  const early = createPad().tap(at(16, -200), { chart:paddle, songAt:SONG_AT });
+  const early = createPad().tap(at(20, -200), { chart:paddle, songAt:SONG_AT });
   assert.deepEqual([early.q, early.popup.num], ["early", "-0.20"]);
   /* nothing near: no cue, no hit (beat 5 is the intro) */
   assert.equal(createPad().tap(at(5), { chart:paddle, songAt:SONG_AT }), null);
-  assert.equal(createPad().tap(at(16, WINDOW.MAX + 20), { chart:paddle, songAt:SONG_AT }), null);
+  assert.equal(createPad().tap(at(20, WINDOW.MAX + 20), { chart:paddle, songAt:SONG_AT }), null);
 });
 
 test("one hit a cue: a second tap goes to the next cue or to none; the room's word takes a cue too", () => {
@@ -117,7 +119,7 @@ test("the breakdown: copy the host a bar later (echo cues, ordinary taps), Copy 
   assert.ok(narrationAt(paddle, 8));
   const demo = paddle.cues.find(cue => cue.demo);
   assert.equal(narrationAt(paddle, demo.beat), "Watch");
-  assert.equal(demoAt(paddle, demo.call)?.id, demo.id);
+  assert.equal(demoAt(paddle, Number.isFinite(demo.call) ? demo.call : demo.beat - 0.5)?.id, demo.id, "a demo stroke has no call: shown from the beat before");
   assert.equal(demoAt(paddle, demo.beat + 0.6), null);
   assert.equal(padTap(createPad(), at(demo.beat), { chart:paddle, songAt:SONG_AT }).found, null);
   assert.equal(narrationAt(paddle, 40), null, "play has no narration");

@@ -32,14 +32,16 @@ test("Paddle Party: Ready on its beat, two beats before your Hey!; the paddles h
   assert.equal(CALL_WORDS.hey, "Ready");
 });
 
-test("Rock Hop: the host's ba notes, then your hops two beats later", () => {
+test("Rock Hop: the host's ba notes, then your hops two beats later (the strokes under them have no call)", () => {
   const rock = chartOf("rock");
-  const triple = rock.cues.find((cue, k) => cue.kind === "hop" && rock.cues[k + 2]?.beat === cue.beat + 1 && rock.cues[k + 1]?.beat === cue.beat + 0.5);
-  assert.ok(triple, "a bar of three hops");
-  assert.equal(words(rock, triple.call), "Ba");
-  assert.equal(words(rock, triple.call + 1), "Ba Ba Ba");
-  assert.equal(words(rock, triple.beat + 0.3), "Ba~ Ba Ba");
-  assert.equal(words(rock, triple.beat + 1 + ANSWER_HOLD), "");
+  const hops = rock.cues.filter(cue => cue.kind === "hop" && !cue.demo);
+  const double = hops.find((cue, k) => hops[k + 1]?.beat === cue.beat + 0.5);
+  assert.ok(double, "a pair of hops on a beat and its and");
+  assert.equal(double.call, double.beat - 2);
+  assert.equal(words(rock, double.call), "Ba");
+  assert.equal(words(rock, double.call + 0.5), "Ba Ba");
+  assert.equal(words(rock, double.beat + 0.3), "Ba~ Ba");
+  assert.equal(words(rock, double.beat + 0.5 + ANSWER_HOLD), "");
 });
 
 test("Spin Cycle: the host spins, you echo a beat later", () => {

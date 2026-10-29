@@ -10,7 +10,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { bartenderSprites, sceneOf, useGrooveArt } from "../art/index.js";
 import { Critter, Popup } from "./art.jsx";
-import { LAST_CALL_LINE, countdownView } from "./controllerModel.js";
+import { LAST_CALL_LINE, countdownView, lastCallPlace } from "./controllerModel.js";
 import { usePad } from "./SongScreen.jsx";
 
 /* the room's clock, re-read at each of the countdown's moments (the intro's end, revealAt, verdictAt) */
@@ -41,8 +41,9 @@ function Bartender({ pose }) {
   return <span className="flc-bartender" aria-hidden="true"><img src={src} alt="" draggable="false" /></span>;
 }
 
-/* props: serverNow, room, idx, chart, songAt, entrant, judged (the room's word on your tap), tap (this phone's own), onTap */
-export default function LastCall({ serverNow, room, idx, chart, songAt, entrant, judged = {}, tap = null, onTap }) {
+/* props: serverNow, room, idx, chart, songAt, entrant, judged (the room's word on your tap), tap (this phone's own),
+   me (the room's word on you: me.lastCall's place, when it says), onTap */
+export default function LastCall({ serverNow, room, idx, chart, songAt, entrant, judged = {}, tap = null, me = null, onTap }) {
   const rootRef = useRef(null);
   usePad(rootRef, onTap);
   const countdown = chart?.countdown || null;
@@ -52,6 +53,8 @@ export default function LastCall({ serverNow, room, idx, chart, songAt, entrant,
   const scene = manifest ? sceneOf("bar") : null;
   const counter = Number(scene?.counter) || 0.45;
   const told = view.drinks !== null;
+  /* v3: your place among everyone at the bar, closest first ("3rd closest of 9"), from the reveal */
+  const shownPlace = view.offset ? lastCallPlace({ room, me, idx }) : null;
   const pose = told ? (view.drinks ? "chug" : "cheer") : view.locked ? "nice" : "idle";
   return <section ref={rootRef} className={`flc-screen flc-lastcall is-${view.moment}${view.locked ? " is-locked" : ""}${told ? (view.drinks ? " is-drinks" : " is-safe") : ""}`}
     data-moment={view.moment} style={{ "--counter":counter }}>
@@ -67,11 +70,13 @@ export default function LastCall({ serverNow, room, idx, chart, songAt, entrant,
       <b className="flc-zero-title">{view.locked ? "Locked" : "Tap on zero"}</b>
     </div>}
     {(view.moment === "reveal" || view.moment === "verdict") && <div className="flc-verdict" role="status">
+      {view.offset && <span className={`flc-lc-offset${told ? " is-small" : ""}`}><Popup q={view.offset.q} d={view.offset.d} size={told ? 64 : 96} life={false} count /></span>}
+      {shownPlace && <b className={`flc-lc-place${shownPlace.place === 1 ? " is-first" : ""}`}>{shownPlace.text}</b>}
       {told && <b className="flc-stamp" key={view.drinks ? "drink" : "safe"}>{view.drinks ? "You drink" : "Safe"}</b>}
-      {view.offset && <span className={`flc-lc-offset${told ? " is-small" : ""}`}><Popup q={view.offset.q} d={view.offset.d} size={told ? 60 : 96} life={false} /></span>}
     </div>}
     <Bartender pose={told ? "cheer" : "idle"} />
-    <div className="flc-stage is-bar"><div className="flc-idle-me"><Critter entrant={entrant} pose={pose} size={280} /></div></div>
+    {/* at the bar you stand behind the counter, waist up, as the bartender does: the counter hides the kayak (v3) */}
+    <div className="flc-barseat"><Critter entrant={entrant} pose={pose} size={280} /></div>
     {view.moment === "count" && <div className={`flc-zero-pad${view.locked ? " is-locked" : ""}`} aria-hidden="true">
       <i>{view.locked ? <svg viewBox="0 0 24 24"><path d="M7 11V8a5 5 0 0 1 10 0v3" /><rect x="5" y="11" width="14" height="10" rx="2.5" /></svg> : null}</i>
     </div>}

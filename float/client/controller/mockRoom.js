@@ -26,7 +26,7 @@ import { chartOf, cueTime, MISS_AFTER_MS } from "../../shared/chart.js";
 import { botSkills } from "../../shared/groove.js";
 
 export const MOCK_SCENES = Object.freeze(["lobby", "lobby-ready", "lobby-fieldday", "intro", "card", "count", "practice", "hey",
-  "watch-demo", "play", "play-late", "play-miss", "breakdown", "breakdown-copy", "outro", "after", "rock", "spin", "drop",
+  "watch-demo", "play", "play-late", "play-miss", "breakdown", "breakdown-copy", "outro", "after", "rock", "spin", "drop", "fireworks", "fireworks-launch", "fireworks-dark",
   "cut", "cut-out", "cut-bubble", "cut-final", "chugoff", "chugoff-count", "chugoff-go", "chugoff-kept", "chugoff-out",
   "chugoff-crowd", "lastcall", "lastcall-tap", "lastcall-locked", "lastcall-reveal", "lastcall-drink", "lastcall-safe",
   "crowd", "podium", "podium-win", "podium-out", "feedback", "watch"]);
@@ -298,7 +298,8 @@ export function createMockRoom({ hello = null, scene = null, freeze = false, tim
       case "card": runUntil(cup => cup.phase === "song"); runTo(room.cup.songAt - 1200); break;
       case "count": toBeat(0, 5.1); break;
       /* the moment a tap lands 70 ms late (Nice!), with the room's offset as it stands */
-      case "practice": ghost = GHOSTS.practice; toBeat(0, 11.6); runTo(cueAt(12) + song().offset + 70); break;
+      case "practice": ghost = { ...GHOSTS.practice, r:(cue, offset) => cue.beat === 12 ? null : GHOSTS.practice.r(cue, offset) };
+        toBeat(0, 11.6); runTo(cueAt(12) + song().offset + 70); break;
       case "hey": ghost = GHOSTS.practice; toBeat(0, 13.2); break;
       /* a tap now: 20 ms early (Perfect), 190 ms late (Late) */
       case "play": ghost = GHOSTS.practice; toBeat(0, 29.4); runTo(cueAt(30) + song().offset - 20); break;
@@ -316,6 +317,11 @@ export function createMockRoom({ hello = null, scene = null, freeze = false, tim
       case "rock": ghost = GHOSTS.practice; toBeat(1, 9.2); break;
       case "spin": ghost = GHOSTS.practice; toBeat(2, 10.6); break;
       case "drop": ghost = GHOSTS.practice; toBeat(3, 118.1); break;
+      /* Fireworks, the final (round 5): the host's fuse (Launch), a launch tapped now (20 ms late, Perfect), a blackout bar */
+      case "fireworks": ghost = GHOSTS.practice; toBeat(4, 29.6); break;
+      case "fireworks-launch": ghost = { ...GHOSTS.practice, r:(cue, offset) => cue.beat === 31 ? null : GHOSTS.practice.r(cue, offset) };
+        toBeat(4, 30.6); runTo(cueAt(31) + song().offset + 20); break;
+      case "fireworks-dark": ghost = GHOSTS.practice; toBeat(4, 105.7); break;
       case "cut": ghost = GHOSTS.practice; runUntil(cup => cup.phase === "cut"); runTo(clock.t + 1500); break;
       case "cut-out": ghost = GHOSTS.bad; runUntil(cup => cup.phase === "cut"); runTo(room.cup.endsAt - 1500); break;
       case "cut-bubble": ghost = GHOSTS.practice; toCut(0); runTo(room.cup.endsAt - 1500); break;
@@ -327,7 +333,8 @@ export function createMockRoom({ hello = null, scene = null, freeze = false, tim
       case "chugoff-out": ghost = { ...GHOSTS.practice, chug:null }; toChug(1);
         runUntil(cup => cup.phase !== "chugoff" || cup.chugoff?.winner !== null); runTo(clock.t + 900); break;
       case "chugoff-crowd": ghost = GHOSTS.practice; toChug(null); runTo(room.cup.chugoff.goAt + 1500); break;
-      case "cut-final": ghost = GHOSTS.practice; runUntil(cup => cup.phase === "cut" && cup.round === 3); placeMe(1); runTo(clock.t + 1500); break;
+      case "cut-final": ghost = GHOSTS.practice; runUntil(cup => cup.phase === "cut" && cup.round === cup.rounds - 1);
+        placeMe(1); runTo(clock.t + 1500); break;
       /* Last Call, the countdown: the intro (the first says what it is), Tap on zero, Locked (730 ms late), the
          offset revealed, who drinks (2.6 s off: the farthest) and who is safe (20 ms off) */
       case "lastcall": ghost = zeroGhost(730); toBar(0, cd => 2000); break;

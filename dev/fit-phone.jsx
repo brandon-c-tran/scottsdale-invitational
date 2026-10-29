@@ -13,6 +13,8 @@ import { publishFrame } from "../src/lib/frameGate.js";
 import { provideFloatPart } from "../src/features/float/floatParts.js";
 import { FIT_ARRIVE_CODE, FIT_GM, FIT_GUEST, PHONE_SCENARIOS, buildScenario } from "./fit/scenarios.js";
 import qrcode from "qrcode-generator";
+import FloatController from "../float/client/controller/FloatController.jsx";
+import { createMockRoom } from "../float/client/controller/mockRoom.js";
 
 /* the rider's controller with no room behind it (the audit has no server):
    the room's own controller waits on "Joining", so a view that closes it
@@ -354,6 +356,15 @@ async function openSheet(kind) {
     if (!await tap(() => [...document.querySelectorAll(".fd-profile-sections button")]
       .find(b => visible(b) && b.textContent.trim() === "Locker"))) return false;
     return !!(await until(() => document.querySelector(".fd-float-locker .fll-root, .fd-float-locker select, .fd-float-locker [data-locker]")));
+  }
+  /* the rider's real controller on the pretend room (mockRoom.js: the real
+     room run in the tab), one moment held still: float-pad:<scene> */
+  if (kind.startsWith("float-pad:")) {
+    const scene = kind.slice("float-pad:".length);
+    provideFloatPart("controller", props => React.createElement(FloatController, { ...props,
+      connect:options => createMockRoom({ ...options, scene, freeze:true }) }));
+    return !!(await until(() => document.querySelector(".fd-float-play .flc-root")?.dataset.screen
+      && !document.querySelector(".flc-connecting"), 20000)) && (await sleep(1500), true);
   }
   if (kind === "float-closed" || kind === "float-desk") {
     provideFloatPart("controller", FitController);

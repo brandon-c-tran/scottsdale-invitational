@@ -1,7 +1,8 @@
 /* What the song shows at a beat (float/GROOVE.md "Songs and charts", "The
-   screen (TV) and the phone"): the round card through the lead, Practice,
-   Go!, Drink!, the host's calls and The Drop's signs, and which scene each
-   phase stands in. Pure: everything from the chart and a beat. */
+   screen (TV) and the phone"): the round card through the lead, the
+   count-in, Go!, the host's calls (the demos, the breakdown's rhythm) and
+   The Drop's signs, the narration's timing, and which scene each phase
+   stands in. Pure: everything from the chart and a beat. */
 import { BEATS_PER_BAR, CUE_KINDS, SONG_LEAD_MS, SONGS, chartOf, sectionAt } from "../../../shared/chart.js";
 
 /* the scene each phase stands in (the art manifest's scene ids) */
@@ -9,7 +10,7 @@ export function sceneFor(phase, chart = null) {
   if (phase === "lobby") return "lobby";
   if (phase === "podium" || phase === "feedback") return "podium";
   if (phase === "lastcall") return "bar";
-  if ((phase === "song" || phase === "cut") && chart?.scene) return chart.scene;
+  if ((phase === "song" || phase === "cut" || phase === "chugoff") && chart?.scene && chart.scene !== "bar") return chart.scene;
   return "open";
 }
 
@@ -44,10 +45,10 @@ export function songStart(msg) {
 }
 
 /* the count-ins, as the sound counts them ("one, two, three, four" on the
-   intro's last bar and on the drink break's last bar): { from, to } beats */
+   intro's last bar): { from, to } beats */
 export function countIns(chart) {
   const out = [];
-  for (const kind of ["intro", "drink"]) {
+  for (const kind of ["intro"]) {
     const section = (chart?.sections || []).find(s => s.kind === kind);
     if (section) out.push({ from:section.to - BEATS_PER_BAR, to:section.to });
   }
@@ -56,18 +57,13 @@ export function countIns(chart) {
 
 /* The banner at a beat: { key, kind, text, sub, at } or null.
      card      the lead and the intro's first bar: "Round 1" over "Paddle Party"
-     count     the count-in, 1 2 3 4 on its beats (the intro's last bar,
-               and the drink break's last bar, the beat coming back)
-     practice  the practice bars, a pill
-     go        a beat and a half from the first play bar, and from the
-               play bar after the drink
-     drink     the drink break's first two bars, big */
+     count     the count-in, 1 2 3 4 on its beats (the intro's last bar)
+     go        a beat and a half from each play bar's start
+   (practice has the narration box instead: lineAt) */
 export function bannerAt(chart, beat, { round = 0, rounds = 0, lastRound = null } = {}) {
   if (!chart || !Number.isFinite(beat)) return null;
   const sections = chart.sections || [];
-  const practice = sections.find(s => s.kind === "practice");
   const plays = sections.filter(s => s.kind === "play");
-  const drink = sections.find(s => s.kind === "drink");
   for (const count of countIns(chart)) {
     if (beat >= count.from && beat < count.to) {
       const n = Math.floor(beat - count.from) + 1;
@@ -78,8 +74,6 @@ export function bannerAt(chart, beat, { round = 0, rounds = 0, lastRound = null 
   for (const play of plays) {
     if (beat >= play.from && beat < play.from + 1.5) return { key:`go:${play.from}`, kind:"go", text:"Go!", at:play.from };
   }
-  if (drink && beat >= drink.from && beat < drink.from + 2 * BEATS_PER_BAR) return { key:"drink", kind:"drink", text:"Drink!", at:drink.from };
-  if (practice && beat >= practice.from && beat < practice.to) return { key:"practice", kind:"practice", text:"Practice", at:practice.from };
   return null;
 }
 
@@ -90,6 +84,7 @@ const CALL_WORDS = Object.freeze({ hey:"Ready", hop:"Ba", spin:"Spin" });
    A paddle has none (the pulse is its call); The Drop's drop is a
    countdown, three notes at -3, -2 and -1. Memoized per chart. */
 const CALLS = new WeakMap();
+/* the breakdown's calls are the host's rhythm, a gesture a note (no word) */
 export function hostCalls(chart) {
   if (!chart?.cues) return [];
   if (CALLS.has(chart)) return CALLS.get(chart);
@@ -104,6 +99,44 @@ export function hostCalls(chart) {
   calls.sort((a, b) => a.beat - b.beat || a.n - b.n);
   CALLS.set(chart, calls);
   return calls;
+}
+
+/* what a rider does for a cue: its own move; the breakdown's copy is the
+   song's own (Paddle Party a stroke, Rock Hop a hop, Spin Cycle a spin, The
+   Drop each in turn) */
+const ECHO_MOVES = Object.freeze({ paddle:"paddle", rock:"hop", spin:"spin" });
+export function actionKind(chart, cue) {
+  if (!cue) return "paddle";
+  if (cue.kind !== "echo") return cue.kind;
+  if (ECHO_MOVES[chart?.id]) return ECHO_MOVES[chart.id];
+  return ["paddle", "hop", "spin"][(cue.id | 0) % 3];
+}
+
+/* the demo the riders act out at a beat (the host's "Watch"): the latest
+   demo cue whose beat has come and whose move is still playing, or null */
+export function demoAt(chart, beat, { holdBeats = 1.2 } = {}) {
+  if (!chart?.cues || !Number.isFinite(beat)) return null;
+  let found = null;
+  for (const cue of chart.cues) {
+    if (cue.beat > beat) break;
+    if (cue.demo && beat < cue.beat + holdBeats) found = cue;
+  }
+  return found;
+}
+
+/* where the narration box stands: over the scene in practice, below the
+   rank strip in the breakdown */
+export function lineSpot(chart, line) {
+  if (!line) return null;
+  const section = (chart?.sections || []).find(s => line.beat + 1 >= s.from && line.beat + 1 < s.to);
+  return section?.kind === "breakdown" || section?.kind === "play" ? "low" : "top";
+}
+
+/* is the rank strip up at a beat? from the first play bar to the song's end */
+export function rankStripOn(chart, beat) {
+  if (!chart || !Number.isFinite(beat)) return false;
+  const first = (chart.sections || []).find(s => s.kind === "play");
+  return !!first && beat >= first.from - 0.5;
 }
 
 /* how long the host holds a call (beats) */
@@ -148,14 +181,26 @@ export function sceneMode(chart, beat) {
   return { section, mode:bar >= 0 && bar < (chart.modes?.length || 0) ? chart.modes[bar] : null };
 }
 
-/* is this rider drinking at this beat? From the drink break's first beat
-   until they tap Done (`done` the server time they did, or null) */
-export function chuggingAt(chart, songAt, now, doneAt) {
-  if (!chart || !Number.isFinite(songAt) || !Number.isFinite(now)) return false;
-  const drink = (chart.sections || []).find(s => s.kind === "drink");
-  if (!drink) return false;
-  const from = songAt + drink.from * chart.beatMs;
-  if (now < from) return false;
-  if (Number.isFinite(doneAt) && doneAt <= now) return false;
-  return now < songAt + chart.beats * chart.beatMs;
+/* The narration as the host says it (float/GROOVE.md "Practice,
+   narrated"): each line goes up when it is spoken (the sound's
+   narration(chart): { text, from, to, show } in beats) and stays until the
+   next line goes up or its own `until`, whichever is first, but never
+   before it has been said. Without the sound's timing, the chart's own
+   beats. Returns [{ text, from, until }] in order. */
+export function timedLines(chart, spoken = null) {
+  const lines = Array.isArray(chart?.lines) ? chart.lines : [];
+  const said = Array.isArray(spoken) && spoken.length ? spoken : null;
+  const list = (said || lines).map(item => {
+    const own = said ? lines.find(line => line.beat === item.show && line.text === item.text) || lines.find(line => line.text === item.text) : item;
+    const from = said ? item.from : item.beat;
+    const until = Number.isFinite(own?.until) ? own.until : from + 2 * BEATS_PER_BAR;
+    return { text:item.text, from, until:Math.max(until, said && Number.isFinite(item.to) ? item.to : -Infinity) };
+  }).filter(item => item.text && Number.isFinite(item.from)).sort((a, b) => a.from - b.from);
+  return list.map((item, k) => ({ ...item, until:Math.min(item.until, list[k + 1]?.from ?? Infinity) }));
+}
+/* the line up at a beat: { text, from, until, beat } or null (beat: where it stands, for lineSpot) */
+export function lineShownAt(timed, beat) {
+  if (!Array.isArray(timed) || !Number.isFinite(beat)) return null;
+  const line = timed.find(item => beat >= item.from && beat < item.until);
+  return line ? { ...line, beat:line.from } : null;
 }

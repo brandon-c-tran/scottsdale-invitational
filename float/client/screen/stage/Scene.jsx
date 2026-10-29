@@ -46,18 +46,6 @@ function Strip({ className, children, depth }) {
   </div>;
 }
 
-/* the water's rocks (Rock Hop), drifting by */
-function Rocks() {
-  return <svg className="sc-strip" viewBox="0 0 1920 600" preserveAspectRatio="none" aria-hidden="true">
-    {[[180, 120, 70], [760, 60, 50], [1320, 150, 84], [1680, 40, 44], [520, 420, 96], [1080, 330, 64]].map(([x, y, r], k) => <g key={k} transform={`translate(${x} ${y})`}>
-      <ellipse cx="0" cy={r * 0.18} rx={r * 1.25} ry={r * 0.28} fill="rgba(255,255,255,0.55)" />
-      <path d={`M${-r} ${r * 0.1} C${-r} ${-r * 0.5} ${-r * 0.4} ${-r * 0.8} 0 ${-r * 0.78} C${r * 0.5} ${-r * 0.8} ${r} ${-r * 0.4} ${r} ${r * 0.1} Z`}
-        fill="#d9b394" stroke="#2c3b33" strokeWidth="4" strokeLinejoin="round" />
-      <path d={`M${-r * 0.45} ${-r * 0.42} q${r * 0.25} ${-r * 0.18} ${r * 0.5} 0`} fill="none" stroke="#fff1e0" strokeWidth="6" strokeLinecap="round" />
-    </g>)}
-  </svg>;
-}
-
 /* the art's painted scene: its layers back to front, a looping layer drawn
    twice so it can drift by its depth */
 function PaintedScene({ scene }) {
@@ -97,9 +85,6 @@ export default function Scene({ id = "open", mode = null }) {
             <path key={k} d={`M${x} ${y} q${w / 4} -8 ${w / 2} 0 t${w / 2} 0`} fill="none" stroke="rgba(255,255,255,0.75)" strokeWidth="5" strokeLinecap="round" />)}
         </svg>
       </Strip>
-      {id === "rocks" && <Strip className="sc-rocks" depth={0.75}><Rocks /></Strip>}
-      {id === "whirlpool" && <div className="sc-whirl"><i /><i /><i /></div>}
-      {id === "falls" && <div className="sc-falls"><div className="sc-falls-lip" /><div className="sc-falls-mist" /></div>}
     </div>
     <div className="sc-near">
       <svg className="sc-near-left" viewBox="0 0 420 220" aria-hidden="true">

@@ -1,17 +1,17 @@
 /* The scripted stand-in room (`?mock=1&script=1`): a whole Cup computed
    ahead from the shared charts (float/shared/chart.js), speaking
-   float/GROOVE.md's messages, with no engine behind it. The connection
-   emits what is due as its clock runs; a shot moves the clock to the moment
-   and replays that phase's messages. Riders tap every cue with a raw
-   offset drawn from their skill (a sharp one within about 30 ms, a weak one
-   about 90 ms and an occasional miss), the room judges them with its
+   float/GROOVE.md's messages (v2: the narrated practice with the host's
+   demos, the breakdown, the cut's show, the chug-off, the countdown Last
+   Call), with no engine behind it. The connection emits what is due as its
+   clock runs; a shot moves the clock to the moment and replays that phase's
+   messages. Riders tap every played cue with a raw offset drawn from their
+   skill (a sharp one within about 30 ms, a weak one about 90 ms and an
+   occasional miss); nobody taps a demo; the room judges them with its
    calibration (the median of the people's practice taps), misses land
-   MISS_AFTER_MS late, Done comes 4 to 14 s into the break (one straggler
-   into the second half), and the crowd cheers. The default mock is the
-   real room (mock/room.js); this one needs nothing but chart.js. */
+   MISS_AFTER_MS late, and the crowd cheers. */
 import {
-  CALIBRATION, MISS_AFTER_MS, SONG_LEAD_MS, SONG_MS, SONG_TAIL_MS,
-  calibrate, chartOf, cueTime, judgeHit, scoreOf, songForRound,
+  CALIBRATION, CHUGOFF, LAST_CALL, MISS_AFTER_MS, SONG_LEAD_MS, SONG_MS, SONG_TAIL_MS,
+  awardsOf, calibrate, chartOf, cueTime, gradeOf, judgeHit, lastCallId, lastCallWorst, qualityOf, scoreOf, songForRound,
 } from "../../../shared/chart.js";
 import { CRITTERS, CRITTER_IDS, cleanLook, defaultLook } from "../../../shared/looks.js";
 import { FLOATIE_IDS } from "../../../shared/floaties.js";
@@ -19,8 +19,11 @@ import { PALETTE } from "../../../shared/protocol.js";
 import { cutSchedule } from "../model/cupShape.js";
 import { SHOTS, gauss, hash01, mockRider, mockSkills, shotTime } from "./shared.js";
 
-/* the phases' lengths (ms), the engine's (float/shared/cup.js CUP_TIMING) */
-export const SCRIPT_TIMES = Object.freeze({ INTRO:8000, CUT:20000, LAST_CUT:7000, PODIUM:15000, FEEDBACK:45000, JOIN:280 });
+/* the phases' lengths (ms), as the engine has them (float/shared/cup.js
+   CUP_TIMING): the cut's show 15 s (the final's, with nobody out, 9 s) */
+export const SCRIPT_TIMES = Object.freeze({ INTRO:8000, CUT:15000, CUT_BEFORE_LAST_CALL:12000, LAST_CUT:7000, LAST_CALL_LEAD:3000, PODIUM:15000, FEEDBACK:45000, JOIN:280 });
+/* the cut's show beats (ms from its start; cup.js CUT_SHOW) */
+export const SCRIPT_SHOW = Object.freeze({ GRADES_MS:400, AWARDS_MS:2400, AWARD_GAP_MS:1200, OUTS_AFTER_LINE_MS:800, OUT_GAP_MS:1400, END_MS:1200 });
 
 const BOT_NAMES = CRITTERS.map(c => c.name);
 
@@ -28,9 +31,26 @@ const BOT_NAMES = CRITTERS.map(c => c.name);
 const entrantOf = (rider, extra = {}) => ({
   device:rider.device ?? null, name:rider.name, color:rider.color, look:rider.look, bot:!!rider.bot,
   connected:rider.connected !== false, ready:!!rider.ready,
-  ...(rider.pid ? { pid:rider.pid } : {}), ...(rider.number !== undefined ? { number:rider.number } : {}),
+  ...(rider.pid ? { pid:rider.pid } : {}), ...(rider.photo ? { photo:rider.photo } : {}), ...(rider.number !== undefined ? { number:rider.number } : {}),
   ...(rider.groom ? { groom:true } : {}), ...extra,
 });
+
+/* the song's ranking: by percent, ties by the Cup before it, then Perfects, then field order (the engine's compareRows) */
+const rankRows = rows => rows.slice().sort((a, b) => b.pct - a.pct || b.cup - a.cup || b.perfects - a.perfects || a.k - b.k)
+  .map(({ k, ...row }, n) => ({ ...row, place:n + 1 }));
+
+/* The cut's beats (cup.js cutShowOf): the grades, the awards a card apart,
+   the cut line, the riders out from the bottom (`outs`, already in that
+   order), spread over what the cut has left */
+export function showOf(startAt, endsAt, awards = 0, outs = [], bubble = null) {
+  const S = SCRIPT_SHOW;
+  const awardAt = Array.from({ length:awards }, (_, k) => startAt + S.AWARDS_MS + k * S.AWARD_GAP_MS);
+  if (!outs.length) return { grades:startAt + S.GRADES_MS, awards:awardAt, line:bubble ? startAt + S.AWARDS_MS + awards * S.AWARD_GAP_MS : null, outs:[], bubble };
+  const line = startAt + S.AWARDS_MS + awards * S.AWARD_GAP_MS;
+  const from = line + S.OUTS_AFTER_LINE_MS;
+  const gap = Math.max(0, Math.min(S.OUT_GAP_MS, (endsAt - S.END_MS - from) / outs.length));
+  return { grades:startAt + S.GRADES_MS, awards:awardAt, line, outs:outs.map((i, k) => ({ i, at:Math.round(from + k * gap) })), bubble };
+}
 
 /* ── the Cup as a timeline ── */
 
@@ -43,7 +63,7 @@ export function scriptCup({ riders = [], startAt = 0, seed = 3, drinking = true,
   const n = riders.length;
   const schedule = cutSchedule(n);
   const rounds = schedule.length;
-  const marks = { start:startAt, intro:startAt, songs:[], cuts:[], podium:null, feedback:null, lobby:null };
+  const marks = { start:startAt, intro:startAt, songs:[], cuts:[], chugoffs:[], lastcalls:[], podium:null, feedback:null, lobby:null };
   const entrants = riders.map(rider => entrantOf(rider, { ready:false }));
   const cupTotals = new Array(n).fill(0);
   const eliminated = [];
@@ -53,12 +73,16 @@ export function scriptCup({ riders = [], startAt = 0, seed = 3, drinking = true,
   const base = { t:"room", mode, code, drinking, rounds, cupId, entrants };
   const room = (s, fields) => out.push({ s, msg:{ ...base, ...fields, s } });
   const ev = (s, fields) => out.push({ s, msg:{ t:"ev", ...fields, s } });
+  const cheersIn = (from, to, round) => eliminated.forEach(i => {
+    for (let s = from + 1500 + hash01(seed, round, i, 11) * 4000; s < to - 1000; s += 2600 + hash01(seed, round, i, Math.floor(s)) * 5200) ev(Math.round(s), { e:"cheer", i });
+  });
 
   /* intro */
   let t = startAt;
   room(t, { phase:"intro", round:0, field:[...field], out:[], startAt:t, endsAt:t + SCRIPT_TIMES.INTRO, song:songForRound(0, rounds),
     cut:rounds > 1 ? schedule[1] : null, lastRound:rounds <= 1, standings:[], podium:null });
   t += SCRIPT_TIMES.INTRO;
+  let chugoffs = 0, lastCalls = 0;
 
   for (let round = 0; round < rounds; round += 1) {
     const songId = songForRound(round, rounds);
@@ -67,52 +91,39 @@ export function scriptCup({ riders = [], startAt = 0, seed = 3, drinking = true,
     const endsAt = songAt + SONG_MS + SONG_TAIL_MS;
     const last = round === rounds - 1;
     const next = last ? null : schedule[round + 1];
-    const drink = chart.sections.find(s => s.kind === "drink");
-    const drinkFrom = cueTime(songAt, drink.from, chart.beatMs);
     const playFrom = cueTime(songAt, chart.sections.find(s => s.kind === "play").from, chart.beatMs);
     marks.songs.push({ round, song:songId, startAt:t, songAt, endsAt });
 
-    /* who drinks, and when each taps Done */
-    const doneAt = new Map();
-    const drinkers = field.filter(i => drinking && riders[i].drinks !== false);
-    const slow = drinkers.length >= 4 ? drinkers[Math.floor(hash01(seed, round, 404) * drinkers.length)] : null;
-    for (const i of field) {
-      if (!drinkers.includes(i)) doneAt.set(i, drinkFrom);
-      else if (i === slow) doneAt.set(i, drinkFrom + 17500 + hash01(seed, round, i, 5) * 3500);
-      else doneAt.set(i, drinkFrom + 4000 + hash01(seed, round, i, 6) * 10000);
-    }
-
-    /* every rider's every tap, judged as the room would */
-    const judged = new Map(field.map(i => [i, {}]));
+    /* every rider's every played cue (never a demo), judged as the room would */
+    const hits = new Map(field.map(i => [i, {}]));
     const samples = [];
     const offsets = [];
     const events = [];
     let practiceOffset = offset;
     for (const cue of chart.cues) {
+      if (cue.demo) continue;
       const at = cueTime(songAt, cue.beat, chart.beatMs);
       /* the room's offset: recomputed through practice (at most once a beat), fixed from the first play bar */
       if (at < playFrom) {
         const value = calibrate(samples.filter(x => x.s <= at).map(x => x.r));
         if (value !== null && value !== practiceOffset) {
           practiceOffset = value;
-          const beatAt = songAt + Math.ceil((at - songAt) / chart.beatMs) * chart.beatMs;
-          offsets.push({ s:beatAt, offset:value });
+          offsets.push({ s:songAt + Math.ceil((at - songAt) / chart.beatMs) * chart.beatMs, offset:value });
         }
       }
       const roomOffset = at < playFrom ? practiceOffset : offset;
       for (const i of field) {
         const rider = riders[i];
         const skill = rider.skill ?? 0.6;
-        const drinkingNow = at >= drinkFrom && at < doneAt.get(i);
-        const missed = drinkingNow || hash01(seed, round, i, cue.id, 1) < 0.012 + (1 - skill) * 0.085;
+        const missed = hash01(seed, round, i, cue.id, 1) < 0.012 + (1 - skill) * 0.085;
         const bias = 38 + gauss(seed, i, 9) * 14;
         const r = Math.round(bias + gauss(seed, round, i, cue.id) * (20 + (1 - skill) * 105));
         const call = missed ? null : judgeHit(chart, cue.id, r, roomOffset);
         if (!call) {
-          judged.get(i)[cue.id] = "miss";
+          hits.get(i)[cue.id] = { q:"miss", d:null };
           events.push({ s:at + roomOffset + MISS_AFTER_MS, i, c:cue.id, q:"miss" });
         } else {
-          judged.get(i)[cue.id] = call.q;
+          hits.get(i)[cue.id] = { q:call.q, d:call.d };
           const lag = 70 + Math.round(hash01(seed, round, i, cue.id, 3) * 90);
           events.push({ s:at + r + lag, i, c:cue.id, q:call.q, d:call.d });
           if (!cue.scored && !rider.bot && Math.abs(r) <= CALIBRATION.RANGE) samples.push({ s:at + r + lag, r });
@@ -120,50 +131,116 @@ export function scriptCup({ riders = [], startAt = 0, seed = 3, drinking = true,
       }
     }
     if (calibrate(samples.map(x => x.r)) !== null) offset = practiceOffset;
+    events.sort((a, b) => a.s - b.s);
 
-    /* the scores the room sends: this song so far, the Cup before it, Done */
+    /* the scores and the live ranking the room sends: this song so far */
     const scoresAt = s => field.map(i => {
       const sofar = {};
       for (const e of events) if (e.i === i && e.s <= s) sofar[e.c] = e.q;
-      const beat = (s - songAt) / chart.beatMs;
-      const score = scoreOf(chart, sofar, { upTo:beat });
-      return { i, pts:score.pts, pct:score.pct, live:score.live, n:score.n, cup:Math.round(cupTotals[i] * 10) / 10,
-        done:s >= (doneAt.get(i) ?? Infinity) };
+      const score = scoreOf(chart, sofar, { upTo:(s - songAt) / chart.beatMs });
+      return { i, pts:score.pts, pct:score.pct, live:score.live, n:score.n, cup:Math.round(cupTotals[i] * 10) / 10, done:false };
     });
+    const countBy = (i, s, q) => events.filter(e => e.i === i && e.s <= s && e.q === q && chart.cues[e.c].scored).length;
+    const resultsAt = s => rankRows(scoresAt(s).map(row => ({ i:row.i, k:field.indexOf(row.i), pts:row.pts, pct:row.pct,
+      perfects:countBy(row.i, s, "perfect"), misses:countBy(row.i, s, "miss"), cup:row.cup })));
     const songRoom = (s, extra = {}) => room(s, { phase:"song", round, field:[...field], out:[...eliminated], startAt:t, endsAt,
       song:songId, chartId:songId, songAt, offset:s < playFrom ? (offsets.filter(o => o.s <= s).pop()?.offset ?? offset) : offset,
-      scores:scoresAt(s), cut:next, lastRound:last, standings:[], podium:null, history, ...extra });
+      scores:scoresAt(s), results:resultsAt(s), cut:next, lastRound:last, standings:[], podium:null, history, ...extra });
 
     songRoom(t, { chart });
     for (let s = t + 4000; s < endsAt; s += 4000) songRoom(s);
     for (const o of offsets) songRoom(o.s);
     for (const e of events) ev(e.s, { e:"hit", i:e.i, c:e.c, q:e.q, ...(e.q === "miss" ? {} : { d:e.d }) });
-    for (const i of field) if (drinkers.includes(i)) ev(doneAt.get(i), { e:"done", i });
     /* the crowd on the bank cheers now and then, and all together on the last cue */
     const lastCue = cueTime(songAt, chart.cues[chart.cues.length - 1].beat, chart.beatMs);
-    eliminated.forEach((i, k) => {
-      for (let s = songAt + 1500 + hash01(seed, round, i, 11) * 4000; s < endsAt - 1000; s += 2600 + hash01(seed, round, i, Math.floor(s)) * 5200) {
-        ev(Math.round(s), { e:"cheer", i });
-      }
-      ev(lastCue + 120 + k * 60, { e:"cheer", i });
-    });
+    cheersIn(songAt, endsAt, round);
+    eliminated.forEach((i, k) => ev(lastCue + 120 + k * 60, { e:"cheer", i }));
 
-    /* the cut: this song's percents, the bottom out, ties broken by the Cup */
-    const final = scoresAt(endsAt);
-    const ranked = [...final].sort((a, b) => b.pct - a.pct || cupTotals[b.i] - cupTotals[a.i] || a.i - b.i);
-    for (const row of final) cupTotals[row.i] += row.pct;
-    const goes = last ? ranked.map(row => row.i) : ranked.slice(0, next).map(row => row.i);
-    const gone = last ? [] : ranked.slice(next).map(row => row.i);
-    history = [...history, { round, song:songId, field:[...field], out:[...gone], results:ranked.map(row => ({ i:row.i, pct:row.pct })) }];
+    /* the cut: this song's percents, grades and awards; the bottom out */
+    const ranked = resultsAt(Infinity);
+    const finalScores = scoresAt(Infinity);
+    for (const row of ranked) cupTotals[row.i] += row.pct;
+    const goesAll = last ? ranked.map(row => row.i) : ranked.slice(0, next).map(row => row.i);
+    const goneAll = last ? [] : ranked.slice(next).map(row => row.i);
+    /* with drinking, the last one through and the first one out race for the spot (the engine's bubble) */
+    const chugoffNext = drinking && !last && goneAll.length > 0 && goesAll.length > 0;
+    const pair = chugoffNext ? [goesAll[goesAll.length - 1], goneAll[0]] : null;
+    const goes = goesAll.filter(i => !pair?.includes(i));
+    const gone = goneAll.filter(i => !pair?.includes(i));
+    const results = ranked.map(row => ({ ...row, grade:gradeOf(row.pct), out:gone.includes(row.i), ...(pair?.includes(row.i) ? { bubble:true } : {}) }));
+    const awards = awardsOf(chart, field.map(i => ({ i, hits:hits.get(i) }))).slice(0, 3);
+    history = [...history, { round, song:songId, field:[...field], out:[...gone], results }];
     t = endsAt;
-    const cutMs = last ? SCRIPT_TIMES.LAST_CUT : SCRIPT_TIMES.CUT;
-    marks.cuts.push({ round, startAt:t, endsAt:t + cutMs });
+    const cutMs = last ? SCRIPT_TIMES.LAST_CUT : drinking ? SCRIPT_TIMES.CUT_BEFORE_LAST_CALL : SCRIPT_TIMES.CUT;
+    const show = showOf(t, t + cutMs, awards.length, gone.slice().reverse(), pair);
+    marks.cuts.push({ round, startAt:t, endsAt:t + cutMs, show });
     eliminated.push(...gone.slice().reverse());
-    room(t, { phase:"cut", round, field:[...field], out:[...eliminated], startAt:t, endsAt:t + cutMs, song:songId, chartId:songId,
-      songAt, offset, scores:final, cut:next, lastRound:last, standings:[], podium:null, history });
-    gone.slice().reverse().forEach((i, k) => ev(t + 2400 + k * 420, { e:"out", i }));
+    room(t, { phase:"cut", round, field:goes, out:[...eliminated], startAt:t, endsAt:t + cutMs, song:songId, chartId:songId,
+      songAt, offset, scores:finalScores, results, awards, show, cut:next, lastRound:last, standings:[], podium:null, history });
+    show.outs.forEach(({ i, at }) => ev(at, { e:"out", i }));
     field = goes;
     t += cutMs;
+
+    /* the chug-off: the last one through against the first one out */
+    if (pair) {
+      const [a, b] = pair;
+      /* the Cup's first chug-off says its rule: a longer intro */
+      const goAt = t + (chugoffs === 0 ? CHUGOFF.INTRO_FIRST_MS : CHUGOFF.INTRO_MS);
+      const doneMs = i => Math.round(4000 + hash01(seed, round, i, 404) * 8000);
+      const doneAt = { [a]:doneMs(a), [b]:doneMs(b) };
+      const winner = doneAt[a] <= doneAt[b] ? a : b;
+      const loser = winner === a ? b : a;
+      const winAt = goAt + doneAt[winner];
+      const chugEnds = winAt + CHUGOFF.REVEAL_MS + CHUGOFF.EXIT_MS;
+      marks.chugoffs.push({ round, startAt:t, goAt, winAt, endsAt:chugEnds, a, b, winner, first:chugoffs === 0 });
+      const chugStart = t;
+      const chugRoom = (s, chugoff, extra = {}) => room(s, { phase:"chugoff", round, field:[...field], out:[...eliminated], startAt:chugStart,
+        endsAt:extra.endsAt ?? goAt + CHUGOFF.WINDOW_MS + CHUGOFF.REVEAL_MS + CHUGOFF.EXIT_MS, song:songId, cut:next, lastRound:false,
+        standings:[], podium:null, history, chugoff });
+      chugRoom(t, { round, a, b, goAt, doneAt:{}, winner:null, loser:null, by:null, decidedAt:null });
+      ev(winAt, { e:"done", i:winner });
+      field = [...field, winner];
+      eliminated.push(loser);
+      const decided = { round, a, b, goAt, doneAt:{ [winner]:doneAt[winner] }, winner, loser, by:"chug", decidedAt:winAt };
+      chugRoom(winAt, decided, { endsAt:chugEnds });
+      ev(winAt, { e:"out", i:loser });
+      if (goAt + doneAt[loser] < chugEnds) {
+        ev(goAt + doneAt[loser], { e:"done", i:loser });
+        chugRoom(goAt + doneAt[loser], { ...decided, doneAt }, { endsAt:chugEnds });
+      }
+      chugoffs += 1;
+      t = chugEnds;
+    }
+
+    /* Last Call: everyone at the bar, one tap on zero */
+    if (drinking && !last) {
+      const id = lastCallId(round);
+      const lc = chartOf(id);
+      const cd = lc.countdown;
+      const barAt = t + SCRIPT_TIMES.LAST_CALL_LEAD;
+      const lcEnds = barAt + lc.ms + SONG_TAIL_MS;
+      const players = [...field, ...eliminated.slice().reverse()];
+      marks.lastcalls.push({ round, startAt:t, songAt:barAt, endsAt:lcEnds, id, first:lastCalls === 0 });
+      const taps = players.map(i => {
+        const skill = riders[i].skill ?? 0.6;
+        const none = hash01(seed, round, i, 77) < 0.04;
+        const d = none ? null : Math.round(gauss(seed, round, i, 78) * (150 + (1 - skill) * 700) + (hash01(seed, round, i, 79) < 0.1 ? 1000 : 0));
+        return { i, d };
+      });
+      const totals = taps.map(({ i, d }) => ({ i, ms:d === null ? LAST_CALL.MISS_MS : Math.abs(d), d }));
+      const worst = lastCallWorst(totals);
+      const deadline = barAt + cd.zeroAt + LAST_CALL.WINDOW + 250;
+      const lcRoom = (s, lastCall, extra = {}) => room(s, { phase:"lastcall", round, field:[...field], out:[...eliminated], startAt:t, endsAt:lcEnds,
+        song:id, chartId:id, songAt:barAt, offset, lastCall, cut:next, lastRound:false, standings:[], podium:null, history, ...extra });
+      lcRoom(t, { totals:players.map(i => ({ i, ms:0, d:null })), worst:null }, { chart:lc });
+      taps.forEach(({ i, d }) => {
+        if (d === null) ev(deadline, { e:"hit", i, c:0, q:"miss" });
+        else ev(barAt + cd.zeroAt + d + 90, { e:"hit", i, c:0, q:qualityOf(d), d });
+      });
+      lcRoom(deadline, { totals, worst });
+      lastCalls += 1;
+      t = lcEnds;
+    }
   }
 
   /* the podium: the final's order, then everyone else from the last cut out */
@@ -184,11 +261,13 @@ export function scriptCup({ riders = [], startAt = 0, seed = 3, drinking = true,
   return { msgs:out, marks, rounds };
 }
 
-/* the marks as the shots read them: "phase:round" -> { startAt, songAt } */
+/* the marks as the shots read them: "phase:round" -> { startAt, songAt, ... } */
 export function seenOf(marks) {
   const seen = { intro:{ startAt:marks.intro } };
   for (const song of marks.songs) seen[`song:${song.round}`] = { startAt:song.startAt, songAt:song.songAt };
-  for (const cut of marks.cuts) seen[`cut:${cut.round}`] = { startAt:cut.startAt };
+  for (const cut of marks.cuts) seen[`cut:${cut.round}`] = { startAt:cut.startAt, show:cut.show };
+  for (const c of marks.chugoffs) seen[`chugoff:${c.round}`] = { startAt:c.startAt, goAt:c.goAt, winAt:c.winAt };
+  for (const l of marks.lastcalls) seen[`lastcall:${l.round}`] = { startAt:l.startAt, songAt:l.songAt, id:l.id };
   if (marks.podium !== null) seen.podium = { startAt:marks.podium };
   if (marks.feedback !== null) seen.feedback = { startAt:marks.feedback };
   return seen;

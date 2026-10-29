@@ -62,22 +62,36 @@ export const SHOTS = Object.freeze({
   intro:{ phase:"intro", ms:2600 },
   card:{ phase:"song", round:0, ms:1300 },
   count:{ phase:"song", round:0, beat:5.2 },
-  practice:{ phase:"song", round:0, beat:15.35 },
+  /* practice, narrated: the first line, Ready and Hey, the host's demo (the Watch) */
+  practice:{ phase:"song", round:0, beat:9.3 },
+  ready:{ phase:"song", round:0, beat:13.25 },
+  watch:{ phase:"song", round:0, beat:19.15 },
   go:{ phase:"song", round:0, beat:24.25 },
   play:{ phase:"song", round:0, beat:39.3 },
   hey:{ phase:"song", round:0, beat:47.25 },
-  drink:{ phase:"song", round:0, beat:66 },
+  /* the breakdown: the host plays a bar ("Copy me"), everyone copies it */
+  copy:{ phase:"song", round:0, beat:57.3 },
+  echo:{ phase:"song", round:0, beat:61.2 },
   late:{ phase:"song", round:0, beat:92.3 },
   outro:{ phase:"song", round:0, beat:120.35 },
-  cut:{ phase:"cut", round:0, ms:4200 },
-  cutout:{ phase:"cut", round:0, ms:7000 },
-  cutnext:{ phase:"cut", round:0, ms:10600 },
-  /* Last Call after the first cut: its card, a slide, the first grab's readouts, the third grab, who drinks */
-  bar:{ phase:"lastcall", round:0, ms:1500 },
-  slide:{ phase:"lastcall", round:0, beat:5.15 },
-  grab:{ phase:"lastcall", round:0, beat:8.4 },
-  grab3:{ phase:"lastcall", round:0, beat:23.2 },
-  drinks:{ phase:"lastcall", round:0, beat:28.6 },
+  /* the cut's show: the grades, the awards, the outs' exits, the chug-off's call */
+  grades:{ phase:"cut", round:0, ms:1200 },
+  awards:{ phase:"cut", round:0, ms:5200 },
+  cutout:{ phase:"cut", round:0, ms:8900 },
+  cutnext:{ phase:"cut", round:0, ms:12600 },
+  /* the chug-off: its call (the first explains itself), the race, who keeps the spot */
+  chugcall:{ phase:"chugoff", round:0, ms:1800 },
+  chug:{ phase:"chugoff", round:0, after:"goAt", ms:2500 },
+  keeps:{ phase:"chugoff", round:0, after:"winAt", ms:1300 },
+  /* Last Call, the countdown: the first's intro, a count, dark, the reveal, the verdict */
+  bar:{ phase:"lastcall", round:0, songMs:3500 },
+  lccount:{ phase:"lastcall", round:0, songMs:9300 },
+  dark:{ phase:"lastcall", round:0, songMs:15300 },
+  reveal:{ phase:"lastcall", round:0, songMs:21000 },
+  drinks:{ phase:"lastcall", round:0, songMs:23600 },
+  /* the later tricks: the clock winding down, the foam */
+  slow:{ phase:"lastcall", round:1, songMs:11900 },
+  foam:{ phase:"lastcall", round:2, songMs:10900 },
   rock:{ phase:"song", round:1, beat:42.3 },
   spin:{ phase:"song", round:2, beat:34.6 },
   sign:{ phase:"song", round:"last", beat:13.5 },
@@ -90,7 +104,7 @@ export const SHOTS = Object.freeze({
 export const MOCK_SHOTS = Object.freeze(Object.keys(SHOTS));
 
 /* a moment's time from the phases seen: `seen` maps "phase:round" to
-   { startAt, songAt } (and "last" to the final's round); null until it is known */
+   { startAt, songAt, goAt, winAt } (and "last" to the final's round); null until it is known */
 export function shotTime(shot, seen, rounds) {
   const plan = SHOTS[shot];
   if (!plan || plan.lobby) return null;
@@ -99,5 +113,7 @@ export function shotTime(shot, seen, rounds) {
   const at = seen[key];
   if (!at) return null;
   if (plan.beat !== undefined) return Number.isFinite(at.songAt) ? at.songAt + plan.beat * 500 : null;
+  if (plan.songMs !== undefined) return Number.isFinite(at.songAt) ? at.songAt + plan.songMs : null;
+  if (plan.after) return Number.isFinite(at[plan.after]) ? at[plan.after] + (plan.ms || 0) : null;
   return Number.isFinite(at.startAt) ? at.startAt + (plan.ms || 0) : null;
 }

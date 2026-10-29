@@ -18,24 +18,23 @@
 
    One requestAnimationFrame loop (stage/driver.js) writes every transform
    from the server clock; React renders only when a room message lands. */
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
 import { createScreenStore } from "./model/store.js";
 import { sceneFor, sceneMode } from "./model/song.js";
 import { createDriver, reducedMotion } from "./stage/driver.js";
 import Scene, { layerOffset } from "./stage/Scene.jsx";
 import Cast from "./stage/Cast.jsx";
 import Host from "./stage/Host.jsx";
-import Pieces from "./stage/Pieces.jsx";
 import Lobby from "./hud/Lobby.jsx";
-import { CutBoard, Feedback, IntroTitle, LastCallBanner, PodiumBlocks, PodiumList, SongBanner, SongStrip } from "./hud/Hud.jsx";
+import { ChugHud, CutShow, Feedback, IntroTitle, LastCallHud, Narration, PodiumBlocks, PodiumList, RankStrip, SongBanner, SongStrip } from "./hud/Hud.jsx";
 import Bar from "./stage/Bar.jsx";
-import * as floatSound from "../sound/index.js";
+import { podiumBeats } from "./soundBridge.js";
 import "./screen.css";
 
 /* the connection: float/client/net.js, the one the phones use; with
    ?mock=1 the scripted room in this tab (mockNet.js) */
 export async function loadConnect(mock = false) {
-  if (mock) return (await import("./mockNet.js")).connectFloat;
+  if (mock) return (await import("./mockNet.js")).loadMockConnect();
   return (await import("../net.js")).connectFloat;
 }
 
@@ -44,8 +43,15 @@ const param = key => {
 };
 const pageShown = () => { try { return document.visibilityState !== "hidden"; } catch { return true; } };
 
-/* the podium's beats: the sound's own when it says them (its reveal lands on its fanfare) */
-const PODIUM_BEATS = floatSound.PODIUM_BEATS || { third:1450, second:2200, first:2700, pose:3400 };
+/* the sound, lazily and behind a boundary: a sound module that fails to
+   load leaves the picture running */
+const ScreenSound = lazy(() => import("./stage/ScreenSound.jsx"));
+class Quiet extends React.Component {
+  constructor(props) { super(props); this.state = { failed:false }; }
+  static getDerivedStateFromError() { return { failed:true }; }
+  componentDidCatch(error) { console.warn("Float screen: no sound", error); }
+  render() { return this.state.failed ? null : this.props.children; }
+}
 
 /* ?debug=1: a small corner readout (the screen's frame rate, each phone's round trip) */
 function DebugReadout({ fps, tier, rtt = {}, entrants = [] }) {
@@ -56,12 +62,6 @@ function DebugReadout({ fps, tier, rtt = {}, entrants = [] }) {
   </div>;
 }
 
-function SoundIcon() {
-  return <svg viewBox="0 0 24 24" aria-hidden="true">
-    <path fill="currentColor" d="M4 9h4l5-4v14l-5-4H4z" />
-    <path fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12" />
-  </svg>;
-}
 
 export default function FloatScreen({ room = "test", hosting = false, joinUrl = null, mock, quality, onStats, muted = false }) {
   const rootRef = useRef(null);
@@ -105,8 +105,6 @@ export default function FloatScreen({ room = "test", hosting = false, joinUrl = 
   /* the sound runner reads this on every step: muted reads as a hidden page
      (its beds stop within a tick, no moment cues) */
   const soundOptions = useMemo(() => ({ visible:() => !mutedRef.current && pageShown() }), []);
-  floatSound.useFloatScreenSound(net, soundOptions);
-  const unlockNeeded = floatSound.useFloatSoundUnlockNeeded();
 
   /* the stage: 1920 x 1080, scaled to fit its parent and centred (letterboxed) */
   useEffect(() => {
@@ -135,7 +133,7 @@ export default function FloatScreen({ room = "test", hosting = false, joinUrl = 
   /* the entrants, the same array until a rider changes (the room rebuilds
      the list on every message; the cast and its frame loop key on it) */
   const entrantsKey = JSON.stringify((Array.isArray(roomMsg?.entrants) ? roomMsg.entrants : []).map(e => e && [e.device, e.pid, e.name, e.color,
-    e.look?.critter, !!e.bot, !!e.ready, !!e.groom, e.connected !== false]));
+    e.look?.critter, e.look?.hat, e.look?.shades, e.look?.shirt, e.photo, !!e.bot, !!e.ready, !!e.groom, e.connected !== false]));
   const entrants = useMemo(() => (Array.isArray(roomMsg?.entrants) ? roomMsg.entrants : []), [entrantsKey]); // eslint-disable-line react-hooks/exhaustive-deps
   const scene = sceneFor(phase, st.chart);
   const lite = tier === "low" || tier === "lowest";
@@ -146,7 +144,7 @@ export default function FloatScreen({ room = "test", hosting = false, joinUrl = 
     if (!stage) return undefined;
     const layers = [...stage.querySelectorAll(".sc-layer[data-depth]")].map(node => ({ node, depth:Number(node.dataset.depth) || 0 }));
     const checker = stage.querySelector(".sc-checker");
-    const speed = reducedMotion() ? 0 : phase === "song" || phase === "intro" ? 1 : phase === "lobby" || phase === "cut" ? 0.45 : 0;
+    const speed = reducedMotion() ? 0 : phase === "song" || phase === "intro" ? 1 : phase === "lobby" || phase === "cut" || phase === "chugoff" ? 0.45 : 0;
     let travel = null, lastNow = null;
     return driver.add(now => {
       if (travel === null) travel = (now / 1000) * 64;
@@ -181,25 +179,33 @@ export default function FloatScreen({ room = "test", hosting = false, joinUrl = 
 
   const send = msg => { try { net?.send(msg); } catch {} };
   const disconnected = st.status === "closed" || (st.status === "connecting" && !!st.room);
-  const water = phase === "lobby" || phase === "intro" || phase === "song" || phase === "cut";
+  const water = phase === "lobby" || phase === "intro" || phase === "song" || phase === "cut" || phase === "chugoff";
 
   return <div className="fs-root" ref={rootRef} data-phase={phase} data-muted={muted ? "1" : undefined} data-tier={tier}>
     <div className="fs-stage" ref={stageRef} data-scene={scene}>
       {!muted && <>
         <Scene id={scene} />
-        {(phase === "song" || phase === "cut" || phase === "intro" || phase === "lobby") && <Pieces scene={scene} store={store} driver={driver} phase={phase} />}
-        {(phase === "podium" || phase === "feedback") && <PodiumBlocks store={store} driver={driver} room={roomMsg} entrants={entrants} beats={PODIUM_BEATS}
+        {(phase === "podium" || phase === "feedback") && <PodiumBlocks store={store} driver={driver} room={roomMsg} entrants={entrants} beats={podiumBeats()}
           revealed={phase === "feedback"} />}
         {water && phase !== "lobby" && <Host store={store} driver={driver} phase={phase} />}
         {phase === "lastcall" && <Bar store={store} driver={driver} />}
-        <Cast store={store} driver={driver} entrants={entrants} phase={phase} room={roomMsg} version={version} scene={scene} />
+        <Cast store={store} driver={driver} entrants={entrants} phase={phase} room={roomMsg} version={version} />
         <div className="fs-hud">
           {phase === "lobby" && <Lobby room={roomMsg} entrants={entrants} hosting={hosting && roomMsg?.mode !== "fieldday"} joinUrl={joinUrl} send={send}
             serverNow={store.serverNow} />}
           {phase === "intro" && <IntroTitle room={roomMsg} />}
-          {phase === "song" && <><SongStrip store={store} driver={driver} /><SongBanner store={store} driver={driver} room={roomMsg} /></>}
-          {phase === "cut" && <CutBoard store={store} driver={driver} room={roomMsg} entrants={entrants} />}
-          {phase === "lastcall" && <LastCallBanner store={store} driver={driver} entrants={entrants} />}
+          {phase === "song" && <>
+            <SongStrip store={store} driver={driver} />
+            <RankStrip key={`rank:${st.songKey}`} store={store} driver={driver} room={roomMsg} entrants={entrants} mode="song" />
+            <Narration store={store} driver={driver} />
+            <SongBanner store={store} driver={driver} room={roomMsg} />
+          </>}
+          {phase === "cut" && <>
+            <RankStrip key={`cut:${roomMsg?.round}`} store={store} driver={driver} room={roomMsg} entrants={entrants} mode="cut" />
+            <CutShow store={store} driver={driver} room={roomMsg} entrants={entrants} />
+          </>}
+          {phase === "chugoff" && <ChugHud store={store} driver={driver} room={roomMsg} entrants={entrants} />}
+          {phase === "lastcall" && <LastCallHud store={store} driver={driver} entrants={entrants} />}
           {(phase === "podium" || phase === "feedback") && <PodiumList room={roomMsg} entrants={entrants} />}
           {phase === "feedback" && <Feedback />}
         </div>
@@ -208,6 +214,6 @@ export default function FloatScreen({ room = "test", hosting = false, joinUrl = 
     {!muted && debug && <DebugReadout fps={fps} tier={tier} rtt={st.rtt} entrants={entrants} />}
     {!muted && disconnected && <div className="fs-status"><span>Reconnecting</span></div>}
     {/* Field Day's TV has its own Click for sound; the /float page needs this one */}
-    {!muted && unlockNeeded && hosting && <button type="button" className="fs-sound" onClick={() => floatSound.unlockFloatSound?.()}><SoundIcon />Click for sound</button>}
+    {net && <Quiet><Suspense fallback={null}><ScreenSound net={net} options={soundOptions} showUnlock={!muted && hosting} /></Suspense></Quiet>}
   </div>;
 }

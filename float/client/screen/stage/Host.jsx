@@ -1,8 +1,10 @@
 /* The host on the left bank (float/GROOVE.md "Answer the host"): a critter
    in a straw hat with a megaphone, acting out every call on its beat (the
    megaphone up, the call's word in a bubble so a loud room still sees it),
-   bobbing between them; in The Drop, the next pattern's sign held up a bar
-   before each switch; a cheer when the song ends. The frame driver sets the
+   bobbing between them; in practice the demos called the same way (every
+   critter acts the answer out); in the breakdown the rhythm to copy, a big
+   gesture and a note a beat; in The Drop, the next pattern's sign held up a
+   bar before each switch; a cheer when the song ends. The frame driver sets the
    pose and moves it; React renders it once a phase. */
 import React, { useEffect, useRef } from "react";
 import { HostArt, HostFigure, SignProp, useHostArt } from "../art.jsx";
@@ -15,6 +17,16 @@ import { reducedMotion } from "./driver.js";
 export const HOST = Object.freeze({ x:196, y:436, h:330 });
 /* the drawn host's box and anchors when the art has none */
 const DRAWN_HOST = Object.freeze({ box:[400, 480], anchor:{ ground:[200, 462], horn:[336, 286] } });
+
+/* the breakdown's call: a note */
+function NoteGlyph() {
+  return <svg className="fl-note" viewBox="0 0 48 56" aria-hidden="true">
+    <path d="M18 8 44 3v34" fill="none" stroke="#1d1a24" strokeWidth="6" strokeLinejoin="round" />
+    <path d="M18 8v36" stroke="#1d1a24" strokeWidth="6" />
+    <ellipse cx="11" cy="45" rx="10" ry="8" fill="#ff4fa3" stroke="#1d1a24" strokeWidth="4" />
+    <ellipse cx="37" cy="38" rx="10" ry="8" fill="#ff4fa3" stroke="#1d1a24" strokeWidth="4" />
+  </svg>;
+}
 
 export default function Host({ store, driver, phase }) {
   const art = useHostArt();
@@ -36,15 +48,20 @@ export default function Host({ store, driver, phase }) {
       const h = hostAt(inSong ? chart : null, beat, { phase });
       if (root.current && h.pose !== pose) { root.current.dataset.pose = h.pose; pose = h.pose; }
       const bob = still ? { dy:0, sx:1, sy:1 } : bobAt(beat, { amp:h.pose === "call" ? 0.4 : 0.8 });
-      const lift = h.pose === "call" && !still ? -10 * Math.max(0, 1 - (beat - (h.call?.beat ?? beat)) / 0.35) : 0;
-      if (body.current) body.current.style.transform = `translate3d(0, ${(bob.dy + lift).toFixed(1)}px, 0) scale(${bob.sx.toFixed(4)}, ${bob.sy.toFixed(4)})`;
-      /* the bubble: the call's word, popping on its beat */
-      const callText = h.call?.word || null;
+      /* a call lifts the host; the breakdown's notes are a big gesture (up, a lean, a stretch) */
+      const echo = h.call?.kind === "echo";
+      const into = Math.max(0, 1 - (beat - (h.call?.beat ?? beat)) / (echo ? 0.5 : 0.35));
+      const lift = h.pose === "call" && !still ? (echo ? -30 : -10) * into : 0;
+      const lean = echo && !still ? -7 * into * (h.call.cue % 2 ? 1 : -1) : 0;
+      const stretch = echo && !still ? 0.08 * into : 0;
+      if (body.current) body.current.style.transform = `translate3d(0, ${(bob.dy + lift).toFixed(1)}px, 0) rotate(${lean.toFixed(2)}deg) scale(${(bob.sx - stretch * 0.5).toFixed(4)}, ${(bob.sy + stretch).toFixed(4)})`;
+      /* the bubble: the call's word (a note for the breakdown's rhythm), popping on its beat */
+      const callText = h.call ? h.call.word || (echo ? "note" : null) : null;
       if (bubble.current) {
         const key = h.call ? `${h.call.cue}:${h.call.n}` : null;
         if (callText !== text || key !== popKey) {
           text = callText; popKey = key;
-          if (word.current) word.current.textContent = callText || "";
+          if (word.current) word.current.textContent = echo ? "" : callText || "";
           bubble.current.dataset.kind = h.call?.kind || "";
         }
         if (callText) {
@@ -86,6 +103,6 @@ export default function Host({ store, driver, phase }) {
       {["paddle", "rock", "spin"].map(mode => <div key={mode} ref={node => { signArt.current[mode] = node; }} style={{ display:"none" }}><SignProp mode={mode} /></div>)}
     </div>
     <div className="fl-host-body" ref={body}>{art ? <HostArt host={art} /> : <HostFigure />}</div>
-    <div className="fl-bubble" ref={bubble} style={{ opacity:0 }}><span ref={word} /></div>
+    <div className="fl-bubble" ref={bubble} style={{ opacity:0 }}><span ref={word} /><NoteGlyph /></div>
   </div>;
 }

@@ -173,12 +173,11 @@ test("the scenes: the four songs, the lobby, the bar and the podium, layered bac
   for (const sc of Object.values(manifest.scenes)) assert.ok(!sc.placeholder, "scenes are real art");
   /* the songs' scenes are the ones chart.js names, each with its one loud accent, a prop */
   const { SONGS } = await import("../float/shared/chart.js");
-  for (const song of SONGS) {
-    const sc = manifest.scenes[song.scene];
-    assert.ok(sc, `${song.id} -> ${song.scene}`);
-    assert.ok(sc.accent && manifest.props[sc.accent], `${song.scene}'s accent is a prop (${sc.accent})`);
-  }
-  assert.deepEqual(SONGS.map(song => manifest.scenes[song.scene].accent), ["accent-open", "accent-rocks", "accent-whirl", "accent-falls"]);
+  for (const song of SONGS) assert.ok(manifest.scenes[song.scene], `${song.id} -> ${song.scene}`);
+  /* the four day songs keep their accent props (unused on screen since v2); Fireworks' night has none */
+  const day = SONGS.filter(song => song.id !== "fireworks");
+  for (const song of day) assert.ok(manifest.props[manifest.scenes[song.scene].accent], `${song.scene}'s accent is a prop`);
+  assert.deepEqual(day.map(song => manifest.scenes[song.scene].accent), ["accent-open", "accent-rocks", "accent-whirl", "accent-falls"]);
 });
 
 test("the props: at least the contract's, each at its declared size with an anchor inside it", async () => {

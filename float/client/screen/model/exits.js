@@ -38,7 +38,7 @@ export function exitAt(kind, from, to, t, { height = 160 } = {}) {
       lift = -height * 0.6 * (1 - drop) * (scale / from.scale);
     }
     if (u >= 0.9) { px = mix(to.x + 40, -300, ease(drop)); py = mix(to.y - 200, -200, ease(drop)); }
-    return { ...base, x:cx, y:cy, scale, lift, pose:u < 0.32 ? "idle" : "miss", rot:u >= 0.42 && u < 0.9 ? -8 : 0,
+    return { ...base, x:cx, y:cy, scale, lift, pose:u < 0.32 ? "idle" : u >= 0.9 ? "out" : "miss", rot:u >= 0.42 && u < 0.9 ? -8 : 0,
       pelican:{ x:px, y:py, scale:Math.max(0.55, scale * 1.3), open:u >= 0.25 && u < 0.45, flap:u } };
   }
   if (kind === "bonk") {

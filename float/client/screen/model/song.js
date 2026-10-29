@@ -1,7 +1,8 @@
 /* What the song shows at a beat (float/GROOVE.md "Songs and charts", "The
-   screen (TV) and the phone"): the round card through the lead, Practice,
-   Go!, Drink!, the host's calls and The Drop's signs, and which scene each
-   phase stands in. Pure: everything from the chart and a beat. */
+   screen (TV) and the phone"): the round card through the lead, the
+   count-in, Go!, the host's calls (the demos, the breakdown's rhythm) and
+   The Drop's signs, the narration's timing, and which scene each phase
+   stands in. Pure: everything from the chart and a beat. */
 import { BEATS_PER_BAR, CUE_KINDS, SONG_LEAD_MS, SONGS, chartOf, sectionAt } from "../../../shared/chart.js";
 
 /* the scene each phase stands in (the art manifest's scene ids) */
@@ -178,4 +179,28 @@ export function sceneMode(chart, beat) {
   const bar = Math.floor(beat / BEATS_PER_BAR);
   const section = sectionAt(chart, beat)?.kind || (beat < 0 ? "lead" : "over");
   return { section, mode:bar >= 0 && bar < (chart.modes?.length || 0) ? chart.modes[bar] : null };
+}
+
+/* The narration as the host says it (float/GROOVE.md "Practice,
+   narrated"): each line goes up when it is spoken (the sound's
+   narration(chart): { text, from, to, show } in beats) and stays until the
+   next line goes up or its own `until`, whichever is first, but never
+   before it has been said. Without the sound's timing, the chart's own
+   beats. Returns [{ text, from, until }] in order. */
+export function timedLines(chart, spoken = null) {
+  const lines = Array.isArray(chart?.lines) ? chart.lines : [];
+  const said = Array.isArray(spoken) && spoken.length ? spoken : null;
+  const list = (said || lines).map(item => {
+    const own = said ? lines.find(line => line.beat === item.show && line.text === item.text) || lines.find(line => line.text === item.text) : item;
+    const from = said ? item.from : item.beat;
+    const until = Number.isFinite(own?.until) ? own.until : from + 2 * BEATS_PER_BAR;
+    return { text:item.text, from, until:Math.max(until, said && Number.isFinite(item.to) ? item.to : -Infinity) };
+  }).filter(item => item.text && Number.isFinite(item.from)).sort((a, b) => a.from - b.from);
+  return list.map((item, k) => ({ ...item, until:Math.min(item.until, list[k + 1]?.from ?? Infinity) }));
+}
+/* the line up at a beat: { text, from, until, beat } or null (beat: where it stands, for lineSpot) */
+export function lineShownAt(timed, beat) {
+  if (!Array.isArray(timed) || !Number.isFinite(beat)) return null;
+  const line = timed.find(item => beat >= item.from && beat < item.until);
+  return line ? { ...line, beat:line.from } : null;
 }

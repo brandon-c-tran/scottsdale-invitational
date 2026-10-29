@@ -7,6 +7,8 @@
    final has none (its top three are marked). Pure, with one small
    stateful ranker that keeps the last order and when it was made. */
 import { POINTS } from "../../../shared/chart.js";
+/* "1st", "2nd", "3rd", "11th" */
+const ordinalText = n => { const k = n % 100; return `${n}${k >= 11 && k <= 13 ? "th" : ({ 1:"st", 2:"nd", 3:"rd" })[n % 10] || "th"}`; };
 
 /* a rider's standing so far: the room's row plus what the screen judged
    since it (`live` the store's live percent, which already counts those) */
@@ -96,3 +98,18 @@ export function rankNow(store, now) {
   return ranker.update({ beat:(now - st.songAt) / chart.beatMs, key:`${st.songKey}:${st.resultsAt}`,
     make:() => ({ order:liveOrder({ results:st.results, field, judged:st.judged, since:st.resultsAt, chart, liveOf:store.liveOf }), through:throughOf(st.room, field.length) }) });
 }
+
+/* ── the strip: every rider as a chip, in rank order, across the top ── */
+export const RANK = Object.freeze({ x0:420, x1:1880, top:66, maxSlot:150 });
+export function rankSlots(n, { x0 = RANK.x0, x1 = RANK.x1, maxSlot = RANK.maxSlot } = {}) {
+  const w = n ? Math.min(maxSlot, (x1 - x0) / n) : maxSlot;
+  const start = x0 + ((x1 - x0) - w * n) / 2;
+  return { w, start, x:k => start + k * w };
+}
+/* the strip's marks for an order: { [i]: label } (the leader "1st"; the final's three) */
+export function rankMarks(order, { final = false } = {}) {
+  const out = {};
+  order.slice(0, final ? 3 : 1).forEach((i, k) => { out[i] = ordinalText(k + 1); });
+  return out;
+}
+

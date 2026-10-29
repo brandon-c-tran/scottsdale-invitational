@@ -19,13 +19,13 @@ import { ANCHOR, BOX, NAME_H, POPUP_BOX, crowdLayout, fieldOrder, flotillaLayout
 import { propOf, spriteSize } from "../../art/groove/index.js";
 import { useGrooveArt } from "../../art/groove/RiderSprite.jsx";
 import { actionAt, bobAt, cheerAt, chugAt, follow, popupAt } from "../model/motion.js";
-import { lineAt } from "../../../shared/chart.js";
-import { actionKind, demoAt, lineSpot, rankStripOn, sceneFor } from "../model/song.js";
+import { actionKind, demoAt, lineShownAt, lineSpot, rankStripOn, sceneFor } from "../model/song.js";
+import { narrationOf } from "../soundBridge.js";
 import { reducedMotion } from "./driver.js";
 import { cutField, cutShow } from "../model/cut.js";
 import { EXIT_MS, exitAt, exitKind } from "../model/exits.js";
 import { belowCut, rankNow } from "../model/rank.js";
-import { chugLayout, chugoffAt } from "../model/chugoff.js";
+import { chugLayout, chugoffAt, firstChugoff } from "../model/chugoff.js";
 import { barLayout, barPlayersOf, closestOf, countdownAt, readoutOf, verdictShown } from "../model/lastcall.js";
 import { indexList } from "../model/cupShape.js";
 import { nameFill } from "../hud/identity.js";
@@ -240,7 +240,7 @@ export default function Cast({ store, driver, entrants, phase, room, version }) 
       /* who's ahead: the strip's order (sinking below the line) */
       const rank = inSong && rankStripOn(chart, beat) ? rankNow(store, now) : null;
       const demo = inSong ? demoAt(chart, beat) : null;
-      const line = inSong ? lineAt(chart, beat) : null;
+      const line = inSong ? lineShownAt(narrationOf(chart), beat) : null;
       /* Last Call: the countdown, the reveal, who drinks */
       const cd = bar && chart?.countdown && Number.isFinite(songAt) ? countdownAt(chart.countdown, now - songAt) : null;
       const revealed = !!cd && (cd.stage === "reveal" || cd.stage === "verdict");
@@ -248,7 +248,7 @@ export default function Cast({ store, driver, entrants, phase, room, version }) 
       const drinkers = bar ? verdictShown({ songAt, countdown:chart?.countdown, lastCall:st.lastCall, lastCallAt:st.lastCallAt }, now) : null;
       const closest = drinkers ? closestOf(st.lastCall?.totals || []) : [];
       /* the chug-off */
-      const chug = phase === "chugoff" && p.chug ? chugoffAt(st.chugoff || roomRef.current?.chugoff || p.chug, now, { seen:st.done, startAt:st.phaseStart, decidedAt:st.chugoffDecidedAt }) : null;
+      const chug = phase === "chugoff" && p.chug ? chugoffAt(st.chugoff || roomRef.current?.chugoff || p.chug, now, { seen:st.done, startAt:st.phaseStart, decidedAt:st.chugoffDecidedAt, first:firstChugoff(roomRef.current) }) : null;
       const exits = chug && chug.loser !== null && Number.isFinite(chug.exitAt) ? [{ i:chug.loser, at:chug.exitAt, ms:CHUGOFF.EXIT_MS }] : p.exits;
       const reformed = p.reform !== null && now >= p.reform;
       /* the cut's grades stand from their stamp until the line */

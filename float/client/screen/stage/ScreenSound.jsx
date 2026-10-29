@@ -4,10 +4,10 @@
    fails to load leaves the picture running (silent) instead of taking the
    TV down. It hands the sound's beats to the picture (soundBridge.js). */
 import React from "react";
-import { CUT_BEATS, PODIUM_BEATS, unlockFloatSound, useFloatScreenSound, useFloatSoundUnlockNeeded } from "../../sound/index.js";
+import { CUT_BEATS, PODIUM_BEATS, narration, unlockFloatSound, useFloatScreenSound, useFloatSoundUnlockNeeded } from "../../sound/index.js";
 import { setSoundBeats } from "../soundBridge.js";
 
-setSoundBeats({ CUT_BEATS, PODIUM_BEATS });
+setSoundBeats({ CUT_BEATS, PODIUM_BEATS, narration });
 
 function SoundIcon() {
   return <svg viewBox="0 0 24 24" aria-hidden="true">

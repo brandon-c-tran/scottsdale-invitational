@@ -1,7 +1,8 @@
 /* What the screen knows about its room, kept outside React (float/GROOVE.md
    "What the room sends"): the last room message, the song's chart and beat
    0, every rider's judgements from `ev hit` (so the flotilla moves between
-   the room's 4-second `scores`), who has tapped Done, the crowd's cheers.
+   the room's 4-second `scores`), the song's live ranking, the chug-off and
+   its Dones, Last Call's totals, the crowd's cheers.
    The frame driver reads it every frame; React re-renders only when a room
    message lands (`version`). */
 import { POINTS, SONG_LEAD_MS } from "../../../shared/chart.js";
@@ -38,7 +39,7 @@ export function createScreenStore() {
     judged:new Map(),
     /* each rider's latest judged hit: { c, q, d, at, kind, scored } */
     last:new Map(),
-    /* when each rider tapped Done in this song's drink break */
+    /* when each chug-off contender tapped Done (ev done) */
     done:new Map(),
     /* the crowd: when each last cheered, and the outs in order */
     cheers:new Map(),
@@ -76,8 +77,6 @@ export function createScreenStore() {
     for (const row of msg.scores) {
       if (!Number.isInteger(row?.i)) continue;
       next.set(row.i, row);
-      if (row.done && !state.done.has(row.i)) state.done.set(row.i, at);
-      if (row.done === false && state.done.has(row.i) && state.phase === "song") state.done.delete(row.i);
     }
     state.scores = next;
     state.scoresAt = at;

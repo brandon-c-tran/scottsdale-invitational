@@ -12,7 +12,7 @@ import { build } from "esbuild";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
-import { POPUP_MS, SONG_LEAD_MS, chartOf, popupOf } from "../float/shared/chart.js";
+import { CHUGOFF, POPUP_MS, SONG_LEAD_MS, chartOf, demoCues, popupOf } from "../float/shared/chart.js";
 import { BEAT_MS } from "../float/shared/beat.js";
 import {
   BOX, CROWD, MIN_GAP, NAME_H, PODIUM, POPUP_BOX, STAGE_W, crowdLayout, driftOf, fieldOrder, flotillaLayout, nameSlots, nameWidth, podiumLayout,
@@ -20,8 +20,14 @@ import {
   riderWidth, rowCounts, rowOrder, rowsFor, rowSlots, spreadRow,
 } from "../float/client/screen/model/flotilla.js";
 import { ACTIONS, PLEASED_MS, actionAt, bobAt, cheerAt, chugAt, follow, hopToBank, popupAt } from "../float/client/screen/model/motion.js";
-import { bannerAt, chartFor, chuggingAt, hostAt, hostCalls, roundLabel, sceneFor, sceneMode, signAt, songStart } from "../float/client/screen/model/song.js";
-import { cutField, cutOuts, cutRanking, cutRankingOf, cutTimeline, pctText } from "../float/client/screen/model/cut.js";
+import { actionKind, bannerAt, chartFor, demoAt, hostAt, hostCalls, lineShownAt, lineSpot, rankStripOn, roundLabel, sceneFor, sceneMode, signAt, songStart, timedLines }
+  from "../float/client/screen/model/song.js";
+import { cutField, cutOuts, cutRanking, cutRankingOf, cutShow, pctText } from "../float/client/screen/model/cut.js";
+import { belowCut, createRanker, extrasSince, liveOrder, throughOf } from "../float/client/screen/model/rank.js";
+import { EXIT_MS, exitAt, exitKind } from "../float/client/screen/model/exits.js";
+import { CHUG_EXPLAINER, chugCaption, chugClock, chugLayout, chugoffAt, firstChugoff } from "../float/client/screen/model/chugoff.js";
+import { rankMarks, rankSlots } from "../float/client/screen/model/rank.js";
+import { awardValue } from "../float/client/screen/model/cut.js";
 import { createScreenStore } from "../float/client/screen/model/store.js";
 import { scriptCup, seenOf } from "../float/client/screen/mock/script.js";
 import { MOCK_SHOTS, SHOTS, mockRider, mockSkills, shotTime } from "../float/client/screen/mock/shared.js";
@@ -211,44 +217,46 @@ test("a hit's move by its cue: stroke, hey, a hop that leaves the water, a spin 
 
 /* ── the song ── */
 
-test("the song's words: the round card through the lead, Practice, Go! at each play, a big Drink!; the scene for each phase", () => {
+test("the song's words: the round card through the lead, the count-in, Go! at each play; no Practice or Drink; the scene for each phase", () => {
   const chart = chartOf("paddle");
   assert.deepEqual([bannerAt(chart, -5).kind, bannerAt(chart, -5).text, bannerAt(chart, -5).sub], ["card", "Round 1", "Paddle Party"]);
   assert.equal(bannerAt(chart, 2, { round:3, rounds:4 }).text, "Final");
-  /* the count-in on the sound's beats: 1 2 3 4 over the intro's last bar, and again as the beat comes back after the drink */
   assert.deepEqual([4, 5.5, 6, 7.9].map(b => bannerAt(chart, b).text), ["1", "2", "3", "4"]);
-  assert.equal(bannerAt(chart, 4.2).kind, "count");
   assert.notEqual(bannerAt(chart, 4.2).key, bannerAt(chart, 5.2).key, "each number pops on its own beat");
-  assert.deepEqual([84, 85, 86, 87].map(b => bannerAt(chart, b + 0.1).text), ["1", "2", "3", "4"]);
-  assert.equal(bannerAt(chart, 12).kind, "practice");
+  assert.equal(bannerAt(chart, 12), null, "practice has the narration box instead");
   assert.equal(bannerAt(chart, 24.2).text, "Go!");
-  assert.equal(bannerAt(chart, 88.5).text, "Go!", "the beat back after the drink");
-  assert.equal(bannerAt(chart, 57).text, "Drink!");
-  assert.equal(bannerAt(chart, 70), null, "no Drinking label: the chug says it");
+  assert.equal(bannerAt(chart, 88.5).text, "Go!", "the beat back after the breakdown");
+  assert.equal(bannerAt(chart, 57), null, "the breakdown: no Drink!");
+  assert.equal(bannerAt(chart, 70), null);
   assert.equal(roundLabel(1, 4), "Round 2");
   assert.equal(sceneFor("lobby"), "lobby");
   assert.equal(sceneFor("song", chartOf("rock")), "rocks");
   assert.equal(sceneFor("song", chartOf("spin")), "whirlpool");
   assert.equal(sceneFor("cut", chartOf("drop")), "falls");
+  assert.equal(sceneFor("chugoff", chartOf("rock")), "rocks", "the chug-off stays on the song's water");
+  assert.equal(sceneFor("lastcall", chartOf("lastcall-lights")), "bar");
   assert.equal(sceneFor("podium"), "podium");
   assert.equal(sceneFor("feedback"), "podium");
   assert.equal(sceneFor("intro"), "open");
   assert.deepEqual(sceneMode(chartOf("drop"), 29 * 4 + 1), { section:"play", mode:"drop" });
 });
 
-test("the host calls every cue on its beat (Ready, Ba, Spin; The Drop counts 3, 2, 1) and holds The Drop's sign a bar before each switch", () => {
+test("the host calls every cue on its beat (Ready, Ba, Spin; The Drop counts 3, 2, 1), the demos too, and the breakdown's rhythm as notes", () => {
   const paddle = chartOf("paddle");
-  const hey = paddle.cues.find(c => c.kind === "hey");
+  const hey = paddle.cues.find(c => c.kind === "hey" && c.scored);
   assert.deepEqual(hostAt(paddle, hey.call + 0.1).call.word, "Ready");
   assert.equal(hostAt(paddle, hey.call + 0.1).pose, "call");
   assert.equal(hostAt(paddle, hey.call - 0.1).pose, "idle");
   assert.equal(hostAt(paddle, 130).pose, "cheer", "the song's end");
-  assert.ok(hostCalls(paddle).every(c => c.kind === "hey"), "a paddle's call is the pulse");
-  assert.ok(hostCalls(chartOf("rock")).every(c => c.word === "Ba"));
-  assert.ok(hostCalls(chartOf("spin")).every(c => c.word === "Spin"));
+  const demo = demoCues(paddle)[0];
+  assert.ok(hostCalls(paddle).some(c => c.cue === demo.id && c.word === "Ready"), "the host calls the demo");
+  const echoes = hostCalls(paddle).filter(c => c.kind === "echo");
+  assert.ok(echoes.length >= 8 && echoes.every(c => c.word === "" && c.beat >= 56 && c.beat < 88), "the breakdown's rhythm, a note a beat (no word)");
+  assert.ok(hostCalls(paddle).every(c => c.kind === "hey" || c.kind === "echo"), "a paddle's call is the pulse");
+  assert.ok(hostCalls(chartOf("rock")).filter(c => c.kind === "hop").every(c => c.word === "Ba"));
+  assert.ok(hostCalls(chartOf("spin")).filter(c => c.kind === "spin").every(c => c.word === "Spin"));
   const drop = chartOf("drop");
-  const countdown = hostCalls(drop).filter(c => c.kind === "drop").map(c => c.word);
-  assert.deepEqual(countdown, ["3", "2", "1"]);
+  assert.deepEqual(hostCalls(drop).filter(c => c.kind === "drop").map(c => c.word), ["3", "2", "1"]);
   const signs = [];
   for (let bar = 0; bar < drop.bars; bar += 1) { const s = signAt(drop, bar * 4 + 1); if (s) signs.push([bar, s.mode]); }
   assert.ok(signs.length >= 6, "a sign before each switch");
@@ -256,110 +264,246 @@ test("the host calls every cue on its beat (Ready, Ba, Spin; The Drop counts 3, 
   assert.equal(signAt(paddle, 9), null, "only The Drop");
 });
 
-test("the drink break: a rider chugs from its first beat until they tap Done, on into the second half if they don't", () => {
+test("practice, narrated: each line up when the host says it, until the next; the demo acted out by everyone; the copies move like the song", () => {
   const chart = chartOf("paddle");
-  const songAt = 100_000;
-  const from = songAt + 56 * BEAT_MS;
-  assert.equal(chuggingAt(chart, songAt, from - 1, null), false);
-  assert.equal(chuggingAt(chart, songAt, from + 1000, null), true);
-  assert.equal(chuggingAt(chart, songAt, from + 9000, from + 8000), false, "done");
-  assert.equal(chuggingAt(chart, songAt, songAt + 92 * BEAT_MS, null), true, "still at it after the beat comes back");
-  assert.equal(chuggingAt(chart, songAt, from + 1000, songAt), false, "a rider who doesn't drink");
+  /* the chart's own beats without the sound */
+  const plain = timedLines(chart);
+  assert.deepEqual(plain.map(l => l.text), chart.lines.map(l => l.text));
+  for (let k = 1; k < plain.length; k += 1) assert.ok(plain[k - 1].until <= plain[k].from, "one line at a time");
+  /* the sound's timing: up when it is said */
+  const spoken = [{ text:"Paddle on 1 and 3", from:0.94, to:3 }, { text:"Copy me", from:58.6, to:59.5, show:55 }];
+  const timed = timedLines(chart, spoken);
+  assert.equal(lineShownAt(timed, 0.5), null, "not before it is said");
+  assert.equal(lineShownAt(timed, 1).text, "Paddle on 1 and 3");
+  assert.equal(lineShownAt(timed, 58), null, "up until its own until");
+  assert.equal(lineShownAt(timed, 58.7).text, "Copy me");
+  assert.equal(lineSpot(chart, lineShownAt(timed, 1)), "top", "over the scene in practice");
+  assert.equal(lineSpot(chart, lineShownAt(timed, 58.7)), "low", "under the rank strip in the breakdown");
+  /* the demo: the host's Hey, every critter acting it out on its beat; nobody taps it */
+  const demo = demoCues(chart)[0];
+  assert.equal(demoAt(chart, demo.beat - 0.1), null);
+  assert.equal(demoAt(chart, demo.beat + 0.2).id, demo.id);
+  assert.equal(demoAt(chart, demo.beat + 2), null);
+  /* the breakdown's copies move like the song's own */
+  const echo = chart.cues.find(c => c.kind === "echo");
+  assert.equal(actionKind(chart, echo), "paddle");
+  assert.equal(actionKind(chartOf("rock"), chartOf("rock").cues.find(c => c.kind === "echo")), "hop");
+  assert.equal(actionKind(chartOf("spin"), chartOf("spin").cues.find(c => c.kind === "echo")), "spin");
+  assert.equal(actionKind(chart, chart.cues.find(c => c.kind === "hey")), "hey");
+  /* the rank strip: from the first play bar, never in practice */
+  assert.equal(rankStripOn(chart, 20), false);
+  assert.equal(rankStripOn(chart, 24), true);
+  assert.equal(rankStripOn(chart, 100), true);
 });
 
-/* ── the cut ── */
+/* ── who's ahead ── */
 
-test("the cut: the room's ranking with its outs, stamped from the last place up, then the hops; squeezed into a short cut", () => {
-  const room = { phase:"cut", round:0, field:[0, 2, 3], out:[1, 4],
-    results:[{ i:2, place:1, pct:98 }, { i:0, place:2, pct:91 }, { i:3, place:3, pct:88 }, { i:4, place:4, pct:70, out:true }, { i:1, place:5, pct:61, out:true }],
-    history:[{ round:0, field:[0, 1, 2, 3, 4], out:[4, 1] }], scores:[] };
-  const ranking = cutRankingOf(room);
-  assert.deepEqual(ranking.map(r => r.i), [2, 0, 3, 4, 1]);
-  assert.deepEqual(cutOuts(ranking), [1, 4], "the last place first");
-  assert.deepEqual(cutField(room), [0, 1, 2, 3, 4], "the field that played, from the room's record");
-  const fallback = cutRanking([{ i:0, pct:50, cup:0 }, { i:1, pct:80, cup:0 }, { i:2, pct:50, cup:10 }], { out:[0] });
-  assert.deepEqual(fallback.map(r => [r.i, r.out]), [[1, false], [2, false], [0, true]], "ties by the Cup");
-  const t = cutTimeline(4, 20000);
-  assert.ok(t.stampAt(0) < t.stampAt(3) && t.stampAt(3) < t.boardOut && t.boardOut < t.hopAt(0) && t.hopAt(3) < t.reform && t.reform < t.next);
-  assert.ok(t.next < 20000 - 3000, "the next song's card has time");
-  const short = cutTimeline(4, 7000);
-  assert.ok(short.next < 7000, "a short cut fits");
-  /* each Out on its sting: the sound's drumroll hit, then one a gap */
-  const sound = { roll:500, reveal:2500, gap:500 };
-  assert.deepEqual([0, 1, 2, 3].map(cutTimeline(4, 20000, sound).stampAt), [2500, 3000, 3500, 4000]);
-  assert.deepEqual([0, 1].map(cutTimeline(4, 12000, sound).stampAt), [2500, 3000], "the same beats in the short cut");
-  assert.ok(cutTimeline(4, 12000, sound).next <= 12000 - 3000, "the next card stands three seconds before Last Call");
+test("who's ahead: the engine's order (percent, the Cup, Perfects, field), moved by the hits since the room's frame, at most once a beat", () => {
+  const field = [0, 1, 2, 3];
+  const results = [{ i:0, pts:300, pct:100, perfects:3, cup:0 }, { i:1, pts:300, pct:100, perfects:3, cup:150 },
+    { i:2, pts:210, pct:70, perfects:0, cup:0 }, { i:3, pts:210, pct:70, perfects:1, cup:0 }];
+  assert.deepEqual(liveOrder({ results, field }), [1, 0, 3, 2], "ties by the Cup, then Perfects");
+  /* hits after the frame move it */
+  const chart = chartOf("paddle");
+  const scored = chart.cues.filter(c => c.scored).slice(0, 2);
+  const judged = new Map([[2, new Map(scored.map(c => [c.id, { q:"perfect", d:0, at:5000 }]))]]);
+  assert.equal(extrasSince(judged, 4000, chart).get(2).pts, 200);
+  assert.equal(extrasSince(judged, 6000, chart).get(2).pts, 0, "hits before the frame are in it already");
+  const live = new Map([[0, 75], [1, 74], [2, 99], [3, 10]]);
+  assert.deepEqual(liveOrder({ results, field, liveOf:i => live.get(i) }), [2, 0, 1, 3], "the store's live percent");
+  assert.deepEqual(liveOrder({ results:[], field:[5, 6] }), [5, 6], "nobody judged yet: the field's order");
+  /* re-ranked at most once a beat */
+  const ranker = createRanker();
+  let made = 0;
+  const make = () => ({ order:[made += 1] });
+  ranker.update({ beat:4.1, key:"a", make });
+  ranker.update({ beat:4.9, key:"a", make });
+  assert.equal(made, 1, "the same beat: the same order");
+  ranker.update({ beat:5.0, key:"a", make });
+  assert.equal(made, 2);
+  /* the cut line: after the next field; none in the final */
+  assert.equal(throughOf({ cut:9 }, 13), 9);
+  assert.equal(throughOf({ cut:3, lastRound:true }, 3), null);
+  assert.equal(throughOf({ cut:null }, 6), null);
+  assert.equal(belowCut([4, 2, 7, 1], 2, 7), true);
+  assert.equal(belowCut([4, 2, 7, 1], 2, 2), false);
+  assert.equal(belowCut([4, 2, 7, 1], null, 1), false, "nobody sinks in the final");
+  /* the strip's marks and slots */
+  assert.deepEqual(rankMarks([4, 2, 7]), { 4:"1st" });
+  assert.deepEqual(rankMarks([4, 2, 7, 1], { final:true }), { 4:"1st", 2:"2nd", 7:"3rd" });
+  const slots = rankSlots(13);
+  assert.ok(slots.x(0) >= 420 && slots.x(12) + slots.w <= 1880, "13 chips across the top, clear of the host");
+  assert.ok(slots.w >= 100, "room for a name and a percent");
+});
+
+/* ── after a song ── */
+
+test("the cut as a show: grades at once, up to three award cards a beat apart, the line, the outs from the bottom; the bubble waits", () => {
+  const start = 1_000_000;
+  const results = range(13).map(i => ({ i, place:i + 1, pct:99 - i * 3, grade:i < 4 ? "superb" : i < 9 ? "ok" : "tryagain",
+    out:i >= 9, ...(i === 8 || i === 9 ? { bubble:true, out:false } : {}) }));
+  results[8].out = false;
+  const show = { grades:start + 400, awards:[start + 2400, start + 3600, start + 4800], line:start + 6000,
+    outs:[{ i:12, at:start + 6800 }, { i:11, at:start + 8200 }, { i:10, at:start + 9600 }], bubble:[8, 9] };
+  const room = { phase:"cut", round:0, rounds:4, startAt:start, endsAt:start + 12000, field:range(8), out:[12, 11, 10], cut:9, lastRound:false,
+    results, awards:[{ id:"perfects", i:0, value:40, label:"Most Perfects" }, { id:"streak", i:1, value:22, label:"Longest streak" },
+      { id:"early", i:5, value:48, label:"Always early" }, { id:"late", i:6, value:44, label:"Always late" }], show,
+    history:[{ round:0, song:"paddle", field:range(13), out:[12, 11, 10], results }] };
+  const cut = cutShow(room);
+  assert.equal(cut.gradesAt, start + 400);
+  assert.equal(cut.grades[0], "superb");
+  assert.equal(cut.awards.length, 3, "three cards at most");
+  assert.deepEqual(cut.awards.map(a => a.at), show.awards);
+  assert.deepEqual(cut.outs.map(o => o.i), [12, 11, 10], "from the bottom, on the room's beats");
+  assert.deepEqual(cut.chugoff, { a:8, b:9 }, "the bubble: the last through and the first out");
+  assert.ok(cut.callAt > cut.outs[2].at, "the call after the outs");
+  /* the room's row for the bubble's out rider says out:false until the chug-off */
+  assert.equal(cut.ranking.find(r => r.i === 9).out, false);
+  /* without the room's beats: the same shape from the cut's start */
+  const bare = cutShow({ ...room, show:undefined, chugoff:undefined });
+  assert.ok(bare.gradesAt < bare.awards[0].at && bare.awards[2].at < bare.line && bare.line < bare.outs[0].at, "grades, cards, line, outs");
+  assert.ok(bare.outs.every((o, k) => k === 0 || o.at > bare.outs[k - 1].at));
+  assert.deepEqual(bare.chugoff, { a:8, b:9 }, "the bubble from its rows");
+  const final = cutShow({ ...room, lastRound:true, cut:null, show:{ grades:start + 400, awards:[], line:null, outs:[] }, results:results.map(r => ({ ...r, out:false, bubble:undefined })) });
+  assert.equal(final.chugoff, null);
+  assert.equal(final.outs.length, 0);
+  assert.equal(awardValue({ id:"streak", value:22 }), "22 in a row");
+  assert.equal(awardValue({ id:"early", value:48 }), "48 ms early");
+  assert.equal(awardValue({ id:"splashes", value:1 }), "1 miss");
+  assert.equal(awardValue({ id:"perfects", value:40 }), "40");
   assert.equal(pctText(97.36), "97.4%");
   assert.equal(pctText(100), "100%");
+  /* the room's ranking with its outs, the field from the record */
+  const plain = { phase:"cut", round:0, field:[0, 2, 3], out:[1, 4],
+    results:[{ i:2, place:1, pct:98 }, { i:0, place:2, pct:91 }, { i:3, place:3, pct:88 }, { i:4, place:4, pct:70, out:true }, { i:1, place:5, pct:61, out:true }],
+    history:[{ round:0, field:[0, 1, 2, 3, 4], out:[4, 1] }], scores:[] };
+  assert.deepEqual(cutRankingOf(plain).map(r => r.i), [2, 0, 3, 4, 1]);
+  assert.deepEqual(cutOuts(cutRankingOf(plain)), [1, 4], "the last place first");
+  assert.deepEqual(cutField(plain), [0, 1, 2, 3, 4]);
+  const fallback = cutRanking([{ i:0, pct:50, cup:0 }, { i:1, pct:80, cup:0 }, { i:2, pct:50, cup:10 }], { out:[0] });
+  assert.deepEqual(fallback.map(r => [r.i, r.out]), [[1, false], [2, false], [0, true]], "ties by the Cup");
+});
+
+test("the exits: Paddle Party's pelican, Rock Hop's bonk, Spin Cycle's flush; every one lands on the bank", () => {
+  assert.equal(exitKind("open"), "pelican");
+  assert.equal(exitKind("rocks"), "bonk");
+  assert.equal(exitKind("whirlpool"), "flush");
+  assert.equal(exitKind("falls"), "hop");
+  const from = { x:900, y:800, scale:0.5 }, to = { x:1500, y:428, scale:0.34 };
+  for (const kind of ["pelican", "bonk", "flush", "hop"]) {
+    const end = exitAt(kind, from, to, 1, { height:150 });
+    assert.ok(Math.abs(end.x - to.x) < 1 && Math.abs(end.y - to.y) < 1 && Math.abs(end.scale - to.scale) < 0.01, `${kind}: on the bank`);
+    assert.equal(end.opacity, 1);
+    assert.equal(end.pose, "out");
+    const start = exitAt(kind, from, to, 0, { height:150 });
+    assert.equal(start.x, from.x, `${kind}: from its spot`);
+  }
+  const swoop = exitAt("pelican", from, to, 0.1);
+  assert.ok(swoop.pelican && swoop.pelican.x > from.x, "the pelican swoops in from the right");
+  const carried = exitAt("pelican", from, to, 0.65);
+  assert.ok(carried.lift < 0 && carried.x > from.x && carried.x < to.x, "carried over the water");
+  const bonked = exitAt("bonk", from, to, 0.3);
+  assert.ok(bonked.rock && bonked.stars, "the rock and the stars");
+  const sunk = exitAt("bonk", from, to, 0.7);
+  assert.ok(sunk.bubbles && sunk.lift > 0, "sinking in bubbles");
+  const flushed = exitAt("flush", from, to, 0.5);
+  assert.ok(flushed.swirl && flushed.scale < from.scale, "round and down");
+  assert.ok(EXIT_MS >= 1500 && EXIT_MS <= 3000);
+});
+
+test("the chug-off: the call, 3 2 1, Chug!, the first Done keeps the spot, the other leaves; a caption for each way it ends", () => {
+  const goAt = 2_000_000;
+  const chug = { round:0, a:4, b:7, goAt, doneAt:{}, winner:null, by:null };
+  assert.equal(chugoffAt(chug, goAt - 3500).stage, "call");
+  assert.deepEqual([chugoffAt(chug, goAt - 2500).count, chugoffAt(chug, goAt - 1500).count, chugoffAt(chug, goAt - 500).count], ["3", "2", "1"]);
+  assert.equal(chugoffAt(chug, goAt + 200).count, "Chug!");
+  assert.equal(chugoffAt(chug, goAt + 200).stage, "chug");
+  assert.equal(chugoffAt(chug, goAt + 4200).clockMs, 4200);
+  /* the screen's own ev done, before the room's word */
+  const seen = new Map([[7, goAt + 5100]]);
+  const won = chugoffAt(chug, goAt + 5500, { seen });
+  assert.deepEqual([won.winner, won.loser, won.stage, won.by, won.clockMs], [7, 4, "won", "chug", 5100]);
+  assert.equal(chugoffAt(chug, goAt + 5100 + CHUGOFF.REVEAL_MS + 10, { seen }).stage, "exit", "the other leaves after the reveal");
+  /* the room's word */
+  const room = { ...chug, doneAt:{ 4:6000 }, winner:4, by:"chug" };
+  assert.equal(chugoffAt(room, goAt + 7000).winAt, goAt + 6000);
+  /* by score: no Done; the decision timed by when it was heard */
+  const score = { ...chug, winner:4, by:"score" };
+  assert.equal(chugoffAt(score, goAt + 31_000, { decidedAt:goAt + 30_100 }).winAt, goAt + 30_100);
+  assert.equal(chugoffAt(score, goAt + 40_000, { decidedAt:goAt + 30_100 }).stage, "exit");
+  assert.equal(chugCaption("chug"), "First to finish");
+  assert.match(chugCaption("score"), /Nobody finished/);
+  assert.equal(chugCaption("forfeit"), "Won by forfeit");
+  assert.equal(CHUG_EXPLAINER, "Last one in against first one out. First to finish keeps the spot.");
+  /* the Cup's first chug-off: a longer intro, for its rule */
+  assert.equal(chugoffAt({ a:1, b:2 }, 0, { startAt:0, first:true }).goAt, CHUGOFF.INTRO_FIRST_MS ?? CHUGOFF.INTRO_MS);
+  assert.equal(chugoffAt({ a:1, b:2 }, 0, { startAt:0 }).goAt, CHUGOFF.INTRO_MS);
+  assert.equal(firstChugoff({ round:0, chugoff:{ round:0 }, history:[{ round:0, results:[{ i:1, bubble:true }] }] }), true);
+  assert.equal(firstChugoff({ round:1, chugoff:{ round:1 }, history:[{ round:0, results:[{ i:1, bubble:true }] }, { round:1, results:[] }] }), false);
+  const stage = chugLayout(4, 7);
+  assert.ok(stage[4].x < 960 && stage[7].x > 960 && stage[4].y === stage[7].y, "centre stage, either side of the clock");
+  assert.equal(chugClock(4210), "4.2");
 });
 
 /* ── Last Call ── */
 
-test("Last Call: the glass waits at the bartender, steps down the bar on each slide, reaches the end on the grab, then waits for the next", async () => {
-  const { BARTENDER, COUNTER, barLayout, barPlayersOf, bartenderPose, drinkersOf, glassAt, readoutUntil, totalText } = await import("../float/client/screen/model/lastcall.js");
-  const chart = chartOf("lastcall");
-  assert.equal(chart.scene, "bar");
-  assert.equal(sceneFor("lastcall", chart), "bar");
-  const [one, two, three] = chart.cues;
-  assert.deepEqual(glassAt(chart, 1).x, COUNTER.from, "waiting at the bartender's hand");
-  assert.ok(glassAt(chart, 1).visible);
-  const steps = [one.slides[0] + 0.5, one.slides[1] + 0.5, one.slides[2] + 0.5, one.beat + 0.3].map(b => glassAt(chart, b).x);
-  assert.ok(steps.every((x, k) => k === 0 || x > steps[k - 1]), "each slide a step down the bar");
-  assert.equal(Math.round(glassAt(chart, one.beat + 0.4).x), COUNTER.to, "the end on the grab");
-  assert.equal(glassAt(chart, one.beat + 0.8).visible, true, "back at the bartender for the next");
-  assert.equal(glassAt(chart, one.beat + 0.8).x, COUNTER.from);
-  assert.equal(glassAt(chart, three.beat + 1).visible, false, "gone after the last");
-  assert.equal(readoutUntil(chart, one.id), two.slides[0], "a grab's readouts stay up until the next slides");
-  assert.equal(readoutUntil(chart, three.id), chart.bars * 4);
-  assert.equal(bartenderPose(chart, one.slides[1] + 0.1), "slide");
-  assert.equal(bartenderPose(chart, 2), "idle");
-  assert.equal(bartenderPose(chart, 30, { revealed:true }), "cheer");
+test("Last Call, the countdown: shown and said until the trick hides it, nothing after; every offset at the reveal; the farthest drinks", async () => {
+  const { BARTENDER, BAR_LINE, LAST_CALL_EXPLAINER, barLayout, barPlayersOf, bartenderPose, closestOf, countWord, countdownAt, readoutOf, verdictShown } =
+    await import("../float/client/screen/model/lastcall.js");
+  const lights = chartOf("lastcall-lights").countdown;
+  assert.equal(countdownAt(lights, 100).stage, "intro");
+  const ten = lights.steps[0];
+  assert.deepEqual([countdownAt(lights, ten.at + 100).show, countdownAt(lights, ten.at + 100).say], [10, 10]);
+  assert.equal(countdownAt(lights, ten.at + 800).say, null, "said for a moment");
+  assert.equal(countdownAt(lights, ten.at + 800).show, 10, "shown until the next");
+  const four = lights.steps.find(s => s.n === 4);
+  assert.equal(countdownAt(lights, four.at + 10).show, 4);
+  for (const t of [lights.hideAt, lights.hideAt + 500, lights.zeroAt, lights.revealAt - 1]) {
+    const cd = countdownAt(lights, t);
+    assert.deepEqual([cd.show, cd.say, cd.tick, cd.hidden, cd.stage], [null, null, null, true, "dark"], `nothing tells the count at ${t}`);
+  }
+  assert.equal(countdownAt(lights, lights.revealAt).stage, "reveal");
+  assert.equal(countdownAt(lights, lights.verdictAt).stage, "verdict");
+  assert.ok(lights.first && lights.introMs === 7000, "the first Last Call says what it is");
+  assert.equal(LAST_CALL_EXPLAINER, "The bar closes at zero. Tap on zero. Farthest off drinks.");
+  const ticks = chartOf("lastcall-ticks").countdown;
+  const six = ticks.steps.find(s => s.n === 6);
+  assert.deepEqual([countdownAt(ticks, six.at + 50).say, countdownAt(ticks, six.at + 50).tick], [null, 6], "ticks: the voice stops, ticks only");
+  assert.equal(countWord(7), "Seven");
+  /* the verdict at the later of its moment and the room naming who drinks */
+  const songAt = 9_000_000;
+  const named = { songAt, countdown:lights, lastCall:{ totals:[], worst:[3] }, lastCallAt:songAt + lights.revealAt };
+  assert.equal(verdictShown(named, songAt + lights.verdictAt - 1), null);
+  assert.deepEqual(verdictShown(named, songAt + lights.verdictAt), [3]);
+  assert.equal(verdictShown({ ...named, lastCallAt:songAt + lights.verdictAt + 700 }, songAt + lights.verdictAt + 300), null, "a late verdict waits for itself");
+  assert.equal(verdictShown({ ...named, lastCall:{ totals:[], worst:null } }, songAt + 99_999), null);
+  assert.deepEqual(closestOf([{ i:1, d:-80 }, { i:2, d:40 }, { i:3, d:-40 }, { i:4 }]), [2, 3], "the closest, ties all");
+  assert.deepEqual(readoutOf({ i:4 }), { q:"miss", d:null });
+  assert.equal(bartenderPose(lights, lights.hideAt + 200), "slide", "he pulls the cord");
+  assert.equal(bartenderPose(ticks, ticks.hideAt + 200), "idle", "the foam needs no hand");
+  assert.equal(bartenderPose(lights, 100, { revealed:true }), "cheer");
   for (const n of [2, 9, 13, 16]) {
     const seats = barLayout(range(n));
     assert.equal(Object.keys(seats).length, n);
-    assert.ok(Object.values(seats).every(s => s.x - 125 * s.scale * 1.45 > 0 && s.x + 125 * s.scale * 1.45 < STAGE_W && s.y > COUNTER.y),
-      `${n}: everyone along the front of the counter, on the stage`);
-    assert.equal(new Set(Object.values(seats).map(s => s.y)).size, 1, `${n}: one line-up`);
-    /* each readout right over its own critter, alternating two heights where they would touch */
-    const faces = Object.entries(seats).map(([i, s]) => ({ i:Number(i), x:s.x, y:s.y, scale:s.scale, top:s.y - 240 * s.scale * 1.45 }));
-    const slots = popupSlots(faces, { box:{ w:188 * 1.15, h:100 * 1.15 }, stagger:true });
-    for (const f of faces) assert.ok(Math.abs(slots[f.i].x - f.x) < 1 || f.x < 130 || f.x > STAGE_W - 130, `${n}: readout ${f.i} over its rider`);
-    const rects = faces.map(f => { const sl = slots[f.i], w = 188 * 1.15 * sl.size, h = 100 * 1.15 * sl.size; return { i:f.i, x0:sl.x - w / 2, x1:sl.x + w / 2, y0:sl.y - h, y1:sl.y }; });
-    const overlap = (a, b) => Math.max(0, Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0)) * Math.max(0, Math.min(a.y1, b.y1) - Math.max(a.y0, b.y0));
-    for (const a of rects) for (const b of rects) if (b.i > a.i) assert.equal(overlap(a, b), 0, `${n}: readouts ${a.i} and ${b.i} apart`);
+    assert.ok(Object.values(seats).every(s => s.x - 125 * s.scale * 1.45 > 0 && s.x + 125 * s.scale * 1.45 < STAGE_W && s.y === BAR_LINE.y), `${n}: one line-up on the stage`);
   }
-  assert.ok(BARTENDER.x < COUNTER.from);
+  assert.ok(BARTENDER.x < 600);
   assert.deepEqual(barPlayersOf({ field:[2, 5], out:[1, 7] }), [2, 5, 7, 1], "the field, then the riders out, the last out first");
-  assert.equal(drinkersOf({ totals:[], worst:null }), null);
-  /* the verdict is seen as it is heard: at the later of the room naming who
-     drinks and the sound's who-drinks sting (LAST_CALL_BEATS.drinks) */
-  const { verdictAt, VERDICT_BEAT } = await import("../float/client/screen/model/lastcall.js");
-  const sound = await import("../float/client/sound/groove.js");
-  assert.equal(VERDICT_BEAT, sound.LAST_CALL_BEATS.drinks, "the screen's fallback is the sound's beat");
-  const songAt = 9_000_000, sting = songAt + sound.LAST_CALL_BEATS.drinks * 500;
-  const early = { chart, songAt, lastCall:{ totals:[], worst:[3] }, lastCallAt:songAt + 24.5 * 500 };
-  assert.equal(verdictAt(early, songAt + 25 * 500, { beat:sound.LAST_CALL_BEATS.drinks }), null, "the room named it at 24.5: held for the sting");
-  assert.equal(verdictAt(early, sting - 1, { beat:sound.LAST_CALL_BEATS.drinks }), null);
-  assert.deepEqual(verdictAt(early, sting, { beat:sound.LAST_CALL_BEATS.drinks }), [3], "on the sting");
-  const late = { chart, songAt, lastCall:{ totals:[], worst:[3, 5] }, lastCallAt:sting + 700 };
-  assert.equal(verdictAt(late, sting + 300), null, "a verdict that arrives after the sting waits for itself");
-  assert.deepEqual(verdictAt(late, sting + 700), [3, 5]);
-  assert.equal(verdictAt({ chart, songAt, lastCall:{ totals:[], worst:null }, lastCallAt:null }, sting + 5000), null, "nobody named, nothing shown");
-  assert.deepEqual(drinkersOf({ totals:[], worst:[3] }), [3]);
-  assert.equal(totalText(1234), "1.23");
 });
 
 /* ── the store ── */
 
-test("the store: the chart by id, beat 0, one judgement a cue (the first), live scores between the room's, Done, cheers", () => {
+test("the store: the chart by id, beat 0, one judgement a cue (the first), live scores, the song's results, the chug-off's Dones and decision", () => {
   let now = 1_000_000;
   const store = createScreenStore();
   store.attach({ on:() => () => {}, serverNow:() => now, status:() => "open" });
   const startAt = now;
   store.onRoom({ t:"room", s:now, phase:"song", round:0, rounds:4, song:"paddle", chartId:"paddle", startAt, field:[0, 1],
-    scores:[{ i:0, pts:0, pct:0, live:0, n:0, cup:0, done:false }] });
+    scores:[{ i:0, pts:0, pct:0, live:0, n:0, cup:0 }], results:[{ i:0, pts:0, pct:0, perfects:0, cup:0, place:1 }] });
   assert.equal(store.state.chart.id, "paddle", "the shared chart by id");
   assert.equal(store.state.songAt, startAt + SONG_LEAD_MS, "beat 0 from the lead");
+  assert.equal(store.state.results.length, 1, "the room's live ranking");
+  assert.equal(store.state.resultsAt, now);
   assert.equal(songStart({ songAt:5 }), 5);
   const cue = store.state.chart.cues.find(c => c.scored);
   now += 30_000;
@@ -372,14 +516,9 @@ test("the store: the chart by id, beat 0, one judgement a cue (the first), live 
   store.onEv({ t:"ev", s:now, e:"hit", i:0, c:next.id, q:"ok", d:-120 });
   assert.equal(store.liveOf(0), 70, "(100 + 40) / 2");
   assert.equal(store.state.last.get(0).kind, next.kind);
-  now += 100;
-  store.onRoom({ t:"room", s:now, phase:"song", round:0, rounds:4, song:"paddle", chartId:"paddle", startAt, field:[0, 1],
-    scores:[{ i:0, pts:140, pct:3, live:70, n:2, cup:0, done:false }, { i:1, pts:300, pct:6, live:100, n:3, cup:0, done:true }] });
-  assert.equal(store.liveOf(1), 100, "a rider the screen saw no hits for: the room's word");
-  assert.ok(store.state.done.has(1), "Done from the scores");
-  now += 100;
-  store.onEv({ t:"ev", s:now, e:"done", i:0 });
-  assert.ok(store.state.done.has(0), "Done from the event");
+  const echo = store.state.chart.cues.find(c => c.kind === "echo");
+  store.onEv({ t:"ev", s:now, e:"hit", i:1, c:echo.id, q:"nice", d:20 });
+  assert.equal(store.state.last.get(1).kind, "paddle", "a copy moves like the song");
   now += 100;
   store.onEv({ t:"ev", s:now, e:"cheer", i:5 });
   assert.equal(store.state.cheers.get(5), now);
@@ -389,31 +528,44 @@ test("the store: the chart by id, beat 0, one judgement a cue (the first), live 
   store.onRoom({ t:"room", s:now, phase:"song", round:1, rounds:4, song:"rock", chartId:"rock", startAt:now, field:[0] });
   assert.equal(store.state.last.size, 0, "a new song starts clean");
   assert.equal(chartFor({ chartId:"spin" }).id, "spin");
+  /* the chug-off: its own Dones, and when it was heard decided */
+  now += 30_000;
+  const chugoff = { a:0, b:1, goAt:now + 4000, doneAt:{}, winner:null, by:null };
+  store.onRoom({ t:"room", s:now, phase:"chugoff", round:1, rounds:4, startAt:now, field:[0], chugoff });
+  assert.equal(store.state.done.size, 0);
+  assert.equal(store.state.chugoffDecidedAt, null);
+  now += 9000;
+  store.onEv({ t:"ev", s:now, e:"done", i:1 });
+  assert.equal(store.state.done.get(1), now);
+  store.onRoom({ t:"room", s:now + 50, phase:"chugoff", round:1, rounds:4, startAt:now - 9000, field:[0, 1], chugoff:{ ...chugoff, winner:1, by:"chug", doneAt:{ 1:5000 } } });
+  assert.equal(store.state.chugoffDecidedAt, now + 50);
   /* Last Call: when the room first named who drinks */
   now += 1000;
-  store.onRoom({ t:"room", s:now, phase:"lastcall", round:0, rounds:4, song:"lastcall", chartId:"lastcall", songAt:now + 3000, field:[0],
-    lastCall:{ totals:[{ i:0, ms:120, grabs:{} }], worst:null } });
+  store.onRoom({ t:"room", s:now, phase:"lastcall", round:1, rounds:4, song:"lastcall-slow", chartId:"lastcall-slow", songAt:now + 3000, field:[0],
+    lastCall:{ totals:[{ i:0, ms:120, d:120 }], worst:null } });
+  assert.equal(store.state.chart.countdown.trick, "slow");
   assert.equal(store.state.lastCallAt, null);
   now += 12_000;
-  store.onRoom({ t:"room", s:now, phase:"lastcall", round:0, rounds:4, song:"lastcall", chartId:"lastcall", songAt:now - 9000, field:[0],
-    lastCall:{ totals:[{ i:0, ms:120, grabs:{} }], worst:[0] } });
+  store.onRoom({ t:"room", s:now, phase:"lastcall", round:1, rounds:4, song:"lastcall-slow", chartId:"lastcall-slow", songAt:now - 9000, field:[0],
+    lastCall:{ totals:[{ i:0, ms:120, d:120 }], worst:[0] } });
   const namedAt = now;
   assert.equal(store.state.lastCallAt, namedAt);
   now += 500;
-  store.onRoom({ t:"room", s:now, phase:"lastcall", round:0, rounds:4, song:"lastcall", chartId:"lastcall", songAt:now - 9500, field:[0],
-    lastCall:{ totals:[{ i:0, ms:120, grabs:{} }], worst:[0] } });
+  store.onRoom({ t:"room", s:now, phase:"lastcall", round:1, rounds:4, song:"lastcall-slow", chartId:"lastcall-slow", songAt:now - 9500, field:[0],
+    lastCall:{ totals:[{ i:0, ms:120, d:120 }], worst:[0] } });
   assert.equal(store.state.lastCallAt, namedAt, "the first arrival stands");
 });
 
 /* ── the stand-in rooms ── */
 
-test("the scripted Cup speaks the contract: phases in order, hits with a quality and an offset (a miss has none), scores rows, 13 to 9 to 6 to 3", () => {
+test("the scripted Cup speaks the contract: the cut, the chug-off and Last Call after each song but the final; demos never tapped", () => {
   const skills = mockSkills(13, 3);
   const riders = range(13).map(k => ({ ...mockRider(k), device:`p${k}`, skill:skills[k] }));
   const { msgs, marks, rounds } = scriptCup({ riders, startAt:1_000_000, seed:3 });
   assert.equal(rounds, 4);
   const phases = msgs.filter(m => m.msg.t === "room").map(m => m.msg.phase).filter((p, k, all) => p !== all[k - 1]);
-  assert.deepEqual(phases, ["intro", "song", "cut", "song", "cut", "song", "cut", "song", "cut", "podium", "feedback", "lobby"]);
+  assert.deepEqual(phases, ["intro", "song", "cut", "chugoff", "lastcall", "song", "cut", "chugoff", "lastcall", "song", "cut", "chugoff", "lastcall",
+    "song", "cut", "podium", "feedback", "lobby"]);
   for (let k = 1; k < msgs.length; k += 1) assert.ok(msgs[k].s >= msgs[k - 1].s, "in time order");
   const hits = msgs.filter(m => m.msg.t === "ev" && m.msg.e === "hit").map(m => m.msg);
   assert.ok(hits.length > 1000);
@@ -421,13 +573,27 @@ test("the scripted Cup speaks the contract: phases in order, hits with a quality
     assert.ok(["perfect", "nice", "ok", "early", "late", "miss"].includes(hit.q));
     assert.equal(hit.q === "miss", hit.d === undefined, "a miss has no offset");
   }
+  const demoIds = new Set(demoCues(chartOf("paddle")).map(c => c.id));
+  const firstSong = msgs.filter(m => m.msg.t === "room" && m.msg.phase === "song" && m.msg.round === 0);
+  const songEnd = msgs.findIndex(m => m.msg.t === "room" && m.msg.phase === "cut");
+  assert.ok(!msgs.slice(0, songEnd).some(m => m.msg.t === "ev" && m.msg.e === "hit" && demoIds.has(m.msg.c)), "nobody taps the host's demo");
+  assert.ok(firstSong.some(m => Array.isArray(m.msg.results) && m.msg.results.length === 13), "the live ranking in the song");
+  /* the cut: grades, the show's beats, the bubble out:false */
+  const cut = msgs.find(m => m.msg.t === "room" && m.msg.phase === "cut").msg;
+  assert.ok(cut.results.every(r => ["superb", "ok", "tryagain"].includes(r.grade)));
+  assert.ok(cut.awards.length <= 3);
+  assert.equal(cut.show.bubble.length, 2);
+  assert.ok(cut.results.filter(r => r.bubble).every(r => r.out === false), "the bubble is neither out nor through until the chug-off");
+  assert.ok(!cut.field.includes(cut.show.bubble[0]) && !cut.out.includes(cut.show.bubble[1]));
+  /* the chug-off settles: the loser's ev out at the decision */
+  const chug = msgs.filter(m => m.msg.t === "room" && m.msg.phase === "chugoff" && m.msg.round === 0).map(m => m.msg);
+  const decided = chug.find(m => Number.isInteger(m.chugoff.winner));
+  assert.equal(decided.chugoff.by, "chug");
+  assert.ok(msgs.some(m => m.msg.t === "ev" && m.msg.e === "out" && m.msg.i === decided.chugoff.loser && m.s === decided.s));
+  assert.equal(chug[0].chugoff.goAt - chug[0].startAt, CHUGOFF.INTRO_FIRST_MS ?? CHUGOFF.INTRO_MS, "the Cup's first chug-off: the long intro");
   const fields = msgs.filter(m => m.msg.t === "room" && m.msg.phase === "song").map(m => m.msg.field.length).filter((n, k, all) => n !== all[k - 1]);
   assert.deepEqual(fields, [13, 9, 6, 3]);
-  const row = msgs.find(m => m.msg.t === "room" && m.msg.phase === "song" && m.msg.scores?.length).msg.scores[0];
-  assert.deepEqual(Object.keys(row).sort(), ["cup", "done", "i", "live", "n", "pct", "pts"]);
-  /* (the scripted Cup has no Last Call; the real room's does) */
-  for (const shot of MOCK_SHOTS) if (!SHOTS[shot].lobby && SHOTS[shot].phase !== "lastcall")
-    assert.ok(Number.isFinite(shotTime(shot, seenOf(marks), rounds)), `${shot} has a moment`);
+  for (const shot of MOCK_SHOTS) if (!SHOTS[shot].lobby) assert.ok(Number.isFinite(shotTime(shot, seenOf(marks), rounds)), `${shot} has a moment`);
 });
 
 test("the real room in the tab: a shot runs the engine to its moment and the screen gets the room, the chart and the hits", async () => {
@@ -449,24 +615,48 @@ test("the real room in the tab: a shot runs the engine to its moment and the scr
   net.close();
 });
 
+test("the real room reaches the chug-off: its go and its decision are shots", async () => {
+  const { connectRoom } = await import("../float/client/screen/mock/room.js");
+  const net = connectRoom({ room:"bcdf", options:{ shot:"keeps", freeze:"1" } });
+  const got = [];
+  net.on("room", msg => got.push(msg));
+  await net.ready;
+  await new Promise(resolve => setTimeout(resolve, 30));
+  const last = got[got.length - 1];
+  assert.equal(last.phase, "chugoff");
+  assert.ok(Number.isInteger(last.chugoff.winner), "decided");
+  net.close();
+});
+
 /* ── a few moments, rendered ── */
 
+/* the sound is the sound builder's: the test's bundle stands it in, so the picture is tested alone */
+const stubSound = {
+  name:"stub-sound",
+  setup(b) {
+    b.onResolve({ filter:/sound\/index\.js$/ }, args => ({ path:args.path, namespace:"stub-sound" }));
+    b.onLoad({ filter:/.*/, namespace:"stub-sound" }, () => ({ contents:`export const CUT_BEATS = null, PODIUM_BEATS = null, narration = null;
+      export const useFloatScreenSound = () => {}, useFloatSoundUnlockNeeded = () => false, unlockFloatSound = () => {};`, loader:"js" }));
+  },
+};
 const bundle = await build({
   stdin:{ contents:`export { default as FloatScreen } from "./float/client/screen/FloatScreen.jsx";
-    export { CutBoard, SongBanner, PodiumBlocks, IntroTitle, Feedback, LastCallBanner } from "./float/client/screen/hud/Hud.jsx";
+    export { SongBanner, Narration, RankStrip, CutShow, ChugHud, LastCallHud, PodiumBlocks, IntroTitle, Feedback } from "./float/client/screen/hud/Hud.jsx";
     export { default as Lobby } from "./float/client/screen/hud/Lobby.jsx";
     export { default as Scene } from "./float/client/screen/stage/Scene.jsx";
     export { default as Cast } from "./float/client/screen/stage/Cast.jsx";
     export { default as Host } from "./float/client/screen/stage/Host.jsx";
+    export { default as Bar, boardOf, darkAt } from "./float/client/screen/stage/Bar.jsx";
     export { PlaceholderCritter, Critter } from "./float/client/screen/art.jsx";`, resolveDir:ROOT, loader:"jsx" },
   bundle:true, platform:"node", format:"cjs", external:["react", "react-dom", "qrcode-generator", "three"],
-  loader:{ ".css":"empty" }, write:false, logLevel:"silent",
+  loader:{ ".css":"empty" }, write:false, logLevel:"silent", plugins:[stubSound],
 });
 const ui = new Module(fileURLToPath(new URL("float-screen-groove.cjs", import.meta.url)));
 ui.filename = ui.id;
 ui.paths = Module._nodeModulePaths(ROOT);
 ui._compile(bundle.outputFiles[0].text, ui.filename);
-const { FloatScreen, CutBoard, SongBanner, PodiumBlocks, IntroTitle, Feedback, Lobby, Scene, Cast, Host, PlaceholderCritter } = ui.exports;
+const { FloatScreen, SongBanner, Narration, RankStrip, CutShow, ChugHud, LastCallHud, PodiumBlocks, IntroTitle, Feedback, Lobby, Scene, Cast, Host, Bar,
+  PlaceholderCritter } = ui.exports;
 const html = element => renderToStaticMarkup(element);
 const fakeDriver = now => ({ add:() => () => {}, serverNow:() => now, tick() {} });
 const entrants = range(13).map(k => ({ ...mockRider(k), device:`p${k}`, ready:k % 2 === 0 }));
@@ -478,27 +668,25 @@ test("the screen renders in node with its real props (no window at module scope)
   assert.doesNotMatch(markup, /<canvas/, "no WebGL");
 });
 
-test("rendered: the round card and the song's shouts, the cut board with its line and stamps, the podium, the lobby's code and controls", () => {
+test("rendered: the round card, Go!, the narration box, the rank strip; the podium, the lobby's code and controls", () => {
   const chart = chartOf("paddle");
   const songAt = 1_000_000;
-  const storeAt = beat => ({ state:{ chart, songAt, songField:range(13), phaseStart:songAt - SONG_LEAD_MS }, serverNow:() => songAt + beat * BEAT_MS });
+  const storeAt = beat => ({ state:{ chart, songAt, songField:range(13), phaseStart:songAt - SONG_LEAD_MS, judged:new Map(), results:[] },
+    serverNow:() => songAt + beat * BEAT_MS, liveOf:() => null });
   const banner = beat => html(React.createElement(SongBanner, { store:storeAt(beat), driver:fakeDriver(songAt + beat * BEAT_MS), room:{ round:0, rounds:4 } }));
   assert.match(banner(-2), /Round 1[\s\S]*Paddle Party/);
-  assert.match(banner(12), /Practice/);
+  assert.equal(banner(12), "", "no Practice banner");
   assert.match(banner(24.3), /Go!/);
-  assert.match(banner(57), /Drink!/);
-  const cutStart = 2_000_000;
-  const room = { phase:"cut", round:0, rounds:4, drinking:false, startAt:cutStart, endsAt:cutStart + 20000, song:"paddle", field:range(9), out:[9, 10, 11, 12], cut:9, lastRound:false,
-    results:range(13).map(i => ({ i, place:i + 1, pct:99 - i * 2.5, out:i >= 9 })), history:[{ round:0, song:"paddle", field:range(13), out:[12, 11, 10, 9] }] };
-  const board = at => html(React.createElement(CutBoard, { store:{ state:{ songField:range(13), phaseStart:cutStart } }, driver:fakeDriver(cutStart + at), room, entrants }));
-  const early = board(1000);
-  assert.match(early, /Round 1/);
-  assert.match(early, /Paddle Party/);
-  assert.match(early, /99\.0%/);
-  assert.match(early, /hd-cutline/);
-  assert.doesNotMatch(early, /hd-stamp/, "no stamps yet");
-  assert.equal((board(6200).match(/hd-stamp/g) || []).length, 4, "four out");
-  assert.match(board(15000), /Next[\s\S]*Round 2[\s\S]*Rock Hop[\s\S]*9 riders/);
+  assert.equal(banner(57), "", "no Drink!");
+  const line = beat => html(React.createElement(Narration, { store:storeAt(beat), driver:fakeDriver(songAt + beat * BEAT_MS) }));
+  assert.match(line(8), /hd-line is-top[\s\S]*Paddle on 1 and 3/);
+  assert.match(line(16), /Watch/);
+  assert.match(line(55.5), /hd-line is-low[\s\S]*Copy me/);
+  assert.equal(line(40), "");
+  const strip = html(React.createElement(RankStrip, { store:storeAt(30), driver:fakeDriver(songAt + 30 * BEAT_MS), room:{ cut:9, field:range(13) }, entrants, mode:"song" }));
+  assert.equal((strip.match(/class="hd-rank-chip/g) || []).length, 13, "every rider a chip");
+  for (const e of entrants) assert.ok(strip.includes(`>${e.name}<`), e.name);
+  assert.match(strip, /hd-rank-cut/);
   const podium = html(React.createElement(PodiumBlocks, { store:{ state:{} }, driver:fakeDriver(5_000_000 + 5000), room:{ startAt:5_000_000, podium:[0, 4, 7] }, entrants }));
   assert.match(podium, /1st[\s\S]*Brandon/);
   assert.match(podium, /hd-confetti/);
@@ -516,14 +704,82 @@ test("rendered: the round card and the song's shouts, the cut board with its lin
   assert.doesNotMatch(fieldday, /fs-start/);
 });
 
-test("rendered: the cast has every rider with their name, the host, the scene; a placeholder critter wears the groom's crown", async () => {
+test("rendered: the cut's award cards and its call, the ringed bubble in the strip; the chug-off's call with its rule, the stamp and its caption", () => {
+  const start = 2_000_000;
+  const results = range(13).map(i => ({ i, place:i + 1, pct:99 - i * 2.5, grade:"ok", out:i >= 10, ...(i === 8 || i === 9 ? { bubble:true } : {}) }));
+  const room = { phase:"cut", round:0, rounds:4, drinking:true, startAt:start, endsAt:start + 12000, song:"paddle", field:range(8), out:[12, 11, 10], cut:9, lastRound:false,
+    results, awards:[{ id:"perfects", i:2, value:40, label:"Most Perfects" }],
+    show:{ grades:start + 400, awards:[start + 2400], line:start + 3600, outs:[{ i:12, at:start + 4400 }, { i:11, at:start + 5800 }, { i:10, at:start + 7200 }], bubble:[8, 9] },
+    history:[{ round:0, song:"paddle", field:range(13), out:[12, 11, 10], results }] };
+  const store = { state:{ songField:range(13), phaseStart:start } };
+  const show = at => html(React.createElement(CutShow, { store, driver:fakeDriver(start + at), room, entrants }));
+  assert.doesNotMatch(show(1000), /hd-award/, "no card before its beat");
+  assert.match(show(2600), /Most Perfects[\s\S]*Eyob[\s\S]*40/);
+  assert.doesNotMatch(show(4000), /hd-award"/, "the cards leave as the line comes");
+  assert.match(show(11_000), /Chug-off![\s\S]*Richard[\s\S]*vs[\s\S]*Allan/);
+  const strip = html(React.createElement(RankStrip, { store, driver:fakeDriver(start + 5000), room, entrants, mode:"cut" }));
+  assert.equal((strip.match(/is-bubble/g) || []).length, 2, "the bubble's pair ringed");
+  /* the chug-off */
+  const goAt = start + 20_000;
+  const chugStore = (chugoff, extra = {}) => ({ state:{ chugoff, done:new Map(), phaseStart:goAt - 7000, chugoffDecidedAt:null, ...extra } });
+  const chugRoom = { phase:"chugoff", round:0, history:room.history, chugoff:{ round:0, a:8, b:9, goAt } };
+  const chug = (at, chugoff = chugRoom.chugoff) => html(React.createElement(ChugHud, { store:chugStore(chugoff), driver:fakeDriver(at), room:{ ...chugRoom, chugoff }, entrants }));
+  assert.match(chug(goAt - 5000), /Chug-off![\s\S]*Last one in against first one out\. First to finish keeps the spot\./, "the first explains itself");
+  assert.match(chug(goAt - 1500), /Last one in against first one out/, "for the whole intro");
+  assert.match(chug(goAt - 1500), /hd-chugclock is-count[\s\S]*>2</, "3 2 1 in the clock");
+  assert.match(chug(goAt + 300), /Chug!/);
+  const decided = { ...chugRoom.chugoff, doneAt:{ 9:6000 }, winner:9, by:"chug" };
+  assert.match(chug(goAt + 7000, decided), /Keeps the spot[\s\S]*First to finish/);
+  assert.match(chug(goAt + 31_000, { ...chugRoom.chugoff, winner:8, by:"forfeit", decidedAt:goAt + 30_000 }), /Won by forfeit/);
+  const later = { ...chugRoom, round:1, chugoff:{ round:1, a:3, b:4, goAt }, history:[...room.history, { round:1, results:[{ i:3, bubble:true }] }] };
+  assert.doesNotMatch(html(React.createElement(ChugHud, { store:chugStore(later.chugoff), driver:fakeDriver(goAt - 3500), room:later, entrants })), /Last one in/,
+    "said once a Cup");
+});
+
+test("rendered: Last Call's title (the first says what it is), the board and the bartender, the dark; then who drinks", () => {
+  const chart = chartOf("lastcall-lights");
+  const cd = chart.countdown;
+  const songAt = 3_000_000;
+  const hud = (t, lastCall = null) => html(React.createElement(LastCallHud, {
+    store:{ state:{ chart, songAt, lastCall, lastCallAt:lastCall?.worst ? songAt + cd.revealAt : null } }, driver:fakeDriver(songAt + t), entrants }));
+  assert.match(hud(-2000), /Last Call[\s\S]*The bar closes at zero\. Tap on zero\. Farthest off drinks\./);
+  assert.match(hud(cd.introMs - 100), /Farthest off drinks/, "for the whole intro");
+  assert.equal(hud(cd.introMs + 500), "");
+  assert.equal(hud(cd.verdictAt - 100, { totals:[], worst:[1, 4] }), "", "named by the room, not yet its moment");
+  assert.match(hud(cd.verdictAt + 100, { totals:[], worst:[1, 4] }), /Evan and Khoa[\s\S]*drink/);
+  assert.match(hud(cd.verdictAt + 100, { totals:[], worst:[2] }), /Eyob[\s\S]*drinks/);
+  const slow = chartOf("lastcall-slow");
+  assert.doesNotMatch(html(React.createElement(LastCallHud, { store:{ state:{ chart:slow, songAt, lastCall:null } }, driver:fakeDriver(songAt), entrants })), /closes at zero/,
+    "said once a Cup");
+  const bar = html(React.createElement(Bar, { store:{ state:{ chart, songAt } }, driver:fakeDriver(songAt) }));
+  assert.match(bar, /lc-bartender/);
+  assert.match(bar, /lc-board is-chalkboard/);
+  assert.match(bar, /lc-cord/, "the lights trick hangs its cord");
+  assert.match(bar, /lc-dark/);
+  assert.match(html(React.createElement(Bar, { store:{ state:{ chart:slow, songAt } }, driver:fakeDriver(songAt) })), /lc-board is-clock/, "the slow trick's clock");
+  assert.match(html(React.createElement(Bar, { store:{ state:{ chart:chartOf("lastcall-ticks"), songAt } }, driver:fakeDriver(songAt) })), /lc-foam/);
+  const { darkAt, boardOf } = ui.exports;
+  assert.equal(darkAt(cd, cd.hideAt - 10), 0);
+  assert.ok(darkAt(cd, cd.hideAt + 1000) > 0.9, "dark after the cord");
+  assert.equal(darkAt(cd, cd.revealAt), 0, "the lights back for the reveal");
+  assert.equal(darkAt(slow.countdown, slow.countdown.hideAt + 1000), 0, "only the lights trick goes dark");
+  const board = boardOf("lights");
+  assert.ok(board.face.x > board.left && board.face.x < board.left + board.w, "the number on the board's face");
+});
+
+test("rendered: the cast has every rider with their name and the exits' props in the cut, the eyes at Last Call, the host, the clean scene", async () => {
   const store = createScreenStore();
   const cast = html(React.createElement(Cast, { store, driver:fakeDriver(0), entrants, phase:"song", room:{ phase:"song", field:range(13), out:[] }, version:1 }));
   for (const e of entrants) assert.ok(cast.includes(`>${e.name}<`), e.name);
   assert.equal((cast.match(/class="fl-rider"/g) || []).length, 13);
-  assert.match(html(React.createElement(Host, { store, driver:fakeDriver(0), phase:"song" })), /fl-host/);
+  assert.doesNotMatch(cast, /fl-fx/, "no gags in a song");
+  const cut = html(React.createElement(Cast, { store, driver:fakeDriver(0), entrants, phase:"cut", room:{ phase:"cut", field:range(9), out:[], results:[] }, version:1 }));
+  assert.equal((cut.match(/class="fl-fx"/g) || []).length, 13, "a gag's props for anyone who might leave");
+  assert.match(cut, /is-pelican/);
+  const bar = html(React.createElement(Cast, { store, driver:fakeDriver(0), entrants, phase:"lastcall", room:{ phase:"lastcall", field:range(4), out:[] }, version:1 }));
+  assert.equal((bar.match(/class="fl-eye"/g) || []).length, 13, "eyes for the dark");
+  assert.match(html(React.createElement(Host, { store, driver:fakeDriver(0), phase:"song" })), /fl-note/, "the breakdown's note");
   assert.match(html(React.createElement(Scene, { id:"open" })), /sc-water/);
-  /* the scenes are clean (Brandon's playtest): no accents, no pieces drifting or popping in at the edges */
   for (const id of ["open", "rocks", "whirlpool", "falls", "lobby", "podium"]) {
     const scene = html(React.createElement(Scene, { id }));
     assert.doesNotMatch(scene, /sc-piece|sc-whirl|sc-falls|sc-rocks|accent/, `${id}: nothing but the scene`);
@@ -531,25 +787,8 @@ test("rendered: the cast has every rider with their name, the host, the scene; a
   const { readFileSync } = await import("node:fs");
   for (const file of ["float/client/screen/FloatScreen.jsx", "float/client/screen/stage/Cast.jsx"])
     assert.doesNotMatch(readFileSync(new URL(`../${file}`, import.meta.url), "utf8"), /Pieces|accent|scenePieces/, `${file}: no accents`);
+  /* no drink break anywhere on the screen */
+  for (const file of ["hud/Hud.jsx", "stage/Cast.jsx", "stage/Bar.jsx", "model/song.js", "model/store.js"])
+    assert.doesNotMatch(readFileSync(new URL(`../float/client/screen/${file}`, import.meta.url), "utf8"), /Drink!|chuggingAt|drinkSection|drink break/i, `${file}: no drink break`);
   assert.match(html(React.createElement(PlaceholderCritter, { color:"#ff5a4e", critter:"jackrabbit", groom:true })), /cr-crown/);
-});
-
-test("rendered: Last Call's card, then who drinks; the cut before it points to Last Call", () => {
-  const { LastCallBanner, CutBoard: Board } = ui.exports;
-  const chart = chartOf("lastcall");
-  const songAt = 3_000_000;
-  const at = (beat, lastCall = null) => html(React.createElement(LastCallBanner, {
-    store:{ state:{ chart, songAt, lastCall } }, driver:fakeDriver(songAt + beat * BEAT_MS), entrants }));
-  assert.match(at(-2), /Last Call/);
-  assert.equal(at(10), "");
-  assert.equal(at(27, { totals:[], worst:[1, 4] }), "", "named by the room, not yet heard: nothing yet");
-  assert.match(at(28.2, { totals:[], worst:[1, 4] }), /Evan and Khoa drink/);
-  assert.match(at(28.2, { totals:[], worst:[2] }), /Eyob drinks/);
-  const cutStart = 4_000_000;
-  const room = { phase:"cut", round:0, rounds:4, drinking:true, startAt:cutStart, endsAt:cutStart + 12000, song:"paddle", field:range(9), out:[9, 10, 11, 12],
-    cut:9, lastRound:false, results:range(13).map(i => ({ i, place:i + 1, pct:99 - i * 2.5, out:i >= 9 })),
-    history:[{ round:0, song:"paddle", field:range(13), out:[12, 11, 10, 9] }] };
-  const late = html(React.createElement(Board, { store:{ state:{ songField:range(13), phaseStart:cutStart } }, driver:fakeDriver(cutStart + 10500), room, entrants }));
-  assert.match(late, /Next[\s\S]*Last Call/);
-  assert.doesNotMatch(late, /Rock Hop/);
 });

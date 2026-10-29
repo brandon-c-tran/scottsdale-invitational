@@ -184,7 +184,8 @@ export function scriptCup({ riders = [], startAt = 0, seed = 3, drinking = true,
     /* the chug-off: the last one through against the first one out */
     if (pair) {
       const [a, b] = pair;
-      const goAt = t + CHUGOFF.INTRO_MS;
+      /* the Cup's first chug-off says its rule: a longer intro */
+      const goAt = t + (chugoffs === 0 ? CHUGOFF.INTRO_FIRST_MS : CHUGOFF.INTRO_MS);
       const doneMs = i => Math.round(4000 + hash01(seed, round, i, 404) * 8000);
       const doneAt = { [a]:doneMs(a), [b]:doneMs(b) };
       const winner = doneAt[a] <= doneAt[b] ? a : b;

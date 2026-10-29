@@ -7,12 +7,16 @@
    Big, few, on the beat; the frame driver says when each one changes and
    React draws it. */
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { BEATS_PER_BAR, SONG_LEAD_MS, lineAt, songForRound } from "../../../shared/chart.js";
-import { bannerAt, lineSpot, rankStripOn, roundLabel, songName } from "../model/song.js";
-import { cutShow, pctText } from "../model/cut.js";
-import { rankNow } from "../model/rank.js";
-import { CHUG_EXPLAINER, CHUG_STAGE, chugCaption, chugClock, chugLayout, chugoffAt } from "../model/chugoff.js";
-import { LAST_CALL_EXPLAINER, countdownAt, namesText, verdictShown } from "../model/lastcall.js";
+import { BEATS_PER_BAR, SONG_LEAD_MS, songForRound } from "../../../shared/chart.js";
+import { bannerAt, lineShownAt, lineSpot, rankStripOn, roundLabel, songName } from "../model/song.js";
+import { narrationOf } from "../soundBridge.js";
+import { awardValue, cutShow, pctText } from "../model/cut.js";
+export { awardValue };
+import { RANK, rankMarks, rankNow, rankSlots } from "../model/rank.js";
+export { RANK, rankMarks, rankSlots };
+import { CHUG_EXPLAINER, CHUG_STAGE, chugCaption, chugClock, chugLayout, chugoffAt, firstChugoff } from "../model/chugoff.js";
+export { firstChugoff };
+import { LAST_CALL_EXPLAINER, namesText, verdictShown } from "../model/lastcall.js";
 import { indexList } from "../model/cupShape.js";
 import { podiumSteps } from "../model/flotilla.js";
 import { propOf } from "../../art/groove/index.js";
@@ -78,27 +82,14 @@ export function Narration({ store, driver }) {
   const st = store.state;
   const line = useDriven(driver, now => {
     const beat = songBeat(st, now);
-    const l = beat === null ? null : lineAt(st.chart, beat);
-    return l ? { key:`${l.beat}:${l.text}`, text:l.text, spot:lineSpot(st.chart, l) } : null;
+    const l = beat === null ? null : lineShownAt(narrationOf(st.chart), beat);
+    return l ? { key:`${l.from}:${l.text}`, text:l.text, spot:lineSpot(st.chart, l) } : null;
   }, [], (a, b) => a?.key === b?.key);
   if (!line) return null;
   return <div className={`hd-line is-${line.spot}`} key={line.key}><span>{line.text}</span></div>;
 }
 
 /* ── who's ahead: every rider as a chip in rank order, the name and percent under it ── */
-export const RANK = Object.freeze({ x0:420, x1:1880, top:66, maxSlot:150 });
-export function rankSlots(n, { x0 = RANK.x0, x1 = RANK.x1, maxSlot = RANK.maxSlot } = {}) {
-  const w = n ? Math.min(maxSlot, (x1 - x0) / n) : maxSlot;
-  const start = x0 + ((x1 - x0) - w * n) / 2;
-  return { w, start, x:k => start + k * w };
-}
-/* the strip's marks for an order: { [i]: label } (the leader "1st"; the final's three) */
-export function rankMarks(order, { final = false } = {}) {
-  const out = {};
-  order.slice(0, final ? 3 : 1).forEach((i, k) => { out[i] = ordinalText(k + 1); });
-  return out;
-}
-
 function RankFace({ entrant }) {
   return <span className="hd-rank-face"><RiderFace entrant={entrant} size={128} className="hd-rank-critter" /></span>;
 }
@@ -205,15 +196,6 @@ export function IntroTitle() {
 }
 
 /* ── the cut as a show: the award cards a beat apart, then the call ── */
-export const awardValue = award => {
-  const v = award?.value;
-  if (!Number.isFinite(v)) return "";
-  if (award.id === "streak") return `${v} in a row`;
-  if (award.id === "early") return `${v} ms early`;
-  if (award.id === "late") return `${v} ms late`;
-  if (award.id === "splashes") return `${v} ${v === 1 ? "miss" : "misses"}`;
-  return String(v);
-};
 export function CutShow({ store, driver, room, entrants }) {
   const st = store.state;
   const show = useMemo(() => cutShow(room, st.songField), [room]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -260,25 +242,19 @@ function ChugCall({ a, b, explain = false, top = false }) {
   </div>;
 }
 
-/* the first chug-off of the Cup explains itself: no earlier round had a bubble */
-export function firstChugoff(room) {
-  const round = Number.isInteger(room?.chugoff?.round) ? room.chugoff.round : room?.round | 0;
-  const history = Array.isArray(room?.history) ? room.history : [];
-  return !history.some(h => (h.round ?? -1) < round && (h.results || []).some(r => r?.bubble));
-}
 
 /* ── the chug-off: the call, 3 2 1, Chug!, the clock between them, the stamp ── */
 export function ChugHud({ store, driver, room, entrants }) {
   const st = store.state;
   const clock = useRef(null);
   const view = useDriven(driver, now => {
-    const c = chugoffAt(st.chugoff || room?.chugoff, now, { seen:st.done, startAt:st.phaseStart, decidedAt:st.chugoffDecidedAt });
+    const c = chugoffAt(st.chugoff || room?.chugoff, now, { seen:st.done, startAt:st.phaseStart, decidedAt:st.chugoffDecidedAt, first:firstChugoff(room) });
     if (!c) return null;
     return { key:`${c.stage}:${c.count}:${c.winner}:${c.by}:${Object.keys(c.done).join(",")}`, ...c };
   }, [room], (x, y) => x?.key === y?.key);
   useEffect(() => driver.add(now => {
     if (!clock.current) return;
-    const c = chugoffAt(st.chugoff || room?.chugoff, now, { seen:st.done, startAt:st.phaseStart, decidedAt:st.chugoffDecidedAt });
+    const c = chugoffAt(st.chugoff || room?.chugoff, now, { seen:st.done, startAt:st.phaseStart, decidedAt:st.chugoffDecidedAt, first:firstChugoff(room) });
     /* the clock between them counts 3 2 1, then the race */
     const text = !c || c.stage === "call" ? "0.0" : c.stage === "count" ? c.count : chugClock(c.clockMs);
     if (clock.current.textContent !== text) clock.current.textContent = text;

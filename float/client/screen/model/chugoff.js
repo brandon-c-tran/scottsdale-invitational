@@ -29,9 +29,11 @@ export function chugDones(chugoff, seen = new Map()) {
    names), "count" (3 2 1), "chug" (racing), "won" (the stamp), "exit" (the
    loser's exit) and count the number up (3, 2, 1, or "Chug!" for a second
    after goAt). */
-export function chugoffAt(chugoff, now, { seen = new Map(), startAt = null, decidedAt:heardAt = null } = {}) {
+export function chugoffAt(chugoff, now, { seen = new Map(), startAt = null, decidedAt:heardAt = null, first = false } = {}) {
   if (!chugoff || !Number.isInteger(chugoff.a) || !Number.isInteger(chugoff.b)) return null;
-  const goAt = Number.isFinite(chugoff.goAt) ? chugoff.goAt : Number.isFinite(startAt) ? startAt + CHUGOFF.INTRO_MS : null;
+  /* the room's go, else the intro's length after the phase began (the Cup's first is longer: its rule) */
+  const intro = first ? CHUGOFF.INTRO_FIRST_MS ?? CHUGOFF.INTRO_MS : CHUGOFF.INTRO_MS;
+  const goAt = Number.isFinite(chugoff.goAt) ? chugoff.goAt : Number.isFinite(startAt) ? startAt + intro : null;
   const done = chugDones({ ...chugoff, goAt }, seen);
   let winner = Number.isInteger(chugoff.winner) ? chugoff.winner : null;
   let by = chugoff.by || null;
@@ -68,4 +70,11 @@ export function chugLayout(a, b) {
   if (Number.isInteger(a)) out[a] = { x:CHUG_STAGE.x - CHUG_STAGE.gap / 2, y:CHUG_STAGE.y, scale:CHUG_STAGE.scale };
   if (Number.isInteger(b)) out[b] = { x:CHUG_STAGE.x + CHUG_STAGE.gap / 2, y:CHUG_STAGE.y, scale:CHUG_STAGE.scale };
   return out;
+}
+
+/* the first chug-off of the Cup explains itself: no earlier round had a bubble */
+export function firstChugoff(room) {
+  const round = Number.isInteger(room?.chugoff?.round) ? room.chugoff.round : room?.round | 0;
+  const history = Array.isArray(room?.history) ? room.history : [];
+  return !history.some(h => (h.round ?? -1) < round && (h.results || []).some(r => r?.bubble));
 }

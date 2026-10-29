@@ -2043,7 +2043,7 @@ const FL_MIX = Object.freeze({
   /* the Groove: the band under the host and the answers (the render's stems set these) */
   floatGroove:0.6, floatLobby:0.6, floatVoice:2.2, floatWhirl:1.2, floatAnswer:1.15, floatFlub:0.75,
   floatSting:0.8, floatOpen:0.8, floatRoll:0.8, floatGone:1.1, floatFanfare:0.8, floatCheer:1, floatDone:1, floatHello:1.4, floatSet:1.4, floatClip:1,
-  floatBar:0.6, floatDrinks:0.85, floatEcho:1.1, floatGrades:1, floatAward:0.9, floatExit:1.1, floatChugGo:0.9, floatChant:0.9, floatKeep:0.9,
+  floatBar:0.6, floatDrinks:0.85, floatEcho:1.1, floatGrades:1, floatAward:0.9, floatExit:1.1, floatChugGo:0.8, floatChant:0.72, floatKeep:0.75,
   floatBarVoice:2, floatTick:1, floatTrick:1.1, floatZero:1.1, floatYouGrade:1.1,
   floatYouTap:1.3, floatYouDone:1, floatYouCheer:1.1, floatYouSafe:1, floatYouOut:1, floatYouPlace:1.1, floatYouGulp:1.1,
 });

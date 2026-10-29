@@ -621,9 +621,9 @@ test("demo cues are the host's: never judged, missed, tapped by a bot or a stand
   }
 });
 
-test("Rock Hop's practice has three cues to tap: a lone phone keeps the last song's offset", () => {
+test("a practice with three taps from people: a lone phone keeps the last song's offset", () => {
   const chart = chartOf("rock");
-  assert.equal(practiceCues(chart).length, 3);
+  assert.ok(practiceCues(chart).length >= 4, "every practice has enough to calibrate (v3: rowing in every song)");
   const cup = cupOf(3, { people:1 });
   cup.offset = 110;
   advance(cup, cup.endsAt);
@@ -633,7 +633,7 @@ test("Rock Hop's practice has three cues to tap: a lone phone keeps the last son
   assert.equal(song.id, "rock");
   const clock = { t:song.songAt };
   play(cup, clock, { until:() => song.frozen, each:t => {
-    for (const cue of practiceCues(chart)) if (!song.judged[0][cue.id] && cueTime(song.songAt, cue.beat) + 30 <= t)
+    for (const cue of practiceCues(chart).slice(0, 3)) if (!song.judged[0][cue.id] && cueTime(song.songAt, cue.beat) + 30 <= t)
       applyHit(cup, song, 0, { c:cue.id, r:30 }, t);
   } });
   assert.equal(song.samples.length, 3);

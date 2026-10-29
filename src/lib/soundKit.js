@@ -2021,6 +2021,12 @@ export function floatParts() {
     part("floatYouPlace", "Float: your place", PHONE, 1600, grooveYouPlace),
     part("floatYouGulp", "Float: you drink (Last Call)", PHONE, 800, grooveYouGulp),
     part("floatYouGrade", "Float: your grade", PHONE, 1000, grooveYouGrade),
+    /* v3 Fireworks: the host lights a fuse on the call (opts.after), a rider's firework bursts
+       (opts.size 0 to 1, q, pan) or fizzles (opts.pan), and the sky fills after the finale */
+    part("floatFuse", "Float: the host lights a fuse", TV, 1100, grooveFuse),
+    part("floatBurst", "Float: a firework bursts", TV, 1800, grooveBurst),
+    part("floatFizzle", "Float: a firework fizzles", TV, 900, grooveFizzle),
+    part("floatSky", "Float: the sky fills", TV, 4200, grooveSky),
   ].map(Object.freeze));
   return floatParts.list;
 }
@@ -2045,6 +2051,7 @@ const FL_MIX = Object.freeze({
   floatSting:0.8, floatOpen:0.8, floatRoll:0.8, floatGone:1.1, floatFanfare:0.8, floatCheer:1, floatDone:1, floatHello:1.4, floatSet:1.4, floatClip:1,
   floatBar:0.6, floatDrinks:0.85, floatEcho:1.1, floatGrades:1, floatAward:0.9, floatExit:1.1, floatChugGo:0.8, floatChant:0.72, floatKeep:0.75,
   floatBarVoice:2, floatTick:1, floatTrick:1.1, floatZero:1.1, floatYouGrade:1.1,
+  floatFuse:1.1, floatBurst:0.9, floatFizzle:0.9, floatSky:0.85,
   floatYouTap:1.3, floatYouDone:1, floatYouCheer:1.1, floatYouSafe:1, floatYouOut:1, floatYouPlace:1.1, floatYouGulp:1.1,
 });
 export const FLOAT_MIX = FL_MIX;
@@ -3616,6 +3623,37 @@ const G_SONGS = Object.freeze({
     stabs:[],
     pads:true, padA:0.045, build:6,
   }),
+  /* Fireworks (the final, at night on the lake): Bb major, the biggest of
+     the five (I V vi IV, I iii IV V7): synth brass on the chords and the
+     anthem's lead, big drums (a boom under every downbeat, toms into each
+     phrase), saws held under it all, the stars twinkling on the glockenspiel;
+     B lifts a whole step to C for its last four bars and the finale lands there */
+  fireworks:Object.freeze({
+    swing:0, motif:gNotes("F5 Bb5 D6 C6"),
+    tonic:gChord("Bb1", "D5 F5 Bb5", "Bb5 D6 F6 Bb6"),
+    intro:Object.freeze([gChord("Bb1", "D4 F4 Bb4", "Bb3 D4 F4 Bb4"), gChord("F1", "C4 F4 A4", "F3 A3 C4 Eb4")]),
+    chords:Object.freeze([gChord("Bb1", "D4 F4 Bb4", "Bb3 D4 F4 Bb4"), gChord("F1", "C4 F4 A4", "F3 A3 C4 F4"),
+      gChord("G1", "D4 G4 Bb4", "G3 Bb3 D4 G4"), gChord("Eb2", "Eb4 G4 Bb4", "Eb4 G4 Bb4 Eb5"), gChord("Bb1", "D4 F4 Bb4", "Bb3 D4 F4 Bb4"),
+      gChord("D2", "D4 F4 A4", "D4 F4 A4 D5"), gChord("Eb2", "Eb4 G4 Bb4", "Eb4 G4 Bb4 Eb5"), gChord("F1", "C4 Eb4 A4", "F3 A3 C4 Eb4")]),
+    /* the anthem: up the chord to a held top, falling back; the second half climbs to the high G */
+    hook:gLine("F5 Bb5 D6 - - C6 D6 F6 | Eb6 - D6 - C6 . A5 . | Bb5 - G5 Bb5 - D6 G6 . | F6 - Eb6 - D6 . Bb5 . "
+      + "| F5 Bb5 D6 - - C6 D6 F6 | G6 - F6 D6 - C6 A5 . | Bb5 - Eb6 G6 - F6 Eb6 . | D6 - C6 - . . . ."),
+    lead:-12, glock:0,
+    bass:Object.freeze({ kind:"synth",
+      thin:[[0, "R", 2, "t"], [4, "R", 1, "t"], [6, "8", 1, "t"], [8, "R", 2, "t"], [12, "R", 1, "t"], [14, "8", 1, "t"]],
+      full:[[0, "R", 1, "t"], [2, "8", 1, "t"], [4, "R", 1, "t"], [6, "8", 1, "t"], [8, "R", 1, "t"], [10, "8", 1, "t"], [12, "5", 1, "t"], [14, "^", 1, "t"]] }),
+    comp:Object.freeze({ kind:"brass", thin:"x.......x.......", full:"x.....x...x...x." }),
+    drums:Object.freeze({
+      thin:{ kick:"X.......X.......", snare:"....x.......x...", hat:"x.x.x.x.x.x.x.x." },
+      A:{ kick:"X.....x.X.......", snare:"....X.......X...", hat:"x.x.x.x.x.x.x.x.", open:"..............o." },
+      B:{ kick:"X...x.x.X...x.x.", snare:"....X.......X..x", hat:"xgxgxgxgxgxgxgxg", open:"......o.......o.", tamb:"..x...x...x...x." },
+    }),
+    stabs:[14],
+    pads:true, padA:0.05, build:7,
+    lift:Object.freeze({ from:4, by:2 }),
+    /* the big drums and the night's stars (gBig) */
+    big:true,
+  }),
 });
 export const GROOVE_SONG_IDS = Object.freeze(Object.keys(G_SONGS));
 /* the score, for the tests: every song's chords and lines as MIDI */
@@ -3680,8 +3718,9 @@ function gVoices(E, lv) {
    bar's cues, [[beat, kind]]: the band accents them and the lead leaves a
    "Hey!" alone), calls (the host's, [[beat, kind]]), finish (the outro's
    last cue, a beat in the bar), cut (the music stops after beat one for a
-   countdown), only (a rehearsal's stems: "drums", "bass", "harmony",
-   "melody"). The bar's downbeat is t + GROOVE_PRE_S. */
+   countdown), dark (a blackout bar: a bare hi-hat), back (the bar after a
+   blackout: in with a hit), only (a rehearsal's stems: "drums", "bass",
+   "harmony", "melody"). The bar's downbeat is t + GROOVE_PRE_S. */
 function grooveBar(E, t0, o = {}) {
   const id = Object.prototype.hasOwnProperty.call(G_SONGS, o.song) ? o.song : "paddle", S = G_SONGS[id];
   const sec = G_SECTIONS.includes(o.sec) ? o.sec : "play";
@@ -3703,6 +3742,10 @@ function grooveBar(E, t0, o = {}) {
   c.chord = sec === "outro" ? c.tonic : gShift(chords[c.k % chords.length], c.tr);
   c.after = sec === "intro" ? (c.k === 0 ? S.intro[1] : S.chords[0]) : c.k === len - 1 ? gShift(S.chords[0], c.tr)
     : gShift(chords[(c.k + 1) % chords.length], lifted(c.k + 1) ? S.lift.by : 0);
+  /* a blackout bar (chart.dark): the band and the host out, a bare hi-hat keeps the bar */
+  if (o.dark) return gDarkBar(c);
+  /* the bar after a blackout comes back in with a hit */
+  if (o.back) gBackHit(c);
   if (c.cut) return gCutBar(c);
   switch (sec) {
     case "intro": return gIntroBar(c);
@@ -3885,6 +3928,7 @@ function gPlayBar(c, level) {
   if (S.organ && level >= 1 && c.on("harmony")) gKeys(E, V("keys"), c.at(0), c.chord.comp, FLOAT_BAR_S * 0.85, 0.045, { trem:0.5 });
   if (level >= 2 && S.swirl && c.on("harmony")) gSwirl(c);
   if (S === G_SONGS.drop) gDropColour(c, level);
+  if (S.big && level >= 1) gBig(c, level);
   if (c.on("melody") && level >= 1) {
     /* the marimba with the host's "ba"s, an octave over them, so the tune is in the band too */
     c.calls.filter(([, kind]) => kind === "hop").forEach(([s], i, all) =>
@@ -3902,7 +3946,7 @@ function gPump(c, steps) {
 function gDuck(c) {
   if (!c.on("harmony") && !c.on("melody")) return;
   /* the calls, and a spin's whoosh (it answers on the backbeat, where the lead often lands) */
-  const calls = [...c.calls.filter(([, kind]) => kind === "hey" || kind === "hop" || kind === "spin"), ...c.hits.filter(([, kind]) => kind === "spin")]
+  const calls = [...c.calls.filter(([, kind]) => kind === "hey" || kind === "hop" || kind === "spin" || kind === "rocket"), ...c.hits.filter(([, kind]) => kind === "spin")]
     .map(([s]) => c.at(s)).sort((a, b) => a - b);
   /* the host's narration: its whole span */
   const lines = c.calls.filter(([, kind]) => kind === "line").map(([s, , len]) => [c.at(s) - 0.03, c.at(s) + len * 4 * G16]);
@@ -3978,8 +4022,13 @@ function gBreakBar(c) {
     if (c.k === c.len - 1) flRiser(E, c.at(8), FLOAT_BAR_S / 2, 0.06, 0);
   }
   gBassLine(c, G_BREAK_RIFF);
+  /* Fireworks' breakdown is grand: a boom under the host's bars, the toms rolling out of the last */
+  if (S.big && c.on("drums")) {
+    if (!copy && !busy.has(0)) GK.tom(E, V("kick"), c.at(0), 62, 0.9);
+    if (c.k === c.len - 1) [8, 10, 12, 13, 14, 15].forEach((s, j) => { if (!busy.has(s)) GK.tom(E, V("snare"), c.at(s), [196, 175, 147, 131, 110, 98][j], 0.5 + j * 0.06); });
+  }
   if (c.on("harmony")) {
-    gSaws(E, V("pad"), c.at(0), c.chord.tones, FLOAT_BAR_S * 0.96, 0.035, { a:0.05 });
+    gSaws(E, V("pad"), c.at(0), c.chord.tones, FLOAT_BAR_S * 0.96, S.big ? 0.05 : 0.035, { a:0.05 });
     if (!copy && !busy.has(0)) gBrass(E, V("brass"), c.at(0), c.chord.comp.map(m => m + 12), G16 * 1.2, 0.07);
   }
 }
@@ -3998,6 +4047,9 @@ function gOutroBar(c) {
   const { E, S, V } = c;
   if (c.k > 0) {
     if (c.on("melody")) gGlock(E, V("glock"), c.at(0), gHz(c.tonic.tones[0] + 12), 0.08, { dec:1.4 });
+    /* Fireworks rings out grand: the brass held, the stars falling down the chord */
+    if (S.big && c.on("harmony")) gBrass(E, V("brass"), c.at(0), c.tonic.comp.map(m => m - 12), 1.8, 0.07);
+    if (S.big && c.on("melody")) [...c.tonic.tones].reverse().forEach((m, i) => gGlock(E, V("glock"), c.at(2 + i * 2), gHz(m + 12), 0.06, { dec:1.4 }));
     return;
   }
   const hit = c.finish ?? 0;
@@ -4015,6 +4067,17 @@ function gOutroBar(c) {
     gSaws(E, V("pad"), c.at(hit), [...tonic.tones, tonic.tones[0] - 12], 2.3, S.pads ? 0.11 : 0.08, { a:0.01 });
   }
   if (c.on("melody")) tonic.tones.forEach((m, i) => gGlock(E, V("glock"), c.at(hit) + i * 0.06, gHz(m + 12), 0.1, { dec:2.2 }));
+  if (S.big) {
+    /* the finale: the toms rolling up to it, the brass an octave either side, a second crash */
+    if (c.on("drums")) {
+      for (let s = Math.max(0, hit - 8); s < hit; s++) GK.tom(E, V("snare"), c.at(s), 98 + (s - hit + 8) * 14, 0.35 + (s - hit + 8) * 0.06);
+      GK.tom(E, V("kick"), c.at(hit), 62, 1); GK.crash(E, V("hat"), c.at(hit) + 0.02, 0.7, 3);
+    }
+    if (c.on("harmony")) {
+      gBrass(E, V("brass"), c.at(hit), tonic.comp.map(m => m - 12), 1.9, 0.1);
+      gBrass(E, V("brass"), c.at(hit), tonic.comp.map(m => m + 12), 1.4, 0.06, { bright:1.2 });
+    }
+  }
 }
 /* The Drop's last play bar: one hit, then the music cuts for the host's
    three-beat countdown (the sticks under it and the falls coming up) */
@@ -4025,6 +4088,31 @@ function gCutBar(c) {
   if (c.on("bass")) gSlap(E, V("bass"), c.at(0), gHz(chord.bass), G16 * 2, 0.3);
   /* the falls' roar rising into the drop */
   if (c.on("drums")) flRiser(E, c.at(4), FLOAT_BAR_S * 0.74, 0.07, 0);
+}
+
+/* a blackout bar (chart.dark): the band and the host drop out, a bare
+   closed hi-hat on the eighths keeps the bar exact; the riders' answers are
+   silent (only each phone's own tap sounds) */
+function gDarkBar(c) {
+  if (!c.on("drums")) return;
+  gNoiseLine(c.E, c.V("hat"), [0, 2, 4, 6, 8, 10, 12, 14].map(s => [c.at(s), s % 4 ? 0.07 : 0.11, 0.025]), { type:"highpass", f:8600 });
+}
+/* back from a blackout: the kick, a crash and the chord's stab on the downbeat */
+function gBackHit(c) {
+  const { E, V } = c;
+  if (c.on("drums")) { GK.kick(E, V("kick"), c.at(0), 1); GK.crash(E, V("hat"), c.at(0), 0.85, 2); if (c.S.big) GK.tom(E, V("kick"), c.at(0), 62, 0.9); }
+  if (c.on("harmony")) gBrass(E, V("brass"), c.at(0), c.chord.comp.map(m => m + 12), G16 * 1.4, 0.11);
+}
+/* Fireworks' size (S.big): a boom under every downbeat (and beat three in
+   B), the synth brass held under B, the stars twinkling high on the chord */
+function gBig(c, level) {
+  const { E, V, chord } = c;
+  if (c.on("drums")) { GK.tom(E, V("kick"), c.at(0), 62, 0.8); if (level >= 2) GK.tom(E, V("kick"), c.at(8), 66, 0.55); }
+  if (level >= 2 && c.on("harmony")) gBrass(E, V("brass"), c.at(0), chord.comp, FLOAT_BAR_S * 0.9, 0.035);
+  if (c.on("melody")) {
+    const steps = level >= 2 ? [3, 7, 11, 15] : [3, 11];
+    steps.filter(s => !c.held.has(s)).forEach((s, i) => gGlock(E, V("glock"), c.at(s), gHz(chord.tones[(c.k + i * 2) % chord.tones.length] + 24), 0.03, { dec:0.8 }));
+  }
 }
 
 /* ── the host's calls ── */
@@ -4132,9 +4220,11 @@ function gCrowdStandIn(E, at) {
    a clap, a hop's boing at its call's note, a spin's whoosh landing on the
    backbeat, the drop's plunge. Its beat lands at t + GROOVE_PRE_S. */
 function grooveAnswer(E, t0, o = {}) {
-  const at = t0 + GROOVE_PRE_S, kind = ["paddle", "hey", "hop", "spin", "drop"].includes(o.kind) ? o.kind : "paddle";
+  const at = t0 + GROOVE_PRE_S, kind = ["paddle", "hey", "hop", "spin", "drop", "rocket"].includes(o.kind) ? o.kind : "paddle";
   const b = gNum(o.b, 0, 3.75, 0), seed = gInt(o.k, 0, 99, 0) * 8 + Math.round(b * 2);
   if (kind === "paddle") {
+    /* practice's "Watch": the host shows it, its own paddle (the board's knock and a small splash on the left) */
+    if (o.demo) { grooveEcho(E, t0, { n:o.n }); return; }
     const right = gInt(o.n, 0, 15, 0) % 2 === 1;
     const v = voice(E, { pan:right ? 0.45 : -0.45, send:0.24, bright:1, gain:1 });
     gSplash(E, v, at, { size:0.8, f:right ? 620 : 520 });
@@ -4161,9 +4251,72 @@ function grooveAnswer(E, t0, o = {}) {
     travelWhoosh(E, at + 0.01, { d:0.24, from:0.1, to:0.85, peak:0.26, f0:2800, f1:700 });
     return;
   }
+  if (kind === "rocket") { gLaunch(E, at, gInt(o.n, 0, 15, 0)); return; }
   flImpact(E, at);
   gSplash(E, voice(E, { send:0.4, bright:1, gain:0.8 }), at + 0.01, { size:1.6, f:440 });
 }
+/* ── Fireworks (float/GROOVE.md v3 9): the rocket ── */
+/* the launch on a rocket's beat, for everyone: the mortar's thump on the
+   beat, the tube's pop, the rocket whistling up (alternating a little left
+   and right) */
+function gLaunch(E, at, n = 0) {
+  const side = n % 2 ? 0.22 : -0.22;
+  const v = voice(E, { pan:side * 0.5, send:0.3, bright:1, gain:1 });
+  mode(E, v, at, 78, 0.2, 0.55, { drop:1.2, a:0.0015 });
+  burst(E, v, at, { type:"lowpass", f:1100, q:0.7, d:0.05, peak:0.45 });
+  burst(E, v, at, { f:2400, q:1.1, d:0.03, peak:0.22 });
+  travelWhoosh(E, at + 0.01, { d:0.5, from:side * 0.5, to:side * 1.6, peak:0.22, f0:600, f1:3600 });
+  glide(E, voice(E, { pan:side, send:0.4, bright:1, gain:1 }), at + 0.03, 1100, 2900, 0.46, 0.022, { type:"sine", vib:9, depth:0.02 });
+}
+/* the host lights a fuse on the rocket's call (floatFuse): the strike on
+   the beat, then the fuse sizzling and crackling up to the launch (opts.after:
+   the seconds to the next call, which cuts it short) */
+function grooveFuse(E, t0, o = {}) {
+  const at = t0 + GROOVE_PRE_S, len = Math.min(0.9, gNum(o.after, 0.15, 4, 0.9));
+  const v = voice(E, { pan:-0.22, send:0.22, bright:1, gain:1 });
+  burst(E, v, at, { type:"highpass", f:3600, q:0.8, d:0.025, peak:0.5 });
+  burst(E, v, at, { f:2100, q:1.2, d:0.07, peak:0.3 });
+  flSweep(E, v, at + 0.02, { type:"highpass", f0:4200, f1:7000, q:0.7, d:len, peak:0.07, a:0.02 });
+  const n = Math.round(len * 46);
+  for (let i = 0; i < n; i++) burst(E, v, at + 0.03 + (i / n) * len + rnd(0, 0.012), { type:"highpass", f:rnd(3500, 8000), q:0.9, d:0.004, peak:rnd(0.05, 0.15) });
+}
+/* A rider's firework (floatBurst, opts.size 0 to 1, q, pan): the bang and
+   the boom across the lake, then the stars crackling out around the
+   rider's place; a Perfect's the biggest (a second break, glitter). Sounds
+   at t (the screen's burst: ROCKET_BURST_MS after the rocket's beat). */
+function grooveBurst(E, t, o = {}) {
+  const k = gNum(o.size, 0.2, 1, 0.7), pan = gNum(o.pan, -1, 1, 0), perfect = o.q === "perfect";
+  const v = voice(E, { pan, send:0.5, bright:1, gain:1 });
+  burst(E, v, t, { type:"lowpass", f:1800, q:0.7, d:0.1, peak:0.7 * k });
+  burst(E, v, t, { f:850, q:0.7, d:0.3, peak:0.28 * k, a:0.002 });
+  mode(E, v, t, 56, 0.55 + 0.4 * k, 0.5 * k, { drop:0.6, a:0.002 });
+  if (perfect) { burst(E, v, t + 0.17, { type:"lowpass", f:2400, q:0.7, d:0.08, peak:0.45 }); mode(E, v, t + 0.17, 70, 0.4, 0.3, { drop:0.5 }); }
+  const sides = [-0.3, 0, 0.3].map(dp => voice(E, { pan:Math.max(-1, Math.min(1, pan + dp)), send:0.55, bright:1, gain:1 }));
+  const stars = Math.round(10 + 34 * k), span = 0.6 + 0.9 * k;
+  for (let i = 0; i < stars; i++) {
+    const x = t + 0.2 + Math.pow(i / stars, 1.3) * span + rnd(0, 0.03);
+    burst(E, sides[i % 3], x, { type:"highpass", f:rnd(3800, 9000), q:0.9, d:0.005, peak:rnd(0.04, 0.12) * (0.6 + 0.4 * k) * (1 - 0.5 * i / stars) });
+  }
+  if (perfect) [2637, 3136, 3951, 4699].forEach((f, i) => mode(E, sides[i % 3], t + 0.24 + i * 0.07, f, 0.5, 0.025, { a:0.001 }));
+}
+/* a rocket that doesn't go (floatFizzle, opts.pan): a weak sputter, the
+   fuse hissing out and a little whistle falling, a deadpan "pft" */
+function grooveFizzle(E, t, o = {}) {
+  const v = voice(E, { pan:gNum(o.pan, -1, 1, 0), send:0.2, bright:0.8, gain:0.8 });
+  [0, 0.07, 0.19, 0.24].forEach((dt, i) => burst(E, v, t + dt, { type:"highpass", f:4000 + i * 600, q:0.9, d:0.006, peak:0.12 }));
+  flSweep(E, v, t, { type:"highpass", f0:5200, f1:1400, q:0.7, d:0.55, peak:0.07, a:0.01 });
+  glide(E, v, t + 0.08, 1300, 480, 0.42, 0.03, { type:"triangle" });
+  burst(E, v, t + 0.52, { type:"lowpass", f:700, q:0.7, d:0.05, peak:0.3 });
+}
+/* the sky fills after the finale (floatSky): bursts all across the lake,
+   closer and closer together, the crackle raining down, the room's "Hey!" */
+function grooveSky(E, t0) {
+  const at = t0 + GROOVE_PRE_S;
+  [[0, -0.55, 0.9], [0.32, 0.5, 0.8], [0.6, -0.15, 0.85], [0.84, 0.7, 0.7], [1.04, -0.7, 0.75], [1.2, 0.2, 0.9], [1.34, -0.35, 0.7], [1.46, 0.45, 1]]
+    .forEach(([dt, pan, size], i) => grooveBurst(E, at + dt, { pan, size, q:i === 7 ? "perfect" : "nice" }));
+  if (!gCrowd(E, at + 0.5, 5, { n:4, gain:0.7 })) gCrowdStandIn(E, at + 0.5);
+}
+
 /* A judged miss (floatFlub, opts.pan, opts.n how many at once): quiet and
    deadpan, a dull knock and a little falling "bwop" */
 function grooveFlub(E, t, o = {}) {
@@ -4364,6 +4517,7 @@ function grooveYouTap(E, t, o = {}) {
   else if (kind === "hey") GK.clap(E, v, t, 0.5);
   else if (kind === "hop") glide(E, v, t, 700, 1200, 0.08, 0.06, { type:"triangle", vib:18, depth:0.06 });
   else if (kind === "spin") burst(E, v, t, { type:"highpass", f:3500, q:0.7, d:0.06, peak:0.15, a:0.01 });
+  else if (kind === "rocket") glide(E, v, t + 0.005, 1000, 2600, 0.1, 0.04, { type:"sine" });
   else if (kind === "grab") mode(E, v, t + 0.004, NOTE.A6, 0.12, 0.05, { a:0.001 });
   if (q === "perfect") M.bell(E, t + 0.008, NOTE.A6, { gain:0.12, dec:0.25, send:0.15 });
 }
@@ -4414,7 +4568,7 @@ function grooveEcho(E, t0, o = {}) {
 }
 /* Last Call's bartender (floatBarVoice, opts.line): his clips, a little left
    at the bar; a low chirp a syllable stands in until they decode */
-const G_BAR_LINES = Object.freeze({ "bar-10":1, "bar-9":1, "bar-8":1, "bar-7":2, "bar-6":1, "bar-5":1, "bar-4":1, "bar-lastcall":2, "bar-explain":12 });
+const G_BAR_LINES = Object.freeze({ "bar-10":1, "bar-9":1, "bar-8":1, "bar-7":2, "bar-6":1, "bar-5":1, "bar-4":1, "bar-6q":1, "bar-5q":1, "bar-4q":1, "bar-lastcall":2, "bar-explain":12 });
 export const GROOVE_BAR_LINES = Object.freeze(Object.keys(G_BAR_LINES));
 function grooveBarVoice(E, t0, o = {}) {
   const line = typeof o.line === "string" && G_BAR_LINES[o.line] ? o.line : "bar-10";
@@ -4436,7 +4590,7 @@ function grooveTick(E, t0, o = {}) {
    clock winds down (its ratchet slowing, the spring sagging); ticks, the
    foam spills over the clock (a fizz, two glugs, the splat, a drip) */
 function grooveTrick(E, t0, o = {}) {
-  const at = t0 + GROOVE_PRE_S, trick = ["lights", "slow", "ticks"].includes(o.trick) ? o.trick : "lights";
+  const at = t0 + GROOVE_PRE_S, trick = ["lights", "slow", "ticks", "rush"].includes(o.trick) ? o.trick : "lights";
   const v = voice(E, { pan:-0.2, send:0.22, bright:1, gain:1 }), low = voice(E, { send:0.18, bright:0.55, gain:1 });
   if (trick === "lights") {
     for (let i = 0; i < 4; i++) mode(E, v, at - 0.1 + i * 0.022, 5200 + i * 310, 0.02, 0.05);
@@ -4444,6 +4598,15 @@ function grooveTrick(E, t0, o = {}) {
     glide(E, low, at + 0.06, 170, 34, 0.8, 0.13, { type:"sawtooth" });
     glide(E, voice(E, { pan:0.25, send:0.1, bright:0.8, gain:1 }), at + 0.06, 1180, 260, 0.26, 0.035, { type:"square" });
     M.knock(E, at + 0.12, { pitch:0.7, gain:0.5 }); M.felt(E, at + 0.12, { gain:0.35 });
+    return;
+  }
+  if (trick === "rush") {
+    /* the clock races: its ratchet speeding up and climbing, the spring going "sproing", the hands clattering off */
+    let x = at, gap = 0.06;
+    for (let i = 0; i < 14; i++) { mode(E, v, x, 1900 + i * 140, 0.016, 0.14); burst(E, v, x, { type:"highpass", f:4200, d:0.004, peak:0.18 }); x += gap; gap *= 0.84; }
+    glide(E, voice(E, { pan:0.2, send:0.25, bright:1, gain:1 }), x, 300, 900, 0.32, 0.07, { type:"triangle", vib:22, depth:0.12 });
+    M.knock(E, x + 0.3, { pitch:1.4, gain:0.4 }); M.knock(E, x + 0.42, { pitch:1.1, gain:0.3 });
+    flPlip(E, v, x + 0.5, { f:1400, gain:0.6 });
     return;
   }
   if (trick === "slow") {

@@ -52,7 +52,7 @@ const OPTS = [{},
 
 test("every Float recipe: registered, playable on its opts, every node released once its last source ends", () => {
   const ids = kit.FLOAT_PARTS.map(part => part.id);
-  assert.equal(ids.length, 74, "the race's 37 and the Groove's 37");
+  assert.equal(ids.length, 78, "the race's 37 and the Groove's 41 (v3: the fuse, the burst, the fizzle, the sky)");
   assert.ok(ids.every(id => id.startsWith("float")), "Float's ids are its own");
   assert.equal(new Set(ids).size, ids.length);
   for (const listen of ["tv", "phone"]) {

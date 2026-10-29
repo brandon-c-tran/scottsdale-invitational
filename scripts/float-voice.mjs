@@ -106,6 +106,8 @@ const BAR = "You are the bartender in a cute cartoon party game, behind the coun
 const NUMBER = `${BAR} You are counting down to closing time: say the one number, firm and clear, the same way every time, short (under half a second).`;
 export const BARTENDER_LINES = Object.freeze([
   ...["Ten", "Nine", "Eight", "Seven", "Six", "Five", "Four"].map((word, k) => ({ id:`bar-${10 - k}`, text:`${word}.`, how:NUMBER })),
+  /* Last Call's rush (v3): six, five, four 0.7 s apart, the same voice quicker (tempo, not pitch) */
+  ...["Six", "Five", "Four"].map((word, k) => ({ id:`bar-${6 - k}q`, text:`${word}.`, how:`${NUMBER} Quick and clipped: the clock is speeding up.`, tempo:1.3 })),
   { id:"bar-lastcall", text:"Last call!", how:`${BAR} Ring in the last round: a sly, delighted "Last call!".` },
   { id:"bar-explain", text:"The bar closes at zero. Tap on zero. Farthest off drinks.",
     how:`${BAR} Explain the game in three short, plain sentences, a small pause between them, a little smile in "Farthest off drinks".` },

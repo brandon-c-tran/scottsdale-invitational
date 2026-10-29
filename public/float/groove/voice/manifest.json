@@ -564,6 +564,33 @@
       "f0": 404.6,
       "text": "Both now!",
       "voice": "coral"
+    },
+    {
+      "id": "bar-6q",
+      "file": "bar-6q.mp3",
+      "onset": 44,
+      "dur": 492,
+      "f0": 0,
+      "text": "Six.",
+      "voice": "fable"
+    },
+    {
+      "id": "bar-5q",
+      "file": "bar-5q.mp3",
+      "onset": 105,
+      "dur": 367,
+      "f0": 0,
+      "text": "Five.",
+      "voice": "fable"
+    },
+    {
+      "id": "bar-4q",
+      "file": "bar-4q.mp3",
+      "onset": 142,
+      "dur": 380,
+      "f0": 141.8,
+      "text": "Four.",
+      "voice": "fable"
     }
   ]
 }

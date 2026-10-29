@@ -31,6 +31,13 @@
        PODIUM_BEATS       ms from the podium's startAt
        narration(chart)   where the host says each line (beats it is heard
                           over), so the text box can go up as it is said
+       ROCKET_BURST_MS    Fireworks: a rider's firework bursts this long after
+                          its rocket's beat (the launch on the beat); BURST_SIZE
+                          its size by the judgement (a Perfect 1); a miss fizzles
+                          as the room calls it
+       skyBeat(chart)     the beat (from songAt) the sky fills after the finale
+                          (null for a song that doesn't end on rockets)
+       darkBars(chart)    the blackout bars: a bare hi-hat, no calls, no answers
 
    groove.js plans a song from its chart; grooveScreen.js and
    groovePhone.js run the TV and the phone; voices.js names the host's
@@ -43,7 +50,7 @@ export { useFloatScreenSound, createGrooveScreenSound as createFloatScreenSound,
 export { useFloatControllerSound, createGroovePhoneSound as createFloatControllerSound, phoneStep as controllerStep,
   floatTapSound, floatDoneSound, floatCheerSound, floatStrokeSound, floatDrinkSound, floatThrowSound, GROOVE_TAPS as FLOAT_TAPS } from "./groovePhone.js";
 export { PODIUM_BEATS, CUT_BEATS, TITLE_BEATS, LAST_CALL_BEATS, CHUGOFF_BEATS, GROOVE_PRE_MS, chartFor, songEvents, songSlots,
-  cutBeats, lastCallBeats, chugoffPlan, narration } from "./groove.js";
+  cutBeats, lastCallBeats, chugoffPlan, narration, ROCKET_BURST_MS, BURST_SIZE, skyBeat, darkBars } from "./groove.js";
 
 /* the race's count-in and gun (parked), for the screens not yet on the Groove */
 export const COUNT_BEATS = Object.freeze([3000, 2000, 1000]);

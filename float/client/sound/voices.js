@@ -75,5 +75,8 @@ export const VOICE = Object.freeze({
     Object.freeze({ id:"title-fireworks", file:"title-fireworks.mp3", onset:134, dur:747, f0:324.3, voice:"coral" }),
     Object.freeze({ id:"say-keephey", file:"say-keephey.mp3", onset:99, dur:1633, f0:339.2, voice:"coral" }),
     Object.freeze({ id:"say-bothnow", file:"say-bothnow.mp3", onset:28, dur:550, f0:404.6, voice:"coral" }),
+    Object.freeze({ id:"bar-6q", file:"bar-6q.mp3", onset:44, dur:492, f0:0, voice:"fable" }),
+    Object.freeze({ id:"bar-5q", file:"bar-5q.mp3", onset:105, dur:367, f0:0, voice:"fable" }),
+    Object.freeze({ id:"bar-4q", file:"bar-4q.mp3", onset:142, dur:380, f0:141.8, voice:"fable" }),
   ]),
 });

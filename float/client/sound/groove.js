@@ -141,7 +141,10 @@ function placed(chart) {
 export function songEvents(chart) {
   if (!chart?.cues || !chart?.id) return [];
   if (chart.countdown) return lastCallEvents(chart);
-  const song = chart.id, cues = placed(chart), events = [];
+  const song = chart.id, all = placed(chart), events = [];
+  /* a blackout bar (chart.dark): the host's calls and the band's answers in it are out */
+  const dark = darkBars(chart), lit = beat => !dark.has(barOf(beat));
+  const cues = all;
   const add = (beat, id, opts, kind) => { const e = { beat:round3(beat), id, opts, kind }; events.push(e); return e; };
   /* the host's calls: one note a cue, a fixed lead before it */
   const calls = [];
@@ -151,6 +154,7 @@ export function songEvents(chart) {
     if (cue.kind === "drop") { for (let j = 0; j < 3; j++) calls.push({ beat:cue.call + j, kind:"drop", p, j }); continue; }
     calls.push({ beat:cue.call, kind:cue.kind === "echo" ? p.as : cue.kind, echo:cue.kind === "echo", p });
   }
+  for (let j = calls.length - 1; j >= 0; j--) if (!lit(calls[j].beat)) calls.splice(j, 1);
   const sections = chart.sections?.length ? chart.sections : sectionsOf();
   for (const c of calls) {
     const { p } = c, base = { song, k:p.k, n:p.n, of:p.of };
@@ -165,11 +169,18 @@ export function songEvents(chart) {
       add(c.beat, "floatVoice", { line:double ? "hey" : "ready", ...base }, "call");
     } else if (c.kind === "hop") add(c.beat, "floatVoice", { line:"ba", ...base }, "call");
     else if (c.kind === "spin") add(c.beat, "floatWhirl", { song, quick:spinQuick(calls, c), say:spinSays(cues, p, sections) }, "call");
+    /* a rocket's call: the host lights its fuse */
+    else if (c.kind === "rocket") add(c.beat, "floatFuse", { n:p.n }, "call");
   }
   for (const p of cues) {
+    if (!lit(p.cue.beat)) continue;
     const echo = p.cue.kind === "echo";
-    add(p.cue.beat, "floatAnswer", { kind:echo ? p.as : p.cue.kind, song, k:echo ? 8 + p.phrase : p.k, b:p.b, n:p.n, of:p.of, ...(echo ? { echo:true } : {}) }, "answer");
+    add(p.cue.beat, "floatAnswer", { kind:echo ? p.as : p.cue.kind, song, k:echo ? 8 + p.phrase : p.k, b:p.b, n:p.n, of:p.of,
+      ...(echo ? { echo:true } : {}), ...(p.cue.demo ? { demo:true } : {}) }, "answer");
   }
+  /* after the finale's rockets the sky fills */
+  const sky = skyBeat(chart);
+  if (sky !== null) add(sky, "floatSky", {}, "line");
   /* the intro: the count-in on its last bar's beats */
   const intro = sections.find(s => s.kind === "intro");
   if (intro) countIn(intro.to).forEach(([beat, line]) => add(beat, "floatVoice", { line }, "count"));
@@ -184,6 +195,8 @@ export function songEvents(chart) {
     const mine = calls.filter(c => barOf(c.beat) === bar);
     const lines = said.flatMap(n => spanIn(n.from, n.to, bar));
     const opts = { song, bar, ...plan, mode:chart.modes?.[bar] ?? null, hits, calls:[...mine.map(c => [inBar(c.beat), c.kind]), ...lines] };
+    if (dark.has(bar)) opts.dark = true;
+    else if (dark.has(bar - 1)) opts.back = true;
     if (plan.sec === "outro" && plan.k === 0) opts.finish = hits.length ? hits[hits.length - 1][0] : 0;
     /* the drop's countdown: the music cuts after the bar's first beat */
     if (!hits.length && mine.some(c => c.kind === "drop")) opts.cut = true;
@@ -195,7 +208,27 @@ export function songEvents(chart) {
      the host's calls and the whistle's "Spin!", and the crowd's quick "Hey! Hey!" */
   shortOf(events.filter(e => (e.id === "floatVoice" && !e.opts.narration) || e.id === "floatWhirl"));
   shortOf(events.filter(e => e.id === "floatAnswer" && e.opts.kind === "hey"));
+  /* a fuse sizzles up to the next one at most */
+  shortOf(events.filter(e => e.id === "floatFuse"));
   return events;
+}
+/* the blackout bars (float/GROOVE.md v3 8): chart.dark's bar indices */
+export function darkBars(chart) {
+  return new Set((Array.isArray(chart?.dark) ? chart.dark : []).map(Number).filter(Number.isInteger));
+}
+/* Fireworks (float/GROOVE.md v3 9). A rider's firework bursts ROCKET_BURST_MS
+   after its rocket's beat (the launch on the beat, the burst a beat later),
+   panned to the rider, its size by the judgement; a miss fizzles as the room
+   calls it. The screen lands the burst's picture on the same instant. */
+export const ROCKET_BURST_MS = BEAT_MS;
+export const BURST_SIZE = Object.freeze({ perfect:1, nice:0.75, ok:0.55, early:0.3, late:0.3 });
+/* the beat the sky fills after the finale (from songAt): two beats after the
+   last cue when the song ends on rockets, else null */
+export function skyBeat(chart) {
+  const cues = chart?.cues || [];
+  const last = cues[cues.length - 1];
+  if (!last || last.kind !== "rocket" || !Number.isFinite(chart?.beats)) return null;
+  return Math.min(last.beat + 2, chart.beats - 2);
 }
 /* a narration's span in a bar, as [beat in the bar, "line", its length in beats] */
 function spanIn(from, to, bar) {
@@ -322,10 +355,13 @@ export function lastCallEvents(chart) {
   add(LAST_CALL_BEATS.bell, "floatBell", { first:true }, "line");
   add(LAST_CALL_BEATS.call, "floatBarVoice", { line:"bar-lastcall" }, "line");
   if (cd.first) add(LAST_CALL_BEATS.explain, "floatBarVoice", { line:"bar-explain" }, "line");
-  for (const step of cd.steps) {
-    if (step.say) add(step.at, "floatBarVoice", { line:`bar-${step.n}` }, "count");
+  cd.steps.forEach((step, k) => {
+    /* a count said quicker than a second (rush) takes the bartender's quick take of it */
+    const gap = (cd.steps[k + 1]?.at ?? cd.zeroAt) - step.at;
+    const quick = gap < 900 && CLIPS.has(`bar-${step.n}q`);
+    if (step.say) add(step.at, "floatBarVoice", { line:`bar-${step.n}${quick ? "q" : ""}` }, "count");
     if (step.tick) add(step.at, "floatTick", { n:step.n }, "count");
-  }
+  });
   add(cd.hideAt, "floatTrick", { trick:cd.trick }, "line");
   add(cd.revealAt, "floatZero", {}, "line");
   add(cd.verdictAt, "floatDrinks", {}, "line");
@@ -359,7 +395,7 @@ export function chugoffPlan(intro = CHUGOFF.INTRO_MS, { first = false } = {}) {
 const SLOTS = new Map();
 export function songSlots(chart) {
   if (!chart?.id) return [];
-  const key = `${chart.id}:${chart.v ?? 1}:${chart.cues?.length ?? 0}:${chart.lines?.length ?? 0}`;
+  const key = `${chart.id}:${chart.v ?? 1}:${chart.cues?.length ?? 0}:${chart.lines?.length ?? 0}:${(chart.dark || []).join(".")}`;
   if (!SLOTS.has(key)) {
     const slots = Array.from({ length:chart.bars || 0 }, () => []);
     for (const ev of songEvents(chart)) slots[Math.min(slots.length - 1, Math.max(0, barOf(ev.beat)))]?.push(ev);

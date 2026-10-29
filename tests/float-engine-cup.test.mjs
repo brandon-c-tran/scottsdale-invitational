@@ -412,7 +412,7 @@ test("the chug-off: the last through and the first out (the cut's order, its tie
   const done = chugDone(cup, b, go + 2500);
   assert.deepEqual(done.events, [{ e:"done", i:b, at:go + 2500 }]);
   assert.deepEqual(done.decided, { winner:b, loser:a, by:"chug", at:go + 2500 });
-  assert.deepEqual(chugoffSummary(cup), { a, b, goAt:go, doneAt:{ [b]:2500 }, winner:b, by:"chug" });
+  assert.deepEqual(chugoffSummary(cup), { a, b, goAt:go, doneAt:{ [b]:2500 }, winner:b, by:"chug", loser:a, decidedAt:go + 2500 });
   assert.deepEqual(cup.field, [first, second, third, b], "the winner takes the last spot");
   assert.deepEqual(cup.out, [a]);
   assert.equal(cup.endsAt, go + 2500 + CHUGOFF.REVEAL_MS + CHUGOFF.EXIT_MS);

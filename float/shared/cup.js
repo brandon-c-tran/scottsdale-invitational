@@ -353,10 +353,13 @@ function endChugoff(cup, driven) {
   return { chugoff:record, decided };
 }
 
-/* `chugoff` in its phase: { a, b, goAt, doneAt:{ [i]: ms after goAt }, winner, by } (else null) */
+/* `chugoff` in its phase: { a, b, goAt, doneAt:{ [i]: ms after goAt }, winner, by }, and once
+   it is decided its loser and decidedAt (server ms: the first Done, or the window's close) (else null) */
 export function chugoffSummary(cup) {
   const chug = cup.phase === "chugoff" ? cup.chugoff : null;
-  return chug ? { a:chug.a, b:chug.b, goAt:chug.goAt, doneAt:{ ...chug.doneAt }, winner:chug.winner, by:chug.by } : null;
+  if (!chug) return null;
+  return { a:chug.a, b:chug.b, goAt:chug.goAt, doneAt:{ ...chug.doneAt }, winner:chug.winner, by:chug.by,
+    ...(chug.winner !== null ? { loser:chug.loser, decidedAt:chug.decidedAt } : {}) };
 }
 
 /* Last Call goes up at `at`: everyone in the Cup, on the last song's

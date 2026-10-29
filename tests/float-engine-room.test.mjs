@@ -447,6 +447,8 @@ test("the chug-off over the wire: the last through and the first out race; the f
   await run(room, clock, 20000, () => room.cup.chugoff?.winner !== null, each);
   const settled = tv.last("room");
   assert.deepEqual([settled.chugoff.winner, settled.chugoff.by], [E, "chug"], "E finished first: E keeps the spot");
+  assert.deepEqual([settled.chugoff.loser, settled.chugoff.decidedAt], [D, call.chugoff.goAt + 3000], "when it was decided, exactly");
+  assert.equal("decidedAt" in call.chugoff, false, "not before");
   assert.equal(settled.chugoff.doneAt[E], 3000);
   assert.ok(tv.events("done").some(event => event.i === E));
   assert.deepEqual(tv.events("out").filter(event => event.s >= call.s).map(event => event.i), [D], "D goes out");

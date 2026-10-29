@@ -761,6 +761,36 @@ shortens to 0.7 s, dark at 3 at the fast pace). Art: the `night` scene and
 `firework` props (white, tinted at run time). Sound: its bed (the biggest of
 the five), the fuse and the launch, the dark bars, the voice lines.
 
+### 10. Row in every song, with a paddle you can see (wave A)
+
+Brandon, after the v3 notes: "paddle party would make a lot more sense if
+you physically saw paddles - i just now understood that we're supposed to be
+rowing, and if we're rowing - shouldn't we be rowing across all of the
+levels - lets make the rowing more obvious, it makes everything way harder
+in a fun way i think and make it visually appealing that you're rowing".
+
+- **Every critter holds a paddle** (a double-bladed kayak paddle across the
+  tube, blades in the rider's colour), on the TV and the phone, in every
+  pose that has hands free (the art's `paddle` prop at `anchor.hand`, or
+  drawn into the sprites if a prop can't sit right). A `paddle` hit is a
+  visible stroke: the paddle dips on one side with a splash, alternating
+  left and right stroke by stroke; a miss is a flubbed stroke (the paddle
+  slaps flat, a splash in the face). Idle between strokes the paddle rests
+  across the tube. At the bar and in `chug`/`cheer`/`out` the paddle is
+  away.
+- **Rowing is the base layer of every song**: in play A and play B of
+  every song, `paddle` cues on 1 and 3 of every bar, and the song's own
+  move layered on top (Rock Hop's hops, Spin Cycle's spins, The Drop's mix,
+  Fireworks' rockets). Where a song's own cue lands on 1 or 3, it replaces
+  that stroke (never two cues at one time; `matchTap` takes the nearest).
+  Paddle Party is the song where rowing is learned; the other songs' own
+  patterns may thin (fewer, cleaner) so the stack stays fun, not a wall.
+  Practice in every song starts with a bar of rowing and its lines say it
+  ("Keep rowing. Hop two beats after me"); the four-beat counter shows the
+  strokes and the move. The breakdown is still pure copying (no rowing).
+  Blackout bars keep rowing (you row in the dark).
+- The pulse is the call for rowing in every song (the band's kick on 1 and
+  3 and the stroke sound), so the host's calls stay the song's own move.
 ### As built: the engine, v3 (groove/engine, Oct 28)
 
 - `chart.js`: `offsetTone(absMs)` ("gold" <= 50, "green" <= 100, "yellow"

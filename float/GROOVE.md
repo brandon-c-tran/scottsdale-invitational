@@ -364,6 +364,30 @@ kept in `float/look/groove`):
   28). Renders and the timing check: `node scripts/float-sound-render.mjs`;
   the voice: `node scripts/float-voice.mjs`; the dev page
   `/dev/groove-sound.html`.
+- As built, v3 (groove/sound, Oct 28): every practice line has its clip
+  (`groove.js LINE_CLIPS`: the rowing lines, Paddle Party's "Keep paddling.
+  Hey! on 4" and "Both now", Fireworks' lines and title), placed clear of
+  every call and fuse. Rowing: a `paddle` answer is a kayak blade's stroke
+  (a crisp catch on the beat and a pull, left then right); where a host's
+  call lands on a stroke's beat the stroke steps back (`under`), and in a
+  bar with strokes the kick leans on 1 and 3. A demo paddle is the host's
+  own paddle. Blackout bars (`darkBars(chart)`): the band's bar is a bare
+  hi-hat (firmer on 1 and 3, a soft stick click on each; about 19 dB
+  under a lit bar's peaks), no call and no answer in it, no flub for a
+  miss in it; the next bar comes back in with a hit. Five rounds: every
+  song has its title clip and bed; the cut after The Drop keeps its show
+  and exits (The Drop's exit is over the falls), the final's names nobody. Fireworks: its bed
+  (Bb, lifting to C for B's last four bars; synth brass, a boom under every
+  downbeat, the stars on the glockenspiel; a grand breakdown and finale),
+  the host's fuse on each rocket's call (`floatFuse`), the launch on its
+  beat for everyone, each rider's firework from their hit
+  `ROCKET_BURST_MS` (a beat) after the launch, panned to the rider and
+  sized by `BURST_SIZE` (a Perfect the biggest), a miss's fizzle as the
+  room calls it, and the sky at `skyBeat(chart)` (two beats after the last
+  rocket). Last Call's rush says 6, 5 and 4 with the bartender's quick takes
+  (`bar-6q`...) and has its own trick (the clock races, a spring, a
+  clatter). Review renders: `.impeccable/review/float-sound-v3/`
+  (`fireworks-room.mp3` has three riders' bursts).
 
 ## The screen (TV) and the phone
 

@@ -39,7 +39,7 @@ export const TAP_GAP_MS = 35;
 export const TAP_ECHO_MS = 2500;
 export const CHEER_GAP_MS = 250;
 export const TAP_QUALITIES = Object.freeze(["perfect", "nice", "ok", "early", "late"]);
-export const TAP_KINDS = Object.freeze(["paddle", "hey", "hop", "spin", "drop", "echo", "zero", "grab"]);
+export const TAP_KINDS = Object.freeze(["paddle", "hey", "hop", "spin", "drop", "echo", "zero", "grab", "rocket"]);
 
 /* the controller's taps (wall clock), shared by the tap functions and the runner */
 const taps = { tap:-Infinity, done:-Infinity, cheer:-Infinity };

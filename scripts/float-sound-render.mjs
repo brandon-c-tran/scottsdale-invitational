@@ -34,12 +34,12 @@ const value = name => { const i = args.indexOf(name); return i >= 0 ? args[i + 1
 const OUT = path.resolve(ROOT, value("--out") || ".impeccable/review/float-sound");
 const STEMS = args.includes("--stems");
 const asked = args.filter((a, i) => !a.startsWith("--") && args[i - 1] !== "--out");
-const SONGS = ["paddle", "rock", "spin", "drop", "lastcall-lights", "lastcall-slow", "lastcall-ticks"];
+const SONGS = ["paddle", "rock", "spin", "drop", "fireworks", "lastcall-lights", "lastcall-slow", "lastcall-ticks", "lastcall-rush"];
 const jobs = asked.length ? asked : [...SONGS, "after", "moments"];
 
 const ENTRY = `
 import { makeEngine, playRecipe, clipMarks, GROOVE_PRE_S } from "./src/lib/soundKit.js";
-import { songEvents, songSlots, eventAt, TITLE_BEATS, GROOVE_PRE_MS, PODIUM_BEATS, CUT_BEATS, cutBeats, chugoffPlan } from "./float/client/sound/groove.js";
+import { songEvents, songSlots, eventAt, TITLE_BEATS, GROOVE_PRE_MS, PODIUM_BEATS, CUT_BEATS, cutBeats, chugoffPlan, ROCKET_BURST_MS, BURST_SIZE } from "./float/client/sound/groove.js";
 import { chartOf, SONG_MS, CHUGOFF } from "./float/shared/chart.js";
 const SR = 44100;
 async function engine(ctx, listen = "tv") {
@@ -86,7 +86,7 @@ async function laid(ctx, slots, lead = 0.6) {
   return ctx.startRendering();
 }
 /* a song as the TV plays it: the round card, then its bars from songAt (stem: one part alone) */
-window.__song = async (song, stem = null) => {
+window.__song = async (song, stem = null, room = false) => {
   const lead = 3.5, seconds = lead + chartOf(song).ms / 1000 + 3;
   const ctx = new OfflineAudioContext(2, Math.ceil(SR * seconds), SR);
   const E = await engine(ctx);
@@ -97,6 +97,17 @@ window.__song = async (song, stem = null) => {
     playRecipe(E, "floatSting", (songAt + TITLE_BEATS.sting - GROOVE_PRE_MS) / 1000, { song });
     playRecipe(E, "floatVoice", (songAt + TITLE_BEATS.title - GROOVE_PRE_MS) / 1000, { line:"title-" + song });
   } });
+  /* the room (v3): three riders' fireworks on every rocket, a beat after its launch, as the TV plays them from their hits
+     (left, middle, right; mostly Perfect and Nice, now and then a late one or a fizzle) */
+  if (room) chartOf(song).cues.filter(c => c.kind === "rocket" && !c.demo).forEach((c, k) => {
+    const at = (songAt + c.beat * 500) / 1000;
+    slots.push({ at:at - 1, lay:() => [-0.6, 0, 0.6].forEach((pan, i) => {
+      const r = (k * 7 + i * 3) % 10, q = r < 4 ? "perfect" : r < 8 ? "nice" : r < 9 ? "late" : "miss";
+      if (q === "miss") playRecipe(E, "floatFizzle", at + 0.6, { pan });
+      else playRecipe(E, "floatBurst", at + ROCKET_BURST_MS / 1000, { pan, q, size:BURST_SIZE[q] });
+    }) });
+  });
+  slots.sort((a, b) => a.at - b.at);
   const t0 = performance.now();
   const buffer = await laid(ctx, slots);
   const out = wav(buffer);
@@ -108,7 +119,7 @@ window.__song = async (song, stem = null) => {
    exit), then the chug-off (the call, the first one's rule or the count,
    Chug!, the chant until a Done at 6.5 s, the stamp, the loser's exit) */
 window.__after = async () => {
-  const per = 34, songs = ["paddle", "rock", "spin"];
+  const per = 34, songs = ["paddle", "rock", "spin", "drop"];
   const ctx = new OfflineAudioContext(2, SR * per * songs.length, SR);
   const E = await engine(ctx);
   const at = s => s - GROOVE_PRE_S, slots = [];
@@ -150,6 +161,19 @@ window.__moments = async () => {
   playRecipe(E, "floatFanfare", at(podium + PODIUM_BEATS.roll / 1000));
   [0, 0.04, 0.6, 1.4, 1.43, 1.46].forEach((x, i) => playRecipe(E, "floatFlub", 27 + x, { pan:-0.6 + i * 0.2, n:i % 3 + 1 }));
   [[29, "floatCheer"], [29.5, "floatCheer"]].forEach(([s, id], i) => playRecipe(E, id, s, { step:i }));
+  return wav(await ctx.startRendering());
+};
+/* Fireworks' own (v3): the fuse and the launch, a burst at each judgement, a fizzle, the sky, Last Call's rush trick */
+window.__rockets = async () => {
+  const ctx = new OfflineAudioContext(2, SR * 16, SR);
+  const E = await engine(ctx);
+  const at = s => s - GROOVE_PRE_S;
+  playRecipe(E, "floatFuse", at(0.5), { after:0.95 }); playRecipe(E, "floatAnswer", at(1.5), { kind:"rocket", n:0 });
+  playRecipe(E, "floatBurst", 2, { size:1, q:"perfect", pan:-0.4 });
+  [["nice", 3.5, 0.3], ["ok", 4.7, -0.2], ["late", 5.8, 0.5]].forEach(([q, s, pan]) => playRecipe(E, "floatBurst", s, { q, size:BURST_SIZE[q], pan }));
+  playRecipe(E, "floatFizzle", 7, { pan:0 });
+  playRecipe(E, "floatSky", at(8.5));
+  playRecipe(E, "floatTrick", at(13), { trick:"rush" });
   return wav(await ctx.startRendering());
 };
 /* the lobby's loop alone, its four sections (32 bars) */
@@ -230,7 +254,9 @@ try {
   await chrome.until("window.__ready === true", { timeout:20000 });
   await chrome.evaluate(`window.__clips = ${JSON.stringify(clips)}; true`);
   for (const job of jobs.filter(j => j !== "onsets")) {
-    const renders = job === "moments" ? [["moments", "window.__moments()"], ["phone", "window.__phone()"], ["lobby", "window.__lobby()"]]
+    const renders = job === "moments" ? [["moments", "window.__moments()"], ["phone", "window.__phone()"], ["lobby", "window.__lobby()"], ["rockets", "window.__rockets()"]]
+      : job === "fireworks" ? [["fireworks", `window.__song("fireworks")`], ["fireworks-room", `window.__song("fireworks", null, true)`],
+        ...(STEMS ? ["band", "calls", "answers"].map(s => [`fireworks-${s}`, `window.__song("fireworks", ${JSON.stringify(s)})`]) : [])]
       : job === "after" ? [["after", "window.__after()"]]
       : [[job, `window.__song(${JSON.stringify(job)})`], ...(STEMS ? ["band", "calls", "answers"].map(s => [`${job}-${s}`, `window.__song(${JSON.stringify(job)}, ${JSON.stringify(s)})`]) : [])];
     for (const [name, expr] of renders) {
@@ -251,10 +277,17 @@ try {
     ["floatAnswer", { kind:"paddle", song:"paddle", k:0, b:0, n:0, of:2 }, "splash"], ["floatAnswer", { kind:"hey", song:"paddle", k:1, b:3 }, "crowd Hey!"],
     ["floatAnswer", { kind:"hop", song:"rock", k:0, b:2, n:0, of:1 }, "boing"], ["floatAnswer", { kind:"spin", song:"spin", k:0, b:1 }, "whoosh"],
     ["floatAnswer", { kind:"drop", song:"drop", k:0, b:0 }, "the drop"],
+    ["floatFuse", { after:0.9 }, "the fuse (rocket's call)"], ["floatAnswer", { kind:"rocket", song:"fireworks", k:0, b:2, n:0 }, "the launch"],
+    ["floatAnswer", { kind:"paddle", song:"rock", k:0, b:0, n:0, of:2, under:true }, "a stroke under a call"],
+    ["floatGroove", { song:"fireworks", bar:26, sec:"play", part:1, k:4, len:8, next:"play", dark:true }, "a blackout bar's downbeat"],
+    ["floatGroove", { song:"fireworks", bar:27, sec:"play", part:1, k:5, len:8, next:"play", back:true, only:["drums"] }, "back from the dark"],
+    ["floatGroove", { song:"fireworks", bar:6, sec:"play", part:0, k:0, len:8, next:"play", only:["drums"] }, "Fireworks' downbeat (drums)"],
     ["floatGroove", { song:"paddle", bar:6, sec:"play", part:0, k:0, len:8, next:"play", only:["drums"] }, "a bar's downbeat (drums)"],
     ["floatSting", { song:"paddle" }, "the round card's hit"],
     ...["say-turn", "say-copy"].map(line => ["floatVoice", { line, narration:true }, "narration " + line]),
     ...[10, 7, 4].map(n => ["floatBarVoice", { line:"bar-" + n }, "bartender " + n]),
+    ...[6, 4].map(n => ["floatBarVoice", { line:`bar-${n}q` }, `bartender ${n} (rush)`]),
+    ...["say-keephey", "say-bothnow", "title-fireworks"].map(line => ["floatVoice", { line, narration:true }, "v3 " + line]),
     ["floatTick", { n:6 }, "the clock's tick"], ["floatEcho", { as:"paddle", n:0 }, "the host's paddle"], ["floatZero", {}, "the bell at zero"],
   ];
   /* the reference: a card's tick (an instant attack) at 1 s, read the same way: the engine's own delay

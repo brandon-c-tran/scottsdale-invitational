@@ -152,15 +152,18 @@ const PLANS = Object.freeze({
     playB:["P.S.P.S.", "P.S.P.S.", "P.SSP.S.", "P.S.P.SS", "P.S.P.S.", "P.SSP.S.", "P.S.P.SS", "P.S.P.S."],
     outro:["..S.....", "........"],
   },
-  /* a bar of each pattern in turn over the rowing; bar 29 is the
-     countdown's (the music cuts: no rowing) */
+  /* the semifinal: a bar of each pattern in turn over the rowing; play B
+     (v3 item 8) a new pattern every bar with no sign, syncopated "and"
+     hops and spins, two dark bars (each the bar before it again); bar 29
+     is the countdown's (the music cuts: no rowing) */
   drop:{
     practice:["P...P...", "P...P.H.", "P...O.O.", "P.S.P.S."],
     lines:[[7, "Row on 1 and 3"], [11, "Keep rowing. All three, in turn"], [15, "Hop"], [19, "Spin"], [55, "Copy me", 60]],
     playA:["P...P.H.", "P...P.HH", "P...O.O.", "P...OOO.", "P.S.P.S.", "P.SSP.S.", "P...P.H.", "P...OOO."],
     breakdown:["........", "E.E.E.E.", "........", "E.EEE...", "........", "EE.EE...", "........", "E.E.EEE."],
-    playB:["P.S.P.S.", "P...O.O.", "P...P.H.", "P.SSP.S.", "P...OOO.", "P.P.P.P.", "P.S.P.SS", "........"],
+    playB:["P.S.PS.S", "P...OO.O", "P...PHO.", "P...PHO.", "P.S.POO.", "P.S.POO.", "P..SP.OS", "........"],
     outro:["D.......", "........"],
+    dark:[25, 27],
   },
   /* the final: rockets over the rowing with every other kind, the "and"s,
      two dark bars (each the bar before it again, kept in your head, still
@@ -268,10 +271,17 @@ export function chartOf(songId) {
   return CHARTS.get(songId);
 }
 
-/* the song a round plays: the last round is always The Drop, the others in order */
+/* the song a round plays (v3: five rounds): the last is Fireworks, the one
+   before it The Drop, the others Paddle Party, Rock Hop, Spin Cycle in
+   order. Fewer rounds keep the last two (1: Fireworks; 2: The Drop,
+   Fireworks; 3: Paddle Party, The Drop, Fireworks). Rounds unknown (0):
+   the five in order. */
 export function songForRound(round, rounds) {
-  if (rounds > 0 && round >= rounds - 1) return "drop";
-  return SONG_IDS[Math.max(0, Math.min(2, round | 0))];
+  const r = Math.max(0, round | 0), n = rounds | 0;
+  if (n <= 0) return SONG_IDS[Math.min(r, SONG_IDS.length - 1)];
+  if (r >= n - 1) return "fireworks";
+  if (r === n - 2) return "drop";
+  return SONG_IDS[Math.min(r, 2)];
 }
 
 /* ---- the clock ---- */

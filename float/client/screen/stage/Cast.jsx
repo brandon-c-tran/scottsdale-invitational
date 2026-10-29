@@ -468,7 +468,10 @@ export default function Cast({ store, driver, entrants, phase, room, version }) 
         const paddleOn = where === "water" && !bar && !PADDLE_AWAY.has(pose);
         const pad = paddleOn && inSong && !still ? paddleAt(stroke, now, { side:strokeSide(chart, stroke?.c) })
           : { rot:PADDLE.REST, dx:0, dy:0, side:0, splash:0, flat:0 };
+        /* `stroke` dips on the rider's left (the screen's right: they face us), `stroke-r` on their right */
         if (act?.kind === "paddle" && pose === "stroke") pose = pad.side > 0 ? "stroke-r" : "stroke";
+        const splashSide = pad.side ? -pad.side : 0;
+        const blade = pad.side ? anchor.blades?.[pad.side > 0 ? "stroke-r" : "stroke"] : null;
         if (exitMove) {
           pose = exitMove.pose;
           act = { pose, dx:0, dy:exitMove.lift / Math.max(0.01, s * fill), rot:exitMove.rot, sx:exitMove.sx, sy:exitMove.sy };
@@ -496,9 +499,10 @@ export default function Cast({ store, driver, entrants, phase, room, version }) 
         for (const [key, side] of [["splashL", -1], ["splashR", 1]]) {
           const node = r[key];
           if (!node) continue;
-          const k = Math.max(side === pad.side ? pad.splash : 0, pad.flat);
+          const k = Math.max(side === splashSide ? pad.splash : 0, pad.flat);
           if (k <= 0.01) { if (node.style.opacity !== "0") node.style.opacity = "0"; continue; }
-          const tx = anchor.water[0] + side * PSPLASH.reach, ty = anchor.water[1] - 6;
+          const tx = side === splashSide && blade ? blade[0] : anchor.water[0] + side * PSPLASH.reach;
+          const ty = side === splashSide && blade ? Math.max(blade[1], anchor.water[1] - 20) : anchor.water[1] - 6;
           node.style.opacity = Math.min(1, k * 1.4).toFixed(3);
           node.style.transform = `translate3d(${(tx - PSPLASH.w / 2).toFixed(1)}px, ${(ty - PSPLASH.h * 0.85).toFixed(1)}px, 0) scale(${(side * (0.55 + 0.55 * k)).toFixed(3)}, ${(0.55 + 0.55 * k).toFixed(3)})`;
         }

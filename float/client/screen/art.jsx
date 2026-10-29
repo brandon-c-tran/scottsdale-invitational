@@ -50,7 +50,9 @@ export function useRiderArt(entrant, { size = 512 } = {}) {
     const own = new Set(Object.entries(c.poses || {}).filter(([pose, art]) => pose === "idle" || (art?.src && art.src !== idle)).map(([pose]) => pose));
     const head = c.anchor.head || c.poses?.idle?.anchor?.head || [256, 200];
     const anchor = { water:c.anchor.water, head, top:[head[0], head[1] - HEAD_ROOM], face:c.anchor.face || head, hand:c.anchor.hand || c.anchor.water,
-      name:[c.anchor.water[0], c.anchor.water[1] + 52], fill:ART_FILL };
+      name:[c.anchor.water[0], c.anchor.water[1] + 52], fill:ART_FILL,
+      /* the kayak's dipping blade per stroke pose (box px), where its splash goes */
+      blades:{ stroke:c.poses?.stroke?.anchor?.blade || null, "stroke-r":c.poses?.["stroke-r"]?.anchor?.blade || null } };
     return { poses:urls || null, anchor, own, critter, placeholder:!!c.placeholder };
   }, [m, urls, critter]);
 }

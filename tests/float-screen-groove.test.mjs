@@ -259,8 +259,10 @@ test("the host calls every cue on its beat (Ready, Ba, Spin; The Drop counts 3, 
   assert.equal(hostAt(paddle, hey.call + 0.1).pose, "call");
   assert.equal(hostAt(paddle, hey.call - 0.1).pose, "idle");
   assert.equal(hostAt(paddle, 130).pose, "cheer", "the song's end");
-  const demo = demoCues(paddle)[0];
-  assert.ok(hostCalls(paddle).some(c => c.cue === demo.id && c.word === "Ready"), "the host calls the demo");
+  /* the demos: the Hey called like any Hey; a demo paddle's call is the pulse (call null), so no word */
+  const demoHey = demoCues(paddle).find(c => c.kind === "hey");
+  assert.ok(hostCalls(paddle).some(c => c.cue === demoHey.id && c.word === "Ready"), "the host calls the demo");
+  assert.ok(demoCues(paddle).filter(c => c.kind === "paddle").every(c => !hostCalls(paddle).some(h => h.cue === c.id)), "a demo paddle rows on the pulse");
   const echoes = hostCalls(paddle).filter(c => c.kind === "echo");
   assert.ok(echoes.length >= 8 && echoes.every(c => c.word === "" && c.beat >= 56 && c.beat < 88), "the breakdown's rhythm, a note a beat (no word)");
   assert.ok(hostCalls(paddle).every(c => c.kind === "hey" || c.kind === "echo"), "a paddle's call is the pulse");
@@ -270,8 +272,10 @@ test("the host calls every cue on its beat (Ready, Ba, Spin; The Drop counts 3, 
   assert.deepEqual(hostCalls(drop).filter(c => c.kind === "drop").map(c => c.word), ["3", "2", "1"]);
   const signs = [];
   for (let bar = 0; bar < drop.bars; bar += 1) { const s = signAt(drop, bar * 4 + 1); if (s) signs.push([bar, s.mode]); }
-  assert.ok(signs.length >= 6, "a sign before each switch");
+  assert.ok(signs.length >= 3, "a sign before each switch in play A");
   for (const [bar, mode] of signs) assert.equal(drop.modes[bar + 1], mode);
+  const breakdown = drop.sections.find(x => x.kind === "breakdown");
+  assert.ok(signs.every(([bar]) => bar + 1 < breakdown.bar), "play B: no signs (keep the pattern in your head)");
   assert.equal(signAt(paddle, 9), null, "only The Drop");
 });
 
@@ -290,11 +294,11 @@ test("practice, narrated: each line up when the host says it, until the next; th
   assert.equal(lineShownAt(timed, 58.7).text, "Copy me");
   assert.equal(lineSpot(chart, lineShownAt(timed, 1)), "top", "over the scene in practice");
   assert.equal(lineSpot(chart, lineShownAt(timed, 58.7)), "low", "under the rank strip in the breakdown");
-  /* the demo: the host's Hey, every critter acting it out on its beat; nobody taps it */
-  const demo = demoCues(chart)[0];
-  assert.equal(demoAt(chart, demo.beat - 0.1), null);
-  assert.equal(demoAt(chart, demo.beat + 0.2).id, demo.id);
-  assert.equal(demoAt(chart, demo.beat + 2), null);
+  /* the demo bar: the host's strokes and Hey, every critter acting each out on its beat; nobody taps them */
+  const demos = demoCues(chart);
+  assert.equal(demoAt(chart, demos[0].beat - 0.1), null);
+  for (const demo of demos) assert.equal(demoAt(chart, demo.beat + 0.2).id, demo.id);
+  assert.equal(demoAt(chart, demos[demos.length - 1].beat + 2), null);
   /* the breakdown's copies move like the song's own */
   const echo = chart.cues.find(c => c.kind === "echo");
   assert.equal(actionKind(chart, echo), "paddle");
@@ -667,7 +671,7 @@ const bundle = await build({
     export { SongBanner, Narration, RankStrip, CutShow, ChugHud, LastCallHud, PodiumBlocks, IntroTitle, Feedback } from "./float/client/screen/hud/Hud.jsx";
     export { default as Lobby } from "./float/client/screen/hud/Lobby.jsx";
     export { default as Scene } from "./float/client/screen/stage/Scene.jsx";
-    export { default as Cast, castPlan, rollCallAt, ROLL } from "./float/client/screen/stage/Cast.jsx";
+    export { default as Cast, castPlan, rollCallAt, ROLL, barLineUp } from "./float/client/screen/stage/Cast.jsx";
     export { default as Host } from "./float/client/screen/stage/Host.jsx";
     export { default as Bar, boardOf, darkAt } from "./float/client/screen/stage/Bar.jsx";
     export { PlaceholderCritter, Critter } from "./float/client/screen/art.jsx";`, resolveDir:ROOT, loader:"jsx" },
@@ -679,7 +683,7 @@ ui.filename = ui.id;
 ui.paths = Module._nodeModulePaths(ROOT);
 ui._compile(bundle.outputFiles[0].text, ui.filename);
 const { FloatScreen, SongBanner, Narration, RankStrip, CutShow, ChugHud, LastCallHud, PodiumBlocks, IntroTitle, Feedback, Lobby, Scene, Cast, Host, Bar,
-  PlaceholderCritter, castPlan, rollCallAt, ROLL } = ui.exports;
+  PlaceholderCritter, castPlan, rollCallAt, ROLL, barLineUp } = ui.exports;
 const html = element => renderToStaticMarkup(element);
 const fakeDriver = now => ({ add:() => () => {}, serverNow:() => now, tick() {} });
 const entrants = range(13).map(k => ({ ...mockRider(k), device:`p${k}`, ready:k % 2 === 0 }));
@@ -838,3 +842,23 @@ test("the roll call: each name tag pops in seat order in the intro and each song
   assert.equal(rollCallAt({ phase:"intro", phaseStart:0, seat:1, now:ROLL.INTRO_AT }), 0);
 });
 
+
+test("Last Call's line-up: the Cup's order until the room ranks it, then its order (closest first)", () => {
+  const players = [3, 1, 7, 5];
+  assert.deepEqual(barLineUp(players, { totals:[] }, () => null), players, "nothing moves before the room knows");
+  assert.deepEqual(barLineUp(players, { totals:[], order:[5, 3, 7, 1] }, () => null), [5, 3, 7, 1]);
+  assert.deepEqual(barLineUp(players, { totals:[], order:[5, 3] }, () => null), [5, 3, 1, 7], "anyone it leaves out at the end");
+  const reads = { 3:{ q:"late", d:400 }, 1:{ q:"nice", d:-60 }, 7:{ q:"miss", d:null }, 5:{ q:"perfect", d:5 } };
+  assert.deepEqual(barLineUp(players, { worst:[7] }, i => reads[i]), [5, 1, 3, 7], "a room without an order: the screen ranks it");
+});
+
+test("the offset number's tone: a song's by offsetTone (gold, green, yellow, red; a miss grey), Last Call's by countTone", async () => {
+  const { numberTone, countNumberTone } = await import("../float/client/screen/model/tone.js");
+  assert.deepEqual([numberTone("perfect", -40), numberTone("nice", 90), numberTone("ok", -150), numberTone("late", 220), numberTone("miss", null)],
+    ["gold", "green", "yellow", "red", "grey"]);
+  assert.deepEqual([countNumberTone("nice", 80), countNumberTone("ok", -250), countNumberTone("late", 600), countNumberTone("early", -1500), countNumberTone("miss", null)],
+    ["green", "yellow", "orange", "red", "red"]);
+  const { readFileSync } = await import("node:fs");
+  const css = readFileSync(new URL("../float/client/screen/screen.css", import.meta.url), "utf8");
+  for (const tone of ["gold", "green", "yellow", "orange", "red", "grey"]) assert.match(css, new RegExp(`data-tone="${tone}"`), `${tone} drawn`);
+});

@@ -8,7 +8,7 @@
    React draws it. */
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { BEATS_PER_BAR, SONG_LEAD_MS, songForRound } from "../../../shared/chart.js";
-import { bannerAt, lineShownAt, lineSpot, rankStripOn, roundLabel, songName } from "../model/song.js";
+import { bannerAt, beatCounterAt, countWord, lineShownAt, lineSpot, rankStripOn, roundLabel, songName } from "../model/song.js";
 import { narrationOf } from "../soundBridge.js";
 import { awardValue, cutShow, pctText } from "../model/cut.js";
 export { awardValue };
@@ -86,7 +86,29 @@ export function Narration({ store, driver }) {
     return l ? { key:`${l.from}:${l.text}`, text:l.text, spot:lineSpot(st.chart, l) } : null;
   }, [], (a, b) => a?.key === b?.key);
   if (!line) return null;
-  return <div className={`hd-line is-${line.spot}`} key={line.key}><span>{line.text}</span></div>;
+  return <div className={`hd-line is-${line.spot}`} key={line.key}>
+    <span>{line.text}</span>
+    {line.spot === "top" && <BeatCounter store={store} driver={driver} />}
+  </div>;
+}
+
+/* practice's four-beat counter: 1 2 3 4, the bar's taps lit by kind (a
+   demo bar outlined: the host's), the beat being played marked */
+export function BeatCounter({ store, driver }) {
+  const st = store.state;
+  const view = useDriven(driver, now => {
+    const beat = songBeat(st, now);
+    const c = beat === null ? null : beatCounterAt(st.chart, beat);
+    return c ? { ...c, key:`${c.bar}:${c.now}` } : null;
+  }, [], (a, b) => a?.key === b?.key);
+  if (!view) return null;
+  return <div className="hd-beats" aria-hidden="true">
+    {view.beats.map(b => <div key={b.n} className={`hd-beat${b.kind ? ` is-${b.kind}` : ""}${b.demo ? " is-demo" : ""}${view.now === b.n - 1 ? " is-now" : ""}`}>
+      <span className="hd-beat-n">{b.n}</span>
+      <span className="hd-beat-word">{b.kind ? countWord(st.chart, b.kind) : ""}</span>
+      {b.and && <i className={`hd-beat-and is-${b.and.kind}${b.and.demo ? " is-demo" : ""}`} />}
+    </div>)}
+  </div>;
 }
 
 /* ── who's ahead: every rider as a chip in rank order, the name and percent under it ── */

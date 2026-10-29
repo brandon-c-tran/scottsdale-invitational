@@ -64,6 +64,8 @@ export const SHOTS = Object.freeze({
   count:{ phase:"song", round:0, beat:5.2 },
   /* practice, narrated: the first line, Ready and Hey, the host's demo (the Watch) */
   practice:{ phase:"song", round:0, beat:9.3 },
+  /* the four-beat counter: "Keep paddling. Hey! on 4" over its bar */
+  counter:{ phase:"song", round:0, beat:12.2 },
   ready:{ phase:"song", round:0, beat:13.25 },
   watch:{ phase:"song", round:0, beat:19.15 },
   go:{ phase:"song", round:0, beat:24.25 },

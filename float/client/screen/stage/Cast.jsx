@@ -47,6 +47,16 @@ export const LINE_RECTS = Object.freeze({ top:{ x0:520, x1:1400, y0:36, y1:160 }
 /* the cut's award cards, a row under the strip */
 export const CARDS_RECT = Object.freeze({ x0:380, x1:1880, y0:214, y1:420 });
 const ease = t => 1 - Math.pow(1 - Math.max(0, Math.min(1, t)), 3);
+/* Last Call's line-up once revealed: the room's ranking (`lastCall.order`,
+   closest first, up to about 200 ms after revealAt), else, for a room that
+   names who drinks without one, the screen's own; until either, the Cup's
+   order (nothing moves before the room knows) */
+export function barLineUp(players, lastCall, readout) {
+  const order = Array.isArray(lastCall?.order) ? lastCall.order.filter(i => players.includes(i))
+    : Array.isArray(lastCall?.worst) ? barRanking(players, readout).map(row => row.i) : null;
+  return order ? [...order, ...players.filter(i => !order.includes(i))] : players;
+}
+
 /* the roll call: each name tag pops in, in seat order (front row first,
    left to right), once the flotilla has floated in (the intro) and in each
    song's lead under the round card */
@@ -296,7 +306,7 @@ export default function Cast({ store, driver, entrants, phase, room, version }) 
         const lives = new Map(p.water.map(i => [i, phase === "lobby" ? null : store.liveOf(i)]));
         /* the bar: the line-up in the Cup's order until the reveal (never
            a hint of the count), then ranked closest (left) to farthest */
-        water = p.kind === "bar" ? barLayout(revealed ? barRanking(p.water, barReadout).map(row => row.i) : p.water)
+        water = p.kind === "bar" ? barLayout(revealed ? barLineUp(p.water, st.lastCall, barReadout) : p.water)
           : p.kind === "chug" ? chugLayout(p.chug?.a, p.chug?.b)
             : flotillaLayout(p.water, lives, { kind:p.kind === "lobby" ? "lobby" : p.water.length <= 3 ? "final" : "song",
               drift:p.drift && phase !== "intro" });

@@ -346,6 +346,31 @@
   box-shadow:0 0 0 6px var(--ink), 0 9px 0 0 var(--ink); animation:hd-drop 0.4s cubic-bezier(0.2, 1.4, 0.4, 1) both; white-space:nowrap; }
 .hd-line.is-low { top:228px; }
 .hd-line span { font-family:var(--px); font-size:54px; font-weight:700; line-height:1; color:var(--ink); }
+/* practice's four-beat counter (item 6): each beat a cell, the taps lit by kind */
+.hd-line { display:flex; flex-direction:column; align-items:center; }
+.hd-line > span { display:block; }
+.hd-beats { display:flex; gap:16px; margin-top:14px; }
+.hd-beat { position:relative; width:118px; height:92px; border-radius:16px; background:#ece5d3; box-shadow:inset 0 0 0 4px rgba(29, 26, 36, 0.25);
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; --lit:#7fd6f2; }
+.hd-line .hd-beat span { font-family:var(--px); font-weight:700; line-height:1; color:rgba(29, 26, 36, 0.45); }
+.hd-line .hd-beat .hd-beat-n { font-size:44px; }
+.hd-line .hd-beat .hd-beat-word { font-size:24px; min-height:24px; }
+.hd-beat.is-paddle { --lit:#5fc8ee; } .hd-beat.is-hey { --lit:#ff7ab8; } .hd-beat.is-hop { --lit:#ffc23d; }
+.hd-beat.is-spin { --lit:#b98cf5; } .hd-beat.is-rocket { --lit:#ff8a3d; } .hd-beat.is-drop { --lit:#5fe07a; }
+.hd-beat.is-paddle, .hd-beat.is-hey, .hd-beat.is-hop, .hd-beat.is-spin, .hd-beat.is-rocket, .hd-beat.is-drop {
+  background:var(--lit); box-shadow:0 0 0 4px var(--ink), 0 5px 0 0 var(--ink); }
+.hd-line .hd-beat.is-paddle span, .hd-line .hd-beat.is-hey span, .hd-line .hd-beat.is-hop span, .hd-line .hd-beat.is-spin span,
+.hd-line .hd-beat.is-rocket span, .hd-line .hd-beat.is-drop span { color:var(--ink); }
+/* the host's demo bar: outlined in the move's colour, not filled */
+.hd-beat.is-demo { background:#fffdf8; box-shadow:0 0 0 5px var(--lit), 0 0 0 9px var(--ink); }
+/* the beat being played */
+.hd-beat.is-now { transform:translateY(-6px) scale(1.08); }
+.hd-beat.is-now::after { content:""; position:absolute; left:50%; bottom:-20px; width:18px; height:18px; margin-left:-9px; border-radius:50%; background:var(--magenta);
+  box-shadow:0 0 0 4px var(--ink); }
+.hd-beat-and { position:absolute; right:-17px; top:50%; width:18px; height:18px; margin-top:-9px; border-radius:50%; background:var(--lit, #7fd6f2); z-index:1;
+  box-shadow:0 0 0 4px var(--ink); }
+.hd-beat-and.is-paddle { background:#5fc8ee; } .hd-beat-and.is-hey { background:#ff7ab8; } .hd-beat-and.is-hop { background:#ffc23d; }
+.hd-beat-and.is-spin { background:#b98cf5; } .hd-beat-and.is-rocket { background:#ff8a3d; }
 
 /* ── who's ahead: the rank strip under the song's strip ── */
 .hd-rank { position:absolute; left:0; top:66px; width:1920px; height:150px; opacity:0; transition:opacity 0.3s; }

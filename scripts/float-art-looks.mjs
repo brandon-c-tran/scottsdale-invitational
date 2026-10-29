@@ -13,6 +13,7 @@
      node scripts/float-art-looks.mjs */
 import fs from "node:fs";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 import sharp from "sharp";
 import { OUT, WEBP, sourceOf, loadRGBA, blank, components, alphaBounds, dilate, close, hueOf, hueDist, lum, editManifest } from "./float-art-lib.mjs";
 
@@ -39,7 +40,7 @@ function normalizeAlpha(img) {
 }
 
 /* the sheet's pieces, each to its grid cell, trimmed */
-async function cells(file, cols, rows) {
+export async function cells(file, cols, rows) {
   const img = normalizeAlpha(await loadRGBA(file));
   const { width:W, height:H, data:d } = img;
   const solid = new Uint8Array(W * H);
@@ -62,16 +63,16 @@ async function cells(file, cols, rows) {
   });
 }
 
-async function scaled(img, w) {
+export async function scaled(img, w) {
   const h = Math.round(img.height * w / img.width);
   const buf = await sharp(Buffer.from(img.data.buffer, img.data.byteOffset, img.data.length), { raw:{ width:img.width, height:img.height, channels:4 } }).resize(w, h, { kernel:"lanczos3", fit:"fill" }).raw().toBuffer();
   return { data:new Uint8Array(buf.buffer, buf.byteOffset, buf.length), width:w, height:h };
 }
-const write = (img, file) => sharp(Buffer.from(img.data.buffer, img.data.byteOffset, img.data.length), { raw:{ width:img.width, height:img.height, channels:4 } }).webp(WEBP).toFile(file);
+export const write = (img, file) => sharp(Buffer.from(img.data.buffer, img.data.byteOffset, img.data.length), { raw:{ width:img.width, height:img.height, channels:4 } }).webp(WEBP).toFile(file);
 
 const sat = (r, g, b) => { const mx = Math.max(r, g, b); return mx ? (mx - Math.min(r, g, b)) / mx : 0; };
 /* the hat's magenta keyed out: src grey with its shading, mask white (thinner on highlights) */
-function keyHat(img) {
+export function keyHat(img) {
   const { data:d, width:W, height:H } = img;
   const hist = new Array(72).fill(0);
   for (let i = 0; i < d.length; i += 4) {
@@ -117,7 +118,7 @@ function keyHat(img) {
 }
 
 /* a hat's base: the lowest row it mostly fills (the brim's underside, not a stray drop) */
-function baseOf(img) {
+export function baseOf(img) {
   const { data:d, width:W, height:H } = img;
   for (let y = H - 1; y >= 0; y--) {
     let n = 0;
@@ -128,7 +129,7 @@ function baseOf(img) {
 }
 
 /* the lenses' middles: the opaque pixels' centroid in each half (the outer tips, a strap's stubs, left out) */
-function lensesOf(img) {
+export function lensesOf(img) {
   const { data:d, width:W, height:H } = img;
   const half = (x0, x1) => {
     let sx = 0, sy = 0, n = 0;
@@ -138,6 +139,7 @@ function lensesOf(img) {
   return [half(W * 0.1, W * 0.48), half(W * 0.52, W * 0.9)];
 }
 
+if (import.meta.url === pathToFileURL(process.argv[1]).href) {
 const dir = path.join(OUT, "looks");
 fs.mkdirSync(path.join(dir, "hats"), { recursive:true });
 fs.mkdirSync(path.join(dir, "shades"), { recursive:true });
@@ -166,3 +168,4 @@ for (const [k, id] of SHADES.entries()) {
 editManifest(m => { m.hats = hats; m.shades = shades; });
 console.log("hats:", Object.keys(hats).join(" "));
 console.log("shades:", Object.entries(shades).map(([id, s]) => `${id} span ${s.span}`).join(", "));
+}

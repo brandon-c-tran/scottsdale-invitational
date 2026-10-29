@@ -3,7 +3,7 @@
    the scenes (their layers scrolling, to check the seams), the props, the
    pixel lettering, and a flotilla put together from all of it.
 
-   ?view=all (default) | flotilla | lastcall | looks | look&id=frog | critters | crowns | critter&id=frog | portraits | host | scenes | props | type
+   ?view=all (default) | flotilla | lastcall | looks | look&id=frog | fit (&hat &shades &tee=0|1 &across=1 &dots=1 &ids &poses &size) | critters | crowns | critter&id=frog | portraits | host | scenes | props | type
    &bg=water|dark|light   &freeze=1 (no motion, for screenshots)
    document.body.dataset.ready is "1" once every sprite on the page is painted. */
 import React, { useEffect, useMemo, useState } from "react";
@@ -11,7 +11,7 @@ import { CRITTERS, SPECIAL_CRITTERS, HATS, SHADES } from "../../shared/looks.js"
 import { SONGS } from "../../shared/chart.js";
 import RiderSprite, { useGrooveArt } from "./groove/RiderSprite.jsx";
 import Popup from "./groove/Popup.jsx";
-import { riderSprites, riderPortrait, sceneOf, propOf, hostSprites, bartenderSprites, spriteAnchor, grooveUrl, POSES } from "./groove/index.js";
+import { riderSprites, riderPortrait, sceneOf, propOf, hostSprites, bartenderSprites, spriteAnchor, spriteSize, grooveUrl, POSES } from "./groove/index.js";
 import "./groove/groove.css";
 
 const COLORS = [["Red", "#e53935"], ["Yellow", "#fdd835"], ["Teal", "#00897b"], ["Navy", "#1a237e"]];
@@ -69,7 +69,7 @@ function useReady(looks) {
 }
 
 function Nav() {
-  const views = ["all", "flotilla", "lastcall", "looks", "critters", "crowns", "portraits", "host", "scenes", "props", "type"];
+  const views = ["all", "flotilla", "lastcall", "looks", "fit", "critters", "crowns", "portraits", "host", "scenes", "props", "type"];
   return <nav>{views.map(v => <a key={v} href={`?view=${v}`} aria-current={v === VIEW ? "page" : undefined}>{v}</a>)}</nav>;
 }
 
@@ -161,6 +161,64 @@ function LookPoses({ id }) {
   );
 }
 
+/* every critter in every pose in one hat and pair of glasses, the plain set
+   and the photo tee, then the portrait: where a hat or a pair that does not
+   sit shows at once. ?view=fit&hat=cowboy&shades=aviators&tee=0|1&dots=1&size=120&ids=a,b */
+const FIT = {
+  hat:query.get("hat") || "cowboy",
+  shades:query.get("shades") || "none",
+  tees:query.get("tee") === "1" ? [true] : query.get("tee") === "0" ? [false] : [false, true],
+  size:Number(query.get("size")) || 120,
+  ids:query.get("ids") ? query.get("ids").split(",") : ALL.map(c => c.id),
+  poses:query.get("poses") ? query.get("poses").split(",") : POSES,
+};
+const fitLook = (id, i, tee) => ({ critter:id, color:RIDER_COLORS[i % RIDER_COLORS.length], hat:FIT.hat, shades:FIT.shades, groom:FIT.hat === "crown",
+  ...(tee ? { shirt:"photo", photo:SAMPLE_PHOTO } : {}) });
+/* one hat or pair across every critter: a row each of the plain set and the tee in one pose, then the portraits (?view=fit&across=1&pose=idle) */
+function FitAcross() {
+  const { size } = FIT;
+  const pose = FIT.poses[0] || "idle";
+  return (
+    <div className="fa2-sheet" style={{ background:BGS[BG] || BGS.water }}>
+      <div className="fa2-row"><div className="fa2-cell" style={{ width:70 }} />{FIT.ids.map(id => <div key={id} className="fa2-cell" style={{ width:size }}><small>{id}</small></div>)}</div>
+      {FIT.tees.map(tee => (
+        <div key={String(tee)} className="fa2-row" style={{ alignItems:"center" }}>
+          <div className="fa2-cell" style={{ width:70 }}><small>{tee ? "tee" : pose}</small></div>
+          {FIT.ids.map((id, i) => <RiderSprite key={id} {...fitLook(id, i, tee)} pose={pose} size={size} />)}
+        </div>
+      ))}
+      <div className="fa2-row" style={{ alignItems:"center" }}>
+        <div className="fa2-cell" style={{ width:70 }}><small>portrait</small></div>
+        {FIT.ids.map((id, i) => { const look = fitLook(id, i, false); return <PortraitCell key={id} entrant={{ color:look.color, look:{ critter:id, hat:look.hat, shades:look.shades }, groom:look.groom }} size={size} />; })}
+      </div>
+    </div>
+  );
+}
+function Fit() {
+  if (query.get("across") === "1") return <FitAcross />;
+  const { size } = FIT;
+  const dots = query.get("dots") === "1";
+  return (
+    <div className="fa2-sheet" style={{ background:BGS[BG] || BGS.water }}>
+      {FIT.ids.map((id, i) => FIT.tees.map(tee => {
+        const look = fitLook(id, i, tee);
+        return (
+          <div key={`${id}${tee}`} className="fa2-row" style={{ alignItems:"center" }}>
+            <div className="fa2-cell" style={{ width:70 }}><small>{id}{tee ? " tee" : ""}</small></div>
+            {FIT.poses.map(pose => (
+              <div key={pose} style={{ position:"relative", width:size, height:size }}>
+                <RiderSprite {...look} pose={pose} size={size} />
+                {dots ? ["head", "eyes"].map(name => { const at = spriteAnchor(id, pose, name, size); return at ? <span key={name} className="fa2-dot" style={{ left:at[0], top:at[1], width:6, height:6, background:name === "eyes" ? "#00b0ff" : "#ff2d75" }} /> : null; }) : null}
+              </div>
+            ))}
+            <PortraitCell entrant={{ color:look.color, look:{ critter:id, hat:look.hat, shades:look.shades, ...(tee ? { shirt:"photo" } : {}) }, groom:look.groom, photo:tee ? SAMPLE_PHOTO : undefined }} size={size} />
+          </div>
+        );
+      }))}
+    </div>
+  );
+}
+
 function Portraits() {
   const [urls, setUrls] = useState({});
   useEffect(() => {
@@ -248,7 +306,7 @@ function Scene({ id, children, width = 960 }) {
 }
 
 function Scenes() {
-  const ids = [...SONGS.map(song => song.scene), "lobby", "bar", "podium"];
+  const ids = [...new Set([...SONGS.map(song => song.scene), "night", "lobby", "bar", "podium"])];
   return <div className="fa2-grid">{ids.map(id => <div key={id}><Scene id={id} /><small className="fa2-note">{id}{SONGS.find(s => s.scene === id) ? `: ${SONGS.find(s => s.scene === id).name}` : ""}</small></div>)}</div>;
 }
 
@@ -335,6 +393,7 @@ export default function ArtApp() {
     if (VIEW === "flotilla" || VIEW === "all") CRITTERS.forEach((c, i) => list.push({ critter:c.id, color:RIDER_COLORS[i], groom:c.id === "coyote" }));
     if (VIEW === "lastcall") CRITTERS.slice(0, 6).forEach((c, i) => list.push({ critter:c.id, color:RIDER_COLORS[i * 2], groom:false }));
     if (VIEW === "look") lookCells().forEach((cell, i) => list.push({ critter:query.get("id") || "capybara", color:RIDER_COLORS[i % RIDER_COLORS.length], ...cell.look, size:256 }));
+    if (VIEW === "fit") FIT.ids.forEach((id, i) => FIT.tees.forEach(tee => list.push({ ...fitLook(id, i, tee), size:spriteSize(FIT.size, window.devicePixelRatio || 1) })));
     if (VIEW === "crowns" || VIEW === "all") ALL.forEach((c, i) => list.push({ critter:c.id, color:RIDER_COLORS[i % RIDER_COLORS.length], groom:true }));
     return list;
   }, []);
@@ -352,6 +411,7 @@ export default function ArtApp() {
       {m && VIEW === "look" ? <><h2>{query.get("id")}: looks in every pose</h2><LookPoses id={query.get("id") || "capybara"} /></> : null}
       {m && show("critters") ? <><h2>Critters</h2><Critters /></> : null}
       {m && VIEW === "critter" ? <><h2>{query.get("id")}</h2><Critters ids={[query.get("id") || "capybara"]} size={200} /></> : null}
+      {m && VIEW === "fit" ? <Fit /> : null}
       {m && show("crowns") ? <><h2>The groom's crown</h2><Crowns /></> : null}
       {m && show("portraits") ? <><h2>Portraits</h2><Portraits /></> : null}
       {m && show("host") ? <><h2>Host</h2><Host /></> : null}

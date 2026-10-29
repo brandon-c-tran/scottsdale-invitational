@@ -592,7 +592,12 @@ export class FloatRoom {
     if (out.phases.length) return this.phaseChanged(out);
     if (out.decided) return this.chugoffSettled(out.decided);
     if (!PLAYING.has(cup.phase)) return;
-    if (out.offset || now - this.lastScores >= GROOVE.SCORES_MS || this.lastCallDue(now)) this.broadcastRoom();
+    const barDue = this.lastCallDue(now);
+    if (out.offset || now - this.lastScores >= GROOVE.SCORES_MS || barDue) {
+      this.broadcastRoom();
+      /* who drinks is known: every phone its place at the bar (me.lastCall.place) */
+      if (barDue === "told") this.sendMeAll(now);
+    }
     else if (now - this.lastDrivenAt >= DRIVEN_MS) {
       this.lastDrivenAt = now;
       const driven = cup.entrants.map((_, i) => this.driven(i, now) ? 1 : 0).join("");
@@ -606,12 +611,13 @@ export class FloatRoom {
     }
   }
 
-  /* Last Call's totals changed since the room last went out: due now if who
-     drinks is known, else at most every BAR_ROOM_MS */
+  /* Last Call's totals changed since the room last went out: due now
+     ("told") if who drinks is known, else at most every BAR_ROOM_MS (true) */
   lastCallDue(now) {
     const summary = Cup.lastCallSummary(this.cup, now);
     if (!summary || barKey(summary) === this.lastBarKey) return false;
-    return summary.worst !== null || now - this.lastScores >= BAR_ROOM_MS;
+    if (summary.worst !== null) return "told";
+    return now - this.lastScores >= BAR_ROOM_MS;
   }
 
   /* the Cup moved on: the cut's outs, a chug-off settled, who drank at Last

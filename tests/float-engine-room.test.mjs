@@ -833,10 +833,19 @@ test("Last Call over the wire: everyone at the bar taps once on zero on the last
   assert.deepEqual(taps.filter(event => event.i === B).map(event => event.d), [-40], "an out rider taps from the bank");
   assert.equal(taps.filter(event => event.i === C).length, 1, "a stand-in tapped for the quiet phone");
   assert.equal(taps.length, 7, "one tap a rider");
-  assert.deepEqual(a.all("me").filter(message => message.lastCall).at(-1).lastCall, { ms:730, d:730 });
+  const aMe = a.all("me").filter(message => message.lastCall);
+  assert.deepEqual(aMe.filter(message => message.s < deadline).at(-1).lastCall, { ms:730, d:730, place:null, of:7 }, "no place before the window closes");
+  const placed = told.lastCall.totals.find(row => row.i === A).place;
+  assert.ok(Number.isInteger(placed));
+  assert.deepEqual(aMe.at(-1).lastCall, { ms:730, d:730, place:placed, of:7 }, "the place at the bar, sent once who drinks is known");
+  assert.ok(aMe.at(-1).s >= deadline && aMe.at(-1).s <= deadline + 200, "at once");
+  assert.equal(told.lastCall.order.length, 7);
+  assert.deepEqual(told.lastCall.order.map(i => told.lastCall.totals.find(row => row.i === i).ms),
+    told.lastCall.totals.map(row => row.ms).sort((x, y) => x - y), "closest to farthest");
   const bMe = b.all("me").filter(message => message.lastCall).at(-1);
   assert.equal(bMe.out, true);
-  assert.deepEqual(bMe.lastCall, { ms:40, d:-40 });
+  assert.deepEqual([bMe.lastCall.ms, bMe.lastCall.d, bMe.lastCall.of], [40, -40, 7]);
+  assert.equal(bMe.lastCall.place, told.lastCall.totals.find(row => row.i === B).place);
   const next = tv.last("room");
   assert.equal(next.song, "rock");
   assert.equal(next.lastCall, null);

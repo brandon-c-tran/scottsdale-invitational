@@ -737,8 +737,11 @@ test("Last Call is the countdown: everyone in the Cup at the bar, one tap on zer
   assert.deepEqual(bar.samples, []);
   assert.equal(bar.offset, 140);
   const summary = lastCallOf(bar, deadline);
-  assert.deepEqual(summary.totals.find(row => row.i === out), { i:out, ms:1200, d:-1200 });
-  assert.deepEqual(summary.totals.find(row => row.i === other), { i:other, ms:LAST_CALL.MISS_MS, d:null }, "no tap: a full 3 s");
+  const { place:outPlace, ...outRow } = summary.totals.find(row => row.i === out);
+  assert.deepEqual(outRow, { i:out, ms:1200, d:-1200 });
+  const { place:otherPlace, ...otherRow } = summary.totals.find(row => row.i === other);
+  assert.deepEqual(otherRow, { i:other, ms:LAST_CALL.MISS_MS, d:null }, "no tap: a full 3 s");
+  assert.ok(outPlace < otherPlace, "closer is the better place");
   play(cup, clock, { until:() => cup.phase !== "lastcall" });
   const record = cup.history[0].lastCall;
   assert.deepEqual([record.id, record.trick, record.players.length], ["lastcall-lights", "lights", 7]);
@@ -754,6 +757,7 @@ test("Last Call's totals: 0 until the tap lands, then |d|, no tap a full 3 s; wh
   let summary = lastCallOf(bar, 100_000);
   assert.deepEqual(summary.totals, [{ i:2, ms:0, d:null }, { i:0, ms:0, d:null }, { i:1, ms:0, d:null }], "nothing yet");
   assert.equal(summary.worst, null);
+  assert.equal(summary.order, null, "no ranking until the window closes");
   tap(2, -400);
   tap(0, 900);
   const deadline = deadlineOf(bar, chart.cues[0], chart);
@@ -763,9 +767,16 @@ test("Last Call's totals: 0 until the tap lands, then |d|, no tap a full 3 s; wh
   summary = lastCallOf(bar, deadline);
   assert.deepEqual(summary.totals.map(row => row.ms), [400, 900, LAST_CALL.MISS_MS], "no tap counts the full 3 s");
   assert.deepEqual(summary.worst, [1]);
+  assert.deepEqual(summary.order, [2, 0, 1], "closest to farthest");
+  assert.deepEqual(summary.totals.map(row => row.place), [1, 2, 3]);
   tap(1, -900);
   summary = lastCallOf(bar, deadline);
   assert.deepEqual(summary.worst, [0, 1], "tied on the farthest: both drink");
+  assert.deepEqual(summary.order, [2, 0, 1], "a tie in the bar's order");
+  assert.deepEqual(summary.totals.map(row => row.place), [1, 2, 2], "and sharing a place");
+  tap(2, 900);
+  summary = lastCallOf(bar, deadline);
+  assert.deepEqual([summary.order, summary.totals.map(row => row.place)], [[2, 0, 1], [1, 1, 1]], "all tied: all first");
   assert.equal(summary.totals[2].ms, lastCallTotal({ 0:-900 }, chart));
   assert.deepEqual(summary.worst, lastCallWorst(summary.totals));
 });
@@ -788,7 +799,8 @@ test("three countdowns, harder each time (lights, slow, ticks), each its own len
   assert.deepEqual(mine.map(item => item.length), [0, 1, 2].map(lastCallPhaseMs));
   assert.ok(lastCallPhaseMs(0) > lastCallPhaseMs(2), "the first one's longer intro");
   for (const item of mine) {
-    assert.deepEqual(item.me.lastCall, { ms:30, d:30 }, "the phone's own, on the room's offset (0: nobody calibrated)");
+    assert.deepEqual(item.me.lastCall, { ms:30, d:30, place:null, of:7 },
+      "the phone's own, on the room's offset (0: nobody calibrated); no place before the window closes");
     assert.deepEqual([item.me.c, item.me.q, item.me.d], [0, "perfect", 30]);
   }
   for (const item of cup.history.slice(0, 3)) {

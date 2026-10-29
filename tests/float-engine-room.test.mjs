@@ -442,7 +442,7 @@ test("the chug-off over the wire: the last through and the first out race; the f
   assert.equal(tv.events("done").length, 0);
   const call = tv.last("room");
   assert.deepEqual([call.chugoff.a, call.chugoff.b, call.chugoff.winner, call.chugoff.by], [D, E, null, null]);
-  assert.equal(call.chugoff.goAt, call.startAt + CHUGOFF.INTRO_MS);
+  assert.equal(call.chugoff.goAt, call.startAt + CHUGOFF.INTRO_FIRST_MS, "the first chug-off's longer call");
   assert.equal(call.endsAt - call.startAt, CUP_TIMING.CHUGOFF_MAX_MS);
   await run(room, clock, 20000, () => room.cup.chugoff?.winner !== null, each);
   const settled = tv.last("room");

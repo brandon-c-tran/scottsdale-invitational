@@ -3496,6 +3496,21 @@ function gSplash(E, dest, t, { size = 1, f = 520 } = {}) {
   for (let i = 0; i < n; i++) flPlip(E, dest, t + 0.05 + i * 0.045 + rnd(0, 0.02), { f:rnd(900, 2000), gain:rnd(0.5, 0.9) * Math.min(1.1, k) });
 }
 
+/* A kayak blade's stroke (GROOVE.md v3 10: kayaks): the catch on the beat
+   (the blade biting the water: a crisp "tuk" and a small hollow bloop),
+   then the pull (the water swishing past the blade, falling), a drip or
+   two off the blade as it lifts. Tight, so a stroke on every 1 and 3
+   reads as rowing under any song. */
+function gStroke(E, dest, t, { size = 1, f = 520 } = {}) {
+  const k = Math.max(0.3, Math.min(1.3, size));
+  burst(E, dest, t, { f:1500, q:1.3, d:0.014, peak:0.55 * k });
+  burst(E, dest, t, { type:"highpass", f:5200, q:0.7, d:0.006, peak:0.22 * k });
+  glide(E, dest, t + 0.002, f * 0.7, f * 1.35, 0.05, 0.11 * k, { type:"sine" });
+  flSweep(E, dest, t + 0.012, { f0:2600, f1:620, q:1.1, d:0.17 + 0.05 * k, peak:0.3 * k, a:0.03 });
+  flSweep(E, dest, t + 0.03, { type:"lowpass", f0:1400, f1:300, q:0.7, d:0.14, peak:0.12 * k, a:0.02 });
+  flPlip(E, dest, t + 0.25 + rnd(0, 0.03), { f:rnd(1300, 1900), gain:0.55 * k });
+}
+
 /* ── the songs ──
    Each song: its key's chords for the eight-bar phrase (practice plays the
    first four), the intro's two (the tonic, then the five for the count-in),
@@ -3728,7 +3743,7 @@ function grooveBar(E, t0, o = {}) {
   const c = { E, S, id, sec, len, k:gInt(o.k, 0, len - 1, 0), part:gInt(o.part, 0, 1, 0), t:t0 + GROOVE_PRE_S,
     hits:gMarks(o.hits), calls:gMarks(o.calls), next:G_SECTIONS.includes(o.next) ? o.next : null, mode:String(o.mode || ""),
     finish:Number.isFinite(Number(o.finish)) ? Math.round(gNum(o.finish, 0, 3.75, 0) * 4) : null, cut:!!o.cut,
-    only:Array.isArray(o.only) ? o.only : null, V:gVoices(E, FL_BAND * 0.9) };
+    only:Array.isArray(o.only) ? o.only : null, V:gVoices(E, FL_BAND * (S.big ? 1 : 0.9)) };
   c.on = stem => !c.only || c.only.includes(stem);
   c.at = i => c.t + i * G16 + (i % 2 ? S.swing : 0);
   /* the sixteenths a crowd's "Hey!" or a host's voice has: the melody leaves them alone */
@@ -4220,7 +4235,7 @@ function gCrowdStandIn(E, at) {
 }
 /* The band's answer (floatAnswer) on a cue's beat. opts: kind (paddle,
    hey, hop, spin, drop), song, k, b (the beat in the bar), n, of. A
-   paddle's splash (left on one, right on three), the crowd's "Hey!" with
+   kayak stroke (left on one, right on three), the crowd's "Hey!" with
    a clap, a hop's boing at its call's note, a spin's whoosh landing on the
    backbeat, the drop's plunge. Its beat lands at t + GROOVE_PRE_S. */
 function grooveAnswer(E, t0, o = {}) {
@@ -4232,8 +4247,9 @@ function grooveAnswer(E, t0, o = {}) {
     const right = gInt(o.n, 0, 15, 0) % 2 === 1;
     /* under a host's call on the same beat (another song's move called over the rowing) the stroke is smaller and wider, the call clear */
     const under = !!o.under;
-    const v = voice(E, { pan:(right ? 1 : -1) * (under ? 0.62 : 0.45), send:0.24, bright:under ? 0.8 : 1, gain:under ? 0.7 : 1 });
-    gSplash(E, v, at, { size:under ? 0.6 : 0.8, f:right ? 620 : 520 });
+    /* a kayak's stroke, left then right */
+    const v = voice(E, { pan:(right ? 1 : -1) * (under ? 0.55 : 0.4), send:0.2, bright:under ? 0.8 : 1, gain:under ? 0.7 : 1 });
+    gStroke(E, v, at, { size:under ? 0.65 : 1, f:right ? 600 : 500 });
     return;
   }
   if (kind === "hey") {
@@ -4564,13 +4580,13 @@ function grooveYouPlace(E, t, o = {}) {
 /* ── v2 (float/GROOVE.md "After a song", "The chug-off", "Last Call: the
    countdown", "The breakdown") ── */
 /* the host's rhythm in the breakdown, Paddle Party's (floatEcho, opts.as,
-   n): the host's own paddle, a knock on the board and a small splash on the
+   n): the host's own paddle, a knock on the board and a blade's stroke on the
    left, the room's copy a bar later the band's splash */
 function grooveEcho(E, t0, o = {}) {
   const at = t0 + GROOVE_PRE_S, n = gInt(o.n, 0, 15, 0);
   const v = voice(E, { pan:-0.35, send:0.2, bright:1, gain:1 });
-  M.knock(E, at, { pitch:1.9 + (n % 2) * 0.22, gain:0.5, pan:-0.35 });
-  gSplash(E, v, at + 0.004, { size:0.55, f:760 + (n % 2) * 90 });
+  M.knock(E, at, { pitch:1.9 + (n % 2) * 0.22, gain:0.35, pan:-0.35 });
+  gStroke(E, v, at + 0.002, { size:0.75, f:700 + (n % 2) * 90 });
 }
 /* Last Call's bartender (floatBarVoice, opts.line): his clips, a little left
    at the bar; a low chirp a syllable stands in until they decode */

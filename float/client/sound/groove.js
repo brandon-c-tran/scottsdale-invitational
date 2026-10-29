@@ -13,7 +13,7 @@
                   two, three, four" in the intro's last bar; the practice's
                   narration (chart.lines) and "Copy me", each placed so it
                   never covers a call (narration)
-     the answer   on every cue's own beat, for everyone: a paddle's splash,
+     the answer   on every cue's own beat, for everyone: a kayak paddle's stroke,
                   the crowd's "Hey!", a hop's boing on its call's note, a
                   spin's whoosh, the drop's plunge; an echo in its song's sound
 

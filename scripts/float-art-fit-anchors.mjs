@@ -15,7 +15,8 @@
    measure { headW, eyeSpan, tilt } (degrees, the eye line's slope), which
    the painter reads before the critter's own measure.
 
-     node scripts/float-art-fit-anchors.mjs [ids...] [--dry] [--debug <dir>] */
+     node scripts/float-art-fit-anchors.mjs [ids...] [--dry] [--debug <dir>] [--origin]
+   (--origin: the tube sprites' run, searching from their first eyes in float-art-fit-origin.json) */
 import fs from "node:fs";
 import path from "node:path";
 import sharp from "sharp";
@@ -31,10 +32,10 @@ const only = args.filter((a, i) => !a.startsWith("--") && args[i - 1] !== "--deb
 const val = (r, g, b) => Math.max(r, g, b) / 255;
 /* a fix by eye, by critter, set ("plain", "tee", "portrait") and pose: any of { head, eyes, headW, eyeSpan, tilt } (box px) */
 export const FIT_FIX = {
-  /* a three quarter face: the skull's top is left of where the forehead walk lands */
-  /* the ears move the top about from pose to pose: what is measured stands */
-  jackrabbit:{ trust:true, drop:{ px:42, skip:["out"] } },
-  capybara:{ follow:true, plain:{ idle:{ head:[277, 214], headW:172 } }, portrait:null },
+  /* a three quarter face: the skull's top is left of where the forehead walk lands (the snout) */
+  /* the walk up runs into an ear when the head leans: idle's top, turned with the eyes (the flopped ears of out are measured) */
+  jackrabbit:{ follow:true, followSkip:["out"], drop:{ px:20, only:["portrait"] } },
+  capybara:{ follow:true, plain:{ idle:{ head:[262, 214], headW:160 } }, portrait:{ head:[569, 300], headW:330 } },
 };
 
 /* the eyes: two small round dark dots, side by side, near `near` (R: the ring's width in this image) */
@@ -141,6 +142,8 @@ async function measureSet(file, R, near, fallback, idle = null) {
   let pair = findEyePair(img, R, near);
   /* a pair far off idle's span is a snout's nostrils or a paw's pads, not the eyes */
   if (pair && idle && (pair.span < idle.eyeSpan * 0.72 || pair.span > idle.eyeSpan * 1.4)) pair = null;
+  /* nor is a pair whose line leans far off idle's (an eye and a spot) */
+  if (pair && idle && Math.abs(pair.tilt * 180 / Math.PI - idle.tilt) > 18) pair = null;
   const eyes = pair || (fallback ? { x:near[0], y:near[1], span:fallback.eyeSpan, tilt:0, guessed:true } : null);
   if (!eyes) return null;
   const m = headFrom(img, eyes, R);
@@ -193,7 +196,8 @@ async function debugShot(img, m, file) {
 const manifest = JSON.parse(fs.readFileSync(path.join(OUT, "manifest.json"), "utf8"));
 /* where the eyes were before this script's first run (the search starts there) */
 const ORIGIN_FILE = fileURLToPath(new URL("./float-art-fit-origin.json", import.meta.url));
-const ORIGIN = fs.existsSync(ORIGIN_FILE) ? JSON.parse(fs.readFileSync(ORIGIN_FILE, "utf8")) : null;
+/* --origin: search from the tube art's first eyes (the Oct 27 sprites); new art searches from its own manifest's eyes */
+const ORIGIN = args.includes("--origin") && fs.existsSync(ORIGIN_FILE) ? JSON.parse(fs.readFileSync(ORIGIN_FILE, "utf8")) : null;
 const RING = 250;
 const results = {};
 const report = [];
@@ -227,7 +231,7 @@ for (const [id, c] of Object.entries(manifest.critters)) {
         const expect = [m.eyes[0] + ox * Math.cos(t) - oy * Math.sin(t), m.eyes[1] + ox * Math.sin(t) + oy * Math.cos(t)];
         const off = Math.hypot(m.head[0] - expect[0], m.head[1] - expect[1]);
         const ratio = m.headW / idle.headW;
-        if (FIT_FIX[id]?.follow || (!FIT_FIX[id]?.trust && off > idle.headW * 0.6)) {
+        if ((FIT_FIX[id]?.follow && !FIT_FIX[id]?.followSkip?.includes(pose)) || (!FIT_FIX[id]?.trust && off > idle.headW * 0.6)) {
           report.push(`${id} ${set} ${pose}: follows idle (off ${Math.round(off)}, width x${r1(ratio)})`);
           m.head = expect; m.headW = idle.headW;
         } else if (ratio < 0.75 || ratio > 1.35) {
@@ -242,7 +246,9 @@ for (const [id, c] of Object.entries(manifest.critters)) {
     }
   }
   if (c.portrait) {
-    const R = await ringWidth(c.portrait.tube, RING * 2);
+    /* the portrait's scale: its kayak (or ring) mask against idle's, idle's critter measured at RING */
+    const idleW = await ringWidth(c.poses.idle.tube, RING);
+    const R = RING * (await ringWidth(c.portrait.tube, idleW * 2)) / idleW;
     const m = await measureSet(c.portrait.src, R, c.portrait.anchor.eyes, c.portrait.measure);
     const fix = FIT_FIX[id]?.portrait || null;
     if (m && fix) Object.assign(m, fix);
@@ -270,7 +276,7 @@ if (!DRY) {
   /* the skull's top where the walk stops short of it (between a jackrabbit's ears): lowered along the face */
   const dropped = (id, pose, m) => {
     const drop = FIT_FIX[id]?.drop;
-    if (!drop || drop.skip?.includes(pose)) return m.head;
+    if (!drop || drop.skip?.includes(pose) || (drop.only && !drop.only.includes(pose))) return m.head;
     const t = m.tilt * Math.PI / 180, k = drop.px * (pose === "portrait" ? 2 : 1);
     return [m.head[0] - Math.sin(t) * k, m.head[1] + Math.cos(t) * k];
   };

@@ -92,12 +92,12 @@ export const SHIRT_IDS = Object.freeze(ids(SHIRTS));
 export const POSE_IDS = Object.freeze(ids(POSES));
 
 /* the look a rider gets before they pick: seeded by any string (a device or
-   player id), so a screen and a phone agree on a default */
-export function defaultLook(seed = "", floatieIds = ["classic"]) {
+   player id), so a screen and a phone agree on a default; the groom's wears the crown */
+export function defaultLook(seed = "", floatieIds = ["classic"], { groom = false } = {}) {
   let h = 2166136261;
   for (const ch of String(seed)) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); }
   const pick = (list, salt) => list[(Math.abs(h + salt * 7919) >>> 0) % list.length];
-  return { critter:pick(CRITTER_IDS, 1), floatie:pick(floatieIds, 2), hat:"none", shades:"none", shirt:"none", pose:pick(POSE_IDS, 3) };
+  return { critter:pick(CRITTER_IDS, 1), floatie:pick(floatieIds, 2), hat:groom ? "crown" : "none", shades:"none", shirt:"none", pose:pick(POSE_IDS, 3) };
 }
 
 /* a look made legal: unknown ids fall back, a retired hat or pair is the

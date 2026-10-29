@@ -316,7 +316,8 @@ test("the calibration is people's practice only: median, at most once a beat, fr
       if (song.offset !== last) { changes.push(Math.floor((t - song.songAt) / 500)); last = song.offset; }
     } });
   assert.deepEqual(song.samples, lags.slice(0, song.samples.length), "only the person's taps are samples");
-  assert.ok(song.samples.length >= 8);
+  assert.equal(song.samples.length, practice.length, "every practice tap before the freeze (7 in Paddle Party)");
+  assert.ok(practice.length >= 6);
   assert.equal(song.offset, 150, "the median");
   assert.ok(new Set(changes).size === changes.length, `at most once a beat (${changes})`);
   /* frozen half a beat before the first play bar */
@@ -569,7 +570,7 @@ test("addBots fills with named computer riders; toLobby lets them go; a saved 3D
   cup.entrants.length = 13;
   const bots = cup.entrants.filter(entrant => entrant.bot);
   assert.equal(new Set(bots.map(entrant => entrant.name)).size, 12);
-  assert.ok(bots.every(entrant => entrant.skill >= 0.2 && entrant.skill <= 0.95 && entrant.color && entrant.look.critter !== "winnie"));
+  assert.ok(bots.every(entrant => entrant.skill >= 0.1 && entrant.skill <= 0.65 && entrant.color && entrant.look.critter !== "winnie"));
   startCup(cup, 0);
   toLobby(cup, 5);
   assert.deepEqual(cup.entrants.map(entrant => entrant.name), ["Ann"]);
@@ -620,9 +621,9 @@ test("demo cues are the host's: never judged, missed, tapped by a bot or a stand
   }
 });
 
-test("Rock Hop's practice has three cues to tap: a lone phone keeps the last song's offset", () => {
+test("a practice with three taps from people: a lone phone keeps the last song's offset", () => {
   const chart = chartOf("rock");
-  assert.equal(practiceCues(chart).length, 3);
+  assert.ok(practiceCues(chart).length >= 4, "every practice has enough to calibrate (v3: rowing in every song)");
   const cup = cupOf(3, { people:1 });
   cup.offset = 110;
   advance(cup, cup.endsAt);
@@ -632,7 +633,7 @@ test("Rock Hop's practice has three cues to tap: a lone phone keeps the last son
   assert.equal(song.id, "rock");
   const clock = { t:song.songAt };
   play(cup, clock, { until:() => song.frozen, each:t => {
-    for (const cue of practiceCues(chart)) if (!song.judged[0][cue.id] && cueTime(song.songAt, cue.beat) + 30 <= t)
+    for (const cue of practiceCues(chart).slice(0, 3)) if (!song.judged[0][cue.id] && cueTime(song.songAt, cue.beat) + 30 <= t)
       applyHit(cup, song, 0, { c:cue.id, r:30 }, t);
   } });
   assert.equal(song.samples.length, 3);
@@ -737,8 +738,11 @@ test("Last Call is the countdown: everyone in the Cup at the bar, one tap on zer
   assert.deepEqual(bar.samples, []);
   assert.equal(bar.offset, 140);
   const summary = lastCallOf(bar, deadline);
-  assert.deepEqual(summary.totals.find(row => row.i === out), { i:out, ms:1200, d:-1200 });
-  assert.deepEqual(summary.totals.find(row => row.i === other), { i:other, ms:LAST_CALL.MISS_MS, d:null }, "no tap: a full 3 s");
+  const { place:outPlace, ...outRow } = summary.totals.find(row => row.i === out);
+  assert.deepEqual(outRow, { i:out, ms:1200, d:-1200 });
+  const { place:otherPlace, ...otherRow } = summary.totals.find(row => row.i === other);
+  assert.deepEqual(otherRow, { i:other, ms:LAST_CALL.MISS_MS, d:null }, "no tap: a full 3 s");
+  assert.ok(outPlace < otherPlace, "closer is the better place");
   play(cup, clock, { until:() => cup.phase !== "lastcall" });
   const record = cup.history[0].lastCall;
   assert.deepEqual([record.id, record.trick, record.players.length], ["lastcall-lights", "lights", 7]);
@@ -754,6 +758,7 @@ test("Last Call's totals: 0 until the tap lands, then |d|, no tap a full 3 s; wh
   let summary = lastCallOf(bar, 100_000);
   assert.deepEqual(summary.totals, [{ i:2, ms:0, d:null }, { i:0, ms:0, d:null }, { i:1, ms:0, d:null }], "nothing yet");
   assert.equal(summary.worst, null);
+  assert.equal(summary.order, null, "no ranking until the window closes");
   tap(2, -400);
   tap(0, 900);
   const deadline = deadlineOf(bar, chart.cues[0], chart);
@@ -763,9 +768,16 @@ test("Last Call's totals: 0 until the tap lands, then |d|, no tap a full 3 s; wh
   summary = lastCallOf(bar, deadline);
   assert.deepEqual(summary.totals.map(row => row.ms), [400, 900, LAST_CALL.MISS_MS], "no tap counts the full 3 s");
   assert.deepEqual(summary.worst, [1]);
+  assert.deepEqual(summary.order, [2, 0, 1], "closest to farthest");
+  assert.deepEqual(summary.totals.map(row => row.place), [1, 2, 3]);
   tap(1, -900);
   summary = lastCallOf(bar, deadline);
   assert.deepEqual(summary.worst, [0, 1], "tied on the farthest: both drink");
+  assert.deepEqual(summary.order, [2, 0, 1], "a tie in the bar's order");
+  assert.deepEqual(summary.totals.map(row => row.place), [1, 2, 2], "and sharing a place");
+  tap(2, 900);
+  summary = lastCallOf(bar, deadline);
+  assert.deepEqual([summary.order, summary.totals.map(row => row.place)], [[2, 0, 1], [1, 1, 1]], "all tied: all first");
   assert.equal(summary.totals[2].ms, lastCallTotal({ 0:-900 }, chart));
   assert.deepEqual(summary.worst, lastCallWorst(summary.totals));
 });
@@ -788,7 +800,8 @@ test("three countdowns, harder each time (lights, slow, ticks), each its own len
   assert.deepEqual(mine.map(item => item.length), [0, 1, 2].map(lastCallPhaseMs));
   assert.ok(lastCallPhaseMs(0) > lastCallPhaseMs(2), "the first one's longer intro");
   for (const item of mine) {
-    assert.deepEqual(item.me.lastCall, { ms:30, d:30 }, "the phone's own, on the room's offset (0: nobody calibrated)");
+    assert.deepEqual(item.me.lastCall, { ms:30, d:30, place:null, of:7 },
+      "the phone's own, on the room's offset (0: nobody calibrated); no place before the window closes");
     assert.deepEqual([item.me.c, item.me.q, item.me.d], [0, "perfect", 30]);
   }
   for (const item of cup.history.slice(0, 3)) {

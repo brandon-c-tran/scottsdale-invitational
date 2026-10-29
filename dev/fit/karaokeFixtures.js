@@ -15,10 +15,6 @@
      order          the running order dealt 3 s in
      up             the third singer up next, 4 s into the walk-up
      singing        the third singer's video 50 s in, four votes in
-     lyrics         the same sung over an instrumental with our lyrics
-                    (stand-in lines, KARAOKE_FIT_LYRICS): a long line a
-                    third sung, the next under it
-     lyrics-wait    the same 3 s in, before the first line
      practice       the same with a practice song (no video): the lit card
      failed         the same with a video that will not play (no
                     alternate left): the lit card
@@ -35,7 +31,6 @@ import {
 } from "../../shared/karaoke.js";
 import { applyAction } from "../../worker/actions.js";
 import { svgDataUri } from "./standins.js";
-import { KARAOKE_FIT_LYRICS, fitInstrumental } from "./karaokeLyricsFixture.js";
 
 /* a drawn cover, a hue a song (the audit never reaches Spotify's image host) */
 const cover = hue => svgDataUri(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" fill="hsl(${hue} 45% 28%)"/>`
@@ -170,15 +165,9 @@ export function karaokeStage(stage, { now = Date.now(), project = true } = {}) {
       } else {
         const singer = game.order[k];
         if (stage === "practice") game.songs[singer] = structuredClone(KARAOKE_PRACTICE_SONGS[2]);
-        /* sung with our lyrics: the instrumental first, the karaoke upload its alternate */
-        if (stage === "lyrics" || stage === "lyrics-wait") {
-          const song = game.songs[singer];
-          game.songs[singer] = { ...song, lyrics:true, video:fitInstrumental(song, "fitInstrum3"), alts:[song.video] };
-          game.lyrics = { [song.trackId]:structuredClone(KARAOKE_FIT_LYRICS) };
-        }
         const length = karaokeSongMs(game.songs[singer], { video:0 });
-        /* singing: 50 s in (a practice song 12 s in, the lyrics' intro 3 s in); voting: the song ended 8 s ago */
-        const into = stage === "voting" ? length + 8000 : stage === "practice" ? 12000 : stage === "lyrics-wait" ? 3000 : 50000;
+        /* singing: 50 s in (a practice song 12 s in); voting: the song ended 8 s ago */
+        const into = stage === "voting" ? length + 8000 : stage === "practice" ? 12000 : 50000;
         const songAt = now - into;
         const upAt = songAt - KARAOKE_UP_MS - 1500;
         sungBefore(state, game, k, upAt);

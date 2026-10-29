@@ -19,8 +19,7 @@
    browser would not start it (onAutoplayBlocked, or still unstarted or
    cued 3 s after it was told to play); the TV then shows Click to play
    (play()). The TV's Sound switch mutes it. `time()` is the video's own
-   position in seconds while it plays (null otherwise), the clock the
-   lyric stage lights the words by. A TV held still (`fixed`: the
+   position in seconds while it plays (null otherwise). A TV held still (`fixed`: the
    fit audit, a rehearsal) never creates a player, and nothing here runs
    at import time. */
 import { useEffect, useRef, useState } from "react";

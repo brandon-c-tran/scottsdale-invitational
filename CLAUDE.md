@@ -1002,33 +1002,24 @@ weekend's dates live once in `EDITION` in core, never spelled out in a view.
   has no Save: Use is the save. Home's list adds "Pick a karaoke song".
   Fit views `karaoke-song*` (stand-in thumbnails ride a `thumb` field the
   server never sends).
-- **Karaoke lyrics** (Oct 15, docs/KARAOKE.md "Lyrics"; `shared/karaokeLyrics.js`,
-  `worker/lyrics.js`, `features/karaoke/Lyrics.jsx`): Brandon's native
-  karaoke, "like Songsterr's YouTube backing". A song sung over a YouTube
-  INSTRUMENTAL shows LRCLIB's synced lyrics on the TV and the singer's
-  phone; a karaoke upload keeps its own words ("Video lyrics"), as does any
-  song without synced lyrics. The lookup asks LRCLIB (free, one
-  `/api/search` with our User-Agent, length within 3 s of Spotify's,
-  `private:lyrics:<trackId>` 30 days, a miss a day) beside ONE search
-  ("{artist} {song} instrumental": title says instrumental, names the song,
-  within 2.5 s of Spotify's length, never "- Topic"); karaoke uploads are
-  the second tier (`findBackingVideos`, `chooseBacking`; `private:karaoke:`
-  now `v:2`). The profile song's `lyrics` boolean is the server's answer,
-  never the phone's; `lyricsOffset` is the commissioner's nudge
-  (`karaokeNudge`, 0.25 s steps, ±10 s, on the desk row of the singer up).
-  After every persisted write the Durable Object fills what
-  `karaokeLyricsWanted` owes (lyrics, and for a song saved before Oct 15
-  its instrumental) in one `karaokeLyrics` write; `state.karaoke.lyrics` and
-  `upgrade` are server only, and frames carry the current singer's lines
-  alone, from up (as public as the song), plus the viewer's own `ways`.
-  `karaokeArrange` plays an instrumental first with lyrics and a karaoke
-  upload first without; the profile is never rewritten. The TV keeps the
-  player visible at 480x270 top right (`KARAOKE_LYRIC_VIDEO_BOX`, nothing
-  over it) beside the singer's plate; the lyric stage lights each word as
-  it is sung (`lyricCue`, timed to `getCurrentTime()` plus the nudge);
-  phones time from the song's start on the server clock (`lyricClockMs`):
-  the singer's teleprompter, a voter's line above the vote. "Lyrics" /
-  "Video lyrics" lamps (`KaraokeWay`) on the pick sheet, picker and desk.
+- **Karaoke lyrics: OFF** (Oct 28, Brandon's call, docs/KARAOKE.md
+  "Lyrics, off"): our own synced lyrics over a YouTube instrumental (Oct 15)
+  did not play reliably, and the karaoke uploads with their words on them
+  work, so every song plays the video way. `karaokeWay` is "video" (or
+  "card" with no upload); the lookup is the karaoke search alone (no
+  instrumental search, LRCLIB never asked; a kept lookup answers with its
+  uploads that are not instrumentals, `private:karaoke:` now `v:3`); no lyric
+  stage, teleprompter, "Lyrics"/"Video lyrics" lamp or desk nudge. A song
+  saved Oct 15 to 28 whose chosen upload is an instrumental (`karaokeVideoKind`
+  by title) plays a karaoke alternate at the order draw (`karaokeArrange`);
+  with none (`karaokeNeedsWords`), the DO's fill (still named
+  `karaokeLyricsWanted`/`karaokeLyrics`, server only) searches one karaoke
+  upload into `state.karaoke.upgrade`, and with none found asks its owner
+  for another song (`broken` "words", `karaokeNoWords`). Profiles are never
+  rewritten. Older stored data (`lyrics`, `lyricsOffset`,
+  `state.karaoke.lyrics`, `private:lyrics:*`) loads and stays unread; the
+  dormant modules (`shared/karaokeLyrics.js`, `worker/lyrics.js`,
+  `features/karaoke/Lyrics.jsx`, the `karaokeNudge` reducer) are unmounted.
 - **Karaoke** (Oct 13, the contract is `docs/KARAOKE.md`; pure model
   `shared/karaoke.js`, reducers `worker/karaoke.js`, the TV
   `features/tv/TVKaraoke.jsx` on `karaokeTv.js`, the phones

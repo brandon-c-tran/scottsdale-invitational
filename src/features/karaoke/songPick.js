@@ -2,7 +2,7 @@
    link's video id, a video's picture and length, the song a Use saves, and
    what a preview that will not play says. Pure. docs/KARAOKE.md is the
    contract; shared/karaoke.js keeps the song (cleanKaraokeTrack). */
-import { KARAOKE_ALTS_MAX, isYouTubeId, karaokeSongWay, karaokeThumb, karaokeWay } from "../../../shared/karaoke.js";
+import { KARAOKE_ALTS_MAX, isYouTubeId, karaokeThumb } from "../../../shared/karaoke.js";
 import { songClock } from "../music/winSongModel.js";
 
 export const KARAOKE_CREDIT = "Songs from Spotify. Videos from YouTube.";
@@ -51,20 +51,12 @@ export function videoChoices(found, pasted = null) {
 }
 
 /* What Use saves (karaokeSong { track }): the Spotify song, the video, and
-   the other candidates as its alternates for the TV's Next video. `lyrics`
-   is the lookup's word on synced lyrics (the server keeps its own). */
-export function karaokeChoice(track, video, candidates = [], { lyrics } = {}) {
+   the other candidates as its alternates for the TV's Next video. */
+export function karaokeChoice(track, video, candidates = []) {
   const { startMs, lyrics:_lyrics, lyricsOffset, ...spotify } = track || {};
   return { ...spotify, video:videoFields(video),
-    alts:(candidates || []).filter(other => other?.id && other.id !== video.id).slice(0, KARAOKE_ALTS_MAX).map(videoFields),
-    ...(typeof lyrics === "boolean" ? { lyrics } : {}) };
+    alts:(candidates || []).filter(other => other?.id && other.id !== video.id).slice(0, KARAOKE_ALTS_MAX).map(videoFields) };
 }
-
-/* how a candidate would play (docs/KARAOKE.md "Lyrics"): an instrumental
-   when the song has synced lyrics is "lyrics", anything else "video" */
-export const candidateWay = (video, lyrics, name = "") => karaokeWay(video, lyrics === true, name);
-/* how a saved song will play: the frame's word in a pick window, else the song's own */
-export const savedWay = (song, way = null) => way || (song?.video ? karaokeSongWay(song) : null);
 
 /* the song a frame carries and the one just saved are the same song */
 export const sameSong = (a, b) => !!a && !!b && a.trackId === b.trackId && a.video?.id === b.video?.id;

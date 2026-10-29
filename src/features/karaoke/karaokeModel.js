@@ -9,7 +9,7 @@
 import { allEventsOf, disp, isAbsent, isActivePlayer, presentPlayers, resolveEventLifecycle } from "../../../shared/core.js";
 import {
   KARAOKE_LEGENDARY_MS, KARAOKE_MORE_TIME_MAX, KARAOKE_TIERS, KARAOKE_UP_MS, hasKaraokeSong, karaokeAutoBeat,
-  karaokeGame, karaokeInstants, karaokeLinesFor, karaokeLive, karaokeNextSinger, karaokeRevealAt, karaokeScoreText, karaokeSinger,
+  karaokeGame, karaokeInstants, karaokeLive, karaokeNextSinger, karaokeRevealAt, karaokeScoreText, karaokeSinger,
   karaokeSongWay, karaokeStage, karaokeTierOf, karaokeTrackOf, karaokeTurn, karaokeTurnWay, karaokeVoteOpen, karaokeVoters,
   karaokeVotesOn, KARAOKE_RESTART_CONFIRM, karaokeSkipConfirm,
 } from "../../../shared/karaoke.js";
@@ -79,9 +79,8 @@ export function karaokeView(state, me = null, now = Date.now()) {
     myReady:!!me && !!game.ready?.[me], broken:!!me && game.broken?.[me] !== undefined && game.broken?.[me] !== null,
     mySong:songOf(me),
   });
-  /* how your own song will play (the window's lamp): the frame's word for
-     it once the server has looked, else your profile's */
-  view.myWay = (me && game.ways?.[me]) || (view.mySong?.video ? karaokeSongWay(view.mySong) : null);
+  /* how your own song will play: its video, or the lit card */
+  view.myWay = view.mySong ? karaokeSongWay(view.mySong) : null;
 
   /* the turn on stage */
   const singer = karaokeSinger(game);
@@ -107,13 +106,8 @@ export function karaokeView(state, me = null, now = Date.now()) {
     voteOpen:!!turn && karaokeVoteOpen(turn, now) && now < Number(turn.closeAt),
     nextSinger:karaokeNextSinger(state, game),
   });
-  /* the turn sung over an instrumental: our lyrics, timed from the song's
-     start on the server clock plus the song's nudge (the frame carries the
-     current singer's lines only, once they are up) */
-  const playing = singer ? game.songs?.[singer] || null : null;
+  /* how the turn on now plays: its video (the words on it), or the lit card */
   view.way = turn ? karaokeTurnWay(game, singer, turn) : null;
-  view.lines = view.way === "lyrics" ? karaokeLinesFor(game, playing) : null;
-  view.lyricsOffset = Number(playing?.lyricsOffset) || 0;
 
   /* your own turn, closed Legendary: the stamp holds while the TV rains it */
   const myTurn = me ? game.turns?.[me] || null : null;

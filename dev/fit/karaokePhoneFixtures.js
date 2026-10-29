@@ -15,14 +15,11 @@
      pick-none    the same, the viewer without a song
      pick-broken  the same, the viewer's video failed the window's check
      pick-locked  the same, the viewer locked in
-     pick-lyrics  the same, the viewer's song an instrumental with lyrics
      up           the viewer's walk-up (three have sung)
      singing      the viewer's song playing
-     singing-lyrics  the same sung over an instrumental: the teleprompter
      up-watch     the next singer's walk-up, the viewer's turn closed
      legendary    the viewer's turn just closed Legendary, the next singer up after the rain
      vote         the next singer's song playing, the viewer not voted yet
-     vote-lyrics  the same sung over an instrumental: the line above the vote
      voted        the same, the viewer's Amazing in
      closing      that song over, its vote still open, the viewer not voted
      closed       that vote past its close, the write still owed
@@ -34,7 +31,6 @@ import {
   cleanKaraokeTrack, karaokeGameId, karaokeLegendary, karaokeRanking, karaokeSchedule, karaokeSeed, karaokeSnapshot,
 } from "../../shared/karaoke.js";
 import { applyAction } from "../../worker/actions.js";
-import { KARAOKE_FIT_LYRICS, fitInstrumental } from "./karaokeLyricsFixture.js";
 
 export const KARAOKE_FIT_VIEWER = "Richard";
 const EVENT = "karaoke";
@@ -159,28 +155,7 @@ function playThrough(game, count, next, { legendary = false } = {}) {
   });
 }
 
-/* a song sung over an instrumental with our lyrics: its profile song and
-   the game's copy, the lines the Durable Object found */
-function withLyrics(state, game, player) {
-  const track = state.profiles[player].karaokeTrack;
-  const sung = { ...track, lyrics:true, video:fitInstrumental(track, `fitins${String(KARAOKE_FIT_ORDER.indexOf(player)).padStart(5, "0")}`),
-    alts:[track.video] };
-  state.profiles[player] = { ...state.profiles[player], karaokeTrack:sung };
-  if (game.songs[player]) game.songs[player] = karaokeSnapshot(sung);
-  game.lyrics = { ...(game.lyrics || {}), [track.trackId]:structuredClone(KARAOKE_FIT_LYRICS) };
-}
-
 export function karaokePhoneStage(stage = "pick", { now = Date.now() } = {}) {
-  if (stage === "singing-lyrics" || stage === "vote-lyrics") {
-    const state = karaokePhoneStage(stage === "singing-lyrics" ? "singing" : "vote", { now });
-    withLyrics(state, state.karaoke, state.karaoke.order[state.karaoke.index]);
-    return state;
-  }
-  if (stage === "pick-lyrics") {
-    const state = karaokePhoneStage("pick", { now });
-    withLyrics(state, state.karaoke, KARAOKE_FIT_VIEWER);
-    return state;
-  }
   if (stage === "ahead") {
     const state = withSongs(base({ start:false }), now, { viewer:false });
     state.updatedAt = now;

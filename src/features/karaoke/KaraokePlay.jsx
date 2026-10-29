@@ -6,15 +6,11 @@ import { playSound, unlockSound } from "../../lib/sound.js";
 import { writeError } from "../../lib/writeErrors.js";
 import { disp } from "../../../shared/core.js";
 import { KARAOKE_TIERS, karaokeArtists } from "../../../shared/karaoke.js";
-import { lyricClockMs } from "../../../shared/karaokeLyrics.js";
-import { serverNow } from "../../lib/serverClock.js";
 import { ChipFace } from "../identity/PlayerIdentity.jsx";
 import { songTitle } from "../home/GuestHome.jsx";
 import { Icon } from "../../ui/Icon.jsx";
 import { MenuGroup, MenuRow } from "../../ui/Menu.jsx";
 import { KaraokeSongPicker } from "./KaraokeSongPicker.jsx";
-import { KaraokeWay } from "./KaraokeWay.jsx";
-import { Lyrics } from "./Lyrics.jsx";
 import { Countdown, Drain, useKaraokeNow } from "./KaraokeClock.jsx";
 import { karaokeOpenKey, karaokeScreen, karaokeTray, karaokeView, ordinal, tierOf, tierPaint } from "./karaokeModel.js";
 import { voteFlight } from "./voteFlight.js";
@@ -35,17 +31,6 @@ function Song({ song, size = "lg", className = "" }) {
       <b data-fit={size === "sm" ? "ellipsis" : undefined}>{songTitle(song.name)}</b>
       <small data-fit={size === "sm" ? "ellipsis" : undefined}>{karaokeArtists(song)}</small></span>
   </div>;
-}
-
-/* The turn's lyrics on this phone, timed from the song's start on the
-   server clock (from when a TV saw it start) plus the song's nudge; a
-   still (`fixed`) draws the instant it was given. */
-function TurnLyrics({ view, fixed, variant }) {
-  const latest = useRef(view);
-  latest.current = view;
-  const [clock] = useState(() => () => lyricClockMs(latest.current.turn, serverNow(), latest.current.lyricsOffset));
-  return <Lyrics lines={view.lines} variant={variant} clock={fixed === undefined ? clock : null}
-    at={fixed === undefined ? null : lyricClockMs(view.turn, fixed, view.lyricsOffset)} />;
 }
 
 /* the room as chips, each lit as it happens (locked in, voted), never what */
@@ -93,10 +78,9 @@ function Pick({ view, onAct, karaoke }) {
     <main className={`fd-karaoke-body is-pick${picking ? " is-picking" : ""}`}>
       {picking ? <>
         {view.broken && !changing && <p className="fd-karaoke-broken" role="status"><Icon name="close" size={16} />Pick another song</p>}
-        <KaraokeSongPicker value={view.broken ? null : song} way={view.myWay} enabled={karaoke} muted compact onChoose={choose} />
+        <KaraokeSongPicker value={view.broken ? null : song} enabled={karaoke} muted compact onChoose={choose} />
       </> : <>
         <Song song={song} size="hero" className={locked ? "is-locked" : ""} />
-        <KaraokeWay way={view.myWay} className="fd-karaoke-way" />
       </>}
     </main>
     <footer className="fd-karaoke-foot">
@@ -123,22 +107,9 @@ function PickWatch({ view }) {
 
 /* ── a turn ── */
 /* the singer's own walk-up and song: You’re up, then Singing, with the room
-   lighting as it votes (never how). Sung over an instrumental, the song is
-   the teleprompter: the line to sing lit word by word, the next under it. */
-function Stage({ view, me, word, fixed }) {
+   lighting as it votes (never how). The words are on the TV's video. */
+function Stage({ view, me, word }) {
   const up = word === "You’re up";
-  if (!up && view.way === "lyrics" && view.lines) return <>
-    <main className="fd-karaoke-body is-prompt">
-      <div className="fd-karaoke-prompt-head">
-        <span className="fd-karaoke-face is-mine"><ChipFace p={me} size={40} /></span>
-        <Song song={view.singerSong} size="sm" />
-      </div>
-      <TurnLyrics view={view} fixed={fixed} variant="prompt" />
-    </main>
-    <footer className="fd-karaoke-foot">
-      <Room lanes={voteRoom(view)} label={`${view.votedCount} of ${view.voters.length} voted`} />
-    </footer>
-  </>;
   return <>
     <main className={`fd-karaoke-body is-stage${up ? " is-up" : ""}`}>
       <h2 className={`fd-karaoke-word${up ? " is-up" : ""}`}>{word}</h2>
@@ -207,7 +178,6 @@ function Vote({ state, view, onAct, fixed }) {
         <b className="fd-karaoke-singer-name">{disp(state, view.singer)}</b>
         <Song song={view.singerSong} size="sm" />
       </div>
-      {view.way === "lyrics" && view.lines && view.stage === "singing" && <TurnLyrics view={view} fixed={fixed} variant="line" />}
       <h3 className="fd-karaoke-vote-title">Vote</h3>
       <Tiers lit={lit} disabled={!view.voteOpen} onTap={tap} />
     </main>

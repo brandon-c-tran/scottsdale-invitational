@@ -3,52 +3,77 @@
    serverNow) and turned into the engine's clock as it is cued.
 
      the song    from the room's songAt, bar by bar on a rolling window
-                 (groove.js songSlots: the band, the host's calls, the
-                 answers, the counts), so a TV that joins mid-song hears
-                 the song from its next bar line; the music is the game,
-                 so reduced motion keeps it
+                 (groove.js songSlots: the band, the host's calls and
+                 narration, the answers, the counts), so a TV that joins
+                 mid-song hears the song from its next bar line; the music
+                 is the game, so reduced motion keeps it. Last Call's
+                 countdown rides the same window (its chart's own events).
      moments     from a fresh room message: the Cup opening (intro), the
-                 round card's sting and the host's title, the cut's
-                 drumroll and a sting per rider out (CUT_BEATS), the
-                 podium's fanfare (PODIUM_BEATS); in the lobby a pop as a
+                 round card's sting and the host's title, the cut's show
+                 (CUT_BEATS: every grade stamped at once, a sting per award,
+                 the drumroll, then per rider out a sting and their song's
+                 slapstick exit), the chug-off (CHUGOFF_BEATS: the call, the
+                 first one's rule, three two one, "Chug!" on goAt, the
+                 winner's stamp as the first Done lands, the loser's exit),
+                 the podium's fanfare (PODIUM_BEATS); in the lobby a pop as a
                  rider joins and a chime as one is ready
-     the room    from a fresh `ev`: a quiet flub for each judged miss
-                 (q "miss"), panned to the rider's place in the field and
-                 through a density rule; a glass as a rider taps Done in
-                 the drink break; a party horn as someone out cheers
-     the loop    the lobby's, on the server's own bar grid (every screen in
-                 a room on the same bar), in the lobby, after the cut's
-                 stings and after the podium's fanfare
+     the room    from a fresh `ev`: a quiet flub for each judged miss in a
+                 song (q "miss"), panned to the rider's place in the field
+                 and through a density rule; a glass as a chug-off's
+                 contender taps Done; a party horn as someone out cheers
+     the beds    the lobby's loop, on the server's own bar grid (every
+                 screen in a room on the same bar), in the lobby, after the
+                 cut's show and after the podium's fanfare; the chug-off's
+                 chant from goAt until the first Done
 
    Silence rules (Field Day's): the first room message on a connection (a
    load, a reconnect) is a catch-up and sounds no moment; nor does anything
    stamped longer ago than its window, or anything while the page is
-   hidden. A rider who has not tapped Done is chugging, so their misses
-   after the break do not flub. Pure apart from the runner and the hook. */
+   hidden. Pure apart from the runner and the hook. */
 import { useEffect } from "react";
 import { cueAt, installSoundUnlock, preloadClips, primeSound, registerClips, setSoundRoom, setSoundSurface, soundSurface }
   from "../../../src/lib/sound.js";
 import { serverNow } from "../../../src/lib/serverClock.js";
-import { BAR_MS, BEAT_MS, CUT_BEATS, GROOVE_LATE_MS, GROOVE_LEAD_MS, GROOVE_PRE_MS, LAST_CALL_BEATS, PODIUM_BEATS, TITLE_BEATS, barLine,
-  chartFor, drinkBeats, eventAt, lobbyBar, lobbySection, songSlots } from "./groove.js";
+import { CHUGOFF } from "../../shared/chart.js";
+import { BAR_MS, CHUGOFF_BEATS, CUT_BEATS, GROOVE_LATE_MS, GROOVE_LEAD_MS, GROOVE_PRE_MS, PODIUM_BEATS, TITLE_BEATS, barLine,
+  chartFor, chugoffPlan, cutBeats, eventAt, lobbyBar, lobbySection, songSlots } from "./groove.js";
 import { VOICE } from "./voices.js";
 
 export const ROOM_FRESH_MS = 1500;
 export const EV_FRESH_MS = 700;
 /* the beds stop once the connection has been down this long */
 export const CLOSED_GRACE_MS = 3000;
-/* the loop comes back this long into the cut (after the stings), the
-   podium (after the fanfare) and the Cup's opening (after its fanfare) */
-export const CUT_LOOP_MS = 6000, PODIUM_LOOP_MS = 8000, INTRO_LOOP_MS = 4000;
+/* the loop comes back this long after the cut's show ends (its last exit),
+   into the podium (after the fanfare) and the Cup's opening (after its fanfare) */
+export const CUT_LOOP_MS = 1200, PODIUM_LOOP_MS = 8000, INTRO_LOOP_MS = 4000;
 /* misses: one flub each `gap` at most, `grains` inside a `window`, the rest of the window one bigger flub */
 export const FLUB = Object.freeze({ gap:40, window:220, grains:3 });
 export const DONE_GAP_MS = 90, CHEER_GAP_MS = 260;
+/* the chant runs this many bars at most (the chug-off's window) */
+export const CHANT_BARS = Math.ceil(CHUGOFF.WINDOW_MS / BAR_MS);
 /* the Cup's phases */
-export const PHASES = Object.freeze(["lobby", "intro", "song", "cut", "lastcall", "podium", "feedback"]);
+export const PHASES = Object.freeze(["lobby", "intro", "song", "cut", "chugoff", "lastcall", "podium", "feedback"]);
 
 const num = v => { const n = Number(v); return v !== null && v !== undefined && v !== "" && Number.isFinite(n) ? n : null; };
 const idx = v => typeof v === "number" && Number.isInteger(v) ? v : v && typeof v === "object" && Number.isInteger(Number(v.i)) ? Number(v.i) : null;
 const list = v => (Array.isArray(v) ? v : []).map(idx).filter(i => i !== null);
+
+/* the chug-off as the room has it: { a, b, goAt, winner, by, first, done:[i] } or null */
+export function chugView(c) {
+  if (!c || typeof c !== "object") return null;
+  const done = c.doneAt && typeof c.doneAt === "object" ? Object.entries(c.doneAt).filter(([, ms]) => Number.isFinite(Number(ms)))
+    .sort((x, y) => Number(x[1]) - Number(y[1])).map(([i]) => Number(i)).filter(Number.isInteger) : [];
+  return { a:idx(c.a), b:idx(c.b), goAt:num(c.goAt), winner:idx(c.winner), by:typeof c.by === "string" ? c.by : null,
+    first:typeof c.first === "boolean" ? c.first : null, done };
+}
+
+/* the cut's show as the room sends it (cup.js cutShowOf): its beats in server ms */
+export function showView(sh) {
+  if (!sh || typeof sh !== "object") return null;
+  return { grades:num(sh.grades), awards:(Array.isArray(sh.awards) ? sh.awards : []).map(num), line:num(sh.line),
+    outs:(Array.isArray(sh.outs) ? sh.outs : []).map(o => ({ i:idx(o), at:num(o?.at) })).filter(o => o.i !== null && o.at !== null),
+    bubble:list(sh.bubble) };
+}
 
 /* one room message, reduced to what can sound */
 export function grooveView(msg) {
@@ -61,12 +86,13 @@ export function grooveView(msg) {
     chart:phase === "song" || phase === "lastcall" ? chartFor(msg) : null, field:list(msg.field), out:list(msg.out), podium:list(msg.podium),
     drinking:msg.drinking !== false,
     entrants:entrants.map((e, i) => ({ i, device:String(e?.device ?? `#${i}`), ready:!!e?.ready, bot:!!e?.bot, drinks:e?.drinks !== false })),
-    scores:Array.isArray(msg.scores) ? msg.scores : null,
+    awards:(Array.isArray(msg.awards) ? msg.awards : []).map(a => ({ id:String(a?.id ?? ""), i:idx(a) })).filter(a => a.id),
+    chugoff:chugView(msg.chugoff), show:showView(msg.show),
   };
 }
 
 export function initialScreen({ open = true } = {}) {
-  return { open, closedAt:0, live:false, view:null, phaseAt:null, outsBefore:null, cutAt:null, gone:null, done:null,
+  return { open, closedAt:0, live:false, view:null, phaseAt:null, outsBefore:null, cutAt:null, gone:null, lastSong:null, awarded:null, chug:null,
     flub:{ last:-Infinity, start:-Infinity, n:0 }, lastDone:-Infinity, lastCheer:-Infinity, lobby:null };
 }
 /* the connection's status: the first room after it opens is a catch-up */
@@ -89,6 +115,19 @@ export const fieldPan = (field, i) => {
   const k = field.indexOf(i), n = field.length;
   return k < 0 || n < 2 ? 0 : Math.round((-0.6 + 1.2 * k / (n - 1)) * 100) / 100;
 };
+/* the chug-off's two (kept out of the cut's stings and exits: the chug-off decides them) */
+const bubble = v => new Set([v.chugoff?.a, v.chugoff?.b, ...(v.show?.bubble || [])].filter(Number.isInteger));
+/* this cut's new outs (the chug-off's pair aside) */
+const newOuts = (m, v) => v.out.filter(i => !(m.outsBefore || []).includes(i) && !bubble(v).has(i));
+/* the cut line: the room's show's, else the engine's beats for this many awards */
+const cutLine = (m, v, start) => v.show ? v.show.line : start + cutBeats(0, v.awards.length).line;
+/* a rider out's beat: the show's, else the k-th after the line */
+function outAt(m, v, i, k, start) {
+  const own = v.show?.outs?.find(o => o.i === i);
+  if (own) return own.at;
+  const line = cutLine(m, v, start);
+  return (Number.isFinite(line) ? line : start + cutBeats(0, 0).line) + CUT_BEATS.after + k * CUT_BEATS.gap;
+}
 
 /* One message through the TV's sound: the memory to keep and the cues it
    owes, { id, at (Float's server ms), pan, opts, key, lateMs }. */
@@ -112,14 +151,9 @@ function roomStep(mem, msg, { now, visible }) {
   const m = { ...mem, live:true, view:v };
   const moved = !prev || prev.phase !== v.phase || prev.round !== v.round || (v.phase === "song" && prev.songAt !== v.songAt);
   if (moved) m.phaseAt = phaseStart(v, s);
-  /* who was out before this song: the cut's new outs are the rest */
-  if (v.phase === "song" && moved) { m.outsBefore = [...v.out]; m.done = new Set(); m.gone = null; m.cutAt = null; }
-  if (v.phase === "song") {
-    /* the room's own word on who has tapped Done */
-    const done = new Set(m.done || []);
-    for (const row of v.scores || []) if (row && row.done && Number.isInteger(Number(row.i))) done.add(Number(row.i));
-    m.done = done;
-  }
+  /* who was out before this song: the cut's new outs are the rest; the song, for its exits */
+  if (v.phase === "song" && moved) { m.outsBefore = [...v.out]; m.gone = null; m.cutAt = null; m.awarded = null; }
+  if (v.phase === "song" && v.chart?.id) m.lastSong = v.chart.id;
   /* the cut's own start (its outs may have come a moment before, as `ev out`: they stay stung once) */
   if (v.phase === "cut" && moved) { m.cutAt = m.phaseAt; if (!m.gone) m.gone = new Map(); }
   const cues = [];
@@ -135,9 +169,21 @@ function roomStep(mem, msg, { now, visible }) {
     }
     m.lobby = { devices, ready };
   } else m.lobby = null;
+  /* the chug-off: its two, its go, and whether the room has named the winner */
+  if (v.phase === "chugoff") {
+    const c = v.chugoff, goAt = c?.goAt ?? (m.chug?.goAt ?? (m.phaseAt ?? s) + CHUGOFF.INTRO_MS);
+    if (moved || !m.chug) m.chug = { goAt, a:c?.a ?? null, b:c?.b ?? null, decided:false, at:null };
+    else m.chug = { ...m.chug, goAt, a:c?.a ?? m.chug.a, b:c?.b ?? m.chug.b };
+  } else m.chug = null;
   if (fresh && moved && prev) cues.push(...phaseCues(m, prev, v, s));
-  /* the cut's outs as the room names them (a later message may add some) */
+  /* the cut's awards and outs as the room names them (a later message may add some) */
+  if (fresh && v.phase === "cut" && (prev?.phase === "song" || prev?.phase === "cut")) cues.push(...awardCues(m, v, s));
   if (fresh && v.phase === "cut" && !lastRound(v)) cues.push(...outCues(m, v, s));
+  /* the chug-off's winner, named by the room (when no Done told us first) */
+  if (v.phase === "chugoff" && m.chug && !m.chug.decided && (Number.isInteger(v.chugoff?.winner) || v.chugoff?.done?.length)) {
+    m.chug = { ...m.chug, decided:true, at:s };
+    if (fresh) cues.push(...keepCues(m, s));
+  }
   return { mem:m, cues };
 }
 const entrantPan = (i, n) => n > 1 ? Math.round((-0.6 + 1.2 * i / (n - 1)) * 100) / 100 : 0;
@@ -158,38 +204,74 @@ function phaseCues(m, prev, v, s) {
       return cues;
     }
     case "cut": {
-      /* the cut after the final names nobody: the podium's own roll follows */
-      if (prev.phase !== "song" || lastRound(v)) return [];
-      return [{ id:"floatRoll", at:notBefore(start + CUT_BEATS.roll, s) - GROOVE_PRE_MS, opts:{ ms:CUT_BEATS.reveal - CUT_BEATS.roll },
-        key:keyOf(m, "roll", v.round, start) }];
+      if (prev.phase !== "song") return [];
+      /* every rider's grade at once: one stamp for the room (each phone its own jingle) */
+      const cues = [{ id:"floatGrades", at:notBefore(v.show?.grades ?? start + CUT_BEATS.grades, s) - GROOVE_PRE_MS, key:keyOf(m, "grades", v.round, start) }];
+      /* the drumroll into the cut line (the cut after the final names nobody: the podium's own roll follows) */
+      const line = cutLine(m, v, start);
+      if (!lastRound(v) && Number.isFinite(line)) {
+        const from = notBefore(line - CUT_BEATS.roll, s);
+        if (line - from >= 300) cues.push({ id:"floatRoll", at:from - GROOVE_PRE_MS, opts:{ ms:line - from }, key:keyOf(m, "roll", v.round, start) });
+      }
+      return cues;
+    }
+    case "chugoff": {
+      const c = m.chug;
+      if (!c || !Number.isFinite(c.goAt)) return [];
+      const first = v.chugoff?.first ?? v.round === 0;
+      const plan = chugoffPlan(c.goAt - start, { first });
+      const say = (line, ms, part) => ({ id:"floatVoice", at:notBefore(start + ms, s) - GROOVE_PRE_MS, opts:{ line }, key:keyOf(m, "chug", part, c.goAt) });
+      const cues = [say("chugoff", plan.call, "call")];
+      if (plan.explain !== null) cues.push(say("chug-explain", plan.explain, "explain"));
+      plan.count.forEach((ms, k) => cues.push(say(["three", "two", "one"][k], ms, `count${k}`)));
+      if (plan.roll !== null) cues.push({ id:"floatRoll", at:notBefore(start + plan.roll, s) - GROOVE_PRE_MS, opts:{ ms:Math.max(300, plan.chug - plan.roll) },
+        key:keyOf(m, "chug", "roll", c.goAt) });
+      cues.push(say("chug", plan.chug, "go"));
+      cues.push({ id:"floatChugGo", at:notBefore(c.goAt, s) - GROOVE_PRE_MS, key:keyOf(m, "chug", "gohit", c.goAt) });
+      return cues;
     }
     case "podium":
       return [{ id:"floatFanfare", at:notBefore(start + PODIUM_BEATS.roll, s) - GROOVE_PRE_MS, key:keyOf(m, "fanfare", start) }];
-    case "lastcall": {
-      /* the bar: the bartender's bell rung, then "Last call!" (the band comes in on songAt) */
-      if (!Number.isFinite(v.songAt)) return [];
-      const bell = v.songAt + LAST_CALL_BEATS.bell * BEAT_MS, call = v.songAt + LAST_CALL_BEATS.call * BEAT_MS;
-      const cues = [];
-      if (bell >= s - 100) cues.push({ id:"floatBell", at:bell, opts:{ first:true }, key:keyOf(m, "bell", v.songAt) });
-      if (call - GROOVE_PRE_MS >= s - 100) cues.push({ id:"floatVoice", at:call - GROOVE_PRE_MS, opts:{ line:"lastcall" }, key:keyOf(m, "lastcall", v.songAt) });
-      return cues;
-    }
     default: return [];
   }
 }
-/* each rider newly out in this cut, a sting each on the cut's beats, a step lower each */
+/* the cut's awards: a sting a card, on the cut's beats */
+function awardCues(m, v, s) {
+  const cutAt = m.cutAt ?? m.phaseAt ?? s, done = new Set(m.awarded || []);
+  const cues = [];
+  v.awards.slice(0, 3).forEach((a, k) => {
+    if (done.has(k)) return;
+    done.add(k);
+    cues.push({ id:"floatAward", at:notBefore(v.show?.awards?.[k] ?? cutAt + CUT_BEATS.awards + k * CUT_BEATS.award, s) - GROOVE_PRE_MS,
+      pan:Number.isInteger(a.i) ? fieldPan(v.field.length ? v.field : v.out, a.i) * 0.5 : 0, opts:{ k, award:a.id }, key:keyOf(m, "award", v.round, k) });
+  });
+  m.awarded = [...done];
+  return cues;
+}
+/* a rider out in this cut: their sting on the cut's beats (a step lower each), then their song's exit */
+function goneCues(m, v, i, k, at) {
+  const pan = fieldPan(v.field.length ? v.field : v.out, i);
+  return [{ id:"floatGone", at:at - GROOVE_PRE_MS, pan, opts:{ step:k }, key:keyOf(m, "gone", v.round, i) },
+    { id:"floatExit", at:at + CUT_BEATS.exit - GROOVE_PRE_MS, pan, opts:{ song:m.lastSong || v.song || "paddle", k }, key:keyOf(m, "exit", v.round, i) }];
+}
 function outCues(m, v, s) {
   if (!m.gone) m.gone = new Map();
-  const before = new Set(m.outsBefore || []);
+  const before = new Set(m.outsBefore || []), skip = bubble(v);
   const cues = [];
   for (const i of v.out) {
-    if (before.has(i) || m.gone.has(i)) continue;
+    if (before.has(i) || m.gone.has(i) || skip.has(i)) continue;
     const k = m.gone.size;
-    const at = notBefore((m.cutAt ?? s) + CUT_BEATS.reveal + k * CUT_BEATS.gap, s);
+    const at = notBefore(outAt(m, v, i, k, m.cutAt ?? s), s);
     m.gone.set(i, at);
-    cues.push({ id:"floatGone", at:at - GROOVE_PRE_MS, pan:fieldPan(v.field.length ? v.field : v.out, i), opts:{ step:k }, key:keyOf(m, "gone", v.round, i) });
+    cues.push(...goneCues(m, v, i, k, at));
   }
   return cues;
+}
+/* the chug-off decided: the winner's stamp, then the loser's exit */
+function keepCues(m, at) {
+  const c = m.chug;
+  return [{ id:"floatKeep", at:at + 30, key:keyOf(m, "keep", c.goAt) },
+    { id:"floatExit", at:at + CHUGOFF_BEATS.exit - GROOVE_PRE_MS, opts:{ song:m.lastSong || "paddle", k:0 }, key:keyOf(m, "chugexit", c.goAt) }];
 }
 
 /* ── the room's moments ── */
@@ -197,27 +279,24 @@ function evStep(mem, msg, { now, visible }) {
   const s = Number(msg.s);
   const fresh = mem.live && visible && Number.isFinite(s) && now - s <= EV_FRESH_MS;
   const i = Number(msg.i), v = mem.view;
-  /* the room's word on Done is kept whatever its age */
-  if (msg.e === "done" && Number.isInteger(i)) {
-    const m = { ...mem, done:new Set([...(mem.done || []), i]) };
-    if (!fresh || !v || v.phase !== "song" || now - m.lastDone < DONE_GAP_MS) return { mem:m, cues:[] };
-    m.lastDone = now;
-    return { mem:m, cues:[{ id:"floatDone", at:s + 20, pan:fieldPan(v.field, i), opts:{ step:i } }] };
-  }
   if (!fresh || !v || !Number.isInteger(i)) return { mem, cues:[] };
   const m = { ...mem };
   switch (msg.e) {
     case "hit": {
-      if (msg.q !== "miss" || (v.phase !== "song" && v.phase !== "lastcall")) return { mem:m, cues:[] };
-      /* a rider still chugging after the break is not flubbing */
-      const chart = v.chart, cue = chart?.cues?.[Number(msg.c)], drink = drinkBeats(chart);
-      const rider = v.entrants[i];
-      const drinks = v.drinking && rider?.drinks !== false;
-      if (cue && drink && drinks && cue.beat >= drink.to && !(m.done || new Set()).has(i)) return { mem:m, cues:[] };
+      if (msg.q !== "miss" || v.phase !== "song") return { mem:m, cues:[] };
       const f = flubStep(m.flub, s);
       m.flub = f.memory;
       if (!f.play) return { mem:m, cues:[] };
       return { mem:m, cues:[{ id:"floatFlub", at:f.at, pan:fieldPan(v.field, i), opts:{ n:f.n } }] };
+    }
+    case "done": {
+      /* a chug-off's contender done: a glass on the counter; the first is the winner's stamp */
+      const c = m.chug;
+      if (v.phase !== "chugoff" || !c || (Number.isInteger(c.a) && Number.isInteger(c.b) && i !== c.a && i !== c.b)) return { mem:m, cues:[] };
+      const cues = [];
+      if (now - m.lastDone >= DONE_GAP_MS) { m.lastDone = now; cues.push({ id:"floatDone", at:s + 20, pan:i === c.b ? 0.3 : -0.3, opts:{ step:i } }); }
+      if (!c.decided) { m.chug = { ...c, decided:true, at:s }; cues.push(...keepCues(m, s)); }
+      return { mem:m, cues };
     }
     case "cheer": {
       if (s - m.lastCheer < CHEER_GAP_MS) return { mem:m, cues:[] };
@@ -227,11 +306,11 @@ function evStep(mem, msg, { now, visible }) {
     case "out": {
       if (v.phase !== "cut" && v.phase !== "song") return { mem:m, cues:[] };
       if (!m.gone) m.gone = new Map();
-      if (m.gone.has(i)) return { mem:m, cues:[] };
+      if (m.gone.has(i) || bubble(v).has(i)) return { mem:m, cues:[] };
       const k = m.gone.size, cutAt = m.cutAt ?? s;
-      const at = Math.max(s + 60, cutAt + CUT_BEATS.reveal + k * CUT_BEATS.gap);
+      const at = Math.max(s + 60, outAt(m, v, i, k, cutAt));
       m.gone = new Map(m.gone).set(i, at);
-      return { mem:m, cues:[{ id:"floatGone", at:at - GROOVE_PRE_MS, pan:fieldPan(v.field, i), opts:{ step:k }, key:keyOf(m, "gone", v.round, i) }] };
+      return { mem:m, cues:goneCues(m, v, i, k, at) };
     }
     default: return { mem:m, cues:[] };
   }
@@ -246,7 +325,7 @@ export function flubStep(memory, at) {
   return { memory:{ ...mem, last:when, n:mem.n + 1 }, play:true, at:when, n:mem.n + 1 };
 }
 
-/* ── the beds: the song and the loop ── */
+/* ── the beds: the song, the chant and the loop ── */
 /* the bed for where the Cup is (null: none); key changes when it must start over */
 export function grooveTrack(mem) {
   const v = mem?.view;
@@ -259,14 +338,25 @@ export function grooveTrack(mem) {
     case "lobby": case "feedback": return { key:"lobby", kind:"lobby", from:-Infinity, cut:false };
     /* the Cup opening: its fanfare alone, then the loop (light) up to the first round card */
     case "intro": return { key:`intro:${start}`, kind:"lobby", from:barLine(start + INTRO_LOOP_MS), cut:true };
-    case "cut": return lastRound(v) ? null : { key:`cut:${v.round}:${start}`, kind:"lobby", from:barLine(start + CUT_LOOP_MS), cut:true };
+    case "cut": {
+      if (lastRound(v)) return null;
+      /* the loop comes back once the show's last exit has played */
+      const outs = newOuts(mem, v), line = cutLine(mem, v, start);
+      const last = outs.length ? Math.max(...outs.map((i, k) => outAt(mem, v, i, k, start))) : Number.isFinite(line) ? line : start;
+      return { key:`cut:${v.round}:${start}:${outs.length}`, kind:"lobby", from:barLine(last + CUT_BEATS.gap + CUT_LOOP_MS), cut:true };
+    }
+    /* the chant from goAt until the first Done */
+    case "chugoff": {
+      const c = mem.chug;
+      if (!c || c.decided || !Number.isFinite(c.goAt)) return null;
+      return { key:`chant:${c.goAt}`, kind:"chant", goAt:c.goAt };
+    }
     case "podium": return { key:`podium:${start}`, kind:"lobby", from:barLine(start + PODIUM_LOOP_MS), cut:false };
     default: return null;
   }
 }
-/* The next things a bed lays, from slot `next` while they start before
-   `until`: [{ next, cues:[{ id, at, opts }] }]. A song's slot is its bar
-   (every event of the bar laid together); the loop's is a bar of the
+/* The next things a bed lays: a song's slot is its bar (every event of the
+   bar laid together); the chant's a bar from goAt; the loop's a bar of the
    server's grid. */
 export function bedSlot(track, index) {
   if (track.kind === "song") {
@@ -274,6 +364,11 @@ export function bedSlot(track, index) {
     if (index < 0 || index >= slots.length) return null;
     return { start:track.songAt + index * BAR_MS - GROOVE_PRE_MS,
       cues:slots[index].map(ev => ({ id:ev.id, at:eventAt(track.songAt, ev.beat), opts:ev.opts })) };
+  }
+  if (track.kind === "chant") {
+    if (index < 0 || index >= CHANT_BARS) return null;
+    const at = track.goAt + index * BAR_MS - GROOVE_PRE_MS;
+    return { start:at, cues:[{ id:"floatChant", at, opts:{ bar:index } }] };
   }
   const at = index * BAR_MS;
   return { start:at - GROOVE_PRE_MS, cues:[{ id:"floatLobby", at:at - GROOVE_PRE_MS, opts:{ bar:lobbyBar(at), section:lobbySection(at), cut:!!track.cut } }] };
@@ -287,6 +382,7 @@ export const BED_AHEAD_MS = GROOVE_LEAD_MS + 400;
 /* the first slot a track lays from `now` (the next one not yet begun) */
 export function firstSlot(track, now) {
   if (track.kind === "song") return Math.max(0, Math.ceil((now + 40 + GROOVE_PRE_MS - track.songAt) / BAR_MS));
+  if (track.kind === "chant") return Math.max(0, Math.ceil((now + 40 + GROOVE_PRE_MS - track.goAt) / BAR_MS));
   const from = Math.max(Number.isFinite(track.from) ? track.from : -Infinity, now + 40 + GROOVE_PRE_MS);
   return Math.ceil(from / BAR_MS);
 }
@@ -361,7 +457,7 @@ export function createGrooveScreenSound(net, { play = null, visible = pageVisibl
   };
 }
 
-/* the host's voice: the clips named by the manifest, fetched and decoded once */
+/* the voices: the clips named by the manifest, fetched and decoded once */
 export function loadGrooveVoice() {
   try {
     registerClips(VOICE.clips, { base:VOICE.base });
@@ -371,9 +467,9 @@ export function loadGrooveVoice() {
 
 /* The TV's sound on its page: the TV's surface (the room bus), the context
    made at once (a kiosk TV runs it; anything else waits for the first
-   click, useFloatSoundUnlockNeeded), the global unlock, the host's voice,
-   and the runner for the connection. On Float's own page the room's
-   reverb is the night's; inside Field Day's TV the weekend's own stays. */
+   click, useFloatSoundUnlockNeeded), the global unlock, the voices, and the
+   runner for the connection. On Float's own page the room's reverb is the
+   night's; inside Field Day's TV the weekend's own stays. */
 export function useFloatScreenSound(net, options = {}) {
   useEffect(() => {
     if (!net) return undefined;

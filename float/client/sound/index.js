@@ -17,13 +17,20 @@
                                            a tap that matched no cue)
      unlockFloatSound()                    inside a tap, so iOS lets sound start
      useFloatSoundUnlockNeeded()           the TV still needs a click
-     PODIUM_BEATS, CUT_BEATS, TITLE_BEATS  the moments' beats, so the screen
-     LAST_CALL_BEATS                       reveals on them: CUT_BEATS and
-                                           PODIUM_BEATS ms from the phase's
-                                           startAt, TITLE_BEATS ms from songAt,
-                                           LAST_CALL_BEATS beats from the bar's
-                                           songAt (bell, call, a grab's reveal
-                                           two beats on, who drinks)
+     the beats the picture lands on:
+       TITLE_BEATS        ms from songAt: the round card, its sting, the title
+       CUT_BEATS          the cut's show when the room sends no room.show (the
+                          sound lands on room.show's own beats when it does);
+                          cutBeats(n, awards) spells them out
+       CHUGOFF_BEATS      the chug-off's call and count (ms from its start and
+                          goAt); chugoffPlan(intro, { first }) what plays
+       LAST_CALL_BEATS    ms from songAt: the bell, "Last call!", the first
+                          one's rule; lastCallBeats(chart) every moment (the
+                          numbers on their steps, the trick at hideAt, the
+                          bell at revealAt, the verdict at verdictAt)
+       PODIUM_BEATS       ms from the podium's startAt
+       narration(chart)   where the host says each line (beats it is heard
+                          over), so the text box can go up as it is said
 
    groove.js plans a song from its chart; grooveScreen.js and
    groovePhone.js run the TV and the phone; voices.js names the host's
@@ -35,7 +42,8 @@ import { unlockSound, useSoundUnlockNeeded } from "../../../src/lib/sound.js";
 export { useFloatScreenSound, createGrooveScreenSound as createFloatScreenSound, screenStep, grooveView, loadGrooveVoice } from "./grooveScreen.js";
 export { useFloatControllerSound, createGroovePhoneSound as createFloatControllerSound, phoneStep as controllerStep,
   floatTapSound, floatDoneSound, floatCheerSound, floatStrokeSound, floatDrinkSound, floatThrowSound, GROOVE_TAPS as FLOAT_TAPS } from "./groovePhone.js";
-export { PODIUM_BEATS, CUT_BEATS, TITLE_BEATS, LAST_CALL_BEATS, GROOVE_PRE_MS, chartFor, songEvents, songSlots } from "./groove.js";
+export { PODIUM_BEATS, CUT_BEATS, TITLE_BEATS, LAST_CALL_BEATS, CHUGOFF_BEATS, GROOVE_PRE_MS, chartFor, songEvents, songSlots,
+  cutBeats, lastCallBeats, chugoffPlan, narration } from "./groove.js";
 
 /* the race's count-in and gun (parked), for the screens not yet on the Groove */
 export const COUNT_BEATS = Object.freeze([3000, 2000, 1000]);

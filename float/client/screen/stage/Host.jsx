@@ -9,7 +9,8 @@
 import React, { useEffect, useRef } from "react";
 import { HostArt, HostFigure, PaddleArt, SignProp, useHostArt } from "../art.jsx";
 import { PADDLE, bobAt, paddleAt, strokeSide } from "../model/motion.js";
-import { hostAt, signAt } from "../model/song.js";
+import { hostAt, sceneFor, signAt } from "../model/song.js";
+import { sceneOf } from "../../art/groove/index.js";
 import { reducedMotion } from "./driver.js";
 
 /* the host's spot: feet on the sand at the water's edge, upper left
@@ -138,9 +139,16 @@ export default function Host({ store, driver, phase }) {
   const box = art?.box || DRAWN_HOST.box;
   const anchor = art?.anchor || DRAWN_HOST.anchor;
   const k = HOST.h / box[1];
+  /* feet on the painted scene's own shore (the night's is lower), else the drawn one's */
+  const shore = (() => {
+    try {
+      const sc = sceneOf(sceneFor(phase, store.state.chart));
+      return sc && !sc.placeholder && Number.isFinite(sc.water) && sc.water > 0.3 && sc.water < 0.7 ? Math.round(sc.water * 1080) + 4 : HOST.y;
+    } catch { return HOST.y; }
+  })();
   const horn = art?.poses ? (art.anchors?.call?.horn || anchor.horn || [box[0] * 0.9, box[1] * 0.55]) : DRAWN_HOST.anchor.horn;
   return <div className="fl-host" ref={root} data-pose="idle"
-    style={{ width:box[0] * k, height:box[1] * k, transform:`translate(${HOST.x - anchor.ground[0] * k}px, ${HOST.y - anchor.ground[1] * k}px)`,
+    style={{ width:box[0] * k, height:box[1] * k, transform:`translate(${HOST.x - anchor.ground[0] * k}px, ${shore - anchor.ground[1] * k}px)`,
       "--horn-x":`${horn[0] * k}px`, "--horn-y":`${horn[1] * k}px`, "--ground-y":`${anchor.ground[1] * k}px` }}>
     <div className="fl-host-sign" ref={sign} style={{ opacity:0 }}>
       {["paddle", "rock", "spin"].map(mode => <div key={mode} ref={node => { signArt.current[mode] = node; }} style={{ display:"none" }}><SignProp mode={mode} /></div>)}

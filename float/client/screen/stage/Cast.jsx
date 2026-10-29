@@ -14,9 +14,9 @@
 import React, { memo, useEffect, useMemo, useRef, useState } from "react";
 import { CHUGOFF, SONG_LEAD_MS, gradeWord } from "../../../shared/chart.js";
 import { Critter, PopupLetters, SplashProp, anchorOf, useRiderArt } from "../art.jsx";
-import { ANCHOR, BOX, NAME_H, POPUP_BOX, crowdLayout, flotillaLayout, nameSlots, nameWidth, podiumLayout, podiumSteps,
+import { ANCHOR, BOX, CROWD, NAME_H, POPUP_BOX, crowdLayout, flotillaLayout, nameSlots, nameWidth, podiumLayout, podiumSteps,
   popupSlots, seatOrder } from "../model/flotilla.js";
-import { propOf, spriteSize } from "../../art/groove/index.js";
+import { propOf, sceneOf, spriteSize } from "../../art/groove/index.js";
 import { useGrooveArt } from "../../art/groove/RiderSprite.jsx";
 import { PADDLE, PADDLE_AWAY, actionAt, bobAt, cheerAt, chugAt, follow, paddleAt, popupAt, strokeSide } from "../model/motion.js";
 import { actionKind, demoAt, lineShownAt, lineSpot, rankStripOn, sceneFor } from "../model/song.js";
@@ -85,7 +85,7 @@ export function castPlan({ phase, room, state, entrants }) {
   const outs = indexList(room?.out);
   const scene = sceneFor(phase, state?.chart);
   const plan = { water:[], kind:"song", drift:true, bank:[], exits:[], podium:[], reform:null, nextWater:null, names:true, show:null, chug:null,
-    exitKind:exitKind(scene) };
+    exitKind:exitKind(scene), scene };
   if (phase === "lobby") return { ...plan, water:all, kind:"lobby", drift:false };
   if (phase === "intro") return { ...plan, water:seatOrder(indexList(room?.field).length ? indexList(room.field) : all), drift:false };
   if (phase === "song") {
@@ -115,6 +115,16 @@ export function castPlan({ phase, room, state, entrants }) {
     return { ...plan, podium, bank:[], names:false, podiumAt:Number.isFinite(room?.startAt) ? room.startAt : state?.phaseStart };
   }
   return plan;
+}
+
+/* the crowd stands on the far shore: the painted scene's own waterline
+   (the night's is lower than the day's), else the drawn scenes' */
+function crowdY(scene) {
+  try {
+    const sc = scene ? sceneOf(scene) : null;
+    if (sc && !sc.placeholder && Number.isFinite(sc.water) && sc.water > 0.3 && sc.water < 0.7) return Math.round(sc.water * 1080) - 6;
+  } catch {}
+  return CROWD.y;
 }
 
 /* the size the art paints a rider at: the bucket that covers the biggest it
@@ -317,7 +327,7 @@ export default function Cast({ store, driver, entrants, phase, room, version }) 
             : flotillaLayout(p.water, lives, { kind:p.kind === "lobby" ? "lobby" : p.water.length <= 3 ? "final" : "song",
               drift:p.drift && phase !== "intro" });
         next = p.nextWater ? flotillaLayout(p.nextWater, new Map(), { kind:p.kind, drift:false }) : {};
-        bank = crowdLayout([...p.bank, ...exits.map(h => h.i).filter(i => !p.bank.includes(i))]);
+        bank = crowdLayout([...p.bank, ...exits.map(h => h.i).filter(i => !p.bank.includes(i))], { y:crowdY(p.scene) });
         podium = podiumLayout(p.podium, podiumSteps(propOf("podium")));
         const shown = reformed ? next : water;
         const faceOf = ([key, spot]) => {
@@ -338,6 +348,8 @@ export default function Cast({ store, driver, entrants, phase, room, version }) 
         if (rank || cut) avoid.push(STRIP_RECT);
         if (line) avoid.push(LINE_RECTS[lineSpot(chart, line)] || LINE_RECTS.top);
         if (cardsOn) avoid.push(CARDS_RECT);
+        /* the host and the call's bubble on the left shore */
+        if (inSong) { const shore = crowdY(p.scene); avoid.push({ x0:60, x1:500, y0:shore - 330, y1:shore + 10 }); }
         slots = inSong || bar || cut ? popupSlots(faces, { box, others:Object.entries(bank).map(faceOf), names:nameRects, stagger:bar, avoid }) : {};
         /* then each name nudged clear of the others, the faces and the popups */
         const popups = Object.values(slots).map(slot => {

@@ -3,13 +3,16 @@
    (float/client/sound/groove.js) on an OfflineAudioContext in headless
    Chrome, with the host's clips decoded the way the TV decodes them.
 
-     node scripts/float-sound-render.mjs [paddle rock spin drop moments] [--stems] [--out <dir>]
+     node scripts/float-sound-render.mjs [paddle rock spin drop lastcall-lights lastcall-slow lastcall-ticks
+       after moments] [--stems] [--out <dir>]
 
    Each song: the round card, then all 32 bars as the TV lays them, to
    <out>/<song>.mp3 (default .impeccable/review/float-sound/); --stems adds
-   the band, the calls and the answers alone. "moments" renders the lobby's
-   loop, the Cup opening, the cut (drumroll, three out), the podium's
-   fanfare, a run of flubs and the phone's taps. The timing check plays
+   the band, the calls and the answers alone. A Last Call is its countdown
+   from songAt. "after" renders the show after each song (the grades, the
+   awards, the drumroll, three out with the song's exits) and its chug-off
+   (the first with its rule); "moments" the lobby's loop, the Cup opening,
+   the podium's fanfare, a run of flubs, and the phone's own. The timing check plays
    every call and answer alone, its cue laid GROOVE_PRE_MS early: exactly
    (every clip's beat, soundKit clipMarks' first rise past 30% of its peak,
    lands on the beat to the sample; every synthesized sound has a hit that
@@ -31,13 +34,13 @@ const value = name => { const i = args.indexOf(name); return i >= 0 ? args[i + 1
 const OUT = path.resolve(ROOT, value("--out") || ".impeccable/review/float-sound");
 const STEMS = args.includes("--stems");
 const asked = args.filter((a, i) => !a.startsWith("--") && args[i - 1] !== "--out");
-const SONGS = ["paddle", "rock", "spin", "drop", "lastcall"];
-const jobs = asked.length ? asked : [...SONGS, "moments"];
+const SONGS = ["paddle", "rock", "spin", "drop", "lastcall-lights", "lastcall-slow", "lastcall-ticks"];
+const jobs = asked.length ? asked : [...SONGS, "after", "moments"];
 
 const ENTRY = `
 import { makeEngine, playRecipe, clipMarks, GROOVE_PRE_S } from "./src/lib/soundKit.js";
-import { songEvents, songSlots, eventAt, TITLE_BEATS, GROOVE_PRE_MS, PODIUM_BEATS, CUT_BEATS, LAST_CALL_BEATS } from "./float/client/sound/groove.js";
-import { chartOf, SONG_MS } from "./float/shared/chart.js";
+import { songEvents, songSlots, eventAt, TITLE_BEATS, GROOVE_PRE_MS, PODIUM_BEATS, CUT_BEATS, cutBeats, chugoffPlan } from "./float/client/sound/groove.js";
+import { chartOf, SONG_MS, CHUGOFF } from "./float/shared/chart.js";
 const SR = 44100;
 async function engine(ctx, listen = "tv") {
   const E = makeEngine(ctx, { room:"san", listen, volume:listen === "tv" ? 0.7 : 0.6 });
@@ -52,7 +55,7 @@ async function engine(ctx, listen = "tv") {
   }
   return E;
 }
-const STEM = { band:id => id === "floatGroove", calls:id => id === "floatVoice" || id === "floatWhirl", answers:id => id === "floatAnswer" };
+const STEM = { band:id => id === "floatGroove" || id === "floatBar", calls:id => ["floatVoice", "floatWhirl", "floatEcho", "floatBarVoice", "floatTick"].includes(id), answers:id => id === "floatAnswer" };
 function wav(buffer) {
   const n = buffer.length, ch = buffer.numberOfChannels, out = new DataView(new ArrayBuffer(44 + n * ch * 2));
   const str = (o, s) => [...s].forEach((c, i) => out.setUint8(o + i, c.charCodeAt(0)));
@@ -90,12 +93,7 @@ window.__song = async (song, stem = null) => {
   const songAt = lead * 1000, keep = id => !stem || STEM[stem](id);
   const slots = songSlots(chartOf(song)).map((events, bar) => ({ at:(songAt + bar * 2000 - GROOVE_PRE_MS) / 1000,
     lay:() => events.forEach(ev => { if (keep(ev.id)) playRecipe(E, ev.id, eventAt(songAt, ev.beat) / 1000, ev.opts); }) }));
-  if (!stem) slots.unshift({ at:0.1, lay:() => {
-    if (song === "lastcall") {
-      playRecipe(E, "floatBell", (songAt + LAST_CALL_BEATS.bell * 500) / 1000, { first:true });
-      playRecipe(E, "floatVoice", (songAt + LAST_CALL_BEATS.call * 500 - GROOVE_PRE_MS) / 1000, { line:"lastcall" });
-      return;
-    }
+  if (!stem && !chartOf(song).countdown) slots.unshift({ at:0.1, lay:() => {
     playRecipe(E, "floatSting", (songAt + TITLE_BEATS.sting - GROOVE_PRE_MS) / 1000, { song });
     playRecipe(E, "floatVoice", (songAt + TITLE_BEATS.title - GROOVE_PRE_MS) / 1000, { line:"title-" + song });
   } });
@@ -105,21 +103,53 @@ window.__song = async (song, stem = null) => {
   out.renderMs = Math.round(performance.now() - t0);
   return out;
 };
+/* After each song but the final: the cut's show on the engine's beats (the
+   grades' stamp, three awards, the drumroll, three out each with the song's
+   exit), then the chug-off (the call, the first one's rule or the count,
+   Chug!, the chant until a Done at 6.5 s, the stamp, the loser's exit) */
+window.__after = async () => {
+  const per = 34, songs = ["paddle", "rock", "spin"];
+  const ctx = new OfflineAudioContext(2, SR * per * songs.length, SR);
+  const E = await engine(ctx);
+  const at = s => s - GROOVE_PRE_S, slots = [];
+  songs.forEach((song, r) => {
+    const cut = 0.5 + r * per, b = cutBeats(3, 3);
+    slots.push({ at:at(cut), lay:() => {
+      playRecipe(E, "floatGrades", at(cut + b.grades / 1000));
+      b.awards.forEach((ms, k) => playRecipe(E, "floatAward", at(cut + ms / 1000), { k, award:["perfects", "streak", "splashes"][k] }));
+      playRecipe(E, "floatRoll", at(cut + b.roll / 1000), { ms:b.line - b.roll });
+      b.outs.forEach((ms, k) => { playRecipe(E, "floatGone", at(cut + ms / 1000), { step:k }); playRecipe(E, "floatExit", at(cut + (ms + CUT_BEATS.exit) / 1000), { song, k }); });
+    } });
+    const start = cut + 15, plan = chugoffPlan(CHUGOFF.INTRO_MS, { first:r === 0 }), go = start + plan.chug / 1000;
+    slots.push({ at:at(start), lay:() => {
+      playRecipe(E, "floatVoice", at(start + plan.call / 1000), { line:"chugoff" });
+      if (plan.explain !== null) playRecipe(E, "floatVoice", at(start + plan.explain / 1000), { line:"chug-explain" });
+      plan.count.forEach((ms, k) => playRecipe(E, "floatVoice", at(start + ms / 1000), { line:["three", "two", "one"][k] }));
+      if (plan.roll !== null) playRecipe(E, "floatRoll", at(start + plan.roll / 1000), { ms:plan.chug - plan.roll });
+      playRecipe(E, "floatVoice", at(go), { line:"chug" });
+      playRecipe(E, "floatChugGo", at(go));
+    } });
+    for (let bar = 0; bar < 3; bar++) slots.push({ at:at(go + bar * 2), lay:() => playRecipe(E, "floatChant", at(go + bar * 2), { bar }) });
+    slots.push({ at:go + 6.5 - 0.2, lay:() => {
+      playRecipe(E, "floatDone", go + 6.5, { step:1 });
+      playRecipe(E, "floatKeep", go + 6.53);
+      playRecipe(E, "floatExit", at(go + 6.5 + CHUGOFF.REVEAL_MS / 1000), { song });
+    } });
+  });
+  return wav(await laid(ctx, slots.sort((x, y) => x.at - y.at)));
+};
 /* the moments between the songs, one after another */
 window.__moments = async () => {
-  const ctx = new OfflineAudioContext(2, SR * 44, SR);
+  const ctx = new OfflineAudioContext(2, SR * 30, SR);
   const E = await engine(ctx);
   const at = s => s - GROOVE_PRE_S;
   for (let b = 0; b < 8; b++) playRecipe(E, "floatLobby", at(0.5 + b * 2), { bar:b });
   [[1.2, "floatHello"], [3.4, "floatHello"], [5.1, "floatSet"], [7.3, "floatSet"]].forEach(([s, id]) => playRecipe(E, id, s));
   playRecipe(E, "floatOpen", at(17));
-  const cut = 22;
-  playRecipe(E, "floatRoll", at(cut + CUT_BEATS.roll / 1000), { ms:CUT_BEATS.reveal - CUT_BEATS.roll });
-  [0, 1, 2].forEach(k => playRecipe(E, "floatGone", at(cut + (CUT_BEATS.reveal + k * CUT_BEATS.gap) / 1000), { step:k, pan:-0.4 + k * 0.4 }));
-  const podium = 28;
+  const podium = 21;
   playRecipe(E, "floatFanfare", at(podium + PODIUM_BEATS.roll / 1000));
-  [0, 0.04, 0.6, 1.4, 1.43, 1.46].forEach((x, i) => playRecipe(E, "floatFlub", 36 + x, { pan:-0.6 + i * 0.2, n:i % 3 + 1 }));
-  [[38.5, "floatDone"], [38.9, "floatDone"], [39.6, "floatCheer"], [40.1, "floatCheer"]].forEach(([s, id], i) => playRecipe(E, id, s, { step:i }));
+  [0, 0.04, 0.6, 1.4, 1.43, 1.46].forEach((x, i) => playRecipe(E, "floatFlub", 27 + x, { pan:-0.6 + i * 0.2, n:i % 3 + 1 }));
+  [[29, "floatCheer"], [29.5, "floatCheer"]].forEach(([s, id], i) => playRecipe(E, id, s, { step:i }));
   return wav(await ctx.startRendering());
 };
 /* the lobby's loop alone, its four sections (32 bars) */
@@ -131,12 +161,14 @@ window.__lobby = async () => {
 };
 /* the phone's own, on a phone's engine */
 window.__phone = async () => {
-  const ctx = new OfflineAudioContext(2, SR * 9, SR);
+  const ctx = new OfflineAudioContext(2, SR * 14, SR);
   const E = await engine(ctx, "phone");
   ["perfect", "nice", "ok", "early", "late", null].forEach((q, i) => ["paddle", "hey", "hop", "spin"].forEach((kind, j) =>
     playRecipe(E, "floatYouTap", 0.3 + i * 0.9 + j * 0.2, { q, kind })));
   [[6, "floatYouDone"], [6.8, "floatYouCheer"], [7.3, "floatYouSafe"], [8.0, "floatYouOut"]].forEach(([s, id]) => playRecipe(E, id, s));
   playRecipe(E, "floatYouPlace", 8.6, { place:1 });
+  ["superb", "ok", "tryagain"].forEach((grade, i) => playRecipe(E, "floatYouGrade", 10 + i * 1.1, { grade }));
+  playRecipe(E, "floatYouTap", 13.3, { kind:"zero", q:"perfect" }); playRecipe(E, "floatYouGulp", 13.6);
   return wav(await ctx.startRendering());
 };
 /* one recipe alone, its cue pre before a beat at 1 s (GROOVE_PRE_S: a Groove cue's): where does its beat land? */
@@ -199,6 +231,7 @@ try {
   await chrome.evaluate(`window.__clips = ${JSON.stringify(clips)}; true`);
   for (const job of jobs.filter(j => j !== "onsets")) {
     const renders = job === "moments" ? [["moments", "window.__moments()"], ["phone", "window.__phone()"], ["lobby", "window.__lobby()"]]
+      : job === "after" ? [["after", "window.__after()"]]
       : [[job, `window.__song(${JSON.stringify(job)})`], ...(STEMS ? ["band", "calls", "answers"].map(s => [`${job}-${s}`, `window.__song(${JSON.stringify(job)}, ${JSON.stringify(s)})`]) : [])];
     for (const [name, expr] of renders) {
       const t0 = Date.now();
@@ -212,7 +245,7 @@ try {
   }
   /* the onset check: every call and answer alone */
   const checks = [
-    ...["ready", "hey", "ba", "spin", "one", "two", "three", "four", "drink", "herewego"].map(line => ["floatVoice", { line, song:"rock", k:0, n:0, of:1 }, line]),
+    ...["ready", "hey", "ba", "spin", "one", "two", "three", "four", "chug"].map(line => ["floatVoice", { line, song:"rock", k:0, n:0, of:1 }, line]),
     ...[0, 1, 2].map(n => ["floatVoice", { line:"ba", song:"rock", k:3, n, of:3, after:0.22 }, `ba ${n + 1} of 3`]),
     ["floatWhirl", { song:"spin" }, "whirl"], ["floatWhirl", { song:"spin", say:true }, "whirl + Spin!"],
     ["floatAnswer", { kind:"paddle", song:"paddle", k:0, b:0, n:0, of:2 }, "splash"], ["floatAnswer", { kind:"hey", song:"paddle", k:1, b:3 }, "crowd Hey!"],
@@ -220,6 +253,9 @@ try {
     ["floatAnswer", { kind:"drop", song:"drop", k:0, b:0 }, "the drop"],
     ["floatGroove", { song:"paddle", bar:6, sec:"play", part:0, k:0, len:8, next:"play", only:["drums"] }, "a bar's downbeat (drums)"],
     ["floatSting", { song:"paddle" }, "the round card's hit"],
+    ...["say-turn", "say-copy"].map(line => ["floatVoice", { line, narration:true }, "narration " + line]),
+    ...[10, 7, 4].map(n => ["floatBarVoice", { line:"bar-" + n }, "bartender " + n]),
+    ["floatTick", { n:6 }, "the clock's tick"], ["floatEcho", { as:"paddle", n:0 }, "the host's paddle"], ["floatZero", {}, "the bell at zero"],
   ];
   /* the reference: a card's tick (an instant attack) at 1 s, read the same way: the engine's own delay
      (the master's compressor looks a few ms ahead) and the reading's own, which every sound shares */

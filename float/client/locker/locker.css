@@ -94,6 +94,7 @@
   animation: fll-stamp 360ms var(--fll-spring) both;
 }
 @keyframes fll-stamp { from { transform: scale(1.25); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.fll-hero-worn { font-size: 15px; font-weight: 800; color: var(--fll-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; animation: fll-stamp 300ms var(--fll-spring) both; }
 .fll-hero-floatie { display: inline-flex; align-items: center; gap: 6px; min-width: 0; font-size: 15px; font-weight: 800; color: var(--fll-muted); }
 .fll-hero-floatie span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .fll-hero-floatie .fll-glyph { width: 20px; height: 20px; }
@@ -315,6 +316,10 @@
   box-shadow: inset 0 0 0 2.5px #2b2233; }
 .fll-light .fll-tile.is-groom { box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--fll-gold) 60%, transparent); }
 .fll-light .fll-tile.is-groom.is-on { box-shadow: inset 0 0 0 3px var(--fll-gold); }
+.fll-light .fll-tabs { background: rgba(255, 253, 248, 0.8); box-shadow: inset 0 0 0 2.5px #2b2233; }
+.fll-light .fll-tab-ink { background: #2b2233; box-shadow: none; }
+.fll-light .fll-tabs button { color: #5d5066; }
+.fll-light .fll-tabs button.is-on { color: #fffdf8; }
 
 @media (prefers-reduced-motion: reduce) {
   .fll-root *, .fll-root *::before, .fll-root *::after, .fll-floatie * { animation-duration: 1ms !important; animation-delay: 0ms !important; }

@@ -5,7 +5,9 @@
    calls and the band's answers; misses can flub. The grid shows the song's
    bars and beats, the host's calls (top) and the cues (bottom), and the
    playhead on the clock. The moments (the lobby's loop, the Cup opening,
-   the cut, the podium) and the phone's taps play from the buttons. No
+   the cut's show and the chug-off after each song, Last Call's three
+   countdowns, the podium) and the phone's taps and grades play from the
+   buttons. No
    connection, storage or remote service. */
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
@@ -13,7 +15,7 @@ import { chartOf, SONGS, SONG_LEAD_MS, SONG_MS } from "../float/shared/chart.js"
 import { createGrooveScreenSound, loadGrooveVoice } from "../float/client/sound/grooveScreen.js";
 import { floatCheerSound, floatDoneSound, floatTapSound } from "../float/client/sound/groovePhone.js";
 import { songEvents } from "../float/client/sound/groove.js";
-import { primeSound, setSoundRoom, setSoundSurface, unlockSound, clipIds, clipReady, subscribeSound } from "../src/lib/sound.js";
+import { primeSound, playSound, setSoundRoom, setSoundSurface, unlockSound, clipIds, clipReady, subscribeSound } from "../src/lib/sound.js";
 
 const field = Array.from({ length:13 }, (_, i) => i);
 const entrants = field.map(i => ({ device:`d${i}`, bot:i > 0, drinks:true }));
@@ -59,11 +61,36 @@ function App() {
       const who = field.filter(i => (i * 7 + cue.id * 3) % 23 === 0);
       if (who.length) later(songAt + cue.beat * 500 + 550 - Date.now(), () => who.forEach(i => room.emit("ev", { e:"hit", i, c:cue.id, q:"miss" })));
     }
-    const drink = chart.sections.find(s => s.kind === "drink");
-    field.forEach(i => later(songAt + (drink.from + 8 + i * 1.5) * 500 - Date.now(), () => room.emit("ev", { e:"done", i })));
-    later(songAt + SONG_MS + 1500 - Date.now(), () => { phase("cut", { out:[11, 12, 7, 3] }); setSong(null); });
+    later(songAt + SONG_MS + 1500 - Date.now(), () => cutShow(id));
   }
   const stop = () => { clear(); setSong(null); phase("lobby"); };
+  /* the cut's show on the room's beats (three out below the bubble), then the chug-off for the spot */
+  function cutShow(id = "paddle") {
+    clear(); setSong(null);
+    const songAt = Date.now() - 70000;
+    room.emit("room", { ...base, phase:"song", song:id, songAt, startAt:songAt - 3000 });
+    const t0 = Date.now() + 100;
+    const show = { grades:t0 + 400, awards:[t0 + 2400, t0 + 3600, t0 + 4800], line:t0 + 6000,
+      outs:[{ i:11, at:t0 + 6800 }, { i:12, at:t0 + 8200 }, { i:7, at:t0 + 9600 }], bubble:[5, 6] };
+    room.emit("room", { ...base, phase:"cut", song:id, startAt:t0, endsAt:t0 + 15000, out:[11, 12, 7], show,
+      awards:[{ id:"perfects", i:0 }, { id:"streak", i:3 }, { id:"splashes", i:9 }] });
+    later(15100, () => chugoff(id));
+  }
+  function chugoff(id = "paddle") {
+    const t0 = Date.now() + 50, goAt = t0 + 4000, c = { a:5, b:6, goAt, doneAt:{}, winner:null, by:null };
+    room.emit("room", { ...base, phase:"chugoff", song:id, startAt:t0, chugoff:c });
+    later(goAt + 6500 - Date.now(), () => {
+      room.emit("ev", { e:"done", i:6 });
+      room.emit("room", { ...base, phase:"chugoff", song:id, startAt:t0, chugoff:{ ...c, doneAt:{ 6:6500 }, winner:6, by:"chug" } });
+    });
+  }
+  function lastCall(trick) {
+    clear(); setSong(null);
+    const id = `lastcall-${trick}`, chart = chartOf(id), startAt = Date.now() + 100, songAt = startAt + 3000;
+    const msg = lastCall => ({ ...base, phase:"lastcall", song:id, startAt, songAt, endsAt:songAt + chart.ms + 1500, lastCall });
+    room.emit("room", msg({ totals:[], worst:null }));
+    later(songAt + chart.countdown.revealAt - 50 - Date.now(), () => room.emit("room", msg({ totals:field.map(i => ({ i, ms:i * 37 })), worst:[12] })));
+  }
 
   const now = Date.now();
   const beat = song ? (now - song.songAt) / 500 : null;
@@ -82,20 +109,16 @@ function App() {
           <div style={row}>
             <button style={btn} onClick={() => { clear(); setSong(null); phase("lobby"); }}>Lobby loop</button>
             <button style={btn} onClick={() => { clear(); setSong(null); phase("intro"); }}>The Cup opens</button>
-            <button style={btn} onClick={() => { clear(); setSong(null); room.emit("room", { ...base, phase:"song", song:"paddle", songAt:Date.now() + 999999, startAt:Date.now() + 999000 }); phase("cut", { out:[11, 12, 7] }); }}>The cut (3 out)</button>
+            {["paddle", "rock", "spin"].map(id => <button key={id} style={btn} onClick={() => cutShow(id)}>After {id}: show + chug-off</button>)}
             <button style={btn} onClick={() => { clear(); setSong(null); phase("podium", { podium:[4, 0, 9] }); }}>Podium</button>
-            <button style={btn} onClick={() => {
-              clear(); setSong(null);
-              const startAt = Date.now() + 100, songAt = startAt + 3000;
-              room.emit("room", { ...base, phase:"lastcall", song:"lastcall", startAt, songAt, endsAt:songAt + 17500, lastCall:{ totals:field.map(i => ({ i, ms:0, grabs:{} })), worst:null } });
-              later(songAt + 25 * 500 - Date.now(), () => room.emit("room", { ...base, phase:"lastcall", song:"lastcall", startAt, songAt, endsAt:songAt + 17500,
-                lastCall:{ totals:field.map(i => ({ i, ms:i * 37 })), worst:[12] } }));
-            }}>Last Call</button>
+            {["lights", "slow", "ticks"].map(t => <button key={t} style={btn} onClick={() => lastCall(t)}>Last Call: {t}</button>)}
           </div>
           <div style={row}>
             <span style={{ color:"#9aa4b2" }}>Phone taps (switches this page to a phone):</span>
             {["perfect", "nice", "ok", "early", "late", null].map(q => <button key={String(q)} style={btn} onClick={() => { setSoundSurface("phone"); floatTapSound(q, "paddle"); setSoundSurface("tv"); }}>{q || "no cue"}</button>)}
             <button style={btn} onClick={() => { setSoundSurface("phone"); floatDoneSound(); setSoundSurface("tv"); }}>Done</button>
+            {["superb", "ok", "tryagain"].map(g => <button key={g} style={btn} onClick={() => { setSoundSurface("phone"); playSound("floatYouGrade", { bus:"you", opts:{ grade:g } }); setSoundSurface("tv"); }}>{g}</button>)}
+            <button style={btn} onClick={() => { setSoundSurface("phone"); floatTapSound("late", "zero"); setSoundSurface("tv"); }}>Last Call tap</button>
             <button style={btn} onClick={() => { setSoundSurface("phone"); floatCheerSound(); setSoundSurface("tv"); }}>Cheer</button>
           </div>
           {song && <Grid id={song.id} beat={beat} />}

@@ -2,11 +2,11 @@
    the host's calls as the bubble shows them, each word on its own beat, a
    phrase together until its last answer (Paddle Party's Ready, Rock Hop's
    ba notes, Spin Cycle's spins, The Drop's countdown); where the song is at
-   any moment (the round card, the intro, practice, play A and B, the drink
-   break, the outro, after); and the cheer's gate. */
+   any moment (the round card, the intro, practice, play A and B, the
+   breakdown, the outro, after); and the cheer's gate. */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { SONG_IDS, chartOf, cueTime, drinkSection, sectionsOf } from "../float/shared/chart.js";
+import { SONG_IDS, breakdownSection, chartOf, cueTime, sectionsOf } from "../float/shared/chart.js";
 import { ANSWER_HOLD, CALL_WORDS, pendingCalls, songView } from "../float/client/controller/controllerModel.js";
 import { createGate } from "../float/client/controller/rhythm.js";
 
@@ -15,12 +15,12 @@ const words = (chart, beat) => pendingCalls(chart, beat).map(call => `${call.wor
 
 test("Paddle Party: Ready on its beat, two beats before your Hey!; the paddles have no call", () => {
   const paddle = chartOf("paddle");
-  /* practice bar 3 is P...P.H.: the hey on beat 15, called on 13 */
-  assert.equal(words(paddle, 12.9), "");
-  assert.equal(words(paddle, 13), "Ready");
-  assert.equal(words(paddle, 14.9), "Ready");
-  assert.equal(words(paddle, 15 + ANSWER_HOLD - 0.01), "Ready", "held a quarter beat past its answer");
-  assert.equal(words(paddle, 15 + ANSWER_HOLD), "");
+  /* practice's last bar is P.PH: your first hey on beat 23, called on 21 (the host's demo of it was beat 19) */
+  assert.equal(words(paddle, 20.9), "");
+  assert.equal(words(paddle, 21), "Ready");
+  assert.equal(words(paddle, 22.9), "Ready");
+  assert.equal(words(paddle, 23 + ANSWER_HOLD - 0.01), "Ready", "held a quarter beat past its answer");
+  assert.equal(words(paddle, 23 + ANSWER_HOLD), "");
   /* a paddle bar: nothing */
   assert.equal(words(paddle, 9), "");
   /* Hey! Hey! on 4 and its "and": Ready, Ready a half beat apart, one bubble */
@@ -66,7 +66,7 @@ test("no chart, no beat: no bubble", () => {
   assert.deepEqual(pendingCalls(chartOf("paddle"), NaN), []);
 });
 
-test("where the song is: the card in the lead, the intro, practice, play A, the break, play B, the outro, after", () => {
+test("where the song is: the card in the lead, the intro, practice, play A, the breakdown, play B, the outro, after", () => {
   for (const id of SONG_IDS) {
     const chart = chartOf(id);
     const at = beat => songView(chart, SONG_AT, cueTime(SONG_AT, beat));
@@ -74,13 +74,13 @@ test("where the song is: the card in the lead, the intro, practice, play A, the 
     assert.equal(card.moment, "card", id);
     assert.equal(card.lead, 1200);
     const sections = sectionsOf();
-    const drink = drinkSection(chart);
+    const breakdown = breakdownSection(chart);
     assert.deepEqual([at(0).moment, at(7.9).moment], ["intro", "intro"], id);
     assert.equal(at(sections[1].from).moment, "practice", id);
     assert.deepEqual([at(sections[2].from).moment, at(sections[2].from).half], ["play", "A"], id);
-    assert.equal(at(drink.from).moment, "drink", id);
-    assert.equal(at(drink.to - 0.01).moment, "drink", id);
-    assert.deepEqual([at(drink.to).moment, at(drink.to).half], ["play", "B"], id);
+    assert.equal(at(breakdown.from).moment, "breakdown", id);
+    assert.equal(at(breakdown.to - 0.01).moment, "breakdown", id);
+    assert.deepEqual([at(breakdown.to).moment, at(breakdown.to).half], ["play", "B"], id);
     assert.equal(at(chart.beats - 1).moment, "outro", id);
     assert.equal(at(chart.beats).moment, "after", id);
   }

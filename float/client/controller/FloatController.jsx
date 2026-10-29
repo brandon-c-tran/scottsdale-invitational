@@ -18,9 +18,11 @@
    own time on the room's clock (serverStamp), matchTap with the room's
    offset, {t:"hit", c, r}, the popup at once and big, the critter's move,
    floatTapSound(q) and tapTick(). A tap that matches no cue only sounds
-   and ticks. While Done is owed the pad takes no taps. A phone back from a
-   reconnect carries on by the clock: the cues it took stay taken (the room
-   ignores a second hit on a cue anyway). */
+   and ticks. A phone back from a reconnect carries on by the clock: the
+   cues it took stay taken (the room ignores a second hit on a cue anyway).
+   Last Call takes one tap (cue 0) and says nothing of it until the reveal:
+   no popup, no quality in its sound. The chug-off's Done is `drink`, sent
+   again until the room has it. */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { connectFloat } from "../net.js";
 import { cleanColor, cleanName } from "../../shared/protocol.js";
@@ -30,9 +32,10 @@ import { createWakeLock } from "../../../src/lib/wakeLock.js";
 import { tapTick } from "../../../src/lib/haptics.js";
 import SongScreen from "./SongScreen.jsx";
 import LastCall from "./LastCall.jsx";
+import ChugOff from "./ChugOff.jsx";
 import Screens from "./Screens.jsx";
 import { useRoom } from "./useRoom.js";
-import { drinkGate, drinksOn, offsetOf, roundShape, roundSong, screenOf, songAtOf, songView, wakeFor } from "./controllerModel.js";
+import { indexOf, lastCallJudged, offsetOf, roundShape, roundSong, screenOf, songAtOf, wakeFor } from "./controllerModel.js";
 import { createGate, createPad, padTap, restamp, serverStamp, stampOf } from "./rhythm.js";
 import { cheerSound, doneSound, tapSound, unlockSound, useControllerSound } from "./sound.js";
 import { usePreloadArt } from "./art.jsx";
@@ -44,7 +47,7 @@ const FEEDBACK_KEY = "float-feedback";
 const store = () => { try { return globalThis.localStorage || null; } catch { return null; } };
 const readJson = key => { try { return JSON.parse(store()?.getItem(key) || "null"); } catch { return null; } };
 const writeJson = (key, value) => { try { store()?.setItem(key, JSON.stringify(value)); } catch {} };
-const sameLook = (a, b) => !!a && !!b && ["critter", "floatie", "hat", "shades", "pose"].every(key => a[key] === b[key]);
+const sameLook = (a, b) => !!a && !!b && ["critter", "floatie", "hat", "shades", "shirt", "pose"].every(key => a[key] === b[key]);
 const perfNow = () => globalThis.performance?.now?.() ?? Date.now();
 
 /* the page is a game while this is open: still and unzoomable, and awake
@@ -122,14 +125,13 @@ export default function FloatController({ room = "test", rider = null, onExit = 
   const songKey = game.songKey;
   const chart = game.chart;
   const songAt = songAtOf(game.room);
-  const owes = idx >= 0 && drinksOn(game.room, idx);
 
-  /* ── Done: tapped here (this song), or the room's word ── */
+  /* ── the chug-off's Done: tapped here (this chug-off), or the room's word ── */
+  const chug = phase === "chugoff" && game.room?.chugoff && typeof game.room.chugoff === "object" ? game.room.chugoff : null;
+  const chugKey = chug ? `${cupId || ""}:${game.room?.round ?? 0}:${indexOf(chug.a)}:${indexOf(chug.b)}` : null;
   const [doneFor, setDoneFor] = useState(null);
-  const doneHere = !!songKey && doneFor === songKey;
-  const doneRoom = !!game.memory.done && game.memory.song === songKey;
-  const done = doneHere || doneRoom;
-
+  const doneHere = !!chugKey && doneFor === chugKey;
+  const doneRoom = !!chug && idx >= 0 && !!chug.doneAt && typeof chug.doneAt === "object" && chug.doneAt[idx] != null;
   const doneOwedRef = useRef(false);
 
   /* ── what the room has to confirm, sent again after a reconnect ── */
@@ -152,8 +154,8 @@ export default function FloatController({ room = "test", rider = null, onExit = 
       setPendingLook(null);
     }
   });
-  /* a Done the room has not confirmed goes again every few seconds while the song is on */
-  const doneOwed = doneHere && !doneRoom && phase === "song";
+  /* a Done the room has not confirmed goes again every few seconds while the chug-off is on */
+  const doneOwed = doneHere && !doneRoom && !!chug && indexOf(chug.winner) === null;
   doneOwedRef.current = doneOwed;
   useEffect(() => {
     if (!doneOwed || !net) return undefined;
@@ -166,12 +168,14 @@ export default function FloatController({ room = "test", rider = null, onExit = 
   pad.song(songKey);
   const [popup, setPopup] = useState(null);
   const [act, setAct] = useState(null);
+  /* Last Call: this phone's own call on its one tap, kept for the reveal */
+  const [lcTap, setLcTap] = useState(null);
   /* a new song starts with nothing on the screen */
   useEffect(() => { setPopup(null); setAct(null); }, [songKey]);
   const popupRef = useRef(null);
   popupRef.current = popup;
   const live = useRef({});
-  live.current = { chart, songAt, offset:offsetOf(game.room), owes, done, screen, songKey };
+  live.current = { chart, songAt, offset:offsetOf(game.room), screen, songKey };
   const seq = useRef(0);
   const show = useCallback(item => {
     seq.current += 1;
@@ -194,10 +198,9 @@ export default function FloatController({ room = "test", rider = null, onExit = 
         if (again) setPopup({ ...again, key:up.key, at:up.at });
         return;
       }
-      /* while Done is owed the critter keeps chugging and the panel has the screen */
+      /* Last Call says nothing until its reveal */
       const s = live.current;
-      const owed = drinkGate({ view:songView(s.chart, s.songAt, net.serverNow()), chart:s.chart, owes:s.owes, done:s.done }).owed;
-      if (msg.t === "ev" && msg.q === "miss" && !owed && (!fresh || up.c < msg.c) && (s.screen === "song" || s.screen === "lastcall")) {
+      if (msg.t === "ev" && msg.q === "miss" && (!fresh || up.c < msg.c) && s.screen === "song") {
         show({ c:msg.c, q:"miss", d:null });
         seq.current += 1;
         setAct({ key:seq.current, kind:"miss", q:"miss", at:perfNow() });
@@ -216,9 +219,20 @@ export default function FloatController({ room = "test", rider = null, onExit = 
     unlockSound();
     if (wakeFor(gameRef.current.room?.phase)) wake.current?.start();
     const t = serverStamp(stampOf({ timeStamp:eventAt }, perf), { perfNow:perf, serverNow:server });
-    const { open, found } = padTap(pad, t, { chart:s.chart, songAt:s.songAt, offset:s.offset, owes:s.owes, done:s.done });
+    /* Last Call: one tap, then Locked; a tap after it does nothing at all */
+    if (s.screen === "lastcall" && pad.has(0)) return;
+    const { open, found } = padTap(pad, t, { chart:s.chart, songAt:s.songAt, offset:s.offset });
     if (globalThis.__floatMock) globalThis.__floatLastTap = { t, songAt:s.songAt, offset:s.offset, open, c:found?.c ?? null, eventAt, perf };
     if (!open) return;
+    if (s.screen === "lastcall") {
+      if (found) {
+        net.send(found.hit);
+        setLcTap({ key:s.songKey, q:found.q, d:found.d });
+        tapSound(null, "zero");
+      }
+      tapTick();
+      return;
+    }
     if (found) {
       net.send(found.hit);
       show({ c:found.c, q:found.q, d:found.d });
@@ -233,11 +247,10 @@ export default function FloatController({ room = "test", rider = null, onExit = 
     tapTick();
     unlockSound();
     doneSound();
-    const key = gameRef.current.songKey;
-    setDoneFor(key);
+    setDoneFor(chugKey);
     doneOwedRef.current = true;
     net?.send({ t:"drink" });
-  }, [net]);
+  }, [net, chugKey]);
 
   /* ── the look, the ready, the cheer, the feedback ── */
   const setLook = useCallback(next => {
@@ -287,10 +300,13 @@ export default function FloatController({ room = "test", rider = null, onExit = 
   return <div className="flc-root" style={{ "--me":entrant.color }} data-screen={screen} onTouchEnd={onTouchEnd}>
     {screen === "song"
       ? <SongScreen serverNow={serverNow} chart={chart} songAt={songAt} entrant={entrant} shape={shape} name={song.name}
-        popup={popup} act={act} owes={owes} done={done} onTap={onTap} onDone={onDone} />
+        popup={popup} act={act} me={game.me} onTap={onTap} />
       : screen === "lastcall"
-      ? <LastCall serverNow={serverNow} room={game.room} me={game.me} idx={idx} chart={chart} songAt={songAt} entrant={entrant}
-        judged={game.memory.song === songKey ? game.memory.judged || {} : {}} popup={popup} act={act} onTap={onTap} />
+      ? <LastCall serverNow={serverNow} room={game.room} idx={idx} chart={chart} songAt={songAt} entrant={entrant}
+        judged={lastCallJudged(game, songKey)} tap={lcTap?.key === songKey ? lcTap : null} onTap={onTap} />
+      : screen === "chugoff"
+      ? <ChugOff serverNow={serverNow} room={game.room} idx={idx} entrant={entrant} sent={doneHere || doneRoom} onDone={onDone}
+        cheer={cheer} onCheer={onCheer} onExit={onExit} />
       : <Screens screen={screen} game={game} entrant={entrant} me={me} groom={groom} serverNow={serverNow} onReady={setReady}
         onLook={setLook} onFeedback={sendFeedback} feedbackSent={feedbackSent} cheer={cheer} onCheer={onCheer} onExit={onExit} />}
     {game.status !== "open" && <div className="flc-link" role="status">

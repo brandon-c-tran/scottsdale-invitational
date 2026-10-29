@@ -218,5 +218,5 @@ test("Last Call is a countdown: shown and said, then dark; one tap on zero, a wi
 });
 
 test("the chug-off's timing is shared", () => {
-  assert.deepEqual(CHUGOFF, { INTRO_MS:4000, WINDOW_MS:30000, REVEAL_MS:3000, EXIT_MS:2500 });
+  assert.deepEqual(CHUGOFF, { INTRO_MS:4000, INTRO_FIRST_MS:7000, WINDOW_MS:30000, REVEAL_MS:3000, EXIT_MS:2500 });
 });

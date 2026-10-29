@@ -22,13 +22,14 @@
    `window.__floatMock` (with expose) carries what the controller sent and
    go(scene) for the headless check. */
 import { FloatRoom } from "../../worker/room.js";
-import { chartOf, cueTime, drinkSection, MISS_AFTER_MS } from "../../shared/chart.js";
+import { chartOf, cueTime, MISS_AFTER_MS } from "../../shared/chart.js";
 import { botSkills } from "../../shared/groove.js";
 
 export const MOCK_SCENES = Object.freeze(["lobby", "lobby-ready", "lobby-fieldday", "intro", "card", "count", "practice", "hey",
-  "play", "play-late", "play-miss", "drink", "drink-done", "drink-dry", "drink-late", "outro", "after", "rock", "spin", "drop",
-  "cut", "cut-out", "cut-final", "lastcall", "lastcall-grab", "lastcall-drink", "lastcall-safe", "crowd", "podium", "podium-win",
-  "podium-out", "feedback", "watch"]);
+  "watch-demo", "play", "play-late", "play-miss", "breakdown", "breakdown-copy", "outro", "after", "rock", "spin", "drop",
+  "cut", "cut-out", "cut-bubble", "cut-final", "chugoff", "chugoff-count", "chugoff-go", "chugoff-kept", "chugoff-out",
+  "chugoff-crowd", "lastcall", "lastcall-tap", "lastcall-locked", "lastcall-reveal", "lastcall-drink", "lastcall-safe",
+  "crowd", "podium", "podium-win", "podium-out", "feedback", "watch"]);
 /* a frozen scene's clock starts here, so a held moment is the same every time */
 export const MOCK_EPOCH = Date.UTC(2026, 9, 31, 4, 0, 0);
 /* the room's clock runs forward this far a step, and the phone is heard every PING_MS */
@@ -69,14 +70,18 @@ const memoryCtx = () => {
 };
 
 /* how the ghost plays your cues on the way to a moment: r (raw ms) for a
-   cue, or null to leave it (the room's miss); and when it taps Done */
+   cue, or null to leave it (the room's miss); and, in a chug-off it is in,
+   how long after the go it taps Done (null: never) */
 const near = c => ((c * 37) % 41) - 20;
 export const GHOSTS = Object.freeze({
-  good:{ r:(cue, offset) => offset + near(cue.id), done:3000 },
-  practice:{ r:(cue, offset) => cue.scored ? offset + near(cue.id) : 18 + near(cue.id) / 4, done:3000 },
-  idle:{ r:() => null, done:null },
-  bad:{ r:() => null, done:3000 },
+  good:{ r:(cue, offset) => offset + near(cue.id), chug:2000 },
+  practice:{ r:(cue, offset) => cue.scored ? offset + near(cue.id) : 18 + near(cue.id) / 4, chug:2000 },
+  idle:{ r:() => null, chug:null },
+  bad:{ r:() => null, chug:null },
 });
+/* Last Call's ghost: every song as practice, then its one tap on zero `r` ms off (null: none) */
+const zeroGhost = (r, chug = 2000) => ({ ...GHOSTS.practice, chug, r:(cue, offset) => cue.kind === "zero" ? (r === null ? null : offset + r)
+  : GHOSTS.practice.r(cue, offset) });
 
 export function createMockRoom({ hello = null, scene = null, freeze = false, timers = globalThis, now:realNow = () => Date.now(),
   perf = () => globalThis.performance?.now?.() ?? Date.now(), lag = 40, expose = false, bots = 12 } = {}) {
@@ -170,11 +175,15 @@ export function createMockRoom({ hello = null, scene = null, freeze = false, tim
       mine.hits.add(cue.id);
       if (clock.t < t + song.offset + (chart.window || 300) + 250) say(phoneWs, { t:"hit", c:cue.id, r:Math.round(r) });
     }
-    const drink = drinkSection(chart);
-    if (ghost.done !== null && !mine.done && drink && clock.t >= cueTime(song.songAt, drink.from, chart.beatMs) + ghost.done) {
-      mine.done = true;
-      say(phoneWs, { t:"drink" });
-    }
+  }
+  /* the ghost's Done in a chug-off it is in */
+  function ghostChug() {
+    const cup = room?.cup, i = meIndex(), chug = cup?.chugoff;
+    if (!ghost || ghost.chug === null || ghost.chug === undefined || cup?.phase !== "chugoff" || !chug || (i !== chug.a && i !== chug.b)) return;
+    const key = `${cup.id}:${chug.round}:chug`;
+    if (ghostSent.has(key) || clock.t < chug.goAt + ghost.chug) return;
+    ghostSent.set(key, true);
+    say(phoneWs, { t:"drink" });
   }
 
   /* the room's clock forward to `to`: a step at a time, the ghost and the phone's pings on the way */
@@ -183,6 +192,7 @@ export function createMockRoom({ hello = null, scene = null, freeze = false, tim
     while (clock.t < to && guard++ < 400000) {
       clock.t = Math.min(to, clock.t + STEP_MS);
       ghostStep();
+      ghostChug();
       if (clock.t - lastPing >= PING_MS) {
         lastPing = clock.t;
         if (meIndex() >= 0) say(phoneWs, { t:"ping", c:clock.t });
@@ -208,10 +218,30 @@ export function createMockRoom({ hello = null, scene = null, freeze = false, tim
     runUntil(cup => cup.phase === "song" && cup.round === round);
     runTo(room.cup.songAt + beat * 500);
   }
-  /* Last Call after round `round`'s cut, at its beat `beat` */
-  function toBar(round, beat) {
+  /* Last Call after round `round`'s cut: `at(countdown)` ms from its songAt */
+  function toBar(round, at) {
     runUntil(cup => cup.phase === "lastcall" && cup.round === round && !!cup.bar);
-    runTo(room.cup.bar.songAt + beat * chartOf("lastcall").beatMs);
+    const bar = room.cup.bar;
+    runTo(bar.songAt + at(chartOf(bar.id).countdown));
+  }
+  /* this phone on the chug-off's pair: at the cut it takes the seat of
+     the rider on the bubble (`k` 0 the last through, 1 the first out) */
+  function bubbleMe(k = 0) {
+    const cup = room.cup, i = meIndex();
+    const seat = cup?.bubble?.[k];
+    if (!Number.isInteger(seat) || i < 0 || seat === i) return;
+    const mine = cup.entrants[i];
+    cup.entrants[i] = cup.entrants[seat];
+    cup.entrants[seat] = mine;
+  }
+  /* round 0's cut with this phone on the bubble (or watching it) */
+  function toCut(k = null) {
+    runUntil(cup => cup.phase === "cut");
+    if (k !== null) bubbleMe(k);
+  }
+  function toChug(k = null) {
+    toCut(k);
+    runUntil(cup => cup.phase === "chugoff" && !!cup.chugoff);
   }
   /* the Cup's order with this phone at `place` (a held podium) */
   function placeMe(place) {
@@ -253,7 +283,6 @@ export function createMockRoom({ hello = null, scene = null, freeze = false, tim
         body:JSON.stringify({ evId:"float", cupId:"mock-cup", mode:"fieldday", drinking:true, startAt:clock.t + 600000, bots:0,
           entrants:[{ ...rider(), pid:"p1" }, ...NAMES.map((n, k) => ({ ...mockRider(k), pid:`p${k + 2}` }))] }) }));
     }
-    if (name === "drink-dry") riderPatch = { drinks:false };
     if (name !== "watch") phoneHello();
     if (name !== "lobby-fieldday") fillLobby(bots);
     if (name === "lobby-ready") say(phoneWs, { t:"ready", on:true });
@@ -277,25 +306,36 @@ export function createMockRoom({ hello = null, scene = null, freeze = false, tim
       /* the ghost leaves beat 30: the room's miss lands just after the phone is back */
       case "play-miss": ghost = { ...GHOSTS.practice, r:(cue, offset) => cue.beat === 30 ? null : GHOSTS.practice.r(cue, offset) };
         toBeat(0, 29.4); runTo(cueAt(30) + song().offset + MISS_AFTER_MS - 160); break;
-      case "drink": ghost = { ...GHOSTS.practice, done:null }; toBeat(0, 60.3); break;
-      case "drink-done": ghost = GHOSTS.practice; toBeat(0, 66.2); break;
-      case "drink-dry": ghost = GHOSTS.practice; toBeat(0, 62.4); break;
-      case "drink-late": ghost = { ...GHOSTS.practice, done:null }; toBeat(0, 89.4); break;
+      /* the host's demo ("Watch"); the breakdown's "Copy me", then the copy (a tap 30 ms late) */
+      case "watch-demo": ghost = GHOSTS.practice; toBeat(0, 17.4); break;
+      case "breakdown": ghost = GHOSTS.practice; toBeat(0, 57.2); break;
+      case "breakdown-copy": ghost = { ...GHOSTS.practice, r:(cue, offset) => cue.beat === 60 ? null : GHOSTS.practice.r(cue, offset) };
+        toBeat(0, 59.6); runTo(cueAt(60) + song().offset + 30); break;
       case "outro": ghost = GHOSTS.practice; toBeat(0, 120.2); break;
       case "after": ghost = GHOSTS.practice; toBeat(0, 128.6); break;
       case "rock": ghost = GHOSTS.practice; toBeat(1, 9.2); break;
       case "spin": ghost = GHOSTS.practice; toBeat(2, 10.6); break;
       case "drop": ghost = GHOSTS.practice; toBeat(3, 118.1); break;
       case "cut": ghost = GHOSTS.practice; runUntil(cup => cup.phase === "cut"); runTo(clock.t + 1500); break;
-      case "cut-out": ghost = GHOSTS.bad; runUntil(cup => cup.phase === "cut"); runTo(clock.t + 1500); break;
+      case "cut-out": ghost = GHOSTS.bad; runUntil(cup => cup.phase === "cut"); runTo(room.cup.endsAt - 1500); break;
+      case "cut-bubble": ghost = GHOSTS.practice; toCut(0); runTo(room.cup.endsAt - 1500); break;
+      /* the chug-off: its call (the Cup's first says what it is), the count, the go, kept or out, and the room's view */
+      case "chugoff": ghost = GHOSTS.practice; toChug(0); runTo(room.cup.startAt + 600); break;
+      case "chugoff-count": ghost = GHOSTS.practice; toChug(0); runTo(room.cup.chugoff.goAt - 1500); break;
+      case "chugoff-go": ghost = { ...GHOSTS.practice, chug:null }; toChug(0); runTo(room.cup.chugoff.goAt + 1200); break;
+      case "chugoff-kept": ghost = { ...GHOSTS.practice, chug:1500 }; toChug(0); runTo(room.cup.chugoff.goAt + 2400); break;
+      case "chugoff-out": ghost = { ...GHOSTS.practice, chug:null }; toChug(1);
+        runUntil(cup => cup.phase !== "chugoff" || cup.chugoff?.winner !== null); runTo(clock.t + 900); break;
+      case "chugoff-crowd": ghost = GHOSTS.practice; toChug(null); runTo(room.cup.chugoff.goAt + 1500); break;
       case "cut-final": ghost = GHOSTS.practice; runUntil(cup => cup.phase === "cut" && cup.round === 3); placeMe(1); runTo(clock.t + 1500); break;
-      /* Last Call: the drink sliding toward you, a grab 330 ms late, who drinks */
-      case "lastcall": ghost = GHOSTS.practice; toBar(0, 5.6); break;
-      case "lastcall-grab": ghost = { ...GHOSTS.practice, r:(cue, offset) => cue.kind === "grab" ? null : GHOSTS.practice.r(cue, offset) };
-        toBar(0, 6.4); runTo(room.cup.bar.songAt + 7 * 500 + room.cup.bar.offset + 330); break;
-      case "lastcall-drink": ghost = { ...GHOSTS.practice, r:(cue, offset) => cue.kind === "grab" ? null : GHOSTS.practice.r(cue, offset) };
-        toBar(0, 28.6); break;
-      case "lastcall-safe": ghost = GHOSTS.practice; toBar(0, 28.6); break;
+      /* Last Call, the countdown: the intro (the first says what it is), Tap on zero, Locked (730 ms late), the
+         offset revealed, who drinks (2.6 s off: the farthest) and who is safe (20 ms off) */
+      case "lastcall": ghost = zeroGhost(730); toBar(0, cd => 2000); break;
+      case "lastcall-tap": ghost = zeroGhost(null); toBar(0, cd => cd.zeroAt - 1500); break;
+      case "lastcall-locked": ghost = zeroGhost(730); toBar(0, cd => cd.zeroAt + 1500); break;
+      case "lastcall-reveal": ghost = zeroGhost(730); toBar(0, cd => cd.revealAt + 500); break;
+      case "lastcall-drink": ghost = zeroGhost(2600); toBar(0, cd => cd.verdictAt + 700); break;
+      case "lastcall-safe": ghost = zeroGhost(20); toBar(0, cd => cd.verdictAt + 700); break;
       case "crowd": ghost = GHOSTS.bad; toBeat(1, 34.2); break;
       case "podium": case "podium-win": ghost = GHOSTS.practice; runUntil(cup => cup.phase === "podium");
         placeMe(name === "podium-win" ? 1 : 2); runTo(clock.t + 2000); break;

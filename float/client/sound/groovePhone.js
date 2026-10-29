@@ -9,14 +9,18 @@
                                          Early or Late a muffled slap), or
                                          null for a tap that matched no cue
                                          (a soft dull tick); kind the cue's,
-                                         for its tint
-                floatDoneSound()         Done in the drink break
+                                         for its tint; Last Call's one tap
+                                         (kind "zero") the same whatever q
+                floatDoneSound()         your Done in the chug-off
                 floatCheerSound()        a cheer from the bank (once out)
-     moments  from a fresh room message: Through or Out at the cut, on the
-              cut's reveal (CUT_BEATS: Out on your turn in the outs, Through
-              after the last), your place on the podium on its beat
-              (PODIUM_BEATS); the room's `done` for you when this phone did
-              not tap it (another tab, a stand-in)
+     moments  from a fresh room message: your grade's jingle on the cut's
+              stamp (room.show; Superb, OK, Try again); Through or Out at
+              the cut on the show's beats (Out on your own, Through after
+              the last; nothing for the chug-off's pair); the chug-off's
+              winner Safe as the room names them, the loser Out with their
+              exit; Last Call's Gulp or Safe on the countdown's verdictAt;
+              your place on the podium on its beat (PODIUM_BEATS); the
+              room's `done` for you when this phone did not tap it
 
    Silent: a catch-up (the first room message on a connection), anything
    stale or while the page is hidden, anyone else's moments. Pure apart
@@ -24,7 +28,8 @@
 import { useEffect, useRef } from "react";
 import { installSoundUnlock, playSound, unlockSound } from "../../../src/lib/sound.js";
 import { serverNow } from "../../../src/lib/serverClock.js";
-import { BEAT_MS, CUT_BEATS, LAST_CALL_BEATS, PODIUM_BEATS } from "./groove.js";
+import { gradeOf } from "../../shared/chart.js";
+import { CHUGOFF_BEATS, CUT_BEATS, PODIUM_BEATS, chartFor, cutBeats } from "./groove.js";
 
 export const PHONE_FRESH_MS = 1500;
 export const PHONE_EV_FRESH_MS = 1000;
@@ -34,7 +39,7 @@ export const TAP_GAP_MS = 35;
 export const TAP_ECHO_MS = 2500;
 export const CHEER_GAP_MS = 250;
 export const TAP_QUALITIES = Object.freeze(["perfect", "nice", "ok", "early", "late"]);
-export const TAP_KINDS = Object.freeze(["paddle", "hey", "hop", "spin", "drop", "grab"]);
+export const TAP_KINDS = Object.freeze(["paddle", "hey", "hop", "spin", "drop", "echo", "zero", "grab"]);
 
 /* the controller's taps (wall clock), shared by the tap functions and the runner */
 const taps = { tap:-Infinity, done:-Infinity, cheer:-Infinity };
@@ -48,7 +53,8 @@ export function floatTapSound(q = null, kind = null) {
     if (t - taps.tap < TAP_GAP_MS) return null;
     taps.tap = t;
     const opts = {};
-    if (TAP_QUALITIES.includes(q)) opts.q = q;
+    /* Last Call's one tap sounds the same however close it was: the reveal tells */
+    if (TAP_QUALITIES.includes(q) && kind !== "zero") opts.q = q;
     if (TAP_KINDS.includes(kind)) opts.kind = kind;
     return playSound("floatYouTap", { bus:"you", opts });
   } catch { return null; }
@@ -78,22 +84,50 @@ export const GROOVE_TAPS = Object.freeze({ tap:floatTapSound, done:floatDoneSoun
 const num = v => { const n = Number(v); return v !== null && v !== undefined && v !== "" && Number.isFinite(n) ? n : null; };
 const idx = v => typeof v === "number" && Number.isInteger(v) ? v : v && typeof v === "object" && Number.isInteger(Number(v.i)) ? Number(v.i) : null;
 const list = v => (Array.isArray(v) ? v : []).map(idx).filter(i => i !== null);
+export const GRADE_IDS = Object.freeze(["superb", "ok", "tryagain"]);
 function phoneView(msg) {
   if (!msg || typeof msg !== "object") return null;
   const bar = msg.lastCall && typeof msg.lastCall === "object" ? msg.lastCall : null;
-  return { phase:String(msg.phase || ""), s:num(msg.s), round:Math.max(0, Math.floor(num(msg.round) ?? 0)), songAt:num(msg.songAt),
+  const sh = msg.show && typeof msg.show === "object" ? msg.show : null;
+  const c = msg.chugoff && typeof msg.chugoff === "object" ? msg.chugoff : null;
+  const phase = String(msg.phase || "");
+  return { phase, s:num(msg.s), round:Math.max(0, Math.floor(num(msg.round) ?? 0)), songAt:num(msg.songAt),
     startAt:num(msg.startAt), field:list(msg.field), out:list(msg.out), podium:list(msg.podium),
+    chart:phase === "lastcall" ? chartFor(msg) : null,
+    results:(Array.isArray(msg.results) ? msg.results : []).filter(r => r && Number.isInteger(Number(r.i))),
+    show:sh ? { grades:num(sh.grades), line:num(sh.line), outs:(Array.isArray(sh.outs) ? sh.outs : []).map(o => ({ i:idx(o), at:num(o?.at) }))
+      .filter(o => o.i !== null && o.at !== null), bubble:list(sh.bubble) } : null,
+    chugoff:c ? { a:idx(c.a), b:idx(c.b), goAt:num(c.goAt), winner:idx(c.winner), by:typeof c.by === "string" ? c.by : null } : null,
     bar:bar ? { players:(Array.isArray(bar.totals) ? bar.totals : []).map(row => idx(row)).filter(i => i !== null),
       worst:Array.isArray(bar.worst) ? list(bar.worst) : null } : null };
 }
 export function initialPhone({ me = null, open = true } = {}) {
-  return { open, live:false, me:idx(me), view:null, phaseAt:null, played:null, sang:null, outsBefore:null, field:null };
+  return { open, live:false, me:idx(me), view:null, phaseAt:null, played:null, sang:null, graded:null, grade:null, kept:null,
+    outsBefore:null, field:null };
 }
 export function phoneStatus(mem, status) {
   const open = status === "open";
   if (open && !mem.open) return { ...mem, open:true, live:false };
   if (!open && mem.open) return { ...mem, open:false, live:false };
   return mem;
+}
+/* your grade for this cut: the room's word for you (me.feedback), else your row's (its grade, or its percent) */
+function gradeIn(m, v) {
+  if (GRADE_IDS.includes(m.grade)) return m.grade;
+  const row = v?.results?.find(r => Number(r.i) === m.me);
+  if (!row) return null;
+  if (GRADE_IDS.includes(row.grade)) return row.grade;
+  return Number.isFinite(Number(row.pct)) ? gradeOf(Number(row.pct)) : null;
+}
+/* the jingle for your grade, once a cut, on the show's stamp (or at once, when the grade comes later) */
+function gradeCue(m, v, now) {
+  if (v?.phase !== "cut" || m.graded === `cut:${v.round}:${m.phaseAt}` || !Number.isInteger(m.me)) return null;
+  if (!(m.field || v.field).includes(m.me) && !v.results.some(r => Number(r.i) === m.me)) return null;
+  const grade = gradeIn(m, v);
+  if (!grade) return null;
+  m.graded = `cut:${v.round}:${m.phaseAt}`;
+  const at = v.show?.grades ?? m.phaseAt + CUT_BEATS.grades;
+  return { id:"floatYouGrade", at:Math.max(at, now + 60), opts:{ grade } };
 }
 
 /* One message through the phone's sound: the memory and the cues it owes,
@@ -113,6 +147,12 @@ export function phoneStep(mem, msg, ctx = {}) {
     }
     case "me": {
       if (Number.isInteger(Number(msg.i)) && !Number.isInteger(ctx.me)) m.me = Number(msg.i);
+      /* your grade (the cut's feedback): its jingle, when the cut came first */
+      const grade = msg.feedback && typeof msg.feedback === "object" ? msg.feedback.grade : null;
+      if (GRADE_IDS.includes(grade)) {
+        m.grade = grade;
+        if (m.live && visible) { const c = gradeCue(m, m.view, now); if (c) cues.push(c); }
+      }
       return { mem:m, cues };
     }
     case "room": {
@@ -123,24 +163,36 @@ export function phoneStep(mem, msg, ctx = {}) {
       const moved = !prev || prev.phase !== v.phase || prev.round !== v.round;
       m.view = v; m.live = true;
       if (moved) m.phaseAt = Number.isFinite(v.startAt) && Math.abs(v.startAt - s) < 10000 ? v.startAt : s;
-      if (v.phase === "song" && moved) { m.outsBefore = [...v.out]; m.field = [...v.field]; }
+      if (v.phase === "song" && moved) { m.outsBefore = [...v.out]; m.field = [...v.field]; m.grade = null; }
       const me = m.me;
-      /* Last Call: who drinks, as the room names them, on the bar's reveal beat */
+      /* Last Call: who drinks, on the countdown's verdict (nothing of anyone's before its reveal) */
       if (fresh && v.phase === "lastcall" && v.bar?.worst && Number.isInteger(me) && v.bar.players.includes(me)
         && m.played !== `bar:${v.songAt}` && prev && !(prev.phase === "lastcall" && prev.bar?.worst)) {
         m.played = `bar:${v.songAt}`;
-        const at = Number.isFinite(v.songAt) ? v.songAt + LAST_CALL_BEATS.drinks * BEAT_MS + 120 : null;
+        const verdict = v.chart?.countdown?.verdictAt;
+        const at = Number.isFinite(v.songAt) && Number.isFinite(verdict) ? v.songAt + verdict + 120 : null;
         cues.push({ id:v.bar.worst.includes(me) ? "floatYouGulp" : "floatYouSafe", at:at !== null && at > now ? at : null });
+      }
+      if (fresh && v.phase === "cut") { const c = gradeCue(m, v, now); if (c) cues.push(c); }
+      /* the chug-off settled: the winner keeps the spot as the room names it, the loser is out with the exit */
+      const c = v.chugoff;
+      if (fresh && v.phase === "chugoff" && c && Number.isInteger(c.winner) && Number.isInteger(me) && (me === c.a || me === c.b)
+        && m.kept !== `chug:${c.goAt}`) {
+        m.kept = `chug:${c.goAt}`;
+        cues.push(me === c.winner ? { id:"floatYouSafe", at:null } : { id:"floatYouOut", at:s + CHUGOFF_BEATS.exit });
       }
       if (!fresh || !moved || !prev || !Number.isInteger(me)) return { mem:m, cues };
       /* the final's cut names nobody: your place sounds on the podium instead */
       const final = msg.rounds > 0 && v.round >= msg.rounds - 1;
-      if (v.phase === "cut" && !final && prev.phase === "song" && (m.field || prev.field).includes(me) && m.played !== `cut:${v.round}`) {
-        const before = new Set(m.outsBefore || prev.out), outs = v.out.filter(i => !before.has(i));
-        const k = outs.indexOf(me), reveal = m.phaseAt + CUT_BEATS.reveal;
+      const pair = new Set([...(v.show?.bubble || []), c?.a, c?.b].filter(Number.isInteger));
+      if (v.phase === "cut" && !final && prev.phase === "song" && (m.field || prev.field).includes(me) && !pair.has(me) && m.played !== `cut:${v.round}`) {
+        const before = new Set(m.outsBefore || prev.out), outs = v.out.filter(i => !before.has(i) && !pair.has(i));
+        const line = v.show?.line ?? m.phaseAt + cutBeats(0, 0).line;
+        const own = (i, k) => v.show?.outs?.find(o => o.i === i)?.at ?? line + CUT_BEATS.after + k * CUT_BEATS.gap;
+        const k = outs.indexOf(me);
+        const last = outs.length ? Math.max(...outs.map(own)) : line;
         m.played = `cut:${v.round}`;
-        cues.push(k >= 0 ? { id:"floatYouOut", at:reveal + k * CUT_BEATS.gap + 60 }
-          : { id:"floatYouSafe", at:reveal + outs.length * CUT_BEATS.gap + 60 });
+        cues.push(k >= 0 ? { id:"floatYouOut", at:own(me, k) + 60 } : { id:"floatYouSafe", at:last + 600 });
       }
       if (v.phase === "podium" && m.played !== `podium:${m.phaseAt}`) {
         const place = v.podium.indexOf(me) + 1;
@@ -155,8 +207,10 @@ export function phoneStep(mem, msg, ctx = {}) {
       const s = Number(msg.s);
       const fresh = m.live && visible && Number.isFinite(s) && now - s <= PHONE_EV_FRESH_MS;
       if (!fresh || !Number.isInteger(m.me) || Number(msg.i) !== m.me) return { mem:m, cues };
-      if (msg.e === "done" && wall - tapped.done > TAP_ECHO_MS && m.sang !== `done:${m.view?.songAt}`) {
-        m.sang = `done:${m.view?.songAt}`;
+      /* your Done in the chug-off, when this phone did not tap it (another tab, a stand-in) */
+      const goAt = m.view?.chugoff?.goAt ?? m.view?.startAt;
+      if (msg.e === "done" && m.view?.phase === "chugoff" && wall - tapped.done > TAP_ECHO_MS && m.sang !== `done:${goAt}`) {
+        m.sang = `done:${goAt}`;
         cues.push({ id:"floatYouDone", at:null });
       }
       return { mem:m, cues };

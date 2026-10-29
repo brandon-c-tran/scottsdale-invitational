@@ -75,7 +75,7 @@ test("a mouse, a pen and Space or Enter tap; a touch's own pointer event does no
   assert.deepEqual(taps, ["pointerdown:10", "pointerdown:20", "keydown:60", "keydown:60"]);
 });
 
-test("the tap, as the touch handler makes it: stamped back to the touch, matched, gated by Done", () => {
+test("the tap, as the touch handler makes it: stamped back to the touch, matched; the pad is always open", () => {
   const chart = chartOf("paddle");
   const songAt = 5_000_000;
   const pad = createPad();
@@ -83,11 +83,15 @@ test("the tap, as the touch handler makes it: stamped back to the touch, matched
   /* the touch landed at 700 on the page's clock and was handled at 760 (a busy frame): it counts at 700 */
   const t = serverStamp(stampOf({ timeStamp:700 }, 760), { perfNow:760, serverNow:cueTime(songAt, 12) + 60 + 30 });
   assert.equal(t, cueTime(songAt, 12) + 30);
-  const tap = padTap(pad, t, { chart, songAt, offset:0, owes:true, done:false });
+  const tap = padTap(pad, t, { chart, songAt, offset:0 });
   assert.equal(tap.open, true);
   assert.deepEqual(tap.found.hit, { t:"hit", c:2, r:30 });
   assert.equal(tap.found.q, "perfect");
-  /* the drink break, Done owed: the pad is shut */
-  const owed = padTap(pad, cueTime(songAt, 60), { chart, songAt, owes:true, done:false });
-  assert.deepEqual([owed.open, owed.found], [false, null]);
+  /* the breakdown (where the drink break was): an echo cue, an ordinary tap */
+  const echo = chart.cues.find(cue => cue.kind === "echo");
+  const copy = padTap(pad, cueTime(songAt, echo.beat) + 70, { chart, songAt });
+  assert.deepEqual([copy.open, copy.found.c, copy.found.q], [true, echo.id, "nice"]);
+  /* a demo is the host's: a tap on it matches nothing */
+  const demo = chart.cues.find(cue => cue.demo);
+  assert.equal(padTap(pad, cueTime(songAt, demo.beat), { chart, songAt }).found, null);
 });

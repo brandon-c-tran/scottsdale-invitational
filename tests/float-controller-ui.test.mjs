@@ -3,9 +3,11 @@
    imports cleanly in node (Field Day bundles them, so no window or document
    at module scope), every screen renders from a fixture room (the song's
    moments on the pad: the round card, Practice, the host's call, the
-   popup, Drink! and Done, Done and Break; the cut, the crowd, the podium,
-   the card), the Locker offers the 13 critters and Winnie to the groom
-   alone, the join's pure model, and the copy rules. */
+   popup, the narration, Watch, the breakdown, your place; the cut's grade,
+   the chug-off, Last Call's countdown, the crowd, the podium, the card),
+   the Locker offers the 13 critters and Winnie to the groom alone, then
+   hats, glasses and the photo tee, the join's pure model, and the copy
+   rules. */
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
@@ -15,10 +17,10 @@ import { Module } from "node:module";
 import { build } from "esbuild";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { chartOf, cueTime, drinkSection } from "../float/shared/chart.js";
+import { chartOf, cueTime, lastCallId } from "../float/shared/chart.js";
 import { CODE_LETTERS, JOIN_COLORS, RIDER_KEY, STANDALONE_CODE, canJoin, cleanCode, cleanDraft, loadRider, riderOf, roomFromSearch,
   saveRider, withRoom } from "../float/client/join/joinModel.js";
-import { LOCKER_NEUTRAL, LOCKER_TABS, critterName, critterTile, lockerEntrant, lockerOptions, pickLook }
+import { LOCKER_NEUTRAL, LOCKER_TABS, critterName, critterTile, lockerEntrant, lockerOptions, lockerTabs, lookTile, pickLook }
   from "../float/client/locker/lockerModel.js";
 
 const ROOT = fileURLToPath(new URL("../", import.meta.url));
@@ -46,6 +48,7 @@ const parts = await bundle(`
   export { default as Screens } from "./float/client/controller/Screens.jsx";
   export { default as SongScreen } from "./float/client/controller/SongScreen.jsx";
   export { default as LastCall } from "./float/client/controller/LastCall.jsx";
+  export { default as ChugOff } from "./float/client/controller/ChugOff.jsx";
   export { default as LockerPicker } from "./float/client/locker/LockerPicker.jsx";
   export { default as JoinFlow } from "./float/client/join/JoinFlow.jsx";
 `, "screens");
@@ -110,17 +113,18 @@ const SONG_AT = 3_000_000;
 const paddle = chartOf("paddle");
 const shape = { round:0, rounds:4, of:13, final:false, through:9 };
 const song = (beat, extra = {}) => renderToStaticMarkup(h(parts.SongScreen, { serverNow:() => cueTime(SONG_AT, beat), chart:paddle, songAt:SONG_AT,
-  entrant:{ ...me }, shape, name:"Paddle Party", owes:true, done:false, onTap:noop, onDone:noop, ...extra }));
+  entrant:{ ...me }, shape, name:"Paddle Party", onTap:noop, ...extra }));
 
 test("the song on the pad: the round card, Practice, the host's call on its beat, the popup big", () => {
   const card = renderToStaticMarkup(h(parts.SongScreen, { serverNow:() => SONG_AT - 1500, chart:paddle, songAt:SONG_AT, entrant:{ ...me },
-    shape, name:"Paddle Party", onTap:noop, onDone:noop }));
+    shape, name:"Paddle Party", onTap:noop }));
   assert.match(card, /data-moment="card"/);
   assert.match(card, /Round 1 of 4/);
   assert.match(card, /flc-card-title[^>]*>Paddle Party</);
   assert.match(song(4), /data-moment="intro"/);
   assert.match(song(4), /Round 1 of 4/, "the card stays through the intro");
-  const practice = song(13.2);
+  /* your first Hey: called on 21, answered on 23 */
+  const practice = song(21.2);
   assert.match(practice, /data-moment="practice"/);
   assert.match(practice, />Practice</);
   assert.match(practice, /flc-call is-on/);
@@ -138,56 +142,123 @@ test("the song on the pad: the round card, Practice, the host's call on its beat
   assert.doesNotMatch(miss, /\+0\.|-0\./, "a miss has no number");
 });
 
-test("the drink break on the pad: Drink! and a big Done, then Done; Break for a rider who doesn't drink; Done stays into play B", () => {
-  const drink = drinkSection(paddle);
-  const owed = song(drink.from + 2);
-  assert.match(owed, /data-moment="drink"/);
-  assert.match(owed, />Drink!</);
-  assert.match(owed, /flc-done[^"]*"[^>]*>.*Done/s);
-  assert.match(owed, /data-ui=""/, "Done keeps its own touch");
-  assert.doesNotMatch(owed, /flc-call is-on/);
-  const done = song(drink.from + 6, { done:true });
-  assert.doesNotMatch(done, /flc-done/);
-  assert.match(done, /flc-rest[^>]*><b[^>]*>Done</);
-  const dry = song(drink.from + 6, { owes:false });
-  assert.match(dry, />Break</);
-  assert.doesNotMatch(dry, /Drink!/);
-  const late = song(drink.to + 1.5);
-  assert.match(late, /data-moment="play"/);
-  assert.match(late, /flc-drink is-late/);
-  assert.match(late, />Drink!</);
-  assert.doesNotMatch(song(drink.to + 1.5, { done:true }), /flc-done/);
+test("practice narrated: the text box at the top, Watch while the host shows a cue; the breakdown's Copy me; your place in play", () => {
+  const told = song(8.2);
+  assert.match(told, /flc-line/);
+  assert.match(told, /has-line/);
+  assert.doesNotMatch(told, /Round 1 of 4/, "the narration takes the top from the card");
+  const demo = paddle.cues.find(cue => cue.demo);
+  const watching = song(demo.call + 0.2);
+  assert.match(watching, /flc-line[^"]*"[^>]*><b[^>]*>Watch</);
+  const breakdown = song(56.2);
+  assert.match(breakdown, /data-moment="breakdown"/);
+  assert.match(breakdown, />Copy me</);
+  assert.match(breakdown, /flc-call is-on/, "the host's bar in the bubble");
+  /* who's ahead: small in the song bar, Safe or Below the cut, from the room's me; nothing in practice */
+  const safe = song(40, { me:{ place:4, of:13, cut:9 } });
+  assert.match(safe, /flc-rank is-safe/);
+  assert.match(safe, />4th of 13</);
+  assert.match(safe, />Safe</);
+  const below = song(40, { me:{ place:11, of:13, cut:9 } });
+  assert.match(below, /flc-rank is-below/);
+  assert.match(below, />Below the cut</);
+  assert.doesNotMatch(song(13.2, { me:{ place:4, of:13, cut:9 } }), /flc-rank/, "practice: nobody scores");
+  const final = song(40, { me:{ place:2, of:4, cut:null }, shape:{ ...shape, final:true, through:null } });
+  assert.match(final, />2nd</);
+  assert.doesNotMatch(final, /Safe|Below the cut| of 4/, "the final: the place alone");
+  /* no drink break: nothing to tap but the pad */
+  assert.doesNotMatch(song(60), /Drink!|flc-done/);
 });
 
-test("Last Call on the pad: the card, the glass on its way, your grabs and total, then You drink or Safe", () => {
-  const bar = chartOf("lastcall");
+test("the cut: the grade big with the judge's line, then Through, Out or Chug-off!", () => {
+  const scores = people.map((_, i) => ({ i, pct:95 - i * 4.5, cup:0 }));
+  const cut = { phase:"cut", round:0, rounds:4, song:"paddle", startAt:900, field:[0, 1, 2, 3, 4, 5, 6, 7], out:[12, 11, 10, 9], scores, entrants:people,
+    show:{ grades:1300, line:6000, outs:[{ i:9, at:6800 }, { i:10, at:8200 }] } };
+  const feedback = { grade:"superb", line:"Every Hey on the beat." };
+  const early = screen("cut", cut, { serverNow:() => 2000, game:{ me:{ pct:91, place:2, of:13, through:true, feedback } } });
+  assert.match(early, /flc-grade is-superb[^>]*>Superb</);
+  assert.match(early, />Every Hey on the beat\.</);
+  assert.doesNotMatch(early, />Through</, "not yet heard");
+  const heard = screen("cut", cut, { serverNow:() => 9000, game:{ me:{ pct:91, place:2, of:13, through:true, feedback } } });
+  assert.match(heard, />Through</);
+  const bubble = screen("cut", cut, { serverNow:() => 9000, game:{ idx:8, me:{ pct:59, place:9, of:13, through:null, out:false, bubble:true,
+    feedback:{ grade:"ok", line:"" } } } });
+  assert.match(bubble, />Chug-off!</);
+  assert.match(bubble, /flc-cut is-bubble/);
+});
+
+test("the chug-off: the two get Chug-off!, the count, one huge Done, Waiting, then kept or Out; the room gets A vs B and the Cheer", () => {
+  const goAt = 6_000_000;
+  const room = { phase:"chugoff", round:0, startAt:goAt - 4000, entrants:people, chugoff:{ a:0, b:1, goAt, doneAt:{}, winner:null, by:null } };
+  const at = (now, extra = {}) => renderToStaticMarkup(h(parts.ChugOff, { serverNow:() => now, room, idx:0, entrant:{ ...me }, onDone:noop,
+    onCheer:noop, ...extra }));
+  const call = at(goAt - 3500);
+  assert.match(call, /flc-chug-title[^>]*>Chug-off!</);
+  assert.match(call, />Rider 0<.*vs.*>Rider 1</s);
+  assert.match(call, /Last one in against first one out\. First to finish keeps the spot\./);
+  assert.match(at(goAt - 1500), /Last one in/, "the line stays up through the count");
+  const later = at(goAt - 3500, { room:{ ...room, round:1 } });
+  assert.doesNotMatch(later, /Last one in/, "only the Cup's first");
+  assert.match(later, />Finish your drink</);
+  assert.match(at(goAt - 1500), /flc-chug-count[^>]*>2</);
+  const go = at(goAt + 200);
+  assert.match(go, /flc-done flc-chug-done/);
+  assert.match(go, />Done</);
+  const waiting = at(goAt + 3000, { sent:true });
+  assert.match(waiting, />Waiting</);
+  assert.doesNotMatch(waiting, /flc-chug-done/);
+  const won = { ...room, chugoff:{ ...room.chugoff, doneAt:{ 0:3000 }, winner:0, by:"chug" } };
+  assert.match(at(goAt + 3500, { room:won }), />You keep your spot</);
+  assert.match(at(goAt + 3500, { room:won, idx:1 }), />Out</);
+  /* everyone else: the names, the two critters, the Cheer */
+  const crowd = at(goAt + 1500, { idx:5 });
+  assert.match(crowd, />Chug-off: Rider 0 vs Rider 1</);
+  assert.match(crowd, />Cheer</);
+  assert.doesNotMatch(crowd, /flc-chug-done/);
+  const scored = at(goAt + 31000, { idx:5, room:{ ...room, chugoff:{ ...room.chugoff, winner:1, by:"score" } } });
+  assert.match(scored, />Rider 1 keeps the spot</);
+  assert.match(scored, /Nobody finished\. The better score keeps the spot\./);
+});
+
+test("Last Call on the pad: the title (the first says what it is), Tap on zero, Locked, the offset at the reveal, then You drink or Safe", () => {
+  const bar = chartOf(lastCallId(0));
+  const cd = bar.countdown;
   const songAt = 4_000_000;
-  const room = { phase:"lastcall", song:"lastcall", songAt, field:[0, 1], out:[2], entrants:people.slice(0, 3), lastCall:{ totals:[], worst:null } };
-  const at = (beat, extra = {}) => renderToStaticMarkup(h(parts.LastCall, { serverNow:() => cueTime(songAt, beat), room, me:null, idx:0, chart:bar,
+  const room = { phase:"lastcall", round:0, songAt, field:[0, 1], out:[2], entrants:people.slice(0, 3), lastCall:{ worst:null } };
+  const at = (ms, extra = {}) => renderToStaticMarkup(h(parts.LastCall, { serverNow:() => songAt + ms, room, idx:0, chart:bar,
     songAt, entrant:{ ...me }, judged:{}, onTap:noop, ...extra }));
-  assert.match(at(-1), /flc-card-title[^>]*>Last Call</);
-  const sliding = at(5.5);
-  assert.match(sliding, /flc-glass/);
-  assert.match(sliding, /--x:0\.5/);
-  assert.doesNotMatch(sliding, /You drink|Safe/);
-  const graded = at(9, { me:{ lastCall:{ ms:730, grabs:{ 0:730 } } } });
-  assert.match(graded, /class="is-salmon"/);
-  assert.match(graded, />0\.73</);
-  const drinks = at(29, { room:{ ...room, lastCall:{ totals:[], worst:[0] } }, me:{ lastCall:{ ms:2100, grabs:{ 0:730, 1:null, 2:370 } } } });
+  const intro = at(1000);
+  assert.match(intro, /flc-card-title[^>]*>Last Call</);
+  assert.match(intro, /The bar closes at zero\. Tap on zero\. Farthest off drinks\./);
+  assert.doesNotMatch(at(1000, { chart:chartOf(lastCallId(1)) }), /The bar closes/, "the later ones: the title alone");
+  const tap = at(cd.zeroAt - 3000);
+  assert.match(tap, />Tap on zero</);
+  assert.match(tap, /flc-zero-pad/);
+  assert.doesNotMatch(tap, /\b(10|9|8|7|6|5|4|3|2|1)\b<\/b>/, "never the count");
+  const judged = { 0:{ q:"late", d:730 } };
+  const locked = at(cd.zeroAt + 1000, { judged });
+  assert.match(locked, />Locked</);
+  assert.doesNotMatch(locked, /\+0\.73|Late/, "nothing of the tap before the reveal");
+  const reveal = at(cd.revealAt + 100, { judged });
+  assert.match(reveal, /\+0\.73/);
+  assert.doesNotMatch(reveal, /You drink|Safe/);
+  const drinks = at(cd.verdictAt + 100, { judged, room:{ ...room, lastCall:{ worst:[0] } } });
   assert.match(drinks, />You drink</);
-  assert.match(drinks, />2\.10</);
-  assert.match(at(29, { room:{ ...room, lastCall:{ totals:[], worst:[1] } } }), />Safe</);
+  assert.match(at(cd.verdictAt + 100, { judged, room:{ ...room, lastCall:{ worst:[1] } } }), />Safe</);
 });
 
-test("the Locker: the critters as portraits in the rider's colour; Winnie for the groom alone; no hats, shades or floaties", () => {
-  const look = { critter:"otter", floatie:"shark", hat:"crown", shades:"hearts", pose:"chug" };
+test("the Locker: the critters as portraits in the rider's colour (Winnie the groom's), then Hat, Glasses and, with a photo, Tee", () => {
+  const look = { critter:"otter", floatie:"shark", hat:"cowboy", shades:"hearts", shirt:"none", pose:"chug" };
   const locker = renderToStaticMarkup(h(parts.LockerPicker, { look, onChange:noop, color:"#2e86ab", name:"Sam" }));
-  assert.equal((locker.match(/<button[^>]*class="fll-tile[ "]/g) || []).length, 13);
+  assert.equal((locker.match(/<button[^>]*class="fll-tile[ "]/g) || []).length, 13, "the critter tab first");
   assert.match(locker, /Horned Lizard/);
   assert.match(locker, /fll-hero-name[^>]*>Otter</);
+  assert.match(locker, /fll-hero-worn[^>]*>Cowboy · Hearts</);
   assert.doesNotMatch(locker, /Winnie/);
-  assert.doesNotMatch(locker, /role="tab"/, "one thing to pick: no tabs");
-  assert.doesNotMatch(locker, /Shark|Hearts|Crown/);
+  assert.deepEqual([...locker.matchAll(/role="tab"[^>]*>([^<]+)</g)].map(m => m[1]), ["Critter", "Hat", "Glasses"], "no photo: no tee");
+  assert.doesNotMatch(locker, /Shark/);
+  const withPhoto = renderToStaticMarkup(h(parts.LockerPicker, { look, onChange:noop, color:"#2e86ab", name:"Sam", photo:"/p.png" }));
+  assert.deepEqual([...withPhoto.matchAll(/role="tab"[^>]*>([^<]+)</g)].map(m => m[1]), ["Critter", "Hat", "Glasses", "Tee"]);
   const groom = renderToStaticMarkup(h(parts.LockerPicker, { look:{ ...look, critter:"winnie" }, onChange:noop, groom:true }));
   assert.equal((groom.match(/<button[^>]*class="fll-tile[ "]/g) || []).length, 14);
   assert.match(groom, /fll-tile is-on is-groom[^>]*>.*Winnie/s);
@@ -238,8 +309,13 @@ test("join model: the code, the room in the link, a rider kept on the phone, the
   assert.equal(loadRider({ getItem() { throw new Error("blocked"); } }), null);
 });
 
-test("locker model: the critters (Winnie the groom's), a pick, the preview", () => {
-  assert.deepEqual(LOCKER_TABS.map(tab => tab.id), ["critter"]);
+test("locker model: the critters (Winnie the groom's), hats (the crown the groom's), glasses, the tee with a photo, a pick, the preview", () => {
+  assert.deepEqual(LOCKER_TABS.map(tab => tab.id), ["critter", "hat", "shades", "shirt"]);
+  assert.deepEqual(lockerTabs().map(tab => tab.name), ["Critter", "Hat", "Glasses"]);
+  assert.deepEqual(lockerTabs({ photo:"/p.png" }).map(tab => tab.name), ["Critter", "Hat", "Glasses", "Tee"]);
+  assert.equal(lockerOptions("hat").some(hat => hat.id === "crown"), false);
+  assert.equal(lockerOptions("hat", { groom:true })[0].id, "crown", "the groom's crown first");
+  assert.deepEqual(lockerOptions("shirt").map(s => s.id), ["none", "photo"]);
   assert.equal(lockerOptions("critter").length, 13);
   assert.equal(lockerOptions("critter", { groom:true }).length, 14);
   assert.equal(lockerOptions("critter", { groom:true }).at(-1).id, "winnie");
@@ -252,6 +328,14 @@ test("locker model: the critters (Winnie the groom's), a pick, the preview", () 
   assert.equal(pickLook(look, "critter", "winnie", { groom:true }).critter, "winnie");
   assert.equal(pickLook(look, "hat", "crown"), null, "no crown off the groom");
   assert.equal(pickLook(look, "wings", "x"), null);
+  assert.deepEqual(pickLook(look, "shades", "aviators"), { ...look, shades:"aviators" });
+  assert.deepEqual(pickLook(look, "shirt", "photo"), { ...look, shirt:"photo" });
+  const rider = lockerEntrant({ look:{ ...look, hat:"party", shirt:"photo" }, color:"#ff0000", photo:"/p.png" });
+  const hatTile = lookTile(rider, "hat", "visor");
+  assert.deepEqual([hatTile.look.critter, hatTile.look.hat, hatTile.look.shirt, hatTile.photo], ["otter", "visor", "none", undefined],
+    "a hat tile: the rider's critter in just that hat");
+  const teeTile = lookTile(rider, "shirt", "photo");
+  assert.deepEqual([teeTile.look.shirt, teeTile.photo], ["photo", "/p.png"], "the tee's tile prints the photo");
   const preview = lockerEntrant({ look:{ ...look, hat:"crown" } });
   assert.equal(preview.color, LOCKER_NEUTRAL);
   assert.equal(preview.look.hat, "none");

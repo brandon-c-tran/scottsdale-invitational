@@ -9357,45 +9357,6 @@
    "depth": 0.2,
    "gap": 0.08
   },
-  "bucket": {
-   "src": "looks/hats/bucket.webp",
-   "mask": "looks/hats/bucket-mask.webp",
-   "w": 320,
-   "h": 264,
-   "anchor": [
-    160,
-    195
-   ],
-   "fit": 0.98,
-   "depth": 0.2,
-   "gap": 0.08
-  },
-  "visor": {
-   "src": "looks/hats/visor.webp",
-   "mask": "looks/hats/visor-mask.webp",
-   "w": 320,
-   "h": 184,
-   "anchor": [
-    160,
-    179
-   ],
-   "fit": 0.94,
-   "depth": 0.2,
-   "gap": 0.08
-  },
-  "captain": {
-   "src": "looks/hats/captain.webp",
-   "mask": "looks/hats/captain-mask.webp",
-   "w": 320,
-   "h": 208,
-   "anchor": [
-    160,
-    204
-   ],
-   "fit": 0.96,
-   "depth": 0.18,
-   "gap": 0.08
-  },
   "party": {
    "src": "looks/hats/party.webp",
    "mask": "looks/hats/party-mask.webp",
@@ -9409,19 +9370,6 @@
    "depth": 0.05,
    "gap": 0.08
   },
-  "flowers": {
-   "src": "looks/hats/flowers.webp",
-   "mask": "looks/hats/flowers-mask.webp",
-   "w": 320,
-   "h": 163,
-   "anchor": [
-    160,
-    158
-   ],
-   "fit": 0.98,
-   "depth": 0.1,
-   "gap": 0.08
-  },
   "crown": {
    "src": "props/crown.webp",
    "mask": null,
@@ -9433,6 +9381,126 @@
    ],
    "fit": 0.6,
    "depth": 0.05,
+   "gap": 0.08
+  },
+  "froggy": {
+   "src": "looks/hats/froggy.webp",
+   "mask": null,
+   "own": true,
+   "w": 320,
+   "h": 238,
+   "anchor": [
+    160,
+    234
+   ],
+   "fit": 1.16,
+   "depth": 0.24,
+   "gap": 0.08
+  },
+  "beanie": {
+   "src": "looks/hats/beanie.webp",
+   "mask": "looks/hats/beanie-mask.webp",
+   "w": 320,
+   "h": 296,
+   "anchor": [
+    160,
+    290
+   ],
+   "fit": 1.02,
+   "depth": 0.26,
+   "gap": 0.08
+  },
+  "propeller": {
+   "src": "looks/hats/propeller.webp",
+   "mask": "looks/hats/propeller-mask.webp",
+   "w": 320,
+   "h": 290,
+   "anchor": [
+    160,
+    285
+   ],
+   "fit": 1.04,
+   "depth": 0.22,
+   "gap": 0.08
+  },
+  "tophat": {
+   "src": "looks/hats/tophat.webp",
+   "mask": "looks/hats/tophat-mask.webp",
+   "w": 320,
+   "h": 319,
+   "anchor": [
+    160,
+    314
+   ],
+   "fit": 0.66,
+   "depth": 0.06,
+   "gap": 0.08
+  },
+  "viking": {
+   "src": "looks/hats/viking.webp",
+   "mask": null,
+   "own": true,
+   "w": 320,
+   "h": 195,
+   "anchor": [
+    160,
+    190
+   ],
+   "fit": 1.62,
+   "depth": 0.24,
+   "gap": 0.08
+  },
+  "fishing": {
+   "src": "looks/hats/fishing.webp",
+   "mask": "looks/hats/fishing-mask.webp",
+   "w": 320,
+   "h": 293,
+   "anchor": [
+    160,
+    289
+   ],
+   "fit": 1.12,
+   "depth": 0.22,
+   "gap": 0.08
+  },
+  "sunhat": {
+   "src": "looks/hats/sunhat.webp",
+   "mask": "looks/hats/sunhat-mask.webp",
+   "w": 320,
+   "h": 173,
+   "anchor": [
+    160,
+    168
+   ],
+   "fit": 1.36,
+   "depth": 0.18,
+   "gap": 0.08
+  },
+  "halo": {
+   "src": "looks/hats/halo.webp",
+   "mask": null,
+   "own": true,
+   "w": 320,
+   "h": 218,
+   "anchor": [
+    160,
+    186
+   ],
+   "fit": 0.78,
+   "depth": -0.2,
+   "gap": 0.08
+  },
+  "mushroom": {
+   "src": "looks/hats/mushroom.webp",
+   "mask": "looks/hats/mushroom-mask.webp",
+   "w": 320,
+   "h": 219,
+   "anchor": [
+    160,
+    215
+   ],
+   "fit": 1.18,
+   "depth": 0.26,
    "gap": 0.08
   }
  },
@@ -9450,32 +9518,62 @@
   "hearts": {
    "src": "looks/shades/hearts.webp",
    "w": 300,
-   "h": 111,
+   "h": 121,
    "anchor": [
     150,
-    50
+    55
    ],
-   "span": 134
+   "span": 131
   },
   "stars": {
    "src": "looks/shades/stars.webp",
    "w": 300,
-   "h": 130,
+   "h": 133,
    "anchor": [
     150,
-    71
+    72
    ],
-   "span": 140
+   "span": 137
   },
-  "goggles": {
-   "src": "looks/shades/goggles.webp",
+  "pixel": {
+   "src": "looks/shades/pixel.webp",
    "w": 300,
-   "h": 109,
+   "h": 87,
    "anchor": [
     150,
-    54
+    40
    ],
-   "span": 138
+   "span": 132
+  },
+  "snorkel": {
+   "src": "looks/shades/snorkel.webp",
+   "w": 300,
+   "h": 217,
+   "anchor": [
+    152,
+    130
+   ],
+   "span": 127
+  },
+  "threed": {
+   "src": "looks/shades/threed.webp",
+   "w": 300,
+   "h": 106,
+   "anchor": [
+    149,
+    51
+   ],
+   "span": 128
+  },
+  "round": {
+   "src": "looks/shades/round.webp",
+   "w": 300,
+   "h": 136,
+   "anchor": [
+    144,
+    64
+   ],
+   "span": 122
   }
  }
 }

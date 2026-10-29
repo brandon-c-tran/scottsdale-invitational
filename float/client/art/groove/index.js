@@ -32,7 +32,7 @@
    so it takes the colour too) on anchor.head sized to its head. The groom
    wears the crown unless he picked another hat. The tee is drawn only with
    a photo; a photo that will not load leaves the tee plain. */
-import { ALL_CRITTER_IDS } from "../../../shared/looks.js";
+import { ALL_CRITTER_IDS, retiredHat, retiredShades } from "../../../shared/looks.js";
 
 export const GROOVE_BASE = "/float/groove/";
 export const POSES = Object.freeze(["idle", "stroke", "hey", "nice", "miss", "chug", "cheer", "out"]);
@@ -175,14 +175,23 @@ export function lookOf(any = {}) {
     critter:pick(look.critter) || pick(any?.critter) || FALLBACK_CRITTER,
     color:normalColor(any?.color ?? look.color),
     groom:!!(any?.groom ?? look.groom),
-    hat:pick(look.hat ?? any?.hat),
+    /* "none" stays "none": no hat, the groom's crown too; unset (null) is the groom's crown */
+    hat:(look.hat ?? any?.hat) === "none" ? "none" : pick(look.hat ?? any?.hat),
     shades:pick(look.shades ?? any?.shades),
     shirt:(look.shirt ?? any?.shirt) === "photo" && photo ? "photo" : null,
     photo,
   };
 }
-/* the hat a look wears: its own, else the groom's crown */
-export const hatOf = (look, m = manifest) => (look.hat && m?.hats?.[look.hat] ? look.hat : look.groom && m?.hats?.crown ? "crown" : null);
+/* the hat a look wears: "none" is none (the groom's too); its own; else, unset, the groom's crown.
+   A retired id is drawn as the hat cleanLook moves it to. */
+export function hatOf(look, m = manifest) {
+  const raw = look?.hat;
+  if (raw === "none") return null;
+  const id = raw ? retiredHat(raw) : null;
+  if (id && m?.hats?.[id]) return id;
+  if (raw && !id) return null;
+  return !raw && look?.groom && m?.hats?.crown ? "crown" : null;
+}
 /* a critter's sizes for hats and glasses (in its art's px) */
 const DEFAULT_MEASURE = Object.freeze({ headW:180, eyeSpan:80, tilt:0 });
 /* a head is never taken as narrower than this share of the box (a hat on a small head still reads on a TV) */
@@ -345,7 +354,7 @@ async function canvasDataUrl(c) {
 async function layersOf(m, look) {
   const hatId = hatOf(look, m);
   const hat = hatId ? m.hats[hatId] : null;
-  const sh = look.shades ? m.shades?.[look.shades] : null;
+  const sh = look.shades ? m.shades?.[retiredShades(look.shades)] : null;
   const [hatSrc, hatMask, shadesImg, photo] = await Promise.all([
     hat ? loadImage(grooveUrl(hat.src)).catch(() => null) : null,
     hat?.mask ? loadImage(grooveUrl(hat.mask)).catch(() => null) : null,
@@ -380,7 +389,7 @@ const paintSize = size => (SPRITE_SIZES.includes(size) ? size : BOX);
 /* everything that changes the picture, so two looks never share an entry */
 const spriteKey = (raw = {}) => {
   const look = lookOf(raw);
-  const hat = manifest ? hatOf(look, manifest) : look.hat || (look.groom ? "crown" : null);
+  const hat = manifest ? hatOf(look, manifest) : look.hat === "none" ? null : look.hat || (look.groom ? "crown" : null);
   return [resolvedId(look.critter), look.color, hat || "", look.shades || "", look.shirt ? `tee:${look.photo}` : "", paintSize(raw?.size)].join("|");
 };
 function forget(urls) {

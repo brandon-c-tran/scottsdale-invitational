@@ -428,8 +428,8 @@ export function seatView({ room, idx }) {
    chart's cues in that bar: 1 to 4, an "and" lights the beat it follows),
    and the beat now. Practice only (null elsewhere). A demo bar (the host
    shows it) lights its beats as the host's: `demo`.
-   { bar, now, beats:[{ n, on, kinds, and, demo }] } */
-export const COUNTER_WORDS = Object.freeze({ paddle:"Paddle", hey:"Hey!", hop:"Hop", spin:"Spin", drop:"Drop", rocket:"Launch" });
+   { bar, now, beats:[{ n, on, kinds, and, demo, row, move, word }] } */
+export const COUNTER_WORDS = Object.freeze({ paddle:"Row", hey:"Hey!", hop:"Hop", spin:"Spin", drop:"Drop", rocket:"Launch" });
 export function beatCounter(chart, view) {
   if (!chart || view?.moment !== "practice" || !Number.isFinite(view.beat)) return null;
   const perBar = 4;
@@ -445,8 +445,14 @@ export function beatCounter(chart, view) {
     if (cue.demo) slot.demo = true;
     if (!slot.kinds.includes(cue.kind)) slot.kinds.push(cue.kind);
   }
-  /* a beat with two kinds says the one that is not the pulse ("Hey!" over a paddle) */
-  for (const slot of beats) slot.word = slot.kinds.filter(kind => kind !== "paddle").concat(slot.kinds).map(kind => COUNTER_WORDS[kind]).find(Boolean) || "";
+  /* two marks, told apart at a glance (v3 "Row in every song"): a stroke
+     (`row`) and the song's own move (`move`, its word); a beat with both
+     says the move */
+  for (const slot of beats) {
+    slot.row = slot.kinds.includes("paddle");
+    slot.move = slot.kinds.find(kind => kind !== "paddle") || null;
+    slot.word = slot.kinds.filter(kind => kind !== "paddle").concat(slot.kinds).map(kind => COUNTER_WORDS[kind]).find(Boolean) || "";
+  }
   return { bar, now:Math.max(0, Math.min(perBar - 1, Math.floor(view.beat - from))), beats };
 }
 

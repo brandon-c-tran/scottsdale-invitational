@@ -8,7 +8,7 @@
 
    Poses (the manifest's): idle, stroke, hey, nice, miss, chug, cheer, out. */
 import React, { useEffect } from "react";
-import { Popup as ArtPopup, RiderSprite, hostSprites, loadGrooveArt, lookOf, riderSprites, useGrooveArt } from "../art/index.js";
+import { Popup as ArtPopup, RiderSprite, hostSprites, loadGrooveArt, lookOf, propOf, riderSprites, useGrooveArt } from "../art/index.js";
 import { numberTone } from "./controllerModel.js";
 
 export const POSES = Object.freeze(["idle", "stroke", "hey", "nice", "miss", "chug", "cheer", "out"]);
@@ -92,17 +92,55 @@ export function StandInHost({ pose = "idle", size = 72 }) {
   </svg>;
 }
 
+/* The kayak paddle (GROOVE.md v3 "Row in every song, with a paddle you
+   can see"): a double-bladed paddle across the tube at the hands, blades in
+   the rider's colour, drawn in the sprite's own 512 box. The art's `paddle`
+   prop once the manifest has one, else this drawing. `stroke`: { key, side
+   ("left"/"right"), flub } plays one stroke (the blade on that side dips
+   with a splash; a flub slaps flat with a splash up); none rests across.
+   Away in the poses with no hands free. */
+export const PADDLE_POSES = Object.freeze(["idle", "stroke", "hey", "nice", "miss"]);
+const PADDLE_Y = 384;
+export function Paddle({ color = "#e4572e", stroke = null }) {
+  const manifest = useGrooveArt();
+  const prop = manifest ? propOf("paddle") : null;
+  const motion = stroke ? (stroke.flub ? "is-flub" : stroke.side === "left" ? "is-left" : "is-right") : "";
+  const splashX = stroke?.side === "left" ? 52 : 460;
+  return <span className={`flc-paddle ${motion}`} key={stroke?.key ?? "rest"} aria-hidden="true">
+    {prop?.src
+      ? <img className="flc-paddle-art" src={prop.src} alt="" draggable="false" style={{ "--tint":color }} />
+      : <svg viewBox="0 0 512 512" focusable="false">
+        <g className="flc-paddle-body">
+          <rect x="70" y={PADDLE_Y - 7} width="372" height="14" rx="7" fill="#c9a26b" stroke={INK} strokeWidth="6" />
+          <path d={`M14 ${PADDLE_Y} C14 ${PADDLE_Y - 30} 40 ${PADDLE_Y - 34} 84 ${PADDLE_Y - 12} L84 ${PADDLE_Y + 12} C40 ${PADDLE_Y + 34} 14 ${PADDLE_Y + 30} 14 ${PADDLE_Y} Z`}
+            fill={color} stroke={INK} strokeWidth="6" strokeLinejoin="round" />
+          <path d={`M498 ${PADDLE_Y} C498 ${PADDLE_Y - 30} 472 ${PADDLE_Y - 34} 428 ${PADDLE_Y - 12} L428 ${PADDLE_Y + 12} C472 ${PADDLE_Y + 34} 498 ${PADDLE_Y + 30} 498 ${PADDLE_Y} Z`}
+            fill={color} stroke={INK} strokeWidth="6" strokeLinejoin="round" />
+          <path d={`M30 ${PADDLE_Y - 8} q14 -10 34 -4`} fill="none" stroke="rgba(255,255,255,0.6)" strokeWidth="6" strokeLinecap="round" />
+          <path d={`M482 ${PADDLE_Y - 8} q-14 -10 -34 -4`} fill="none" stroke="rgba(255,255,255,0.6)" strokeWidth="6" strokeLinecap="round" />
+        </g>
+        {stroke && <g className="flc-paddle-splash" fill="#bdf0ff" stroke={INK} strokeWidth="5" strokeLinejoin="round"
+          transform={stroke.flub ? "translate(256 0)" : `translate(${splashX} 0)`}>
+          <path d="M-36 468 q-22 -34 -6 -58 q8 30 24 40z" /><path d="M-4 456 q-8 -44 14 -60 q-2 34 8 52z" /><path d="M26 466 q18 -30 4 -54 q-8 26 -20 38z" />
+        </g>}
+      </svg>}
+  </span>;
+}
+
 /* a rider's critter in a pose, in what they wear (lookOf: the hat, the
    glasses, the photo tee with their photo): the art's own sprite once the
-   manifest is in */
-export function Critter({ entrant, pose = "idle", size = 200, className = "" }) {
+   manifest is in. `paddle` puts the kayak paddle in its hands (true, or a
+   stroke { key, side, flub }), only in the poses with hands free. */
+export function Critter({ entrant, pose = "idle", size = 200, className = "", paddle = null }) {
   const manifest = useGrooveArt();
   const look = lookOf({ ...(entrant || {}), color:entrant?.color || "#e4572e" });
   const color = entrant?.color || "#e4572e";
   const want = POSES.includes(pose) ? pose : "idle";
-  return <span className={`flc-critter${manifest ? " is-art" : ""}${className ? ` ${className}` : ""}`} style={{ "--size":`${size}px` }} data-pose={want}>
+  const rowing = !!paddle && PADDLE_POSES.includes(want);
+  return <span className={`flc-critter${manifest ? " is-art" : ""}${rowing ? " has-paddle" : ""}${className ? ` ${className}` : ""}`} style={{ "--size":`${size}px` }} data-pose={want}>
     {manifest ? <RiderSprite {...look} pose={want} size={size} />
       : <StandInCritter color={color} pose={want} size={size} />}
+    {rowing && <Paddle color={color} stroke={typeof paddle === "object" ? paddle : null} />}
   </span>;
 }
 

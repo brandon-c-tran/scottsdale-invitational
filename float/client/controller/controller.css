@@ -505,12 +505,31 @@ html.flc-locked, html.flc-locked body { overflow: hidden; overscroll-behavior: n
   transition: transform 120ms var(--ease);
 }
 .flc-count.is-on i { color: var(--ink); background: var(--yellow); }
+/* a stroke is water blue with the paddle under it; the song's own move is yellow with its word */
+.flc-count.is-row i { background: #7ddbea; border-radius: 18px; }
+.flc-count.is-move i { background: var(--yellow); }
+.flc-count b { display: inline-flex; align-items: center; gap: 4px; }
+.flc-count-paddle { width: 30px; height: 11px; fill: var(--paper); stroke: var(--ink); stroke-width: 1.6; }
 /* the host's demo beat: his, not yours yet */
 .flc-count.is-demo i { background: var(--paper); box-shadow: inset 0 0 0 3px var(--ink), inset 0 0 0 9px var(--yellow); }
 .flc-count.is-now i { transform: scale(1.18); box-shadow: inset 0 0 0 4px var(--ink), 0 0 0 5px color-mix(in srgb, var(--paper) 80%, transparent); animation: flc-count-pulse 500ms var(--ease) both; }
 .flc-count.is-now.is-on i { box-shadow: inset 0 0 0 4px var(--ink), 0 0 0 4px var(--me); }
 @keyframes flc-count-pulse { from { transform: scale(1.34); } to { transform: scale(1.18); } }
 .flc-count b { min-height: 20px; font-size: 17px; line-height: 1.1; font-weight: 900; color: var(--paper); text-shadow: var(--outline-thin); white-space: nowrap; }
+
+/* the kayak paddle across the tube (v3 "Row in every song"), the sprite's own box; a stroke dips one side, a miss slaps it flat */
+.flc-critter { position: relative; }
+.flc-critter > .flc-paddle { position: absolute; inset: 0; pointer-events: none; }
+.flc-paddle > svg, .flc-paddle > img { display: block; width: 100%; height: 100%; overflow: visible; }
+.flc-paddle-body { transform-box: view-box; transform-origin: 50% 75%; }
+.flc-paddle.is-left .flc-paddle-body { animation: flc-stroke-left 320ms var(--ease) both; }
+.flc-paddle.is-right .flc-paddle-body { animation: flc-stroke-right 320ms var(--ease) both; }
+.flc-paddle.is-flub .flc-paddle-body { animation: flc-stroke-flub 420ms ease-out both; }
+@keyframes flc-stroke-left { 0% { transform: none; } 35% { transform: translateY(14px) rotate(-24deg); } 100% { transform: none; } }
+@keyframes flc-stroke-right { 0% { transform: none; } 35% { transform: translateY(14px) rotate(24deg); } 100% { transform: none; } }
+@keyframes flc-stroke-flub { 0% { transform: none; } 20% { transform: translateY(26px) scaleY(0.6); } 45% { transform: translateY(8px) rotate(-6deg); } 70% { transform: rotate(4deg); } 100% { transform: none; } }
+.flc-paddle-splash { animation: flc-splash 380ms ease-out both; }
+@keyframes flc-splash { 0% { opacity: 0; } 25% { opacity: 1; } 100% { opacity: 0; } }
 
 /* the popup's number in its tone (chart offsetTone / countTone): gold, green, yellow, orange, red; a miss grey */
 .flc-popup.is-num-gold .fg-popup-num { color: #f5b82e; }

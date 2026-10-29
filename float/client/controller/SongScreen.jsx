@@ -153,6 +153,21 @@ export function usePose(act, base = "idle") {
   return pleased ? "nice" : base;
 }
 
+/* the kayak paddle's stroke (v3 "Row in every song"): each of your paddle
+   taps dips the other side from the last, a miss flubs; anything else
+   leaves it resting across the tube. { key, side, flub } or null */
+export function useStroke(act) {
+  const last = useRef({ key:null, n:0, stroke:null });
+  const memo = last.current;
+  if (act && act.key !== memo.key) {
+    memo.key = act.key;
+    if (act.kind === "paddle") { memo.n += 1; memo.stroke = { key:act.key, side:memo.n % 2 ? "right" : "left", flub:false }; }
+    else if (act.kind === "miss") memo.stroke = { key:act.key, side:null, flub:true };
+    else memo.stroke = null;
+  }
+  return memo.stroke;
+}
+
 /* the popup: up the moment it is set, gone after `ms` */
 export const PHONE_POPUP_MS = 820;
 export function useShown(item, ms = PHONE_POPUP_MS) {
@@ -191,13 +206,18 @@ function Narration({ text }) {
   return <div className="flc-line" role="status"><b key={text}>{text}</b></div>;
 }
 
+/* a stroke's mark on the counter: the paddle, small */
+const PaddleMark = () => <svg className="flc-count-paddle" viewBox="0 0 40 14" aria-hidden="true" focusable="false">
+  <rect x="7" y="5.5" width="26" height="3" rx="1.5" /><ellipse cx="5" cy="7" rx="5" ry="4.5" /><ellipse cx="35" cy="7" rx="5" ry="4.5" />
+</svg>;
+
 /* practice's count (v3): 1 2 3 4 at the foot, the beats you tap lit (the host's demo beat ringed), the beat now pulsing */
 export function BeatCounter({ counter }) {
   if (!counter) return null;
   return <div className="flc-counter" aria-hidden="true">
-    {counter.beats.map(beat => <span key={beat.n} className={`flc-count${beat.on ? " is-on" : ""}${beat.demo ? " is-demo" : ""}${counter.now === beat.n - 1 ? " is-now" : ""}`}>
+    {counter.beats.map(beat => <span key={beat.n} className={`flc-count${beat.on ? " is-on" : ""}${beat.move ? " is-move" : beat.row ? " is-row" : ""}${beat.demo ? " is-demo" : ""}${counter.now === beat.n - 1 ? " is-now" : ""}`}>
       <i key={counter.now === beat.n - 1 ? `now-${counter.bar}` : "rest"}>{beat.n}{beat.and ? "+" : ""}</i>
-      <b>{beat.on ? beat.word : ""}</b>
+      <b>{beat.on && beat.row && !beat.move ? <PaddleMark /> : null}{beat.on ? beat.word : ""}</b>
     </span>)}
   </div>;
 }
@@ -228,6 +248,7 @@ export default function SongScreen({ serverNow, chart, songAt, entrant, shape, n
     ? { key:`demo-${demo.id}`, kind:demo.kind, q:"nice", at:perfNow() - (now - cueTime(songAt, demo.beat, chart.beatMs)) } : null;
   const moved = demoAct && (!act || demoAct.at > act.at) ? demoAct : act;
   const pose = usePose(moved, "idle");
+  const stroke = useStroke(moved);
   useMove(moveRef, moved);
   useBeatBob(bobRef, { songAt, serverNow, beatMs:chart?.beatMs, on:Number.isFinite(songAt) && view.moment !== "card" });
   const shown = useShown(popup);
@@ -254,7 +275,7 @@ export default function SongScreen({ serverNow, chart, songAt, entrant, shape, n
       <div className="flc-popup-slot">{shown ? <Popup key={shown.key} q={shown.q} d={shown.d} />
         : watch ? <b className="flc-watch-tag" key={`watch-${demo.id}`}>Watch</b> : null}</div>
       <div className="flc-me" ref={bobRef}><div className="flc-me-move" ref={moveRef}>
-        <Critter entrant={entrant} pose={pose} size={300} />
+        <Critter entrant={entrant} pose={pose} size={300} paddle={stroke || true} />
       </div></div>
     </div>
     <BeatCounter counter={counter} />

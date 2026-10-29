@@ -2,6 +2,8 @@
   "v": 1,
   "voice": "coral",
   "rate": 1.28,
+  "bartender": "fable",
+  "bartenderRate": 1,
   "model": "gpt-4o-mini-tts",
   "aiGenerated": true,
   "clips": [
@@ -265,6 +267,276 @@
       "f0": 196,
       "text": "Awww!",
       "voice": "shimmer"
+    },
+    {
+      "id": "say-paddle",
+      "file": "say-paddle.mp3",
+      "onset": 77,
+      "dur": 1438,
+      "f0": 273.9,
+      "text": "Paddle on one and three!",
+      "voice": "coral"
+    },
+    {
+      "id": "say-readyhey",
+      "file": "say-readyhey.mp3",
+      "onset": 88,
+      "dur": 2266,
+      "f0": 252,
+      "text": "When I say Ready, you say Hey!",
+      "voice": "coral"
+    },
+    {
+      "id": "say-watch",
+      "file": "say-watch.mp3",
+      "onset": 62,
+      "dur": 395,
+      "f0": 306.3,
+      "text": "Watch!",
+      "voice": "coral"
+    },
+    {
+      "id": "say-hoptwo",
+      "file": "say-hoptwo.mp3",
+      "onset": 73,
+      "dur": 1276,
+      "f0": 334.1,
+      "text": "Hop two beats after me!",
+      "voice": "coral"
+    },
+    {
+      "id": "say-twotime",
+      "file": "say-twotime.mp3",
+      "onset": 25,
+      "dur": 784,
+      "f0": 341.9,
+      "text": "Two this time!",
+      "voice": "coral"
+    },
+    {
+      "id": "say-spinone",
+      "file": "say-spinone.mp3",
+      "onset": 35,
+      "dur": 1292,
+      "f0": 0,
+      "text": "Spin one beat after me!",
+      "voice": "coral"
+    },
+    {
+      "id": "say-allthree",
+      "file": "say-allthree.mp3",
+      "onset": 7,
+      "dur": 1308,
+      "f0": 284.5,
+      "text": "All three, in turn!",
+      "voice": "coral"
+    },
+    {
+      "id": "say-spin",
+      "file": "say-spin.mp3",
+      "onset": 38,
+      "dur": 519,
+      "f0": 0,
+      "text": "Spin!",
+      "voice": "coral"
+    },
+    {
+      "id": "say-copy",
+      "file": "say-copy.mp3",
+      "onset": 98,
+      "dur": 515,
+      "f0": 312.8,
+      "text": "Copy me!",
+      "voice": "coral"
+    },
+    {
+      "id": "chugoff",
+      "file": "chugoff.mp3",
+      "onset": 48,
+      "dur": 601,
+      "f0": 0,
+      "text": "Chug-off!",
+      "voice": "coral"
+    },
+    {
+      "id": "chug",
+      "file": "chug.mp3",
+      "onset": 64,
+      "dur": 404,
+      "f0": 404.6,
+      "text": "Chug!",
+      "voice": "coral"
+    },
+    {
+      "id": "chug-explain",
+      "file": "chug-explain.mp3",
+      "onset": 166,
+      "dur": 3552,
+      "f0": 0,
+      "text": "Last one in against first one out. First to finish keeps the spot.",
+      "voice": "coral"
+    },
+    {
+      "id": "bar-10",
+      "file": "bar-10.mp3",
+      "onset": 31,
+      "dur": 410,
+      "f0": 0,
+      "text": "Ten.",
+      "voice": "fable"
+    },
+    {
+      "id": "bar-9",
+      "file": "bar-9.mp3",
+      "onset": 39,
+      "dur": 556,
+      "f0": 134.9,
+      "text": "Nine.",
+      "voice": "fable"
+    },
+    {
+      "id": "bar-8",
+      "file": "bar-8.mp3",
+      "onset": 35,
+      "dur": 391,
+      "f0": 128.2,
+      "text": "Eight.",
+      "voice": "fable"
+    },
+    {
+      "id": "bar-7",
+      "file": "bar-7.mp3",
+      "onset": 37,
+      "dur": 515,
+      "f0": 0,
+      "text": "Seven.",
+      "voice": "fable"
+    },
+    {
+      "id": "bar-6",
+      "file": "bar-6.mp3",
+      "onset": 41,
+      "dur": 608,
+      "f0": 0,
+      "text": "Six.",
+      "voice": "fable"
+    },
+    {
+      "id": "bar-5",
+      "file": "bar-5.mp3",
+      "onset": 48,
+      "dur": 435,
+      "f0": 133.6,
+      "text": "Five.",
+      "voice": "fable"
+    },
+    {
+      "id": "bar-4",
+      "file": "bar-4.mp3",
+      "onset": 170,
+      "dur": 538,
+      "f0": 142.7,
+      "text": "Four.",
+      "voice": "fable"
+    },
+    {
+      "id": "bar-lastcall",
+      "file": "bar-lastcall.mp3",
+      "onset": 68,
+      "dur": 958,
+      "f0": 107.3,
+      "text": "Last call!",
+      "voice": "fable"
+    },
+    {
+      "id": "bar-explain",
+      "file": "bar-explain.mp3",
+      "onset": 101,
+      "dur": 4824,
+      "f0": 121.2,
+      "text": "The bar closes at zero. Tap on zero. Farthest off drinks.",
+      "voice": "fable"
+    },
+    {
+      "id": "crowd-chug-1",
+      "file": "crowd-chug-1.mp3",
+      "onset": 45,
+      "dur": 556,
+      "f0": 0,
+      "text": "Chug!",
+      "voice": "ash"
+    },
+    {
+      "id": "crowd-chug-2",
+      "file": "crowd-chug-2.mp3",
+      "onset": 41,
+      "dur": 416,
+      "f0": 0,
+      "text": "Chug!",
+      "voice": "nova"
+    },
+    {
+      "id": "crowd-chug-3",
+      "file": "crowd-chug-3.mp3",
+      "onset": 43,
+      "dur": 369,
+      "f0": 0,
+      "text": "Chug!",
+      "voice": "echo"
+    },
+    {
+      "id": "crowd-chug-4",
+      "file": "crowd-chug-4.mp3",
+      "onset": 32,
+      "dur": 370,
+      "f0": 294,
+      "text": "Chug!",
+      "voice": "shimmer"
+    },
+    {
+      "id": "crowd-chug-5",
+      "file": "crowd-chug-5.mp3",
+      "onset": 82,
+      "dur": 510,
+      "f0": 98.4,
+      "text": "Chug!",
+      "voice": "onyx"
+    },
+    {
+      "id": "crowd-chug-6",
+      "file": "crowd-chug-6.mp3",
+      "onset": 48,
+      "dur": 463,
+      "f0": 0,
+      "text": "Chug!",
+      "voice": "sage"
+    },
+    {
+      "id": "say-hop",
+      "file": "say-hop.mp3",
+      "onset": 72,
+      "dur": 858,
+      "f0": 288.2,
+      "text": "Hop, hop!",
+      "voice": "coral"
+    },
+    {
+      "id": "say-turn",
+      "file": "say-turn.mp3",
+      "onset": 79,
+      "dur": 603,
+      "f0": 400.9,
+      "text": "Your turn!",
+      "voice": "coral"
+    },
+    {
+      "id": "say-backbeat",
+      "file": "say-backbeat.mp3",
+      "onset": 10,
+      "dur": 757,
+      "f0": 317.3,
+      "text": "On the backbeat!",
+      "voice": "coral"
     }
   ]
 }

@@ -15,7 +15,8 @@
    measure { headW, eyeSpan, tilt } (degrees, the eye line's slope), which
    the painter reads before the critter's own measure.
 
-     node scripts/float-art-fit-anchors.mjs [ids...] [--dry] [--debug <dir>] */
+     node scripts/float-art-fit-anchors.mjs [ids...] [--dry] [--debug <dir>] [--origin]
+   (--origin: the tube sprites' run, searching from their first eyes in float-art-fit-origin.json) */
 import fs from "node:fs";
 import path from "node:path";
 import sharp from "sharp";
@@ -193,7 +194,8 @@ async function debugShot(img, m, file) {
 const manifest = JSON.parse(fs.readFileSync(path.join(OUT, "manifest.json"), "utf8"));
 /* where the eyes were before this script's first run (the search starts there) */
 const ORIGIN_FILE = fileURLToPath(new URL("./float-art-fit-origin.json", import.meta.url));
-const ORIGIN = fs.existsSync(ORIGIN_FILE) ? JSON.parse(fs.readFileSync(ORIGIN_FILE, "utf8")) : null;
+/* --origin: search from the tube art's first eyes (the Oct 27 sprites); new art searches from its own manifest's eyes */
+const ORIGIN = args.includes("--origin") && fs.existsSync(ORIGIN_FILE) ? JSON.parse(fs.readFileSync(ORIGIN_FILE, "utf8")) : null;
 const RING = 250;
 const results = {};
 const report = [];

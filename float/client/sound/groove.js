@@ -100,6 +100,7 @@ export function clipSpan(id, text = "") {
 /* the practice's narration: a chart line's text to the host's clip */
 export const LINE_CLIPS = Object.freeze({
   "paddle on 1 and 3":"say-paddle", "when i say ready you say hey":"say-readyhey", "watch":"say-watch", "your turn":"say-turn",
+  "keep paddling hey on 4":"say-keephey", "both now":"say-bothnow",
   "hop two beats after me":"say-hoptwo", "two this time":"say-twotime", "spin one beat after me":"say-spinone",
   "on the backbeat":"say-backbeat", "all three in turn":"say-allthree", "hop":"say-hop", "spin":"say-spin", "copy me":"say-copy",
 });

@@ -71,7 +71,8 @@ export const LINES = Object.freeze([
   { id:"title-paddle", text:"Paddle Party!", how:`${HOST} Announce the round's name like a game show title card: "Paddle Party!"` },
   { id:"title-rock", text:"Rock Hop!", how:`${HOST} Announce the round's name like a game show title card: "Rock Hop!"` },
   { id:"title-spin", text:"Spin Cycle!", how:`${HOST} Announce the round's name like a game show title card: "Spin Cycle!"` },
-  { id:"title-drop", text:"The Drop!", how:`${HOST} Announce the final round's name like a big game show title card: "The Drop!"` },
+  { id:"title-drop", text:"The Drop!", how:`${HOST} Announce the round's name like a big game show title card: "The Drop!"` },
+  { id:"title-fireworks", text:"Fireworks!", how:`${HOST} Announce the grand final round's name like the biggest game show title card of the night, thrilled: "Fireworks!"` },
   { id:"lastcall", text:"Last call!", how:`${HOST} A sly, delighted "Last call!", like a bartender ringing the bell before the final round of drinks.` },
 ]);
 /* the host's narration (chart.lines: the practice's text box, "Copy me" over
@@ -81,6 +82,9 @@ export const NARRATION = Object.freeze([
   { id:"say-paddle", text:"Paddle on one and three!", how:SAY },
   { id:"say-readyhey", text:"When I say Ready, you say Hey!", how:`${SAY} Lean on "Ready" and "Hey".` },
   { id:"say-watch", text:"Watch!", how:SAY },
+  /* Paddle Party's v3 practice: both at once (GROOVE.md v3 6) */
+  { id:"say-keephey", text:"Keep paddling. Hey on four!", how:`${SAY} Two quick phrases, a tiny pause between them; lean on "Hey".` },
+  { id:"say-bothnow", text:"Both now!", how:`${SAY} Quick and encouraging: two syllables.` },
   { id:"say-turn", text:"Your turn!", how:`${SAY} Very quick and clipped: two syllables, about a third of a second.` },
   { id:"say-hoptwo", text:"Hop two beats after me!", how:SAY },
   { id:"say-twotime", text:"Two this time!", how:SAY },

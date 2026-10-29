@@ -4031,10 +4031,10 @@ function gCutBar(c) {
 /* the host's lines (the clip ids under public/float/groove/voice) and the
    syllables a stand-in chirps until a clip decodes */
 const G_LINES = Object.freeze({ ready:2, hey:1, ba:1, spin:1, one:1, two:1, three:1, four:1, drink:1, herewego:3, go:1,
-  "title-paddle":4, "title-rock":2, "title-spin":3, "title-drop":2, lastcall:2, float:1,
+  "title-paddle":4, "title-rock":2, "title-spin":3, "title-drop":2, "title-fireworks":3, lastcall:2, float:1,
   /* the narration (groove.js LINE_CLIPS) and the chug-off's */
   "say-paddle":5, "say-readyhey":7, "say-watch":1, "say-turn":2, "say-hoptwo":5, "say-twotime":3, "say-spinone":5,
-  "say-backbeat":4, "say-allthree":4, "say-hop":2, "say-spin":1, "say-copy":3, chugoff:2, chug:1, "chug-explain":14 });
+  "say-backbeat":4, "say-allthree":4, "say-hop":2, "say-spin":1, "say-copy":3, "say-keephey":6, "say-bothnow":2, chugoff:2, chug:1, "chug-explain":14 });
 export const GROOVE_LINES = Object.freeze(Object.keys(G_LINES));
 /* the crowd's takes, layered a few at a time: "Hey!" on the beat, "Ooh!"
    as Last Call names who drinks, "Aww!" as the cut's first rider is out */

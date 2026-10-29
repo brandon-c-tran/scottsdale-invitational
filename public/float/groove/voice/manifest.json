@@ -537,6 +537,33 @@
       "f0": 317.3,
       "text": "On the backbeat!",
       "voice": "coral"
+    },
+    {
+      "id": "title-fireworks",
+      "file": "title-fireworks.mp3",
+      "onset": 134,
+      "dur": 747,
+      "f0": 324.3,
+      "text": "Fireworks!",
+      "voice": "coral"
+    },
+    {
+      "id": "say-keephey",
+      "file": "say-keephey.mp3",
+      "onset": 99,
+      "dur": 1633,
+      "f0": 339.2,
+      "text": "Keep paddling. Hey on four!",
+      "voice": "coral"
+    },
+    {
+      "id": "say-bothnow",
+      "file": "say-bothnow.mp3",
+      "onset": 28,
+      "dur": 550,
+      "f0": 404.6,
+      "text": "Both now!",
+      "voice": "coral"
     }
   ]
 }

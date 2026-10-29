@@ -7,7 +7,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { SONG_LEAD_MS, chartOf, songForRound } from "../float/shared/chart.js";
-import { chartFor, cutView, finalPlace, findMe, foldMine, inSong, ordinal, roundShape, roundSong, screenOf, songAtOf, songKeyOf }
+import { chartFor, chugoffView, countdownView, cutView, finalPlace, lastCallJudged, findMe, foldMine, inSong, ordinal, roundShape, roundSong, screenOf, songAtOf, songKeyOf }
   from "../float/client/controller/controllerModel.js";
 import { EMPTY, foldFrame } from "../float/client/controller/useRoom.js";
 import { MOCK_SCENES, READY_START_MS, createMockRoom } from "../float/client/controller/mockRoom.js";
@@ -172,11 +172,13 @@ test("the mock: every held moment opens on its phase, this phone where the shots
   const expect = {
     lobby:["lobby", "lobby"], "lobby-ready":["lobby", "lobby"], "lobby-fieldday":["lobby", "lobby"], intro:["intro", "intro"],
     card:["song", "song"], count:["song", "song"], practice:["song", "song"], hey:["song", "song"], play:["song", "song"],
-    "play-late":["song", "song"], "play-miss":["song", "song"], drink:["song", "song"], "drink-done":["song", "song"],
-    "drink-dry":["song", "song"], "drink-late":["song", "song"], outro:["song", "song"], after:["song", "song"], rock:["song", "song"],
-    spin:["song", "song"], drop:["song", "song"], cut:["cut", "cut"], "cut-out":["cut", "cut"], "cut-final":["cut", "cut"],
-    lastcall:["lastcall", "lastcall"], "lastcall-grab":["lastcall", "lastcall"], "lastcall-drink":["lastcall", "lastcall"],
-    "lastcall-safe":["lastcall", "lastcall"],
+    "play-late":["song", "song"], "play-miss":["song", "song"], "watch-demo":["song", "song"], breakdown:["song", "song"],
+    "breakdown-copy":["song", "song"], outro:["song", "song"], after:["song", "song"], rock:["song", "song"],
+    spin:["song", "song"], drop:["song", "song"], cut:["cut", "cut"], "cut-out":["cut", "cut"], "cut-bubble":["cut", "cut"],
+    "cut-final":["cut", "cut"], chugoff:["chugoff", "chugoff"], "chugoff-count":["chugoff", "chugoff"], "chugoff-go":["chugoff", "chugoff"],
+    "chugoff-kept":["chugoff", "chugoff"], "chugoff-out":["chugoff", "chugoff"], "chugoff-crowd":["chugoff", "chugoff"],
+    lastcall:["lastcall", "lastcall"], "lastcall-tap":["lastcall", "lastcall"], "lastcall-locked":["lastcall", "lastcall"],
+    "lastcall-reveal":["lastcall", "lastcall"], "lastcall-drink":["lastcall", "lastcall"], "lastcall-safe":["lastcall", "lastcall"],
     crowd:["song", "crowd"], podium:["podium", "podium"], "podium-win":["podium", "podium"], "podium-out":["podium", "podium"],
     feedback:["feedback", "feedback"], watch:["song", "watch"],
   };
@@ -201,9 +203,28 @@ test("the mock: every held moment opens on its phase, this phone where the shots
   await p.net.mock.go("podium-win");
   p.timers.flush();
   assert.equal(finalPlace(p.state().room, p.state().idx), 1);
-  await p.net.mock.go("drink-dry");
+  await p.net.mock.go("cut-bubble");
   p.timers.flush();
-  assert.equal(p.state().memory.done, true, "a rider who doesn't drink owes no Done");
+  assert.equal(cutView({ room:p.state().room, me:p.state().me, idx:p.state().idx }).bubble, true, "on the bubble: the chug-off decides");
+  const chugAt = async scene => {
+    await p.net.mock.go(scene);
+    p.timers.flush();
+    return chugoffView({ room:p.state().room, idx:p.state().idx, now:p.net.serverNow() });
+  };
+  assert.deepEqual((({ moment, contender, first }) => ({ moment, contender, first }))(await chugAt("chugoff")),
+    { moment:"intro", contender:true, first:true });
+  assert.equal((await chugAt("chugoff-go")).moment, "go");
+  assert.deepEqual((({ moment, kept }) => ({ moment, kept }))(await chugAt("chugoff-kept")), { moment:"told", kept:true });
+  assert.deepEqual((({ moment, kept }) => ({ moment, kept }))(await chugAt("chugoff-out")), { moment:"told", kept:false });
+  assert.equal((await chugAt("chugoff-crowd")).contender, false);
+  for (const [scene, drinks] of [["lastcall-drink", true], ["lastcall-safe", false]]) {
+    await p.net.mock.go(scene);
+    p.timers.flush();
+    const st = p.state();
+    const view = countdownView({ room:st.room, idx:st.idx, chart:st.chart, songAt:songAtOf(st.room), now:p.net.serverNow(),
+      judged:lastCallJudged(st, st.songKey) });
+    assert.deepEqual([view.moment, view.locked, view.drinks], ["verdict", true, drinks], scene);
+  }
   await p.net.mock.go("drop");
   p.timers.flush();
   assert.equal(p.state().chart.id, "drop");

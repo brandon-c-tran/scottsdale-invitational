@@ -2,20 +2,20 @@
    whole screen is the pad. Your critter bobs on the beat from the room's
    clock and plays its action on your tap; the host's call shows as a bubble
    on its beat, so a loud room still sees it; your judgement lands big over
-   your critter the moment you tap. "Practice" in practice, the round card
-   in the 3 s lead and the intro. The drink break: "Drink!" and a big Done
-   (the pad takes no taps until it is tapped, through the break and after
-   it); then "Done" (or "Break" for a rider who doesn't drink) while the pad
-   waits for the beat.
+   your critter the moment you tap. "Practice" in practice, narrated in a
+   text box at the top (the host shows a cue: "Watch"), the round card in
+   the 3 s lead and the intro. The breakdown copies the host a bar later
+   ("Copy me"). In play, your place and the field in the corner ("4th of
+   13", Safe or Below the cut; the final's place alone).
 
    The touch is the controller's (onTap, from a native touchstart: React
    listens passively and could not stop the page from scrolling or
    zooming); this draws. */
 import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
-import TapButton from "./TapButton.jsx";
 import { Critter, Host, Popup } from "./art.jsx";
-import { drinkGate, pendingCalls, songView } from "./controllerModel.js";
-import { CutLine, CupIcon, Scenery } from "./parts.jsx";
+import { demoAt, narrationAt, pendingCalls, rankView, songView } from "./controllerModel.js";
+import { cueTime } from "../../shared/chart.js";
+import { CutLine, Scenery } from "./parts.jsx";
 
 const perfNow = () => globalThis.performance?.now?.() ?? Date.now();
 const reducedMotion = () => { try { return !!globalThis.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches; } catch { return false; } };
@@ -183,50 +183,63 @@ export function RoundCard({ shape, name }) {
   </div>;
 }
 
-/* the drink break, owed: the only thing on the screen */
-function DrinkPanel({ onDone, late }) {
-  return <div className={`flc-drink${late ? " is-late" : ""}`} data-ui="">
-    <h2 className="flc-drink-title">Drink!</h2>
-    <TapButton className="flc-done" onPress={onDone}><CupIcon /><span>Done</span></TapButton>
-  </div>;
+/* the practice's narration: Rhythm Heaven's text box at the top */
+function Narration({ text }) {
+  return <div className="flc-line" role="status"><b key={text}>{text}</b></div>;
+}
+
+/* who's ahead: your place, small, in the song bar's corner */
+function Rank({ rank }) {
+  return <span className={`flc-rank${rank.safe === true ? " is-safe" : rank.safe === false ? " is-below" : ""}`} role="status">
+    <b key={rank.place}>{rank.text}</b>{rank.status && <em>{rank.status}</em>}
+  </span>;
 }
 
 /* props: serverNow (the room's clock), chart, songAt, entrant, shape (roundShape), name,
-   popup ({ key, q, d, at }), act ({ key, kind, q, at }), owes, done, onTap, onDone */
-export default function SongScreen({ serverNow, chart, songAt, entrant, shape, name, popup = null, act = null, owes = false, done = false,
-  onTap, onDone, onExit = null }) {
+   popup ({ key, q, d, at }), act ({ key, kind, q, at }), me (the room's word on you), onTap */
+export default function SongScreen({ serverNow, chart, songAt, entrant, shape, name, popup = null, act = null, me = null,
+  onTap, onExit = null }) {
   const rootRef = useRef(null), bobRef = useRef(null), moveRef = useRef(null);
   usePad(rootRef, onTap);
   const now = useSongNow(serverNow, songAt, chart?.beatMs);
   const view = songView(chart, songAt, now);
-  const gate = drinkGate({ view, chart, owes, done });
-  const card = view.moment === "card" || view.moment === "intro";
-  const calls = card || gate.owed ? [] : pendingCalls(chart, view.beat);
-  const base = gate.owed ? "chug" : "idle";
-  const pose = usePose(act, base);
-  useMove(moveRef, act);
+  /* practice is narrated from a beat before it (the intro's last beat) */
+  const line = narrationAt(chart, view.beat);
+  const card = (view.moment === "card" || view.moment === "intro") && !line;
+  const calls = card ? [] : pendingCalls(chart, view.beat);
+  const rank = rankView({ me, view, shape });
+  /* the host showing a cue: "Watch", and your critter acts it out with the band's answer */
+  const demo = view.moment === "practice" ? demoAt(chart, view.beat) : null;
+  const demoAct = demo && view.beat >= demo.beat && Number.isFinite(songAt)
+    ? { key:`demo-${demo.id}`, kind:demo.kind, q:"nice", at:perfNow() - (now - cueTime(songAt, demo.beat, chart.beatMs)) } : null;
+  const moved = demoAct && (!act || demoAct.at > act.at) ? demoAct : act;
+  const pose = usePose(moved, "idle");
+  useMove(moveRef, moved);
   useBeatBob(bobRef, { songAt, serverNow, beatMs:chart?.beatMs, on:Number.isFinite(songAt) && view.moment !== "card" });
   const shown = useShown(popup);
+  const watch = !!demo && line !== "Watch" && !shown;
   const progress = Number.isFinite(view.beat) && chart ? Math.max(0, Math.min(1, view.beat / chart.beats)) : 0;
-  const late = gate.owed && !gate.inBreak;
-  return <section ref={rootRef} className={`flc-screen flc-song is-${view.moment}${gate.owed ? " is-owed" : ""}`}
+  return <section ref={rootRef} className={`flc-screen flc-song is-${view.moment}${line ? " has-line" : ""}`}
     data-moment={view.moment} data-scene={chart?.scene || "open"}>
     <Scenery scene={chart?.scene || "open"} />
     <header className="flc-songbar">
       <span className="flc-songname">{name}</span>
       {view.moment === "practice" && <span className="flc-tag">Practice</span>}
+      {rank && <Rank rank={rank} />}
       {onExit && <span className="flc-songbar-end" />}
       <i className="flc-progress" aria-hidden="true"><b style={{ transform:`scaleX(${progress})` }} /></i>
     </header>
     {card && <RoundCard shape={shape} name={name} />}
-    {!card && !gate.owed && <HostBubble calls={calls} />}
-    {gate.resting && <div className="flc-rest" role="status"><b key={gate.drank ? "done" : "break"}>{gate.drank ? "Done" : "Break"}</b></div>}
+    {!card && <div className="flc-head">
+      {line && <Narration text={line} />}
+      <HostBubble calls={calls} />
+    </div>}
     <div className="flc-stage">
-      <div className="flc-popup-slot">{shown && !gate.owed && <Popup key={shown.key} q={shown.q} d={shown.d} />}</div>
+      <div className="flc-popup-slot">{shown ? <Popup key={shown.key} q={shown.q} d={shown.d} />
+        : watch ? <b className="flc-watch-tag" key={`watch-${demo.id}`}>Watch</b> : null}</div>
       <div className="flc-me" ref={bobRef}><div className="flc-me-move" ref={moveRef}>
         <Critter entrant={entrant} pose={pose} size={300} />
       </div></div>
     </div>
-    {gate.owed && <DrinkPanel onDone={onDone} late={late} />}
   </section>;
 }

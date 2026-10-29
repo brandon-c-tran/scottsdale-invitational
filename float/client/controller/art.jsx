@@ -8,18 +8,19 @@
 
    Poses (the manifest's): idle, stroke, hey, nice, miss, chug, cheer, out. */
 import React, { useEffect } from "react";
-import { Popup as ArtPopup, RiderSprite, hostSprites, loadGrooveArt, riderSprites, useGrooveArt } from "../art/index.js";
+import { Popup as ArtPopup, RiderSprite, hostSprites, loadGrooveArt, lookOf, riderSprites, useGrooveArt } from "../art/index.js";
 
 export const POSES = Object.freeze(["idle", "stroke", "hey", "nice", "miss", "chug", "cheer", "out"]);
 
 /* the manifest and this rider's painted sprites, fetched ahead (the lobby), so the song never waits on them */
 export function usePreloadArt(entrant) {
-  const critter = entrant?.look?.critter, color = entrant?.color, groom = !!entrant?.groom;
+  const look = lookOf(entrant || {});
+  const key = JSON.stringify(look);
   useEffect(() => {
     let live = true;
-    loadGrooveArt().then(() => { if (live && critter) return riderSprites({ critter, color, groom }); }).catch(() => {});
+    loadGrooveArt().then(() => { if (live && look.critter) return riderSprites(look); }).catch(() => {});
     return () => { live = false; };
-  }, [critter, color, groom]);
+  }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
 }
 
 const INK = "#2b2233";
@@ -90,15 +91,16 @@ export function StandInHost({ pose = "idle", size = 72 }) {
   </svg>;
 }
 
-/* a rider's critter in a pose: the art's own sprite once the manifest is in */
+/* a rider's critter in a pose, in what they wear (lookOf: the hat, the
+   glasses, the photo tee with their photo): the art's own sprite once the
+   manifest is in */
 export function Critter({ entrant, pose = "idle", size = 200, className = "" }) {
   const manifest = useGrooveArt();
-  const critter = entrant?.look?.critter || "capybara";
+  const look = lookOf({ ...(entrant || {}), color:entrant?.color || "#e4572e" });
   const color = entrant?.color || "#e4572e";
-  const groom = !!entrant?.groom;
   const want = POSES.includes(pose) ? pose : "idle";
   return <span className={`flc-critter${manifest ? " is-art" : ""}${className ? ` ${className}` : ""}`} style={{ "--size":`${size}px` }} data-pose={want}>
-    {manifest ? <RiderSprite critter={critter} color={color} groom={groom} pose={want} size={size} />
+    {manifest ? <RiderSprite {...look} pose={want} size={size} />
       : <StandInCritter color={color} pose={want} size={size} />}
   </span>;
 }
@@ -115,8 +117,8 @@ export function Host({ pose = "idle", size = 72 }) {
 
 /* the judgement, big: the signed offset over the word (GROOVE.md "The popup"), the art's own lettering */
 export const POPUP_SIZE = 76;
-export function Popup({ q, d, size = POPUP_SIZE, className = "" }) {
+export function Popup({ q, d, size = POPUP_SIZE, className = "", life = true }) {
   return <span className={`flc-popup${className ? ` ${className}` : ""}`} role="status">
-    <ArtPopup q={q} d={d} size={size} life />
+    <ArtPopup q={q} d={d} size={size} life={life} />
   </span>;
 }

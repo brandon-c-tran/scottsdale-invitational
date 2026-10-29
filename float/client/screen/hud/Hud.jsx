@@ -115,7 +115,8 @@ export function RankStrip({ store, driver, room, entrants, mode = "song" }) {
       if (mode === "song") {
         const beat = songBeat(st, now);
         visible = beat !== null && rankStripOn(st.chart, beat);
-        const r = visible ? rankNow(store, now) : null;
+        /* ordered while hidden too, so the strip fades in already sorted */
+        const r = beat !== null ? rankNow(store, now) : null;
         if (r) { ranking = r.order; through = r.through; }
       } else {
         visible = true;
@@ -124,7 +125,7 @@ export function RankStrip({ store, driver, room, entrants, mode = "song" }) {
         through = !show.last && firstOut > 0 && Number.isFinite(show.line) && now >= show.line ? firstOut : null;
       }
       if (root.current && on !== visible) { root.current.dataset.on = visible ? "1" : ""; on = visible; }
-      if (!visible || !ranking) return;
+      if (!ranking) return;
       const key = ranking.join(",");
       if (key !== order) {
         order = key;

@@ -22,6 +22,7 @@ import { actionAt, bobAt, cheerAt, chugAt, follow, popupAt } from "../model/moti
 import { actionKind, demoAt, lineShownAt, lineSpot, rankStripOn, sceneFor } from "../model/song.js";
 import { narrationOf } from "../soundBridge.js";
 import { reducedMotion } from "./driver.js";
+import { darkAt } from "./Bar.jsx";
 import { cutField, cutShow } from "../model/cut.js";
 import { EXIT_MS, exitAt, exitKind } from "../model/exits.js";
 import { belowCut, rankNow } from "../model/rank.js";
@@ -244,7 +245,7 @@ export default function Cast({ store, driver, entrants, phase, room, version }) 
       /* Last Call: the countdown, the reveal, who drinks */
       const cd = bar && chart?.countdown && Number.isFinite(songAt) ? countdownAt(chart.countdown, now - songAt) : null;
       const revealed = !!cd && (cd.stage === "reveal" || cd.stage === "verdict");
-      const dark = !!cd && cd.hidden && !revealed && cd.trick === "lights";
+      const dark = !!cd && !revealed && darkAt(chart.countdown, now - songAt) > 0.5;
       const drinkers = bar ? verdictShown({ songAt, countdown:chart?.countdown, lastCall:st.lastCall, lastCallAt:st.lastCallAt }, now) : null;
       const closest = drinkers ? closestOf(st.lastCall?.totals || []) : [];
       /* the chug-off */

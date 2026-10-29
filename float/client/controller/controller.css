@@ -221,7 +221,7 @@ html.flc-locked, html.flc-locked body { overflow: hidden; overscroll-behavior: n
 .flc-stage { position: absolute !important; left: 0; right: 0; bottom: calc(var(--sa-bottom) + 24%); display: flex; flex-direction: column; align-items: center; pointer-events: none; }
 .flc-stage .flc-critter { width: min(var(--size), 36vh); height: min(var(--size), 36vh); }
 .flc-stage .flc-critter > .fg-rider { width: 100% !important; height: 100% !important; }
-.flc-popup-slot { height: min(150px, 18vh); width: 100%; display: grid; place-items: end center; padding-bottom: 0; }
+.flc-popup-slot { position: relative; z-index: 1; height: min(150px, 18vh); width: 100%; display: grid; place-items: end center; padding-bottom: 0; }
 
 /* the judgement: the art's Popup (Float Pixel, the tones, its own pop and fade), big */
 .flc-popup { display: grid; justify-items: center; pointer-events: none; }
@@ -526,7 +526,7 @@ html.flc-locked, html.flc-locked body { overflow: hidden; overscroll-behavior: n
 .flc-song > .flc-scenery, .flc-song > .flc-tint { transition: filter 220ms ease; }
 .flc-song.is-dark > .flc-scenery { filter: brightness(0.32) saturate(0.4); }
 /* a launch that lands: a burst in your colour (a Perfect the biggest) */
-.flc-burst { position: absolute; left: 50%; top: 22%; width: 220px; height: 220px; margin-left: -110px; border-radius: 50%; pointer-events: none;
+.flc-burst { position: absolute; left: 50%; top: calc(min(150px, 18vh) + 10px); z-index: 0; width: 220px; height: 220px; margin-left: -110px; border-radius: 50%; pointer-events: none;
   background: repeating-conic-gradient(var(--me) 0deg 8deg, transparent 8deg 30deg);
   -webkit-mask: radial-gradient(circle, transparent 0 30%, #000 31% 70%, transparent 71%); mask: radial-gradient(circle, transparent 0 30%, #000 31% 70%, transparent 71%);
   animation: flc-burst 700ms var(--ease) both; }

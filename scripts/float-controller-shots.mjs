@@ -43,7 +43,7 @@ const MOMENTS = [
   ["lobby"], ["lobby-ready"], ["lobby-fieldday"], ["intro"], ["card"], ["count"],
   ["practice", { tap:true, word:"Nice!" }], ["hey"], ["play", { tap:true, word:"Perfect" }], ["play-late", { tap:true, word:"Late" }],
   ["play-miss", { word:"Miss", settle:200 }], ["watch-demo"], ["breakdown"], ["breakdown-copy", { tap:true, word:"Perfect" }],
-  ["outro"], ["after"], ["rock"], ["spin"], ["drop"], ["cut", { settle:1200 }], ["cut-out", { settle:1200 }], ["cut-bubble", { settle:1200 }],
+  ["outro"], ["after"], ["rock"], ["spin"], ["drop"], ["fireworks"], ["fireworks-launch", { tap:true, word:"Perfect" }], ["fireworks-dark"], ["cut", { settle:1200 }], ["cut-out", { settle:1200 }], ["cut-bubble", { settle:1200 }],
   ["cut-final", { settle:1200 }], ["chugoff"], ["chugoff-count"], ["chugoff-go"], ["chugoff-kept", { settle:1200 }],
   ["chugoff-out", { settle:1200 }], ["chugoff-crowd"], ["lastcall"], ["lastcall-tap", { tap:true, locked:true }], ["lastcall-locked"],
   ["lastcall-reveal", { settle:1200 }], ["lastcall-drink", { settle:1200 }], ["lastcall-safe", { settle:1200 }], ["crowd"], ["podium"],

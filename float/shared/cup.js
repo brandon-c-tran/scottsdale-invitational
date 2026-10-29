@@ -8,8 +8,8 @@
      lobby -> intro -> [ song -> cut -> chugoff -> lastcall ] x rounds -> podium -> feedback -> lobby
 
    One song a round (chart.js songForRound: Paddle Party, Rock Hop, Spin
-   Cycle, then The Drop). After each song but the last the lowest round
-   percents are out (13 -> 9 -> 6 -> 3), ties by the Cup total (the rider's
+   Cycle, The Drop, then Fireworks). After each song but the last the lowest round
+   percents are out (13 -> 10 -> 7 -> 5 -> 3), ties by the Cup total (the rider's
    earlier percents), then perfects, then the field's order (the last
    round's ranking). The final's percent orders the podium; 4th and down
    are the riders cut, the last cut first, each cut in its own round's order.
@@ -28,7 +28,7 @@
    Last Call (GROOVE.md "Last Call: the countdown") follows every cut but
    the last, when the room drinks (with drinking off there is none):
    everyone in the Cup at the bar, the field and the riders out, one tap on
-   the countdown's zero (chartOf(lastCallId(round)): lights, slow, ticks),
+   the countdown's zero (chartOf(lastCallId(round)): lights, slow, ticks, rush),
    the farthest off drinks. Never scored in the Cup; who drank goes in that
    round's history. The cut before it is shorter (CUT_BEFORE_LAST_CALL_MS).
 
@@ -47,7 +47,7 @@ import { addTenths, botChugAfter, botSkills, closeSong, createBar, createSong, c
 
 /* colours for riders without one (protocol.js owns the list) */
 export { PALETTE };
-export const ROUNDS = 4;
+export const ROUNDS = 5;
 export const MAX_RIDERS = 16;
 /* the Cup's clock (a song's own length is chart.js's) */
 export const CUP_TIMING = Object.freeze({
@@ -85,7 +85,7 @@ export const lastCallPhaseMs = round => CUP_TIMING.LAST_CALL_LEAD_MS + chartOf(l
 
 /* the field for every round: monotonic, never below 3, the final 3 once
    there are 3 or more; the cuts as even as they can be, bigger first (13:
-   13, 9, 6, 3). 1 to 3 riders play every round uncut. */
+   13, 10, 7, 5, 3). 1 to 3 riders play every round uncut. */
 export function cutSchedule(n, rounds = ROUNDS) {
   const riders = Math.max(0, Math.min(MAX_RIDERS, n | 0));
   if (riders <= 3) return new Array(rounds).fill(riders);
@@ -555,8 +555,9 @@ export function scoresOf(cup, now) {
   return cup.scores || [];
 }
 
-/* `lastCall` in Last Call: { totals:[{ i, ms, d }], worst } (groove.js
-   lastCallOf; worst null until the zero's miss deadline), else null */
+/* `lastCall` in Last Call: { totals:[{ i, ms, d, place? }], worst, order }
+   (groove.js lastCallOf; worst and order null, and no place, until the
+   zero's miss deadline), else null */
 export function lastCallSummary(cup, now) {
   return cup.phase === "lastcall" && cup.bar ? lastCallOf(cup.bar, now) : null;
 }
@@ -598,7 +599,9 @@ export function resultsOf(cup) {
    { grade, line } (feedbackOf), a chug-off's pair `bubble` and neither
    through nor out (through null) until it settles; at Last Call: their
    lastCall { ms, d } and the tap's judgement (c, q, d), out if they are; a
-   rider out earlier: out with their place in the Cup so far; before and
+   rider out earlier: out with their place in the Cup so far (at Last Call
+   `lastCall.place` is their place at the bar, closest first, null until
+   the window closes, of `lastCall.of`); before and
    after: their place. */
 export function meOf(cup, i, now) {
   const base = { i, round:cup.round, cut:cutOf(cup), lastRound:isLastRound(cup) };
@@ -615,7 +618,7 @@ export function meOf(cup, i, now) {
     const last = cup.bar.last[i];
     const standing = cup.standings.find(item => item.i === i);
     return { ...base, ...(cup.out.includes(i) ? { out:true } : {}), place:standing?.place ?? null, of:cup.standings.length,
-      lastCall:{ ms:own.ms, d:own.d }, ...(last ? { c:last.c, q:last.q, ...(last.d === undefined ? {} : { d:last.d }) } : {}) };
+      lastCall:{ ms:own.ms, d:own.d, place:own.place ?? null, of:cup.bar.field.length }, ...(last ? { c:last.c, q:last.q, ...(last.d === undefined ? {} : { d:last.d }) } : {}) };
   }
   const row = cup.phase === "cut" || cup.phase === "chugoff" ? cup.results.find(item => item.i === i) : null;
   if (row) {

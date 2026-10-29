@@ -9,6 +9,7 @@
    Poses (the manifest's): idle, stroke, hey, nice, miss, chug, cheer, out. */
 import React, { useEffect } from "react";
 import { Popup as ArtPopup, RiderSprite, hostSprites, loadGrooveArt, lookOf, riderSprites, useGrooveArt } from "../art/index.js";
+import { numberTone } from "./controllerModel.js";
 
 export const POSES = Object.freeze(["idle", "stroke", "hey", "nice", "miss", "chug", "cheer", "out"]);
 
@@ -115,10 +116,12 @@ export function Host({ pose = "idle", size = 72 }) {
   </span>;
 }
 
-/* the judgement, big: the signed offset over the word (GROOVE.md "The popup"), the art's own lettering */
+/* the judgement, big: the signed offset over the word (GROOVE.md "The popup"), the art's own lettering;
+   the number in its tone by how close (v3: offsetTone in a song, countTone at Last Call with `count`) */
 export const POPUP_SIZE = 76;
-export function Popup({ q, d, size = POPUP_SIZE, className = "", life = true }) {
-  return <span className={`flc-popup${className ? ` ${className}` : ""}`} role="status">
+export function Popup({ q, d, size = POPUP_SIZE, className = "", life = true, count = false }) {
+  const tone = numberTone(q, d, { count });
+  return <span className={`flc-popup is-num-${tone}${className ? ` ${className}` : ""}`} data-tone={tone} role="status">
     <ArtPopup q={q} d={d} size={size} life={life} />
   </span>;
 }

@@ -13,9 +13,10 @@
    zooming); this draws. */
 import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Critter, Host, Popup } from "./art.jsx";
-import { demoAt, narrationAt, pendingCalls, rankView, songView } from "./controllerModel.js";
+import { beatCounter, demoAt, narrationAt, pendingCalls, rankView, songView } from "./controllerModel.js";
 import { cueTime } from "../../shared/chart.js";
 import { CutLine, Scenery } from "./parts.jsx";
+import SeatMap from "./SeatMap.jsx";
 
 const perfNow = () => globalThis.performance?.now?.() ?? Date.now();
 const reducedMotion = () => { try { return !!globalThis.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches; } catch { return false; } };
@@ -175,17 +176,30 @@ function HostBubble({ calls }) {
   </div>;
 }
 
-export function RoundCard({ shape, name }) {
-  return <div className="flc-card" role="status">
+/* the round card: the round, the song, how many go through, and your seat in the flotilla (seats: seatView) */
+export function RoundCard({ shape, name, seats = null, entrant = null }) {
+  return <div className={`flc-card${seats ? " has-seats" : ""}`} role="status">
     <span className="flc-card-kicker">{shape.final ? "Final" : `Round ${shape.round + 1}${shape.rounds ? ` of ${shape.rounds}` : ""}`}</span>
     <h1 className="flc-card-title">{name}</h1>
     <CutLine of={shape.of} through={shape.through} />
+    {seats && <SeatMap view={seats} entrant={entrant} />}
   </div>;
 }
 
 /* the practice's narration: Rhythm Heaven's text box at the top */
 function Narration({ text }) {
   return <div className="flc-line" role="status"><b key={text}>{text}</b></div>;
+}
+
+/* practice's count (v3): 1 2 3 4 at the foot, the beats you tap lit (the host's demo beat ringed), the beat now pulsing */
+export function BeatCounter({ counter }) {
+  if (!counter) return null;
+  return <div className="flc-counter" aria-hidden="true">
+    {counter.beats.map(beat => <span key={beat.n} className={`flc-count${beat.on ? " is-on" : ""}${beat.demo ? " is-demo" : ""}${counter.now === beat.n - 1 ? " is-now" : ""}`}>
+      <i key={counter.now === beat.n - 1 ? `now-${counter.bar}` : "rest"}>{beat.n}{beat.and ? "+" : ""}</i>
+      <b>{beat.on ? beat.word : ""}</b>
+    </span>)}
+  </div>;
 }
 
 /* who's ahead: your place, small, in the song bar's corner */
@@ -197,7 +211,7 @@ function Rank({ rank }) {
 
 /* props: serverNow (the room's clock), chart, songAt, entrant, shape (roundShape), name,
    popup ({ key, q, d, at }), act ({ key, kind, q, at }), me (the room's word on you), onTap */
-export default function SongScreen({ serverNow, chart, songAt, entrant, shape, name, popup = null, act = null, me = null,
+export default function SongScreen({ serverNow, chart, songAt, entrant, shape, name, popup = null, act = null, me = null, seats = null,
   onTap, onExit = null }) {
   const rootRef = useRef(null), bobRef = useRef(null), moveRef = useRef(null);
   usePad(rootRef, onTap);
@@ -218,10 +232,12 @@ export default function SongScreen({ serverNow, chart, songAt, entrant, shape, n
   useBeatBob(bobRef, { songAt, serverNow, beatMs:chart?.beatMs, on:Number.isFinite(songAt) && view.moment !== "card" });
   const shown = useShown(popup);
   const watch = !!demo && line !== "Watch" && !shown;
+  const counter = beatCounter(chart, view);
   const progress = Number.isFinite(view.beat) && chart ? Math.max(0, Math.min(1, view.beat / chart.beats)) : 0;
   return <section ref={rootRef} className={`flc-screen flc-song is-${view.moment}${line ? " has-line" : ""}`}
     data-moment={view.moment} data-scene={chart?.scene || "open"}>
     <Scenery scene={chart?.scene || "open"} />
+    <i className="flc-tint" aria-hidden="true" />
     <header className="flc-songbar">
       <span className="flc-songname">{name}</span>
       {view.moment === "practice" && <span className="flc-tag">Practice</span>}
@@ -229,7 +245,7 @@ export default function SongScreen({ serverNow, chart, songAt, entrant, shape, n
       {onExit && <span className="flc-songbar-end" />}
       <i className="flc-progress" aria-hidden="true"><b style={{ transform:`scaleX(${progress})` }} /></i>
     </header>
-    {card && <RoundCard shape={shape} name={name} />}
+    {card && <RoundCard shape={shape} name={name} seats={seats} entrant={entrant} />}
     {!card && <div className="flc-head">
       {line && <Narration text={line} />}
       <HostBubble calls={calls} />
@@ -241,5 +257,6 @@ export default function SongScreen({ serverNow, chart, songAt, entrant, shape, n
         <Critter entrant={entrant} pose={pose} size={300} />
       </div></div>
     </div>
+    <BeatCounter counter={counter} />
   </section>;
 }

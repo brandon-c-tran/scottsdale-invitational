@@ -9,8 +9,11 @@
    the outro, then the wait for the cut. Where the room's frame leaves something out, the frozen
    chart module fills it in: no `chart` is chartOf(song), no `songAt` is
    startAt + SONG_LEAD_MS. */
-import { CHUGOFF, LAST_CALL_ID, SONGS, qualityOf, SONG_LEAD_MS, callsBetween, breakdownSection, chartOf, clockAt, feedbackOf, gradeOf, gradeWord, lineAt,
-  songForRound } from "../../shared/chart.js";
+import { CHUGOFF, LAST_CALL_ID, SONGS, qualityOf, SONG_LEAD_MS, callsBetween, breakdownSection, chartOf, clockAt, cuesBetween, feedbackOf, gradeOf,
+  gradeWord, lineAt, songForRound } from "../../shared/chart.js";
+/* the whole module too, for what the chart adds later (offsetTone, countTone, dark) without breaking before it lands */
+import * as CHART from "../../shared/chart.js";
+import { seatsFor, seatWords } from "../../shared/seats.js";
 
 const num = value => value === null || value === undefined || value === "" ? null : Number.isFinite(Number(value)) ? Number(value) : null;
 export const indexOf = value => Number.isInteger(value) ? value : value && typeof value === "object" && Number.isInteger(Number(value.i)) ? Number(value.i) : null;
@@ -400,3 +403,84 @@ export function foldMine(memory, msg, { idx, songKey, round } = {}) {
   }
   return next;
 }
+
+/* ---- v3: who you are, the practice counter, the tone scale (GROOVE.md "v3") ---- */
+
+/* Your fixed seat in the flotilla (float/shared/seats.js): the field as
+   rows, FRONT row first (row 0; drawn at the bottom, as on the TV), left to
+   right, your seat marked, and its words ("Front row, 3rd from the left").
+   null when you are not in the field or there is no field yet.
+   { rows:[[{ i, me, color }]], seat, words } */
+export function seatView({ room, idx }) {
+  const field = indexes(room?.field);
+  if (idx < 0 || !field.includes(idx)) return null;
+  const seats = seatsFor(field);
+  const seat = seats.get(idx) || null;
+  if (!seat) return null;
+  const entrants = list(room?.entrants);
+  const rows = Array.from({ length:seat.rows }, () => []);
+  for (const [i, s] of seats) rows[s.row][s.col] = { i, me:i === idx, color:entrants[i]?.color || null };
+  return { rows, seat, words:seatWords(seat) };
+}
+
+/* Practice's four-beat counter (GROOVE.md v3 "Paddle Party teaches both at
+   once"): the bar the song is in, the beats with a tap lit (from the
+   chart's cues in that bar: 1 to 4, an "and" lights the beat it follows),
+   and the beat now. Practice only (null elsewhere). A demo bar (the host
+   shows it) lights its beats as the host's: `demo`.
+   { bar, now, beats:[{ n, on, kinds, and, demo }] } */
+export const COUNTER_WORDS = Object.freeze({ paddle:"Paddle", hey:"Hey!", hop:"Hop", spin:"Spin", drop:"Drop", rocket:"Launch" });
+export function beatCounter(chart, view) {
+  if (!chart || view?.moment !== "practice" || !Number.isFinite(view.beat)) return null;
+  const perBar = 4;
+  const bar = Math.floor(view.beat / perBar), from = bar * perBar;
+  const beats = Array.from({ length:perBar }, (_, k) => ({ n:k + 1, on:false, kinds:[], and:false, demo:false }));
+  for (const cue of cuesBetween(chart, from, from + perBar)) {
+    if (cue.scored) continue;
+    const at = cue.beat - from, k = Math.floor(at + 1e-6);
+    const slot = beats[k];
+    if (!slot) continue;
+    slot.on = true;
+    if (at - k > 0.25) slot.and = true;
+    if (cue.demo) slot.demo = true;
+    if (!slot.kinds.includes(cue.kind)) slot.kinds.push(cue.kind);
+  }
+  /* a beat with two kinds says the one that is not the pulse ("Hey!" over a paddle) */
+  for (const slot of beats) slot.word = slot.kinds.filter(kind => kind !== "paddle").concat(slot.kinds).map(kind => COUNTER_WORDS[kind]).find(Boolean) || "";
+  return { bar, now:Math.max(0, Math.min(perBar - 1, Math.floor(view.beat - from))), beats };
+}
+
+/* The number's colour by how close (GROOVE.md v3 "Numbers in more colours
+   than red"): the chart's own scale once it has one, else the contract's.
+   songs: <= 50 gold, <= 100 green, <= 160 yellow, above red; a miss grey.
+   Last Call: <= 100 green, <= 300 yellow, <= 700 orange, above red. */
+const localOffsetTone = absMs => !Number.isFinite(absMs) ? "grey" : absMs <= 50 ? "gold" : absMs <= 100 ? "green" : absMs <= 160 ? "yellow" : "red";
+const localCountTone = absMs => !Number.isFinite(absMs) ? "grey" : absMs <= 100 ? "green" : absMs <= 300 ? "yellow" : absMs <= 700 ? "orange" : "red";
+export const OFFSET_TONES = Object.freeze(["gold", "green", "yellow", "orange", "red", "grey"]);
+export function numberTone(q, d, { count = false } = {}) {
+  if (q === "miss" || !Number.isFinite(Number(d)) || d === null) return "grey";
+  const abs = Math.abs(Number(d));
+  const fn = count ? (typeof CHART.countTone === "function" ? CHART.countTone : localCountTone)
+    : (typeof CHART.offsetTone === "function" ? CHART.offsetTone : localOffsetTone);
+  const tone = fn(abs);
+  return OFFSET_TONES.includes(tone) ? tone : count ? localCountTone(abs) : localOffsetTone(abs);
+}
+export const contractTones = { offset:localOffsetTone, count:localCountTone };
+
+/* Last Call's ranking on this phone (GROOVE.md v3 "Last Call: who did best
+   and worst"): your place among everyone at the bar, closest to zero first,
+   ties sharing a place ("3rd closest of 9"). The room's word (me.lastCall
+   place/of) when it gives one, else from room.lastCall.totals ({ i, ms }:
+   ms how far off, a no-tap 3000). null until there is something to rank. */
+export function lastCallPlace({ room, me = null, idx }) {
+  const said = me?.lastCall && typeof me.lastCall === "object" ? me.lastCall : null;
+  const sp = num(said?.place), so = num(said?.of);
+  if (sp !== null && so !== null && sp >= 1) return { place:sp, of:so, text:placeWords(sp, so) };
+  const totals = list(room?.lastCall?.totals).map(row => ({ i:indexOf(row), ms:num(row?.ms) })).filter(row => row.i !== null && row.ms !== null);
+  const mine = totals.find(row => row.i === idx);
+  if (!mine || totals.length < 2) return null;
+  const place = 1 + totals.filter(row => row.ms < mine.ms).length;
+  return { place, of:totals.length, text:placeWords(place, totals.length) };
+}
+/* "Closest of 9", "3rd closest of 9", "Farthest of 9" (alone at the far end) */
+const placeWords = (place, of) => place === 1 ? `Closest of ${of}` : place === of ? `Farthest of ${of}` : `${ordinal(place)} closest of ${of}`;

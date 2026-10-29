@@ -35,7 +35,7 @@ import LastCall from "./LastCall.jsx";
 import ChugOff from "./ChugOff.jsx";
 import Screens from "./Screens.jsx";
 import { useRoom } from "./useRoom.js";
-import { indexOf, lastCallJudged, offsetOf, roundShape, roundSong, screenOf, songAtOf, wakeFor } from "./controllerModel.js";
+import { indexOf, lastCallJudged, offsetOf, roundShape, roundSong, screenOf, seatView, songAtOf, wakeFor } from "./controllerModel.js";
 import { createGate, createPad, padTap, restamp, serverStamp, stampOf } from "./rhythm.js";
 import { cheerSound, doneSound, tapSound, unlockSound, useControllerSound } from "./sound.js";
 import { usePreloadArt } from "./art.jsx";
@@ -300,10 +300,10 @@ export default function FloatController({ room = "test", rider = null, onExit = 
   return <div className="flc-root" style={{ "--me":entrant.color }} data-screen={screen} onTouchEnd={onTouchEnd}>
     {screen === "song"
       ? <SongScreen serverNow={serverNow} chart={chart} songAt={songAt} entrant={entrant} shape={shape} name={song.name}
-        popup={popup} act={act} me={game.me} onTap={onTap} />
+        popup={popup} act={act} me={game.me} seats={seatView({ room:game.room, idx })} onTap={onTap} />
       : screen === "lastcall"
       ? <LastCall serverNow={serverNow} room={game.room} idx={idx} chart={chart} songAt={songAt} entrant={entrant}
-        judged={lastCallJudged(game, songKey)} tap={lcTap?.key === songKey ? lcTap : null} onTap={onTap} />
+        judged={lastCallJudged(game, songKey)} tap={lcTap?.key === songKey ? lcTap : null} me={game.me} onTap={onTap} />
       : screen === "chugoff"
       ? <ChugOff serverNow={serverNow} room={game.room} idx={idx} entrant={entrant} sent={doneHere || doneRoom} onDone={onDone}
         cheer={cheer} onCheer={onCheer} onExit={onExit} />

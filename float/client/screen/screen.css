@@ -127,13 +127,14 @@
 .cr-face { position:relative; display:inline-block; width:512px; height:512px; }
 .cr-face > svg, .cr-face > .cr-sprites { position:absolute; inset:0; width:100%; height:100%; }
 
-/* the names: their own layer over every critter and every popup, each
-   under its own tube (placed and nudged by the cast), the rider's colour
-   with a dark outline, one size at any distance */
+/* the names: their own layer over every critter and every popup, each a
+   tag under its own tube (placed and nudged by the cast) in the rider's
+   colour with the ink that reads on it and a dark keyline, one size at any
+   distance (GROOVE.md v3 "Who you are") */
 .fl-names { position:absolute; inset:0; pointer-events:none; z-index:9000; }
-.fl-name { position:absolute; left:0; top:0; color:var(--name, var(--c)); font-family:var(--px); font-weight:700; font-size:27px; line-height:1;
-  white-space:nowrap; letter-spacing:0.02em; -webkit-text-stroke:7px var(--ink); paint-order:stroke fill; text-shadow:0 3px 0 var(--ink);
-  opacity:0; will-change:transform; }
+.fl-name { position:absolute; left:0; top:0; padding:4px 13px 8px; border-radius:13px; background:var(--c); color:var(--tag, var(--ink));
+  border:4px solid var(--ink); box-shadow:0 4px 0 var(--ink); font-family:var(--px); font-weight:700; font-size:28px; line-height:1;
+  white-space:nowrap; letter-spacing:0.02em; opacity:0; will-change:transform; }
 .fs-root[data-phase="lobby"] .fl-name.is-ready::after { content:""; display:inline-block; width:14px; height:8px; margin-left:8px; margin-bottom:5px;
   border-left:4px solid currentColor; border-bottom:4px solid currentColor; transform:rotate(-45deg); }
 

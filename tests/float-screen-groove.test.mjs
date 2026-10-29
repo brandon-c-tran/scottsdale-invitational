@@ -15,9 +15,9 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { CHUGOFF, POPUP_MS, SONG_LEAD_MS, chartOf, demoCues, popupOf } from "../float/shared/chart.js";
 import { BEAT_MS } from "../float/shared/beat.js";
 import {
-  BOX, CROWD, MIN_GAP, NAME_H, PODIUM, POPUP_BOX, STAGE_W, crowdLayout, driftOf, fieldOrder, flotillaLayout, nameSlots, nameWidth, podiumLayout,
+  BOX, CROWD, MIN_GAP, NAME_H, PODIUM, POPUP_BOX, STAGE_W, crowdLayout, driftOf, flotillaLayout, nameSlots, nameWidth, podiumLayout,
   popupSize, popupSlots,
-  riderWidth, rowCounts, rowOrder, rowsFor, rowSlots, spreadRow,
+  riderWidth, rowCounts, rowsFor, rowSlots, seatOrder, spreadRow,
 } from "../float/client/screen/model/flotilla.js";
 import { ACTIONS, PLEASED_MS, actionAt, bobAt, cheerAt, chugAt, follow, hopToBank, popupAt } from "../float/client/screen/model/motion.js";
 import { actionKind, bannerAt, chartFor, demoAt, hostAt, hostCalls, lineShownAt, lineSpot, rankStripOn, roundLabel, sceneFor, sceneMode, signAt, songStart, timedLines }
@@ -31,6 +31,7 @@ import { awardValue } from "../float/client/screen/model/cut.js";
 import { createScreenStore } from "../float/client/screen/model/store.js";
 import { scriptCup, seenOf } from "../float/client/screen/mock/script.js";
 import { MOCK_SHOTS, SHOTS, mockRider, mockSkills, shotTime } from "../float/client/screen/mock/shared.js";
+import { seatsFor } from "../float/shared/seats.js";
 
 const ROOT = fileURLToPath(new URL("../", import.meta.url));
 const range = n => Array.from({ length:n }, (_, i) => i);
@@ -93,20 +94,30 @@ test("the flotilla: every rider of every field size on the stage, never closer t
   assert.deepEqual(field[field.length - 1].members, [0, 1, 2, 3]);
 });
 
-test("x by score: the leaders take a row's right (downstream), a rider passes only when clearly ahead, the drift is clamped", () => {
-  const order = range(13);
-  const lives = new Map(order.map(i => [i, 60 + i * 3]));
-  const orders = new Map();
-  const spots = flotillaLayout(order, lives, { orders });
-  const front = Object.entries(spots).filter(([, s]) => s.row === 2).sort((a, b) => a[1].x - b[1].x).map(([i]) => Number(i));
-  assert.deepEqual(front, [0, 1, 2, 3], "low to high, left to right");
-  /* a level row keeps its order; a small lead does not reshuffle it */
-  assert.deepEqual(rowOrder([0, 1, 2], i => [80, 81, 82][i], { prev:[2, 1, 0] }), [2, 1, 0]);
-  assert.deepEqual(rowOrder([0, 1, 2], i => [80, 90, 82][i], { prev:[2, 1, 0] }), [2, 0, 1]);
+test("fixed seats: every rider keeps the seat map's seat whatever the scores; the drift never passes a neighbour", () => {
+  for (let n = 1; n <= 16; n += 1) {
+    const field = range(n).map(i => i * 2 + 1);
+    const seats = seatsFor(field);
+    const order = arrangement => Object.entries(arrangement).sort((a, b) => a[1].row - b[1].row || a[1].x - b[1].x).map(([i]) => Number(i));
+    const rest = order(flotillaLayout(field, new Map()));
+    for (const lives of [new Map(field.map((i, k) => [i, k % 2 ? 100 : 0])), new Map(field.map((i, k) => [i, 100 - k * 6])), new Map(field.map((i, k) => [i, k * 6]))]) {
+      const spots = flotillaLayout(field.slice().reverse(), lives);
+      assert.deepEqual(order(spots), rest, `${n}: the same seats left to right whatever the scores or the list's order`);
+      for (const [key, spot] of Object.entries(spots)) {
+        const seat = seats.get(Number(key));
+        assert.equal(spot.rows - 1 - spot.row, seat.row, `${n}: rider ${key} in the seat map's row (row 0 the front)`);
+        assert.equal(spot.col, seat.col, `${n}: rider ${key} in the seat map's column`);
+      }
+    }
+  }
+  /* the drift: a little ahead or behind, clamped */
   assert.equal(driftOf(100, 50, { max:30 }), 30);
   assert.equal(driftOf(0, 50, { max:30 }), -30);
   assert.equal(driftOf(null, 50), 0);
-  assert.deepEqual(fieldOrder([3, 1, 2], i => ({ 1:10, 2:50, 3:10 })[i]), [2, 1, 3], "by Cup total, then index");
+  const level = flotillaLayout(range(13), new Map()), led = flotillaLayout(range(13), new Map(range(13).map(i => [i, i === 5 ? 100 : 60])));
+  assert.ok(led[5].x > level[5].x, "the leader drifts downstream (right)");
+  assert.ok(led[5].x - level[5].x <= 0.1 * 620 + 1, "but only a little");
+  assert.deepEqual(seatOrder([9, 3, 3, 7]), [3, 7, 9], "the field in entrant order");
   const spread = spreadRow([500, 505, 510], 100, 0, 1920);
   assert.ok(spread[1] - spread[0] >= 99.5 && spread[2] - spread[1] >= 99.5, "a pile spreads apart");
   assert.ok(spreadRow([0, 10], 100, 50, 1000).every(x => x >= 50), "kept inside");
@@ -644,7 +655,7 @@ const bundle = await build({
     export { SongBanner, Narration, RankStrip, CutShow, ChugHud, LastCallHud, PodiumBlocks, IntroTitle, Feedback } from "./float/client/screen/hud/Hud.jsx";
     export { default as Lobby } from "./float/client/screen/hud/Lobby.jsx";
     export { default as Scene } from "./float/client/screen/stage/Scene.jsx";
-    export { default as Cast } from "./float/client/screen/stage/Cast.jsx";
+    export { default as Cast, castPlan, rollCallAt, ROLL } from "./float/client/screen/stage/Cast.jsx";
     export { default as Host } from "./float/client/screen/stage/Host.jsx";
     export { default as Bar, boardOf, darkAt } from "./float/client/screen/stage/Bar.jsx";
     export { PlaceholderCritter, Critter } from "./float/client/screen/art.jsx";`, resolveDir:ROOT, loader:"jsx" },
@@ -656,7 +667,7 @@ ui.filename = ui.id;
 ui.paths = Module._nodeModulePaths(ROOT);
 ui._compile(bundle.outputFiles[0].text, ui.filename);
 const { FloatScreen, SongBanner, Narration, RankStrip, CutShow, ChugHud, LastCallHud, PodiumBlocks, IntroTitle, Feedback, Lobby, Scene, Cast, Host, Bar,
-  PlaceholderCritter } = ui.exports;
+  PlaceholderCritter, castPlan, rollCallAt, ROLL } = ui.exports;
 const html = element => renderToStaticMarkup(element);
 const fakeDriver = now => ({ add:() => () => {}, serverNow:() => now, tick() {} });
 const entrants = range(13).map(k => ({ ...mockRider(k), device:`p${k}`, ready:k % 2 === 0 }));
@@ -792,3 +803,26 @@ test("rendered: the cast has every rider with their name and the exits' props in
     assert.doesNotMatch(readFileSync(new URL(`../float/client/screen/${file}`, import.meta.url), "utf8"), /Drink!|chuggingAt|drinkSection|drink break/i, `${file}: no drink break`);
   assert.match(html(React.createElement(PlaceholderCritter, { color:"#ff5a4e", critter:"jackrabbit", groom:true })), /cr-crown/);
 });
+
+test("a cut re-forms the rows once, after the last out has left, keeping the seat order", () => {
+  const room = { phase:"cut", round:0, field:range(13), out:[], cut:9, results:range(13).map(i => ({ i, pct:100 - i * 3, place:i + 1 })) };
+  const plan = castPlan({ phase:"cut", room, state:{ songField:range(13) }, entrants });
+  assert.deepEqual(plan.water, range(13), "the song's seats until the outs have gone");
+  assert.ok(plan.nextWater.every((i, k) => k === 0 || i > plan.nextWater[k - 1]), "the survivors in entrant order");
+  assert.ok(Number.isFinite(plan.reform) || plan.reform === null);
+  const song = castPlan({ phase:"song", room:{ phase:"song", field:[8, 2, 5], out:[1] }, state:{ songField:[8, 2, 5], scores:new Map([[8, { cup:300 }], [2, { cup:10 }]]) }, entrants });
+  assert.deepEqual(song.water, [2, 5, 8], "a song's rows never sort by the Cup");
+});
+
+test("the roll call: each name tag pops in seat order in the intro and each song's lead, then stays", () => {
+  const songAt = 100000;
+  const t0 = songAt - SONG_LEAD_MS + ROLL.SONG_AT;
+  assert.equal(rollCallAt({ phase:"song", songAt, seat:0, now:t0 - 10 }), 0, "not called yet");
+  assert.equal(rollCallAt({ phase:"song", songAt, seat:3, now:t0 + 2 * ROLL.GAP_MS }), 0, "the fourth waits its turn");
+  assert.ok(rollCallAt({ phase:"song", songAt, seat:0, now:t0 + ROLL.POP_MS * 0.6 }) > 1, "pops a little past full size");
+  assert.equal(rollCallAt({ phase:"song", songAt, seat:12, now:t0 + 12 * ROLL.GAP_MS + ROLL.POP_MS }), null, "then simply shown");
+  assert.equal(rollCallAt({ phase:"song", songAt, seat:0, now:songAt + 20000 }), null, "a screen joining mid-song shows every name");
+  assert.equal(rollCallAt({ phase:"cut", songAt, seat:0, now:t0 }), null);
+  assert.equal(rollCallAt({ phase:"intro", phaseStart:0, seat:1, now:ROLL.INTRO_AT }), 0);
+});
+

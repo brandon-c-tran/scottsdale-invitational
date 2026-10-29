@@ -12,10 +12,10 @@
    nudged clear of the others; the frame driver writes every transform
    (stage pixels, transform and opacity only). */
 import React, { memo, useEffect, useMemo, useRef, useState } from "react";
-import { CHUGOFF, gradeWord } from "../../../shared/chart.js";
+import { CHUGOFF, SONG_LEAD_MS, gradeWord } from "../../../shared/chart.js";
 import { Critter, PopupLetters, SplashProp, anchorOf, useRiderArt } from "../art.jsx";
-import { ANCHOR, BOX, NAME_H, POPUP_BOX, crowdLayout, fieldOrder, flotillaLayout, nameSlots, nameWidth, podiumLayout, podiumSteps,
-  popupSlots } from "../model/flotilla.js";
+import { ANCHOR, BOX, NAME_H, POPUP_BOX, crowdLayout, flotillaLayout, nameSlots, nameWidth, podiumLayout, podiumSteps,
+  popupSlots, seatOrder } from "../model/flotilla.js";
 import { propOf, spriteSize } from "../../art/groove/index.js";
 import { useGrooveArt } from "../../art/groove/RiderSprite.jsx";
 import { actionAt, bobAt, cheerAt, chugAt, follow, popupAt } from "../model/motion.js";
@@ -29,7 +29,7 @@ import { belowCut, rankNow } from "../model/rank.js";
 import { chugLayout, chugoffAt, firstChugoff } from "../model/chugoff.js";
 import { barLayout, barPlayersOf, closestOf, countdownAt, readoutOf, verdictShown } from "../model/lastcall.js";
 import { indexList } from "../model/cupShape.js";
-import { nameFill } from "../hud/identity.js";
+import { inkOn } from "../hud/identity.js";
 
 const BEAT = 500;
 /* Last Call's readouts: the popup lettered this much bigger */
@@ -46,21 +46,36 @@ export const LINE_RECTS = Object.freeze({ top:{ x0:520, x1:1400, y0:36, y1:160 }
 /* the cut's award cards, a row under the strip */
 export const CARDS_RECT = Object.freeze({ x0:380, x1:1880, y0:214, y1:420 });
 const ease = t => 1 - Math.pow(1 - Math.max(0, Math.min(1, t)), 3);
+/* the roll call: each name tag pops in, in seat order (front row first,
+   left to right), once the flotilla has floated in (the intro) and in each
+   song's lead under the round card */
+export const ROLL = Object.freeze({ GAP_MS:170, POP_MS:360, INTRO_AT:2900, SONG_AT:450 });
+/* a name's pop at `now`: null (no roll call running), else 0 (not yet
+   called) to 1, overshooting a little */
+export function rollCallAt({ phase, phaseStart, songAt, seat, now }) {
+  if (seat < 0 || !Number.isFinite(now)) return null;
+  const t0 = phase === "intro" && Number.isFinite(phaseStart) ? phaseStart + ROLL.INTRO_AT
+    : phase === "song" && Number.isFinite(songAt) ? songAt - SONG_LEAD_MS + ROLL.SONG_AT : null;
+  if (t0 === null) return null;
+  const t = (now - t0 - seat * ROLL.GAP_MS) / ROLL.POP_MS;
+  if (t >= 1) return null;
+  if (t <= 0) return 0;
+  return t < 0.6 ? 1.18 * ease(t / 0.6) : 1.18 - 0.18 * ((t - 0.6) / 0.4);
+}
 
 /* the cast's plan for a room message: who is in the water (and how they are
    laid out), who stands on the bank, who leaves for it and how, the podium */
 export function castPlan({ phase, room, state, entrants }) {
   const all = entrants.map((e, i) => (e ? i : null)).filter(i => i !== null);
   const outs = indexList(room?.out);
-  const cupOf = i => Number(state?.scores?.get?.(i)?.cup) || 0;
   const scene = sceneFor(phase, state?.chart);
   const plan = { water:[], kind:"song", drift:true, bank:[], exits:[], podium:[], reform:null, nextWater:null, names:true, show:null, chug:null,
     exitKind:exitKind(scene) };
   if (phase === "lobby") return { ...plan, water:all, kind:"lobby", drift:false };
-  if (phase === "intro") return { ...plan, water:indexList(room?.field).length ? indexList(room.field) : all, drift:false };
+  if (phase === "intro") return { ...plan, water:seatOrder(indexList(room?.field).length ? indexList(room.field) : all), drift:false };
   if (phase === "song") {
     const field = state?.songField?.length ? state.songField : indexList(room?.field);
-    return { ...plan, water:fieldOrder(field, cupOf), bank:outs.filter(i => !field.includes(i)) };
+    return { ...plan, water:seatOrder(field), bank:outs.filter(i => !field.includes(i)) };
   }
   if (phase === "cut") {
     const field = cutField(room, state?.songField);
@@ -68,9 +83,9 @@ export function castPlan({ phase, room, state, entrants }) {
     const going = show.outs.map(o => o.i);
     const earlier = outs.filter(i => !field.includes(i));
     const lastOut = show.outs.length ? show.outs[show.outs.length - 1].at : null;
-    const pct = i => show.ranking.find(r => r.i === i)?.pct ?? 0;
-    const survivors = fieldOrder(field.filter(i => !going.includes(i)), pct);
-    return { ...plan, water:fieldOrder(field, cupOf), bank:earlier, show,
+    /* the rows re-form once, after the last out has left, keeping the seat order */
+    const survivors = seatOrder(field.filter(i => !going.includes(i)));
+    return { ...plan, water:seatOrder(field), bank:earlier, show,
       exits:show.outs.map(o => ({ i:o.i, at:o.at, ms:EXIT_MS })),
       reform:lastOut !== null ? lastOut + EXIT_MS + 300 : null, nextWater:survivors, kind:survivors.length <= 3 ? "final" : "song" };
   }
@@ -200,8 +215,6 @@ export default function Cast({ store, driver, entrants, phase, room, version }) 
   const motion = useRef(new Map());
   const firstSeen = useRef(new Map());
   const mounted = useRef(false);
-  /* each row's order, kept across renders (riders pass only when clearly ahead) */
-  const orders = useRef(new Map());
   const plan = useMemo(() => castPlan({ phase, room, state:store.state, entrants }), [phase, room, entrants, version]); // eslint-disable-line react-hooks/exhaustive-deps
   const planRef = useRef(plan);
   planRef.current = plan;
@@ -263,7 +276,7 @@ export default function Cast({ store, driver, entrants, phase, room, version }) 
         water = p.kind === "bar" ? barLayout(p.water)
           : p.kind === "chug" ? chugLayout(p.chug?.a, p.chug?.b)
             : flotillaLayout(p.water, lives, { kind:p.kind === "lobby" ? "lobby" : p.water.length <= 3 ? "final" : "song",
-              drift:p.drift && phase !== "intro", orders:orders.current });
+              drift:p.drift && phase !== "intro" });
         next = p.nextWater ? flotillaLayout(p.nextWater, new Map(), { kind:p.kind, drift:false }) : {};
         bank = crowdLayout([...p.bank, ...exits.map(h => h.i).filter(i => !p.bank.includes(i))]);
         podium = podiumLayout(p.podium, podiumSteps(propOf("podium")));
@@ -487,13 +500,14 @@ export default function Cast({ store, driver, entrants, phase, room, version }) 
         /* the name under the tube, on the top layer, nudged into its slot */
         const nameNode = nameRefs.current.get(i);
         if (nameNode) {
-          const on = !!p.names && where === "water" && !dark;
+          const roll = still ? null : rollCallAt({ phase, phaseStart:st.phaseStart, songAt, seat:p.water.indexOf(i), now });
+          const on = !!p.names && where === "water" && !dark && roll !== 0;
           if (m.nameOn !== on) { nameNode.style.opacity = on ? "1" : "0"; m.nameOn = on; }
           if (on) {
             const nudge = names[i] || { dx:0, dy:0 };
             m.nx = follow(m.nx, nudge.dx, dt, 160); m.ny = follow(m.ny, nudge.dy, dt, 160);
             const nx = x + enter + (act?.dx || 0) * sc + m.nx, ny = y + nameUnder(anchor, sc) + m.ny;
-            nameNode.style.transform = `translate3d(${nx.toFixed(1)}px, ${ny.toFixed(1)}px, 0) translate(-50%, -50%)`;
+            nameNode.style.transform = `translate3d(${nx.toFixed(1)}px, ${ny.toFixed(1)}px, 0) translate(-50%, -50%)${roll !== null ? ` scale(${roll.toFixed(3)})` : ""}`;
           }
         }
 
@@ -555,7 +569,7 @@ export default function Cast({ store, driver, entrants, phase, room, version }) 
     </div>
     <div className="fl-names">
       {entrants.map((e, i) => e && <span key={i} className={`fl-name${e.ready ? " is-ready" : ""}`}
-        style={{ "--c":e.color || "#7fb8ff", "--name":nameFill(e.color) }}
+        style={{ "--c":e.color || "#7fb8ff", "--tag":inkOn(e.color || "#7fb8ff") }}
         ref={node => { if (node) nameRefs.current.set(i, node); else nameRefs.current.delete(i); }}>{e.name}</span>)}
     </div>
   </>;

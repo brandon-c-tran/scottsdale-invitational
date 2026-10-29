@@ -589,10 +589,12 @@ test("the scripted Cup speaks the contract: the cut, the chug-off and Last Call 
   const skills = mockSkills(13, 3);
   const riders = range(13).map(k => ({ ...mockRider(k), device:`p${k}`, skill:skills[k] }));
   const { msgs, marks, rounds } = scriptCup({ riders, startAt:1_000_000, seed:3 });
-  assert.equal(rounds, 4);
+  assert.equal(rounds, 5);
   const phases = msgs.filter(m => m.msg.t === "room").map(m => m.msg.phase).filter((p, k, all) => p !== all[k - 1]);
   assert.deepEqual(phases, ["intro", "song", "cut", "chugoff", "lastcall", "song", "cut", "chugoff", "lastcall", "song", "cut", "chugoff", "lastcall",
-    "song", "cut", "podium", "feedback", "lobby"]);
+    "song", "cut", "chugoff", "lastcall", "song", "cut", "podium", "feedback", "lobby"]);
+  const songs = msgs.filter(m => m.msg.t === "room" && m.msg.phase === "song").map(m => m.msg.song).filter((x, k, all) => x !== all[k - 1]);
+  assert.deepEqual(songs, ["paddle", "rock", "spin", "drop", "fireworks"], "the five songs, Fireworks the final");
   for (let k = 1; k < msgs.length; k += 1) assert.ok(msgs[k].s >= msgs[k - 1].s, "in time order");
   const hits = msgs.filter(m => m.msg.t === "ev" && m.msg.e === "hit").map(m => m.msg);
   assert.ok(hits.length > 1000);
@@ -619,7 +621,7 @@ test("the scripted Cup speaks the contract: the cut, the chug-off and Last Call 
   assert.ok(msgs.some(m => m.msg.t === "ev" && m.msg.e === "out" && m.msg.i === decided.chugoff.loser && m.s === decided.s));
   assert.equal(chug[0].chugoff.goAt - chug[0].startAt, CHUGOFF.INTRO_FIRST_MS ?? CHUGOFF.INTRO_MS, "the Cup's first chug-off: the long intro");
   const fields = msgs.filter(m => m.msg.t === "room" && m.msg.phase === "song").map(m => m.msg.field.length).filter((n, k, all) => n !== all[k - 1]);
-  assert.deepEqual(fields, [13, 9, 6, 3]);
+  assert.deepEqual(fields, [13, 10, 7, 5, 3]);
   for (const shot of MOCK_SHOTS) if (!SHOTS[shot].lobby) assert.ok(Number.isFinite(shotTime(shot, seenOf(marks), rounds)), `${shot} has a moment`);
 });
 

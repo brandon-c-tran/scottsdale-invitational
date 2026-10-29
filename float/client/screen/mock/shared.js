@@ -99,9 +99,18 @@ export const SHOTS = Object.freeze({
   foam:{ phase:"lastcall", round:2, songMs:10900 },
   rock:{ phase:"song", round:1, beat:42.3 },
   spin:{ phase:"song", round:2, beat:34.6 },
-  sign:{ phase:"song", round:"last", beat:13.5 },
+  /* The Drop (the semifinal): a sign in play A, play B unsigned, a blackout bar, the drop */
+  sign:{ phase:"song", round:"semi", beat:13.5 },
+  unsigned:{ phase:"song", round:"semi", beat:92.3 },
+  blackout:{ phase:"song", round:"semi", beat:101.2 },
+  drop:{ phase:"song", round:"semi", beat:120.45 },
+  /* Fireworks (the final): the fuse, a launch, the dark sky, the finale, the winner's sky */
   final:{ phase:"song", round:"last", beat:101.3 },
-  drop:{ phase:"song", round:"last", beat:120.45 },
+  fuse:{ phase:"song", round:"last", beat:13.1 },
+  launch:{ phase:"song", round:"last", beat:40.25 },
+  nightdark:{ phase:"song", round:"last", beat:105.25 },
+  finale:{ phase:"song", round:"last", beat:122.4 },
+  sky:{ phase:"song", round:"last", beat:126.5 },
   finalcut:{ phase:"cut", round:"last", ms:3500 },
   podium:{ phase:"podium", ms:5400 },
   feedback:{ phase:"feedback", ms:2500 },
@@ -113,7 +122,7 @@ export const MOCK_SHOTS = Object.freeze(Object.keys(SHOTS));
 export function shotTime(shot, seen, rounds) {
   const plan = SHOTS[shot];
   if (!plan || plan.lobby) return null;
-  const round = plan.round === "last" ? Math.max(0, (rounds | 0) - 1) : plan.round;
+  const round = plan.round === "last" ? Math.max(0, (rounds | 0) - 1) : plan.round === "semi" ? Math.max(0, (rounds | 0) - 2) : plan.round;
   const key = round === undefined ? plan.phase : `${plan.phase}:${round}`;
   const at = seen[key];
   if (!at) return null;

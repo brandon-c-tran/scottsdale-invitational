@@ -49,7 +49,8 @@ test("the song from the room: its beat 0, its key, its chart (the room's, kept, 
   assert.equal(chartFor({ chartId:"spin" }, full).id, "spin", "another song: the frozen module's");
   assert.equal(chartFor({ song:"drop" }).id, "drop");
   assert.equal(chartFor({}), null);
-  assert.deepEqual(roundSong({ round:3, rounds:4 }), { id:"drop", name:"The Drop" });
+  assert.deepEqual(roundSong({ round:3, rounds:5 }), { id:"drop", name:"The Drop" }, "The Drop is the semifinal");
+  assert.deepEqual(roundSong({ round:4, rounds:5 }), { id:"fireworks", name:"Fireworks" }, "the final is Fireworks");
   assert.deepEqual(roundSong({ song:"rock" }), { id:"rock", name:"Rock Hop" });
   assert.equal(songForRound(0, 4), "paddle");
 });
@@ -174,7 +175,7 @@ test("the mock: every held moment opens on its phase, this phone where the shots
     card:["song", "song"], count:["song", "song"], practice:["song", "song"], hey:["song", "song"], play:["song", "song"],
     "play-late":["song", "song"], "play-miss":["song", "song"], "watch-demo":["song", "song"], breakdown:["song", "song"],
     "breakdown-copy":["song", "song"], outro:["song", "song"], after:["song", "song"], rock:["song", "song"],
-    spin:["song", "song"], drop:["song", "song"], cut:["cut", "cut"], "cut-out":["cut", "cut"], "cut-bubble":["cut", "cut"],
+    spin:["song", "song"], drop:["song", "song"], fireworks:["song", "song"], "fireworks-launch":["song", "song"], "fireworks-dark":["song", "song"], cut:["cut", "cut"], "cut-out":["cut", "cut"], "cut-bubble":["cut", "cut"],
     "cut-final":["cut", "cut"], chugoff:["chugoff", "chugoff"], "chugoff-count":["chugoff", "chugoff"], "chugoff-go":["chugoff", "chugoff"],
     "chugoff-kept":["chugoff", "chugoff"], "chugoff-out":["chugoff", "chugoff"], "chugoff-crowd":["chugoff", "chugoff"],
     lastcall:["lastcall", "lastcall"], "lastcall-tap":["lastcall", "lastcall"], "lastcall-locked":["lastcall", "lastcall"],
@@ -228,6 +229,11 @@ test("the mock: every held moment opens on its phase, this phone where the shots
   await p.net.mock.go("drop");
   p.timers.flush();
   assert.equal(p.state().chart.id, "drop");
+  assert.notEqual(p.state().room.lastRound, true, "The Drop is round 4 of 5");
+  await p.net.mock.go("fireworks");
+  p.timers.flush();
+  assert.equal(p.state().chart.id, "fireworks");
   assert.equal(p.state().room.lastRound, true);
+  assert.equal(p.state().room.rounds, 5);
   p.net.close();
 });

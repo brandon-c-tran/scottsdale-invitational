@@ -187,3 +187,36 @@ test("rowing: your paddle taps alternate stroke and stroke-r, a miss is miss; st
   assert.equal(poseFor({ critters:{ capybara:{ poses:{ stroke:{} } } } }, "capybara", "stroke-r"), "stroke", "falls back until the art lands");
   assert.equal(poseFor(withArt, "capybara", "wave"), "idle");
 });
+
+test("wave B: rockets call Launch, blackout bars show no calls (the pad still judges), five rounds, Fireworks the final", async () => {
+  const { CALL_WORDS, darkAt, pendingCalls, roundSong, roundShape } = await import("../float/client/controller/controllerModel.js");
+  const { padTap, createPad } = await import("../float/client/controller/rhythm.js");
+  const fw = chartOf("fireworks");
+  assert.equal(CALL_WORDS.rocket, "Launch");
+  const rocket = fw.cues.find(cue => cue.kind === "rocket" && cue.scored && !darkAt(fw, cue.call));
+  assert.deepEqual(pendingCalls(fw, rocket.call + 0.1).map(call => call.word), ["Launch"]);
+  assert.ok(fw.dark.length > 0, "Fireworks has its blackout bars");
+  const darkBar = fw.dark[0];
+  for (let beat = darkBar * 4; beat < darkBar * 4 + 4; beat += 0.25) assert.deepEqual(pendingCalls(fw, beat), [], `no calls at ${beat}`);
+  const inDark = fw.cues.find(cue => cue.scored && Math.floor(cue.beat / 4) === darkBar);
+  const songAt = 2_000_000;
+  const tap = padTap(createPad(), cueTime(songAt, inDark.beat, fw.beatMs) + 10, { chart:fw, songAt });
+  assert.equal(tap.found?.c, inDark.id, "the pad judges in the dark");
+  assert.deepEqual(roundSong({ round:4, rounds:5 }), { id:"fireworks", name:"Fireworks" });
+  assert.equal(roundShape({ round:4, rounds:5, field:[0, 1, 2] }).final, true);
+  assert.equal(roundShape({ round:3, rounds:5, field:[0, 1, 2, 3, 4], cut:3 }).final, false);
+  const { SongScreen } = await bundle(`export { default as SongScreen } from "./float/client/controller/SongScreen.jsx";`, "waveb");
+  const entrant = { name:"B", color:"#3355ff", look:{ critter:"capybara" } };
+  const shape = { round:4, rounds:5, of:3, final:true, through:null };
+  const card = renderToStaticMarkup(h(SongScreen, { serverNow:() => songAt - 1000, chart:fw, songAt, entrant, shape, name:"Fireworks", onTap:() => {} }));
+  assert.match(card, />Final</);
+  assert.match(card, />Fireworks</);
+  assert.match(card, /data-scene="night"/);
+  const dark = renderToStaticMarkup(h(SongScreen, { serverNow:() => cueTime(songAt, darkBar * 4 + 1.2, fw.beatMs), chart:fw, songAt, entrant, shape,
+    name:"Fireworks", onTap:() => {} }));
+  assert.match(dark, /flc-song is-play[^"]*is-dark/);
+  assert.doesNotMatch(dark, /flc-call is-on/);
+  const launched = renderToStaticMarkup(h(SongScreen, { serverNow:() => cueTime(songAt, 40, fw.beatMs), chart:fw, songAt, entrant, shape, name:"Fireworks",
+    act:{ key:3, kind:"rocket", q:"perfect", at:globalThis.performance.now() }, onTap:() => {} }));
+  assert.match(launched, /flc-burst is-perfect/, "a launch bursts in your colour");
+});

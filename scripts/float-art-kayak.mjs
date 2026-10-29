@@ -45,7 +45,10 @@ const GRID = { cols:3, rows:3 };
 /* the photo's least radius in the box */
 export const CHEST_MIN = 18;
 /* box px, by critter and pose, where the measure misses (set by eye on the review sheets) */
-export const ANCHOR_FIX = {};
+export const ANCHOR_FIX = {
+  /* slumped, eyes shut: the head is lower than idle's */
+  roadrunner:{ out:{ head:[262, 300], face:[276, 350], eyes:[276, 338] } },
+};
 
 const sat = (r, g, b) => { const mx = Math.max(r, g, b); return mx ? (mx - Math.min(r, g, b)) / mx : 0; };
 const val = (r, g, b) => Math.max(r, g, b) / 255;
@@ -91,6 +94,26 @@ function keyPixels(img, hue, { tol = 22 } = {}) {
   return { core, light, ink };
 }
 
+function growThrough(img, mask, hue, passes) {
+  const { data:d, width:W, height:H } = img;
+  const ok = new Uint8Array(W * H);
+  for (let k = 0; k < W * H; k++) {
+    const i = k * 4;
+    if (d[i + 3] < 200) continue;
+    const r = d[i], g = d[i + 1], b = d[i + 2];
+    if (sat(r, g, b) > 0.4 && val(r, g, b) > 0.22 && hueDist(hueOf(r, g, b), hue) < 40) ok[k] = 1;
+  }
+  let m = mask;
+  for (let p = 0; p < passes; p++) {
+    const next = dilate(m, W, H, 1);
+    let grew = 0;
+    for (let k = 0; k < W * H; k++) if (next[k] && !m[k]) { if (ok[k]) grew++; else next[k] = 0; }
+    m = next;
+    if (!grew) break;
+  }
+  return m;
+}
+
 /* grow a mask into the dark outline around it, never into the body */
 function growIntoInk(mask, img, ink, passes = 4) {
   const { data:d, width:W, height:H } = img;
@@ -126,11 +149,21 @@ export function findKayak(img, hues) {
   const main = hc.comps.reduce((a, c) => (!a || c.n > a.n ? c : a), null);
   if (!main) return null;
   const mw = main.x1 - main.x0, mh = main.y1 - main.y0;
-  const keepHull = new Set(hc.comps.filter(c => c === main || (c.n > Math.max(150, main.n * 0.01)
-    && c.x1 >= main.x0 - mw * 0.2 && c.x0 <= main.x1 + mw * 0.2 && c.cy >= main.y0 - mh * 0.4 && c.cy <= main.y1 + mh * 0.3)).map(c => c.id));
+  const keepHull = new Set(hc.comps.filter(c => c === main || (c.n > Math.max(80, main.n * 0.0015)
+    && c.x1 >= main.x0 - mw * 0.6 && c.x0 <= main.x1 + mw * 0.6 && c.cy <= main.y1 + mh * 0.6 && (c.cy >= main.y0 || c.n > main.n * 0.06 || (c.cy >= main.y0 - mh * 0.8 && c.y1 >= main.y0 - mh * 0.3 && c.x1 - c.x0 > (c.y1 - c.y0) * 1.5)))).map(c => c.id));
+  /* and any piece right beside the hull, across its outline only (the cockpit's inside, a corner cut off by the shaft) */
+  let near = new Uint8Array(W * H);
+  for (let k = 0; k < W * H; k++) if (keepHull.has(hc.labels[k])) near[k] = 1;
+  near = dilate(near, W, H, Math.max(9, Math.round(mw * 0.065)));
+  for (const c of hc.comps) if (!keepHull.has(c.id) && c.n >= 40 && c.cy >= main.y0 - mh * 0.6) {
+    for (let y = c.y0; y <= c.y1 && !keepHull.has(c.id); y++) for (let x = c.x0; x <= c.x1; x++) { const k = y * W + x; if (hc.labels[k] === c.id && near[k]) { keepHull.add(c.id); break; } }
+  }
   let hullMask = new Uint8Array(W * H);
   for (let k = 0; k < W * H; k++) if (hull.core[k] && keepHull.has(hc.labels[k])) hullMask[k] = 1;
   hullMask = close(hullMask, W, H, 3);
+  /* the hull's own darker or redder shading (the cockpit's inside): grown from the hull through
+     saturated pixels near its hue, so a mouth (never touching the hull) stays out */
+  hullMask = growThrough(img, hullMask, hues.hull, 40);
   /* the blades: every violet piece of any size worth keeping, wherever it is (overhead, floating) */
   const bc = components(blade.core, W, H);
   const keepBlade = bc.comps.filter(c => c.n > Math.max(200, main.n * 0.01));
@@ -198,7 +231,7 @@ export function findEyes(img, { R, y0 = 0, y1, cx }, near = null, keyed = null) 
   const dots = comps.filter(c => {
     const w = c.x1 - c.x0 + 1, h = c.y1 - c.y0 + 1;
     const fill = c.n / (w * h);
-    return w >= R * 0.022 && w <= R * 0.09 && h >= R * 0.022 && h <= R * 0.11 && Math.max(w, h) / Math.min(w, h) < 1.7 && fill > 0.55;
+    return w >= R * 0.022 && w <= R * 0.11 && h >= R * 0.022 && h <= R * 0.13 && Math.max(w, h) / Math.min(w, h) < 1.7 && fill > 0.55;
   });
   const nearOk = (x, y) => !near || (Math.abs(x - near[0]) < R * 0.35 && Math.abs(y - near[1]) < R * 0.35);
   let best = null;
@@ -406,8 +439,11 @@ function measurePose({ cell, kayak, s, idle, pose, placed, fixes = {} }) {
     if (idle) head = [face[0] + idle.head[0] - idle.face[0], face[1] + idle.head[1] - idle.face[1]];
     else { const ex = toBox(eyes.x, 0)[0]; head = [ex, headUp(placed, ex, toBox(0, eyes.y)[1])]; }
   } else if (idle) {
-    face = idle.face; head = idle.head; eyesAt = idle.eyes;
-    report.push(`${pose} eyes not found`);
+    /* closed or hidden eyes: idle's face, moved with the head's top (walked up from idle's face) */
+    const top = headUp(placed, idle.head[0], idle.face[1]);
+    const dy = Math.abs(top - idle.head[1]) < 32 ? top - idle.head[1] : 0;
+    face = [idle.face[0], idle.face[1] + dy]; head = [idle.head[0], idle.head[1] + dy]; eyesAt = [idle.eyes[0], idle.eyes[1] + dy];
+    report.push(`${pose} eyes not found (head ${dy >= 0 ? "+" : ""}${dy})`);
   } else throw new Error(`idle eyes not found`);
   const fix = fixes[pose];
   if (fix?.head) head = fix.head;

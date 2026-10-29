@@ -372,8 +372,11 @@ kept in `float/look/groove`):
   call lands on a stroke's beat the stroke steps back (`under`), and in a
   bar with strokes the kick leans on 1 and 3. A demo paddle is the host's
   own paddle. Blackout bars (`darkBars(chart)`): the band's bar is a bare
-  hi-hat (firmer on 1 and 3), no call and no answer in it, no flub for a
-  miss in it; the next bar comes back in with a hit. Fireworks: its bed
+  hi-hat (firmer on 1 and 3, a soft stick click on each; about 19 dB
+  under a lit bar's peaks), no call and no answer in it, no flub for a
+  miss in it; the next bar comes back in with a hit. Five rounds: every
+  song has its title clip and bed; the cut after The Drop keeps its show
+  and exits (The Drop's exit is over the falls), the final's names nobody. Fireworks: its bed
   (Bb, lifting to C for B's last four bars; synth brass, a boom under every
   downbeat, the stars on the glockenspiel; a grand breakdown and finale),
   the host's fuse on each rocket's call (`floatFuse`), the launch on its

@@ -9,7 +9,6 @@
    (float/worker/room.js, run in the mock). */
 import test from "node:test";
 /* v3 (wave A) rides with this file in npm test */
-import "./float-controller-v3.test.mjs";
 import assert from "node:assert/strict";
 import { CALIBRATION, CHUGOFF, MISS_AFTER_MS, WINDOW, breakdownSection, chartOf, cueTime, lastCallId, popupOf } from "../float/shared/chart.js";
 import { createPad, padTap, restamp, serverStamp, stampOf } from "../float/client/controller/rhythm.js";

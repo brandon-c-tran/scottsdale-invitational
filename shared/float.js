@@ -16,7 +16,7 @@ import {
   ALL_PLAYERS, CHIP_COLORS, CHIP_GRAY, CHIP_SKINS, ROSTER, allEventsOf, disp, presentPlayers, resolveEventLifecycle, rosterOf,
 } from "./core.js";
 import { cleanFreeText } from "./freeText.js";
-import { cleanLook, defaultLook } from "../float/shared/looks.js";
+import { cleanLook } from "../float/shared/looks.js";
 import { FLOATIE_IDS } from "../float/shared/floaties.js";
 
 export const FLOAT_GAME = "float";
@@ -45,7 +45,7 @@ export const cleanFloatLook = (look, player) => cleanLook(look && typeof look ==
   { groom:floatGroom(player), floatieIds:FLOATIE_IDS, seed:player || "" });
 /* the look a rider races in: the one they saved, else their default */
 export const floatLookOf = (profile, player) => profile?.float
-  ? cleanFloatLook(profile.float, player) : defaultLook(player || "", FLOATIE_IDS);
+  ? cleanFloatLook(profile.float, player) : cleanFloatLook({}, player);
 export const hasFloatLook = profile => !!profile?.float && typeof profile.float === "object";
 
 /* ── a rider, as the room takes it (PROTOCOL "rider" plus pid) ── */

@@ -198,7 +198,7 @@ test("a rider is their name, chip, photo path, look, the drink rule and the groo
   state.profiles[evan] = { display:"Evan", drinking:false, skin:"nope" };
   const brandon = floatRider(state, me);
   assert.deepEqual(brandon, { pid:me, name:"Brandon the Very", color:"#3b6e9c", skin:"flame", number:23,
-    photo:"/api/photo/Brandon?v=7", look:defaultLook(me, FLOATIE_IDS), drinks:true, groom:true });
+    photo:"/api/photo/Brandon?v=7", look:{ ...defaultLook(me, FLOATIE_IDS), hat:"crown" }, drinks:true, groom:true });
   const e = floatRider(state, evan);
   assert.equal(e.drinks, false, "only a guest who said no skips the drink");
   assert.equal(e.skin, "ticks");

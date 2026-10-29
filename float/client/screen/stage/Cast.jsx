@@ -162,11 +162,14 @@ const RiderNode = memo(function RiderNode({ entrant, i, refs }) {
    the waterline's middle the blade dips (the kayak's side) */
 const PSPLASH = Object.freeze({ w:170, h:120, reach:150 });
 
-/* the art's ripple centred at the waterline, about 1.35 x the ring (250 box px) */
+/* the art's ripple centred at the waterline, about 1.35 x the hull */
+/* (kayaks: the waterline is the hull's bottom edge and the idle hull 270 box
+   px wide, so the ripple is a touch wider and sits a little up the hull) */
+export const RIPPLE = Object.freeze({ HULL:270, K:1.35, LIFT:14 });
 function rippleBox(prop, wx, wy) {
-  const w = 250 * 1.35, h = w * ((prop.h || 104) / (prop.w || 320));
+  const w = RIPPLE.HULL * RIPPLE.K, h = w * ((prop.h || 104) / (prop.w || 320));
   const ax = ((prop.anchor?.[0] ?? prop.w / 2) / (prop.w || 1)) * w, ay = ((prop.anchor?.[1] ?? prop.h / 2) / (prop.h || 1)) * h;
-  return { left:wx - ax, top:wy - ay, width:w, height:h };
+  return { left:wx - ax, top:wy - RIPPLE.LIFT - ay, width:w, height:h };
 }
 
 /* the exits' props: one set a rider, placed by the frame driver */

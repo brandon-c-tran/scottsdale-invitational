@@ -72,7 +72,7 @@ export const COUNTER = Object.freeze({ top:850 });
    edge, the paws resting on it, so the paws sit on the counter; a kayak's
    bow rides about as high), drawn
    ART_FILL (1.45) times the scale */
-export const RING_OVER = 72 * 1.45;
+export const RING_OVER = 62 * 1.45;
 
 /* everyone at the bar: one line-up behind the counter, so each rider's
    readout stands right over them and every name sits on the counter under

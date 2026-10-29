@@ -503,8 +503,8 @@ test("Last Call, the countdown: shown and said until the trick hides it, nothing
     const ys = new Set(Object.values(seats).map(s => s.y));
     assert.equal(ys.size, 1, `${n}: one line-up`);
     assert.ok(Object.values(seats).every(s => s.x - 125 * s.scale * 1.45 > 0 && s.x + 125 * s.scale * 1.45 < STAGE_W), `${n}: on the stage`);
-    /* behind the counter, waist up: the ring's top (about 72 box px over the waterline, the kayak bow too) under the counter's top */
-    assert.ok(Object.values(seats).every(s => s.y - 72 * s.scale * 1.45 >= COUNTER.top && s.y < 1080), `${n}: no tubes over the counter`);
+    /* behind the counter, waist up: the ring's top (about 62 box px over the waterline: the kayak hull tops out near 50) under the counter's top */
+    assert.ok(Object.values(seats).every(s => s.y - 62 * s.scale * 1.45 >= COUNTER.top && s.y < 1080), `${n}: no tubes over the counter`);
     assert.ok(BAR_LINE.lo > 0 && BAR_LINE.hi < STAGE_W);
   }
   /* the reveal ranks the line-up: closest left, farthest right, a tie shares a place in rider order, no tap last */
@@ -913,4 +913,22 @@ test("practice's four-beat counter: the bar's taps lit by kind, the playhead, an
   assert.equal(countWord(chart, "paddle"), "Paddle");
   assert.equal(countWord(chartOf("rock"), "paddle"), "Row");
   assert.equal(countWord(chart, "hey"), "Hey!");
+});
+
+test("rowing: a paddle hit alternates stroke and stroke-r along the chart's strokes; a miss slaps flat; the paddle is away to chug, cheer or sulk", async () => {
+  const { PADDLE, PADDLE_AWAY, paddleAt, strokeSide } = await import("../float/client/screen/model/motion.js");
+  const chart = chartOf("rock");
+  const strokes = chart.cues.filter(c => c.kind === "paddle").slice(0, 6);
+  const sides = strokes.map(c => strokeSide(chart, c.id));
+  assert.deepEqual(sides, [-1, 1, -1, 1, -1, 1], "left (stroke), right (stroke-r), in turn");
+  const pose = side => (side > 0 ? "stroke-r" : "stroke");
+  assert.deepEqual(sides.map(pose).slice(0, 2), ["stroke", "stroke-r"]);
+  const hit = { c:strokes[0].id, kind:"paddle", q:"perfect", at:1000 };
+  const mid = paddleAt(hit, 1000 + PADDLE.MS * 0.3, { side:-1 });
+  assert.ok(mid.side === -1 && mid.splash > 0.3 && mid.dy > 0, "the blade bites with a splash");
+  assert.equal(paddleAt(hit, 1000 + PADDLE.MS + 1, { side:-1 }).side, 0, "then rests");
+  const miss = paddleAt({ ...hit, q:"miss" }, 1000 + 100);
+  assert.ok(miss.flat > 0 && miss.side === 0, "a miss slaps flat");
+  assert.equal(paddleAt({ ...hit, kind:"hop" }, 1100).side, 0, "another move leaves it at rest");
+  for (const pose of ["chug", "cheer", "out"]) assert.ok(PADDLE_AWAY.has(pose));
 });

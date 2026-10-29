@@ -85,6 +85,13 @@ export const NARRATION = Object.freeze([
   /* Paddle Party's v3 practice: both at once (GROOVE.md v3 6) */
   { id:"say-keephey", text:"Keep paddling. Hey on four!", how:`${SAY} Two quick phrases, a tiny pause between them; lean on "Hey".` },
   { id:"say-bothnow", text:"Both now!", how:`${SAY} Quick and encouraging: two syllables.` },
+  /* rowing in every song (GROOVE.md v3 10): practice opens with a bar of rowing, then the move over it */
+  { id:"say-row", text:"Row on one and three!", how:SAY },
+  { id:"say-rowhop", text:"Keep rowing. Hop two beats after me!", how:`${SAY} Two quick phrases, barely a pause between them.`, tempo:1.1 },
+  { id:"say-rowspin", text:"Keep rowing. Spin one beat after me!", how:`${SAY} Two quick phrases, barely a pause between them.`, tempo:1.1 },
+  { id:"say-rowall", text:"Keep rowing. All three, in turn!", how:`${SAY} Two quick phrases, barely a pause between them.`, tempo:1.1 },
+  { id:"say-rowfuse", text:"Keep rowing. Watch the fuse!", how:`${SAY} Two quick phrases, barely a pause between them.`, tempo:1.1 },
+  { id:"say-twonow", text:"Two now!", how:`${SAY} Quick: two syllables.` },
   /* Fireworks' practice (GROOVE.md v3 9) */
   { id:"say-watchfuse", text:"Watch the fuse!", how:SAY },
   /* tempo: it must fit between the demo's fuses and the first one of yours */

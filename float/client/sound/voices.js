@@ -82,5 +82,11 @@ export const VOICE = Object.freeze({
     Object.freeze({ id:"say-twoquick", file:"say-twoquick.mp3", onset:25, dur:786, f0:0, voice:"coral" }),
     Object.freeze({ id:"say-threerow", file:"say-threerow.mp3", onset:122, dur:895, f0:265.7, voice:"coral" }),
     Object.freeze({ id:"say-launchtwo", file:"say-launchtwo.mp3", onset:71, dur:1344, f0:270.6, voice:"coral" }),
+    Object.freeze({ id:"say-row", file:"say-row.mp3", onset:84, dur:1098, f0:292.1, voice:"coral" }),
+    Object.freeze({ id:"say-rowhop", file:"say-rowhop.mp3", onset:98, dur:1856, f0:424, voice:"coral" }),
+    Object.freeze({ id:"say-rowspin", file:"say-rowspin.mp3", onset:97, dur:2100, f0:341.9, voice:"coral" }),
+    Object.freeze({ id:"say-rowall", file:"say-rowall.mp3", onset:106, dur:2092, f0:383.5, voice:"coral" }),
+    Object.freeze({ id:"say-rowfuse", file:"say-rowfuse.mp3", onset:117, dur:1730, f0:364.5, voice:"coral" }),
+    Object.freeze({ id:"say-twonow", file:"say-twonow.mp3", onset:28, dur:609, f0:304.1, voice:"coral" }),
   ]),
 });

@@ -101,6 +101,8 @@ export function clipSpan(id, text = "") {
 export const LINE_CLIPS = Object.freeze({
   "paddle on 1 and 3":"say-paddle", "when i say ready you say hey":"say-readyhey", "watch":"say-watch", "your turn":"say-turn",
   "keep paddling hey on 4":"say-keephey", "both now":"say-bothnow",
+  "row on 1 and 3":"say-row", "keep rowing hop two beats after me":"say-rowhop", "keep rowing spin one beat after me":"say-rowspin",
+  "keep rowing all three in turn":"say-rowall", "keep rowing watch the fuse":"say-rowfuse", "two now":"say-twonow",
   "watch the fuse":"say-watchfuse", "launch two beats after i light":"say-launchtwo", "two quick ones":"say-twoquick", "three in a row":"say-threerow",
   "hop two beats after me":"say-hoptwo", "two this time":"say-twotime", "spin one beat after me":"say-spinone",
   "on the backbeat":"say-backbeat", "all three in turn":"say-allthree", "hop":"say-hop", "spin":"say-spin", "copy me":"say-copy",

@@ -4141,7 +4141,7 @@ const G_LINES = Object.freeze({ ready:2, hey:1, ba:1, spin:1, one:1, two:1, thre
   "title-paddle":4, "title-rock":2, "title-spin":3, "title-drop":2, "title-fireworks":3, lastcall:2, float:1,
   /* the narration (groove.js LINE_CLIPS) and the chug-off's */
   "say-paddle":5, "say-readyhey":7, "say-watch":1, "say-turn":2, "say-hoptwo":5, "say-twotime":3, "say-spinone":5,
-  "say-backbeat":4, "say-allthree":4, "say-hop":2, "say-spin":1, "say-copy":3, "say-keephey":6, "say-bothnow":2, "say-watchfuse":3, "say-launchtwo":7, "say-twoquick":3, "say-threerow":4, chugoff:2, chug:1, "chug-explain":14 });
+  "say-backbeat":4, "say-allthree":4, "say-hop":2, "say-spin":1, "say-copy":3, "say-keephey":6, "say-bothnow":2, "say-row":5, "say-rowhop":9, "say-rowspin":9, "say-rowall":7, "say-rowfuse":6, "say-twonow":2, "say-watchfuse":3, "say-launchtwo":7, "say-twoquick":3, "say-threerow":4, chugoff:2, chug:1, "chug-explain":14 });
 export const GROOVE_LINES = Object.freeze(Object.keys(G_LINES));
 /* the crowd's takes, layered a few at a time: "Hey!" on the beat, "Ooh!"
    as Last Call names who drinks, "Aww!" as the cut's first rider is out */

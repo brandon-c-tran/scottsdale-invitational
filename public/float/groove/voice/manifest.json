@@ -627,6 +627,60 @@
       "f0": 270.6,
       "text": "Launch two beats after I light!",
       "voice": "coral"
+    },
+    {
+      "id": "say-row",
+      "file": "say-row.mp3",
+      "onset": 84,
+      "dur": 1098,
+      "f0": 292.1,
+      "text": "Row on one and three!",
+      "voice": "coral"
+    },
+    {
+      "id": "say-rowhop",
+      "file": "say-rowhop.mp3",
+      "onset": 98,
+      "dur": 1856,
+      "f0": 424,
+      "text": "Keep rowing. Hop two beats after me!",
+      "voice": "coral"
+    },
+    {
+      "id": "say-rowspin",
+      "file": "say-rowspin.mp3",
+      "onset": 97,
+      "dur": 2100,
+      "f0": 341.9,
+      "text": "Keep rowing. Spin one beat after me!",
+      "voice": "coral"
+    },
+    {
+      "id": "say-rowall",
+      "file": "say-rowall.mp3",
+      "onset": 106,
+      "dur": 2092,
+      "f0": 383.5,
+      "text": "Keep rowing. All three, in turn!",
+      "voice": "coral"
+    },
+    {
+      "id": "say-rowfuse",
+      "file": "say-rowfuse.mp3",
+      "onset": 117,
+      "dur": 1730,
+      "f0": 364.5,
+      "text": "Keep rowing. Watch the fuse!",
+      "voice": "coral"
+    },
+    {
+      "id": "say-twonow",
+      "file": "say-twonow.mp3",
+      "onset": 28,
+      "dur": 609,
+      "f0": 304.1,
+      "text": "Two now!",
+      "voice": "coral"
     }
   ]
 }

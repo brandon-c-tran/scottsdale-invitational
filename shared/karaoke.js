@@ -195,90 +195,88 @@ export const karaokeVideoOf = (song, turn) => {
   const k = Number(turn?.video) || 0;
   return k === 0 ? song?.video || null : song?.alts?.[k - 1] || null;
 };
-/* ── our own words over an instrumental (docs/KARAOKE.md "Lyrics") ── */
-/* whether a song has synced lyrics: the game's lines when the Durable
-   Object has looked (an array, or false for none), else the profile's
-   boolean (true, false, or undefined while unknown) */
+/* ── the words are on the video (docs/KARAOKE.md "Lyrics, off") ──
+   Since Oct 28 (Brandon's call) every song plays a karaoke upload with its
+   words on it: our own lyrics over an instrumental did not play reliably.
+   A song saved while instrumentals were offered plays a karaoke upload
+   instead: one among its alternates, else one the Durable Object found
+   (`upgrade`). Lyrics stored by older games stay unread. */
+/* whether a song has synced lyrics, as older games stored it (unread by
+   any way a song plays) */
 export function karaokeHasLyrics(song, lines) {
   if (Array.isArray(lines)) return lines.length > 0;
   if (lines === false) return false;
   return typeof song?.lyrics === "boolean" ? song.lyrics : null;
 }
-/* a game's lines for a song (null without them) */
-export const karaokeLinesFor = (game, song) => {
-  const lines = song?.trackId ? game?.lyrics?.[song.trackId] : null;
-  return Array.isArray(lines) && lines.length ? lines : null;
-};
-/* How an upload plays: "lyrics" (an instrumental, our words on the
-   screens), "video" (its own words on it, or no synced lyrics to show),
-   "card" (no upload: a practice song, a failed one). */
-export function karaokeWay(video, hasLyrics, name = "") {
-  if (!video?.id) return "card";
-  return hasLyrics === true && karaokeVideoKind(video, name) === "instrumental" ? "lyrics" : "video";
+/* our own lines are never shown */
+export const karaokeLinesFor = () => null;
+/* How an upload plays: "video" (its own words on it), "card" (no upload:
+   a practice song, a failed one). */
+export function karaokeWay(video) {
+  return video?.id ? "video" : "card";
 }
-/* A song's uploads put in the order it should play them: with synced
-   lyrics, an instrumental first when the song was saved before they were
-   offered (`lyrics` unknown on the song: a guest who picked a karaoke
-   upload over an offered instrumental keeps it), the upgrade's found one
-   when the song has none; without lyrics, a karaoke upload ahead of an
-   instrumental (no words would be shown over it). The same object when
-   nothing moves. Pure. */
-export function karaokeArrange(song, lines, upgrade = null) {
-  if (!song?.video) return song;
-  const has = karaokeHasLyrics(song, lines);
-  const videos = [song.video, ...(Array.isArray(song.alts) ? song.alts : [])];
-  const front = k => ({ ...song, video:{ ...videos[k] },
-    alts:videos.filter((_, i) => i !== k).slice(0, KARAOKE_ALTS_MAX).map(video => ({ ...video })) });
-  const instrumental = video => karaokeVideoKind(video, song.name) === "instrumental";
-  if (has === true && song.lyrics === undefined && !instrumental(song.video)) {
-    const k = videos.findIndex(instrumental);
-    if (k > 0) return front(k);
-    const found = cleanKaraokeVideo(upgrade?.video);
-    if (found && upgrade.trackId === song.trackId && instrumental(found) && !videos.some(video => video.id === found.id))
-      return { ...song, video:found, alts:videos.slice(0, KARAOKE_ALTS_MAX).map(video => ({ ...video })) };
-  }
-  if (has === false && instrumental(song.video)) {
-    const k = videos.findIndex(video => !instrumental(video));
-    if (k > 0) return front(k);
-  }
+const isInstrumental = (video, name) => !!video && karaokeVideoKind(video, name) === "instrumental";
+/* the upgrade found for this song, when it is one: a karaoke upload */
+function upgradeFor(song, upgrade) {
+  const found = cleanKaraokeVideo(upgrade?.video);
+  return found && upgrade.trackId === song?.trackId && !isInstrumental(found, song.name) ? found : null;
+}
+/* A song whose chosen upload is an instrumental with no upload among its
+   alternates that has words on it: it owes the game a karaoke upload. */
+export const karaokeNeedsWords = song => !!song?.video && isInstrumental(song.video, song.name)
+  && !(Array.isArray(song.alts) ? song.alts : []).some(video => video && !isInstrumental(video, song.name));
+/* A song the room cannot sing along to: an instrumental, nothing with words
+   among its uploads, and the Durable Object's search found none. */
+export const karaokeNoWords = (song, upgrade) => karaokeNeedsWords(song)
+  && upgrade?.trackId === song.trackId && !upgradeFor(song, upgrade);
+/* A song's uploads in the order it plays them: an instrumental (no words
+   on it) steps behind the first upload among its alternates with words,
+   else behind the upgrade the Durable Object found. The same object when
+   nothing moves. `_lines` is ignored (older games pass their lyrics). Pure. */
+export function karaokeArrange(song, _lines, upgrade = null) {
+  if (!song?.video || !isInstrumental(song.video, song.name)) return song;
+  const videos = [song.video, ...(Array.isArray(song.alts) ? song.alts : [])].filter(Boolean);
+  const k = videos.findIndex(video => !isInstrumental(video, song.name));
+  if (k > 0) return { ...song, video:{ ...videos[k] },
+    alts:videos.filter((_, i) => i !== k).slice(0, KARAOKE_ALTS_MAX).map(video => ({ ...video })) };
+  const found = upgradeFor(song, upgrade);
+  if (found && !videos.some(video => video.id === found.id))
+    return { ...song, video:found, alts:videos.slice(0, KARAOKE_ALTS_MAX).map(video => ({ ...video })) };
   return song;
 }
 /* how a song will play, as the pick sheet and the desk say it */
-export function karaokeSongWay(song, lines, upgrade = null) {
+export function karaokeSongWay(song) {
   if (!song?.video) return song ? "card" : null;
-  const arranged = karaokeArrange(song, lines, upgrade);
-  return karaokeWay(arranged.video, karaokeHasLyrics(song, lines), song.name);
+  return "video";
 }
-/* the way the turn on now plays: its upload, the game's lines */
+/* the way the turn on now plays: its upload */
 export function karaokeTurnWay(game, singer = karaokeSinger(game), turn = karaokeTurn(game, singer)) {
   const song = singer ? game?.songs?.[singer] : null;
   if (!song || !turn) return null;
   if (turn.failed !== null && turn.failed !== undefined) return "card";
-  return karaokeWay(karaokeVideoOf(song, turn), !!karaokeLinesFor(game, song), song.name);
+  return karaokeWay(karaokeVideoOf(song, turn));
 }
-/* The songs whose lyrics (or, for a song saved before instrumentals were
-   offered, whose instrumental) the Durable Object still owes the game:
-   in the pick window every present player's profile song, from the order
-   draw every song whose turn has not closed (an upgrade only before its
-   song starts). [{ player, trackId, name, artists, durationMs, lyrics,
-   upgrade }] with `lyrics`/`upgrade` what is owed. Spotify songs only. */
+/* The songs that still owe the game a karaoke upload (karaokeNeedsWords)
+   and whose search the Durable Object has not yet answered: in the pick
+   window every present player's profile song, from the order draw every
+   song not yet started. [{ player, trackId, name, artists, durationMs,
+   upgrade:true }]. Spotify songs only. (The name is older than its job:
+   lyrics are no longer looked up.) */
 export function karaokeLyricsWanted(state) {
   const game = state?.karaoke;
   if (!game?.id || !karaokeLive(state) || !["pick", "turns"].includes(game.phase)) return [];
   const out = [];
-  const add = (player, song, { upgrade = true } = {}) => {
+  const add = (player, song) => {
     if (!song?.video || song.provider !== "spotify" || !song.trackId) return;
-    const lyrics = game.lyrics?.[song.trackId] === undefined;
-    const legacy = upgrade && song.lyrics === undefined && game.upgrade?.[player]?.trackId !== song.trackId
-      && ![song.video, ...(song.alts || [])].some(video => karaokeVideoKind(video, song.name) === "instrumental");
-    if (lyrics || legacy) out.push({ player, trackId:song.trackId, name:song.name, artists:[...(song.artists || [])],
-      durationMs:Number(song.durationMs) || 0, lyrics, upgrade:legacy });
+    if (!karaokeNeedsWords(song) || game.upgrade?.[player]?.trackId === song.trackId) return;
+    out.push({ player, trackId:song.trackId, name:song.name, artists:[...(song.artists || [])],
+      durationMs:Number(song.durationMs) || 0, lyrics:false, upgrade:true });
   };
   if (game.phase === "pick") for (const player of presentPlayers(state)) add(player, karaokeTrackOf(state, player));
   else for (const player of game.order || []) {
     const turn = game.turns?.[player];
-    if (turn?.closedAt || turn?.skipped) continue;
-    add(player, game.songs?.[player], { upgrade:!Number.isFinite(turn?.songAt) });
+    if (turn?.closedAt || turn?.skipped || Number.isFinite(turn?.songAt) || (Number(turn?.video) || 0) !== 0) continue;
+    add(player, game.songs?.[player]);
   }
   return out;
 }
@@ -576,17 +574,12 @@ export function projectKaraoke(state, viewer = null) {
     if (viewer && votes?.[viewer]) mine[singer] = Number(votes[viewer].tier);
   }
   const revealed = game.phase === "reveal" || game.phase === "done";
-  /* the words go with the song: the current singer's only, from the
-     moment they are up (as public as the song itself), never a song still
-     to come, the singer's own included */
-  const singer = karaokeSinger(game), current = singer ? game.songs?.[singer] : null;
-  const lines = current?.trackId ? game.lyrics?.[current.trackId] : undefined;
-  const lyrics = current?.trackId && (Array.isArray(lines) || lines === false)
-    ? { [current.trackId]:Array.isArray(lines) ? lines.map(line => ({ ...line })) : false } : {};
-  /* how the viewer's own song will play (the pick sheet's lamp) */
+  /* our own lyrics are off (Oct 28): an older game's stored lines never leave */
+  const lyrics = {};
+  /* how the viewer's own song will play */
   const own = viewer && (game.phase === "pick" || game.phase === "turns")
     ? (game.phase === "pick" ? state.profiles?.[viewer]?.karaokeTrack || game.songs?.[viewer] : game.songs?.[viewer]) : null;
-  const ways = own ? { [viewer]:karaokeSongWay(own, own.trackId ? game.lyrics?.[own.trackId] : undefined, game.upgrade?.[viewer]) } : {};
+  const ways = own ? { [viewer]:karaokeSongWay(own) } : {};
   return {
     id:game.id, eventId:game.eventId, startedAt:game.startedAt, phase:game.phase,
     pickUntil:game.pickUntil, moreTime:Number(game.moreTime) || 0, ready:{ ...(game.ready || {}) },

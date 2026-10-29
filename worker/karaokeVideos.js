@@ -150,12 +150,14 @@ export function karaokeKindProblem(item) {
 }
 
 /* The search's videos.list items, best first: up to three
-   { id, title, channel, seconds } (see the ranking above). */
+   { id, title, channel, seconds } (see the ranking above). Never an
+   instrumental (no words on it), whatever else its title says. */
 export function chooseKaraoke(items, durationMs, { name = "" } = {}) {
   const target = Number(durationMs) || 0;
   const seen = new Set();
   const rows = (Array.isArray(items) ? items : [])
     .filter(item => !karaokePlayProblem(item) && !karaokeKindProblem(item))
+    .filter(item => karaokeVideoKind({ title:item.snippet?.title || "" }, name) !== "instrumental")
     .filter(item => !seen.has(item.id) && seen.add(item.id))
     .map((item, at) => {
       const video = videoOf(item), rank = karaokeChannelRank(item.snippet);
@@ -217,7 +219,9 @@ export async function findKaraokeVideos({ name = "", artists = [], artist = "", 
 }
 
 /* ── the backing track: an instrumental upload (Oct 15, docs/KARAOKE.md
-   "YouTube") ── A song sung with our own lyrics plays over an upload with
+   "YouTube"). OFF since Oct 28 (Brandon's call: our own lyrics did not play
+   reliably); nothing searches for an instrumental now, and these stay only
+   to read what older lookups kept. ── A song sung with our own lyrics plays over an upload with
    no vocals and no words on it, of the same recording: its length within
    INSTRUMENTAL_MATCH_MS of Spotify's (so LRCLIB's times line up), its title
    saying it is the instrumental (shared/karaoke.js karaokeVideoKind) and
@@ -280,47 +284,11 @@ export function chooseInstrumentals(items, durationMs, { name = "", artist = "" 
   for (const row of rows) (channels.has(row.channel) ? rest : (channels.add(row.channel), firsts)).push(row);
   return [...firsts, ...rest].map(row => row.video);
 }
-/* The choices a guest is offered: with synced lyrics, instrumentals first
-   (a karaoke upload kept among them as the fallback when there is one);
-   without, the karaoke uploads alone (an instrumental would show no words).
-   Up to KARAOKE_CHOICES. */
-export function chooseBacking(instrumentals, karaokes, hasLyrics) {
-  const inst = Array.isArray(instrumentals) ? instrumentals : [], kar = Array.isArray(karaokes) ? karaokes : [];
-  if (!hasLyrics) return kar.slice(0, KARAOKE_CHOICES);
-  const lead = inst.slice(0, kar.length ? KARAOKE_CHOICES - 1 : KARAOKE_CHOICES);
-  const out = [...lead, ...kar, ...inst.slice(lead.length)];
-  return out.filter((video, k) => out.findIndex(other => other.id === video.id) === k).slice(0, KARAOKE_CHOICES);
-}
-
-/* A chosen song's backing (Oct 15): ONE search for its instrumental (ids
-   read in ONE videos.list); a second search, for karaoke uploads, only
-   when the first found none and the song has no instrumental with synced
-   lyrics to sing over. `lyrics`: whether LRCLIB has synced lyrics (a
-   promise is awaited only once the search has answered). { videos, searches }. */
-export async function findBackingVideos({ name = "", artists = [], artist = "", durationMs = 0 } = {}, key, fetchImpl = fetch,
-  { lyrics = false } = {}) {
-  const first = String((Array.isArray(artists) ? artists[0] : "") || artist || "").trim();
-  const q = backingQuery({ name, artists, artist });
-  if (!q) return { videos:[], searches:0 };
-  const read = async (query, known = new Set()) => {
-    const found = await youtubeJson("search", { part:"snippet", type:"video", videoEmbeddable:"true", videoSyndicated:"true",
-      regionCode:"US", relevanceLanguage:"en", safeSearch:"none", maxResults:String(KARAOKE_SEARCH_RESULTS), q:query }, key, fetchImpl);
-    const ids = [...new Set((found?.items || []).map(item => item?.id?.videoId).filter(isYouTubeId))].filter(id => !known.has(id));
-    if (!ids.length) return [];
-    const details = await youtubeJson("videos", { part:"snippet,contentDetails,status", id:ids.join(",") }, key, fetchImpl);
-    return Array.isArray(details?.items) ? details.items : [];
-  };
-  const items = await read(q);
-  const instrumentals = chooseInstrumentals(items, durationMs, { name, artist:first });
-  let karaokes = chooseKaraoke(items, durationMs, { name });
-  const has = !!(await lyrics);
-  let searches = 1;
-  if (!karaokes.length && (!instrumentals.length || !has)) {
-    const more = await read(karaokeQuery({ name, artists, artist }), new Set(items.map(item => item?.id)));
-    searches += 1;
-    karaokes = chooseKaraoke([...items, ...more], durationMs, { name });
-  }
-  return { videos:chooseBacking(instrumentals, karaokes, has), searches };
+/* The choices a guest is offered since Oct 28: the karaoke uploads alone,
+   never an instrumental (`instrumentals` and `hasLyrics` are ignored). Up
+   to KARAOKE_CHOICES. */
+export function chooseBacking(instrumentals, karaokes) {
+  return (Array.isArray(karaokes) ? karaokes : []).slice(0, KARAOKE_CHOICES);
 }
 
 /* Saved or pasted videos, read again: one videos.list per 50 ids, the same

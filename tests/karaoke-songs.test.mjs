@@ -216,8 +216,9 @@ async function room(env = ENV) {
   await tournament.hydrateFromStorage();
   tournament.gmToken = "gm";
   tournament.claims = { [DEVICE]:EVAN };
-  /* LRCLIB stands in: no synced lyrics for anything (tests/karaoke-lyrics.test.mjs has them) */
-  tournament.lyricsFetch = async () => reply([]);
+  /* our own lyrics are off (Oct 28): LRCLIB is never asked */
+  tournament.lyricsAsked = 0;
+  tournament.lyricsFetch = async () => { tournament.lyricsAsked += 1; return reply([]); };
   return { tournament, memory };
 }
 const get = (tournament, path, { gm = false, device = DEVICE, method = "GET" } = {}) => {
@@ -262,9 +263,10 @@ test("a song's lookup: a checked-in guest or the commissioner, once, kept privat
   assert.equal(calls, 0, "a refused ask spends nothing");
   const first = await (await get(tournament, lookup())).json();
   assert.deepEqual(first, { ok:true, videos:[{ id:"stingray001", title:"Journey - Don't Stop Believin' (Karaoke Version)",
-    channel:"Stingray Karaoke", seconds:245 }], lyrics:false });
+    channel:"Stingray Karaoke", seconds:245 }] });
   assert.deepEqual(await (await get(tournament, lookup(), { gm:true, device:null })).json(), first);
-  assert.equal(calls, 2, "one search and one read, once for everyone (its karaoke upload: no second search)");
+  assert.equal(calls, 2, "one search and one read, once for everyone");
+  assert.equal(tournament.lyricsAsked, 0, "LRCLIB is never asked");
   const key = `private:karaoke:${TRACK_ID}`;
   assert.deepEqual(memory.entries.get(key).videos, first.videos);
   assert.ok(!memory.entries.has(`private:youtube:${TRACK_ID}`), "never the win song's key");
@@ -282,18 +284,17 @@ test("no karaoke version: a miss is kept a day; a failure is never kept and an e
   tournament.youtubeFetch = async url => { calls += 1; return answer(String(url)); };
   const miss = await get(tournament, lookup());
   assert.equal(miss.status, 404);
-  assert.deepEqual(await miss.json(), { ok:false, error:"No karaoke version found. Paste a YouTube link.", code:"none", videos:[],
-    lyrics:false });
-  assert.equal(calls, 2, "an empty search reads nothing; no instrumental, so karaoke uploads are searched too");
+  assert.deepEqual(await miss.json(), { ok:false, error:"No karaoke version found. Paste a YouTube link.", code:"none", videos:[] });
+  assert.equal(calls, 1, "one search; an empty one reads nothing");
   assert.equal((await get(tournament, lookup())).status, 404);
-  assert.equal(calls, 2, "kept for a day");
+  assert.equal(calls, 1, "kept for a day");
   const stale = Date.now() - KARAOKE_MISS_MS - 1000;
   memory.entries.set(key, { videos:[], at:stale });
   answer = () => youtubeError(403, "quotaExceeded");
   const quota = await get(tournament, lookup());
   assert.equal(quota.status, 429);
   assert.deepEqual(await quota.json(), { ok:false, error:"YouTube's daily limit is used up. Paste a YouTube link.", code:"quota" });
-  assert.equal(calls, 3, "a day-old miss is asked again");
+  assert.equal(calls, 2, "a day-old miss is asked again");
   assert.equal(memory.entries.get(key).at, stale, "the failure is not kept as an answer");
   memory.entries.set(key, { videos:[{ id:"stingray001" }], at:Date.now() - YOUTUBE_KEEP_MS - 1000 });
   await get(tournament, lookup());
@@ -380,16 +381,14 @@ test("the commissioner's check reads every roster player's videos at once and st
     return reply({ items:ids.filter(id => id !== "adimain0001")
       .map(id => item(id, "Song", { embeddable:id !== "khoamain001" })) });
   };
-  /* the tournament's own keys: LRCLIB's answers (private:lyrics:*) are kept as any lookup is */
-  const own = () => JSON.stringify([...memory.entries].filter(([key]) => !key.startsWith("private:lyrics:")));
+  const own = () => JSON.stringify([...memory.entries]);
   const before = own();
   assert.equal((await get(tournament, "/api/admin/karaoke/check")).status, 403, "a guest cannot");
   const answer = await (await get(tournament, "/api/admin/karaoke/check", { gm:true, device:null })).json();
   assert.equal(answer.ok, true);
-  /* each song says how it will play: no synced lyrics here, so the video's own */
-  assert.deepEqual(answer.results[EVAN], { ok:true, code:null, video:0, way:"video" });
-  assert.deepEqual(answer.results[KHOA], { ok:true, code:"embedding", video:1, way:"video" }, "an alternate still plays");
-  assert.deepEqual(answer.results[ADI], { ok:false, code:"removed", video:null, way:"video" });
+  assert.deepEqual(answer.results[EVAN], { ok:true, code:null, video:0 });
+  assert.deepEqual(answer.results[KHOA], { ok:true, code:"embedding", video:1 }, "an alternate still plays");
+  assert.deepEqual(answer.results[ADI], { ok:false, code:"removed", video:null });
   assert.deepEqual(answer.results[ROSTER[3]], { ok:false, code:"none", video:null });
   assert.equal(Object.keys(answer.results).length, ROSTER.length);
   assert.equal(reads.length, 1, "one batched read");
@@ -650,8 +649,8 @@ test("a saved song shows its cover, its video's thumbnail, channel and length, a
   assert.match(html, /aria-label="Play a preview of Don&#x27;t Stop Believin&#x27;"/, "the cover plays its clip");
   assert.match(html, new RegExp(`<img src="${karaokeThumb("stingray001")}" alt="" width="128" height="72"`),
     "YouTube's thumbnail, at least 120 by 70, starts the preview");
-  assert.match(html, />Stingray Karaoke<\/strong><small>4:05<span class="fd-kway is-video fd-ksong-way"><i class="fd-insert is-done" aria-hidden="true"><\/i>Video lyrics<\/span><\/small>/,
-    "a karaoke upload plays its own words: the lamp unlit");
+  assert.match(html, />Stingray Karaoke<\/strong><small>4:05<\/small>/, "one way to play: no label for it");
+  assert.doesNotMatch(html, /fd-kway|Lyrics/, "nothing describes the dropped way");
   assert.ok(buttons.some(button => button.name === "Change"));
   assert.ok(buttons.some(button => button.name === "Preview Journey - Don't Stop Believin' (Karaoke Version)"));
   assert.ok(!buttons.some(button => /^Use/.test(button.name)), "nothing to use: it is the song");

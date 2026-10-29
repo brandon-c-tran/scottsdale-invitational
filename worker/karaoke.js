@@ -40,11 +40,11 @@ import {
   KARAOKE_MORE_TIME_MS, KARAOKE_ORDER_HOLD_MS, KARAOKE_PICK_MS, KARAOKE_PRACTICE_SONGS, KARAOKE_SONG_LEAD_MS,
   KARAOKE_TIERS, KARAOKE_VOTE_GRACE_MS,
   cleanKaraokeTrack, cleanKaraokeVideo, isKaraokeTier, isYouTubeId, karaokeArrange, karaokeAutoBeat, karaokeGameId,
-  karaokeLegendary, karaokeLive, karaokeOrder, karaokeRanking, karaokeResultSlots, karaokeSchedule, karaokeSeed, karaokeSinger,
-  karaokeSnapshot, karaokeStage, karaokeTrackOf, karaokeTurn, karaokeVideoKind, karaokeVoteOpen, karaokeVoters,
-  sameKaraokeTrack,
+  karaokeLegendary, karaokeLive, karaokeNoWords, karaokeOrder, karaokeRanking, karaokeResultSlots, karaokeSchedule,
+  karaokeSeed, karaokeSinger, karaokeSnapshot, karaokeStage, karaokeTrackOf, karaokeTurn, karaokeVideoKind, karaokeVoteOpen,
+  karaokeVoters, sameKaraokeTrack,
 } from "../shared/karaoke.js";
-import { cleanLyrics, cleanLyricsOffset } from "../shared/karaokeLyrics.js";
+import { cleanLyricsOffset } from "../shared/karaokeLyrics.js";
 
 export const KARAOKE_ACTION_TYPES = Object.freeze([
   "karaokeSong", "karaokeReady", "karaokeVote",
@@ -83,6 +83,13 @@ function brokenCode(song, bad) {
   if (!videos.length || !bad) return null;
   return videos.every(video => has(bad[video.id])) ? bad[videos[0].id] : null;
 }
+/* A song in the pick window that asks its owner for another: every video
+   failed the window's check (its code), or it is an instrumental with no
+   words on it and the Durable Object's search found no karaoke upload
+   ("words"). null while it plays. */
+const NO_WORDS = "words";
+const brokenFor = (game, player, song) => brokenCode(song, game?.bad?.[player])
+  ?? (karaokeNoWords(song, game?.upgrade?.[player]) ? NO_WORDS : null);
 /* At the order draw a game copy keeps only the videos that passed the
    check, the first working one promoted to the chosen upload. A song with
    none working is kept as it was: its turn fails as it comes up (the TV's
@@ -254,7 +261,7 @@ export function karaokeActions({ ok, err, gmOnly, run }) {
       }
       const same = next ? sameKaraokeTrack(saved, next) : !saved;
       const game = pickWindow(state);
-      const broken = game && next ? brokenCode(next, game.bad?.[player]) : null;
+      const broken = game && next ? brokenFor(game, player, next) : null;
       const lockIn = !!game && !!next && broken === null && !isAbsent(state, player) && !game.ready?.[player];
       const unready = !!game && !!game.ready?.[player] && (!next || broken !== null);
       const brokenMoves = !!game && (game.broken?.[player] ?? null) !== broken;
@@ -365,8 +372,8 @@ export function karaokeActions({ ok, err, gmOnly, run }) {
       for (const player of present) {
         const track = karaokeTrackOf(state, player);
         const song = track?.video ? promote(karaokeSnapshot(track), game.bad?.[player]) : game.songs?.[player] || null;
-        /* an instrumental leads when the song has our lyrics, a karaoke upload when it has none */
-        if (song) songs[player] = karaokeArrange(song, game.lyrics?.[song.trackId], game.upgrade?.[player]);
+        /* an instrumental steps behind an upload with its words on it */
+        if (song) songs[player] = karaokeArrange(song, null, game.upgrade?.[player]);
       }
       const singers = present.filter(player => songs[player]);
       const out = present.filter(player => !songs[player]);
@@ -496,7 +503,7 @@ export function karaokeActions({ ok, err, gmOnly, run }) {
       return ok({ slots, ...(posted.extra || {}) });
     },
     /* A fresh pick window under a new id: every vote and lock-in goes (the
-       video check's findings stay). Refused once the result is posted. */
+       video check's findings and the uploads found stay). Refused once the result is posted. */
     karaokeRestart(state, payload = {}, ctx) {
       const checked = beatFor(state, "karaokeRestart", payload, ctx, ["pick", "turns", "reveal", "done"],
         { posted:err("Clear the result first") });
@@ -508,10 +515,11 @@ export function karaokeActions({ ok, err, gmOnly, run }) {
       let startedAt = now;
       while (karaokeGameId(game.eventId, startedAt) === game.id) startedAt += 1;
       const next = newGame(game.eventId, startedAt, now);
-      if (game.bad) {
-        next.bad = game.bad;
+      if (game.bad) next.bad = game.bad;
+      if (game.upgrade) next.upgrade = game.upgrade;
+      if (game.bad || game.upgrade) {
         for (const player of presentPlayers(state)) {
-          const code = brokenCode(karaokeTrackOf(state, player), game.bad[player]);
+          const code = brokenFor(next, player, karaokeTrackOf(state, player));
           if (code !== null) next.broken[player] = code;
         }
       }
@@ -593,7 +601,7 @@ export function karaokeActions({ ok, err, gmOnly, run }) {
       game.broken = { ...(game.broken || {}) };
       game.ready = { ...(game.ready || {}) };
       for (const player of Object.keys(found)) {
-        const code = brokenCode(karaokeTrackOf(state, player), found[player]);
+        const code = brokenFor(game, player, karaokeTrackOf(state, player));
         if (code === null) { delete game.broken[player]; continue; }
         game.broken[player] = code;
         delete game.ready[player];
@@ -601,48 +609,52 @@ export function karaokeActions({ ok, err, gmOnly, run }) {
       return ok({ broken:Object.keys(game.broken) });
     },
 
-    /* The game's lyrics, from the Durable Object (worker/tournament.js
-       fillKaraokeLyrics): { [player]: { trackId, lines?, upgrade? } } for
-       the songs karaokeLyricsWanted named. `lines` are LRCLIB's synced
-       lyrics (null or false: none found), kept by track id; `upgrade` an
-       instrumental found for a song saved before they were offered (null:
-       none). An entry for a song its player has since changed is dropped.
-       From the order draw, every song not yet started is arranged anew
-       (karaokeArrange): an instrumental first with lyrics, a karaoke upload
-       first without. Server only: frames carry the current singer's lines
-       alone (projectKaraoke). */
+    /* A karaoke upload for a song whose every upload is an instrumental,
+       from the Durable Object (worker/tournament.js fillKaraokeLyrics; the
+       name is older than its job: lyrics are off since Oct 28): { [player]:
+       { trackId, upgrade } } for the songs karaokeLyricsWanted named,
+       `upgrade` the upload found (null: none). An entry for a song its
+       player has since changed is dropped, and so is an instrumental (no
+       words on it). In the pick window a song left with no words asks its
+       owner for another (`broken`, undoing their lock-in); from the order
+       draw every song not yet started is arranged anew (karaokeArrange).
+       `lines` (older Durable Objects) are ignored. */
     karaokeLyrics(state, { gameId, songs } = {}, ctx) {
       const g = systemOnly(ctx); if (g) return g;
       const game = state.karaoke;
       if (!game?.id || game.id !== gameId || !["pick", "turns"].includes(game.phase) || !karaokeLive(state))
         return ok({ unchanged:true, stale:true });
       if (!songs || typeof songs !== "object" || Array.isArray(songs)) return err("Nothing was looked up");
-      const lyrics = { ...(game.lyrics || {}) }, upgrade = { ...(game.upgrade || {}) };
+      const upgrade = { ...(game.upgrade || {}) };
       let changed = false;
       for (const [player, entry] of Object.entries(songs).slice(0, 40)) {
         if (!isActivePlayer(player, state) || !entry || typeof entry !== "object" || Array.isArray(entry)) continue;
         const song = game.phase === "pick" ? karaokeTrackOf(state, player) : game.songs?.[player];
-        if (!song?.trackId || song.trackId !== entry.trackId) continue;
-        if (Object.hasOwn(entry, "lines")) {
-          const lines = Array.isArray(entry.lines) ? cleanLyrics(entry.lines) || false : false;
-          if (JSON.stringify(lyrics[song.trackId]) !== JSON.stringify(lines)) { lyrics[song.trackId] = lines; changed = true; }
-        }
-        if (Object.hasOwn(entry, "upgrade")) {
-          const video = entry.upgrade ? cleanKaraokeVideo(entry.upgrade) : null;
-          const next = { trackId:song.trackId, video:video && karaokeVideoKind(video, song.name) === "instrumental" ? video : null };
-          if (JSON.stringify(upgrade[player]) !== JSON.stringify(next)) { upgrade[player] = next; changed = true; }
-        }
+        if (!song?.trackId || song.trackId !== entry.trackId || !Object.hasOwn(entry, "upgrade")) continue;
+        const video = entry.upgrade ? cleanKaraokeVideo(entry.upgrade) : null;
+        const next = { trackId:song.trackId, video:video && karaokeVideoKind(video, song.name) !== "instrumental" ? video : null };
+        if (JSON.stringify(upgrade[player]) !== JSON.stringify(next)) { upgrade[player] = next; changed = true; }
       }
       if (!changed) return ok({ unchanged:true });
-      game.lyrics = lyrics;
       game.upgrade = upgrade;
+      if (game.phase === "pick") {
+        game.broken = { ...(game.broken || {}) };
+        game.ready = { ...(game.ready || {}) };
+        for (const player of Object.keys(songs)) {
+          if (!isActivePlayer(player, state)) continue;
+          const code = brokenFor(game, player, karaokeTrackOf(state, player));
+          if (code === null) { if (game.broken[player] === NO_WORDS) delete game.broken[player]; continue; }
+          game.broken[player] = code;
+          delete game.ready[player];
+        }
+      }
       if (game.phase === "turns") {
         for (const player of game.order || []) {
           const turn = game.turns?.[player], song = game.songs?.[player];
           /* a started, closed or skipped song stays as it is, and so does one
              the commissioner or a TV already moved to another upload */
           if (!song || turn?.closedAt || turn?.skipped || Number.isFinite(turn?.songAt) || (Number(turn?.video) || 0) !== 0) continue;
-          const arranged = karaokeArrange(song, lyrics[song.trackId], upgrade[player]);
+          const arranged = karaokeArrange(song, null, upgrade[player]);
           if (arranged !== song) game.songs = { ...game.songs, [player]:arranged };
         }
       }

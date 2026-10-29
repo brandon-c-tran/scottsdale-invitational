@@ -15,7 +15,7 @@
   font-display:swap;
 }
 
-.fs-root {
+.fs-root { font-variant-ligatures:none;
   --ink:#1d1a24;
   --bone:#fffdf8;
   --letterbox:#2a2340;
@@ -168,9 +168,6 @@
 .hd-card-round { font-size:56px; font-weight:700; color:var(--magenta); line-height:1; }
 .hd-card-name { font-size:112px; font-weight:700; line-height:1; white-space:nowrap; }
 @keyframes hd-card { from { opacity:0; transform:translateX(-50%) translateY(-60px) scale(0.8); } to { opacity:1; transform:translateX(-50%); } }
-.hd-practice { position:absolute; left:50%; top:96px; transform:translateX(-50%); padding:10px 34px 14px; border-radius:99px;
-  background:var(--bone); box-shadow:0 0 0 5px var(--ink), 0 7px 0 0 var(--ink); animation:hd-drop 0.4s cubic-bezier(0.2, 1.4, 0.4, 1) both; }
-.hd-practice span { font-size:44px; font-weight:700; line-height:1; }
 @keyframes hd-drop { from { opacity:0; transform:translateX(-50%) translateY(-40px); } to { opacity:1; transform:translateX(-50%); } }
 /* the count-in: a big pixel number popping on each beat */
 .hd-count { position:absolute; left:0; right:0; top:150px; display:flex; justify-content:center; animation:hd-count 0.42s cubic-bezier(0.2, 1.6, 0.4, 1) both; }
@@ -180,18 +177,16 @@
 .hd-shout { position:absolute; left:0; right:0; top:170px; display:flex; justify-content:center; animation:hd-shout 0.75s cubic-bezier(0.2, 1.5, 0.4, 1) both; }
 .hd-shout span { font-size:220px; font-weight:700; line-height:1; color:var(--yellow); -webkit-text-stroke:18px var(--ink); paint-order:stroke fill;
   text-shadow:0 14px 0 var(--ink); }
-.hd-shout.is-drink span { color:var(--salmon); font-size:240px; }
 @keyframes hd-shout { 0% { opacity:0; transform:scale(0.4); } 45% { opacity:1; transform:scale(1.12); } 70% { transform:scale(0.97); } 100% { transform:scale(1); } }
 .hd-strip { position:absolute; left:640px; top:34px; width:640px; height:20px; border-radius:99px; background:rgba(255, 253, 248, 0.6);
   box-shadow:0 0 0 4px var(--ink); overflow:visible; }
 .hd-strip-seg { position:absolute; top:0; bottom:0; display:block; }
 .hd-strip-seg.is-practice { background:rgba(29, 26, 36, 0.14); }
 .hd-strip-seg.is-play { background:#7fd6f2; }
-.hd-strip-seg.is-drink { background:var(--salmon); }
+.hd-strip-seg.is-breakdown { background:var(--magenta); }
 .hd-strip-seg.is-intro, .hd-strip-seg.is-outro { background:transparent; }
 .hd-strip-seg:first-child { border-radius:99px 0 0 99px; }
 .hd-strip-seg:last-of-type { border-radius:0 99px 99px 0; }
-.hd-strip-seg svg { position:absolute; left:50%; top:-34px; width:36px; height:36px; transform:translateX(-50%); }
 .hd-strip-head { position:absolute; left:-12px; top:-8px; width:24px; height:36px; border-radius:12px; background:var(--bone);
   box-shadow:0 0 0 4px var(--ink); will-change:transform; }
 
@@ -234,7 +229,7 @@
 .hd-cutline.is-on { transform:none; }
 .hd-cutline span { position:absolute; right:-6px; top:50%; transform:translateY(-50%); padding:4px 14px 7px; border-radius:99px; background:var(--magenta);
   color:var(--bone); font-size:28px; font-weight:700; line-height:1; box-shadow:0 0 0 4px var(--ink); }
-.hd-next { position:absolute; left:50%; top:110px; transform:translateX(-50%); display:flex; flex-direction:column; align-items:center; gap:8px;
+.hd-next { position:absolute; left:50%; top:236px; transform:translateX(-50%); display:flex; flex-direction:column; align-items:center; gap:8px;
   padding:30px 70px 36px; border-radius:40px; background:var(--bone); box-shadow:0 0 0 7px var(--ink), 0 14px 0 0 var(--ink);
   animation:hd-card 0.55s cubic-bezier(0.2, 1.4, 0.4, 1) both; }
 .hd-next-label { font-size:36px; font-weight:700; color:#8c8698; }
@@ -248,18 +243,7 @@
 .lc-bt { position:absolute; inset:0; width:100%; height:100%; display:block; visibility:hidden; }
 .lc-bartender[data-pose="idle"] .lc-bt.is-idle, .lc-bartender[data-pose="slide"] .lc-bt.is-slide, .lc-bartender[data-pose="cheer"] .lc-bt.is-cheer { visibility:visible; }
 .lc-bt-drawn { position:absolute; left:30%; right:30%; top:18%; bottom:0; border-radius:50% 50% 12% 12%; background:var(--bone); box-shadow:0 0 0 6px var(--ink); }
-.lc-glass { position:absolute; left:0; top:0; z-index:450; will-change:transform, opacity; }
-.lc-glass img { width:100%; height:100%; display:block; }
-.lc-glass-drawn { position:absolute; inset:10% 18% 0; border-radius:4px 4px 12px 12px; background:#ffe58a; box-shadow:0 0 0 5px var(--ink); }
 .hd-card.is-bar { top:150px; }
-.hd-shout.is-drinks { top:22px; }
-.hd-shout.is-drinks span { font-size:112px; color:var(--salmon); -webkit-text-stroke:14px var(--ink); text-shadow:0 10px 0 var(--ink); }
-/* the totals over everyone; who drinks on a red plate */
-.lc-total { display:flex; flex-direction:column; align-items:center; gap:4px; font-family:var(--num); font-weight:800; line-height:1; }
-.lc-total-ms { font-size:48px; color:var(--bone); -webkit-text-stroke:8px var(--ink); paint-order:stroke fill; text-shadow:0 4px 0 var(--ink); }
-.lc-total-word { font-family:var(--px); font-weight:700; font-size:40px; color:var(--bone); padding:4px 16px 8px; border-radius:12px; background:#e8455f;
-  box-shadow:0 0 0 5px var(--ink), 0 6px 0 0 var(--ink); }
-.lc-total.is-drinks .lc-total-ms { color:#ffb3b3; }
 .sc-bar-drawn { position:absolute; inset:0; background:linear-gradient(180deg, #8a5a3c 0%, #6e4430 45%, #b9774a 45.2%, #a0623c 64%, #c98b5a 64.2%, #d9a070 100%); }
 
 /* ── the podium ── */
@@ -338,6 +322,141 @@
 .fs-root[data-phase="lobby"] .fs-sound { right:auto; left:24px; }
 .fs-debug { position:absolute; left:12px; bottom:12px; z-index:30000; padding:8px 12px; border-radius:10px; background:rgba(0, 0, 0, 0.72); color:#fff;
   font:600 18px/1.35 ui-monospace, monospace; pointer-events:none; }
+
+/* ── practice, narrated: the host's line in a box ── */
+.hd-line { position:absolute; left:50%; top:74px; transform:translateX(-50%); padding:14px 40px 18px; border-radius:22px; background:var(--bone);
+  box-shadow:0 0 0 6px var(--ink), 0 9px 0 0 var(--ink); animation:hd-drop 0.4s cubic-bezier(0.2, 1.4, 0.4, 1) both; white-space:nowrap; }
+.hd-line.is-low { top:228px; }
+.hd-line span { font-family:var(--px); font-size:54px; font-weight:700; line-height:1; color:var(--ink); }
+
+/* ── who's ahead: the rank strip under the song's strip ── */
+.hd-rank { position:absolute; left:0; top:66px; width:1920px; height:150px; opacity:0; transition:opacity 0.3s; }
+.hd-rank[data-on="1"] { opacity:1; }
+.hd-rank-chip { position:absolute; left:0; top:0; height:150px; display:flex; flex-direction:column; align-items:center; gap:2px;
+  transition:transform 0.42s cubic-bezier(0.3, 1.3, 0.5, 1); will-change:transform; }
+.hd-rank-ring { position:relative; flex:none; width:76px; height:76px; border-radius:50%; background:var(--c); box-shadow:0 0 0 5px var(--ink), 0 6px 0 0 var(--ink);
+  overflow:hidden; margin-top:16px; }
+.hd-rank-face { position:absolute; left:-12px; top:-4px; width:100px; height:100px; }
+.hd-rank-face .cr-face { position:absolute; left:0; top:0; transform:scale(0.2); transform-origin:0 0; }
+.hd-rank-name { max-width:calc(100% - 6px); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-top:6px; padding:0 3px;
+  font-family:var(--px); font-size:21px; font-weight:700; line-height:1.1; color:var(--name, var(--bone)); -webkit-text-stroke:6px var(--ink); paint-order:stroke fill; }
+.hd-rank-pct { font-family:var(--num); font-size:22px; font-weight:800; line-height:1; color:var(--bone); -webkit-text-stroke:5px var(--ink); paint-order:stroke fill; }
+.hd-rank-mark { position:absolute; top:-6px; left:50%; transform:translateX(-50%); z-index:2; padding:2px 10px 3px; border-radius:99px; font-family:var(--px);
+  font-size:20px; font-weight:700; line-height:1; color:var(--ink); background:var(--gold); box-shadow:0 0 0 4px var(--ink); white-space:nowrap; display:none; }
+.hd-rank-chip[data-mark="lead"] .hd-rank-mark, .hd-rank-chip[data-mark="top"] .hd-rank-mark { display:block; }
+.hd-rank-chip[data-mark="top"] .hd-rank-mark { background:var(--bone); }
+.hd-rank-chip[data-mark="lead"] .hd-rank-ring { box-shadow:0 0 0 5px var(--ink), 0 0 0 11px var(--gold), 0 0 0 15px var(--ink), 0 0 26px 14px rgba(255, 194, 61, 0.65); }
+.hd-rank-chip[data-mark="lead"] .hd-rank-pct { color:var(--gold); }
+.hd-rank-chip.is-bubble .hd-rank-ring { box-shadow:0 0 0 5px var(--ink), 0 0 0 10px var(--salmon), 0 0 0 14px var(--ink); }
+.hd-rank-chip[data-out="1"] { opacity:0.42; filter:grayscale(0.8); }
+.hd-rank-cut { position:absolute; left:0; top:4px; width:8px; height:146px; border-radius:4px; background:#e8455f; box-shadow:0 0 0 3px var(--ink);
+  opacity:0; transition:transform 0.42s cubic-bezier(0.3, 1.3, 0.5, 1), opacity 0.25s; }
+.hd-rank-cut[data-on="1"] { opacity:1; }
+
+/* ── the cut as a show: grade stamps, award cards, the call ── */
+.fl-grade { display:block; padding:6px 16px 9px; border-radius:16px; background:var(--bone); box-shadow:0 0 0 6px var(--ink), 0 8px 0 0 var(--ink);
+  animation:fl-stamp 0.42s cubic-bezier(0.2, 1.6, 0.4, 1) both; white-space:nowrap; }
+@keyframes fl-stamp { from { opacity:0; transform:scale(2.1) rotate(-6deg); } to { opacity:1; transform:none; } }
+.fl-grade span { font-family:var(--px); font-size:38px; font-weight:700; line-height:1; color:var(--ink); }
+.fl-grade.is-superb { background:var(--gold); }
+.fl-grade.is-ok { background:#7fd6f2; }
+.fl-grade.is-tryagain { background:var(--grey); }
+.hd-awards { position:absolute; left:380px; right:40px; top:226px; display:flex; justify-content:center; gap:30px; }
+.hd-award { width:420px; display:flex; flex-direction:column; align-items:center; gap:6px; padding:14px 18px 16px; border-radius:26px; background:var(--bone);
+  box-shadow:0 0 0 6px var(--ink), 0 10px 0 0 var(--ink); animation:hd-card-up 0.5s cubic-bezier(0.2, 1.5, 0.4, 1) both; }
+@keyframes hd-card-up { from { opacity:0; transform:translateY(-40px) scale(0.8); } to { opacity:1; transform:none; } }
+.hd-award-label { font-family:var(--px); font-size:30px; font-weight:700; line-height:1; color:var(--magenta); }
+.hd-award-who { display:flex; align-items:center; gap:12px; }
+.hd-award-who .hd-rank-face { position:relative; left:0; top:0; width:64px; height:64px; overflow:hidden; border-radius:50%; background:var(--c); box-shadow:0 0 0 4px var(--ink); }
+.hd-award-who .hd-rank-face .cr-face { left:-10px; top:-4px; transform:scale(0.16); }
+.hd-award-name { font-family:var(--px); font-size:40px; font-weight:700; line-height:1.1; color:var(--name, var(--ink)); -webkit-text-stroke:7px var(--ink); paint-order:stroke fill;
+  max-width:300px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; padding:0 4px; }
+.hd-award-value { font-family:var(--num); font-size:30px; font-weight:800; line-height:1; color:var(--ink); }
+.hd-chugcall { position:absolute; left:50%; top:236px; transform:translateX(-50%); display:flex; flex-direction:column; align-items:center; gap:10px;
+  padding:26px 64px 32px; border-radius:40px; background:var(--bone); box-shadow:0 0 0 7px var(--ink), 0 14px 0 0 var(--ink);
+  animation:hd-card 0.55s cubic-bezier(0.2, 1.4, 0.4, 1) both; }
+.hd-chugcall-title { font-size:112px; font-weight:700; line-height:1; color:var(--salmon); -webkit-text-stroke:12px var(--ink); paint-order:stroke fill; white-space:nowrap; }
+.hd-chugcall-names { display:flex; align-items:baseline; gap:26px; font-family:var(--px); font-size:62px; font-weight:700; line-height:1.1; white-space:nowrap; }
+.hd-chugcall-names span { color:var(--name, var(--ink)); -webkit-text-stroke:9px var(--ink); paint-order:stroke fill; }
+.hd-chugcall-names i { font-style:normal; font-size:40px; color:#8c8698; }
+.hd-chugcall.is-top { top:22px; padding:16px 50px 22px; gap:6px; }
+.hd-chugcall.is-top .hd-chugcall-title { font-size:84px; }
+.hd-chugcall.is-top .hd-chugcall-names { font-size:52px; }
+.hd-chugcall-sub { max-width:1100px; text-align:center; font-family:var(--px); font-size:36px; font-weight:700; line-height:1.15; color:var(--ink); }
+
+/* ── the chug-off ── */
+.hd-count.is-chug { top:200px; }
+.hd-shout.is-chug { top:190px; }
+.hd-shout.is-chug span { color:var(--salmon); }
+.hd-chugclock { position:absolute; transform:translate(-50%, -50%); padding:10px 28px 14px; border-radius:22px; background:var(--ink);
+  box-shadow:0 0 0 6px var(--bone), 0 0 0 12px var(--ink); }
+.hd-chugclock span { font-family:var(--num); font-variant-numeric:tabular-nums; font-size:86px; font-weight:800; line-height:1; color:var(--yellow); }
+.hd-chugclock.is-call span { color:#8c8698; }
+.hd-chugclock.is-count { animation:hd-clock-pop 0.42s cubic-bezier(0.2, 1.6, 0.4, 1) both; }
+@keyframes hd-clock-pop { 0% { transform:translate(-50%, -50%) scale(0.4); } 45% { transform:translate(-50%, -50%) scale(1.2); } 100% { transform:translate(-50%, -50%); } }
+.hd-chugclock.is-count span { color:var(--bone); }
+.hd-chugclock.is-stopped span { color:var(--bone); }
+.hd-chugdone { position:absolute; transform:translate(-50%, -100%); padding:6px 20px 10px; border-radius:16px; background:var(--bone);
+  box-shadow:0 0 0 6px var(--ink); font-family:var(--px); font-size:40px; font-weight:700; line-height:1; }
+.hd-keeps { position:absolute; transform:translate(-50%, -100%) rotate(-5deg); display:flex; flex-direction:column; align-items:center; gap:14px; }
+.hd-keeps-by { padding:6px 22px 10px; border-radius:16px; background:var(--bone); box-shadow:0 0 0 5px var(--ink); font-family:var(--px); font-size:34px; font-weight:700;
+  line-height:1; white-space:nowrap; animation:hd-drop-c 0.4s 0.3s both; }
+.hd-keeps-stamp { display:block; padding:12px 32px 18px; border-radius:22px; background:var(--gold); box-shadow:0 0 0 7px var(--ink), 0 10px 0 0 var(--ink);
+  font-family:var(--px); font-size:64px; font-weight:700; line-height:1; white-space:nowrap; animation:fl-stamp 0.45s cubic-bezier(0.2, 1.6, 0.4, 1) both; }
+.hd-chugby { position:absolute; left:0; right:0; top:200px; display:flex; justify-content:center; }
+.hd-chugby span { padding:10px 30px 14px; border-radius:20px; background:var(--bone); box-shadow:0 0 0 6px var(--ink);
+  font-family:var(--px); font-size:40px; font-weight:700; line-height:1; animation:hd-drop-c 0.4s both; }
+@keyframes hd-drop-c { from { opacity:0; transform:translateY(-30px); } to { opacity:1; transform:none; } }
+
+/* ── the exits' gags ── */
+.fl-fx { position:absolute; inset:0; pointer-events:none; }
+.fl-fx-prop { position:absolute; left:0; top:0; display:block; will-change:transform, opacity; }
+.fl-fx-prop img, .fl-fx-prop svg { width:100%; height:100%; display:block; }
+
+/* ── popups: the closest and who drinks ── */
+.fl-pop-in.is-closest, .fl-pop-in.is-drinks { display:flex; flex-direction:column; align-items:center; gap:6px; }
+.fl-pop-tag { display:block; padding:4px 16px 8px; border-radius:12px; font-family:var(--px); font-size:34px; font-weight:700; line-height:1; white-space:nowrap;
+  box-shadow:0 0 0 5px var(--ink), 0 6px 0 0 var(--ink); }
+.fl-pop-tag.is-closest { background:var(--gold); color:var(--ink); }
+.fl-pop-tag.is-drinks { background:#e8455f; color:var(--bone); }
+
+/* ── the host's breakdown: a note in the bubble ── */
+.fl-note { display:none; width:58px; height:66px; margin:0 auto; }
+.fl-bubble[data-kind="echo"] { min-width:0; padding:12px 18px 10px; }
+.fl-bubble[data-kind="echo"] span { display:none; }
+.fl-bubble[data-kind="echo"] .fl-note { display:block; }
+
+/* ── Last Call: the board, the clock, the gags ── */
+.lc-board { position:absolute; z-index:420; will-change:transform; }
+.lc-board > img, .lc-foam > img, .lc-cord > img { width:100%; height:100%; display:block; }
+.lc-board-drawn { position:absolute; inset:0; border-radius:18px; background:#2f4a3e; box-shadow:inset 0 0 0 16px #8a5a3c, 0 0 0 6px var(--ink); }
+.lc-board-drawn.is-clock { border-radius:50%; background:var(--bone); box-shadow:inset 0 0 0 14px #c8452f, 0 0 0 6px var(--ink); }
+.lc-num { position:absolute; transform:translate(-50%, -50%); font-family:var(--px); font-weight:700; line-height:1; color:#f4f1e6; }
+.lc-num.is-clock { color:var(--ink); }
+.lc-num[data-n="0"] { color:var(--yellow); }
+.lc-num.is-clock[data-n="0"] { color:var(--magenta); }
+.lc-hand { position:absolute; width:10px; border-radius:5px; background:var(--ink); will-change:transform; }
+.lc-tick { position:absolute; right:-30px; top:-20px; padding:4px 14px 8px; border-radius:12px; background:var(--bone); box-shadow:0 0 0 5px var(--ink);
+  font-family:var(--px); font-size:34px; font-weight:700; line-height:1; transform:rotate(8deg); }
+.lc-foam { position:absolute; z-index:430; will-change:transform, opacity; }
+.lc-foam-drawn { position:absolute; inset:0; border-radius:40% 40% 30% 30%; background:#fffdf0; box-shadow:0 0 0 6px var(--ink); }
+.lc-cord { position:absolute; z-index:410; will-change:transform; }
+.lc-cord-drawn { position:absolute; left:45%; width:10%; top:0; bottom:0; background:#f0d9a8; box-shadow:0 0 0 3px var(--ink); }
+.lc-say { position:absolute; padding:10px 24px 14px; border-radius:24px; background:var(--bone); box-shadow:0 0 0 5px var(--ink), 0 7px 0 0 var(--ink); white-space:nowrap; }
+.lc-say span { font-family:var(--px); font-size:52px; font-weight:700; line-height:1; color:var(--ink); }
+.lc-dark { position:absolute; inset:0; z-index:5000; background:#07050c; pointer-events:none; }
+.fl-eyes { position:absolute; inset:0; z-index:5001; pointer-events:none; }
+.fl-eye { position:absolute; left:0; top:0; z-index:5002; width:0; height:0; will-change:transform, opacity; }
+.fl-eye i { position:absolute; top:-9px; width:16px; height:18px; border-radius:50%; background:#fffdf8; animation:fl-blink 3.1s infinite; }
+.fl-eye i:first-child { left:-22px; }
+.fl-eye i:last-child { left:6px; }
+.fl-eye i::after { content:""; position:absolute; left:5px; top:6px; width:7px; height:8px; border-radius:50%; background:#07050c; }
+@keyframes fl-blink { 0%, 92%, 100% { transform:scaleY(1); } 95% { transform:scaleY(0.1); } }
+.hd-card-sub { max-width:1100px; text-align:center; font-family:var(--px); font-size:40px; font-weight:700; line-height:1.15; color:var(--ink); }
+.hd-drinks { position:absolute; left:0; right:0; top:40px; display:flex; flex-direction:column; align-items:center; gap:6px; animation:hd-shout 0.75s cubic-bezier(0.2, 1.5, 0.4, 1) both; }
+.hd-drinks-names { font-size:124px; font-weight:700; line-height:1; color:var(--salmon); -webkit-text-stroke:16px var(--ink); paint-order:stroke fill;
+  text-shadow:0 12px 0 var(--ink); white-space:nowrap; }
+.hd-drinks-word { font-size:72px; font-weight:700; line-height:1; color:var(--bone); -webkit-text-stroke:12px var(--ink); paint-order:stroke fill; }
 
 @media (prefers-reduced-motion:reduce) {
   .fs-root *, .fs-root *::before, .fs-root *::after { animation:none !important; transition:none !important; }

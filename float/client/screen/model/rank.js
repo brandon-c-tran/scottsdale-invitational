@@ -1,5 +1,5 @@
 /* Who's ahead (float/GROOVE.md "Who's ahead"): the room's own order in a
-   song (`room.results`: by the song's points so far, ties by the Cup
+   song (`room.results`: by the song's percent so far, ties by the Cup
    before it, then Perfects, then field order, the engine's compareRows),
    moved between the room's frames by the hits the screen has seen since,
    re-ranked at most once a beat so a flurry of hits does not shuffle it.
@@ -8,20 +8,24 @@
    stateful ranker that keeps the last order and when it was made. */
 import { POINTS } from "../../../shared/chart.js";
 
-/* a rider's standing so far: the room's row plus what the screen judged since it */
-export function standingOf(row, extra = { pts:0, perfects:0, n:0 }) {
+/* a rider's standing so far: the room's row plus what the screen judged
+   since it (`live` the store's live percent, which already counts those) */
+export function standingOf(row, extra = { pts:0, perfects:0, n:0 }, live = null) {
   return {
     i:row.i,
     pts:(Number(row.pts) || 0) + extra.pts,
+    pct:Number.isFinite(live) ? live : Number(row.pct) || 0,
     perfects:(Number(row.perfects) || 0) + extra.perfects,
     cup:Number(row.cup) || 0,
   };
 }
 
-/* the order: points, then the Cup, then Perfects, then the field's order */
+const tenths = value => Math.round((Number(value) || 0) * 10);
+/* the order: the song's percent so far, then the Cup (to a tenth), then
+   Perfects, then the field's order (groove.js compareRows) */
 export function rankOrder(standings = [], field = []) {
   const pos = new Map(field.map((i, k) => [i, k]));
-  return standings.slice().sort((a, b) => b.pts - a.pts || b.cup - a.cup || b.perfects - a.perfects
+  return standings.slice().sort((a, b) => (b.pct ?? 0) - (a.pct ?? 0) || tenths(b.cup) - tenths(a.cup) || b.perfects - a.perfects
     || (pos.get(a.i) ?? a.i) - (pos.get(b.i) ?? b.i)).map(s => s.i);
 }
 
@@ -42,13 +46,15 @@ export function extrasSince(judged, since, chart) {
   return out;
 }
 
-/* the order from a room message and the store: [i] best first */
-export function liveOrder({ results = [], field = [], judged = null, since = -Infinity, chart = null } = {}) {
+/* the order from a room message and the store: [i] best first (liveOf the
+   store's live percent, null before a judgement) */
+export function liveOrder({ results = [], field = [], judged = null, since = -Infinity, chart = null, liveOf = null } = {}) {
   const rows = (Array.isArray(results) ? results : []).filter(r => Number.isInteger(r?.i));
   const known = new Set(rows.map(r => r.i));
-  for (const i of field) if (!known.has(i)) rows.push({ i, pts:0, perfects:0, cup:0 });
+  for (const i of field) if (!known.has(i)) rows.push({ i, pts:0, pct:0, perfects:0, cup:0 });
   const extras = extrasSince(judged, since, chart);
-  return rankOrder(rows.filter(r => !field.length || field.includes(r.i)).map(r => standingOf(r, extras.get(r.i))), field);
+  const live = i => (typeof liveOf === "function" ? liveOf(i) : null);
+  return rankOrder(rows.filter(r => !field.length || field.includes(r.i)).map(r => standingOf(r, extras.get(r.i), live(r.i))), field);
 }
 
 /* the places that go through (the cut line after them), or null (the final, or no cut) */
@@ -76,3 +82,17 @@ export function createRanker() {
 
 /* below the cut line? (never in the final) */
 export const belowCut = (order, through, i) => through !== null && order.indexOf(i) >= through;
+
+/* the song's order now, for the strip and the cast alike (one ranker per
+   store, so both draw the same order): { order, through } or null */
+const RANKERS = new WeakMap();
+export function rankNow(store, now) {
+  const st = store?.state;
+  const chart = st?.chart;
+  if (!chart || st.phase !== "song" || !Number.isFinite(st.songAt) || !Number.isFinite(now)) return null;
+  let ranker = RANKERS.get(store);
+  if (!ranker) RANKERS.set(store, ranker = createRanker());
+  const field = st.songField || [];
+  return ranker.update({ beat:(now - st.songAt) / chart.beatMs, key:`${st.songKey}:${st.resultsAt}`,
+    make:() => ({ order:liveOrder({ results:st.results, field, judged:st.judged, since:st.resultsAt, chart, liveOf:store.liveOf }), through:throughOf(st.room, field.length) }) });
+}

@@ -26,7 +26,7 @@ import Scene, { layerOffset } from "./stage/Scene.jsx";
 import Cast from "./stage/Cast.jsx";
 import Host from "./stage/Host.jsx";
 import Lobby from "./hud/Lobby.jsx";
-import { CutBoard, Feedback, IntroTitle, LastCallBanner, PodiumBlocks, PodiumList, SongBanner, SongStrip } from "./hud/Hud.jsx";
+import { ChugHud, CutShow, Feedback, IntroTitle, LastCallHud, Narration, PodiumBlocks, PodiumList, RankStrip, SongBanner, SongStrip } from "./hud/Hud.jsx";
 import Bar from "./stage/Bar.jsx";
 import { podiumBeats } from "./soundBridge.js";
 import "./screen.css";
@@ -133,7 +133,7 @@ export default function FloatScreen({ room = "test", hosting = false, joinUrl = 
   /* the entrants, the same array until a rider changes (the room rebuilds
      the list on every message; the cast and its frame loop key on it) */
   const entrantsKey = JSON.stringify((Array.isArray(roomMsg?.entrants) ? roomMsg.entrants : []).map(e => e && [e.device, e.pid, e.name, e.color,
-    e.look?.critter, !!e.bot, !!e.ready, !!e.groom, e.connected !== false]));
+    e.look?.critter, e.look?.hat, e.look?.shades, e.look?.shirt, e.photo, !!e.bot, !!e.ready, !!e.groom, e.connected !== false]));
   const entrants = useMemo(() => (Array.isArray(roomMsg?.entrants) ? roomMsg.entrants : []), [entrantsKey]); // eslint-disable-line react-hooks/exhaustive-deps
   const scene = sceneFor(phase, st.chart);
   const lite = tier === "low" || tier === "lowest";
@@ -144,7 +144,7 @@ export default function FloatScreen({ room = "test", hosting = false, joinUrl = 
     if (!stage) return undefined;
     const layers = [...stage.querySelectorAll(".sc-layer[data-depth]")].map(node => ({ node, depth:Number(node.dataset.depth) || 0 }));
     const checker = stage.querySelector(".sc-checker");
-    const speed = reducedMotion() ? 0 : phase === "song" || phase === "intro" ? 1 : phase === "lobby" || phase === "cut" ? 0.45 : 0;
+    const speed = reducedMotion() ? 0 : phase === "song" || phase === "intro" ? 1 : phase === "lobby" || phase === "cut" || phase === "chugoff" ? 0.45 : 0;
     let travel = null, lastNow = null;
     return driver.add(now => {
       if (travel === null) travel = (now / 1000) * 64;
@@ -179,7 +179,7 @@ export default function FloatScreen({ room = "test", hosting = false, joinUrl = 
 
   const send = msg => { try { net?.send(msg); } catch {} };
   const disconnected = st.status === "closed" || (st.status === "connecting" && !!st.room);
-  const water = phase === "lobby" || phase === "intro" || phase === "song" || phase === "cut";
+  const water = phase === "lobby" || phase === "intro" || phase === "song" || phase === "cut" || phase === "chugoff";
 
   return <div className="fs-root" ref={rootRef} data-phase={phase} data-muted={muted ? "1" : undefined} data-tier={tier}>
     <div className="fs-stage" ref={stageRef} data-scene={scene}>
@@ -194,9 +194,18 @@ export default function FloatScreen({ room = "test", hosting = false, joinUrl = 
           {phase === "lobby" && <Lobby room={roomMsg} entrants={entrants} hosting={hosting && roomMsg?.mode !== "fieldday"} joinUrl={joinUrl} send={send}
             serverNow={store.serverNow} />}
           {phase === "intro" && <IntroTitle room={roomMsg} />}
-          {phase === "song" && <><SongStrip store={store} driver={driver} /><SongBanner store={store} driver={driver} room={roomMsg} /></>}
-          {phase === "cut" && <CutBoard store={store} driver={driver} room={roomMsg} entrants={entrants} />}
-          {phase === "lastcall" && <LastCallBanner store={store} driver={driver} entrants={entrants} />}
+          {phase === "song" && <>
+            <SongStrip store={store} driver={driver} />
+            <RankStrip key={`rank:${st.songKey}`} store={store} driver={driver} room={roomMsg} entrants={entrants} mode="song" />
+            <Narration store={store} driver={driver} />
+            <SongBanner store={store} driver={driver} room={roomMsg} />
+          </>}
+          {phase === "cut" && <>
+            <RankStrip key={`cut:${roomMsg?.round}`} store={store} driver={driver} room={roomMsg} entrants={entrants} mode="cut" />
+            <CutShow store={store} driver={driver} room={roomMsg} entrants={entrants} />
+          </>}
+          {phase === "chugoff" && <ChugHud store={store} driver={driver} room={roomMsg} entrants={entrants} />}
+          {phase === "lastcall" && <LastCallHud store={store} driver={driver} entrants={entrants} />}
           {(phase === "podium" || phase === "feedback") && <PodiumList room={roomMsg} entrants={entrants} />}
           {phase === "feedback" && <Feedback />}
         </div>

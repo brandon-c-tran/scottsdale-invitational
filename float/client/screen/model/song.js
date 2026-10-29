@@ -9,7 +9,7 @@ export function sceneFor(phase, chart = null) {
   if (phase === "lobby") return "lobby";
   if (phase === "podium" || phase === "feedback") return "podium";
   if (phase === "lastcall") return "bar";
-  if ((phase === "song" || phase === "cut") && chart?.scene) return chart.scene;
+  if ((phase === "song" || phase === "cut" || phase === "chugoff") && chart?.scene && chart.scene !== "bar") return chart.scene;
   return "open";
 }
 

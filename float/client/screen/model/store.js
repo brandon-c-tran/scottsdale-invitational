@@ -49,6 +49,7 @@ export function createScreenStore() {
     lastCallAt:null,
     /* the chug-off (room.chugoff), the room's ranking and when it came */
     chugoff:null,
+    chugoffDecidedAt:null,
     results:[],
     resultsAt:-Infinity,
     rtt:{},
@@ -116,6 +117,9 @@ export function createScreenStore() {
     takeScores(msg);
     state.lastCall = phase === "lastcall" && msg.lastCall && typeof msg.lastCall === "object" ? msg.lastCall : null;
     state.chugoff = (phase === "chugoff" || phase === "cut") && msg.chugoff && typeof msg.chugoff === "object" ? msg.chugoff : null;
+    /* when the screen first heard the chug-off decided (a score or a forfeit has no Done to time it by) */
+    if (phase !== "chugoff" || !Number.isInteger(state.chugoff?.winner)) state.chugoffDecidedAt = null;
+    else if (state.chugoffDecidedAt === null) state.chugoffDecidedAt = s;
     /* the room's live ranking in a song, and when it was made (the strip moves it by the hits since) */
     if (phase === "song" && Array.isArray(msg.results)) { state.results = msg.results; state.resultsAt = s; }
     else if (phase !== "song") { state.results = Array.isArray(msg.results) ? msg.results : []; state.resultsAt = s; }

@@ -5,7 +5,7 @@
    no Durable Object, nothing left running after).
 
      node scripts/float-shots.mjs                      every moment
-     node scripts/float-shots.mjs practice drink       just those
+     node scripts/float-shots.mjs practice chug        just those
        --out <dir>        default .impeccable/review/float
        --quality <tier>   high (default) | medium | low | lowest
        --size <w>x<h>     the window (default 1920x1080; the stage letterboxes)
@@ -29,6 +29,7 @@ import { fileURLToPath } from "node:url";
 import { createServer } from "vite";
 import react from "@vitejs/plugin-react";
 import { launchChrome, CHROME_PATH } from "./headless-chrome.mjs";
+import { MOCK_SHOTS } from "../float/client/screen/mock/shared.js";
 
 const ROOT = fileURLToPath(new URL("../", import.meta.url));
 const args = process.argv.slice(2);
@@ -42,9 +43,8 @@ const LIVE = value("--live") ? Number(value("--live")) : null;
 const GPU = args.includes("--gpu");
 const [WIDTH, HEIGHT] = (value("--size") || "1920x1080").split("x").map(Number);
 const EXTRA = new URLSearchParams(value("--query") || "");
-const SHOTS = positional.length ? positional
-  : ["lobby", "fdlobby", "intro", "card", "count", "practice", "go", "play", "hey", "drink", "late", "outro", "cut", "cutout", "cutnext",
-    "bar", "slide", "grab", "grab3", "drinks", "rock", "spin", "sign", "final", "drop", "finalcut", "podium", "feedback"];
+/* every moment the mock knows (float/client/screen/mock/shared.js MOCK_SHOTS) */
+const SHOTS = positional.length ? positional : MOCK_SHOTS;
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 /* Float's pages, as the dev server routes them */

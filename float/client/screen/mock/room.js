@@ -8,21 +8,20 @@
    The roster's phones join the lobby; Start runs the Cup. Two of them stay
    people the mock plays (the groom and the next phone): they tap every cue
    with their own timing, late on average like a TV's sound, so the room
-   calibrates on them; one taps Done well into the second half, so a rider
-   chugs on past the break. The rest become the engine's bots, their skills
+   calibrates on them; in a chug-off each taps Done a few seconds after the go. The rest become the engine's bots, their skills
    spread, so every popup shows. A shot runs the room's clock to its moment
    (the screen joins a second before it, so the popups in flight are
    there) and, with freeze=1, stops it. */
 import { FloatRoom } from "../../../worker/room.js";
-import { chartOf, drinkSection } from "../../../shared/chart.js";
+import { chartOf } from "../../../shared/chart.js";
 import { FakeSocket, SHOTS, gauss, hash01, mockRider, mockSkills, shotTime } from "./shared.js";
 
 /* the room's own tick is every 100 ms; the mock steps it at 20 Hz */
 const STEP_MS = 50;
-/* the phones the mock plays as people: index, skill (ms of spread), bias, Done after the break starts */
+/* the phones the mock plays as people: index, skill (ms of spread), bias, Done after a chug-off's go */
 const PEOPLE = Object.freeze([
-  { k:0, spread:22, bias:42, miss:0.01, doneAfter:6500 },
-  { k:1, spread:48, bias:58, miss:0.03, doneAfter:18500 },
+  { k:0, spread:22, bias:42, miss:0.01, doneAfter:5200 },
+  { k:1, spread:48, bias:58, miss:0.03, doneAfter:9800 },
 ]);
 
 const memoryCtx = () => {
@@ -71,9 +70,16 @@ export function connectRoom({ room = "mock", hello = {}, options = {} } = {}) {
   const watcher = new FakeSocket(text => {
     const msg = JSON.parse(text);
     if (msg.t !== "room") return;
-    const key = msg.phase === "song" || msg.phase === "cut" || msg.phase === "lastcall" ? `${msg.phase}:${msg.round}` : msg.phase;
+    const key = ["song", "cut", "chugoff", "lastcall"].includes(msg.phase) ? `${msg.phase}:${msg.round}` : msg.phase;
     if (!seen[key]) seen[key] = { startAt:Number.isFinite(msg.startAt) ? msg.startAt : msg.s, songAt:msg.songAt ?? null };
     else if (msg.songAt && !seen[key].songAt) seen[key].songAt = msg.songAt;
+    /* the chug-off's go and its decision */
+    if (msg.phase === "chugoff" && msg.chugoff) {
+      if (Number.isFinite(msg.chugoff.goAt)) seen[key].goAt = msg.chugoff.goAt;
+      const won = Number.isInteger(msg.chugoff.winner) ? msg.chugoff.doneAt?.[msg.chugoff.winner] : undefined;
+      if (!Number.isFinite(seen[key].winAt) && Number.isInteger(msg.chugoff.winner))
+        seen[key].winAt = Number.isFinite(won) ? msg.chugoff.goAt + won : Number.isFinite(msg.chugoff.decidedAt) ? msg.chugoff.decidedAt : msg.s;
+    }
     Object.assign(watch, { phase:msg.phase, round:msg.round | 0, rounds:msg.rounds | 0, song:msg.song || null, songAt:msg.songAt ?? null,
       out:Array.isArray(msg.out) ? msg.out : [] });
   });
@@ -87,35 +93,45 @@ export function connectRoom({ room = "mock", hello = {}, options = {} } = {}) {
     phoneSockets[k] = ws;
   };
 
-  /* the people the mock plays: each cue tapped once at its own time, Done after the break */
+  /* the people the mock plays: each cue tapped once at its own time (the
+     host's demos are nobody's); in a chug-off, Done a few seconds after the go */
   const people = new Map();
   const playPeople = () => {
+    const cup = engine.cup;
+    if (watch.phase === "chugoff" && Number.isFinite(cup?.chugoff?.goAt)) {
+      for (const person of PEOPLE) {
+        const ws = phoneSockets[person.k];
+        const i = cup.entrants?.findIndex(e => e.device === `mock-phone-${person.k}`) ?? -1;
+        if (!ws || i < 0 || (cup.chugoff.a !== i && cup.chugoff.b !== i)) continue;
+        const key = `chug:${watch.round}:${cup.chugoff.goAt}`;
+        let me = people.get(person.k);
+        if (!me || me.song !== key) people.set(person.k, me = { song:key, next:0, done:false });
+        if (!me.done && clock.t >= cup.chugoff.goAt + person.doneAfter) { me.done = true; say(ws, { t:"drink" }); }
+      }
+      return;
+    }
     if ((watch.phase !== "song" && watch.phase !== "lastcall") || !watch.song || !Number.isFinite(watch.songAt)) return;
     const chart = chartOf(watch.song);
     if (!chart) return;
-    /* Last Call has no drink break: its grabs are taps like any cue */
-    const drink = drinkSection(chart);
-    const drinkFrom = drink ? watch.songAt + drink.from * chart.beatMs : Infinity;
     for (const person of PEOPLE) {
       const ws = phoneSockets[person.k];
-      const i = engine.cup?.entrants?.findIndex(e => e.device === `mock-phone-${person.k}`) ?? -1;
+      const i = cup?.entrants?.findIndex(e => e.device === `mock-phone-${person.k}`) ?? -1;
       /* in a song only the field plays; at the bar everyone does */
-      if (!ws || i < 0 || (watch.phase === "song" && (watch.out.includes(i) || !engine.cup?.field?.includes(i)))) continue;
+      if (!ws || i < 0 || (watch.phase === "song" && (watch.out.includes(i) || !cup?.field?.includes(i)))) continue;
       let me = people.get(person.k);
       const songKey = `${watch.phase}:${watch.round}:${watch.songAt}`;
       if (!me || me.song !== songKey) people.set(person.k, me = { song:songKey, next:0, done:false });
-      const doneAt = drinkFrom + person.doneAfter;
       while (me.next < chart.cues.length) {
         const cue = chart.cues[me.next];
-        const r = Math.round(person.bias + gauss(seed, watch.round, person.k, cue.id) * person.spread);
+        /* Last Call: off by a few hundred ms, not a song's few dozen */
+        const spread = watch.phase === "lastcall" ? person.spread * 8 : person.spread;
+        const r = Math.round(person.bias + gauss(seed, watch.round, person.k, cue.id) * spread);
         const at = watch.songAt + cue.beat * chart.beatMs + r;
         if (at > clock.t) break;
         me.next += 1;
-        const drinkingNow = at >= drinkFrom && at < doneAt;
-        if (drinkingNow || hash01(seed, watch.round, person.k, cue.id, 9) < person.miss) continue;
+        if (cue.demo || hash01(seed, watch.round, person.k, cue.id, 9) < person.miss) continue;
         say(ws, { t:"hit", c:cue.id, r });
       }
-      if (drink && !me.done && clock.t >= doneAt) { me.done = true; say(ws, { t:"drink" }); }
     }
   };
 

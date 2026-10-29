@@ -23,7 +23,7 @@ import { popupOf } from "../../shared/chart.js";
 import { ANCHOR } from "./model/flotilla.js";
 import RiderSprite, { useGrooveArt, useRiderSprites } from "../art/groove/RiderSprite.jsx";
 import ArtPopup from "../art/groove/Popup.jsx";
-import { critterArt, hostSprites, propOf, sceneOf } from "../art/groove/index.js";
+import { critterArt, hostSprites, lookOf, propOf, sceneOf } from "../art/groove/index.js";
 
 export const POSES = Object.freeze(["idle", "stroke", "hey", "nice", "miss", "chug", "cheer", "out"]);
 
@@ -39,8 +39,10 @@ export const ART_FILL = 1.45;
    own drawing; the rest are the idle one), or null (the placeholder draws). */
 export function useRiderArt(entrant, { size = 512 } = {}) {
   const m = useGrooveArt();
-  const critter = entrant?.look?.critter || "capybara";
-  const urls = useRiderSprites({ critter, color:entrant?.color, groom:!!entrant?.groom, size });
+  /* the rider's look: critter, colour, the groom's crown, hat, glasses and the photo tee (the art's lookOf) */
+  const look = lookOf(entrant || {});
+  const critter = look.critter;
+  const urls = useRiderSprites({ critter, color:look.color, groom:look.groom, hat:look.hat, shades:look.shades, shirt:look.shirt, photo:look.photo, size });
   return useMemo(() => {
     const c = m ? critterArt(critter, m) : null;
     if (!c?.anchor?.water) return null;
@@ -198,7 +200,11 @@ export function Critter({ entrant, art = null }) {
       {!art.own.has("stroke") && <BoxProp id="splash" className="p-stroke" at={[hand[0] + 92, hand[1] + 46]} width={150} />}
     </span>;
   }
-  if (art) return <span className="cr-sprites"><RiderSprite critter={art.critter} color={entrant?.color} groom={!!entrant?.groom} pose="idle" size={512} className="cr-wait" /></span>;
+  if (art) {
+    const look = lookOf(entrant || {});
+    return <span className="cr-sprites"><RiderSprite critter={art.critter} color={look.color} groom={look.groom} hat={look.hat} shades={look.shades} shirt={look.shirt}
+      photo={look.photo} pose="idle" size={512} className="cr-wait" /></span>;
+  }
   return <PlaceholderCritter color={entrant?.color} critter={entrant?.look?.critter} groom={!!entrant?.groom} />;
 }
 

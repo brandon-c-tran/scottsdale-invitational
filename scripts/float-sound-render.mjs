@@ -119,7 +119,7 @@ window.__song = async (song, stem = null, room = false) => {
    exit), then the chug-off (the call, the first one's rule or the count,
    Chug!, the chant until a Done at 6.5 s, the stamp, the loser's exit) */
 window.__after = async () => {
-  const per = 34, songs = ["paddle", "rock", "spin"];
+  const per = 34, songs = ["paddle", "rock", "spin", "drop"];
   const ctx = new OfflineAudioContext(2, SR * per * songs.length, SR);
   const E = await engine(ctx);
   const at = s => s - GROOVE_PRE_S, slots = [];

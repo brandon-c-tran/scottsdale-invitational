@@ -11,7 +11,7 @@
    connection, storage or remote service. */
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { chartOf, SONGS, SONG_LEAD_MS, SONG_MS } from "../float/shared/chart.js";
+import { chartOf, LAST_CALL_TRICKS, SONGS, SONG_LEAD_MS, SONG_MS } from "../float/shared/chart.js";
 import { createGrooveScreenSound, loadGrooveVoice } from "../float/client/sound/grooveScreen.js";
 import { floatCheerSound, floatDoneSound, floatTapSound } from "../float/client/sound/groovePhone.js";
 import { songEvents } from "../float/client/sound/groove.js";
@@ -28,7 +28,7 @@ function makeRoom() {
   const emit = (t, msg) => (handlers[t] || []).forEach(fn => fn({ s:Date.now(), ...msg }));
   return { net, emit };
 }
-const base = { code:"DEV", round:0, rounds:4, field, out:[], entrants, drinking:true };
+const base = { code:"DEV", round:0, rounds:5, field, out:[], entrants, drinking:true };
 
 function App() {
   const room = useMemo(makeRoom, []);
@@ -55,8 +55,14 @@ function App() {
     clear();
     const startAt = Date.now() + 200, songAt = startAt + SONG_LEAD_MS, chart = chartOf(id);
     setSong({ id, songAt });
-    room.emit("room", { ...base, phase:"song", song:id, startAt, songAt, endsAt:songAt + SONG_MS + 1500, s:startAt });
-    if (misses) for (const cue of chart.cues) {
+    /* Fireworks is the final: three riders, each one's rocket bursting from their hit (now and then a fizzle) */
+    const final = id === "fireworks", riders = final ? [0, 1, 2] : field;
+    room.emit("room", { ...base, ...(final ? { round:4, field:riders } : {}), phase:"song", song:id, startAt, songAt, endsAt:songAt + SONG_MS + 1500, s:startAt });
+    if (final) for (const cue of chart.cues.filter(c => c.kind === "rocket" && !c.demo)) riders.forEach(i => {
+      const r = (cue.id * 7 + i * 3) % 10, q = r < 4 ? "perfect" : r < 8 ? "nice" : r < 9 ? "late" : "miss";
+      later(songAt + cue.beat * 500 + (q === "miss" ? 550 : 140) - Date.now(), () => room.emit("ev", { e:"hit", i, c:cue.id, q, d:q === "late" ? 210 : 20 }));
+    });
+    if (misses && !final) for (const cue of chart.cues) {
       /* a few riders miss a cue now and then: the room judges a miss 550 ms after its time */
       const who = field.filter(i => (i * 7 + cue.id * 3) % 23 === 0);
       if (who.length) later(songAt + cue.beat * 500 + 550 - Date.now(), () => who.forEach(i => room.emit("ev", { e:"hit", i, c:cue.id, q:"miss" })));
@@ -111,7 +117,7 @@ function App() {
             <button style={btn} onClick={() => { clear(); setSong(null); phase("intro"); }}>The Cup opens</button>
             {["paddle", "rock", "spin"].map(id => <button key={id} style={btn} onClick={() => cutShow(id)}>After {id}: show + chug-off</button>)}
             <button style={btn} onClick={() => { clear(); setSong(null); phase("podium", { podium:[4, 0, 9] }); }}>Podium</button>
-            {["lights", "slow", "ticks"].map(t => <button key={t} style={btn} onClick={() => lastCall(t)}>Last Call: {t}</button>)}
+            {LAST_CALL_TRICKS.map(t => <button key={t} style={btn} onClick={() => lastCall(t)}>Last Call: {t}</button>)}
           </div>
           <div style={row}>
             <span style={{ color:"#9aa4b2" }}>Phone taps (switches this page to a phone):</span>
@@ -128,7 +134,7 @@ function App() {
   );
 }
 
-const KIND = { paddle:["P", "#4fc3f7"], hey:["H", "#ffd54f"], hop:["O", "#81c784"], spin:["S", "#ce93d8"], drop:["D", "#ff8a65"] };
+const KIND = { paddle:["P", "#4fc3f7"], hey:["H", "#ffd54f"], hop:["O", "#81c784"], spin:["S", "#ce93d8"], drop:["D", "#ff8a65"], echo:["E", "#90a4ae"], rocket:["R", "#ff5252"] };
 function Grid({ id, beat }) {
   const chart = chartOf(id), events = useMemo(() => songEvents(chart), [id]); // eslint-disable-line react-hooks/exhaustive-deps
   const calls = events.filter(e => e.kind === "call" || e.kind === "count" || e.kind === "line");
@@ -141,8 +147,8 @@ function Grid({ id, beat }) {
         {Array.from({ length:chart.bars }, (_, bar) => {
           const sec = chart.sections.find(s => bar >= s.bar && bar < s.bar + s.bars)?.kind;
           return (
-            <div key={bar} style={{ background:{ intro:"#252a36", practice:"#203040", play:"#23303a", drink:"#3a2a33", outro:"#2d2a40" }[sec], borderRadius:6, padding:"3px 3px 5px" }}>
-              <div style={{ fontSize:11, color:"#8090a0" }}>{bar} {sec}</div>
+            <div key={bar} style={{ background:(chart.dark || []).includes(bar) ? "#0b0d12" : { intro:"#252a36", practice:"#203040", play:"#23303a", breakdown:"#3a2a33", outro:"#2d2a40" }[sec], borderRadius:6, padding:"3px 3px 5px" }}>
+              <div style={{ fontSize:11, color:"#8090a0" }}>{bar} {(chart.dark || []).includes(bar) ? "dark" : sec}</div>
               {[0, 1].map(rowK => (
                 <div key={rowK} style={{ position:"relative", height:H, display:"flex" }}>
                   {[0, 1, 2, 3].map(b => {
@@ -151,7 +157,7 @@ function Grid({ id, beat }) {
                   })}
                   {(rowK === 0 ? calls : chart.cues.map(c => ({ beat:c.beat, kind:c.kind })))
                     .filter(e => e.beat >= bar * 4 && e.beat < bar * 4 + 4).map((e, i) => {
-                      const [letter, color] = rowK === 0 ? [(e.opts?.line || "~").slice(0, 2), "#e8e2d4"] : KIND[e.kind] || ["?", "#fff"];
+                      const [letter, color] = rowK === 0 ? [e.id === "floatFuse" ? "fu" : (e.opts?.line || "~").slice(0, 2), "#e8e2d4"] : KIND[e.kind] || ["?", "#fff"];
                       return <span key={i} style={{ position:"absolute", left:(e.beat - bar * 4) * W + 2, top:3, fontSize:11, fontWeight:700, color }}>{letter}</span>;
                     })}
                 </div>
@@ -160,7 +166,7 @@ function Grid({ id, beat }) {
           );
         })}
       </div>
-      <p style={{ color:"#9aa4b2", fontSize:13 }}>Top row: the host (re ready, he hey, ba, ~ a whirl, on two three four the counts, dr Drink!). Bottom: the cues, P paddle, H hey, O hop, S spin, D drop.</p>
+      <p style={{ color:"#9aa4b2", fontSize:13 }}>Top row: the host (re ready, he hey, ba, ~ a whirl, on two three four the counts, dr Drink!). Bottom: the cues, P paddle, H hey, O hop, S spin, D drop, E copy, R rocket (fu the host's fuse). A black bar is a blackout.</p>
     </div>
   );
 }

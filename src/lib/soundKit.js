@@ -4113,8 +4113,9 @@ function gCutBar(c) {
    silent (only each phone's own tap sounds) */
 function gDarkBar(c) {
   if (!c.on("drums")) return;
-  /* one and three a little firmer: you row in the dark */
-  gNoiseLine(c.E, c.V("hat"), [0, 2, 4, 6, 8, 10, 12, 14].map(s => [c.at(s), s % 8 === 0 ? 0.13 : s % 4 ? 0.06 : 0.09, 0.025]), { type:"highpass", f:8600 });
+  /* one and three firmer, with a soft stick click: you row in the dark */
+  gNoiseLine(c.E, c.V("hat"), [0, 2, 4, 6, 8, 10, 12, 14].map(s => [c.at(s), s % 8 === 0 ? 0.32 : s % 4 ? 0.13 : 0.22, 0.04]), { type:"highpass", f:7200 });
+  [0, 8].forEach(s => GK.sticks(c.E, c.V("perc"), c.at(s), 0.4));
 }
 /* back from a blackout: the kick, a crash and the chord's stab on the downbeat */
 function gBackHit(c) {

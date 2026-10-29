@@ -50,8 +50,9 @@ test("blackout bars: the band's bar is a bare hi-hat, no call and no answer in i
   ctx.nodes.length = 0;
   kit.playRecipe(E, "floatGroove", 10, darkOpts);
   const srcs = ctx.nodes.filter(n => n.kind === "osc" || n.kind === "src");
-  assert.ok(srcs.length > 0 && srcs.every(n => n.kind === "src"), "noise only: the hi-hat, no note");
-  assert.ok(srcs.length <= 3, `one hat line (${srcs.length} sources)`);
+  assert.ok(srcs.some(n => n.kind === "src"), "the hi-hat");
+  assert.ok(!srcs.some(n => n.kind === "osc" && ["sawtooth", "square", "triangle"].includes(n.type)), "no note of the band's");
+  assert.ok(srcs.length <= 12, `one hat line and two stick clicks on 1 and 3 (${srcs.length} sources)`);
   /* a song with no dark bars is untouched */
   const plain = groove.songEvents(chartOf("paddle"));
   assert.ok(plain.filter(e => e.id === "floatGroove").every(e => !e.opts.dark && !e.opts.back));
@@ -224,3 +225,26 @@ function recorder() {
     createConvolver() { return this.node("conv"); }, createStereoPanner() { return this.node("pan"); }, createOscillator() { return this.node("osc"); },
     createBufferSource() { return this.node("src"); }, createBuffer(c, l) { return { length:l, numberOfChannels:c, getChannelData:() => new Float32Array(l) }; } };
 }
+
+test("five rounds: every song has its title and its bed, the final is Fireworks, the cut after The Drop still shows its exits", () => {
+  assert.equal(chartMod.songForRound(4, 5), "fireworks");
+  assert.equal(chartMod.songForRound(3, 5), "drop");
+  for (const id of chartMod.SONG_IDS) {
+    assert.ok(VOICE.clips.some(c => c.id === `title-${id}`) && kit.GROOVE_LINES.includes(`title-${id}`), `title-${id}`);
+    assert.ok(kit.GROOVE_SONG_IDS.includes(id), `${id}: its own bed`);
+    for (const line of chartOf(id).lines) assert.ok(groove.lineClip(line.text), `${id}: "${line.text}" has its clip`);
+  }
+  /* the cut after round 4 (The Drop) is not the last: its drumroll and exits play; after round 5 none */
+  const r = rig();
+  r.emit("welcome", {});
+  r.emit("room", room("song", r.now(), { round:3, song:"drop", startAt:r.now(), songAt:r.now() + 3000, endsAt:r.now() + 70000, out:[] }));
+  r.set(r.now() + 70000);
+  r.emit("room", room("cut", r.now(), { round:3, song:"drop", startAt:r.now(), out:[4, 3] }));
+  assert.ok(r.played.some(p => p.id === "floatRoll") && r.played.filter(p => p.id === "floatExit").length === 2, "round 4 of 5 cuts with its show");
+  const f = rig();
+  f.emit("welcome", {});
+  f.emit("room", room("song", f.now(), { round:4, song:"fireworks", startAt:f.now(), songAt:f.now() + 3000, endsAt:f.now() + 70000, out:[], field:[0, 1, 2] }));
+  f.set(f.now() + 70000);
+  f.emit("room", room("cut", f.now(), { round:4, song:"fireworks", startAt:f.now(), out:[4, 3], field:[0, 1, 2] }));
+  assert.ok(!f.played.some(p => p.id === "floatRoll" || p.id === "floatExit"), "the final's cut names nobody");
+});

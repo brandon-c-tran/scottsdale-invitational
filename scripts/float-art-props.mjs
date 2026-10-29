@@ -14,6 +14,12 @@
      accent-open, -rocks  the middle of the ripple at its foot (it stands in the water)
      accent-whirl         its middle (it lies on the water at the whirlpool's centre)
      accent-falls         its bottom middle (the mist's foot, over the falls)
+     pelican, dizzy, bonk, tumbleweed, chalkboard, clock   their middle
+     pelican-carry        its middle; `grip` is its feet, where a carried rider hangs
+     bubbles              its bottom middle
+     pull-cord            its top (it hangs); `handle` is the knob
+     foam                 where it meets a glass's rim
+     chalkboard, clock    `face` is the blank slate or dial, [x, y, w, h], for the digits
    Confetti and the sparkle are drawn (white, tinted at run time).
 
      node scripts/float-art-props.mjs */
@@ -27,12 +33,16 @@ const SHEETS = {
   "props-things":["cup", "crown", "sign-paddle", "sign-rock", "sign-spin", "podium"],
   /* the song scenes' loud accents (scenes.<id>.accent), a 2 x 2 sheet */
   "props-accents":{ names:["accent-open", "accent-rocks", "accent-whirl", "accent-falls"], cols:2, rows:2 },
+  /* the cut's exits (float/GROOVE.md "After a song") */
+  "props-cut":{ names:["pelican", "pelican-carry", "dizzy", "bonk", "bubbles", "tumbleweed"], cols:3, rows:2 },
+  /* Last Call's countdown */
+  "props-lastcall":{ names:["chalkboard", "clock", "pull-cord", "foam"], cols:2, rows:2 },
 };
 const gridOf = entry => (Array.isArray(entry) ? { names:entry, cols:3, rows:2 } : entry);
 /* props generated alone: id -> its generation */
 const SINGLES = { drink:"bar-drink" };
 /* each prop's longest side in the file */
-const SIZE = { drink:180, "accent-open":380, "accent-rocks":300, "accent-whirl":480, "accent-falls":520, splash:256, ripple:320, rock:280, whirl:440, "falls-lip":560, "splash-big":360, cup:160, crown:200, "sign-paddle":280, "sign-rock":280, "sign-spin":280, podium:640 };
+const SIZE = { pelican:360, "pelican-carry":340, dizzy:220, bonk:240, bubbles:180, tumbleweed:200, chalkboard:560, clock:340, "pull-cord":300, foam:260, drink:180, "accent-open":380, "accent-rocks":300, "accent-whirl":480, "accent-falls":520, splash:256, ripple:320, rock:280, whirl:440, "falls-lip":560, "splash-big":360, cup:160, crown:200, "sign-paddle":280, "sign-rock":280, "sign-spin":280, podium:640 };
 
 async function cut(sheet, names, cols = 3, rows = 2) {
   const img = await loadRGBA(sourceOf(sheet));
@@ -46,12 +56,19 @@ async function cut(sheet, names, cols = 3, rows = 2) {
   for (let k = 0; k < W * H; k++) if (d[k * 4 + 3] > 16) solid[k] = 1;
   const { labels, comps } = components(solid, W, H);
   const cellOf = (x, y) => Math.min(rows - 1, Math.floor(y / (H / rows))) * cols + Math.min(cols - 1, Math.floor(x / (W / cols)));
-  const owner = new Map();
-  for (const c of comps) if (c.n >= 10) owner.set(c.id, cellOf(c.cx, c.cy));
+  /* each piece to its cell; a speck under 0.5% of its cell's biggest piece is dropped */
+  const biggest = new Map();
+  for (const c of comps) { const k = cellOf(c.cx, c.cy); biggest.set(k, Math.max(biggest.get(k) || 0, c.n)); }
+  const owner = new Map(), dropped = new Set();
+  for (const c of comps) {
+    const k = cellOf(c.cx, c.cy);
+    if (c.n >= Math.max(10, biggest.get(k) * 0.005)) owner.set(c.id, k);
+    else dropped.add(c.id);
+  }
   const cells = names.map(() => blank(W, H));
   for (let k = 0; k < W * H; k++) {
     const o = owner.get(labels[k]);
-    const cell = o ?? (d[k * 4 + 3] ? cellOf(k % W, Math.floor(k / W)) : undefined);
+    const cell = o ?? (d[k * 4 + 3] && !dropped.has(labels[k]) ? cellOf(k % W, Math.floor(k / W)) : undefined);
     if (cell === undefined) continue;
     cells[cell].data.set(d.subarray(k * 4, k * 4 + 4), k * 4);
   }
@@ -73,7 +90,7 @@ for (const [sheet, entry] of [...Object.entries(SHEETS), ...Object.entries(SINGL
   const cells = await cut(sheet, names, cols, rows);
   for (const [k, id] of names.entries()) {
     const cell = cells[k];
-    const b = alphaBounds(cell, 8);
+    const b = alphaBounds(cell, 24);
     const pad = 4;
     const x0 = Math.max(0, b.x0 - pad), y0 = Math.max(0, b.y0 - pad);
     const w = Math.min(cell.width - x0, b.w + pad * 2), h = Math.min(cell.height - y0, b.h + pad * 2);
@@ -91,6 +108,26 @@ for (const [sheet, entry] of [...Object.entries(SHEETS), ...Object.entries(SINGL
     /* standing in the water: the middle of the ripple ring at its foot */
     if (id === "accent-open" || id === "accent-rocks") anchor = [Math.round(ow / 2), Math.round(oh * 0.88)];
     if (id === "accent-whirl") anchor = [Math.round(ow / 2), Math.round(oh / 2)];
+    if (["pelican", "dizzy", "bonk", "tumbleweed", "chalkboard", "clock"].includes(id)) anchor = [Math.round(ow / 2), Math.round(oh / 2)];
+    if (id === "pelican-carry") {
+      /* the feet's grip: the lowest opaque point near the middle third */
+      let best = [Math.round(ow / 2), oh - 1];
+      for (let y = oh - 1; y >= 0 && best[1] === oh - 1; y--) for (let x = Math.round(ow * 0.2); x < ow * 0.8; x++) if (out.data[(y * ow + x) * 4 + 3] > 160) { best = [x, y]; break; }
+      anchor = [Math.round(ow / 2), Math.round(oh / 2)];
+      extra.grip = best;
+    }
+    if (id === "pull-cord") { anchor = [Math.round(ow / 2), 0]; extra.handle = [Math.round(ow / 2), Math.round(oh * 0.88)]; }
+    if (id === "foam") anchor = [Math.round(ow / 2), Math.round(oh * 0.42)];
+    if (id === "chalkboard" || id === "clock") {
+      /* the blank face digits go on: the bounds of its slate (dark green) or dial (cream) */
+      const isFace = id === "chalkboard" ? (r, g, b) => g - r > 12 && g >= b && g > 45 && g < 120 : (r, g, b) => r > 200 && g > 185 && b > 140;
+      let x0 = ow, y0 = oh, x1 = 0, y1 = 0;
+      for (let y = 0; y < oh; y++) for (let x = 0; x < ow; x++) {
+        const i = (y * ow + x) * 4;
+        if (out.data[i + 3] > 200 && isFace(out.data[i], out.data[i + 1], out.data[i + 2])) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+      }
+      extra.face = [x0, y0, x1 - x0 + 1, y1 - y0 + 1];
+    }
     if (id === "falls-lip") {
       /* the river's surface where it joins the water: the first row's leftmost opaque pixel */
       search: for (let y = 0; y < oh; y++) for (let x = 0; x < ow * 0.5; x++) if (out.data[(y * ow + x) * 4 + 3] > 160) { anchor = [x, y]; break search; }

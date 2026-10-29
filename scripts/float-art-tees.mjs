@@ -15,6 +15,8 @@ import { ALL_CRITTER_IDS } from "../float/shared/looks.js";
 import { OUT, MANIFEST, POSES, sourceOf, loadRGBA, blank, components, placeInBox, saveWebp, dilate, close, hueOf, hueDist, lum, editManifest, alphaBounds } from "./float-art-lib.mjs";
 import { RING_W, WATER, normalizeAlpha, ringHue, findRing, splitRing, findEyes, sliceSheet, round2, ANCHOR_FIX } from "./float-art-sprites.mjs";
 
+/* the photo's least radius in the box (it is clipped to the shirt, so a bigger one just shows less) */
+export const CHEST_MIN = 18;
 const sat = (r, g, b) => { const mx = Math.max(r, g, b); return mx ? (mx - Math.min(r, g, b)) / mx : 0; };
 const val = (r, g, b) => Math.max(r, g, b) / 255;
 
@@ -161,15 +163,19 @@ async function processTee(id) {
     out.water = [...WATER];
     poses[pose] = { src:`critters/${id}/tee/${pose}.webp`, tube:`critters/${id}/tee/${pose}-tube.webp`, shirt:`critters/${id}/tee/${pose}-shirt.webp`, anchor:out, chestR };
     if (pose === "idle") {
-      /* the portrait's framing: the critter's square, a margin round it, its foot near the bottom */
+      /* the portrait's framing: the ring half the frame's width (as the plain portraits), room above for a hat, its foot near the bottom */
       const b = alphaBounds(ps.img, 24);
-      const side = Math.min(512, Math.round(Math.max(b.w, b.h) * 1.1));
-      const x = Math.max(0, Math.min(512 - side, Math.round((b.x0 + b.x1) / 2 - side / 2)));
-      const y = Math.max(0, Math.min(512 - side, Math.round(b.y1 + side * 0.04 - side)));
+      const side = Math.min(512, Math.round(RING_W * 2));
+      const x = Math.max(0, Math.min(512 - side, Math.round(WATER[0] - side / 2)));
+      const y = Math.max(0, Math.min(512 - side, Math.round(b.y1 + 14 - side)));
       frame = [x, y, side];
     }
     if (chestR < 14) report.push(`${pose}: small chest ${chestR}`);
   }
+  /* a photo big enough to read: at least CHEST_MIN, near the poses' median; it is printed on the shirt only (the arms cross it) */
+  const rs = Object.values(poses).map(p => p.chestR).sort((a, b) => a - b);
+  const median = rs[rs.length >> 1] || CHEST_MIN;
+  for (const p of Object.values(poses)) p.chestR = Math.max(CHEST_MIN, Math.round(Math.max(p.chestR, median * 0.85)));
   editManifest(m => { m.critters[id].tee = { frame, poses }; });
   console.log(`${id}: tee scale ${s.toFixed(3)}, chest r ${Object.values(poses).map(p => p.chestR).join(" ")}${report.length ? `; ${report.join("; ")}` : ""}`);
 }

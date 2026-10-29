@@ -316,7 +316,8 @@ test("the calibration is people's practice only: median, at most once a beat, fr
       if (song.offset !== last) { changes.push(Math.floor((t - song.songAt) / 500)); last = song.offset; }
     } });
   assert.deepEqual(song.samples, lags.slice(0, song.samples.length), "only the person's taps are samples");
-  assert.ok(song.samples.length >= 8);
+  assert.equal(song.samples.length, practice.length, "every practice tap before the freeze (7 in Paddle Party)");
+  assert.ok(practice.length >= 6);
   assert.equal(song.offset, 150, "the median");
   assert.ok(new Set(changes).size === changes.length, `at most once a beat (${changes})`);
   /* frozen half a beat before the first play bar */
@@ -569,7 +570,7 @@ test("addBots fills with named computer riders; toLobby lets them go; a saved 3D
   cup.entrants.length = 13;
   const bots = cup.entrants.filter(entrant => entrant.bot);
   assert.equal(new Set(bots.map(entrant => entrant.name)).size, 12);
-  assert.ok(bots.every(entrant => entrant.skill >= 0.2 && entrant.skill <= 0.95 && entrant.color && entrant.look.critter !== "winnie"));
+  assert.ok(bots.every(entrant => entrant.skill >= 0.1 && entrant.skill <= 0.65 && entrant.color && entrant.look.critter !== "winnie"));
   startCup(cup, 0);
   toLobby(cup, 5);
   assert.deepEqual(cup.entrants.map(entrant => entrant.name), ["Ann"]);
@@ -620,9 +621,9 @@ test("demo cues are the host's: never judged, missed, tapped by a bot or a stand
   }
 });
 
-test("Rock Hop's practice has three cues to tap: a lone phone keeps the last song's offset", () => {
+test("a practice with three taps from people: a lone phone keeps the last song's offset", () => {
   const chart = chartOf("rock");
-  assert.equal(practiceCues(chart).length, 3);
+  assert.ok(practiceCues(chart).length >= 4, "every practice has enough to calibrate (v3: rowing in every song)");
   const cup = cupOf(3, { people:1 });
   cup.offset = 110;
   advance(cup, cup.endsAt);
@@ -632,7 +633,7 @@ test("Rock Hop's practice has three cues to tap: a lone phone keeps the last son
   assert.equal(song.id, "rock");
   const clock = { t:song.songAt };
   play(cup, clock, { until:() => song.frozen, each:t => {
-    for (const cue of practiceCues(chart)) if (!song.judged[0][cue.id] && cueTime(song.songAt, cue.beat) + 30 <= t)
+    for (const cue of practiceCues(chart).slice(0, 3)) if (!song.judged[0][cue.id] && cueTime(song.songAt, cue.beat) + 30 <= t)
       applyHit(cup, song, 0, { c:cue.id, r:30 }, t);
   } });
   assert.equal(song.samples.length, 3);

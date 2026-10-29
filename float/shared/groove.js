@@ -48,7 +48,7 @@ import { LAST_CALL, LAST_CALL_ID, MISS_AFTER_MS, POINTS, WINDOW, beatOf, calibra
 export const GROOVE = Object.freeze({
   /* a phone silent this long is played by a stand-in */
   STALE_MS:5000,
-  STAND_IN_SKILL:0.55,
+  STAND_IN_SKILL:0.5,
   /* a hit stamped this far ahead of the room's clock is not believed */
   FUTURE_MS:250,
   /* the room's light timer in a song, its scores and its saves */
@@ -65,17 +65,20 @@ export const FREEZE_BEATS = 0.5;
 
 /* How bots tap, by skill (index 0 at skill 0, index 1 at skill 1): SPREAD
    the standard deviation of their offset (ms), LEAN each bot's own early or
-   late (up to, ms), MISS the share of cues they never tap. A skill 1 bot is
-   within about 30 ms, a skill 0 one about 90 ms off with the odd miss. */
-export const BOT = Object.freeze({ SPREAD:Object.freeze([85, 15]), LEAN:Object.freeze([35, 4]),
-  MISS:Object.freeze([0.05, 0.004]), MAX_DEV:280 });
+   late (up to, ms), MISS the share of cues they never tap. v3 (Brandon:
+   "make the bots not as good"): bots are 0.1 to 0.65 (botSkills), so the
+   sharpest scores about 86% (about 45 ms off, a miss now and then) and the
+   sloppiest about 55% (about 120 ms off, 7% missed); a stand-in (0.5)
+   about 77%. */
+export const BOT = Object.freeze({ SPREAD:Object.freeze([130, 5]), LEAN:Object.freeze([50, 4]),
+  MISS:Object.freeze([0.08, 0.004]), MAX_DEV:280 });
 /* How bots count down at Last Call, in their heads, by skill as BOT: SPREAD
    the standard deviation (ms), LEAN each bot's own rush or drag (up to, ms),
-   SLIP the share of counts a whole number off (SLIP_MS, either way). A sharp
-   bot is within about 150 ms, a sloppy one 800 ms or more off and now and
-   then a second out. They always tap, inside the window. */
-export const COUNT_BOT = Object.freeze({ SPREAD:Object.freeze([1150, 130]), LEAN:Object.freeze([250, 20]),
-  SLIP:Object.freeze([0.25, 0.03]), SLIP_MS:1000, MAX_DEV:LAST_CALL.WINDOW - 20 });
+   SLIP the share of counts a whole number off (SLIP_MS, either way). v3,
+   looser: the sharpest bot (0.65) is about 400 ms off, the sloppiest (0.1)
+   a second and now and then two out. They always tap, inside the window. */
+export const COUNT_BOT = Object.freeze({ SPREAD:Object.freeze([1300, 200]), LEAN:Object.freeze([300, 30]),
+  SLIP:Object.freeze([0.3, 0.05]), SLIP_MS:1000, MAX_DEV:LAST_CALL.WINDOW - 20 });
 
 /* a cue is the room's miss this long after its time and the offset: the
    chart's window and a late tap's trip (MISS_AFTER_MS for a song, 1250 at
@@ -111,10 +114,13 @@ export function rand01(...parts) {
 }
 const normal = (u1, u2) => Math.sqrt(-2 * Math.log(1 - u1)) * Math.cos(2 * Math.PI * u2);
 
-/* skills for n bots, spread from sloppy (0.2) to sharp (0.95), shuffled by seed */
+/* skills for n bots, spread from sloppy (BOT_SKILLS 0.1) to sharp (0.65),
+   shuffled by seed; one bot alone is in the middle */
+export const BOT_SKILLS = Object.freeze([0.1, 0.65]);
 export function botSkills(n, seed = 1) {
+  const [lo, hi] = BOT_SKILLS;
   const skills = [];
-  for (let k = 0; k < n; k += 1) skills.push(n === 1 ? 0.6 : 0.2 + 0.75 * k / (n - 1));
+  for (let k = 0; k < n; k += 1) skills.push(n === 1 ? (lo + hi) / 2 : lo + (hi - lo) * k / (n - 1));
   for (let k = skills.length - 1; k > 0; k -= 1) {
     const j = Math.floor(rand01(seed, 0x5c111, k) * (k + 1));
     [skills[k], skills[j]] = [skills[j], skills[k]];

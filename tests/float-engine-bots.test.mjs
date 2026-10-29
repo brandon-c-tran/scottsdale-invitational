@@ -9,7 +9,7 @@
    now and then a second out. */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { BOT, COUNT_BOT, GROOVE, botChugAfter, botCount, botDraw, botSkills, createBar, createSong, rand01, seedOf, stepSong }
+import { BOT, BOT_SKILLS, COUNT_BOT, GROOVE, botChugAfter, botCount, botDraw, botSkills, createBar, createSong, rand01, seedOf, stepSong }
   from "../float/shared/groove.js";
 import { createCup, makeEntrant, startCup, addBots } from "../float/shared/cup.js";
 import { LAST_CALL, chartOf, cueTime, demoCues, lastCallId, playedCues, scoredCues, SONG_MS } from "../float/shared/chart.js";
@@ -19,15 +19,17 @@ import { CRITTER_IDS } from "../float/shared/looks.js";
 const draws = (skill, n = 4000, seed = 11) => Array.from({ length:n }, (_, k) => botDraw(seed, k % 4, k % 13, k, skill));
 const median = list => { const s = list.slice().sort((a, b) => a - b); return s[s.length >> 1]; };
 
-test("a sharp bot is within about 30 ms, a sloppy one about 90 ms off with the odd miss; never past the window", () => {
-  const sharp = draws(1), sloppy = draws(0), mid = draws(GROOVE.STAND_IN_SKILL);
+test("bots are beatable (v3): the sharpest (0.65) about 35 ms off with a miss now and then, the sloppiest (0.1) about 80 ms and 8% missed; never past the window", () => {
+  assert.equal(GROOVE.STAND_IN_SKILL, 0.5);
+  const sharp = draws(BOT_SKILLS[1]), sloppy = draws(BOT_SKILLS[0]), mid = draws(GROOVE.STAND_IN_SKILL);
   const off = list => list.filter(draw => draw.hit).map(draw => Math.abs(draw.dev));
   const missRate = list => list.filter(draw => !draw.hit).length / list.length;
-  assert.ok(median(off(sharp)) <= 20, `sharp median ${median(off(sharp))}`);
-  assert.ok(off(sharp).filter(d => d <= 30).length / off(sharp).length > 0.85, "most within 30 ms");
-  assert.ok(median(off(sloppy)) >= 45 && median(off(sloppy)) <= 95, `sloppy median ${median(off(sloppy))}`);
-  assert.ok(missRate(sharp) < 0.01, `sharp misses ${missRate(sharp)}`);
-  assert.ok(missRate(sloppy) > 0.03 && missRate(sloppy) < 0.08, `sloppy misses ${missRate(sloppy)}`);
+  assert.ok(median(off(sharp)) >= 25 && median(off(sharp)) <= 45, `sharp median ${median(off(sharp))}`);
+  assert.ok(off(sharp).filter(d => d <= 50).length / off(sharp).length > 0.6, "most within 50 ms");
+  assert.ok(median(off(sloppy)) >= 70 && median(off(sloppy)) <= 110, `sloppy median ${median(off(sloppy))}`);
+  assert.ok(missRate(sharp) > 0.01 && missRate(sharp) < 0.05, `sharp misses ${missRate(sharp)}`);
+  assert.ok(missRate(sloppy) > 0.05 && missRate(sloppy) < 0.1, `sloppy misses ${missRate(sloppy)}`);
+  assert.ok(median(off(draws(1))) <= 10, "skill 1 (none of the bots) is near perfect");
   assert.ok(median(off(mid)) > median(off(sharp)) && median(off(mid)) < median(off(sloppy)), "a stand-in sits between");
   for (const draw of [...sharp, ...sloppy]) {
     if (!draw.hit) { assert.equal(draw.dev, null); continue; }
@@ -59,17 +61,18 @@ test("each bot leans its own way a little, the sloppy more", () => {
   };
   const sharp = Array.from({ length:13 }, (_, i) => Math.abs(leanOf(i, 1)));
   const sloppy = Array.from({ length:13 }, (_, i) => Math.abs(leanOf(i, 0)));
-  assert.ok(Math.max(...sharp) < 10, `sharp leans ${Math.max(...sharp)}`);
+  assert.ok(Math.max(...sharp) < 12, `sharp leans ${Math.max(...sharp)}`);
   assert.ok(Math.max(...sloppy) > 12 && Math.max(...sloppy) < BOT.LEAN[0] + 12, `sloppy leans ${Math.max(...sloppy)}`);
 });
 
-test("skills spread from 0.2 to 0.95, shuffled by seed; a chug-off's Done 4 to 12 s after the go", () => {
+test("skills spread from 0.1 to 0.65, shuffled by seed; a chug-off's Done 4 to 12 s after the go", () => {
   const skills = botSkills(12, 3);
   assert.equal(skills.length, 12);
-  assert.ok(Math.min(...skills) === 0.2 && Math.max(...skills) === 0.95);
+  assert.deepEqual(BOT_SKILLS, [0.1, 0.65]);
+  assert.ok(Math.min(...skills) === 0.1 && Math.max(...skills) === 0.65);
   assert.deepEqual(botSkills(12, 3), skills);
   assert.notDeepEqual(botSkills(12, 4), skills);
-  assert.deepEqual(botSkills(1, 3), [0.6]);
+  assert.deepEqual(botSkills(1, 3), [0.38], "one bot alone: the middle");
   assert.deepEqual(botSkills(0, 3), []);
   const done = Array.from({ length:300 }, (_, k) => botChugAfter(7, k % 4, k));
   assert.ok(done.every(ms => ms >= 4000 && ms <= 12000));
@@ -102,7 +105,7 @@ test("bots tap at the room's offset: their judgement is their skill alone, whate
   assert.equal(delayed.song.offset, 180, "and the offset stays the last song's");
 });
 
-test("a field of bots finishes in skill order, near enough: sharp ones near 100, sloppy ones lower", () => {
+test("a field of bots finishes in skill order, near enough: the sharpest about 85 to 90, the sloppiest well below", () => {
   const { cup, song } = botSong({ seed:8 });
   const chart = chartOf(song.id);
   const pct = i => {
@@ -111,8 +114,8 @@ test("a field of bots finishes in skill order, near enough: sharp ones near 100,
     return pts / scoredCues(chart).length;
   };
   const rows = song.field.map(i => ({ skill:cup.entrants[i].skill, pct:pct(i) })).sort((a, b) => b.skill - a.skill);
-  assert.ok(rows[0].pct > 93, `the sharpest ${rows[0].pct}`);
-  assert.ok(rows.at(-1).pct < rows[0].pct - 10, `the sloppiest ${rows.at(-1).pct}`);
+  assert.ok(rows[0].pct >= 80 && rows[0].pct <= 94, `the sharpest ${rows[0].pct}`);
+  assert.ok(rows.at(-1).pct >= 40 && rows.at(-1).pct < rows[0].pct - 20, `the sloppiest ${rows.at(-1).pct}`);
   /* rank correlation */
   const byPct = rows.slice().sort((a, b) => b.pct - a.pct);
   const rank = row => byPct.indexOf(row);
@@ -138,17 +141,17 @@ test("addBots: critter names, the palette, any tube, never the groom's own critt
   assert.equal(new Set(cup.entrants.map(entrant => entrant.color)).size, cup.entrants.length, "distinct colours");
 });
 
-test("Last Call: counting in its head, a sharp bot is within about 150 ms, a sloppy one 800 ms or more off and now and then a second out, always inside the window", () => {
+test("Last Call: counting in its head (v3, looser), the sharpest bot about 450 ms off, the sloppiest 800 ms or more and often a second out, always inside the window", () => {
   const counts = skill => Array.from({ length:4000 }, (_, k) => botCount(13, k % 3, k % 13, k, skill));
   const off = list => list.map(draw => Math.abs(draw.dev));
-  const sharp = counts(1), sloppy = counts(0), stand = counts(GROOVE.STAND_IN_SKILL);
+  const sharp = counts(BOT_SKILLS[1]), sloppy = counts(BOT_SKILLS[0]), stand = counts(GROOVE.STAND_IN_SKILL);
   assert.ok(sharp.every(draw => draw.hit) && sloppy.every(draw => draw.hit), "bots always tap");
-  assert.ok(median(off(sharp)) <= 110, `sharp median ${median(off(sharp))}`);
-  assert.ok(off(sharp).filter(d => d <= 150).length / sharp.length > 0.7, "mostly within 150 ms");
+  assert.ok(median(off(sharp)) >= 300 && median(off(sharp)) <= 600, `sharp median ${median(off(sharp))}`);
+  assert.ok(off(sharp).filter(d => d <= 150).length / sharp.length > 0.1, "a close one now and then");
   assert.ok(median(off(sloppy)) >= 800, `sloppy median ${median(off(sloppy))}`);
   const secondOut = list => list.filter(draw => Math.abs(draw.dev) >= COUNT_BOT.SLIP_MS).length / list.length;
-  assert.ok(secondOut(sharp) < 0.05, `sharp a second out ${secondOut(sharp)}`);
-  assert.ok(secondOut(sloppy) > 0.3, `sloppy a second out ${secondOut(sloppy)}`);
+  assert.ok(secondOut(sharp) < 0.25, `sharp a second out ${secondOut(sharp)}`);
+  assert.ok(secondOut(sloppy) > 0.35, `sloppy a second out ${secondOut(sloppy)}`);
   assert.ok(median(off(stand)) > median(off(sharp)) && median(off(stand)) < median(off(sloppy)), "a stand-in between");
   for (const draw of [...sharp, ...sloppy]) assert.ok(Number.isInteger(draw.dev) && Math.abs(draw.dev) < LAST_CALL.WINDOW);
   assert.deepEqual(botCount(3, 1, 2, 0, 0.4), botCount(3, 1, 2, 0, 0.4), "a function of what it is for");

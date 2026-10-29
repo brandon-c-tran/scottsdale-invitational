@@ -22,8 +22,10 @@
    hi-hat and the calls stop; their cues are judged like any (a dark bar
    repeats the bar before it, and only its own cues are called in it).
 
-   Every call is the answer's own rhythm, a fixed lead earlier ("answer the
-   host"): Paddle Party paddles on 1 and 3 and answers "Ready" with "Hey!" two
+   Rowing is the base of every song (v3 item 10): in play every bar has a
+   paddle on 1 and 3 (the pulse is its call) unless the song's own cue
+   takes that beat; the breakdown is copying only. Every call is the
+   answer's own rhythm, a fixed lead earlier ("answer the host"): Paddle Party paddles on 1 and 3 and answers "Ready" with "Hey!" two
    beats later; Rock Hop echoes the host's "ba" two beats later; Spin Cycle
    echoes the host's spin one beat later, on the backbeat; The Drop mixes all
    three and ends on one tap after a three-beat countdown.
@@ -117,47 +119,59 @@ const SLOT = { P:"paddle", H:"hey", O:"hop", S:"spin", D:"drop", E:"echo", R:"ro
 const DEMO = { p:"paddle", h:"hey", o:"hop", s:"spin", r:"rocket" };
 const rep = (bar, n) => new Array(n).fill(bar);
 const PLANS = Object.freeze({
+  /* where rowing is learned (v3: paddle, keep paddling with the Hey
+     coming, watch the host do both, both now) */
   paddle:{
-    practice:["P...P...", "P...P...", "P...P.h.", "P...P.H."],
-    lines:[[7, "Paddle on 1 and 3"], [11, "When I say Ready, you say Hey!"], [15, "Watch"], [20, "Your turn"], [55, "Copy me", 60]],
+    practice:["P...P...", "P...P...", "p...p.h.", "P...P.H."],
+    lines:[[7, "Paddle on 1 and 3"], [11, "Keep paddling. Hey! on 4"], [15, "Watch"], [20, "Both now"], [55, "Copy me", 60]],
     playA:[...rep(["P...P...", "P...P.H."], 4).flat()],
     breakdown:["........", "E.E.E...", "........", "E..EE...", "........", "EEE.E...", "........", "E...EEE."],
     playB:["P...P.H.", "P...P.H.", "P...P.H.", "P...P.H.", "P...P.HH", "P...P.H.", "P...P.HH", "P...P..."],
     outro:["H.......", "........"],
   },
+  /* rowing on 1 and 3 (v3 item 10: every song rows), the host's "ba" in
+     the first half, your hop in the second; a hop on 3 takes the stroke's
+     place */
   rock:{
-    practice:["....o...", "....O...", "....o.o.", "....O.O."],
-    lines:[[7, "Hop two beats after me"], [11, "Your turn"], [15, "Two this time"], [20, "Your turn"], [55, "Copy me", 60]],
-    playA:["....O...", "....O...", "....O.O.", "....O...", "....O.O.", "....O...", "....OO..", "....O.O."],
+    practice:["P...P...", "P...P.o.", "P...P.O.", "P...P.OO"],
+    lines:[[7, "Row on 1 and 3"], [11, "Keep rowing. Hop two beats after me"], [16, "Your turn"], [19, "Two this time"],
+      [55, "Copy me", 60]],
+    playA:["P...P.O.", "P...P.O.", "P...O.O.", "P...P.O.", "P...P.OO", "P...O.O.", "P...P.O.", "P...OO.."],
     breakdown:["........", "E...E...", "........", "E.E.E...", "........", "EE..E...", "........", "E..E.E.."],
-    playB:["....O.O.", "....OO..", "....O.O.", "....OOO.", "....OO..", "....O.O.", "....OOO.", "....O..."],
+    playB:["P...O.O.", "P...P.OO", "P...OO..", "P...O.OO", "P...P.O.", "P...OOO.", "P...O.O.", "P...O..."],
     outro:["....O...", "........"],
   },
+  /* row on 1 and 3, spin on 2 and 4 (the host spins on the stroke, you
+     answer a beat later): a tap every beat */
   spin:{
-    practice:["..s...s.", "..S...S.", "..S...S.", "..S...S."],
-    lines:[[7, "Spin one beat after me"], [12, "Your turn"], [20, "On the backbeat"], [55, "Copy me", 60]],
-    playA:rep("..S...S.", 8),
+    practice:["P...P...", "P.s.P.s.", "P.S.P.S.", "P.S.P.S."],
+    lines:[[7, "Row on 1 and 3"], [11, "Keep rowing. Spin one beat after me"], [16, "Your turn"], [20, "On the backbeat"],
+      [55, "Copy me", 60]],
+    playA:rep("P.S.P.S.", 8),
     breakdown:["........", "..E...E.", "........", "..EE..E.", "........", "..E...EE", "........", "..EE..EE"],
-    playB:["..S...S.", "..S...S.", "..SS..S.", "..S...SS", "..SS..SS", "..S...S.", "..SS..SS", "..S...S."],
+    playB:["P.S.P.S.", "P.S.P.S.", "P.SSP.S.", "P.S.P.SS", "P.S.P.S.", "P.SSP.S.", "P.S.P.SS", "P.S.P.S."],
     outro:["..S.....", "........"],
   },
+  /* a bar of each pattern in turn over the rowing; bar 29 is the
+     countdown's (the music cuts: no rowing) */
   drop:{
-    practice:["P...P.H.", "....O.O.", "..S...S.", "..S...S."],
-    lines:[[7, "All three, in turn"], [11, "Hop"], [15, "Spin"], [55, "Copy me", 60]],
-    playA:["P...P.H.", "P...P.HH", "....O.O.", "....OOO.", "..S...S.", "..SS..SS", "P...P.H.", "....OOO."],
+    practice:["P...P...", "P...P.H.", "P...O.O.", "P.S.P.S."],
+    lines:[[7, "Row on 1 and 3"], [11, "Keep rowing. All three, in turn"], [15, "Hop"], [19, "Spin"], [55, "Copy me", 60]],
+    playA:["P...P.H.", "P...P.HH", "P...O.O.", "P...OOO.", "P.S.P.S.", "P.SSP.S.", "P...P.H.", "P...OOO."],
     breakdown:["........", "E.E.E.E.", "........", "E.EEE...", "........", "EE.EE...", "........", "E.E.EEE."],
-    playB:["..S...S.", "....O.O.", "P...P.H.", "..SS..SS", "....OOO.", "P.P.P.P.", "..S...SS", "........"],
+    playB:["P.S.P.S.", "P...O.O.", "P...P.H.", "P.SSP.S.", "P...OOO.", "P.P.P.P.", "P.S.P.SS", "........"],
     outro:["D.......", "........"],
   },
-  /* the final: every kind with rockets, the "and"s, two dark bars (each
-     the bar before it again, kept in your head), a three-rocket finale */
+  /* the final: rockets over the rowing with every other kind, the "and"s,
+     two dark bars (each the bar before it again, kept in your head, still
+     rowing), a three-rocket finale */
   fireworks:{
-    practice:["....r.r.", "....R.R.", "....RR..", "....RRR."],
-    lines:[[7, "Watch the fuse"], [11, "Launch two beats after I light"], [15, "Two quick ones"], [19, "Three in a row"],
+    practice:["P...P...", "P...P.r.", "P...P.R.", "P...R.R."],
+    lines:[[7, "Row on 1 and 3"], [11, "Keep rowing. Watch the fuse"], [16, "Launch two beats after I light"], [20, "Two now"],
       [55, "Copy me", 60]],
-    playA:["P...P.R.", "P...P.RR", "....O.R.", "..S...R.", "P...P.HR", "....OR.R", "..SS..R.", "P...P.RR"],
+    playA:["P...P.R.", "P...P.RR", "P...R.R.", "P.S.P.R.", "P...P.HR", "P...O.RR", "P.S.P.RR", "P...RR.R"],
     breakdown:["........", "E..E..E.", "........", "E.E..EE.", "........", "EE.E.E..", "........", "E.EE.E.E"],
-    playB:["....R.RR", "..S...RR", "P...P.OR", "....RR.R", "....RR.R", "..S..RRR", "..S..RRR", "P...P..."],
+    playB:["P...P.RR", "P.S.P.RR", "P...R.RR", "P...RR.R", "P...RR.R", "P.S.PRR.", "P.S.PRR.", "P...P..."],
     outro:["..R.R.R.", "........"],
     dark:[26, 28],
   },
@@ -202,12 +216,16 @@ function cuesOf(plan, sections) {
   return cues.map((cue, id) => Object.freeze({ id, ...cue }));
 }
 
-/* what the riders do in each bar: the mode of its cues; a bar without cues
+/* what the riders do in each bar: the mode of its cues (its own move over
+   the rowing); a bar without cues
    takes its section's (intro, outro) or, in practice, play and the
    breakdown, the next bar's, so the scene changes a bar ahead of the taps
    (the breakdown's host bars are "echo") */
 function modesOf(cues, sections) {
   const modes = new Array(SONG_BARS).fill(null);
+  /* rowing is under every song (v3): a bar is its own move's (the first cue
+     that isn't a paddle), "paddle" only where it only rows */
+  for (const cue of cues) if (cue.kind !== "paddle") modes[Math.floor(cue.beat / BEATS_PER_BAR)] ??= CUE_KINDS[cue.kind].mode;
   for (const cue of cues) modes[Math.floor(cue.beat / BEATS_PER_BAR)] ??= CUE_KINDS[cue.kind].mode;
   for (const section of sections) for (let bar = section.bar; bar < section.bar + section.bars; bar += 1) {
     if (modes[bar]) continue;

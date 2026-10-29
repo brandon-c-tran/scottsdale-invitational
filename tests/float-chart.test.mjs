@@ -52,8 +52,8 @@ for (const id of SONG_IDS) test(`${id}: cues in order, in practice, play and the
   const practice = sections.find(s => s.kind === "practice");
   const breakdown = breakdownSection(chart);
   for (const line of chart.lines) assert.ok(((line.beat >= practice.from - 1 && line.beat < practice.to)
-    || (line.beat >= breakdown.from - 1 && line.beat < breakdown.to)) && line.until > line.beat && line.text.length <= 32, line.text);
-  for (const demo of demoCues(chart)) assert.notEqual(lineAt(chart, demo.beat)?.text, "Your turn", "a demo is never under Your turn");
+    || (line.beat >= breakdown.from - 1 && line.beat < breakdown.to)) && line.until > line.beat && line.text.length <= 36, line.text);
+  for (const demo of demoCues(chart)) assert.ok(!["Your turn", "Both now"].includes(lineAt(chart, demo.beat)?.text), "a demo is never under Your turn");
   assert.deepEqual([breakdownSection(chart).from, breakdownSection(chart).to], [56, 88]);
   const echoes = cuesBetween(chart, 56, 88);
   assert.ok(echoes.length >= 8 && echoes.every(c => c.kind === "echo" && c.scored && c.call === c.beat - 4), "the breakdown: copy the host a bar later");
@@ -70,13 +70,15 @@ test("the patterns: paddles on 1 and 3, Rock Hop answers two beats after the hos
   const paddle = chartOf("paddle"), rock = chartOf("rock"), spin = chartOf("spin"), drop = chartOf("drop");
   assert.deepEqual(cuesBetween(paddle, 24, 32).map(c => [c.beat % 4, c.kind]),
     [[0, "paddle"], [2, "paddle"], [0, "paddle"], [2, "paddle"], [3, "hey"]]);
-  assert.ok(rock.cues.filter(c => c.kind !== "echo").every(c => c.kind === "hop" && c.call === c.beat - 2 && c.beat % 4 >= 2 && c.call % 4 < 2),
+  assert.ok(rock.cues.filter(c => !["echo", "paddle"].includes(c.kind)).every(c => c.kind === "hop" && c.call === c.beat - 2 && c.beat % 4 >= 2 && c.call % 4 < 2),
     "the host's half, then yours");
-  assert.ok(spin.cues.filter(c => c.kind !== "echo").every(c => c.kind === "spin" && [1, 1.5, 3, 3.5].includes(c.beat % 4)));
+  assert.ok(spin.cues.filter(c => !["echo", "paddle"].includes(c.kind)).every(c => c.kind === "spin" && [1, 1.5, 3, 3.5].includes(c.beat % 4)));
+  assert.deepEqual(cuesBetween(spin, 24, 28).map(c => [c.beat % 4, c.kind]), [[0, "paddle"], [1, "spin"], [2, "paddle"], [3, "spin"]],
+    "row, spin, row, spin");
   const last = drop.cues[drop.cues.length - 1];
   assert.deepEqual([last.kind, last.beat, last.call], ["drop", 120, 117]);
   assert.equal(drop.modes[29], "drop", "the countdown bar is the drop's");
-  assert.deepEqual(callsBetween(rock, 8, 12).map(c => c.call), [8]);
+  assert.deepEqual(callsBetween(rock, 12, 16).map(c => c.call), [13], "the host's ba on 2 for the hop on 4");
 });
 
 test("the windows: Perfect 50, Nice 100, OK 160, then Early or Late", () => {
@@ -152,10 +154,16 @@ test("practice is narrated: the line at each beat, Rhythm Heaven's text box, gon
   const chart = chartOf("paddle");
   assert.equal(lineAt(chart, 6), null);
   assert.equal(lineAt(chart, 7).text, "Paddle on 1 and 3");
+  assert.equal(lineAt(chart, 11).text, "Keep paddling. Hey! on 4");
   assert.equal(lineAt(chart, 16).text, "Watch");
-  assert.equal(lineAt(chart, 21).text, "Your turn");
+  assert.equal(lineAt(chart, 21).text, "Both now");
   assert.equal(lineAt(chart, 24), null, "play has no box");
-  assert.deepEqual(demoCues(chart).map(c => [c.beat, c.kind, c.call]), [[19, "hey", 17]]);
+  assert.deepEqual(demoCues(chart).map(c => [c.beat, c.kind, c.call]), [[16, "paddle", null], [18, "paddle", null], [19, "hey", 17]],
+    "the host's bar paddles and heys");
+  const practice = practiceCues(chart);
+  assert.deepEqual(practice.map(c => [c.beat, c.kind]), [[8, "paddle"], [10, "paddle"], [12, "paddle"], [14, "paddle"],
+    [20, "paddle"], [22, "paddle"], [23, "hey"]], "paddle, keep paddling, (watch), both");
+  assert.ok(practice.filter(c => c.beat < 23.5).length >= 4, "enough to calibrate before the offset is fixed");
 });
 
 test("after a song: Superb, OK or Try again, a line of feedback, the awards", () => {
@@ -263,4 +271,31 @@ test("dark bars: in play, each the bar before it again, and only their own cues 
       assert.ok(chart.dark.includes(barOf(cue.beat)), `${id}: cue ${cue.id} at ${cue.beat} is lit but called in the dark`);
   }
   assert.deepEqual(chartOf("paddle").dark, []);
+});
+
+test("rowing is the base of every song: a stroke on 1 and 3 of every play bar unless the song's own cue takes it; practice opens with a bar of rowing; the breakdown only copies", () => {
+  for (const id of SONG_IDS) {
+    const chart = chartOf(id);
+    const plays = chart.sections.filter(s => s.kind === "play");
+    for (const section of plays) for (let bar = section.bar; bar < section.bar + section.bars; bar += 1) {
+      if (id === "drop" && bar === 29) {
+        assert.deepEqual(cuesBetween(chart, bar * 4, bar * 4 + 4), [], "the drop's countdown bar: the music cuts");
+        continue;
+      }
+      for (const beat of [bar * 4, bar * 4 + 2]) {
+        const on = chart.cues.filter(c => c.beat === beat);
+        assert.equal(on.length, 1, `${id}: one cue on beat ${beat}`);
+      }
+      assert.ok(cuesBetween(chart, bar * 4, bar * 4 + 4).some(c => c.kind === "paddle"), `${id}: bar ${bar} rows`);
+      assert.ok(cuesBetween(chart, bar * 4, bar * 4 + 4).every(c => c.kind !== "paddle" || c.beat % 1 === 0), `${id}: strokes on the beat`);
+    }
+    const practice = chart.sections.find(s => s.kind === "practice");
+    assert.deepEqual(cuesBetween(chart, practice.from, practice.from + 4).map(c => [c.beat - practice.from, c.kind, !!c.demo]),
+      [[0, "paddle", false], [2, "paddle", false]], `${id}: a bar of rowing first`);
+    assert.match(lineAt(chart, practice.from).text, /^(Row|Paddle) on 1 and 3$/);
+    assert.ok(cuesBetween(chart, 56, 88).every(c => c.kind === "echo"), `${id}: the breakdown only copies`);
+    assert.ok(practiceCues(chart).filter(c => c.beat < practice.to - 0.5).length >= 4, `${id}: calibrates`);
+    const beats = chart.cues.map(c => c.beat);
+    assert.equal(new Set(beats).size, beats.length, `${id}: never two cues at one time`);
+  }
 });

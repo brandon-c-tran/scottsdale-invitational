@@ -112,8 +112,10 @@ patterns of the same mechanic:
 | 3 | Spin Cycle | the host spins on 1 and 3, you echo one beat later on 2 and 4 (the backbeat); doubles on the "and" later |
 | 4 | The Drop | the final: a bar of each pattern in turn, switching faster after the drink, a bar of paddling on every beat, then the music cuts, the host counts three beats, and one tap on the drop (bar 30, over the falls) |
 
-Cue counts: Paddle Party 46 scored (10 practice), Rock Hop 30 (6), Spin Cycle
-39 (8), The Drop 46 (9). The last cue of songs 1 to 3 is in bar 30 (the
+Cue counts (v3, rowing in every song; scored, then practice taps and the
+host's demos): Paddle Party 60 (7, 3), Rock Hop 63 (11, 1), Spin Cycle 81
+(12, 2), The Drop 76 (12, 0), Fireworks 83 (10, 1); each breakdown is 16 of
+the scored. The last cue of every song but The Drop is in bar 30 (the
 outro's big finish).
 
 Names say what you do (Brandon, Oct 27: no river jargon; "Put-in", "The
@@ -827,6 +829,32 @@ in a fun way i think and make it visually appealing that you're rowing".
   is `{ ms, d, place, of }` (`place` null until then, `of` everyone at the
   bar), and the room sends every phone its `me` the moment who drinks is
   known. `me.place` stays the rider's place in the Cup.
+- Item 6, Paddle Party's practice: `P...P...` "Paddle on 1 and 3", `P...P...`
+  "Keep paddling. Hey! on 4" (the line previews the Hey: nothing on 4 to
+  tap, so no Ready/Hey sits under the narration), `p...p.h.` "Watch" (the
+  host's bar: two demo paddles and a demo Hey), `P...P.H.` "Both now".
+- Item 10, rowing (all five songs): every play bar has a `paddle` on 1 and
+  3 unless the song's own cue takes that beat (never two cues at one
+  time); The Drop's bar 29 (its countdown) stays empty and its bar 27
+  rows on every beat; dark bars row. Practice opens with a bar of rowing
+  ("Row on 1 and 3"; Paddle Party keeps "Paddle on 1 and 3"), then the
+  move over the rowing: Rock Hop hops on 4 over strokes on 1 and 3 ("Keep
+  rowing. Hop two beats after me", a demo, "Your turn", "Two this time");
+  Spin Cycle is row, spin, row, spin ("Keep rowing. Spin one beat after
+  me", a demo bar, "Your turn", "On the backbeat"); The Drop "Keep rowing.
+  All three, in turn", "Hop", "Spin"; Fireworks "Keep rowing. Watch the
+  fuse" (a demo rocket), "Launch two beats after I light", "Two now".
+  Lines are up to 36 characters. The breakdown is copying only. A bar's
+  `modes` entry is its own move (its first cue that isn't a paddle), so
+  Rock Hop's bars stay "rock" over the rowing; "paddle" only where a bar
+  just rows (or rows with a Hey). Every
+  practice has 7 or more taps to calibrate on before the offset is fixed.
+- Item 7, bots: `botSkills` spread 0.1 to 0.65 (`BOT_SKILLS`; one bot
+  alone 0.38), `BOT` SPREAD [130, 5], LEAN [50, 4], MISS [0.08, 0.004],
+  `STAND_IN_SKILL` 0.5, `COUNT_BOT` SPREAD [1300, 200], LEAN [300, 30],
+  SLIP [0.3, 0.05]. `node scripts/float-sim.mjs --cups 50` (it now prints
+  song percent by skill): the sharpest bot (0.65) averages 86.8% (78 to
+  92), the sloppiest (0.1) 56.2% (44 to 67), a stand-in about 77%.
 
 ## Wednesday night target (in cut order: the last line goes first)
 

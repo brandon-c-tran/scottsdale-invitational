@@ -8,8 +8,8 @@
      lobby -> intro -> [ song -> cut -> chugoff -> lastcall ] x rounds -> podium -> feedback -> lobby
 
    One song a round (chart.js songForRound: Paddle Party, Rock Hop, Spin
-   Cycle, then The Drop). After each song but the last the lowest round
-   percents are out (13 -> 9 -> 6 -> 3), ties by the Cup total (the rider's
+   Cycle, The Drop, then Fireworks). After each song but the last the lowest round
+   percents are out (13 -> 10 -> 7 -> 5 -> 3), ties by the Cup total (the rider's
    earlier percents), then perfects, then the field's order (the last
    round's ranking). The final's percent orders the podium; 4th and down
    are the riders cut, the last cut first, each cut in its own round's order.
@@ -28,7 +28,7 @@
    Last Call (GROOVE.md "Last Call: the countdown") follows every cut but
    the last, when the room drinks (with drinking off there is none):
    everyone in the Cup at the bar, the field and the riders out, one tap on
-   the countdown's zero (chartOf(lastCallId(round)): lights, slow, ticks),
+   the countdown's zero (chartOf(lastCallId(round)): lights, slow, ticks, rush),
    the farthest off drinks. Never scored in the Cup; who drank goes in that
    round's history. The cut before it is shorter (CUT_BEFORE_LAST_CALL_MS).
 
@@ -47,7 +47,7 @@ import { addTenths, botChugAfter, botSkills, closeSong, createBar, createSong, c
 
 /* colours for riders without one (protocol.js owns the list) */
 export { PALETTE };
-export const ROUNDS = 4;
+export const ROUNDS = 5;
 export const MAX_RIDERS = 16;
 /* the Cup's clock (a song's own length is chart.js's) */
 export const CUP_TIMING = Object.freeze({
@@ -85,7 +85,7 @@ export const lastCallPhaseMs = round => CUP_TIMING.LAST_CALL_LEAD_MS + chartOf(l
 
 /* the field for every round: monotonic, never below 3, the final 3 once
    there are 3 or more; the cuts as even as they can be, bigger first (13:
-   13, 9, 6, 3). 1 to 3 riders play every round uncut. */
+   13, 10, 7, 5, 3). 1 to 3 riders play every round uncut. */
 export function cutSchedule(n, rounds = ROUNDS) {
   const riders = Math.max(0, Math.min(MAX_RIDERS, n | 0));
   if (riders <= 3) return new Array(rounds).fill(riders);

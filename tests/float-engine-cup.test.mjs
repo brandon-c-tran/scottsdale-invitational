@@ -51,22 +51,25 @@ const hitAt = (cup, i, cue, d = 0) => {
   return applyHit(cup, cup.song, i, { c:cue.id, r:cup.song.offset + d }, t + 40);
 };
 
-test("cutSchedule: four rounds, monotonic, never below 3, the final always 3; 13 is 13, 9, 6, 3", () => {
-  assert.equal(ROUNDS, 4);
-  assert.deepEqual(cutSchedule(13), [13, 9, 6, 3]);
+test("cutSchedule: five rounds, monotonic, never below 3, the final always 3; 13 is 13, 10, 7, 5, 3", () => {
+  assert.equal(ROUNDS, 5);
+  assert.deepEqual(cutSchedule(13), [13, 10, 7, 5, 3]);
   for (let n = 1; n <= 16; n += 1) {
     const schedule = cutSchedule(n);
-    assert.equal(schedule.length, 4, `n ${n}`);
+    assert.equal(schedule.length, 5, `n ${n}`);
     assert.equal(schedule[0], n);
     for (let k = 1; k < schedule.length; k += 1) assert.ok(schedule[k] <= schedule[k - 1], `n ${n} monotonic`);
     if (n >= 3) assert.equal(schedule.at(-1), 3, `n ${n} final of 3`);
-    else assert.deepEqual(schedule, new Array(4).fill(n), `n ${n}: no cuts`);
+    else assert.deepEqual(schedule, new Array(5).fill(n), `n ${n}: no cuts`);
   }
-  assert.deepEqual(cutSchedule(16), [16, 11, 7, 3]);
-  assert.deepEqual(cutSchedule(4), [4, 3, 3, 3]);
+  assert.deepEqual(cutSchedule(16), [16, 12, 9, 6, 3]);
+  assert.deepEqual(cutSchedule(9), [9, 7, 5, 4, 3]);
+  assert.deepEqual(cutSchedule(5), [5, 4, 3, 3, 3]);
+  assert.deepEqual(cutSchedule(4), [4, 3, 3, 3, 3]);
+  assert.deepEqual(cutSchedule(13, 4), [13, 9, 6, 3], "four rounds as before");
 });
 
-test("a whole Cup of 13: four songs in order, the lowest percents out 13, 9, 6, 3, the final's order then the cuts reversed", () => {
+test("a whole Cup of 13: five songs in order, the lowest percents out 13, 10, 7, 5, 3, the final's order then the cuts reversed", () => {
   const cup = cupOf(13);
   const clock = into(cup);
   assert.equal(cup.phase, "intro");
@@ -77,17 +80,19 @@ test("a whole Cup of 13: four songs in order, the lowest percents out 13, 9, 6, 
   } });
   assert.equal(cup.phase, "podium");
   assert.deepEqual(phases, ["song", "cut", "chugoff", "lastcall", "song", "cut", "chugoff", "lastcall", "song", "cut", "chugoff", "lastcall",
-    "song", "cut", "podium"], "a chug-off and a Last Call after every cut but the last");
-  assert.deepEqual(intros.map(item => item.call), [CHUGOFF.INTRO_FIRST_MS, CHUGOFF.INTRO_MS, CHUGOFF.INTRO_MS], "the first chug-off's call is 7 s, later ones 4 s");
-  assert.deepEqual(cup.history.map(item => item.song), ["paddle", "rock", "spin", "drop"]);
-  assert.deepEqual(cup.history.map(item => item.field.length), [13, 9, 6, 3]);
+    "song", "cut", "chugoff", "lastcall", "song", "cut", "podium"], "a chug-off and a Last Call after every cut but the last");
+  assert.deepEqual(intros.map(item => item.call), [CHUGOFF.INTRO_FIRST_MS, CHUGOFF.INTRO_MS, CHUGOFF.INTRO_MS, CHUGOFF.INTRO_MS],
+    "the first chug-off's call is 7 s, later ones 4 s");
+  assert.deepEqual(cup.history.map(item => item.song), ["paddle", "rock", "spin", "drop", "fireworks"]);
+  assert.deepEqual(cup.history.map(item => item.field.length), [13, 10, 7, 5, 3]);
+  assert.deepEqual(cup.history.map(item => item.lastCall?.trick ?? null), ["lights", "slow", "ticks", "rush", null], "four Last Calls");
   for (const item of cup.history) {
     const { results } = item;
     assert.deepEqual(results.map(row => row.place), results.map((_, k) => k + 1));
-    const through = item.round < 3 ? cutSchedule(13)[item.round + 1] : 3;
+    const through = item.round < 4 ? cutSchedule(13)[item.round + 1] : 3;
     /* the lowest go; the chug-off settles the spot between the last through and the first out */
     assert.equal(results.filter(row => !row.out).length, through);
-    if (item.round < 3) {
+    if (item.round < 4) {
       assert.deepEqual(results.slice(through + 1).map(row => row.i), item.out.slice(1), "everyone below the pair goes");
       assert.deepEqual([item.chugoff.a, item.chugoff.b], [results[through - 1].i, results[through].i]);
       assert.deepEqual(item.out[0], item.chugoff.loser, "the chug-off's loser is the round's best out");
@@ -98,14 +103,15 @@ test("a whole Cup of 13: four songs in order, the lowest percents out 13, 9, 6, 
     for (let k = 1; k < results.length; k += 1) assert.ok(results[k].pct <= results[k - 1].pct, "by the round's percent");
   }
   /* final: the final's order, then the last cut's best (4th) down to the first out */
-  const [r1, r2, r3, final] = cup.history;
-  assert.deepEqual(cup.final, [...final.results.map(row => row.i), ...r3.out, ...r2.out, ...r1.out]);
+  const [r1, r2, r3, r4, final] = cup.history;
+  assert.deepEqual(cup.final, [...final.results.map(row => row.i), ...r4.out, ...r3.out, ...r2.out, ...r1.out]);
   assert.deepEqual(cup.podium, final.results.map(row => row.i));
   assert.equal(new Set(cup.final).size, 13);
   assert.equal(cup.out.length, 10);
-  assert.deepEqual(cup.out.slice(0, 4), r1.out.slice().reverse(), "out: a round's worst first");
+  assert.deepEqual(cup.out.slice(0, r1.out.length - 1), r1.out.slice(1).reverse(), "out: a round's worst first");
+  assert.equal(cup.out[r1.out.length - 1], r1.out[0], "the chug-off's loser after them");
   assert.deepEqual(standingsOf(cup).map(item => item.i), cup.final);
-  assert.equal(standingsOf(cup)[3].out, 2, "4th went out in round 3 (index 2)");
+  assert.equal(standingsOf(cup)[3].out, 3, "4th went out in round 4 (index 3)");
   assert.equal(cup.done, true);
   /* the Cup total is each rider's songs summed */
   const winner = cup.final[0];
@@ -120,7 +126,7 @@ test("a whole Cup of 13: four songs in order, the lowest percents out 13, 9, 6, 
   const judged = events.filter(event => event.e === "hit");
   const total = cup.history.reduce((sum, item) => sum + item.field.length * playedCues(chartOf(item.song)).length
     + (item.lastCall ? item.lastCall.players.length * playedCues(chartOf(item.lastCall.id)).length : 0), 0);
-  assert.deepEqual(cup.history.map(item => item.lastCall?.players.length ?? null), [13, 13, 13, null], "everyone in the Cup at each Last Call");
+  assert.deepEqual(cup.history.map(item => item.lastCall?.players.length ?? null), [13, 13, 13, 13, null], "everyone in the Cup at each Last Call");
   assert.equal(judged.length, total);
   /* sharper bots go further */
   const skill = i => cup.entrants[i].skill;
@@ -137,9 +143,10 @@ test("1 to 3 riders play every song without a cut; the last song's order is the 
     const cup = cupOf(n);
     const clock = into(cup);
     play(cup, clock, { until:() => cup.phase === "podium" });
-    assert.deepEqual(cup.history.map(item => item.field.length), [n, n, n, n]);
+    assert.deepEqual(cup.history.map(item => item.field.length), [n, n, n, n, n]);
+    assert.deepEqual(cup.history.map(item => item.song), ["paddle", "rock", "spin", "drop", "fireworks"], "solo QA plays all five");
     assert.deepEqual(cup.out, []);
-    assert.deepEqual(cup.final, cup.history[3].results.map(row => row.i));
+    assert.deepEqual(cup.final, cup.history[4].results.map(row => row.i));
     assert.deepEqual(cup.podium, cup.final.slice(0, 3));
   }
 });
@@ -184,10 +191,10 @@ test("the phase clock: intro 8 s, the song's card 3 s before beat 0, cut 12 s, L
   assert.equal(cup.round, 1);
   assert.equal(cup.songId, "rock");
   assert.equal(cup.startAt, late);
-  for (const round of [1, 2, 3]) {
+  for (const round of [1, 2, 3, 4]) {
     advance(cup, cup.endsAt);
     assert.equal(cup.phase, "cut", `round ${round}`);
-    if (round < 3) {
+    if (round < 4) {
       advance(cup, cup.endsAt);
       assert.equal(cup.phase, "lastcall", "3 riders: nobody goes, no chug-off");
       assert.equal(cup.bar.id, lastCallId(round));
@@ -215,7 +222,7 @@ test("with the room's drinking off there is no Last Call: each cut is 15 s and t
   const cup = cupOf(5, { drinking:false });
   const clock = into(cup);
   const { phases } = play(cup, clock, { until:() => cup.phase === "podium" });
-  assert.deepEqual(phases, ["song", "cut", "song", "cut", "song", "cut", "song", "cut", "podium"]);
+  assert.deepEqual(phases, ["song", "cut", "song", "cut", "song", "cut", "song", "cut", "song", "cut", "podium"]);
   assert.ok(cup.history.every(item => !("lastCall" in item)));
   const dry = cupOf(5, { drinking:false });
   advance(dry, dry.endsAt);
@@ -699,7 +706,7 @@ test("the cut's show: the grades' stamp, the awards a card apart, the cut line, 
 /* ---- Last Call: the countdown (GROOVE.md "Last Call: the countdown") ---- */
 
 /* a cup played to its first Last Call; the room's offset set while the cut runs */
-function toLastCall({ n = 7, people = 3, offset = 140, driven = null } = {}) {
+function toLastCall({ n = 8, people = 3, offset = 140, driven = null } = {}) {
   const cup = cupOf(n, { people });
   const clock = into(cup);
   const drive = driven || (i => cup.entrants[i].bot);
@@ -716,7 +723,7 @@ test("Last Call is the countdown: everyone in the Cup at the bar, one tap on zer
   const chart = chartOf(bar.id);
   assert.deepEqual([bar.id, chart.countdown.trick], ["lastcall-lights", "lights"]);
   assert.deepEqual(playedCues(chart).map(cue => cue.kind), ["zero"]);
-  assert.equal(cup.out.length, 2, "7 riders: 2 out after the first song");
+  assert.equal(cup.out.length, 2, "8 riders: 2 out after the first song (8, 6, 5, 4, 3)");
   assert.deepEqual(bar.field, [...cup.field, ...cup.out.slice().reverse()], "the field, then the riders out");
   assert.deepEqual(barPlayers(cup), bar.field);
   assert.deepEqual([bar.offset, bar.frozen], [140, true], "the last song's offset, never calibrating");
@@ -745,7 +752,7 @@ test("Last Call is the countdown: everyone in the Cup at the bar, one tap on zer
   assert.ok(outPlace < otherPlace, "closer is the better place");
   play(cup, clock, { until:() => cup.phase !== "lastcall" });
   const record = cup.history[0].lastCall;
-  assert.deepEqual([record.id, record.trick, record.players.length], ["lastcall-lights", "lights", 7]);
+  assert.deepEqual([record.id, record.trick, record.players.length], ["lastcall-lights", "lights", 8]);
   for (const row of record.totals) if (cup.entrants[row.i].bot) assert.ok(Number.isFinite(row.d), "bots always tap");
   assert.equal(cup.song.offset, 140, "and the next song starts from the same offset");
 });
@@ -782,7 +789,7 @@ test("Last Call's totals: 0 until the tap lands, then |d|, no tap a full 3 s; wh
   assert.deepEqual(summary.worst, lastCallWorst(summary.totals));
 });
 
-test("three countdowns, harder each time (lights, slow, ticks), each its own length; stand-ins count for phones gone and never drink; me.lastCall { ms, d }; the record", () => {
+test("four countdowns, harder each time (lights, slow, ticks, rush), each its own length; stand-ins count for phones gone and never drink; me.lastCall { ms, d, place, of }; the record", () => {
   /* rider 0's phone is here and taps 30 ms after zero; 1 and 2 are gone from the start (stand-ins) */
   const driven = (i, t) => cup.entrants[i].bot || i === 1 || i === 2;
   const cup = cupOf(7, { people:3 });
@@ -796,15 +803,16 @@ test("three countdowns, harder each time (lights, slow, ticks), each its own len
       mine.push({ round:cup.round, length:cup.endsAt - cup.startAt, me:meOf(cup, 0, t) });
     }
   } });
-  assert.deepEqual(cup.history.map(item => item.lastCall?.trick ?? null), ["lights", "slow", "ticks", null]);
-  assert.deepEqual(mine.map(item => item.length), [0, 1, 2].map(lastCallPhaseMs));
+  assert.deepEqual(cup.history.map(item => item.lastCall?.trick ?? null), ["lights", "slow", "ticks", "rush", null]);
+  assert.deepEqual(mine.map(item => item.length), [0, 1, 2, 3].map(lastCallPhaseMs));
+  assert.ok(lastCallPhaseMs(3) < lastCallPhaseMs(2), "the rush is the shortest");
   assert.ok(lastCallPhaseMs(0) > lastCallPhaseMs(2), "the first one's longer intro");
   for (const item of mine) {
     assert.deepEqual(item.me.lastCall, { ms:30, d:30, place:null, of:7 },
       "the phone's own, on the room's offset (0: nobody calibrated); no place before the window closes");
     assert.deepEqual([item.me.c, item.me.q, item.me.d], [0, "perfect", 30]);
   }
-  for (const item of cup.history.slice(0, 3)) {
+  for (const item of cup.history.slice(0, 4)) {
     const record = item.lastCall;
     assert.deepEqual(record.excused.slice().sort(), [1, 2], "a stand-in counted for them");
     assert.ok(record.worst.length >= 1 && !record.worst.includes(1) && !record.worst.includes(2), "and they never drink for it");
@@ -842,6 +850,6 @@ test("Last Call follows only cuts with a song after them: never after the final,
   const cup = cupOf(2);
   const clock = into(cup);
   const { phases } = play(cup, clock, { until:() => cup.phase === "podium" });
-  assert.equal(phases.filter(phase => phase === "lastcall").length, 3);
-  assert.deepEqual(cup.history.map(item => item.lastCall?.players.length ?? null), [2, 2, 2, null]);
+  assert.equal(phases.filter(phase => phase === "lastcall").length, 4);
+  assert.deepEqual(cup.history.map(item => item.lastCall?.players.length ?? null), [2, 2, 2, 2, null]);
 });

@@ -58,9 +58,10 @@ export const CUP_TIMING = Object.freeze({
   CUT_LAST_MS:7000,
   /* a cut with the chug-off and Last Call after it (the room drinking) */
   CUT_BEFORE_LAST_CALL_MS:12000,
-  /* the chug-off, at its longest: the call, the window, the reveal, the
-     exit (chart.js CHUGOFF); a Done ends the window early */
-  CHUGOFF_MAX_MS:CHUGOFF.INTRO_MS + CHUGOFF.WINDOW_MS + CHUGOFF.REVEAL_MS + CHUGOFF.EXIT_MS,
+  /* the chug-off, at its longest: the call (the Cup's first says its rule:
+     INTRO_FIRST_MS), the window, the reveal, the exit (chart.js CHUGOFF); a
+     Done ends the window early. The first one's (chugoffPhaseMs: a later one) */
+  CHUGOFF_MAX_MS:CHUGOFF.INTRO_FIRST_MS + CHUGOFF.WINDOW_MS + CHUGOFF.REVEAL_MS + CHUGOFF.EXIT_MS,
   /* the cut's beats from its start (cutShowOf): the grades' stamp, the
      awards a card apart, the cut line after the last, then the riders out
      from the bottom, at most OUT_GAP_MS apart and done END_MS before the end */
@@ -75,6 +76,9 @@ export const CUP_TIMING = Object.freeze({
   LATE_MS:1000,
 });
 export const SONG_PHASE_MS = SONG_LEAD_MS + SONG_MS + SONG_TAIL_MS;
+/* a chug-off's call, and its phase at its longest: the Cup's first says its rule */
+export const chugoffIntroMs = first => first ? CHUGOFF.INTRO_FIRST_MS : CHUGOFF.INTRO_MS;
+export const chugoffPhaseMs = first => chugoffIntroMs(first) + CHUGOFF.WINDOW_MS + CHUGOFF.REVEAL_MS + CHUGOFF.EXIT_MS;
 /* the Last Call after round k: the lead, its chart (the countdown, the first
    one's intro the longer), the same tail as a song's */
 export const lastCallPhaseMs = round => CUP_TIMING.LAST_CALL_LEAD_MS + chartOf(lastCallId(round)).ms + SONG_TAIL_MS;
@@ -270,8 +274,9 @@ function feedbackFor(chart, hits, pct) {
 /* the chug-off goes up at `at`: the call, then the go */
 function enterChugoff(cup, at) {
   const [a, b] = cup.bubble;
-  cup.chugoff = { round:cup.round, a, b, goAt:at + CHUGOFF.INTRO_MS, doneAt:{}, winner:null, loser:null, by:null, decidedAt:null };
-  setPhase(cup, "chugoff", at, CUP_TIMING.CHUGOFF_MAX_MS);
+  const first = !cup.history.some(item => item.chugoff);
+  cup.chugoff = { round:cup.round, a, b, first, goAt:at + chugoffIntroMs(first), doneAt:{}, winner:null, loser:null, by:null, decidedAt:null };
+  setPhase(cup, "chugoff", at, chugoffPhaseMs(first));
 }
 
 /* The spot is settled: the winner is the last through (the next field's

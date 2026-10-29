@@ -70,10 +70,15 @@ test("a whole Cup of 13: four songs in order, the lowest percents out 13, 9, 6, 
   const cup = cupOf(13);
   const clock = into(cup);
   assert.equal(cup.phase, "intro");
-  const { events, phases } = play(cup, clock, { until:() => cup.phase === "podium" });
+  const intros = [];
+  const { events, phases } = play(cup, clock, { until:() => cup.phase === "podium", each:() => {
+    if (cup.phase === "chugoff" && intros.at(-1)?.round !== cup.round)
+      intros.push({ round:cup.round, call:cup.chugoff.goAt - cup.startAt, length:cup.endsAt - cup.startAt });
+  } });
   assert.equal(cup.phase, "podium");
   assert.deepEqual(phases, ["song", "cut", "chugoff", "lastcall", "song", "cut", "chugoff", "lastcall", "song", "cut", "chugoff", "lastcall",
     "song", "cut", "podium"], "a chug-off and a Last Call after every cut but the last");
+  assert.deepEqual(intros.map(item => item.call), [CHUGOFF.INTRO_FIRST_MS, CHUGOFF.INTRO_MS, CHUGOFF.INTRO_MS], "the first chug-off's call is 7 s, later ones 4 s");
   assert.deepEqual(cup.history.map(item => item.song), ["paddle", "rock", "spin", "drop"]);
   assert.deepEqual(cup.history.map(item => item.field.length), [13, 9, 6, 3]);
   for (const item of cup.history) {
@@ -158,9 +163,9 @@ test("the phase clock: intro 8 s, the song's card 3 s before beat 0, cut 12 s, L
   /* 4 riders: one goes, so the last through and the first out chug for the spot */
   advance(cup, cup.endsAt);
   assert.equal(cup.phase, "chugoff");
-  assert.equal(cup.chugoff.goAt, cup.startAt + CHUGOFF.INTRO_MS);
+  assert.equal(cup.chugoff.goAt, cup.startAt + CHUGOFF.INTRO_FIRST_MS, "the Cup's first chug-off says its rule: 7 s");
   assert.equal(cup.endsAt - cup.startAt, CUP_TIMING.CHUGOFF_MAX_MS);
-  assert.equal(CUP_TIMING.CHUGOFF_MAX_MS, 4000 + 30000 + 3000 + 2500);
+  assert.equal(CUP_TIMING.CHUGOFF_MAX_MS, 7000 + 30000 + 3000 + 2500);
   const cutEnds = cup.endsAt;
   advance(cup, cutEnds);
   assert.equal(cup.phase, "lastcall");

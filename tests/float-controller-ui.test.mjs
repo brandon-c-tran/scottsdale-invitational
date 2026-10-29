@@ -148,7 +148,7 @@ test("practice narrated: the text box at the top, Watch while the host shows a c
   assert.match(told, /has-line/);
   assert.doesNotMatch(told, /Round 1 of 4/, "the narration takes the top from the card");
   const demo = paddle.cues.find(cue => cue.demo);
-  const watching = song(demo.call + 0.2);
+  const watching = song((Number.isFinite(demo.call) ? demo.call : demo.beat - 1) + 0.2);
   assert.match(watching, /flc-line[^"]*"[^>]*><b[^>]*>Watch</);
   const breakdown = song(56.2);
   assert.match(breakdown, /data-moment="breakdown"/);

@@ -245,9 +245,8 @@ export function karaokeActions({ ok, err, gmOnly, run }) {
       if (track !== null) {
         if (!track || typeof track !== "object" || Array.isArray(track)) return err(BAD_SONG);
         const checkedAt = Number(track.checkedAt);
-        /* whether the song has synced lyrics is the server's to say (the
-           Durable Object reads its own LRCLIB answer into ctx.karaokeLyrics),
-           and the nudge the commissioner's: neither is taken from a phone */
+        /* a song's lyrics word and nudge (Oct 15 to 28, unread since) are
+           never taken from a phone */
         const { lyrics:claimed, lyricsOffset:nudged, ...asked } = track;
         next = cleanKaraokeTrack({ ...asked, at:now, checkedAt:checkedAt > 0 ? Math.min(checkedAt, now) : null }, { now });
         if (!next) return err(BAD_SONG);

@@ -12,10 +12,8 @@
      as validateSpotifyTrack keeps a win song (provider, trackId, uri, url,
      name, artists, durationMs, imageUrl, explicit, isrc), less startMs, plus
        video:{ id, title, channel, seconds }, alts:[video], at, checkedAt,
-       lyrics (true/false: LRCLIB had synced lyrics for it when it was
-       saved; absent: unknown, as for a song saved before Oct 15),
-       lyricsOffset (the commissioner's nudge in ms; positive shows the
-       words earlier)
+       lyrics, lyricsOffset (a song saved Oct 15 to 28, when our own
+       lyrics were on: kept so a re-save is a no-op, never read)
      Configuration, private to its owner and the commissioner, kept by a
      progress reset. An upload's kind (instrumental, karaoke, other) is
      read from its title (karaokeVideoKind), never stored.

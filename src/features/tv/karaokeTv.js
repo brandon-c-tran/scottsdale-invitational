@@ -8,10 +8,7 @@
      order      the running order dealt as a queue (KARAOKE_ORDER_HOLD_MS)
      up         a singer up next: their chip, their song stamped in
      singing    the song: the video in its own box (nothing drawn over it),
-                or the lit card for a practice song or a failed upload;
-                sung over an instrumental with our lyrics, the player
-                compact in the top right corner and the lyric stage on
-                the rest of the canvas
+                or the lit card for a practice song or a failed upload
      voting     the song over, the vote open: who has voted, never how
      legendary  a closed vote that was Legendary rains over its singer
      reveal     the order from last place to first */
@@ -29,8 +26,8 @@ import { teamRows } from "../moments/walkoutTeam.js";
    under it. */
 export const KARAOKE_VIDEO_BOX = Object.freeze({ x:192, y:54, w:1536, h:864 });
 export const KARAOKE_STRIP = Object.freeze({ x:64, y:932, w:1792, h:88 });
-/* Sung over an instrumental with our own lyrics (docs/KARAOKE.md
-   "Lyrics"): the player stays on screen, compact, in the top right corner
+/* Unmounted since Oct 28 (docs/KARAOKE.md "Lyrics, off"). Sung over an
+   instrumental with our own lyrics: the player stays on screen, compact, in the top right corner
    (YouTube's minimum player is 200x200; nothing is drawn over it), the
    singer's plate beside it, and the lyric stage between them and the
    strip: the line being sung lit word by word, the next one dim under it. */

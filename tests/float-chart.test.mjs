@@ -21,11 +21,16 @@ test("a song is 32 bars at 120 bpm: intro 2, practice 4, play 8, breakdown 8, pl
   ]);
 });
 
-test("five songs, named for what you do; the last round is always The Drop", () => {
+test("five songs, named for what you do; the last round is Fireworks, the one before it The Drop", () => {
   assert.deepEqual(SONGS.map(s => s.name), ["Paddle Party", "Rock Hop", "Spin Cycle", "The Drop", "Fireworks"]);
   assert.deepEqual(SONGS.map(s => s.scene), ["open", "rocks", "whirlpool", "falls", "night"]);
-  assert.deepEqual([0, 1, 2, 3].map(r => songForRound(r, 4)), ["paddle", "rock", "spin", "drop"]);
-  assert.equal(songForRound(1, 2), "drop");
+  assert.deepEqual([0, 1, 2, 3, 4].map(r => songForRound(r, 5)), ["paddle", "rock", "spin", "drop", "fireworks"]);
+  assert.deepEqual([0, 1, 2, 3].map(r => songForRound(r, 4)), ["paddle", "rock", "drop", "fireworks"]);
+  assert.deepEqual([0, 1, 2].map(r => songForRound(r, 3)), ["paddle", "drop", "fireworks"]);
+  assert.deepEqual([0, 1].map(r => songForRound(r, 2)), ["drop", "fireworks"]);
+  assert.equal(songForRound(0, 1), "fireworks");
+  assert.deepEqual([0, 1, 2, 3, 4, 9].map(r => songForRound(r, 0)), ["paddle", "rock", "spin", "drop", "fireworks", "fireworks"], "rounds unknown: in order");
+  assert.equal(songForRound(7, 5), "fireworks", "past the last is the last");
   assert.equal(chartOf("nope"), null);
 });
 
@@ -298,4 +303,20 @@ test("rowing is the base of every song: a stroke on 1 and 3 of every play bar un
     const beats = chart.cues.map(c => c.beat);
     assert.equal(new Set(beats).size, beats.length, `${id}: never two cues at one time`);
   }
+});
+
+test("The Drop (v3, the semifinal) goes harder in play B; Fireworks is the final: rockets over everything, a three-rocket finale", () => {
+  const drop = chartOf("drop");
+  const shape = (chart, bar) => cuesBetween(chart, bar * 4, bar * 4 + 4).map(c => `${c.beat - bar * 4}${c.kind}`).join();
+  const lit = [22, 23, 24, 26, 28];
+  assert.equal(new Set(lit.map(bar => shape(drop, bar))).size, lit.length, "a new pattern every lit bar of play B");
+  assert.deepEqual(drop.dark, [25, 27]);
+  const ands = cuesBetween(drop, 88, 116).filter(c => c.beat % 1 === 0.5);
+  assert.ok(ands.some(c => c.kind === "hop") && ands.some(c => c.kind === "spin"), "syncopated hops and spins");
+  assert.deepEqual(drop.cues.at(-1).kind, "drop", "the drop still ends it");
+  const fw = chartOf("fireworks");
+  assert.deepEqual(fw.dark.length, 2);
+  assert.deepEqual(new Set(scoredCues(fw).map(c => c.kind)), new Set(["paddle", "hey", "hop", "spin", "rocket", "echo"]), "every kind with rockets");
+  assert.deepEqual(fw.cues.slice(-3).map(c => [c.beat, c.kind]), [[121, "rocket"], [122, "rocket"], [123, "rocket"]], "the finale: bar 30's last three beats");
+  assert.ok(scoredCues(fw).length > Math.max(...["paddle", "rock", "spin"].map(id => scoredCues(chartOf(id)).length)), "the most to play");
 });

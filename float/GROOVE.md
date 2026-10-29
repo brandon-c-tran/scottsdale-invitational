@@ -855,6 +855,30 @@ in a fun way i think and make it visually appealing that you're rowing".
   SLIP [0.3, 0.05]. `node scripts/float-sim.mjs --cups 50` (it now prints
   song percent by skill): the sharpest bot (0.65) averages 86.8% (78 to
   92), the sloppiest (0.1) 56.2% (44 to 67), a stand-in about 77%.
+- Wave B, item 8, The Drop (round 4, the semifinal): play B is
+  `P.S.PS.S`, `P...OO.O`, `P...PHO.`, dark, `P.S.POO.`, dark, `P..SP.OS`,
+  then the countdown bar: a new pattern every lit bar, hops and spins on
+  the "and"s, `dark` [25, 27] (each the bar before it again, still
+  rowing). No sign in play B is the screen's (the chart has no signs).
+  The drop at the end stays.
+- Wave B, item 9: `ROUNDS` 5, `cutSchedule(13)` [13, 10, 7, 5, 3] (16:
+  16, 12, 9, 6, 3; 9: 9, 7, 5, 4, 3; 4: 4, 3, 3, 3, 3; 1 to 3 uncut).
+  `songForRound(round, rounds)`: the last is "fireworks", the one before
+  it "drop", the rest paddle, rock, spin in order (4 rounds: paddle, rock,
+  drop, fireworks; 3: paddle, drop, fireworks; 2: drop, fireworks; 1:
+  fireworks; `rounds` 0 or unknown: the five in order). Solo QA (1 to 3
+  riders) plays all five. Four Last Calls (lights, slow, ticks, rush, after
+  rounds 1 to 4) and a chug-off after every song but the final; the bridge
+  body's `rounds[]` and `stats.rounds[]` have five entries. Fireworks:
+  practice `P...P...` "Row on 1 and 3", `P...P.r.` "Keep rowing. Watch
+  the fuse", `P...P.R.` "Launch two beats after I light", `P...R.R.` "Two
+  now"; play A and B rockets over the rowing with a Hey, hops and spins,
+  "and" rockets, `dark` [26, 28]; the breakdown copies ("Copy me", the
+  sound of rockets is the sound builder's); the outro `..R.R.R.`, three
+  rockets on beats 2, 3 and 4 of bar 30 (calls 119, 120, 121).
+  `KIND_WORDS.rocket` "launches" ("Great launches.").
+  `node scripts/float-sim.mjs` plays all five to the podium (13 bots;
+  with `--phones 4 --fieldday` the posted body has 5 rounds).
 
 ## Wednesday night target (in cut order: the last line goes first)
 

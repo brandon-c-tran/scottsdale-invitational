@@ -517,6 +517,7 @@ html.flc-locked, html.flc-locked body { overflow: hidden; overscroll-behavior: n
 .flc-count-paddle { width: 30px; height: 11px; fill: var(--paper); stroke: var(--ink); stroke-width: 1.6; }
 /* the host's demo beat: his, not yours yet */
 .flc-count.is-demo i { background: var(--paper); box-shadow: inset 0 0 0 3px var(--ink), inset 0 0 0 9px var(--yellow); }
+.flc-count.is-row.is-demo i { box-shadow: inset 0 0 0 3px var(--ink), inset 0 0 0 9px #7ddbea; }
 .flc-count.is-now i { transform: scale(1.18); box-shadow: inset 0 0 0 4px var(--ink), 0 0 0 5px color-mix(in srgb, var(--paper) 80%, transparent); animation: flc-count-pulse 500ms var(--ease) both; }
 .flc-count.is-now.is-on i { box-shadow: inset 0 0 0 4px var(--ink), 0 0 0 4px var(--me); }
 @keyframes flc-count-pulse { from { transform: scale(1.34); } to { transform: scale(1.18); } }
@@ -559,6 +560,9 @@ html.flc-locked, html.flc-locked body { overflow: hidden; overscroll-behavior: n
   .flc-chug-pair { top: 36%; left: 0; right: 50%; }
   .flc-chug-main { top: calc(var(--sa-top) + 52px); }
   .flc-barseat { --cs: min(220px, 52vh); left: 14%; }
+  /* practice's count on the right half, clear of you */
+  .flc-counter { left: 50%; bottom: calc(var(--sa-bottom) + 3%); }
+  .flc-count i { width: 52px; height: 52px; font-size: 26px; }
   .flc-chugoff.is-crowd .flc-stage.is-low { display: none; }
   .flc-chug-count { font-size: 96px; }
   /* Last Call: the bartender and you share the counter; the words and the pad go on the right */

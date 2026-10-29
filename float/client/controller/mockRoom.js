@@ -298,7 +298,8 @@ export function createMockRoom({ hello = null, scene = null, freeze = false, tim
       case "card": runUntil(cup => cup.phase === "song"); runTo(room.cup.songAt - 1200); break;
       case "count": toBeat(0, 5.1); break;
       /* the moment a tap lands 70 ms late (Nice!), with the room's offset as it stands */
-      case "practice": ghost = GHOSTS.practice; toBeat(0, 11.6); runTo(cueAt(12) + song().offset + 70); break;
+      case "practice": ghost = { ...GHOSTS.practice, r:(cue, offset) => cue.beat === 12 ? null : GHOSTS.practice.r(cue, offset) };
+        toBeat(0, 11.6); runTo(cueAt(12) + song().offset + 70); break;
       case "hey": ghost = GHOSTS.practice; toBeat(0, 13.2); break;
       /* a tap now: 20 ms early (Perfect), 190 ms late (Late) */
       case "play": ghost = GHOSTS.practice; toBeat(0, 29.4); runTo(cueAt(30) + song().offset - 20); break;

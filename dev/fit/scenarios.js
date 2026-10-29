@@ -1832,7 +1832,7 @@ export const PHONE_SCENARIOS = Object.freeze([
   { id:"float-play", build:() => floatRacing(), float:true, settle:false, tabs:["home"], sheets:["float-closed"] },
   /* the rider's controller itself (v3): the round card with your seat, practice's 1 2 3 4, Last Call's place and verdict */
   { id:"float-pad", build:() => floatRacing(), float:true, settle:false, tabs:[], sheetSizes:["375"],
-    sheets:["float-pad:card", "float-pad:watch-demo", "float-pad:lastcall-drink", "float-pad:lastcall-safe"] },
+    sheets:["float-pad:card", "float-pad:watch-demo", "float-pad:lastcall-drink", "float-pad:lastcall-safe", "float-pad:fireworks-launch"] },
   { id:"gm-float-pill", build:() => floatRacing(), viewer:"gm", float:true, settle:false, tabs:[], sheets:["float-closed", "float-desk"],
     floatFeedback:FIT_FLOAT_FEEDBACK },
   { id:"gm-float-failed", build:() => floatRacing({ failed:true }), viewer:"gm", float:true, settle:false, tabs:["home"], sheets:["float-desk"] },

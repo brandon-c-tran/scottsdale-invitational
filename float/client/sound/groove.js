@@ -101,6 +101,7 @@ export function clipSpan(id, text = "") {
 export const LINE_CLIPS = Object.freeze({
   "paddle on 1 and 3":"say-paddle", "when i say ready you say hey":"say-readyhey", "watch":"say-watch", "your turn":"say-turn",
   "keep paddling hey on 4":"say-keephey", "both now":"say-bothnow",
+  "watch the fuse":"say-watchfuse", "launch two beats after i light":"say-launchtwo", "two quick ones":"say-twoquick", "three in a row":"say-threerow",
   "hop two beats after me":"say-hoptwo", "two this time":"say-twotime", "spin one beat after me":"say-spinone",
   "on the backbeat":"say-backbeat", "all three in turn":"say-allthree", "hop":"say-hop", "spin":"say-spin", "copy me":"say-copy",
 });
@@ -178,6 +179,9 @@ export function songEvents(chart) {
     add(p.cue.beat, "floatAnswer", { kind:echo ? p.as : p.cue.kind, song, k:echo ? 8 + p.phrase : p.k, b:p.b, n:p.n, of:p.of,
       ...(echo ? { echo:true } : {}), ...(p.cue.demo ? { demo:true } : {}) }, "answer");
   }
+  /* rowing under another song's move: a stroke on the beat of a host's call steps back for it */
+  const called = new Set(events.filter(e => e.kind === "call").map(e => e.beat));
+  for (const e of events) if (e.id === "floatAnswer" && e.opts.kind === "paddle" && !e.opts.demo && called.has(e.beat)) e.opts.under = true;
   /* after the finale's rockets the sky fills */
   const sky = skyBeat(chart);
   if (sky !== null) add(sky, "floatSky", {}, "line");
@@ -276,6 +280,8 @@ export const NARRATION_REACH_MS = 4000;
 function busySpan(e) {
   if (e.id === "floatWhirl") return [30, e.opts?.say ? Math.max(340, clipSpan("spin").dur) : 250];
   if (e.id === "floatEcho") return [30, 260];
+  /* a fuse: its strike (the sizzle may sit under a line) */
+  if (e.id === "floatFuse") return [30, 200];
   /* the crowd's Hey: its shout (its tail may sit under a line) */
   if (e.id === "floatAnswer") return [60, 310];
   const span = clipSpan(e.opts?.line);
@@ -287,7 +293,7 @@ export function narration(chart, events = null) {
   const lines = (chart?.lines || []).map(line => ({ ...line, line:lineClip(line.text) })).filter(line => line.line);
   if (!lines.length) return [];
   const evs = events || songEvents({ ...chart, lines:[] });
-  const busy = evs.filter(e => (e.id === "floatVoice" && !e.opts?.narration) || e.id === "floatWhirl" || e.id === "floatEcho"
+  const busy = evs.filter(e => (e.id === "floatVoice" && !e.opts?.narration) || e.id === "floatWhirl" || e.id === "floatEcho" || e.id === "floatFuse"
     || (e.id === "floatAnswer" && e.opts?.kind === "hey"))
     .map(e => { const [pre, post] = busySpan(e), t = e.beat * BEAT_MS; return [t - pre - NARRATION_GAP_MS, t + post + NARRATION_GAP_MS]; });
   const played = (chart.cues || []).filter(cue => !cue.demo).map(cue => cue.beat * BEAT_MS);

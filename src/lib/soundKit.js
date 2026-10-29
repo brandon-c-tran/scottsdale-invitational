@@ -3806,7 +3806,10 @@ function gToneLine(E, dest, notes, { wood = 3.93 } = {}) {
 function gDrums(c, kit, { fill = false } = {}) {
   if (!c.on("drums")) return;
   const { E, V } = c;
-  gHits(kit.kick).forEach(([i, k]) => GK.kick(E, V("kick"), c.at(i), k));
+  /* rowing (GROOVE.md v3 10): in a bar with strokes the pulse is their call, so the
+     kick leans on the strokes and a four-on-the-floor's other beats step back */
+  const strokes = new Set(c.hits.filter(([, kind]) => kind === "paddle").map(([s]) => s));
+  gHits(kit.kick).forEach(([i, k]) => GK.kick(E, V("kick"), c.at(i), strokes.size && i % 4 === 0 && !strokes.has(i) ? k * 0.62 : strokes.has(i) ? Math.max(k, 0.95) : k));
   /* a paddle on a beat the line leaves open still gets its kick (The Drop's every-beat bar) */
   const kicks = new Set(gHits(kit.kick).map(([i]) => i));
   c.hits.filter(([s, kind]) => kind === "paddle" && !kicks.has(s)).forEach(([s]) => GK.kick(E, V("kick"), c.at(s), 0.8));
@@ -4095,7 +4098,8 @@ function gCutBar(c) {
    silent (only each phone's own tap sounds) */
 function gDarkBar(c) {
   if (!c.on("drums")) return;
-  gNoiseLine(c.E, c.V("hat"), [0, 2, 4, 6, 8, 10, 12, 14].map(s => [c.at(s), s % 4 ? 0.07 : 0.11, 0.025]), { type:"highpass", f:8600 });
+  /* one and three a little firmer: you row in the dark */
+  gNoiseLine(c.E, c.V("hat"), [0, 2, 4, 6, 8, 10, 12, 14].map(s => [c.at(s), s % 8 === 0 ? 0.13 : s % 4 ? 0.06 : 0.09, 0.025]), { type:"highpass", f:8600 });
 }
 /* back from a blackout: the kick, a crash and the chord's stab on the downbeat */
 function gBackHit(c) {
@@ -4122,7 +4126,7 @@ const G_LINES = Object.freeze({ ready:2, hey:1, ba:1, spin:1, one:1, two:1, thre
   "title-paddle":4, "title-rock":2, "title-spin":3, "title-drop":2, "title-fireworks":3, lastcall:2, float:1,
   /* the narration (groove.js LINE_CLIPS) and the chug-off's */
   "say-paddle":5, "say-readyhey":7, "say-watch":1, "say-turn":2, "say-hoptwo":5, "say-twotime":3, "say-spinone":5,
-  "say-backbeat":4, "say-allthree":4, "say-hop":2, "say-spin":1, "say-copy":3, "say-keephey":6, "say-bothnow":2, chugoff:2, chug:1, "chug-explain":14 });
+  "say-backbeat":4, "say-allthree":4, "say-hop":2, "say-spin":1, "say-copy":3, "say-keephey":6, "say-bothnow":2, "say-watchfuse":3, "say-launchtwo":7, "say-twoquick":3, "say-threerow":4, chugoff:2, chug:1, "chug-explain":14 });
 export const GROOVE_LINES = Object.freeze(Object.keys(G_LINES));
 /* the crowd's takes, layered a few at a time: "Hey!" on the beat, "Ooh!"
    as Last Call names who drinks, "Aww!" as the cut's first rider is out */
@@ -4226,8 +4230,10 @@ function grooveAnswer(E, t0, o = {}) {
     /* practice's "Watch": the host shows it, its own paddle (the board's knock and a small splash on the left) */
     if (o.demo) { grooveEcho(E, t0, { n:o.n }); return; }
     const right = gInt(o.n, 0, 15, 0) % 2 === 1;
-    const v = voice(E, { pan:right ? 0.45 : -0.45, send:0.24, bright:1, gain:1 });
-    gSplash(E, v, at, { size:0.8, f:right ? 620 : 520 });
+    /* under a host's call on the same beat (another song's move called over the rowing) the stroke is smaller and wider, the call clear */
+    const under = !!o.under;
+    const v = voice(E, { pan:(right ? 1 : -1) * (under ? 0.62 : 0.45), send:0.24, bright:under ? 0.8 : 1, gain:under ? 0.7 : 1 });
+    gSplash(E, v, at, { size:under ? 0.6 : 0.8, f:right ? 620 : 520 });
     return;
   }
   if (kind === "hey") {

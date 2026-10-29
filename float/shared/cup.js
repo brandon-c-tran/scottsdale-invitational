@@ -555,8 +555,9 @@ export function scoresOf(cup, now) {
   return cup.scores || [];
 }
 
-/* `lastCall` in Last Call: { totals:[{ i, ms, d }], worst } (groove.js
-   lastCallOf; worst null until the zero's miss deadline), else null */
+/* `lastCall` in Last Call: { totals:[{ i, ms, d, place? }], worst, order }
+   (groove.js lastCallOf; worst and order null, and no place, until the
+   zero's miss deadline), else null */
 export function lastCallSummary(cup, now) {
   return cup.phase === "lastcall" && cup.bar ? lastCallOf(cup.bar, now) : null;
 }
@@ -598,7 +599,9 @@ export function resultsOf(cup) {
    { grade, line } (feedbackOf), a chug-off's pair `bubble` and neither
    through nor out (through null) until it settles; at Last Call: their
    lastCall { ms, d } and the tap's judgement (c, q, d), out if they are; a
-   rider out earlier: out with their place in the Cup so far; before and
+   rider out earlier: out with their place in the Cup so far (at Last Call
+   `lastCall.place` is their place at the bar, closest first, null until
+   the window closes, of `lastCall.of`); before and
    after: their place. */
 export function meOf(cup, i, now) {
   const base = { i, round:cup.round, cut:cutOf(cup), lastRound:isLastRound(cup) };
@@ -615,7 +618,7 @@ export function meOf(cup, i, now) {
     const last = cup.bar.last[i];
     const standing = cup.standings.find(item => item.i === i);
     return { ...base, ...(cup.out.includes(i) ? { out:true } : {}), place:standing?.place ?? null, of:cup.standings.length,
-      lastCall:{ ms:own.ms, d:own.d }, ...(last ? { c:last.c, q:last.q, ...(last.d === undefined ? {} : { d:last.d }) } : {}) };
+      lastCall:{ ms:own.ms, d:own.d, place:own.place ?? null, of:cup.bar.field.length }, ...(last ? { c:last.c, q:last.q, ...(last.d === undefined ? {} : { d:last.d }) } : {}) };
   }
   const row = cup.phase === "cut" || cup.phase === "chugoff" ? cup.results.find(item => item.i === i) : null;
   if (row) {

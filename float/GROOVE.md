@@ -761,6 +761,34 @@ shortens to 0.7 s, dark at 3 at the fast pace). Art: the `night` scene and
 `firework` props (white, tinted at run time). Sound: its bed (the biggest of
 the five), the fuse and the launch, the dark bars, the voice lines.
 
+### As built: the engine, v3 (groove/engine, Oct 28)
+
+- `chart.js`: `offsetTone(absMs)` ("gold" <= 50, "green" <= 100, "yellow"
+  <= 160, else "red"; `OFFSET_TONES`) and `countTone(absMs)` ("green" <=
+  100, "yellow" <= 300, "orange" <= 700, else "red"; `COUNT_TONES`); a
+  miss has no number and its word stays `TONES.miss` (grey).
+- `CUE_KINDS.rocket = { lead:2, mode:"rocket", word:"Launch" }`, "rocket"
+  in `MODES`; plans read `R` (a demo `r`). A demo paddle (`p`) has
+  `call:null` like any paddle: the screen and sound play demos from
+  `demoCues(chart)` by their `beat`, not from `callsBetween`.
+- Every chart (Last Call's too) carries `dark`: the bar indices that black
+  out (empty where none). A dark bar is always in play, repeats the bar
+  before it, and only its own cues are called in it (so a lit cue's call is
+  never lost to the dark; `tests/float-chart.test.mjs`).
+- `SONGS` adds `{ id:"fireworks", name:"Fireworks", scene:"night" }`;
+  `chartOf("fireworks")` works. `LAST_CALL_TRICKS` adds "rush"
+  (`LAST_CALL.RUSH_MS` 700): 10 to 7 at a second, every count from 6 at
+  0.7 s, dark at 3; zero 8.2 s after 10. `lastCallId(3)` is "lastcall-rush".
+- Last Call's ranking: once the zero's miss deadline passes (with `worst`;
+  at or just after `revealAt`), `room.lastCall` is `{ totals:[{ i, ms, d,
+  place }], worst, order }`: `ms` the rider's |offset| (3000 for no tap),
+  `place` 1 the closest (ties share a place: 1, 2, 2, 4), `order` every
+  rider closest to farthest (a tie in the bar's order: the field, then the
+  riders out). Before that `place` is absent and `order` null. `me.lastCall`
+  is `{ ms, d, place, of }` (`place` null until then, `of` everyone at the
+  bar), and the room sends every phone its `me` the moment who drinks is
+  known. `me.place` stays the rider's place in the Cup.
+
 ## Wednesday night target (in cut order: the last line goes first)
 
 1. Song 1 complete: chart, music with clear calls, TV scene, phone, popups,

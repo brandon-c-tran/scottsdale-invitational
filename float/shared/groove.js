@@ -381,7 +381,11 @@ export function createBar({ cup, round = cup.round, songAt, players, offset = cu
    Once the zero's miss deadline has passed every total is lastCallTotal (no
    tap a miss) and `worst` is who drinks: the farthest off, all tied on it,
    among those who may drink (lastCallWorst over them; [] if nobody may).
-   Before that `worst` is null. A stand-in's tap excuses its person
+   Before that `worst` is null. Once over, the ranking (GROOVE.md v3 "Last
+   Call: who did best and worst"): each row's `place`, closest to zero
+   first (1 is closest; ties share a place, 1, 2, 2, 4), and `order`, every
+   rider closest to farthest (ties in the bar's order); before that `place`
+   is absent and `order` null. A stand-in's tap excuses its person
    (excusedAtBar): they keep their seat and their total, but never drink for
    a count they didn't make. Bot entrants may drink, so solo QA still names
    someone. */
@@ -400,9 +404,11 @@ export function lastCallOf(bar, now = Infinity) {
     const d = taps[cues[0].id];
     return { i, ms:lastCallTotal(taps, over ? { cues } : { cues:judged }), d:Number.isFinite(d) ? d : null };
   });
-  if (!over) return { totals, worst:null };
+  if (!over) return { totals, worst:null, order:null };
   const excused = new Set(excusedAtBar(bar));
-  return { totals, worst:lastCallWorst(totals.filter(row => !excused.has(row.i))) };
+  const ranked = totals.map((row, k) => ({ row, k })).sort((a, b) => a.row.ms - b.row.ms || a.k - b.k);
+  ranked.forEach((item, n) => { item.row.place = n && item.row.ms === ranked[n - 1].row.ms ? ranked[n - 1].row.place : n + 1; });
+  return { totals, worst:lastCallWorst(totals.filter(row => !excused.has(row.i))), order:ranked.map(item => item.row.i) };
 }
 
 /* who a stand-in counted for (its tap, or its miss): excused from drinking */

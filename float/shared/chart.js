@@ -17,7 +17,10 @@
    host showing it (the call and the band's answer sound, the riders act it
    out): nobody taps it, nothing matches or misses it. `lines` are the
    practice's narration, Rhythm Heaven's text box: { beat, text } from that
-   beat until the next line or the end of practice.
+   beat until the next line or the end of practice. `dark` (v3) are the bars
+   (0 to 31) that black out: the host and the band drop out to a bare
+   hi-hat and the calls stop; their cues are judged like any (a dark bar
+   repeats the bar before it, and only its own cues are called in it).
 
    Every call is the answer's own rhythm, a fixed lead earlier ("answer the
    host"): Paddle Party paddles on 1 and 3 and answers "Ready" with "Hey!" two
@@ -60,6 +63,14 @@ export const POINTS = Object.freeze({ perfect:100, nice:70, ok:40, early:0, late
 /* the words over a critter, and the tone each is lettered in (GROOVE.md "The look") */
 export const WORDS = Object.freeze({ perfect:"Perfect", nice:"Nice!", ok:"OK", early:"Early", late:"Late", miss:"Miss" });
 export const TONES = Object.freeze({ perfect:"gold", nice:"yellow", ok:"white", early:"salmon", late:"salmon", miss:"grey" });
+/* the number's tone (GROOVE.md v3 "Numbers in more colours than red"): by
+   how close it is, the same scale on the TV and the phone; a miss has no
+   number and stays TONES.miss. Songs: gold, green, yellow, red. */
+export const OFFSET_TONES = Object.freeze([[50, "gold"], [100, "green"], [160, "yellow"]]);
+export const offsetTone = absMs => (OFFSET_TONES.find(([max]) => Math.abs(Number(absMs)) <= max) || [0, "red"])[1];
+/* Last Call's (|ms| from zero): green, yellow, orange, red */
+export const COUNT_TONES = Object.freeze([[100, "green"], [300, "yellow"], [700, "orange"]]);
+export const countTone = absMs => (COUNT_TONES.find(([max]) => Math.abs(Number(absMs)) <= max) || [0, "red"])[1];
 /* the room calls a cue missed this long after its time (the window, plus a late tap's trip) */
 export const MISS_AFTER_MS = WINDOW.MAX + 250;
 /* the popup over a critter */
@@ -79,27 +90,31 @@ export const CUE_KINDS = Object.freeze({
   drop:Object.freeze({ lead:3, mode:"drop", word:"Drop" }),
   /* the breakdown's: copy the host's rhythm a bar later */
   echo:Object.freeze({ lead:4, mode:"echo", word:"Copy" }),
+  /* Fireworks': the host lights a fuse on the call, you launch two beats later */
+  rocket:Object.freeze({ lead:2, mode:"rocket", word:"Launch" }),
   /* Last Call's: the moment the countdown reaches zero (chart.countdown) */
   zero:Object.freeze({ lead:null, mode:"lastcall", word:"Zero" }),
 });
 /* what the riders do in a bar (chart.modes): a cue kind's mode, or the section's */
-export const MODES = Object.freeze(["intro", "paddle", "rock", "spin", "drop", "echo", "outro", "lastcall"]);
+export const MODES = Object.freeze(["intro", "paddle", "rock", "spin", "drop", "echo", "rocket", "outro", "lastcall"]);
 
 export const SONGS = Object.freeze([
   Object.freeze({ id:"paddle", name:"Paddle Party", scene:"open" }),
   Object.freeze({ id:"rock", name:"Rock Hop", scene:"rocks" }),
   Object.freeze({ id:"spin", name:"Spin Cycle", scene:"whirlpool" }),
   Object.freeze({ id:"drop", name:"The Drop", scene:"falls" }),
+  Object.freeze({ id:"fireworks", name:"Fireworks", scene:"night" }),
 ]);
 export const SONG_IDS = Object.freeze(SONGS.map(song => song.id));
 
 /* The plans: a bar's taps as eight slots, one an eighth note (slot s is beat
-   s / 2 of the bar): P paddle, H hey, O hop, S spin, D drop, "." nothing.
+   s / 2 of the bar): P paddle, H hey, O hop, S spin, D drop, E echo,
+   R rocket, "." nothing.
    Bars are the song's own (0 to 31); practice is bars 2 to 5, play 6 to 13
    and 22 to 29, the outro 30 and 31. Drink bars (14 to 21) have no taps. */
-const SLOT = { P:"paddle", H:"hey", O:"hop", S:"spin", D:"drop", E:"echo" };
+const SLOT = { P:"paddle", H:"hey", O:"hop", S:"spin", D:"drop", E:"echo", R:"rocket" };
 /* lowercase in practice: the host shows it (demo), nobody taps */
-const DEMO = { h:"hey", o:"hop", s:"spin" };
+const DEMO = { p:"paddle", h:"hey", o:"hop", s:"spin", r:"rocket" };
 const rep = (bar, n) => new Array(n).fill(bar);
 const PLANS = Object.freeze({
   paddle:{
@@ -133,6 +148,18 @@ const PLANS = Object.freeze({
     breakdown:["........", "E.E.E.E.", "........", "E.EEE...", "........", "EE.EE...", "........", "E.E.EEE."],
     playB:["..S...S.", "....O.O.", "P...P.H.", "..SS..SS", "....OOO.", "P.P.P.P.", "..S...SS", "........"],
     outro:["D.......", "........"],
+  },
+  /* the final: every kind with rockets, the "and"s, two dark bars (each
+     the bar before it again, kept in your head), a three-rocket finale */
+  fireworks:{
+    practice:["....r.r.", "....R.R.", "....RR..", "....RRR."],
+    lines:[[7, "Watch the fuse"], [11, "Launch two beats after I light"], [15, "Two quick ones"], [19, "Three in a row"],
+      [55, "Copy me", 60]],
+    playA:["P...P.R.", "P...P.RR", "....O.R.", "..S...R.", "P...P.HR", "....OR.R", "..SS..R.", "P...P.RR"],
+    breakdown:["........", "E..E..E.", "........", "E.E..EE.", "........", "EE.E.E..", "........", "E.EE.E.E"],
+    playB:["....R.RR", "..S...RR", "P...P.OR", "....RR.R", "....RR.R", "..S..RRR", "..S..RRR", "P...P..."],
+    outro:["..R.R.R.", "........"],
+    dark:[26, 28],
   },
 });
 
@@ -217,6 +244,7 @@ export function chartOf(songId) {
       bpm:BPM, beatMs:BEAT_MS, bars:SONG_BARS, beats:SONG_BEATS, ms:SONG_MS,
       sections:Object.freeze(sections.map(Object.freeze)), modes:Object.freeze(modesOf(cues, sections)), cues:Object.freeze(cues),
       lines:Object.freeze(linesOf(PLANS[songId].lines || [], sections)),
+      dark:Object.freeze((PLANS[songId].dark || []).slice()),
     }));
   }
   return CHARTS.get(songId);
@@ -367,7 +395,8 @@ export const GRADES = Object.freeze([
 export const gradeOf = pct => (GRADES.find(grade => (Number(pct) || 0) >= grade.min) || GRADES[GRADES.length - 1]).id;
 export const gradeWord = id => GRADES.find(grade => grade.id === id)?.word || "";
 
-const KIND_WORDS = Object.freeze({ paddle:"paddles", hey:"Heys", hop:"hops", spin:"spins", drop:"the drop", echo:"copies" });
+const KIND_WORDS = Object.freeze({ paddle:"paddles", hey:"Heys", hop:"hops", spin:"spins", drop:"the drop", echo:"copies",
+  rocket:"launches" });
 const capital = text => text.charAt(0).toUpperCase() + text.slice(1);
 const median = xs => {
   if (!xs.length) return null;
@@ -464,7 +493,8 @@ export function awardsOf(chart, riders = []) {
    everyone counts the rest in their head and taps once, on zero. The
    tricks get harder each Last Call: "lights" (the lights go out at 3),
    "slow" (the count slows from 6, then goes dark at 3 at the slower pace),
-   "ticks" (the voice stops at 6, ticks only, then dark at 3). The tap is a
+   "ticks" (the voice stops at 6, ticks only, then dark at 3), "rush" (the
+   count speeds up from 6 to 0.7 s, then dark at 3 at the fast pace). The tap is a
    cue of kind "zero" at the countdown's zero with a wide window
    (LAST_CALL.WINDOW); no tap counts MISS_MS. The farthest from zero drinks
    (every rider tied on it). Never scored in the Cup.
@@ -478,9 +508,9 @@ export function awardsOf(chart, riders = []) {
    closed), verdictAt who drinks. The first Last Call's intro is longer: it
    says what Last Call is. */
 export const LAST_CALL_ID = "lastcall";
-export const LAST_CALL_TRICKS = Object.freeze(["lights", "slow", "ticks"]);
+export const LAST_CALL_TRICKS = Object.freeze(["lights", "slow", "ticks", "rush"]);
 export const LAST_CALL = Object.freeze({
-  FROM:10, STEP_MS:1000, SLOW_MS:1400, WINDOW:3000, MISS_MS:3000,
+  FROM:10, STEP_MS:1000, SLOW_MS:1400, RUSH_MS:700, WINDOW:3000, MISS_MS:3000,
   INTRO_FIRST_MS:7000, INTRO_MS:3000, REVEAL_AFTER_MS:3300, VERDICT_AFTER_MS:2500, OUTRO_MS:3500,
 });
 /* the Last Call after round k (0-based): its chart id */
@@ -494,8 +524,9 @@ export function countdownOf(trick = "lights", { first = trick === "lights" } = {
   for (let n = L.FROM; n >= 1; n -= 1) {
     const hidden = n <= 3;
     steps.push({ n, at:introMs + at, show:!hidden, say:!hidden && !(trick === "ticks" && n <= 6), tick:trick === "ticks" && n <= 6 && !hidden });
-    /* the gap after n: "slow" stretches every count from 6 down */
-    at += trick === "slow" && n <= 6 ? L.SLOW_MS : L.STEP_MS;
+    /* the gap after n: "slow" stretches every count from 6 down, "rush"
+       shortens it */
+    at += n <= 6 && trick === "slow" ? L.SLOW_MS : n <= 6 && trick === "rush" ? L.RUSH_MS : L.STEP_MS;
   }
   const zeroAt = introMs + at;
   const hideAt = steps.find(step => step.n === 3).at;
@@ -525,6 +556,7 @@ function lastCallChart(id = LAST_CALL_ID) {
     v:2, id:key, name:"Last Call", scene:"bar", window:LAST_CALL.WINDOW,
     bpm:BPM, beatMs:BEAT_MS, bars, beats:bars * BEATS_PER_BAR, ms,
     sections:Object.freeze(sections.map(Object.freeze)), modes:Object.freeze(modes), cues:Object.freeze([cue]), lines:Object.freeze([]),
+    dark:Object.freeze([]),
     countdown:Object.freeze({ ...countdown, steps:Object.freeze(countdown.steps.map(Object.freeze)) }),
   });
   LAST_CALLS.set(key, chart);

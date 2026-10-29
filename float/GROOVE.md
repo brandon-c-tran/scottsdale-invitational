@@ -112,8 +112,10 @@ patterns of the same mechanic:
 | 3 | Spin Cycle | the host spins on 1 and 3, you echo one beat later on 2 and 4 (the backbeat); doubles on the "and" later |
 | 4 | The Drop | the final: a bar of each pattern in turn, switching faster after the drink, a bar of paddling on every beat, then the music cuts, the host counts three beats, and one tap on the drop (bar 30, over the falls) |
 
-Cue counts: Paddle Party 46 scored (10 practice), Rock Hop 30 (6), Spin Cycle
-39 (8), The Drop 46 (9). The last cue of songs 1 to 3 is in bar 30 (the
+Cue counts (v3, rowing in every song; scored, then practice taps and the
+host's demos): Paddle Party 60 (7, 3), Rock Hop 63 (11, 1), Spin Cycle 81
+(12, 2), The Drop 76 (12, 0), Fireworks 83 (10, 1); each breakdown is 16 of
+the scored. The last cue of every song but The Drop is in bar 30 (the
 outro's big finish).
 
 Names say what you do (Brandon, Oct 27: no river jargon; "Put-in", "The
@@ -799,6 +801,84 @@ in a fun way i think and make it visually appealing that you're rowing".
   Blackout bars keep rowing (you row in the dark).
 - The pulse is the call for rowing in every song (the band's kick on 1 and
   3 and the stroke sound), so the host's calls stay the song's own move.
+
+### As built: the engine, v3 (groove/engine, Oct 28)
+
+- `chart.js`: `offsetTone(absMs)` ("gold" <= 50, "green" <= 100, "yellow"
+  <= 160, else "red"; `OFFSET_TONES`) and `countTone(absMs)` ("green" <=
+  100, "yellow" <= 300, "orange" <= 700, else "red"; `COUNT_TONES`); a
+  miss has no number and its word stays `TONES.miss` (grey).
+- `CUE_KINDS.rocket = { lead:2, mode:"rocket", word:"Launch" }`, "rocket"
+  in `MODES`; plans read `R` (a demo `r`). A demo paddle (`p`) has
+  `call:null` like any paddle: the screen and sound play demos from
+  `demoCues(chart)` by their `beat`, not from `callsBetween`.
+- Every chart (Last Call's too) carries `dark`: the bar indices that black
+  out (empty where none). A dark bar is always in play, repeats the bar
+  before it, and only its own cues are called in it (so a lit cue's call is
+  never lost to the dark; `tests/float-chart.test.mjs`).
+- `SONGS` adds `{ id:"fireworks", name:"Fireworks", scene:"night" }`;
+  `chartOf("fireworks")` works. `LAST_CALL_TRICKS` adds "rush"
+  (`LAST_CALL.RUSH_MS` 700): 10 to 7 at a second, every count from 6 at
+  0.7 s, dark at 3; zero 8.2 s after 10. `lastCallId(3)` is "lastcall-rush".
+- Last Call's ranking: once the zero's miss deadline passes (with `worst`;
+  at or just after `revealAt`), `room.lastCall` is `{ totals:[{ i, ms, d,
+  place }], worst, order }`: `ms` the rider's |offset| (3000 for no tap),
+  `place` 1 the closest (ties share a place: 1, 2, 2, 4), `order` every
+  rider closest to farthest (a tie in the bar's order: the field, then the
+  riders out). Before that `place` is absent and `order` null. `me.lastCall`
+  is `{ ms, d, place, of }` (`place` null until then, `of` everyone at the
+  bar), and the room sends every phone its `me` the moment who drinks is
+  known. `me.place` stays the rider's place in the Cup.
+- Item 6, Paddle Party's practice: `P...P...` "Paddle on 1 and 3", `P...P...`
+  "Keep paddling. Hey! on 4" (the line previews the Hey: nothing on 4 to
+  tap, so no Ready/Hey sits under the narration), `p...p.h.` "Watch" (the
+  host's bar: two demo paddles and a demo Hey), `P...P.H.` "Both now".
+- Item 10, rowing (all five songs): every play bar has a `paddle` on 1 and
+  3 unless the song's own cue takes that beat (never two cues at one
+  time); The Drop's bar 29 (its countdown) stays empty and its bar 27
+  rows on every beat; dark bars row. Practice opens with a bar of rowing
+  ("Row on 1 and 3"; Paddle Party keeps "Paddle on 1 and 3"), then the
+  move over the rowing: Rock Hop hops on 4 over strokes on 1 and 3 ("Keep
+  rowing. Hop two beats after me", a demo, "Your turn", "Two this time");
+  Spin Cycle is row, spin, row, spin ("Keep rowing. Spin one beat after
+  me", a demo bar, "Your turn", "On the backbeat"); The Drop "Keep rowing.
+  All three, in turn", "Hop", "Spin"; Fireworks "Keep rowing. Watch the
+  fuse" (a demo rocket), "Launch two beats after I light", "Two now".
+  Lines are up to 36 characters. The breakdown is copying only. A bar's
+  `modes` entry is its own move (its first cue that isn't a paddle), so
+  Rock Hop's bars stay "rock" over the rowing; "paddle" only where a bar
+  just rows (or rows with a Hey). Every
+  practice has 7 or more taps to calibrate on before the offset is fixed.
+- Item 7, bots: `botSkills` spread 0.1 to 0.65 (`BOT_SKILLS`; one bot
+  alone 0.38), `BOT` SPREAD [130, 5], LEAN [50, 4], MISS [0.08, 0.004],
+  `STAND_IN_SKILL` 0.5, `COUNT_BOT` SPREAD [1300, 200], LEAN [300, 30],
+  SLIP [0.3, 0.05]. `node scripts/float-sim.mjs --cups 50` (it now prints
+  song percent by skill): the sharpest bot (0.65) averages 86.8% (78 to
+  92), the sloppiest (0.1) 56.2% (44 to 67), a stand-in about 77%.
+- Wave B, item 8, The Drop (round 4, the semifinal): play B is
+  `P.S.PS.S`, `P...OO.O`, `P...PHO.`, dark, `P.S.POO.`, dark, `P..SP.OS`,
+  then the countdown bar: a new pattern every lit bar, hops and spins on
+  the "and"s, `dark` [25, 27] (each the bar before it again, still
+  rowing). No sign in play B is the screen's (the chart has no signs).
+  The drop at the end stays.
+- Wave B, item 9: `ROUNDS` 5, `cutSchedule(13)` [13, 10, 7, 5, 3] (16:
+  16, 12, 9, 6, 3; 9: 9, 7, 5, 4, 3; 4: 4, 3, 3, 3, 3; 1 to 3 uncut).
+  `songForRound(round, rounds)`: the last is "fireworks", the one before
+  it "drop", the rest paddle, rock, spin in order (4 rounds: paddle, rock,
+  drop, fireworks; 3: paddle, drop, fireworks; 2: drop, fireworks; 1:
+  fireworks; `rounds` 0 or unknown: the five in order). Solo QA (1 to 3
+  riders) plays all five. Four Last Calls (lights, slow, ticks, rush, after
+  rounds 1 to 4) and a chug-off after every song but the final; the bridge
+  body's `rounds[]` and `stats.rounds[]` have five entries. Fireworks:
+  practice `P...P...` "Row on 1 and 3", `P...P.r.` "Keep rowing. Watch
+  the fuse", `P...P.R.` "Launch two beats after I light", `P...R.R.` "Two
+  now"; play A and B rockets over the rowing with a Hey, hops and spins,
+  "and" rockets, `dark` [26, 28]; the breakdown copies ("Copy me", the
+  sound of rockets is the sound builder's); the outro `..R.R.R.`, three
+  rockets on beats 2, 3 and 4 of bar 30 (calls 119, 120, 121).
+  `KIND_WORDS.rocket` "launches" ("Great launches.").
+  `node scripts/float-sim.mjs` plays all five to the podium (13 bots;
+  with `--phones 4 --fieldday` the posted body has 5 rounds).
 
 ## Wednesday night target (in cut order: the last line goes first)
 

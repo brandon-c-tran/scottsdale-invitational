@@ -70,15 +70,18 @@ test("every song: the band's bar on every bar's downbeat, told its section and t
 test("every cue: the band's answer on its own beat, and the host's call on its call beat", () => {
   for (const id of SONG_IDS) {
     const chart = chartOf(id), events = groove.songEvents(chart);
+    /* a blackout bar's cues are judged but the band answers none of them, and the host calls nothing in it */
+    const dark = groove.darkBars(chart), lit = chart.cues.filter(c => !dark.has(Math.floor(c.beat / 4)));
     const answers = events.filter(e => e.id === "floatAnswer");
-    assert.equal(answers.length, chart.cues.length, `${id}: an answer per cue`);
-    chart.cues.forEach((cue, i) => {
+    assert.equal(answers.length, lit.length, `${id}: an answer per cue out of the dark`);
+    lit.forEach((cue, i) => {
       assert.equal(answers[i].beat, cue.beat);
       assert.equal(answers[i].opts.kind, cue.kind === "echo" ? soundOf(id, cue) : cue.kind);
     });
-    for (const cue of chart.cues) {
-      if (cue.call === null) continue;
-      const at = beat => events.filter(e => e.beat === beat && (e.id === "floatVoice" || e.id === "floatWhirl" || e.id === "floatEcho") && !e.opts.narration);
+    const callIds = ["floatVoice", "floatWhirl", "floatEcho", "floatFuse"];
+    const calledCues = chart.cues.filter(c => c.call !== null && !dark.has(Math.floor(c.call / 4)));
+    for (const cue of calledCues) {
+      const at = beat => events.filter(e => e.beat === beat && callIds.includes(e.id) && !e.opts.narration);
       if (cue.kind === "echo") {
         const call = at(cue.call)[0], as = soundOf(id, cue);
         assert.ok(call, `${id}: the host's rhythm a bar ahead of the copy at ${cue.beat}`);
@@ -94,14 +97,15 @@ test("every cue: the band's answer on its own beat, and the host's call on its c
       assert.ok(calls.length >= 1, `${id}: a call at ${cue.call} for the ${cue.kind} at ${cue.beat}`);
       if (cue.kind === "hop") assert.equal(calls[0].opts.line, "ba");
       if (cue.kind === "spin") assert.equal(calls[0].id, "floatWhirl");
+      if (cue.kind === "rocket") assert.equal(calls[0].id, "floatFuse", "the host lights a fuse");
       if (cue.kind === "hey") assert.ok(["ready", "hey"].includes(calls[0].opts.line));
       assert.equal(cue.beat - cue.call, CUE_KINDS[cue.kind].lead, "the call leads its answer by the kind's lead");
     }
     /* a paddle's call is the pulse: no call of its own; the count-in, and the narration (every line said) */
     const said = groove.narration(chart);
     assert.equal(said.length, chart.lines.length, `${id}: every line said`);
-    assert.equal(events.filter(e => e.id === "floatVoice" || e.id === "floatWhirl" || e.id === "floatEcho").length,
-      chart.cues.filter(c => c.call !== null).reduce((n, c) => n + (c.kind === "drop" ? 3 : 1), 0) + 4 + said.length, `${id}: the calls, the counts, the lines`);
+    assert.equal(events.filter(e => callIds.includes(e.id)).length,
+      calledCues.reduce((n, c) => n + (c.kind === "drop" ? 3 : 1), 0) + 4 + said.length, `${id}: the calls, the counts, the lines`);
     assert.equal(events.filter(e => ["herewego", "drink"].includes(e.opts.line)).length, 0, `${id}: no "Here we go" or "Drink!"`);
   }
 });
@@ -174,8 +178,11 @@ test("Last Call's countdown: the bartender's numbers on their steps, ticks, the 
   for (const trick of chartMod.LAST_CALL_TRICKS) {
     const chart = chartOf(`lastcall-${trick}`), cd = chart.countdown, events = groove.songEvents(chart);
     const ms = e => Math.round(e.beat * BEAT_MS);
-    const says = events.filter(e => e.id === "floatBarVoice" && /^bar-\d+$/.test(e.opts.line));
-    assert.deepEqual(says.map(e => [ms(e), e.opts.line]), cd.steps.filter(s => s.say).map(s => [s.at, `bar-${s.n}`]), `${trick}: each number said on its step`);
+    const says = events.filter(e => e.id === "floatBarVoice" && /^bar-\d+q?$/.test(e.opts.line));
+    /* a count said quicker than a second (rush) is the bartender's quick take */
+    const quick = (s, k, all) => ((all[k + 1]?.at ?? cd.zeroAt) - s.at < 900 ? "q" : "");
+    assert.deepEqual(says.map(e => [ms(e), e.opts.line]), cd.steps.map((s, k, all) => [s, quick(s, k, all)]).filter(([s]) => s.say).map(([s, q]) => [s.at, `bar-${s.n}${q}`]),
+      `${trick}: each number said on its step`);
     assert.deepEqual(events.filter(e => e.id === "floatTick").map(ms), cd.steps.filter(s => s.tick).map(s => s.at), `${trick}: a tick on each tick`);
     assert.deepEqual(events.filter(e => e.id === "floatTrick").map(e => [ms(e), e.opts.trick]), [[cd.hideAt, trick]]);
     /* once dark, nothing until the reveal; the bell at zero only once revealed */

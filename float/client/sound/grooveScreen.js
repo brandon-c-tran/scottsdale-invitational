@@ -19,7 +19,10 @@
                  rider joins and a chime as one is ready
      the room    from a fresh `ev`: a quiet flub for each judged miss in a
                  song (q "miss"), panned to the rider's place in the field
-                 and through a density rule; a glass as a chug-off's
+                 and through a density rule (none in a blackout bar); a
+                 rocket's hit bursts a beat after its launch (ROCKET_BURST_MS,
+                 sized by the judgement, panned to the rider) and its miss
+                 fizzles; a glass as a chug-off's
                  contender taps Done; a party horn as someone out cheers
      the beds    the lobby's loop, on the server's own bar grid (every
                  screen in a room on the same bar), in the lobby, after the
@@ -35,8 +38,8 @@ import { cueAt, installSoundUnlock, preloadClips, primeSound, registerClips, set
   from "../../../src/lib/sound.js";
 import { serverNow } from "../../../src/lib/serverClock.js";
 import { CHUGOFF } from "../../shared/chart.js";
-import { BAR_MS, CHUGOFF_BEATS, CUT_BEATS, GROOVE_LATE_MS, GROOVE_LEAD_MS, GROOVE_PRE_MS, PODIUM_BEATS, TITLE_BEATS, barLine,
-  chartFor, chugoffPlan, cutBeats, eventAt, lobbyBar, lobbySection, songSlots } from "./groove.js";
+import { BAR_MS, BEAT_MS, BURST_SIZE, CHUGOFF_BEATS, CUT_BEATS, GROOVE_LATE_MS, GROOVE_LEAD_MS, GROOVE_PRE_MS, PODIUM_BEATS, ROCKET_BURST_MS, TITLE_BEATS, barLine,
+  chartFor, chugoffPlan, cutBeats, darkBars, eventAt, lobbyBar, lobbySection, songSlots } from "./groove.js";
 import { VOICE } from "./voices.js";
 
 export const ROOM_FRESH_MS = 1500;
@@ -283,7 +286,13 @@ function evStep(mem, msg, { now, visible }) {
   const m = { ...mem };
   switch (msg.e) {
     case "hit": {
-      if (msg.q !== "miss" || v.phase !== "song") return { mem:m, cues:[] };
+      if (v.phase !== "song") return { mem:m, cues:[] };
+      const cue = Number.isInteger(Number(msg.c)) ? v.chart?.cues?.[Number(msg.c)] : null;
+      /* Fireworks: every hit's firework bursts a beat after its rocket, panned to the rider; a miss fizzles */
+      if (cue?.kind === "rocket") return { mem:m, cues:[rocketCue(m, v, i, cue, msg, s)] };
+      if (msg.q !== "miss") return { mem:m, cues:[] };
+      /* a blackout bar: the room hears nothing but the phones' own taps */
+      if (cue && darkBars(v.chart).has(Math.floor(cue.beat / 4))) return { mem:m, cues:[] };
       const f = flubStep(m.flub, s);
       m.flub = f.memory;
       if (!f.play) return { mem:m, cues:[] };
@@ -314,6 +323,13 @@ function evStep(mem, msg, { now, visible }) {
     }
     default: return { mem:m, cues:[] };
   }
+}
+/* a rider's rocket: its burst ROCKET_BURST_MS after its beat (or as the hit lands, if later), sized by the judgement; a miss's fizzle as the room calls it */
+function rocketCue(m, v, i, cue, msg, s) {
+  const pan = fieldPan(v.field, i);
+  if (msg.q === "miss") return { id:"floatFizzle", at:s + 20, pan, opts:{ pan }, key:keyOf(m, "rocket", v.songAt, cue.id, i) };
+  const due = Number.isFinite(v.songAt) ? v.songAt + cue.beat * BEAT_MS + ROCKET_BURST_MS : s;
+  return { id:"floatBurst", at:Math.max(due, s + 20), pan, opts:{ pan, q:msg.q, size:BURST_SIZE[msg.q] ?? 0.3 }, key:keyOf(m, "rocket", v.songAt, cue.id, i) };
 }
 /* the misses' density rule: a flub each FLUB.gap at most, FLUB.grains of
    them inside FLUB.window; past that the window is full */

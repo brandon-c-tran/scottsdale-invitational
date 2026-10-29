@@ -71,7 +71,8 @@ export const LINES = Object.freeze([
   { id:"title-paddle", text:"Paddle Party!", how:`${HOST} Announce the round's name like a game show title card: "Paddle Party!"` },
   { id:"title-rock", text:"Rock Hop!", how:`${HOST} Announce the round's name like a game show title card: "Rock Hop!"` },
   { id:"title-spin", text:"Spin Cycle!", how:`${HOST} Announce the round's name like a game show title card: "Spin Cycle!"` },
-  { id:"title-drop", text:"The Drop!", how:`${HOST} Announce the final round's name like a big game show title card: "The Drop!"` },
+  { id:"title-drop", text:"The Drop!", how:`${HOST} Announce the round's name like a big game show title card: "The Drop!"` },
+  { id:"title-fireworks", text:"Fireworks!", how:`${HOST} Announce the grand final round's name like the biggest game show title card of the night, thrilled: "Fireworks!"` },
   { id:"lastcall", text:"Last call!", how:`${HOST} A sly, delighted "Last call!", like a bartender ringing the bell before the final round of drinks.` },
 ]);
 /* the host's narration (chart.lines: the practice's text box, "Copy me" over
@@ -81,6 +82,22 @@ export const NARRATION = Object.freeze([
   { id:"say-paddle", text:"Paddle on one and three!", how:SAY },
   { id:"say-readyhey", text:"When I say Ready, you say Hey!", how:`${SAY} Lean on "Ready" and "Hey".` },
   { id:"say-watch", text:"Watch!", how:SAY },
+  /* Paddle Party's v3 practice: both at once (GROOVE.md v3 6) */
+  { id:"say-keephey", text:"Keep paddling. Hey on four!", how:`${SAY} Two quick phrases, a tiny pause between them; lean on "Hey".` },
+  { id:"say-bothnow", text:"Both now!", how:`${SAY} Quick and encouraging: two syllables.` },
+  /* rowing in every song (GROOVE.md v3 10): practice opens with a bar of rowing, then the move over it */
+  { id:"say-row", text:"Row on one and three!", how:SAY },
+  { id:"say-rowhop", text:"Keep rowing. Hop two beats after me!", how:`${SAY} Two quick phrases, barely a pause between them.`, tempo:1.1 },
+  { id:"say-rowspin", text:"Keep rowing. Spin one beat after me!", how:`${SAY} Two quick phrases, barely a pause between them.`, tempo:1.1 },
+  { id:"say-rowall", text:"Keep rowing. All three, in turn!", how:`${SAY} Two quick phrases, barely a pause between them.`, tempo:1.1 },
+  { id:"say-rowfuse", text:"Keep rowing. Watch the fuse!", how:`${SAY} Two quick phrases, barely a pause between them.`, tempo:1.1 },
+  { id:"say-twonow", text:"Two now!", how:`${SAY} Quick: two syllables.` },
+  /* Fireworks' practice (GROOVE.md v3 9) */
+  { id:"say-watchfuse", text:"Watch the fuse!", how:SAY },
+  /* tempo: it must fit between the demo's fuses and the first one of yours */
+  { id:"say-launchtwo", text:"Launch two beats after I light!", how:`${SAY} Quick, no pause between the words; lean on "two beats".`, tempo:1.15 },
+  { id:"say-twoquick", text:"Two quick ones!", how:SAY },
+  { id:"say-threerow", text:"Three in a row!", how:SAY },
   { id:"say-turn", text:"Your turn!", how:`${SAY} Very quick and clipped: two syllables, about a third of a second.` },
   { id:"say-hoptwo", text:"Hop two beats after me!", how:SAY },
   { id:"say-twotime", text:"Two this time!", how:SAY },
@@ -102,6 +119,8 @@ const BAR = "You are the bartender in a cute cartoon party game, behind the coun
 const NUMBER = `${BAR} You are counting down to closing time: say the one number, firm and clear, the same way every time, short (under half a second).`;
 export const BARTENDER_LINES = Object.freeze([
   ...["Ten", "Nine", "Eight", "Seven", "Six", "Five", "Four"].map((word, k) => ({ id:`bar-${10 - k}`, text:`${word}.`, how:NUMBER })),
+  /* Last Call's rush (v3): six, five, four 0.7 s apart, the same voice quicker (tempo, not pitch) */
+  ...["Six", "Five", "Four"].map((word, k) => ({ id:`bar-${6 - k}q`, text:`${word}.`, how:`${NUMBER} Quick and clipped: the clock is speeding up.`, tempo:1.3 })),
   { id:"bar-lastcall", text:"Last call!", how:`${BAR} Ring in the last round: a sly, delighted "Last call!".` },
   { id:"bar-explain", text:"The bar closes at zero. Tap on zero. Farthest off drinks.",
     how:`${BAR} Explain the game in three short, plain sentences, a small pause between them, a little smile in "Farthest off drinks".` },

@@ -316,7 +316,8 @@ test("the calibration is people's practice only: median, at most once a beat, fr
       if (song.offset !== last) { changes.push(Math.floor((t - song.songAt) / 500)); last = song.offset; }
     } });
   assert.deepEqual(song.samples, lags.slice(0, song.samples.length), "only the person's taps are samples");
-  assert.ok(song.samples.length >= 8);
+  assert.equal(song.samples.length, practice.length, "every practice tap before the freeze (7 in Paddle Party)");
+  assert.ok(practice.length >= 6);
   assert.equal(song.offset, 150, "the median");
   assert.ok(new Set(changes).size === changes.length, `at most once a beat (${changes})`);
   /* frozen half a beat before the first play bar */
@@ -569,7 +570,7 @@ test("addBots fills with named computer riders; toLobby lets them go; a saved 3D
   cup.entrants.length = 13;
   const bots = cup.entrants.filter(entrant => entrant.bot);
   assert.equal(new Set(bots.map(entrant => entrant.name)).size, 12);
-  assert.ok(bots.every(entrant => entrant.skill >= 0.2 && entrant.skill <= 0.95 && entrant.color && entrant.look.critter !== "winnie"));
+  assert.ok(bots.every(entrant => entrant.skill >= 0.1 && entrant.skill <= 0.65 && entrant.color && entrant.look.critter !== "winnie"));
   startCup(cup, 0);
   toLobby(cup, 5);
   assert.deepEqual(cup.entrants.map(entrant => entrant.name), ["Ann"]);

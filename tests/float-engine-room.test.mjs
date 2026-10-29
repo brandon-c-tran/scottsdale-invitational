@@ -340,7 +340,7 @@ test("a restarted room carries the song on by the clock: songAt in the save, the
   const saved = mem.entries.get("cup");
   assert.equal(saved.phase, "song");
   assert.equal(saved.songAt, songAt);
-  assert.ok(Object.values(saved.song.judged).some(judged => Object.keys(judged).length > 20), "the judgements are saved");
+  assert.ok(Object.values(saved.song.judged).some(judged => Object.keys(judged).length > 15), "the judgements are saved");
   assert.ok(mem.storage.quiet.includes("cup"), "saves in a song never hold the room's messages");
   assert.ok(mem.storage.alarm > clock.t && mem.storage.alarm <= clock.t + 5000, "a watchdog alarm in a song");
   const savedCount = Object.values(saved.song.judged).reduce((sum, judged) => sum + Object.keys(judged).length, 0);

@@ -53,7 +53,7 @@ for (const id of SONG_IDS) test(`${id}: cues in order, in practice, play and the
   const breakdown = breakdownSection(chart);
   for (const line of chart.lines) assert.ok(((line.beat >= practice.from - 1 && line.beat < practice.to)
     || (line.beat >= breakdown.from - 1 && line.beat < breakdown.to)) && line.until > line.beat && line.text.length <= 32, line.text);
-  for (const demo of demoCues(chart)) assert.notEqual(lineAt(chart, demo.beat)?.text, "Your turn", "a demo is never under Your turn");
+  for (const demo of demoCues(chart)) assert.ok(!["Your turn", "Both now"].includes(lineAt(chart, demo.beat)?.text), "a demo is never under Your turn");
   assert.deepEqual([breakdownSection(chart).from, breakdownSection(chart).to], [56, 88]);
   const echoes = cuesBetween(chart, 56, 88);
   assert.ok(echoes.length >= 8 && echoes.every(c => c.kind === "echo" && c.scored && c.call === c.beat - 4), "the breakdown: copy the host a bar later");
@@ -152,10 +152,16 @@ test("practice is narrated: the line at each beat, Rhythm Heaven's text box, gon
   const chart = chartOf("paddle");
   assert.equal(lineAt(chart, 6), null);
   assert.equal(lineAt(chart, 7).text, "Paddle on 1 and 3");
+  assert.equal(lineAt(chart, 11).text, "Keep paddling. Hey! on 4");
   assert.equal(lineAt(chart, 16).text, "Watch");
-  assert.equal(lineAt(chart, 21).text, "Your turn");
+  assert.equal(lineAt(chart, 21).text, "Both now");
   assert.equal(lineAt(chart, 24), null, "play has no box");
-  assert.deepEqual(demoCues(chart).map(c => [c.beat, c.kind, c.call]), [[19, "hey", 17]]);
+  assert.deepEqual(demoCues(chart).map(c => [c.beat, c.kind, c.call]), [[16, "paddle", null], [18, "paddle", null], [19, "hey", 17]],
+    "the host's bar paddles and heys");
+  const practice = practiceCues(chart);
+  assert.deepEqual(practice.map(c => [c.beat, c.kind]), [[8, "paddle"], [10, "paddle"], [12, "paddle"], [14, "paddle"],
+    [20, "paddle"], [22, "paddle"], [23, "hey"]], "paddle, keep paddling, (watch), both");
+  assert.ok(practice.filter(c => c.beat < 23.5).length >= 4, "enough to calibrate before the offset is fixed");
 });
 
 test("after a song: Superb, OK or Try again, a line of feedback, the awards", () => {

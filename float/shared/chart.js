@@ -118,8 +118,10 @@ const DEMO = { p:"paddle", h:"hey", o:"hop", s:"spin", r:"rocket" };
 const rep = (bar, n) => new Array(n).fill(bar);
 const PLANS = Object.freeze({
   paddle:{
-    practice:["P...P...", "P...P...", "P...P.h.", "P...P.H."],
-    lines:[[7, "Paddle on 1 and 3"], [11, "When I say Ready, you say Hey!"], [15, "Watch"], [20, "Your turn"], [55, "Copy me", 60]],
+    /* v3: paddle, keep paddling (the Hey is coming), watch the host do
+       both, both now */
+    practice:["P...P...", "P...P...", "p...p.h.", "P...P.H."],
+    lines:[[7, "Paddle on 1 and 3"], [11, "Keep paddling. Hey! on 4"], [15, "Watch"], [20, "Both now"], [55, "Copy me", 60]],
     playA:[...rep(["P...P...", "P...P.H."], 4).flat()],
     breakdown:["........", "E.E.E...", "........", "E..EE...", "........", "EEE.E...", "........", "E...EEE."],
     playB:["P...P.H.", "P...P.H.", "P...P.H.", "P...P.H.", "P...P.HH", "P...P.H.", "P...P.HH", "P...P..."],

@@ -791,6 +791,7 @@ in a fun way i think and make it visually appealing that you're rowing".
   Blackout bars keep rowing (you row in the dark).
 - The pulse is the call for rowing in every song (the band's kick on 1 and
   3 and the stroke sound), so the host's calls stay the song's own move.
+
 ### As built: the engine, v3 (groove/engine, Oct 28)
 
 - `chart.js`: `offsetTone(absMs)` ("gold" <= 50, "green" <= 100, "yellow"

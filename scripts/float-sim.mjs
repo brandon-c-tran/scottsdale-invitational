@@ -260,7 +260,7 @@ export async function runCup({ seed = SEED, bots = BOTS, phones = PHONES, fieldd
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   if (CUPS <= 1) await runCup();
   else {
-    const buckets = new Map();
+    const buckets = new Map(), firsts = new Map();
     let bestWins = 0;
     for (let k = 0; k < CUPS; k += 1) {
       const { cup } = await runCup({ seed:SEED * 1000 + k, quiet:true });
@@ -273,11 +273,25 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
         if (!buckets.has(key)) buckets.set(key, []);
         buckets.get(key).push(place + 1);
       });
+      /* every song's percent by the bot's own skill (round 1: the whole field, no survivors' bias) */
+      for (const item of cup.history) for (const row of item.results) {
+        const entrant = cup.entrants[row.i];
+        const key = entrant.bot ? entrant.skill.toFixed(2) : "phone";
+        if (!firsts.has(key)) firsts.set(key, { first:[], all:[] });
+        if (item.round === 0) firsts.get(key).first.push(row.pct);
+        firsts.get(key).all.push(row.pct);
+      }
     }
     const mean = list => list.reduce((a, b) => a + b, 0) / list.length;
     console.log(`${CUPS} Cups: mean final place by skill`);
     for (const key of [...buckets.keys()].sort().reverse())
       console.log(`   ${key.padEnd(6)} mean place ${mean(buckets.get(key)).toFixed(2)}   wins ${(100 * buckets.get(key).filter(p => p === 1).length / buckets.get(key).length).toFixed(1)}%`);
     console.log(`   the sharpest bot wins ${(100 * bestWins / CUPS).toFixed(1)}% of Cups`);
+    console.log("song percent by skill (round 1, every song played)");
+    const range = list => list.length ? `${Math.min(...list).toFixed(1)} to ${Math.max(...list).toFixed(1)}` : "-";
+    for (const key of [...firsts.keys()].sort().reverse()) {
+      const { first, all } = firsts.get(key);
+      console.log(`   ${key.padEnd(6)} round 1 mean ${mean(first).toFixed(1)} (${range(first)})   all songs mean ${mean(all).toFixed(1)}`);
+    }
   }
 }

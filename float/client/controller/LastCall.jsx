@@ -75,7 +75,7 @@ export default function LastCall({ serverNow, room, idx, chart, songAt, entrant,
       {told && <b className="flc-stamp" key={view.drinks ? "drink" : "safe"}>{view.drinks ? "You drink" : "Safe"}</b>}
     </div>}
     <Bartender pose={told ? "cheer" : "idle"} />
-    {/* at the bar you stand behind the counter, waist up, as the bartender does: the counter hides the tube (v3) */}
+    {/* at the bar you stand behind the counter, waist up, as the bartender does: the counter hides the kayak (v3) */}
     <div className="flc-barseat"><Critter entrant={entrant} pose={pose} size={280} /></div>
     {view.moment === "count" && <div className={`flc-zero-pad${view.locked ? " is-locked" : ""}`} aria-hidden="true">
       <i>{view.locked ? <svg viewBox="0 0 24 24"><path d="M7 11V8a5 5 0 0 1 10 0v3" /><rect x="5" y="11" width="14" height="10" rx="2.5" /></svg> : null}</i>

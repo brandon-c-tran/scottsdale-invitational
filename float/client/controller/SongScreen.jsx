@@ -135,7 +135,7 @@ export function useMove(ref, act) {
 
 /* the pose a tap leaves: its action, then pleased for a Perfect or a Nice; a miss flubs */
 const ACTION_POSE = Object.freeze({ paddle:"stroke", hey:"hey", hop:"stroke", spin:"stroke", drop:"hey", miss:"miss", cheer:"cheer" });
-export function usePose(act, base = "idle") {
+export function usePose(act, base = "idle", side = null) {
   const [, bump] = useState(0);
   const at = act?.at ?? -Infinity;
   const age = perfNow() - at;
@@ -149,23 +149,25 @@ export function usePose(act, base = "idle") {
   }, [act?.key]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!act || age >= until) return base;
   if (act.kind === "miss" || act.kind === "cheer") return ACTION_POSE[act.kind];
-  if (age < 260) return ACTION_POSE[act.kind] || "stroke";
+  if (age < 260) return act.kind === "paddle" && side === "right" ? "stroke-r" : ACTION_POSE[act.kind] || "stroke";
   return pleased ? "nice" : base;
 }
 
-/* the kayak paddle's stroke (v3 "Row in every song"): each of your paddle
-   taps dips the other side from the last, a miss flubs; anything else
-   leaves it resting across the tube. { key, side, flub } or null */
-export function useStroke(act) {
-  const last = useRef({ key:null, n:0, stroke:null });
-  const memo = last.current;
+/* the kayak's stroke (v3 "Row in every song"): each of your paddle taps
+   dips the other side from the last (`stroke` left, `stroke-r` right), a
+   miss flubs. { key, side, flub } or null */
+export function strokeStep(memo, act) {
   if (act && act.key !== memo.key) {
     memo.key = act.key;
-    if (act.kind === "paddle") { memo.n += 1; memo.stroke = { key:act.key, side:memo.n % 2 ? "right" : "left", flub:false }; }
+    if (act.kind === "paddle") { memo.n += 1; memo.stroke = { key:act.key, side:memo.n % 2 ? "left" : "right", flub:false }; }
     else if (act.kind === "miss") memo.stroke = { key:act.key, side:null, flub:true };
     else memo.stroke = null;
   }
   return memo.stroke;
+}
+export function useStroke(act) {
+  const last = useRef({ key:null, n:0, stroke:null });
+  return strokeStep(last.current, act);
 }
 
 /* the popup: up the moment it is set, gone after `ms` */
@@ -247,8 +249,8 @@ export default function SongScreen({ serverNow, chart, songAt, entrant, shape, n
   const demoAct = demo && view.beat >= demo.beat && Number.isFinite(songAt)
     ? { key:`demo-${demo.id}`, kind:demo.kind, q:"nice", at:perfNow() - (now - cueTime(songAt, demo.beat, chart.beatMs)) } : null;
   const moved = demoAct && (!act || demoAct.at > act.at) ? demoAct : act;
-  const pose = usePose(moved, "idle");
   const stroke = useStroke(moved);
+  const pose = usePose(moved, "idle", stroke?.side);
   useMove(moveRef, moved);
   useBeatBob(bobRef, { songAt, serverNow, beatMs:chart?.beatMs, on:Number.isFinite(songAt) && view.moment !== "card" });
   const shown = useShown(popup);
@@ -275,7 +277,7 @@ export default function SongScreen({ serverNow, chart, songAt, entrant, shape, n
       <div className="flc-popup-slot">{shown ? <Popup key={shown.key} q={shown.q} d={shown.d} />
         : watch ? <b className="flc-watch-tag" key={`watch-${demo.id}`}>Watch</b> : null}</div>
       <div className="flc-me" ref={bobRef}><div className="flc-me-move" ref={moveRef}>
-        <Critter entrant={entrant} pose={pose} size={300} paddle={stroke || true} />
+        <Critter entrant={entrant} pose={pose} size={300} />
       </div></div>
     </div>
     <BeatCounter counter={counter} />

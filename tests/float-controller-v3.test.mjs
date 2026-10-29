@@ -1,4 +1,4 @@
-/* The phone, v3 (float/GROOVE.md "v3 (Oct 28 evening: playtest 2 of the
+/* The phone, v3 (kayaks: the paddle is in the sprites, stroke and stroke-r alternate) (float/GROOVE.md "v3 (Oct 28 evening: playtest 2 of the
    Groove)"): who you are (your fixed seat on the round card, its words, your
    critter in it), practice's four-beat counter read from the bar's cues
    (never in play), the number's tone on the shared scale (the contract's
@@ -147,9 +147,9 @@ test("the screens: the round card maps your seat, practice counts 1 2 3 4, the p
   assert.equal((practice.match(/flc-count is-on/g) || []).length >= 2, true);
   assert.match(practice, /flc-count is-on is-row/, "a stroke is marked as rowing");
   assert.match(practice, /flc-count-paddle/);
-  assert.match(practice, /flc-paddle/, "your critter holds the paddle");
-  assert.match(draw(cueTime(songAt, 40.2), { act:{ key:7, kind:"paddle", q:"nice", at:globalThis.performance.now() } }), /flc-paddle is-right/, "a stroke dips a side");
-  assert.match(draw(cueTime(songAt, 40.2), { act:{ key:8, kind:"miss", q:"miss", at:globalThis.performance.now() } }), /flc-paddle is-flub/, "a miss flubs");
+  /* the paddle is in the sprites: a paddle tap strokes (stroke-r falls back to stroke until the art has it), a miss flubs */
+  assert.match(draw(cueTime(songAt, 40.2), { act:{ key:7, kind:"paddle", q:"nice", at:globalThis.performance.now() } }), /data-pose="stroke"/);
+  assert.match(draw(cueTime(songAt, 40.2), { act:{ key:8, kind:"miss", q:"miss", at:globalThis.performance.now() } }), /data-pose="miss"/);
   const play = draw(cueTime(songAt, 40.2));
   assert.doesNotMatch(play, /flc-counter/, "never in play");
   /* the popup's number takes its tone */
@@ -169,4 +169,21 @@ test("the screens: the round card maps your seat, practice counts 1 2 3 4, the p
   const verdict = lc(songAt + cd.verdictAt + 10, { ...lcRoom, lastCall:{ ...lcRoom.lastCall, worst:[0] } });
   assert.match(verdict, /You drink/);
   assert.ok(verdict.indexOf("Farthest of 3") < verdict.indexOf("You drink"), "the offset, your place, then the verdict");
+});
+
+test("rowing: your paddle taps alternate stroke and stroke-r, a miss is miss; stroke-r is stroke until the art has it", async () => {
+  const { strokeStep, poseFor } = await bundle(`
+    export { strokeStep } from "./float/client/controller/SongScreen.jsx";
+    export { poseFor } from "./float/client/controller/art.jsx";`, "rowing");
+  const memo = { key:null, n:0, stroke:null };
+  const sides = [1, 2, 3, 4].map(k => strokeStep(memo, { key:k, kind:"paddle" }).side);
+  assert.deepEqual(sides, ["left", "right", "left", "right"], "stroke, stroke-r, stroke, stroke-r");
+  assert.equal(strokeStep(memo, { key:4, kind:"paddle" }).side, "right", "the same act is the same stroke");
+  assert.equal(strokeStep(memo, { key:5, kind:"miss" }).flub, true);
+  assert.equal(strokeStep(memo, { key:6, kind:"hey" }), null);
+  assert.equal(strokeStep(memo, { key:7, kind:"paddle" }).side, "left");
+  const withArt = { critters:{ capybara:{ poses:{ stroke:{}, "stroke-r":{} } } } };
+  assert.equal(poseFor(withArt, "capybara", "stroke-r"), "stroke-r");
+  assert.equal(poseFor({ critters:{ capybara:{ poses:{ stroke:{} } } } }, "capybara", "stroke-r"), "stroke", "falls back until the art lands");
+  assert.equal(poseFor(withArt, "capybara", "wave"), "idle");
 });

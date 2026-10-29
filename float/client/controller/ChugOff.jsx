@@ -11,7 +11,7 @@ import TapButton from "./TapButton.jsx";
 import { Critter } from "./art.jsx";
 import { CupIcon, ExitButton, Scenery, Top } from "./parts.jsx";
 import { useMove, usePose } from "./SongScreen.jsx";
-import { CHUGOFF_LINE, chugoffView } from "./controllerModel.js";
+import { CHUGOFF_LINE, chugCount, chugoffView } from "./controllerModel.js";
 
 /* the room's clock, re-read on each of `marks` (server ms) as it passes */
 function useMarksNow(serverNow, marks) {
@@ -31,15 +31,6 @@ function useMarksNow(serverNow, marks) {
     return () => clearTimeout(id);
   }, [serverNow, key]); // eslint-disable-line react-hooks/exhaustive-deps
   return now;
-}
-
-/* the count to Chug!: 3, 2, 1 over the intro's last three seconds, then "Chug!" for a beat */
-export function chugCount(goAt, now) {
-  if (!Number.isFinite(goAt) || !Number.isFinite(now)) return null;
-  const left = goAt - now;
-  if (left > 3000) return null;
-  if (left > 0) return String(Math.ceil(left / 1000));
-  return left > -900 ? "Chug!" : null;
 }
 
 function Names({ names }) {
@@ -68,10 +59,10 @@ export default function ChugOff({ serverNow, room, idx, entrant, sent = false, o
       <div className="flc-chug-main" role="status">
         {!told && !live && <h1 className="flc-chug-title">{view.done ? "Waiting" : "Chug-off!"}</h1>}
         {!told && !view.done && <Names names={view.names} />}
-        {view.moment === "intro" && !count && <p className="flc-chug-sub">Finish your drink</p>}
-        {view.moment === "intro" && view.first && !count && <p className="flc-line-text">{CHUGOFF_LINE}</p>}
+        {view.moment === "intro" && (view.first ? <p className="flc-line-text">{CHUGOFF_LINE}</p> : <p className="flc-chug-sub">Finish your drink</p>)}
         {count && !view.done && <b className="flc-chug-count" key={count}>{count}</b>}
         {told && <b className="flc-stamp" key={view.kept ? "kept" : "out"}>{view.kept ? "You keep your spot" : "Out"}</b>}
+        {told && view.why && <p className="flc-chug-why">{view.why}</p>}
       </div>
       <div className="flc-stage"><div className="flc-idle-me"><Critter entrant={entrant} pose={pose} size={live ? 200 : 260} /></div></div>
       {live && <TapButton className="flc-done flc-chug-done" onPress={onDone}><CupIcon /><span>Done</span></TapButton>}
@@ -86,9 +77,10 @@ export default function ChugOff({ serverNow, room, idx, entrant, sent = false, o
     <Top left={<span className="flc-kicker">Chug-off</span>} right={<ExitButton onExit={onExit} />} />
     <div className="flc-chug-main" role="status">
       <h1 className="flc-chug-title is-small">Chug-off: {view.names[0]} vs {view.names[1]}</h1>
-      {view.moment === "intro" && view.first && !count && <p className="flc-line-text">{CHUGOFF_LINE}</p>}
+      {view.moment === "intro" && view.first && <p className="flc-line-text">{CHUGOFF_LINE}</p>}
       {count && <b className="flc-chug-count" key={count}>{count}</b>}
       {told && winnerName && <b className="flc-stamp is-small" key="kept">{winnerName} keeps the spot</b>}
+      {told && view.why && view.by !== "chug" && <p className="flc-chug-why">{view.why}</p>}
     </div>
     <div className="flc-chug-pair" aria-hidden="true">
       <Critter entrant={a} pose={poseOf(view.a)} size={150} />

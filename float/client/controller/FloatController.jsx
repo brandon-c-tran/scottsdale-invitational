@@ -29,14 +29,13 @@ import { cleanColor, cleanName } from "../../shared/protocol.js";
 import { cleanLook } from "../../shared/looks.js";
 import { FLOATIE_IDS } from "../../shared/floaties.js";
 import { createWakeLock } from "../../../src/lib/wakeLock.js";
-import { qualityOf } from "../../shared/chart.js";
 import { tapTick } from "../../../src/lib/haptics.js";
 import SongScreen from "./SongScreen.jsx";
 import LastCall from "./LastCall.jsx";
 import ChugOff from "./ChugOff.jsx";
 import Screens from "./Screens.jsx";
 import { useRoom } from "./useRoom.js";
-import { indexOf, offsetOf, roundShape, roundSong, screenOf, songAtOf, wakeFor } from "./controllerModel.js";
+import { indexOf, lastCallJudged, offsetOf, roundShape, roundSong, screenOf, songAtOf, wakeFor } from "./controllerModel.js";
 import { createGate, createPad, padTap, restamp, serverStamp, stampOf } from "./rhythm.js";
 import { cheerSound, doneSound, tapSound, unlockSound, useControllerSound } from "./sound.js";
 import { usePreloadArt } from "./art.jsx";
@@ -48,7 +47,7 @@ const FEEDBACK_KEY = "float-feedback";
 const store = () => { try { return globalThis.localStorage || null; } catch { return null; } };
 const readJson = key => { try { return JSON.parse(store()?.getItem(key) || "null"); } catch { return null; } };
 const writeJson = (key, value) => { try { store()?.setItem(key, JSON.stringify(value)); } catch {} };
-const sameLook = (a, b) => !!a && !!b && ["critter", "floatie", "hat", "shades", "pose"].every(key => a[key] === b[key]);
+const sameLook = (a, b) => !!a && !!b && ["critter", "floatie", "hat", "shades", "shirt", "pose"].every(key => a[key] === b[key]);
 const perfNow = () => globalThis.performance?.now?.() ?? Date.now();
 
 /* the page is a game while this is open: still and unzoomable, and awake
@@ -82,18 +81,6 @@ function useGameSurface(awake) {
     if (awake) wake.start(); else wake.release();
   }, [awake]);
   return lock;
-}
-
-/* the room's word on this rider's Last Call tap: its ev hit, else me.lastCall { ms, d } */
-export function lastCallJudged(game, songKey) {
-  const judged = game.memory?.song === songKey ? game.memory.judged || {} : {};
-  if (judged[0]) return judged;
-  const said = game.me?.lastCall;
-  if (said && typeof said === "object" && Number.isFinite(Number(said.d))) {
-    const d = Number(said.d);
-    return { 0:{ q:game.me.c === 0 && typeof game.me.q === "string" ? game.me.q : qualityOf(d), d } };
-  }
-  return judged;
 }
 
 export default function FloatController({ room = "test", rider = null, onExit = null, connect = connectFloat, onLook = null }) {

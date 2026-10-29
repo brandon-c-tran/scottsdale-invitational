@@ -307,9 +307,10 @@ export function createMockRoom({ hello = null, scene = null, freeze = false, tim
       case "play-miss": ghost = { ...GHOSTS.practice, r:(cue, offset) => cue.beat === 30 ? null : GHOSTS.practice.r(cue, offset) };
         toBeat(0, 29.4); runTo(cueAt(30) + song().offset + MISS_AFTER_MS - 160); break;
       /* the host's demo ("Watch"); the breakdown's "Copy me", then the copy (a tap 30 ms late) */
-      case "watch-demo": ghost = GHOSTS.practice; toBeat(0, 16.6); break;
+      case "watch-demo": ghost = GHOSTS.practice; toBeat(0, 17.4); break;
       case "breakdown": ghost = GHOSTS.practice; toBeat(0, 57.2); break;
-      case "breakdown-copy": ghost = GHOSTS.practice; toBeat(0, 59.6); runTo(cueAt(60) + song().offset + 30); break;
+      case "breakdown-copy": ghost = { ...GHOSTS.practice, r:(cue, offset) => cue.beat === 60 ? null : GHOSTS.practice.r(cue, offset) };
+        toBeat(0, 59.6); runTo(cueAt(60) + song().offset + 30); break;
       case "outro": ghost = GHOSTS.practice; toBeat(0, 120.2); break;
       case "after": ghost = GHOSTS.practice; toBeat(0, 128.6); break;
       case "rock": ghost = GHOSTS.practice; toBeat(1, 9.2); break;
@@ -319,7 +320,7 @@ export function createMockRoom({ hello = null, scene = null, freeze = false, tim
       case "cut-out": ghost = GHOSTS.bad; runUntil(cup => cup.phase === "cut"); runTo(room.cup.endsAt - 1500); break;
       case "cut-bubble": ghost = GHOSTS.practice; toCut(0); runTo(room.cup.endsAt - 1500); break;
       /* the chug-off: its call (the Cup's first says what it is), the count, the go, kept or out, and the room's view */
-      case "chugoff": ghost = GHOSTS.practice; toChug(0); runTo(room.cup.startAt + 1500); break;
+      case "chugoff": ghost = GHOSTS.practice; toChug(0); runTo(room.cup.startAt + 600); break;
       case "chugoff-count": ghost = GHOSTS.practice; toChug(0); runTo(room.cup.chugoff.goAt - 1500); break;
       case "chugoff-go": ghost = { ...GHOSTS.practice, chug:null }; toChug(0); runTo(room.cup.chugoff.goAt + 1200); break;
       case "chugoff-kept": ghost = { ...GHOSTS.practice, chug:1500 }; toChug(0); runTo(room.cup.chugoff.goAt + 2400); break;
@@ -330,7 +331,7 @@ export function createMockRoom({ hello = null, scene = null, freeze = false, tim
       /* Last Call, the countdown: the intro (the first says what it is), Tap on zero, Locked (730 ms late), the
          offset revealed, who drinks (2.6 s off: the farthest) and who is safe (20 ms off) */
       case "lastcall": ghost = zeroGhost(730); toBar(0, cd => 2000); break;
-      case "lastcall-tap": ghost = zeroGhost(null); toBar(0, cd => cd.zeroAt - 4000); break;
+      case "lastcall-tap": ghost = zeroGhost(null); toBar(0, cd => cd.zeroAt - 1500); break;
       case "lastcall-locked": ghost = zeroGhost(730); toBar(0, cd => cd.zeroAt + 1500); break;
       case "lastcall-reveal": ghost = zeroGhost(730); toBar(0, cd => cd.revealAt + 500); break;
       case "lastcall-drink": ghost = zeroGhost(2600); toBar(0, cd => cd.verdictAt + 700); break;

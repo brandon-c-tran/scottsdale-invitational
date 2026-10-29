@@ -9,7 +9,7 @@
    the outro, then the wait for the cut. Where the room's frame leaves something out, the frozen
    chart module fills it in: no `chart` is chartOf(song), no `songAt` is
    startAt + SONG_LEAD_MS. */
-import { CHUGOFF, LAST_CALL_ID, SONGS, SONG_LEAD_MS, callsBetween, breakdownSection, chartOf, clockAt, feedbackOf, gradeOf, gradeWord, lineAt,
+import { CHUGOFF, LAST_CALL_ID, SONGS, qualityOf, SONG_LEAD_MS, callsBetween, breakdownSection, chartOf, clockAt, feedbackOf, gradeOf, gradeWord, lineAt,
   songForRound } from "../../shared/chart.js";
 
 const num = value => value === null || value === undefined || value === "" ? null : Number.isFinite(Number(value)) ? Number(value) : null;
@@ -99,6 +99,18 @@ export function countdownView({ room, idx, chart, songAt, now, judged = {}, tap 
   return { moment, first:!!cd?.first, locked:!!mine, offset:shown, drinks:worst === null ? null : worst.includes(idx) };
 }
 
+/* the room's word on this rider's Last Call tap, from what the phone holds
+   (`game`: useRoom's state): its ev hit on cue 0, else me.lastCall { ms, d },
+   which comes at once and is held until the reveal (countdownView) */
+export function lastCallJudged(game, songKey) {
+  const judged = game?.memory?.song === songKey ? game.memory.judged || {} : {};
+  if (judged[0]) return judged;
+  const said = game?.me?.lastCall;
+  const d = said && typeof said === "object" ? num(said.d) : null;
+  if (d === null) return judged;
+  return { ...judged, 0:{ q:game.me.c === 0 && typeof game.me.q === "string" ? game.me.q : qualityOf(d), d } };
+}
+
 /* ---- practice, narrated (GROOVE.md "Practice, narrated") ---- */
 
 /* the narration at beat b: the practice's text box (chart.js lineAt), its text or null */
@@ -180,7 +192,8 @@ export function rankView({ me = null, view = null, shape = null } = {}) {
    doneAt:{ [i]: ms after goAt }, winner, by }. moment "intro" (the call,
    the names, 3 2 1, until goAt), "go" (Done is live for the two), "told"
    (the winner is in). sent: a Done this phone sent in this chug-off.
-   { moment, a, b, names, contender, first, done, winner, kept, goAt } */
+   why: how it was decided, one plain line (by "chug", "score", "forfeit").
+   { moment, a, b, names, contender, first, done, winner, kept, goAt, by, why } */
 export const CHUGOFF_LINE = "Last one in against first one out. First to finish keeps the spot.";
 export function chugoffView({ room, idx, now, sent = false }) {
   const c = room?.chugoff && typeof room.chugoff === "object" ? room.chugoff : {};
@@ -196,8 +209,22 @@ export function chugoffView({ room, idx, now, sent = false }) {
   const moment = winner !== null ? "told" : goAt === null || !Number.isFinite(now) || now < goAt ? "intro" : "go";
   /* the Cup's first chug-off says what it is: the room's word, else the first round's */
   const first = typeof c.first === "boolean" ? c.first : (num(room?.round) ?? 0) === 0;
+  const by = c.by || null;
+  const loser = winner === null ? null : winner === a ? b : a;
+  const why = winner === null ? "" : by === "score" ? "Nobody finished. The better score keeps the spot."
+    : by === "forfeit" ? (loser === idx ? "Your phone dropped" : `${nameOf(loser)}'s phone dropped`)
+    : winner === idx ? "You finished first" : `${nameOf(winner)} finished first`;
   return { moment, a, b, names:[nameOf(a), nameOf(b)], contender, first, done, winner,
-    kept:winner === null || !contender ? null : winner === idx, goAt, by:c.by || null };
+    kept:winner === null || !contender ? null : winner === idx, goAt, by, why };
+}
+
+/* the count to Chug!: 3, 2, 1 over the intro's last three seconds, then "Chug!" for 900 ms */
+export function chugCount(goAt, now) {
+  if (!Number.isFinite(goAt) || !Number.isFinite(now)) return null;
+  const left = goAt - now;
+  if (left > 3000) return null;
+  if (left > 0) return String(Math.ceil(left / 1000));
+  return left > -900 ? "Chug!" : null;
 }
 
 /* the song a round plays, by name: the room's, else the frozen order */

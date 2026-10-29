@@ -261,6 +261,7 @@ html.flc-locked, html.flc-locked body { overflow: hidden; overscroll-behavior: n
 .flc-chug-names span { padding: 2px 14px 4px; border-radius: 999px; background: var(--paper); box-shadow: inset 0 0 0 3px var(--ink); }
 .flc-chug-names i { font-style: normal; font-size: 0.7em; color: var(--ink-2); }
 .flc-chug-sub { font-size: 22px; font-weight: 900; color: var(--ink); }
+.flc-chug-why { font-size: 19px; font-weight: 900; color: var(--ink); background: rgba(255, 253, 248, 0.85); padding: 5px 14px; border-radius: 999px; animation: flc-line-in 320ms var(--spring) 260ms both; }
 .flc-line-text {
   max-width: 340px; padding: 10px 18px 12px; border-radius: 20px; text-align: center;
   font-size: 19px; line-height: 1.22; font-weight: 900; color: var(--ink);
@@ -268,17 +269,17 @@ html.flc-locked, html.flc-locked body { overflow: hidden; overscroll-behavior: n
   animation: flc-line-in 320ms var(--spring) 200ms both;
 }
 .flc-chug-count {
-  font-family: var(--pixel); font-size: clamp(96px, 32vw, 160px); line-height: 1; font-weight: 700; color: var(--paper);
+  font-family: var(--pixel); font-size: clamp(72px, 24vw, 120px); line-height: 1; font-weight: 700; color: var(--paper);
   text-shadow: var(--outline); animation: flc-stamp-in 420ms var(--spring) both;
 }
 .flc-chugoff.is-go .flc-chug-count { color: var(--yellow); }
 .flc-chug-done {
   position: absolute !important; left: calc(var(--sa-left) + 16px); right: calc(var(--sa-right) + 16px); bottom: calc(var(--sa-bottom) + 22px);
-  margin: 0 auto; width: auto; min-height: min(46vh, 300px); border-radius: 48px; font-size: clamp(64px, 20vw, 96px); background: var(--yellow);
+  margin: 0 auto; width: auto; min-height: min(34vh, 240px); border-radius: 48px; font-size: clamp(64px, 20vw, 96px); background: var(--yellow);
   animation: flc-card-in 280ms var(--spring) both;
 }
 .flc-chug-done .flc-cup { width: 72px; height: 72px; color: var(--gold); }
-.flc-chugoff.is-mine.is-go:not(.is-done) .flc-stage { bottom: calc(var(--sa-bottom) + min(46vh, 300px) + 30px); }
+.flc-chugoff.is-mine.is-go:not(.is-done) .flc-stage { bottom: calc(var(--sa-bottom) + min(34vh, 240px) + 34px); }
 .flc-chugoff.is-mine.is-go:not(.is-done) .flc-chug-main { top: calc(var(--sa-top) + 50px); }
 .flc-chugoff.is-out .flc-stamp { background: var(--coral); }
 .flc-chugoff .flc-stamp { font-size: clamp(40px, 12vw, 64px); }
@@ -287,7 +288,7 @@ html.flc-locked, html.flc-locked body { overflow: hidden; overscroll-behavior: n
 .flc-chug-pair .flc-critter { width: min(var(--size), 22vh); height: min(var(--size), 22vh); }
 .flc-stage.is-low { bottom: calc(var(--sa-bottom) + 156px); }
 .flc-stage.is-low .flc-critter { width: min(var(--size), 18vh); height: min(var(--size), 18vh); }
-.flc-cut.is-bubble .flc-stamp { background: var(--yellow); color: var(--ink); text-shadow: none; }
+.flc-cut.is-bubble .flc-stamp { background: var(--yellow); color: var(--ink); text-shadow: none; font-size: clamp(44px, 13vw, 66px); white-space: nowrap; }
 
 /* ── Last Call: the bar ── */
 .flc-lastcall { background: #6e3a22; }
@@ -470,7 +471,9 @@ html.flc-locked, html.flc-locked body { overflow: hidden; overscroll-behavior: n
   .flc-chug-done { left: 50%; min-height: 0; top: calc(var(--sa-top) + 64px); bottom: calc(var(--sa-bottom) + 16px); }
   .flc-chugoff.is-mine.is-go:not(.is-done) .flc-stage { bottom: calc(var(--sa-bottom) + 2%); }
   .flc-chugoff.is-mine.is-go:not(.is-done) .flc-chug-main { left: 0; right: 50%; top: calc(var(--sa-top) + 48px); }
-  .flc-chug-pair { top: auto; bottom: calc(var(--sa-bottom) + 12px); left: 0; right: 50%; }
+  .flc-chug-pair { top: 36%; left: 0; right: 50%; }
+  .flc-chug-main { top: calc(var(--sa-top) + 52px); }
+  .flc-stage.is-bar { left: 12%; right: 46%; }
   .flc-chugoff.is-crowd .flc-stage.is-low { display: none; }
   .flc-chug-count { font-size: 96px; }
   /* Last Call: the bartender and you share the counter; the words and the pad go on the right */

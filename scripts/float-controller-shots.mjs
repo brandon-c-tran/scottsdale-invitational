@@ -3,11 +3,11 @@
    headless Chrome as a touch phone, holds every moment still (&freeze=1:
    the room's clock stops, taps still land on it), taps the pad and the
    buttons with real touches through CDP Input.dispatchTouchEvent, checks
-   what the controller sent (hit, drink, cheer, ready), and saves a
+   what the controller sent (hit, drink, cheer, ready, look), and saves a
    screenshot of every moment.
 
      node scripts/float-controller-shots.mjs [--url http://localhost:5184]
-       [--out <dir>] [--only practice,drink,join] [--sizes portrait,landscape,se,max] [--scale 2]
+       [--out <dir>] [--only practice,chugoff,join] [--sizes portrait,landscape,se,max] [--scale 2]
 
    Needs a dev server (npx vite --port 5184 --strictPort). Exits 1 when a
    check fails. */
@@ -42,10 +42,12 @@ const check = (ok, label) => {
 const MOMENTS = [
   ["lobby"], ["lobby-ready"], ["lobby-fieldday"], ["intro"], ["card"], ["count"],
   ["practice", { tap:true, word:"Nice!" }], ["hey"], ["play", { tap:true, word:"Perfect" }], ["play-late", { tap:true, word:"Late" }],
-  ["play-miss", { word:"Miss", settle:200 }], ["drink"], ["drink-done"], ["drink-dry"], ["drink-late"], ["outro"], ["after"],
-  ["rock"], ["spin"], ["drop"], ["cut"], ["cut-out"], ["cut-final"], ["lastcall"], ["lastcall-grab", { tap:true, word:"Late" }],
-  ["lastcall-drink", { settle:1200 }], ["lastcall-safe", { settle:1200 }], ["crowd"], ["podium"], ["podium-win"], ["podium-out"],
-  ["feedback"], ["watch"],
+  ["play-miss", { word:"Miss", settle:200 }], ["watch-demo"], ["breakdown"], ["breakdown-copy", { tap:true, word:"Perfect" }],
+  ["outro"], ["after"], ["rock"], ["spin"], ["drop"], ["cut", { settle:1200 }], ["cut-out", { settle:1200 }], ["cut-bubble", { settle:1200 }],
+  ["cut-final", { settle:1200 }], ["chugoff"], ["chugoff-count"], ["chugoff-go"], ["chugoff-kept", { settle:1200 }],
+  ["chugoff-out", { settle:1200 }], ["chugoff-crowd"], ["lastcall"], ["lastcall-tap", { tap:true, locked:true }], ["lastcall-locked"],
+  ["lastcall-reveal", { settle:1200 }], ["lastcall-drink", { settle:1200 }], ["lastcall-safe", { settle:1200 }], ["crowd"], ["podium"],
+  ["podium-win"], ["podium-out"], ["feedback"], ["watch"],
 ];
 
 async function main() {
@@ -154,6 +156,10 @@ async function moments(page, size) {
     const said = opts.word ? await popupText(page) : "";
     await shot(page, size, scene);
     if (opts.word) check(said.includes(opts.word), `${size} ${scene}: the popup says ${opts.word} (${said})`);
+    if (opts.locked) {
+      const words = await page.evaluate("document.querySelector('.flc-zero-title')?.textContent || ''");
+      check(words === "Locked" && !(await popupText(page)), `${size} ${scene}: Locked, and nothing of the tap (${words})`);
+    }
     if (opts.tap) {
       const hits = (await sent(page)).filter(m => m.t === "hit");
       const last = hits.length === 1 ? "" : ` last tap ${await page.evaluate("JSON.stringify(window.__floatLastTap || null)")}`;
@@ -165,28 +171,31 @@ async function moments(page, size) {
 /* the pad's rules, with real touches */
 async function padChecks(page, size) {
   const [w, h] = SIZES[size];
-  if (!want("drink") && !want("crowd") && !want("pad")) return;
-  if (!check(await open(page, "drink"), `${size}: the drink break loaded`)) return;
+  if (!want("chugoff") && !want("crowd") && !want("pad")) return;
+  if (!check(await open(page, "chugoff-go"), `${size}: the chug-off loaded`)) return;
   await sleep(1500);
-  /* the drink break: the pad takes no taps until Done */
+  /* the chug-off: one huge Done sends drink; then Waiting until the room says, or the spot */
   await clearSent(page);
-  await tapAt(page, w * 0.5, h * 0.3);
-  await sleep(150);
-  check(!(await sent(page)).some(m => m.t === "hit"), `${size}: Done owed, the pad takes no taps`);
-  check(await tapElement(page, ".flc-done"), `${size}: Done is up`);
+  check(await tapElement(page, ".flc-chug-done"), `${size}: Done is up`);
   await sleep(250);
   check((await sent(page)).some(m => m.t === "drink"), `${size}: Done sends drink`);
-  check(await page.until("!!document.querySelector('.flc-rest') && !document.querySelector('.flc-done')", { timeout:3000 }), `${size}: after Done, Done`);
-  await shot(page, size, "drink-tapped");
-  /* play B began before Done: Done stays, the cues are the room's misses */
-  await go(page, "drink-late");
+  check(await page.until("!document.querySelector('.flc-chug-done') && /Waiting|You keep your spot/.test(document.querySelector('.flc-chug-main')?.textContent || '')",
+    { timeout:3000 }), `${size}: after Done, Waiting or the spot`);
+  await shot(page, size, "chugoff-tapped");
+  /* the room's view of it: the Cheer */
+  await go(page, "chugoff-crowd");
   await clearSent(page);
-  await tapAt(page, w * 0.5, h * 0.3);
-  await sleep(150);
-  check(!(await sent(page)).some(m => m.t === "hit") && (await page.evaluate("!!document.querySelector('.flc-done')")), `${size}: play B before Done: Done stays up`);
-  await tapElement(page, ".flc-done");
-  await sleep(250);
-  check((await sent(page)).some(m => m.t === "drink"), `${size}: a late Done sends drink`);
+  check(await tapElementNow(page, ".flc-cheer", 1) && ((await sleep(200)), (await sent(page)).some(m => m.t === "cheer")), `${size}: watching the chug-off, Cheer sends cheer`);
+  check(!(await page.evaluate("!!document.querySelector('.flc-chug-done')")), `${size}: watching, no Done`);
+  /* Last Call: one tap, then nothing */
+  await go(page, "lastcall-tap");
+  await clearSent(page);
+  await tapNow(page, w * 0.5, h * 0.7);
+  await sleep(60);
+  await tapNow(page, w * 0.5, h * 0.7);
+  await sleep(200);
+  const zero = (await sent(page)).filter(m => m.t === "hit");
+  check(zero.length === 1 && zero[0].c === 0, `${size}: Last Call, two taps, one hit on zero (${JSON.stringify(zero)})`);
   /* the same cue twice: one hit */
   await go(page, "practice");
   await clearSent(page);
@@ -254,6 +263,21 @@ async function joinChecks(page, size) {
   await tapElement(page, ".fll-critters li:nth-child(4) button");
   await sleep(500);
   await shot(page, size, "locker");
+  /* the hats and glasses: the rider's critter in each; no tee without a photo */
+  const tabs = await page.evaluate("[...document.querySelectorAll('.fll-tabs button')].map(b => b.textContent).join(',')");
+  check(tabs === "Critter,Hat,Glasses", `${size}: the Locker's tabs, no Tee without a photo (${tabs})`);
+  await tapElement(page, ".fll-tabs button:nth-child(3)");
+  await sleep(300);
+  await tapElement(page, ".fll-critters li:nth-child(2) button");
+  await sleep(3500);
+  await shot(page, size, "locker-hat");
+  await tapElement(page, ".fll-tabs button:nth-child(4)");
+  await sleep(300);
+  await tapElement(page, ".fll-critters li:nth-child(2) button");
+  await sleep(3500);
+  await shot(page, size, "locker-glasses");
+  await tapElement(page, ".fll-tabs button:nth-child(2)");
+  await sleep(300);
   await tapElement(page, ".flj-done");
   await sleep(200);
   await tapElement(page, ".flj-join");
@@ -261,7 +285,8 @@ async function joinChecks(page, size) {
   await sleep(600);
   await shot(page, size, "join-lobby");
   const saved = await page.evaluate("JSON.parse(localStorage.getItem('float-rider') || 'null')");
-  check(saved?.look?.critter === "jackrabbit" && saved?.drinks === true, `${size}: the rider is kept (${JSON.stringify(saved)})`);
+  check(saved?.look?.critter === "jackrabbit" && saved?.look?.hat === "cowboy" && saved?.look?.shades === "aviators" && saved?.drinks === true,
+    `${size}: the rider is kept (${JSON.stringify(saved)})`);
   /* the lobby's own Locker, and a pick there goes to the room */
   await tapElement(page, ".flc-lobby .flc-pill");
   if (check(await page.until("!!document.querySelector('.flc-locker-sheet .fll-locker')", { timeout:5000 }), `${size}: Change look opens the Locker`)) {

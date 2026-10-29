@@ -29,11 +29,12 @@ const parse = s => Object.fromEntries(s.split("&").map(kv => kv.split("=")));
 let sheets = values("--sheet").map(parse);
 if (!sheets.length && REVIEW) {
   sheets = [
-    ...hatIds.map(hat => ({ hat, shades:"none", tee:"0", poses:"idle", name:`hat-${hat}` })),
-    ...shadeIds.map(shades => ({ hat:"none", shades, tee:"0", poses:"idle", name:`shades-${shades}` })),
-    { hat:"cowboy", shades:"round", tee:"1", ids:"capybara,roadrunner,gila,bighorn,frog,winnie", name:"poses-tee-a" },
-    { hat:"froggy", shades:"hearts", tee:"1", ids:"javelina,jackrabbit,tortoise,quail,coyote,otter", name:"poses-tee-b" },
-    { hat:"beanie", shades:"pixel", tee:"0", name:"poses-plain-all" },
+    ...hatIds.map(hat => ({ hat, shades:"none", across:"1", poses:"idle", size:"130", name:`hat-${hat}` })),
+    ...shadeIds.map(shades => ({ hat:"none", shades, across:"1", poses:"idle", size:"130", name:`shades-${shades}` })),
+    { hat:"propeller", shades:"round", tee:"1", size:"170", ids:"capybara,roadrunner,gila,bighorn", name:"poses-tee-a" },
+    { hat:"froggy", shades:"hearts", tee:"1", size:"170", ids:"jackrabbit,quail,coyote,winnie", name:"poses-tee-b" },
+    { hat:"viking", shades:"pixel", tee:"1", size:"170", ids:"javelina,tortoise,armadillo,frog", name:"poses-tee-c" },
+    { hat:"crown", shades:"none", tee:"0", size:"130", name:"crown-all-poses" },
   ];
 }
 if (!sheets.length) sheets = [...hatIds.map(hat => ({ hat, shades:"none" })), ...shadeIds.map(shades => ({ hat:"none", shades }))];

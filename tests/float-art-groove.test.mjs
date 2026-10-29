@@ -13,7 +13,7 @@ import { join } from "node:path";
 import Module from "node:module";
 import sharp from "sharp";
 import { build } from "esbuild";
-import { ALL_CRITTER_IDS, HAT_IDS, SHADE_IDS } from "../float/shared/looks.js";
+import { ALL_CRITTER_IDS, HAT_IDS, SHADE_IDS, RETIRED_HATS, RETIRED_SHADES } from "../float/shared/looks.js";
 import { popupOf } from "../float/shared/chart.js";
 import * as groove from "../float/client/art/groove/index.js";
 
@@ -314,14 +314,19 @@ test("RiderSprite renders without the manifest (a placeholder box) and with it (
   assert.ok(draw({ critter:"dragon" }).includes(manifest.critters.capybara.poses.idle.src));
 });
 
-test("the looks: every hat (keyed to take the colour; the crown gold) and every pair of glasses, anchored", async () => {
+test("the looks: every hat (keyed to take the colour, or its own colours; the crown gold) and every pair of glasses, anchored", async () => {
   for (const id of HAT_IDS.filter(id => id !== "none")) {
     const h = manifest.hats[id];
     assert.ok(h, `hat ${id}`);
     assert.deepEqual(await size(h.src), [h.w, h.h], `hat ${id}`);
-    if (id !== "crown") assert.deepEqual(await size(h.mask), [h.w, h.h], `hat ${id} mask`);
-    assert.ok(isPoint(h.anchor, h.w, h.h) && h.fit > 0 && h.depth >= 0, `hat ${id} fit`);
+    if (h.mask) assert.deepEqual(await size(h.mask), [h.w, h.h], `hat ${id} mask`);
+    else assert.ok(id === "crown" || h.own, `hat ${id}: a mask, or its own colours said`);
+    /* a halo floats over the head: the only negative depth */
+    assert.ok(isPoint(h.anchor, h.w, h.h) && h.fit > 0 && (h.depth >= 0 || id === "halo"), `hat ${id} fit`);
   }
+  /* a retired id is drawn as the hat it was moved to */
+  for (const [old, now] of Object.entries(RETIRED_HATS)) { assert.ok(!HAT_IDS.includes(old) && HAT_IDS.includes(now), old); assert.ok(manifest.hats[now], now); }
+  for (const [old, now] of Object.entries(RETIRED_SHADES)) { assert.ok(!SHADE_IDS.includes(old) && SHADE_IDS.includes(now), old); assert.ok(manifest.shades[now], now); }
   for (const id of SHADE_IDS.filter(id => id !== "none")) {
     const g = manifest.shades[id];
     assert.ok(g, `glasses ${id}`);
@@ -331,7 +336,15 @@ test("the looks: every hat (keyed to take the colour; the crown gold) and every 
   for (const id of ALL_CRITTER_IDS) {
     const c = manifest.critters[id];
     assert.ok(c.measure.headW > 60 && c.measure.eyeSpan > 20, `${id} measure`);
-    for (const pose of POSES) assert.ok(isPoint(c.poses[pose].anchor.eyes, 512, 512), `${id} ${pose} eyes`);
+    /* measured per pose, plain and tee: the head's top over the eyes, a head as wide as its eyes, a small tilt */
+    for (const set of [c.poses, c.tee.poses]) for (const pose of POSES) {
+      const p = set[pose];
+      assert.ok(isPoint(p.anchor.eyes, 512, 512) && isPoint(p.anchor.head, 512, 512), `${id} ${pose} eyes and head`);
+      assert.ok(p.anchor.head[1] < p.anchor.eyes[1], `${id} ${pose}: the head's top over the eyes`);
+      assert.ok(p.measure && p.measure.headW >= 60 && p.measure.headW <= 260 && p.measure.eyeSpan > 20 && Math.abs(p.measure.tilt) <= 30, `${id} ${pose} measure`);
+      assert.ok(Math.abs(p.anchor.head[0] - p.anchor.eyes[0]) < p.measure.headW * 0.6, `${id} ${pose}: the head over the face`);
+    }
+    assert.ok(c.portrait.measure.headW > 120 && c.portrait.anchor.head[1] < c.portrait.anchor.eyes[1], `${id} portrait`);
   }
 });
 
@@ -352,7 +365,13 @@ test("the photo tee: every critter's eight poses with a shirt mask, a chest for 
 test("lookOf: none is nothing, the tee needs a photo, the groom's hat is the crown unless he picked one", () => {
   groove.provideGrooveArt(manifest);
   const plain = groove.lookOf({ color:"#E53935", look:{ critter:"frog", hat:"none", shades:"none", shirt:"photo" } });
-  assert.deepEqual(plain, { critter:"frog", color:"#e53935", groom:false, hat:null, shades:null, shirt:null, photo:null });
+  /* "none" is kept as "none", so a groom's "none" is no hat, not the crown */
+  assert.deepEqual(plain, { critter:"frog", color:"#e53935", groom:false, hat:"none", shades:null, shirt:null, photo:null });
+  assert.equal(groove.hatOf(plain), null);
+  assert.equal(groove.hatOf(groove.lookOf({ groom:true, look:{ critter:"frog", hat:"none" } })), null, "the groom's none is none");
+  assert.equal(groove.hatOf(groove.lookOf({ groom:true, look:{ critter:"frog" } })), "crown", "the groom's unset is the crown");
+  assert.equal(groove.hatOf({ hat:"bucket" }), "fishing", "a retired hat draws as its new one");
+  assert.equal(groove.hatOf({ hat:"nonsense", groom:true }), null);
   const dressed = groove.lookOf({ color:"#123", groom:true, photo:"/api/photo/7", look:{ critter:"otter", hat:"party", shades:"stars", shirt:"photo" } });
   assert.deepEqual(dressed, { critter:"otter", color:"#112233", groom:true, hat:"party", shades:"stars", shirt:"photo", photo:"/api/photo/7" });
   assert.equal(groove.hatOf(dressed), "party");

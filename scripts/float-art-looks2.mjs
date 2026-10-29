@@ -26,7 +26,7 @@ export const HAT_FIT2 = {
   froggy:{ fit:1.16, depth:0.24 },
   beanie:{ fit:1.02, depth:0.26 },
   propeller:{ fit:1.04, depth:0.22 },
-  tophat:{ fit:0.66, depth:0.06 },
+  tophat:{ fit:0.84, depth:0.08 },
   viking:{ fit:1.62, depth:0.24 },
   fishing:{ fit:1.12, depth:0.22 },
   sunhat:{ fit:1.36, depth:0.18 },

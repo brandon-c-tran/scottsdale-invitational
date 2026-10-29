@@ -7,9 +7,10 @@
    bar before each switch; a cheer when the song ends. The frame driver sets the
    pose and moves it; React renders it once a phase. */
 import React, { useEffect, useRef } from "react";
-import { HostArt, HostFigure, SignProp, useHostArt } from "../art.jsx";
-import { bobAt } from "../model/motion.js";
-import { hostAt, signAt } from "../model/song.js";
+import { HostArt, HostFigure, PaddleArt, SignProp, useHostArt } from "../art.jsx";
+import { PADDLE, bobAt, paddleAt, strokeSide } from "../model/motion.js";
+import { hostAt, sceneFor, signAt } from "../model/song.js";
+import { sceneOf } from "../../art/groove/index.js";
 import { reducedMotion } from "./driver.js";
 
 /* the host's spot: feet on the sand at the water's edge, upper left
@@ -17,6 +18,36 @@ import { reducedMotion } from "./driver.js";
 export const HOST = Object.freeze({ x:196, y:436, h:330 });
 /* the drawn host's box and anchors when the art has none */
 const DRAWN_HOST = Object.freeze({ box:[400, 480], anchor:{ ground:[200, 462], horn:[336, 286] } });
+
+/* Fireworks' call: the host lights a fuse, a rocket with a fizzing spark */
+function FuseGlyph() {
+  return <svg className="fl-fuse" viewBox="0 0 80 80" aria-hidden="true">
+    <rect x="22" y="30" width="22" height="40" rx="5" fill="#ff4fa3" stroke="#1d1a24" strokeWidth="5" />
+    <path d="M22 30 L33 14 L44 30 Z" fill="#ffc23d" stroke="#1d1a24" strokeWidth="5" strokeLinejoin="round" />
+    <path d="M44 52 q14 -2 16 -16" fill="none" stroke="#1d1a24" strokeWidth="5" strokeLinecap="round" />
+    <g className="fl-fuse-spark"><path d="M60 22 l4 10 l10 -4 l-6 9 l9 6 l-11 1 l1 11 l-7 -8 l-8 7 l2 -11 l-11 -2 l10 -5 l-5 -10 l9 5 Z" fill="#ffe14d" stroke="#1d1a24" strokeWidth="3" strokeLinejoin="round" /></g>
+  </svg>;
+}
+
+/* the host rows on the pulse (item 10): the latest paddle cue whose stroke
+   is still running, as a stroke everyone sees; null when the bar has none */
+const STROKES = new WeakMap();
+export function hostStroke(chart, beat) {
+  if (!chart?.cues || !Number.isFinite(beat)) return null;
+  let list = STROKES.get(chart);
+  if (!list) STROKES.set(chart, list = chart.cues.filter(cue => cue.kind === "paddle"));
+  let found = null;
+  for (const cue of list) { if (cue.beat > beat) break; found = cue; }
+  return found;
+}
+/* is the host rowing at this beat: a paddle cue in this bar or the next */
+export function hostRowing(chart, beat) {
+  if (!chart?.cues || !Number.isFinite(beat)) return false;
+  const bar = Math.floor(beat / 4);
+  return chart.cues.some(cue => cue.kind === "paddle" && cue.beat >= bar * 4 - 1 && cue.beat < bar * 4 + 8);
+}
+/* the paddle in the host's box: its grip (box px) and its size */
+const HOST_GRIP = Object.freeze({ x:250, y:405, scale:1.05 });
 
 /* the breakdown's call: a note */
 function NoteGlyph() {
@@ -36,6 +67,7 @@ export default function Host({ store, driver, phase }) {
   const word = useRef(null);
   const sign = useRef(null);
   const signArt = useRef({});
+  const paddle = useRef(null);
   useEffect(() => {
     const st = store.state;
     const still = reducedMotion();
@@ -56,12 +88,13 @@ export default function Host({ store, driver, phase }) {
       const stretch = echo && !still ? 0.08 * into : 0;
       if (body.current) body.current.style.transform = `translate3d(0, ${(bob.dy + lift).toFixed(1)}px, 0) rotate(${lean.toFixed(2)}deg) scale(${(bob.sx - stretch * 0.5).toFixed(4)}, ${(bob.sy + stretch).toFixed(4)})`;
       /* the bubble: the call's word (a note for the breakdown's rhythm), popping on its beat */
-      const callText = h.call ? h.call.word || (echo ? "note" : null) : null;
+      const fuse = h.call?.kind === "rocket";
+      const callText = h.call ? h.call.word || (echo ? "note" : fuse ? "fuse" : null) : null;
       if (bubble.current) {
         const key = h.call ? `${h.call.cue}:${h.call.n}` : null;
         if (callText !== text || key !== popKey) {
           text = callText; popKey = key;
-          if (word.current) word.current.textContent = echo ? "" : callText || "";
+          if (word.current) word.current.textContent = echo || fuse ? "" : callText || "";
           bubble.current.dataset.kind = h.call?.kind || "";
         }
         if (callText) {
@@ -70,6 +103,17 @@ export default function Host({ store, driver, phase }) {
           bubble.current.style.opacity = "1";
           bubble.current.style.transform = `scale(${scale.toFixed(3)})`;
         } else if (bubble.current.style.opacity !== "0") bubble.current.style.opacity = "0";
+      }
+      /* rowing on the pulse with everyone (put away for a call, the cheer, a sign) */
+      if (paddle.current) {
+        const rowing = inSong && h.pose === "idle" && !signAt(chart, beat) && hostRowing(chart, beat);
+        paddle.current.style.opacity = rowing ? "1" : "0";
+        if (rowing) {
+          const cue = hostStroke(chart, beat);
+          const pad = still || !cue ? { rot:PADDLE.REST, dx:0, dy:0 }
+            : paddleAt({ c:cue.id, kind:"paddle", q:"perfect", at:songAt + cue.beat * chart.beatMs }, now, { side:strokeSide(chart, cue.id) });
+          paddle.current.style.transform = `translate3d(${pad.dx.toFixed(1)}px, ${pad.dy.toFixed(1)}px, 0) rotate(${pad.rot.toFixed(2)}deg)`;
+        }
       }
       /* The Drop's sign */
       const s = inSong ? signAt(chart, beat) : null;
@@ -95,14 +139,26 @@ export default function Host({ store, driver, phase }) {
   const box = art?.box || DRAWN_HOST.box;
   const anchor = art?.anchor || DRAWN_HOST.anchor;
   const k = HOST.h / box[1];
+  /* feet on the painted scene's own shore (the night's is lower), else the drawn one's */
+  const shore = (() => {
+    try {
+      const sc = sceneOf(sceneFor(phase, store.state.chart));
+      return sc && !sc.placeholder && Number.isFinite(sc.water) && sc.water > 0.3 && sc.water < 0.7 ? Math.round(sc.water * 1080) + 4 : HOST.y;
+    } catch { return HOST.y; }
+  })();
   const horn = art?.poses ? (art.anchors?.call?.horn || anchor.horn || [box[0] * 0.9, box[1] * 0.55]) : DRAWN_HOST.anchor.horn;
   return <div className="fl-host" ref={root} data-pose="idle"
-    style={{ width:box[0] * k, height:box[1] * k, transform:`translate(${HOST.x - anchor.ground[0] * k}px, ${HOST.y - anchor.ground[1] * k}px)`,
+    style={{ width:box[0] * k, height:box[1] * k, transform:`translate(${HOST.x - anchor.ground[0] * k}px, ${shore - anchor.ground[1] * k}px)`,
       "--horn-x":`${horn[0] * k}px`, "--horn-y":`${horn[1] * k}px`, "--ground-y":`${anchor.ground[1] * k}px` }}>
     <div className="fl-host-sign" ref={sign} style={{ opacity:0 }}>
       {["paddle", "rock", "spin"].map(mode => <div key={mode} ref={node => { signArt.current[mode] = node; }} style={{ display:"none" }}><SignProp mode={mode} /></div>)}
     </div>
-    <div className="fl-host-body" ref={body}>{art ? <HostArt host={art} /> : <HostFigure />}</div>
-    <div className="fl-bubble" ref={bubble} style={{ opacity:0 }}><span ref={word} /><NoteGlyph /></div>
+    <div className="fl-host-body" ref={body}>
+      {art ? <HostArt host={art} /> : <HostFigure />}
+      <div className="fl-host-paddle" style={{ left:HOST_GRIP.x * k, top:HOST_GRIP.y * k, transform:`scale(${(k * HOST_GRIP.scale).toFixed(4)})` }}>
+        <div className="fl-paddle" ref={paddle} style={{ opacity:0 }}><PaddleArt color="#3aa6a0" /></div>
+      </div>
+    </div>
+    <div className="fl-bubble" ref={bubble} style={{ opacity:0 }}><span ref={word} /><NoteGlyph /><FuseGlyph /></div>
   </div>;
 }

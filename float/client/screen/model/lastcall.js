@@ -64,20 +64,47 @@ export const BARTENDER = Object.freeze({ x:300, y:494, h:400 });
 /* the board over the bar */
 export const BOARD = Object.freeze({ x:1060, y:200, w:400, h:240 });
 
-/* everyone at the bar: one line-up along the front of the counter, so each
-   rider's readout stands right over them and every name sits under its own
-   tube: { [i]: { x, y, scale, row } } */
-export const BAR_LINE = Object.freeze({ y:940, lo:130, hi:1790, maxSpacing:300 });
+/* the counter in front of everyone at the bar (GROOVE.md v3 "No tubes at
+   the bar"): its top edge on the stage; the riders stand behind it waist
+   up, as the bartender does behind his, so it covers every tube */
+export const COUNTER = Object.freeze({ top:850 });
+/* the art's ring reaches this far over the waterline (box px: its top
+   edge, the paws resting on it, so the paws sit on the counter; a kayak's
+   bow rides about as high), drawn
+   ART_FILL (1.45) times the scale */
+export const RING_OVER = 62 * 1.45;
+
+/* everyone at the bar: one line-up behind the counter, so each rider's
+   readout stands right over them and every name sits on the counter under
+   them, in the order given (left to right): { [i]: { x, y, scale, row } } */
+export const BAR_LINE = Object.freeze({ lo:130, hi:1790, maxSpacing:300 });
 export function barLayout(players = []) {
   const list = players.filter(i => Number.isInteger(i));
   const out = {};
   const n = list.length;
   if (!n) return out;
   const spacing = n > 1 ? Math.min(BAR_LINE.maxSpacing, (BAR_LINE.hi - BAR_LINE.lo) / (n - 1)) : 0;
-  const scale = Math.max(0.3, Math.min(0.62, (spacing || BAR_LINE.maxSpacing) / 360));
+  /* shoulder to shoulder: a critter's body is about 200 box px wide */
+  const scale = Math.max(0.3, Math.min(0.62, (spacing || BAR_LINE.maxSpacing) / 290));
+  /* the waterline just under the counter's top: the ring and the paws behind it */
+  const y = Math.round(COUNTER.top + RING_OVER * scale + 6);
   const start = (BAR_LINE.lo + BAR_LINE.hi) / 2 - (spacing * (n - 1)) / 2;
-  list.forEach((i, k) => { out[i] = { x:start + k * spacing, y:BAR_LINE.y, scale, row:0 }; });
+  list.forEach((i, k) => { out[i] = { x:start + k * spacing, y, scale, row:0 }; });
   return out;
+}
+
+/* Last Call's reveal as a ranking (GROOVE.md v3 "Last Call: who did best
+   and worst"): everyone at the bar, closest to zero first (left), farthest
+   last (right); no tap counts LAST_CALL.MISS_MS; a tie shares a place, in
+   rider order. `readout(i)` gives { q, d }. Returns [{ i, abs, place }]. */
+export function barRanking(players = [], readout = () => null) {
+  const miss = Number.isFinite(LAST_CALL?.MISS_MS) ? LAST_CALL.MISS_MS : 3000;
+  const rows = players.filter(i => Number.isInteger(i)).map(i => {
+    const r = readout(i);
+    return { i, abs:r && r.q !== "miss" && Number.isFinite(r.d) ? Math.abs(r.d) : miss };
+  }).sort((a, b) => a.abs - b.abs || a.i - b.i);
+  rows.forEach((row, k) => { row.place = k > 0 && row.abs === rows[k - 1].abs ? rows[k - 1].place : k + 1; });
+  return rows;
 }
 
 /* everyone at the bar: the field, then the riders out, the last out first

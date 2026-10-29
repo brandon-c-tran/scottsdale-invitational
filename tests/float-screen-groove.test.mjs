@@ -15,9 +15,9 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { CHUGOFF, POPUP_MS, SONG_LEAD_MS, chartOf, demoCues, popupOf } from "../float/shared/chart.js";
 import { BEAT_MS } from "../float/shared/beat.js";
 import {
-  BOX, CROWD, MIN_GAP, NAME_H, PODIUM, POPUP_BOX, STAGE_W, crowdLayout, driftOf, fieldOrder, flotillaLayout, nameSlots, nameWidth, podiumLayout,
+  BOX, CROWD, MIN_GAP, NAME_H, PODIUM, POPUP_BOX, STAGE_W, crowdLayout, driftOf, flotillaLayout, nameSlots, nameWidth, podiumLayout,
   popupSize, popupSlots,
-  riderWidth, rowCounts, rowOrder, rowsFor, rowSlots, spreadRow,
+  riderWidth, rowCounts, rowsFor, rowSlots, seatOrder, spreadRow,
 } from "../float/client/screen/model/flotilla.js";
 import { ACTIONS, PLEASED_MS, actionAt, bobAt, cheerAt, chugAt, follow, hopToBank, popupAt } from "../float/client/screen/model/motion.js";
 import { actionKind, bannerAt, chartFor, demoAt, hostAt, hostCalls, lineShownAt, lineSpot, rankStripOn, roundLabel, sceneFor, sceneMode, signAt, songStart, timedLines }
@@ -31,6 +31,7 @@ import { awardValue } from "../float/client/screen/model/cut.js";
 import { createScreenStore } from "../float/client/screen/model/store.js";
 import { scriptCup, seenOf } from "../float/client/screen/mock/script.js";
 import { MOCK_SHOTS, SHOTS, mockRider, mockSkills, shotTime } from "../float/client/screen/mock/shared.js";
+import { seatsFor } from "../float/shared/seats.js";
 
 const ROOT = fileURLToPath(new URL("../", import.meta.url));
 const range = n => Array.from({ length:n }, (_, i) => i);
@@ -93,20 +94,30 @@ test("the flotilla: every rider of every field size on the stage, never closer t
   assert.deepEqual(field[field.length - 1].members, [0, 1, 2, 3]);
 });
 
-test("x by score: the leaders take a row's right (downstream), a rider passes only when clearly ahead, the drift is clamped", () => {
-  const order = range(13);
-  const lives = new Map(order.map(i => [i, 60 + i * 3]));
-  const orders = new Map();
-  const spots = flotillaLayout(order, lives, { orders });
-  const front = Object.entries(spots).filter(([, s]) => s.row === 2).sort((a, b) => a[1].x - b[1].x).map(([i]) => Number(i));
-  assert.deepEqual(front, [0, 1, 2, 3], "low to high, left to right");
-  /* a level row keeps its order; a small lead does not reshuffle it */
-  assert.deepEqual(rowOrder([0, 1, 2], i => [80, 81, 82][i], { prev:[2, 1, 0] }), [2, 1, 0]);
-  assert.deepEqual(rowOrder([0, 1, 2], i => [80, 90, 82][i], { prev:[2, 1, 0] }), [2, 0, 1]);
+test("fixed seats: every rider keeps the seat map's seat whatever the scores; the drift never passes a neighbour", () => {
+  for (let n = 1; n <= 16; n += 1) {
+    const field = range(n).map(i => i * 2 + 1);
+    const seats = seatsFor(field);
+    const order = arrangement => Object.entries(arrangement).sort((a, b) => a[1].row - b[1].row || a[1].x - b[1].x).map(([i]) => Number(i));
+    const rest = order(flotillaLayout(field, new Map()));
+    for (const lives of [new Map(field.map((i, k) => [i, k % 2 ? 100 : 0])), new Map(field.map((i, k) => [i, 100 - k * 6])), new Map(field.map((i, k) => [i, k * 6]))]) {
+      const spots = flotillaLayout(field.slice().reverse(), lives);
+      assert.deepEqual(order(spots), rest, `${n}: the same seats left to right whatever the scores or the list's order`);
+      for (const [key, spot] of Object.entries(spots)) {
+        const seat = seats.get(Number(key));
+        assert.equal(spot.rows - 1 - spot.row, seat.row, `${n}: rider ${key} in the seat map's row (row 0 the front)`);
+        assert.equal(spot.col, seat.col, `${n}: rider ${key} in the seat map's column`);
+      }
+    }
+  }
+  /* the drift: a little ahead or behind, clamped */
   assert.equal(driftOf(100, 50, { max:30 }), 30);
   assert.equal(driftOf(0, 50, { max:30 }), -30);
   assert.equal(driftOf(null, 50), 0);
-  assert.deepEqual(fieldOrder([3, 1, 2], i => ({ 1:10, 2:50, 3:10 })[i]), [2, 1, 3], "by Cup total, then index");
+  const level = flotillaLayout(range(13), new Map()), led = flotillaLayout(range(13), new Map(range(13).map(i => [i, i === 5 ? 100 : 60])));
+  assert.ok(led[5].x > level[5].x, "the leader drifts downstream (right)");
+  assert.ok(led[5].x - level[5].x <= 0.1 * 620 + 1, "but only a little");
+  assert.deepEqual(seatOrder([9, 3, 3, 7]), [3, 7, 9], "the field in entrant order");
   const spread = spreadRow([500, 505, 510], 100, 0, 1920);
   assert.ok(spread[1] - spread[0] >= 99.5 && spread[2] - spread[1] >= 99.5, "a pile spreads apart");
   assert.ok(spreadRow([0, 10], 100, 50, 1000).every(x => x >= 50), "kept inside");
@@ -248,8 +259,10 @@ test("the host calls every cue on its beat (Ready, Ba, Spin; The Drop counts 3, 
   assert.equal(hostAt(paddle, hey.call + 0.1).pose, "call");
   assert.equal(hostAt(paddle, hey.call - 0.1).pose, "idle");
   assert.equal(hostAt(paddle, 130).pose, "cheer", "the song's end");
-  const demo = demoCues(paddle)[0];
-  assert.ok(hostCalls(paddle).some(c => c.cue === demo.id && c.word === "Ready"), "the host calls the demo");
+  /* the demos: the Hey called like any Hey; a demo paddle's call is the pulse (call null), so no word */
+  const demoHey = demoCues(paddle).find(c => c.kind === "hey");
+  assert.ok(hostCalls(paddle).some(c => c.cue === demoHey.id && c.word === "Ready"), "the host calls the demo");
+  assert.ok(demoCues(paddle).filter(c => c.kind === "paddle").every(c => !hostCalls(paddle).some(h => h.cue === c.id)), "a demo paddle rows on the pulse");
   const echoes = hostCalls(paddle).filter(c => c.kind === "echo");
   assert.ok(echoes.length >= 8 && echoes.every(c => c.word === "" && c.beat >= 56 && c.beat < 88), "the breakdown's rhythm, a note a beat (no word)");
   assert.ok(hostCalls(paddle).every(c => c.kind === "hey" || c.kind === "echo"), "a paddle's call is the pulse");
@@ -259,8 +272,10 @@ test("the host calls every cue on its beat (Ready, Ba, Spin; The Drop counts 3, 
   assert.deepEqual(hostCalls(drop).filter(c => c.kind === "drop").map(c => c.word), ["3", "2", "1"]);
   const signs = [];
   for (let bar = 0; bar < drop.bars; bar += 1) { const s = signAt(drop, bar * 4 + 1); if (s) signs.push([bar, s.mode]); }
-  assert.ok(signs.length >= 6, "a sign before each switch");
+  assert.ok(signs.length >= 3, "a sign before each switch in play A");
   for (const [bar, mode] of signs) assert.equal(drop.modes[bar + 1], mode);
+  const breakdown = drop.sections.find(x => x.kind === "breakdown");
+  assert.ok(signs.every(([bar]) => bar + 1 < breakdown.bar), "play B: no signs (keep the pattern in your head)");
   assert.equal(signAt(paddle, 9), null, "only The Drop");
 });
 
@@ -279,11 +294,11 @@ test("practice, narrated: each line up when the host says it, until the next; th
   assert.equal(lineShownAt(timed, 58.7).text, "Copy me");
   assert.equal(lineSpot(chart, lineShownAt(timed, 1)), "top", "over the scene in practice");
   assert.equal(lineSpot(chart, lineShownAt(timed, 58.7)), "low", "under the rank strip in the breakdown");
-  /* the demo: the host's Hey, every critter acting it out on its beat; nobody taps it */
-  const demo = demoCues(chart)[0];
-  assert.equal(demoAt(chart, demo.beat - 0.1), null);
-  assert.equal(demoAt(chart, demo.beat + 0.2).id, demo.id);
-  assert.equal(demoAt(chart, demo.beat + 2), null);
+  /* the demo bar: the host's strokes and Hey, every critter acting each out on its beat; nobody taps them */
+  const demos = demoCues(chart);
+  assert.equal(demoAt(chart, demos[0].beat - 0.1), null);
+  for (const demo of demos) assert.equal(demoAt(chart, demo.beat + 0.2).id, demo.id);
+  assert.equal(demoAt(chart, demos[demos.length - 1].beat + 2), null);
   /* the breakdown's copies move like the song's own */
   const echo = chart.cues.find(c => c.kind === "echo");
   assert.equal(actionKind(chart, echo), "paddle");
@@ -448,7 +463,7 @@ test("the chug-off: the call, 3 2 1, Chug!, the first Done keeps the spot, the o
 /* ── Last Call ── */
 
 test("Last Call, the countdown: shown and said until the trick hides it, nothing after; every offset at the reveal; the farthest drinks", async () => {
-  const { BARTENDER, BAR_LINE, LAST_CALL_EXPLAINER, barLayout, barPlayersOf, bartenderPose, closestOf, countWord, countdownAt, readoutOf, verdictShown } =
+  const { BARTENDER, BAR_LINE, COUNTER, LAST_CALL_EXPLAINER, barLayout, barPlayersOf, barRanking, bartenderPose, closestOf, countWord, countdownAt, readoutOf, verdictShown } =
     await import("../float/client/screen/model/lastcall.js");
   const lights = chartOf("lastcall-lights").countdown;
   assert.equal(countdownAt(lights, 100).stage, "intro");
@@ -485,8 +500,20 @@ test("Last Call, the countdown: shown and said until the trick hides it, nothing
   for (const n of [2, 9, 13, 16]) {
     const seats = barLayout(range(n));
     assert.equal(Object.keys(seats).length, n);
-    assert.ok(Object.values(seats).every(s => s.x - 125 * s.scale * 1.45 > 0 && s.x + 125 * s.scale * 1.45 < STAGE_W && s.y === BAR_LINE.y), `${n}: one line-up on the stage`);
+    const ys = new Set(Object.values(seats).map(s => s.y));
+    assert.equal(ys.size, 1, `${n}: one line-up`);
+    assert.ok(Object.values(seats).every(s => s.x - 125 * s.scale * 1.45 > 0 && s.x + 125 * s.scale * 1.45 < STAGE_W), `${n}: on the stage`);
+    /* behind the counter, waist up: the ring's top (about 62 box px over the waterline: the kayak hull tops out near 50) under the counter's top */
+    assert.ok(Object.values(seats).every(s => s.y - 62 * s.scale * 1.45 >= COUNTER.top && s.y < 1080), `${n}: no tubes over the counter`);
+    assert.ok(BAR_LINE.lo > 0 && BAR_LINE.hi < STAGE_W);
   }
+  /* the reveal ranks the line-up: closest left, farthest right, a tie shares a place in rider order, no tap last */
+  const reads = { 4:{ q:"late", d:820 }, 1:{ q:"nice", d:-80 }, 9:{ q:"miss", d:null }, 2:{ q:"nice", d:80 }, 6:{ q:"perfect", d:10 } };
+  const ranked = barRanking([4, 1, 9, 2, 6], i => reads[i]);
+  assert.deepEqual(ranked.map(r => r.i), [6, 1, 2, 4, 9]);
+  assert.deepEqual(ranked.map(r => r.place), [1, 2, 2, 4, 5]);
+  const line = barLayout(ranked.map(r => r.i));
+  assert.ok(line[6].x < line[1].x && line[2].x < line[4].x && line[4].x < line[9].x, "left to right, closest to farthest");
   assert.ok(BARTENDER.x < 600);
   assert.deepEqual(barPlayersOf({ field:[2, 5], out:[1, 7] }), [2, 5, 7, 1], "the field, then the riders out, the last out first");
 });
@@ -562,10 +589,12 @@ test("the scripted Cup speaks the contract: the cut, the chug-off and Last Call 
   const skills = mockSkills(13, 3);
   const riders = range(13).map(k => ({ ...mockRider(k), device:`p${k}`, skill:skills[k] }));
   const { msgs, marks, rounds } = scriptCup({ riders, startAt:1_000_000, seed:3 });
-  assert.equal(rounds, 4);
+  assert.equal(rounds, 5);
   const phases = msgs.filter(m => m.msg.t === "room").map(m => m.msg.phase).filter((p, k, all) => p !== all[k - 1]);
   assert.deepEqual(phases, ["intro", "song", "cut", "chugoff", "lastcall", "song", "cut", "chugoff", "lastcall", "song", "cut", "chugoff", "lastcall",
-    "song", "cut", "podium", "feedback", "lobby"]);
+    "song", "cut", "chugoff", "lastcall", "song", "cut", "podium", "feedback", "lobby"]);
+  const songs = msgs.filter(m => m.msg.t === "room" && m.msg.phase === "song").map(m => m.msg.song).filter((x, k, all) => x !== all[k - 1]);
+  assert.deepEqual(songs, ["paddle", "rock", "spin", "drop", "fireworks"], "the five songs, Fireworks the final");
   for (let k = 1; k < msgs.length; k += 1) assert.ok(msgs[k].s >= msgs[k - 1].s, "in time order");
   const hits = msgs.filter(m => m.msg.t === "ev" && m.msg.e === "hit").map(m => m.msg);
   assert.ok(hits.length > 1000);
@@ -592,7 +621,7 @@ test("the scripted Cup speaks the contract: the cut, the chug-off and Last Call 
   assert.ok(msgs.some(m => m.msg.t === "ev" && m.msg.e === "out" && m.msg.i === decided.chugoff.loser && m.s === decided.s));
   assert.equal(chug[0].chugoff.goAt - chug[0].startAt, CHUGOFF.INTRO_FIRST_MS ?? CHUGOFF.INTRO_MS, "the Cup's first chug-off: the long intro");
   const fields = msgs.filter(m => m.msg.t === "room" && m.msg.phase === "song").map(m => m.msg.field.length).filter((n, k, all) => n !== all[k - 1]);
-  assert.deepEqual(fields, [13, 9, 6, 3]);
+  assert.deepEqual(fields, [13, 10, 7, 5, 3]);
   for (const shot of MOCK_SHOTS) if (!SHOTS[shot].lobby) assert.ok(Number.isFinite(shotTime(shot, seenOf(marks), rounds)), `${shot} has a moment`);
 });
 
@@ -644,7 +673,7 @@ const bundle = await build({
     export { SongBanner, Narration, RankStrip, CutShow, ChugHud, LastCallHud, PodiumBlocks, IntroTitle, Feedback } from "./float/client/screen/hud/Hud.jsx";
     export { default as Lobby } from "./float/client/screen/hud/Lobby.jsx";
     export { default as Scene } from "./float/client/screen/stage/Scene.jsx";
-    export { default as Cast } from "./float/client/screen/stage/Cast.jsx";
+    export { default as Cast, castPlan, rollCallAt, ROLL, barLineUp } from "./float/client/screen/stage/Cast.jsx";
     export { default as Host } from "./float/client/screen/stage/Host.jsx";
     export { default as Bar, boardOf, darkAt } from "./float/client/screen/stage/Bar.jsx";
     export { PlaceholderCritter, Critter } from "./float/client/screen/art.jsx";`, resolveDir:ROOT, loader:"jsx" },
@@ -656,7 +685,7 @@ ui.filename = ui.id;
 ui.paths = Module._nodeModulePaths(ROOT);
 ui._compile(bundle.outputFiles[0].text, ui.filename);
 const { FloatScreen, SongBanner, Narration, RankStrip, CutShow, ChugHud, LastCallHud, PodiumBlocks, IntroTitle, Feedback, Lobby, Scene, Cast, Host, Bar,
-  PlaceholderCritter } = ui.exports;
+  PlaceholderCritter, castPlan, rollCallAt, ROLL, barLineUp } = ui.exports;
 const html = element => renderToStaticMarkup(element);
 const fakeDriver = now => ({ add:() => () => {}, serverNow:() => now, tick() {} });
 const entrants = range(13).map(k => ({ ...mockRider(k), device:`p${k}`, ready:k % 2 === 0 }));
@@ -791,4 +820,115 @@ test("rendered: the cast has every rider with their name and the exits' props in
   for (const file of ["hud/Hud.jsx", "stage/Cast.jsx", "stage/Bar.jsx", "model/song.js", "model/store.js"])
     assert.doesNotMatch(readFileSync(new URL(`../float/client/screen/${file}`, import.meta.url), "utf8"), /Drink!|chuggingAt|drinkSection|drink break/i, `${file}: no drink break`);
   assert.match(html(React.createElement(PlaceholderCritter, { color:"#ff5a4e", critter:"jackrabbit", groom:true })), /cr-crown/);
+});
+
+test("a cut re-forms the rows once, after the last out has left, keeping the seat order", () => {
+  const room = { phase:"cut", round:0, field:range(13), out:[], cut:9, results:range(13).map(i => ({ i, pct:100 - i * 3, place:i + 1 })) };
+  const plan = castPlan({ phase:"cut", room, state:{ songField:range(13) }, entrants });
+  assert.deepEqual(plan.water, range(13), "the song's seats until the outs have gone");
+  assert.ok(plan.nextWater.every((i, k) => k === 0 || i > plan.nextWater[k - 1]), "the survivors in entrant order");
+  assert.ok(Number.isFinite(plan.reform) || plan.reform === null);
+  const song = castPlan({ phase:"song", room:{ phase:"song", field:[8, 2, 5], out:[1] }, state:{ songField:[8, 2, 5], scores:new Map([[8, { cup:300 }], [2, { cup:10 }]]) }, entrants });
+  assert.deepEqual(song.water, [2, 5, 8], "a song's rows never sort by the Cup");
+});
+
+test("the roll call: each name tag pops in seat order in the intro and each song's lead, then stays", () => {
+  const songAt = 100000;
+  const t0 = songAt - SONG_LEAD_MS + ROLL.SONG_AT;
+  assert.equal(rollCallAt({ phase:"song", songAt, seat:0, now:t0 - 10 }), 0, "not called yet");
+  assert.equal(rollCallAt({ phase:"song", songAt, seat:3, now:t0 + 2 * ROLL.GAP_MS }), 0, "the fourth waits its turn");
+  assert.ok(rollCallAt({ phase:"song", songAt, seat:0, now:t0 + ROLL.POP_MS * 0.6 }) > 1, "pops a little past full size");
+  assert.equal(rollCallAt({ phase:"song", songAt, seat:12, now:t0 + 12 * ROLL.GAP_MS + ROLL.POP_MS }), null, "then simply shown");
+  assert.equal(rollCallAt({ phase:"song", songAt, seat:0, now:songAt + 20000 }), null, "a screen joining mid-song shows every name");
+  assert.equal(rollCallAt({ phase:"cut", songAt, seat:0, now:t0 }), null);
+  assert.equal(rollCallAt({ phase:"intro", phaseStart:0, seat:1, now:ROLL.INTRO_AT }), 0);
+});
+
+
+test("Last Call's line-up: the Cup's order until the room ranks it, then its order (closest first)", () => {
+  const players = [3, 1, 7, 5];
+  assert.deepEqual(barLineUp(players, { totals:[] }, () => null), players, "nothing moves before the room knows");
+  assert.deepEqual(barLineUp(players, { totals:[], order:[5, 3, 7, 1] }, () => null), [5, 3, 7, 1]);
+  assert.deepEqual(barLineUp(players, { totals:[], order:[5, 3] }, () => null), [5, 3, 1, 7], "anyone it leaves out at the end");
+  const reads = { 3:{ q:"late", d:400 }, 1:{ q:"nice", d:-60 }, 7:{ q:"miss", d:null }, 5:{ q:"perfect", d:5 } };
+  assert.deepEqual(barLineUp(players, { worst:[7] }, i => reads[i]), [5, 1, 3, 7], "a room without an order: the screen ranks it");
+});
+
+test("the offset number's tone: a song's by offsetTone (gold, green, yellow, red; a miss grey), Last Call's by countTone", async () => {
+  const { numberTone, countNumberTone } = await import("../float/client/screen/model/tone.js");
+  assert.deepEqual([numberTone("perfect", -40), numberTone("nice", 90), numberTone("ok", -150), numberTone("late", 220), numberTone("miss", null)],
+    ["gold", "green", "yellow", "red", "grey"]);
+  assert.deepEqual([countNumberTone("nice", 80), countNumberTone("ok", -250), countNumberTone("late", 600), countNumberTone("early", -1500), countNumberTone("miss", null)],
+    ["green", "yellow", "orange", "red", "red"]);
+  const { readFileSync } = await import("node:fs");
+  const css = readFileSync(new URL("../float/client/screen/screen.css", import.meta.url), "utf8");
+  for (const tone of ["gold", "green", "yellow", "orange", "red", "grey"]) assert.match(css, new RegExp(`data-tone="${tone}"`), `${tone} drawn`);
+});
+
+test("wave B: the blackout bars, every rocket hit a firework sized by its judgement (a miss fizzles), the sky filling after the finale; the same numbers as the sound", async () => {
+  const fw = await import("../float/client/screen/model/fireworks.js");
+  const sound = await import("../float/client/sound/groove.js");
+  assert.equal(fw.ROCKET_BURST_MS, sound.ROCKET_BURST_MS);
+  assert.deepEqual({ ...fw.BURST_SIZE }, { ...sound.BURST_SIZE });
+  const night = chartOf("fireworks"), drop = chartOf("drop");
+  assert.equal(fw.skyBeat(night), sound.skyBeat(night));
+  assert.equal(fw.skyBeat(drop), null, "only a song that ends on rockets");
+  assert.deepEqual([...fw.darkBars(drop)], [...sound.darkBars(drop)]);
+  for (const bar of drop.dark) {
+    assert.ok(fw.darkAt(drop, bar * 4 + 0.1) && fw.darkAt(drop, bar * 4 + 3.9), `Drop bar ${bar} dark`);
+    assert.ok(!fw.darkAt(drop, (bar + 1) * 4 + 0.1) || drop.dark.includes(bar + 1), "back on the next bar");
+  }
+  assert.equal(fw.darkAt(chartOf("paddle"), 50), false);
+  const songAt = 100000;
+  const rocket = night.cues.find(c => c.kind === "rocket" && c.scored);
+  const burstAt = songAt + rocket.beat * 500 + fw.ROCKET_BURST_MS;
+  const judged = new Map([[0, new Map([[rocket.id, { q:"perfect", at:songAt + rocket.beat * 500 + 30 }]])], [1, new Map([[rocket.id, { q:"late", at:burstAt + 120 }]])],
+    [2, new Map([[rocket.id, { q:"miss", at:songAt + rocket.beat * 500 + 550 }]])]]);
+  const at = now => fw.fireworksAt({ chart:night, songAt, judged, field:[0, 1, 2], now }).filter(f => !String(f.key).includes(":d"));
+  assert.equal(at(songAt + rocket.beat * 500 - 10).length, 0, "nothing before the launch");
+  const up = at(burstAt + 200);
+  const mine = up.find(f => f.i === 0), late = up.find(f => f.i === 1);
+  assert.equal(mine.at, burstAt, "a Perfect bursts a beat after its launch");
+  assert.equal(mine.size, 1, "the biggest");
+  assert.equal(late.at, burstAt + 120, "or as its hit arrives, if that is later");
+  assert.equal(late.size, fw.BURST_SIZE.late, "early and late still pop, small");
+  assert.equal(up.find(f => f.i === 2).kind, "fizzle", "a miss fizzles");
+  assert.equal(at(burstAt + fw.FIRE.BURST_MS + 200).filter(f => f.kind === "burst").length, 0, "then gone");
+  assert.equal(fw.skyAt(night, songAt, songAt + (fw.skyBeat(night) - 0.1) * 500), null);
+  const sky = fw.skyAt(night, songAt, songAt + fw.skyBeat(night) * 500 + 2000);
+  assert.ok(sky.fill === 1 && sky.bursts.length > 0, "the sky fills, a volley of the winner's bursts");
+});
+
+test("practice's four-beat counter: the bar's taps lit by kind, the playhead, and a beat the next bar adds previewed (Keep paddling. Hey! on 4)", async () => {
+  const { beatCounterAt, countWord } = await import("../float/client/screen/model/song.js");
+  const chart = chartOf("paddle");
+  const first = beatCounterAt(chart, 9.3);
+  assert.deepEqual(first.beats.map(b => b.kind), ["paddle", null, "paddle", null], "Paddle on 1 and 3");
+  assert.equal(first.now, 1, "the beat being played");
+  const keep = beatCounterAt(chart, 12.2);
+  assert.deepEqual(keep.beats.map(b => [b.kind, b.next]), [["paddle", false], [null, false], ["paddle", false], ["hey", true]], "the Hey on 4 previewed");
+  const watch = beatCounterAt(chart, 19.2);
+  assert.ok(watch.beats.filter(b => b.kind).every(b => b.demo), "the host's bar");
+  assert.equal(beatCounterAt(chart, 40), null, "never in play");
+  assert.equal(countWord(chart, "paddle"), "Paddle");
+  assert.equal(countWord(chartOf("rock"), "paddle"), "Row");
+  assert.equal(countWord(chart, "hey"), "Hey!");
+});
+
+test("rowing: a paddle hit alternates stroke and stroke-r along the chart's strokes; a miss slaps flat; the paddle is away to chug, cheer or sulk", async () => {
+  const { PADDLE, PADDLE_AWAY, paddleAt, strokeSide } = await import("../float/client/screen/model/motion.js");
+  const chart = chartOf("rock");
+  const strokes = chart.cues.filter(c => c.kind === "paddle").slice(0, 6);
+  const sides = strokes.map(c => strokeSide(chart, c.id));
+  assert.deepEqual(sides, [-1, 1, -1, 1, -1, 1], "left (stroke), right (stroke-r), in turn");
+  const pose = side => (side > 0 ? "stroke-r" : "stroke");
+  assert.deepEqual(sides.map(pose).slice(0, 2), ["stroke", "stroke-r"]);
+  const hit = { c:strokes[0].id, kind:"paddle", q:"perfect", at:1000 };
+  const mid = paddleAt(hit, 1000 + PADDLE.MS * 0.3, { side:-1 });
+  assert.ok(mid.side === -1 && mid.splash > 0.3 && mid.dy > 0, "the blade bites with a splash");
+  assert.equal(paddleAt(hit, 1000 + PADDLE.MS + 1, { side:-1 }).side, 0, "then rests");
+  const miss = paddleAt({ ...hit, q:"miss" }, 1000 + 100);
+  assert.ok(miss.flat > 0 && miss.side === 0, "a miss slaps flat");
+  assert.equal(paddleAt({ ...hit, kind:"hop" }, 1100).side, 0, "another move leaves it at rest");
+  for (const pose of ["chug", "cheer", "out"]) assert.ok(PADDLE_AWAY.has(pose));
 });

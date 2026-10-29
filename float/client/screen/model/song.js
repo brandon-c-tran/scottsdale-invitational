@@ -160,8 +160,9 @@ export function hostAt(chart, beat, { phase = "song" } = {}) {
 }
 
 const PLAY_MODES = new Set(["paddle", "rock", "spin"]);
-/* The Drop's signs: the bar before a switch, the host holds up the next
-   pattern's sign (sign-paddle, sign-rock, sign-spin). Other songs: none. */
+/* The Drop's signs: in play A, the bar before a switch, the host holds up
+   the next pattern's sign (sign-paddle, sign-rock, sign-spin); play B
+   switches unsigned. Other songs: none. */
 export function signAt(chart, beat) {
   if (!chart || chart.id !== "drop" || !Number.isFinite(beat)) return null;
   const bar = Math.floor(beat / BEATS_PER_BAR);
@@ -169,6 +170,9 @@ export function signAt(chart, beat) {
   if (bar < 0 || bar >= modes.length - 1) return null;
   const next = modes[bar + 1];
   if (!PLAY_MODES.has(next) || next === modes[bar]) return null;
+  /* play B has no signs (GROOVE.md v3 item 8): the pattern is in your head */
+  const breakdown = (chart.sections || []).find(x => x.kind === "breakdown");
+  if (breakdown && bar + 1 >= breakdown.bar) return null;
   return { mode:next, prop:`sign-${next}`, bar };
 }
 
@@ -203,4 +207,35 @@ export function lineShownAt(timed, beat) {
   if (!Array.isArray(timed) || !Number.isFinite(beat)) return null;
   const line = timed.find(item => beat >= item.from && beat < item.until);
   return line ? { ...line, beat:line.from } : null;
+}
+
+/* The four-beat counter under the narration in practice (GROOVE.md v3
+   item 6): the bar being played (or, in a bar with no taps, the next one),
+   its beats 1 to 4 with the taps lit by kind, an "and" as a half pip, and
+   where the playhead is. { bar, now (0 to 3, or null when previewing the
+   next bar), beats:[{ n, kind, demo, and:{ kind, demo } | null }] } or null
+   (no taps either way, or not practice). */
+const COUNT_WORDS = Object.freeze({ hey:"Hey!", hop:"Hop", spin:"Spin", rocket:"Launch", drop:"Drop" });
+export const countWord = (chart, kind) => (kind === "paddle" ? (chart?.id === "paddle" ? "Paddle" : "Row") : COUNT_WORDS[kind] || "");
+export function beatCounterAt(chart, beat) {
+  if (!chart?.cues || !Number.isFinite(beat)) return null;
+  const practice = (chart.sections || []).find(x => x.kind === "practice");
+  if (!practice || beat < practice.from - BEATS_PER_BAR || beat >= practice.to) return null;
+  const barOf = b => (chart.cues || []).filter(cue => cue.kind !== "echo" && Math.floor(cue.beat / BEATS_PER_BAR) === b);
+  let bar = Math.floor(beat / BEATS_PER_BAR), now = beat - bar * BEATS_PER_BAR;
+  let cues = barOf(bar);
+  if (!cues.length) { bar += 1; now = null; cues = barOf(bar); }
+  if (!cues.length || bar * BEATS_PER_BAR >= practice.to) return null;
+  /* a beat this bar leaves empty that the next practice bar taps is
+     previewed (outlined, with its word): "Keep paddling. Hey! on 4" over a
+     bar of strokes shows the Hey coming */
+  const next = now !== null && (bar + 1) * BEATS_PER_BAR < practice.to ? barOf(bar + 1) : [];
+  const at = (list, b, n) => list.find(cue => Math.abs(cue.beat - (b * BEATS_PER_BAR + n)) < 0.01);
+  const beats = [0, 1, 2, 3].map(n => {
+    const on = at(cues, bar, n);
+    const ahead = on ? null : at(next, bar + 1, n);
+    const and = cues.find(cue => cue.beat > bar * BEATS_PER_BAR + n + 0.01 && cue.beat < bar * BEATS_PER_BAR + n + 0.99);
+    return { n:n + 1, kind:on?.kind || ahead?.kind || null, demo:!!on?.demo, next:!!ahead, and:and ? { kind:and.kind, demo:!!and.demo } : null };
+  });
+  return { bar, now:now === null ? null : Math.floor(now), beats };
 }

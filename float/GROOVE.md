@@ -904,6 +904,54 @@ in a fun way i think and make it visually appealing that you're rowing".
   `node scripts/float-sim.mjs` plays all five to the podium (13 bots;
   with `--phones 4 --fieldday` the posted body has 5 rounds).
 
+### As built: the screen, v3 (groove/screen, Oct 29)
+
+- Seats (item 5): `flotilla.js` `rowsFor`/`flotillaLayout` place each
+  rider by `seatsFor(field)` (row 0 the front, the last of the screen's
+  back-to-front rows); `rowOrder` and the Cup-total sort are gone; the
+  drift is a tenth of a slot, so nobody passes a neighbour. A cut re-forms
+  the rows once, after the last out has left, in entrant order. Every name
+  is a tag in the rider's colour (28 px, `inkOn` ink, a dark keyline),
+  nudged clear of the others; the tags pop in seat order in the intro and
+  in each song's lead (`ROLL`, `rollCallAt`).
+- Tones (item 2): the popup's number takes `offsetTone` in a song and
+  `countTone` at Last Call (`model/tone.js`), set as `data-tone` on the
+  screen's wrapper and coloured from `screen.css` over the art's Popup.
+- Last Call (items 3, 4): the line-up keeps the Cup's order until
+  `room.lastCall.order` lands, then slides into it, closest left
+  (`barLineUp`; a room that names who drinks without an order is ranked by
+  the screen). The verdict stamps "Closest" (green) and "Drinks" (red) on
+  the ends; the drinker chugs. Everyone stands behind a counter cut from
+  the bar scene's own art (`COUNTER.top` 850, `counterStyle`), waist up:
+  no tube or kayak shows; the names sit on its front.
+- Practice (item 6): the narration box carries a four-beat counter
+  (`beatCounterAt`): the bar's taps lit by kind with their word ("Paddle"
+  in Paddle Party, "Row" elsewhere, "Hey!", "Hop", "Spin", "Launch"), the
+  host's demo bar outlined, the beat being played marked, and a beat the
+  next practice bar adds dashed ("Keep paddling. Hey! on 4" shows the Hey
+  coming).
+- Rowing (item 10): a paddle hit plays `stroke` (the rider's left, the
+  screen's right) and `stroke-r` alternately along the chart's paddle cues
+  (`strokeSide`), the splash at the pose's own `anchor.blade`; a critter
+  without `stroke-r` uses `stroke` with its splash on that side; a miss
+  slaps both sides. The host mimes every stroke on the pulse with a drawn
+  paddle (`PaddleArt`, `.fl-host-paddle`) and hides it to call.
+- Blackout bars (item 8): `chart.dark` bars put a dark cover over the
+  scene, riders and host as silhouettes, stop the drift and the host's
+  bubble; popups, names and fireworks stay lit. The Drop's signs show in
+  play A only.
+- Fireworks (item 9): a burst per rocket hit in the rider's colour from
+  their kayak at max(beat + `ROCKET_BURST_MS`, the hit's arrival), sized by
+  `BURST_SIZE` (early and late small), a miss fizzles; the demo rockets
+  are everyone's; the host's bubble lights a fuse on each call; from
+  `skyBeat` the sky fills in the leader's colour with a volley of their
+  bursts (`model/fireworks.js`, `stage/Fireworks.jsx`; the numbers are the
+  sound's, pinned by a test). The crowd and the host stand on the painted
+  scene's own shore (the night's is lower).
+- Mock shots added: `counter`, `row`, `row3`, `unsigned`, `blackout`,
+  `fuse`, `launch`, `nightdark`, `finale`, `sky`; `sign` and `drop` are
+  the semifinal's (`round:"semi"`). `node scripts/float-shots.mjs <shots>`.
+
 ## Wednesday night target (in cut order: the last line goes first)
 
 1. Song 1 complete: chart, music with clear calls, TV scene, phone, popups,

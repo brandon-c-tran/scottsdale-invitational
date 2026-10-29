@@ -64,11 +64,16 @@ export const SHOTS = Object.freeze({
   count:{ phase:"song", round:0, beat:5.2 },
   /* practice, narrated: the first line, Ready and Hey, the host's demo (the Watch) */
   practice:{ phase:"song", round:0, beat:9.3 },
+  /* the four-beat counter: "Keep paddling. Hey! on 4" over its bar */
+  counter:{ phase:"song", round:0, beat:12.2 },
   ready:{ phase:"song", round:0, beat:13.25 },
   watch:{ phase:"song", round:0, beat:19.15 },
   go:{ phase:"song", round:0, beat:24.25 },
   play:{ phase:"song", round:0, beat:39.3 },
   hey:{ phase:"song", round:0, beat:47.25 },
+  /* rowing (item 10): a stroke on 1 dipping one side, the next on 3 the other */
+  row:{ phase:"song", round:0, beat:40.2 },
+  row3:{ phase:"song", round:0, beat:42.2 },
   /* the breakdown: the host plays a bar ("Copy me"), everyone copies it */
   copy:{ phase:"song", round:0, beat:57.3 },
   echo:{ phase:"song", round:0, beat:61.2 },
@@ -94,9 +99,18 @@ export const SHOTS = Object.freeze({
   foam:{ phase:"lastcall", round:2, songMs:10900 },
   rock:{ phase:"song", round:1, beat:42.3 },
   spin:{ phase:"song", round:2, beat:34.6 },
-  sign:{ phase:"song", round:"last", beat:13.5 },
+  /* The Drop (the semifinal): a sign in play A, play B unsigned, a blackout bar, the drop */
+  sign:{ phase:"song", round:"semi", beat:13.5 },
+  unsigned:{ phase:"song", round:"semi", beat:92.3 },
+  blackout:{ phase:"song", round:"semi", beat:101.2 },
+  drop:{ phase:"song", round:"semi", beat:120.45 },
+  /* Fireworks (the final): the fuse, a launch, the dark sky, the finale, the winner's sky */
   final:{ phase:"song", round:"last", beat:101.3 },
-  drop:{ phase:"song", round:"last", beat:120.45 },
+  fuse:{ phase:"song", round:"last", beat:13.1 },
+  launch:{ phase:"song", round:"last", beat:40.25 },
+  nightdark:{ phase:"song", round:"last", beat:105.25 },
+  finale:{ phase:"song", round:"last", beat:122.4 },
+  sky:{ phase:"song", round:"last", beat:126.5 },
   finalcut:{ phase:"cut", round:"last", ms:3500 },
   podium:{ phase:"podium", ms:5400 },
   feedback:{ phase:"feedback", ms:2500 },
@@ -108,7 +122,7 @@ export const MOCK_SHOTS = Object.freeze(Object.keys(SHOTS));
 export function shotTime(shot, seen, rounds) {
   const plan = SHOTS[shot];
   if (!plan || plan.lobby) return null;
-  const round = plan.round === "last" ? Math.max(0, (rounds | 0) - 1) : plan.round;
+  const round = plan.round === "last" ? Math.max(0, (rounds | 0) - 1) : plan.round === "semi" ? Math.max(0, (rounds | 0) - 2) : plan.round;
   const key = round === undefined ? plan.phase : `${plan.phase}:${round}`;
   const at = seen[key];
   if (!at) return null;

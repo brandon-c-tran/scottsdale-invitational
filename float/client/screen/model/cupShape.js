@@ -4,22 +4,13 @@
    last round); a room that does not falls back to this stand-in of the
    engine's schedule (13, 9, 6, 3). */
 
+import { cutSchedule } from "../../../shared/cup.js";
+
 export const PHASES = Object.freeze(["lobby", "intro", "song", "cut", "podium", "feedback"]);
 
-/* the field for every round: monotonic, never below 3, the final always 3 when n >= 3 */
-export function cutSchedule(n) {
-  n = Math.max(0, n | 0);
-  if (n <= 3) return [n, n, n, n].slice(0, n ? 4 : 0);
-  const rounds = n >= 8 ? 4 : n >= 5 ? 3 : 2;
-  const out = [];
-  for (let r = 0; r < rounds; r++) {
-    const left = 1 - r / (rounds - 1);
-    out.push(Math.max(3, Math.round(3 + (n - 3) * Math.pow(left, 1.15))));
-  }
-  for (let r = 1; r < out.length; r++) out[r] = Math.min(out[r], out[r - 1] - (r < out.length - 1 ? 1 : 0));
-  out[out.length - 1] = 3;
-  return out;
-}
+/* the field for every round: the engine's own (float/shared/cup.js; 13:
+   13, 10, 7, 5, 3 over the five rounds) */
+export { cutSchedule };
 
 const indexOf = item => (typeof item === "number" ? item : Number.isFinite(item?.i) ? item.i : null);
 export const indexList = list => (Array.isArray(list) ? list.map(indexOf).filter(i => i !== null) : []);

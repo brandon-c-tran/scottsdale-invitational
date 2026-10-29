@@ -32,13 +32,13 @@
    so it takes the colour too) on anchor.head sized to its head. The groom
    wears the crown unless he picked another hat. The tee is drawn only with
    a photo; a photo that will not load leaves the tee plain. */
-import { ALL_CRITTER_IDS } from "../../../shared/looks.js";
+import { ALL_CRITTER_IDS, retiredHat, retiredShades } from "../../../shared/looks.js";
 
 export const GROOVE_BASE = "/float/groove/";
 export const POSES = Object.freeze(["idle", "stroke", "hey", "nice", "miss", "chug", "cheer", "out"]);
 export const BOX = 512;
 export const HOST_POSES = Object.freeze(["idle", "call", "cheer"]);
-export const SCENES = Object.freeze(["open", "rocks", "whirlpool", "falls", "lobby", "bar", "podium"]);
+export const SCENES = Object.freeze(["open", "rocks", "whirlpool", "falls", "night", "lobby", "bar", "podium"]);
 export const PROPS = Object.freeze(["splash", "ripple", "rock", "whirl", "cup", "crown", "sign-paddle", "sign-rock", "sign-spin", "falls-lip"]);
 export const FALLBACK_CRITTER = "capybara";
 export const FALLBACK_COLOR = "#9aa39e";
@@ -175,16 +175,29 @@ export function lookOf(any = {}) {
     critter:pick(look.critter) || pick(any?.critter) || FALLBACK_CRITTER,
     color:normalColor(any?.color ?? look.color),
     groom:!!(any?.groom ?? look.groom),
-    hat:pick(look.hat ?? any?.hat),
+    /* "none" stays "none": no hat, the groom's crown too; unset (null) is the groom's crown */
+    hat:(look.hat ?? any?.hat) === "none" ? "none" : pick(look.hat ?? any?.hat),
     shades:pick(look.shades ?? any?.shades),
     shirt:(look.shirt ?? any?.shirt) === "photo" && photo ? "photo" : null,
     photo,
   };
 }
-/* the hat a look wears: its own, else the groom's crown */
-export const hatOf = (look, m = manifest) => (look.hat && m?.hats?.[look.hat] ? look.hat : look.groom && m?.hats?.crown ? "crown" : null);
+/* the hat a look wears: "none" is none (the groom's too); its own; else, unset, the groom's crown.
+   A retired id is drawn as the hat cleanLook moves it to. */
+export function hatOf(look, m = manifest) {
+  const raw = look?.hat;
+  if (raw === "none") return null;
+  const id = raw ? retiredHat(raw) : null;
+  if (id && m?.hats?.[id]) return id;
+  if (raw && !id) return null;
+  return !raw && look?.groom && m?.hats?.crown ? "crown" : null;
+}
 /* a critter's sizes for hats and glasses (in its art's px) */
-const DEFAULT_MEASURE = Object.freeze({ headW:180, eyeSpan:80 });
+const DEFAULT_MEASURE = Object.freeze({ headW:180, eyeSpan:80, tilt:0 });
+/* a head is never taken as narrower than this share of the box (a hat on a small head still reads on a TV) */
+const MIN_HEAD_SHARE = 0.2;
+/* glasses: as wide as the eyes ask, within these shares of the head */
+const SHADES_MIN = 0.62, SHADES_MAX = 0.95;
 const measureOf = (entry, fallback = DEFAULT_MEASURE) => ({ ...fallback, ...(entry?.measure || {}) });
 
 /* ---- painting (a browser's canvas; node has none and gets the bare files) ---- */
@@ -281,16 +294,34 @@ export function paintSprite({ src, tube, shirt = null, color, w, h, boxW = w, an
     }
     g.drawImage(p, 0, 0);
   }
+  /* glasses and hat turn with the eye line (measure.tilt, degrees) about their own anchor */
+  const tilt = Math.max(-25, Math.min(25, Number(measure.tilt) || 0)) * Math.PI / 180;
+  const headW = Math.max(measure.headW || DEFAULT_MEASURE.headW, boxW * MIN_HEAD_SHARE);
   if (shades?.img && anchor?.eyes) {
-    const sc = Math.max(measure.eyeSpan, measure.headW * 0.42) / shades.span;
-    g.drawImage(shades.img, (anchor.eyes[0] - shades.anchor[0] * sc) * k, (anchor.eyes[1] - shades.anchor[1] * sc) * k, shades.w * sc * k, shades.h * sc * k);
+    /* lenses on the eyes' span, the frame never wider than the head */
+    const lensFit = (measure.eyeSpan || headW * 0.42) * (shades.w / shades.span) * (shades.fit ?? 0.95);
+    const gw = Math.max(headW * SHADES_MIN, Math.min(headW * SHADES_MAX, lensFit));
+    const sc = gw / shades.w;
+    g.save();
+    g.translate(anchor.eyes[0] * k, anchor.eyes[1] * k);
+    g.rotate(tilt);
+    g.drawImage(shades.img, -shades.anchor[0] * sc * k, -shades.anchor[1] * sc * k, shades.w * sc * k, shades.h * sc * k);
+    g.restore();
   }
   if (hat?.img && anchor?.head) {
     /* the base under the head's top, but never down over the eyes */
-    const sc = (hat.fit * measure.headW) / hat.w;
-    let baseY = anchor.head[1] + (hat.depth ?? hat.sink ?? 0.1) * measure.headW;
-    if (anchor.eyes) baseY = Math.min(baseY, anchor.eyes[1] - (hat.gap ?? 0.08) * measure.headW);
-    g.drawImage(hat.img, (anchor.head[0] - hat.anchor[0] * sc) * k, (baseY - hat.anchor[1] * sc) * k, hat.w * sc * k, hat.h * sc * k);
+    const sc = (hat.fit * headW) / hat.w;
+    let baseY = (hat.depth ?? hat.sink ?? 0.1) * headW;
+    if (anchor.eyes) {
+      const ex = anchor.eyes[0] - anchor.head[0], ey = anchor.eyes[1] - anchor.head[1];
+      const eyeY = -ex * Math.sin(tilt) + ey * Math.cos(tilt);
+      baseY = Math.min(baseY, eyeY - (hat.gap ?? 0.08) * headW);
+    }
+    g.save();
+    g.translate(anchor.head[0] * k, anchor.head[1] * k);
+    g.rotate(tilt);
+    g.drawImage(hat.img, -hat.anchor[0] * sc * k, (baseY - hat.anchor[1] * sc) * k, hat.w * sc * k, hat.h * sc * k);
+    g.restore();
   }
   if (crown?.img && crown.at) {
     const cw = boxW * (crown.share || CROWN_SHARE) * k;
@@ -323,7 +354,7 @@ async function canvasDataUrl(c) {
 async function layersOf(m, look) {
   const hatId = hatOf(look, m);
   const hat = hatId ? m.hats[hatId] : null;
-  const sh = look.shades ? m.shades?.[look.shades] : null;
+  const sh = look.shades ? m.shades?.[retiredShades(look.shades)] : null;
   const [hatSrc, hatMask, shadesImg, photo] = await Promise.all([
     hat ? loadImage(grooveUrl(hat.src)).catch(() => null) : null,
     hat?.mask ? loadImage(grooveUrl(hat.mask)).catch(() => null) : null,
@@ -358,7 +389,7 @@ const paintSize = size => (SPRITE_SIZES.includes(size) ? size : BOX);
 /* everything that changes the picture, so two looks never share an entry */
 const spriteKey = (raw = {}) => {
   const look = lookOf(raw);
-  const hat = manifest ? hatOf(look, manifest) : look.hat || (look.groom ? "crown" : null);
+  const hat = manifest ? hatOf(look, manifest) : look.hat === "none" ? null : look.hat || (look.groom ? "crown" : null);
   return [resolvedId(look.critter), look.color, hat || "", look.shades || "", look.shirt ? `tee:${look.photo}` : "", paintSize(raw?.size)].join("|");
 };
 function forget(urls) {
@@ -412,12 +443,12 @@ export function riderSprites(raw = {}) {
         return urls;
       }
       const layers = await layersOf(m, look);
-      const measure = measureOf(c);
       const done = new Map();
       for (const pose of m.poses || POSES) {
         const art = set.poses?.[pose] || set.poses?.idle;
         const at = { ...c.anchor, ...(set.anchor || {}), ...(art?.anchor || {}) };
-        const fileKey = `${art?.src}|${art?.tube}|${art?.shirt || ""}|${JSON.stringify(at)}`;
+        const measure = measureOf(art, measureOf(set, measureOf(c)));
+        const fileKey = `${art?.src}|${art?.tube}|${art?.shirt || ""}|${JSON.stringify(at)}|${JSON.stringify(measure)}`;
         if (done.has(fileKey)) { urls[pose] = done.get(fileKey); continue; }
         const [src, tube, shirt] = await Promise.all([
           loadImage(grooveUrl(art.src)),
@@ -472,7 +503,7 @@ export async function riderPortrait(entrant = {}, { size = 256 } = {}) {
       const art = tee.poses.idle;
       const box = m.box || [BOX, BOX];
       const [src, tube, shirt] = await Promise.all([loadImage(grooveUrl(art.src)), loadImage(grooveUrl(art.tube)).catch(() => null), art.shirt ? loadImage(grooveUrl(art.shirt)).catch(() => null) : null]);
-      const full = paintSprite({ src, tube, shirt, color:look.color, w:box[0], h:box[1], boxW:box[0], anchor:{ ...c.anchor, ...(tee.anchor || {}), ...art.anchor }, measure:measureOf(c), chestR:art.chestR || 0, layers });
+      const full = paintSprite({ src, tube, shirt, color:look.color, w:box[0], h:box[1], boxW:box[0], anchor:{ ...c.anchor, ...(tee.anchor || {}), ...art.anchor }, measure:measureOf(art, measureOf(c)), chestR:art.chestR || 0, layers });
       const [fx, fy, fw] = tee.frame || [0, 0, box[0]];
       const out = canvas(px, px);
       out.getContext("2d").drawImage(full, fx, fy, fw, fw, 0, 0, px, px);

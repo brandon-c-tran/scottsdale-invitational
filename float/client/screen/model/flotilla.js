@@ -1,9 +1,13 @@
 /* The flotilla's layout (float/GROOVE.md "Rounds, elimination, positions"):
    every rider in the field always on screen, in 1 to 3 staggered rows, each
-   rider's x drifting ahead (right, downstream) or behind by their score
-   against the field's. Eliminated riders stand on the far bank as the
+   in a FIXED seat for the whole Cup (float/shared/seats.js: the field in
+   entrant order, front row first, left to right; GROOVE.md v3 "Who you
+   are"), drifting a little ahead (right, downstream) or behind by their
+   score against the field's, never past a neighbour. Eliminated riders stand on the far bank as the
    crowd; the podium has its three blocks. Pure: stage pixels on the fixed
    1920 x 1080 canvas, nothing measured from the DOM. */
+
+import { rowCounts, seatsFor } from "../../../shared/seats.js";
 
 export const STAGE_W = 1920;
 export const STAGE_H = 1080;
@@ -15,19 +19,8 @@ export const ANCHOR = Object.freeze({ water:[256, 404], head:[256, 112], top:[25
 /* the share of the box a rider's visible width takes (the tube's span) */
 export const BODY_W = 0.74;
 
-/* How many ride in each row, back to front: 1 to 4 one row, 5 to 10 two
-   (the front one takes the odd rider: 9 -> 4, 5), 11 to 16 three. Rows next
-   to each other differ by an odd count where they can (13 -> 4, 5, 4), so
-   their riders sit in each other's gaps and a row's popups land between
-   the heads of the row behind it. */
-const THREE_ROWS = Object.freeze({ 11:[4, 3, 4], 12:[5, 4, 3], 13:[4, 5, 4], 14:[5, 4, 5], 15:[6, 5, 4], 16:[5, 6, 5] });
-export function rowCounts(n) {
-  const riders = Math.max(0, Math.floor(Number(n) || 0));
-  if (!riders) return [];
-  if (riders <= 4) return [riders];
-  if (riders <= 10) return [Math.floor(riders / 2), Math.ceil(riders / 2)];
-  return [...(THREE_ROWS[Math.min(16, riders)] || THREE_ROWS[16])];
-}
+/* How many ride in each row, back to front (the seat map's own) */
+export { rowCounts };
 
 /* each row's waterline and scale by the number of rows (index 0 is the
    back); every row keeps inside [lo, hi] (the back row clear of the host on
@@ -63,19 +56,22 @@ export const MIN_GAP = 0.9;
 export const riderWidth = scale => BOX * scale * BODY_W;
 
 /* the rows a field rides in: [{ y, scale, lo, hi, shift, spacing, centre,
-   members:[i...] }]. `order` is the field's order (best first: the front
-   row takes the top of it, so the leaders ride biggest); `kind` "song" |
-   "final" | "lobby". One grid for every row: as wide as the tightest row
-   allows, every row centred on it, a row with the same parity as the one
-   in front moved half a slot, so each row's riders sit in the gaps of the
-   rows next to it. */
-export function rowsFor(order = [], { kind = "song" } = {}) {
-  const field = order.filter(i => Number.isInteger(i));
-  const counts = rowCounts(field.length);
+   members:[i...] }], back row first (index 0), each row's members left to
+   right. The seats are the seat map's (float/shared/seats.js seatsFor:
+   row 0 the FRONT, col 0 the LEFT), so a rider keeps their place whatever
+   the scores; `kind` "song" | "final" | "lobby". One grid for every row:
+   as wide as the tightest row allows, every row centred on it, a row with
+   the same parity as the one in front moved half a slot, so each row's
+   riders sit in the gaps of the rows next to it. */
+export function rowsFor(field = [], { kind = "song" } = {}) {
+  const seats = seatsFor(field);
+  const counts = rowCounts(seats.size);
   if (!counts.length) return [];
   const shapes = kind === "lobby" ? LOBBY_SHAPES[counts.length]
-    : kind === "final" || field.length <= 3 ? FINAL_SHAPE : ROW_SHAPES[counts.length];
-  const rows = counts.map((k, r) => ({ ...shapes[r], index:r, k, members:[], shift:0 }));
+    : kind === "final" || seats.size <= 3 ? FINAL_SHAPE : ROW_SHAPES[counts.length];
+  const rows = counts.map((k, r) => ({ ...shapes[r], index:r, k, members:new Array(k), shift:0 }));
+  /* the seat map's row 0 is the front: the last of ours */
+  for (const [i, seat] of seats) rows[rows.length - 1 - seat.row].members[seat.col] = i;
   /* rows with counts of the same parity would stack: the later one moves half a slot */
   for (let r = 1; r < rows.length; r += 1) rows[r].shift = rows[r - 1].shift + ((rows[r].k - rows[r - 1].k) % 2 === 0 ? 0.5 : 0);
   const mid = rows.reduce((sum, row) => sum + row.shift, 0) / rows.length;
@@ -94,12 +90,6 @@ export function rowsFor(order = [], { kind = "song" } = {}) {
     row.spacing = Math.max(riderWidth(row.scale) * MIN_GAP, grid);
     row.centre = centre;
   });
-  /* front row first from the order, then the rows behind it */
-  let at = 0;
-  for (let r = rows.length - 1; r >= 0; r -= 1) {
-    rows[r].members = field.slice(at, at + counts[r]);
-    at += counts[r];
-  }
   return rows;
 }
 
@@ -160,66 +150,33 @@ export function spreadRow(xs, space, lo, hi) {
   return out;
 }
 
-/* the order a row's riders take its slots, left (behind) to right
-   (ahead): by live score, but a rider passes a neighbour only once they are
-   clearly ahead (`hysteresis` points), so a level row does not shuffle;
-   `prev` the row's last order */
-export function rowOrder(members = [], live = () => null, { prev = null, hysteresis = 2.5 } = {}) {
-  const value = i => (Number.isFinite(live(i)) ? live(i) : -1);
-  const known = prev ? prev.filter(i => members.includes(i)) : [];
-  const fresh = members.filter(i => !known.includes(i));
-  const list = known.length ? [...known, ...fresh] : members.slice().sort((a, b) => value(a) - value(b) || b - a);
-  if (!known.length) return list;
-  for (let pass = 0; pass < list.length; pass += 1) {
-    let moved = false;
-    for (let k = 0; k < list.length - 1; k += 1) {
-      if (value(list[k]) > value(list[k + 1]) + hysteresis) {
-        [list[k], list[k + 1]] = [list[k + 1], list[k]];
-        moved = true;
-      }
-    }
-    if (!moved) break;
-  }
-  return list;
-}
-
-/* Every rider's place on the water: { [i]: { x, y, scale, row, z } }.
+/* Every rider's place on the water: { [i]: { x, y, scale, row, rows, z } }.
    `lives` maps a rider to their live score (0 to 100, or null before their
-   first judgement). Each row keeps its slots on the shared grid (so faces
-   stay clear of the rows around), its riders taking them in score order,
-   the leaders downstream (right), each drifting a little more by how far
-   ahead or behind the field they are. `orders` (a Map, row index -> order)
-   carries the rows' last orders between calls (it is updated). x is the
-   waterline's middle, y the waterline. */
-export function flotillaLayout(order = [], lives = new Map(), { kind = "song", drift = true, orders = null } = {}) {
-  const rows = rowsFor(order, { kind });
+   first judgement). Each rider keeps their seat's slot on the shared grid
+   (so faces stay clear of the rows around), drifting a little ahead (right)
+   or behind by how far ahead or behind the field they are; the drift is a
+   tenth of a slot at most, so a rider never passes a neighbour (the rank
+   strip says who leads). x is the waterline's middle, y the waterline. */
+export function flotillaLayout(field = [], lives = new Map(), { kind = "song", drift = true } = {}) {
+  const rows = rowsFor(field, { kind });
   const get = i => (lives instanceof Map ? lives.get(i) : lives?.[i]);
-  const mean = drift ? fieldMean(order.map(get)) : null;
+  const mean = drift ? fieldMean(rows.flatMap(row => row.members).map(get)) : null;
   const out = {};
   for (const row of rows) {
     const slots = rowSlots(row);
     const w = riderWidth(row.scale);
     const reach = DRIFT.MAX * (row.spacing ?? w * 1.5);
-    const seated = drift ? rowOrder(row.members, get, { prev:orders?.get(row.index) || null }) : row.members;
-    if (drift) orders?.set(row.index, seated);
-    const ideal = seated.map((i, j) => slots[j] + (drift ? driftOf(get(i), mean, { max:reach }) : 0));
+    const ideal = row.members.map((i, j) => slots[j] + (drift ? driftOf(get(i), mean, { max:reach }) : 0));
     const shown = spreadRow(ideal, w * MIN_GAP, row.lo + w / 2, row.hi - w / 2);
-    seated.forEach((i, j) => {
-      out[i] = { x:shown[j], y:row.y, scale:row.scale, row:row.index, rows:rows.length, z:row.index * 100 + j };
+    row.members.forEach((i, j) => {
+      out[i] = { x:shown[j], y:row.y, scale:row.scale, row:row.index, rows:rows.length, col:j, z:row.index * 100 + j };
     });
   }
   return out;
 }
 
-/* the field in the order the rows take it: by Cup total (best first), then
-   entrant index; a song keeps this order to its end (rows never reshuffle
-   mid-song) */
-export function fieldOrder(field = [], cupOf = () => 0) {
-  return field.filter(i => Number.isInteger(i))
-    .map(i => ({ i, cup:Number(cupOf(i)) || 0 }))
-    .sort((a, b) => b.cup - a.cup || a.i - b.i)
-    .map(item => item.i);
-}
+/* the field in seat order (entrant order): the same list whatever the scores */
+export const seatOrder = (field = []) => [...new Set(field.filter(i => Number.isInteger(i)))].sort((a, b) => a - b);
 
 /* ── the crowd on the far bank ── */
 /* the crowd stands on the sand at the water's edge (the scene's waterline
@@ -350,10 +307,11 @@ export function popupSlots(riders = [], { box = POPUP_BOX, lift = 14, w = STAGE_
   return out;
 }
 
-/* a name's box at the TV's lettering (27 px pixel face): its width from its
-   letters when it has not been measured */
-export const NAME_H = 30;
-export const nameWidth = name => 16 * String(name || "").length + 18;
+/* a name tag's box at the TV's lettering (28 px pixel face on a tag in the
+   rider's colour, a dark keyline): its width from its letters when it has
+   not been measured */
+export const NAME_H = 42;
+export const nameWidth = name => 16 * String(name || "").length + 40;
 /* where a name may go, as shares of its own box: right under its tube,
    lower, to a side, a touch higher */
 const NAME_TRIES = Object.freeze([[0, 0], [0, 0.7], [-0.32, 0.35], [0.32, 0.35], [0, -0.45], [-0.55, 0], [0.55, 0], [0, 1.4]]);

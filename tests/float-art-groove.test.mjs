@@ -21,7 +21,8 @@ const ROOT = fileURLToPath(new URL("../", import.meta.url));
 const PUB = join(ROOT, "public");
 const DIR = join(PUB, "float/groove");
 const manifest = JSON.parse(readFileSync(join(DIR, "manifest.json"), "utf8"));
-const POSES = ["idle", "stroke", "hey", "nice", "miss", "chug", "cheer", "out"];
+/* the kayak poses (GROOVE.md v3 item 10): stroke dips the blade on the rider's left, stroke-r on the right */
+const POSES = ["idle", "stroke", "stroke-r", "hey", "nice", "miss", "chug", "cheer", "out"];
 const file = rel => join(DIR, rel);
 /* a WebP's size from its header (VP8X, VP8L or VP8), no decode */
 function webpSize(buf) {
@@ -35,10 +36,11 @@ function webpSize(buf) {
 const size = async rel => webpSize(readFileSync(file(rel)));
 const isPoint = (p, w = 1e9, h = 1e9) => Array.isArray(p) && p.length === 2 && p.every(Number.isFinite) && p[0] >= 0 && p[1] >= 0 && p[0] <= w && p[1] <= h;
 
-test("the manifest's shape: v 1, the eight poses, the 512 box", () => {
+test("the manifest's shape: v 1, the nine poses, the 512 box", () => {
   assert.equal(manifest.v, 1);
   assert.deepEqual(manifest.poses, POSES);
-  assert.deepEqual(groove.POSES, POSES);
+  /* the module paints whatever the manifest lists (m.poses); its own list is the fallback */
+  for (const pose of groove.POSES) assert.ok(POSES.includes(pose), `the module's ${pose} is a manifest pose`);
   assert.deepEqual(manifest.box, [512, 512]);
   for (const key of ["critters", "host", "scenes", "props", "font"]) assert.ok(manifest[key], key);
 });
@@ -110,7 +112,7 @@ test("the real art: every pose has a critter and a tube; the face is on the body
       assert.ok(alphaAt(src, face) > 200, `${id} ${pose}: the face anchor is on the critter`);
       assert.ok(alphaAt(tube, face) < 40, `${id} ${pose}: no tube mask at the face`);
     }
-    assert.equal(seen.size, POSES.length, `${id}: eight different sprites`);
+    assert.equal(seen.size, POSES.length, `${id}: nine different sprites`);
   }
 });
 
@@ -335,7 +337,7 @@ test("the looks: every hat (keyed to take the colour; the crown gold) and every 
   }
 });
 
-test("the photo tee: every critter's eight poses with a shirt mask, a chest for the photo, and a portrait frame", async () => {
+test("the photo tee: every critter's nine poses with a shirt mask, a chest for the photo, and a portrait frame", async () => {
   for (const id of ALL_CRITTER_IDS) {
     const t = manifest.critters[id].tee;
     assert.ok(t, `${id} tee`);
@@ -374,5 +376,31 @@ test("the cutscenes' props: the pelicans (one with a grip), dizzy stars, bonk, b
   for (const id of ["chalkboard", "clock"]) {
     const [x, y, w, h] = p[id].face;
     assert.ok(x >= 0 && y >= 0 && x + w <= p[id].w && y + h <= p[id].h && w > p[id].w * 0.4 && h > p[id].h * 0.4, `${id} face`);
+  }
+});
+
+/* GROOVE.md v3 item 10: the kayak takes the tube's job. Every idle kayak
+   (hull and paddle blades, the tube mask) is the same size in the box, its
+   hull's bottom on the waterline, and the two strokes dip on opposite sides */
+test("the kayaks: every idle hull sits on the waterline at one width, and stroke and stroke-r dip on opposite sides", async () => {
+  const bounds = img => {
+    let x0 = img.w, x1 = -1, y0 = img.h, y1 = -1;
+    for (let y = 0; y < img.h; y++) for (let x = 0; x < img.w; x++) if (img.data[(y * img.w + x) * 4 + 3] > 128) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+    return { x0, x1, y0, y1 };
+  };
+  for (const id of ALL_CRITTER_IDS) {
+    const c = manifest.critters[id];
+    assert.ok(c.kayak, `${id} rides a kayak`);
+    const idle = bounds(await raw(c.poses.idle.tube));
+    const [wx, wy] = c.anchor.water;
+    assert.ok(Math.abs(idle.y1 - wy) < 24, `${id}: the idle kayak's bottom on the waterline (${idle.y1} vs ${wy})`);
+    assert.ok(idle.x0 < wx - 120 && idle.x1 > wx + 120 && idle.x1 - idle.x0 < 460, `${id}: the idle kayak's width (${idle.x0}..${idle.x1})`);
+    /* the lower blade (anchor.blade, where the stroke meets the water): stroke (the rider's left) on the picture's right, stroke-r on its left, both at the water */
+    const L = c.poses.stroke.anchor.blade, Rb = c.poses["stroke-r"].anchor.blade;
+    assert.ok(L[0] > wx + 40 && Math.abs(L[1] - wy) < 60, `${id}: stroke dips on the picture's right (${L})`);
+    assert.ok(Rb[0] < wx - 40 && Math.abs(Rb[1] - wy) < 60, `${id}: stroke-r dips on the picture's left (${Rb})`);
+    /* the tube mask is there at the blade */
+    const tl = await raw(c.poses.stroke.tube), tr = await raw(c.poses["stroke-r"].tube);
+    assert.ok(alphaAt(tl, L) > 100 && alphaAt(tr, Rb) > 100, `${id}: the blades are in the tube mask`);
   }
 });

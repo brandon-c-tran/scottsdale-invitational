@@ -1,0 +1,3731 @@
+[
+  {
+    "id": "sil-pikachu",
+    "category": "sil",
+    "tier": 1,
+    "format": "image",
+    "prompt": "Which Pokémon is this silhouette?",
+    "subject": "Pikachu",
+    "options": [
+      {
+        "id": "a",
+        "text": "Pikachu"
+      },
+      {
+        "id": "b",
+        "text": "Eevee"
+      },
+      {
+        "id": "c",
+        "text": "Jigglypuff"
+      },
+      {
+        "id": "d",
+        "text": "Psyduck"
+      }
+    ],
+    "answer": "a",
+    "reveal": "Pikachu, the Electric-type mascot of Pokémon (#025).",
+    "media": {
+      "kind": "image",
+      "src": "/tq/c42540315106.webp",
+      "w": 1200,
+      "h": 1200,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/739c8670a782.webp",
+      "w": 1200,
+      "h": 1200
+    },
+    "sources": [
+      {
+        "url": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/25.png",
+        "note": "Original image used for the reveal (isolated and filled for the silhouette)",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://pokeapi.co/api/v2/pokemon/25",
+        "note": "Reference page for the subject",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "pokemon",
+        "nostalgia"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "broad"
+    }
+  },
+  {
+    "id": "sil-mickey-mouse",
+    "category": "sil",
+    "tier": 1,
+    "format": "image",
+    "prompt": "Which cartoon character is this silhouette?",
+    "subject": "Mickey Mouse",
+    "options": [
+      {
+        "id": "a",
+        "text": "Bugs Bunny"
+      },
+      {
+        "id": "b",
+        "text": "Felix the Cat"
+      },
+      {
+        "id": "c",
+        "text": "Mickey Mouse"
+      },
+      {
+        "id": "d",
+        "text": "Oswald the Lucky Rabbit"
+      }
+    ],
+    "answer": "c",
+    "reveal": "Mickey Mouse, Disney's mascot since Steamboat Willie in 1928.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/0a9fc9795ec9.webp",
+      "w": 1200,
+      "h": 1200,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/966e7f6504e4.webp",
+      "w": 1200,
+      "h": 1200
+    },
+    "sources": [
+      {
+        "url": "https://static.wikia.nocookie.net/disney/images/2/2e/Disney_Mickey_Mouse.png/revision/latest?cb=20250301192111",
+        "note": "Original image used for the reveal (isolated and filled for the silhouette)",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://disney.fandom.com/wiki/Mickey_Mouse",
+        "note": "Reference page for the subject",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "cartoons",
+        "nostalgia"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "broad"
+    }
+  },
+  {
+    "id": "sil-spongebob-squarepants",
+    "category": "sil",
+    "tier": 1,
+    "format": "image",
+    "prompt": "Which cartoon character is this silhouette?",
+    "subject": "SpongeBob SquarePants",
+    "options": [
+      {
+        "id": "a",
+        "text": "Patrick Star"
+      },
+      {
+        "id": "b",
+        "text": "SpongeBob SquarePants"
+      },
+      {
+        "id": "c",
+        "text": "Mr. Krabs"
+      },
+      {
+        "id": "d",
+        "text": "Sandy Cheeks"
+      }
+    ],
+    "answer": "b",
+    "reveal": "SpongeBob SquarePants, the fry cook from Bikini Bottom (Nickelodeon, 1999).",
+    "media": {
+      "kind": "image",
+      "src": "/tq/1147733040bf.webp",
+      "w": 1200,
+      "h": 1200,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/c220ede4e205.webp",
+      "w": 1200,
+      "h": 1200
+    },
+    "sources": [
+      {
+        "url": "https://static.wikia.nocookie.net/spongebob/images/d/d6/SpongeBobRenderStockArt.png/revision/latest?cb=20230730063020",
+        "note": "Original image used for the reveal (isolated and filled for the silhouette)",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://spongebob.fandom.com/wiki/SpongeBob_SquarePants",
+        "note": "Reference page for the subject",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "cartoons",
+        "nostalgia"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "broad"
+    }
+  },
+  {
+    "id": "sil-mario",
+    "category": "sil",
+    "tier": 1,
+    "format": "image",
+    "prompt": "Which video game character is this silhouette?",
+    "subject": "Mario",
+    "options": [
+      {
+        "id": "a",
+        "text": "Sonic"
+      },
+      {
+        "id": "b",
+        "text": "Pac-Man"
+      },
+      {
+        "id": "c",
+        "text": "Kirby"
+      },
+      {
+        "id": "d",
+        "text": "Mario"
+      }
+    ],
+    "answer": "d",
+    "reveal": "Mario, Nintendo's mascot. He first appeared as Jumpman in Donkey Kong (1981).",
+    "media": {
+      "kind": "image",
+      "src": "/tq/3cc4f5275ff6.webp",
+      "w": 1200,
+      "h": 1200,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/c6f42c272a81.webp",
+      "w": 1200,
+      "h": 1200
+    },
+    "sources": [
+      {
+        "url": "https://static.wikia.nocookie.net/mario/images/0/0d/MarioAlternateJamboreeRender.png/revision/latest?cb=20260203182408",
+        "note": "Original image used for the reveal (isolated and filled for the silhouette)",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://mario.fandom.com/wiki/Mario",
+        "note": "Reference page for the subject",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "gaming",
+        "nostalgia"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "broad"
+    }
+  },
+  {
+    "id": "sil-snorlax",
+    "category": "sil",
+    "tier": 1,
+    "format": "image",
+    "prompt": "Which Pokémon is this silhouette?",
+    "subject": "Snorlax",
+    "options": [
+      {
+        "id": "a",
+        "text": "Bulbasaur"
+      },
+      {
+        "id": "b",
+        "text": "Jigglypuff"
+      },
+      {
+        "id": "c",
+        "text": "Gengar"
+      },
+      {
+        "id": "d",
+        "text": "Snorlax"
+      }
+    ],
+    "answer": "d",
+    "reveal": "Snorlax, the sleeping Normal-type that blocks the road in Kanto (#143).",
+    "media": {
+      "kind": "image",
+      "src": "/tq/8e73da511155.webp",
+      "w": 1200,
+      "h": 1200,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/de95a367b60d.webp",
+      "w": 1200,
+      "h": 1200
+    },
+    "sources": [
+      {
+        "url": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/143.png",
+        "note": "Original image used for the reveal (isolated and filled for the silhouette)",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://pokeapi.co/api/v2/pokemon/143",
+        "note": "Reference page for the subject",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "pokemon",
+        "nostalgia"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "broad"
+    }
+  },
+  {
+    "id": "sil-creeper",
+    "category": "sil",
+    "tier": 1,
+    "format": "image",
+    "prompt": "Which Minecraft mob is this silhouette?",
+    "subject": "Creeper",
+    "options": [
+      {
+        "id": "a",
+        "text": "Zombie"
+      },
+      {
+        "id": "b",
+        "text": "Creeper"
+      },
+      {
+        "id": "c",
+        "text": "Enderman"
+      },
+      {
+        "id": "d",
+        "text": "Slime"
+      }
+    ],
+    "answer": "b",
+    "reveal": "The Creeper, the silent green mob that explodes next to players.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/0695c70c5f72.webp",
+      "w": 1200,
+      "h": 1200,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/a8ca6f96489f.webp",
+      "w": 1200,
+      "h": 1200
+    },
+    "sources": [
+      {
+        "url": "https://static.wikia.nocookie.net/minecraft_gamepedia/images/5/5b/Creeper_JE2_BE1.png/revision/latest?cb=20191229172043",
+        "note": "Original image used for the reveal (isolated and filled for the silhouette)",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://minecraft.fandom.com/wiki/Creeper",
+        "note": "Reference page for the subject",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "minecraft",
+        "gaming"
+      ],
+      "likely": [
+        "Chinh",
+        "Khoa"
+      ],
+      "possible": [],
+      "reach": "broad"
+    }
+  },
+  {
+    "id": "sil-diamond-pickaxe",
+    "category": "sil",
+    "tier": 1,
+    "format": "image",
+    "prompt": "Which Minecraft item is this silhouette?",
+    "subject": "Diamond pickaxe",
+    "options": [
+      {
+        "id": "a",
+        "text": "Diamond shovel"
+      },
+      {
+        "id": "b",
+        "text": "Diamond hoe"
+      },
+      {
+        "id": "c",
+        "text": "Diamond pickaxe"
+      },
+      {
+        "id": "d",
+        "text": "Diamond axe"
+      }
+    ],
+    "answer": "c",
+    "reveal": "The diamond pickaxe, the tool that mines obsidian and ancient debris.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/577e80794af0.webp",
+      "w": 1200,
+      "h": 1200,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/2ac486b94108.webp",
+      "w": 1200,
+      "h": 1200
+    },
+    "sources": [
+      {
+        "url": "https://raw.githubusercontent.com/misode/mcmeta/assets/assets/minecraft/textures/item/diamond_pickaxe.png",
+        "note": "Original image used for the reveal (isolated and filled for the silhouette)",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://minecraft.fandom.com/wiki/Pickaxe",
+        "note": "Reference page for the subject",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "minecraft",
+        "gaming"
+      ],
+      "likely": [
+        "Chinh",
+        "Khoa"
+      ],
+      "possible": [],
+      "reach": "broad"
+    }
+  },
+  {
+    "id": "sil-charizard",
+    "category": "sil",
+    "tier": 1,
+    "format": "image",
+    "prompt": "Which Pokémon is this silhouette?",
+    "subject": "Charizard",
+    "options": [
+      {
+        "id": "a",
+        "text": "Charizard"
+      },
+      {
+        "id": "b",
+        "text": "Blastoise"
+      },
+      {
+        "id": "c",
+        "text": "Venusaur"
+      },
+      {
+        "id": "d",
+        "text": "Dragonite"
+      }
+    ],
+    "answer": "a",
+    "reveal": "Charizard, the Fire and Flying Pokémon that Charmeleon evolves into (#006).",
+    "media": {
+      "kind": "image",
+      "src": "/tq/93f510821a11.webp",
+      "w": 1200,
+      "h": 1200,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/608da81dbd09.webp",
+      "w": 1200,
+      "h": 1200
+    },
+    "sources": [
+      {
+        "url": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/6.png",
+        "note": "Original image used for the reveal (isolated and filled for the silhouette)",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://pokeapi.co/api/v2/pokemon/6",
+        "note": "Reference page for the subject",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "pokemon",
+        "nostalgia"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "broad"
+    }
+  },
+  {
+    "id": "sil-psyduck",
+    "category": "sil",
+    "tier": 1,
+    "format": "image",
+    "prompt": "Which Pokémon is this silhouette?",
+    "subject": "Psyduck",
+    "options": [
+      {
+        "id": "a",
+        "text": "Slowpoke"
+      },
+      {
+        "id": "b",
+        "text": "Psyduck"
+      },
+      {
+        "id": "c",
+        "text": "Meowth"
+      },
+      {
+        "id": "d",
+        "text": "Togepi"
+      }
+    ],
+    "answer": "b",
+    "reveal": "Psyduck, the headache-prone Water-type from Misty's team (#054).",
+    "media": {
+      "kind": "image",
+      "src": "/tq/16ba30a4409b.webp",
+      "w": 1200,
+      "h": 1200,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/cec5cd9dd34d.webp",
+      "w": 1200,
+      "h": 1200
+    },
+    "sources": [
+      {
+        "url": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/54.png",
+        "note": "Original image used for the reveal (isolated and filled for the silhouette)",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://pokeapi.co/api/v2/pokemon/54",
+        "note": "Reference page for the subject",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "pokemon",
+        "nostalgia"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "broad"
+    }
+  },
+  {
+    "id": "sil-goku",
+    "category": "sil",
+    "tier": 2,
+    "format": "image",
+    "prompt": "Which anime character is this silhouette?",
+    "subject": "Goku",
+    "options": [
+      {
+        "id": "a",
+        "text": "Naruto"
+      },
+      {
+        "id": "b",
+        "text": "Luffy"
+      },
+      {
+        "id": "c",
+        "text": "Saitama"
+      },
+      {
+        "id": "d",
+        "text": "Goku"
+      }
+    ],
+    "answer": "d",
+    "reveal": "Goku, the Saiyan hero of Dragon Ball.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/53a0d846e53d.webp",
+      "w": 1200,
+      "h": 1200,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/2170b2941a39.webp",
+      "w": 1200,
+      "h": 1200
+    },
+    "sources": [
+      {
+        "url": "https://static.wikia.nocookie.net/dragonball/images/b/ba/Goku_anime_profile.png/revision/latest?cb=20250723190513",
+        "note": "Original image used for the reveal (isolated and filled for the silhouette)",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://dragonball.fandom.com/wiki/Goku",
+        "note": "Reference page for the subject",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "anime"
+      ],
+      "likely": [
+        "Evan",
+        "Eyob"
+      ],
+      "possible": [
+        "Sahil"
+      ],
+      "reach": "shared"
+    }
+  },
+  {
+    "id": "sil-sonic-the-hedgehog",
+    "category": "sil",
+    "tier": 2,
+    "format": "image",
+    "prompt": "Which video game character is this silhouette?",
+    "subject": "Sonic the Hedgehog",
+    "options": [
+      {
+        "id": "a",
+        "text": "Sonic the Hedgehog"
+      },
+      {
+        "id": "b",
+        "text": "Tails"
+      },
+      {
+        "id": "c",
+        "text": "Knuckles"
+      },
+      {
+        "id": "d",
+        "text": "Mega Man"
+      }
+    ],
+    "answer": "a",
+    "reveal": "Sonic the Hedgehog, Sega's mascot, first released in 1991.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/00183672bc21.webp",
+      "w": 1200,
+      "h": 1200,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/ef08b3d4d135.webp",
+      "w": 1200,
+      "h": 1200
+    },
+    "sources": [
+      {
+        "url": "https://static.wikia.nocookie.net/sonic/images/1/10/SRCSonic.png/revision/latest?cb=20251202132714",
+        "note": "Original image used for the reveal (isolated and filled for the silhouette)",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://sonic.fandom.com/wiki/Sonic_the_Hedgehog",
+        "note": "Reference page for the subject",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "gaming",
+        "nostalgia"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "broad"
+    }
+  },
+  {
+    "id": "sil-link",
+    "category": "sil",
+    "tier": 2,
+    "format": "image",
+    "prompt": "Which video game hero is this silhouette?",
+    "subject": "Link",
+    "options": [
+      {
+        "id": "a",
+        "text": "Cloud Strife"
+      },
+      {
+        "id": "b",
+        "text": "Mega Man"
+      },
+      {
+        "id": "c",
+        "text": "Link"
+      },
+      {
+        "id": "d",
+        "text": "Samus Aran"
+      }
+    ],
+    "answer": "c",
+    "reveal": "Link, the hero of The Legend of Zelda, with his sword and Hylian Shield.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/5040bf7900bd.webp",
+      "w": 1200,
+      "h": 1200,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/02dc3102ae48.webp",
+      "w": 1200,
+      "h": 1200
+    },
+    "sources": [
+      {
+        "url": "https://static.wikia.nocookie.net/zelda_gamepedia_en/images/9/9c/SSB_Link_Artwork.png/revision/latest?cb=20160126215931",
+        "note": "Original image used for the reveal (isolated and filled for the silhouette)",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://zelda.fandom.com/wiki/Link",
+        "note": "Reference page for the subject",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "gaming",
+        "nostalgia"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "broad"
+    }
+  },
+  {
+    "id": "sil-gengar",
+    "category": "sil",
+    "tier": 2,
+    "format": "image",
+    "prompt": "Which Pokémon is this silhouette?",
+    "subject": "Gengar",
+    "options": [
+      {
+        "id": "a",
+        "text": "Gengar"
+      },
+      {
+        "id": "b",
+        "text": "Haunter"
+      },
+      {
+        "id": "c",
+        "text": "Muk"
+      },
+      {
+        "id": "d",
+        "text": "Snorlax"
+      }
+    ],
+    "answer": "a",
+    "reveal": "Gengar, the Ghost and Poison Pokémon that Haunter evolves into (#094).",
+    "media": {
+      "kind": "image",
+      "src": "/tq/0919cbaad133.webp",
+      "w": 1200,
+      "h": 1200,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/22c65e3a0ec8.webp",
+      "w": 1200,
+      "h": 1200
+    },
+    "sources": [
+      {
+        "url": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/94.png",
+        "note": "Original image used for the reveal (isolated and filled for the silhouette)",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://pokeapi.co/api/v2/pokemon/94",
+        "note": "Reference page for the subject",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "pokemon",
+        "nostalgia"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "broad"
+    }
+  },
+  {
+    "id": "sil-diamond-sword",
+    "category": "sil",
+    "tier": 2,
+    "format": "image",
+    "prompt": "Which Minecraft item is this silhouette?",
+    "subject": "Diamond sword",
+    "options": [
+      {
+        "id": "a",
+        "text": "Diamond axe"
+      },
+      {
+        "id": "b",
+        "text": "Diamond shovel"
+      },
+      {
+        "id": "c",
+        "text": "Diamond sword"
+      },
+      {
+        "id": "d",
+        "text": "Trident"
+      }
+    ],
+    "answer": "c",
+    "reveal": "The diamond sword, the standard melee weapon.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/43806be97b8e.webp",
+      "w": 1200,
+      "h": 1200,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/51d4ba91a837.webp",
+      "w": 1200,
+      "h": 1200
+    },
+    "sources": [
+      {
+        "url": "https://raw.githubusercontent.com/misode/mcmeta/assets/assets/minecraft/textures/item/diamond_sword.png",
+        "note": "Original image used for the reveal (isolated and filled for the silhouette)",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://minecraft.fandom.com/wiki/Sword",
+        "note": "Reference page for the subject",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "minecraft",
+        "gaming"
+      ],
+      "likely": [
+        "Chinh",
+        "Khoa"
+      ],
+      "possible": [],
+      "reach": "broad"
+    }
+  },
+  {
+    "id": "sil-bow",
+    "category": "sil",
+    "tier": 2,
+    "format": "image",
+    "prompt": "Which Minecraft item is this silhouette?",
+    "subject": "Bow",
+    "options": [
+      {
+        "id": "a",
+        "text": "Crossbow"
+      },
+      {
+        "id": "b",
+        "text": "Bow"
+      },
+      {
+        "id": "c",
+        "text": "Fishing rod"
+      },
+      {
+        "id": "d",
+        "text": "Trident"
+      }
+    ],
+    "answer": "b",
+    "reveal": "The bow, drawn back to fire arrows.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/a3f4cd20a9d1.webp",
+      "w": 1200,
+      "h": 1200,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/6ee3cc38fcdb.webp",
+      "w": 1200,
+      "h": 1200
+    },
+    "sources": [
+      {
+        "url": "https://raw.githubusercontent.com/misode/mcmeta/assets/assets/minecraft/textures/item/bow.png",
+        "note": "Original image used for the reveal (isolated and filled for the silhouette)",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://minecraft.fandom.com/wiki/Bow",
+        "note": "Reference page for the subject",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "minecraft",
+        "gaming"
+      ],
+      "likely": [
+        "Chinh",
+        "Khoa"
+      ],
+      "possible": [],
+      "reach": "broad"
+    }
+  },
+  {
+    "id": "sil-magikarp",
+    "category": "sil",
+    "tier": 2,
+    "format": "image",
+    "prompt": "Which Pokémon is this silhouette?",
+    "subject": "Magikarp",
+    "options": [
+      {
+        "id": "a",
+        "text": "Goldeen"
+      },
+      {
+        "id": "b",
+        "text": "Feebas"
+      },
+      {
+        "id": "c",
+        "text": "Basculin"
+      },
+      {
+        "id": "d",
+        "text": "Magikarp"
+      }
+    ],
+    "answer": "d",
+    "reveal": "Magikarp, the Water-type that only splashes until it evolves into Gyarados (#129).",
+    "media": {
+      "kind": "image",
+      "src": "/tq/1d85a3b57efe.webp",
+      "w": 1200,
+      "h": 1200,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/cc5e06748dff.webp",
+      "w": 1200,
+      "h": 1200
+    },
+    "sources": [
+      {
+        "url": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/129.png",
+        "note": "Original image used for the reveal (isolated and filled for the silhouette)",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://pokeapi.co/api/v2/pokemon/129",
+        "note": "Reference page for the subject",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "pokemon",
+        "nostalgia"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "broad"
+    }
+  },
+  {
+    "id": "sil-eevee",
+    "category": "sil",
+    "tier": 2,
+    "format": "image",
+    "prompt": "Which Pokémon is this silhouette?",
+    "subject": "Eevee",
+    "options": [
+      {
+        "id": "a",
+        "text": "Pikachu"
+      },
+      {
+        "id": "b",
+        "text": "Meowth"
+      },
+      {
+        "id": "c",
+        "text": "Growlithe"
+      },
+      {
+        "id": "d",
+        "text": "Eevee"
+      }
+    ],
+    "answer": "d",
+    "reveal": "Eevee, the Normal-type that evolves into Vaporeon, Jolteon, Flareon and more (#133).",
+    "media": {
+      "kind": "image",
+      "src": "/tq/282fdee54216.webp",
+      "w": 1200,
+      "h": 1200,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/9d6d3c47750e.webp",
+      "w": 1200,
+      "h": 1200
+    },
+    "sources": [
+      {
+        "url": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/133.png",
+        "note": "Original image used for the reveal (isolated and filled for the silhouette)",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://pokeapi.co/api/v2/pokemon/133",
+        "note": "Reference page for the subject",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "pokemon",
+        "nostalgia"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "broad"
+    }
+  },
+  {
+    "id": "sil-master-chief",
+    "category": "sil",
+    "tier": 2,
+    "format": "image",
+    "prompt": "Which video game hero is this silhouette?",
+    "subject": "Master Chief",
+    "options": [
+      {
+        "id": "a",
+        "text": "Doomguy"
+      },
+      {
+        "id": "b",
+        "text": "Master Chief"
+      },
+      {
+        "id": "c",
+        "text": "Marcus Fenix"
+      },
+      {
+        "id": "d",
+        "text": "Samus Aran"
+      }
+    ],
+    "answer": "b",
+    "reveal": "Master Chief, the Spartan John-117 from Halo.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/0d683f0d9397.webp",
+      "w": 1200,
+      "h": 1200,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/fc384c70114d.webp",
+      "w": 1200,
+      "h": 1200
+    },
+    "sources": [
+      {
+        "url": "https://static.wikia.nocookie.net/halo/images/8/84/InfiniteChiefTRANSPARENTholdingReachAR.png/revision/latest?cb=20230220134648",
+        "note": "Original image used for the reveal (isolated and filled for the silhouette)",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://halo.fandom.com/wiki/Master_Chief",
+        "note": "Reference page for the subject",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "gaming",
+        "halo"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "shared"
+    }
+  },
+  {
+    "id": "sil-teemo",
+    "category": "sil",
+    "tier": 2,
+    "format": "image",
+    "prompt": "Which League of Legends champion is this?",
+    "subject": "Teemo",
+    "options": [
+      {
+        "id": "a",
+        "text": "Ziggs"
+      },
+      {
+        "id": "b",
+        "text": "Heimerdinger"
+      },
+      {
+        "id": "c",
+        "text": "Teemo"
+      },
+      {
+        "id": "d",
+        "text": "Veigar"
+      }
+    ],
+    "answer": "c",
+    "reveal": "Teemo, the Swift Scout, a yordle from Bandle City.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/3c27375d13ad.webp",
+      "w": 1200,
+      "h": 1200,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/a71b5bc76e77.webp",
+      "w": 1200,
+      "h": 1200
+    },
+    "sources": [
+      {
+        "url": "https://static.wikia.nocookie.net/leagueoflegends/images/d/d6/Teemo_Render.png/revision/latest?cb=20240926204626",
+        "note": "Original image used for the reveal (isolated and filled for the silhouette)",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://leagueoflegends.fandom.com/wiki/Teemo",
+        "note": "Reference page for the subject",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "league"
+      ],
+      "likely": [
+        "Chinh",
+        "Khoa",
+        "Chiang",
+        "Henry",
+        "Ben",
+        "Richard",
+        "Allan",
+        "Jeremy"
+      ],
+      "possible": [],
+      "reach": "shared"
+    }
+  },
+  {
+    "id": "sil-enderman",
+    "category": "sil",
+    "tier": 2,
+    "format": "image",
+    "prompt": "Which Minecraft mob is this silhouette?",
+    "subject": "Enderman",
+    "options": [
+      {
+        "id": "a",
+        "text": "Enderman"
+      },
+      {
+        "id": "b",
+        "text": "Skeleton"
+      },
+      {
+        "id": "c",
+        "text": "Iron Golem"
+      },
+      {
+        "id": "d",
+        "text": "Zombified Piglin"
+      }
+    ],
+    "answer": "a",
+    "reveal": "The Enderman, the tall mob that teleports and picks up blocks.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/cc0e84dd1078.webp",
+      "w": 1200,
+      "h": 1200,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/006d1add640b.webp",
+      "w": 1200,
+      "h": 1200
+    },
+    "sources": [
+      {
+        "url": "https://static.wikia.nocookie.net/minecraft_gamepedia/images/2/28/Enderman.png/revision/latest?cb=20240729214332",
+        "note": "Original image used for the reveal (isolated and filled for the silhouette)",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://minecraft.fandom.com/wiki/Enderman",
+        "note": "Reference page for the subject",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "minecraft",
+        "gaming"
+      ],
+      "likely": [
+        "Chinh",
+        "Khoa"
+      ],
+      "possible": [],
+      "reach": "shared"
+    }
+  },
+  {
+    "id": "sil-squidward-tentacles",
+    "category": "sil",
+    "tier": 2,
+    "format": "image",
+    "prompt": "Which cartoon character is this silhouette?",
+    "subject": "Squidward Tentacles",
+    "options": [
+      {
+        "id": "a",
+        "text": "Plankton"
+      },
+      {
+        "id": "b",
+        "text": "Squidward Tentacles"
+      },
+      {
+        "id": "c",
+        "text": "Gary the Snail"
+      },
+      {
+        "id": "d",
+        "text": "Patrick Star"
+      }
+    ],
+    "answer": "b",
+    "reveal": "Squidward Tentacles, SpongeBob's neighbor and the Krusty Krab cashier.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/80583af5e15b.webp",
+      "w": 1200,
+      "h": 1200,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/6fc1fb40c47c.webp",
+      "w": 1200,
+      "h": 1200
+    },
+    "sources": [
+      {
+        "url": "https://static.wikia.nocookie.net/spongebob/images/e/ed/Squidward_base.png/revision/latest?cb=20260622170740",
+        "note": "Original image used for the reveal (isolated and filled for the silhouette)",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://spongebob.fandom.com/wiki/Squidward_Tentacles",
+        "note": "Reference page for the subject",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "cartoons",
+        "nostalgia"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "broad"
+    }
+  },
+  {
+    "id": "sil-raichu",
+    "category": "sil",
+    "tier": 3,
+    "format": "image",
+    "prompt": "Which Pokémon is this silhouette?",
+    "subject": "Raichu",
+    "options": [
+      {
+        "id": "a",
+        "text": "Pikachu"
+      },
+      {
+        "id": "b",
+        "text": "Pichu"
+      },
+      {
+        "id": "c",
+        "text": "Dedenne"
+      },
+      {
+        "id": "d",
+        "text": "Raichu"
+      }
+    ],
+    "answer": "d",
+    "reveal": "Raichu, the evolution of Pikachu by Thunder Stone (#026).",
+    "media": {
+      "kind": "image",
+      "src": "/tq/ad85a37a6102.webp",
+      "w": 1200,
+      "h": 1200,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/14e119f9e032.webp",
+      "w": 1200,
+      "h": 1200
+    },
+    "sources": [
+      {
+        "url": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/26.png",
+        "note": "Original image used for the reveal (isolated and filled for the silhouette)",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://pokeapi.co/api/v2/pokemon/26",
+        "note": "Reference page for the subject",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "pokemon",
+        "nostalgia"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "broad"
+    }
+  },
+  {
+    "id": "sil-lucario",
+    "category": "sil",
+    "tier": 3,
+    "format": "image",
+    "prompt": "Which Pokémon is this silhouette?",
+    "subject": "Lucario",
+    "options": [
+      {
+        "id": "a",
+        "text": "Lucario"
+      },
+      {
+        "id": "b",
+        "text": "Riolu"
+      },
+      {
+        "id": "c",
+        "text": "Zoroark"
+      },
+      {
+        "id": "d",
+        "text": "Mienshao"
+      }
+    ],
+    "answer": "a",
+    "reveal": "Lucario, the Fighting and Steel Pokémon that Riolu evolves into (#448).",
+    "media": {
+      "kind": "image",
+      "src": "/tq/ad9aa571c237.webp",
+      "w": 1200,
+      "h": 1200,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/570b3cbad256.webp",
+      "w": 1200,
+      "h": 1200
+    },
+    "sources": [
+      {
+        "url": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/448.png",
+        "note": "Original image used for the reveal (isolated and filled for the silhouette)",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://pokeapi.co/api/v2/pokemon/448",
+        "note": "Reference page for the subject",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "pokemon"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "shared"
+    }
+  },
+  {
+    "id": "sil-blitzcrank",
+    "category": "sil",
+    "tier": 3,
+    "format": "image",
+    "prompt": "Which League of Legends champion is this?",
+    "subject": "Blitzcrank",
+    "options": [
+      {
+        "id": "a",
+        "text": "Nautilus"
+      },
+      {
+        "id": "b",
+        "text": "Rumble"
+      },
+      {
+        "id": "c",
+        "text": "Blitzcrank"
+      },
+      {
+        "id": "d",
+        "text": "Urgot"
+      }
+    ],
+    "answer": "c",
+    "reveal": "Blitzcrank, the Great Steam Golem from Zaun, and his Rocket Grab.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/ed7dd3d4caee.webp",
+      "w": 1200,
+      "h": 1200,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/05ab4b186d63.webp",
+      "w": 1200,
+      "h": 1200
+    },
+    "sources": [
+      {
+        "url": "https://static.wikia.nocookie.net/leagueoflegends/images/4/48/Blitzcrank_Render.png/revision/latest?cb=20231105072542",
+        "note": "Original image used for the reveal (isolated and filled for the silhouette)",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://leagueoflegends.fandom.com/wiki/Blitzcrank",
+        "note": "Reference page for the subject",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "league"
+      ],
+      "likely": [
+        "Chinh",
+        "Khoa",
+        "Chiang",
+        "Henry",
+        "Ben",
+        "Richard",
+        "Allan",
+        "Jeremy"
+      ],
+      "possible": [],
+      "reach": "shared"
+    }
+  },
+  {
+    "id": "sil-thresh",
+    "category": "sil",
+    "tier": 3,
+    "format": "image",
+    "prompt": "Which League of Legends champion is this?",
+    "subject": "Thresh",
+    "options": [
+      {
+        "id": "a",
+        "text": "Thresh"
+      },
+      {
+        "id": "b",
+        "text": "Karthus"
+      },
+      {
+        "id": "c",
+        "text": "Hecarim"
+      },
+      {
+        "id": "d",
+        "text": "Fiddlesticks"
+      }
+    ],
+    "answer": "a",
+    "reveal": "Thresh, the Chain Warden, with his lantern and scythe.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/ff8aa72a62f8.webp",
+      "w": 1200,
+      "h": 1200,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/79f3ccd79a7a.webp",
+      "w": 1200,
+      "h": 1200
+    },
+    "sources": [
+      {
+        "url": "https://static.wikia.nocookie.net/leagueoflegends/images/b/bb/Thresh_Unbound_Render.png/revision/latest?cb=20210707220046",
+        "note": "Original image used for the reveal (isolated and filled for the silhouette)",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://leagueoflegends.fandom.com/wiki/Thresh",
+        "note": "Reference page for the subject",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "league"
+      ],
+      "likely": [
+        "Chinh",
+        "Khoa",
+        "Chiang",
+        "Henry",
+        "Ben",
+        "Richard",
+        "Allan",
+        "Jeremy"
+      ],
+      "possible": [],
+      "reach": "shared"
+    }
+  },
+  {
+    "id": "sil-jinx",
+    "category": "sil",
+    "tier": 3,
+    "format": "image",
+    "prompt": "Which League of Legends champion is this?",
+    "subject": "Jinx",
+    "options": [
+      {
+        "id": "a",
+        "text": "Vi"
+      },
+      {
+        "id": "b",
+        "text": "Caitlyn"
+      },
+      {
+        "id": "c",
+        "text": "Jinx"
+      },
+      {
+        "id": "d",
+        "text": "Ziggs"
+      }
+    ],
+    "answer": "c",
+    "reveal": "Jinx, the Loose Cannon from Zaun.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/123c4e3d8062.webp",
+      "w": 1200,
+      "h": 1200,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/867e9bcd053c.webp",
+      "w": 1200,
+      "h": 1200
+    },
+    "sources": [
+      {
+        "url": "https://static.wikia.nocookie.net/leagueoflegends/images/c/c8/Jinx_Render.png/revision/latest?cb=20200514000223",
+        "note": "Original image used for the reveal (isolated and filled for the silhouette)",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://leagueoflegends.fandom.com/wiki/Jinx",
+        "note": "Reference page for the subject",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "league"
+      ],
+      "likely": [
+        "Chinh",
+        "Khoa",
+        "Chiang",
+        "Henry",
+        "Ben",
+        "Richard",
+        "Allan",
+        "Jeremy"
+      ],
+      "possible": [],
+      "reach": "shared"
+    }
+  },
+  {
+    "id": "sil-skyrim",
+    "category": "sil",
+    "tier": 3,
+    "format": "image",
+    "prompt": "Which game does this iconic helmet come from?",
+    "subject": "Skyrim",
+    "options": [
+      {
+        "id": "a",
+        "text": "Elden Ring"
+      },
+      {
+        "id": "b",
+        "text": "Skyrim"
+      },
+      {
+        "id": "c",
+        "text": "The Witcher 3"
+      },
+      {
+        "id": "d",
+        "text": "Dark Souls III"
+      }
+    ],
+    "answer": "b",
+    "reveal": "The horned Iron Helmet from The Elder Scrolls V: Skyrim.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/7a666652f191.webp",
+      "w": 1200,
+      "h": 1200,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/3336f41c02e9.webp",
+      "w": 1200,
+      "h": 1200
+    },
+    "sources": [
+      {
+        "url": "https://static.wikia.nocookie.net/elderscrolls/images/8/85/Iron_Helmet_%28Skyrim%29.png/revision/latest?cb=20170829172114",
+        "note": "Original image used for the reveal (isolated and filled for the silhouette)",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://elderscrolls.fandom.com/wiki/Iron_Helmet_(Skyrim)",
+        "note": "Reference page for the subject",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "skyrim",
+        "gaming"
+      ],
+      "likely": [
+        "Evan",
+        "Eyob",
+        "Sahil"
+      ],
+      "possible": [],
+      "reach": "shared"
+    }
+  },
+  {
+    "id": "sil-halo",
+    "category": "sil",
+    "tier": 3,
+    "format": "image",
+    "prompt": "Which game series is this energy sword from?",
+    "subject": "Halo",
+    "options": [
+      {
+        "id": "a",
+        "text": "Destiny"
+      },
+      {
+        "id": "b",
+        "text": "Mass Effect"
+      },
+      {
+        "id": "c",
+        "text": "Doom"
+      },
+      {
+        "id": "d",
+        "text": "Halo"
+      }
+    ],
+    "answer": "d",
+    "reveal": "The Energy Sword, a Covenant plasma blade carried by Elites in Halo.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/7dbf7378289f.webp",
+      "w": 1200,
+      "h": 1200,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/b56e5f17018a.webp",
+      "w": 1200,
+      "h": 1200
+    },
+    "sources": [
+      {
+        "url": "https://static.wikia.nocookie.net/halo/images/f/f1/H5G_Render_Sword.png/revision/latest?cb=20160218140525",
+        "note": "Original image used for the reveal (isolated and filled for the silhouette)",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://halo.fandom.com/wiki/Energy_sword",
+        "note": "Reference page for the subject",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "gaming",
+        "halo"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "shared"
+    }
+  },
+  {
+    "id": "sil-fishing-rod",
+    "category": "sil",
+    "tier": 3,
+    "format": "image",
+    "prompt": "Which Minecraft item is this silhouette?",
+    "subject": "Fishing rod",
+    "options": [
+      {
+        "id": "a",
+        "text": "Carrot on a Stick"
+      },
+      {
+        "id": "b",
+        "text": "Lead"
+      },
+      {
+        "id": "c",
+        "text": "Bow"
+      },
+      {
+        "id": "d",
+        "text": "Fishing rod"
+      }
+    ],
+    "answer": "d",
+    "reveal": "The fishing rod, which casts a line from its tip.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/bb7e003dd1f3.webp",
+      "w": 1200,
+      "h": 1200,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/0eaf3cb8a4ef.webp",
+      "w": 1200,
+      "h": 1200
+    },
+    "sources": [
+      {
+        "url": "https://raw.githubusercontent.com/misode/mcmeta/assets/assets/minecraft/textures/item/fishing_rod.png",
+        "note": "Original image used for the reveal (isolated and filled for the silhouette)",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://minecraft.fandom.com/wiki/Fishing_Rod",
+        "note": "Reference page for the subject",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "minecraft",
+        "gaming"
+      ],
+      "likely": [
+        "Chinh",
+        "Khoa"
+      ],
+      "possible": [],
+      "reach": "shared"
+    }
+  },
+  {
+    "id": "sil-trident",
+    "category": "sil",
+    "tier": 3,
+    "format": "image",
+    "prompt": "Which Minecraft item is this silhouette?",
+    "subject": "Trident",
+    "options": [
+      {
+        "id": "a",
+        "text": "Spyglass"
+      },
+      {
+        "id": "b",
+        "text": "Trident"
+      },
+      {
+        "id": "c",
+        "text": "Fishing rod"
+      },
+      {
+        "id": "d",
+        "text": "Bow"
+      }
+    ],
+    "answer": "b",
+    "reveal": "The trident, thrown or used for riptide, dropped by Drowned.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/127f918eac39.webp",
+      "w": 1200,
+      "h": 1200,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/6f45afa14522.webp",
+      "w": 1200,
+      "h": 1200
+    },
+    "sources": [
+      {
+        "url": "https://raw.githubusercontent.com/misode/mcmeta/assets/assets/minecraft/textures/item/trident.png",
+        "note": "Original image used for the reveal (isolated and filled for the silhouette)",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://minecraft.fandom.com/wiki/Trident",
+        "note": "Reference page for the subject",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "minecraft",
+        "gaming"
+      ],
+      "likely": [
+        "Chinh",
+        "Khoa"
+      ],
+      "possible": [],
+      "reach": "shared"
+    }
+  },
+  {
+    "id": "sil-iron-man",
+    "category": "sil",
+    "tier": 3,
+    "format": "image",
+    "prompt": "Which Marvel hero is in this armor silhouette?",
+    "subject": "Iron Man",
+    "options": [
+      {
+        "id": "a",
+        "text": "Captain America"
+      },
+      {
+        "id": "b",
+        "text": "Vision"
+      },
+      {
+        "id": "c",
+        "text": "Iron Man"
+      },
+      {
+        "id": "d",
+        "text": "Ultron"
+      }
+    ],
+    "answer": "c",
+    "reveal": "Iron Man in the Mark III, his first red and gold armor from Iron Man (2008).",
+    "media": {
+      "kind": "image",
+      "src": "/tq/c3b2161c7952.webp",
+      "w": 1200,
+      "h": 1200,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/b7dcfecb74d1.webp",
+      "w": 1200,
+      "h": 1200
+    },
+    "sources": [
+      {
+        "url": "https://static.wikia.nocookie.net/marvelcinematicuniverse/images/4/47/Iron_Man_Armor_-_Mark_III.png/revision/latest?cb=20170424185316",
+        "note": "Original image used for the reveal (isolated and filled for the silhouette)",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://marvelcinematicuniverse.fandom.com/wiki/Iron_Man_Armor:_Mark_III",
+        "note": "Reference page for the subject",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "marvel",
+        "movies"
+      ],
+      "likely": [
+        "Evan",
+        "Eyob",
+        "Sahil"
+      ],
+      "possible": [],
+      "reach": "shared"
+    }
+  },
+  {
+    "id": "sil-monkey-d-luffy",
+    "category": "sil",
+    "tier": 3,
+    "format": "image",
+    "prompt": "Which anime character is this silhouette?",
+    "subject": "Monkey D. Luffy",
+    "options": [
+      {
+        "id": "a",
+        "text": "Monkey D. Luffy"
+      },
+      {
+        "id": "b",
+        "text": "Naruto Uzumaki"
+      },
+      {
+        "id": "c",
+        "text": "Ichigo Kurosaki"
+      },
+      {
+        "id": "d",
+        "text": "Izuku Midoriya"
+      }
+    ],
+    "answer": "a",
+    "reveal": "Monkey D. Luffy, the straw-hat captain of One Piece.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/3f85ed3bd662.webp",
+      "w": 1200,
+      "h": 1200,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/e20425e70dca.webp",
+      "w": 1200,
+      "h": 1200
+    },
+    "sources": [
+      {
+        "url": "https://static.wikia.nocookie.net/onepiece/images/6/6d/Monkey_D._Luffy_Anime_Post_Timeskip_Infobox.png/revision/latest?cb=20260611004637",
+        "note": "Original image used for the reveal (isolated and filled for the silhouette)",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://onepiece.fandom.com/wiki/Monkey_D._Luffy",
+        "note": "Reference page for the subject",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "anime"
+      ],
+      "likely": [
+        "Evan",
+        "Eyob"
+      ],
+      "possible": [
+        "Sahil"
+      ],
+      "reach": "shared"
+    }
+  },
+  {
+    "id": "sil-amumu",
+    "category": "sil",
+    "tier": 3,
+    "format": "image",
+    "prompt": "Which League of Legends champion is this?",
+    "subject": "Amumu",
+    "options": [
+      {
+        "id": "a",
+        "text": "Maokai"
+      },
+      {
+        "id": "b",
+        "text": "Amumu"
+      },
+      {
+        "id": "c",
+        "text": "Ivern"
+      },
+      {
+        "id": "d",
+        "text": "Zac"
+      }
+    ],
+    "answer": "b",
+    "reveal": "Amumu, the Sad Mummy.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/90c22d2ccfb1.webp",
+      "w": 1200,
+      "h": 1200,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/20213c7cc69d.webp",
+      "w": 1200,
+      "h": 1200
+    },
+    "sources": [
+      {
+        "url": "https://static.wikia.nocookie.net/leagueoflegends/images/1/17/Amumu_Render.png/revision/latest?cb=20200324143252",
+        "note": "Original image used for the reveal (isolated and filled for the silhouette)",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://leagueoflegends.fandom.com/wiki/Amumu",
+        "note": "Reference page for the subject",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "league"
+      ],
+      "likely": [
+        "Chinh",
+        "Khoa",
+        "Chiang",
+        "Henry",
+        "Ben",
+        "Richard",
+        "Allan",
+        "Jeremy"
+      ],
+      "possible": [],
+      "reach": "shared"
+    }
+  },
+  {
+    "id": "sil-pichu",
+    "category": "sil",
+    "tier": 4,
+    "format": "image",
+    "prompt": "Which Pokémon is this silhouette?",
+    "subject": "Pichu",
+    "options": [
+      {
+        "id": "a",
+        "text": "Pikachu"
+      },
+      {
+        "id": "b",
+        "text": "Plusle"
+      },
+      {
+        "id": "c",
+        "text": "Togedemaru"
+      },
+      {
+        "id": "d",
+        "text": "Pichu"
+      }
+    ],
+    "answer": "d",
+    "reveal": "Pichu, the baby Pokémon that evolves into Pikachu (#172, Gen II).",
+    "media": {
+      "kind": "image",
+      "src": "/tq/c7363f4c35b6.webp",
+      "w": 1200,
+      "h": 1200,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/b35623333612.webp",
+      "w": 1200,
+      "h": 1200
+    },
+    "sources": [
+      {
+        "url": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/172.png",
+        "note": "Original image used for the reveal (isolated and filled for the silhouette)",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://pokeapi.co/api/v2/pokemon/172",
+        "note": "Reference page for the subject",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "pokemon",
+        "nostalgia"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "shared"
+    }
+  },
+  {
+    "id": "sil-nautilus",
+    "category": "sil",
+    "tier": 4,
+    "format": "image",
+    "prompt": "Which League of Legends champion is this?",
+    "subject": "Nautilus",
+    "options": [
+      {
+        "id": "a",
+        "text": "Nautilus"
+      },
+      {
+        "id": "b",
+        "text": "Blitzcrank"
+      },
+      {
+        "id": "c",
+        "text": "Rumble"
+      },
+      {
+        "id": "d",
+        "text": "Urgot"
+      }
+    ],
+    "answer": "a",
+    "reveal": "Nautilus, the Titan of the Depths, with his giant anchor.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/892fa0fb8740.webp",
+      "w": 1200,
+      "h": 1200,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/f007f74edb03.webp",
+      "w": 1200,
+      "h": 1200
+    },
+    "sources": [
+      {
+        "url": "https://static.wikia.nocookie.net/leagueoflegends/images/1/13/Nautilus_Render.png/revision/latest?cb=20200328140535",
+        "note": "Original image used for the reveal (isolated and filled for the silhouette)",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://leagueoflegends.fandom.com/wiki/Nautilus",
+        "note": "Reference page for the subject",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "league"
+      ],
+      "likely": [
+        "Chinh",
+        "Khoa",
+        "Chiang",
+        "Henry",
+        "Ben",
+        "Richard",
+        "Allan",
+        "Jeremy"
+      ],
+      "possible": [],
+      "reach": "shared"
+    }
+  },
+  {
+    "id": "sil-rumble",
+    "category": "sil",
+    "tier": 4,
+    "format": "image",
+    "prompt": "Which League of Legends champion is this?",
+    "subject": "Rumble",
+    "options": [
+      {
+        "id": "a",
+        "text": "Blitzcrank"
+      },
+      {
+        "id": "b",
+        "text": "Heimerdinger"
+      },
+      {
+        "id": "c",
+        "text": "Rumble"
+      },
+      {
+        "id": "d",
+        "text": "Ziggs"
+      }
+    ],
+    "answer": "c",
+    "reveal": "Rumble, the Mechanized Menace, a yordle in a scrap-metal mech.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/a50ca241e56a.webp",
+      "w": 1200,
+      "h": 1200,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/3f01dfa31b18.webp",
+      "w": 1200,
+      "h": 1200
+    },
+    "sources": [
+      {
+        "url": "https://static.wikia.nocookie.net/leagueoflegends/images/6/6c/Rumble_Render.png/revision/latest?cb=20200131225052",
+        "note": "Original image used for the reveal (isolated and filled for the silhouette)",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://leagueoflegends.fandom.com/wiki/Rumble",
+        "note": "Reference page for the subject",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "league"
+      ],
+      "likely": [
+        "Chinh",
+        "Khoa",
+        "Chiang",
+        "Henry",
+        "Ben",
+        "Richard",
+        "Allan",
+        "Jeremy"
+      ],
+      "possible": [],
+      "reach": "shared"
+    }
+  },
+  {
+    "id": "sil-tahm-kench",
+    "category": "sil",
+    "tier": 4,
+    "format": "image",
+    "prompt": "Which League of Legends champion is this?",
+    "subject": "Tahm Kench",
+    "options": [
+      {
+        "id": "a",
+        "text": "Tahm Kench"
+      },
+      {
+        "id": "b",
+        "text": "Gragas"
+      },
+      {
+        "id": "c",
+        "text": "Sion"
+      },
+      {
+        "id": "d",
+        "text": "Mundo"
+      }
+    ],
+    "answer": "a",
+    "reveal": "Tahm Kench, the River King, a demon with a top hat.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/6dc2223f002b.webp",
+      "w": 1200,
+      "h": 1200,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/1fec419f4519.webp",
+      "w": 1200,
+      "h": 1200
+    },
+    "sources": [
+      {
+        "url": "https://static.wikia.nocookie.net/leagueoflegends/images/e/e5/Tahm_Kench_Render.png/revision/latest?cb=20200514034513",
+        "note": "Original image used for the reveal (isolated and filled for the silhouette)",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://leagueoflegends.fandom.com/wiki/Tahm_Kench",
+        "note": "Reference page for the subject",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "league"
+      ],
+      "likely": [
+        "Chinh",
+        "Khoa",
+        "Chiang",
+        "Henry",
+        "Ben",
+        "Richard",
+        "Allan",
+        "Jeremy"
+      ],
+      "possible": [],
+      "reach": "shared"
+    }
+  },
+  {
+    "id": "sil-maplestory",
+    "category": "sil",
+    "tier": 4,
+    "format": "image",
+    "prompt": "Which game does this monster come from?",
+    "subject": "MapleStory",
+    "options": [
+      {
+        "id": "a",
+        "text": "Grand Chase"
+      },
+      {
+        "id": "b",
+        "text": "Ragnarok Online"
+      },
+      {
+        "id": "c",
+        "text": "MapleStory"
+      },
+      {
+        "id": "d",
+        "text": "DragonFable"
+      }
+    ],
+    "answer": "c",
+    "reveal": "The Orange Mushroom, one of MapleStory's earliest monsters.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/6314e28f24a3.webp",
+      "w": 1200,
+      "h": 1200,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/87822857f5ae.webp",
+      "w": 1200,
+      "h": 1200
+    },
+    "sources": [
+      {
+        "url": "https://static.wikia.nocookie.net/maplestory/images/0/02/Mob_Orange_Mushroom.png/revision/latest?cb=20211007013126",
+        "note": "Original image used for the reveal (isolated and filled for the silhouette)",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://maplestory.fandom.com/wiki/Orange_Mushroom",
+        "note": "Reference page for the subject",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "maplestory",
+        "nostalgia"
+      ],
+      "likely": [
+        "Richard",
+        "Allan",
+        "Jeremy"
+      ],
+      "possible": [],
+      "reach": "deep"
+    }
+  },
+  {
+    "id": "sil-slime",
+    "category": "sil",
+    "tier": 4,
+    "format": "image",
+    "prompt": "Which MapleStory monster is this silhouette?",
+    "subject": "Slime",
+    "options": [
+      {
+        "id": "a",
+        "text": "Orange Mushroom"
+      },
+      {
+        "id": "b",
+        "text": "Slime"
+      },
+      {
+        "id": "c",
+        "text": "Ribbon Pig"
+      },
+      {
+        "id": "d",
+        "text": "Stump"
+      }
+    ],
+    "answer": "b",
+    "reveal": "The Slime, a green blob monster from early MapleStory.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/54031910e9aa.webp",
+      "w": 1200,
+      "h": 1200,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/299f7e555eff.webp",
+      "w": 1200,
+      "h": 1200
+    },
+    "sources": [
+      {
+        "url": "https://static.wikia.nocookie.net/maplestory/images/c/c3/Mob_Slime.png/revision/latest?cb=20100509042224",
+        "note": "Original image used for the reveal (isolated and filled for the silhouette)",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://maplestory.fandom.com/wiki/Slime",
+        "note": "Reference page for the subject",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "maplestory",
+        "nostalgia"
+      ],
+      "likely": [
+        "Richard",
+        "Allan",
+        "Jeremy"
+      ],
+      "possible": [],
+      "reach": "deep"
+    }
+  },
+  {
+    "id": "sil-lethal-company",
+    "category": "sil",
+    "tier": 4,
+    "format": "image",
+    "prompt": "Which game is this creature from?",
+    "subject": "Lethal Company",
+    "options": [
+      {
+        "id": "a",
+        "text": "Phasmophobia"
+      },
+      {
+        "id": "b",
+        "text": "Content Warning"
+      },
+      {
+        "id": "c",
+        "text": "SCP: Containment Breach"
+      },
+      {
+        "id": "d",
+        "text": "Lethal Company"
+      }
+    ],
+    "answer": "d",
+    "reveal": "The Coil-Head, a Lethal Company entity that only moves while no one looks at it.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/ba867b16139c.webp",
+      "w": 1200,
+      "h": 1200,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/a9370ed31ac0.webp",
+      "w": 1200,
+      "h": 1200
+    },
+    "sources": [
+      {
+        "url": "https://static.wikia.nocookie.net/lethalcompanyzeekerss/images/8/89/Coilheadrender.png/revision/latest?cb=20231211091740",
+        "note": "Original image used for the reveal (isolated and filled for the silhouette)",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://lethalcompanyzeekerss.fandom.com/wiki/Coil-Head",
+        "note": "Reference page for the subject",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "lethal-company",
+        "gaming"
+      ],
+      "likely": [
+        "Chinh",
+        "Khoa"
+      ],
+      "possible": [],
+      "reach": "deep"
+    }
+  },
+  {
+    "id": "sil-war-machine",
+    "category": "sil",
+    "tier": 4,
+    "format": "image",
+    "prompt": "Which Marvel hero is in this armor silhouette?",
+    "subject": "War Machine",
+    "options": [
+      {
+        "id": "a",
+        "text": "Iron Man"
+      },
+      {
+        "id": "b",
+        "text": "Iron Monger"
+      },
+      {
+        "id": "c",
+        "text": "Vision"
+      },
+      {
+        "id": "d",
+        "text": "War Machine"
+      }
+    ],
+    "answer": "d",
+    "reveal": "War Machine, James Rhodes' armor, shown by its shoulder cannon.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/9cd898d65446.webp",
+      "w": 1200,
+      "h": 1200,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/fc1b4eae49ac.webp",
+      "w": 1200,
+      "h": 1200
+    },
+    "sources": [
+      {
+        "url": "https://static.wikia.nocookie.net/marvelcinematicuniverse/images/7/78/War_Machine_Armor_-_Mark_I.png/revision/latest?cb=20151218173900",
+        "note": "Original image used for the reveal (isolated and filled for the silhouette)",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://marvelcinematicuniverse.fandom.com/wiki/War_Machine_Armor:_Mark_I",
+        "note": "Reference page for the subject",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "marvel",
+        "movies"
+      ],
+      "likely": [
+        "Evan",
+        "Eyob",
+        "Sahil"
+      ],
+      "possible": [],
+      "reach": "shared"
+    }
+  },
+  {
+    "id": "sil-shears",
+    "category": "sil",
+    "tier": 4,
+    "format": "image",
+    "prompt": "Which Minecraft item is this silhouette?",
+    "subject": "Shears",
+    "options": [
+      {
+        "id": "a",
+        "text": "Flint and Steel"
+      },
+      {
+        "id": "b",
+        "text": "Shears"
+      },
+      {
+        "id": "c",
+        "text": "Brush"
+      },
+      {
+        "id": "d",
+        "text": "Lead"
+      }
+    ],
+    "answer": "b",
+    "reveal": "The shears, used on sheep, leaves and cobwebs.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/5ec8773e10a4.webp",
+      "w": 1200,
+      "h": 1200,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/9859746c548a.webp",
+      "w": 1200,
+      "h": 1200
+    },
+    "sources": [
+      {
+        "url": "https://raw.githubusercontent.com/misode/mcmeta/assets/assets/minecraft/textures/item/shears.png",
+        "note": "Original image used for the reveal (isolated and filled for the silhouette)",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://minecraft.fandom.com/wiki/Shears",
+        "note": "Reference page for the subject",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "minecraft",
+        "gaming"
+      ],
+      "likely": [
+        "Chinh",
+        "Khoa"
+      ],
+      "possible": [],
+      "reach": "deep"
+    }
+  },
+  {
+    "id": "sil-bracken",
+    "category": "sil",
+    "tier": 4,
+    "format": "image",
+    "prompt": "Which Lethal Company creature is this?",
+    "subject": "Bracken",
+    "options": [
+      {
+        "id": "a",
+        "text": "Coil-Head"
+      },
+      {
+        "id": "b",
+        "text": "Thumper"
+      },
+      {
+        "id": "c",
+        "text": "Bracken"
+      },
+      {
+        "id": "d",
+        "text": "Hoarding Bug"
+      }
+    ],
+    "answer": "c",
+    "reveal": "The Bracken, the stalker that snaps necks from behind.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/3a91e636eed6.webp",
+      "w": 1200,
+      "h": 1200,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/7737b0bf2ae6.webp",
+      "w": 1200,
+      "h": 1200
+    },
+    "sources": [
+      {
+        "url": "https://static.wikia.nocookie.net/lethalcompanyzeekerss/images/4/41/BrackenQuan1.png/revision/latest?cb=20240124085849",
+        "note": "Original image used for the reveal (isolated and filled for the silhouette)",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://lethalcompanyzeekerss.fandom.com/wiki/Bracken",
+        "note": "Reference page for the subject",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "lethal-company",
+        "gaming"
+      ],
+      "likely": [
+        "Chinh",
+        "Khoa"
+      ],
+      "possible": [],
+      "reach": "deep"
+    }
+  },
+  {
+    "id": "sil-singed",
+    "category": "sil",
+    "tier": 4,
+    "format": "image",
+    "prompt": "Which League of Legends champion is this?",
+    "subject": "Singed",
+    "options": [
+      {
+        "id": "a",
+        "text": "Singed"
+      },
+      {
+        "id": "b",
+        "text": "Warwick"
+      },
+      {
+        "id": "c",
+        "text": "Dr. Mundo"
+      },
+      {
+        "id": "d",
+        "text": "Twitch"
+      }
+    ],
+    "answer": "a",
+    "reveal": "Singed, the Mad Chemist, who leaves a trail of poison.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/150cc8155d77.webp",
+      "w": 1200,
+      "h": 1200,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/5263d86f0223.webp",
+      "w": 1200,
+      "h": 1200
+    },
+    "sources": [
+      {
+        "url": "https://static.wikia.nocookie.net/leagueoflegends/images/d/dc/Singed_Render.png/revision/latest?cb=20190331200552",
+        "note": "Original image used for the reveal (isolated and filled for the silhouette)",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://leagueoflegends.fandom.com/wiki/Singed",
+        "note": "Reference page for the subject",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "league"
+      ],
+      "likely": [
+        "Chinh",
+        "Khoa",
+        "Chiang",
+        "Henry",
+        "Ben",
+        "Richard",
+        "Allan",
+        "Jeremy"
+      ],
+      "possible": [],
+      "reach": "shared"
+    }
+  },
+  {
+    "id": "sil-mimikyu",
+    "category": "sil",
+    "tier": 5,
+    "format": "image",
+    "prompt": "Which Pokémon is this silhouette?",
+    "subject": "Mimikyu",
+    "options": [
+      {
+        "id": "a",
+        "text": "Pikachu"
+      },
+      {
+        "id": "b",
+        "text": "Mimikyu"
+      },
+      {
+        "id": "c",
+        "text": "Pichu"
+      },
+      {
+        "id": "d",
+        "text": "Togedemaru"
+      }
+    ],
+    "answer": "b",
+    "reveal": "Mimikyu, the Ghost and Fairy Pokémon that hides under a Pikachu disguise (#778).",
+    "media": {
+      "kind": "image",
+      "src": "/tq/694f4672041d.webp",
+      "w": 1200,
+      "h": 1200,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/a3e3f64424c0.webp",
+      "w": 1200,
+      "h": 1200
+    },
+    "sources": [
+      {
+        "url": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/778.png",
+        "note": "Original image used for the reveal (isolated and filled for the silhouette)",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://pokeapi.co/api/v2/pokemon/778",
+        "note": "Reference page for the subject",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "pokemon"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "shared"
+    }
+  },
+  {
+    "id": "sil-urgot",
+    "category": "sil",
+    "tier": 5,
+    "format": "image",
+    "prompt": "Which League of Legends champion is this?",
+    "subject": "Urgot",
+    "options": [
+      {
+        "id": "a",
+        "text": "Blitzcrank"
+      },
+      {
+        "id": "b",
+        "text": "Nautilus"
+      },
+      {
+        "id": "c",
+        "text": "Rumble"
+      },
+      {
+        "id": "d",
+        "text": "Urgot"
+      }
+    ],
+    "answer": "d",
+    "reveal": "Urgot, the Dreadnought.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/0faef74e1b22.webp",
+      "w": 1200,
+      "h": 1200,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/8491ce871be5.webp",
+      "w": 1200,
+      "h": 1200
+    },
+    "sources": [
+      {
+        "url": "https://static.wikia.nocookie.net/leagueoflegends/images/d/dc/Urgot_Render.png/revision/latest?cb=20181118182041",
+        "note": "Original image used for the reveal (isolated and filled for the silhouette)",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://leagueoflegends.fandom.com/wiki/Urgot",
+        "note": "Reference page for the subject",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "league"
+      ],
+      "likely": [
+        "Chinh",
+        "Khoa",
+        "Chiang",
+        "Henry",
+        "Ben",
+        "Richard",
+        "Allan",
+        "Jeremy"
+      ],
+      "possible": [],
+      "reach": "deep"
+    }
+  },
+  {
+    "id": "sil-veigar",
+    "category": "sil",
+    "tier": 5,
+    "format": "image",
+    "prompt": "Which League of Legends champion is this?",
+    "subject": "Veigar",
+    "options": [
+      {
+        "id": "a",
+        "text": "Veigar"
+      },
+      {
+        "id": "b",
+        "text": "Heimerdinger"
+      },
+      {
+        "id": "c",
+        "text": "Ziggs"
+      },
+      {
+        "id": "d",
+        "text": "Teemo"
+      }
+    ],
+    "answer": "a",
+    "reveal": "Veigar, the Tiny Master of Evil, a yordle mage.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/527423a40be9.webp",
+      "w": 1200,
+      "h": 1200,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/2888b4b5717c.webp",
+      "w": 1200,
+      "h": 1200
+    },
+    "sources": [
+      {
+        "url": "https://static.wikia.nocookie.net/leagueoflegends/images/7/74/Veigar_Render.png/revision/latest?cb=20190111204310",
+        "note": "Original image used for the reveal (isolated and filled for the silhouette)",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://leagueoflegends.fandom.com/wiki/Veigar",
+        "note": "Reference page for the subject",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "league"
+      ],
+      "likely": [
+        "Chinh",
+        "Khoa",
+        "Chiang",
+        "Henry",
+        "Ben",
+        "Richard",
+        "Allan",
+        "Jeremy"
+      ],
+      "possible": [],
+      "reach": "deep"
+    }
+  },
+  {
+    "id": "sil-heimerdinger",
+    "category": "sil",
+    "tier": 5,
+    "format": "image",
+    "prompt": "Which League of Legends champion is this?",
+    "subject": "Heimerdinger",
+    "options": [
+      {
+        "id": "a",
+        "text": "Veigar"
+      },
+      {
+        "id": "b",
+        "text": "Ziggs"
+      },
+      {
+        "id": "c",
+        "text": "Heimerdinger"
+      },
+      {
+        "id": "d",
+        "text": "Rumble"
+      }
+    ],
+    "answer": "c",
+    "reveal": "Professor Heimerdinger, the Revered Inventor of Piltover.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/22bd5d6e2d09.webp",
+      "w": 1200,
+      "h": 1200,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/2a6887dda718.webp",
+      "w": 1200,
+      "h": 1200
+    },
+    "sources": [
+      {
+        "url": "https://static.wikia.nocookie.net/leagueoflegends/images/3/3f/Heimerdinger_Render.png/revision/latest?cb=20170504124307",
+        "note": "Original image used for the reveal (isolated and filled for the silhouette)",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://leagueoflegends.fandom.com/wiki/Heimerdinger",
+        "note": "Reference page for the subject",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "league"
+      ],
+      "likely": [
+        "Chinh",
+        "Khoa",
+        "Chiang",
+        "Henry",
+        "Ben",
+        "Richard",
+        "Allan",
+        "Jeremy"
+      ],
+      "possible": [],
+      "reach": "deep"
+    }
+  },
+  {
+    "id": "sil-kled",
+    "category": "sil",
+    "tier": 5,
+    "format": "image",
+    "prompt": "Which League of Legends champion is this?",
+    "subject": "Kled",
+    "options": [
+      {
+        "id": "a",
+        "text": "Kled"
+      },
+      {
+        "id": "b",
+        "text": "Gnar"
+      },
+      {
+        "id": "c",
+        "text": "Poppy"
+      },
+      {
+        "id": "d",
+        "text": "Teemo"
+      }
+    ],
+    "answer": "a",
+    "reveal": "Kled, the Cantankerous Cavalier, who rides his lizard Skaarl.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/de43228bf723.webp",
+      "w": 1200,
+      "h": 1200,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/7183de082380.webp",
+      "w": 1200,
+      "h": 1200
+    },
+    "sources": [
+      {
+        "url": "https://static.wikia.nocookie.net/leagueoflegends/images/c/c7/Kled_Render.png/revision/latest?cb=20200126094558",
+        "note": "Original image used for the reveal (isolated and filled for the silhouette)",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://leagueoflegends.fandom.com/wiki/Kled",
+        "note": "Reference page for the subject",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "league"
+      ],
+      "likely": [
+        "Chinh",
+        "Khoa",
+        "Chiang",
+        "Henry",
+        "Ben",
+        "Richard",
+        "Allan",
+        "Jeremy"
+      ],
+      "possible": [],
+      "reach": "deep"
+    }
+  },
+  {
+    "id": "sil-thumper",
+    "category": "sil",
+    "tier": 5,
+    "format": "image",
+    "prompt": "Which Lethal Company creature is this?",
+    "subject": "Thumper",
+    "options": [
+      {
+        "id": "a",
+        "text": "Bracken"
+      },
+      {
+        "id": "b",
+        "text": "Coil-Head"
+      },
+      {
+        "id": "c",
+        "text": "Thumper"
+      },
+      {
+        "id": "d",
+        "text": "Hoarding Bug"
+      }
+    ],
+    "answer": "c",
+    "reveal": "The Thumper, a fast crawler that charges at players.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/7a569313d45b.webp",
+      "w": 1200,
+      "h": 1200,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/2a26d8b3bd38.webp",
+      "w": 1200,
+      "h": 1200
+    },
+    "sources": [
+      {
+        "url": "https://static.wikia.nocookie.net/lethalcompanyzeekerss/images/0/08/ThumperQuan1.png/revision/latest?cb=20240124085852",
+        "note": "Original image used for the reveal (isolated and filled for the silhouette)",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://lethalcompanyzeekerss.fandom.com/wiki/Thumper",
+        "note": "Reference page for the subject",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "lethal-company",
+        "gaming"
+      ],
+      "likely": [
+        "Chinh",
+        "Khoa"
+      ],
+      "possible": [],
+      "reach": "deep"
+    }
+  },
+  {
+    "id": "sil-iron-monger",
+    "category": "sil",
+    "tier": 5,
+    "format": "image",
+    "prompt": "Which Marvel armor is this silhouette?",
+    "subject": "Iron Monger",
+    "options": [
+      {
+        "id": "a",
+        "text": "Hulkbuster"
+      },
+      {
+        "id": "b",
+        "text": "Iron Monger"
+      },
+      {
+        "id": "c",
+        "text": "War Machine"
+      },
+      {
+        "id": "d",
+        "text": "Ultron"
+      }
+    ],
+    "answer": "b",
+    "reveal": "The Iron Monger, Obadiah Stane's armor from Iron Man (2008).",
+    "media": {
+      "kind": "image",
+      "src": "/tq/ff7da00e03db.webp",
+      "w": 1200,
+      "h": 1200,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/ff27f023a80f.webp",
+      "w": 1200,
+      "h": 1200
+    },
+    "sources": [
+      {
+        "url": "https://static.wikia.nocookie.net/marvelcinematicuniverse/images/2/23/Iron_Monger_Game_Render.png/revision/latest?cb=20241128154500",
+        "note": "Original image used for the reveal (isolated and filled for the silhouette)",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://marvelcinematicuniverse.fandom.com/wiki/Iron_Monger_Armor",
+        "note": "Reference page for the subject",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "marvel",
+        "movies"
+      ],
+      "likely": [
+        "Evan",
+        "Eyob",
+        "Sahil"
+      ],
+      "possible": [],
+      "reach": "deep"
+    }
+  },
+  {
+    "id": "sil-flint-and-steel",
+    "category": "sil",
+    "tier": 5,
+    "format": "image",
+    "prompt": "Which Minecraft item is this silhouette?",
+    "subject": "Flint and Steel",
+    "options": [
+      {
+        "id": "a",
+        "text": "Fire Charge"
+      },
+      {
+        "id": "b",
+        "text": "Shears"
+      },
+      {
+        "id": "c",
+        "text": "Brush"
+      },
+      {
+        "id": "d",
+        "text": "Flint and Steel"
+      }
+    ],
+    "answer": "d",
+    "reveal": "The flint and steel, which lights fires and Nether portals.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/521d906123dc.webp",
+      "w": 1200,
+      "h": 1200,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/744610e2f8ee.webp",
+      "w": 1200,
+      "h": 1200
+    },
+    "sources": [
+      {
+        "url": "https://raw.githubusercontent.com/misode/mcmeta/assets/assets/minecraft/textures/item/flint_and_steel.png",
+        "note": "Original image used for the reveal (isolated and filled for the silhouette)",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://minecraft.fandom.com/wiki/Flint_and_Steel",
+        "note": "Reference page for the subject",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "minecraft",
+        "gaming"
+      ],
+      "likely": [
+        "Chinh",
+        "Khoa"
+      ],
+      "possible": [],
+      "reach": "deep"
+    }
+  },
+  {
+    "id": "sil-fiddlesticks",
+    "category": "sil",
+    "tier": 5,
+    "format": "image",
+    "prompt": "Which League of Legends champion is this?",
+    "subject": "Fiddlesticks",
+    "options": [
+      {
+        "id": "a",
+        "text": "Thresh"
+      },
+      {
+        "id": "b",
+        "text": "Karthus"
+      },
+      {
+        "id": "c",
+        "text": "Yorick"
+      },
+      {
+        "id": "d",
+        "text": "Fiddlesticks"
+      }
+    ],
+    "answer": "d",
+    "reveal": "Fiddlesticks, the Ancient Fear, a scarecrow-like terror.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/da5bedad3835.webp",
+      "w": 1200,
+      "h": 1200,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/4e8b8452680f.webp",
+      "w": 1200,
+      "h": 1200
+    },
+    "sources": [
+      {
+        "url": "https://static.wikia.nocookie.net/leagueoflegends/images/e/e4/Fiddlesticks_Render.png/revision/latest?cb=20200330154746",
+        "note": "Original image used for the reveal (isolated and filled for the silhouette)",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://leagueoflegends.fandom.com/wiki/Fiddlesticks",
+        "note": "Reference page for the subject",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "league"
+      ],
+      "likely": [
+        "Chinh",
+        "Khoa",
+        "Chiang",
+        "Henry",
+        "Ben",
+        "Richard",
+        "Allan",
+        "Jeremy"
+      ],
+      "possible": [],
+      "reach": "deep"
+    }
+  }
+]

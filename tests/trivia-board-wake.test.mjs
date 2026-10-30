@@ -190,3 +190,58 @@ test("every board clock wakes through useServerWake: the phone's sheet and Home 
   assert.match(phone, /useServerWake\(lockUntil, \{ drawnAt:now \}\)/, "the buzzer's lockout ends on time too");
   assert.equal((tv.match(/useServerWake\(fixed \? 0 : next, \{ drawnAt:now, slack:10 \}\)/g) || []).length, 2, "the TV's board and its chase");
 });
+
+/* ── the waiting states, drawn by the real phone over the board fixtures ── */
+let ui = null;
+async function components() {
+  if (ui) return ui;
+  const { buildSync } = await import("esbuild");
+  const { Module } = await import("node:module");
+  const React = (await import("react")).default;
+  const { renderToStaticMarkup } = await import("react-dom/server");
+  const out = buildSync({ stdin:{ contents:[
+    'export { TriviaPlaySheet } from "./src/features/trivia/TriviaPlay.jsx";',
+    'export { PlayerIdentityProvider } from "./src/features/identity/PlayerIdentityContext.js";'].join("\n"),
+  resolveDir:ROOT, loader:"jsx" }, bundle:true, platform:"node", format:"cjs", external:["react", "react-dom"],
+  loader:{ ".css":"empty" }, write:false, logLevel:"silent" });
+  const m = new Module(fileURLToPath(new URL("trivia-board-wake.cjs", import.meta.url)));
+  m.filename = m.id; m.paths = Module._nodeModulePaths(ROOT);
+  m._compile(out.outputFiles[0].text, m.filename);
+  const wrap = (s, node) => renderToStaticMarkup(React.createElement(m.exports.PlayerIdentityProvider, { profiles:s.profiles || {} }, node));
+  ui = { ...m.exports, React, wrap };
+  return ui;
+}
+
+test("the phone's answer turn: Get ready until it opens, then Your turn and live options; someone else's turn is said outright", async () => {
+  const say = console.error;
+  console.error = (...args) => /useLayoutEffect/.test(String(args[0])) ? undefined : say(...args);
+  try {
+    const { React, wrap, TriviaPlaySheet } = await components();
+    const { publicState } = await import("../worker/publicState.js");
+    const { boardStage, BOARD_FIT_VIEWER } = await import("../dev/fit/boardFixtures.js");
+    const NOW = 1_900_000_000_000;
+    const draw = (stage, player, at) => {
+      const s = publicState(stage, { player });
+      return wrap(s, React.createElement(TriviaPlaySheet, { state:s, me:player, now:at, onAct:async () => ({ ok:true }) }));
+    };
+    const mine = boardStage("answer-mine", { now:NOW });
+    const log = mine.trivia.log[mine.trivia.current];
+    const live = html => (html.match(/<button type="button" class="fd-board-option[^"]*"(?![^>]*disabled)/g) || []).length;
+    const before = draw(mine, BOARD_FIT_VIEWER, log.turnAt - 900);
+    assert.match(before, /fd-board-body is-answer is-wait/);
+    assert.match(before, />Get ready</);
+    assert.ok(!/>Your turn</.test(before));
+    assert.equal(live(before), 0, "the options wait");
+    const open = draw(mine, BOARD_FIT_VIEWER, log.turnAt);
+    assert.match(open, />Your turn</);
+    assert.ok(live(open) >= 2, "the turn open: the options take a tap (the struck one stays out)");
+    const other = mine.trivia.players.find(player => player !== BOARD_FIT_VIEWER && player !== log.order[log.turn]
+      && player !== log.order[0]);
+    const watching = draw(mine, other, log.turnAt);
+    const { disp } = await import("../shared/core.js");
+    const answering = log.order[0];
+    assert.match(watching, new RegExp(`fd-board-answerer-name">${disp(mine, answering)} is answering<`));
+    assert.match(watching, /fd-board-body is-watch/);
+    assert.equal(live(watching), 0, "never theirs to tap");
+  } finally { console.error = say; }
+});

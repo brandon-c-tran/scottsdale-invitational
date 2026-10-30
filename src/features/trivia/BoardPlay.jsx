@@ -161,7 +161,11 @@ export function Buzzer({ view, onBuzz, now: drawn }) {
       tapServer:serverNow(), armAt:view.armAt });
     setSent({ ms });
     playSound("buzzPress", { bus:"you" });
-    onBuzz({ clueId:view.clueId, ms, race:view.race });
+    /* a buzz the server refused is not in: the buzzer lets go (lit again
+       while the window is open) and the screen says why under it */
+    Promise.resolve(onBuzz({ clueId:view.clueId, ms, race:view.race })).then(result => {
+      if (result && result.ok !== true && !result.uncertain) setSent(null);
+    });
   };
   const label = { off:"Buzzer, not live yet", locked:"Buzzer locked", live:"Buzz", in:"In", closed:"Buzzers closed" }[state];
   return <div className={`fd-buzzer is-${state}`}>
@@ -191,6 +195,7 @@ function BuzzScreen({ state, view, me, onAct, now }) {
   const buzz = async payload => {
     const result = await onAct("boardBuzz", payload);
     if (result?.ok !== true && !result?.uncertain && race.current === `${payload.clueId}:${payload.race}`) setError(writeError(result));
+    return result;
   };
   return <main className={`fd-board-body is-buzz${view.rebound ? " is-rebound" : ""}`}>
     <ClueHead view={view} />
@@ -283,7 +288,10 @@ function Answer({ state, view, me, onAct, now }) {
     const result = await onAct("boardAnswer", { clueId:view.clueId, choice:i });
     if (result?.ok !== true && !result?.uncertain) { setError(writeError(result)); setChosen(null); playSound("S26", { bus:"you" }); }
   };
-  return <main className={`fd-board-body is-answer${live ? " is-live" : ""}`}>
+  /* the order stands on the TV a beat before the turn opens: until then
+     the options wait, and say so */
+  const waiting = turn === "wait";
+  return <main className={`fd-board-body is-answer${live ? " is-live" : ""}${waiting ? " is-wait" : ""}`}>
     <div className="fd-board-prompt">
       <ClueHead view={view} />
       {!view.dd && view.order.length > 1 && <OrderStrip state={state} view={view} me={me} />}
@@ -291,7 +299,8 @@ function Answer({ state, view, me, onAct, now }) {
     {/* the answers dock at the foot, in the thumb's reach, lit while yours */}
     <div className={`fd-board-dock${live ? " is-live" : ""}`}>
       <div className="fd-board-yourturn">
-        <span className="fd-board-turnlamp"><i className="fd-insert fd-board-lamp" aria-hidden="true" /><span>Your turn</span></span>
+        <span className={`fd-board-turnlamp${waiting ? " is-wait" : ""}`}><i className="fd-insert fd-board-lamp" aria-hidden="true" />
+          <span>{waiting ? "Get ready" : "Your turn"}</span></span>
         {view.turnAt > 0 && <Drain key={`${view.clueId}:${view.turn}`} from={view.turnAt} until={view.turnEnd} now={now} className="is-turn" />}
       </div>
       <Options view={view} onChoose={choose} live={live} chosen={chosen} />
@@ -305,9 +314,11 @@ function AnswerWatch({ state, view, me, now }) {
   return <main className="fd-board-body is-watch">
     <div className="fd-board-prompt">
       <ClueHead view={view} />
+      {/* someone else won the buzz: who, said outright, and the options
+          below stand inactive */}
       {on && <div className="fd-board-answerer">
         <ChipFace p={on} size={56} />
-        <span className="fd-board-answerer-name">{disp(state, on)}</span>
+        <span className="fd-board-answerer-name">{disp(state, on)} is answering</span>
         {view.turnAt > 0 && now >= view.turnAt - ANSWER_EARLY_MS && <Drain key={`${view.clueId}:${view.turn}`} from={view.turnAt}
           until={view.turnEnd} now={now} className="is-turn" />}
       </div>}

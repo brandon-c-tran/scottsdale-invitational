@@ -18,12 +18,11 @@ import { ActionButton, Sheet } from "../../ui/controls.jsx";
 import { Icon } from "../../ui/Icon.jsx";
 import { OneSafe } from "../../ui/OneSafe.jsx";
 import {
-  QBANK_CATEGORIES, QBANK_OPTION_MAX, QBANK_PROMPT_MAX, QBANK_REVEAL_MAX, QBANK_NOTES_MAX, QBANK_STATUSES, QBANK_TIERS,
-  QBANK_VALUES, qbankWarnings,
-} from "./qbankEngine.js";
+  QBANK_CATEGORIES, QBANK_LIMITS, QBANK_STATUSES, QBANK_VALUES, qbankWarnings,
+} from "../../../shared/triviaQBank.js";
 import {
   MARK_NAMES, STATUS_COUNTED, NO_FILTERS, PAGE_SIZE, REACH_NAMES, STATUS_NAMES, VERIFIED_NAMES, answerOption, bankView, boardView,
-  categoryName, checkEdit, deskRecords, exportFileName, exportPayload, parseImport, planColumns, planSummary, slotAlternatives,
+  QBANK_TIERS, categoryName, checkEdit, deskRecords, recordsById, revealsAnswer, warningCount, exportFileName, exportPayload, parseImport, planColumns, planSummary, slotAlternatives,
   slotChoices, slotKey, slotTarget, statusCounts, valueOfTier, warningLines, windowLabel,
 } from "./qbankModel.js";
 import { toggleClip, stopClip, useClip } from "./qbankMedia.js";
@@ -130,7 +129,7 @@ function Badges({ record, showCategory }) {
     {record.mark && <span className={`fd-qb-badge is-mark is-${record.mark}`}>{MARK_NAMES[record.mark]}</span>}
     {record.surprise && <span className="fd-qb-badge is-caution">Wedding surprise</span>}
     {record.personal === "needs-brandon" && <span className="fd-qb-badge is-caution">Needs your answer</span>}
-    {record.media?.revealing && <span className="fd-qb-badge is-caution">Asset gives it away</span>}
+    {revealsAnswer(record) && <span className="fd-qb-badge is-caution">Asset gives it away</span>}
     {record.edited && <span className="fd-qb-badge">Edited</span>}
   </div>;
 }
@@ -168,7 +167,7 @@ function SlotPicker({ plan, record, pending, onPut }) {
   </div>;
 }
 
-function QCard({ group, plan, selected, showCategory, pending, error, onPut, onClear, onMark, onEdit }) {
+function QCard({ group, plan, selected, showCategory, pending, error, onPut, onClear, onMark, onEdit, onForce }) {
   const [shown, setShown] = useState(group.records[0].id);
   const [picking, setPicking] = useState(false);
   const record = group.records.find(item => item.id === shown) || group.records[0];
@@ -209,6 +208,11 @@ function QCard({ group, plan, selected, showCategory, pending, error, onPut, onC
         <Icon name={picking ? "collapse" : "expand"} size={18} /></button>
       <button type="button" className="fd-qb-act" disabled={busy} onClick={() => onEdit(record)}><Icon name="pencil" size={16} />Edit</button>
     </div>
+    {/* on the board but not ready: his call to play it anyway (never a
+        personal clue still waiting on his answer) */}
+    {record.placed.length > 0 && record.status !== "ready" && record.personal !== "needs-brandon" && <button type="button"
+      className="fd-qb-force" aria-pressed={record.forced} disabled={busy} aria-busy={pending === `force:${record.id}` || undefined}
+      onClick={() => onForce(record, !record.forced)}><Lamp status={record.forced ? "ready" : "confirm"} />Play anyway</button>}
     {picking && <SlotPicker plan={plan} record={record} pending={pending} onPut={(r, slot) => { setPicking(false); onPut(r, slot); }} />}
     <div className="fd-qb-marks" role="group" aria-label="Mark">
       {[["fav", "Favorite", "star"], ["short", "Shortlist", "check"], ["reject", "Reject", "close"]].map(([id, name, icon]) =>
@@ -220,7 +224,7 @@ function QCard({ group, plan, selected, showCategory, pending, error, onPut, onC
 }
 
 /* ── the editor ── */
-function Editor({ record, pending, onSave, onRevert, onClose }) {
+function Editor({ record, prior, pending, onSave, onRevert, onClose }) {
   const base = record.base || record;
   const [draft, setDraft] = useState(() => ({ prompt:record.prompt, options:record.options.map(option => ({ ...option })),
     answer:record.answer, reveal:record.reveal || "", tier:record.tier, status:record.status, notes:record.notes || "",
@@ -230,7 +234,7 @@ function Editor({ record, pending, onSave, onRevert, onClose }) {
   const clipMedia = record.media && record.media.kind !== "image" ? { ...record.media, ...draft.media } : null;
   useEffect(() => () => stopClip(), []);
   const save = async () => {
-    const checked = checkEdit(base, draft);
+    const checked = checkEdit(base, draft, prior);
     if (checked.error) { setError(checked.error); return; }
     if (!checked.patch && !record.edited) { onClose(); return; }
     const result = await onSave(record, checked.patch);
@@ -239,21 +243,21 @@ function Editor({ record, pending, onSave, onRevert, onClose }) {
   const busy = !!pending;
   return <Sheet title="Edit question" onClose={onClose} busy={busy} layer={130} className="fd-qb-editor-sheet">
     <div className="fd-qb-editor">
-      <label className="fd-qb-field"><span>Question <small>{draft.prompt.length}/{QBANK_PROMPT_MAX}</small></span>
-        <textarea rows={3} maxLength={QBANK_PROMPT_MAX} value={draft.prompt} onChange={event => set({ prompt:event.target.value })} /></label>
+      <label className="fd-qb-field"><span>Question <small>{draft.prompt.length}/{QBANK_LIMITS.prompt}</small></span>
+        <textarea rows={3} maxLength={QBANK_LIMITS.prompt} value={draft.prompt} onChange={event => set({ prompt:event.target.value })} /></label>
       <fieldset className="fd-qb-field"><legend>Answers</legend>
         <ol className="fd-qb-option-fields">
           {draft.options.map((option, i) => <li key={option.id} className={draft.answer === option.id ? "is-right" : ""}>
             <button type="button" className="fd-qb-letter" aria-pressed={draft.answer === option.id}
               aria-label={`${LETTERS[i]} is right`} onClick={() => set({ answer:option.id })}>
               {draft.answer === option.id ? <Icon name="check" size={16} /> : LETTERS[i]}</button>
-            <input value={option.text} maxLength={QBANK_OPTION_MAX} aria-label={`Answer ${LETTERS[i]}`}
+            <input value={option.text} maxLength={QBANK_LIMITS.option} aria-label={`Answer ${LETTERS[i]}`}
               onChange={event => set({ options:draft.options.map((item, k) => k === i ? { ...item, text:event.target.value } : item) })} />
           </li>)}
         </ol>
       </fieldset>
       <label className="fd-qb-field"><span>Reveal</span>
-        <textarea rows={3} maxLength={QBANK_REVEAL_MAX} value={draft.reveal} onChange={event => set({ reveal:event.target.value })} /></label>
+        <textarea rows={3} maxLength={QBANK_LIMITS.reveal} value={draft.reveal} onChange={event => set({ reveal:event.target.value })} /></label>
       <fieldset className="fd-qb-field"><legend>Value</legend>
         <div className="fd-qb-seg" role="radiogroup" aria-label="Value">
           {QBANK_TIERS.map(tier => <button type="button" role="radio" key={tier} aria-checked={Number(draft.tier) === tier}
@@ -277,7 +281,7 @@ function Editor({ record, pending, onSave, onRevert, onClose }) {
         </div>
       </fieldset>
       <label className="fd-qb-field"><span>Notes</span>
-        <textarea rows={2} maxLength={QBANK_NOTES_MAX} value={draft.notes} onChange={event => set({ notes:event.target.value })} /></label>
+        <textarea rows={2} maxLength={QBANK_LIMITS.notes} value={draft.notes} onChange={event => set({ notes:event.target.value })} /></label>
       {error && <p className="fd-qb-error" role="alert">{error}</p>}
       <div className="fd-qb-editor-actions">
         <ActionButton onClick={save} disabled={busy} pending={pending === `edit:${record.id}`}>Save</ActionButton>
@@ -326,17 +330,17 @@ export function QBankDesk({ state, onAct, notify, loadQBank = triviaQBank, initi
   const reduced = useReducedMotion();
   /* the plan, edits and marks ride the commissioner's frame; a frame
      without them falls back to what the bank's answer carried */
-  const live = !!state && "triviaPlan" in state;
-  const plan = (live ? state.triviaPlan : bank?.plan) || bank?.recommended || null;
+  const live = !!state && "triviaBankEdits" in state;
+  const plan = (live && state.triviaPlan) || bank?.plan || bank?.recommended || null;
   const edits = (live ? state.triviaBankEdits : bank?.edits) || {};
   const marks = (live ? state.triviaBankMarks : bank?.marks) || {};
   const records = useMemo(() => deskRecords(bank?.records || [], { edits, marks, plan }), [bank, edits, marks, plan]);
-  const byId = useMemo(() => new Map(records.map(record => [record.id, record])), [records]);
-  const warnings = useMemo(() => qbankWarnings(plan, records), [plan, records]);
+  const byId = useMemo(() => recordsById(records), [records]);
+  const warnings = useMemo(() => qbankWarnings(plan, byId), [plan, byId]);
   const board = useMemo(() => boardView(plan, byId, warnings), [plan, byId, warnings]);
   const summary = planSummary(plan, byId);
   const lines = warningLines(warnings);
-  const problems = lines.reduce((n, line) => n + (line.code === "empty" ? line.slots.length : 1), 0);
+  const problems = warningCount(lines);
 
   const [selected, setSelected] = useState(initial?.slot || null);
   const [filters, setFilters] = useState(() => ({ ...NO_FILTERS, ...(initial?.filters || {}) }));
@@ -374,6 +378,8 @@ export function QBankDesk({ state, onAct, notify, loadQBank = triviaQBank, initi
   const put = (record, slot) => slot && write(`assign:${record.id}`, record.id, "qbankAssign", { col:slot.col, slot:slot.slot, qid:record.id })
     .then(result => { if (result?.ok && !selected) notify?.(`In ${planColumns(plan)[slot.col].name} ${QBANK_VALUES[slot.slot]}`); });
   const clear = (slot, record) => write(`assign:${record?.id || "slot"}`, record?.id || "plan", "qbankAssign", { col:slot.col, slot:slot.slot, qid:null });
+  const force = (record, on) => record.placed[0] && write(`force:${record.id}`, record.id, "qbankAssign",
+    { col:record.placed[0].col, slot:record.placed[0].slot, qid:record.id, force:on });
   const markRecord = (record, mark) => write(`mark:${record.id}`, record.id, "qbankMark", { qid:record.id, mark });
   const saveEdit = (record, patch) => write(`edit:${record.id}`, "editor", "qbankEdit", { qid:record.id, patch });
   const revert = record => write(`revert:${record.id}`, "editor", "qbankEdit", { qid:record.id, patch:null });
@@ -473,12 +479,12 @@ export function QBankDesk({ state, onAct, notify, loadQBank = triviaQBank, initi
       <div className={`fd-qb-cards${selected ? " is-compare" : ""}`}>
         {shownGroups.map(group => <QCard key={group.id} group={group} plan={plan} selected={selected} showCategory={!selected && filters.category === "all"}
           pending={pending} error={errors[group.records[0].id] || group.records.map(item => errors[item.id]).find(Boolean) || ""}
-          onPut={put} onClear={clear} onMark={markRecord} onEdit={record => { stopClip(); setEditing(record.id); }} />)}
+          onPut={put} onClear={clear} onMark={markRecord} onForce={force} onEdit={record => { stopClip(); setEditing(record.id); }} />)}
       </div>
       {groups.length > shownGroups.length && <ActionButton variant="secondary" onClick={() => setPages(n => n + 1)}>
         {`Show ${Math.min(PAGE_SIZE, groups.length - shownGroups.length)} more`}</ActionButton>}
     </section>
-    {editRecord && <Editor record={editRecord} pending={pending} onSave={saveEdit} onRevert={revert}
+    {editRecord && <Editor record={editRecord} prior={edits[editRecord.id] || null} pending={pending} onSave={saveEdit} onRevert={revert}
       onClose={() => { stopClip(); setErrors(all => ({ ...all, editor:"" })); setEditing(null); }} />}
   </div>;
 }

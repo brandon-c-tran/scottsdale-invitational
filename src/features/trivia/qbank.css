@@ -222,3 +222,7 @@
 .fd-qb-window input { font-variant-numeric:tabular-nums; }
 .fd-qb-editor-actions { display:flex; gap:8px; }
 .fd-qb-editor-actions > button:first-child { flex:1 1 auto; }
+.fd-qb-force { display:inline-flex; align-items:center; gap:8px; justify-self:start; min-height:44px; padding:0 14px; border:1px solid var(--line);
+  border-radius:8px; background:var(--paper); color:var(--muted2); font:600 13px/1.1 var(--fd-body); cursor:pointer; box-shadow:var(--glass-edge); }
+.fd-qb-force[aria-pressed=true] { border-color:var(--lamp-info); background:var(--info-tint); color:var(--lamp-info); }
+.fd-qb-force:disabled { opacity:.4; cursor:default; }

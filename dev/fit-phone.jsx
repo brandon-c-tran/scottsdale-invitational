@@ -12,7 +12,7 @@ import { bankForDesk } from "../worker/trivia.js";
 import { publishFrame } from "../src/lib/frameGate.js";
 import { provideFloatPart } from "../src/features/float/floatParts.js";
 import { FIT_ARRIVE_CODE, FIT_GM, FIT_GUEST, PHONE_SCENARIOS, buildScenario } from "./fit/scenarios.js";
-import { qbankFixtureResponse, qbankReduce } from "./fit/qbankFixtures.js";
+import { qbankFixtureResponse } from "./fit/qbankFixtures.js";
 import qrcode from "qrcode-generator";
 import FloatController from "../float/client/controller/FloatController.jsx";
 import { createMockRoom } from "../float/client/controller/mockRoom.js";
@@ -63,7 +63,7 @@ globalThis.__FIT_SPOTIFY__ = scenario.spotify || null;
 if (gm && scenario.karaoke) capabilities.karaoke = true;
 globalThis.__FIT_KARAOKE_CHECK__ = scenario.karaokeCheck || null;
 /* the Question bank desk's records (`qbank`), as GET /api/trivia/qbank answers */
-globalThis.__FIT_QBANK__ = gm && scenario.qbank ? qbankFixtureResponse() : null;
+globalThis.__FIT_QBANK__ = gm && scenario.qbank ? () => qbankFixtureResponse(state) : null;
 let version = 1;
 const frame = () => ({ state:publicState(state, { isGm:gm, player:me }, { moments:state.moments }), you:me, gm, capabilities, version:++version,
   ...(gm && scenario.tvs ? { tvs:scenario.tvs, tvsAt:Date.now() } : {}) });
@@ -75,9 +75,7 @@ globalThis.__FIT_DISPATCH__ = (type, payload) => {
   if (type === "qaCheckpoints") return { ok:true, extra:{ checkpoints:[] } };
   /* and so does Float's feedback (the scenario's own cards) */
   if (type === "floatFeedback") return gm ? { ok:true, extra:{ feedback:scenario.floatFeedback || [] } } : { ok:false, error:"Commissioner only" };
-  /* the question bank's writes, in memory until the engine's reducers land */
-  const result = (/^qbank/.test(type) && gm ? qbankReduce(state, type, payload) : null)
-    || applyAction(state, type, payload, { isGm:gm, player:me, deviceId:`fit-${me}`, actionId:`fitp-${++seq}`,
+  const result = applyAction(state, type, payload, { isGm:gm, player:me, deviceId:`fit-${me}`, actionId:`fitp-${++seq}`,
     environment:"local", qa:qaOn, progressReset:qaOn, arriveCode:FIT_ARRIVE_CODE, float:!!scenario.float });
   if (result.ok) import("./fit/client.js").then(m => { publishFrame({ version, fresh:false }); m.setFitFrame(frame()); });
   return result;

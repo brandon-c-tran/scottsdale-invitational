@@ -3,16 +3,20 @@
    he is picking (7 columns of 5), what the filters and search keep, a
    slot's alternatives, the warnings by slot, and the export he can carry
    to another device. The rules themselves (the cleaner, the merge, the
-   warnings) are the engine's, read through qbankEngine.js. Pure. */
+   warnings, what may play) are the bank's own, shared/triviaQBank.js.
+   Pure. */
 import {
-  QBANK_CATEGORIES, QBANK_EDIT_KEYS, QBANK_MARKS, QBANK_SLOTS, QBANK_TIERS, QBANK_VALUES, cleanQBankRecord, mergeQBankEdit,
-} from "./qbankEngine.js";
+  QBANK_CATEGORIES, QBANK_MARKS, QBANK_SLOTS, QBANK_VALUES, qbankEditPatch, qbankMerged, qbankPlayable,
+} from "../../../shared/triviaQBank.js";
 
+export const QBANK_TIERS = Object.freeze([1, 2, 3, 4, 5]);
+/* what the desk's editor changes (the bank's QBANK_EDIT_FIELDS also lets
+   the server stamp verified and personal when he marks one ready) */
+export const DESK_EDIT_FIELDS = Object.freeze(["prompt", "options", "answer", "reveal", "tier", "media", "notes", "status"]);
 export const STATUS_NAMES = Object.freeze({ ready:"Ready", confirm:"Needs your answer", asset:"Needs asset", rejected:"Rejected" });
 /* the same, counted: "4 need your answer" */
 export const STATUS_COUNTED = Object.freeze({ ready:"ready", confirm:"need your answer", asset:"need assets", rejected:"rejected" });
 export const MARK_NAMES = Object.freeze({ fav:"Favorite", short:"Shortlist", reject:"Reject" });
-export const KIND_NAMES = Object.freeze({ image:"Image", audio:"Audio", video:"Video" });
 export const REACH_NAMES = Object.freeze({ broad:"Broad", shared:"Shared", deep:"Deep cut" });
 export const VERIFIED_NAMES = Object.freeze({ web:"Checked on the web", provided:"Brandon provided", suggested:"Suggested" });
 export const PAGE_SIZE = 30;
@@ -26,6 +30,7 @@ export const valueOfTier = tier => QBANK_VALUES[Number(tier) - 1] || 0;
 export const tierOfSlot = slot => QBANK_TIERS[slot] || null;
 export const answerOption = record => record?.options?.find(option => option.id === record.answer) || null;
 export const slotKey = (col, slot) => `${col}:${slot}`;
+export const revealsAnswer = record => !!record?.flags?.includes("reveals-answer");
 
 /* "0:12" */
 export function clock(seconds) {
@@ -39,9 +44,9 @@ export function windowLabel(media) {
   return duration > 0 ? `${clock(start)} to ${clock(start + duration)}` : `From ${clock(start)}`;
 }
 
-/* a slot's few words: its own label or subject; a media clue's prompt is
-   the same for every record ("Name the song."), so it reads as its answer
-   (this desk is the host's); else the prompt's start, cut at a word */
+/* a slot's few words: the subject; a media clue's prompt is the same for
+   every record ("Name the song."), so it reads as its answer (this desk is
+   the host's); else the prompt's start, cut at a word */
 export function slotLabel(record, max = LABEL_MAX) {
   if (!record) return "";
   const source = String(record.label || record.subject || (record.media && answerOption(record)?.text) || record.prompt || "")
@@ -77,7 +82,7 @@ export function slotTarget(plan, record) {
   const slot = Number(record.tier) - 1;
   return col >= 0 && slot >= 0 && slot < QBANK_SLOTS ? { col, slot } : null;
 }
-/* every slot of a record's category column, the target first */
+/* every slot of a record's category column */
 export function slotChoices(plan, record) {
   const columns = planColumns(plan);
   const col = columns.findIndex(column => column.category === record?.category);
@@ -86,17 +91,23 @@ export function slotChoices(plan, record) {
 }
 
 /* ── the records ── */
-/* the bank as the desk reads it: each record merged with its edit, with
-   its mark, whether it is edited and where it sits */
+/* The bank as the desk reads it: each record (GET /api/trivia/qbank sends
+   it merged with its edit, the bank's `original` beside it) merged again
+   with the edits in the commissioner's frame, so an edit from his other
+   device shows at once; with its mark, whether it is edited, where it sits
+   and whether it plays by force. `base` is the bank's own record. */
 export function deskRecords(records, { edits = {}, marks = {}, plan = null } = {}) {
   const placed = placements(plan);
-  return (records || []).map(base => {
+  return (records || []).map(input => {
+    const { original, mark:_mark, edited:_edited, ...rest } = input;
+    const base = original || rest;
     const patch = edits?.[base.id];
-    const record = patch ? mergeQBankEdit(base, patch) : base;
+    const record = patch ? qbankMerged(base, patch) : base;
     return { ...record, base, edited:!!patch && Object.keys(patch).length > 0, mark:marks?.[base.id] || null,
-      placed:placed.get(base.id) || [] };
+      placed:placed.get(base.id) || [], forced:plan?.forced?.[base.id] === true };
   });
 }
+export const recordsById = records => new Map(records.map(record => [record.id, record]));
 
 const fold = value => String(value || "").toLowerCase().normalize("NFKD").replace(/[̀-ͯ]/g, "");
 /* every word the search reads on a record: its subject and prompt, the
@@ -175,42 +186,47 @@ export function bankView(records, filters = NO_FILTERS) {
 }
 
 /* a slot's alternatives: the bank at that category and value, what sits
-   there first, then the bank's order */
+   there first (even at another value), then the bank's order */
 export function slotAlternatives(records, plan, { col, slot }) {
   const column = planColumns(plan)[col];
   if (!column) return [];
   const tier = tierOfSlot(slot);
   const current = column.slots[slot];
-  /* what sits there counts as an alternative even at another value */
   const list = records.filter(record => record.id === current || (record.category === column.category && Number(record.tier) === tier));
   return groupVariants(sortRecords(list, { byCategory:false }).sort((a, b) => (a.id === current ? -1 : b.id === current ? 1 : 0)));
 }
 
 /* ── warnings ── */
-/* the engine's warnings by slot: "col:slot" -> [warning] */
+const kindOf = warning => warning?.kind || warning?.code || "";
+const slotsOf = warning => Array.isArray(warning?.slots) ? warning.slots
+  : Number.isInteger(warning?.col) && Number.isInteger(warning?.slot) ? [{ col:warning.col, slot:warning.slot }] : [];
+/* the bank's warnings by slot: "col:slot" -> [warning]. A warning names
+   one slot (col, slot) or several (`slots`) */
 export function warningsBySlot(warnings) {
   const out = new Map();
-  for (const warning of warnings || []) {
-    const slots = Array.isArray(warning?.slots) ? warning.slots
-      : Number.isInteger(warning?.col) && Number.isInteger(warning?.slot) ? [{ col:warning.col, slot:warning.slot }] : [];
-    for (const { col, slot } of slots) {
-      const k = slotKey(col, slot);
-      out.set(k, [...(out.get(k) || []), warning]);
-    }
+  for (const warning of warnings || []) for (const { col, slot } of slotsOf(warning)) {
+    const k = slotKey(col, slot);
+    out.set(k, [...(out.get(k) || []), warning]);
   }
   return out;
 }
-/* the summary's lines: empty slots in one line, every other warning its own */
+/* The summary's lines: one per problem with every slot it names (the bank
+   names a repeat once per slot), empty slots first as one line */
 export function warningLines(warnings) {
-  const list = warnings || [];
-  const empty = list.filter(warning => warning.code === "empty");
-  const rest = list.filter(warning => warning.code !== "empty");
-  return [
-    ...(empty.length ? [{ code:"empty", text:empty.length === 1 ? "1 empty slot" : `${empty.length} empty slots`,
-      slots:empty.flatMap(warning => warning.slots || []) }] : []),
-    ...rest.map(warning => ({ code:warning.code, text:warning.text || warning.code, slots:warning.slots || [] })),
-  ];
+  const lines = new Map();
+  for (const warning of warnings || []) {
+    const kind = kindOf(warning);
+    const key = kind === "empty" ? "empty" : `${kind}|${warning.text}`;
+    const line = lines.get(key) || { kind, text:warning.text || kind, slots:[] };
+    for (const at of slotsOf(warning)) if (!line.slots.some(s => s.col === at.col && s.slot === at.slot)) line.slots.push(at);
+    lines.set(key, line);
+  }
+  const out = [...lines.values()];
+  for (const line of out) if (line.kind === "empty") line.text = line.slots.length === 1 ? "1 empty slot" : `${line.slots.length} empty slots`;
+  return out.sort((a, b) => (b.kind === "empty") - (a.kind === "empty"));
 }
+/* how many things are wrong: every empty slot, and each other problem once */
+export const warningCount = lines => lines.reduce((n, line) => n + (line.kind === "empty" ? line.slots.length : 1), 0);
 
 /* The board as the desk draws it: per slot its record, label, lamp and
    whether it is warned. Lamps: ready lit cyan, needs your answer flashing
@@ -221,21 +237,23 @@ export function boardView(plan, byId, warnings) {
     ...column,
     cells:column.slots.map((qid, slot) => {
       const record = qid ? byId.get(qid) || null : null;
-      const own = (warned.get(slotKey(col, slot)) || []).filter(warning => warning.code !== "empty");
+      const own = (warned.get(slotKey(col, slot)) || []).filter(warning => kindOf(warning) !== "empty");
       return { col, slot, qid, record, value:QBANK_VALUES[slot], label:record ? slotLabel(record) : qid ? "Missing" : "",
         short:record ? slotLabel(record, LABEL_SHORT) : qid ? "Missing" : "",
         lamp:!qid ? "empty" : !record ? "rejected" : record.mark === "reject" ? "rejected" : record.status,
-        warnings:own };
+        forced:!!record && plan?.forced?.[qid] === true, warnings:own };
     }),
   }));
 }
 
+/* filled slots, and how many of them the board can deal (ready, or put on
+   to play anyway) */
 export function planSummary(plan, byId) {
   let filled = 0, ready = 0;
   for (const column of planColumns(plan)) for (const qid of column.slots) {
     if (!qid) continue;
     filled += 1;
-    if (byId.get(qid)?.status === "ready") ready += 1;
+    if (qbankPlayable(byId.get(qid), plan)) ready += 1;
   }
   return { filled, ready, total:QBANK_CATEGORIES.length * QBANK_SLOTS };
 }
@@ -248,26 +266,37 @@ export function statusCounts(records) {
 
 /* ── edits ── */
 const same = (a, b) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
-/* what an edit changes from the bank's record: only the keys that differ
-   (a media window only its start and duration); null when nothing does */
-export function editPatch(base, draft) {
+/* What an edit sends: every field that differs from the bank's record, and
+   every field the edit already kept (set back to the bank's value, so the
+   server drops it); options by id, only those that changed; a clip only
+   its start and length. Null when there is nothing to send. */
+export function editPatch(base, draft, prior = null) {
   const patch = {};
-  for (const k of QBANK_EDIT_KEYS) {
+  const kept = key => !!prior && key in prior;
+  for (const k of DESK_EDIT_FIELDS) {
     if (k === "media") {
       if (!base.media || base.media.kind === "image" || !draft.media) continue;
       const media = {};
-      if (Number(draft.media.start) !== Number(base.media.start || 0)) media.start = Number(draft.media.start);
-      if (Number(draft.media.duration) !== Number(base.media.duration || 0)) media.duration = Number(draft.media.duration);
+      for (const part of ["start", "duration"]) {
+        const value = Number(draft.media[part]);
+        if (value !== Number(base.media[part] || 0) || (kept("media") && part in prior.media)) media[part] = value;
+      }
       if (Object.keys(media).length) patch.media = media;
-    } else if (k === "notes" ? (draft.notes || "") !== (base.notes || "") : !same(draft[k], base[k])) patch[k] = draft[k];
+    } else if (k === "options") {
+      const changed = (draft.options || []).filter((option, i) => option.text !== base.options[i]?.text
+        || (kept("options") && prior.options.some(own => own.id === option.id)));
+      if (changed.length) patch.options = changed.map(({ id, text }) => ({ id, text }));
+    } else if (k === "notes" ? (draft.notes || "") !== (base.notes || "") || kept("notes") : !same(draft[k], base[k]) || kept(k))
+      patch[k] = draft[k];
   }
   return Object.keys(patch).length ? patch : null;
 }
-/* an edit checked the way the server will: the bank's cleaner over the
-   record with the edit laid on it */
-export function checkEdit(base, draft) {
-  const patch = editPatch(base, draft);
-  const checked = cleanQBankRecord(patch ? mergeQBankEdit(base, patch) : base);
+/* an edit checked the way the server will (qbankEditPatch: the record with
+   the edit laid on it must meet every rule) */
+export function checkEdit(base, draft, prior = null) {
+  const patch = editPatch(base, draft, prior);
+  if (!patch) return { patch:null };
+  const checked = qbankEditPatch(base, patch, { today:new Date().toISOString().slice(0, 10) });
   if (checked.error) return { error:checked.error };
   return { patch };
 }
@@ -276,7 +305,8 @@ export function checkEdit(base, draft) {
 export const EXPORT_KIND = "field-day-trivia-plan";
 export function exportPayload({ plan, edits, marks }, now = Date.now()) {
   return { kind:EXPORT_KIND, v:1, exportedAt:new Date(now).toISOString(),
-    plan:{ columns:planColumns(plan).map(({ category, name, slots }) => ({ category, name, slots })) },
+    plan:{ columns:planColumns(plan).map(({ category, name, slots }) => ({ category, name, slots })),
+      ...(plan?.forced && Object.keys(plan.forced).length ? { forced:plan.forced } : {}) },
     edits:edits || {}, marks:marks || {} };
 }
 export const exportFileName = (now = Date.now()) => `field-day-trivia-board-${new Date(now).toISOString().slice(0, 16).replace(/[:T]/g, "-")}.json`;
@@ -302,7 +332,8 @@ export function parseImport(raw, { knownIds = null } = {}) {
     if (unknown.length) return { error:`${unknown.length === 1 ? "1 question" : `${unknown.length} questions`} in that file aren't in the bank` };
   }
   return { plan:{ columns:columns.map(({ category, name, slots }) => ({ category, name:typeof name === "string" ? name : categoryName(category),
-    slots:slots.map(qid => (typeof qid === "string" && qid) || null) })) }, edits, marks };
+    slots:slots.map(qid => (typeof qid === "string" && qid) || null) })), ...(isObject(data.plan.forced) ? { forced:data.plan.forced } : {}) },
+    edits, marks };
 }
 
 /* the Trivia desk's way in: how full the board is ("31 of 35"), or nothing

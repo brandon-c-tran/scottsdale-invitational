@@ -1,7 +1,8 @@
 /* The Question bank desk, rehearsed (docs/TRIVIA-QBANK.md "The desk"): the
-   real desk over the fixture bank (dev/fit/qbankFixtures.js), its writes
-   run in memory by the fixture reducer until the engine's land. No socket,
-   no Worker; a reload starts over.
+   real desk over the fixture bank (dev/fit/qbankFixtures.js), every write
+   the Worker's own reducer (worker/qbank.js through applyAction) on a
+   state in memory, the bank read as GET /api/trivia/qbank answers it. No
+   socket, no Durable Object; a reload starts over.
 
      /dev/qbank-preview.html                     the worked board (edits, marks, warnings)
      ?stage=fresh|worked|empty                   the recommended board, worked, or nothing picked
@@ -17,7 +18,7 @@ import { createRoot } from "react-dom/client";
 import { QBankDesk } from "../src/features/trivia/QBankDesk.jsx";
 import { Shell } from "../src/ui/Shell.jsx";
 import { Sheet } from "../src/ui/controls.jsx";
-import { qbankFixtureResponse, qbankFixtureState, qbankReduce } from "./fit/qbankFixtures.js";
+import { deskWrite, qbankFixtureResponse, qbankFixtureState, useDeskBank } from "./fit/qbankFixtures.js";
 import "../src/ui/shell.css";
 
 const params = new URLSearchParams(location.search);
@@ -33,20 +34,23 @@ const initial = {
 const SLOW = Number(params.get("slow")) || 0;
 const FAIL = !!params.get("fail");
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
+useDeskBank();
+const first = qbankFixtureState(params.get("stage") || "worked");
+let latest = first;
 const load = async () => {
   await wait(120);
-  return params.get("load") === "fail" ? { ok:false, error:"Couldn't load the question bank. Try again." } : qbankFixtureResponse();
+  return params.get("load") === "fail" ? { ok:false, error:"Couldn't load the question bank. Try again." } : qbankFixtureResponse(latest);
 };
 
 function Desk() {
-  const [state, setState] = useState(() => qbankFixtureState(params.get("stage") || "worked"));
+  const [state, setState] = useState(first);
   const [toast, setToast] = useState("");
   const onAct = useCallback(async (type, payload) => {
     if (SLOW) await wait(SLOW);
     if (FAIL) return { ok:false, error:"Offline, try again" };
     const next = structuredClone(state);
-    const result = qbankReduce(next, type, payload) || { ok:false, error:"Unknown write" };
-    if (result.ok) setState(next);
+    const result = deskWrite(next, type, payload);
+    if (result.ok) { latest = next; setState(next); }
     return result;
   }, [state]);
   const notify = text => { setToast(text); setTimeout(() => setToast(current => current === text ? "" : current), 2400); };

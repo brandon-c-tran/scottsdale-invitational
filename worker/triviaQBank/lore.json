@@ -1,1 +1,2396 @@
-[]
+[
+  {
+    "id": "lore-company",
+    "category": "lore",
+    "tier": 1,
+    "format": "choice",
+    "prompt": "Where does Brandon work?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Riot Games"
+      },
+      {
+        "id": "b",
+        "text": "Roblox"
+      },
+      {
+        "id": "c",
+        "text": "Epic Games"
+      },
+      {
+        "id": "d",
+        "text": "Discord"
+      }
+    ],
+    "answer": "b",
+    "reveal": "Roblox. He is a product manager on the Avatar Marketplace.",
+    "sources": [],
+    "verified": {
+      "by": "provided",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "personal": "provided",
+    "tags": {
+      "topics": [
+        "brandon",
+        "work"
+      ],
+      "likely": [],
+      "possible": [
+        "Evan",
+        "Sahil"
+      ],
+      "reach": "broad"
+    },
+    "notes": "Provenance: Brandon's brief, Oct 29 2026. Facts: b-roblox."
+  },
+  {
+    "id": "lore-university",
+    "category": "lore",
+    "tier": 1,
+    "format": "choice",
+    "prompt": "Which university did Brandon attend?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Texas A&M University"
+      },
+      {
+        "id": "b",
+        "text": "University of North Texas"
+      },
+      {
+        "id": "c",
+        "text": "Rice University"
+      },
+      {
+        "id": "d",
+        "text": "University of Texas at Austin"
+      }
+    ],
+    "answer": "d",
+    "reveal": "UT Austin, 2018 to 2022.",
+    "sources": [],
+    "verified": {
+      "by": "provided",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "personal": "provided",
+    "tags": {
+      "topics": [
+        "brandon",
+        "school"
+      ],
+      "likely": [
+        "Evan",
+        "Sahil"
+      ],
+      "possible": [
+        "Adi",
+        "Chiang"
+      ],
+      "reach": "broad"
+    },
+    "notes": "Provenance: Brandon's brief, Oct 29 2026. Facts: b-ut."
+  },
+  {
+    "id": "lore-hometown",
+    "category": "lore",
+    "tier": 1,
+    "format": "choice",
+    "prompt": "Which Texas city did Brandon grow up in?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Garland"
+      },
+      {
+        "id": "b",
+        "text": "Plano"
+      },
+      {
+        "id": "c",
+        "text": "Richardson"
+      },
+      {
+        "id": "d",
+        "text": "Rowlett"
+      }
+    ],
+    "answer": "a",
+    "reveal": "Garland, a Dallas suburb.",
+    "sources": [],
+    "verified": {
+      "by": "provided",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "personal": "provided",
+    "tags": {
+      "topics": [
+        "brandon",
+        "school"
+      ],
+      "likely": [
+        "Evan"
+      ],
+      "possible": [
+        "Chinh",
+        "Khoa"
+      ],
+      "reach": "broad"
+    },
+    "notes": "Provenance: Brandon's brief, Oct 29 2026. Facts: b-hometown."
+  },
+  {
+    "id": "lore-nba2k",
+    "category": "lore",
+    "tier": 1,
+    "format": "choice",
+    "prompt": "Which video game helped get Brandon into basketball in high school?",
+    "options": [
+      {
+        "id": "a",
+        "text": "NBA Live"
+      },
+      {
+        "id": "b",
+        "text": "Madden NFL"
+      },
+      {
+        "id": "c",
+        "text": "NBA 2K"
+      },
+      {
+        "id": "d",
+        "text": "Backyard Basketball"
+      }
+    ],
+    "answer": "c",
+    "reveal": "NBA 2K got him into basketball in high school.",
+    "sources": [],
+    "verified": {
+      "by": "provided",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "personal": "provided",
+    "tags": {
+      "topics": [
+        "brandon",
+        "gaming",
+        "nba"
+      ],
+      "likely": [
+        "Evan"
+      ],
+      "possible": [
+        "Eyob",
+        "Chinh",
+        "Khoa"
+      ],
+      "reach": "broad"
+    },
+    "notes": "Provenance: Brandon's brief, Oct 29 2026. Facts: b-2k."
+  },
+  {
+    "id": "lore-best-man",
+    "category": "lore",
+    "tier": 1,
+    "format": "choice",
+    "prompt": "Who is the best man at Brandon's wedding?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Sahil"
+      },
+      {
+        "id": "b",
+        "text": "Eyob"
+      },
+      {
+        "id": "c",
+        "text": "Evan"
+      },
+      {
+        "id": "d",
+        "text": "Chinh"
+      }
+    ],
+    "answer": "c",
+    "reveal": "Evan, his best friend since 7th grade.",
+    "sources": [],
+    "verified": {
+      "by": "provided",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "personal": "provided",
+    "tags": {
+      "topics": [
+        "brandon",
+        "friends"
+      ],
+      "likely": [
+        "Evan"
+      ],
+      "possible": [
+        "Sahil",
+        "Eyob"
+      ],
+      "reach": "broad"
+    },
+    "notes": "Provenance: Brandon's brief, Oct 29 2026. Facts: b-friends."
+  },
+  {
+    "id": "lore-this-app",
+    "category": "lore",
+    "tier": 1,
+    "format": "choice",
+    "prompt": "Which of Brandon's projects are you playing right now?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Field Day"
+      },
+      {
+        "id": "b",
+        "text": "Self Atlas"
+      },
+      {
+        "id": "c",
+        "text": "Nouri"
+      },
+      {
+        "id": "d",
+        "text": "Clarity"
+      }
+    ],
+    "answer": "a",
+    "reveal": "Field Day, the app for this weekend.",
+    "sources": [],
+    "verified": {
+      "by": "provided",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "personal": "provided",
+    "tags": {
+      "topics": [
+        "brandon",
+        "projects"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "broad"
+    },
+    "notes": "Provenance: Brandon's brief, Oct 29 2026. Facts: b-projects."
+  },
+  {
+    "id": "lore-wherewhen",
+    "category": "lore",
+    "tier": 1,
+    "format": "choice",
+    "prompt": "In Where & When, Brandon's own game, what do you guess about a photo?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Who took it"
+      },
+      {
+        "id": "b",
+        "text": "Which phone took it"
+      },
+      {
+        "id": "c",
+        "text": "What song was playing"
+      },
+      {
+        "id": "d",
+        "text": "Where and when it was taken"
+      }
+    ],
+    "answer": "d",
+    "reveal": "Where and when it was taken: a pin on the map and a date and hour.",
+    "sources": [],
+    "verified": {
+      "by": "provided",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "personal": "provided",
+    "tags": {
+      "topics": [
+        "brandon",
+        "projects"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "broad"
+    },
+    "notes": "Provenance: Brandon's brief, Oct 29 2026. Facts: b-projects."
+  },
+  {
+    "id": "lore-title",
+    "category": "lore",
+    "tier": 2,
+    "format": "choice",
+    "prompt": "What is Brandon's job title at Roblox?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Software engineer"
+      },
+      {
+        "id": "b",
+        "text": "Product manager"
+      },
+      {
+        "id": "c",
+        "text": "Data scientist"
+      },
+      {
+        "id": "d",
+        "text": "Game designer"
+      }
+    ],
+    "answer": "b",
+    "reveal": "Product manager, on the Avatar Marketplace.",
+    "sources": [],
+    "verified": {
+      "by": "provided",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "personal": "provided",
+    "tags": {
+      "topics": [
+        "brandon",
+        "work"
+      ],
+      "likely": [],
+      "possible": [
+        "Evan",
+        "Sahil"
+      ],
+      "reach": "broad"
+    },
+    "notes": "Provenance: Brandon's brief, Oct 29 2026. Facts: b-roblox."
+  },
+  {
+    "id": "lore-highschool",
+    "category": "lore",
+    "tier": 2,
+    "format": "choice",
+    "prompt": "Which high school did Brandon attend?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Naaman Forest High School"
+      },
+      {
+        "id": "b",
+        "text": "Rowlett High School"
+      },
+      {
+        "id": "c",
+        "text": "Sachse High School"
+      },
+      {
+        "id": "d",
+        "text": "Garland High School"
+      }
+    ],
+    "answer": "d",
+    "reveal": "Garland High School, in his hometown.",
+    "sources": [],
+    "verified": {
+      "by": "provided",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "personal": "provided",
+    "tags": {
+      "topics": [
+        "brandon",
+        "school"
+      ],
+      "likely": [
+        "Evan"
+      ],
+      "possible": [
+        "Chinh",
+        "Khoa"
+      ],
+      "reach": "broad"
+    },
+    "notes": "Provenance: Brandon's brief, Oct 29 2026. Facts: b-highschool."
+  },
+  {
+    "id": "lore-ut-years",
+    "category": "lore",
+    "tier": 2,
+    "format": "choice",
+    "prompt": "Which years was Brandon at UT Austin?",
+    "options": [
+      {
+        "id": "a",
+        "text": "2017 to 2021"
+      },
+      {
+        "id": "b",
+        "text": "2018 to 2022"
+      },
+      {
+        "id": "c",
+        "text": "2019 to 2023"
+      },
+      {
+        "id": "d",
+        "text": "2016 to 2020"
+      }
+    ],
+    "answer": "b",
+    "reveal": "2018 to 2022.",
+    "sources": [],
+    "verified": {
+      "by": "provided",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "personal": "provided",
+    "tags": {
+      "topics": [
+        "brandon",
+        "school"
+      ],
+      "likely": [
+        "Evan",
+        "Sahil"
+      ],
+      "possible": [
+        "Adi",
+        "Chiang"
+      ],
+      "reach": "broad"
+    },
+    "notes": "Provenance: Brandon's brief, Oct 29 2026. Facts: b-ut."
+  },
+  {
+    "id": "lore-frat",
+    "category": "lore",
+    "tier": 2,
+    "format": "choice",
+    "prompt": "Which fraternity did Brandon join at UT?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Delta Sigma Pi"
+      },
+      {
+        "id": "b",
+        "text": "Alpha Kappa Lambda"
+      },
+      {
+        "id": "c",
+        "text": "Alpha Kappa Psi"
+      },
+      {
+        "id": "d",
+        "text": "Pi Kappa Phi"
+      }
+    ],
+    "answer": "c",
+    "reveal": "Alpha Kappa Psi.",
+    "sources": [],
+    "verified": {
+      "by": "provided",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "personal": "provided",
+    "tags": {
+      "topics": [
+        "brandon",
+        "school"
+      ],
+      "likely": [
+        "Evan",
+        "Sahil"
+      ],
+      "possible": [
+        "Adi",
+        "Chiang"
+      ],
+      "reach": "broad"
+    },
+    "notes": "Provenance: Brandon's brief, Oct 29 2026. Facts: b-ut."
+  },
+  {
+    "id": "lore-birthday",
+    "category": "lore",
+    "tier": 2,
+    "format": "choice",
+    "prompt": "What is Brandon's birthday?",
+    "options": [
+      {
+        "id": "a",
+        "text": "March 9, 2000"
+      },
+      {
+        "id": "b",
+        "text": "March 19, 2000"
+      },
+      {
+        "id": "c",
+        "text": "March 9, 1999"
+      },
+      {
+        "id": "d",
+        "text": "February 9, 2000"
+      }
+    ],
+    "answer": "a",
+    "reveal": "March 9, 2000.",
+    "sources": [],
+    "verified": {
+      "by": "provided",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "personal": "provided",
+    "tags": {
+      "topics": [
+        "brandon"
+      ],
+      "likely": [
+        "Evan"
+      ],
+      "possible": [
+        "Sahil",
+        "Chinh",
+        "Khoa"
+      ],
+      "reach": "broad"
+    },
+    "notes": "Provenance: Brandon's brief, Oct 29 2026. Facts: b-birthday."
+  },
+  {
+    "id": "lore-sisters",
+    "category": "lore",
+    "tier": 2,
+    "format": "choice",
+    "prompt": "Which pair names Brandon's younger sisters?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Britney and Bethany"
+      },
+      {
+        "id": "b",
+        "text": "Britney and Bianca"
+      },
+      {
+        "id": "c",
+        "text": "Brianna and Bethany"
+      },
+      {
+        "id": "d",
+        "text": "Bethany and Brooke"
+      }
+    ],
+    "answer": "a",
+    "reveal": "Britney and Bethany.",
+    "sources": [],
+    "verified": {
+      "by": "provided",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "personal": "provided",
+    "tags": {
+      "topics": [
+        "brandon",
+        "family"
+      ],
+      "likely": [
+        "Henry",
+        "Ben",
+        "Richard",
+        "Allan",
+        "Jeremy"
+      ],
+      "possible": [
+        "Evan"
+      ],
+      "reach": "broad"
+    },
+    "notes": "Provenance: Brandon's brief, Oct 29 2026. Facts: b-sisters."
+  },
+  {
+    "id": "lore-car",
+    "category": "lore",
+    "tier": 2,
+    "format": "choice",
+    "prompt": "What car does Brandon drive?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Infiniti Q50"
+      },
+      {
+        "id": "b",
+        "text": "Lexus IS 350"
+      },
+      {
+        "id": "c",
+        "text": "Genesis G70"
+      },
+      {
+        "id": "d",
+        "text": "Acura TLX"
+      }
+    ],
+    "answer": "c",
+    "reveal": "A Genesis G70 3.3T Sport Prestige.",
+    "sources": [],
+    "verified": {
+      "by": "provided",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "personal": "provided",
+    "tags": {
+      "topics": [
+        "brandon",
+        "cars"
+      ],
+      "likely": [],
+      "possible": [
+        "Evan",
+        "Sahil",
+        "Eyob"
+      ],
+      "reach": "broad"
+    },
+    "notes": "Provenance: Brandon's brief, Oct 29 2026. Facts: b-car."
+  },
+  {
+    "id": "lore-run-boredom",
+    "category": "lore",
+    "tier": 2,
+    "format": "choice",
+    "prompt": "What did Brandon call the hardest part of a 12-mile run?",
+    "options": [
+      {
+        "id": "a",
+        "text": "The hills"
+      },
+      {
+        "id": "b",
+        "text": "Boredom"
+      },
+      {
+        "id": "c",
+        "text": "The heat"
+      },
+      {
+        "id": "d",
+        "text": "The last mile"
+      }
+    ],
+    "answer": "b",
+    "reveal": "Boredom.",
+    "sources": [],
+    "verified": {
+      "by": "provided",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "personal": "provided",
+    "tags": {
+      "topics": [
+        "brandon"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "broad"
+    },
+    "notes": "Provenance: Brandon's brief, Oct 29 2026. Facts: b-run."
+  },
+  {
+    "id": "lore-best-friend-grade",
+    "category": "lore",
+    "tier": 2,
+    "format": "choice",
+    "prompt": "In which grade did Brandon and Evan become best friends?",
+    "options": [
+      {
+        "id": "a",
+        "text": "5th grade"
+      },
+      {
+        "id": "b",
+        "text": "6th grade"
+      },
+      {
+        "id": "c",
+        "text": "9th grade"
+      },
+      {
+        "id": "d",
+        "text": "7th grade"
+      }
+    ],
+    "answer": "d",
+    "reveal": "7th grade. They went to the same middle school, high school and college, and roomed together.",
+    "sources": [],
+    "verified": {
+      "by": "provided",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "personal": "provided",
+    "tags": {
+      "topics": [
+        "brandon",
+        "friends"
+      ],
+      "likely": [
+        "Evan"
+      ],
+      "possible": [],
+      "reach": "broad"
+    },
+    "notes": "Provenance: Brandon's brief, Oct 29 2026. Facts: b-friends."
+  },
+  {
+    "id": "lore-first-concert",
+    "category": "lore",
+    "tier": 3,
+    "format": "choice",
+    "prompt": "Who was Brandon's first concert?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Post Malone"
+      },
+      {
+        "id": "b",
+        "text": "Chance the Rapper"
+      },
+      {
+        "id": "c",
+        "text": "J. Cole"
+      },
+      {
+        "id": "d",
+        "text": "John Mayer"
+      }
+    ],
+    "answer": "b",
+    "reveal": "Chance the Rapper, in 2016.",
+    "sources": [],
+    "verified": {
+      "by": "provided",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "personal": "provided",
+    "tags": {
+      "topics": [
+        "brandon",
+        "music"
+      ],
+      "likely": [],
+      "possible": [
+        "Evan"
+      ],
+      "reach": "shared"
+    },
+    "notes": "Provenance: Brandon's brief, Oct 29 2026. Facts: b-concert."
+  },
+  {
+    "id": "lore-class-rank",
+    "category": "lore",
+    "tier": 3,
+    "format": "choice",
+    "prompt": "Where did Brandon rank in his high school class?",
+    "options": [
+      {
+        "id": "a",
+        "text": "First"
+      },
+      {
+        "id": "b",
+        "text": "Second"
+      },
+      {
+        "id": "c",
+        "text": "Fifth"
+      },
+      {
+        "id": "d",
+        "text": "Third"
+      }
+    ],
+    "answer": "d",
+    "reveal": "Third in his class at Garland High School.",
+    "sources": [],
+    "verified": {
+      "by": "provided",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "personal": "provided",
+    "tags": {
+      "topics": [
+        "brandon",
+        "school"
+      ],
+      "likely": [
+        "Evan"
+      ],
+      "possible": [],
+      "reach": "shared"
+    },
+    "notes": "Provenance: Brandon's brief, Oct 29 2026. Facts: b-highschool."
+  },
+  {
+    "id": "lore-ib",
+    "category": "lore",
+    "tier": 3,
+    "format": "choice",
+    "prompt": "Which program did Brandon take at Garland High School?",
+    "options": [
+      {
+        "id": "a",
+        "text": "International Baccalaureate"
+      },
+      {
+        "id": "b",
+        "text": "AP Capstone"
+      },
+      {
+        "id": "c",
+        "text": "Early College"
+      },
+      {
+        "id": "d",
+        "text": "Dual Credit"
+      }
+    ],
+    "answer": "a",
+    "reveal": "International Baccalaureate (IB).",
+    "sources": [],
+    "verified": {
+      "by": "provided",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "personal": "provided",
+    "tags": {
+      "topics": [
+        "brandon",
+        "school"
+      ],
+      "likely": [
+        "Evan"
+      ],
+      "possible": [],
+      "reach": "shared"
+    },
+    "notes": "Provenance: Brandon's brief, Oct 29 2026. Facts: b-highschool."
+  },
+  {
+    "id": "lore-ut-honors",
+    "category": "lore",
+    "tier": 3,
+    "format": "choice",
+    "prompt": "Which UT business program was Brandon in?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Plan II Honors"
+      },
+      {
+        "id": "b",
+        "text": "Finance Honors"
+      },
+      {
+        "id": "c",
+        "text": "Business Honors"
+      },
+      {
+        "id": "d",
+        "text": "Supply Chain Management"
+      }
+    ],
+    "answer": "c",
+    "reveal": "Business Honors, with a Management Information Systems major.",
+    "sources": [],
+    "verified": {
+      "by": "provided",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "personal": "provided",
+    "tags": {
+      "topics": [
+        "brandon",
+        "school"
+      ],
+      "likely": [
+        "Evan",
+        "Sahil"
+      ],
+      "possible": [],
+      "reach": "shared"
+    },
+    "notes": "Provenance: Brandon's brief, Oct 29 2026. Facts: b-ut."
+  },
+  {
+    "id": "lore-intern-year",
+    "category": "lore",
+    "tier": 3,
+    "format": "choice",
+    "prompt": "In which year did Brandon intern at Roblox?",
+    "options": [
+      {
+        "id": "a",
+        "text": "2019"
+      },
+      {
+        "id": "b",
+        "text": "2020"
+      },
+      {
+        "id": "c",
+        "text": "2021"
+      },
+      {
+        "id": "d",
+        "text": "2022"
+      }
+    ],
+    "answer": "c",
+    "reveal": "2021. He converted to Associate Product Manager in 2022.",
+    "sources": [],
+    "verified": {
+      "by": "provided",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "personal": "provided",
+    "tags": {
+      "topics": [
+        "brandon",
+        "work"
+      ],
+      "likely": [],
+      "possible": [
+        "Evan",
+        "Sahil"
+      ],
+      "reach": "shared"
+    },
+    "notes": "Provenance: Brandon's brief, Oct 29 2026. Facts: b-roblox."
+  },
+  {
+    "id": "lore-website",
+    "category": "lore",
+    "tier": 3,
+    "format": "choice",
+    "prompt": "What is the web address of Brandon's personal website?",
+    "options": [
+      {
+        "id": "a",
+        "text": "brandonctran.com"
+      },
+      {
+        "id": "b",
+        "text": "brandontran.com"
+      },
+      {
+        "id": "c",
+        "text": "brandonctran.dev"
+      },
+      {
+        "id": "d",
+        "text": "bctran.com"
+      }
+    ],
+    "answer": "a",
+    "reveal": "brandonctran.com.",
+    "sources": [],
+    "verified": {
+      "by": "provided",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "personal": "provided",
+    "tags": {
+      "topics": [
+        "brandon",
+        "projects"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "shared"
+    },
+    "notes": "Provenance: Brandon's brief, Oct 29 2026. Facts: b-site."
+  },
+  {
+    "id": "lore-logo",
+    "category": "lore",
+    "tier": 3,
+    "format": "choice",
+    "prompt": "What does Brandon's personal logo feature?",
+    "options": [
+      {
+        "id": "a",
+        "text": "A guitar pick"
+      },
+      {
+        "id": "b",
+        "text": "A camera lens"
+      },
+      {
+        "id": "c",
+        "text": "A basketball"
+      },
+      {
+        "id": "d",
+        "text": "Tortoiseshell glasses"
+      }
+    ],
+    "answer": "d",
+    "reveal": "Tortoiseshell glasses.",
+    "sources": [],
+    "verified": {
+      "by": "provided",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "personal": "provided",
+    "tags": {
+      "topics": [
+        "brandon",
+        "projects"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "shared"
+    },
+    "notes": "Provenance: Brandon's brief, Oct 29 2026. Facts: b-site."
+  },
+  {
+    "id": "lore-league-roles",
+    "category": "lore",
+    "tier": 3,
+    "format": "choice",
+    "prompt": "Which two League of Legends roles did Brandon mainly play?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Top and Jungle"
+      },
+      {
+        "id": "b",
+        "text": "Mid and ADC"
+      },
+      {
+        "id": "c",
+        "text": "Jungle and Support"
+      },
+      {
+        "id": "d",
+        "text": "Support and Top"
+      }
+    ],
+    "answer": "b",
+    "reveal": "Mid and ADC.",
+    "sources": [],
+    "verified": {
+      "by": "provided",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "personal": "provided",
+    "tags": {
+      "topics": [
+        "brandon",
+        "gaming",
+        "league"
+      ],
+      "likely": [],
+      "possible": [
+        "Chinh",
+        "Khoa",
+        "Chiang",
+        "Henry",
+        "Ben",
+        "Richard",
+        "Allan",
+        "Jeremy"
+      ],
+      "reach": "shared"
+    },
+    "notes": "Provenance: Brandon's brief, Oct 29 2026. Facts: b-league."
+  },
+  {
+    "id": "lore-chef",
+    "category": "lore",
+    "tier": 3,
+    "format": "choice",
+    "prompt": "When people call Brandon a great chef, what does he credit?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Culinary school"
+      },
+      {
+        "id": "b",
+        "text": "Years of practice"
+      },
+      {
+        "id": "c",
+        "text": "Family tradition"
+      },
+      {
+        "id": "d",
+        "text": "Following recipes"
+      }
+    ],
+    "answer": "d",
+    "reveal": "Following recipes. He has experimented with Vietnamese and fusion dishes.",
+    "sources": [],
+    "verified": {
+      "by": "provided",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "personal": "provided",
+    "tags": {
+      "topics": [
+        "brandon",
+        "food"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "shared"
+    },
+    "notes": "Provenance: Brandon's brief, Oct 29 2026. Facts: b-cook."
+  },
+  {
+    "id": "lore-camera",
+    "category": "lore",
+    "tier": 3,
+    "format": "choice",
+    "prompt": "Which camera brand does Brandon shoot with?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Sony"
+      },
+      {
+        "id": "b",
+        "text": "Fujifilm"
+      },
+      {
+        "id": "c",
+        "text": "Canon"
+      },
+      {
+        "id": "d",
+        "text": "Nikon"
+      }
+    ],
+    "answer": "b",
+    "reveal": "Fujifilm, with Peak Design gear.",
+    "sources": [],
+    "verified": {
+      "by": "provided",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "personal": "provided",
+    "tags": {
+      "topics": [
+        "brandon",
+        "gear"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "shared"
+    },
+    "notes": "Decoys are not in the brief; he may own others. Provenance: Brandon's brief, Oct 29 2026. Facts: b-gear."
+  },
+  {
+    "id": "lore-roommate",
+    "category": "lore",
+    "tier": 3,
+    "format": "choice",
+    "prompt": "Who was Brandon's freshman-year roommate?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Eyob"
+      },
+      {
+        "id": "b",
+        "text": "Adi"
+      },
+      {
+        "id": "c",
+        "text": "Sahil"
+      },
+      {
+        "id": "d",
+        "text": "Chiang"
+      }
+    ],
+    "answer": "c",
+    "reveal": "Sahil.",
+    "sources": [],
+    "verified": {
+      "by": "provided",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "personal": "provided",
+    "tags": {
+      "topics": [
+        "brandon",
+        "friends"
+      ],
+      "likely": [
+        "Sahil",
+        "Evan"
+      ],
+      "possible": [],
+      "reach": "shared"
+    },
+    "notes": "Provenance: Brandon's brief, Oct 29 2026. Facts: b-friends."
+  },
+  {
+    "id": "lore-cousins-dad",
+    "category": "lore",
+    "tier": 3,
+    "format": "choice",
+    "prompt": "Which pair are Brandon's cousins on his dad's side?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Henry and Ben"
+      },
+      {
+        "id": "b",
+        "text": "Richard and Allan"
+      },
+      {
+        "id": "c",
+        "text": "Jeremy and Henry"
+      },
+      {
+        "id": "d",
+        "text": "Allan and Ben"
+      }
+    ],
+    "answer": "a",
+    "reveal": "Henry and Ben. Richard, Allan and Jeremy are on his mom's side.",
+    "sources": [],
+    "verified": {
+      "by": "provided",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "personal": "provided",
+    "tags": {
+      "topics": [
+        "brandon",
+        "family"
+      ],
+      "likely": [
+        "Henry",
+        "Ben",
+        "Richard",
+        "Allan",
+        "Jeremy"
+      ],
+      "possible": [],
+      "reach": "shared"
+    },
+    "notes": "Provenance: Brandon's brief, Oct 29 2026. Facts: b-friends."
+  },
+  {
+    "id": "lore-mod-sims",
+    "category": "lore",
+    "tier": 3,
+    "format": "choice",
+    "prompt": "Which life simulation game does Brandon mod extensively?",
+    "options": [
+      {
+        "id": "a",
+        "text": "The Sims"
+      },
+      {
+        "id": "b",
+        "text": "Stardew Valley"
+      },
+      {
+        "id": "c",
+        "text": "Animal Crossing"
+      },
+      {
+        "id": "d",
+        "text": "SimCity"
+      }
+    ],
+    "answer": "a",
+    "reveal": "The Sims, along with Skyrim, Fallout, Assetto Corsa and BeamNG.",
+    "sources": [],
+    "verified": {
+      "by": "provided",
+      "at": "2026-10-29"
+    },
+    "status": "rejected",
+    "personal": "provided",
+    "tags": {
+      "topics": [
+        "brandon",
+        "gaming"
+      ],
+      "likely": [],
+      "possible": [
+        "Evan",
+        "Eyob"
+      ],
+      "reach": "shared"
+    },
+    "notes": "Brandon: skip Provenance: Brandon's brief, Oct 29 2026. Facts: b-mods."
+  },
+  {
+    "id": "lore-role-2022",
+    "category": "lore",
+    "tier": 4,
+    "format": "choice",
+    "prompt": "Which role did Brandon convert to at Roblox in 2022?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Associate Software Engineer"
+      },
+      {
+        "id": "b",
+        "text": "Associate Product Designer"
+      },
+      {
+        "id": "c",
+        "text": "Associate Product Manager"
+      },
+      {
+        "id": "d",
+        "text": "Associate Data Scientist"
+      }
+    ],
+    "answer": "c",
+    "reveal": "Associate Product Manager, after his 2021 internship.",
+    "sources": [],
+    "verified": {
+      "by": "provided",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "personal": "provided",
+    "tags": {
+      "topics": [
+        "brandon",
+        "work"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "deep"
+    },
+    "notes": "Provenance: Brandon's brief, Oct 29 2026. Facts: b-roblox."
+  },
+  {
+    "id": "lore-roblox-team",
+    "category": "lore",
+    "tier": 4,
+    "format": "choice",
+    "prompt": "Which part of Roblox does Brandon work on?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Creator Store"
+      },
+      {
+        "id": "b",
+        "text": "Avatar Marketplace"
+      },
+      {
+        "id": "c",
+        "text": "Roblox Studio"
+      },
+      {
+        "id": "d",
+        "text": "Developer Exchange"
+      }
+    ],
+    "answer": "b",
+    "reveal": "The Avatar Marketplace.",
+    "sources": [],
+    "verified": {
+      "by": "provided",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "personal": "provided",
+    "tags": {
+      "topics": [
+        "brandon",
+        "work"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "deep"
+    },
+    "notes": "Provenance: Brandon's brief, Oct 29 2026. Facts: b-roblox."
+  },
+  {
+    "id": "lore-ece",
+    "category": "lore",
+    "tier": 4,
+    "format": "choice",
+    "prompt": "Which engineering department did Brandon study in at UT?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Mechanical Engineering"
+      },
+      {
+        "id": "b",
+        "text": "Chemical Engineering"
+      },
+      {
+        "id": "c",
+        "text": "Aerospace Engineering"
+      },
+      {
+        "id": "d",
+        "text": "Electrical and Computer Engineering"
+      }
+    ],
+    "answer": "d",
+    "reveal": "Electrical and Computer Engineering, alongside Business Honors and Management Information Systems.",
+    "sources": [],
+    "verified": {
+      "by": "provided",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "personal": "provided",
+    "tags": {
+      "topics": [
+        "brandon",
+        "school"
+      ],
+      "likely": [
+        "Evan",
+        "Sahil"
+      ],
+      "possible": [],
+      "reach": "deep"
+    },
+    "notes": "Provenance: Brandon's brief, Oct 29 2026. Facts: b-ut."
+  },
+  {
+    "id": "lore-league-pro",
+    "category": "lore",
+    "tier": 4,
+    "format": "choice",
+    "prompt": "Who is Brandon's favorite old League of Legends pro?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Doublelift"
+      },
+      {
+        "id": "b",
+        "text": "Dyrus"
+      },
+      {
+        "id": "c",
+        "text": "HotshotGG"
+      },
+      {
+        "id": "d",
+        "text": "Saintvicious"
+      }
+    ],
+    "answer": "b",
+    "reveal": "Dyrus. He liked TSM a lot and watched the whole lineup.",
+    "sources": [],
+    "verified": {
+      "by": "provided",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "personal": "provided",
+    "tags": {
+      "topics": [
+        "brandon",
+        "gaming",
+        "league"
+      ],
+      "likely": [],
+      "possible": [
+        "Chinh",
+        "Khoa",
+        "Chiang",
+        "Henry",
+        "Ben",
+        "Richard",
+        "Allan",
+        "Jeremy"
+      ],
+      "reach": "deep"
+    },
+    "notes": "Provenance: Brandon's answer, Oct 29 2026. Facts: b-league, b-tsm."
+  },
+  {
+    "id": "lore-tsm",
+    "category": "lore",
+    "tier": 3,
+    "format": "choice",
+    "prompt": "Which team did Brandon like a lot in old League of Legends?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Counter Logic Gaming"
+      },
+      {
+        "id": "b",
+        "text": "Dignitas"
+      },
+      {
+        "id": "c",
+        "text": "Curse Gaming"
+      },
+      {
+        "id": "d",
+        "text": "Team SoloMid"
+      }
+    ],
+    "answer": "d",
+    "reveal": "Team SoloMid (TSM). He watched its Reginald, OddOne, Chaox, Xpecial and Dyrus lineup a lot.",
+    "sources": [],
+    "verified": {
+      "by": "provided",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "personal": "provided",
+    "tags": {
+      "topics": [
+        "brandon",
+        "gaming",
+        "league"
+      ],
+      "likely": [],
+      "possible": [
+        "Chinh",
+        "Khoa",
+        "Chiang",
+        "Henry",
+        "Ben",
+        "Richard",
+        "Allan",
+        "Jeremy"
+      ],
+      "reach": "shared"
+    },
+    "notes": "Provenance: Brandon's answer, Oct 29 2026. Facts: b-tsm."
+  },
+  {
+    "id": "lore-tsm-jungler",
+    "category": "lore",
+    "tier": 4,
+    "format": "choice",
+    "prompt": "In the TSM lineup Brandon watched, who played jungle?",
+    "options": [
+      {
+        "id": "a",
+        "text": "TheOddOne"
+      },
+      {
+        "id": "b",
+        "text": "Dyrus"
+      },
+      {
+        "id": "c",
+        "text": "Xpecial"
+      },
+      {
+        "id": "d",
+        "text": "Chaox"
+      }
+    ],
+    "answer": "a",
+    "reveal": "TheOddOne. Dyrus was top, Chaox AD carry, Xpecial support and Reginald mid.",
+    "sources": [
+      {
+        "url": "https://www.gamespot.com/articles/theoddone-moves-to-coach-former-copenhagen-wolves-/1100-6437581/",
+        "note": "TheOddOne stepped down from the jungle in 2014; Chaox AD and Xpecial support per GosuGamers and Wikipedia",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://en.wikipedia.org/wiki/TSM_League_of_Legends_division",
+        "note": "TSM roster history",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "provided",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "personal": "provided",
+    "tags": {
+      "topics": [
+        "brandon",
+        "gaming",
+        "league"
+      ],
+      "likely": [],
+      "possible": [
+        "Chinh",
+        "Khoa",
+        "Chiang",
+        "Henry",
+        "Ben",
+        "Richard",
+        "Allan",
+        "Jeremy"
+      ],
+      "reach": "deep"
+    },
+    "notes": "Provenance: Brandon's answer, Oct 29 2026. Facts: b-tsm."
+  },
+  {
+    "id": "lore-tsm-founder",
+    "category": "lore",
+    "tier": 5,
+    "format": "choice",
+    "prompt": "Which TSM player co-founded the team?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Dyrus"
+      },
+      {
+        "id": "b",
+        "text": "Chaox"
+      },
+      {
+        "id": "c",
+        "text": "Reginald"
+      },
+      {
+        "id": "d",
+        "text": "Xpecial"
+      }
+    ],
+    "answer": "c",
+    "reveal": "Reginald (Andy Dinh) co-founded TSM in 2009 with his brother Dan.",
+    "sources": [
+      {
+        "url": "https://en.wikipedia.org/wiki/Team_SoloMid",
+        "note": "Co-founded in September 2009 by the brothers Andy Reginald Dinh and Dan Dinh",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "provided",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "personal": "provided",
+    "tags": {
+      "topics": [
+        "brandon",
+        "gaming",
+        "league"
+      ],
+      "likely": [],
+      "possible": [
+        "Chinh",
+        "Khoa",
+        "Chiang",
+        "Henry",
+        "Ben",
+        "Richard",
+        "Allan",
+        "Jeremy"
+      ],
+      "reach": "deep"
+    },
+    "notes": "Provenance: Brandon's answer, Oct 29 2026. Facts: b-tsm."
+  },
+  {
+    "id": "lore-league-season",
+    "category": "lore",
+    "tier": 4,
+    "format": "choice",
+    "prompt": "After which season did Brandon stop playing League regularly?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Season 2"
+      },
+      {
+        "id": "b",
+        "text": "Season 3"
+      },
+      {
+        "id": "c",
+        "text": "Season 4"
+      },
+      {
+        "id": "d",
+        "text": "Season 5"
+      }
+    ],
+    "answer": "c",
+    "reveal": "Season 4.",
+    "sources": [],
+    "verified": {
+      "by": "provided",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "personal": "provided",
+    "tags": {
+      "topics": [
+        "brandon",
+        "gaming",
+        "league"
+      ],
+      "likely": [],
+      "possible": [
+        "Chinh",
+        "Khoa",
+        "Chiang",
+        "Henry",
+        "Ben",
+        "Richard",
+        "Allan",
+        "Jeremy"
+      ],
+      "reach": "deep"
+    },
+    "notes": "Provenance: Brandon's brief, Oct 29 2026. Facts: b-league."
+  },
+  {
+    "id": "lore-acoustic",
+    "category": "lore",
+    "tier": 4,
+    "format": "choice",
+    "prompt": "Which brand is Brandon's acoustic guitar?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Taylor"
+      },
+      {
+        "id": "b",
+        "text": "Martin"
+      },
+      {
+        "id": "c",
+        "text": "Gibson"
+      },
+      {
+        "id": "d",
+        "text": "Yamaha"
+      }
+    ],
+    "answer": "a",
+    "reveal": "A Taylor acoustic; his electric is a PRS Silver Sky.",
+    "sources": [],
+    "verified": {
+      "by": "provided",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "personal": "provided",
+    "tags": {
+      "topics": [
+        "brandon",
+        "gear",
+        "music"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "deep"
+    },
+    "notes": "Decoys are not in the brief; he may own others. Provenance: Brandon's brief, Oct 29 2026. Facts: b-gear."
+  },
+  {
+    "id": "lore-electric",
+    "category": "lore",
+    "tier": 4,
+    "format": "choice",
+    "prompt": "Which electric guitar does Brandon play?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Fender Stratocaster"
+      },
+      {
+        "id": "b",
+        "text": "Gibson Les Paul"
+      },
+      {
+        "id": "c",
+        "text": "Ibanez RG"
+      },
+      {
+        "id": "d",
+        "text": "PRS Silver Sky"
+      }
+    ],
+    "answer": "d",
+    "reveal": "A PRS Silver Sky.",
+    "sources": [],
+    "verified": {
+      "by": "provided",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "personal": "provided",
+    "tags": {
+      "topics": [
+        "brandon",
+        "gear",
+        "music"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "deep"
+    },
+    "notes": "Decoys are not in the brief; he may own others. Provenance: Brandon's brief, Oct 29 2026. Facts: b-gear."
+  },
+  {
+    "id": "lore-vr",
+    "category": "lore",
+    "tier": 4,
+    "format": "choice",
+    "prompt": "Which PC VR headset does Brandon have?",
+    "options": [
+      {
+        "id": "a",
+        "text": "HTC Vive"
+      },
+      {
+        "id": "b",
+        "text": "Valve Index"
+      },
+      {
+        "id": "c",
+        "text": "Oculus Rift S"
+      },
+      {
+        "id": "d",
+        "text": "HP Reverb G2"
+      }
+    ],
+    "answer": "b",
+    "reveal": "A Valve Index, plus a Meta Quest 3.",
+    "sources": [],
+    "verified": {
+      "by": "provided",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "personal": "provided",
+    "tags": {
+      "topics": [
+        "brandon",
+        "gear",
+        "gaming"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "deep"
+    },
+    "notes": "Decoys are not in the brief; he may own others. Provenance: Brandon's brief, Oct 29 2026. Facts: b-gear."
+  },
+  {
+    "id": "lore-site-films",
+    "category": "lore",
+    "tier": 4,
+    "format": "choice",
+    "prompt": "Brandon compares the worlds on his website to what?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Albums by one band"
+      },
+      {
+        "id": "b",
+        "text": "Levels of one game"
+      },
+      {
+        "id": "c",
+        "text": "Chapters of one book"
+      },
+      {
+        "id": "d",
+        "text": "Films by the same director"
+      }
+    ],
+    "answer": "d",
+    "reveal": "Different films by the same director: one identity, different worlds.",
+    "sources": [],
+    "verified": {
+      "by": "provided",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "personal": "provided",
+    "tags": {
+      "topics": [
+        "brandon",
+        "projects"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "deep"
+    },
+    "notes": "Provenance: Brandon's brief, Oct 29 2026. Facts: b-sitefilms."
+  },
+  {
+    "id": "lore-playground-feel",
+    "category": "lore",
+    "tier": 4,
+    "format": "choice",
+    "prompt": "Brandon's Playground page feels like which kind of picture book?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Where's Waldo"
+      },
+      {
+        "id": "b",
+        "text": "I Spy"
+      },
+      {
+        "id": "c",
+        "text": "Highlights Hidden Pictures"
+      },
+      {
+        "id": "d",
+        "text": "Magic Eye"
+      }
+    ],
+    "answer": "b",
+    "reveal": "I Spy: a diorama you search through.",
+    "sources": [],
+    "verified": {
+      "by": "provided",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "personal": "provided",
+    "tags": {
+      "topics": [
+        "brandon",
+        "projects"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "deep"
+    },
+    "notes": "Provenance: Brandon's brief, Oct 29 2026. Facts: b-site."
+  },
+  {
+    "id": "lore-side-project",
+    "category": "lore",
+    "tier": 4,
+    "format": "choice",
+    "prompt": "Which of these is one of Brandon's side projects?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Self Compass"
+      },
+      {
+        "id": "b",
+        "text": "Life Atlas"
+      },
+      {
+        "id": "c",
+        "text": "Self Atlas"
+      },
+      {
+        "id": "d",
+        "text": "Inner Map"
+      }
+    ],
+    "answer": "c",
+    "reveal": "Self Atlas, along with Nouri, Clarity, Stacky and Field Day.",
+    "sources": [],
+    "verified": {
+      "by": "provided",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "personal": "provided",
+    "tags": {
+      "topics": [
+        "brandon",
+        "projects"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "deep"
+    },
+    "notes": "Provenance: Brandon's brief, Oct 29 2026. Facts: b-projects."
+  },
+  {
+    "id": "lore-streamer",
+    "category": "lore",
+    "tier": 4,
+    "format": "choice",
+    "prompt": "Which streamer did Brandon watch in his League days?",
+    "options": [
+      {
+        "id": "a",
+        "text": "PhantomL0rd"
+      },
+      {
+        "id": "b",
+        "text": "Imaqtpie"
+      },
+      {
+        "id": "c",
+        "text": "Scarra"
+      },
+      {
+        "id": "d",
+        "text": "Voyboy"
+      }
+    ],
+    "answer": "a",
+    "reveal": "PhantomL0rd, and old League-era Sykkuno.",
+    "sources": [],
+    "verified": {
+      "by": "provided",
+      "at": "2026-10-29"
+    },
+    "status": "rejected",
+    "personal": "provided",
+    "tags": {
+      "topics": [
+        "brandon",
+        "gaming",
+        "league"
+      ],
+      "likely": [],
+      "possible": [
+        "Chinh",
+        "Khoa",
+        "Chiang",
+        "Henry",
+        "Ben",
+        "Richard",
+        "Allan",
+        "Jeremy"
+      ],
+      "reach": "deep"
+    },
+    "notes": "Brandon: skip. He watched Imaqtpie, Scarra and Voyboy, so none can be a decoy. Provenance: Brandon's brief, Oct 29 2026. Facts: b-league."
+  },
+  {
+    "id": "lore-concert-venue",
+    "category": "lore",
+    "tier": 5,
+    "format": "choice",
+    "prompt": "Where was Brandon's first concert?",
+    "options": [
+      {
+        "id": "a",
+        "text": "The Bomb Factory"
+      },
+      {
+        "id": "b",
+        "text": "House of Blues Dallas"
+      },
+      {
+        "id": "c",
+        "text": "Verizon Theatre"
+      },
+      {
+        "id": "d",
+        "text": "Gexa Energy Pavilion"
+      }
+    ],
+    "answer": "a",
+    "reveal": "The Bomb Factory in Dallas, 2016, to see Chance the Rapper.",
+    "sources": [],
+    "verified": {
+      "by": "provided",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "personal": "provided",
+    "tags": {
+      "topics": [
+        "brandon",
+        "music"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "deep"
+    },
+    "notes": "Provenance: Brandon's brief, Oct 29 2026. Facts: b-concert."
+  },
+  {
+    "id": "lore-other-intern",
+    "category": "lore",
+    "tier": 5,
+    "format": "choice",
+    "prompt": "Besides Roblox, which company did Brandon intern at?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Texas Instruments"
+      },
+      {
+        "id": "b",
+        "text": "Dell"
+      },
+      {
+        "id": "c",
+        "text": "Frontier Energy"
+      },
+      {
+        "id": "d",
+        "text": "Oracle"
+      }
+    ],
+    "answer": "c",
+    "reveal": "Frontier Energy.",
+    "sources": [],
+    "verified": {
+      "by": "provided",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "personal": "provided",
+    "tags": {
+      "topics": [
+        "brandon",
+        "work"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "deep"
+    },
+    "notes": "Oracle is a decoy only: that internship was rescinded. Provenance: Brandon's brief, Oct 29 2026. Facts: b-frontier."
+  },
+  {
+    "id": "lore-playground-page",
+    "category": "lore",
+    "tier": 5,
+    "format": "choice",
+    "prompt": "Which page on Brandon's website is he proudest of?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Photography"
+      },
+      {
+        "id": "b",
+        "text": "Playground"
+      },
+      {
+        "id": "c",
+        "text": "Projects"
+      },
+      {
+        "id": "d",
+        "text": "Now"
+      }
+    ],
+    "answer": "b",
+    "reveal": "Playground, a diorama in the spirit of I Spy.",
+    "sources": [],
+    "verified": {
+      "by": "provided",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "personal": "provided",
+    "tags": {
+      "topics": [
+        "brandon",
+        "projects"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "deep"
+    },
+    "notes": "Decoy page names are not in the brief. Provenance: Brandon's brief, Oct 29 2026. Facts: b-site."
+  },
+  {
+    "id": "lore-mod-beamng",
+    "category": "lore",
+    "tier": 5,
+    "format": "choice",
+    "prompt": "Which driving game does Brandon mod, besides Assetto Corsa?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Forza Horizon"
+      },
+      {
+        "id": "b",
+        "text": "Euro Truck Simulator 2"
+      },
+      {
+        "id": "c",
+        "text": "Need for Speed Heat"
+      },
+      {
+        "id": "d",
+        "text": "BeamNG"
+      }
+    ],
+    "answer": "d",
+    "reveal": "BeamNG, plus Skyrim, Fallout and The Sims.",
+    "sources": [],
+    "verified": {
+      "by": "provided",
+      "at": "2026-10-29"
+    },
+    "status": "rejected",
+    "personal": "provided",
+    "tags": {
+      "topics": [
+        "brandon",
+        "gaming"
+      ],
+      "likely": [],
+      "possible": [
+        "Evan",
+        "Eyob"
+      ],
+      "reach": "deep"
+    },
+    "notes": "Brandon: skip Provenance: Brandon's brief, Oct 29 2026. Facts: b-mods."
+  },
+  {
+    "id": "lore-league-champ",
+    "category": "lore",
+    "tier": 4,
+    "format": "choice",
+    "prompt": "Which of these champions was one of Brandon's League mains?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Zed"
+      },
+      {
+        "id": "b",
+        "text": "Fizz"
+      },
+      {
+        "id": "c",
+        "text": "Yasuo"
+      },
+      {
+        "id": "d",
+        "text": "Katarina"
+      }
+    ],
+    "answer": "b",
+    "reveal": "Fizz. His mains were Orianna, Fizz and Ahri.",
+    "sources": [],
+    "verified": {
+      "by": "provided",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "personal": "provided",
+    "tags": {
+      "topics": [
+        "brandon",
+        "gaming",
+        "league"
+      ],
+      "likely": [],
+      "possible": [
+        "Chinh",
+        "Khoa",
+        "Chiang",
+        "Henry",
+        "Ben",
+        "Richard",
+        "Allan",
+        "Jeremy"
+      ],
+      "reach": "deep"
+    },
+    "notes": "Provenance: Brandon's answer, Oct 29 2026. Facts: b-league."
+  },
+  {
+    "id": "lore-roadtrip-sister",
+    "category": "lore",
+    "tier": 3,
+    "format": "choice",
+    "prompt": "Which sister joined Brandon on his road trip from Dallas to the Bay Area?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Britney"
+      },
+      {
+        "id": "b",
+        "text": "Both sisters"
+      },
+      {
+        "id": "c",
+        "text": "A cousin"
+      },
+      {
+        "id": "d",
+        "text": "Bethany"
+      }
+    ],
+    "answer": "d",
+    "reveal": "Bethany.",
+    "sources": [],
+    "verified": {
+      "by": "provided",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "personal": "provided",
+    "tags": {
+      "topics": [
+        "brandon",
+        "family"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "shared"
+    },
+    "notes": "Provenance: Brandon's answer, Oct 29 2026. Facts: b-roadtrip."
+  }
+]

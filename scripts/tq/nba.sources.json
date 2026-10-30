@@ -1,0 +1,870 @@
+{
+ "cutoff": "2026-10-29",
+ "source": "nba.com team and player pages",
+ "players": [
+  {
+   "name": "LeBron James",
+   "personId": 2544,
+   "tier": 1,
+   "team": "Philadelphia 76ers",
+   "decoys": [
+    "Los Angeles Lakers",
+    "Cleveland Cavaliers",
+    "Miami Heat"
+   ],
+   "how": "Signed on 07/26/26",
+   "jersey": "23",
+   "status": "Active",
+   "url": "https://www.nba.com/player/2544/lebron-james",
+   "checkedAt": "2026-10-29"
+  },
+  {
+   "name": "Giannis Antetokounmpo",
+   "personId": 203507,
+   "tier": 1,
+   "team": "Miami Heat",
+   "decoys": [
+    "Milwaukee Bucks",
+    "New York Knicks",
+    "Golden State Warriors"
+   ],
+   "how": "Traded from MIL on 07/06/26",
+   "jersey": "7",
+   "status": "Active",
+   "url": "https://www.nba.com/player/203507/giannis-antetokounmpo",
+   "checkedAt": "2026-10-29"
+  },
+  {
+   "name": "Kevin Durant",
+   "personId": 201142,
+   "tier": 1,
+   "team": "Houston Rockets",
+   "decoys": [
+    "Phoenix Suns",
+    "Brooklyn Nets",
+    "Golden State Warriors"
+   ],
+   "how": "Traded from PHX on 07/06/25",
+   "jersey": "7",
+   "status": "Active",
+   "url": "https://www.nba.com/player/201142/kevin-durant",
+   "checkedAt": "2026-10-29"
+  },
+  {
+   "name": "Luka Doncic",
+   "personId": 1629029,
+   "tier": 1,
+   "team": "Los Angeles Lakers",
+   "decoys": [
+    "Dallas Mavericks",
+    "Golden State Warriors",
+    "San Antonio Spurs"
+   ],
+   "how": "Traded from DAL on 02/02/25",
+   "jersey": "77",
+   "status": "Active",
+   "url": "https://www.nba.com/player/1629029/luka-doncic",
+   "checkedAt": "2026-10-29"
+  },
+  {
+   "name": "James Harden",
+   "personId": 201935,
+   "tier": 1,
+   "team": "Cleveland Cavaliers",
+   "decoys": [
+    "LA Clippers",
+    "Philadelphia 76ers",
+    "Houston Rockets"
+   ],
+   "how": "Traded from LAC on 02/04/26",
+   "jersey": "1",
+   "status": "Active",
+   "url": "https://www.nba.com/player/201935/james-harden",
+   "checkedAt": "2026-10-29"
+  },
+  {
+   "name": "Kawhi Leonard",
+   "personId": 202695,
+   "tier": 1,
+   "team": "Toronto Raptors",
+   "decoys": [
+    "LA Clippers",
+    "San Antonio Spurs",
+    "Los Angeles Lakers"
+   ],
+   "how": "Traded from LAC on 09/14/26",
+   "jersey": "2",
+   "status": "Active",
+   "url": "https://www.nba.com/player/202695/kawhi-leonard",
+   "checkedAt": "2026-10-29"
+  },
+  {
+   "name": "Anthony Davis",
+   "personId": 203076,
+   "tier": 1,
+   "team": "Washington Wizards",
+   "decoys": [
+    "Dallas Mavericks",
+    "Los Angeles Lakers",
+    "New Orleans Pelicans"
+   ],
+   "how": "Traded from DAL on 02/05/26",
+   "jersey": "23",
+   "status": "Active",
+   "url": "https://www.nba.com/player/203076/anthony-davis",
+   "checkedAt": "2026-10-29"
+  },
+  {
+   "name": "Jaylen Brown",
+   "personId": 1627759,
+   "tier": 1,
+   "team": "Philadelphia 76ers",
+   "decoys": [
+    "Boston Celtics",
+    "New York Knicks",
+    "Golden State Warriors"
+   ],
+   "how": "Traded from BOS on 07/06/26",
+   "jersey": "7",
+   "status": "Active",
+   "url": "https://www.nba.com/player/1627759/jaylen-brown",
+   "checkedAt": "2026-10-29"
+  },
+  {
+   "name": "Ja Morant",
+   "personId": 1629630,
+   "tier": 1,
+   "team": "Portland Trail Blazers",
+   "decoys": [
+    "Memphis Grizzlies",
+    "Sacramento Kings",
+    "Utah Jazz"
+   ],
+   "how": "Traded from MEM on 06/29/26",
+   "jersey": "1",
+   "status": "Active",
+   "url": "https://www.nba.com/player/1629630/ja-morant",
+   "checkedAt": "2026-10-29"
+  },
+  {
+   "name": "Trae Young",
+   "personId": 1629027,
+   "tier": 1,
+   "team": "Washington Wizards",
+   "decoys": [
+    "Atlanta Hawks",
+    "New York Knicks",
+    "Chicago Bulls"
+   ],
+   "how": "Traded from ATL on 01/09/26",
+   "jersey": "3",
+   "status": "Active",
+   "url": "https://www.nba.com/player/1629027/trae-young",
+   "checkedAt": "2026-10-29"
+  },
+  {
+   "name": "Kyrie Irving",
+   "personId": 202681,
+   "tier": 2,
+   "team": "Dallas Mavericks",
+   "decoys": [
+    "Brooklyn Nets",
+    "Boston Celtics",
+    "Cleveland Cavaliers"
+   ],
+   "how": "Traded from BKN on 02/06/23",
+   "jersey": "11",
+   "status": "Active",
+   "url": "https://www.nba.com/player/202681/kyrie-irving",
+   "checkedAt": "2026-10-29"
+  },
+  {
+   "name": "Klay Thompson",
+   "personId": 202691,
+   "tier": 2,
+   "team": "Miami Heat",
+   "decoys": [
+    "Golden State Warriors",
+    "Dallas Mavericks",
+    "Los Angeles Lakers"
+   ],
+   "how": "Signed on 08/23/26",
+   "jersey": "11",
+   "status": "Active",
+   "url": "https://www.nba.com/player/202691/klay-thompson",
+   "checkedAt": "2026-10-29"
+  },
+  {
+   "name": "Paul George",
+   "personId": 202331,
+   "tier": 2,
+   "team": "Boston Celtics",
+   "decoys": [
+    "Philadelphia 76ers",
+    "LA Clippers",
+    "Indiana Pacers"
+   ],
+   "how": "Traded from PHI on 07/06/26",
+   "jersey": "13",
+   "status": "Active",
+   "url": "https://www.nba.com/player/202331/paul-george",
+   "checkedAt": "2026-10-29"
+  },
+  {
+   "name": "Jimmy Butler III",
+   "personId": 202710,
+   "tier": 2,
+   "team": "Golden State Warriors",
+   "decoys": [
+    "Miami Heat",
+    "Philadelphia 76ers",
+    "Chicago Bulls"
+   ],
+   "how": "Traded from MIA on 02/06/25",
+   "jersey": "10",
+   "status": "Active",
+   "url": "https://www.nba.com/player/202710/jimmy-butler-iii",
+   "checkedAt": "2026-10-29"
+  },
+  {
+   "name": "Damian Lillard",
+   "personId": 203081,
+   "tier": 2,
+   "team": "Portland Trail Blazers",
+   "decoys": [
+    "Milwaukee Bucks",
+    "Miami Heat",
+    "Phoenix Suns"
+   ],
+   "how": "Signed on 07/19/25",
+   "jersey": "0",
+   "status": "Active",
+   "url": "https://www.nba.com/player/203081/damian-lillard",
+   "checkedAt": "2026-10-29"
+  },
+  {
+   "name": "Al Horford",
+   "personId": 201143,
+   "tier": 2,
+   "team": "Golden State Warriors",
+   "decoys": [
+    "Boston Celtics",
+    "Atlanta Hawks",
+    "Oklahoma City Thunder"
+   ],
+   "how": "Signed on 10/01/25",
+   "jersey": "20",
+   "status": "Active",
+   "url": "https://www.nba.com/player/201143/al-horford",
+   "checkedAt": "2026-10-29"
+  },
+  {
+   "name": "Dillon Brooks",
+   "personId": 1628415,
+   "tier": 2,
+   "team": "Phoenix Suns",
+   "decoys": [
+    "Houston Rockets",
+    "Memphis Grizzlies",
+    "Dallas Mavericks"
+   ],
+   "how": "Traded from HOU on 07/06/25",
+   "jersey": "3",
+   "status": "Active",
+   "url": "https://www.nba.com/player/1628415/dillon-brooks",
+   "checkedAt": "2026-10-29"
+  },
+  {
+   "name": "Ben Simmons",
+   "personId": 1627732,
+   "tier": 2,
+   "team": "Sacramento Kings",
+   "decoys": [
+    "Brooklyn Nets",
+    "Philadelphia 76ers",
+    "LA Clippers"
+   ],
+   "how": "Signed on 09/07/26",
+   "jersey": "25",
+   "status": "Active",
+   "url": "https://www.nba.com/player/1627732/ben-simmons",
+   "checkedAt": "2026-10-29"
+  },
+  {
+   "name": "Zach LaVine",
+   "personId": 203897,
+   "tier": 2,
+   "team": "Sacramento Kings",
+   "decoys": [
+    "Chicago Bulls",
+    "Minnesota Timberwolves",
+    "Atlanta Hawks"
+   ],
+   "how": "Traded from CHI on 02/03/25",
+   "jersey": "8",
+   "status": "Active",
+   "url": "https://www.nba.com/player/203897/zach-lavine",
+   "checkedAt": "2026-10-29"
+  },
+  {
+   "name": "Bradley Beal",
+   "personId": 203078,
+   "tier": 2,
+   "team": "LA Clippers",
+   "decoys": [
+    "Phoenix Suns",
+    "Washington Wizards",
+    "Philadelphia 76ers"
+   ],
+   "how": "Signed on 07/18/25",
+   "jersey": "3",
+   "status": "Active",
+   "url": "https://www.nba.com/player/203078/bradley-beal",
+   "checkedAt": "2026-10-29"
+  },
+  {
+   "name": "Ty Jerome",
+   "personId": 1629660,
+   "tier": 3,
+   "team": "Memphis Grizzlies",
+   "decoys": [
+    "Cleveland Cavaliers",
+    "Oklahoma City Thunder",
+    "Phoenix Suns"
+   ],
+   "how": "Signed on 07/14/25",
+   "jersey": "2",
+   "status": "Active",
+   "url": "https://www.nba.com/player/1629660/ty-jerome",
+   "checkedAt": "2026-10-29"
+  },
+  {
+   "name": "Luke Kornet",
+   "personId": 1628436,
+   "tier": 3,
+   "team": "San Antonio Spurs",
+   "decoys": [
+    "Boston Celtics",
+    "Chicago Bulls",
+    "New York Knicks"
+   ],
+   "how": "Signed on 07/07/25",
+   "jersey": "7",
+   "status": "Active",
+   "url": "https://www.nba.com/player/1628436/luke-kornet",
+   "checkedAt": "2026-10-29"
+  },
+  {
+   "name": "Nickeil Alexander-Walker",
+   "personId": 1629638,
+   "tier": 3,
+   "team": "Atlanta Hawks",
+   "decoys": [
+    "Minnesota Timberwolves",
+    "Utah Jazz",
+    "Portland Trail Blazers"
+   ],
+   "how": "Traded from MIN on 07/06/25",
+   "jersey": "7",
+   "status": "Active",
+   "url": "https://www.nba.com/player/1629638/nickeil-alexander-walker",
+   "checkedAt": "2026-10-29"
+  },
+  {
+   "name": "Jock Landale",
+   "personId": 1629111,
+   "tier": 3,
+   "team": "Atlanta Hawks",
+   "decoys": [
+    "Utah Jazz",
+    "Houston Rockets",
+    "Phoenix Suns"
+   ],
+   "how": "Traded from UTA on 02/05/26",
+   "jersey": "31",
+   "status": "Active",
+   "url": "https://www.nba.com/player/1629111/jock-landale",
+   "checkedAt": "2026-10-29"
+  },
+  {
+   "name": "Trey Lyles",
+   "personId": 1626168,
+   "tier": 3,
+   "team": "Minnesota Timberwolves",
+   "decoys": [
+    "Sacramento Kings",
+    "Detroit Pistons",
+    "Utah Jazz"
+   ],
+   "how": "Signed on 07/10/26",
+   "jersey": "41",
+   "status": "Active",
+   "url": "https://www.nba.com/player/1626168/trey-lyles",
+   "checkedAt": "2026-10-29"
+  },
+  {
+   "name": "Steven Adams",
+   "personId": 203500,
+   "tier": 3,
+   "team": "Houston Rockets",
+   "decoys": [
+    "Memphis Grizzlies",
+    "New Orleans Pelicans",
+    "Oklahoma City Thunder"
+   ],
+   "how": "Traded from MEM on 02/01/24",
+   "jersey": "12",
+   "status": "Active",
+   "url": "https://www.nba.com/player/203500/steven-adams",
+   "checkedAt": "2026-10-29"
+  },
+  {
+   "name": "Buddy Hield",
+   "personId": 1627741,
+   "tier": 3,
+   "team": "Chicago Bulls",
+   "decoys": [
+    "Charlotte Hornets",
+    "Indiana Pacers",
+    "Golden State Warriors"
+   ],
+   "how": "Traded from CHA on 09/27/26",
+   "jersey": "7",
+   "status": "Active",
+   "url": "https://www.nba.com/player/1627741/buddy-hield",
+   "checkedAt": "2026-10-29"
+  },
+  {
+   "name": "Dennis Schroder",
+   "personId": 203471,
+   "tier": 3,
+   "team": "Charlotte Hornets",
+   "decoys": [
+    "Cleveland Cavaliers",
+    "Sacramento Kings",
+    "Detroit Pistons"
+   ],
+   "how": "Traded from CLE on 08/20/26",
+   "jersey": "17",
+   "status": "Active",
+   "url": "https://www.nba.com/player/203471/dennis-schroder",
+   "checkedAt": "2026-10-29"
+  },
+  {
+   "name": "Marcus Smart",
+   "personId": 203935,
+   "tier": 3,
+   "team": "Houston Rockets",
+   "decoys": [
+    "Boston Celtics",
+    "Memphis Grizzlies",
+    "Los Angeles Lakers"
+   ],
+   "how": "Signed on 07/10/26",
+   "jersey": "36",
+   "status": "Active",
+   "url": "https://www.nba.com/player/203935/marcus-smart",
+   "checkedAt": "2026-10-29"
+  },
+  {
+   "name": "Kevin Huerter",
+   "personId": 1628989,
+   "tier": 3,
+   "team": "Detroit Pistons",
+   "decoys": [
+    "Chicago Bulls",
+    "Sacramento Kings",
+    "Atlanta Hawks"
+   ],
+   "how": "Traded from CHI on 02/03/26",
+   "jersey": "27",
+   "status": "Active",
+   "url": "https://www.nba.com/player/1628989/kevin-huerter",
+   "checkedAt": "2026-10-29"
+  },
+  {
+   "name": "Caris LeVert",
+   "personId": 1627747,
+   "tier": 3,
+   "team": "Milwaukee Bucks",
+   "decoys": [
+    "Detroit Pistons",
+    "Cleveland Cavaliers",
+    "Brooklyn Nets"
+   ],
+   "how": "Traded from DET on 07/08/26",
+   "jersey": "12",
+   "status": "Active",
+   "url": "https://www.nba.com/player/1627747/caris-levert",
+   "checkedAt": "2026-10-29"
+  },
+  {
+   "name": "Svi Mykhailiuk",
+   "personId": 1629004,
+   "tier": 4,
+   "team": "Utah Jazz",
+   "decoys": [
+    "Oklahoma City Thunder",
+    "Toronto Raptors",
+    "Charlotte Hornets"
+   ],
+   "how": "Signed on 08/10/24",
+   "jersey": "10",
+   "status": "Active",
+   "url": "https://www.nba.com/player/1629004/svi-mykhailiuk",
+   "checkedAt": "2026-10-29"
+  },
+  {
+   "name": "Vit Krejci",
+   "personId": 1630249,
+   "tier": 4,
+   "team": "Portland Trail Blazers",
+   "decoys": [
+    "Atlanta Hawks",
+    "Oklahoma City Thunder",
+    "Washington Wizards"
+   ],
+   "how": "Traded from ATL on 02/01/26",
+   "jersey": "27",
+   "status": "Active",
+   "url": "https://www.nba.com/player/1630249/vit-krejci",
+   "checkedAt": "2026-10-29"
+  },
+  {
+   "name": "Josh Green",
+   "personId": 1630182,
+   "tier": 4,
+   "team": "Utah Jazz",
+   "decoys": [
+    "Minnesota Timberwolves",
+    "Charlotte Hornets",
+    "Dallas Mavericks"
+   ],
+   "how": "Traded from MIN on 08/29/26",
+   "jersey": "5",
+   "status": "Active",
+   "url": "https://www.nba.com/player/1630182/josh-green",
+   "checkedAt": "2026-10-29"
+  },
+  {
+   "name": "Sandro Mamukelashvili",
+   "personId": 1630572,
+   "tier": 4,
+   "team": "Los Angeles Lakers",
+   "decoys": [
+    "Toronto Raptors",
+    "San Antonio Spurs",
+    "Milwaukee Bucks"
+   ],
+   "how": "Signed on 07/07/26",
+   "jersey": "54",
+   "status": "Active",
+   "url": "https://www.nba.com/player/1630572/sandro-mamukelashvili",
+   "checkedAt": "2026-10-29"
+  },
+  {
+   "name": "Karlo Matkovic",
+   "personId": 1631255,
+   "tier": 4,
+   "team": "New Orleans Pelicans",
+   "decoys": [
+    "San Antonio Spurs",
+    "Charlotte Hornets",
+    "Memphis Grizzlies"
+   ],
+   "how": "#52 Pick in 2022 Draft",
+   "jersey": "17",
+   "status": "Active",
+   "url": "https://www.nba.com/player/1631255/karlo-matkovic",
+   "checkedAt": "2026-10-29"
+  },
+  {
+   "name": "Georges Niang",
+   "personId": 1627777,
+   "tier": 4,
+   "team": "Golden State Warriors",
+   "decoys": [
+    "Cleveland Cavaliers",
+    "Boston Celtics",
+    "Atlanta Hawks"
+   ],
+   "how": "Signed on 08/25/26",
+   "jersey": "32",
+   "status": "Active",
+   "url": "https://www.nba.com/player/1627777/georges-niang",
+   "checkedAt": "2026-10-29"
+  },
+  {
+   "name": "Gary Trent Jr.",
+   "personId": 1629018,
+   "tier": 4,
+   "team": "Milwaukee Bucks",
+   "decoys": [
+    "Toronto Raptors",
+    "Portland Trail Blazers",
+    "Dallas Mavericks"
+   ],
+   "how": "Signed on 07/20/24",
+   "jersey": "5",
+   "status": "Active",
+   "url": "https://www.nba.com/player/1629018/gary-trent-jr",
+   "checkedAt": "2026-10-29"
+  },
+  {
+   "name": "Josh Okogie",
+   "personId": 1629006,
+   "tier": 4,
+   "team": "Utah Jazz",
+   "decoys": [
+    "Phoenix Suns",
+    "Charlotte Hornets",
+    "Houston Rockets"
+   ],
+   "how": "Signed on 07/09/26",
+   "jersey": "21",
+   "status": "Active",
+   "url": "https://www.nba.com/player/1629006/josh-okogie",
+   "checkedAt": "2026-10-29"
+  },
+  {
+   "name": "Thomas Bryant",
+   "personId": 1628418,
+   "tier": 4,
+   "team": "Cleveland Cavaliers",
+   "decoys": [
+    "Los Angeles Lakers",
+    "Miami Heat",
+    "Indiana Pacers"
+   ],
+   "how": "Signed on 09/25/25",
+   "jersey": "3",
+   "status": "Active",
+   "url": "https://www.nba.com/player/1628418/thomas-bryant",
+   "checkedAt": "2026-10-29"
+  },
+  {
+   "name": "Javonte Green",
+   "personId": 1629750,
+   "tier": 4,
+   "team": "Detroit Pistons",
+   "decoys": [
+    "Chicago Bulls",
+    "New Orleans Pelicans",
+    "Golden State Warriors"
+   ],
+   "how": "Signed on 08/14/25",
+   "jersey": "31",
+   "status": "Active",
+   "url": "https://www.nba.com/player/1629750/javonte-green",
+   "checkedAt": "2026-10-29"
+  },
+  {
+   "name": "Jae'Sean Tate",
+   "personId": 1630256,
+   "tier": 4,
+   "team": "Houston Rockets",
+   "decoys": [
+    "Memphis Grizzlies",
+    "Oklahoma City Thunder",
+    "Sacramento Kings"
+   ],
+   "how": "Signed on 11/25/20",
+   "jersey": "8",
+   "status": "Active",
+   "url": "https://www.nba.com/player/1630256/jaesean-tate",
+   "checkedAt": "2026-10-29"
+  },
+  {
+   "name": "Mo Bamba",
+   "personId": 1628964,
+   "tier": 5,
+   "team": "Utah Jazz",
+   "decoys": [
+    "Orlando Magic",
+    "Los Angeles Lakers",
+    "Philadelphia 76ers"
+   ],
+   "how": "Signed on 02/26/26",
+   "jersey": "44",
+   "status": "Active",
+   "url": "https://www.nba.com/player/1628964/mo-bamba",
+   "checkedAt": "2026-10-29"
+  },
+  {
+   "name": "DeAndre Jordan",
+   "personId": 201599,
+   "tier": 5,
+   "team": "New Orleans Pelicans",
+   "decoys": [
+    "Denver Nuggets",
+    "LA Clippers",
+    "Dallas Mavericks"
+   ],
+   "how": "Signed on 10/23/25",
+   "jersey": "6",
+   "status": "Active",
+   "url": "https://www.nba.com/player/201599/deandre-jordan",
+   "checkedAt": "2026-10-29"
+  },
+  {
+   "name": "Tacko Fall",
+   "personId": 1629605,
+   "tier": 5,
+   "team": "Philadelphia 76ers",
+   "decoys": [
+    "Boston Celtics",
+    "Cleveland Cavaliers",
+    "Charlotte Hornets"
+   ],
+   "how": "Signed on 09/01/26",
+   "jersey": "99",
+   "status": "Active",
+   "url": "https://www.nba.com/player/1629605/tacko-fall",
+   "checkedAt": "2026-10-29"
+  },
+  {
+   "name": "Jaxson Hayes",
+   "personId": 1629637,
+   "tier": 5,
+   "team": "Utah Jazz",
+   "decoys": [
+    "New Orleans Pelicans",
+    "Los Angeles Lakers",
+    "Charlotte Hornets"
+   ],
+   "how": "Signed on 07/09/26",
+   "jersey": "11",
+   "status": "Active",
+   "url": "https://www.nba.com/player/1629637/jaxson-hayes",
+   "checkedAt": "2026-10-29"
+  },
+  {
+   "name": "Jose Alvarado",
+   "personId": 1630631,
+   "tier": 5,
+   "team": "New York Knicks",
+   "decoys": [
+    "New Orleans Pelicans",
+    "Memphis Grizzlies",
+    "Phoenix Suns"
+   ],
+   "how": "Traded from NOP on 02/05/26",
+   "jersey": "5",
+   "status": "Active",
+   "url": "https://www.nba.com/player/1630631/jose-alvarado",
+   "checkedAt": "2026-10-29"
+  },
+  {
+   "name": "Landry Shamet",
+   "personId": 1629013,
+   "tier": 5,
+   "team": "New York Knicks",
+   "decoys": [
+    "Washington Wizards",
+    "Phoenix Suns",
+    "Philadelphia 76ers"
+   ],
+   "how": "Signed on 09/14/24",
+   "jersey": "44",
+   "status": "Active",
+   "url": "https://www.nba.com/player/1629013/landry-shamet",
+   "checkedAt": "2026-10-29"
+  },
+  {
+   "name": "Bones Hyland",
+   "personId": 1630538,
+   "tier": 5,
+   "team": "Minnesota Timberwolves",
+   "decoys": [
+    "Denver Nuggets",
+    "LA Clippers",
+    "Milwaukee Bucks"
+   ],
+   "how": "Signed on 02/27/25",
+   "jersey": "8",
+   "status": "Active",
+   "url": "https://www.nba.com/player/1630538/bones-hyland",
+   "checkedAt": "2026-10-29"
+  },
+  {
+   "name": "Kevon Looney",
+   "personId": 1626172,
+   "tier": 5,
+   "team": "Los Angeles Lakers",
+   "decoys": [
+    "Golden State Warriors",
+    "New Orleans Pelicans",
+    "Sacramento Kings"
+   ],
+   "how": "Signed on 07/12/26",
+   "jersey": "55",
+   "status": "Active",
+   "url": "https://www.nba.com/player/1626172/kevon-looney",
+   "checkedAt": "2026-10-29"
+  },
+  {
+   "name": "James Wiseman",
+   "personId": 1630164,
+   "tier": 5,
+   "team": "New York Knicks",
+   "decoys": [
+    "Golden State Warriors",
+    "Detroit Pistons",
+    "Indiana Pacers"
+   ],
+   "how": "Signed on 09/15/26",
+   "jersey": "11",
+   "status": "Active",
+   "url": "https://www.nba.com/player/1630164/james-wiseman",
+   "checkedAt": "2026-10-29"
+  },
+  {
+   "name": "Terance Mann",
+   "personId": 1629611,
+   "tier": 5,
+   "team": "Brooklyn Nets",
+   "decoys": [
+    "LA Clippers",
+    "Atlanta Hawks",
+    "Toronto Raptors"
+   ],
+   "how": "Traded from ATL on 07/07/25",
+   "jersey": "14",
+   "status": "Active",
+   "url": "https://www.nba.com/player/1629611/terance-mann",
+   "checkedAt": "2026-10-29"
+  },
+  {
+   "name": "Moritz Wagner",
+   "personId": 1629021,
+   "tier": 5,
+   "team": "Brooklyn Nets",
+   "decoys": [
+    "Orlando Magic",
+    "Washington Wizards",
+    "Boston Celtics"
+   ],
+   "how": "Signed on 07/31/26",
+   "jersey": "13",
+   "status": "Active",
+   "url": "https://www.nba.com/player/1629021/moritz-wagner",
+   "checkedAt": "2026-10-29"
+  },
+  {
+   "name": "Kyle Anderson",
+   "personId": 203937,
+   "tier": 5,
+   "team": "Toronto Raptors",
+   "decoys": [
+    "Minnesota Timberwolves",
+    "Memphis Grizzlies",
+    "San Antonio Spurs"
+   ],
+   "how": "Signed on 07/06/26",
+   "jersey": "13",
+   "status": "Active",
+   "url": "https://www.nba.com/player/203937/kyle-anderson",
+   "checkedAt": "2026-10-29"
+  }
+ ]
+}

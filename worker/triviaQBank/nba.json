@@ -1,1 +1,3964 @@
-[]
+[
+  {
+    "id": "nba-lebron-james",
+    "category": "nba",
+    "tier": 1,
+    "format": "image",
+    "prompt": "Who does he play for?",
+    "subject": "LeBron James",
+    "options": [
+      {
+        "id": "a",
+        "text": "Philadelphia 76ers"
+      },
+      {
+        "id": "b",
+        "text": "Miami Heat"
+      },
+      {
+        "id": "c",
+        "text": "Los Angeles Lakers"
+      },
+      {
+        "id": "d",
+        "text": "Cleveland Cavaliers"
+      }
+    ],
+    "answer": "a",
+    "reveal": "Philadelphia 76ers. Signed in July 2026.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/de107bf8c850.webp",
+      "w": 512,
+      "h": 512,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/ed0a4de76288.webp",
+      "w": 1040,
+      "h": 760
+    },
+    "sources": [
+      {
+        "url": "https://www.nba.com/player/2544/lebron-james",
+        "note": "nba.com player page: Philadelphia 76ers, Signed on 07/26/26; roster status Active, #23",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams",
+        "note": "cross-checked against the ESPN team roster API, same team",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29",
+      "cutoff": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "nba"
+      ],
+      "likely": [
+        "Evan",
+        "Eyob",
+        "Adi"
+      ],
+      "possible": [
+        "Sahil"
+      ],
+      "reach": "broad"
+    },
+    "notes": "Roster as of 2026-10-29. A trade after that date changes the answer. Every decoy is a different team from the answer. Where the official page says traded from X, X is one of the decoys; other decoys are plausible teams, not checked past teams."
+  },
+  {
+    "id": "nba-giannis-antetokounmpo",
+    "category": "nba",
+    "tier": 1,
+    "format": "image",
+    "prompt": "Who does he play for?",
+    "subject": "Giannis Antetokounmpo",
+    "options": [
+      {
+        "id": "a",
+        "text": "New York Knicks"
+      },
+      {
+        "id": "b",
+        "text": "Milwaukee Bucks"
+      },
+      {
+        "id": "c",
+        "text": "Miami Heat"
+      },
+      {
+        "id": "d",
+        "text": "Golden State Warriors"
+      }
+    ],
+    "answer": "c",
+    "reveal": "Miami Heat. Traded from Milwaukee in July 2026.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/420bf26c9330.webp",
+      "w": 512,
+      "h": 512,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/56b1d4b5558a.webp",
+      "w": 1040,
+      "h": 760
+    },
+    "sources": [
+      {
+        "url": "https://www.nba.com/player/203507/giannis-antetokounmpo",
+        "note": "nba.com player page: Miami Heat, Traded from MIL on 07/06/26; roster status Active, #7",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams",
+        "note": "cross-checked against the ESPN team roster API, same team",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29",
+      "cutoff": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "nba"
+      ],
+      "likely": [
+        "Evan",
+        "Eyob",
+        "Adi"
+      ],
+      "possible": [
+        "Sahil"
+      ],
+      "reach": "broad"
+    },
+    "notes": "Roster as of 2026-10-29. A trade after that date changes the answer. Every decoy is a different team from the answer. Where the official page says traded from X, X is one of the decoys; other decoys are plausible teams, not checked past teams."
+  },
+  {
+    "id": "nba-kevin-durant",
+    "category": "nba",
+    "tier": 1,
+    "format": "image",
+    "prompt": "Who does he play for?",
+    "subject": "Kevin Durant",
+    "options": [
+      {
+        "id": "a",
+        "text": "Brooklyn Nets"
+      },
+      {
+        "id": "b",
+        "text": "Houston Rockets"
+      },
+      {
+        "id": "c",
+        "text": "Golden State Warriors"
+      },
+      {
+        "id": "d",
+        "text": "Phoenix Suns"
+      }
+    ],
+    "answer": "b",
+    "reveal": "Houston Rockets. Traded from Phoenix in July 2025.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/f40be9d25c85.webp",
+      "w": 512,
+      "h": 512,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/e81196b1c1dc.webp",
+      "w": 1040,
+      "h": 760
+    },
+    "sources": [
+      {
+        "url": "https://www.nba.com/player/201142/kevin-durant",
+        "note": "nba.com player page: Houston Rockets, Traded from PHX on 07/06/25; roster status Active, #7",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams",
+        "note": "cross-checked against the ESPN team roster API, same team",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29",
+      "cutoff": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "nba"
+      ],
+      "likely": [
+        "Evan",
+        "Eyob",
+        "Adi"
+      ],
+      "possible": [
+        "Sahil"
+      ],
+      "reach": "broad"
+    },
+    "notes": "Roster as of 2026-10-29. A trade after that date changes the answer. Every decoy is a different team from the answer. Where the official page says traded from X, X is one of the decoys; other decoys are plausible teams, not checked past teams."
+  },
+  {
+    "id": "nba-luka-doncic",
+    "category": "nba",
+    "tier": 1,
+    "format": "image",
+    "prompt": "Who does he play for?",
+    "subject": "Luka Doncic",
+    "options": [
+      {
+        "id": "a",
+        "text": "San Antonio Spurs"
+      },
+      {
+        "id": "b",
+        "text": "Golden State Warriors"
+      },
+      {
+        "id": "c",
+        "text": "Dallas Mavericks"
+      },
+      {
+        "id": "d",
+        "text": "Los Angeles Lakers"
+      }
+    ],
+    "answer": "d",
+    "reveal": "Los Angeles Lakers. Traded from Dallas in February 2025.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/66f38e732b07.webp",
+      "w": 512,
+      "h": 512,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/a3c62a3c448e.webp",
+      "w": 1040,
+      "h": 760
+    },
+    "sources": [
+      {
+        "url": "https://www.nba.com/player/1629029/luka-doncic",
+        "note": "nba.com player page: Los Angeles Lakers, Traded from DAL on 02/02/25; roster status Active, #77",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams",
+        "note": "cross-checked against the ESPN team roster API, same team",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29",
+      "cutoff": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "nba"
+      ],
+      "likely": [
+        "Evan",
+        "Eyob",
+        "Adi"
+      ],
+      "possible": [
+        "Sahil"
+      ],
+      "reach": "broad"
+    },
+    "notes": "Roster as of 2026-10-29. A trade after that date changes the answer. Every decoy is a different team from the answer. Where the official page says traded from X, X is one of the decoys; other decoys are plausible teams, not checked past teams."
+  },
+  {
+    "id": "nba-james-harden",
+    "category": "nba",
+    "tier": 1,
+    "format": "image",
+    "prompt": "Who does he play for?",
+    "subject": "James Harden",
+    "options": [
+      {
+        "id": "a",
+        "text": "Philadelphia 76ers"
+      },
+      {
+        "id": "b",
+        "text": "Houston Rockets"
+      },
+      {
+        "id": "c",
+        "text": "LA Clippers"
+      },
+      {
+        "id": "d",
+        "text": "Cleveland Cavaliers"
+      }
+    ],
+    "answer": "d",
+    "reveal": "Cleveland Cavaliers. Traded from the Clippers in February 2026.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/4a89147ff07c.webp",
+      "w": 512,
+      "h": 512,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/60ada6270333.webp",
+      "w": 1040,
+      "h": 760
+    },
+    "sources": [
+      {
+        "url": "https://www.nba.com/player/201935/james-harden",
+        "note": "nba.com player page: Cleveland Cavaliers, Traded from LAC on 02/04/26; roster status Active, #1",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams",
+        "note": "cross-checked against the ESPN team roster API, same team",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29",
+      "cutoff": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "nba"
+      ],
+      "likely": [
+        "Evan",
+        "Eyob",
+        "Adi"
+      ],
+      "possible": [
+        "Sahil"
+      ],
+      "reach": "broad"
+    },
+    "notes": "Roster as of 2026-10-29. A trade after that date changes the answer. Every decoy is a different team from the answer. Where the official page says traded from X, X is one of the decoys; other decoys are plausible teams, not checked past teams."
+  },
+  {
+    "id": "nba-kawhi-leonard",
+    "category": "nba",
+    "tier": 1,
+    "format": "image",
+    "prompt": "Who does he play for?",
+    "subject": "Kawhi Leonard",
+    "options": [
+      {
+        "id": "a",
+        "text": "San Antonio Spurs"
+      },
+      {
+        "id": "b",
+        "text": "Toronto Raptors"
+      },
+      {
+        "id": "c",
+        "text": "Los Angeles Lakers"
+      },
+      {
+        "id": "d",
+        "text": "LA Clippers"
+      }
+    ],
+    "answer": "b",
+    "reveal": "Toronto Raptors. Traded from the Clippers in September 2026.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/6340e1f1f704.webp",
+      "w": 512,
+      "h": 512,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/ec0b0c783da2.webp",
+      "w": 1040,
+      "h": 760
+    },
+    "sources": [
+      {
+        "url": "https://www.nba.com/player/202695/kawhi-leonard",
+        "note": "nba.com player page: Toronto Raptors, Traded from LAC on 09/14/26; roster status Active, #2",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams",
+        "note": "cross-checked against the ESPN team roster API, same team",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29",
+      "cutoff": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "nba"
+      ],
+      "likely": [
+        "Evan",
+        "Eyob",
+        "Adi"
+      ],
+      "possible": [
+        "Sahil"
+      ],
+      "reach": "broad"
+    },
+    "notes": "Roster as of 2026-10-29. A trade after that date changes the answer. Every decoy is a different team from the answer. Where the official page says traded from X, X is one of the decoys; other decoys are plausible teams, not checked past teams."
+  },
+  {
+    "id": "nba-anthony-davis",
+    "category": "nba",
+    "tier": 1,
+    "format": "image",
+    "prompt": "Who does he play for?",
+    "subject": "Anthony Davis",
+    "options": [
+      {
+        "id": "a",
+        "text": "Los Angeles Lakers"
+      },
+      {
+        "id": "b",
+        "text": "Dallas Mavericks"
+      },
+      {
+        "id": "c",
+        "text": "Washington Wizards"
+      },
+      {
+        "id": "d",
+        "text": "New Orleans Pelicans"
+      }
+    ],
+    "answer": "c",
+    "reveal": "Washington Wizards. Traded from Dallas in February 2026.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/0dd07e8981ba.webp",
+      "w": 512,
+      "h": 512,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/d34d86f5731d.webp",
+      "w": 1040,
+      "h": 760
+    },
+    "sources": [
+      {
+        "url": "https://www.nba.com/player/203076/anthony-davis",
+        "note": "nba.com player page: Washington Wizards, Traded from DAL on 02/05/26; roster status Active, #23",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams",
+        "note": "cross-checked against the ESPN team roster API, same team",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29",
+      "cutoff": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "nba"
+      ],
+      "likely": [
+        "Evan",
+        "Eyob",
+        "Adi"
+      ],
+      "possible": [
+        "Sahil"
+      ],
+      "reach": "broad"
+    },
+    "notes": "Roster as of 2026-10-29. A trade after that date changes the answer. Every decoy is a different team from the answer. Where the official page says traded from X, X is one of the decoys; other decoys are plausible teams, not checked past teams."
+  },
+  {
+    "id": "nba-jaylen-brown",
+    "category": "nba",
+    "tier": 1,
+    "format": "image",
+    "prompt": "Who does he play for?",
+    "subject": "Jaylen Brown",
+    "options": [
+      {
+        "id": "a",
+        "text": "Philadelphia 76ers"
+      },
+      {
+        "id": "b",
+        "text": "Golden State Warriors"
+      },
+      {
+        "id": "c",
+        "text": "New York Knicks"
+      },
+      {
+        "id": "d",
+        "text": "Boston Celtics"
+      }
+    ],
+    "answer": "a",
+    "reveal": "Philadelphia 76ers. Traded from Boston in July 2026.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/4d341c1da274.webp",
+      "w": 512,
+      "h": 512,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/c14d6d330edb.webp",
+      "w": 1040,
+      "h": 760
+    },
+    "sources": [
+      {
+        "url": "https://www.nba.com/player/1627759/jaylen-brown",
+        "note": "nba.com player page: Philadelphia 76ers, Traded from BOS on 07/06/26; roster status Active, #7",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams",
+        "note": "cross-checked against the ESPN team roster API, same team",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29",
+      "cutoff": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "nba"
+      ],
+      "likely": [
+        "Evan",
+        "Eyob",
+        "Adi"
+      ],
+      "possible": [
+        "Sahil"
+      ],
+      "reach": "broad"
+    },
+    "notes": "Roster as of 2026-10-29. A trade after that date changes the answer. Every decoy is a different team from the answer. Where the official page says traded from X, X is one of the decoys; other decoys are plausible teams, not checked past teams."
+  },
+  {
+    "id": "nba-ja-morant",
+    "category": "nba",
+    "tier": 1,
+    "format": "image",
+    "prompt": "Who does he play for?",
+    "subject": "Ja Morant",
+    "options": [
+      {
+        "id": "a",
+        "text": "Utah Jazz"
+      },
+      {
+        "id": "b",
+        "text": "Portland Trail Blazers"
+      },
+      {
+        "id": "c",
+        "text": "Sacramento Kings"
+      },
+      {
+        "id": "d",
+        "text": "Memphis Grizzlies"
+      }
+    ],
+    "answer": "b",
+    "reveal": "Portland Trail Blazers. Traded from Memphis in June 2026.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/df2c75ab3851.webp",
+      "w": 512,
+      "h": 512,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/a109ada6ee61.webp",
+      "w": 1040,
+      "h": 760
+    },
+    "sources": [
+      {
+        "url": "https://www.nba.com/player/1629630/ja-morant",
+        "note": "nba.com player page: Portland Trail Blazers, Traded from MEM on 06/29/26; roster status Active, #1",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams",
+        "note": "cross-checked against the ESPN team roster API, same team",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29",
+      "cutoff": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "nba"
+      ],
+      "likely": [
+        "Evan",
+        "Eyob",
+        "Adi"
+      ],
+      "possible": [
+        "Sahil"
+      ],
+      "reach": "broad"
+    },
+    "notes": "Roster as of 2026-10-29. A trade after that date changes the answer. Every decoy is a different team from the answer. Where the official page says traded from X, X is one of the decoys; other decoys are plausible teams, not checked past teams."
+  },
+  {
+    "id": "nba-trae-young",
+    "category": "nba",
+    "tier": 1,
+    "format": "image",
+    "prompt": "Who does he play for?",
+    "subject": "Trae Young",
+    "options": [
+      {
+        "id": "a",
+        "text": "Chicago Bulls"
+      },
+      {
+        "id": "b",
+        "text": "New York Knicks"
+      },
+      {
+        "id": "c",
+        "text": "Atlanta Hawks"
+      },
+      {
+        "id": "d",
+        "text": "Washington Wizards"
+      }
+    ],
+    "answer": "d",
+    "reveal": "Washington Wizards. Traded from Atlanta in January 2026.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/66594fc5495f.webp",
+      "w": 512,
+      "h": 512,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/ce7fc366c39c.webp",
+      "w": 1040,
+      "h": 760
+    },
+    "sources": [
+      {
+        "url": "https://www.nba.com/player/1629027/trae-young",
+        "note": "nba.com player page: Washington Wizards, Traded from ATL on 01/09/26; roster status Active, #3",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams",
+        "note": "cross-checked against the ESPN team roster API, same team",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29",
+      "cutoff": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "nba"
+      ],
+      "likely": [
+        "Evan",
+        "Eyob",
+        "Adi"
+      ],
+      "possible": [
+        "Sahil"
+      ],
+      "reach": "broad"
+    },
+    "notes": "Roster as of 2026-10-29. A trade after that date changes the answer. Every decoy is a different team from the answer. Where the official page says traded from X, X is one of the decoys; other decoys are plausible teams, not checked past teams."
+  },
+  {
+    "id": "nba-kyrie-irving",
+    "category": "nba",
+    "tier": 2,
+    "format": "image",
+    "prompt": "Who does he play for?",
+    "subject": "Kyrie Irving",
+    "options": [
+      {
+        "id": "a",
+        "text": "Dallas Mavericks"
+      },
+      {
+        "id": "b",
+        "text": "Cleveland Cavaliers"
+      },
+      {
+        "id": "c",
+        "text": "Brooklyn Nets"
+      },
+      {
+        "id": "d",
+        "text": "Boston Celtics"
+      }
+    ],
+    "answer": "a",
+    "reveal": "Dallas Mavericks. Traded from Brooklyn in February 2023.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/cae598599eca.webp",
+      "w": 512,
+      "h": 512,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/4ba96ee3b4e3.webp",
+      "w": 1040,
+      "h": 760
+    },
+    "sources": [
+      {
+        "url": "https://www.nba.com/player/202681/kyrie-irving",
+        "note": "nba.com player page: Dallas Mavericks, Traded from BKN on 02/06/23; roster status Active, #11",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams",
+        "note": "cross-checked against the ESPN team roster API, same team",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29",
+      "cutoff": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "nba"
+      ],
+      "likely": [
+        "Evan",
+        "Eyob",
+        "Adi"
+      ],
+      "possible": [
+        "Sahil"
+      ],
+      "reach": "shared"
+    },
+    "notes": "Roster as of 2026-10-29. A trade after that date changes the answer. Every decoy is a different team from the answer. Where the official page says traded from X, X is one of the decoys; other decoys are plausible teams, not checked past teams."
+  },
+  {
+    "id": "nba-klay-thompson",
+    "category": "nba",
+    "tier": 2,
+    "format": "image",
+    "prompt": "Who does he play for?",
+    "subject": "Klay Thompson",
+    "options": [
+      {
+        "id": "a",
+        "text": "Dallas Mavericks"
+      },
+      {
+        "id": "b",
+        "text": "Los Angeles Lakers"
+      },
+      {
+        "id": "c",
+        "text": "Miami Heat"
+      },
+      {
+        "id": "d",
+        "text": "Golden State Warriors"
+      }
+    ],
+    "answer": "c",
+    "reveal": "Miami Heat. Signed in August 2026.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/8d3223ecbc52.webp",
+      "w": 512,
+      "h": 512,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/3f294d4a55c9.webp",
+      "w": 1040,
+      "h": 760
+    },
+    "sources": [
+      {
+        "url": "https://www.nba.com/player/202691/klay-thompson",
+        "note": "nba.com player page: Miami Heat, Signed on 08/23/26; roster status Active, #11",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams",
+        "note": "cross-checked against the ESPN team roster API, same team",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29",
+      "cutoff": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "nba"
+      ],
+      "likely": [
+        "Evan",
+        "Eyob",
+        "Adi"
+      ],
+      "possible": [
+        "Sahil"
+      ],
+      "reach": "shared"
+    },
+    "notes": "Roster as of 2026-10-29. A trade after that date changes the answer. Every decoy is a different team from the answer. Where the official page says traded from X, X is one of the decoys; other decoys are plausible teams, not checked past teams."
+  },
+  {
+    "id": "nba-paul-george",
+    "category": "nba",
+    "tier": 2,
+    "format": "image",
+    "prompt": "Who does he play for?",
+    "subject": "Paul George",
+    "options": [
+      {
+        "id": "a",
+        "text": "Indiana Pacers"
+      },
+      {
+        "id": "b",
+        "text": "Philadelphia 76ers"
+      },
+      {
+        "id": "c",
+        "text": "Boston Celtics"
+      },
+      {
+        "id": "d",
+        "text": "LA Clippers"
+      }
+    ],
+    "answer": "c",
+    "reveal": "Boston Celtics. Traded from Philadelphia in July 2026.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/ea3b5b158f4d.webp",
+      "w": 512,
+      "h": 512,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/2cb54ad14f38.webp",
+      "w": 1040,
+      "h": 760
+    },
+    "sources": [
+      {
+        "url": "https://www.nba.com/player/202331/paul-george",
+        "note": "nba.com player page: Boston Celtics, Traded from PHI on 07/06/26; roster status Active, #13",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams",
+        "note": "cross-checked against the ESPN team roster API, same team",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29",
+      "cutoff": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "nba"
+      ],
+      "likely": [
+        "Evan",
+        "Eyob",
+        "Adi"
+      ],
+      "possible": [
+        "Sahil"
+      ],
+      "reach": "shared"
+    },
+    "notes": "Roster as of 2026-10-29. A trade after that date changes the answer. Every decoy is a different team from the answer. Where the official page says traded from X, X is one of the decoys; other decoys are plausible teams, not checked past teams."
+  },
+  {
+    "id": "nba-jimmy-butler-iii",
+    "category": "nba",
+    "tier": 2,
+    "format": "image",
+    "prompt": "Who does he play for?",
+    "subject": "Jimmy Butler III",
+    "options": [
+      {
+        "id": "a",
+        "text": "Golden State Warriors"
+      },
+      {
+        "id": "b",
+        "text": "Philadelphia 76ers"
+      },
+      {
+        "id": "c",
+        "text": "Chicago Bulls"
+      },
+      {
+        "id": "d",
+        "text": "Miami Heat"
+      }
+    ],
+    "answer": "a",
+    "reveal": "Golden State Warriors. Traded from Miami in February 2025.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/50df795a76bb.webp",
+      "w": 512,
+      "h": 512,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/0c7b5db15c6b.webp",
+      "w": 1040,
+      "h": 760
+    },
+    "sources": [
+      {
+        "url": "https://www.nba.com/player/202710/jimmy-butler-iii",
+        "note": "nba.com player page: Golden State Warriors, Traded from MIA on 02/06/25; roster status Active, #10",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams",
+        "note": "cross-checked against the ESPN team roster API, same team",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29",
+      "cutoff": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "nba"
+      ],
+      "likely": [
+        "Evan",
+        "Eyob",
+        "Adi"
+      ],
+      "possible": [
+        "Sahil"
+      ],
+      "reach": "shared"
+    },
+    "notes": "Roster as of 2026-10-29. A trade after that date changes the answer. Every decoy is a different team from the answer. Where the official page says traded from X, X is one of the decoys; other decoys are plausible teams, not checked past teams."
+  },
+  {
+    "id": "nba-damian-lillard",
+    "category": "nba",
+    "tier": 2,
+    "format": "image",
+    "prompt": "Who does he play for?",
+    "subject": "Damian Lillard",
+    "options": [
+      {
+        "id": "a",
+        "text": "Milwaukee Bucks"
+      },
+      {
+        "id": "b",
+        "text": "Phoenix Suns"
+      },
+      {
+        "id": "c",
+        "text": "Miami Heat"
+      },
+      {
+        "id": "d",
+        "text": "Portland Trail Blazers"
+      }
+    ],
+    "answer": "d",
+    "reveal": "Portland Trail Blazers. Signed in July 2025.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/aa5b90a12576.webp",
+      "w": 512,
+      "h": 512,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/2762d7cbd620.webp",
+      "w": 1040,
+      "h": 760
+    },
+    "sources": [
+      {
+        "url": "https://www.nba.com/player/203081/damian-lillard",
+        "note": "nba.com player page: Portland Trail Blazers, Signed on 07/19/25; roster status Active, #0",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams",
+        "note": "cross-checked against the ESPN team roster API, same team",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29",
+      "cutoff": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "nba"
+      ],
+      "likely": [
+        "Evan",
+        "Eyob",
+        "Adi"
+      ],
+      "possible": [
+        "Sahil"
+      ],
+      "reach": "shared"
+    },
+    "notes": "Roster as of 2026-10-29. A trade after that date changes the answer. Every decoy is a different team from the answer. Where the official page says traded from X, X is one of the decoys; other decoys are plausible teams, not checked past teams."
+  },
+  {
+    "id": "nba-al-horford",
+    "category": "nba",
+    "tier": 2,
+    "format": "image",
+    "prompt": "Who does he play for?",
+    "subject": "Al Horford",
+    "options": [
+      {
+        "id": "a",
+        "text": "Oklahoma City Thunder"
+      },
+      {
+        "id": "b",
+        "text": "Golden State Warriors"
+      },
+      {
+        "id": "c",
+        "text": "Boston Celtics"
+      },
+      {
+        "id": "d",
+        "text": "Atlanta Hawks"
+      }
+    ],
+    "answer": "b",
+    "reveal": "Golden State Warriors. Signed in October 2025.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/32c2b2baca21.webp",
+      "w": 512,
+      "h": 512,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/ed4516870278.webp",
+      "w": 1040,
+      "h": 760
+    },
+    "sources": [
+      {
+        "url": "https://www.nba.com/player/201143/al-horford",
+        "note": "nba.com player page: Golden State Warriors, Signed on 10/01/25; roster status Active, #20",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams",
+        "note": "cross-checked against the ESPN team roster API, same team",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29",
+      "cutoff": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "nba"
+      ],
+      "likely": [
+        "Evan",
+        "Eyob",
+        "Adi"
+      ],
+      "possible": [
+        "Sahil"
+      ],
+      "reach": "shared"
+    },
+    "notes": "Roster as of 2026-10-29. A trade after that date changes the answer. Every decoy is a different team from the answer. Where the official page says traded from X, X is one of the decoys; other decoys are plausible teams, not checked past teams."
+  },
+  {
+    "id": "nba-dillon-brooks",
+    "category": "nba",
+    "tier": 2,
+    "format": "image",
+    "prompt": "Who does he play for?",
+    "subject": "Dillon Brooks",
+    "options": [
+      {
+        "id": "a",
+        "text": "Phoenix Suns"
+      },
+      {
+        "id": "b",
+        "text": "Houston Rockets"
+      },
+      {
+        "id": "c",
+        "text": "Dallas Mavericks"
+      },
+      {
+        "id": "d",
+        "text": "Memphis Grizzlies"
+      }
+    ],
+    "answer": "a",
+    "reveal": "Phoenix Suns. Traded from Houston in July 2025.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/090dd4e2ff21.webp",
+      "w": 512,
+      "h": 512,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/eda310908337.webp",
+      "w": 1040,
+      "h": 760
+    },
+    "sources": [
+      {
+        "url": "https://www.nba.com/player/1628415/dillon-brooks",
+        "note": "nba.com player page: Phoenix Suns, Traded from HOU on 07/06/25; roster status Active, #3",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams",
+        "note": "cross-checked against the ESPN team roster API, same team",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29",
+      "cutoff": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "nba"
+      ],
+      "likely": [
+        "Evan",
+        "Eyob",
+        "Adi"
+      ],
+      "possible": [
+        "Sahil"
+      ],
+      "reach": "shared"
+    },
+    "notes": "Roster as of 2026-10-29. A trade after that date changes the answer. Every decoy is a different team from the answer. Where the official page says traded from X, X is one of the decoys; other decoys are plausible teams, not checked past teams."
+  },
+  {
+    "id": "nba-ben-simmons",
+    "category": "nba",
+    "tier": 2,
+    "format": "image",
+    "prompt": "Who does he play for?",
+    "subject": "Ben Simmons",
+    "options": [
+      {
+        "id": "a",
+        "text": "Brooklyn Nets"
+      },
+      {
+        "id": "b",
+        "text": "LA Clippers"
+      },
+      {
+        "id": "c",
+        "text": "Sacramento Kings"
+      },
+      {
+        "id": "d",
+        "text": "Philadelphia 76ers"
+      }
+    ],
+    "answer": "c",
+    "reveal": "Sacramento Kings. Signed in September 2026.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/5230e8ec6c47.webp",
+      "w": 512,
+      "h": 512,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/817cd5b34a8c.webp",
+      "w": 1040,
+      "h": 760
+    },
+    "sources": [
+      {
+        "url": "https://www.nba.com/player/1627732/ben-simmons",
+        "note": "nba.com player page: Sacramento Kings, Signed on 09/07/26; roster status Active, #25",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams",
+        "note": "cross-checked against the ESPN team roster API, same team",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29",
+      "cutoff": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "nba"
+      ],
+      "likely": [
+        "Evan",
+        "Eyob",
+        "Adi"
+      ],
+      "possible": [
+        "Sahil"
+      ],
+      "reach": "shared"
+    },
+    "notes": "Roster as of 2026-10-29. A trade after that date changes the answer. Every decoy is a different team from the answer. Where the official page says traded from X, X is one of the decoys; other decoys are plausible teams, not checked past teams."
+  },
+  {
+    "id": "nba-zach-lavine",
+    "category": "nba",
+    "tier": 2,
+    "format": "image",
+    "prompt": "Who does he play for?",
+    "subject": "Zach LaVine",
+    "options": [
+      {
+        "id": "a",
+        "text": "Chicago Bulls"
+      },
+      {
+        "id": "b",
+        "text": "Sacramento Kings"
+      },
+      {
+        "id": "c",
+        "text": "Minnesota Timberwolves"
+      },
+      {
+        "id": "d",
+        "text": "Atlanta Hawks"
+      }
+    ],
+    "answer": "b",
+    "reveal": "Sacramento Kings. Traded from Chicago in February 2025.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/adb856de7371.webp",
+      "w": 512,
+      "h": 512,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/cf9f4e30473d.webp",
+      "w": 1040,
+      "h": 760
+    },
+    "sources": [
+      {
+        "url": "https://www.nba.com/player/203897/zach-lavine",
+        "note": "nba.com player page: Sacramento Kings, Traded from CHI on 02/03/25; roster status Active, #8",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams",
+        "note": "cross-checked against the ESPN team roster API, same team",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29",
+      "cutoff": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "nba"
+      ],
+      "likely": [
+        "Evan",
+        "Eyob",
+        "Adi"
+      ],
+      "possible": [
+        "Sahil"
+      ],
+      "reach": "shared"
+    },
+    "notes": "Roster as of 2026-10-29. A trade after that date changes the answer. Every decoy is a different team from the answer. Where the official page says traded from X, X is one of the decoys; other decoys are plausible teams, not checked past teams."
+  },
+  {
+    "id": "nba-bradley-beal",
+    "category": "nba",
+    "tier": 2,
+    "format": "image",
+    "prompt": "Who does he play for?",
+    "subject": "Bradley Beal",
+    "options": [
+      {
+        "id": "a",
+        "text": "Phoenix Suns"
+      },
+      {
+        "id": "b",
+        "text": "Philadelphia 76ers"
+      },
+      {
+        "id": "c",
+        "text": "Washington Wizards"
+      },
+      {
+        "id": "d",
+        "text": "LA Clippers"
+      }
+    ],
+    "answer": "d",
+    "reveal": "LA Clippers. Signed in July 2025.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/31002f93d3a0.webp",
+      "w": 512,
+      "h": 512,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/0323885a1605.webp",
+      "w": 1040,
+      "h": 760
+    },
+    "sources": [
+      {
+        "url": "https://www.nba.com/player/203078/bradley-beal",
+        "note": "nba.com player page: LA Clippers, Signed on 07/18/25; roster status Active, #3",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams",
+        "note": "cross-checked against the ESPN team roster API, same team",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29",
+      "cutoff": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "nba"
+      ],
+      "likely": [
+        "Evan",
+        "Eyob",
+        "Adi"
+      ],
+      "possible": [
+        "Sahil"
+      ],
+      "reach": "shared"
+    },
+    "notes": "Roster as of 2026-10-29. A trade after that date changes the answer. Every decoy is a different team from the answer. Where the official page says traded from X, X is one of the decoys; other decoys are plausible teams, not checked past teams."
+  },
+  {
+    "id": "nba-ty-jerome",
+    "category": "nba",
+    "tier": 3,
+    "format": "image",
+    "prompt": "Who does he play for?",
+    "subject": "Ty Jerome",
+    "options": [
+      {
+        "id": "a",
+        "text": "Phoenix Suns"
+      },
+      {
+        "id": "b",
+        "text": "Oklahoma City Thunder"
+      },
+      {
+        "id": "c",
+        "text": "Cleveland Cavaliers"
+      },
+      {
+        "id": "d",
+        "text": "Memphis Grizzlies"
+      }
+    ],
+    "answer": "d",
+    "reveal": "Memphis Grizzlies. Signed in July 2025.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/8eb4701baa59.webp",
+      "w": 512,
+      "h": 512,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/0ab8e7dae6e7.webp",
+      "w": 1040,
+      "h": 760
+    },
+    "sources": [
+      {
+        "url": "https://www.nba.com/player/1629660/ty-jerome",
+        "note": "nba.com player page: Memphis Grizzlies, Signed on 07/14/25; roster status Active, #2",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams",
+        "note": "cross-checked against the ESPN team roster API, same team",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29",
+      "cutoff": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "nba"
+      ],
+      "likely": [],
+      "possible": [
+        "Evan",
+        "Eyob",
+        "Adi",
+        "Sahil"
+      ],
+      "reach": "shared"
+    },
+    "notes": "Roster as of 2026-10-29. A trade after that date changes the answer. Every decoy is a different team from the answer. Where the official page says traded from X, X is one of the decoys; other decoys are plausible teams, not checked past teams."
+  },
+  {
+    "id": "nba-luke-kornet",
+    "category": "nba",
+    "tier": 3,
+    "format": "image",
+    "prompt": "Who does he play for?",
+    "subject": "Luke Kornet",
+    "options": [
+      {
+        "id": "a",
+        "text": "New York Knicks"
+      },
+      {
+        "id": "b",
+        "text": "San Antonio Spurs"
+      },
+      {
+        "id": "c",
+        "text": "Chicago Bulls"
+      },
+      {
+        "id": "d",
+        "text": "Boston Celtics"
+      }
+    ],
+    "answer": "b",
+    "reveal": "San Antonio Spurs. Signed in July 2025.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/527284a21101.webp",
+      "w": 512,
+      "h": 512,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/4d7ed3ba9f1b.webp",
+      "w": 1040,
+      "h": 760
+    },
+    "sources": [
+      {
+        "url": "https://www.nba.com/player/1628436/luke-kornet",
+        "note": "nba.com player page: San Antonio Spurs, Signed on 07/07/25; roster status Active, #7",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams",
+        "note": "cross-checked against the ESPN team roster API, same team",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29",
+      "cutoff": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "nba"
+      ],
+      "likely": [],
+      "possible": [
+        "Evan",
+        "Eyob",
+        "Adi",
+        "Sahil"
+      ],
+      "reach": "shared"
+    },
+    "notes": "Roster as of 2026-10-29. A trade after that date changes the answer. Every decoy is a different team from the answer. Where the official page says traded from X, X is one of the decoys; other decoys are plausible teams, not checked past teams."
+  },
+  {
+    "id": "nba-nickeil-alexander-walker",
+    "category": "nba",
+    "tier": 3,
+    "format": "image",
+    "prompt": "Who does he play for?",
+    "subject": "Nickeil Alexander-Walker",
+    "options": [
+      {
+        "id": "a",
+        "text": "Portland Trail Blazers"
+      },
+      {
+        "id": "b",
+        "text": "Utah Jazz"
+      },
+      {
+        "id": "c",
+        "text": "Atlanta Hawks"
+      },
+      {
+        "id": "d",
+        "text": "Minnesota Timberwolves"
+      }
+    ],
+    "answer": "c",
+    "reveal": "Atlanta Hawks. Traded from Minnesota in July 2025.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/4d2707548656.webp",
+      "w": 512,
+      "h": 512,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/3b2bcbb51510.webp",
+      "w": 1040,
+      "h": 760
+    },
+    "sources": [
+      {
+        "url": "https://www.nba.com/player/1629638/nickeil-alexander-walker",
+        "note": "nba.com player page: Atlanta Hawks, Traded from MIN on 07/06/25; roster status Active, #7",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams",
+        "note": "cross-checked against the ESPN team roster API, same team",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29",
+      "cutoff": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "nba"
+      ],
+      "likely": [],
+      "possible": [
+        "Evan",
+        "Eyob",
+        "Adi",
+        "Sahil"
+      ],
+      "reach": "shared"
+    },
+    "notes": "Roster as of 2026-10-29. A trade after that date changes the answer. Every decoy is a different team from the answer. Where the official page says traded from X, X is one of the decoys; other decoys are plausible teams, not checked past teams."
+  },
+  {
+    "id": "nba-jock-landale",
+    "category": "nba",
+    "tier": 3,
+    "format": "image",
+    "prompt": "Who does he play for?",
+    "subject": "Jock Landale",
+    "options": [
+      {
+        "id": "a",
+        "text": "Atlanta Hawks"
+      },
+      {
+        "id": "b",
+        "text": "Utah Jazz"
+      },
+      {
+        "id": "c",
+        "text": "Phoenix Suns"
+      },
+      {
+        "id": "d",
+        "text": "Houston Rockets"
+      }
+    ],
+    "answer": "a",
+    "reveal": "Atlanta Hawks. Traded from Utah in February 2026.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/c0063218341d.webp",
+      "w": 512,
+      "h": 512,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/dc240d9ce9ac.webp",
+      "w": 1040,
+      "h": 760
+    },
+    "sources": [
+      {
+        "url": "https://www.nba.com/player/1629111/jock-landale",
+        "note": "nba.com player page: Atlanta Hawks, Traded from UTA on 02/05/26; roster status Active, #31",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams",
+        "note": "cross-checked against the ESPN team roster API, same team",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29",
+      "cutoff": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "nba"
+      ],
+      "likely": [],
+      "possible": [
+        "Evan",
+        "Eyob",
+        "Adi",
+        "Sahil"
+      ],
+      "reach": "shared"
+    },
+    "notes": "Roster as of 2026-10-29. A trade after that date changes the answer. Every decoy is a different team from the answer. Where the official page says traded from X, X is one of the decoys; other decoys are plausible teams, not checked past teams."
+  },
+  {
+    "id": "nba-trey-lyles",
+    "category": "nba",
+    "tier": 3,
+    "format": "image",
+    "prompt": "Who does he play for?",
+    "subject": "Trey Lyles",
+    "options": [
+      {
+        "id": "a",
+        "text": "Utah Jazz"
+      },
+      {
+        "id": "b",
+        "text": "Minnesota Timberwolves"
+      },
+      {
+        "id": "c",
+        "text": "Sacramento Kings"
+      },
+      {
+        "id": "d",
+        "text": "Detroit Pistons"
+      }
+    ],
+    "answer": "b",
+    "reveal": "Minnesota Timberwolves. Signed in July 2026.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/a56024d3a033.webp",
+      "w": 512,
+      "h": 512,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/b56e54cdb9c7.webp",
+      "w": 1040,
+      "h": 760
+    },
+    "sources": [
+      {
+        "url": "https://www.nba.com/player/1626168/trey-lyles",
+        "note": "nba.com player page: Minnesota Timberwolves, Signed on 07/10/26; roster status Active, #41",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams",
+        "note": "cross-checked against the ESPN team roster API, same team",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29",
+      "cutoff": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "nba"
+      ],
+      "likely": [],
+      "possible": [
+        "Evan",
+        "Eyob",
+        "Adi",
+        "Sahil"
+      ],
+      "reach": "shared"
+    },
+    "notes": "Roster as of 2026-10-29. A trade after that date changes the answer. Every decoy is a different team from the answer. Where the official page says traded from X, X is one of the decoys; other decoys are plausible teams, not checked past teams."
+  },
+  {
+    "id": "nba-steven-adams",
+    "category": "nba",
+    "tier": 3,
+    "format": "image",
+    "prompt": "Who does he play for?",
+    "subject": "Steven Adams",
+    "options": [
+      {
+        "id": "a",
+        "text": "Oklahoma City Thunder"
+      },
+      {
+        "id": "b",
+        "text": "Memphis Grizzlies"
+      },
+      {
+        "id": "c",
+        "text": "New Orleans Pelicans"
+      },
+      {
+        "id": "d",
+        "text": "Houston Rockets"
+      }
+    ],
+    "answer": "d",
+    "reveal": "Houston Rockets. Traded from Memphis in February 2024.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/1de40a81673b.webp",
+      "w": 512,
+      "h": 512,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/b74f6debb163.webp",
+      "w": 1040,
+      "h": 760
+    },
+    "sources": [
+      {
+        "url": "https://www.nba.com/player/203500/steven-adams",
+        "note": "nba.com player page: Houston Rockets, Traded from MEM on 02/01/24; roster status Active, #12",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams",
+        "note": "cross-checked against the ESPN team roster API, same team",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29",
+      "cutoff": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "nba"
+      ],
+      "likely": [],
+      "possible": [
+        "Evan",
+        "Eyob",
+        "Adi",
+        "Sahil"
+      ],
+      "reach": "shared"
+    },
+    "notes": "Roster as of 2026-10-29. A trade after that date changes the answer. Every decoy is a different team from the answer. Where the official page says traded from X, X is one of the decoys; other decoys are plausible teams, not checked past teams."
+  },
+  {
+    "id": "nba-buddy-hield",
+    "category": "nba",
+    "tier": 3,
+    "format": "image",
+    "prompt": "Who does he play for?",
+    "subject": "Buddy Hield",
+    "options": [
+      {
+        "id": "a",
+        "text": "Chicago Bulls"
+      },
+      {
+        "id": "b",
+        "text": "Golden State Warriors"
+      },
+      {
+        "id": "c",
+        "text": "Indiana Pacers"
+      },
+      {
+        "id": "d",
+        "text": "Charlotte Hornets"
+      }
+    ],
+    "answer": "a",
+    "reveal": "Chicago Bulls. Traded from Charlotte in September 2026.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/a0c006fec074.webp",
+      "w": 512,
+      "h": 512,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/4bee1b27ad30.webp",
+      "w": 1040,
+      "h": 760
+    },
+    "sources": [
+      {
+        "url": "https://www.nba.com/player/1627741/buddy-hield",
+        "note": "nba.com player page: Chicago Bulls, Traded from CHA on 09/27/26; roster status Active, #7",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams",
+        "note": "cross-checked against the ESPN team roster API, same team",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29",
+      "cutoff": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "nba"
+      ],
+      "likely": [],
+      "possible": [
+        "Evan",
+        "Eyob",
+        "Adi",
+        "Sahil"
+      ],
+      "reach": "shared"
+    },
+    "notes": "Roster as of 2026-10-29. A trade after that date changes the answer. Every decoy is a different team from the answer. Where the official page says traded from X, X is one of the decoys; other decoys are plausible teams, not checked past teams."
+  },
+  {
+    "id": "nba-dennis-schroder",
+    "category": "nba",
+    "tier": 3,
+    "format": "image",
+    "prompt": "Who does he play for?",
+    "subject": "Dennis Schroder",
+    "options": [
+      {
+        "id": "a",
+        "text": "Detroit Pistons"
+      },
+      {
+        "id": "b",
+        "text": "Cleveland Cavaliers"
+      },
+      {
+        "id": "c",
+        "text": "Charlotte Hornets"
+      },
+      {
+        "id": "d",
+        "text": "Sacramento Kings"
+      }
+    ],
+    "answer": "c",
+    "reveal": "Charlotte Hornets. Traded from Cleveland in August 2026.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/20de2a357058.webp",
+      "w": 512,
+      "h": 512,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/4ec6ccc56cf5.webp",
+      "w": 1040,
+      "h": 760
+    },
+    "sources": [
+      {
+        "url": "https://www.nba.com/player/203471/dennis-schroder",
+        "note": "nba.com player page: Charlotte Hornets, Traded from CLE on 08/20/26; roster status Active, #17",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams",
+        "note": "cross-checked against the ESPN team roster API, same team",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29",
+      "cutoff": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "nba"
+      ],
+      "likely": [],
+      "possible": [
+        "Evan",
+        "Eyob",
+        "Adi",
+        "Sahil"
+      ],
+      "reach": "shared"
+    },
+    "notes": "Roster as of 2026-10-29. A trade after that date changes the answer. Every decoy is a different team from the answer. Where the official page says traded from X, X is one of the decoys; other decoys are plausible teams, not checked past teams."
+  },
+  {
+    "id": "nba-marcus-smart",
+    "category": "nba",
+    "tier": 3,
+    "format": "image",
+    "prompt": "Who does he play for?",
+    "subject": "Marcus Smart",
+    "options": [
+      {
+        "id": "a",
+        "text": "Los Angeles Lakers"
+      },
+      {
+        "id": "b",
+        "text": "Memphis Grizzlies"
+      },
+      {
+        "id": "c",
+        "text": "Houston Rockets"
+      },
+      {
+        "id": "d",
+        "text": "Boston Celtics"
+      }
+    ],
+    "answer": "c",
+    "reveal": "Houston Rockets. Signed in July 2026.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/a9ec5c3bcbe5.webp",
+      "w": 512,
+      "h": 512,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/9ba8eea77dbd.webp",
+      "w": 1040,
+      "h": 760
+    },
+    "sources": [
+      {
+        "url": "https://www.nba.com/player/203935/marcus-smart",
+        "note": "nba.com player page: Houston Rockets, Signed on 07/10/26; roster status Active, #36",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams",
+        "note": "cross-checked against the ESPN team roster API, same team",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29",
+      "cutoff": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "nba"
+      ],
+      "likely": [],
+      "possible": [
+        "Evan",
+        "Eyob",
+        "Adi",
+        "Sahil"
+      ],
+      "reach": "shared"
+    },
+    "notes": "Roster as of 2026-10-29. A trade after that date changes the answer. Every decoy is a different team from the answer. Where the official page says traded from X, X is one of the decoys; other decoys are plausible teams, not checked past teams."
+  },
+  {
+    "id": "nba-kevin-huerter",
+    "category": "nba",
+    "tier": 3,
+    "format": "image",
+    "prompt": "Who does he play for?",
+    "subject": "Kevin Huerter",
+    "options": [
+      {
+        "id": "a",
+        "text": "Detroit Pistons"
+      },
+      {
+        "id": "b",
+        "text": "Atlanta Hawks"
+      },
+      {
+        "id": "c",
+        "text": "Sacramento Kings"
+      },
+      {
+        "id": "d",
+        "text": "Chicago Bulls"
+      }
+    ],
+    "answer": "a",
+    "reveal": "Detroit Pistons. Traded from Chicago in February 2026.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/1c0f9de387ee.webp",
+      "w": 512,
+      "h": 512,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/39e0a6ec81db.webp",
+      "w": 1040,
+      "h": 760
+    },
+    "sources": [
+      {
+        "url": "https://www.nba.com/player/1628989/kevin-huerter",
+        "note": "nba.com player page: Detroit Pistons, Traded from CHI on 02/03/26; roster status Active, #27",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams",
+        "note": "cross-checked against the ESPN team roster API, same team",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29",
+      "cutoff": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "nba"
+      ],
+      "likely": [],
+      "possible": [
+        "Evan",
+        "Eyob",
+        "Adi",
+        "Sahil"
+      ],
+      "reach": "shared"
+    },
+    "notes": "Roster as of 2026-10-29. A trade after that date changes the answer. Every decoy is a different team from the answer. Where the official page says traded from X, X is one of the decoys; other decoys are plausible teams, not checked past teams."
+  },
+  {
+    "id": "nba-caris-levert",
+    "category": "nba",
+    "tier": 3,
+    "format": "image",
+    "prompt": "Who does he play for?",
+    "subject": "Caris LeVert",
+    "options": [
+      {
+        "id": "a",
+        "text": "Brooklyn Nets"
+      },
+      {
+        "id": "b",
+        "text": "Cleveland Cavaliers"
+      },
+      {
+        "id": "c",
+        "text": "Detroit Pistons"
+      },
+      {
+        "id": "d",
+        "text": "Milwaukee Bucks"
+      }
+    ],
+    "answer": "d",
+    "reveal": "Milwaukee Bucks. Traded from Detroit in July 2026.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/0004b74dbd1e.webp",
+      "w": 512,
+      "h": 512,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/175be52ff030.webp",
+      "w": 1040,
+      "h": 760
+    },
+    "sources": [
+      {
+        "url": "https://www.nba.com/player/1627747/caris-levert",
+        "note": "nba.com player page: Milwaukee Bucks, Traded from DET on 07/08/26; roster status Active, #12",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams",
+        "note": "cross-checked against the ESPN team roster API, same team",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29",
+      "cutoff": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "nba"
+      ],
+      "likely": [],
+      "possible": [
+        "Evan",
+        "Eyob",
+        "Adi",
+        "Sahil"
+      ],
+      "reach": "shared"
+    },
+    "notes": "Roster as of 2026-10-29. A trade after that date changes the answer. Every decoy is a different team from the answer. Where the official page says traded from X, X is one of the decoys; other decoys are plausible teams, not checked past teams."
+  },
+  {
+    "id": "nba-svi-mykhailiuk",
+    "category": "nba",
+    "tier": 4,
+    "format": "image",
+    "prompt": "Who does he play for?",
+    "subject": "Svi Mykhailiuk",
+    "options": [
+      {
+        "id": "a",
+        "text": "Oklahoma City Thunder"
+      },
+      {
+        "id": "b",
+        "text": "Utah Jazz"
+      },
+      {
+        "id": "c",
+        "text": "Charlotte Hornets"
+      },
+      {
+        "id": "d",
+        "text": "Toronto Raptors"
+      }
+    ],
+    "answer": "b",
+    "reveal": "Utah Jazz. Signed in August 2024.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/b0a57075f730.webp",
+      "w": 512,
+      "h": 512,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/ade7fd07b27f.webp",
+      "w": 1040,
+      "h": 760
+    },
+    "sources": [
+      {
+        "url": "https://www.nba.com/player/1629004/svi-mykhailiuk",
+        "note": "nba.com player page: Utah Jazz, Signed on 08/10/24; roster status Active, #10",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams",
+        "note": "cross-checked against the ESPN team roster API, same team",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29",
+      "cutoff": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "nba"
+      ],
+      "likely": [],
+      "possible": [
+        "Evan",
+        "Eyob",
+        "Adi",
+        "Sahil"
+      ],
+      "reach": "deep"
+    },
+    "notes": "Roster as of 2026-10-29. A trade after that date changes the answer. Every decoy is a different team from the answer. Where the official page says traded from X, X is one of the decoys; other decoys are plausible teams, not checked past teams."
+  },
+  {
+    "id": "nba-vit-krejci",
+    "category": "nba",
+    "tier": 4,
+    "format": "image",
+    "prompt": "Who does he play for?",
+    "subject": "Vit Krejci",
+    "options": [
+      {
+        "id": "a",
+        "text": "Portland Trail Blazers"
+      },
+      {
+        "id": "b",
+        "text": "Atlanta Hawks"
+      },
+      {
+        "id": "c",
+        "text": "Washington Wizards"
+      },
+      {
+        "id": "d",
+        "text": "Oklahoma City Thunder"
+      }
+    ],
+    "answer": "a",
+    "reveal": "Portland Trail Blazers. Traded from Atlanta in February 2026.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/103b152df968.webp",
+      "w": 512,
+      "h": 512,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/57c48d9eb8ca.webp",
+      "w": 1040,
+      "h": 760
+    },
+    "sources": [
+      {
+        "url": "https://www.nba.com/player/1630249/vit-krejci",
+        "note": "nba.com player page: Portland Trail Blazers, Traded from ATL on 02/01/26; roster status Active, #27",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams",
+        "note": "cross-checked against the ESPN team roster API, same team",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29",
+      "cutoff": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "nba"
+      ],
+      "likely": [],
+      "possible": [
+        "Evan",
+        "Eyob",
+        "Adi",
+        "Sahil"
+      ],
+      "reach": "deep"
+    },
+    "notes": "Roster as of 2026-10-29. A trade after that date changes the answer. Every decoy is a different team from the answer. Where the official page says traded from X, X is one of the decoys; other decoys are plausible teams, not checked past teams."
+  },
+  {
+    "id": "nba-josh-green",
+    "category": "nba",
+    "tier": 4,
+    "format": "image",
+    "prompt": "Who does he play for?",
+    "subject": "Josh Green",
+    "options": [
+      {
+        "id": "a",
+        "text": "Dallas Mavericks"
+      },
+      {
+        "id": "b",
+        "text": "Minnesota Timberwolves"
+      },
+      {
+        "id": "c",
+        "text": "Utah Jazz"
+      },
+      {
+        "id": "d",
+        "text": "Charlotte Hornets"
+      }
+    ],
+    "answer": "c",
+    "reveal": "Utah Jazz. Traded from Minnesota in August 2026.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/b6ec3ed62510.webp",
+      "w": 512,
+      "h": 512,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/025d632c6b44.webp",
+      "w": 1040,
+      "h": 760
+    },
+    "sources": [
+      {
+        "url": "https://www.nba.com/player/1630182/josh-green",
+        "note": "nba.com player page: Utah Jazz, Traded from MIN on 08/29/26; roster status Active, #5",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams",
+        "note": "cross-checked against the ESPN team roster API, same team",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29",
+      "cutoff": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "nba"
+      ],
+      "likely": [],
+      "possible": [
+        "Evan",
+        "Eyob",
+        "Adi",
+        "Sahil"
+      ],
+      "reach": "deep"
+    },
+    "notes": "Roster as of 2026-10-29. A trade after that date changes the answer. Every decoy is a different team from the answer. Where the official page says traded from X, X is one of the decoys; other decoys are plausible teams, not checked past teams."
+  },
+  {
+    "id": "nba-sandro-mamukelashvili",
+    "category": "nba",
+    "tier": 4,
+    "format": "image",
+    "prompt": "Who does he play for?",
+    "subject": "Sandro Mamukelashvili",
+    "options": [
+      {
+        "id": "a",
+        "text": "Milwaukee Bucks"
+      },
+      {
+        "id": "b",
+        "text": "Los Angeles Lakers"
+      },
+      {
+        "id": "c",
+        "text": "Toronto Raptors"
+      },
+      {
+        "id": "d",
+        "text": "San Antonio Spurs"
+      }
+    ],
+    "answer": "b",
+    "reveal": "Los Angeles Lakers. Signed in July 2026.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/83ce23e18910.webp",
+      "w": 512,
+      "h": 512,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/748ef9ac5913.webp",
+      "w": 1040,
+      "h": 760
+    },
+    "sources": [
+      {
+        "url": "https://www.nba.com/player/1630572/sandro-mamukelashvili",
+        "note": "nba.com player page: Los Angeles Lakers, Signed on 07/07/26; roster status Active, #54",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams",
+        "note": "cross-checked against the ESPN team roster API, same team",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29",
+      "cutoff": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "nba"
+      ],
+      "likely": [],
+      "possible": [
+        "Evan",
+        "Eyob",
+        "Adi",
+        "Sahil"
+      ],
+      "reach": "deep"
+    },
+    "notes": "Roster as of 2026-10-29. A trade after that date changes the answer. Every decoy is a different team from the answer. Where the official page says traded from X, X is one of the decoys; other decoys are plausible teams, not checked past teams."
+  },
+  {
+    "id": "nba-karlo-matkovic",
+    "category": "nba",
+    "tier": 4,
+    "format": "image",
+    "prompt": "Who does he play for?",
+    "subject": "Karlo Matkovic",
+    "options": [
+      {
+        "id": "a",
+        "text": "Charlotte Hornets"
+      },
+      {
+        "id": "b",
+        "text": "Memphis Grizzlies"
+      },
+      {
+        "id": "c",
+        "text": "San Antonio Spurs"
+      },
+      {
+        "id": "d",
+        "text": "New Orleans Pelicans"
+      }
+    ],
+    "answer": "d",
+    "reveal": "New Orleans Pelicans. Drafted 52nd overall in 2022.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/844667aaf804.webp",
+      "w": 512,
+      "h": 512,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/8d79d79b04e1.webp",
+      "w": 1040,
+      "h": 760
+    },
+    "sources": [
+      {
+        "url": "https://www.nba.com/player/1631255/karlo-matkovic",
+        "note": "nba.com player page: New Orleans Pelicans, #52 Pick in 2022 Draft; roster status Active, #17",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams",
+        "note": "cross-checked against the ESPN team roster API, same team",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29",
+      "cutoff": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "nba"
+      ],
+      "likely": [],
+      "possible": [
+        "Evan",
+        "Eyob",
+        "Adi",
+        "Sahil"
+      ],
+      "reach": "deep"
+    },
+    "notes": "Roster as of 2026-10-29. A trade after that date changes the answer. Every decoy is a different team from the answer. Where the official page says traded from X, X is one of the decoys; other decoys are plausible teams, not checked past teams."
+  },
+  {
+    "id": "nba-georges-niang",
+    "category": "nba",
+    "tier": 4,
+    "format": "image",
+    "prompt": "Who does he play for?",
+    "subject": "Georges Niang",
+    "options": [
+      {
+        "id": "a",
+        "text": "Atlanta Hawks"
+      },
+      {
+        "id": "b",
+        "text": "Cleveland Cavaliers"
+      },
+      {
+        "id": "c",
+        "text": "Boston Celtics"
+      },
+      {
+        "id": "d",
+        "text": "Golden State Warriors"
+      }
+    ],
+    "answer": "d",
+    "reveal": "Golden State Warriors. Signed in August 2026.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/ccffa926b5c5.webp",
+      "w": 512,
+      "h": 512,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/0ccec46fb0bc.webp",
+      "w": 1040,
+      "h": 760
+    },
+    "sources": [
+      {
+        "url": "https://www.nba.com/player/1627777/georges-niang",
+        "note": "nba.com player page: Golden State Warriors, Signed on 08/25/26; roster status Active, #32",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams",
+        "note": "cross-checked against the ESPN team roster API, same team",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29",
+      "cutoff": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "nba"
+      ],
+      "likely": [],
+      "possible": [
+        "Evan",
+        "Eyob",
+        "Adi",
+        "Sahil"
+      ],
+      "reach": "deep"
+    },
+    "notes": "Roster as of 2026-10-29. A trade after that date changes the answer. Every decoy is a different team from the answer. Where the official page says traded from X, X is one of the decoys; other decoys are plausible teams, not checked past teams."
+  },
+  {
+    "id": "nba-gary-trent-jr",
+    "category": "nba",
+    "tier": 4,
+    "format": "image",
+    "prompt": "Who does he play for?",
+    "subject": "Gary Trent Jr.",
+    "options": [
+      {
+        "id": "a",
+        "text": "Portland Trail Blazers"
+      },
+      {
+        "id": "b",
+        "text": "Milwaukee Bucks"
+      },
+      {
+        "id": "c",
+        "text": "Toronto Raptors"
+      },
+      {
+        "id": "d",
+        "text": "Dallas Mavericks"
+      }
+    ],
+    "answer": "b",
+    "reveal": "Milwaukee Bucks. Signed in July 2024.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/19eede455560.webp",
+      "w": 512,
+      "h": 512,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/bc58810b5390.webp",
+      "w": 1040,
+      "h": 760
+    },
+    "sources": [
+      {
+        "url": "https://www.nba.com/player/1629018/gary-trent-jr",
+        "note": "nba.com player page: Milwaukee Bucks, Signed on 07/20/24; roster status Active, #5",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams",
+        "note": "cross-checked against the ESPN team roster API, same team",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29",
+      "cutoff": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "nba"
+      ],
+      "likely": [],
+      "possible": [
+        "Evan",
+        "Eyob",
+        "Adi",
+        "Sahil"
+      ],
+      "reach": "deep"
+    },
+    "notes": "Roster as of 2026-10-29. A trade after that date changes the answer. Every decoy is a different team from the answer. Where the official page says traded from X, X is one of the decoys; other decoys are plausible teams, not checked past teams."
+  },
+  {
+    "id": "nba-josh-okogie",
+    "category": "nba",
+    "tier": 4,
+    "format": "image",
+    "prompt": "Who does he play for?",
+    "subject": "Josh Okogie",
+    "options": [
+      {
+        "id": "a",
+        "text": "Houston Rockets"
+      },
+      {
+        "id": "b",
+        "text": "Charlotte Hornets"
+      },
+      {
+        "id": "c",
+        "text": "Utah Jazz"
+      },
+      {
+        "id": "d",
+        "text": "Phoenix Suns"
+      }
+    ],
+    "answer": "c",
+    "reveal": "Utah Jazz. Signed in July 2026.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/72553cd5cbbf.webp",
+      "w": 512,
+      "h": 512,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/85c9eae008e4.webp",
+      "w": 1040,
+      "h": 760
+    },
+    "sources": [
+      {
+        "url": "https://www.nba.com/player/1629006/josh-okogie",
+        "note": "nba.com player page: Utah Jazz, Signed on 07/09/26; roster status Active, #21",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams",
+        "note": "cross-checked against the ESPN team roster API, same team",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29",
+      "cutoff": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "nba"
+      ],
+      "likely": [],
+      "possible": [
+        "Evan",
+        "Eyob",
+        "Adi",
+        "Sahil"
+      ],
+      "reach": "deep"
+    },
+    "notes": "Roster as of 2026-10-29. A trade after that date changes the answer. Every decoy is a different team from the answer. Where the official page says traded from X, X is one of the decoys; other decoys are plausible teams, not checked past teams."
+  },
+  {
+    "id": "nba-thomas-bryant",
+    "category": "nba",
+    "tier": 4,
+    "format": "image",
+    "prompt": "Who does he play for?",
+    "subject": "Thomas Bryant",
+    "options": [
+      {
+        "id": "a",
+        "text": "Cleveland Cavaliers"
+      },
+      {
+        "id": "b",
+        "text": "Los Angeles Lakers"
+      },
+      {
+        "id": "c",
+        "text": "Miami Heat"
+      },
+      {
+        "id": "d",
+        "text": "Indiana Pacers"
+      }
+    ],
+    "answer": "a",
+    "reveal": "Cleveland Cavaliers. Signed in September 2025.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/854dc367c902.webp",
+      "w": 512,
+      "h": 512,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/93c599c1b712.webp",
+      "w": 1040,
+      "h": 760
+    },
+    "sources": [
+      {
+        "url": "https://www.nba.com/player/1628418/thomas-bryant",
+        "note": "nba.com player page: Cleveland Cavaliers, Signed on 09/25/25; roster status Active, #3",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams",
+        "note": "cross-checked against the ESPN team roster API, same team",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29",
+      "cutoff": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "nba"
+      ],
+      "likely": [],
+      "possible": [
+        "Evan",
+        "Eyob",
+        "Adi",
+        "Sahil"
+      ],
+      "reach": "deep"
+    },
+    "notes": "Roster as of 2026-10-29. A trade after that date changes the answer. Every decoy is a different team from the answer. Where the official page says traded from X, X is one of the decoys; other decoys are plausible teams, not checked past teams."
+  },
+  {
+    "id": "nba-javonte-green",
+    "category": "nba",
+    "tier": 4,
+    "format": "image",
+    "prompt": "Who does he play for?",
+    "subject": "Javonte Green",
+    "options": [
+      {
+        "id": "a",
+        "text": "New Orleans Pelicans"
+      },
+      {
+        "id": "b",
+        "text": "Detroit Pistons"
+      },
+      {
+        "id": "c",
+        "text": "Golden State Warriors"
+      },
+      {
+        "id": "d",
+        "text": "Chicago Bulls"
+      }
+    ],
+    "answer": "b",
+    "reveal": "Detroit Pistons. Signed in August 2025.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/624483f0c17f.webp",
+      "w": 512,
+      "h": 512,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/308ecde4087b.webp",
+      "w": 1040,
+      "h": 760
+    },
+    "sources": [
+      {
+        "url": "https://www.nba.com/player/1629750/javonte-green",
+        "note": "nba.com player page: Detroit Pistons, Signed on 08/14/25; roster status Active, #31",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams",
+        "note": "cross-checked against the ESPN team roster API, same team",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29",
+      "cutoff": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "nba"
+      ],
+      "likely": [],
+      "possible": [
+        "Evan",
+        "Eyob",
+        "Adi",
+        "Sahil"
+      ],
+      "reach": "deep"
+    },
+    "notes": "Roster as of 2026-10-29. A trade after that date changes the answer. Every decoy is a different team from the answer. Where the official page says traded from X, X is one of the decoys; other decoys are plausible teams, not checked past teams."
+  },
+  {
+    "id": "nba-jae-sean-tate",
+    "category": "nba",
+    "tier": 4,
+    "format": "image",
+    "prompt": "Who does he play for?",
+    "subject": "Jae'Sean Tate",
+    "options": [
+      {
+        "id": "a",
+        "text": "Memphis Grizzlies"
+      },
+      {
+        "id": "b",
+        "text": "Sacramento Kings"
+      },
+      {
+        "id": "c",
+        "text": "Oklahoma City Thunder"
+      },
+      {
+        "id": "d",
+        "text": "Houston Rockets"
+      }
+    ],
+    "answer": "d",
+    "reveal": "Houston Rockets. Signed in November 2020.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/66a6e01c1f2e.webp",
+      "w": 512,
+      "h": 512,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/c0a050cd109f.webp",
+      "w": 1040,
+      "h": 760
+    },
+    "sources": [
+      {
+        "url": "https://www.nba.com/player/1630256/jaesean-tate",
+        "note": "nba.com player page: Houston Rockets, Signed on 11/25/20; roster status Active, #8",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams",
+        "note": "cross-checked against the ESPN team roster API, same team",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29",
+      "cutoff": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "nba"
+      ],
+      "likely": [],
+      "possible": [
+        "Evan",
+        "Eyob",
+        "Adi",
+        "Sahil"
+      ],
+      "reach": "deep"
+    },
+    "notes": "Roster as of 2026-10-29. A trade after that date changes the answer. Every decoy is a different team from the answer. Where the official page says traded from X, X is one of the decoys; other decoys are plausible teams, not checked past teams."
+  },
+  {
+    "id": "nba-mo-bamba",
+    "category": "nba",
+    "tier": 5,
+    "format": "image",
+    "prompt": "Who does he play for?",
+    "subject": "Mo Bamba",
+    "options": [
+      {
+        "id": "a",
+        "text": "Utah Jazz"
+      },
+      {
+        "id": "b",
+        "text": "Orlando Magic"
+      },
+      {
+        "id": "c",
+        "text": "Philadelphia 76ers"
+      },
+      {
+        "id": "d",
+        "text": "Los Angeles Lakers"
+      }
+    ],
+    "answer": "a",
+    "reveal": "Utah Jazz. Signed in February 2026.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/23f5a55d0178.webp",
+      "w": 512,
+      "h": 512,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/0eca2b7fba92.webp",
+      "w": 1040,
+      "h": 760
+    },
+    "sources": [
+      {
+        "url": "https://www.nba.com/player/1628964/mo-bamba",
+        "note": "nba.com player page: Utah Jazz, Signed on 02/26/26; roster status Active, #44",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams",
+        "note": "cross-checked against the ESPN team roster API, same team",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29",
+      "cutoff": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "nba"
+      ],
+      "likely": [],
+      "possible": [
+        "Evan",
+        "Eyob",
+        "Adi",
+        "Sahil"
+      ],
+      "reach": "deep"
+    },
+    "notes": "Roster as of 2026-10-29. A trade after that date changes the answer. Every decoy is a different team from the answer. Where the official page says traded from X, X is one of the decoys; other decoys are plausible teams, not checked past teams."
+  },
+  {
+    "id": "nba-deandre-jordan",
+    "category": "nba",
+    "tier": 5,
+    "format": "image",
+    "prompt": "Who does he play for?",
+    "subject": "DeAndre Jordan",
+    "options": [
+      {
+        "id": "a",
+        "text": "LA Clippers"
+      },
+      {
+        "id": "b",
+        "text": "Dallas Mavericks"
+      },
+      {
+        "id": "c",
+        "text": "New Orleans Pelicans"
+      },
+      {
+        "id": "d",
+        "text": "Denver Nuggets"
+      }
+    ],
+    "answer": "c",
+    "reveal": "New Orleans Pelicans. Signed in October 2025.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/ae6cd433724d.webp",
+      "w": 512,
+      "h": 512,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/0672f3487054.webp",
+      "w": 1040,
+      "h": 760
+    },
+    "sources": [
+      {
+        "url": "https://www.nba.com/player/201599/deandre-jordan",
+        "note": "nba.com player page: New Orleans Pelicans, Signed on 10/23/25; roster status Active, #6",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams",
+        "note": "cross-checked against the ESPN team roster API, same team",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29",
+      "cutoff": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "nba"
+      ],
+      "likely": [],
+      "possible": [
+        "Evan",
+        "Eyob",
+        "Adi",
+        "Sahil"
+      ],
+      "reach": "deep"
+    },
+    "notes": "Roster as of 2026-10-29. A trade after that date changes the answer. Every decoy is a different team from the answer. Where the official page says traded from X, X is one of the decoys; other decoys are plausible teams, not checked past teams."
+  },
+  {
+    "id": "nba-tacko-fall",
+    "category": "nba",
+    "tier": 5,
+    "format": "image",
+    "prompt": "Who does he play for?",
+    "subject": "Tacko Fall",
+    "options": [
+      {
+        "id": "a",
+        "text": "Boston Celtics"
+      },
+      {
+        "id": "b",
+        "text": "Cleveland Cavaliers"
+      },
+      {
+        "id": "c",
+        "text": "Philadelphia 76ers"
+      },
+      {
+        "id": "d",
+        "text": "Charlotte Hornets"
+      }
+    ],
+    "answer": "c",
+    "reveal": "Philadelphia 76ers. Signed in September 2026.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/d3e7cfe808ff.webp",
+      "w": 512,
+      "h": 512,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/ff592da2682f.webp",
+      "w": 1040,
+      "h": 760
+    },
+    "sources": [
+      {
+        "url": "https://www.nba.com/player/1629605/tacko-fall",
+        "note": "nba.com player page: Philadelphia 76ers, Signed on 09/01/26; roster status Active, #99",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams",
+        "note": "cross-checked against the ESPN team roster API, same team",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29",
+      "cutoff": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "nba"
+      ],
+      "likely": [],
+      "possible": [
+        "Evan",
+        "Eyob",
+        "Adi",
+        "Sahil"
+      ],
+      "reach": "deep"
+    },
+    "notes": "Roster as of 2026-10-29. A trade after that date changes the answer. Every decoy is a different team from the answer. Where the official page says traded from X, X is one of the decoys; other decoys are plausible teams, not checked past teams."
+  },
+  {
+    "id": "nba-jaxson-hayes",
+    "category": "nba",
+    "tier": 5,
+    "format": "image",
+    "prompt": "Who does he play for?",
+    "subject": "Jaxson Hayes",
+    "options": [
+      {
+        "id": "a",
+        "text": "Utah Jazz"
+      },
+      {
+        "id": "b",
+        "text": "Charlotte Hornets"
+      },
+      {
+        "id": "c",
+        "text": "Los Angeles Lakers"
+      },
+      {
+        "id": "d",
+        "text": "New Orleans Pelicans"
+      }
+    ],
+    "answer": "a",
+    "reveal": "Utah Jazz. Signed in July 2026.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/5ea3045330bd.webp",
+      "w": 512,
+      "h": 512,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/96b8dba25712.webp",
+      "w": 1040,
+      "h": 760
+    },
+    "sources": [
+      {
+        "url": "https://www.nba.com/player/1629637/jaxson-hayes",
+        "note": "nba.com player page: Utah Jazz, Signed on 07/09/26; roster status Active, #11",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams",
+        "note": "cross-checked against the ESPN team roster API, same team",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29",
+      "cutoff": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "nba"
+      ],
+      "likely": [],
+      "possible": [
+        "Evan",
+        "Eyob",
+        "Adi",
+        "Sahil"
+      ],
+      "reach": "deep"
+    },
+    "notes": "Roster as of 2026-10-29. A trade after that date changes the answer. Every decoy is a different team from the answer. Where the official page says traded from X, X is one of the decoys; other decoys are plausible teams, not checked past teams."
+  },
+  {
+    "id": "nba-jose-alvarado",
+    "category": "nba",
+    "tier": 5,
+    "format": "image",
+    "prompt": "Who does he play for?",
+    "subject": "Jose Alvarado",
+    "options": [
+      {
+        "id": "a",
+        "text": "Phoenix Suns"
+      },
+      {
+        "id": "b",
+        "text": "New Orleans Pelicans"
+      },
+      {
+        "id": "c",
+        "text": "Memphis Grizzlies"
+      },
+      {
+        "id": "d",
+        "text": "New York Knicks"
+      }
+    ],
+    "answer": "d",
+    "reveal": "New York Knicks. Traded from New Orleans in February 2026.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/0b5fe891b4af.webp",
+      "w": 512,
+      "h": 512,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/775235f0f114.webp",
+      "w": 1040,
+      "h": 760
+    },
+    "sources": [
+      {
+        "url": "https://www.nba.com/player/1630631/jose-alvarado",
+        "note": "nba.com player page: New York Knicks, Traded from NOP on 02/05/26; roster status Active, #5",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams",
+        "note": "cross-checked against the ESPN team roster API, same team",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29",
+      "cutoff": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "nba"
+      ],
+      "likely": [],
+      "possible": [
+        "Evan",
+        "Eyob",
+        "Adi",
+        "Sahil"
+      ],
+      "reach": "deep"
+    },
+    "notes": "Roster as of 2026-10-29. A trade after that date changes the answer. Every decoy is a different team from the answer. Where the official page says traded from X, X is one of the decoys; other decoys are plausible teams, not checked past teams."
+  },
+  {
+    "id": "nba-landry-shamet",
+    "category": "nba",
+    "tier": 5,
+    "format": "image",
+    "prompt": "Who does he play for?",
+    "subject": "Landry Shamet",
+    "options": [
+      {
+        "id": "a",
+        "text": "Washington Wizards"
+      },
+      {
+        "id": "b",
+        "text": "New York Knicks"
+      },
+      {
+        "id": "c",
+        "text": "Philadelphia 76ers"
+      },
+      {
+        "id": "d",
+        "text": "Phoenix Suns"
+      }
+    ],
+    "answer": "b",
+    "reveal": "New York Knicks. Signed in September 2024.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/4f89df90c3d5.webp",
+      "w": 512,
+      "h": 512,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/3fe531d8da26.webp",
+      "w": 1040,
+      "h": 760
+    },
+    "sources": [
+      {
+        "url": "https://www.nba.com/player/1629013/landry-shamet",
+        "note": "nba.com player page: New York Knicks, Signed on 09/14/24; roster status Active, #44",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams",
+        "note": "cross-checked against the ESPN team roster API, same team",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29",
+      "cutoff": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "nba"
+      ],
+      "likely": [],
+      "possible": [
+        "Evan",
+        "Eyob",
+        "Adi",
+        "Sahil"
+      ],
+      "reach": "deep"
+    },
+    "notes": "Roster as of 2026-10-29. A trade after that date changes the answer. Every decoy is a different team from the answer. Where the official page says traded from X, X is one of the decoys; other decoys are plausible teams, not checked past teams."
+  },
+  {
+    "id": "nba-bones-hyland",
+    "category": "nba",
+    "tier": 5,
+    "format": "image",
+    "prompt": "Who does he play for?",
+    "subject": "Bones Hyland",
+    "options": [
+      {
+        "id": "a",
+        "text": "Minnesota Timberwolves"
+      },
+      {
+        "id": "b",
+        "text": "Denver Nuggets"
+      },
+      {
+        "id": "c",
+        "text": "Milwaukee Bucks"
+      },
+      {
+        "id": "d",
+        "text": "LA Clippers"
+      }
+    ],
+    "answer": "a",
+    "reveal": "Minnesota Timberwolves. Signed in February 2025.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/73dd38111ef2.webp",
+      "w": 512,
+      "h": 512,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/66184471e654.webp",
+      "w": 1040,
+      "h": 760
+    },
+    "sources": [
+      {
+        "url": "https://www.nba.com/player/1630538/bones-hyland",
+        "note": "nba.com player page: Minnesota Timberwolves, Signed on 02/27/25; roster status Active, #8",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams",
+        "note": "cross-checked against the ESPN team roster API, same team",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29",
+      "cutoff": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "nba"
+      ],
+      "likely": [],
+      "possible": [
+        "Evan",
+        "Eyob",
+        "Adi",
+        "Sahil"
+      ],
+      "reach": "deep"
+    },
+    "notes": "Roster as of 2026-10-29. A trade after that date changes the answer. Every decoy is a different team from the answer. Where the official page says traded from X, X is one of the decoys; other decoys are plausible teams, not checked past teams."
+  },
+  {
+    "id": "nba-kevon-looney",
+    "category": "nba",
+    "tier": 5,
+    "format": "image",
+    "prompt": "Who does he play for?",
+    "subject": "Kevon Looney",
+    "options": [
+      {
+        "id": "a",
+        "text": "New Orleans Pelicans"
+      },
+      {
+        "id": "b",
+        "text": "Sacramento Kings"
+      },
+      {
+        "id": "c",
+        "text": "Los Angeles Lakers"
+      },
+      {
+        "id": "d",
+        "text": "Golden State Warriors"
+      }
+    ],
+    "answer": "c",
+    "reveal": "Los Angeles Lakers. Signed in July 2026.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/22936d049e93.webp",
+      "w": 512,
+      "h": 512,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/edb550964431.webp",
+      "w": 1040,
+      "h": 760
+    },
+    "sources": [
+      {
+        "url": "https://www.nba.com/player/1626172/kevon-looney",
+        "note": "nba.com player page: Los Angeles Lakers, Signed on 07/12/26; roster status Active, #55",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams",
+        "note": "cross-checked against the ESPN team roster API, same team",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29",
+      "cutoff": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "nba"
+      ],
+      "likely": [],
+      "possible": [
+        "Evan",
+        "Eyob",
+        "Adi",
+        "Sahil"
+      ],
+      "reach": "deep"
+    },
+    "notes": "Roster as of 2026-10-29. A trade after that date changes the answer. Every decoy is a different team from the answer. Where the official page says traded from X, X is one of the decoys; other decoys are plausible teams, not checked past teams."
+  },
+  {
+    "id": "nba-james-wiseman",
+    "category": "nba",
+    "tier": 5,
+    "format": "image",
+    "prompt": "Who does he play for?",
+    "subject": "James Wiseman",
+    "options": [
+      {
+        "id": "a",
+        "text": "Golden State Warriors"
+      },
+      {
+        "id": "b",
+        "text": "New York Knicks"
+      },
+      {
+        "id": "c",
+        "text": "Indiana Pacers"
+      },
+      {
+        "id": "d",
+        "text": "Detroit Pistons"
+      }
+    ],
+    "answer": "b",
+    "reveal": "New York Knicks. Signed in September 2026.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/45183d2b9d86.webp",
+      "w": 512,
+      "h": 512,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/b88601df15a5.webp",
+      "w": 1040,
+      "h": 760
+    },
+    "sources": [
+      {
+        "url": "https://www.nba.com/player/1630164/james-wiseman",
+        "note": "nba.com player page: New York Knicks, Signed on 09/15/26; roster status Active, #11",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams",
+        "note": "cross-checked against the ESPN team roster API, same team",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29",
+      "cutoff": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "nba"
+      ],
+      "likely": [],
+      "possible": [
+        "Evan",
+        "Eyob",
+        "Adi",
+        "Sahil"
+      ],
+      "reach": "deep"
+    },
+    "notes": "Roster as of 2026-10-29. A trade after that date changes the answer. Every decoy is a different team from the answer. Where the official page says traded from X, X is one of the decoys; other decoys are plausible teams, not checked past teams."
+  },
+  {
+    "id": "nba-terance-mann",
+    "category": "nba",
+    "tier": 5,
+    "format": "image",
+    "prompt": "Who does he play for?",
+    "subject": "Terance Mann",
+    "options": [
+      {
+        "id": "a",
+        "text": "Toronto Raptors"
+      },
+      {
+        "id": "b",
+        "text": "Atlanta Hawks"
+      },
+      {
+        "id": "c",
+        "text": "LA Clippers"
+      },
+      {
+        "id": "d",
+        "text": "Brooklyn Nets"
+      }
+    ],
+    "answer": "d",
+    "reveal": "Brooklyn Nets. Traded from Atlanta in July 2025.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/dc9239ad5e78.webp",
+      "w": 512,
+      "h": 512,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/99df4a50f6ba.webp",
+      "w": 1040,
+      "h": 760
+    },
+    "sources": [
+      {
+        "url": "https://www.nba.com/player/1629611/terance-mann",
+        "note": "nba.com player page: Brooklyn Nets, Traded from ATL on 07/07/25; roster status Active, #14",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams",
+        "note": "cross-checked against the ESPN team roster API, same team",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29",
+      "cutoff": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "nba"
+      ],
+      "likely": [],
+      "possible": [
+        "Evan",
+        "Eyob",
+        "Adi",
+        "Sahil"
+      ],
+      "reach": "deep"
+    },
+    "notes": "Roster as of 2026-10-29. A trade after that date changes the answer. Every decoy is a different team from the answer. Where the official page says traded from X, X is one of the decoys; other decoys are plausible teams, not checked past teams."
+  },
+  {
+    "id": "nba-moritz-wagner",
+    "category": "nba",
+    "tier": 5,
+    "format": "image",
+    "prompt": "Who does he play for?",
+    "subject": "Moritz Wagner",
+    "options": [
+      {
+        "id": "a",
+        "text": "Boston Celtics"
+      },
+      {
+        "id": "b",
+        "text": "Washington Wizards"
+      },
+      {
+        "id": "c",
+        "text": "Orlando Magic"
+      },
+      {
+        "id": "d",
+        "text": "Brooklyn Nets"
+      }
+    ],
+    "answer": "d",
+    "reveal": "Brooklyn Nets. Signed in July 2026.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/97390dea5cd5.webp",
+      "w": 512,
+      "h": 512,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/9f7f2fc050fd.webp",
+      "w": 1040,
+      "h": 760
+    },
+    "sources": [
+      {
+        "url": "https://www.nba.com/player/1629021/moritz-wagner",
+        "note": "nba.com player page: Brooklyn Nets, Signed on 07/31/26; roster status Active, #13",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams",
+        "note": "cross-checked against the ESPN team roster API, same team",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29",
+      "cutoff": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "nba"
+      ],
+      "likely": [],
+      "possible": [
+        "Evan",
+        "Eyob",
+        "Adi",
+        "Sahil"
+      ],
+      "reach": "deep"
+    },
+    "notes": "Roster as of 2026-10-29. A trade after that date changes the answer. Every decoy is a different team from the answer. Where the official page says traded from X, X is one of the decoys; other decoys are plausible teams, not checked past teams."
+  },
+  {
+    "id": "nba-kyle-anderson",
+    "category": "nba",
+    "tier": 5,
+    "format": "image",
+    "prompt": "Who does he play for?",
+    "subject": "Kyle Anderson",
+    "options": [
+      {
+        "id": "a",
+        "text": "Memphis Grizzlies"
+      },
+      {
+        "id": "b",
+        "text": "Toronto Raptors"
+      },
+      {
+        "id": "c",
+        "text": "San Antonio Spurs"
+      },
+      {
+        "id": "d",
+        "text": "Minnesota Timberwolves"
+      }
+    ],
+    "answer": "b",
+    "reveal": "Toronto Raptors. Signed in July 2026.",
+    "media": {
+      "kind": "image",
+      "src": "/tq/604c19737222.webp",
+      "w": 512,
+      "h": 512,
+      "mime": "image/webp"
+    },
+    "revealMedia": {
+      "kind": "image",
+      "src": "/tq/f2d8ae41a89c.webp",
+      "w": 1040,
+      "h": 760
+    },
+    "sources": [
+      {
+        "url": "https://www.nba.com/player/203937/kyle-anderson",
+        "note": "nba.com player page: Toronto Raptors, Signed on 07/06/26; roster status Active, #13",
+        "checkedAt": "2026-10-29"
+      },
+      {
+        "url": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams",
+        "note": "cross-checked against the ESPN team roster API, same team",
+        "checkedAt": "2026-10-29"
+      }
+    ],
+    "verified": {
+      "by": "web",
+      "at": "2026-10-29",
+      "cutoff": "2026-10-29"
+    },
+    "status": "ready",
+    "tags": {
+      "topics": [
+        "nba"
+      ],
+      "likely": [],
+      "possible": [
+        "Evan",
+        "Eyob",
+        "Adi",
+        "Sahil"
+      ],
+      "reach": "deep"
+    },
+    "notes": "Roster as of 2026-10-29. A trade after that date changes the answer. Every decoy is a different team from the answer. Where the official page says traded from X, X is one of the decoys; other decoys are plausible teams, not checked past teams."
+  }
+]

@@ -1,0 +1,1247 @@
+[
+  {
+    "id": "kim-winnie-breed",
+    "category": "kim",
+    "tier": 1,
+    "format": "choice",
+    "prompt": "What breed is Winnie?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Cockapoo"
+      },
+      {
+        "id": "b",
+        "text": "Cavapoo"
+      },
+      {
+        "id": "c",
+        "text": "Maltipoo"
+      },
+      {
+        "id": "d",
+        "text": "Goldendoodle"
+      }
+    ],
+    "answer": "b",
+    "reveal": "A male F1b Cavapoo.",
+    "sources": [
+      {
+        "note": "Brandon's brief, Oct 29 2026"
+      }
+    ],
+    "verified": {
+      "by": "provided",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "personal": "provided",
+    "tags": {
+      "topics": [
+        "winnie",
+        "dog"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "broad"
+    },
+    "notes": "Facts: k-winnie."
+  },
+  {
+    "id": "kim-wedding-city",
+    "category": "kim",
+    "tier": 1,
+    "format": "choice",
+    "prompt": "In which city is Brandon and Kim's wedding?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Dallas"
+      },
+      {
+        "id": "b",
+        "text": "Houston"
+      },
+      {
+        "id": "c",
+        "text": "San Francisco"
+      },
+      {
+        "id": "d",
+        "text": "Austin"
+      }
+    ],
+    "answer": "d",
+    "reveal": "Austin, on February 6, 2027.",
+    "sources": [
+      {
+        "note": "Brandon's brief, Oct 29 2026"
+      }
+    ],
+    "verified": {
+      "by": "provided",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "personal": "provided",
+    "tags": {
+      "topics": [
+        "kim",
+        "wedding"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "broad"
+    },
+    "notes": "Facts: k-kim."
+  },
+  {
+    "id": "kim-kim-name",
+    "category": "kim",
+    "tier": 2,
+    "format": "choice",
+    "prompt": "What is Kim's full first name?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Kimberly"
+      },
+      {
+        "id": "b",
+        "text": "Katherine"
+      },
+      {
+        "id": "c",
+        "text": "Kathleen"
+      },
+      {
+        "id": "d",
+        "text": "Kristine"
+      }
+    ],
+    "answer": "a",
+    "reveal": "Kimberly.",
+    "sources": [
+      {
+        "note": "Brandon's brief, Oct 29 2026"
+      }
+    ],
+    "verified": {
+      "by": "provided",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "personal": "provided",
+    "tags": {
+      "topics": [
+        "kim"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "broad"
+    },
+    "notes": "Facts: k-kim."
+  },
+  {
+    "id": "kim-mirror",
+    "category": "kim",
+    "tier": 2,
+    "format": "choice",
+    "prompt": "What did Brandon build for Kim?",
+    "options": [
+      {
+        "id": "a",
+        "text": "A gaming PC"
+      },
+      {
+        "id": "b",
+        "text": "A bookshelf"
+      },
+      {
+        "id": "c",
+        "text": "A smart mirror"
+      },
+      {
+        "id": "d",
+        "text": "A drone"
+      }
+    ],
+    "answer": "c",
+    "reveal": "A smart mirror.",
+    "sources": [
+      {
+        "note": "Brandon's brief, Oct 29 2026"
+      }
+    ],
+    "verified": {
+      "by": "provided",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "personal": "provided",
+    "tags": {
+      "topics": [
+        "kim",
+        "projects"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "broad"
+    },
+    "notes": "Facts: b-mirror."
+  },
+  {
+    "id": "kim-winnie-coat",
+    "category": "kim",
+    "tier": 2,
+    "format": "choice",
+    "prompt": "What color is Winnie's coat?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Cream"
+      },
+      {
+        "id": "b",
+        "text": "Chocolate"
+      },
+      {
+        "id": "c",
+        "text": "Apricot"
+      },
+      {
+        "id": "d",
+        "text": "Black"
+      }
+    ],
+    "answer": "c",
+    "reveal": "Apricot.",
+    "sources": [
+      {
+        "note": "Brandon's brief, Oct 29 2026"
+      }
+    ],
+    "verified": {
+      "by": "provided",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "personal": "provided",
+    "tags": {
+      "topics": [
+        "winnie",
+        "dog"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "broad"
+    },
+    "notes": "Facts: k-winnie."
+  },
+  {
+    "id": "kim-dating-year",
+    "category": "kim",
+    "tier": 2,
+    "format": "choice",
+    "prompt": "In which year did Brandon and Kim start dating?",
+    "options": [
+      {
+        "id": "a",
+        "text": "2018"
+      },
+      {
+        "id": "b",
+        "text": "2016"
+      },
+      {
+        "id": "c",
+        "text": "2017"
+      },
+      {
+        "id": "d",
+        "text": "2019"
+      }
+    ],
+    "answer": "a",
+    "reveal": "2018. Their anniversary is May 4.",
+    "sources": [
+      {
+        "note": "Brandon's brief, Oct 29 2026"
+      }
+    ],
+    "verified": {
+      "by": "provided",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "personal": "provided",
+    "tags": {
+      "topics": [
+        "kim"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "broad"
+    },
+    "notes": "Facts: k-kim."
+  },
+  {
+    "id": "kim-wedding-date",
+    "category": "kim",
+    "tier": 2,
+    "format": "choice",
+    "prompt": "What is the date of Brandon and Kim's wedding?",
+    "options": [
+      {
+        "id": "a",
+        "text": "February 13, 2027"
+      },
+      {
+        "id": "b",
+        "text": "January 30, 2027"
+      },
+      {
+        "id": "c",
+        "text": "March 6, 2027"
+      },
+      {
+        "id": "d",
+        "text": "February 6, 2027"
+      }
+    ],
+    "answer": "d",
+    "reveal": "February 6, 2027, in Austin.",
+    "sources": [
+      {
+        "note": "Brandon's brief, Oct 29 2026"
+      }
+    ],
+    "verified": {
+      "by": "provided",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "personal": "provided",
+    "tags": {
+      "topics": [
+        "kim",
+        "wedding"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "broad"
+    },
+    "notes": "Facts: k-kim."
+  },
+  {
+    "id": "kim-couch",
+    "category": "kim",
+    "tier": 2,
+    "format": "choice",
+    "prompt": "Where does Winnie hide the things he steals?",
+    "options": [
+      {
+        "id": "a",
+        "text": "In his crate"
+      },
+      {
+        "id": "b",
+        "text": "Under the couch"
+      },
+      {
+        "id": "c",
+        "text": "Under the bed"
+      },
+      {
+        "id": "d",
+        "text": "Behind the door"
+      }
+    ],
+    "answer": "b",
+    "reveal": "Under the couch.",
+    "sources": [
+      {
+        "note": "Brandon's brief, Oct 29 2026"
+      }
+    ],
+    "verified": {
+      "by": "provided",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "personal": "provided",
+    "tags": {
+      "topics": [
+        "winnie",
+        "dog"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "broad"
+    },
+    "notes": "Facts: k-winnie-habits."
+  },
+  {
+    "id": "kim-proposal-town",
+    "category": "kim",
+    "tier": 2,
+    "format": "choice",
+    "prompt": "In which town did Brandon propose to Kim?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Monterey"
+      },
+      {
+        "id": "b",
+        "text": "Carmel-by-the-Sea"
+      },
+      {
+        "id": "c",
+        "text": "Sausalito"
+      },
+      {
+        "id": "d",
+        "text": "Half Moon Bay"
+      }
+    ],
+    "answer": "d",
+    "reveal": "Half Moon Bay, at the Ritz-Carlton.",
+    "sources": [
+      {
+        "note": "Brandon's brief, Oct 29 2026"
+      }
+    ],
+    "verified": {
+      "by": "provided",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "personal": "provided",
+    "tags": {
+      "topics": [
+        "kim",
+        "proposal"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "broad"
+    },
+    "notes": "Facts: k-proposal."
+  },
+  {
+    "id": "kim-winnie-middle",
+    "category": "kim",
+    "tier": 3,
+    "format": "choice",
+    "prompt": "What is Winnie's full name?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Winnie Theodore"
+      },
+      {
+        "id": "b",
+        "text": "Winnie Bernard"
+      },
+      {
+        "id": "c",
+        "text": "Winnie Benjamin"
+      },
+      {
+        "id": "d",
+        "text": "Winnie Winston"
+      }
+    ],
+    "answer": "b",
+    "reveal": "Winnie Bernard.",
+    "sources": [
+      {
+        "note": "Brandon's brief, Oct 29 2026"
+      }
+    ],
+    "verified": {
+      "by": "provided",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "personal": "provided",
+    "tags": {
+      "topics": [
+        "winnie",
+        "dog"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "shared"
+    },
+    "notes": "Facts: k-winnie."
+  },
+  {
+    "id": "kim-doorbell",
+    "category": "kim",
+    "tier": 3,
+    "format": "choice",
+    "prompt": "How has Winnie been trained to ask to go outside?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Ringing a hanging bell"
+      },
+      {
+        "id": "b",
+        "text": "Barking twice"
+      },
+      {
+        "id": "c",
+        "text": "Pressing a doorbell button"
+      },
+      {
+        "id": "d",
+        "text": "Scratching the door"
+      }
+    ],
+    "answer": "c",
+    "reveal": "He presses a doorbell button.",
+    "sources": [
+      {
+        "note": "Brandon's brief, Oct 29 2026"
+      }
+    ],
+    "verified": {
+      "by": "provided",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "personal": "provided",
+    "tags": {
+      "topics": [
+        "winnie",
+        "dog"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "shared"
+    },
+    "notes": "Facts: k-winnie-habits."
+  },
+  {
+    "id": "kim-pillowcase",
+    "category": "kim",
+    "tier": 5,
+    "format": "choice",
+    "prompt": "What did Winnie fetch, already destroyed, to restart a chase?",
+    "options": [
+      {
+        "id": "a",
+        "text": "A pillowcase"
+      },
+      {
+        "id": "b",
+        "text": "A sock"
+      },
+      {
+        "id": "c",
+        "text": "A slipper"
+      },
+      {
+        "id": "d",
+        "text": "A stuffed toy"
+      }
+    ],
+    "answer": "a",
+    "reveal": "A pillowcase he had already destroyed.",
+    "sources": [
+      {
+        "note": "Brandon's brief, Oct 29 2026"
+      }
+    ],
+    "verified": {
+      "by": "provided",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "personal": "provided",
+    "tags": {
+      "topics": [
+        "winnie",
+        "dog"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "deep"
+    },
+    "notes": "Facts: k-winnie-habits."
+  },
+  {
+    "id": "kim-pickup-month",
+    "category": "kim",
+    "tier": 3,
+    "format": "choice",
+    "prompt": "In which month did Winnie come home?",
+    "options": [
+      {
+        "id": "a",
+        "text": "October 2025"
+      },
+      {
+        "id": "b",
+        "text": "August 2025"
+      },
+      {
+        "id": "c",
+        "text": "September 2025"
+      },
+      {
+        "id": "d",
+        "text": "December 2025"
+      }
+    ],
+    "answer": "a",
+    "reveal": "October 4, 2025.",
+    "sources": [
+      {
+        "note": "Brandon's brief, Oct 29 2026"
+      }
+    ],
+    "verified": {
+      "by": "provided",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "personal": "provided",
+    "tags": {
+      "topics": [
+        "winnie",
+        "dog"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "shared"
+    },
+    "notes": "Facts: k-winnie."
+  },
+  {
+    "id": "kim-anniversary",
+    "category": "kim",
+    "tier": 4,
+    "format": "choice",
+    "prompt": "What is Brandon and Kim's dating anniversary?",
+    "options": [
+      {
+        "id": "a",
+        "text": "May 14"
+      },
+      {
+        "id": "b",
+        "text": "April 4"
+      },
+      {
+        "id": "c",
+        "text": "May 4"
+      },
+      {
+        "id": "d",
+        "text": "June 4"
+      }
+    ],
+    "answer": "c",
+    "reveal": "May 4, since 2018.",
+    "sources": [
+      {
+        "note": "Brandon's brief, Oct 29 2026"
+      }
+    ],
+    "verified": {
+      "by": "provided",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "personal": "provided",
+    "tags": {
+      "topics": [
+        "kim"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "deep"
+    },
+    "notes": "Facts: k-kim."
+  },
+  {
+    "id": "kim-ritz",
+    "category": "kim",
+    "tier": 4,
+    "format": "choice",
+    "prompt": "At which hotel did Brandon propose?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Four Seasons"
+      },
+      {
+        "id": "b",
+        "text": "Ritz-Carlton"
+      },
+      {
+        "id": "c",
+        "text": "Fairmont"
+      },
+      {
+        "id": "d",
+        "text": "Montage"
+      }
+    ],
+    "answer": "b",
+    "reveal": "The Ritz-Carlton in Half Moon Bay.",
+    "sources": [
+      {
+        "note": "Brandon's brief, Oct 29 2026"
+      }
+    ],
+    "verified": {
+      "by": "provided",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "personal": "provided",
+    "tags": {
+      "topics": [
+        "kim",
+        "proposal"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "deep"
+    },
+    "notes": "Facts: k-proposal."
+  },
+  {
+    "id": "kim-groom",
+    "category": "kim",
+    "tier": 3,
+    "format": "choice",
+    "prompt": "What does Brandon want to do for Winnie himself?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Bake his treats"
+      },
+      {
+        "id": "b",
+        "text": "Sew his sweaters"
+      },
+      {
+        "id": "c",
+        "text": "Train him for shows"
+      },
+      {
+        "id": "d",
+        "text": "Groom him"
+      }
+    ],
+    "answer": "d",
+    "reveal": "Groom him himself.",
+    "sources": [
+      {
+        "note": "Brandon's brief, Oct 29 2026"
+      }
+    ],
+    "verified": {
+      "by": "provided",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "personal": "provided",
+    "tags": {
+      "topics": [
+        "winnie",
+        "dog"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "shared"
+    },
+    "notes": "Facts: k-winnie-habits."
+  },
+  {
+    "id": "kim-weeks",
+    "category": "kim",
+    "tier": 3,
+    "format": "choice",
+    "prompt": "How old was Winnie when Brandon and Kim picked him up?",
+    "options": [
+      {
+        "id": "a",
+        "text": "8 weeks"
+      },
+      {
+        "id": "b",
+        "text": "10 weeks"
+      },
+      {
+        "id": "c",
+        "text": "12 weeks"
+      },
+      {
+        "id": "d",
+        "text": "14 weeks"
+      }
+    ],
+    "answer": "b",
+    "reveal": "Ten weeks old.",
+    "sources": [
+      {
+        "note": "Brandon's brief, Oct 29 2026"
+      }
+    ],
+    "verified": {
+      "by": "provided",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "personal": "provided",
+    "tags": {
+      "topics": [
+        "winnie",
+        "dog"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "shared"
+    },
+    "notes": "Facts: k-winnie."
+  },
+  {
+    "id": "kim-first-dance",
+    "category": "kim",
+    "tier": 3,
+    "format": "choice",
+    "prompt": "Which LANY song did Brandon and Kim pick for their first dance?",
+    "options": [
+      {
+        "id": "a",
+        "text": "ILYSB"
+      },
+      {
+        "id": "b",
+        "text": "Thick and Thin"
+      },
+      {
+        "id": "c",
+        "text": "Malibu Nights"
+      },
+      {
+        "id": "d",
+        "text": "Dancing in the Kitchen"
+      }
+    ],
+    "answer": "d",
+    "reveal": "Dancing in the Kitchen by LANY.",
+    "sources": [
+      {
+        "note": "Brandon's brief, Oct 29 2026"
+      }
+    ],
+    "verified": {
+      "by": "provided",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "personal": "provided",
+    "tags": {
+      "topics": [
+        "kim",
+        "wedding",
+        "music"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "shared"
+    },
+    "surprise": true,
+    "notes": "Possible wedding surprise: Brandon reviews before use. Facts: k-dance."
+  },
+  {
+    "id": "kim-dance-style",
+    "category": "kim",
+    "tier": 3,
+    "format": "choice",
+    "prompt": "Which dance felt right for their first-dance song?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Cha-cha"
+      },
+      {
+        "id": "b",
+        "text": "Waltz"
+      },
+      {
+        "id": "c",
+        "text": "Foxtrot"
+      },
+      {
+        "id": "d",
+        "text": "Rumba"
+      }
+    ],
+    "answer": "a",
+    "reveal": "The cha-cha.",
+    "sources": [
+      {
+        "note": "Brandon's brief, Oct 29 2026"
+      }
+    ],
+    "verified": {
+      "by": "provided",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "personal": "provided",
+    "tags": {
+      "topics": [
+        "kim",
+        "wedding"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "shared"
+    },
+    "surprise": true,
+    "notes": "Possible wedding surprise: Brandon reviews before use. Facts: k-dance."
+  },
+  {
+    "id": "kim-studio",
+    "category": "kim",
+    "tier": 4,
+    "format": "choice",
+    "prompt": "Which dance studio gave them lessons for the wedding?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Arthur Murray"
+      },
+      {
+        "id": "b",
+        "text": "Ballroom Dance Center"
+      },
+      {
+        "id": "c",
+        "text": "Fred Astaire"
+      },
+      {
+        "id": "d",
+        "text": "Dance With Me"
+      }
+    ],
+    "answer": "c",
+    "reveal": "Fred Astaire.",
+    "sources": [
+      {
+        "note": "Brandon's brief, Oct 29 2026"
+      }
+    ],
+    "verified": {
+      "by": "provided",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "personal": "provided",
+    "tags": {
+      "topics": [
+        "kim",
+        "wedding"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "deep"
+    },
+    "surprise": true,
+    "notes": "Possible wedding surprise: Brandon reviews before use. Decoy studio names are generic. Facts: k-dance."
+  },
+  {
+    "id": "kim-instructor",
+    "category": "kim",
+    "tier": 5,
+    "format": "choice",
+    "prompt": "What is the name of their dance instructor?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Maxim"
+      },
+      {
+        "id": "b",
+        "text": "Dmitri"
+      },
+      {
+        "id": "c",
+        "text": "Maksym"
+      },
+      {
+        "id": "d",
+        "text": "Viktor"
+      }
+    ],
+    "answer": "c",
+    "reveal": "Maksym, at Fred Astaire.",
+    "sources": [
+      {
+        "note": "Brandon's brief, Oct 29 2026"
+      }
+    ],
+    "verified": {
+      "by": "provided",
+      "at": "2026-10-29"
+    },
+    "status": "ready",
+    "personal": "provided",
+    "tags": {
+      "topics": [
+        "kim",
+        "wedding"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "deep"
+    },
+    "surprise": true,
+    "notes": "Possible wedding surprise: Brandon reviews before use. Facts: k-dance."
+  },
+  {
+    "id": "kim-how-met",
+    "category": "kim",
+    "tier": 3,
+    "format": "choice",
+    "prompt": "Where did Brandon and Kim meet?",
+    "options": [
+      {
+        "id": "a",
+        "text": "At UT Austin"
+      },
+      {
+        "id": "b",
+        "text": "Through mutual friends"
+      },
+      {
+        "id": "c",
+        "text": "At work"
+      },
+      {
+        "id": "d",
+        "text": "Online"
+      }
+    ],
+    "answer": "a",
+    "reveal": "Brandon: supply the answer.",
+    "sources": [
+      {
+        "note": "Brandon's brief, Oct 29 2026"
+      }
+    ],
+    "verified": {
+      "by": "provided",
+      "at": "2026-10-29"
+    },
+    "status": "confirm",
+    "personal": "needs-brandon",
+    "tags": {
+      "topics": [
+        "kim"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "deep"
+    },
+    "notes": "Brandon: supply the answer. Not in the brief; placeholders only. Facts: ."
+  },
+  {
+    "id": "kim-first-date",
+    "category": "kim",
+    "tier": 3,
+    "format": "choice",
+    "prompt": "Where was Brandon and Kim's first date?",
+    "options": [
+      {
+        "id": "a",
+        "text": "A restaurant"
+      },
+      {
+        "id": "b",
+        "text": "A movie theater"
+      },
+      {
+        "id": "c",
+        "text": "A park"
+      },
+      {
+        "id": "d",
+        "text": "A coffee shop"
+      }
+    ],
+    "answer": "d",
+    "reveal": "Brandon: supply the answer.",
+    "sources": [
+      {
+        "note": "Brandon's brief, Oct 29 2026"
+      }
+    ],
+    "verified": {
+      "by": "provided",
+      "at": "2026-10-29"
+    },
+    "status": "confirm",
+    "personal": "needs-brandon",
+    "tags": {
+      "topics": [
+        "kim"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "deep"
+    },
+    "notes": "Brandon: supply the answer. Not in the brief; placeholders only. Facts: ."
+  },
+  {
+    "id": "kim-proposal-corgis",
+    "category": "kim",
+    "tier": 4,
+    "format": "choice",
+    "prompt": "Which animals were part of the proposal?",
+    "options": [
+      {
+        "id": "a",
+        "text": "Golden retrievers"
+      },
+      {
+        "id": "b",
+        "text": "Corgis"
+      },
+      {
+        "id": "c",
+        "text": "Cavapoos"
+      },
+      {
+        "id": "d",
+        "text": "Pugs"
+      }
+    ],
+    "answer": "b",
+    "reveal": "Brandon: supply the answer.",
+    "sources": [
+      {
+        "note": "Brandon's brief, Oct 29 2026"
+      }
+    ],
+    "verified": {
+      "by": "provided",
+      "at": "2026-10-29"
+    },
+    "status": "confirm",
+    "personal": "needs-brandon",
+    "tags": {
+      "topics": [
+        "kim"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "deep"
+    },
+    "notes": "Brandon: supply the answer. Corgis were only a plan; confirm it happened. Facts: k-proposal."
+  },
+  {
+    "id": "kim-proposal-meetup",
+    "category": "kim",
+    "tier": 4,
+    "format": "choice",
+    "prompt": "How did Brandon get Kim to the spot where he proposed?",
+    "options": [
+      {
+        "id": "a",
+        "text": "A surprise photo shoot"
+      },
+      {
+        "id": "b",
+        "text": "A dinner reservation"
+      },
+      {
+        "id": "c",
+        "text": "A walk on the beach"
+      },
+      {
+        "id": "d",
+        "text": "A staged meetup with friends"
+      }
+    ],
+    "answer": "d",
+    "reveal": "Brandon: supply the answer.",
+    "sources": [
+      {
+        "note": "Brandon's brief, Oct 29 2026"
+      }
+    ],
+    "verified": {
+      "by": "provided",
+      "at": "2026-10-29"
+    },
+    "status": "confirm",
+    "personal": "needs-brandon",
+    "tags": {
+      "topics": [
+        "kim"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "deep"
+    },
+    "notes": "Brandon: supply the answer. The staged meetup was only a plan; confirm how it went. Facts: k-proposal."
+  },
+  {
+    "id": "kim-proposal-ring",
+    "category": "kim",
+    "tier": 5,
+    "format": "choice",
+    "prompt": "Where was the ring hidden when Brandon proposed?",
+    "options": [
+      {
+        "id": "a",
+        "text": "In a bouquet"
+      },
+      {
+        "id": "b",
+        "text": "In a flower backpack"
+      },
+      {
+        "id": "c",
+        "text": "In a gift box"
+      },
+      {
+        "id": "d",
+        "text": "In a book"
+      }
+    ],
+    "answer": "b",
+    "reveal": "Brandon: supply the answer.",
+    "sources": [
+      {
+        "note": "Brandon's brief, Oct 29 2026"
+      }
+    ],
+    "verified": {
+      "by": "provided",
+      "at": "2026-10-29"
+    },
+    "status": "confirm",
+    "personal": "needs-brandon",
+    "tags": {
+      "topics": [
+        "kim"
+      ],
+      "likely": [],
+      "possible": [],
+      "reach": "deep"
+    },
+    "notes": "Brandon: supply the answer. The flower-backpack reveal was only a plan; confirm it happened. Facts: k-proposal."
+  }
+]

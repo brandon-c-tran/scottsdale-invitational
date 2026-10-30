@@ -1,0 +1,6 @@
+{
+  "note": "Content A's recommended five per category, one per tier ($100 to $500), all status ready.",
+  "nba": { "1": "nba-giannis-antetokounmpo", "2": "nba-klay-thompson", "3": "nba-luke-kornet", "4": "nba-svi-mykhailiuk", "5": "nba-james-wiseman" },
+  "kim": { "1": "kim-winnie-breed", "2": "kim-mirror", "3": "kim-doorbell", "4": "kim-ritz", "5": "kim-pillowcase" },
+  "lore": { "1": "lore-nba2k", "2": "lore-sisters", "3": "lore-roommate", "4": "lore-league-pro", "5": "lore-concert-venue" }
+}

@@ -204,7 +204,7 @@ export const DECK_ASPECT = 1.7;
 const SHADES_MIN = 0.62, SHADES_MAX = 0.95;
 /* the ink of the line art, and the hat's shadow on the head (ink, this strong) */
 const INK = "#1d1b22";
-const SHADOW_INK = "#1d1b22", SHADOW_ALPHA = 0.2;
+const SHADOW_INK = "#1d1b22", SHADOW_ALPHA = 0.24;
 const measureOf = (entry, fallback = DEFAULT_MEASURE) => ({ ...fallback, ...(entry?.measure || {}) });
 
 /* ---- painting (a browser's canvas; node has none and gets the bare files) ---- */
@@ -272,7 +272,7 @@ function tinted(src, mask, color) {
    shadow } }. front / seam: the pose's parts that stand in front of what it wears and the ink at
    their base (scripts/float-art-seat.mjs), drawn only where a hat or glasses went. `crown` is the
    old single-crown form ({ img, at, anchor:[share x, share y], share }). */
-export function paintSprite({ src, tube, shirt = null, front = null, seam = null, color, w, h, boxW = w, anchor = null, measure = DEFAULT_MEASURE, chestR = 0, deckR = 0, deckTilt = 0, layers = {}, crown = null }) {
+export function paintSprite({ src, tube, shirt = null, front = null, seam = null, wornTop = false, color, w, h, boxW = w, anchor = null, measure = DEFAULT_MEASURE, chestR = 0, deckR = 0, deckTilt = 0, layers = {}, crown = null }) {
   const out = canvas(w, h);
   const g = out.getContext("2d");
   g.drawImage(src, 0, 0, w, h);
@@ -358,7 +358,9 @@ export function paintSprite({ src, tube, shirt = null, front = null, seam = null
            eye line, so the skull goes into the crown instead of the hat perching on it */
         const ex = anchor.eyes[0] - anchor.head[0], ey = anchor.eyes[1] - anchor.head[1];
         const eyeY = -ex * Math.sin(tilt) + ey * Math.cos(tilt);
-        baseY = Math.max(skullW * 0.12, eyeY) * hat.sink;
+        /* from the skull's own top where the art measured it (an ear's tip or a slumped head throws the anchor off) */
+        const top = Number.isFinite(measure.skullTop) ? Math.min(measure.skullTop, eyeY - skullW * 0.12) : 0;
+        baseY = top + Math.max(skullW * 0.12, eyeY - top) * hat.sink;
       } else {
         /* the base under the head's top, but never down over the eyes */
         baseY = (hat.depth ?? 0.1) * headW;
@@ -376,8 +378,8 @@ export function paintSprite({ src, tube, shirt = null, front = null, seam = null
     const shadow = canvas(w, h);
     const sg = shadow.getContext("2d");
     const drop = (layer, by) => { if (layer) sg.drawImage(layer, -Math.sin(tilt) * by * k, Math.cos(tilt) * by * k); };
-    drop(glassesLayer, headW * 0.022);
-    drop(hatLayer, headW * (hat?.shadow ?? 0.045));
+    drop(glassesLayer, headW * 0.03);
+    drop(hatLayer, headW * (hat?.shadow ?? 0.075));
     sg.globalCompositeOperation = "source-in";
     sg.fillStyle = SHADOW_INK;
     sg.fillRect(0, 0, w, h);
@@ -390,6 +392,8 @@ export function paintSprite({ src, tube, shirt = null, front = null, seam = null
     g.restore();
     if (glassesLayer) g.drawImage(glassesLayer, 0, 0);
     if (hatLayer) g.drawImage(hatLayer, 0, 0);
+    /* asked for: how high the hat reaches (px), so a still can frame it whole */
+    if (wornTop && hatLayer) out.wornTop = topRow(hatLayer);
     /* in front: the sprite's own ears, horns, crest, paddle and cup, drawn back over what was worn;
        a part the hat swallows whole (a capybara's little ears under a cowboy hat) stays under it */
     if (front) {
@@ -609,13 +613,56 @@ const portraits = new Map();
    null without a DOM. entrant: { color, groom, photo, look:{ critter, hat,
    shades, shirt } }. With the photo tee the still is the tee's idle pose,
    cut to the portrait's framing (tee.frame). */
-/* a square about the head (frame "head"): room over it for the tallest hat, the face and glasses inside */
-function headSquare(anchor, measure, W) {
+/* Headroom: a portrait or a tee pose is painted with this share of its width free over it, so a tall
+   hat (a party hat, viking horns, a propeller) is never cut at the top; the frame then takes it in. */
+const HEADROOM = 0.45;
+/* an image drawn at w x h with `pad` px clear above it */
+function padded(img, w, h, pad) {
+  if (!img) return null;
+  const c = canvas(w, h + pad);
+  c.getContext("2d").drawImage(img, 0, pad, w, h);
+  return c;
+}
+/* the first row (from the top) with anything opaque in it, else the height */
+function topRow(c) {
+  const { width:w, height:h } = c;
+  const d = c.getContext("2d").getImageData(0, 0, w, h).data;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (d[(y * w + x) * 4 + 3] > 16) return y;
+  return h;
+}
+/* a square about the head (frame "head"), in art px: the face and glasses inside, the whole hat over it */
+function headSquare(anchor, measure, W, hatTop = null) {
   const hw = Math.max(measure.headW || DEFAULT_MEASURE.headW, W * MIN_HEAD_SHARE);
-  const side = Math.min(W, hw * 1.8);
-  const cx = anchor?.head?.[0] ?? W / 2, top = (anchor?.head?.[1] ?? W * 0.3) - hw * 0.7;
-  const x = Math.max(0, Math.min(W - side, cx - side / 2)), y = Math.max(0, Math.min(W - side, top));
-  return [x, y, side];
+  /* between the skull's middle and the face's: a three quarter face keeps its snout in the chip */
+  const cx = anchor?.head ? (anchor.head[0] + (anchor.eyes?.[0] ?? anchor.head[0])) / 2 : W / 2, headY = anchor?.head?.[1] ?? W * 0.3;
+  const eyesY = anchor?.eyes?.[1] ?? headY + hw * 0.4;
+  const top = Math.min(headY - hw * 0.45, hatTop == null ? Infinity : hatTop - hw * 0.06);
+  const bottom = eyesY + hw * 0.55;
+  const side = Math.max(hw * 1.8, bottom - top);
+  return [cx - side / 2, top - (side - (bottom - top)) * 0.35, side];
+}
+/* Paint a still with headroom and cut the square `frame` asks for into px x px: "head" about the head
+   with its hat whole; else `region` ([x, y, side] in art px, the whole art by default), grown upward
+   (and evenly sideways) by however far a hat rises over it. W: the art's width; ws: the paint's width. */
+function framedStill({ src, tube, shirt, front, seam, W, ws, anchor, measure, region, frame, px, ...rest }) {
+  const k = ws / W, padArt = Math.round(W * HEADROOM), pad = Math.round(padArt * k);
+  const at = Object.fromEntries(Object.entries(anchor || {}).map(([name, p]) => [name, Array.isArray(p) ? [p[0], p[1] + padArt] : p]));
+  const full = paintSprite({ ...rest, src:padded(src, ws, ws, pad), tube:padded(tube, ws, ws, pad), shirt:padded(shirt, ws, ws, pad),
+    front:padded(front, ws, ws, pad), seam:padded(seam, ws, ws, pad), w:ws, h:ws + pad, boxW:W, anchor:at, measure, wornTop:frame === "head" });
+  let x, y, side;
+  if (frame === "head") {
+    [x, y, side] = headSquare(at, measure, W, full.wornTop == null ? null : full.wornTop / k);
+  } else {
+    const [fx, fy, fw] = region || [0, 0, W];
+    const spill = Math.max(0, fy + padArt - topRow(full) / k - W * 0.01);
+    side = fw + spill; x = fx - spill / 2; y = fy + padArt - spill;
+  }
+  const out = canvas(px, px);
+  const og = out.getContext("2d");
+  const sc = px / (side * k);
+  og.setTransform(sc, 0, 0, sc, -x * k * sc, -y * k * sc);
+  og.drawImage(full, 0, 0);
+  return canvasDataUrl(out);
 }
 export async function riderPortrait(entrant = {}, { size = 256, frame = "full" } = {}) {
   if (!hasCanvas() || typeof fetch !== "function") return null;
@@ -636,24 +683,16 @@ export async function riderPortrait(entrant = {}, { size = 256, frame = "full" }
       const art = tee.poses.idle;
       const box = m.box || [BOX, BOX];
       const [src, tube, shirt, front, seam] = await Promise.all([loadImage(grooveUrl(art.src)), loadImage(grooveUrl(art.tube)).catch(() => null), art.shirt ? loadImage(grooveUrl(art.shirt)).catch(() => null) : null, ...wornParts(art, layers)]);
-      const full = paintSprite({ src, tube, shirt, front, seam, color:look.color, w:box[0], h:box[1], boxW:box[0], anchor:{ ...c.anchor, ...(tee.anchor || {}), ...art.anchor }, measure:{ ...measureOf(art, measureOf(c)), hatScale:c.hatScale ?? 1 }, chestR:art.chestR || 0, deckR:art.deckR || 0, deckTilt:art.deckTilt || 0, layers });
-      const [fx, fy, fw] = head ? headSquare({ ...c.anchor, ...art.anchor }, measureOf(art, measureOf(c)), box[0]) : tee.frame || [0, 0, box[0]];
-      const out = canvas(px, px);
-      out.getContext("2d").drawImage(full, fx, fy, fw, fw, 0, 0, px, px);
-      return canvasDataUrl(out);
+      return framedStill({ src, tube, shirt, front, seam, color:look.color, W:box[0], ws:box[0], anchor:{ ...c.anchor, ...(tee.anchor || {}), ...art.anchor },
+        measure:{ ...measureOf(art, measureOf(c)), hatScale:c.hatScale ?? 1 }, chestR:art.chestR || 0, deckR:art.deckR || 0, deckTilt:art.deckTilt || 0, layers,
+        region:tee.frame || [0, 0, box[0]], frame, px });
     }
     const [src, tube, front, seam] = await Promise.all([loadImage(grooveUrl(c.portrait.src)), loadImage(grooveUrl(c.portrait.tube)).catch(() => null), ...wornParts(c.portrait, layers)]);
     const pm = { ...measureOf(c.portrait, { headW:DEFAULT_MEASURE.headW * 2, eyeSpan:DEFAULT_MEASURE.eyeSpan * 2 }), hatScale:c.hatScale ?? 1 };
     const PW = c.portrait.w || 1024;
-    if (head) {
-      const full = paintSprite({ src, tube, front, seam, color:look.color, w:PW, h:PW, boxW:PW, anchor:c.portrait.anchor, measure:pm, layers });
-      const [fx, fy, fw] = headSquare(c.portrait.anchor, pm, PW);
-      const out = canvas(px, px);
-      out.getContext("2d").drawImage(full, fx, fy, fw, fw, 0, 0, px, px);
-      return canvasDataUrl(out);
-    }
-    const out = paintSprite({ src, tube, front, seam, color:look.color, w:px, h:px, boxW:PW, anchor:c.portrait.anchor, measure:pm, layers });
-    return canvasDataUrl(out);
+    /* painted no bigger than twice the still needs (a chip never paints the whole 1024) */
+    const ws = Math.min(PW, Math.max(128, px * 2));
+    return framedStill({ src, tube, front, seam, color:look.color, W:PW, ws, anchor:c.portrait.anchor, measure:pm, layers, frame, px });
   })();
   job.catch(() => portraits.delete(key));
   portraits.set(key, job);

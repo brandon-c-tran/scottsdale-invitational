@@ -30,7 +30,7 @@ for (const critter of critters) {
       const d = document.createElement("div"); d.className = "c"; d.innerHTML = `<img src="${url}"><b>${critter} ${look.hat}/${look.shades}</b>`; g.append(d);
       continue;
     }
-    const urls = await riderSprites({ ...base, size:512 });
+    const urls = await riderSprites({ ...base, size:+(q.get("size") || 512) });
     for (const pose of poses) {
       const d = document.createElement("div"); d.className = "c"; d.innerHTML = `<img src="${urls[pose]}"><b>${critter} ${pose} ${look.hat}/${look.shades}</b>`; g.append(d);
     }

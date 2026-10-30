@@ -81,7 +81,8 @@
      "measure": {
       "headW": 160,
       "eyeSpan": 39,
-      "tilt": -4.2
+      "tilt": -4.2,
+      "skullTop": -6
      },
      "front": "critters/capybara/idle-front.webp",
      "seam": "critters/capybara/idle-seam.webp"
@@ -118,7 +119,8 @@
      "measure": {
       "headW": 160,
       "eyeSpan": 37,
-      "tilt": 3.5
+      "tilt": 3.5,
+      "skullTop": -11
      },
      "front": "critters/capybara/stroke-front.webp",
      "seam": "critters/capybara/stroke-seam.webp"
@@ -155,7 +157,8 @@
      "measure": {
       "headW": 160,
       "eyeSpan": 39,
-      "tilt": 0
+      "tilt": 0,
+      "skullTop": -16
      },
      "front": "critters/capybara/stroke-r-front.webp",
      "seam": "critters/capybara/stroke-r-seam.webp"
@@ -192,7 +195,8 @@
      "measure": {
       "headW": 160,
       "eyeSpan": 38,
-      "tilt": -10
+      "tilt": -10,
+      "skullTop": 1
      },
      "front": "critters/capybara/hey-front.webp",
      "seam": "critters/capybara/hey-seam.webp"
@@ -229,7 +233,8 @@
      "measure": {
       "headW": 160,
       "eyeSpan": 40,
-      "tilt": -6
+      "tilt": -6,
+      "skullTop": -5
      },
      "front": "critters/capybara/nice-front.webp",
      "seam": "critters/capybara/nice-seam.webp"
@@ -266,7 +271,8 @@
      "measure": {
       "headW": 160,
       "eyeSpan": 39,
-      "tilt": 0
+      "tilt": 0,
+      "skullTop": -9
      },
      "front": "critters/capybara/miss-front.webp",
      "seam": "critters/capybara/miss-seam.webp"
@@ -303,7 +309,8 @@
      "measure": {
       "headW": 160,
       "eyeSpan": 39,
-      "tilt": 0
+      "tilt": 0,
+      "skullTop": -11
      },
      "front": "critters/capybara/chug-front.webp",
      "seam": "critters/capybara/chug-seam.webp"
@@ -340,7 +347,8 @@
      "measure": {
       "headW": 160,
       "eyeSpan": 35,
-      "tilt": -3.8
+      "tilt": -3.8,
+      "skullTop": 5
      },
      "front": "critters/capybara/cheer-front.webp",
      "seam": "critters/capybara/cheer-seam.webp"
@@ -377,7 +385,8 @@
      "measure": {
       "headW": 160,
       "eyeSpan": 32,
-      "tilt": 8.1
+      "tilt": 8.1,
+      "skullTop": -22
      },
      "front": "critters/capybara/out-front.webp",
      "seam": "critters/capybara/out-seam.webp"
@@ -417,7 +426,8 @@
     "measure": {
      "headW": 330,
      "eyeSpan": 104,
-     "tilt": -1.6
+     "tilt": -1.6,
+     "skullTop": -2
     },
     "deckR": 70,
     "deckTilt": -2,
@@ -474,7 +484,8 @@
       "measure": {
        "headW": 160,
        "eyeSpan": 39,
-       "tilt": -4
+       "tilt": -4,
+       "skullTop": -6
       },
       "deckR": 24,
       "chestShown": 1,
@@ -524,7 +535,8 @@
       "measure": {
        "headW": 160,
        "eyeSpan": 37,
-       "tilt": 3.4
+       "tilt": 3.4,
+       "skullTop": -12
       },
       "deckR": 24,
       "chestShown": 1,
@@ -574,7 +586,8 @@
       "measure": {
        "headW": 160,
        "eyeSpan": 39,
-       "tilt": 0
+       "tilt": 0,
+       "skullTop": -15
       },
       "deckR": 24,
       "chestShown": 1,
@@ -624,7 +637,8 @@
       "measure": {
        "headW": 160,
        "eyeSpan": 37,
-       "tilt": -10
+       "tilt": -10,
+       "skullTop": 1
       },
       "deckR": 24,
       "chestShown": 1,
@@ -674,7 +688,8 @@
       "measure": {
        "headW": 160,
        "eyeSpan": 40,
-       "tilt": -5.9
+       "tilt": -5.9,
+       "skullTop": -5
       },
       "deckR": 24,
       "chestShown": 1,
@@ -724,7 +739,8 @@
       "measure": {
        "headW": 160,
        "eyeSpan": 39,
-       "tilt": 0
+       "tilt": 0,
+       "skullTop": -7
       },
       "deckR": 24,
       "chestShown": 1,
@@ -774,7 +790,8 @@
       "measure": {
        "headW": 160,
        "eyeSpan": 39,
-       "tilt": 0
+       "tilt": 0,
+       "skullTop": -10
       },
       "deckR": 24,
       "chestShown": 0.99,
@@ -824,7 +841,8 @@
       "measure": {
        "headW": 160,
        "eyeSpan": 35,
-       "tilt": -3.9
+       "tilt": -3.9,
+       "skullTop": 6
       },
       "deckR": 24,
       "chestShown": 1,
@@ -874,7 +892,8 @@
       "measure": {
        "headW": 160,
        "eyeSpan": 32,
-       "tilt": 7.8
+       "tilt": 7.8,
+       "skullTop": -21
       },
       "deckR": 21,
       "chestShown": 1,
@@ -950,7 +969,8 @@
      "measure": {
       "headW": 153,
       "eyeSpan": 92,
-      "tilt": -0.8
+      "tilt": -0.8,
+      "skullTop": -3
      },
      "front": "critters/javelina/idle-front.webp",
      "seam": "critters/javelina/idle-seam.webp"
@@ -987,7 +1007,8 @@
      "measure": {
       "headW": 152,
       "eyeSpan": 82,
-      "tilt": 11.1
+      "tilt": 11.1,
+      "skullTop": -6
      },
      "front": "critters/javelina/stroke-front.webp",
      "seam": "critters/javelina/stroke-seam.webp"
@@ -1024,7 +1045,8 @@
      "measure": {
       "headW": 133,
       "eyeSpan": 85,
-      "tilt": -1
+      "tilt": -1,
+      "skullTop": 3
      },
      "front": "critters/javelina/stroke-r-front.webp",
      "seam": "critters/javelina/stroke-r-seam.webp"
@@ -1061,7 +1083,8 @@
      "measure": {
       "headW": 156,
       "eyeSpan": 89,
-      "tilt": 2.7
+      "tilt": 2.7,
+      "skullTop": -2
      },
      "front": "critters/javelina/hey-front.webp",
      "seam": "critters/javelina/hey-seam.webp"
@@ -1098,7 +1121,8 @@
      "measure": {
       "headW": 153,
       "eyeSpan": 92,
-      "tilt": 0
+      "tilt": 0,
+      "skullTop": 3
      },
      "front": "critters/javelina/nice-front.webp",
      "seam": "critters/javelina/nice-seam.webp"
@@ -1135,7 +1159,8 @@
      "measure": {
       "headW": 153,
       "eyeSpan": 92,
-      "tilt": 0
+      "tilt": 0,
+      "skullTop": 1
      },
      "front": "critters/javelina/miss-front.webp",
      "seam": "critters/javelina/miss-seam.webp"
@@ -1172,7 +1197,8 @@
      "measure": {
       "headW": 153,
       "eyeSpan": 92,
-      "tilt": 0
+      "tilt": 0,
+      "skullTop": 0
      },
      "front": "critters/javelina/chug-front.webp",
      "seam": "critters/javelina/chug-seam.webp"
@@ -1209,7 +1235,8 @@
      "measure": {
       "headW": 142,
       "eyeSpan": 80,
-      "tilt": 0.6
+      "tilt": 0.6,
+      "skullTop": -7
      },
      "front": "critters/javelina/cheer-front.webp",
      "seam": "critters/javelina/cheer-seam.webp"
@@ -1246,7 +1273,8 @@
      "measure": {
       "headW": 153,
       "eyeSpan": 92,
-      "tilt": 0
+      "tilt": 0,
+      "skullTop": -2
      },
      "front": "critters/javelina/out-front.webp",
      "seam": "critters/javelina/out-seam.webp"
@@ -1286,7 +1314,8 @@
     "measure": {
      "headW": 387,
      "eyeSpan": 237,
-     "tilt": -0.2
+     "tilt": -0.2,
+     "skullTop": -48
     },
     "deckR": 54,
     "deckTilt": 10,
@@ -1343,7 +1372,8 @@
       "measure": {
        "headW": 161,
        "eyeSpan": 92,
-       "tilt": -0.7
+       "tilt": -0.7,
+       "skullTop": -9
       },
       "deckR": 21,
       "chestShown": 0.7,
@@ -1393,7 +1423,8 @@
       "measure": {
        "headW": 152,
        "eyeSpan": 82,
-       "tilt": 11
+       "tilt": 11,
+       "skullTop": -6
       },
       "deckR": 22,
       "chestShown": 1,
@@ -1443,7 +1474,8 @@
       "measure": {
        "headW": 149,
        "eyeSpan": 85,
-       "tilt": -1
+       "tilt": -1,
+       "skullTop": -5
       },
       "deckR": 22,
       "chestShown": 0.96,
@@ -1493,7 +1525,8 @@
       "measure": {
        "headW": 139,
        "eyeSpan": 89,
-       "tilt": 2.7
+       "tilt": 2.7,
+       "skullTop": -16
       },
       "deckR": 22,
       "chestShown": 0.79,
@@ -1543,7 +1576,8 @@
       "measure": {
        "headW": 161,
        "eyeSpan": 92,
-       "tilt": 0
+       "tilt": 0,
+       "skullTop": -5
       },
       "deckR": 21,
       "chestShown": 0.66,
@@ -1593,7 +1627,8 @@
       "measure": {
        "headW": 161,
        "eyeSpan": 92,
-       "tilt": 0
+       "tilt": 0,
+       "skullTop": -5
       },
       "deckR": 22,
       "chestShown": 0.83,
@@ -1643,7 +1678,8 @@
       "measure": {
        "headW": 161,
        "eyeSpan": 92,
-       "tilt": 0
+       "tilt": 0,
+       "skullTop": -8
       },
       "deckR": 22,
       "chestShown": 1,
@@ -1693,7 +1729,8 @@
       "measure": {
        "headW": 143,
        "eyeSpan": 80,
-       "tilt": 0.7
+       "tilt": 0.7,
+       "skullTop": -5
       },
       "deckR": 22,
       "chestShown": 1,
@@ -1743,7 +1780,8 @@
       "measure": {
        "headW": 161,
        "eyeSpan": 92,
-       "tilt": 0
+       "tilt": 0,
+       "skullTop": -8
       },
       "deckR": 20,
       "chestShown": 0.71,
@@ -1819,7 +1857,8 @@
      "measure": {
       "headW": 89,
       "eyeSpan": 50,
-      "tilt": 0
+      "tilt": 0,
+      "skullTop": -7
      },
      "front": "critters/roadrunner/idle-front.webp",
      "seam": "critters/roadrunner/idle-seam.webp"
@@ -1856,7 +1895,8 @@
      "measure": {
       "headW": 89,
       "eyeSpan": 50,
-      "tilt": 0
+      "tilt": 0,
+      "skullTop": -8
      },
      "front": "critters/roadrunner/stroke-front.webp",
      "seam": "critters/roadrunner/stroke-seam.webp"
@@ -1893,7 +1933,8 @@
      "measure": {
       "headW": 89,
       "eyeSpan": 50,
-      "tilt": 0
+      "tilt": 0,
+      "skullTop": -8
      },
      "front": "critters/roadrunner/stroke-r-front.webp",
      "seam": "critters/roadrunner/stroke-r-seam.webp"
@@ -1930,7 +1971,8 @@
      "measure": {
       "headW": 89,
       "eyeSpan": 50,
-      "tilt": 0
+      "tilt": 0,
+      "skullTop": -8
      },
      "front": "critters/roadrunner/hey-front.webp",
      "seam": "critters/roadrunner/hey-seam.webp"
@@ -1967,7 +2009,8 @@
      "measure": {
       "headW": 89,
       "eyeSpan": 50,
-      "tilt": 0
+      "tilt": 0,
+      "skullTop": -9
      },
      "front": "critters/roadrunner/nice-front.webp",
      "seam": "critters/roadrunner/nice-seam.webp"
@@ -2004,7 +2047,8 @@
      "measure": {
       "headW": 89,
       "eyeSpan": 50,
-      "tilt": 0
+      "tilt": 0,
+      "skullTop": -9
      },
      "front": "critters/roadrunner/miss-front.webp",
      "seam": "critters/roadrunner/miss-seam.webp"
@@ -2041,7 +2085,8 @@
      "measure": {
       "headW": 89,
       "eyeSpan": 50,
-      "tilt": 0
+      "tilt": 0,
+      "skullTop": -10
      },
      "front": "critters/roadrunner/chug-front.webp",
      "seam": "critters/roadrunner/chug-seam.webp"
@@ -2078,7 +2123,8 @@
      "measure": {
       "headW": 89,
       "eyeSpan": 50,
-      "tilt": 0
+      "tilt": 0,
+      "skullTop": -59
      },
      "front": "critters/roadrunner/cheer-front.webp",
      "seam": "critters/roadrunner/cheer-seam.webp"
@@ -2115,7 +2161,8 @@
      "measure": {
       "headW": 89,
       "eyeSpan": 50,
-      "tilt": 0
+      "tilt": 0,
+      "skullTop": -10
      },
      "front": "critters/roadrunner/out-front.webp",
      "seam": "critters/roadrunner/out-seam.webp"
@@ -2155,7 +2202,8 @@
     "measure": {
      "headW": 223,
      "eyeSpan": 128,
-     "tilt": 0
+     "tilt": 0,
+     "skullTop": -12
     },
     "deckR": 55,
     "deckTilt": 14,
@@ -2212,7 +2260,8 @@
       "measure": {
        "headW": 95,
        "eyeSpan": 50,
-       "tilt": 0
+       "tilt": 0,
+       "skullTop": -8
       },
       "deckR": 20,
       "chestShown": 1,
@@ -2262,7 +2311,8 @@
       "measure": {
        "headW": 95,
        "eyeSpan": 50,
-       "tilt": 0
+       "tilt": 0,
+       "skullTop": -91
       },
       "deckR": 22,
       "chestShown": 1,
@@ -2312,7 +2362,8 @@
       "measure": {
        "headW": 95,
        "eyeSpan": 50,
-       "tilt": 0
+       "tilt": 0,
+       "skullTop": -9
       },
       "deckR": 22,
       "chestShown": 1,
@@ -2362,7 +2413,8 @@
       "measure": {
        "headW": 95,
        "eyeSpan": 50,
-       "tilt": 0
+       "tilt": 0,
+       "skullTop": -8
       },
       "deckR": 22,
       "chestShown": 1,
@@ -2412,7 +2464,8 @@
       "measure": {
        "headW": 95,
        "eyeSpan": 50,
-       "tilt": 0
+       "tilt": 0,
+       "skullTop": -10
       },
       "deckR": 20,
       "chestShown": 1,
@@ -2462,7 +2515,8 @@
       "measure": {
        "headW": 95,
        "eyeSpan": 50,
-       "tilt": 0
+       "tilt": 0,
+       "skullTop": -10
       },
       "deckR": 22,
       "chestShown": 1,
@@ -2512,7 +2566,8 @@
       "measure": {
        "headW": 95,
        "eyeSpan": 50,
-       "tilt": 0
+       "tilt": 0,
+       "skullTop": -11
       },
       "deckR": 22,
       "chestShown": 1,
@@ -2562,7 +2617,8 @@
       "measure": {
        "headW": 95,
        "eyeSpan": 50,
-       "tilt": 0
+       "tilt": 0,
+       "skullTop": -61
       },
       "deckR": 22,
       "chestShown": 1,
@@ -2612,7 +2668,8 @@
       "measure": {
        "headW": 95,
        "eyeSpan": 50,
-       "tilt": 0
+       "tilt": 0,
+       "skullTop": -11
       },
       "deckR": 19,
       "chestShown": 1,
@@ -2689,7 +2746,8 @@
      "measure": {
       "headW": 89,
       "eyeSpan": 58,
-      "tilt": 1.1
+      "tilt": 1.1,
+      "skullTop": 18
      },
      "front": "critters/jackrabbit/idle-front.webp",
      "seam": "critters/jackrabbit/idle-seam.webp"
@@ -2726,7 +2784,8 @@
      "measure": {
       "headW": 89,
       "eyeSpan": 54,
-      "tilt": 7.9
+      "tilt": 7.9,
+      "skullTop": 15
      },
      "front": "critters/jackrabbit/stroke-front.webp",
      "seam": "critters/jackrabbit/stroke-seam.webp"
@@ -2763,7 +2822,8 @@
      "measure": {
       "headW": 89,
       "eyeSpan": 52,
-      "tilt": -8.1
+      "tilt": -8.1,
+      "skullTop": 14
      },
      "front": "critters/jackrabbit/stroke-r-front.webp",
      "seam": "critters/jackrabbit/stroke-r-seam.webp"
@@ -2800,7 +2860,8 @@
      "measure": {
       "headW": 89,
       "eyeSpan": 56,
-      "tilt": 8.3
+      "tilt": 8.3,
+      "skullTop": 20
      },
      "front": "critters/jackrabbit/hey-front.webp",
      "seam": "critters/jackrabbit/hey-seam.webp"
@@ -2837,7 +2898,8 @@
      "measure": {
       "headW": 89,
       "eyeSpan": 58,
-      "tilt": 0
+      "tilt": 0,
+      "skullTop": 18
      },
      "front": "critters/jackrabbit/nice-front.webp",
      "seam": "critters/jackrabbit/nice-seam.webp"
@@ -2874,7 +2936,8 @@
      "measure": {
       "headW": 89,
       "eyeSpan": 58,
-      "tilt": 0
+      "tilt": 0,
+      "skullTop": 16
      },
      "front": "critters/jackrabbit/miss-front.webp",
      "seam": "critters/jackrabbit/miss-seam.webp"
@@ -2911,7 +2974,8 @@
      "measure": {
       "headW": 89,
       "eyeSpan": 58,
-      "tilt": 0
+      "tilt": 0,
+      "skullTop": -6
      },
      "front": "critters/jackrabbit/chug-front.webp",
      "seam": "critters/jackrabbit/chug-seam.webp"
@@ -2948,7 +3012,8 @@
      "measure": {
       "headW": 89,
       "eyeSpan": 53,
-      "tilt": -0.1
+      "tilt": -0.1,
+      "skullTop": 25
      },
      "front": "critters/jackrabbit/cheer-front.webp",
      "seam": "critters/jackrabbit/cheer-seam.webp"
@@ -2985,7 +3050,8 @@
      "measure": {
       "headW": 93,
       "eyeSpan": 49,
-      "tilt": -0.7
+      "tilt": -0.7,
+      "skullTop": -6
      },
      "front": "critters/jackrabbit/out-front.webp",
      "seam": "critters/jackrabbit/out-seam.webp"
@@ -3025,7 +3091,8 @@
     "measure": {
      "headW": 227,
      "eyeSpan": 151,
-     "tilt": 1.2
+     "tilt": 1.2,
+     "skullTop": 34
     },
     "deckR": 59,
     "deckTilt": -2,
@@ -3082,7 +3149,8 @@
       "measure": {
        "headW": 90,
        "eyeSpan": 58,
-       "tilt": 1
+       "tilt": 1,
+       "skullTop": 10
       },
       "deckR": 24,
       "chestShown": 0.8,
@@ -3132,7 +3200,8 @@
       "measure": {
        "headW": 90,
        "eyeSpan": 54,
-       "tilt": 7.9
+       "tilt": 7.9,
+       "skullTop": 8
       },
       "deckR": 24,
       "chestShown": 1,
@@ -3182,7 +3251,8 @@
       "measure": {
        "headW": 90,
        "eyeSpan": 54,
-       "tilt": -4.8
+       "tilt": -4.8,
+       "skullTop": 7
       },
       "deckR": 24,
       "chestShown": 1,
@@ -3232,7 +3302,8 @@
       "measure": {
        "headW": 90,
        "eyeSpan": 56,
-       "tilt": 8
+       "tilt": 8,
+       "skullTop": 12
       },
       "deckR": 24,
       "chestShown": 0.8,
@@ -3282,7 +3353,8 @@
       "measure": {
        "headW": 90,
        "eyeSpan": 58,
-       "tilt": 0
+       "tilt": 0,
+       "skullTop": 9
       },
       "deckR": 24,
       "chestShown": 0.84,
@@ -3332,7 +3404,8 @@
       "measure": {
        "headW": 90,
        "eyeSpan": 58,
-       "tilt": 0
+       "tilt": 0,
+       "skullTop": 9
       },
       "deckR": 22,
       "chestShown": 0.84,
@@ -3382,7 +3455,8 @@
       "measure": {
        "headW": 90,
        "eyeSpan": 58,
-       "tilt": 0
+       "tilt": 0,
+       "skullTop": -13
       },
       "deckR": 24,
       "chestShown": 1,
@@ -3432,7 +3506,8 @@
       "measure": {
        "headW": 90,
        "eyeSpan": 53,
-       "tilt": 0
+       "tilt": 0,
+       "skullTop": 17
       },
       "deckR": 24,
       "chestShown": 1,
@@ -3482,7 +3557,8 @@
       "measure": {
        "headW": 94,
        "eyeSpan": 49,
-       "tilt": -0.9
+       "tilt": -0.9,
+       "skullTop": -6
       },
       "deckR": 18,
       "chestShown": 0.46,
@@ -4428,7 +4504,8 @@
      "measure": {
       "headW": 134,
       "eyeSpan": 86,
-      "tilt": 3.4
+      "tilt": 3.4,
+      "skullTop": -8
      },
      "front": "critters/gila/idle-front.webp",
      "seam": "critters/gila/idle-seam.webp"
@@ -4465,7 +4542,8 @@
      "measure": {
       "headW": 119,
       "eyeSpan": 90,
-      "tilt": 21.2
+      "tilt": 21.2,
+      "skullTop": -97
      },
      "front": "critters/gila/stroke-front.webp",
      "seam": "critters/gila/stroke-seam.webp"
@@ -4502,7 +4580,8 @@
      "measure": {
       "headW": 114,
       "eyeSpan": 87,
-      "tilt": -11.8
+      "tilt": -11.8,
+      "skullTop": -15
      },
      "front": "critters/gila/stroke-r-front.webp",
      "seam": "critters/gila/stroke-r-seam.webp"
@@ -4539,7 +4618,8 @@
      "measure": {
       "headW": 134,
       "eyeSpan": 86,
-      "tilt": 0
+      "tilt": 0,
+      "skullTop": -8
      },
      "front": "critters/gila/hey-front.webp",
      "seam": "critters/gila/hey-seam.webp"
@@ -4576,7 +4656,8 @@
      "measure": {
       "headW": 134,
       "eyeSpan": 86,
-      "tilt": 0
+      "tilt": 0,
+      "skullTop": -7
      },
      "front": "critters/gila/nice-front.webp",
      "seam": "critters/gila/nice-seam.webp"
@@ -4613,7 +4694,8 @@
      "measure": {
       "headW": 134,
       "eyeSpan": 86,
-      "tilt": 0
+      "tilt": 0,
+      "skullTop": -6
      },
      "front": "critters/gila/miss-front.webp",
      "seam": "critters/gila/miss-seam.webp"
@@ -4650,7 +4732,8 @@
      "measure": {
       "headW": 134,
       "eyeSpan": 86,
-      "tilt": 0
+      "tilt": 0,
+      "skullTop": -8
      },
      "front": "critters/gila/chug-front.webp",
      "seam": "critters/gila/chug-seam.webp"
@@ -4687,7 +4770,8 @@
      "measure": {
       "headW": 104,
       "eyeSpan": 84,
-      "tilt": 21.3
+      "tilt": 21.3,
+      "skullTop": -12
      },
      "front": "critters/gila/cheer-front.webp",
      "seam": "critters/gila/cheer-seam.webp"
@@ -4724,7 +4808,8 @@
      "measure": {
       "headW": 149,
       "eyeSpan": 91,
-      "tilt": 2.7
+      "tilt": 2.7,
+      "skullTop": -8
      },
      "front": "critters/gila/out-front.webp",
      "seam": "critters/gila/out-seam.webp"
@@ -4764,7 +4849,8 @@
     "measure": {
      "headW": 321,
      "eyeSpan": 208,
-     "tilt": 3.6
+     "tilt": 3.6,
+     "skullTop": -29
     },
     "deckR": 58,
     "deckTilt": 10,
@@ -4821,7 +4907,8 @@
       "measure": {
        "headW": 133,
        "eyeSpan": 86,
-       "tilt": 3.5
+       "tilt": 3.5,
+       "skullTop": -13
       },
       "deckR": 24,
       "chestShown": 1,
@@ -4871,7 +4958,8 @@
       "measure": {
        "headW": 143,
        "eyeSpan": 89,
-       "tilt": 21.3
+       "tilt": 21.3,
+       "skullTop": -98
       },
       "deckR": 25,
       "chestShown": 1,
@@ -4921,7 +5009,8 @@
       "measure": {
        "headW": 123,
        "eyeSpan": 87,
-       "tilt": -11.6
+       "tilt": -11.6,
+       "skullTop": -10
       },
       "deckR": 25,
       "chestShown": 1,
@@ -4971,7 +5060,8 @@
       "measure": {
        "headW": 133,
        "eyeSpan": 86,
-       "tilt": 0
+       "tilt": 0,
+       "skullTop": -12
       },
       "deckR": 25,
       "chestShown": 1,
@@ -5021,7 +5111,8 @@
       "measure": {
        "headW": 133,
        "eyeSpan": 86,
-       "tilt": 0
+       "tilt": 0,
+       "skullTop": -12
       },
       "deckR": 25,
       "chestShown": 1,
@@ -5071,7 +5162,8 @@
       "measure": {
        "headW": 133,
        "eyeSpan": 86,
-       "tilt": 0
+       "tilt": 0,
+       "skullTop": -11
       },
       "deckR": 15,
       "chestShown": 1,
@@ -5121,7 +5213,8 @@
       "measure": {
        "headW": 133,
        "eyeSpan": 86,
-       "tilt": 0
+       "tilt": 0,
+       "skullTop": -13
       },
       "deckR": 25,
       "chestShown": 1,
@@ -5171,7 +5264,8 @@
       "measure": {
        "headW": 136,
        "eyeSpan": 84,
-       "tilt": 21.4
+       "tilt": 21.4,
+       "skullTop": -10
       },
       "deckR": 25,
       "chestShown": 1,
@@ -5221,7 +5315,8 @@
       "measure": {
        "headW": 156,
        "eyeSpan": 91,
-       "tilt": 2.7
+       "tilt": 2.7,
+       "skullTop": -11
       },
       "deckR": 24,
       "chestShown": 1,
@@ -5297,7 +5392,8 @@
      "measure": {
       "headW": 147,
       "eyeSpan": 90,
-      "tilt": 1.7
+      "tilt": 1.7,
+      "skullTop": 10
      },
      "front": "critters/hornedlizard/idle-front.webp",
      "seam": "critters/hornedlizard/idle-seam.webp"
@@ -5334,7 +5430,8 @@
      "measure": {
       "headW": 144,
       "eyeSpan": 91,
-      "tilt": 12.8
+      "tilt": 12.8,
+      "skullTop": -15
      },
      "front": "critters/hornedlizard/stroke-front.webp",
      "seam": "critters/hornedlizard/stroke-seam.webp"
@@ -5371,7 +5468,8 @@
      "measure": {
       "headW": 119,
       "eyeSpan": 82,
-      "tilt": -7.5
+      "tilt": -7.5,
+      "skullTop": -7
      },
      "front": "critters/hornedlizard/stroke-r-front.webp",
      "seam": "critters/hornedlizard/stroke-r-seam.webp"
@@ -5408,7 +5506,8 @@
      "measure": {
       "headW": 118,
       "eyeSpan": 89,
-      "tilt": -2.3
+      "tilt": -2.3,
+      "skullTop": 13
      },
      "front": "critters/hornedlizard/hey-front.webp",
      "seam": "critters/hornedlizard/hey-seam.webp"
@@ -5445,7 +5544,8 @@
      "measure": {
       "headW": 147,
       "eyeSpan": 90,
-      "tilt": 0
+      "tilt": 0,
+      "skullTop": 13
      },
      "front": "critters/hornedlizard/nice-front.webp",
      "seam": "critters/hornedlizard/nice-seam.webp"
@@ -5482,7 +5582,8 @@
      "measure": {
       "headW": 147,
       "eyeSpan": 90,
-      "tilt": 0
+      "tilt": 0,
+      "skullTop": 11
      },
      "front": "critters/hornedlizard/miss-front.webp",
      "seam": "critters/hornedlizard/miss-seam.webp"
@@ -5519,7 +5620,8 @@
      "measure": {
       "headW": 147,
       "eyeSpan": 90,
-      "tilt": 0
+      "tilt": 0,
+      "skullTop": 14
      },
      "front": "critters/hornedlizard/chug-front.webp",
      "seam": "critters/hornedlizard/chug-seam.webp"
@@ -5556,7 +5658,8 @@
      "measure": {
       "headW": 137,
       "eyeSpan": 78,
-      "tilt": -0.4
+      "tilt": -0.4,
+      "skullTop": 5
      },
      "front": "critters/hornedlizard/cheer-front.webp",
      "seam": "critters/hornedlizard/cheer-seam.webp"
@@ -5593,7 +5696,8 @@
      "measure": {
       "headW": 155,
       "eyeSpan": 75,
-      "tilt": 6.9
+      "tilt": 6.9,
+      "skullTop": 10
      },
      "front": "critters/hornedlizard/out-front.webp",
      "seam": "critters/hornedlizard/out-seam.webp"
@@ -5633,7 +5737,8 @@
     "measure": {
      "headW": 325,
      "eyeSpan": 237,
-     "tilt": 1.7
+     "tilt": 1.7,
+     "skullTop": -34
     },
     "deckR": 66,
     "deckTilt": -14,
@@ -5690,7 +5795,8 @@
       "measure": {
        "headW": 148,
        "eyeSpan": 90,
-       "tilt": 1.7
+       "tilt": 1.7,
+       "skullTop": 10
       },
       "deckR": 22,
       "chestShown": 1,
@@ -5740,7 +5846,8 @@
       "measure": {
        "headW": 142,
        "eyeSpan": 91,
-       "tilt": 12.9
+       "tilt": 12.9,
+       "skullTop": -15
       },
       "deckR": 23,
       "chestShown": 1,
@@ -5790,7 +5897,8 @@
       "measure": {
        "headW": 118,
        "eyeSpan": 81,
-       "tilt": -7.4
+       "tilt": -7.4,
+       "skullTop": 6
       },
       "deckR": 23,
       "chestShown": 1,
@@ -5840,7 +5948,8 @@
       "measure": {
        "headW": 135,
        "eyeSpan": 89,
-       "tilt": -2.2
+       "tilt": -2.2,
+       "skullTop": 10
       },
       "deckR": 23,
       "chestShown": 1,
@@ -5890,7 +5999,8 @@
       "measure": {
        "headW": 148,
        "eyeSpan": 90,
-       "tilt": 0
+       "tilt": 0,
+       "skullTop": 12
       },
       "deckR": 23,
       "chestShown": 1,
@@ -5940,7 +6050,8 @@
       "measure": {
        "headW": 148,
        "eyeSpan": 90,
-       "tilt": 0
+       "tilt": 0,
+       "skullTop": 12
       },
       "deckR": 23,
       "chestShown": 0.94,
@@ -5990,7 +6101,8 @@
       "measure": {
        "headW": 148,
        "eyeSpan": 90,
-       "tilt": 0
+       "tilt": 0,
+       "skullTop": 13
       },
       "deckR": 23,
       "chestShown": 1,
@@ -6040,7 +6152,8 @@
       "measure": {
        "headW": 136,
        "eyeSpan": 78,
-       "tilt": -0.2
+       "tilt": -0.2,
+       "skullTop": 5
       },
       "deckR": 23,
       "chestShown": 1,
@@ -6090,7 +6203,8 @@
       "measure": {
        "headW": 153,
        "eyeSpan": 74,
-       "tilt": 7.1
+       "tilt": 7.1,
+       "skullTop": 0
       },
       "deckR": 18,
       "chestShown": 0.98,
@@ -7036,7 +7150,8 @@
      "measure": {
       "headW": 99,
       "eyeSpan": 71,
-      "tilt": -0.6
+      "tilt": -0.6,
+      "skullTop": -7
      },
      "front": "critters/quail/idle-front.webp",
      "seam": "critters/quail/idle-seam.webp"
@@ -7073,7 +7188,8 @@
      "measure": {
       "headW": 106,
       "eyeSpan": 70,
-      "tilt": 5
+      "tilt": 5,
+      "skullTop": -8
      },
      "front": "critters/quail/stroke-front.webp",
      "seam": "critters/quail/stroke-seam.webp"
@@ -7110,7 +7226,8 @@
      "measure": {
       "headW": 104,
       "eyeSpan": 68,
-      "tilt": 7.1
+      "tilt": 7.1,
+      "skullTop": -7
      },
      "front": "critters/quail/stroke-r-front.webp",
      "seam": "critters/quail/stroke-r-seam.webp"
@@ -7147,7 +7264,8 @@
      "measure": {
       "headW": 130,
       "eyeSpan": 71,
-      "tilt": 0
+      "tilt": 0,
+      "skullTop": -11
      },
      "front": "critters/quail/hey-front.webp",
      "seam": "critters/quail/hey-seam.webp"
@@ -7184,7 +7302,8 @@
      "measure": {
       "headW": 99,
       "eyeSpan": 71,
-      "tilt": 0
+      "tilt": 0,
+      "skullTop": -6
      },
      "front": "critters/quail/nice-front.webp",
      "seam": "critters/quail/nice-seam.webp"
@@ -7221,7 +7340,8 @@
      "measure": {
       "headW": 99,
       "eyeSpan": 71,
-      "tilt": 0
+      "tilt": 0,
+      "skullTop": -6
      },
      "front": "critters/quail/miss-front.webp",
      "seam": "critters/quail/miss-seam.webp"
@@ -7258,7 +7378,8 @@
      "measure": {
       "headW": 99,
       "eyeSpan": 71,
-      "tilt": 0
+      "tilt": 0,
+      "skullTop": -5
      },
      "front": "critters/quail/chug-front.webp",
      "seam": "critters/quail/chug-seam.webp"
@@ -7295,7 +7416,8 @@
      "measure": {
       "headW": 129,
       "eyeSpan": 68,
-      "tilt": 1
+      "tilt": 1,
+      "skullTop": -8
      },
      "front": "critters/quail/cheer-front.webp",
      "seam": "critters/quail/cheer-seam.webp"
@@ -7332,7 +7454,8 @@
      "measure": {
       "headW": 127,
       "eyeSpan": 63,
-      "tilt": 6.2
+      "tilt": 6.2,
+      "skullTop": -8
      },
      "front": "critters/quail/out-front.webp",
      "seam": "critters/quail/out-seam.webp"
@@ -7372,7 +7495,8 @@
     "measure": {
      "headW": 260,
      "eyeSpan": 187,
-     "tilt": 0.2
+     "tilt": 0.2,
+     "skullTop": -14
     },
     "deckR": 63,
     "deckTilt": 10,
@@ -7429,7 +7553,8 @@
       "measure": {
        "headW": 99,
        "eyeSpan": 71,
-       "tilt": -0.6
+       "tilt": -0.6,
+       "skullTop": -7
       },
       "deckR": 21,
       "chestShown": 1,
@@ -7479,7 +7604,8 @@
       "measure": {
        "headW": 105,
        "eyeSpan": 70,
-       "tilt": 5.4
+       "tilt": 5.4,
+       "skullTop": -7
       },
       "deckR": 22,
       "chestShown": 1,
@@ -7529,7 +7655,8 @@
       "measure": {
        "headW": 106,
        "eyeSpan": 69,
-       "tilt": 7
+       "tilt": 7,
+       "skullTop": -7
       },
       "deckR": 22,
       "chestShown": 1,
@@ -7579,7 +7706,8 @@
       "measure": {
        "headW": 99,
        "eyeSpan": 71,
-       "tilt": 0.1
+       "tilt": 0.1,
+       "skullTop": -14
       },
       "deckR": 22,
       "chestShown": 1,
@@ -7629,7 +7757,8 @@
       "measure": {
        "headW": 99,
        "eyeSpan": 71,
-       "tilt": 0
+       "tilt": 0,
+       "skullTop": -7
       },
       "deckR": 22,
       "chestShown": 1,
@@ -7679,7 +7808,8 @@
       "measure": {
        "headW": 99,
        "eyeSpan": 71,
-       "tilt": 0
+       "tilt": 0,
+       "skullTop": -7
       },
       "deckR": 20,
       "chestShown": 1,
@@ -7729,7 +7859,8 @@
       "measure": {
        "headW": 99,
        "eyeSpan": 71,
-       "tilt": 0
+       "tilt": 0,
+       "skullTop": -6
       },
       "deckR": 22,
       "chestShown": 1,
@@ -7779,7 +7910,8 @@
       "measure": {
        "headW": 127,
        "eyeSpan": 68,
-       "tilt": 1
+       "tilt": 1,
+       "skullTop": -12
       },
       "deckR": 22,
       "chestShown": 1,
@@ -7829,7 +7961,8 @@
       "measure": {
        "headW": 118,
        "eyeSpan": 63,
-       "tilt": 6.3
+       "tilt": 6.3,
+       "skullTop": -12
       },
       "deckR": 19,
       "chestShown": 0.75,
@@ -7905,7 +8038,8 @@
      "measure": {
       "headW": 112,
       "eyeSpan": 74,
-      "tilt": 0
+      "tilt": 0,
+      "skullTop": -6
      },
      "front": "critters/armadillo/idle-front.webp",
      "seam": "critters/armadillo/idle-seam.webp"
@@ -7942,7 +8076,8 @@
      "measure": {
       "headW": 112,
       "eyeSpan": 74,
-      "tilt": 0
+      "tilt": 0,
+      "skullTop": -7
      },
      "front": "critters/armadillo/stroke-front.webp",
      "seam": "critters/armadillo/stroke-seam.webp"
@@ -7979,7 +8114,8 @@
      "measure": {
       "headW": 112,
       "eyeSpan": 74,
-      "tilt": 0
+      "tilt": 0,
+      "skullTop": -6
      },
      "front": "critters/armadillo/stroke-r-front.webp",
      "seam": "critters/armadillo/stroke-r-seam.webp"
@@ -8016,7 +8152,8 @@
      "measure": {
       "headW": 112,
       "eyeSpan": 74,
-      "tilt": 0
+      "tilt": 0,
+      "skullTop": -6
      },
      "front": "critters/armadillo/hey-front.webp",
      "seam": "critters/armadillo/hey-seam.webp"
@@ -8053,7 +8190,8 @@
      "measure": {
       "headW": 112,
       "eyeSpan": 74,
-      "tilt": 0
+      "tilt": 0,
+      "skullTop": -7
      },
      "front": "critters/armadillo/nice-front.webp",
      "seam": "critters/armadillo/nice-seam.webp"
@@ -8090,7 +8228,8 @@
      "measure": {
       "headW": 112,
       "eyeSpan": 74,
-      "tilt": 0
+      "tilt": 0,
+      "skullTop": -8
      },
      "front": "critters/armadillo/miss-front.webp",
      "seam": "critters/armadillo/miss-seam.webp"
@@ -8127,7 +8266,8 @@
      "measure": {
       "headW": 112,
       "eyeSpan": 74,
-      "tilt": 0
+      "tilt": 0,
+      "skullTop": -8
      },
      "front": "critters/armadillo/chug-front.webp",
      "seam": "critters/armadillo/chug-seam.webp"
@@ -8164,7 +8304,8 @@
      "measure": {
       "headW": 112,
       "eyeSpan": 74,
-      "tilt": 0
+      "tilt": 0,
+      "skullTop": -26
      },
      "front": "critters/armadillo/cheer-front.webp",
      "seam": "critters/armadillo/cheer-seam.webp"
@@ -8201,7 +8342,8 @@
      "measure": {
       "headW": 112,
       "eyeSpan": 74,
-      "tilt": 0
+      "tilt": 0,
+      "skullTop": -7
      },
      "front": "critters/armadillo/out-front.webp",
      "seam": "critters/armadillo/out-seam.webp"
@@ -8241,7 +8383,8 @@
     "measure": {
      "headW": 293,
      "eyeSpan": 194,
-     "tilt": 0
+     "tilt": 0,
+     "skullTop": -14
     },
     "deckR": 66,
     "deckTilt": 6,
@@ -8298,7 +8441,8 @@
       "measure": {
        "headW": 111,
        "eyeSpan": 74,
-       "tilt": 0
+       "tilt": 0,
+       "skullTop": -6
       },
       "deckR": 22,
       "chestShown": 1,
@@ -8348,7 +8492,8 @@
       "measure": {
        "headW": 111,
        "eyeSpan": 74,
-       "tilt": 0
+       "tilt": 0,
+       "skullTop": -6
       },
       "deckR": 23,
       "chestShown": 1,
@@ -8398,7 +8543,8 @@
       "measure": {
        "headW": 111,
        "eyeSpan": 74,
-       "tilt": 0
+       "tilt": 0,
+       "skullTop": -5
       },
       "deckR": 23,
       "chestShown": 1,
@@ -8448,7 +8594,8 @@
       "measure": {
        "headW": 111,
        "eyeSpan": 74,
-       "tilt": 0
+       "tilt": 0,
+       "skullTop": -6
       },
       "deckR": 22,
       "chestShown": 1,
@@ -8498,7 +8645,8 @@
       "measure": {
        "headW": 111,
        "eyeSpan": 74,
-       "tilt": 0
+       "tilt": 0,
+       "skullTop": -6
       },
       "deckR": 23,
       "chestShown": 1,
@@ -8548,7 +8696,8 @@
       "measure": {
        "headW": 111,
        "eyeSpan": 74,
-       "tilt": 0
+       "tilt": 0,
+       "skullTop": -7
       },
       "deckR": 23,
       "chestShown": 1,
@@ -8598,7 +8747,8 @@
       "measure": {
        "headW": 111,
        "eyeSpan": 74,
-       "tilt": 0
+       "tilt": 0,
+       "skullTop": -9
       },
       "deckR": 23,
       "chestShown": 1,
@@ -8648,7 +8798,8 @@
       "measure": {
        "headW": 111,
        "eyeSpan": 74,
-       "tilt": 0
+       "tilt": 0,
+       "skullTop": -25
       },
       "deckR": 23,
       "chestShown": 1,
@@ -8698,7 +8849,8 @@
       "measure": {
        "headW": 111,
        "eyeSpan": 74,
-       "tilt": 0
+       "tilt": 0,
+       "skullTop": -6
       },
       "deckR": 17,
       "chestShown": 1,
@@ -8774,7 +8926,8 @@
      "measure": {
       "headW": 129,
       "eyeSpan": 59,
-      "tilt": 5.6
+      "tilt": 5.6,
+      "skullTop": 14
      },
      "front": "critters/coyote/idle-front.webp",
      "seam": "critters/coyote/idle-seam.webp"
@@ -8811,7 +8964,8 @@
      "measure": {
       "headW": 143,
       "eyeSpan": 56,
-      "tilt": 16.6
+      "tilt": 16.6,
+      "skullTop": 12
      },
      "front": "critters/coyote/stroke-front.webp",
      "seam": "critters/coyote/stroke-seam.webp"
@@ -8848,7 +9002,8 @@
      "measure": {
       "headW": 131,
       "eyeSpan": 55,
-      "tilt": 9.3
+      "tilt": 9.3,
+      "skullTop": -4
      },
      "front": "critters/coyote/stroke-r-front.webp",
      "seam": "critters/coyote/stroke-r-seam.webp"
@@ -8885,7 +9040,8 @@
      "measure": {
       "headW": 134,
       "eyeSpan": 57,
-      "tilt": 14
+      "tilt": 14,
+      "skullTop": 1
      },
      "front": "critters/coyote/hey-front.webp",
      "seam": "critters/coyote/hey-seam.webp"
@@ -8922,7 +9078,8 @@
      "measure": {
       "headW": 129,
       "eyeSpan": 59,
-      "tilt": 0
+      "tilt": 0,
+      "skullTop": 14
      },
      "front": "critters/coyote/nice-front.webp",
      "seam": "critters/coyote/nice-seam.webp"
@@ -8959,7 +9116,8 @@
      "measure": {
       "headW": 129,
       "eyeSpan": 59,
-      "tilt": 0
+      "tilt": 0,
+      "skullTop": 12
      },
      "front": "critters/coyote/miss-front.webp",
      "seam": "critters/coyote/miss-seam.webp"
@@ -8996,7 +9154,8 @@
      "measure": {
       "headW": 129,
       "eyeSpan": 59,
-      "tilt": 0
+      "tilt": 0,
+      "skullTop": 0
      },
      "front": "critters/coyote/chug-front.webp",
      "seam": "critters/coyote/chug-seam.webp"
@@ -9033,7 +9192,8 @@
      "measure": {
       "headW": 126,
       "eyeSpan": 53,
-      "tilt": 8.3
+      "tilt": 8.3,
+      "skullTop": -44
      },
      "front": "critters/coyote/cheer-front.webp",
      "seam": "critters/coyote/cheer-seam.webp"
@@ -9070,7 +9230,8 @@
      "measure": {
       "headW": 129,
       "eyeSpan": 46,
-      "tilt": 6.5
+      "tilt": 6.5,
+      "skullTop": -4
      },
      "front": "critters/coyote/out-front.webp",
      "seam": "critters/coyote/out-seam.webp"
@@ -9110,7 +9271,8 @@
     "measure": {
      "headW": 360,
      "eyeSpan": 149,
-     "tilt": 5.3
+     "tilt": 5.3,
+     "skullTop": 59
     },
     "deckR": 55,
     "deckTilt": 6,
@@ -9167,7 +9329,8 @@
       "measure": {
        "headW": 129,
        "eyeSpan": 58,
-       "tilt": 5.4
+       "tilt": 5.4,
+       "skullTop": 1
       },
       "deckR": 21,
       "chestShown": 0.99,
@@ -9217,7 +9380,8 @@
       "measure": {
        "headW": 123,
        "eyeSpan": 56,
-       "tilt": 16.7
+       "tilt": 16.7,
+       "skullTop": 4
       },
       "deckR": 21,
       "chestShown": 1,
@@ -9267,7 +9431,8 @@
       "measure": {
        "headW": 128,
        "eyeSpan": 56,
-       "tilt": 9.4
+       "tilt": 9.4,
+       "skullTop": -22
       },
       "deckR": 21,
       "chestShown": 1,
@@ -9317,7 +9482,8 @@
       "measure": {
        "headW": 134,
        "eyeSpan": 57,
-       "tilt": 13.8
+       "tilt": 13.8,
+       "skullTop": 10
       },
       "deckR": 21,
       "chestShown": 0.94,
@@ -9367,7 +9533,8 @@
       "measure": {
        "headW": 129,
        "eyeSpan": 58,
-       "tilt": 0
+       "tilt": 0,
+       "skullTop": 6
       },
       "deckR": 21,
       "chestShown": 0.96,
@@ -9417,7 +9584,8 @@
       "measure": {
        "headW": 129,
        "eyeSpan": 58,
-       "tilt": 0
+       "tilt": 0,
+       "skullTop": 2
       },
       "deckR": 21,
       "chestShown": 0.85,
@@ -9467,7 +9635,8 @@
       "measure": {
        "headW": 129,
        "eyeSpan": 58,
-       "tilt": 0
+       "tilt": 0,
+       "skullTop": -10
       },
       "deckR": 21,
       "chestShown": 1,
@@ -9517,7 +9686,8 @@
       "measure": {
        "headW": 126,
        "eyeSpan": 54,
-       "tilt": 8.2
+       "tilt": 8.2,
+       "skullTop": -45
       },
       "deckR": 21,
       "chestShown": 1,
@@ -9567,7 +9737,8 @@
       "measure": {
        "headW": 129,
        "eyeSpan": 46,
-       "tilt": 6.4
+       "tilt": 6.4,
+       "skullTop": -5
       },
       "deckR": 21,
       "chestShown": 0.67,
@@ -9643,7 +9814,8 @@
      "measure": {
       "headW": 169,
       "eyeSpan": 81,
-      "tilt": -0.1
+      "tilt": -0.1,
+      "skullTop": -7
      },
      "front": "critters/otter/idle-front.webp",
      "seam": "critters/otter/idle-seam.webp"
@@ -9680,7 +9852,8 @@
      "measure": {
       "headW": 149,
       "eyeSpan": 76,
-      "tilt": 9.4
+      "tilt": 9.4,
+      "skullTop": -6
      },
      "front": "critters/otter/stroke-front.webp",
      "seam": "critters/otter/stroke-seam.webp"
@@ -9717,7 +9890,8 @@
      "measure": {
       "headW": 170,
       "eyeSpan": 77,
-      "tilt": -10.5
+      "tilt": -10.5,
+      "skullTop": -9
      },
      "front": "critters/otter/stroke-r-front.webp",
      "seam": "critters/otter/stroke-r-seam.webp"
@@ -9754,7 +9928,8 @@
      "measure": {
       "headW": 142,
       "eyeSpan": 77,
-      "tilt": 8.1
+      "tilt": 8.1,
+      "skullTop": -7
      },
      "front": "critters/otter/hey-front.webp",
      "seam": "critters/otter/hey-seam.webp"
@@ -9791,7 +9966,8 @@
      "measure": {
       "headW": 169,
       "eyeSpan": 81,
-      "tilt": 0
+      "tilt": 0,
+      "skullTop": -24
      },
      "front": "critters/otter/nice-front.webp",
      "seam": "critters/otter/nice-seam.webp"
@@ -9828,7 +10004,8 @@
      "measure": {
       "headW": 169,
       "eyeSpan": 81,
-      "tilt": 0
+      "tilt": 0,
+      "skullTop": -8
      },
      "front": "critters/otter/miss-front.webp",
      "seam": "critters/otter/miss-seam.webp"
@@ -9865,7 +10042,8 @@
      "measure": {
       "headW": 169,
       "eyeSpan": 81,
-      "tilt": 0
+      "tilt": 0,
+      "skullTop": -7
      },
      "front": "critters/otter/chug-front.webp",
      "seam": "critters/otter/chug-seam.webp"
@@ -9902,7 +10080,8 @@
      "measure": {
       "headW": 157,
       "eyeSpan": 74,
-      "tilt": 3.2
+      "tilt": 3.2,
+      "skullTop": -7
      },
      "front": "critters/otter/cheer-front.webp",
      "seam": "critters/otter/cheer-seam.webp"
@@ -9939,7 +10118,8 @@
      "measure": {
       "headW": 160,
       "eyeSpan": 75,
-      "tilt": 9.9
+      "tilt": 9.9,
+      "skullTop": -6
      },
      "front": "critters/otter/out-front.webp",
      "seam": "critters/otter/out-seam.webp"
@@ -9979,7 +10159,8 @@
     "measure": {
      "headW": 396,
      "eyeSpan": 192,
-     "tilt": -1.7
+     "tilt": -1.7,
+     "skullTop": -15
     },
     "deckR": 65,
     "deckTilt": -6,
@@ -10036,7 +10217,8 @@
       "measure": {
        "headW": 171,
        "eyeSpan": 81,
-       "tilt": -0.1
+       "tilt": -0.1,
+       "skullTop": -8
       },
       "deckR": 23,
       "chestShown": 1,
@@ -10086,7 +10268,8 @@
       "measure": {
        "headW": 158,
        "eyeSpan": 76,
-       "tilt": 9.3
+       "tilt": 9.3,
+       "skullTop": -7
       },
       "deckR": 23,
       "chestShown": 1,
@@ -10136,7 +10319,8 @@
       "measure": {
        "headW": 150,
        "eyeSpan": 77,
-       "tilt": -10.6
+       "tilt": -10.6,
+       "skullTop": -8
       },
       "deckR": 23,
       "chestShown": 1,
@@ -10186,7 +10370,8 @@
       "measure": {
        "headW": 129,
        "eyeSpan": 77,
-       "tilt": 8
+       "tilt": 8,
+       "skullTop": -7
       },
       "deckR": 23,
       "chestShown": 1,
@@ -10236,7 +10421,8 @@
       "measure": {
        "headW": 171,
        "eyeSpan": 81,
-       "tilt": 0
+       "tilt": 0,
+       "skullTop": -77
       },
       "deckR": 23,
       "chestShown": 1,
@@ -10286,7 +10472,8 @@
       "measure": {
        "headW": 171,
        "eyeSpan": 81,
-       "tilt": 0
+       "tilt": 0,
+       "skullTop": -8
       },
       "deckR": 23,
       "chestShown": 1,
@@ -10336,7 +10523,8 @@
       "measure": {
        "headW": 171,
        "eyeSpan": 81,
-       "tilt": 0
+       "tilt": 0,
+       "skullTop": -9
       },
       "deckR": 23,
       "chestShown": 1,
@@ -10386,7 +10574,8 @@
       "measure": {
        "headW": 154,
        "eyeSpan": 74,
-       "tilt": 3.1
+       "tilt": 3.1,
+       "skullTop": -6
       },
       "deckR": 23,
       "chestShown": 1,
@@ -10436,7 +10625,8 @@
       "measure": {
        "headW": 160,
        "eyeSpan": 75,
-       "tilt": 9.9
+       "tilt": 9.9,
+       "skullTop": -6
       },
       "deckR": 19,
       "chestShown": 0.77,
@@ -10512,7 +10702,8 @@
      "measure": {
       "headW": 182,
       "eyeSpan": 114,
-      "tilt": 0.1
+      "tilt": 0.1,
+      "skullTop": -9
      },
      "front": "critters/frog/idle-front.webp",
      "seam": "critters/frog/idle-seam.webp"
@@ -10549,7 +10740,8 @@
      "measure": {
       "headW": 166,
       "eyeSpan": 104,
-      "tilt": 13.2
+      "tilt": 13.2,
+      "skullTop": -8
      },
      "front": "critters/frog/stroke-front.webp",
      "seam": "critters/frog/stroke-seam.webp"
@@ -10586,7 +10778,8 @@
      "measure": {
       "headW": 164,
       "eyeSpan": 103,
-      "tilt": -12.2
+      "tilt": -12.2,
+      "skullTop": -10
      },
      "front": "critters/frog/stroke-r-front.webp",
      "seam": "critters/frog/stroke-r-seam.webp"
@@ -10623,7 +10816,8 @@
      "measure": {
       "headW": 163,
       "eyeSpan": 102,
-      "tilt": 11.5
+      "tilt": 11.5,
+      "skullTop": -8
      },
      "front": "critters/frog/hey-front.webp",
      "seam": "critters/frog/hey-seam.webp"
@@ -10660,7 +10854,8 @@
      "measure": {
       "headW": 182,
       "eyeSpan": 114,
-      "tilt": 0
+      "tilt": 0,
+      "skullTop": -9
      },
      "front": "critters/frog/nice-front.webp",
      "seam": "critters/frog/nice-seam.webp"
@@ -10697,7 +10892,8 @@
      "measure": {
       "headW": 169,
       "eyeSpan": 105,
-      "tilt": 7.5
+      "tilt": 7.5,
+      "skullTop": -8
      },
      "front": "critters/frog/miss-front.webp",
      "seam": "critters/frog/miss-seam.webp"
@@ -10734,7 +10930,8 @@
      "measure": {
       "headW": 166,
       "eyeSpan": 104,
-      "tilt": 5.1
+      "tilt": 5.1,
+      "skullTop": -7
      },
      "front": "critters/frog/chug-front.webp",
      "seam": "critters/frog/chug-seam.webp"
@@ -10771,7 +10968,8 @@
      "measure": {
       "headW": 155,
       "eyeSpan": 97,
-      "tilt": 6.4
+      "tilt": 6.4,
+      "skullTop": -11
      },
      "front": "critters/frog/cheer-front.webp",
      "seam": "critters/frog/cheer-seam.webp"
@@ -10808,7 +11006,8 @@
      "measure": {
       "headW": 169,
       "eyeSpan": 105,
-      "tilt": 16.7
+      "tilt": 16.7,
+      "skullTop": -8
      },
      "front": "critters/frog/out-front.webp",
      "seam": "critters/frog/out-seam.webp"
@@ -10848,7 +11047,8 @@
     "measure": {
      "headW": 477,
      "eyeSpan": 298,
-     "tilt": -0.1
+     "tilt": -0.1,
+     "skullTop": -21
     },
     "deckR": 56,
     "deckTilt": -6,
@@ -10905,7 +11105,8 @@
       "measure": {
        "headW": 183,
        "eyeSpan": 114,
-       "tilt": 0.1
+       "tilt": 0.1,
+       "skullTop": -9
       },
       "deckR": 21,
       "chestShown": 1,
@@ -10955,7 +11156,8 @@
       "measure": {
        "headW": 167,
        "eyeSpan": 104,
-       "tilt": 13.1
+       "tilt": 13.1,
+       "skullTop": -10
       },
       "deckR": 21,
       "chestShown": 1,
@@ -11005,7 +11207,8 @@
       "measure": {
        "headW": 165,
        "eyeSpan": 103,
-       "tilt": -12.1
+       "tilt": -12.1,
+       "skullTop": -11
       },
       "deckR": 21,
       "chestShown": 1,
@@ -11055,7 +11258,8 @@
       "measure": {
        "headW": 163,
        "eyeSpan": 102,
-       "tilt": 11.5
+       "tilt": 11.5,
+       "skullTop": -9
       },
       "deckR": 21,
       "chestShown": 0.95,
@@ -11105,7 +11309,8 @@
       "measure": {
        "headW": 183,
        "eyeSpan": 114,
-       "tilt": 0
+       "tilt": 0,
+       "skullTop": -8
       },
       "deckR": 21,
       "chestShown": 1,
@@ -11155,7 +11360,8 @@
       "measure": {
        "headW": 170,
        "eyeSpan": 106,
-       "tilt": 7.5
+       "tilt": 7.5,
+       "skullTop": -8
       },
       "deckR": 21,
       "chestShown": 0.98,
@@ -11205,7 +11411,8 @@
       "measure": {
        "headW": 167,
        "eyeSpan": 104,
-       "tilt": 5
+       "tilt": 5,
+       "skullTop": -9
       },
       "deckR": 21,
       "chestShown": 0.91,
@@ -11255,7 +11462,8 @@
       "measure": {
        "headW": 155,
        "eyeSpan": 97,
-       "tilt": 6.7
+       "tilt": 6.7,
+       "skullTop": -7
       },
       "deckR": 21,
       "chestShown": 1,
@@ -11305,7 +11513,8 @@
       "measure": {
        "headW": 168,
        "eyeSpan": 105,
-       "tilt": 16.8
+       "tilt": 16.8,
+       "skullTop": -8
       },
       "deckR": 16,
       "chestShown": 0.83,
@@ -11381,7 +11590,8 @@
      "measure": {
       "headW": 179,
       "eyeSpan": 57,
-      "tilt": 1.3
+      "tilt": 1.3,
+      "skullTop": -8
      },
      "front": "critters/winnie/idle-front.webp",
      "seam": "critters/winnie/idle-seam.webp"
@@ -11418,7 +11628,8 @@
      "measure": {
       "headW": 175,
       "eyeSpan": 53,
-      "tilt": 10.5
+      "tilt": 10.5,
+      "skullTop": -8
      },
      "front": "critters/winnie/stroke-front.webp",
      "seam": "critters/winnie/stroke-seam.webp"
@@ -11455,7 +11666,8 @@
      "measure": {
       "headW": 176,
       "eyeSpan": 54,
-      "tilt": -10.1
+      "tilt": -10.1,
+      "skullTop": -9
      },
      "front": "critters/winnie/stroke-r-front.webp",
      "seam": "critters/winnie/stroke-r-seam.webp"
@@ -11492,7 +11704,8 @@
      "measure": {
       "headW": 170,
       "eyeSpan": 58,
-      "tilt": 12
+      "tilt": 12,
+      "skullTop": -10
      },
      "front": "critters/winnie/hey-front.webp",
      "seam": "critters/winnie/hey-seam.webp"
@@ -11529,7 +11742,8 @@
      "measure": {
       "headW": 179,
       "eyeSpan": 57,
-      "tilt": 0
+      "tilt": 0,
+      "skullTop": -6
      },
      "front": "critters/winnie/nice-front.webp",
      "seam": "critters/winnie/nice-seam.webp"
@@ -11566,7 +11780,8 @@
      "measure": {
       "headW": 179,
       "eyeSpan": 57,
-      "tilt": 0
+      "tilt": 0,
+      "skullTop": -8
      },
      "front": "critters/winnie/miss-front.webp",
      "seam": "critters/winnie/miss-seam.webp"
@@ -11603,7 +11818,8 @@
      "measure": {
       "headW": 179,
       "eyeSpan": 57,
-      "tilt": 0
+      "tilt": 0,
+      "skullTop": 0
      },
      "front": "critters/winnie/chug-front.webp",
      "seam": "critters/winnie/chug-seam.webp"
@@ -11640,7 +11856,8 @@
      "measure": {
       "headW": 153,
       "eyeSpan": 54,
-      "tilt": 8.8
+      "tilt": 8.8,
+      "skullTop": -17
      },
      "front": "critters/winnie/cheer-front.webp",
      "seam": "critters/winnie/cheer-seam.webp"
@@ -11677,7 +11894,8 @@
      "measure": {
       "headW": 159,
       "eyeSpan": 51,
-      "tilt": 5.8
+      "tilt": 5.8,
+      "skullTop": -7
      },
      "front": "critters/winnie/out-front.webp",
      "seam": "critters/winnie/out-seam.webp"
@@ -11717,7 +11935,8 @@
     "measure": {
      "headW": 433,
      "eyeSpan": 145,
-     "tilt": 1.6
+     "tilt": 1.6,
+     "skullTop": -18
     },
     "deckR": 54,
     "deckTilt": 14,
@@ -11774,7 +11993,8 @@
       "measure": {
        "headW": 179,
        "eyeSpan": 57,
-       "tilt": 1.3
+       "tilt": 1.3,
+       "skullTop": -8
       },
       "deckR": 22,
       "chestShown": 0.95,
@@ -11824,7 +12044,8 @@
       "measure": {
        "headW": 172,
        "eyeSpan": 53,
-       "tilt": 10.4
+       "tilt": 10.4,
+       "skullTop": -10
       },
       "deckR": 24,
       "chestShown": 0.95,
@@ -11874,7 +12095,8 @@
       "measure": {
        "headW": 175,
        "eyeSpan": 54,
-       "tilt": -9.9
+       "tilt": -9.9,
+       "skullTop": -10
       },
       "deckR": 24,
       "chestShown": 1,
@@ -11924,7 +12146,8 @@
       "measure": {
        "headW": 169,
        "eyeSpan": 58,
-       "tilt": 12.2
+       "tilt": 12.2,
+       "skullTop": -11
       },
       "deckR": 24,
       "chestShown": 1,
@@ -11974,7 +12197,8 @@
       "measure": {
        "headW": 179,
        "eyeSpan": 57,
-       "tilt": 0
+       "tilt": 0,
+       "skullTop": -7
       },
       "deckR": 22,
       "chestShown": 0.99,
@@ -12024,7 +12248,8 @@
       "measure": {
        "headW": 179,
        "eyeSpan": 57,
-       "tilt": 0
+       "tilt": 0,
+       "skullTop": -7
       },
       "deckR": 23,
       "chestShown": 0.98,
@@ -12074,7 +12299,8 @@
       "measure": {
        "headW": 179,
        "eyeSpan": 57,
-       "tilt": 0
+       "tilt": 0,
+       "skullTop": 0
       },
       "deckR": 24,
       "chestShown": 1,
@@ -12124,7 +12350,8 @@
       "measure": {
        "headW": 153,
        "eyeSpan": 54,
-       "tilt": 8.7
+       "tilt": 8.7,
+       "skullTop": -19
       },
       "deckR": 24,
       "chestShown": 1,
@@ -12174,7 +12401,8 @@
       "measure": {
        "headW": 159,
        "eyeSpan": 51,
-       "tilt": 5.5
+       "tilt": 5.5,
+       "skullTop": -8
       },
       "deckR": 18,
       "chestShown": 0.47,

@@ -352,6 +352,30 @@ test("the looks: every hat (keyed to take the colour, or its own colours; the cr
   }
 });
 
+test("hats sit (Oct 30): every hat but the halo seats on the brow; every pose and portrait has its front parts and seam at its own size, and a skull top", async () => {
+  for (const id of HAT_IDS.filter(id => id !== "none" && id !== "halo")) {
+    const h = manifest.hats[id];
+    /* the front edge a share of the way from the skull's top to the eyes */
+    assert.ok(h.sink > 0 && h.sink < 0.8, `hat ${id} sink`);
+  }
+  /* the halo keeps floating over the head */
+  assert.equal(manifest.hats.halo.sink, undefined);
+  for (const id of ALL_CRITTER_IDS) {
+    const c = manifest.critters[id];
+    assert.ok(c.hatScale === undefined || (c.hatScale > 0.5 && c.hatScale < 1.6), `${id} hatScale`);
+    const entries = [...POSES.map(pose => [pose, c.poses[pose]]), ...POSES.map(pose => [`tee ${pose}`, c.tee.poses[pose]]), ["portrait", c.portrait]];
+    for (const [name, p] of entries) {
+      assert.ok(p.front && p.seam, `${id} ${name}: front and seam`);
+      const own = await size(p.src);
+      assert.deepEqual(await size(p.front), own, `${id} ${name} front`);
+      assert.deepEqual(await size(p.seam), own, `${id} ${name} seam`);
+      /* the tortoise's shell and the bighorn's horn roots rise over the skull: those seat from the anchor */
+      if (id === "tortoise" || id === "bighorn") assert.equal(p.measure.skullTop, undefined, `${id} ${name}`);
+      else assert.ok(Number.isFinite(p.measure.skullTop) && Math.abs(p.measure.skullTop) < (p.measure.headW || 160), `${id} ${name} skullTop`);
+    }
+  }
+});
+
 test("the photo tee: every critter's nine poses with a shirt mask, a chest for the photo, and a portrait frame", async () => {
   for (const id of ALL_CRITTER_IDS) {
     const t = manifest.critters[id].tee;

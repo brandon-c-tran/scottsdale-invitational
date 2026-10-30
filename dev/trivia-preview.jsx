@@ -9,6 +9,8 @@
    boardPlayed). A board moment runs on the live clock: a clue reads, then
    the buzzer lights on its beat; the phone's taps (a pick, a buzz, an
    answer, a wager, the Final) run the real board writes in memory.
+   "Bank:" steps play the question bank's board on its test fixtures
+   (dev/fit/qbankFixtures.js): every clue kind, its media from public/tq.
 
      /dev/trivia-preview.html                    every surface, step by step
      ?step=<id>&as=player|spectator|tv|desk      one surface alone (for stills)
@@ -21,6 +23,7 @@ import { publicState } from "../worker/publicState.js";
 import { bankForDesk } from "../worker/trivia.js";
 import { FIT_GUEST, act, dress, triviaStage } from "./fit/scenarios.js";
 import { boardPlayed, boardStage } from "./fit/boardFixtures.js";
+import { bankStage } from "./fit/qbankFixtures.js";
 import { TriviaPlaySheet } from "../src/features/trivia/TriviaPlay.jsx";
 import { TriviaDesk } from "../src/features/trivia/TriviaDesk.jsx";
 import { TVMode } from "../src/features/tv/TVMode.jsx";
@@ -74,6 +77,13 @@ export const STEPS = Object.freeze([
   { id:"board-final", label:"Board: final scores", board:true, build:() => boardStage("final-board") },
   { id:"board-played", label:"Board: played by the real writes", board:true, build:() => boardPlayed("armed") },
   { id:"board-played-rebound", label:"Board: a rebound, played by the real writes", board:true, build:() => boardPlayed("rebound") },
+  /* the question bank's board on its test fixtures (dev/fit/qbankFixtures.js),
+     played by the real writes; a clue arms a beat after the page opens, so
+     its clip plays on the TV */
+  ...[["pick", "the board"], ["text", "a text clue"], ["image", "a headshot"], ["image-reveal", "its reveal"], ["audio", "a sound"],
+    ["audio-replay", "the host replays"], ["video", "a video"], ["sil", "a silhouette"], ["sil-reveal", "the original"],
+    ["crop", "a crop"], ["crop-reveal", "the full screenshot"]].map(([name, label]) => ({ id:`bank-${name}`, label:`Bank: ${label}`,
+    board:true, build:() => bankStage(name, { now:Date.now() + (["audio", "video"].includes(name) ? 2500 : 0) }).state })),
 ]);
 const anchor = state => {
   const game = state.trivia, q = game?.questions?.[game.index];

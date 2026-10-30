@@ -8,6 +8,7 @@ import { Icon } from "../../ui/Icon.jsx";
 import { OneSafe } from "../../ui/OneSafe.jsx";
 import { serverNow } from "../../lib/serverClock.js";
 import { useTuneClip } from "../trivia/tuneClip.js";
+import { boardClipPlan, shownMediaOf, useAudioClip, useMediaReady, useVideoClip } from "../trivia/boardMedia.js";
 import { LETTERS, ordinal, triviaPhotoSrc } from "../trivia/triviaModel.js";
 import {
   BOARD_TV, NAME_SQUEEZE, ORDER_STAMP_MS, boardStageBox, boardView, clueTextSize, ddWagerUntil, finalStepOn, finalSteps,
@@ -202,13 +203,15 @@ const struckByOf = attempts => Object.fromEntries(attempts.filter(a => !a.right 
    live again); then the answer stamped. The Daily Double's clue is the
    picker's alone. */
 const ANSWER_SCENES = Object.freeze(["answer", "reveal", "dd-clue", "rebound", "rebound-armed"]);
-function Clue({ state, view, scene, now }) {
+function Clue({ state, view, scene, now, fixed = false }) {
   const tl = useAnchor(view.pickedAt, now);
   const { clue } = view;
   if (!clue) return null;
   const zoom = view.dd ? null : zoomFrom(clue, { columns:view.columns.length, rows:view.rows });
   const tune = clue.format === "tune";
-  const picture = clue.format === "picture";
+  /* a question bank clue's image, audio or video (boardMedia.js) */
+  const media = clue.media?.src ? clue.media : null;
+  const picture = clue.format === "picture" || media?.kind === "image" || media?.kind === "video";
   const live = scene === "armed" || scene === "rebound-armed";
   const answering = ANSWER_SCENES.includes(scene);
   const rebound = scene === "rebound" || scene === "rebound-armed";
@@ -225,15 +228,25 @@ function Clue({ state, view, scene, now }) {
     "--zfont":`${Math.round(78 / Math.max(zoom.sx, zoom.sy))}px` } : {}) };
   if (answering) {
     const revealed = scene === "reveal";
+    const note = revealed && clue.reveal ? clue.reveal : "";
     return <section className={`tv-board-panel tv-glass is-answer is-${scene}${live ? " is-live" : ""}`} style={style}>
       {head}
       <div className="tv-board-answer">
-        {picture ? <div className="tv-board-answer-top">
+        {media ? <div className="tv-board-answer-top">
+          <div className="tv-board-answer-say">
+            {text && <h2 className="fd-show tv-board-text is-compact" style={{ fontSize:clueTextSize(text, { compact:true }) }}>{text}</h2>}
+            {clue.subject && <p className="fd-show tv-board-subject is-compact">{clue.subject}</p>}
+            {note && <p className="tv-board-reveal-note">{note}</p>}
+          </div>
+          <ClueMedia view={view} now={now} fixed={fixed} revealed={revealed} thumb />
+        </div>
+          : picture ? <div className="tv-board-answer-top">
           {text && <h2 className="fd-show tv-board-text is-compact" style={{ fontSize:clueTextSize(text, { compact:true }) }}>{text}</h2>}
           <div className="tv-board-photo is-thumb"><img src={triviaPhotoSrc(clue.photo)} alt="" /></div>
         </div>
           : text ? <h2 className="fd-show tv-board-text is-compact" style={{ fontSize:clueTextSize(text, { compact:true }) }}>{text}</h2>
             : tune ? <div className="tv-board-answer-tune"><Speaker live={clipLive} /></div> : null}
+        {!media && note && <p className="tv-board-reveal-note">{note}</p>}
         <div className="tv-board-answer-row">
           {revealed ? <Taker state={state} view={view} now={now} />
             : rebound ? <Rebound view={view} scene={scene} now={now} />
@@ -241,7 +254,8 @@ function Clue({ state, view, scene, now }) {
           <Options state={state} options={clue.options} struck={view.struck} answer={view.answer} revealed={revealed}
             struckBy={struckByOf(view.attempts)} />
         </div>
-        {!view.dd && view.order.length > 0 && <Order state={state} view={view} compact now={now} />}
+        {/* a bank clue's reveal gives the order's room to the reveal image */}
+        {!view.dd && view.order.length > 0 && !(revealed && media) && <Order state={state} view={view} compact now={now} />}
       </div>
     </section>;
   }
@@ -251,13 +265,53 @@ function Clue({ state, view, scene, now }) {
     <div className="tv-board-panel-in">
       {head}
       <div className="tv-board-clue-body">
-        {text && <h2 className="fd-show tv-board-text" style={{ fontSize:clueTextSize(text, { media:picture || tune }) }}>{text}</h2>}
-        {picture && <div className="tv-board-photo"><img src={triviaPhotoSrc(clue.photo)} alt="" /></div>}
+        {text && <h2 className="fd-show tv-board-text" style={{ fontSize:clueTextSize(text, { media:picture || tune || !!media }) }}>{text}</h2>}
+        {media ? <ClueMedia view={view} now={now} fixed={fixed} />
+          : picture && <div className="tv-board-photo"><img src={triviaPhotoSrc(clue.photo)} alt="" /></div>}
+        {media && clue.subject && <p className="fd-show tv-board-subject">{clue.subject}</p>}
         {tune && <Speaker live={clipLive} />}
       </div>
       {scene === "order" && <Order state={state} view={view} now={now} />}
     </div>
   </section>;
+}
+
+/* A question bank clue's media on the glass (boardMedia.js): its image,
+   its video (the clip plays in it, the TV only), or for audio the speaker
+   pumping while the clip plays; a bar runs with the clip on the server
+   clock. At the reveal the reveal image takes its place. */
+function ClueMedia({ view, now, fixed = false, revealed = false, thumb = false }) {
+  const media = shownMediaOf(view.clue, revealed);
+  if (!media) return null;
+  const plan = revealed ? null : boardClipPlan(view, now);
+  if (media.kind === "image") return <div className={`tv-board-photo tv-board-media is-image${thumb ? " is-thumb" : ""}`}>
+    <img src={media.src} alt="" />
+  </div>;
+  if (media.kind === "video") return <BoardVideo media={media} plan={plan} now={now} fixed={fixed} thumb={thumb} />;
+  const playing = !!plan?.active && now >= plan.at;
+  return <div className={`tv-board-clip${thumb ? " is-thumb" : ""}`}>
+    <Speaker live={playing} />
+    {plan && <ClipBar plan={plan} now={now} />}
+  </div>;
+}
+/* the clue's video: no controls, no titles; it shows the clip's first
+   frame until it plays, and holds its frame once it stops */
+function BoardVideo({ media, plan, now, fixed, thumb }) {
+  const ref = useRef(null);
+  useVideoClip(ref, plan, { fixed });
+  const start = Number(media.start) || 0;
+  return <div className={`tv-board-photo tv-board-media is-video${thumb ? " is-thumb" : ""}`}>
+    <video ref={ref} src={start ? `${media.src}#t=${start}` : media.src} poster={media.poster} preload="auto" playsInline muted={fixed}
+      disablePictureInPicture disableRemotePlayback controls={false} aria-hidden="true" />
+    {plan && <ClipBar plan={plan} now={now} />}
+  </div>;
+}
+/* the clip's bar: it fills as the clip plays (from its own start on the
+   server clock, so a late TV joins mid-fill), still while paused */
+function ClipBar({ plan, now }) {
+  const tl = useAnchor(plan.at, now);
+  const state = plan.paused ? "is-paused" : plan.active || now < plan.at + plan.ms ? "is-playing" : "is-done";
+  return <i className={`tv-board-clipbar ${state}`} aria-hidden="true" style={{ "--tl":`${tl}ms`, "--clip-ms":`${plan.ms}ms` }} />;
 }
 
 /* The Daily Double: the sting holds the room, silly in its motion, then
@@ -487,13 +541,17 @@ export function TVBoard({ state, now: tick, fixed = false }) {
   const tune = view?.clue?.format === "tune";
   useTuneClip({ id:view?.clueId, active:!!view && tune && view.phase === "clue" && now < view.armAt + BOARD_CLIP_MS,
     startsAt:view?.armAt || 0, length:BOARD_CLIP_MS });
+  /* a question bank clue: its audio clip on the room's element, its media
+     reported ready so the buzzers arm on it */
+  useAudioClip(view ? boardClipPlan(view, now) : null, { fixed });
+  useMediaReady(view, { fixed });
   useBoardRoomClock(view, now);
   if (!view || view.finished) return null;
   const finalScene = scene?.startsWith("final");
   return <div className={`tv-board is-${scene}`}>
     <div className="tv-board-stage" style={{ width:STAGE.w, height:STAGE.h }}>
       {!finalScene && <Grid view={view} />}
-      {CLUE_SCENES.includes(scene) && <Clue key={view.clueId} state={state} view={view} scene={scene} now={now} />}
+      {CLUE_SCENES.includes(scene) && <Clue key={view.clueId} state={state} view={view} scene={scene} now={now} fixed={fixed} />}
       {scene === "dd-wager" && <DailyDoubleWager state={state} view={view} now={now} />}
       {finalScene && <FinalStage state={state} view={view} scene={scene} now={now} />}
     </div>
